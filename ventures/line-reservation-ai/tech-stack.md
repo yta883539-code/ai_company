@@ -30,4 +30,4 @@ LINE公式アカウント(Messaging API) ⇄ Webhookサーバー ⇄ LLM(予約�
 ## 次のステップ候補
 - 予約フローの会話サンプル(顧客⇄AI)を具体的に書き出す
 - 二重予約防止のロジック設計
-- LINE Messaging APIの最新の料金・利用規約の確認(要web調査)
+- ~~LINE Messaging APIの最新の料金・利用規約の確認(要web調査)~~ → line-api-pricing.md にて調査済み
