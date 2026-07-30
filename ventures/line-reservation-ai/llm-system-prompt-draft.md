@@ -1,4 +1,4 @@
-# LLM会話エンジン システムプロンプト草案(2026-07-30時点)
+# LLM会話エンジン システムプロンプト草案(2026-07-30 17:58 UTC更新)
 
 conversation-flow.md・double-booking-prevention.md・tone-and-manner-guideline.md・
 pending-timeout-ux.md・no-show-handling.md・precheck-strengthening.md の設計内容を、
@@ -42,6 +42,16 @@ tech-stack.md の「次のステップ候補」で挙げていた
 7. 文体・敬語レベルは tone-and-manner-guideline.md の店舗トーン設定(丁寧/親しみ等)に従う。
 8. 常連客(precheck-strengthening.mdで定義する条件に該当)には確認項目を簡略化してよいが、
    3の確定条件(名前・メニュー・日時)は常連客でも省略しない。
+9. 予約・キャンセル・変更・当店に関するFAQのいずれにも該当しない入力(挨拶のみ、
+   雑談、URLのみ・意味不明な文字列などスパム的な入力)には、短い定型挨拶または
+   「ご用件をお知らせください」といった一言のみを返し、6のような断定回答や
+   予約確定処理には決して進まない。`intent: "faq"`、`confirmed: false`、
+   `needs_owner_check: false`とする。
+10. 前払い・デポジット決済など、現時点でサービスとして未提供・未実装の機能について
+    尋ねられた場合、「対応可能」「対応不可」のいずれも断定せず、
+    「現在確認中のため、後ほど店舗からご案内します」という保留文言を返し、
+    6と同様にオーナーへエスカレーションする。`intent: "escalation"`、
+    `confirmed: false`、`needs_owner_check: true`とする。
 
 【出力形式】
 - 顧客への返信は自然文(LINEメッセージ)。
@@ -60,14 +70,26 @@ tech-stack.md の「次のステップ候補」で挙げていた
 - `needs_owner_check` フラグにより、no-show-handling.md・precheck-strengthening.mdで
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
+## 改訂履歴
+- 2026-07-30 17:58 UTC: conversation-samples-test-cases.md のE6(雑談・スパム的入力)・
+  E9(未実装機能の問い合わせ)の指摘を受け、厳守事項9・10を追加。
+  雑談・スパムは断定回答も予約確定処理もしない一言返答(`intent: "faq"`)に限定し、
+  未実装機能(デポジット決済等)の問い合わせは断定回答せずエスカレーション
+  (`intent: "escalation"`、`needs_owner_check: true`)に振り分けるルールを明文化した。
+
 ## 未検証・要検討事項
 - 実際のLLM(モデル)でこのプロンプト通りに「確定条件が揃うまで確定文言を出さない」制御が
   安定して守られるか、複数の会話サンプルでのテスト(プロンプトエンジニアリングの検証)が必要。
 - 構造化出力のJSON形式が毎回安定して返るか(フォーマット崩れ時のリトライ設計)は未設計。
 - 常連客判定(precheck-strengthening.md)をLLMに渡すデータ(顧客履歴)としてどう与えるかは
   owner-settings-wireframe.mdの顧客詳細画面設計と合わせて詳細化が必要。
+- 厳守事項9(雑談・スパム)と6(予約以外の相談)の境界線(例:「営業時間は何時までですか」等の
+  単純なFAQは9番の`intent: "faq"`扱いでよいか、6番のエスカレーション相当かは未整理)。
+- 厳守事項10で追加した保留文言は、pending-timeout-ux.md・no-show-handling.mdの既存文言と
+  トーンが揃っているか未確認(tone-and-manner-guideline.mdとの突き合わせが必要)。
 
 ## 次のステップ候補
-- 上記システムプロンプトを使った会話サンプル(複数パターン)でのプロンプトテスト設計
-- 構造化出力(JSON)のフォーマット崩れ時のリトライ・フォールバック設計
-- エスカレーション(6番)発生時のオーナー通知文面の具体化(no-show-handling.mdの通知設計と統合)
+- 厳守事項9・10を反映した状態で、conversation-samples-test-cases.mdのE6・E9ケースの
+  期待挙動を再確認し、テストケース側のステータスも更新する
+- 構造化出力(JSON)のフォーマット崩れ時のリトライ・フォールバック設計(json-output-retry-fallback.mdで着手済み、実装時に統合)
+- エスカレーション(6・10番)発生時のオーナー通知文面の具体化(no-show-handling.mdの通知設計と統合)
