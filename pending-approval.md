@@ -12,4 +12,7 @@ venture: ventures/<slug>/
 
 ---
 
-(まだ承認待ちのアクションはありません)
+日時: 2026-07-30 01:58 UTC
+venture: ventures/line-reservation-ai/
+内容: customer-interview-design.md で設計した想定顧客ヒアリング(美容室・整体院・パーソナルジム・個人講師業10件前後)について、実在の店舗・個人事業主への電話・LINE・メール等での連絡・依頼を実施したい。
+理由: 料金プラン(pricing-plan.md)や会話フロー(conversation-flow.md)の妥当性を実顧客の声で検証するために必要だが、外部への連絡・送信はオーナー許可が必要なアクションのため、対象候補の選定・連絡文面の確定を含めオーナーの直接指示を待つ。
