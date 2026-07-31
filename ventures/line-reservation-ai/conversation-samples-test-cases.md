@@ -189,6 +189,41 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   unimplemented_feature、対象だが未入力・未チェックならconsultation寄りの
   無印(E11/E12同様)とする。
 
+### E16. 3項目にまたがる複合質問(faq_segments配列が3要素以上になるケース、2026-07-31 11:58 UTC追加)
+- 入力例: 「駐車場ある?支払いはカード使える?電子マネーは使える?」(駐車場「あり・3台分」、
+  支払い方法「現金・クレジットカード」は登録済み、電子マネー(QRコード決済)は未チェックのケース。
+  json-schema-multi-intent-extension.mdの未検証事項「3項目以上でも配列方式が破綻しないか」の机上検証)
+- 期待挙動: 厳守事項9aにより駐車場・支払い方法(カード)は直接回答、電子マネーのみ
+  未チェット項目のため厳守事項6相当の保留文言に差し替える。E13bと同じ判定ロジックを
+  項目数3件に拡張するだけで、`faq_segments`配列の要素数を2→3に増やす以外の
+  スキーマ変更・分岐追加は不要(topic列挙値はaccess/parking/payment/hours/otherの
+  範囲内に収まり、支払い方法とは別に電子マネーは既存のpaymentトピック内の
+  未チェック項目として扱う。E12と同じ扱い)。`intent: "faq"`、`confirmed: false`、
+  `needs_owner_check: true`(未チェック項目を含むため全体としてはtrue扱い)。
+- 期待される自然文(3通、1メッセージ1用件の原則を維持):
+  ```
+  当店: 駐車場がございます(3台分)。
+  当店: お支払い方法は現金、クレジットカードがご利用いただけます。
+  当店: 恐れ入ります、その点は担当者に確認のうえ改めてご案内いたします。
+  ```
+- 期待される構造化出力(json-schema-multi-intent-extension.md準拠):
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: true,
+   faq_segments: [{topic: "parking", resolved: true}, {topic: "payment", resolved: true},
+                   {topic: "payment", resolved: false}]}
+  ```
+- 検証観点: 同一topic(payment)が「カード(resolved: true)」「電子マネー(resolved: false)」の
+  ように1つの複合質問内で2回出現しうる点に注意。`faq_segments`はtopicの重複を許容する配列
+  として設計されており(json-schema-multi-intent-extension.mdにtopicの一意性を求める記述は
+  無い)、この点は仕様として問題ないが、通知ログ集計画面(owner-settings-wireframe.md)で
+  topicごとに単純集計する場合は「同一topicの重複要素」を1件としてカウントするか
+  未回答分のみカウントするかの集計ルールを別途詰める必要がある(未着手)。
+  なお項目数が2件→3件に増えても配列の構造・リトライ/フォールバック判定
+  (json-output-retry-fallback.md)に変更は不要であることを机上で確認した
+  (要素数に上限を設けない設計のため)。実LLMが4項目以上でも安定して配列を
+  生成できるかは引き続き実装フェーズでの検証が必要。
+
 ## 本テストケース設計で見つかったプロンプトの抜け漏れ(修正済み)
 - E6(雑談・スパム的入力)とE9(未実装機能への問い合わせ)は、当初
   llm-system-prompt-draft.mdの厳守事項1〜8のどれにも明確に該当していなかったが、
@@ -207,6 +242,7 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   実装後の自動テストで重点的に確認する必要がある。
 
 ## 次のステップ候補
-- E10〜E13を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)
+- E10〜E16を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)
 - エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどのtopicが未回答かを含める)
-- json-schema-multi-intent-extension.mdで設計した`faq_segments`拡張が、3項目以上の複合質問でも破綻しないか実LLM検証時に確認する
+- E16で発見した「同一topicが複合質問内で重複しうる」場合の通知ログ集計ルール(重複を1件とするか未回答分のみカウントするかの決定)を検討する
+- ~~json-schema-multi-intent-extension.mdで設計した`faq_segments`拡張が、3項目以上の複合質問でも破綻しないか~~ → E16で机上検証済み(スキーマ・リトライ設計の変更は不要)。実LLMでの安定生成確認は引き続き実装フェーズで必要。
