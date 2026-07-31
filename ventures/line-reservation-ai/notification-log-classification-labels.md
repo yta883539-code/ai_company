@@ -55,5 +55,9 @@ json-schema-multi-intent-extension.mdで追加した任意フィールド`faq_se
   → 2026-07-31 08:59 UTC、conversation-samples-test-cases.mdにE14(支払い方法FAQ vs
   デポジット機能)・E15(ノーショー方針FAQ vs キャンセル料機能)として追加済み。
   両ケースとも「店舗FAQ情報欄の入力対象か否か」を9a/10の判定基準とする整理を追記した。
-- `escalation_reason`をjson-output-retry-fallback.mdのリトライ・フォールバック判定
-  (キー不足/余分の扱い)にどう組み込むかは未検討(既存の`faq_segments`同様の扱いで良いか要確認)。
+- ~~`escalation_reason`をjson-output-retry-fallback.mdのリトライ・フォールバック判定
+  (キー不足/余分の扱い)にどう組み込むかは未検討(既存の`faq_segments`同様の扱いで良いか要確認)。~~
+  → 2026-07-31 09:59 UTC、json-output-retry-fallback.mdに追記。基本方針は`faq_segments`と
+  同様「2. キー不足/余分」判定に含める形だが、`escalation_reason`/`feature_hint`は分類用
+  メタデータであり予約確定判定に影響しないため、不正時は`needs_owner_check`を止めずに
+  「分類不能」へフォールバックさせる方針を明確化した。

@@ -57,3 +57,31 @@ json-schema-multi-intent-extension.mdで設計した任意フィールド`faq_se
 `faq_segments`が配列でない、または各要素に`topic`/`resolved`が欠けている場合は、
 新しい分岐を設けず既存のリトライ(1回)→フォールバック(`needs_owner_check: true`一律、
 `confirmed: false`)にそのまま乗せる。
+
+## 追記(2026-07-31 09:59 UTC時点): `escalation_reason`/`feature_hint`フィールドへの対応
+notification-log-classification-labels.mdで設計した任意フィールド`escalation_reason`
+(`"consultation"`/`"unimplemented_feature"`のenum、エスカレーション発生時のみ付与)と
+補助フィールド`feature_hint`(`escalation_reason`が`"unimplemented_feature"`の場合のみ付与される
+自由記述の短文)も、`faq_segments`と同様に本ドキュメントのスキーマ不一致判定
+(上記「2. キー不足/余分」)の対象に含める。個別の分岐は設けない。
+
+- `escalation_reason`がenumの3値(`"consultation"`/`"unimplemented_feature"`/フィールド省略)
+  以外の値を取った場合は「3. 値の型・列挙値が想定外」に該当し、既存のリトライ(1回)→
+  フォールバックにそのまま乗せる。
+- `feature_hint`は`escalation_reason: "unimplemented_feature"`のときのみ存在すべき
+  補助フィールドであるため、(a)`escalation_reason`が`"unimplemented_feature"`なのに
+  `feature_hint`が欠けている、(b)`escalation_reason`が`"unimplemented_feature"`以外
+  (または省略)なのに`feature_hint`が存在する、のいずれもスキーマ不一致として扱う。
+- これらのフィールドはあくまで通知ログ集計画面(owner-settings-wireframe.md)向けの
+  分類用メタデータであり、`confirmed`・`needs_owner_check`といった予約確定・エスカレーション
+  そのものの可否判定には影響しない。そのため`escalation_reason`/`feature_hint`のみが
+  不正でそれ以外のフィールドが正常な場合でも、安全側判定の原則(本ドキュメント冒頭)に従い
+  一律で「2. キー不足/余分」の扱いとし、フォールバック経路では`escalation_reason`を
+  `"consultation"`扱い(通知ログ集計画面では「分類不能」として計上し、`feature_hint`は
+  空欄)にフォールバックさせる。これにより、分類ラベルの不整合を理由に本来必要な
+  オーナー通知(`needs_owner_check: true`)自体を止めてしまうことがないようにする。
+
+### 未検討・要検討事項(追記分)
+- 「分類不能」件数が通知ログ集計画面でどの程度発生しうるかは実LLM検証前のため未確認。
+  一定件数を超える場合は`escalation_reason`の出力安定性についてプロンプト側の改善
+  (few-shot例の追加等)を検討するトリガーとする(既存のログ・監視セクションの方針に準拠)。
