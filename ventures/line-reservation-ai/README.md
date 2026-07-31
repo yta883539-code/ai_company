@@ -71,7 +71,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   役割分担とし、`AvailabilitySearcher`クラスをprototype/engine.pyに新規実装した。
   デモで確定済み枠が候補から正しく除外されることを確認済み。schema拡張・システムプロンプトへの
   反映は今後の課題として残した。
-- 最終更新: 2026-07-31 21:58 UTC
+- フェーズ(続き11): slot-search-component-design.mdの今後の課題だった、LLM構造化出力への
+  `requested_date_range`/`time_of_day_preference`フィールド追加をbooking_output.schema.jsonに
+  反映し、llm-system-prompt-draft.mdに「自然文datetime_candidateからこの2フィールドを抽出する」
+  指示(intentがnew_booking/changeのときのみ、手がかりがなければ断定せずnull/'none'のまま)を
+  追記した。自由記述のdatetime_candidateは顧客への確認メッセージ表示用としてそのまま残す設計は
+  維持。この2フィールドをAvailabilitySearcherの引数へ実際に接続する実装(prototype/engine.py、
+  intent-to-flow-mapping.mdへの反映)は次の課題として残した。
+- 最終更新: 2026-07-31 22:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -93,7 +100,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - interview-candidate-selection-criteria.md: ヒアリング対象候補(実店舗)の選定基準・情報源の整理(2026-07-30時点、選定"方法"の設計のみで実店舗の特定・連絡は未実施)
 - initial-contact-message-draft.md: ヒアリング協力依頼の初回コンタクト文面草案(メール/LINE/電話用、2026-07-30時点。草案作成のみで実在店舗への送信・連絡は未実施。謝礼有無等の未確定事項あり)
 - candidate-buffer-analysis.md: 業種ごとの候補数の妥当性・チャネル別想定承諾率・追加候補確保のトリガー基準の試算(2026-07-30時点、一般論に基づく仮の目安。実測値ではない)
-- llm-system-prompt-draft.md: 会話フロー・二重予約防止・トーン&マナー・保留タイムアウト・無断キャンセル対応等の既存設計を統合した、LLM会話エンジン向けシステムプロンプト草案(2026-07-30 23:58 UTC更新、厳守事項9aの説明文にfaq-response-templates.mdの項目別回答テンプレートを反映し「登録値を言い換えない」旨と複合質問の分割送信・部分エスカレーションのルールを明文化。実装・動作検証は未着手)
+- llm-system-prompt-draft.md: 会話フロー・二重予約防止・トーン&マナー・保留タイムアウト・無断キャンセル対応等の既存設計を統合した、LLM会話エンジン向けシステムプロンプト草案(2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の`requested_date_range`/`time_of_day_preference`フィールドを自然文datetime_candidateから抽出する指示を追記。実装・動作検証は未着手)
 - json-output-retry-fallback.md: 構造化出力(JSON)がパース失敗・スキーマ不一致・矛盾を起こした場合のリトライ(1回まで)・フォールバック(安全側判定でオーナー通知に転送)方針の設計(2026-07-31 09:59 UTC更新、任意フィールド`escalation_reason`/`feature_hint`のスキーマ不一致も既存の「2. キー不足/余分」判定に含めつつ、分類用メタデータのため不正時も`needs_owner_check`によるオーナー通知は止めず「分類不能」へフォールバックする方針を追記。実装・動作検証は未着手)
 - conversation-samples-test-cases.md: LLMシステムプロンプト草案・JSONリトライ設計を検証するための会話サンプル(正常系4件・崩れ系16件)のテストケース設計(2026-07-31 11:58 UTC更新、E16(3項目にまたがる複合質問、faq_segments配列の3要素以上での机上検証)を追加。同一topicが複合質問内で重複しうる点が判明。机上設計のみで実LLM検証は未着手)
 - json-schema-multi-intent-extension.md: E13で発見した「1応答内でintentが項目ごとに混在しうる」課題への対応として、構造化出力(JSON)に任意フィールド`faq_segments`(topic/resolved)を追加するスキーマ拡張案(2026-07-31 11:58 UTC更新、未検証事項だった「3項目以上でも破綻しないか」をE16で机上検証済みと反映。トップレベルのintentは単一値のまま維持し「1応答=1 JSON」前提は崩さない設計。実装・実LLM検証は未着手)
@@ -105,7 +112,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 15:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 16:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。残っていた未検討事項(LINE以外のチャネル追加時のuserId代替識別子の設計)はchannel-agnostic-session-id.mdで結論化済み)
 - channel-agnostic-session-id.md: 将来Web版チャット等の非LINEチャネルを追加する場合に備えた代替顧客識別子の設計方針(2026-07-31新規作成。恒久的な名寄せIDの導入は見送り、チャネルごとに独立したセッションID(30分無応答失効)を発行する方針。通知ログ集計・連続エスカレーション集約への適用方法も整理。実装は非LINEチャネル追加が具体化した時点で着手)
-- schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
+- schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
 - prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)を実装した実行可能なPythonプロトタイプ(2026-07-31 21:58 UTC更新。営業時間・メニュー所要時間・既存予約から候補slot_keyを算出する`AvailabilitySearcher`を追加。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
@@ -113,12 +120,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 - conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-07-31 19:58 UTC新規作成。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由と、escalation_reason='booking_conflict'のスキーマ未反映等の残課題を整理)
 - intent-to-flow-mapping.md: LLM構造化出力(intent/datetime_candidate/confirmed等)からConversationFlowStateMachineのselect_slot()/provide_details()をどのタイミングで呼び出すかの対応表(2026-07-31 20:58 UTC新規作成。select_slot()失敗時の案内文言接続とあわせて整理。「datetime_candidate(自然文)→slot_key変換」の空き枠検索コンポーネントが未設計という残課題を明記)
-- slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-07-31 21:58 UTC新規作成。自然文解釈はLLM側の将来のスキーマ拡張案(requested_date_range/time_of_day_preference)に委ね、空き枠算出は決定的コード(AvailabilitySearcher)で行う役割分担。schema/システムプロンプトへの反映は未着手)
+- slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-07-31 22:58 UTC更新。自然文解釈はLLM側、空き枠算出は決定的コード(AvailabilitySearcher)で行う役割分担。requested_date_range/time_of_day_preferenceフィールドのschema・システムプロンプトへの反映が完了したことを反映。次の課題はengine.py側でのAvailabilitySearcherへの接続)
 
 ## 次にやること(候補)
-- slot-search-component-design.mdで設計した`requested_date_range`/`time_of_day_preference`フィールドを
-  booking_output.schema.jsonに追加し、llm-system-prompt-draft.mdに「自然文からこの2フィールドを抽出する」
-  指示を追記する(AvailabilitySearcher自体は実装済みのため、LLM側の構造化出力が揃えば接続できる状態)。
+- schema/システムプロンプトに追加した`requested_date_range`/`time_of_day_preference`フィールドを、
+  prototype/engine.py側でAvailabilitySearcherの`date_range`/`time_of_day_preference`引数に
+  実際に接続する(intent-to-flow-mapping.mdの対応表への反映も含む)。
 - AvailabilitySearcherのMVP制約(店舗全曜日固定の営業時間のみ対応、定休日・曜日別営業時間未対応)の解消。
 - escalation_reason='booking_conflict'(確定競合時のオーナー通知)をbooking_output.schema.jsonの
   enumに追加するか、システム内部イベント用の別集計軸として扱うかを検討する

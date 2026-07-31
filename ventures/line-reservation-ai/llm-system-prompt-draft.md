@@ -77,11 +77,24 @@ tech-stack.md の「次のステップ候補」で挙げていた
    datetime_candidate: string | null,
    confirmed: boolean,
    needs_owner_check: boolean,
-   faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "other", resolved: boolean}] | null}
+   faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "other", resolved: boolean}] | null,
+   requested_date_range: {start: string, end: string} | null,
+   time_of_day_preference: "morning" | "afternoon" | "evening" | "none"}
 ```
 - `faq_segments` は複合FAQ質問(2項目以上にまたがる質問、例: E13)のときのみ付与する
   任意フィールド。単一項目FAQ・予約系のやり取りでは`null`のままとする
   (詳細はjson-schema-multi-intent-extension.md参照)。
+- `requested_date_range`・`time_of_day_preference` は、`datetime_candidate`(顧客への
+  確認メッセージ表示用の自由記述、例:「来週土曜のお昼くらい」)とは別に、AvailabilitySearcher
+  (決定的コードによる空き枠算出、slot-search-component-design.md参照)へ渡すための
+  構造化フィールド。`intent`が`new_booking`または`change`で日時の手がかりがある場合のみ
+  抽出して付与する。`requested_date_range`はISO8601の開始日・終了日
+  (例:「来週土曜」→ 該当する土曜日1日をstart/endに設定。「来週」のような週単位の指定は
+  月曜〜日曜をstart/endに設定)。`time_of_day_preference`は「お昼くらい」→`afternoon`のように
+  時間帯の言及があれば対応するenumを、言及がなければ`none`を設定する。
+  日時の手がかりが全く読み取れない場合は両フィールドともnull/`none`のままとし、
+  断定的な日付の推測はしない(6番のエスカレーション判断とは独立に、あくまで空き枠検索の
+  入力補助として抽出する)。
 
 ## 構造化出力を分ける理由
 - 顧客向け自然文とバックエンド処理用データを1回のLLM呼び出しで同時取得することで、
@@ -90,6 +103,12 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-07-31 22:58 UTC: slot-search-component-design.mdの残課題だった、
+  AvailabilitySearcher(空き枠算出)への入力用フィールド`requested_date_range`・
+  `time_of_day_preference`をbooking_output.schema.jsonに追加し、自然文の
+  `datetime_candidate`からこの2フィールドを抽出する指示を本ファイルに追記した。
+  抽出は`intent`が`new_booking`/`change`のときのみで、手がかりがなければ両方とも
+  未設定のままとし断定的な推測はしない方針とした。
 - 2026-07-31 02:59 UTC: 厳守事項6・10発生時のオーナー通知文面をescalation-notification-templates.md
   で具体化(即時通知を基本方針、faq_segments一部未解決時の通知文面も設計)。本ファイルの
   厳守事項6・10・9aの説明文自体への直接反映は未着手(次回以降でリンク・要約を追記予定)。

@@ -39,6 +39,21 @@
     "feature_hint": {
       "description": "escalation_reasonが'unimplemented_feature'の場合のみ付与する任意フィールド(自由記述)。",
       "type": "string"
+    },
+    "requested_date_range": {
+      "description": "slot-search-component-design.mdのAvailabilitySearcherへの入力用に、自然文datetime_candidateから抽出した希望日付範囲(ISO8601)。intentがnew_booking/changeで日付の手がかりがある場合のみ付与する任意フィールド。抽出できない・該当しない場合はnull。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" }
+      },
+      "required": ["start", "end"]
+    },
+    "time_of_day_preference": {
+      "description": "slot-search-component-design.mdのAvailabilitySearcherへの入力用に、自然文datetime_candidateから抽出した時間帯の希望。intentがnew_booking/changeのときのみ付与する任意フィールド。時間帯の言及がなければ'none'。",
+      "type": "string",
+      "enum": ["morning", "afternoon", "evening", "none"]
     }
   },
   "allOf": [

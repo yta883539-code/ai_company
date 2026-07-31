@@ -46,10 +46,13 @@ LLMに委ねず決定的コードで行う(誤りが許されないため)。
   - `now`より前の時刻は除外する(当日分の過去の時間帯)。
 
 ## 今後の課題
-- LLM出力への`requested_date_range`/`time_of_day_preference`フィールド追加を
+- ~~LLM出力への`requested_date_range`/`time_of_day_preference`フィールド追加を
   booking_output.schema.jsonに反映し、llm-system-prompt-draft.mdにも「自然文から
-  この2フィールドを抽出する」指示を追記する必要がある(自由記述の`datetime_candidate`は
-  顧客への確認メッセージ表示用としてそのまま残す想定)。
+  この2フィールドを抽出する」指示を追記する~~ → 2026-07-31 22:58 UTC対応済み。
+  自由記述の`datetime_candidate`は顧客への確認メッセージ表示用としてそのまま残した。
+  次の課題はこの2フィールドをprototype/engine.py側でAvailabilitySearcherの
+  `date_range`/`time_of_day_preference`引数に接続すること(現状は両者とも未接続で、
+  intent-to-flow-mapping.mdの対応表への反映も未着手)。
 - 店舗ごとの定休日・曜日別営業時間・臨時休業への対応(MVPは固定営業時間のみ)。
 - 複数メニュー(スタッフ指名等でメニューごとに対応可能スタッフが異なる場合)の空き枠算出は
   本設計の範囲外(MVPは店舗全体で1本のタイムラインと仮定)。
