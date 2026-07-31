@@ -369,7 +369,73 @@ class ConversationFlowStateMachine:
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記5コンポーネントを1本のパイプラインとして通しで動かす
+# 6. slot-search-component-design.md: datetime_candidate(自然文)からslot_keyを
+#    算出するための空き枠検索(営業時間・メニュー所要時間・BookingSlotManagerとの突き合わせ)
+# ---------------------------------------------------------------------------
+
+_TIME_OF_DAY_RANGES = {
+    "morning": (9 * 60, 12 * 60),
+    "afternoon": (12 * 60, 17 * 60),
+    "evening": (17 * 60, None),  # Noneは営業終了時刻まで
+}
+
+
+@dataclass
+class _Candidate:
+    slot_key: tuple
+    label: str
+    start_minutes: int
+
+
+class AvailabilitySearcher:
+    """slot-search-component-design.md準拠。自然文の解釈はLLM側(今後の課題)に委ね、
+    ここでは構造化された日付範囲・時間帯希望から、営業時間・メニュー所要時間・既存予約
+    (BookingSlotManager)と突き合わせて具体的な空き枠(slot_key)を決定的に算出する。
+    """
+
+    def __init__(
+        self,
+        business_hours: tuple[int, int],  # (開始, 終了) を24時間表記の時刻(分)で指定
+        slot_interval_minutes: int = 30,
+    ) -> None:
+        self._open_min, self._close_min = business_hours
+        self._interval = slot_interval_minutes
+
+    def find_candidates(
+        self,
+        store_id: str,
+        date_range: tuple,  # (date, date) の datetime.date タプル
+        time_of_day_preference: Optional[str],
+        menu_duration_minutes: int,
+        booking_slots: BookingSlotManager,
+        now: datetime,
+        max_candidates: int = 3,
+    ) -> list[_Candidate]:
+        pref_start, pref_end = _TIME_OF_DAY_RANGES.get(
+            time_of_day_preference, (self._open_min, self._close_min)
+        )
+        pref_end = self._close_min if pref_end is None else min(pref_end, self._close_min)
+        pref_start = max(pref_start, self._open_min)
+
+        candidates: list[_Candidate] = []
+        start_date, end_date = date_range
+        day = start_date
+        while day <= end_date and len(candidates) < max_candidates:
+            minute = pref_start
+            while minute + menu_duration_minutes <= pref_end and len(candidates) < max_candidates:
+                slot_dt = datetime(day.year, day.month, day.day) + timedelta(minutes=minute)
+                if slot_dt >= now:
+                    slot_key = (store_id, day.isoformat(), f"{minute // 60:02d}:{minute % 60:02d}")
+                    if booking_slots.status(slot_key, now) is None:
+                        label = f"{day.month}/{day.day} {minute // 60:02d}:{minute % 60:02d}〜"
+                        candidates.append(_Candidate(slot_key=slot_key, label=label, start_minutes=minute))
+                minute += self._interval
+            day += timedelta(days=1)
+        return candidates
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記6コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -505,6 +571,33 @@ def _demo() -> None:
           f"{flow.provide_details('user_sato', '佐藤', 'パーマ', t0 + timedelta(minutes=9))}")
     print(f"佐藤さんの状態(candidates_presentedへ差し戻し): {flow.stage('user_sato')}")
     print(f"高橋さんの予約は維持されているか: {flow_slots.status(slot_89_1600, t0 + timedelta(minutes=9))}")
+
+    print()
+    print("=== AvailabilitySearcher デモ(営業時間・所要時間・既存予約との突き合わせ) ===")
+
+    from datetime import date
+
+    searcher = AvailabilitySearcher(business_hours=(9 * 60, 19 * 60))  # 9:00-19:00
+    search_slots = BookingSlotManager()
+    # 8/9 15:30は既に確定済み(ふさがっている)という前提を用意
+    search_slots.hold(("shop_1", "2026-08-09", "15:30"), "user_existing", t0)
+    search_slots.confirm(("shop_1", "2026-08-09", "15:30"), "user_existing", t0)
+
+    found = searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 9), date(2026, 8, 10)),
+        time_of_day_preference="afternoon",
+        menu_duration_minutes=60,
+        booking_slots=search_slots,
+        now=t0,
+        max_candidates=3,
+    )
+    print("「来週土曜のお昼くらい」(afternoon, 8/9-8/10, 60分メニュー)の空き枠候補:")
+    for c in found:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert all(c.slot_key != ("shop_1", "2026-08-09", "15:30") for c in found), (
+        "確定済み枠が候補に混入してはならない"
+    )
 
 
 if __name__ == "__main__":
