@@ -247,7 +247,101 @@ class BookingSlotManager:
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記4コンポーネントを1本のパイプラインとして通しで動かす
+# 5. conversation-flow.md: 会話フロー本体(候補提示→確定)とBookingSlotManagerの接続
+# ---------------------------------------------------------------------------
+
+class ConversationFlowError(Exception):
+    """呼び出し順序が状態遷移ルールに反する場合に送出する(呼び出し側の実装ミス検知用)。"""
+
+
+@dataclass
+class _ConversationState:
+    stage: str  # "candidates_presented" | "awaiting_details" | "confirmed"
+    slot_key: Optional[tuple] = None
+    name: Optional[str] = None
+    menu: Optional[str] = None
+
+
+class ConversationFlowStateMachine:
+    """conversation-flow.mdの「候補提示→確定」の2ステップをBookingSlotManagerに接続する状態遷移。
+
+    ステージ: candidates_presented → (枠選択、hold()) → awaiting_details
+              → (氏名・メニュー確定、confirm()) → confirmed
+
+    confirm()が失敗した場合(booking-slot-manager-design.mdの「今後の課題」に残っていた、
+    確定操作自体が競合するケースの呼び出し側実装):
+      - この時点で失敗するのは、当該ユーザーの保留がタイムアウト済みか、既に別ユーザーの
+        保留/確定に上書きされている場合のみ(BookingSlotManager.confirm()の実装上)。
+        いずれの場合もこのユーザーが「保留していたはずの」枠は既に手元に無いため、
+        double-booking-prevention.mdの「後着の予約をpending状態に戻す」は、別ユーザーの
+        正当な保留/確定を誤って解放しないよう、ここでは明示的なslot操作を行わない
+        (release()は呼ばない)。
+      - EscalationConsolidator経由でオーナーへ通知し、このユーザーの会話状態は
+        candidates_presentedに戻す(呼び出し側で新しい空き枠を再提示する想定)。
+      - 通知イベントのescalation_reason='booking_conflict'は現行のbooking_output.schema.jsonの
+        enum(consultation/unimplemented_feature)には未追加。この通知はLLM構造化出力ではなく
+        システム内部で生成するイベントのため現時点ではスキーマ検証の対象外としているが、
+        通知ログ集計(NotificationLogAggregator)へ将来含める場合はenum拡張が必要になる
+        (今後の課題として残す)。
+    """
+
+    def __init__(self, slots: BookingSlotManager, consolidator: EscalationConsolidator) -> None:
+        self._slots = slots
+        self._consolidator = consolidator
+        self._states: dict[str, _ConversationState] = {}
+
+    def present_candidates(self, user_id: str) -> None:
+        """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。"""
+        self._states[user_id] = _ConversationState(stage="candidates_presented")
+
+    def select_slot(self, user_id: str, slot_key: tuple, now: datetime) -> bool:
+        """顧客が候補から枠を選んだ時点で呼ぶ。hold()成功ならawaiting_detailsへ進む。
+        失敗(他ユーザーとの競合)時はcandidates_presentedのまま
+        (呼び出し側で「ちょうど埋まってしまいました」+直近の空き枠再提示を行う想定)。
+        """
+        state = self._states.get(user_id)
+        if state is None or state.stage != "candidates_presented":
+            raise ConversationFlowError(f"unexpected stage for select_slot: {state}")
+        if self._slots.hold(slot_key, user_id, now):
+            state.stage = "awaiting_details"
+            state.slot_key = slot_key
+            return True
+        return False
+
+    def provide_details(self, user_id: str, name: str, menu: str, now: datetime) -> bool:
+        """氏名・メニューが揃った時点で呼ぶ。confirm()成功ならconfirmedへ進む。
+        失敗(確定操作自体の競合)時はcandidates_presentedへ差し戻し、オーナーへ通知する。
+        """
+        state = self._states.get(user_id)
+        if state is None or state.stage != "awaiting_details":
+            raise ConversationFlowError(f"unexpected stage for provide_details: {state}")
+        state.name = name
+        state.menu = menu
+        if self._slots.confirm(state.slot_key, user_id, now):
+            state.stage = "confirmed"
+            return True
+
+        self._consolidator.on_event(
+            user_id,
+            {
+                "intent": "escalation",
+                "needs_owner_check": True,
+                "escalation_reason": "booking_conflict",
+                "slot_key": state.slot_key,
+            },
+            now,
+        )
+        state.stage = "candidates_presented"
+        state.slot_key = None
+        return False
+
+    def stage(self, user_id: str) -> Optional[str]:
+        state = self._states.get(user_id)
+        return state.stage if state else None
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記5コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -335,6 +429,39 @@ def _demo() -> None:
     # 佐藤さんが放置後に確定しようとしても失敗する(安全側)
     print(f"佐藤さんconfirm(タイムアウト後、失敗想定): "
           f"{slots.confirm(slot_89_1700, 'user_sato', t0 + timedelta(minutes=8))}")
+
+    print()
+    print("=== ConversationFlowStateMachine デモ(候補提示→確定の接続、確定競合時のリカバリー) ===")
+
+    flow_slots = BookingSlotManager()
+    flow_consolidator = EscalationConsolidator()
+    flow = ConversationFlowStateMachine(flow_slots, flow_consolidator)
+
+    # 正常系: 田中さんが候補提示→枠選択→氏名・メニュー確定まで進み、確定に成功する
+    slot_89_1400 = ("shop_1", "2026-08-09", "14:00")
+    flow.present_candidates("user_tanaka")
+    print(f"田中さん枠選択: {flow.select_slot('user_tanaka', slot_89_1400, t0)}")
+    print(f"田中さん詳細確定: "
+          f"{flow.provide_details('user_tanaka', '田中', 'カット', t0 + timedelta(minutes=2))}")
+    print(f"田中さんの状態: {flow.stage('user_tanaka')}")
+
+    # 競合系: 佐藤さんが枠を選択(hold)したまま7分放置しタイムアウト、その間に高橋さんが
+    # 同じ枠を選択→確定まで完了させてしまう。佐藤さんがタイムアウトに気づかず遅れて
+    # 氏名・メニューを送ってきてもconfirm()は失敗し、候補再提示+オーナー通知に切り替わる。
+    slot_89_1600 = ("shop_1", "2026-08-09", "16:00")
+    flow.present_candidates("user_sato")
+    print(f"佐藤さん枠選択: {flow.select_slot('user_sato', slot_89_1600, t0)}")
+
+    flow.present_candidates("user_takahashi")
+    print(f"高橋さん枠選択(佐藤さんタイムアウト後、同じ枠を再提示): "
+          f"{flow.select_slot('user_takahashi', slot_89_1600, t0 + timedelta(minutes=7))}")
+    print(f"高橋さん詳細確定: "
+          f"{flow.provide_details('user_takahashi', '高橋', 'カラー', t0 + timedelta(minutes=8))}")
+
+    print(f"佐藤さん詳細確定(枠は既に高橋さんに確定済み、失敗+オーナー通知想定): "
+          f"{flow.provide_details('user_sato', '佐藤', 'パーマ', t0 + timedelta(minutes=9))}")
+    print(f"佐藤さんの状態(candidates_presentedへ差し戻し): {flow.stage('user_sato')}")
+    print(f"高橋さんの予約は維持されているか: {flow_slots.status(slot_89_1600, t0 + timedelta(minutes=9))}")
 
 
 if __name__ == "__main__":
