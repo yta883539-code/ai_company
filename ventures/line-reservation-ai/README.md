@@ -34,7 +34,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   通知ログ集計の「日次×userId×topic」ルールはチャネル追加時にuserId部分をセッションIDへ
   読み替えるだけで流用できる設計とした。これにより本ventureの通知ログ集計まわりの設計課題は
   一通り出尽くした状態になった。
-- 最終更新: 2026-07-31 16:58 UTC
+- フェーズ(続き6): これまで机上(md文章)でのみ記述してきたjson-output-retry-fallback.md・
+  escalation-consolidation-logic.md・duplicate-topic-notification-log-rule.md・
+  notification-log-classification-labels.mdの3ロジック(リトライ/フォールバック、
+  連続エスカレーション集約通知、通知ログのユニーク集計)を、初めて実行可能なPythonコード
+  (prototype/engine.py)に落とし込んだ。実LLM呼び出しは行わず(APIキー・課金が必要なため
+  未承認)、LLM呼び出し部分は差し替え可能なスタブとした。デモシナリオを実行し設計md通りの
+  挙動を確認済み(prototype-engine-design.md)。実装の過程で「5分ウィンドウの起点を固定式に
+  する」という、md設計だけでは未決定だった実装判断を新たに確定し、escalation-consolidation-logic.mdに追記して整合を取った。
+- 最終更新: 2026-07-31 17:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -71,14 +79,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)を実装した実行可能なPythonプロトタイプ(2026-07-31 17:58 UTC新規作成。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
+- prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 
 ## 次にやること(候補)
-- 初回コンタクト文面草案の未確定事項(謝礼有無・送信者名表記・返信先連絡先)についてオーナーの方針を確認
-- candidate-buffer-analysis.mdのウェーブ方式打診案について、送信チャネル選定(電話中心か等)とセットでオーナーに確認
-- 社内リハーサルの実施結果(想定)を踏まえた台本・質問文言の微調整
-- E10〜E16はいずれも机上設計・実LLM未検証のまま件数が積み上がっていたため、schema/booking_output.schema.json・schema/validate_test_cases.pyで期待JSON出力同士の構造的な整合性検証に着手した(2026-07-31 13:58 UTC、15件全件パス)。次は「実LLM呼び出しでの安定生成確認」だが、これにはAPIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)
-- N3・N4・E1・E3・E4・E7・E8の期待構造化出力(JSON)が未明記のまま残っているため、schema-validation-report.mdの指摘を踏まえてconversation-samples-test-cases.md側に追記し、validate_test_cases.pyのフィクスチャも拡充する
+- prototype/engine.pyのRetryFallbackProcessor・EscalationConsolidator・NotificationLogAggregatorに続き、
+  会話フロー本体(conversation-flow.md・llm-system-prompt-draft.md)を実際にPythonの状態遷移コードに
+  落とし込む(仮押さえ→確定の2段階、保留タイムアウト等)。ここもLLM呼び出し部分はスタブのままで進められる。
+- 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
+  投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
+  承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。
 - escalation-consolidation-logic.mdの「再発火3回目で都度通知に切り替え」「30分途絶えでリセット」の閾値は仮の目安であり、実測データが取れた際に見直す
-- 「分類不能」(escalation_reasonのスキーマ不一致時のフォールバック分類)の件数がどの程度発生しうるかは実LLM検証前のため未確認。実装フェーズでの検証時に確認する
-- N3・N4・E1・E3・E4・E7・E8の期待構造化出力を明文化し22件全件パスを確認したことで、conversation-samples-test-cases.mdの全ケース(N1〜N4、E1〜E16)が構造化出力まで書き下された状態になった。次はこれ以上机上での積み増しを続けるより、実LLM呼び出しでの自動テスト化(オーナー承認後、pending-approval.md参照)に進むのが本筋
-- channel-agnostic-session-id.mdでLINE以外のチャネル追加時の代替識別子方針を結論化したことで、通知ログ集計・連続エスカレーション集約まわりの机上設計の主要な未検討事項は出尽くした。これ以上この領域を細分化して積み増すより、実LLM呼び出しでの自動テスト化(オーナー承認後)か、あるいは実装フェーズ(schema/booking_output.schema.jsonを使ったLLM連携コードの試作)に進むのが本筋。ただしどちらもAPIキー取得・課金が絡む可能性があるため、着手前にpending-approval.mdの承認状況を確認する
+- 初回コンタクト文面草案の未確定事項(謝礼有無・送信者名表記・返信先連絡先)についてオーナーの方針を確認(顧客ヒアリング関連、実施は別途承認済み範囲内で進行中)
