@@ -48,6 +48,17 @@ json-schema-multi-intent-extension.mdで追加した任意フィールド`faq_se
 3. 実LLM検証段階では、同一入力に対して複数回実行し`escalation_reason`の判定がブレないか
    (プロンプトの言い回し・温度設定による揺れ)を確認する。
 
+## 集計手順(確定、2026-07-31追記)
+
+duplicate-topic-notification-log-rule.mdで日次をまたぐ重複カウント方法も結論化されたため、
+通知ログ集計画面(スプレッドシート版MVP)の具体的な集計手順を以下のとおり確定する。
+
+1. `resolved: false`の`faq_segments`(またはトップレベルのエスカレーション行)のみを対象に絞る。
+2. 各行を(日付[YYYY-MM-DD]、userId、topic)の組でユニーク化する。
+3. ユニーク化後の件数を「未登録FAQ・未実装機能の発生件数」として直近30日分集計する。
+4. 「未実装機能問い合わせ件数」は上記のうち`escalation_reason: "unimplemented_feature"`の行のみに
+   絞った内訳として別途表示する。
+
 ## 未検討・要検討事項
 - `feature_hint`の自由記述を後から自動でカテゴリ正規化(クラスタリング)する必要が生じた場合の方式は
   未検討。MVPでは人手によるスプレッドシート集計に委ねる。

@@ -20,7 +20,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   E7・E8はjson-output-retry-fallback.mdのフォールバック方針(構文崩れは一律escalation合成、
   矛盾検知時はconfirmed常にfalse・needs_owner_check常にtrueへ安全側上書き)に沿って設計。
   合計22件全件パスを確認(schema-validation-report.md追記)。
-- 最終更新: 2026-07-31 14:58 UTC
+- フェーズ(続き4): duplicate-topic-notification-log-rule.mdに残っていた未検討事項
+  「複数の応答にまたがって同一topicが繰り返し未解決になる場合の期間集計方法(日次ユニークか通算か)」
+  を検討・結論化(日次×userId×topicでユニーク化する方式を採用。同一顧客・同一topicでも日をまたげば
+  別カウントとし、「何日にわたって発生しているか」の広がりを捉えつつ同一日内の連投による水増しを防ぐ)。
+  この結論を踏まえ、notification-log-classification-labels.mdに通知ログ集計画面(スプレッドシート版MVP)の
+  具体的な集計手順(resolvedでフィルタ→(日付,userId,topic)でユニーク化→件数集計→
+  未実装機能問い合わせ件数は内訳として別表示)を確定・追記。
+- 最終更新: 2026-07-31 15:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -51,8 +58,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - escalation-notification-templates.md: 厳守事項6(医療・料金・クレーム・未登録FAQ相談)・10(未実装機能問い合わせ)発生時のオーナー向け通知文面と、faq_segments一部未解決時の通知文面の設計(2026-07-31時点。即時通知を基本方針とし、連続エスカレーション集約ロジックはescalation-consolidation-logic.mdで具体設計済み)
 - escalation-consolidation-logic.md: 連続エスカレーション(同一顧客が短時間に複数回)を1通に集約する通知ロジックの設計(2026-07-31 06:58 UTC更新。時間窓5分固定、初回は即時個別通知+ウィンドウ内の追加分はまとめ通知の2段階方式。件数3件以上は優先確認を促す一文を追加。医療相談(6-a)も例外なくウィンドウ方式を適用する結論を追加、再発火3回目で都度通知に切り替え+30分途絶えでリセットする上限ルールを追加。実装方式は概念メモのみで技術選定は未着手)
 - owner-settings-wireframe.md: 「通知ログ集計画面」を追記(2026-07-31 05:57 UTC更新。未登録FAQ相談・未実装機能問い合わせ・その他エスカレーションの件数を直近30日で俯瞰する読み取り専用ページ。営業情報設定ページからの導線のみとし常設メニューには出さない方針。MVPはスプレッドシートのCOUNTIF/ピボット集計で代替)
-- notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 12:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。同一topic重複時のカウントルールはduplicate-topic-notification-log-rule.mdで結論化済みとリンク。実LLM検証は未着手)
-- duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31時点。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針。複数応答にまたがる重複の期間集計方法は未検討)
+- notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 15:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
+- duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 15:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。未検討事項はLINE以外のチャネル追加時のuserId代替識別子の設計のみ残る)
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
@@ -61,7 +68,6 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 初回コンタクト文面草案の未確定事項(謝礼有無・送信者名表記・返信先連絡先)についてオーナーの方針を確認
 - candidate-buffer-analysis.mdのウェーブ方式打診案について、送信チャネル選定(電話中心か等)とセットでオーナーに確認
 - 社内リハーサルの実施結果(想定)を踏まえた台本・質問文言の微調整
-- duplicate-topic-notification-log-rule.mdで未検討のまま残した「複数応答にまたがって同一topicが繰り返し未解決になる場合の期間集計方法(日次ユニークか通算か)」を次回検討する
 - E10〜E16はいずれも机上設計・実LLM未検証のまま件数が積み上がっていたため、schema/booking_output.schema.json・schema/validate_test_cases.pyで期待JSON出力同士の構造的な整合性検証に着手した(2026-07-31 13:58 UTC、15件全件パス)。次は「実LLM呼び出しでの安定生成確認」だが、これにはAPIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)
 - N3・N4・E1・E3・E4・E7・E8の期待構造化出力(JSON)が未明記のまま残っているため、schema-validation-report.mdの指摘を踏まえてconversation-samples-test-cases.md側に追記し、validate_test_cases.pyのフィクスチャも拡充する
 - escalation-consolidation-logic.mdの「再発火3回目で都度通知に切り替え」「30分途絶えでリセット」の閾値は仮の目安であり、実測データが取れた際に見直す
