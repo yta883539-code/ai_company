@@ -90,6 +90,9 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-07-31 02:59 UTC: 厳守事項6・10発生時のオーナー通知文面をescalation-notification-templates.md
+  で具体化(即時通知を基本方針、faq_segments一部未解決時の通知文面も設計)。本ファイルの
+  厳守事項6・10・9aの説明文自体への直接反映は未着手(次回以降でリンク・要約を追記予定)。
 - 2026-07-31 01:59 UTC: json-schema-multi-intent-extension.mdで設計した
   複合FAQ質問向けのスキーマ拡張案(任意フィールド`faq_segments`)を出力形式に追記。
   トップレベルの`intent`は単一値のまま維持し、項目ごとのescalation有無は
@@ -123,6 +126,6 @@ tech-stack.md の「次のステップ候補」で挙げていた
 - 厳守事項9・10を反映した状態で、conversation-samples-test-cases.mdのE6・E9ケースの
   期待挙動を再確認し、テストケース側のステータスも更新する
 - 構造化出力(JSON)のフォーマット崩れ時のリトライ・フォールバック設計(json-output-retry-fallback.mdで着手済み、実装時に統合)
-- エスカレーション(6・10番)発生時のオーナー通知文面の具体化(no-show-handling.mdの通知設計と統合)
 - `faq_segments`拡張を反映したE13a/13bの想定JSON出力例をconversation-samples-test-cases.mdに追記する
-- 複合質問向けのオーナー通知文面(どのtopicが未回答かを含める)をno-show-handling.mdに追記する
+- escalation-notification-templates.md(2026-07-31新設)の通知文面を、本ファイルの厳守事項6・10・9aの
+  説明文からも参照できるようリンク・要約を追記する
