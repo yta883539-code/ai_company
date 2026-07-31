@@ -13,7 +13,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   出力形式を統合したJSON Schema(schema/booking_output.schema.json)と、外部ライブラリ非依存の簡易バリデータ
   (schema/validate_test_cases.py)を新規作成。conversation-samples-test-cases.mdの期待JSON出力15件を
   机上検証し全件パスを確認(schema-validation-report.md)。実LLM呼び出し自体はAPIキー・課金が必要なため未着手。
-- 最終更新: 2026-07-31 13:58 UTC
+- フェーズ(続き3): schema-validation-report.mdで次の課題として挙げていた
+  N3(候補提示後の確定)・N4(常連客)・E1(曖昧な日時)・E3(二重予約)・E4(保留タイムアウト)・
+  E7(JSON構文崩れ)・E8(自然文とJSONの矛盾)の期待構造化出力(JSON)が未明記だった点を解消。
+  conversation-samples-test-cases.mdに全7件を明文化し、validate_test_cases.pyのフィクスチャに追加。
+  E7・E8はjson-output-retry-fallback.mdのフォールバック方針(構文崩れは一律escalation合成、
+  矛盾検知時はconfirmed常にfalse・needs_owner_check常にtrueへ安全側上書き)に沿って設計。
+  合計22件全件パスを確認(schema-validation-report.md追記)。
+- 最終更新: 2026-07-31 14:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -47,8 +54,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 12:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。同一topic重複時のカウントルールはduplicate-topic-notification-log-rule.mdで結論化済みとリンク。実LLM検証は未着手)
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31時点。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針。複数応答にまたがる重複の期間集計方法は未検討)
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
-- schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 13:58 UTC新規作成、実LLM呼び出しはなし)
-- schema-validation-report.md: 上記バリデータによる机上検証結果(15件全件パス)と、実LLM検証に向けた次の課題の整理(2026-07-31 13:58 UTC時点)
+- schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
+- schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
 
 ## 次にやること(候補)
 - 初回コンタクト文面草案の未確定事項(謝礼有無・送信者名表記・返信先連絡先)についてオーナーの方針を確認
@@ -59,3 +66,4 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - N3・N4・E1・E3・E4・E7・E8の期待構造化出力(JSON)が未明記のまま残っているため、schema-validation-report.mdの指摘を踏まえてconversation-samples-test-cases.md側に追記し、validate_test_cases.pyのフィクスチャも拡充する
 - escalation-consolidation-logic.mdの「再発火3回目で都度通知に切り替え」「30分途絶えでリセット」の閾値は仮の目安であり、実測データが取れた際に見直す
 - 「分類不能」(escalation_reasonのスキーマ不一致時のフォールバック分類)の件数がどの程度発生しうるかは実LLM検証前のため未確認。実装フェーズでの検証時に確認する
+- N3・N4・E1・E3・E4・E7・E8の期待構造化出力を明文化し22件全件パスを確認したことで、conversation-samples-test-cases.mdの全ケース(N1〜N4、E1〜E16)が構造化出力まで書き下された状態になった。次はこれ以上机上での積み増しを続けるより、実LLM呼び出しでの自動テスト化(オーナー承認後、pending-approval.md参照)に進むのが本筋

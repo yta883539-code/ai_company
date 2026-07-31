@@ -1,4 +1,4 @@
-# 会話サンプル・プロンプトテストケース設計(2026-07-30時点)
+# 会話サンプル・プロンプトテストケース設計(2026-07-30時点、2026-07-31 14:58 UTC更新: N3・N4・E1・E3・E4・E7・E8の期待構造化出力を追記)
 
 llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステップ候補」で
 挙げていた「会話サンプル(複数パターン、正常系・崩れ系)を用いたプロンプトテスト設計」に着手する。
@@ -28,11 +28,29 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
 - 入力例(N1の続き): 「その時間でお願いします」
 - 期待挙動: 名前・メニュー・日時が揃った時点で初めて`confirmed: true`。
   自然文でも「予約を確定しました」を使ってよい。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加、schema-validation-report.mdの指摘を受け明文化):
+  ```
+  {intent: "new_booking", name: "田中", menu: "カット",
+   datetime_candidate: "来週土曜15時", confirmed: true, needs_owner_check: false}
+  ```
+  ※N1では候補提示段階のため`datetime_candidate`は「候補」の体だったが、
+  確定後は具体的な単一の日時に置き換わる想定。
 
 ### N4. 常連客の簡略化(precheck-strengthening.md準拠)
-- 入力例: 常連フラグ有りの顧客から「いつもの時間でお願いします」
+- 入力例: 常連客「鈴木」(顧客DB登録: いつものメニュー=カラー、いつもの曜日・時間=土曜10時)
+  から「いつもの時間でお願いします」
 - 期待挙動: 確認項目は簡略化してよいが、厳守事項8により
   名前・メニュー・日時の確定条件そのものは省略しない(`confirmed`は3項目確定後のみtrue)。
+  ただし常連客の場合は顧客DBの登録情報から名前・いつものメニュー・いつもの時間帯を
+  補完してよく、顧客に個別の聞き直しはしない。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加):
+  ```
+  {intent: "new_booking", name: "鈴木", menu: "カラー",
+   datetime_candidate: "土曜10時(顧客DB登録の通常予約枠)", confirmed: true,
+   needs_owner_check: false}
+  ```
+  ※3項目とも顧客DBからの補完値だが、値が揃っている以上`confirmed: true`の
+  条件(厳守事項8)は通常ケースと変わらない。
 
 ## 崩れ系(会話の意図が曖昧・イレギュラー)
 
@@ -40,6 +58,12 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
 - 入力例: 「来週の平日午後とかで空いてればお願いしたいです」
 - 期待挙動: 厳守事項2の候補提示ステップで対応。複数候補を提示し、
   顧客の選択を待つ(`confirmed: false`のまま)。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加): 名前・メニューは未言及のためnullのまま。
+  ```
+  {intent: "new_booking", name: null, menu: null,
+   datetime_candidate: "来週平日午後の空き候補(複数)", confirmed: false,
+   needs_owner_check: false}
+  ```
 
 ### E2. キャンセル・変更希望
 - 入力例: 「すみません、明日の予約キャンセルできますか」
@@ -50,11 +74,25 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
 - 入力例: 顧客Bが、顧客Aが仮押さえ中の枠を指定
 - 期待挙動: 厳守事項4により「現在確認中の枠のため少々お待ちください」を返し、
   確定処理は行わない。`confirmed: false`。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加): システム側で自動的に検知・保留する
+  ケースであり、オーナーの個別判断を要するものではないため`needs_owner_check`はfalse。
+  ```
+  {intent: "new_booking", name: null, menu: null,
+   datetime_candidate: "顧客Aが仮押さえ中の枠(確認中のため保留)", confirmed: false,
+   needs_owner_check: false}
+  ```
 
 ### E4. 保留タイムアウト
 - 入力例: 顧客Aが仮押さえ後、pending-timeout-ux.mdで定義した時間内に応答なし
 - 期待挙動: 厳守事項5により、pending-timeout-ux.mdの定型文をそのまま使用。
   文言の独自生成・アレンジはしない。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加): タイムアウトにより仮押さえ枠は解放され、
+  日時候補もリセットされる。名前確認が完了する前にタイムアウトした想定のため`name`はnull。
+  こちらもシステム側で自動処理する範囲でありオーナー確認は不要。
+  ```
+  {intent: "new_booking", name: null, menu: "カット",
+   datetime_candidate: null, confirmed: false, needs_owner_check: false}
+  ```
 
 ### E5. 予約以外の相談(医療・料金交渉・クレーム)
 - 入力例: 「施術で肌荒れしたんですが大丈夫でしょうか」「もう少し値引きできませんか」
@@ -75,11 +113,28 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
 - 入力例: 通常のN1と同じ入力だが、LLM応答が壊れたJSONを返すケースを想定
 - 期待挙動: json-output-retry-fallback.mdの方針通り、1回のみ再生成リクエスト。
   再生成後も不正ならフォールバックへ。`needs_owner_check: true`扱い、`confirmed`は常にfalse。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加): リトライ後も構文が壊れたままで
+  パース自体が成功しないため、N1の入力内容(名前・メニュー等)はバックエンドに引き継がれず、
+  フォールバック処理が一律で合成する安全側の値になる。`intent`はスキーマ上null許容が
+  ないため、フォールバック時は`"escalation"`(会話ログをオーナーに転送する経路)を割り当てる。
+  ```
+  {intent: "escalation", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: true}
+  ```
 
 ### E8. 自然文とJSONの矛盾(json-output-retry-fallback.mdの4)
 - 入力例: LLM応答の自然文が「予約を確定しました」なのに`confirmed: false`を返すケース
+  (JSON自体はN1と同じ内容で構文的にはパース成功、`confirmed`値のみ矛盾)
 - 期待挙動: 安全側判定(確定/要確認側を優先)によりフォールバック(3)として扱う。
   楽観的に「予約あり」とみなして処理を進めない。
+- 期待される構造化出力(2026-07-31 14:58 UTC追加): E7と異なりパース自体は成功しているため
+  `name`・`menu`・`datetime_candidate`はJSONの値をそのまま引き継ぐが、矛盾を検知した以上
+  `confirmed`は常にfalseへ強制し、`needs_owner_check`はtrueへ上書きする。
+  ```
+  {intent: "new_booking", name: "田中", menu: "カット",
+   datetime_candidate: "来週土曜15時台の候補", confirmed: false,
+   needs_owner_check: true}
+  ```
 
 ### E9. デポジット機能に関する問い合わせ(未実装機能、2026-07-30 17:58 UTC: 対応済み)
 - 入力例: 「予約時に前払いできますか?」
@@ -240,6 +295,10 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   6へ振り分ける」判定精度は未検証。9aの登録済み情報と9b/6の境界誤判定
   (例:未入力項目を誤って「情報なし」と断定回答してしまう)がないか、
   実装後の自動テストで重点的に確認する必要がある。
+- ~~N3・N4・E1・E3・E4・E7・E8の期待される構造化出力(JSON)が未明記のまま
+  残っている~~ → 2026-07-31 14:58 UTCで全ケース明文化し、schema/validate_test_cases.pyの
+  フィクスチャにも追加済み(schema-validation-report.md参照)。E7(構文崩れ)のフォールバック値は
+  実際のLLM出力ではなくバックエンドが合成する安全側の値である点に注意。
 
 ## 次のステップ候補
 - E10〜E16を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)

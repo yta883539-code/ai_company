@@ -100,6 +100,7 @@ def validate_cross_field_rules(instance, path="$"):
 # conversation-samples-test-cases.md に明記された「期待される構造化出力」を
 # そのまま書き起こしたフィクスチャ。文章中で全フィールドが明示されていないケースは、
 # 文脈から自明な値(未言及フィールドはnull/false)を補って机上検証用に構成した。
+# N3・N4・E1・E3・E4・E7・E8は2026-07-31 14:58 UTC時点で期待構造化出力を新規に明文化し追加。
 TEST_CASES = {
     "N1": {
         "intent": "new_booking", "name": "田中", "menu": "カット",
@@ -109,6 +110,21 @@ TEST_CASES = {
     "N2": {
         "intent": "new_booking", "name": None, "menu": None,
         "datetime_candidate": None, "confirmed": False,
+        "needs_owner_check": False,
+    },
+    "N3": {
+        "intent": "new_booking", "name": "田中", "menu": "カット",
+        "datetime_candidate": "来週土曜15時", "confirmed": True,
+        "needs_owner_check": False,
+    },
+    "N4": {
+        "intent": "new_booking", "name": "鈴木", "menu": "カラー",
+        "datetime_candidate": "土曜10時(顧客DB登録の通常予約枠)", "confirmed": True,
+        "needs_owner_check": False,
+    },
+    "E1": {
+        "intent": "new_booking", "name": None, "menu": None,
+        "datetime_candidate": "来週平日午後の空き候補(複数)", "confirmed": False,
         "needs_owner_check": False,
     },
     "E2": {
@@ -121,10 +137,30 @@ TEST_CASES = {
         "datetime_candidate": None, "confirmed": False,
         "needs_owner_check": True,
     },
+    "E3": {
+        "intent": "new_booking", "name": None, "menu": None,
+        "datetime_candidate": "顧客Aが仮押さえ中の枠(確認中のため保留)", "confirmed": False,
+        "needs_owner_check": False,
+    },
+    "E4": {
+        "intent": "new_booking", "name": None, "menu": "カット",
+        "datetime_candidate": None, "confirmed": False,
+        "needs_owner_check": False,
+    },
     "E6": {
         "intent": "faq", "name": None, "menu": None,
         "datetime_candidate": None, "confirmed": False,
         "needs_owner_check": False,
+    },
+    "E7": {
+        "intent": "escalation", "name": None, "menu": None,
+        "datetime_candidate": None, "confirmed": False,
+        "needs_owner_check": True,
+    },
+    "E8": {
+        "intent": "new_booking", "name": "田中", "menu": "カット",
+        "datetime_candidate": "来週土曜15時台の候補", "confirmed": False,
+        "needs_owner_check": True,
     },
     "E9": {
         "intent": "escalation", "name": None, "menu": None,
