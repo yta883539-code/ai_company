@@ -55,7 +55,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   誤って消してしまうバグになることが判明したため、release()は呼ばずオーナー通知のみ行う設計に
   変更した(詳細はconversation-flow-state-machine-design.md)。デモシナリオ(タイムアウト後の
   横取り+遅延確定の競合)で、横取りした側の確定済み予約が保持されることを確認済み。
-- 最終更新: 2026-07-31 19:58 UTC
+- フェーズ(続き9): README.mdの「次にやること」の第一項目として挙げていた、
+  ConversationFlowStateMachine.select_slot()失敗時(候補選択時点での競合)への
+  pending-timeout-ux.mdの案内文言(文言案4)接続と、LLM構造化出力から
+  select_slot()/provide_details()をどのタイミングで呼び出すかの対応付け設計を実施。
+  select_slot()の戻り値を`bool`から`SelectSlotResult(success, message)`に変更し、
+  失敗時は案内文言(代替候補は呼び出し側が用意)をそのまま返すようにした
+  (prototype/engine.py、デモに山田さんの競合シナリオを追加)。対応付けの整理は
+  intent-to-flow-mapping.mdに新規作成。整理の過程で「datetime_candidate(自然文)を
+  具体的なslot_keyへ変換する空き枠検索コンポーネントが未設計」という新たな残課題が判明した。
+- 最終更新: 2026-07-31 20:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -92,16 +101,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)を実装した実行可能なPythonプロトタイプ(2026-07-31 19:58 UTC更新。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)を実装した実行可能なPythonプロトタイプ(2026-07-31 20:58 UTC更新。select_slot()失敗時にpending-timeout-ux.mdの案内文言を返す`SelectSlotResult`を追加。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 - conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-07-31 19:58 UTC新規作成。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由と、escalation_reason='booking_conflict'のスキーマ未反映等の残課題を整理)
+- intent-to-flow-mapping.md: LLM構造化出力(intent/datetime_candidate/confirmed等)からConversationFlowStateMachineのselect_slot()/provide_details()をどのタイミングで呼び出すかの対応表(2026-07-31 20:58 UTC新規作成。select_slot()失敗時の案内文言接続とあわせて整理。「datetime_candidate(自然文)→slot_key変換」の空き枠検索コンポーネントが未設計という残課題を明記)
 
 ## 次にやること(候補)
-- ConversationFlowStateMachineのselect_slot()失敗時(候補選択時点での競合)に、
-  pending-timeout-ux.mdで設計済みの顧客向け文言(「ちょうど埋まってしまいました」+新しい候補提示)を
-  実際に接続する。あわせて、LLMの構造化出力(intent/confirmed等)からselect_slot()/provide_details()を
-  どのタイミングで呼び出すかの対応付けを設計する。
+- intent-to-flow-mapping.mdで新たに判明した残課題「datetime_candidate(顧客の自然文の日時表現)を
+  具体的なslot_key(店舗ID・日付・時間帯)へ変換する空き枠検索コンポーネント」を設計する。
+  店舗の営業時間・メニュー所要時間・既存予約(BookingSlotManagerの状態)から空き枠を算出するロジックと、
+  自然文→検索クエリ条件への変換方法(LLMに候補日時の範囲を構造化させる案が有力)の両方が必要。
 - escalation_reason='booking_conflict'(確定競合時のオーナー通知)をbooking_output.schema.jsonの
   enumに追加するか、システム内部イベント用の別集計軸として扱うかを検討する
   (conversation-flow-state-machine-design.mdの残課題)。

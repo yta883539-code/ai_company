@@ -254,6 +254,22 @@ class ConversationFlowError(Exception):
     """呼び出し順序が状態遷移ルールに反する場合に送出する(呼び出し側の実装ミス検知用)。"""
 
 
+# pending-timeout-ux.mdの文言案4「保留取得に失敗した場合」をそのまま接続する。
+# {slot_label}: 選ばれた枠の表示用文言(例: "8/9(土) 15:30〜")、
+# {alt_candidates}: 呼び出し側が用意した代替候補の表示用文言(例: "8/9(土) 17:00 / 8/10(日) 14:00")。
+# 代替候補そのものの検索(空き枠一覧の取得)は本エンジンの守備範囲外のため呼び出し側で用意する想定。
+SLOT_CONFLICT_MESSAGE_TEMPLATE = (
+    "大変申し訳ございません、ちょうど{slot_label}の枠が埋まってしまいました。\n"
+    "近い時間ですと {alt_candidates} が空いております。いかがでしょうか?"
+)
+
+
+@dataclass
+class SelectSlotResult:
+    success: bool
+    message: Optional[str] = None  # 失敗時のみ、顧客への案内文言(呼び出し側でそのまま送信可能)
+
+
 @dataclass
 class _ConversationState:
     stage: str  # "candidates_presented" | "awaiting_details" | "confirmed"
@@ -294,10 +310,19 @@ class ConversationFlowStateMachine:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。"""
         self._states[user_id] = _ConversationState(stage="candidates_presented")
 
-    def select_slot(self, user_id: str, slot_key: tuple, now: datetime) -> bool:
+    def select_slot(
+        self,
+        user_id: str,
+        slot_key: tuple,
+        now: datetime,
+        slot_label: str = "",
+        alt_candidates: str = "",
+    ) -> SelectSlotResult:
         """顧客が候補から枠を選んだ時点で呼ぶ。hold()成功ならawaiting_detailsへ進む。
-        失敗(他ユーザーとの競合)時はcandidates_presentedのまま
-        (呼び出し側で「ちょうど埋まってしまいました」+直近の空き枠再提示を行う想定)。
+        失敗(他ユーザーとの競合)時はcandidates_presentedのまま、pending-timeout-ux.mdの
+        文言案4を接続した案内メッセージを返す(呼び出し側はそのまま顧客へ送信できる)。
+        slot_label/alt_candidatesは表示用の文言(呼び出し側で日時整形・空き枠検索を行い渡す。
+        空き枠検索自体は本エンジンの範囲外で、intent-to-flow-mapping.mdの今後の課題を参照)。
         """
         state = self._states.get(user_id)
         if state is None or state.stage != "candidates_presented":
@@ -305,8 +330,11 @@ class ConversationFlowStateMachine:
         if self._slots.hold(slot_key, user_id, now):
             state.stage = "awaiting_details"
             state.slot_key = slot_key
-            return True
-        return False
+            return SelectSlotResult(success=True)
+        message = SLOT_CONFLICT_MESSAGE_TEMPLATE.format(
+            slot_label=slot_label, alt_candidates=alt_candidates
+        )
+        return SelectSlotResult(success=False, message=message)
 
     def provide_details(self, user_id: str, name: str, menu: str, now: datetime) -> bool:
         """氏名・メニューが揃った時点で呼ぶ。confirm()成功ならconfirmedへ進む。
@@ -445,6 +473,19 @@ def _demo() -> None:
           f"{flow.provide_details('user_tanaka', '田中', 'カット', t0 + timedelta(minutes=2))}")
     print(f"田中さんの状態: {flow.stage('user_tanaka')}")
 
+    # select_slot()自体の競合系: 山田さんが、田中さんが確定済みの枠を選ぼうとして失敗する。
+    # pending-timeout-ux.mdの文言案4を接続した案内メッセージが返る(呼び出し側はそのまま送信可能)。
+    flow.present_candidates("user_yamada")
+    yamada_select = flow.select_slot(
+        "user_yamada",
+        slot_89_1400,
+        t0 + timedelta(minutes=1),
+        slot_label="8/9(土) 14:00〜",
+        alt_candidates="8/9(土) 17:00 / 8/10(日) 14:00",
+    )
+    print(f"山田さん枠選択(田中さん確定済み枠、失敗想定): {yamada_select}")
+    print(f"山田さんの状態(候補提示のまま): {flow.stage('user_yamada')}")
+
     # 競合系: 佐藤さんが枠を選択(hold)したまま7分放置しタイムアウト、その間に高橋さんが
     # 同じ枠を選択→確定まで完了させてしまう。佐藤さんがタイムアウトに気づかず遅れて
     # 氏名・メニューを送ってきてもconfirm()は失敗し、候補再提示+オーナー通知に切り替わる。
@@ -453,8 +494,10 @@ def _demo() -> None:
     print(f"佐藤さん枠選択: {flow.select_slot('user_sato', slot_89_1600, t0)}")
 
     flow.present_candidates("user_takahashi")
-    print(f"高橋さん枠選択(佐藤さんタイムアウト後、同じ枠を再提示): "
-          f"{flow.select_slot('user_takahashi', slot_89_1600, t0 + timedelta(minutes=7))}")
+    takahashi_select = flow.select_slot(
+        "user_takahashi", slot_89_1600, t0 + timedelta(minutes=7)
+    )
+    print(f"高橋さん枠選択(佐藤さんタイムアウト後、同じ枠を再提示): {takahashi_select}")
     print(f"高橋さん詳細確定: "
           f"{flow.provide_details('user_takahashi', '高橋', 'カラー', t0 + timedelta(minutes=8))}")
 
