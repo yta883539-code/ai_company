@@ -76,8 +76,12 @@ tech-stack.md の「次のステップ候補」で挙げていた
    menu: string | null,
    datetime_candidate: string | null,
    confirmed: boolean,
-   needs_owner_check: boolean}
+   needs_owner_check: boolean,
+   faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "other", resolved: boolean}] | null}
 ```
+- `faq_segments` は複合FAQ質問(2項目以上にまたがる質問、例: E13)のときのみ付与する
+  任意フィールド。単一項目FAQ・予約系のやり取りでは`null`のままとする
+  (詳細はjson-schema-multi-intent-extension.md参照)。
 
 ## 構造化出力を分ける理由
 - 顧客向け自然文とバックエンド処理用データを1回のLLM呼び出しで同時取得することで、
@@ -86,6 +90,10 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-07-31 01:59 UTC: json-schema-multi-intent-extension.mdで設計した
+  複合FAQ質問向けのスキーマ拡張案(任意フィールド`faq_segments`)を出力形式に追記。
+  トップレベルの`intent`は単一値のまま維持し、項目ごとのescalation有無は
+  `faq_segments[].resolved`で表現する方針とした。
 - 2026-07-30 23:58 UTC: faq-response-templates.mdで設計した厳守事項9aの項目別回答テンプレート
   (住所・アクセス/駐車場/支払い方法の穴埋め式文面)を参照するよう説明文に追記し、
   「登録値を言い換えない」旨と複合質問の分割送信・部分エスカレーションのルールを明文化した。
@@ -116,3 +124,5 @@ tech-stack.md の「次のステップ候補」で挙げていた
   期待挙動を再確認し、テストケース側のステータスも更新する
 - 構造化出力(JSON)のフォーマット崩れ時のリトライ・フォールバック設計(json-output-retry-fallback.mdで着手済み、実装時に統合)
 - エスカレーション(6・10番)発生時のオーナー通知文面の具体化(no-show-handling.mdの通知設計と統合)
+- `faq_segments`拡張を反映したE13a/13bの想定JSON出力例をconversation-samples-test-cases.mdに追記する
+- 複合質問向けのオーナー通知文面(どのtopicが未回答かを含める)をno-show-handling.mdに追記する

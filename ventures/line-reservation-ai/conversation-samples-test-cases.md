@@ -107,15 +107,28 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   当店: 駐車場がございます(3台分)。
   当店: お支払い方法は現金、クレジットカードがご利用いただけます。
   ```
+- 期待される構造化出力13a(json-schema-multi-intent-extension.md準拠):
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: false,
+   faq_segments: [{topic: "parking", resolved: true}, {topic: "payment", resolved: true}]}
+  ```
 - 入力例13b: 「駐車場ある?電子マネーは使える?」(駐車場は登録済み、電子マネー(QRコード決済)は未チェックのケース)
 - 期待挙動13b: 駐車場は9aで直接回答するが、電子マネーは未チェット項目のため
   その部分のみ厳守事項6のエスカレーション文言に差し替える(全体を一律エスカレーションにはしない)。
-  `intent: "faq"`(駐車場側)と`intent: "escalation"`(支払い方法側)が1回の応答内に混在しうる点に注意。
+  トップレベルの`intent`は`"faq"`のまま維持し、項目ごとのescalation有無は
+  `faq_segments[].resolved`で表現する(json-schema-multi-intent-extension.md参照)。
   `confirmed: false`、`needs_owner_check: true`(未登録項目を含むため全体としてはtrue扱い)。
 - 期待される自然文13b(2通、faq-response-templates.md「複合質問の処理例」に準拠):
   ```
   当店: 駐車場がございます(3台分)。
   当店: 恐れ入ります、その点は担当者に確認のうえ改めてご案内いたします。
+  ```
+- 期待される構造化出力13b(json-schema-multi-intent-extension.md準拠):
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: true,
+   faq_segments: [{topic: "parking", resolved: true}, {topic: "payment", resolved: false}]}
   ```
 - 検証観点: 1回のLLM応答で複数意図(項目)を正しく分離し、項目ごとに9a/6のどちらに
   該当するかを混同なく判定できるか(faq-response-templates.mdの「未検証の仮説」に対応)。
@@ -155,7 +168,5 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
 
 ## 次のステップ候補
 - E10〜E13を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)
-- エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化
-- E13で指摘した「1回のAI応答内でintentが項目ごとに混在しうる」点について、
-  構造化出力(JSON)のスキーマ側でどう表現するか(1応答=1 JSON前提のjson-output-retry-fallback.md
-  との整合)をllm-system-prompt-draft.md側で検討する
+- エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどのtopicが未回答かを含める)
+- json-schema-multi-intent-extension.mdで設計した`faq_segments`拡張が、3項目以上の複合質問でも破綻しないか実LLM検証時に確認する

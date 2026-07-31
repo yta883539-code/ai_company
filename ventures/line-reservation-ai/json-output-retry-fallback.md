@@ -50,3 +50,10 @@ llm-system-prompt-draft.md の「未検証・要検討事項」および「次�
 ## 次のステップ候補
 - エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化
 - 会話サンプル(複数パターン)を用いたプロンプトテスト設計(正常系・崩れ系の両方を含む)
+
+## 追記(2026-07-31時点): 複合FAQ用の任意フィールド`faq_segments`への対応
+json-schema-multi-intent-extension.mdで設計した任意フィールド`faq_segments`(複合FAQ質問時のみ付与)も、
+本ドキュメントのスキーマ不一致判定(上記「2. キー不足/余分」)の対象に含める。
+`faq_segments`が配列でない、または各要素に`topic`/`resolved`が欠けている場合は、
+新しい分岐を設けず既存のリトライ(1回)→フォールバック(`needs_owner_check: true`一律、
+`confirmed: false`)にそのまま乗せる。
