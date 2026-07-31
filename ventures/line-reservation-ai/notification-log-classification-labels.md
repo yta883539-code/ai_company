@@ -51,6 +51,10 @@ json-schema-multi-intent-extension.mdで追加した任意フィールド`faq_se
 ## 未検討・要検討事項
 - `feature_hint`の自由記述を後から自動でカテゴリ正規化(クラスタリング)する必要が生じた場合の方式は
   未検討。MVPでは人手によるスプレッドシート集計に委ねる。
+- ~~E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計時の
+  重複topicカウントルール(重複を1件とするか等)は未検討。~~
+  → 2026-07-31 12:58 UTC、duplicate-topic-notification-log-rule.mdで検討・結論化。
+  `resolved: false`のセグメントに絞った上でユニークなtopic数をカウントする方針とした。
 - ~~上記2.で挙げた境界ケースの具体的なテストケース(想定JSON出力例含む)への追記は未着手。~~
   → 2026-07-31 08:59 UTC、conversation-samples-test-cases.mdにE14(支払い方法FAQ vs
   デポジット機能)・E15(ノーショー方針FAQ vs キャンセル料機能)として追加済み。
