@@ -27,7 +27,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   この結論を踏まえ、notification-log-classification-labels.mdに通知ログ集計画面(スプレッドシート版MVP)の
   具体的な集計手順(resolvedでフィルタ→(日付,userId,topic)でユニーク化→件数集計→
   未実装機能問い合わせ件数は内訳として別表示)を確定・追記。
-- 最終更新: 2026-07-31 15:58 UTC
+- フェーズ(続き5): duplicate-topic-notification-log-rule.mdに最後まで残っていた未検討事項
+  「userIdが取得できないチャネル(将来Web版チャット等)での代替識別子の設計方針」を検討・結論化
+  (channel-agnostic-session-id.md新規作成)。MVPはLINE単独提供のため名寄せ用の恒久ID導入は見送り、
+  チャネルごとに独立したセッションID(最終メッセージから30分無応答で失効)を発行する方針を採用。
+  通知ログ集計の「日次×userId×topic」ルールはチャネル追加時にuserId部分をセッションIDへ
+  読み替えるだけで流用できる設計とした。これにより本ventureの通知ログ集計まわりの設計課題は
+  一通り出尽くした状態になった。
+- 最終更新: 2026-07-31 16:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -59,7 +66,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - escalation-consolidation-logic.md: 連続エスカレーション(同一顧客が短時間に複数回)を1通に集約する通知ロジックの設計(2026-07-31 06:58 UTC更新。時間窓5分固定、初回は即時個別通知+ウィンドウ内の追加分はまとめ通知の2段階方式。件数3件以上は優先確認を促す一文を追加。医療相談(6-a)も例外なくウィンドウ方式を適用する結論を追加、再発火3回目で都度通知に切り替え+30分途絶えでリセットする上限ルールを追加。実装方式は概念メモのみで技術選定は未着手)
 - owner-settings-wireframe.md: 「通知ログ集計画面」を追記(2026-07-31 05:57 UTC更新。未登録FAQ相談・未実装機能問い合わせ・その他エスカレーションの件数を直近30日で俯瞰する読み取り専用ページ。営業情報設定ページからの導線のみとし常設メニューには出さない方針。MVPはスプレッドシートのCOUNTIF/ピボット集計で代替)
 - notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 15:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
-- duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 15:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。未検討事項はLINE以外のチャネル追加時のuserId代替識別子の設計のみ残る)
+- duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 16:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。残っていた未検討事項(LINE以外のチャネル追加時のuserId代替識別子の設計)はchannel-agnostic-session-id.mdで結論化済み)
+- channel-agnostic-session-id.md: 将来Web版チャット等の非LINEチャネルを追加する場合に備えた代替顧客識別子の設計方針(2026-07-31新規作成。恒久的な名寄せIDの導入は見送り、チャネルごとに独立したセッションID(30分無応答失効)を発行する方針。通知ログ集計・連続エスカレーション集約への適用方法も整理。実装は非LINEチャネル追加が具体化した時点で着手)
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
@@ -73,3 +81,4 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - escalation-consolidation-logic.mdの「再発火3回目で都度通知に切り替え」「30分途絶えでリセット」の閾値は仮の目安であり、実測データが取れた際に見直す
 - 「分類不能」(escalation_reasonのスキーマ不一致時のフォールバック分類)の件数がどの程度発生しうるかは実LLM検証前のため未確認。実装フェーズでの検証時に確認する
 - N3・N4・E1・E3・E4・E7・E8の期待構造化出力を明文化し22件全件パスを確認したことで、conversation-samples-test-cases.mdの全ケース(N1〜N4、E1〜E16)が構造化出力まで書き下された状態になった。次はこれ以上机上での積み増しを続けるより、実LLM呼び出しでの自動テスト化(オーナー承認後、pending-approval.md参照)に進むのが本筋
+- channel-agnostic-session-id.mdでLINE以外のチャネル追加時の代替識別子方針を結論化したことで、通知ログ集計・連続エスカレーション集約まわりの机上設計の主要な未検討事項は出尽くした。これ以上この領域を細分化して積み増すより、実LLM呼び出しでの自動テスト化(オーナー承認後)か、あるいは実装フェーズ(schema/booking_output.schema.jsonを使ったLLM連携コードの試作)に進むのが本筋。ただしどちらもAPIキー取得・課金が絡む可能性があるため、着手前にpending-approval.mdの承認状況を確認する
