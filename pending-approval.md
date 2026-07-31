@@ -22,3 +22,8 @@ venture: ventures/line-reservation-ai/
 (1)WebSearchで対象セグメント(美容室・整体院等)に合致する実在の候補店舗をリストアップしventureフォルダに記録。
 (2)customer-interview-design.mdの16問を基に、メール/LINE送信用の連絡文面ドラフトを作成。
 (3)電話・LINEでの実連絡はオーナー自身が行う。メール送信はGmail連携接続後、送信直前に毎回オーナーの確認を得てからのみ行う。
+
+日時: 2026-07-31 13:58 UTC
+venture: ventures/line-reservation-ai/
+内容: schema/validate_test_cases.pyで机上検証したllm-system-prompt-draft.mdのシステムプロンプト・構造化出力スキーマを、実際のLLM API(Claude API等)に投入してconversation-samples-test-cases.mdの各ケース(N1〜N4、E1〜E16)の出力を自動テストしたい。
+理由: これまでの設計・検証は全て机上(文章記述の突き合わせ)にとどまっており、実LLMが指示通りに安定した自然文・構造化出力を生成できるかは未確認。ただし実行にはAPIキーの取得(アカウント作成)と従量課金(支払い)が発生するため、オーナーの許可が必要なアクションに該当する。承認が得られれば、APIキー取得方法の提示・テストスクリプトの実装から着手する。

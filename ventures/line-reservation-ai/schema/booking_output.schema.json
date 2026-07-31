@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "予約とれる君 構造化出力スキーマ",
+  "description": "llm-system-prompt-draft.md の出力形式・json-schema-multi-intent-extension.md の faq_segments 拡張・notification-log-classification-labels.md の escalation_reason/feature_hint 拡張を統合したもの。机上設計に基づく形式化であり、実LLMでの安定生成は未検証(実装フェーズで確認予定)。",
+  "type": "object",
+  "required": ["intent", "name", "menu", "datetime_candidate", "confirmed", "needs_owner_check"],
+  "additionalProperties": false,
+  "properties": {
+    "intent": {
+      "type": "string",
+      "enum": ["new_booking", "cancel", "change", "faq", "escalation"]
+    },
+    "name": { "type": ["string", "null"] },
+    "menu": { "type": ["string", "null"] },
+    "datetime_candidate": { "type": ["string", "null"] },
+    "confirmed": { "type": "boolean" },
+    "needs_owner_check": { "type": "boolean" },
+    "faq_segments": {
+      "description": "複合FAQ質問(2項目以上)のときのみ付与する任意フィールド。単一項目FAQ・予約系のやり取りでは null。topicの重複は許容する(E16参照)。",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["topic", "resolved"],
+        "additionalProperties": false,
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": ["access", "parking", "payment", "hours", "other"]
+          },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+    "escalation_reason": {
+      "description": "エスカレーション発生時のみ付与する任意フィールド。省略時は通常応答またはfaq_segments内訳で判断する。",
+      "type": "string",
+      "enum": ["consultation", "unimplemented_feature"]
+    },
+    "feature_hint": {
+      "description": "escalation_reasonが'unimplemented_feature'の場合のみ付与する任意フィールド(自由記述)。",
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "description": "faq_segmentsにresolved:falseが1件でもあればneeds_owner_checkはtrueでなければならない(json-schema-multi-intent-extension.md)。この制約は付属のvalidate_test_cases.pyでコード側チェックとして実装しており、本JSON Schemaファイル単体(draft-07)では表現していない。",
+      "type": "object"
+    },
+    {
+      "description": "feature_hintはescalation_reasonが'unimplemented_feature'のときのみ許容される。この依存関係もvalidate_test_cases.pyのコード側チェックで検証する。",
+      "type": "object"
+    }
+  ]
+}

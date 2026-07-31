@@ -8,7 +8,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 ## ステータス
 - フェーズ: 会話フロー設計 → 二重予約防止ロジック設計 → オーナー向け設定画面ワイヤーフレーム → LINE Messaging API料金調査 → 料金プラン・無料トライアル条件の仮決め → 想定顧客ヒアリング設計 → 保留タイムアウトのUX文言設計 → 顧客接点メッセージ統一トーン&マナーガイドライン作成 → 前日リマインド送信タイミング・再通知ルール設計 → 無断キャンセル発生時の記録・通知設計 → 事前確認強化の要否検討・顧客詳細画面ワイヤーフレーム追記 → 事前決済(デポジット)機能の技術要件・手数料調査 → ヒアリング項目にデポジット機能の需要・抵抗感を確認する設問(E.)を追加 → ヒアリングリハーサル用台本・時間配分の設計 → 2026年10月LINE料金改定内容の再確認(web調査) → ヒアリング対象候補(実店舗)の選定基準・情報源の整理 → 初回コンタクト依頼文面の草案作成(未送信) → 業種ごとの候補数の妥当性・追加候補確保の目安を試算 → 会話フロー・二重予約防止・トーンガイドライン等を統合したLLMシステムプロンプト草案の作成 → 構造化出力(JSON)フォーマット崩れ時のリトライ・フォールバック設計 → 会話サンプル(正常系・崩れ系)を用いたプロンプトテストケース設計 → テストケースで指摘したE6(雑談・スパム)・E9(未実装機能問い合わせ)への対応をシステムプロンプト草案に反映(厳守事項9・10追加) → 厳守事項9(FAQ/雑談)と6(予約以外の相談エスカレーション)の境界線を整理(9a/9bに分割) → owner-settings-wireframe.mdに9a用の「店舗FAQ情報」入力欄(住所・アクセス/駐車場/支払い方法)を追加 → 店舗FAQ情報欄の具体項目(駐車場台数・支払い方法チェックボックス内訳、未入力時の6番エスカレーション)をllm-system-prompt-draft.mdの厳守事項9aに反映 → conversation-samples-test-cases.mdに9a関連の新規テストケース(E10:登録済み情報でのFAQ回答、E11:未入力項目、E12:未チェック支払い方法)を追加し、9a/9b/6の境界整理との整合を確認 → faq-escalation-boundary.mdの残課題だった9aの回答テンプレート(住所・アクセス/駐車場/支払い方法の項目別穴埋め式テンプレート、複合質問の分割送信例)を新規設計 → faq-response-templates.mdの項目別テンプレートをllm-system-prompt-draft.mdの厳守事項9a説明文に反映(「登録値を言い換えない」旨と複合質問の分割送信・部分エスカレーションのルールを明文化) → conversation-samples-test-cases.mdのE10想定出力を項目別テンプレートに揃えて具体化し、複合質問の分割送信テストケースE13(全項目回答可/一部未登録の2パターン)を新規追加 → E13で発見した「1応答内でintentが項目ごとに混在しうる」課題への対応として、構造化出力(JSON)スキーマに任意フィールド`faq_segments`を追加する拡張案を設計し、llm-system-prompt-draft.md・json-output-retry-fallback.md・conversation-samples-test-cases.mdに反映 → 厳守事項6・10(相談エスカレーション・未実装機能問い合わせ)発生時のオーナー通知文面を具体化し、faq_segments一部未解決時の通知文面も設計 → 連続エスカレーション(同一顧客が短時間に複数回)を1通にまとめる集約ロジック(時間窓5分・初回即時+追加分はまとめ通知の2段階方式)を具体設計 → 未登録FAQ件数・未実装機能問い合わせ件数を俯瞰するための通知ログ集計画面のワイヤーフレームをowner-settings-wireframe.mdに追記(営業情報設定ページからの導線、MVPはスプレッドシート集計で代替)
 - フェーズ(続き): escalation-consolidation-logic.mdの未検討事項だった「医療相談(6-a)の例外的即時通知の要否」「集約ウィンドウ再発火時の上限回数」を検討・結論化(医療相談も例外なくウィンドウ方式を適用、再発火3回目で都度通知に切り替え+30分途絶えでリセット) → 通知ログ集計画面で使う「未実装機能」分類ラベルの設計(構造化出力に`escalation_reason`/`feature_hint`フィールドを追加する案、分類精度の検証方針を策定) → notification-log-classification-labels.mdで挙げた境界ケース(支払い方法FAQ vs デポジット機能、ノーショー方針FAQ vs キャンセル料機能)をconversation-samples-test-cases.mdにE14・E15として追記し、「店舗FAQ情報欄の入力対象か否か」を9a/10の判定基準とする整理を明文化 → `escalation_reason`/`feature_hint`フィールドをjson-output-retry-fallback.mdのリトライ・フォールバック判定に組み込み(スキーマ不一致時は「分類不能」へフォールバックし、`needs_owner_check`によるオーナー通知自体は止めない方針を明確化) → 通知ログ集計画面へのリンクをowner-settings-wireframe.mdの1.営業情報設定ページ本体のワイヤーフレーム図に反映(これまで追記セクションのみだった差分を解消) → json-schema-multi-intent-extension.mdの未検証事項だった「3項目以上の複合質問でfaq_segments配列が破綻しないか」をconversation-samples-test-cases.mdのE16として机上検証(3項目でもスキーマ変更不要と確認、副次的に「同一topicが複合質問内で重複しうる」点が判明し重複許容の設計であることを明文化) → E16で判明した同一topic重複時の通知ログ集計ルールを新規検討(`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針を結論化、重複解決済みの水増しを回避しつつ短時間の繰り返し問い合わせはescalation-consolidation-logic.md側の集約通知に委ねるすみ分けを整理)
-- 最終更新: 2026-07-31 12:58 UTC
+- フェーズ(続き2): README.mdの「次にやること」で繰り返し指摘していた実装フェーズ着手の第一歩として、
+  llm-system-prompt-draft.md・json-schema-multi-intent-extension.md・notification-log-classification-labels.mdの
+  出力形式を統合したJSON Schema(schema/booking_output.schema.json)と、外部ライブラリ非依存の簡易バリデータ
+  (schema/validate_test_cases.py)を新規作成。conversation-samples-test-cases.mdの期待JSON出力15件を
+  机上検証し全件パスを確認(schema-validation-report.md)。実LLM呼び出し自体はAPIキー・課金が必要なため未着手。
+- 最終更新: 2026-07-31 13:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -41,12 +46,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - owner-settings-wireframe.md: 「通知ログ集計画面」を追記(2026-07-31 05:57 UTC更新。未登録FAQ相談・未実装機能問い合わせ・その他エスカレーションの件数を直近30日で俯瞰する読み取り専用ページ。営業情報設定ページからの導線のみとし常設メニューには出さない方針。MVPはスプレッドシートのCOUNTIF/ピボット集計で代替)
 - notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 12:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。同一topic重複時のカウントルールはduplicate-topic-notification-log-rule.mdで結論化済みとリンク。実LLM検証は未着手)
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31時点。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針。複数応答にまたがる重複の期間集計方法は未検討)
+- schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
+- schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 13:58 UTC新規作成、実LLM呼び出しはなし)
+- schema-validation-report.md: 上記バリデータによる机上検証結果(15件全件パス)と、実LLM検証に向けた次の課題の整理(2026-07-31 13:58 UTC時点)
 
 ## 次にやること(候補)
 - 初回コンタクト文面草案の未確定事項(謝礼有無・送信者名表記・返信先連絡先)についてオーナーの方針を確認
 - candidate-buffer-analysis.mdのウェーブ方式打診案について、送信チャネル選定(電話中心か等)とセットでオーナーに確認
 - 社内リハーサルの実施結果(想定)を踏まえた台本・質問文言の微調整
 - duplicate-topic-notification-log-rule.mdで未検討のまま残した「複数応答にまたがって同一topicが繰り返し未解決になる場合の期間集計方法(日次ユニークか通算か)」を次回検討する
-- E10〜E16はいずれも机上設計・実LLM未検証のまま件数が積み上がっているため、そろそろ実装フェーズ(実際にLLM呼び出しを行う自動テスト化)への着手を検討する時期
+- E10〜E16はいずれも机上設計・実LLM未検証のまま件数が積み上がっていたため、schema/booking_output.schema.json・schema/validate_test_cases.pyで期待JSON出力同士の構造的な整合性検証に着手した(2026-07-31 13:58 UTC、15件全件パス)。次は「実LLM呼び出しでの安定生成確認」だが、これにはAPIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)
+- N3・N4・E1・E3・E4・E7・E8の期待構造化出力(JSON)が未明記のまま残っているため、schema-validation-report.mdの指摘を踏まえてconversation-samples-test-cases.md側に追記し、validate_test_cases.pyのフィクスチャも拡充する
 - escalation-consolidation-logic.mdの「再発火3回目で都度通知に切り替え」「30分途絶えでリセット」の閾値は仮の目安であり、実測データが取れた際に見直す
 - 「分類不能」(escalation_reasonのスキーマ不一致時のフォールバック分類)の件数がどの程度発生しうるかは実LLM検証前のため未確認。実装フェーズでの検証時に確認する
