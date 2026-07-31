@@ -42,7 +42,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   未承認)、LLM呼び出し部分は差し替え可能なスタブとした。デモシナリオを実行し設計md通りの
   挙動を確認済み(prototype-engine-design.md)。実装の過程で「5分ウィンドウの起点を固定式に
   する」という、md設計だけでは未決定だった実装判断を新たに確定し、escalation-consolidation-logic.mdに追記して整合を取った。
-- 最終更新: 2026-07-31 17:58 UTC
+- フェーズ(続き7): README.mdの「次にやること」で挙げていた会話フロー本体の実装着手として、
+  double-booking-prevention.mdで設計した仮押さえ(pending)→確定(confirmed)の2段階予約枠管理を
+  prototype/engine.pyに`BookingSlotManager`クラスとして新規実装(booking-slot-manager-design.md)。
+  hold/confirm/タイムアウト解放(5分)/競合時の失敗応答をデモシナリオで確認。確定操作自体が競合した
+  場合のpendingへの差し戻し+オーナー通知は、呼び出し側(会話フロー本体)実装時の課題として残した。
+- 最終更新: 2026-07-31 18:58 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -79,13 +84,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 13:58 UTC新規作成、実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)を実装した実行可能なPythonプロトタイプ(2026-07-31 17:58 UTC新規作成。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)を実装した実行可能なPythonプロトタイプ(2026-07-31 18:58 UTC更新。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
+- booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 
 ## 次にやること(候補)
-- prototype/engine.pyのRetryFallbackProcessor・EscalationConsolidator・NotificationLogAggregatorに続き、
-  会話フロー本体(conversation-flow.md・llm-system-prompt-draft.md)を実際にPythonの状態遷移コードに
-  落とし込む(仮押さえ→確定の2段階、保留タイムアウト等)。ここもLLM呼び出し部分はスタブのままで進められる。
+- BookingSlotManagerに続き、会話フロー本体(conversation-flow.md・llm-system-prompt-draft.md)の
+  「候補提示→確定」の2ステップ・氏名/メニュー確定までのやり取りを状態遷移コードとして実装し、
+  BookingSlotManagerと接続する。確定操作自体が競合した場合のpending差し戻し+オーナー通知
+  (double-booking-prevention.md「3. 競合時のリカバリー」)もこの接続時に実装する。ここもLLM呼び出し部分はスタブのままで進められる。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

@@ -182,7 +182,72 @@ class NotificationLogAggregator:
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記3コンポーネントを1本のパイプラインとして通しで動かす
+# 4. double-booking-prevention.md: 仮押さえ(pending)→確定(confirmed)の2段階予約枠管理
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _Slot:
+    status: str  # "pending" or "confirmed"
+    user_id: str
+    held_at: datetime
+
+
+class BookingSlotManager:
+    """予約枠(店舗ID+日付+時間帯をキーとする)の仮押さえ→確定の2段階管理。
+
+    ルール(double-booking-prevention.md準拠):
+      - 顧客が枠を指定した時点でhold()し、pending状態にする。
+        pendingはHOLD_TIMEOUT(5分)を過ぎると自動的に解放され、他の顧客に再提示可能になる。
+      - 氏名等が揃いconfirm()を呼んだ時点でconfirmed状態にする。
+        pendingがタイムアウト済み・別ユーザーに奪われている場合はconfirm()も失敗する
+        (「読み込み→空きチェック→書き込み」を単一シリアル実行することを前提に、
+        呼び出し側は単一プロセス・単一スレッドからの逐次呼び出しを想定している。
+        MVP段階のスプレッドシート+キュー処理方式に対応する簡易モデルであり、
+        真の並行アクセス(マルチプロセス)には未対応)。
+      - hold()が別ユーザーのpending/confirmedと衝突した場合は失敗を返す
+        (呼び出し側で「ちょうど埋まってしまいました」等の案内・直近空き枠の再提示を行う)。
+    """
+
+    HOLD_TIMEOUT = timedelta(minutes=5)
+
+    def __init__(self) -> None:
+        self._slots: dict[tuple, _Slot] = {}
+
+    def _expire_if_needed(self, slot_key: tuple, now: datetime) -> None:
+        slot = self._slots.get(slot_key)
+        if slot is not None and slot.status == "pending" and now - slot.held_at > self.HOLD_TIMEOUT:
+            del self._slots[slot_key]
+
+    def hold(self, slot_key: tuple, user_id: str, now: datetime) -> bool:
+        """枠の仮押さえを試みる。成功時True、既に他ユーザーに押さえられている場合False。"""
+        self._expire_if_needed(slot_key, now)
+        existing = self._slots.get(slot_key)
+        if existing is not None and existing.user_id != user_id:
+            return False
+        self._slots[slot_key] = _Slot(status="pending", user_id=user_id, held_at=now)
+        return True
+
+    def confirm(self, slot_key: tuple, user_id: str, now: datetime) -> bool:
+        """仮押さえ済みの枠を確定する。pendingがタイムアウト済み・別ユーザーの場合はFalse。"""
+        self._expire_if_needed(slot_key, now)
+        existing = self._slots.get(slot_key)
+        if existing is None or existing.user_id != user_id or existing.status != "pending":
+            return False
+        existing.status = "confirmed"
+        return True
+
+    def release(self, slot_key: tuple) -> None:
+        """明示的な解放(顧客都合でのキャンセル等、呼び出し側の判断で使用)。"""
+        self._slots.pop(slot_key, None)
+
+    def status(self, slot_key: tuple, now: datetime) -> Optional[str]:
+        self._expire_if_needed(slot_key, now)
+        slot = self._slots.get(slot_key)
+        return slot.status if slot else None
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記4コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -246,6 +311,30 @@ def _demo() -> None:
     ])
     result_b = process_llm_output(lambda: next(attempts_b))
     print(f"ケースB: used_fallback={result_b.used_fallback}, output={result_b.output}")
+
+    print()
+    print("=== BookingSlotManager デモ(仮押さえ→確定、タイムアウト解放、競合) ===")
+
+    slots = BookingSlotManager()
+    slot_89_1530 = ("shop_1", "2026-08-09", "15:30")
+
+    # 田中さんが先に仮押さえ → 成功
+    print(f"田中さんhold: {slots.hold(slot_89_1530, 'user_tanaka', t0)}")
+    # 直後に鈴木さんが同じ枠をhold → 失敗(競合、別の空き枠再提示が必要)
+    print(f"鈴木さんhold(競合): {slots.hold(slot_89_1530, 'user_suzuki', t0 + timedelta(minutes=1))}")
+    # 田中さん、氏名確認が3分で完了しconfirm → 成功
+    print(f"田中さんconfirm: {slots.confirm(slot_89_1530, 'user_tanaka', t0 + timedelta(minutes=3))}")
+
+    slot_89_1700 = ("shop_1", "2026-08-09", "17:00")
+    # 佐藤さんが仮押さえしたまま7分間放置(タイムアウト5分超過)
+    print(f"佐藤さんhold: {slots.hold(slot_89_1700, 'user_sato', t0)}")
+    print(f"7分後のstatus(タイムアウト解放済み): {slots.status(slot_89_1700, t0 + timedelta(minutes=7))}")
+    # タイムアウト後は他の顧客が同じ枠をholdできる
+    print(f"高橋さんhold(タイムアウト後の再提示): "
+          f"{slots.hold(slot_89_1700, 'user_takahashi', t0 + timedelta(minutes=7))}")
+    # 佐藤さんが放置後に確定しようとしても失敗する(安全側)
+    print(f"佐藤さんconfirm(タイムアウト後、失敗想定): "
+          f"{slots.confirm(slot_89_1700, 'user_sato', t0 + timedelta(minutes=8))}")
 
 
 if __name__ == "__main__":
