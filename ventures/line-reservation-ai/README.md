@@ -156,7 +156,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   スキャンを避けるため最小実行間隔5分での間引きを設計。`ConversationFlowStateMachine`に
   `maybe_run_idle_cleanup()`/`maybe_run_archive()`を実装し、間引きにより2回目呼び出しがスキップ
   されること・間引き期間を超えた3回目で正しく失効することをデモで確認した。
-- 最終更新: 2026-08-01 14:00 UTC
+- フェーズ(続き22): tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項として
+  残っていた「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールを設計した
+  (message-tone-variants.md新規作成)。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ回答の
+  登録値そのものは3トーン共通で不変とし、語尾の丁寧度・絵文字の有無・感嘆符の使用可否の3点のみを
+  トーンに応じて機械的に置き換える方式を採用した。確定メッセージ・前日リマインド・仮押さえ案内・
+  FAQ回答テンプレート(駐車場あり)の4例で3トーンの書き換えを確認し、この規則性により新しい
+  メッセージを追加する際も個別にトーン別文言を作り込む必要がないことを示した。
+  owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄(既定はstandard)を
+  追加した。llm-system-prompt-draft.mdへトーン値を受け取って変換規則を適用する指示を追記する作業と
+  実LLM検証は今後の課題として残した。
+- 最終更新: 2026-08-01 15:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -207,8 +217,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 - idle-conversation-trigger-design.md: release_idle_conversations()/archive_completed_conversations()の実行トリガー設計(2026-08-01 13:00 UTC新規作成。専用スケジューラ・Webhook便乗・外部cronサービスの3案を比較し、追加インフラ不要で今すぐ実装できるWebhook便乗案を採用。全リクエスト毎回全件スキャンを避けるための最小実行間隔5分での間引き方式を設計。`ConversationFlowStateMachine.maybe_run_idle_cleanup()`/`maybe_run_archive()`として実装・デモ確認済み)
 - candidates-expired-notification-design.md: conversation-state-cleanup.md 6節の残課題だった、`candidates_presented`失効時に「候補が期限切れになりました」等のメッセージを能動送信すべきかの検討(2026-08-01 14:00 UTC新規作成。プッシュメッセージ課金・送信タイミングの唐突さ・実測データ不在を理由にMVPでは送らない方針(現状維持)を採用。将来切り替えやすいよう`release_idle_conversations()`の戻り値をstage付きの`ReleasedConversation`に変更、送信文言案も記載)
+- message-tone-variants.md: tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項だった「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールの設計(2026-08-01 15:00 UTC新規作成。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ登録値は3トーン共通で不変とし、語尾の丁寧度・絵文字・感嘆符の3点のみをトーンに応じて機械的に置き換える方式を採用。確定メッセージ・前日リマインド・仮押さえ案内・FAQ回答テンプレートの3トーン別文例を作成し、owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄を追加した。llm-system-prompt-draft.mdへの反映・実LLM検証は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-01 15:00 UTC: 「メッセージトーン(カジュアル/standard/フォーマル)」の出し分け
+  ルールはmessage-tone-variants.mdで設計し、owner-settings-wireframe.mdに選択欄を追加した。
+  llm-system-prompt-draft.mdへトーン値を受け取る指示を追記する作業と実LLM検証は未着手のため残す)
+- llm-system-prompt-draft.mdに、店舗設定「メッセージトーン」の値に応じてmessage-tone-variants.mdの
+  変換規則(語尾・絵文字・感嘆符)を適用する指示を追記する(現状のプロンプト草案はstandardトーンのみ前提)
 - (解消済み 2026-08-01 13:00 UTC: release_idle_conversations()/archive_completed_conversations()の
   実行トリガーは、専用ホスティング基盤の確定を待たずに「Webhook受信便乗+最小実行間隔5分での間引き」
   方式(idle-conversation-trigger-design.md)を採用し、`maybe_run_idle_cleanup()`/`maybe_run_archive()`
