@@ -219,7 +219,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   置き換えでMVP時点の「単一プロセス前提」制約を解消できる見込みであることも整理した。
   実装への反映(engine.pyのFirestoreクライアント呼び出しへの書き換え)と、
   想定トラフィックでの読み書き課金試算は次の課題として残した。
-- 最終更新: 2026-08-01 22:00 UTC
+- フェーズ(続き29): firestore-data-model.mdの残課題だった、`hold()`/`confirm()`・
+  `escalationWindows`更新をFirestoreトランザクションに置き換える実装方針を詳細化した
+  (firestore-transaction-design.md新規作成)。`@firestore.transactional`を使った
+  read-modify-writeの疑似コードを設計し、Firestore側の楽観的並行性制御により
+  BookingSlotManagerに残っていた「単一プロセス前提」制約を解消できることを確認。
+  `flush_due_windows()`はドキュメント単位のトランザクションではなく横断クエリが
+  必要なため、配列`queued`の非空判定ができないFirestoreの制約に対応する
+  `queuedCount`フィールドの併設と、複合インデックスが必要になる点を新たな
+  実装時注意点として整理した。実際のFirestoreクライアント接続・動作確認は
+  引き続きGCPプロジェクト作成(オーナー承認待ち)後の課題として残した。
+- 最終更新: 2026-08-01 23:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -275,8 +285,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - prototype/test_engine.py: prototype/engine.pyの自動テストスイート(標準ライブラリのみ、追加依存なし)。`python3 -m unittest test_engine -v`で実行可能(2026-08-01 20:00 UTC新規作成)
 - hosting-platform-selection.md: ホスティング基盤(GCP Cloud Functions・AWS Lambda・Cloudflare Workers・Fly.io等)の比較・選定(2026-08-01 21:00 UTC新規作成。Python資産の流用可否・低トラフィック時コスト・状態ストアとの相性・運用の手軽さで比較し、GCP Cloud Functions (Python) + Firestoreを第一候補に決定。実際のアカウント・プロジェクト作成は着手時に別途オーナー承認が必要)
 - firestore-data-model.md: Firestoreのコレクション設計(2026-08-01 22:00 UTC新規作成。会話状態・予約枠・通知ログ・エスカレーション集約窓の4系統をengine.pyの既存クラス(BookingSlotManager等)に対応付け。通知ログのユニーク集計はcount()集約クエリで実現する案を採用。実装・課金試算は未着手)
+- firestore-transaction-design.md: hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針の設計(2026-08-01 23:00 UTC新規作成。`@firestore.transactional`によるread-modify-writeの疑似コード、flush_due_windows()横断クエリ用の`queuedCount`フィールド併設・複合インデックス要件を整理。実クライアント接続はGCPプロジェクト作成後の課題として残置)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-01 23:00 UTC: hold()/confirm()・escalationWindows更新をFirestore
+  トランザクションに置き換える実装方針を詳細化した(firestore-transaction-design.md)。
+  残るのは想定トラフィックでの読み書き課金試算と、実際のFirestoreクライアント接続による
+  動作確認で、後者はGCPプロジェクト作成(オーナー承認待ち、pending-approval.md参照)後の課題)
+- 想定トラフィック(1店舗あたり月間予約件数の仮置き試算)でのFirestore読み書き回数・
+  無料枠との比較試算に着手する
 - (解消済み 2026-08-01 22:00 UTC: Firestoreのデータモデル設計(会話状態・予約枠・通知ログの
   コレクション分割)を行った(firestore-data-model.md)。次の課題はhold()/confirm()等を
   Firestoreトランザクションへ置き換える実装方針の詳細化と、想定トラフィックでの読み書き
@@ -285,7 +302,6 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - (解消済み 2026-08-01 21:00 UTC: tech-stack.mdで方向性のみだったホスティング基盤の具体的な
   選定を行い、GCP Cloud Functions (Python) + Firestoreを第一候補として決定した
   (hosting-platform-selection.md))
-- hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針の詳細化に着手する
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」
   の値に応じてmessage-tone-variants.mdの変換規則(語尾・絵文字・感嘆符)を適用する指示を反映した。
   残るのはconversation-samples-test-cases.mdへのトーン別出力サンプル追加と実LLM検証で、
