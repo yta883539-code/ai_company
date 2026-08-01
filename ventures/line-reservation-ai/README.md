@@ -135,7 +135,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   営業時間欄に「曜日ごとに営業時間を変える」トグルを追加(OFF時は従来通り単一欄のみ)。
   デモで土曜10:00-15:00の短縮営業時に、evening(17時〜)希望では候補0件、時間帯希望なしでは
   短縮営業時間内の候補が正しく出ることを確認済み(weekday-specific-business-hours.md新規作成)。
-- 最終更新: 2026-08-01 09:00 UTC
+- フェーズ(続き19): business-hours-lunch-break.mdの残課題だった「区間同士が重複・逆転している
+  場合のバリデーションが未実装」に対応した。`_normalize_business_hour_ranges()`に開始>=終了・
+  隣接区間の重複チェックを追加し、違反時は新設した`BusinessHoursConfigError`
+  (ValueError継承)を送出するようにした。`AvailabilitySearcher.__init__`はこの関数を通すため、
+  不正な営業時間設定はコンストラクタ呼び出し時点で検出される。隣接するだけ(終了=次の開始)は
+  重複扱いにせず許可する。デモに3ケース(重複拒否・逆転拒否・隣接許可)を追加し動作確認済み
+  (business-hours-lunch-break.md残課題を解消として反映)。
+- 最終更新: 2026-08-01 11:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -183,7 +190,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 - availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外)
 - weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 09:00 UTC新規作成。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の整理、昼休憩等の1日複数営業時間帯は未対応として残課題)
-- business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 10:00 UTC新規作成。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複バリデーションは未実装として残課題)
+- business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 
 ## 次にやること(候補)
 - release_idle_conversations()の実行トリガー(cron/バッチ間隔、またはWebhook受信時の副作用実行)は、
@@ -194,8 +201,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - weekday-specific-business-hours.mdの残課題: 「曜日ごとに営業時間を変える」トグルON時、
   ある曜日の営業時間を0分間にして定休日相当を表現できてしまう(`closed_weekdays`と二重表現の
   余地がある)点の整理。UI側バリデーションで両者の同時設定を禁止する案が有力だが未確定。
-- (解消済み 2026-08-01 10:00 UTC: 1日に複数の営業時間帯がある(昼休憩)ケースはbusiness-hours-lunch-break.md参照)
-  区間同士の重複・逆転に対するバリデーションは未実装のまま残っている(同ファイルの残課題)。
+- (解消済み 2026-08-01 10:00 UTC: 1日に複数の営業時間帯がある(昼休憩)ケースはbusiness-hours-lunch-break.md参照。
+  同ファイルの残課題だった区間同士の重複・逆転バリデーションも2026-08-01 11:00 UTCに実装済み)
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

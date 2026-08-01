@@ -527,14 +527,36 @@ _TIME_OF_DAY_RANGES = {
 _WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
 
 
+class BusinessHoursConfigError(ValueError):
+    """営業時間の区間設定が不正(逆転・重複)な場合に送出する(business-hours-lunch-break.md残課題)。"""
+
+
 def _normalize_business_hour_ranges(value) -> list[tuple[int, int]]:
     """`business_hours`/`weekday_business_hours`の値を[(開始,終了), ...]形式に正規化する
     (business-hours-lunch-break.md)。単一区間の(開始,終了)タプルと、昼休憩等で分割した
     複数区間のリストの両方を受け付け、後者は開始時刻順に並べ替えて返す。
+
+    各区間が開始<終了であること、区間同士が重複していないことを検証し、違反時は
+    BusinessHoursConfigErrorを送出する(残課題「区間同士が重複・逆転している場合の
+    バリデーションは未実装」への対応)。UI側(オーナー設定画面)での保存時チェックも
+    別途必要だが、エンジン側でも不正な設定を無言で受け入れず即座に検出できるようにする。
     """
     if len(value) == 2 and isinstance(value[0], int):
-        return [tuple(value)]
-    return sorted(tuple(r) for r in value)
+        ranges = [tuple(value)]
+    else:
+        ranges = sorted(tuple(r) for r in value)
+    for open_, close_ in ranges:
+        if open_ >= close_:
+            raise BusinessHoursConfigError(
+                f"営業時間の区間が逆転または長さ0です(開始={open_}分, 終了={close_}分)"
+            )
+    for (_, prev_close), (next_open, _) in zip(ranges, ranges[1:]):
+        if next_open < prev_close:
+            raise BusinessHoursConfigError(
+                f"営業時間の区間が重複しています(前の区間の終了={prev_close}分, "
+                f"次の区間の開始={next_open}分)"
+            )
+    return ranges
 
 
 @dataclass
@@ -999,6 +1021,31 @@ def _demo() -> None:
         15 * 60 <= c.start_minutes and c.start_minutes + 60 <= 17 * 60
         for c in found_lunch_break_afternoon
     ), "afternoon希望でも、昼休憩と重ならない15:00-17:00の範囲外の枠が混入してはならない"
+
+    print()
+    print("=== AvailabilitySearcher デモ(区間の重複・逆転バリデーション) ===")
+
+    try:
+        AvailabilitySearcher(business_hours=[(9 * 60, 15 * 60), (12 * 60, 19 * 60)])
+    except BusinessHoursConfigError as exc:
+        print(f"  重複区間(9:00-15:00, 12:00-19:00)を拒否: {exc}")
+    else:
+        raise AssertionError("重複する区間はBusinessHoursConfigErrorになるはず")
+
+    try:
+        AvailabilitySearcher(business_hours=(15 * 60, 9 * 60))
+    except BusinessHoursConfigError as exc:
+        print(f"  逆転区間(15:00-9:00)を拒否: {exc}")
+    else:
+        raise AssertionError("開始>=終了の区間はBusinessHoursConfigErrorになるはず")
+
+    try:
+        AvailabilitySearcher(
+            business_hours=(9 * 60, 19 * 60),
+            weekday_business_hours={5: [(9 * 60, 12 * 60), (12 * 60, 15 * 60)]},
+        )
+    except BusinessHoursConfigError:
+        raise AssertionError("隣接するだけ(重複なし)の区間は許可されるはず")
 
     print()
     print("=== search_candidates_from_llm_output デモ(LLM構造化出力→検索→候補提示→枠選択) ===")
