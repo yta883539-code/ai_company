@@ -88,8 +88,9 @@ booking_conflict(他ユーザーとの競合)やcandidate_selection_unresolved(�
 
 - スイープの実行トリガー(cron/バッチ間隔、またはWebhook受信時の副作用実行)は、実際のホスティング
   基盤(スプレッドシート+キュー処理 or サーバーレス関数等)が決まった時点で確定する。
-- `candidates_presented`失効時に「候補をご案内しましたが期限切れになりました」等のメッセージを
-  能動的に送るべきか(現状は何も送らず、次回メッセージ時に自然に新規会話として再開する設計)は、
-  能動送信(LINEのプッシュメッセージ課金・送信タイミング)を伴うため要検討。
+- (解消済み 2026-08-01 14:00 UTC: `candidates_presented`失効時の能動通知の要否は
+  candidates-expired-notification-design.mdで検討し、MVPでは送らない方針(現状維持)を採用。
+  将来切り替える場合に備え、`release_idle_conversations()`の戻り値を`stage`付きの
+  `ReleasedConversation`に変更し、通知対象の絞り込みが可能な形にしてある)
 - `confirmed`状態も、来店日を過ぎたあとは通知ログ集計等の対象から外すためのアーカイブ処理が
   将来的に必要になる可能性があるが、本ステップの対象外とする。

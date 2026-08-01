@@ -298,6 +298,16 @@ class SelectSlotResult:
     message: Optional[str] = None  # 失敗時のみ、顧客への案内文言(呼び出し側でそのまま送信可能)
 
 
+@dataclass
+class ReleasedConversation:
+    """release_idle_conversations()の戻り値要素。candidates-expired-notification-design.md準拠。
+    stageを含めるのは、将来candidates_presented失効時のみプッシュ通知を送るオプション機能を
+    追加する際に、呼び出し側がuser_idのリストからstageを再取得しなくても済むようにするため
+    (失効時点で_statesから既に削除されているため、削除後にstageを引き直すことはできない)。"""
+    user_id: str
+    stage: str  # 失効時点のstage: "candidates_presented" | "awaiting_details"
+
+
 # conversation-state-cleanup.mdの無応答失効時間。channel-agnostic-session-id.mdの
 # セッション失効(30分無応答)、escalation-consolidation-logic.mdの30分リセットと時間感覚を統一する。
 CONVERSATION_IDLE_TIMEOUT = timedelta(minutes=30)
@@ -462,16 +472,19 @@ class ConversationFlowStateMachine:
         state = self._states.get(user_id)
         return state.stage if state else None
 
-    def release_idle_conversations(self, now: datetime) -> list[str]:
+    def release_idle_conversations(self, now: datetime) -> list[ReleasedConversation]:
         """conversation-state-cleanup.md準拠。last_activity_atからCONVERSATION_IDLE_TIMEOUT
         (30分)以上経過した会話状態を失効させる。confirmed状態は対象外(前日リマインド等で
         後から参照されるため保持し続ける)。awaiting_detailsで止まっていた場合は、対応する
         枠のholdも明示的に解放する(既にBookingSlotManager側のHOLD_TIMEOUTで解放済みでも、
-        release()自体は無害なため呼び出し順序に依存しない)。エスカレーション通知は送らない
-        (無応答離脱は日常的に発生するため、都度通知すると通知過多になる)。
-        戻り値: 失効させたuser_idのリスト(呼び出し側のログ・監視用)。
+        release()自体は無害なため呼び出し順序に依存しない)。エンジン自身がエスカレーション通知や
+        プッシュメッセージを送ることはない(無応答離脱は日常的に発生するため、都度通知すると
+        通知過多になる。candidates-expired-notification-design.md参照)。
+        戻り値: 失効させた(user_id, stage)のリスト(呼び出し側のログ・監視用、および将来
+        candidates_presented失効時のみ能動メッセージを送るオプション機能を追加する場合の
+        フィルタ材料。stageを含める理由はReleasedConversationのdocstring参照)。
         """
-        released: list[str] = []
+        released: list[ReleasedConversation] = []
         for user_id, state in list(self._states.items()):
             if state.stage == "confirmed":
                 continue
@@ -480,7 +493,7 @@ class ConversationFlowStateMachine:
             if state.stage == "awaiting_details" and state.slot_key is not None:
                 self._slots.release(state.slot_key)
             del self._states[user_id]
-            released.append(user_id)
+            released.append(ReleasedConversation(user_id=user_id, stage=state.stage))
         return released
 
     # confirmed-state-archival.md準拠。来店日を過ぎたconfirmed会話を_statesから間引く。
@@ -518,7 +531,7 @@ class ConversationFlowStateMachine:
     # 毎回全件スキャンするのは無駄なため、最小実行間隔を設けて間引く。
     IDLE_CLEANUP_MIN_INTERVAL = timedelta(minutes=5)
 
-    def maybe_run_idle_cleanup(self, now: datetime) -> Optional[list[str]]:
+    def maybe_run_idle_cleanup(self, now: datetime) -> Optional[list[ReleasedConversation]]:
         """Webhook受信時に呼び出す想定の便乗トリガー。前回実行からIDLE_CLEANUP_MIN_INTERVAL
         未満の場合は何もせずNoneを返す(スキップしたことを呼び出し側が区別できるように、
         「対象0件だった」場合の空リストとは戻り値の型を分けている)。"""
@@ -1201,12 +1214,25 @@ def _demo() -> None:
     idle_flow.provide_details("user_kobayashi", "小林", "カット", t0 + timedelta(minutes=2))
 
     released = idle_flow.release_idle_conversations(t0 + timedelta(minutes=31))
-    print(f"31分後にrelease_idle_conversations()で失効した顧客: {released}")
+    print(f"31分後にrelease_idle_conversations()で失効した顧客(user_id, stage): {released}")
     print(f"中村さんの会話ステージ(失効後、状態が削除されNoneになる): {idle_flow.stage('user_nakamura')}")
     print(f"中村さんが選んだ枠の状態(release_idle_conversations()のrelease()は無害な冪等呼び出し): "
           f"{idle_slots.status(slot_89_1830, t0 + timedelta(minutes=31))}")
     print(f"小林さんの会話ステージ(confirmed済みは対象外のまま残る): "
           f"{idle_flow.stage('user_kobayashi')}")
+
+    print()
+    print("=== candidates-expired-notification-design.md デモ(stage別フィルタの動作確認) ===")
+
+    # 田村さん: candidates_presentedのまま(枠を選ばず)無応答で離脱する。
+    expiry_slots = BookingSlotManager()
+    expiry_flow = ConversationFlowStateMachine(expiry_slots, EscalationConsolidator())
+    expiry_flow.present_candidates("user_tamura", now=t0)
+    expiry_released = expiry_flow.release_idle_conversations(t0 + timedelta(minutes=31))
+    would_notify = [r.user_id for r in expiry_released if r.stage == "candidates_presented"]
+    print(f"31分後の失効結果: {expiry_released}")
+    print(f"MVP方針(能動通知は送らない)では、この{would_notify}宛の通知は送信しない。"
+          f"将来オプション化した場合に送信対象となるuser_idの絞り込みのみデモ")
 
     print()
     print("=== archive_completed_conversations デモ(confirmed-state-archival.md、来店日超過後のアーカイブ) ===")
