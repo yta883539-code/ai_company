@@ -435,7 +435,48 @@ class AvailabilitySearcher:
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記6コンポーネントを1本のパイプラインとして通しで動かす
+# 7. intent-to-flow-mapping.md: LLM構造化出力の`requested_date_range`/
+#    `time_of_day_preference`をAvailabilitySearcherの入力に接続する
+# ---------------------------------------------------------------------------
+
+def search_candidates_from_llm_output(
+    searcher: AvailabilitySearcher,
+    booking_slots: BookingSlotManager,
+    store_id: str,
+    output: dict,
+    menu_duration_minutes: int,
+    now: datetime,
+    max_candidates: int = 3,
+) -> Optional[list[_Candidate]]:
+    """LLM構造化出力(`requested_date_range`/`time_of_day_preference`)から
+    AvailabilitySearcher.find_candidates()を呼び出す。intent-to-flow-mapping.mdの対応表
+    「`datetime_candidate`が曖昧(複数候補あり得る)」行の変換処理にあたる
+    (呼び出し側はこの結果を`present_candidates()`→顧客への候補提示に使う)。
+
+    `requested_date_range`がnull(LLMが日付の手がかりを抽出できなかった場合)はNoneを返す。
+    この場合の聞き直し文言設計は本関数の範囲外(intent-to-flow-mapping.mdの残課題として残す)。
+    """
+    date_range = output.get("requested_date_range")
+    if not date_range:
+        return None
+    from datetime import date as _date
+
+    start = _date.fromisoformat(date_range["start"])
+    end = _date.fromisoformat(date_range["end"])
+    time_of_day_preference = output.get("time_of_day_preference") or "none"
+    return searcher.find_candidates(
+        store_id=store_id,
+        date_range=(start, end),
+        time_of_day_preference=time_of_day_preference,
+        menu_duration_minutes=menu_duration_minutes,
+        booking_slots=booking_slots,
+        now=now,
+        max_candidates=max_candidates,
+    )
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記7コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -598,6 +639,45 @@ def _demo() -> None:
     assert all(c.slot_key != ("shop_1", "2026-08-09", "15:30") for c in found), (
         "確定済み枠が候補に混入してはならない"
     )
+
+    print()
+    print("=== search_candidates_from_llm_output デモ(LLM構造化出力→検索→候補提示→枠選択) ===")
+
+    # 「来週土曜のお昼くらいでカット」に相当するLLM構造化出力(スタブ)。
+    llm_output_new_booking = {
+        "intent": "new_booking",
+        "name": None,
+        "menu": "カット",
+        "datetime_candidate": "来週土曜のお昼くらい",
+        "confirmed": False,
+        "needs_owner_check": False,
+        "requested_date_range": {"start": "2026-08-09", "end": "2026-08-09"},
+        "time_of_day_preference": "afternoon",
+    }
+    e2e_slots = BookingSlotManager()
+    e2e_consolidator = EscalationConsolidator()
+    e2e_flow = ConversationFlowStateMachine(e2e_slots, e2e_consolidator)
+
+    e2e_candidates = search_candidates_from_llm_output(
+        searcher=searcher,
+        booking_slots=e2e_slots,
+        store_id="shop_1",
+        output=llm_output_new_booking,
+        menu_duration_minutes=60,
+        now=t0,
+    )
+    print(f"検索結果: {[c.label for c in e2e_candidates]}")
+
+    e2e_flow.present_candidates("user_ito")
+    chosen = e2e_candidates[0]
+    print(f"伊藤さん枠選択({chosen.label}): "
+          f"{e2e_flow.select_slot('user_ito', chosen.slot_key, t0)}")
+
+    # requested_date_rangeが無い(LLMが日付の手がかりを抽出できなかった)場合はNoneが返る
+    # (聞き直し文言の設計は残課題、intent-to-flow-mapping.md参照)。
+    no_range_output = {**llm_output_new_booking, "requested_date_range": None}
+    print(f"requested_date_range無し: "
+          f"{search_candidates_from_llm_output(searcher, e2e_slots, 'shop_1', no_range_output, 60, t0)}")
 
 
 if __name__ == "__main__":
