@@ -93,7 +93,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   format_reconfirm_message()をmessageに詰めた失敗結果を返し会話ステージは据え置き)。既存の
   select_slot()(slot_keyを直接受け取る版)は呼び出し側で既にslot_keyが分かっているケース向けに
   併存させた。デモで特定成功(鈴木さん)・特定不能時のステージ据え置き(渡辺さん)を確認済み。
-- 最終更新: 2026-08-01 02:00 UTC
+- フェーズ(続き14): README.mdの「次にやること」で1番目に挙げていた、
+  select_slot_from_reply()が再確認文言を返した後も特定できない状態が続く場合の
+  再確認ループの上限回数・エスカレーション切り替えタイミングを設計・実装した。
+  `_ConversationState`に`reconfirm_count`を追加し、特定不能が`RECONFIRM_MAX_ATTEMPTS`(=2)回を
+  超えて連続したら、再確認文言の繰り返しをやめて`EscalationConsolidator`経由でオーナーへ通知し
+  (`escalation_reason='candidate_selection_unresolved'`、booking_conflict同様スキーマ未反映の
+  システム内部イベント)、顧客には担当からの折り返しを案内する定型文を返すようにした。
+  会話ステージは`candidates_presented`のまま据え置き、エスカレーション後は`reconfirm_count`を
+  リセットして再度2回分の猶予から数え直す設計とした(candidate-presentation-and-selection-design.md
+  6節、prototype/engine.pyにデモ追加(高橋さんの3回連続特定不能→3回目でエスカレーション文言に
+  切り替わることを確認))。
+- 最終更新: 2026-08-01 03:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -130,18 +141,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 02:00 UTC更新。`present_candidates()`にcandidates引数を追加し、`select_slot_from_reply()`でresolve_candidate_selection()→select_slot()を1呼び出しに接続。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 03:00 UTC更新。`select_slot_from_reply()`に再確認ループ上限`RECONFIRM_MAX_ATTEMPTS`を実装し、超過時は`EscalationConsolidator`経由でオーナー通知に切り替える処理を追加。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 - conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-07-31 19:58 UTC新規作成。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由と、escalation_reason='booking_conflict'のスキーマ未反映等の残課題を整理)
 - intent-to-flow-mapping.md: LLM構造化出力(intent/datetime_candidate/confirmed等)からConversationFlowStateMachineのselect_slot()/provide_details()をどのタイミングで呼び出すかの対応表(2026-08-01 00:00 UTC更新。`search_candidates_from_llm_output()`実装に伴い対応表を更新。残課題を「提示した候補一覧から顧客の返信に対応するslot_keyを1件特定する処理」に更新。同課題はcandidate-presentation-and-selection-design.mdで対応済み)
 - slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-08-01 00:00 UTC更新。requested_date_range/time_of_day_preferenceフィールドのprototype/engine.py側での接続(search_candidates_from_llm_output())が完了したことを反映)
-- candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 02:00 UTC更新。ConversationFlowStateMachine.select_slot()との接続として`select_slot_from_reply()`を追加したことを反映。誤爆防止のため番号指定が明確なパターンのみ数字と解釈し、それ以外は日付・時刻の突き合わせに委ね、特定不能時は再確認文言に倒す設計)
+- candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 03:00 UTC更新。6節として再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計を追加。誤爆防止のため番号指定が明確なパターンのみ数字と解釈し、それ以外は日付・時刻の突き合わせに委ね、特定不能時は再確認文言に倒す設計)
 
 ## 次にやること(候補)
-- select_slot_from_reply()が再確認文言を返した後も特定できない状態が続く場合の
-  再確認ループの上限回数・エスカレーション切り替えタイミングの設計
-  (candidate-presentation-and-selection-design.mdの残課題)。
+- エスカレーション後、顧客が無反応のまま会話が終了した場合の会話状態のクリーンアップ(タイムアウト解放)の設計
+  (candidate-presentation-and-selection-design.md 6節の残課題)。
 - `_Candidate.label`への曜日追加(現状`8/9 14:00〜`で曜日を含まず、tone-and-manner-guideline.mdの
   確定メッセージ・リマインドメッセージの表記(`8/9(土)`)と不一致。AvailabilitySearcherのlabel生成箇所を修正)。
 - AvailabilitySearcherのMVP制約(店舗全曜日固定の営業時間のみ対応、定休日・曜日別営業時間未対応)の解消。

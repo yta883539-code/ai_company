@@ -263,6 +263,16 @@ SLOT_CONFLICT_MESSAGE_TEMPLATE = (
     "近い時間ですと {alt_candidates} が空いております。いかがでしょうか?"
 )
 
+# 再確認ループの上限(candidate-presentation-and-selection-design.md 6節)。
+# resolve_candidate_selection()による特定不能がこの回数を超えて連続した場合、
+# 再確認メッセージの繰り返しをやめてオーナーへエスカレーションする。
+RECONFIRM_MAX_ATTEMPTS = 2
+
+ESCALATION_HANDOFF_MESSAGE = (
+    "申し訳ございません、うまく聞き取れませんでした。"
+    "担当より改めてご連絡いたしますので少々お待ちください。"
+)
+
 
 @dataclass
 class SelectSlotResult:
@@ -277,6 +287,7 @@ class _ConversationState:
     name: Optional[str] = None
     menu: Optional[str] = None
     candidates: Optional[list] = None  # present_candidates()で提示した候補一覧(select_slot_from_reply用)
+    reconfirm_count: int = 0  # select_slot_from_reply()での特定不能が連続した回数(RECONFIRM_MAX_ATTEMPTS参照)
 
 
 class ConversationFlowStateMachine:
@@ -357,8 +368,26 @@ class ConversationFlowStateMachine:
         candidates = state.candidates
         slot_key = resolve_candidate_selection(reply_text, candidates)
         if slot_key is None:
+            state.reconfirm_count += 1
+            if state.reconfirm_count > RECONFIRM_MAX_ATTEMPTS:
+                # 再確認をRECONFIRM_MAX_ATTEMPTS回送っても特定できない場合は、案内文言を
+                # 繰り返さずオーナーへ引き継ぐ(candidate-presentation-and-selection-design.md 6節)。
+                # booking_conflictと同様、システム内部イベントのためbooking_output.schema.jsonの
+                # escalation_reason enumには未追加(今後の課題)。
+                self._consolidator.on_event(
+                    user_id,
+                    {
+                        "intent": "escalation",
+                        "needs_owner_check": True,
+                        "escalation_reason": "candidate_selection_unresolved",
+                    },
+                    now,
+                )
+                state.reconfirm_count = 0
+                return SelectSlotResult(success=False, message=ESCALATION_HANDOFF_MESSAGE)
             return SelectSlotResult(success=False, message=format_reconfirm_message(candidates))
 
+        state.reconfirm_count = 0
         chosen = next(c for c in candidates if c.slot_key == slot_key)
         alt_labels = [c.label for c in candidates if c.slot_key != slot_key]
         return self.select_slot(
@@ -821,6 +850,16 @@ def _demo() -> None:
     print(f"渡辺さん枠選択(返信『午後がいいです』、特定不能想定): success={unresolved.success}")
     print(unresolved.message)
     print(f"渡辺さんの会話ステージ(据え置き確認): {reply_flow.stage('user_watanabe')}")
+
+    print()
+    print("=== select_slot_from_reply 再確認ループ上限デモ(RECONFIRM_MAX_ATTEMPTS超でエスカレーション) ===")
+
+    # 特定不能な返信がRECONFIRM_MAX_ATTEMPTS(=2)回続いた後、3回目でエスカレーションに切り替わる。
+    reply_flow.present_candidates("user_takahashi_r", e2e_candidates)
+    for attempt in range(1, 4):
+        r = reply_flow.select_slot_from_reply("user_takahashi_r", "午後がいいです", t0)
+        print(f"高橋さん{attempt}回目(特定不能想定): success={r.success}, message={r.message!r}")
+    print(f"高橋さんの会話ステージ(据え置き確認): {reply_flow.stage('user_takahashi_r')}")
 
 
 if __name__ == "__main__":

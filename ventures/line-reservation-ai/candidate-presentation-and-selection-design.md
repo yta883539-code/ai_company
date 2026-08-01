@@ -80,10 +80,34 @@ E8方針と同様、誤確定より聞き直しを優先)に倒して再確認�
   (会話ステージは`candidates_presented`のまま据え置き)。`select_slot()`自体は`slot_key`を直接
   受け取る従来のシグネチャのまま残し、呼び出し側でslot_keyを既に特定できているケース向けに併存させる
   設計とした(prototype/engine.py、デモで鈴木さん(特定成功)・渡辺さん(特定不能→ステージ据え置き)を確認)。
-- `resolve_candidate_selection()`が`None`を返した場合の再確認ループの上限回数・
-  エスカレーション切り替えタイミングの設計。
+- ~~`resolve_candidate_selection()`が`None`を返した場合の再確認ループの上限回数・
+  エスカレーション切り替えタイミングの設計~~ → 対応済み(6節参照)。
 - `_Candidate.label`への曜日追加(上記1節の既知の残課題)。
 - booking_output.schema.jsonへの「候補選択」用フィールド追加要否の再検討
   (現状はLLM構造化出力を経由せず、顧客の生返信テキストを直接`resolve_candidate_selection()`に
   渡す設計としているため、スキーマ拡張は不要という結論を暫定的に採用しているが、
   LLM側で先に意図抽出させる設計に変える場合は再検討が必要)。
+
+## 6. 再確認ループの上限・エスカレーション切り替え設計
+
+5節で残っていた「特定不能が続いた場合の再確認ループの上限」を設計・実装した。
+
+- `_ConversationState`に`reconfirm_count`(既定0)を追加し、`select_slot_from_reply()`で
+  特定不能(`resolve_candidate_selection()`が`None`)のたびに加算する。
+- 上限は`RECONFIRM_MAX_ATTEMPTS = 2`(再確認メッセージを最大2回まで送る)。3回目の特定不能で、
+  同じ再確認文言を繰り返す代わりにオーナーへエスカレーションし、顧客には
+  `ESCALATION_HANDOFF_MESSAGE`(「担当より改めてご連絡いたします」の定型文)を返す。
+- エスカレーション通知は`EscalationConsolidator.on_event()`経由で送る(連続エスカレーション時の
+  集約ロジックをそのまま流用できる)。`escalation_reason`は`'candidate_selection_unresolved'`と
+  したが、`booking_conflict`(conversation-flow-state-machine-design.md参照)と同様、
+  LLM構造化出力ではなくシステム内部で生成するイベントのため、現状booking_output.schema.jsonの
+  enum(`consultation`/`unimplemented_feature`)には未追加(通知ログ集計へ含める場合は今後enum拡張が必要)。
+- エスカレーション後は`reconfirm_count`を0にリセットする(会話ステージは`candidates_presented`の
+  ままとし、同じ候補一覧に対して顧客が改めて明確な返信をすれば特定を継続できるようにした。
+  次に特定不能が続いた場合は再度2回の再確認を経てからエスカレーションする)。
+- 番号選択に成功した場合も`reconfirm_count`を0にリセットする。
+
+**今後の課題**: `RECONFIRM_MAX_ATTEMPTS = 2`は他のエスカレーション系設計(escalation-consolidation-logic.mdの
+再発火上限等)と同様、仮の目安であり実測データが取れた際に見直す。また、エスカレーション後に
+顧客が無反応のまま会話が終了した場合の会話状態のクリーンアップ(タイムアウト解放)は未設計で、
+次回以降の課題とする。
