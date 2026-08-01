@@ -276,6 +276,7 @@ class _ConversationState:
     slot_key: Optional[tuple] = None
     name: Optional[str] = None
     menu: Optional[str] = None
+    candidates: Optional[list] = None  # present_candidates()で提示した候補一覧(select_slot_from_reply用)
 
 
 class ConversationFlowStateMachine:
@@ -306,9 +307,12 @@ class ConversationFlowStateMachine:
         self._consolidator = consolidator
         self._states: dict[str, _ConversationState] = {}
 
-    def present_candidates(self, user_id: str) -> None:
-        """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。"""
-        self._states[user_id] = _ConversationState(stage="candidates_presented")
+    def present_candidates(self, user_id: str, candidates: Optional[list] = None) -> None:
+        """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
+        candidatesを渡しておくと、select_slot_from_reply()で顧客の返信からslot_keyを
+        自動解決できる(candidate-presentation-and-selection-design.md 4節)。
+        """
+        self._states[user_id] = _ConversationState(stage="candidates_presented", candidates=candidates)
 
     def select_slot(
         self,
@@ -335,6 +339,35 @@ class ConversationFlowStateMachine:
             slot_label=slot_label, alt_candidates=alt_candidates
         )
         return SelectSlotResult(success=False, message=message)
+
+    def select_slot_from_reply(self, user_id: str, reply_text: str, now: datetime) -> SelectSlotResult:
+        """顧客の返信テキストから直接候補を確定する高レベルAPI。present_candidates()で
+        渡したcandidatesに対してresolve_candidate_selection()を適用し、特定できればselect_slot()
+        へ、特定できなければformat_reconfirm_message()を案内文言として返す
+        (candidate-presentation-and-selection-design.md 5節「select_slot()との接続」への対応)。
+        呼び出し側でslot_keyを直接特定できている場合は、従来どおりselect_slot()を直接使う。
+        """
+        state = self._states.get(user_id)
+        if state is None or state.stage != "candidates_presented":
+            raise ConversationFlowError(f"unexpected stage for select_slot_from_reply: {state}")
+        if not state.candidates:
+            raise ConversationFlowError(
+                "select_slot_from_reply requires candidates passed to present_candidates()"
+            )
+        candidates = state.candidates
+        slot_key = resolve_candidate_selection(reply_text, candidates)
+        if slot_key is None:
+            return SelectSlotResult(success=False, message=format_reconfirm_message(candidates))
+
+        chosen = next(c for c in candidates if c.slot_key == slot_key)
+        alt_labels = [c.label for c in candidates if c.slot_key != slot_key]
+        return self.select_slot(
+            user_id,
+            slot_key,
+            now,
+            slot_label=chosen.label,
+            alt_candidates="、".join(alt_labels) if alt_labels else "改めてご希望の日時",
+        )
 
     def provide_details(self, user_id: str, name: str, menu: str, now: datetime) -> bool:
         """氏名・メニューが揃った時点で呼ぶ。confirm()成功ならconfirmedへ進む。
@@ -771,6 +804,23 @@ def _demo() -> None:
     print(f"返信『午後がいいです』(特定不能想定): "
           f"{resolve_candidate_selection('午後がいいです', e2e_candidates)}")
     print(format_reconfirm_message(e2e_candidates))
+
+    print()
+    print("=== select_slot_from_reply デモ(ConversationFlowStateMachineとの接続) ===")
+
+    # present_candidates()にcandidatesを渡しておくと、以降は顧客の返信テキストを
+    # そのままselect_slot_from_reply()に渡すだけでhold()まで完了する。
+    reply_flow = ConversationFlowStateMachine(e2e_slots, e2e_consolidator)
+    reply_flow.present_candidates("user_suzuki", e2e_candidates)
+    print(f"鈴木さん枠選択(返信『三番でお願いします』): "
+          f"{reply_flow.select_slot_from_reply('user_suzuki', '三番でお願いします', t0)}")
+
+    # 特定不能な返信 → select_slot()は呼ばれず再確認文言が返る。stageはcandidates_presentedのまま。
+    reply_flow.present_candidates("user_watanabe", e2e_candidates)
+    unresolved = reply_flow.select_slot_from_reply("user_watanabe", "午後がいいです", t0)
+    print(f"渡辺さん枠選択(返信『午後がいいです』、特定不能想定): success={unresolved.success}")
+    print(unresolved.message)
+    print(f"渡辺さんの会話ステージ(据え置き確認): {reply_flow.stage('user_watanabe')}")
 
 
 if __name__ == "__main__":

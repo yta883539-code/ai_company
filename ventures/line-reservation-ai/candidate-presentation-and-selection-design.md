@@ -72,10 +72,14 @@ E8方針と同様、誤確定より聞き直しを優先)に倒して再確認�
 
 ## 5. 今後の課題
 
-- ConversationFlowStateMachine.select_slot()との接続(現状`select_slot()`は`slot_key`を
-  直接受け取る設計のため、`resolve_candidate_selection()`の呼び出しは`select_slot()`の
-  手前で呼び出し側が行う想定。`select_slot()`自体に候補一覧を渡して内部で解決させる設計に
-  変更するかは要検討)。
+- ~~ConversationFlowStateMachine.select_slot()との接続~~ → 対応済み。`present_candidates(user_id, candidates)`
+  でcandidatesを状態に保持できるようにし、`select_slot_from_reply(user_id, reply_text, now)`を
+  新規追加した。内部で`resolve_candidate_selection()`を呼び、特定できれば`select_slot()`
+  (slot_label/alt_candidatesは選ばれた候補・残りの候補labelから自動生成)、特定できなければ
+  `format_reconfirm_message()`をmessageに詰めた`SelectSlotResult(success=False, ...)`を返す
+  (会話ステージは`candidates_presented`のまま据え置き)。`select_slot()`自体は`slot_key`を直接
+  受け取る従来のシグネチャのまま残し、呼び出し側でslot_keyを既に特定できているケース向けに併存させる
+  設計とした(prototype/engine.py、デモで鈴木さん(特定成功)・渡辺さん(特定不能→ステージ据え置き)を確認)。
 - `resolve_candidate_selection()`が`None`を返した場合の再確認ループの上限回数・
   エスカレーション切り替えタイミングの設計。
 - `_Candidate.label`への曜日追加(上記1節の既知の残課題)。
