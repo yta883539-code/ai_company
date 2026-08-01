@@ -442,6 +442,9 @@ _TIME_OF_DAY_RANGES = {
 }
 
 
+_WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
+
+
 @dataclass
 class _Candidate:
     slot_key: tuple
@@ -489,7 +492,10 @@ class AvailabilitySearcher:
                 if slot_dt >= now:
                     slot_key = (store_id, day.isoformat(), f"{minute // 60:02d}:{minute % 60:02d}")
                     if booking_slots.status(slot_key, now) is None:
-                        label = f"{day.month}/{day.day} {minute // 60:02d}:{minute % 60:02d}〜"
+                        label = (
+                            f"{day.month}/{day.day}({_WEEKDAY_JA[day.weekday()]}) "
+                            f"{minute // 60:02d}:{minute % 60:02d}〜"
+                        )
                         candidates.append(_Candidate(slot_key=slot_key, label=label, start_minutes=minute))
                 minute += self._interval
             day += timedelta(days=1)
@@ -603,6 +609,7 @@ def resolve_candidate_selection(reply_text: str, candidates: list) -> Optional[t
 
 def _label_date_and_time_in_reply(label: str, normalized_reply: str) -> bool:
     date_part, _, time_part = label.partition(" ")
+    date_part = date_part.partition("(")[0]  # "8/9(土)" -> "8/9"。曜日抜きの返信でも一致させる
     time_part = time_part.rstrip("〜")
     return bool(date_part) and bool(time_part) and date_part in normalized_reply and time_part in normalized_reply
 

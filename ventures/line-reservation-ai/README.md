@@ -104,7 +104,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   リセットして再度2回分の猶予から数え直す設計とした(candidate-presentation-and-selection-design.md
   6節、prototype/engine.pyにデモ追加(高橋さんの3回連続特定不能→3回目でエスカレーション文言に
   切り替わることを確認))。
-- 最終更新: 2026-08-01 03:00 UTC
+- フェーズ(続き15): README.mdの「次にやること」で指摘していた
+  `_Candidate.label`への曜日追加(`8/9 14:00〜` → `8/9(土) 14:00〜`、
+  tone-and-manner-guideline.mdの確定メッセージ・リマインド表記との不一致解消)を実施した。
+  `prototype/engine.py`に`_WEEKDAY_JA`を追加しラベル生成に反映。この変更により
+  `_label_date_and_time_in_reply()`(顧客の自然文返信からの候補特定)が曜日抜き返信と
+  一致しなくなる回帰が生じることが判明したため、日付部分の比較を`(`より前のみで行うよう
+  修正した(候補: 曜日付き返信・曜日抜き返信の両方で一致することを確認済み)。
+  デモ実行で全シナリオの成功を再確認済み(candidate-label-weekday-fix.md新規作成)。
+- 最終更新: 2026-08-01 04:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -148,12 +156,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - intent-to-flow-mapping.md: LLM構造化出力(intent/datetime_candidate/confirmed等)からConversationFlowStateMachineのselect_slot()/provide_details()をどのタイミングで呼び出すかの対応表(2026-08-01 00:00 UTC更新。`search_candidates_from_llm_output()`実装に伴い対応表を更新。残課題を「提示した候補一覧から顧客の返信に対応するslot_keyを1件特定する処理」に更新。同課題はcandidate-presentation-and-selection-design.mdで対応済み)
 - slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-08-01 00:00 UTC更新。requested_date_range/time_of_day_preferenceフィールドのprototype/engine.py側での接続(search_candidates_from_llm_output())が完了したことを反映)
 - candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 03:00 UTC更新。6節として再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計を追加。誤爆防止のため番号指定が明確なパターンのみ数字と解釈し、それ以外は日付・時刻の突き合わせに委ね、特定不能時は再確認文言に倒す設計)
+- candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 
 ## 次にやること(候補)
 - エスカレーション後、顧客が無反応のまま会話が終了した場合の会話状態のクリーンアップ(タイムアウト解放)の設計
   (candidate-presentation-and-selection-design.md 6節の残課題)。
-- `_Candidate.label`への曜日追加(現状`8/9 14:00〜`で曜日を含まず、tone-and-manner-guideline.mdの
-  確定メッセージ・リマインドメッセージの表記(`8/9(土)`)と不一致。AvailabilitySearcherのlabel生成箇所を修正)。
 - AvailabilitySearcherのMVP制約(店舗全曜日固定の営業時間のみ対応、定休日・曜日別営業時間未対応)の解消。
 - escalation_reason='booking_conflict'(確定競合時のオーナー通知)をbooking_output.schema.jsonの
   enumに追加するか、システム内部イベント用の別集計軸として扱うかを検討する
