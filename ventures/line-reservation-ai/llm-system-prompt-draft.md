@@ -1,4 +1,4 @@
-# LLM会話エンジン システムプロンプト草案(2026-07-30 20:58 UTC更新)
+# LLM会話エンジン システムプロンプト草案(2026-08-01 16:00 UTC更新)
 
 conversation-flow.md・double-booking-prevention.md・tone-and-manner-guideline.md・
 pending-timeout-ux.md・no-show-handling.md・precheck-strengthening.md の設計内容を、
@@ -39,7 +39,13 @@ tech-stack.md の「次のステップ候補」で挙げていた
 6. 医療・健康相談、料金交渉、クレーム対応など予約以外の相談を受けた場合は、
    AIが独自に回答・判断せず「オーナーへおつなぎします」と案内し、
    会話ログをオーナー宛に転送する(即座にエスカレーション、AIは断定回答をしない)。
-7. 文体・敬語レベルは tone-and-manner-guideline.md の店舗トーン設定(丁寧/親しみ等)に従う。
+7. 文体は、店舗設定「メッセージトーン」(フォーマル/standard/カジュアル、既定はstandard、
+   owner-settings-wireframe.mdの選択欄で店舗が設定)の値に応じて、message-tone-variants.mdの
+   変換規則(語尾の丁寧度・絵文字の有無/個数・感嘆符の有無)を機械的に適用する。ただし
+   「仮押さえ」「確定」等の固定語彙、日付・時刻の表記形式、FAQ回答テンプレート(厳守事項9a)の
+   実質情報(住所・台数等の登録値そのもの)はトーン設定に関わらず変更しない
+   (message-tone-variants.md「3トーン共通で変えてはいけないもの」参照)。店舗設定に
+   メッセージトーンが未設定の場合はstandardを既定値として扱う。
 8. 常連客(precheck-strengthening.mdで定義する条件に該当)には確認項目を簡略化してよいが、
    3の確定条件(名前・メニュー・日時)は常連客でも省略しない。
 9. 予約・キャンセル・変更のいずれにも該当しない入力は、以下の2種類に区別して扱う
@@ -103,6 +109,13 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-08-01 16:00 UTC: message-tone-variants.mdの残課題だった、店舗設定「メッセージトーン」
+  (フォーマル/standard/カジュアル)の値に応じてトーン別の言い回し(語尾・絵文字・感嘆符)を
+  適用する指示を厳守事項7に反映した。従来のtone-and-manner-guideline.md参照(丁寧/親しみの
+  2値的な記述)を、message-tone-variants.mdの3トーン変換規則を参照する形に置き換え、
+  固定語彙・日付時刻表記・FAQ実質情報はトーンに関わらず変更しない旨を明記した。
+  実LLM検証(このプロンプト通りにトーンを安定して出し分けられるか)は
+  pending-approval.md記載の実LLM呼び出しテストとあわせて未着手。
 - 2026-07-31 22:58 UTC: slot-search-component-design.mdの残課題だった、
   AvailabilitySearcher(空き枠算出)への入力用フィールド`requested_date_range`・
   `time_of_day_preference`をbooking_output.schema.jsonに追加し、自然文の
@@ -140,6 +153,9 @@ tech-stack.md の「次のステップ候補」で挙げていた
   owner-settings-wireframe.mdの顧客詳細画面設計と合わせて詳細化が必要。
 - 厳守事項10で追加した保留文言は、pending-timeout-ux.md・no-show-handling.mdの既存文言と
   トーンが揃っているか未確認(tone-and-manner-guideline.mdとの突き合わせが必要)。
+- 厳守事項7に反映したメッセージトーン変換規則を、LLMが構造化出力の生成と同時にブレなく
+  適用できるかは実LLM呼び出し(pending-approval.md参照、未承認)後でないと検証できない
+  (message-tone-variants.md「未検証の仮説」と共通の残課題)。
 
 ## 次のステップ候補
 - 厳守事項9・10を反映した状態で、conversation-samples-test-cases.mdのE6・E9ケースの
@@ -148,3 +164,5 @@ tech-stack.md の「次のステップ候補」で挙げていた
 - `faq_segments`拡張を反映したE13a/13bの想定JSON出力例をconversation-samples-test-cases.mdに追記する
 - escalation-notification-templates.md(2026-07-31新設)の通知文面を、本ファイルの厳守事項6・10・9aの
   説明文からも参照できるようリンク・要約を追記する
+- conversation-samples-test-cases.mdに、同一シナリオをフォーマル/カジュアルトーンでも生成させた場合の
+  期待出力サンプルを追加する(message-tone-variants.md「次のステップ候補」参照、実LLM検証とあわせて実施が効率的)
