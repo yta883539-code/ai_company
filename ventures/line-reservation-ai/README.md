@@ -197,7 +197,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   バリデーション)・候補選択の自然文解決・トーン変換の主要ロジックを31件のテストケースに
   整理した。全件パスを確認済み(automated-test-suite.md新規作成)。`_demo()`は読み物として
   引き続き残置。
-- 最終更新: 2026-08-01 20:00 UTC
+- フェーズ(続き27): automated-test-suite.mdの「次の課題」で挙げていた「ホスティング基盤が
+  固まった段階でCIでの自動実行を検討する」の前提となる、tech-stack.mdで方向性のみだった
+  ホスティング基盤の具体的な選定に着手した。GCP Cloud Functions (Python) + Firestore・
+  AWS Lambda + DynamoDB・Cloudflare Workers・Fly.io等のコンテナ常駐PaaSを要件(Python資産の
+  流用可否・低トラフィック時コスト・状態ストアとの相性・運用の手軽さ)で比較し、
+  prototype/engine.pyがPython標準ライブラリのみで書かれている点を活かせることと無料枠の
+  手厚さから、GCP Cloud Functions (Python) + Firestoreを第一候補として決定した
+  (hosting-platform-selection.md新規作成)。実際のGCPプロジェクト作成・請求先設定は
+  「アカウント作成」に該当するため今回は行わず、着手時に改めてオーナー承認を得る前提とした。
+  Firestoreの具体的なデータモデル設計(会話状態・予約枠・通知ログのコレクション分割)は
+  次の課題として残した。
+- 最終更新: 2026-08-01 21:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -251,8 +262,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - message-tone-variants.md: tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項だった「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールの設計(2026-08-01 19:00 UTC更新。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ登録値は3トーン共通で不変とし、語尾の丁寧度・絵文字・感嘆符の3点のみをトーンに応じて機械的に置き換える方式を採用。確定メッセージ・前日リマインド・仮押さえ案内・FAQ回答テンプレートの3トーン別文例を作成し、owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄を追加した。前日リマインド(スケジューラ発火起点)とその他(LLM出力起点)の2経路でトーン変換を共通関数化できるかの検討・実装(prototype/engine.pyの`_render_by_tone()`)が完了。実LLM検証は未着手)
 - automated-test-suite.md: prototype/engine.pyの主要ロジックを`unittest`ベースの自動テストスイート(prototype/test_engine.py)として整理した経緯・カバー範囲のまとめ(2026-08-01 20:00 UTC新規作成。31件全件パス確認済み)
 - prototype/test_engine.py: prototype/engine.pyの自動テストスイート(標準ライブラリのみ、追加依存なし)。`python3 -m unittest test_engine -v`で実行可能(2026-08-01 20:00 UTC新規作成)
+- hosting-platform-selection.md: ホスティング基盤(GCP Cloud Functions・AWS Lambda・Cloudflare Workers・Fly.io等)の比較・選定(2026-08-01 21:00 UTC新規作成。Python資産の流用可否・低トラフィック時コスト・状態ストアとの相性・運用の手軽さで比較し、GCP Cloud Functions (Python) + Firestoreを第一候補に決定。実際のアカウント・プロジェクト作成は着手時に別途オーナー承認が必要)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-01 21:00 UTC: tech-stack.mdで方向性のみだったホスティング基盤の具体的な
+  選定を行い、GCP Cloud Functions (Python) + Firestoreを第一候補として決定した
+  (hosting-platform-selection.md)。次の課題はFirestoreの具体的なデータモデル設計
+  (会話状態・予約枠・通知ログのコレクション分割)。実際のGCPプロジェクト作成・請求先設定は
+  「アカウント作成」に該当するため着手時に別途オーナー承認が必要)
+- Firestoreのデータモデル設計(会話状態・予約枠・通知ログのコレクション分割)に着手する
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」
   の値に応じてmessage-tone-variants.mdの変換規則(語尾・絵文字・感嘆符)を適用する指示を反映した。
   残るのはconversation-samples-test-cases.mdへのトーン別出力サンプル追加と実LLM検証で、

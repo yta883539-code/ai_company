@@ -8,6 +8,7 @@ LINE公式アカウント(Messaging API) ⇄ Webhookサーバー ⇄ LLM(予約�
    - 顧客とのトーク送受信の入口。Webhookでメッセージを受信し、返信APIで応答する。
 2. **Webhook / バックエンド**
    - サーバーレス関数(例: Cloud Functions / Lambda相当)を想定。低トラフィックなので従量課金で初期コストを抑えられる。
+   - 2026-08-01 21:00 UTC時点でGCP Cloud Functions (Python) + Firestoreを第一候補として選定済み(hosting-platform-selection.md参照。AWS Lambda/DynamoDB・Cloudflare Workers・Fly.io等のコンテナ常駐PaaSと比較し、prototype/engine.pyのPython資産をそのまま活かせる点と無料枠の手厚さを決め手とした)。実際のGCPプロジェクト作成・請求先設定は着手時にオーナー承認が必要。
 3. **LLM(自然文解釈)**
    - 顧客の自然文メッセージ→「希望日時・メニュー・氏名」等の構造化データに変換。
    - 空き枠候補の提示文言や、キャンセル・変更の意図分類もLLMに担わせる。
@@ -28,6 +29,8 @@ LINE公式アカウント(Messaging API) ⇄ Webhookサーバー ⇄ LLM(予約�
 - 顧客数が少ない立ち上げ期は限界費用がほぼゼロに近い設計とする。
 
 ## 次のステップ候補
-- 予約フローの会話サンプル(顧客⇄AI)を具体的に書き出す
-- 二重予約防止のロジック設計
+- ~~予約フローの会話サンプル(顧客⇄AI)を具体的に書き出す~~ → conversation-flow.md・conversation-samples-test-cases.md にて設計済み
+- ~~二重予約防止のロジック設計~~ → double-booking-prevention.md・BookingSlotManager(prototype/engine.py)にて設計・実装済み
 - ~~LINE Messaging APIの最新の料金・利用規約の確認(要web調査)~~ → line-api-pricing.md にて調査済み
+- ~~ホスティング基盤の具体的な選定~~ → hosting-platform-selection.md にてGCP Cloud Functions + Firestoreを選定済み
+- Firestoreのデータモデル(会話状態・予約枠・通知ログのコレクション設計)の具体化(未着手)
