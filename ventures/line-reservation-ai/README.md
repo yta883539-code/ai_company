@@ -208,7 +208,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「アカウント作成」に該当するため今回は行わず、着手時に改めてオーナー承認を得る前提とした。
   Firestoreの具体的なデータモデル設計(会話状態・予約枠・通知ログのコレクション分割)は
   次の課題として残した。
-- 最終更新: 2026-08-01 21:00 UTC
+- フェーズ(続き28): hosting-platform-selection.mdの次の課題だった、Firestoreの具体的な
+  データモデル設計(会話状態・予約枠・通知ログのコレクション分割)に着手した。
+  BookingSlotManager・ConversationFlowStateMachine・NotificationLogAggregator・
+  EscalationConsolidatorがオンメモリのdict/setで保持している状態を、
+  `stores/{storeId}/bookingSlots`・`conversations`・`notificationLogEntries`+
+  `notificationLogUniqueTopics`(count()集約クエリでのユニーク集計用)・
+  `escalationWindows`の各コレクションに対応付けた(firestore-data-model.md新規作成)。
+  hold()/confirm()等の並行書き込みが絡む操作はFirestoreトランザクションへの
+  置き換えでMVP時点の「単一プロセス前提」制約を解消できる見込みであることも整理した。
+  実装への反映(engine.pyのFirestoreクライアント呼び出しへの書き換え)と、
+  想定トラフィックでの読み書き課金試算は次の課題として残した。
+- 最終更新: 2026-08-01 22:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -263,14 +274,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - automated-test-suite.md: prototype/engine.pyの主要ロジックを`unittest`ベースの自動テストスイート(prototype/test_engine.py)として整理した経緯・カバー範囲のまとめ(2026-08-01 20:00 UTC新規作成。31件全件パス確認済み)
 - prototype/test_engine.py: prototype/engine.pyの自動テストスイート(標準ライブラリのみ、追加依存なし)。`python3 -m unittest test_engine -v`で実行可能(2026-08-01 20:00 UTC新規作成)
 - hosting-platform-selection.md: ホスティング基盤(GCP Cloud Functions・AWS Lambda・Cloudflare Workers・Fly.io等)の比較・選定(2026-08-01 21:00 UTC新規作成。Python資産の流用可否・低トラフィック時コスト・状態ストアとの相性・運用の手軽さで比較し、GCP Cloud Functions (Python) + Firestoreを第一候補に決定。実際のアカウント・プロジェクト作成は着手時に別途オーナー承認が必要)
+- firestore-data-model.md: Firestoreのコレクション設計(2026-08-01 22:00 UTC新規作成。会話状態・予約枠・通知ログ・エスカレーション集約窓の4系統をengine.pyの既存クラス(BookingSlotManager等)に対応付け。通知ログのユニーク集計はcount()集約クエリで実現する案を採用。実装・課金試算は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-01 22:00 UTC: Firestoreのデータモデル設計(会話状態・予約枠・通知ログの
+  コレクション分割)を行った(firestore-data-model.md)。次の課題はhold()/confirm()等を
+  Firestoreトランザクションへ置き換える実装方針の詳細化と、想定トラフィックでの読み書き
+  課金試算。実際のFirestoreデータベース作成・GCPプロジェクトの請求先設定は「アカウント作成」
+  に該当するため着手時に別途オーナー承認が必要)
 - (解消済み 2026-08-01 21:00 UTC: tech-stack.mdで方向性のみだったホスティング基盤の具体的な
   選定を行い、GCP Cloud Functions (Python) + Firestoreを第一候補として決定した
-  (hosting-platform-selection.md)。次の課題はFirestoreの具体的なデータモデル設計
-  (会話状態・予約枠・通知ログのコレクション分割)。実際のGCPプロジェクト作成・請求先設定は
-  「アカウント作成」に該当するため着手時に別途オーナー承認が必要)
-- Firestoreのデータモデル設計(会話状態・予約枠・通知ログのコレクション分割)に着手する
+  (hosting-platform-selection.md))
+- hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針の詳細化に着手する
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」
   の値に応じてmessage-tone-variants.mdの変換規則(語尾・絵文字・感嘆符)を適用する指示を反映した。
   残るのはconversation-samples-test-cases.mdへのトーン別出力サンプル追加と実LLM検証で、
