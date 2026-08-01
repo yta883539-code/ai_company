@@ -30,12 +30,16 @@ booking-slot-manager-design.mdの記述は「後着の予約をpending状態に�
 「このユーザーの会話状態をcandidates_presentedに戻し、オーナーへ通知するのみ」であると判断した。
 
 ## 未解決の課題(今後の検討事項)
-- 通知イベントの`escalation_reason='booking_conflict'`は、現行の
+- ~~通知イベントの`escalation_reason='booking_conflict'`は、現行の
   `schema/booking_output.schema.json`のenum(`consultation`/`unimplemented_feature`)には
   未追加。この通知はLLM構造化出力ではなくシステム内部(BookingSlotManagerとの接続層)で
   生成するイベントのため、現時点ではJSON Schema検証の対象外としている。
   NotificationLogAggregatorの集計に含める場合はenum拡張(またはシステム内部イベント用の
-  別集計軸の新設)が必要になる。
+  別集計軸の新設)が必要になる。~~
+  → 2026-08-01決定・対応済み。enumへの追加は行わず(LLMが出力しないイベントのため)、
+  `NotificationLogAggregator`側に`SYSTEM_ESCALATION_REASONS`区分を新設し、一般相談とは
+  別枠の`system_event_counts`として集計する方式を採用した(notification-log-classification-labels.md
+  「システム内部イベントの扱い」参照)。
 - 現在のデモでは`select_slot()`失敗時(候補選択時点での競合)の顧客向けメッセージ生成・
   再提示ロジックはBookingSlotManagerの戻り値(bool)を確認するのみで、実際の会話文言
   (「ちょうど埋まってしまいました」+新しい候補提示)はまだ接続していない。

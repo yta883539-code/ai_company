@@ -59,6 +59,29 @@ duplicate-topic-notification-log-rule.mdで日次をまたぐ重複カウント�
 4. 「未実装機能問い合わせ件数」は上記のうち`escalation_reason: "unimplemented_feature"`の行のみに
    絞った内訳として別途表示する。
 
+## システム内部イベント(booking_conflict/candidate_selection_unresolved)の扱い(確定、2026-08-01)
+
+conversation-flow-state-machine-design.md・candidate-presentation-and-selection-design.mdの残課題として、
+`EscalationConsolidator.on_event()`経由で発火する`escalation_reason='booking_conflict'`
+(確定操作自体の競合)・`'candidate_selection_unresolved'`(候補選択の再確認上限超過)を
+通知ログ集計でどう扱うかが残っていた。この2つはLLM構造化出力ではなく`prototype/engine.py`の
+システム内部(BookingSlotManager/ConversationFlowStateMachineとの接続層)から直接生成されるイベントであるため、
+以下の方針で決着させた。
+
+- `booking_output.schema.json`の`escalation_reason` enum(`consultation`/`unimplemented_feature`相当)への
+  追加は行わない。このenumはあくまでLLMが出力しうる値を規定するものであり、LLMが生成しないイベントを
+  含めるとスキーマの意味が曖昧になるため。
+- 代わりに、通知ログ集計側(`NotificationLogAggregator`)に`SYSTEM_ESCALATION_REASONS`
+  (`booking_conflict`・`candidate_selection_unresolved`)という区分を新設し、一般相談
+  (厳守事項6、`consultation_count`)とは別枠の`system_event_counts`(理由別カウント)に振り分けるようにした。
+  一般相談は顧客対応(折り返し等)が必要な人的な相談だが、システム内部イベントは技術的な予約競合・
+  UI/プロンプト起因の特定不能であり、オーナーが見るべき対応(前者は電話等でのフォロー、後者は
+  空き枠が逼迫していないか・案内文言が分かりにくくないかの点検)が異なるため、混同を避ける狙い。
+- `prototype/engine.py`に実装済み(`SYSTEM_ESCALATION_REASONS`定数、
+  `NotificationLogAggregator.system_event_counts`/`system_event_total()`)。デモにも
+  `booking_conflict`イベントの例を追加し、一般相談件数に混入しないことを確認済み。
+- owner-settings-wireframe.mdの通知ログ集計画面ワイヤーフレームに「システム内部イベント」欄を追記した。
+
 ## 未検討・要検討事項
 - `feature_hint`の自由記述を後から自動でカテゴリ正規化(クラスタリング)する必要が生じた場合の方式は
   未検討。MVPでは人手によるスプレッドシート集計に委ねる。

@@ -118,14 +118,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   対象曜日の枠を空き枠検索から除外するようにした(owner-settings-wireframe.mdの営業曜日
   チェックボックスに対応する機能)。曜日別の異なる営業時間の設定はUI側が未設計のため
   引き続きスコープ外として残した(availability-closed-weekday-support.md新規作成)。
-- 最終更新: 2026-08-01 07:00 UTC
+- フェーズ(続き17): README.mdの「次にやること」4番目に挙げていた、`escalation_reason='booking_conflict'`
+  (確定操作競合時のオーナー通知)をbooking_output.schema.jsonのenumに追加するか、システム内部イベント用の
+  別集計軸として扱うかの検討を決着させた。LLMが出力しないイベントのためenum追加は行わず、
+  `NotificationLogAggregator`(prototype/engine.py)に`SYSTEM_ESCALATION_REASONS`
+  (`booking_conflict`・`candidate_selection_unresolved`)区分を新設し、一般相談(consultation_count)とは
+  別枠の`system_event_counts`として集計する方式を採用した。同じ残課題を抱えていた
+  candidate-presentation-and-selection-design.md・conversation-flow-state-machine-design.mdにも反映し、
+  owner-settings-wireframe.mdの通知ログ集計画面に「システム内部イベント」欄を追加した(2026-08-01決定、
+  notification-log-classification-labels.md「システム内部イベントの扱い」参照)。
+- 最終更新: 2026-08-01 08:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
 - tech-stack.md: 技術構成案
 - conversation-flow.md: 顧客⇄AIの会話フロー草案(新規予約・キャンセル・曖昧な日時のすり合わせ)
 - double-booking-prevention.md: 二重予約防止ロジック設計(仮押さえ→確定の2段階方式)
-- owner-settings-wireframe.md: オーナー向け簡易設定画面のワイヤーフレーム(営業情報・メニュー・予約一覧・顧客詳細ページ・店舗FAQ情報入力欄・通知ログ集計画面、2026-07-31 10:59 UTC更新。通知ログ集計画面へのリンクを1.営業情報設定ページ本体の図に反映)
+- owner-settings-wireframe.md: オーナー向け簡易設定画面のワイヤーフレーム(営業情報・メニュー・予約一覧・顧客詳細ページ・店舗FAQ情報入力欄・通知ログ集計画面、2026-08-01 08:00 UTC更新。通知ログ集計画面に「システム内部イベント」欄を追加(booking_conflict等を一般相談と別枠で表示))
 - line-api-pricing.md: LINE Messaging APIの料金プラン・無料枠の調査結果(2026-07-29時点)
 - pricing-plan.md: 本サービスの月額サブスク料金プラン案・無料トライアル条件の仮決め(2026-07-30時点)
 - customer-interview-design.md: 想定顧客(美容室等)へのヒアリング項目・実施方法の設計(2026-07-30時点、全16問。デポジット機能への需要確認設問(E.)を追加済み。実施自体は未承認)
@@ -149,19 +158,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - escalation-notification-templates.md: 厳守事項6(医療・料金・クレーム・未登録FAQ相談)・10(未実装機能問い合わせ)発生時のオーナー向け通知文面と、faq_segments一部未解決時の通知文面の設計(2026-07-31時点。即時通知を基本方針とし、連続エスカレーション集約ロジックはescalation-consolidation-logic.mdで具体設計済み)
 - escalation-consolidation-logic.md: 連続エスカレーション(同一顧客が短時間に複数回)を1通に集約する通知ロジックの設計(2026-07-31 06:58 UTC更新。時間窓5分固定、初回は即時個別通知+ウィンドウ内の追加分はまとめ通知の2段階方式。件数3件以上は優先確認を促す一文を追加。医療相談(6-a)も例外なくウィンドウ方式を適用する結論を追加、再発火3回目で都度通知に切り替え+30分途絶えでリセットする上限ルールを追加。実装方式は概念メモのみで技術選定は未着手)
 - owner-settings-wireframe.md: 「通知ログ集計画面」を追記(2026-07-31 05:57 UTC更新。未登録FAQ相談・未実装機能問い合わせ・その他エスカレーションの件数を直近30日で俯瞰する読み取り専用ページ。営業情報設定ページからの導線のみとし常設メニューには出さない方針。MVPはスプレッドシートのCOUNTIF/ピボット集計で代替)
-- notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-07-31 15:58 UTC更新。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
+- notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-08-01 08:00 UTC更新。システム内部イベント(booking_conflict/candidate_selection_unresolved)をbooking_output.schema.jsonのenumに追加せず、通知ログ集計側の別枠(system_event_counts)で扱う方針を決定・追記。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 16:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。残っていた未検討事項(LINE以外のチャネル追加時のuserId代替識別子の設計)はchannel-agnostic-session-id.mdで結論化済み)
 - channel-agnostic-session-id.md: 将来Web版チャット等の非LINEチャネルを追加する場合に備えた代替顧客識別子の設計方針(2026-07-31新規作成。恒久的な名寄せIDの導入は見送り、チャネルごとに独立したセッションID(30分無応答失効)を発行する方針。通知ログ集計・連続エスカレーション集約への適用方法も整理。実装は非LINEチャネル追加が具体化した時点で着手)
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 03:00 UTC更新。`select_slot_from_reply()`に再確認ループ上限`RECONFIRM_MAX_ATTEMPTS`を実装し、超過時は`EscalationConsolidator`経由でオーナー通知に切り替える処理を追加。実LLM呼び出しはスタブ、デモ実行で動作確認済み)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 08:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。デモに`booking_conflict`イベント例を追加、動作確認済み。実LLM呼び出しはスタブのまま)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
-- conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-07-31 19:58 UTC新規作成。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由と、escalation_reason='booking_conflict'のスキーマ未反映等の残課題を整理)
+- conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-08-01 08:00 UTC更新。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由を整理。残課題だったescalation_reason='booking_conflict'のスキーマ未反映は、システム内部イベント用の別集計軸(system_event_counts)を新設する方針で解消済み)
 - intent-to-flow-mapping.md: LLM構造化出力(intent/datetime_candidate/confirmed等)からConversationFlowStateMachineのselect_slot()/provide_details()をどのタイミングで呼び出すかの対応表(2026-08-01 00:00 UTC更新。`search_candidates_from_llm_output()`実装に伴い対応表を更新。残課題を「提示した候補一覧から顧客の返信に対応するslot_keyを1件特定する処理」に更新。同課題はcandidate-presentation-and-selection-design.mdで対応済み)
 - slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-08-01 00:00 UTC更新。requested_date_range/time_of_day_preferenceフィールドのprototype/engine.py側での接続(search_candidates_from_llm_output())が完了したことを反映)
-- candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 03:00 UTC更新。6節として再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計を追加。誤爆防止のため番号指定が明確なパターンのみ数字と解釈し、それ以外は日付・時刻の突き合わせに委ね、特定不能時は再確認文言に倒す設計)
+- candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 08:00 UTC更新。6節の残課題だったescalation_reason='candidate_selection_unresolved'のスキーマ未反映を、システム内部イベント用の別集計軸(system_event_counts)を新設する方針で解消。再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計、誤爆防止のため番号指定が明確なパターンのみ数字と解釈する設計は既存のまま)
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 - availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外)
@@ -175,9 +184,6 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)への対応は未着手
   (定休日対応はavailability-closed-weekday-support.mdで実装済み)。owner-settings-wireframe.md側の
   営業時間入力欄を曜日別に拡張するUI設計が先に必要。
-- escalation_reason='booking_conflict'(確定競合時のオーナー通知)をbooking_output.schema.jsonの
-  enumに追加するか、システム内部イベント用の別集計軸として扱うかを検討する
-  (conversation-flow-state-machine-design.mdの残課題)。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

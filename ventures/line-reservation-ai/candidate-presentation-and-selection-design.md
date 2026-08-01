@@ -100,8 +100,11 @@ E8方針と同様、誤確定より聞き直しを優先)に倒して再確認�
 - エスカレーション通知は`EscalationConsolidator.on_event()`経由で送る(連続エスカレーション時の
   集約ロジックをそのまま流用できる)。`escalation_reason`は`'candidate_selection_unresolved'`と
   したが、`booking_conflict`(conversation-flow-state-machine-design.md参照)と同様、
-  LLM構造化出力ではなくシステム内部で生成するイベントのため、現状booking_output.schema.jsonの
-  enum(`consultation`/`unimplemented_feature`)には未追加(通知ログ集計へ含める場合は今後enum拡張が必要)。
+  LLM構造化出力ではなくシステム内部で生成するイベントのため、booking_output.schema.jsonの
+  enum(`consultation`/`unimplemented_feature`)への追加は行わない方針とした。通知ログ集計側の
+  `NotificationLogAggregator`に`SYSTEM_ESCALATION_REASONS`区分を新設し、一般相談とは別枠の
+  `system_event_counts`として集計する(2026-08-01決定・対応済み、notification-log-classification-labels.md
+  「システム内部イベントの扱い」参照)。
 - エスカレーション後は`reconfirm_count`を0にリセットする(会話ステージは`candidates_presented`の
   ままとし、同じ候補一覧に対して顧客が改めて明確な返信をすれば特定を継続できるようにした。
   次に特定不能が続いた場合は再度2回の再確認を経てからエスカレーションする)。

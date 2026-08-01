@@ -148,6 +148,15 @@ class EscalationConsolidator:
 #    notification-log-classification-labels.md: 通知ログ集計
 # ---------------------------------------------------------------------------
 
+# escalation_reasonのうち、LLM構造化出力のenum(consultation相当/unimplemented_feature)には
+# 含まれない、システム内部(BookingSlotManager確定競合・候補選択の再確認上限超過)から発火する
+# 理由の一覧。conversation-flow-state-machine-design.md・candidate-presentation-and-selection-design.mdの
+# 残課題「通知ログ集計でどう扱うか」への対応として、booking_output.schema.jsonのenum拡張はせず
+# (LLMが出力するフィールドではないため)、通知ログ集計側で一般相談(consultation)とは別枠に
+# 振り分ける方針を採用した(2026-08-01決定)。
+SYSTEM_ESCALATION_REASONS = frozenset({"booking_conflict", "candidate_selection_unresolved"})
+
+
 class NotificationLogAggregator:
     """オーナー向け通知ログ集計画面(スプレッドシート版MVP相当)の集計ロジック。
 
@@ -156,13 +165,17 @@ class NotificationLogAggregator:
         (duplicate-topic-notification-log-rule.md準拠。日をまたげば別カウント、同日内の連投は1件扱い)。
       - escalation_reason='unimplemented_feature' は「未実装機能問い合わせ件数」として内訳を別集計する
         (notification-log-classification-labels.md準拠)。
-      - escalation_reason が上記以外/未設定(=一般相談)の件数も参考値として集計する。
+      - escalation_reason が SYSTEM_ESCALATION_REASONS(システム内部イベント)に該当する場合は、
+        一般相談(consultation)とは別枠のsystem_event_countsに理由別で集計する。技術的な予約競合と
+        顧客対応が必要な相談をオーナーが混同しないようにするため。
+      - 上記以外/未設定(=厳守事項6の一般相談)の件数はconsultation_countに参考値として集計する。
     """
 
     def __init__(self) -> None:
         self._seen_topics: set[tuple[str, str, str]] = set()
         self.unimplemented_feature_count = 0
         self.consultation_count = 0
+        self.system_event_counts: dict[str, int] = {}
 
     def record(self, user_id: str, output: dict, now: datetime) -> None:
         date_key = now.date().isoformat()
@@ -174,11 +187,16 @@ class NotificationLogAggregator:
             reason = output.get("escalation_reason")
             if reason == "unimplemented_feature":
                 self.unimplemented_feature_count += 1
+            elif reason in SYSTEM_ESCALATION_REASONS:
+                self.system_event_counts[reason] = self.system_event_counts.get(reason, 0) + 1
             else:
                 self.consultation_count += 1
 
     def unique_unresolved_topic_count(self) -> int:
         return len(self._seen_topics)
+
+    def system_event_total(self) -> int:
+        return sum(self.system_event_counts.values())
 
 
 # ---------------------------------------------------------------------------
@@ -710,6 +728,9 @@ def _demo() -> None:
         ("user_tanaka", {"intent": "faq", "needs_owner_check": True,
                           "faq_segments": [{"topic": "parking", "resolved": False}]},
          t0 + timedelta(hours=1)),
+        # システム内部イベント(確定操作の競合)。一般相談(consultation_count)とは別枠で集計されることを示す。
+        ("user_watanabe", {"intent": "escalation", "needs_owner_check": True,
+                            "escalation_reason": "booking_conflict"}, t0 + timedelta(hours=2)),
     ]
 
     print("=== EscalationConsolidator / NotificationLogAggregator デモ ===")
@@ -727,6 +748,7 @@ def _demo() -> None:
     print(f"未解決FAQのユニークトピック数(日次×userId×topic): {logs.unique_unresolved_topic_count()}")
     print(f"未実装機能問い合わせ件数: {logs.unimplemented_feature_count}")
     print(f"一般相談エスカレーション件数: {logs.consultation_count}")
+    print(f"システム内部イベント件数(理由別): {logs.system_event_counts} (合計{logs.system_event_total()}件)")
 
     print()
     print("=== RetryFallbackProcessor デモ(1回目失敗→2回目成功、全件フォールバック) ===")
