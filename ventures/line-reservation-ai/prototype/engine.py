@@ -341,6 +341,8 @@ class ConversationFlowStateMachine:
         self._slots = slots
         self._consolidator = consolidator
         self._states: dict[str, _ConversationState] = {}
+        self._last_idle_cleanup_at: Optional[datetime] = None
+        self._last_archive_at: Optional[datetime] = None
 
     def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
@@ -510,6 +512,34 @@ class ConversationFlowStateMachine:
             del self._states[user_id]
             archived.append(user_id)
         return archived
+
+    # idle-conversation-trigger-design.md準拠。専用スケジューラ導入前のMVPでは、
+    # Webhook受信のたびにclean-up関数を呼び出す「便乗トリガー」とする。ただし全リクエストで
+    # 毎回全件スキャンするのは無駄なため、最小実行間隔を設けて間引く。
+    IDLE_CLEANUP_MIN_INTERVAL = timedelta(minutes=5)
+
+    def maybe_run_idle_cleanup(self, now: datetime) -> Optional[list[str]]:
+        """Webhook受信時に呼び出す想定の便乗トリガー。前回実行からIDLE_CLEANUP_MIN_INTERVAL
+        未満の場合は何もせずNoneを返す(スキップしたことを呼び出し側が区別できるように、
+        「対象0件だった」場合の空リストとは戻り値の型を分けている)。"""
+        if (
+            self._last_idle_cleanup_at is not None
+            and now - self._last_idle_cleanup_at < self.IDLE_CLEANUP_MIN_INTERVAL
+        ):
+            return None
+        self._last_idle_cleanup_at = now
+        return self.release_idle_conversations(now)
+
+    def maybe_run_archive(self, now: datetime) -> Optional[list[str]]:
+        """maybe_run_idle_cleanup()と同じ便乗トリガー・間引き幅をarchive_completed_conversations()
+        にも流用する(ARCHIVE_AFTER_VISITが1日単位のため、5分の間引きによる影響はさらに小さい)。"""
+        if (
+            self._last_archive_at is not None
+            and now - self._last_archive_at < self.IDLE_CLEANUP_MIN_INTERVAL
+        ):
+            return None
+        self._last_archive_at = now
+        return self.archive_completed_conversations(now)
 
 
 # ---------------------------------------------------------------------------
@@ -1212,6 +1242,27 @@ def _demo() -> None:
           f"{archive_slots.status(slot_today_1600, t0 + timedelta(days=2))}")
     print(f"山本さんの会話ステージ(来店日がまだ先のため対象外で残る): "
           f"{archive_flow.stage('user_yamamoto')}")
+
+    print()
+    print("=== maybe_run_idle_cleanup デモ(idle-conversation-trigger-design.md、Webhook便乗トリガーの間引き) ===")
+
+    trigger_slots = BookingSlotManager()
+    trigger_flow = ConversationFlowStateMachine(trigger_slots, EscalationConsolidator())
+    trigger_flow.present_candidates("user_endo", now=t0)  # 応答せず放置 → 後で失効対象になる
+
+    # 1回目のWebhook受信(t0)で便乗トリガーを実行。まだ誰も失効していないので空リスト。
+    first_run = trigger_flow.maybe_run_idle_cleanup(t0)
+    print(f"1回目実行(t0、対象0件): {first_run}")
+
+    # 2回目のWebhook受信がIDLE_CLEANUP_MIN_INTERVAL(5分)未満で連続到着 → 間引かれてNone。
+    skipped = trigger_flow.maybe_run_idle_cleanup(t0 + timedelta(minutes=2))
+    print(f"2回目実行(2分後、間引き対象のためNoneのはず): {skipped}")
+    print(f"遠藤さんの会話ステージ(間引かれてもまだ残る): {trigger_flow.stage('user_endo')}")
+
+    # 31分後のWebhook受信では最小実行間隔を超えているため実行され、遠藤さんが失効する。
+    third_run = trigger_flow.maybe_run_idle_cleanup(t0 + timedelta(minutes=31))
+    print(f"3回目実行(31分後、遠藤さんが失効): {third_run}")
+    print(f"遠藤さんの会話ステージ(失効後): {trigger_flow.stage('user_endo')}")
 
 
 if __name__ == "__main__":
