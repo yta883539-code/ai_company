@@ -527,6 +527,16 @@ _TIME_OF_DAY_RANGES = {
 _WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
 
 
+def _normalize_business_hour_ranges(value) -> list[tuple[int, int]]:
+    """`business_hours`/`weekday_business_hours`の値を[(開始,終了), ...]形式に正規化する
+    (business-hours-lunch-break.md)。単一区間の(開始,終了)タプルと、昼休憩等で分割した
+    複数区間のリストの両方を受け付け、後者は開始時刻順に並べ替えて返す。
+    """
+    if len(value) == 2 and isinstance(value[0], int):
+        return [tuple(value)]
+    return sorted(tuple(r) for r in value)
+
+
 @dataclass
 class _Candidate:
     slot_key: tuple
@@ -542,15 +552,18 @@ class AvailabilitySearcher:
 
     def __init__(
         self,
-        business_hours: tuple[int, int],  # (開始, 終了) を24時間表記の時刻(分)で指定。既定の営業時間
+        business_hours,  # (開始,終了)の単一区間、または[(開始,終了), ...]の複数区間(昼休憩等)。時刻は24時間表記の分。business-hours-lunch-break.md参照
         slot_interval_minutes: int = 30,
         closed_weekdays: frozenset = frozenset(),  # date.weekday()準拠(月=0〜日=6)、定休日
-        weekday_business_hours: Optional[dict] = None,  # {weekday(月=0〜日=6): (開始,終了)} 曜日別に営業時間を上書き。未指定の曜日はbusiness_hoursを使う(weekday-specific-business-hours.md)
+        weekday_business_hours: Optional[dict] = None,  # {weekday(月=0〜日=6): 区間 or 区間リスト} 曜日別に営業時間を上書き。未指定の曜日はbusiness_hoursを使う(weekday-specific-business-hours.md)
     ) -> None:
-        self._open_min, self._close_min = business_hours
+        self._default_ranges = _normalize_business_hour_ranges(business_hours)
         self._interval = slot_interval_minutes
         self._closed_weekdays = closed_weekdays
-        self._weekday_business_hours = weekday_business_hours or {}
+        self._weekday_business_hours = {
+            weekday: _normalize_business_hour_ranges(value)
+            for weekday, value in (weekday_business_hours or {}).items()
+        }
 
     def find_candidates(
         self,
@@ -569,26 +582,27 @@ class AvailabilitySearcher:
             if day.weekday() in self._closed_weekdays:
                 day += timedelta(days=1)
                 continue
-            day_open, day_close = self._weekday_business_hours.get(
-                day.weekday(), (self._open_min, self._close_min)
-            )
-            pref_start, pref_end = _TIME_OF_DAY_RANGES.get(
-                time_of_day_preference, (day_open, day_close)
-            )
-            pref_end = day_close if pref_end is None else min(pref_end, day_close)
-            pref_start = max(pref_start, day_open)
-            minute = pref_start
-            while minute + menu_duration_minutes <= pref_end and len(candidates) < max_candidates:
-                slot_dt = datetime(day.year, day.month, day.day) + timedelta(minutes=minute)
-                if slot_dt >= now:
-                    slot_key = (store_id, day.isoformat(), f"{minute // 60:02d}:{minute % 60:02d}")
-                    if booking_slots.status(slot_key, now) is None:
-                        label = (
-                            f"{day.month}/{day.day}({_WEEKDAY_JA[day.weekday()]}) "
-                            f"{minute // 60:02d}:{minute % 60:02d}〜"
-                        )
-                        candidates.append(_Candidate(slot_key=slot_key, label=label, start_minutes=minute))
-                minute += self._interval
+            day_ranges = self._weekday_business_hours.get(day.weekday(), self._default_ranges)
+            for range_open, range_close in day_ranges:
+                if len(candidates) >= max_candidates:
+                    break
+                pref_start, pref_end = _TIME_OF_DAY_RANGES.get(
+                    time_of_day_preference, (range_open, range_close)
+                )
+                pref_end = range_close if pref_end is None else min(pref_end, range_close)
+                pref_start = max(pref_start, range_open)
+                minute = pref_start
+                while minute + menu_duration_minutes <= pref_end and len(candidates) < max_candidates:
+                    slot_dt = datetime(day.year, day.month, day.day) + timedelta(minutes=minute)
+                    if slot_dt >= now:
+                        slot_key = (store_id, day.isoformat(), f"{minute // 60:02d}:{minute % 60:02d}")
+                        if booking_slots.status(slot_key, now) is None:
+                            label = (
+                                f"{day.month}/{day.day}({_WEEKDAY_JA[day.weekday()]}) "
+                                f"{minute // 60:02d}:{minute % 60:02d}〜"
+                            )
+                            candidates.append(_Candidate(slot_key=slot_key, label=label, start_minutes=minute))
+                    minute += self._interval
             day += timedelta(days=1)
         return candidates
 
@@ -938,6 +952,53 @@ def _demo() -> None:
         10 * 60 <= c.start_minutes and c.start_minutes + 60 <= 15 * 60
         for c in found_saturday_none_pref
     ), "土曜の短縮営業時間(10:00-15:00)を超える枠が候補に混入してはならない"
+
+    print()
+    print("=== AvailabilitySearcher デモ(昼休憩を挟む複数営業時間帯: 9:00-12:00, 15:00-19:00) ===")
+
+    # business-hours-lunch-break.md: business_hoursに区間リストを渡すと昼休憩を除外して検索する。
+    lunch_break_searcher = AvailabilitySearcher(
+        business_hours=[(9 * 60, 12 * 60), (15 * 60, 19 * 60)],
+    )
+    lunch_break_slots = BookingSlotManager()
+    found_lunch_break = lunch_break_searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 10), date(2026, 8, 10)),  # 2026-08-10は月曜
+        time_of_day_preference=None,
+        menu_duration_minutes=60,
+        booking_slots=lunch_break_slots,
+        now=t0,
+        max_candidates=20,
+    )
+    print("昼休憩(12:00-15:00)を挟む店舗、時間帯希望なしの候補一覧:")
+    for c in found_lunch_break:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert all(
+        not (12 * 60 <= c.start_minutes < 15 * 60) for c in found_lunch_break
+    ), "昼休憩時間帯(12:00-15:00)に開始する枠が候補に混入してはならない"
+    assert any(c.start_minutes == 11 * 60 for c in found_lunch_break), (
+        "午前区間の最終候補(11:00開始、60分メニューで12:00終了ちょうど)が含まれるはず"
+    )
+    assert any(c.start_minutes == 15 * 60 for c in found_lunch_break), (
+        "午後区間の先頭候補(15:00開始)が含まれるはず"
+    )
+
+    found_lunch_break_afternoon = lunch_break_searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 10), date(2026, 8, 10)),
+        time_of_day_preference="afternoon",  # 12:00-17:00希望だが、昼休憩と重なる12:00-15:00は営業時間外
+        menu_duration_minutes=60,
+        booking_slots=lunch_break_slots,
+        now=t0,
+        max_candidates=20,
+    )
+    print("同じ店舗、afternoon(12:00-17:00)希望の候補一覧(15:00-17:00の範囲のみ出るはず):")
+    for c in found_lunch_break_afternoon:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert all(
+        15 * 60 <= c.start_minutes and c.start_minutes + 60 <= 17 * 60
+        for c in found_lunch_break_afternoon
+    ), "afternoon希望でも、昼休憩と重ならない15:00-17:00の範囲外の枠が混入してはならない"
 
     print()
     print("=== search_candidates_from_llm_output デモ(LLM構造化出力→検索→候補提示→枠選択) ===")
