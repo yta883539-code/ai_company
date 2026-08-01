@@ -542,13 +542,15 @@ class AvailabilitySearcher:
 
     def __init__(
         self,
-        business_hours: tuple[int, int],  # (開始, 終了) を24時間表記の時刻(分)で指定
+        business_hours: tuple[int, int],  # (開始, 終了) を24時間表記の時刻(分)で指定。既定の営業時間
         slot_interval_minutes: int = 30,
         closed_weekdays: frozenset = frozenset(),  # date.weekday()準拠(月=0〜日=6)、定休日
+        weekday_business_hours: Optional[dict] = None,  # {weekday(月=0〜日=6): (開始,終了)} 曜日別に営業時間を上書き。未指定の曜日はbusiness_hoursを使う(weekday-specific-business-hours.md)
     ) -> None:
         self._open_min, self._close_min = business_hours
         self._interval = slot_interval_minutes
         self._closed_weekdays = closed_weekdays
+        self._weekday_business_hours = weekday_business_hours or {}
 
     def find_candidates(
         self,
@@ -560,12 +562,6 @@ class AvailabilitySearcher:
         now: datetime,
         max_candidates: int = 3,
     ) -> list[_Candidate]:
-        pref_start, pref_end = _TIME_OF_DAY_RANGES.get(
-            time_of_day_preference, (self._open_min, self._close_min)
-        )
-        pref_end = self._close_min if pref_end is None else min(pref_end, self._close_min)
-        pref_start = max(pref_start, self._open_min)
-
         candidates: list[_Candidate] = []
         start_date, end_date = date_range
         day = start_date
@@ -573,6 +569,14 @@ class AvailabilitySearcher:
             if day.weekday() in self._closed_weekdays:
                 day += timedelta(days=1)
                 continue
+            day_open, day_close = self._weekday_business_hours.get(
+                day.weekday(), (self._open_min, self._close_min)
+            )
+            pref_start, pref_end = _TIME_OF_DAY_RANGES.get(
+                time_of_day_preference, (day_open, day_close)
+            )
+            pref_end = day_close if pref_end is None else min(pref_end, day_close)
+            pref_start = max(pref_start, day_open)
             minute = pref_start
             while minute + menu_duration_minutes <= pref_end and len(candidates) < max_candidates:
                 slot_dt = datetime(day.year, day.month, day.day) + timedelta(minutes=minute)
@@ -893,6 +897,47 @@ def _demo() -> None:
     assert all(c.slot_key[1] != "2026-08-09" for c in found_skipping_closed), (
         "定休日(日曜)の枠が候補に混入してはならない"
     )
+
+    print()
+    print("=== AvailabilitySearcher デモ(曜日別営業時間: 土曜のみ短縮営業) ===")
+
+    # 平日9:00-19:00、土曜のみ10:00-15:00の短縮営業(owner-settings-wireframe.mdの
+    # 曜日別営業時間トグルON時の入力例に相当)
+    saturday_short_searcher = AvailabilitySearcher(
+        business_hours=(9 * 60, 19 * 60),
+        weekday_business_hours={5: (10 * 60, 15 * 60)},  # 5=土曜
+    )
+    saturday_slots = BookingSlotManager()
+    found_saturday_short = saturday_short_searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 8), date(2026, 8, 8)),  # 2026-08-08は土曜
+        time_of_day_preference="evening",  # 平日なら18時台まで探すはずの希望
+        menu_duration_minutes=60,
+        booking_slots=saturday_slots,
+        now=t0,
+        max_candidates=5,
+    )
+    print("土曜(短縮営業10:00-15:00)にevening(本来18時台〜)希望を出した場合の候補(0件のはず):")
+    for c in found_saturday_short:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert found_saturday_short == [], "短縮営業時間外のevening希望では候補が出てはならない"
+
+    found_saturday_none_pref = saturday_short_searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 8), date(2026, 8, 8)),
+        time_of_day_preference=None,  # 時間帯希望なし→その日の営業時間全体(10:00-15:00)から検索
+        menu_duration_minutes=60,
+        booking_slots=saturday_slots,
+        now=t0,
+        max_candidates=5,
+    )
+    print("同じ土曜、時間帯希望なしの場合の候補(10:00-15:00の範囲内が出るはず):")
+    for c in found_saturday_none_pref:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert all(
+        10 * 60 <= c.start_minutes and c.start_minutes + 60 <= 15 * 60
+        for c in found_saturday_none_pref
+    ), "土曜の短縮営業時間(10:00-15:00)を超える枠が候補に混入してはならない"
 
     print()
     print("=== search_candidates_from_llm_output デモ(LLM構造化出力→検索→候補提示→枠選択) ===")

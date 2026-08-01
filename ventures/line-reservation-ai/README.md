@@ -127,7 +127,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   candidate-presentation-and-selection-design.md・conversation-flow-state-machine-design.mdにも反映し、
   owner-settings-wireframe.mdの通知ログ集計画面に「システム内部イベント」欄を追加した(2026-08-01決定、
   notification-log-classification-labels.md「システム内部イベントの扱い」参照)。
-- 最終更新: 2026-08-01 08:00 UTC
+- フェーズ(続き18): README.mdの「次にやること」に残っていたAvailabilitySearcherのMVP制約
+  「曜日別営業時間(例: 土曜だけ短縮営業)未対応」に着手した。`AvailabilitySearcher`に
+  `weekday_business_hours`(曜日→(開始,終了)の上書き辞書)を新規追加し、指定した曜日のみ
+  既定の`business_hours`を上書きする設計とした。`time_of_day_preference`によるクランプも
+  当日の(曜日別上書き後の)営業時間を基準に行うよう修正。owner-settings-wireframe.mdの
+  営業時間欄に「曜日ごとに営業時間を変える」トグルを追加(OFF時は従来通り単一欄のみ)。
+  デモで土曜10:00-15:00の短縮営業時に、evening(17時〜)希望では候補0件、時間帯希望なしでは
+  短縮営業時間内の候補が正しく出ることを確認済み(weekday-specific-business-hours.md新規作成)。
+- 最終更新: 2026-08-01 09:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -174,6 +182,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 - availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外)
+- weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 09:00 UTC新規作成。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の整理、昼休憩等の1日複数営業時間帯は未対応として残課題)
 
 ## 次にやること(候補)
 - release_idle_conversations()の実行トリガー(cron/バッチ間隔、またはWebhook受信時の副作用実行)は、
@@ -181,9 +190,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidates_presented失効時に「候補が期限切れになりました」等のメッセージを能動的に送るべきか
   (現状は何も送らず次回メッセージ時に新規会話として自然に再開する設計)は、能動送信(LINEのプッシュ
   メッセージ課金・送信タイミング)を伴うため要検討(conversation-state-cleanup.mdの残課題)。
-- AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)への対応は未着手
-  (定休日対応はavailability-closed-weekday-support.mdで実装済み)。owner-settings-wireframe.md側の
-  営業時間入力欄を曜日別に拡張するUI設計が先に必要。
+- weekday-specific-business-hours.mdの残課題: 「曜日ごとに営業時間を変える」トグルON時、
+  ある曜日の営業時間を0分間にして定休日相当を表現できてしまう(`closed_weekdays`と二重表現の
+  余地がある)点の整理。UI側バリデーションで両者の同時設定を禁止する案が有力だが未確定。
+- 1日に複数の営業時間帯がある(例: 昼休憩を挟む9:00-12:00, 15:00-19:00)ケースは
+  AvailabilitySearcher・owner-settings-wireframe.mdともに未対応のまま(単一区間のみ対応)。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。
