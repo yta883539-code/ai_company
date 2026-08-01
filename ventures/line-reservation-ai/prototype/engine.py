@@ -526,9 +526,11 @@ class AvailabilitySearcher:
         self,
         business_hours: tuple[int, int],  # (開始, 終了) を24時間表記の時刻(分)で指定
         slot_interval_minutes: int = 30,
+        closed_weekdays: frozenset = frozenset(),  # date.weekday()準拠(月=0〜日=6)、定休日
     ) -> None:
         self._open_min, self._close_min = business_hours
         self._interval = slot_interval_minutes
+        self._closed_weekdays = closed_weekdays
 
     def find_candidates(
         self,
@@ -550,6 +552,9 @@ class AvailabilitySearcher:
         start_date, end_date = date_range
         day = start_date
         while day <= end_date and len(candidates) < max_candidates:
+            if day.weekday() in self._closed_weekdays:
+                day += timedelta(days=1)
+                continue
             minute = pref_start
             while minute + menu_duration_minutes <= pref_end and len(candidates) < max_candidates:
                 slot_dt = datetime(day.year, day.month, day.day) + timedelta(minutes=minute)
@@ -841,6 +846,30 @@ def _demo() -> None:
         print(f"  {c.label} -> slot_key={c.slot_key}")
     assert all(c.slot_key != ("shop_1", "2026-08-09", "15:30") for c in found), (
         "確定済み枠が候補に混入してはならない"
+    )
+
+    print()
+    print("=== AvailabilitySearcher デモ(定休日を除外) ===")
+
+    # 8/9(日)を定休日に設定した店舗(owner-settings-wireframe.mdの営業曜日チェックボックス相当)
+    sunday_closed_searcher = AvailabilitySearcher(
+        business_hours=(9 * 60, 19 * 60), closed_weekdays=frozenset({6})  # 6=日曜
+    )
+    closed_day_slots = BookingSlotManager()
+    found_skipping_closed = sunday_closed_searcher.find_candidates(
+        store_id="shop_1",
+        date_range=(date(2026, 8, 9), date(2026, 8, 10)),  # 8/9(日)定休日〜8/10(月)
+        time_of_day_preference="afternoon",
+        menu_duration_minutes=60,
+        booking_slots=closed_day_slots,
+        now=t0,
+        max_candidates=3,
+    )
+    print("8/9(日)を定休日とした場合の空き枠候補(日曜が除外されているか):")
+    for c in found_skipping_closed:
+        print(f"  {c.label} -> slot_key={c.slot_key}")
+    assert all(c.slot_key[1] != "2026-08-09" for c in found_skipping_closed), (
+        "定休日(日曜)の枠が候補に混入してはならない"
     )
 
     print()
