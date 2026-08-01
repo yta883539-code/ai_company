@@ -188,7 +188,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   トーン適用の最終段自体は生成経路によらず共通化できることを確認した(message-tone-variants.md
   に結論を反映)。未知のtone値はstandardへフォールバックする安全側設計とし、デモに
   フォーマル/カジュアル双方の出力例を追加して動作確認済み。
-- 最終更新: 2026-08-01 19:00 UTC
+- フェーズ(続き26): prototype/engine.pyの動作確認がこれまで`_demo()`のprint出力の目視のみに
+  依存しており、機能追加のたびに既存の振る舞いが壊れていないかを機械的に検知する手段が
+  無かった課題に対応した。`unittest`(標準ライブラリのみ)ベースの自動テストスイート
+  `prototype/test_engine.py`を新規作成し、リトライ/フォールバック・エスカレーション集約・
+  通知ログ集計・予約枠の仮押さえ/確定/タイムアウト・会話フロー状態遷移(競合・再確認ループ・
+  無応答失効・アーカイブ・間引きトリガー)・空き枠検索(定休日/曜日別営業時間/昼休憩/
+  バリデーション)・候補選択の自然文解決・トーン変換の主要ロジックを31件のテストケースに
+  整理した。全件パスを確認済み(automated-test-suite.md新規作成)。`_demo()`は読み物として
+  引き続き残置。
+- 最終更新: 2026-08-01 20:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -240,6 +249,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - idle-conversation-trigger-design.md: release_idle_conversations()/archive_completed_conversations()の実行トリガー設計(2026-08-01 13:00 UTC新規作成。専用スケジューラ・Webhook便乗・外部cronサービスの3案を比較し、追加インフラ不要で今すぐ実装できるWebhook便乗案を採用。全リクエスト毎回全件スキャンを避けるための最小実行間隔5分での間引き方式を設計。`ConversationFlowStateMachine.maybe_run_idle_cleanup()`/`maybe_run_archive()`として実装・デモ確認済み)
 - candidates-expired-notification-design.md: conversation-state-cleanup.md 6節の残課題だった、`candidates_presented`失効時に「候補が期限切れになりました」等のメッセージを能動送信すべきかの検討(2026-08-01 14:00 UTC新規作成。プッシュメッセージ課金・送信タイミングの唐突さ・実測データ不在を理由にMVPでは送らない方針(現状維持)を採用。将来切り替えやすいよう`release_idle_conversations()`の戻り値をstage付きの`ReleasedConversation`に変更、送信文言案も記載)
 - message-tone-variants.md: tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項だった「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールの設計(2026-08-01 19:00 UTC更新。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ登録値は3トーン共通で不変とし、語尾の丁寧度・絵文字・感嘆符の3点のみをトーンに応じて機械的に置き換える方式を採用。確定メッセージ・前日リマインド・仮押さえ案内・FAQ回答テンプレートの3トーン別文例を作成し、owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄を追加した。前日リマインド(スケジューラ発火起点)とその他(LLM出力起点)の2経路でトーン変換を共通関数化できるかの検討・実装(prototype/engine.pyの`_render_by_tone()`)が完了。実LLM検証は未着手)
+- automated-test-suite.md: prototype/engine.pyの主要ロジックを`unittest`ベースの自動テストスイート(prototype/test_engine.py)として整理した経緯・カバー範囲のまとめ(2026-08-01 20:00 UTC新規作成。31件全件パス確認済み)
+- prototype/test_engine.py: prototype/engine.pyの自動テストスイート(標準ライブラリのみ、追加依存なし)。`python3 -m unittest test_engine -v`で実行可能(2026-08-01 20:00 UTC新規作成)
 
 ## 次にやること(候補)
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」
