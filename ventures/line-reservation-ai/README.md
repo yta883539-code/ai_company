@@ -142,7 +142,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   不正な営業時間設定はコンストラクタ呼び出し時点で検出される。隣接するだけ(終了=次の開始)は
   重複扱いにせず許可する。デモに3ケース(重複拒否・逆転拒否・隣接許可)を追加し動作確認済み
   (business-hours-lunch-break.md残課題を解消として反映)。
-- 最終更新: 2026-08-01 11:00 UTC
+- フェーズ(続き20): weekday-specific-business-hours.mdに残っていた「曜日別営業時間を0分間にして
+  定休日相当を表現でき、closed_weekdaysと二重表現になりうる」問題を検証した。business-hours-lunch-break.md
+  で追加済みの区間バリデーション(開始>=終了はBusinessHoursConfigError)が0分間区間にもそのまま
+  適用されるため、`weekday_business_hours`経由でも構成時点で例外になり既に防止されていることを確認。
+  UI側で別途「定休日と曜日別営業時間の同時設定禁止」バリデーションを追加する必要はないと判断し、
+  回帰防止のデモアサーションを`prototype/engine.py`に追加した(weekday-specific-business-hours.md更新)。
+- 最終更新: 2026-08-01 12:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -179,7 +185,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 08:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。デモに`booking_conflict`イベント例を追加、動作確認済み。実LLM呼び出しはスタブのまま)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 12:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。`weekday_business_hours`の0分間区間(定休日相当)が`BusinessHoursConfigError`で拒否されることを確認するデモアサーションを追加。実LLM呼び出しはスタブのまま)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 - conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-08-01 08:00 UTC更新。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由を整理。残課題だったescalation_reason='booking_conflict'のスキーマ未反映は、システム内部イベント用の別集計軸(system_event_counts)を新設する方針で解消済み)
@@ -189,7 +195,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 - availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外)
-- weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 09:00 UTC新規作成。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の整理、昼休憩等の1日複数営業時間帯は未対応として残課題)
+- weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 12:00 UTC更新。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の懸念は、business-hours-lunch-break.mdの区間バリデーションが0分間区間を既に拒否するため解消済みと確認。残課題は解消済み)
 - business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 
 ## 次にやること(候補)
@@ -198,9 +204,9 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidates_presented失効時に「候補が期限切れになりました」等のメッセージを能動的に送るべきか
   (現状は何も送らず次回メッセージ時に新規会話として自然に再開する設計)は、能動送信(LINEのプッシュ
   メッセージ課金・送信タイミング)を伴うため要検討(conversation-state-cleanup.mdの残課題)。
-- weekday-specific-business-hours.mdの残課題: 「曜日ごとに営業時間を変える」トグルON時、
-  ある曜日の営業時間を0分間にして定休日相当を表現できてしまう(`closed_weekdays`と二重表現の
-  余地がある)点の整理。UI側バリデーションで両者の同時設定を禁止する案が有力だが未確定。
+- (解消済み 2026-08-01 12:00 UTC: weekday-specific-business-hours.mdの残課題だった「曜日別営業時間の
+  0分間区間とclosed_weekdaysの二重表現」問題は、business-hours-lunch-break.mdの区間バリデーションが
+  既に0分間区間を拒否するため解消済みと確認。UI側の追加バリデーションは不要と判断)
 - (解消済み 2026-08-01 10:00 UTC: 1日に複数の営業時間帯がある(昼休憩)ケースはbusiness-hours-lunch-break.md参照。
   同ファイルの残課題だった区間同士の重複・逆転バリデーションも2026-08-01 11:00 UTCに実装済み)
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ

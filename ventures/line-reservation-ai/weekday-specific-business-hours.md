@@ -40,9 +40,16 @@ README.mdの「次にやること」に残っていたAvailabilitySearcherのMVP
   既定営業時間をそのまま使う)UIとした。
 
 ## 残課題
-- 「曜日ごとに営業時間を変える」トグルON時に、ある曜日の営業時間を「定休日」相当の
-  0分間(開始=終了)にした場合の扱い(`closed_weekdays`と二重に定休日を表現できてしまう)は
-  未整理。MVPではUI側のバリデーションで「定休日チェックボックスと曜日別営業時間の
-  同時設定」を禁止する案が有力だが、要検討として残す。
+- (解消済み 2026-08-01 12:00 UTC) 「曜日ごとに営業時間を変える」トグルON時に、ある曜日の
+  営業時間を「定休日」相当の0分間(開始=終了)にして`closed_weekdays`と二重に定休日を
+  表現できてしまう問題は、business-hours-lunch-break.mdで追加した区間バリデーション
+  (`_normalize_business_hour_ranges()`の開始>=終了チェック)により副次的に解消済みと確認した。
+  0分間区間は開始==終了のため既存の「区間逆転・長さ0」チェックに該当し、
+  `weekday_business_hours`経由でもエンジン側(`AvailabilitySearcher.__init__`)で
+  `BusinessHoursConfigError`が送出され構成自体が拒否される。UI側の「定休日チェックボックスと
+  曜日別営業時間の同時設定を禁止する」バリデーションは不要と判断し、エンジン側の
+  例外を最終防御線とする方針に決定した。回帰防止のデモアサーションを追加済み
+  (`prototype/engine.py`)。
 - 昼休憩など「1日に複数の営業時間帯がある」ケース(例: 9:00-12:00, 15:00-19:00)は
-  スコープ外のまま(`business_hours`/`weekday_business_hours`ともに単一区間のみ対応)。
+  business-hours-lunch-break.mdで対応済み(`business_hours`/`weekday_business_hours`とも
+  単一区間タプル・複数区間リストの両方を受け付ける)。

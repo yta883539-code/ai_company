@@ -1047,6 +1047,19 @@ def _demo() -> None:
     except BusinessHoursConfigError:
         raise AssertionError("隣接するだけ(重複なし)の区間は許可されるはず")
 
+    try:
+        AvailabilitySearcher(
+            business_hours=(9 * 60, 19 * 60),
+            weekday_business_hours={5: (10 * 60, 10 * 60)},
+        )
+    except BusinessHoursConfigError as exc:
+        print(f"  曜日別営業時間を0分間(定休日相当)にする設定を拒否: {exc}")
+    else:
+        raise AssertionError(
+            "weekday_business_hoursの0分間区間(開始=終了)もBusinessHoursConfigErrorになるはず"
+            "(weekday-specific-business-hours.mdの残課題: closed_weekdaysとの二重表現)"
+        )
+
     print()
     print("=== search_candidates_from_llm_output デモ(LLM構造化出力→検索→候補提示→枠選択) ===")
 
