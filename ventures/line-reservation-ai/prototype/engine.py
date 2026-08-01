@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -462,6 +462,36 @@ class ConversationFlowStateMachine:
             del self._states[user_id]
             released.append(user_id)
         return released
+
+    # confirmed-state-archival.md準拠。来店日を過ぎたconfirmed会話を_statesから間引く。
+    ARCHIVE_AFTER_VISIT = timedelta(days=1)
+
+    def archive_completed_conversations(self, now: datetime) -> list[str]:
+        """conversation-state-cleanup.mdの「今後の課題」に残っていた、confirmed状態の
+        アーカイブ処理。来店日(slot_keyの日付)からARCHIVE_AFTER_VISIT(1日)以上経過した
+        confirmed会話を_statesから削除する。
+
+        1日分の猶予を置くのは、no-show-handling.mdの無断キャンセル判定(来店予定日当日中の
+        来店有無確認)や前日リマインドの再送判定が、来店日当日いっぱいはstate.slot_keyを
+        参照する可能性があるため(詳細はconfirmed-state-archival.md参照)。
+
+        注意: ここでの「アーカイブ」はあくまで本エンジンが保持する会話メモリ(_states)からの
+        削除であり、予約そのものの永続記録(no-show-handling.mdが参照する累計予約数・無断
+        キャンセル確定数などの履歴)は別の永続ストレージ(スプレッドシート等)側で保持される
+        想定のため、本メソッドはそちらのデータには一切関与しない。BookingSlotManager側の
+        confirmedステータスも、予約の一次記録として変更せずそのまま残す。
+        戻り値: アーカイブしたuser_idのリスト(呼び出し側のログ用)。
+        """
+        archived: list[str] = []
+        for user_id, state in list(self._states.items()):
+            if state.stage != "confirmed" or state.slot_key is None:
+                continue
+            visit_date = date.fromisoformat(state.slot_key[1])
+            if now.date() - visit_date < self.ARCHIVE_AFTER_VISIT:
+                continue
+            del self._states[user_id]
+            archived.append(user_id)
+        return archived
 
 
 # ---------------------------------------------------------------------------
@@ -930,6 +960,41 @@ def _demo() -> None:
           f"{idle_slots.status(slot_89_1830, t0 + timedelta(minutes=31))}")
     print(f"小林さんの会話ステージ(confirmed済みは対象外のまま残る): "
           f"{idle_flow.stage('user_kobayashi')}")
+
+    print()
+    print("=== archive_completed_conversations デモ(confirmed-state-archival.md、来店日超過後のアーカイブ) ===")
+
+    archive_slots = BookingSlotManager()
+    archive_flow = ConversationFlowStateMachine(archive_slots, EscalationConsolidator())
+
+    # 佐藤さん: t0当日(2026-07-31)が来店日のままconfirmed済み。
+    slot_today_1600 = ("shop_1", "2026-07-31", "16:00")
+    archive_flow.present_candidates("user_sato", now=t0)
+    archive_flow.select_slot("user_sato", slot_today_1600, t0)
+    archive_flow.provide_details("user_sato", "佐藤", "カラー", t0 + timedelta(minutes=1))
+
+    # 山本さん: 3日後(2026-08-03)が来店日でconfirmed済み。まだ来店日を迎えていない。
+    slot_future_1100 = ("shop_1", "2026-08-03", "11:00")
+    archive_flow.present_candidates("user_yamamoto", now=t0)
+    archive_flow.select_slot("user_yamamoto", slot_future_1100, t0)
+    archive_flow.provide_details("user_yamamoto", "山本", "カット", t0 + timedelta(minutes=1))
+
+    # 来店日当日中はまだアーカイブされない(no-show判定・前日リマインド再送等が
+    # slot_keyを参照しうるため)。
+    same_day_archived = archive_flow.archive_completed_conversations(t0 + timedelta(hours=8))
+    print(f"来店日当日(18:00時点)でアーカイブされた顧客(0件のはず): {same_day_archived}")
+    print(f"佐藤さんの会話ステージ(当日中はまだ残る): {archive_flow.stage('user_sato')}")
+
+    # 2日後、佐藤さんはARCHIVE_AFTER_VISIT(1日)を超えてアーカイブ対象になる。
+    # 山本さんは来店日(3日後)がまだ先のため対象外のまま残る。
+    archived = archive_flow.archive_completed_conversations(t0 + timedelta(days=2))
+    print(f"来店日の2日後、archive_completed_conversations()によりアーカイブされた顧客: {archived}")
+    print(f"佐藤さんの会話ステージ(アーカイブ後、状態が削除されNoneになる): "
+          f"{archive_flow.stage('user_sato')}")
+    print(f"佐藤さんの予約枠(BookingSlotManager側はconfirmedのまま変更されない、履歴として保持): "
+          f"{archive_slots.status(slot_today_1600, t0 + timedelta(days=2))}")
+    print(f"山本さんの会話ステージ(来店日がまだ先のため対象外で残る): "
+          f"{archive_flow.stage('user_yamamoto')}")
 
 
 if __name__ == "__main__":
