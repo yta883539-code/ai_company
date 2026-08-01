@@ -114,3 +114,12 @@ tone-and-manner-guideline.md・faq-response-templates.mdの既存ルールのう
   固定語彙・日付時刻表記・FAQ実質情報はトーンに関わらず変更しない旨も明記した)
 - conversation-samples-test-cases.mdに、同一シナリオをフォーマル/カジュアルでも生成させた場合の
   期待出力サンプルを追加できないか検討する(実LLM検証とあわせて実施するのが効率的)。
+- (解消済み 2026-08-01 19:00 UTC: 「前日リマインド(スケジューラ発火起点)と仮押さえ直後・確定・
+  FAQ回答(LLM出力起点)の2つの生成経路で、トーン変換ロジックを共通の関数として実装できるか」を
+  検討し実装した。`prototype/engine.py`に`_render_by_tone(tone, variants)`という単一の
+  ディスパッチャを新設し、`format_confirmation_message()`(LLM出力起点)・
+  `format_reminder_message()`(スケジューラ発火起点)・`format_hold_message()`・
+  `format_faq_parking_message()`の4関数全てがこれを経由する設計とした。前日リマインドのみ
+  対応するJSON出力を経由しない点は変わらないが、トーン適用の最終段(3トーン分の完成文言から
+  1つを選ぶ処理)自体は生成経路によらず共通化できることを確認した。未知のtone値は
+  standardにフォールバックする安全側設計。デモで4関数×フォーマル/カジュアルの出力を確認済み)

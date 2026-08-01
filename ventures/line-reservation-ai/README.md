@@ -178,7 +178,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   スケジューラ発火型のプッシュ通知であるため対応するJSON入力自体が存在しないことが新たに判明した。
   実装時にトーン変換ロジックをLLM出力起点の経路とスケジューラ発火の経路の両方で共通化できるかを
   次の課題とした。
-- 最終更新: 2026-08-01 18:00 UTC
+- フェーズ(続き25): README.mdの「次にやること」に残っていた、前日リマインド(スケジューラ発火)と
+  仮押さえ直後・FAQ回答等(LLM出力起点)の2つの生成経路でmessage-tone-variants.mdのトーン変換
+  ロジックを共通の関数として実装できるかの検討に着手し、実装した。`prototype/engine.py`に
+  `_render_by_tone(tone, variants)`という単一のディスパッチャを新設し、`format_confirmation_message()`
+  ・`format_reminder_message()`・`format_hold_message()`・`format_faq_parking_message()`の
+  4つのメッセージ生成関数全てがこれを経由する設計とした。前日リマインドのみ対応するJSON出力を
+  経由しない点(引数がLLM構造化出力ではなく呼び出し側が直接渡す値)は変わらないが、
+  トーン適用の最終段自体は生成経路によらず共通化できることを確認した(message-tone-variants.md
+  に結論を反映)。未知のtone値はstandardへフォールバックする安全側設計とし、デモに
+  フォーマル/カジュアル双方の出力例を追加して動作確認済み。
+- 最終更新: 2026-08-01 19:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -215,7 +225,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
-- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 12:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。`weekday_business_hours`の0分間区間(定休日相当)が`BusinessHoursConfigError`で拒否されることを確認するデモアサーションを追加。実LLM呼び出しはスタブのまま。2026-08-01 14:00 UTC更新、`release_idle_conversations()`の戻り値を`user_id`のみのリストから、失効時の`stage`も併せ持つ`ReleasedConversation`のリストへ変更し、将来`candidates_presented`失効時のみ能動通知するオプション機能を追加する際にフィルタしやすい形にした。デモに`candidates_presented`のまま失効したケースを追加)
+- prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 12:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。`weekday_business_hours`の0分間区間(定休日相当)が`BusinessHoursConfigError`で拒否されることを確認するデモアサーションを追加。実LLM呼び出しはスタブのまま。2026-08-01 14:00 UTC更新、`release_idle_conversations()`の戻り値を`user_id`のみのリストから、失効時の`stage`も併せ持つ`ReleasedConversation`のリストへ変更し、将来`candidates_presented`失効時のみ能動通知するオプション機能を追加する際にフィルタしやすい形にした。デモに`candidates_presented`のまま失効したケースを追加。2026-08-01 19:00 UTC更新、message-tone-variants.mdのトーン変換を`_render_by_tone()`という共通ディスパッチャとして実装し、`format_confirmation_message()`(LLM出力起点)・`format_reminder_message()`(スケジューラ発火起点)・`format_hold_message()`・`format_faq_parking_message()`の4関数から呼び出す設計とした。未知のtone値はstandardへフォールバック。デモにフォーマル/カジュアル双方の出力例を追加)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
 - booking-slot-manager-design.md: double-booking-prevention.mdの仮押さえ→確定2段階管理をprototype/engine.pyの`BookingSlotManager`クラスとして実装した際の設計メモ(2026-07-31 18:58 UTC新規作成。確定操作自体の競合時のpending差し戻し+オーナー通知は呼び出し側実装時の課題として明記)
 - conversation-flow-state-machine-design.md: conversation-flow.mdの「候補提示→確定」をBookingSlotManagerに接続するprototype/engine.pyの`ConversationFlowStateMachine`クラスの設計メモ(2026-08-01 08:00 UTC更新。確定競合時は「pending差し戻し」ではなく「オーナー通知のみ」に設計変更した理由を整理。残課題だったescalation_reason='booking_conflict'のスキーマ未反映は、システム内部イベント用の別集計軸(system_event_counts)を新設する方針で解消済み)
@@ -229,7 +239,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 - idle-conversation-trigger-design.md: release_idle_conversations()/archive_completed_conversations()の実行トリガー設計(2026-08-01 13:00 UTC新規作成。専用スケジューラ・Webhook便乗・外部cronサービスの3案を比較し、追加インフラ不要で今すぐ実装できるWebhook便乗案を採用。全リクエスト毎回全件スキャンを避けるための最小実行間隔5分での間引き方式を設計。`ConversationFlowStateMachine.maybe_run_idle_cleanup()`/`maybe_run_archive()`として実装・デモ確認済み)
 - candidates-expired-notification-design.md: conversation-state-cleanup.md 6節の残課題だった、`candidates_presented`失効時に「候補が期限切れになりました」等のメッセージを能動送信すべきかの検討(2026-08-01 14:00 UTC新規作成。プッシュメッセージ課金・送信タイミングの唐突さ・実測データ不在を理由にMVPでは送らない方針(現状維持)を採用。将来切り替えやすいよう`release_idle_conversations()`の戻り値をstage付きの`ReleasedConversation`に変更、送信文言案も記載)
-- message-tone-variants.md: tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項だった「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールの設計(2026-08-01 15:00 UTC新規作成。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ登録値は3トーン共通で不変とし、語尾の丁寧度・絵文字・感嘆符の3点のみをトーンに応じて機械的に置き換える方式を採用。確定メッセージ・前日リマインド・仮押さえ案内・FAQ回答テンプレートの3トーン別文例を作成し、owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄を追加した。llm-system-prompt-draft.mdへの反映・実LLM検証は未着手)
+- message-tone-variants.md: tone-and-manner-guideline.md・faq-response-templates.mdで共通の未検証事項だった「メッセージトーン(カジュアル/standard/フォーマル)」の出し分けルールの設計(2026-08-01 19:00 UTC更新。「仮押さえ」「確定」等の固定語彙・日付時刻表記・FAQ登録値は3トーン共通で不変とし、語尾の丁寧度・絵文字・感嘆符の3点のみをトーンに応じて機械的に置き換える方式を採用。確定メッセージ・前日リマインド・仮押さえ案内・FAQ回答テンプレートの3トーン別文例を作成し、owner-settings-wireframe.mdの営業情報設定ページに「メッセージトーン」選択欄を追加した。前日リマインド(スケジューラ発火起点)とその他(LLM出力起点)の2経路でトーン変換を共通関数化できるかの検討・実装(prototype/engine.pyの`_render_by_tone()`)が完了。実LLM検証は未着手)
 
 ## 次にやること(候補)
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」
@@ -241,9 +251,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   追加し、4テンプレート全ての机上サンプルが出揃った。この過程で、前日リマインドのみ他の3つと異なり
   「対応するJSON入力が存在しないスケジューラ発火型のプッシュ通知」であることが判明。トーン変換ロジックを
   LLM出力起点の経路とスケジューラ発火の経路の両方で共通化できるかの実装設計が新たな残課題として残った)
-- 前日リマインド(スケジューラ発火)と仮押さえ直後・FAQ回答等(LLM出力起点)の2つの生成経路で、
-  message-tone-variants.mdのトーン変換ロジックを共通の関数として実装できるか検討する
-  (tech-stack.mdの技術選定と合わせて)
+- (解消済み 2026-08-01 19:00 UTC: 前日リマインド(スケジューラ発火)と仮押さえ直後・FAQ回答等
+  (LLM出力起点)の2つの生成経路で、message-tone-variants.mdのトーン変換ロジックを共通の関数
+  として実装できるかを検討し、`prototype/engine.py`に`_render_by_tone()`という共通
+  ディスパッチャとして実装した。実LLM呼び出しへの接続(スタブのllm_call差し替え)は
+  引き続きオーナー承認待ちの課題として残る)
 - (解消済み 2026-08-01 13:00 UTC: release_idle_conversations()/archive_completed_conversations()の
   実行トリガーは、専用ホスティング基盤の確定を待たずに「Webhook受信便乗+最小実行間隔5分での間引き」
   方式(idle-conversation-trigger-design.md)を採用し、`maybe_run_idle_cleanup()`/`maybe_run_archive()`

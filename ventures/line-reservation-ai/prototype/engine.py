@@ -785,7 +785,101 @@ def _label_date_and_time_in_reply(label: str, normalized_reply: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記8コンポーネントを1本のパイプラインとして通しで動かす
+# 9. message-tone-variants.md: メッセージトーン(フォーマル/standard/カジュアル)の
+#    出し分けを、LLM出力起点(仮押さえ直後・確定・FAQ回答)とスケジューラ発火起点
+#    (前日リマインド、対応するJSON出力を経由しない)の両方の生成経路で共通利用できる
+#    関数として実装できるかを検討した結果(README.md「次にやること」対応)。
+#    各メッセージ関数は3トーン分の完成文言を保持し、_render_by_tone()という
+#    単一のディスパッチャを経由する設計とした。前日リマインドはLLM構造化出力を
+#    経由しないため関数の入力(引数)は他と異なるが、トーン適用の最終段は
+#    全メッセージ関数で共通化できることを確認した。
+# ---------------------------------------------------------------------------
+
+MESSAGE_TONES = ("formal", "standard", "casual")
+
+
+def _render_by_tone(tone: str, variants: dict) -> str:
+    """3トーン分の完成文言({"formal": ..., "standard": ..., "casual": ...})から
+    指定トーンの文言を返す共通ディスパッチャ。未知のtone値はstandardにフォールバックする(安全側)。
+    """
+    return variants.get(tone, variants["standard"])
+
+
+def format_confirmation_message(candidate_label: str, menu: str, customer_name: str,
+                                 tone: str = "standard") -> str:
+    """予約確定メッセージ(LLM出力起点、confirm成功時に送信。message-tone-variants.md準拠)。"""
+    variants = {
+        "formal": (
+            f"当店: ご予約を確定いたしました。\n"
+            f"    {candidate_label} {menu} / {customer_name}様\n"
+            f"    前日にご案内のご連絡を差し上げますので、当日はお気をつけてお越しくださいませ。"
+        ),
+        "standard": (
+            f"当店: ご予約を確定いたしました。\n"
+            f"    {candidate_label} {menu} / {customer_name}様\n"
+            f"    前日にリマインドをお送りしますので、当日お待ちしております!"
+        ),
+        "casual": (
+            f"当店: ご予約確定しました🙌\n"
+            f"    {candidate_label} {menu} / {customer_name}様\n"
+            f"    前日にリマインドしますね、当日お待ちしてます!"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_reminder_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
+    """前日リマインド(スケジューラ発火起点。LLM構造化出力を経由しない点が他と異なるが、
+    format_confirmation_message()と同じ_render_by_tone()を経由することで
+    トーン適用ロジック自体は共通化している)。
+    """
+    variants = {
+        "formal": (
+            f"当店: 【リマインド】明日 {candidate_label} {menu}のご予約を承っております。\n"
+            f"    ご都合が変わりました場合は、このトークにご返信くださいませ。キャンセル・変更を承ります。"
+        ),
+        "standard": (
+            f"当店: 【リマインド】明日 {candidate_label} {menu}のご予約です。\n"
+            f"    ご都合が変わった場合は、このトークにご返信いただければキャンセル・変更を承ります。"
+        ),
+        "casual": (
+            f"当店: 【リマインド】明日 {candidate_label} {menu}のご予約です🙌\n"
+            f"    予定変わったら、このトークに返信でキャンセル・変更できますよ!"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_hold_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
+    """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。"""
+    variants = {
+        "formal": (
+            f"{candidate_label} {menu}で仮押さえいたしました。お名前を教えていただけますでしょうか。"
+            f"(5分以内にご返信くださいますよう、お願い申し上げます)"
+        ),
+        "standard": (
+            f"{candidate_label} {menu}で仮押さえいたしました。お名前を教えていただけますか?"
+            f"(5分以内にご返信いただけますと確実にご予約いただけます)"
+        ),
+        "casual": (
+            f"{candidate_label} {menu}で仮押さえしました!お名前教えてください(5分以内にお願いします🙏)"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_faq_parking_message(capacity: str, tone: str = "standard") -> str:
+    """FAQ回答テンプレート・駐車場ありのトーン別文例(faq-response-templates.md準拠)。"""
+    variants = {
+        "formal": f"当店: 駐車場をご用意いたしております({capacity}台分)。",
+        "standard": f"当店: 駐車場がございます({capacity}台分)。",
+        "casual": f"当店: 駐車場ありますよ({capacity}台分)!",
+    }
+    return _render_by_tone(tone, variants)
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記9コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -1289,6 +1383,22 @@ def _demo() -> None:
     third_run = trigger_flow.maybe_run_idle_cleanup(t0 + timedelta(minutes=31))
     print(f"3回目実行(31分後、遠藤さんが失効): {third_run}")
     print(f"遠藤さんの会話ステージ(失効後): {trigger_flow.stage('user_endo')}")
+
+    print()
+    print("=== メッセージトーン共通関数デモ(LLM出力起点 vs スケジューラ発火起点) ===")
+
+    label = "8/9(土) 15:30〜"
+    # LLM出力起点(confirm成功時に呼ばれる想定)と、スケジューラ発火起点(前日リマインド)の
+    # 2つの異なる生成経路が、同じ_render_by_tone()を経由して一貫したトーンを出力できることを確認する。
+    print("[確定メッセージ/フォーマル(LLM出力起点)]")
+    print(format_confirmation_message(label, "カット", "田中", tone="formal"))
+    print("[前日リマインド/フォーマル(スケジューラ発火起点)]")
+    print(format_reminder_message(label, "カット", tone="formal"))
+    print("[確定メッセージ/カジュアル(LLM出力起点)]")
+    print(format_confirmation_message(label, "カット", "田中", tone="casual"))
+    print("[前日リマインド/カジュアル(スケジューラ発火起点)]")
+    print(format_reminder_message(label, "カット", tone="casual"))
+    print(f"[未知のtone値'loud'はstandardにフォールバック]: {format_faq_parking_message('3', tone='loud')}")
 
 
 if __name__ == "__main__":
