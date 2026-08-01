@@ -280,6 +280,11 @@ class SelectSlotResult:
     message: Optional[str] = None  # 失敗時のみ、顧客への案内文言(呼び出し側でそのまま送信可能)
 
 
+# conversation-state-cleanup.mdの無応答失効時間。channel-agnostic-session-id.mdの
+# セッション失効(30分無応答)、escalation-consolidation-logic.mdの30分リセットと時間感覚を統一する。
+CONVERSATION_IDLE_TIMEOUT = timedelta(minutes=30)
+
+
 @dataclass
 class _ConversationState:
     stage: str  # "candidates_presented" | "awaiting_details" | "confirmed"
@@ -288,6 +293,7 @@ class _ConversationState:
     menu: Optional[str] = None
     candidates: Optional[list] = None  # present_candidates()で提示した候補一覧(select_slot_from_reply用)
     reconfirm_count: int = 0  # select_slot_from_reply()での特定不能が連続した回数(RECONFIRM_MAX_ATTEMPTS参照)
+    last_activity_at: Optional[datetime] = None  # release_idle_conversations()の失効判定に使う
 
 
 class ConversationFlowStateMachine:
@@ -318,12 +324,16 @@ class ConversationFlowStateMachine:
         self._consolidator = consolidator
         self._states: dict[str, _ConversationState] = {}
 
-    def present_candidates(self, user_id: str, candidates: Optional[list] = None) -> None:
+    def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
         candidatesを渡しておくと、select_slot_from_reply()で顧客の返信からslot_keyを
         自動解決できる(candidate-presentation-and-selection-design.md 4節)。
+        nowはconversation-state-cleanup.mdのrelease_idle_conversations()が使う
+        last_activity_atの起点として記録する。
         """
-        self._states[user_id] = _ConversationState(stage="candidates_presented", candidates=candidates)
+        self._states[user_id] = _ConversationState(
+            stage="candidates_presented", candidates=candidates, last_activity_at=now
+        )
 
     def select_slot(
         self,
@@ -345,6 +355,7 @@ class ConversationFlowStateMachine:
         if self._slots.hold(slot_key, user_id, now):
             state.stage = "awaiting_details"
             state.slot_key = slot_key
+            state.last_activity_at = now
             return SelectSlotResult(success=True)
         message = SLOT_CONFLICT_MESSAGE_TEMPLATE.format(
             slot_label=slot_label, alt_candidates=alt_candidates
@@ -367,6 +378,7 @@ class ConversationFlowStateMachine:
             )
         candidates = state.candidates
         slot_key = resolve_candidate_selection(reply_text, candidates)
+        state.last_activity_at = now
         if slot_key is None:
             state.reconfirm_count += 1
             if state.reconfirm_count > RECONFIRM_MAX_ATTEMPTS:
@@ -407,6 +419,7 @@ class ConversationFlowStateMachine:
             raise ConversationFlowError(f"unexpected stage for provide_details: {state}")
         state.name = name
         state.menu = menu
+        state.last_activity_at = now
         if self._slots.confirm(state.slot_key, user_id, now):
             state.stage = "confirmed"
             return True
@@ -428,6 +441,27 @@ class ConversationFlowStateMachine:
     def stage(self, user_id: str) -> Optional[str]:
         state = self._states.get(user_id)
         return state.stage if state else None
+
+    def release_idle_conversations(self, now: datetime) -> list[str]:
+        """conversation-state-cleanup.md準拠。last_activity_atからCONVERSATION_IDLE_TIMEOUT
+        (30分)以上経過した会話状態を失効させる。confirmed状態は対象外(前日リマインド等で
+        後から参照されるため保持し続ける)。awaiting_detailsで止まっていた場合は、対応する
+        枠のholdも明示的に解放する(既にBookingSlotManager側のHOLD_TIMEOUTで解放済みでも、
+        release()自体は無害なため呼び出し順序に依存しない)。エスカレーション通知は送らない
+        (無応答離脱は日常的に発生するため、都度通知すると通知過多になる)。
+        戻り値: 失効させたuser_idのリスト(呼び出し側のログ・監視用)。
+        """
+        released: list[str] = []
+        for user_id, state in list(self._states.items()):
+            if state.stage == "confirmed":
+                continue
+            if state.last_activity_at is None or now - state.last_activity_at < CONVERSATION_IDLE_TIMEOUT:
+                continue
+            if state.stage == "awaiting_details" and state.slot_key is not None:
+                self._slots.release(state.slot_key)
+            del self._states[user_id]
+            released.append(user_id)
+        return released
 
 
 # ---------------------------------------------------------------------------
@@ -713,7 +747,7 @@ def _demo() -> None:
 
     # 正常系: 田中さんが候補提示→枠選択→氏名・メニュー確定まで進み、確定に成功する
     slot_89_1400 = ("shop_1", "2026-08-09", "14:00")
-    flow.present_candidates("user_tanaka")
+    flow.present_candidates("user_tanaka", now=t0)
     print(f"田中さん枠選択: {flow.select_slot('user_tanaka', slot_89_1400, t0)}")
     print(f"田中さん詳細確定: "
           f"{flow.provide_details('user_tanaka', '田中', 'カット', t0 + timedelta(minutes=2))}")
@@ -721,7 +755,7 @@ def _demo() -> None:
 
     # select_slot()自体の競合系: 山田さんが、田中さんが確定済みの枠を選ぼうとして失敗する。
     # pending-timeout-ux.mdの文言案4を接続した案内メッセージが返る(呼び出し側はそのまま送信可能)。
-    flow.present_candidates("user_yamada")
+    flow.present_candidates("user_yamada", now=t0 + timedelta(minutes=1))
     yamada_select = flow.select_slot(
         "user_yamada",
         slot_89_1400,
@@ -736,10 +770,10 @@ def _demo() -> None:
     # 同じ枠を選択→確定まで完了させてしまう。佐藤さんがタイムアウトに気づかず遅れて
     # 氏名・メニューを送ってきてもconfirm()は失敗し、候補再提示+オーナー通知に切り替わる。
     slot_89_1600 = ("shop_1", "2026-08-09", "16:00")
-    flow.present_candidates("user_sato")
+    flow.present_candidates("user_sato", now=t0)
     print(f"佐藤さん枠選択: {flow.select_slot('user_sato', slot_89_1600, t0)}")
 
-    flow.present_candidates("user_takahashi")
+    flow.present_candidates("user_takahashi", now=t0 + timedelta(minutes=7))
     takahashi_select = flow.select_slot(
         "user_takahashi", slot_89_1600, t0 + timedelta(minutes=7)
     )
@@ -807,7 +841,7 @@ def _demo() -> None:
     )
     print(f"検索結果: {[c.label for c in e2e_candidates]}")
 
-    e2e_flow.present_candidates("user_ito")
+    e2e_flow.present_candidates("user_ito", now=t0)
     chosen = e2e_candidates[0]
     print(f"伊藤さん枠選択({chosen.label}): "
           f"{e2e_flow.select_slot('user_ito', chosen.slot_key, t0)}")
@@ -847,12 +881,12 @@ def _demo() -> None:
     # present_candidates()にcandidatesを渡しておくと、以降は顧客の返信テキストを
     # そのままselect_slot_from_reply()に渡すだけでhold()まで完了する。
     reply_flow = ConversationFlowStateMachine(e2e_slots, e2e_consolidator)
-    reply_flow.present_candidates("user_suzuki", e2e_candidates)
+    reply_flow.present_candidates("user_suzuki", e2e_candidates, now=t0)
     print(f"鈴木さん枠選択(返信『三番でお願いします』): "
           f"{reply_flow.select_slot_from_reply('user_suzuki', '三番でお願いします', t0)}")
 
     # 特定不能な返信 → select_slot()は呼ばれず再確認文言が返る。stageはcandidates_presentedのまま。
-    reply_flow.present_candidates("user_watanabe", e2e_candidates)
+    reply_flow.present_candidates("user_watanabe", e2e_candidates, now=t0)
     unresolved = reply_flow.select_slot_from_reply("user_watanabe", "午後がいいです", t0)
     print(f"渡辺さん枠選択(返信『午後がいいです』、特定不能想定): success={unresolved.success}")
     print(unresolved.message)
@@ -862,11 +896,40 @@ def _demo() -> None:
     print("=== select_slot_from_reply 再確認ループ上限デモ(RECONFIRM_MAX_ATTEMPTS超でエスカレーション) ===")
 
     # 特定不能な返信がRECONFIRM_MAX_ATTEMPTS(=2)回続いた後、3回目でエスカレーションに切り替わる。
-    reply_flow.present_candidates("user_takahashi_r", e2e_candidates)
+    reply_flow.present_candidates("user_takahashi_r", e2e_candidates, now=t0)
     for attempt in range(1, 4):
         r = reply_flow.select_slot_from_reply("user_takahashi_r", "午後がいいです", t0)
         print(f"高橋さん{attempt}回目(特定不能想定): success={r.success}, message={r.message!r}")
     print(f"高橋さんの会話ステージ(据え置き確認): {reply_flow.stage('user_takahashi_r')}")
+
+    print()
+    print("=== release_idle_conversations デモ(conversation-state-cleanup.md、無応答離脱の失効) ===")
+
+    idle_slots = BookingSlotManager()
+    idle_flow = ConversationFlowStateMachine(idle_slots, EscalationConsolidator())
+
+    # 中村さん: 枠を選択(hold成功)したまま、氏名・メニューを送らず離脱する。
+    slot_89_1830 = ("shop_1", "2026-08-09", "18:30")
+    idle_flow.present_candidates("user_nakamura", now=t0)
+    print(f"中村さん枠選択: {idle_flow.select_slot('user_nakamura', slot_89_1830, t0)}")
+    print(f"中村さんが選んだ枠の状態(選択直後、pending): "
+          f"{idle_slots.status(slot_89_1830, t0)}")
+    print(f"中村さんが選んだ枠の状態(6分後、HOLD_TIMEOUT超過で既に自動解放済み): "
+          f"{idle_slots.status(slot_89_1830, t0 + timedelta(minutes=6))}")
+
+    # 高橋さん(別人)は正常に確定まで完了させる。CONVERSATION_IDLE_TIMEOUT後も残るはず。
+    slot_89_1900 = ("shop_1", "2026-08-09", "19:00")
+    idle_flow.present_candidates("user_kobayashi", now=t0)
+    idle_flow.select_slot("user_kobayashi", slot_89_1900, t0)
+    idle_flow.provide_details("user_kobayashi", "小林", "カット", t0 + timedelta(minutes=2))
+
+    released = idle_flow.release_idle_conversations(t0 + timedelta(minutes=31))
+    print(f"31分後にrelease_idle_conversations()で失効した顧客: {released}")
+    print(f"中村さんの会話ステージ(失効後、状態が削除されNoneになる): {idle_flow.stage('user_nakamura')}")
+    print(f"中村さんが選んだ枠の状態(release_idle_conversations()のrelease()は無害な冪等呼び出し): "
+          f"{idle_slots.status(slot_89_1830, t0 + timedelta(minutes=31))}")
+    print(f"小林さんの会話ステージ(confirmed済みは対象外のまま残る): "
+          f"{idle_flow.stage('user_kobayashi')}")
 
 
 if __name__ == "__main__":

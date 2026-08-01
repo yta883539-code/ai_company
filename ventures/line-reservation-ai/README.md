@@ -157,10 +157,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - slot-search-component-design.md: datetime_candidate(自然文)から具体的なslot_keyを算出する空き枠検索コンポーネントの設計(2026-08-01 00:00 UTC更新。requested_date_range/time_of_day_preferenceフィールドのprototype/engine.py側での接続(search_candidates_from_llm_output())が完了したことを反映)
 - candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 03:00 UTC更新。6節として再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計を追加。誤爆防止のため番号指定が明確なパターンのみ数字と解釈し、それ以外は日付・時刻の突き合わせに委ね、特定不能時は再確認文言に倒す設計)
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
+- conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 
 ## 次にやること(候補)
-- エスカレーション後、顧客が無反応のまま会話が終了した場合の会話状態のクリーンアップ(タイムアウト解放)の設計
-  (candidate-presentation-and-selection-design.md 6節の残課題)。
+- release_idle_conversations()の実行トリガー(cron/バッチ間隔、またはWebhook受信時の副作用実行)は、
+  実際のホスティング基盤が決まった時点で確定する(conversation-state-cleanup.mdの残課題)。
+- candidates_presented失効時に「候補が期限切れになりました」等のメッセージを能動的に送るべきか
+  (現状は何も送らず次回メッセージ時に新規会話として自然に再開する設計)は、能動送信(LINEのプッシュ
+  メッセージ課金・送信タイミング)を伴うため要検討(conversation-state-cleanup.mdの残課題)。
 - AvailabilitySearcherのMVP制約(店舗全曜日固定の営業時間のみ対応、定休日・曜日別営業時間未対応)の解消。
 - escalation_reason='booking_conflict'(確定競合時のオーナー通知)をbooking_output.schema.jsonの
   enumに追加するか、システム内部イベント用の別集計軸として扱うかを検討する
