@@ -476,7 +476,77 @@ def search_candidates_from_llm_output(
 
 
 # ---------------------------------------------------------------------------
-# デモ: 上記7コンポーネントを1本のパイプラインとして通しで動かす
+# 8. candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言と、
+#    顧客の返信(番号/自然文)からslot_keyを1件特定する処理。
+#    誤爆(意図しない枠の確定)を避けるため、番号指定であることが明確なパターンのみを
+#    数字として解釈し、それ以外は日付・時刻文字列の突き合わせに委ね、
+#    どちらも特定できなければNoneを返して再確認文言に差し戻す(安全側)。
+# ---------------------------------------------------------------------------
+
+_KANJI_DIGITS = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5}
+_CIRCLED_DIGITS = {"①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5}
+
+
+def format_candidates_message(candidates: list) -> str:
+    """候補一覧を番号付きで提示する文言を生成する(candidate-presentation-and-selection-design.md 1節)。"""
+    lines = ["ご希望に近い空き枠はこちらです。番号でお知らせください。", ""]
+    lines.extend(f"{i}. {c.label}" for i, c in enumerate(candidates, start=1))
+    return "\n".join(lines)
+
+
+def format_reconfirm_message(candidates: list) -> str:
+    """resolve_candidate_selection()が特定不能だった場合の再確認文言を生成する(同3節)。"""
+    lines = ["申し訳ございません、番号でお知らせいただけますか?", ""]
+    lines.extend(f"{i}. {c.label}" for i, c in enumerate(candidates, start=1))
+    return "\n".join(lines)
+
+
+def resolve_candidate_selection(reply_text: str, candidates: list) -> Optional[tuple]:
+    """顧客の返信からcandidatesのうち1件のslot_keyを特定する。特定できなければNone
+    (呼び出し側はformat_reconfirm_message()の送信を想定)。判定優先順位は
+    candidate-presentation-and-selection-design.md 2節を参照。
+    """
+    import re
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKC", reply_text)
+
+    number = None
+    for kanji, val in _KANJI_DIGITS.items():
+        if kanji in reply_text:
+            number = val
+            break
+    if number is None:
+        for circled, val in _CIRCLED_DIGITS.items():
+            if circled in reply_text:
+                number = val
+                break
+    if number is None:
+        m = re.search(r"(\d+)\s*番目?", normalized)
+        if m:
+            number = int(m.group(1))
+    if number is None:
+        stripped = normalized.strip(" 　.。、,")
+        if stripped.isdigit():
+            number = int(stripped)
+
+    if number is not None and 1 <= number <= len(candidates):
+        return candidates[number - 1].slot_key
+
+    matched = [c for c in candidates if _label_date_and_time_in_reply(c.label, normalized)]
+    if len(matched) == 1:
+        return matched[0].slot_key
+    return None
+
+
+def _label_date_and_time_in_reply(label: str, normalized_reply: str) -> bool:
+    date_part, _, time_part = label.partition(" ")
+    time_part = time_part.rstrip("〜")
+    return bool(date_part) and bool(time_part) and date_part in normalized_reply and time_part in normalized_reply
+
+
+# ---------------------------------------------------------------------------
+# デモ: 上記8コンポーネントを1本のパイプラインとして通しで動かす
 # ---------------------------------------------------------------------------
 
 def _demo() -> None:
@@ -678,6 +748,29 @@ def _demo() -> None:
     no_range_output = {**llm_output_new_booking, "requested_date_range": None}
     print(f"requested_date_range無し: "
           f"{search_candidates_from_llm_output(searcher, e2e_slots, 'shop_1', no_range_output, 60, t0)}")
+
+    print()
+    print("=== format_candidates_message / resolve_candidate_selection デモ(番号・自然文からの特定) ===")
+
+    print(format_candidates_message(e2e_candidates))
+    print()
+
+    # 番号指定(半角数字のみの返信) → 1番目の候補として確定
+    print(f"返信『2』: {resolve_candidate_selection('2', e2e_candidates)}")
+    # 「N番目」表記(全角数字)
+    print(f"返信『２番目でお願いします』: "
+          f"{resolve_candidate_selection('２番目でお願いします', e2e_candidates)}")
+    # 漢数字
+    print(f"返信『三番でお願いします』: {resolve_candidate_selection('三番でお願いします', e2e_candidates)}")
+    # 日付を含むが番号指定ではない自由記述 → 「8」を候補番号と誤爆させず、
+    # 日付・時刻の突き合わせで1件に特定できる場合は特定成功
+    natural_reply = f"{e2e_candidates[0].label.split()[0]}の{e2e_candidates[0].label.split()[1]}でお願いします"
+    print(f"返信『{natural_reply}』(自然文、番号なし): "
+          f"{resolve_candidate_selection(natural_reply, e2e_candidates)}")
+    # 特定不能な自由記述 → None(呼び出し側は再確認文言を送信)
+    print(f"返信『午後がいいです』(特定不能想定): "
+          f"{resolve_candidate_selection('午後がいいです', e2e_candidates)}")
+    print(format_reconfirm_message(e2e_candidates))
 
 
 if __name__ == "__main__":
