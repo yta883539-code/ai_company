@@ -237,7 +237,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   クランプを実装し(prototype/engine.py)、自動テストを追加(全32件パス、
   slot-search-component-design.md・firestore-traffic-cost-estimate.mdに反映)。
   14日という値・クランプ時の顧客案内文言は今後の課題として残した。
-- 最終更新: 2026-08-02 01:00 UTC
+- フェーズ(続き31): firestore-traffic-cost-estimate.mdの残課題だった「検索レンジ14日
+  (MAX_SEARCH_RANGE_DAYS)クランプ時のワーストケースが本試算に未反映」に対応した。
+  空き枠検索readsが3日レンジの約4.7倍(14日÷3日)になることを踏まえ、プラン別の
+  1店舗1日あたりreads概算を14日ワーストケースで再試算(プロプラン相当で約380reads/日→
+  約1,542reads/日)し、無料枠(読み取り50,000回/日)内に収まる店舗数の目安を約130店舗→
+  約32店舗に下方修正した。全顧客が常に14日レンジで検索する極端な前提のため、実際の
+  検索レンジ分布はcustomer-interview-design.mdのヒアリングで未確認のまま残課題とした。
+- 最終更新: 2026-08-02 02:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -294,9 +301,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - hosting-platform-selection.md: ホスティング基盤(GCP Cloud Functions・AWS Lambda・Cloudflare Workers・Fly.io等)の比較・選定(2026-08-01 21:00 UTC新規作成。Python資産の流用可否・低トラフィック時コスト・状態ストアとの相性・運用の手軽さで比較し、GCP Cloud Functions (Python) + Firestoreを第一候補に決定。実際のアカウント・プロジェクト作成は着手時に別途オーナー承認が必要)
 - firestore-data-model.md: Firestoreのコレクション設計(2026-08-01 22:00 UTC新規作成。会話状態・予約枠・通知ログ・エスカレーション集約窓の4系統をengine.pyの既存クラス(BookingSlotManager等)に対応付け。通知ログのユニーク集計はcount()集約クエリで実現する案を採用。実装・課金試算は未着手)
 - firestore-transaction-design.md: hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針の設計(2026-08-01 23:00 UTC新規作成。`@firestore.transactional`によるread-modify-writeの疑似コード、flush_due_windows()横断クエリ用の`queuedCount`フィールド併設・複合インデックス要件を整理。実クライアント接続はGCPプロジェクト作成後の課題として残置)
-- firestore-traffic-cost-estimate.md: 想定トラフィック(pricing-plan.mdの3プラン、月間予約50/150/300件)でのFirestore読み書き回数・Sparkプラン無料枠(読み取り5万回/日・書き込み2万回/日)との比較試算(2026-08-02 01:00 UTC更新。残課題だった「検索レンジ3日」仮定を検証し、実装上は上限がなかったことが判明。MAX_SEARCH_RANGE_DAYS導入により読み取り件数の青天井増加は防止したが、14日は3日より広いため表中のreads概算は最大約4.7倍まで悪化しうる点は未反映で残課題)
+- firestore-traffic-cost-estimate.md: 想定トラフィック(pricing-plan.mdの3プラン、月間予約50/150/300件)でのFirestore読み書き回数・Sparkプラン無料枠(読み取り5万回/日・書き込み2万回/日)との比較試算(2026-08-02 02:00 UTC更新。MAX_SEARCH_RANGE_DAYS=14日クランプ時のワーストケースを新規節で数値化し、無料枠内に収まる店舗数の目安をプロプラン相当で約130店舗→約32店舗に下方修正。実際の検索レンジ分布はヒアリングで未確認のため残課題)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 02:00 UTC: firestore-traffic-cost-estimate.mdの残課題だった
+  MAX_SEARCH_RANGE_DAYS=14日クランプ時のワーストケースを数値化した。無料枠内に収まる
+  店舗数の目安をプロプラン相当で約130店舗→約32店舗に下方修正。残課題は実際の顧客の
+  検索レンジ分布をcustomer-interview-design.mdのヒアリングで確認すること)
 - (解消済み 2026-08-02 00:00 UTC: 想定トラフィックでのFirestore読み書き回数・無料枠との比較試算を行った
   (firestore-traffic-cost-estimate.md)。プロプラン相当で約100店舗規模まで無料枠内で運用できる見込みと結論。
   残課題は「検索レンジ3日」等の仮定の妥当性確認と、実クライアント接続による実測(GCPプロジェクト作成後、
