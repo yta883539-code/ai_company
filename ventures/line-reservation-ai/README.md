@@ -323,7 +323,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト2件追加・既存分含め全69件パス、booking-conflict-candidate-representation.md新規作成)。
   残る課題は(a)単一項目FAQのスキーマ変更検討、(c)前日リマインド経路の呼び出し元、
   (d)実LLM/実LINE API接続自体(オーナー承認待ち)。
-- 最終更新: 2026-08-02 12:00 UTC
+- フェーズ(続き40): 上記残課題(c)だった前日リマインド経路の呼び出し元を設計した。
+  Cloud Function C(send_reminders)を店舗数に依存しない単一Cloud Scheduler(暫定15分間隔)で
+  トリガーする方式を採用し、`reminder-timing-and-resend-rules.md`の目標送信時刻の計算
+  (`compute_initial_reminder_target()`)・確定時点で既に目標時刻超過なら送らない判定
+  (`should_send_initial_reminder()`)・スケジューラの実行間隔/遅延に自然に追いつける
+  冪等な対象抽出(`select_due_initial_reminders()`)・当日朝1回のみの再送判定
+  (`select_due_resends()`)をprototype/reminder_scheduler.pyとして実装(テスト21件新規・
+  全90件パス、reminder-scheduler-design.md新規作成)。firestore-data-model.mdの
+  `conversations`ドキュメントに`reminderSentAt`等4フィールドを追記。残る課題は
+  (a)単一項目FAQのスキーマ変更検討、(b)確定後の顧客返信検知(`customerRepliedAt`)の
+  配線設計、(c)実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち)。
+- 最終更新: 2026-08-02 13:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -417,8 +428,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   残課題だった確定操作競合時の新しい空き枠の再提示の実装経緯まとめ(2026-08-02 12:00 UTC
   新規作成。初回検索条件をキャッシュして`now`時点で再検索し、奪われた枠を除いた候補を
   その場で再提示。検索条件が無い/候補0件の場合は謝罪文言のみのフォールバックを維持)
+- reminder-scheduler-design.md: README「次にやること」の残課題(c)だった前日リマインド
+  経路の呼び出し元の設計(2026-08-02 13:00 UTC新規作成。Cloud Function C(send_reminders)
+  を単一Cloud Scheduler(暫定15分間隔)でトリガーし、`reminder-timing-and-resend-rules.md`の
+  目標送信時刻(店舗設定 or 営業終了1時間前・20:00上限)を過ぎた未送信予約を抽出する方式を
+  採用。厳密な時刻一致ではなく「未送信・目標時刻超過・予約日未到来」の3条件のみで判定する
+  ことでスケジューラの実行間隔・遅延に自然に追いつける冪等設計とした。判定ロジックを
+  `prototype/reminder_scheduler.py`(`compute_initial_reminder_target()`/
+  `should_send_initial_reminder()`/`select_due_initial_reminders()`/
+  `select_due_resends()`)として実装し、テスト21件全件パス。firestore-data-model.mdに
+  `reminderSentAt`等4フィールドを追記。残課題は確定後の顧客返信検知(`customerRepliedAt`)の
+  配線設計、実Cloud Scheduler/LINE Push実送信(オーナー承認待ち))
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 13:00 UTC: 前項の残課題(c)だった前日リマインド経路の呼び出し元を
+  設計・実装した(reminder-scheduler-design.md、prototype/reminder_scheduler.py)。残る課題は
+  (a)単一項目FAQ(faq_segmentsがnullのケース)でも自動返信できるようにするスキーマ変更の
+  要否検討、(b)確定後の顧客返信検知(customerRepliedAt)の配線設計、(c)実LLM/実LINE API/
+  実Cloud Scheduler接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 12:00 UTC: 前項の残課題(b)だった確定操作競合時の新しい空き枠の再提示を
   実装した(booking-conflict-candidate-representation.md)。残る課題は(a)単一項目FAQ
   (faq_segmentsがnullのケース)でも自動返信できるようにするスキーマ変更の要否検討

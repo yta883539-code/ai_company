@@ -86,6 +86,14 @@ ConversationFlowStateMachine の `_ConversationState` に対応する会話状�
   `archivedAt`フィールドを立てるだけに留め(conversation-state-cleanup.md方針を踏襲)、
   前日リマインド送信バッチは`stage == "confirmed" AND archivedAt == null`のクエリで
   対象を拾う。
+- reminder-scheduler-design.mdで設計したCloud Function C(send_reminders)の冪等性・
+  再送判定のため、以下4フィールドを追加する(2026-08-02 13:00 UTC追記。実装は未着手)。
+  ```
+  reminderSentAt: <Timestamp> | null,   // 初回リマインド送信済み時刻(未送信はnull)
+  reminderSkipped: false,               // 確定時点で目標送信時刻を既に過ぎていたためスキップ
+  resendSentAt: <Timestamp> | null,     // 当日朝の再送済み時刻(未送信はnull)
+  customerRepliedAt: <Timestamp> | null // 確定後の顧客からの返信検知時刻(配線は未設計、残課題)
+  ```
 
 ### 4. `stores/{storeId}/notificationLogEntries/{autoId}`
 NotificationLogAggregator が集計する元データを、集計値ではなく生ログとして
