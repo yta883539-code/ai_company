@@ -278,7 +278,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `deliveryContext.isRedelivery`という真偽値フィールドも同梱されており、LINE側が再送であることを
   明示的に通知してくれるため、Cloud Function A側で早期スキップする追加の防御層も実装できることが
   分かった。設計上の不確定要素はこれで解消し、残るは実装自体(GCPプロジェクト作成後、オーナー承認待ち)。
-- 最終更新: 2026-08-02 08:00 UTC
+- フェーズ(続き36): webhook-async-processing-design.mdの残課題だった「Cloud Function A
+  (receive_webhook)のハンドラコード実装」に着手した。実際のGCPプロジェクト作成・デプロイは
+  引き続きアカウント作成に該当しオーナー承認待ちだが、ハンドラの判断ロジック自体(署名検証・
+  webhookEventIdからの決定的タスク名導出・isRedelivery早期スキップ・Cloud Tasks重複排除の模擬)は
+  engine.pyのllm_callスタブと同じ考え方でTaskQueueClientを差し替え可能にし、クラウド接続なしで
+  実行可能なコードに落とし込んだ(`prototype/cloud_function_webhook.py`新規作成)。
+  unittestベースのテスト17件を新規作成し全件パスを確認(`prototype/test_cloud_function_webhook.py`、
+  webhook-function-a-implementation.md新規作成)。Cloud Function B
+  (process_conversation_event、LLM呼び出し〜push送信)は実LLM呼び出し自体が承認待ちのため
+  未着手のまま次の課題として残した。
+- 最終更新: 2026-08-02 09:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -347,6 +357,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   重複排除キーには`webhookEventId`(ULID)を採用でき、`deliveryContext.isRedelivery`による
   早期スキップも追加可能と判明(web調査済み)。Cloud Tasksの実導入は今後の課題(GCPプロジェクト
   作成後、オーナー承認待ち))
+- webhook-function-a-implementation.md: Cloud Function A(receive_webhook)のハンドラコード実装の
+  経緯・カバー範囲まとめ(2026-08-02 09:00 UTC新規作成。`prototype/cloud_function_webhook.py`・
+  `prototype/test_cloud_function_webhook.py`(17件全件パス)を新規作成。Cloud Function Bは
+  実LLM呼び出し承認待ちのため未着手)
 - legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
   プライバシーポリシーの文面草案(2026-08-02 05:00 UTC更新。事業者名・所在地等は
   `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API
@@ -356,6 +370,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   法律専門家への確認が必要な事項として残置。作成は草案のみでLP掲載・公開は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 09:00 UTC: webhook-async-processing-design.mdの残課題だった
+  「Cloud Function A(receive_webhook)のハンドラコード実装」に着手した。署名検証・
+  webhookEventIdからの決定的タスク名導出・isRedelivery早期スキップ・Cloud Tasks重複排除の
+  模擬をクラウド接続なしで実行可能なコードに落とし込んだ(prototype/cloud_function_webhook.py、
+  テスト17件全件パス)。残課題はCloud Function B(process_conversation_event)の実装で、
+  こちらは実LLM呼び出し自体がAPIキー・課金のオーナー承認待ちのため引き続き未着手)
 - (解消済み 2026-08-02 08:00 UTC: webhook-async-processing-design.mdの残課題だった
   タスク名の重複排除キーの生成方法をLINE公式ドキュメントのweb調査で確認した。
   `webhookEventId`(ULID)をそのままタスク名の導出元に使え、`deliveryContext.isRedelivery`
