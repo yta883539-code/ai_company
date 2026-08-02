@@ -39,8 +39,11 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
   新しい空き枠をその場で顧客へ再提示する(奪われた枠は`BookingSlotManager`側で既に
   埋まっているため自然に候補から除外される)。再検索しても候補が0件の場合は従来通り
   謝罪文言のみを送りオーナーの人手対応に委ねる。
-new_booking以外でも cancel/change intentは未実装のまま、EscalationConsolidator/
-NotificationLogAggregatorへの転送のみを行う。
+- intent: "cancel" の場合、cancel-intent-handling-design.md準拠でConversationFlowStateMachine.
+  cancel_booking()を呼び、会話のstage(candidates_presented/awaiting_details/confirmed/状態なし)に
+  応じてBookingSlotManager側の枠解放・顧客への返信・オーナー通知(confirmed分のみ)を行う。
+  change intentは未実装のまま、EscalationConsolidator/NotificationLogAggregatorへの転送のみを行う
+  (change/日時変更の設計はcancel-intent-handling-design.mdの残課題を参照)。
 
 - reminder-scheduler-design.mdの残課題だった「確定後の顧客からの返信検知の配線」を実装した
   (customer-reply-detection-design.md参照)。confirmed状態の会話へメッセージが届いた事実を、
@@ -64,12 +67,16 @@ from engine import (  # noqa: E402
     EscalationConsolidator,
     NotificationLogAggregator,
     format_candidates_message,
+    format_cancel_confirmed_message,
+    format_cancel_not_found_message,
+    format_cancel_pending_message,
     format_confirmation_message,
     format_faq_address_message,
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
     format_hold_message,
+    label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
     search_candidates_from_llm_output,
@@ -139,7 +146,7 @@ BOOKING_CONFLICT_RETRY_MESSAGE = (
 class DispatchResult:
     action: str
     # "candidates_presented" | "held" | "confirmed" | "booking_conflict" |
-    # "reask" | "forwarded_to_owner"
+    # "reask" | "forwarded_to_owner" | "cancelled" | "escalation_replied"
     detail: str = ""
 
 
@@ -227,11 +234,14 @@ class ConversationEventProcessor:
             return self._handle_faq(user_id, output, now, tone)
         if intent == "escalation":
             return self._handle_escalation(user_id, output, now, tone)
+        if intent == "cancel":
+            return self._handle_cancel(user_id, now, tone)
         if intent != "new_booking":
             # intent-to-flow-mapping.md: faq_segments無しのfaq(9b雑談等・レガシー出力)・
-            # cancel/change・その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
+            # change・その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
             # オーナーへの転送のみ行う(単一項目9a FAQがここに落ちない理由は
-            # モジュールdocstring「実装範囲」参照)。
+            # モジュールdocstring「実装範囲」参照。cancelはcancel-intent-handling-design.md準拠で
+            # 上記の_handle_cancelへ分岐済みのためここには来ない)。
             self._consolidator.on_event(user_id, output, now)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
 
@@ -370,6 +380,38 @@ class ConversationEventProcessor:
         self._push.send_message(user_id, format_faq_unregistered_message(tone))
         self._consolidator.on_event(user_id, output, now)
         return DispatchResult(action="escalation_replied", detail=output.get("escalation_reason") or "consultation")
+
+    def _handle_cancel(self, user_id: str, now: datetime, tone: str) -> DispatchResult:
+        """cancel-intent-handling-design.md準拠。intent: "cancel"の一次処理。
+        ConversationFlowStateMachine.cancel_booking()にstageに応じたrelease()・オーナー通知
+        (confirmed分のみ)を委ね、ここでは顧客への返信文言の出し分けとローカルキャッシュの
+        後始末のみを行う。
+        """
+        result = self._flow.cancel_booking(user_id, now)
+        self._candidates_by_user.pop(user_id, None)
+        self._held_label_by_user.pop(user_id, None)
+        self._search_context_by_user.pop(user_id, None)
+
+        if not result.found:
+            # このエンジンの会話メモリだけでは実在の予約有無を確定できないため、安全側でオーナーに転送する
+            # (cancel_booking()自身は状態が無い場合オーナー通知を行わないため、ここで行う)。
+            self._consolidator.on_event(
+                user_id,
+                {"intent": "cancel", "needs_owner_check": True, "escalation_reason": "cancel_not_found"},
+                now,
+            )
+            self._push.send_message(user_id, format_cancel_not_found_message(tone))
+            return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
+
+        if result.stage == "confirmed":
+            label = label_from_slot_key(result.slot_key)
+            self._push.send_message(
+                user_id, format_cancel_confirmed_message(label, result.menu or "", tone)
+            )
+            return DispatchResult(action="cancelled", detail="confirmed")
+
+        self._push.send_message(user_id, format_cancel_pending_message(tone))
+        return DispatchResult(action="cancelled", detail=result.stage)
 
 
 def _demo() -> None:

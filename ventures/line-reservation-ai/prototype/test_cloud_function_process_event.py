@@ -125,22 +125,24 @@ class NewBookingDispatchTests(unittest.TestCase):
         self.assertEqual(push.sent[0][1], REASK_DATE_RANGE_MESSAGE)
 
     def test_unimplemented_intent_is_forwarded_without_touching_flow(self):
-        # cancel/changeは未実装のため、faq/escalation以外は引き続き顧客への自動返信なし。
+        # changeは未実装のため、faq/escalation/cancel以外は引き続き顧客への自動返信なし
+        # (cancelはcancel-intent-handling-design.md準拠で2026-08-02に実処理化されたため
+        # CancelIntentTestsで別途検証する)。
         processor, flow, push, logs = _new_processor()
 
         def llm_call():
             return {
-                "intent": "cancel", "name": None, "menu": None,
+                "intent": "change", "name": None, "menu": None,
                 "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
             }
 
-        result = processor.process(_event("U1", "明日の予約キャンセルできますか"), llm_call, NOW)
+        result = processor.process(_event("U1", "明日の予約を変更できますか"), llm_call, NOW)
         self.assertEqual(result.action, "forwarded_to_owner")
-        self.assertEqual(result.detail, "cancel")
+        self.assertEqual(result.detail, "change")
         self.assertIsNone(flow.stage("U1"))
         self.assertEqual(push.sent, [])
         # consultation_countはintent: "escalation"のみを対象に集計する(engine.py
-        # NotificationLogAggregator.record()準拠)ため、cancelでは増加しない。
+        # NotificationLogAggregator.record()準拠)ため、changeでは増加しない。
         self.assertEqual(logs.consultation_count, 0)
 
 
@@ -466,6 +468,107 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(result.detail, "no_alternative_forwarded_to_owner")
         self.assertEqual(push.sent[-1][1], BOOKING_CONFLICT_MESSAGE)
         self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+
+class CancelIntentTests(unittest.TestCase):
+    """cancel-intent-handling-design.md準拠。会話のstageごとにcancel intentの挙動を検証する。"""
+
+    def _present_candidates(self, processor, user_id="U1"):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return processor.process(_event(user_id, "来週土曜カットで"), llm_call, NOW)
+
+    def _select_first_candidate(self, processor, user_id="U1"):
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, "1番で"), llm_call, NOW)
+
+    def _confirm_details(self, processor, user_id="U1", name="山田"):
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": name, "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call, NOW)
+
+    def _cancel(self, processor, user_id="U1"):
+        def llm_call():
+            return {
+                "intent": "cancel", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+
+        return processor.process(_event(user_id, "キャンセルでお願いします"), llm_call, NOW)
+
+    def test_cancel_with_no_active_state_is_forwarded_to_owner(self):
+        processor, flow, push, _ = _new_processor()
+
+        result = self._cancel(processor)
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual(result.detail, "cancel_not_found")
+        self.assertIn("確認できな", push.sent[-1][1])
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_cancel_while_candidates_presented_clears_state_without_owner_notice(self):
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        slots_before = dict(flow._slots._slots)
+
+        result = self._cancel(processor)
+        self.assertEqual(result.action, "cancelled")
+        self.assertEqual(result.detail, "candidates_presented")
+        self.assertIsNone(flow.stage("U1"))
+        self.assertIn("中止", push.sent[-1][1])
+        # candidates_presentedの段階ではまだhold()していないため、枠の状態は変化しない。
+        self.assertEqual(dict(flow._slots._slots), slots_before)
+
+    def test_cancel_while_awaiting_details_releases_the_held_slot(self):
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        held_slot_key = next(iter(flow._slots._slots))
+        self.assertEqual(flow._slots.status(held_slot_key, NOW), "pending")
+
+        result = self._cancel(processor)
+        self.assertEqual(result.action, "cancelled")
+        self.assertEqual(result.detail, "awaiting_details")
+        self.assertIsNone(flow.stage("U1"))
+        self.assertIsNone(flow._slots.status(held_slot_key, NOW))
+        self.assertIn("中止", push.sent[-1][1])
+
+    def test_cancel_after_confirmed_releases_slot_and_notifies_owner(self):
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        self._confirm_details(processor, name="山田")
+        confirmed_slot_key = next(iter(flow._slots._slots))
+        self.assertEqual(flow._slots.status(confirmed_slot_key, NOW), "confirmed")
+
+        result = self._cancel(processor)
+        self.assertEqual(result.action, "cancelled")
+        self.assertEqual(result.detail, "confirmed")
+        self.assertIsNone(flow.stage("U1"))
+        self.assertIsNone(flow._slots.status(confirmed_slot_key, NOW))
+        message = push.sent[-1][1]
+        self.assertIn("キャンセルを承りました", message)
+        self.assertIn("09:00", message)
+
+        # 確定済みキャンセルはEscalationConsolidator経由でオーナーに即時通知される
+        # (candidates_presented/awaiting_detailsの段階とは異なり、外部予約記録の更新が必要なため)。
+        window = flow._consolidator._windows["U1"]
+        self.assertEqual(window.last_event_at, NOW)
 
 
 class ConfirmedReplyRecordingTests(unittest.TestCase):

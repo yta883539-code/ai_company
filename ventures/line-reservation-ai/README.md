@@ -340,7 +340,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「厳守事項9aに基づくfaqは単一項目でも1要素配列で必ず付与する」方針に改訂
   (single-item-faq-schema-decision.md新規作成。E10・E14前半の単一項目9a FAQも
   自動返信の対象になった。9b雑談・escalationは引き続きnullのまま。テスト1件新規・全91件パス)
-- 最終更新: 2026-08-02 14:00 UTC
+- 最終更新: 2026-08-02 16:00 UTC
 
 ## ドキュメント
 - single-item-faq-schema-decision.md: 単一項目FAQ(faq_segmentsがnullのケース)でも
@@ -457,8 +457,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `prototype/cloud_function_process_event.py`に実装。複数回返信時は毎回最新時刻で上書き。
   テスト4件追加・全95件パス。残課題はFirestore書き込み自体の実装、cancel/change intentの
   実処理、confirmed状態からのnew_booking intentが再訪希望か相槌かの内容判別)
+- cancel-intent-handling-design.md: README「次にやること」の残課題だったcancel/change intentの
+  実処理のうち、`cancel`(顧客都合でのキャンセル申し出)のみを対象に設計・実装(2026-08-02 16:00 UTC
+  新規作成。`change`は「キャンセル+新規予約」より複雑な状態遷移を要するため次回以降の課題として
+  スコープ外に。会話のstage(状態なし/candidates_presented/awaiting_details/confirmed)に応じて
+  `BookingSlotManager`側の枠解放・顧客への返信文言の出し分け・オーナー通知(confirmed分のみ、
+  外部予約記録の更新が必要なため)を行う`ConversationFlowStateMachine.cancel_booking()`を新設し、
+  `prototype/cloud_function_process_event.py`のintent振り分けに接続。`escalation_reason`に
+  `booking_cancelled`/`cancel_not_found`を追加(`SYSTEM_ESCALATION_REASONS`)。テスト12件追加・
+  全107件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 16:00 UTC: 前項の残課題だったcancel/change intentの実処理のうち、
+  `cancel`のみを対象に実装した(cancel-intent-handling-design.md)。会話のstageに応じて
+  `BookingSlotManager`の枠解放・返信文言の出し分けを行う`cancel_booking()`を新設し、
+  confirmed状態のキャンセルのみEscalationConsolidator経由でオーナーに通知する(外部予約記録の
+  更新が必要なため)。テスト12件追加・全107件パス。残る課題は`change`(日時変更)の設計・実装、
+  実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 15:00 UTC: 前項の残課題(b)だった確定後の顧客返信検知
   (customerRepliedAt)の配線設計を実装した(customer-reply-detection-design.md)。
   confirmed状態の会話へメッセージが届いた事実そのもの(内容は問わない)を、

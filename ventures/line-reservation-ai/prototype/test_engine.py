@@ -32,8 +32,12 @@ from engine import (  # noqa: E402
     EscalationConsolidator,
     NotificationLogAggregator,
     RECONFIRM_MAX_ATTEMPTS,
+    format_cancel_confirmed_message,
+    format_cancel_not_found_message,
+    format_cancel_pending_message,
     format_confirmation_message,
     format_faq_parking_message,
+    label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
     search_candidates_from_llm_output,
@@ -256,6 +260,78 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
 
         third = flow.maybe_run_idle_cleanup(T0 + timedelta(minutes=31))
         self.assertEqual([r.user_id for r in third], ["user_endo"])
+
+    def test_cancel_booking_with_no_state_reports_not_found(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        result = flow.cancel_booking("nobody", T0)
+        self.assertFalse(result.found)
+        self.assertIsNone(result.stage)
+
+    def test_cancel_booking_while_candidates_presented_clears_state_without_slot_release(self):
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        flow.present_candidates("user_ito", now=T0)
+
+        result = flow.cancel_booking("user_ito", T0)
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "candidates_presented")
+        self.assertIsNone(flow.stage("user_ito"))
+
+    def test_cancel_booking_while_awaiting_details_releases_pending_hold(self):
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        key = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_kato", now=T0)
+        flow.select_slot("user_kato", key, T0)
+        self.assertEqual(slots.status(key, T0), "pending")
+
+        result = flow.cancel_booking("user_kato", T0)
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "awaiting_details")
+        self.assertEqual(result.slot_key, key)
+        self.assertIsNone(slots.status(key, T0))
+        self.assertIsNone(flow.stage("user_kato"))
+
+    def test_cancel_booking_after_confirmed_releases_slot_and_notifies_owner(self):
+        slots = BookingSlotManager()
+        consolidator = EscalationConsolidator()
+        flow = ConversationFlowStateMachine(slots, consolidator)
+        key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_suzuki", now=T0)
+        flow.select_slot("user_suzuki", key, T0)
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=1))
+        self.assertEqual(slots.status(key, T0), "confirmed")
+
+        result = flow.cancel_booking("user_suzuki", T0 + timedelta(minutes=2))
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "confirmed")
+        self.assertEqual(result.name, "鈴木")
+        self.assertIsNone(slots.status(key, T0 + timedelta(minutes=2)))
+        self.assertIsNone(flow.stage("user_suzuki"))
+        # confirmed分のみEscalationConsolidator経由でオーナーに即時通知される
+        # (cancel-intent-handling-design.md準拠)。
+        self.assertIn("user_suzuki", consolidator._windows)
+
+
+class LabelFromSlotKeyAndCancelMessageTest(unittest.TestCase):
+    def test_label_from_slot_key_matches_candidate_label_format(self):
+        label = label_from_slot_key(("shop_1", "2026-08-09", "14:00"))
+        self.assertEqual(label, "8/9(日) 14:00〜")
+
+    def test_format_cancel_confirmed_message_includes_label_and_menu(self):
+        message = format_cancel_confirmed_message("8/9(日) 14:00〜", "カット")
+        self.assertIn("8/9(日) 14:00〜", message)
+        self.assertIn("カット", message)
+        self.assertIn("キャンセルを承りました", message)
+
+    def test_format_cancel_pending_message_does_not_claim_a_confirmed_cancellation(self):
+        message = format_cancel_pending_message()
+        self.assertIn("中止", message)
+        self.assertNotIn("キャンセルを承りました", message)
+
+    def test_format_cancel_not_found_message_prompts_owner_follow_up(self):
+        message = format_cancel_not_found_message()
+        self.assertIn("担当より改めてご連絡", message)
 
 
 class AvailabilitySearcherTest(unittest.TestCase):

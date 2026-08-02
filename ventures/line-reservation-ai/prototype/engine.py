@@ -154,7 +154,14 @@ class EscalationConsolidator:
 # 残課題「通知ログ集計でどう扱うか」への対応として、booking_output.schema.jsonのenum拡張はせず
 # (LLMが出力するフィールドではないため)、通知ログ集計側で一般相談(consultation)とは別枠に
 # 振り分ける方針を採用した(2026-08-01決定)。
-SYSTEM_ESCALATION_REASONS = frozenset({"booking_conflict", "candidate_selection_unresolved"})
+# booking_cancelled/cancel_not_foundはcancel-intent-handling-design.md準拠でcancel_booking()から
+# 発火する(2026-08-02追加)。
+SYSTEM_ESCALATION_REASONS = frozenset({
+    "booking_conflict",
+    "candidate_selection_unresolved",
+    "booking_cancelled",
+    "cancel_not_found",
+})
 
 
 class NotificationLogAggregator:
@@ -296,6 +303,16 @@ ESCALATION_HANDOFF_MESSAGE = (
 class SelectSlotResult:
     success: bool
     message: Optional[str] = None  # 失敗時のみ、顧客への案内文言(呼び出し側でそのまま送信可能)
+
+
+@dataclass
+class CancelResult:
+    """cancel_booking()の戻り値。cancel-intent-handling-design.md準拠。"""
+    found: bool  # Falseの場合、会話メモリ上には何も無い(呼び出し側で安全側のオーナー転送を行う)
+    stage: Optional[str] = None  # 取り消された時点のstage: "candidates_presented" | "awaiting_details" | "confirmed"
+    slot_key: Optional[tuple] = None
+    name: Optional[str] = None
+    menu: Optional[str] = None
 
 
 @dataclass
@@ -471,6 +488,43 @@ class ConversationFlowStateMachine:
     def stage(self, user_id: str) -> Optional[str]:
         state = self._states.get(user_id)
         return state.stage if state else None
+
+    def cancel_booking(self, user_id: str, now: datetime) -> "CancelResult":
+        """cancel-intent-handling-design.md準拠。intent: "cancel"を受けた際に呼ぶ。
+        会話のstageに応じて処理を分岐する:
+          - 状態なし: release()する対象が無く、エンジンの会話メモリだけでは実在の予約有無を
+            確定できない(未予約、または既にarchive_completed_conversations()で間引かれた
+            過去の確定予約の可能性がある)ため、found=Falseを返す(呼び出し側で安全側の
+            オーナー転送を行う想定)。
+          - candidates_presented: まだhold()していないため取り消す実体が無く、会話状態のみ削除する。
+          - awaiting_details: pending状態のholdをrelease()し、会話状態を削除する。
+          - confirmed: 確定済みの枠をrelease()し、会話状態を削除する。
+        confirmed分のオーナー通知(EscalationConsolidator経由)はここで行う。
+        candidates_presented/awaiting_details分はオーナー側の外部予約記録にまだ何も
+        載っていない想定のため通知しない(設計の詳細はcancel-intent-handling-design.md参照)。
+        """
+        state = self._states.get(user_id)
+        if state is None:
+            return CancelResult(found=False)
+
+        stage, slot_key, name, menu = state.stage, state.slot_key, state.name, state.menu
+        if stage in ("awaiting_details", "confirmed") and slot_key is not None:
+            self._slots.release(slot_key)
+        del self._states[user_id]
+
+        if stage == "confirmed":
+            self._consolidator.on_event(
+                user_id,
+                {
+                    "intent": "cancel",
+                    "needs_owner_check": True,
+                    "escalation_reason": "booking_cancelled",
+                    "slot_key": slot_key,
+                    "name": name,
+                },
+                now,
+            )
+        return CancelResult(found=True, stage=stage, slot_key=slot_key, name=name, menu=menu)
 
     def release_idle_conversations(self, now: datetime) -> list[ReleasedConversation]:
         """conversation-state-cleanup.md準拠。last_activity_atからCONVERSATION_IDLE_TIMEOUT
@@ -872,6 +926,54 @@ def format_hold_message(candidate_label: str, menu: str, tone: str = "standard")
         "casual": (
             f"{candidate_label} {menu}で仮押さえしました!お名前教えてください(5分以内にお願いします🙏)"
         ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def label_from_slot_key(slot_key: tuple) -> str:
+    """slot_key(store_id, date_iso, "HH:MM")から、AvailabilitySearcherの候補ラベルと同じ書式
+    ("8/9(土) 15:30〜")を組み立てる。cancel_booking()はキャンセル時点で候補一覧・held_labelの
+    キャッシュを保持していないため、slot_keyから決定的に再構築する(cancel-intent-handling-design.md準拠)。
+    """
+    _, date_iso, time_str = slot_key
+    day = date.fromisoformat(date_iso)
+    return f"{day.month}/{day.day}({_WEEKDAY_JA[day.weekday()]}) {time_str}〜"
+
+
+def format_cancel_confirmed_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
+    """確定済み予約のキャンセル受付メッセージ(cancel-intent-handling-design.md準拠)。"""
+    variants = {
+        "formal": (
+            f"当店: {candidate_label} {menu}のご予約、キャンセルを承りました。"
+            f"またのご利用を心よりお待ちしております。"
+        ),
+        "standard": (
+            f"当店: {candidate_label} {menu}のご予約、キャンセルを承りました。"
+            f"またのご利用をお待ちしております。"
+        ),
+        "casual": (
+            f"当店: {candidate_label} {menu}のご予約、キャンセルしました!またのご利用お待ちしてます🙌"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_cancel_pending_message(tone: str = "standard") -> str:
+    """候補提示中/仮押さえ中(未確定)の予約手続きの取り消し受付メッセージ。"""
+    variants = {
+        "formal": "当店: かしこまりました、今回のご予約手続きは中止いたしました。またのご利用をお待ちしております。",
+        "standard": "当店: 承知しました、今回のご予約手続きは中止しました。またのご利用をお待ちしております。",
+        "casual": "当店: 了解です、今回の予約は無しにしますね!またいつでもどうぞ🙌",
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_cancel_not_found_message(tone: str = "standard") -> str:
+    """該当する予約が会話メモリ上に見つからない場合の一次応答(オーナー転送とあわせて使う安全側の文言)。"""
+    variants = {
+        "formal": "当店: 恐れ入ります、ご予約状況を確認できませんでしたので、担当より改めてご連絡いたします。",
+        "standard": "当店: すみません、ご予約状況を確認できなかったので、担当より改めてご連絡します。",
+        "casual": "当店: あれ、予約情報が見当たらないので、担当から折り返しますね!",
     }
     return _render_by_tone(tone, variants)
 

@@ -13,7 +13,8 @@ conversation-flow-state-machine-design.md で残課題としていた、LLMの�
 | `intent: new_booking`, 顧客が候補から1件を特定できる返信 | `candidates_presented` | `resolve_candidate_selection()` → `select_slot()` | 提示した候補一覧(`search_candidates_from_llm_output()`の戻り値)から顧客の返信に対応する`slot_key`を特定する処理は`resolve_candidate_selection()`としてルールベースで実装済み(2026-08-01 01:00 UTC、[candidate-presentation-and-selection-design.md](candidate-presentation-and-selection-design.md)参照)。`None`が返った場合は`format_reconfirm_message()`を送信し`select_slot()`は呼ばない |
 | `intent: new_booking`, `name`と`menu`が両方非nullで`confirmed: false` | `awaiting_details` | `provide_details()` | このLLM出力自体は「氏名・メニューを聞き取れた」ことを表し、確定の可否(hold中の枠との整合)はBookingSlotManager側が判定する |
 | `intent: new_booking`, `confirmed: true`(LLMが確定文言を生成) | - | (呼ばない) | `confirmed`はLLMの発話意図フラグであり、実際の確定はBookingSlotManager.confirm()の成功可否が真実。provide_details()の戻り値(bool)を正としてLLMのconfirmedと矛盾する場合は安全側([schema-validation-report.md](schema-validation-report.md)のE8方針)に倣いエスカレーションする |
-| `intent: escalation` / `faq` / その他 | 任意 | (呼ばない) | 予約フロー外。EscalationConsolidator/NotificationLogAggregator側の処理に委ねる |
+| `intent: cancel` | 任意 | `cancel_booking()` | cancel-intent-handling-design.md準拠(2026-08-02実装)。stageに応じてhold/confirm済みの枠を`release()`し、confirmed分のみEscalationConsolidator経由でオーナーへ通知する |
+| `intent: escalation` / `faq` / `change` / その他 | 任意 | (呼ばない) | 予約フロー外。EscalationConsolidator/NotificationLogAggregator側の処理に委ねる(`change`は未実装、cancel-intent-handling-design.mdの残課題) |
 
 ## 解決済み: 提示した候補一覧から顧客の返信に対応する`slot_key`を特定する処理
 
