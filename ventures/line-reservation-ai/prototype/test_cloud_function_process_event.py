@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cloud_function_process_event import (  # noqa: E402
     BOOKING_CONFLICT_MESSAGE,
     BOOKING_CONFLICT_RETRY_MESSAGE,
+    CHANGE_NO_CANDIDATES_MESSAGE,
     ConversationEventProcessor,
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
@@ -42,9 +43,11 @@ STORE_FAQ_INFO = {
 }
 
 
-def _new_processor(store_faq_info=None, confirmed_reply_recorder=None):
+def _new_processor(store_faq_info=None, confirmed_reply_recorder=None, closed_weekdays=frozenset()):
     flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
-    searcher = AvailabilitySearcher(business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30)
+    searcher = AvailabilitySearcher(
+        business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
+    )
     push = InMemoryLinePushClient()
     logs = NotificationLogAggregator()
     processor = ConversationEventProcessor(
@@ -597,15 +600,15 @@ class ChangeIntentTests(unittest.TestCase):
 
         return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call, NOW)
 
-    def _change(self, processor, user_id="U1"):
-        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+    def _change(self, processor, user_id="U1", date_range_day=None):
+        day = date_range_day or NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
 
         def llm_call():
             return {
                 "intent": "change", "name": None, "menu": "カット",
                 "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
                 "needs_owner_check": True,
-                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+                "requested_date_range": {"start": day.isoformat(), "end": day.isoformat()},
             }
 
         return processor.process(_event(user_id, "来週土曜の別の時間に変更できますか"), llm_call, NOW)
@@ -670,6 +673,46 @@ class ChangeIntentTests(unittest.TestCase):
         # cancelのbooking_cancelledと区別する)。
         window = flow._consolidator._windows["U1"]
         self.assertEqual(window.last_event_at, NOW)
+
+    def test_change_after_confirmed_with_no_new_candidates_uses_change_specific_reask(self):
+        """change-intent-handling-design.mdの「残る課題」で指摘していた、change後の新規候補
+        検索が0件だった場合の文言出し分け。旧予約を解放済み(confirmed→release)であるにも
+        かかわらず新しい候補が見つからない場合は、通常のREASK_DATE_RANGE_MESSAGEではなく
+        「以前のご予約は取り消し済み」である旨を含むCHANGE_NO_CANDIDATES_MESSAGEを送る。
+        """
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        self._confirm_details(processor, name="山田")
+        confirmed_slot_key = next(iter(flow._slots._slots))
+        self.assertEqual(flow._slots.status(confirmed_slot_key, NOW), "confirmed")
+
+        # 新規候補検索が確実に0件になるよう、既に過ぎた日付をrequested_date_rangeに指定する。
+        past_day = NOW.date() - timedelta(days=1)
+        result = self._change(processor, date_range_day=past_day)
+
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "no_date_range_or_no_candidates_change")
+        # 旧予約は既にreleaseされている(通常のchange成功時と変わらない)。
+        self.assertIsNone(flow._slots.status(confirmed_slot_key, NOW))
+        # 「取り消した」旨の案内 → 新候補0件時のchange専用文言、の順に2通届く。
+        self.assertIn("取り消し", push.sent[-2][1])
+        self.assertEqual(push.sent[-1][1], CHANGE_NO_CANDIDATES_MESSAGE)
+
+    def test_change_while_candidates_presented_with_no_new_candidates_uses_generic_reask(self):
+        """旧予約を解放していない(candidates_presented、まだhold()していない)場合は
+        「取り消した」実体が無いため、change専用文言ではなく通常のREASK_DATE_RANGE_MESSAGEで
+        聞き直す(CHANGE_NO_CANDIDATES_MESSAGEの「以前のご予約は取り消し済み」は不正確なため)。
+        """
+        processor, _, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        past_day = NOW.date() - timedelta(days=1)
+        result = self._change(processor, date_range_day=past_day)
+
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "no_date_range_or_no_candidates")
+        self.assertEqual(push.sent[-1][1], REASK_DATE_RANGE_MESSAGE)
 
 
 class ConfirmedReplyRecordingTests(unittest.TestCase):

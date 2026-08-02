@@ -340,7 +340,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「厳守事項9aに基づくfaqは単一項目でも1要素配列で必ず付与する」方針に改訂
   (single-item-faq-schema-decision.md新規作成。E10・E14前半の単一項目9a FAQも
   自動返信の対象になった。9b雑談・escalationは引き続きnullのまま。テスト1件新規・全91件パス)
-- 最終更新: 2026-08-02 17:00 UTC
+- フェーズ(続き41): change-intent-handling-design.mdの残課題だった、change後の新規候補検索が
+  0件だった場合の顧客向け文言をchange専用に出し分ける対応を実施した。旧予約を実際に解放した
+  (`awaiting_details`/`confirmed`からの変更)場合のみ`CHANGE_NO_CANDIDATES_MESSAGE`
+  (「以前のご予約は取り消し済みです」旨を含む)を送り、解放すべき実体が無かった
+  (`candidates_presented`からの変更)場合は従来通りの`REASK_DATE_RANGE_MESSAGE`のままとした
+  (`_start_new_booking()`に`change_context`引数を追加、`prototype/cloud_function_process_event.py`)。
+  テスト2件追加・全119件パス。これによりintent-to-flow-mapping.mdの主要intent
+  (new_booking/cancel/change/faq/escalation)の机上実装は、確認済みの残課題としては
+  実LLM/実LINE API/実Cloud Scheduler接続(オーナー承認待ち)とNotificationLogAggregatorの
+  システム内部イベント記録ギャップの2点のみを残す状態になった。
+- 最終更新: 2026-08-02 18:00 UTC
 
 ## ドキュメント
 - single-item-faq-schema-decision.md: 単一項目FAQ(faq_segmentsがnullのケース)でも
@@ -483,9 +493,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   対応表に載っている主要intent(new_booking/cancel/change/faq/escalation)は一通り
   机上実装が揃った状態になった。次の大きな一歩は机上検証から実LLM検証への移行だが、
   APIキー取得・従量課金が発生するためオーナー承認が前提(pending-approval.md参照)。
-- change-intent-handling-design.mdの残課題として残した、change後の新規候補検索が0件だった
-  場合の顧客向け文言をchange専用に出し分けるべきか(現状は`format_change_started_message()`で
-  「取り消した」旨を伝えた後、new_bookingと共通の`REASK_DATE_RANGE_MESSAGE`が続く)。
+- (解消済み 2026-08-02 18:00 UTC: change-intent-handling-design.mdの残課題だった、change後の
+  新規候補検索が0件だった場合の顧客向け文言出し分けを実装した。旧予約を実際に解放した場合のみ
+  `CHANGE_NO_CANDIDATES_MESSAGE`を送り、解放すべき実体が無かった場合は従来通りの
+  `REASK_DATE_RANGE_MESSAGE`のままとした。テスト2件追加・全119件パス。残る大きな課題は
+  実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち)とNotificationLogAggregatorの
+  システム内部イベント記録ギャップ)
 - (解消済み 2026-08-02 17:00 UTC: 前項の残課題だった`change`(日時変更)の実処理を実装した
   (change-intent-handling-design.md)。`cancel_booking()`と同じ分岐(stageに応じた
   release()・confirmed分のみオーナー通知、escalation_reasonは`booking_change_started`/

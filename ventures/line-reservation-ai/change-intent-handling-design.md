@@ -88,12 +88,22 @@ enumには追加しない。`engine.py`の`SYSTEM_ESCALATION_REASONS`に追加�
 `NotificationLogAggregator`に実際には記録されない」ギャップは今回も引き継いでいる。
 このギャップの解消は引き続き別途の課題として残す)。
 
+## 追記(2026-08-02 18:00 UTC): change後の新規候補検索0件時の文言出し分け
+
+上記で残課題としていた、`change`後の新規候補検索が0件だった場合の顧客向け文言の出し分けに
+対応した。`_start_new_booking()`に`change_context: bool`引数を追加し、`change`経由かつ
+実際に旧予約を解放した(直前stageが`awaiting_details`/`confirmed`で
+`format_change_started_message()`を送った)場合のみ、通常の`REASK_DATE_RANGE_MESSAGE`ではなく
+「以前のご予約は取り消し済みです」旨を含む`CHANGE_NO_CANDIDATES_MESSAGE`を送るようにした
+(`prototype/cloud_function_process_event.py`)。
+
+直前stageが`candidates_presented`だった場合(まだhold()していないため実際には何も
+解放していない)は`change_context=False`のまま通常の文言を使う設計とした。この場合に
+change専用文言を出すと「以前のご予約は取り消し済みです」という一文が事実と異なってしまう
+(そもそも取り消すべき実体が無かった)ため。テスト2件追加(change後に旧予約を解放していた
+場合/していなかった場合それぞれで0件になるケース)・既存分含め全119件パス。
+
 ## 残る課題
-- `change`後の新規候補検索でも0件だった場合(`_start_new_booking`の`REASK_DATE_RANGE_MESSAGE`
-  分岐)、旧予約を解放済みであることを顧客が失念する可能性がある。現状は
-  `format_change_started_message()`で「取り消した」旨を明示しているため実害は限定的だが、
-  再検索0件時の文言をchange専用に出し分けるべきか(例:
-  「日時変更ですが、ご希望の期間に空きが見つかりませんでした」)は今後の検討課題とする。
 - 上記「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの解消
   (cancel-intent-handling-design.mdからの継続課題)
 - 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)

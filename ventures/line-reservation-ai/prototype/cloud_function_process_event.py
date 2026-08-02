@@ -136,6 +136,14 @@ REASK_DATE_RANGE_MESSAGE = (
     "当店: ご希望の日時をもう少し詳しく教えていただけますか?"
     "(例:「来週土曜の午後」「8/9の午前中」)"
 )
+# change-intent-handling-design.md「残る課題」準拠。change後の新規候補検索が0件だった場合、
+# 単純なREASK_DATE_RANGE_MESSAGEだけでは「以前の予約は既に取り消し済みである」ことを
+# 顧客が失念しうるため、change専用に出し分ける。
+CHANGE_NO_CANDIDATES_MESSAGE = (
+    "当店: 大変申し訳ございません、ご希望の期間に日時変更後の空きが見つかりませんでした。"
+    "以前のご予約は取り消し済みですので、改めてご希望の日時を教えていただけますか?"
+    "(例:「来週土曜の午後」「8/9の午前中」)"
+)
 REASK_NAME_MENU_MESSAGE = "当店: お名前とご希望のメニューを教えていただけますか?"
 BOOKING_CONFLICT_MESSAGE = (
     "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
@@ -266,7 +274,9 @@ class ConversationEventProcessor:
         self._consolidator.on_event(user_id, output, now)
         return DispatchResult(action="forwarded_to_owner", detail=f"unexpected_stage:{stage}")
 
-    def _start_new_booking(self, user_id: str, output: dict, now: datetime) -> DispatchResult:
+    def _start_new_booking(
+        self, user_id: str, output: dict, now: datetime, *, change_context: bool = False
+    ) -> DispatchResult:
         menu_minutes = resolve_menu_duration(output.get("menu"), self._menu_durations)
         if menu_minutes is None:
             self._consolidator.on_event(
@@ -278,6 +288,12 @@ class ConversationEventProcessor:
             self._searcher, self._booking_slots, self._store_id, output, menu_minutes, now
         )
         if not candidates:
+            # change-intent-handling-design.md準拠。change経由の場合は旧予約を既に解放済みである
+            # ことを顧客が失念しないよう、その旨を含めた専用文言を送る(呼び出し元の
+            # format_change_started_message()は解放"直後"の案内のみでこの後続には触れないため)。
+            if change_context:
+                self._push.send_message(user_id, CHANGE_NO_CANDIDATES_MESSAGE)
+                return DispatchResult(action="reask", detail="no_date_range_or_no_candidates_change")
             self._push.send_message(user_id, REASK_DATE_RANGE_MESSAGE)
             return DispatchResult(action="reask", detail="no_date_range_or_no_candidates")
 
@@ -443,15 +459,17 @@ class ConversationEventProcessor:
             self._push.send_message(user_id, format_change_not_found_message(tone))
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
 
-        if result.stage in ("awaiting_details", "confirmed"):
+        # 実際に旧予約を解放した(=顧客に「取り消した」旨を伝えた)場合のみ、以降の0件時文言を
+        # change専用に出し分ける。candidates_presentedだった場合は解放すべき実体が無く
+        # 「取り消した」旨の案内もしていないため、通常のnew_bookingと同じ文言で聞き直す。
+        released_old_booking = result.stage in ("awaiting_details", "confirmed")
+        if released_old_booking:
             label = label_from_slot_key(result.slot_key)
             self._push.send_message(
                 user_id, format_change_started_message(label, result.menu or "", tone)
             )
-        # stageがcandidates_presentedだった場合(まだhold()していない)は解放すべき実体が無いため、
-        # 「取り消した」旨の案内なしにそのまま新規候補検索へ進む。
 
-        return self._start_new_booking(user_id, output, now)
+        return self._start_new_booking(user_id, output, now, change_context=released_old_booking)
 
 
 def _demo() -> None:
