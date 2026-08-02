@@ -171,6 +171,7 @@ TEST_CASES = {
         "intent": "faq", "name": None, "menu": None,
         "datetime_candidate": None, "confirmed": False,
         "needs_owner_check": False,
+        "faq_segments": [{"topic": "parking", "resolved": True}],
     },
     "E11": {
         "intent": "escalation", "name": None, "menu": None,
@@ -201,6 +202,7 @@ TEST_CASES = {
     "E14_faq": {
         "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
         "confirmed": False, "needs_owner_check": False,
+        "faq_segments": [{"topic": "payment", "resolved": True}],
     },
     "E14_escalation": {
         "intent": "escalation", "name": None, "menu": None, "datetime_candidate": None,

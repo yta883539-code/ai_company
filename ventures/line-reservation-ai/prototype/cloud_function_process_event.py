@@ -19,16 +19,20 @@ webhook-async-processing-design.md / intent-to-flow-mapping.mdで設計した
 (曖昧な日時→候補提示、候補選択→hold、氏名/メニュー確定→confirm)に加え、
 webhook-function-b-implementation.mdの残課題だった(1)escalation/faq intentの
 顧客向け返信、(2)確定操作競合時の新しい空き枠の再提示を実装した。
-- intent: "faq" かつ `faq_segments`(複合質問、2項目以上)が付与されている場合、
-  faq-response-templates.mdの項目別テンプレートに従い項目ごとに1通ずつ送信する
-  (resolved: trueは登録値をそのまま案内、resolved: falseは共通の保留文言)。
+- intent: "faq" かつ `faq_segments` が付与されている場合、faq-response-templates.mdの
+  項目別テンプレートに従い項目ごとに1通ずつ送信する(resolved: trueは登録値をそのまま案内、
+  resolved: falseは共通の保留文言)。json-schema-multi-intent-extension.mdの
+  2026-08-02改訂により、厳守事項9aに基づく回答は複合質問(2項目以上)だけでなく
+  単一項目でも`faq_segments`を1要素配列で付与する方針になったため、E10・E14前半のような
+  単一項目9aケースも本ルートで自動返信されるようになった(faq-escalation-customer-reply-
+  implementation.mdに記載していた「単一項目FAQは自動返信できない」制約は解消)。
 - intent: "escalation" の場合、faq-response-templates.mdの「未登録・一部未入力の
   ケース(共通)」の保留文言を一次応答として即時送信する。
-- 単一項目FAQ(E10・E6等、`faq_segments`がnullのケース)は、構造化出力に
-  どの店舗FAQ項目(topic)への質問かを表す情報が無く、engine側でテンプレート回答を
-  一意に組み立てられないため、従来通りオーナーへの転送のみ(顧客への自動返信なし)を
-  維持する。この設計ギャップの解消(単一項目でもtopicを出力させるスキーマ変更の要否)は
-  今後の課題として残す。
+- 厳守事項9b(雑談、E6等)のように特定の店舗FAQ項目に基づかない`faq` intentは、
+  `faq_segments`が`null`のままとなる設計のため、引き続きオーナーへの転送のみ
+  (顧客への自動返信なし)を安全側フォールバックとして維持する。実LLMが
+  上記の改訂ルールに従わずtopicなしで単一項目FAQを返した場合も同じ経路で
+  安全側に倒れる。
 - 確定操作自体が競合した場合(`provide_details()`がFalseを返す、booking-slot-manager-design.md
   参照)、初回の候補提示時に使った検索条件(`requested_date_range`/`time_of_day_preference`/
   メニュー所要時間)を`_search_context_by_user`にキャッシュしておき、`now`時点で再検索して
@@ -193,9 +197,9 @@ class ConversationEventProcessor:
         if intent == "escalation":
             return self._handle_escalation(user_id, output, now, tone)
         if intent != "new_booking":
-            # intent-to-flow-mapping.md: 単一項目faq(faq_segments無し)・cancel/change・
-            # その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
-            # オーナーへの転送のみ行う(単一項目faqを自動返信できない理由は
+            # intent-to-flow-mapping.md: faq_segments無しのfaq(9b雑談等・レガシー出力)・
+            # cancel/change・その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
+            # オーナーへの転送のみ行う(単一項目9a FAQがここに落ちない理由は
             # モジュールdocstring「実装範囲」参照)。
             self._consolidator.on_event(user_id, output, now)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
@@ -418,6 +422,19 @@ def _demo() -> None:
     print(f"4) action={r4.action} detail={r4.detail}")
     for text in [t for uid, t in push.sent if uid == "U2"]:
         print(f"   push: {text}")
+
+    # 4b) 単一項目FAQ(E10相当、2026-08-02改訂: 単一項目でもfaq_segmentsを1要素配列で付与)
+    def llm_call_4b() -> dict:
+        return {
+            "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": False,
+            "faq_segments": [{"topic": "parking", "resolved": True}],
+        }
+
+    event4b = {"source": {"userId": "U4"}, "message": {"text": "駐車場はありますか"}}
+    r4b = processor.process(event4b, llm_call_4b, now, tone="standard")
+    print(f"4b) action={r4b.action} detail={r4b.detail}")
+    print(f"   push: {push.sent[-1][1]}")
 
     # 5) escalation(厳守事項6、予約以外の相談)
     def llm_call_5() -> dict:

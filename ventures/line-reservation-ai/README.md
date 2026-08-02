@@ -334,9 +334,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `conversations`ドキュメントに`reminderSentAt`等4フィールドを追記。残る課題は
   (a)単一項目FAQのスキーマ変更検討、(b)確定後の顧客返信検知(`customerRepliedAt`)の
   配線設計、(c)実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち)。
-- 最終更新: 2026-08-02 13:00 UTC
+- フェーズ(続き2): reminder-scheduler-design.mdで前日リマインド経路の呼び出し元
+  (Cloud Function C: send_reminders)を設計・実装した後、README「次にやること」の
+  残課題(a)だった単一項目FAQ(faq_segmentsがnullのケース)のスキーマ変更要否を検討し、
+  「厳守事項9aに基づくfaqは単一項目でも1要素配列で必ず付与する」方針に改訂
+  (single-item-faq-schema-decision.md新規作成。E10・E14前半の単一項目9a FAQも
+  自動返信の対象になった。9b雑談・escalationは引き続きnullのまま。テスト1件新規・全91件パス)
+- 最終更新: 2026-08-02 14:00 UTC
 
 ## ドキュメント
+- single-item-faq-schema-decision.md: 単一項目FAQ(faq_segmentsがnullのケース)でも
+  自動返信できるようにするスキーマ変更の要否検討(2026-08-02 14:00 UTC新規作成。
+  厳守事項9aに基づくfaqは単一項目でもfaq_segmentsを1要素配列で必ず付与する方針を採用。
+  9b雑談・escalationは対象外のまま)
 - market-research.md: 市場調査・競合整理
 - tech-stack.md: 技術構成案
 - conversation-flow.md: 顧客⇄AIの会話フロー草案(新規予約・キャンセル・曖昧な日時のすり合わせ)
@@ -441,6 +451,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   配線設計、実Cloud Scheduler/LINE Push実送信(オーナー承認待ち))
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 14:00 UTC: 前項の残課題(a)だった単一項目FAQ(faq_segmentsがnullの
+  ケース)のスキーマ変更要否を検討した。「厳守事項9aに基づくfaqは単一項目でも
+  faq_segmentsを1要素配列で必ず付与する」方針を採用し、json-schema-multi-intent-
+  extension.md・llm-system-prompt-draft.md・conversation-samples-test-cases.md
+  (E10・E14)・schema/booking_output.schema.json・schema/validate_test_cases.mdを更新
+  (single-item-faq-schema-decision.md新規作成)。prototype/cloud_function_process_event.pyは
+  既存の複合質問向けループがそのまま流用できるためコード変更は不要で、コメント更新と
+  デモ・テスト追加のみ(テスト1件新規・全91件パス)。残る課題は(b)確定後の顧客返信検知
+  (customerRepliedAt)の配線設計、(c)実LLM/実LINE API/実Cloud Scheduler接続自体
+  (オーナー承認待ち))
 - (解消済み 2026-08-02 13:00 UTC: 前項の残課題(c)だった前日リマインド経路の呼び出し元を
   設計・実装した(reminder-scheduler-design.md、prototype/reminder_scheduler.py)。残る課題は
   (a)単一項目FAQ(faq_segmentsがnullのケース)でも自動返信できるようにするスキーマ変更の

@@ -16,7 +16,7 @@
     "confirmed": { "type": "boolean" },
     "needs_owner_check": { "type": "boolean" },
     "faq_segments": {
-      "description": "複合FAQ質問(2項目以上)のときのみ付与する任意フィールド。単一項目FAQ・予約系のやり取りでは null。topicの重複は許容する(E16参照)。",
+      "description": "厳守事項9a(店舗登録済み静的情報access/parking/payment/hoursに基づく回答)に該当するfaq intentでは項目数によらず(単一項目でも)1要素以上の配列として必ず付与する(2026-08-02改訂)。厳守事項9b(雑談)・escalation・予約系のやり取りでは null。topicの重複は許容する(E16参照)。",
       "type": ["array", "null"],
       "items": {
         "type": "object",

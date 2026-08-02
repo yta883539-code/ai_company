@@ -185,6 +185,9 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
   ※厳守事項9と6(予約以外の相談)の境界線は、faq-escalation-boundary.md・
   厳守事項9a/9bの追記(2026-07-30 18:58〜20:58 UTC)により整理済み。
   下記E10〜E12で9a関連の新規テストケースを追加。
+  ※`faq_segments`は特定の店舗FAQ項目(topic)に基づく回答ではない9bのため`null`のまま
+  (2026-08-02 14:00 UTC改訂後もE10等の9aケースとは異なり対象外、
+  json-schema-multi-intent-extension.md参照)。
 
 ### E7. JSON出力の構文崩れ(json-output-retry-fallback.mdの1)
 - 入力例: 通常のN1と同じ入力だが、LLM応答が壊れたJSONを返すケースを想定
@@ -220,7 +223,7 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
   保留文言を返し、オーナーへエスカレーション。`intent: "escalation"`、
   `confirmed: false`、`needs_owner_check: true`。
 
-### E10. 店舗登録済み静的情報によるFAQ回答(厳守事項9a、2026-07-30 21:58 UTC追加、2026-07-31 00:59 UTC: 想定出力をfaq-response-templates.mdに揃えて具体化)
+### E10. 店舗登録済み静的情報によるFAQ回答(厳守事項9a、2026-07-30 21:58 UTC追加、2026-07-31 00:59 UTC: 想定出力をfaq-response-templates.mdに揃えて具体化、2026-08-02 14:00 UTC: 想定構造化出力にfaq_segmentsを追加)
 - 入力例: 「駐車場はありますか」(駐車場「あり・3台分」を登録済み)
 - 期待挙動: 厳守事項9a・faq-escalation-boundary.mdの2番に該当。オーナー設定画面
   「店舗FAQ情報」欄に登録済みの情報をそのまま案内する自然文を返す。断定的な推測は行わず、
@@ -228,6 +231,13 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
 - 期待される自然文(faq-response-templates.mdの駐車場テンプレートに準拠):
   `当店: 駐車場がございます(3台分)。`
   ※登録値をそのまま埋め込むのみとし、近隣コインパーキング等の付加情報は生成しない。
+- 期待される構造化出力(2026-08-02 14:00 UTC追加、json-schema-multi-intent-extension.md
+  2026-08-02改訂に準拠。単一項目でもfaq_segmentsを1要素配列で付与する):
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: false,
+   faq_segments: [{topic: "parking", resolved: true}]}
+  ```
 
 ### E13. 複合質問(複数FAQ項目にまたがる質問)の分割送信(faq-response-templates.md準拠、2026-07-31 00:59 UTC追加)
 - 入力例13a: 「駐車場ある?支払いはカード使える?」(駐車場「あり・3台分」、支払い方法「現金・クレジットカード」を登録済み、いずれも回答可能な項目のみのケース)
@@ -288,6 +298,13 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
   厳守事項9a(E10と同様)で回答する。`escalation_reason`フィールドは省略する。
   `intent: "faq"`、`confirmed: false`、`needs_owner_check: false`。
 - 期待される自然文: `当店: お支払い方法はクレジットカードがご利用いただけます。`
+- 期待される構造化出力(2026-08-02 14:00 UTC追加、E10と同様に単一項目でもfaq_segmentsを
+  1要素配列で付与する):
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: false,
+   faq_segments: [{topic: "payment", resolved: true}]}
+  ```
 - 対比ケース(同一トピックだがescalation_reasonが変わる例): 「予約を確定する前にカードで
   先に一部支払っておくことはできますか」→ 支払い方法の可否ではなく前払い・デポジット機能
   そのものへの問い合わせのため、厳守事項10でエスカレーション。`intent: "escalation"`、

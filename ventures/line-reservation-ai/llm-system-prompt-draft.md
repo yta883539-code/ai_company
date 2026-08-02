@@ -87,9 +87,11 @@ tech-stack.md の「次のステップ候補」で挙げていた
    requested_date_range: {start: string, end: string} | null,
    time_of_day_preference: "morning" | "afternoon" | "evening" | "none"}
 ```
-- `faq_segments` は複合FAQ質問(2項目以上にまたがる質問、例: E13)のときのみ付与する
-  任意フィールド。単一項目FAQ・予約系のやり取りでは`null`のままとする
-  (詳細はjson-schema-multi-intent-extension.md参照)。
+- `faq_segments` は、厳守事項9a(店舗登録済み静的情報: access/parking/payment/hoursの
+  いずれかに基づく回答)に該当する`intent: "faq"`では、項目数によらず(単一項目でも)
+  1要素以上の配列として必ず付与する(2026-08-02 14:00 UTC改訂、詳細は
+  json-schema-multi-intent-extension.md参照)。厳守事項9b(雑談・スパム的入力、特定の
+  店舗FAQ項目に基づかない応答)・`escalation` intent・予約系のやり取りでは`null`のままとする。
 - `requested_date_range`・`time_of_day_preference` は、`datetime_candidate`(顧客への
   確認メッセージ表示用の自由記述、例:「来週土曜のお昼くらい」)とは別に、AvailabilitySearcher
   (決定的コードによる空き枠算出、slot-search-component-design.md参照)へ渡すための
@@ -109,6 +111,13 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-08-02 14:00 UTC: json-schema-multi-intent-extension.mdの改訂を受け、`faq_segments`の
+  付与ルールを「複合質問(2項目以上)のときのみ」から「厳守事項9aに基づく`faq` intentは
+  単一項目でも1要素以上の配列で必ず付与」に変更した。従来は単一項目FAQ(faq-escalation-
+  customer-reply-implementation.md参照)でtopic情報が構造化出力に含まれずengine側が
+  テンプレート回答を自動生成できない制約があったが、本改訂によりE10・E14(前半)のような
+  単一項目9aケースも自動返信の対象にできる設計とした。厳守事項9b(雑談)・escalationは
+  引き続き`null`。
 - 2026-08-01 16:00 UTC: message-tone-variants.mdの残課題だった、店舗設定「メッセージトーン」
   (フォーマル/standard/カジュアル)の値に応じてトーン別の言い回し(語尾・絵文字・感嘆符)を
   適用する指示を厳守事項7に反映した。従来のtone-and-manner-guideline.md参照(丁寧/親しみの

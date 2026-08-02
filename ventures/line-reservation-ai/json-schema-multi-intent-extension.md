@@ -1,4 +1,4 @@
-# 複合FAQ質問における構造化出力(JSON)スキーマ拡張案(2026-07-31時点)
+# 複合FAQ質問における構造化出力(JSON)スキーマ拡張案(2026-07-31時点、2026-08-02 14:00 UTC改訂)
 
 conversation-samples-test-cases.md の E13(複合質問の分割送信)で見つかった課題、
 「1回のAI応答内で `intent` が項目ごとに混在しうる(例: 駐車場は`faq`で回答済み、
@@ -51,9 +51,21 @@ conversation-samples-test-cases.md の E13(複合質問の分割送信)で見つ
 - `faq_segments[].resolved: true` のみで構成される場合(E13a相当)は
   `needs_owner_check: false` のまま。
 - `confirmed` はFAQ系では常にfalseのため、この拡張による影響を受けない。
-- 単一項目FAQ(E10〜E12)は `faq_segments` を付与してもしなくても良いが、
-  実装を単純化するため「複合質問(2項目以上)のときのみ付与、単一項目では省略」を
-  推奨する(単一項目まで配列化すると自然文の分割送信ロジックと二重管理になるため)。
+- (2026-08-02 14:00 UTC改訂) 従来は「複合質問(2項目以上)のときのみ付与、単一項目では省略」を
+  推奨していたが、faq-escalation-customer-reply-implementation.mdの実装で判明した通り、
+  単一項目FAQで`faq_segments`が`null`だとengine側がどの店舗FAQ項目(topic)への質問かを
+  特定できず、テンプレート回答を自動生成できない(オーナー転送のみに留まる)制約が生じた。
+  そのため推奨を「厳守事項9a(店舗登録済み静的情報: access/parking/payment/hoursのいずれか)に
+  基づいて回答する`intent: "faq"`は、項目数によらず(単一項目でも)`faq_segments`を
+  1要素以上の配列として必ず付与する」に改める。単一項目まで配列化することによる
+  「自然文の分割送信ロジックとの二重管理」懸念は、1要素配列の場合は分割不要(そのまま1通)なため
+  実装上は既存の複合質問向けループ(`_handle_faq`)がそのまま流用でき、実害はないと判断した。
+  - 例外: 厳守事項9b(雑談・スパム的入力、E6参照)は特定の店舗FAQ項目に基づく回答ではないため、
+    引き続き`faq_segments`は`null`のままとする。
+  - `intent: "escalation"`(厳守事項6・10)も店舗FAQ項目への回答ではないため対象外(`null`のまま)。
+  - 既存の「`faq_segments`が`null`の`faq` intentはオーナー転送のみ」という安全側フォールバックは、
+    実LLMが本改訂の指示に従わなかった場合やレガシー出力への備えとしてそのまま維持する
+    (cloud_function_process_event.py参照)。
 
 ## リトライ・フォールバックへの影響(json-output-retry-fallback.md整合)
 

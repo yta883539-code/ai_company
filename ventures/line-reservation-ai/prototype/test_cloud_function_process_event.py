@@ -261,9 +261,29 @@ class FaqSegmentReplyTests(unittest.TestCase):
         self.assertIn("担当者に確認のうえ", push.sent[0][1])
         self.assertIn("担当者に確認のうえ", push.sent[1][1])
 
-    def test_single_item_faq_without_segments_is_still_forwarded_only(self):
-        # faq_segmentsが付与されない単一項目FAQ(E10・E6等)は、topic情報が無いため
-        # 引き続きオーナー転送のみ(自動返信なし)。モジュールdocstringの既知の制約。
+    def test_single_item_faq_segments_is_answered_from_template(self):
+        # E10相当(2026-08-02改訂): json-schema-multi-intent-extension.mdの改訂により、
+        # 厳守事項9aに基づく単一項目FAQでもfaq_segmentsを1要素配列で付与する方針になった。
+        # 既存の複合質問向けループ(_handle_faq)がそのまま流用され、1通だけ自動返信される。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "parking", "resolved": True}],
+            }
+
+        result = processor.process(_event("U1", "駐車場はありますか"), llm_call, NOW)
+        self.assertEqual(result.action, "faq_replied")
+        self.assertEqual(result.detail, "1_segments_0_unresolved")
+        self.assertEqual(len(push.sent), 1)
+        self.assertEqual(push.sent[0][1], "当店: 駐車場がございます(3台分)。")
+
+    def test_faq_without_segments_is_still_forwarded_only(self):
+        # faq_segmentsが付与されないfaq intent(厳守事項9b雑談(E6等)や、2026-08-02改訂の
+        # 付与ルールに実LLMが従わなかったレガシー出力)は、topic情報が無いため
+        # 引き続きオーナー転送のみ(自動返信なし)の安全側フォールバックを維持する。
         processor, flow, push, logs = _new_processor()
 
         def llm_call():
@@ -272,7 +292,7 @@ class FaqSegmentReplyTests(unittest.TestCase):
                 "confirmed": False, "needs_owner_check": False,
             }
 
-        result = processor.process(_event("U1", "駐車場はありますか"), llm_call, NOW)
+        result = processor.process(_event("U1", "こんにちは!"), llm_call, NOW)
         self.assertEqual(result.action, "forwarded_to_owner")
         self.assertEqual(push.sent, [])
 
