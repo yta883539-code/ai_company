@@ -18,7 +18,7 @@ webhook-async-processing-design.md / intent-to-flow-mapping.mdで設計した
 実装範囲: intent-to-flow-mapping.mdの対応表のうち new_booking 系の3行
 (曖昧な日時→候補提示、候補選択→hold、氏名/メニュー確定→confirm)に加え、
 webhook-function-b-implementation.mdの残課題だった(1)escalation/faq intentの
-顧客向け返信を実装した。
+顧客向け返信、(2)確定操作競合時の新しい空き枠の再提示を実装した。
 - intent: "faq" かつ `faq_segments`(複合質問、2項目以上)が付与されている場合、
   faq-response-templates.mdの項目別テンプレートに従い項目ごとに1通ずつ送信する
   (resolved: trueは登録値をそのまま案内、resolved: falseは共通の保留文言)。
@@ -29,6 +29,12 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
   一意に組み立てられないため、従来通りオーナーへの転送のみ(顧客への自動返信なし)を
   維持する。この設計ギャップの解消(単一項目でもtopicを出力させるスキーマ変更の要否)は
   今後の課題として残す。
+- 確定操作自体が競合した場合(`provide_details()`がFalseを返す、booking-slot-manager-design.md
+  参照)、初回の候補提示時に使った検索条件(`requested_date_range`/`time_of_day_preference`/
+  メニュー所要時間)を`_search_context_by_user`にキャッシュしておき、`now`時点で再検索して
+  新しい空き枠をその場で顧客へ再提示する(奪われた枠は`BookingSlotManager`側で既に
+  埋まっているため自然に候補から除外される)。再検索しても候補が0件の場合は従来通り
+  謝罪文言のみを送りオーナーの人手対応に委ねる。
 new_booking以外でも cancel/change intentは未実装のまま、EscalationConsolidator/
 NotificationLogAggregatorへの転送のみを行う。
 """
@@ -97,6 +103,10 @@ BOOKING_CONFLICT_MESSAGE = (
     "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
     "担当より改めて空き状況をご案内いたしますので少々お待ちください。"
 )
+BOOKING_CONFLICT_RETRY_MESSAGE = (
+    "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
+    "改めて空いているお時間をご案内しますので、よろしければ番号でお選びください。"
+)
 
 
 @dataclass
@@ -156,6 +166,9 @@ class ConversationEventProcessor:
         self._store_faq_info = store_faq_info or {}
         self._candidates_by_user: dict[str, list] = {}
         self._held_label_by_user: dict[str, str] = {}
+        # 直近の空き枠検索に使ったLLM出力とメニュー所要時間。確定操作競合時
+        # (_represent_candidates_after_conflict)に同じ条件で再検索するために保持する。
+        self._search_context_by_user: dict[str, tuple[dict, int]] = {}
 
     def process(
         self,
@@ -216,6 +229,8 @@ class ConversationEventProcessor:
             self._push.send_message(user_id, REASK_DATE_RANGE_MESSAGE)
             return DispatchResult(action="reask", detail="no_date_range_or_no_candidates")
 
+        # 確定操作競合時の再検索(_represent_candidates_after_conflict)用に検索条件を保持する。
+        self._search_context_by_user[user_id] = (output, menu_minutes)
         self._flow.present_candidates(user_id, candidates, now=now)
         self._candidates_by_user[user_id] = candidates
         self._push.send_message(user_id, format_candidates_message(candidates))
@@ -252,10 +267,7 @@ class ConversationEventProcessor:
         if not confirmed:
             # provide_details()失敗時はConversationFlowStateMachineが内部で
             # EscalationConsolidator.on_event()を既に呼んでいるため、ここでの二重通知はしない。
-            # 新しい空き枠の再提示(booking-slot-manager-design.mdの今後の課題)は未実装のため、
-            # 当面は案内文言のみを送る。
-            self._push.send_message(user_id, BOOKING_CONFLICT_MESSAGE)
-            return DispatchResult(action="booking_conflict")
+            return self._represent_candidates_after_conflict(user_id, now)
 
         label = self._held_label_by_user.pop(user_id, "")
         self._push.send_message(
@@ -263,6 +275,32 @@ class ConversationEventProcessor:
             format_confirmation_message(candidate_label=label, menu=menu, customer_name=name, tone=tone),
         )
         return DispatchResult(action="confirmed")
+
+    def _represent_candidates_after_conflict(self, user_id: str, now: datetime) -> DispatchResult:
+        """booking-slot-manager-design.mdの今後の課題だった、確定操作競合時の新しい空き枠の
+        再提示。初回の候補提示時にキャッシュしておいた検索条件(_search_context_by_user)で
+        `now`時点の空き状況を再検索し、奪われた枠を除いた候補をその場で顧客へ提示する
+        (`ConversationFlowStateMachine.provide_details()`が既にstageをcandidates_presentedへ
+        差し戻しているため、`present_candidates()`で状態を上書きするだけでよい)。
+        検索条件が見つからない、または再検索しても候補が0件の場合(混雑等で近日中に空きが無い)は
+        従来通り謝罪文言のみを送り、オーナーの人手対応に委ねる。
+        """
+        context = self._search_context_by_user.get(user_id)
+        candidates = None
+        if context is not None:
+            original_output, menu_minutes = context
+            candidates = search_candidates_from_llm_output(
+                self._searcher, self._booking_slots, self._store_id, original_output, menu_minutes, now
+            )
+        if not candidates:
+            self._push.send_message(user_id, BOOKING_CONFLICT_MESSAGE)
+            return DispatchResult(action="booking_conflict", detail="no_alternative_forwarded_to_owner")
+
+        self._flow.present_candidates(user_id, candidates, now=now)
+        self._candidates_by_user[user_id] = candidates
+        self._push.send_message(user_id, BOOKING_CONFLICT_RETRY_MESSAGE)
+        self._push.send_message(user_id, format_candidates_message(candidates))
+        return DispatchResult(action="booking_conflict", detail=f"represented_{len(candidates)}_candidates")
 
     def _handle_faq(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
         """複合FAQ質問(faq_segments、json-schema-multi-intent-extension.md)への顧客向け返信。

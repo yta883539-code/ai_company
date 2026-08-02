@@ -39,8 +39,9 @@ webhook-function-a-implementation.mdの「未実装のまま残るもの」に�
     cancel/change等)はFlowを一切呼ばず転送のみ(下記「未実装のまま残るもの」参照)。
 
 ## テスト(`prototype/test_cloud_function_process_event.py`)
-unittest 19件、全件パス(既存のtest_engine.py 32件・test_cloud_function_webhook.py 17件も
-引き続き全件パスを確認済み、合計68件)。
+unittest 20件、全件パス(既存のtest_engine.py 32件・test_cloud_function_webhook.py 17件も
+引き続き全件パスを確認済み、合計69件。確定操作競合時の新しい空き枠の再提示に関する
+テストは booking-conflict-candidate-representation.md 参照)。
 - `resolve_menu_duration()`の登録/未登録/menu欠落
 - 曖昧な日付範囲→候補提示、未登録メニュー→検索前にエスカレーション、日付の手がかりなし→聞き直し
 - cancel intent(未実装)がFlowに触れず転送されること
@@ -62,9 +63,11 @@ unittest 19件、全件パス(既存のtest_engine.py 32件・test_cloud_functio
   構造化出力にどのFAQ項目(topic)への質問かを表す情報が無いためengine側でテンプレート回答を
   組み立てられず、引き続きオーナー転送のみ(自動返信なし)。json-schema-multi-intent-extension.mdの
   既存推奨(単一項目では`faq_segments`を省略)を見直すスキーマ変更が必要になる可能性がある。
-- **確定操作競合時の新しい空き枠の再提示**: booking-slot-manager-design.mdの今後の課題として
-  残っていた「後着の予約に新しい候補を再提示する」動作は、現状は謝罪文言のみで空き枠の
-  再検索・再提示は行っていない。
+- (解消済み 2026-08-02 12:00 UTC: 確定操作競合時に、初回提示時と同じ検索条件で`now`時点の
+  空き枠を再検索し、奪われた枠を除いた新しい候補一覧をその場で再提示するようにした
+  (`_represent_candidates_after_conflict()`)。検索条件のキャッシュが無い/再検索しても
+  候補が0件の場合は従来通り謝罪文言のみのフォールバックを維持。詳細は
+  booking-conflict-candidate-representation.md参照)
 - **前日リマインド(スケジューラ発火)経路との統合**: `format_reminder_message()`は
   message-tone-variants.md/`_render_by_tone()`経由で実装済みだが、Cloud Function B自体は
   Webhookイベント起点(LLM出力起点)のみを扱う設計であり、スケジューラ発火経路の呼び出し元

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from cloud_function_process_event import (  # noqa: E402
     BOOKING_CONFLICT_MESSAGE,
+    BOOKING_CONFLICT_RETRY_MESSAGE,
     ConversationEventProcessor,
     InMemoryLinePushClient,
     REASK_DATE_RANGE_MESSAGE,
@@ -368,7 +369,7 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(push.sent[-1][1], REASK_NAME_MENU_MESSAGE)
         self.assertEqual(flow.stage("U1"), "awaiting_details")
 
-    def test_booking_conflict_notifies_owner_once_and_sends_apology_to_customer(self):
+    def test_booking_conflict_notifies_owner_once_and_represents_fresh_candidates(self):
         processor, flow, push, _ = _new_processor()
         self._present_candidates(processor)
 
@@ -395,6 +396,52 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
 
         result = processor.process(_event("U1", "山田です、カットでお願いします"), llm_call_details, NOW)
         self.assertEqual(result.action, "booking_conflict")
+        self.assertTrue(result.detail.startswith("represented_"))
+        # 謝罪(BOOKING_CONFLICT_RETRY_MESSAGE)に続けて、奪われた枠を除いた新しい候補一覧を送る。
+        self.assertEqual(push.sent[-2][1], BOOKING_CONFLICT_RETRY_MESSAGE)
+        self.assertIn("番号でお知らせください", push.sent[-1][1])
+        self.assertNotIn(held_slot_key[2], push.sent[-1][1])
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+        # 差し戻された候補一覧からも、通常の候補選択→hold と同じ流れで再確定できること。
+        def llm_call_reselect():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        result2 = processor.process(_event("U1", "1番で"), llm_call_reselect, NOW)
+        self.assertEqual(result2.action, "held")
+
+    def test_booking_conflict_falls_back_to_apology_when_no_alternative_slot(self):
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), llm_call_select, NOW)
+
+        # hold中の枠を横から奪われた状況を再現しつつ、検索条件のキャッシュが無いケース
+        # (再検索できない、通常は発生しないが安全側フォールバックの確認)をシミュレートする。
+        held_slot_key = next(iter(flow._slots._slots))
+        flow._slots.release(held_slot_key)
+        flow._slots.hold(held_slot_key, "OTHER_USER", NOW)
+        flow._slots.confirm(held_slot_key, "OTHER_USER", NOW)
+        del processor._search_context_by_user["U1"]
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "山田です、カットでお願いします"), llm_call_details, NOW)
+        self.assertEqual(result.action, "booking_conflict")
+        self.assertEqual(result.detail, "no_alternative_forwarded_to_owner")
         self.assertEqual(push.sent[-1][1], BOOKING_CONFLICT_MESSAGE)
         self.assertEqual(flow.stage("U1"), "candidates_presented")
 

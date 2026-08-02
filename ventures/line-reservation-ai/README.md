@@ -312,7 +312,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   新規作成)。単一項目FAQ(faq_segmentsがnullのケース、E10・E6等)は構造化出力に
   topic情報が無く自動返信できないため、引き続きオーナー転送のみを維持する制約が残った
   (次の課題)。テスト7件追加、既存分含め全68件パス確認済み。
-- 最終更新: 2026-08-02 11:00 UTC
+- フェーズ(続き39): webhook-function-b-implementation.mdの残課題(b)だった、確定操作競合時
+  (`provide_details()`失敗時)の新しい空き枠の再提示を実装した。初回の候補提示時に使った
+  検索条件(`requested_date_range`等)を`_search_context_by_user`にキャッシュしておき、
+  競合判明時点(`now`)で同条件のまま再検索する`_represent_candidates_after_conflict()`を
+  新規追加。奪われた枠は`BookingSlotManager`側で既に別ユーザーの確定済みのため自然に
+  候補から除外され、新しい候補が見つかれば`present_candidates()`で状態を上書きしてその場で
+  再提示、顧客はそのまま番号選択で確定操作をやり直せる。検索条件が無い/再検索しても候補
+  0件の場合は従来通り謝罪文言のみのフォールバックを維持した(prototype/cloud_function_process_event.py、
+  テスト2件追加・既存分含め全69件パス、booking-conflict-candidate-representation.md新規作成)。
+  残る課題は(a)単一項目FAQのスキーマ変更検討、(c)前日リマインド経路の呼び出し元、
+  (d)実LLM/実LINE API接続自体(オーナー承認待ち)。
+- 最終更新: 2026-08-02 12:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -402,8 +413,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (2026-08-02 11:00 UTC新規作成。複合FAQ(faq_segments付与時)は項目ごとにテンプレート回答、
   escalation intentは共通保留文言を即時送信。単一項目FAQ(faq_segmentsがnull)は自動返信でき
   ない制約が残った旨を明記)
+- booking-conflict-candidate-representation.md: webhook-function-b-implementation.mdの
+  残課題だった確定操作競合時の新しい空き枠の再提示の実装経緯まとめ(2026-08-02 12:00 UTC
+  新規作成。初回検索条件をキャッシュして`now`時点で再検索し、奪われた枠を除いた候補を
+  その場で再提示。検索条件が無い/候補0件の場合は謝罪文言のみのフォールバックを維持)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 12:00 UTC: 前項の残課題(b)だった確定操作競合時の新しい空き枠の再提示を
+  実装した(booking-conflict-candidate-representation.md)。残る課題は(a)単一項目FAQ
+  (faq_segmentsがnullのケース)でも自動返信できるようにするスキーマ変更の要否検討
+  (json-schema-multi-intent-extension.mdの既存推奨の見直しが必要、影響範囲が
+  llm-system-prompt-draft.md・booking_output.schema.json・テストケース群に及ぶため慎重な検討が
+  必要)、(c)前日リマインド経路の呼び出し元、(d)実LLM/実LINE API接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 11:00 UTC: webhook-function-b-implementation.mdの残課題(1)だった
   escalation/faq intentの顧客向け返信を実装した(faq-escalation-customer-reply-implementation.md)。
   残る課題は(a)単一項目FAQ(faq_segmentsがnullのケース)でも自動返信できるようにする
