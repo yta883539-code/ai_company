@@ -37,5 +37,10 @@ availability-closed-weekday-support.mdの残課題だった「祝日・臨時休
 
 ## 残課題
 
-- reminder_scheduler.pyへの`closed_dates`対応(前日リマインドの送信日決定ロジック)。
+- (解消済み 2026-08-02 23:00 UTC: reminder_scheduler.pyの`compute_initial_reminder_target()`に
+  `closed_dates`対応を追加した。`StoreReminderConfig`に`closed_dates: frozenset[date] = frozenset()`を
+  追加し、遡りループの条件を`day.weekday() in store.closed_weekdays or day in store.closed_dates`に変更。
+  `closed_weekdays`と`closed_dates`は併用可能(OR条件)で、いずれかに該当する日は前日リマインドの
+  送信日候補から除外される。テスト2件追加(臨時休業日単体での遡り、定休日と臨時休業日の併用)、
+  全129件パス)
 - owner-settings-wireframe.mdへの「臨時休業日リスト」入力欄の追記。

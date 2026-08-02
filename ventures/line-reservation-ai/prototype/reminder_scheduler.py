@@ -49,6 +49,7 @@ class StoreReminderConfig:
 
     business_hours: object  # (開始,終了) または [(開始,終了), ...]、engine.py同様
     closed_weekdays: frozenset = frozenset()
+    closed_dates: frozenset = frozenset()  # ad-hoc-closed-dates-support.md準拠(臨時休業日、date集合)
     weekday_business_hours: Optional[dict] = None
     reminder_time_minutes: Optional[int] = None  # 店舗が明示設定したリマインド送信時刻(分)
 
@@ -79,12 +80,13 @@ def _business_end_minutes(target_date: date, store: StoreReminderConfig) -> int:
 
 def compute_initial_reminder_target(booking_date: date, store: StoreReminderConfig) -> datetime:
     """reminder-timing-and-resend-rules.md ルール1準拠。
-    予約日の前日を起点に、定休日であれば前営業日へ遡り、その営業日の目標時刻(分)を
-    店舗設定または「営業終了1時間前・20:00上限」のデフォルトで決定する。
+    予約日の前日を起点に、定休日(曜日単位)または臨時休業日(特定日付単位)であれば
+    前営業日へ遡り、その営業日の目標時刻(分)を店舗設定または「営業終了1時間前・20:00上限」の
+    デフォルトで決定する。
     """
     day = booking_date - timedelta(days=1)
     lookback = 0
-    while day.weekday() in store.closed_weekdays:
+    while day.weekday() in store.closed_weekdays or day in store.closed_dates:
         day -= timedelta(days=1)
         lookback += 1
         if lookback > MAX_LOOKBACK_DAYS:

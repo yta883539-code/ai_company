@@ -534,6 +534,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 23:00 UTC: ad-hoc-closed-dates-support.mdの残課題だった、
+  reminder_scheduler.py側の`closed_dates`対応を実装した。`StoreReminderConfig`に
+  `closed_dates`を追加し、`compute_initial_reminder_target()`の前営業日への遡り判定を
+  `closed_weekdays`(曜日定休)と`closed_dates`(臨時休業日)のOR条件に拡張。テスト2件追加・
+  全129件パス。残る課題はowner-settings-wireframe.mdへの「臨時休業日リスト」入力欄の追記、
+  および実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 22:00 UTC: availability-closed-weekday-support.mdに残っていた祝日・
   臨時休業(特定日付単発の休業)への対応を実装した(ad-hoc-closed-dates-support.md)。
   `AvailabilitySearcher`に`closed_dates`を新設。テスト2件追加・全127件パス。残る課題は

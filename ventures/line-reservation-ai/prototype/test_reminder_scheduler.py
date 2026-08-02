@@ -47,6 +47,27 @@ class ComputeInitialReminderTargetTests(unittest.TestCase):
         target = compute_initial_reminder_target(tuesday, store)
         self.assertEqual(target, datetime(2026, 8, 9, 17, 0))  # 日曜17:00
 
+    def test_closed_date_falls_back_to_prior_business_day(self):
+        # 前日(月)が臨時休業日として個別登録されている → 前営業日(日)に送信
+        store = StoreReminderConfig(
+            business_hours=(9 * 60, 18 * 60), closed_dates=frozenset({date(2026, 8, 10)})
+        )
+        tuesday = date(2026, 8, 11)  # 火曜、前日は月曜(2026-08-10)
+        self.assertEqual(tuesday.weekday(), 1)
+        target = compute_initial_reminder_target(tuesday, store)
+        self.assertEqual(target, datetime(2026, 8, 9, 17, 0))  # 日曜17:00
+
+    def test_closed_weekdays_and_closed_dates_combine(self):
+        # 月曜(weekday=0)定休 + 日曜(2026-08-9)を臨時休業日として個別登録 → 土曜まで遡る
+        store = StoreReminderConfig(
+            business_hours=(9 * 60, 18 * 60),
+            closed_weekdays=frozenset({0}),
+            closed_dates=frozenset({date(2026, 8, 9)}),
+        )
+        tuesday = date(2026, 8, 11)  # 火曜
+        target = compute_initial_reminder_target(tuesday, store)
+        self.assertEqual(target, datetime(2026, 8, 8, 17, 0))  # 土曜17:00
+
     def test_weekday_specific_business_hours_used_for_target_day(self):
         store = StoreReminderConfig(
             business_hours=(9 * 60, 18 * 60),
