@@ -41,6 +41,10 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
   謝罪文言のみを送りオーナーの人手対応に委ねる。
 new_booking以外でも cancel/change intentは未実装のまま、EscalationConsolidator/
 NotificationLogAggregatorへの転送のみを行う。
+
+- reminder-scheduler-design.mdの残課題だった「確定後の顧客からの返信検知の配線」を実装した
+  (customer-reply-detection-design.md参照)。confirmed状態の会話へメッセージが届いた事実を、
+  内容を問わず`ConfirmedReplyRecorder`プロトコル経由で記録する(未指定時は何もしない)。
 """
 
 from __future__ import annotations
@@ -92,6 +96,24 @@ class InMemoryLinePushClient:
 
     def send_message(self, user_id: str, text: str) -> None:
         self.sent.append((user_id, text))
+
+
+class ConfirmedReplyRecorder(Protocol):
+    def record(self, user_id: str, now: datetime) -> None:
+        ...
+
+
+class InMemoryConfirmedReplyRecorder:
+    """customer-reply-detection-design.md準拠。confirmed状態の会話にメッセージが届いた
+    事実を記録する検証用クライアント。実装時はFirestoreのconversationドキュメントの
+    `customerRepliedAt`フィールドを`now`で更新する処理に差し替えるだけで動作する設計。
+    """
+
+    def __init__(self) -> None:
+        self.recorded: list[tuple[str, datetime]] = []
+
+    def record(self, user_id: str, now: datetime) -> None:
+        self.recorded.append((user_id, now))
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +176,7 @@ class ConversationEventProcessor:
         store_id: str,
         menu_durations: dict,
         store_faq_info: Optional[dict] = None,
+        confirmed_reply_recorder: Optional[ConfirmedReplyRecorder] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -163,6 +186,8 @@ class ConversationEventProcessor:
         self._push = push_client
         self._store_id = store_id
         self._menu_durations = menu_durations
+        # customer-reply-detection-design.md準拠。未指定(None)の場合は何もしない。
+        self._confirmed_reply_recorder = confirmed_reply_recorder
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -186,6 +211,12 @@ class ConversationEventProcessor:
         if not user_id:
             raise ValueError("event is missing required field 'source.userId'")
         reply_text = event.get("message", {}).get("text", "")
+
+        # customer-reply-detection-design.md準拠。LLM呼び出し・intent判定より前に、
+        # confirmed状態の会話へメッセージが届いた事実そのものを記録する(内容は問わない)。
+        # 複数回返信があっても呼ぶたびに最新の時刻で上書きする。
+        if self._confirmed_reply_recorder is not None and self._flow.stage(user_id) == "confirmed":
+            self._confirmed_reply_recorder.record(user_id, now)
 
         llm_result = process_llm_output(llm_call)
         output = llm_result.output
@@ -350,6 +381,7 @@ def _demo() -> None:
     consolidator = flow._consolidator
     logs = NotificationLogAggregator()
     push = InMemoryLinePushClient()
+    confirmed_replies = InMemoryConfirmedReplyRecorder()
     processor = ConversationEventProcessor(
         flow=flow,
         searcher=searcher,
@@ -357,6 +389,7 @@ def _demo() -> None:
         consolidator=consolidator,
         logs=logs,
         push_client=push,
+        confirmed_reply_recorder=confirmed_replies,
         store_id="store-1",
         menu_durations={"カット": 30},
         store_faq_info={
@@ -408,6 +441,21 @@ def _demo() -> None:
     r3 = processor.process(event3, llm_call_3, now, tone="standard")
     print(f"3) action={r3.action} detail={r3.detail}")
     print(f"   push: {push.sent[-1][1]}")
+
+    # 3b) confirmed後の返信検知(customer-reply-detection-design.md): 前日リマインド後に
+    # 顧客から何かしら返信が来たことを、内容を問わずConfirmedReplyRecorderへ記録する。
+    def llm_call_3b() -> dict:
+        return {
+            "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": False,
+            "faq_segments": [{"topic": "parking", "resolved": True}],
+        }
+
+    event3b = {"source": {"userId": "U1"}, "message": {"text": "駐車場ありますか"}}
+    reminder_reply_time = now + timedelta(days=1, hours=8)
+    r3b = processor.process(event3b, llm_call_3b, reminder_reply_time, tone="standard")
+    print(f"3b) action={r3b.action} detail={r3b.detail}")
+    print(f"    customer_replied_at recorded: {confirmed_replies.recorded}")
 
     # 4) 複合FAQ(E13b相当): 駐車場は登録済み(resolved: true)、電子マネーは未チェック(resolved: false)
     def llm_call_4() -> dict:

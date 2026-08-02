@@ -18,6 +18,7 @@ from cloud_function_process_event import (  # noqa: E402
     BOOKING_CONFLICT_MESSAGE,
     BOOKING_CONFLICT_RETRY_MESSAGE,
     ConversationEventProcessor,
+    InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
     REASK_DATE_RANGE_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
@@ -41,7 +42,7 @@ STORE_FAQ_INFO = {
 }
 
 
-def _new_processor(store_faq_info=None):
+def _new_processor(store_faq_info=None, confirmed_reply_recorder=None):
     flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
     searcher = AvailabilitySearcher(business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30)
     push = InMemoryLinePushClient()
@@ -56,6 +57,7 @@ def _new_processor(store_faq_info=None):
         store_id=STORE_ID,
         menu_durations=MENU_DURATIONS,
         store_faq_info=STORE_FAQ_INFO if store_faq_info is None else store_faq_info,
+        confirmed_reply_recorder=confirmed_reply_recorder,
     )
     return processor, flow, push, logs
 
@@ -464,6 +466,110 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(result.detail, "no_alternative_forwarded_to_owner")
         self.assertEqual(push.sent[-1][1], BOOKING_CONFLICT_MESSAGE)
         self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+
+class ConfirmedReplyRecordingTests(unittest.TestCase):
+    """customer-reply-detection-design.md準拠。confirmed状態の会話へメッセージが届いた
+    事実がConfirmedReplyRecorderへ記録されることを検証する。
+    """
+
+    def _reach_confirmed(self, processor, user_id="U1"):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call_present():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor.process(_event(user_id, "来週土曜カットで"), llm_call_present, NOW)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "1番で"), llm_call_select, NOW)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "山田です、カットでお願いします"), llm_call_details, NOW)
+
+    def test_message_while_confirmed_is_recorded_regardless_of_intent(self):
+        recorder = InMemoryConfirmedReplyRecorder()
+        processor, flow, push, _ = _new_processor(confirmed_reply_recorder=recorder)
+        self._reach_confirmed(processor)
+        self.assertEqual(flow.stage("U1"), "confirmed")
+        self.assertEqual(recorder.recorded, [])  # 確定直後はまだ返信していない
+
+        def llm_call_faq():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "parking", "resolved": True}],
+            }
+
+        later = NOW + timedelta(hours=2)
+        processor.process(_event("U1", "駐車場ありますか"), llm_call_faq, later)
+        self.assertEqual(recorder.recorded, [("U1", later)])
+        # faq返信自体はconfirmed後の通常経路のまま継続する(記録は副作用として追加されるのみ)。
+        self.assertTrue(any("駐車場" in text for _, text in push.sent))
+
+    def test_second_message_overwrites_with_latest_timestamp(self):
+        recorder = InMemoryConfirmedReplyRecorder()
+        processor, flow, _, _ = _new_processor(confirmed_reply_recorder=recorder)
+        self._reach_confirmed(processor)
+
+        def llm_call_escalation():
+            return {
+                "intent": "escalation", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": True,
+            }
+
+        first_reply = NOW + timedelta(hours=1)
+        second_reply = NOW + timedelta(hours=3)
+        processor.process(_event("U1", "ありがとうございます"), llm_call_escalation, first_reply)
+        processor.process(_event("U1", "体調が心配です"), llm_call_escalation, second_reply)
+        self.assertEqual(recorder.recorded, [("U1", first_reply), ("U1", second_reply)])
+
+    def test_not_recorded_before_confirmed_stage(self):
+        recorder = InMemoryConfirmedReplyRecorder()
+        processor, flow, _, _ = _new_processor(confirmed_reply_recorder=recorder)
+
+        def llm_call_present():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {
+                    "start": (NOW.date() + timedelta(days=5)).isoformat(),
+                    "end": (NOW.date() + timedelta(days=5)).isoformat(),
+                },
+            }
+
+        processor.process(_event("U1", "来週土曜カットで"), llm_call_present, NOW)
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+        self.assertEqual(recorder.recorded, [])
+
+    def test_recorder_is_optional_and_defaults_to_no_op(self):
+        processor, flow, push, _ = _new_processor()  # confirmed_reply_recorder未指定
+        self._reach_confirmed(processor)
+
+        def llm_call_faq():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "parking", "resolved": True}],
+            }
+
+        # recorder未指定でも例外にならず、通常の返信処理は継続すること。
+        result = processor.process(_event("U1", "駐車場ありますか"), llm_call_faq, NOW)
+        self.assertEqual(result.action, "faq_replied")
 
 
 if __name__ == "__main__":

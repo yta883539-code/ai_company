@@ -70,12 +70,13 @@ Cloud Function C: send_reminders
 
 ## 未解決のまま残る課題
 
-- **顧客からの返信検知の配線**: `select_due_resends()`は`customer_replied_at`フィールドの
-  存在を前提にしているが、confirmed状態の会話はConversationFlowStateMachineの通常フロー
-  (candidates_presented → awaiting_details → confirmed)から外れているため、
-  confirmed後に顧客がメッセージを送った際にどこで`customer_replied_at`を書き込むかの配線は
-  未設計。Cloud Function B(process_conversation_event)がconfirmed状態の会話からの
-  受信イベントをどう扱うか(現状は新規予約フローとして誤処理されうる)を次の課題とする。
+- ~~**顧客からの返信検知の配線**~~ (解消済み 2026-08-02 15:00 UTC:
+  customer-reply-detection-design.md参照。confirmed状態の会話へメッセージが届いた事実を、
+  内容を問わずCloud Function B(process_conversation_event)の`process()`冒頭で
+  `ConfirmedReplyRecorder`プロトコル経由で記録する設計とし、
+  prototype/cloud_function_process_event.pyに実装した。confirmed状態からのnew_booking
+  intentは引き続き新規予約フローとして扱う既存仕様のままとし、cancel/change intentの
+  実処理は別課題として残した)
 - Firestoreの`conversations`ドキュメントに`reminderSentAt`/`reminderSkipped`/
   `resendSentAt`/`customerRepliedAt`の4フィールドを追加する必要がある
   (firestore-data-model.mdに反映済み、実装は未着手)。

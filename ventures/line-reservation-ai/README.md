@@ -449,8 +449,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `select_due_resends()`)として実装し、テスト21件全件パス。firestore-data-model.mdに
   `reminderSentAt`等4フィールドを追記。残課題は確定後の顧客返信検知(`customerRepliedAt`)の
   配線設計、実Cloud Scheduler/LINE Push実送信(オーナー承認待ち))
+- customer-reply-detection-design.md: reminder-scheduler-design.mdの残課題だった確定後の
+  顧客返信検知(`customerRepliedAt`)の配線設計(2026-08-02 15:00 UTC新規作成。返信内容の
+  解釈はせず「confirmed状態の会話へメッセージが届いた事実」自体を記録する方針とし、
+  Cloud Function B(`process()`冒頭、LLM呼び出し・intent判定より前)で
+  `ConfirmedReplyRecorder`プロトコル(LinePushClient等と同じDIパターン)経由で記録するよう
+  `prototype/cloud_function_process_event.py`に実装。複数回返信時は毎回最新時刻で上書き。
+  テスト4件追加・全95件パス。残課題はFirestore書き込み自体の実装、cancel/change intentの
+  実処理、confirmed状態からのnew_booking intentが再訪希望か相槌かの内容判別)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 15:00 UTC: 前項の残課題(b)だった確定後の顧客返信検知
+  (customerRepliedAt)の配線設計を実装した(customer-reply-detection-design.md)。
+  confirmed状態の会話へメッセージが届いた事実そのもの(内容は問わない)を、
+  `ConfirmedReplyRecorder`プロトコル経由でCloud Function Bのprocess()冒頭に記録する設計。
+  テスト4件追加・全95件パス。残る課題は(c)実LLM/実LINE API/実Cloud Scheduler接続自体
+  (オーナー承認待ち)、cancel/change intentの実処理)
 - (解消済み 2026-08-02 14:00 UTC: 前項の残課題(a)だった単一項目FAQ(faq_segmentsがnullの
   ケース)のスキーマ変更要否を検討した。「厳守事項9aに基づくfaqは単一項目でも
   faq_segmentsを1要素配列で必ず付与する」方針を採用し、json-schema-multi-intent-

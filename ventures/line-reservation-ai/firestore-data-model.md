@@ -92,7 +92,7 @@ ConversationFlowStateMachine の `_ConversationState` に対応する会話状�
   reminderSentAt: <Timestamp> | null,   // 初回リマインド送信済み時刻(未送信はnull)
   reminderSkipped: false,               // 確定時点で目標送信時刻を既に過ぎていたためスキップ
   resendSentAt: <Timestamp> | null,     // 当日朝の再送済み時刻(未送信はnull)
-  customerRepliedAt: <Timestamp> | null // 確定後の顧客からの返信検知時刻(配線は未設計、残課題)
+  customerRepliedAt: <Timestamp> | null // 確定後の顧客からの返信検知時刻(配線はcustomer-reply-detection-design.mdで設計・実装済み、Firestore書き込み自体は未着手)
   ```
 
 ### 4. `stores/{storeId}/notificationLogEntries/{autoId}`
