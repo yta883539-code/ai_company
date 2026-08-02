@@ -32,25 +32,36 @@ webhook-function-a-implementation.mdの「未実装のまま残るもの」に�
      (候補ラベルは2.でholdした際に`ConversationEventProcessor`内にキャッシュしておいたものを
      再利用。ConversationFlowStateMachineの内部状態には手を加えない設計)。失敗(確定操作自体の
      競合)時はFlow側が既にオーナー通知済みのため二重通知はせず、顧客には謝罪文言のみ送る。
-  - `intent`が`new_booking`以外(escalation/faq/cancel/change等)の場合はFlowを一切呼ばず
-    `EscalationConsolidator.on_event()`へ転送するのみ(下記「未実装のまま残るもの」参照)。
+  - `intent`が`new_booking`以外の場合、`faq`(`faq_segments`付与時)は`_handle_faq()`、
+    `escalation`は`_handle_escalation()`で顧客への一次返信を送ったうえで
+    `EscalationConsolidator.on_event()`へ転送する(2026-08-02 11:00 UTC追加、詳細は
+    faq-escalation-customer-reply-implementation.md参照)。それ以外(単一項目faq・
+    cancel/change等)はFlowを一切呼ばず転送のみ(下記「未実装のまま残るもの」参照)。
 
 ## テスト(`prototype/test_cloud_function_process_event.py`)
-unittest 12件、全件パス(既存のtest_engine.py 32件・test_cloud_function_webhook.py 17件も
-引き続き全件パスを確認済み)。
+unittest 19件、全件パス(既存のtest_engine.py 32件・test_cloud_function_webhook.py 17件も
+引き続き全件パスを確認済み、合計68件)。
 - `resolve_menu_duration()`の登録/未登録/menu欠落
 - 曖昧な日付範囲→候補提示、未登録メニュー→検索前にエスカレーション、日付の手がかりなし→聞き直し
-- escalation intentがFlowに触れず転送されること
+- cancel intent(未実装)がFlowに触れず転送されること
 - 候補選択→hold→詳細入力→confirmedまでの一連の流れ、候補ラベルがhold・confirm両方の
   案内文言に一貫して反映されること
 - 特定不能な返信での再確認、氏名/メニュー不足での聞き直し
 - 確定操作自体が競合するケース(`booking_conflict`)でオーナーへの二重通知が起きないこと・
   顧客への謝罪文言送信・stageが`candidates_presented`へ差し戻されること
+- (2026-08-02 11:00 UTC追加)escalation intentでの保留文言即時送信・escalation_reasonの
+  detail引き継ぎ、複合FAQ(faq_segments)の項目別テンプレート送信(全項目回答可/一部未登録/
+  住所topic/店舗未登録時のフォールバック)、単一項目FAQ(faq_segmentsなし)は引き続き
+  自動返信されないことの回帰確認
 
 ## 未実装のまま残るもの(次の課題)
-- **escalation/faq intentの顧客向け返信**: 現状は`EscalationConsolidator`/
-  `NotificationLogAggregator`への記録のみで、FAQ本文の組み立て(`faq_segments`、
-  faq-response-templates.md準拠の項目別テンプレート)との統合は未着手。
+- (解消済み 2026-08-02 11:00 UTC: escalation/faq intentの顧客向け返信を実装した。
+  複合FAQ(`faq_segments`付与時)は項目ごとにfaq-response-templates.md準拠のテンプレート回答、
+  escalation intentは共通の保留文言を即時送信する。詳細はfaq-escalation-customer-reply-implementation.md参照)
+- **単一項目FAQの顧客向け返信**: `faq_segments`が付与されない単一項目FAQ(E10・E6等)は、
+  構造化出力にどのFAQ項目(topic)への質問かを表す情報が無いためengine側でテンプレート回答を
+  組み立てられず、引き続きオーナー転送のみ(自動返信なし)。json-schema-multi-intent-extension.mdの
+  既存推奨(単一項目では`faq_segments`を省略)を見直すスキーマ変更が必要になる可能性がある。
 - **確定操作競合時の新しい空き枠の再提示**: booking-slot-manager-design.mdの今後の課題として
   残っていた「後着の予約に新しい候補を再提示する」動作は、現状は謝罪文言のみで空き枠の
   再検索・再提示は行っていない。

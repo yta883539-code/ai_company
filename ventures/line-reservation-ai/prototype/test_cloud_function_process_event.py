@@ -33,9 +33,14 @@ from engine import (  # noqa: E402
 STORE_ID = "store-1"
 MENU_DURATIONS = {"カット": 30, "カラー": 90}
 NOW = datetime(2026, 8, 3, 10, 0)  # 月曜
+STORE_FAQ_INFO = {
+    "address": "○○駅から徒歩5分",
+    "parking": {"available": True, "capacity": "3"},
+    "payment_methods": ["現金", "クレジットカード"],
+}
 
 
-def _new_processor():
+def _new_processor(store_faq_info=None):
     flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
     searcher = AvailabilitySearcher(business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30)
     push = InMemoryLinePushClient()
@@ -49,6 +54,7 @@ def _new_processor():
         push_client=push,
         store_id=STORE_ID,
         menu_durations=MENU_DURATIONS,
+        store_faq_info=STORE_FAQ_INFO if store_faq_info is None else store_faq_info,
     )
     return processor, flow, push, logs
 
@@ -115,7 +121,28 @@ class NewBookingDispatchTests(unittest.TestCase):
         self.assertEqual(result.action, "reask")
         self.assertEqual(push.sent[0][1], REASK_DATE_RANGE_MESSAGE)
 
-    def test_non_booking_intent_is_forwarded_without_touching_flow(self):
+    def test_unimplemented_intent_is_forwarded_without_touching_flow(self):
+        # cancel/changeは未実装のため、faq/escalation以外は引き続き顧客への自動返信なし。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "cancel", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+
+        result = processor.process(_event("U1", "明日の予約キャンセルできますか"), llm_call, NOW)
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual(result.detail, "cancel")
+        self.assertIsNone(flow.stage("U1"))
+        self.assertEqual(push.sent, [])
+        # consultation_countはintent: "escalation"のみを対象に集計する(engine.py
+        # NotificationLogAggregator.record()準拠)ため、cancelでは増加しない。
+        self.assertEqual(logs.consultation_count, 0)
+
+
+class EscalationReplyTests(unittest.TestCase):
+    def test_escalation_sends_holding_message_and_notifies_owner(self):
         processor, flow, push, logs = _new_processor()
 
         def llm_call():
@@ -124,12 +151,129 @@ class NewBookingDispatchTests(unittest.TestCase):
                 "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
             }
 
-        result = processor.process(_event("U1", "定休日を変更したいのですが"), llm_call, NOW)
-        self.assertEqual(result.action, "forwarded_to_owner")
-        self.assertEqual(result.detail, "escalation")
+        result = processor.process(_event("U1", "施術で肌荒れしたんですが大丈夫でしょうか"), llm_call, NOW)
+        self.assertEqual(result.action, "escalation_replied")
+        self.assertEqual(result.detail, "consultation")
         self.assertIsNone(flow.stage("U1"))
-        self.assertEqual(push.sent, [])
+        self.assertEqual(len(push.sent), 1)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
         self.assertEqual(logs.consultation_count, 1)
+
+    def test_escalation_reason_is_carried_into_detail(self):
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "escalation", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+                "escalation_reason": "unimplemented_feature", "feature_hint": "デポジット決済",
+            }
+
+        result = processor.process(_event("U1", "予約時に前払いできますか"), llm_call, NOW)
+        self.assertEqual(result.action, "escalation_replied")
+        self.assertEqual(result.detail, "unimplemented_feature")
+        self.assertEqual(len(push.sent), 1)
+
+
+class FaqSegmentReplyTests(unittest.TestCase):
+    def test_all_resolved_segments_are_answered_from_templates_individually(self):
+        # E13a相当: 駐車場・支払い方法とも登録済み。1メッセージ1用件で2通に分けて送信する。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [
+                    {"topic": "parking", "resolved": True},
+                    {"topic": "payment", "resolved": True},
+                ],
+            }
+
+        result = processor.process(_event("U1", "駐車場ある?支払いはカード使える?"), llm_call, NOW)
+        self.assertEqual(result.action, "faq_replied")
+        self.assertEqual(result.detail, "2_segments_0_unresolved")
+        self.assertIsNone(flow.stage("U1"))
+        self.assertEqual(len(push.sent), 2)
+        self.assertEqual(push.sent[0][1], "当店: 駐車場がございます(3台分)。")
+        self.assertEqual(push.sent[1][1], "当店: お支払い方法は現金、クレジットカードがご利用いただけます。")
+
+    def test_unresolved_segment_gets_holding_message_and_owner_notification(self):
+        # E13b相当: 駐車場は登録済み、電子マネーは未チェックのため保留文言に差し替える。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": True,
+                "faq_segments": [
+                    {"topic": "parking", "resolved": True},
+                    {"topic": "payment", "resolved": False},
+                ],
+            }
+
+        result = processor.process(_event("U1", "駐車場ある?電子マネーは使える?"), llm_call, NOW)
+        self.assertEqual(result.detail, "2_segments_1_unresolved")
+        self.assertEqual(len(push.sent), 2)
+        self.assertEqual(push.sent[0][1], "当店: 駐車場がございます(3台分)。")
+        self.assertIn("担当者に確認のうえ", push.sent[1][1])
+        # 未解決topic(payment)はNotificationLogAggregatorのユニーク集計対象
+        # (duplicate-topic-notification-log-rule.md準拠)。intentが"faq"のため
+        # consultation_countは対象外(escalation専用の集計軸)。
+        self.assertEqual(logs.unique_unresolved_topic_count(), 1)
+        self.assertEqual(logs.consultation_count, 0)
+
+    def test_access_topic_uses_registered_address(self):
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [
+                    {"topic": "access", "resolved": True},
+                    {"topic": "hours", "resolved": True},
+                ],
+            }
+
+        processor.process(_event("U1", "場所と営業時間を教えてください"), llm_call, NOW)
+        self.assertEqual(push.sent[0][1], "当店: ○○駅から徒歩5分です。")
+        # "hours"はfaq-response-templates.mdの項目別テンプレート対象外(9aは住所/駐車場/支払いのみ)
+        # のため、resolved: trueでも安全側で保留文言にフォールバックする。
+        self.assertIn("担当者に確認のうえ", push.sent[1][1])
+
+    def test_resolved_topic_without_registered_value_falls_back_to_holding_message(self):
+        # 構造化出力がresolved: trueを返しても店舗FAQ情報が未登録なら断定回答しない(安全側)。
+        processor, flow, push, logs = _new_processor(store_faq_info={})
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [
+                    {"topic": "parking", "resolved": True},
+                    {"topic": "access", "resolved": True},
+                ],
+            }
+
+        processor.process(_event("U1", "駐車場と場所を教えてください"), llm_call, NOW)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
+        self.assertIn("担当者に確認のうえ", push.sent[1][1])
+
+    def test_single_item_faq_without_segments_is_still_forwarded_only(self):
+        # faq_segmentsが付与されない単一項目FAQ(E10・E6等)は、topic情報が無いため
+        # 引き続きオーナー転送のみ(自動返信なし)。モジュールdocstringの既知の制約。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "駐車場はありますか"), llm_call, NOW)
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual(push.sent, [])
 
 
 class CandidateSelectionAndDetailsTests(unittest.TestCase):

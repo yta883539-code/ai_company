@@ -16,10 +16,21 @@ webhook-async-processing-design.md / intent-to-flow-mapping.mdで設計した
   「配線」自体がこれまで未着手だったため、その部分を実装した。
 
 実装範囲: intent-to-flow-mapping.mdの対応表のうち new_booking 系の3行
-(曖昧な日時→候補提示、候補選択→hold、氏名/メニュー確定→confirm)。
-escalation/faq/その他の行はEscalationConsolidator/NotificationLogAggregatorへの
-転送のみを行い、FAQ本文の組み立て(faq_segments、faq-response-templates.md)との
-統合は未実装のまま残す(下記「未実装のまま残るもの」参照)。
+(曖昧な日時→候補提示、候補選択→hold、氏名/メニュー確定→confirm)に加え、
+webhook-function-b-implementation.mdの残課題だった(1)escalation/faq intentの
+顧客向け返信を実装した。
+- intent: "faq" かつ `faq_segments`(複合質問、2項目以上)が付与されている場合、
+  faq-response-templates.mdの項目別テンプレートに従い項目ごとに1通ずつ送信する
+  (resolved: trueは登録値をそのまま案内、resolved: falseは共通の保留文言)。
+- intent: "escalation" の場合、faq-response-templates.mdの「未登録・一部未入力の
+  ケース(共通)」の保留文言を一次応答として即時送信する。
+- 単一項目FAQ(E10・E6等、`faq_segments`がnullのケース)は、構造化出力に
+  どの店舗FAQ項目(topic)への質問かを表す情報が無く、engine側でテンプレート回答を
+  一意に組み立てられないため、従来通りオーナーへの転送のみ(顧客への自動返信なし)を
+  維持する。この設計ギャップの解消(単一項目でもtopicを出力させるスキーマ変更の要否)は
+  今後の課題として残す。
+new_booking以外でも cancel/change intentは未実装のまま、EscalationConsolidator/
+NotificationLogAggregatorへの転送のみを行う。
 """
 
 from __future__ import annotations
@@ -40,6 +51,10 @@ from engine import (  # noqa: E402
     NotificationLogAggregator,
     format_candidates_message,
     format_confirmation_message,
+    format_faq_address_message,
+    format_faq_parking_message,
+    format_faq_payment_message,
+    format_faq_unregistered_message,
     format_hold_message,
     process_llm_output,
     resolve_candidate_selection,
@@ -124,6 +139,7 @@ class ConversationEventProcessor:
         push_client: LinePushClient,
         store_id: str,
         menu_durations: dict,
+        store_faq_info: Optional[dict] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -133,6 +149,11 @@ class ConversationEventProcessor:
         self._push = push_client
         self._store_id = store_id
         self._menu_durations = menu_durations
+        # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
+        # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
+        #      "payment_methods": ["現金", "クレジットカード"]}
+        # 未登録の項目はキー自体を省略してよい(その場合topic該当時もresolved扱いにしない)。
+        self._store_faq_info = store_faq_info or {}
         self._candidates_by_user: dict[str, list] = {}
         self._held_label_by_user: dict[str, str] = {}
 
@@ -154,9 +175,15 @@ class ConversationEventProcessor:
         self._logs.record(user_id, output, now)
 
         intent = output.get("intent")
+        if intent == "faq" and output.get("faq_segments"):
+            return self._handle_faq(user_id, output, now, tone)
+        if intent == "escalation":
+            return self._handle_escalation(user_id, output, now, tone)
         if intent != "new_booking":
-            # intent-to-flow-mapping.md: escalation/faq/その他は予約フロー外のため
-            # ConversationFlowStateMachineは呼ばず、オーナーへの転送のみ行う。
+            # intent-to-flow-mapping.md: 単一項目faq(faq_segments無し)・cancel/change・
+            # その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
+            # オーナーへの転送のみ行う(単一項目faqを自動返信できない理由は
+            # モジュールdocstring「実装範囲」参照)。
             self._consolidator.on_event(user_id, output, now)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
 
@@ -237,6 +264,40 @@ class ConversationEventProcessor:
         )
         return DispatchResult(action="confirmed")
 
+    def _handle_faq(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+        """複合FAQ質問(faq_segments、json-schema-multi-intent-extension.md)への顧客向け返信。
+        faq-response-templates.mdの「1メッセージ1用件」原則に従い、項目ごとに1通ずつ送信する。
+        """
+        segments = output["faq_segments"]
+        for seg in segments:
+            self._push.send_message(user_id, self._render_faq_segment(seg["topic"], seg["resolved"], tone))
+        # 通知ログ集計(未解決topicのユニーク集計)・resolved:false項目のオーナー通知は
+        # 既存のEscalationConsolidator/NotificationLogAggregatorに委ねる(全体のoutputを渡す)。
+        self._consolidator.on_event(user_id, output, now)
+        unresolved = sum(1 for seg in segments if not seg["resolved"])
+        return DispatchResult(action="faq_replied", detail=f"{len(segments)}_segments_{unresolved}_unresolved")
+
+    def _render_faq_segment(self, topic: str, resolved: bool, tone: str) -> str:
+        if not resolved:
+            return format_faq_unregistered_message(tone)
+        if topic == "parking" and self._store_faq_info.get("parking"):
+            return format_faq_parking_message(self._store_faq_info["parking"].get("capacity", ""), tone)
+        if topic == "access" and self._store_faq_info.get("address"):
+            return format_faq_address_message(self._store_faq_info["address"], tone)
+        if topic == "payment" and self._store_faq_info.get("payment_methods"):
+            return format_faq_payment_message(self._store_faq_info["payment_methods"], tone)
+        # resolved: trueだがstore_faq_infoに該当する登録値が無い(店舗設定と構造化出力の
+        # 不整合)場合は、誤った断定回答を避けるため保留文言に安全側フォールバックする。
+        return format_faq_unregistered_message(tone)
+
+    def _handle_escalation(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+        """厳守事項6(予約以外の相談)・10(未実装機能問い合わせ)発生時の顧客への一次応答。
+        faq-response-templates.mdの共通保留文言を即時送信し、詳細な対応はオーナーに委ねる。
+        """
+        self._push.send_message(user_id, format_faq_unregistered_message(tone))
+        self._consolidator.on_event(user_id, output, now)
+        return DispatchResult(action="escalation_replied", detail=output.get("escalation_reason") or "consultation")
+
 
 def _demo() -> None:
     from datetime import date, timedelta
@@ -256,6 +317,11 @@ def _demo() -> None:
         push_client=push,
         store_id="store-1",
         menu_durations={"カット": 30},
+        store_faq_info={
+            "address": "○○駅から徒歩5分",
+            "parking": {"available": True, "capacity": "3"},
+            "payment_methods": ["現金", "クレジットカード"],
+        },
     )
 
     now = datetime(2026, 8, 3, 10, 0)  # 月曜
@@ -299,6 +365,32 @@ def _demo() -> None:
     event3 = {"source": {"userId": "U1"}, "message": {"text": "山田です、カットでお願いします"}}
     r3 = processor.process(event3, llm_call_3, now, tone="standard")
     print(f"3) action={r3.action} detail={r3.detail}")
+    print(f"   push: {push.sent[-1][1]}")
+
+    # 4) 複合FAQ(E13b相当): 駐車場は登録済み(resolved: true)、電子マネーは未チェック(resolved: false)
+    def llm_call_4() -> dict:
+        return {
+            "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": True,
+            "faq_segments": [{"topic": "parking", "resolved": True}, {"topic": "payment", "resolved": False}],
+        }
+
+    event4 = {"source": {"userId": "U2"}, "message": {"text": "駐車場ある?電子マネーは使える?"}}
+    r4 = processor.process(event4, llm_call_4, now, tone="standard")
+    print(f"4) action={r4.action} detail={r4.detail}")
+    for text in [t for uid, t in push.sent if uid == "U2"]:
+        print(f"   push: {text}")
+
+    # 5) escalation(厳守事項6、予約以外の相談)
+    def llm_call_5() -> dict:
+        return {
+            "intent": "escalation", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": True,
+        }
+
+    event5 = {"source": {"userId": "U3"}, "message": {"text": "施術で肌荒れしたんですが大丈夫でしょうか"}}
+    r5 = processor.process(event5, llm_call_5, now, tone="standard")
+    print(f"5) action={r5.action} detail={r5.detail}")
     print(f"   push: {push.sent[-1][1]}")
 
 

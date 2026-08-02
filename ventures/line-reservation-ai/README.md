@@ -299,7 +299,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   パス、webhook-function-b-implementation.md新規作成)。escalation/faq intentの顧客向け返信
   (faq_segmentsとの統合)・確定競合時の新候補再提示・前日リマインドのスケジューラ発火経路との
   接続は未着手のまま次の課題として残した。
-- 最終更新: 2026-08-02 10:00 UTC
+- フェーズ(続き38): webhook-function-b-implementation.mdの残課題(1)だった、
+  escalation/faq intentの顧客向け返信(faq_segmentsとの統合)を実装した。従来
+  intent!="new_booking"のイベントは一律オーナー転送のみで顧客には無反応だったが、
+  `prototype/cloud_function_process_event.py`に`_handle_faq()`/`_handle_escalation()`を
+  新規追加し、複合FAQ(faq_segments付与時)は項目ごとにfaq-response-templates.md準拠の
+  テンプレート回答(または保留文言)を1メッセージ1用件で送信、escalation intentは
+  共通の保留文言を一次応答として即時送信するようにした。店舗FAQ情報(住所・駐車場・
+  支払い方法)を保持する`store_faq_info`をProcessorの新規パラメータとして追加。
+  `engine.py`にformat_faq_address_message()・format_faq_payment_message()・
+  format_faq_unregistered_message()を新規追加(faq-escalation-customer-reply-implementation.md
+  新規作成)。単一項目FAQ(faq_segmentsがnullのケース、E10・E6等)は構造化出力に
+  topic情報が無く自動返信できないため、引き続きオーナー転送のみを維持する制約が残った
+  (次の課題)。テスト7件追加、既存分含め全68件パス確認済み。
+- 最終更新: 2026-08-02 11:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -384,8 +397,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   あたらない範囲でweb調査による一般的な傾向整理を追記(特商法上は役務提供契約も表示義務対象と
   なりうること、AI対応開示の一般義務化法令は現状見当たらないこと等)。最終判断は引き続き
   法律専門家への確認が必要な事項として残置。作成は草案のみでLP掲載・公開は未着手)
+- faq-escalation-customer-reply-implementation.md: webhook-function-b-implementation.mdの
+  残課題だったescalation/faq intentの顧客向け返信(faq_segmentsとの統合)の実装経緯まとめ
+  (2026-08-02 11:00 UTC新規作成。複合FAQ(faq_segments付与時)は項目ごとにテンプレート回答、
+  escalation intentは共通保留文言を即時送信。単一項目FAQ(faq_segmentsがnull)は自動返信でき
+  ない制約が残った旨を明記)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 11:00 UTC: webhook-function-b-implementation.mdの残課題(1)だった
+  escalation/faq intentの顧客向け返信を実装した(faq-escalation-customer-reply-implementation.md)。
+  残る課題は(a)単一項目FAQ(faq_segmentsがnullのケース)でも自動返信できるようにする
+  スキーマ変更の要否検討(json-schema-multi-intent-extension.mdの既存推奨の見直しが必要、
+  影響範囲がllm-system-prompt-draft.md・booking_output.schema.json・テストケース群に及ぶため
+  慎重な検討が必要)、(b)確定操作競合時の新しい空き枠の再提示、(c)前日リマインド経路の
+  呼び出し元、(d)実LLM/実LINE API接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 10:00 UTC: 前項の残課題だったCloud Function B
   (process_conversation_event)のうち、実LLM呼び出し・実クラウド接続とは切り離せる配線ロジック
   (Cloud Tasksからデキューしたイベント→intent-to-flow-mapping.md対応表→

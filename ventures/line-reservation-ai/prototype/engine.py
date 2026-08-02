@@ -877,11 +877,53 @@ def format_hold_message(candidate_label: str, menu: str, tone: str = "standard")
 
 
 def format_faq_parking_message(capacity: str, tone: str = "standard") -> str:
-    """FAQ回答テンプレート・駐車場ありのトーン別文例(faq-response-templates.md準拠)。"""
+    """FAQ回答テンプレート・駐車場ありのトーン別文例(faq-response-templates.md準拠)。
+    capacityが空文字の場合は台数未入力の登録パターンとして台数表記を省く。
+    """
+    suffix = f"({capacity}台分)" if capacity else ""
     variants = {
-        "formal": f"当店: 駐車場をご用意いたしております({capacity}台分)。",
-        "standard": f"当店: 駐車場がございます({capacity}台分)。",
-        "casual": f"当店: 駐車場ありますよ({capacity}台分)!",
+        "formal": f"当店: 駐車場をご用意いたしております{suffix}。",
+        "standard": f"当店: 駐車場がございます{suffix}。",
+        "casual": f"当店: 駐車場ありますよ{suffix}!",
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_faq_address_message(address_text: str, tone: str = "standard") -> str:
+    """FAQ回答テンプレート・住所/アクセスのトーン別文例(faq-response-templates.md準拠)。
+    登録された住所・アクセス文言をそのまま挿入するのみで、AI側での言い換えは行わない。
+    """
+    variants = {
+        "formal": f"当店: {address_text}でございます。",
+        "standard": f"当店: {address_text}です。",
+        "casual": f"当店: {address_text}です!",
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_faq_payment_message(methods: list, tone: str = "standard") -> str:
+    """FAQ回答テンプレート・支払い方法のトーン別文例(faq-response-templates.md準拠)。
+    チェック済みの項目のみをカンマ区切り(読点)で列挙する。
+    """
+    joined = "、".join(methods)
+    variants = {
+        "formal": f"当店: お支払い方法は{joined}がご利用いただけます。",
+        "standard": f"当店: お支払い方法は{joined}がご利用いただけます。",
+        "casual": f"当店: お支払いは{joined}が使えます!",
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_faq_unregistered_message(tone: str = "standard") -> str:
+    """厳守事項6のエスカレーション時の保留文言(faq-response-templates.mdの
+    「未登録・一部未入力のケース(共通)」準拠)。faq_segmentsのresolved:falseの項目、
+    および intent: "escalation" 全般(医療・料金交渉・クレーム・未実装機能問い合わせ等)の
+    顧客向け一次応答として共通利用する。
+    """
+    variants = {
+        "formal": "当店: 恐れ入ります、その点は担当者に確認のうえ改めてご案内いたします。",
+        "standard": "当店: 恐れ入ります、その点は担当者に確認のうえ改めてご案内いたします。",
+        "casual": "当店: すみません、そこは担当に確認して改めてご案内します!",
     }
     return _render_by_tone(tone, variants)
 
