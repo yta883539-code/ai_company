@@ -754,10 +754,12 @@ class AvailabilitySearcher:
         slot_interval_minutes: int = 30,
         closed_weekdays: frozenset = frozenset(),  # date.weekday()準拠(月=0〜日=6)、定休日
         weekday_business_hours: Optional[dict] = None,  # {weekday(月=0〜日=6): 区間 or 区間リスト} 曜日別に営業時間を上書き。未指定の曜日はbusiness_hoursを使う(weekday-specific-business-hours.md)
+        closed_dates: frozenset = frozenset(),  # datetime.dateの集合。祝日・臨時休業など特定日付単発の休業(ad-hoc-closed-dates-support.md)
     ) -> None:
         self._default_ranges = _normalize_business_hour_ranges(business_hours)
         self._interval = slot_interval_minutes
         self._closed_weekdays = closed_weekdays
+        self._closed_dates = closed_dates
         self._weekday_business_hours = {
             weekday: _normalize_business_hour_ranges(value)
             for weekday, value in (weekday_business_hours or {}).items()
@@ -777,7 +779,7 @@ class AvailabilitySearcher:
         start_date, end_date = date_range
         day = start_date
         while day <= end_date and len(candidates) < max_candidates:
-            if day.weekday() in self._closed_weekdays:
+            if day.weekday() in self._closed_weekdays or day in self._closed_dates:
                 day += timedelta(days=1)
                 continue
             day_ranges = self._weekday_business_hours.get(day.weekday(), self._default_ranges)

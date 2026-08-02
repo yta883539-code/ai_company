@@ -380,7 +380,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   prototype/自動テスト125件・schema検証22件がCI上でも全件パスすることを実証した
   (ci-setup.mdに結果を追記)。これによりci-setup.mdの「今後の課題」に残っていた
   CI実行結果の閲覧手段の不在は解消された。
-- 最終更新: 2026-08-02 21:00 UTC
+- フェーズ(続き45): availability-closed-weekday-support.mdに残っていた「祝日・臨時休業(特定の
+  日付を単発で休業にする)への対応」を実装した(ad-hoc-closed-dates-support.md新規作成)。
+  `AvailabilitySearcher`に`closed_dates: frozenset[date]`を新設し、既存の`closed_weekdays`
+  (曜日単位の定休日)と独立かつ併用可能な形で、対象日がいずれかに該当すればその日の枠を候補から
+  除外するようにした。reminder_scheduler.py側への同様の対応とowner-settings-wireframe.mdの
+  入力UI追記は影響範囲切り分けのため今回は見送り、次の課題として残した。テスト2件追加・全127件パス。
+- 最終更新: 2026-08-02 22:00 UTC
 
 ## ドキュメント
 - ci-setup.md: GitHub Actionsによるテスト自動実行の導入経緯(2026-08-02 20:00 UTC新規作成。
@@ -439,7 +445,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidate-presentation-and-selection-design.md: 候補一覧の採番提示文言(番号付きリスト)と、顧客の返信(番号/漢数字/丸数字/自然文)からslot_keyを1件特定する`resolve_candidate_selection()`の設計(2026-08-01 08:00 UTC更新。6節の残課題だったescalation_reason='candidate_selection_unresolved'のスキーマ未反映を、システム内部イベント用の別集計軸(system_event_counts)を新設する方針で解消。再確認ループの上限(`RECONFIRM_MAX_ATTEMPTS`=2)・エスカレーション切り替え設計、誤爆防止のため番号指定が明確なパターンのみ数字と解釈する設計は既存のまま)
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
-- availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外)
+- availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外。祝日・臨時休業の特定日付対応は2026-08-02 22:00 UTCにad-hoc-closed-dates-support.mdへ分離して解消)
+- ad-hoc-closed-dates-support.md: availability-closed-weekday-support.mdの残課題だった祝日・臨時休業(特定日付単発の休業)対応の設計・実装メモ(2026-08-02 22:00 UTC新規作成。`closed_dates`パラメータ追加、`closed_weekdays`と独立かつ併用可能。reminder_scheduler.py側の同様対応とowner-settings-wireframe.mdの入力UI追記は次の課題)
 - weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 12:00 UTC更新。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の懸念は、business-hours-lunch-break.mdの区間バリデーションが0分間区間を既に拒否するため解消済みと確認。残課題は解消済み)
 - business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 - idle-conversation-trigger-design.md: release_idle_conversations()/archive_completed_conversations()の実行トリガー設計(2026-08-01 13:00 UTC新規作成。専用スケジューラ・Webhook便乗・外部cronサービスの3案を比較し、追加インフラ不要で今すぐ実装できるWebhook便乗案を採用。全リクエスト毎回全件スキャンを避けるための最小実行間隔5分での間引き方式を設計。`ConversationFlowStateMachine.maybe_run_idle_cleanup()`/`maybe_run_archive()`として実装・デモ確認済み)
@@ -527,6 +534,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 22:00 UTC: availability-closed-weekday-support.mdに残っていた祝日・
+  臨時休業(特定日付単発の休業)への対応を実装した(ad-hoc-closed-dates-support.md)。
+  `AvailabilitySearcher`に`closed_dates`を新設。テスト2件追加・全127件パス。残る課題は
+  reminder_scheduler.py側の同様対応・owner-settings-wireframe.mdの入力UI追記、および
+  実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち))
 - (解消済み 2026-08-02 20:00 UTC: 動作確認が手動unittest実行に依存していた点を解消し、
   GitHub Actionsでprototype/の自動テスト(125件)とschema検証(22件)を自動実行するようにした
   (ci-setup.md)。残る大きな課題は引き続き実LLM/実LINE API/実Cloud Scheduler接続自体

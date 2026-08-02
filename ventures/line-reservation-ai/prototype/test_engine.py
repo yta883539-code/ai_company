@@ -542,6 +542,36 @@ class AvailabilitySearcherTest(unittest.TestCase):
         )
         self.assertTrue(all(c.slot_key[1] != "2026-08-09" for c in found))  # 8/9(日)は定休日
 
+    def test_excludes_ad_hoc_closed_date(self):
+        # 定例の曜日定休(closed_weekdays)とは別に、祝日・臨時休業など特定日付のみを
+        # 単発で休業扱いにできることを確認する(ad-hoc-closed-dates-support.md)。
+        searcher = AvailabilitySearcher(
+            business_hours=(9 * 60, 19 * 60), closed_dates=frozenset({date(2026, 8, 10)}),
+        )
+        found = searcher.find_candidates(
+            store_id="shop_1", date_range=(date(2026, 8, 10), date(2026, 8, 11)),
+            time_of_day_preference="afternoon", menu_duration_minutes=60,
+            booking_slots=BookingSlotManager(), now=T0, max_candidates=5,
+        )
+        self.assertTrue(all(c.slot_key[1] != "2026-08-10" for c in found))
+        self.assertTrue(any(c.slot_key[1] == "2026-08-11" for c in found))
+
+    def test_closed_weekday_and_closed_date_combine(self):
+        # 定休日(曜日)と臨時休業(特定日付)は独立に併用でき、両方が除外されることを確認する。
+        searcher = AvailabilitySearcher(
+            business_hours=(9 * 60, 19 * 60),
+            closed_weekdays=frozenset({6}),  # 日曜定休
+            closed_dates=frozenset({date(2026, 8, 10)}),  # 8/10(月)を臨時休業
+        )
+        found = searcher.find_candidates(
+            store_id="shop_1", date_range=(date(2026, 8, 9), date(2026, 8, 11)),
+            time_of_day_preference="afternoon", menu_duration_minutes=60,
+            booking_slots=BookingSlotManager(), now=T0, max_candidates=5,
+        )
+        excluded_dates = {"2026-08-09", "2026-08-10"}
+        self.assertTrue(all(c.slot_key[1] not in excluded_dates for c in found))
+        self.assertTrue(any(c.slot_key[1] == "2026-08-11" for c in found))
+
     def test_weekday_business_hours_override(self):
         searcher = AvailabilitySearcher(
             business_hours=(9 * 60, 19 * 60), weekday_business_hours={5: (10 * 60, 15 * 60)},
