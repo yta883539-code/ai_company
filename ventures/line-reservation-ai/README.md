@@ -366,9 +366,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   system_event_counts検証を追加、全125件パス。これによりintent-to-flow-mapping.mdの
   主要intentの机上実装で確認済みの残課題は、実LLM/実LINE API/実Cloud Scheduler接続
   (オーナー承認待ち)のみとなった。
-- 最終更新: 2026-08-02 19:00 UTC
+- フェーズ(続き43): これまで動作確認が「コミット前の手動unittest実行」に依存していた点に
+  対応し、GitHub Actionsによるテスト自動実行を新規導入した(ci-setup.md新規作成)。
+  `.github/workflows/line-reservation-ai-tests.yml`を作成し、`ventures/line-reservation-ai/`
+  配下への変更をトリガーにprototype/の自動テストスイート4本(計125件)と
+  schema/validate_test_cases.py(22件)を自動実行するようにした。アカウント作成・支払い・
+  外部公開のいずれにも該当しない純粋なリポジトリ内設定のため承認不要と判断した。
+  実際のActions実行結果(グリーン確認)は次回以降またはオーナー自身の確認に委ねる。
+- 最終更新: 2026-08-02 20:00 UTC
 
 ## ドキュメント
+- ci-setup.md: GitHub Actionsによるテスト自動実行の導入経緯(2026-08-02 20:00 UTC新規作成。
+  `.github/workflows/line-reservation-ai-tests.yml`でprototype/の自動テスト4本(125件)と
+  schema/validate_test_cases.py(22件)を自動実行。アカウント作成・支払い・公開に該当しないため
+  承認不要と判断)
 - system-event-log-gap-fix.md: NotificationLogAggregatorのシステム内部イベント
   (booking_conflict/booking_cancelled/cancel_not_found/booking_change_started/
   change_not_found/candidate_selection_unresolved)記録ギャップの原因(配線漏れ+
@@ -508,6 +519,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 20:00 UTC: 動作確認が手動unittest実行に依存していた点を解消し、
+  GitHub Actionsでprototype/の自動テスト(125件)とschema検証(22件)を自動実行するようにした
+  (ci-setup.md)。残る大きな課題は引き続き実LLM/実LINE API/実Cloud Scheduler接続自体
+  (オーナー承認待ち)のみ)
 - 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)。
   intent-to-flow-mapping.mdの対応表に載っている主要intent(new_booking/cancel/change/faq/
   escalation)の机上実装・NotificationLogAggregatorの記録ギャップ修正まで一通り揃った

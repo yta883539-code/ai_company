@@ -1,0 +1,28 @@
+name: line-reservation-ai tests
+
+on:
+  push:
+    paths:
+      - "ventures/line-reservation-ai/**"
+      - ".github/workflows/line-reservation-ai-tests.yml"
+  pull_request:
+    paths:
+      - "ventures/line-reservation-ai/**"
+      - ".github/workflows/line-reservation-ai-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run unittest suite (prototype)
+        working-directory: ventures/line-reservation-ai/prototype
+        run: |
+          python3 -m unittest test_engine test_cloud_function_webhook test_cloud_function_process_event test_reminder_scheduler -v
+      - name: Run schema validation (booking_output.schema.json)
+        working-directory: ventures/line-reservation-ai/schema
+        run: |
+          python3 validate_test_cases.py
