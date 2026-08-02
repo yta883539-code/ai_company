@@ -261,7 +261,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   という整理があること、EU AI法第50条(2026-08-02本格適用予定)は本サービスがEU域内利用者を
   対象としない前提のため直接適用外と考えられることを確認した。いずれも法的助言ではなく最終判断は
   引き続き法律専門家への確認が必要な事項として残した(legal-notices-draft.md 1節・2.5節に反映)。
-- 最終更新: 2026-08-02 05:00 UTC
+- フェーズ(続き34): hosting-platform-selection.mdの「未確定・今後の課題」に残っていた、
+  Cloud FunctionsからLINE Messaging API・LLM APIへの外向き通信のタイムアウト設計
+  (LLM応答待ちでWebhook応答が遅延した場合の挙動)を検討した。LINEのWebhook応答は
+  LLM呼び出し完了を待たずに即時200 OKを返し(reply APIは使わない)、実処理は
+  Cloud Tasks経由で非同期起動する第2の関数に委ね、完了後はプッシュメッセージAPIで
+  顧客に送信する2段構成を採用した(webhook-async-processing-design.md新規作成)。
+  LINE側の再送によるイベント二重処理は、Cloud Tasksのタスク名を決定的なIDにする
+  ことで重複排除する方針とした。engine.py側の会話フローロジック(状態遷移・
+  メッセージ整形)への変更は不要と確認。Cloud Tasksの実際の導入・push API利用時の
+  メッセージ通数試算への影響確認は今後の課題として残した。
+- 最終更新: 2026-08-02 06:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -324,6 +334,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   機能紹介・「新しいアプリはいらない」訴求・料金トライアル・FAQの各セクションを作成。LP公開自体は
   「公開」に該当するためオーナー承認後の課題として残置。AI利用の開示表示義務の要否は法的確認が必要な
   未検証事項として残る)
+- webhook-async-processing-design.md: hosting-platform-selection.mdの残課題だった、Cloud Functions
+  Webhookハンドラの応答遅延対策の設計(2026-08-02 06:00 UTC新規作成。即時ACK+Cloud Tasksによる
+  非同期処理+LINEプッシュメッセージAPIでの応答という2段構成を採用。reply APIは使わない方針。
+  Cloud Tasksの実導入・push API利用時のメッセージ通数試算への影響確認は今後の課題)
 - legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
   プライバシーポリシーの文面草案(2026-08-02 05:00 UTC更新。事業者名・所在地等は
   `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API
@@ -333,6 +347,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   法律専門家への確認が必要な事項として残置。作成は草案のみでLP掲載・公開は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 06:00 UTC: hosting-platform-selection.mdの残課題だったCloud Functionsの
+  Webhook応答遅延対策を設計した(webhook-async-processing-design.md)。即時ACK+Cloud Tasksでの
+  非同期処理+push APIでの応答という方式を採用。残課題はCloud Tasksの実導入(GCPプロジェクト
+  作成後)と、push API利用がline-api-pricing.md等の既存メッセージ通数試算に与える影響の再確認)
 - (解消済み 2026-08-02 05:00 UTC: legal-notices-draft.mdの残課題だった所在地表示要否・AI利用開示要否
   について、web調査による一般的な傾向整理(法的助言ではない)を追記した。特商法は役務提供契約も
   表示義務対象となりうること、AI対応の開示を一般義務化する法律は現状見当たらないことを確認。
