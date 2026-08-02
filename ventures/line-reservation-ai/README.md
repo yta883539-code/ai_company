@@ -6,7 +6,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 自動で行うチャットボットSaaS。
 
 ## ステータス
-- フェーズ: 会話フロー設計 → 二重予約防止ロジック設計 → オーナー向け設定画面ワイヤーフレーム → LINE Messaging API料金調査 → 料金プラン・無料トライアル条件の仮決め → 想定顧客ヒアリング設計 → 保留タイムアウトのUX文言設計 → 顧客接点メッセージ統一トーン&マナーガイドライン作成 → 前日リマインド送信タイミング・再通知ルール設計 → 無断キャンセル発生時の記録・通知設計 → 事前確認強化の要否検討・顧客詳細画面ワイヤーフレーム追記 → 事前決済(デポジット)機能の技術要件・手数料調査 → ヒアリング項目にデポジット機能の需要・抵抗感を確認する設問(E.)を追加 → ヒアリングリハーサル用台本・時間配分の設計 → 2026年10月LINE料金改定内容の再確認(web調査) → ヒアリング対象候補(実店舗)の選定基準・情報源の整理 → 初回コンタクト依頼文面の草案作成(未送信) → 業種ごとの候補数の妥当性・追加候補確保の目安を試算 → 会話フロー・二重予約防止・トーンガイドライン等を統合したLLMシステムプロンプト草案の作成 → 構造化出力(JSON)フォーマット崩れ時のリトライ・フォールバック設計 → 会話サンプル(正常系・崩れ系)を用いたプロンプトテストケース設計 → テストケースで指摘したE6(雑談・スパム)・E9(未実装機能問い合わせ)への対応をシステムプロンプト草案に反映(厳守事項9・10追加) → 厳守事項9(FAQ/雑談)と6(予約以外の相談エスカレーション)の境界線を整理(9a/9bに分割) → owner-settings-wireframe.mdに9a用の「店舗FAQ情報」入力欄(住所・アクセス/駐車場/支払い方法)を追加 → 店舗FAQ情報欄の具体項目(駐車場台数・支払い方法チェックボックス内訳、未入力時の6番エスカレーション)をllm-system-prompt-draft.mdの厳守事項9aに反映 → conversation-samples-test-cases.mdに9a関連の新規テストケース(E10:登録済み情報でのFAQ回答、E11:未入力項目、E12:未チェック支払い方法)を追加し、9a/9b/6の境界整理との整合を確認 → faq-escalation-boundary.mdの残課題だった9aの回答テンプレート(住所・アクセス/駐車場/支払い方法の項目別穴埋め式テンプレート、複合質問の分割送信例)を新規設計 → faq-response-templates.mdの項目別テンプレートをllm-system-prompt-draft.mdの厳守事項9a説明文に反映(「登録値を言い換えない」旨と複合質問の分割送信・部分エスカレーションのルールを明文化) → conversation-samples-test-cases.mdのE10想定出力を項目別テンプレートに揃えて具体化し、複合質問の分割送信テストケースE13(全項目回答可/一部未登録の2パターン)を新規追加 → E13で発見した「1応答内でintentが項目ごとに混在しうる」課題への対応として、構造化出力(JSON)スキーマに任意フィールド`faq_segments`を追加する拡張案を設計し、llm-system-prompt-draft.md・json-output-retry-fallback.md・conversation-samples-test-cases.mdに反映 → 厳守事項6・10(相談エスカレーション・未実装機能問い合わせ)発生時のオーナー通知文面を具体化し、faq_segments一部未解決時の通知文面も設計 → 連続エスカレーション(同一顧客が短時間に複数回)を1通にまとめる集約ロジック(時間窓5分・初回即時+追加分はまとめ通知の2段階方式)を具体設計 → 未登録FAQ件数・未実装機能問い合わせ件数を俯瞰するための通知ログ集計画面のワイヤーフレームをowner-settings-wireframe.mdに追記(営業情報設定ページからの導線、MVPはスプレッドシート集計で代替) → 定休日対応・曜日別営業時間に続き、昼休憩など1日複数営業時間帯へのAvailabilitySearcher対応を設計・実装(business-hours-lunch-break.md) → release_idle_conversations()/archive_completed_conversations()のWebhook便乗トリガー方式を設計・実装(idle-conversation-trigger-design.md) → candidates_presented失効時の能動通知(候補期限切れメッセージ)の要否を検討し、MVPでは送らない方針を採用(candidates-expired-notification-design.md) → llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」の値に応じてmessage-tone-variants.mdの変換規則を適用する指示を反映 → prototype/engine.pyの主要ロジックをunittestベースの自動テストスイート化(automated-test-suite.md) → ホスティング基盤をGCP Cloud Functions (Python) + Firestoreに選定(hosting-platform-selection.md) → Firestoreのコレクション設計(firestore-data-model.md) → hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針を詳細化(firestore-transaction-design.md) → 想定トラフィックでのFirestore読み書き回数・無料枠との比較試算(firestore-traffic-cost-estimate.md、残るは実クライアント接続による実測) → MAX_SEARCH_RANGE_DAYSクランプ時のワーストケース試算(無料枠内店舗数目安を約130店舗→約32店舗に下方修正) → サービス紹介ランディングページ(LP)のコピー草案を新規作成(landing-page-copy-draft.md)
+- フェーズ: 会話フロー設計 → 二重予約防止ロジック設計 → オーナー向け設定画面ワイヤーフレーム → LINE Messaging API料金調査 → 料金プラン・無料トライアル条件の仮決め → 想定顧客ヒアリング設計 → 保留タイムアウトのUX文言設計 → 顧客接点メッセージ統一トーン&マナーガイドライン作成 → 前日リマインド送信タイミング・再通知ルール設計 → 無断キャンセル発生時の記録・通知設計 → 事前確認強化の要否検討・顧客詳細画面ワイヤーフレーム追記 → 事前決済(デポジット)機能の技術要件・手数料調査 → ヒアリング項目にデポジット機能の需要・抵抗感を確認する設問(E.)を追加 → ヒアリングリハーサル用台本・時間配分の設計 → 2026年10月LINE料金改定内容の再確認(web調査) → ヒアリング対象候補(実店舗)の選定基準・情報源の整理 → 初回コンタクト依頼文面の草案作成(未送信) → 業種ごとの候補数の妥当性・追加候補確保の目安を試算 → 会話フロー・二重予約防止・トーンガイドライン等を統合したLLMシステムプロンプト草案の作成 → 構造化出力(JSON)フォーマット崩れ時のリトライ・フォールバック設計 → 会話サンプル(正常系・崩れ系)を用いたプロンプトテストケース設計 → テストケースで指摘したE6(雑談・スパム)・E9(未実装機能問い合わせ)への対応をシステムプロンプト草案に反映(厳守事項9・10追加) → 厳守事項9(FAQ/雑談)と6(予約以外の相談エスカレーション)の境界線を整理(9a/9bに分割) → owner-settings-wireframe.mdに9a用の「店舗FAQ情報」入力欄(住所・アクセス/駐車場/支払い方法)を追加 → 店舗FAQ情報欄の具体項目(駐車場台数・支払い方法チェックボックス内訳、未入力時の6番エスカレーション)をllm-system-prompt-draft.mdの厳守事項9aに反映 → conversation-samples-test-cases.mdに9a関連の新規テストケース(E10:登録済み情報でのFAQ回答、E11:未入力項目、E12:未チェック支払い方法)を追加し、9a/9b/6の境界整理との整合を確認 → faq-escalation-boundary.mdの残課題だった9aの回答テンプレート(住所・アクセス/駐車場/支払い方法の項目別穴埋め式テンプレート、複合質問の分割送信例)を新規設計 → faq-response-templates.mdの項目別テンプレートをllm-system-prompt-draft.mdの厳守事項9a説明文に反映(「登録値を言い換えない」旨と複合質問の分割送信・部分エスカレーションのルールを明文化) → conversation-samples-test-cases.mdのE10想定出力を項目別テンプレートに揃えて具体化し、複合質問の分割送信テストケースE13(全項目回答可/一部未登録の2パターン)を新規追加 → E13で発見した「1応答内でintentが項目ごとに混在しうる」課題への対応として、構造化出力(JSON)スキーマに任意フィールド`faq_segments`を追加する拡張案を設計し、llm-system-prompt-draft.md・json-output-retry-fallback.md・conversation-samples-test-cases.mdに反映 → 厳守事項6・10(相談エスカレーション・未実装機能問い合わせ)発生時のオーナー通知文面を具体化し、faq_segments一部未解決時の通知文面も設計 → 連続エスカレーション(同一顧客が短時間に複数回)を1通にまとめる集約ロジック(時間窓5分・初回即時+追加分はまとめ通知の2段階方式)を具体設計 → 未登録FAQ件数・未実装機能問い合わせ件数を俯瞰するための通知ログ集計画面のワイヤーフレームをowner-settings-wireframe.mdに追記(営業情報設定ページからの導線、MVPはスプレッドシート集計で代替) → 定休日対応・曜日別営業時間に続き、昼休憩など1日複数営業時間帯へのAvailabilitySearcher対応を設計・実装(business-hours-lunch-break.md) → release_idle_conversations()/archive_completed_conversations()のWebhook便乗トリガー方式を設計・実装(idle-conversation-trigger-design.md) → candidates_presented失効時の能動通知(候補期限切れメッセージ)の要否を検討し、MVPでは送らない方針を採用(candidates-expired-notification-design.md) → llm-system-prompt-draft.mdの厳守事項7に、店舗設定「メッセージトーン」の値に応じてmessage-tone-variants.mdの変換規則を適用する指示を反映 → prototype/engine.pyの主要ロジックをunittestベースの自動テストスイート化(automated-test-suite.md) → ホスティング基盤をGCP Cloud Functions (Python) + Firestoreに選定(hosting-platform-selection.md) → Firestoreのコレクション設計(firestore-data-model.md) → hold()/confirm()・escalationWindows更新をFirestoreトランザクションに置き換える実装方針を詳細化(firestore-transaction-design.md) → 想定トラフィックでのFirestore読み書き回数・無料枠との比較試算(firestore-traffic-cost-estimate.md、残るは実クライアント接続による実測) → MAX_SEARCH_RANGE_DAYSクランプ時のワーストケース試算(無料枠内店舗数目安を約130店舗→約32店舗に下方修正) → サービス紹介ランディングページ(LP)のコピー草案を新規作成(landing-page-copy-draft.md) → 特定商取引法に基づく表記・プライバシーポリシーの文面草案を新規作成(legal-notices-draft.md)
 - フェーズ(続き): escalation-consolidation-logic.mdの未検討事項だった「医療相談(6-a)の例外的即時通知の要否」「集約ウィンドウ再発火時の上限回数」を検討・結論化(医療相談も例外なくウィンドウ方式を適用、再発火3回目で都度通知に切り替え+30分途絶えでリセット) → 通知ログ集計画面で使う「未実装機能」分類ラベルの設計(構造化出力に`escalation_reason`/`feature_hint`フィールドを追加する案、分類精度の検証方針を策定) → notification-log-classification-labels.mdで挙げた境界ケース(支払い方法FAQ vs デポジット機能、ノーショー方針FAQ vs キャンセル料機能)をconversation-samples-test-cases.mdにE14・E15として追記し、「店舗FAQ情報欄の入力対象か否か」を9a/10の判定基準とする整理を明文化 → `escalation_reason`/`feature_hint`フィールドをjson-output-retry-fallback.mdのリトライ・フォールバック判定に組み込み(スキーマ不一致時は「分類不能」へフォールバックし、`needs_owner_check`によるオーナー通知自体は止めない方針を明確化) → 通知ログ集計画面へのリンクをowner-settings-wireframe.mdの1.営業情報設定ページ本体のワイヤーフレーム図に反映(これまで追記セクションのみだった差分を解消) → json-schema-multi-intent-extension.mdの未検証事項だった「3項目以上の複合質問でfaq_segments配列が破綻しないか」をconversation-samples-test-cases.mdのE16として机上検証(3項目でもスキーマ変更不要と確認、副次的に「同一topicが複合質問内で重複しうる」点が判明し重複許容の設計であることを明文化) → E16で判明した同一topic重複時の通知ログ集計ルールを新規検討(`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針を結論化、重複解決済みの水増しを回避しつつ短時間の繰り返し問い合わせはescalation-consolidation-logic.md側の集約通知に委ねるすみ分けを整理)
 - フェーズ(続き2): README.mdの「次にやること」で繰り返し指摘していた実装フェーズ着手の第一歩として、
   llm-system-prompt-draft.md・json-schema-multi-intent-extension.md・notification-log-classification-labels.mdの
@@ -244,7 +244,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   約1,542reads/日)し、無料枠(読み取り50,000回/日)内に収まる店舗数の目安を約130店舗→
   約32店舗に下方修正した。全顧客が常に14日レンジで検索する極端な前提のため、実際の
   検索レンジ分布はcustomer-interview-design.mdのヒアリングで未確認のまま残課題とした。
-- 最終更新: 2026-08-02 02:00 UTC
+- フェーズ(続き32): landing-page-copy-draft.mdの「次のステップ候補」で残課題だった、
+  特定商取引法に基づく表記・プライバシーポリシーの文面草案を新規作成した
+  (legal-notices-draft.md)。事業者名・所在地等の運営主体の実情報が未確定のため
+  該当箇所は`【要記入】`のプレースホルダーとした。プライバシーポリシーの第三者提供・
+  委託の節では、会話内容を解釈するLLM APIプロバイダへの送信を明記しつつ、契約内容
+  (学習利用有無等)はプロバイダ契約後でないと確定できない点を未検証事項として残した。
+  文書作成のみにとどめ、LP公開自体は引き続きオーナー承認待ちのため着手していない。
+- 最終更新: 2026-08-02 04:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -307,8 +314,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   機能紹介・「新しいアプリはいらない」訴求・料金トライアル・FAQの各セクションを作成。LP公開自体は
   「公開」に該当するためオーナー承認後の課題として残置。AI利用の開示表示義務の要否は法的確認が必要な
   未検証事項として残る)
+- legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
+  プライバシーポリシーの文面草案(2026-08-02 04:00 UTC新規作成。事業者名・所在地等は
+  `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API
+  プロバイダへの送信・保存期間を整理。所在地表示要否とAI利用開示要否は法律専門家への
+  確認が必要な未検証事項として残置。作成は草案のみでLP掲載・公開は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 04:00 UTC: landing-page-copy-draft.mdの残課題だった特定商取引法に
+  基づく表記・プライバシーポリシーの文面草案を作成した(legal-notices-draft.md)。残課題は
+  所在地表示要否・AI利用開示要否の法律専門家への確認要否のオーナーとのすり合わせと、
+  LLM APIプロバイダ契約後のプライバシーポリシー第三者提供節の更新)
 - (解消済み 2026-08-02 03:00 UTC: これまで顧客とのLINE上のやり取りの設計が中心だったが、
   「オーナーが本サービスを知って申し込むまで」の導線で使うランディングページのコピー草案を
   初めて作成した(landing-page-copy-draft.md)。残課題は特定商取引法に基づく表記・プライバシー
