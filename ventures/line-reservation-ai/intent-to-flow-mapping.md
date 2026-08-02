@@ -14,7 +14,8 @@ conversation-flow-state-machine-design.md で残課題としていた、LLMの�
 | `intent: new_booking`, `name`と`menu`が両方非nullで`confirmed: false` | `awaiting_details` | `provide_details()` | このLLM出力自体は「氏名・メニューを聞き取れた」ことを表し、確定の可否(hold中の枠との整合)はBookingSlotManager側が判定する |
 | `intent: new_booking`, `confirmed: true`(LLMが確定文言を生成) | - | (呼ばない) | `confirmed`はLLMの発話意図フラグであり、実際の確定はBookingSlotManager.confirm()の成功可否が真実。provide_details()の戻り値(bool)を正としてLLMのconfirmedと矛盾する場合は安全側([schema-validation-report.md](schema-validation-report.md)のE8方針)に倣いエスカレーションする |
 | `intent: cancel` | 任意 | `cancel_booking()` | cancel-intent-handling-design.md準拠(2026-08-02実装)。stageに応じてhold/confirm済みの枠を`release()`し、confirmed分のみEscalationConsolidator経由でオーナーへ通知する |
-| `intent: escalation` / `faq` / `change` / その他 | 任意 | (呼ばない) | 予約フロー外。EscalationConsolidator/NotificationLogAggregator側の処理に委ねる(`change`は未実装、cancel-intent-handling-design.mdの残課題) |
+| `intent: change` | 任意 | `change_booking()` → `search_candidates_from_llm_output()` → `present_candidates()` | change-intent-handling-design.md準拠(2026-08-02実装)。`change_booking()`でcancelと同じ分岐により旧枠を解放(confirmed分のみオーナー通知)した後、同じLLM出力の`requested_date_range`/`time_of_day_preference`/`menu`を使って`new_booking`と同じ新規候補検索フローへそのまま接続する(「変更 = 旧予約の解放 + 新規予約フローの開始」) |
+| `intent: escalation` / `faq` / その他 | 任意 | (呼ばない) | 予約フロー外。EscalationConsolidator/NotificationLogAggregator側の処理に委ねる |
 
 ## 解決済み: 提示した候補一覧から顧客の返信に対応する`slot_key`を特定する処理
 

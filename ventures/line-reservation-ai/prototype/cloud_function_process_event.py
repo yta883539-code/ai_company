@@ -42,8 +42,11 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
 - intent: "cancel" の場合、cancel-intent-handling-design.md準拠でConversationFlowStateMachine.
   cancel_booking()を呼び、会話のstage(candidates_presented/awaiting_details/confirmed/状態なし)に
   応じてBookingSlotManager側の枠解放・顧客への返信・オーナー通知(confirmed分のみ)を行う。
-  change intentは未実装のまま、EscalationConsolidator/NotificationLogAggregatorへの転送のみを行う
-  (change/日時変更の設計はcancel-intent-handling-design.mdの残課題を参照)。
+- intent: "change" の場合、change-intent-handling-design.md準拠でConversationFlowStateMachine.
+  change_booking()を呼び、cancelと同じ分岐で旧枠を解放・confirmed分のみオーナー通知した後、
+  同じLLM出力(requested_date_range/time_of_day_preference/menu)を使って_start_new_booking()と
+  同じ新規候補検索・present_candidates()へそのまま接続し、同じ会話の中で新しい日時の予約フローを
+  開始する(「変更 = 旧予約の解放 + 新規予約フローの開始」という設計)。
 
 - reminder-scheduler-design.mdの残課題だった「確定後の顧客からの返信検知の配線」を実装した
   (customer-reply-detection-design.md参照)。confirmed状態の会話へメッセージが届いた事実を、
@@ -70,6 +73,8 @@ from engine import (  # noqa: E402
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
     format_cancel_pending_message,
+    format_change_not_found_message,
+    format_change_started_message,
     format_confirmation_message,
     format_faq_address_message,
     format_faq_parking_message,
@@ -236,12 +241,14 @@ class ConversationEventProcessor:
             return self._handle_escalation(user_id, output, now, tone)
         if intent == "cancel":
             return self._handle_cancel(user_id, now, tone)
+        if intent == "change":
+            return self._handle_change(user_id, output, now, tone)
         if intent != "new_booking":
             # intent-to-flow-mapping.md: faq_segments無しのfaq(9b雑談等・レガシー出力)・
-            # change・その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
+            # その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
             # オーナーへの転送のみ行う(単一項目9a FAQがここに落ちない理由は
-            # モジュールdocstring「実装範囲」参照。cancelはcancel-intent-handling-design.md準拠で
-            # 上記の_handle_cancelへ分岐済みのためここには来ない)。
+            # モジュールdocstring「実装範囲」参照。cancel/changeはそれぞれの設計md準拠で
+            # 上記の_handle_cancel/_handle_changeへ分岐済みのためここには来ない)。
             self._consolidator.on_event(user_id, output, now)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
 
@@ -412,6 +419,39 @@ class ConversationEventProcessor:
 
         self._push.send_message(user_id, format_cancel_pending_message(tone))
         return DispatchResult(action="cancelled", detail=result.stage)
+
+    def _handle_change(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+        """change-intent-handling-design.md準拠。intent: "change"の一次処理。
+        ConversationFlowStateMachine.change_booking()にcancelと同じ分岐(stageに応じたrelease()・
+        confirmed分のみオーナー通知)を委ね、found=Trueの場合は同じLLM出力を使って
+        _start_new_booking()と同じ新規候補検索へそのまま接続する(旧予約があった場合のみ、
+        先に「取り消した」旨の案内を送ってから新しい候補を提示する)。
+        """
+        result = self._flow.change_booking(user_id, now)
+        self._candidates_by_user.pop(user_id, None)
+        self._held_label_by_user.pop(user_id, None)
+        self._search_context_by_user.pop(user_id, None)
+
+        if not result.found:
+            # cancelの安全側フォールバックと同じ考え方(_handle_cancelのcancel_not_found参照)。
+            # change_booking()自身は状態が無い場合オーナー通知を行わないため、ここで行う。
+            self._consolidator.on_event(
+                user_id,
+                {"intent": "change", "needs_owner_check": True, "escalation_reason": "change_not_found"},
+                now,
+            )
+            self._push.send_message(user_id, format_change_not_found_message(tone))
+            return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
+
+        if result.stage in ("awaiting_details", "confirmed"):
+            label = label_from_slot_key(result.slot_key)
+            self._push.send_message(
+                user_id, format_change_started_message(label, result.menu or "", tone)
+            )
+        # stageがcandidates_presentedだった場合(まだhold()していない)は解放すべき実体が無いため、
+        # 「取り消した」旨の案内なしにそのまま新規候補検索へ進む。
+
+        return self._start_new_booking(user_id, output, now)
 
 
 def _demo() -> None:

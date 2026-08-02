@@ -156,11 +156,15 @@ class EscalationConsolidator:
 # 振り分ける方針を採用した(2026-08-01決定)。
 # booking_cancelled/cancel_not_foundはcancel-intent-handling-design.md準拠でcancel_booking()から
 # 発火する(2026-08-02追加)。
+# booking_change_started/change_not_foundはchange-intent-handling-design.md準拠でchange_booking()から
+# 発火する(2026-08-02追加)。
 SYSTEM_ESCALATION_REASONS = frozenset({
     "booking_conflict",
     "candidate_selection_unresolved",
     "booking_cancelled",
     "cancel_not_found",
+    "booking_change_started",
+    "change_not_found",
 })
 
 
@@ -308,6 +312,16 @@ class SelectSlotResult:
 @dataclass
 class CancelResult:
     """cancel_booking()の戻り値。cancel-intent-handling-design.md準拠。"""
+    found: bool  # Falseの場合、会話メモリ上には何も無い(呼び出し側で安全側のオーナー転送を行う)
+    stage: Optional[str] = None  # 取り消された時点のstage: "candidates_presented" | "awaiting_details" | "confirmed"
+    slot_key: Optional[tuple] = None
+    name: Optional[str] = None
+    menu: Optional[str] = None
+
+
+@dataclass
+class ChangeResult:
+    """change_booking()の戻り値。change-intent-handling-design.md準拠。"""
     found: bool  # Falseの場合、会話メモリ上には何も無い(呼び出し側で安全側のオーナー転送を行う)
     stage: Optional[str] = None  # 取り消された時点のstage: "candidates_presented" | "awaiting_details" | "confirmed"
     slot_key: Optional[tuple] = None
@@ -525,6 +539,42 @@ class ConversationFlowStateMachine:
                 now,
             )
         return CancelResult(found=True, stage=stage, slot_key=slot_key, name=name, menu=menu)
+
+    def change_booking(self, user_id: str, now: datetime) -> "ChangeResult":
+        """change-intent-handling-design.md準拠。intent: "change"を受けた際に呼ぶ。
+        「旧枠の解放」部分はcancel_booking()と同じ分岐(stageに応じたrelease()・confirmed分のみ
+        オーナー通知)を行うが、cancel_booking()と異なり会話を終了させない。呼び出し側は
+        found=Trueの場合、続けて_start_new_booking()相当の新規候補検索・present_candidates()を
+        行い、同じ会話の中で新しい日時の予約フローへそのまま入る想定(change = 「旧予約の解放」+
+        「新規予約フローの開始」の合成、という考え方はcancel-intent-handling-design.mdの
+        残課題に記載した方針を踏襲する)。
+        """
+        state = self._states.get(user_id)
+        if state is None:
+            return ChangeResult(found=False)
+
+        stage, slot_key, name, menu = state.stage, state.slot_key, state.name, state.menu
+        if stage in ("awaiting_details", "confirmed") and slot_key is not None:
+            self._slots.release(slot_key)
+        del self._states[user_id]
+
+        if stage == "confirmed":
+            # 確定済みだった枠を解放した事実は、cancelと同じくオーナー側の外部予約記録の
+            # 更新が必要なため通知する。escalation_reasonをbooking_cancelledと分けたのは、
+            # 「新しい日時への変更手続き中」であることをオーナーが区別できるようにするため
+            # (単純なキャンセルと同列に扱うと、顧客対応の緊急度・後続対応の要否が変わってくる)。
+            self._consolidator.on_event(
+                user_id,
+                {
+                    "intent": "change",
+                    "needs_owner_check": True,
+                    "escalation_reason": "booking_change_started",
+                    "slot_key": slot_key,
+                    "name": name,
+                },
+                now,
+            )
+        return ChangeResult(found=True, stage=stage, slot_key=slot_key, name=name, menu=menu)
 
     def release_idle_conversations(self, now: datetime) -> list[ReleasedConversation]:
         """conversation-state-cleanup.md準拠。last_activity_atからCONVERSATION_IDLE_TIMEOUT
@@ -974,6 +1024,38 @@ def format_cancel_not_found_message(tone: str = "standard") -> str:
         "formal": "当店: 恐れ入ります、ご予約状況を確認できませんでしたので、担当より改めてご連絡いたします。",
         "standard": "当店: すみません、ご予約状況を確認できなかったので、担当より改めてご連絡します。",
         "casual": "当店: あれ、予約情報が見当たらないので、担当から折り返しますね!",
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_change_started_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
+    """変更対象の旧予約(確定済み/仮押さえ中)を解放した直後の案内(change-intent-handling-design.md準拠)。
+    この直後に呼び出し側が新しい候補一覧(format_candidates_message())を続けて送信する想定のため、
+    「新しい日時をお伺いします」という前振りで終える。
+    """
+    variants = {
+        "formal": (
+            f"当店: {candidate_label} {menu}のご予約は一旦取り消しといたしました。"
+            f"改めてご希望の日時を承ります。"
+        ),
+        "standard": (
+            f"当店: {candidate_label} {menu}のご予約は一旦取り消しました。"
+            f"改めてご希望の日時を教えてください。"
+        ),
+        "casual": (
+            f"当店: {candidate_label} {menu}の予約はいったん無しにしました!"
+            f"新しい希望日時、教えてください🙌"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
+def format_change_not_found_message(tone: str = "standard") -> str:
+    """変更対象の予約が会話メモリ上に見つからない場合の一次応答(オーナー転送とあわせて使う安全側の文言)。"""
+    variants = {
+        "formal": "当店: 恐れ入ります、変更前のご予約状況を確認できませんでしたので、担当より改めてご連絡いたします。",
+        "standard": "当店: すみません、変更前のご予約状況を確認できなかったので、担当より改めてご連絡します。",
+        "casual": "当店: あれ、変更前の予約情報が見当たらないので、担当から折り返しますね!",
     }
     return _render_by_tone(tone, variants)
 

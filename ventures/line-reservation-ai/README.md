@@ -340,7 +340,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「厳守事項9aに基づくfaqは単一項目でも1要素配列で必ず付与する」方針に改訂
   (single-item-faq-schema-decision.md新規作成。E10・E14前半の単一項目9a FAQも
   自動返信の対象になった。9b雑談・escalationは引き続きnullのまま。テスト1件新規・全91件パス)
-- 最終更新: 2026-08-02 16:00 UTC
+- 最終更新: 2026-08-02 17:00 UTC
 
 ## ドキュメント
 - single-item-faq-schema-decision.md: 単一項目FAQ(faq_segmentsがnullのケース)でも
@@ -466,8 +466,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `prototype/cloud_function_process_event.py`のintent振り分けに接続。`escalation_reason`に
   `booking_cancelled`/`cancel_not_found`を追加(`SYSTEM_ESCALATION_REASONS`)。テスト12件追加・
   全107件パス)
+- change-intent-handling-design.md: cancel-intent-handling-design.mdの残課題だった`change`
+  (日時変更)の実処理を設計・実装(2026-08-02 17:00 UTC新規作成)。`cancel_booking()`と同じ
+  分岐(stageに応じたrelease()・confirmed分のみオーナー通知)を行う
+  `ConversationFlowStateMachine.change_booking()`を新設し、cancelと異なり会話を終了させず、
+  `_start_new_booking()`(new_bookingと同じ新規候補検索・present_candidates())へそのまま
+  接続する設計(「変更 = 旧予約の解放 + 新規予約フローの開始」)。booking_output.schema.jsonが
+  `requested_date_range`/`time_of_day_preference`を元々`change`でも使える設計にしていたため
+  スキーマ変更は不要だった。`escalation_reason`に`booking_change_started`/`change_not_found`を
+  追加(`SYSTEM_ESCALATION_REASONS`)。`prototype/cloud_function_process_event.py`に
+  `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)。
+  これにより`cancel`/`change`実処理化(前2項目)をもって、intent-to-flow-mapping.mdの
+  対応表に載っている主要intent(new_booking/cancel/change/faq/escalation)は一通り
+  机上実装が揃った状態になった。次の大きな一歩は机上検証から実LLM検証への移行だが、
+  APIキー取得・従量課金が発生するためオーナー承認が前提(pending-approval.md参照)。
+- change-intent-handling-design.mdの残課題として残した、change後の新規候補検索が0件だった
+  場合の顧客向け文言をchange専用に出し分けるべきか(現状は`format_change_started_message()`で
+  「取り消した」旨を伝えた後、new_bookingと共通の`REASK_DATE_RANGE_MESSAGE`が続く)。
+- (解消済み 2026-08-02 17:00 UTC: 前項の残課題だった`change`(日時変更)の実処理を実装した
+  (change-intent-handling-design.md)。`cancel_booking()`と同じ分岐(stageに応じた
+  release()・confirmed分のみオーナー通知、escalation_reasonは`booking_change_started`/
+  `change_not_found`で区別)を行う`change_booking()`を新設し、cancelと異なり会話を終了させず
+  `_start_new_booking()`(new_bookingと同じ新規候補検索フロー)へそのまま接続する設計
+  (「変更 = 旧予約の解放 + 新規予約フローの開始」)。booking_output.schema.jsonは
+  `requested_date_range`/`time_of_day_preference`を元々change対応済みだったためスキーマ変更は
+  不要だった。テスト13件追加・全117件パス。残る課題は実LLM/実LINE API/実Cloud Scheduler接続
+  自体(オーナー承認待ち)のみとなった)
 - (解消済み 2026-08-02 16:00 UTC: 前項の残課題だったcancel/change intentの実処理のうち、
   `cancel`のみを対象に実装した(cancel-intent-handling-design.md)。会話のstageに応じて
   `BookingSlotManager`の枠解放・返信文言の出し分けを行う`cancel_booking()`を新設し、

@@ -35,6 +35,8 @@ from engine import (  # noqa: E402
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
     format_cancel_pending_message,
+    format_change_not_found_message,
+    format_change_started_message,
     format_confirmation_message,
     format_faq_parking_message,
     label_from_slot_key,
@@ -44,6 +46,21 @@ from engine import (  # noqa: E402
 )
 
 T0 = datetime(2026, 7, 31, 10, 0, 0)
+
+
+class _RecordingEscalationConsolidator(EscalationConsolidator):
+    """on_event()に渡されたイベントをそのまま記録するテスト用スパイ。
+    change_booking()がbooking_cancelledではなくbooking_change_startedを渡していることの
+    確認など、_windowsの有無だけでは区別できないescalation_reasonの検証に使う。
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.events: list[tuple[str, dict]] = []
+
+    def on_event(self, user_id: str, event: dict, now: datetime) -> list[tuple[str, object]]:
+        self.events.append((user_id, event))
+        return super().on_event(user_id, event, now)
 
 
 class ProcessLlmOutputTest(unittest.TestCase):
@@ -312,6 +329,77 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         # (cancel-intent-handling-design.md準拠)。
         self.assertIn("user_suzuki", consolidator._windows)
 
+    def test_change_booking_with_no_state_reports_not_found(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        result = flow.change_booking("nobody", T0)
+        self.assertFalse(result.found)
+        self.assertIsNone(result.stage)
+
+    def test_change_booking_while_candidates_presented_clears_state_without_slot_release(self):
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        flow.present_candidates("user_ito", now=T0)
+
+        result = flow.change_booking("user_ito", T0)
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "candidates_presented")
+        self.assertIsNone(flow.stage("user_ito"))
+
+    def test_change_booking_while_awaiting_details_releases_pending_hold(self):
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        key = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_kato", now=T0)
+        flow.select_slot("user_kato", key, T0)
+        self.assertEqual(slots.status(key, T0), "pending")
+
+        result = flow.change_booking("user_kato", T0)
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "awaiting_details")
+        self.assertEqual(result.slot_key, key)
+        self.assertIsNone(slots.status(key, T0))
+        self.assertIsNone(flow.stage("user_kato"))
+
+    def test_change_booking_after_confirmed_releases_slot_and_notifies_owner(self):
+        slots = BookingSlotManager()
+        consolidator = _RecordingEscalationConsolidator()
+        flow = ConversationFlowStateMachine(slots, consolidator)
+        key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_suzuki", now=T0)
+        flow.select_slot("user_suzuki", key, T0)
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=1))
+        self.assertEqual(slots.status(key, T0), "confirmed")
+
+        result = flow.change_booking("user_suzuki", T0 + timedelta(minutes=2))
+        self.assertTrue(result.found)
+        self.assertEqual(result.stage, "confirmed")
+        self.assertEqual(result.name, "鈴木")
+        self.assertIsNone(slots.status(key, T0 + timedelta(minutes=2)))
+        self.assertIsNone(flow.stage("user_suzuki"))
+        # confirmed分のみEscalationConsolidator経由でオーナーに即時通知される。
+        # cancelと同じ通知経路だが、escalation_reasonをbooking_change_startedとして区別する
+        # (change-intent-handling-design.md準拠)。
+        self.assertIn("user_suzuki", consolidator._windows)
+        self.assertEqual(consolidator.events[-1][1]["escalation_reason"], "booking_change_started")
+
+    def test_change_booking_after_confirmed_does_not_delete_the_original_booking_twice(self):
+        # change_booking()はcancel_bookingと同じくstate削除後に呼び出し側が新規候補検索へ
+        # 進む設計のため、同じuser_idで再度present_candidates()を呼んでも旧slot_keyを
+        # 引きずらないことを確認する(session再利用時の取り違え防止)。
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        old_key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_mori", now=T0)
+        flow.select_slot("user_mori", old_key, T0)
+        flow.provide_details("user_mori", "森", "カット", T0 + timedelta(minutes=1))
+
+        flow.change_booking("user_mori", T0 + timedelta(minutes=2))
+        flow.present_candidates("user_mori", now=T0 + timedelta(minutes=3))
+        self.assertEqual(flow.stage("user_mori"), "candidates_presented")
+        new_key = ("shop_1", "2026-08-10", "10:00")
+        select_result = flow.select_slot("user_mori", new_key, T0 + timedelta(minutes=3))
+        self.assertTrue(select_result.success)
+
 
 class LabelFromSlotKeyAndCancelMessageTest(unittest.TestCase):
     def test_label_from_slot_key_matches_candidate_label_format(self):
@@ -331,6 +419,19 @@ class LabelFromSlotKeyAndCancelMessageTest(unittest.TestCase):
 
     def test_format_cancel_not_found_message_prompts_owner_follow_up(self):
         message = format_cancel_not_found_message()
+        self.assertIn("担当より改めてご連絡", message)
+
+    def test_format_change_started_message_includes_label_menu_and_leads_into_new_candidates(self):
+        message = format_change_started_message("8/9(日) 14:00〜", "カット")
+        self.assertIn("8/9(日) 14:00〜", message)
+        self.assertIn("カット", message)
+        self.assertIn("取り消し", message)
+        # cancelの確定メッセージと異なり「あらためて日時を伺う」前振りで終える必要がある
+        # (直後にformat_candidates_message()が続く設計、change-intent-handling-design.md準拠)。
+        self.assertNotIn("キャンセルを承りました", message)
+
+    def test_format_change_not_found_message_prompts_owner_follow_up(self):
+        message = format_change_not_found_message()
         self.assertIn("担当より改めてご連絡", message)
 
 
