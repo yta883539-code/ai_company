@@ -271,7 +271,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ことで重複排除する方針とした。engine.py側の会話フローロジック(状態遷移・
   メッセージ整形)への変更は不要と確認。Cloud Tasksの実際の導入・push API利用時の
   メッセージ通数試算への影響確認は今後の課題として残した。
-- 最終更新: 2026-08-02 06:00 UTC
+- フェーズ(続き35): webhook-async-processing-design.mdに残っていた「タスク名の重複排除キーに
+  使える一意なイベントIDの有無」をLINE Developers公式ドキュメント(webhook.yml/Receive messages
+  (webhook))のweb調査で確認した。各Webhookイベントには`webhookEventId`(ULID形式)が必ず含まれ、
+  これをCloud Tasksの決定的タスク名の生成元にそのまま使えることが判明。加えて
+  `deliveryContext.isRedelivery`という真偽値フィールドも同梱されており、LINE側が再送であることを
+  明示的に通知してくれるため、Cloud Function A側で早期スキップする追加の防御層も実装できることが
+  分かった。設計上の不確定要素はこれで解消し、残るは実装自体(GCPプロジェクト作成後、オーナー承認待ち)。
+- 最終更新: 2026-08-02 08:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -335,9 +342,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「公開」に該当するためオーナー承認後の課題として残置。AI利用の開示表示義務の要否は法的確認が必要な
   未検証事項として残る)
 - webhook-async-processing-design.md: hosting-platform-selection.mdの残課題だった、Cloud Functions
-  Webhookハンドラの応答遅延対策の設計(2026-08-02 06:00 UTC新規作成。即時ACK+Cloud Tasksによる
+  Webhookハンドラの応答遅延対策の設計(2026-08-02 08:00 UTC更新。即時ACK+Cloud Tasksによる
   非同期処理+LINEプッシュメッセージAPIでの応答という2段構成を採用。reply APIは使わない方針。
-  Cloud Tasksの実導入・push API利用時のメッセージ通数試算への影響確認は今後の課題)
+  重複排除キーには`webhookEventId`(ULID)を採用でき、`deliveryContext.isRedelivery`による
+  早期スキップも追加可能と判明(web調査済み)。Cloud Tasksの実導入は今後の課題(GCPプロジェクト
+  作成後、オーナー承認待ち))
 - legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
   プライバシーポリシーの文面草案(2026-08-02 05:00 UTC更新。事業者名・所在地等は
   `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API
@@ -347,6 +356,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   法律専門家への確認が必要な事項として残置。作成は草案のみでLP掲載・公開は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 08:00 UTC: webhook-async-processing-design.mdの残課題だった
+  タスク名の重複排除キーの生成方法をLINE公式ドキュメントのweb調査で確認した。
+  `webhookEventId`(ULID)をそのままタスク名の導出元に使え、`deliveryContext.isRedelivery`
+  で再送検知も追加できることが判明。残るはCloud Function実装自体(GCPプロジェクト作成後))
 - (解消済み 2026-08-02 06:00 UTC: hosting-platform-selection.mdの残課題だったCloud Functionsの
   Webhook応答遅延対策を設計した(webhook-async-processing-design.md)。即時ACK+Cloud Tasksでの
   非同期処理+push APIでの応答という方式を採用。残課題はCloud Tasksの実導入(GCPプロジェクト

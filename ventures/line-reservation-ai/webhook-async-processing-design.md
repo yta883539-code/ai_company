@@ -95,6 +95,20 @@ LINE Platform
   line-api-pricing.mdの試算は元々「カウントされる前提」で保守的に見積もって
   いたため数値見直しは不要。将来reply/push併用のハイブリッド化をすれば
   無料枠の実質上限を押し上げられる余地があることを新たな検討事項として記録した)
-- タスク名の重複排除キーの具体的な生成方法(LINEのWebhookイベントに含まれる
-  一意なイベントIDの有無の確認)はLINE Messaging APIドキュメントの
-  詳細調査が必要で未着手。
+- (解消済み 2026-08-02 08:00 UTC: LINE Developers公式ドキュメント(webhook.yml/
+  Receive messages (webhook))をweb調査し、タスク名の重複排除キーに使える
+  一意なイベントIDの有無を確認した。各Webhookイベントには`webhookEventId`
+  (ULID形式の文字列)が必ず含まれており、これをそのままCloud Tasksの
+  決定的タスク名の生成元として使える。さらに`deliveryContext.isRedelivery`
+  という真偽値フィールドが同梱されており、LINE側が再送であることを
+  明示的に通知してくれることも判明した。これにより、二重処理対策は
+  「`webhookEventId`からタスク名を導出しCloud Tasks側の重複排除に頼る」
+  設計に加えて、「Cloud Function A側で`isRedelivery: true`を検知した場合は
+  Cloud Tasksへのenqueue自体を早期スキップする」という追加の防御層を
+  安価に(Cloud Tasks側の重複排除を待たずに)実装できることが分かった。
+  タスク名は`f"line-event-{webhook_event_id}"`のような単純な導出で足り、
+  独自のハッシュ生成やタイムスタンプ突き合わせは不要と結論づけた。
+  実装(Cloud Function Aのハンドラコード)自体は引き続きGCPプロジェクト
+  作成(オーナー承認待ち)後の着手となるが、設計上の不確定要素は解消した。
+  参照: https://developers.line.biz/en/docs/messaging-api/receiving-messages/ ,
+  https://github.com/line/line-openapi/blob/main/webhook.yml)
