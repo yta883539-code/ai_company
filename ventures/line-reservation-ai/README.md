@@ -288,7 +288,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   webhook-function-a-implementation.md新規作成)。Cloud Function B
   (process_conversation_event、LLM呼び出し〜push送信)は実LLM呼び出し自体が承認待ちのため
   未着手のまま次の課題として残した。
-- 最終更新: 2026-08-02 09:00 UTC
+- フェーズ(続き37): 上記で残していたCloud Function B(process_conversation_event)のうち、
+  実LLM呼び出し・実クラウド接続とは切り離せる範囲(Cloud Tasksからデキューしたイベントを
+  intent-to-flow-mapping.mdの対応表どおりConversationFlowStateMachineへ振り分け、LINE Push
+  Message APIへの送信文言を組み立てる配線ロジック)を実装した。LINE送信部分はCloud Function Aの
+  TaskQueueClientと同じ考え方で`LinePushClient`プロトコルとして差し替え可能にした
+  (`prototype/cloud_function_process_event.py`新規作成)。new_booking系3パターン(曖昧な日時→
+  候補提示、候補選択→hold、氏名/メニュー確定→confirm)を実装し、候補ラベルがhold・confirmの
+  案内文言に一貫して引き継がれることを含めunittest 12件で確認(全件パス、既存49件も引き続き
+  パス、webhook-function-b-implementation.md新規作成)。escalation/faq intentの顧客向け返信
+  (faq_segmentsとの統合)・確定競合時の新候補再提示・前日リマインドのスケジューラ発火経路との
+  接続は未着手のまま次の課題として残した。
+- 最終更新: 2026-08-02 10:00 UTC
 
 ## ドキュメント
 - market-research.md: 市場調査・競合整理
@@ -361,6 +372,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   経緯・カバー範囲まとめ(2026-08-02 09:00 UTC新規作成。`prototype/cloud_function_webhook.py`・
   `prototype/test_cloud_function_webhook.py`(17件全件パス)を新規作成。Cloud Function Bは
   実LLM呼び出し承認待ちのため未着手)
+- webhook-function-b-implementation.md: Cloud Function B(process_conversation_event)のうち
+  実LLM呼び出し・実クラウド接続とは切り離せる配線ロジックの実装経緯・カバー範囲まとめ
+  (2026-08-02 10:00 UTC新規作成。`prototype/cloud_function_process_event.py`・
+  `prototype/test_cloud_function_process_event.py`(12件全件パス)を新規作成。
+  escalation/faq intentの顧客向け返信・確定競合時の新候補再提示は未実装のまま残置)
 - legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
   プライバシーポリシーの文面草案(2026-08-02 05:00 UTC更新。事業者名・所在地等は
   `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API
@@ -370,6 +386,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   法律専門家への確認が必要な事項として残置。作成は草案のみでLP掲載・公開は未着手)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-02 10:00 UTC: 前項の残課題だったCloud Function B
+  (process_conversation_event)のうち、実LLM呼び出し・実クラウド接続とは切り離せる配線ロジック
+  (Cloud Tasksからデキューしたイベント→intent-to-flow-mapping.md対応表→
+  ConversationFlowStateMachine→LINE Push文言組み立て)を実装した
+  (prototype/cloud_function_process_event.py、テスト12件全件パス)。残課題は
+  (1)escalation/faq intentの顧客向け返信(faq_segmentsとの統合)、(2)確定操作競合時の新しい
+  空き枠の再提示、(3)前日リマインド(スケジューラ発火)経路の呼び出し元、(4)実LLM API・実LINE
+  API接続自体(いずれもオーナー承認待ち)。次はこのうち(1)か(2)のロジック単体(クラウド接続
+  なしで検証可能な範囲)から着手するのが妥当)
 - (解消済み 2026-08-02 09:00 UTC: webhook-async-processing-design.mdの残課題だった
   「Cloud Function A(receive_webhook)のハンドラコード実装」に着手した。署名検証・
   webhookEventIdからの決定的タスク名導出・isRedelivery早期スキップ・Cloud Tasks重複排除の
