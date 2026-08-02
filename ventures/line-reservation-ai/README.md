@@ -373,13 +373,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   schema/validate_test_cases.py(22件)を自動実行するようにした。アカウント作成・支払い・
   外部公開のいずれにも該当しない純粋なリポジトリ内設定のため承認不要と判断した。
   実際のActions実行結果(グリーン確認)は次回以降またはオーナー自身の確認に委ねる。
-- 最終更新: 2026-08-02 20:00 UTC
+- フェーズ(続き44): 前項で保留していた「実際のGitHub Actions実行結果の確認」を、本セッションで
+  利用可能になったGitHub MCPツール(actions_list)経由で実施した。直前のコミット
+  (ff80be8、`.github/workflows/line-reservation-ai-tests.yml`初回トリガー分)の
+  ワークフロー実行(run id: 30764705150)が`conclusion: success`であることを確認し、
+  prototype/自動テスト125件・schema検証22件がCI上でも全件パスすることを実証した
+  (ci-setup.mdに結果を追記)。これによりci-setup.mdの「今後の課題」に残っていた
+  CI実行結果の閲覧手段の不在は解消された。
+- 最終更新: 2026-08-02 21:00 UTC
 
 ## ドキュメント
 - ci-setup.md: GitHub Actionsによるテスト自動実行の導入経緯(2026-08-02 20:00 UTC新規作成。
   `.github/workflows/line-reservation-ai-tests.yml`でprototype/の自動テスト4本(125件)と
   schema/validate_test_cases.py(22件)を自動実行。アカウント作成・支払い・公開に該当しないため
-  承認不要と判断)
+  承認不要と判断。2026-08-02 21:00 UTC追記: GitHub MCPツールで実際のワークフロー実行結果
+  (run id: 30764705150)を確認し`conclusion: success`(全件パス)を確認済み)
 - system-event-log-gap-fix.md: NotificationLogAggregatorのシステム内部イベント
   (booking_conflict/booking_cancelled/cancel_not_found/booking_change_started/
   change_not_found/candidate_selection_unresolved)記録ギャップの原因(配線漏れ+
