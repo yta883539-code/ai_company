@@ -351,6 +351,24 @@ class SearchCandidatesFromLlmOutputTest(unittest.TestCase):
         self.assertTrue(len(result) > 0)
         self.assertTrue(all(c.slot_key[1] == "2026-08-09" for c in result))
 
+    def test_clamps_range_wider_than_max_search_range_days(self):
+        # 「今月空いてる日」のような広い要求でもFirestore読み取り件数が際限なく
+        # 増えないよう、MAX_SEARCH_RANGE_DAYSでレンジを打ち切る
+        # (firestore-traffic-cost-estimate.md残課題への対応)。
+        searcher = AvailabilitySearcher(business_hours=(9 * 60, 19 * 60))
+        booking_slots = BookingSlotManager()
+        far_slot_key = ("shop_1", "2026-09-15", "10:00")
+        booking_slots.hold(far_slot_key, "cust_far", T0)
+        booking_slots.confirm(far_slot_key, "cust_far", T0)
+        output = {
+            "requested_date_range": {"start": "2026-08-01", "end": "2026-09-30"},
+            "time_of_day_preference": "morning",
+        }
+        result = search_candidates_from_llm_output(
+            searcher, booking_slots, "shop_1", output, 60, T0, max_candidates=1000
+        )
+        self.assertTrue(all(c.slot_key[1] <= "2026-08-15" for c in result))
+
 
 class ResolveCandidateSelectionTest(unittest.TestCase):
     def setUp(self):

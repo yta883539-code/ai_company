@@ -677,6 +677,13 @@ class AvailabilitySearcher:
 #    `time_of_day_preference`をAvailabilitySearcherの入力に接続する
 # ---------------------------------------------------------------------------
 
+# requested_date_rangeはLLMが自然文から抽出した値であり上限がないため、「今月空いてる日」
+# のような広い要求がそのままFirestoreレンジクエリに渡るとfirestore-traffic-cost-estimate.mdの
+# 「検索レンジ3日」という試算前提を大きく超える可能性がある(slot-search-component-design.md
+# 残課題)。ここでendを`start + MAX_SEARCH_RANGE_DAYS`にクランプし、読み取り件数の上限を明示する。
+MAX_SEARCH_RANGE_DAYS = 14
+
+
 def search_candidates_from_llm_output(
     searcher: AvailabilitySearcher,
     booking_slots: BookingSlotManager,
@@ -701,6 +708,7 @@ def search_candidates_from_llm_output(
 
     start = _date.fromisoformat(date_range["start"])
     end = _date.fromisoformat(date_range["end"])
+    end = min(end, start + timedelta(days=MAX_SEARCH_RANGE_DAYS))
     time_of_day_preference = output.get("time_of_day_preference") or "none"
     return searcher.find_candidates(
         store_id=store_id,

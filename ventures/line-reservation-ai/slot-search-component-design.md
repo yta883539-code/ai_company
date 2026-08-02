@@ -45,6 +45,21 @@ LLMに委ねず決定的コードで行う(誤りが許されないため)。
   - メニュー所要時間が営業終了時刻を超える開始時刻(例: 60分メニューで営業終了30分前の枠)は除外する。
   - `now`より前の時刻は除外する(当日分の過去の時間帯)。
 
+## 検索レンジの上限(MAX_SEARCH_RANGE_DAYS)
+firestore-traffic-cost-estimate.mdの試算は「検索レンジ3日」という仮定に依存していたが、
+`requested_date_range`はLLMが自然文から抽出した値であり本来は上限がない
+(例: 顧客が「今月空いてる日を教えて」のように尋ねた場合、レンジが数十日に及びうる)。
+上限のないままFirestoreのレンジクエリに渡すと、試算前提を大きく超える読み取り件数が
+発生しうるため、`search_candidates_from_llm_output()`で`end`を`start + MAX_SEARCH_RANGE_DAYS`
+(2026-08-02時点で14日固定)にクランプする実装を追加した(prototype/engine.py)。
+
+- 14日という値は「近い将来の予約が中心」という一般論に基づく仮の目安であり、
+  customer-interview-design.mdのヒアリングで「何日先まで予約したいか」を確認できていない
+  ため、実店舗ヒアリング結果を踏まえて見直す。
+- クランプはサーバー側で無言で行っており、顧客への「〇日以内でお調べしています」等の
+  案内はまだ設計していない。要求レンジが大きく削られた場合に顧客へどう伝えるかは
+  今後の課題として残す。
+
 ## 今後の課題
 - ~~LLM出力への`requested_date_range`/`time_of_day_preference`フィールド追加を
   booking_output.schema.jsonに反映し、llm-system-prompt-draft.mdにも「自然文から

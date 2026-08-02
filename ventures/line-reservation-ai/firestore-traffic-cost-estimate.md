@@ -68,10 +68,15 @@ Firestore・LINE APIいずれの従量課金も、想定店舗数(数店舗〜�
 
 ## 残課題
 
-- 本試算は「検索レンジ3日」という仮定に強く依存する。slot-search-component-design.mdの
-  `search_candidates_from_llm_output()`が実際にどの程度のレンジでクエリを発行するかは
-  実装時に確認し、レンジが想定より広い場合(例: 顧客が「今月空いてる日」のように広く尋ねるケース)は
-  読み取り件数が本試算より増える可能性がある。
+- 本試算は「検索レンジ3日」という仮定に強く依存する。確認したところ`requested_date_range`は
+  LLMが自然文から抽出する値であり実装上は上限がなく、顧客が「今月空いてる日」のように
+  広く尋ねた場合は本試算の前提を大きく超えるレンジでクエリが発行されうることが判明した。
+  これに対応するため`search_candidates_from_llm_output()`に`MAX_SEARCH_RANGE_DAYS`
+  (2026-08-02時点で14日)によるクランプを追加し、読み取り件数の青天井な増加は防止した
+  (slot-search-component-design.md「検索レンジの上限」参照)。ただし14日は仮の目安であり、
+  「3日」より広いため本試算の1件あたりreads(表内の数値)は最大で約4.7倍(14日÷3日)まで
+  悪化しうる点は未反映。実際に顧客が要求する検索レンジの分布はcustomer-interview-design.mdの
+  ヒアリングで確認できておらず、確認後に本試算・MAX_SEARCH_RANGE_DAYSの値双方を見直す必要がある。
 - idle-conversation-trigger-design.mdのクリーンアップクエリの正確な発火頻度・対象件数は
   Cloud Functions実装後の実測が必要。
 - 実際の店舗数・予約件数分布が想定(pricing-plan.mdの3プラン仮定)と異なる場合は
