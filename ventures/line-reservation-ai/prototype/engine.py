@@ -180,6 +180,12 @@ class NotificationLogAggregator:
         一般相談(consultation)とは別枠のsystem_event_countsに理由別で集計する。技術的な予約競合と
         顧客対応が必要な相談をオーナーが混同しないようにするため。
       - 上記以外/未設定(=厳守事項6の一般相談)の件数はconsultation_countに参考値として集計する。
+      - 分類はescalation_reasonの値(unimplemented_feature/SYSTEM_ESCALATION_REASONS該当/それ以外)を
+        優先して判定し、intentが'escalation'であることまでは要求しない。cancel_booking()/
+        change_booking()が発火するbooking_cancelled/booking_change_started等はintentが
+        'cancel'/'change'のままシステム内部イベントとして渡ってくるため(system-event-log-gap-fix.md参照)。
+        consultation_count(=厳守事項6の一般相談)のみ、明確なintent='escalation'を要求する
+        (booking_output.schema.jsonのenumに含まれない未知の理由文字列を誤って一般相談扱いしないため)。
     """
 
     def __init__(self) -> None:
@@ -194,14 +200,15 @@ class NotificationLogAggregator:
             if seg.get("resolved") is False:
                 self._seen_topics.add((date_key, user_id, seg["topic"]))
 
-        if output.get("intent") == "escalation" and output.get("needs_owner_check"):
-            reason = output.get("escalation_reason")
-            if reason == "unimplemented_feature":
-                self.unimplemented_feature_count += 1
-            elif reason in SYSTEM_ESCALATION_REASONS:
-                self.system_event_counts[reason] = self.system_event_counts.get(reason, 0) + 1
-            else:
-                self.consultation_count += 1
+        if not output.get("needs_owner_check"):
+            return
+        reason = output.get("escalation_reason")
+        if reason == "unimplemented_feature":
+            self.unimplemented_feature_count += 1
+        elif reason in SYSTEM_ESCALATION_REASONS:
+            self.system_event_counts[reason] = self.system_event_counts.get(reason, 0) + 1
+        elif output.get("intent") == "escalation":
+            self.consultation_count += 1
 
     def unique_unresolved_topic_count(self) -> int:
         return len(self._seen_topics)
@@ -369,21 +376,43 @@ class ConversationFlowStateMachine:
         double-booking-prevention.mdの「後着の予約をpending状態に戻す」は、別ユーザーの
         正当な保留/確定を誤って解放しないよう、ここでは明示的なslot操作を行わない
         (release()は呼ばない)。
-      - EscalationConsolidator経由でオーナーへ通知し、このユーザーの会話状態は
-        candidates_presentedに戻す(呼び出し側で新しい空き枠を再提示する想定)。
-      - 通知イベントのescalation_reason='booking_conflict'は現行のbooking_output.schema.jsonの
-        enum(consultation/unimplemented_feature)には未追加。この通知はLLM構造化出力ではなく
-        システム内部で生成するイベントのため現時点ではスキーマ検証の対象外としているが、
-        通知ログ集計(NotificationLogAggregator)へ将来含める場合はenum拡張が必要になる
-        (今後の課題として残す)。
+      - EscalationConsolidator経由でオーナーへ即時通知し、logsが渡されていれば
+        NotificationLogAggregatorにもescalation_reason='booking_conflict'を記録した上で、
+        このユーザーの会話状態はcandidates_presentedに戻す(呼び出し側で新しい空き枠を
+        再提示する想定)。この通知イベントはLLM構造化出力ではなくシステム内部で生成する
+        イベントのため、booking_output.schema.jsonのescalation_reason enumには含めず
+        スキーマ検証の対象外としている(system-event-log-gap-fix.md参照)。
     """
 
-    def __init__(self, slots: BookingSlotManager, consolidator: EscalationConsolidator) -> None:
+    def __init__(
+        self,
+        slots: BookingSlotManager,
+        consolidator: EscalationConsolidator,
+        logs: Optional["NotificationLogAggregator"] = None,
+    ) -> None:
+        """logsはsystem-event-log-gap-fix.md準拠。booking_conflict/booking_cancelled/
+        booking_change_started/candidate_selection_unresolvedといったシステム内部発火の
+        escalation_reasonをNotificationLogAggregator.system_event_countsにも記録したい
+        呼び出し側(Cloud Function Bの本番配線)が渡す。未指定(None)の場合は
+        EscalationConsolidatorへの通知のみ行い、従来通り動作する(既存の呼び出し側・
+        テストへの後方互換のため)。
+        """
         self._slots = slots
         self._consolidator = consolidator
+        self._logs = logs
         self._states: dict[str, _ConversationState] = {}
         self._last_idle_cleanup_at: Optional[datetime] = None
         self._last_archive_at: Optional[datetime] = None
+
+    def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> None:
+        """システム内部発火のescalationイベント(booking_conflict等、SYSTEM_ESCALATION_REASONS参照)を
+        EscalationConsolidator(オーナーへの即時/集約通知)とNotificationLogAggregator
+        (通知ログ集計画面向けのsystem_event_counts)の両方に記録する。従来はconsolidatorのみに
+        通知しており、logs側には記録が届かないギャップがあった(system-event-log-gap-fix.md参照)。
+        """
+        self._consolidator.on_event(user_id, event, now)
+        if self._logs is not None:
+            self._logs.record(user_id, event, now)
 
     def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
@@ -447,7 +476,7 @@ class ConversationFlowStateMachine:
                 # 繰り返さずオーナーへ引き継ぐ(candidate-presentation-and-selection-design.md 6節)。
                 # booking_conflictと同様、システム内部イベントのためbooking_output.schema.jsonの
                 # escalation_reason enumには未追加(今後の課題)。
-                self._consolidator.on_event(
+                self._notify_system_event(
                     user_id,
                     {
                         "intent": "escalation",
@@ -485,7 +514,7 @@ class ConversationFlowStateMachine:
             state.stage = "confirmed"
             return True
 
-        self._consolidator.on_event(
+        self._notify_system_event(
             user_id,
             {
                 "intent": "escalation",
@@ -527,7 +556,7 @@ class ConversationFlowStateMachine:
         del self._states[user_id]
 
         if stage == "confirmed":
-            self._consolidator.on_event(
+            self._notify_system_event(
                 user_id,
                 {
                     "intent": "cancel",
@@ -563,7 +592,7 @@ class ConversationFlowStateMachine:
             # 更新が必要なため通知する。escalation_reasonをbooking_cancelledと分けたのは、
             # 「新しい日時への変更手続き中」であることをオーナーが区別できるようにするため
             # (単純なキャンセルと同列に扱うと、顧客対応の緊急度・後続対応の要否が変わってくる)。
-            self._consolidator.on_event(
+            self._notify_system_event(
                 user_id,
                 {
                     "intent": "change",

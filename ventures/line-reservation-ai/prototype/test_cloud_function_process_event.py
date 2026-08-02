@@ -44,12 +44,14 @@ STORE_FAQ_INFO = {
 
 
 def _new_processor(store_faq_info=None, confirmed_reply_recorder=None, closed_weekdays=frozenset()):
-    flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+    # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
+    # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
+    logs = NotificationLogAggregator()
+    flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
     searcher = AvailabilitySearcher(
         business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
     )
     push = InMemoryLinePushClient()
-    logs = NotificationLogAggregator()
     processor = ConversationEventProcessor(
         flow=flow,
         searcher=searcher,
@@ -387,7 +389,7 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(flow.stage("U1"), "awaiting_details")
 
     def test_booking_conflict_notifies_owner_once_and_represents_fresh_candidates(self):
-        processor, flow, push, _ = _new_processor()
+        processor, flow, push, logs = _new_processor()
         self._present_candidates(processor)
 
         def llm_call_select():
@@ -419,6 +421,9 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertIn("番号でお知らせください", push.sent[-1][1])
         self.assertNotIn(held_slot_key[2], push.sent[-1][1])
         self.assertEqual(flow.stage("U1"), "candidates_presented")
+        # system-event-log-gap-fix.md準拠。booking_conflictはEscalationConsolidatorだけでなく
+        # NotificationLogAggregator.system_event_countsにも記録される。
+        self.assertEqual(logs.system_event_counts.get("booking_conflict"), 1)
 
         # 差し戻された候補一覧からも、通常の候補選択→hold と同じ流れで再確定できること。
         def llm_call_reselect():
@@ -506,13 +511,15 @@ class CancelIntentTests(unittest.TestCase):
         return processor.process(_event(user_id, "キャンセルでお願いします"), llm_call, NOW)
 
     def test_cancel_with_no_active_state_is_forwarded_to_owner(self):
-        processor, flow, push, _ = _new_processor()
+        processor, flow, push, logs = _new_processor()
 
         result = self._cancel(processor)
         self.assertEqual(result.action, "forwarded_to_owner")
         self.assertEqual(result.detail, "cancel_not_found")
         self.assertIn("確認できな", push.sent[-1][1])
         self.assertIsNone(flow.stage("U1"))
+        # system-event-log-gap-fix.md準拠。cancel_not_foundもNotificationLogAggregatorに記録される。
+        self.assertEqual(logs.system_event_counts.get("cancel_not_found"), 1)
 
     def test_cancel_while_candidates_presented_clears_state_without_owner_notice(self):
         processor, flow, push, _ = _new_processor()
@@ -542,7 +549,7 @@ class CancelIntentTests(unittest.TestCase):
         self.assertIn("中止", push.sent[-1][1])
 
     def test_cancel_after_confirmed_releases_slot_and_notifies_owner(self):
-        processor, flow, push, _ = _new_processor()
+        processor, flow, push, logs = _new_processor()
         self._present_candidates(processor)
         self._select_first_candidate(processor)
         self._confirm_details(processor, name="山田")
@@ -562,6 +569,8 @@ class CancelIntentTests(unittest.TestCase):
         # (candidates_presented/awaiting_detailsの段階とは異なり、外部予約記録の更新が必要なため)。
         window = flow._consolidator._windows["U1"]
         self.assertEqual(window.last_event_at, NOW)
+        # system-event-log-gap-fix.md準拠。booking_cancelledもNotificationLogAggregatorに記録される。
+        self.assertEqual(logs.system_event_counts.get("booking_cancelled"), 1)
 
 
 class ChangeIntentTests(unittest.TestCase):
@@ -614,13 +623,15 @@ class ChangeIntentTests(unittest.TestCase):
         return processor.process(_event(user_id, "来週土曜の別の時間に変更できますか"), llm_call, NOW)
 
     def test_change_with_no_active_state_is_forwarded_to_owner(self):
-        processor, flow, push, _ = _new_processor()
+        processor, flow, push, logs = _new_processor()
 
         result = self._change(processor)
         self.assertEqual(result.action, "forwarded_to_owner")
         self.assertEqual(result.detail, "change_not_found")
         self.assertIn("確認できな", push.sent[-1][1])
         self.assertIsNone(flow.stage("U1"))
+        # system-event-log-gap-fix.md準拠。change_not_foundもNotificationLogAggregatorに記録される。
+        self.assertEqual(logs.system_event_counts.get("change_not_found"), 1)
 
     def test_change_while_candidates_presented_re_searches_without_release_notice(self):
         processor, flow, push, _ = _new_processor()
@@ -652,7 +663,7 @@ class ChangeIntentTests(unittest.TestCase):
         self.assertIn("番号でお知らせください", push.sent[-1][1])
 
     def test_change_after_confirmed_releases_slot_notifies_owner_then_represents_candidates(self):
-        processor, flow, push, _ = _new_processor()
+        processor, flow, push, logs = _new_processor()
         self._present_candidates(processor)
         self._select_first_candidate(processor)
         self._confirm_details(processor, name="山田")
@@ -673,6 +684,8 @@ class ChangeIntentTests(unittest.TestCase):
         # cancelのbooking_cancelledと区別する)。
         window = flow._consolidator._windows["U1"]
         self.assertEqual(window.last_event_at, NOW)
+        # system-event-log-gap-fix.md準拠。booking_change_startedもNotificationLogAggregatorに記録される。
+        self.assertEqual(logs.system_event_counts.get("booking_change_started"), 1)
 
     def test_change_after_confirmed_with_no_new_candidates_uses_change_specific_reask(self):
         """change-intent-handling-design.mdの「残る課題」で指摘していた、change後の新規候補

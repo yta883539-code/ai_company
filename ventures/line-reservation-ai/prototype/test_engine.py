@@ -401,6 +401,89 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         self.assertTrue(select_result.success)
 
 
+class ConversationFlowStateMachineSystemEventLoggingTest(unittest.TestCase):
+    """system-event-log-gap-fix.md準拠。ConversationFlowStateMachineが発火する
+    システム内部イベント(SYSTEM_ESCALATION_REASONS)が、logsを渡した場合に
+    NotificationLogAggregator.system_event_countsにも記録されることを確認する。
+    従来はEscalationConsolidatorのみに通知しており、通知ログ集計画面向けの
+    集計には反映されないギャップがあった。
+    """
+
+    def test_logs_none_by_default_does_not_error(self):
+        # logs未指定(デフォルトNone)でも既存の呼び出し側・テストと同様に動作すること
+        # (後方互換の確認)。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_sato", now=T0)
+        flow.select_slot("user_sato", key, T0)
+        flow.provide_details("user_sato", "佐藤", "カラー", T0 + timedelta(minutes=1))
+        self.assertEqual(flow.stage("user_sato"), "confirmed")
+
+    def test_confirm_conflict_records_booking_conflict_in_logs(self):
+        slots = BookingSlotManager()
+        logs = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator(), logs=logs)
+        key = ("shop_1", "2026-08-09", "16:00")
+
+        flow.present_candidates("user_sato", now=T0)
+        flow.select_slot("user_sato", key, T0)  # pending取得成功、7分放置してタイムアウトさせる
+
+        flow.present_candidates("user_takahashi", now=T0 + timedelta(minutes=7))
+        flow.select_slot("user_takahashi", key, T0 + timedelta(minutes=7))
+        flow.provide_details("user_takahashi", "高橋", "カラー", T0 + timedelta(minutes=8))
+
+        flow.provide_details("user_sato", "佐藤", "パーマ", T0 + timedelta(minutes=9))
+        self.assertEqual(logs.system_event_counts.get("booking_conflict"), 1)
+        self.assertEqual(logs.system_event_total(), 1)
+
+    def test_reconfirm_loop_escalation_records_candidate_selection_unresolved_in_logs(self):
+        candidates = [
+            _fake_candidate(("shop_1", "2026-08-09", "14:00"), "8/9(土) 14:00〜"),
+            _fake_candidate(("shop_1", "2026-08-09", "17:00"), "8/9(土) 17:00〜"),
+        ]
+        logs = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
+        flow.present_candidates("user_takahashi_r", candidates, now=T0)
+
+        for _ in range(RECONFIRM_MAX_ATTEMPTS):
+            flow.select_slot_from_reply("user_takahashi_r", "午後がいいです", T0)
+        flow.select_slot_from_reply("user_takahashi_r", "午後がいいです", T0)
+
+        self.assertEqual(logs.system_event_counts.get("candidate_selection_unresolved"), 1)
+
+    def test_cancel_booking_after_confirmed_records_booking_cancelled_in_logs(self):
+        slots = BookingSlotManager()
+        logs = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator(), logs=logs)
+        key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_suzuki", now=T0)
+        flow.select_slot("user_suzuki", key, T0)
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=1))
+
+        flow.cancel_booking("user_suzuki", T0 + timedelta(minutes=2))
+        self.assertEqual(logs.system_event_counts.get("booking_cancelled"), 1)
+
+    def test_change_booking_after_confirmed_records_booking_change_started_in_logs(self):
+        slots = BookingSlotManager()
+        logs = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator(), logs=logs)
+        key = ("shop_1", "2026-08-09", "16:00")
+        flow.present_candidates("user_suzuki", now=T0)
+        flow.select_slot("user_suzuki", key, T0)
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=1))
+
+        flow.change_booking("user_suzuki", T0 + timedelta(minutes=2))
+        self.assertEqual(logs.system_event_counts.get("booking_change_started"), 1)
+
+    def test_cancel_while_candidates_presented_does_not_touch_logs(self):
+        # confirmed分以外(オーナー通知自体が発生しないケース)ではlogsも増えないことを確認する。
+        logs = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
+        flow.present_candidates("user_ito", now=T0)
+        flow.cancel_booking("user_ito", T0)
+        self.assertEqual(logs.system_event_total(), 0)
+
+
 class LabelFromSlotKeyAndCancelMessageTest(unittest.TestCase):
     def test_label_from_slot_key_matches_candidate_label_format(self):
         label = label_from_slot_key(("shop_1", "2026-08-09", "14:00"))

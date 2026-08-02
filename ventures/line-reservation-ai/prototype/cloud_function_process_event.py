@@ -418,11 +418,14 @@ class ConversationEventProcessor:
         if not result.found:
             # このエンジンの会話メモリだけでは実在の予約有無を確定できないため、安全側でオーナーに転送する
             # (cancel_booking()自身は状態が無い場合オーナー通知を行わないため、ここで行う)。
-            self._consolidator.on_event(
-                user_id,
-                {"intent": "cancel", "needs_owner_check": True, "escalation_reason": "cancel_not_found"},
-                now,
-            )
+            # system-event-log-gap-fix.md準拠。EscalationConsolidatorとNotificationLogAggregatorの
+            # 両方に記録する(ConversationFlowStateMachine._notify_system_event()と同じ理由で、
+            # ここもflow内部から発火するイベントではないため個別に両方呼ぶ必要がある)。
+            not_found_event = {
+                "intent": "cancel", "needs_owner_check": True, "escalation_reason": "cancel_not_found",
+            }
+            self._consolidator.on_event(user_id, not_found_event, now)
+            self._logs.record(user_id, not_found_event, now)
             self._push.send_message(user_id, format_cancel_not_found_message(tone))
             return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
 
@@ -451,11 +454,12 @@ class ConversationEventProcessor:
         if not result.found:
             # cancelの安全側フォールバックと同じ考え方(_handle_cancelのcancel_not_found参照)。
             # change_booking()自身は状態が無い場合オーナー通知を行わないため、ここで行う。
-            self._consolidator.on_event(
-                user_id,
-                {"intent": "change", "needs_owner_check": True, "escalation_reason": "change_not_found"},
-                now,
-            )
+            # system-event-log-gap-fix.md準拠でNotificationLogAggregatorにも記録する。
+            not_found_event = {
+                "intent": "change", "needs_owner_check": True, "escalation_reason": "change_not_found",
+            }
+            self._consolidator.on_event(user_id, not_found_event, now)
+            self._logs.record(user_id, not_found_event, now)
             self._push.send_message(user_id, format_change_not_found_message(tone))
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
 
@@ -475,11 +479,14 @@ class ConversationEventProcessor:
 def _demo() -> None:
     from datetime import date, timedelta
 
-    flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+    # system-event-log-gap-fix.md準拠。logsをflow・processorの両方に渡すことで、
+    # booking_conflict/booking_cancelled/booking_change_started等のシステム内部イベントが
+    # NotificationLogAggregator.system_event_countsにも記録されるようにする。
+    logs = NotificationLogAggregator()
+    flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
     booking_slots = flow._slots  # デモ用に同一インスタンスを共有(本番はDIで渡す)
     searcher = AvailabilitySearcher(business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30)
     consolidator = flow._consolidator
-    logs = NotificationLogAggregator()
     push = InMemoryLinePushClient()
     confirmed_replies = InMemoryConfirmedReplyRecorder()
     processor = ConversationEventProcessor(
@@ -595,6 +602,20 @@ def _demo() -> None:
     r5 = processor.process(event5, llm_call_5, now, tone="standard")
     print(f"5) action={r5.action} detail={r5.detail}")
     print(f"   push: {push.sent[-1][1]}")
+
+    # 6) cancel(予約なし): system-event-log-gap-fix.mdの修正確認。cancel_not_foundが
+    # NotificationLogAggregator.system_event_countsにも記録されることを示す。
+    def llm_call_6() -> dict:
+        return {
+            "intent": "cancel", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": True,
+        }
+
+    event6 = {"source": {"userId": "U5"}, "message": {"text": "予約キャンセルします"}}
+    r6 = processor.process(event6, llm_call_6, now, tone="standard")
+    print(f"6) action={r6.action} detail={r6.detail}")
+    print(f"   push: {push.sent[-1][1]}")
+    print(f"   system_event_counts: {logs.system_event_counts} (合計{logs.system_event_total()}件)")
 
 
 if __name__ == "__main__":

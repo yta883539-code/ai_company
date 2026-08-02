@@ -350,9 +350,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (new_booking/cancel/change/faq/escalation)の机上実装は、確認済みの残課題としては
   実LLM/実LINE API/実Cloud Scheduler接続(オーナー承認待ち)とNotificationLogAggregatorの
   システム内部イベント記録ギャップの2点のみを残す状態になった。
-- 最終更新: 2026-08-02 18:00 UTC
+- フェーズ(続き42): 前項で最後に残っていたNotificationLogAggregatorのシステム内部イベント
+  記録ギャップを修正した(system-event-log-gap-fix.md新規作成)。原因は2つあり、
+  (1)`ConversationFlowStateMachine`がbooking_conflict/booking_cancelled/
+  booking_change_started/candidate_selection_unresolvedの発火時に`EscalationConsolidator`
+  へしか通知しておらず`NotificationLogAggregator`自体を持っていなかった配線漏れ、
+  (2)配線を直しても`NotificationLogAggregator.record()`側が`intent == "escalation"`を
+  必須条件にしていたため、`intent: "cancel"/"change"`のまま発火するbooking_cancelled/
+  booking_change_started/cancel_not_found/change_not_foundが分類されずに素通りしていた
+  判定条件の不備。`ConversationFlowStateMachine`に`logs`引数(後方互換のためデフォルトNone)を
+  追加し発火箇所を`_notify_system_event()`ヘルパーに統一、`cloud_function_process_event.py`の
+  cancel_not_found/change_not_found分岐にも`self._logs.record()`を追加、
+  `record()`の分類条件を`needs_owner_check`+`escalation_reason`の値ベースに変更した
+  (consultation_countのみ引き続き`intent == "escalation"`を要求)。テスト新規6件+既存5件に
+  system_event_counts検証を追加、全125件パス。これによりintent-to-flow-mapping.mdの
+  主要intentの机上実装で確認済みの残課題は、実LLM/実LINE API/実Cloud Scheduler接続
+  (オーナー承認待ち)のみとなった。
+- 最終更新: 2026-08-02 19:00 UTC
 
 ## ドキュメント
+- system-event-log-gap-fix.md: NotificationLogAggregatorのシステム内部イベント
+  (booking_conflict/booking_cancelled/cancel_not_found/booking_change_started/
+  change_not_found/candidate_selection_unresolved)記録ギャップの原因(配線漏れ+
+  record()の分類条件の不備)と修正内容(2026-08-02 19:00 UTC新規作成)
 - single-item-faq-schema-decision.md: 単一項目FAQ(faq_segmentsがnullのケース)でも
   自動返信できるようにするスキーマ変更の要否検討(2026-08-02 14:00 UTC新規作成。
   厳守事項9aに基づくfaqは単一項目でもfaq_segmentsを1要素配列で必ず付与する方針を採用。
@@ -489,10 +509,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 
 ## 次にやること(候補)
 - 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)。
-  これにより`cancel`/`change`実処理化(前2項目)をもって、intent-to-flow-mapping.mdの
-  対応表に載っている主要intent(new_booking/cancel/change/faq/escalation)は一通り
-  机上実装が揃った状態になった。次の大きな一歩は机上検証から実LLM検証への移行だが、
-  APIキー取得・従量課金が発生するためオーナー承認が前提(pending-approval.md参照)。
+  intent-to-flow-mapping.mdの対応表に載っている主要intent(new_booking/cancel/change/faq/
+  escalation)の机上実装・NotificationLogAggregatorの記録ギャップ修正まで一通り揃った
+  ため、残る大きな一歩は机上検証から実LLM検証への移行のみだが、APIキー取得・従量課金が
+  発生するためオーナー承認が前提(pending-approval.md参照)。
+- (解消済み 2026-08-02 19:00 UTC: 前項の残課題だったNotificationLogAggregatorのシステム内部
+  イベント記録ギャップを修正した(system-event-log-gap-fix.md新規作成)。詳細はフェーズ
+  (続き42)参照。全125件テストパス)
 - (解消済み 2026-08-02 18:00 UTC: change-intent-handling-design.mdの残課題だった、change後の
   新規候補検索が0件だった場合の顧客向け文言出し分けを実装した。旧予約を実際に解放した場合のみ
   `CHANGE_NO_CANDIDATES_MESSAGE`を送り、解放すべき実体が無かった場合は従来通りの
