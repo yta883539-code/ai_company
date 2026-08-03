@@ -542,11 +542,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-03 01:00 UTC: 前項の残課題だったowner-settings-wireframe.mdの臨時休業日入力欄
+  における過去日付・重複日付の入力バリデーション設計を行った。両者ともAvailabilitySearcher/
+  reminder_scheduler.py側のfrozenset[date]構造では機能的なバグにはならないため「入力ミスに
+  気づかせるUX上のガード」と位置づけ、追加時のインライン警告方式を採用(登録済み日付が経過後に
+  過去日付化しても自動削除はしない)。MVPはNo-codeフォームツール流用が前提のため専用コード実装は
+  本格版移行時まで不要と判断し、コード変更なし。これで予約とれる君venture全体の残る大きな課題は
+  実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち)のみとなった)
 - (解消済み 2026-08-03 00:00 UTC: ad-hoc-closed-dates-support.mdに残っていた
   owner-settings-wireframe.mdへの「臨時休業日リスト」入力欄の追記を行った。定休日(曜日単位)欄とは
   別枠で日付の追加/削除リストを設けた。新たな残課題として、過去日付・重複日付の入力バリデーション
   設計が残った)
-- owner-settings-wireframe.mdの臨時休業日入力欄における過去日付・重複日付の入力バリデーション設計。
 - (解消済み 2026-08-02 23:00 UTC: ad-hoc-closed-dates-support.mdの残課題だった、
   reminder_scheduler.py側の`closed_dates`対応を実装した。`StoreReminderConfig`に
   `closed_dates`を追加し、`compute_initial_reminder_target()`の前営業日への遡り判定を

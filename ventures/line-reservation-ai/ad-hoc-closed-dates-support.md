@@ -46,4 +46,11 @@ availability-closed-weekday-support.mdの残課題だった「祝日・臨時休
 - (解消済み 2026-08-03 00:00 UTC: owner-settings-wireframe.mdの「1. 営業情報設定ページ」に
   「臨時休業日」入力欄(日付の追加/削除リスト)を追記した。定休日(曜日単位)の欄とは別枠とし、
   両者併用可能な旨を明記。過去日付・重複日付の入力バリデーションは未検討のまま残課題とした)
-- owner-settings-wireframe.mdの臨時休業日入力欄における過去日付・重複日付の入力バリデーション設計。
+- (解消済み 2026-08-03 01:00 UTC: owner-settings-wireframe.mdの臨時休業日入力欄における過去日付・
+  重複日付の入力バリデーション設計を行った。重複日付・過去日付ともに追加時にインライン警告で
+  即時フィードバックする方針とし、登録済み日付が経過後に過去日付化しても自動削除はしない
+  (振り返りやすさを優先)。両者ともAvailabilitySearcher/reminder_scheduler.py側のfrozenset[date]
+  構造では機能的なバグにはならないため、UX上のガードという位置づけに留め、MVPはNo-codeフォーム
+  ツールのバリデーション機能で代替し専用コード実装は本格版移行時まで不要と判断した)
+- 予約とれる君venture全体としての残る大きな課題は、引き続き実LLM/実LINE API/実Cloud Scheduler
+  接続自体(オーナー承認待ち、pending-approval.md参照)のみとなった。
