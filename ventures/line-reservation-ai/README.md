@@ -386,7 +386,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (曜日単位の定休日)と独立かつ併用可能な形で、対象日がいずれかに該当すればその日の枠を候補から
   除外するようにした。reminder_scheduler.py側への同様の対応とowner-settings-wireframe.mdの
   入力UI追記は影響範囲切り分けのため今回は見送り、次の課題として残した。テスト2件追加・全127件パス。
-- 最終更新: 2026-08-02 22:00 UTC
+- フェーズ(続き46): ad-hoc-closed-dates-support.mdに最後まで残っていた
+  owner-settings-wireframe.mdへの「臨時休業日リスト」入力欄の追記を行った。「1. 営業情報設定
+  ページ」に日付を1件ずつ追加・削除できるシンプルなリスト入力を追加し、曜日単位の定休日
+  (営業曜日チェックボックス)とは別枠の設定として両者併用可能である旨を明記した。カレンダーUIや
+  祝日データとの自動連携は行わないMVP方針を踏襲。過去日付・重複日付の入力バリデーションは今回は
+  未検討のまま新たな残課題とした。これによりad-hoc-closed-dates-support.mdの残課題は解消され、
+  本venture全体の残る大きな課題は実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち)と
+  上記バリデーション設計のみとなった。
+- 最終更新: 2026-08-03 00:00 UTC
 
 ## ドキュメント
 - ci-setup.md: GitHub Actionsによるテスト自動実行の導入経緯(2026-08-02 20:00 UTC新規作成。
@@ -446,7 +454,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - candidate-label-weekday-fix.md: 候補ラベルへの曜日表示追加(`8/9` → `8/9(土)`、tone-and-manner-guideline.mdとの表記統一)と、これに伴う`_label_date_and_time_in_reply()`の回帰修正(2026-08-01 04:00 UTC新規作成)
 - conversation-state-cleanup.md: candidate-presentation-and-selection-design.md 6節の残課題だった、エスカレーション後に顧客が無応答のまま会話が終了した場合の会話状態クリーンアップ(タイムアウト解放)の設計(2026-08-01 05:00 UTC新規作成。`_ConversationState`に`last_activity_at`を追加し、無応答30分(`CONVERSATION_IDLE_TIMEOUT`、channel-agnostic-session-id.md等と時間感覚を統一)で失効させる`release_idle_conversations()`をprototype/engine.pyに実装。awaiting_detailsで無応答離脱した場合は枠のholdも明示解放、confirmed済み状態は前日リマインド等での参照用に対象外とする方針、デモで動作確認済み。エスカレーション通知は送らない方針(無応答離脱は日常的に発生するため通知過多を避ける))
 - availability-closed-weekday-support.md: AvailabilitySearcherのMVP制約のうち定休日対応の設計・実装メモ(2026-08-01 07:00 UTC新規作成。`closed_weekdays`パラメータ追加、owner-settings-wireframe.mdの営業曜日チェックボックスに対応。曜日別営業時間は引き続きスコープ外。祝日・臨時休業の特定日付対応は2026-08-02 22:00 UTCにad-hoc-closed-dates-support.mdへ分離して解消)
-- ad-hoc-closed-dates-support.md: availability-closed-weekday-support.mdの残課題だった祝日・臨時休業(特定日付単発の休業)対応の設計・実装メモ(2026-08-02 22:00 UTC新規作成。`closed_dates`パラメータ追加、`closed_weekdays`と独立かつ併用可能。reminder_scheduler.py側の同様対応とowner-settings-wireframe.mdの入力UI追記は次の課題)
+- ad-hoc-closed-dates-support.md: availability-closed-weekday-support.mdの残課題だった祝日・臨時休業(特定日付単発の休業)対応の設計・実装メモ(2026-08-03 00:00 UTC更新。`closed_dates`パラメータ追加、`closed_weekdays`と独立かつ併用可能。reminder_scheduler.py側の同様対応(2026-08-02 23:00 UTC実装済み)に続き、owner-settings-wireframe.mdへの入力UI追記(2026-08-03 00:00 UTC)も完了。残る課題は入力欄の過去日付・重複日付バリデーション設計のみ)
 - weekday-specific-business-hours.md: AvailabilitySearcherのMVP制約のうち曜日別営業時間(例: 土曜だけ短縮営業)対応の設計・実装メモ(2026-08-01 12:00 UTC更新。`weekday_business_hours`パラメータ追加、owner-settings-wireframe.mdに「曜日ごとに営業時間を変える」トグルを追加。定休日設定との二重表現の懸念は、business-hours-lunch-break.mdの区間バリデーションが0分間区間を既に拒否するため解消済みと確認。残課題は解消済み)
 - business-hours-lunch-break.md: AvailabilitySearcherのMVP制約のうち昼休憩など1日複数営業時間帯(例: 9:00-12:00, 15:00-19:00)対応の設計・実装メモ(2026-08-01 11:00 UTC更新。`business_hours`/`weekday_business_hours`が単一区間タプルと区間リストの両方を受け付けるよう`_normalize_business_hour_ranges()`で正規化し、`find_candidates()`を区間ごとにスキャンする三重ループへ変更。owner-settings-wireframe.mdに「+ 休憩時間を追加」を追加。区間の重複・逆転バリデーションを追加し`BusinessHoursConfigError`を送出するようにした(残課題を解消))
 - idle-conversation-trigger-design.md: release_idle_conversations()/archive_completed_conversations()の実行トリガー設計(2026-08-01 13:00 UTC新規作成。専用スケジューラ・Webhook便乗・外部cronサービスの3案を比較し、追加インフラ不要で今すぐ実装できるWebhook便乗案を採用。全リクエスト毎回全件スキャンを避けるための最小実行間隔5分での間引き方式を設計。`ConversationFlowStateMachine.maybe_run_idle_cleanup()`/`maybe_run_archive()`として実装・デモ確認済み)
@@ -534,6 +542,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
 
 ## 次にやること(候補)
+- (解消済み 2026-08-03 00:00 UTC: ad-hoc-closed-dates-support.mdに残っていた
+  owner-settings-wireframe.mdへの「臨時休業日リスト」入力欄の追記を行った。定休日(曜日単位)欄とは
+  別枠で日付の追加/削除リストを設けた。新たな残課題として、過去日付・重複日付の入力バリデーション
+  設計が残った)
+- owner-settings-wireframe.mdの臨時休業日入力欄における過去日付・重複日付の入力バリデーション設計。
 - (解消済み 2026-08-02 23:00 UTC: ad-hoc-closed-dates-support.mdの残課題だった、
   reminder_scheduler.py側の`closed_dates`対応を実装した。`StoreReminderConfig`に
   `closed_dates`を追加し、`compute_initial_reminder_target()`の前営業日への遡り判定を
