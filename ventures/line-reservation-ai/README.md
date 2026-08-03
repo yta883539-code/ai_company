@@ -436,7 +436,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   json-schema-multi-intent-extension.mdに反映し、conversation-samples-test-cases.mdにE17
   (営業時間FAQ)を新規追加、schema/validate_test_cases.pyの機械検証は23件全件パス、
   リポジトリ全体のunittestも新規3件を含め132件全件パスを確認済み。
-- 最終更新: 2026-08-03 08:00 UTC
+- フェーズ(続き53): candidate-longlist-draft.mdの申し送りだった美容室の候補探しに、学習塾・整体院で
+  有効だった「個別店舗名を直接ヒットさせる」検索手法を応用し、引用符付き予約導線フレーズ+
+  「個人/プライベートサロン」の組み合わせ検索でポータル一覧を回避、1人経営のプライベートサロン
+  2件(to suit、Atelier Queen)を新規に特定した(候補#9・#10)。いずれもサイト自体がWebFetchの
+  自動アクセスを403で拒否したため、予約方式・望ましい条件との突き合わせはオーナー自身の目視
+  確認に委ねる暫定候補として記録した。pending-approval.md記載の承認範囲(WebSearchでの候補
+  リストアップとventureフォルダへの記録のみ)の範囲内で実施し、実店舗への連絡は行っていない。
+- 最終更新: 2026-08-03 09:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報
