@@ -40,6 +40,7 @@ STORE_FAQ_INFO = {
     "address": "○○駅から徒歩5分",
     "parking": {"available": True, "capacity": "3"},
     "payment_methods": ["現金", "クレジットカード"],
+    "hours": {"open_minutes": 9 * 60, "close_minutes": 18 * 60, "closed_weekdays": frozenset({6})},
 }
 
 
@@ -230,17 +231,60 @@ class FaqSegmentReplyTests(unittest.TestCase):
             return {
                 "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
                 "confirmed": False, "needs_owner_check": False,
-                "faq_segments": [
-                    {"topic": "access", "resolved": True},
-                    {"topic": "hours", "resolved": True},
-                ],
+                "faq_segments": [{"topic": "access", "resolved": True}],
             }
 
-        processor.process(_event("U1", "場所と営業時間を教えてください"), llm_call, NOW)
+        processor.process(_event("U1", "場所を教えてください"), llm_call, NOW)
         self.assertEqual(push.sent[0][1], "当店: ○○駅から徒歩5分です。")
-        # "hours"はfaq-response-templates.mdの項目別テンプレート対象外(9aは住所/駐車場/支払いのみ)
-        # のため、resolved: trueでも安全側で保留文言にフォールバックする。
-        self.assertIn("担当者に確認のうえ", push.sent[1][1])
+
+    def test_hours_topic_uses_registered_business_hours(self):
+        # E17相当(2026-08-03新規、hours-other-faq-topic-resolution.md参照)。
+        # 曜日別営業時間・休憩時間を使わないシンプルな店舗は、登録済みの開始・終了時刻と
+        # 定休日をそのまま組み立てたテンプレートで自動回答できる。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "hours", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "営業時間を教えてください"), llm_call, NOW)
+        self.assertEqual(push.sent[0][1], "当店の営業時間は09:00〜18:00です(定休日: 日曜)。")
+
+    def test_hours_topic_falls_back_when_store_has_complex_hours(self):
+        # 曜日別営業時間・休憩時間を使う店舗はstore_faq_infoに"hours"キーを設定しない運用とし
+        # (Cloud Function B呼び出し側の責務、hours-other-faq-topic-resolution.md参照)、
+        # 単一時間帯のテンプレートでは不正確な案内になるため安全側でエスカレーションに倒す。
+        info = dict(STORE_FAQ_INFO)
+        del info["hours"]
+        processor, flow, push, logs = _new_processor(store_faq_info=info)
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "hours", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "営業時間を教えてください"), llm_call, NOW)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
+
+    def test_other_topic_always_falls_back_to_holding_message(self):
+        # topic: "other"は店舗FAQ情報欄に対応する登録項目が存在しないため常にエスカレーションに
+        # 倒す設計(hours-other-faq-topic-resolution.md参照)。resolved: trueが返っても安全側。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "other", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "予約は何件まで一度に取れますか"), llm_call, NOW)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
 
     def test_resolved_topic_without_registered_value_falls_back_to_holding_message(self):
         # 構造化出力がresolved: trueを返しても店舗FAQ情報が未登録なら断定回答しない(安全側)。

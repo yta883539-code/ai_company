@@ -223,6 +223,11 @@ TEST_CASES = {
             {"topic": "payment", "resolved": False},
         ],
     },
+    "E17": {
+        "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+        "confirmed": False, "needs_owner_check": False,
+        "faq_segments": [{"topic": "hours", "resolved": True}],
+    },
 }
 
 

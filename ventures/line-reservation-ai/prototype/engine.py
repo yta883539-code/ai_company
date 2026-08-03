@@ -1129,6 +1129,30 @@ def format_faq_payment_message(methods: list, tone: str = "standard") -> str:
     return _render_by_tone(tone, variants)
 
 
+def format_faq_hours_message(open_minutes: int, close_minutes: int,
+                              closed_weekdays: frozenset = frozenset(),
+                              tone: str = "standard") -> str:
+    """FAQ回答テンプレート・営業時間のトーン別文例(faq-response-templates.md準拠)。
+    登録された開始・終了時刻(分)と定休日をそのまま組み立てるのみで、AI側での言い換えは行わない。
+    曜日別営業時間・休憩時間(business-hours-lunch-break.md/weekday-specific-business-hours.md)が
+    設定されている店舗は、単一の時間帯では正確に案内できないため、呼び出し側(_render_faq_segment)が
+    そもそもstore_faq_infoに"hours"キーを設定しない設計とし、本関数はその判定を行わない
+    (hours-other-faq-topic-resolution.md参照)。
+    """
+    hours_text = f"{open_minutes // 60:02d}:{open_minutes % 60:02d}〜{close_minutes // 60:02d}:{close_minutes % 60:02d}"
+    if closed_weekdays:
+        closed_text = "・".join(_WEEKDAY_JA[w] for w in sorted(closed_weekdays))
+        closed_suffix = f"(定休日: {closed_text}曜)"
+    else:
+        closed_suffix = "(定休日なし)"
+    variants = {
+        "formal": f"当店の営業時間は{hours_text}でございます{closed_suffix}。",
+        "standard": f"当店の営業時間は{hours_text}です{closed_suffix}。",
+        "casual": f"営業時間は{hours_text}です{closed_suffix}!",
+    }
+    return _render_by_tone(tone, variants)
+
+
 def format_faq_unregistered_message(tone: str = "standard") -> str:
     """厳守事項6のエスカレーション時の保留文言(faq-response-templates.mdの
     「未登録・一部未入力のケース(共通)」準拠)。faq_segmentsのresolved:falseの項目、

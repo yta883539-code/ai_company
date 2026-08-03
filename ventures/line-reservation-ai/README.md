@@ -424,7 +424,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   個別店舗名+特徴語(「完全予約制」「院長一人」等)検索に切り替え、2件を特定(candidate-longlist-draft.md
   #6・#7)。うち1件(西東京あゆみ整体院)は既にネット予約導線がある可能性があり、望ましい条件を
   満たすかは個別確認が必要な点を明記した。
-- 最終更新: 2026-08-03 06:00 UTC
+- フェーズ(続き52): single-item-faq-schema-decision.md・webhook-function-b-implementation.mdの
+  「未実装のまま残るもの」で長らく放置されていた厳守事項9aの`hours`(営業時間)・`other`トピックへの
+  対応方針を決定した(hours-other-faq-topic-resolution.md新規作成、2026-08-03 08:00 UTC)。
+  hoursは、曜日別営業時間・休憩時間を使わないシンプルな店舗のみ登録済みの開始・終了時刻と
+  定休日をそのまま案内する自動回答テンプレートを実装(`format_faq_hours_message()`をengine.pyに
+  新設、`_render_faq_segment()`にhours分岐を追加)。複雑な店舗(曜日別営業時間・休憩時間あり)は
+  安全側で従来通りエスカレーションに倒す設計とした。otherは対応する登録項目が店舗FAQ情報欄に
+  存在しないため常にエスカレーションに固定する決定とし、コード変更は不要と結論づけた(既存の
+  安全側フォールバックがそのまま機能する)。faq-response-templates.md・llm-system-prompt-draft.md・
+  json-schema-multi-intent-extension.mdに反映し、conversation-samples-test-cases.mdにE17
+  (営業時間FAQ)を新規追加、schema/validate_test_cases.pyの機械検証は23件全件パス、
+  リポジトリ全体のunittestも新規3件を含め132件全件パスを確認済み。
+- 最終更新: 2026-08-03 08:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報

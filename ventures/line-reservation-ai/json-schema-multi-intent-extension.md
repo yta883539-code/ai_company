@@ -81,9 +81,12 @@ conversation-samples-test-cases.md の E13(複合質問の分割送信)で見つ
   複合質問向けの追記が必要)。
 
 ## 未検証・要検討事項
-- `topic` の列挙値(access/parking/payment/hours/other)が
+- ~~`topic` の列挙値(access/parking/payment/hours/other)が
   owner-settings-wireframe.mdの「店舗FAQ情報」入力欄の項目名と過不足なく対応しているか、
-  項目追加時(将来的な入力欄拡張)にどう同期させるかは未検討。
+  項目追加時(将来的な入力欄拡張)にどう同期させるかは未検討。~~
+  → 2026-08-03 08:00 UTCにhours-other-faq-topic-resolution.mdで対応方針を決定。hoursは
+  既存の営業時間・定休日設定を流用しシンプルな店舗のみ自動回答、otherは対応する登録項目が
+  存在しないため常にエスカレーションに固定した。
 - ~~3項目以上にまたがる複合質問(現状のテストケースは2項目まで)でも
   同じ配列方式で破綻しないか~~ → conversation-samples-test-cases.mdのE16(2026-07-31 11:58 UTC追加)で
   机上検証済み。3項目(駐車場・支払い方法・電子マネー)でも配列の要素数を増やすだけで

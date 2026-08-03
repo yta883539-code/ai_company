@@ -77,6 +77,7 @@ from engine import (  # noqa: E402
     format_change_started_message,
     format_confirmation_message,
     format_faq_address_message,
+    format_faq_hours_message,
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
@@ -392,6 +393,14 @@ class ConversationEventProcessor:
             return format_faq_address_message(self._store_faq_info["address"], tone)
         if topic == "payment" and self._store_faq_info.get("payment_methods"):
             return format_faq_payment_message(self._store_faq_info["payment_methods"], tone)
+        if topic == "hours" and self._store_faq_info.get("hours"):
+            hours = self._store_faq_info["hours"]
+            return format_faq_hours_message(
+                hours["open_minutes"], hours["close_minutes"],
+                hours.get("closed_weekdays", frozenset()), tone,
+            )
+        # topic: "other"は店舗FAQ情報欄に対応する登録項目が無いため常にこのフォールバックに落ちる
+        # (hours-other-faq-topic-resolution.md参照、意図的な設計でありバグではない)。
         # resolved: trueだがstore_faq_infoに該当する登録値が無い(店舗設定と構造化出力の
         # 不整合)場合は、誤った断定回答を避けるため保留文言に安全側フォールバックする。
         return format_faq_unregistered_message(tone)
@@ -503,6 +512,7 @@ def _demo() -> None:
             "address": "○○駅から徒歩5分",
             "parking": {"available": True, "capacity": "3"},
             "payment_methods": ["現金", "クレジットカード"],
+            "hours": {"open_minutes": 10 * 60, "close_minutes": 19 * 60, "closed_weekdays": frozenset({6})},
         },
     )
 
@@ -589,6 +599,19 @@ def _demo() -> None:
     event4b = {"source": {"userId": "U4"}, "message": {"text": "駐車場はありますか"}}
     r4b = processor.process(event4b, llm_call_4b, now, tone="standard")
     print(f"4b) action={r4b.action} detail={r4b.detail}")
+    print(f"   push: {push.sent[-1][1]}")
+
+    # 4c) 営業時間FAQ(E17相当、2026-08-03新規)
+    def llm_call_4c() -> dict:
+        return {
+            "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+            "confirmed": False, "needs_owner_check": False,
+            "faq_segments": [{"topic": "hours", "resolved": True}],
+        }
+
+    event4c = {"source": {"userId": "U5"}, "message": {"text": "営業時間を教えてください"}}
+    r4c = processor.process(event4c, llm_call_4c, now, tone="standard")
+    print(f"4c) action={r4c.action} detail={r4c.detail}")
     print(f"   push: {push.sent[-1][1]}")
 
     # 5) escalation(厳守事項6、予約以外の相談)

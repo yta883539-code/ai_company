@@ -373,6 +373,26 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
   (要素数に上限を設けない設計のため)。実LLMが4項目以上でも安定して配列を
   生成できるかは引き続き実装フェーズでの検証が必要。
 
+### E17. 営業時間FAQ(厳守事項9a、hours-other-faq-topic-resolution.md 2026-08-03 08:00 UTC追加)
+- 入力例: 「営業時間を教えてください」(曜日別営業時間トグルOFF・休憩時間未設定のシンプルな店舗。
+  営業時間9:00〜18:00、定休日は日曜のみ登録済み)
+- 期待挙動: 厳守事項9aに該当。曜日別営業時間・休憩時間を使わないシンプルな店舗のみ、
+  登録された開始・終了時刻と定休日をそのまま案内する自然文を返す
+  (faq-response-templates.mdの営業時間テンプレートに準拠)。`intent: "faq"`、
+  `confirmed: false`、`needs_owner_check: false`。
+- 期待される自然文(faq-response-templates.mdの営業時間テンプレートに準拠):
+  `当店の営業時間は09:00〜18:00です(定休日: 日曜)。`
+- 期待される構造化出力:
+  ```
+  {intent: "faq", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: false,
+   faq_segments: [{topic: "hours", resolved: true}]}
+  ```
+- 補足: 曜日別営業時間トグルON、または休憩時間を設定している店舗では、単一の開始・終了時刻の
+  テンプレートでは不正確な案内になるため自動回答の対象外とし、厳守事項6のエスカレーション
+  (保留文言)に振り分ける。この判定はCloud Function B呼び出し側が`store_faq_info`に`hours`
+  キーを設定するかどうかで表現する(hours-other-faq-topic-resolution.md参照)。
+
 ## 本テストケース設計で見つかったプロンプトの抜け漏れ(修正済み)
 - E6(雑談・スパム的入力)とE9(未実装機能への問い合わせ)は、当初
   llm-system-prompt-draft.mdの厳守事項1〜8のどれにも明確に該当していなかったが、

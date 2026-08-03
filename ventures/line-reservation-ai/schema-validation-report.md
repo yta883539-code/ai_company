@@ -1,4 +1,9 @@
-# 構造化出力スキーマの机上検証レポート(2026-07-31 13:58 UTC、2026-07-31 14:58 UTC追記、2026-08-02 14:00 UTC追記)
+# 構造化出力スキーマの机上検証レポート(2026-07-31 13:58 UTC、2026-07-31 14:58 UTC追記、2026-08-02 14:00 UTC追記、2026-08-03 08:00 UTC追記)
+
+## 追記(2026-08-03 08:00 UTC)
+hours-other-faq-topic-resolution.mdでの決定を受け、E17(営業時間FAQ、`faq_segments:
+[{topic: "hours", resolved: true}]`)を新規追加。既存22件と合わせて23件全件パスを確認済み
+(`python3 validate_test_cases.py`)。
 
 ## 追記(2026-08-02 14:00 UTC)
 json-schema-multi-intent-extension.mdの改訂(単一項目9a FAQでも`faq_segments`を
