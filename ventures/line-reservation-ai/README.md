@@ -539,7 +539,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`prototype/engine.py`)、owner-settings-wireframe.mdの通知ログ集計画面にも表示対象として
   追記した。テスト2件追加・全133件パス、schema検証23件パスを維持。実際のCloud Tasks最大試行回数
   設定・LINE送信リトライの実装自体は実LLM/実LINE API接続(オーナー承認待ち)後の課題として残した。
-- 最終更新: 2026-08-04 02:00 UTC
+- フェーズ(続き66): api-call-failure-handling.mdの「次のステップ候補」だった方針2(LINE Push API
+  呼び出し失敗時)の実装に着手した。クラウド接続を伴わず机上テスト可能な範囲だったため、
+  `prototype/cloud_function_process_event.py`の`LinePushClient`プロトコルに「送信失敗時は
+  `LinePushDeliveryError`を送出する」契約を追加し、これまで16箇所に散らばっていた
+  `self._push.send_message(...)`の直接呼び出しを、即時1回のみリトライ・それでも失敗すれば
+  `NotificationLogAggregator`/`EscalationConsolidator`双方に`escalation_reason: "line_push_failed"`
+  を記録してオーナーへ即時通知する`_send()`ヘルパーに集約した(例外は外へ伝播させず、Cloud Tasksに
+  タスクを再実行させてhold/confirm等の状態変更を二重実行してしまうのを避ける設計)。テスト用に
+  指定回数だけ送信失敗を模擬する`FlakyLinePushClient`スタブを新設し、(1)1回失敗後の即時リトライで
+  成功、(2)リトライも失敗しline_push_failedを記録、(3)短時間に複数回発生した場合もログへの記録は
+  都度行われることを確認するテスト3件を追加(全136件パス)。残る方針1(LLM呼び出し失敗時にCloud
+  Tasksの最大試行回数超過を検知する経路)は実クラウド環境が前提のため引き続き未着手のまま残った。
+- 最終更新: 2026-08-04 03:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報
@@ -691,7 +703,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   整理。`SYSTEM_ESCALATION_REASONS`に`llm_unavailable`/`line_push_failed`を追加し
   (`prototype/engine.py`)、owner-settings-wireframe.mdの通知ログ集計画面にも表示対象として反映。
   テスト2件追加・全133件パス。実装(Cloud Tasks最大試行回数設定・LINE送信リトライ自体)は
-  実LLM/実LINE API接続(オーナー承認待ち)後の課題として残った。
+  実LLM/実LINE API接続(オーナー承認待ち)後の課題として残った。2026-08-04 03:00 UTC追記:
+  上記のうち方針2(LINE Push送信失敗)はクラウド接続なしで机上テスト可能な範囲だったため実装した。
+  `prototype/cloud_function_process_event.py`に、送信失敗時`LinePushDeliveryError`を送出する契約の
+  `LinePushClient`プロトコルと、全16箇所のpush送信呼び出しを集約した`_send()`ヘルパー(即時1回のみ
+  リトライ、それでも失敗すれば`line_push_failed`を記録しオーナーへ即時通知、例外は外へ伝播させず
+  状態変更の二重実行を回避)を追加。テスト用`FlakyLinePushClient`スタブと検証テスト3件を追加
+  (全136件パス)。方針1(LLM呼び出し失敗)はCloud Tasksの実試行回数検知が実クラウド環境前提のため
+  引き続き未着手のまま残った。
 - change-intent-handling-design.md: cancel-intent-handling-design.mdの残課題だった`change`
   (日時変更)の実処理を設計・実装(2026-08-02 17:00 UTC新規作成)。`cancel_booking()`と同じ
   分岐(stageに応じたrelease()・confirmed分のみオーナー通知)を行う

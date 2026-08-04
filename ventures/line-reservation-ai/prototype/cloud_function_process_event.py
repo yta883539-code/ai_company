@@ -93,8 +93,18 @@ from engine import (  # noqa: E402
 # LINE Push Message APIクライアントのプロトコル(実クライアントとInMemory版の共通インターフェース)
 # ---------------------------------------------------------------------------
 
+class LinePushDeliveryError(Exception):
+    """api-call-failure-handling.md「方針2」準拠。send_message()が5xx・レート制限429・
+    ネットワーク断等、送信自体の失敗(応答は届いたが中身が不正、ではなく呼び出しそのものの失敗)を
+    表現するために送出する想定の例外。実クライアントに差し替える際は、line-bot-sdk等が送出する
+    APIエラーをこの例外に変換して送出する(またはこの例外のサブクラスにする)ことで、
+    ConversationEventProcessor._send()側のリトライ・オーナー通知ロジックをそのまま流用できる。
+    """
+
+
 class LinePushClient(Protocol):
     def send_message(self, user_id: str, text: str) -> None:
+        """送信に失敗した場合はLinePushDeliveryErrorを送出する想定。"""
         ...
 
 
@@ -220,6 +230,27 @@ class ConversationEventProcessor:
         # (_represent_candidates_after_conflict)に同じ条件で再検索するために保持する。
         self._search_context_by_user: dict[str, tuple[dict, int]] = {}
 
+    def _send(self, user_id: str, text: str, now: datetime) -> None:
+        """LINE Push Message API送信のラッパー。api-call-failure-handling.md「方針2」準拠。
+
+        この時点で呼び出し元の`ConversationFlowStateMachine`/`BookingSlotManager`の状態遷移
+        (hold/confirm等)は既に成功しているため、送信失敗時にタスク全体を失敗させて
+        Cloud Tasksに再実行させると状態変更処理が二重に走ってしまう(二重予約防止ロジック・
+        通知ログ集計の二重カウントを招く)。そのため送信失敗はここで完結させ、例外を外へは
+        伝播させない。「LINE送信部分のみ」を対象にした即時1回のみのリトライに留め、それでも
+        失敗すれば`system_event_counts`の`line_push_failed`として記録した上でオーナーへ
+        即時通知する(顧客への配信自体はここで諦める)。
+        """
+        for _attempt in range(2):
+            try:
+                self._push.send_message(user_id, text)
+                return
+            except LinePushDeliveryError:
+                continue
+        event = {"needs_owner_check": True, "escalation_reason": "line_push_failed"}
+        self._consolidator.on_event(user_id, event, now)
+        self._logs.record(user_id, event, now)
+
     def process(
         self,
         event: dict,
@@ -293,16 +324,16 @@ class ConversationEventProcessor:
             # ことを顧客が失念しないよう、その旨を含めた専用文言を送る(呼び出し元の
             # format_change_started_message()は解放"直後"の案内のみでこの後続には触れないため)。
             if change_context:
-                self._push.send_message(user_id, CHANGE_NO_CANDIDATES_MESSAGE)
+                self._send(user_id, CHANGE_NO_CANDIDATES_MESSAGE, now)
                 return DispatchResult(action="reask", detail="no_date_range_or_no_candidates_change")
-            self._push.send_message(user_id, REASK_DATE_RANGE_MESSAGE)
+            self._send(user_id, REASK_DATE_RANGE_MESSAGE, now)
             return DispatchResult(action="reask", detail="no_date_range_or_no_candidates")
 
         # 確定操作競合時の再検索(_represent_candidates_after_conflict)用に検索条件を保持する。
         self._search_context_by_user[user_id] = (output, menu_minutes)
         self._flow.present_candidates(user_id, candidates, now=now)
         self._candidates_by_user[user_id] = candidates
-        self._push.send_message(user_id, format_candidates_message(candidates))
+        self._send(user_id, format_candidates_message(candidates), now)
         return DispatchResult(action="candidates_presented", detail=str(len(candidates)))
 
     def _handle_candidate_selection(
@@ -311,7 +342,7 @@ class ConversationEventProcessor:
         candidates = self._candidates_by_user.get(user_id, [])
         select_result = self._flow.select_slot_from_reply(user_id, reply_text, now)
         if not select_result.success:
-            self._push.send_message(user_id, select_result.message)
+            self._send(user_id, select_result.message, now)
             return DispatchResult(action="reask", detail="candidate_selection_pending")
 
         # select_slot_from_reply()はcandidatesを内部(Flowのprivate state)に保持するのみで
@@ -323,13 +354,13 @@ class ConversationEventProcessor:
         self._held_label_by_user[user_id] = label
 
         menu = output.get("menu") or ""
-        self._push.send_message(user_id, format_hold_message(label, menu, tone))
+        self._send(user_id, format_hold_message(label, menu, tone), now)
         return DispatchResult(action="held")
 
     def _handle_details(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
         name, menu = output.get("name"), output.get("menu")
         if not name or not menu:
-            self._push.send_message(user_id, REASK_NAME_MENU_MESSAGE)
+            self._send(user_id, REASK_NAME_MENU_MESSAGE, now)
             return DispatchResult(action="reask", detail="missing_name_or_menu")
 
         confirmed = self._flow.provide_details(user_id, name, menu, now)
@@ -339,9 +370,10 @@ class ConversationEventProcessor:
             return self._represent_candidates_after_conflict(user_id, now)
 
         label = self._held_label_by_user.pop(user_id, "")
-        self._push.send_message(
+        self._send(
             user_id,
             format_confirmation_message(candidate_label=label, menu=menu, customer_name=name, tone=tone),
+            now,
         )
         return DispatchResult(action="confirmed")
 
@@ -362,13 +394,13 @@ class ConversationEventProcessor:
                 self._searcher, self._booking_slots, self._store_id, original_output, menu_minutes, now
             )
         if not candidates:
-            self._push.send_message(user_id, BOOKING_CONFLICT_MESSAGE)
+            self._send(user_id, BOOKING_CONFLICT_MESSAGE, now)
             return DispatchResult(action="booking_conflict", detail="no_alternative_forwarded_to_owner")
 
         self._flow.present_candidates(user_id, candidates, now=now)
         self._candidates_by_user[user_id] = candidates
-        self._push.send_message(user_id, BOOKING_CONFLICT_RETRY_MESSAGE)
-        self._push.send_message(user_id, format_candidates_message(candidates))
+        self._send(user_id, BOOKING_CONFLICT_RETRY_MESSAGE, now)
+        self._send(user_id, format_candidates_message(candidates), now)
         return DispatchResult(action="booking_conflict", detail=f"represented_{len(candidates)}_candidates")
 
     def _handle_faq(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
@@ -377,7 +409,7 @@ class ConversationEventProcessor:
         """
         segments = output["faq_segments"]
         for seg in segments:
-            self._push.send_message(user_id, self._render_faq_segment(seg["topic"], seg["resolved"], tone))
+            self._send(user_id, self._render_faq_segment(seg["topic"], seg["resolved"], tone), now)
         # 通知ログ集計(未解決topicのユニーク集計)・resolved:false項目のオーナー通知は
         # 既存のEscalationConsolidator/NotificationLogAggregatorに委ねる(全体のoutputを渡す)。
         self._consolidator.on_event(user_id, output, now)
@@ -409,7 +441,7 @@ class ConversationEventProcessor:
         """厳守事項6(予約以外の相談)・10(未実装機能問い合わせ)発生時の顧客への一次応答。
         faq-response-templates.mdの共通保留文言を即時送信し、詳細な対応はオーナーに委ねる。
         """
-        self._push.send_message(user_id, format_faq_unregistered_message(tone))
+        self._send(user_id, format_faq_unregistered_message(tone), now)
         self._consolidator.on_event(user_id, output, now)
         return DispatchResult(action="escalation_replied", detail=output.get("escalation_reason") or "consultation")
 
@@ -435,17 +467,17 @@ class ConversationEventProcessor:
             }
             self._consolidator.on_event(user_id, not_found_event, now)
             self._logs.record(user_id, not_found_event, now)
-            self._push.send_message(user_id, format_cancel_not_found_message(tone))
+            self._send(user_id, format_cancel_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
 
         if result.stage == "confirmed":
             label = label_from_slot_key(result.slot_key)
-            self._push.send_message(
-                user_id, format_cancel_confirmed_message(label, result.menu or "", tone)
+            self._send(
+                user_id, format_cancel_confirmed_message(label, result.menu or "", tone), now
             )
             return DispatchResult(action="cancelled", detail="confirmed")
 
-        self._push.send_message(user_id, format_cancel_pending_message(tone))
+        self._send(user_id, format_cancel_pending_message(tone), now)
         return DispatchResult(action="cancelled", detail=result.stage)
 
     def _handle_change(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
@@ -469,7 +501,7 @@ class ConversationEventProcessor:
             }
             self._consolidator.on_event(user_id, not_found_event, now)
             self._logs.record(user_id, not_found_event, now)
-            self._push.send_message(user_id, format_change_not_found_message(tone))
+            self._send(user_id, format_change_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
 
         # 実際に旧予約を解放した(=顧客に「取り消した」旨を伝えた)場合のみ、以降の0件時文言を
@@ -478,8 +510,8 @@ class ConversationEventProcessor:
         released_old_booking = result.stage in ("awaiting_details", "confirmed")
         if released_old_booking:
             label = label_from_slot_key(result.slot_key)
-            self._push.send_message(
-                user_id, format_change_started_message(label, result.menu or "", tone)
+            self._send(
+                user_id, format_change_started_message(label, result.menu or "", tone), now
             )
 
         return self._start_new_booking(user_id, output, now, change_context=released_old_booking)

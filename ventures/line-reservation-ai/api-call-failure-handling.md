@@ -84,14 +84,24 @@ webhook-async-processing-design.mdは、Webhook応答の遅延対策とLINE側�
   仮置きであり、実測(LLM APIの実際の障害頻度・復旧時間)を見て調整する。
 - LLM呼び出し失敗時の「猶予時間つき通知」への切り替え要否は、
   実LLM検証(オーナー承認後)で再試行の実測所要時間を確認してから判断する。
-- `llm_unavailable`/`line_push_failed`という新しい`system_event_counts`
-  区分を実際に`prototype/cloud_function_process_event.py`に実装する作業は
-  未着手(実LLM/実LINE API接続自体がオーナー承認待ちのため、コード上の
-  差し込み口の用意のみ先行して次回以降検討する)。
+- 方針1(LLM呼び出し失敗)は、Cloud Tasksが「最大試行回数を使い切った」ことを
+  `process_conversation_event`側へ伝える具体的な仕組み(実装時はCloud Tasksの
+  `X-CloudTasks-TaskRetryCount`ヘッダ等を読む想定)が実クラウド環境でないと
+  検証できないため、引き続き未着手(実LLM/実LINE API接続自体がオーナー承認待ち)。
+
+(解消済み 2026-08-04 03:00 UTC: 方針2(LINE Push API呼び出し失敗)は、実クラウド接続を
+伴わずクラウド接続なしで机上テスト可能な範囲だったため実装した。`prototype/
+cloud_function_process_event.py`の`LinePushClient.send_message()`は失敗時に新設した
+`LinePushDeliveryError`を送出する契約とし、`ConversationEventProcessor`に全16箇所の
+push送信呼び出しを集約した`_send()`ヘルパーを新設。即時1回のみリトライし、それでも
+失敗すれば`NotificationLogAggregator`/`EscalationConsolidator`両方に
+`escalation_reason: "line_push_failed"`を記録・オーナー通知する(例外は外へ伝播させず、
+hold/confirm等の状態変更の二重実行を避ける)。テスト用に`FlakyLinePushClient`スタブを
+追加し、(1)1回失敗後リトライで成功、(2)2回失敗し送信断念+line_push_failed記録、
+(3)複数回発生時もEscalationConsolidatorの5分ウィンドウ集約ロジックにそのまま乗ることを
+確認するテスト3件を追加(全136件パス)。残るは方針1(LLM呼び出し失敗、上記参照)のみ)
 
 ## 次のステップ候補
-- `NotificationLogAggregator`の`SYSTEM_ESCALATION_REASONS`に
-  `llm_unavailable`/`line_push_failed`を追加する実装(コード変更は
-  クラウド接続なしでも机上テスト可能なため、承認不要で着手できる)。
-- owner-settings-wireframe.mdの通知ログ集計画面「システム内部イベント」欄に
-  上記2区分の表示を追記する。
+- 方針1(LLM呼び出し失敗時にCloud Tasksへ例外を再送出し、最大試行回数超過を検知する経路)
+  は実クラウド接続が前提のため、オーナー承認後にGCPプロジェクト作成・Cloud Tasks設定と
+  合わせて着手する。

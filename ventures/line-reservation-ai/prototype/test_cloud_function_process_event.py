@@ -21,6 +21,7 @@ from cloud_function_process_event import (  # noqa: E402
     ConversationEventProcessor,
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
+    LinePushDeliveryError,
     REASK_DATE_RANGE_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
     resolve_menu_duration,
@@ -44,7 +45,27 @@ STORE_FAQ_INFO = {
 }
 
 
-def _new_processor(store_faq_info=None, confirmed_reply_recorder=None, closed_weekdays=frozenset()):
+class FlakyLinePushClient(InMemoryLinePushClient):
+    """api-call-failure-handling.md「方針2」のテスト用。send_message()呼び出しのうち
+    最初のfail_count回はLinePushDeliveryErrorを送出し、それ以降(または最初からfail_count=0なら
+    常時)は成功してInMemoryLinePushClientと同様に`sent`へ記録する。呼び出し回数はメッセージ単位
+    (同じテキストの2回目の呼び出しであっても)でカウントする。
+    """
+
+    def __init__(self, fail_count: int) -> None:
+        super().__init__()
+        self._remaining_failures = fail_count
+
+    def send_message(self, user_id: str, text: str) -> None:
+        if self._remaining_failures > 0:
+            self._remaining_failures -= 1
+            raise LinePushDeliveryError("simulated LINE push failure")
+        super().send_message(user_id, text)
+
+
+def _new_processor(
+    store_faq_info=None, confirmed_reply_recorder=None, closed_weekdays=frozenset(), push_client=None
+):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
     logs = NotificationLogAggregator()
@@ -52,7 +73,7 @@ def _new_processor(store_faq_info=None, confirmed_reply_recorder=None, closed_we
     searcher = AvailabilitySearcher(
         business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
     )
-    push = InMemoryLinePushClient()
+    push = push_client if push_client is not None else InMemoryLinePushClient()
     processor = ConversationEventProcessor(
         flow=flow,
         searcher=searcher,
@@ -140,6 +161,58 @@ class NewBookingDispatchTests(unittest.TestCase):
     # enumに存在しない架空のintent値でこの分岐を叩くテストは、schema検証のフォールバック
     # (SAFE_FALLBACK_OUTPUT、intent: "escalation"に上書きされる)を経由してしまい
     # 意図した経路を検証できないため、重複テストとして残さず削除した。
+
+
+class PushDeliveryFailureTests(unittest.TestCase):
+    """api-call-failure-handling.md「方針2」(LINE Push API呼び出し自体の失敗)のテスト。
+    ConversationEventProcessor._send()の即時1回のみリトライと、それでも失敗した場合の
+    line_push_failed記録・オーナー即時通知を、_start_new_booking()のREASK_DATE_RANGE_MESSAGE
+    送信(1回のpush呼び出しで完結する経路)を借りて検証する。
+    """
+
+    def _reask_llm_call(self):
+        return {
+            "intent": "new_booking", "name": None, "menu": "カット",
+            "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+        }
+
+    def test_succeeds_after_one_immediate_retry(self):
+        push = FlakyLinePushClient(fail_count=1)
+        processor, _, push, logs = _new_processor(push_client=push)
+
+        result = processor.process(_event("U1", "予約したいです"), self._reask_llm_call, NOW)
+
+        self.assertEqual(result.action, "reask")
+        # 1回目は失敗、即時リトライした2回目で成功したメッセージだけが届く。
+        self.assertEqual(push.sent, [("U1", REASK_DATE_RANGE_MESSAGE)])
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), None)
+
+    def test_records_line_push_failed_and_notifies_owner_when_retry_also_fails(self):
+        push = FlakyLinePushClient(fail_count=2)
+        processor, _, push, logs = _new_processor(push_client=push)
+
+        result = processor.process(_event("U1", "予約したいです"), self._reask_llm_call, NOW)
+
+        # 送信自体は諦めるが、process()の呼び出し自体は例外を伝播させず正常に完了する
+        # (Cloud Tasksにタスクを再実行させ、hold/confirm等の状態変更を二重実行しないため)。
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(push.sent, [])
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), 1)
+
+    def test_third_call_after_two_failures_is_treated_as_new_escalation_window(self):
+        # EscalationConsolidator.on_event()は初回発火のみ即時扱いのため、直後に発生した
+        # 2件目のline_push_failedは5分ウィンドウ内としてキューに貯まる(即時通知はされない)
+        # ことを確認する。集約自体の挙動はEscalationConsolidatorTest側で別途検証済みのため、
+        # ここではProcessorがEscalationConsolidator/NotificationLogAggregator双方に正しく
+        # 委譲していることのみを確認する。
+        push = FlakyLinePushClient(fail_count=2)
+        processor, _, push, logs = _new_processor(push_client=push)
+        processor.process(_event("U1", "予約したいです"), self._reask_llm_call, NOW)
+
+        push._remaining_failures = 2
+        processor.process(_event("U1", "予約したいです"), self._reask_llm_call, NOW + timedelta(minutes=1))
+
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), 2)
 
 
 class EscalationReplyTests(unittest.TestCase):
