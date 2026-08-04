@@ -142,6 +142,19 @@ class NotificationLogAggregatorTest(unittest.TestCase):
         # システム内部イベントは一般相談件数に混ざらない
         self.assertEqual(logs.consultation_count, 1)
 
+    def test_llm_and_line_push_failure_reasons_recorded_as_system_events(self):
+        # api-call-failure-handling.md: LLM/LINE Push API呼び出し自体の失敗も
+        # 一般相談(consultation_count)とは別枠のsystem_event_countsに記録される。
+        logs = NotificationLogAggregator()
+        logs.record("user_d", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "llm_unavailable"}, T0)
+        logs.record("user_e", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "line_push_failed"}, T0)
+        self.assertEqual(logs.system_event_counts.get("llm_unavailable"), 1)
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), 1)
+        self.assertEqual(logs.system_event_total(), 2)
+        self.assertEqual(logs.consultation_count, 0)
+
 
 class BookingSlotManagerTest(unittest.TestCase):
     def test_hold_confirm_and_conflict(self):

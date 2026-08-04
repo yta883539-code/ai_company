@@ -527,7 +527,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   モバイル1カラムでレイアウトし、各セクションの画像方針(LINEトーク画面モックアップを軸に統一)を
   整理した(landing-page-wireframe.md新規作成)。実際のHTML/CSS実装・画像制作・公開はスコープ外の
   まま次の課題として残した。
-- 最終更新: 2026-08-04 01:00 UTC
+- フェーズ(続き65): 候補のオーナー目視確認待ち・未確定事項の回答待ちは引き続き進展がないため、
+  これまで手薄だった技術設計側の残課題に着手した。json-output-retry-fallback.md(LLM応答の中身が
+  不正な場合)・webhook-async-processing-design.md(Webhookイベントの重複受信・遅延)のいずれにも
+  含まれていなかった、「LLM API/LINE Push API呼び出し自体が失敗する場合(タイムアウト・5xx・
+  レート制限・ネットワーク断)」のハンドリング方針を新規設計した(api-call-failure-handling.md
+  新規作成)。LLM呼び出し失敗はCloud Tasksの再試行に委ね最終失敗時のみ待機メッセージ+オーナー通知、
+  LINE Push送信失敗は状態変更が既に確定済みのため全体再試行はせず即時1回リトライ+失敗時は
+  オーナーへ即時通知、という役割分担を整理した。承認不要で着手できる範囲として、
+  `SYSTEM_ESCALATION_REASONS`に`llm_unavailable`/`line_push_failed`を新規追加し
+  (`prototype/engine.py`)、owner-settings-wireframe.mdの通知ログ集計画面にも表示対象として
+  追記した。テスト2件追加・全133件パス、schema検証23件パスを維持。実際のCloud Tasks最大試行回数
+  設定・LINE送信リトライの実装自体は実LLM/実LINE API接続(オーナー承認待ち)後の課題として残した。
+- 最終更新: 2026-08-04 02:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報
@@ -670,6 +682,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `prototype/cloud_function_process_event.py`のintent振り分けに接続。`escalation_reason`に
   `booking_cancelled`/`cancel_not_found`を追加(`SYSTEM_ESCALATION_REASONS`)。テスト12件追加・
   全107件パス)
+- api-call-failure-handling.md: json-output-retry-fallback.md(LLM応答の中身が不正な場合)・
+  webhook-async-processing-design.md(Webhookイベントの重複受信・遅延)のいずれにも含まれていなかった、
+  LLM API/LINE Push API呼び出し自体の失敗(タイムアウト・5xx・レート制限・ネットワーク断)時の
+  ハンドリング方針を新規設計(2026-08-04 02:00 UTC新規作成)。LLM呼び出し失敗はCloud Tasksの
+  再試行に委ね最終失敗時のみ待機メッセージ+オーナー通知、LINE Push送信失敗は状態変更(hold/confirm等)
+  が既に確定済みのため全体再試行はせず即時1回リトライ+失敗時はオーナーへ即時通知、という役割分担を
+  整理。`SYSTEM_ESCALATION_REASONS`に`llm_unavailable`/`line_push_failed`を追加し
+  (`prototype/engine.py`)、owner-settings-wireframe.mdの通知ログ集計画面にも表示対象として反映。
+  テスト2件追加・全133件パス。実装(Cloud Tasks最大試行回数設定・LINE送信リトライ自体)は
+  実LLM/実LINE API接続(オーナー承認待ち)後の課題として残った。
 - change-intent-handling-design.md: cancel-intent-handling-design.mdの残課題だった`change`
   (日時変更)の実処理を設計・実装(2026-08-02 17:00 UTC新規作成)。`cancel_booking()`と同じ
   分岐(stageに応じたrelease()・confirmed分のみオーナー通知)を行う

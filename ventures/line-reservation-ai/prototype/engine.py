@@ -165,6 +165,9 @@ SYSTEM_ESCALATION_REASONS = frozenset({
     "cancel_not_found",
     "booking_change_started",
     "change_not_found",
+    # api-call-failure-handling.md: LLM/LINE Push API呼び出し自体が失敗した場合の内部イベント。
+    "llm_unavailable",
+    "line_push_failed",
 })
 
 

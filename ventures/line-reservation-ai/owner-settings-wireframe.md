@@ -237,6 +237,13 @@ escalation-notification-templates.md・escalation-consolidation-logic.mdで設�
 └─────────────────────────────┘
 ```
 
+- システム内部イベントの内訳には、予約確定時の競合(`booking_conflict`)・候補選択の特定不能
+  (`candidate_selection_unresolved`)等に加え、LLM API呼び出し自体の失敗(`llm_unavailable`)・
+  LINE Push API送信自体の失敗(`line_push_failed`)も表示対象に含める(api-call-failure-handling.md、
+  2026-08-04追加)。後者2件はオーナーが「顧客に自動通知が届いていない可能性がある」ことに
+  気づく唯一の手段になるため、件数が1件でも見落とされないよう他のシステム内部イベントと同じ
+  即時通知(集約ウィンドウを待たない)の扱いとする。
+
 - 表示専用ページとし、この画面からの回答・返信操作は設けない(あくまで傾向把握用)。
 - 「未登録FAQ相談」の内訳項目名は、faq-escalation-boundary.mdの9a/9b振り分けで使われる
   項目ラベル(住所・アクセス/駐車場/支払い方法)と揃え、件数が多い項目から店舗FAQ情報欄
