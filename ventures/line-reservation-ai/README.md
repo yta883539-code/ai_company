@@ -551,7 +551,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   成功、(2)リトライも失敗しline_push_failedを記録、(3)短時間に複数回発生した場合もログへの記録は
   都度行われることを確認するテスト3件を追加(全136件パス)。残る方針1(LLM呼び出し失敗時にCloud
   Tasksの最大試行回数超過を検知する経路)は実クラウド環境が前提のため引き続き未着手のまま残った。
-- 最終更新: 2026-08-04 03:00 UTC
+- フェーズ(続き67): customer-reply-detection-design.mdの「残る課題」に残っていた、confirmed状態
+  からの`new_booking` intentが「別日の再訪希望」か「リマインドへの相槌」かの判別未整理に対応した。
+  llm-system-prompt-draft.mdに厳守事項11を新設し、「また」「今度」等の語だけでは`new_booking`と
+  判定せず、(a)明確な予約要求の言い回し、または(b)独立した具体的日時の言及、のいずれかが
+  なければ9b(雑談)として扱う基準を明文化した。conversation-samples-test-cases.mdにE18
+  (社交辞令ケース/再訪希望ケースの2パターン)を追加し、schema/validate_test_cases.pyのフィクスチャ
+  にも反映(全25件パス)。バックエンド側の`_start_new_booking()`分岐自体は変更していないため、
+  プロンプト通りに実LLMが安定分類できるかは実LLM検証(オーナー承認待ち)で確認する必要がある。
+- 最終更新: 2026-08-04 04:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報
@@ -589,9 +597,9 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - interview-candidate-selection-criteria.md: ヒアリング対象候補(実店舗)の選定基準・情報源の整理(2026-07-30時点、選定"方法"の設計のみで実店舗の特定・連絡は未実施)
 - initial-contact-message-draft.md: ヒアリング協力依頼の初回コンタクト文面草案(メール/LINE/電話用、2026-07-30時点。草案作成のみで実在店舗への送信・連絡は未実施。謝礼有無等の未確定事項あり)
 - candidate-buffer-analysis.md: 業種ごとの候補数の妥当性・チャネル別想定承諾率・追加候補確保のトリガー基準の試算(2026-07-30時点、一般論に基づく仮の目安。実測値ではない)
-- llm-system-prompt-draft.md: 会話フロー・二重予約防止・トーン&マナー・保留タイムアウト・無断キャンセル対応等の既存設計を統合した、LLM会話エンジン向けシステムプロンプト草案(2026-08-01 16:00 UTC更新、厳守事項7を書き換え、店舗設定「メッセージトーン」の値に応じてmessage-tone-variants.mdの変換規則(語尾・絵文字・感嘆符)を適用する指示を反映。固定語彙・日付時刻表記・FAQ実質情報はトーンに関わらず変更しない旨も明記。実装・実LLM検証は未着手)
+- llm-system-prompt-draft.md: 会話フロー・二重予約防止・トーン&マナー・保留タイムアウト・無断キャンセル対応等の既存設計を統合した、LLM会話エンジン向けシステムプロンプト草案(2026-08-04 04:00 UTC更新、厳守事項11を新設し、confirmed状態からの返信で「また」「今度」等の語だけではnew_bookingと判定せず、明確な予約要求の言い回しか独立した具体的日時の言及がなければ9b雑談扱いとする基準を追加。customer-reply-detection-design.mdの残課題への対応。実装・実LLM検証は未着手)
 - json-output-retry-fallback.md: 構造化出力(JSON)がパース失敗・スキーマ不一致・矛盾を起こした場合のリトライ(1回まで)・フォールバック(安全側判定でオーナー通知に転送)方針の設計(2026-07-31 09:59 UTC更新、任意フィールド`escalation_reason`/`feature_hint`のスキーマ不一致も既存の「2. キー不足/余分」判定に含めつつ、分類用メタデータのため不正時も`needs_owner_check`によるオーナー通知は止めず「分類不能」へフォールバックする方針を追記。実装・動作検証は未着手)
-- conversation-samples-test-cases.md: LLMシステムプロンプト草案・JSONリトライ設計を検証するための会話サンプル(正常系4件・崩れ系16件)のテストケース設計(2026-08-01 18:00 UTC更新、N3に続き前日リマインド・仮押さえ直後・FAQ回答テンプレートについてもフォーマル/standard/カジュアルの3トーン別期待自然文サンプルを追加し4テンプレート全て出揃った。前日リマインドのみJSON入力を経由しないスケジューラ発火型である点が新たに判明。机上設計のみで実LLM検証は未着手)
+- conversation-samples-test-cases.md: LLMシステムプロンプト草案・JSONリトライ設計を検証するための会話サンプル(正常系4件・崩れ系18件)のテストケース設計(2026-08-04 04:00 UTC更新、厳守事項11の判定基準を検証するE18(社交辞令ケース/再訪希望ケースの2パターン)を追加。机上設計のみで実LLM検証は未着手)
 - json-schema-multi-intent-extension.md: E13で発見した「1応答内でintentが項目ごとに混在しうる」課題への対応として、構造化出力(JSON)に任意フィールド`faq_segments`(topic/resolved)を追加するスキーマ拡張案(2026-07-31 11:58 UTC更新、未検証事項だった「3項目以上でも破綻しないか」をE16で机上検証済みと反映。トップレベルのintentは単一値のまま維持し「1応答=1 JSON」前提は崩さない設計。実装・実LLM検証は未着手)
 - faq-escalation-boundary.md: 厳守事項9(FAQ/雑談)と6(予約以外の相談エスカレーション)の境界線整理(2026-07-30 19:58 UTC更新、営業時間等の店舗登録済み静的情報は9a、未登録・個別判断が必要な相談は6番に振り分け。owner-settings-wireframe.md側のFAQ入力欄の有無を確認し追加済み。llm-system-prompt-draft.mdの厳守事項9a説明文への反映は2026-07-30 20:58 UTC時点で反映済み)
 - faq-response-templates.md: 厳守事項9aの回答テンプレート(住所・アクセス/駐車場/支払い方法の項目別穴埋め式文面、未登録時のエスカレーション定型文、複合質問の分割送信例、2026-07-30 22:58 UTC時点。システムプロンプト・テストケースへの反映は未着手)
@@ -602,7 +610,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 16:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。残っていた未検討事項(LINE以外のチャネル追加時のuserId代替識別子の設計)はchannel-agnostic-session-id.mdで結論化済み)
 - channel-agnostic-session-id.md: 将来Web版チャット等の非LINEチャネルを追加する場合に備えた代替顧客識別子の設計方針(2026-07-31新規作成。恒久的な名寄せIDの導入は見送り、チャネルごとに独立したセッションID(30分無応答失効)を発行する方針。通知ログ集計・連続エスカレーション集約への適用方法も整理。実装は非LINEチャネル追加が具体化した時点で着手)
 - schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
-- schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8のフィクスチャを追加し22件に拡充、実LLM呼び出しはなし)
+- schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-08-04 04:00 UTC更新、E18の2フィクスチャ(E18_social_remark/E18_rebooking_request)を追加し25件に拡充、全件パスを確認。実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
 - prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 12:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。`weekday_business_hours`の0分間区間(定休日相当)が`BusinessHoursConfigError`で拒否されることを確認するデモアサーションを追加。実LLM呼び出しはスタブのまま。2026-08-01 14:00 UTC更新、`release_idle_conversations()`の戻り値を`user_id`のみのリストから、失効時の`stage`も併せ持つ`ReleasedConversation`のリストへ変更し、将来`candidates_presented`失効時のみ能動通知するオプション機能を追加する際にフィルタしやすい形にした。デモに`candidates_presented`のまま失効したケースを追加。2026-08-01 19:00 UTC更新、message-tone-variants.mdのトーン変換を`_render_by_tone()`という共通ディスパッチャとして実装し、`format_confirmation_message()`(LLM出力起点)・`format_reminder_message()`(スケジューラ発火起点)・`format_hold_message()`・`format_faq_parking_message()`の4関数から呼び出す設計とした。未知のtone値はstandardへフォールバック。デモにフォーマル/カジュアル双方の出力例を追加。2026-08-02 01:00 UTC更新、`search_candidates_from_llm_output()`に`MAX_SEARCH_RANGE_DAYS`(暫定14日)によるレンジクランプを追加)
 - prototype-engine-design.md: engine.py実装にあたって新たに確定させた実装判断(5分ウィンドウの起点固定方式等)と今後の課題の整理(2026-07-31 17:58 UTC新規作成)
@@ -683,8 +691,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   Cloud Function B(`process()`冒頭、LLM呼び出し・intent判定より前)で
   `ConfirmedReplyRecorder`プロトコル(LinePushClient等と同じDIパターン)経由で記録するよう
   `prototype/cloud_function_process_event.py`に実装。複数回返信時は毎回最新時刻で上書き。
-  テスト4件追加・全95件パス。残課題はFirestore書き込み自体の実装、cancel/change intentの
-  実処理、confirmed状態からのnew_booking intentが再訪希望か相槌かの内容判別)
+  テスト4件追加・全95件パス。2026-08-04 04:00 UTC追記: 残課題のうちcancel/change intentの実処理は
+  その後cancel-intent-handling-design.md・change-intent-handling-design.mdで対応済み。
+  confirmed状態からのnew_booking intentが再訪希望か相槌かの内容判別も、
+  llm-system-prompt-draft.mdの厳守事項11としてプロンプトレベルの判定基準を新設して対応した
+  (実LLM検証は未着手)。残る課題はFirestore書き込み自体の実装のみ)
 - cancel-intent-handling-design.md: README「次にやること」の残課題だったcancel/change intentの
   実処理のうち、`cancel`(顧客都合でのキャンセル申し出)のみを対象に設計・実装(2026-08-02 16:00 UTC
   新規作成。`change`は「キャンセル+新規予約」より複雑な状態遷移を要するため次回以降の課題として

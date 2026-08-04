@@ -64,6 +64,11 @@ select_due_resends()側は「`customer_replied_at is not None`か」しか見な
 
 ## 残る課題
 - Firestore書き込み処理自体の実装(GCPプロジェクト作成・Firestore接続後、オーナー承認待ち)。
-- cancel/change intentの実処理(intent-to-flow-mapping.md対応表で行自体は定義済みだが未実装のまま)。
-- confirmed状態からの`new_booking` intentが「別日の再訪希望」か「リマインドへの相槌」かの判別
-  (現状は区別せず一律新規予約フロー開始、内容による判別は将来の課題)。
+- (解消済み 2026-08-04 04:00 UTC: cancel/change intentの実処理はcancel-intent-handling-design.md・
+  change-intent-handling-design.mdで設計・実装済み)。
+- (解消済み 2026-08-04 04:00 UTC: confirmed状態からの`new_booking` intentが「別日の再訪希望」か
+  「リマインドへの相槌」かの判別は、llm-system-prompt-draft.mdの厳守事項11としてプロンプトレベルの
+  判定基準(明確な予約要求の言い回し、または独立した具体的日時の言及がなければ9b雑談扱いとする)を
+  新設して対応した。バックエンド側の分岐(`_start_new_booking()`)自体は変更していないため、
+  LLMがこの基準通りに安定して分類できるかは実LLM検証(オーナー承認待ち、pending-approval.md参照)
+  で確認する必要がある)。

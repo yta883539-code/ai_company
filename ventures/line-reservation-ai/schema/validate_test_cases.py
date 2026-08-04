@@ -228,6 +228,19 @@ TEST_CASES = {
         "confirmed": False, "needs_owner_check": False,
         "faq_segments": [{"topic": "hours", "resolved": True}],
     },
+    "E18_social_remark": {
+        "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+        "confirmed": False, "needs_owner_check": False,
+        "faq_segments": None,
+    },
+    "E18_rebooking_request": {
+        "intent": "new_booking", "name": None, "menu": "カット",
+        "datetime_candidate": "来週の土曜",
+        "confirmed": False, "needs_owner_check": False,
+        "faq_segments": None,
+        "requested_date_range": {"start": "2026-08-08", "end": "2026-08-08"},
+        "time_of_day_preference": "none",
+    },
 }
 
 
