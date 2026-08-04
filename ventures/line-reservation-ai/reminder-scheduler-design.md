@@ -82,5 +82,8 @@ Cloud Function C: send_reminders
   (firestore-data-model.mdに反映済み、実装は未着手)。
 - LINE Push Message APIの実送信、Cloud Schedulerジョブの実作成は「アカウント作成」
   「支払い」に該当するため、着手時に改めてオーナー承認が必要(pending-approval.md参照)。
-- Cloud Scheduler起動間隔(暫定15分)が、pricing-plan.mdの想定トラフィックにおける
-  Cloud Functions実行回数課金(hosting-platform-selection.md参照)に与える影響の試算は未着手。
+- ~~Cloud Scheduler起動間隔(暫定15分)が、pricing-plan.mdの想定トラフィックにおける
+  Cloud Functions実行回数課金(hosting-platform-selection.md参照)に与える影響の試算は未着手。~~
+  (解消済み 2026-08-04 05:00 UTC: cloud-scheduler-invocation-cost-estimate.md参照。
+  Function Cの呼び出しは店舗数に依存せず月2,880回程度で無料枠200万回の0.15%程度、
+  起動間隔の選定は課金額でなくリマインド遅延許容度を基準にしてよいと結論)

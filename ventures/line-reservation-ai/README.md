@@ -559,7 +559,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (社交辞令ケース/再訪希望ケースの2パターン)を追加し、schema/validate_test_cases.pyのフィクスチャ
   にも反映(全25件パス)。バックエンド側の`_start_new_booking()`分岐自体は変更していないため、
   プロンプト通りに実LLMが安定分類できるかは実LLM検証(オーナー承認待ち)で確認する必要がある。
-- 最終更新: 2026-08-04 04:00 UTC
+- フェーズ(続き68): reminder-scheduler-design.mdの「未解決のまま残る課題」に残っていた、
+  Cloud Scheduler起動間隔(暫定15分)がCloud Functions実行回数課金に与える影響を試算した
+  (cloud-scheduler-invocation-cost-estimate.md新規作成)。Cloud Function Cは単一Schedulerから
+  起動され店舗数に依存しないため、15分間隔でも月2,880回程度にとどまり、GCP Cloud Functions
+  無料枠(月200万回)の0.15%程度で無視できる規模と結論。起動間隔の選定は課金額ではなく
+  リマインド送信の目標時刻からの最大遅延許容度を基準に決めてよいことを確認した。実際の
+  Cloud Schedulerジョブ作成・課金自体は引き続きオーナー承認待ち。
+- 最終更新: 2026-08-04 05:00 UTC
 
 ## ドキュメント
 - data-retention-policy.md: 永続データストア側(予約実績・会話履歴・通知ログ)の個人情報
