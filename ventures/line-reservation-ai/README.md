@@ -589,9 +589,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   MVP起動に最低限必須な設定項目(営業曜日・営業時間・予約枠の間隔・同時受付可能数・メニュー最低1件)を
   明確化した。LINE公式アカウント連携手順の詳細(スクリーンショット付き手順書)は実LINE API接続着手時
   (オーナー承認待ち)にあわせて作成する課題として残した。
-- 最終更新: 2026-08-04 08:00 UTC
+- フェーズ(続き72): first-booking-self-check-notification-design.mdの残課題だった
+  「オーナー向け送信先(LINE以外の経路も含めて未確定)」を解消するため、オーナー通知の
+  配信先・配信方法を新規設計した(owner-notification-channel-design.md)。同一LINE公式
+  アカウントのpush APIをオーナー宛にも使う方式(オーナー自身のuserIdをonboarding-guide.md
+  ステップ4のテストメッセージ経由で取得)を採用し、メール通知・LINE Notify(2025年3月末
+  サービス終了済みとweb調査で確認)・管理者向けLINEグループの3案は不採用とした。この方針に
+  基づき`ConversationEventProcessor`に`owner_user_id`パラメータを追加し、`_handle_details()`の
+  確定成功後に`consume_first_booking_self_check()`を呼んでTrueかつ`owner_user_id`設定済みの
+  場合のみ、既存の`_send()`(即時1回リトライ+失敗時`line_push_failed`記録)を再利用して
+  オーナーへ直接送信するよう配線した(`prototype/cloud_function_process_event.py`)。
+  EscalationConsolidator/NotificationLogAggregatorが返す他の通知(エスカレーション等)を
+  実際にオーナーへpushする配線は、呼び出し元(Cloud Scheduler経由の`flush_due_windows()`)が
+  未実装のため引き続き次回以降の課題として残した。テスト3件追加・全141件パス。
+- 最終更新: 2026-08-06 19:00 UTC
 
 ## ドキュメント
+- owner-notification-channel-design.md: オーナー通知の配信先・配信方法の設計
+  (2026-08-06新規作成。同一LINE公式アカウントのpush APIをオーナー宛にも使う方式を採用し、
+  `owner_user_id`をonboarding-guide.mdステップ4のテストメッセージ経由で取得する運用を想定。
+  メール通知・LINE Notify(サービス終了済み)・管理者向けLINEグループは不採用。
+  `prototype/cloud_function_process_event.py`にfirst-booking-self-check通知の配線のみ実装済み、
+  EscalationConsolidator系の通知配線は次回以降の課題)
 - onboarding-guide.md: 申込からLINE公式アカウントでの予約対応開始までの導入フロー
   (2026-08-04 08:00 UTC新規作成。申込・トライアル開始→LINE公式アカウント準備→
   営業情報・メニュー初期設定→接続テスト・試験会話→本番公開→トライアル終了・プラン選択の
@@ -774,13 +793,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   問題発生の通知ではないためEscalationConsolidator/NotificationLogAggregatorは経由しない方針とし、
   `ConversationFlowStateMachine`に`consume_first_booking_self_check()`、
   `prototype/engine.py`に`format_first_booking_self_check_message()`を新規追加した。
-  テスト4件追加・全138件パス。Cloud Function B側への実配線は、他のオーナー通知実装と同じく
-  実LINE API接続(オーナー承認待ち)後の課題として残った。
+  テスト4件追加・全138件パス。2026-08-06 19:00 UTC追記: Cloud Function B側への実配線は
+  「オーナー向け送信先が未確定」のみが理由の残課題だったため、owner-notification-channel-design.mdで
+  配信先・配信方法を決定したうえで配線した(実LINE API接続自体は引き続きオーナー承認待ち)。
 
 ## 次にやること(候補)
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-06 19:00 UTC: first-booking-self-check-notification-design.mdの残課題だった
+  Cloud Function B側の実配線に着手するにあたり「オーナー向け送信先が未確定」というブロッカーを
+  owner-notification-channel-design.mdで解消し、`ConversationEventProcessor`への`owner_user_id`配線を
+  実装した(テスト3件追加・全141件パス)。EscalationConsolidator系の他の通知(エスカレーション等)を
+  実際にオーナーへpushする配線は、呼び出し元(Cloud Scheduler経由の`flush_due_windows()`)が
+  未実装のため次回以降の課題として残った)
 - (解消済み 2026-08-04 00:00 UTC: 前項で「余力があれば」としていたホットペッパービューティー内
   キーワード経由での美容室第五候補探索に着手したが、新規候補は0件だった(同名多店舗の「Ohana」を
   発見したが東京都内対象店舗を一意特定できず候補化見送り)。美容室・パーソナルジムの新規開拓が

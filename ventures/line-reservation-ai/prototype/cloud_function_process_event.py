@@ -81,6 +81,7 @@ from engine import (  # noqa: E402
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
+    format_first_booking_self_check_message,
     format_hold_message,
     label_from_slot_key,
     process_llm_output,
@@ -208,6 +209,7 @@ class ConversationEventProcessor:
         menu_durations: dict,
         store_faq_info: Optional[dict] = None,
         confirmed_reply_recorder: Optional[ConfirmedReplyRecorder] = None,
+        owner_user_id: Optional[str] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -219,6 +221,10 @@ class ConversationEventProcessor:
         self._menu_durations = menu_durations
         # customer-reply-detection-design.md準拠。未指定(None)の場合は何もしない。
         self._confirmed_reply_recorder = confirmed_reply_recorder
+        # owner-notification-channel-design.md準拠。オーナー自身のLINE userId
+        # (onboarding-guide.mdステップ4のテストメッセージ経由で取得する想定)。
+        # 未設定(オンボーディング未完了等)の場合はオーナー宛の直接送信を静かにスキップする。
+        self._owner_user_id = owner_user_id
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -375,6 +381,18 @@ class ConversationEventProcessor:
             format_confirmation_message(candidate_label=label, menu=menu, customer_name=name, tone=tone),
             now,
         )
+        # first-booking-self-check-notification-design.md / owner-notification-channel-design.md準拠。
+        # 店舗全体で最初の確定の場合のみ、EscalationConsolidator/NotificationLogAggregatorを経由せず
+        # オーナー自身のuserIdへ直接1回だけ追加送信する。owner_user_id未設定時は静かにスキップする
+        # (通知を諦めるだけで、顧客への確定処理・確定メッセージ送信自体は失敗させない)。
+        if self._flow.consume_first_booking_self_check() and self._owner_user_id:
+            self._send(
+                self._owner_user_id,
+                format_first_booking_self_check_message(
+                    candidate_label=label, menu=menu, customer_name=name
+                ),
+                now,
+            )
         return DispatchResult(action="confirmed")
 
     def _represent_candidates_after_conflict(self, user_id: str, now: datetime) -> DispatchResult:
@@ -540,6 +558,7 @@ def _demo() -> None:
         confirmed_reply_recorder=confirmed_replies,
         store_id="store-1",
         menu_durations={"カット": 30},
+        owner_user_id="U-owner",
         store_faq_info={
             "address": "○○駅から徒歩5分",
             "parking": {"available": True, "capacity": "3"},
@@ -589,7 +608,10 @@ def _demo() -> None:
     event3 = {"source": {"userId": "U1"}, "message": {"text": "山田です、カットでお願いします"}}
     r3 = processor.process(event3, llm_call_3, now, tone="standard")
     print(f"3) action={r3.action} detail={r3.detail}")
-    print(f"   push: {push.sent[-1][1]}")
+    # owner-notification-channel-design.md: 店舗全体で最初の確定なので、顧客への確定メッセージに
+    # 続けてowner_user_id宛のセルフチェック促し通知が1件追加送信されているはず(pushの最後の1件)。
+    print(f"   push(customer): {push.sent[-2][1]}")
+    print(f"   push(owner): {[t for uid, t in push.sent if uid == 'U-owner']}")
 
     # 3b) confirmed後の返信検知(customer-reply-detection-design.md): 前日リマインド後に
     # 顧客から何かしら返信が来たことを、内容を問わずConfirmedReplyRecorderへ記録する。

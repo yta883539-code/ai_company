@@ -64,7 +64,11 @@ class FlakyLinePushClient(InMemoryLinePushClient):
 
 
 def _new_processor(
-    store_faq_info=None, confirmed_reply_recorder=None, closed_weekdays=frozenset(), push_client=None
+    store_faq_info=None,
+    confirmed_reply_recorder=None,
+    closed_weekdays=frozenset(),
+    push_client=None,
+    owner_user_id=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
@@ -85,6 +89,7 @@ def _new_processor(
         menu_durations=MENU_DURATIONS,
         store_faq_info=STORE_FAQ_INFO if store_faq_info is None else store_faq_info,
         confirmed_reply_recorder=confirmed_reply_recorder,
+        owner_user_id=owner_user_id,
     )
     return processor, flow, push, logs
 
@@ -583,6 +588,72 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(result.detail, "no_alternative_forwarded_to_owner")
         self.assertEqual(push.sent[-1][1], BOOKING_CONFLICT_MESSAGE)
         self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+
+class FirstBookingSelfCheckNotificationTests(unittest.TestCase):
+    """owner-notification-channel-design.md / first-booking-self-check-notification-design.md準拠。
+    店舗全体で最初の確定にのみ、owner_user_id宛にセルフチェック促し通知が1回だけ追加送信されること。
+    """
+
+    def _present_candidates(self, processor, user_id):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return processor.process(_event(user_id, "来週土曜カットで"), llm_call, NOW)
+
+    def _reach_confirmed(self, processor, user_id, name="山田"):
+        self._present_candidates(processor, user_id)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "1番で"), llm_call_select, NOW)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": name, "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call_details, NOW)
+
+    def test_first_confirmation_sends_self_check_to_owner(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner")
+        result = self._reach_confirmed(processor, "U1", name="山田")
+
+        self.assertEqual(result.action, "confirmed")
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("最初のご予約確定", owner_messages[0])
+        self.assertIn("山田様", owner_messages[0])
+        # 顧客への確定メッセージの直後に送られていること(pushの最後の1件がオーナー宛)。
+        self.assertEqual(push.sent[-1], ("U-owner", owner_messages[0]))
+
+    def test_second_confirmation_does_not_resend_self_check(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner")
+        self._reach_confirmed(processor, "U1", name="山田")
+        self._reach_confirmed(processor, "U2", name="鈴木")
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+
+    def test_no_owner_push_when_owner_user_id_not_configured(self):
+        processor, flow, push, _ = _new_processor(owner_user_id=None)
+        result = self._reach_confirmed(processor, "U1", name="山田")
+
+        self.assertEqual(result.action, "confirmed")
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
+        # オーナー宛が無いだけで、顧客への確定メッセージ送信自体は成功していること。
+        self.assertIn("山田様", push.sent[-1][1])
 
 
 class CancelIntentTests(unittest.TestCase):
