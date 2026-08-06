@@ -635,7 +635,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   cloud_function_process_event.py側に新規テストクラス`FlowInternalEventOwnerNotificationTests`
   4件)・既存分含め全155件パス。残る課題は`flush_escalation_windows()`を含む実Cloud Scheduler設定
   (オーナー承認待ち)と、会話要約フィールド(構造化出力への追加要否)の検討のみとなった。
-- 最終更新: 2026-08-06 21:00 UTC
+- フェーズ(続き75): 前項で最後に残っていた会話要約フィールド(構造化出力への追加要否)の検討に
+  着手し、結論を出した(escalation-notification-templates.md「未検討・要検討事項」参照)。
+  LLM生成の要約フィールドは追加しないと判断した。医療相談・クレーム等の機微な内容をLLMが
+  要約する過程で誤読・言い換えが混入し、オーナーが実際の発言と異なる内容を信じてしまう事故に
+  つながりうるリスクを避けるためで、代わりにCloud Function Bの`process()`が既に保持している
+  顧客の生メッセージ本文(`reply_text`)を要約せずそのまま「内容」欄に引用する設計にした。
+  `prototype/engine.py`の`_escalation_detail_text()`/`format_escalation_notification()`に
+  `reply_text`引数を追加し、`prototype/cloud_function_process_event.py`側は`_notify_owner()`
+  (LLM構造化出力起点のイベント: escalation/faq未解決/cancel_not_found/change_not_found/
+  unregistered_menu等)経由の通知にのみ`reply_text`を渡すよう`_handle_faq`/`_handle_escalation`/
+  `_handle_cancel`/`_handle_change`/`_start_new_booking`の各メソッドに引数を追加して配線した。
+  一方`_dispatch_flow_notify_actions()`経由のシステム内部イベント(booking_conflict等)は
+  顧客の1メッセージに1対1で対応する内容ではないため意図的に対象外とし、従来通りの
+  案内文言のままとした。テスト3件追加・既存分含め全157件パス。これによりescalation-
+  notification-templates.mdの「未検討・要検討事項」は全て解消済みとなった。
+- 最終更新: 2026-08-06 22:00 UTC
 
 ## ドキュメント
 - owner-notification-channel-design.md: オーナー通知の配信先・配信方法の設計
@@ -836,6 +851,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-06 22:00 UTC: escalation-notification-templates.mdに最後まで残っていた
+  会話要約フィールド(構造化出力への追加要否)の検討を行い、「追加しない」と結論した。
+  医療相談等の機微な内容をLLMが要約する過程で誤読が混入するリスクを避け、Cloud Function Bが
+  既に持つ顧客の生メッセージ本文をそのまま「内容」欄に引用する設計にした
+  (`_escalation_detail_text()`/`format_escalation_notification()`に`reply_text`引数を追加、
+  LLM構造化出力起点の通知経路のみに配線、システム内部イベント経由は対象外のまま維持)。
+  テスト3件追加・全157件パス。これでescalation-notification-templates.mdの未検討事項は
+  全て解消し、本ventureの残る大きな課題は実LLM/実LINE API/実Cloud Scheduler接続自体
+  (オーナー承認待ち)のみとなった)
 - (解消済み 2026-08-06 19:00 UTC: first-booking-self-check-notification-design.mdの残課題だった
   Cloud Function B側の実配線に着手するにあたり「オーナー向け送信先が未確定」というブロッカーを
   owner-notification-channel-design.mdで解消し、`ConversationEventProcessor`への`owner_user_id`配線を

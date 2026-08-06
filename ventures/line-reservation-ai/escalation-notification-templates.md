@@ -112,6 +112,12 @@ topicラベル対応表:
   実装(prototype/engine.pyのformat_escalation_notification())では暫定的に
   「詳細はLINEトーク画面で内容をご確認ください」への案内に留めている。会話要約フィールドの
   追加要否は今後の課題として残す。
+  → (解消 2026-08-06 22:00 UTC: 構造化出力へのLLM生成要約フィールド追加は「行わない」と結論した。
+  理由は(1)医療相談・クレーム等の機微な内容をLLMが要約する過程で誤読・言い換えが混入するリスクが
+  あり、オーナーが実際の顧客発言と異なる内容を信じてしまう事故につながりうること、(2)Cloud
+  Function Bの`process()`は既にLINE Webhookイベントから顧客の生メッセージ本文(`reply_text`)を
+  取得済みで、要約せずそのまま引用すれば内容欄の目的(オーナーが概要を即座に把握できること)を
+  追加のLLM出力なしに満たせること。実装状況を参照。)
 
 ## 実装状況(2026-08-06 20:00 UTC追記)
 - prototype/engine.pyに`format_escalation_notification()`(個別即時通知)・
@@ -137,10 +143,20 @@ topicラベル対応表:
   `_notify_owner()`(LLM構造化出力起点のイベント用)とは別経路にして`on_event()`の二重呼び出し
   (ウィンドウ状態の二重更新)を避けた。テスト9件追加(engine.py側4件・
   cloud_function_process_event.py側4クラス)・既存分含め全155件パス。
-- 残る課題: `flush_escalation_windows()`を定期実行するCloud Scheduler自体の設定はオーナー承認待ち
-  (pending-approval.md参照、reminder_scheduler.pyと同じ位置づけ)。会話要約フィールド
-  (構造化出力への追加要否)の検討は未着手のまま残る。
+- 残る課題(解消 2026-08-06 22:00 UTC): 会話要約フィールド(構造化出力への追加要否)を検討し、
+  上記「未検討・要検討事項」の通り「追加しない」と結論した。代わりにCloud Function Bが既に
+  保持している顧客の生メッセージ本文(`process()`の`reply_text`)を、`format_escalation_notification()`
+  の「内容」欄にそのまま引用するよう実装した。`_escalation_detail_text()`に`reply_text`引数を追加し、
+  `_notify_owner()`(LLM構造化出力起点のイベント: escalation/faq未解決/cancel_not_found/
+  change_not_found/unregistered_menu等)経由の通知はreply_textを渡して引用付きにした。一方、
+  `_dispatch_flow_notify_actions()`経由のシステム内部イベント(booking_conflict等)は、顧客の
+  1メッセージに1対1で対応する内容ではない(状態遷移の結果であり特定の発言の引用では説明できない)
+  ため、意図的にreply_textを渡さず従来通り「詳細はLINEトーク画面で内容をご確認ください」の
+  案内文言のままとした(_dispatch_flow_notify_actions()のdocstring参照)。テスト3件追加
+  (engine.py側の変更はcloud_function_process_event.py側の統合テストで間接的に検証)・
+  既存分含め全157件パス。
+  残る課題は`flush_escalation_windows()`を定期実行するCloud Scheduler自体の設定
+  (オーナー承認待ち、pending-approval.md参照、reminder_scheduler.pyと同じ位置づけ)のみ。
 
 ## 次のステップ候補
-- 会話要約フィールド(構造化出力への追加要否)の検討
 - 本ファイルの文面をllm-system-prompt-draft.mdの厳守事項6・10の説明文から参照するようリンクを追記

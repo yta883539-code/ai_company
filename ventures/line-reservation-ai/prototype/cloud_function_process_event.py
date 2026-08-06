@@ -289,7 +289,9 @@ class ConversationEventProcessor:
             return
         self._notify_owner(user_id, event, now)
 
-    def _notify_owner(self, user_id: str, output: dict, now: datetime) -> None:
+    def _notify_owner(
+        self, user_id: str, output: dict, now: datetime, reply_text: Optional[str] = None
+    ) -> None:
         """owner-notification-channel-design.md準拠。EscalationConsolidator.on_event()を呼び、
         返ってきた即時通知アクション(("immediate"|"immediate_refire", event))があれば
         format_escalation_notification()で整形して`owner_user_id`へ実際にpushする。
@@ -303,10 +305,17 @@ class ConversationEventProcessor:
         Flow側が既にconsolidator.on_event()を呼び済みで戻り値(owner_notify_actions)として
         返してくるため、ここではなく`_dispatch_flow_notify_actions()`を使う
         (on_event()を二重に呼ぶとEscalationConsolidatorのウィンドウ状態が二重更新されてしまうため)。
+
+        reply_textはこのイベントの元になった顧客の生メッセージ本文(process()のevent.message.text)。
+        escalation-notification-templates.md「次のステップ候補」の会話要約フィールド検討の結論により、
+        LLMに要約させず生のメッセージ本文をそのまま「内容」欄に引用する
+        (engine.py _escalation_detail_text()参照)。cancel_not_found/change_not_found/
+        unregistered_menuのようにこのメソッドが合成したイベント向けにも同じreply_textを渡してよい
+        (顧客の直近メッセージという点は変わらないため)。
         """
         actions = self._consolidator.on_event(user_id, output, now)
         customer_label = f"{output.get('name')}様" if output.get("name") else "お客様"
-        self._dispatch_notify_actions(actions, customer_label, now)
+        self._dispatch_notify_actions(actions, customer_label, now, reply_text)
 
     def _dispatch_flow_notify_actions(self, actions: list, now: datetime) -> None:
         """escalation-notification-templates.md「次のステップ候補」準拠。
@@ -317,12 +326,21 @@ class ConversationEventProcessor:
         Flow側で既にEscalationConsolidator.on_event()を呼び済みのため、ここでは
         `_notify_owner()`と異なりon_event()を再度呼ばず、渡されたactionsをそのままpushするだけに留める
         (再度呼ぶとウィンドウ状態が二重に進んでしまう)。
+
+        reply_textを渡さない(=常にLINEトーク画面参照の案内文言になる)のは意図的な設計。
+        これらのシステムイベントは「顧客の1メッセージに対する応答」ではなく状態遷移の結果
+        (確定操作が競合した、再確認ループが上限を超えた等)であり、直近のreply_textを引用しても
+        イベントの内容(何が起きたか)を説明したことにはならないため、_escalation_type_label()の
+        種別ラベルで十分と判断した(会話要約フィールド検討の結論、escalation-notification-
+        templates.md参照)。
         """
         for kind, event in actions:
             customer_label = f"{event.get('name')}様" if event.get("name") else "お客様"
             self._dispatch_notify_actions([(kind, event)], customer_label, now)
 
-    def _dispatch_notify_actions(self, actions: list, customer_label: str, now: datetime) -> None:
+    def _dispatch_notify_actions(
+        self, actions: list, customer_label: str, now: datetime, reply_text: Optional[str] = None
+    ) -> None:
         """(kind, event)のリストをformat_escalation_notification()で整形してオーナーへpushする
         共通処理。owner_user_id未設定時は静かにスキップする。
         """
@@ -333,7 +351,11 @@ class ConversationEventProcessor:
                 # needs_owner_check: falseのイベント(例: E6の雑談・9b)はEscalationConsolidator
                 # 自体のウィンドウ管理対象にはなるが、オーナーへの実push対象ではないためスキップする。
                 continue
-            self._send(self._owner_user_id, format_escalation_notification(customer_label, event, now), now)
+            self._send(
+                self._owner_user_id,
+                format_escalation_notification(customer_label, event, now, reply_text),
+                now,
+            )
 
     def flush_escalation_windows(self, now: datetime) -> int:
         """Cloud Scheduler等、定期実行のトリガーから呼び出す想定の関数
@@ -384,25 +406,25 @@ class ConversationEventProcessor:
 
         intent = output.get("intent")
         if intent == "faq" and output.get("faq_segments"):
-            return self._handle_faq(user_id, output, now, tone)
+            return self._handle_faq(user_id, output, now, tone, reply_text)
         if intent == "escalation":
-            return self._handle_escalation(user_id, output, now, tone)
+            return self._handle_escalation(user_id, output, now, tone, reply_text)
         if intent == "cancel":
-            return self._handle_cancel(user_id, now, tone)
+            return self._handle_cancel(user_id, now, tone, reply_text)
         if intent == "change":
-            return self._handle_change(user_id, output, now, tone)
+            return self._handle_change(user_id, output, now, tone, reply_text)
         if intent != "new_booking":
             # intent-to-flow-mapping.md: faq_segments無しのfaq(9b雑談等・レガシー出力)・
             # その他は予約フロー外のため ConversationFlowStateMachineは呼ばず、
             # オーナーへの転送のみ行う(単一項目9a FAQがここに落ちない理由は
             # モジュールdocstring「実装範囲」参照。cancel/changeはそれぞれの設計md準拠で
             # 上記の_handle_cancel/_handle_changeへ分岐済みのためここには来ない)。
-            self._notify_owner(user_id, output, now)
+            self._notify_owner(user_id, output, now, reply_text)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
 
         stage = self._flow.stage(user_id)
         if stage in (None, "confirmed"):
-            return self._start_new_booking(user_id, output, now)
+            return self._start_new_booking(user_id, output, now, reply_text=reply_text)
         if stage == "candidates_presented":
             return self._handle_candidate_selection(user_id, reply_text, output, now, tone)
         if stage == "awaiting_details":
@@ -411,16 +433,22 @@ class ConversationEventProcessor:
         # ここに到達するのはstageがawaiting_details/candidates_presented/confirmed/None
         # のいずれでもない場合で、ConversationFlowStateMachineの実装上通常発生しないが、
         # 安全側でオーナーへ転送する。
-        self._notify_owner(user_id, output, now)
+        self._notify_owner(user_id, output, now, reply_text)
         return DispatchResult(action="forwarded_to_owner", detail=f"unexpected_stage:{stage}")
 
     def _start_new_booking(
-        self, user_id: str, output: dict, now: datetime, *, change_context: bool = False
+        self,
+        user_id: str,
+        output: dict,
+        now: datetime,
+        *,
+        change_context: bool = False,
+        reply_text: Optional[str] = None,
     ) -> DispatchResult:
         menu_minutes = resolve_menu_duration(output.get("menu"), self._menu_durations)
         if menu_minutes is None:
             self._notify_owner(
-                user_id, {**output, "escalation_reason": "unregistered_menu"}, now
+                user_id, {**output, "escalation_reason": "unregistered_menu"}, now, reply_text
             )
             return DispatchResult(action="forwarded_to_owner", detail="unregistered_menu")
 
@@ -529,7 +557,9 @@ class ConversationEventProcessor:
         self._send(user_id, format_candidates_message(candidates), now)
         return DispatchResult(action="booking_conflict", detail=f"represented_{len(candidates)}_candidates")
 
-    def _handle_faq(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+    def _handle_faq(
+        self, user_id: str, output: dict, now: datetime, tone: str, reply_text: Optional[str] = None
+    ) -> DispatchResult:
         """複合FAQ質問(faq_segments、json-schema-multi-intent-extension.md)への顧客向け返信。
         faq-response-templates.mdの「1メッセージ1用件」原則に従い、項目ごとに1通ずつ送信する。
         """
@@ -538,7 +568,7 @@ class ConversationEventProcessor:
             self._send(user_id, self._render_faq_segment(seg["topic"], seg["resolved"], tone), now)
         # 通知ログ集計(未解決topicのユニーク集計)・resolved:false項目のオーナー通知は
         # 既存のEscalationConsolidator/NotificationLogAggregatorに委ねる(全体のoutputを渡す)。
-        self._notify_owner(user_id, output, now)
+        self._notify_owner(user_id, output, now, reply_text)
         unresolved = sum(1 for seg in segments if not seg["resolved"])
         return DispatchResult(action="faq_replied", detail=f"{len(segments)}_segments_{unresolved}_unresolved")
 
@@ -563,15 +593,19 @@ class ConversationEventProcessor:
         # 不整合)場合は、誤った断定回答を避けるため保留文言に安全側フォールバックする。
         return format_faq_unregistered_message(tone)
 
-    def _handle_escalation(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+    def _handle_escalation(
+        self, user_id: str, output: dict, now: datetime, tone: str, reply_text: Optional[str] = None
+    ) -> DispatchResult:
         """厳守事項6(予約以外の相談)・10(未実装機能問い合わせ)発生時の顧客への一次応答。
         faq-response-templates.mdの共通保留文言を即時送信し、詳細な対応はオーナーに委ねる。
         """
         self._send(user_id, format_faq_unregistered_message(tone), now)
-        self._notify_owner(user_id, output, now)
+        self._notify_owner(user_id, output, now, reply_text)
         return DispatchResult(action="escalation_replied", detail=output.get("escalation_reason") or "consultation")
 
-    def _handle_cancel(self, user_id: str, now: datetime, tone: str) -> DispatchResult:
+    def _handle_cancel(
+        self, user_id: str, now: datetime, tone: str, reply_text: Optional[str] = None
+    ) -> DispatchResult:
         """cancel-intent-handling-design.md準拠。intent: "cancel"の一次処理。
         ConversationFlowStateMachine.cancel_booking()にstageに応じたrelease()・オーナー通知
         (confirmed分のみ)を委ね、ここでは顧客への返信文言の出し分けとローカルキャッシュの
@@ -591,7 +625,7 @@ class ConversationEventProcessor:
             not_found_event = {
                 "intent": "cancel", "needs_owner_check": True, "escalation_reason": "cancel_not_found",
             }
-            self._notify_owner(user_id, not_found_event, now)
+            self._notify_owner(user_id, not_found_event, now, reply_text)
             self._logs.record(user_id, not_found_event, now)
             self._send(user_id, format_cancel_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
@@ -609,7 +643,9 @@ class ConversationEventProcessor:
         self._send(user_id, format_cancel_pending_message(tone), now)
         return DispatchResult(action="cancelled", detail=result.stage)
 
-    def _handle_change(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+    def _handle_change(
+        self, user_id: str, output: dict, now: datetime, tone: str, reply_text: Optional[str] = None
+    ) -> DispatchResult:
         """change-intent-handling-design.md準拠。intent: "change"の一次処理。
         ConversationFlowStateMachine.change_booking()にcancelと同じ分岐(stageに応じたrelease()・
         confirmed分のみオーナー通知)を委ね、found=Trueの場合は同じLLM出力を使って
@@ -628,7 +664,7 @@ class ConversationEventProcessor:
             not_found_event = {
                 "intent": "change", "needs_owner_check": True, "escalation_reason": "change_not_found",
             }
-            self._notify_owner(user_id, not_found_event, now)
+            self._notify_owner(user_id, not_found_event, now, reply_text)
             self._logs.record(user_id, not_found_event, now)
             self._send(user_id, format_change_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
@@ -648,7 +684,9 @@ class ConversationEventProcessor:
                 user_id, format_change_started_message(label, result.menu or "", tone), now
             )
 
-        return self._start_new_booking(user_id, output, now, change_context=released_old_booking)
+        return self._start_new_booking(
+            user_id, output, now, change_context=released_old_booking, reply_text=reply_text
+        )
 
 
 def _demo() -> None:

@@ -1163,6 +1163,36 @@ class OwnerEscalationNotificationTests(unittest.TestCase):
         self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
         self.assertEqual(logs.system_event_counts.get("line_push_failed"), 1)
 
+    def test_escalation_notification_quotes_raw_customer_message(self):
+        # escalation-notification-templates.md「次のステップ候補」で残っていた会話要約フィールドの
+        # 検討結論(LLM要約フィールドは追加せず、Cloud Function Bが既に持つ顧客の生メッセージ本文を
+        # そのまま引用する)を確認する。
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        processor.process(
+            _event("U1", "施術で肌荒れしたんですが大丈夫でしょうか"), self._escalation_llm_call(), NOW
+        )
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("「施術で肌荒れしたんですが大丈夫でしょうか」といった内容です。", owner_messages[0])
+        self.assertNotIn("詳細はLINEトーク画面で内容をご確認ください。", owner_messages[0])
+
+    def test_cancel_not_found_notification_quotes_raw_customer_message(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def cancel_call():
+            return {
+                "intent": "cancel", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "予約キャンセルしたいんですが"), cancel_call, NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("「予約キャンセルしたいんですが」といった内容です。", owner_messages[0])
+
 
 class EscalationWindowFlushTests(unittest.TestCase):
     """owner-notification-channel-design.mdの残課題だったflush_escalation_windows()
@@ -1288,6 +1318,9 @@ class FlowInternalEventOwnerNotificationTests(unittest.TestCase):
         self.assertEqual(len(owner_messages), 1)
         self.assertIn("予約枠の競合(システム)", owner_messages[0])
         self.assertEqual(logs.system_event_counts.get("booking_conflict"), 1)
+        # 会話要約フィールド検討の結論(_dispatch_flow_notify_actionsのdocstring参照)により、
+        # システム内部イベントは特定の顧客メッセージの引用ではなく従来通りの案内文言のままとなる。
+        self.assertIn("詳細はLINEトーク画面で内容をご確認ください。", owner_messages[0])
 
     def test_candidate_selection_unresolved_pushes_owner_notification(self):
         processor, flow, push, logs = _new_processor(owner_user_id="U-owner")

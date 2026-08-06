@@ -259,13 +259,25 @@ def _escalation_type_label(event: dict) -> str:
     return "予約以外のご相談"
 
 
-def _escalation_detail_text(event: dict) -> str:
+def _escalation_detail_text(event: dict, reply_text: Optional[str] = None) -> str:
     """escalation-notification-templates.md「内容」部分に相当。
-    現状の構造化出力には会話内容の要約フィールドが無い(feature_hint以外)ため、
-    暫定的にLINEトーク画面参照への案内に留める(要約フィールドの追加は今後の課題)。
+
+    会話要約フィールドの追加要否(escalation-notification-templates.md「次のステップ候補」)は
+    検討の結果、構造化出力にLLM生成の要約フィールドは追加しないと結論した。理由は
+    (1)医療相談・クレーム等の機微な内容をLLMが要約する過程で誤読・言い換えが混入するリスクが
+    あり、オーナーが実際の顧客発言と異なる内容を信じてしまう事故につながりうること、
+    (2)Cloud Function Bのprocess()は既にLINE Webhookイベントから顧客の生メッセージ本文
+    (reply_text)を取得済みで、要約せずそのまま引用すれば内容欄の目的(オーナーが概要を
+    即座に把握できること)を追加のLLM出力なしに満たせること、の2点による。
+    feature_hint(unimplemented_feature用の自由記述)はLLMによる短い言い換えだが影響が軽微
+    (機能要望の趣旨のみで機微情報を含まない)なため従来通り優先する。reply_textが空、または
+    システム内部イベント(_dispatch_flow_notify_actions経由、顧客の1メッセージに1対1で
+    対応しない)の場合はLINEトーク画面参照の案内に留める。
     """
     if event.get("escalation_reason") == "unimplemented_feature" and event.get("feature_hint"):
         return event["feature_hint"]
+    if reply_text:
+        return f"「{reply_text}」といった内容です。"
     return "詳細はLINEトーク画面で内容をご確認ください。"
 
 
@@ -284,15 +296,19 @@ def is_escalation_event_owner_notable(event: dict) -> bool:
     return reason in _SYSTEM_EVENT_LABELS or reason == "unimplemented_feature"
 
 
-def format_escalation_notification(customer_label: str, event: dict, now: datetime) -> str:
+def format_escalation_notification(
+    customer_label: str, event: dict, now: datetime, reply_text: Optional[str] = None
+) -> str:
     """escalation-notification-templates.md「通知文面の基本形」準拠。
     EscalationConsolidator.on_event()が返す("immediate"|"immediate_refire", event)アクションを
     実際にオーナーへpushする際に使う想定(呼び出し元はcloud_function_process_event.py)。
+    reply_textはLLM構造化出力を発生させた顧客の生メッセージ本文(任意)。指定時は
+    「内容」欄にそのまま引用する(_escalation_detail_text参照)。
     """
     return (
         f"【要確認】{customer_label}より{now.strftime('%H:%M')}にお問い合わせがありました。\n"
         f"種別: {_escalation_type_label(event)}\n"
-        f"内容: {_escalation_detail_text(event)}\n"
+        f"内容: {_escalation_detail_text(event, reply_text)}\n"
         "対応: 店舗から直接ご連絡または次回来店時にご案内をお願いします。"
     )
 
