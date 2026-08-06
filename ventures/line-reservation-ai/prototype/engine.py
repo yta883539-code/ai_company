@@ -406,6 +406,8 @@ class ConversationFlowStateMachine:
         self._states: dict[str, _ConversationState] = {}
         self._last_idle_cleanup_at: Optional[datetime] = None
         self._last_archive_at: Optional[datetime] = None
+        self._first_booking_self_check_sent = False
+        self._first_booking_self_check_pending = False
 
     def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> None:
         """システム内部発火のescalationイベント(booking_conflict等、SYSTEM_ESCALATION_REASONS参照)を
@@ -515,6 +517,9 @@ class ConversationFlowStateMachine:
         state.last_activity_at = now
         if self._slots.confirm(state.slot_key, user_id, now):
             state.stage = "confirmed"
+            if not self._first_booking_self_check_sent:
+                self._first_booking_self_check_sent = True
+                self._first_booking_self_check_pending = True
             return True
 
         self._notify_system_event(
@@ -529,6 +534,19 @@ class ConversationFlowStateMachine:
         )
         state.stage = "candidates_presented"
         state.slot_key = None
+        return False
+
+    def consume_first_booking_self_check(self) -> bool:
+        """first-booking-self-check-notification-design.md準拠。店舗全体で最初の予約確定が
+        発生した直後にTrueを一度だけ返す。呼び出し側(Cloud Function Bの本番配線)は
+        provide_details()の戻り値がTrueだった直後にこれを呼び、Trueならformat_confirmation_message()
+        とは別にformat_first_booking_self_check_message()をオーナーへ追加送信する想定。
+        オーナーが実際に問題を起こしたわけではないためEscalationConsolidator/
+        NotificationLogAggregator(いずれもneeds_owner_check起点の問題対応向け集計)は経由しない。
+        """
+        if self._first_booking_self_check_pending:
+            self._first_booking_self_check_pending = False
+            return True
         return False
 
     def stage(self, user_id: str) -> Optional[str]:
@@ -972,6 +990,24 @@ def format_confirmation_message(candidate_label: str, menu: str, customer_name: 
         ),
     }
     return _render_by_tone(tone, variants)
+
+
+def format_first_booking_self_check_message(candidate_label: str, menu: str, customer_name: str) -> str:
+    """first-booking-self-check-notification-design.md準拠。店舗全体で最初の予約確定の直後にのみ
+    オーナーへ送る一回限りのセルフチェック促し通知。escalation-notification-templates.mdの
+    「主語は店ではなくシステム管理側」ルールに従いオーナー向け固定文面とし(顧客向けのような
+    トーン別出し分けは行わない)、onboarding-guide.mdのステップ4(接続テスト・試験会話)を
+    省略して本番投入した店舗のフォールバックとして、実際の確定内容を店舗設定と見比べる
+    きっかけを提供する(問題発生の通知ではないためEscalationConsolidator/
+    NotificationLogAggregatorは経由しない)。
+    """
+    return (
+        "【ご確認のお願い】AIが最初のご予約確定を処理しました。\n"
+        f"    {candidate_label} {menu} / {customer_name}様\n"
+        "    営業時間・メニュー内容・所要時間などの店舗設定が意図通りかを、"
+        "この機会に一度ご確認ください。\n"
+        "    問題がなければ今後この通知はありません。"
+    )
 
 
 def format_reminder_message(candidate_label: str, menu: str, tone: str = "standard") -> str:

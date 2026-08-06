@@ -39,6 +39,7 @@ from engine import (  # noqa: E402
     format_change_started_message,
     format_confirmation_message,
     format_faq_parking_message,
+    format_first_booking_self_check_message,
     label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
@@ -182,6 +183,23 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertTrue(flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2)))
         self.assertEqual(flow.stage("user_tanaka"), "confirmed")
+
+    def test_first_confirmed_booking_triggers_self_check_once(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        key1 = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key1, T0)
+        flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2))
+        self.assertTrue(flow.consume_first_booking_self_check())
+        # 消費済みなので同じ確定について再度Trueにはならない
+        self.assertFalse(flow.consume_first_booking_self_check())
+
+        key2 = ("shop_1", "2026-08-09", "17:00")
+        flow.present_candidates("user_suzuki", now=T0 + timedelta(minutes=5))
+        flow.select_slot("user_suzuki", key2, T0 + timedelta(minutes=5))
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=6))
+        # 2件目の確定では発火しない(店舗全体で最初の1回のみ)
+        self.assertFalse(flow.consume_first_booking_self_check())
 
     def test_select_slot_conflict_keeps_stage_and_returns_message(self):
         slots = BookingSlotManager()
@@ -718,6 +736,12 @@ class ToneRenderingTest(unittest.TestCase):
         unknown = format_faq_parking_message("3", tone="loud")
         standard = format_faq_parking_message("3", tone="standard")
         self.assertEqual(unknown, standard)
+
+    def test_first_booking_self_check_message_has_no_tone_variants(self):
+        message = format_first_booking_self_check_message("8/9(土) 15:30〜", "カット", "田中")
+        self.assertIn("田中様", message)
+        self.assertIn("8/9(土) 15:30〜", message)
+        self.assertIn("カット", message)
 
 
 def _fake_candidate(slot_key, label):

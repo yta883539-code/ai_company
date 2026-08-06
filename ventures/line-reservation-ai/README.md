@@ -767,6 +767,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   スキーマ変更は不要だった。`escalation_reason`に`booking_change_started`/`change_not_found`を
   追加(`SYSTEM_ESCALATION_REASONS`)。`prototype/cloud_function_process_event.py`に
   `_handle_change()`を新設しintent振り分けに接続。テスト13件追加・全117件パス)
+- first-booking-self-check-notification-design.md: onboarding-guide.mdの「未検証の仮説」に
+  残っていた、接続テスト(ステップ4)省略時のフォールバック案を設計・実装(2026-08-06新規作成)。
+  店舗全体で最初の予約確定(confirmed)が発生した直後にのみ、通常の確定メッセージとは別に
+  オーナー宛のセルフチェック促し通知(営業時間・メニュー内容等の設定確認依頼)を1回だけ送る設計。
+  問題発生の通知ではないためEscalationConsolidator/NotificationLogAggregatorは経由しない方針とし、
+  `ConversationFlowStateMachine`に`consume_first_booking_self_check()`、
+  `prototype/engine.py`に`format_first_booking_self_check_message()`を新規追加した。
+  テスト4件追加・全138件パス。Cloud Function B側への実配線は、他のオーナー通知実装と同じく
+  実LINE API接続(オーナー承認待ち)後の課題として残った。
 
 ## 次にやること(候補)
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
