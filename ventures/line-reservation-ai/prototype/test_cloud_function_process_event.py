@@ -1231,5 +1231,136 @@ class EscalationWindowFlushTests(unittest.TestCase):
         self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
 
 
+class FlowInternalEventOwnerNotificationTests(unittest.TestCase):
+    """escalation-notification-templates.md「次のステップ候補」準拠。
+    ConversationFlowStateMachine内部(booking_conflict/candidate_selection_unresolved/
+    booking_cancelled/booking_change_started)から発火するイベントが、owner_notify_actions経由で
+    実際にオーナーへpushされるようになったことを確認する。owner_user_id未設定のテストでは
+    従来通りEscalationConsolidatorのウィンドウ記録のみを既存テストで確認済みのため、
+    ここではowner_user_id="U-owner"を設定して実際のpushの有無まで検証する。
+    """
+
+    def _present_candidates(self, processor, user_id="U1"):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return processor.process(_event(user_id, "来週土曜カットで"), llm_call, NOW)
+
+    def _select_first_candidate(self, processor, user_id="U1"):
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, "1番で"), llm_call, NOW)
+
+    def _confirm_details(self, processor, user_id="U1", name="山田"):
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": name, "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call, NOW)
+
+    def test_booking_conflict_pushes_owner_notification(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+
+        # 別ユーザーの確定で横から枠を奪い、confirm()を確実に失敗させる
+        # (test_booking_conflict_notifies_owner_once_and_represents_fresh_candidatesと同じ手法)。
+        held_slot_key = next(iter(flow._slots._slots))
+        flow._slots.release(held_slot_key)
+        flow._slots.hold(held_slot_key, "OTHER_USER", NOW)
+        flow._slots.confirm(held_slot_key, "OTHER_USER", NOW)
+
+        self._confirm_details(processor, name="山田")
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("予約枠の競合(システム)", owner_messages[0])
+        self.assertEqual(logs.system_event_counts.get("booking_conflict"), 1)
+
+    def test_candidate_selection_unresolved_pushes_owner_notification(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        self._present_candidates(processor)
+
+        def unresolvable_llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+            }
+
+        # RECONFIRM_MAX_ATTEMPTS(=2)回までは再確認文言のみで、owner_notify_actionsは空。
+        for _ in range(2):
+            processor.process(_event("U1", "うーん、どうしよう"), unresolvable_llm_call, NOW)
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
+
+        # 3回目でcandidate_selection_unresolvedが発火し、オーナーへ即時pushされる。
+        processor.process(_event("U1", "うーん、どうしよう"), unresolvable_llm_call, NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("候補選択が確定しなかった(システム)", owner_messages[0])
+        self.assertEqual(logs.system_event_counts.get("candidate_selection_unresolved"), 1)
+
+    def test_cancel_after_confirmed_pushes_owner_notification(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        self._confirm_details(processor, name="山田")
+
+        def cancel_llm_call():
+            return {
+                "intent": "cancel", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+
+        processor.process(_event("U1", "キャンセルでお願いします"), cancel_llm_call, NOW)
+
+        # この会話は店舗全体で最初の確定でもあるため、consume_first_booking_self_check()由来の
+        # 別メッセージもオーナーへ届く(first-booking-self-check-notification-design.md)。
+        # ここで見たいのはbooking_cancelledの即時通知そのものなので、該当メッセージだけを見る。
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        cancel_messages = [m for m in owner_messages if "予約キャンセル(確定分)" in m]
+        self.assertEqual(len(cancel_messages), 1)
+        self.assertIn("山田様", cancel_messages[0])
+        self.assertEqual(logs.system_event_counts.get("booking_cancelled"), 1)
+
+    def test_change_after_confirmed_pushes_owner_notification(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        self._confirm_details(processor, name="山田")
+
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def change_llm_call():
+            return {
+                "intent": "change", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor.process(_event("U1", "来週土曜の別の時間に変更できますか"), change_llm_call, NOW)
+
+        # cancelと同じく、この会話は店舗全体で最初の確定でもあるため
+        # 別途first-booking-self-check通知も届く。ここではbooking_change_started分のみ見る。
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        change_messages = [m for m in owner_messages if "予約変更(旧予約解放)" in m]
+        self.assertEqual(len(change_messages), 1)
+        self.assertIn("山田様", change_messages[0])
+        self.assertEqual(logs.system_event_counts.get("booking_change_started"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

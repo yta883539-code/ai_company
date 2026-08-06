@@ -181,7 +181,7 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         flow.present_candidates("user_tanaka", now=T0)
         result = flow.select_slot("user_tanaka", key, T0)
         self.assertTrue(result.success)
-        self.assertTrue(flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2)))
+        self.assertTrue(flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2)).confirmed)
         self.assertEqual(flow.stage("user_tanaka"), "confirmed")
 
     def test_first_confirmed_booking_triggers_self_check_once(self):
@@ -228,15 +228,22 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         flow.present_candidates("user_takahashi", now=T0 + timedelta(minutes=7))
         flow.select_slot("user_takahashi", key, T0 + timedelta(minutes=7))
         self.assertTrue(
-            flow.provide_details("user_takahashi", "高橋", "カラー", T0 + timedelta(minutes=8))
+            flow.provide_details("user_takahashi", "高橋", "カラー", T0 + timedelta(minutes=8)).confirmed
         )
 
         # 佐藤さんが遅れてconfirmしようとしても、枠は既に高橋さんに確定済みなので失敗する
-        confirmed = flow.provide_details("user_sato", "佐藤", "パーマ", T0 + timedelta(minutes=9))
-        self.assertFalse(confirmed)
+        result = flow.provide_details("user_sato", "佐藤", "パーマ", T0 + timedelta(minutes=9))
+        self.assertFalse(result.confirmed)
         self.assertEqual(flow.stage("user_sato"), "candidates_presented")
         # 横取りした高橋さんの確定は維持される(誤って解放されない)
         self.assertEqual(slots.status(key, T0 + timedelta(minutes=9)), "confirmed")
+        # escalation-notification-templates.md「次のステップ候補」準拠。booking_conflict発火時は
+        # EscalationConsolidator.on_event()の即時通知アクションがowner_notify_actionsに乗って返る
+        # (engine.py自体はI/Oを持たないため、実際のpushは呼び出し側の責務)。
+        self.assertEqual(len(result.owner_notify_actions), 1)
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(kind, "immediate")
+        self.assertEqual(event["escalation_reason"], "booking_conflict")
 
     def test_reconfirm_loop_escalates_after_max_attempts(self):
         candidates = [
@@ -256,6 +263,11 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         self.assertIn("担当より改めてご連絡", escalated.message)
         # エスカレーション後もcandidates_presentedのまま(呼び出し側が候補を再提示する想定)
         self.assertEqual(flow.stage("user_takahashi_r"), "candidates_presented")
+        # candidate_selection_unresolvedもowner_notify_actionsとして呼び出し側へ伝播する。
+        self.assertEqual(len(escalated.owner_notify_actions), 1)
+        kind, event = escalated.owner_notify_actions[0]
+        self.assertEqual(kind, "immediate")
+        self.assertEqual(event["escalation_reason"], "candidate_selection_unresolved")
 
     def test_unexpected_stage_call_raises(self):
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
@@ -359,6 +371,12 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         # confirmed分のみEscalationConsolidator経由でオーナーに即時通知される
         # (cancel-intent-handling-design.md準拠)。
         self.assertIn("user_suzuki", consolidator._windows)
+        # escalation-notification-templates.md「次のステップ候補」準拠。engine.py自体は
+        # I/Oを持たないため、実際のpushができるよう即時通知アクションを戻り値で運ぶ。
+        self.assertEqual(len(result.owner_notify_actions), 1)
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(kind, "immediate")
+        self.assertEqual(event["escalation_reason"], "booking_cancelled")
 
     def test_change_booking_with_no_state_reports_not_found(self):
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
@@ -412,6 +430,11 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         # (change-intent-handling-design.md準拠)。
         self.assertIn("user_suzuki", consolidator._windows)
         self.assertEqual(consolidator.events[-1][1]["escalation_reason"], "booking_change_started")
+        # cancelと同じくowner_notify_actionsで即時通知アクションを呼び出し側へ伝播する。
+        self.assertEqual(len(result.owner_notify_actions), 1)
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(kind, "immediate")
+        self.assertEqual(event["escalation_reason"], "booking_change_started")
 
     def test_change_booking_after_confirmed_does_not_delete_the_original_booking_twice(self):
         # change_booking()はcancel_bookingと同じくstate削除後に呼び出し側が新規候補検索へ

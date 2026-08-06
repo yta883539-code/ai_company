@@ -620,7 +620,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `ConversationFlowStateMachine`内部(booking_conflict等)から発火するシステムイベントの
   伝播(engine.py自体がI/Oを持たない設計のため別途仕組みが必要)と、実Cloud Scheduler設定
   (オーナー承認待ち)。
-- 最終更新: 2026-08-06 20:00 UTC
+- フェーズ(続き74): 前項の残課題だった`ConversationFlowStateMachine`内部発火システムイベント
+  (booking_conflict/candidate_selection_unresolved/booking_cancelled/booking_change_started)の
+  Cloud Function B側への伝播を実装した(escalation-notification-templates.md「次のステップ候補」
+  準拠)。engine.py自体は引き続きLINE Push等のI/Oを持たない設計を維持しつつ、
+  `select_slot_from_reply()`/`provide_details()`/`cancel_booking()`/`change_booking()`の
+  戻り値に`owner_notify_actions`(EscalationConsolidator.on_event()が返す即時通知アクションを
+  そのまま運ぶ)を追加した(`provide_details()`は戻り値をbool単体から新設の`ProvideDetailsResult`に
+  変更、呼び出し側の`if not confirmed:`は`.confirmed`参照に更新)。`prototype/cloud_function_process_event.py`に
+  新設した`_dispatch_flow_notify_actions()`がこれをformat_escalation_notification()で整形して
+  pushする。Flow側で既に`consolidator.on_event()`を呼び済みのため、`_notify_owner()`
+  (LLM構造化出力起点のイベント用、on_event()を自分で呼ぶ)とは別経路にして二重呼び出し
+  (ウィンドウ状態の二重更新)を避けた。テスト9件追加(engine.py側4件・
+  cloud_function_process_event.py側に新規テストクラス`FlowInternalEventOwnerNotificationTests`
+  4件)・既存分含め全155件パス。残る課題は`flush_escalation_windows()`を含む実Cloud Scheduler設定
+  (オーナー承認待ち)と、会話要約フィールド(構造化出力への追加要否)の検討のみとなった。
+- 最終更新: 2026-08-06 21:00 UTC
 
 ## ドキュメント
 - owner-notification-channel-design.md: オーナー通知の配信先・配信方法の設計

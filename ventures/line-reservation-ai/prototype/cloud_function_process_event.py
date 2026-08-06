@@ -63,10 +63,17 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
   定期実行トリガーから呼び出す想定(reminder_scheduler.pyの前日リマインド判定と同じ位置づけ)で、
   実際のCloud Scheduler設定自体は「アカウント作成」に該当するため引き続きオーナー承認待ち
   (呼び出しロジック自体は実クラウド接続なしで検証可能)。
-  なお、`ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
-  (booking_conflict等)はこの配線の対象外として残った。engine.pyはLINE Push等のI/Oを持たない
-  純粋ロジック層として設計されているため、`consolidator.on_event()`の戻り値をFlow内部から
-  外部(Cloud Function B)へ伝播させる仕組みが別途必要であり、次回以降の課題とする。
+
+- escalation-notification-templates.md「次のステップ候補」準拠。上記の残課題だった
+  `ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
+  (booking_conflict/candidate_selection_unresolved/booking_cancelled/booking_change_started)の
+  伝播を実装した。engine.pyはLINE Push等のI/Oを持たない純粋ロジック層のままとし、
+  `select_slot_from_reply()`/`provide_details()`/`cancel_booking()`/`change_booking()`の
+  戻り値に`owner_notify_actions`フィールドを追加(`provide_details()`は戻り値をbool単体から
+  `ProvideDetailsResult`に変更)して、Flow側が既に呼び済みの`consolidator.on_event()`の
+  戻り値をそのまま呼び出し側へ運ぶ設計とした。Cloud Function B側は新設の
+  `_dispatch_flow_notify_actions()`でこれを受け取りpushする(`_notify_owner()`と異なり
+  `consolidator.on_event()`を再度呼ばない。二重に呼ぶとウィンドウ状態が二重更新されるため)。
 """
 
 from __future__ import annotations
@@ -289,11 +296,38 @@ class ConversationEventProcessor:
         ウィンドウ内に貯まった分(まとめ通知)はここでは送らず、flush_escalation_windows()の
         領分とする。owner_user_id未設定時は集約状態の記録のみ行い、送信は静かにスキップする
         (first-booking-self-check-notification-design.md等と同じ安全側フォールバック)。
+
+        このメソッドはLLM構造化出力(=Cloud Function B自身がintentを判定したイベント)向け。
+        `ConversationFlowStateMachine`のメソッド(select_slot_from_reply/provide_details/
+        cancel_booking/change_booking)が内部で発火するシステムイベント(booking_conflict等)は
+        Flow側が既にconsolidator.on_event()を呼び済みで戻り値(owner_notify_actions)として
+        返してくるため、ここではなく`_dispatch_flow_notify_actions()`を使う
+        (on_event()を二重に呼ぶとEscalationConsolidatorのウィンドウ状態が二重更新されてしまうため)。
         """
         actions = self._consolidator.on_event(user_id, output, now)
+        customer_label = f"{output.get('name')}様" if output.get("name") else "お客様"
+        self._dispatch_notify_actions(actions, customer_label, now)
+
+    def _dispatch_flow_notify_actions(self, actions: list, now: datetime) -> None:
+        """escalation-notification-templates.md「次のステップ候補」準拠。
+        `ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
+        (booking_conflict/candidate_selection_unresolved/booking_cancelled/
+        booking_change_started)は、engine.py自体がLINE Push等のI/Oを持たない純粋ロジック層のため、
+        Flow側の各メソッドの戻り値(owner_notify_actions)経由でこちらへ伝播してくる。
+        Flow側で既にEscalationConsolidator.on_event()を呼び済みのため、ここでは
+        `_notify_owner()`と異なりon_event()を再度呼ばず、渡されたactionsをそのままpushするだけに留める
+        (再度呼ぶとウィンドウ状態が二重に進んでしまう)。
+        """
+        for kind, event in actions:
+            customer_label = f"{event.get('name')}様" if event.get("name") else "お客様"
+            self._dispatch_notify_actions([(kind, event)], customer_label, now)
+
+    def _dispatch_notify_actions(self, actions: list, customer_label: str, now: datetime) -> None:
+        """(kind, event)のリストをformat_escalation_notification()で整形してオーナーへpushする
+        共通処理。owner_user_id未設定時は静かにスキップする。
+        """
         if not self._owner_user_id:
             return
-        customer_label = f"{output.get('name')}様" if output.get("name") else "お客様"
         for _kind, event in actions:
             if not is_escalation_event_owner_notable(event):
                 # needs_owner_check: falseのイベント(例: E6の雑談・9b)はEscalationConsolidator
@@ -416,6 +450,10 @@ class ConversationEventProcessor:
         candidates = self._candidates_by_user.get(user_id, [])
         select_result = self._flow.select_slot_from_reply(user_id, reply_text, now)
         if not select_result.success:
+            # candidate_selection_unresolved(再確認上限超過)の場合、Flow側が既に
+            # consolidator.on_event()を呼び済みでowner_notify_actionsに積んで返している。
+            # 再確認継続中(まだ上限に達していない)はowner_notify_actionsが空のため何もしない。
+            self._dispatch_flow_notify_actions(select_result.owner_notify_actions, now)
             self._send(user_id, select_result.message, now)
             return DispatchResult(action="reask", detail="candidate_selection_pending")
 
@@ -437,10 +475,12 @@ class ConversationEventProcessor:
             self._send(user_id, REASK_NAME_MENU_MESSAGE, now)
             return DispatchResult(action="reask", detail="missing_name_or_menu")
 
-        confirmed = self._flow.provide_details(user_id, name, menu, now)
-        if not confirmed:
+        details_result = self._flow.provide_details(user_id, name, menu, now)
+        if not details_result.confirmed:
             # provide_details()失敗時はConversationFlowStateMachineが内部で
-            # EscalationConsolidator.on_event()を既に呼んでいるため、ここでの二重通知はしない。
+            # EscalationConsolidator.on_event()を既に呼んでいるため、ここでon_event()を再度呼ぶ
+            # 二重通知はしない。返ってきたowner_notify_actionsをそのままpushするだけに留める。
+            self._dispatch_flow_notify_actions(details_result.owner_notify_actions, now)
             return self._represent_candidates_after_conflict(user_id, now)
 
         label = self._held_label_by_user.pop(user_id, "")
@@ -557,6 +597,9 @@ class ConversationEventProcessor:
             return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
 
         if result.stage == "confirmed":
+            # booking_cancelledはcancel_booking()内部で既にconsolidator.on_event()済みのため、
+            # 返ってきたowner_notify_actionsをそのままpushする(_notify_owner()は使わない)。
+            self._dispatch_flow_notify_actions(result.owner_notify_actions, now)
             label = label_from_slot_key(result.slot_key)
             self._send(
                 user_id, format_cancel_confirmed_message(label, result.menu or "", tone), now
@@ -589,6 +632,11 @@ class ConversationEventProcessor:
             self._logs.record(user_id, not_found_event, now)
             self._send(user_id, format_change_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
+
+        # booking_change_startedはchange_booking()内部で既にconsolidator.on_event()済みのため、
+        # 返ってきたowner_notify_actionsをそのままpushする(_notify_owner()は使わない。
+        # confirmed以外はresult.owner_notify_actionsが空リストのため何もしない)。
+        self._dispatch_flow_notify_actions(result.owner_notify_actions, now)
 
         # 実際に旧予約を解放した(=顧客に「取り消した」旨を伝えた)場合のみ、以降の0件時文言を
         # change専用に出し分ける。candidates_presentedだった場合は解放すべき実体が無く

@@ -125,14 +125,22 @@ topicラベル対応表:
   対象にはなるが、`is_escalation_event_owner_notable()`によりオーナーへの実push対象からは除外する
   (schema/validate_test_cases.pyのクロスフィールド検証で「faq_segmentsに未解決項目があれば
   needs_owner_check必須true」が保証されているため、この判定を信頼できる)。
-- 残課題: `ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
-  (booking_conflict等)は、engine.py自体がLINE Push等のI/OをもたないPurely-logic層のため、
-  `on_event()`の戻り値を外部(Cloud Function B)へ伝播させる仕組みが未整備で今回の配線の対象外。
-  また、`flush_escalation_windows()`を定期実行するCloud Scheduler自体の設定はオーナー承認待ち
-  (pending-approval.md参照、reminder_scheduler.pyと同じ位置づけ)。
+- 残課題(解消 2026-08-06 21:00 UTC): `ConversationFlowStateMachine`内部(engine.py)から発火する
+  システムイベント(booking_conflict/candidate_selection_unresolved/booking_cancelled/
+  booking_change_started)をCloud Function B側へ伝播させる仕組みを実装した。engine.py自体は
+  引き続きLINE Push等のI/Oを持たないPurely-logic層のまま、`select_slot_from_reply()`/
+  `provide_details()`/`cancel_booking()`/`change_booking()`の戻り値に`owner_notify_actions`
+  フィールド(`EscalationConsolidator.on_event()`が返す即時通知アクションをそのまま運ぶ)を追加した
+  (`provide_details()`は戻り値をbool単体から`ProvideDetailsResult`に変更)。
+  `prototype/cloud_function_process_event.py`に新設した`_dispatch_flow_notify_actions()`が
+  これを受け取りpushする。Flow側が既に`consolidator.on_event()`を呼び済みのため、
+  `_notify_owner()`(LLM構造化出力起点のイベント用)とは別経路にして`on_event()`の二重呼び出し
+  (ウィンドウ状態の二重更新)を避けた。テスト9件追加(engine.py側4件・
+  cloud_function_process_event.py側4クラス)・既存分含め全155件パス。
+- 残る課題: `flush_escalation_windows()`を定期実行するCloud Scheduler自体の設定はオーナー承認待ち
+  (pending-approval.md参照、reminder_scheduler.pyと同じ位置づけ)。会話要約フィールド
+  (構造化出力への追加要否)の検討は未着手のまま残る。
 
 ## 次のステップ候補
-- ConversationFlowStateMachine内部発火イベント(booking_conflict等)をCloud Function B側へ
-  伝播させる仕組みの設計(戻り値の拡張、またはFlow側にpush_client相当を持たせるか等の検討)
 - 会話要約フィールド(構造化出力への追加要否)の検討
 - 本ファイルの文面をllm-system-prompt-draft.mdの厳守事項6・10の説明文から参照するようリンクを追記

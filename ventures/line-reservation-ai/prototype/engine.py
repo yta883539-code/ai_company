@@ -412,6 +412,22 @@ ESCALATION_HANDOFF_MESSAGE = (
 class SelectSlotResult:
     success: bool
     message: Optional[str] = None  # 失敗時のみ、顧客への案内文言(呼び出し側でそのまま送信可能)
+    # escalation-notification-templates.md「次のステップ候補」準拠。candidate_selection_unresolved
+    # 発火時のみ非空。EscalationConsolidator.on_event()が返した即時通知アクションをそのまま運ぶ
+    # (engine.py自体はI/Oを持たないため、呼び出し側がformat_escalation_notification()等で
+    # 整形してpushする。owner-notification-channel-design.md参照)。
+    owner_notify_actions: list = field(default_factory=list)
+
+
+@dataclass
+class ProvideDetailsResult:
+    """provide_details()の戻り値。以前はbool一つだったが、booking_conflict発火時に
+    EscalationConsolidator.on_event()の戻り値(即時通知アクション)を呼び出し側へ伝播させる
+    必要が生じたため、SelectSlotResultと同じ形の型に変更した(escalation-notification-templates.md
+    「次のステップ候補」準拠)。
+    """
+    confirmed: bool
+    owner_notify_actions: list = field(default_factory=list)
 
 
 @dataclass
@@ -422,6 +438,7 @@ class CancelResult:
     slot_key: Optional[tuple] = None
     name: Optional[str] = None
     menu: Optional[str] = None
+    owner_notify_actions: list = field(default_factory=list)  # SelectSlotResultと同じ位置づけ
 
 
 @dataclass
@@ -432,6 +449,7 @@ class ChangeResult:
     slot_key: Optional[tuple] = None
     name: Optional[str] = None
     menu: Optional[str] = None
+    owner_notify_actions: list = field(default_factory=list)  # SelectSlotResultと同じ位置づけ
 
 
 @dataclass
@@ -504,15 +522,23 @@ class ConversationFlowStateMachine:
         self._first_booking_self_check_sent = False
         self._first_booking_self_check_pending = False
 
-    def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> None:
+    def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> list:
         """システム内部発火のescalationイベント(booking_conflict等、SYSTEM_ESCALATION_REASONS参照)を
         EscalationConsolidator(オーナーへの即時/集約通知)とNotificationLogAggregator
         (通知ログ集計画面向けのsystem_event_counts)の両方に記録する。従来はconsolidatorのみに
         通知しており、logs側には記録が届かないギャップがあった(system-event-log-gap-fix.md参照)。
+
+        戻り値はEscalationConsolidator.on_event()が返す即時通知アクション一覧
+        (`[("immediate"|"immediate_refire", event), ...]`)をそのまま返す。engine.py自体は
+        LINE Push等のI/Oを持たないため、呼び出し元(各publicメソッドの戻り値の
+        owner_notify_actions)を経由してCloud Function B側へ伝播させ、実際のpushは
+        呼び出し側(ConversationEventProcessor)に委ねる(escalation-notification-templates.md
+        「次のステップ候補」準拠)。
         """
-        self._consolidator.on_event(user_id, event, now)
+        actions = self._consolidator.on_event(user_id, event, now)
         if self._logs is not None:
             self._logs.record(user_id, event, now)
+        return actions
 
     def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
@@ -576,7 +602,7 @@ class ConversationFlowStateMachine:
                 # 繰り返さずオーナーへ引き継ぐ(candidate-presentation-and-selection-design.md 6節)。
                 # booking_conflictと同様、システム内部イベントのためbooking_output.schema.jsonの
                 # escalation_reason enumには未追加(今後の課題)。
-                self._notify_system_event(
+                actions = self._notify_system_event(
                     user_id,
                     {
                         "intent": "escalation",
@@ -586,7 +612,9 @@ class ConversationFlowStateMachine:
                     now,
                 )
                 state.reconfirm_count = 0
-                return SelectSlotResult(success=False, message=ESCALATION_HANDOFF_MESSAGE)
+                return SelectSlotResult(
+                    success=False, message=ESCALATION_HANDOFF_MESSAGE, owner_notify_actions=actions
+                )
             return SelectSlotResult(success=False, message=format_reconfirm_message(candidates))
 
         state.reconfirm_count = 0
@@ -600,7 +628,7 @@ class ConversationFlowStateMachine:
             alt_candidates="、".join(alt_labels) if alt_labels else "改めてご希望の日時",
         )
 
-    def provide_details(self, user_id: str, name: str, menu: str, now: datetime) -> bool:
+    def provide_details(self, user_id: str, name: str, menu: str, now: datetime) -> ProvideDetailsResult:
         """氏名・メニューが揃った時点で呼ぶ。confirm()成功ならconfirmedへ進む。
         失敗(確定操作自体の競合)時はcandidates_presentedへ差し戻し、オーナーへ通知する。
         """
@@ -615,9 +643,9 @@ class ConversationFlowStateMachine:
             if not self._first_booking_self_check_sent:
                 self._first_booking_self_check_sent = True
                 self._first_booking_self_check_pending = True
-            return True
+            return ProvideDetailsResult(confirmed=True)
 
-        self._notify_system_event(
+        actions = self._notify_system_event(
             user_id,
             {
                 "intent": "escalation",
@@ -629,12 +657,12 @@ class ConversationFlowStateMachine:
         )
         state.stage = "candidates_presented"
         state.slot_key = None
-        return False
+        return ProvideDetailsResult(confirmed=False, owner_notify_actions=actions)
 
     def consume_first_booking_self_check(self) -> bool:
         """first-booking-self-check-notification-design.md準拠。店舗全体で最初の予約確定が
         発生した直後にTrueを一度だけ返す。呼び出し側(Cloud Function Bの本番配線)は
-        provide_details()の戻り値がTrueだった直後にこれを呼び、Trueならformat_confirmation_message()
+        provide_details()の戻り値のconfirmedがTrueだった直後にこれを呼び、Trueならformat_confirmation_message()
         とは別にformat_first_booking_self_check_message()をオーナーへ追加送信する想定。
         オーナーが実際に問題を起こしたわけではないためEscalationConsolidator/
         NotificationLogAggregator(いずれもneeds_owner_check起点の問題対応向け集計)は経由しない。
@@ -671,8 +699,9 @@ class ConversationFlowStateMachine:
             self._slots.release(slot_key)
         del self._states[user_id]
 
+        actions: list = []
         if stage == "confirmed":
-            self._notify_system_event(
+            actions = self._notify_system_event(
                 user_id,
                 {
                     "intent": "cancel",
@@ -683,7 +712,9 @@ class ConversationFlowStateMachine:
                 },
                 now,
             )
-        return CancelResult(found=True, stage=stage, slot_key=slot_key, name=name, menu=menu)
+        return CancelResult(
+            found=True, stage=stage, slot_key=slot_key, name=name, menu=menu, owner_notify_actions=actions
+        )
 
     def change_booking(self, user_id: str, now: datetime) -> "ChangeResult":
         """change-intent-handling-design.md準拠。intent: "change"を受けた際に呼ぶ。
@@ -703,12 +734,13 @@ class ConversationFlowStateMachine:
             self._slots.release(slot_key)
         del self._states[user_id]
 
+        actions: list = []
         if stage == "confirmed":
             # 確定済みだった枠を解放した事実は、cancelと同じくオーナー側の外部予約記録の
             # 更新が必要なため通知する。escalation_reasonをbooking_cancelledと分けたのは、
             # 「新しい日時への変更手続き中」であることをオーナーが区別できるようにするため
             # (単純なキャンセルと同列に扱うと、顧客対応の緊急度・後続対応の要否が変わってくる)。
-            self._notify_system_event(
+            actions = self._notify_system_event(
                 user_id,
                 {
                     "intent": "change",
@@ -719,7 +751,9 @@ class ConversationFlowStateMachine:
                 },
                 now,
             )
-        return ChangeResult(found=True, stage=stage, slot_key=slot_key, name=name, menu=menu)
+        return ChangeResult(
+            found=True, stage=stage, slot_key=slot_key, name=name, menu=menu, owner_notify_actions=actions
+        )
 
     def release_idle_conversations(self, now: datetime) -> list[ReleasedConversation]:
         """conversation-state-cleanup.md準拠。last_activity_atからCONVERSATION_IDLE_TIMEOUT
