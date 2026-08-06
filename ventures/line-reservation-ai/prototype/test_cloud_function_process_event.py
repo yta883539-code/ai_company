@@ -1020,5 +1020,216 @@ class ConfirmedReplyRecordingTests(unittest.TestCase):
         self.assertEqual(result.action, "faq_replied")
 
 
+class FailForUserPushClient(InMemoryLinePushClient):
+    """指定したuser_id宛の送信のみ常に失敗させる検証用クライアント。
+    _send()の「オーナー自身への送信失敗時は再帰しない」ガードを検証するために使う。
+    """
+
+    def __init__(self, failing_user_id: str) -> None:
+        super().__init__()
+        self._failing_user_id = failing_user_id
+
+    def send_message(self, user_id: str, text: str) -> None:
+        if user_id == self._failing_user_id:
+            raise LinePushDeliveryError("simulated failure")
+        super().send_message(user_id, text)
+
+
+class OwnerEscalationNotificationTests(unittest.TestCase):
+    """owner-notification-channel-design.mdの残課題だった「EscalationConsolidator/
+    NotificationLogAggregatorが返す通知を実際にオーナーへpushする配線」のテスト。
+    """
+
+    def _escalation_llm_call(self, reason=None, feature_hint=None):
+        def call():
+            output = {
+                "intent": "escalation", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+            if reason:
+                output["escalation_reason"] = reason
+            if feature_hint:
+                output["feature_hint"] = feature_hint
+            return output
+
+        return call
+
+    def test_escalation_notifies_owner_with_consultation_label(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        result = processor.process(
+            _event("U1", "施術で肌荒れしたんですが大丈夫でしょうか"), self._escalation_llm_call(), NOW
+        )
+
+        self.assertEqual(result.action, "escalation_replied")
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("【要確認】", owner_messages[0])
+        self.assertIn("予約以外のご相談", owner_messages[0])
+        self.assertIn("お客様", owner_messages[0])
+
+    def test_unimplemented_feature_notification_includes_feature_hint(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        processor.process(
+            _event("U1", "予約時に前払いできますか"),
+            self._escalation_llm_call("unimplemented_feature", "デポジット決済"),
+            NOW,
+        )
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("未対応機能に関するお問い合わせ", owner_messages[0])
+        self.assertIn("デポジット決済", owner_messages[0])
+
+    def test_chitchat_like_forward_does_not_notify_owner(self):
+        # E6相当(9b雑談、needs_owner_check: false)。forwarded_to_ownerにはなるが
+        # オーナーへの実pushは対象外(EscalationConsolidatorのウィンドウ管理には乗る)。
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def chitchat_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "こんにちは!"), chitchat_call, NOW)
+
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
+
+    def test_unresolved_faq_segment_notifies_owner_with_topic_label(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def faq_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": True,
+                "faq_segments": [
+                    {"topic": "parking", "resolved": True},
+                    {"topic": "payment", "resolved": False},
+                ],
+            }
+
+        processor.process(_event("U2", "駐車場ある?電子マネーは使える?"), faq_call, NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("未登録FAQへのお問い合わせ", owner_messages[0])
+        self.assertIn("支払い方法", owner_messages[0])
+
+    def test_unregistered_menu_notifies_owner(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "フェイシャル",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "フェイシャルで予約したいです"), llm_call, NOW)
+
+        self.assertEqual(result.detail, "unregistered_menu")
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("未登録メニューでのご予約希望", owner_messages[0])
+
+    def test_line_push_failed_notifies_owner(self):
+        push = FlakyLinePushClient(fail_count=2)
+        processor, flow, push, logs = _new_processor(push_client=push, owner_user_id="U-owner")
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "予約したいです"), llm_call, NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("LINE送信エラー", owner_messages[0])
+
+    def test_owner_push_failure_does_not_recurse(self):
+        push = FailForUserPushClient(failing_user_id="U-owner")
+        processor, flow, push, logs = _new_processor(push_client=push, owner_user_id="U-owner")
+
+        # 例外なく完了すれば_send()の再帰防止ガードが機能している。
+        result = processor.process(
+            _event("U1", "施術で肌荒れしたんですが大丈夫でしょうか"), self._escalation_llm_call(), NOW
+        )
+
+        self.assertEqual(result.action, "escalation_replied")
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), 1)
+
+
+class EscalationWindowFlushTests(unittest.TestCase):
+    """owner-notification-channel-design.mdの残課題だったflush_escalation_windows()
+    (Cloud Scheduler経由のまとめ通知)のテスト。
+    """
+
+    def _escalation_llm_call(self, reason=None, feature_hint=None):
+        def call():
+            output = {
+                "intent": "escalation", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+            if reason:
+                output["escalation_reason"] = reason
+            if feature_hint:
+                output["feature_hint"] = feature_hint
+            return output
+
+        return call
+
+    def test_second_escalation_within_window_is_queued_then_flushed_as_digest(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        processor.process(_event("U1", "肌荒れの相談"), self._escalation_llm_call(), NOW)
+        self.assertEqual(len([t for uid, t in push.sent if uid == "U-owner"]), 1)
+
+        # 5分ウィンドウ内の2回目は即時通知されずキューに貯まる。
+        processor.process(
+            _event("U1", "デポジット決済できますか"),
+            self._escalation_llm_call("unimplemented_feature", "デポジット決済"),
+            NOW + timedelta(minutes=2),
+        )
+        self.assertEqual(len([t for uid, t in push.sent if uid == "U-owner"]), 1)
+
+        sent = processor.flush_escalation_windows(NOW + timedelta(minutes=6))
+
+        self.assertEqual(sent, 1)
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 2)
+        self.assertIn("【まとめてご確認】", owner_messages[-1])
+        self.assertIn("未対応機能に関するお問い合わせ", owner_messages[-1])
+
+    def test_flush_returns_zero_when_owner_not_configured(self):
+        processor, flow, push, logs = _new_processor(owner_user_id=None)
+        processor.process(_event("U1", "肌荒れの相談"), self._escalation_llm_call(), NOW)
+
+        sent = processor.flush_escalation_windows(NOW + timedelta(minutes=6))
+
+        self.assertEqual(sent, 0)
+
+    def test_flush_skips_window_with_only_non_notable_events(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def chitchat_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "こんにちは!"), chitchat_call, NOW)
+        processor.process(_event("U1", "(URLのみのメッセージ)"), chitchat_call, NOW + timedelta(minutes=1))
+
+        sent = processor.flush_escalation_windows(NOW + timedelta(minutes=6))
+
+        self.assertEqual(sent, 0)
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -99,12 +99,40 @@ topicラベル対応表:
 
 ## 未検討・要検討事項
 - 「短時間の連続エスカレーションを1通にまとめる」の具体的な時間窓・実装方法は未設計(方針のみ)。
+  → (解消 2026-08-01: escalation-consolidation-logic.mdで5分ウィンドウ方式として具体設計済み)
 - 未登録FAQの通知件数集計(店舗全体の通知ログ)の画面設計はowner-settings-wireframe.mdに未反映。
+  → (解消: notification-log-classification-labels.md・owner-settings-wireframe.mdに反映済み)
 - 本文面のトーン(「〜をお願いします」等)がtone-and-manner-guideline.mdの顧客向けトーンと
   混同されないよう、実装時にオーナー向け通知用と顧客向けメッセージ用でテンプレートファイルを
   明確に分けるべきという設計メモを残す(今回はドラフトの文面整理のみ)。
+  → (解消 2026-08-06 20:00 UTC: prototype/engine.pyのformat_escalation_notification()/
+  format_escalation_digest_message()を顧客向けformat_*関数群とは別に新設し、明確に分離した)
+- 本文面(基本形)の「内容」欄は会話要約の生文言を想定していたが、現状の構造化出力
+  (booking_output.schema.json)には会話要約フィールドが無い(`feature_hint`のみ自由記述)。
+  実装(prototype/engine.pyのformat_escalation_notification())では暫定的に
+  「詳細はLINEトーク画面で内容をご確認ください」への案内に留めている。会話要約フィールドの
+  追加要否は今後の課題として残す。
+
+## 実装状況(2026-08-06 20:00 UTC追記)
+- prototype/engine.pyに`format_escalation_notification()`(個別即時通知)・
+  `format_escalation_digest_message()`(ウィンドウ集約分のまとめ通知)を実装し、
+  prototype/cloud_function_process_event.pyの`ConversationEventProcessor._notify_owner()`/
+  `flush_escalation_windows()`から呼び出す配線を実装した(owner-notification-channel-design.md参照)。
+  これまで`EscalationConsolidator.on_event()`の戻り値(即時通知すべきアクション)は
+  全ての呼び出し箇所で破棄されており、実際にオーナーへpushされることは一度も無かった
+  (first-booking-self-check-notification-design.md由来の初回予約通知を除く)。
+- `needs_owner_check: false`のイベント(9b雑談等)は`EscalationConsolidator`のウィンドウ管理
+  対象にはなるが、`is_escalation_event_owner_notable()`によりオーナーへの実push対象からは除外する
+  (schema/validate_test_cases.pyのクロスフィールド検証で「faq_segmentsに未解決項目があれば
+  needs_owner_check必須true」が保証されているため、この判定を信頼できる)。
+- 残課題: `ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
+  (booking_conflict等)は、engine.py自体がLINE Push等のI/OをもたないPurely-logic層のため、
+  `on_event()`の戻り値を外部(Cloud Function B)へ伝播させる仕組みが未整備で今回の配線の対象外。
+  また、`flush_escalation_windows()`を定期実行するCloud Scheduler自体の設定はオーナー承認待ち
+  (pending-approval.md参照、reminder_scheduler.pyと同じ位置づけ)。
 
 ## 次のステップ候補
-- 通知ログ集計画面(未登録FAQ件数・未実装機能問い合わせ件数)のワイヤーフレームをowner-settings-wireframe.mdに追記
-- 連続エスカレーションの集約ロジック(時間窓・件数)の具体設計
+- ConversationFlowStateMachine内部発火イベント(booking_conflict等)をCloud Function B側へ
+  伝播させる仕組みの設計(戻り値の拡張、またはFlow側にpush_client相当を持たせるか等の検討)
+- 会話要約フィールド(構造化出力への追加要否)の検討
 - 本ファイルの文面をllm-system-prompt-draft.mdの厳守事項6・10の説明文から参照するようリンクを追記

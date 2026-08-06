@@ -220,6 +220,101 @@ class NotificationLogAggregator:
         return sum(self.system_event_counts.values())
 
 
+# escalation-notification-templates.md: FAQ topic / システム内部イベントの日本語ラベル対応表。
+# format_escalation_notification()/format_escalation_digest_message()で使う。
+FAQ_TOPIC_LABELS = {
+    "access": "アクセス・行き方",
+    "parking": "駐車場",
+    "payment": "支払い方法",
+    "hours": "営業時間・定休日",
+    "other": "その他FAQ",
+}
+
+_SYSTEM_EVENT_LABELS = {
+    "booking_conflict": "予約枠の競合(システム)",
+    "candidate_selection_unresolved": "候補選択が確定しなかった(システム)",
+    "booking_cancelled": "予約キャンセル(確定分)",
+    "cancel_not_found": "キャンセル対象の予約が見つからない",
+    "booking_change_started": "予約変更(旧予約解放)",
+    "change_not_found": "変更対象の予約が見つからない",
+    "llm_unavailable": "AI応答エラー(システム)",
+    "line_push_failed": "LINE送信エラー(システム)",
+    # SYSTEM_ESCALATION_REASONSには含まれないが、_start_new_booking()の
+    # unregistered_menu(メニュー未登録)もオーナー要確認イベントのため、ここで併せてラベル付けする。
+    "unregistered_menu": "未登録メニューでのご予約希望",
+}
+
+
+def _escalation_type_label(event: dict) -> str:
+    """escalation-notification-templates.md「種別ごとの文面」の種別ラベル部分に相当。"""
+    reason = event.get("escalation_reason")
+    if reason == "unimplemented_feature":
+        return "未対応機能に関するお問い合わせ"
+    if reason in _SYSTEM_EVENT_LABELS:
+        return _SYSTEM_EVENT_LABELS[reason]
+    unresolved = [seg["topic"] for seg in (event.get("faq_segments") or []) if not seg.get("resolved")]
+    if unresolved:
+        labels = "・".join(FAQ_TOPIC_LABELS.get(t, t) for t in unresolved)
+        return f"未登録FAQへのお問い合わせ({labels})"
+    return "予約以外のご相談"
+
+
+def _escalation_detail_text(event: dict) -> str:
+    """escalation-notification-templates.md「内容」部分に相当。
+    現状の構造化出力には会話内容の要約フィールドが無い(feature_hint以外)ため、
+    暫定的にLINEトーク画面参照への案内に留める(要約フィールドの追加は今後の課題)。
+    """
+    if event.get("escalation_reason") == "unimplemented_feature" and event.get("feature_hint"):
+        return event["feature_hint"]
+    return "詳細はLINEトーク画面で内容をご確認ください。"
+
+
+def is_escalation_event_owner_notable(event: dict) -> bool:
+    """EscalationConsolidator.on_event()はneeds_owner_checkの値を見ずに全イベントを
+    ウィンドウ管理の対象にする(既存の集約ロジック自体は変更しない)ため、実際にオーナーへ
+    pushすべきかどうかは呼び出し元でこの関数を使って別途判定する。
+    `needs_owner_check`はschema/validate_test_cases.pyのクロスフィールド検証により
+    「faq_segmentsにresolved:falseが含まれる場合は必ずtrue」が保証されているため、
+    基本の判定に使える。システム内部イベント(_SYSTEM_EVENT_LABELS該当)はLLM構造化出力を
+    経由せず`needs_owner_check`が付与されないことがあるため、escalation_reasonでも判定する。
+    """
+    if event.get("needs_owner_check"):
+        return True
+    reason = event.get("escalation_reason")
+    return reason in _SYSTEM_EVENT_LABELS or reason == "unimplemented_feature"
+
+
+def format_escalation_notification(customer_label: str, event: dict, now: datetime) -> str:
+    """escalation-notification-templates.md「通知文面の基本形」準拠。
+    EscalationConsolidator.on_event()が返す("immediate"|"immediate_refire", event)アクションを
+    実際にオーナーへpushする際に使う想定(呼び出し元はcloud_function_process_event.py)。
+    """
+    return (
+        f"【要確認】{customer_label}より{now.strftime('%H:%M')}にお問い合わせがありました。\n"
+        f"種別: {_escalation_type_label(event)}\n"
+        f"内容: {_escalation_detail_text(event)}\n"
+        "対応: 店舗から直接ご連絡または次回来店時にご案内をお願いします。"
+    )
+
+
+def format_escalation_digest_message(customer_label: str, events: list, now: datetime) -> str:
+    """escalation-consolidation-logic.mdのウィンドウ集約分(EscalationConsolidator.flush_due_windows()で
+    取り出した分)を1通にまとめてオーナーへ通知する際の文面。件数・種別内訳のみを示し、
+    詳細はLINEトーク画面参照とする(Cloud Scheduler等の定期実行トリガーから呼び出す想定、
+    reminder_scheduler.pyと同様に判定・整形ロジックのみを実クラウド接続なしで検証可能にしたもの)。
+    """
+    counts: dict[str, int] = {}
+    for event in events:
+        label = _escalation_type_label(event)
+        counts[label] = counts.get(label, 0) + 1
+    breakdown = "\n".join(f"  - {label}: {count}件" for label, count in counts.items())
+    return (
+        f"【まとめてご確認】{customer_label}より短時間に{len(events)}件のお問い合わせがありました。\n"
+        f"内訳:\n{breakdown}\n"
+        "対応: LINEトーク画面で内容をご確認のうえ、まとめてご対応をお願いします。"
+    )
+
+
 # ---------------------------------------------------------------------------
 # 4. double-booking-prevention.md: 仮押さえ(pending)→確定(confirmed)の2段階予約枠管理
 # ---------------------------------------------------------------------------

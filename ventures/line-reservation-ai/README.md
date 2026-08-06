@@ -602,15 +602,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   EscalationConsolidator/NotificationLogAggregatorが返す他の通知(エスカレーション等)を
   実際にオーナーへpushする配線は、呼び出し元(Cloud Scheduler経由の`flush_due_windows()`)が
   未実装のため引き続き次回以降の課題として残した。テスト3件追加・全141件パス。
-- 最終更新: 2026-08-06 19:00 UTC
+- フェーズ(続き73): 前項の残課題だった「EscalationConsolidator/NotificationLogAggregatorが
+  返す通知を実際にオーナーへpushする配線」を実装した。これまで`EscalationConsolidator.on_event()`
+  の戻り値(即時通知すべきアクション)は全ての呼び出し箇所で破棄されており、初回予約通知
+  (first-booking-self-check-notification-design.md)を除きオーナーへの実push自体が一度も
+  行われていなかったことが判明した。escalation-notification-templates.md準拠の
+  `format_escalation_notification()`(個別即時)・`format_escalation_digest_message()`
+  (ウィンドウ集約分)をprototype/engine.pyに新設し、`ConversationEventProcessor._notify_owner()`
+  ヘルパーに集約して各呼び出し箇所(escalation/未登録FAQ/未登録メニュー/cancel_not_found/
+  change_not_found/LINE送信エラー)から呼ぶよう配線した。`needs_owner_check: false`のイベント
+  (9b雑談等)はウィンドウ管理の対象にはなるが`is_escalation_event_owner_notable()`で実push対象
+  からは除外する(schema/validate_test_cases.pyのクロスフィールド検証で「未解決FAQがあれば
+  needs_owner_check必須true」が保証されているため信頼できる判定)。5分ウィンドウで貯まった分を
+  取り出す`flush_escalation_windows()`(Cloud Scheduler等の定期実行トリガーから呼ぶ想定、
+  reminder_scheduler.pyと同じ位置づけ)も新設した。`_send()`のオーナー宛送信自体が失敗した
+  場合に無限再帰しないようガードを追加。テスト10件追加・全151件パス。残課題は
+  `ConversationFlowStateMachine`内部(booking_conflict等)から発火するシステムイベントの
+  伝播(engine.py自体がI/Oを持たない設計のため別途仕組みが必要)と、実Cloud Scheduler設定
+  (オーナー承認待ち)。
+- 最終更新: 2026-08-06 20:00 UTC
 
 ## ドキュメント
 - owner-notification-channel-design.md: オーナー通知の配信先・配信方法の設計
   (2026-08-06新規作成。同一LINE公式アカウントのpush APIをオーナー宛にも使う方式を採用し、
   `owner_user_id`をonboarding-guide.mdステップ4のテストメッセージ経由で取得する運用を想定。
   メール通知・LINE Notify(サービス終了済み)・管理者向けLINEグループは不採用。
-  `prototype/cloud_function_process_event.py`にfirst-booking-self-check通知の配線のみ実装済み、
-  EscalationConsolidator系の通知配線は次回以降の課題)
+  `prototype/cloud_function_process_event.py`にfirst-booking-self-check通知に加え、
+  EscalationConsolidator系(即時通知・5分ウィンドウのまとめ通知)の配線も実装済み
+  [2026-08-06 20:00 UTC]。残課題はConversationFlowStateMachine内部イベントの伝播と
+  実Cloud Scheduler設定)
 - onboarding-guide.md: 申込からLINE公式アカウントでの予約対応開始までの導入フロー
   (2026-08-04 08:00 UTC新規作成。申込・トライアル開始→LINE公式アカウント準備→
   営業情報・メニュー初期設定→接続テスト・試験会話→本番公開→トライアル終了・プラン選択の

@@ -51,6 +51,22 @@ webhook-function-b-implementation.mdの残課題だった(1)escalation/faq inten
 - reminder-scheduler-design.mdの残課題だった「確定後の顧客からの返信検知の配線」を実装した
   (customer-reply-detection-design.md参照)。confirmed状態の会話へメッセージが届いた事実を、
   内容を問わず`ConfirmedReplyRecorder`プロトコル経由で記録する(未指定時は何もしない)。
+
+- owner-notification-channel-design.mdの残課題だった「EscalationConsolidator/
+  NotificationLogAggregatorが返す通知を実際にオーナーへpushする配線」を実装した。
+  これまで`consolidator.on_event()`の戻り値(即時通知すべきアクション一覧)は全ての呼び出し箇所で
+  破棄されており、エスカレーション等が発生してもオーナーへの実送信は一切行われていなかった。
+  `_notify_owner()`ヘルパーに集約し、escalation-notification-templates.md準拠の
+  `format_escalation_notification()`(engine.py新規追加)で整形して`owner_user_id`へ`_send()`する。
+  また、5分ウィンドウで貯まったまとめ通知(`EscalationConsolidator.flush_due_windows()`)を
+  取り出してオーナーへpushする`flush_escalation_windows()`を新設した。これはCloud Scheduler等の
+  定期実行トリガーから呼び出す想定(reminder_scheduler.pyの前日リマインド判定と同じ位置づけ)で、
+  実際のCloud Scheduler設定自体は「アカウント作成」に該当するため引き続きオーナー承認待ち
+  (呼び出しロジック自体は実クラウド接続なしで検証可能)。
+  なお、`ConversationFlowStateMachine`内部(engine.py)から発火するシステムイベント
+  (booking_conflict等)はこの配線の対象外として残った。engine.pyはLINE Push等のI/Oを持たない
+  純粋ロジック層として設計されているため、`consolidator.on_event()`の戻り値をFlow内部から
+  外部(Cloud Function B)へ伝播させる仕組みが別途必要であり、次回以降の課題とする。
 """
 
 from __future__ import annotations
@@ -76,7 +92,10 @@ from engine import (  # noqa: E402
     format_change_not_found_message,
     format_change_started_message,
     format_confirmation_message,
+    format_escalation_digest_message,
+    format_escalation_notification,
     format_faq_address_message,
+    is_escalation_event_owner_notable,
     format_faq_hours_message,
     format_faq_parking_message,
     format_faq_payment_message,
@@ -254,8 +273,57 @@ class ConversationEventProcessor:
             except LinePushDeliveryError:
                 continue
         event = {"needs_owner_check": True, "escalation_reason": "line_push_failed"}
-        self._consolidator.on_event(user_id, event, now)
         self._logs.record(user_id, event, now)
+        if user_id == self._owner_user_id:
+            # オーナー自身への送信が失敗した場合、これ以上オーナーへpushで通知しようがないため
+            # 集約状態の記録のみ行い実送信は諦める(_notify_owner()を呼ぶと再度_send()を
+            # 呼び出し同じ送信先への無限再帰になるため、ここでは直接on_event()に留める)。
+            self._consolidator.on_event(user_id, event, now)
+            return
+        self._notify_owner(user_id, event, now)
+
+    def _notify_owner(self, user_id: str, output: dict, now: datetime) -> None:
+        """owner-notification-channel-design.md準拠。EscalationConsolidator.on_event()を呼び、
+        返ってきた即時通知アクション(("immediate"|"immediate_refire", event))があれば
+        format_escalation_notification()で整形して`owner_user_id`へ実際にpushする。
+        ウィンドウ内に貯まった分(まとめ通知)はここでは送らず、flush_escalation_windows()の
+        領分とする。owner_user_id未設定時は集約状態の記録のみ行い、送信は静かにスキップする
+        (first-booking-self-check-notification-design.md等と同じ安全側フォールバック)。
+        """
+        actions = self._consolidator.on_event(user_id, output, now)
+        if not self._owner_user_id:
+            return
+        customer_label = f"{output.get('name')}様" if output.get("name") else "お客様"
+        for _kind, event in actions:
+            if not is_escalation_event_owner_notable(event):
+                # needs_owner_check: falseのイベント(例: E6の雑談・9b)はEscalationConsolidator
+                # 自体のウィンドウ管理対象にはなるが、オーナーへの実push対象ではないためスキップする。
+                continue
+            self._send(self._owner_user_id, format_escalation_notification(customer_label, event, now), now)
+
+    def flush_escalation_windows(self, now: datetime) -> int:
+        """Cloud Scheduler等、定期実行のトリガーから呼び出す想定の関数
+        (reminder_scheduler.pyのsend_reminders相当)。EscalationConsolidator.flush_due_windows()で
+        ウィンドウ(5分)が経過し未送信のまとめ通知があるユーザー分を取り出し、
+        format_escalation_digest_message()で1通にまとめてオーナーへpushする。
+        実際のCloud Scheduler設定自体は「アカウント作成」に該当するため引き続き
+        オーナー承認待ち(pending-approval.md参照)。戻り値は実際に送信した件数
+        (テスト・デモでの確認用)。
+        """
+        if not self._owner_user_id:
+            return 0
+        sent = 0
+        for _user_id, events in self._consolidator.flush_due_windows(now):
+            notable = [e for e in events if is_escalation_event_owner_notable(e)]
+            if not notable:
+                # ウィンドウ内が全てneeds_owner_check: false(9b雑談等)だった場合、
+                # ウィンドウ自体は消費済み扱いとしつつオーナーへの実pushは行わない。
+                continue
+            first_name = next((e.get("name") for e in notable if e.get("name")), None)
+            customer_label = f"{first_name}様" if first_name else "お客様"
+            self._send(self._owner_user_id, format_escalation_digest_message(customer_label, notable, now), now)
+            sent += 1
+        return sent
 
     def process(
         self,
@@ -295,7 +363,7 @@ class ConversationEventProcessor:
             # オーナーへの転送のみ行う(単一項目9a FAQがここに落ちない理由は
             # モジュールdocstring「実装範囲」参照。cancel/changeはそれぞれの設計md準拠で
             # 上記の_handle_cancel/_handle_changeへ分岐済みのためここには来ない)。
-            self._consolidator.on_event(user_id, output, now)
+            self._notify_owner(user_id, output, now)
             return DispatchResult(action="forwarded_to_owner", detail=intent or "unknown")
 
         stage = self._flow.stage(user_id)
@@ -309,7 +377,7 @@ class ConversationEventProcessor:
         # ここに到達するのはstageがawaiting_details/candidates_presented/confirmed/None
         # のいずれでもない場合で、ConversationFlowStateMachineの実装上通常発生しないが、
         # 安全側でオーナーへ転送する。
-        self._consolidator.on_event(user_id, output, now)
+        self._notify_owner(user_id, output, now)
         return DispatchResult(action="forwarded_to_owner", detail=f"unexpected_stage:{stage}")
 
     def _start_new_booking(
@@ -317,7 +385,7 @@ class ConversationEventProcessor:
     ) -> DispatchResult:
         menu_minutes = resolve_menu_duration(output.get("menu"), self._menu_durations)
         if menu_minutes is None:
-            self._consolidator.on_event(
+            self._notify_owner(
                 user_id, {**output, "escalation_reason": "unregistered_menu"}, now
             )
             return DispatchResult(action="forwarded_to_owner", detail="unregistered_menu")
@@ -430,7 +498,7 @@ class ConversationEventProcessor:
             self._send(user_id, self._render_faq_segment(seg["topic"], seg["resolved"], tone), now)
         # 通知ログ集計(未解決topicのユニーク集計)・resolved:false項目のオーナー通知は
         # 既存のEscalationConsolidator/NotificationLogAggregatorに委ねる(全体のoutputを渡す)。
-        self._consolidator.on_event(user_id, output, now)
+        self._notify_owner(user_id, output, now)
         unresolved = sum(1 for seg in segments if not seg["resolved"])
         return DispatchResult(action="faq_replied", detail=f"{len(segments)}_segments_{unresolved}_unresolved")
 
@@ -460,7 +528,7 @@ class ConversationEventProcessor:
         faq-response-templates.mdの共通保留文言を即時送信し、詳細な対応はオーナーに委ねる。
         """
         self._send(user_id, format_faq_unregistered_message(tone), now)
-        self._consolidator.on_event(user_id, output, now)
+        self._notify_owner(user_id, output, now)
         return DispatchResult(action="escalation_replied", detail=output.get("escalation_reason") or "consultation")
 
     def _handle_cancel(self, user_id: str, now: datetime, tone: str) -> DispatchResult:
@@ -483,7 +551,7 @@ class ConversationEventProcessor:
             not_found_event = {
                 "intent": "cancel", "needs_owner_check": True, "escalation_reason": "cancel_not_found",
             }
-            self._consolidator.on_event(user_id, not_found_event, now)
+            self._notify_owner(user_id, not_found_event, now)
             self._logs.record(user_id, not_found_event, now)
             self._send(user_id, format_cancel_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="cancel_not_found")
@@ -517,7 +585,7 @@ class ConversationEventProcessor:
             not_found_event = {
                 "intent": "change", "needs_owner_check": True, "escalation_reason": "change_not_found",
             }
-            self._consolidator.on_event(user_id, not_found_event, now)
+            self._notify_owner(user_id, not_found_event, now)
             self._logs.record(user_id, not_found_event, now)
             self._send(user_id, format_change_not_found_message(tone), now)
             return DispatchResult(action="forwarded_to_owner", detail="change_not_found")
