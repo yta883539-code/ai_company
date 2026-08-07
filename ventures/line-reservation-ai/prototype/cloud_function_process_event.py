@@ -104,6 +104,7 @@ from engine import (  # noqa: E402
     format_faq_address_message,
     is_escalation_event_owner_notable,
     format_faq_hours_message,
+    format_faq_hours_message_weekly,
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
@@ -587,6 +588,15 @@ class ConversationEventProcessor:
             return format_faq_payment_message(self._store_faq_info["payment_methods"], tone)
         if topic == "hours" and self._store_faq_info.get("hours"):
             hours = self._store_faq_info["hours"]
+            # 曜日別営業時間・複数区間(昼休憩等)を使う「複雑な店舗」は"default_ranges"/
+            # "weekday_ranges"キーを持つ形式で渡される(hours-other-faq-topic-resolution.mdの
+            # 「決定1」参照)。単一区間のみの「シンプルな店舗」は従来通りopen_minutes/close_minutes形式。
+            if "default_ranges" in hours or "weekday_ranges" in hours:
+                return format_faq_hours_message_weekly(
+                    hours.get("default_ranges", []),
+                    hours.get("weekday_ranges", {}),
+                    hours.get("closed_weekdays", frozenset()), tone,
+                )
             return format_faq_hours_message(
                 hours["open_minutes"], hours["close_minutes"],
                 hours.get("closed_weekdays", frozenset()), tone,

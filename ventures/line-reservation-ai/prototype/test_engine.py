@@ -38,6 +38,7 @@ from engine import (  # noqa: E402
     format_change_not_found_message,
     format_change_started_message,
     format_confirmation_message,
+    format_faq_hours_message_weekly,
     format_faq_parking_message,
     format_first_booking_self_check_message,
     format_hold_message,
@@ -746,6 +747,54 @@ class ResolveCandidateSelectionTest(unittest.TestCase):
 
     def test_unresolvable_reply_returns_none(self):
         self.assertIsNone(resolve_candidate_selection("午後がいいです", self.candidates))
+
+
+class FormatFaqHoursMessageWeeklyTest(unittest.TestCase):
+    """hours-other-faq-topic-resolution.mdの残課題(曜日別営業時間・複数区間(昼休憩等)を
+    使う店舗向けの自然文生成)に対応した format_faq_hours_message_weekly() の単体テスト。
+    """
+
+    def test_uniform_week_collapses_to_single_group(self):
+        message = format_faq_hours_message_weekly(
+            default_ranges=[(10 * 60, 19 * 60)], weekday_ranges={},
+        )
+        self.assertEqual(message, "当店の営業時間は月〜日: 10:00〜19:00です。")
+
+    def test_weekday_override_and_lunch_break_and_closed_day(self):
+        message = format_faq_hours_message_weekly(
+            default_ranges=[(10 * 60, 13 * 60), (14 * 60, 19 * 60)],
+            weekday_ranges={5: [(10 * 60, 15 * 60)]},  # 5=土曜
+            closed_weekdays=frozenset({6}),  # 6=日曜
+        )
+        self.assertEqual(
+            message,
+            "当店の営業時間は月〜金: 10:00〜13:00、14:00〜19:00、土: 10:00〜15:00、"
+            "日: 定休日です。",
+        )
+
+    def test_non_contiguous_matching_days_are_not_merged(self):
+        # 月・水・金だけ短縮営業のような非連続な一致は、連続する曜日のみをまとめる設計上
+        # まとめず個別に列挙される(登録値の機械的な組み立てのみを行い、パターン推測はしない)。
+        short_hours = [(10 * 60, 15 * 60)]
+        message = format_faq_hours_message_weekly(
+            default_ranges=[(10 * 60, 19 * 60)],
+            weekday_ranges={0: short_hours, 2: short_hours, 4: short_hours},
+        )
+        self.assertEqual(
+            message,
+            "当店の営業時間は月: 10:00〜15:00、火: 10:00〜19:00、水: 10:00〜15:00、"
+            "木: 10:00〜19:00、金: 10:00〜15:00、土〜日: 10:00〜19:00です。",
+        )
+
+    def test_tone_variants_differ(self):
+        formal = format_faq_hours_message_weekly(
+            default_ranges=[(10 * 60, 19 * 60)], weekday_ranges={}, tone="formal",
+        )
+        casual = format_faq_hours_message_weekly(
+            default_ranges=[(10 * 60, 19 * 60)], weekday_ranges={}, tone="casual",
+        )
+        self.assertNotEqual(formal, casual)
+        self.assertTrue(casual.endswith("!"))
 
 
 class ToneRenderingTest(unittest.TestCase):

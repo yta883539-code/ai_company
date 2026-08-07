@@ -1366,6 +1366,57 @@ def format_faq_hours_message(open_minutes: int, close_minutes: int,
     return _render_by_tone(tone, variants)
 
 
+def format_faq_hours_message_weekly(default_ranges: list, weekday_ranges: dict,
+                                     closed_weekdays: frozenset = frozenset(),
+                                     tone: str = "standard") -> str:
+    """FAQ回答テンプレート・曜日別営業時間+複数区間(昼休憩等)対応版の営業時間案内。
+    hours-other-faq-topic-resolution.mdの「決定1」で残課題としていた、曜日別営業時間・
+    休憩時間を使う店舗(format_faq_hours_messageの対象外だった「複雑な店舗」)向けの
+    自然文生成ロジック。各曜日の登録区間(開始,終了)のペアをそのまま機械的に列挙するのみで、
+    AI側での言い換え・推測(「休憩」等の意味付けを含む)は行わない(faq-response-templates.mdの
+    基本方針を維持)。同一の区間構成が連続する曜日はまとめて「月〜金」のように範囲表記する。
+
+    default_ranges: 曜日別上書きが無い曜日に使う既定区間 [(開始,終了), ...]。
+    weekday_ranges: {weekday(月=0〜日=6): [(開始,終了), ...]} 曜日別の上書き区間
+        (AvailabilitySearcherのweekday_business_hoursと同じ形式・正規化済みの値を渡す想定)。
+    closed_weekdays: 定休日の曜日集合(date.weekday()準拠)。
+    """
+    def ranges_for(weekday: int) -> tuple:
+        if weekday in closed_weekdays:
+            return ()
+        return tuple(weekday_ranges.get(weekday, default_ranges))
+
+    per_day = [ranges_for(w) for w in range(7)]
+
+    groups = []
+    for w in range(7):
+        if groups and groups[-1]["ranges"] == per_day[w] and groups[-1]["end"] == w - 1:
+            groups[-1]["end"] = w
+        else:
+            groups.append({"start": w, "end": w, "ranges": per_day[w]})
+
+    def label(g: dict) -> str:
+        if g["start"] == g["end"]:
+            return _WEEKDAY_JA[g["start"]]
+        return f"{_WEEKDAY_JA[g['start']]}〜{_WEEKDAY_JA[g['end']]}"
+
+    def ranges_text(ranges: tuple) -> str:
+        if not ranges:
+            return "定休日"
+        return "、".join(
+            f"{s // 60:02d}:{s % 60:02d}〜{e // 60:02d}:{e % 60:02d}" for s, e in ranges
+        )
+
+    body = "、".join(f"{label(g)}: {ranges_text(g['ranges'])}" for g in groups)
+
+    variants = {
+        "formal": f"当店の営業時間は{body}でございます。",
+        "standard": f"当店の営業時間は{body}です。",
+        "casual": f"営業時間は{body}です!",
+    }
+    return _render_by_tone(tone, variants)
+
+
 def format_faq_unregistered_message(tone: str = "standard") -> str:
     """厳守事項6のエスカレーション時の保留文言(faq-response-templates.mdの
     「未登録・一部未入力のケース(共通)」準拠)。faq_segmentsのresolved:falseの項目、

@@ -68,7 +68,18 @@ json-schema-multi-intent-extension.md時点でも未確定だった。
 
 ## 未解決のまま残す課題
 
-- 曜日別営業時間・休憩時間を使う店舗向けの自然文生成ロジック(上記「決定1」参照)。
-- Cloud Function B呼び出し側での「シンプル/複雑」判定の実装自体は、GCPプロジェクト作成
-  (オーナー承認待ち、pending-approval.md参照)後の着手となる。
+- (解消済み 2026-08-07 08:00 UTC: 曜日別営業時間・休憩時間を使う店舗向けの自然文生成ロジックを
+  `format_faq_hours_message_weekly()`(prototype/engine.py)として実装した。各曜日の登録区間
+  (開始,終了)をそのまま機械的に列挙し、同一の区間構成が連続する曜日は「月〜金」のようにまとめる
+  (非連続な一致はまとめない設計)。`_render_faq_segment()`
+  (prototype/cloud_function_process_event.py)は`store_faq_info["hours"]`に
+  `default_ranges`/`weekday_ranges`キーがあればこの新関数を、無ければ従来の単一区間版
+  `format_faq_hours_message()`を呼び分けるよう変更した。テスト8件追加(engine 4件・
+  process_event 1件の新規テストに加え、上記呼び分けの既存テストは無変更で通過)、
+  全168件パス、schema検証25件も全件パス。これにより「複雑な店舗は自動回答の対象外」という
+  制約はエンジン側では解消された)
+- Cloud Function B呼び出し側で店舗設定(Firestore)から`store_faq_info["hours"]`に
+  `default_ranges`/`weekday_ranges`形式を実際に組み立てて渡す配線は、GCPプロジェクト作成
+  (オーナー承認待ち、pending-approval.md参照)後の着手となる。上記の通りengine側の関数と
+  呼び分けロジックは実装済みのため、配線自体は「渡す値を組み立てる」だけで完了する状態にある。
 - `other`向け入力欄の要否は、実顧客ヒアリング後に再検討する。

@@ -688,7 +688,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   本番投入前チェックリストの順に、既存のprototype/コードとの対応関係を明記した。本ドキュメント
   作成自体はアカウント作成・課金を伴わない机上整理であり、手順書に記載した各ステップの実行自体は
   引き続きオーナー承認後まで着手しない。
-- 最終更新: 2026-08-07 06:00 UTC
+- フェーズ(続き81): hours-other-faq-topic-resolution.mdの「決定1」に残っていた「曜日別営業時間・
+  休憩時間を使う店舗(複雑な店舗)は自動回答の対象外」という制約を解消した。各曜日の登録区間を
+  そのまま機械的に列挙し(AIによる言い換え・推測は行わない)、同一の区間構成が連続する曜日は
+  「月〜金」のようにまとめる自然文生成ロジックを`format_faq_hours_message_weekly()`
+  (prototype/engine.py)として新規実装。`_render_faq_segment()`
+  (prototype/cloud_function_process_event.py)を、`store_faq_info["hours"]`の形式
+  (`default_ranges`/`weekday_ranges`キーの有無)で単一区間版/曜日別版を自動的に呼び分けるよう
+  変更した。テスト8件追加(engine 4件・process_event 1件の新規テスト、既存の呼び分けテストは
+  無変更で通過)、prototype配下168件・schema検証25件とも全件パス。残る課題はCloud Function B
+  呼び出し側でFirestoreの店舗設定から`default_ranges`/`weekday_ranges`を実際に組み立てて渡す
+  配線のみで、これはGCPプロジェクト作成(オーナー承認待ち)後の着手となる。
+- 最終更新: 2026-08-07 08:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -909,6 +920,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-07 08:00 UTC: hours-other-faq-topic-resolution.mdの「決定1」に残って
+  いた、曜日別営業時間・休憩時間を使う店舗向けのFAQ自動回答(自然文生成)を実装した。
+  `format_faq_hours_message_weekly()`(prototype/engine.py)を新設し、`_render_faq_segment()`
+  が単一区間版/曜日別版を自動判別して呼び分けるよう変更(テスト8件追加・全168件パス、
+  schema検証25件パス)。残る課題はFirestore接続後の値の組み立て配線のみ)
 - (解消済み 2026-08-07 07:00 UTC: webhook-function-b-implementation.mdに残っていた
   「`menu_durations`(店舗ごとのメニュー別所要時間)の入力欄追加は未着手」という記載が誤りだった
   ことを確認した。owner-settings-wireframe.mdの「2. メニュー設定ページ」(メニュー名・料金・所要

@@ -349,6 +349,33 @@ class FaqSegmentReplyTests(unittest.TestCase):
         processor.process(_event("U1", "営業時間を教えてください"), llm_call, NOW)
         self.assertIn("担当者に確認のうえ", push.sent[0][1])
 
+    def test_hours_topic_uses_weekday_ranges_for_complex_store(self):
+        # hours-other-faq-topic-resolution.mdの「決定1」で残課題としていた、曜日別営業時間・
+        # 休憩時間を使う店舗向けの自然文生成。store_faq_info["hours"]に"default_ranges"/
+        # "weekday_ranges"形式(AvailabilitySearcherのweekday_business_hoursと同じ形式)で
+        # 渡すと、単一区間フォールバックではなく曜日別・複数区間の文言をそのまま組み立てて返す。
+        info = dict(STORE_FAQ_INFO)
+        info["hours"] = {
+            "default_ranges": [(10 * 60, 13 * 60), (14 * 60, 19 * 60)],  # 月〜金: 昼休憩あり
+            "weekday_ranges": {5: [(10 * 60, 15 * 60)]},  # 5=土曜: 休憩なし
+            "closed_weekdays": frozenset({6}),  # 6=日曜: 定休日
+        }
+        processor, flow, push, logs = _new_processor(store_faq_info=info)
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "hours", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "営業時間を教えてください"), llm_call, NOW)
+        self.assertEqual(
+            push.sent[0][1],
+            "当店の営業時間は月〜金: 10:00〜13:00、14:00〜19:00、土: 10:00〜15:00、"
+            "日: 定休日です。",
+        )
+
     def test_other_topic_always_falls_back_to_holding_message(self):
         # topic: "other"は店舗FAQ情報欄に対応する登録項目が存在しないため常にエスカレーションに
         # 倒す設計(hours-other-faq-topic-resolution.md参照)。resolved: trueが返っても安全側。
