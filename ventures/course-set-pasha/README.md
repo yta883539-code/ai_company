@@ -48,11 +48,16 @@
   null/非nullの依存関係は、line-reservation-aiのvalidate_test_cases.pyと同様にスキーマ単体
   ではなくコード側検証で担保する方針とした。
 
+- フェーズ7(2026-08-07 16:00 UTC): 「次にやること」1点目だった改訂後のschema/output.schema.json
+  に対応する期待JSON出力サンプルを作成し(schema/validate_test_cases.py新規作成)、line-reservation-ai
+  のvalidate_test_cases.pyと同じ設計の机上バリデータでstatus⇔null/非nullの依存関係違反が
+  ないか検証した(status別5パターン、全件パス。output-samples-validation.md参照)。schema単体
+  では表現しない依存関係(status=generatedならsns_post等が非null、等)をコード側検証で
+  機械的にチェックできることを確認した。実LLMでの生成安定性・厳守事項遵守率の検証は
+  引き続きオーナー承認後のAPI接続時の課題として残る。
+
 ## 次にやること(候補)
 
-- 改訂後のschema/output.schema.jsonに対応する期待JSON出力サンプル(status別3パターン)を
-  作成し、line-reservation-aiのvalidate_test_cases.pyのような机上バリデータでstatus⇔
-  null/非nullの依存関係違反がないか検証する。
 - 実在の個人経営ボルダリングジムの公式SNSアカウントの投稿例(公開情報)を数件観察し、
   出力1のトーン・粒度をチューニングする。
 - pricing-plan.mdの価格帯・生成回数上限・課金単位の妥当性を想定顧客ヒアリングで検証する
