@@ -84,6 +84,14 @@
   サンプル(G4_multi_area_single_memo)を新設し、全6件パスを確認。llm-system-prompt-draft.md
   内の`history_row`表記も`history_rows`に合わせて更新した。
 
+- フェーズ12(2026-08-07 21:00 UTC): ドキュメント間の整合性を点検し、
+  header-summary-edge-case-review.md・multi-area-mixed-case-review.mdの2ファイルに
+  「次回以降の課題」「未着手」と記載されたまま残っていた、出力3(履歴記録)の複数行対応が
+  実際にはフェーズ11(2026-08-07 20:00 UTC)で既にschema/output.schema.json改訂・
+  schema/validate_test_cases.py(G4ケース)追加により解消済みだったことを確認し、
+  両ファイルの記載を訂正した(実装・スキーマ自体への変更は無し。line-reservation-aiの
+  「残課題の記載ミス」訂正と同種のドキュメント整合性メンテナンス)。
+
 ## 次にやること(候補)
 
 - pricing-plan.mdの価格帯・生成回数上限・課金単位の妥当性を想定顧客ヒアリングで検証する
