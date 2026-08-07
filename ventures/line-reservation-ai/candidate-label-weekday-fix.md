@@ -22,5 +22,10 @@ slot-search-component-design.mdの出力例(`8/9(土) 15:30〜`)と不一致だ�
   期待通り(True/True/False)であることを確認済み。
 
 ## 今後の課題
-- 現状は表記統一のみ。曜日別営業時間・定休日対応はslot-search-component-design.mdの
-  既存の残課題(店舗ごとの定休日・曜日別営業時間・臨時休業への対応)のまま未着手。
+- (解消済み 2026-08-07 02:00 UTC: 上記の「曜日別営業時間・定休日対応は未着手」という記載は、
+  本ファイル作成後に進んだ他の設計・実装作業を反映していない古い記述だったため削除した。
+  定休日対応はavailability-closed-weekday-support.md、曜日別営業時間はweekday-specific-
+  business-hours.md、1日複数営業時間帯(昼休憩)はbusiness-hours-lunch-break.md、特定日付の
+  臨時休業はad-hoc-closed-dates-support.md(UIもowner-settings-wireframe.mdに反映済み)で
+  それぞれ設計・実装が完了しており、本ファイル執筆時点で未着手だった項目はいずれも解消済み。
+  以後このファイルで「残課題」として再掲しないこと)。

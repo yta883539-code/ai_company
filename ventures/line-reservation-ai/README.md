@@ -656,7 +656,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   12:00 UTCに既に解消済みで、`prototype/engine.py`のデモにも0分間区間を`BusinessHoursConfigError`
   として拒否する回帰テストが存在することを確認)。両ファイルの残課題節を訂正し、今後同じ記載を
   繰り返さないよう明記した。実装上の変更は無し(ドキュメントの整合性回復のみ)。
-- 最終更新: 2026-08-07 01:00 UTC
+- フェーズ(続き77): 続き76と同種のドキュメント整合性チェックを行い、candidate-label-weekday-fix.mdの
+  「今後の課題」に残っていた「曜日別営業時間・定休日対応は未着手」という記載も同様に古い誤記で
+  あることを確認した(定休日はavailability-closed-weekday-support.md、曜日別営業時間はweekday-
+  specific-business-hours.md、複数営業時間帯(昼休憩)はbusiness-hours-lunch-break.md、特定日付の
+  臨時休業はad-hoc-closed-dates-support.md(UIもowner-settings-wireframe.mdに反映済み)でいずれも
+  解消済み)。同ファイルの残課題節を訂正した。実装上の変更は無し(ドキュメントの整合性回復のみ)。
+  ヒアリング連絡開始は引き続きオーナーの回答待ち(interview-request-package.md参照)のため、
+  今回もそれ以外の範囲での前進に留めた。
+- 最終更新: 2026-08-07 02:00 UTC
 
 ## ドキュメント
 - owner-settings-wireframe.md / business-hours-lunch-break.md: 曜日別営業時間×複数休憩区間の
