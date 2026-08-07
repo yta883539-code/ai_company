@@ -672,7 +672,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   追記する方針を採用した。専用UI化は将来の専用集計バックエンド実装時に先送りする。
   実装上の変更は無し(設計判断とドキュメント追記のみ)。これで同欄の未検討事項は
   「通知ログの自動分類精度検証」(実LLM接続がオーナー承認待ちのため引き続き未着手)のみとなった。
-- 最終更新: 2026-08-07 03:00 UTC
+- フェーズ(続き79): 承認不要で前進できる技術項目を洗い直した。prototype/配下のテストは全件
+  (engine.py 91件・cloud_function_webhook.py 17件・cloud_function_process_event.py・
+  reminder_scheduler.py含め計157件超)パス済みで新規の未実装ロジックは見当たらず、
+  README「次にやること」で残課題として名指しされていたflush_due_windows()呼び出し元
+  (`flush_escalation_windows()`)も2026-08-06時点で既に実装済みと確認した。代わりに
+  pending-timeout-ux.mdの「次のステップ候補」節がline-price-revision-2026-check.md・
+  candidate-longlist-draft.md・tone-and-manner-guideline.mdでの対応後も未更新のまま
+  残っていたドキュメント不整合を発見し、続き77・78と同じ要領で訂正した(実装上の変更は無し)。
+- 最終更新: 2026-08-07 04:00 UTC
 
 ## ドキュメント
 - owner-settings-wireframe.md / business-hours-lunch-break.md: 曜日別営業時間×複数休憩区間の
@@ -880,6 +888,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-07 04:00 UTC: 承認不要で前進できる技術項目を探索した結果、
+  実装面での新規の未着手項目は見当たらず(flush_escalation_windows()等の配線ロジックは
+  2026-08-06時点で既に実装済みと確認)、代わりにpending-timeout-ux.mdの「次のステップ候補」
+  節が古いまま放置されているドキュメント不整合を発見した。同節の3項目(LINE料金改定再確認・
+  ヒアリング対象候補リストアップ方法検討・統一トーン&マナーガイドライン作成)はいずれも
+  line-price-revision-2026-check.md・candidate-longlist-draft.md・tone-and-manner-guideline.md
+  で既に対応済みだったため、続き77・78と同様の要領で整理・訂正した(実装上の変更は無し)。
+  本ventureの残る大きな課題は引き続き実LLM/実LINE API/実Cloud Scheduler接続自体
+  (オーナー承認待ち)のみ)
 - (解消済み 2026-08-06 22:00 UTC: escalation-notification-templates.mdに最後まで残っていた
   会話要約フィールド(構造化出力への追加要否)の検討を行い、「追加しない」と結論した。
   医療相談等の機微な内容をLLMが要約する過程で誤読が混入するリスクを避け、Cloud Function Bが
