@@ -680,9 +680,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   pending-timeout-ux.mdの「次のステップ候補」節がline-price-revision-2026-check.md・
   candidate-longlist-draft.md・tone-and-manner-guideline.mdでの対応後も未更新のまま
   残っていたドキュメント不整合を発見し、続き77・78と同じ要領で訂正した(実装上の変更は無し)。
-- 最終更新: 2026-08-07 04:00 UTC
+- フェーズ(続き80): 設計・実装面での未着手項目が出尽くした段階(続き79参照)を踏まえ、
+  pending-approval.md記載のGCPプロジェクト作成・APIキー取得が承認された際に迷わず着手できるよう、
+  実行手順を事前整理した(deployment-runbook.md新規作成)。GCPプロジェクト作成→Firestore有効化→
+  Secret Manager登録→Cloud Functions 3関数(webhook_receiver/ConversationEventProcessor/
+  reminder_scheduler)デプロイ→Cloud Tasks/Cloud Scheduler設定→LINEチャネル開設→結合テスト→
+  本番投入前チェックリストの順に、既存のprototype/コードとの対応関係を明記した。本ドキュメント
+  作成自体はアカウント作成・課金を伴わない机上整理であり、手順書に記載した各ステップの実行自体は
+  引き続きオーナー承認後まで着手しない。
+- 最終更新: 2026-08-07 06:00 UTC
 
 ## ドキュメント
+- deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
+  (2026-08-07 06:00 UTC新規作成。プロジェクト作成→Firestore有効化→Secret Manager登録→
+  Cloud Functions 3関数デプロイ→Cloud Tasks/Cloud Scheduler設定→LINEチャネル開設→結合テスト→
+  本番投入前チェックリストの順に整理。作成自体は承認不要な机上整理で、記載手順の実行は未着手)。
 - owner-settings-wireframe.md / business-hours-lunch-break.md: 曜日別営業時間×複数休憩区間の
   レイアウト設計(2026-08-07 00:00 UTC追記。business-hours-lunch-break.mdの残課題だった
   (1)休憩区間を3つ以上に増やせるようにする対応(「+ 休憩時間を追加」を複数回押せる設計+
@@ -897,6 +909,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-07 06:00 UTC: pending-approval.md記載のGCPプロジェクト作成・APIキー取得の
+  承認が得られた際に迷わず着手できるよう、実行手順をdeployment-runbook.mdに事前整理した。
+  作成自体は承認不要な机上整理であり、記載した各ステップの実行は引き続きオーナー承認後まで
+  着手しない。本ventureの残る大きな課題は引き続き実LLM/実LINE API/実Cloud Scheduler接続自体と
+  ヒアリング未確定事項へのオーナー回答待ちのみ)
 - (解消済み 2026-08-07 04:00 UTC: 承認不要で前進できる技術項目を探索した結果、
   実装面での新規の未着手項目は見当たらず(flush_escalation_windows()等の配線ロジックは
   2026-08-06時点で既に実装済みと確認)、代わりにpending-timeout-ux.mdの「次のステップ候補」
