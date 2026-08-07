@@ -61,5 +61,12 @@ AvailabilitySearcherのMVP制約解消の3件目)。
   スマホで縦に伸びすぎる問題は、各曜日行を既定で折りたたみ表示(時間帯のサマリー1行のみ表示)にし、
   タップした行だけ展開して休憩区間の追加/編集ができるアコーディオン方式で解消する方針とした。
   詳細はowner-settings-wireframe.mdの「追記: 曜日別営業時間×複数休憩区間のレイアウト」参照)
-- 定休日(0分間トグル)と曜日別営業時間の二重表現問題(weekday-specific-business-hours.mdの
-  残課題)は本件でも未着手のまま残っている。
+- (訂正 2026-08-07 01:00 UTC: 上記2件で「定休日(0分間トグル)と曜日別営業時間の二重表現問題は
+  未着手のまま残っている」と繰り返し記載していたが誤りだった。weekday-specific-business-hours.md
+  の残課題は既に2026-08-01 12:00 UTCに解消済み(`_normalize_business_hour_ranges`が0分間区間
+  (開始==終了)を`BusinessHoursConfigError`として拒否するため、`weekday_business_hours`経由で
+  定休日相当を二重表現することはエンジン側で構成時点から不可能)。`prototype/engine.py`の
+  デモに専用の回帰テスト(1660〜1671行目、0分間のweekday_business_hoursを渡すと
+  `BusinessHoursConfigError`になることを確認)も既に存在する。本ファイルとowner-settings-
+  wireframe.mdの記載は古い残課題文言をコピーし続けた結果の記録ミスであり、実装上の未解決課題は
+  存在しない。今後この項目を「残課題」として再掲しないこと)。

@@ -650,7 +650,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   顧客の1メッセージに1対1で対応する内容ではないため意図的に対象外とし、従来通りの
   案内文言のままとした。テスト3件追加・既存分含め全157件パス。これによりescalation-
   notification-templates.mdの「未検討・要検討事項」は全て解消済みとなった。
-- 最終更新: 2026-08-06 22:00 UTC
+- フェーズ(続き76): business-hours-lunch-break.md・owner-settings-wireframe.mdの両方に
+  「定休日(0分間トグル)と曜日別営業時間の二重表現問題は未着手のまま残っている」という記載が
+  繰り返し残っていたが、これは誤りだった(weekday-specific-business-hours.mdで2026-08-01
+  12:00 UTCに既に解消済みで、`prototype/engine.py`のデモにも0分間区間を`BusinessHoursConfigError`
+  として拒否する回帰テストが存在することを確認)。両ファイルの残課題節を訂正し、今後同じ記載を
+  繰り返さないよう明記した。実装上の変更は無し(ドキュメントの整合性回復のみ)。
+- 最終更新: 2026-08-07 01:00 UTC
 
 ## ドキュメント
 - owner-settings-wireframe.md / business-hours-lunch-break.md: 曜日別営業時間×複数休憩区間の
