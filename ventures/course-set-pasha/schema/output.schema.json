@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "コースセットパシャッと 構造化出力スキーマ",
+  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。",
+  "type": "object",
+  "required": ["status"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "厳守事項7(会員管理・予約・決済への不応答)・厳守事項8(入力不足時の再送依頼)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ付与する任意フィールド。厳守事項7の定型応答(『本サービスは告知文・記録の下書き作成支援のみを行っております』趣旨の一言)。",
+      "type": "string"
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ付与する任意フィールド。厳守事項8に基づき、不足している項目を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。",
+      "type": "string"
+    },
+    "sns_post": {
+      "description": "出力1。status=generatedの場合のみ付与する任意フィールド。mvp-flow-draft.mdの出力1仕様(エリア・改訂日の明示、見どころ紹介、対象層の一言、来店訴求、ハッシュタグ)に対応。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["body", "hashtags", "mentions_photo"],
+      "properties": {
+        "body": { "type": "string" },
+        "hashtags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mentions_photo": {
+          "description": "厳守事項3準拠。入力に写真送付の言及がありbody中で『写真の課題』等に言及した場合はtrue。写真言及が無い入力の場合は必ずfalse(『写真がない』ことには一切触れないため、この値でLLM側の分岐結果を機械的に検証できるようにする)。",
+          "type": "boolean"
+        }
+      }
+    },
+    "line_web_notice": {
+      "description": "出力2。status=generatedの場合のみ付与する任意フィールド。厳守事項5準拠(端的な箇条書き+SNSへの回遊導線)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["body"],
+      "properties": {
+        "body": { "type": "string" }
+      }
+    },
+    "history_row": {
+      "description": "出力3。status=generatedの場合のみ付与する任意フィールド。mvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/特徴キーワード)を1行分のオブジェクトとして表現。line-reservation-aiと同様、当面はこのオブジェクトをスプレッドシート等へ手動転記する運用を前提とし、専用データベースへの永続化は行わない(mvp-flow-draft.md準拠)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["revision_date", "area", "tape_color_or_grade_band", "count", "feature_keywords"],
+      "properties": {
+        "revision_date": {
+          "description": "入力メモに記載の改訂日をISO8601(YYYY-MM-DD)に正規化。西暦の記載が無い場合は補完せずnullとし、原文表記をfeature_keywordsではなくmissing_fields_request側で扱う(厳守事項8)。",
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "area": { "type": "string" },
+        "tape_color_or_grade_band": { "type": "string" },
+        "count": {
+          "description": "本数。入力が「8本新規」のような自然文の場合は数値部分のみ抽出。抽出できない場合はnull。",
+          "type": ["integer", "null"]
+        },
+        "feature_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "unchanged_areas": {
+      "description": "厳守事項2対応。入力メモで『変更なし』と明記されたエリア名の一覧。sns_post/line_web_noticeの本文中でこれらのエリアに新着課題があるかのような表現が生成されていないかを機械的に突き合わせ検証するための補助フィールド。該当が無ければ空配列。",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "generated" } } },
+      "then": { "required": ["sns_post", "line_web_notice", "history_row"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "out_of_scope" } } },
+      "then": { "required": ["out_of_scope_message"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "insufficient_input" } } },
+      "then": { "required": ["missing_fields_request"] }
+    }
+  ]
+}

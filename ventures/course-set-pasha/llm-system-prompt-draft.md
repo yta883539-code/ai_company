@@ -53,12 +53,24 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
    公式LINE/Web告知文(出力2)・履歴記録(出力3)には絵文字を使用しない。
 ```
 
-## 構造化出力の方針(次回以降の検討事項)
+## 構造化出力の方針
 
-line-reservation-aiのbooking_output.schema.jsonのように、3出力をJSON形式
-(`sns_post`, `line_web_notice`, `history_row`のキー等)で構造化して受け取る設計が
-後続の自動投稿・自動転記実装には望ましいが、今回はプロンプト文面の設計を優先し、
-スキーマの具体化は次回以降の課題とする。
+line-reservation-aiのbooking_output.schema.jsonを参考に、3出力をJSON形式で構造化して
+受け取るスキーマ草案を作成した(schema/output.schema.json、2026-08-07 12:00 UTC)。
+
+- `status`(generated/out_of_scope/insufficient_input)で厳守事項7(会員管理等への不応答)・
+  厳守事項8(入力不足時の再送依頼)の分岐を表現し、通常の3出力生成(`sns_post`/
+  `line_web_notice`/`history_row`)が行われるのは`status=generated`の場合のみとした。
+- `sns_post.mentions_photo`で厳守事項3(写真有無に応じた文面調整)の分岐結果を機械的に
+  検証できるようにした。
+- `unchanged_areas`で厳守事項2(「変更なし」エリアへの誤言及防止)を、生成後にプログラム側で
+  本文中の言及を突き合わせ検証できる補助フィールドとして持たせた。
+- `history_row`はmvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/
+  特徴キーワード)をオブジェクト1件分として表現。line-reservation-aiと同様、当面は
+  スプレッドシート等への手動転記を前提とし、専用データベースへの永続化は行わない。
+
+未検証事項(実LLMへの投入・安定生成確認)は「未検証事項」節に記載の通り、オーナー承認後の
+APIキー取得を待つ。
 
 ## 未検証事項
 
@@ -69,7 +81,9 @@ line-reservation-aiのbooking_output.schema.jsonのように、3出力をJSON形
 
 ## 次の課題
 
-- 出力3の構造化(表形式データとしての受け渡し方法)の具体化。
 - 料金プラン・無料トライアル条件の仮決め(line-reservation-aiのpricing-plan.mdを参考に)。
 - 実在の個人経営ボルダリングジムの公式SNSアカウントの投稿例(公開情報)を数件観察し、
   出力1のトーン・粒度をチューニングする。
+- schema/output.schema.jsonのallOf条件分岐(if/then)が実際のLLM構造化出力機能
+  (JSON Schema指定)でそのまま利用可能かの確認(line-reservation-aiのschema-validation-report.md
+  のような机上検証の実施)。

@@ -23,12 +23,16 @@
   LLM生成エンジンのシステムプロンプト草案(llm-system-prompt-draft.md)を作成した。
   「変更なし」エリアの誤記載防止、写真有無に応じた文面調整、会員管理・予約・決済への
   不応答ルールなど、mvp-flow-draft.md・README.mdの前提を厳守事項として明文化した。
+- フェーズ3(2026-08-07 12:00 UTC): llm-system-prompt-draft.mdの「次回以降の検討事項」
+  だった構造化出力(JSON化)を具体化し、schema/output.schema.jsonを作成した。
+  status(generated/out_of_scope/insufficient_input)で厳守事項7・8の分岐を、
+  sns_post.mentions_photoで厳守事項3の分岐結果を、unchanged_areasで厳守事項2の
+  検証を、それぞれ機械的に確認できる形にした。
 
 ## 次にやること(候補)
 
 - 実際のボルダリングジム・クライミングジムのSNS運用実態(投稿頻度・既存の文面パターン)を
   WebSearchで数件調査し、生成文のトーン・粒度を現実の運用に合わせて調整する。
-- 出力3(課題入れ替え履歴)の構造化データ形式(JSON化)の具体化。
 - 料金プラン・無料トライアル条件の仮決め(line-reservation-aiのpricing-plan.mdを参考に)。
 - 実LLM呼び出し・SNS API連携等、外部サービスとの実接続はオーナー承認が必要なため、
   設計・下書き作成の範囲に留める。
