@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-schema/output.schema.json(2026-08-07 15:00 UTC改訂版)に対する期待JSON出力サンプルを
+schema/output.schema.json(2026-08-07 20:00 UTC改訂版・フェーズ11)に対する期待JSON出力サンプルを
 机上検証するスクリプト。line-reservation-aiのschema/validate_test_cases.pyと同じ位置づけ・
 同じ簡易バリデータ方式(draft-07のサブセットのみ解釈)を踏襲した。
 
@@ -9,6 +9,8 @@ schema/output.schema.json(2026-08-07 15:00 UTC改訂版)に対する期待JSON�
 - schema-structured-output-compat-check.md(2026-08-07 15:00 UTC)の改訂方針
   (allOf/if-then撤去、全プロパティrequired化+null許容、statusに応じたnull/非nullの
   依存関係はコード側検証で担保)が、実際にサンプル出力に対して機械的に検証可能かを確認する。
+- フェーズ11(2026-08-07 20:00 UTC)で`history_row`(単一オブジェクト)を`history_rows`(配列)に
+  変更したことに伴い、G4として複数エリア同時更新ケースを追加した。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -83,7 +85,7 @@ def validate_cross_field_rules(instance, path="$"):
     errors = []
     status = instance.get("status")
 
-    generated_fields = ["sns_post", "line_web_notice", "history_row"]
+    generated_fields = ["sns_post", "line_web_notice", "history_rows"]
 
     if status == "generated":
         if instance.get("out_of_scope_message") is not None:
@@ -114,6 +116,10 @@ def validate_cross_field_rules(instance, path="$"):
     if sns_post and sns_post.get("mentions_photo") is not True and sns_post.get("mentions_photo") is not False:
         errors.append(f"{path}.sns_post.mentions_photo: booleanである必要があります(null不可)")
 
+    history_rows = instance.get("history_rows")
+    if status == "generated" and isinstance(history_rows, list) and len(history_rows) == 0:
+        errors.append(f"{path}.history_rows: status=generatedのとき空配列は不可です(1件以上必要)")
+
     return errors
 
 
@@ -132,13 +138,15 @@ TEST_CASES = {
         "line_web_notice": {
             "body": "エリアA:新着8本(黄テープ帯)を追加しました。ぜひチャレンジしてください。",
         },
-        "history_row": {
-            "revision_date": "2026-08-07",
-            "area": "エリアA",
-            "tape_color_or_grade_band": "黄テープ",
-            "count": 8,
-            "feature_keywords": ["ダイナミック", "ムーブ重視"],
-        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアA",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 8,
+                "feature_keywords": ["ダイナミック", "ムーブ重視"],
+            },
+        ],
         "unchanged_areas": [],
     },
     "G2_with_photo_and_unchanged_areas": {
@@ -153,13 +161,15 @@ TEST_CASES = {
         "line_web_notice": {
             "body": "エリアB:新着5本を追加。エリアC・エリアDは変更ありません。",
         },
-        "history_row": {
-            "revision_date": "2026-08-07",
-            "area": "エリアB",
-            "tape_color_or_grade_band": "赤テープ〜黒テープ",
-            "count": 5,
-            "feature_keywords": ["パワー系", "ランジ"],
-        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアB",
+                "tape_color_or_grade_band": "赤テープ〜黒テープ",
+                "count": 5,
+                "feature_keywords": ["パワー系", "ランジ"],
+            },
+        ],
         "unchanged_areas": ["エリアC", "エリアD"],
     },
     "G3_count_and_date_unextractable": {
@@ -174,13 +184,52 @@ TEST_CASES = {
         "line_web_notice": {
             "body": "エリアEに新着課題を追加しました。詳細は店頭でご確認ください。",
         },
-        "history_row": {
-            "revision_date": None,
-            "area": "エリアE",
-            "tape_color_or_grade_band": "緑テープ",
-            "count": None,
-            "feature_keywords": ["バランス系"],
+        "history_rows": [
+            {
+                "revision_date": None,
+                "area": "エリアE",
+                "tape_color_or_grade_band": "緑テープ",
+                "count": None,
+                "feature_keywords": ["バランス系"],
+            },
+        ],
+        "unchanged_areas": [],
+    },
+    "G4_multi_area_single_memo": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【課題入れ替えのお知らせ】エリアF・エリアG・エリアHの3エリアで新着課題を追加しました。エリアF:黄テープ帯6本、エリアG:赤テープ帯4本、エリアH:緑テープ帯3本です。",
+            "hashtags": ["#ボルダリング", "#クライミングジム", "#新着課題"],
+            "mentions_photo": False,
         },
+        "line_web_notice": {
+            "body": "エリアF:新着6本(黄テープ帯)、エリアG:新着4本(赤テープ帯)、エリアH:新着3本(緑テープ帯)を追加しました。",
+        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアF",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 6,
+                "feature_keywords": ["テクニカル"],
+            },
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアG",
+                "tape_color_or_grade_band": "赤テープ",
+                "count": 4,
+                "feature_keywords": ["パワー系"],
+            },
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアH",
+                "tape_color_or_grade_band": "緑テープ",
+                "count": 3,
+                "feature_keywords": ["バランス系"],
+            },
+        ],
         "unchanged_areas": [],
     },
     "OOS1_membership_question": {
@@ -189,7 +238,7 @@ TEST_CASES = {
         "missing_fields_request": None,
         "sns_post": None,
         "line_web_notice": None,
-        "history_row": None,
+        "history_rows": None,
         "unchanged_areas": [],
     },
     "II1_no_area_no_count": {
@@ -198,7 +247,7 @@ TEST_CASES = {
         "missing_fields_request": "エリア名と本数が不明なため、告知文・記録を作成できません。エリア名(例:エリアA)と入れ替えた本数を教えてください。",
         "sns_post": None,
         "line_web_notice": None,
-        "history_row": None,
+        "history_rows": None,
         "unchanged_areas": [],
     },
 }

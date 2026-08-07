@@ -77,14 +77,17 @@ line-reservation-aiのbooking_output.schema.jsonを参考に、3出力をJSON形
 
 - `status`(generated/out_of_scope/insufficient_input)で厳守事項7(会員管理等への不応答)・
   厳守事項8(入力不足時の再送依頼)の分岐を表現し、通常の3出力生成(`sns_post`/
-  `line_web_notice`/`history_row`)が行われるのは`status=generated`の場合のみとした。
+  `line_web_notice`/`history_rows`)が行われるのは`status=generated`の場合のみとした。
 - `sns_post.mentions_photo`で厳守事項3(写真有無に応じた文面調整)の分岐結果を機械的に
   検証できるようにした。
 - `unchanged_areas`で厳守事項2(「変更なし」エリアへの誤言及防止)を、生成後にプログラム側で
   本文中の言及を突き合わせ検証できる補助フィールドとして持たせた。
-- `history_row`はmvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/
-  特徴キーワード)をオブジェクト1件分として表現。line-reservation-aiと同様、当面は
-  スプレッドシート等への手動転記を前提とし、専用データベースへの永続化は行わない。
+- `history_rows`はmvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/
+  特徴キーワード)を表す配列。2026-08-07 20:00 UTC改訂(フェーズ11)で単一オブジェクトから
+  配列に変更し、1回のメモで複数エリアを同時更新した場合は要素数を複数(=更新エリア数)とする
+  ことで対応した(1メモ=1エリアの場合は要素数1)。line-reservation-aiと同様、当面は
+  1要素=1行としてスプレッドシート等への手動転記を前提とし、専用データベースへの永続化は
+  行わない。
 
 未検証事項(実LLMへの投入・安定生成確認)は「未検証事項」節に記載の通り、オーナー承認後の
 APIキー取得を待つ。
