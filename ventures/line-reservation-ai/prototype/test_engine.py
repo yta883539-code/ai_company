@@ -40,6 +40,7 @@ from engine import (  # noqa: E402
     format_confirmation_message,
     format_faq_parking_message,
     format_first_booking_self_check_message,
+    format_hold_message,
     label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
@@ -765,6 +766,54 @@ class ToneRenderingTest(unittest.TestCase):
         self.assertIn("田中様", message)
         self.assertIn("8/9(土) 15:30〜", message)
         self.assertIn("カット", message)
+
+    def test_emoji_allowed_false_omits_emoji_in_casual_tone(self):
+        with_emoji = format_confirmation_message("8/9(土) 15:30〜", "カット", "田中", tone="casual")
+        without_emoji = format_confirmation_message(
+            "8/9(土) 15:30〜", "カット", "田中", tone="casual", emoji_allowed=False
+        )
+        self.assertIn("🙌", with_emoji)
+        self.assertNotIn("🙌", without_emoji)
+        # 絵文字の有無以外の本文は変わらない
+        self.assertEqual(with_emoji.replace("🙌", ""), without_emoji)
+
+    def test_emoji_allowed_false_is_noop_for_non_casual_tones(self):
+        # message-tone-variants.mdの絵文字頻度上限はcasualトーン専用。formal/standardは元々
+        # 絵文字を含まないため、emoji_allowed=Falseを渡しても本文は変わらない。
+        standard_default = format_hold_message("8/9(土) 15:30〜", "カット", tone="standard")
+        standard_no_emoji = format_hold_message(
+            "8/9(土) 15:30〜", "カット", tone="standard", emoji_allowed=False
+        )
+        self.assertEqual(standard_default, standard_no_emoji)
+
+
+class CasualEmojiFrequencyLimitTest(unittest.TestCase):
+    """message-tone-variants.md「絵文字頻度上限」節: casualトーンの絵文字は連続する
+    顧客向けメッセージで直前に使用していたら次の1通は見送り、その次でまた使えるようにする
+    (直近2通に1回まで)というConversationFlowStateMachine.consume_casual_emoji_allowance()の挙動。
+    """
+
+    def test_no_state_yet_allows_emoji(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))
+
+    def test_alternates_true_false_across_consecutive_calls(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_tanaka", now=T0)
+        # hold直後の1通目は許可、confirm直後の2通目は見送り、その次の3通目でまた許可される。
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))
+        self.assertFalse(flow.consume_casual_emoji_allowance("user_tanaka"))
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))
+        self.assertFalse(flow.consume_casual_emoji_allowance("user_tanaka"))
+
+    def test_tracked_independently_per_user(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.present_candidates("user_suzuki", now=T0)
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))
+        self.assertFalse(flow.consume_casual_emoji_allowance("user_tanaka"))
+        # 鈴木さんは田中さんの直前使用履歴に影響されず、初回はTrue
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_suzuki"))
 
 
 def _fake_candidate(slot_key, label):

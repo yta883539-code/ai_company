@@ -494,7 +494,8 @@ class ConversationEventProcessor:
         self._held_label_by_user[user_id] = label
 
         menu = output.get("menu") or ""
-        self._send(user_id, format_hold_message(label, menu, tone), now)
+        emoji_allowed = self._flow.consume_casual_emoji_allowance(user_id)
+        self._send(user_id, format_hold_message(label, menu, tone, emoji_allowed=emoji_allowed), now)
         return DispatchResult(action="held")
 
     def _handle_details(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
@@ -512,9 +513,12 @@ class ConversationEventProcessor:
             return self._represent_candidates_after_conflict(user_id, now)
 
         label = self._held_label_by_user.pop(user_id, "")
+        emoji_allowed = self._flow.consume_casual_emoji_allowance(user_id)
         self._send(
             user_id,
-            format_confirmation_message(candidate_label=label, menu=menu, customer_name=name, tone=tone),
+            format_confirmation_message(
+                candidate_label=label, menu=menu, customer_name=name, tone=tone, emoji_allowed=emoji_allowed
+            ),
             now,
         )
         # first-booking-self-check-notification-design.md / owner-notification-channel-design.md準拠。

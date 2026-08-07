@@ -486,6 +486,32 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertIn("山田様", message)
         self.assertIn("09:00", message)  # holdしたcandidateのlabelが引き継がれていること
 
+    def test_casual_tone_hold_and_confirm_suppresses_emoji_on_second_message(self):
+        # message-tone-variants.md「絵文字頻度上限」準拠。hold(1通目)は許可、confirm(2通目)は
+        # 直前の絵文字使用を受けて見送られる(consume_casual_emoji_allowance()の直近2通に1回まで)。
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), llm_call_select, NOW, tone="casual")
+        hold_message = push.sent[-1][1]
+        self.assertIn("🙏", hold_message)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "山田です、カットでお願いします"), llm_call_details, NOW, tone="casual")
+        confirm_message = push.sent[-1][1]
+        self.assertNotIn("🙌", confirm_message)
+
     def test_missing_name_or_menu_reasks_without_calling_provide_details(self):
         processor, flow, push, _ = _new_processor()
         self._present_candidates(processor)

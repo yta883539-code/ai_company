@@ -883,6 +883,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト4件追加・全138件パス。2026-08-06 19:00 UTC追記: Cloud Function B側への実配線は
   「オーナー向け送信先が未確定」のみが理由の残課題だったため、owner-notification-channel-design.mdで
   配信先・配信方法を決定したうえで配線した(実LINE API接続自体は引き続きオーナー承認待ち)。
+- message-tone-variants.md: 「未検証の仮説」に残っていた、複数メッセージにまたがる絵文字が
+  くどく感じられないかの懸念に対応し、casualトーンの絵文字頻度上限(直近2通に1回まで)を設計・
+  実装した(2026-08-07新規追記)。仮押さえ案内→確定メッセージの2通(同じ`_ConversationState`を
+  共有する連続フロー)を対象に、`ConversationFlowStateMachine.consume_casual_emoji_allowance()`を
+  新設して直前使用の有無を追跡し、`format_hold_message()`/`format_confirmation_message()`に
+  新設した`emoji_allowed`引数(未指定時Trueで後方互換)へ配線した
+  (`prototype/engine.py`・`prototype/cloud_function_process_event.py`)。前日リマインド・
+  FAQ・キャンセルは会話状態を経由しない/別セッションのため今回は対象外とし理由を明記した。
+  テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項

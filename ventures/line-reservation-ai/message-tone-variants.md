@@ -105,10 +105,47 @@ tone-and-manner-guideline.md・faq-response-templates.mdの既存ルールのう
 - LLMが構造化出力の生成と同時に、店舗設定のトーンに応じた文言のブレなく安定して
   語尾・絵文字を出し分けられるかは、実LLM呼び出し(pending-approval.md参照、未承認)後でないと検証できない。
 
+## 絵文字頻度上限(2026-08-07追記)
+
+上記「未検証の仮説」に残っていた、複数メッセージにまたがる絵文字の頻度調整の要否を検討し、
+上限ルールを導入した。
+
+- **採用したルール**: casualトーンの絵文字は「直近2通に1回まで」。同一ユーザーへの直前の
+  顧客向けメッセージで絵文字を使っていたら次の1通は見送り(絵文字なしの本文のみ)、その次の
+  1通でまた使えるようにする(交互になる)。3段階トーンのうちcasualのみが対象で、
+  formal/standardはそもそも絵文字を含まないため影響を受けない。
+- **適用範囲(今回実装)**: 一連の予約フロー内で連続して送られやすい仮押さえ案内
+  (`format_hold_message()`)→確定メッセージ(`format_confirmation_message()`)の2通のみを
+  対象にした。`ConversationFlowStateMachine`が両メッセージの間ずっと同じ会話状態
+  (`_ConversationState`)を保持しているため、新設した`consume_casual_emoji_allowance(user_id)`
+  で状態に`emoji_used_last`フラグを持たせて追跡できる。呼び出し側
+  (`prototype/cloud_function_process_event.py`の`_handle_candidate_selection()`・
+  `_handle_details()`)は、メッセージ送信の直前に1回だけこのメソッドを呼び、戻り値を各
+  `format_*_message()`の新設`emoji_allowed`引数へそのまま渡す(未指定時はTrueで従来通り常に
+  絵文字を出す後方互換設計)。
+- **今回のスコープ外(理由付き)**: 前日リマインド(`format_reminder_message()`)・キャンセル
+  受付(`format_cancel_confirmed_message()`)・FAQ回答(`format_faq_parking_message()`等)は
+  据え置き、絵文字を常に出す従来動作のままとした。リマインドは確定の翌日以降に別セッションで
+  送られるプッシュ通知であり「直前のメッセージ」との連続性が薄く、頻度上限の対象にする実益が
+  乏しいと判断した。FAQ・キャンセルは`ConversationFlowStateMachine`の会話状態を経由しない
+  呼び出し経路(または状態が確定/存在しないタイミングでの呼び出し)を含み、
+  `consume_casual_emoji_allowance()`と同じ仕組みでは素直に配線できないため、頻度上限の対象を
+  広げる場合はユーザー単位で会話をまたいだカウンタ(現状の`_ConversationState`より長生きする
+  永続的な状態)の設計が別途必要になる。実益と実装コストを踏まえ、今回は仮押さえ→確定という
+  最も連続しやすい2通の組に絞った。
+- テスト: `prototype/test_engine.py`の`ToneRenderingTest`(`emoji_allowed=False`で絵文字が
+  消えること、formal/standardには影響しないこと)・`CasualEmojiFrequencyLimitTest`
+  (`consume_casual_emoji_allowance()`が交互にTrue/Falseを返すこと、状態がまだ無い場合は
+  許可すること、ユーザーごとに独立して追跡されること)、
+  `prototype/test_cloud_function_process_event.py`の
+  `test_casual_tone_hold_and_confirm_suppresses_emoji_on_second_message`
+  (実際のhold→confirmの2通でこの通り抑制されること)で確認済み(全163件パス)。
+
 ## 次のステップ候補
 
-- 上記「未検証の仮説」のうち、複数メッセージにまたがる絵文字の頻度調整(例: 直近N通に1回まで、等の
-  上限ルール)の要否を検討する。
+- 上記「絵文字頻度上限」のスコープ外とした前日リマインド・FAQ・キャンセルへの適用要否と、
+  適用する場合の会話をまたいだ永続カウンタの設計。実店舗の反応が乏しいうちは優先度は高くないと
+  見積もる。
 - (解消済み 2026-08-01 16:00 UTC: llm-system-prompt-draft.mdの厳守事項7に、店舗設定の
   「メッセージトーン」値を受け取って本ドキュメントの変換規則を適用する指示を反映した。
   固定語彙・日付時刻表記・FAQ実質情報はトーンに関わらず変更しない旨も明記した)

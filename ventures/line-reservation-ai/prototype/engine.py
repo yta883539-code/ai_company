@@ -492,6 +492,7 @@ class _ConversationState:
     candidates: Optional[list] = None  # present_candidates()で提示した候補一覧(select_slot_from_reply用)
     reconfirm_count: int = 0  # select_slot_from_reply()での特定不能が連続した回数(RECONFIRM_MAX_ATTEMPTS参照)
     last_activity_at: Optional[datetime] = None  # release_idle_conversations()の失効判定に使う
+    emoji_used_last: bool = False  # consume_casual_emoji_allowance()参照(絵文字頻度上限)
 
 
 class ConversationFlowStateMachine:
@@ -555,6 +556,24 @@ class ConversationFlowStateMachine:
         if self._logs is not None:
             self._logs.record(user_id, event, now)
         return actions
+
+    def consume_casual_emoji_allowance(self, user_id: str) -> bool:
+        """message-tone-variants.md「絵文字頻度上限」準拠。casualトーンの絵文字は、直前に
+        このユーザーへ送った顧客向けメッセージで使用済みなら次の1通は見送り、その次でまた
+        使えるようにする(直近2通に1回まで)。呼び出し側はformat_hold_message()/
+        format_confirmation_message()のemoji_allowed引数へ戻り値をそのまま渡す。
+
+        1メッセージ送信につき1回だけ呼ぶこと(呼ぶたびに状態を更新するため、べき等ではない)。
+        会話状態がまだ無い場合(hold前の初回等、present_candidates()未実行)は許可する
+        (この場合は状態を持たないため次回への引き継ぎはできないが、hold()実行後は
+        _statesに状態が作られるため以降は正しく追跡できる)。
+        """
+        state = self._states.get(user_id)
+        if state is None:
+            return True
+        allowed = not state.emoji_used_last
+        state.emoji_used_last = allowed
+        return allowed
 
     def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
@@ -1115,8 +1134,14 @@ def _render_by_tone(tone: str, variants: dict) -> str:
 
 
 def format_confirmation_message(candidate_label: str, menu: str, customer_name: str,
-                                 tone: str = "standard") -> str:
-    """予約確定メッセージ(LLM出力起点、confirm成功時に送信。message-tone-variants.md準拠)。"""
+                                 tone: str = "standard", emoji_allowed: bool = True) -> str:
+    """予約確定メッセージ(LLM出力起点、confirm成功時に送信。message-tone-variants.md準拠)。
+
+    emoji_allowedはcasualトーンの絵文字頻度上限用(同ファイル「絵文字頻度上限」節参照)。
+    呼び出し側がConversationFlowStateMachine.consume_casual_emoji_allowance()の戻り値を渡す想定で、
+    未指定時(デフォルトTrue)は従来通り常に絵文字を出す。
+    """
+    emoji = "🙌" if emoji_allowed else ""
     variants = {
         "formal": (
             f"当店: ご予約を確定いたしました。\n"
@@ -1129,7 +1154,7 @@ def format_confirmation_message(candidate_label: str, menu: str, customer_name: 
             f"    前日にリマインドをお送りしますので、当日お待ちしております!"
         ),
         "casual": (
-            f"当店: ご予約確定しました🙌\n"
+            f"当店: ご予約確定しました{emoji}\n"
             f"    {candidate_label} {menu} / {customer_name}様\n"
             f"    前日にリマインドしますね、当日お待ちしてます!"
         ),
@@ -1177,8 +1202,12 @@ def format_reminder_message(candidate_label: str, menu: str, tone: str = "standa
     return _render_by_tone(tone, variants)
 
 
-def format_hold_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
-    """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。"""
+def format_hold_message(candidate_label: str, menu: str, tone: str = "standard", emoji_allowed: bool = True) -> str:
+    """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。
+
+    emoji_allowedはformat_confirmation_message()と同じ絵文字頻度上限用の引数。
+    """
+    emoji = "🙏" if emoji_allowed else ""
     variants = {
         "formal": (
             f"{candidate_label} {menu}で仮押さえいたしました。お名前を教えていただけますでしょうか。"
@@ -1189,7 +1218,7 @@ def format_hold_message(candidate_label: str, menu: str, tone: str = "standard")
             f"(5分以内にご返信いただけますと確実にご予約いただけます)"
         ),
         "casual": (
-            f"{candidate_label} {menu}で仮押さえしました!お名前教えてください(5分以内にお願いします🙏)"
+            f"{candidate_label} {menu}で仮押さえしました!お名前教えてください(5分以内にお願いします{emoji})"
         ),
     }
     return _render_by_tone(tone, variants)
