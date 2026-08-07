@@ -39,11 +39,20 @@
   双方向会話・予約状態管理が不要な単方向バッチ処理という特性から「月間生成回数」ベースのシンプルな
   3プラン(ライト/スタンダード/セッター複数)を設計し、sns-tone-research.mdの「投稿頻度週2〜3回」を
   想定利用回数の目安として反映した。課金単位は「1メッセージ送信=1回」と暫定決定。
+- フェーズ6(2026-08-07 15:00 UTC): 「次にやること」1点目だったschema/output.schema.jsonの
+  allOf条件分岐(if/then)が実際のLLM構造化出力機能でそのまま利用可能かを机上検証した
+  (schema-structured-output-compat-check.md新規作成)。Claude Platform Docsの公開情報を
+  確認したところ、Claude APIのStructured Outputsは`if`/`then`/`else`・`oneOf`を非対応と
+  判明。schema/output.schema.jsonからallOf/if-thenを撤去し、トップレベル全プロパティを
+  常時`required`化(該当しない場合は`null`を許容)する設計に改訂した。`status`の値に応じた
+  null/非nullの依存関係は、line-reservation-aiのvalidate_test_cases.pyと同様にスキーマ単体
+  ではなくコード側検証で担保する方針とした。
 
 ## 次にやること(候補)
 
-- schema/output.schema.jsonのallOf条件分岐(if/then)が実際のLLM構造化出力機能でそのまま
-  利用可能かの机上検証。
+- 改訂後のschema/output.schema.jsonに対応する期待JSON出力サンプル(status別3パターン)を
+  作成し、line-reservation-aiのvalidate_test_cases.pyのような机上バリデータでstatus⇔
+  null/非nullの依存関係違反がないか検証する。
 - 実在の個人経営ボルダリングジムの公式SNSアカウントの投稿例(公開情報)を数件観察し、
   出力1のトーン・粒度をチューニングする。
 - pricing-plan.mdの価格帯・生成回数上限・課金単位の妥当性を想定顧客ヒアリングで検証する

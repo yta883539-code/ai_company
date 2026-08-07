@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "コースセットパシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。",
+  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。2026-08-07 15:00 UTC改訂: schema-structured-output-compat-check.mdの検証結果を受け、Claude APIのStructured Outputsが非対応の`allOf`+`if`/`then`を撤去し、トップレベル全プロパティを`required`化(該当しない場合は`null`を許容)する形に変更した。`status`の値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、スキーマ単体では表現せず、実装時にline-reservation-aiのvalidate_test_cases.pyと同様のコード側検証で担保する方針とした。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。",
   "type": "object",
-  "required": ["status"],
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "sns_post", "line_web_notice", "history_row", "unchanged_areas"],
   "additionalProperties": false,
   "properties": {
     "status": {
@@ -12,15 +12,15 @@
       "enum": ["generated", "out_of_scope", "insufficient_input"]
     },
     "out_of_scope_message": {
-      "description": "status=out_of_scopeの場合のみ付与する任意フィールド。厳守事項7の定型応答(『本サービスは告知文・記録の下書き作成支援のみを行っております』趣旨の一言)。",
-      "type": "string"
+      "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項7の定型応答(『本サービスは告知文・記録の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保、schema-structured-output-compat-check.md参照)。",
+      "type": ["string", "null"]
     },
     "missing_fields_request": {
-      "description": "status=insufficient_inputの場合のみ付与する任意フィールド。厳守事項8に基づき、不足している項目を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。",
-      "type": "string"
+      "description": "status=insufficient_inputの場合のみ非nullとなるフィールド。厳守事項8に基づき、不足している項目を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
     },
     "sns_post": {
-      "description": "出力1。status=generatedの場合のみ付与する任意フィールド。mvp-flow-draft.mdの出力1仕様(エリア・改訂日の明示、見どころ紹介、対象層の一言、来店訴求、ハッシュタグ)に対応。",
+      "description": "出力1。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの出力1仕様(エリア・改訂日の明示、見どころ紹介、対象層の一言、来店訴求、ハッシュタグ)に対応。status!=generatedのときは必ずnull(コード側検証で担保)。",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["body", "hashtags", "mentions_photo"],
@@ -37,7 +37,7 @@
       }
     },
     "line_web_notice": {
-      "description": "出力2。status=generatedの場合のみ付与する任意フィールド。厳守事項5準拠(端的な箇条書き+SNSへの回遊導線)。",
+      "description": "出力2。status=generatedの場合のみ非nullとなるフィールド。厳守事項5準拠(端的な箇条書き+SNSへの回遊導線)。status!=generatedのときは必ずnull(コード側検証で担保)。",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["body"],
@@ -46,7 +46,7 @@
       }
     },
     "history_row": {
-      "description": "出力3。status=generatedの場合のみ付与する任意フィールド。mvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/特徴キーワード)を1行分のオブジェクトとして表現。line-reservation-aiと同様、当面はこのオブジェクトをスプレッドシート等へ手動転記する運用を前提とし、専用データベースへの永続化は行わない(mvp-flow-draft.md準拠)。",
+      "description": "出力3。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの表形式(改訂日/エリア/テープ色・グレード帯/本数/特徴キーワード)を1行分のオブジェクトとして表現。line-reservation-aiと同様、当面はこのオブジェクトをスプレッドシート等へ手動転記する運用を前提とし、専用データベースへの永続化は行わない(mvp-flow-draft.md準拠)。status!=generatedのときは必ずnull(コード側検証で担保)。",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["revision_date", "area", "tape_color_or_grade_band", "count", "feature_keywords"],
@@ -69,23 +69,9 @@
       }
     },
     "unchanged_areas": {
-      "description": "厳守事項2対応。入力メモで『変更なし』と明記されたエリア名の一覧。sns_post/line_web_noticeの本文中でこれらのエリアに新着課題があるかのような表現が生成されていないかを機械的に突き合わせ検証するための補助フィールド。該当が無ければ空配列。",
+      "description": "厳守事項2対応。入力メモで『変更なし』と明記されたエリア名の一覧。sns_post/line_web_noticeの本文中でこれらのエリアに新着課題があるかのような表現が生成されていないかを機械的に突き合わせ検証するための補助フィールド。該当が無ければ空配列。statusの値に関わらず常に配列を出力する。",
       "type": "array",
       "items": { "type": "string" }
     }
-  },
-  "allOf": [
-    {
-      "if": { "properties": { "status": { "const": "generated" } } },
-      "then": { "required": ["sns_post", "line_web_notice", "history_row"] }
-    },
-    {
-      "if": { "properties": { "status": { "const": "out_of_scope" } } },
-      "then": { "required": ["out_of_scope_message"] }
-    },
-    {
-      "if": { "properties": { "status": { "const": "insufficient_input" } } },
-      "then": { "required": ["missing_fields_request"] }
-    }
-  ]
+  }
 }

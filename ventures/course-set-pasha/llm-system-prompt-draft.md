@@ -85,8 +85,11 @@ APIキー取得を待つ。
 
 ## 次の課題
 
-- 料金プラン・無料トライアル条件の仮決め(line-reservation-aiのpricing-plan.mdを参考に。
-  sns-tone-research.mdで判明した「投稿頻度週2〜3回」を月あたりの想定利用回数の目安として反映)。
-- schema/output.schema.jsonのallOf条件分岐(if/then)が実際のLLM構造化出力機能
-  (JSON Schema指定)でそのまま利用可能かの確認(line-reservation-aiのschema-validation-report.md
-  のような机上検証の実施)。
+- (解消済み 2026-08-07 14:00 UTC: 料金プラン・無料トライアル条件の仮決めをpricing-plan.mdで実施)
+- (解消済み 2026-08-07 15:00 UTC: schema/output.schema.jsonのallOf条件分岐(if/then)が
+  実際のLLM構造化出力機能でそのまま利用可能かをschema-structured-output-compat-check.mdで
+  机上検証。Claude APIのStructured Outputsはif/thenを非対応と判明したため、allOf/if-thenを
+  撤去し全プロパティ常時required(該当なしはnull)化する形にスキーマを改訂した)
+- 改訂後のschema/output.schema.jsonに対応する期待JSON出力サンプル(status別3パターン)を
+  作成し、line-reservation-aiのvalidate_test_cases.pyのような机上バリデータで
+  status⇔null/非nullの依存関係違反がないか検証する(次回以降の課題)。
