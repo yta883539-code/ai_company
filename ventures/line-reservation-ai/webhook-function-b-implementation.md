@@ -75,5 +75,12 @@ unittest 20件、全件パス(既存のtest_engine.py 32件・test_cloud_functio
 - 実際のGCPプロジェクト作成・Cloud Functions/Cloud Tasksへのデプロイ、実LLM API呼び出しへの
   接続(`llm_call`スタブの差し替え)は、いずれもpending-approval.md記載のアカウント作成・
   課金承認待ち。
-- `menu_durations`(店舗ごとのメニュー別所要時間)は現状呼び出し側が用意する前提の辞書のみで、
-  owner-settings-wireframe.mdの店舗設定画面への入力欄追加は未着手。
+- (訂正 2026-08-07 07:00 UTC: 上記の「`menu_durations`の入力欄追加は未着手」は誤り。
+  owner-settings-wireframe.mdの「2. メニュー設定ページ」(メニュー名・料金・所要時間の追加/編集UI)は
+  本項執筆(2026-08-02 11:00 UTC)より前の2026-08-01時点で既に存在しており、firestore-data-model.mdの
+  店舗ドキュメントにも`menus: [{name, durationMinutes}, ...]`として反映済みだった。`resolve_menu_duration()`
+  (`prototype/cloud_function_process_event.py`)が受け取る`menu_durations: dict`は、この`menus`配列を
+  `{name: durationMinutes, ...}`へ変換するだけの一行の変換処理であり、Firestore接続実装
+  (オーナー承認待ち)時にあわせて書けば足りるため、設計・UI面での残課題はない。以後このファイルで
+  「残課題」として再掲しないこと。candidate-label-weekday-fix.md・pending-timeout-ux.mdと同様の
+  記載ミスの訂正)。

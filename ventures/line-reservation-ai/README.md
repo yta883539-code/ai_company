@@ -909,6 +909,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-07 07:00 UTC: webhook-function-b-implementation.mdに残っていた
+  「`menu_durations`(店舗ごとのメニュー別所要時間)の入力欄追加は未着手」という記載が誤りだった
+  ことを確認した。owner-settings-wireframe.mdの「2. メニュー設定ページ」(メニュー名・料金・所要
+  時間の追加/編集UI)とfirestore-data-model.mdの`menus: [{name, durationMinutes}, ...]`は
+  いずれも本項執筆より前(2026-08-01時点)に既に存在しており、`resolve_menu_duration()`
+  (prototype/cloud_function_process_event.py)が使う`menu_durations: dict`への変換は
+  Firestore接続実装時に書く一行の処理で足りるため、UI・設計面での残課題はないと結論し
+  webhook-function-b-implementation.mdを訂正した。candidate-label-weekday-fix.md・
+  pending-timeout-ux.mdと同様の「残課題の記載ミス」の訂正であり、実装上の変更は無し)
 - (解消済み 2026-08-07 06:00 UTC: pending-approval.md記載のGCPプロジェクト作成・APIキー取得の
   承認が得られた際に迷わず着手できるよう、実行手順をdeployment-runbook.mdに事前整理した。
   作成自体は承認不要な机上整理であり、記載した各ステップの実行は引き続きオーナー承認後まで
