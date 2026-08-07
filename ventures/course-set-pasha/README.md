@@ -28,11 +28,17 @@
   status(generated/out_of_scope/insufficient_input)で厳守事項7・8の分岐を、
   sns_post.mentions_photoで厳守事項3の分岐結果を、unchanged_areasで厳守事項2の
   検証を、それぞれ機械的に確認できる形にした。
+- フェーズ4(2026-08-07 13:00 UTC): 「次にやること」1点目だったボルダリングジムのSNS運用実態の
+  WebSearch調査を実施(sns-tone-research.md)。投稿頻度「週2〜3回」の目安と、ハッシュタグは
+  「一般タグ+ジム独自のブランドタグ+地域タグ」の組み合わせが定石という知見を得て、
+  llm-system-prompt-draft.mdの厳守事項4(ハッシュタグ候補)に反映した。個人経営ジムに
+  特化した投稿実例・作成時間の定量データは公開情報からは見つからず、引き続き未検証。
 
 ## 次にやること(候補)
 
-- 実際のボルダリングジム・クライミングジムのSNS運用実態(投稿頻度・既存の文面パターン)を
-  WebSearchで数件調査し、生成文のトーン・粒度を現実の運用に合わせて調整する。
-- 料金プラン・無料トライアル条件の仮決め(line-reservation-aiのpricing-plan.mdを参考に)。
+- 料金プラン・無料トライアル条件の仮決め(line-reservation-aiのpricing-plan.mdを参考に。
+  sns-tone-research.mdの「投稿頻度週2〜3回」を想定利用回数の目安として反映)。
+- schema/output.schema.jsonのallOf条件分岐(if/then)が実際のLLM構造化出力機能でそのまま
+  利用可能かの机上検証。
 - 実LLM呼び出し・SNS API連携等、外部サービスとの実接続はオーナー承認が必要なため、
   設計・下書き作成の範囲に留める。
