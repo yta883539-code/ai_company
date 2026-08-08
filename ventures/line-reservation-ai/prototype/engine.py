@@ -296,6 +296,48 @@ def format_notification_log_csv(logs: NotificationLogAggregator) -> str:
     return buf.getvalue()
 
 
+@dataclass
+class BookingListEntry:
+    """owner-settings-wireframe.mdの予約一覧ページ1行分
+    (firestore-data-model.md conversations/{sessionId}のうち、予約一覧表示に必要な
+    フィールドの部分集合。予約枠そのものの排他制御はBookingSlotManagerの守備範囲であり、
+    本クラスは確定済み予約の表示専用の値オブジェクト)。
+    """
+
+    booking_date: date
+    start_minutes: int  # 予約開始時刻(0時からの分)
+    customer_name: str
+    menu: str
+
+
+BOOKING_LIST_CSV_HEADER = ["日付", "曜日", "時刻", "お客様名", "メニュー"]
+
+
+def format_booking_list_csv(bookings: list[BookingListEntry]) -> str:
+    """owner-settings-wireframe.mdの予約一覧ページ「[今週分をCSVで書き出す]」ボタンに相当する出力。
+
+    format_notification_log_csv()と同様、専用集計バックエンドは持たずスプレッドシートに
+    貼り付けやすいテキストへ変換するのみ。列は「日付,曜日,時刻,お客様名,メニュー」の5列固定。
+    「直近7日間」等の絞り込み・日時順の並び替えは呼び出し側の責務とし、本関数は渡された順の
+    まま出力する。customer_name/menuは自由記述でカンマ・改行を含みうるため、
+    course-set-pashaのhistory_export.py・format_notification_log_csv()と同様にcsvモジュールで
+    正しくエスケープする。
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(BOOKING_LIST_CSV_HEADER)
+    for booking in bookings:
+        hours, minutes = divmod(booking.start_minutes, 60)
+        writer.writerow([
+            f"{booking.booking_date.month}/{booking.booking_date.day}",
+            _WEEKDAY_JA[booking.booking_date.weekday()],
+            f"{hours:02d}:{minutes:02d}",
+            booking.customer_name,
+            booking.menu,
+        ])
+    return buf.getvalue()
+
+
 def _escalation_type_label(event: dict) -> str:
     """escalation-notification-templates.md「種別ごとの文面」の種別ラベル部分に相当。"""
     reason = event.get("escalation_reason")

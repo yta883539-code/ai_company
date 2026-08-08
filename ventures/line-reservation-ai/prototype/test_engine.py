@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "schema"))
 
 from engine import (  # noqa: E402
     AvailabilitySearcher,
+    BookingListEntry,
     BookingSlotManager,
     BusinessHoursConfigError,
     ConversationFlowError,
@@ -34,6 +35,7 @@ from engine import (  # noqa: E402
     EscalationConsolidator,
     NotificationLogAggregator,
     RECONFIRM_MAX_ATTEMPTS,
+    format_booking_list_csv,
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
     format_cancel_pending_message,
@@ -230,6 +232,34 @@ class NotificationLogAggregatorTest(unittest.TestCase):
         matching = [r for r in parsed_rows if r[0] == "未実装機能の問い合わせ" and "複数店舗一括予約" in r[1]]
         self.assertEqual(len(matching), 1)
         self.assertEqual(len(matching[0]), 3)
+
+
+class FormatBookingListCsvTest(unittest.TestCase):
+    def test_matches_wireframe_columns_and_order(self):
+        bookings = [
+            BookingListEntry(date(2026, 8, 1), 11 * 60, "田中", "カット"),
+            BookingListEntry(date(2026, 8, 1), 16 * 60, "佐藤", "カラー"),
+            BookingListEntry(date(2026, 8, 2), 13 * 60, "鈴木", "カット"),
+        ]
+        csv_text = format_booking_list_csv(bookings)
+        rows = list(csv.reader(io.StringIO(csv_text)))
+        self.assertEqual(rows[0], ["日付", "曜日", "時刻", "お客様名", "メニュー"])
+        self.assertEqual(rows[1], ["8/1", "土", "11:00", "田中", "カット"])
+        self.assertEqual(rows[2], ["8/1", "土", "16:00", "佐藤", "カラー"])
+        self.assertEqual(rows[3], ["8/2", "日", "13:00", "鈴木", "カット"])
+
+    def test_empty_list_produces_header_only(self):
+        csv_text = format_booking_list_csv([])
+        rows = list(csv.reader(io.StringIO(csv_text)))
+        self.assertEqual(rows, [["日付", "曜日", "時刻", "お客様名", "メニュー"]])
+
+    def test_escapes_customer_name_with_comma(self):
+        # 自由記述で入力されうる氏名・メニュー名にカンマが含まれても列がずれないことを確認する
+        # (format_notification_log_csv_escapes_feature_hint_with_commaと同種の観点)。
+        bookings = [BookingListEntry(date(2026, 8, 1), 9 * 60, "田中, 太郎", "カット, カラー")]
+        csv_text = format_booking_list_csv(bookings)
+        parsed_rows = list(csv.reader(io.StringIO(csv_text)))
+        self.assertIn(["8/1", "土", "09:00", "田中, 太郎", "カット, カラー"], parsed_rows)
 
 
 class BookingSlotManagerTest(unittest.TestCase):
