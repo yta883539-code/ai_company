@@ -263,11 +263,15 @@
   セッションで確認する。アカウント作成・支払い・外部公開のいずれにも該当しないリポジトリ内
   設定のため承認不要と判断した。
 
+- フェーズ30(2026-08-08 22:00 UTC): 「次にやること」1点目だった、フェーズ29で新設した
+  course-set-pasha-tests.ymlの実際のGitHub Actions実行結果を、GitHub MCPツール
+  (actions_list、method: list_workflow_runs)で確認した。run id 31280800500
+  (head_sha: 3305297、フェーズ29のコミット)が`conclusion: success`であることを確認済み
+  (line-reservation-aiのci-setup.mdで行った確認と同じ手順)。フェーズ29で新規作成した
+  ci-setup.mdに、この確認結果を追記した。コード変更は無し。
+
 ## 次にやること(候補)
 
-- フェーズ29で新設したcourse-set-pasha-tests.ymlの実際のGitHub Actions実行結果(グリーン
-  確認)を、GitHub MCPツール(actions_list等)で次回以降のセッションに確認する
-  (line-reservation-aiのci-setup.md追記と同じ手順)。
 - 個人経営ボルダリングジムオーナー区分の追加候補探索は、WebSearchのスニペット調査では
   頭打ちになりつつあるため、候補1(FRICTION FREAKS)へのヒアリング実施後に紹介・口コミ
   経由で追加候補を探す方針への切り替えを検討する(具体的なヒアリング実施自体は本ventureの
