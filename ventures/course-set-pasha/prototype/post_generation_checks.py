@@ -55,25 +55,58 @@ def _split_sentences(text):
     return [s for s in re.split(r"(?<=。)", text) if s]
 
 
-def _find_suspicious_area_mentions(text, area):
+def _split_into_area_segments(sentence, known_area_names):
+    """sentenceを、known_area_names内の各エリア名の出現位置を境界としてセグメントに
+    分割する。各セグメントは、あるエリア名の出現位置から次のエリア名(自身含む)の
+    出現位置の直前まで(無ければ文末まで)の範囲となる。既知のエリア名が1つも
+    見つからない場合は文全体を1セグメントとして返す。"""
+    if not known_area_names:
+        return [(None, sentence)]
+    pattern = re.compile(
+        "|".join(re.escape(a) for a in sorted(set(known_area_names), key=len, reverse=True))
+    )
+    matches = list(pattern.finditer(sentence))
+    if not matches:
+        return [(None, sentence)]
+    segments = []
+    if matches[0].start() > 0:
+        segments.append((None, sentence[: matches[0].start()]))
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(sentence)
+        segments.append((m.group(), sentence[m.start() : end]))
+    return segments
+
+
+def _find_suspicious_area_mentions(text, area, other_known_area_names=()):
     """area名を含む文ごとに、NEW_CONTENT_KEYWORDSが含まれ、かつUNCHANGED_KEYWORDSが
-    含まれない文(=新着扱いされている疑いのある文)を返す。「エリアCは変更ありません」
-    のように同じ文中で変更なし文脈が言及される場合は許容する。
+    含まれないセグメント(=新着扱いされている疑いのある箇所)を返す。「エリアCは
+    変更ありません」のように同じ文中で変更なし文脈が言及される場合は許容する。
 
     文単位で判定するのは、固定文字数の近傍窓(旧実装)だと「エリアDは変更ありません。
     エリアCに新着課題を追加しました。」のように、直前の文にある別エリア(D)の
     「変更ありません」が窓内に入り込み、エリアC自身の新着扱い(=本来の違反)を
-    誤って見逃す(false negative)ケースがあったため。ただし「エリアDは変更なし、
-    エリアCは新着」のように読点区切りで1文にまとまっている場合はこの対策でも
-    見逃しうる、既知の残課題として残す。"""
+    誤って見逃す(false negative)ケースがあったため。
+
+    さらに「エリアDは変更なし、エリアCは新着課題を追加しました。」のように読点区切りで
+    1文にまとまっている場合に備え、other_known_area_names(unchanged_areas・history_rows
+    から集めた既知のエリア名一覧)が渡された場合は、文をエリア名の出現位置ごとの
+    セグメントに分割してから判定する。これにより、同じ文中に別エリアの言及が
+    混在していても、対象エリア自身のセグメント内のキーワードのみで判定できる。
+    既知のエリア名が対象area以外に無い場合は文全体をそのまま1セグメントとして扱うため、
+    「エリアCは、新着課題を追加しました。」のように対象エリア自身の文が読点を含む
+    ケースを誤って分断することはない。"""
     hits = []
+    known_area_names = set(other_known_area_names) | {area}
     for sentence in _split_sentences(text):
         if area not in sentence:
             continue
-        has_new = any(kw in sentence for kw in NEW_CONTENT_KEYWORDS)
-        has_unchanged = any(kw in sentence for kw in UNCHANGED_KEYWORDS)
-        if has_new and not has_unchanged:
-            hits.append(sentence)
+        for seg_area, segment in _split_into_area_segments(sentence, known_area_names):
+            if seg_area != area:
+                continue
+            has_new = any(kw in segment for kw in NEW_CONTENT_KEYWORDS)
+            has_unchanged = any(kw in segment for kw in UNCHANGED_KEYWORDS)
+            if has_new and not has_unchanged:
+                hits.append(segment)
     return hits
 
 
@@ -86,6 +119,10 @@ def check_unchanged_areas_not_mentioned_as_new(instance):
     if not unchanged_areas:
         return errors
 
+    history_rows = instance.get("history_rows") or []
+    changed_area_names = {row.get("area") for row in history_rows if row.get("area")}
+    known_area_names = set(unchanged_areas) | changed_area_names
+
     texts = []
     sns_post = instance.get("sns_post")
     if sns_post:
@@ -96,7 +133,8 @@ def check_unchanged_areas_not_mentioned_as_new(instance):
 
     for field_name, text in texts:
         for area in unchanged_areas:
-            for hit in _find_suspicious_area_mentions(text, area):
+            other_known_area_names = known_area_names - {area}
+            for hit in _find_suspicious_area_mentions(text, area, other_known_area_names):
                 errors.append(
                     f"{field_name}: 変更なしエリア「{area}」が新着を示唆する文脈で"
                     f"言及されている疑いがあります: ...{hit}..."

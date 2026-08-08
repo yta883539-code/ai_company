@@ -107,6 +107,80 @@ class UnchangedAreasNotMentionedAsNewTest(unittest.TestCase):
         errors = check_unchanged_areas_not_mentioned_as_new(instance)
         self.assertEqual(len(errors), 1)
 
+    def test_comma_separated_same_sentence_area_mixup_is_detected(self):
+        """post-generation-checks-cross-area-review.mdの「残る既知の限界」だった、
+        読点区切りで1文にまとまっている場合(「エリアDは変更なし、エリアCは新着課題を
+        追加しました。」)でも、エリアCの新着扱い(=違反)を見逃さないことを確認する回帰テスト。
+        unchanged_areasに両エリアを含めることで、エリア名の出現位置を境界とした
+        セグメント分割が働く。"""
+        instance = {
+            "sns_post": {
+                "body": "エリアDは変更なし、エリアCは新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": ""},
+            "unchanged_areas": ["エリアC", "エリアD"],
+        }
+        errors = check_unchanged_areas_not_mentioned_as_new(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("エリアC", errors[0])
+
+    def test_comma_separated_same_sentence_genuinely_unchanged_area_is_allowed(self):
+        """上記と同じ文で、真に変更なしのエリアDの方は誤検出されないことを確認する。"""
+        instance = {
+            "sns_post": {
+                "body": "エリアDは変更なし、エリアCは新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": ""},
+            "unchanged_areas": ["エリアD"],
+        }
+        errors = check_unchanged_areas_not_mentioned_as_new(instance)
+        self.assertEqual(errors, [])
+
+    def test_area_own_sentence_with_comma_is_not_over_split(self):
+        """対象エリア自身の文が読点を含む場合(「エリアCは、新着課題を追加しました。」)に、
+        他に既知のエリア名が無いときは文全体を1セグメントとして扱い、誤って分断して
+        キーワードを見逃さないことを確認する。"""
+        instance = {
+            "sns_post": {
+                "body": "エリアCは、新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": ""},
+            "unchanged_areas": ["エリアC"],
+        }
+        errors = check_unchanged_areas_not_mentioned_as_new(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_changed_area_from_history_rows_bounds_segment(self):
+        """other_known_area_namesはunchanged_areasだけでなくhistory_rows(実際に変更した
+        エリア)からも収集されることを確認する。変更エリアAの言及がunchanged_areasに
+        列挙されていなくても、対象エリアCのセグメント境界として機能する。"""
+        instance = {
+            "sns_post": {
+                "body": "エリアAは新着課題を追加、エリアCは変更ありません。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": ""},
+            "unchanged_areas": ["エリアC"],
+            "history_rows": [
+                {
+                    "revision_date": "2026-08-08",
+                    "area": "エリアA",
+                    "tape_color_or_grade_band": "赤",
+                    "count": 5,
+                    "feature_keywords": [],
+                }
+            ],
+        }
+        errors = check_unchanged_areas_not_mentioned_as_new(instance)
+        self.assertEqual(errors, [])
+
 
 if __name__ == "__main__":
     unittest.main()
