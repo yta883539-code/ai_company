@@ -1202,6 +1202,30 @@ def format_reminder_message(candidate_label: str, menu: str, tone: str = "standa
     return _render_by_tone(tone, variants)
 
 
+def format_reminder_resend_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
+    """当日朝の再送(reminder-timing-and-resend-rules.md ルール2準拠、
+    reminder_scheduler.select_due_resends()が対象を判定する)。
+
+    「本日」表記に切り替え、format_reminder_message()より一段簡潔にする点以外は
+    _render_by_tone()を経由する共通の組み立て方に揃えた。
+    """
+    variants = {
+        "formal": (
+            f"当店: 【本日】{candidate_label} {menu}のご予約をお待ちしております。\n"
+            f"    ご都合が変わりました場合は、このトークにご返信くださいませ。"
+        ),
+        "standard": (
+            f"当店: 【本日】{candidate_label} {menu}のご予約をお待ちしております。\n"
+            f"    ご都合が変わった場合は、このトークにご返信ください。"
+        ),
+        "casual": (
+            f"当店: 【本日】{candidate_label} {menu}のご予約お待ちしてます🙌\n"
+            f"    予定変わったら、このトークに返信でお願いします!"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
 def format_hold_message(candidate_label: str, menu: str, tone: str = "standard", emoji_allowed: bool = True) -> str:
     """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。
 

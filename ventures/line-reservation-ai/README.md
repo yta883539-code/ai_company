@@ -948,6 +948,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-08 09:00 UTC: reminder-scheduler-design.md/reminder-timing-and-resend-rules.md
+  では当日朝の再送ルール(ルール2)・再送メッセージ文言例まで設計済みだった一方、
+  prototype/engine.pyには前日リマインド用のformat_reminder_message()しか実装が無く、
+  reminder_scheduler.select_due_resends()が判定した対象に対する本文組み立て関数が
+  未実装のまま残っていたのを発見した。format_reminder_resend_message()を新規実装し
+  (_render_by_tone()経由でformal/standard/casualの3トーン対応、「本日」表記への切替、
+  前日リマインドより簡潔な文面)、reminder-timing-and-resend-rules.mdの「日時・メニューの
+  復唱は省略する」という記載が実際の文言例(時刻・メニュー名を含む)と矛盾していた点も
+  文言例に合わせて訂正した。あわせて、これまでテストが無かったformat_reminder_message()と
+  合わせてReminderMessageTestを新規追加(テスト4件追加・全173件パス)。
+  実際のLINE Push Message API送信・Cloud Schedulerでの起動は引き続きオーナー承認待ち
+  (pending-approval.md参照)で、本項は判断・整形ロジックの実装のみにとどまる)
 - (解消済み 2026-08-07 09:00 UTC: llm-system-prompt-draft.mdの「次のステップ候補」に残っていた、
   escalation-notification-templates.mdの通知文面を厳守事項6・10・9a未登録項目の説明文からリンク
   参照できるようにする作業を行った。詳細はフェーズ(続き82)参照。文面変更は無くドキュメント間の

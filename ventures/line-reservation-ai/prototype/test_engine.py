@@ -42,6 +42,8 @@ from engine import (  # noqa: E402
     format_faq_parking_message,
     format_first_booking_self_check_message,
     format_hold_message,
+    format_reminder_message,
+    format_reminder_resend_message,
     label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
@@ -834,6 +836,41 @@ class ToneRenderingTest(unittest.TestCase):
             "8/9(土) 15:30〜", "カット", tone="standard", emoji_allowed=False
         )
         self.assertEqual(standard_default, standard_no_emoji)
+
+
+class ReminderMessageTest(unittest.TestCase):
+    """format_reminder_message()(前日リマインド)・format_reminder_resend_message()
+    (当日朝の再送、reminder-timing-and-resend-rules.md ルール2)には
+    これまでテストが無かったため新規に追加する。
+    """
+
+    def test_initial_reminder_uses_tomorrow_wording_and_tone_variants(self):
+        formal = format_reminder_message("8/9(土) 15:30〜", "カット", tone="formal")
+        casual = format_reminder_message("8/9(土) 15:30〜", "カット", tone="casual")
+        self.assertNotEqual(formal, casual)
+        self.assertIn("明日", formal)
+        self.assertIn("8/9(土) 15:30〜", formal)
+        self.assertIn("カット", formal)
+
+    def test_resend_uses_today_wording_and_tone_variants(self):
+        formal = format_reminder_resend_message("15:30〜", "カット", tone="formal")
+        casual = format_reminder_resend_message("15:30〜", "カット", tone="casual")
+        self.assertNotEqual(formal, casual)
+        self.assertIn("本日", formal)
+        self.assertIn("本日", casual)
+        self.assertIn("15:30〜", formal)
+        self.assertIn("カット", formal)
+
+    def test_resend_unknown_tone_falls_back_to_standard(self):
+        unknown = format_reminder_resend_message("15:30〜", "カット", tone="loud")
+        standard = format_reminder_resend_message("15:30〜", "カット", tone="standard")
+        self.assertEqual(unknown, standard)
+
+    def test_resend_is_shorter_than_initial_reminder(self):
+        # reminder-timing-and-resend-rules.md ルール2: 再送は初回リマインドより簡潔にする。
+        initial = format_reminder_message("8/9(土) 15:30〜", "カット", tone="standard")
+        resend = format_reminder_resend_message("15:30〜", "カット", tone="standard")
+        self.assertLess(len(resend), len(initial))
 
 
 class CasualEmojiFrequencyLimitTest(unittest.TestCase):
