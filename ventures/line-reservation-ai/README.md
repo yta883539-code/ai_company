@@ -716,7 +716,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `ConversationEventProcessor.maybe_run_escalation_flush()`を新設。process()への自動配線は
   maybe_run_idle_cleanup()/maybe_run_archive()と同様に見送り、実Cloud Functionsエントリポイント
   確定時にまとめて配線する設計とした。テスト1件追加・全169件パス。
-- 最終更新: 2026-08-08 01:00 UTC
+- フェーズ(続き84、2026-08-08 07:00 UTC): ドキュメント間の整合性を点検し、本README「ドキュメント」節の
+  owner-notification-channel-design.mdの要約に「残課題はConversationFlowStateMachine内部イベントの
+  伝播と実Cloud Scheduler設定」と記載されたまま残っていたのを、フェーズ(続き74)で内部イベントの
+  伝播は既に実装済みだったことを確認して訂正した(実装・スキーマ自体への変更は無し。
+  course-set-pashaのフェーズ12・本venture続き77/78/80/81と同種のドキュメント整合性メンテナンス)。
+  本ventureで承認不要かつ未着手の設計・実装項目は見当たらず、残る課題は実LLM/実LINE API/
+  実Cloud Scheduler接続自体とヒアリング未確定事項へのオーナー回答待ちのみと再確認した。
+- 最終更新: 2026-08-08 07:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -736,8 +743,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   メール通知・LINE Notify(サービス終了済み)・管理者向けLINEグループは不採用。
   `prototype/cloud_function_process_event.py`にfirst-booking-self-check通知に加え、
   EscalationConsolidator系(即時通知・5分ウィンドウのまとめ通知)の配線も実装済み
-  [2026-08-06 20:00 UTC]。残課題はConversationFlowStateMachine内部イベントの伝播と
-  実Cloud Scheduler設定)
+  [2026-08-06 20:00 UTC]。ConversationFlowStateMachine内部イベント(booking_conflict等)の
+  伝播も同日中のフェーズ(続き74)で実装済み。残課題は実Cloud Scheduler設定(オーナー承認待ち)のみ)
 - escalation-digest-flush-trigger-design.md: `flush_escalation_windows()`の実行トリガー設計
   (2026-08-08 01:00 UTC新規作成。idle-conversation-trigger-design.mdの「Webhook便乗」方式を
   再利用し、`ConversationEventProcessor.maybe_run_escalation_flush()`(間引き幅1分)を新設。
