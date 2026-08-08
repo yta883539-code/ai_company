@@ -996,6 +996,31 @@ def format_reminder_message(candidate_label: str, menu: str, tone: str = "standa
     return _render_by_tone(tone, variants)
 
 
+def format_reminder_resend_message(time_label: str, menu: str, tone: str = "standard") -> str:
+    """当日朝の再送(reminder-timing-and-resend-rules.md ルール3準拠、
+    reminder_scheduler.select_due_resends()が対象と判定した予約に対して呼ぶ想定)。
+    同ファイルの「日時・メニューの復唱は省略する」という記載は、同ファイル自身の文言例
+    (「【本日】15:30〜 カットのご予約」)では時刻・メニュー名を再掲しているため、
+    実際には日付部分のみを「本日」に置き換える意図と解釈し、文言例の方に合わせて実装した
+    (時刻・メニューまで省くと再送だけでは「何の予約か」が伝わらなくなるため)。
+    """
+    variants = {
+        "formal": (
+            f"当店: 【本日】{time_label} {menu}のご予約をお待ちしております。\n"
+            f"    ご都合が変わりました場合は、このトークにご返信くださいませ。"
+        ),
+        "standard": (
+            f"当店: 【本日】{time_label} {menu}のご予約をお待ちしております。\n"
+            f"    ご都合が変わった場合は、このトークにご返信ください。"
+        ),
+        "casual": (
+            f"当店: 【本日】{time_label} {menu}のご予約お待ちしてます🙌\n"
+            f"    予定変わったら、このトークに返信してくださいね!"
+        ),
+    }
+    return _render_by_tone(tone, variants)
+
+
 def format_hold_message(candidate_label: str, menu: str, tone: str = "standard") -> str:
     """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。"""
     variants = {

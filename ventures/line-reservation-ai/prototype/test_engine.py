@@ -39,6 +39,8 @@ from engine import (  # noqa: E402
     format_change_started_message,
     format_confirmation_message,
     format_faq_parking_message,
+    format_reminder_message,
+    format_reminder_resend_message,
     label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
@@ -717,6 +719,31 @@ class ToneRenderingTest(unittest.TestCase):
     def test_unknown_tone_falls_back_to_standard(self):
         unknown = format_faq_parking_message("3", tone="loud")
         standard = format_faq_parking_message("3", tone="standard")
+        self.assertEqual(unknown, standard)
+
+
+class ReminderMessageTest(unittest.TestCase):
+    def test_initial_reminder_includes_label_and_menu(self):
+        message = format_reminder_message("8/9(土) 15:30〜", "カット", tone="standard")
+        self.assertIn("8/9(土) 15:30〜", message)
+        self.assertIn("カット", message)
+        self.assertIn("明日", message)
+
+    def test_resend_replaces_date_with_today_but_keeps_time_and_menu(self):
+        message = format_reminder_resend_message("15:30〜", "カット", tone="standard")
+        self.assertIn("本日", message)
+        self.assertIn("15:30〜", message)
+        self.assertIn("カット", message)
+        self.assertNotIn("明日", message)
+
+    def test_resend_tone_variants_differ(self):
+        formal = format_reminder_resend_message("15:30〜", "カット", tone="formal")
+        casual = format_reminder_resend_message("15:30〜", "カット", tone="casual")
+        self.assertNotEqual(formal, casual)
+
+    def test_resend_unknown_tone_falls_back_to_standard(self):
+        unknown = format_reminder_resend_message("15:30〜", "カット", tone="loud")
+        standard = format_reminder_resend_message("15:30〜", "カット", tone="standard")
         self.assertEqual(unknown, standard)
 
 
