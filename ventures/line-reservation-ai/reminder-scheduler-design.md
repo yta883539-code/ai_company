@@ -80,6 +80,18 @@ Cloud Function C: send_reminders
 - Firestoreの`conversations`ドキュメントに`reminderSentAt`/`reminderSkipped`/
   `resendSentAt`/`customerRepliedAt`の4フィールドを追加する必要がある
   (firestore-data-model.mdに反映済み、実装は未着手)。
+- ~~選定ロジック(reminder_scheduler.py)とメッセージ整形(engine.pyのformat_reminder_message()/
+  format_reminder_resend_message())・LinePushClientでの実送信を実際につなぐ配線~~
+  (解消済み 2026-08-08 10:00 UTC: `prototype/cloud_function_send_reminders.py`
+  新規作成。`send_reminders(bookings, now, stores, push_client)`が
+  select_due_initial_reminders()/select_due_resends()の抽出結果に対して候補ラベルを
+  組み立て(前日リマインドは日付+曜日+時刻、当日再送は時刻のみ)、店舗設定の
+  `message_tone`でトーンを適用したメッセージを送信する。送信失敗
+  (`LinePushDeliveryError`)時は`reminder_sent_at`/`resend_sent_at`を更新せず、
+  次回起動時に自然に再送対象として拾われる冪等設計を維持した。
+  `StoreReminderConfig`に`message_tone`、`ReminderBooking`に`line_user_id`/`menu`を
+  新規フィールドとして追加(テスト8件新規・全181件パス)。
+  Firestore連携・実LINE API接続は引き続き未着手)
 - LINE Push Message APIの実送信、Cloud Schedulerジョブの実作成は「アカウント作成」
   「支払い」に該当するため、着手時に改めてオーナー承認が必要(pending-approval.md参照)。
 - ~~Cloud Scheduler起動間隔(暫定15分)が、pricing-plan.mdの想定トラフィックにおける

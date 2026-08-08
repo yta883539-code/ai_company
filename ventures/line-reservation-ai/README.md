@@ -948,6 +948,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
+- (解消済み 2026-08-08 10:00 UTC: reminder-scheduler-design.mdの「未解決のまま残る課題」に
+  残っていた、reminder_scheduler.py(いつ・どの予約に送るべきかの選定ロジック)とengine.pyの
+  format_reminder_message()/format_reminder_resend_message()・LinePushClient(実送信)を
+  実際につなぐ「Cloud Function C: send_reminders」の配線を実装した
+  (`prototype/cloud_function_send_reminders.py`新規作成)。`send_reminders(bookings, now,
+  stores, push_client)`が選定結果に対して候補ラベルを組み立て(前日リマインドは日付+曜日+
+  時刻、当日再送は時刻のみ)、店舗設定の`message_tone`でトーンを適用したメッセージを送信する。
+  送信失敗(`LinePushDeliveryError`)時は`reminder_sent_at`/`resend_sent_at`を更新せず、
+  次回起動時に自然に再送対象として拾われる冪等設計を維持した。`StoreReminderConfig`に
+  `message_tone`、`ReminderBooking`に`line_user_id`/`menu`を新規フィールドとして追加
+  (テスト8件新規・全181件パス)。Firestore連携・実LINE API接続は引き続きオーナー承認待ち)
 - (解消済み 2026-08-08 09:00 UTC: reminder-scheduler-design.md/reminder-timing-and-resend-rules.md
   では当日朝の再送ルール(ルール2)・再送メッセージ文言例まで設計済みだった一方、
   prototype/engine.pyには前日リマインド用のformat_reminder_message()しか実装が無く、

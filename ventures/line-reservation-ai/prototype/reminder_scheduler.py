@@ -52,6 +52,9 @@ class StoreReminderConfig:
     closed_dates: frozenset = frozenset()  # ad-hoc-closed-dates-support.md準拠(臨時休業日、date集合)
     weekday_business_hours: Optional[dict] = None
     reminder_time_minutes: Optional[int] = None  # 店舗が明示設定したリマインド送信時刻(分)
+    message_tone: str = "standard"  # owner-settings-wireframe.md「メッセージトーン」設定
+    # (message-tone-variants.md準拠。format_reminder_message()/format_reminder_resend_message()の
+    # tone引数にそのまま渡す想定。未知の値はengine.py側で"standard"にフォールバックする)
 
 
 @dataclass
@@ -69,6 +72,11 @@ class ReminderBooking:
     reminder_skipped: bool = False
     resend_sent_at: Optional[datetime] = None
     customer_replied_at: Optional[datetime] = None
+    # 以下2フィールドは選定ロジック自体では未使用だが、選定結果をそのまま
+    # cloud_function_send_reminders.pyでのメッセージ整形・送信に渡せるよう、
+    # firestore-data-model.mdのconversationsドキュメントが元々保持している値をここにも運ぶ。
+    line_user_id: str = ""  # LINE Push Message API送信先(未設定のまま送信対象になった場合は呼び出し側の設計ミス)
+    menu: str = ""  # format_reminder_message()/format_reminder_resend_message()のmenu引数
 
 
 def _business_end_minutes(target_date: date, store: StoreReminderConfig) -> int:
