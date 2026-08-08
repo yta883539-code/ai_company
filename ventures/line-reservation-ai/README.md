@@ -706,7 +706,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   →「厳守事項6-d」節+複合FAQ一部未解決時の通知節、厳守事項10(未実装機能問い合わせ)→
   「厳守事項10」節、の3箇所に相互参照を追記した。文面自体の変更は無く、両ファイル間の
   ドキュメント整合性を補う作業。実装コード・テストへの影響は無し。
-- 最終更新: 2026-08-07 09:00 UTC
+- フェーズ(続き83、2026-08-08 01:00 UTC): owner-notification-channel-design.mdの
+  「スコープ外」に残っていた`flush_escalation_windows()`(5分ウィンドウのエスカレーション
+  まとめ通知)の実行トリガーを検討した(escalation-digest-flush-trigger-design.md新規作成)。
+  idle-conversation-trigger-design.mdの「Webhook便乗」方式(専用インフラ・オーナー承認不要で
+  今すぐ実装できる)を再利用できるかを検討し、`flush_escalation_windows()`は特定ユーザーの
+  Webhookに紐づかず全ユーザーのウィンドウを横断スキャンする性質のため適用可能と判断。
+  1件目は既に即時通知済みであることを踏まえ、間引き幅をidle-cleanupの5分より短い1分とした
+  `ConversationEventProcessor.maybe_run_escalation_flush()`を新設。process()への自動配線は
+  maybe_run_idle_cleanup()/maybe_run_archive()と同様に見送り、実Cloud Functionsエントリポイント
+  確定時にまとめて配線する設計とした。テスト1件追加・全169件パス。
+- 最終更新: 2026-08-08 01:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -728,6 +738,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   EscalationConsolidator系(即時通知・5分ウィンドウのまとめ通知)の配線も実装済み
   [2026-08-06 20:00 UTC]。残課題はConversationFlowStateMachine内部イベントの伝播と
   実Cloud Scheduler設定)
+- escalation-digest-flush-trigger-design.md: `flush_escalation_windows()`の実行トリガー設計
+  (2026-08-08 01:00 UTC新規作成。idle-conversation-trigger-design.mdの「Webhook便乗」方式を
+  再利用し、`ConversationEventProcessor.maybe_run_escalation_flush()`(間引き幅1分)を新設。
+  実Cloud Functionsエントリポイント確定時にprocess()と合わせて配線する設計)
 - onboarding-guide.md: 申込からLINE公式アカウントでの予約対応開始までの導入フロー
   (2026-08-04 08:00 UTC新規作成。申込・トライアル開始→LINE公式アカウント準備→
   営業情報・メニュー初期設定→接続テスト・試験会話→本番公開→トライアル終了・プラン選択の

@@ -1314,6 +1314,41 @@ class EscalationWindowFlushTests(unittest.TestCase):
         self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
 
 
+class MaybeRunEscalationFlushTests(unittest.TestCase):
+    """escalation-digest-flush-trigger-design.md準拠。flush_escalation_windows()の
+    Webhook便乗トリガー(maybe_run_escalation_flush())の間引き挙動のテスト。
+    """
+
+    def _escalation_llm_call(self):
+        def call():
+            return {
+                "intent": "escalation", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": True,
+            }
+
+        return call
+
+    def test_throttles_within_min_interval_then_flushes_after(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        processor.process(_event("U1", "肌荒れの相談"), self._escalation_llm_call(), NOW)
+        processor.process(
+            _event("U1", "デポジット決済できますか"), self._escalation_llm_call(), NOW + timedelta(minutes=2)
+        )
+
+        first = processor.maybe_run_escalation_flush(NOW)
+        self.assertEqual(first, 0)  # まだウィンドウ(5分)が閉じていない
+
+        skipped = processor.maybe_run_escalation_flush(NOW + timedelta(seconds=30))
+        self.assertIsNone(skipped)  # ESCALATION_FLUSH_MIN_INTERVAL(1分)未満は間引き対象
+
+        third = processor.maybe_run_escalation_flush(NOW + timedelta(minutes=6))
+        self.assertEqual(third, 1)  # 間引き対象外になり、閉じたウィンドウがまとめて送られる
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 2)
+        self.assertIn("【まとめてご確認】", owner_messages[-1])
+
+
 class FlowInternalEventOwnerNotificationTests(unittest.TestCase):
     """escalation-notification-templates.md「次のステップ候補」準拠。
     ConversationFlowStateMachine内部(booking_conflict/candidate_selection_unresolved/

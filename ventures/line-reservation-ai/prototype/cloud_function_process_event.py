@@ -80,7 +80,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Optional, Protocol
 
@@ -262,6 +262,9 @@ class ConversationEventProcessor:
         # 直近の空き枠検索に使ったLLM出力とメニュー所要時間。確定操作競合時
         # (_represent_candidates_after_conflict)に同じ条件で再検索するために保持する。
         self._search_context_by_user: dict[str, tuple[dict, int]] = {}
+        # escalation-digest-flush-trigger-design.md準拠。Webhook便乗トリガー
+        # (maybe_run_escalation_flush())の前回実行時刻。
+        self._last_escalation_flush_at: Optional[datetime] = None
 
     def _send(self, user_id: str, text: str, now: datetime) -> None:
         """LINE Push Message API送信のラッパー。api-call-failure-handling.md「方針2」準拠。
@@ -381,6 +384,25 @@ class ConversationEventProcessor:
             self._send(self._owner_user_id, format_escalation_digest_message(customer_label, notable, now), now)
             sent += 1
         return sent
+
+    # idle-conversation-trigger-design.mdの「Webhook便乗トリガー」と同じ考え方を
+    # flush_escalation_windows()にも適用したもの(escalation-digest-flush-trigger-design.md参照)。
+    ESCALATION_FLUSH_MIN_INTERVAL = timedelta(minutes=1)
+
+    def maybe_run_escalation_flush(self, now: datetime) -> Optional[int]:
+        """Webhook受信時に呼び出す想定の便乗トリガー。前回実行からESCALATION_FLUSH_MIN_INTERVAL
+        (1分)未満の場合は間引いてNoneを返す。実Cloud Scheduler接続後は、flush_escalation_windows()
+        を専用トリガーから直接呼ぶ運用に切り替えられる(本メソッドの設計変更は不要)。
+        maybe_run_idle_cleanup()/maybe_run_archive()と同様、process()からの自動呼び出しは
+        今回は行わない(実Cloud Functionsエントリポイント確定時に配線する)。
+        """
+        if (
+            self._last_escalation_flush_at is not None
+            and now - self._last_escalation_flush_at < self.ESCALATION_FLUSH_MIN_INTERVAL
+        ):
+            return None
+        self._last_escalation_flush_at = now
+        return self.flush_escalation_windows(now)
 
     def process(
         self,
