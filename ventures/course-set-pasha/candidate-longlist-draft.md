@@ -118,3 +118,29 @@ SNS投稿から「ゲストセッター」「セット協力」等のタグ付�
 - 情報源: [CLIMBERS掲載ページ](https://www.climbers-web.jp/gym/boulderinggym-tohandoujou/)、
   [CLIMBING-netジム詳細](https://www.climbing-net.com/gym_detail/tohandoujou/)、
   [千葉市観光協会公式サイト](https://www.chibacity-ta.or.jp/spots/tohandojou)
+
+## 第五弾(2026-08-08 06:00 UTC)
+
+「次にやること」1点目だった候補2(AT WALL)の運営体制(1店舗あたりのスタッフ数・
+課題入れ替えの意思決定者が店舗ごとにいるか)をWebSearchで追加確認した。
+
+- 候補2 AT WALL: 運営主体が個人事業ではなく「株式会社ATWALL」(福岡県行橋市、法人番号
+  4290001085958)であることが新たに判明した。同社がAT WALL(福岡市東区)・SUN WALL
+  (筑紫野市、キッズスクール併設の広い店舗)・ESCAPE(行橋市、カフェ併設)の3店舗を運営する
+  法人であり、第四弾で「系列」と記載していた実態が法人格を持つ複数店舗展開であると確定した。
+  gBizINFO・Baseconnect等の公開情報からは具体的な従業員数までは確認できなかった。
+- 選定基準(interview-candidate-selection-criteria.md)の必須条件は「個人経営・小規模運営
+  (スタッフ数目安5名以下、またはオーナー1人でルートセットも兼ねる形態)」であり、除外条件の
+  「全国チェーン・大手フランチャイズ」には該当しないものの、3店舗を運営する法人という時点で
+  「オーナー1人でルートセットも兼ねる」形態には該当しない可能性が高く、必須条件を満たすかは
+  3店舗合計の従業員数(5名以下か)次第という整理になる。この従業員数は公開情報からは特定
+  できないため、これ以上のWebSearchでの深掘りは費用対効果が低いと判断する。
+- 結論: 候補1(FRICTION FREAKS)が個人経営ボルダリングジムオーナー区分の有力候補として
+  既に確定しているため、AT WALLは同区分の主要候補ではなく「法人運営の可能性が高く必須条件の
+  該当が不確実な保留候補」として位置づけを格下げする。ヒアリング対象の主軸は候補1とし、
+  AT WALLへの連絡要否(法人窓口経由になる可能性を含む)は、候補1のみで目標件数
+  (customer-interview-design.mdの合計7〜9件前後)に届かない場合の予備候補としてのみ
+  オーナーに確認する。
+- 情報源: [Gビズインフォ 株式会社ATWALL](https://info.gbiz.go.jp/hojin/ichiran?hojinBango=4290001085958)、
+  [Baseconnect 株式会社ATWALL](https://baseconnect.in/companies/27b97255-eaf0-4a11-93d7-f3a329a25596)、
+  [AT WALL / SUN WALL / ESCAPE 公式サイト](http://www.atwall.jp/)
