@@ -253,8 +253,21 @@
   未確定でもいずれのパターンでも迷わず対応できる案内にした(history-export-usage-guide.md更新)。
   コード変更は無し。
 
+- フェーズ29(2026-08-08 21:00 UTC): line-reservation-aiで導入済みのGitHub Actionsによる
+  テスト自動実行(ci-setup.md)が本ventureには未導入だった点に対応し、
+  `.github/workflows/course-set-pasha-tests.yml`を新規作成した。
+  `ventures/course-set-pasha/`配下への変更をトリガーに、prototype/のunittestスイート2本
+  (test_history_export.py・test_post_generation_checks.py、計18件)と
+  schema/validate_test_cases.py(6件)を自動実行する構成とし、ローカルで全件パスを確認済み
+  (ci-setup.md新規作成)。実際のGitHub Actions上での実行結果(グリーン確認)は次回以降の
+  セッションで確認する。アカウント作成・支払い・外部公開のいずれにも該当しないリポジトリ内
+  設定のため承認不要と判断した。
+
 ## 次にやること(候補)
 
+- フェーズ29で新設したcourse-set-pasha-tests.ymlの実際のGitHub Actions実行結果(グリーン
+  確認)を、GitHub MCPツール(actions_list等)で次回以降のセッションに確認する
+  (line-reservation-aiのci-setup.md追記と同じ手順)。
 - 個人経営ボルダリングジムオーナー区分の追加候補探索は、WebSearchのスニペット調査では
   頭打ちになりつつあるため、候補1(FRICTION FREAKS)へのヒアリング実施後に紹介・口コミ
   経由で追加候補を探す方針への切り替えを検討する(具体的なヒアリング実施自体は本ventureの
