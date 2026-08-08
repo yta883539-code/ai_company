@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import sys
 import unittest
 from datetime import date, datetime, timedelta
@@ -42,6 +44,7 @@ from engine import (  # noqa: E402
     format_faq_parking_message,
     format_first_booking_self_check_message,
     format_hold_message,
+    format_notification_log_csv,
     format_reminder_message,
     format_reminder_resend_message,
     label_from_slot_key,
@@ -159,6 +162,74 @@ class NotificationLogAggregatorTest(unittest.TestCase):
         self.assertEqual(logs.system_event_counts.get("line_push_failed"), 1)
         self.assertEqual(logs.system_event_total(), 2)
         self.assertEqual(logs.consultation_count, 0)
+
+    def test_topic_and_feature_hint_breakdown_dedup_like_totals(self):
+        # topic_counts/feature_hint_countsは(日付,userId,topic)の重複排除後にカウントされる
+        # 内訳であり、unique_unresolved_topic_count()/unimplemented_feature_countの合計と
+        # 整合すること(同日中の同一topic再送は1件のまま増えないこと)を確認する。
+        logs = NotificationLogAggregator()
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": True,
+                                     "faq_segments": [{"topic": "parking", "resolved": False}]}, T0)
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": True,
+                                     "faq_segments": [{"topic": "parking", "resolved": False}]},
+                    T0 + timedelta(hours=1))
+        logs.record("user_sato", {"intent": "faq", "needs_owner_check": True,
+                                   "faq_segments": [{"topic": "payment", "resolved": False}]}, T0)
+        self.assertEqual(logs.topic_counts, {"parking": 1, "payment": 1})
+        self.assertEqual(sum(logs.topic_counts.values()), logs.unique_unresolved_topic_count())
+
+        logs.record("user_a", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "unimplemented_feature",
+                                "feature_hint": "デポジット決済"}, T0)
+        logs.record("user_b", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "unimplemented_feature",
+                                "feature_hint": "デポジット決済"}, T0)
+        self.assertEqual(logs.feature_hint_counts, {"デポジット決済": 2})
+        self.assertEqual(logs.unimplemented_feature_count, 2)
+
+    def test_format_notification_log_csv_matches_wireframe_categories(self):
+        logs = NotificationLogAggregator()
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": True,
+                                     "faq_segments": [{"topic": "parking", "resolved": False}]}, T0)
+        logs.record("user_sato", {"intent": "faq", "needs_owner_check": True,
+                                   "faq_segments": [{"topic": "payment", "resolved": False}]}, T0)
+        logs.record("user_a", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "unimplemented_feature",
+                                "feature_hint": "デポジット決済"}, T0)
+        logs.record("user_b", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": None}, T0)
+        logs.record("user_c", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "booking_conflict"}, T0)
+
+        csv_text = format_notification_log_csv(logs)
+        rows = [line.split(",") for line in csv_text.strip("\n").split("\n")]
+        self.assertEqual(rows[0], ["区分", "内訳", "件数"])
+        self.assertIn(["未登録FAQ相談", "", "2"], rows)
+        self.assertIn(["未登録FAQ相談", "駐車場", "1"], rows)
+        self.assertIn(["未登録FAQ相談", "支払い方法", "1"], rows)
+        self.assertIn(["未実装機能の問い合わせ", "", "1"], rows)
+        self.assertIn(["未実装機能の問い合わせ", "デポジット決済", "1"], rows)
+        self.assertIn(["その他エスカレーション(6番)", "", "1"], rows)
+        self.assertIn(["システム内部イベント", "", "1"], rows)
+        self.assertIn(["システム内部イベント", "予約枠の競合(システム)", "1"], rows)
+
+    def test_format_notification_log_csv_escapes_feature_hint_with_comma(self):
+        # feature_hintはLLMの自由記述でカンマを含みうるため、csvモジュールでの
+        # クオート処理が正しく効くことを確認する(素朴なカンマ結合だと列がずれる)。
+        logs = NotificationLogAggregator()
+        logs.record("user_a", {"intent": "escalation", "needs_owner_check": True,
+                                "escalation_reason": "unimplemented_feature",
+                                "feature_hint": "複数店舗一括予約, 家族分まとめて"}, T0)
+        csv_text = format_notification_log_csv(logs)
+        parsed_rows = list(csv.reader(io.StringIO(csv_text)))
+        self.assertIn(
+            ["未実装機能の問い合わせ", "複数店舗一括予約, 家族分まとめて", "1"],
+            parsed_rows,
+        )
+        # 素朴な文字列結合であれば5列になってしまうところ、正しくクオートされていれば3列のまま。
+        matching = [r for r in parsed_rows if r[0] == "未実装機能の問い合わせ" and "複数店舗一括予約" in r[1]]
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(len(matching[0]), 3)
 
 
 class BookingSlotManagerTest(unittest.TestCase):

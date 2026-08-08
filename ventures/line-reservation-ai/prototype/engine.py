@@ -21,6 +21,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -196,18 +198,32 @@ class NotificationLogAggregator:
         self.unimplemented_feature_count = 0
         self.consultation_count = 0
         self.system_event_counts: dict[str, int] = {}
+        # owner-settings-wireframe.mdの通知ログ集計画面は「未登録FAQ相談: 12件
+        # 内訳: 支払い方法5/駐車場4/...」のようにtopicごとの内訳も表示する想定だが、
+        # これまでunique_unresolved_topic_count()で合計しか出せなかったため新設(内訳の集計元)。
+        self.topic_counts: dict[str, int] = {}
+        # 同様に「未実装機能の問い合わせ: 3件 内訳: デポジット決済2/複数店舗一括予約1」の
+        # feature_hint別内訳の集計元(自由記述のためカテゴリ正規化はせずテキストをそのままキーにする、
+        # notification-log-classification-labels.md「未検討・要検討事項」参照)。
+        self.feature_hint_counts: dict[str, int] = {}
 
     def record(self, user_id: str, output: dict, now: datetime) -> None:
         date_key = now.date().isoformat()
         for seg in (output.get("faq_segments") or []):
             if seg.get("resolved") is False:
-                self._seen_topics.add((date_key, user_id, seg["topic"]))
+                topic_key = (date_key, user_id, seg["topic"])
+                if topic_key not in self._seen_topics:
+                    self._seen_topics.add(topic_key)
+                    self.topic_counts[seg["topic"]] = self.topic_counts.get(seg["topic"], 0) + 1
 
         if not output.get("needs_owner_check"):
             return
         reason = output.get("escalation_reason")
         if reason == "unimplemented_feature":
             self.unimplemented_feature_count += 1
+            hint = output.get("feature_hint")
+            if hint:
+                self.feature_hint_counts[hint] = self.feature_hint_counts.get(hint, 0) + 1
         elif reason in SYSTEM_ESCALATION_REASONS:
             self.system_event_counts[reason] = self.system_event_counts.get(reason, 0) + 1
         elif output.get("intent") == "escalation":
@@ -243,6 +259,41 @@ _SYSTEM_EVENT_LABELS = {
     # unregistered_menu(メニュー未登録)もオーナー要確認イベントのため、ここで併せてラベル付けする。
     "unregistered_menu": "未登録メニューでのご予約希望",
 }
+
+
+NOTIFICATION_LOG_CSV_HEADER = ["区分", "内訳", "件数"]
+
+
+def format_notification_log_csv(logs: NotificationLogAggregator) -> str:
+    """owner-settings-wireframe.mdの通知ログ集計画面の「[CSVで書き出す]」ボタンに相当する出力。
+
+    MVPは専用集計バックエンドを持たずスプレッドシート集計に委ねる方針(同ファイル「実装メモ」)
+    のため、このCSVはNotificationLogAggregatorの集計結果をスプレッドシートに貼り付けやすい
+    テキストへ変換するだけで、独自の集計ロジックは持たない。列は「区分,内訳,件数」の3列固定。
+    内訳が無い行(区分の合計行)は内訳列を空文字とする。feature_hintはLLMの自由記述で
+    カンマ・改行を含みうるため、course-set-pashaのhistory_export.pyと同様にcsvモジュールで
+    正しくエスケープする(素朴な文字列結合は誤ったCSVを生成しうるため避ける)。
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(NOTIFICATION_LOG_CSV_HEADER)
+
+    writer.writerow(["未登録FAQ相談", "", logs.unique_unresolved_topic_count()])
+    for topic, count in sorted(logs.topic_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        writer.writerow(["未登録FAQ相談", FAQ_TOPIC_LABELS.get(topic, topic), count])
+
+    writer.writerow(["未実装機能の問い合わせ", "", logs.unimplemented_feature_count])
+    for hint, count in sorted(logs.feature_hint_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        writer.writerow(["未実装機能の問い合わせ", hint, count])
+
+    writer.writerow(["その他エスカレーション(6番)", "", logs.consultation_count])
+
+    writer.writerow(["システム内部イベント", "", logs.system_event_total()])
+    for reason, count in sorted(logs.system_event_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        label = _SYSTEM_EVENT_LABELS.get(reason, reason)
+        writer.writerow(["システム内部イベント", label, count])
+
+    return buf.getvalue()
 
 
 def _escalation_type_label(event: dict) -> str:

@@ -723,7 +723,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   course-set-pashaのフェーズ12・本venture続き77/78/80/81と同種のドキュメント整合性メンテナンス)。
   本ventureで承認不要かつ未着手の設計・実装項目は見当たらず、残る課題は実LLM/実LINE API/
   実Cloud Scheduler接続自体とヒアリング未確定事項へのオーナー回答待ちのみと再確認した。
-- 最終更新: 2026-08-08 07:00 UTC
+- フェーズ(続き85、2026-08-08 12:00 UTC): 続き84で「承認不要かつ未着手の設計・実装項目は
+  見当たらず」としていたが、owner-settings-wireframe.mdの通知ログ集計画面ワイヤーフレームに
+  明記されていた「[CSVで書き出す]」ボタンに対応する変換処理が`prototype/engine.py`に
+  存在しないことに気づき対応した。`NotificationLogAggregator`に(1)topicごとの内訳
+  (`topic_counts`、支払い方法5件/駐車場4件等)、(2)`feature_hint`ごとの内訳
+  (`feature_hint_counts`)の集計を追加し、`format_notification_log_csv()`で
+  「区分,内訳,件数」形式のCSVテキストへ変換する関数を新規実装した(course-set-pashaの
+  `history_export.py`に倣い`csv`モジュールでクオート処理、feature_hintの自由記述に
+  カンマが含まれても列がずれないことをテストで確認)。テスト4件追加、prototype/配下の
+  既存184件・schema検証25件も引き続き全件パス。
+- 最終更新: 2026-08-08 12:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -945,6 +955,9 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- format_notification_log_csv()(続き85で新規実装)はNotificationLogAggregatorの集計結果を
+  テキスト変換するのみで、実際に「[CSVで書き出す]」ボタン押下→ファイルダウンロードに配線する
+  処理はホスティング基盤(Cloud Functions)接続後の課題として残る。
 - 上記「ヒアリング依頼提示パッケージ」(interview-request-package.md)で整理した未確定事項
   (謝礼有無・送信者名表記・返信先連絡先・優先度B5件の依頼可否)についてオーナーの回答を待つ。
   回答が得られるまでは、実在店舗・個人事業主への実際の連絡・送信は行わない。
