@@ -338,6 +338,69 @@ def format_booking_list_csv(bookings: list[BookingListEntry]) -> str:
     return buf.getvalue()
 
 
+NO_SHOW_CONFIRMED_STATUS = "無断キャンセル確定"
+
+# precheck-strengthening.md 案B(オーナー向け注意書き表示)の閾値。「仮で2件以上」を踏襲。
+PRECHECK_STRENGTHENING_BADGE_THRESHOLD = 2
+
+
+@dataclass(frozen=True)
+class CustomerBookingRecord:
+    """顧客ごとの過去予約1件分の永続記録(no-show-handling.mdが参照する
+    累計予約数・無断キャンセル確定数等の集計元データ。archive_completed_conversations()の
+    docstringが述べる通り、本エンジンの会話メモリ(_states)とは別の永続ストレージ
+    (スプレッドシート等)側で保持される想定の値をそのまま受け取る値オブジェクト)。
+    """
+
+    visit_date: date
+    menu: str
+    status: str  # "来店済み" / NO_SHOW_CONFIRMED_STATUS / その他(キャンセル済み等)
+    reminder_replied: bool  # customer-reply-detection-design.mdのcustomerRepliedAtに相当
+
+
+@dataclass(frozen=True)
+class CustomerDetailView:
+    """owner-settings-wireframe.md「顧客詳細ページ」の表示に必要な値をまとめた表示専用オブジェクト。"""
+
+    customer_name: str
+    total_bookings: int
+    no_show_confirmed_count: int
+    latest_no_show_date: Optional[date]
+    latest_reminder_replied: Optional[bool]  # 履歴が1件も無ければNone
+    recent_history: list[CustomerBookingRecord]  # 来店日降順で最大5件
+    precheck_strengthening_flag: bool  # precheck-strengthening.md案Bのバッジ表示要否
+
+
+def build_customer_detail_view(customer_name: str, records: list[CustomerBookingRecord]) -> CustomerDetailView:
+    """owner-settings-wireframe.md「顧客詳細ページ」ワイヤーフレームの各表示項目を、
+    顧客の過去予約記録一覧から組み立てる。
+
+    - 「累計予約数」「予約履歴(直近5件)」は記録の全件・来店日降順上位5件をそのまま使う。
+    - 「無断キャンセル確定数」「直近の無断キャンセル日」はstatus == NO_SHOW_CONFIRMED_STATUSの
+      記録のみを対象にする(no-show-handling.mdの通り、確定はオーナーの1タップ操作を経た記録の
+      みが対象で、「未対応」段階の候補はここに含まれない前提)。
+    - 「前回リマインドへの返信」は最新の予約記録(来店日が最も新しいもの)のreminder_repliedを
+      そのまま使う(customer-reply-detection-design.mdの「毎回最新の時刻で上書き」方針と同じく、
+      直近1件の値のみを表示対象とする)。
+    - precheck_strengthening_flagはprecheck-strengthening.md案Bの「無断キャンセル確定数が
+      閾値(仮2件)以上ならオーナー向け注意書きを表示」の判定結果。表示位置自体は
+      owner-settings-wireframe.mdの追記時点では確保のみだったため、閾値判定ロジックの実装が
+      本関数の役割。
+    """
+    sorted_records = sorted(records, key=lambda r: r.visit_date, reverse=True)
+    no_show_records = [r for r in sorted_records if r.status == NO_SHOW_CONFIRMED_STATUS]
+    latest = sorted_records[0] if sorted_records else None
+    return CustomerDetailView(
+        customer_name=customer_name,
+        total_bookings=len(sorted_records),
+        no_show_confirmed_count=len(no_show_records),
+        latest_no_show_date=no_show_records[0].visit_date if no_show_records else None,
+        latest_reminder_replied=latest.reminder_replied if latest is not None else None,
+        recent_history=sorted_records[:5],
+        precheck_strengthening_flag=len(no_show_records) >= PRECHECK_STRENGTHENING_BADGE_THRESHOLD,
+    )
+
+
 def _escalation_type_label(event: dict) -> str:
     """escalation-notification-templates.md「種別ごとの文面」の種別ラベル部分に相当。"""
     reason = event.get("escalation_reason")

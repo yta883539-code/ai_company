@@ -32,9 +32,13 @@ from engine import (  # noqa: E402
     BusinessHoursConfigError,
     ConversationFlowError,
     ConversationFlowStateMachine,
+    CustomerBookingRecord,
     EscalationConsolidator,
+    NO_SHOW_CONFIRMED_STATUS,
     NotificationLogAggregator,
+    PRECHECK_STRENGTHENING_BADGE_THRESHOLD,
     RECONFIRM_MAX_ATTEMPTS,
+    build_customer_detail_view,
     format_booking_list_csv,
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
@@ -260,6 +264,64 @@ class FormatBookingListCsvTest(unittest.TestCase):
         csv_text = format_booking_list_csv(bookings)
         parsed_rows = list(csv.reader(io.StringIO(csv_text)))
         self.assertIn(["8/1", "土", "09:00", "田中, 太郎", "カット, カラー"], parsed_rows)
+
+
+class BuildCustomerDetailViewTest(unittest.TestCase):
+    def test_aggregates_counts_and_latest_no_show_date(self):
+        records = [
+            CustomerBookingRecord(date(2026, 6, 30), "カット", "来店済み", True),
+            CustomerBookingRecord(date(2026, 7, 12), "カラー", NO_SHOW_CONFIRMED_STATUS, False),
+            CustomerBookingRecord(date(2026, 7, 28), "カット", "来店済み", True),
+        ]
+        view = build_customer_detail_view("田中", records)
+        self.assertEqual(view.total_bookings, 3)
+        self.assertEqual(view.no_show_confirmed_count, 1)
+        self.assertEqual(view.latest_no_show_date, date(2026, 7, 12))
+        # 直近予約(7/28)のreminder_repliedを見る。無断キャンセルだった7/12の値ではない。
+        self.assertTrue(view.latest_reminder_replied)
+
+    def test_recent_history_is_sorted_desc_and_capped_at_five(self):
+        records = [
+            CustomerBookingRecord(date(2026, 1, d), "カット", "来店済み", True)
+            for d in (1, 5, 10, 15, 20, 25)
+        ]
+        view = build_customer_detail_view("佐藤", records)
+        self.assertEqual(len(view.recent_history), 5)
+        self.assertEqual(
+            [r.visit_date for r in view.recent_history],
+            [date(2026, 1, d) for d in (25, 20, 15, 10, 5)],
+        )
+
+    def test_no_booking_history_yields_none_fields(self):
+        view = build_customer_detail_view("鈴木", [])
+        self.assertEqual(view.total_bookings, 0)
+        self.assertEqual(view.no_show_confirmed_count, 0)
+        self.assertIsNone(view.latest_no_show_date)
+        self.assertIsNone(view.latest_reminder_replied)
+        self.assertEqual(view.recent_history, [])
+        self.assertFalse(view.precheck_strengthening_flag)
+
+    def test_precheck_strengthening_flag_matches_threshold(self):
+        # precheck-strengthening.md 案B: 無断キャンセル確定数が閾値(仮2件)未満ならバッジなし
+        below = [
+            CustomerBookingRecord(date(2026, 7, d), "カット", NO_SHOW_CONFIRMED_STATUS, False)
+            for d in (1,)
+        ]
+        self.assertFalse(build_customer_detail_view("A", below).precheck_strengthening_flag)
+
+        at_threshold = [
+            CustomerBookingRecord(date(2026, 7, d), "カット", NO_SHOW_CONFIRMED_STATUS, False)
+            for d in range(1, 1 + PRECHECK_STRENGTHENING_BADGE_THRESHOLD)
+        ]
+        self.assertTrue(build_customer_detail_view("B", at_threshold).precheck_strengthening_flag)
+
+    def test_unconfirmed_no_show_candidate_status_not_counted(self):
+        # no-show-handling.mdの通り、「未対応」段階(オーナーがまだ1タップ確認していない)候補は
+        # 無断キャンセル確定数に含めない。ここではその他のstatus文字列として扱われることを確認する。
+        records = [CustomerBookingRecord(date(2026, 7, 1), "カット", "未対応", False)]
+        view = build_customer_detail_view("C", records)
+        self.assertEqual(view.no_show_confirmed_count, 0)
+        self.assertIsNone(view.latest_no_show_date)
 
 
 class BookingSlotManagerTest(unittest.TestCase):
