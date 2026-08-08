@@ -175,8 +175,25 @@
   解消済みだった項目(出力3の複数行対応)の記載漏れを訂正した(line-reservation-aiの
   「残課題の記載ミス」訂正と同種のドキュメント整合性メンテナンス)。
 
+- フェーズ22(2026-08-08 11:00 UTC): mvp-flow-draft.md・schema/output.schema.jsonの
+  history_rows説明で「スプレッドシート等へ手動転記する運用」とだけ記述され、実際の変換処理が
+  存在しなかった点に対応し、`prototype/history_export.py`を新規作成した。history_rows配列を
+  ヘッダー付きCSVテキスト(改訂日/エリア/テープ色・グレード帯/本数/特徴キーワード)に変換する
+  `history_rows_to_csv_text()`を実装し、revision_date/countがnull(未抽出)の場合は
+  「未記入」「不明」という統一プレースホルダーで表示することで、手動転記時にどの項目が
+  未確認かを一目で分かるようにした。schema/validate_test_cases.pyの既存フィクスチャ
+  (G1〜G4)をそのまま流用し、`prototype/test_history_export.py`(6件)で単一エリア・
+  複数エリア(G4)・null値混在(G3)のいずれでも行数・プレースホルダーが期待通りになることを
+  確認した(全件パス、既存のpost_generation_checks.pyのテスト7件・schema検証6件も
+  引き続き全件パス)。line-reservation-aiのengine.pyと異なり、本ventureはLLM生成後の
+  自然文組み立て(sns_post/line_web_notice本文)自体はLLMが担う設計のため、コード側で
+  実装すべき決定的処理はhistory_rowsのCSV変換・post_generation_checksの検証系に限られる
+  ことが改めて確認できた。
+
 ## 次にやること(候補)
 
+- history_export.pyはCSVテキストへの変換のみで、実際にオーナーがスプレッドシートへ
+  貼り付ける際の運用手順(コピー&ペースト手順の説明文書化)は未着手。
 - post_generation_checks.pyのヒューリスティック(近傍探索の窓幅15文字、キーワード一覧)は
   仮の値であり、実LLM接続後の実際の生成文で誤検知・見逃しが無いかの見直しが必要。
 - フリーランスセッター区分は当面保留(3回連続で公開情報から候補特定に至らず)。複合ジム
