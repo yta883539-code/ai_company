@@ -21,9 +21,6 @@ PHOTO_REFERENCE_KEYWORDS = ("写真の課題", "写真")
 NEW_CONTENT_KEYWORDS = ("新着", "追加", "入れ替え", "新規")
 UNCHANGED_KEYWORDS = ("変更なし", "変更ありません", "変わりません", "変更はありません")
 
-# 「変更なし」エリア名の前後何文字を「近傍」とみなすか。
-_PROXIMITY_WINDOW = 15
-
 
 def check_mentions_photo_consistency(instance):
     """厳守事項3準拠チェック。sns_post.mentions_photoの値と、本文中に実際に写真への
@@ -53,20 +50,30 @@ def check_mentions_photo_consistency(instance):
     return errors
 
 
-def _find_suspicious_area_mentions(text, area, window=_PROXIMITY_WINDOW):
-    """area名の出現箇所ごとに、前後window文字以内にNEW_CONTENT_KEYWORDSが含まれ、
-    かつ同じ範囲内にUNCHANGED_KEYWORDSが含まれない箇所(=新着扱いされている疑いのある
-    箇所)を返す。「エリアC・エリアDは変更ありません」のように変更なし文脈で言及される
-    のは許容する。"""
+def _split_sentences(text):
+    """「。」を区切りとして文単位に分割する(区切り文字は直前の文に含める)。"""
+    return [s for s in re.split(r"(?<=。)", text) if s]
+
+
+def _find_suspicious_area_mentions(text, area):
+    """area名を含む文ごとに、NEW_CONTENT_KEYWORDSが含まれ、かつUNCHANGED_KEYWORDSが
+    含まれない文(=新着扱いされている疑いのある文)を返す。「エリアCは変更ありません」
+    のように同じ文中で変更なし文脈が言及される場合は許容する。
+
+    文単位で判定するのは、固定文字数の近傍窓(旧実装)だと「エリアDは変更ありません。
+    エリアCに新着課題を追加しました。」のように、直前の文にある別エリア(D)の
+    「変更ありません」が窓内に入り込み、エリアC自身の新着扱い(=本来の違反)を
+    誤って見逃す(false negative)ケースがあったため。ただし「エリアDは変更なし、
+    エリアCは新着」のように読点区切りで1文にまとまっている場合はこの対策でも
+    見逃しうる、既知の残課題として残す。"""
     hits = []
-    for m in re.finditer(re.escape(area), text):
-        start = max(0, m.start() - window)
-        end = min(len(text), m.end() + window)
-        surrounding = text[start:end]
-        has_new = any(kw in surrounding for kw in NEW_CONTENT_KEYWORDS)
-        has_unchanged = any(kw in surrounding for kw in UNCHANGED_KEYWORDS)
+    for sentence in _split_sentences(text):
+        if area not in sentence:
+            continue
+        has_new = any(kw in sentence for kw in NEW_CONTENT_KEYWORDS)
+        has_unchanged = any(kw in sentence for kw in UNCHANGED_KEYWORDS)
         if has_new and not has_unchanged:
-            hits.append(surrounding)
+            hits.append(sentence)
     return hits
 
 

@@ -92,6 +92,21 @@ class UnchangedAreasNotMentionedAsNewTest(unittest.TestCase):
         instance = {"sns_post": {"body": "", "hashtags": [], "mentions_photo": False}, "unchanged_areas": []}
         self.assertEqual(check_unchanged_areas_not_mentioned_as_new(instance), [])
 
+    def test_unrelated_areas_unchanged_wording_does_not_mask_real_violation(self):
+        """別エリア(D)の「変更ありません」が、対象エリア(C)自身の新着扱い(=違反)を
+        誤って見逃させないことを確認する回帰テスト。"""
+        instance = {
+            "sns_post": {
+                "body": "エリアDは変更ありません。エリアCに新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": ""},
+            "unchanged_areas": ["エリアC"],
+        }
+        errors = check_unchanged_areas_not_mentioned_as_new(instance)
+        self.assertEqual(len(errors), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
