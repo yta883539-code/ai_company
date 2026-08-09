@@ -31,13 +31,23 @@
   「冷媒・電気系統への専門的助言を行わない」「メモに無い効果を推測で付け足さない」等を
   厳守事項として明文化した。構造化出力(JSON Schema)については方針のみ整理し、
   実ファイルの作成は次回以降の課題とした。
-- 最終更新: 2026-08-09 14:00 UTC
+- フェーズ3(2026-08-09 15:00 UTC): 構造化出力スキーマ(schema/output.schema.json)を
+  作成した。llm-system-prompt-draft.mdの方針通り、course-set-pashaのstatus分岐
+  (generated/out_of_scope/insufficient_input)パターンを踏襲しつつ、history_rowは
+  course-set-pashaのような配列化はせず単一オブジェクトのままとした(1メモ=1件の訪問施工が
+  前提のため)。厳守事項1(冷媒・電気系統への言及回避)の検証用フィールドとして
+  completion_report.mentions_refrigerant_or_electricalを、厳守事項4(次回推奨時期が
+  一般的目安か入力メモ由来かの区別)の検証用フィールドとしてcare_guide.
+  next_recommended_date_is_estimateを追加した。python3のjson.loadで構文検証済み
+  (実LLM出力での適合性検証は未実施)。
+- 最終更新: 2026-08-09 15:00 UTC
 
 ## 次にやること(候補)
 
-- 構造化出力スキーマ(JSON Schema)の草案作成。course-set-pasha/schema/output.schema.jsonの
-  status分岐(generated/out_of_scope/insufficient_input)パターンを流用できるか検討する
-  (llm-system-prompt-draft.mdで方針のみ整理済み)。
+- 期待JSON出力サンプル(status別)の作成と机上バリデーション
+  (course-set-pasha/output-samples-validation.md相当)。特にcare_guideの
+  next_recommended_date_is_estimateとhistory_row.next_recommended_dateの整合性を
+  確認するサンプルを含める。
 - 実際のエアコンクリーニング業者の公式SNS・ブログでの作業報告文の実例観察
   (course-set-pasha/sns-post-example-observation.mdと同種の調査)。
 - 想定顧客(個人事業主のエアコンクリーニング業者)へのヒアリング設計

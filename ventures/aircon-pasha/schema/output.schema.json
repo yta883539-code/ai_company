@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "エアコンパシャッと 構造化出力スキーマ",
+  "description": "llm-system-prompt-draft.md(2026-08-09 14:00 UTC作成)『構造化出力の方針(方針のみ、スキーマファイル未作成)』を一歩進めた草案。course-set-pasha/schema/output.schema.jsonのstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲し、Claude APIのStructured Outputsで扱いにくいallOf+if/thenは使わず、トップレベル全プロパティをrequired化(該当しない場合はnullを許容)する形にした。statusの値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、course-set-pashaと同様に実装時のコード側検証(validate_test_cases.py相当)で担保する方針。机上設計のみで実LLMでの安定生成は未検証(オーナー承認後のAPI接続時に確認予定)。",
+  "type": "object",
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "completion_report", "care_guide", "history_row"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項7(入力不足時の再送依頼)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項6の定型応答(『本サービスは作業完了報告・お手入れ案内文の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ非nullとなるフィールド。厳守事項7に基づき、不足している項目(分解洗浄を行ったこと自体が読み取れない等)を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "completion_report": {
+      "description": "出力1(作業完了報告メッセージ下書き)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの出力1仕様(分解洗浄の範囲・使用洗浄剤/追加施工の有無・前後の状態変化を入力範囲内でのみ記述)に対応。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["body", "mentions_refrigerant_or_electrical"],
+      "properties": {
+        "body": { "type": "string" },
+        "mentions_refrigerant_or_electrical": {
+          "description": "厳守事項1準拠の検証用フィールド。bodyが冷媒ガスの取り扱い・電気系統に関する専門的助言(技術的当否・安全性の評価)に言及していればtrue。入力メモに冷媒補充・電気系統作業の実施記述があっても、実施した旨を淡々と記述するだけならfalseとする。生成後にプログラム側でfalseであることを検証する想定(course-set-pashaのunchanged_areasと同様の設計思想)。",
+          "type": "boolean"
+        }
+      }
+    },
+    "care_guide": {
+      "description": "出力2(お手入れ案内下書き)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの出力2仕様(フィルター自己清掃目安・次回推奨時期・自己分解洗浄リスクの注意喚起)に対応。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["body", "next_recommended_date_is_estimate"],
+      "properties": {
+        "body": { "type": "string" },
+        "next_recommended_date_is_estimate": {
+          "description": "厳守事項4準拠の検証用フィールド。入力メモに『次回推奨』情報が無く一般的な目安で代替した場合はtrue(その場合bodyには専門的な保証ではない旨の明示が必須)。入力メモの次回推奨情報をそのまま反映した場合はfalse。",
+          "type": "boolean"
+        }
+      }
+    },
+    "history_row": {
+      "description": "出力3(簡易な作業履歴記録)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの表形式(施工日/機種系統・号数/汚れ状況/追加施工の有無/次回推奨時期)を表す単一オブジェクト。本ventureは1メモ=1件の訪問施工が前提のため、course-set-pashaのhistory_rows(配列化)とは異なり単一オブジェクトのまま(llm-system-prompt-draft.md『構造化出力の方針』に準拠)。1メモで複数台を同時に扱うケースが判明した場合は配列化を再検討する(未調査、market-research.md/llm-system-prompt-draft.md参照)。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["work_date", "model_type_and_capacity", "dirt_condition", "additional_treatment", "next_recommended_date"],
+      "properties": {
+        "work_date": {
+          "description": "施工日をISO8601(YYYY-MM-DD)に正規化。西暦の記載が無い場合は補完せずnullとし、原文表記の扱いはmissing_fields_request側で検討する(厳守事項7)。",
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "model_type_and_capacity": {
+          "description": "機種系統・号数(例:『壁掛け型2.2kW』)。入力メモに記載が無い場合はnull(推測で補わない、厳守事項3準拠)。",
+          "type": ["string", "null"]
+        },
+        "dirt_condition": { "type": "string" },
+        "additional_treatment": {
+          "description": "防カビコート等の追加施工の有無・内容。追加施工が無い場合は『なし』等の明示的な値を入れ、null(無回答)とは区別する。",
+          "type": "string"
+        },
+        "next_recommended_date": {
+          "description": "次回推奨時期。入力メモに記載が無く一般的な目安を用いた場合はcare_guide.next_recommended_date_is_estimateと整合させる想定(コード側検証で担保)。",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
