@@ -820,7 +820,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (booking-record-store-design.md追記)。残る課題はリマインド返信検知によるreminder_replied更新、
   予約一覧ページの「来店済み」チェック操作・オーナー通知からの実呼び出し配線、実Firestore接続自体
   (いずれもホスティング基盤確定・オーナー承認待ち)。
-- 最終更新: 2026-08-09 09:00 UTC
+- フェーズ(続き93、2026-08-09 11:00 UTC): 「次にやること」およびbooking-record-store-design.md
+  「MVPスコープの範囲外として残す点」に残っていた、リマインド返信検知(customer-reply-detection-
+  design.md)による`reminder_replied`更新の未配線に対応した。`InMemoryBookingRecordStore`に
+  `record_reminder_replied(store_id, slot_key)`を新設し、`_StoredBookingRecord`に
+  `reminder_replied`フィールド(既定False)を追加(`to_customer_record()`が返す値もこれに追従、
+  従来は常にFalseを返すハードコードだった)。`ConversationFlowStateMachine`に
+  `record_reminder_reply(user_id)`を新設し、会話状態からslot_keyを引いてrecord_storeへ橋渡しする
+  (record_store未指定・会話状態なし・confirmed以外のstageはいずれもfail-silent)。
+  `cloud_function_process_event.py`の`process()`冒頭、既存の`confirmed_reply_recorder`
+  (customerRepliedAt、Firestore向け)を呼ぶブロックと並行してこのメソッドを呼ぶよう配線した。
+  `confirmed_reply_recorder`と異なりFirestore接続を要さない(record_store自体がインメモリ)ため、
+  GCPプロジェクト作成前でも「前回リマインドへの返信」表示がbuild_customer_detail_view()で
+  正しく機能するようになった。テスト7件新規追加(engine.py側4件・cloud_function側2件・
+  booking-record-store-design.md追記1件)、既存分含め全210件パス。
+- 最終更新: 2026-08-09 11:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -1046,12 +1060,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-09 11:00 UTC: リマインド返信検知によるreminder_replied更新を実装した
+  (`InMemoryBookingRecordStore.record_reminder_replied()`・
+  `ConversationFlowStateMachine.record_reminder_reply()`)。テスト7件追加、全210件パス。
+  詳細は上記フェーズ(続き93)参照。残るは予約一覧ページからの実呼び出し配線
+  (来店済みチェック・CSV書き出し等、いずれもホスティング基盤確定後)のみ)
 - (解消済み 2026-08-09 09:00 UTC: booking-record-store-design.mdの残課題だった
   「来店後のstatus更新」を実装した。`InMemoryBookingRecordStore.record_visited()`/
   `record_no_show_confirmed()`を新設し、no-show-handling.mdが定めるオーナーの1タップ操作
   (来店済みチェック・無断キャンセル確定)を反映できるようにした。テスト3件追加、全93件パス。
-  詳細は上記フェーズ(続き92)参照。残るは予約一覧ページからの実呼び出し配線
-  (ホスティング基盤確定後)とリマインド返信検知)
+  詳細は上記フェーズ(続き92)参照)
 - (解消済み 2026-08-09 08:00 UTC: booking-record-store-design.mdの残課題だった
   「キャンセル・変更時の記録更新」を実装した。`InMemoryBookingRecordStore.record_cancelled()`
   新設、`cancel_booking()`/`change_booking()`から配線し、予約一覧CSVからは除外・顧客詳細

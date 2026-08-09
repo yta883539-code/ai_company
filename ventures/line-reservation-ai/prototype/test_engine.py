@@ -1218,6 +1218,58 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         store.record_visited("shop_1", ("shop_1", "2026-08-10", "11:00"))
         self.assertEqual(store.customer_records("田中"), [])
 
+    def test_record_reminder_replied_updates_customer_detail_view(self):
+        # customer-reply-detection-design.md準拠。record_reminder_replied()の直接呼び出しが
+        # build_customer_detail_view()の「前回リマインドへの返信」に反映されることを確認する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        records_before = store.customer_records("田中")
+        self.assertFalse(records_before[0].reminder_replied)
+        view_before = build_customer_detail_view("田中", records_before)
+        self.assertFalse(view_before.latest_reminder_replied)
+
+        store.record_reminder_replied("shop_1", key)
+
+        records_after = store.customer_records("田中")
+        self.assertTrue(records_after[0].reminder_replied)
+        view_after = build_customer_detail_view("田中", records_after)
+        self.assertTrue(view_after.latest_reminder_replied)
+        # statusは変化しない(reminder_repliedはstatusとは独立したフラグ)。
+        self.assertEqual(records_after[0].status, BOOKING_UPCOMING_STATUS)
+
+    def test_record_reminder_replied_for_unknown_slot_does_not_raise(self):
+        store = InMemoryBookingRecordStore()
+        store.record_reminder_replied("shop_1", ("shop_1", "2026-08-10", "11:00"))
+        self.assertEqual(store.customer_records("田中"), [])
+
+    def test_flow_record_reminder_reply_updates_store_only_when_confirmed(self):
+        # ConversationFlowStateMachine.record_reminder_reply()経由の配線を確認する。
+        # candidates_presented段階(未確定)では何もしない。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        flow.present_candidates("user_a", now=T0)
+        flow.record_reminder_reply("user_a")  # 例外を送出しない
+        self.assertEqual(store.customer_records("田中"), [])
+
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+        flow.record_reminder_reply("user_a")
+
+        self.assertTrue(store.customer_records("田中")[0].reminder_replied)
+
+    def test_flow_record_reminder_reply_without_record_store_does_not_raise(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        flow.record_reminder_reply("user_a")  # record_store未指定でも例外を送出しない
+
+    def test_flow_record_reminder_reply_unknown_user_does_not_raise(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        flow.record_reminder_reply("unknown_user")
+
 
 if __name__ == "__main__":
     unittest.main()

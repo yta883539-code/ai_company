@@ -424,6 +424,10 @@ class _StoredBookingRecord:
     # VISITED_STATUS/NO_SHOW_CONFIRMED_STATUSが入る。Noneのままなら来店予定
     # (BOOKING_UPCOMING_STATUS)のまま。
     status_override: Optional[str] = None
+    # customer-reply-detection-design.mdのcustomerRepliedAtに相当。確定直後はFalseで、
+    # record_reminder_replied()(ConversationFlowStateMachine.record_reminder_reply()経由)で
+    # confirmed状態の会話にメッセージが届いた事実が記録されるとTrueへ更新される。
+    reminder_replied: bool = False
 
     def to_list_entry(self) -> BookingListEntry:
         return BookingListEntry(
@@ -434,14 +438,11 @@ class _StoredBookingRecord:
         )
 
     def to_customer_record(self) -> CustomerBookingRecord:
-        # reminder_replied はリマインド送信・返信検知(customer-reply-detection-design.md)の
-        # 実配線待ちのため、確定直後の時点では未送信=Falseで初期化する
-        # (record_visited()/record_no_show_confirmed()で更新されるのはstatusのみ)。
         return CustomerBookingRecord(
             visit_date=self.booking_date,
             menu=self.menu,
             status=self.status_override or BOOKING_UPCOMING_STATUS,
-            reminder_replied=False,
+            reminder_replied=self.reminder_replied,
         )
 
 
@@ -473,10 +474,14 @@ class InMemoryBookingRecordStore:
       record_visited()/record_no_show_confirmed()で反映する。自動断定は行わず、いずれも
       オーナー操作を起点とした呼び出しのみを想定する(ConversationFlowStateMachineからの
       自動呼び出しは無い。顧客側の会話フローではなくオーナー側設定画面の操作のため)。
+    - リマインド返信検知(customer-reply-detection-design.md)は`record_reminder_replied()`で
+      反映する。ConversationFlowStateMachine.record_reminder_reply()経由で、confirmed状態の
+      会話にメッセージが届いた事実(内容は問わない)があった場合にTrueへ更新される
+      (customer-reply-detection-design.mdの`ConfirmedReplyRecorder`と異なりFirestore接続を
+      要さないため、GCPプロジェクト作成前でも動作する)。
 
     MVPスコープの範囲外として残す点(実ホスティング基盤への接続時に、この最小インターフェースを
     実装したFirestore版クラスへ差し替える際に併せて設計する):
-    - リマインド返信検知(customer-reply-detection-design.md)によるreminder_replied更新。
     - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
       メモリ内でのみ有効)。
     """
@@ -542,6 +547,18 @@ class InMemoryBookingRecordStore:
         無断キャンセル確定数・直近の無断キャンセル日の集計対象になる)。
         """
         self._update_status(store_id, slot_key, NO_SHOW_CONFIRMED_STATUS)
+
+    def record_reminder_replied(self, store_id: str, slot_key: tuple) -> None:
+        """customer-reply-detection-design.md準拠。confirmed状態の会話に何らかのメッセージが
+        届いた事実を反映する(内容は問わない)。ConversationFlowStateMachine.record_reminder_reply()
+        から呼ばれ、build_customer_detail_view()の「前回リマインドへの返信」表示に使われる。
+        一致するレコードが見つからない場合(record_store未指定のまま確定した過去データ等)は
+        何もしない。statusとは独立したフラグのため_update_status()は使わない。
+        """
+        for record in self._records:
+            if record.store_id == store_id and record.slot_key == slot_key:
+                record.reminder_replied = True
+                return
 
     def _update_status(self, store_id: str, slot_key: tuple, status: str) -> None:
         for record in self._records:
@@ -1005,6 +1022,20 @@ class ConversationFlowStateMachine:
         state.stage = "candidates_presented"
         state.slot_key = None
         return ProvideDetailsResult(confirmed=False, owner_notify_actions=actions)
+
+    def record_reminder_reply(self, user_id: str) -> None:
+        """customer-reply-detection-design.md準拠。confirmed状態の会話に何らかのメッセージが
+        届いた事実を、record_storeが保持する該当予約レコードのreminder_repliedへ反映する。
+        呼び出し側(Cloud Function B)がconfirmed_reply_recorder(Firestore向け)と並行して、
+        stageが"confirmed"のときにこのメソッドも呼ぶ想定。record_store未指定、会話状態が無い、
+        confirmed以外のstageのいずれの場合も何もしない(後方互換・安全側のfail-silent)。
+        """
+        if self._record_store is None:
+            return
+        state = self._states.get(user_id)
+        if state is None or state.stage != "confirmed" or state.slot_key is None:
+            return
+        self._record_store.record_reminder_replied(state.slot_key[0], state.slot_key)
 
     def consume_first_booking_self_check(self) -> bool:
         """first-booking-self-check-notification-design.md準拠。店舗全体で最初の予約確定が

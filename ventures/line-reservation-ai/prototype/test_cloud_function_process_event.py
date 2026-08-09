@@ -31,6 +31,7 @@ from engine import (  # noqa: E402
     BookingSlotManager,
     ConversationFlowStateMachine,
     EscalationConsolidator,
+    InMemoryBookingRecordStore,
     NotificationLogAggregator,
 )
 
@@ -69,11 +70,14 @@ def _new_processor(
     closed_weekdays=frozenset(),
     push_client=None,
     owner_user_id=None,
+    record_store=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
     logs = NotificationLogAggregator()
-    flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
+    flow = ConversationFlowStateMachine(
+        BookingSlotManager(), EscalationConsolidator(), logs=logs, record_store=record_store
+    )
     searcher = AvailabilitySearcher(
         business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
     )
@@ -1056,6 +1060,46 @@ class ConfirmedReplyRecordingTests(unittest.TestCase):
         processor.process(_event("U1", "来週土曜カットで"), llm_call_present, NOW)
         self.assertEqual(flow.stage("U1"), "candidates_presented")
         self.assertEqual(recorder.recorded, [])
+
+    def test_reminder_replied_recorded_in_record_store_when_confirmed(self):
+        # booking-record-store-design.md「MVPスコープの範囲外として残す点」だった
+        # reminder_replied配線を検証する。confirmed_reply_recorder(Firestore向け)を
+        # 指定しなくても、record_storeだけでreminder_repliedが更新されることを確認する
+        # (GCP接続無しで動作する点が本配線の狙いのため)。
+        store = InMemoryBookingRecordStore()
+        processor, flow, push, _ = _new_processor(record_store=store)
+        self._reach_confirmed(processor)
+
+        records_before = store.customer_records("山田")
+        self.assertFalse(records_before[0].reminder_replied)
+
+        def llm_call_faq():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "parking", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "駐車場ありますか"), llm_call_faq, NOW + timedelta(hours=2))
+
+        records_after = store.customer_records("山田")
+        self.assertTrue(records_after[0].reminder_replied)
+
+    def test_reminder_replied_not_touched_without_record_store(self):
+        # record_store未指定(confirmed_reply_recorderのみ指定)でも例外なく動作する(後方互換)。
+        recorder = InMemoryConfirmedReplyRecorder()
+        processor, flow, push, _ = _new_processor(confirmed_reply_recorder=recorder)
+        self._reach_confirmed(processor)
+
+        def llm_call_faq():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "parking", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "駐車場ありますか"), llm_call_faq, NOW + timedelta(hours=2))
+        self.assertEqual(recorder.recorded, [("U1", NOW + timedelta(hours=2))])
 
     def test_recorder_is_optional_and_defaults_to_no_op(self):
         processor, flow, push, _ = _new_processor()  # confirmed_reply_recorder未指定

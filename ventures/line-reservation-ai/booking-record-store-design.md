@@ -82,12 +82,21 @@
   `test_record_no_show_confirmed_is_counted_by_customer_detail_view`・
   `test_record_visited_for_unknown_slot_does_not_raise`)。既存分含め全93件パス。
 
+- (解消済み 2026-08-09 11:00 UTC: リマインド返信検知(customer-reply-detection-design.md)による
+  `reminder_replied`更新を実装した。`record_reminder_replied(store_id, slot_key)`を新設し、
+  `ConversationFlowStateMachine.record_reminder_reply(user_id)`から、confirmed状態の会話に
+  何らかのメッセージが届いた事実(内容は問わない)を渡す。Cloud Function B
+  (`cloud_function_process_event.py`の`process()`)から、既存の`confirmed_reply_recorder`
+  (customerRepliedAt、Firestore向け)と並行してこのメソッドを呼ぶよう配線した。
+  `confirmed_reply_recorder`と異なりFirestore接続を要さないため、GCPプロジェクト作成前でも
+  動作する(record_store自体がインメモリのため)。テスト7件新規追加、既存分含め全210件パス
+  (詳細はREADME.mdフェーズ(続き93)参照))
+
 ## MVPスコープの範囲外として残す点(次の課題)
 
 いずれも実ホスティング基盤への接続時に、この最小インターフェースを実装したFirestore版
 クラスへ差し替える際に併せて設計する。
 
-- リマインド返信検知(customer-reply-detection-design.md)による`reminder_replied`更新。
 - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
   メモリ内でのみ有効)。
 - 「[今週分をCSVで書き出す]」ボタン押下→実際のファイルダウンロードへの配線、予約一覧ページの

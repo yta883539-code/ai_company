@@ -420,8 +420,14 @@ class ConversationEventProcessor:
         # customer-reply-detection-design.md準拠。LLM呼び出し・intent判定より前に、
         # confirmed状態の会話へメッセージが届いた事実そのものを記録する(内容は問わない)。
         # 複数回返信があっても呼ぶたびに最新の時刻で上書きする。
-        if self._confirmed_reply_recorder is not None and self._flow.stage(user_id) == "confirmed":
-            self._confirmed_reply_recorder.record(user_id, now)
+        if self._flow.stage(user_id) == "confirmed":
+            if self._confirmed_reply_recorder is not None:
+                self._confirmed_reply_recorder.record(user_id, now)
+            # record_storeが保持する予約レコードのreminder_replied(no-show-handling.mdの
+            # 「事前リマインドへの返信有無」表示元)も同じ事実で更新する。confirmed_reply_recorder
+            # (Firestore向け、オーナー承認待ち)とは独立して、GCP接続無しでも動作する
+            # (booking-record-store-design.md「MVPスコープの範囲外として残す点」の解消)。
+            self._flow.record_reminder_reply(user_id)
 
         llm_result = process_llm_output(llm_call)
         output = llm_result.output
