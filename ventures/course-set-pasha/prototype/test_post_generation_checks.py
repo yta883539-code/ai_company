@@ -21,6 +21,7 @@ from post_generation_checks import (  # noqa: E402
     check_mentions_photo_consistency,
     check_no_out_of_scope_topics_in_generated_output,
     check_unchanged_areas_not_mentioned_as_new,
+    check_updated_areas_mentioned_in_text,
     run_all_checks,
 )
 
@@ -322,6 +323,67 @@ class HistoryRowCountsMentionedInTextTest(unittest.TestCase):
     def test_no_history_rows_is_skipped(self):
         instance = {"sns_post": {"body": "", "hashtags": [], "mentions_photo": False}, "history_rows": []}
         self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
+
+
+class UpdatedAreasMentionedInTextTest(unittest.TestCase):
+    def test_area_present_in_sns_post_body_is_allowed(self):
+        instance = {
+            "sns_post": {"body": "エリアAに新着課題8本追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアA", "tape_color_or_grade_band": "黄", "count": 8, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_updated_areas_mentioned_in_text(instance), [])
+
+    def test_area_present_only_in_line_web_notice_is_allowed(self):
+        instance = {
+            "sns_post": {"body": "新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "エリアB:新着5本を追加。"},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアB", "tape_color_or_grade_band": "赤", "count": 5, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_updated_areas_mentioned_in_text(instance), [])
+
+    def test_area_missing_from_both_bodies_is_flagged(self):
+        instance = {
+            "sns_post": {"body": "新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "新着課題を追加しました。"},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアC", "tape_color_or_grade_band": "緑", "count": 7, "feature_keywords": []}
+            ],
+        }
+        errors = check_updated_areas_mentioned_in_text(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("エリアC", errors[0])
+
+    def test_only_missing_area_is_flagged_among_multiple(self):
+        instance = {
+            "sns_post": {"body": "エリアFで新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアF", "tape_color_or_grade_band": "黄", "count": 6, "feature_keywords": []},
+                {"revision_date": "2026-08-09", "area": "エリアG", "tape_color_or_grade_band": "赤", "count": 4, "feature_keywords": []},
+            ],
+        }
+        errors = check_updated_areas_mentioned_in_text(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("エリアG", errors[0])
+
+    def test_null_area_is_skipped(self):
+        instance = {
+            "sns_post": {"body": "新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": None, "area": None, "tape_color_or_grade_band": "緑", "count": None, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_updated_areas_mentioned_in_text(instance), [])
+
+    def test_no_history_rows_is_skipped(self):
+        instance = {"sns_post": {"body": "", "hashtags": [], "mentions_photo": False}, "history_rows": []}
+        self.assertEqual(check_updated_areas_mentioned_in_text(instance), [])
 
 
 class NoOutOfScopeTopicsInGeneratedOutputTest(unittest.TestCase):

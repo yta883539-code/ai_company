@@ -15,6 +15,9 @@ LLM構造化出力(schema/output.schema.json)を受け取った後に、プロ�
 - ここでの検証はあくまでヒューリスティック(キーワード近傍探索・絵文字の文字コード範囲判定)
   であり、LLMの厳守事項違反を確実に検出できるわけではない。実LLM接続後は、ここで拾いきれない
   違反パターンの収集・ルール改善が引き続き必要になる。
+- 2026-08-09追記: history_rows[].countと本文中の本数記載との整合性チェック(厳守事項4・5)に
+  続き、history_rows[]に登場するエリア名自体が本文中に一切言及されていないケース
+  (厳守事項4・5の「エリア・改訂日の明示」指示への違反疑い)を検出するチェックも追加した。
 - 実LLM呼び出しは行わない(APIキー・課金が必要なため、実行にはオーナー承認が必要な範囲)。
 """
 
@@ -252,6 +255,48 @@ def check_history_row_counts_mentioned_in_text(instance):
     return errors
 
 
+def check_updated_areas_mentioned_in_text(instance):
+    """厳守事項4・5準拠チェック(エリアの明示)。history_rows[].area(実際に更新された
+    エリア名)が、sns_post.body・line_web_notice.bodyのいずれにも一切登場していない
+    ケースを検出する。
+
+    check_history_row_counts_mentioned_in_text()がhistory_rows[].countと本文の本数
+    記載との整合性を確認するのに対し、本チェックはエリア名自体の言及漏れを確認する
+    (「エリア・改訂日の明示」を求める厳守事項4・5の指示のうち、本数側だけで
+    エリア名側の突き合わせが未検証のまま残っていた)。
+
+    同一エリア名が別の綴り(略称等)で言及される場合や、複数エリアの記述が省略された
+    箇条書き(multi-area-mixed-case-review.md想定の3エリア以上の簡潔化パターン)で
+    エリア名自体は残る前提のため、エリア名文字列の完全一致のみで判定するヒューリスティック
+    である点は既存チェックと同じ限界を持つ。
+    """
+    errors = []
+    history_rows = instance.get("history_rows") or []
+    if not history_rows:
+        return errors
+
+    bodies = []
+    sns_post = instance.get("sns_post")
+    if sns_post:
+        bodies.append(sns_post.get("body", ""))
+    line_web_notice = instance.get("line_web_notice")
+    if line_web_notice:
+        bodies.append(line_web_notice.get("body", ""))
+    combined = "\n".join(bodies)
+
+    for row in history_rows:
+        area = row.get("area")
+        if not area:
+            continue
+        if area not in combined:
+            errors.append(
+                f"history_rows: エリア「{area}」が"
+                "sns_post.body・line_web_notice.bodyのいずれにも見つかりません"
+                "(厳守事項4・5違反の疑い、エリア名の明示漏れ)"
+            )
+    return errors
+
+
 def check_no_out_of_scope_topics_in_generated_output(instance):
     """厳守事項7準拠チェック。status=generated(=通常の3出力生成)のとき、
     sns_post.body・line_web_notice.bodyに会員管理・予約受付・決済に関する話題への
@@ -296,5 +341,6 @@ def run_all_checks(instance):
     errors += check_unchanged_areas_not_mentioned_as_new(instance)
     errors += check_emoji_usage_rules(instance)
     errors += check_history_row_counts_mentioned_in_text(instance)
+    errors += check_updated_areas_mentioned_in_text(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     return errors
