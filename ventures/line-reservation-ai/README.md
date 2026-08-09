@@ -782,7 +782,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   owner-notification-channel-design.md本体の記載が未訂正のまま取り残されていたケースで、
   ドキュメント要約とソースドキュメント本体の食い違いという新しいパターンの記載漏れだった。
   実装コード・テストへの影響は無し。
-- 最終更新: 2026-08-09 02:00 UTC
+- フェーズ(続き90、2026-08-09 04:00 UTC): 「次にやること」に残っていた、
+  format_booking_list_csv()・build_customer_detail_view()の「取得元」(外部の永続ストレージから
+  予約記録一覧を取得する処理)が未実装だった点に対応した。実LLM呼び出しをllm_callスタブとして
+  差し替え可能にした既存の設計と同じ考え方で、`InMemoryBookingRecordStore`
+  (record_confirmed/list_booking_entries/customer_records の3メソッドの最小インターフェース)を
+  `prototype/engine.py`に新規実装し(booking-record-store-design.md新規作成)、
+  `ConversationFlowStateMachine`に任意引数`record_store`を追加してprovide_details()の確定成功時に
+  自動記録されるよう配線した(record_store未指定時は従来通りの後方互換)。`_demo()`に確定フロー→
+  ストア→CSV/顧客詳細ビューまで一気通貫のデモを追加し、test_engine.pyに
+  InMemoryBookingRecordStoreTest(5件)を新規追加(全87件パス)。実Firestore接続・GCPプロジェクト
+  作成は引き続きオーナー承認待ちで未着手。キャンセル・変更時の記録更新、来店後のstatus更新、
+  CSV書き出しボタン→ファイルダウンロードへの実配線は次の課題として残した。
+- 最終更新: 2026-08-09 04:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -1008,10 +1020,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- (一部解消 2026-08-09 04:00 UTC: 下記「format_booking_list_csv()(続き86)・
+  build_customer_detail_view()(続き87)」で残課題だった「外部の永続ストレージ(スプレッドシート等)
+  から予約記録一覧を取得する処理」について、llm_callスタブと同じ考え方でインメモリの最小
+  代替実装`InMemoryBookingRecordStore`(record_confirmed/list_booking_entries/customer_records)を
+  `prototype/engine.py`に新規追加した(booking-record-store-design.md新規作成)。
+  `ConversationFlowStateMachine`に任意引数`record_store`を追加し、渡すと`provide_details()`の
+  確定成功時に自動記録される(未指定時は従来通り後方互換)。実Firestore接続への差し替えは
+  同じインターフェースの別クラスに置き換えるだけで済む設計としたが、実接続自体は引き続き
+  ホスティング基盤確定・オーナー承認待ち。キャンセル・変更時の記録更新、来店後のstatus更新、
+  「CSVで書き出す」ボタン押下→ファイルダウンロードへの実配線は未着手のまま残る
+  (booking-record-store-design.md「MVPスコープの範囲外として残す点」参照)。デモ・テスト
+  5件追加、全87件パス)
 - format_notification_log_csv()(続き85)・format_booking_list_csv()(続き86)・
   build_customer_detail_view()(続き87)はいずれも表示用データの組み立て・テキスト変換のみで、
-  実際に画面へ表示する/「CSVで書き出す」ボタン押下→ファイルダウンロードに配線する処理、および
-  外部の永続ストレージ(スプレッドシート等)から予約記録一覧を取得する処理は、いずれも
+  実際に画面へ表示する/「CSVで書き出す」ボタン押下→ファイルダウンロードに配線する処理は、
   ホスティング基盤(Cloud Functions)接続後の課題として残る。
 - 続き87の点検により、owner-settings-wireframe.mdの4ページ(営業情報設定・メニュー設定・
   予約一覧・顧客詳細)は一通り「ワイヤーフレームに明記された処理がengine.pyに未実装のまま

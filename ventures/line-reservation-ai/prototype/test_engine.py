@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "schema"))
 
 from engine import (  # noqa: E402
     AvailabilitySearcher,
+    BOOKING_UPCOMING_STATUS,
     BookingListEntry,
     BookingSlotManager,
     BusinessHoursConfigError,
@@ -34,6 +35,7 @@ from engine import (  # noqa: E402
     ConversationFlowStateMachine,
     CustomerBookingRecord,
     EscalationConsolidator,
+    InMemoryBookingRecordStore,
     NO_SHOW_CONFIRMED_STATUS,
     NotificationLogAggregator,
     PRECHECK_STRENGTHENING_BADGE_THRESHOLD,
@@ -1068,6 +1070,67 @@ class CasualEmojiFrequencyLimitTest(unittest.TestCase):
 def _fake_candidate(slot_key, label):
     from engine import _Candidate  # noqa: E402 (テスト専用にプライベート型を直接利用)
     return _Candidate(slot_key=slot_key, label=label, start_minutes=0)
+
+
+class InMemoryBookingRecordStoreTest(unittest.TestCase):
+    """InMemoryBookingRecordStoreとConversationFlowStateMachine.provide_details()の連動、
+    および取得結果がformat_booking_list_csv()/build_customer_detail_view()にそのまま
+    渡せることを確認する(README.md「次にやること」で挙げていた、予約一覧CSV・顧客詳細ページの
+    「取得元」配線)。
+    """
+
+    def _confirm(self, flow, user_id, slot_key, name, menu, now=T0):
+        flow.present_candidates(user_id, now=now)
+        self.assertTrue(flow.select_slot(user_id, slot_key, now).success)
+        result = flow.provide_details(user_id, name, menu, now)
+        self.assertTrue(result.confirmed)
+
+    def test_record_store_none_is_backward_compatible(self):
+        # record_store未指定でも従来通り例外なく確定できる(後方互換)。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        self.assertEqual(flow.stage("user_a"), "confirmed")
+
+    def test_confirmed_booking_is_recorded(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+
+        entries = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0], BookingListEntry(date(2026, 8, 10), 11 * 60, "田中", "カット"))
+
+    def test_list_booking_entries_filters_by_store_and_date_range_and_sorts(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "16:00"), "佐藤", "カラー")
+        self._confirm(flow, "user_b", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        self._confirm(flow, "user_c", ("shop_1", "2026-09-01", "10:00"), "鈴木", "カット")  # 期間外
+        self._confirm(flow, "user_d", ("shop_2", "2026-08-10", "12:00"), "山本", "カット")  # 別店舗
+
+        entries = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))
+        self.assertEqual([e.customer_name for e in entries], ["田中", "佐藤"])  # 時刻順にソートされる
+
+    def test_customer_records_feed_build_customer_detail_view(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        self._confirm(flow, "user_e", ("shop_1", "2026-08-17", "11:00"), "田中", "カラー")
+
+        records = store.customer_records("田中")
+        view = build_customer_detail_view("田中", records)
+        self.assertEqual(view.total_bookings, 2)
+        self.assertEqual(view.recent_history[0].status, BOOKING_UPCOMING_STATUS)
+        # 来店予定はNO_SHOW_CONFIRMED_STATUSではないため、無断キャンセルとしては数えない。
+        self.assertEqual(view.no_show_confirmed_count, 0)
+
+    def test_unconfirmed_booking_is_not_recorded(self):
+        # select_slot()止まり(provide_details()未実行)では記録されない。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        flow.present_candidates("user_a", now=T0)
+        flow.select_slot("user_a", ("shop_1", "2026-08-10", "11:00"), T0)
+        self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
 
 
 if __name__ == "__main__":

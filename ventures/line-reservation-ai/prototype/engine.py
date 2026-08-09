@@ -401,6 +401,104 @@ def build_customer_detail_view(customer_name: str, records: list[CustomerBooking
     )
 
 
+BOOKING_UPCOMING_STATUS = "来店予定"
+
+
+@dataclass
+class _StoredBookingRecord:
+    """InMemoryBookingRecordStoreが保持する確定予約1件分。予約一覧ページ(BookingListEntry)・
+    顧客詳細ページ(CustomerBookingRecord)、両方の表示専用オブジェクトへの変換を持つ、
+    永続ストレージ側の生レコードに相当する値オブジェクト。"""
+
+    store_id: str
+    slot_key: tuple
+    booking_date: date
+    start_minutes: int
+    customer_name: str
+    menu: str
+
+    def to_list_entry(self) -> BookingListEntry:
+        return BookingListEntry(
+            booking_date=self.booking_date,
+            start_minutes=self.start_minutes,
+            customer_name=self.customer_name,
+            menu=self.menu,
+        )
+
+    def to_customer_record(self) -> CustomerBookingRecord:
+        # 来店後のstatus更新(来店済み/無断キャンセル確定への遷移、no-show-handling.md参照)は
+        # 本ストアのMVPスコープ外として残す(下記InMemoryBookingRecordStoreのdocstring参照)。
+        # reminder_replied もリマインド送信・返信検知(customer-reply-detection-design.md)の
+        # 実配線待ちのため、確定直後の時点では未送信=Falseで初期化する。
+        return CustomerBookingRecord(
+            visit_date=self.booking_date,
+            menu=self.menu,
+            status=BOOKING_UPCOMING_STATUS,
+            reminder_replied=False,
+        )
+
+
+class InMemoryBookingRecordStore:
+    """firestore-data-model.mdが想定する外部永続ストレージ(Firestore等)の最小限の
+    インメモリ代替実装。
+
+    位置づけ:
+    - format_booking_list_csv()・build_customer_detail_view()はいずれも「既にどこからか
+      取得済みのデータ」を受け取って表示用に変換するだけの関数で、その「取得元」自体は
+      README.md「次にやること」に「ホスティング基盤(Cloud Functions)接続後の課題」として
+      未着手のまま残っていた。
+    - 本クラスは、llm_callスタブ(実LLM呼び出しを差し替え可能にした設計)と同じ考え方で、
+      「取得元」の最小インターフェース(record_confirmed / list_booking_entries /
+      customer_records)をまずインメモリで実装したもの。実際のFirestore等への差し替えは、
+      同じインターフェースを持つ別クラスに置き換えるだけで済むようにする狙いがあり、
+      GCPプロジェクト作成・実Firestore接続そのものは行わない(オーナー承認待ち、
+      pending-approval.md参照)。
+    - ConversationFlowStateMachineへ渡すと、provide_details()での確定成功時に自動的に
+      record_confirmed()が呼ばれる(record_storeを渡さない場合はNoneのままで、
+      従来通り何もしない後方互換の任意引数)。
+
+    MVPスコープの範囲外として残す点(実ホスティング基盤への接続時に、この最小インターフェースを
+    実装したFirestore版クラスへ差し替える際に併せて設計する):
+    - キャンセル・変更時の記録更新(現状は確定時の追加のみで、cancel_booking()/
+      change_booking()と連動した削除・更新は行わない)。
+    - 来店後のstatus更新(来店済み/無断キャンセル確定への遷移。no-show-handling.md参照)。
+    - リマインド返信検知(customer-reply-detection-design.md)によるreminder_replied更新。
+    - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
+      メモリ内でのみ有効)。
+    """
+
+    def __init__(self) -> None:
+        self._records: list[_StoredBookingRecord] = []
+
+    def record_confirmed(self, store_id: str, slot_key: tuple, customer_name: str, menu: str) -> None:
+        _, date_str, time_str = slot_key
+        hours, minutes = (int(part) for part in time_str.split(":"))
+        self._records.append(
+            _StoredBookingRecord(
+                store_id=store_id,
+                slot_key=slot_key,
+                booking_date=date.fromisoformat(date_str),
+                start_minutes=hours * 60 + minutes,
+                customer_name=customer_name,
+                menu=menu,
+            )
+        )
+
+    def list_booking_entries(self, store_id: str, start_date: date, end_date: date) -> list[BookingListEntry]:
+        """owner-settings-wireframe.md予約一覧ページの「[今週分をCSVで書き出す]」ボタンが
+        取得すべきデータそのもの。戻り値はformat_booking_list_csv()にそのまま渡せる。"""
+        matched = [
+            r for r in self._records if r.store_id == store_id and start_date <= r.booking_date <= end_date
+        ]
+        matched.sort(key=lambda r: (r.booking_date, r.start_minutes))
+        return [r.to_list_entry() for r in matched]
+
+    def customer_records(self, customer_name: str) -> list[CustomerBookingRecord]:
+        """owner-settings-wireframe.md顧客詳細ページのbuild_customer_detail_view()に
+        そのまま渡せる。"""
+        return [r.to_customer_record() for r in self._records if r.customer_name == customer_name]
+
+
 def _escalation_type_label(event: dict) -> str:
     """escalation-notification-templates.md「種別ごとの文面」の種別ラベル部分に相当。"""
     reason = event.get("escalation_reason")
@@ -678,6 +776,7 @@ class ConversationFlowStateMachine:
         slots: BookingSlotManager,
         consolidator: EscalationConsolidator,
         logs: Optional["NotificationLogAggregator"] = None,
+        record_store: Optional["InMemoryBookingRecordStore"] = None,
     ) -> None:
         """logsはsystem-event-log-gap-fix.md準拠。booking_conflict/booking_cancelled/
         booking_change_started/candidate_selection_unresolvedといったシステム内部発火の
@@ -685,10 +784,14 @@ class ConversationFlowStateMachine:
         呼び出し側(Cloud Function Bの本番配線)が渡す。未指定(None)の場合は
         EscalationConsolidatorへの通知のみ行い、従来通り動作する(既存の呼び出し側・
         テストへの後方互換のため)。
+        record_storeはInMemoryBookingRecordStoreのdocstring準拠。渡すとprovide_details()の
+        確定成功時に自動でrecord_confirmed()が呼ばれる。未指定(None)の場合は従来通り
+        記録を行わない(後方互換の任意引数)。
         """
         self._slots = slots
         self._consolidator = consolidator
         self._logs = logs
+        self._record_store = record_store
         self._states: dict[str, _ConversationState] = {}
         self._last_idle_cleanup_at: Optional[datetime] = None
         self._last_archive_at: Optional[datetime] = None
@@ -831,6 +934,8 @@ class ConversationFlowStateMachine:
         state.last_activity_at = now
         if self._slots.confirm(state.slot_key, user_id, now):
             state.stage = "confirmed"
+            if self._record_store is not None:
+                self._record_store.record_confirmed(state.slot_key[0], state.slot_key, name, menu)
             if not self._first_booking_self_check_sent:
                 self._first_booking_self_check_sent = True
                 self._first_booking_self_check_pending = True
@@ -2132,6 +2237,33 @@ def _demo() -> None:
     print("[前日リマインド/カジュアル(スケジューラ発火起点)]")
     print(format_reminder_message(label, "カット", tone="casual"))
     print(f"[未知のtone値'loud'はstandardにフォールバック]: {format_faq_parking_message('3', tone='loud')}")
+
+    print()
+    print("=== InMemoryBookingRecordStore デモ(予約一覧CSV・顧客詳細ページの取得元配線) ===")
+
+    # record_storeを渡しておくと、provide_details()での確定成功時に自動でrecord_confirmed()が
+    # 呼ばれる。これまでformat_booking_list_csv()/build_customer_detail_view()は「既にどこかから
+    # 取得済みのデータ」を渡されて動かすデモしか無かったが、確定フロー→ストア→CSV/詳細ビューまで
+    # 一気通貫で確認できるようにした。
+    record_store = InMemoryBookingRecordStore()
+    store_flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=record_store)
+
+    for user_id, slot_key, name, menu in [
+        ("user_tanaka_r", ("shop_1", "2026-08-10", "11:00"), "田中", "カット"),
+        ("user_sato_r", ("shop_1", "2026-08-10", "16:00"), "佐藤", "カラー"),
+        ("user_suzuki_r", ("shop_1", "2026-08-11", "13:00"), "鈴木", "カット"),
+    ]:
+        store_flow.present_candidates(user_id, now=t0)
+        store_flow.select_slot(user_id, slot_key, t0)
+        store_flow.provide_details(user_id, name, menu, t0)
+
+    week_entries = record_store.list_booking_entries("shop_1", date(2026, 8, 10), date(2026, 8, 16))
+    print(f"[予約一覧ページ「今週分をCSVで書き出す」相当、{len(week_entries)}件取得]")
+    print(format_booking_list_csv(week_entries))
+
+    tanaka_view = build_customer_detail_view("田中", record_store.customer_records("田中"))
+    print(f"[顧客詳細ページ(田中さん)相当]: 累計予約数={tanaka_view.total_bookings}, "
+          f"直近の状態={tanaka_view.recent_history[0].status if tanaka_view.recent_history else None}")
 
 
 if __name__ == "__main__":
