@@ -794,7 +794,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   InMemoryBookingRecordStoreTest(5件)を新規追加(全87件パス)。実Firestore接続・GCPプロジェクト
   作成は引き続きオーナー承認待ちで未着手。キャンセル・変更時の記録更新、来店後のstatus更新、
   CSV書き出しボタン→ファイルダウンロードへの実配線は次の課題として残した。
-- 最終更新: 2026-08-09 04:00 UTC
+- フェーズ(続き91、2026-08-09 08:00 UTC): 「次にやること」に残っていた、
+  booking-record-store-design.mdの残課題のうち「キャンセル・変更時の記録更新」に対応した。
+  `InMemoryBookingRecordStore`に`record_cancelled(store_id, slot_key, status)`を新規追加し、
+  `_StoredBookingRecord`に`status_override`フィールドを追加(レコード削除ではなくstatus更新、
+  顧客詳細ページの来店履歴として残す設計)。`ConversationFlowStateMachine.cancel_booking()`/
+  `change_booking()`のconfirmed分岐から、既存のescalation_reason(`booking_cancelled`/
+  `booking_change_started`)と対応させて`CANCELLED_STATUS`/`CHANGED_STATUS`を書き分けるよう
+  配線した。予約一覧CSV(`list_booking_entries()`)からはstatus更新済みレコードを除外し、
+  顧客詳細ページ(`customer_records()`)には引き続き含める。テスト3件追加、全90件パス
+  (booking-record-store-design.md追記)。残る課題は来店後のstatus更新(no-show-handling.md)、
+  リマインド返信検知によるreminder_replied更新、実Firestore接続自体(オーナー承認待ち)。
+- 最終更新: 2026-08-09 08:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -1020,6 +1031,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-09 08:00 UTC: booking-record-store-design.mdの残課題だった
+  「キャンセル・変更時の記録更新」を実装した。`InMemoryBookingRecordStore.record_cancelled()`
+  新設、`cancel_booking()`/`change_booking()`から配線し、予約一覧CSVからは除外・顧客詳細
+  ページには残す設計とした。テスト3件追加、全90件パス。詳細は上記フェーズ(続き91)参照)
 - (一部解消 2026-08-09 04:00 UTC: 下記「format_booking_list_csv()(続き86)・
   build_customer_detail_view()(続き87)」で残課題だった「外部の永続ストレージ(スプレッドシート等)
   から予約記録一覧を取得する処理」について、llm_callスタブと同じ考え方でインメモリの最小
@@ -1028,10 +1043,9 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `ConversationFlowStateMachine`に任意引数`record_store`を追加し、渡すと`provide_details()`の
   確定成功時に自動記録される(未指定時は従来通り後方互換)。実Firestore接続への差し替えは
   同じインターフェースの別クラスに置き換えるだけで済む設計としたが、実接続自体は引き続き
-  ホスティング基盤確定・オーナー承認待ち。キャンセル・変更時の記録更新、来店後のstatus更新、
-  「CSVで書き出す」ボタン押下→ファイルダウンロードへの実配線は未着手のまま残る
-  (booking-record-store-design.md「MVPスコープの範囲外として残す点」参照)。デモ・テスト
-  5件追加、全87件パス)
+  ホスティング基盤確定・オーナー承認待ち。来店後のstatus更新、「CSVで書き出す」ボタン押下→
+  ファイルダウンロードへの実配線は未着手のまま残る(booking-record-store-design.md
+  「MVPスコープの範囲外として残す点」参照)。デモ・テスト5件追加、全87件パス)
 - format_notification_log_csv()(続き85)・format_booking_list_csv()(続き86)・
   build_customer_detail_view()(続き87)はいずれも表示用データの組み立て・テキスト変換のみで、
   実際に画面へ表示する/「CSVで書き出す」ボタン押下→ファイルダウンロードに配線する処理は、

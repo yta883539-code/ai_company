@@ -31,6 +31,8 @@ from engine import (  # noqa: E402
     BookingListEntry,
     BookingSlotManager,
     BusinessHoursConfigError,
+    CANCELLED_STATUS,
+    CHANGED_STATUS,
     ConversationFlowError,
     ConversationFlowStateMachine,
     CustomerBookingRecord,
@@ -1131,6 +1133,53 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         flow.present_candidates("user_a", now=T0)
         flow.select_slot("user_a", ("shop_1", "2026-08-10", "11:00"), T0)
         self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
+
+    def test_cancel_booking_after_confirmed_updates_record_store_status(self):
+        # booking-record-store-design.md「次の課題」だった、cancel_booking()と連動した
+        # 記録更新(削除はせずCANCELLED_STATUSへ更新)を確認する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        flow.cancel_booking("user_a", T0 + timedelta(minutes=5))
+
+        # 予約一覧(来店予定のみを対象とする想定)からは除外される。
+        self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
+        # 顧客詳細ページの履歴には残り、statusがキャンセル済みに更新される(削除はしない)。
+        records = store.customer_records("田中")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].status, CANCELLED_STATUS)
+
+    def test_change_booking_after_confirmed_updates_record_store_status(self):
+        # change_booking()はCANCELLED_STATUSではなくCHANGED_STATUSへ更新し、
+        # オーナー通知のescalation_reason(booking_change_started)との区別を保つ。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        flow.change_booking("user_a", T0 + timedelta(minutes=5))
+
+        self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
+        records = store.customer_records("田中")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].status, CHANGED_STATUS)
+
+        # 変更後に新しい日時で再確定すると、旧レコード(変更済み)とは別に新レコードが
+        # 来店予定として追加される(旧レコードを上書きするのではなく2件になる)。
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-17", "11:00"), "田中", "カット", now=T0 + timedelta(minutes=6))
+        records_after = store.customer_records("田中")
+        self.assertEqual(len(records_after), 2)
+        statuses = sorted(r.status for r in records_after)
+        self.assertEqual(statuses, sorted([CHANGED_STATUS, BOOKING_UPCOMING_STATUS]))
+
+    def test_cancel_booking_without_record_store_does_not_raise(self):
+        # record_store未指定(既定None)でもcancel_booking()は従来通り例外なく動作する(後方互換)。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        result = flow.cancel_booking("user_a", T0 + timedelta(minutes=5))
+        self.assertTrue(result.found)
 
 
 if __name__ == "__main__":

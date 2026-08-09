@@ -402,6 +402,8 @@ def build_customer_detail_view(customer_name: str, records: list[CustomerBooking
 
 
 BOOKING_UPCOMING_STATUS = "来店予定"
+CANCELLED_STATUS = "キャンセル済み"
+CHANGED_STATUS = "変更済み"
 
 
 @dataclass
@@ -416,6 +418,9 @@ class _StoredBookingRecord:
     start_minutes: int
     customer_name: str
     menu: str
+    # cancel_booking()/change_booking()でrecord_cancelled()が呼ばれるとCANCELLED_STATUS/
+    # CHANGED_STATUSが入る。Noneのままなら来店予定(BOOKING_UPCOMING_STATUS)のまま。
+    status_override: Optional[str] = None
 
     def to_list_entry(self) -> BookingListEntry:
         return BookingListEntry(
@@ -433,7 +438,7 @@ class _StoredBookingRecord:
         return CustomerBookingRecord(
             visit_date=self.booking_date,
             menu=self.menu,
-            status=BOOKING_UPCOMING_STATUS,
+            status=self.status_override or BOOKING_UPCOMING_STATUS,
             reminder_replied=False,
         )
 
@@ -456,11 +461,15 @@ class InMemoryBookingRecordStore:
     - ConversationFlowStateMachineへ渡すと、provide_details()での確定成功時に自動的に
       record_confirmed()が呼ばれる(record_storeを渡さない場合はNoneのままで、
       従来通り何もしない後方互換の任意引数)。
+    - 同様にcancel_booking()/change_booking()がconfirmed状態の予約を解放した際は、
+      record_cancelled()が自動的に呼ばれ、該当レコードのstatusをCANCELLED_STATUS
+      (キャンセル済み)/CHANGED_STATUS(変更済み)に更新する(削除はしない。顧客詳細ページの
+      来店履歴として引き続き参照できるようにするため)。list_booking_entries()(予約一覧CSV)
+      からはstatus更新済みのレコードを除外し、customer_records()(顧客詳細ページ)には
+      引き続き含める。
 
     MVPスコープの範囲外として残す点(実ホスティング基盤への接続時に、この最小インターフェースを
     実装したFirestore版クラスへ差し替える際に併せて設計する):
-    - キャンセル・変更時の記録更新(現状は確定時の追加のみで、cancel_booking()/
-      change_booking()と連動した削除・更新は行わない)。
     - 来店後のstatus更新(来店済み/無断キャンセル確定への遷移。no-show-handling.md参照)。
     - リマインド返信検知(customer-reply-detection-design.md)によるreminder_replied更新。
     - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
@@ -486,17 +495,36 @@ class InMemoryBookingRecordStore:
 
     def list_booking_entries(self, store_id: str, start_date: date, end_date: date) -> list[BookingListEntry]:
         """owner-settings-wireframe.md予約一覧ページの「[今週分をCSVで書き出す]」ボタンが
-        取得すべきデータそのもの。戻り値はformat_booking_list_csv()にそのまま渡せる。"""
+        取得すべきデータそのもの。戻り値はformat_booking_list_csv()にそのまま渡せる。
+        record_cancelled()でキャンセル・変更済みになったレコードは、来店予定の一覧としては
+        不適切なため除外する(顧客詳細ページの履歴には引き続き残す。customer_records()参照)。
+        """
         matched = [
-            r for r in self._records if r.store_id == store_id and start_date <= r.booking_date <= end_date
+            r
+            for r in self._records
+            if r.store_id == store_id
+            and start_date <= r.booking_date <= end_date
+            and r.status_override is None
         ]
         matched.sort(key=lambda r: (r.booking_date, r.start_minutes))
         return [r.to_list_entry() for r in matched]
 
     def customer_records(self, customer_name: str) -> list[CustomerBookingRecord]:
         """owner-settings-wireframe.md顧客詳細ページのbuild_customer_detail_view()に
-        そのまま渡せる。"""
+        そのまま渡せる。キャンセル・変更済みのレコードもstatusを更新した上でそのまま含める
+        (来店履歴として引き続き参照できるようにするため)。"""
         return [r.to_customer_record() for r in self._records if r.customer_name == customer_name]
+
+    def record_cancelled(self, store_id: str, slot_key: tuple, status: str) -> None:
+        """cancel_booking()/change_booking()がconfirmed状態の予約枠を解放した際に呼ぶ。
+        店舗・slot_keyが一致するレコードのstatusをCANCELLED_STATUS/CHANGED_STATUSへ更新する
+        (レコード自体の削除は行わない。理由はクラスdocstring参照)。一致するレコードが
+        見つからない場合(record_store未指定のまま確定した過去データ等)は何もしない。
+        """
+        for record in self._records:
+            if record.store_id == store_id and record.slot_key == slot_key:
+                record.status_override = status
+                return
 
 
 def _escalation_type_label(event: dict) -> str:
@@ -997,6 +1025,8 @@ class ConversationFlowStateMachine:
 
         actions: list = []
         if stage == "confirmed":
+            if self._record_store is not None and slot_key is not None:
+                self._record_store.record_cancelled(slot_key[0], slot_key, CANCELLED_STATUS)
             actions = self._notify_system_event(
                 user_id,
                 {
@@ -1032,6 +1062,8 @@ class ConversationFlowStateMachine:
 
         actions: list = []
         if stage == "confirmed":
+            if self._record_store is not None and slot_key is not None:
+                self._record_store.record_cancelled(slot_key[0], slot_key, CHANGED_STATUS)
             # 確定済みだった枠を解放した事実は、cancelと同じくオーナー側の外部予約記録の
             # 更新が必要なため通知する。escalation_reasonをbooking_cancelledと分けたのは、
             # 「新しい日時への変更手続き中」であることをオーナーが区別できるようにするため
