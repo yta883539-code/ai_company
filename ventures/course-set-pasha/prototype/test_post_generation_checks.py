@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
+    check_emoji_usage_rules,
     check_mentions_photo_consistency,
     check_unchanged_areas_not_mentioned_as_new,
     run_all_checks,
@@ -180,6 +181,71 @@ class UnchangedAreasNotMentionedAsNewTest(unittest.TestCase):
         }
         errors = check_unchanged_areas_not_mentioned_as_new(instance)
         self.assertEqual(errors, [])
+
+
+class EmojiUsageRulesTest(unittest.TestCase):
+    def test_sns_post_with_two_emoji_is_allowed(self):
+        instance = {
+            "sns_post": {
+                "body": "エリアAに新着課題を追加しました🧗✨",
+                "hashtags": [],
+                "mentions_photo": False,
+            }
+        }
+        self.assertEqual(check_emoji_usage_rules(instance), [])
+
+    def test_sns_post_with_no_emoji_is_allowed(self):
+        instance = {
+            "sns_post": {
+                "body": "エリアAに新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            }
+        }
+        self.assertEqual(check_emoji_usage_rules(instance), [])
+
+    def test_sns_post_with_three_emoji_is_flagged(self):
+        instance = {
+            "sns_post": {
+                "body": "エリアAに新着課題を追加しました🧗✨🔥",
+                "hashtags": [],
+                "mentions_photo": False,
+            }
+        }
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sns_post", errors[0])
+
+    def test_line_web_notice_with_emoji_is_flagged(self):
+        instance = {
+            "line_web_notice": {"body": "エリアAに新着課題を追加しました✨"},
+        }
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice", errors[0])
+
+    def test_line_web_notice_without_emoji_is_allowed(self):
+        instance = {"line_web_notice": {"body": "エリアAに新着課題を追加しました。"}}
+        self.assertEqual(check_emoji_usage_rules(instance), [])
+
+    def test_history_rows_feature_keyword_with_emoji_is_flagged(self):
+        instance = {
+            "history_rows": [
+                {
+                    "revision_date": "2026-08-09",
+                    "area": "エリアA",
+                    "tape_color_or_grade_band": "赤",
+                    "count": 5,
+                    "feature_keywords": ["パワフル系🔥"],
+                }
+            ]
+        }
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("history_rows", errors[0])
+
+    def test_no_fields_present_is_skipped(self):
+        self.assertEqual(check_emoji_usage_rules({}), [])
 
 
 if __name__ == "__main__":

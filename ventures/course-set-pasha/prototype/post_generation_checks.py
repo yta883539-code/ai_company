@@ -8,10 +8,11 @@ LLM構造化出力(schema/output.schema.json)を受け取った後に、プロ�
   意図として記載していた`sns_post.mentions_photo`(厳守事項3)・`unchanged_areas`
   (厳守事項2)の2点について、これまで方針の記述のみだったものを初めて実行可能な
   コードに落とし込んだ(line-reservation-aiのvalidate_test_cases.py・prototype/engine.pyと
-  同じ位置づけ)。
-- ここでの検証はあくまでヒューリスティック(キーワード近傍探索)であり、LLMの厳守事項
-  違反を確実に検出できるわけではない。実LLM接続後は、ここで拾いきれない違反パターンの
-  収集・ルール改善が引き続き必要になる。
+  同じ位置づけ)。2026-08-09追記: 厳守事項9(絵文字の使用箇所・個数制限)も同じ位置づけで
+  機械チェック化した。
+- ここでの検証はあくまでヒューリスティック(キーワード近傍探索・絵文字の文字コード範囲判定)
+  であり、LLMの厳守事項違反を確実に検出できるわけではない。実LLM接続後は、ここで拾いきれない
+  違反パターンの収集・ルール改善が引き続き必要になる。
 - 実LLM呼び出しは行わない(APIキー・課金が必要なため、実行にはオーナー承認が必要な範囲)。
 """
 
@@ -20,6 +21,20 @@ import re
 PHOTO_REFERENCE_KEYWORDS = ("写真の課題", "写真")
 NEW_CONTENT_KEYWORDS = ("新着", "追加", "入れ替え", "新規")
 UNCHANGED_KEYWORDS = ("変更なし", "変更ありません", "変わりません", "変更はありません")
+
+# 厳守事項9の機械チェック用。絵文字そのものを網羅する完全な判定は困難なため、
+# 実際に投稿文で使われやすい絵文字が集中する主要ブロック(顔文字・記号・ピクトグラム等)を
+# 対象としたヒューリスティックとする。
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # 各種絵文字・記号(顔・乗り物・アクティビティ等)
+    "☀-➿"  # その他の記号・装飾記号(☀☕✨➿等)
+    "⬀-⯿"  # 矢印・星等の追加記号(⭐⬛等)
+    "️"  # 異体字セレクタ(絵文字表示指定)
+    "‍"  # ゼロ幅接合子(複合絵文字)
+    "]"
+)
+SNS_POST_MAX_EMOJI = 2
 
 
 def check_mentions_photo_consistency(instance):
@@ -142,9 +157,53 @@ def check_unchanged_areas_not_mentioned_as_new(instance):
     return errors
 
 
+def check_emoji_usage_rules(instance):
+    """厳守事項9準拠チェック。絵文字は出力1(SNS投稿文)のみ1〜2個程度までとし、
+    出力2(公式LINE/Web告知文)・出力3(履歴記録)には一切使用しない、というルールを
+    本文中の絵文字出現数から機械的に確認する。
+
+    - sns_post.body: 絵文字がSNS_POST_MAX_EMOJI(2個)を超える場合のみ違反とする
+      (「1〜2個程度まで」という目安のため、0個は許容し上限超過のみを検出する)。
+    - line_web_notice.body: 絵文字が1個でもあれば違反。
+    - history_rows[].feature_keywords: 表形式の記録であり絵文字を使う想定が無いため、
+      1個でもあれば違反。tape_color_or_grade_band/areaは入力メモの転記が中心のため
+      対象外とする。
+    """
+    errors = []
+
+    sns_post = instance.get("sns_post")
+    if sns_post:
+        body = sns_post.get("body", "")
+        count = len(EMOJI_PATTERN.findall(body))
+        if count > SNS_POST_MAX_EMOJI:
+            errors.append(
+                f"sns_post: 絵文字が{count}個含まれています"
+                f"(厳守事項9違反の疑い、上限は{SNS_POST_MAX_EMOJI}個程度)"
+            )
+
+    line_web_notice = instance.get("line_web_notice")
+    if line_web_notice:
+        body = line_web_notice.get("body", "")
+        if EMOJI_PATTERN.search(body):
+            errors.append(
+                "line_web_notice: 絵文字が含まれています(厳守事項9違反の疑い、出力2は絵文字不使用)"
+            )
+
+    for row in instance.get("history_rows") or []:
+        for keyword in row.get("feature_keywords") or []:
+            if EMOJI_PATTERN.search(keyword):
+                errors.append(
+                    f"history_rows: feature_keywords「{keyword}」に絵文字が含まれています"
+                    "(厳守事項9違反の疑い、出力3は絵文字不使用)"
+                )
+
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_mentions_photo_consistency(instance)
     errors += check_unchanged_areas_not_mentioned_as_new(instance)
+    errors += check_emoji_usage_rules(instance)
     return errors

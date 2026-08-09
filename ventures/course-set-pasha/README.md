@@ -278,6 +278,16 @@
   実績(candidate-longlist-draft.md第四弾)を踏まえInstagram DMを第一候補チャネルとする方針を
   明記した。候補2(AT WALL)の法人・複数店舗展開という留意点も反映済み。実在店舗への実際の送信は
   一切行っておらず、pending-approval.mdに実施の承認可否を新規記録した(2026-08-09 01:00 UTC)。
+- フェーズ32(2026-08-09 03:00 UTC): post_generation_checks.pyが厳守事項2・3のみを
+  機械チェック化しており、厳守事項9(絵文字は出力1のみ1〜2個程度まで、出力2・3は不使用)が
+  方針の記述のみで検証コードが無いまま残っていた点に対応した。`check_emoji_usage_rules()`を
+  新規実装し、絵文字が集中する主要Unicodeブロックを対象としたヒューリスティック
+  (`EMOJI_PATTERN`)で、sns_post.bodyの絵文字が2個を超える場合・line_web_notice.bodyに
+  絵文字が含まれる場合・history_rows[].feature_keywordsに絵文字が含まれる場合を検出する。
+  `run_all_checks()`に組み込み、テスト7件を新規追加(既存12件と合わせて19件)。
+  schema検証6件・history_export関連6件と合わせて全件パス確認済み
+  (post-generation-checks-cross-area-review.md追記)。絵文字の完全網羅ではないヒューリスティック
+  である点は既存の厳守事項2・3チェックと同じ限界として残した。
 
 ## 次にやること(候補)
 
@@ -288,9 +298,10 @@
 - (解消済み 2026-08-08 20:00 UTC: history-export-usage-guide.mdの手順3をブラウザ版/モバイル
   アプリ版/Excelの3パターンに具体化した。オーナーが実際に使うツール・環境が判明した際は、
   該当パターンの手順のみを案内すればよい状態になった)
-- post_generation_checks.pyの読点区切りケースはフェーズ25で対応済み。残る既知の限界
-  (既知のエリア名一覧に無い第三のエリア名が混在するケース、post-generation-checks-
-  cross-area-review.md「残る既知の限界」参照)は実LLM接続後の生成品質検証に委ねる。
+- post_generation_checks.pyの読点区切りケースはフェーズ25で対応済み。厳守事項9(絵文字ルール)の
+  機械チェックはフェーズ32で対応済み。残る既知の限界(既知のエリア名一覧に無い第三のエリア名が
+  混在するケース、絵文字パターンの網羅性、post-generation-checks-cross-area-review.md
+  「残る既知の限界」参照)は実LLM接続後の生成品質検証に委ねる。
 - フリーランスセッター区分は当面保留(3回連続で公開情報から候補特定に至らず)。複合ジム
   オーナー区分も候補0件のままのため、いずれも優先度を下げる。
 - interview-rehearsal-script.mdのチェックリストに沿った社内リハーサル(時間計測)は
