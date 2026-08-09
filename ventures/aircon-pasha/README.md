@@ -26,14 +26,18 @@
   (mvp-flow-draft.md)を作成した。course-set-pasha(ボルダリングジム向け同種サービス)で
   確立した「メモ入力→複数下書き生成」のMVP設計パターンを踏襲しつつ、対象業種固有の
   差異(号数・機種系統・防カビコート・冷媒/電気系統への言及回避)を反映した。
-- 最終更新: 2026-08-09 13:00 UTC
+- フェーズ2(2026-08-09 14:00 UTC): LLM生成エンジンのシステムプロンプト草案
+  (llm-system-prompt-draft.md)を作成した。course-set-pashaの厳守事項リスト形式を踏襲し、
+  「冷媒・電気系統への専門的助言を行わない」「メモに無い効果を推測で付け足さない」等を
+  厳守事項として明文化した。構造化出力(JSON Schema)については方針のみ整理し、
+  実ファイルの作成は次回以降の課題とした。
+- 最終更新: 2026-08-09 14:00 UTC
 
 ## 次にやること(候補)
 
-- mvp-flow-draft.mdの入出力フォーマットをもとに、LLM生成エンジンのシステムプロンプト草案を
-  作成する(course-set-pasha/llm-system-prompt-draft.mdと同様の厳守事項リスト形式を想定)。
 - 構造化出力スキーマ(JSON Schema)の草案作成。course-set-pasha/schema/output.schema.jsonの
-  status分岐(generated/out_of_scope/insufficient_input)パターンを流用できるか検討する。
+  status分岐(generated/out_of_scope/insufficient_input)パターンを流用できるか検討する
+  (llm-system-prompt-draft.mdで方針のみ整理済み)。
 - 実際のエアコンクリーニング業者の公式SNS・ブログでの作業報告文の実例観察
   (course-set-pasha/sns-post-example-observation.mdと同種の調査)。
 - 想定顧客(個人事業主のエアコンクリーニング業者)へのヒアリング設計
