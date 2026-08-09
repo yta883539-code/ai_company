@@ -912,7 +912,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - notification-log-classification-labels.md: 通知ログ集計画面で「未実装機能問い合わせ件数」を独立集計するための分類ラベル設計(2026-08-01 08:00 UTC更新。システム内部イベント(booking_conflict/candidate_selection_unresolved)をbooking_output.schema.jsonのenumに追加せず、通知ログ集計側の別枠(system_event_counts)で扱う方針を決定・追記。構造化出力に任意フィールド`escalation_reason`(consultation/unimplemented_feature)と補助フィールド`feature_hint`を追加する案、境界ケースをE14・E15としてconversation-samples-test-cases.mdに反映済み。duplicate-topic-notification-log-rule.mdの結論を踏まえた具体的な集計手順(resolvedフィルタ→(日付,userId,topic)ユニーク化→件数集計)を確定・追記。実LLM検証は未着手)
 - duplicate-topic-notification-log-rule.md: E16で判明した「同一topicが複合質問内で重複しうる」点を踏まえた、通知ログ集計画面での重複topicカウントルールの設計(2026-07-31 16:58 UTC更新。`resolved: false`のセグメントに絞りユニークなtopic数でカウントする方針に加え、複数応答・複数日にまたがる重複は日次×userId×topicでユニーク化する方式を結論化。残っていた未検討事項(LINE以外のチャネル追加時のuserId代替識別子の設計)はchannel-agnostic-session-id.mdで結論化済み)
 - channel-agnostic-session-id.md: 将来Web版チャット等の非LINEチャネルを追加する場合に備えた代替顧客識別子の設計方針(2026-07-31新規作成。恒久的な名寄せIDの導入は見送り、チャネルごとに独立したセッションID(30分無応答失効)を発行する方針。通知ログ集計・連続エスカレーション集約への適用方法も整理。実装は非LINEチャネル追加が具体化した時点で着手)
-- schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。実装未着手)
+- schema/booking_output.schema.json: 構造化出力(intent/faq_segments/escalation_reason等)を統合したJSON Schema(draft-07、2026-07-31 22:58 UTC更新、AvailabilitySearcher連携用の任意フィールド`requested_date_range`/`time_of_day_preference`を追加。既存フィクスチャは両フィールドとも省略可能なため無影響。フェーズ(続き12、2026-08-09時点で確認)にて`search_candidates_from_llm_output()`(prototype/engine.py)経由でAvailabilitySearcherへの接続実装済み。本行の「実装未着手」は続き12以前の記載が更新されずに残っていた誤記だったため訂正)
 - schema/validate_test_cases.py: 外部ライブラリ非依存の簡易JSON Schemaバリデータ。conversation-samples-test-cases.mdの期待JSON出力を机上検証する(2026-08-04 04:00 UTC更新、E18の2フィクスチャ(E18_social_remark/E18_rebooking_request)を追加し25件に拡充、全件パスを確認。実LLM呼び出しはなし)
 - schema-validation-report.md: 上記バリデータによる机上検証結果(2026-07-31 14:58 UTC更新、N3・N4・E1・E3・E4・E7・E8を追加した22件全件パス)と、実LLM検証に向けた次の課題の整理
 - prototype/engine.py: リトライ/フォールバック(json-output-retry-fallback.md)・連続エスカレーション集約通知(escalation-consolidation-logic.md)・通知ログのユニーク集計(duplicate-topic-notification-log-rule.md等)・仮押さえ→確定の2段階予約枠管理(double-booking-prevention.md、`BookingSlotManager`)・候補提示→確定の会話フロー状態遷移(conversation-flow.md、`ConversationFlowStateMachine`)・空き枠検索(slot-search-component-design.md、`AvailabilitySearcher`)・候補一覧の採番提示と顧客返信からのslot_key特定(candidate-presentation-and-selection-design.md、`resolve_candidate_selection()`)を実装した実行可能なPythonプロトタイプ(2026-08-01 12:00 UTC更新。`SYSTEM_ESCALATION_REASONS`定数と`NotificationLogAggregator.system_event_counts`/`system_event_total()`を新規追加し、booking_conflict等のシステム内部イベントを一般相談件数と別枠で集計できるようにした。`weekday_business_hours`の0分間区間(定休日相当)が`BusinessHoursConfigError`で拒否されることを確認するデモアサーションを追加。実LLM呼び出しはスタブのまま。2026-08-01 14:00 UTC更新、`release_idle_conversations()`の戻り値を`user_id`のみのリストから、失効時の`stage`も併せ持つ`ReleasedConversation`のリストへ変更し、将来`candidates_presented`失効時のみ能動通知するオプション機能を追加する際にフィルタしやすい形にした。デモに`candidates_presented`のまま失効したケースを追加。2026-08-01 19:00 UTC更新、message-tone-variants.mdのトーン変換を`_render_by_tone()`という共通ディスパッチャとして実装し、`format_confirmation_message()`(LLM出力起点)・`format_reminder_message()`(スケジューラ発火起点)・`format_hold_message()`・`format_faq_parking_message()`の4関数から呼び出す設計とした。未知のtone値はstandardへフォールバック。デモにフォーマル/カジュアル双方の出力例を追加。2026-08-02 01:00 UTC更新、`search_candidates_from_llm_output()`に`MAX_SEARCH_RANGE_DAYS`(暫定14日)によるレンジクランプを追加)
@@ -1060,6 +1060,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-09 12:00 UTC: ドキュメント一覧のschema/booking_output.schema.json行が
+  「AvailabilitySearcher連携用の`requested_date_range`/`time_of_day_preference`フィールドは
+  実装未着手」と記載したままになっていた点を点検で発見した。実際にはフェーズ(続き12、
+  2026-08-01頃)で`search_candidates_from_llm_output()`(prototype/engine.py)によりAvailability
+  Searcherへの接続が実装済みであることをコード確認済み(candidate-presentation-and-selection-
+  design.md等その後の多数のフェーズも同関数を前提に進んでいる)。記載を実態に合わせて訂正した。
+  candidate-label-weekday-fix.md・pending-timeout-ux.mdと同様の「残課題の記載ミス」の訂正で
+  あり、実装上の変更は無し。本ventureの残る大きな課題は引き続き実LLM/実LINE API/実Cloud
+  Scheduler接続自体(オーナー承認待ち)と、予約一覧ページ等UIからの実呼び出し配線(ホスティング
+  基盤確定後)のみ)
 - (解消済み 2026-08-09 11:00 UTC: リマインド返信検知によるreminder_replied更新を実装した
   (`InMemoryBookingRecordStore.record_reminder_replied()`・
   `ConversationFlowStateMachine.record_reminder_reply()`)。テスト7件追加、全210件パス。
