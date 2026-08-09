@@ -289,6 +289,18 @@
   (post-generation-checks-cross-area-review.md追記)。絵文字の完全網羅ではないヒューリスティック
   である点は既存の厳守事項2・3チェックと同じ限界として残した。
 
+- フェーズ33(2026-08-09 05:00 UTC): post_generation_checks.pyが厳守事項2・3・9のみを
+  機械チェック化しており、厳守事項4・5(SNS投稿文・LINE/Web告知文それぞれで本数を明示する
+  指示)について、history_rows(構造化データ)側のcountと本文側の記載が食い違っていないかを
+  確認するチェックが無いまま残っていた点に対応した。`check_history_row_counts_mentioned_in_text()`
+  を新規実装し、history_rows[]の各行のcount(null以外)が、sns_post.body・line_web_notice.body
+  のいずれかに数字として登場しているかを確認する(OR判定、G2フィクスチャのように出力1・
+  出力2で本数の記載場所が分かれるケースに対応)。`run_all_checks()`に組み込み、テスト6件を
+  新規追加(既存19件と合わせて25件)。schema検証6件・history_export関連6件と合わせて
+  全件パス確認済み(post-generation-checks-cross-area-review.md追記)。数字の文字列一致による
+  緩いヒューリスティックであり、同じcount値を持つ複数エリアの厳密な対応関係までは検証しない
+  点は既知の限界として残した。
+
 ## 次にやること(候補)
 
 - 個人経営ボルダリングジムオーナー区分の追加候補探索は、WebSearchのスニペット調査では

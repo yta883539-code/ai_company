@@ -9,7 +9,9 @@ LLM構造化出力(schema/output.schema.json)を受け取った後に、プロ�
   (厳守事項2)の2点について、これまで方針の記述のみだったものを初めて実行可能な
   コードに落とし込んだ(line-reservation-aiのvalidate_test_cases.py・prototype/engine.pyと
   同じ位置づけ)。2026-08-09追記: 厳守事項9(絵文字の使用箇所・個数制限)も同じ位置づけで
-  機械チェック化した。
+  機械チェック化した。同日追記: history_rows[].countとsns_post/line_web_notice本文中の
+  本数記載との整合性チェックも追加した(厳守事項4・5の「本数を明示する」指示と、
+  history_rows(構造化データ)側の本数が食い違っていないかの突き合わせ)。
 - ここでの検証はあくまでヒューリスティック(キーワード近傍探索・絵文字の文字コード範囲判定)
   であり、LLMの厳守事項違反を確実に検出できるわけではない。実LLM接続後は、ここで拾いきれない
   違反パターンの収集・ルール改善が引き続き必要になる。
@@ -200,10 +202,53 @@ def check_emoji_usage_rules(instance):
     return errors
 
 
+def check_history_row_counts_mentioned_in_text(instance):
+    """厳守事項4・5準拠チェック(本数の明示)。history_rows[].count(null以外)の値が、
+    sns_post.body・line_web_notice.bodyのいずれかに数字として登場しているかを確認する。
+
+    「本数を明示する」という厳守事項4・5の指示自体は本文側にのみ課されているが、
+    history_rows(構造化データ)側の本数と本文側の本数が食い違っていれば、どちらかが
+    LLMの生成ミス・入力の取り違えである疑いが強い。check_mentions_photo_consistency・
+    check_unchanged_areas_not_mentioned_as_newと同じく、構造化フィールドと本文の
+    突き合わせによる整合性チェックという位置づけ。
+
+    countが同じ値の別エリアが複数ある場合や、本数以外の文脈で偶然同じ数字が登場する
+    場合(例:日付の一部)は誤って一致と判定しうるヒューリスティックであり、既存の
+    キーワード近傍探索と同じ限界を持つ。
+    """
+    errors = []
+    history_rows = instance.get("history_rows") or []
+    if not history_rows:
+        return errors
+
+    bodies = []
+    sns_post = instance.get("sns_post")
+    if sns_post:
+        bodies.append(sns_post.get("body", ""))
+    line_web_notice = instance.get("line_web_notice")
+    if line_web_notice:
+        bodies.append(line_web_notice.get("body", ""))
+    combined = "\n".join(bodies)
+
+    for row in history_rows:
+        count = row.get("count")
+        if count is None:
+            continue
+        area = row.get("area") or "(エリア名不明)"
+        if str(count) not in combined:
+            errors.append(
+                f"history_rows: エリア「{area}」の本数({count})が"
+                "sns_post.body・line_web_notice.bodyのいずれにも見つかりません"
+                "(本文とhistory_rowsの本数不一致の疑い)"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_mentions_photo_consistency(instance)
     errors += check_unchanged_areas_not_mentioned_as_new(instance)
     errors += check_emoji_usage_rules(instance)
+    errors += check_history_row_counts_mentioned_in_text(instance)
     return errors

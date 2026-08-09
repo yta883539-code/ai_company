@@ -17,6 +17,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
     check_emoji_usage_rules,
+    check_history_row_counts_mentioned_in_text,
     check_mentions_photo_consistency,
     check_unchanged_areas_not_mentioned_as_new,
     run_all_checks,
@@ -246,6 +247,68 @@ class EmojiUsageRulesTest(unittest.TestCase):
 
     def test_no_fields_present_is_skipped(self):
         self.assertEqual(check_emoji_usage_rules({}), [])
+
+
+class HistoryRowCountsMentionedInTextTest(unittest.TestCase):
+    def test_count_present_in_sns_post_body_is_allowed(self):
+        instance = {
+            "sns_post": {"body": "エリアAに新着課題8本追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアA", "tape_color_or_grade_band": "黄", "count": 8, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
+
+    def test_count_present_only_in_line_web_notice_is_allowed(self):
+        instance = {
+            "sns_post": {"body": "エリアBの新着課題をご紹介します。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "エリアB:新着5本を追加。"},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアB", "tape_color_or_grade_band": "赤", "count": 5, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
+
+    def test_count_missing_from_both_bodies_is_flagged(self):
+        instance = {
+            "sns_post": {"body": "エリアCに新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "エリアCに新着課題を追加しました。"},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアC", "tape_color_or_grade_band": "緑", "count": 7, "feature_keywords": []}
+            ],
+        }
+        errors = check_history_row_counts_mentioned_in_text(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("エリアC", errors[0])
+        self.assertIn("7", errors[0])
+
+    def test_null_count_is_skipped(self):
+        instance = {
+            "sns_post": {"body": "エリアEに新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": None, "area": "エリアE", "tape_color_or_grade_band": "緑", "count": None, "feature_keywords": []}
+            ],
+        }
+        self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
+
+    def test_only_mismatched_row_is_flagged_among_multiple(self):
+        instance = {
+            "sns_post": {"body": "エリアFは6本、エリアGは新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+            "history_rows": [
+                {"revision_date": "2026-08-09", "area": "エリアF", "tape_color_or_grade_band": "黄", "count": 6, "feature_keywords": []},
+                {"revision_date": "2026-08-09", "area": "エリアG", "tape_color_or_grade_band": "赤", "count": 4, "feature_keywords": []},
+            ],
+        }
+        errors = check_history_row_counts_mentioned_in_text(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("エリアG", errors[0])
+
+    def test_no_history_rows_is_skipped(self):
+        instance = {"sns_post": {"body": "", "hashtags": [], "mentions_photo": False}, "history_rows": []}
+        self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
 
 
 if __name__ == "__main__":
