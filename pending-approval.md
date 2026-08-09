@@ -27,3 +27,8 @@ venture: ventures/line-reservation-ai/
 venture: ventures/line-reservation-ai/
 内容: schema/validate_test_cases.pyで机上検証したllm-system-prompt-draft.mdのシステムプロンプト・構造化出力スキーマを、実際のLLM API(Claude API等)に投入してconversation-samples-test-cases.mdの各ケース(N1〜N4、E1〜E16)の出力を自動テストしたい。
 理由: これまでの設計・検証は全て机上(文章記述の突き合わせ)にとどまっており、実LLMが指示通りに安定した自然文・構造化出力を生成できるかは未確認。ただし実行にはAPIキーの取得(アカウント作成)と従量課金(支払い)が発生するため、オーナーの許可が必要なアクションに該当する。承認が得られれば、APIキー取得方法の提示・テストスクリプトの実装から着手する。
+
+日時: 2026-08-09 01:00 UTC
+venture: ventures/course-set-pasha/
+内容: customer-interview-design.md で設計した想定顧客ヒアリング(個人経営ボルダリングジムオーナー・複合ジムオーナー・複数ジム掛け持ちセッター、candidate-longlist-draft.mdで有力候補と確定した候補1 FRICTION FREAKS等)について、initial-contact-message-draft.mdで草案した文面を使い、実在のジム・セッターへのInstagram DM・メール・電話等での連絡・依頼を実施したい。
+理由: 料金プラン(pricing-plan.md)や告知文生成ルール(llm-system-prompt-draft.md)の妥当性を実顧客の声で検証するために必要だが、外部への連絡・送信はオーナー許可が必要なアクションのため、対象候補リスト・連絡文面(初回コンタクト依頼文面草案)の確定を含めオーナーの直接指示を待つ。line-reservation-aiの同種案件(2026-07-30 01:58 UTC、承認済み)と同じ実行可能範囲の想定: (1)WebSearchでの候補リストアップ・記録は実施済み、(2)連絡文面ドラフトの作成も本日実施済み、(3)Instagram DM・電話での実連絡はオーナー自身が行う、メール送信はGmail連携接続後に送信直前の毎回確認を経てのみ行う、という運用を承認いただけるかの確認。

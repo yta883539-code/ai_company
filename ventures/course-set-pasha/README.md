@@ -270,6 +270,15 @@
   (line-reservation-aiのci-setup.mdで行った確認と同じ手順)。フェーズ29で新規作成した
   ci-setup.mdに、この確認結果を追記した。コード変更は無し。
 
+- フェーズ31(2026-08-09 01:00 UTC): line-reservation-aiには存在しinitial-contact-message-draft.md
+  として結実していた「ヒアリング候補への初回コンタクト依頼文面」の草案が本ventureには未作成
+  だった点に対応し、interview-rehearsal-script.mdで想定回答者としていた候補1(FRICTION FREAKS)
+  向けに新規作成した(initial-contact-message-draft.md)。メール用(長め)・Instagram DM用
+  (短め)・電話用トーク要点の3パターンに加え、候補1が公式Instagramで新着課題を継続発信している
+  実績(candidate-longlist-draft.md第四弾)を踏まえInstagram DMを第一候補チャネルとする方針を
+  明記した。候補2(AT WALL)の法人・複数店舗展開という留意点も反映済み。実在店舗への実際の送信は
+  一切行っておらず、pending-approval.mdに実施の承認可否を新規記録した(2026-08-09 01:00 UTC)。
+
 ## 次にやること(候補)
 
 - 個人経営ボルダリングジムオーナー区分の追加候補探索は、WebSearchのスニペット調査では
