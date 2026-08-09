@@ -19,6 +19,7 @@ from post_generation_checks import (  # noqa: E402
     check_emoji_usage_rules,
     check_history_row_counts_mentioned_in_text,
     check_mentions_photo_consistency,
+    check_no_out_of_scope_topics_in_generated_output,
     check_unchanged_areas_not_mentioned_as_new,
     run_all_checks,
 )
@@ -321,6 +322,53 @@ class HistoryRowCountsMentionedInTextTest(unittest.TestCase):
     def test_no_history_rows_is_skipped(self):
         instance = {"sns_post": {"body": "", "hashtags": [], "mentions_photo": False}, "history_rows": []}
         self.assertEqual(check_history_row_counts_mentioned_in_text(instance), [])
+
+
+class NoOutOfScopeTopicsInGeneratedOutputTest(unittest.TestCase):
+    def test_generated_sns_post_mentioning_membership_is_flagged(self):
+        instance = {
+            "status": "generated",
+            "sns_post": {
+                "body": "新規会員登録はこちらから。エリアAに新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": "エリアAに新着課題を追加しました。"},
+        }
+        errors = check_no_out_of_scope_topics_in_generated_output(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sns_post.body", errors[0])
+        self.assertIn("会員", errors[0])
+
+    def test_generated_line_web_notice_mentioning_payment_is_flagged(self):
+        instance = {
+            "status": "generated",
+            "sns_post": {"body": "エリアAに新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "決済方法はクレジットカードのみです。エリアAに新着課題を追加しました。"},
+        }
+        errors = check_no_out_of_scope_topics_in_generated_output(instance)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(all("line_web_notice.body" in e for e in errors))
+
+    def test_generated_output_without_out_of_scope_topics_is_allowed(self):
+        instance = {
+            "status": "generated",
+            "sns_post": {"body": "エリアAに新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "エリアAに新着課題を追加しました。"},
+        }
+        self.assertEqual(check_no_out_of_scope_topics_in_generated_output(instance), [])
+
+    def test_out_of_scope_status_message_itself_is_not_flagged(self):
+        """status=out_of_scopeのout_of_scope_message自体は「会員管理・予約受付・決済の
+        ご案内はできません」のように意図的にこれらの語を含むため、チェック対象外
+        (sns_post/line_web_noticeはnull)であり誤検出しないことを確認する。"""
+        instance = {
+            "status": "out_of_scope",
+            "out_of_scope_message": "本サービスは告知文・記録の下書き作成支援のみを行っており、会員管理・予約受付・決済のご案内はできません。",
+            "sns_post": None,
+            "line_web_notice": None,
+        }
+        self.assertEqual(check_no_out_of_scope_topics_in_generated_output(instance), [])
 
 
 if __name__ == "__main__":

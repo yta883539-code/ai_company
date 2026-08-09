@@ -148,3 +148,33 @@ schema検証6件・history_export関連6件と合わせて全件パス確認済�
   地域指示記号と範囲が一部重複するため優先度を下げた)、および将来のUnicode改定で
   追加されるブロック全般。
 - 「1〜2個程度」という目安の解釈(0個は許容、超過のみ検出)についての判断は据え置き。
+
+## 追記(2026-08-09 07:00 UTC): 厳守事項7(会員管理・予約・決済への不応答)の機械チェック追加
+
+これまでpost_generation_checks.pyは厳守事項2・3・4・5・9をカバーしていたが、
+llm-system-prompt-draft.mdの厳守事項7(「入力メモに会員管理・予約受付・決済に関する
+記述が含まれていても一切応答せず、告知文・記録の生成対象から除外する」)は、
+schema/validate_test_cases.pyのvalidate_cross_field_rules()がstatus=out_of_scope
+分岐そのものの妥当性(out_of_scope_message等のnull/非null依存関係)を検証している
+のみで、LLMがstatus=generatedと判定したケースの本文自体にこれらの話題が紛れ込んで
+いないかを確認する後処理チェックが無いまま残っていたことに気づいた。
+
+`check_no_out_of_scope_topics_in_generated_output()`を新規実装し、`status=="generated"`の
+ときのみ`sns_post.body`・`line_web_notice.body`を対象に、`OUT_OF_SCOPE_TOPIC_KEYWORDS`
+(会員・入会・退会・予約・決済・支払い・振込・クレジットカード)の出現有無を確認する。
+厳守事項2・3のような近傍の文脈判定(打消し語の有無等)は行わず、出現そのものを疑いの
+根拠とするシンプルな判定とした。`status=="out_of_scope"`のときの`out_of_scope_message`
+自体は「会員管理・予約受付・決済のご案内はできません」のように意図的にこれらの語を
+含む(OOS1フィクスチャ参照)ため、チェック対象を`sns_post`/`line_web_notice`
+(status=generatedのときのみ非null)に限定することで誤検出を避けた。
+
+`run_all_checks()`に組み込み、`prototype/test_post_generation_checks.py`に新規テスト4件を
+追加(既存27件と合わせて31件)。schema検証6件・history_export関連6件と合わせて全件パス
+確認済み。
+
+### 残る既知の限界(追加分)
+- 単純なキーワード出現判定のため、本来無関係な文脈での偶然の出現(例:別の意味を持つ
+  複合語の一部としての出現)を誤って違反と判定しうる可能性がある。本venture(ボルダリング
+  ジムの課題入れ替え告知)の性質上、通常の生成文にこれらの語が登場すること自体が
+  想定されないため、既存の厳守事項2・3チェックよりも誤検出リスクは低いと考えられるが、
+  実LLM接続後の生成文での検証は引き続き今後の課題として残る。

@@ -40,6 +40,12 @@ EMOJI_PATTERN = re.compile(
 )
 SNS_POST_MAX_EMOJI = 2
 
+# 厳守事項7の機械チェック用。会員管理・予約受付・決済に関する話題への言及があるかを
+# 検出するためのキーワード。本venture(告知文・記録の下書き作成支援)の性質上、
+# 生成本文にこれらの語が登場すること自体が想定外(厳守事項7逸脱の疑い)であるため、
+# 厳守事項2・3のような文脈判定(近傍に打消し語がないか等)は行わず、出現の有無のみで判定する。
+OUT_OF_SCOPE_TOPIC_KEYWORDS = ("会員", "入会", "退会", "予約", "決済", "支払い", "振込", "クレジットカード")
+
 
 def check_mentions_photo_consistency(instance):
     """厳守事項3準拠チェック。sns_post.mentions_photoの値と、本文中に実際に写真への
@@ -246,6 +252,43 @@ def check_history_row_counts_mentioned_in_text(instance):
     return errors
 
 
+def check_no_out_of_scope_topics_in_generated_output(instance):
+    """厳守事項7準拠チェック。status=generated(=通常の3出力生成)のとき、
+    sns_post.body・line_web_notice.bodyに会員管理・予約受付・決済に関する話題への
+    言及が紛れ込んでいないかを確認する。
+
+    厳守事項7は「入力メモに会員管理・予約受付・決済の記述が含まれていても一切応答しない」
+    ことを求めているが、これまでの機械チェック(schema/validate_test_cases.pyの
+    validate_cross_field_rules())はstatus=out_of_scope分岐そのものの妥当性
+    (out_of_scope_message等のnull/非null依存関係)しか検証しておらず、LLMが
+    status=generatedと判定したケースの本文自体にこれらの話題が紛れ込んでいないかは
+    未検証のまま残っていた。status=out_of_scopeのout_of_scope_message自体は
+    「会員管理・予約受付・決済のご案内はできません」のように意図的にこれらの語を
+    含むため、このチェックの対象はsns_post/line_web_notice(status=generatedのときのみ
+    非null)に限定する。
+    """
+    errors = []
+    if instance.get("status") != "generated":
+        return errors
+
+    texts = []
+    sns_post = instance.get("sns_post")
+    if sns_post:
+        texts.append(("sns_post.body", sns_post.get("body", "")))
+    line_web_notice = instance.get("line_web_notice")
+    if line_web_notice:
+        texts.append(("line_web_notice.body", line_web_notice.get("body", "")))
+
+    for field_name, text in texts:
+        for kw in OUT_OF_SCOPE_TOPIC_KEYWORDS:
+            if kw in text:
+                errors.append(
+                    f"{field_name}: 会員管理・予約・決済に関する話題と疑われる語「{kw}」が"
+                    "含まれています(厳守事項7違反の疑い)"
+                )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -253,4 +296,5 @@ def run_all_checks(instance):
     errors += check_unchanged_areas_not_mentioned_as_new(instance)
     errors += check_emoji_usage_rules(instance)
     errors += check_history_row_counts_mentioned_in_text(instance)
+    errors += check_no_out_of_scope_topics_in_generated_output(instance)
     return errors

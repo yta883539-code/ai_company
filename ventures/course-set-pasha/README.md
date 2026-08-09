@@ -309,6 +309,18 @@
   合わせて全件パス確認済み(post-generation-checks-cross-area-review.md追記)。Unicode絵文字の
   完全網羅ではない点(囲み英数字補助の一部・将来のUnicode改定分は未対応)は既知の限界として残した。
 
+- フェーズ35(2026-08-09 07:00 UTC): post_generation_checks.pyが厳守事項2・3・4・5・9のみを
+  機械チェック化しており、厳守事項7(会員管理・予約受付・決済に関する記述への不応答)に
+  ついて、status=out_of_scope分岐そのものの妥当性(schema/validate_test_cases.py)しか
+  検証されておらず、status=generatedと判定されたケースの本文自体にこれらの話題が
+  紛れ込んでいないかを確認するチェックが無いまま残っていた点に対応した。
+  `check_no_out_of_scope_topics_in_generated_output()`を新規実装し、status=generatedの
+  ときのみsns_post.body・line_web_notice.bodyを対象に会員・予約・決済等のキーワード出現を
+  検出する(status=out_of_scopeのout_of_scope_message自体がこれらの語を含意的に使う
+  ケースは対象外として誤検出を回避)。`run_all_checks()`に組み込み、テスト4件を新規追加
+  (既存27件と合わせて31件)。schema検証6件・history_export関連6件と合わせて全件パス
+  確認済み(post-generation-checks-cross-area-review.md追記)。
+
 ## 次にやること(候補)
 
 - 個人経営ボルダリングジムオーナー区分の追加候補探索は、WebSearchのスニペット調査では
