@@ -341,6 +341,20 @@
   シンプルな構成を採用する方針を整理した。画像添付は内容解析せず「有無」のみを判定材料とする
   設計方針も明記した。ホスティング基盤(GCP Cloud Functions)・LINE料金体系は
   line-reservation-aiの既存調査結果を流用できる旨も記録した。コード変更は無し。
+- フェーズ38(2026-08-09 22:00 UTC): tech-stack.mdの「次のステップ候補」で挙げていた
+  Webhook受信〜LLM呼び出し〜返信のバックエンド処理フロー(line-reservation-aiの
+  prototype/cloud_function_webhook.py相当)を設計・実装した(webhook-processing-flow-design.md
+  新規作成)。line-reservation-aiと異なり会話状態を持たない単発リクエスト/レスポンス型のため、
+  Cloud Function A/B分離やCloud Tasksは不要と判断し1フローに統合。`prototype/
+  cloud_function_webhook.py`に`process_memo_event()`を新規実装し、
+  schema/validate_test_cases.pyのvalidate_against_schema()・validate_cross_field_rules()と
+  prototype/post_generation_checks.pyのrun_all_checks()を組み合わせた3段階検証、
+  検証失敗時の安全側フォールバック(定型の再送依頼文言)、status別の返信文組み立て
+  (generated時は出力1・2・3を1通にまとめる、prototype/history_export.pyのCSV変換を再利用)を
+  実装した。テキストのみのメッセージのみを処理対象とし、画像単体イベントは素通り(処理対象外)
+  とする設計とした。テスト12件新規追加(全55件パス)。テキスト+画像が別イベントで届く場合の
+  束ね方は、tech-stack.mdから引き続き残課題として持ち越した。
+- 最終更新: 2026-08-09 22:00 UTC
 
 ## 次にやること(候補)
 
@@ -371,6 +385,12 @@
   届かない場合の予備候補としてのみ扱う(連絡要否は別途オーナーに確認)。
 - 実LLM呼び出し・SNS API連携等、外部サービスとの実接続はオーナー承認が必要なため、
   設計・下書き作成の範囲に留める。
-- (フェーズ37で新規追加)tech-stack.mdで積み残した、Webhook受信〜LLM呼び出し〜返信の
-  バックエンド処理フロー設計・試作、LINE Messaging APIの画像メッセージ受信時のコンテンツ
-  取得API仕様確認が次の技術面の課題。
+- (解消済み 2026-08-09 22:00 UTC: Webhook受信〜LLM呼び出し〜返信のバックエンド処理フロー
+  設計・試作をフェーズ38で実装した。詳細は上記フェーズ38・webhook-processing-flow-design.md参照)
+- (フェーズ38で新規追加)webhook-processing-flow-design.mdの残課題: (1)テキスト+画像が
+  別イベントで届く場合の束ね方(束ねる時間窓の設計、画像のみ先着時の一時保持要否。
+  LINE Messaging APIの画像メッセージ受信時のコンテンツ取得API仕様確認と合わせて次回以降)、
+  (2)検証失敗時のリトライ機構(line-reservation-aiのjson-output-retry-fallback.md相当の
+  詳細設計。現状は再送依頼への単純フォールバックのみ)。
+- 実LLM呼び出し・実LINE API接続は、line-reservation-aiと同様にAPIキー取得・アカウント作成が
+  必要でありオーナー承認待ちの範囲。
