@@ -770,7 +770,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (2)「顧客詳細画面の無断キャンセル履歴表示」はowner-settings-wireframe.mdへのワイヤーフレーム
   追記に加え、続き87で`build_customer_detail_view()`として実装済み。コード変更・テストへの
   影響は無し。
-- 最終更新: 2026-08-09 00:00 UTC
+- フェーズ(続き89、2026-08-09 02:00 UTC): ドキュメント間の整合性点検(続き84・85・86・87・88と
+  同種)を行い、3件の記載更新漏れを発見・訂正した。(1)webhook-function-a-implementation.mdの
+  「Cloud Function Bは未着手」は翌日以降のフェーズで実装済みだったにもかかわらず未訂正のまま
+  残っていた。(2)webhook-function-b-implementation.mdの「単一項目FAQの顧客向け返信は未実装」は
+  同日中(2026-08-02 14:00 UTC)にsingle-item-faq-schema-decision.mdで解消済みだったにもかかわらず
+  未訂正のまま残っていた。(3)owner-notification-channel-design.mdの「スコープ外(今回の残課題)」
+  節にあった「EscalationConsolidator/flush_due_windows()のpush配線は未着手」は、続き74(内部
+  イベント伝播)・2026-08-06 20:00 UTC(即時通知・まとめ通知配線)で実装済みだったにもかかわらず
+  未訂正のまま残っていた。(3)は本README「ドキュメント」節の要約(続き84で訂正済み)とは別に、
+  owner-notification-channel-design.md本体の記載が未訂正のまま取り残されていたケースで、
+  ドキュメント要約とソースドキュメント本体の食い違いという新しいパターンの記載漏れだった。
+  実装コード・テストへの影響は無し。
+- 最終更新: 2026-08-09 02:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -890,13 +902,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   作成後、オーナー承認待ち))
 - webhook-function-a-implementation.md: Cloud Function A(receive_webhook)のハンドラコード実装の
   経緯・カバー範囲まとめ(2026-08-02 09:00 UTC新規作成。`prototype/cloud_function_webhook.py`・
-  `prototype/test_cloud_function_webhook.py`(17件全件パス)を新規作成。Cloud Function Bは
-  実LLM呼び出し承認待ちのため未着手)
+  `prototype/test_cloud_function_webhook.py`(17件全件パス)を新規作成。Cloud Function Bは翌日の
+  フェーズ(続き)で着手・実装済み。2026-08-09 02:00 UTC点検で「Cloud Function Bは未着手」という
+  当時の記載が更新されないまま残っていたのを発見し訂正)
 - webhook-function-b-implementation.md: Cloud Function B(process_conversation_event)のうち
   実LLM呼び出し・実クラウド接続とは切り離せる配線ロジックの実装経緯・カバー範囲まとめ
   (2026-08-02 10:00 UTC新規作成。`prototype/cloud_function_process_event.py`・
   `prototype/test_cloud_function_process_event.py`(12件全件パス)を新規作成。
-  escalation/faq intentの顧客向け返信・確定競合時の新候補再提示は未実装のまま残置)
+  escalation/faq intentの顧客向け返信・確定競合時の新候補再提示は同日中(11:00/12:00 UTC)に
+  実装済み、単一項目FAQの顧客向け返信も2026-08-02 14:00 UTCのsingle-item-faq-schema-decision.mdで
+  解消済み。2026-08-09 02:00 UTC点検で「単一項目FAQは未実装のまま残置」という記載が
+  更新されないまま残っていたのを発見し訂正)
 - legal-notices-draft.md: landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・
   プライバシーポリシーの文面草案(2026-08-02 05:00 UTC更新。事業者名・所在地等は
   `【要記入】`のプレースホルダー。プライバシーポリシーはLINE連携で取得する情報・LLM API

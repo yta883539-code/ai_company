@@ -36,12 +36,14 @@ unittest 17件、全件パス。
   200ロスト後のLINE再送を想定した重複排除、異常イベント混在時も200を維持しつつ該当イベントのみスキップ
 
 ## 未実装のまま残るもの(次の課題)
-- **Cloud Function B(`process_conversation_event`)**: LLM呼び出し・
-  `ConversationFlowStateMachine`の状態遷移・`_render_by_tone()`によるメッセージ整形・
-  LINE Push Message APIでの送信を行う側。実LLM呼び出しがpending-approval.md記載のAPIキー・
-  課金承認待ちのため、Aと異なり「クラウド接続なしで検証可能なロジック」の切り出しが難しく
-  未着手のまま残す。承認後、`process_llm_output()`(engine.py)の出力を受けて
-  `intent-to-flow-mapping.md`の対応表で分岐するハンドラとして実装する見込み。
+- (訂正 2026-08-09 02:00 UTC: 当初「Aと異なりクラウド接続なしで検証可能なロジックの切り出しが
+  難しく未着手のまま残す」としていたが誤りだった。実際には本項執筆の翌日(2026-08-02 10:00 UTC)に
+  `prototype/cloud_function_process_event.py`としてCloud Function Bの着手が始まり、以後多数の
+  フェーズを経て`ConversationEventProcessor`(intent別ディスパッチ・escalation/faqテンプレート
+  返信・オーナー通知配線・前日リマインド連携等)としてAと同じ「実LLM/実クラウド接続なしで
+  検証可能なロジック」の切り出し方針のまま実装済みである。以後このファイルで「Cloud Function Bは
+  未着手」として再掲しないこと。candidate-label-weekday-fix.md・pending-timeout-ux.md・
+  webhook-function-b-implementation.mdの訂正メモと同様の記載更新漏れ)
 - 実際のGCPプロジェクト作成・Cloud Functions/Cloud Tasksへのデプロイ、
   LINE公式アカウントのチャネルシークレット取得(アカウント作成、オーナー承認待ち)。
 - ログ出力先の設計(異常イベントスキップ時の記録方法)はデプロイ環境確定後の課題として残置。

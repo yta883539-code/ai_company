@@ -59,10 +59,13 @@ unittest 20件、全件パス(既存のtest_engine.py 32件・test_cloud_functio
 - (解消済み 2026-08-02 11:00 UTC: escalation/faq intentの顧客向け返信を実装した。
   複合FAQ(`faq_segments`付与時)は項目ごとにfaq-response-templates.md準拠のテンプレート回答、
   escalation intentは共通の保留文言を即時送信する。詳細はfaq-escalation-customer-reply-implementation.md参照)
-- **単一項目FAQの顧客向け返信**: `faq_segments`が付与されない単一項目FAQ(E10・E6等)は、
-  構造化出力にどのFAQ項目(topic)への質問かを表す情報が無いためengine側でテンプレート回答を
-  組み立てられず、引き続きオーナー転送のみ(自動返信なし)。json-schema-multi-intent-extension.mdの
-  既存推奨(単一項目では`faq_segments`を省略)を見直すスキーマ変更が必要になる可能性がある。
+- (解消済み 2026-08-02 14:00 UTC: single-item-faq-schema-decision.mdで、単一項目FAQ(E10・E14前半等、
+  厳守事項9a該当分)でも`faq_segments`を1要素配列で必ず付与する方針に変更した。既存の複合質問向け
+  処理ループ(`_handle_faq`)をそのまま流用でき追加分岐は不要。E10・E14前半は本ルートで自動返信
+  されるようになり、「単一項目FAQは自動返信できない」制約は解消済み。厳守事項9bの雑談等、店舗FAQ項目に
+  基づかない`faq` intentは引き続き`faq_segments`が`null`のままオーナー転送のみを維持。
+  2026-08-09 02:00 UTC点検: 本項目が長らく「未実装のまま残るもの」節に未訂正のまま残っていたのを発見し
+  訂正。以後このファイルで再掲しないこと)
 - (解消済み 2026-08-02 12:00 UTC: 確定操作競合時に、初回提示時と同じ検索条件で`now`時点の
   空き枠を再検索し、奪われた枠を除いた新しい候補一覧をその場で再提示するようにした
   (`_represent_candidates_after_conflict()`)。検索条件のキャッシュが無い/再検索しても

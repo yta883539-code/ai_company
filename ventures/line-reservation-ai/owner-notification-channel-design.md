@@ -66,11 +66,19 @@ first-booking-self-check-notification-design.mdの残課題
 
 ## スコープ外(今回の残課題)
 
-- `EscalationConsolidator.on_event()`/`flush_due_windows()`が返す「送るべき通知」を
-  実際に`owner_user_id`へpushする配線(escalation-notification-templates.mdの各文面を
-  組み立てて送る処理)は、対象イベント数・呼び出し元(Cloud Scheduler経由の
-  `flush_due_windows()`呼び出し元がまだ未実装)が多く本ドキュメントの範囲を超えるため、
-  次回以降の課題として残す。今回は範囲を先行して未着手だったfirst-booking-self-check
-  (単発・呼び出し元が`_handle_details()`1箇所のみ)に絞って配線した。
-- 合言葉/専用QRコード等、`owner_user_id`を安全に特定する具体的な実装方式の設計。
+- (解消済み 2026-08-02 UTC: `EscalationConsolidator.on_event()`/`flush_due_windows()`が返す
+  「送るべき通知」を実際に`owner_user_id`へpushする配線を実装した。即時通知は
+  `ConversationEventProcessor._notify_owner()`ヘルパーに集約し、escalation-notification-templates.md
+  準拠の`format_escalation_notification()`(engine.py)で整形して送信する。5分ウィンドウで
+  貯まったまとめ通知は`flush_escalation_windows()`として新設し、Cloud Scheduler等の定期実行
+  トリガーから呼び出す想定(実際のCloud Scheduler設定自体は引き続きアカウント作成に該当し
+  オーナー承認待りだが、呼び出しロジック自体は実クラウド接続なしで検証可能な状態にしてある)。
+  さらにescalation-notification-templates.md「次のステップ候補」準拠で、`ConversationFlowStateMachine`
+  内部(engine.py)から発火するシステムイベント(booking_conflict等)の伝播も`owner_notify_actions`
+  フィールド経由で実装し、Cloud Function B側の`_dispatch_flow_notify_actions()`で受け取ってpushする
+  設計とした。詳細は`prototype/cloud_function_process_event.py`のモジュールdocstring参照。
+  2026-08-09 02:00 UTC点検: 本項目が実装後も本ファイルの「スコープ外(今回の残課題)」節に未訂正の
+  まま残っていたのを発見し訂正。以後このファイルで「未着手」として再掲しないこと)
+- 合言葉/専用QRコード等、`owner_user_id`を安全に特定する具体的な実装方式の設計は引き続き
+  実LINE API接続時の実装課題として残る。
 - 複数スタッフでの通知先グループ化(選択肢4)は将来課題。
