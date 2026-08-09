@@ -42,6 +42,7 @@ from engine import (  # noqa: E402
     NotificationLogAggregator,
     PRECHECK_STRENGTHENING_BADGE_THRESHOLD,
     RECONFIRM_MAX_ATTEMPTS,
+    VISITED_STATUS,
     build_customer_detail_view,
     format_booking_list_csv,
     format_cancel_confirmed_message,
@@ -1180,6 +1181,42 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
         result = flow.cancel_booking("user_a", T0 + timedelta(minutes=5))
         self.assertTrue(result.found)
+
+    def test_record_visited_updates_status_and_excludes_from_booking_list(self):
+        # no-show-handling.mdの検知条件2(オーナーが予約一覧から「来店済み」を1タップ)を反映する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        store.record_visited("shop_1", key)
+
+        # 来店済みは「来店予定」一覧からは外れる(cancel/change済みと同様の扱い)。
+        self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
+        records = store.customer_records("田中")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].status, VISITED_STATUS)
+
+    def test_record_no_show_confirmed_is_counted_by_customer_detail_view(self):
+        # オーナーが無断キャンセル候補を最終確定した際、build_customer_detail_view()の
+        # 無断キャンセル確定数・直近の無断キャンセル日に反映されることを確認する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        store.record_no_show_confirmed("shop_1", key)
+
+        records = store.customer_records("田中")
+        view = build_customer_detail_view("田中", records)
+        self.assertEqual(view.no_show_confirmed_count, 1)
+        self.assertEqual(view.latest_no_show_date, date(2026, 8, 10))
+
+    def test_record_visited_for_unknown_slot_does_not_raise(self):
+        # 一致するレコードが無い場合(record_store未指定のまま確定した過去データ等)は何もしない。
+        store = InMemoryBookingRecordStore()
+        store.record_visited("shop_1", ("shop_1", "2026-08-10", "11:00"))
+        self.assertEqual(store.customer_records("田中"), [])
 
 
 if __name__ == "__main__":

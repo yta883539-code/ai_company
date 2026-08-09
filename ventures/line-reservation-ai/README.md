@@ -805,7 +805,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   顧客詳細ページ(`customer_records()`)には引き続き含める。テスト3件追加、全90件パス
   (booking-record-store-design.md追記)。残る課題は来店後のstatus更新(no-show-handling.md)、
   リマインド返信検知によるreminder_replied更新、実Firestore接続自体(オーナー承認待ち)。
-- 最終更新: 2026-08-09 08:00 UTC
+- フェーズ(続き92、2026-08-09 09:00 UTC): 「次にやること」に残っていた、
+  booking-record-store-design.mdの残課題のうち「来店後のstatus更新」に対応した。
+  `InMemoryBookingRecordStore`に`record_visited(store_id, slot_key)`・
+  `record_no_show_confirmed(store_id, slot_key)`を新規追加(内部処理は`record_cancelled()`と
+  `_update_status()`に共通化)。no-show-handling.mdが定めるオーナーの1タップ操作(予約一覧からの
+  「来店済み」チェック・無断キャンセル候補の最終確定)を反映する設計とし、`record_cancelled()`と
+  同様に`ConversationFlowStateMachine`からの自動呼び出しは行わない(顧客側の会話フローではなく
+  オーナー側設定画面の操作が起点のため)。新設の`VISITED_STATUS`(来店済み)/既存の
+  `NO_SHOW_CONFIRMED_STATUS`へ`status_override`を更新し、レコードは削除しない。
+  `list_booking_entries()`からは来店済み・無断キャンセル確定レコードも除外され、
+  `customer_records()`経由で`build_customer_detail_view()`の無断キャンセル確定数・
+  直近の無断キャンセル日の集計に反映される。テスト3件追加、全93件パス
+  (booking-record-store-design.md追記)。残る課題はリマインド返信検知によるreminder_replied更新、
+  予約一覧ページの「来店済み」チェック操作・オーナー通知からの実呼び出し配線、実Firestore接続自体
+  (いずれもホスティング基盤確定・オーナー承認待ち)。
+- 最終更新: 2026-08-09 09:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
@@ -1031,6 +1046,12 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-09 09:00 UTC: booking-record-store-design.mdの残課題だった
+  「来店後のstatus更新」を実装した。`InMemoryBookingRecordStore.record_visited()`/
+  `record_no_show_confirmed()`を新設し、no-show-handling.mdが定めるオーナーの1タップ操作
+  (来店済みチェック・無断キャンセル確定)を反映できるようにした。テスト3件追加、全93件パス。
+  詳細は上記フェーズ(続き92)参照。残るは予約一覧ページからの実呼び出し配線
+  (ホスティング基盤確定後)とリマインド返信検知)
 - (解消済み 2026-08-09 08:00 UTC: booking-record-store-design.mdの残課題だった
   「キャンセル・変更時の記録更新」を実装した。`InMemoryBookingRecordStore.record_cancelled()`
   新設、`cancel_booking()`/`change_booking()`から配線し、予約一覧CSVからは除外・顧客詳細

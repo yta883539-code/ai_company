@@ -404,6 +404,7 @@ def build_customer_detail_view(customer_name: str, records: list[CustomerBooking
 BOOKING_UPCOMING_STATUS = "来店予定"
 CANCELLED_STATUS = "キャンセル済み"
 CHANGED_STATUS = "変更済み"
+VISITED_STATUS = "来店済み"
 
 
 @dataclass
@@ -419,7 +420,9 @@ class _StoredBookingRecord:
     customer_name: str
     menu: str
     # cancel_booking()/change_booking()でrecord_cancelled()が呼ばれるとCANCELLED_STATUS/
-    # CHANGED_STATUSが入る。Noneのままなら来店予定(BOOKING_UPCOMING_STATUS)のまま。
+    # CHANGED_STATUSが、オーナーの手動操作(record_visited()/record_no_show_confirmed())で
+    # VISITED_STATUS/NO_SHOW_CONFIRMED_STATUSが入る。Noneのままなら来店予定
+    # (BOOKING_UPCOMING_STATUS)のまま。
     status_override: Optional[str] = None
 
     def to_list_entry(self) -> BookingListEntry:
@@ -431,10 +434,9 @@ class _StoredBookingRecord:
         )
 
     def to_customer_record(self) -> CustomerBookingRecord:
-        # 来店後のstatus更新(来店済み/無断キャンセル確定への遷移、no-show-handling.md参照)は
-        # 本ストアのMVPスコープ外として残す(下記InMemoryBookingRecordStoreのdocstring参照)。
-        # reminder_replied もリマインド送信・返信検知(customer-reply-detection-design.md)の
-        # 実配線待ちのため、確定直後の時点では未送信=Falseで初期化する。
+        # reminder_replied はリマインド送信・返信検知(customer-reply-detection-design.md)の
+        # 実配線待ちのため、確定直後の時点では未送信=Falseで初期化する
+        # (record_visited()/record_no_show_confirmed()で更新されるのはstatusのみ)。
         return CustomerBookingRecord(
             visit_date=self.booking_date,
             menu=self.menu,
@@ -467,10 +469,13 @@ class InMemoryBookingRecordStore:
       来店履歴として引き続き参照できるようにするため)。list_booking_entries()(予約一覧CSV)
       からはstatus更新済みのレコードを除外し、customer_records()(顧客詳細ページ)には
       引き続き含める。
+    - no-show-handling.mdが定める、オーナーの1タップ操作(予約一覧からの手動チェック)は
+      record_visited()/record_no_show_confirmed()で反映する。自動断定は行わず、いずれも
+      オーナー操作を起点とした呼び出しのみを想定する(ConversationFlowStateMachineからの
+      自動呼び出しは無い。顧客側の会話フローではなくオーナー側設定画面の操作のため)。
 
     MVPスコープの範囲外として残す点(実ホスティング基盤への接続時に、この最小インターフェースを
     実装したFirestore版クラスへ差し替える際に併せて設計する):
-    - 来店後のstatus更新(来店済み/無断キャンセル確定への遷移。no-show-handling.md参照)。
     - リマインド返信検知(customer-reply-detection-design.md)によるreminder_replied更新。
     - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
       メモリ内でのみ有効)。
@@ -521,6 +526,24 @@ class InMemoryBookingRecordStore:
         (レコード自体の削除は行わない。理由はクラスdocstring参照)。一致するレコードが
         見つからない場合(record_store未指定のまま確定した過去データ等)は何もしない。
         """
+        self._update_status(store_id, slot_key, status)
+
+    def record_visited(self, store_id: str, slot_key: tuple) -> None:
+        """no-show-handling.md 検知条件2の「来店済み」操作。owner-settings-wireframe.mdの
+        予約一覧ページでオーナーが該当予約に1タップでチェックを入れた際に呼ぶ。
+        該当レコードのstatusをVISITED_STATUS(来店済み)へ更新する(削除はしない)。
+        """
+        self._update_status(store_id, slot_key, VISITED_STATUS)
+
+    def record_no_show_confirmed(self, store_id: str, slot_key: tuple) -> None:
+        """no-show-handling.mdの「無断キャンセル候補」ダイジェスト通知を受けて、オーナーが
+        予約一覧から最終的に無断キャンセルと確定した際に呼ぶ(自動断定はしない。
+        該当レコードのstatusをNO_SHOW_CONFIRMED_STATUSへ更新し、build_customer_detail_view()の
+        無断キャンセル確定数・直近の無断キャンセル日の集計対象になる)。
+        """
+        self._update_status(store_id, slot_key, NO_SHOW_CONFIRMED_STATUS)
+
+    def _update_status(self, store_id: str, slot_key: tuple, status: str) -> None:
         for record in self._records:
             if record.store_id == store_id and record.slot_key == slot_key:
                 record.status_override = status

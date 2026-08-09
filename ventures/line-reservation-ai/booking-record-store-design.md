@@ -59,16 +59,38 @@
   `test_change_booking_after_confirmed_updates_record_store_status`・
   `test_cancel_booking_without_record_store_does_not_raise`)。既存分含め全90件パス。
 
+## 来店後のstatus更新(2026-08-09 10:00 UTC追記)
+
+上記「次の課題」だった、no-show-handling.mdが定めるオーナーの1タップ操作(予約一覧からの
+手動チェック)を反映する`record_visited()`/`record_no_show_confirmed()`を実装した。
+
+- `InMemoryBookingRecordStore`に`record_visited(store_id, slot_key)`・
+  `record_no_show_confirmed(store_id, slot_key)`を新規追加。いずれも`record_cancelled()`と
+  同じ内部処理(`_update_status()`に共通化)で、該当レコードの`status_override`へ
+  `VISITED_STATUS`(来店済み・新設)/`NO_SHOW_CONFIRMED_STATUS`(既存)を書き込む。
+  レコードは削除しない(顧客詳細ページの来店履歴として引き続き参照できるようにするため、
+  `record_cancelled()`と同じ方針)。
+- `record_cancelled()`と同様、`ConversationFlowStateMachine`からの自動呼び出しは行わない。
+  no-show-handling.mdの通り「来店済み」チェックも「無断キャンセル確定」も顧客側の会話フローでは
+  なくオーナー側設定画面(予約一覧)での手動操作が起点のため、呼び出し元はオーナー向けUI配線
+  (ホスティング基盤確定後)側になる想定。
+- `list_booking_entries()`(予約一覧CSV、来店予定のみ対象)からは来店済み・無断キャンセル確定の
+  レコードも除外される(cancel/change済みと同じ扱い)。`customer_records()`(顧客詳細ページ)には
+  引き続き含まれ、`build_customer_detail_view()`の無断キャンセル確定数・直近の無断キャンセル日の
+  集計に反映される。
+- テスト3件を新規追加(`test_record_visited_updates_status_and_excludes_from_booking_list`・
+  `test_record_no_show_confirmed_is_counted_by_customer_detail_view`・
+  `test_record_visited_for_unknown_slot_does_not_raise`)。既存分含め全93件パス。
+
 ## MVPスコープの範囲外として残す点(次の課題)
 
 いずれも実ホスティング基盤への接続時に、この最小インターフェースを実装したFirestore版
 クラスへ差し替える際に併せて設計する。
 
-- 来店後のstatus更新(`来店予定` → `来店済み`/`NO_SHOW_CONFIRMED_STATUS`への遷移。
-  no-show-handling.md参照)。
 - リマインド返信検知(customer-reply-detection-design.md)による`reminder_replied`更新。
 - 複数プロセス・複数インスタンス間での永続化(engine.pyの他の状態と同様、単一プロセスの
   メモリ内でのみ有効)。
-- 「[今週分をCSVで書き出す]」ボタン押下→実際のファイルダウンロードへの配線、および
+- 「[今週分をCSVで書き出す]」ボタン押下→実際のファイルダウンロードへの配線、予約一覧ページの
+  「来店済み」チェック操作・オーナー向け通知(no-show-handling.md)からの実呼び出し配線、および
   画面表示そのものへの配線は、フロントエンド実装(ホスティング基盤確定後)の課題として
   引き続き残る。
