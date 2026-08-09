@@ -40,14 +40,16 @@
   一般的目安か入力メモ由来かの区別)の検証用フィールドとしてcare_guide.
   next_recommended_date_is_estimateを追加した。python3のjson.loadで構文検証済み
   (実LLM出力での適合性検証は未実施)。
-- 最終更新: 2026-08-09 15:00 UTC
+- フェーズ4(2026-08-09 16:00 UTC): 期待JSON出力サンプル(status別5パターン、
+  output-samples-validation.md)と机上バリデータ(schema/validate_test_cases.py)を作成した。
+  course-set-pashaのvalidate_test_cases.pyと同じ簡易バリデータ方式を踏襲しつつ、本venture
+  固有のクロスフィールドルールとして、care_guide.next_recommended_date_is_estimateが
+  false(入力メモに次回推奨時期の記載あり)の場合はhistory_row.next_recommended_dateが
+  null不可であることの検証を追加した。5件中5件パスを確認(python3実行済み、実LLM検証は未実施)。
+- 最終更新: 2026-08-09 16:00 UTC
 
 ## 次にやること(候補)
 
-- 期待JSON出力サンプル(status別)の作成と机上バリデーション
-  (course-set-pasha/output-samples-validation.md相当)。特にcare_guideの
-  next_recommended_date_is_estimateとhistory_row.next_recommended_dateの整合性を
-  確認するサンプルを含める。
 - 実際のエアコンクリーニング業者の公式SNS・ブログでの作業報告文の実例観察
   (course-set-pasha/sns-post-example-observation.mdと同種の調査)。
 - 想定顧客(個人事業主のエアコンクリーニング業者)へのヒアリング設計
