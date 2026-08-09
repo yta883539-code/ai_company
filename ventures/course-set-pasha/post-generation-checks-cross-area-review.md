@@ -123,3 +123,28 @@ schema検証6件・history_export関連6件と合わせて全件パス確認済�
   その数字自体は存在するか」という緩いヒューリスティック)。
 - 既存の厳守事項2・3・9チェックと同様、実LLM接続後に拾いきれない不一致パターンの
   収集・ルール改善が引き続き必要になる。
+
+## 追記(2026-08-09 06:00 UTC): EMOJI_PATTERNの対象ブロック拡張(地域指示記号・囲みCJK記号)
+
+上記「残る既知の限界」で指摘していた`EMOJI_PATTERN`の未対応ブロックのうち、機械的に
+追加しやすいものから着手した。line-reservation-aiのmessage-tone-variants.mdでも
+絵文字頻度が検証課題として扱われており、同種の改善。
+
+- 地域指示記号(Regional Indicator Symbols、U+1F1E6-U+1F1FF): 2文字の組み合わせで
+  国旗絵文字(🇯🇵等)になるブロック。SNS投稿文で店舗の国際色をアピールする文脈等で
+  使われうるため追加。
+- 囲みCJK文字・月間補助記号(Enclosed Ideographic Supplement、U+1F200-U+1F2FF):
+  🈵🈲🈴🈚等、日本語圏のSNS・掲示文で装飾的に使われることがある記号ブロック。
+  日本語が主要な出力言語である本ventureでは見落とすと実害が出やすいと判断し追加。
+
+`prototype/test_post_generation_checks.py`に新規テスト2件を追加
+(`test_line_web_notice_with_enclosed_cjk_symbol_is_flagged`・
+`test_line_web_notice_with_flag_emoji_is_flagged`)。既存25件と合わせて27件、
+schema検証6件・history_export関連6件と合わせて全件パス確認済み。
+
+### 残る既知の限界(引き続き未対応)
+- Unicode絵文字を完全網羅する判定ではない点は変わらない。今回未対応のまま残る主な
+  ブロックは、囲み英数字補助(Enclosed Alphanumeric Supplement、U+1F100-U+1F1FF、
+  地域指示記号と範囲が一部重複するため優先度を下げた)、および将来のUnicode改定で
+  追加されるブロック全般。
+- 「1〜2個程度」という目安の解釈(0個は許容、超過のみ検出)についての判断は据え置き。

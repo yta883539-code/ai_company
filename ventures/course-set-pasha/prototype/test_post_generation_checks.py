@@ -248,6 +248,18 @@ class EmojiUsageRulesTest(unittest.TestCase):
     def test_no_fields_present_is_skipped(self):
         self.assertEqual(check_emoji_usage_rules({}), [])
 
+    def test_line_web_notice_with_enclosed_cjk_symbol_is_flagged(self):
+        instance = {"line_web_notice": {"body": "本日の営業は終了しました🈵"}}
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice", errors[0])
+
+    def test_line_web_notice_with_flag_emoji_is_flagged(self):
+        instance = {"line_web_notice": {"body": "海外からのお客様も歓迎です🇯🇵"}}
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice", errors[0])
+
 
 class HistoryRowCountsMentionedInTextTest(unittest.TestCase):
     def test_count_present_in_sns_post_body_is_allowed(self):
