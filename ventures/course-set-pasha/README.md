@@ -354,7 +354,20 @@
   実装した。テキストのみのメッセージのみを処理対象とし、画像単体イベントは素通り(処理対象外)
   とする設計とした。テスト12件新規追加(全55件パス)。テキスト+画像が別イベントで届く場合の
   束ね方は、tech-stack.mdから引き続き残課題として持ち越した。
-- 最終更新: 2026-08-09 22:00 UTC
+- フェーズ39(2026-08-09 23:00 UTC): webhook-processing-flow-design.md「残課題」(2)
+  検証失敗時のリトライ機構に対応した。line-reservation-aiのjson-output-retry-fallback.mdの
+  「同一入力で1回だけ再生成、無限リトライは避ける」方針を踏襲し、`process_memo_event()`に
+  1回のみのリトライを実装した。`LlmCallClient.generate()`に`retry_context`(検証エラー概要、
+  実LLM接続後にプロンプトへ添える想定)引数を追加し、1回目の検証エラー後に
+  `retry_context`付きで再生成をリクエスト、2回目も検証エラーが残る場合のみ安全側の
+  再送依頼フォールバックに倒す。本ventureは`confirmed`・二重予約防止のような確定状態を
+  持たないため、line-reservation-ai側にある「フォールバック経路は`confirmed`を常にfalse
+  扱いにする」といった分岐は不要と判断し実装しなかった。`MemoProcessResult.retried`を
+  追加しリトライ発生を呼び出し側で判別可能にした(json-output-retry-fallback.mdの
+  「ログ・監視」方針同様、実運用時にリトライ発生件数を集計する用途を想定)。テスト3件を
+  新規追加(既存55件と合わせて58件、全件パス)。矛盾検知(自然文とJSONの内容不一致)は
+  本venture出力に確定/未確定のような対立フィールドが無いため対象外とした。
+- 最終更新: 2026-08-09 23:00 UTC
 
 ## 次にやること(候補)
 
@@ -387,10 +400,10 @@
   設計・下書き作成の範囲に留める。
 - (解消済み 2026-08-09 22:00 UTC: Webhook受信〜LLM呼び出し〜返信のバックエンド処理フロー
   設計・試作をフェーズ38で実装した。詳細は上記フェーズ38・webhook-processing-flow-design.md参照)
-- (フェーズ38で新規追加)webhook-processing-flow-design.mdの残課題: (1)テキスト+画像が
-  別イベントで届く場合の束ね方(束ねる時間窓の設計、画像のみ先着時の一時保持要否。
-  LINE Messaging APIの画像メッセージ受信時のコンテンツ取得API仕様確認と合わせて次回以降)、
-  (2)検証失敗時のリトライ機構(line-reservation-aiのjson-output-retry-fallback.md相当の
-  詳細設計。現状は再送依頼への単純フォールバックのみ)。
+- webhook-processing-flow-design.mdの残課題: テキスト+画像が別イベントで届く場合の
+  束ね方(束ねる時間窓の設計、画像のみ先着時の一時保持要否。LINE Messaging APIの
+  画像メッセージ受信時のコンテンツ取得API仕様確認と合わせて次回以降)。
+  (解消済み 2026-08-09 23:00 UTC: 検証失敗時のリトライ機構をフェーズ39で実装した。
+  詳細は上記フェーズ39・webhook-processing-flow-design.md参照)
 - 実LLM呼び出し・実LINE API接続は、line-reservation-aiと同様にAPIキー取得・アカウント作成が
   必要でありオーナー承認待ちの範囲。

@@ -59,8 +59,13 @@ def verify_line_signature(body: bytes, signature_header: Optional[str], channel_
 # ---------------------------------------------------------------------------
 
 class LlmCallClient(Protocol):
-    def generate(self, memo_text: str, has_photo: bool) -> dict:
-        """schema/output.schema.jsonに準拠した構造化出力(dict)を返す想定。"""
+    def generate(self, memo_text: str, has_photo: bool, retry_context: Optional[str] = None) -> dict:
+        """schema/output.schema.jsonに準拠した構造化出力(dict)を返す想定。
+
+        retry_contextが渡された場合(1回目の検証エラー後の再生成時)、直前の出力の
+        何が不正だったか(検証エラーの概要)を実LLM接続後にプロンプトへ添える想定
+        (json-output-retry-fallback.mdの「同一入力で1回だけ再生成」方針に準拠)。
+        """
         ...
 
 
@@ -151,6 +156,12 @@ class MemoProcessResult:
     reply_sent: bool
     reply_text: Optional[str]
     validation_errors: list = field(default_factory=list)
+    retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
+
+
+def _summarize_errors_for_retry(errors: list[str]) -> str:
+    """再生成プロンプトに添える検証エラーの短い概要(実LLM接続後に使用)。"""
+    return "; ".join(errors[:3])
 
 
 def process_memo_event(
@@ -165,8 +176,9 @@ def process_memo_event(
        返信を送らずhandled=Falseで返す。
     2. has_photoはイベント側の付随情報として受け取る(束ね方自体は残課題、
        webhook-processing-flow-design.md「残課題」参照)。
-    3. LLM呼び出し結果を3段階で検証し、1件でもエラーがあれば安全側に倒して
-       定型の再送依頼文言を返す(詳細なリトライは行わない)。
+    3. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
+       (json-output-retry-fallback.mdの「同一入力で1回だけ」方針をline-reservation-aiと
+       同じ形で採用。再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -178,24 +190,30 @@ def process_memo_event(
 
     instance = llm_call.generate(memo_text, has_photo)
     errors = validate_llm_output(instance)
+    retried = False
+
+    if errors:
+        retried = True
+        instance = llm_call.generate(memo_text, has_photo, retry_context=_summarize_errors_for_retry(errors))
+        errors = validate_llm_output(instance)
 
     if errors:
         reply_client.reply(reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         return MemoProcessResult(
             handled=True, reply_sent=True,
-            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE, validation_errors=errors,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE, validation_errors=errors, retried=retried,
         )
 
     reply_text = format_reply_text(instance)
     reply_client.reply(reply_token, reply_text)
-    return MemoProcessResult(handled=True, reply_sent=True, reply_text=reply_text)
+    return MemoProcessResult(handled=True, reply_sent=True, reply_text=reply_text, retried=retried)
 
 
 def _demo() -> None:
     class StubLlmClient:
         """schema/validate_test_cases.pyのG1フィクスチャ相当を返す固定スタブ。"""
 
-        def generate(self, memo_text: str, has_photo: bool) -> dict:
+        def generate(self, memo_text: str, has_photo: bool, retry_context: Optional[str] = None) -> dict:
             return {
                 "status": "generated",
                 "out_of_scope_message": None,

@@ -41,11 +41,14 @@ Cloud Function A/Bの分離やCloud Tasksは不要と判断し、1つの処理�
    `validate_cross_field_rules()`をそのまま再利用してJSON Schema適合性とクロスフィールド
    ルールを検証する。status=="generated"の場合のみ、追加でprototype/post_generation_checks.py
    の`run_all_checks()`(厳守事項2・3・4・5・7・9のヒューリスティックチェック)を実行する。
-5. **検証失敗時のフォールバック**: line-reservation-aiのjson-output-retry-fallback.mdほど
-   詳細な設計(リトライ1回・矛盾検知時の安全側上書き等)はまだ無いため、本フローでは
-   簡略版として「検証エラーが1件でもあれば安全側に倒し、定型の再送依頼文言を返す」
-   (＝insufficient_inputと同様の扱いに倒す)方式のみを実装する。リトライ機構
-   (再度LLMを呼び直す等)は次回以降の課題として明示的に残す。
+5. **検証失敗時のリトライ・フォールバック**(2026-08-09 23:00 UTC追記): 検証エラーが
+   1件でもあれば、line-reservation-aiのjson-output-retry-fallback.mdと同じ「同一入力で
+   1回だけ再生成」方針で`llm_call.generate()`を`retry_context`(検証エラー概要)付きで
+   再度呼び出す。再生成後も検証エラーが残る場合のみ安全側に倒し、定型の再送依頼文言を
+   返す(＝insufficient_inputと同様の扱い)。本ventureには`confirmed`のような確定状態
+   フィールドが無いため、line-reservation-ai側の「フォールバック経路はconfirmedを常に
+   false扱いにする」に相当する分岐は不要。詳細はprototype/cloud_function_webhook.pyの
+   `process_memo_event()`参照。
 6. **返信本文の組み立て**: statusに応じて分岐する。
    - `generated`: 出力1(sns_post.body+hashtags)・出力2(line_web_notice.body)・
      出力3(history_rowsをhistory_export.history_rows_to_csv_text()でCSVテキスト化)の
@@ -69,6 +72,5 @@ insufficient_input/検証失敗フォールバック/画像単体イベントの
 
 - テキスト+画像が別イベントで届く場合の束ね方(束ねる時間窓の設計、画像のみ先着時の
   一時保持要否)。tech-stack.mdの残課題と同一。
-- 検証失敗時のリトライ機構(line-reservation-aiのjson-output-retry-fallback.md相当の
-  詳細設計)。現状は再送依頼への単純フォールバックのみ。
+- (解消済み 2026-08-09 23:00 UTC: 検証失敗時のリトライ機構を上記5に実装した)
 - 実LLM呼び出し・実LINE API接続(オーナー承認待ち)。

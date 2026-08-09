@@ -35,11 +35,42 @@ class FixtureLlmClient:
         self.case_id = case_id
         self.mutate = mutate
 
-    def generate(self, memo_text, has_photo):
+    def generate(self, memo_text, has_photo, retry_context=None):
         instance = dict(TEST_CASES[self.case_id])
         if self.mutate:
             instance = self.mutate(instance)
         return instance
+
+
+class RetryThenFixLlmClient:
+    """1回目はmutateで壊れた出力を返し、retry_context付きの2回目呼び出しでのみ
+    正常な出力(case_id)を返すスタブ(リトライ成功パターンの検証用)。"""
+
+    def __init__(self, case_id, mutate):
+        self.case_id = case_id
+        self.mutate = mutate
+        self.calls = []
+
+    def generate(self, memo_text, has_photo, retry_context=None):
+        self.calls.append(retry_context)
+        instance = dict(TEST_CASES[self.case_id])
+        if retry_context is None:
+            instance = self.mutate(instance)
+        return instance
+
+
+class AlwaysBrokenLlmClient:
+    """retry_contextの有無にかかわらず常に壊れた出力を返すスタブ
+    (リトライしても解消しないパターンの検証用)。"""
+
+    def __init__(self, case_id, mutate):
+        self.case_id = case_id
+        self.mutate = mutate
+        self.calls = []
+
+    def generate(self, memo_text, has_photo, retry_context=None):
+        self.calls.append(retry_context)
+        return self.mutate(dict(TEST_CASES[self.case_id]))
 
 
 def _make_event(reply_token="rt-1", text="エリアA 黄テープ 8本新規、2026/8/9改訂", has_photo=False):
@@ -100,6 +131,7 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertTrue(result.reply_sent)
         self.assertEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         self.assertTrue(result.validation_errors)
+        self.assertTrue(result.retried)
 
     def test_post_generation_check_violation_falls_back_to_resend_request(self):
         def add_out_of_scope_topic(instance):
@@ -115,6 +147,47 @@ class ProcessMemoEventTest(unittest.TestCase):
 
         self.assertEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         self.assertTrue(result.validation_errors)
+        self.assertTrue(result.retried)
+
+    def test_successful_first_attempt_is_not_marked_retried(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(_make_event(), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertFalse(result.retried)
+
+    def test_retry_succeeds_when_second_generation_is_valid(self):
+        def break_status(instance):
+            instance = dict(instance)
+            instance["status"] = "unexpected_status"
+            return instance
+
+        reply_client = InMemoryReplyClient()
+        llm_client = RetryThenFixLlmClient("G1_basic", mutate=break_status)
+        result = process_memo_event(_make_event(), llm_client, reply_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertTrue(result.retried)
+        self.assertEqual(result.validation_errors, [])
+        self.assertIn("【SNS投稿文の下書き】", result.reply_text)
+        # 1回目はretry_context無し、2回目は検証エラーの概要付きで呼ばれる
+        self.assertEqual(len(llm_client.calls), 2)
+        self.assertIsNone(llm_client.calls[0])
+        self.assertIsNotNone(llm_client.calls[1])
+
+    def test_retry_still_failing_falls_back_after_exactly_one_retry(self):
+        def break_status(instance):
+            instance = dict(instance)
+            instance["status"] = "unexpected_status"
+            return instance
+
+        reply_client = InMemoryReplyClient()
+        llm_client = AlwaysBrokenLlmClient("G1_basic", mutate=break_status)
+        result = process_memo_event(_make_event(), llm_client, reply_client)
+
+        self.assertEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        self.assertTrue(result.retried)
+        # リトライは1回のみ(無限リトライしない)
+        self.assertEqual(len(llm_client.calls), 2)
 
     def test_image_only_event_is_not_handled(self):
         reply_client = InMemoryReplyClient()
