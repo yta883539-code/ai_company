@@ -332,6 +332,16 @@
   確認済み(post-generation-checks-cross-area-review.md追記)。エリア名の完全一致のみで
   判定するため、本文側での表記ゆれ(略称化等)は誤検出しうる既知の限界として残した。
 
+- フェーズ37(2026-08-09 18:00 UTC): mvp-flow-draft.md「会話フロー・技術構成に関する方針」で
+  「技術構成の具体化は次回以降の課題」とされたまま未着手だった点に対応し、
+  line-reservation-ai/tech-stack.mdの構成を踏襲して`tech-stack.md`を新規作成した。
+  本ventureは双方向の会話状態管理・予約枠管理が不要な単方向バッチ処理であるため、
+  ConversationFlowStateMachine相当の仕組みやFirestoreのような永続データストアは不要とし、
+  「LINE Messaging API ⇄ Webhook(GCP Cloud Functions) ⇄ LLM(3出力生成) ⇄ 返信」という
+  シンプルな構成を採用する方針を整理した。画像添付は内容解析せず「有無」のみを判定材料とする
+  設計方針も明記した。ホスティング基盤(GCP Cloud Functions)・LINE料金体系は
+  line-reservation-aiの既存調査結果を流用できる旨も記録した。コード変更は無し。
+
 ## 次にやること(候補)
 
 - post_generation_checks.pyは厳守事項2・3・4・5・7・9を機械チェック化済み(フェーズ36時点)。
@@ -361,3 +371,6 @@
   届かない場合の予備候補としてのみ扱う(連絡要否は別途オーナーに確認)。
 - 実LLM呼び出し・SNS API連携等、外部サービスとの実接続はオーナー承認が必要なため、
   設計・下書き作成の範囲に留める。
+- (フェーズ37で新規追加)tech-stack.mdで積み残した、Webhook受信〜LLM呼び出し〜返信の
+  バックエンド処理フロー設計・試作、LINE Messaging APIの画像メッセージ受信時のコンテンツ
+  取得API仕様確認が次の技術面の課題。
