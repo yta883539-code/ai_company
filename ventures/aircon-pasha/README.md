@@ -46,12 +46,19 @@
   固有のクロスフィールドルールとして、care_guide.next_recommended_date_is_estimateが
   false(入力メモに次回推奨時期の記載あり)の場合はhistory_row.next_recommended_dateが
   null不可であることの検証を追加した。5件中5件パスを確認(python3実行済み、実LLM検証は未実施)。
-- 最終更新: 2026-08-09 16:00 UTC
+- フェーズ5(2026-08-09 17:00 UTC): 料金プラン・無料トライアル条件の仮決め(pricing-plan.md)
+  を作成した。course-set-pashaのプラン設計方針を踏襲しつつ、market-research.mdの利用量見積もり
+  (個人事業主で月60〜100件程度)を踏まえ、course-set-pashaより一桁多い生成回数を前提とした
+  3プラン(基本料+従量課金の併用)を設計した。繁忙期(梅雨〜夏)の季節性が強い業種のため、
+  月固定枠の超過分は従量課金で吸収する設計とし、繰越の要否・従量単価の妥当性は未検証事項として
+  整理した。
+- 最終更新: 2026-08-09 17:00 UTC
 
 ## 次にやること(候補)
 
 - 実際のエアコンクリーニング業者の公式SNS・ブログでの作業報告文の実例観察
-  (course-set-pasha/sns-post-example-observation.mdと同種の調査)。
+  (course-set-pasha/sns-post-example-observation.mdと同種の調査)。出力1・出力2のトーン
+  チューニングとpricing-plan.mdの利用量仮説の検証材料として活用する。
 - 想定顧客(個人事業主のエアコンクリーニング業者)へのヒアリング設計
   (line-reservation-ai/customer-interview-design.mdの手法を参考)。実際の連絡・送信は
   オーナー承認が必要な範囲のため、設計・下書き作成に留める。
