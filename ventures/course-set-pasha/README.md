@@ -378,7 +378,17 @@
   (tech-stack.md)と衝突するFirestore等の永続化・TTL管理が必要になるため、実LINE接続後の
   実測データで頻度が無視できない水準と分かるまで実装を見送る判断とした。テスト6件新規追加
   (既存58件と合わせて64件、全件パス)。
-- 最終更新: 2026-08-10 07:00 UTC
+- フェーズ41(2026-08-10 11:00 UTC): 「次にやること」に残っていたLINE Messaging APIの
+  画像メッセージ受信時のコンテンツ取得API仕様確認・複数画像添付時の扱いを
+  line-image-content-api-review.mdで整理した。本venture既存実装
+  (merge_text_and_photo_events())を確認した結果、画像の有無判定はWebhookイベントの
+  `message.type`のみで行っており画像バイナリ自体は使わない設計のため、コンテンツ取得API
+  (GET /v2/bot/message/{messageId}/content)自体がMVPスコープでは不要と結論づけた。複数
+  画像添付時もLINEアプリの複数枚送信は画像ごとに個別イベントとして届く(WebSearchで確認、
+  developers.line.biz一次情報はWebFetchのegressプロキシ制約により未確認)想定と整合しており、
+  既存のhasPhoto(有無フラグ)方式で追加実装なしに対応済みと確認した。tech-stack.mdの
+  該当項目を解消済みとして更新した。
+- 最終更新: 2026-08-10 11:00 UTC
 
 ## 次にやること(候補)
 
@@ -417,7 +427,9 @@
   実装した。詳細は上記フェーズ40・text-image-bundling-design.md参照。ケースB
   (別リクエストに分かれる場合)の永続化要否は実LINE接続後の実測データ待ちとして
   引き続き残る)
-- LINE Messaging APIの画像メッセージ受信時のコンテンツ取得API仕様確認・複数画像添付時の
-  扱いは、実LINE接続後の課題として引き続き残る(tech-stack.md参照)。
+- (解消済み 2026-08-10 11:00 UTC: LINE Messaging APIの画像メッセージ受信時のコンテンツ取得
+  API仕様確認・複数画像添付時の扱いをフェーズ41・line-image-content-api-review.mdで整理した。
+  本ventureはコンテンツ取得API自体が不要、複数画像添付も既存のhasPhoto方式で対応済みと
+  結論。LINE公式ドキュメントの一次情報での最終確認のみ実LINE接続後の課題として残る)
 - 実LLM呼び出し・実LINE API接続は、line-reservation-aiと同様にAPIキー取得・アカウント作成が
   必要でありオーナー承認待ちの範囲。
