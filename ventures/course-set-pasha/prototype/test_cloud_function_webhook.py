@@ -22,6 +22,7 @@ from cloud_function_webhook import (  # noqa: E402
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryReplyClient,
     format_reply_text,
+    merge_text_and_photo_events,
     process_memo_event,
     validate_llm_output,
     verify_line_signature,
@@ -197,6 +198,69 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertFalse(result.handled)
         self.assertFalse(result.reply_sent)
         self.assertEqual(reply_client.sent, [])
+
+
+def _text_event(user_id, text, reply_token="rt-text"):
+    return {
+        "replyToken": reply_token,
+        "source": {"userId": user_id},
+        "message": {"type": "text", "text": text},
+    }
+
+
+def _image_event(user_id):
+    return {"source": {"userId": user_id}, "message": {"type": "image"}}
+
+
+class MergeTextAndPhotoEventsTest(unittest.TestCase):
+    def test_text_and_one_photo_from_same_user_are_merged(self):
+        events = [_image_event("u1"), _text_event("u1", "エリアA 更新")]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 1)
+        self.assertTrue(merged[0]["hasPhoto"])
+        self.assertEqual(merged[0]["message"]["text"], "エリアA 更新")
+
+    def test_text_only_is_marked_no_photo(self):
+        events = [_text_event("u1", "エリアA 更新")]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 1)
+        self.assertFalse(merged[0]["hasPhoto"])
+
+    def test_photo_only_passes_through_unmerged(self):
+        events = [_image_event("u1")]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 1)
+        self.assertNotIn("hasPhoto", merged[0])
+        self.assertEqual(merged[0]["message"]["type"], "image")
+
+    def test_different_users_are_not_confused(self):
+        events = [_image_event("u1"), _text_event("u2", "u2のメモ")]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 2)
+        text_results = [e for e in merged if e["message"]["type"] == "text"]
+        self.assertEqual(len(text_results), 1)
+        self.assertFalse(text_results[0]["hasPhoto"])
+        image_results = [e for e in merged if e["message"]["type"] == "image"]
+        self.assertEqual(len(image_results), 1)
+        self.assertNotIn("hasPhoto", image_results[0])
+
+    def test_two_text_events_from_same_user_are_not_merged(self):
+        events = [_text_event("u1", "メモ1", "rt-1"), _text_event("u1", "メモ2", "rt-2")]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 2)
+        self.assertEqual({e["message"]["text"] for e in merged}, {"メモ1", "メモ2"})
+
+    def test_event_without_user_id_is_passed_through(self):
+        events = [{"message": {"type": "text", "text": "userId無し"}, "replyToken": "rt"}]
+        merged = merge_text_and_photo_events(events)
+
+        self.assertEqual(len(merged), 1)
+        self.assertNotIn("hasPhoto", merged[0])
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

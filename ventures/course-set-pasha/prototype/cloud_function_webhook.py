@@ -164,6 +164,46 @@ def _summarize_errors_for_retry(errors: list[str]) -> str:
     return "; ".join(errors[:3])
 
 
+def merge_text_and_photo_events(events: list[dict]) -> list[dict]:
+    """同一Webhookリクエスト内の`events`配列を`source.userId`単位でグルーピングし、
+    テキストイベント1件+画像イベント0件以上のグループを`hasPhoto`付きの単一メモ
+    イベントへ統合する(text-image-bundling-design.md「ケースA」の実装)。
+
+    テキストイベントが0件または2件以上のグループは誤統合を避けるため統合せず、
+    元の順序のままそれぞれ個別のイベントとして結果に含める(呼び出し側で従来通り
+    process_memo_event()を1件ずつ適用すればよい)。userIdが取得できないイベント
+    (source.userIdが無い等)もグルーピング対象外とし、そのまま個別に扱う。
+    """
+    groups: dict[str, list[dict]] = {}
+    ungrouped: list[dict] = []
+    order: list[str] = []
+
+    for event in events:
+        user_id = event.get("source", {}).get("userId")
+        if not user_id:
+            ungrouped.append(event)
+            continue
+        if user_id not in groups:
+            groups[user_id] = []
+            order.append(user_id)
+        groups[user_id].append(event)
+
+    merged: list[dict] = []
+    for user_id in order:
+        group = groups[user_id]
+        text_events = [e for e in group if e.get("message", {}).get("type") == "text"]
+        photo_events = [e for e in group if e.get("message", {}).get("type") == "image"]
+
+        if len(text_events) == 1 and len(text_events) + len(photo_events) == len(group):
+            merged_event = dict(text_events[0])
+            merged_event["hasPhoto"] = bool(photo_events)
+            merged.append(merged_event)
+        else:
+            merged.extend(group)
+
+    return merged + ungrouped
+
+
 def process_memo_event(
     event: dict,
     llm_call: LlmCallClient,

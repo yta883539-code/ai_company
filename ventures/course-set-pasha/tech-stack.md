@@ -66,9 +66,11 @@ line-reservation-aiと異なり、予約枠・会話状態を保持する永続�
 
 - (解消済み 2026-08-09 22:00 UTC: Webhook受信〜LLM呼び出し〜返信のバックエンド処理フローを
   webhook-processing-flow-design.md・prototype/cloud_function_webhook.pyとして設計・実装した)
-- LINE Messaging APIの画像メッセージ受信時のコンテンツ取得API仕様の確認
-  (テキストのみのメッセージとの処理分岐、複数画像添付時の扱い。webhook-processing-flow-design.md
-  の残課題として引き続き未着手)。
+- (解消済み 2026-08-10 07:00 UTC: テキスト+画像が別イベントで届く場合の束ね方を
+  text-image-bundling-design.mdで設計した。同一Webhookリクエスト内で束ねる「ケースA」を
+  merge_text_and_photo_events()として実装。別リクエストに分かれる「ケースB」の永続化は
+  実測データが得られるまで見送り。複数画像添付時の扱い・画像コンテンツ取得API仕様確認
+  自体は実LINE接続後の課題として引き続き残る)
 - 実LLM呼び出し・LINE公式アカウントとの実接続は、line-reservation-aiと同様に
   APIキー取得・アカウント作成が必要でありオーナー承認待ちの範囲。今回は技術構成の
   設計整理のみに留める。
