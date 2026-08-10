@@ -59,6 +59,8 @@ from engine import (  # noqa: E402
     format_reminder_message,
     format_reminder_resend_message,
     label_from_slot_key,
+    mark_booking_no_show_confirmed,
+    mark_booking_visited,
     process_llm_output,
     resolve_candidate_selection,
     search_candidates_from_llm_output,
@@ -1101,7 +1103,13 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
 
         entries = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))
         self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0], BookingListEntry(date(2026, 8, 10), 11 * 60, "田中", "カット"))
+        self.assertEqual(
+            entries[0],
+            BookingListEntry(
+                date(2026, 8, 10), 11 * 60, "田中", "カット",
+                store_id="shop_1", slot_key=("shop_1", "2026-08-10", "11:00"),
+            ),
+        )
 
     def test_list_booking_entries_filters_by_store_and_date_range_and_sorts(self):
         store = InMemoryBookingRecordStore()
@@ -1269,6 +1277,67 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         store = InMemoryBookingRecordStore()
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
         flow.record_reminder_reply("unknown_user")
+
+    def test_list_booking_entries_carries_store_id_and_slot_key_for_owner_actions(self):
+        # booking-record-store-design.md「MVPスコープの範囲外として残す点」にあった、
+        # 予約一覧ページの「来店済み」チェック操作からrecord_visited()への実呼び出し配線には
+        # どのレコードかを特定する識別子が必要。list_booking_entries()が返すBookingListEntryに
+        # store_id/slot_keyが含まれ、mark_booking_visited()にそのまま渡せることを確認する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+
+        entries = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].store_id, "shop_1")
+        self.assertEqual(entries[0].slot_key, key)
+
+
+class MarkBookingOwnerActionTest(unittest.TestCase):
+    """mark_booking_visited()/mark_booking_no_show_confirmed()
+    (booking-record-store-design.md「MVPスコープの範囲外として残す点」だった、予約一覧ページの
+    「来店済み」チェック・無断キャンセル確定操作からrecord_storeへの実呼び出し配線)を確認する。
+    実際の画面描画・クリックイベント自体はホスティング基盤確定後の課題として引き続き残る。
+    """
+
+    def _confirm(self, flow, user_id, slot_key, name, menu, now=T0):
+        flow.present_candidates(user_id, now=now)
+        self.assertTrue(flow.select_slot(user_id, slot_key, now).success)
+        result = flow.provide_details(user_id, name, menu, now)
+        self.assertTrue(result.confirmed)
+
+    def test_mark_booking_visited_updates_record_store(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+        entry = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))[0]
+
+        self.assertTrue(mark_booking_visited(store, entry))
+
+        records = store.customer_records("田中")
+        self.assertEqual(records[0].status, VISITED_STATUS)
+
+    def test_mark_booking_no_show_confirmed_updates_record_store(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+        entry = store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31))[0]
+
+        self.assertTrue(mark_booking_no_show_confirmed(store, entry))
+
+        records = store.customer_records("田中")
+        self.assertEqual(records[0].status, NO_SHOW_CONFIRMED_STATUS)
+
+    def test_mark_booking_visited_without_slot_key_is_noop(self):
+        # record_storeを介さず組み立てられたBookingListEntry(slot_key未設定)では何もしない。
+        store = InMemoryBookingRecordStore()
+        entry = BookingListEntry(date(2026, 8, 10), 11 * 60, "田中", "カット")
+
+        self.assertFalse(mark_booking_visited(store, entry))
+        self.assertFalse(mark_booking_no_show_confirmed(store, entry))
 
 
 if __name__ == "__main__":

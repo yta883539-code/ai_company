@@ -302,12 +302,20 @@ class BookingListEntry:
     (firestore-data-model.md conversations/{sessionId}のうち、予約一覧表示に必要な
     フィールドの部分集合。予約枠そのものの排他制御はBookingSlotManagerの守備範囲であり、
     本クラスは確定済み予約の表示専用の値オブジェクト)。
+
+    store_id/slot_keyはCSV出力(BOOKING_LIST_CSV_HEADER)には含まれない表示外の識別子で、
+    「来店済み」チェック等オーナーの1タップ操作をmark_booking_visited()等でrecord_storeへ
+    書き戻す際にどのレコードを更新するかを特定するために使う(booking-record-store-design.md
+    「MVPスコープの範囲外として残す点」で指摘されていた配線ロジックの一部)。record_storeを
+    介さず組み立てられたBookingListEntry(既存テスト等)ではNone/空文字のままでよい。
     """
 
     booking_date: date
     start_minutes: int  # 予約開始時刻(0時からの分)
     customer_name: str
     menu: str
+    store_id: str = ""
+    slot_key: Optional[tuple] = None
 
 
 BOOKING_LIST_CSV_HEADER = ["日付", "曜日", "時刻", "お客様名", "メニュー"]
@@ -435,6 +443,8 @@ class _StoredBookingRecord:
             start_minutes=self.start_minutes,
             customer_name=self.customer_name,
             menu=self.menu,
+            store_id=self.store_id,
+            slot_key=self.slot_key,
         )
 
     def to_customer_record(self) -> CustomerBookingRecord:
@@ -565,6 +575,29 @@ class InMemoryBookingRecordStore:
             if record.store_id == store_id and record.slot_key == slot_key:
                 record.status_override = status
                 return
+
+
+def mark_booking_visited(record_store: InMemoryBookingRecordStore, entry: BookingListEntry) -> bool:
+    """owner-settings-wireframe.md予約一覧ページの「来店済み」チェック操作から
+    InMemoryBookingRecordStore.record_visited()への配線(booking-record-store-design.md
+    「MVPスコープの範囲外として残す点」にあった実呼び出し配線のうち、実際の画面描画・
+    クリックイベント自体を除いたロジック部分)。entry.slot_keyが無い(record_storeを介さず
+    組み立てられたBookingListEntry等)場合は何もせずFalseを返す。
+    """
+    if entry.slot_key is None:
+        return False
+    record_store.record_visited(entry.store_id, entry.slot_key)
+    return True
+
+
+def mark_booking_no_show_confirmed(record_store: InMemoryBookingRecordStore, entry: BookingListEntry) -> bool:
+    """予約一覧ページの「無断キャンセル確定」操作からrecord_no_show_confirmed()への配線。
+    mark_booking_visited()と同様、entry.slot_keyが無い場合は何もせずFalseを返す。
+    """
+    if entry.slot_key is None:
+        return False
+    record_store.record_no_show_confirmed(entry.store_id, entry.slot_key)
+    return True
 
 
 def _escalation_type_label(event: dict) -> str:

@@ -834,7 +834,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   GCPプロジェクト作成前でも「前回リマインドへの返信」表示がbuild_customer_detail_view()で
   正しく機能するようになった。テスト7件新規追加(engine.py側4件・cloud_function側2件・
   booking-record-store-design.md追記1件)、既存分含め全210件パス。
-- 最終更新: 2026-08-09 11:00 UTC
+- フェーズ(続き94、2026-08-10 01:00 UTC): booking-record-store-design.md「MVPスコープの範囲外
+  として残す点」に残っていた、予約一覧ページの「来店済み」チェック・無断キャンセル確定操作から
+  `record_visited()`/`record_no_show_confirmed()`への実呼び出し配線のうち、実際の画面描画・
+  クリックイベント自体を除いたロジック部分に対応した。従来`BookingListEntry`(予約一覧の表示用
+  値オブジェクト)には`store_id`/`slot_key`が含まれておらず、CSV出力や画面表示はできても、
+  オーナーが一覧のどの行をチェックしたのかをrecord_storeへ書き戻す際に特定する手段が無いという
+  抜けが判明した。`BookingListEntry`にCSV非出力の`store_id`/`slot_key`フィールド(両方とも既定値
+  付きで後方互換)を追加し、`list_booking_entries()`が返す各行に実際の識別子が乗るようにした。
+  その上で`mark_booking_visited(record_store, entry)`/`mark_booking_no_show_confirmed(record_store,
+  entry)`(prototype/engine.py)を新設し、`entry.slot_key`が無ければ何もせずFalseを返す
+  fail-silent設計とした。テスト5件新規追加、既存分含め全214件パス。実際のチェックボックス描画・
+  クリックイベントの配線自体は引き続きホスティング基盤確定後の課題として残る。
+- 最終更新: 2026-08-10 01:00 UTC
 
 ## ドキュメント
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
