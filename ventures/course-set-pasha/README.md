@@ -388,10 +388,20 @@
   developers.line.biz一次情報はWebFetchのegressプロキシ制約により未確認)想定と整合しており、
   既存のhasPhoto(有無フラグ)方式で追加実装なしに対応済みと確認した。tech-stack.mdの
   該当項目を解消済みとして更新した。
-- 最終更新: 2026-08-10 11:00 UTC
+- フェーズ42(2026-08-10 14:00 UTC): これまで「顧客とのSNS投稿文・告知文生成」の設計が
+  中心だったが、line-reservation-aiのlanding-page-copy-draft.mdを参考に「オーナー・セッターが
+  本サービスを知って申し込むまで」の導線で使うLPコピー草案を初めて作成した
+  (landing-page-copy-draft.md)。market-research.mdのペインポイント・競合仮説とpricing-plan.mdの
+  料金プラン・無料トライアル条件をそのまま反映。残課題は特定商取引法に基づく表記・プライバシー
+  ポリシー文面(本venture未着手、line-reservation-aiのlegal-notices-draft.md相当)の作成と、
+  LPワイヤーフレームの作成。実際のLP実装・公開はオーナー承認待ちの範囲。
+- 最終更新: 2026-08-10 14:00 UTC
 
 ## 次にやること(候補)
 
+- landing-page-copy-draft.mdの残課題だった特定商取引法に基づく表記・プライバシーポリシーの
+  文面草案の作成(line-reservation-aiのlegal-notices-draft.md相当、本venture未着手)。
+- landing-page-copy-draft.mdに対応するLPワイヤーフレーム(セクション配置・画像イメージ)の作成。
 - post_generation_checks.pyは厳守事項2・3・4・5・7・9を機械チェック化済み(フェーズ36時点)。
   厳守事項6(履歴記録の表形式・1行生成、schemaのhistory_rows構造で担保)・厳守事項8
   (入力不足時の再送依頼、schema/validate_test_cases.pyのstatus分岐で担保)は既存の仕組みで
