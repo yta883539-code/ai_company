@@ -204,13 +204,23 @@
   (エンドユーザー)個人情報が業者のメモに誤って混入するケースへの対応方針を新規の未検証事項
   として追加し、course-set-pashaで独自論点だったステルスマーケティング規制は本ventureが
   SNS投稿文でなく一対一の完了報告文を扱うため該当性が薄いと整理した。
-- 最終更新: 2026-08-13 19:59 UTC
+- フェーズ23(2026-08-13 20:59 UTC): 「次にやること」1点目だった、他venture同様の
+  landing-page-copy-draft.md相当のLP文面草案作成に着手した(landing-page-copy-draft.md
+  新規作成)。course-set-pasha/landing-page-copy-draft.mdの構成(ヒーロー→課題提起→
+  機能紹介→差別化→料金→FAQ)を踏襲しつつ、本venture固有の差異(出力の宛先が依頼者本人
+  1名であること、冷媒・電気系統には踏み込まない旨を安心材料として訴求すること)を反映した。
+  market-research.md・pricing-plan.md・sns-blog-example-observation.md・
+  legal-notices-draft.mdの既存内容をそのまま反映し、新規の調査・設計判断は発生していない。
+  LPワイヤーフレームの作成は本venture未着手のまま次の課題として残した。
+- 最終更新: 2026-08-13 20:59 UTC
 
 ## 次にやること(候補)
 
-- legal-notices-draft.mdの未検証・要確認事項(所在地表示要否、依頼者個人情報の誤記載対応
-  方針)を整理したうえで、他venture同様landing-page-copy-draft.md相当のLP文面草案・
-  ワイヤーフレーム作成に着手する(本ventureは未着手)。
+- (解消済み 2026-08-13 20:59 UTC: 特定商取引法に基づく表記・プライバシーポリシーの
+  未検証・要確認事項を踏まえたLP文面草案をフェーズ23・landing-page-copy-draft.mdで
+  作成した。事業者名・所在地等の【要記入】項目確定は引き続き未確定事項として残る)
+- landing-page-copy-draft.mdに対応するLPワイヤーフレーム(セクション配置・画像イメージ)の
+  作成(course-set-pasha・line-reservation-aiは作成済み、本venture未着手)。
 - prototype/post_generation_checks.pyのヒューリスティックは、course-set-pashaと同様
   キーワード近傍探索に依存しており、実LLM接続後は拾いきれない違反パターンの収集・
   ルール改善が必要になる見込み(実LLM呼び出しはオーナー承認待ち)。
