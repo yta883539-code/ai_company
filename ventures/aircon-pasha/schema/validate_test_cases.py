@@ -163,7 +163,7 @@ TEST_CASES = {
         "out_of_scope_message": None,
         "missing_fields_request": None,
         "completion_report": {
-            "body": "壁掛け型のお掃除機能付きエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
+            "body": "壁掛け型(お掃除機能付き)のエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
                     "汚れは軽度でした。",
             "mentions_refrigerant_or_electrical": False,
         },
