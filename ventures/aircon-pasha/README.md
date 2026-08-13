@@ -219,13 +219,27 @@
   他ventureのLINEトーク画面・SNS投稿プレビューのモックアップに代えて「入力メモ→完了報告文」の
   ビフォーアフター画像を軸に据えた(1対1の完了報告文書という成果物の性質に合わせた変更)。
   実際の画像制作・HTML/CSS実装・公開はスコープ外のまま次の課題として残した。
-- 最終更新: 2026-08-13 21:59 UTC
+- フェーズ25(2026-08-13 22:59 UTC): course-set-pasha・line-reservation-aiには存在するが
+  本ventureにまだ無かった、Webhook受信〜LLM呼び出し〜返信のバックエンド処理フローの
+  プロトタイプ(prototype/cloud_function_webhook.py)を新規作成した。course-set-pashaの
+  同名モジュールの構成(LLM呼び出し・返信送信をProtocolで抽象化、検証失敗時は同一入力で
+  1回だけ再生成、それでも失敗すれば定型フォールバック文言)を踏襲しつつ、本venture固有の
+  差異として、history_rowが単一オブジェクト(1メモ=1件の訪問施工)であるためCSV変換
+  (history_export.py相当)は不要とし表形式の項目名付きテキストへの整形関数
+  (format_history_row_text)に単純化した。mvp-flow-draft.mdの出力スキーマに写真添付
+  (hasPhoto)相当のフィールドが無いため、course-set-pashaのテキスト・画像束ねロジック
+  (merge_text_and_photo_events)・LINE署名検証は移植を見送った。
+  prototype/test_cloud_function_webhook.py(13件のユニットテスト、schema/
+  validate_test_cases.pyの全フィクスチャ含む)を新規作成し全件パスを確認、
+  python3 cloud_function_webhook.pyのデモ実行でも期待通りの返信文が組み立てられることを
+  確認した(実LLM・実クラウド接続は未実施、オーナー承認待ち)。
+- 最終更新: 2026-08-13 22:59 UTC
 
 ## 次にやること(候補)
 
-- (解消済み 2026-08-13 21:59 UTC: landing-page-copy-draft.mdに対応するLPワイヤーフレームを
-  フェーズ24・landing-page-wireframe.mdで作成した。ビフォーアフター画像そのものの制作は
-  引き続き未着手の課題として残る)
+- prototype/cloud_function_webhook.pyのLLM呼び出し・返信送信は実クライアント未接続の
+  スタブのままのため、実LLM API接続後は実際の生成結果に対してvalidate_llm_outputが
+  想定通り機能するかの再検証が必要(オーナー承認待ち)。
 - prototype/post_generation_checks.pyのヒューリスティックは、course-set-pashaと同様
   キーワード近傍探索に依存しており、実LLM接続後は拾いきれない違反パターンの収集・
   ルール改善が必要になる見込み(実LLM呼び出しはオーナー承認待ち)。
