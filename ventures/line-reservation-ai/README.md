@@ -846,9 +846,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   entry)`(prototype/engine.py)を新設し、`entry.slot_key`が無ければ何もせずFalseを返す
   fail-silent設計とした。テスト5件新規追加、既存分含め全214件パス。実際のチェックボックス描画・
   クリックイベントの配線自体は引き続きホスティング基盤確定後の課題として残る。
-- 最終更新: 2026-08-10 01:00 UTC
+- フェーズ(続き95、2026-08-13 19:00 UTC): これまでfirestore-traffic-cost-estimate.md・
+  cloud-scheduler-invocation-cost-estimate.md・line-api-pricing.mdが個別に「無料枠内に
+  収まるか」の切り口でのみ試算してきたインフラ原価を、pricing-plan.mdの月額料金と横断的に
+  突き合わせ、無料枠を完全に使い切った最悪ケースでも1店舗あたりのFirestore原価は月間
+  0.1〜2.6円程度(月額料金の0.004〜0.03%)にとどまることを定量化した
+  (unit-economics-estimate.md新規作成)。GCPインフラ原価は店舗数が増えても価格設定・
+  粗利率に実質的な影響を与えないと結論づけた一方、これまで未検討だった決済代行サービス
+  (Stripe等)の手数料試算が粗利率を左右する優先課題として新たに浮上した。
+- 最終更新: 2026-08-13 19:00 UTC
 
 ## ドキュメント
+- unit-economics-estimate.md: GCP/Firestoreインフラ原価と月額サブスク料金のユニット
+  エコノミクス試算(2026-08-13 19:00 UTC新規作成。無料枠を完全に使い切った最悪ケースでも
+  1店舗あたりのFirestore原価は月間0.1〜2.6円程度・月額料金の0.03%以下にとどまることを
+  定量化。決済代行サービスの手数料試算が未着手の新規残課題として浮上)
 - deployment-runbook.md: GCPプロジェクト作成・APIキー取得の承認後に実行するデプロイ手順書
   (2026-08-07 06:00 UTC新規作成。プロジェクト作成→Firestore有効化→Secret Manager登録→
   Cloud Functions 3関数デプロイ→Cloud Tasks/Cloud Scheduler設定→LINEチャネル開設→結合テスト→
@@ -1072,6 +1084,8 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
+- unit-economics-estimate.mdで新たに浮上した、決済代行サービス(Stripe Billing等)の手数料
+  試算(pricing-plan.mdの価格設計の妥当性検証において優先度を上げて次回以降に着手)。
 - (解消済み 2026-08-09 12:00 UTC: ドキュメント一覧のschema/booking_output.schema.json行が
   「AvailabilitySearcher連携用の`requested_date_range`/`time_of_day_preference`フィールドは
   実装未着手」と記載したままになっていた点を点検で発見した。実際にはフェーズ(続き12、
