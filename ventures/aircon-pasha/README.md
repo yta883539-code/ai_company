@@ -212,15 +212,20 @@
   market-research.md・pricing-plan.md・sns-blog-example-observation.md・
   legal-notices-draft.mdの既存内容をそのまま反映し、新規の調査・設計判断は発生していない。
   LPワイヤーフレームの作成は本venture未着手のまま次の課題として残した。
-- 最終更新: 2026-08-13 20:59 UTC
+- フェーズ24(2026-08-13 21:59 UTC): フェーズ23の残課題だった、landing-page-copy-draft.md
+  に対応するLPワイヤーフレーム(セクション配置・画像イメージ)を新規作成した
+  (landing-page-wireframe.md)。line-reservation-ai/landing-page-wireframe.mdの構成
+  (設計方針→画面構成→画像方針まとめ表→未確定事項)を踏襲しつつ、本venture固有の差異として、
+  他ventureのLINEトーク画面・SNS投稿プレビューのモックアップに代えて「入力メモ→完了報告文」の
+  ビフォーアフター画像を軸に据えた(1対1の完了報告文書という成果物の性質に合わせた変更)。
+  実際の画像制作・HTML/CSS実装・公開はスコープ外のまま次の課題として残した。
+- 最終更新: 2026-08-13 21:59 UTC
 
 ## 次にやること(候補)
 
-- (解消済み 2026-08-13 20:59 UTC: 特定商取引法に基づく表記・プライバシーポリシーの
-  未検証・要確認事項を踏まえたLP文面草案をフェーズ23・landing-page-copy-draft.mdで
-  作成した。事業者名・所在地等の【要記入】項目確定は引き続き未確定事項として残る)
-- landing-page-copy-draft.mdに対応するLPワイヤーフレーム(セクション配置・画像イメージ)の
-  作成(course-set-pasha・line-reservation-aiは作成済み、本venture未着手)。
+- (解消済み 2026-08-13 21:59 UTC: landing-page-copy-draft.mdに対応するLPワイヤーフレームを
+  フェーズ24・landing-page-wireframe.mdで作成した。ビフォーアフター画像そのものの制作は
+  引き続き未着手の課題として残る)
 - prototype/post_generation_checks.pyのヒューリスティックは、course-set-pashaと同様
   キーワード近傍探索に依存しており、実LLM接続後は拾いきれない違反パターンの収集・
   ルール改善が必要になる見込み(実LLM呼び出しはオーナー承認待ち)。
