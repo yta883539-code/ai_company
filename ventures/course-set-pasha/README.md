@@ -411,7 +411,16 @@
   採用した(aircon-pashaはメモ→完了報告文のビフォーアフター、line-reservation-aiはLINEトーク
   画面が軸)。セクション構成・CTA文言・料金表記はlanding-page-copy-draft.md・pricing-plan.mdと
   整合させた。実際の画像制作・HTML/CSS実装・公開は未着手のままオーナー承認待ちの範囲とした。
-- 最終更新: 2026-08-13 23:59 UTC
+- フェーズ45(2026-08-14 04:00 UTC): legal-notices-draft.mdの残課題だった「決済代行サービスの
+  選定(line-reservation-aiのdeposit-payment-research.md相当の調査)は未着手」に対応し、
+  line-reservation-ai/subscription-billing-cost-estimate.mdの構成・観点を踏襲した
+  月額サブスク決済手数料試算(subscription-billing-cost-estimate.md)を新規作成した。
+  本venture固有の料金水準(1,980円/3,480円/5,980円)に当てはめ、クレジットカード継続課金
+  (3.6%と仮定)で手数料71〜215円/月・インフラ原価を大きく上回る規模と試算した。本venture
+  はデポジット徴収を持たず決済経路が1本のみである点、月間生成回数の上限超過時の挙動が
+  未設計である点をline-reservation-aiとの差異として整理し、後者はpricing-plan.mdの
+  「未検証の仮説」に追記した。
+- 最終更新: 2026-08-14 04:00 UTC
 
 ## 次にやること(候補)
 
@@ -462,3 +471,8 @@
   結論。LINE公式ドキュメントの一次情報での最終確認のみ実LINE接続後の課題として残る)
 - 実LLM呼び出し・実LINE API接続は、line-reservation-aiと同様にAPIキー取得・アカウント作成が
   必要でありオーナー承認待ちの範囲。
+- (解消済み 2026-08-14 04:00 UTC: 決済代行サービス選定の前段として、月額サブスク決済手数料
+  試算をフェーズ45・subscription-billing-cost-estimate.mdで実施した。実際の決済代行サービス
+  との契約・アカウント開設はオーナー承認待ちの範囲として残る)
+- 月間生成回数の上限超過時の挙動(利用制限か追加の従量課金か)が未設計のまま残っている
+  (pricing-plan.mdの「未検証の仮説」参照、決済方式選定にも影響するため優先度が高い)。
