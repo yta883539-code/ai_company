@@ -316,14 +316,27 @@
   課題として、月間生成回数を積算する軽量データストア(Firestore等)の導入方針が
   course-set-pashaと異なりまだ未着手(対応するtech-stack.md自体が未作成)であることを新たに
   整理し、優先度の高い次の課題として記録した。
-- 最終更新: 2026-08-14 21:00 UTC
+- フェーズ35(2026-08-14 22:00 UTC): フェーズ34で判明した設計ギャップ(月間生成回数を
+  積算する軽量データストアの導入方針が未着手)に対応し、tech-stack.mdを新規作成した。
+  course-set-pasha/tech-stack.mdの構成(全体構成イメージ・想定コンポーネント5点・MVP
+  スコープ・初期投資/ランニングコスト目安)を踏襲しつつ、本venture固有の季節性(繁忙期は
+  施工件数が閑散期の2〜3倍)を踏まえ、上限接近時の事前通知の閾値・タイミング設計は
+  course-set-pashaの設計をそのまま流用せず再検討が必要な次の課題として明記した。あわせて、
+  月間カウント用データストアの読み書き課金がsubscription-billing-cost-estimate.mdの試算に
+  含まれていない点も次の課題として記録した。
+- 最終更新: 2026-08-14 22:00 UTC
 
 ## 次にやること(候補)
 
-- (新規 2026-08-14 21:00 UTC: subscription-billing-cost-estimate.mdで判明した設計ギャップ
-  として、月間生成回数を積算する軽量データストア(Firestore等)の導入方針・上限接近時の
-  事前通知設計が本ventureには未着手。course-set-pashaのtech-stack.md・
-  limit-approaching-notification-design.mdを参考に、次回以降で着手する)
+- (新規 2026-08-14 22:00 UTC: tech-stack.mdで整理した通り、本venture固有の季節性(繁忙期は
+  施工件数が閑散期の2〜3倍)を踏まえた上限接近時の事前通知設計〈course-set-pasha/
+  limit-approaching-notification-design.md相当〉が未着手。次回以降で着手する)
+- (新規 2026-08-14 22:00 UTC: 月間生成回数カウント用データストア〈Firestore等〉の読み書き
+  課金の原価試算が、subscription-billing-cost-estimate.mdの粗利率試算にまだ反映されていない。
+  course-set-pashaの試算方法を踏まえた追試算を次回以降で行う)
+- (解消済み 2026-08-14 22:00 UTC: 月間生成回数を積算する軽量データストア〈Firestore等〉の
+  導入方針・技術構成をtech-stack.mdとして新規作成した。course-set-pashaの最小構成
+  〈ユーザー1人=1ドキュメント、month・countのみ〉を踏襲する方針とした)
 - (解消済み 2026-08-14 03:00 UTC: aircon-pasha-tests.ymlの初回CI実行結果をフェーズ27で
   確認した。status: completed / conclusion: success、ローカル確認結果と一致。次に
   aircon-pasha配下を変更するコミットで改めてrun結果を確認する)
