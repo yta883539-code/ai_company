@@ -440,14 +440,25 @@
   (`usage_counter`インターフェースの追加、Firestore接続)はオーナー承認待ちの範囲として
   設計のみに留め、tech-stack.md本体・subscription-billing-cost-estimate.mdへの反映
   (Firestore読み書き課金の原価試算追加)は次回以降の課題として残した。
-- 最終更新: 2026-08-14 09:00 UTC
+- フェーズ48(2026-08-14 11:00 UTC): フェーズ47の残課題だった、月間生成回数カウント導入に
+  伴うtech-stack.md本体への反映とsubscription-billing-cost-estimate.mdへの原価試算追加を
+  行った。tech-stack.mdには「永続データストア不要」の例外としてコンポーネント5(月間生成回数
+  カウントの保存先)を追記し、MVPスコープにも反映した。subscription-billing-cost-estimate.md
+  には、1回の生成あたり読み取り1回・書き込み1回のみという最小操作量を前提に、
+  line-reservation-ai/firestore-traffic-cost-estimate.mdと同じ観点で試算を行い、
+  書き込み無料枠(20,000回/日)基準で仮に1オーナーあたり上限一杯の20回/日利用でも
+  約1,000オーナー分まで無料枠内に収まる見込みであることを確認した。決済手数料
+  (71〜215円/月)に比べFirestore原価は無視できる水準という結論を得た。実際のFirestore
+  接続・計測は引き続きオーナー承認待ちの範囲として残る。
+- 最終更新: 2026-08-14 11:00 UTC
 
 ## 次にやること(候補)
 
-- (解消済み 2026-08-14 09:00 UTC: 上限接近時の事前通知設計をフェーズ47・
+- (解消済み 2026-08-14 09:00 UTC→2026-08-14 11:00 UTC: 上限接近時の事前通知設計をフェーズ47・
   limit-approaching-notification-design.mdで行った。tech-stack.md本体への
   「永続データストア不要」方針の見直し反映、subscription-billing-cost-estimate.mdへの
-  Firestore読み書き課金の原価試算追加、実際のFirestore接続実装は次の課題として残る)
+  Firestore読み書き課金の原価試算追加はフェーズ48で完了。実際のFirestore接続実装は
+  オーナー承認待ちの範囲として残る)
 - (解消済み 2026-08-13 18:00 UTC: 特定商取引法に基づく表記・プライバシーポリシーの文面草案を
   フェーズ43・legal-notices-draft.mdで作成した。事業者名・所在地等の【要記入】項目確定、
   決済代行サービス選定、法律専門家への確認要否は引き続き未確定事項として残る)

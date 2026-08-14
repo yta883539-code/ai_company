@@ -11,6 +11,11 @@ LINE公式アカウント(オーナー・セッター本人向け) ⇄ Webhook�
 line-reservation-aiと異なり、予約枠・会話状態を保持する永続データストアは不要。
 「1メモ受信 → LLM呼び出し → 3種類のテキスト生成 → 返信」の単純なリクエスト/レスポンス型で完結する。
 
+(2026-08-14追記・limit-approaching-notification-design.md参照: 上記は月間生成回数の
+上限管理という用途に限り例外となる。プラン上限超過時の従量課金・事前通知(pricing-plan.md)を
+実現するには月をまたいだ回数の積算が必須であり、Webhook1リクエスト内で完結しない永続化が
+最小限必要になる。詳細はコンポーネント5「月間生成回数カウントの保存先」を参照。)
+
 ## 想定コンポーネント
 
 1. **LINE Messaging API(入力受付・返信)**
@@ -44,6 +49,15 @@ line-reservation-aiと異なり、予約枠・会話状態を保持する永続�
      持たず、オーナー・セッターがスプレッドシート等へ手動転記する運用を維持する。
    - 将来的に自動転記(スプレッドシートAPI連携等)が必要になった場合は、その時点で
      外部サービス接続としてオーナー承認を要する変更になる。
+6. **月間生成回数カウントの保存先(2026-08-14追記)**
+   - limit-approaching-notification-design.mdで検討した結果、月間生成回数の積算のみを
+     目的とした軽量データストア(Firestore等)を新規導入する。line-reservation-aiの
+     複雑なコレクション構成(firestore-data-model.md)とは異なり、
+     「ユーザー1人=1ドキュメント、フィールドは`month`・`count`のみ」という最小構成で足りる。
+   - `usage_counter`(仮称`UsageCounterProtocol`、`get_count`/`increment`の2メソッド)として
+     Webhook処理から差し替え可能な形で抽象化する想定。実際のFirestoreプロジェクト作成・
+     接続はオーナー承認待ちの範囲(設計・スタブ実装まで)。
+   - 読み書き課金の原価試算はsubscription-billing-cost-estimate.md参照。
 
 ## MVPスコープ(最小構成)
 
@@ -52,6 +66,8 @@ line-reservation-aiと異なり、予約枠・会話状態を保持する永続�
 - 会話状態マシンは不要(line-reservation-aiのConversationFlowStateMachineに相当する
   仕組みは本ventureには存在しない)。
 - 画像は「有無」のみを判定材料とし、画像内容の自動解析は範囲外。
+- 月間生成回数カウント用の最小限のデータストア(コンポーネント5)のみ例外的に持つ
+  (2026-08-14追記)。
 
 ## 初期投資・ランニングコストの目安
 
@@ -79,3 +95,7 @@ line-reservation-aiと異なり、予約枠・会話状態を保持する永続�
 - 実LLM呼び出し・LINE公式アカウントとの実接続は、line-reservation-aiと同様に
   APIキー取得・アカウント作成が必要でありオーナー承認待ちの範囲。今回は技術構成の
   設計整理のみに留める。
+- (解消済み 2026-08-14 11:00 UTC: limit-approaching-notification-design.mdで指摘されていた、
+  月間生成回数カウント導入に伴う「永続データストア不要」方針の見直しを本ドキュメントに反映した。
+  コンポーネント5として追記し、MVPスコープにも例外を明記した。読み書き課金の原価試算は
+  subscription-billing-cost-estimate.mdに反映済み。実際のFirestore接続はオーナー承認待ち。)
