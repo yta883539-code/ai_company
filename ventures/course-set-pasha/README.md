@@ -404,14 +404,23 @@
   反映した。決済代行サービスの選定(line-reservation-aiのdeposit-payment-research.md相当)は
   本ventureで未着手のため、支払方法欄は暫定の想定にとどめた。事業者名・所在地等の運営主体情報は
   引き続き【要記入】のまま、実際の文面確定・LP掲載はオーナー承認待ちの範囲とした。
-- 最終更新: 2026-08-13 18:00 UTC
+- フェーズ44(2026-08-13 23:59 UTC): フェーズ42の残課題2点目だったLPワイヤーフレーム
+  (landing-page-wireframe.md)を新規作成した。aircon-pasha/line-reservation-aiと同様に
+  テキストベースのモバイル1カラムワイヤーフレームとし、画像コンセプトは他2ventureと役割が
+  重複しないよう「Instagram投稿プレビュー(完成済み投稿を1枚で見せる)」をヒーロー画像に
+  採用した(aircon-pashaはメモ→完了報告文のビフォーアフター、line-reservation-aiはLINEトーク
+  画面が軸)。セクション構成・CTA文言・料金表記はlanding-page-copy-draft.md・pricing-plan.mdと
+  整合させた。実際の画像制作・HTML/CSS実装・公開は未着手のままオーナー承認待ちの範囲とした。
+- 最終更新: 2026-08-13 23:59 UTC
 
 ## 次にやること(候補)
 
 - (解消済み 2026-08-13 18:00 UTC: 特定商取引法に基づく表記・プライバシーポリシーの文面草案を
   フェーズ43・legal-notices-draft.mdで作成した。事業者名・所在地等の【要記入】項目確定、
   決済代行サービス選定、法律専門家への確認要否は引き続き未確定事項として残る)
-- landing-page-copy-draft.mdに対応するLPワイヤーフレーム(セクション配置・画像イメージ)の作成。
+- (解消済み 2026-08-13 23:59 UTC: LPワイヤーフレームをフェーズ44・landing-page-wireframe.mdで
+  作成した。ビフォーアフター画像・Instagram投稿プレビュー画像そのものの制作、実際のLP実装・
+  公開はオーナー承認待ちの範囲として残る)
 - post_generation_checks.pyは厳守事項2・3・4・5・7・9を機械チェック化済み(フェーズ36時点)。
   厳守事項6(履歴記録の表形式・1行生成、schemaのhistory_rows構造で担保)・厳守事項8
   (入力不足時の再送依頼、schema/validate_test_cases.pyのstatus分岐で担保)は既存の仕組みで
