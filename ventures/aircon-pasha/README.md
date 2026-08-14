@@ -307,10 +307,23 @@
   至らなかった。これ以上スニペット経由の絞り込みを繰り返しても新情報の増分が乏しいと
   判断し、候補9の氏名特定はここで一旦保留、他の未着手課題(候補7のスタッフ数裏付け、
   複数メニュー展開区分の探索)を先行させる方針に転換した。
-- 最終更新: 2026-08-14 20:00 UTC
+- フェーズ34(2026-08-14 21:00 UTC): line-reservation-ai・course-set-pashaには存在するが
+  本ventureにまだ無かった、月額サブスク決済手数料試算(subscription-billing-cost-estimate.md)を
+  新規作成した。course-set-pasha/subscription-billing-cost-estimate.mdの構成・観点を踏襲し、
+  本venture固有の料金水準(2,980円/5,980円/8,980円の3プラン)でクレジットカード継続課金
+  (3.6%と仮定)の手数料を試算(固定分107〜323円/月、超過分1回あたり1.4〜2.2円)。あわせて、
+  market-research.mdの季節性(繁忙期は施工件数が閑散期の2〜3倍)を踏まえると本venture固有の
+  課題として、月間生成回数を積算する軽量データストア(Firestore等)の導入方針が
+  course-set-pashaと異なりまだ未着手(対応するtech-stack.md自体が未作成)であることを新たに
+  整理し、優先度の高い次の課題として記録した。
+- 最終更新: 2026-08-14 21:00 UTC
 
 ## 次にやること(候補)
 
+- (新規 2026-08-14 21:00 UTC: subscription-billing-cost-estimate.mdで判明した設計ギャップ
+  として、月間生成回数を積算する軽量データストア(Firestore等)の導入方針・上限接近時の
+  事前通知設計が本ventureには未着手。course-set-pashaのtech-stack.md・
+  limit-approaching-notification-design.mdを参考に、次回以降で着手する)
 - (解消済み 2026-08-14 03:00 UTC: aircon-pasha-tests.ymlの初回CI実行結果をフェーズ27で
   確認した。status: completed / conclusion: success、ローカル確認結果と一致。次に
   aircon-pasha配下を変更するコミットで改めてrun結果を確認する)
