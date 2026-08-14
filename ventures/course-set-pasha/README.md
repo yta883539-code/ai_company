@@ -450,10 +450,25 @@
   約1,000オーナー分まで無料枠内に収まる見込みであることを確認した。決済手数料
   (71〜215円/月)に比べFirestore原価は無視できる水準という結論を得た。実際のFirestore
   接続・計測は引き続きオーナー承認待ちの範囲として残る。
-- 最終更新: 2026-08-14 11:00 UTC
+- フェーズ49(2026-08-14 14:00 UTC): フェーズ46・subscription-billing-cost-estimate.mdで
+  新たな論点として残していた「従量課金には決済代行サービス側の都度課金対応可否確認が必要」に
+  対応し、WebSearchでStripe Billing・Squareの2社を比較調査した
+  (payment-processor-metered-billing-usage-research.md新規作成)。Stripe Billingは
+  「Metered billing」「Flat fee with overages」を標準機能として提供しており、本ventureが
+  仮決めした「月固定枠+超過分従量課金・プラン別単価」構成をそのまま実現できる可能性が高いと
+  判断した。一方Squareは従量課金の自動化に相当する機能が日本語公開情報からは見当たらず、
+  超過分の請求には「定期請求書」の都度手動発行に近い運用が必要になる見込みで、本venture
+  用途にはStripe Billingを優先候補とした。WebFetchのegressプロキシ制約で一次情報
+  (開発者ドキュメント)への直接アクセスができず検索結果の要約ベースの判断にとどまる点は
+  既知の限界として明記した。実際の契約・アカウント開設・API接続は引き続きオーナー承認待ち。
+- 最終更新: 2026-08-14 14:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-14 14:00 UTC: 従量課金の決済代行サービス都度課金対応可否をフェーズ49・
+  payment-processor-metered-billing-usage-research.mdで調査した。Stripe Billingを優先候補と
+  したが、超過課金導入後の決済手数料試算(subscription-billing-cost-estimate.mdへの反映)、
+  国内他社(GMOペイメントゲートウェイ・Univapay等)との比較は次の課題として残る)
 - (解消済み 2026-08-14 09:00 UTC→2026-08-14 11:00 UTC: 上限接近時の事前通知設計をフェーズ47・
   limit-approaching-notification-design.mdで行った。tech-stack.md本体への
   「永続データストア不要」方針の見直し反映、subscription-billing-cost-estimate.mdへの
