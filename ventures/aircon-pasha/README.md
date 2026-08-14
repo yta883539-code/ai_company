@@ -233,10 +233,21 @@
   validate_test_cases.pyの全フィクスチャ含む)を新規作成し全件パスを確認、
   python3 cloud_function_webhook.pyのデモ実行でも期待通りの返信文が組み立てられることを
   確認した(実LLM・実クラウド接続は未実施、オーナー承認待ち)。
-- 最終更新: 2026-08-13 22:59 UTC
+- フェーズ26(2026-08-14 00:59 UTC): course-set-pasha・line-reservation-aiには存在するが
+  本ventureにまだ無かった、GitHub Actionsによるテスト自動実行(ci-setup.md)を導入した。
+  `.github/workflows/aircon-pasha-tests.yml`を新規作成し、prototype/のunittestスイート
+  (test_cloud_function_webhook.py・test_post_generation_checks.py、計28件)と
+  schema/validate_test_cases.py(5件)を`ventures/aircon-pasha/`配下への変更時に自動実行する
+  構成とした。course-set-pasha/ci-setup.mdの構成(背景→実施内容→確認事項→今後の課題)を
+  踏襲した。ローカルでの事前確認は28件・5件とも全件パス済み。実際のコミット後のCI実行結果
+  確認(actions_list)は次回以降の課題として残した。
+- 最終更新: 2026-08-14 00:59 UTC
 
 ## 次にやること(候補)
 
+- 今回導入したaircon-pasha-tests.ymlのCI実行結果(status: completed / conclusion: success)を、
+  次回コミット後にmcp__github__actions_listで確認する(course-set-pasha・
+  line-reservation-aiと同じ運用)。
 - prototype/cloud_function_webhook.pyのLLM呼び出し・返信送信は実クライアント未接続の
   スタブのままのため、実LLM API接続後は実際の生成結果に対してvalidate_llm_outputが
   想定通り機能するかの再検証が必要(オーナー承認待ち)。
