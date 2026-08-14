@@ -429,10 +429,25 @@
   上がるほど単価を下げる)で機会損失なく吸収する設計を採用した。上限接近時の事前通知設計は
   未着手のまま次の課題とし、従量課金には決済代行サービス側の都度課金対応可否確認が必要な点を
   新たな論点としてsubscription-billing-cost-estimate.mdの決済方式選定に紐づけた。
-- 最終更新: 2026-08-14 07:00 UTC
+- フェーズ47(2026-08-14 09:00 UTC): フェーズ46の残課題だった上限接近時の事前通知設計に
+  着手した(limit-approaching-notification-design.md新規作成)。設計に着手した時点で、
+  月間生成回数を積算するにはtech-stack.mdが前提とする「永続データストア不要」という方針を
+  一部見直す必要があることに気づき、Firestore等の軽量データストアをユーザー1人=1
+  ドキュメント(month・countのみ)という最小構成で新規導入する方針とした。通知は新規の
+  プッシュメッセージ課金を避けるため、残り2回に達した生成完了時の通常返信に1文追記する
+  方式を採用し、line-reservation-ai/candidates-expired-notification-design.mdの
+  「プッシュ通知は課金・体験の両面でコストが高い」という論点を踏襲した。実装
+  (`usage_counter`インターフェースの追加、Firestore接続)はオーナー承認待ちの範囲として
+  設計のみに留め、tech-stack.md本体・subscription-billing-cost-estimate.mdへの反映
+  (Firestore読み書き課金の原価試算追加)は次回以降の課題として残した。
+- 最終更新: 2026-08-14 09:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-14 09:00 UTC: 上限接近時の事前通知設計をフェーズ47・
+  limit-approaching-notification-design.mdで行った。tech-stack.md本体への
+  「永続データストア不要」方針の見直し反映、subscription-billing-cost-estimate.mdへの
+  Firestore読み書き課金の原価試算追加、実際のFirestore接続実装は次の課題として残る)
 - (解消済み 2026-08-13 18:00 UTC: 特定商取引法に基づく表記・プライバシーポリシーの文面草案を
   フェーズ43・legal-notices-draft.mdで作成した。事業者名・所在地等の【要記入】項目確定、
   決済代行サービス選定、法律専門家への確認要否は引き続き未確定事項として残る)
