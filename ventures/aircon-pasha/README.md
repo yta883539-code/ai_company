@@ -241,13 +241,23 @@
   構成とした。course-set-pasha/ci-setup.mdの構成(背景→実施内容→確認事項→今後の課題)を
   踏襲した。ローカルでの事前確認は28件・5件とも全件パス済み。実際のコミット後のCI実行結果
   確認(actions_list)は次回以降の課題として残した。
-- 最終更新: 2026-08-14 00:59 UTC
+- フェーズ27(2026-08-14 03:00 UTC): フェーズ26の残課題だった、aircon-pasha-tests.ymlの
+  初回CI実行結果をmcp__github__actions_list(list_workflow_runs)で確認した。
+  フェーズ26のコミット(7940fc4、01:02 UTC)をトリガーに実行されたrun
+  (id: 31759422249)はstatus: completed / conclusion: successで、ローカル確認結果
+  (unittest計28件・schema検証5件、全件パス)と一致した。course-set-pasha・
+  line-reservation-aiと同じ運用がaircon-pashaでも機能していることを確認できた。
+  ワークフローはventures/aircon-pasha/配下への変更時のみ起動する構成のため、これ以降の
+  02:00 UTC・03:00 UTCコミット(いずれもaircon-pasha配下を変更していない)では新規run
+  は発生していない(total_count: 1)。次にaircon-pasha配下を変更するコミットで改めて
+  run結果を確認する。
+- 最終更新: 2026-08-14 03:00 UTC
 
 ## 次にやること(候補)
 
-- 今回導入したaircon-pasha-tests.ymlのCI実行結果(status: completed / conclusion: success)を、
-  次回コミット後にmcp__github__actions_listで確認する(course-set-pasha・
-  line-reservation-aiと同じ運用)。
+- (解消済み 2026-08-14 03:00 UTC: aircon-pasha-tests.ymlの初回CI実行結果をフェーズ27で
+  確認した。status: completed / conclusion: success、ローカル確認結果と一致。次に
+  aircon-pasha配下を変更するコミットで改めてrun結果を確認する)
 - prototype/cloud_function_webhook.pyのLLM呼び出し・返信送信は実クライアント未接続の
   スタブのままのため、実LLM API接続後は実際の生成結果に対してvalidate_llm_outputが
   想定通り機能するかの再検証が必要(オーナー承認待ち)。
