@@ -494,6 +494,49 @@ class SubscriptionNoticeConsistencyTest(unittest.TestCase):
         instance = {"subscription_procedure_notice": None}
         self.assertEqual(check_subscription_notice_consistency(instance), [])
 
+    def test_cancellation_unclear_mentioning_mypage_without_portal_word_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約をご希望でしょうか?下記のマイページからお手続きください。",
+                "includes_portal_link": False,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("cancellation_unclear", errors[0])
+
+    def test_cancellation_unclear_with_url_placeholder_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約をご希望でしょうか?手続きはこちら\n{Stripeカスタマーポータル URL}",
+                "includes_portal_link": False,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_cancellation_intent_with_mypage_wording_is_allowed(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_intent",
+                "body": "解約をご希望とのことで承知しました。下記の決済ページ(マイページ)からお手続きください。",
+                "includes_portal_link": True,
+            }
+        }
+        self.assertEqual(check_subscription_notice_consistency(instance), [])
+
+    def test_cancellation_intent_with_url_placeholder_only_is_allowed(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_intent",
+                "body": "解約をご希望とのことで承知しました。手続きはこちら\n{決済ページURL}",
+                "includes_portal_link": True,
+            }
+        }
+        self.assertEqual(check_subscription_notice_consistency(instance), [])
+
 
 if __name__ == "__main__":
     unittest.main()

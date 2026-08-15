@@ -53,8 +53,13 @@ OUT_OF_SCOPE_TOPIC_KEYWORDS = ("会員", "入会", "退会", "予約", "決済",
 # 「1. 解約意図検知時の案内メッセージ」の文言例、およびllm-system-prompt-draft.md厳守事項7a(iv)
 # 「(cancellation_unclearのときは)手続き完了・Stripeカスタマーポータルへの言及は含めない」を
 # 突き合わせるためのキーワード。
-PORTAL_KEYWORDS = ("カスタマーポータル", "ポータル")
+# 2026-08-15追記: 「ポータル」を含まない別表現(line-reservation-aiのbilling-upgrade-flow-design.md
+# が実際に使う「マイページ」「決済ページ」表記等)でも同じ案内が成立しうるため、語彙を追加した。
+# あわせて、本文中にURLプレースホルダ({...URL}形式)やhttp(s)リンクそのものが含まれる場合は、
+# 用いている単語によらず手続きページへの案内が行われていると判断する。
+PORTAL_KEYWORDS = ("カスタマーポータル", "ポータル", "マイページ", "決済ページ", "手続きページ")
 PROCEDURE_COMPLETION_KEYWORDS = ("手続き完了", "解約が完了", "手続きが完了", "解約は完了")
+LINK_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]*URL[^{}]*\}|https?://")
 
 
 def check_mentions_photo_consistency(instance):
@@ -359,7 +364,9 @@ def check_subscription_notice_consistency(instance):
 
     kind = notice.get("kind")
     body = notice.get("body", "")
-    body_mentions_portal = any(kw in body for kw in PORTAL_KEYWORDS)
+    body_mentions_portal = any(kw in body for kw in PORTAL_KEYWORDS) or bool(
+        LINK_PLACEHOLDER_PATTERN.search(body)
+    )
     body_mentions_completion = any(kw in body for kw in PROCEDURE_COMPLETION_KEYWORDS)
 
     if kind == "cancellation_unclear":

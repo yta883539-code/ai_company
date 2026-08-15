@@ -523,10 +523,31 @@
   食い違っていないかの2方向を検証する。test_post_generation_checks.pyに新規テスト6件を
   追加し既存37件と合わせて全43件パス確認済み(schema/validate_test_cases.pyのCI1〜CI3
   フィクスチャを含む)。
-- 最終更新: 2026-08-15 13:00 UTC
+- フェーズ57(2026-08-15 20:00 UTC): フェーズ56の残課題だった「『ポータル』を含まない
+  別表現でのリンク案内を拾いきれるか」を検証した。line-reservation-aiの
+  billing-upgrade-flow-design.mdが実際に「マイページ」「決済ページ」表記を使っている
+  ことを確認し、`PORTAL_KEYWORDS`に両語と「手続きページ」を追加。あわせて
+  subscription-cancellation-flow-design.mdの文言例(「▼ 解約手続きはこちら
+  {Stripeカスタマーポータル URL}」)のようにURLプレースホルダのみでキーワードを含まない
+  ケースも拾えるよう、`{...URL}`形式のプレースホルダ・http(s)リンクを検出する
+  `LINK_PLACEHOLDER_PATTERN`を新設し`body_mentions_portal`判定に合流させた
+  (prototype/post_generation_checks.py)。test_post_generation_checks.pyに新規テスト4件
+  (マイページ表記のみでのcancellation_unclear違反検知、URLプレースホルダのみでの
+  cancellation_unclear違反検知、マイページ表記のみでのcancellation_intent許容、
+  URLプレースホルダのみでのcancellation_intent許容)を追加し、test_post_generation_checks.py
+  は既存43件と合わせて全47件パス。prototype/配下の全テストファイル(discover実行)でも
+  全74件パス、schema/validate_test_cases.pyも9件中9件パス確認済み。
+  残る既知の限界は、キーワード・URLのいずれも含まない「短縮リンクサービス名のみ」
+  「こちらまでご連絡ください」等の婉曲表現は依然未検出な点で、実LLM接続後に実際の
+  生成文パターンが得られた段階で語彙・パターンを追加していく方針とする。
+- 最終更新: 2026-08-15 20:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-15 20:00 UTC: 厳守事項7a(iv)の本文文言チェックについて、「ポータル」を
+  含まない別表現〈マイページ・決済ページ・手続きページ表記、URLプレースホルダのみのケース〉
+  をフェーズ57で追加検出できるようにした。残るのは短縮リンクサービス名のみ等のさらに
+  婉曲的な表現への対応で、実LLM接続後の生成文実例を待って次の課題とする)
 - (解消済み 2026-08-15 13:00 UTC: 厳守事項7a(iv)の本文文言チェック
   〈check_subscription_notice_consistency()〉をフェーズ56で実装した。「ポータル」を
   含まない別表現でのリンク案内等、実LLM接続後に拾いきれない違反パターンが無いか
