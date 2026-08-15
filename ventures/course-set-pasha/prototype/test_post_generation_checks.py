@@ -421,6 +421,36 @@ class NoOutOfScopeTopicsInGeneratedOutputTest(unittest.TestCase):
         }
         self.assertEqual(check_no_out_of_scope_topics_in_generated_output(instance), [])
 
+    def test_generated_sns_post_mentioning_monthly_fee_is_flagged(self):
+        """「会費」「月会費」は「決済」「予約」を含まない典型的な言い回しのため、
+        本文にこれらの語が単独で登場するケースも検出できることを確認する。"""
+        instance = {
+            "status": "generated",
+            "sns_post": {
+                "body": "今月から月会費を改定します。エリアAに新着課題を追加しました。",
+                "hashtags": [],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": "エリアAに新着課題を追加しました。"},
+        }
+        errors = check_no_out_of_scope_topics_in_generated_output(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sns_post.body", errors[0])
+        self.assertIn("会費", errors[0])
+
+    def test_generated_line_web_notice_mentioning_cancellation_is_flagged(self):
+        """「予約キャンセル」のような文脈でも、「予約」を伴わず「キャンセル」単独で
+        登場するケースを取りこぼさないことを確認する。"""
+        instance = {
+            "status": "generated",
+            "sns_post": {"body": "エリアAに新着課題を追加しました。", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "当日キャンセルはお電話にて承ります。エリアAに新着課題を追加しました。"},
+        }
+        errors = check_no_out_of_scope_topics_in_generated_output(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice.body", errors[0])
+        self.assertIn("キャンセル", errors[0])
+
     def test_out_of_scope_status_message_itself_is_not_flagged(self):
         """status=out_of_scopeのout_of_scope_message自体は「会員管理・予約受付・決済の
         ご案内はできません」のように意図的にこれらの語を含むため、チェック対象外
