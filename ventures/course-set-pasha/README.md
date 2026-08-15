@@ -514,10 +514,23 @@
   上限値参照先をStripe Webhookの最新プランIDに紐づける必要がある点)を留意点として追記した。
   WebFetchのegressプロキシ制約で一次情報への直接アクセスはできず検索結果の要約ベースの
   判断にとどまる点は既知の限界として残した。
-- 最終更新: 2026-08-15 12:00 UTC
+- フェーズ56(2026-08-15 13:00 UTC): post-generation-checks-cross-area-review.mdで
+  気づいた、厳守事項7a(iv)「cancellation_unclearのときは手続き完了・Stripeカスタマー
+  ポータルへの言及を含めない」が本文の文言レベルでは未チェックだった点に対応し、
+  `check_subscription_notice_consistency()`をprototype/post_generation_checks.pyに新規実装した。
+  cancellation_unclear時にポータル・手続き完了系キーワードが混入していないか、
+  cancellation_intent/downgrade_intent時にincludes_portal_link=trueと本文の言及が
+  食い違っていないかの2方向を検証する。test_post_generation_checks.pyに新規テスト6件を
+  追加し既存37件と合わせて全43件パス確認済み(schema/validate_test_cases.pyのCI1〜CI3
+  フィクスチャを含む)。
+- 最終更新: 2026-08-15 13:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-15 13:00 UTC: 厳守事項7a(iv)の本文文言チェック
+  〈check_subscription_notice_consistency()〉をフェーズ56で実装した。「ポータル」を
+  含まない別表現でのリンク案内等、実LLM接続後に拾いきれない違反パターンが無いか
+  改めて確認する必要は次の課題として残る)
 - (解消済み 2026-08-15 05:00 UTC: 解約意図検知の誤検知防止境界をフェーズ53・
   llm-system-prompt-draft.md厳守事項7aで設計した。schema/output.schema.jsonへの反映
   〈status enum拡張案〉、実LLM接続後の判定精度検証は次の課題として残る)

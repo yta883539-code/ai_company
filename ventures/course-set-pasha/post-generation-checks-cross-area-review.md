@@ -200,3 +200,33 @@ schema/validate_test_cases.pyのvalidate_cross_field_rules()がstatus=out_of_sco
   「Aエリア」を本文で「A」とだけ表記する等)を使った場合は誤って言及漏れと判定しうる。
   history_rows[].areaと本文中の表記が常に一致する運用(mvp-flow-draft.md想定)を前提とした
   ヒューリスティックであり、実LLM接続後に表記ゆれが実際に発生するかの検証は今後の課題。
+
+## 追記(2026-08-15 13:00 UTC): 厳守事項7a(解約意図検知)の機械チェック追加
+
+フェーズ54(schema/output.schema.jsonへの`subscription_procedure_notice`フィールド新設)で
+`status`・`kind`・`includes_portal_link`のクロスフィールド依存関係は
+`schema/validate_test_cases.py`側でカバー済みだったが、`厳守事項7a(iv)`が求める
+「`cancellation_unclear`のときは手続き完了・Stripeカスタマーポータルへの言及を含めない」
+という**本文の文言そのもの**に対する後処理チェックは、既存の`check_no_out_of_scope_topics_in_generated_output()`
+(厳守事項7)と同様の抜けとして残っていたことに気づいた。
+
+`check_subscription_notice_consistency()`を新規実装し、以下の2方向を確認する。
+
+- `kind=cancellation_unclear`のとき、本文に`PORTAL_KEYWORDS`(カスタマーポータル・ポータル)
+  または`PROCEDURE_COMPLETION_KEYWORDS`(手続き完了・解約が完了 等)が含まれていないか
+  (厳守事項7a(iv)違反の疑い)。
+- `kind=cancellation_intent`/`downgrade_intent`かつ`includes_portal_link=true`のとき、
+  本文に実際にカスタマーポータルへの案内が含まれているか(`check_mentions_photo_consistency()`
+  と同じ、構造化フィールドと本文の突き合わせという考え方)。
+
+`run_all_checks()`に組み込み、`prototype/test_post_generation_checks.py`に新規テスト6件を
+追加(既存37件と合わせて43件)。schema/validate_test_cases.pyのCI1〜CI3フィクスチャ
+(フェーズ54で追加済み)を含む全フィクスチャが新チェックにも違反しないことを
+`FixtureCasesTest`で確認済み。
+
+### 残る既知の限界(追加分)
+- キーワード出現の有無のみで判定するヒューリスティックであり、厳守事項2・3のような
+  近傍の文脈判定は行わない。「カスタマーポータル」という語自体を意思確認の文脈で
+  引用する等の例外的な言い回しがあった場合は誤検出しうる。
+- 実LLM接続後に生成文の実例が得られた段階で、ここで拾いきれない違反パターン
+  (例:「ポータル」を含まない別表現でのリンク案内)が無いか改めて確認する必要がある。

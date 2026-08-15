@@ -49,6 +49,13 @@ SNS_POST_MAX_EMOJI = 2
 # 厳守事項2・3のような文脈判定(近傍に打消し語がないか等)は行わず、出現の有無のみで判定する。
 OUT_OF_SCOPE_TOPIC_KEYWORDS = ("会員", "入会", "退会", "予約", "決済", "支払い", "振込", "クレジットカード")
 
+# 厳守事項7a(解約意図検知)の機械チェック用。subscription-cancellation-flow-design.md
+# 「1. 解約意図検知時の案内メッセージ」の文言例、およびllm-system-prompt-draft.md厳守事項7a(iv)
+# 「(cancellation_unclearのときは)手続き完了・Stripeカスタマーポータルへの言及は含めない」を
+# 突き合わせるためのキーワード。
+PORTAL_KEYWORDS = ("カスタマーポータル", "ポータル")
+PROCEDURE_COMPLETION_KEYWORDS = ("手続き完了", "解約が完了", "手続きが完了", "解約は完了")
+
 
 def check_mentions_photo_consistency(instance):
     """厳守事項3準拠チェック。sns_post.mentions_photoの値と、本文中に実際に写真への
@@ -334,6 +341,48 @@ def check_no_out_of_scope_topics_in_generated_output(instance):
     return errors
 
 
+def check_subscription_notice_consistency(instance):
+    """厳守事項7a準拠チェック。subscription_procedure_notice.bodyの文言が、
+    kind別の制約(subscription-cancellation-flow-design.md記載)と整合しているかを確認する。
+
+    - kind=cancellation_unclear: 厳守事項7a(iv)により、意思確認の一言のみを求めており、
+      Stripeカスタマーポータルへの言及や手続き完了を前提にした文言を含んではならない
+      (schema/output.schema.jsonのincludes_portal_link=falseとの整合)。
+    - kind=cancellation_intent/downgrade_intent: includes_portal_link=trueが期待される
+      ケースであり、check_mentions_photo_consistencyと同じ考え方で、本文中に実際に
+      カスタマーポータルへの案内が含まれているかを突き合わせる。
+    """
+    errors = []
+    notice = instance.get("subscription_procedure_notice")
+    if notice is None:
+        return errors
+
+    kind = notice.get("kind")
+    body = notice.get("body", "")
+    body_mentions_portal = any(kw in body for kw in PORTAL_KEYWORDS)
+    body_mentions_completion = any(kw in body for kw in PROCEDURE_COMPLETION_KEYWORDS)
+
+    if kind == "cancellation_unclear":
+        if body_mentions_portal:
+            errors.append(
+                "subscription_procedure_notice: kind=cancellation_unclearだが本文に"
+                "カスタマーポータルへの言及が含まれています(厳守事項7a(iv)違反の疑い)"
+            )
+        if body_mentions_completion:
+            errors.append(
+                "subscription_procedure_notice: kind=cancellation_unclearだが本文に"
+                "手続き完了を前提にした文言が含まれています(厳守事項7a(iv)違反の疑い)"
+            )
+    elif kind in ("cancellation_intent", "downgrade_intent"):
+        if notice.get("includes_portal_link") is True and not body_mentions_portal:
+            errors.append(
+                f"subscription_procedure_notice: kind={kind}・includes_portal_link=trueだが"
+                "本文にカスタマーポータルへの言及が見つかりません(文言とフラグの不一致の疑い)"
+            )
+
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -343,4 +392,5 @@ def run_all_checks(instance):
     errors += check_history_row_counts_mentioned_in_text(instance)
     errors += check_updated_areas_mentioned_in_text(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
+    errors += check_subscription_notice_consistency(instance)
     return errors
