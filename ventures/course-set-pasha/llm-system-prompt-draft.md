@@ -123,6 +123,15 @@ APIキー取得を待つ。
 generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答文言をどのフィールドに
 格納するかの設計も次の課題とする。
 
+2026-08-15 08:00 UTC追記(フェーズ54): 上記課題に対応し、schema/output.schema.jsonの
+`status`enumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値
+(7a(iii)雑談は新規enum値を設けず既存3値に帰着)を追加し、これらのときのみ非nullとなる
+`subscription_procedure_notice`オブジェクト(kind/body/includes_portal_link)を新設した。
+`includes_portal_link`は7a(iv)の「ポータルリンク・解約完了前提の文言を含めない」ルールを
+機械的に検証するための補助フィールド。schema/validate_test_cases.pyにCI1〜CI3として
+各分岐の期待出力サンプルを追加し、9件全件パスを確認した(机上検証のみ、実LLM出力での
+分類精度自体は未検証)。
+
 ## 未検証事項
 
 - 上記プロンプトを実LLM APIに投入した動作検証は未実施(APIキー取得・アカウント作成が
@@ -132,8 +141,9 @@ generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答�
 
 ## 次の課題
 
-- schema/output.schema.jsonへの厳守事項7a(解約意図検知の境界・分類)反映が未着手
-  (`status`のenum拡張案・各分岐の応答文言格納フィールドの設計、2026-08-15 05:00 UTC追記)。
+- (解消済み 2026-08-15 08:00 UTC: schema/output.schema.jsonへの厳守事項7a反映をフェーズ54で
+  実施した。`status`enumの拡張・`subscription_procedure_notice`フィールドの新設・
+  validate_test_cases.pyへのテストケース追加まで完了。残るのは実LLM接続後の分類精度検証)。
 - 厳守事項7aの境界(特に(iii)雑談と(iv)判断不能の切り分け)は机上での言い回し例に基づく
   仮の線引きであり、実LLM接続後に実際の入力文でどちらに判定されるかの検証が必要
   (2026-08-15 05:00 UTC追記)。

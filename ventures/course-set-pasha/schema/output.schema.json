@@ -1,15 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "コースセットパシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。2026-08-07 15:00 UTC改訂: schema-structured-output-compat-check.mdの検証結果を受け、Claude APIのStructured Outputsが非対応の`allOf`+`if`/`then`を撤去し、トップレベル全プロパティを`required`化(該当しない場合は`null`を許容)する形に変更した。`status`の値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、スキーマ単体では表現せず、実装時にline-reservation-aiのvalidate_test_cases.pyと同様のコード側検証で担保する方針とした。2026-08-07 20:00 UTC改訂(フェーズ11): README.mdフェーズ10で発見した『1メモで複数エリアを同時更新する場合の履歴記録が未整備』という課題に対応し、`history_row`(単一オブジェクト)を`history_rows`(配列)に変更した。1メモ=1エリアの場合は要素数1の配列として表現し、mvp-flow-draft.mdの『1メモ=1行』前提を『1メモ=1件以上の行』に一般化した。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。",
+  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。2026-08-07 15:00 UTC改訂: schema-structured-output-compat-check.mdの検証結果を受け、Claude APIのStructured Outputsが非対応の`allOf`+`if`/`then`を撤去し、トップレベル全プロパティを`required`化(該当しない場合は`null`を許容)する形に変更した。`status`の値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、スキーマ単体では表現せず、実装時にline-reservation-aiのvalidate_test_cases.pyと同様のコード側検証で担保する方針とした。2026-08-07 20:00 UTC改訂(フェーズ11): README.mdフェーズ10で発見した『1メモで複数エリアを同時更新する場合の履歴記録が未整備』という課題に対応し、`history_row`(単一オブジェクト)を`history_rows`(配列)に変更した。1メモ=1エリアの場合は要素数1の配列として表現し、mvp-flow-draft.mdの『1メモ=1行』前提を『1メモ=1件以上の行』に一般化した。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。2026-08-15 08:00 UTC改訂(フェーズ54): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.mdに対応し、`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。",
   "type": "object",
-  "required": ["status", "out_of_scope_message", "missing_fields_request", "sns_post", "line_web_notice", "history_rows", "unchanged_areas"],
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "sns_post", "line_web_notice", "history_rows", "unchanged_areas", "subscription_procedure_notice"],
   "additionalProperties": false,
   "properties": {
     "status": {
-      "description": "厳守事項7(会員管理・予約・決済への不応答)・厳守事項8(入力不足時の再送依頼)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。",
+      "description": "厳守事項7(会員管理・予約・決済への不応答)・厳守事項8(入力不足時の再送依頼)・厳守事項7a(解約意図検知、2026-08-15追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項7a(iii)(雑談の域を出ない表現)は解約意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-08-15 08:00 UTC追加(フェーズ54): 厳守事項7a(i)(ii)(iv)に対応するcancellation_intent/downgrade_intent/cancellation_unclearの3値を追加した。",
       "type": "string",
-      "enum": ["generated", "out_of_scope", "insufficient_input"]
+      "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear"]
     },
     "out_of_scope_message": {
       "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項7の定型応答(『本サービスは告知文・記録の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保、schema-structured-output-compat-check.md参照)。",
@@ -75,6 +75,27 @@
       "description": "厳守事項2対応。入力メモで『変更なし』と明記されたエリア名の一覧。sns_post/line_web_noticeの本文中でこれらのエリアに新着課題があるかのような表現が生成されていないかを機械的に突き合わせ検証するための補助フィールド。該当が無ければ空配列。statusの値に関わらず常に配列を出力する。",
       "type": "array",
       "items": { "type": "string" }
+    },
+    "subscription_procedure_notice": {
+      "description": "2026-08-15 08:00 UTC追加(フェーズ54)。厳守事項7a・subscription-cancellation-flow-design.md対応。statusがcancellation_intent/downgrade_intent/cancellation_unclearのいずれかの場合のみ非nullとなるフィールド。それ以外(generated/out_of_scope/insufficient_input)のときは必ずnull(コード側検証で担保、他フィールドと同様の方針)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "body", "includes_portal_link"],
+      "properties": {
+        "kind": {
+          "description": "statusと1:1で対応する分類(冗長だが、statusのenum値をそのままコピーせずbody生成ロジック側の分岐に使う補助フィールドとして持たせる)。",
+          "type": "string",
+          "enum": ["cancellation_intent", "downgrade_intent", "cancellation_unclear"]
+        },
+        "body": {
+          "description": "案内文本文。kind=cancellation_intent/downgrade_intentのときはsubscription-cancellation-flow-design.md『1. 解約意図検知時の案内メッセージ』相当(ダウングレード時は文面中の言及を解約ではなくプラン変更に差し替え)、kind=cancellation_unclearのときは厳守事項7a(iv)の意思確認一言(例:『解約をご希望でしょうか?』)のみで、手続き完了・Stripeカスタマーポータルへの言及は含めない。",
+          "type": "string"
+        },
+        "includes_portal_link": {
+          "description": "厳守事項7a(iv)の『Stripeカスタマーポータルのリンクや解約完了を前提にした文言は含めない』を機械的に検証するための補助フィールド。kind=cancellation_intent/downgrade_intentのときは必ずtrue、kind=cancellation_unclearのときは必ずfalse(コード側検証で担保)。",
+          "type": "boolean"
+        }
+      }
     }
   }
 }

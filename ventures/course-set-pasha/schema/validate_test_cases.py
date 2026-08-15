@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-schema/output.schema.json(2026-08-07 20:00 UTC改訂版・フェーズ11)に対する期待JSON出力サンプルを
+schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対する期待JSON出力サンプルを
 机上検証するスクリプト。line-reservation-aiのschema/validate_test_cases.pyと同じ位置づけ・
 同じ簡易バリデータ方式(draft-07のサブセットのみ解釈)を踏襲した。
 
@@ -11,6 +11,9 @@ schema/output.schema.json(2026-08-07 20:00 UTC改訂版・フェーズ11)に対�
   依存関係はコード側検証で担保)が、実際にサンプル出力に対して機械的に検証可能かを確認する。
 - フェーズ11(2026-08-07 20:00 UTC)で`history_row`(単一オブジェクト)を`history_rows`(配列)に
   変更したことに伴い、G4として複数エリア同時更新ケースを追加した。
+- フェーズ54(2026-08-15 08:00 UTC)で厳守事項7a(解約意図検知)対応のstatus3値
+  (cancellation_intent/downgrade_intent/cancellation_unclear)と`subscription_procedure_notice`
+  フィールドを追加したことに伴い、CI1〜CI3として各分岐のケースを追加した。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -112,6 +115,31 @@ def validate_cross_field_rules(instance, path="$"):
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=insufficient_inputのとき{f}はnullである必要があります")
 
+    cancellation_statuses = ("cancellation_intent", "downgrade_intent", "cancellation_unclear")
+    if status in cancellation_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        notice = instance.get("subscription_procedure_notice")
+        if notice is None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeは非nullである必要があります")
+        else:
+            if notice.get("kind") != status:
+                errors.append(f"{path}.subscription_procedure_notice.kind: statusと一致する必要があります(期待={status}, 実際={notice.get('kind')!r})")
+            expected_link = status in ("cancellation_intent", "downgrade_intent")
+            if notice.get("includes_portal_link") is not expected_link:
+                errors.append(
+                    f"{path}.subscription_procedure_notice.includes_portal_link: "
+                    f"厳守事項7a(iv)によりstatus={status}のときは{expected_link}である必要があります"
+                )
+    else:
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+
     sns_post = instance.get("sns_post")
     if sns_post and sns_post.get("mentions_photo") is not True and sns_post.get("mentions_photo") is not False:
         errors.append(f"{path}.sns_post.mentions_photo: booleanである必要があります(null不可)")
@@ -148,6 +176,7 @@ TEST_CASES = {
             },
         ],
         "unchanged_areas": [],
+        "subscription_procedure_notice": None,
     },
     "G2_with_photo_and_unchanged_areas": {
         "status": "generated",
@@ -171,6 +200,7 @@ TEST_CASES = {
             },
         ],
         "unchanged_areas": ["エリアC", "エリアD"],
+        "subscription_procedure_notice": None,
     },
     "G3_count_and_date_unextractable": {
         "status": "generated",
@@ -194,6 +224,7 @@ TEST_CASES = {
             },
         ],
         "unchanged_areas": [],
+        "subscription_procedure_notice": None,
     },
     "G4_multi_area_single_memo": {
         "status": "generated",
@@ -231,6 +262,7 @@ TEST_CASES = {
             },
         ],
         "unchanged_areas": [],
+        "subscription_procedure_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -240,6 +272,7 @@ TEST_CASES = {
         "line_web_notice": None,
         "history_rows": None,
         "unchanged_areas": [],
+        "subscription_procedure_notice": None,
     },
     "II1_no_area_no_count": {
         "status": "insufficient_input",
@@ -249,6 +282,60 @@ TEST_CASES = {
         "line_web_notice": None,
         "history_rows": None,
         "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+    },
+    "CI1_cancellation_intent_clear": {
+        "status": "cancellation_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": None,
+        "line_web_notice": None,
+        "history_rows": None,
+        "unchanged_areas": [],
+        "subscription_procedure_notice": {
+            "kind": "cancellation_intent",
+            "body": (
+                "解約をご希望とのことで承知しました。現在のご契約はスタンダードプラン"
+                "(月15回まで/月額3,480円)です。解約手続き完了後も今回のご請求サイクルの"
+                "終了日まではサービスを引き続きご利用いただけます。日割りでの返金は行って"
+                "おりません。下記リンクから解約手続きにお進みください。"
+                "▼ {Stripeカスタマーポータル URL}"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    "CI2_downgrade_intent": {
+        "status": "downgrade_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": None,
+        "line_web_notice": None,
+        "history_rows": None,
+        "unchanged_areas": [],
+        "subscription_procedure_notice": {
+            "kind": "downgrade_intent",
+            "body": (
+                "プラン変更(ダウングレード)をご希望とのことで承知しました。解約ではなく"
+                "サービス継続のお手続きです。下記リンクのStripeカスタマーポータルから"
+                "変更後のプランをお選びください。差額は日割りで精算されます。"
+                "▼ {Stripeカスタマーポータル URL}"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    "CI3_cancellation_unclear": {
+        "status": "cancellation_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": None,
+        "line_web_notice": None,
+        "history_rows": None,
+        "unchanged_areas": [],
+        "subscription_procedure_notice": {
+            "kind": "cancellation_unclear",
+            "body": "解約をご希望でしょうか?よろしければ改めてその旨お知らせください。",
+            "includes_portal_link": False,
+        },
     },
 }
 

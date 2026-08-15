@@ -493,13 +493,28 @@
   (iii、解約案内を送らない)・判断がつかない場合(iv、意思確認のみ返し断定案内はしない)の
   4分類とした。schema/output.schema.jsonへの反映(status enum拡張案の設計)は未着手のまま
   次の課題として残した。
-- 最終更新: 2026-08-15 05:00 UTC
+- フェーズ54(2026-08-15 08:00 UTC): フェーズ53の残課題だった、厳守事項7a(解約意図検知)の
+  schema/output.schema.jsonへの反映を行った。`status`のenumへ`cancellation_intent`
+  (i.解約意思明確)・`downgrade_intent`(ii.プラン変更)・`cancellation_unclear`(iv.判断不能)
+  の3値を追加し(iii.雑談は新規enum値を設けず既存3値に帰着)、これらのときのみ非nullとなる
+  `subscription_procedure_notice`オブジェクト(kind/body/includes_portal_link)を新設した。
+  `includes_portal_link`は厳守事項7a(iv)の「ポータルリンク・解約完了前提の文言を含めない」を
+  機械的に検証する補助フィールドとして追加した。schema/validate_test_cases.pyにCI1〜CI3
+  (解約明確・ダウングレード・判断不能の3ケース)を追加し、既存6ケースへの
+  `subscription_procedure_notice: null`追記とあわせ計9件全件パスを確認した。実LLM接続後の
+  分類精度検証(厳守事項7a(iii)雑談と(iv)判断不能の切り分けの妥当性含む)は引き続き
+  オーナー承認待ちの範囲として残る。
+- 最終更新: 2026-08-15 08:00 UTC
 
 ## 次にやること(候補)
 
 - (解消済み 2026-08-15 05:00 UTC: 解約意図検知の誤検知防止境界をフェーズ53・
   llm-system-prompt-draft.md厳守事項7aで設計した。schema/output.schema.jsonへの反映
   〈status enum拡張案〉、実LLM接続後の判定精度検証は次の課題として残る)
+- (解消済み 2026-08-15 08:00 UTC: schema/output.schema.jsonへの厳守事項7a反映をフェーズ54で
+  実施した。`status`enum拡張・`subscription_procedure_notice`フィールド新設・
+  validate_test_cases.pyへのテストケース追加まで完了。実LLM接続後の判定精度検証は
+  引き続き次の課題として残る)
 - ダウングレード時の当月生成回数上限の適用方法(変更前/変更後どちらを適用するか)は、
   Stripeカスタマーポータルの実際の請求サイクル計算ロジック(一次情報)確認が必要なため、
   実装時の課題として残す。
