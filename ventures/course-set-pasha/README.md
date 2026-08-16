@@ -597,10 +597,22 @@
   `first_generation_notice_sent`フィールド追加・実配線(実Firestore/実LINE API接続と
   合わせてオーナー承認待ち)のみとなり、onboarding-settings-and-self-check-design.mdの
   残課題2点はいずれも設計完了した。
-- 最終更新: 2026-08-16 13:00 UTC
+- フェーズ63(2026-08-16 16:00 UTC): フェーズ62の残課題だった`usage_counter`への
+  `first_generation_notice_sent`フィールド追加・webhook処理への配線について、
+  実際のFirestore/LINE API接続とは切り離せる範囲(フィールド定義・書き込みタイミングの
+  疑似コード)を設計した(first-generation-notice-implementation-design.md新規作成)。
+  `count`が0か否かで初回判定を行い、count増分とフラグ更新を単一ドキュメント更新に
+  まとめることで重複送信を防ぐ設計とした。実際のFirestore接続・実装への反映は
+  引き続きオーナー承認待ちの範囲として残る。
+- 最終更新: 2026-08-16 16:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-16 16:00 UTC: `usage_counter`への`first_generation_notice_sent`
+  フィールド追加・webhook配線について、フェーズ63・
+  first-generation-notice-implementation-design.mdでフィールド定義・書き込みタイミングの
+  疑似コードを設計した。詳細は上記フェーズ63参照。残るのは実Firestore/実LINE API接続後の
+  実装反映のみ〈オーナー承認待ち〉)
 - (解消済み 2026-08-16 13:00 UTC: onboarding-settings-and-self-check-design.mdの残課題だった
   「ジム名・地域名の複数組入力をllm-system-prompt-draft.mdへ反映する作業」をフェーズ62で
   行った。詳細は上記フェーズ62参照。残るのは`usage_counter`への
