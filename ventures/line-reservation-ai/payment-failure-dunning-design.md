@@ -122,10 +122,10 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
   リトライ回数・間隔(例: Stripeのスマートリトライは数日おき最大4回程度が一般的)と
   本ドキュメントの猶予期間7日が整合するかは、サービス選定後に再確認が必要
   (7日間の間に決済代行サービス側のリトライが何回行われるかは提供元依存のため)。
-- 休止モード(`trial_unselected`)からの復旧通知文言がbilling-upgrade-flow-design.md・
-  dormant-mode-renotification-design.mdのいずれにも未定義であることが本ドキュメント作成中に
-  判明した。決済失敗からの復旧通知(本ドキュメント4節)と対になる位置づけのため、
-  次のステップ候補として残す。
+- (解消済み 2026-08-16 18:59 UTC: 休止モード〈trial_unselected〉からの復旧通知文言は
+  dormant-mode-renotification-design.md 4節で新規設計した。決済失敗からの復旧通知(本
+  ドキュメント4節)と合わせ、`suspension_reason`の値〈なし/`trial_unselected`/
+  `payment_failed`〉に応じた復旧メッセージ3種の使い分けが出揃った)
 - `suspension_reason`属性の追加はowner-settings-wireframe.mdの「4. プラン・お支払い状況
   ページ」の表示分岐(休止モードか決済失敗による制限モードかで文言を変える)にも影響するため、
   同ワイヤーフレームへの反映は次回以降のフェーズで行う。

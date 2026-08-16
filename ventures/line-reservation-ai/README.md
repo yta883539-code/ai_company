@@ -962,7 +962,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   避けた。残課題は、決済代行サービス選定後のリトライ回数・間隔との整合確認、休止モードからの
   復旧通知文言が実は未定義だった点(次のステップ候補に追加)、owner-settings-wireframe.md
   「4. プラン・お支払い状況ページ」への`suspension_reason`分岐の反映。
-- 最終更新: 2026-08-16 14:00 UTC
+- フェーズ(続き107、2026-08-16 18:59 UTC): フェーズ(続き106)の残課題だった、休止モード
+  (`trial_unselected`)からの復旧通知文言の未定義を解消した。dormant-mode-renotification-design.md
+  に4節「休止モードからの復旧通知」を新規追加し、billing-upgrade-flow-design.md 3節(初回登録)・
+  payment-failure-dunning-design.md 4節(決済失敗復旧)と合わせ、`suspension_reason`の値
+  (なし/`trial_unselected`/`payment_failed`)で送るメッセージを3分岐する設計とした。休止モード
+  復旧メッセージは「新規予約受付を再開しました」という状態変化の告知と「休止期間中に確定して
+  いたご予約はそのまま継続していた」旨の安心材料を明示する点を、初回登録メッセージとの主な差分と
+  した。payment-failure-dunning-design.mdの残課題記載も解消済みに更新した。残課題は
+  owner-settings-wireframe.md「4. プラン・お支払い状況ページ」への`suspension_reason`3分岐の
+  反映(引き続き未着手)。
+- 最終更新: 2026-08-16 18:59 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
