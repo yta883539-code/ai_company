@@ -567,6 +567,27 @@ class SubscriptionNoticeConsistencyTest(unittest.TestCase):
         }
         self.assertEqual(check_subscription_notice_consistency(instance), [])
 
+    def test_cancellation_unclear_with_short_url_domain_only_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約をご希望でしょうか?手続きはこちら bit.ly/abc123",
+                "includes_portal_link": False,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("cancellation_unclear", errors[0])
+
+    def test_cancellation_intent_with_lin_ee_short_url_is_allowed(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_intent",
+                "body": "解約をご希望とのことで承知しました。手続きはこちら lin.ee/xyz789",
+                "includes_portal_link": True,
+            }
+        }
+        self.assertEqual(check_subscription_notice_consistency(instance), [])
 
 if __name__ == "__main__":
     unittest.main()

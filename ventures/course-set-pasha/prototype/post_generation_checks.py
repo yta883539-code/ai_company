@@ -64,9 +64,18 @@ OUT_OF_SCOPE_TOPIC_KEYWORDS = (
 # が実際に使う「マイページ」「決済ページ」表記等)でも同じ案内が成立しうるため、語彙を追加した。
 # あわせて、本文中にURLプレースホルダ({...URL}形式)やhttp(s)リンクそのものが含まれる場合は、
 # 用いている単語によらず手続きページへの案内が行われていると判断する。
+# 2026-08-16追記: フェーズ57の残課題(「短縮リンクサービス名のみ」の取りこぼし)に対応。
+# httpスキームを付けずに短縮URLサービスのドメインのみを本文に貼るケース(例:
+# 「手続きはこちら bit.ly/xxxxx」)はLINK_PLACEHOLDER_PATTERNのhttps?://判定を素通りするため、
+# 主要な短縮URLサービスのドメイン名をSHORT_URL_DOMAIN_PATTERNとして別途検出対象に追加した。
+# 「こちらまでご連絡ください」のような、リンク・サービス名を一切伴わない婉曲表現は依然として
+# 検出できない既知の限界として残る(本文にドメイン・URLの手がかりが一切無いため機械判定不能)。
 PORTAL_KEYWORDS = ("カスタマーポータル", "ポータル", "マイページ", "決済ページ", "手続きページ")
 PROCEDURE_COMPLETION_KEYWORDS = ("手続き完了", "解約が完了", "手続きが完了", "解約は完了")
 LINK_PLACEHOLDER_PATTERN = re.compile(r"\{[^{}]*URL[^{}]*\}|https?://")
+SHORT_URL_DOMAIN_PATTERN = re.compile(
+    r"\b(?:bit\.ly|lin\.ee|tinyurl\.com|t\.co|x\.gd|is\.gd)/\S+"
+)
 
 
 def check_mentions_photo_consistency(instance):
@@ -371,8 +380,10 @@ def check_subscription_notice_consistency(instance):
 
     kind = notice.get("kind")
     body = notice.get("body", "")
-    body_mentions_portal = any(kw in body for kw in PORTAL_KEYWORDS) or bool(
-        LINK_PLACEHOLDER_PATTERN.search(body)
+    body_mentions_portal = (
+        any(kw in body for kw in PORTAL_KEYWORDS)
+        or bool(LINK_PLACEHOLDER_PATTERN.search(body))
+        or bool(SHORT_URL_DOMAIN_PATTERN.search(body))
     )
     body_mentions_completion = any(kw in body for kw in PROCEDURE_COMPLETION_KEYWORDS)
 
