@@ -588,10 +588,24 @@
   line-reservation-aiと異なりフラグは`usage_counter`ドキュメントへの永続化が必要になる
   という構造的な違いも整理した。実装(`first_generation_notice_sent`フィールド追加・
   webhook処理への配線)は実Firestore/実LINE API接続と合わせてオーナー承認待ちとして残る。
-- 最終更新: 2026-08-16 10:00 UTC
+- フェーズ62(2026-08-16 13:00 UTC): フェーズ61・onboarding-settings-and-self-check-design.md
+  の残課題だった「ジム名・地域名の複数組入力(カンマ区切り)をLLMシステムプロンプト側で
+  どう構造化して優先順位ルールを適用するか」を設計し、llm-system-prompt-draft.mdの
+  厳守事項4に反映した。入力メモの本文中にいずれかのジム名への言及があればそのジム名に
+  対応する組のブランドタグ・地域タグを優先採用し、言及が無ければ登録順で先頭の組を
+  既定値として採用するルールを追記した。残るのは`usage_counter`への
+  `first_generation_notice_sent`フィールド追加・実配線(実Firestore/実LINE API接続と
+  合わせてオーナー承認待ち)のみとなり、onboarding-settings-and-self-check-design.mdの
+  残課題2点はいずれも設計完了した。
+- 最終更新: 2026-08-16 13:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-16 13:00 UTC: onboarding-settings-and-self-check-design.mdの残課題だった
+  「ジム名・地域名の複数組入力をllm-system-prompt-draft.mdへ反映する作業」をフェーズ62で
+  行った。詳細は上記フェーズ62参照。残るのは`usage_counter`への
+  `first_generation_notice_sent`フィールド追加・実配線〈実Firestore/実LINE API接続と
+  合わせてオーナー承認待ち〉のみ)
 - (解消済み 2026-08-16 10:00 UTC: onboarding-guide.mdの残課題だった「申込フォーム統合か
   専用設定ページか」の方針確定と、ステップ4省略時のフォールバック設計をフェーズ61で行った。
   詳細は上記フェーズ61・onboarding-settings-and-self-check-design.md参照。残るのは
