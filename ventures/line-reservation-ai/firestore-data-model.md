@@ -32,11 +32,19 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
   closedWeekdays: [0],                                          // availability-closed-weekday-support.md
   messageTone: "standard",                                      // message-tone-variants.md: formal|standard|casual
   faqInfo: {address: "...", parking: "...", paymentMethods: [...]}, // faq-response-templates.md 9a用
-  menus: [{name: "カット", durationMinutes: 30}, ...]
+  menus: [{name: "カット", durationMinutes: 30}, ...],
+  suspensionReason: null,           // owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」
+                                     // null | "trial_unselected" | "payment_failed" | "payment_suspended"
+  paymentFailureDetectedAt: null    // payment-failure-dunning-design.md 3節の猶予期間起点日時
+                                     // (Timestamp、決済失敗検知時にWebhookが設定、決済成功復旧時にnullへ戻す)。
+                                     // suspensionReasonが"payment_failed"の間、猶予期間の残り日数は
+                                     // paymentFailureDetectedAt + 7日 − 現在日時 で算出する
+                                     // (owner-settings-wireframe.md 555行目付近の設計どおり、
+                                     // 別途「残り日数」フィールドは持たない)
 }
 ```
-書き込み頻度は低く(オーナーが設定画面を更新した時のみ)、読み取りは全会話処理で
-毎回参照するホットパスのため、Cloud Functionsインスタンス内キャッシュ
+書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、
+読み取りは全会話処理で毎回参照するホットパスのため、Cloud Functionsインスタンス内キャッシュ
 (TTL数分程度)を挟む余地がある。
 
 ### 2. `stores/{storeId}/bookingSlots/{slotKey}`
@@ -162,6 +170,12 @@ Firestoreトランザクションでの読み書きが必要になる可能性�
 
 ## 残課題
 
+- (解消済み 2026-08-17 08:00 UTC: owner-settings-wireframe.md「4節へのsuspension_reason
+  分岐の反映」の残課題だった、決済失敗検知日時のフィールドを`stores`コレクションに反映した。
+  `suspensionReason`(既存のフラグ機構、値はpayment-failure-dunning-design.md 3節・
+  owner-settings-wireframe.mdに準拠)と`paymentFailureDetectedAt`〈猶予期間の起点日時、
+  Webhook受信時に設定〉の2フィールドを追加。実際のWebhookハンドラでの書き込み実装・
+  Stripe Billing等の決済代行サービスとの接続は引き続きオーナー承認待ち)
 - `hold()`/`confirm()`・`escalationWindows`更新をFirestoreトランザクションに
   置き換える際の実装(現状engine.pyは`dict`直接操作のため、Firestore
   クライアントライブラリの`transaction`デコレータへの書き換えが必要)は

@@ -984,7 +984,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (1)猶予期間の残り日数表示に必要な決済失敗検知日時のfirestore-data-model.mdへの反映が
   未着手、(2)実際の決済代行サービスのWebhookペイロードからこれらの値を過不足なく判定できるかは
   サービス選定後の実装時に確認が必要(いずれもオーナー承認待ち)。
-- 最終更新: 2026-08-16 23:59 UTC
+- フェーズ(続き109、2026-08-17 08:00 UTC): フェーズ(続き108)の残課題(1)だった、猶予期間の
+  残り日数表示に必要な決済失敗検知日時のfirestore-data-model.mdへの反映を行った。`stores`
+  コレクションに`suspensionReason`(既存のフラグ機構、null/`trial_unselected`/`payment_failed`/
+  `payment_suspended`)と`paymentFailureDetectedAt`(猶予期間の起点日時、Webhook受信時に設定・
+  決済成功復旧時にnullへ戻す)の2フィールドを追加した。「残り日数」自体は別フィールドを持たず
+  `paymentFailureDetectedAt + 7日 − 現在日時`で算出する設計とし、owner-settings-wireframe.mdの
+  既存記述と整合させた。残課題は、フェーズ(続き108)の残課題(2)(実際のWebhookペイロードとの
+  整合確認)と、実際のFirestoreへの書き込み実装(いずれもオーナー承認待ち)。
+- 最終更新: 2026-08-17 08:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
@@ -1231,9 +1239,10 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
-- 猶予期間の残り日数表示に必要な決済失敗検知日時のフィールドを、firestore-data-model.mdの
-  `stores`コレクション定義に反映する(owner-settings-wireframe.md「4節への
-  `suspension_reason`分岐の反映」節の残課題)。
+- (解消済み 2026-08-17 08:00 UTC: 猶予期間の残り日数表示に必要な決済失敗検知日時の
+  フィールド〈`paymentFailureDetectedAt`〉と`suspensionReason`を、firestore-data-model.mdの
+  `stores`コレクション定義に反映した。詳細は上記フェーズ(続き109)参照。残るのは実際の
+  決済代行サービスのWebhookペイロードとの整合確認と実装反映〈オーナー承認待ち〉のみ)
 - (解消済み 2026-08-16 23:59 UTC: owner-settings-wireframe.mdへの`suspension_reason`分岐の
   反映をフェーズ(続き108)で行った。詳細は上記フェーズ(続き108)参照)
 - (解消済み 2026-08-16 18:59 UTC: 休止モード〈trial_unselected〉からの復旧通知文言を
