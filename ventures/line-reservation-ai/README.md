@@ -1001,7 +1001,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   設定変更が必要(回収率が下がるトレードオフあり)、逆に標準設定を使うなら猶予期間を14日
   程度に延ばす必要がある、という二択とトレードオフをpayment-failure-dunning-design.md 5節に
   整理した。どちらを選ぶかはサービス契約自体を伴うためオーナー承認待ち。
-- 最終更新: 2026-08-17 11:00 UTC
+- 最終更新: 2026-08-17 21:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
@@ -1246,6 +1246,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`prototype/engine.py`・`prototype/cloud_function_process_event.py`)。前日リマインド・
   FAQ・キャンセルは会話状態を経由しない/別セッションのため今回は対象外とし理由を明記した。
   テスト6件追加・全163件パス。
+- フェーズ(続き112、2026-08-17 21:00 UTC): フェーズ(続き111)で設計した
+  payment-failure-dunning-design.md 6節(猶予日数・リマインド回数・タイミングの
+  パラメータ化)を、reminder_scheduler.py同様の判断・整形ロジックのみを切り出す形で
+  実行可能なコードに落とし込んだ(`prototype/dunning_notification_scheduler.py`新規作成)。
+  `DunningConfig`に(a)7日構成〈`DUNNING_CONFIG_A_7DAYS`〉・(b)14日構成
+  〈`DUNNING_CONFIG_B_14DAYS`〉の2定数を用意し、`compute_dunning_schedule()`が
+  検知時刻から「検知時通知→(14日構成のみ)中間地点リマインド→終了直前リマインド→制限
+  モード移行」の予定表を算出、`render_dunning_message()`が4節の文言テンプレートへ
+  猶予日数・リマインド送付日数前を埋め込む。中間地点リマインドの文言は
+  payment-failure-dunning-design.mdにまだ存在しなかったため、4節の他文言・
+  tone-and-manner-guideline.mdの標準トーンに合わせて本モジュールで新規に書き下した
+  (経過日数・残り日数を明示する内容とした)。実際のWebhook受信・Firestore書き込み・
+  LINE送信への配線は他の項目と同様オーナー承認待ちのため未実施。
+  `prototype/test_dunning_notification_scheduler.py`を新規作成しテスト13件全件パス、
+  他venture既存分と合わせ計227件パス(prototype/ディレクトリ全体)。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-17 16:00 UTC・フェーズ続き111: payment-failure-dunning-design.mdの

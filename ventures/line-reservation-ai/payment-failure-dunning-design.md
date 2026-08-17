@@ -192,3 +192,11 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
 サービス選定時に(a)(b)いずれが選ばれても、設定値の変更のみで対応できる状態にしておく。
 実際のテンプレートエンジン実装・Webhook配線自体は、他の項目と同様に決済代行サービスとの
 契約を伴うためオーナー承認待ち(pending-approval.md参照)。
+
+(解消済み 2026-08-17 21:00 UTC・フェーズ続き112: 上記の設定値切り出し・プレースホルダー
+参照方針を、`prototype/dunning_notification_scheduler.py`として実行可能なコードに
+落とし込んだ。`DunningConfig`(a)/(b)の2定数、`compute_dunning_schedule()`(予定表算出)、
+`render_dunning_message()`(文言埋め込み)を実装しテスト13件で検証済み。中間地点
+リマインド〈(b)14日構成のみ〉の文言は本ドキュメントに無かったため、実装時に新規で
+書き下した(標準トーン、経過日数・残り日数を明示)。実際のWebhook受信・Firestore
+書き込み・LINE送信配線、および決済代行サービスとの契約自体は引き続きオーナー承認待ち。)
