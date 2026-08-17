@@ -53,6 +53,11 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
 - 段階3(制限モード)は、新規予約受付停止という制御そのものは休止モードと同一のため、
   既存のフラグ機構を流用し`suspension_reason`(`trial_unselected` / `payment_failed`)を
   区別する属性として追加する設計とする(新規のON/OFF制御を二重実装しない)。
+- (2026-08-16追記: owner-settings-wireframe.mdへの反映時に、段階2(猶予期間)と段階3
+  (制限モード)は新規予約受付の可否が異なるため`suspension_reason`の値としても区別が
+  必要と判明し、段階3の値を`payment_suspended`と命名した。段階2は引き続き`payment_failed`
+  のままとする。本節の表・5節はこの命名を前提に更新していないため、値の呼称は
+  owner-settings-wireframe.md「4節への`suspension_reason`分岐の反映」節を正とする)
 
 ## 4. 通知文言(standardトーン、message-tone-variants.md準拠)
 
@@ -126,8 +131,9 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
   dormant-mode-renotification-design.md 4節で新規設計した。決済失敗からの復旧通知(本
   ドキュメント4節)と合わせ、`suspension_reason`の値〈なし/`trial_unselected`/
   `payment_failed`〉に応じた復旧メッセージ3種の使い分けが出揃った)
-- `suspension_reason`属性の追加はowner-settings-wireframe.mdの「4. プラン・お支払い状況
-  ページ」の表示分岐(休止モードか決済失敗による制限モードかで文言を変える)にも影響するため、
-  同ワイヤーフレームへの反映は次回以降のフェーズで行う。
+- (解消済み 2026-08-16 23:59 UTC: `suspension_reason`属性の追加をowner-settings-wireframe.mdの
+  「4. プラン・お支払い状況ページ」の表示分岐に反映した。休止モード・猶予期間・制限モードの
+  3状態それぞれのステータス文言・バッジ色・ボタン遷移先を対応表として整理した。詳細は
+  owner-settings-wireframe.md「4節への`suspension_reason`分岐の反映」節参照)
 - 実際のWebhook受信・状態更新の実装、決済代行サービスとの契約は、引き続きオーナー承認待ち
   (pending-approval.md参照)。

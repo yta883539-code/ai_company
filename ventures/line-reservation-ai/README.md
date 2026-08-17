@@ -972,7 +972,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   した。payment-failure-dunning-design.mdの残課題記載も解消済みに更新した。残課題は
   owner-settings-wireframe.md「4. プラン・お支払い状況ページ」への`suspension_reason`3分岐の
   反映(引き続き未着手)。
-- 最終更新: 2026-08-16 18:59 UTC
+- フェーズ(続き108、2026-08-16 23:59 UTC): フェーズ(続き107)の残課題だった、
+  owner-settings-wireframe.md「4. プラン・お支払い状況ページ」への`suspension_reason`分岐の
+  反映を行った。従来の3状態(トライアル中/スタンダードプラン/休止モード)表示に、
+  payment-failure-dunning-design.mdで新設された猶予期間(`payment_failed`)・制限モード
+  (新規に`payment_suspended`と命名)の2状態を追加し、5状態のステータス表示・バッジ色
+  (通常/警告色/強い警告色)・ボタン遷移先の対応表を新設した(owner-settings-wireframe.md
+  「4節への`suspension_reason`分岐の反映」節)。猶予期間と制限モードは新規予約受付の可否が
+  異なるため、payment-failure-dunning-design.md 3節では未命名だった制限モードの値を
+  `payment_suspended`と定め、同ドキュメント側にも追記して整合を取った。残課題は
+  (1)猶予期間の残り日数表示に必要な決済失敗検知日時のfirestore-data-model.mdへの反映が
+  未着手、(2)実際の決済代行サービスのWebhookペイロードからこれらの値を過不足なく判定できるかは
+  サービス選定後の実装時に確認が必要(いずれもオーナー承認待ち)。
+- 最終更新: 2026-08-16 23:59 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
@@ -1219,13 +1231,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト6件追加・全163件パス。
 
 ## 次にやること(候補)
-- 休止モード(`trial_unselected`)からの復旧通知文言が、billing-upgrade-flow-design.md・
-  dormant-mode-renotification-design.mdのいずれにも未定義であることが
-  payment-failure-dunning-design.md作成中に判明した。決済失敗からの復旧通知(同ドキュメント
-  4節)と対になる文言として次回以降のフェーズで設計する。
-- owner-settings-wireframe.md「4. プラン・お支払い状況ページ」に、休止モードと決済失敗
-  制限モードを区別する`suspension_reason`表示分岐を反映する(payment-failure-dunning-
-  design.md参照)。
+- 猶予期間の残り日数表示に必要な決済失敗検知日時のフィールドを、firestore-data-model.mdの
+  `stores`コレクション定義に反映する(owner-settings-wireframe.md「4節への
+  `suspension_reason`分岐の反映」節の残課題)。
+- (解消済み 2026-08-16 23:59 UTC: owner-settings-wireframe.mdへの`suspension_reason`分岐の
+  反映をフェーズ(続き108)で行った。詳細は上記フェーズ(続き108)参照)
+- (解消済み 2026-08-16 18:59 UTC: 休止モード〈trial_unselected〉からの復旧通知文言を
+  フェーズ(続き107)・dormant-mode-renotification-design.md 4節で新規設計した。詳細は
+  上記フェーズ(続き107)参照)
 - (解消済み 2026-08-16 04:00 UTC: フェーズ(続き104)で将来の拡張候補として残していた進捗割合
   ベースの強調表示をフェーズ(続き105)で詳細設計した。70%閾値・両方70%以上なら両方強調する
   ルール。詳細は上記フェーズ(続き105)・owner-settings-wireframe.md「強調表示(進捗割合

@@ -207,3 +207,9 @@ billing-upgrade-flow-design.md 3節のメッセージは「本日より正式に
   未定義のまま残っていた欠落を解消。owner-settings-wireframe.md「4. プラン・お支払い状況
   ページ」への`suspension_reason`3分岐(なし/`trial_unselected`/`payment_failed`)の反映は
   引き続き次回以降の課題)
+- (解消済み 2026-08-16 23:59 UTC: owner-settings-wireframe.md「4. プラン・お支払い状況
+  ページ」への`suspension_reason`分岐の反映を行った。猶予期間〈`payment_failed`〉と
+  制限モード〈新規に`payment_suspended`と命名〉を区別し、休止モードと合わせた4状態の
+  ステータス表示・バッジ色・ボタン遷移先を対応表として整理した。詳細はowner-settings-
+  wireframe.md「4節への`suspension_reason`分岐の反映」節、payment-failure-dunning-
+  design.md該当箇所参照)
