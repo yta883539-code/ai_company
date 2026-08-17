@@ -604,10 +604,29 @@
   `count`が0か否かで初回判定を行い、count増分とフラグ更新を単一ドキュメント更新に
   まとめることで重複送信を防ぐ設計とした。実際のFirestore接続・実装への反映は
   引き続きオーナー承認待ちの範囲として残る。
-- 最終更新: 2026-08-16 16:00 UTC
+- フェーズ65(2026-08-17 07:00 UTC): line-reservation-aiのapi-call-failure-handling.mdに
+  相当する「LLM API/LINE API呼び出し自体の失敗時(タイムアウト・5xx・429等)のハンドリング」
+  設計が本ventureには未着手だった点に対応し、api-call-failure-handling.mdを新規作成した。
+  本ventureはCloud Tasksを持たない単発リクエスト/レスポンス型でPush APIではなくReply API
+  (トークンは1回限り・短時間で失効)のみを使う点、送信者が顧客ではなく事業者本人であり
+  状態変更を一切伴わない点がline-reservation-aiとの本質的な違いであり、これを踏まえ
+  「即時1回のみリトライ、2回とも失敗時はフォールバック文言(LLM側)または諦めて
+  reply_sent=Falseで返す(Reply側、Push APIによる代替送達は導入しない)」という
+  簡素な方針とした。設計に対応するコードも実装し、`prototype/cloud_function_webhook.py`に
+  `LlmApiError`/`ReplyApiError`例外・`_generate_with_api_retry()`/`_reply_with_retry()`・
+  `API_FAILURE_FALLBACK_MESSAGE`・`MemoProcessResult.api_failure`を追加、
+  `prototype/test_cloud_function_webhook.py`に4パターン(LLM/Reply各々のリトライ成功・
+  リトライ後も失敗)のテストを追加した(全25件パス、venture全体で82件パス)。
+  Reply APIトークンの有効期限・失敗時消費有無の一次情報確認は未検証事項として残る
+  (WebFetchのegress制約、実LINE接続後の課題)。
+- 最終更新: 2026-08-17 07:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-17 07:00 UTC: LLM API/LINE Reply API呼び出し自体の失敗時
+  〈タイムアウト・5xx・429等〉のハンドリング設計・実装をフェーズ65・
+  api-call-failure-handling.mdで行った。詳細は上記フェーズ65参照。残るのは
+  Reply APIトークンの一次情報確認〈実LINE接続後の課題〉のみ)
 - (解消済み 2026-08-16 16:00 UTC: `usage_counter`への`first_generation_notice_sent`
   フィールド追加・webhook配線について、フェーズ63・
   first-generation-notice-implementation-design.mdでフィールド定義・書き込みタイミングの

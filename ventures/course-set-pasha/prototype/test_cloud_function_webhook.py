@@ -19,8 +19,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from cloud_function_webhook import (  # noqa: E402
+    API_FAILURE_FALLBACK_MESSAGE,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryReplyClient,
+    LlmApiError,
+    ReplyApiError,
     format_reply_text,
     merge_text_and_photo_events,
     process_memo_event,
@@ -72,6 +75,59 @@ class AlwaysBrokenLlmClient:
     def generate(self, memo_text, has_photo, retry_context=None):
         self.calls.append(retry_context)
         return self.mutate(dict(TEST_CASES[self.case_id]))
+
+
+class FlakyOnceLlmClient:
+    """1回目のgenerate()呼び出しでLlmApiErrorを送出し、2回目(即時リトライ)は
+    正常な出力を返すスタブ(api-call-failure-handling.md方針1のリトライ成功パターン)。"""
+
+    def __init__(self, case_id):
+        self.case_id = case_id
+        self.calls = 0
+
+    def generate(self, memo_text, has_photo, retry_context=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise LlmApiError("simulated timeout")
+        return dict(TEST_CASES[self.case_id])
+
+
+class AlwaysFailingLlmClient:
+    """常にLlmApiErrorを送出するスタブ(即時リトライしても解消しないパターンの検証用)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, memo_text, has_photo, retry_context=None):
+        self.calls += 1
+        raise LlmApiError("simulated persistent failure")
+
+
+class FlakyOnceReplyClient:
+    """1回目のreply()呼び出しでReplyApiErrorを送出し、2回目(即時リトライ)は成功する
+    スタブ(api-call-failure-handling.md方針2のリトライ成功パターン)。"""
+
+    def __init__(self):
+        self.calls = 0
+        self.sent = []
+
+    def reply(self, reply_token, message_text):
+        self.calls += 1
+        if self.calls == 1:
+            raise ReplyApiError("simulated timeout")
+        self.sent.append((reply_token, message_text))
+
+
+class AlwaysFailingReplyClient:
+    """常にReplyApiErrorを送出するスタブ(Push API等の代替手段が無いため、2回とも
+    失敗した場合にreply_sent=Falseで諦める挙動の検証用)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def reply(self, reply_token, message_text):
+        self.calls += 1
+        raise ReplyApiError("simulated persistent failure")
 
 
 def _make_event(reply_token="rt-1", text="エリアA 黄テープ 8本新規、2026/8/9改訂", has_photo=False):
@@ -189,6 +245,47 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertTrue(result.retried)
         # リトライは1回のみ(無限リトライしない)
         self.assertEqual(len(llm_client.calls), 2)
+
+    def test_llm_api_failure_recovers_after_one_retry(self):
+        reply_client = InMemoryReplyClient()
+        llm_client = FlakyOnceLlmClient("G1_basic")
+        result = process_memo_event(_make_event(), llm_client, reply_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertFalse(result.api_failure)
+        self.assertIn("【SNS投稿文の下書き】", result.reply_text)
+        self.assertEqual(llm_client.calls, 2)
+
+    def test_llm_api_failure_falls_back_after_exactly_one_retry(self):
+        reply_client = InMemoryReplyClient()
+        llm_client = AlwaysFailingLlmClient()
+        result = process_memo_event(_make_event(), llm_client, reply_client)
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertTrue(result.api_failure)
+        self.assertEqual(result.reply_text, API_FAILURE_FALLBACK_MESSAGE)
+        # リトライは1回のみ(即時1回、待機なし)
+        self.assertEqual(llm_client.calls, 2)
+        self.assertEqual(reply_client.sent, [("rt-1", API_FAILURE_FALLBACK_MESSAGE)])
+
+    def test_reply_api_failure_recovers_after_one_retry(self):
+        reply_client = FlakyOnceReplyClient()
+        result = process_memo_event(_make_event(), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(reply_client.calls, 2)
+        self.assertEqual(len(reply_client.sent), 1)
+
+    def test_reply_api_failure_gives_up_after_one_retry_without_crashing(self):
+        reply_client = AlwaysFailingReplyClient()
+        result = process_memo_event(_make_event(), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertIsNone(result.reply_text)
+        # Push API等の代替送達手段が無いため、即時1回のリトライで諦める
+        self.assertEqual(reply_client.calls, 2)
 
     def test_image_only_event_is_not_handled(self):
         reply_client = InMemoryReplyClient()
