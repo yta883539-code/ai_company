@@ -80,6 +80,30 @@ Firestoreの通常のトランザクション不要な単一ドキュメント�
 確認案内・未設定時の追加一文は、SNS投稿文・LINE/Web告知文の末尾に追記する形であり、
 既存の`history_rows`等の構造化フィールドには影響しない。schema変更は不要と判断する。
 
+## 5. gym_area_configuredの実データ参照経路
+
+フェーズ73時点では`gym_area_configured`は呼び出し側が明示的に渡すbool引数のままだった
+(実データ参照経路が未設計)。本節でその参照経路を設計する。
+
+- onboarding-settings-and-self-check-design.md 1節の通り、ジム名・地域名は申込フォーム
+  (ステップ1)の追加項目として、カンマ区切りの自由記述文字列(専用の構造化データストアは
+  持たない)で入力される。この値の**書き込み**は申込フォーム提出フローの責務であり、
+  本ventureのWebhook処理(cloud_function_webhook.py)の対象外(別途の申込受付経路の課題)。
+- Webhook処理側が必要とするのは「そのuser_idについて、この文字列が非空で登録済みか」という
+  **読み取り専用**の判定のみ。これを`GymAreaConfigStoreProtocol.is_configured(user_id) -> bool`
+  として抽象化する(usage_counter・first_generation_notice_storeと同じ「差し替え可能な
+  Protocol」方針を踏襲)。
+- 想定する実データの格納先は、`usage_counter`とは別の最小構成ドキュメント
+  `user_profile/{user_id} { gym_area_pairs: string }`(空文字列 = 未設定)。
+  申込フォーム提出時に1回書き込まれるだけで生成フロー中に更新されない点、また
+  `usage_counter`(月次カウント)とライフサイクルが異なる点から、同一ドキュメントに
+  同居させず別ドキュメントとする。
+- `process_memo_event()`側は`gym_area_config_store`が渡されない場合(実接続前の呼び出し・
+  申込フォーム経路が未実装の段階)、既定で「設定済み」として扱う(誤って未設定の注意喚起を
+  出さない安全側のデフォルト。usage_counter未接続時にカウント処理自体をスキップするのと
+  同じ考え方)。ストアが渡された場合は`is_configured(user_id)`の結果をそのまま使う
+  (未登録ユーザーは素直にFalse=未設定を返す)。
+
 ## 残課題
 
 - (解消済み 2026-08-18 13:00 UTC: `prototype/cloud_function_webhook.py`フェーズ73で
@@ -94,6 +118,11 @@ Firestoreの通常のトランザクション不要な単一ドキュメント�
 - 「count>0だがfirst_generation_notice_sent=falseのまま」という不整合状態(3.で言及した
   安全側フォールバックの対象)が実運用でどの程度発生しうるかは、実Firestore接続後の
   実測データを待って再確認する。
-- `gym_area_configured`(ジム名・地域名設定有無)の実データ参照経路(ユーザー設定ストア)は
-  未設計のため、コード実装では呼び出し側が明示的に渡す前提の引数とした。設定ストアの設計は
-  別途の課題として残る。
+- (解消済み 2026-08-18 16:00 UTC: `gym_area_configured`の実データ参照経路を5節で設計し、
+  `prototype/cloud_function_webhook.py`に`GymAreaConfigStoreProtocol`・
+  `InMemoryGymAreaConfigStore`を実装、`process_memo_event()`の引数を
+  `gym_area_configured: bool`から`gym_area_config_store: Optional[...]`へ差し替えた。
+  テスト5件追加、全58件パス。詳細はREADME.mdフェーズ74参照)
+- `user_profile/{user_id}.gym_area_pairs`を書き込む側(申込フォーム提出フロー自体の実装)は
+  本venture・本ドキュメントの対象外の別課題として残る。実Firestore接続への配線自体は
+  引き続きオーナー承認待ち。

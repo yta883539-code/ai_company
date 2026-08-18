@@ -711,13 +711,29 @@
   `gym_area_configured`は本来ユーザーごとの申込内容(ジム名・地域名設定有無)から
   決まる値だが、その永続化・参照経路(user設定ストア)自体は未設計のため、当面は
   呼び出し側が明示的に渡す前提の引数として残した(実Firestore接続後の課題)。
-- 最終更新: 2026-08-18 13:00 UTC
+- フェーズ74(2026-08-18 16:00 UTC): フェーズ73の残課題だった`gym_area_configured`の
+  実データ参照経路を、first-generation-notice-implementation-design.md 5節として設計した。
+  申込フォーム提出時に書き込まれる`user_profile/{user_id}.gym_area_pairs`(usage_counterとは
+  別ドキュメント、書き込み側は申込フォーム提出フロー自体で本venture対象外)の読み取り専用
+  Protocol`GymAreaConfigStoreProtocol.is_configured(user_id)`として抽象化し、
+  `prototype/cloud_function_webhook.py`に`InMemoryGymAreaConfigStore`(検証用スタブ)を実装した。
+  `process_memo_event()`の引数を`gym_area_configured: bool = True`から
+  `gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None`へ差し替え、
+  未接続時(None)は従来通り「設定済み」を既定値として扱う安全側の挙動を維持した。
+  テスト5件(InMemoryGymAreaConfigStoreTest 3件・ProcessMemoEventFirstGenerationNoticeTest
+  2件)を追加し既存分含め全58件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
+  実際の申込フォーム提出フロー・実Firestore接続への配線自体は引き続きオーナー承認待ち。
+- 最終更新: 2026-08-18 16:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-18 16:00 UTC: `gym_area_configured`の実データ参照経路
+  (`GymAreaConfigStoreProtocol`・`InMemoryGymAreaConfigStore`)をフェーズ74で設計・実装した。
+  詳細は上記フェーズ74・first-generation-notice-implementation-design.md 5節参照。残るのは
+  実Firestore接続〈オーナー承認待ち〉、count増分とnotice_sent更新の単一書き込みでの原子性の
+  実装反映、申込フォーム提出フロー自体(`user_profile.gym_area_pairs`の書き込み側)の設計のみ)
 - (解消済み 2026-08-18 13:00 UTC: `first_generation_notice_sent`の実装ギャップを
-  フェーズ73で解消した。詳細は上記フェーズ73参照。残るのは実Firestore接続〈オーナー承認待ち〉、
-  単一書き込みでの原子性の実装反映、`gym_area_configured`の実データ参照経路の設計のみ)
+  フェーズ73で解消した。詳細は上記フェーズ73参照)
 - (解消済み 2026-08-18 02:00 UTC: 月間生成回数カウント・上限接近通知のコード実装を
   フェーズ70で行った。詳細は上記フェーズ70参照。残るのは実Firestore接続〈オーナー承認待ち〉と、
   接続後のセッター複数プランの実際の一斉更新パターンの実測のみ)

@@ -27,6 +27,7 @@ from cloud_function_webhook import (  # noqa: E402
     FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX,
     FIRST_GENERATION_NOTICE_BODY,
     InMemoryFirstGenerationNoticeStore,
+    InMemoryGymAreaConfigStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
@@ -443,6 +444,31 @@ class AppendFirstGenerationNoticeTest(unittest.TestCase):
         self.assertIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result)
 
 
+class InMemoryGymAreaConfigStoreTest(unittest.TestCase):
+    """gym_area_configuredの実データ参照経路スタブ
+    (first-generation-notice-implementation-design.md 5節)の検証。"""
+
+    def test_unregistered_user_is_not_configured(self):
+        store = InMemoryGymAreaConfigStore()
+
+        self.assertFalse(store.is_configured("u-1"))
+
+    def test_user_passed_at_construction_is_configured(self):
+        store = InMemoryGymAreaConfigStore(configured_user_ids={"u-1"})
+
+        self.assertTrue(store.is_configured("u-1"))
+        self.assertFalse(store.is_configured("u-2"))
+
+    def test_set_configured_toggles_state(self):
+        store = InMemoryGymAreaConfigStore()
+
+        store.set_configured("u-1")
+        self.assertTrue(store.is_configured("u-1"))
+
+        store.set_configured("u-1", configured=False)
+        self.assertFalse(store.is_configured("u-1"))
+
+
 class ProcessMemoEventFirstGenerationNoticeTest(unittest.TestCase):
     """process_memo_event()への初回生成確認案内の統合
     (first-generation-notice-implementation-design.md 2節)の検証。"""
@@ -491,6 +517,38 @@ class ProcessMemoEventFirstGenerationNoticeTest(unittest.TestCase):
         self.assertFalse(notice_store.has_sent("u-1"))
 
     def test_area_unconfigured_appends_extra_sentence(self):
+        # gym_area_config_storeにu-1が未登録(=申込フォームでジム名・地域名が未入力)のケース。
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        gym_area_store = InMemoryGymAreaConfigStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            gym_area_config_store=gym_area_store,
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result.reply_text)
+
+    def test_area_configured_does_not_append_extra_sentence(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        gym_area_store = InMemoryGymAreaConfigStore(configured_user_ids={"u-1"})
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            gym_area_config_store=gym_area_store,
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertNotIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result.reply_text)
+
+    def test_gym_area_config_store_not_provided_defaults_to_configured(self):
+        # gym_area_config_store未指定(実接続前)は「設定済み」を既定値とし、未接続を理由に
+        # 誤って未設定の注意喚起を出さない(安全側のデフォルト)。
         usage_counter = InMemoryUsageCounter()
         notice_store = InMemoryFirstGenerationNoticeStore()
         reply_client = InMemoryReplyClient()
@@ -498,10 +556,10 @@ class ProcessMemoEventFirstGenerationNoticeTest(unittest.TestCase):
         result = process_memo_event(
             _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
             usage_counter=usage_counter, first_generation_notice_store=notice_store,
-            gym_area_configured=False,
         )
 
-        self.assertIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result.reply_text)
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertNotIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result.reply_text)
 
     def test_no_notice_when_store_not_provided(self):
         # first_generation_notice_store未指定(実接続前)の呼び出しは従来通りスキップする。

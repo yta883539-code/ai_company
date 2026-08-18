@@ -177,6 +177,36 @@ def append_first_generation_notice(reply_text: str, gym_area_configured: bool) -
     return f"{reply_text}\n\n{notice}"
 
 
+class GymAreaConfigStoreProtocol(Protocol):
+    """`gym_area_configured`(申込フォームでジム名・地域名を入力済みか)の実データ参照経路
+    (first-generation-notice-implementation-design.md 5節参照)。申込フォーム提出時に
+    書き込まれる`user_profile/{user_id}.gym_area_pairs`(onboarding-settings-and-
+    self-check-design.md 1節、カンマ区切りの自由記述文字列)の有無を表す。書き込みは
+    申込フォーム提出フロー(本モジュールの対象外)の責務であり、本Protocolは読み取り専用とする。
+    """
+
+    def is_configured(self, user_id: str) -> bool:
+        ...
+
+
+class InMemoryGymAreaConfigStore:
+    """実Firestore接続の代わりにdictで設定有無を保持する検証用スタブ。
+    未登録ユーザー(申込フォーム提出前、または`gym_area_pairs`が空欄のまま提出)は
+    `is_configured`が既定でFalseを返す(実データ不在=未設定という素直な対応)。"""
+
+    def __init__(self, configured_user_ids: Optional[set] = None) -> None:
+        self._configured_user_ids: set = set(configured_user_ids or ())
+
+    def is_configured(self, user_id: str) -> bool:
+        return user_id in self._configured_user_ids
+
+    def set_configured(self, user_id: str, configured: bool = True) -> None:
+        if configured:
+            self._configured_user_ids.add(user_id)
+        else:
+            self._configured_user_ids.discard(user_id)
+
+
 # ---------------------------------------------------------------------------
 # 解約・ダウングレード案内(subscription-cancellation-flow-design.md、
 # schema/output.schema.jsonのsubscription_procedure_notice、フェーズ54で追加した
@@ -460,7 +490,7 @@ def process_memo_event(
     month: Optional[str] = None,
     portal_link_provider: Optional[PortalLinkProvider] = None,
     first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
-    gym_area_configured: bool = True,
+    gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
 
@@ -485,6 +515,10 @@ def process_memo_event(
        確認案内を返信の末尾に1回だけ付記する(onboarding-settings-and-self-check-design.md、
        first-generation-notice-implementation-design.md参照)。increment前のカウントで
        判定するため、この判定は5.のカウント増分ブロックより前に行う必要がある。
+       ジム名・地域名設定有無(gym_area_configured)はgym_area_config_storeが渡された場合のみ
+       store.is_configured(user_id)から取得し、未接続時(None)は従来通り「設定済み」を
+       既定値として扱う(未接続時に誤って未設定の注意喚起を出さない安全側の挙動、
+       first-generation-notice-implementation-design.md 5節参照)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -543,6 +577,10 @@ def process_memo_event(
         if user_id:
             is_first_generation = usage_counter.get_count(user_id, month or current_month_jst()) == 0
             if is_first_generation and not first_generation_notice_store.has_sent(user_id):
+                gym_area_configured = (
+                    True if gym_area_config_store is None
+                    else gym_area_config_store.is_configured(user_id)
+                )
                 reply_text = append_first_generation_notice(reply_text, gym_area_configured)
                 first_generation_notice_store.mark_sent(user_id)
 
