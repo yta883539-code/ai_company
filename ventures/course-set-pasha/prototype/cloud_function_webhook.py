@@ -112,11 +112,32 @@ class UsageCounterProtocol(Protocol):
         ...
 
 
+class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
+    """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
+    表す場合にのみ実装される、count増分とnotice_sent更新の単一書き込み版
+    (first-generation-notice-implementation-design.md 3節「書き込みの原子性」準拠)。
+    このメソッドを実装しないUsageCounterProtocol実装は従来通り2ステップの書き込みにとどまる
+    (process_memo_event側でhasattr()により対応有無を判定する)。"""
+
+    def increment_and_mark_notice(self, user_id: str, month: str, mark_notice_sent: bool) -> int:
+        """count増分と(mark_notice_sent=Trueの場合のみ)first_generation_notice_sentの更新を
+        単一書き込みとして行う。インクリメント後のカウント値を返す契約とする。"""
+        ...
+
+
 class InMemoryUsageCounter:
-    """実Firestore接続の代わりにdictでカウントを保持する検証用スタブ。"""
+    """実Firestore接続の代わりにdictでカウントを保持する検証用スタブ。
+
+    first-generation-notice-implementation-design.md 1節の設計(`first_generation_notice_sent`は
+    `usage_counter`と同一ドキュメントのフィールド)に合わせ、has_sent()/mark_sent()
+    (FirstGenerationNoticeStoreProtocol互換)も実装する。process_memo_event呼び出し側が
+    usage_counterとfirst_generation_notice_storeの両方に同一のInMemoryUsageCounterインスタンスを
+    渡すことで、実Firestoreの単一ドキュメント更新に相当する原子的な書き込み経路
+    (increment_and_mark_notice)を使わせることができる。"""
 
     def __init__(self) -> None:
         self._counts: dict[tuple[str, str], int] = {}
+        self._notice_sent: set = set()
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -125,6 +146,17 @@ class InMemoryUsageCounter:
         key = (user_id, month)
         self._counts[key] = self._counts.get(key, 0) + 1
         return self._counts[key]
+
+    def has_sent(self, user_id: str) -> bool:
+        return user_id in self._notice_sent
+
+    def mark_sent(self, user_id: str) -> None:
+        self._notice_sent.add(user_id)
+
+    def increment_and_mark_notice(self, user_id: str, month: str, mark_notice_sent: bool) -> int:
+        if mark_notice_sent:
+            self._notice_sent.add(user_id)
+        return self.increment(user_id, month)
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +551,13 @@ def process_memo_event(
        store.is_configured(user_id)から取得し、未接続時(None)は従来通り「設定済み」を
        既定値として扱う(未接続時に誤って未設定の注意喚起を出さない安全側の挙動、
        first-generation-notice-implementation-design.md 5節参照)。
+       確認案内送信フラグの書き込み自体は、5.のカウント増分と合わせて行う(下記参照)。
+       usage_counterとfirst_generation_notice_storeに同一インスタンス(実Firestoreの単一
+       ドキュメントに相当)が渡され、かつそのインスタンスがincrement_and_mark_notice()を
+       実装している場合は、count増分とnotice_sent更新を単一の書き込み呼び出しにまとめる
+       (first-generation-notice-implementation-design.md 3節「書き込みの原子性」準拠)。
+       それ以外(異なる2つのストアが渡された場合、または未実装の場合)は従来通り
+       mark_sent()とincrement()を別々に呼ぶ2ステップのままとする。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -568,6 +607,8 @@ def process_memo_event(
         portal_link_provider=portal_link_provider,
         user_id=event.get("source", {}).get("userId"),
     )
+    should_mark_notice_sent = False
+    notice_user_id = None
     if (
         instance["status"] == "generated"
         and usage_counter is not None
@@ -582,15 +623,33 @@ def process_memo_event(
                     else gym_area_config_store.is_configured(user_id)
                 )
                 reply_text = append_first_generation_notice(reply_text, gym_area_configured)
-                first_generation_notice_store.mark_sent(user_id)
+                should_mark_notice_sent = True
+                notice_user_id = user_id
 
+    notice_marked_atomically = False
     if instance["status"] == "generated" and usage_counter is not None and plan is not None:
         user_id = event.get("source", {}).get("userId")
         if user_id:
-            count = usage_counter.increment(user_id, month or current_month_jst())
+            if (
+                usage_counter is first_generation_notice_store
+                and hasattr(usage_counter, "increment_and_mark_notice")
+            ):
+                # usage_counterとfirst_generation_notice_storeが同一インスタンス(実Firestoreの
+                # 単一ドキュメントに相当)の場合は、notice_sentを更新する必要があるかに関わらず
+                # 常にincrement_and_mark_notice()の単一呼び出しでcount増分を行う
+                # (mark_notice_sent=Falseのときはフラグ更新なしの単なるcount増分として働く)。
+                count = usage_counter.increment_and_mark_notice(
+                    user_id, month or current_month_jst(), mark_notice_sent=should_mark_notice_sent
+                )
+                notice_marked_atomically = should_mark_notice_sent
+            else:
+                count = usage_counter.increment(user_id, month or current_month_jst())
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
+
+    if should_mark_notice_sent and not notice_marked_atomically:
+        first_generation_notice_store.mark_sent(notice_user_id)
 
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
     return MemoProcessResult(

@@ -723,10 +723,30 @@
   テスト5件(InMemoryGymAreaConfigStoreTest 3件・ProcessMemoEventFirstGenerationNoticeTest
   2件)を追加し既存分含め全58件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
   実際の申込フォーム提出フロー・実Firestore接続への配線自体は引き続きオーナー承認待ち。
-- 最終更新: 2026-08-18 16:00 UTC
+- フェーズ75(2026-08-18 19:00 UTC): フェーズ74で残っていた、count増分と
+  `first_generation_notice_sent`更新の単一書き込みでの原子性
+  (first-generation-notice-implementation-design.md 3節)を実装した。`InMemoryUsageCounter`に
+  `has_sent()`/`mark_sent()`(`FirstGenerationNoticeStoreProtocol`互換)と
+  `increment_and_mark_notice(user_id, month, mark_notice_sent)`を新規追加し、
+  `process_memo_event()`は`usage_counter`と`first_generation_notice_store`に**同一インスタンス**
+  (実Firestoreの単一ドキュメントに相当)が渡された場合のみこの原子的経路を使うよう変更した
+  (異なる2つのストアを渡す既存の呼び出し方は従来通り2ステップのまま、後方互換を維持)。
+  `increment()`/`mark_sent()`が単体(原子的経路を介さず)で呼ばれたら失敗するスパイ
+  (`_AtomicOnlyUsageCounter`)を新設し、原子的経路が実際に使われていることをテストで実証した。
+  テスト10件新規追加(InMemoryUsageCounterAtomicNoticeTest 3件・
+  ProcessMemoEventAtomicNoticeWriteTest 3件、既存分の一部見直し含め)、既存分含め全64件パス
+  (schema/validate_test_cases.pyの9件・post_generation_checks/history_export関連も含め全121件パス)。
+  実Firestoreでの単一ドキュメント`update()`呼び出しへの最終反映自体は、実Firestore接続
+  (オーナー承認待ち)後の課題として引き続き残る。`user_profile/{user_id}.gym_area_pairs`を
+  書き込む側(申込フォーム提出フロー自体の実装)も引き続き別課題として残る。
+- 最終更新: 2026-08-18 19:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-18 19:00 UTC: count増分と`first_generation_notice_sent`更新の単一書き込みでの
+  原子性をフェーズ75で実装した。詳細は上記フェーズ75・first-generation-notice-implementation-design.md
+  参照。残るのは実Firestore接続〈オーナー承認待ち〉と、申込フォーム提出フロー自体
+  〈`user_profile.gym_area_pairs`の書き込み側〉の設計のみ)
 - (解消済み 2026-08-18 16:00 UTC: `gym_area_configured`の実データ参照経路
   (`GymAreaConfigStoreProtocol`・`InMemoryGymAreaConfigStore`)をフェーズ74で設計・実装した。
   詳細は上記フェーズ74・first-generation-notice-implementation-design.md 5節参照。残るのは

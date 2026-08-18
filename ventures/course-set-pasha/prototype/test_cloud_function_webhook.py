@@ -593,6 +593,128 @@ class ProcessMemoEventFirstGenerationNoticeTest(unittest.TestCase):
         self.assertIn("残り2回です", result.reply_text)
 
 
+class InMemoryUsageCounterAtomicNoticeTest(unittest.TestCase):
+    """InMemoryUsageCounter.increment_and_mark_notice()単体の検証
+    (first-generation-notice-implementation-design.md 3節「書き込みの原子性」)。"""
+
+    def test_increment_and_mark_notice_true_updates_both(self):
+        counter = InMemoryUsageCounter()
+
+        count = counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True)
+
+        self.assertEqual(count, 1)
+        self.assertTrue(counter.has_sent("u-1"))
+
+    def test_increment_and_mark_notice_false_only_updates_count(self):
+        counter = InMemoryUsageCounter()
+
+        count = counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=False)
+
+        self.assertEqual(count, 1)
+        self.assertFalse(counter.has_sent("u-1"))
+
+    def test_second_call_continues_incrementing_without_reset(self):
+        counter = InMemoryUsageCounter()
+        counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True)
+
+        count = counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True)
+
+        self.assertEqual(count, 2)
+        self.assertTrue(counter.has_sent("u-1"))
+
+
+class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
+    """increment()・mark_sent()が単体(increment_and_mark_notice()を介さず)で呼ばれた回数を
+    記録するスパイ。process_memo_event()が本当にincrement_and_mark_notice()経由の単一書き込み
+    経路を使っていること(2ステップの書き込みに分解されていないこと)を検証するために使う
+    (increment_and_mark_notice()自体の内部実装がincrement()を再利用することは許容する)。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.direct_increment_calls = 0
+        self.direct_mark_sent_calls = 0
+        self.atomic_calls = 0
+        self._in_atomic_call = False
+
+    def increment(self, user_id, month):
+        if not self._in_atomic_call:
+            self.direct_increment_calls += 1
+        return super().increment(user_id, month)
+
+    def mark_sent(self, user_id):
+        if not self._in_atomic_call:
+            self.direct_mark_sent_calls += 1
+        return super().mark_sent(user_id)
+
+    def increment_and_mark_notice(self, user_id, month, mark_notice_sent):
+        self.atomic_calls += 1
+        self._in_atomic_call = True
+        try:
+            return super().increment_and_mark_notice(user_id, month, mark_notice_sent)
+        finally:
+            self._in_atomic_call = False
+
+
+class ProcessMemoEventAtomicNoticeWriteTest(unittest.TestCase):
+    """usage_counterとfirst_generation_notice_storeに同一インスタンスを渡した場合、
+    process_memo_event()がcount増分とnotice_sent更新を単一の書き込み呼び出し
+    (increment_and_mark_notice)にまとめること(first-generation-notice-implementation-design.md
+    3節)の検証。"""
+
+    def test_first_generation_write_uses_atomic_path_when_same_store(self):
+        store = _AtomicOnlyUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=store, first_generation_notice_store=store,
+            plan="ライト", month="2026-08",
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertTrue(store.has_sent("u-1"))
+        self.assertEqual(store.get_count("u-1", "2026-08"), 1)
+        self.assertEqual(store.atomic_calls, 1)
+        self.assertEqual(store.direct_increment_calls, 0)
+        self.assertEqual(store.direct_mark_sent_calls, 0)
+
+    def test_non_first_generation_still_uses_atomic_increment_when_same_store(self):
+        # 初回生成ではない(既にnotice送信済み)場合はmark_notice_sent=Falseで
+        # increment_and_mark_notice()を呼ぶ(増分自体は単一メソッド経由のまま)。
+        store = _AtomicOnlyUsageCounter()
+        store.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=store, first_generation_notice_store=store,
+            plan="ライト", month="2026-08",
+        )
+
+        self.assertNotIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertEqual(store.get_count("u-1", "2026-08"), 2)
+        self.assertEqual(store.direct_increment_calls, 0)
+        self.assertEqual(store.direct_mark_sent_calls, 0)
+
+    def test_different_store_instances_fall_back_to_two_step_write(self):
+        # 従来通り、usage_counterとfirst_generation_notice_storeが別インスタンスの場合は
+        # 2ステップの書き込みのまま(既存のProcessMemoEventFirstGenerationNoticeTestと同種の
+        # 確認。ここでは原子的経路を使っていないことの反証として残す)。
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            plan="ライト", month="2026-08",
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertTrue(notice_store.has_sent("u-1"))
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 1)
+
+
 class SubscriptionProcedureNoticeTest(unittest.TestCase):
     """status=cancellation_intent/downgrade_intent/cancellation_unclearの
     subscription_procedure_notice.body組み立て(PORTAL_LINK_PLACEHOLDERの置換・

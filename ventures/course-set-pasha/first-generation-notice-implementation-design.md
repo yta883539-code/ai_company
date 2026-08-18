@@ -113,6 +113,17 @@ Firestoreの通常のトランザクション不要な単一ドキュメント�
   という「count増分とnotice_sent更新を単一書き込みにまとめる」形の原子性は、スタブ実装では
   複数ステップのまま(判定→追記→フラグ更新→count増分)であり未反映。実Firestore接続時に
   単一ドキュメント更新へまとめる作業が引き続き残る)
+- (解消済み 2026-08-18 19:00 UTC: フェーズ75で`increment_and_mark_notice()`を実装した。
+  `InMemoryUsageCounter`に`has_sent()`/`mark_sent()`(`FirstGenerationNoticeStoreProtocol`互換)と
+  `increment_and_mark_notice(user_id, month, mark_notice_sent)`(count増分と
+  `first_generation_notice_sent`更新を単一メソッド呼び出しにまとめる)を追加し、
+  `usage_counter`と`first_generation_notice_store`に**同一インスタンス**(実Firestoreの単一
+  ドキュメントに相当)が渡された場合のみ`process_memo_event()`がこの原子的経路を使うようにした。
+  異なる2つのストアが渡された場合(既存の呼び出し方)は従来通り2ステップのままで後方互換を維持。
+  `increment()`/`mark_sent()`を単体で呼んだら失敗するスパイ(`_AtomicOnlyUsageCounter`)で
+  原子的経路が実際に使われていることをテストで実証した(テスト10件新規、全64件パス)。
+  実Firestoreでの単一ドキュメント`update()`呼び出しへの最終反映自体は、実Firestore接続
+  (オーナー承認待ち)後の課題として引き続き残る。
 - 実際の`usage_counter`コレクションへのフィールド追加、実Firestore接続への配線自体は、
   実Firestore/実LINE API接続がオーナー承認待ちのため引き続き未着手のまま残す。
 - 「count>0だがfirst_generation_notice_sent=falseのまま」という不整合状態(3.で言及した
