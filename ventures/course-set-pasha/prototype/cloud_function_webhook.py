@@ -127,6 +127,75 @@ class InMemoryUsageCounter:
         return self._counts[key]
 
 
+# ---------------------------------------------------------------------------
+# 解約・ダウングレード案内(subscription-cancellation-flow-design.md、
+# schema/output.schema.jsonのsubscription_procedure_notice、フェーズ54で追加した
+# status=cancellation_intent/downgrade_intent/cancellation_unclearの返信組み立て)
+# ---------------------------------------------------------------------------
+
+# schema/validate_test_cases.py CI1・CI2のbody文言に埋め込まれている、Stripeカスタマー
+# ポータルの実URLへ置き換えるべき箇所を示す目印(LLM出力にはこの文字列がそのまま含まれる)。
+PORTAL_LINK_PLACEHOLDER = "{Stripeカスタマーポータル URL}"
+
+# ポータルURLを取得できなかった場合(provider未接続・API呼び出し失敗)の安全側フォールバック。
+# 壊れたプレースホルダ文字列をそのまま顧客に見せることは避け、問い合わせ導線へ差し替える。
+PORTAL_LINK_UNAVAILABLE_FALLBACK = (
+    "現在、お手続きページの発行に失敗しました。お手数ですが、しばらく経ってから再度"
+    "このメッセージを送信いただくか、店舗まで直接ご連絡ください。"
+)
+
+
+class PortalLinkProvider(Protocol):
+    """Stripe Billing Portalのセッション作成(顧客ごとに都度発行される一時URL)を表す
+    差し替え可能なProtocol。実装時はuser_id(LINEの顧客識別子)からStripe顧客IDを引き、
+    `stripe.billing_portal.Session.create()`相当のAPI呼び出しでURLを取得する想定だが、
+    実Stripe接続はオーナー承認待ちのため本モジュールではProtocol化のみ行う
+    (llm_call・reply_clientと同じ位置づけ)。取得できない場合はNoneを返す契約とする。"""
+
+    def get_portal_url(self, user_id: str) -> Optional[str]:
+        ...
+
+
+class InMemoryPortalLinkProvider:
+    """実Stripe接続の代わりに固定URL(またはNone)を返す検証用スタブ。"""
+
+    def __init__(self, url: Optional[str] = "https://billing.stripe.com/p/session/stub") -> None:
+        self._url = url
+
+    def get_portal_url(self, user_id: str) -> Optional[str]:
+        return self._url
+
+
+def render_subscription_procedure_notice(
+    notice: dict,
+    portal_link_provider: Optional[PortalLinkProvider],
+    user_id: Optional[str],
+) -> str:
+    """status=cancellation_intent/downgrade_intent/cancellation_unclearの
+    subscription_procedure_notice.bodyを実際の返信文へ組み立てる。
+
+    - includes_portal_link=Falseの場合(cancellation_unclear)はbodyをそのまま返す
+      (厳守事項7a(iv)準拠、ポータルリンク・手続き完了前提の文言を含めない)。
+    - includes_portal_link=Trueの場合はPORTAL_LINK_PLACEHOLDERを実URLへ置換する。
+      providerが未接続(None)、またはuser_id不明、またはURL取得自体に失敗した場合は、
+      プレースホルダをそのまま顧客に見せる(壊れたテンプレート文字列の露出)を避けるため、
+      PORTAL_LINK_UNAVAILABLE_FALLBACKへ全文差し替える
+      (api-call-failure-handling.mdの「呼び出し失敗時は安全側の定型文言」と同じ考え方)。
+    """
+    body = notice["body"]
+    if not notice["includes_portal_link"]:
+        return body
+
+    url = None
+    if portal_link_provider is not None and user_id:
+        url = portal_link_provider.get_portal_url(user_id)
+
+    if not url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+
+    return body.replace(PORTAL_LINK_PLACEHOLDER, url)
+
+
 # pricing-plan.md「料金プラン」表準拠
 PLAN_MONTHLY_LIMITS = {"ライト": 8, "スタンダード": 15, "セッター複数": 30}
 PLAN_OVERAGE_UNIT_PRICE_JPY = {"ライト": 150, "スタンダード": 120, "セッター複数": 100}
@@ -199,7 +268,12 @@ def format_generated_reply(instance: dict) -> str:
     return "\n".join(parts)
 
 
-def format_reply_text(instance: dict) -> str:
+def format_reply_text(
+    instance: dict,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_id: Optional[str] = None,
+) -> str:
     status = instance["status"]
     if status == "generated":
         return format_generated_reply(instance)
@@ -207,6 +281,10 @@ def format_reply_text(instance: dict) -> str:
         return instance["out_of_scope_message"]
     if status == "insufficient_input":
         return instance["missing_fields_request"]
+    if status in ("cancellation_intent", "downgrade_intent", "cancellation_unclear"):
+        return render_subscription_procedure_notice(
+            instance["subscription_procedure_notice"], portal_link_provider, user_id
+        )
     raise ValueError(f"unexpected status: {status!r}")
 
 
@@ -330,6 +408,7 @@ def process_memo_event(
     usage_counter: Optional[UsageCounterProtocol] = None,
     plan: Optional[str] = None,
     month: Optional[str] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
 
@@ -345,6 +424,10 @@ def process_memo_event(
        (limit-approaching-notification-design.md)を行う。カウント対象はstatus=="generated"の
        場合のみとし、返信本文組み立て直後(2節の方針通り)にインクリメントする。
        usage_counterがNoneの場合(未接続時)はカウント処理自体をスキップする。
+    5. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
+       portal_link_providerが渡されていればsubscription_procedure_notice.body中の
+       ポータルURLプレースホルダを実URLへ置換する(subscription-cancellation-flow-design.md、
+       render_subscription_procedure_notice参照)。未接続時は安全側フォールバック文言を返す。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -389,7 +472,11 @@ def process_memo_event(
             validation_errors=errors, retried=retried,
         )
 
-    reply_text = format_reply_text(instance)
+    reply_text = format_reply_text(
+        instance,
+        portal_link_provider=portal_link_provider,
+        user_id=event.get("source", {}).get("userId"),
+    )
     if instance["status"] == "generated" and usage_counter is not None and plan is not None:
         user_id = event.get("source", {}).get("userId")
         if user_id:
@@ -429,6 +516,30 @@ def _demo() -> None:
                     },
                 ],
                 "unchanged_areas": [],
+                "subscription_procedure_notice": None,
+            }
+
+    class StubCancellationLlmClient:
+        """schema/validate_test_cases.pyのCI1(cancellation_intent)フィクスチャ相当を返す
+        固定スタブ。ポータルURLプレースホルダの置換動作を確認するためのデモ用。"""
+
+        def generate(self, memo_text: str, has_photo: bool, retry_context: Optional[str] = None) -> dict:
+            return {
+                "status": "cancellation_intent",
+                "out_of_scope_message": None,
+                "missing_fields_request": None,
+                "sns_post": None,
+                "line_web_notice": None,
+                "history_rows": None,
+                "unchanged_areas": [],
+                "subscription_procedure_notice": {
+                    "kind": "cancellation_intent",
+                    "body": (
+                        "解約をご希望とのことで承知しました。下記リンクから"
+                        f"お手続きください。▼ {PORTAL_LINK_PLACEHOLDER}"
+                    ),
+                    "includes_portal_link": True,
+                },
             }
 
     reply_client = InMemoryReplyClient()
@@ -444,6 +555,25 @@ def _demo() -> None:
     image_only_event = {"replyToken": "demo-reply-token-2", "message": {"type": "image"}}
     result2 = process_memo_event(image_only_event, StubLlmClient(), reply_client)
     print(f"\n[image-only event] handled={result2.handled}")
+
+    cancellation_event = {
+        "replyToken": "demo-reply-token-3",
+        "message": {"type": "text", "text": "解約したいです"},
+        "source": {"userId": "demo-user-1"},
+    }
+    result3 = process_memo_event(
+        cancellation_event, StubCancellationLlmClient(), reply_client,
+        portal_link_provider=InMemoryPortalLinkProvider(),
+    )
+    print(f"\n[cancellation, provider接続あり] handled={result3.handled}")
+    print(result3.reply_text)
+
+    result4 = process_memo_event(
+        cancellation_event, StubCancellationLlmClient(), reply_client,
+        portal_link_provider=None,
+    )
+    print(f"\n[cancellation, provider未接続] handled={result4.handled}")
+    print(result4.reply_text)
 
 
 if __name__ == "__main__":

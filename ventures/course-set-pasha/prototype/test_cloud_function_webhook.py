@@ -21,7 +21,10 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     PLAN_MONTHLY_LIMITS,
+    PORTAL_LINK_PLACEHOLDER,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
     LlmApiError,
@@ -421,6 +424,95 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         )
 
         self.assertNotIn("※", result.reply_text)
+
+
+class SubscriptionProcedureNoticeTest(unittest.TestCase):
+    """status=cancellation_intent/downgrade_intent/cancellation_unclearの
+    subscription_procedure_notice.body組み立て(PORTAL_LINK_PLACEHOLDERの置換・
+    未接続時のフォールバック)の検証。CI1〜CI3はschema/validate_test_cases.pyのフィクスチャ。"""
+
+    def test_cancellation_intent_replaces_placeholder_with_portal_url(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"), reply_client,
+            portal_link_provider=InMemoryPortalLinkProvider("https://billing.stripe.com/p/session/abc"),
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, result.reply_text)
+        self.assertIn("https://billing.stripe.com/p/session/abc", result.reply_text)
+
+    def test_downgrade_intent_replaces_placeholder_with_portal_url(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="プランを下げたい", user_id="u-1"),
+            FixtureLlmClient("CI2_downgrade_intent"), reply_client,
+            portal_link_provider=InMemoryPortalLinkProvider("https://billing.stripe.com/p/session/xyz"),
+        )
+
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, result.reply_text)
+        self.assertIn("https://billing.stripe.com/p/session/xyz", result.reply_text)
+
+    def test_cancellation_unclear_has_no_portal_link_even_when_provider_available(self):
+        # includes_portal_link=Falseのケース(厳守事項7a(iv))はプレースホルダ自体を
+        # 含まないため、providerの有無にかかわらず本文をそのまま返す。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="もう辞めようかな", user_id="u-1"),
+            FixtureLlmClient("CI3_cancellation_unclear"), reply_client,
+            portal_link_provider=InMemoryPortalLinkProvider(),
+        )
+
+        self.assertEqual(
+            result.reply_text,
+            TEST_CASES["CI3_cancellation_unclear"]["subscription_procedure_notice"]["body"],
+        )
+
+    def test_cancellation_intent_falls_back_when_provider_not_connected(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"), reply_client,
+            portal_link_provider=None,
+        )
+
+        self.assertEqual(result.reply_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, result.reply_text)
+
+    def test_cancellation_intent_falls_back_when_provider_returns_none(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"), reply_client,
+            portal_link_provider=InMemoryPortalLinkProvider(None),
+        )
+
+        self.assertEqual(result.reply_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_cancellation_intent_falls_back_when_user_id_missing(self):
+        # userIdが取得できないイベント(想定外)は、providerが接続済みでも安全側で
+        # フォールバックする(URLをどの顧客宛に発行してよいか特定できないため)。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="解約したいです"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"), reply_client,
+            portal_link_provider=InMemoryPortalLinkProvider("https://billing.stripe.com/p/session/abc"),
+        )
+
+        self.assertEqual(result.reply_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_cancellation_status_does_not_increment_usage_counter(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            portal_link_provider=InMemoryPortalLinkProvider(),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
 
 
 class MergeTextAndPhotoEventsTest(unittest.TestCase):

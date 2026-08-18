@@ -673,7 +673,26 @@
   Function分割が不要、Firestoreはusage_counter専用の最小構成のみでline-reservation-aiのような
   複合インデックスが不要)を反映して整理した。本ドキュメント作成自体は机上整理のみで、
   実際のGCPプロジェクト作成・課金は一切行っていない(引き続きオーナー承認待ち)。
-- 最終更新: 2026-08-18 05:00 UTC
+- フェーズ72(2026-08-18 09:00 UTC): subscription-cancellation-flow-design.mdの
+  「未検証の仮説・次の課題」に残っていた、schema/output.schema.json(フェーズ54)で
+  定義済みだったstatus=cancellation_intent/downgrade_intent/cancellation_unclearが
+  `prototype/cloud_function_webhook.py`側では未実装(`format_reply_text()`に分岐が無く
+  ValueErrorになる)という実装ギャップに対応した。CI1・CI2のbody文言に含まれる
+  `{Stripeカスタマーポータル URL}`プレースホルダを実URLへ置換する
+  `PortalLinkProvider`Protocol・`InMemoryPortalLinkProvider`スタブ・
+  `render_subscription_procedure_notice()`を新規実装し、`process_memo_event()`に
+  キーワード専用引数`portal_link_provider`を追加して統合した(llm_call・reply_client・
+  usage_counterと同じ「差し替え可能なスタブ」設計方針を踏襲)。provider未接続・
+  provider がNoneを返す・userId不明のいずれの場合も、壊れたプレースホルダ文字列を
+  そのまま顧客に見せないよう`PORTAL_LINK_UNAVAILABLE_FALLBACK`(問い合わせ導線への
+  差し替え)を返す安全側フォールバックとした。あわせて、デモ関数`_demo()`の
+  `StubLlmClient`が`subscription_procedure_notice`フィールド欠落によりスキーマ検証に
+  常時失敗し、生成成功パターンのデモが実際には検証失敗フォールバック文言を表示していた
+  既存の実装漏れも発見・修正した。テスト7件(SubscriptionProcedureNoticeTest)を追加し
+  既存分含め全45件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
+  実際のStripe Billing Portal Session API呼び出しへの接続(providerの実装差し替え)は
+  引き続きオーナー承認待ちの範囲として残る。
+- 最終更新: 2026-08-18 09:00 UTC
 
 ## 次にやること(候補)
 

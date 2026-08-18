@@ -124,11 +124,26 @@ Firestoreの`usage_counter`、ユーザー1人=1ドキュメントで`month`・`
 
 ## 未検証の仮説・次の課題
 
-- 「解約」インテントの検知は、llm-system-prompt-draft.mdの既存インテント一覧
-  (課題入力・履歴確認・料金確認等)に新規インテントとして追加が必要。誤検知
-  (雑談中の「もう辞めようかな」等)を「解約」と誤判定しないための境界設計は
-  faq-escalation-boundary.mdの考え方(問い合わせのエスカレーション境界)を参考に
-  改めて検討する必要がある。
+- (解消済み 2026-08-15 08:00 UTC・フェーズ54: 「解約」インテントの検知は
+  llm-system-prompt-draft.mdの厳守事項7aとして新設し、誤検知境界(7a(iii)、雑談の域を
+  出ない表現は解約意図として扱わない)を整理した。schema/output.schema.jsonの`status`
+  enumへcancellation_intent/downgrade_intent/cancellation_unclearを追加し、
+  schema/validate_test_cases.pyにCI1〜CI3として期待出力を明文化済み。詳細は
+  llm-system-prompt-draft.md 2026-08-15追記部分参照)
+- (解消済み 2026-08-18 09:00 UTC: 上記CI1・CI2のbody文言に含まれる
+  `{Stripeカスタマーポータル URL}`プレースホルダは、これまでformat_reply_text()側の
+  実装が無くstatus=cancellation_intent/downgrade_intent/cancellation_unclearを渡すと
+  ValueErrorになる状態だった。`prototype/cloud_function_webhook.py`に
+  `PortalLinkProvider`Protocol(llm_call・reply_client・usage_counterと同じ「差し替え
+  可能なスタブ」の設計方針)と`render_subscription_procedure_notice()`を新規実装し、
+  プレースホルダを実URLへ置換する処理を追加した。providerが未接続、providerがNoneを
+  返す、またはuser_id不明の場合は、壊れたプレースホルダ文字列をそのまま顧客に見せることを
+  避けるため`PORTAL_LINK_UNAVAILABLE_FALLBACK`(問い合わせ導線への差し替え)を返す設計と
+  した(api-call-failure-handling.mdの「呼び出し失敗時は安全側の定型文言」と同じ考え方)。
+  cancellation_unclear(includes_portal_link=False)はプレースホルダを含まないため
+  bodyをそのまま返す。テスト7件(SubscriptionProcedureNoticeTest)を追加し、
+  既存分含め全45件パスを確認。実際のStripe Billing Portal Session API呼び出しへの
+  接続(providerの実装差し替え)は引き続きオーナー承認待ちの範囲として残る)
 - 上記「ダウングレード時の当月生成回数上限の適用方法」はWebSearchで得た公開ドキュメント
   の要約に基づく判断であり、WebFetchのegressプロキシ制約により一次情報(Stripe API
   リファレンスの`subscription_proration_behavior`パラメータの詳細挙動等)への直接
