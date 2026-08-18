@@ -44,6 +44,17 @@ from validate_test_cases import (  # noqa: E402
 # LLM呼び出し・返信送信のProtocol(実クライアントとスタブ版の共通インターフェース)
 # ---------------------------------------------------------------------------
 
+class LlmApiError(Exception):
+    """llm_call.generate()自体が失敗した(タイムアウト・5xx・429・ネットワーク断等)ことを
+    表す例外。応答は得られたが中身(JSON)が不正な場合(validate_llm_outputのエラー)とは
+    別層のエラーとして区別する(api-call-failure-handling.md方針1)。実クライアント側は
+    この例外を送出する契約とする。"""
+
+
+class ReplyApiError(Exception):
+    """reply_client.reply()自体が失敗したことを表す例外(api-call-failure-handling.md方針2)。"""
+
+
 class LlmCallClient(Protocol):
     def generate(self, memo_text: str, retry_context: Optional[str] = None) -> dict:
         """schema/output.schema.jsonに準拠した構造化出力(dict)を返す想定。
@@ -52,12 +63,14 @@ class LlmCallClient(Protocol):
         何が不正だったか(検証エラーの概要)を実LLM接続後にプロンプトへ添える想定
         (course-set-pasha/line-reservation-aiのjson-output-retry-fallback.mdの
         「同一入力で1回だけ再生成」方針に準拠)。
+        呼び出し自体が失敗した場合はLlmApiErrorを送出する契約とする。
         """
         ...
 
 
 class ReplyClient(Protocol):
     def reply(self, reply_token: str, message_text: str) -> None:
+        """呼び出し自体が失敗した場合はReplyApiErrorを送出する契約とする。"""
         ...
 
 
@@ -144,6 +157,10 @@ VALIDATION_FAILURE_FALLBACK_MESSAGE = (
     "内容の確認中に問題が発生しました。お手数ですが、もう一度メモを送り直してください。"
 )
 
+API_FAILURE_FALLBACK_MESSAGE = (
+    "只今混み合っております。少し時間をおいて同じ内容をもう一度送ってください。"
+)
+
 
 def format_history_row_text(history_row: dict) -> str:
     """history_row(単一オブジェクト)を表1行分の読みやすいテキストに整形する。
@@ -215,11 +232,45 @@ class MemoProcessResult:
     reply_text: Optional[str]
     validation_errors: list = field(default_factory=list)
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
+    api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
     """再生成プロンプトに添える検証エラーの短い概要(実LLM接続後に使用)。"""
     return "; ".join(errors[:3])
+
+
+def _generate_with_api_retry(
+    llm_call: LlmCallClient,
+    memo_text: str,
+    retry_context: Optional[str] = None,
+) -> dict:
+    """LLM API呼び出し自体の失敗(LlmApiError)に対し、即時1回のみリトライする
+    (api-call-failure-handling.md方針1)。Cloud Tasks等の非同期再試行基盤を持たない
+    同期処理のため、待機を挟まず即時1回に限定する。2回とも失敗した場合はLlmApiErrorを
+    そのまま呼び出し元へ伝播させる。"""
+    try:
+        return llm_call.generate(memo_text, retry_context=retry_context)
+    except LlmApiError:
+        return llm_call.generate(memo_text, retry_context=retry_context)
+
+
+def _reply_with_retry(reply_client: ReplyClient, reply_token: str, message_text: str) -> bool:
+    """Reply API呼び出し自体の失敗(ReplyApiError)に対し、即時1回のみリトライする
+    (api-call-failure-handling.md方針2)。reply_tokenは1回限り有効なため、2回とも
+    失敗した場合はPush API等の代替送達手段を持たず(tech-stack.mdの方針)、これ以上は
+    何もできない。呼び出し元がreply_sent=Falseとして結果を扱えるようboolを返す
+    (例外は外へ伝播させない)。"""
+    try:
+        reply_client.reply(reply_token, message_text)
+        return True
+    except ReplyApiError:
+        pass
+    try:
+        reply_client.reply(reply_token, message_text)
+        return True
+    except ReplyApiError:
+        return False
 
 
 def process_memo_event(
@@ -252,20 +303,39 @@ def process_memo_event(
     reply_token = event["replyToken"]
     memo_text = message["text"]
 
-    instance = llm_call.generate(memo_text)
+    try:
+        instance = _generate_with_api_retry(llm_call, memo_text)
+    except LlmApiError:
+        reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None, api_failure=True,
+        )
+
     errors = validate_llm_output(instance)
     retried = False
 
     if errors:
         retried = True
-        instance = llm_call.generate(memo_text, retry_context=_summarize_errors_for_retry(errors))
+        try:
+            instance = _generate_with_api_retry(
+                llm_call, memo_text, retry_context=_summarize_errors_for_retry(errors)
+            )
+        except LlmApiError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+                retried=retried, api_failure=True,
+            )
         errors = validate_llm_output(instance)
 
     if errors:
-        reply_client.reply(reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         return MemoProcessResult(
-            handled=True, reply_sent=True,
-            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE, validation_errors=errors, retried=retried,
+            handled=True, reply_sent=reply_sent,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            validation_errors=errors, retried=retried,
         )
 
     reply_text = format_reply_text(instance)
@@ -277,8 +347,10 @@ def process_memo_event(
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
 
-    reply_client.reply(reply_token, reply_text)
-    return MemoProcessResult(handled=True, reply_sent=True, reply_text=reply_text, retried=retried)
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
+    )
 
 
 def _demo() -> None:

@@ -727,7 +727,20 @@
   確認する必要がある点を追記した。本ドキュメント作成自体はアカウント作成・課金を伴わない
   机上整理であり、承認前に着手してよい範囲内の作業として実施(手順の実行自体は引き続き
   pending-approval.md記載のオーナー承認待ち)。
-- 最終更新: 2026-08-18 12:00 UTC
+- フェーズ83(2026-08-18 15:00 UTC): course-set-pashaのapi-call-failure-handling.md
+  相当のドキュメントが本ventureには未作成だった点を解消した。course-set-pashaと同様
+  「単方向バッチ処理・Reply APIのみ・Cloud Tasksなし」という前提が一致するため、方針を
+  そのまま踏襲しつつ本venture固有の差異(`generate()`に`has_photo`引数を持たない簡略版)を
+  反映した設計ドキュメント(api-call-failure-handling.md)を作成し、
+  `LlmApiError`/`ReplyApiError`例外・`_generate_with_api_retry()`/`_reply_with_retry()`
+  (即時1回のみリトライ)・`API_FAILURE_FALLBACK_MESSAGE`・`MemoProcessResult.api_failure`を
+  `prototype/cloud_function_webhook.py`に実装した。`FlakyOnceLlmClient`/
+  `AlwaysFailingLlmClient`/`FlakyOnceReplyClient`/`AlwaysFailingReplyClient`スタブを
+  `prototype/test_cloud_function_webhook.py`に追加し、LLM API/Reply API呼び出し失敗時の
+  リトライ成功・2回とも失敗時のフォールバックの4パターンをテストで確認した(テスト4件追加、
+  全45件パス)。実LLM/実LINE API接続後の一次情報確認・レイテンシ実測は引き続き未検証事項
+  (詳細は同ドキュメント「未検証・要検討事項」参照)。
+- 最終更新: 2026-08-18 15:00 UTC
 
 ## 次にやること(候補)
 
