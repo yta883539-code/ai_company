@@ -739,10 +739,30 @@
   実Firestoreでの単一ドキュメント`update()`呼び出しへの最終反映自体は、実Firestore接続
   (オーナー承認待ち)後の課題として引き続き残る。`user_profile/{user_id}.gym_area_pairs`を
   書き込む側(申込フォーム提出フロー自体の実装)も引き続き別課題として残る。
-- 最終更新: 2026-08-18 19:00 UTC
+- フェーズ76(2026-08-18 20:00 UTC): フェーズ75で残っていた、`user_profile/{user_id}.gym_area_pairs`
+  の書き込み側(申込フォーム提出フロー自体)を`application-form-submission-flow-design.md`として
+  設計した。フォームツールはGoogleフォーム+Google Apps Script(GAS)Webhookを第一候補とし
+  (無料・追加の有料SaaS契約不要、LP実装着手時にLP自前フォームへの切替を再検討する二段階移行)、
+  GAS Webhookペイロードの想定形・正規化ルール(前後空白除去、カンマ区切り各要素の空白除去、
+  `,,,`等の実質空入力を空文字列へ落とし込む安全側処理)・書き込み先(`user_profile`ドキュメントの
+  `gym_area_pairs`フィールドへの全体上書き、追記ではない)を整理した。`prototype/`に新規モジュール
+  `application_form_submission_flow.py`(`UserProfileStoreProtocol`・`InMemoryUserProfileStore`・
+  `normalize_gym_area_pairs_raw()`・`handle_form_submission()`)を実装し、既存の
+  `GymAreaConfigStoreProtocol`(cloud_function_webhook.py、読み取り専用)への依存を増やさず
+  独立したモジュールとした。`InMemoryUserProfileStore`は`is_configured()`も同時に提供し、
+  実Firestore接続後は単一の`FirestoreUserProfileStore`が両Protocolを満たす設計を見越した
+  作りとした。テスト16件新規追加(`test_application_form_submission_flow.py`)、既存分含め
+  prototype配下で全137件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
+  Googleフォーム自体の作成・GAS配置の実設定はオーナー承認待ちとして残る。
+- 最終更新: 2026-08-18 20:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-18 20:00 UTC: 申込フォーム提出フロー自体〈`user_profile.gym_area_pairs`の
+  書き込み側〉をフェーズ76・application-form-submission-flow-design.mdで設計・
+  prototype/application_form_submission_flow.pyとして実装した。残るのはGoogleフォーム・GAS
+  Webhookの実設定〈オーナー承認待ち〉、実Firestore接続〈オーナー承認待ち〉、LINE友だち追加時の
+  user_id事前紐付け経路の未設計〈フォーム側user_id手入力運用の是非〉のみ)
 - (解消済み 2026-08-18 19:00 UTC: count増分と`first_generation_notice_sent`更新の単一書き込みでの
   原子性をフェーズ75で実装した。詳細は上記フェーズ75・first-generation-notice-implementation-design.md
   参照。残るのは実Firestore接続〈オーナー承認待ち〉と、申込フォーム提出フロー自体

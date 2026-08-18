@@ -32,3 +32,8 @@ venture: ventures/line-reservation-ai/
 venture: ventures/course-set-pasha/
 内容: customer-interview-design.md で設計した想定顧客ヒアリング(個人経営ボルダリングジムオーナー・複合ジムオーナー・複数ジム掛け持ちセッター、candidate-longlist-draft.mdで有力候補と確定した候補1 FRICTION FREAKS等)について、initial-contact-message-draft.mdで草案した文面を使い、実在のジム・セッターへのInstagram DM・メール・電話等での連絡・依頼を実施したい。
 理由: 料金プラン(pricing-plan.md)や告知文生成ルール(llm-system-prompt-draft.md)の妥当性を実顧客の声で検証するために必要だが、外部への連絡・送信はオーナー許可が必要なアクションのため、対象候補リスト・連絡文面(初回コンタクト依頼文面草案)の確定を含めオーナーの直接指示を待つ。line-reservation-aiの同種案件(2026-07-30 01:58 UTC、承認済み)と同じ実行可能範囲の想定: (1)WebSearchでの候補リストアップ・記録は実施済み、(2)連絡文面ドラフトの作成も本日実施済み、(3)Instagram DM・電話での実連絡はオーナー自身が行う、メール送信はGmail連携接続後に送信直前の毎回確認を経てのみ行う、という運用を承認いただけるかの確認。
+
+日時: 2026-08-18 20:00 UTC
+venture: ventures/course-set-pasha/
+内容: application-form-submission-flow-design.md(フェーズ76)で設計した申込フォーム提出フローについて、実際のGoogleフォームの作成・Google Apps Script(GAS)Webhookの設定・デプロイを行いたい。
+理由: 設計・prototype/application_form_submission_flow.pyでのロジック検証(正規化・書き込み処理、テスト16件)までは机上・コード上で完結できたが、Googleフォームの作成自体はGoogleアカウントでの外部サービス設定操作(「外部サービスへの公開」に類する行為)であり、オーナーの許可が必要なアクションに該当する。承認が得られれば、フォーム項目(ジム名・地域名欄)の作成、GAS Webhookスクリプトの実装・デプロイ、Cloud FunctionsエンドポイントへのPOST接続確認から着手する。
