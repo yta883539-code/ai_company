@@ -128,6 +128,56 @@ class InMemoryUsageCounter:
 
 
 # ---------------------------------------------------------------------------
+# 初回生成確認案内(onboarding-settings-and-self-check-design.md、
+# first-generation-notice-implementation-design.mdで設計した「そのユーザーにとって生涯で
+# 最初の生成成功時のみ1回だけ末尾に付記する」確認案内の実装)
+# ---------------------------------------------------------------------------
+
+FIRST_GENERATION_NOTICE_BODY = (
+    "【ご確認のお願い】これが最初の生成です。ジム名・地域名の表示やハッシュタグが意図通りか、"
+    "この機会にご確認ください。設定を直したい場合は申込内容の変更フォームからどうぞ。"
+    "問題がなければ今後この案内はありません。"
+)
+FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX = (
+    "ジム名・地域名が未設定です。ハッシュタグ精度を上げたい場合は設定をご検討ください。"
+)
+
+
+class FirstGenerationNoticeStoreProtocol(Protocol):
+    """usage_counterのmonthly count(月次でリセットされる)とは独立したライフサイクルを持つ、
+    「生涯で最初の確認案内を送信済みか」を保持するProtocol
+    (first-generation-notice-implementation-design.md 1節参照)。"""
+
+    def has_sent(self, user_id: str) -> bool:
+        ...
+
+    def mark_sent(self, user_id: str) -> None:
+        ...
+
+
+class InMemoryFirstGenerationNoticeStore:
+    """実Firestore接続の代わりにsetで送信済みユーザーを保持する検証用スタブ。"""
+
+    def __init__(self) -> None:
+        self._sent: set[str] = set()
+
+    def has_sent(self, user_id: str) -> bool:
+        return user_id in self._sent
+
+    def mark_sent(self, user_id: str) -> None:
+        self._sent.add(user_id)
+
+
+def append_first_generation_notice(reply_text: str, gym_area_configured: bool) -> str:
+    """確認案内本文を返信の末尾に追記する。ジム名・地域名が未設定の場合は追加の一文も付記する
+    (onboarding-settings-and-self-check-design.md「確認案内の文面案」準拠)。"""
+    notice = FIRST_GENERATION_NOTICE_BODY
+    if not gym_area_configured:
+        notice = f"{notice}\n{FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX}"
+    return f"{reply_text}\n\n{notice}"
+
+
+# ---------------------------------------------------------------------------
 # 解約・ダウングレード案内(subscription-cancellation-flow-design.md、
 # schema/output.schema.jsonのsubscription_procedure_notice、フェーズ54で追加した
 # status=cancellation_intent/downgrade_intent/cancellation_unclearの返信組み立て)
@@ -409,6 +459,8 @@ def process_memo_event(
     plan: Optional[str] = None,
     month: Optional[str] = None,
     portal_link_provider: Optional[PortalLinkProvider] = None,
+    first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
+    gym_area_configured: bool = True,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
 
@@ -428,6 +480,11 @@ def process_memo_event(
        portal_link_providerが渡されていればsubscription_procedure_notice.body中の
        ポータルURLプレースホルダを実URLへ置換する(subscription-cancellation-flow-design.md、
        render_subscription_procedure_notice参照)。未接続時は安全側フォールバック文言を返す。
+    6. usage_counter・first_generation_notice_storeが渡された場合のみ、そのユーザーにとって
+       最初の生成成功時(status=="generated"かつusage_counterのカウントが増分前0)に限り、
+       確認案内を返信の末尾に1回だけ付記する(onboarding-settings-and-self-check-design.md、
+       first-generation-notice-implementation-design.md参照)。increment前のカウントで
+       判定するため、この判定は5.のカウント増分ブロックより前に行う必要がある。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -477,6 +534,18 @@ def process_memo_event(
         portal_link_provider=portal_link_provider,
         user_id=event.get("source", {}).get("userId"),
     )
+    if (
+        instance["status"] == "generated"
+        and usage_counter is not None
+        and first_generation_notice_store is not None
+    ):
+        user_id = event.get("source", {}).get("userId")
+        if user_id:
+            is_first_generation = usage_counter.get_count(user_id, month or current_month_jst()) == 0
+            if is_first_generation and not first_generation_notice_store.has_sent(user_id):
+                reply_text = append_first_generation_notice(reply_text, gym_area_configured)
+                first_generation_notice_store.mark_sent(user_id)
+
     if instance["status"] == "generated" and usage_counter is not None and plan is not None:
         user_id = event.get("source", {}).get("userId")
         if user_id:

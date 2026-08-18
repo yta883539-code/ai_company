@@ -82,9 +82,18 @@ Firestoreの通常のトランザクション不要な単一ドキュメント�
 
 ## 残課題
 
-- 実際の`usage_counter`コレクションへのフィールド追加、`increment_and_mark_notice()`の
-  実装・実Firestore接続への配線は、実Firestore/実LINE API接続自体がオーナー承認待ちのため
-  引き続き未着手のまま残す(設計・疑似コードまでは完了)。
+- (解消済み 2026-08-18 13:00 UTC: `prototype/cloud_function_webhook.py`フェーズ73で
+  「差し替え可能なスタブ」方式のコード実装(`FirstGenerationNoticeStoreProtocol`・
+  `InMemoryFirstGenerationNoticeStore`・`append_first_generation_notice()`・
+  `process_memo_event()`への統合)を行った。ただし本節が求める`increment_and_mark_notice()`
+  という「count増分とnotice_sent更新を単一書き込みにまとめる」形の原子性は、スタブ実装では
+  複数ステップのまま(判定→追記→フラグ更新→count増分)であり未反映。実Firestore接続時に
+  単一ドキュメント更新へまとめる作業が引き続き残る)
+- 実際の`usage_counter`コレクションへのフィールド追加、実Firestore接続への配線自体は、
+  実Firestore/実LINE API接続がオーナー承認待ちのため引き続き未着手のまま残す。
 - 「count>0だがfirst_generation_notice_sent=falseのまま」という不整合状態(3.で言及した
   安全側フォールバックの対象)が実運用でどの程度発生しうるかは、実Firestore接続後の
   実測データを待って再確認する。
+- `gym_area_configured`(ジム名・地域名設定有無)の実データ参照経路(ユーザー設定ストア)は
+  未設計のため、コード実装では呼び出し側が明示的に渡す前提の引数とした。設定ストアの設計は
+  別途の課題として残る。

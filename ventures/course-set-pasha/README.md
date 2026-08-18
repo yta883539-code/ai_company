@@ -692,10 +692,32 @@
   既存分含め全45件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
   実際のStripe Billing Portal Session API呼び出しへの接続(providerの実装差し替え)は
   引き続きオーナー承認待ちの範囲として残る。
-- 最終更新: 2026-08-18 09:00 UTC
+- フェーズ73(2026-08-18 13:00 UTC): first-generation-notice-implementation-design.md
+  (フェーズ61〜63で設計のみ・実装は残課題としていた「そのユーザーにとって生涯で最初の
+  生成成功時のみ1回だけ確認案内を付記する」機能)を、フェーズ72までと同じ「差し替え可能な
+  スタブ」方針で`prototype/cloud_function_webhook.py`に実装した。`FirstGenerationNoticeStoreProtocol`
+  (`has_sent`/`mark_sent`)・検証用スタブ`InMemoryFirstGenerationNoticeStore`・確認案内本文を
+  組み立てる`append_first_generation_notice()`を新規追加し、`process_memo_event()`に
+  キーワード専用引数`first_generation_notice_store`/`gym_area_configured`(既定値True)を
+  追加して統合した。判定は既存の`usage_counter.get_count()`(月間カウント)がincrement前に
+  0かどうかで行い、`first_generation_notice_store`側の送信済みフラグと組み合わせて二重送信を
+  防ぐ設計とした(design 2節の疑似コード準拠)。ただし設計3節が求める「count増分と
+  notice_sent更新の単一書き込みでの原子性」は、本スタブ実装ではcount取得(判定用)→
+  確認案内追記→フラグ更新→(plan指定時のみ)count増分、という複数ステップのままであり、
+  実Firestore接続時に単一ドキュメント更新へまとめる作業は引き続き未着手として残る
+  (現状はいずれもインメモリスタブのため実運用上の不整合リスクはない)。テスト8件
+  (AppendFirstGenerationNoticeTest 2件・ProcessMemoEventFirstGenerationNoticeTest 6件)を
+  追加し既存分含め全53件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
+  `gym_area_configured`は本来ユーザーごとの申込内容(ジム名・地域名設定有無)から
+  決まる値だが、その永続化・参照経路(user設定ストア)自体は未設計のため、当面は
+  呼び出し側が明示的に渡す前提の引数として残した(実Firestore接続後の課題)。
+- 最終更新: 2026-08-18 13:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-18 13:00 UTC: `first_generation_notice_sent`の実装ギャップを
+  フェーズ73で解消した。詳細は上記フェーズ73参照。残るのは実Firestore接続〈オーナー承認待ち〉、
+  単一書き込みでの原子性の実装反映、`gym_area_configured`の実データ参照経路の設計のみ)
 - (解消済み 2026-08-18 02:00 UTC: 月間生成回数カウント・上限接近通知のコード実装を
   フェーズ70で行った。詳細は上記フェーズ70参照。残るのは実Firestore接続〈オーナー承認待ち〉と、
   接続後のセッター複数プランの実際の一斉更新パターンの実測のみ)

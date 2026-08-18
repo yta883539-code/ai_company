@@ -24,11 +24,15 @@ from cloud_function_webhook import (  # noqa: E402
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX,
+    FIRST_GENERATION_NOTICE_BODY,
+    InMemoryFirstGenerationNoticeStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
     LlmApiError,
     ReplyApiError,
+    append_first_generation_notice,
     build_usage_notice,
     format_reply_text,
     merge_text_and_photo_events,
@@ -424,6 +428,111 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         )
 
         self.assertNotIn("※", result.reply_text)
+
+
+class AppendFirstGenerationNoticeTest(unittest.TestCase):
+    def test_appends_body_only_when_area_configured(self):
+        result = append_first_generation_notice("本文", gym_area_configured=True)
+
+        self.assertEqual(result, f"本文\n\n{FIRST_GENERATION_NOTICE_BODY}")
+
+    def test_appends_area_unconfigured_suffix_when_not_configured(self):
+        result = append_first_generation_notice("本文", gym_area_configured=False)
+
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result)
+        self.assertIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result)
+
+
+class ProcessMemoEventFirstGenerationNoticeTest(unittest.TestCase):
+    """process_memo_event()への初回生成確認案内の統合
+    (first-generation-notice-implementation-design.md 2節)の検証。"""
+
+    def test_first_generation_appends_notice(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertTrue(notice_store.has_sent("u-1"))
+
+    def test_second_generation_does_not_repeat_notice(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+        )
+        second_result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+        )
+
+        self.assertNotIn(FIRST_GENERATION_NOTICE_BODY, second_result.reply_text)
+
+    def test_out_of_scope_reply_does_not_trigger_notice(self):
+        # 確認案内は生成成功時(status=="generated")のみが対象(6節)。
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="会員になりたい", user_id="u-1"), FixtureLlmClient("OOS1_membership_question"),
+            reply_client, usage_counter=usage_counter, first_generation_notice_store=notice_store,
+        )
+
+        self.assertNotIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertFalse(notice_store.has_sent("u-1"))
+
+    def test_area_unconfigured_appends_extra_sentence(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            gym_area_configured=False,
+        )
+
+        self.assertIn(FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX, result.reply_text)
+
+    def test_no_notice_when_store_not_provided(self):
+        # first_generation_notice_store未指定(実接続前)の呼び出しは従来通りスキップする。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter,
+        )
+
+        self.assertNotIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+
+    def test_combines_with_usage_counter_notice_in_single_reply(self):
+        # first_generation_notice_storeとplan(月間カウント)の両方を渡した場合、
+        # 確認案内(1回目)と上限接近通知が同じ返信に共存しうる。
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(5):
+            usage_counter.increment("u-1", "2026-08")
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            plan="ライト", month="2026-08",
+        )
+
+        # increment前のcount(5)が0でないため、確認案内は付記されない(初回生成の定義通り)。
+        self.assertNotIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
+        self.assertIn("残り2回です", result.reply_text)
 
 
 class SubscriptionProcedureNoticeTest(unittest.TestCase):
