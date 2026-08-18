@@ -91,7 +91,33 @@ def compute_dunning_schedule(detected_at: datetime, config: DunningConfig) -> li
     return events
 
 
-_MESSAGE_DETECTED = """【予約とれる君】お支払いの確認をお願いします
+# message-tone-variants.mdの3トーン(formal/standard/casual)出し分けを適用する。
+# 送信先は店舗オーナー自身(オーナー用トークルーム)だが、billing-upgrade-flow-design.md・
+# dormant-mode-renotification-design.mdの前例(オーナー向け状態通知にも店舗設定の
+# message_toneを適用する方針)を踏襲した。engine.pyのMESSAGE_TONES/_render_by_tone()と
+# 同じ考え方だが、本モジュールはengine.pyに依存しない設計(reminder_scheduler.py同様)の
+# ためローカルに複製する。
+MESSAGE_TONES = ("formal", "standard", "casual")
+
+
+def _render_by_tone(tone: str, variants: dict) -> str:
+    """未知のtone値はstandardにフォールバックする(engine.py側と同じ安全側の挙動)。"""
+    return variants.get(tone, variants["standard"])
+
+
+_MESSAGE_DETECTED = {
+    "formal": """【予約とれる君】お支払いの確認をお願いいたします
+
+いつも大変お世話になっております。
+今回のお支払い手続きが完了いたしませんでした
+(カードの有効期限切れ・利用限度額等が考えられます)。
+
+現在、サービスは通常通りご利用いただけます。
+{猶予日数}日以内にお支払い方法のご確認・更新をいただけますよう、お願い申し上げます。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+    "standard": """【予約とれる君】お支払いの確認をお願いします
 
 いつもご利用ありがとうございます。
 今回のお支払い手続きが完了できませんでした
@@ -101,30 +127,89 @@ _MESSAGE_DETECTED = """【予約とれる君】お支払いの確認をお願い
 {猶予日数}日以内にお支払い方法をご確認・更新いただけますようお願いします。
 
 ▼ お支払い方法を確認する
-{決済ページURL}"""
+{決済ページURL}""",
+    "casual": """【予約とれる君】お支払いの確認をお願いします🙏
 
-_MESSAGE_REMINDER_FINAL = """【予約とれる君】お支払い確認のお願い(再送)
+いつもありがとうございます!
+今回のお支払い手続きが完了できませんでした
+(カードの有効期限切れ・利用限度額等が考えられます)。
+
+現在、サービスはいつも通り使えます。
+{猶予日数}日以内にお支払い方法の確認・更新をお願いします。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+}
+
+_MESSAGE_REMINDER_FINAL = {
+    "formal": """【予約とれる君】お支払い確認のお願い(再送)
+
+お支払い手続きが未完了のままとなっております。
+このままですと{リマインド送付日数前}日後に新規のご予約受付を一時停止いたしますので、
+何卒お早めのご確認をお願い申し上げます
+(すでに確定済みのご予約・前日リマインドには影響ございません)。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+    "standard": """【予約とれる君】お支払い確認のお願い(再送)
 
 お支払い手続きが未完了のままです。
 このままですと{リマインド送付日数前}日後に新規のご予約受付を一時停止いたします
 (すでに確定済みのご予約・前日リマインドには影響しません)。
 
 ▼ お支払い方法を確認する
-{決済ページURL}"""
+{決済ページURL}""",
+    "casual": """【予約とれる君】お支払い確認のお願い(再送)🙏
+
+お支払い手続きがまだ完了していません。
+このままだと{リマインド送付日数前}日後に新規のご予約受付を一時停止しちゃいます
+(すでに確定済みのご予約・前日リマインドには影響ないので安心してください!)。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+}
 
 # 6.2節: 14日構成のみで送る中間地点の状況確認(payment-failure-dunning-design.mdに
 # 文面自体はまだ無かったため、4節の他文言・tone-and-manner-guideline.mdの標準トーンに
 # 合わせて本モジュールで新規に書き下した)。
-_MESSAGE_REMINDER_MIDPOINT = """【予約とれる君】お支払い確認の状況をご案内します
+_MESSAGE_REMINDER_MIDPOINT = {
+    "formal": """【予約とれる君】お支払い確認の状況をご案内いたします
+
+お支払い手続きがまだ完了していないようでございます。
+検知から{経過日数}日が経過いたしました。猶予期間は残り{残り日数}日でございます。
+お手数をおかけいたしますが、お支払い方法のご確認・更新をお願い申し上げます。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+    "standard": """【予約とれる君】お支払い確認の状況をご案内します
 
 お支払い手続きがまだ完了していないようです。
 検知から{経過日数}日が経過しました。猶予期間は残り{残り日数}日です。
 お手数ですが、お支払い方法のご確認・更新をお願いします。
 
 ▼ お支払い方法を確認する
-{決済ページURL}"""
+{決済ページURL}""",
+    "casual": """【予約とれる君】お支払い確認の状況をお知らせします
 
-_MESSAGE_SUSPENDED = """【予約とれる君】新規予約受付を一時停止しました
+お支払い手続きがまだ完了していないみたいです。
+検知から{経過日数}日経過、猶予期間は残り{残り日数}日です!
+お手数ですが、お支払い方法の確認・更新をお願いします🙏
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+}
+
+_MESSAGE_SUSPENDED = {
+    "formal": """【予約とれる君】新規予約受付を一時停止いたしました
+
+お支払い手続きが確認できなかったため、新規のご予約受付を停止いたしました。
+すでに確定済みのご予約と前日リマインドは、引き続き通常通り対応いたします。
+
+お支払い方法をご確認いただけましたら、確認完了後に新規受付を自動で再開いたします。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+    "standard": """【予約とれる君】新規予約受付を一時停止しました
 
 お支払い手続きが確認できないため、新規のご予約受付を停止しました。
 すでに確定済みのご予約と前日リマインドは引き続き通常通り対応します。
@@ -132,40 +217,64 @@ _MESSAGE_SUSPENDED = """【予約とれる君】新規予約受付を一時停�
 お支払い方法をご確認いただければ、確認完了後に自動で新規受付を再開します。
 
 ▼ お支払い方法を確認する
-{決済ページURL}"""
+{決済ページURL}""",
+    "casual": """【予約とれる君】新規予約受付を一時停止しました
 
-_MESSAGE_RECOVERED = """【予約とれる君】お支払いを確認しました
+お支払い手続きが確認できなかったので、新規のご予約受付を停止しました。
+すでに確定済みのご予約と前日リマインドは、いつも通り対応します!
+
+お支払い方法を確認してもらえれば、確認できたタイミングで新規受付を自動で再開します。
+
+▼ お支払い方法を確認する
+{決済ページURL}""",
+}
+
+_MESSAGE_RECOVERED = {
+    "formal": """【予約とれる君】お支払いを確認いたしました
+
+お支払い手続きが完了いたしました。ご不便をおかけし、誠に申し訳ございませんでした。
+新規のご予約受付を再開いたしましたので、今後ともよろしくお願い申し上げます。""",
+    "standard": """【予約とれる君】お支払いを確認しました
 
 お支払い手続きが完了しました。ご不便をおかけしました。
-新規のご予約受付を再開しましたので、引き続きよろしくお願いします。"""
+新規のご予約受付を再開しましたので、引き続きよろしくお願いします。""",
+    "casual": """【予約とれる君】お支払いを確認しました🙌
+
+お支払い手続きが完了しました。ご不便かけてすみませんでした。
+新規のご予約受付を再開したので、引き続きよろしくお願いします!""",
+}
 
 
 def render_dunning_message(
-    event: DunningEvent, config: DunningConfig, payment_page_url: str
+    event: DunningEvent, config: DunningConfig, payment_page_url: str, tone: str = "standard"
 ) -> str:
     """DunningEventと選択済みconfig(A/B)から、4節の文言テンプレートを埋めて返す。
+    toneはmessage-tone-variants.md準拠(formal/standard/casual、既定standard、
+    店舗のmessage_tone設定をそのまま渡す想定)。未知の値はstandardにフォールバックする。
     決済成功による復旧通知(event_type対象外)はrender_recovery_message()を使う。
     """
     if event.event_type == "detected":
-        return _MESSAGE_DETECTED.format(
-            猶予日数=config.grace_period_days, 決済ページURL=payment_page_url
-        )
+        template = _render_by_tone(tone, _MESSAGE_DETECTED)
+        return template.format(猶予日数=config.grace_period_days, 決済ページURL=payment_page_url)
     if event.event_type == "reminder" and event.label == "final":
         days_before_end = config.grace_period_days - config.reminder_offsets[-1]
-        return _MESSAGE_REMINDER_FINAL.format(
-            リマインド送付日数前=days_before_end, 決済ページURL=payment_page_url
-        )
+        template = _render_by_tone(tone, _MESSAGE_REMINDER_FINAL)
+        return template.format(リマインド送付日数前=days_before_end, 決済ページURL=payment_page_url)
     if event.event_type == "reminder" and event.label == "midpoint":
         elapsed_days = config.reminder_offsets[0]
         remaining_days = config.grace_period_days - elapsed_days
-        return _MESSAGE_REMINDER_MIDPOINT.format(
+        template = _render_by_tone(tone, _MESSAGE_REMINDER_MIDPOINT)
+        return template.format(
             経過日数=elapsed_days, 残り日数=remaining_days, 決済ページURL=payment_page_url
         )
     if event.event_type == "suspended":
-        return _MESSAGE_SUSPENDED.format(決済ページURL=payment_page_url)
+        template = _render_by_tone(tone, _MESSAGE_SUSPENDED)
+        return template.format(決済ページURL=payment_page_url)
     raise ValueError(f"unknown event: {event.event_type}/{event.label}")
 
 
-def render_recovery_message() -> str:
-    """4節末尾: 決済成功による復旧時の文言。config(A/B)に依存しないため引数なし。"""
-    return _MESSAGE_RECOVERED
+def render_recovery_message(tone: str = "standard") -> str:
+    """4節末尾: 決済成功による復旧時の文言。config(A/B)には依存しないが、toneは他の
+    render_dunning_message()と同様にmessage-tone-variants.md準拠で受け取る。
+    """
+    return _render_by_tone(tone, _MESSAGE_RECOVERED)

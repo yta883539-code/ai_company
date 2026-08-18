@@ -1270,6 +1270,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   双方で揃った状態になった。コード変更は伴わないためテスト件数に変化なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが
+  4節冒頭で「message-tone-variants.md準拠」としていたにもかかわらず、フェーズ続き112の
+  実装(`prototype/dunning_notification_scheduler.py`)はstandardトーンの文言のみで
+  フォーマル/カジュアル変換が未反映のまま残っていた点をREADME点検で発見・解消した。
+  5文言全てにformal/casual版を新規作成し、`render_dunning_message()`/
+  `render_recovery_message()`に`tone`引数(既定standard、未知の値はフォールバック)を
+  追加した。billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdの
+  前例に倣い、送信先がオーナー自身の状態通知であってもトーン出し分けの対象とする方針を
+  踏襲した。テスト5件追加、全232件パス。詳細はpayment-failure-dunning-design.md
+  2026-08-18追記参照)
 - (解消済み 2026-08-17 16:00 UTC・フェーズ続き111: payment-failure-dunning-design.mdの
   残課題だった、二択(a)7日維持/(b)14日延長のどちらが選ばれても実装着手時にすぐ対応できる
   よう、猶予日数・リマインド回数・タイミングをパラメータ化する設計を6節として新規追加した。

@@ -218,3 +218,19 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
 リマインド〈(b)14日構成のみ〉の文言は本ドキュメントに無かったため、実装時に新規で
 書き下した(標準トーン、経過日数・残り日数を明示)。実際のWebhook受信・Firestore
 書き込み・LINE送信配線、および決済代行サービスとの契約自体は引き続きオーナー承認待ち。)
+
+(解消済み 2026-08-18 01:00 UTC: 4節冒頭に「message-tone-variants.md準拠」と書いていた
+にもかかわらず、実装時(上記フェーズ続き112)はstandardトーンの文言のみをハードコードして
+おり、`render_dunning_message()`にtone引数が無くフォーマル/カジュアル変換が未反映のまま
+残っていた点をREADME点検で発見した。`prototype/dunning_notification_scheduler.py`の
+5文言(検知時・終了直前リマインド・中間地点リマインド・制限モード移行時・復旧時)全てに
+formal/casual版を新規に書き下し、message-tone-variants.mdの変換規則表(語尾の丁寧度・
+絵文字1個まで・感嘆符1つまで)に沿って作成した。billing-upgrade-flow-design.md・
+dormant-mode-renotification-design.mdの前例(オーナー用トークルームの状態通知にも店舗設定の
+message_toneを適用する方針)を踏襲し、送信先がオーナー自身であってもトーン出し分けの対象と
+した。`render_dunning_message()`/`render_recovery_message()`に`tone`引数(既定"standard"、
+未知の値はstandardへフォールバック)を追加し、engine.pyの`_render_by_tone()`と同じ考え方の
+ディスパッチャを本モジュール内にローカル実装した(engine.pyには依存しない設計を維持)。
+テスト5件を新規追加し、フォーマル/カジュアルの絵文字・感嘆符上限、実質情報〈猶予日数・URL〉が
+トーンで変化しないこと、未知トーンのフォールバックを検証した(全18件パス)。実際のWebhook
+受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は引き続きオーナー承認待ち。)

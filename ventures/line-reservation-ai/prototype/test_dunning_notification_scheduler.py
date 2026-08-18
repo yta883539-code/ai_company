@@ -110,5 +110,55 @@ class RenderDunningMessageTests(unittest.TestCase):
         self.assertIn("お支払いを確認しました", text)
 
 
+class ToneVariantTests(unittest.TestCase):
+    """message-tone-variants.md準拠のトーン出し分け(formal/standard/casual)の検証。"""
+
+    URL = "https://example.com/billing"
+
+    def _events(self, config):
+        return compute_dunning_schedule(datetime(2026, 8, 17, 10, 0), config)
+
+    def test_unknown_tone_falls_back_to_standard(self):
+        event = self._events(DUNNING_CONFIG_A_7DAYS)[0]
+        standard_text = render_dunning_message(event, DUNNING_CONFIG_A_7DAYS, self.URL, tone="standard")
+        unknown_text = render_dunning_message(event, DUNNING_CONFIG_A_7DAYS, self.URL, tone="polite")
+        self.assertEqual(standard_text, unknown_text)
+
+    def test_formal_tone_has_no_emoji_and_no_exclamation(self):
+        emoji_chars = ("🙏", "🙌")
+        for event in self._events(DUNNING_CONFIG_B_14DAYS):
+            text = render_dunning_message(event, DUNNING_CONFIG_B_14DAYS, self.URL, tone="formal")
+            self.assertNotIn("!", text)
+            self.assertFalse(any(e in text for e in emoji_chars))
+        formal_recovery = render_recovery_message(tone="formal")
+        self.assertNotIn("!", formal_recovery)
+        self.assertFalse(any(e in formal_recovery for e in emoji_chars))
+
+    def test_casual_tone_has_at_most_one_emoji_and_one_exclamation_per_message(self):
+        emoji_chars = ("🙏", "🙌")
+        for event in self._events(DUNNING_CONFIG_B_14DAYS):
+            text = render_dunning_message(event, DUNNING_CONFIG_B_14DAYS, self.URL, tone="casual")
+            self.assertLessEqual(text.count("!"), 1)
+            self.assertLessEqual(sum(text.count(e) for e in emoji_chars), 1)
+        casual_recovery = render_recovery_message(tone="casual")
+        self.assertLessEqual(casual_recovery.count("!"), 1)
+
+    def test_tone_does_not_change_variable_content(self):
+        # 猶予日数・URL等の実質情報はトーンに関わらず同じでなければならない(message-tone-variants.md
+        # 「3トーン共通で変えてはいけないもの」)。
+        event = self._events(DUNNING_CONFIG_B_14DAYS)[0]
+        for tone in ("formal", "standard", "casual"):
+            text = render_dunning_message(event, DUNNING_CONFIG_B_14DAYS, self.URL, tone=tone)
+            self.assertIn("14日以内にお支払い方法", text)
+            self.assertIn(self.URL, text)
+
+    def test_default_tone_is_standard(self):
+        event = self._events(DUNNING_CONFIG_A_7DAYS)[0]
+        default_text = render_dunning_message(event, DUNNING_CONFIG_A_7DAYS, self.URL)
+        standard_text = render_dunning_message(event, DUNNING_CONFIG_A_7DAYS, self.URL, tone="standard")
+        self.assertEqual(default_text, standard_text)
+        self.assertEqual(render_recovery_message(), render_recovery_message(tone="standard"))
+
+
 if __name__ == "__main__":
     unittest.main()
