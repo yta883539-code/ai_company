@@ -665,7 +665,15 @@
   `usage_counter`/`plan`/`month`を追加して統合した(status=="generated"時のみカウント、
   未接続時・userId不明時は従来通りスキップする後方互換設計)。境界値テスト10件を追加し
   既存分含め全95件パス。実Firestore接続は引き続きオーナー承認待ち(pending-approval.md参照)。
-- 最終更新: 2026-08-18 02:00 UTC
+- フェーズ71(2026-08-18 05:00 UTC): line-reservation-aiには存在するがcourse-set-pashaには
+  未着手だったデプロイ手順書(deployment-runbook.md)を新規作成した。GCPプロジェクト作成〜
+  Firestore(usage_counter専用)有効化〜Cloud Functionsデプロイ〜LINE公式アカウント開設〜
+  結合テストの手順を、line-reservation-aiのdeployment-runbook.mdを踏襲しつつ本venture固有の
+  差分(会話状態を持たない単発リクエスト/レスポンス型のためCloud Tasksへの非同期化・複数
+  Function分割が不要、Firestoreはusage_counter専用の最小構成のみでline-reservation-aiのような
+  複合インデックスが不要)を反映して整理した。本ドキュメント作成自体は机上整理のみで、
+  実際のGCPプロジェクト作成・課金は一切行っていない(引き続きオーナー承認待ち)。
+- 最終更新: 2026-08-18 05:00 UTC
 
 ## 次にやること(候補)
 
