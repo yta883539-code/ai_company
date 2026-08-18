@@ -98,6 +98,72 @@ class InMemoryReplyClient:
 
 
 # ---------------------------------------------------------------------------
+# 月間生成回数カウント・上限接近通知
+# (limit-approaching-notification-design.md 5節、
+#  notification-threshold-per-plan-review.md 4節で設計した「プラン→閾値」マッピングの実装)
+# ---------------------------------------------------------------------------
+
+class UsageCounterProtocol(Protocol):
+    def get_count(self, user_id: str, month: str) -> int:
+        ...
+
+    def increment(self, user_id: str, month: str) -> int:
+        """インクリメント後のカウント値を返す契約とする。"""
+        ...
+
+
+class InMemoryUsageCounter:
+    """実Firestore接続の代わりにdictでカウントを保持する検証用スタブ。"""
+
+    def __init__(self) -> None:
+        self._counts: dict[tuple[str, str], int] = {}
+
+    def get_count(self, user_id: str, month: str) -> int:
+        return self._counts.get((user_id, month), 0)
+
+    def increment(self, user_id: str, month: str) -> int:
+        key = (user_id, month)
+        self._counts[key] = self._counts.get(key, 0) + 1
+        return self._counts[key]
+
+
+# pricing-plan.md「料金プラン」表準拠
+PLAN_MONTHLY_LIMITS = {"ライト": 8, "スタンダード": 15, "セッター複数": 30}
+PLAN_OVERAGE_UNIT_PRICE_JPY = {"ライト": 150, "スタンダード": 120, "セッター複数": 100}
+# notification-threshold-per-plan-review.md 4節: 実測データが取れるまでは全プラン
+# 「残り2回」を維持(案B暫定採用)しつつ、単一定数ではなく「プラン→閾値」マッピングとして
+# 外だしし、セッター複数プランのみ引き上げ(案A)が必要になった場合も設定値変更のみで
+# 対応できるようにする。
+PLAN_NOTICE_THRESHOLDS = {"ライト": 2, "スタンダード": 2, "セッター複数": 2}
+
+
+def current_month_jst() -> str:
+    """JST基準の暦月をYYYY-MM形式で返す(limit-approaching-notification-design.md 2節、
+    月の区切りはJST基準の暦月とする方針に準拠)。"""
+    from datetime import datetime, timedelta, timezone
+
+    return datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m")
+
+
+def build_usage_notice(plan: str, count_after_increment: int) -> Optional[str]:
+    """limit-approaching-notification-design.md 3〜4節の通知文言を、該当条件のときのみ返す
+    (残り2回に達した生成完了時、または上限を超えた生成完了時)。それ以外はNoneを返す。
+    """
+    limit = PLAN_MONTHLY_LIMITS[plan]
+    threshold = PLAN_NOTICE_THRESHOLDS[plan]
+    unit_price = PLAN_OVERAGE_UNIT_PRICE_JPY[plan]
+
+    if count_after_increment > limit:
+        return f"※今月の無料生成回数の上限を超えたため、本回は追加料金{unit_price}円が発生します"
+    if limit - count_after_increment == threshold:
+        return (
+            f"※今月の生成回数は残り{threshold}回です"
+            f"(上限到達後は1回あたり{unit_price}円の追加料金がかかります)"
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 返信本文の組み立て(status別)
 # ---------------------------------------------------------------------------
 
@@ -260,6 +326,10 @@ def process_memo_event(
     event: dict,
     llm_call: LlmCallClient,
     reply_client: ReplyClient,
+    *,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
 
@@ -271,6 +341,10 @@ def process_memo_event(
     3. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
        (json-output-retry-fallback.mdの「同一入力で1回だけ」方針をline-reservation-aiと
        同じ形で採用。再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す)。
+    4. usage_counter・planが渡された場合のみ、月間生成回数カウント・上限接近通知
+       (limit-approaching-notification-design.md)を行う。カウント対象はstatus=="generated"の
+       場合のみとし、返信本文組み立て直後(2節の方針通り)にインクリメントする。
+       usage_counterがNoneの場合(未接続時)はカウント処理自体をスキップする。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -316,6 +390,14 @@ def process_memo_event(
         )
 
     reply_text = format_reply_text(instance)
+    if instance["status"] == "generated" and usage_counter is not None and plan is not None:
+        user_id = event.get("source", {}).get("userId")
+        if user_id:
+            count = usage_counter.increment(user_id, month or current_month_jst())
+            notice = build_usage_notice(plan, count)
+            if notice:
+                reply_text = f"{reply_text}\n\n{notice}"
+
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried

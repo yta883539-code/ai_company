@@ -656,10 +656,22 @@
   までは全プラン「残り2回」を維持しつつ、`usage_counter`実装時に「プラン→閾値」マッピング
   として外だし設計しておき、将来セッター複数プランのみ引き上げが必要と判明した場合も設定
   変更のみで対応できる方針とした。
-- 最終更新: 2026-08-17 22:00 UTC
+- フェーズ70(2026-08-18 02:00 UTC): フェーズ69の暫定方針に沿って、月間生成回数カウント・
+  上限接近通知(limit-approaching-notification-design.md 5節)を`prototype/cloud_function_webhook.py`
+  に実装した。`UsageCounterProtocol`(`get_count`/`increment`)と検証用スタブ
+  `InMemoryUsageCounter`、`PLAN_MONTHLY_LIMITS`/`PLAN_OVERAGE_UNIT_PRICE_JPY`/
+  `PLAN_NOTICE_THRESHOLDS`という「プラン→値」マッピング3種、通知文言を組み立てる
+  `build_usage_notice()`を新規追加し、`process_memo_event()`にキーワード専用引数
+  `usage_counter`/`plan`/`month`を追加して統合した(status=="generated"時のみカウント、
+  未接続時・userId不明時は従来通りスキップする後方互換設計)。境界値テスト10件を追加し
+  既存分含め全95件パス。実Firestore接続は引き続きオーナー承認待ち(pending-approval.md参照)。
+- 最終更新: 2026-08-18 02:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-18 02:00 UTC: 月間生成回数カウント・上限接近通知のコード実装を
+  フェーズ70で行った。詳細は上記フェーズ70参照。残るのは実Firestore接続〈オーナー承認待ち〉と、
+  接続後のセッター複数プランの実際の一斉更新パターンの実測のみ)
 - (解消(暫定方針決定) 2026-08-17 22:00 UTC: 「残り2回」通知閾値のプラン間固定可否を
   フェーズ69・notification-threshold-per-plan-review.mdで検討した。詳細は上記フェーズ69参照。
   残るのはセッター複数プランの実際の一斉更新パターンの実測〈実LLM接続後の課題、オーナー

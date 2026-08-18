@@ -110,6 +110,18 @@ tech-stack.md「全体構成イメージ」の「永続データストアは不�
   として外だし設計しておき、実運用データ次第でセッター複数プランのみ引き上げ(案A)に
   設定変更のみで切り替えられるようにする方針とした。詳細はnotification-threshold-per-plan-
   review.md参照)
+- (解消済み 2026-08-18 02:00 UTC: 5節の実装方針に沿って、`prototype/cloud_function_webhook.py`
+  に`UsageCounterProtocol`(`get_count`/`increment`の2メソッド)・検証用スタブ
+  `InMemoryUsageCounter`・`PLAN_MONTHLY_LIMITS`/`PLAN_OVERAGE_UNIT_PRICE_JPY`/
+  `PLAN_NOTICE_THRESHOLDS`(いずれもプラン→値のマッピング)・通知文言を組み立てる
+  `build_usage_notice()`を実装した。`process_memo_event()`はキーワード専用引数
+  `usage_counter`/`plan`/`month`を追加で受け取り、status=="generated"かつ
+  `usage_counter`が渡された場合のみ返信文組み立て直後にインクリメント・通知判定を行う
+  (未接続時・event中にsource.userIdが無い場合は従来通りカウント処理をスキップする後方
+  互換設計)。境界値(残り2回到達・残り1回では通知しない・上限到達時は通知しない・上限超過時は
+  通知する)とプランごとの上限・単価の反映をテスト10件で確認し、既存分含め全95件パス
+  (`python3 -m unittest discover`)。実Firestore接続(プロジェクト作成・課金設定)は引き続き
+  pending-approval.md記載のオーナー承認待ち)
 - 決済代行サービス側の都度課金対応可否確認(pricing-plan.md未確定事項)が完了した段階で、
   4節の「追加料金[単価]円」の具体的な請求タイミング(即時課金か翌月合算請求か)を通知文言に
   反映する。
