@@ -1280,6 +1280,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   配下計244件、本リポジトリ全体で387件パス。決済成功による復旧通知は別経路(Webhookの
   payment_succeeded直接トリガー)想定のため本配線のスコープ外のまま。詳細は
   payment-failure-dunning-design.md 6.3節2026-08-18追記参照。
+- フェーズ(続き115、2026-08-18 17:00 UTC): フェーズ(続き114)がスコープ外として残していた
+  「決済成功による復旧通知(Webhookの`payment_succeeded`を直接トリガーとする経路)」を
+  `prototype/cloud_function_payment_webhook.py`として新規実装した。実装にあたり、
+  payment-failure-dunning-design.md 4節末尾の送信条件「`suspension_reason`が`payment_failed`の
+  場合のみ」に穴があることが判明した。この条件だと猶予期間中(検知通知は届いているがまだ制限
+  モードに入っていない)に決済が成功したケースで通知が一切送られず、オーナーは自分の対応が
+  反映されたか分からないまま放置される。一方で既存の復旧文言を流用すると「新規のご予約受付を
+  再開しました」となり、実際には一度も止まっていない受付が止まっていたかのような誤解を与える。
+  そのため猶予期間中専用の文言(`render_payment_confirmed_in_grace_message()`、
+  formal/standard/casualの3トーン)を新設し、決済成功時の分岐を`classify_payment_succeeded()`で
+  4分類(制限モードからの復旧/猶予期間中の完了通知/通知なしの状態リセット/dunning対象外)に
+  整理した。状態リセットは送信成功後に行い、送信失敗時は状態を変更せず`send_failed`を返すことで
+  呼び出し側が5xxを返しWebhookリトライに委ねられる設計とし、Webhook再送時はリセット済みの状態から
+  `no_dunning`分岐に落ちることで二重送信しない冪等性を状態そのものから担保した。
+  `suspension_reason`の解除は値が`payment_failed`のときのみとし、`trial_unselected`起因の
+  休止モードを決済成功で誤って解除しないようにした。テスト14件新規作成+既存トーン検証テストの
+  更新、line-reservation-ai配下計259件・本リポジトリ全体で419件パス。詳細は
+  payment-failure-dunning-design.md 4節・末尾2026-08-18 17:00 UTC追記参照。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

@@ -14,6 +14,7 @@ from dunning_notification_scheduler import (
     DunningConfig,
     compute_dunning_schedule,
     render_dunning_message,
+    render_payment_confirmed_in_grace_message,
     render_recovery_message,
 )
 
@@ -109,6 +110,12 @@ class RenderDunningMessageTests(unittest.TestCase):
         self.assertNotIn("{", text)
         self.assertIn("お支払いを確認しました", text)
 
+    def test_in_grace_message_confirms_payment_without_claiming_resumption(self):
+        text = render_payment_confirmed_in_grace_message()
+        self.assertNotIn("{", text)
+        self.assertIn("お支払いを確認しました", text)
+        self.assertNotIn("再開", text)
+
 
 class ToneVariantTests(unittest.TestCase):
     """message-tone-variants.md準拠のトーン出し分け(formal/standard/casual)の検証。"""
@@ -130,9 +137,12 @@ class ToneVariantTests(unittest.TestCase):
             text = render_dunning_message(event, DUNNING_CONFIG_B_14DAYS, self.URL, tone="formal")
             self.assertNotIn("!", text)
             self.assertFalse(any(e in text for e in emoji_chars))
-        formal_recovery = render_recovery_message(tone="formal")
-        self.assertNotIn("!", formal_recovery)
-        self.assertFalse(any(e in formal_recovery for e in emoji_chars))
+        for formal_text in (
+            render_recovery_message(tone="formal"),
+            render_payment_confirmed_in_grace_message(tone="formal"),
+        ):
+            self.assertNotIn("!", formal_text)
+            self.assertFalse(any(e in formal_text for e in emoji_chars))
 
     def test_casual_tone_has_at_most_one_emoji_and_one_exclamation_per_message(self):
         emoji_chars = ("🙏", "🙌")
@@ -140,8 +150,12 @@ class ToneVariantTests(unittest.TestCase):
             text = render_dunning_message(event, DUNNING_CONFIG_B_14DAYS, self.URL, tone="casual")
             self.assertLessEqual(text.count("!"), 1)
             self.assertLessEqual(sum(text.count(e) for e in emoji_chars), 1)
-        casual_recovery = render_recovery_message(tone="casual")
-        self.assertLessEqual(casual_recovery.count("!"), 1)
+        for casual_text in (
+            render_recovery_message(tone="casual"),
+            render_payment_confirmed_in_grace_message(tone="casual"),
+        ):
+            self.assertLessEqual(casual_text.count("!"), 1)
+            self.assertLessEqual(sum(casual_text.count(e) for e in emoji_chars), 1)
 
     def test_tone_does_not_change_variable_content(self):
         # 猶予日数・URL等の実質情報はトーンに関わらず同じでなければならない(message-tone-variants.md
@@ -158,6 +172,10 @@ class ToneVariantTests(unittest.TestCase):
         standard_text = render_dunning_message(event, DUNNING_CONFIG_A_7DAYS, self.URL, tone="standard")
         self.assertEqual(default_text, standard_text)
         self.assertEqual(render_recovery_message(), render_recovery_message(tone="standard"))
+        self.assertEqual(
+            render_payment_confirmed_in_grace_message(),
+            render_payment_confirmed_in_grace_message(tone="standard"),
+        )
 
 
 if __name__ == "__main__":

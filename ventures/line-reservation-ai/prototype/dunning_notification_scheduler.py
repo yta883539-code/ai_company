@@ -244,6 +244,24 @@ _MESSAGE_RECOVERED = {
 新規のご予約受付を再開したので、引き続きよろしくお願いします!""",
 }
 
+# 猶予期間中(制限モードに入る前)に決済が成功した場合の文言。_MESSAGE_RECOVEREDと違い
+# 予約受付は一度も止まっていないため、「再開しました」とは書けない(書くと止まっていた
+# という誤解を与える)。検知時通知を受け取ったオーナーに完了を伝えることだけが目的。
+_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE = {
+    "formal": """【予約とれる君】お支払いを確認いたしました
+
+お支払い手続きが完了いたしました。お手数をおかけし、誠に申し訳ございませんでした。
+ご予約の受付はこれまでどおり継続しております。今後ともよろしくお願い申し上げます。""",
+    "standard": """【予約とれる君】お支払いを確認しました
+
+お支払い手続きが完了しました。お手数をおかけしました。
+ご予約の受付はこれまでどおり続いています。引き続きよろしくお願いします。""",
+    "casual": """【予約とれる君】お支払いを確認しました🙌
+
+お支払い手続きが完了しました。お手数かけてすみませんでした。
+ご予約の受付はこれまでどおり続いています。引き続きよろしくお願いします!""",
+}
+
 
 def render_dunning_message(
     event: DunningEvent, config: DunningConfig, payment_page_url: str, tone: str = "standard"
@@ -274,7 +292,17 @@ def render_dunning_message(
 
 
 def render_recovery_message(tone: str = "standard") -> str:
-    """4節末尾: 決済成功による復旧時の文言。config(A/B)には依存しないが、toneは他の
-    render_dunning_message()と同様にmessage-tone-variants.md準拠で受け取る。
+    """4節末尾: 制限モード(suspension_reason="payment_failed")からの復旧時の文言。
+    config(A/B)には依存しないが、toneは他のrender_dunning_message()と同様に
+    message-tone-variants.md準拠で受け取る。
+    まだ制限モードに入っていない猶予期間中の決済成功には
+    render_payment_confirmed_in_grace_message()を使う。
     """
     return _render_by_tone(tone, _MESSAGE_RECOVERED)
+
+
+def render_payment_confirmed_in_grace_message(tone: str = "standard") -> str:
+    """猶予期間中(制限モード移行前)に決済が成功した場合の文言。
+    予約受付が止まっていない状態のため「再開しました」とは書かない。
+    """
+    return _render_by_tone(tone, _MESSAGE_PAYMENT_CONFIRMED_IN_GRACE)

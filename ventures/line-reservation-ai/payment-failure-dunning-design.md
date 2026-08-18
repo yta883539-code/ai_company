@@ -137,6 +137,26 @@ billing-upgrade-flow-design.md・dormant-mode-renotification-design.mdは、い�
   トリガーとし、`suspension_reason`が`payment_failed`の場合のみ送る
   (`trial_unselected`起因の休止モード解除とは別文言のため、既存の休止モード解除通知
   〈billing-upgrade-flow-design.mdでは未定義、こちらも次のステップ候補に記載〉と混同しない)。
+  - (2026-08-18 17:00 UTC・フェーズ続き115で修正)上の「`payment_failed`の場合のみ」だけでは、
+    猶予期間中(検知通知は届いているがまだ制限モードに入っていない)に決済が成功したケースで
+    通知が一切送られず、検知通知を受け取ったオーナーが解決したか分からないまま放置される。
+    かといって上の復旧文言をそのまま流用すると「新規のご予約受付を再開しました」となり、
+    実際には一度も止まっていない受付が止まっていたかのような誤解を与える。そのため猶予期間中
+    専用の文言(下記)を新設し、決済成功時の分岐を3通りに整理した。
+    1. `suspension_reason == "payment_failed"` → 上の復旧文言(受付再開を伝える)
+    2. 猶予期間中かつdunning通知を1通以上送信済み → 猶予期間中用の完了通知(下記)
+    3. 猶予期間中だがdunning通知は未送信 → オーナーは決済失敗自体を知らないため通知しない
+       (状態のリセットのみ)
+    dunning中でない店舗の`payment_succeeded`(毎月の正常な課金成功)も通知しない。
+
+### 猶予期間中(制限モード移行前)の決済成功時
+
+```
+【予約とれる君】お支払いを確認しました
+
+お支払い手続きが完了しました。お手数をおかけしました。
+ご予約の受付はこれまでどおり続いています。引き続きよろしくお願いします。
+```
 
 ## 5. 残課題・未検証の仮説
 
@@ -251,3 +271,28 @@ dunningイベントは検知→中間地点→終了直前→制限モード移�
 `payment_succeeded`イベントを直接トリガーとする別経路(Cloud Function A/B相当)を想定して
 おり本配線のスコープ外のまま。実際のCloud Scheduler設定・決済代行サービスとの契約・LINE
 Push Message API接続は引き続きオーナー承認待ち。)
+
+(解消済み 2026-08-18 17:00 UTC・フェーズ続き115: フェーズ続き114でスコープ外として残して
+いた「決済成功による復旧通知(Webhookの`payment_succeeded`を直接トリガーとする経路)」を
+`prototype/cloud_function_payment_webhook.py`として新規実装した。実装にあたり4節末尾の
+送信条件「`suspension_reason`が`payment_failed`の場合のみ」に穴があることが判明した。
+この条件だと猶予期間中(検知通知は届いているがまだ制限モードに入っていない)に決済が成功した
+ケースで通知が一切送られず、オーナーは自分の対応が反映されたか分からないまま放置される。
+一方で既存の復旧文言をそのまま流用すると「新規のご予約受付を再開しました」となり、実際には
+一度も止まっていない受付が止まっていたかのような誤解を与える。そのため猶予期間中専用の文言
+`_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`(formal/standard/casualの3トーン、
+`render_payment_confirmed_in_grace_message()`)を新設し、決済成功時の分岐を
+`classify_payment_succeeded()`で4分類(制限モードからの復旧/猶予期間中の完了通知/
+通知なしの状態リセット/dunning対象外)に整理した(4節に反映済み)。
+状態リセット(`payment_failure_detected_at`のクリア・`sent_event_keys`の初期化・
+`suspension_reason`の解除)は送信成功後に行い、送信失敗時は状態を一切変更せずに
+`send_failed`を返すことで、呼び出し側が5xxを返して決済代行サービスのWebhookリトライに
+委ねられる設計とした。またWebhook再送時は状態リセット済みのため`no_dunning`分岐に落ち、
+復旧通知が二重に届かない冪等性が状態そのものから自然に担保される。
+`suspension_reason`の解除は値が`payment_failed`のときのみとし、`trial_unselected`等の
+別要因による休止モード(dormant-mode-renotification-design.md)を決済成功で誤って解除し
+本来止めるべき受付を再開させてしまうことを防いだ。`prototype/test_cloud_function_payment_webhook.py`
+を新規作成しテスト14件、既存のトーン検証テストにも猶予期間中文言を追加して3件更新・1件追加、
+line-reservation-ai配下計259件・本リポジトリ全体で419件パス。決済代行サービスとの契約・
+実際のWebhookエンドポイント公開・Firestore書き込み・LINE Push Message API接続は
+引き続きオーナー承認待ち。)
