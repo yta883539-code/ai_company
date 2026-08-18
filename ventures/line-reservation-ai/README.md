@@ -1268,6 +1268,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_MESSAGE_REMINDER_MIDPOINT`と一致する文面を記載、追記日時と経緯の注記も添えた。これにより
   4節の通知文言5種(検知時・中間地点・終了直前・制限モード移行・復旧)がコードと設計ドキュメントの
   双方で揃った状態になった。コード変更は伴わないためテスト件数に変化なし。
+- フェーズ(続き114、2026-08-18 10:00 UTC): dunning_notification_scheduler.py(予定表算出・
+  文言整形)とLinePushClient(実送信)をつなぐ「Cloud Function D: send_dunning_notifications」の
+  配線ロジックを、cloud_function_send_reminders.py(Cloud Function C)と同じ設計方針で
+  `prototype/cloud_function_send_dunning_notifications.py`として新規実装した。店舗ごとの
+  dunning進行状態(`StoreDunningState`)から未送信・予定時刻超過のイベントのみを抽出し
+  (`select_due_dunning_events()`)、送信・冪等性記録・`suspension_reason`の"payment_failed"
+  への遷移を行う(`send_dunning_notifications()`)。同一店舗内のイベントは検知→中間地点→
+  終了直前→制限モード移行の時系列順の依存があるため、送信失敗時はその店舗のそれ以降の
+  イベントを次回起動に持ち越す設計とした。テスト12件新規作成・全件パス、line-reservation-ai
+  配下計244件、本リポジトリ全体で387件パス。決済成功による復旧通知は別経路(Webhookの
+  payment_succeeded直接トリガー)想定のため本配線のスコープ外のまま。詳細は
+  payment-failure-dunning-design.md 6.3節2026-08-18追記参照。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

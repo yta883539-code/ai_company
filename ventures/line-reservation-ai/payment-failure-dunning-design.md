@@ -234,3 +234,20 @@ message_toneを適用する方針)を踏襲し、送信先がオーナー自身�
 テスト5件を新規追加し、フォーマル/カジュアルの絵文字・感嘆符上限、実質情報〈猶予日数・URL〉が
 トーンで変化しないこと、未知トーンのフォールバックを検証した(全18件パス)。実際のWebhook
 受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は引き続きオーナー承認待ち。)
+
+(解消済み 2026-08-18 10:00 UTC・フェーズ続き114: `dunning_notification_scheduler.py`
+(予定表算出・文言整形)と実送信(LinePushClient)をつなぐ「Cloud Function D:
+send_dunning_notifications」の配線ロジックを、`prototype/cloud_function_send_reminders.py`
+(Cloud Function C)と同じ設計方針で`prototype/cloud_function_send_dunning_notifications.py`
+として新規実装した。`StoreDunningState`(店舗ごとのdunning進行状態)・
+`select_due_dunning_events()`(未送信かつ予定時刻を過ぎたイベントの抽出)・
+`send_dunning_notifications()`(送信・冪等性記録・`suspension_reason`の"payment_failed"への
+遷移)を実装。reminder_scheduler.pyの各予約は互いに独立という前提と異なり、同一店舗内の
+dunningイベントは検知→中間地点→終了直前→制限モード移行の時系列順の依存があるため、送信
+失敗時はその店舗のそれ以降のイベント送信を打ち切り次回起動に持ち越す設計とした(冪等性キー
+`sent_event_keys`は送信成功時のみ記録)。`prototype/test_cloud_function_send_dunning_notifications.py`
+を新規作成しテスト12件全件パス、line-reservation-ai配下計244件・他venture含む本リポジトリ
+全体で387件パス。決済成功による復旧通知(`render_recovery_message()`)はWebhookの
+`payment_succeeded`イベントを直接トリガーとする別経路(Cloud Function A/B相当)を想定して
+おり本配線のスコープ外のまま。実際のCloud Scheduler設定・決済代行サービスとの契約・LINE
+Push Message API接続は引き続きオーナー承認待ち。)
