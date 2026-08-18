@@ -72,6 +72,71 @@ class InMemoryReplyClient:
 
 
 # ---------------------------------------------------------------------------
+# 月間生成回数カウント・上限接近通知
+# (limit-approaching-notification-design.md 2〜5節の実装。course-set-pashaの
+#  UsageCounterProtocol/InMemoryUsageCounter/build_usage_noticeと同じ構成だが、
+#  本ventureは3プランとも閾値「残り5回」で固定〈設計2節〉のため、
+#  course-set-pashaのPLAN_NOTICE_THRESHOLDSに相当するプラン別マッピングは持たない。)
+# ---------------------------------------------------------------------------
+
+class UsageCounterProtocol(Protocol):
+    def get_count(self, user_id: str, month: str) -> int:
+        ...
+
+    def increment(self, user_id: str, month: str) -> int:
+        """インクリメント後のカウント値を返す契約とする。"""
+        ...
+
+
+class InMemoryUsageCounter:
+    """実Firestore接続の代わりにdictでカウントを保持する検証用スタブ。"""
+
+    def __init__(self) -> None:
+        self._counts: dict[tuple[str, str], int] = {}
+
+    def get_count(self, user_id: str, month: str) -> int:
+        return self._counts.get((user_id, month), 0)
+
+    def increment(self, user_id: str, month: str) -> int:
+        key = (user_id, month)
+        self._counts[key] = self._counts.get(key, 0) + 1
+        return self._counts[key]
+
+
+# pricing-plan.md「料金プラン」表準拠
+PLAN_MONTHLY_LIMITS = {"スモール": 40, "スタンダード": 90, "繁忙期対応": 150}
+PLAN_OVERAGE_UNIT_PRICE_JPY = {"スモール": 60, "スタンダード": 50, "繁忙期対応": 40}
+# limit-approaching-notification-design.md 2節: 3プラン共通で「残り5回」固定
+# (日次件数の上振れ〈繁忙期含む〉をカバーできる最大値として採用、プラン別の使い分けは見送り)。
+NOTICE_THRESHOLD = 5
+
+
+def current_month_jst() -> str:
+    """JST基準の暦月をYYYY-MM形式で返す(limit-approaching-notification-design.md 3節、
+    月の区切りはJST基準の暦月とする方針に準拠)。"""
+    from datetime import datetime, timedelta, timezone
+
+    return datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m")
+
+
+def build_usage_notice(plan: str, count_after_increment: int) -> Optional[str]:
+    """limit-approaching-notification-design.md 4節の通知文言を、該当条件のときのみ返す
+    (残り5回に達した生成完了時、または上限を超えた生成完了時)。それ以外はNoneを返す。
+    """
+    limit = PLAN_MONTHLY_LIMITS[plan]
+    unit_price = PLAN_OVERAGE_UNIT_PRICE_JPY[plan]
+
+    if count_after_increment > limit:
+        return f"※今月の無料生成回数の上限を超えたため、本回は追加料金{unit_price}円が発生します"
+    if limit - count_after_increment == NOTICE_THRESHOLD:
+        return (
+            f"※今月の生成回数は残り{NOTICE_THRESHOLD}回です"
+            f"(上限到達後は1回あたり{unit_price}円の追加料金がかかります)"
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 返信本文の組み立て(status別)
 # ---------------------------------------------------------------------------
 
@@ -161,6 +226,10 @@ def process_memo_event(
     event: dict,
     llm_call: LlmCallClient,
     reply_client: ReplyClient,
+    *,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
 ) -> MemoProcessResult:
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
 
@@ -171,6 +240,10 @@ def process_memo_event(
        (course-set-pasha/line-reservation-aiのjson-output-retry-fallback.mdの
        「同一入力で1回だけ」方針を踏襲。再生成後もエラーが残る場合は安全側に倒し、
        定型の再送依頼文言を返す)。
+    3. usage_counter・planが渡された場合のみ、月間生成回数カウント・上限接近通知
+       (limit-approaching-notification-design.md)を行う。カウント対象はstatus=="generated"の
+       場合のみとし、返信本文組み立て直後にインクリメントする。
+       usage_counterがNoneの場合(未接続時)はカウント処理自体をスキップする。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -196,6 +269,14 @@ def process_memo_event(
         )
 
     reply_text = format_reply_text(instance)
+    if instance["status"] == "generated" and usage_counter is not None and plan is not None:
+        user_id = event.get("source", {}).get("userId")
+        if user_id:
+            count = usage_counter.increment(user_id, month or current_month_jst())
+            notice = build_usage_notice(plan, count)
+            if notice:
+                reply_text = f"{reply_text}\n\n{notice}"
+
     reply_client.reply(reply_token, reply_text)
     return MemoProcessResult(handled=True, reply_sent=True, reply_text=reply_text, retried=retried)
 

@@ -660,7 +660,18 @@
   前面に出していることを新たに確認した。売上比率そのものの一次情報や快線屋の会社概要
   (代表者・従業員数)はWebFetchのegress制約により今回も確認できず、候補3は正式候補の
   ステータスを維持したまま次回に持ち越す(詳細はcandidate-longlist-draft.md「第四十七弾」参照)。
-- 最終更新: 2026-08-17 23:00 UTC
+- フェーズ76(2026-08-18 03:00 UTC): limit-approaching-notification-design.mdで設計済み
+  だった月間生成回数カウント・上限接近通知を、course-set-pashaのUsageCounterProtocol/
+  InMemoryUsageCounter/build_usage_noticeと同じ構成でprototype/cloud_function_webhook.pyに
+  実装した。本venture固有の差異として、course-set-pashaのプラン別閾値マッピング
+  (PLAN_NOTICE_THRESHOLDS)は持たず、設計2節の方針通り3プラン共通の固定閾値
+  (NOTICE_THRESHOLD=5)のみとした。process_memo_event()にusage_counter/plan/month引数を
+  追加し、status=="generated"かつevent.source.userIdがある場合のみカウント・通知を行う
+  (未接続時は従来通りスキップ)。3プランの境界値(35/85/145回目到達・上限超過)を含む
+  テスト13件を新規追加し、test_cloud_function_webhook.py全26件・test_post_generation_
+  checks.py全41件がパスすることを確認した。実Firestore接続はオーナー承認待ちのため、
+  引き続きInMemoryスタブでの検証にとどまる。
+- 最終更新: 2026-08-18 03:00 UTC
 
 ## 次にやること(候補)
 

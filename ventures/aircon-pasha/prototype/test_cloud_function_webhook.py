@@ -18,8 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from cloud_function_webhook import (  # noqa: E402
+    PLAN_MONTHLY_LIMITS,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryReplyClient,
+    InMemoryUsageCounter,
+    build_usage_notice,
     format_reply_text,
     process_memo_event,
     validate_llm_output,
@@ -71,11 +74,14 @@ class AlwaysBrokenLlmClient:
         return self.mutate(dict(TEST_CASES[self.case_id]))
 
 
-def _make_event(reply_token="rt-1", text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"):
-    return {
+def _make_event(reply_token="rt-1", text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄", user_id=None):
+    event = {
         "replyToken": reply_token,
         "message": {"type": "text", "text": text},
     }
+    if user_id:
+        event["source"] = {"userId": user_id}
+    return event
 
 
 class ProcessMemoEventTest(unittest.TestCase):
@@ -201,6 +207,114 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertFalse(result.handled)
         self.assertFalse(result.reply_sent)
         self.assertEqual(reply_client.sent, [])
+
+
+class BuildUsageNoticeTest(unittest.TestCase):
+    """limit-approaching-notification-design.md 2・4節の境界値(残り5回到達・上限超過)の検証。"""
+
+    def test_no_notice_when_far_from_limit(self):
+        self.assertIsNone(build_usage_notice("スモール", 1))
+
+    def test_notice_at_five_remaining(self):
+        # スモールプランは月40回まで(pricing-plan.md)。残り5回 = 35回目消費時点。
+        notice = build_usage_notice("スモール", 35)
+        self.assertEqual(notice, "※今月の生成回数は残り5回です(上限到達後は1回あたり60円の追加料金がかかります)")
+
+    def test_no_notice_at_four_remaining(self):
+        # 残り5回の1回のみ通知する方針(4節)のため、残り4回時点では追加通知しない。
+        self.assertIsNone(build_usage_notice("スモール", 36))
+
+    def test_no_notice_exactly_at_limit(self):
+        self.assertIsNone(build_usage_notice("スモール", 40))
+
+    def test_notice_when_over_limit(self):
+        notice = build_usage_notice("スモール", 41)
+        self.assertEqual(notice, "※今月の無料生成回数の上限を超えたため、本回は追加料金60円が発生します")
+
+    def test_standard_plan_uses_own_limit_and_unit_price(self):
+        # スタンダードプランは月90回まで・従量50円/回(pricing-plan.md)。
+        self.assertEqual(PLAN_MONTHLY_LIMITS["スタンダード"], 90)
+        notice = build_usage_notice("スタンダード", 85)
+        self.assertEqual(notice, "※今月の生成回数は残り5回です(上限到達後は1回あたり50円の追加料金がかかります)")
+
+    def test_busy_season_plan_uses_own_limit_and_unit_price(self):
+        # 繁忙期対応プランは月150回まで・従量40円/回(pricing-plan.md)。
+        self.assertEqual(PLAN_MONTHLY_LIMITS["繁忙期対応"], 150)
+        notice = build_usage_notice("繁忙期対応", 145)
+        self.assertEqual(notice, "※今月の生成回数は残り5回です(上限到達後は1回あたり40円の追加料金がかかります)")
+
+
+class ProcessMemoEventUsageCounterTest(unittest.TestCase):
+    """process_memo_event()への月間カウント統合(status=='generated'のみカウント、
+    残り5回到達・上限超過時のみ返信文に通知を追記)の検証。"""
+
+    def test_generated_reply_appends_notice_at_five_remaining(self):
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(34):
+            usage_counter.increment("u-1", "2026-08")
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertIn("残り5回です", result.reply_text)
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 35)
+
+    def test_generated_reply_has_no_notice_when_far_from_limit(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertNotIn("※", result.reply_text)
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 1)
+
+    def test_generated_reply_appends_overage_notice_beyond_limit(self):
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(40):
+            usage_counter.increment("u-1", "2026-08")
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertIn("追加料金60円が発生します", result.reply_text)
+
+    def test_out_of_scope_reply_does_not_increment_count(self):
+        # カウント対象はstatus=="generated"のみ(設計3節)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        process_memo_event(
+            _make_event(text="予約を受け付けてほしい", user_id="u-1"), FixtureLlmClient("OOS1_reservation_question"),
+            reply_client, usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_no_counting_when_usage_counter_not_provided(self):
+        # usage_counter未指定(実接続前)の呼び出しは従来通りカウント処理をスキップする。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(_make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertNotIn("※", result.reply_text)
+
+    def test_no_counting_when_user_id_missing_from_event(self):
+        # sourceにuserIdが無いイベント(想定外だが安全側にカウントをスキップ)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertNotIn("※", result.reply_text)
 
 
 class ValidateLlmOutputTest(unittest.TestCase):
