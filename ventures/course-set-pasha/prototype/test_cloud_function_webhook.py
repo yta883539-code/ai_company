@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import sys
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -40,6 +41,10 @@ from cloud_function_webhook import (  # noqa: E402
     process_memo_event,
     validate_llm_output,
     verify_line_signature,
+)
+from user_id_linking import (  # noqa: E402
+    InMemoryLinkingCodeStore,
+    LinkingCodePurgeThrottle,
 )
 
 
@@ -429,6 +434,67 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         )
 
         self.assertNotIn("※", result.reply_text)
+
+
+class ProcessMemoEventPurgeThrottleTest(unittest.TestCase):
+    """linking-code-purge-trigger-design.mdで採用した、process_memo_event便乗での
+    purge_expired_links()呼び出し配線の検証。"""
+
+    def test_purges_expired_links_when_both_store_and_throttle_are_provided(self):
+        linking_store = InMemoryLinkingCodeStore()
+        now = datetime(2026, 8, 20, 12, 0, 0)
+        linking_store.save("OLD001", "U-old", now - timedelta(hours=25))
+        throttle = LinkingCodePurgeThrottle()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client,
+            linking_store=linking_store, purge_throttle=throttle, now=now,
+        )
+
+        self.assertIsNone(linking_store.get("OLD001"))
+
+    def test_second_call_within_min_interval_does_not_purge_again(self):
+        linking_store = InMemoryLinkingCodeStore()
+        now = datetime(2026, 8, 20, 12, 0, 0)
+        throttle = LinkingCodePurgeThrottle()
+        reply_client = InMemoryReplyClient()
+        process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client,
+            linking_store=linking_store, purge_throttle=throttle, now=now,
+        )
+
+        linking_store.save("OLD001", "U-old", now - timedelta(hours=25))
+        process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client,
+            linking_store=linking_store, purge_throttle=throttle,
+            now=now + timedelta(minutes=30),
+        )
+
+        self.assertIsNotNone(linking_store.get("OLD001"))  # 1時間未満なので間引かれる
+
+    def test_no_purge_call_when_linking_store_not_provided(self):
+        # purge_throttleのみ渡されlinking_storeが無い場合は既存の他オプション引数と同様、
+        # 何も呼ばれず通常通り返信のみ行われる(未接続時の安全側デフォルト)。
+        throttle = LinkingCodePurgeThrottle()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client, purge_throttle=throttle,
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertIsNone(throttle._last_purge_at)
+
+    def test_no_purge_call_when_purge_throttle_not_provided(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic"), reply_client, linking_store=linking_store,
+        )
+
+        self.assertTrue(result.reply_sent)
 
 
 class AppendFirstGenerationNoticeTest(unittest.TestCase):

@@ -167,6 +167,34 @@ def handle_form_submission_with_linking_code(
     return handle_form_submission(inner_payload, profile_store)
 
 
+class LinkingCodePurgeThrottle:
+    """purge_expired_links()の呼び出し頻度を間引く便乗トリガー
+    (linking-code-purge-trigger-design.md参照)。
+
+    line-reservation-aiのConversationFlowStateMachine.maybe_run_idle_cleanup()と同じ
+    「前回実行からMIN_INTERVAL未満ならスキップ」方式を、状態を持たない関数群である
+    本モジュールに導入するための薄いラッパー。cloud_function_webhook.pyのprocess_memo_event()
+    (生成依頼Webhookのたびに発火する、本ventureで最も高頻度なエントリポイント)から便乗で
+    呼び出す想定。
+    """
+
+    MIN_INTERVAL = timedelta(hours=1)
+
+    def __init__(self) -> None:
+        self._last_purge_at: Optional[datetime] = None
+
+    def maybe_run(self, store: LinkingCodeStoreProtocol, now: datetime) -> Optional[int]:
+        """前回実行からMIN_INTERVAL未満の場合は何もせずNoneを返す(スキップしたことを
+        呼び出し側が「対象0件だった」場合の`0`と区別できるようにするため)。"""
+        if (
+            self._last_purge_at is not None
+            and now - self._last_purge_at < self.MIN_INTERVAL
+        ):
+            return None
+        self._last_purge_at = now
+        return purge_expired_links(store, now)
+
+
 def purge_expired_links(store: LinkingCodeStoreProtocol, now: datetime) -> int:
     """design 残課題「`pending_links`の期限切れドキュメントの定期パージ」の決定的ロジック。
 

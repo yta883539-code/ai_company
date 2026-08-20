@@ -777,9 +777,27 @@
   `release_idle_conversations()`と同じ「実スケジューラ確定前に掃除ロジックだけ検証しておく」
   位置づけ)。`resolve_linking_code()`側の遅延削除と冪等に共存することも含めテスト4件新規追加、
   全152件パス。実Firestore接続・TTLポリシー設定自体はオーナー承認待ちのまま。
-- 最終更新: 2026-08-20 22:00 UTC
+- フェーズ79(2026-08-20 23:00 UTC): フェーズ78で未確定だった`purge_expired_links()`の
+  実行トリガー(スケジューラ発火型かfollowイベント便乗か)を`linking-code-purge-trigger-design.md`
+  として検討した。実GCPスケジューラ設定・follow イベントハンドラ自体はいずれも実LINE API/GCP接続が
+  前提でオーナー承認待ちのため今すぐ設定できない一方、本ventureの主要トラフィックである
+  `process_memo_event()`(生成依頼Webhook)への便乗であれば既存エントリポイントに引数を足すだけで
+  今すぐ実装できると判断し、line-reservation-aiの`maybe_run_idle_cleanup()`と同じ「前回実行から
+  一定時間未満はスキップ」方式を採用した。状態を持たない関数群である`user_id_linking.py`に
+  間引き状態を保持する小さなクラス`LinkingCodePurgeThrottle`(MIN_INTERVAL=1時間)を新設し、
+  `cloud_function_webhook.py`の`process_memo_event()`に`linking_store`・`purge_throttle`・`now`の
+  3つをオプション引数として追加、いずれかがNoneの場合(未接続時・既存呼び出し元)は従来通り
+  スキップする後方互換設計とした。テスト8件新規追加(LinkingCodePurgeThrottle単体4件・
+  process_memo_event配線4件)、course-set-pasha配下計160件パス。実Firestore接続・実follow
+  イベントハンドラの実装自体はオーナー承認待ちのまま残る。
+- 最終更新: 2026-08-20 23:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-20 23:00 UTC: `purge_expired_links()`の実行トリガーをフェーズ79・
+  `linking-code-purge-trigger-design.md`で検討し、`process_memo_event()`便乗(1時間間引き、
+  `LinkingCodePurgeThrottle`)として設計・実装した。詳細は上記フェーズ79参照。残るのは実Firestore
+  接続・実follow イベントハンドラの実装〈いずれもオーナー承認待ち〉のみ)
 
 - (解消済み 2026-08-20 22:00 UTC: `pending_links`期限切れドキュメントの定期パージの掃除ロジックを
   フェーズ78・`purge_expired_links()`として実装・検証した。詳細は上記フェーズ78参照。残るのは

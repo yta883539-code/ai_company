@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Protocol
 
@@ -28,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from history_export import history_rows_to_csv_text  # noqa: E402
 from post_generation_checks import run_all_checks  # noqa: E402
+from user_id_linking import LinkingCodePurgeThrottle, LinkingCodeStoreProtocol  # noqa: E402
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -523,6 +525,9 @@ def process_memo_event(
     portal_link_provider: Optional[PortalLinkProvider] = None,
     first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
     gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
 
@@ -558,7 +563,14 @@ def process_memo_event(
        (first-generation-notice-implementation-design.md 3節「書き込みの原子性」準拠)。
        それ以外(異なる2つのストアが渡された場合、または未実装の場合)は従来通り
        mark_sent()とincrement()を別々に呼ぶ2ステップのままとする。
+    7. linking_store・purge_throttleが両方渡された場合のみ、本メモ処理の本題(LLM呼び出し・
+       返信)に先立ってpurge_expired_links()の便乗トリガー(1時間間引き)を実行する
+       (linking-code-purge-trigger-design.md準拠)。いずれかがNoneの場合(未接続時・
+       テストで不要な場合)はスキップし、既存の呼び出し元への影響はない。
     """
+    if linking_store is not None and purge_throttle is not None:
+        purge_throttle.maybe_run(linking_store, now or datetime.now(timezone(timedelta(hours=9))))
+
     message = event.get("message", {})
     if message.get("type") != "text":
         return MemoProcessResult(handled=False, reply_sent=False, reply_text=None)

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from application_form_submission_flow import InMemoryUserProfileStore  # noqa: E402
 from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
+    LinkingCodePurgeThrottle,
     LinkingResolution,
     handle_form_submission_with_linking_code,
     issue_linking_code_on_follow,
@@ -182,6 +183,50 @@ class PurgeExpiredLinksTest(unittest.TestCase):
         resolution = resolve_linking_code("OLD001", store, _NOW)
 
         self.assertFalse(resolution.ok)
+
+
+class LinkingCodePurgeThrottleTest(unittest.TestCase):
+    """linking-code-purge-trigger-design.mdで採用したprocess_memo_event便乗トリガーの
+    間引き(MIN_INTERVAL=1時間)を検証する。"""
+
+    def test_first_call_runs_immediately_and_returns_purged_count(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+        throttle = LinkingCodePurgeThrottle()
+
+        result = throttle.maybe_run(store, _NOW)
+
+        self.assertEqual(result, 1)
+        self.assertIsNone(store.get("OLD001"))
+
+    def test_second_call_within_min_interval_is_skipped(self):
+        store = InMemoryLinkingCodeStore()
+        throttle = LinkingCodePurgeThrottle()
+        throttle.maybe_run(store, _NOW)
+
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+        skipped = throttle.maybe_run(store, _NOW + timedelta(minutes=30))
+
+        self.assertIsNone(skipped)
+        self.assertIsNotNone(store.get("OLD001"))  # 間引かれたので削除されていない
+
+    def test_call_after_min_interval_runs_again(self):
+        store = InMemoryLinkingCodeStore()
+        throttle = LinkingCodePurgeThrottle()
+        throttle.maybe_run(store, _NOW)
+
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+        result = throttle.maybe_run(store, _NOW + timedelta(hours=1, minutes=1))
+
+        self.assertEqual(result, 1)
+        self.assertIsNone(store.get("OLD001"))
+
+    def test_returns_zero_not_none_when_run_but_nothing_expired(self):
+        # スキップ(None)と「実行したが対象0件」(0)を呼び出し側が区別できることを確認する。
+        store = InMemoryLinkingCodeStore()
+        throttle = LinkingCodePurgeThrottle()
+
+        self.assertEqual(throttle.maybe_run(store, _NOW), 0)
 
 
 if __name__ == "__main__":
