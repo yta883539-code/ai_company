@@ -754,10 +754,28 @@
   作りとした。テスト16件新規追加(`test_application_form_submission_flow.py`)、既存分含め
   prototype配下で全137件パス(schema/validate_test_cases.pyの9件も引き続き全件パス)。
   Googleフォーム自体の作成・GAS配置の実設定はオーナー承認待ちとして残る。
-- 最終更新: 2026-08-18 20:00 UTC
+- フェーズ77(2026-08-20 21:00 UTC): フェーズ76で残っていた、LINE友だち追加時のuser_id
+  事前紐付け経路を`line-user-id-linking-design.md`として設計した。検討の過程で、フェーズ76が
+  暫定採用していた「フォームへのuser_id手入力」は誤入力リスク以前の問題として、一般の
+  LINEユーザーがアプリUI上から自分のuser_idを確認する手段を持たず運用として成立しない
+  ことが判明した。friend追加(`follow`イベント)時に短い連携コード(6文字・紛らわしい文字を
+  除いた英数字・有効期限24時間・使い切り)を発行し、申込フォーム側の入力項目を
+  「user_id」から「連携コード」に変更する方式へ切り替えた。`prototype/user_id_linking.py`に
+  `issue_linking_code_on_follow()`・`resolve_linking_code()`・
+  `handle_form_submission_with_linking_code()`を実装(既存の`handle_form_submission()`
+  〈user_id版〉へ委譲する薄いオーケストレーターとし、フェーズ76のモジュールへの変更は
+  行わなかった)。テスト11件新規追加、既存分含め全148件パス。実際の`follow`イベント受信・
+  ウェルカムメッセージ送信・Googleフォーム項目名変更はいずれも実LINE API接続/フォーム実設定
+  自体がオーナー承認待ちのため未着手として残る。
+- 最終更新: 2026-08-20 21:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-20 21:00 UTC: LINE友だち追加時のuser_id事前紐付け経路をフェーズ77・
+  line-user-id-linking-design.mdで設計・prototype/user_id_linking.pyとして実装した。詳細は
+  上記フェーズ77参照。残るのはGoogleフォーム・GAS Webhookの実設定〈オーナー承認待ち〉、
+  実Firestore接続〈オーナー承認待ち〉、実LINE API接続によるfollowイベント受信・
+  ウェルカムメッセージ送信〈オーナー承認待ち〉のみ)
 - (解消済み 2026-08-18 20:00 UTC: 申込フォーム提出フロー自体〈`user_profile.gym_area_pairs`の
   書き込み側〉をフェーズ76・application-form-submission-flow-design.mdで設計・
   prototype/application_form_submission_flow.pyとして実装した。残るのはGoogleフォーム・GAS

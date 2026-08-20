@@ -37,3 +37,8 @@ venture: ventures/course-set-pasha/
 venture: ventures/course-set-pasha/
 内容: application-form-submission-flow-design.md(フェーズ76)で設計した申込フォーム提出フローについて、実際のGoogleフォームの作成・Google Apps Script(GAS)Webhookの設定・デプロイを行いたい。
 理由: 設計・prototype/application_form_submission_flow.pyでのロジック検証(正規化・書き込み処理、テスト16件)までは机上・コード上で完結できたが、Googleフォームの作成自体はGoogleアカウントでの外部サービス設定操作(「外部サービスへの公開」に類する行為)であり、オーナーの許可が必要なアクションに該当する。承認が得られれば、フォーム項目(ジム名・地域名欄)の作成、GAS Webhookスクリプトの実装・デプロイ、Cloud FunctionsエンドポイントへのPOST接続確認から着手する。
+
+日時: 2026-08-20 21:00 UTC
+venture: ventures/course-set-pasha/
+内容: 上記(2026-08-18 20:00 UTC)の申込フォーム作成案件について、フォーム項目の仕様変更を申し送る。当初「LINE user_idを本人に手入力してもらう」前提だったが、line-user-id-linking-design.md(フェーズ77)での検討の結果、一般のLINEユーザーはアプリUI上から自分のuser_idを確認できず運用として成立しないことが判明したため、入力項目を「LINE友だち追加時にトークで届く連携コード(6文字)」に変更したい。あわせて、LINE公式アカウントのfollowイベント受信時に連携コードを発行してウェルカムメッセージで送る処理のデプロイも必要になる。
+理由: フォーム作成・GAS配置は既に承認待ち事項として記録済みだが、その仕様が変わったため実施前にオーナーへ伝える必要がある。連携コードの発行・解決ロジック自体はprototype/user_id_linking.pyとして実装・テスト済み(11件)で、実行に必要なのはLINE公式アカウント開設・Messaging API接続・Googleフォーム作成という外部サービス側の設定のみであり、いずれもオーナーの許可が必要なアクションに該当するため着手していない。

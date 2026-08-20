@@ -84,7 +84,11 @@ first-generation-notice-implementation-design.md 5節・
 ## 残課題
 
 - Googleフォーム自体の作成・GAS配置(外部サービスへの実設定)はオーナー承認待ち。
-- LINE友だち追加時のuser_id事前紐付け経路が本venture未設計のため、フォーム側でのuser_id
-  手入力運用の是非(誤入力リスク)は別途検討が必要。
+- (解消済み 2026-08-20 21:00 UTC: LINE友だち追加時のuser_id事前紐付け経路を
+  line-user-id-linking-design.mdで設計した。検討の過程で「フォームへのuser_id手入力」は
+  誤入力リスク以前に、一般のLINEユーザーがアプリUI上から自分のuser_idを確認する手段を
+  持たないため運用として成立しないことが判明し、friend追加時に発行する連携コード方式へ
+  設計を切り替えた。フォーム項目は「user_id」から「連携コード」に変更する。
+  `prototype/user_id_linking.py`として実装、テスト11件追加・全148件パス)
 - 実Firestore接続後、`FirestoreUserProfileStore`が`GymAreaConfigStoreProtocol`と
   `UserProfileStoreProtocol`の両方を満たす実装になることの最終確認。
