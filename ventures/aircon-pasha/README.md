@@ -21,6 +21,14 @@
 
 ## ステータス
 
+- フェーズ87(2026-08-20 22:00 UTC): course-set-pasha・line-reservation-aiには既にある
+  「申込からLINE公式アカウントでの生成開始まで」を整理したオンボーディングガイドが本ventureに
+  未作成だったギャップに対応し、onboarding-guide.mdを新規作成した。course-set-pashaの構成を
+  踏襲しつつ、本ventureの出力1・出力2は依頼者本人1名への直接報告・案内でありSNS投稿を含まない
+  ため(llm-system-prompt-draft.md・schema/output.schema.jsonを確認し、屋号・エリアを反映する
+  フィールドが存在しないことを本フェーズで確認)、course-set-pashaの「ジム名・地域名の初期登録
+  (任意)」ステップに相当する項目が本ventureには存在しない点を明記し、他venture比でオンボー
+  ディングが最も軽量である旨を整理した。
 - フェーズ86(2026-08-20 20:00 UTC): 候補研究がegress制約で3課題(候補3・8・9)とも
   一次情報未到達で行き詰まっていたため、今回は研究を離れコード側を前進させた。
   prototype/post_generation_checks.pyに、厳守事項4関連の追加ヒューリスティックチェック
