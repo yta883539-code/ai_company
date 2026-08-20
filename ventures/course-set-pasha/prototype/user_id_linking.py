@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Protocol, Tuple
+from typing import Iterable, Optional, Protocol, Tuple
 
 from application_form_submission_flow import (
     FormSubmissionResult,
@@ -49,6 +49,10 @@ class LinkingCodeStoreProtocol(Protocol):
     def delete(self, code: str) -> None:
         ...
 
+    def items(self) -> Iterable[Tuple[str, str, datetime]]:
+        """全エントリを`(code, user_id, issued_at)`で列挙する(期限切れパージのため)。"""
+        ...
+
 
 class InMemoryLinkingCodeStore:
     """実Firestore接続の代わりにdictで`pending_links`ドキュメントを保持する検証用スタブ。"""
@@ -64,6 +68,13 @@ class InMemoryLinkingCodeStore:
 
     def delete(self, code: str) -> None:
         self._entries.pop(code, None)
+
+    def items(self) -> Iterable[Tuple[str, str, datetime]]:
+        # スナップショットを返す(パージ中の削除でイテレータが壊れないようにする)。
+        return [
+            (code, user_id, issued_at)
+            for code, (user_id, issued_at) in list(self._entries.items())
+        ]
 
 
 class RandomChoiceSource(Protocol):
@@ -154,3 +165,24 @@ def handle_form_submission_with_linking_code(
         "gym_area_pairs_raw": payload.get("gym_area_pairs_raw", ""),
     }
     return handle_form_submission(inner_payload, profile_store)
+
+
+def purge_expired_links(store: LinkingCodeStoreProtocol, now: datetime) -> int:
+    """design 残課題「`pending_links`の期限切れドキュメントの定期パージ」の決定的ロジック。
+
+    本番では Firestore ネイティブ TTL ポリシーで自動削除する想定(オーナー承認・実接続後)
+    だが、TTL の削除は最大 24〜72 時間遅延しうるため、スケジューラ発火型の Cloud Function や
+    follow イベント便乗で明示的に掃く経路も併せて持てるよう、掃除ロジック自体を実接続なしで
+    検証可能にした(line-reservation-ai の release_idle_conversations() と同じ位置づけ)。
+
+    有効期限(24時間)を過ぎたエントリを削除し、削除件数を返す。resolve 側の遅延削除と
+    冪等に共存する(既に消えたコードの再削除は no-op)。
+    """
+    expired_codes = [
+        code
+        for code, _user_id, issued_at in store.items()
+        if now - issued_at > _LINK_TTL
+    ]
+    for code in expired_codes:
+        store.delete(code)
+    return len(expired_codes)

@@ -767,9 +767,23 @@
   行わなかった)。テスト11件新規追加、既存分含め全148件パス。実際の`follow`イベント受信・
   ウェルカムメッセージ送信・Googleフォーム項目名変更はいずれも実LINE API接続/フォーム実設定
   自体がオーナー承認待ちのため未着手として残る。
-- 最終更新: 2026-08-20 21:00 UTC
+- フェーズ78(2026-08-20 22:00 UTC): フェーズ77の`line-user-id-linking-design.md`残課題で
+  「実Firestore接続後の課題」として先送りしていた`pending_links`期限切れドキュメントの定期
+  パージについて、掃除ロジック自体を`prototype/user_id_linking.py`に`purge_expired_links()`
+  として実装した(有効期限24時間超のエントリを削除し削除件数を返す)。あわせて
+  `LinkingCodeStoreProtocol`/`InMemoryLinkingCodeStore`に列挙用の`items()`を追加。Firestore
+  ネイティブTTLは削除が最大24〜72時間遅延しうるため、スケジューラ発火型Cloud Functionや
+  followイベント便乗でこの関数を明示的に呼ぶ経路も持てる設計とした(line-reservation-aiの
+  `release_idle_conversations()`と同じ「実スケジューラ確定前に掃除ロジックだけ検証しておく」
+  位置づけ)。`resolve_linking_code()`側の遅延削除と冪等に共存することも含めテスト4件新規追加、
+  全152件パス。実Firestore接続・TTLポリシー設定自体はオーナー承認待ちのまま。
+- 最終更新: 2026-08-20 22:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-20 22:00 UTC: `pending_links`期限切れドキュメントの定期パージの掃除ロジックを
+  フェーズ78・`purge_expired_links()`として実装・検証した。詳細は上記フェーズ78参照。残るのは
+  実Firestore接続・TTLポリシー設定/スケジューラ配線〈いずれもオーナー承認待ち〉のみ)
 
 - (解消済み 2026-08-20 21:00 UTC: LINE友だち追加時のuser_id事前紐付け経路をフェーズ77・
   line-user-id-linking-design.mdで設計・prototype/user_id_linking.pyとして実装した。詳細は

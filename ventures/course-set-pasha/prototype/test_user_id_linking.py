@@ -16,6 +16,7 @@ from user_id_linking import (  # noqa: E402
     LinkingResolution,
     handle_form_submission_with_linking_code,
     issue_linking_code_on_follow,
+    purge_expired_links,
     resolve_linking_code,
 )
 
@@ -143,6 +144,44 @@ class HandleFormSubmissionWithLinkingCodeTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertIsNone(result.user_id)
         self.assertEqual(profile_store.get_gym_area_pairs("U1234"), "")
+
+
+class PurgeExpiredLinksTest(unittest.TestCase):
+    def test_removes_only_entries_past_the_ttl(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("FRESH1", "U-fresh", _NOW)
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+        store.save("EDGE01", "U-edge", _NOW - timedelta(hours=24))  # 境界ちょうどは残す
+
+        purged = purge_expired_links(store, _NOW)
+
+        self.assertEqual(purged, 1)
+        self.assertIsNone(store.get("OLD001"))
+        self.assertIsNotNone(store.get("FRESH1"))
+        self.assertIsNotNone(store.get("EDGE01"))
+
+    def test_returns_zero_when_nothing_is_expired(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("FRESH1", "U-fresh", _NOW)
+
+        self.assertEqual(purge_expired_links(store, _NOW), 0)
+
+    def test_is_idempotent_with_lazy_deletion_on_resolve(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+
+        # resolve側の遅延削除で先に消えても、続くパージは0件でエラーにならない。
+        resolve_linking_code("OLD001", store, _NOW)
+        self.assertEqual(purge_expired_links(store, _NOW), 0)
+
+    def test_purged_code_can_no_longer_be_resolved(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("OLD001", "U-old", _NOW - timedelta(hours=25))
+
+        purge_expired_links(store, _NOW)
+        resolution = resolve_linking_code("OLD001", store, _NOW)
+
+        self.assertFalse(resolution.ok)
 
 
 if __name__ == "__main__":

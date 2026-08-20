@@ -83,5 +83,11 @@ user_id(`U`で始まる文字列)をLINEアプリのUI上から確認する手�
 - `follow`イベント受信時にウェルカムメッセージへコードを埋め込んで実際に返信する処理は、
   実LINE Messaging API接続自体がオーナー承認待ちのため未着手(コード発行ロジック自体は
   実接続なしで検証済み)。
-- `pending_links`の期限切れドキュメントの定期パージ(Firestore TTLポリシーの利用を想定)は
-  実Firestore接続後の課題として残す。
+- `pending_links`の期限切れドキュメントのパージについて、掃除ロジック自体は
+  `purge_expired_links(store, now)`として実装・検証済み(有効期限24時間超のエントリを削除し
+  削除件数を返す。`resolve_linking_code()`側の遅延削除と冪等に共存する)。本番では Firestore
+  ネイティブ TTL ポリシーでの自動削除を第一候補とするが、TTL の削除は最大24〜72時間遅延しうる
+  ため、スケジューラ発火型の Cloud Function や follow イベント便乗でこの関数を明示的に呼ぶ経路も
+  併せて持てる設計とした(line-reservation-ai の `release_idle_conversations()` と同じ、
+  「実スケジューラ確定前に掃除ロジックだけ実接続なしで検証しておく」位置づけ)。実 Firestore
+  接続・TTL ポリシー設定自体はオーナー承認待ち。
