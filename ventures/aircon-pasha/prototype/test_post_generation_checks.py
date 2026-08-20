@@ -21,6 +21,7 @@ from post_generation_checks import (  # noqa: E402
     check_additional_treatment_mentioned_in_text,
     check_model_type_mentioned_in_text,
     check_next_recommended_date_estimate_consistency,
+    check_next_recommended_date_history_care_guide_consistency,
     check_no_out_of_scope_topics_in_generated_output,
     check_refrigerant_electrical_professional_judgement,
     run_all_checks,
@@ -159,6 +160,39 @@ class AdditionalTreatmentMentionedInTextTest(unittest.TestCase):
             "completion_report": {"body": "フィルター・熱交換器まで分解洗浄いたしました。"},
         }
         self.assertEqual(check_additional_treatment_mentioned_in_text(instance), [])
+
+
+class NextRecommendedDateHistoryCareGuideConsistencyTest(unittest.TestCase):
+    def test_not_estimate_but_empty_history_date_is_flagged(self):
+        instance = {
+            "care_guide": {"next_recommended_date_is_estimate": False},
+            "history_row": {"next_recommended_date": None},
+        }
+        errors = check_next_recommended_date_history_care_guide_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_not_estimate_with_history_date_is_ok(self):
+        instance = {
+            "care_guide": {"next_recommended_date_is_estimate": False},
+            "history_row": {"next_recommended_date": "2027-08"},
+        }
+        self.assertEqual(
+            check_next_recommended_date_history_care_guide_consistency(instance), []
+        )
+
+    def test_estimate_with_empty_history_date_is_ok(self):
+        instance = {
+            "care_guide": {"next_recommended_date_is_estimate": True},
+            "history_row": {"next_recommended_date": None},
+        }
+        self.assertEqual(
+            check_next_recommended_date_history_care_guide_consistency(instance), []
+        )
+
+    def test_missing_sections_are_skipped(self):
+        self.assertEqual(
+            check_next_recommended_date_history_care_guide_consistency({}), []
+        )
 
 
 class RunAllChecksTest(unittest.TestCase):

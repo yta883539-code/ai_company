@@ -195,6 +195,33 @@ def check_additional_treatment_mentioned_in_text(instance):
     return errors
 
 
+def check_next_recommended_date_history_care_guide_consistency(instance):
+    """厳守事項4関連の追加チェック(構造化データと打消し文言の整合)。
+    care_guide.next_recommended_date_is_estimate=false(=入力メモ由来の具体的な
+    次回目安)を主張しているにもかかわらず、history_row.next_recommended_dateが
+    null/空であれば、「メモ由来の日付」と自称しながら構造化フィールドが空という
+    不整合の疑いとして報告する。逆にis_estimate=trueの場合は一般的な目安であり、
+    history_row側が空でも矛盾ではないためチェック対象外。
+    check_next_recommended_date_estimate_consistencyが本文(打消し文言)側との
+    整合を見るのに対し、こちらは構造化データ(history_row)側との整合を見る。
+    """
+    errors = []
+    care_guide = instance.get("care_guide")
+    history_row = instance.get("history_row")
+    if care_guide is None or history_row is None:
+        return errors
+
+    is_estimate = care_guide.get("next_recommended_date_is_estimate")
+    hist_date = history_row.get("next_recommended_date")
+    if is_estimate is False and not hist_date:
+        errors.append(
+            "care_guide/history_row: next_recommended_date_is_estimate=false"
+            "(メモ由来の具体的な次回目安)にもかかわらずhistory_row."
+            "next_recommended_dateが空です(構造化データとの不整合の疑い)"
+        )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -203,4 +230,5 @@ def run_all_checks(instance):
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     errors += check_model_type_mentioned_in_text(instance)
     errors += check_additional_treatment_mentioned_in_text(instance)
+    errors += check_next_recommended_date_history_care_guide_consistency(instance)
     return errors

@@ -21,6 +21,15 @@
 
 ## ステータス
 
+- フェーズ86(2026-08-20 20:00 UTC): 候補研究がegress制約で3課題(候補3・8・9)とも
+  一次情報未到達で行き詰まっていたため、今回は研究を離れコード側を前進させた。
+  prototype/post_generation_checks.pyに、厳守事項4関連の追加ヒューリスティックチェック
+  check_next_recommended_date_history_care_guide_consistencyを実装した。既存の
+  check_next_recommended_date_estimate_consistencyが本文(打消し文言)側との整合を
+  見るのに対し、新チェックはcare_guide.next_recommended_date_is_estimate=false
+  (メモ由来の具体的な次回目安)と主張しながらhistory_row.next_recommended_dateが
+  空という構造化データ側の不整合を検出する。run_all_checksに組み込み、テスト4件を
+  追加して全19件パス(webhook側30件も回帰なし)。
 - フェーズ1(2026-08-09 13:00 UTC): venture新規作成。ideas.mdの原案(2026-08-09 06:00 UTC)を
   ベースに、市場調査の一次整理(market-research.md)とMVPの入出力フォーマット草案
   (mvp-flow-draft.md)を作成した。course-set-pasha(ボルダリングジム向け同種サービス)で
