@@ -805,9 +805,27 @@
   保持・案B配線)、course-set-pasha配下計167件パス。実LINE API接続・Webhook本体でのイベント種別
   ディスパッチ(現状`event["type"]`によるfollow/message振り分け処理自体が未実装)は
   オーナー承認待ち・別途設計課題として残る。
-- 最終更新: 2026-08-21 01:00 UTC
+- フェーズ81(2026-08-21 03:00 UTC): フェーズ80の残課題だった「Webhook本体でのfollow/message
+  イベント種別ディスパッチの実装」を`webhook-event-dispatch-design.md`として設計し、
+  `cloud_function_webhook.py`に`dispatch_webhook_events()`・`DispatchResult`(dataclass)として
+  実装した。`events`配列を`event["type"]`で仕分け、followイベントは`process_follow_event()`へ
+  そのまま、messageイベントは`merge_text_and_photo_events()`で束ねてから`process_memo_event()`へ
+  渡す(followイベントが束ね処理に混入しないよう事前に絞り込む設計)。未対応種別
+  (`unfollow`等)は`ignored_types`に記録するのみに留め、`reply_client`・`linking_store`・
+  `llm_call`が未接続の場合は該当種別を処理せず素通りする安全側の挙動とした。テスト5件新規追加
+  (follow/message混在時の振り分け、text-image束ねへのfollow混入なし確認、未対応種別の記録、
+  未接続時の素通り2パターン)、course-set-pasha配下計172件パス。実HTTPリクエストボディの
+  JSONパース〜`verify_line_signature()`との結線・実Cloud Functionsデプロイはいずれも実LINE API
+  接続自体がオーナー承認待ちのため未着手のまま残る。
+- 最終更新: 2026-08-21 03:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-21 03:00 UTC: Webhook本体でのfollow/messageイベント種別ディスパッチを
+  フェーズ81・webhook-event-dispatch-design.mdで設計し、`dispatch_webhook_events()`として
+  実装した。詳細は上記フェーズ81参照。残るのは実HTTPリクエストのJSONパース〜
+  `verify_line_signature()`との結線、実LINE API接続〈オーナー承認待ち〉、
+  実フォームURL確定後の`ApplicationFormLinkProvider`実装のみ)
 
 - (解消済み 2026-08-21 01:00 UTC: follow イベント受信時のウェルカムメッセージ組み立て・
   連携コード発行〜返信の処理ロジックをフェーズ80・follow-event-welcome-message-design.mdで

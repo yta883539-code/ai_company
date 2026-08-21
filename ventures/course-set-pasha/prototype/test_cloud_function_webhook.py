@@ -38,6 +38,7 @@ from cloud_function_webhook import (  # noqa: E402
     ReplyApiError,
     append_first_generation_notice,
     build_usage_notice,
+    dispatch_webhook_events,
     format_reply_text,
     format_welcome_message,
     merge_text_and_photo_events,
@@ -1055,6 +1056,114 @@ class ProcessFollowEventTest(unittest.TestCase):
         )
 
         self.assertIsNone(store.get("OLDCOD"))
+
+
+class DispatchWebhookEventsTest(unittest.TestCase):
+    """dispatch_webhook_events()のテスト(webhook-event-dispatch-design.md参照)。"""
+
+    def _rng(self, seed=1):
+        import random
+
+        return random.Random(seed)
+
+    def test_follow_and_message_events_are_routed_separately(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        events = [
+            {
+                "type": "follow",
+                "replyToken": "rt-follow",
+                "source": {"userId": "U-follow"},
+            },
+            {
+                "type": "message",
+                "replyToken": "rt-message",
+                "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                "source": {"userId": "U-message"},
+            },
+        ]
+
+        result = dispatch_webhook_events(
+            events,
+            linking_store=linking_store,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+            rng=self._rng(),
+        )
+
+        self.assertEqual(len(result.follow_results), 1)
+        self.assertTrue(result.follow_results[0].handled)
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertTrue(result.memo_results[0].handled)
+        self.assertEqual(result.ignored_types, [])
+        self.assertEqual(len(reply_client.sent), 2)
+
+    def test_message_events_are_bundled_by_user_before_processing(self):
+        reply_client = InMemoryReplyClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt-text",
+                "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                "source": {"userId": "U-bundle"},
+            },
+            {
+                "type": "message",
+                "replyToken": "rt-photo",
+                "message": {"type": "image"},
+                "source": {"userId": "U-bundle"},
+            },
+        ]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+        )
+
+        # text+imageの2イベントがmerge_text_and_photo_events()で1件に束ねられるため、
+        # process_memo_event()の呼び出しも1回だけになる(followイベントが混入して
+        # 束ね処理を乱すこともない)。
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertTrue(result.memo_results[0].handled)
+
+    def test_unsupported_event_type_is_recorded_and_ignored(self):
+        reply_client = InMemoryReplyClient()
+        events = [{"type": "unfollow", "source": {"userId": "U-bye"}}]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client)
+
+        self.assertEqual(result.follow_results, [])
+        self.assertEqual(result.memo_results, [])
+        self.assertEqual(result.ignored_types, ["unfollow"])
+        self.assertEqual(reply_client.sent, [])
+
+    def test_follow_events_are_skipped_when_linking_store_not_connected(self):
+        reply_client = InMemoryReplyClient()
+        events = [
+            {"type": "follow", "replyToken": "rt", "source": {"userId": "U1"}},
+        ]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client, linking_store=None)
+
+        self.assertEqual(result.follow_results, [])
+        self.assertEqual(reply_client.sent, [])
+
+    def test_message_events_are_skipped_when_llm_call_not_connected(self):
+        reply_client = InMemoryReplyClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt",
+                "message": {"type": "text", "text": "テスト"},
+                "source": {"userId": "U1"},
+            },
+        ]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client, llm_call=None)
+
+        self.assertEqual(result.memo_results, [])
+        self.assertEqual(reply_client.sent, [])
 
 
 if __name__ == "__main__":

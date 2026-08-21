@@ -777,6 +777,92 @@ def process_memo_event(
     )
 
 
+# ---------------------------------------------------------------------------
+# Webhook本体のイベント種別ディスパッチ(webhook-event-dispatch-design.md参照)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DispatchResult:
+    """dispatch_webhook_events()の結果(design 2節)。"""
+
+    follow_results: list = field(default_factory=list)
+    memo_results: list = field(default_factory=list)
+    ignored_types: list = field(default_factory=list)
+
+
+def dispatch_webhook_events(
+    events: list[dict],
+    *,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    reply_client: Optional[ReplyClient] = None,
+    llm_call: Optional[LlmCallClient] = None,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
+    gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
+    purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    rng: Optional[RandomChoiceSource] = None,
+    now: Optional[datetime] = None,
+) -> DispatchResult:
+    """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
+    `process_follow_event()`/`process_memo_event()`へ振り分ける(design 1節)。
+
+    - "follow": そのまま1件ずつ`process_follow_event()`へ渡す(text-image束ねの対象外)。
+    - "message": `merge_text_and_photo_events()`で束ねてから`process_memo_event()`へ渡す
+      (message イベントのみを事前に絞り込んでから渡すことで、follow イベントが
+      `ungrouped`扱いで混入しないようにする)。
+    - それ以外の種別(unfollow・postback等)は無視し、`ignored_types`に種別名のみ記録する。
+    - `reply_client`/`linking_store`が未接続(follow)、`reply_client`/`llm_call`が
+      未接続(message)の場合は、該当種別のイベントを処理せず素通りする(design 1節)。
+    """
+    result = DispatchResult()
+
+    for event in events:
+        event_type = event.get("type")
+        if event_type not in ("follow", "message"):
+            result.ignored_types.append(event_type or "unknown")
+
+    follow_events = [e for e in events if e.get("type") == "follow"]
+    if follow_events and reply_client is not None and linking_store is not None:
+        for event in follow_events:
+            result.follow_results.append(
+                process_follow_event(
+                    event,
+                    linking_store,
+                    reply_client,
+                    form_link_provider=form_link_provider,
+                    rng=rng,
+                    purge_throttle=purge_throttle,
+                    now=now,
+                )
+            )
+
+    message_events = [e for e in events if e.get("type") == "message"]
+    if message_events and reply_client is not None and llm_call is not None:
+        for event in merge_text_and_photo_events(message_events):
+            result.memo_results.append(
+                process_memo_event(
+                    event,
+                    llm_call,
+                    reply_client,
+                    usage_counter=usage_counter,
+                    plan=plan,
+                    month=month,
+                    portal_link_provider=portal_link_provider,
+                    first_generation_notice_store=first_generation_notice_store,
+                    gym_area_config_store=gym_area_config_store,
+                    linking_store=linking_store,
+                    purge_throttle=purge_throttle,
+                    now=now,
+                )
+            )
+
+    return result
+
+
 def _demo() -> None:
     class StubLlmClient:
         """schema/validate_test_cases.pyのG1フィクスチャ相当を返す固定スタブ。"""
