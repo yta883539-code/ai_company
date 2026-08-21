@@ -1317,6 +1317,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   billing-upgrade-flow-design.md「次のステップ候補」末尾2026-08-21 00:00 UTC追記参照。
   1節「利用実績レポート+プラン案内メッセージ」・4節「未選択時の挙動」の定型文実装は
   今後の課題として残す。
+- フェーズ(続き117、2026-08-21 04:00 UTC): dormant-mode-renotification-design.mdの
+  1〜4節(猶予期間算出・7/30/90日の再通知スケジュール・4種の通知文言〈移行時/7日後/30日後/
+  90日後、formal/standard/casual各トーン〉・4.2節の復旧通知文言)を、
+  `prototype/dormant_mode_scheduler.py`として新規実装した。
+  `prototype/dunning_notification_scheduler.py`と同じ役割分担(判断・整形ロジックのみ、
+  Webhook受信・Firestore書き込み・LINE送信は行わない)を踏襲。テスト14件追加、
+  line-reservation-ai配下全284件パス。実際のCloud Schedulerへの配線は引き続き
+  決済代行サービス選定・GCPプロジェクト作成(オーナー承認待ち)後の課題として残る。
+- フェーズ(続き118、2026-08-21 07:00 UTC): README点検の一環でowner-settings-
+  wireframe.md「実装への影響」・「残課題」節を確認したところ、2件の古い記載
+  (「firestore-data-model.mdへの決済失敗検知日時フィールドの反映は未着手」
+  「`payment_suspended`という値名のpayment-failure-dunning-design.md本文側への反映は
+  未着手」)が、実際には2026-08-17時点で既に解消済み・そもそも作業不要だったにもかかわらず
+  未訂正のまま残っていたことを発見した。webhook-function-a-implementation.md・
+  owner-notification-channel-design.mdの過去の同種の訂正に倣い、owner-settings-
+  wireframe.mdの該当箇所を訂正した。コード変更は伴わないドキュメント整合性の是正のみ。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

@@ -565,9 +565,9 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
 - 新規のデータ項目は`suspension_reason`(既存のフラグ機構の値として`payment-failure-
   dunning-design.md`3節で定義済み)のみで、本ワイヤーフレーム側は表示分岐ロジック
   (`suspension_reason`の値→ステータス文言・バッジ色・ボタン文言の対応表)を追加するだけ。
-- 猶予期間の残り日数表示のみ、決済失敗検知日時という新規の日時データ項目の保持が必要になる
-  (Firestore等への実装は決済代行サービス選定後の課題、firestore-data-model.mdへの反映は
-  未着手のまま次の課題として残す)。
+- 猶予期間の残り日数表示に必要な決済失敗検知日時の新規データ項目は、
+  `paymentFailureDetectedAt`としてfirestore-data-model.mdの`stores`コレクション定義に
+  反映済み(2026-08-17 08:00 UTC、`suspensionReason`と併せて追加)。
 
 ### 残課題
 
@@ -575,8 +575,11 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
   Webhookペイロードから`payment_failed`/`payment_suspended`の判定に必要な値
   (猶予期間の起点日時等)を過不足なく取得できるかは、サービス選定・契約後(オーナー承認待ち)
   の実装時に確認が必要。
-- firestore-data-model.mdに決済失敗検知日時のフィールドがまだ反映されていない
-  (`stores`コレクションへの追記が必要、次回以降の課題)。
-- `payment_suspended`という値名は本ワイヤーフレームでの命名であり、
-  payment-failure-dunning-design.md本文側の表記(「制限モード」)への値名としての反映は
-  未着手のまま次回以降の課題として残す。
+- (訂正 2026-08-21 07:00 UTC: 上記「実装への影響」節で訂正済みの通り、
+  firestore-data-model.mdへの決済失敗検知日時フィールドの反映は2026-08-17 08:00 UTC時点で
+  既に完了していた。以後この項目を「未着手」として再掲しないこと)
+- (訂正 2026-08-21 07:00 UTC: 「`payment_suspended`という値名のpayment-failure-dunning-
+  design.md本文側への反映は未着手」としていたのも誤りだった。同ファイルは段階3を当初から
+  「制限モード(`payment_suspended`)」と表記しており〈3節の対応表・53〜58行目〉、追加の
+  反映作業自体が不要だった。webhook-function-a-implementation.md・owner-notification-
+  channel-design.mdの過去の同種の訂正に倣い、以後この項目も「未着手」として再掲しないこと)
