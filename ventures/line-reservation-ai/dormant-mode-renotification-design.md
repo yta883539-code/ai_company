@@ -213,3 +213,9 @@ billing-upgrade-flow-design.md 3節のメッセージは「本日より正式に
   ステータス表示・バッジ色・ボタン遷移先を対応表として整理した。詳細はowner-settings-
   wireframe.md「4節への`suspension_reason`分岐の反映」節、payment-failure-dunning-
   design.md該当箇所参照)
+- (解消済み 2026-08-21 04:00 UTC: 1〜4節の猶予期間算出・再通知スケジュール・4種の通知文言
+  〈移行時/7日後/30日後/90日後、formal/standard/casual各トーン〉・4.2節の復旧通知文言を、
+  `prototype/dormant_mode_scheduler.py`として新規実装した。dunning_notification_scheduler.py
+  と同じ役割分担(判断・整形ロジックのみ、Webhook受信・Firestore書き込み・LINE送信は行わない)。
+  テスト14件追加、全284件パス。実際のCloud Schedulerへの配線は引き続き決済代行サービス
+  選定・GCPプロジェクト作成〈オーナー承認待ち〉後の課題として残る)
