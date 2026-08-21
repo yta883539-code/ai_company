@@ -1298,6 +1298,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   休止モードを決済成功で誤って解除しないようにした。テスト14件新規作成+既存トーン検証テストの
   更新、line-reservation-ai配下計259件・本リポジトリ全体で419件パス。詳細は
   payment-failure-dunning-design.md 4節・末尾2026-08-18 17:00 UTC追記参照。
+- フェーズ(続き116、2026-08-21 00:00 UTC): 2日ぶりに本ventureへ着手。billing-upgrade-flow-
+  design.md 3節「決済完了後のメッセージ」(トライアル終了後に有料プラン未選択のまま休止モード
+  〈`suspension_reason == "trial_unselected"`〉だった店舗が、初めてプランを選択し決済を完了した
+  際の案内)がフェーズ(続き115)時点でも未実装のまま残っていた点を発見し、
+  `prototype/cloud_function_subscription_activated_webhook.py`として新規実装した。
+  フェーズ(続き115)のcloud_function_payment_webhook.py(`suspension_reason ==
+  "payment_failed"`からの復旧を扱う)とはトリガーとなるWebhookの性質(初回のプラン登録 vs
+  既存契約の決済失敗からの復旧)が異なるため別モジュールとし、互いに「自分が担当しない
+  suspension_reasonの値には触れない」設計(cloud_function_payment_webhook.pyは
+  `trial_unselected`を素通り、本モジュールは`payment_failed`を`OUTCOME_OUT_OF_SCOPE_
+  PAYMENT_FAILED`として素通り)を踏襲することで、一方のWebhookイベントがもう一方の休止状態を
+  誤って解除する事故を防いだ。Webhook再送(既に`suspension_reason`が解除済み)は
+  `OUTCOME_ALREADY_ACTIVE`として何もしない形で冪等性を担保した。
+  `prototype/test_cloud_function_subscription_activated_webhook.py`を新規作成しテスト11件、
+  line-reservation-ai配下計270件全件パス。実際のWebhookエンドポイント公開・決済代行サービス
+  との契約・LINE Push Message API接続は引き続きオーナー承認待ち。詳細は
+  billing-upgrade-flow-design.md「次のステップ候補」末尾2026-08-21 00:00 UTC追記参照。
+  1節「利用実績レポート+プラン案内メッセージ」・4節「未選択時の挙動」の定型文実装は
+  今後の課題として残す。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

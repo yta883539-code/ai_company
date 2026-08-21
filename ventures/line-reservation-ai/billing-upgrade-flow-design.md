@@ -124,6 +124,24 @@ trial-to-paid-billing-flow-consistency-check.mdでは「継続利用を希望す
   アクションのため、本ドキュメントの設計はあくまで契約前のUI・文言整理にとどまる
   (pending-approval.md参照)。
 - 休止モードへの移行ロジック・再通知設計の詳細化。
-- 上記メッセージ文言をllm-system-prompt-draft.mdの対象外(LLM生成ではなく定型文送信)
-  であることを明記し、Cloud Function実装時に定型テンプレートとして`prototype/engine.py`
-  相当の箇所に落とし込む(実装自体は決済代行サービス選定後)。
+
+(解消済み 2026-08-21 00:00 UTC: 上記「Cloud Function実装時に定型テンプレートとして
+落とし込む」の対象のうち、3節「決済完了後のメッセージ」を
+`prototype/cloud_function_subscription_activated_webhook.py`として新規実装した。
+実装にあたり、payment-failure-dunning-design.md 4節を実装した
+`prototype/cloud_function_payment_webhook.py`(制限モード・猶予期間中からの決済成功=
+`suspension_reason == "payment_failed"`を扱う)との役割分担を明確化する必要があることが
+判明した。両モジュールはいずれも「決済成功」に類するWebhookをトリガーとするが、対象とする
+休止要因(dormant-mode-renotification-design.mdのsuspension_reason 3分岐: なし/
+"trial_unselected"/"payment_failed")が異なるため、本モジュールは`suspension_reason ==
+"trial_unselected"`のときのみ状態を書き換え・通知送信し、`"payment_failed"`のケースは
+「自分の担当ではない」として何もせず素通りする設計とした(cloud_function_payment_webhook.py
+側も同様にtrial_unselectedには触れない設計になっており、双方が「自分が担当しない
+suspension_reasonの値は変更しない」ことで、一方のWebhookイベントがもう一方の休止状態を
+誤って解除する事故を防ぐ)。Webhook再送(既にsuspension_reasonが解除済み)は
+`OUTCOME_ALREADY_ACTIVE`として何もしない形で冪等性を担保した。
+`prototype/test_cloud_function_subscription_activated_webhook.py`を新規作成しテスト11件、
+line-reservation-ai配下計270件全件パス。実際のWebhookエンドポイント公開・決済代行
+サービスとの契約・LINE Push Message API接続は引き続きオーナー承認待ち。
+1節「利用実績レポート+プラン案内メッセージ」・4節「未選択時の挙動」の定型文実装は
+今後の課題として残す。)
