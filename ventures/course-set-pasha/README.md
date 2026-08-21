@@ -845,10 +845,31 @@
   course-set-pasha配下計190件パス。実Cloud Functionsデプロイ自体・`channel_secret`の実際の
   取得/保管方法(Secret Manager等)・`get_runtime_dependencies()`の実クライアントへの差し替えは、
   実GCPプロジェクト作成・実LINE公式アカウント接続を伴うためオーナー承認待ちのまま残る。
-- 最終更新: 2026-08-21 09:00 UTC
+- フェーズ84(2026-08-21 15:00 UTC): webhook-event-dispatch-design.md(フェーズ81)の残課題
+  だった「`unfollow`イベント受信時の扱い(連携コード・利用状況データの扱いをどうするか)」を
+  unfollow-event-handling-design.mdとして決定した。要旨: (1)LINEのブロックとStripe
+  サブスクリプション課金は別レイヤーの事象であり、本サービスがunfollowを検知して自動解約
+  することはしない(ユーザー本人の明示的操作を要する事項のため)、(2)該当user_id宛の
+  未使用連携コード(`pending_links`)は有効期限を待たず即時削除する(実害はないが不要と
+  確定した時点で片付ける)、(3)`user_profile`・`usage_counter`・履歴データは一切削除・
+  変更しない(再フォロー時に設定し直す手間を省く)。実装として`user_id_linking.py`に
+  `delete_pending_links_for_user()`、`cloud_function_webhook.py`に`process_unfollow_event()`・
+  `UnfollowProcessResult`を新設し、`dispatch_webhook_events()`の`unfollow`を`ignored_types`
+  行きから専用の`unfollow_results`への振り分けに変更した(`postback`・`join`等の真に未対応な
+  種別のみ引き続き`ignored_types`に記録)。テスト9件追加(`delete_pending_links_for_user()`3件、
+  `process_unfollow_event()`5件、`dispatch_webhook_events()`のunfollow振り分け1件。既存の
+  「未対応種別は無視される」テストは例示イベントを`unfollow`から`postback`へ差し替え)、
+  course-set-pasha配下計190件パス。「ブロックしたのに課金だけ続く」状態への運用対応
+  (オーナー向けFAQ整備等)、`user_profile`等の長期保存期間の上限整理(line-reservation-aiの
+  data-retention-policy.mdに相当する文書が本ventureにまだ無い)は次の課題として残る。
+- 最終更新: 2026-08-21 15:00 UTC
 
 ## 次にやること(候補)
 
+- フェーズ84(2026-08-21 15:00 UTC): unfollow-event-handling-design.mdの「今後の課題」に
+  残した、(1)「ブロックしたのに課金だけ続く」状態へのオーナー向けFAQ・問い合わせ対応文言の
+  整備、(2)`user_profile`・`usage_counter`等の長期保存期間の上限整理(data-retention-policy.md
+  相当の文書がまだ無い)は次の課題として残る。
 - (解消済み 2026-08-21 09:00 UTC: フェーズ82の残課題だった、実`functions_framework`の
   リクエストオブジェクトからのbody/署名ヘッダ取り出し配線を`main(request)`として実装した。
   詳細は上記フェーズ83参照。残るのは実Cloud Functionsデプロイ自体・`channel_secret`の実際の

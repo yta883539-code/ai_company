@@ -195,6 +195,22 @@ class LinkingCodePurgeThrottle:
         return purge_expired_links(store, now)
 
 
+def delete_pending_links_for_user(user_id: str, store: LinkingCodeStoreProtocol) -> int:
+    """unfollow-event-handling-design.md 論点2: ブロックされたuser_id宛の未使用連携コードを
+    有効期限を待たずに即時削除する。実害はない(24時間で自然失効)が、不要と確定した時点で
+    速やかに片付けることでpending_linksコレクションを不必要に膨らませない。
+
+    削除件数を返す(該当コードが無ければ0)。purge_expired_links()と同じ、items()で
+    スナップショットを取ってから削除する実装パターンを踏襲する。
+    """
+    target_codes = [
+        code for code, entry_user_id, _issued_at in store.items() if entry_user_id == user_id
+    ]
+    for code in target_codes:
+        store.delete(code)
+    return len(target_codes)
+
+
 def purge_expired_links(store: LinkingCodeStoreProtocol, now: datetime) -> int:
     """design 残課題「`pending_links`の期限切れドキュメントの定期パージ」の決定的ロジック。
 

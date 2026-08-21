@@ -81,5 +81,6 @@ class DispatchResult:
   `verify_line_signature()`との結線(署名検証失敗時は`dispatch_webhook_events()`自体を
   呼ばない)は、実Cloud Functions環境確定後の課題として残る(署名検証関数自体は
   既存の`verify_line_signature()`がそのまま使える想定)。
-- `unfollow`イベント受信時の扱い(連携コード・利用状況データの扱いをどうするか)は
-  未検討のまま残る。実運用でブロック・友だち解除が発生した際の対応方針は次の課題とする。
+- (解消済み 2026-08-21 15:00 UTC: `unfollow`イベント受信時の扱い(連携コード・利用状況
+  データの扱い)をフェーズ84・unfollow-event-handling-design.mdで決定・実装した。詳細は
+  そちらを参照)

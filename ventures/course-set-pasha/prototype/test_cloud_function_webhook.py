@@ -14,7 +14,7 @@ import json
 import os
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -48,6 +48,7 @@ from cloud_function_webhook import (  # noqa: E402
     merge_text_and_photo_events,
     process_follow_event,
     process_memo_event,
+    process_unfollow_event,
     receive_webhook,
     validate_llm_output,
     verify_line_signature,
@@ -1063,6 +1064,60 @@ class ProcessFollowEventTest(unittest.TestCase):
         self.assertIsNone(store.get("OLDCOD"))
 
 
+class ProcessUnfollowEventTest(unittest.TestCase):
+    """process_unfollow_event()のテスト(unfollow-event-handling-design.md参照)。"""
+
+    def test_deletes_pending_links_for_the_unfollowed_user(self):
+        store = InMemoryLinkingCodeStore()
+        issued_at = datetime(2026, 8, 21, 9, 0, tzinfo=timezone.utc)
+        store.save("CODE01", "U-bye", issued_at)
+        store.save("CODE02", "U-bye", issued_at)
+        store.save("CODE03", "U-stay", issued_at)
+        event = {"type": "unfollow", "source": {"userId": "U-bye"}}
+
+        result = process_unfollow_event(event, store)
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.deleted_link_count, 2)
+        self.assertIsNone(store.get("CODE01"))
+        self.assertIsNone(store.get("CODE02"))
+        self.assertIsNotNone(store.get("CODE03"))
+
+    def test_no_pending_links_returns_zero(self):
+        store = InMemoryLinkingCodeStore()
+        event = {"type": "unfollow", "source": {"userId": "U-clean"}}
+
+        result = process_unfollow_event(event, store)
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.deleted_link_count, 0)
+
+    def test_non_unfollow_event_is_ignored(self):
+        store = InMemoryLinkingCodeStore()
+        event = {"type": "follow", "source": {"userId": "U1"}}
+
+        result = process_unfollow_event(event, store)
+
+        self.assertFalse(result.handled)
+
+    def test_missing_user_id_is_handled_without_deleting(self):
+        store = InMemoryLinkingCodeStore()
+        event = {"type": "unfollow", "source": {}}
+
+        result = process_unfollow_event(event, store)
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.deleted_link_count, 0)
+
+    def test_missing_linking_store_is_handled_without_error(self):
+        event = {"type": "unfollow", "source": {"userId": "U-bye"}}
+
+        result = process_unfollow_event(event, None)
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.deleted_link_count, 0)
+
+
 class DispatchWebhookEventsTest(unittest.TestCase):
     """dispatch_webhook_events()のテスト(webhook-event-dispatch-design.md参照)。"""
 
@@ -1134,14 +1189,28 @@ class DispatchWebhookEventsTest(unittest.TestCase):
 
     def test_unsupported_event_type_is_recorded_and_ignored(self):
         reply_client = InMemoryReplyClient()
-        events = [{"type": "unfollow", "source": {"userId": "U-bye"}}]
+        events = [{"type": "postback", "source": {"userId": "U-bye"}}]
 
         result = dispatch_webhook_events(events, reply_client=reply_client)
 
         self.assertEqual(result.follow_results, [])
         self.assertEqual(result.memo_results, [])
-        self.assertEqual(result.ignored_types, ["unfollow"])
+        self.assertEqual(result.unfollow_results, [])
+        self.assertEqual(result.ignored_types, ["postback"])
         self.assertEqual(reply_client.sent, [])
+
+    def test_unfollow_events_are_routed_and_delete_pending_links(self):
+        linking_store = InMemoryLinkingCodeStore()
+        linking_store.save("ABCDEF", "U-bye", datetime(2026, 8, 21, 9, 0, tzinfo=timezone.utc))
+        events = [{"type": "unfollow", "source": {"userId": "U-bye"}}]
+
+        result = dispatch_webhook_events(events, linking_store=linking_store)
+
+        self.assertEqual(result.ignored_types, [])
+        self.assertEqual(len(result.unfollow_results), 1)
+        self.assertTrue(result.unfollow_results[0].handled)
+        self.assertEqual(result.unfollow_results[0].deleted_link_count, 1)
+        self.assertIsNone(linking_store.get("ABCDEF"))
 
     def test_follow_events_are_skipped_when_linking_store_not_connected(self):
         reply_client = InMemoryReplyClient()

@@ -15,6 +15,7 @@ from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
     LinkingCodePurgeThrottle,
     LinkingResolution,
+    delete_pending_links_for_user,
     handle_form_submission_with_linking_code,
     issue_linking_code_on_follow,
     purge_expired_links,
@@ -183,6 +184,38 @@ class PurgeExpiredLinksTest(unittest.TestCase):
         resolution = resolve_linking_code("OLD001", store, _NOW)
 
         self.assertFalse(resolution.ok)
+
+
+class DeletePendingLinksForUserTest(unittest.TestCase):
+    """unfollow-event-handling-design.md 論点2: ブロック時点での即時削除。"""
+
+    def test_deletes_all_codes_for_the_given_user(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("CODE01", "U-bye", _NOW)
+        store.save("CODE02", "U-bye", _NOW)
+        store.save("CODE03", "U-stay", _NOW)
+
+        deleted = delete_pending_links_for_user("U-bye", store)
+
+        self.assertEqual(deleted, 2)
+        self.assertIsNone(store.get("CODE01"))
+        self.assertIsNone(store.get("CODE02"))
+        self.assertIsNotNone(store.get("CODE03"))
+
+    def test_returns_zero_when_user_has_no_pending_links(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("CODE01", "U-other", _NOW)
+
+        self.assertEqual(delete_pending_links_for_user("U-bye", store), 0)
+
+    def test_is_idempotent_when_called_twice(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("CODE01", "U-bye", _NOW)
+
+        delete_pending_links_for_user("U-bye", store)
+        second_call = delete_pending_links_for_user("U-bye", store)
+
+        self.assertEqual(second_call, 0)
 
 
 class LinkingCodePurgeThrottleTest(unittest.TestCase):

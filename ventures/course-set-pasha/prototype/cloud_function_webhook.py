@@ -36,6 +36,7 @@ from user_id_linking import (  # noqa: E402
     LinkingCodePurgeThrottle,
     LinkingCodeStoreProtocol,
     RandomChoiceSource,
+    delete_pending_links_for_user,
     issue_linking_code_on_follow,
 )
 from validate_test_cases import (  # noqa: E402
@@ -388,6 +389,38 @@ def process_follow_event(
     message_text = format_welcome_message(linking_code, form_link_provider)
     reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)
     return FollowProcessResult(handled=True, reply_sent=reply_sent, linking_code=linking_code)
+
+
+@dataclass
+class UnfollowProcessResult:
+    """process_unfollow_event()の結果(unfollow-event-handling-design.md「決定のまとめ」)。"""
+
+    handled: bool
+    deleted_link_count: int = 0
+
+
+def process_unfollow_event(
+    event: dict,
+    linking_store: Optional[LinkingCodeStoreProtocol],
+) -> UnfollowProcessResult:
+    """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提、
+    unfollow-event-handling-design.md「決定のまとめ」)。
+
+    - `user_profile`・`usage_counter`・履歴データはいずれも変更しない(再フォロー時に
+      設定し直す手間を省くため保持する)。
+    - LINEへの返信は行わない(ブロックされているため送達不可)。
+    - `linking_store`未接続の場合は該当user_id宛の未使用連携コードの削除も行わず、
+      安全側で素通りする(他のイベントハンドラと同じ方針)。
+    """
+    if event.get("type") != "unfollow":
+        return UnfollowProcessResult(handled=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if not user_id or linking_store is None:
+        return UnfollowProcessResult(handled=True, deleted_link_count=0)
+
+    deleted_count = delete_pending_links_for_user(user_id, linking_store)
+    return UnfollowProcessResult(handled=True, deleted_link_count=deleted_count)
 
 
 def render_subscription_procedure_notice(
@@ -789,6 +822,7 @@ class DispatchResult:
 
     follow_results: list = field(default_factory=list)
     memo_results: list = field(default_factory=list)
+    unfollow_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
 
 
@@ -816,7 +850,9 @@ def dispatch_webhook_events(
     - "message": `merge_text_and_photo_events()`で束ねてから`process_memo_event()`へ渡す
       (message イベントのみを事前に絞り込んでから渡すことで、follow イベントが
       `ungrouped`扱いで混入しないようにする)。
-    - それ以外の種別(unfollow・postback等)は無視し、`ignored_types`に種別名のみ記録する。
+    - "unfollow": そのまま1件ずつ`process_unfollow_event()`へ渡す
+      (unfollow-event-handling-design.md参照。返信は行わないため`reply_client`は不要)。
+    - それ以外の種別(postback・join等)は無視し、`ignored_types`に種別名のみ記録する。
     - `reply_client`/`linking_store`が未接続(follow)、`reply_client`/`llm_call`が
       未接続(message)の場合は、該当種別のイベントを処理せず素通りする(design 1節)。
     """
@@ -824,7 +860,7 @@ def dispatch_webhook_events(
 
     for event in events:
         event_type = event.get("type")
-        if event_type not in ("follow", "message"):
+        if event_type not in ("follow", "message", "unfollow"):
             result.ignored_types.append(event_type or "unknown")
 
     follow_events = [e for e in events if e.get("type") == "follow"]
@@ -861,6 +897,10 @@ def dispatch_webhook_events(
                     now=now,
                 )
             )
+
+    unfollow_events = [e for e in events if e.get("type") == "unfollow"]
+    for event in unfollow_events:
+        result.unfollow_results.append(process_unfollow_event(event, linking_store))
 
     return result
 
