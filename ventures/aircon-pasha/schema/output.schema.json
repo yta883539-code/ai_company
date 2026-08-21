@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "エアコンパシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-08-09 14:00 UTC作成)『構造化出力の方針(方針のみ、スキーマファイル未作成)』を一歩進めた草案。course-set-pasha/schema/output.schema.jsonのstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲し、Claude APIのStructured Outputsで扱いにくいallOf+if/thenは使わず、トップレベル全プロパティをrequired化(該当しない場合はnullを許容)する形にした。statusの値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、course-set-pashaと同様に実装時のコード側検証(validate_test_cases.py相当)で担保する方針。机上設計のみで実LLMでの安定生成は未検証(オーナー承認後のAPI接続時に確認予定)。2026-08-21 05:00 UTC改訂: llm-system-prompt-draft.md厳守事項6a(解約意図検知)・subscription-cancellation-flow-design.mdに対応し、course-set-pashaのフェーズ54改訂(status enum拡張)を踏襲して`status`に`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。course-set-pashaの命名(`kind`enum値)をそのまま流用し、厳守事項6aの草案コメントにあった仮称`subscription_intent_unclear`は不採用とし`cancellation_unclear`で統一した(ventures間の命名一貫性を優先)。",
+  "description": "llm-system-prompt-draft.md(2026-08-09 14:00 UTC作成)『構造化出力の方針(方針のみ、スキーマファイル未作成)』を一歩進めた草案。course-set-pasha/schema/output.schema.jsonのstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲し、Claude APIのStructured Outputsで扱いにくいallOf+if/thenは使わず、トップレベル全プロパティをrequired化(該当しない場合はnullを許容)する形にした。statusの値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、course-set-pashaと同様に実装時のコード側検証(validate_test_cases.py相当)で担保する方針。机上設計のみで実LLMでの安定生成は未検証(オーナー承認後のAPI接続時に確認予定)。2026-08-21 05:00 UTC改訂: llm-system-prompt-draft.md厳守事項6a(解約意図検知)・subscription-cancellation-flow-design.mdに対応し、course-set-pashaのフェーズ54改訂(status enum拡張)を踏襲して`status`に`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。course-set-pashaの命名(`kind`enum値)をそのまま流用し、厳守事項6aの草案コメントにあった仮称`subscription_intent_unclear`は不採用とし`cancellation_unclear`で統一した(ventures間の命名一貫性を優先)。2026-08-21 14:00 UTC改訂: 同一訪問先で2台以上を同時に分解洗浄するケースが業界で一般的と判明したため(market-research.md参照)、`history_row`(単一オブジェクト)を`history_rows`(配列)に変更した。course-set-pashaのフェーズ11改訂と同じ設計(1メモ=1台の場合は要素数1の配列)。",
   "type": "object",
-  "required": ["status", "out_of_scope_message", "missing_fields_request", "completion_report", "care_guide", "history_row", "subscription_procedure_notice"],
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "completion_report", "care_guide", "history_rows", "subscription_procedure_notice"],
   "additionalProperties": false,
   "properties": {
     "status": {
@@ -45,29 +45,32 @@
         }
       }
     },
-    "history_row": {
-      "description": "出力3(簡易な作業履歴記録)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの表形式(施工日/機種系統・号数/汚れ状況/追加施工の有無/次回推奨時期)を表す単一オブジェクト。本ventureは1メモ=1件の訪問施工が前提のため、course-set-pashaのhistory_rows(配列化)とは異なり単一オブジェクトのまま(llm-system-prompt-draft.md『構造化出力の方針』に準拠)。1メモで複数台を同時に扱うケースが判明した場合は配列化を再検討する(未調査、market-research.md/llm-system-prompt-draft.md参照)。status!=generatedのときは必ずnull(コード側検証で担保)。",
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["work_date", "model_type_and_capacity", "dirt_condition", "additional_treatment", "next_recommended_date"],
-      "properties": {
-        "work_date": {
-          "description": "施工日をISO8601(YYYY-MM-DD)に正規化。西暦の記載が無い場合は補完せずnullとし、原文表記の扱いはmissing_fields_request側で検討する(厳守事項7)。",
-          "type": ["string", "null"],
-          "format": "date"
-        },
-        "model_type_and_capacity": {
-          "description": "機種系統・号数(例:『壁掛け型2.2kW』)。入力メモに記載が無い場合はnull(推測で補わない、厳守事項3準拠)。",
-          "type": ["string", "null"]
-        },
-        "dirt_condition": { "type": "string" },
-        "additional_treatment": {
-          "description": "防カビコート等の追加施工の有無・内容。追加施工が無い場合は『なし』等の明示的な値を入れ、null(無回答)とは区別する。",
-          "type": "string"
-        },
-        "next_recommended_date": {
-          "description": "次回推奨時期。入力メモに記載が無く一般的な目安を用いた場合はcare_guide.next_recommended_date_is_estimateと整合させる想定(コード側検証で担保)。",
-          "type": ["string", "null"]
+    "history_rows": {
+      "description": "出力3(簡易な作業履歴記録)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの表形式(施工日/機種系統・号数/汚れ状況/追加施工の有無/次回推奨時期)を表す配列。2026-08-21 14:00 UTC改訂: 単一オブジェクトの`history_row`から配列化した。同一訪問先で2台以上を同時に分解洗浄するケースは業界で一般的(2台目以降の割引が業界標準として存在すること等をWebSearchで確認、market-research.md参照)と判明したため、course-set-pashaのフェーズ11改訂(history_row→history_rows)と同じ設計を踏襲する。1メモ=1台の場合は要素数1の配列とする(空配列は不可。generatedのとき必ず1件以上、コード側検証で担保)。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["work_date", "model_type_and_capacity", "dirt_condition", "additional_treatment", "next_recommended_date"],
+        "properties": {
+          "work_date": {
+            "description": "施工日をISO8601(YYYY-MM-DD)に正規化。西暦の記載が無い場合は補完せずnullとし、原文表記の扱いはmissing_fields_request側で検討する(厳守事項7)。同一訪問先の複数台であれば通常同一日になる想定だが、台ごとに個別の値として保持する。",
+            "type": ["string", "null"],
+            "format": "date"
+          },
+          "model_type_and_capacity": {
+            "description": "機種系統・号数(例:『壁掛け型2.2kW』)。入力メモに記載が無い場合はnull(推測で補わない、厳守事項3準拠)。複数台の場合は台ごとに別の値になりうる(例:リビング2.8kW・寝室2.2kW)。",
+            "type": ["string", "null"]
+          },
+          "dirt_condition": { "type": "string" },
+          "additional_treatment": {
+            "description": "防カビコート等の追加施工の有無・内容。追加施工が無い場合は『なし』等の明示的な値を入れ、null(無回答)とは区別する。",
+            "type": "string"
+          },
+          "next_recommended_date": {
+            "description": "次回推奨時期。入力メモに記載が無く一般的な目安を用いた場合はcare_guide.next_recommended_date_is_estimateと整合させる想定(コード側検証で担保、複数台の場合は配列内いずれかの要素がnullなら整合性チェック対象とする)。",
+            "type": ["string", "null"]
+          }
         }
       }
     },

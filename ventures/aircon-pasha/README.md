@@ -1070,3 +1070,17 @@
   直接指示があるまで一切行わない。次回は候補12の連絡先確認(tokyo-smile.jp限定)を継続するか、
   オーナーからの承認可否を待つ間に他の未着手領域(実LLM接続後の生成品質検証設計等)を
   前進させるかを判断する。
+- フェーズ95(2026-08-21 14:00 UTC): フェーズ94の申し送り通り、承認待ちの間に前進できる
+  未着手領域として、llm-system-prompt-draft.mdの未検証事項に残っていた「1メモで複数台の
+  エアコンを同時に扱うケースの頻度」をWebSearchで調査した(market-research.md追記)。
+  「エアコンクリーニング 1回の訪問 複数台 依頼 料金 セット割引」で検索した結果、2台目以降
+  1台あたり1,000〜3,300円程度の割引が業界標準として存在すると確認でき、同一訪問先で複数台を
+  同時に分解洗浄する依頼は一般的なパターンと判断した。これを受け、course-set-pashaのフェーズ11
+  改訂(history_row→history_rows配列化)と同じ設計判断で、出力3を単一オブジェクトから配列に
+  変更した。schema/output.schema.json・schema/validate_test_cases.py(複数台ケース
+  G4_multiple_units_same_visit新規追加、items対応のバリデータ拡張)・llm-system-prompt-draft.md・
+  output-samples-validation.mdに反映し、schema/validate_test_cases.pyを実行して9件全件パスを
+  確認した。一方で、prototype/cloud_function_webhook.py・prototype/post_generation_checks.py
+  (および対応するtest_*.py)は旧仕様の単一オブジェクト`history_row`のままで未更新のため、
+  現時点ではスキーマ・設計ドキュメントとprototypeコードの間に不整合が生じている。次回は
+  この2ファイル(+テスト)を`history_rows`配列対応に更新することを最優先とする。

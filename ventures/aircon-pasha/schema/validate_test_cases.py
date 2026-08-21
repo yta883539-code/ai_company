@@ -9,8 +9,10 @@ line-reservation-ai/schema/validate_test_cases.pyと同じ位置づけ・同じ�
 - 実LLM呼び出しは行わない(APIキー・課金が必要なため、実行にはオーナー承認が必要な範囲)。
 - output.schema.jsonのstatus分岐(generated/out_of_scope/insufficient_input)が、
   実際のサンプル出力に対して機械的に検証可能かを確認する。
-- 本ventureのhistory_rowは単一オブジェクト(course-set-pashaのhistory_rowsのような配列では
-  ない)である点に対応し、cross-fieldチェックもオブジェクト単位で行う。
+- 2026-08-21 14:00 UTC改訂: 同一訪問先で2台以上を同時に分解洗浄するケースが業界で一般的と
+  判明したため(market-research.md参照)、history_rowを単一オブジェクトから配列
+  (history_rows)に変更した。course-set-pasha/schema/validate_test_cases.pyと同じ
+  items(配列要素)対応を追加した。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -69,6 +71,10 @@ def validate_against_schema(instance, schema, path="$"):
             if key in props:
                 errors.extend(validate_against_schema(value, props[key], path=f"{path}.{key}"))
 
+    if isinstance(instance, list) and "items" in schema:
+        for i, item in enumerate(instance):
+            errors.extend(validate_against_schema(item, schema["items"], path=f"{path}[{i}]"))
+
     if "enum" in schema and instance is not None and instance not in schema["enum"]:
         errors.append(f"{path}: enum不一致 (期待={schema['enum']}, 実際={instance!r})")
 
@@ -77,12 +83,12 @@ def validate_against_schema(instance, schema, path="$"):
 
 def validate_cross_field_rules(instance, path="$"):
     """JSON Schema単体では表現しきれない、status値に応じたnull/非nullの依存関係、および
-    next_recommended_date_is_estimateとhistory_row.next_recommended_dateの整合性ルールを
+    next_recommended_date_is_estimateとhistory_rows[*].next_recommended_dateの整合性ルールを
     チェックする(output.schema.jsonの各fieldのdescriptionに記載の方針に対応)。"""
     errors = []
     status = instance.get("status")
 
-    generated_fields = ["completion_report", "care_guide", "history_row"]
+    generated_fields = ["completion_report", "care_guide", "history_rows"]
 
     if status == "generated":
         if instance.get("out_of_scope_message") is not None:
@@ -143,16 +149,20 @@ def validate_cross_field_rules(instance, path="$"):
             errors.append(f"{path}.completion_report: 厳守事項1違反(冷媒・電気系統への専門的助言に言及)の疑いがあるサンプルです")
 
     care_guide = instance.get("care_guide")
-    history_row = instance.get("history_row")
+    history_rows = instance.get("history_rows")
+    if status == "generated" and isinstance(history_rows, list) and len(history_rows) == 0:
+        errors.append(f"{path}.history_rows: status=generatedのとき空配列は不可です(1件以上必要)")
     if care_guide is not None:
         is_estimate = care_guide.get("next_recommended_date_is_estimate")
         if is_estimate is not True and is_estimate is not False:
             errors.append(f"{path}.care_guide.next_recommended_date_is_estimate: booleanである必要があります(null不可)")
-        if is_estimate is False and history_row is not None and history_row.get("next_recommended_date") is None:
-            errors.append(
-                f"{path}: next_recommended_date_is_estimate=falseの場合、"
-                "history_row.next_recommended_dateはnullであってはなりません(入力メモ由来の値が必須)"
-            )
+        if is_estimate is False and isinstance(history_rows, list):
+            for i, row in enumerate(history_rows):
+                if row.get("next_recommended_date") is None:
+                    errors.append(
+                        f"{path}.history_rows[{i}]: next_recommended_date_is_estimate=falseの場合、"
+                        "next_recommended_dateはnullであってはなりません(入力メモ由来の値が必須)"
+                    )
 
     return errors
 
@@ -175,13 +185,15 @@ TEST_CASES = {
                     "分解を伴う清掃は専門業者へのご依頼をおすすめします。",
             "next_recommended_date_is_estimate": False,
         },
-        "history_row": {
-            "work_date": "2026-08-09",
-            "model_type_and_capacity": "壁掛け型2.2kW",
-            "dirt_condition": "カビ・ホコリ汚れ中程度",
-            "additional_treatment": "防カビコートあり",
-            "next_recommended_date": "来年同時期",
-        },
+        "history_rows": [
+            {
+                "work_date": "2026-08-09",
+                "model_type_and_capacity": "壁掛け型2.2kW",
+                "dirt_condition": "カビ・ホコリ汚れ中程度",
+                "additional_treatment": "防カビコートあり",
+                "next_recommended_date": "来年同時期",
+            },
+        ],
         "subscription_procedure_notice": None,
     },
     "G2_estimate_next_date": {
@@ -200,13 +212,15 @@ TEST_CASES = {
                     "感電等のリスクがあるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
             "next_recommended_date_is_estimate": True,
         },
-        "history_row": {
-            "work_date": "2026-08-09",
-            "model_type_and_capacity": "壁掛け型(お掃除機能付き)",
-            "dirt_condition": "軽度",
-            "additional_treatment": "なし",
-            "next_recommended_date": None,
-        },
+        "history_rows": [
+            {
+                "work_date": "2026-08-09",
+                "model_type_and_capacity": "壁掛け型(お掃除機能付き)",
+                "dirt_condition": "軽度",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
         "subscription_procedure_notice": None,
     },
     "G3_model_and_date_unextractable": {
@@ -224,13 +238,49 @@ TEST_CASES = {
                     "感電等のリスクがあるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
             "next_recommended_date_is_estimate": True,
         },
-        "history_row": {
-            "work_date": None,
-            "model_type_and_capacity": None,
-            "dirt_condition": "ひどい状態",
-            "additional_treatment": "なし",
-            "next_recommended_date": None,
+        "history_rows": [
+            {
+                "work_date": None,
+                "model_type_and_capacity": None,
+                "dirt_condition": "ひどい状態",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+    },
+    "G4_multiple_units_same_visit": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "リビングの壁掛け型2.8kW・寝室の壁掛け型2.2kWの2台について、フィルター・熱交換器・"
+                    "送風ファンまで分解洗浄いたしました。リビングは汚れが中程度、寝室は軽度でした。"
+                    "2台とも洗浄後はきれいな状態になっております。",
+            "mentions_refrigerant_or_electrical": False,
         },
+        "care_guide": {
+            "body": "フィルターは月1回程度を目安に、掃除機やご自身で水洗いいただくと効果的です。"
+                    "次回の分解洗浄はいずれも来年同時期を目安にご検討ください。自己分解洗浄は内部の破損・感電等の"
+                    "リスクがあるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": False,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-08-21",
+                "model_type_and_capacity": "壁掛け型2.8kW(リビング)",
+                "dirt_condition": "中程度",
+                "additional_treatment": "なし",
+                "next_recommended_date": "来年同時期",
+            },
+            {
+                "work_date": "2026-08-21",
+                "model_type_and_capacity": "壁掛け型2.2kW(寝室)",
+                "dirt_condition": "軽度",
+                "additional_treatment": "なし",
+                "next_recommended_date": "来年同時期",
+            },
+        ],
         "subscription_procedure_notice": None,
     },
     "OOS1_reservation_question": {
@@ -240,7 +290,7 @@ TEST_CASES = {
         "missing_fields_request": None,
         "completion_report": None,
         "care_guide": None,
-        "history_row": None,
+        "history_rows": None,
         "subscription_procedure_notice": None,
     },
     "II1_no_work_content": {
@@ -250,7 +300,7 @@ TEST_CASES = {
                                    "機種系統・号数、洗浄範囲(フィルター・熱交換器等)、汚れ状況を教えてください。",
         "completion_report": None,
         "care_guide": None,
-        "history_row": None,
+        "history_rows": None,
         "subscription_procedure_notice": None,
     },
     "CI1_cancellation_intent_clear": {
@@ -259,7 +309,7 @@ TEST_CASES = {
         "missing_fields_request": None,
         "completion_report": None,
         "care_guide": None,
-        "history_row": None,
+        "history_rows": None,
         "subscription_procedure_notice": {
             "kind": "cancellation_intent",
             "body": (
@@ -278,7 +328,7 @@ TEST_CASES = {
         "missing_fields_request": None,
         "completion_report": None,
         "care_guide": None,
-        "history_row": None,
+        "history_rows": None,
         "subscription_procedure_notice": {
             "kind": "downgrade_intent",
             "body": (
@@ -296,7 +346,7 @@ TEST_CASES = {
         "missing_fields_request": None,
         "completion_report": None,
         "care_guide": None,
-        "history_row": None,
+        "history_rows": None,
         "subscription_procedure_notice": {
             "kind": "cancellation_unclear",
             "body": "解約(またはプラン変更)をご希望でしょうか?よろしければ改めてその旨お知らせください。",
