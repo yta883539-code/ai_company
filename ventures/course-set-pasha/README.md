@@ -862,14 +862,31 @@
   course-set-pasha配下計190件パス。「ブロックしたのに課金だけ続く」状態への運用対応
   (オーナー向けFAQ整備等)、`user_profile`等の長期保存期間の上限整理(line-reservation-aiの
   data-retention-policy.mdに相当する文書が本ventureにまだ無い)は次の課題として残る。
-- 最終更新: 2026-08-21 15:00 UTC
+- フェーズ85(2026-08-21 16:00 UTC): フェーズ84の残課題だった「`user_profile`・
+  `usage_counter`等の長期保存期間の上限整理」をdata-retention-policy.mdとして新規作成した。
+  line-reservation-ai/data-retention-policy.mdの構成を踏襲しつつ、本ventureが会話状態・
+  履歴を永続化しない単方向バッチ処理である点(tech-stack.md)を踏まえ、対象を`user_profile`・
+  `usage_counter`の2コレクションに絞って整理(`pending_links`は既存方針で確定済みのため
+  対象外)。Stripeサブスクリプションの解約日を起点に1年保有後を削除候補とする方針、
+  削除候補化後の最終確認経路(LINE push主経路・unfollow中は送達不可なため代替経路が必要な
+  点)、`user_profile`/`usage_counter`はいずれもトップレベル単独ドキュメントで削除順序の
+  論点が生じない点を整理した。残るのは、legal-notices-draft.mdへの反映、Stripe解約webhookを
+  起点とする削除候補洗い出しの具体的トリガー設計(実Stripe接続後)、代替連絡経路の実際の
+  収集項目確定(application-form-submission-flow-design.md実装確定後)、および
+  unfollow-event-handling-design.md由来の「ブロックしたのに課金だけ続く」FAQ整備
+  (本文書のスコープ外)で、いずれも次の課題として残る。
+- 最終更新: 2026-08-21 16:00 UTC
 
 ## 次にやること(候補)
 
-- フェーズ84(2026-08-21 15:00 UTC): unfollow-event-handling-design.mdの「今後の課題」に
-  残した、(1)「ブロックしたのに課金だけ続く」状態へのオーナー向けFAQ・問い合わせ対応文言の
-  整備、(2)`user_profile`・`usage_counter`等の長期保存期間の上限整理(data-retention-policy.md
-  相当の文書がまだ無い)は次の課題として残る。
+- フェーズ85(2026-08-21 16:00 UTC): data-retention-policy.mdの「今後の課題」に残した、
+  (1)legal-notices-draft.mdへの本方針の反映、(2)Stripe解約webhookを起点とする削除候補
+  洗い出しのトリガー設計(実Stripe接続後)、(3)代替連絡経路の収集項目確定
+  (application-form-submission-flow-design.md実装確定後)は次の課題として残る。
+- (解消済み 2026-08-21 16:00 UTC: フェーズ84の残課題だった`user_profile`・`usage_counter`の
+  長期保存期間上限整理をフェーズ85・data-retention-policy.mdで行った。詳細は上記フェーズ85
+  参照。「ブロックしたのに課金だけ続く」状態へのオーナー向けFAQ整備は引き続き未着手のまま
+  次の課題として残る)
 - (解消済み 2026-08-21 09:00 UTC: フェーズ82の残課題だった、実`functions_framework`の
   リクエストオブジェクトからのbody/署名ヘッダ取り出し配線を`main(request)`として実装した。
   詳細は上記フェーズ83参照。残るのは実Cloud Functionsデプロイ自体・`channel_secret`の実際の
