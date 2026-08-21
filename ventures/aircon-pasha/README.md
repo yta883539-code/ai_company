@@ -1013,3 +1013,14 @@
   いずれも同一制約によるものと判断し、同種アプローチの反復は次回以降停止する方針とした。
   次回は独立系候補のスタッフ数確認について間接的な手がかり(求人情報・口コミ等)への
   探索軸切り替えを試すか、候補研究以外の未着手領域を優先するかを判断する。
+- フェーズ90(2026-08-21 05:00 UTC): 候補研究がWebFetchのegress制約で頭打ちのため、
+  技術設計側の未着手課題(llm-system-prompt-draft.md「次の課題」1点目)を前進させた。
+  厳守事項6a(解約意図検知)の`status`分岐(cancellation_intent/downgrade_intent/
+  cancellation_unclear)に対応するschema/output.schema.jsonの改訂(`subscription_procedure_notice`
+  フィールド新設)、course-set-pashaのフェーズ54と同じ構成のPortalLinkProvider Protocol・
+  render_subscription_procedure_notice()のprototype/cloud_function_webhook.pyへの実装、
+  schema/validate_test_cases.pyへのCI1〜CI3フィクスチャ追加(全8件パス)を行った
+  (テスト9件追加、全58件パス)。あわせてsubscription-cancellation-flow-design.mdの
+  「未検証の仮説・次の課題」欄にあった解約意図検知境界の未着手記述が、実際には
+  llm-system-prompt-draft.md厳守事項6aとして既に整理済みだったことを確認し、記述を
+  解消済みへ更新した(ドキュメント間の同期漏れの解消)。

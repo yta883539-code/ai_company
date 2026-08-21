@@ -129,11 +129,15 @@ course-set-pasha側には存在しない、本venture固有の検討事項とし
 
 ## 未検証の仮説・次の課題
 
-- 「解約」インテントの検知は、llm-system-prompt-draft.mdの既存の厳守事項6(会員管理・
-  予約受付・決済への不応答)の枠組みに新規インテントとして追加が必要。誤検知(「今年は
-  もう依頼が減りそう」等の雑談を解約意図と誤判定しない)の境界設計はcourse-set-pasha/
-  faq-escalation-boundary.md相当の考え方を本venture向けに改めて整理する必要がある
-  (未着手)。
+- (解消済み 2026-08-21 05:00 UTC: 「解約」インテントの検知境界は、llm-system-prompt-draft.md
+  厳守事項6aとして(i)解約意図明確/(ii)プラン変更意図/(iii)雑談・愚痴/(iv)判断不能の4区分で
+  既に整理済み(course-set-pasha/faq-escalation-boundary.md・厳守事項7aの考え方を踏襲)。
+  本フェーズでschema/output.schema.jsonのstatus enumへcancellation_intent/downgrade_intent/
+  cancellation_unclearを追加し、subscription_procedure_notice(kind/body/includes_portal_link)
+  フィールドを新設。prototype/cloud_function_webhook.pyにPortalLinkProvider Protocol・
+  render_subscription_procedure_notice()を実装し、Stripeポータルリンクの解決・未接続時の
+  安全側フォールバックまで机上完結した(course-set-pashaのフェーズ54と同じ構成、テスト9件
+  追加・全58件パス)。残るのは6a(iii)雑談と(iv)判断不能の境界の実LLM検証(次項参照))。
 - 上記のダウングレード時の当月上限適用方式は、course-set-pashaがWebSearchで確認した
   公開ドキュメントの要約を決済方式の共通性のみを根拠に流用した判断であり、本venture
   独自の一次情報確認は行っていない。実際のStripeアカウント接続後(オーナー承認待ち)に

@@ -109,6 +109,31 @@ def validate_cross_field_rules(instance, path="$"):
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=insufficient_inputのとき{f}はnullである必要があります")
 
+    cancellation_statuses = ("cancellation_intent", "downgrade_intent", "cancellation_unclear")
+    if status in cancellation_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        notice = instance.get("subscription_procedure_notice")
+        if notice is None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeは非nullである必要があります")
+        else:
+            if notice.get("kind") != status:
+                errors.append(f"{path}.subscription_procedure_notice.kind: statusと一致する必要があります(期待={status}, 実際={notice.get('kind')!r})")
+            expected_link = status in ("cancellation_intent", "downgrade_intent")
+            if notice.get("includes_portal_link") is not expected_link:
+                errors.append(
+                    f"{path}.subscription_procedure_notice.includes_portal_link: "
+                    f"厳守事項6a(iv)によりstatus={status}のときは{expected_link}である必要があります"
+                )
+    else:
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+
     completion_report = instance.get("completion_report")
     if completion_report is not None:
         m = completion_report.get("mentions_refrigerant_or_electrical")
@@ -157,6 +182,7 @@ TEST_CASES = {
             "additional_treatment": "防カビコートあり",
             "next_recommended_date": "来年同時期",
         },
+        "subscription_procedure_notice": None,
     },
     "G2_estimate_next_date": {
         "status": "generated",
@@ -181,6 +207,7 @@ TEST_CASES = {
             "additional_treatment": "なし",
             "next_recommended_date": None,
         },
+        "subscription_procedure_notice": None,
     },
     "G3_model_and_date_unextractable": {
         "status": "generated",
@@ -204,6 +231,7 @@ TEST_CASES = {
             "additional_treatment": "なし",
             "next_recommended_date": None,
         },
+        "subscription_procedure_notice": None,
     },
     "OOS1_reservation_question": {
         "status": "out_of_scope",
@@ -213,6 +241,7 @@ TEST_CASES = {
         "completion_report": None,
         "care_guide": None,
         "history_row": None,
+        "subscription_procedure_notice": None,
     },
     "II1_no_work_content": {
         "status": "insufficient_input",
@@ -222,6 +251,57 @@ TEST_CASES = {
         "completion_report": None,
         "care_guide": None,
         "history_row": None,
+        "subscription_procedure_notice": None,
+    },
+    "CI1_cancellation_intent_clear": {
+        "status": "cancellation_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_row": None,
+        "subscription_procedure_notice": {
+            "kind": "cancellation_intent",
+            "body": (
+                "解約をご希望とのことで承知しました。現在のご契約はスタンダードプラン"
+                "(月90回まで/月額5,980円)です。解約手続き完了後も今回のご請求サイクルの"
+                "終了日まではサービスを引き続きご利用いただけます。日割りでの返金は行って"
+                "おりません。下記リンクから解約手続きにお進みください。"
+                "▼ {Stripeカスタマーポータル URL}"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    "CI2_downgrade_intent": {
+        "status": "downgrade_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_row": None,
+        "subscription_procedure_notice": {
+            "kind": "downgrade_intent",
+            "body": (
+                "プラン変更をご希望とのことで承知しました。解約ではなくサービス継続の"
+                "お手続きです。下記リンクのStripeカスタマーポータルから変更後のプランを"
+                "お選びください。差額は日割りで精算されます。"
+                "▼ {Stripeカスタマーポータル URL}"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    "CI3_cancellation_unclear": {
+        "status": "cancellation_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_row": None,
+        "subscription_procedure_notice": {
+            "kind": "cancellation_unclear",
+            "body": "解約(またはプラン変更)をご希望でしょうか?よろしければ改めてその旨お知らせください。",
+            "includes_portal_link": False,
+        },
     },
 }
 

@@ -20,7 +20,9 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     PLAN_MONTHLY_LIMITS,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
     LlmApiError,
@@ -28,6 +30,7 @@ from cloud_function_webhook import (  # noqa: E402
     build_usage_notice,
     format_reply_text,
     process_memo_event,
+    render_subscription_procedure_notice,
     validate_llm_output,
 )
 
@@ -412,6 +415,88 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         )
 
         self.assertNotIn("※", result.reply_text)
+
+
+class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):
+    """schema/output.schema.jsonのsubscription_procedure_notice(status=cancellation_intent/
+    downgrade_intent/cancellation_unclear)の返信組み立て(厳守事項6a対応)を検証する。"""
+
+    def test_unclear_case_returns_body_as_is_without_provider(self):
+        notice = TEST_CASES["CI3_cancellation_unclear"]["subscription_procedure_notice"]
+        text = render_subscription_procedure_notice(notice, None, "u-1")
+        self.assertEqual(text, notice["body"])
+
+    def test_cancellation_intent_replaces_placeholder_with_portal_url(self):
+        notice = TEST_CASES["CI1_cancellation_intent_clear"]["subscription_procedure_notice"]
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/abc123")
+        text = render_subscription_procedure_notice(notice, provider, "u-1")
+        self.assertIn("https://billing.stripe.com/p/session/abc123", text)
+        self.assertNotIn("{Stripeカスタマーポータル URL}", text)
+
+    def test_downgrade_intent_replaces_placeholder_with_portal_url(self):
+        notice = TEST_CASES["CI2_downgrade_intent"]["subscription_procedure_notice"]
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/xyz789")
+        text = render_subscription_procedure_notice(notice, provider, "u-1")
+        self.assertIn("https://billing.stripe.com/p/session/xyz789", text)
+
+    def test_falls_back_when_provider_not_given(self):
+        notice = TEST_CASES["CI1_cancellation_intent_clear"]["subscription_procedure_notice"]
+        text = render_subscription_procedure_notice(notice, None, "u-1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_falls_back_when_user_id_missing(self):
+        notice = TEST_CASES["CI1_cancellation_intent_clear"]["subscription_procedure_notice"]
+        provider = InMemoryPortalLinkProvider()
+        text = render_subscription_procedure_notice(notice, provider, None)
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_falls_back_when_provider_returns_none(self):
+        notice = TEST_CASES["CI1_cancellation_intent_clear"]["subscription_procedure_notice"]
+        provider = InMemoryPortalLinkProvider(url=None)
+        text = render_subscription_procedure_notice(notice, provider, "u-1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+
+class ProcessMemoEventCancellationFlowTest(unittest.TestCase):
+    """process_memo_event()にsubscription_procedure_notice対応のstatusが渡された場合の
+    統合的な挙動(ポータルリンク解決・カウント対象外)を検証する。"""
+
+    def test_cancellation_intent_reply_includes_resolved_portal_url(self):
+        reply_client = InMemoryReplyClient()
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/abc123")
+        result = process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"),
+            reply_client,
+            portal_link_provider=provider,
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertIn("https://billing.stripe.com/p/session/abc123", result.reply_text)
+
+    def test_cancellation_unclear_reply_has_no_portal_link(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="そろそろ辞めようかな", user_id="u-1"),
+            FixtureLlmClient("CI3_cancellation_unclear"),
+            reply_client,
+        )
+
+        self.assertNotIn("{Stripeカスタマーポータル URL}", result.reply_text)
+        self.assertNotIn("https://", result.reply_text)
+
+    def test_cancellation_intent_does_not_increment_usage_counter(self):
+        # カウント対象はstatus=="generated"のみ(limit-approaching-notification-design.md 3節)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        process_memo_event(
+            _make_event(text="解約したいです", user_id="u-1"),
+            FixtureLlmClient("CI1_cancellation_intent_clear"),
+            reply_client,
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

@@ -134,13 +134,20 @@ insufficient_input)パターンを踏襲する方向で検討している。
 
 ## 次の課題
 
-- 構造化出力スキーマ(JSON Schema)の草案作成(schema/output.schema.json相当)。
-  course-set-pashaのstatus分岐パターンを流用しつつ、厳守事項1の検証用フィールド設計、
-  および厳守事項6a(解約意図検知)の`status`分岐(上記「構造化出力の方針」参照)を詰める。
+- (解消済み 2026-08-21 05:00 UTC: 構造化出力スキーマ(schema/output.schema.json)を作成し、
+  厳守事項6a(解約意図検知)の`status`分岐(cancellation_intent/downgrade_intent/
+  cancellation_unclear)と`subscription_procedure_notice`フィールドを追加した。命名は
+  course-set-pashaのフェーズ54を踏襲し、本ファイル上記で仮称としていた
+  `subscription_intent_unclear`は不採用、`cancellation_unclear`に統一した。厳守事項1の
+  検証用フィールド(`mentions_refrigerant_or_electrical`)は既存スキーマに含まれていたため
+  変更なし)。
 - 期待JSON出力サンプル(status別)の作成と机上バリデーション
-  (course-set-pashaのoutput-samples-validation.md相当)。厳守事項4のデフォルト目安の
-  粒度、厳守事項6a各分岐(i)〜(iv)の期待応答文言をどこまでサンプルに反映するかを
-  合わせて確定する。
+  (course-set-pashaのoutput-samples-validation.md相当)は、6a各分岐(cancellation_intent/
+  downgrade_intent/cancellation_unclear)についてはschema/validate_test_cases.pyの
+  CI1〜CI3フィクスチャとして作成済み(全8件パス)。厳守事項4のデフォルト目安の粒度別
+  サンプル(次回推奨時期が1〜2年に1回/年1回/年2回のケース別)はoutput-samples-validation.md
+  側の既存G1〜G3で部分的にカバーしているが、粒度分岐そのものを網羅したサンプルは未作成のまま
+  残る。
 - 厳守事項6aの境界(特に(iii)雑談と(iv)判断不能の切り分け、繁忙期の施工件数の多さを
   愚痴る発言との混同防止)は机上での言い回し例に基づく設計であり、実LLM接続後に実際の
   誤検知パターンが無いか改めて検証する必要がある(course-set-pashaの厳守事項7a同様の
