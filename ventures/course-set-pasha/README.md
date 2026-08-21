@@ -889,7 +889,20 @@
   項目確定後の課題)で、いずれも次の課題として残る。本フェーズはドキュメント作成のみで
   コード変更を伴わないため、既存テストへの影響なし(course-set-pasha配下既存190件は
   フェーズ83時点の確認から変更なしのはずだが、念のため再実行し確認する)。
-- 最終更新: 2026-08-21 18:00 UTC
+- フェーズ87(2026-08-21 21:00 UTC): aircon-pasha README.mdフェーズ98の申し送り
+  「実LLM接続後の生成品質検証プランをcourse-set-pasha・line-reservation-aiにも同様の形で
+  展開する」に対応し、llm-quality-verification-plan.mdを新規作成した。output-samples-
+  validation.mdの5ケース(G1〜G3・OOS1・II1)とschema/validate_test_cases.pyの解約意図
+  検知ケース(CI1〜CI3)を対象に、厳守事項1〜9・7a別の検証観点・判定方法(機械チェック/
+  人手)を整理した。aircon-pashaとの差分として、(1)course-set-pashaにはunchanged_areas
+  本文突き合わせ・出力別絵文字上限チェックに相当する機械チェックスクリプト
+  (post_generation_checks.py相当)がまだ存在しない点、(2)出力1のみ絵文字1〜2個を許容する
+  点がaircon-pasha(全出力絵文字不使用)と異なる点、(3)厳守事項7a(解約意図検知)は
+  course-set-pasha固有でCI1〜CI3が新規検証項目である点、を明記した。ドキュメント整理のみで
+  APIキー取得・課金を伴わないため承認不要な範囲にとどめ、実際のLLM API呼び出しは引き続き
+  オーナー承認待ち。次回はpost_generation_checks.py相当のunchanged_areas突き合わせ・
+  絵文字上限チェックスクリプトの移植、または同プランのline-reservation-aiへの展開を検討する。
+- 最終更新: 2026-08-21 21:00 UTC
 
 ## 次にやること(候補)
 
