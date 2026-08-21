@@ -161,9 +161,21 @@ class ProcessMemoEventTest(unittest.TestCase):
         reply_client = InMemoryReplyClient()
         result = process_memo_event(_make_event(), FixtureLlmClient("G1_basic"), reply_client)
 
-        row = TEST_CASES["G1_basic"]["history_row"]
+        row = TEST_CASES["G1_basic"]["history_rows"][0]
         self.assertIn(row["model_type_and_capacity"], result.reply_text)
         self.assertIn(row["dirt_condition"], result.reply_text)
+
+    def test_generated_case_with_multiple_units_lists_each_with_index_label(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="リビングと寝室の2台を分解洗浄"), FixtureLlmClient("G4_multiple_units_same_visit"), reply_client
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertIn("[1台目]", result.reply_text)
+        self.assertIn("[2台目]", result.reply_text)
+        for row in TEST_CASES["G4_multiple_units_same_visit"]["history_rows"]:
+            self.assertIn(row["model_type_and_capacity"], result.reply_text)
 
     def test_generated_case_with_null_fields_shows_placeholder(self):
         reply_client = InMemoryReplyClient()

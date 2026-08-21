@@ -12,10 +12,12 @@ mvp-flow-draft.mdで整理した「作業後メモ→LLM呼び出し→3種類�
   prototype/cloud_function_webhook.pyと同じ位置づけ)。
 - LLM呼び出し(llm_call)・返信送信(reply_client)はいずれも差し替え可能なProtocolとし、
   承認後は実クライアントに差し替えるだけで動作させられるように設計している。
-- course-set-pashaとの主な差異: 本ventureのhistory_rowは単一オブジェクト(1メモ=1件の
-  訪問施工が前提、schema/output.schema.json参照)のため、history_export.pyのような
-  CSV変換モジュールは不要(表1行分をそのまま文字列化するだけで足りる)。テキスト・画像の
-  束ね方(text-image-bundling-design.md相当)も、mvp-flow-draft.mdで写真は「任意添付」の
+- course-set-pashaとの主な差異: 本ventureのhistory_rowsは配列だが(同一訪問先で2台以上を
+  同時に分解洗浄するケースが一般的、2026-08-21改訂・schema/output.schema.json参照)、
+  スプレッドシート転記用の表現はCSV化ではなく項目名付きの箇条書きテキストのままとした
+  (course-set-pashaのhistory_export.pyのようなCSV変換モジュールは導入せず、
+  format_history_rows_text()で1件ずつ整形して連結する)。テキスト・画像の束ね方
+  (text-image-bundling-design.md相当)も、mvp-flow-draft.mdで写真は「任意添付」の
   扱いにとどまり出力スキーマにhasPhoto相当のフィールドが無いため、本モジュールでは
   対応を見送った(必要になった場合の課題としてREADME.mdの「次にやること」に残す)。
 
@@ -233,11 +235,12 @@ API_FAILURE_FALLBACK_MESSAGE = (
 )
 
 
-def format_history_row_text(history_row: dict) -> str:
-    """history_row(単一オブジェクト)を表1行分の読みやすいテキストに整形する。
-    course-set-pashaのhistory_rows_to_csv_text()相当だが、本ventureは1メモ=1件のため
-    CSV化ではなく項目名付きの箇条書きとした(スプレッドシートへの手動転記を想定、
-    mvp-flow-draft.md「出力3」参照)。"""
+def format_history_row_text(history_row: dict, index: Optional[int] = None) -> str:
+    """history_rows内の1台分を表1行分の読みやすいテキストに整形する。
+    course-set-pashaのhistory_rows_to_csv_text()相当だが、本ventureはCSV化ではなく
+    項目名付きの箇条書きとした(スプレッドシートへの手動転記を想定、
+    mvp-flow-draft.md「出力3」参照)。indexが指定された場合(2台以上のとき)は
+    先頭に「n台目」の見出しを付ける(2026-08-21改訂、history_rows配列化対応)。"""
     labels = [
         ("施工日", history_row.get("work_date")),
         ("機種系統・号数", history_row.get("model_type_and_capacity")),
@@ -245,7 +248,22 @@ def format_history_row_text(history_row: dict) -> str:
         ("追加施工", history_row.get("additional_treatment")),
         ("次回推奨時期", history_row.get("next_recommended_date")),
     ]
-    return "\n".join(f"{label}: {value if value is not None else '(未記載)'}" for label, value in labels)
+    body = "\n".join(f"{label}: {value if value is not None else '(未記載)'}" for label, value in labels)
+    if index is None:
+        return body
+    return f"[{index}台目]\n{body}"
+
+
+def format_history_rows_text(history_rows: list) -> str:
+    """history_rows(配列)を、台数分のテキストに整形して連結する。1件のみの場合は
+    従来通り台数見出し無しの表記のまま(返信文言・既存テストとの後方互換)、2件以上の
+    場合は「[1台目]」「[2台目]」の見出しで区切る(2026-08-21改訂、market-research.md
+    調査で同一訪問先の複数台同時分解洗浄が業界で一般的と判明したことに対応)。"""
+    if len(history_rows) == 1:
+        return format_history_row_text(history_rows[0])
+    return "\n\n".join(
+        format_history_row_text(row, index=i + 1) for i, row in enumerate(history_rows)
+    )
 
 
 def format_generated_reply(instance: dict) -> str:
@@ -258,7 +276,7 @@ def format_generated_reply(instance: dict) -> str:
         instance["care_guide"]["body"],
         "",
         "【作業履歴記録(スプレッドシート転記用)】",
-        format_history_row_text(instance["history_row"]),
+        format_history_rows_text(instance["history_rows"]),
     ]
     return "\n".join(parts)
 
@@ -464,13 +482,16 @@ def _demo() -> None:
                             "あるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
                     "next_recommended_date_is_estimate": False,
                 },
-                "history_row": {
-                    "work_date": "2026-08-09",
-                    "model_type_and_capacity": "壁掛け型2.2kW",
-                    "dirt_condition": "カビ・ホコリ汚れ中程度",
-                    "additional_treatment": "防カビコートあり",
-                    "next_recommended_date": "来年同時期",
-                },
+                "history_rows": [
+                    {
+                        "work_date": "2026-08-09",
+                        "model_type_and_capacity": "壁掛け型2.2kW",
+                        "dirt_condition": "カビ・ホコリ汚れ中程度",
+                        "additional_treatment": "防カビコートあり",
+                        "next_recommended_date": "来年同時期",
+                    },
+                ],
+                "subscription_procedure_notice": None,
             }
 
     reply_client = InMemoryReplyClient()

@@ -12,7 +12,7 @@ llm-system-prompt-draft.md・schema/output.schema.jsonの検証用フィール�
   記述との突き合わせをヒューリスティックに検証する。
 - status=generatedのときに会員管理・予約受付・決済の話題(厳守事項6)が本文に
   紛れ込んでいないかを検証する。
-- history_row(構造化データ)側の機種系統・号数・追加施工の記載が、本文
+- history_rows(構造化データ、配列)側の機種系統・号数・追加施工の記載が、本文
   (completion_report.body)側にも反映されているか(厳守事項3)を検証する。
 - ここでの検証はあくまでヒューリスティック(キーワード近傍探索)であり、LLMの
   厳守事項違反を確実に検出できるわけではない。実LLM接続後は、ここで拾いきれない
@@ -156,77 +156,81 @@ def _strip_additional_treatment_suffix(value):
 
 
 def check_model_type_mentioned_in_text(instance):
-    """厳守事項3準拠チェック(機種系統・号数の明示)。history_row.model_type_and_capacity
+    """厳守事項3準拠チェック(機種系統・号数の明示)。history_rows[*].model_type_and_capacity
     が入力メモから抽出できている場合(非null)、completion_report.bodyにも同じ記述が
-    登場しているかを確認する。抽出できていない(null)場合はチェック対象外。
+    登場しているかを確認する。抽出できていない(null)場合はその要素をスキップする。
+    2026-08-21改訂: history_rowの単一オブジェクトから配列(history_rows)化に伴い、
+    複数台のケースでは要素ごとに検証する(course-set-pashaのエリア別チェックと同じ設計)。
     """
     errors = []
-    history_row = instance.get("history_row")
+    history_rows = instance.get("history_rows")
     completion_report = instance.get("completion_report")
-    if history_row is None or completion_report is None:
-        return errors
-
-    model_type = history_row.get("model_type_and_capacity")
-    if not model_type:
+    if not history_rows or completion_report is None:
         return errors
 
     body = completion_report.get("body", "")
-    if model_type not in body:
-        errors.append(
-            f"history_row: 機種系統・号数「{model_type}」がcompletion_report.bodyに"
-            "見つかりません(厳守事項3違反の疑い)"
-        )
+    for i, row in enumerate(history_rows):
+        model_type = row.get("model_type_and_capacity")
+        if not model_type:
+            continue
+        if model_type not in body:
+            errors.append(
+                f"history_rows[{i}]: 機種系統・号数「{model_type}」がcompletion_report.bodyに"
+                "見つかりません(厳守事項3違反の疑い)"
+            )
     return errors
 
 
 def check_additional_treatment_mentioned_in_text(instance):
-    """厳守事項3準拠チェック(追加施工の明示)。history_row.additional_treatmentが
+    """厳守事項3準拠チェック(追加施工の明示)。history_rows[*].additional_treatmentが
     「なし」系の値でない場合、completion_report.bodyにその施工内容への言及があるかを
-    確認する。"""
+    要素ごとに確認する。"""
     errors = []
-    history_row = instance.get("history_row")
+    history_rows = instance.get("history_rows")
     completion_report = instance.get("completion_report")
-    if history_row is None or completion_report is None:
-        return errors
-
-    additional_treatment = history_row.get("additional_treatment")
-    if not additional_treatment or additional_treatment in NO_ADDITIONAL_TREATMENT_VALUES:
+    if not history_rows or completion_report is None:
         return errors
 
     body = completion_report.get("body", "")
-    keyword = _strip_additional_treatment_suffix(additional_treatment)
-    if keyword not in body:
-        errors.append(
-            f"history_row: 追加施工「{additional_treatment}」がcompletion_report.bodyに"
-            "見つかりません(厳守事項3違反の疑い)"
-        )
+    for i, row in enumerate(history_rows):
+        additional_treatment = row.get("additional_treatment")
+        if not additional_treatment or additional_treatment in NO_ADDITIONAL_TREATMENT_VALUES:
+            continue
+        keyword = _strip_additional_treatment_suffix(additional_treatment)
+        if keyword not in body:
+            errors.append(
+                f"history_rows[{i}]: 追加施工「{additional_treatment}」がcompletion_report.bodyに"
+                "見つかりません(厳守事項3違反の疑い)"
+            )
     return errors
 
 
 def check_next_recommended_date_history_care_guide_consistency(instance):
     """厳守事項4関連の追加チェック(構造化データと打消し文言の整合)。
     care_guide.next_recommended_date_is_estimate=false(=入力メモ由来の具体的な
-    次回目安)を主張しているにもかかわらず、history_row.next_recommended_dateが
-    null/空であれば、「メモ由来の日付」と自称しながら構造化フィールドが空という
-    不整合の疑いとして報告する。逆にis_estimate=trueの場合は一般的な目安であり、
-    history_row側が空でも矛盾ではないためチェック対象外。
+    次回目安)を主張しているにもかかわらず、history_rows[*].next_recommended_dateが
+    null/空の要素があれば、「メモ由来の日付」と自称しながら構造化フィールドが空という
+    不整合の疑いとして要素ごとに報告する(schema/validate_test_cases.pyの
+    cross-fieldルールと同じ設計)。逆にis_estimate=trueの場合は一般的な目安であり、
+    history_rows側が空でも矛盾ではないためチェック対象外。
     check_next_recommended_date_estimate_consistencyが本文(打消し文言)側との
-    整合を見るのに対し、こちらは構造化データ(history_row)側との整合を見る。
+    整合を見るのに対し、こちらは構造化データ(history_rows)側との整合を見る。
     """
     errors = []
     care_guide = instance.get("care_guide")
-    history_row = instance.get("history_row")
-    if care_guide is None or history_row is None:
+    history_rows = instance.get("history_rows")
+    if care_guide is None or not history_rows:
         return errors
 
     is_estimate = care_guide.get("next_recommended_date_is_estimate")
-    hist_date = history_row.get("next_recommended_date")
-    if is_estimate is False and not hist_date:
-        errors.append(
-            "care_guide/history_row: next_recommended_date_is_estimate=false"
-            "(メモ由来の具体的な次回目安)にもかかわらずhistory_row."
-            "next_recommended_dateが空です(構造化データとの不整合の疑い)"
-        )
+    if is_estimate is False:
+        for i, row in enumerate(history_rows):
+            if not row.get("next_recommended_date"):
+                errors.append(
+                    f"care_guide/history_rows[{i}]: next_recommended_date_is_estimate=false"
+                    "(メモ由来の具体的な次回目安)にもかかわらずhistory_rows"
+                    f"[{i}].next_recommended_dateが空です(構造化データとの不整合の疑い)"
+                )
     return errors
 
 

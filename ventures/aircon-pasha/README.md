@@ -1084,3 +1084,24 @@
   (および対応するtest_*.py)は旧仕様の単一オブジェクト`history_row`のままで未更新のため、
   現時点ではスキーマ・設計ドキュメントとprototypeコードの間に不整合が生じている。次回は
   この2ファイル(+テスト)を`history_rows`配列対応に更新することを最優先とする。
+- フェーズ96(2026-08-21 17:00 UTC): フェーズ95の申し送り通り、prototype/cloud_function_webhook.py・
+  prototype/post_generation_checks.py(+対応するtest_*.py)を`history_rows`配列対応に更新した。
+  cloud_function_webhook.pyはformat_history_row_text()を1台分の整形に据え置きつつ、新設の
+  format_history_rows_text()で複数台の場合に「[1台目]」「[2台目]」の見出しを付けて連結する形とした
+  (1件のみの場合は従来通り見出し無し、既存の返信文言との後方互換を維持)。post_generation_checks.py
+  側はcheck_model_type_mentioned_in_text()・check_additional_treatment_mentioned_in_text()・
+  check_next_recommended_date_history_care_guide_consistency()の3チェックをhistory_rows配列を
+  要素ごとにループする形に変更した(course-set-pashaのエリア別チェックと同じ設計)。
+  この過程で、schema/validate_test_cases.pyのG4_multiple_units_same_visitフィクスチャに
+  実データ不整合(history_rows[*].model_type_and_capacityが「壁掛け型2.8kW(リビング)」のような
+  表記だったのに対し、completion_report.bodyは「リビングの壁掛け型2.8kW」という語順で記述して
+  おり、両者が文字列として一致しない)を発見した。これはcheck_model_type_mentioned_in_text()が
+  history_row単数版のままだったフェーズ95時点では検出できなかった潜在バグで、今回の配列化に
+  伴い初めて機械チェックの対象になったことで顕在化した。schema/output.schema.jsonのdescription
+  記載例(「リビング2.8kW・寝室2.2kW」の語順)に合わせ、history_rows側の値を「リビングの
+  壁掛け型2.8kW」「寝室の壁掛け型2.2kW」に修正して解消した(body側は変更不要)。
+  prototype配下のtest_cloud_function_webhook.py・test_post_generation_checks.pyにG4フィクスチャ・
+  複数台ケースを使った新規テストを追加し、schema/validate_test_cases.py実行(9件パス)・
+  prototype配下の全テスト実行(67件パス)をいずれも確認した。次回は候補12(東京住まいる、
+  tokyo-smile.jp限定)の連絡先確認、またはオーナーからの初回コンタクト承認可否を待つ間の
+  他の未着手領域(実LLM接続後の生成品質検証設計等)の前進を優先する。

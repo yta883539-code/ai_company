@@ -268,14 +268,14 @@ TEST_CASES = {
         "history_rows": [
             {
                 "work_date": "2026-08-21",
-                "model_type_and_capacity": "壁掛け型2.8kW(リビング)",
+                "model_type_and_capacity": "リビングの壁掛け型2.8kW",
                 "dirt_condition": "中程度",
                 "additional_treatment": "なし",
                 "next_recommended_date": "来年同時期",
             },
             {
                 "work_date": "2026-08-21",
-                "model_type_and_capacity": "壁掛け型2.2kW(寝室)",
+                "model_type_and_capacity": "寝室の壁掛け型2.2kW",
                 "dirt_condition": "軽度",
                 "additional_treatment": "なし",
                 "next_recommended_date": "来年同時期",

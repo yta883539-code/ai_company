@@ -132,7 +132,7 @@ class NoOutOfScopeTopicsTest(unittest.TestCase):
 class ModelTypeMentionedInTextTest(unittest.TestCase):
     def test_missing_model_type_in_body_is_flagged(self):
         instance = {
-            "history_row": {"model_type_and_capacity": "壁掛け型2.2kW"},
+            "history_rows": [{"model_type_and_capacity": "壁掛け型2.2kW"}],
             "completion_report": {"body": "エアコンの分解洗浄を実施いたしました。"},
         }
         errors = check_model_type_mentioned_in_text(instance)
@@ -140,16 +140,28 @@ class ModelTypeMentionedInTextTest(unittest.TestCase):
 
     def test_null_model_type_is_skipped(self):
         instance = {
-            "history_row": {"model_type_and_capacity": None},
+            "history_rows": [{"model_type_and_capacity": None}],
             "completion_report": {"body": "エアコンの分解洗浄を実施いたしました。"},
         }
         self.assertEqual(check_model_type_mentioned_in_text(instance), [])
+
+    def test_second_of_two_units_missing_is_flagged_with_index(self):
+        instance = {
+            "history_rows": [
+                {"model_type_and_capacity": "壁掛け型2.8kW(リビング)"},
+                {"model_type_and_capacity": "壁掛け型2.2kW(寝室)"},
+            ],
+            "completion_report": {"body": "リビングの壁掛け型2.8kW(リビング)について分解洗浄いたしました。"},
+        }
+        errors = check_model_type_mentioned_in_text(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("history_rows[1]", errors[0])
 
 
 class AdditionalTreatmentMentionedInTextTest(unittest.TestCase):
     def test_missing_additional_treatment_in_body_is_flagged(self):
         instance = {
-            "history_row": {"additional_treatment": "防カビコートあり"},
+            "history_rows": [{"additional_treatment": "防カビコートあり"}],
             "completion_report": {"body": "フィルター・熱交換器まで分解洗浄いたしました。"},
         }
         errors = check_additional_treatment_mentioned_in_text(instance)
@@ -157,7 +169,7 @@ class AdditionalTreatmentMentionedInTextTest(unittest.TestCase):
 
     def test_no_additional_treatment_value_is_skipped(self):
         instance = {
-            "history_row": {"additional_treatment": "なし"},
+            "history_rows": [{"additional_treatment": "なし"}],
             "completion_report": {"body": "フィルター・熱交換器まで分解洗浄いたしました。"},
         }
         self.assertEqual(check_additional_treatment_mentioned_in_text(instance), [])
@@ -167,7 +179,7 @@ class NextRecommendedDateHistoryCareGuideConsistencyTest(unittest.TestCase):
     def test_not_estimate_but_empty_history_date_is_flagged(self):
         instance = {
             "care_guide": {"next_recommended_date_is_estimate": False},
-            "history_row": {"next_recommended_date": None},
+            "history_rows": [{"next_recommended_date": None}],
         }
         errors = check_next_recommended_date_history_care_guide_consistency(instance)
         self.assertEqual(len(errors), 1)
@@ -175,7 +187,7 @@ class NextRecommendedDateHistoryCareGuideConsistencyTest(unittest.TestCase):
     def test_not_estimate_with_history_date_is_ok(self):
         instance = {
             "care_guide": {"next_recommended_date_is_estimate": False},
-            "history_row": {"next_recommended_date": "2027-08"},
+            "history_rows": [{"next_recommended_date": "2027-08"}],
         }
         self.assertEqual(
             check_next_recommended_date_history_care_guide_consistency(instance), []
@@ -184,11 +196,23 @@ class NextRecommendedDateHistoryCareGuideConsistencyTest(unittest.TestCase):
     def test_estimate_with_empty_history_date_is_ok(self):
         instance = {
             "care_guide": {"next_recommended_date_is_estimate": True},
-            "history_row": {"next_recommended_date": None},
+            "history_rows": [{"next_recommended_date": None}],
         }
         self.assertEqual(
             check_next_recommended_date_history_care_guide_consistency(instance), []
         )
+
+    def test_not_estimate_with_one_of_two_rows_empty_is_flagged(self):
+        instance = {
+            "care_guide": {"next_recommended_date_is_estimate": False},
+            "history_rows": [
+                {"next_recommended_date": "来年同時期"},
+                {"next_recommended_date": None},
+            ],
+        }
+        errors = check_next_recommended_date_history_care_guide_consistency(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("history_rows[1]", errors[0])
 
     def test_missing_sections_are_skipped(self):
         self.assertEqual(
