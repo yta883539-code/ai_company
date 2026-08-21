@@ -61,9 +61,18 @@ def receive_webhook(
 
 ## 残課題
 
-- 実際のCloud Functions(`functions_framework`)のリクエストオブジェクトから
-  `body`(`request.get_data()`)・署名ヘッダ(`request.headers.get("X-Line-Signature")`)を
-  取り出してこの関数に渡す薄い配線自体、および実Cloud Functionsデプロイは、いずれも
-  実GCPプロジェクト作成・実LINE公式アカウント接続がオーナー承認待ちのため未着手のまま残る。
-- `channel_secret`の実際の値の取得・保管方法(Secret Manager等)は、上記デプロイ時の
+- (解消 2026-08-21 09:00 UTC・フェーズ83): 実際のCloud Functions(`functions_framework`)の
+  リクエストオブジェクトから`body`(`request.get_data()`)・署名ヘッダ
+  (`request.headers.get("X-Line-Signature")`)を取り出してこの関数に渡す薄い配線を、
+  `main(request)`として実装した。`functions_framework`自体はインポートせず、
+  `get_data()`・`headers.get(...)`という同じインターフェースにのみ依存する設計としたため、
+  実パッケージのインストール・実デプロイなしに単体テスト可能にした
+  (`_StubFlaskRequest`スタブでの5ケース、course-set-pasha配下計190件パス)。
+  `channel_secret`は環境変数`LINE_CHANNEL_SECRET`から取得する設計とした。
+  実LINE/実LLM/実Firestoreクライアントの組み立ては`get_runtime_dependencies()`に
+  切り出し、現時点(オーナー承認待ち)では空辞書(全依存未接続)を返す実装とした。
+- 実Cloud Functionsデプロイ自体(実GCPプロジェクト作成・実LINE公式アカウント接続)は、
+  いずれもアカウント作成・外部サービス公開に該当しオーナー承認待ちのため未着手のまま残る。
+- `channel_secret`の実際の値の取得・保管方法(Secret Manager等)、および
+  `get_runtime_dependencies()`を実クライアントに差し替える実装自体は、上記デプロイ時の
   設計課題として別途残る。

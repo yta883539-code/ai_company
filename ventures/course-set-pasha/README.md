@@ -829,10 +829,31 @@
   events欠落時400、正常系での200・dispatch結果反映)、course-set-pasha配下計176件パス。
   実`functions_framework`のリクエストオブジェクトからのbody/署名ヘッダ取り出し配線・
   実Cloud Functionsデプロイ自体はオーナー承認待ちのため未着手のまま残る。
-- 最終更新: 2026-08-21 06:00 UTC
+- フェーズ83(2026-08-21 09:00 UTC): フェーズ82の残課題だった、実`functions_framework`の
+  リクエストオブジェクトからの`body`/署名ヘッダ取り出し配線を`main(request)`として実装した
+  (receive-webhook-http-entry-point-design.md「残課題」追記)。`functions_framework`自体は
+  インポートせず`request.get_data()`・`request.headers.get(...)`という同じインターフェースにのみ
+  依存する設計としたため、実パッケージのインストール・実デプロイなしにローカルで単体テスト可能に
+  した(テストは`_StubFlaskRequest`という軽量スタブで代替)。`channel_secret`は環境変数
+  `LINE_CHANNEL_SECRET`から取得する設計とした。実LINE/実LLM/実Firestoreクライアントの組み立ては
+  `get_runtime_dependencies()`という差し替え可能なファクトリ関数に切り出し、現時点
+  (オーナー承認待ち)では空辞書(全依存未接続)を返す実装とした。`dispatch_webhook_events()`側の
+  既存の「`reply_client`/`llm_call`が`None`ならイベント処理をスキップする」安全側フォールバックに
+  より、未接続のまま呼び出しても例外にはならないことを確認済み。テスト5件新規追加
+  (正常系でのbody/署名抽出・200返却、署名不正・ヘッダ欠落・環境変数未設定時の401、
+  `get_runtime_dependencies()`の戻り値が`receive_webhook()`にそのまま渡せること)、
+  course-set-pasha配下計190件パス。実Cloud Functionsデプロイ自体・`channel_secret`の実際の
+  取得/保管方法(Secret Manager等)・`get_runtime_dependencies()`の実クライアントへの差し替えは、
+  実GCPプロジェクト作成・実LINE公式アカウント接続を伴うためオーナー承認待ちのまま残る。
+- 最終更新: 2026-08-21 09:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-21 09:00 UTC: フェーズ82の残課題だった、実`functions_framework`の
+  リクエストオブジェクトからのbody/署名ヘッダ取り出し配線を`main(request)`として実装した。
+  詳細は上記フェーズ83参照。残るのは実Cloud Functionsデプロイ自体・`channel_secret`の実際の
+  取得/保管方法・`get_runtime_dependencies()`の実クライアントへの差し替え〈いずれもオーナー
+  承認待ち〉、実フォームURL確定後の`ApplicationFormLinkProvider`実装のみ)
 - (解消済み 2026-08-21 06:00 UTC: 実HTTPリクエストボディのJSONパース〜
   `verify_line_signature()`との結線をフェーズ82・receive-webhook-http-entry-point-design.mdで
   設計し、`receive_webhook()`として実装した。詳細は上記フェーズ82参照。残るのは実

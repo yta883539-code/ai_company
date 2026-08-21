@@ -19,6 +19,7 @@ webhook-processing-flow-design.mdで設計した、Webhook受信〜LLM呼び出�
 from __future__ import annotations
 
 import json
+import os
 import random
 import sys
 from dataclasses import dataclass, field
@@ -944,6 +945,50 @@ def receive_webhook(
         now=now,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
+# ---------------------------------------------------------------------------
+# functions_frameworkエントリポイント(receive-webhook-http-entry-point-design.md「残課題」参照)
+# ---------------------------------------------------------------------------
+
+def get_runtime_dependencies() -> dict:
+    """receive_webhook()に渡す実クライアント一式を組み立てるファクトリ。
+
+    実Firestore・実LINE Messaging API・実LLM API接続は、いずれも実GCPプロジェクト作成・
+    実LINE公式アカウント開設(オーナー承認待ち、pending-approval.md参照)後でなければ
+    実クライアントを構築できないため、現時点では空の辞書(=全依存関係が未接続の`None`扱い)を
+    返す。dispatch_webhook_events()側は`reply_client`/`llm_call`が`None`のときイベント処理を
+    スキップする既存の安全側フォールバックを持つため、未接続のまま`main()`を呼び出しても
+    例外にはならない。承認・実クレデンシャル取得後は、この関数の中身を実クライアント
+    (Firestore版LinkingCodeStore・LINE Reply API版ReplyClient・実LLM呼び出し等)を返すように
+    差し替えるだけで`main()`・`receive_webhook()`双方を変更せずに接続できる設計とした。
+    """
+    return {}
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定)。
+
+    `functions_framework`が渡す`request`はFlaskの`Request`と同じインターフェース
+    (`get_data()`・`headers.get(...)`)を持つため、本関数はそのインターフェースにのみ
+    依存し`functions_framework`自体をインポートしない(ローカルでの単体テスト時は同じ
+    インターフェースを持つ軽量なスタブで代替できる)。
+
+    receive-webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた、
+    実リクエストオブジェクトからの`body`(`request.get_data()`)・署名ヘッダ
+    (`request.headers.get("X-Line-Signature")`)取り出し配線をここで行い、
+    `receive_webhook()`に委譲する。`channel_secret`は環境変数`LINE_CHANNEL_SECRET`から
+    取得する(実際の値の取得・保管方法自体は実デプロイ時の設計課題として別途残る)。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("X-Line-Signature")
+    channel_secret = os.environ.get("LINE_CHANNEL_SECRET", "")
+
+    result = receive_webhook(body, signature_header, channel_secret, **get_runtime_dependencies())
+
+    if result.status_code == 200:
+        return "OK", 200
+    return (result.error or "error"), result.status_code
 
 
 def _demo() -> None:
