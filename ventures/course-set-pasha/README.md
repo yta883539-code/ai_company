@@ -902,7 +902,20 @@
   APIキー取得・課金を伴わないため承認不要な範囲にとどめ、実際のLLM API呼び出しは引き続き
   オーナー承認待ち。次回はpost_generation_checks.py相当のunchanged_areas突き合わせ・
   絵文字上限チェックスクリプトの移植、または同プランのline-reservation-aiへの展開を検討する。
-- 最終更新: 2026-08-21 21:00 UTC
+- フェーズ88(2026-08-21 22:00 UTC): フェーズ87の「次回」候補だった移植作業に着手する前に
+  prototype/post_generation_checks.pyの現状を確認したところ、フェーズ87で「まだ存在しない」
+  「移植が必要」としていたunchanged_areas本文突き合わせ(`check_unchanged_areas_not_mentioned_
+  as_new()`)・出力別絵文字上限チェック(`check_emoji_usage_rules()`)は、実際には2026-08-09
+  時点で既に実装・テスト済み(test_post_generation_checks.pyに対応するテストあり)であることが
+  判明した。この誤りはフェーズ87作成時にoutput-samples-validation.mdの記述のみを参照し、
+  prototype/配下の実装状況を直接確認しなかったことに起因すると考えられる。llm-quality-
+  verification-plan.mdの該当箇所(検証観点表の#2・#9、「aircon-pashaとの差分」節、
+  「残る未確定事項」節)を実装済みである旨に訂正し、移植不要であることを明記した。
+  念のためprototype配下の全テスト(190件)を再実行しパスを確認した(コード変更は伴わないため
+  想定通り)。次回はフェーズ87のもう一方の申し送りだった同プランのline-reservation-aiへの
+  展開に着手する(その際は今回の教訓を踏まえ、着手前に必ずline-reservation-ai/prototype配下の
+  既存実装を確認してから「未実装」判定を行う)。
+- 最終更新: 2026-08-21 22:00 UTC
 
 ## 次にやること(候補)
 
