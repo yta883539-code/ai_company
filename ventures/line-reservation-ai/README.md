@@ -1342,6 +1342,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   line-reservation-ai配下全293件パス。4節「未選択時の挙動」は既にdormant_mode_scheduler.py
   (フェーズ続き117)で実装済みと確認し、billing-upgrade-flow-design.mdの残課題を解消した。
   実際のトライアル終了トリガー検知・利用実績集計・LINE送信は引き続きオーナー承認待ち。
+- フェーズ(続き120、2026-08-21 23:00 UTC): reminder-scheduler-design.mdの「未解決のまま
+  残る課題」に、Firestoreの`conversations`ドキュメントへの`reminderSentAt`/
+  `reminderSkipped`/`resendSentAt`/`customerRepliedAt`4フィールド追加が「実装は未着手」と
+  記載されたまま残っていた点をREADME点検で発見した。実際には`prototype/
+  reminder_scheduler.py`の`ReminderBooking`データクラス(フェーズ続き40、2026-08-01頃)で
+  この4フィールドは`reminder_sent_at`/`reminder_skipped`/`resend_sent_at`/
+  `customer_replied_at`として既に実装済みで、`prototype/cloud_function_send_reminders.py`が
+  送信成功時に`reminder_sent_at`/`resend_sent_at`へ実際に書き込んでいることをコードで確認
+  した。webhook-function-a-implementation.md・owner-settings-wireframe.md等と同種の
+  ドキュメント整合性の是正としてreminder-scheduler-design.mdを訂正した(コード変更は
+  伴わない)。未着手のまま残るのは、この4フィールドを実際のFirestoreドキュメントとして
+  読み書きする接続自体(GCPプロジェクト作成・オーナー承認待ち)のみとなった。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

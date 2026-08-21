@@ -77,9 +77,18 @@ Cloud Function C: send_reminders
   prototype/cloud_function_process_event.pyに実装した。confirmed状態からのnew_booking
   intentは引き続き新規予約フローとして扱う既存仕様のままとし、cancel/change intentの
   実処理は別課題として残した)
-- Firestoreの`conversations`ドキュメントに`reminderSentAt`/`reminderSkipped`/
+- ~~Firestoreの`conversations`ドキュメントに`reminderSentAt`/`reminderSkipped`/
   `resendSentAt`/`customerRepliedAt`の4フィールドを追加する必要がある
-  (firestore-data-model.mdに反映済み、実装は未着手)。
+  (firestore-data-model.mdに反映済み、実装は未着手)。~~
+  (訂正 2026-08-21 23:00 UTC: 「実装は未着手」は誤り。4フィールドは`prototype/
+  reminder_scheduler.py`の`ReminderBooking`データクラス(`reminder_sent_at`/
+  `reminder_skipped`/`resend_sent_at`/`customer_replied_at`)として本ドキュメント作成と
+  同じフェーズ(続き40、2026-08-01頃)で既に実装済みで、`prototype/
+  cloud_function_send_reminders.py`が`reminder_sent_at`/`resend_sent_at`への書き込みを
+  行っている(コード確認済み)。未着手のまま残るのは、この4フィールドを実際のFirestore
+  ドキュメントとして読み書きする接続自体(GCPプロジェクト作成・オーナー承認待ち)のみ。
+  webhook-function-a-implementation.md・owner-settings-wireframe.md等の過去の同種の
+  訂正に倣い、以後この項目を「実装は未着手」として再掲しないこと)
 - ~~選定ロジック(reminder_scheduler.py)とメッセージ整形(engine.pyのformat_reminder_message()/
   format_reminder_resend_message())・LinePushClientでの実送信を実際につなぐ配線~~
   (解消済み 2026-08-08 10:00 UTC: `prototype/cloud_function_send_reminders.py`
