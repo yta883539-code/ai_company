@@ -24,6 +24,7 @@ from post_generation_checks import (  # noqa: E402
     check_next_recommended_date_history_care_guide_consistency,
     check_no_out_of_scope_topics_in_generated_output,
     check_refrigerant_electrical_professional_judgement,
+    check_subscription_notice_consistency,
     run_all_checks,
 )
 
@@ -193,6 +194,64 @@ class NextRecommendedDateHistoryCareGuideConsistencyTest(unittest.TestCase):
         self.assertEqual(
             check_next_recommended_date_history_care_guide_consistency({}), []
         )
+
+
+class SubscriptionNoticeConsistencyTest(unittest.TestCase):
+    def test_cancellation_unclear_with_portal_mention_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約でよろしければ下記のカスタマーポータルからお手続きください。",
+                "includes_portal_link": False,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_cancellation_unclear_with_completion_wording_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約手続き完了しましたのでご確認ください。",
+                "includes_portal_link": False,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_cancellation_unclear_plain_confirmation_is_ok(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_unclear",
+                "body": "解約(またはプラン変更)をご希望でしょうか?よろしければ改めてその旨お知らせください。",
+                "includes_portal_link": False,
+            }
+        }
+        self.assertEqual(check_subscription_notice_consistency(instance), [])
+
+    def test_cancellation_intent_missing_portal_mention_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_intent",
+                "body": "解約を承りました。下記のリンクからお手続きください。",
+                "includes_portal_link": True,
+            }
+        }
+        errors = check_subscription_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_cancellation_intent_with_placeholder_url_is_ok(self):
+        instance = {
+            "subscription_procedure_notice": {
+                "kind": "cancellation_intent",
+                "body": "解約を承りました。▼ {Stripeカスタマーポータル URL}",
+                "includes_portal_link": True,
+            }
+        }
+        self.assertEqual(check_subscription_notice_consistency(instance), [])
+
+    def test_missing_notice_is_skipped(self):
+        self.assertEqual(check_subscription_notice_consistency({}), [])
 
 
 class RunAllChecksTest(unittest.TestCase):

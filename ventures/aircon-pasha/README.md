@@ -1013,6 +1013,16 @@
   いずれも同一制約によるものと判断し、同種アプローチの反復は次回以降停止する方針とした。
   次回は独立系候補のスタッフ数確認について間接的な手がかり(求人情報・口コミ等)への
   探索軸切り替えを試すか、候補研究以外の未着手領域を優先するかを判断する。
+- フェーズ91(2026-08-21 08:00 UTC): llm-system-prompt-draft.md「次の課題」の最後の残項目
+  だった、post_generation_checks.py相当の機械チェック(course-set-pashaのcheck_subscription_
+  notice_consistency()相当)を実装した。厳守事項6aのkind別制約(cancellation_unclearでは
+  カスタマーポータル・手続き完了文言の混入禁止、cancellation_intent/downgrade_intentでは
+  includes_portal_link=trueと本文中のポータル言及〈PORTAL_KEYWORDS・URLプレースホルダ・
+  短縮URLパターン〉との整合)をヒューリスティックに検証するcheck_subscription_notice_
+  consistency()を新設し、run_all_checksに組み込んだ。test_post_generation_checks.pyに
+  テスト6件を追加(全25件パス)、schema/validate_test_cases.pyのCI1〜CI3フィクスチャが
+  新チェックにも違反しないことを確認した(FixtureCasesTest経由、8件パス)。これで
+  llm-system-prompt-draft.md「次の課題」欄の項目はすべて解消済みとなった。
 - フェーズ90(2026-08-21 05:00 UTC): 候補研究がWebFetchのegress制約で頭打ちのため、
   技術設計側の未着手課題(llm-system-prompt-draft.md「次の課題」1点目)を前進させた。
   厳守事項6a(解約意図検知)の`status`分岐(cancellation_intent/downgrade_intent/

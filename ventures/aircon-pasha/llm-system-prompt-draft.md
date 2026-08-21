@@ -152,6 +152,9 @@ insufficient_input)パターンを踏襲する方向で検討している。
   愚痴る発言との混同防止)は机上での言い回し例に基づく設計であり、実LLM接続後に実際の
   誤検知パターンが無いか改めて検証する必要がある(course-set-pashaの厳守事項7a同様の
   既知の限界)。
-- post_generation_checks.py相当の機械チェック(course-set-pashaのcheck_subscription_notice_
-  consistency()相当)を本venture向けに実装するかは、厳守事項6a・スキーマ設計確定後の
-  課題とする。
+- (解消済み 2026-08-21 08:00 UTC: post_generation_checks.pyにcheck_subscription_notice_
+  consistency()を実装した。course-set-pashaと同じ位置づけ(kind=cancellation_unclearの
+  ときカスタマーポータル・手続き完了文言が混入していないか、kind=cancellation_intent/
+  downgrade_intentのときincludes_portal_link=trueと本文中のポータル言及が整合しているか)。
+  schema/validate_test_cases.pyのCI1〜CI3フィクスチャがいずれも違反なく通過することを
+  確認した。テスト6件追加、prototype配下全25件パス)。
