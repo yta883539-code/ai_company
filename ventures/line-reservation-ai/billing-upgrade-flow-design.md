@@ -145,3 +145,17 @@ line-reservation-ai配下計270件全件パス。実際のWebhookエンドポイ
 サービスとの契約・LINE Push Message API接続は引き続きオーナー承認待ち。
 1節「利用実績レポート+プラン案内メッセージ」・4節「未選択時の挙動」の定型文実装は
 今後の課題として残す。)
+
+(解消済み 2026-08-21 13:00 UTC: 1節「利用実績レポート+プラン案内メッセージ」を
+`prototype/trial_end_report_scheduler.py`として新規実装した。formal/casual版の文言は
+標準トーン文言例を基に本モジュールで新規に書き下した(dunning_notification_scheduler.py・
+dormant_mode_scheduler.pyと同じ「未知のtoneはstandardにフォールバック」の安全側挙動を踏襲)。
+1節の課題だった「目安対応時間の根拠値」は、暫定的に「自動対応1件あたり7.5分」
+(既存の仮定値レンジ7〜8分の中間値)を`ASSUMED_MINUTES_SAVED_PER_AUTO_HANDLED_CASE`定数として
+明示し、`TrialUsageSummary.estimated_hours_saved`で算出する形にした。実測データが得られ次第
+この定数を見直す。予約件数・自動対応件数の実集計処理(Firestoreクエリ)自体、トライアル終了
+トリガーの検知・実際のCloud Scheduler/Webhook配線、LINE Push Message API接続は引き続き
+オーナー承認待ち(pending-approval.md参照)。テスト9件追加、line-reservation-ai配下計293件
+全件パス。4節「未選択時の挙動」は既にdormant-mode-renotification-design.md・
+`prototype/dormant_mode_scheduler.py`(フェーズ続き117)で「休止モード移行時」の通知文言として
+実装済みであることを確認したため、本節の残課題としては解消済みとする。)

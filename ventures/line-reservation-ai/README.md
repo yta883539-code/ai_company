@@ -1333,6 +1333,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   未訂正のまま残っていたことを発見した。webhook-function-a-implementation.md・
   owner-notification-channel-design.mdの過去の同種の訂正に倣い、owner-settings-
   wireframe.mdの該当箇所を訂正した。コード変更は伴わないドキュメント整合性の是正のみ。
+- フェーズ(続き119、2026-08-21 13:00 UTC): billing-upgrade-flow-design.mdの残課題
+  だった1節「利用実績レポート+プラン案内メッセージ」(トライアル終了時の案内)を、
+  `prototype/trial_end_report_scheduler.py`として新規実装した。dunning_notification_
+  scheduler.py・dormant_mode_scheduler.pyと同じ役割分担(判断・整形ロジックのみ、Firestore
+  集計・Webhook配線・LINE送信は行わない)を踏襲。1節の課題だった「目安対応時間の根拠値」は
+  「自動対応1件あたり7.5分」という暫定仮定値を定数化して明示した。テスト9件追加、
+  line-reservation-ai配下全293件パス。4節「未選択時の挙動」は既にdormant_mode_scheduler.py
+  (フェーズ続き117)で実装済みと確認し、billing-upgrade-flow-design.mdの残課題を解消した。
+  実際のトライアル終了トリガー検知・利用実績集計・LINE送信は引き続きオーナー承認待ち。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが
