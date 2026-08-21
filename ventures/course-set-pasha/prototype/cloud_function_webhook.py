@@ -18,6 +18,7 @@ webhook-processing-flow-design.mdで設計した、Webhook受信〜LLM呼び出�
 
 from __future__ import annotations
 
+import json
 import random
 import sys
 from dataclasses import dataclass, field
@@ -861,6 +862,88 @@ def dispatch_webhook_events(
             )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Webhook本体のHTTPエントリポイント(receive-webhook-http-entry-point-design.md参照)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class WebhookReceiverResult:
+    """receive_webhook()の結果。"""
+
+    status_code: int
+    dispatch_result: Optional[DispatchResult] = None
+    error: Optional[str] = None
+
+
+def receive_webhook(
+    body: bytes,
+    signature_header: Optional[str],
+    channel_secret: str,
+    *,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    reply_client: Optional[ReplyClient] = None,
+    llm_call: Optional[LlmCallClient] = None,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
+    gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
+    purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    rng: Optional[RandomChoiceSource] = None,
+    now: Optional[datetime] = None,
+) -> WebhookReceiverResult:
+    """Cloud Functionの本体エントリポイント。生のリクエストボディ(bytes)を受け取り、
+    署名検証(verify_line_signature)・JSONパース・dispatch_webhook_events()への配線までを
+    行う(webhook-event-dispatch-design.mdまでで未着手だった「実HTTPリクエストのJSONパース
+    〜verify_line_signature()との結線」に対応)。
+
+    - 署名検証に失敗した場合は401相当を返し、JSONパース・dispatch_webhook_events()への
+      配線を一切行わない(不正なリクエストへの余計な処理を避ける)。
+    - 署名検証後にbodyをJSONとしてパースする。パース失敗、または`events`キーが配列でない
+      場合は400相当を返す(LINE Platformからの実際のリクエストでは通常発生しないはずの
+      異常系だが、エントリポイントとして不正な入力に対しても例外を外に漏らさない設計とする)。
+    - 検証・パースに成功した場合はdispatch_webhook_events()にそのまま委譲し200を返す。
+      個々のイベント処理内のエラー(LLM API障害・返信API障害等)はprocess_memo_event()/
+      process_follow_event()側で既にフォールバック済みのため、ここでは追加のtry/exceptは
+      行わない。
+    - 実際のCloud Functions(functions_framework)のリクエストオブジェクトからbody
+      (`request.get_data()`)・署名ヘッダ(`request.headers.get("X-Line-Signature")`)を
+      取り出してこの関数に渡す薄い配線自体は、実Cloud Functionsデプロイ(オーナー承認待ち)
+      後の課題として残る。
+    """
+    if not verify_line_signature(body, signature_header, channel_secret):
+        return WebhookReceiverResult(status_code=401, error="invalid_signature")
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return WebhookReceiverResult(status_code=400, error="invalid_json")
+
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        return WebhookReceiverResult(status_code=400, error="missing_events")
+
+    dispatch_result = dispatch_webhook_events(
+        events,
+        linking_store=linking_store,
+        reply_client=reply_client,
+        llm_call=llm_call,
+        form_link_provider=form_link_provider,
+        portal_link_provider=portal_link_provider,
+        usage_counter=usage_counter,
+        plan=plan,
+        month=month,
+        first_generation_notice_store=first_generation_notice_store,
+        gym_area_config_store=gym_area_config_store,
+        purge_throttle=purge_throttle,
+        rng=rng,
+        now=now,
+    )
+    return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 
 
 def _demo() -> None:

@@ -817,9 +817,28 @@
   未接続時の素通り2パターン)、course-set-pasha配下計172件パス。実HTTPリクエストボディの
   JSONパース〜`verify_line_signature()`との結線・実Cloud Functionsデプロイはいずれも実LINE API
   接続自体がオーナー承認待ちのため未着手のまま残る。
-- 最終更新: 2026-08-21 03:00 UTC
+- フェーズ82(2026-08-21 06:00 UTC): フェーズ81の残課題だった「実HTTPリクエストボディの
+  JSONパース〜`verify_line_signature()`との結線」を`receive-webhook-http-entry-point-design.md`
+  として設計し、`cloud_function_webhook.py`に`receive_webhook()`・`WebhookReceiverResult`
+  (dataclass)として実装した。生のリクエストボディ(bytes)を受け取り、署名検証失敗時は
+  `dispatch_webhook_events()`を呼ばず401を返す、署名検証通過後に`json.loads()`でパースし
+  失敗時は400(`invalid_json`)、`events`キーが配列でない場合も400(`missing_events`)を返す、
+  検証・パースに成功した場合のみ`dispatch_webhook_events()`に委譲し200を返す、という
+  line-reservation-aiの`webhook_receiver()`と同型の設計とした(違いはJSONパース自体を
+  この関数内で行う点)。テスト4件新規追加(署名不正時401・dispatch不実行、不正JSON時400、
+  events欠落時400、正常系での200・dispatch結果反映)、course-set-pasha配下計176件パス。
+  実`functions_framework`のリクエストオブジェクトからのbody/署名ヘッダ取り出し配線・
+  実Cloud Functionsデプロイ自体はオーナー承認待ちのため未着手のまま残る。
+- 最終更新: 2026-08-21 06:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-21 06:00 UTC: 実HTTPリクエストボディのJSONパース〜
+  `verify_line_signature()`との結線をフェーズ82・receive-webhook-http-entry-point-design.mdで
+  設計し、`receive_webhook()`として実装した。詳細は上記フェーズ82参照。残るのは実
+  `functions_framework`のリクエストオブジェクトからのbody/署名ヘッダ取り出し配線、
+  実LINE API接続・実Cloud Functionsデプロイ〈いずれもオーナー承認待ち〉、
+  実フォームURL確定後の`ApplicationFormLinkProvider`実装のみ)
 
 - (解消済み 2026-08-21 03:00 UTC: Webhook本体でのfollow/messageイベント種別ディスパッチを
   フェーズ81・webhook-event-dispatch-design.mdで設計し、`dispatch_webhook_events()`として

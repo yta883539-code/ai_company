@@ -10,6 +10,7 @@ schema/validate_test_cases.pyのTEST_CASES(G1〜G4・OOS1・II1)を返すスタ�
 import base64
 import hashlib
 import hmac
+import json
 import sys
 import unittest
 from datetime import datetime, timedelta
@@ -44,6 +45,7 @@ from cloud_function_webhook import (  # noqa: E402
     merge_text_and_photo_events,
     process_follow_event,
     process_memo_event,
+    receive_webhook,
     validate_llm_output,
     verify_line_signature,
 )
@@ -1164,6 +1166,72 @@ class DispatchWebhookEventsTest(unittest.TestCase):
 
         self.assertEqual(result.memo_results, [])
         self.assertEqual(reply_client.sent, [])
+
+
+class ReceiveWebhookTest(unittest.TestCase):
+    """receive_webhook()のテスト(receive-webhook-http-entry-point-design.md参照)。"""
+
+    SECRET = "demo-secret"
+
+    def _signed(self, body: bytes) -> str:
+        return base64.b64encode(hmac.new(self.SECRET.encode("utf-8"), body, hashlib.sha256).digest()).decode(
+            "utf-8"
+        )
+
+    def test_invalid_signature_returns_401_without_dispatch(self):
+        body = json.dumps({"events": [{"type": "unfollow"}]}).encode("utf-8")
+        reply_client = InMemoryReplyClient()
+
+        result = receive_webhook(body, "invalid-signature", self.SECRET, reply_client=reply_client)
+
+        self.assertEqual(result.status_code, 401)
+        self.assertIsNone(result.dispatch_result)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_invalid_json_body_returns_400(self):
+        body = b"not-json{"
+
+        result = receive_webhook(body, self._signed(body), self.SECRET)
+
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_json")
+
+    def test_missing_events_key_returns_400(self):
+        body = json.dumps({"foo": "bar"}).encode("utf-8")
+
+        result = receive_webhook(body, self._signed(body), self.SECRET)
+
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "missing_events")
+
+    def test_valid_request_dispatches_and_returns_200(self):
+        body = json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "message",
+                        "replyToken": "rt-message",
+                        "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                        "source": {"userId": "U-message"},
+                    }
+                ]
+            }
+        ).encode("utf-8")
+        reply_client = InMemoryReplyClient()
+
+        result = receive_webhook(
+            body,
+            self._signed(body),
+            self.SECRET,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNotNone(result.dispatch_result)
+        self.assertEqual(len(result.dispatch_result.memo_results), 1)
+        self.assertTrue(result.dispatch_result.memo_results[0].handled)
+        self.assertEqual(len(reply_client.sent), 1)
 
 
 if __name__ == "__main__":
