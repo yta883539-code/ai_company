@@ -18,6 +18,7 @@ webhook-processing-flow-design.mdで設計した、Webhook受信〜LLM呼び出�
 
 from __future__ import annotations
 
+import random
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -29,7 +30,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from history_export import history_rows_to_csv_text  # noqa: E402
 from post_generation_checks import run_all_checks  # noqa: E402
-from user_id_linking import LinkingCodePurgeThrottle, LinkingCodeStoreProtocol  # noqa: E402
+from user_id_linking import (  # noqa: E402
+    LinkingCodePurgeThrottle,
+    LinkingCodeStoreProtocol,
+    RandomChoiceSource,
+    issue_linking_code_on_follow,
+)
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -278,6 +284,108 @@ class InMemoryPortalLinkProvider:
 
     def get_portal_url(self, user_id: str) -> Optional[str]:
         return self._url
+
+
+# ---------------------------------------------------------------------------
+# followイベント・ウェルカムメッセージ(follow-event-welcome-message-design.md、フェーズ80)
+# ---------------------------------------------------------------------------
+
+# 実フォームURL確定(Googleフォーム作成、オーナー承認待ち)までのプレースホルダ。
+# PORTAL_LINK_PLACEHOLDERと同じ考え方(design 1節参照)。
+APPLICATION_FORM_URL_PLACEHOLDER = "{お申込みフォーム URL}"
+
+
+class ApplicationFormLinkProvider(Protocol):
+    """申込フォームの共有URL取得を表す差し替え可能なProtocol。PortalLinkProviderと異なり
+    ユーザーごとの出し分けは不要な想定(design 4節)だが、インターフェースの形をそろえておく。
+    取得できない場合はNoneを返す契約とする。"""
+
+    def get_form_url(self) -> Optional[str]:
+        ...
+
+
+class InMemoryApplicationFormLinkProvider:
+    """実フォームURL確定前の代わりに固定URL(またはNone)を返す検証用スタブ。"""
+
+    def __init__(self, url: Optional[str] = "https://forms.gle/stub-application-form") -> None:
+        self._url = url
+
+    def get_form_url(self) -> Optional[str]:
+        return self._url
+
+
+def format_welcome_message(
+    linking_code: str, form_link_provider: Optional[ApplicationFormLinkProvider]
+) -> str:
+    """design 1節のウェルカムメッセージ本文を組み立てる。form_link_providerが未接続
+    (None)、またはURL取得自体に失敗した場合はプレースホルダのまま返す
+    (design 1節: 未接続段階では本メッセージ自体がまだ実送信されないため実害が無く、
+    PORTAL_LINK_UNAVAILABLE_FALLBACKのような全文差し替えフォールバックまでは不要)。
+    """
+    form_url = APPLICATION_FORM_URL_PLACEHOLDER
+    if form_link_provider is not None:
+        fetched = form_link_provider.get_form_url()
+        if fetched:
+            form_url = fetched
+
+    return (
+        "コースセットパシャッと 友だち追加ありがとうございます!\n\n"
+        "このサービスは、課題入れ替え後のメモを送るだけでSNS投稿文・告知文・履歴記録の"
+        "下書きをまとめて生成するツールです。\n\n"
+        "ご利用開始には、下記の連携コードを申込フォームにご入力ください"
+        "(24時間有効・1回限り)。\n\n"
+        f"連携コード: {linking_code}\n\n"
+        "▼ お申込みフォーム\n"
+        f"{form_url}\n\n"
+        "コードの有効期限が切れた場合は、もう一度このトークを開くと新しいコードが届きます。"
+    )
+
+
+@dataclass
+class FollowProcessResult:
+    """process_follow_event()の結果(design 2節)。"""
+
+    handled: bool
+    reply_sent: bool
+    linking_code: Optional[str] = None
+
+
+def process_follow_event(
+    event: dict,
+    linking_store: LinkingCodeStoreProtocol,
+    reply_client: ReplyClient,
+    *,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    rng: Optional[RandomChoiceSource] = None,
+    purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    now: Optional[datetime] = None,
+) -> FollowProcessResult:
+    """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
+
+    design 3節: `purge_throttle`が渡された場合のみ、本題(コード発行・返信)に先立って
+    案B(followイベント便乗パージ)を実行する。MVP初期の呼び出し元は`purge_throttle`を
+    渡さない(案Cのみ稼働)方針を維持するが、将来案Bを有効化する際にコード変更なしで
+    対応できるよう引数自体は用意しておく。
+    """
+    resolved_now = now or datetime.now(timezone(timedelta(hours=9)))
+
+    if purge_throttle is not None:
+        purge_throttle.maybe_run(linking_store, resolved_now)
+
+    if event.get("type") != "follow":
+        return FollowProcessResult(handled=False, reply_sent=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if not user_id:
+        return FollowProcessResult(handled=True, reply_sent=False)
+
+    resolved_rng = rng if rng is not None else random.Random()
+    linking_code = issue_linking_code_on_follow(
+        user_id, linking_store, resolved_now, resolved_rng
+    )
+    message_text = format_welcome_message(linking_code, form_link_provider)
+    reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)
+    return FollowProcessResult(handled=True, reply_sent=reply_sent, linking_code=linking_code)
 
 
 def render_subscription_procedure_notice(

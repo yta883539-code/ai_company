@@ -790,9 +790,30 @@
   スキップする後方互換設計とした。テスト8件新規追加(LinkingCodePurgeThrottle単体4件・
   process_memo_event配線4件)、course-set-pasha配下計160件パス。実Firestore接続・実follow
   イベントハンドラの実装自体はオーナー承認待ちのまま残る。
-- 最終更新: 2026-08-20 23:00 UTC
+- フェーズ80(2026-08-21 01:00 UTC): フェーズ79で残っていた「実follow イベントハンドラの実装」
+  のうち、実LINE API接続に依存しない処理ロジック自体(コード発行〜ウェルカムメッセージ組み立て〜
+  返信)を`follow-event-welcome-message-design.md`として設計し、`cloud_function_webhook.py`に
+  `process_follow_event()`・`format_welcome_message()`・`ApplicationFormLinkProvider`
+  (Protocol、`PortalLinkProvider`と同型)として実装した。ウェルカムメッセージは(1)サービス概要、
+  (2)連携コード、(3)申込フォームへの入力依頼、(4)有効期限、の4点を伝える固定テンプレートとし、
+  実フォームURL確定までは`PORTAL_LINK_PLACEHOLDER`と同じ考え方のプレースホルダ
+  (`APPLICATION_FORM_URL_PLACEHOLDER`)で埋める設計とした。linking-code-purge-trigger-design.mdの
+  未解決事項だった「案B(followイベント便乗パージ)を実装時に追加するか」は、引数
+  (`purge_throttle`)自体は`process_memo_event()`と同型で用意しつつ、MVP初期の呼び出し元では
+  渡さず案Cのみ稼働を維持する(将来コード変更なしで有効化できる)形で解消した。テスト7件新規追加
+  (正常系・プレースホルダ/実URL切替・非followイベント無視・userId欠落時・返信失敗時のコード
+  保持・案B配線)、course-set-pasha配下計167件パス。実LINE API接続・Webhook本体でのイベント種別
+  ディスパッチ(現状`event["type"]`によるfollow/message振り分け処理自体が未実装)は
+  オーナー承認待ち・別途設計課題として残る。
+- 最終更新: 2026-08-21 01:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-21 01:00 UTC: follow イベント受信時のウェルカムメッセージ組み立て・
+  連携コード発行〜返信の処理ロジックをフェーズ80・follow-event-welcome-message-design.mdで
+  設計し、`process_follow_event()`として実装した。詳細は上記フェーズ80参照。残るのは実LINE API
+  接続〈オーナー承認待ち〉、Webhook本体でのfollow/messageイベント種別ディスパッチの実装、
+  実フォームURL確定後の`ApplicationFormLinkProvider`実装のみ)
 
 - (解消済み 2026-08-20 23:00 UTC: `purge_expired_links()`の実行トリガーをフェーズ79・
   `linking-code-purge-trigger-design.md`で検討し、`process_memo_event()`便乗(1時間間引き、

@@ -21,12 +21,14 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
+    APPLICATION_FORM_URL_PLACEHOLDER,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX,
     FIRST_GENERATION_NOTICE_BODY,
+    InMemoryApplicationFormLinkProvider,
     InMemoryFirstGenerationNoticeStore,
     InMemoryGymAreaConfigStore,
     InMemoryPortalLinkProvider,
@@ -37,7 +39,9 @@ from cloud_function_webhook import (  # noqa: E402
     append_first_generation_notice,
     build_usage_notice,
     format_reply_text,
+    format_welcome_message,
     merge_text_and_photo_events,
+    process_follow_event,
     process_memo_event,
     validate_llm_output,
     verify_line_signature,
@@ -944,6 +948,113 @@ class VerifyLineSignatureTest(unittest.TestCase):
 
     def test_invalid_signature_rejected(self):
         self.assertFalse(verify_line_signature(b"body", "invalid", "secret"))
+
+
+class ProcessFollowEventTest(unittest.TestCase):
+    """process_follow_event()・format_welcome_message()のテスト(follow-event-welcome-message-design.md参照)。"""
+
+    def _rng(self, seed=1):
+        import random
+
+        return random.Random(seed)
+
+    def test_generated_code_is_embedded_in_reply_and_result(self):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow",
+            "replyToken": "rt-follow-1",
+            "source": {"userId": "U1234"},
+        }
+
+        result = process_follow_event(event, store, reply_client, rng=self._rng())
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertIsNotNone(result.linking_code)
+        self.assertEqual(len(reply_client.sent), 1)
+        sent_reply_token, sent_text = reply_client.sent[0]
+        self.assertEqual(sent_reply_token, "rt-follow-1")
+        self.assertIn(result.linking_code, sent_text)
+        self.assertIn("コースセットパシャッと", sent_text)
+
+    def test_without_form_link_provider_placeholder_is_used(self):
+        text = format_welcome_message("ABC123", form_link_provider=None)
+        self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, text)
+
+    def test_with_form_link_provider_real_url_is_used(self):
+        provider = InMemoryApplicationFormLinkProvider(url="https://forms.gle/real-form")
+        text = format_welcome_message("ABC123", form_link_provider=provider)
+        self.assertIn("https://forms.gle/real-form", text)
+        self.assertNotIn(APPLICATION_FORM_URL_PLACEHOLDER, text)
+
+    def test_non_follow_event_is_ignored(self):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "message",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        result = process_follow_event(event, store, reply_client, rng=self._rng())
+
+        self.assertFalse(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_missing_user_id_does_not_reply(self):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "rt", "source": {}}
+
+        result = process_follow_event(event, store, reply_client, rng=self._rng())
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertIsNone(result.linking_code)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_reply_failure_still_keeps_issued_code(self):
+        class FailingReplyClient:
+            def reply(self, reply_token, message_text):
+                raise ReplyApiError("boom")
+
+        store = InMemoryLinkingCodeStore()
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U9999"},
+        }
+
+        result = process_follow_event(event, store, FailingReplyClient(), rng=self._rng())
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertIsNotNone(result.linking_code)
+        self.assertIsNotNone(store.get(result.linking_code))
+
+    def test_purge_throttle_runs_before_issuing_code(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("OLDCOD", "Uold", datetime(2026, 1, 1))
+        reply_client = InMemoryReplyClient()
+        throttle = LinkingCodePurgeThrottle()
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        process_follow_event(
+            event,
+            store,
+            reply_client,
+            rng=self._rng(),
+            purge_throttle=throttle,
+            now=datetime(2026, 1, 3),
+        )
+
+        self.assertIsNone(store.get("OLDCOD"))
 
 
 if __name__ == "__main__":
