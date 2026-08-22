@@ -51,8 +51,12 @@ from engine import (  # noqa: E402
     format_change_not_found_message,
     format_change_started_message,
     format_confirmation_message,
+    format_faq_address_message,
+    format_faq_hours_message,
     format_faq_hours_message_weekly,
     format_faq_parking_message,
+    format_faq_payment_message,
+    format_faq_unregistered_message,
     format_first_booking_self_check_message,
     format_hold_message,
     format_notification_log_csv,
@@ -1006,6 +1010,58 @@ class ToneRenderingTest(unittest.TestCase):
             "8/9(土) 15:30〜", "カット", tone="standard", emoji_allowed=False
         )
         self.assertEqual(standard_default, standard_no_emoji)
+
+
+class FixedVocabularyInvariantAcrossTonesTest(unittest.TestCase):
+    """fixed-vocabulary-tone-check-design.md準拠。message-tone-variants.md「前提: 3トーン共通で
+    変えてはいけないもの」のうち「仮押さえ」「確定」という語(tone-and-manner-guideline.md
+    基本方針2)について、tone引数を持つ全関数を対象に、いずれかのトーンに出現するならず全トーンに
+    出現する(=言い換えられていない)ことを機械チェックする。関数ごとにどちらの語を使うかを
+    事前列挙せず出現パターンの一致だけを見るall-or-nothing方式のため、将来関数を追加しても
+    検知漏れが起きにくい(ただしFIXED_VOCABULARY.md参照リストへの追加自体は手動)。
+    """
+
+    FIXED_VOCABULARY = ["仮押さえ", "確定"]
+
+    # tone引数を持つ全関数を代表引数付きで網羅する。関数を追加した場合はここにも追加すること。
+    TONE_FUNCTIONS = [
+        (format_confirmation_message, ("8/9(土) 15:30〜", "カット", "田中"), {}),
+        (format_reminder_message, ("8/9(土) 15:30〜", "カット"), {}),
+        (format_reminder_resend_message, ("15:30〜", "カット"), {}),
+        (format_hold_message, ("8/9(土) 15:30〜", "カット"), {}),
+        (format_cancel_confirmed_message, ("8/9(土) 15:30〜", "カット"), {}),
+        (format_cancel_pending_message, (), {}),
+        (format_cancel_not_found_message, (), {}),
+        (format_change_started_message, ("8/9(土) 15:30〜", "カット"), {}),
+        (format_change_not_found_message, (), {}),
+        (format_faq_parking_message, ("3",), {}),
+        (format_faq_address_message, ("東京都渋谷区1-2-3",), {}),
+        (format_faq_payment_message, (["現金", "クレジットカード"],), {}),
+        (format_faq_hours_message, (10 * 60, 19 * 60), {}),
+        (format_faq_hours_message_weekly, (), {"default_ranges": [(10 * 60, 19 * 60)], "weekday_ranges": {}}),
+        (format_faq_unregistered_message, (), {}),
+    ]
+
+    def test_fixed_vocabulary_appears_in_all_tones_or_none(self):
+        for func, args, kwargs in self.TONE_FUNCTIONS:
+            outputs = {
+                tone: func(*args, **kwargs, tone=tone)
+                for tone in ("formal", "standard", "casual")
+            }
+            for word in self.FIXED_VOCABULARY:
+                presence = {tone: (word in text) for tone, text in outputs.items()}
+                with self.subTest(func=func.__name__, word=word, presence=presence):
+                    self.assertIn(
+                        len(set(presence.values())), (1,),
+                        f"{func.__name__}: 「{word}」の出現有無がトーン間で不一致 {presence}",
+                    )
+
+    def test_table_covers_every_tone_rendering_function(self):
+        # TONE_FUNCTIONSの網羅漏れを検知する。engine.py側でtone引数を持つ関数を追加したのに
+        # ここへの追加を忘れると、fixed-vocabulary-tone-check-design.mdの前提が崩れるため、
+        # 少なくとも件数の変化には気づけるようにする(15はfixed-vocabulary-tone-check-design.md
+        # 「実装箇所」に記載した現在の関数数)。
+        self.assertEqual(len(self.TONE_FUNCTIONS), 15)
 
 
 class ReminderMessageTest(unittest.TestCase):
