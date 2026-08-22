@@ -1062,7 +1062,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   番号選択に置き換えたN1→(選択)→N3の3ターンで検索→選択→確定の連鎖を確認済み(プロトタイプ
   全体299件パス)。残る課題はE1・E3等の崩れ系ケースへの同ハーネスの展開と、実LLM接続後に
   llm_outputを実APIレスポンスへ差し替える配線(いずれもオーナー承認待ちの範囲を除き次回以降)。
-- 最終更新: 2026-08-22 13:00 UTC
+- フェーズ(続き124、2026-08-22 16:00 UTC): multi-turn-scenario-harness-design.mdの残課題
+  だった崩れ系ケースの展開のうち、E3(二重予約)を`scenario_harness.py`で再現した。詳細は
+  次にやること(候補)欄の該当エントリ参照(プロトタイプ全体302件パス)。
+- フェーズ(続き125、2026-08-22 19:00 UTC): 同じくmulti-turn-scenario-harness-design.mdの
+  残課題だったE1(曖昧な日時表現)をハーネス化した。conversation-samples-test-cases.mdの
+  E1期待出力(`menu: null`)をそのまま投入すると、`resolve_menu_duration()`が
+  「メニュー未言及」と「メニュー未登録」を区別しないため実際には`candidates_presented`
+  ではなく`forwarded_to_owner`(detail=`unregistered_menu`)になる、という会話サンプルと
+  実装のずれを新たに発見した。メニューが判明している場合はE1が意図する「複数候補提示・
+  単一ターンで`confirmed: false`のまま完結」という挙動を確認できることも合わせてテスト化
+  (`E1AmbiguousDatetimeScenarioTest`、テスト2件追加・プロトタイプ全体302件パス)。
+  対応方針(聞き返しに倒すか等)は次回以降の設計課題として残す。詳細はmulti-turn-
+  scenario-harness-design.md追記参照。
+- 最終更新: 2026-08-22 19:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計

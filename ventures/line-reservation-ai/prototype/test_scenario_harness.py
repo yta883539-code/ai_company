@@ -246,5 +246,93 @@ class E3BookingConflictScenarioTest(unittest.TestCase):
         self.assertIn("田中様", [msg for uid, msg in push.sent if uid == "U_A"][-1])
 
 
+class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
+    """conversation-samples-test-cases.md E1(曖昧な日時表現)。
+    multi-turn-scenario-harness-design.md「残る課題」で挙げていたE1のハーネス化に着手した
+    ところ、E1の「期待される構造化出力」記載どおりの`menu: null`をそのまま投入すると、
+    ドキュメントが想定する`candidates_presented`(複数候補提示)ではなく
+    `forwarded_to_owner`(detail=`unregistered_menu`)になることを発見した(下記
+    `test_e1_literal_menu_null_actually_forwards_to_owner_not_candidates`、詳細は
+    multi-turn-scenario-harness-design.md追記参照)。そのため本クラスでは(1)ドキュメント
+    記載どおりの入力を投入した場合の実際の挙動と、(2)E1が意図する「候補提示止まり」を
+    確認するにはメニューも判明している必要がある、という2つを分けて確認する。
+    """
+
+    def _next_week_weekday_range(self) -> tuple:
+        # 「来週の平日」= 次の月曜日から金曜日まで。
+        next_monday = NOW.date() + timedelta(days=(7 - NOW.weekday()) % 7 or 7)
+        next_friday = next_monday + timedelta(days=4)
+        return next_monday.isoformat(), next_friday.isoformat()
+
+    def test_e1_literal_menu_null_actually_forwards_to_owner_not_candidates(self):
+        """conversation-samples-test-cases.mdのE1期待出力を一字一句そのまま投入した場合、
+        resolve_menu_duration()が`menu_name`未指定(None)を未登録メニューと同一視するため
+        (cloud_function_process_event.py resolve_menu_duration()のdocstring参照)、
+        候補提示ではなくオーナーへの転送になる。"""
+        processor, flow, push = _new_processor()
+        start, end = self._next_week_weekday_range()
+
+        turns = [
+            ScenarioTurn(
+                message="来週の平日午後とかで空いてればお願いしたいです",
+                llm_output={
+                    "intent": "new_booking",
+                    "name": None,
+                    "menu": None,
+                    "datetime_candidate": "来週平日午後の空き候補(複数)",
+                    "confirmed": False,
+                    "needs_owner_check": False,
+                    "requested_date_range": {"start": start, "end": end},
+                    "time_of_day_preference": "afternoon",
+                },
+                expect_action="forwarded_to_owner",
+            ),
+        ]
+
+        results = run_scenario(processor, turns, NOW)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].schema_errors, [])
+        self.assertEqual(results[0].cross_field_errors, [])
+        self.assertEqual(results[0].dispatch.detail, "unregistered_menu")
+
+    def test_e1_with_menu_known_stops_at_candidates_presented(self):
+        """E1が意図する「複数候補を提示し選択を待つ(confirmed: falseのまま)」という挙動
+        自体は、メニューが判明していれば(=会話中の別ターンで既に聞き取り済み、または
+        今回のように発言に含まれていれば)実際に確認できる。複数日(平日5日分)にまたがる
+        範囲指定のため、単一日に限定されない候補一覧が提示されることを確認する。"""
+        processor, flow, push = _new_processor()
+        start, end = self._next_week_weekday_range()
+
+        turns = [
+            ScenarioTurn(
+                message="来週の平日午後とかでカットお願いしたいです",
+                llm_output={
+                    "intent": "new_booking",
+                    "name": None,
+                    "menu": "カット",
+                    "datetime_candidate": "来週平日午後の空き候補(複数)",
+                    "confirmed": False,
+                    "needs_owner_check": False,
+                    "requested_date_range": {"start": start, "end": end},
+                    "time_of_day_preference": "afternoon",
+                },
+                expect_action="candidates_presented",
+                expect_stage="candidates_presented",
+            ),
+        ]
+
+        results = run_scenario(processor, turns, NOW)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].schema_errors, [])
+        self.assertEqual(results[0].cross_field_errors, [])
+        presented_message = push.sent[-1][1]
+        # 平日5日分の候補が並ぶため、単一の日付だけでなく複数の候補行(番号付き)が
+        # 含まれることを確認する。
+        self.assertGreaterEqual(sum(presented_message.count(f"{n}.") for n in range(1, 6)), 2)
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+
 if __name__ == "__main__":
     unittest.main()
