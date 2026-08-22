@@ -1380,6 +1380,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ドキュメント整合性の是正としてreminder-scheduler-design.mdを訂正した(コード変更は
   伴わない)。未着手のまま残るのは、この4フィールドを実際のFirestoreドキュメントとして
   読み書きする接続自体(GCPプロジェクト作成・オーナー承認待ち)のみとなった。
+- フェーズ(続き121、2026-08-22 04:00 UTC): llm-quality-verification-plan.mdの「残る未確定
+  事項」で「人手のみ(機械チェック困難)」としていた厳守事項2(候補提示→選択→確定の2ステップ
+  厳守)について、fixed-vocabulary-tone-check-design.mdと同じ観点(LLMの自由文ではなく呼び出し
+  側の構造化データ組み立てが保証している部分の切り分け)で再点検した。`ConversationFlowStateMachine.
+  provide_details()`が`awaiting_details`ステージ(=`select_slot()`成功後)以外では
+  `ConversationFlowError`を送出する実装であり、`intent-to-flow-mapping.md`の対応表もLLMの
+  `confirmed`フラグ単独では`provide_details()`を呼ばない設計になっているため、候補選択ステップを
+  飛ばして確定へ進むことはコード上構造的に不可能であることを確認した。この保証を裏付ける
+  `test_provide_details_before_select_slot_raises`を`prototype/test_engine.py`に追加し
+  (既存の`test_unexpected_stage_call_raises`は「会話状態が存在しないユーザー」のケースのみで、
+  「候補提示済みだが選択未了」という本件により直接対応するケースは未カバーだった)、
+  mandatory-two-step-order-enforcement-design.mdに整理した。llm-quality-verification-plan.mdの
+  検証観点表・行2と「残る未確定事項」を、機械チェック可能な部分(順序保証)と引き続き人手が必要な
+  部分(LLM自由文の自然さ)に切り分けて更新した。line-reservation-ai配下の全テスト
+  (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが

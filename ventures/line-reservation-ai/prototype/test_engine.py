@@ -452,6 +452,20 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         with self.assertRaises(ConversationFlowError):
             flow.provide_details("nobody", "名前", "メニュー", T0)
 
+    def test_provide_details_before_select_slot_raises(self):
+        # 厳守事項2(候補提示→選択→確定の2ステップを必ず踏む)の構造的な裏付け。
+        # present_candidates()直後(candidates_presented)の状態でprovide_details()を呼ぶと、
+        # select_slot()を経ていない(awaiting_detailsに達していない)ためConversationFlowErrorに
+        # なることを確認する。intent-to-flow-mapping.mdの対応表通り、provide_details()は
+        # awaiting_detailsからしか呼べない設計であることの裏付け。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_skip_selection", now=T0)
+        self.assertEqual(flow.stage("user_skip_selection"), "candidates_presented")
+        with self.assertRaises(ConversationFlowError):
+            flow.provide_details("user_skip_selection", "名前", "メニュー", T0)
+        # 例外発生後もステージはcandidates_presentedのまま(誤ってconfirmedへ進んでいない)
+        self.assertEqual(flow.stage("user_skip_selection"), "candidates_presented")
+
     def test_release_idle_conversations_frees_hold_but_keeps_confirmed(self):
         slots = BookingSlotManager()
         flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
