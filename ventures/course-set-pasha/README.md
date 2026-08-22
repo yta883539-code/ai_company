@@ -983,18 +983,38 @@
   という記述が、フェーズ81〜83で既に`dispatch_webhook_events()`→`process_follow_event()`→
   `issue_linking_code_on_follow()`という経路として実装済みであることを確認し、両ファイルの
   記載を解消済みとして訂正した(コード変更なし、ドキュメント整合性の修正のみ)。
-- 最終更新: 2026-08-22 17:00 UTC
+- フェーズ94(2026-08-22 20:00 UTC): フェーズ93「次にやること」候補だった実Stripe
+  Webhook受信エンドポイントのうち、イベント種別(`customer.subscription.deleted`等)
+  ディスパッチ〜`prototype/deletion_candidate.py`の3関数呼び出しを結ぶ部分を
+  `stripe-webhook-event-dispatch-design.md`で設計し、`prototype/stripe_webhook.py`に
+  `dispatch_stripe_event()`として実装した。Stripeの`customer`(カスタマーID)から内部
+  `user_id`への解決は`resolve_user_id`という注入可能な関数として切り出し、実際の
+  対応付けストア(未設計、実Stripe接続後の課題)を待たずに振り分けロジック自体を
+  検証可能にした。`customer.subscription.deleted`→削除候補化、
+  `customer.subscription.created`→常に取り消し(冪等)、`customer.subscription.updated`→
+  status が`active`/`trialing`の時のみ取り消し、それ以外のイベント種別は無視、
+  という分岐をカバーした。テストは`test_stripe_webhook.py`に`DispatchStripeEventTest`として
+  9件追加(正常系3種・不正`created`・未解決customer・対象外status・未対応type、
+  course-set-pasha配下計219件パス)。実際のHTTPエントリポイント
+  (`verify_stripe_signature()`との結線)・`resolve_user_id`の実装・実Stripe接続は
+  次の課題として残る。
+- 最終更新: 2026-08-22 20:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-22 20:00 UTC: イベント種別ディスパッチ〜
+  `mark_deletion_candidate_on_subscription_deleted()`等の呼び出しを結ぶ部分を
+  フェーズ94・`stripe-webhook-event-dispatch-design.md`/`dispatch_stripe_event()`で
+  実装した。詳細は上記フェーズ94参照。残るのは(1)`verify_stripe_signature()`と
+  `dispatch_stripe_event()`を結ぶHTTPエントリポイント本体(`receive_webhook()`の
+  Stripe版に相当、JSONパース・署名検証失敗時の早期リターンを含む)、(2)`resolve_user_id`
+  (`stripe_customer_id → user_id`)の実装(申込フォーム提出フローのどこで
+  `stripe_customer_id`を`user_profile`に書き込むかの設計も必要)、(3)`webhook_secret`の
+  実際の値の取得・保管方法(Secret Manager等)。いずれも実Stripeアカウント接続
+  (オーナー承認待ち)後、または接続前でも設計可能な(1)から先に着手できる)
 - (解消済み 2026-08-22 17:00 UTC: 実Stripe Webhook受信エンドポイントのうち署名検証部分を
   フェーズ93・`stripe-webhook-signature-verification-design.md`/
-  `prototype/stripe_webhook.py`で先行実装した。詳細は上記フェーズ93参照。残るのは
-  イベント種別(`customer.subscription.deleted`等)ディスパッチ〜
-  `mark_deletion_candidate_on_subscription_deleted()`等の呼び出しを結ぶエンドポイント本体
-  (`receive_webhook()`のStripe版に相当)で、`webhook_secret`の実際の値の取得・保管方法
-  (Secret Manager等)とあわせ、実Stripeアカウント接続(オーナー承認待ち)後の課題として
-  残る)
+  `prototype/stripe_webhook.py`で先行実装した。詳細は上記フェーズ93参照)
 - (解消済み 2026-08-22 14:00 UTC: フェーズ91で設計のみだった3関数の実装を
   フェーズ92・`prototype/deletion_candidate.py`で行った。詳細は上記フェーズ92参照。
   残るのは実際のStripe Webhook受信エンドポイント(署名検証・イベント種別ディスパッチ)の
