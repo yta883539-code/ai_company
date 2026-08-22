@@ -184,6 +184,9 @@ CHANGE_NO_CANDIDATES_MESSAGE = (
     "(例:「来週土曜の午後」「8/9の午前中」)"
 )
 REASK_NAME_MENU_MESSAGE = "当店: お名前とご希望のメニューを教えていただけますか?"
+# menu-unmentioned-vs-unregistered-design.md準拠。新規予約開始ターンでメニューが
+# 未言及(LLM出力のmenuがNone)の場合に、検索前に聞き返す文言。
+REASK_MENU_MESSAGE = "当店: ご希望のメニューを教えていただけますか?"
 BOOKING_CONFLICT_MESSAGE = (
     "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
     "担当より改めて空き状況をご案内いたしますので少々お待ちください。"
@@ -206,6 +209,12 @@ def resolve_menu_duration(menu_name: Optional[str], menu_durations: dict) -> Opt
     """店舗設定のメニュー別所要時間から検索用の分数を引く。未登録メニューはNoneを返し、
     呼び出し側はオーナーへのエスカレーションに倒す(owner-settings-wireframe.mdの
     メニュー登録漏れに相当する状況のため、安全側で人間に引き継ぐ)。
+
+    menu-unmentioned-vs-unregistered-design.md準拠。`menu_name`が未言及(None・空文字列)の
+    ケースと、言及されたが店舗未登録のケースは呼び出し側(_start_new_booking())で区別しており、
+    未言及の場合はこの関数を呼ばずに聞き返しへ倒す。この関数がNoneを返しうるのは主に
+    「言及されたが未登録」の場合のみだが、menu_name未指定で呼ばれた場合も後方互換のため
+    従来通りNoneを返す。
     """
     if not menu_name:
         return None
@@ -262,6 +271,12 @@ class ConversationEventProcessor:
         # 直近の空き枠検索に使ったLLM出力とメニュー所要時間。確定操作競合時
         # (_represent_candidates_after_conflict)に同じ条件で再検索するために保持する。
         self._search_context_by_user: dict[str, tuple[dict, int]] = {}
+        # menu-unmentioned-vs-unregistered-design.md準拠。新規予約開始ターンでメニューが
+        # 未言及だったためREASK_MENU_MESSAGEで聞き返した際の、その時点のLLM出力(日時範囲等)。
+        # stageはNoneのままのため次ターンも_start_new_booking()に落ちてくる。そこで
+        # requested_date_range/time_of_day_preferenceのうち今回の出力に無い項目だけを
+        # ここから補って引き継ぐ(_carried_over_menu()と対称の設計)。
+        self._pending_new_booking_context_by_user: dict[str, dict] = {}
         # escalation-digest-flush-trigger-design.md準拠。Webhook便乗トリガー
         # (maybe_run_escalation_flush())の前回実行時刻。
         self._last_escalation_flush_at: Optional[datetime] = None
@@ -474,7 +489,19 @@ class ConversationEventProcessor:
         change_context: bool = False,
         reply_text: Optional[str] = None,
     ) -> DispatchResult:
-        menu_minutes = resolve_menu_duration(output.get("menu"), self._menu_durations)
+        output = self._merge_pending_new_booking_context(user_id, output)
+        menu_name = output.get("menu")
+        if not menu_name:
+            # menu-unmentioned-vs-unregistered-design.md準拠(オプションb採用)。「メニュー
+            # 未言及」は「メニュー未登録」とは区別し、その場でオーナー転送にはせず、検索前に
+            # 聞き返す。日時範囲等の既出情報は_pending_new_booking_context_by_userに保持し
+            # 次ターンへ引き継ぐ(オーナーへの人手対応を減らす狙い)。
+            self._pending_new_booking_context_by_user[user_id] = output
+            self._send(user_id, REASK_MENU_MESSAGE, now)
+            return DispatchResult(action="reask", detail="menu_not_mentioned")
+        self._pending_new_booking_context_by_user.pop(user_id, None)
+
+        menu_minutes = resolve_menu_duration(menu_name, self._menu_durations)
         if menu_minutes is None:
             self._notify_owner(
                 user_id, {**output, "escalation_reason": "unregistered_menu"}, now, reply_text
@@ -537,6 +564,20 @@ class ConversationEventProcessor:
         """
         context = self._search_context_by_user.get(user_id)
         return context[0].get("menu") if context else None
+
+    def _merge_pending_new_booking_context(self, user_id: str, output: dict) -> dict:
+        """直前ターンでメニュー未言及のためREASK_MENU_MESSAGEを送った場合、当該ターンの
+        requested_date_range/time_of_day_preferenceを次ターンへ引き継ぐ(_carried_over_menu()の
+        逆方向)。今回の出力に無い項目のみ補う(今回の発言で日時が更新された場合はそちらを優先)。
+        """
+        pending = self._pending_new_booking_context_by_user.get(user_id)
+        if not pending:
+            return output
+        merged = dict(output)
+        for key in ("requested_date_range", "time_of_day_preference"):
+            if not merged.get(key):
+                merged[key] = pending.get(key)
+        return merged
 
     def _handle_details(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
         name = output.get("name")

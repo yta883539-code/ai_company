@@ -1075,7 +1075,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`E1AmbiguousDatetimeScenarioTest`、テスト2件追加・プロトタイプ全体302件パス)。
   対応方針(聞き返しに倒すか等)は次回以降の設計課題として残す。詳細はmulti-turn-
   scenario-harness-design.md追記参照。
-- 最終更新: 2026-08-22 19:00 UTC
+- フェーズ(続き126、2026-08-22 22:00 UTC): フェーズ(続き125)の残課題だった「メニュー
+  未言及」と「メニュー未登録」の対応方針を検討し、選択肢(b)(メニュー未言及の場合のみ
+  検索前に聞き返す)を採用した。理由・比較検討はmenu-unmentioned-vs-unregistered-design.md
+  として新規作成。実装は`_start_new_booking()`(cloud_function_process_event.py)で、
+  `menu`未言及時は`resolve_menu_duration()`を呼ばず`REASK_MENU_MESSAGE`で聞き返し
+  `DispatchResult(action="reask", detail="menu_not_mentioned")`を返すよう分岐、次ターンへ
+  日時範囲(requested_date_range/time_of_day_preference)を引き継ぐため
+  `_pending_new_booking_context_by_user`と`_merge_pending_new_booking_context()`を新設した
+  (既存の`_carried_over_menu()`と対称の設計)。「メニュー未登録」(言及されたが店舗未登録)は
+  従来通りオーナー転送のまま変更なし。test_scenario_harness.pyのE1AmbiguousDatetimeScenarioTestを
+  新挙動に合わせて更新し、聞き返し後にメニューが判明すると日時範囲を引き継いで候補提示まで
+  進むことを確認するテストを新規追加(プロトタイプ全体303件パス、schema検証25件パス)。
+  この変更はプロンプト・外部接続を伴わない状態遷移ロジックのみの変更のためオーナー承認は
+  不要と判断。残る課題(change経由でのメニュー未言及時の専用文言、llm-system-prompt-draft.md・
+  intent-to-flow-mapping.mdへの反映)はmenu-unmentioned-vs-unregistered-design.md
+  「既知の限界・今回のスコープ外」参照。
+- 最終更新: 2026-08-22 22:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計

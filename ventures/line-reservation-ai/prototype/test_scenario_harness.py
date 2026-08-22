@@ -250,12 +250,15 @@ class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
     """conversation-samples-test-cases.md E1(曖昧な日時表現)。
     multi-turn-scenario-harness-design.md「残る課題」で挙げていたE1のハーネス化に着手した
     ところ、E1の「期待される構造化出力」記載どおりの`menu: null`をそのまま投入すると、
-    ドキュメントが想定する`candidates_presented`(複数候補提示)ではなく
-    `forwarded_to_owner`(detail=`unregistered_menu`)になることを発見した(下記
-    `test_e1_literal_menu_null_actually_forwards_to_owner_not_candidates`、詳細は
-    multi-turn-scenario-harness-design.md追記参照)。そのため本クラスでは(1)ドキュメント
-    記載どおりの入力を投入した場合の実際の挙動と、(2)E1が意図する「候補提示止まり」を
-    確認するにはメニューも判明している必要がある、という2つを分けて確認する。
+    当時の実装ではドキュメントが想定する`candidates_presented`(複数候補提示)ではなく
+    `forwarded_to_owner`(detail=`unregistered_menu`)になっていた(「メニュー未言及」と
+    「メニュー未登録」を区別していなかったため)。menu-unmentioned-vs-unregistered-design.md
+    でオプションb(メニュー未言及時は検索前に聞き返す)を採用し実装したため、現在は
+    `menu: null`単独ターンでは`reask`(detail=`menu_not_mentioned`)になり、次ターンで
+    メニューが判明すれば同じ日時範囲を引き継いで候補提示まで進む。本クラスでは
+    (1)聞き返しになること、(2)聞き返し後にメニューが判明すると日時範囲を引き継いで候補提示
+    まで進むこと、(3)メニューが最初から判明していれば単一ターンで候補提示に至ること、の
+    3つを確認する。
     """
 
     def _next_week_weekday_range(self) -> tuple:
@@ -264,11 +267,10 @@ class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
         next_friday = next_monday + timedelta(days=4)
         return next_monday.isoformat(), next_friday.isoformat()
 
-    def test_e1_literal_menu_null_actually_forwards_to_owner_not_candidates(self):
+    def test_e1_literal_menu_null_reasks_for_menu_instead_of_forwarding(self):
         """conversation-samples-test-cases.mdのE1期待出力を一字一句そのまま投入した場合、
-        resolve_menu_duration()が`menu_name`未指定(None)を未登録メニューと同一視するため
-        (cloud_function_process_event.py resolve_menu_duration()のdocstring参照)、
-        候補提示ではなくオーナーへの転送になる。"""
+        `menu: null`は「未登録メニュー」ではなく「メニュー未言及」として扱われ、
+        オーナー転送ではなく聞き返し(reask)になる。"""
         processor, flow, push = _new_processor()
         start, end = self._next_week_weekday_range()
 
@@ -285,7 +287,7 @@ class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
                     "requested_date_range": {"start": start, "end": end},
                     "time_of_day_preference": "afternoon",
                 },
-                expect_action="forwarded_to_owner",
+                expect_action="reask",
             ),
         ]
 
@@ -294,7 +296,57 @@ class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].schema_errors, [])
         self.assertEqual(results[0].cross_field_errors, [])
-        self.assertEqual(results[0].dispatch.detail, "unregistered_menu")
+        self.assertEqual(results[0].dispatch.detail, "menu_not_mentioned")
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_e1_menu_follows_reask_carries_over_date_range_to_candidates(self):
+        """聞き返し(reask)の後、次ターンで顧客がメニューのみ返信した場合、1ターン目で
+        伝えた日時範囲(来週の平日午後)を引き継いで候補提示まで進む(オーナー転送を
+        避けられる、というオプションb採用の狙い通りの挙動を確認する)。"""
+        processor, flow, push = _new_processor()
+        start, end = self._next_week_weekday_range()
+
+        turns = [
+            ScenarioTurn(
+                message="来週の平日午後とかで空いてればお願いしたいです",
+                llm_output={
+                    "intent": "new_booking",
+                    "name": None,
+                    "menu": None,
+                    "datetime_candidate": "来週平日午後の空き候補(複数)",
+                    "confirmed": False,
+                    "needs_owner_check": False,
+                    "requested_date_range": {"start": start, "end": end},
+                    "time_of_day_preference": "afternoon",
+                },
+                expect_action="reask",
+            ),
+            ScenarioTurn(
+                message="カットでお願いします",
+                llm_output={
+                    "intent": "new_booking",
+                    "name": None,
+                    "menu": "カット",
+                    "datetime_candidate": None,
+                    "confirmed": False,
+                    "needs_owner_check": False,
+                },
+                expect_action="candidates_presented",
+                expect_stage="candidates_presented",
+            ),
+        ]
+
+        results = run_scenario(processor, turns, NOW)
+
+        self.assertEqual(len(results), 2)
+        for step in results:
+            self.assertEqual(step.schema_errors, [])
+            self.assertEqual(step.cross_field_errors, [])
+        # 1ターン目のREASK_MENU_MESSAGEのみが送られ、2ターン目は再度日時を尋ねずそのまま
+        # 候補提示に進んだこと(=日時範囲の引き継ぎが機能したこと)をpush内容からも確認する。
+        self.assertEqual(len(push.sent), 2)
+        self.assertIn("メニュー", push.sent[0][1])
+        self.assertIn("番号でお知らせください", push.sent[1][1])
 
     def test_e1_with_menu_known_stops_at_candidates_presented(self):
         """E1が意図する「複数候補を提示し選択を待つ(confirmed: falseのまま)」という挙動
