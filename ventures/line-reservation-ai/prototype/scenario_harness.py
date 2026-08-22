@@ -32,6 +32,9 @@ class ScenarioTurn:
     llm_output: dict
     expect_action: Optional[str] = None
     expect_stage: Optional[str] = None
+    # 複数顧客が絡むシナリオ(E3の二重予約等)向け。未指定ならrun_scenario()のuser_id引数を使う。
+    # expect_stageはこのuser_idの会話状態と突き合わせる。
+    user_id: Optional[str] = None
 
 
 @dataclass
@@ -54,28 +57,33 @@ def run_scenario(
     単発の期待値突合だけでなく複数ターンの連鎖の中でも行う)。expect_action/expect_stageが
     指定されていればその場でAssertionErrorを送出する(unittestのassert*に依存しない汎用
     ヘルパーとするため)。
+
+    ターンごとにScenarioTurn.user_idを指定すると、同一processor上で複数顧客の会話を
+    交互に流し込める(E3の二重予約シナリオのように、顧客Aと顧客Bのターンを実際の到着順で
+    interleaveして検証する場合に使う。未指定のターンはこの関数のuser_id引数を使う)。
     """
     results = []
     for turn in turns:
+        turn_user_id = turn.user_id or user_id
         schema_errors = validate_against_schema(turn.llm_output, SCHEMA)
         cross_field_errors = validate_cross_field_rules(turn.llm_output)
 
         def _llm_call(output=turn.llm_output):
             return output
 
-        event = {"source": {"userId": user_id}, "message": {"text": turn.message}}
+        event = {"source": {"userId": turn_user_id}, "message": {"text": turn.message}}
         dispatch = processor.process(event, _llm_call, now)
 
         if turn.expect_action is not None and dispatch.action != turn.expect_action:
             raise AssertionError(
-                f"turn '{turn.message}': expected action={turn.expect_action!r}, "
+                f"turn '{turn.message}' (user={turn_user_id}): expected action={turn.expect_action!r}, "
                 f"got {dispatch.action!r} (detail={dispatch.detail!r})"
             )
         if turn.expect_stage is not None:
-            actual_stage = processor._flow.stage(user_id)
+            actual_stage = processor._flow.stage(turn_user_id)
             if actual_stage != turn.expect_stage:
                 raise AssertionError(
-                    f"turn '{turn.message}': expected stage={turn.expect_stage!r}, "
+                    f"turn '{turn.message}' (user={turn_user_id}): expected stage={turn.expect_stage!r}, "
                     f"got {actual_stage!r}"
                 )
 

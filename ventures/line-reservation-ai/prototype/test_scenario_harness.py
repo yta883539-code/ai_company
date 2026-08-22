@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from cloud_function_process_event import ConversationEventProcessor, InMemoryLinePushClient  # noqa: E402
 from engine import (  # noqa: E402
+    SLOT_CONFLICT_MESSAGE_TEMPLATE,
     AvailabilitySearcher,
     BookingSlotManager,
     ConversationFlowStateMachine,
@@ -122,6 +123,127 @@ class N1ToN3ScenarioTest(unittest.TestCase):
 
         self.assertIn("田中様", push.sent[-1][1])
         self.assertIn("カット", push.sent[-1][1])
+
+
+class E3BookingConflictScenarioTest(unittest.TestCase):
+    """conversation-samples-test-cases.md E3(二重予約、仮押さえ中の枠への競合)を、
+    multi-turn-scenario-harness-design.md「残る課題」で挙げていた「他の崩れ系ケースを
+    同じハーネスで再現する」の第一弾として、2ユーザーの会話をprocessor.process()のみで
+    interleaveして再現する。
+
+    既存のtest_cloud_function_process_event.pyのbooking_conflictテストは、確定操作時
+    (provide_details→confirm())の競合をflow._slots.hold()/confirm()への直接操作で
+    人工的に再現するのに対し、本テストはE3の入力例(「顧客Bが、顧客Aが仮押さえ中の枠を
+    指定」)に忠実な選択操作時(select_slot_from_reply→hold())の競合を、内部状態への
+    直接操作なしに2顧客分のprocessor.process()呼び出しのみで再現する点が異なる。
+    AvailabilitySearcher.find_candidates()はbooking_slots.status()がNoneの枠のみを
+    返す(engine.py 1364行目)ため、Bの検索がAのhold()より後だと競合枠がそもそも候補に
+    出てこず本ケースを再現できない。そのため両者の検索(candidates_presented)を先に
+    済ませてから、Aが選択→holdした「後」にBが同じ候補ラベルを選択する順序にしている。
+    """
+
+    def _next_saturday(self) -> str:
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+        return saturday.isoformat()
+
+    def _search_turn(self, user_id: str, message: str, saturday: str) -> ScenarioTurn:
+        return ScenarioTurn(
+            user_id=user_id,
+            message=message,
+            llm_output={
+                "intent": "new_booking",
+                "name": None,
+                "menu": "カット",
+                "datetime_candidate": "来週土曜午後の空き候補(複数)",
+                "confirmed": False,
+                "needs_owner_check": False,
+                "requested_date_range": {"start": saturday, "end": saturday},
+                "time_of_day_preference": "afternoon",
+            },
+            expect_action="candidates_presented",
+            expect_stage="candidates_presented",
+        )
+
+    def test_second_customer_selecting_slot_already_held_by_first_gets_conflict_message(self):
+        processor, flow, push = _new_processor()
+        saturday = self._next_saturday()
+
+        turns = [
+            # 1. 顧客A・顧客Bとも同じ時間帯を検索し、同一の候補一覧(スロットはまだ誰も
+            #    保持していない)を受け取る。E3の「顧客Bが顧客Aの仮押さえ中の枠を指定」を
+            #    再現するための前提(=Bが候補を見た時点ではその枠はまだ空いていた)。
+            self._search_turn("U_A", "来週土曜の午後にカットお願いしたいです。", saturday),
+            self._search_turn("U_B", "土曜の午後、カットで空いてますか?", saturday),
+            # 2. 顧客Aが1番目の候補を選び、hold()に成功する。
+            ScenarioTurn(
+                user_id="U_A",
+                message="1番で",
+                llm_output={
+                    "intent": "new_booking", "name": None, "menu": None,
+                    "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+                },
+                expect_action="held",
+                expect_stage="awaiting_details",
+            ),
+            # 3. 顧客Bが(Aの選択を知らないまま)自分の候補一覧の1番目、
+            #    つまりAが今まさに保持した同じ枠を選ぶ。hold()が失敗し、
+            #    候補提示状態のまま謝罪・代替案内メッセージが返る(needs_owner_checkなし、
+            #    E3の期待挙動どおりシステム側で自動的に保留する)。
+            ScenarioTurn(
+                user_id="U_B",
+                message="1番で",
+                llm_output={
+                    "intent": "new_booking", "name": None, "menu": None,
+                    "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+                },
+                expect_action="reask",
+                expect_stage="candidates_presented",
+            ),
+            # 4. Aは競合の影響を受けず、そのまま確定できる。
+            ScenarioTurn(
+                user_id="U_A",
+                message="田中です",
+                llm_output={
+                    "intent": "new_booking", "name": "田中", "menu": "カット",
+                    "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+                },
+                expect_action="confirmed",
+                expect_stage="confirmed",
+            ),
+            # 5. Bは自分の候補一覧から別の(まだ空いている)枠を選び直せば、通常どおりholdできる。
+            #    競合が発生してもB側の会話状態(candidates_presented)自体は壊れないことの確認。
+            ScenarioTurn(
+                user_id="U_B",
+                message="2番で",
+                llm_output={
+                    "intent": "new_booking", "name": None, "menu": None,
+                    "datetime_candidate": "2番目", "confirmed": False, "needs_owner_check": False,
+                },
+                expect_action="held",
+                expect_stage="awaiting_details",
+            ),
+        ]
+
+        results = run_scenario(processor, turns, NOW)
+
+        self.assertEqual(len(results), 6)
+        for step in results:
+            self.assertEqual(step.schema_errors, [])
+            self.assertEqual(step.cross_field_errors, [])
+
+        # Bへの案内メッセージは、内部操作で再現した既存テスト(booking_conflict、確定操作時の
+        # 競合)が使うBOOKING_CONFLICT_RETRY_MESSAGEとは別の、選択操作時競合用の文言
+        # (SLOT_CONFLICT_MESSAGE_TEMPLATE)であることを確認する。
+        conflict_message = [msg for uid, msg in push.sent if uid == "U_B"][-2]
+        self.assertIn("埋まってしまいました", conflict_message)
+        self.assertNotIn("{slot_label}", conflict_message)  # フォーマット未適用の取りこぼしが無いこと
+        self.assertTrue(
+            conflict_message.startswith(SLOT_CONFLICT_MESSAGE_TEMPLATE.split("{slot_label}")[0])
+        )
+
+        # Aは正常に確定済み。
+        self.assertEqual(flow.stage("U_A"), "confirmed")
+        self.assertIn("田中様", [msg for uid, msg in push.sent if uid == "U_A"][-1])
 
 
 if __name__ == "__main__":

@@ -83,10 +83,42 @@ resolve_candidate_selection()側の指示語対応〈直前候補が1件のみ�
 新規追加分がパスすることを確認した(プロトタイプ全体のテスト件数はtest_engine.py・
 test_cloud_function_process_event.py等と合わせて別途確認)。
 
+## 追記(2026-08-22 16:00 UTC): E3(二重予約)をハーネスで再現・複数顧客対応の拡張
+
+上記「残る課題」1点目のうちE3(二重予約)をハーネスで再現した(`test_scenario_harness.py`の
+`E3BookingConflictScenarioTest`)。この過程で以下2点を行った。
+
+- **ハーネスの拡張**: `ScenarioTurn`に任意の`user_id`フィールドを追加し、`run_scenario()`が
+  ターンごとに宛先ユーザーを切り替えられるようにした(未指定時は従来どおり関数引数の
+  `user_id`を使うため後方互換)。単一ユーザーの会話(N1→N3等)だけでなく、E3のように
+  複数顧客の会話を実際の到着順でinterleaveして検証できるようになった。
+- **E3の再現方法の選定**: 既存の`test_cloud_function_process_event.py`の
+  `test_booking_conflict_notifies_owner_once_and_represents_fresh_candidates`は
+  確定操作時(`provide_details`→`confirm()`)の競合を`flow._slots`への直接操作で人工的に
+  再現している。一方`AvailabilitySearcher.find_candidates()`は`booking_slots.status()`が
+  `None`の枠のみを候補にするため、後から検索した顧客には既にhold済みの枠は最初から
+  候補として出てこない。そのためE3の入力例(「顧客Bが顧客Aの仮押さえ中の枠を指定」)を
+  内部操作なしに再現するには、①両顧客がまだ誰も枠を持たない時点で同じ候補一覧を受け取り、
+  ②顧客Aが選択・hold成功した「後」に、③顧客Bが(Aの選択を知らないまま)同じ候補ラベルを
+  選ぶ、という順序が必要と判明した。これは選択操作時(`select_slot_from_reply`→`hold()`)の
+  競合であり、確定操作時競合(action=`booking_conflict`)とは別経路(action=`reask`、
+  `SLOT_CONFLICT_MESSAGE_TEMPLATE`)であることを、実装コード(engine.py)の追跡により
+  新たに確認した(これまでこの選択時競合の経路には自動テストが無かった)。
+- 副次的な発見として、`_handle_candidate_selection()`は「返信文言から候補を特定できな
+  かった場合」(reconfirm)と「特定できたが他ユーザーとの競合でhold()に失敗した場合」を
+  どちらもDispatchResult.action=`"reask"`として返しており、呼び出し側ログ・分析では
+  メッセージ内容(`SLOT_CONFLICT_MESSAGE_TEMPLATE`か`format_reconfirm_message()`か)でしか
+  区別できない。実装上の不具合ではないが、実運用後に競合発生頻度を計測したい場合は
+  actionの分離を検討余地として残す(現時点では計測要件が無いため見送り)。
+
+テスト2件追加(スロット競合時のメッセージ内容確認・競合後もB側の会話状態が壊れず
+別枠を選び直せることの確認)、プロトタイプ全体302件パス。
+
 ## 残る課題
 
-- 今回はN1→N3の1シナリオのみを試作した。E1(曖昧な日時)・E3(二重予約)等、
-  会話サンプルの他の崩れ系ケースを同じハーネスで再現する作業は次回以降の課題とする。
+- E1(曖昧な日時)は候補提示止まり(`confirmed: false`のまま単一ターンで完結)のため、
+  複数ターンの状態遷移というよりE7/E8同様の単発ケースに近い。ハーネスで再現する場合も
+  1ターンのシナリオになる見込みで、優先度は他の複数ターンケースより低いと判断し次回以降に残す。
 - 「その時間でお願いします」のような指示語のみの返信をresolve_candidate_selection()が
   解決できない点(上記「発見」参照)自体は実装上の制約として残っており、実装を拡張するか
   会話サンプル側の記述を「1番で」等の明示的な返信に訂正するかはオーナー確認事項ではなく

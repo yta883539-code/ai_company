@@ -1432,6 +1432,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-22 16:00 UTC・フェーズ続き124: multi-turn-scenario-harness-design.mdの
+  残課題だった「E1・E3等の崩れ系ケースをscenario_harness.pyで再現する」作業のうち、
+  E3(二重予約、仮押さえ中の枠への競合)に着手した。既存の`test_cloud_function_process_event.py`の
+  booking_conflictテストが確定操作時の競合を`flow._slots`への直接操作で人工的に再現していたのに対し、
+  E3の入力例に忠実な選択操作時(`select_slot_from_reply`→`hold()`)の競合を、内部状態への直接操作
+  なしに顧客A・Bの`processor.process()`呼び出しのみで再現した(`test_scenario_harness.py`の
+  `E3BookingConflictScenarioTest`)。この過程で`ScenarioTurn`に任意の`user_id`を追加し、
+  `run_scenario()`が複数顧客の会話を実際の到着順でinterleaveできるよう拡張した(単一ユーザー
+  シナリオとの後方互換は維持)。副次的に、返信文言が特定不能な場合とhold()競合の場合が
+  どちらもDispatchResult.action="reask"として区別なく返っている点を発見し、実運用後に競合頻度を
+  計測したくなった場合の改善余地として記録した(現時点では実装変更不要と判断)。テスト2件追加、
+  プロトタイプ全体302件パス。詳細はmulti-turn-scenario-harness-design.md「追記(2026-08-22
+  16:00 UTC)」参照)
 - (解消済み 2026-08-18 01:00 UTC・フェーズ続き113: payment-failure-dunning-design.mdが
   4節冒頭で「message-tone-variants.md準拠」としていたにもかかわらず、フェーズ続き112の
   実装(`prototype/dunning_notification_scheduler.py`)はstandardトーンの文言のみで
