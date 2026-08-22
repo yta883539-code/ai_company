@@ -29,8 +29,11 @@ output-samples-validation.mdの9ケース(G1〜G4・OOS1・II1・CI1〜CI3)を�
 
 ## 検証手順(承認後に着手する想定)
 
-1. `prototype/`配下のllm_callスタブ相当の関数に実API呼び出し(Claude API)を注入する
-   (line-reservation-aiの`engine.py`llm_callスタブと同じ設計方針を踏襲)。
+1. `prototype/cloud_function_webhook.py`の`LlmCallClient`Protocol(`generate(memo_text, retry_context)`を
+   実装するクラス)に、実際にClaude API呼び出しを行う実装クラスを新規作成し差し替える
+   (line-reservation-aiの`engine.py`llm_callスタブと同じ設計方針を踏襲)。呼び出し箇所である
+   `_generate_with_api_retry()`・`process_webhook_event()`側の変更は不要で、Protocol実装の
+   差し替えのみで着手できる状態にあることを確認済み(2026-08-21時点)。
 2. output-samples-validation.mdの9ケースの入力メモ文面を実際にAPIへ投入し、構造化出力を
    `schema/validate_test_cases.py`のバリデータにそのまま通す(型・必須項目・cross-field
    ルールは機械チェックで即座に合否判定可能)。
