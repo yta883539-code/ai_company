@@ -949,9 +949,31 @@
   点が今回の主な進展。実際のStripe Webhook受信エンドポイント(署名検証・エンドポイント設計)
   自体はcourse-set-pashaにまだ存在せず、これは実Stripeアカウント接続後の課題として残置。
   設計のみでコード実装・外部接続は伴わないため承認不要な範囲にとどめた。
-- 最終更新: 2026-08-22 11:00 UTC
+- フェーズ92(2026-08-22 14:00 UTC): フェーズ91・stripe-cancellation-deletion-candidate-
+  trigger-design.mdで設計のみだった3関数(`mark_deletion_candidate_on_subscription_deleted()`・
+  `clear_deletion_candidate_on_subscription_reactivated()`・`list_deletion_candidates()`)を
+  `prototype/deletion_candidate.py`として実装した。`user_id_linking.py`の
+  `LinkingCodeStoreProtocol`/`InMemoryLinkingCodeStore`と同じ「Protocol + インメモリ
+  スタブ」構成で`ProfileDeletionCandidateStoreProtocol`/
+  `InMemoryProfileDeletionCandidateStore`を用意し、実Firestore接続なしで机上検証できる
+  形にした。テストは(1)解約日+365日の書き込み、(2)2回目解約時の最新解約日での上書き、
+  (3)再契約時の取り消しと冪等性(初回契約時の`created`イベントでも実害がないこと)、
+  (4)`list_deletion_candidates()`の境界値(ちょうどnow時点は含む/未来は除外)・複数
+  user_id時のuser_id昇順ソート、をカバーした(テスト12件追加、course-set-pasha配下
+  計202件パス)。design 4節で明示されていたとおり、実際のStripe Webhook受信エンドポイント
+  (署名検証・イベント種別ディスパッチ、`receive-webhook-http-entry-point-design.md`の
+  LINE版に相当するもの)はまだ存在せず、次の課題として引き続き残る。
+- 最終更新: 2026-08-22 14:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-22 14:00 UTC: フェーズ91で設計のみだった3関数の実装を
+  フェーズ92・`prototype/deletion_candidate.py`で行った。詳細は上記フェーズ92参照。
+  残るのは実際のStripe Webhook受信エンドポイント(署名検証・イベント種別ディスパッチ)の
+  設計自体で、これはcourse-set-pashaのLINE版`receive-webhook-http-entry-point-design.md`
+  と同様、実Stripeアカウント接続なしでも署名検証方式(HMAC-SHA256、`Stripe-Signature`
+  ヘッダのタイムスタンプ許容範囲チェックを含む)自体は机上設計・実装できるため、次回の
+  優先候補とする)
 
 - (解消済み 2026-08-22 11:00 UTC: 上記(2)Stripe解約webhookを起点とする削除候補洗い出しの
   トリガー設計をフェーズ91・stripe-cancellation-deletion-candidate-trigger-design.mdで
