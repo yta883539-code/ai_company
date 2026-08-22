@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -151,3 +152,56 @@ def dispatch_stripe_event(
         result.cleared_user_ids.append(user_id)
 
     return result
+
+
+@dataclass
+class StripeWebhookReceiverResult:
+    """receive_stripe_webhook()の結果(stripe-webhook-http-entry-point-design.md 1節)。"""
+
+    status_code: int
+    dispatch_result: Optional[StripeDispatchResult] = None
+    error: Optional[str] = None
+
+
+def receive_stripe_webhook(
+    body: bytes,
+    signature_header: Optional[str],
+    webhook_secret: str,
+    *,
+    store: ProfileDeletionCandidateStoreProtocol,
+    resolve_user_id: Callable[[str], Optional[str]],
+    now: Optional[datetime] = None,
+) -> StripeWebhookReceiverResult:
+    """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
+    受け取り、署名検証(verify_stripe_signature)・JSONパース・dispatch_stripe_event()への
+    配線までを行う(stripe-webhook-http-entry-point-design.mdで設計した、
+    verify_stripe_signature()とdispatch_stripe_event()を結ぶエントリポイント)。
+
+    - 署名検証に失敗した場合は401相当を返し、JSONパース・dispatch_stripe_event()への
+      配線を一切行わない(不正なリクエストへの余計な処理を避ける、LINE側receive_webhook()と
+      同じ方針)。
+    - 署名検証後にbodyをJSONとしてパースする。パース失敗、またはパース結果がdictでない
+      場合は400相当を返す(Stripeからの実際のリクエストでは通常発生しないはずの異常系だが、
+      エントリポイントとして不正な入力にも例外を外に漏らさない設計とする)。
+    - 検証・パースに成功した場合はdispatch_stripe_event()にそのまま委譲し200を返す。
+      resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、Stripe側の
+      再送ループを避けるためリクエスト自体は200(受理)として扱う。
+    """
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    if not verify_stripe_signature(
+        body, signature_header, webhook_secret, now=resolved_now.timestamp()
+    ):
+        return StripeWebhookReceiverResult(status_code=401, error="invalid_signature")
+
+    try:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return StripeWebhookReceiverResult(status_code=400, error="invalid_json")
+
+    if not isinstance(parsed, dict):
+        return StripeWebhookReceiverResult(status_code=400, error="invalid_event")
+
+    dispatch_result = dispatch_stripe_event(
+        parsed, store=store, resolve_user_id=resolve_user_id, now=resolved_now
+    )
+    return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

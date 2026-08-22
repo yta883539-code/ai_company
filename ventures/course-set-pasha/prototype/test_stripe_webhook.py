@@ -4,7 +4,11 @@ import unittest
 from datetime import datetime, timezone
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
-from stripe_webhook import dispatch_stripe_event, verify_stripe_signature
+from stripe_webhook import (
+    dispatch_stripe_event,
+    receive_stripe_webhook,
+    verify_stripe_signature,
+)
 
 SECRET = "whsec_test_secret"
 PAYLOAD = b'{"id":"evt_1","type":"customer.subscription.deleted"}'
@@ -200,6 +204,68 @@ class DispatchStripeEventTest(unittest.TestCase):
         )
         self.assertEqual(result.unresolved_customers, ["cus_unknown"])
         self.assertEqual(result.marked_user_ids, [])
+
+
+class ReceiveStripeWebhookTest(unittest.TestCase):
+    """stripe-webhook-http-entry-point-design.md 2節。LINE版ReceiveWebhookTestと対称。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.now = datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)  # NOW相当
+        self.resolve_user_id = _resolver({"cus_A": "user_1"})
+
+    def _call(self, body: bytes, header: str) -> object:
+        return receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=self.store,
+            resolve_user_id=self.resolve_user_id,
+            now=self.now,
+        )
+
+    def test_invalid_signature_returns_401_without_dispatch(self):
+        body = b'{"id":"evt_1","type":"customer.subscription.deleted","created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        result = self._call(body, "not-a-valid-header")
+        self.assertEqual(result.status_code, 401)
+        self.assertEqual(result.error, "invalid_signature")
+        self.assertIsNone(result.dispatch_result)
+        self.assertIsNone(self.store.get_deletion_candidate_at("user_1"))
+
+    def test_unparseable_json_returns_400(self):
+        body = b"not-json"
+        header = _header(body, SECRET, int(NOW))
+        result = self._call(body, header)
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_json")
+
+    def test_non_dict_event_returns_400(self):
+        body = b"[1, 2, 3]"
+        header = _header(body, SECRET, int(NOW))
+        result = self._call(body, header)
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_event")
+
+    def test_valid_subscription_deleted_returns_200_and_marks_candidate(self):
+        body = (
+            b'{"id":"evt_1","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        header = _header(body, SECRET, int(NOW))
+        result = self._call(body, header)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.marked_user_ids, ["user_1"])
+        self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
+
+    def test_unresolved_customer_still_returns_200(self):
+        body = (
+            b'{"id":"evt_1","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_unknown"}}}'
+        )
+        header = _header(body, SECRET, int(NOW))
+        result = self._call(body, header)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.unresolved_customers, ["cus_unknown"])
 
 
 if __name__ == "__main__":

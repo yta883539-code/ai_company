@@ -998,10 +998,32 @@
   course-set-pasha配下計219件パス)。実際のHTTPエントリポイント
   (`verify_stripe_signature()`との結線)・`resolve_user_id`の実装・実Stripe接続は
   次の課題として残る。
-- 最終更新: 2026-08-22 20:00 UTC
+- フェーズ95(2026-08-22 23:00 UTC): フェーズ94「次にやること」候補(1)だった、
+  `verify_stripe_signature()`と`dispatch_stripe_event()`を結ぶHTTPエントリポイント本体を
+  `stripe-webhook-http-entry-point-design.md`で設計し、`prototype/stripe_webhook.py`に
+  `receive_stripe_webhook()`として実装した(LINE版`cloud_function_webhook.py`の
+  `receive_webhook()`と対称の位置づけ)。署名検証失敗時は401(JSONパース・dispatch自体を
+  呼ばない)、JSONパース失敗時は400(`error="invalid_json"`)、パース結果がdict以外の
+  場合も400(`error="invalid_event"`)、それ以外は`dispatch_stripe_event()`に委譲し200を
+  返す(`resolve_user_id`未解決・対象外イベント種別でもStripe再送ループを避けるため200)。
+  テストは`test_stripe_webhook.py`に`ReceiveStripeWebhookTest`として5件追加(署名不正・
+  JSON不正・非dictイベント・正常系での削除候補化・customer未解決時も200、course-set-pasha
+  配下計224件パス)。実際の`main(request)`相当の配線(`functions_framework`リクエストからの
+  `body`・`Stripe-Signature`ヘッダ取り出し)・`resolve_user_id`の実装・`webhook_secret`の
+  実際の取得/保管方法は次の課題として残る。
+- 最終更新: 2026-08-22 23:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-22 23:00 UTC: `verify_stripe_signature()`と`dispatch_stripe_event()`を
+  結ぶHTTPエントリポイント本体をフェーズ95・`stripe-webhook-http-entry-point-design.md`/
+  `receive_stripe_webhook()`で実装した。詳細は上記フェーズ95参照。残るのは(1)実
+  `functions_framework`リクエストからの`body`/`Stripe-Signature`ヘッダ取り出し配線
+  (`main(request)`のStripe版に相当)、(2)`resolve_user_id`
+  (`stripe_customer_id → user_id`)の実装(申込フォーム提出フローのどこで
+  `stripe_customer_id`を`user_profile`に書き込むかの設計も必要)、(3)`webhook_secret`の
+  実際の値の取得・保管方法(Secret Manager等)。(1)は接続前でも設計・実装できるため
+  次回の優先候補とする)
 - (解消済み 2026-08-22 20:00 UTC: イベント種別ディスパッチ〜
   `mark_deletion_candidate_on_subscription_deleted()`等の呼び出しを結ぶ部分を
   フェーズ94・`stripe-webhook-event-dispatch-design.md`/`dispatch_stripe_event()`で
