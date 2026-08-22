@@ -21,6 +21,26 @@
 
 ## ステータス
 
+- フェーズ100(2026-08-22 05:00 UTC): フェーズ99の申し送り「aircon-pasha自体の未着手領域
+  (オーナーからの初回コンタクト承認可否を待つ間の別の前進策)を検討する」に対応し、
+  onboarding-guide.mdの「次のステップ候補」に残っていた「ステップ3(接続テスト)省略時の
+  フォールバック設計(course-set-pashaのonboarding-settings-and-self-check-design.md・
+  first-generation-notice-implementation-design.md相当)の要否・内容」を検討した。
+  `first-generation-self-check-design.md`を新規作成し、(1)本ventureもcourse-set-pashaと同じ
+  単方向バッチ処理のため同じ設計方針(初回生成成功時のみレスポンス末尾に確認案内を1回だけ
+  付記)を採用できると結論、(2)一方で本ventureの出力1・出力2(作業完了報告・お手入れ案内)は
+  業者がそのままコピー&ペーストで依頼者(エンドカスタマー)へ転送する運用が正規ルートである
+  (course-set-pashaのSNS投稿文はオーナーが一手間置いてから投稿する)ため、確認案内を
+  `completion_report.body`等の転送されうるフィールド内部に混入させることは「依頼者への
+  誤送信事故」に直結する本venture固有のリスクである点を明記し、確認案内は必ず別メッセージ
+  (別吹き出し)としてレスポンス組み立て時に付加する設計を必須要件とした、(3)本ventureは
+  屋号・エリア設定項目自体が無いため、course-set-pashaにあった「未設定項目案内」の分岐は
+  不要と整理した。`usage_counter`への`first_generation_notice_sent`フィールド追加案・
+  疑似コードもcourse-set-pashaのパターンを踏襲する形で示したが、実装はFirestore・LINE API
+  接続がオーナー承認待ちのため未着手のまま残す。ドキュメント整理のみで承認不要な範囲に
+  とどめた。次回は候補12(東京住まいる)の連絡先確認を継続するか、実LINE接続後の複数メッセージ
+  送信のAPI仕様(本ドキュメント「残課題」参照)を先行調査するか、オーナーからの初回コンタクト
+  承認可否を待つ間の他の未着手領域を検討する。
 - フェーズ99(2026-08-22 01:00 UTC): フェーズ98の申し送りのうち「屋号・ドメイン類似による
   誤結合」教訓の他venture横展開を進めた(もう一方の申し送りだったllm-quality-verification-
   plan.mdの他venture展開は、直前の定例更新でline-reservation-aiにも作成済みとなり両venture
