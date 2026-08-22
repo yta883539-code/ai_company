@@ -88,6 +88,14 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
   フィールドを`null`で返しうる未対応ケースを発見・修正した。詳細はllm-turn-context-design.md
   参照。「実LLM出力を各ターンの入力として連鎖させる」ためのテストハーネス自体の実装は
   引き続き未着手)
+  (一部解消 2026-08-22 13:00 UTC: `prototype/scenario_harness.py`として汎用の複数ターン
+  シナリオハーネス(`ScenarioTurn`/`run_scenario()`)を新規実装した。conversation-samples-
+  test-cases.mdのN1→N3を実装上の3ターン(検索→選択→確定)として試作
+  (`prototype/test_scenario_harness.py`)し、各ターンのllm_outputをschema/validate_test_cases.py
+  で机上検証しつつ`ConversationEventProcessor.process()`へ連鎖させて最終的に`confirmed`へ
+  到達することを確認した(プロトタイプ全体299件パス)。詳細・N3原文とのずれの発見は
+  multi-turn-scenario-harness-design.md参照。残るのはE1・E3等の崩れ系ケースへの同ハーネスの
+  展開と、実LLM接続後にllm_outputを実APIレスポンスへ差し替える配線〈オーナー承認待ち〉)
 - (解消済み 2026-08-22 02:00 UTC: トーン変換の固定語彙不変性チェックの機械化に着手し、
   fixed-vocabulary-tone-check-design.mdで対象語彙リスト`["仮押さえ", "確定"]`を整理・
   `FixedVocabularyInvariantAcrossTonesTest`として実装済み。残る課題は同ドキュメント

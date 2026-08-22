@@ -1,0 +1,97 @@
+# 複数ターンにまたがる状態遷移の検証ハーネス設計(2026-08-22 13:00 UTC)
+
+## 位置づけ
+
+llm-quality-verification-plan.md「残る未確定事項」に残っていた、複数ターンにまたがる
+状態遷移(候補提示→選択→確定)の検証を「実LLM出力を各ターンの入力として連鎖させる」
+部分の設計・試作。フェーズ(続き122、llm-turn-context-design.md)までの検討過程で発見した
+「各ターンのLLM呼び出しは会話履歴を含まない単発呼び出し」という設計を踏まえ、複数ターンの
+シナリオを`ConversationEventProcessor.process()`への複数回の呼び出し列として表現できる
+汎用ハーネスを作った。
+
+## 発見: conversation-samples-test-cases.mdのN1→N3は「2ターン」ではなく実装上「3ターン」
+
+conversation-samples-test-cases.mdのN3は「N1の続き」として
+「その時間でお願いします」という1回の返信だけで確定に至る、2ターン構成の会話として
+記述されている。しかし実装(`ConversationFlowStateMachine`/`ConversationEventProcessor`)は
+以下の3段階を必ず踏む設計になっている(candidate-presentation-and-selection-design.md・
+booking-slot-manager-design.md準拠)。
+
+1. 検索ターン: 名前・メニュー・大まかな日時希望→候補提示(`candidates_presented`)
+2. 選択ターン: 提示した候補一覧から1件を特定し仮押さえ(`held`/`awaiting_details`)
+3. 確定ターン: 名前・メニューの最終確認→確定(`confirmed`)
+
+さらに`resolve_candidate_selection()`(engine.py)は選択ターンの特定を**顧客の返信文言
+(reply_text)そのもの**(番号・候補ラベルの日付時刻表記との一致)でのみ行い、LLM構造化出力の
+フィールド(intent等)は使わない。そのため「その時間でお願いします」という指示語だけの
+返信は番号にも日付時刻表記にも一致せず、実装上は選択不能(`resolve_candidate_selection()`が
+`None`を返し`format_reconfirm_message()`で聞き直しになる)ことを本ハーネス作成の過程で
+確認した。
+
+これは会話サンプル設計(ビジネスレベルの期待挙動の記述)と実装(状態遷移の技術的な粒度)の
+間の抽象度の違いであり、どちらかが誤りというわけではない。N3の「その時間で」は
+「ユーザーが直前に提示された1件を肯定した」という業務的意図の要約であり、実際にどの文言
+パターンなら選択が成立するかはcandidate-presentation-and-selection-design.md 2節の実装詳細
+(数字・丸数字・漢数字・日付時刻表記との一致)に委ねられている。
+
+**結論**: ハーネスでN1→N3を再現する場合、選択ターンの返信文言は会話サンプルの原文
+(「その時間でお願いします」)をそのまま使わず、`resolve_candidate_selection()`が実際に
+解決できる文言(例:「1番で」)に置き換える。これはconversation-samples-test-cases.md自体を
+訂正するものではなく、「業務シナリオの記述」と「その業務シナリオを満たす実装上の入力例」を
+区別する扱いとする(実LLM接続後、実際に「その時間でお願いします」的な指示語のみの返信が
+どの程度の頻度で来るかは未知数であり、選択不能が多発するようであれば
+resolve_candidate_selection()側の指示語対応〈直前候補が1件のみなら指示語で確定してよい、等〉
+を拡張課題として別途検討する。今回はハーネス設計のスコープ外として残す)。
+
+## ハーネスの設計
+
+`prototype/scenario_harness.py`に以下を実装した。
+
+- `ScenarioTurn`: 1ターン分の入力(`message`)とLLM出力(`llm_output`、スタブでも実API
+  レスポンスでも同じ形)、任意の期待値(`expect_action`/`expect_stage`)を持つデータクラス。
+- `run_scenario(processor, turns, now, user_id)`: `turns`を順番に
+  `ConversationEventProcessor.process()`へ流し込む。各ターンの`llm_output`は投入前に
+  `schema/validate_test_cases.py`の`validate_against_schema()`・`validate_cross_field_rules()`で
+  机上検証し(実LLM接続後もそのまま同じ経路で使える)、結果を`ScenarioStepResult`のリストとして
+  返す。`expect_action`/`expect_stage`が指定されていればその場で`AssertionError`を送出する
+  (unittest外からの手動実行にも使える汎用ヘルパーとするため、`unittest.TestCase.assert*`には
+  依存しない)。
+
+`llm_output`は現状すべて会話サンプル準拠のスタブだが、`process_llm_output()`へ渡す
+`llm_call`の中身を実際のClaude API呼び出しに差し替えるだけで実LLM検証にそのまま流用できる
+設計(`ScenarioTurn`はスタブか実APIかを意識しない)。
+
+## 試作: N1→(選択)→N3の3ターンシナリオ
+
+`prototype/test_scenario_harness.py`に、上記の発見を反映した3ターンシナリオを実装した。
+
+1. ターン1: N1の入力(「来週土曜15時にカットお願いしたいです。田中です。」)相当のLLM出力
+   (`requested_date_range`=来週土曜、`time_of_day_preference`="afternoon")→
+   `candidates_presented`を期待。
+2. ターン2: 「1番で」→選択(`held`、`awaiting_details`)を期待。
+3. ターン3: N3の期待構造化出力を**そのまま**転記した
+   `{intent: "new_booking", name: "田中", menu: "カット", datetime_candidate: "来週土曜15時",
+   confirmed: true, needs_owner_check: false}`を投入し、`confirmed`を期待。
+
+3ターン全ての`llm_output`がスキーマ・cross-fieldルールに違反しないこと、最終的に
+`flow.stage("U1") == "confirmed"`であることをテストで確認済み(実行結果は
+下記「実行結果」参照)。
+
+## 実行結果
+
+`python3 -m unittest test_scenario_harness -v`(prototype/ディレクトリで実行)で
+新規追加分がパスすることを確認した(プロトタイプ全体のテスト件数はtest_engine.py・
+test_cloud_function_process_event.py等と合わせて別途確認)。
+
+## 残る課題
+
+- 今回はN1→N3の1シナリオのみを試作した。E1(曖昧な日時)・E3(二重予約)等、
+  会話サンプルの他の崩れ系ケースを同じハーネスで再現する作業は次回以降の課題とする。
+- 「その時間でお願いします」のような指示語のみの返信をresolve_candidate_selection()が
+  解決できない点(上記「発見」参照)自体は実装上の制約として残っており、実装を拡張するか
+  会話サンプル側の記述を「1番で」等の明示的な返信に訂正するかはオーナー確認事項ではなく
+  今後の設計判断課題として残す(直前提示候補が1件のみの場合に限定すれば安全に指示語対応
+  できる可能性がある)。
+- 実LLM接続後、`ScenarioTurn.llm_output`を実際のAPIレスポンスに差し替えて同じハーネスを
+  再利用する具体的な接続コード(`process_llm_output()`のllm_call注入)は、
+  引き続きAPIキー・課金のオーナー承認待ち(pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。

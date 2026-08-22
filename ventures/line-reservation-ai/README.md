@@ -1048,7 +1048,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (プロトタイプ全体298件パス)。残る課題はturn1自体の抽出精度・会話の自然さに
   関わる判定は引き続き実LLM検証待ちであること、会話履歴をLLMに渡す設計を将来
   採用する場合のFirestoreスキーマ拡張・コスト試算は本フェーズのスコープ外とした点。
-- 最終更新: 2026-08-22 10:00 UTC
+- フェーズ(続き123、2026-08-22 13:00 UTC): llm-quality-verification-plan.mdの残る未確定事項
+  「実LLM出力を各ターンの入力として連鎖させる」ためのテストハーネス自体の実装に着手した。
+  `prototype/scenario_harness.py`に`ScenarioTurn`/`run_scenario()`を新規実装し、
+  conversation-samples-test-cases.mdのシナリオを`ConversationEventProcessor.process()`への
+  複数回呼び出しとして再現できる汎用ヘルパーとした(各ターンのllm_outputはschema/
+  validate_test_cases.pyで机上検証してから投入する)。試作としてN1→N3を実装
+  (`prototype/test_scenario_harness.py`)する過程で、会話サンプルが「その時間でお願いします」
+  の1返信で確定に至る2ターン構成として書かれている一方、実装(`resolve_candidate_selection()`)は
+  返信文言(番号・候補ラベルの日付時刻表記との一致)でしか候補選択を特定できず、指示語のみの
+  返信では選択不能(聞き直しになる)という、会話サンプルの記述粒度と実装の技術的な粒度の
+  ずれを新たに発見した。詳細・結論はmulti-turn-scenario-harness-design.md参照。ハーネス自体は
+  番号選択に置き換えたN1→(選択)→N3の3ターンで検索→選択→確定の連鎖を確認済み(プロトタイプ
+  全体299件パス)。残る課題はE1・E3等の崩れ系ケースへの同ハーネスの展開と、実LLM接続後に
+  llm_outputを実APIレスポンスへ差し替える配線(いずれもオーナー承認待ちの範囲を除き次回以降)。
+- 最終更新: 2026-08-22 13:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
