@@ -95,13 +95,29 @@ course-set-pashaと同じ。
 
 ## 残課題
 
-- 実LINE API接続後、1返信を複数メッセージ(吹き出し)に分けて送る場合のAPI仕様確認・
-  文字数上限確認は接続時の課題として残す。
 - `usage_counter`への`first_generation_notice_sent`フィールド追加、および
   `cloud_function_webhook.py`側での実配線は、実Firestore接続・実LINE API接続自体が
   オーナー承認待ちのため未着手のまま残す。
 - 「試験生成のつもりで送ったメモが実は最初の生成ではなかった」ケースはシステム側で区別できない
   既知の限界として残る(course-set-pashaと同じ)。
-- 2.で述べた「別吹き出し必須」という制約が、実際のLINE Messaging APIのメッセージ数上限
-  (1回の返信で送れるメッセージオブジェクト数の制約)と衝突しないかは、実API接続時に
-  確認が必要な前提として残す。
+
+## LINE Messaging API のメッセージ数・文字数上限確認(フェーズ101で解消)
+
+2.で述べた「別吹き出し必須」という制約が、実際のLINE Messaging APIのメッセージ数上限と
+衝突しないかを、LINE Developers公式ドキュメントの記載に基づき確認した。
+
+- 1回の応答(reply token使用)で送信できるメッセージオブジェクトは最大5件まで。本venture
+  は`completion_report_message`・`care_guide_message`・(初回のみ)`SELF_CHECK_NOTICE_TEXT`
+  の最大3件で、上限5件に対して余裕があり、初回生成での3件同時送信は仕様上問題なく可能と
+  確認できた。将来history_row関連の通知等を追加する場合も、上限5件を超えないことを
+  設計時に都度確認する必要がある点は留意事項として残す。
+- テキストメッセージ1件あたりの文字数上限は5,000文字(UTF-16コード単位でのカウント、
+  絵文字・一部の漢字は2文字以上としてカウントされる点に注意)。completion_report・
+  care_guideの本文はいずれも数百文字程度の想定(mvp-flow-draft.md参照)であり、通常の
+  入力メモの範囲では上限に達する可能性は低いが、極端に長いメモが入力された場合の文字数
+  超過時のフォールバック処理(切り詰め・エラー応答等)は未設計のまま残課題とする。
+
+出典: LINE Developers「Send messages」
+(https://developers.line.biz/en/docs/messaging-api/sending-messages/)、
+LINE Developers「Character counting in a text」
+(https://developers.line.biz/en/docs/messaging-api/text-character-count/)。
