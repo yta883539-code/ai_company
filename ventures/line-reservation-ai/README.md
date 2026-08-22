@@ -1001,7 +1001,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   設定変更が必要(回収率が下がるトレードオフあり)、逆に標準設定を使うなら猶予期間を14日
   程度に延ばす必要がある、という二択とトレードオフをpayment-failure-dunning-design.md 5節に
   整理した。どちらを選ぶかはサービス契約自体を伴うためオーナー承認待ち。
-- 最終更新: 2026-08-17 21:00 UTC
+- フェーズ(続き111、2026-08-22 00:00 UTC): aircon-pasha README.mdフェーズ98の申し送り
+  (実LLM接続後の生成品質検証プランをcourse-set-pasha・line-reservation-aiにも展開する)を
+  受け、`llm-quality-verification-plan.md`を新規作成した。line-reservation-aiは他2venture
+  と異なり会話エンジン型(毎ターン`intent`等の構造化フィールドを返す設計)であるため、
+  post_generation_checks.py相当の自由文チェックではなく、schema/validate_test_cases.pyの
+  `validate_cross_field_rules()`・prototype/engine.pyの`process_llm_output()`を軸にした
+  検証観点表(厳守事項1〜11・9a/9b、JSON安定性、日時抽出精度)を整理し、機械チェック可能な
+  項目と人手判定が必要な項目を区別した。3回中1回でも厳守事項抵触があれば要改善とする暫定
+  基準もaircon-pasha・course-set-pashaと統一した。ドキュメント整理のみでAPIキー取得・課金を
+  伴わないため承認不要な範囲にとどめ、実際のLLM API呼び出しは引き続きオーナー承認待ち
+  (pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。次回は複数ターンにまたがる状態遷移
+  (候補提示→選択→確定)の検証をどう自動化するか、またはトーン変換の固定語彙不変性チェックの
+  機械化(対象文字列リストの整理)を優先課題とする。
+- 最終更新: 2026-08-22 00:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
