@@ -113,9 +113,11 @@ line-reservation-ai/data-retention-policy.mdの「最終確認の連絡経路」
 - (解消済み 2026-08-22 03:00 UTC: legal-notices-draft.mdの2.4節に本方針の要旨(保存期間の
   基準・削除候補化後の最終確認手順・開示削除請求への対応窓口)を反映した。詳細は
   legal-notices-draft.md 2.4節参照)
-- Stripe解約イベント(webhook)を起点に削除候補を洗い出す具体的なトリガー設計は、
-  subscription-cancellation-flow-design.mdが扱うポータル起点の解約フローと合わせて、
-  実Stripe Webhook接続後(オーナー承認待ち)の課題として残す。
+- (解消済み 2026-08-22 11:00 UTC: Stripe解約イベント(webhook)起点の削除候補洗い出し
+  トリガー設計を stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ91)で
+  行った。`deletion_candidate_at`フィールドの設計・解約時のマーク付け/再契約時の取り消し/
+  月次バッチ用の読み出し関数を整理済み。残るのは実Stripe Webhook受信エンドポイント自体の
+  設計で、実Stripeアカウント接続後(オーナー承認待ち)の課題として残る)
 - 削除候補化後の連絡先(代替経路)は、申込フォームの実際の収集項目が
   application-form-submission-flow-design.mdの実装確定時点でまだ「メールアドレス」と
   確定していないため、実装確定後に本文書の「代替経路」記述を見直す必要がある。

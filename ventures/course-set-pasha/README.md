@@ -938,10 +938,26 @@
   伴わずドキュメント整合性の修正のみのため承認不要な範囲。次回はStripe解約イベント起点の
   削除候補洗い出しトリガー設計(実Stripe接続後の課題として引き続き残置)以外の未着手領域を
   優先する。
-- 最終更新: 2026-08-22 06:00 UTC
+- フェーズ91(2026-08-22 11:00 UTC): data-retention-policy.md(フェーズ85)の残課題だった
+  Stripe解約webhook起点の削除候補洗い出しトリガー設計を
+  stripe-cancellation-deletion-candidate-trigger-design.mdで行った。`customer.subscription.deleted`
+  受信時に`user_profile/{user_id}`へ`deletion_candidate_at`(解約日+365日)を書き込む
+  `mark_deletion_candidate_on_subscription_deleted()`、再契約時に取り消す
+  `clear_deletion_candidate_on_subscription_reactivated()`、月次バッチから呼ぶ読み出し専用の
+  `list_deletion_candidates()`の3関数を設計した。data-retention-policy.md時点では未整理
+  だった「解約後1年以内に再契約した場合に削除候補フラグを取り消す」経路を新たに整理できた
+  点が今回の主な進展。実際のStripe Webhook受信エンドポイント(署名検証・エンドポイント設計)
+  自体はcourse-set-pashaにまだ存在せず、これは実Stripeアカウント接続後の課題として残置。
+  設計のみでコード実装・外部接続は伴わないため承認不要な範囲にとどめた。
+- 最終更新: 2026-08-22 11:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-22 11:00 UTC: 上記(2)Stripe解約webhookを起点とする削除候補洗い出しの
+  トリガー設計をフェーズ91・stripe-cancellation-deletion-candidate-trigger-design.mdで
+  行った。詳細は上記フェーズ91参照。残るのは実Stripe Webhook受信エンドポイント自体の設計・
+  (3)代替連絡経路の収集項目確定(application-form-submission-flow-design.md実装確定後)で、
+  いずれも実接続確定後の課題として残る)
 - (解消済み 2026-08-22 03:00 UTC: フェーズ85「今後の課題」1点目のlegal-notices-draft.mdへの
   本方針の反映をフェーズ89で行った。詳細は上記フェーズ89参照。残る(2)Stripe解約webhookを
   起点とする削除候補洗い出しのトリガー設計(実Stripe接続後)、(3)代替連絡経路の収集項目確定
