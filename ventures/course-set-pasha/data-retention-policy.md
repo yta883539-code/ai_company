@@ -110,7 +110,9 @@ line-reservation-ai/data-retention-policy.mdの「最終確認の連絡経路」
 
 ## 今後の課題
 
-- legal-notices-draft.mdへの本方針の反映(上記「顧客からの開示・削除依頼への対応」参照)。
+- (解消済み 2026-08-22 03:00 UTC: legal-notices-draft.mdの2.4節に本方針の要旨(保存期間の
+  基準・削除候補化後の最終確認手順・開示削除請求への対応窓口)を反映した。詳細は
+  legal-notices-draft.md 2.4節参照)
 - Stripe解約イベント(webhook)を起点に削除候補を洗い出す具体的なトリガー設計は、
   subscription-cancellation-flow-design.mdが扱うポータル起点の解約フローと合わせて、
   実Stripe Webhook接続後(オーナー承認待ち)の課題として残す。

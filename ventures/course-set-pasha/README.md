@@ -915,14 +915,23 @@
   想定通り)。次回はフェーズ87のもう一方の申し送りだった同プランのline-reservation-aiへの
   展開に着手する(その際は今回の教訓を踏まえ、着手前に必ずline-reservation-ai/prototype配下の
   既存実装を確認してから「未実装」判定を行う)。
-- 最終更新: 2026-08-21 22:00 UTC
+- フェーズ89(2026-08-22 03:00 UTC): 「次にやること」に残っていたdata-retention-policy.md
+  (フェーズ85)の「今後の課題」1点目、legal-notices-draft.mdへの保存期間・削除方針の反映を
+  行った。legal-notices-draft.md 2.4節(保存期間・削除)を、data-retention-policy.mdが定めた
+  内容(永続保存対象は`user_profile`・`usage_counter`の2種類のみ、Stripe解約日起点で1年保有後に
+  削除候補化、削除候補化後はLINE push/申込フォーム収集の連絡先で最終確認、連絡不能時は
+  オーナーが個別判断)で具体化した。ドキュメント整理のみでコード変更・外部接続を伴わないため
+  承認不要な範囲にとどめた。次回はStripe解約イベント(webhook)起点の削除候補洗い出し
+  トリガー設計(実Stripe接続後の課題として残置)以外の未着手領域、または本プランの
+  line-reservation-aiへの展開状況の確認を優先する。
+- 最終更新: 2026-08-22 03:00 UTC
 
 ## 次にやること(候補)
 
-- フェーズ85(2026-08-21 16:00 UTC): data-retention-policy.mdの「今後の課題」に残した、
-  (1)legal-notices-draft.mdへの本方針の反映、(2)Stripe解約webhookを起点とする削除候補
-  洗い出しのトリガー設計(実Stripe接続後)、(3)代替連絡経路の収集項目確定
-  (application-form-submission-flow-design.md実装確定後)は次の課題として残る。
+- (解消済み 2026-08-22 03:00 UTC: フェーズ85「今後の課題」1点目のlegal-notices-draft.mdへの
+  本方針の反映をフェーズ89で行った。詳細は上記フェーズ89参照。残る(2)Stripe解約webhookを
+  起点とする削除候補洗い出しのトリガー設計(実Stripe接続後)、(3)代替連絡経路の収集項目確定
+  (application-form-submission-flow-design.md実装確定後)は引き続き次の課題として残る)
 - (解消済み 2026-08-21 18:00 UTC: フェーズ84・85で2回持ち越されていた「ブロックしたのに
   課金だけ続く」状態へのオーナー向けFAQ・問い合わせ対応文言整備をフェーズ86・
   unfollow-billing-faq.mdで行った。詳細は上記フェーズ86参照。残るのはプロアクティブな
