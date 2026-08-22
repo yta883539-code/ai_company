@@ -70,10 +70,9 @@ Python の `len(str)` はUnicodeコードポイント数を返すため、その
 
 ## 残課題
 
-- フォールバック通知文言の最終確定(トーン&マナーガイドラインとの整合確認)は、
-  tone-and-manner-guideline.md相当のドキュメントが本ventureにまだ無いため、
-  他venture(line-reservation-ai)のtone-and-manner-guideline.mdを参考にしつつ
-  別途整理する。
+- (解消済み 2026-08-22 15:00 UTC・フェーズ103: tone-and-manner-guideline.mdを新設し、
+  本ファイルのフォールバック通知例文がトーン&マナーガイドライン(宛先区別・見出し不要・
+  謝罪1回のみ)と整合していることを確認した。例文はそのまま確定文言として扱う)
 - 5,000文字という値自体はLINE APIのハード上限であり、実運用上はその手前(例:1,000文字
   程度)で「通常想定を超える長さ」として業者へ注意喚起する、といったソフトな閾値を
   別途設けるかどうかは、実LLM接続後の生成品質検証(llm-quality-verification-plan.md)の
