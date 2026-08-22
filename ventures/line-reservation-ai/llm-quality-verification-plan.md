@@ -83,6 +83,11 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
   入力として連鎖させる具体的な実装は未設計)。ただし「選択ステップを飛ばして確定に進めない」という
   順序保証自体は2026-08-22にmandatory-two-step-order-enforcement-design.mdで機械チェック済みと
   なったため、残るのは実LLM出力を各ターンの入力として連鎖させる部分のみ。
+  (一部解消 2026-08-22 10:00 UTC: この検討過程で、各ターンのLLM呼び出しが会話履歴を含まない
+  単発呼び出しである設計上、turn2・turn3でメニュー名等を再掲しない顧客発言に対しLLMが該当
+  フィールドを`null`で返しうる未対応ケースを発見・修正した。詳細はllm-turn-context-design.md
+  参照。「実LLM出力を各ターンの入力として連鎖させる」ためのテストハーネス自体の実装は
+  引き続き未着手)
 - (解消済み 2026-08-22 02:00 UTC: トーン変換の固定語彙不変性チェックの機械化に着手し、
   fixed-vocabulary-tone-check-design.mdで対象語彙リスト`["仮押さえ", "確定"]`を整理・
   `FixedVocabularyInvariantAcrossTonesTest`として実装済み。残る課題は同ドキュメント

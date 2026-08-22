@@ -522,13 +522,25 @@ class ConversationEventProcessor:
         label = next((c.label for c in candidates if c.slot_key == slot_key), "")
         self._held_label_by_user[user_id] = label
 
-        menu = output.get("menu") or ""
+        menu = output.get("menu") or self._carried_over_menu(user_id) or ""
         emoji_allowed = self._flow.consume_casual_emoji_allowance(user_id)
         self._send(user_id, format_hold_message(label, menu, tone, emoji_allowed=emoji_allowed), now)
         return DispatchResult(action="held")
 
+    def _carried_over_menu(self, user_id: str) -> Optional[str]:
+        """llm-turn-context-design.md準拠。候補提示・詳細確認の各ターンでLLMに渡す入力は
+        当該メッセージ単体であり会話履歴を含めない設計のため、顧客が「1番で」「山田です」の
+        ように1ターン目で伝えたメニューを再度明示しない返信をした場合、LLM構造化出力の
+        `menu`がNoneになりうる。その場合は`_start_new_booking()`が検索直前に
+        `_search_context_by_user`へキャッシュした1ターン目確定分のメニュー名を引き継ぐ
+        (サーバー側の構造的な引き継ぎであり、LLMの記憶に依存しない)。
+        """
+        context = self._search_context_by_user.get(user_id)
+        return context[0].get("menu") if context else None
+
     def _handle_details(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
-        name, menu = output.get("name"), output.get("menu")
+        name = output.get("name")
+        menu = output.get("menu") or self._carried_over_menu(user_id)
         if not name or not menu:
             self._send(user_id, REASK_NAME_MENU_MESSAGE, now)
             return DispatchResult(action="reask", detail="missing_name_or_menu")

@@ -567,6 +567,51 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(push.sent[-1][1], REASK_NAME_MENU_MESSAGE)
         self.assertEqual(flow.stage("U1"), "awaiting_details")
 
+    def test_candidate_selection_carries_over_menu_when_llm_omits_it(self):
+        # llm-turn-context-design.md準拠。候補選択ターンのLLM呼び出しは会話履歴を含まない
+        # 単発のメッセージ処理のため、顧客が「1番で」とだけ返信しメニューを再度明示しない
+        # 場合、実LLMがmenuをNoneで返す可能性がある。turn 1(新規予約検索)でキャッシュ済みの
+        # メニューを引き継ぎ、hold文言のメニュー欄が空欄化しないことを確認する。
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)  # turn1: menu="カット"で検索・候補提示済み
+
+        def llm_call_select_without_menu():
+            return {
+                "intent": "new_booking", "name": None, "menu": None,
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "1番で"), llm_call_select_without_menu, NOW)
+        self.assertEqual(result.action, "held")
+        self.assertIn("カット", push.sent[-1][1])
+        self.assertEqual(flow.stage("U1"), "awaiting_details")
+
+    def test_details_carries_over_menu_when_llm_omits_it_and_confirms(self):
+        # 同上。氏名・メニュー確認ターンで顧客が「山田です」とだけ返信した場合も、
+        # メニューが既知(turn1でカットと確定済み)なら再質問せずturn1のメニューで確定できる。
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), llm_call_select, NOW)
+
+        def llm_call_details_without_menu():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": None,
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "山田です"), llm_call_details_without_menu, NOW)
+        self.assertEqual(result.action, "confirmed")
+        self.assertEqual(flow.stage("U1"), "confirmed")
+        self.assertIn("山田様", push.sent[-1][1])
+        self.assertIn("カット", push.sent[-1][1])
+
     def test_booking_conflict_notifies_owner_once_and_represents_fresh_candidates(self):
         processor, flow, push, logs = _new_processor()
         self._present_candidates(processor)
