@@ -21,6 +21,26 @@
 
 ## ステータス
 
+- フェーズ105(2026-08-22 21:00 UTC): character-limit-fallback-design.mdの残課題3点目
+  だった、LINE文字数上限(5,000文字、UTF-16コード単位)超過時のフォールバック処理の実装に
+  着手した。prototype/post_generation_checks.pyに`check_message_length_within_line_limit()`
+  を新設し(`_utf16_code_unit_length()`でUTF-16コード単位を算出、completion_report.body・
+  care_guide.bodyをそれぞれ判定)、`run_all_checks()`に組み込んだ。エラーメッセージには
+  `LENGTH_LIMIT_ERROR_PREFIX`を付与し、cloud_function_webhook.py側で他の検証エラーと
+  区別できるようにした。process_memo_event()の最終フォールバック分岐で、検証エラーに
+  文字数上限超過が含まれる場合は汎用のVALIDATION_FAILURE_FALLBACK_MESSAGEではなく、
+  設計ドキュメント記載の例文通りの`LENGTH_LIMIT_FALLBACK_MESSAGE`(業者向け・入力メモの
+  短縮を促す固定文言)を返すよう分岐した。設計方針(切り詰めは行わない)通り、上限超過時は
+  部分的な内容であっても依頼者へは一切送信しない。この実装自体は純粋なテキスト処理・
+  分岐ロジックであり実LLM・実LINE API接続を必要としないため、これまで「オーナー承認待ちの
+  ため未着手」としていた項目のうち着手可能な部分だと判断した(course-set-pashaのStripe
+  署名検証実装等と同じ考え方、実際の課金・外部送信を伴う接続作業自体は引き続き承認待ちの
+  まま変更なし)。post_generation_checks.py側にサロゲートペア文字(基本多言語面外)を使った
+  UTF-16コード単位カウントの境界値テストを含むテスト13件、cloud_function_webhook.py側に
+  上限超過時のフォールバック文言選択を確認するテスト1件を追加し、プロトタイプ全体75件・
+  schema検証9件をいずれも実行して全件パスを確認した。次回はcharacter-limit-fallback-
+  design.mdの残る1点(ソフトな閾値設定の要否、実LLM接続後の生成品質検証で実測データを見て
+  検討)、候補12関連、またはオーナーの初回コンタクト承認可否を待つ間の他領域の前進を検討する。
 - フェーズ104(2026-08-22 18:00 UTC): フェーズ103の申し送り(tone-and-manner-guideline.md
   「未検証の仮説」2点目、sns-blog-example-observation.mdフェーズ100で確認した「独立系業者
   自身のSNS発信は絵文字を積極的に使う傾向がある」という観察が、本サービスの出力(絵文字

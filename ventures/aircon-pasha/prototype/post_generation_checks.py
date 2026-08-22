@@ -54,6 +54,23 @@ SHORT_URL_DOMAIN_PATTERN = re.compile(
     r"\b(?:bit\.ly|lin\.ee|tinyurl\.com|t\.co|x\.gd|is\.gd)/\S+"
 )
 
+# character-limit-fallback-design.md(フェーズ102)準拠チェック用。LINE Messaging APIの
+# テキストメッセージ1件あたりの文字数上限(UTF-16コード単位)。依頼者へ直接転送される
+# completion_report.body・care_guide.bodyがこれを超える場合は、切り詰めずに生成全体を
+# 失敗として扱う(character-limit-fallback-design.md「設計方針: 切り詰めは行わない」)。
+LINE_TEXT_MESSAGE_CHAR_LIMIT = 5000
+
+# cloud_function_webhook.py側で他の検証エラーと区別し、専用のフォールバック文言
+# (LENGTH_LIMIT_FALLBACK_MESSAGE)を選択するためのエラーメッセージ接頭辞。
+LENGTH_LIMIT_ERROR_PREFIX = "LINE_LENGTH_LIMIT_EXCEEDED"
+
+
+def _utf16_code_unit_length(text: str) -> int:
+    """UTF-16コード単位数を返す。Pythonのlen(str)はUnicodeコードポイント数を返すため、
+    基本多言語面外の文字(サロゲートペア)がある場合はlen(text)と一致しない
+    (character-limit-fallback-design.md「UTF-16コード単位カウントの実装上の注意」参照)。"""
+    return len(text.encode("utf-16-le")) // 2
+
 
 def check_refrigerant_electrical_professional_judgement(instance):
     """厳守事項1準拠チェック。completion_report.bodyに、冷媒・電気系統に関する
@@ -234,6 +251,33 @@ def check_next_recommended_date_history_care_guide_consistency(instance):
     return errors
 
 
+def check_message_length_within_line_limit(instance):
+    """character-limit-fallback-design.md準拠チェック。依頼者へ直接転送される
+    completion_report.body・care_guide.bodyが、LINE Messaging APIのテキストメッセージ
+    上限(LINE_TEXT_MESSAGE_CHAR_LIMIT、UTF-16コード単位)を超えていないかを確認する。
+    超過が検出された場合、エラーメッセージはLENGTH_LIMIT_ERROR_PREFIXで始まる
+    (呼び出し元のcloud_function_webhook.pyが他の検証エラーと区別し、専用の
+    フォールバック文言を選択するための目印)。
+    """
+    errors = []
+    for field_name, section_key in (
+        ("completion_report.body", "completion_report"),
+        ("care_guide.body", "care_guide"),
+    ):
+        section = instance.get(section_key)
+        if not section:
+            continue
+        body = section.get("body", "")
+        length = _utf16_code_unit_length(body)
+        if length > LINE_TEXT_MESSAGE_CHAR_LIMIT:
+            errors.append(
+                f"{LENGTH_LIMIT_ERROR_PREFIX}: {field_name}がLINE文字数上限"
+                f"({LINE_TEXT_MESSAGE_CHAR_LIMIT}文字、UTF-16コード単位)を超えています"
+                f"({length}文字)"
+            )
+    return errors
+
+
 def check_subscription_notice_consistency(instance):
     """厳守事項6a準拠チェック。subscription_procedure_notice.bodyの文言が、
     kind別の制約(subscription-cancellation-flow-design.md記載)と整合しているかを確認する。
@@ -290,4 +334,5 @@ def run_all_checks(instance):
     errors += check_additional_treatment_mentioned_in_text(instance)
     errors += check_next_recommended_date_history_care_guide_consistency(instance)
     errors += check_subscription_notice_consistency(instance)
+    errors += check_message_length_within_line_limit(instance)
     return errors

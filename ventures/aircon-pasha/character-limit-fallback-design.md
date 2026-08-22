@@ -77,6 +77,13 @@ Python の `len(str)` はUnicodeコードポイント数を返すため、その
   程度)で「通常想定を超える長さ」として業者へ注意喚起する、といったソフトな閾値を
   別途設けるかどうかは、実LLM接続後の生成品質検証(llm-quality-verification-plan.md)の
   中で実測データを見ながら検討する。
-- `check_message_length_within_line_limit()`のprototype/post_generation_checks.pyへの
-  実装・テスト追加、およびcloud_function_webhook.py側でのフォールバック分岐の実配線は、
-  実LLM・実LINE API接続自体がオーナー承認待ちのため未着手のまま残す。
+- (解消済み 2026-08-22 21:00 UTC・フェーズ105: `check_message_length_within_line_limit()`を
+  prototype/post_generation_checks.pyに実装しrun_all_checks()に組み込んだ(UTF-16コード単位で
+  completion_report.body・care_guide.bodyをそれぞれ判定)。cloud_function_webhook.py側では
+  検証エラーがLENGTH_LIMIT_ERROR_PREFIXを含む場合、汎用のVALIDATION_FAILURE_FALLBACK_MESSAGE
+  ではなく本設計の例文通りのLENGTH_LIMIT_FALLBACK_MESSAGEを返すよう分岐した。実装自体は
+  純粋なテキスト処理・分岐ロジックであり実LLM・実LINE API接続を必要としないため、承認待ちの
+  ままでも着手可能と判断した(course-set-pashaのStripe署名検証実装等と同じ考え方)。
+  テスト13件追加(サロゲートペア文字によるUTF-16コード単位カウントの境界値テストを含む)、
+  プロトタイプ全体75件・schema検証9件いずれもパス。実LLM接続後の実運用での動作確認自体は
+  引き続き未実施のまま残る)。

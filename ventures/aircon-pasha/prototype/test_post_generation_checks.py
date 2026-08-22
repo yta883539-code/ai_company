@@ -18,7 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
+    LENGTH_LIMIT_ERROR_PREFIX,
+    LINE_TEXT_MESSAGE_CHAR_LIMIT,
     check_additional_treatment_mentioned_in_text,
+    check_message_length_within_line_limit,
     check_model_type_mentioned_in_text,
     check_next_recommended_date_estimate_consistency,
     check_next_recommended_date_history_care_guide_consistency,
@@ -276,6 +279,62 @@ class SubscriptionNoticeConsistencyTest(unittest.TestCase):
 
     def test_missing_notice_is_skipped(self):
         self.assertEqual(check_subscription_notice_consistency({}), [])
+
+
+class MessageLengthWithinLineLimitTest(unittest.TestCase):
+    def test_body_within_limit_is_not_flagged(self):
+        instance = {
+            "completion_report": {"body": "本日は分解洗浄を実施いたしました。"},
+            "care_guide": {"body": "フィルターは月1回を目安にお手入れください。"},
+        }
+        self.assertEqual(check_message_length_within_line_limit(instance), [])
+
+    def test_completion_report_body_over_limit_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)},
+            "care_guide": {"body": "フィルターは月1回を目安にお手入れください。"},
+        }
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith(LENGTH_LIMIT_ERROR_PREFIX))
+        self.assertIn("completion_report.body", errors[0])
+
+    def test_care_guide_body_over_limit_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "本日は分解洗浄を実施いたしました。"},
+            "care_guide": {"body": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)},
+        }
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_guide.body", errors[0])
+
+    def test_both_bodies_over_limit_are_both_flagged(self):
+        instance = {
+            "completion_report": {"body": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)},
+            "care_guide": {"body": "い" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)},
+        }
+        self.assertEqual(len(check_message_length_within_line_limit(instance)), 2)
+
+    def test_body_exactly_at_limit_is_not_flagged(self):
+        instance = {
+            "completion_report": {"body": "あ" * LINE_TEXT_MESSAGE_CHAR_LIMIT},
+            "care_guide": {"body": "フィルターは月1回を目安にお手入れください。"},
+        }
+        self.assertEqual(check_message_length_within_line_limit(instance), [])
+
+    def test_missing_sections_are_skipped(self):
+        self.assertEqual(check_message_length_within_line_limit({}), [])
+
+    def test_surrogate_pair_characters_count_as_two_utf16_code_units(self):
+        # U+20BB7(基本多言語面外の漢字)はUTF-16ではサロゲートペア(2コード単位)。
+        # len(str)ではコードポイント数(1文字)しか数えないため、この差を利用して
+        # ちょうど上限を1コード単位超える本文を作る。
+        supplementary_char = "\U00020BB7"
+        body = "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT - 1) + supplementary_char
+        self.assertEqual(len(body), LINE_TEXT_MESSAGE_CHAR_LIMIT)  # コードポイント数では上限ちょうど
+        instance = {"completion_report": {"body": body}, "care_guide": {"body": ""}}
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)  # UTF-16コード単位数では上限+1のため検出される
 
 
 class RunAllChecksTest(unittest.TestCase):

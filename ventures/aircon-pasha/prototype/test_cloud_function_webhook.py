@@ -19,6 +19,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
+    LENGTH_LIMIT_FALLBACK_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
@@ -33,6 +34,7 @@ from cloud_function_webhook import (  # noqa: E402
     render_subscription_procedure_notice,
     validate_llm_output,
 )
+from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
 
 
 class FixtureLlmClient:
@@ -229,6 +231,27 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         self.assertTrue(result.validation_errors)
         self.assertTrue(result.retried)
+
+    def test_over_length_body_falls_back_to_length_limit_message(self):
+        # character-limit-fallback-design.md準拠: 依頼者へ転送される文面が5,000文字
+        # (UTF-16コード単位)を超えた場合は、汎用のVALIDATION_FAILURE_FALLBACK_MESSAGEでは
+        # なく、専用のLENGTH_LIMIT_FALLBACK_MESSAGE(業者向け・入力メモの短縮を促す文言)
+        # を返す。切り詰めて送信しない(依頼者への誤送信事故を避ける)ことも合わせて確認する。
+        def make_body_too_long(instance):
+            instance = dict(instance)
+            instance["completion_report"] = dict(instance["completion_report"])
+            instance["completion_report"]["body"] = "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)
+            return instance
+
+        reply_client = InMemoryReplyClient()
+        llm_client = AlwaysBrokenLlmClient("G1_basic", mutate=make_body_too_long)
+        result = process_memo_event(_make_event(), llm_client, reply_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.reply_text, LENGTH_LIMIT_FALLBACK_MESSAGE)
+        self.assertTrue(result.validation_errors)
+        # リトライは1回のみ、それでも上限超過が続く場合に専用フォールバックへ落ちる
+        self.assertEqual(len(llm_client.calls), 2)
 
     def test_successful_first_attempt_is_not_marked_retried(self):
         reply_client = InMemoryReplyClient()

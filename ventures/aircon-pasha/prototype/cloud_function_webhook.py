@@ -34,7 +34,7 @@ from typing import Optional, Protocol
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
-from post_generation_checks import run_all_checks  # noqa: E402
+from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -233,6 +233,21 @@ VALIDATION_FAILURE_FALLBACK_MESSAGE = (
 API_FAILURE_FALLBACK_MESSAGE = (
     "只今混み合っております。少し時間をおいて同じ内容をもう一度送ってください。"
 )
+
+# character-limit-fallback-design.md準拠。依頼者へ転送される文面がLINE文字数上限を
+# 超えた場合専用のフォールバック通知(業者向け、固定文言・LLM生成物ではない)。
+# 汎用のVALIDATION_FAILURE_FALLBACK_MESSAGEとは文面を区別する(原因を業者が把握し、
+# 入力メモを短くして再送するという具体的な次のアクションを示すため)。
+LENGTH_LIMIT_FALLBACK_MESSAGE = (
+    "生成結果が長くなりすぎたため、報告文を作成できませんでした。"
+    "恐れ入りますが、入力メモを少し短くして再度お送りください。"
+)
+
+
+def _is_length_limit_error(errors: list[str]) -> bool:
+    """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
+    含まれているかを判定する。"""
+    return any(error.startswith(LENGTH_LIMIT_ERROR_PREFIX) for error in errors)
 
 
 def format_history_row_text(history_row: dict, index: Optional[int] = None) -> str:
@@ -436,10 +451,14 @@ def process_memo_event(
         errors = validate_llm_output(instance)
 
     if errors:
-        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        fallback_message = (
+            LENGTH_LIMIT_FALLBACK_MESSAGE if _is_length_limit_error(errors)
+            else VALIDATION_FAILURE_FALLBACK_MESSAGE
+        )
+        reply_sent = _reply_with_retry(reply_client, reply_token, fallback_message)
         return MemoProcessResult(
             handled=True, reply_sent=reply_sent,
-            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            reply_text=fallback_message if reply_sent else None,
             validation_errors=errors, retried=retried,
         )
 
