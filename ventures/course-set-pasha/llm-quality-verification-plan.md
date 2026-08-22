@@ -65,6 +65,8 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
 ## 残る未確定事項
 
 - 「3回中1回でも不合格なら要改善」という基準は暫定であり、実測後に見直す(aircon-pashaと共通)。
-- 複数エリア同時更新時のhistory_rows要素数検証に使えるサンプルケースがoutput-samples-
-  validation.mdに未追加(G1〜G3は単一エリア想定)。次回以降、複数エリア同時更新のG4相当ケースを
-  追加することを検討する。
+- (解消済み 2026-08-22 06:00 UTC: output-samples-validation.mdが作成時(2026-08-07)のG1〜G3・
+  OOS1・II1の5件のみを記載したまま、その後追加されたG4(複数エリア同時更新、フェーズ11)・
+  CI1〜CI3(厳守事項7a関連、フェーズ54)が未反映だったドキュメント齟齬を発見・修正した。
+  schema/validate_test_cases.pyの実装は全9件パス済みで変更なし、output-samples-validation.md
+  側の記載を実装に合わせて更新したのみ)。

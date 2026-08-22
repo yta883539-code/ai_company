@@ -924,7 +924,21 @@
   承認不要な範囲にとどめた。次回はStripe解約イベント(webhook)起点の削除候補洗い出し
   トリガー設計(実Stripe接続後の課題として残置)以外の未着手領域、または本プランの
   line-reservation-aiへの展開状況の確認を優先する。
-- 最終更新: 2026-08-22 03:00 UTC
+- フェーズ90(2026-08-22 06:00 UTC): フェーズ89の「次回」候補のうち、まず
+  line-reservation-aiへの本プラン(llm-quality-verification-plan.md)展開状況を確認した。
+  line-reservation-ai/llm-quality-verification-plan.md(2026-08-22 00:00 UTC作成済み)が
+  既に存在し、会話エンジン型という特性差(自由文の下書き生成ではなく毎ターンの構造化出力
+  分類)を踏まえた形で展開済みであることを確認した(追加対応不要)。あわせてoutput-samples-
+  validation.mdを見直したところ、作成時(フェーズ7、2026-08-07)のG1〜G3・OOS1・II1の5件
+  記載のまま、その後追加されたG4(複数エリア同時更新、フェーズ11)・CI1〜CI3(厳守事項7a、
+  フェーズ54)が反映されていないドキュメント齟齬を発見した(llm-quality-verification-plan.md
+  「残る未確定事項」でも指摘されていた点)。schema/validate_test_cases.pyを実行し全9件パスを
+  再確認した上で、output-samples-validation.mdのサンプルケース一覧・結果を9件分に更新し、
+  llm-quality-verification-plan.mdの該当箇所も解消済みとして訂正した。コード変更・外部接続は
+  伴わずドキュメント整合性の修正のみのため承認不要な範囲。次回はStripe解約イベント起点の
+  削除候補洗い出しトリガー設計(実Stripe接続後の課題として引き続き残置)以外の未着手領域を
+  優先する。
+- 最終更新: 2026-08-22 06:00 UTC
 
 ## 次にやること(候補)
 

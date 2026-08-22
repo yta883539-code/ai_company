@@ -1,4 +1,4 @@
-# 期待JSON出力サンプルの机上検証(2026-08-07 16:00 UTC)
+# 期待JSON出力サンプルの机上検証(2026-08-07 16:00 UTC、2026-08-22 06:00 UTC追記)
 
 ## 位置づけ
 
@@ -22,27 +22,36 @@ line-reservation-aiのschema/validate_test_cases.pyと同じ設計。
 - スキーマ単体では表現できない`status`⇔null/非nullの依存関係(厳守事項7・8に対応する
   分岐)は`validate_cross_field_rules()`で個別にチェックする。
 
-## サンプルケース(5件)
+## サンプルケース(9件)
+
+作成当初(2026-08-07 16:00 UTC)は5件だったが、その後の厳守事項追加に伴いschema/
+validate_test_cases.pyへケースが追加されており、本節は2026-08-22 06:00 UTC時点の実装
+(全9件)に合わせて記載を更新した。
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
 | G1_basic | generated | 基本ケース。写真言及なし、変更なしエリアなし |
 | G2_with_photo_and_unchanged_areas | generated | 写真言及あり(mentions_photo=true)、変更なしエリア2件を明記 |
 | G3_count_and_date_unextractable | generated | 入力メモから本数・改訂日(西暦)を抽出できず、history_rowのcount/revision_dateがnullになるケース |
+| G4_multi_area_single_memo | generated | フェーズ11(2026-08-07 20:00 UTC)で追加。1回のメモで3エリア(エリアF・G・H)を同時更新し、`history_rows`の要素数が更新エリア数(3)に一致するケース |
 | OOS1_membership_question | out_of_scope | 会員管理・予約に関する質問への不応答ケース(厳守事項7) |
 | II1_no_area_no_count | insufficient_input | エリア名・本数が不明で再送を促すケース(厳守事項8) |
+| CI1_cancellation_intent_clear | cancellation_intent | フェーズ54(2026-08-15 08:00 UTC)で追加。解約意図が明確なケース。`subscription_procedure_notice`にStripeカスタマーポータルへの案内文が付与される(厳守事項7a) |
+| CI2_downgrade_intent | downgrade_intent | 解約ではなくプラン変更(ダウングレード)の意図と判定されるケース。日割り精算・ポータル案内が付与される |
+| CI3_cancellation_unclear | cancellation_unclear | 解約意図か判断できないあいまいなケース。断定せず本人へ確認を促す文言のみを返し、`includes_portal_link`はfalse |
 
 ## 結果
 
 ```
-合計 5 件中 5 件パス、0 件失敗
+合計 9 件中 9 件パス、0 件失敗
 ```
 
-5件すべてが、型・必須項目・`status`に応じたnull/非null依存関係のいずれの違反もなく
+9件すべてが、型・必須項目・`status`に応じたnull/非null依存関係のいずれの違反もなく
 パスした。特に、schema-structured-output-compat-check.mdで懸念していた「`status`の値に
 応じてどのフィールドがnullであるべきか」というクロスフィールドの依存関係(`allOf`撤去後は
 スキーマ単体では表現されない)についても、コード側検証(`validate_cross_field_rules`)で
-機械的にチェックできることを確認した。
+機械的にチェックできることを確認した。G4(複数エリア同時更新時の`history_rows`要素数)・
+CI1〜CI3(厳守事項7a関連の3分岐)についても同様に機械チェックでパスすることを確認済み。
 
 ## 残る未検証事項
 
