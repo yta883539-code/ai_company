@@ -117,12 +117,11 @@ linking-code-purge-trigger-design.md未解決事項への回答として、`proc
 
 ## 残課題
 
-- 実際の`follow`イベントをWebhook本体(署名検証後のイベント種別ディスパッチ)からどう
-  `process_follow_event()`へ振り分けるか(現状の`cloud_function_webhook.py`には
-  `event["type"]`によるディスパッチ処理自体がまだ存在せず、`process_memo_event()`は
-  message イベント1件を直接受け取る前提で書かれている)は、Webhook本体のエントリポイント
-  実装(HTTPリクエストのJSONパース〜イベント配列のループ処理)自体が未着手のため、
-  そちらの設計時に合わせて解消する。
+- (解消済み 2026-08-22 17:00 UTC・フェーズ93での確認: `follow`イベントのディスパッチ経路は
+  フェーズ81〜83(`webhook-event-dispatch-design.md`・`receive-webhook-http-entry-point-
+  design.md`)で既に実装済みだった。`dispatch_webhook_events()`が`event["type"] == "follow"`
+  を`process_follow_event()`へ1件ずつ振り分ける構成になっており、本項目は記載が古いまま
+  残っていた点を訂正する)
 - `ApplicationFormLinkProvider`の実装(実フォームURLの取得元)は、Googleフォーム作成
   (オーナー承認待ち)後、フォームの共有URLを固定値として返す最小実装で足りる見込み
   (`portal_link_provider`のような動的なユーザーごとの出し分けは不要)。

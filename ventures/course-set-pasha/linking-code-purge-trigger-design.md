@@ -54,9 +54,12 @@ archive_completed_conversations()の実行トリガー選定)と同種の検討�
   (既存コードへの影響ゼロ、後方互換)。
 
 ## 未解決事項
-- 実際の`follow`イベントハンドラ(issue_linking_code_on_follow()の呼び出し元)自体は
-  実LINE API接続後の設計が必要で、今回のスコープ外(実装済みなのはコード発行ロジックのみ)。
-  ハンドラ実装時に案Bの二重便乗を追加するかは、その時点でのfollow頻度の実測データを見て判断する。
+- (解消済み 2026-08-22 17:00 UTC・フェーズ93での確認: `issue_linking_code_on_follow()`の
+  呼び出し元となる`follow`イベントハンドラは、フェーズ81〜83で`process_follow_event()`として
+  既に実装済みだった。`purge_throttle`引数も用意済みで、渡された場合のみ案B(follow便乗
+  パージ)が動く設計になっている。本項目は記載が古いまま残っていた点を訂正する。案Bを
+  実際に有効化する(呼び出し側で`purge_throttle`を渡す)かどうかは、実LINE接続後のfollow
+  頻度の実測データを見て判断する未解決事項として引き続き残る)
 - 実Firestore接続後、`LinkingCodePurgeThrottle`の状態(`_last_purge_at`)をインスタンス変数
   ではなく永続ストア側に持たせるべきか(Cloud Functionsは複数インスタンスが並行起動しうるため、
   インスタンスごとの間引きが揃わない可能性がある)は、実接続後の課題として残る。ただし冪等な

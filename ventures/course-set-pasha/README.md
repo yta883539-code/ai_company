@@ -963,10 +963,38 @@
   計202件パス)。design 4節で明示されていたとおり、実際のStripe Webhook受信エンドポイント
   (署名検証・イベント種別ディスパッチ、`receive-webhook-http-entry-point-design.md`の
   LINE版に相当するもの)はまだ存在せず、次の課題として引き続き残る。
-- 最終更新: 2026-08-22 14:00 UTC
+- フェーズ93(2026-08-22 17:00 UTC): フェーズ92「次にやること」候補だった実Stripe
+  Webhook受信エンドポイントのうち、実Stripeアカウント接続なしでも先行実装できる
+  署名検証部分を`stripe-webhook-signature-verification-design.md`で設計し、
+  `prototype/stripe_webhook.py`に`verify_stripe_signature()`として実装した。
+  `Stripe-Signature`ヘッダ(`t=<timestamp>,v1=<sig>[,v1=<sig>...],v0=...`)を解析し、
+  HMAC-SHA256で計算した期待署名といずれかの`v1`が一致するか(シークレットローテーション
+  中の複数`v1`にも対応)、かつタイムスタンプが許容範囲(デフォルト300秒、公式ライブラリの
+  既定値を踏襲)内かの両方を確認する。LINE版`verify_line_signature()`との違いとして、
+  Stripe側はヘッダにタイムスタンプが埋め込まれておりリプレイ対策の許容範囲チェックが
+  必要になる点、シークレットローテーション中は複数`v1`のいずれか一致で検証成功とする点、
+  廃止済みの`v0`方式は一切参照しない点を整理した。`cloud_function_webhook.py`(LINE側)
+  とは独立した新規ファイルとし、既存コードへの影響はゼロ。テストは
+  `prototype/test_stripe_webhook.py`に8件新設(正常系、ヘッダ欠落・不正形式、署名不一致、
+  タイムスタンプ許容範囲外(過去・未来)、シークレットローテーション時の後方一致、
+  `v0`のみ存在時の拒否をカバー、course-set-pasha配下計210件パス)。設計時にあわせて、
+  `follow-event-welcome-message-design.md`と`linking-code-purge-trigger-design.md`の
+  残課題に記載が古いまま残っていた「followイベントのディスパッチ振り分け先が未実装」
+  という記述が、フェーズ81〜83で既に`dispatch_webhook_events()`→`process_follow_event()`→
+  `issue_linking_code_on_follow()`という経路として実装済みであることを確認し、両ファイルの
+  記載を解消済みとして訂正した(コード変更なし、ドキュメント整合性の修正のみ)。
+- 最終更新: 2026-08-22 17:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-22 17:00 UTC: 実Stripe Webhook受信エンドポイントのうち署名検証部分を
+  フェーズ93・`stripe-webhook-signature-verification-design.md`/
+  `prototype/stripe_webhook.py`で先行実装した。詳細は上記フェーズ93参照。残るのは
+  イベント種別(`customer.subscription.deleted`等)ディスパッチ〜
+  `mark_deletion_candidate_on_subscription_deleted()`等の呼び出しを結ぶエンドポイント本体
+  (`receive_webhook()`のStripe版に相当)で、`webhook_secret`の実際の値の取得・保管方法
+  (Secret Manager等)とあわせ、実Stripeアカウント接続(オーナー承認待ち)後の課題として
+  残る)
 - (解消済み 2026-08-22 14:00 UTC: フェーズ91で設計のみだった3関数の実装を
   フェーズ92・`prototype/deletion_candidate.py`で行った。詳細は上記フェーズ92参照。
   残るのは実際のStripe Webhook受信エンドポイント(署名検証・イベント種別ディスパッチ)の
