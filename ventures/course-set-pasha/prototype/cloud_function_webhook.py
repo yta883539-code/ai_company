@@ -134,6 +134,16 @@ class UsageCounterProtocol(Protocol):
     def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
         ...
 
+    def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
+        """trial-end-scheduler-design.md 2節: `checkout.session.completed`受信時に
+        1回だけ設定する有料転換日時。trial_start_atと同じ「既に値がある場合は上書きしない」
+        冪等性を持つ。このメソッドを実装しないUsageCounterProtocol実装ではupgraded_atの
+        記録自体がスキップされる(set_trial_start_at_if_unsetと同じhasattr()判定の対象)。"""
+        ...
+
+    def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -170,6 +180,7 @@ class InMemoryUsageCounter:
         self._counts: dict[tuple[str, str], int] = {}
         self._notice_sent: set = set()
         self._trial_start_at: dict[str, datetime] = {}
+        self._upgraded_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -191,6 +202,13 @@ class InMemoryUsageCounter:
 
     def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
         return self._trial_start_at.get(user_id)
+
+    def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
+        if user_id not in self._upgraded_at:
+            self._upgraded_at[user_id] = upgraded_at
+
+    def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
+        return self._upgraded_at.get(user_id)
 
     def increment_and_mark_notice(
         self,

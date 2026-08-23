@@ -40,10 +40,19 @@ usage_counter・他のいずれのストアにも存在しない(stripe_webhook.
 
 本設計では、この既存ギャップをそのまま引き継がず、trial_start_at・trial_end_notified_at
 と同じ`UsageCounterProtocol`上に`upgraded_at: Optional[datetime]`フィールドを追加する
-案を採用する(実装は次回以降)。Stripe Webhookの`checkout.session.completed`ディスパッチ
+案を採用した。Stripe Webhookの`checkout.session.completed`ディスパッチ
 (stripe_webhook.py `handle_checkout_session_completed()`)完了時に、trial_start_atと
-同じ「未設定なら1回だけ書き込む」冪等パターンで`upgraded_at`を設定する想定とする。
-本フェーズでは以下2点を先に固める。
+同じ「未設定なら1回だけ書き込む」冪等パターンで`upgraded_at`を設定する
+(解消済み・フェーズ103: `UsageCounterProtocol`/`InMemoryUsageCounter`に
+`set_upgraded_at_if_unset()`/`get_upgraded_at()`を追加し、
+`handle_checkout_session_completed()`に`usage_counter`引数(省略可、後方互換)を追加して
+配線した。`stripe_webhook.py`は`cloud_function_webhook.py`を直接importせず独立性を
+保つ設計方針だったため、構造的部分型付け用の最小限のProtocol
+(`UpgradedAtWriterProtocol`)をstripe_webhook.py側に新設して満たす形にした。
+`get_stripe_runtime_dependencies()`のみ`InMemoryUsageCounter()`をimportして生成・共有する
+(store・user_profile_storeと同じくプロセス起動ごとの初期化のため、実Firestore接続までは
+LINE側インスタンスとは別物である既知の限界が残る)。テスト5件追加、
+course-set-pasha配下計268件パス)。本フェーズ時点で以下2点が固まっている。
 
 - 選定ロジック(3節)は`upgraded_at is not None`のユーザーを対象から除外する形で
   実装する(フィールドが存在する前提でロジックを先に書き、実際の書き込み配線は
@@ -82,8 +91,9 @@ usage_counter・他のいずれのストアにも存在しない(stripe_webhook.
 
 ## 5. 今後の課題
 
-- `upgraded_at`フィールドの実装(stripe_webhook.py `handle_checkout_session_completed()`
-  への書き込み配線)。2節の「暫定的な既知の限界」を解消する本命の対応。
+- (解消済み・フェーズ103: `upgraded_at`フィールドの実装(stripe_webhook.py
+  `handle_checkout_session_completed()`への書き込み配線)。詳細は2節参照。実Firestore接続
+  後にLINE側・Stripe側で同一インスタンスを共有できるようにする点のみ引き続き残る)
 - Cloud Function D(`send_trial_end_notifications`)自体の実装(3節の選定ロジックと
   trial-end-notification-design.md 3節のメッセージ整形・LinePushClient送信の配線)。
   line-reservation-ai/cloud_function_send_reminders.pyのdispatch構造を参考にする。

@@ -17,12 +17,13 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Callable, Optional, Protocol
 
 from application_form_submission_flow import (
     InMemoryUserProfileStore,
     UserProfileStoreProtocol,
 )
+from cloud_function_webhook import InMemoryUsageCounter
 from deletion_candidate import (
     InMemoryProfileDeletionCandidateStore,
     ProfileDeletionCandidateStoreProtocol,
@@ -160,24 +161,46 @@ def dispatch_stripe_event(
     return result
 
 
+class UpgradedAtWriterProtocol(Protocol):
+    """trial-end-scheduler-design.md 2節: usage_counter側の`upgraded_at`書き込み経路を
+    表す最小限のProtocol。`cloud_function_webhook.py`(LINE側)を直接importせず、
+    構造的部分型付け(`InMemoryUsageCounter.set_upgraded_at_if_unset()`が同じ
+    シグネチャを持つだけで満たされる)によって独立性を保つ
+    (このファイル冒頭の位置づけ説明どおり)。"""
+
+    def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
+        ...
+
+
 @dataclass
 class CheckoutSessionLinkResult:
     """handle_checkout_session_completed()の結果
-    (stripe-customer-id-linking-design.md 3節)。"""
+    (stripe-customer-id-linking-design.md 3節、trial-end-scheduler-design.md 2節)。"""
 
     linked: bool
     user_id: Optional[str] = None
     stripe_customer_id: Optional[str] = None
+    upgraded_at_written: bool = False
 
 
 def handle_checkout_session_completed(
     event: dict,
     store: UserProfileStoreProtocol,
+    *,
+    usage_counter: Optional[UpgradedAtWriterProtocol] = None,
+    now: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(=user_id)と
     `customer`(=stripe_customer_id)を取り出し、`store`に紐付けを書き込む
     (stripe-customer-id-linking-design.md 3節)。いずれかが欠落・非文字列・空文字列の
     場合は何も書き込まない(安全側。resolve_user_idが引き続きNoneを返すだけで実害はない)。
+
+    `usage_counter`が渡された場合は、紐付け成功時に`set_upgraded_at_if_unset()`で
+    `upgraded_at`も同時に書き込む(trial-end-scheduler-design.md 2節で残っていた
+    「有料転換済みユーザーの除外」に必要なフィールドの書き込み配線)。trial_start_atと
+    同じ「既に値がある場合は上書きしない」冪等性は書き込み先(InMemoryUsageCounter等)側の
+    契約であり、本関数は無条件に呼び出すのみ。`usage_counter`未指定時は従来通り
+    upgraded_atの書き込みを行わない(後方互換、テストでも指定なしのまま動作する)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -192,8 +215,18 @@ def handle_checkout_session_completed(
         return CheckoutSessionLinkResult(linked=False)
 
     store.set_stripe_customer_id(user_id, stripe_customer_id)
+
+    upgraded_at_written = False
+    if usage_counter is not None:
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        usage_counter.set_upgraded_at_if_unset(user_id, resolved_now)
+        upgraded_at_written = True
+
     return CheckoutSessionLinkResult(
-        linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
+        linked=True,
+        user_id=user_id,
+        stripe_customer_id=stripe_customer_id,
+        upgraded_at_written=upgraded_at_written,
     )
 
 
@@ -223,6 +256,7 @@ def receive_stripe_webhook(
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    usage_counter: Optional[UpgradedAtWriterProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -238,7 +272,9 @@ def receive_stripe_webhook(
     - イベント種別が`checkout.session.completed`の場合は`dispatch_stripe_event()`
       (`customer.subscription.*`専用)へは渡さず、`handle_checkout_session_completed()`
       へ振り分ける(`user_profile_store`が渡されていない場合は何もせず200を返す、
-      stripe-customer-id-linking-design.md 3節)。
+      stripe-customer-id-linking-design.md 3節)。`usage_counter`が渡されていれば
+      `upgraded_at`の書き込みも同時に行う(trial-end-scheduler-design.md 2節、
+      未指定時は従来通り書き込まない)。
     - それ以外のイベント種別はこれまで通りdispatch_stripe_event()にそのまま委譲し200を
       返す。resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、
       Stripe側の再送ループを避けるためリクエスト自体は200(受理)として扱う。
@@ -259,7 +295,12 @@ def receive_stripe_webhook(
 
     if parsed.get("type") == "checkout.session.completed":
         checkout_link_result = (
-            handle_checkout_session_completed(parsed, user_profile_store)
+            handle_checkout_session_completed(
+                parsed,
+                user_profile_store,
+                usage_counter=usage_counter,
+                now=resolved_now,
+            )
             if user_profile_store is not None
             else CheckoutSessionLinkResult(linked=False)
         )
@@ -293,12 +334,19 @@ def get_stripe_runtime_dependencies() -> dict:
     - resolve_user_id: make_resolve_user_id(user_profile_store)。紐付けがまだ無い
       stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
       unresolved_customersとして安全に扱い200を返す(フェーズ94で確認済み)。
+    - usage_counter: cloud_function_webhook.InMemoryUsageCounter()を1つ生成する
+      (trial-end-scheduler-design.md 2節、フェーズ102の残課題への対応)。実運用では
+      LINE側Cloud FunctionとStripe側Cloud Functionが同一Firestoreの`usage_counter`
+      コレクションを共有する想定だが、本プロセスではLINE側とは別プロセス・別インスタンス
+      で初期化されるため、store・user_profile_storeと同様に呼び出しをまたいで
+      upgraded_atが保持されない(実Firestore接続後に解消される既知の限界)。
     """
     user_profile_store = InMemoryUserProfileStore()
     return {
         "store": InMemoryProfileDeletionCandidateStore(),
         "resolve_user_id": make_resolve_user_id(user_profile_store),
         "user_profile_store": user_profile_store,
+        "usage_counter": InMemoryUsageCounter(),
     }
 
 

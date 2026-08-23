@@ -1102,13 +1102,34 @@
   次回はCloud Function D(`send_trial_end_notifications`)本体の実装、または
   `upgraded_at`書き込み配線(stripe_webhook.py `handle_checkout_session_completed()`)
   への着手を優先候補とする。
-- 最終更新: 2026-08-23 13:00 UTC
+- フェーズ103(2026-08-23 18:00 UTC): フェーズ102の残課題だった`upgraded_at`書き込み配線
+  (stripe_webhook.py `handle_checkout_session_completed()`)を実装した。
+  `UsageCounterProtocol`/`InMemoryUsageCounter`(cloud_function_webhook.py)に
+  `set_trial_start_at_if_unset()`と対称の`set_upgraded_at_if_unset()`・
+  `get_upgraded_at()`を追加し、`handle_checkout_session_completed()`に
+  `usage_counter`引数(省略可、デフォルトNoneで従来動作を維持)を追加して、紐付け成功時に
+  `upgraded_at`を書き込むよう配線した。stripe_webhook.pyモジュール冒頭の「LINE側コードとは
+  独立したファイル」という位置づけを踏まえ、`cloud_function_webhook.py`の具象クラスに
+  直接依存させず、構造的部分型付け用の最小限のProtocol(`UpgradedAtWriterProtocol`、
+  `set_upgraded_at_if_unset()`のみ要求)を新設して満たす形にした。`receive_stripe_webhook()`
+  にも同引数を追加して素通しし、`get_stripe_runtime_dependencies()`のみ
+  `InMemoryUsageCounter()`をimportして生成・返却するようにした(store・
+  user_profile_storeと同じくプロセス起動ごとの初期化のため、実Firestore接続までは
+  LINE側インスタンスと共有されない既知の限界がある点をtrial-end-scheduler-design.md
+  2節に明記)。テスト5件新規追加(upgraded_at書き込み・冪等性・未指定時の非書き込み・
+  紐付け失敗時の非書き込み・receive_stripe_webhook経由の配線確認、course-set-pasha配下
+  計268件パス)。これによりtrial-end-scheduler-design.md 5節の残課題2点のうち1点が解消し、
+  残るはCloud Function D(`send_trial_end_notifications`)本体の実装のみとなった。
+- 最終更新: 2026-08-23 18:00 UTC
 
 ## 次にやること(候補)
 
 - (解消済み 2026-08-23 13:00 UTC: 期間到達判定用の日次スケジューラ本体の設計は
   `trial-end-scheduler-design.md`(フェーズ102)で対応した。詳細は上記フェーズ102参照。
   残るのはCloud Function D本体の実装・`upgraded_at`書き込み配線・実際のCloud Scheduler
+  作成〈オーナー承認待ち〉)
+- (解消済み 2026-08-23 18:00 UTC: `upgraded_at`書き込み配線はフェーズ103で対応した。
+  詳細は上記フェーズ103参照。残るのはCloud Function D本体の実装・実際のCloud Scheduler
   作成〈オーナー承認待ち〉)
 
 - (解消済み 2026-08-23 11:00 UTC: トライアル開始起点〈初回follow時 or 初回生成時〉の確定は

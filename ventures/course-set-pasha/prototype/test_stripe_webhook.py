@@ -7,6 +7,7 @@ import unittest
 from datetime import datetime, timezone
 
 from application_form_submission_flow import InMemoryUserProfileStore
+from cloud_function_webhook import InMemoryUsageCounter
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from stripe_webhook import (
     dispatch_stripe_event,
@@ -320,6 +321,60 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         result = handle_checkout_session_completed(event, self.store)
         self.assertFalse(result.linked)
 
+    def test_usage_counter_writes_upgraded_at_when_provided(self):
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1", "customer": "cus_A"}},
+        }
+        now = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc)
+
+        result = handle_checkout_session_completed(
+            event, self.store, usage_counter=usage_counter, now=now
+        )
+
+        self.assertTrue(result.upgraded_at_written)
+        self.assertEqual(usage_counter.get_upgraded_at("U1"), now)
+
+    def test_usage_counter_upgraded_at_is_idempotent(self):
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1", "customer": "cus_A"}},
+        }
+        first = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc)
+        second = datetime(2026, 8, 24, 3, 0, tzinfo=timezone.utc)
+
+        handle_checkout_session_completed(
+            event, self.store, usage_counter=usage_counter, now=first
+        )
+        handle_checkout_session_completed(
+            event, self.store, usage_counter=usage_counter, now=second
+        )
+
+        # 既に設定済みの場合は上書きしない(trial_start_atと同じ冪等性)。
+        self.assertEqual(usage_counter.get_upgraded_at("U1"), first)
+
+    def test_no_usage_counter_does_not_write_upgraded_at(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1", "customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.upgraded_at_written)
+
+    def test_link_failure_does_not_write_upgraded_at_even_with_usage_counter(self):
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(
+            event, self.store, usage_counter=usage_counter
+        )
+        self.assertFalse(result.upgraded_at_written)
+        self.assertIsNone(usage_counter.get_upgraded_at("U1"))
+
 
 class MakeResolveUserIdTest(unittest.TestCase):
     def test_returns_callable_backed_by_store(self):
@@ -339,7 +394,7 @@ class ReceiveStripeWebhookCheckoutSessionTest(unittest.TestCase):
         self.user_profile_store = InMemoryUserProfileStore()
         self.now = datetime(2026, 8, 23, tzinfo=timezone.utc)
 
-    def _call(self, body: bytes, header: str, *, user_profile_store=None):
+    def _call(self, body: bytes, header: str, *, user_profile_store=None, usage_counter=None):
         return receive_stripe_webhook(
             body,
             header,
@@ -347,6 +402,7 @@ class ReceiveStripeWebhookCheckoutSessionTest(unittest.TestCase):
             store=self.deletion_store,
             resolve_user_id=lambda _customer: None,
             user_profile_store=user_profile_store,
+            usage_counter=usage_counter,
             now=self.now,
         )
 
@@ -363,6 +419,22 @@ class ReceiveStripeWebhookCheckoutSessionTest(unittest.TestCase):
         self.assertEqual(
             self.user_profile_store.get_user_id_by_stripe_customer_id("cus_A"), "U1"
         )
+
+    def test_checkout_session_completed_writes_upgraded_at_when_usage_counter_provided(self):
+        body = (
+            b'{"id":"evt_1","type":"checkout.session.completed",'
+            b'"data":{"object":{"client_reference_id":"U1","customer":"cus_A"}}}'
+        )
+        header = _header(body, SECRET, int(self.now.timestamp()))
+        usage_counter = InMemoryUsageCounter()
+        result = self._call(
+            body,
+            header,
+            user_profile_store=self.user_profile_store,
+            usage_counter=usage_counter,
+        )
+        self.assertTrue(result.checkout_link_result.upgraded_at_written)
+        self.assertEqual(usage_counter.get_upgraded_at("U1"), self.now)
 
     def test_checkout_session_completed_without_user_profile_store_is_noop_200(self):
         body = (
