@@ -21,6 +21,24 @@
 
 ## ステータス
 
+- フェーズ114(2026-08-23 17:00 UTC): フェーズ111「design『残課題』に残っていたもう1点
+  (`dispatch_webhook_events()`、3つのイベント種別への振り分け経路自体)は未着手のまま残る」に
+  対応した。`prototype/cloud_function_webhook.py`に`DispatchResult`(dataclass)・
+  `dispatch_webhook_events()`を新規実装し、course-set-pashaの
+  webhook-event-dispatch-design.mdと同じ考え方(受信した`events`配列を`event["type"]`ごとに
+  各処理関数へ振り分ける単一の入口)を踏襲した。本venture固有の差異として、(1)
+  course-set-pashaのtext-image束ね(`merge_text_and_photo_events()`)は本ventureに存在しない
+  ため対応する処理は行わない、(2)`process_follow_event()`の引数順序が本venture版
+  (`event, reply_client, *, form_link_provider`)のためcourse-set-pasha版と異なる、(3)
+  messageイベントの処理条件に`profile_store`・`linking_store`・`now`が必須である
+  (連携済みか未連携かの判定自体にこれらが必要なため、course-set-pashaより必須依存が多い)、
+  という3点を反映した。未知の種別(postback・join等)は`ignored_types`に記録するのみで
+  処理しない。テスト8件を新規作成し(follow/unfollow/message個別振り分け、必須依存未接続時の
+  素通り、未知種別の記録、複数種別混在時の独立処理)、既存101件と合わせて全109件パスを
+  確認した(`prototype/test_cloud_function_webhook.py`)。これによりuser-account-linking-
+  design.md 3節・follow-unfollow-event-handling-design.mdで挙げられていた「未実装のまま
+  残る」項目は解消され、本venture全体の残る大きな課題は実LLM/実LINE API/実Cloud Functions
+  デプロイ自体(オーナー承認待ち、pending-approval.md 2026-08-23 04:00 UTC参照)のみとなった。
 - フェーズ113(2026-08-23 15:00 UTC): フェーズ111・112の申し送り(follow/unfollow実装後の
   残課題2点のうちの1つ)を受け、user-account-linking-design.md 3節で設計していた
   「follow後の1:1トークで受信したテキストが連携コードか施工メモかを判定する分岐」を実装した。

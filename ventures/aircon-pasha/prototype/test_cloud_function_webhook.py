@@ -33,6 +33,7 @@ from cloud_function_webhook import (  # noqa: E402
     LlmApiError,
     ReplyApiError,
     build_usage_notice,
+    dispatch_webhook_events,
     format_reply_text,
     format_welcome_message,
     process_follow_event,
@@ -781,6 +782,132 @@ class ProcessMessageEventLinkingTest(unittest.TestCase):
 
         self.assertTrue(result.handled)
         self.assertEqual(result.reply_text, LINKING_REQUIRED_MESSAGE)
+
+
+class DispatchWebhookEventsTest(unittest.TestCase):
+    """dispatch_webhook_events()のテスト(フェーズ111・112・113で実装した3つのイベント処理
+    関数を実際のevents配列から呼び分ける入口)。"""
+
+    def _linked_profile_store(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        return profile_store
+
+    def test_follow_event_is_routed_to_process_follow_event(self):
+        reply_client = InMemoryReplyClient()
+        events = [{"type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"}}]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client)
+
+        self.assertEqual(len(result.follow_results), 1)
+        self.assertTrue(result.follow_results[0].handled)
+        self.assertEqual(len(reply_client.sent), 1)
+
+    def test_follow_event_not_processed_without_reply_client(self):
+        events = [{"type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"}}]
+
+        result = dispatch_webhook_events(events)
+
+        self.assertEqual(result.follow_results, [])
+
+    def test_unfollow_event_is_routed_to_process_unfollow_event(self):
+        events = [{"type": "unfollow", "source": {"userId": "u-1"}}]
+
+        result = dispatch_webhook_events(events)
+
+        self.assertEqual(len(result.unfollow_results), 1)
+        self.assertTrue(result.unfollow_results[0].handled)
+
+    def test_message_event_for_linked_user_is_routed_to_memo_flow(self):
+        from datetime import datetime, timezone
+
+        reply_client = InMemoryReplyClient()
+        events = [{
+            "replyToken": "rt-2",
+            "type": "message",
+            "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=self._linked_profile_store(),
+            linking_store=InMemoryLinkingCodeStore(),
+            now=datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertIn("作業完了報告メッセージの下書き", result.message_results[0].reply_text)
+
+    def test_message_event_not_processed_without_linking_store(self):
+        from datetime import datetime, timezone
+
+        events = [{
+            "replyToken": "rt-3",
+            "type": "message",
+            "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=InMemoryReplyClient(),
+            llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=self._linked_profile_store(),
+            now=datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(result.message_results, [])
+
+    def test_message_event_not_processed_without_now(self):
+        events = [{
+            "replyToken": "rt-4",
+            "type": "message",
+            "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=InMemoryReplyClient(),
+            llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=self._linked_profile_store(),
+            linking_store=InMemoryLinkingCodeStore(),
+        )
+
+        self.assertEqual(result.message_results, [])
+
+    def test_unknown_event_type_is_recorded_in_ignored_types(self):
+        events = [{"type": "postback"}, {"type": "join"}]
+
+        result = dispatch_webhook_events(events)
+
+        self.assertEqual(result.ignored_types, ["postback", "join"])
+
+    def test_mixed_events_are_routed_independently(self):
+        reply_client = InMemoryReplyClient()
+        events = [
+            {"type": "follow", "replyToken": "rt-5", "source": {"userId": "u-2"}},
+            {"type": "unfollow", "source": {"userId": "u-3"}},
+            {"type": "postback"},
+        ]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client)
+
+        self.assertEqual(len(result.follow_results), 1)
+        self.assertEqual(len(result.unfollow_results), 1)
+        self.assertEqual(result.ignored_types, ["postback"])
+        self.assertEqual(result.message_results, [])
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

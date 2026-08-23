@@ -677,6 +677,100 @@ def process_message_event(
     )
 
 
+# ---------------------------------------------------------------------------
+# Webhook本体のイベント種別ディスパッチ
+# (フェーズ111・112(follow/unfollow)・フェーズ113(message)で実装した3つのイベント処理
+#  関数を、実際のWebhookリクエストの`events`配列から呼び分ける入口。フェーズ107設計時点の
+#  「残課題」3点のうち最後まで残っていたもの。course-set-pasha/webhook-event-dispatch-design.md
+#  の`dispatch_webhook_events()`と同じ位置づけだが、本ventureはtext-image束ね
+#  (merge_text_and_photo_events()相当)を持たないため対応する処理は行わない。)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DispatchResult:
+    """dispatch_webhook_events()の結果。"""
+
+    follow_results: list = field(default_factory=list)
+    message_results: list = field(default_factory=list)
+    unfollow_results: list = field(default_factory=list)
+    ignored_types: list = field(default_factory=list)
+
+
+def dispatch_webhook_events(
+    events: list[dict],
+    *,
+    reply_client: Optional[ReplyClient] = None,
+    llm_call: Optional[LlmCallClient] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    now: Optional[datetime] = None,
+) -> DispatchResult:
+    """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
+    `process_follow_event()`/`process_message_event()`/`process_unfollow_event()`へ
+    振り分ける。
+
+    - "follow": 1件ずつ`process_follow_event()`へ渡す。`reply_client`が未接続の場合は
+      該当イベントを処理せず素通りする。
+    - "message": 1件ずつ`process_message_event()`へ渡す(連携コード判定と施工メモ生成の
+      両方を内包する入口、design 3節参照)。`reply_client`・`llm_call`・`profile_store`・
+      `linking_store`・`now`のいずれかが未接続の場合は素通りする(連携済みか未連携かの
+      判定自体に`profile_store`が必須のため、course-set-pashaと異なりmessageイベントの
+      処理条件にlinking_store・profile_storeも含める)。
+    - "unfollow": 1件ずつ`process_unfollow_event()`へ渡す(design 2節の通りdata store類は
+      不要なため、他の種別と異なり未接続でも常に処理する)。
+    - それ以外の種別(postback・join等)は無視し、`ignored_types`に種別名のみ記録する。
+    """
+    result = DispatchResult()
+
+    for event in events:
+        event_type = event.get("type")
+        if event_type not in ("follow", "message", "unfollow"):
+            result.ignored_types.append(event_type or "unknown")
+
+    follow_events = [e for e in events if e.get("type") == "follow"]
+    if follow_events and reply_client is not None:
+        for event in follow_events:
+            result.follow_results.append(
+                process_follow_event(event, reply_client, form_link_provider=form_link_provider)
+            )
+
+    message_events = [e for e in events if e.get("type") == "message"]
+    if (
+        message_events
+        and reply_client is not None
+        and llm_call is not None
+        and profile_store is not None
+        and linking_store is not None
+        and now is not None
+    ):
+        for event in message_events:
+            result.message_results.append(
+                process_message_event(
+                    event,
+                    llm_call,
+                    reply_client,
+                    profile_store,
+                    linking_store,
+                    now,
+                    usage_counter=usage_counter,
+                    plan=plan,
+                    month=month,
+                    portal_link_provider=portal_link_provider,
+                )
+            )
+
+    unfollow_events = [e for e in events if e.get("type") == "unfollow"]
+    for event in unfollow_events:
+        result.unfollow_results.append(process_unfollow_event(event))
+
+    return result
+
+
 def _demo() -> None:
     class StubLlmClient:
         """schema/validate_test_cases.pyのG1_basicフィクスチャ相当を返す固定スタブ。"""
