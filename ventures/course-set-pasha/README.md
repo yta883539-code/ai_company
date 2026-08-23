@@ -1011,10 +1011,53 @@
   配下計224件パス)。実際の`main(request)`相当の配線(`functions_framework`リクエストからの
   `body`・`Stripe-Signature`ヘッダ取り出し)・`resolve_user_id`の実装・`webhook_secret`の
   実際の取得/保管方法は次の課題として残る。
-- 最終更新: 2026-08-22 23:00 UTC
+- フェーズ96(2026-08-23 01:00 UTC): フェーズ95「残課題」(1)だった、
+  `receive_stripe_webhook()`を実Cloud Functionsのリクエストオブジェクトに接続する
+  `main(request)`本体を`stripe-webhook-cloud-function-entry-point-design.md`で設計し、
+  `prototype/stripe_webhook.py`に実装した(LINE版`cloud_function_webhook.main()`と
+  対称の構成)。`webhook_secret`は環境変数`STRIPE_WEBHOOK_SECRET`から取得。
+  `get_stripe_runtime_dependencies()`を新設し、`store`は
+  `InMemoryProfileDeletionCandidateStore()`、`resolve_user_id`は
+  常に`None`を返す暫定実装とした。テストは`test_stripe_webhook.py`に
+  `MainEntryPointTest`として5件追加(正常系・署名不正・ヘッダ欠落・環境変数未設定・
+  `get_stripe_runtime_dependencies()`との結線、course-set-pasha配下計229件パス)。
+  `resolve_user_id`の実装本体・`store`のFirestore化・`webhook_secret`の実際の
+  保管方法は次の課題として残る。
+- フェーズ97(2026-08-23 02:00 UTC): フェーズ96「残課題」(1)だった、
+  `resolve_user_id`(`stripe_customer_id → user_id`変換)の実装本体を
+  `stripe-customer-id-linking-design.md`で設計した。Stripe Checkout Session作成時に
+  `client_reference_id`へ内部`user_id`を埋め込む前提で、`checkout.session.completed`
+  イベントの`client_reference_id`・`customer`を`user_profile`ストアへ書き込む
+  `handle_checkout_session_completed()`を`prototype/stripe_webhook.py`に新設し、
+  `receive_stripe_webhook()`にこのイベント種別を`dispatch_stripe_event()`とは別経路で
+  振り分ける分岐を追加した(`user_profile_store`引数を新設、未指定時は何もせず200)。
+  `application_form_submission_flow.UserProfileStoreProtocol`/
+  `InMemoryUserProfileStore`に`set_stripe_customer_id`/
+  `get_user_id_by_stripe_customer_id`(逆引き)を追加し、この逆引きをそのまま返す
+  `make_resolve_user_id()`ファクトリを新設。`get_stripe_runtime_dependencies()`は
+  `InMemoryUserProfileStore()`を1つ生成して`resolve_user_id`・`user_profile_store`
+  両方に共有させる構成に更新した。テストは`test_stripe_webhook.py`・
+  `test_application_form_submission_flow.py`に計11件追加
+  (`checkout.session.completed`の正常系・欠落系、`make_resolve_user_id()`、
+  checkout完了後の`customer.subscription.*`解決を通しで確認するテストを含む、
+  course-set-pasha配下計240件パス)。Stripe Checkout Session作成時に
+  `client_reference_id`を設定する決済導線自体(申込フォーム提出後、どのUIから
+  Checkoutを開始するか)は未設計のまま次の課題として残る。
+- 最終更新: 2026-08-23 02:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-23 02:00 UTC: `resolve_user_id`〈`stripe_customer_id → user_id`変換〉の
+  実装本体を、フェーズ97・`stripe-customer-id-linking-design.md`/
+  `handle_checkout_session_completed()`/`make_resolve_user_id()`で行った
+  (フェーズ96の残課題(2)。詳細は上記フェーズ97参照)。また`main(request)`本体の実装は
+  フェーズ96・`stripe-webhook-cloud-function-entry-point-design.md`で行った
+  (フェーズ95の残課題(1)。詳細は上記フェーズ96参照)。残るのは(1)Stripe Checkout
+  Session作成時に`client_reference_id`へ内部`user_id`を設定する決済導線自体
+  (申込フォーム提出後、どのUIからCheckoutを開始するか未設計)、(2)`store`・
+  `user_profile_store`のFirestore化(実GCPプロジェクト作成、オーナー承認待ち)、
+  (3)`webhook_secret`の実際の値の取得・保管方法(Secret Manager等、実Stripeアカウント
+  接続後)。(1)は接続前でも設計できるため次回の優先候補とする)
 - (解消済み 2026-08-22 23:00 UTC: `verify_stripe_signature()`と`dispatch_stripe_event()`を
   結ぶHTTPエントリポイント本体をフェーズ95・`stripe-webhook-http-entry-point-design.md`/
   `receive_stripe_webhook()`で実装した。詳細は上記フェーズ95参照。残るのは(1)実

@@ -6,11 +6,14 @@ import time
 import unittest
 from datetime import datetime, timezone
 
+from application_form_submission_flow import InMemoryUserProfileStore
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from stripe_webhook import (
     dispatch_stripe_event,
     get_stripe_runtime_dependencies,
+    handle_checkout_session_completed,
     main,
+    make_resolve_user_id,
     receive_stripe_webhook,
     verify_stripe_signature,
 )
@@ -271,6 +274,142 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
         result = self._call(body, header)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.dispatch_result.unresolved_customers, ["cus_unknown"])
+
+
+class HandleCheckoutSessionCompletedTest(unittest.TestCase):
+    """stripe-customer-id-linking-design.md 3節。"""
+
+    def setUp(self):
+        self.store = InMemoryUserProfileStore()
+
+    def test_valid_event_links_customer_id_to_user_id(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {"client_reference_id": "U1", "customer": "cus_A"}
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertTrue(result.linked)
+        self.assertEqual(result.user_id, "U1")
+        self.assertEqual(result.stripe_customer_id, "cus_A")
+        self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_A"), "U1")
+
+    def test_missing_client_reference_id_does_not_link(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.linked)
+        self.assertIsNone(self.store.get_user_id_by_stripe_customer_id("cus_A"))
+
+    def test_missing_customer_does_not_link(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.linked)
+
+    def test_empty_string_client_reference_id_does_not_link(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "", "customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.linked)
+
+
+class MakeResolveUserIdTest(unittest.TestCase):
+    def test_returns_callable_backed_by_store(self):
+        store = InMemoryUserProfileStore()
+        store.set_stripe_customer_id("U1", "cus_A")
+        resolve_user_id = make_resolve_user_id(store)
+        self.assertEqual(resolve_user_id("cus_A"), "U1")
+        self.assertIsNone(resolve_user_id("cus_unknown"))
+
+
+class ReceiveStripeWebhookCheckoutSessionTest(unittest.TestCase):
+    """receive_stripe_webhook()のcheckout.session.completed振り分け
+    (stripe-customer-id-linking-design.md 3節)。"""
+
+    def setUp(self):
+        self.deletion_store = InMemoryProfileDeletionCandidateStore()
+        self.user_profile_store = InMemoryUserProfileStore()
+        self.now = datetime(2026, 8, 23, tzinfo=timezone.utc)
+
+    def _call(self, body: bytes, header: str, *, user_profile_store=None):
+        return receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=self.deletion_store,
+            resolve_user_id=lambda _customer: None,
+            user_profile_store=user_profile_store,
+            now=self.now,
+        )
+
+    def test_checkout_session_completed_links_and_returns_200(self):
+        body = (
+            b'{"id":"evt_1","type":"checkout.session.completed",'
+            b'"data":{"object":{"client_reference_id":"U1","customer":"cus_A"}}}'
+        )
+        header = _header(body, SECRET, int(self.now.timestamp()))
+        result = self._call(body, header, user_profile_store=self.user_profile_store)
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.dispatch_result)
+        self.assertTrue(result.checkout_link_result.linked)
+        self.assertEqual(
+            self.user_profile_store.get_user_id_by_stripe_customer_id("cus_A"), "U1"
+        )
+
+    def test_checkout_session_completed_without_user_profile_store_is_noop_200(self):
+        body = (
+            b'{"id":"evt_1","type":"checkout.session.completed",'
+            b'"data":{"object":{"client_reference_id":"U1","customer":"cus_A"}}}'
+        )
+        header = _header(body, SECRET, int(self.now.timestamp()))
+        result = self._call(body, header, user_profile_store=None)
+        self.assertEqual(result.status_code, 200)
+        self.assertFalse(result.checkout_link_result.linked)
+
+    def test_subsequent_subscription_event_resolves_via_linked_customer_id(self):
+        # checkout.session.completedで紐付けた後、実際のresolve_user_idを使うと
+        # customer.subscription.*がその紐付けを引ける(get_stripe_runtime_dependenciesと
+        # 同じ配線パターンをテストレベルで確認する)。
+        checkout_body = (
+            b'{"id":"evt_1","type":"checkout.session.completed",'
+            b'"data":{"object":{"client_reference_id":"U1","customer":"cus_A"}}}'
+        )
+        checkout_header = _header(checkout_body, SECRET, int(self.now.timestamp()))
+        receive_stripe_webhook(
+            checkout_body,
+            checkout_header,
+            SECRET,
+            store=self.deletion_store,
+            resolve_user_id=lambda _customer: None,
+            user_profile_store=self.user_profile_store,
+            now=self.now,
+        )
+
+        subscription_body = (
+            b'{"id":"evt_2","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        subscription_header = _header(
+            subscription_body, SECRET, int(self.now.timestamp())
+        )
+        result = receive_stripe_webhook(
+            subscription_body,
+            subscription_header,
+            SECRET,
+            store=self.deletion_store,
+            resolve_user_id=make_resolve_user_id(self.user_profile_store),
+            user_profile_store=self.user_profile_store,
+            now=self.now,
+        )
+        self.assertEqual(result.dispatch_result.marked_user_ids, ["U1"])
 
 
 class _StubFlaskRequest:

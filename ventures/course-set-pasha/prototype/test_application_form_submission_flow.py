@@ -74,6 +74,25 @@ class InMemoryUserProfileStoreTest(unittest.TestCase):
         store.set_gym_area_pairs("U1", "ボルダリングジムB/△△市")
         self.assertEqual(store.get_gym_area_pairs("U1"), "ボルダリングジムB/△△市")
 
+    def test_unlinked_stripe_customer_id_returns_none(self):
+        # stripe-customer-id-linking-design.md 2節。
+        store = InMemoryUserProfileStore()
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_unknown"))
+
+    def test_set_stripe_customer_id_enables_reverse_lookup(self):
+        store = InMemoryUserProfileStore()
+        store.set_stripe_customer_id("U1", "cus_A")
+        self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_A"), "U1")
+
+    def test_relinking_same_user_to_new_customer_id_updates_forward_lookup(self):
+        # Checkoutのやり直し等で同一user_idに新しいstripe_customer_idが割り当たった場合、
+        # 新しい方からの逆引きが有効になる(古いcustomer_idの逆引きエントリの明示的な
+        # 削除は行わない。実害はない旨はstripe-customer-id-linking-design.md参照)。
+        store = InMemoryUserProfileStore()
+        store.set_stripe_customer_id("U1", "cus_old")
+        store.set_stripe_customer_id("U1", "cus_new")
+        self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "U1")
+
 
 class HandleFormSubmissionTest(unittest.TestCase):
     def test_valid_payload_writes_normalized_value_and_returns_ok(self):

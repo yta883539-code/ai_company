@@ -27,12 +27,25 @@ class UserProfileStoreProtocol(Protocol):
     """`user_profile/{user_id}`ドキュメントの`gym_area_pairs`フィールドへの読み書きを表す
     (application-form-submission-flow-design.md 4節)。書き込みは全体上書き
     (追記ではない、3節)。
+
+    `set_stripe_customer_id`/`get_user_id_by_stripe_customer_id`は
+    stripe-customer-id-linking-design.md(フェーズ97)で追加した、`stripe_customer_id`
+    (StripeカスタマーオブジェクトのID)と`user_id`の相互紐付けを表す。Stripe Webhookの
+    `resolve_user_id(stripe_customer_id) -> user_id`変換をこの逆引きで実現する。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         ...
 
     def get_gym_area_pairs(self, user_id: str) -> str:
+        ...
+
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        ...
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
         ...
 
 
@@ -42,10 +55,19 @@ class InMemoryUserProfileStore:
     読み取り専用メソッドとして提供し、`gym_area_pairs`が非空かどうかで判定する
     (design 4節: 実Firestore接続後は単一のFirestoreUserProfileStoreが両Protocolを
     満たす設計を見越したスタブ)。
+
+    `stripe_customer_id`は`user_id → stripe_customer_id`の順引き辞書と別に
+    `stripe_customer_id → user_id`の逆引き辞書も保持する(フェーズ97、
+    stripe-customer-id-linking-design.md 2節。実Firestoreでは
+    `user_profile`コレクションへの単一フィールド書き込み+別コレクション
+    `stripe_customer_index/{stripe_customer_id}`への逆引きドキュメント書き込みに
+    対応する想定)。
     """
 
     def __init__(self) -> None:
         self._profiles: dict[str, str] = {}
+        self._stripe_customer_ids: dict[str, str] = {}
+        self._user_ids_by_stripe_customer_id: dict[str, str] = {}
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         self._profiles[user_id] = raw_value
@@ -55,6 +77,15 @@ class InMemoryUserProfileStore:
 
     def is_configured(self, user_id: str) -> bool:
         return bool(self._profiles.get(user_id, ""))
+
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        self._stripe_customer_ids[user_id] = stripe_customer_id
+        self._user_ids_by_stripe_customer_id[stripe_customer_id] = user_id
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        return self._user_ids_by_stripe_customer_id.get(stripe_customer_id)
 
 
 # design 2節: 連続カンマのみ等、要素がすべて空になる入力を「実質空」とみなすための判定に使う。

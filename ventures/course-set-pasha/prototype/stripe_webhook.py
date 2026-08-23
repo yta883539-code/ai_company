@@ -19,6 +19,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
+from application_form_submission_flow import (
+    InMemoryUserProfileStore,
+    UserProfileStoreProtocol,
+)
 from deletion_candidate import (
     InMemoryProfileDeletionCandidateStore,
     ProfileDeletionCandidateStoreProtocol,
@@ -157,11 +161,57 @@ def dispatch_stripe_event(
 
 
 @dataclass
+class CheckoutSessionLinkResult:
+    """handle_checkout_session_completed()の結果
+    (stripe-customer-id-linking-design.md 3節)。"""
+
+    linked: bool
+    user_id: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+
+
+def handle_checkout_session_completed(
+    event: dict,
+    store: UserProfileStoreProtocol,
+) -> CheckoutSessionLinkResult:
+    """`checkout.session.completed`イベントから`client_reference_id`(=user_id)と
+    `customer`(=stripe_customer_id)を取り出し、`store`に紐付けを書き込む
+    (stripe-customer-id-linking-design.md 3節)。いずれかが欠落・非文字列・空文字列の
+    場合は何も書き込まない(安全側。resolve_user_idが引き続きNoneを返すだけで実害はない)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    user_id = data_object.get("client_reference_id")
+    stripe_customer_id = data_object.get("customer")
+
+    if (
+        not isinstance(user_id, str)
+        or not user_id
+        or not isinstance(stripe_customer_id, str)
+        or not stripe_customer_id
+    ):
+        return CheckoutSessionLinkResult(linked=False)
+
+    store.set_stripe_customer_id(user_id, stripe_customer_id)
+    return CheckoutSessionLinkResult(
+        linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
+    )
+
+
+def make_resolve_user_id(
+    user_profile_store: UserProfileStoreProtocol,
+) -> Callable[[str], Optional[str]]:
+    """`dispatch_stripe_event()`の`resolve_user_id`引数の型に合わせた薄いファクトリ
+    (stripe-customer-id-linking-design.md 3節)。"""
+    return user_profile_store.get_user_id_by_stripe_customer_id
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """receive_stripe_webhook()の結果(stripe-webhook-http-entry-point-design.md 1節)。"""
 
     status_code: int
     dispatch_result: Optional[StripeDispatchResult] = None
+    checkout_link_result: Optional[CheckoutSessionLinkResult] = None
     error: Optional[str] = None
 
 
@@ -172,6 +222,7 @@ def receive_stripe_webhook(
     *,
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -179,15 +230,18 @@ def receive_stripe_webhook(
     配線までを行う(stripe-webhook-http-entry-point-design.mdで設計した、
     verify_stripe_signature()とdispatch_stripe_event()を結ぶエントリポイント)。
 
-    - 署名検証に失敗した場合は401相当を返し、JSONパース・dispatch_stripe_event()への
-      配線を一切行わない(不正なリクエストへの余計な処理を避ける、LINE側receive_webhook()と
-      同じ方針)。
+    - 署名検証に失敗した場合は401相当を返し、JSONパース以降の配線を一切行わない
+      (不正なリクエストへの余計な処理を避ける、LINE側receive_webhook()と同じ方針)。
     - 署名検証後にbodyをJSONとしてパースする。パース失敗、またはパース結果がdictでない
       場合は400相当を返す(Stripeからの実際のリクエストでは通常発生しないはずの異常系だが、
       エントリポイントとして不正な入力にも例外を外に漏らさない設計とする)。
-    - 検証・パースに成功した場合はdispatch_stripe_event()にそのまま委譲し200を返す。
-      resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、Stripe側の
-      再送ループを避けるためリクエスト自体は200(受理)として扱う。
+    - イベント種別が`checkout.session.completed`の場合は`dispatch_stripe_event()`
+      (`customer.subscription.*`専用)へは渡さず、`handle_checkout_session_completed()`
+      へ振り分ける(`user_profile_store`が渡されていない場合は何もせず200を返す、
+      stripe-customer-id-linking-design.md 3節)。
+    - それ以外のイベント種別はこれまで通りdispatch_stripe_event()にそのまま委譲し200を
+      返す。resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、
+      Stripe側の再送ループを避けるためリクエスト自体は200(受理)として扱う。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -203,6 +257,16 @@ def receive_stripe_webhook(
     if not isinstance(parsed, dict):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_event")
 
+    if parsed.get("type") == "checkout.session.completed":
+        checkout_link_result = (
+            handle_checkout_session_completed(parsed, user_profile_store)
+            if user_profile_store is not None
+            else CheckoutSessionLinkResult(linked=False)
+        )
+        return StripeWebhookReceiverResult(
+            status_code=200, checkout_link_result=checkout_link_result
+        )
+
     dispatch_result = dispatch_stripe_event(
         parsed, store=store, resolve_user_id=resolve_user_id, now=resolved_now
     )
@@ -211,7 +275,8 @@ def receive_stripe_webhook(
 
 def get_stripe_runtime_dependencies() -> dict:
     """receive_stripe_webhook()に渡す依存関係一式を組み立てるファクトリ
-    (stripe-webhook-cloud-function-entry-point-design.md 2節)。
+    (stripe-webhook-cloud-function-entry-point-design.md 2節、
+    stripe-customer-id-linking-design.md 4節)。
 
     LINE版get_runtime_dependencies()と異なり、`store`・`resolve_user_id`は
     receive_stripe_webhook()側でNoneを許容しない必須引数のため、空辞書では返せない。
@@ -220,13 +285,20 @@ def get_stripe_runtime_dependencies() -> dict:
       実GCPプロジェクト作成(オーナー承認待ち)後の課題として別途残る。プロセス起動ごとに
       初期化されるため、実Cloud Functions環境では呼び出しをまたいで削除候補フラグが
       保持されない点に注意(design 2節)。
-    - resolve_user_id: stripe_customer_id → user_id変換の実装自体が本venture内で未着手の
-      ため、常にNoneを返す暫定実装とする。dispatch_stripe_event()はNoneを
+    - user_profile_store: InMemoryUserProfileStore()を1つ生成し、resolve_user_idと
+      共有する(checkout.session.completedで書き込んだ紐付けを、同一プロセス内の
+      customer.subscription.*解決で読めるようにするため)。storeと同様プロセス起動ごとに
+      初期化されるため、実Cloud Functions環境では呼び出しをまたいで紐付けが保持されない
+      (stripe-customer-id-linking-design.md 4節の既知の限界)。
+    - resolve_user_id: make_resolve_user_id(user_profile_store)。紐付けがまだ無い
+      stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
       unresolved_customersとして安全に扱い200を返す(フェーズ94で確認済み)。
     """
+    user_profile_store = InMemoryUserProfileStore()
     return {
         "store": InMemoryProfileDeletionCandidateStore(),
-        "resolve_user_id": lambda _stripe_customer_id: None,
+        "resolve_user_id": make_resolve_user_id(user_profile_store),
+        "user_profile_store": user_profile_store,
     }
 
 
