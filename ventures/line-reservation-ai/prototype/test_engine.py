@@ -939,6 +939,44 @@ class ResolveCandidateSelectionTest(unittest.TestCase):
         self.assertIsNone(resolve_candidate_selection("午後がいいです", self.candidates))
 
 
+class ResolveCandidateSelectionSingleCandidateAffirmationTest(unittest.TestCase):
+    """候補が1件のみ提示された状態での指示語のみの返信(「その時間で」等)の解決。
+    multi-turn-scenario-harness-design.md「残る課題」で候補として残していた
+    「直前提示候補が1件のみの場合に限定すれば安全に指示語対応できる可能性がある」への対応。
+    """
+
+    def setUp(self):
+        self.single = [_fake_candidate(("shop_1", "2026-08-09", "14:00"), "8/9(土) 14:00〜")]
+        self.multiple = [
+            _fake_candidate(("shop_1", "2026-08-09", "14:00"), "8/9(土) 14:00〜"),
+            _fake_candidate(("shop_1", "2026-08-09", "17:00"), "8/9(土) 17:00〜"),
+        ]
+
+    def test_sono_jikan_de_resolves_when_single_candidate(self):
+        self.assertEqual(
+            resolve_candidate_selection("その時間でお願いします", self.single),
+            self.single[0].slot_key,
+        )
+
+    def test_sorede_resolves_when_single_candidate(self):
+        self.assertEqual(
+            resolve_candidate_selection("それでお願いします", self.single),
+            self.single[0].slot_key,
+        )
+
+    def test_negation_is_not_treated_as_affirmation(self):
+        self.assertIsNone(
+            resolve_candidate_selection("その時間は無理です", self.single)
+        )
+
+    def test_demonstrative_reply_not_applied_when_multiple_candidates(self):
+        # 候補が複数ある場合は「それで」だけではどれを指すか特定できないため、
+        # 誤確定を避けるため引き続きNone(聞き返し)を返す。
+        self.assertIsNone(
+            resolve_candidate_selection("それでお願いします", self.multiple)
+        )
+
+
 class FormatFaqHoursMessageWeeklyTest(unittest.TestCase):
     """hours-other-faq-topic-resolution.mdの残課題(曜日別営業時間・複数区間(昼休憩等)を
     使う店舗向けの自然文生成)に対応した format_faq_hours_message_weekly() の単体テスト。

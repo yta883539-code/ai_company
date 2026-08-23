@@ -156,11 +156,15 @@ test_cloud_function_process_event.py等と合わせて別途確認)。
   menu-unmentioned-vs-unregistered-design.md参照。プロンプト設計
   (llm-system-prompt-draft.md)・状態遷移(intent-to-flow-mapping.md)への反映は
   実LLM接続後の検証と合わせて次回以降の課題として残る)
-- 「その時間でお願いします」のような指示語のみの返信をresolve_candidate_selection()が
-  解決できない点(上記「発見」参照)自体は実装上の制約として残っており、実装を拡張するか
-  会話サンプル側の記述を「1番で」等の明示的な返信に訂正するかはオーナー確認事項ではなく
-  今後の設計判断課題として残す(直前提示候補が1件のみの場合に限定すれば安全に指示語対応
-  できる可能性がある)。
+- (解消済み 2026-08-23 23:00 UTC・フェーズ130: 「その時間でお願いします」のような指示語
+  のみの返信をresolve_candidate_selection()が解決できない点に対応した。提案していた
+  「直前提示候補が1件のみの場合に限定する」方針を採用し、`_is_single_candidate_affirmation()`
+  を新設。candidatesが1件のときに限り、「それで」「その時間で」等の代表的な肯定の指示語が
+  含まれ、かつ「無理」「難しい」等の否定語を伴わない場合にその1件を確定する。候補が複数ある
+  場合はどれを指すか特定できないため従来通りNone(聞き返し)のまま。詳細は
+  candidate-presentation-and-selection-design.md 2節参照。テスト4件追加、プロトタイプ
+  全体312件パス。llm-system-prompt-draft.md・intent-to-flow-mapping.mdへの反映は実LLM接続後の
+  検証と合わせて次回以降の課題として残る)
 - 実LLM接続後、`ScenarioTurn.llm_output`を実際のAPIレスポンスに差し替えて同じハーネスを
   再利用する具体的な接続コード(`process_llm_output()`のllm_call注入)は、
   引き続きAPIキー・課金のオーナー承認待ち(pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。

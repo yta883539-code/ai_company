@@ -1447,6 +1447,27 @@ def format_reconfirm_message(candidates: list) -> str:
     return "\n".join(lines)
 
 
+_SINGLE_CANDIDATE_AFFIRMATION_PHRASES = (
+    "それで", "そので", "その時間で", "その日で", "その枠で", "そこで",
+)
+_SINGLE_CANDIDATE_NEGATION_MARKERS = (
+    "ない", "無理", "難しい", "けど", "が、", "別", "他の", "違う", "だめ", "駄目",
+)
+
+
+def _is_single_candidate_affirmation(normalized_reply: str) -> bool:
+    """候補が1件だけ提示された状態での指示語のみの返信(「その時間でお願いします」等)を
+    肯定表現として検出する。候補presentation-and-selection-design.md 2節「今後の課題」・
+    line-reservation-ai/multi-turn-scenario-harness-design.mdの発見への対応。
+    候補が1件しかないため誤確定しても他の枠と取り違えるリスクは無いが、
+    「その日は無理です」のような否定表現までは肯定と誤認しないよう、代表的な
+    否定語が同時に含まれる場合は対象外とする(安全側)。
+    """
+    if not any(phrase in normalized_reply for phrase in _SINGLE_CANDIDATE_AFFIRMATION_PHRASES):
+        return False
+    return not any(marker in normalized_reply for marker in _SINGLE_CANDIDATE_NEGATION_MARKERS)
+
+
 def resolve_candidate_selection(reply_text: str, candidates: list) -> Optional[tuple]:
     """顧客の返信からcandidatesのうち1件のslot_keyを特定する。特定できなければNone
     (呼び出し側はformat_reconfirm_message()の送信を想定)。判定優先順位は
@@ -1482,6 +1503,10 @@ def resolve_candidate_selection(reply_text: str, candidates: list) -> Optional[t
     matched = [c for c in candidates if _label_date_and_time_in_reply(c.label, normalized)]
     if len(matched) == 1:
         return matched[0].slot_key
+
+    if len(candidates) == 1 and _is_single_candidate_affirmation(normalized):
+        return candidates[0].slot_key
+
     return None
 
 

@@ -1476,6 +1476,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-23 23:00 UTC・フェーズ続き130: multi-turn-scenario-harness-design.md
+  「残る課題」に残っていた「『その時間でお願いします』のような指示語のみの返信を
+  resolve_candidate_selection()が解決できない」制約に対応した。同ドキュメントが提案していた
+  「候補が1件のみの場合に限定すれば安全に対応できる」方針を採用し、`_is_single_candidate_
+  affirmation()`を新設。candidatesが1件のときに限り「それで」「その時間で」等の代表的な
+  肯定の指示語が含まれ、かつ「無理」「難しい」等の否定語を伴わない場合にその1件を確定する
+  (候補presentation-and-selection-design.md 2節に手順6として追記)。候補が複数ある場合は
+  誤確定リスクがあるため引き続きNone(聞き返し)のままとした。
+  test_engine.pyに`ResolveCandidateSelectionSingleCandidateAffirmationTest`としてテスト4件
+  (単一候補での指示語確定・否定語での非確定・複数候補時は従来通り非確定、を含む)を追加し、
+  プロトタイプ全体312件パス・schema/validate_test_cases.py実行(25件パス)をいずれも確認した。
+  次回はllm-system-prompt-draft.md・intent-to-flow-mapping.mdへの本ロジックの反映
+  (実LLM接続後の検証と合わせて次回以降の課題)、または他venture・アイデア領域の前進を検討する。)
 - (解消済み 2026-08-23 19:00 UTC・フェーズ続き129: フェーズ128で残る既知の限界として
   明記した「`_pending_new_booking_context_by_user`にTTLが無い点」に対応した。この
   キャッシュはメニュー未言及の聞き返し(reask)時点(`present_candidates()`未実行、
