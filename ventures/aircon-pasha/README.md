@@ -21,6 +21,17 @@
 
 ## ステータス
 
+- フェーズ108(2026-08-23 04:00 UTC): フェーズ107のuser-account-linking-design.mdが「残課題」
+  として残していた2点に対応した。(1)legal-notices-draft.md 2.4節で保留していた「契約終了後の
+  データ保存期間」を、確定済みの3コレクション(`pending_links`・`user_profile`・
+  `usage_counter`)を前提に整理したdata-retention-policy.mdを新規作成(course-set-pashaの構成を
+  踏襲、Stripe解約日起点で1年保有後に削除候補化する方針。ただし本ventureはunfollowイベント
+  処理自体が未設計のため、course-set-pashaと異なり「ブロック時の扱い」は未決定のまま明示的に
+  切り出した)。(2)pending-approval.mdに、フォーム送信完了時の連携コード発行を実現するための
+  Googleフォーム作成・GAS Webhookデプロイの承認待ち事項を追記(course-set-pashaの同種案件と
+  同じ範囲を想定)。ドキュメント整備のみで実装・課金・外部接続は伴わない。次回はunfollow
+  イベント処理設計(follow時のウェルカムメッセージ分岐と合わせた検討)、またはコード判定ロジック
+  (6文字・辞書引き一致)の境界値をprototype化して机上検証する作業を候補とする。
 - フェーズ107(2026-08-23 03:00 UTC): subscription-cancellation-flow-design.mdで指摘されたまま
   未設計だった「Stripe Webhookで受信した最新のプランIDへの紐づけ」、およびtech-stack.mdコンポーネント5が
   前提としていた「usage_counterのみが唯一の永続データ」という整理の不正確さに対応し、
