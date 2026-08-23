@@ -1054,14 +1054,27 @@
   `application_form_submission_flow.py`に追加した。テスト5件新規追加(course-set-pasha配下
   計245件パス)。IDトークン検証・実Stripe API呼び出し・トライアル終了通知メッセージ自体は
   未着手のまま次の課題として残る。
-- 最終更新: 2026-08-23 08:00 UTC
+- フェーズ99(2026-08-23 09:00 UTC): フェーズ98の残課題だった、トライアル終了通知メッセージ
+  自体を設計した(`trial-end-notification-design.md`新規作成)。pricing-plan.mdの
+  トライアル条件(14日間 or 生成5回到達のいずれか早い方)を踏まえ、(A)生成完了時の
+  回数到達検知(便乗方式、aircon-pasha/course-set-pashaのlimit-approaching-notification-design.md
+  と同じ手法)と(B)日次スケジューラによる期間到達検知の2経路のうちいずれか早い方で1回のみ
+  送信する設計とし、通知メッセージ文言案(実績報告+checkout-initiation-flow-design.mdの
+  LIFF決済導線へのCTA、自動課金なしの旨を明記)を作成した。「浮いた作業時間の目安」の
+  試算値自体が未作成、トライアル開始起点(follow時 or 初回生成時)の確定、期間到達判定用の
+  スケジューラ実装・生成一時停止判定の実装はいずれも次回以降の課題として残る。LIFFアプリの
+  実登録・Cloud Scheduler実行環境の構築はオーナー承認待ちのため本フェーズでは机上設計のみ。
+- 最終更新: 2026-08-23 09:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-23 09:00 UTC: トライアル終了通知メッセージ自体の設計は
+  `trial-end-notification-design.md`(フェーズ99)で対応した。詳細は上記フェーズ99参照。
+  残るのは「浮いた作業時間の目安」試算・トライアル開始起点の確定・期間到達判定スケジューラ
+  実装・生成一時停止判定の実装)
 - (解消済み 2026-08-23 08:00 UTC: `client_reference_id`を設定する決済導線の設計は
   `checkout-initiation-flow-design.md`(フェーズ98)で対応した。詳細は上記フェーズ98参照。
-  残るのはLIFFアプリの実登録〈オーナー承認待ち〉・IDトークン検証の実装・トライアル終了
-  通知メッセージ自体の設計)
+  残るのはLIFFアプリの実登録〈オーナー承認待ち〉・IDトークン検証の実装)
 - (解消済み 2026-08-23 02:00 UTC: `resolve_user_id`〈`stripe_customer_id → user_id`変換〉の
   実装本体を、フェーズ97・`stripe-customer-id-linking-design.md`/
   `handle_checkout_session_completed()`/`make_resolve_user_id()`で行った

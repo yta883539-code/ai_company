@@ -52,3 +52,8 @@ venture: ventures/aircon-pasha/
 venture: ventures/aircon-pasha/
 内容: customer-interview-design.md相当の想定で候補研究を進めてきた独立系候補5件(候補1リノハンズ・候補3hello-osouji.com・候補7Clean Labo・候補10キキのおそうじ屋・候補12東京住まいる)、フランチャイズ加盟候補3件(候補2篠崎昌則オーナー・候補13金井美樹オーナー・候補14濱暁洋オーナー)について、initial-contact-message-draft.mdで草案した文面・台本を使い、実在の事業者への公式サイト問い合わせフォーム・電話・LINE公式アカウント等での初回コンタクト・ヒアリング協力依頼を実施したい(候補12のみ連絡先が一次情報未確認のため、承認が得られてもまずは残り7件から着手する想定)。
 理由: 料金プランやllm-system-prompt-draft.mdの厳守事項の妥当性を実顧客の声で検証するために必要だが、外部の実在事業者への連絡・送信はオーナー許可が必要なアクションのため、対象候補リスト・連絡文面の確定を含めオーナーの直接指示を待つ。line-reservation-ai(2026-07-30 01:58 UTC承認済み)・course-set-pasha(2026-08-09 01:00 UTC)と同種の案件であり、承認が得られた場合の実行可能範囲も同様(本エージェントに電話発信・LINE送信機能はないため、電話・LINE等の実連絡はオーナー自身が行い、メール送信はGmail連携接続後に送信直前の毎回確認を経てのみ行う)を想定している。
+
+日時: 2026-08-23 09:00 UTC
+venture: ventures/course-set-pasha/
+内容: checkout-initiation-flow-design.md(フェーズ98)・trial-end-notification-design.md(フェーズ99)で設計した決済導線について、実際のLINE DevelopersコンソールでのLIFFアプリ登録、および無料トライアル終了(期間到達)判定用のCloud Scheduler(GCPプロジェクトの課金設定を伴う)の作成を行いたい。
+理由: Checkout Session作成時になりすましを防ぐためのuser_id取得方式としてLIFF経由のIDトークン検証を採用する設計(checkout-initiation-flow-design.md 2節)まで完了しているが、LIFFアプリ自体の登録は外部サービス側でのアカウント作成・設定操作に該当し、Cloud Schedulerの新規作成もGCPプロジェクトの課金設定を伴うため、いずれもオーナーの許可が必要なアクションに該当する。承認が得られれば、LIFFアプリのURL・スコープ設定、IDトークン検証処理(`/oauth2/v2.1/verify`相当)の実装、日次スケジューラのデプロイから着手する。
