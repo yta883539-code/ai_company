@@ -26,7 +26,7 @@ legal-notices-draft.md 2.4節が懸念していた「入力メモ・作業履歴
 
 | コレクション | 用途 | 既存の期限方針 |
 |---|---|---|
-| `pending_links/{code}` | 連携コード(フォーム送信〜LINE連携完了までの一時トークン) | 発行から24時間で自然失効(user-account-linking-design.md 3節、course-set-pashaと同じ方針) |
+| `pending_links/{code}` | 連携コード(フォーム送信〜LINE連携完了までの一時トークン) | 発行から24時間で自然失効(user-account-linking-design.md 3節、course-set-pashaと同じ方針)。unfollow時は書き込み・削除いずれも発生しない(follow-unfollow-event-handling-design.md、フェーズ109・111で確定) |
 | `user_profile/{user_id}` | 屋号・事業形態・メールアドレス・`stripe_customer_id`・`current_plan_id` | 未整理(本文書で整理する) |
 | `usage_counter/{user_id}` | 月間生成回数カウント(`month`・`count`) | 未整理(本文書で整理する) |
 
@@ -41,12 +41,13 @@ legal-notices-draft.md 2.4節が懸念していた「入力メモ・作業履歴
 - `usage_counter`は`month`・`count`のみの最小構成であり、月をまたぐたびに上書きされる
   (蓄積型のアーカイブ構造ではない)ため、「ドキュメント自体をいつ削除するか
   (`user_profile`と運命を共にするか)」だけが論点になる点もcourse-set-pashaと同じ。
-- 本venture固有の相違点: course-set-pashaはunfollow-event-handling-design.mdで
-  「unfollow時点では`user_profile`・`usage_counter`を一切削除・変更しない」と決定済みだが、
-  本ventureはunfollowイベントの処理設計自体が未着手(該当ドキュメントなし)。本文書では
-  unfollow時の扱いをいったん「未決定」と明示し、Stripe解約を起点とする保存期間ポリシーのみ
-  先行して整理する(unfollow時の扱いはfollow/unfollowイベント処理設計時に別途検討する
-  残課題として切り出す)。
+- (2026-08-23追記・フェーズ112: 本文書作成時点(フェーズ108)では本venture固有の相違点として
+  「unfollowイベントの処理設計自体が未着手のため扱いを『未決定』とする」としていたが、
+  follow-unfollow-event-handling-design.md(フェーズ109)・実装(フェーズ111)により
+  「unfollow時点では`pending_links`・`user_profile`・`usage_counter`のいずれにも
+  一切アクセスしない(削除処理を伴わない構造的保証)」が確定した。これはcourse-set-pashaの
+  「unfollow時点では`user_profile`・`usage_counter`を一切削除・変更しない」という決定と
+  結果的に同じ扱いであり、下記「保存期間ポリシー(案)」表の該当行を確定させた)
 
 ## 保存期間ポリシー(案)
 
@@ -58,7 +59,8 @@ data-retention-policy.mdと同じ考え方(「契約関係が続く限りは利�
 |---|---|
 | トライアル中・有料プラン中(Stripeサブスクリプションが active/trialing、`current_plan_id`が設定済み) | 保有継続(現行どおり、変更なし) |
 | Stripeカスタマーポータルで解約済み(subscription-cancellation-flow-design.md「解約確定Webhook受信時」起点、`customer.subscription.deleted`受信) | 解約日から**1年**保有した後、削除候補として洗い出す |
-| LINEをブロック(unfollow)したが、Stripe解約はしていない | 未決定(上記のとおりunfollowイベント処理自体が未設計のため、本文書では扱わない) |
+| LINEをブロック(unfollow)したが、Stripe解約はしていない | 保有継続(2026-08-23追記・フェーズ112: follow-unfollow-event-handling-design.md・フェーズ111実装で確定。課金が続く限り利用目的内、ブロックと解約は別レイヤーの事象として扱う) |
+| 解約済み、かつunfollowも発生している | 上記の解約済み行と同じ(解約日起点の1年。unfollowの有無で扱いを変えない) |
 
 1年という値は、line-reservation-ai・course-set-pashaのdata-retention-policy.mdが採用した
 保存期間と揃えた暫定値であり、実測データに基づくものではない。「解約後の問い合わせ対応
@@ -66,7 +68,8 @@ data-retention-policy.mdと同じ考え方(「契約関係が続く限りは利�
 見直す。
 
 トライアル中・有料プラン中は削除対象にしないため、削除の起点は常に「Stripe解約日」
-(`customer.subscription.deleted`受信日)である。
+(`customer.subscription.deleted`受信日)である。unfollow単独では削除の起点にならない
+(2026-08-23追記・フェーズ112: フェーズ111確定のとおり)。
 
 ## 削除候補化後の最終確認
 
@@ -74,9 +77,9 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
 削除候補として洗い出した後も即座には削除せず、業者へ最終確認を試みることが望ましい。
 
 - 主経路: LINE公式アカウントからのpush送信。ただしブロック(unfollow)済みの場合は
-  送達できない可能性があるが、前述のとおり本ventureはunfollow検知自体が未実装のため、
-  現時点では「送達できたかどうかの判定」自体ができない(unfollow処理設計時にあわせて
-  対応する残課題)。
+  送達できない(2026-08-23追記・フェーズ112: follow-unfollow-event-handling-design.mdの
+  とおり、ブロック中はLINEへの返信自体を行わない方針のため、この経路は使えないことが
+  確定した)。
 - 代替経路: 申込フォーム(onboarding-guide.mdステップ1)で収集した`email`
   (`user_profile.email`、user-account-linking-design.md 5節で確定済みのフィールド)を
   用いた最終確認。実際のメール送信には送信用サービスのアカウント作成が別途必要であり、
@@ -108,10 +111,11 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
 ## 今後の課題
 
 - legal-notices-draft.md 2.4節への本方針の要旨反映(未着手、次回以降の候補)。
-- unfollow(LINEブロック)時の`user_profile`・`usage_counter`の扱いは、本文書では
-  「未決定」のまま残した。course-set-pashaのunfollow-event-handling-design.mdに相当する
-  ドキュメントを本ventureでも新規作成し、その中で本文書の「LINEをブロックしたが、Stripe
-  解約はしていない」行を確定させる必要がある。
+- (解消済み 2026-08-23 14:00 UTC・フェーズ112: unfollow(LINEブロック)時の`user_profile`・
+  `usage_counter`の扱いを「未決定」のまま残していた点は、follow-unfollow-event-handling-
+  design.md(フェーズ109)・prototype/cloud_function_webhook.pyへの実装(フェーズ111)により
+  「保有継続(削除処理を伴わない)」と確定した。詳細は本文書「保存期間ポリシー(案)」表・
+  `user_profile`・`usage_counter`の性質」節参照)
 - 削除候補化後の連絡先(代替経路)は`user_profile.email`を用いる想定としたが、実際の
   Googleフォーム作成(pending-approval.md記載事項、オーナー承認待ち)が完了するまでは
   `email`フィールドの実データ収集自体が発生しないため、フォーム作成後に本節の想定を

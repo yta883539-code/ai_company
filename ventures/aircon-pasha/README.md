@@ -42,6 +42,15 @@
   テキストが連携コードか施工メモかを判定する分岐、user-account-linking-design.md 3節)は
   未実装のまま残る。次回はこのうちどちらかへの着手、または候補研究の残る未確認事項
   (スタッフ数5名以下の直接確認等)の整理を優先候補とする。
+- フェーズ112(2026-08-23 14:00 UTC): フェーズ108でdata-retention-policy.md作成時点では
+  未設計だったため「未決定」のまま切り出していた「LINEブロック(unfollow)時の`user_profile`・
+  `usage_counter`の扱い」を、その後フェーズ109・111で確定したfollow-unfollow-event-handling-
+  design.mdの内容(unfollow時は`pending_links`・`user_profile`・`usage_counter`のいずれにも
+  一切アクセスしない)を踏まえて更新した。保存期間ポリシー表の該当行を「保有継続」で確定させ、
+  削除候補化後の最終確認(LINE push経路)の記述もブロック中は送達不可であることが確定した旨に
+  更新し、「今後の課題」の該当項目を解消済みとして記録した。data-retention-policy.mdの新規作成
+  ではなく、フェーズ108時点で明示的に切り出されていた残課題1点を解消する更新のみで、
+  legal-notices-draft.md 2.4節への反映は引き続き未着手のまま次回以降の課題として残る。
 - フェーズ110(2026-08-23 07:00 UTC): interview-rehearsal-script.mdがフェーズ104
   (customer-interview-design.mdへのQ11〈SNS絵文字質問〉新設、全13問→全14問)の反映漏れで
   古い13問構成のまま放置されていた不整合を発見・解消した。フェーズ104のREADME記載では
