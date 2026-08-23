@@ -13,12 +13,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from deletion_candidate import (
+    InMemoryProfileDeletionCandidateStore,
     ProfileDeletionCandidateStoreProtocol,
     clear_deletion_candidate_on_subscription_reactivated,
     mark_deletion_candidate_on_subscription_deleted,
@@ -205,3 +207,46 @@ def receive_stripe_webhook(
         parsed, store=store, resolve_user_id=resolve_user_id, now=resolved_now
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
+def get_stripe_runtime_dependencies() -> dict:
+    """receive_stripe_webhook()に渡す依存関係一式を組み立てるファクトリ
+    (stripe-webhook-cloud-function-entry-point-design.md 2節)。
+
+    LINE版get_runtime_dependencies()と異なり、`store`・`resolve_user_id`は
+    receive_stripe_webhook()側でNoneを許容しない必須引数のため、空辞書では返せない。
+
+    - store: InMemoryProfileDeletionCandidateStore()を暫定的に返す。実Firestore接続は
+      実GCPプロジェクト作成(オーナー承認待ち)後の課題として別途残る。プロセス起動ごとに
+      初期化されるため、実Cloud Functions環境では呼び出しをまたいで削除候補フラグが
+      保持されない点に注意(design 2節)。
+    - resolve_user_id: stripe_customer_id → user_id変換の実装自体が本venture内で未着手の
+      ため、常にNoneを返す暫定実装とする。dispatch_stripe_event()はNoneを
+      unresolved_customersとして安全に扱い200を返す(フェーズ94で確認済み)。
+    """
+    return {
+        "store": InMemoryProfileDeletionCandidateStore(),
+        "resolve_user_id": lambda _stripe_customer_id: None,
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、Stripe版)。
+
+    stripe-webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた、
+    実リクエストオブジェクトからのbody(`request.get_data()`)・署名ヘッダ
+    (`request.headers.get("Stripe-Signature")`)取り出し配線をここで行い、
+    receive_stripe_webhook()に委譲する(LINE版cloud_function_webhook.main()と対称の構成、
+    design 3節)。`webhook_secret`は環境変数`STRIPE_WEBHOOK_SECRET`から取得する。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    result = receive_stripe_webhook(
+        body, signature_header, webhook_secret, **get_stripe_runtime_dependencies()
+    )
+
+    if result.status_code == 200:
+        return "OK", 200
+    return (result.error or "error"), result.status_code

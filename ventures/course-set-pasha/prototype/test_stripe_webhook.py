@@ -1,11 +1,16 @@
 import hashlib
 import hmac
+import json
+import os
+import time
 import unittest
 from datetime import datetime, timezone
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from stripe_webhook import (
     dispatch_stripe_event,
+    get_stripe_runtime_dependencies,
+    main,
     receive_stripe_webhook,
     verify_stripe_signature,
 )
@@ -266,6 +271,95 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
         result = self._call(body, header)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.dispatch_result.unresolved_customers, ["cus_unknown"])
+
+
+class _StubFlaskRequest:
+    """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ
+    (LINE版test_cloud_function_webhook._StubFlaskRequestと対称)。"""
+
+    def __init__(self, body: bytes, headers: dict):
+        self._body = body
+        self.headers = headers
+
+    def get_data(self) -> bytes:
+        return self._body
+
+
+class MainEntryPointTest(unittest.TestCase):
+    """main()(functions_frameworkエントリポイント、Stripe版)のテスト。
+    stripe-webhook-cloud-function-entry-point-design.mdで設計した、実リクエスト
+    オブジェクトからのbody・Stripe-Signatureヘッダ取り出し配線を検証する
+    (receive_stripe_webhook()自体の分岐はReceiveStripeWebhookTestで既にカバー済み)。"""
+
+    ENV_SECRET = "demo-webhook-secret"
+
+    def _signed_header(self, body: bytes, secret: str) -> str:
+        timestamp = int(time.time())
+        return _header(body, secret, timestamp)
+
+    def setUp(self):
+        self._original_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+        os.environ["STRIPE_WEBHOOK_SECRET"] = self.ENV_SECRET
+
+    def tearDown(self):
+        if self._original_secret is None:
+            os.environ.pop("STRIPE_WEBHOOK_SECRET", None)
+        else:
+            os.environ["STRIPE_WEBHOOK_SECRET"] = self._original_secret
+
+    def test_valid_request_extracts_body_and_signature_and_returns_200(self):
+        body = json.dumps({"id": "evt_1", "type": "unhandled.event"}).encode("utf-8")
+        request = _StubFlaskRequest(
+            body, {"Stripe-Signature": self._signed_header(body, self.ENV_SECRET)}
+        )
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, "OK")
+
+    def test_invalid_signature_returns_401_with_error_body(self):
+        body = json.dumps({"id": "evt_1", "type": "unhandled.event"}).encode("utf-8")
+        request = _StubFlaskRequest(body, {"Stripe-Signature": "t=1,v1=invalid"})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+        self.assertEqual(response_body, "invalid_signature")
+
+    def test_missing_signature_header_returns_401(self):
+        body = json.dumps({"id": "evt_1", "type": "unhandled.event"}).encode("utf-8")
+        request = _StubFlaskRequest(body, {})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+
+    def test_missing_webhook_secret_env_returns_401(self):
+        os.environ.pop("STRIPE_WEBHOOK_SECRET", None)
+        body = json.dumps({"id": "evt_1", "type": "unhandled.event"}).encode("utf-8")
+        request = _StubFlaskRequest(
+            body, {"Stripe-Signature": self._signed_header(body, self.ENV_SECRET)}
+        )
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+
+    def test_get_stripe_runtime_dependencies_output_is_accepted_by_receive_stripe_webhook(self):
+        body = (
+            b'{"id":"evt_1","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        header = self._signed_header(body, self.ENV_SECRET)
+
+        result = receive_stripe_webhook(
+            body, header, self.ENV_SECRET, **get_stripe_runtime_dependencies()
+        )
+
+        self.assertEqual(result.status_code, 200)
+        # resolve_user_idが常にNoneを返す暫定実装のため、unresolved_customersとして扱われる。
+        self.assertEqual(result.dispatch_result.unresolved_customers, ["cus_A"])
 
 
 if __name__ == "__main__":
