@@ -55,6 +55,9 @@ course-set-pashaと同じく、月間生成回数の上限管理(pricing-plan.md
    - 読み書き課金の原価試算はsubscription-billing-cost-estimate.mdの粗利率試算に含まれていない
      ため、course-set-pasha/subscription-billing-cost-estimate.mdの試算方法を踏まえた追試算が
      別途必要(次の課題)。
+   - (2026-08-23追記・フェーズ107: 「usage_counterのみが唯一の永続データ」という上記の整理は
+     不正確だったと判明した。申込フォーム・LINE・Stripeのアカウント紐付けには`pending_links`・
+     `user_profile`の2コレクションが別途必要であり、詳細はuser-account-linking-design.md参照)
 
 ## MVPスコープ(最小構成)
 

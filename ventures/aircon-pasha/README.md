@@ -21,6 +21,22 @@
 
 ## ステータス
 
+- フェーズ107(2026-08-23 03:00 UTC): subscription-cancellation-flow-design.mdで指摘されたまま
+  未設計だった「Stripe Webhookで受信した最新のプランIDへの紐づけ」、およびtech-stack.mdコンポーネント5が
+  前提としていた「usage_counterのみが唯一の永続データ」という整理の不正確さに対応し、
+  申込フォーム・LINE・Stripeのアカウント紐付け設計を新規作成した(user-account-linking-design.md)。
+  course-set-pashaの連携コード方式(line-user-id-linking-design.md)を参考にしつつ、本ventureは
+  「1.申込フォーム→2.LINE友だち追加」という順序が既に確定しているため紐付けの向きを反転させ、
+  フォーム送信完了時に発行した連携コードをLINE初回メッセージで送ってもらう方式とした。あわせて、
+  Stripe決済(オンボーディングのステップ6)がLINE連携完了より後に発生する本venture固有の構造を
+  活かし、Checkout Session作成時に`client_reference_id`へ既知のuser_idをそのまま設定することで
+  course-set-pashaのような決済後の逆引き連携コードが不要になる点を整理した。新設が必要な
+  `pending_links`・`user_profile`の2コレクション(`usage_counter`と合わせ計3コレクション)を
+  表形式で確定し、tech-stack.mdコンポーネント5に追記した。ドキュメント整備のみで実装・課金・
+  外部接続は伴わない。次回はuser-account-linking-design.mdを前提としたdata-retention-policy.md
+  (legal-notices-draft.md 2.4節で保留していた課題)の新規作成、または候補12関連・
+  llm-quality-verification-plan.mdの精緻化等、オーナーの初回コンタクト承認可否を待つ間の
+  他領域の前進を検討する。
 - フェーズ106(2026-08-22 22:00 UTC): フェーズ104・105の申し送りだった「候補12関連」の
   確認として、candidate-longlist-draft.md(第1〜58弾)・initial-contact-message-draft.mdを
   突き合わせたところ、独立系5候補(候補1・3・7・10・12)・フランチャイズ加盟3候補

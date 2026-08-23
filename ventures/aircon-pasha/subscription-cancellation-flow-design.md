@@ -104,7 +104,9 @@ course-set-pasha/subscription-cancellation-flow-design.mdがWebSearchで確認�
   従量課金方式でそのまま吸収する(course-set-pashaと同じ結論)。
 - 実装への反映: `usage_counter`の上限値参照先を「Stripe Webhookで受信した最新のプランID」
   に紐づける必要がある点は、course-set-pashaと共通の留意点として実装時に反映する
-  (実装自体はオーナー承認待ちの範囲)。
+  (実装自体はオーナー承認待ちの範囲)。(解消済み 2026-08-23・フェーズ107:
+  user-account-linking-design.mdで`user_profile/{user_id}.current_plan_id`フィールドとして
+  設計した。`customer.subscription.*`受信のたびに更新する方針を確定済み)。
 
 ## 本venture固有の論点: 季節性に伴うダウングレードの偏り
 
