@@ -19,10 +19,12 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
+    APPLICATION_FORM_URL_PLACEHOLDER,
     LENGTH_LIMIT_FALLBACK_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    InMemoryApplicationFormLinkProvider,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
@@ -30,7 +32,10 @@ from cloud_function_webhook import (  # noqa: E402
     ReplyApiError,
     build_usage_notice,
     format_reply_text,
+    format_welcome_message,
+    process_follow_event,
     process_memo_event,
+    process_unfollow_event,
     render_subscription_procedure_notice,
     validate_llm_output,
 )
@@ -532,6 +537,88 @@ class ProcessMemoEventCancellationFlowTest(unittest.TestCase):
         )
 
         self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+
+class ProcessFollowEventTest(unittest.TestCase):
+    """follow-unfollow-event-handling-design.md 1節、残課題の想定テストケース(1)(2)。"""
+
+    def test_follow_event_sends_fixed_welcome_message_without_linking_code(self):
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow",
+            "replyToken": "reply-token-1",
+            "source": {"userId": "u-1"},
+        }
+        result = process_follow_event(event, reply_client)
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertFalse(hasattr(result, "linking_code"))
+        sent_text = reply_client.sent[0][1]
+        self.assertIn("友だち追加ありがとうございます", sent_text)
+        self.assertIn("連携コード(6文字)をお持ちの方", sent_text)
+        self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, sent_text)
+
+    def test_follow_event_uses_form_link_provider_url_when_connected(self):
+        reply_client = InMemoryReplyClient()
+        provider = InMemoryApplicationFormLinkProvider(url="https://forms.gle/real-form")
+        event = {"type": "follow", "replyToken": "reply-token-2", "source": {"userId": "u-1"}}
+
+        process_follow_event(event, reply_client, form_link_provider=provider)
+
+        sent_text = reply_client.sent[0][1]
+        self.assertIn("https://forms.gle/real-form", sent_text)
+        self.assertNotIn(APPLICATION_FORM_URL_PLACEHOLDER, sent_text)
+
+    def test_follow_event_falls_back_to_placeholder_when_provider_returns_none(self):
+        reply_client = InMemoryReplyClient()
+        provider = InMemoryApplicationFormLinkProvider(url=None)
+        event = {"type": "follow", "replyToken": "reply-token-3", "source": {"userId": "u-1"}}
+
+        process_follow_event(event, reply_client, form_link_provider=provider)
+
+        self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, reply_client.sent[0][1])
+
+    def test_non_follow_event_is_not_handled(self):
+        reply_client = InMemoryReplyClient()
+        result = process_follow_event({"type": "message"}, reply_client)
+
+        self.assertFalse(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_follow_event_without_user_id_sends_no_reply(self):
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "reply-token-4", "source": {}}
+
+        result = process_follow_event(event, reply_client)
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.reply_sent)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_format_welcome_message_without_provider_uses_placeholder(self):
+        message = format_welcome_message(None)
+        self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, message)
+
+
+class ProcessUnfollowEventTest(unittest.TestCase):
+    """follow-unfollow-event-handling-design.md 2節、残課題の想定テストケース(3)。
+    pending_links・user_profileのいずれにも書き込み・削除が発生しないことは、本venture版が
+    そもそもそれらのストアへアクセスする引数を持たない実装(design 2節)であることによって
+    構造的に保証される。"""
+
+    def test_unfollow_event_is_handled_with_no_side_effects(self):
+        result = process_unfollow_event({"type": "unfollow", "source": {"userId": "u-1"}})
+        self.assertTrue(result.handled)
+
+    def test_unfollow_event_handled_even_without_user_id(self):
+        result = process_unfollow_event({"type": "unfollow", "source": {}})
+        self.assertTrue(result.handled)
+
+    def test_non_unfollow_event_is_not_handled(self):
+        result = process_unfollow_event({"type": "message"})
+        self.assertFalse(result.handled)
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

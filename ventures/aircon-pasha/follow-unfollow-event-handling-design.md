@@ -120,6 +120,10 @@ course-set-pashaとの唯一の差異は「pending_links」行であり、これ
 
 ## 残課題
 
+- (解消済み 2026-08-23 10:00 UTC・フェーズ111: 本ドキュメントで設計した`process_follow_event()`・
+  `process_unfollow_event()`をprototype/cloud_function_webhook.pyに実装した。テスト50件
+  全件パス。詳細はREADME.mdフェーズ111参照。残る2項目〈ディスパッチ経路自体、
+  `process_message_event()`相当のコード判定分岐〉は引き続き未実装のまま残る)
 - 本ventureには`follow`/`unfollow`のディスパッチ経路自体(course-set-pashaの
   `webhook-event-dispatch-design.md`・`receive-webhook-http-entry-point-design.md`相当)が
   まだ存在しない。現状の`prototype/cloud_function_webhook.py`は`process_memo_event()`

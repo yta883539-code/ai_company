@@ -87,6 +87,107 @@ class InMemoryReplyClient:
 
 
 # ---------------------------------------------------------------------------
+# follow/unfollowイベント処理
+# (follow-unfollow-event-handling-design.mdの実装。course-set-pashaのFollowProcessResult/
+#  process_follow_event/UnfollowProcessResult/process_unfollow_eventと構成をそろえたが、
+#  本ventureは「フォーム送信 → LINE友だち追加」の順序が確定しているため、followイベント
+#  自体では連携コードを発行しない〈design 1節〉。そのためlinking_store・rng・nowの引数は
+#  不要で、course-set-pasha版より単純な実装になっている。)
+# ---------------------------------------------------------------------------
+
+APPLICATION_FORM_URL_PLACEHOLDER = "{お申込みフォーム URL}"
+
+
+class ApplicationFormLinkProvider(Protocol):
+    """申込フォームの共有URL取得を表す差し替え可能なProtocol(course-set-pashaと同じ位置づけ)。
+    取得できない場合はNoneを返す契約とする。"""
+
+    def get_form_url(self) -> Optional[str]:
+        ...
+
+
+class InMemoryApplicationFormLinkProvider:
+    """実フォームURL確定前の代わりに固定URL(またはNone)を返す検証用スタブ。"""
+
+    def __init__(self, url: Optional[str] = "https://forms.gle/stub-application-form") -> None:
+        self._url = url
+
+    def get_form_url(self) -> Optional[str]:
+        return self._url
+
+
+def format_welcome_message(form_link_provider: Optional[ApplicationFormLinkProvider]) -> str:
+    """design 1節のウェルカムメッセージ本文を組み立てる。本ventureはfollow時点でコードを
+    発行しないため、course-set-pashaのformat_welcome_message()と異なり連携コードの差し込みは
+    行わない(固定テンプレート)。form_link_providerが未接続(None)、またはURL取得自体に
+    失敗した場合はプレースホルダのまま返す(design 1節と同じ考え方)。"""
+    form_url = APPLICATION_FORM_URL_PLACEHOLDER
+    if form_link_provider is not None:
+        fetched = form_link_provider.get_form_url()
+        if fetched:
+            form_url = fetched
+
+    return (
+        "エアコンパシャッと 友だち追加ありがとうございます!\n\n"
+        "このサービスは、エアコンクリーニング作業後の簡単なメモを送るだけで、依頼者向け完了報告・"
+        "お手入れ案内・作業記録の下書きをまとめて生成するツールです。\n\n"
+        "お申込みフォームで発行された連携コード(6文字)をお持ちの方は、そのままこのトークに"
+        "コードを送信してください。\n\n"
+        "まだお申込みがお済みでない方は、下記フォームからお申込みください。\n"
+        f"{form_url}"
+    )
+
+
+@dataclass
+class FollowProcessResult:
+    """process_follow_event()の結果(design 1節)。コード発行を伴わないため
+    course-set-pasha版のlinking_codeフィールドは持たない。"""
+
+    handled: bool
+    reply_sent: bool
+
+
+def process_follow_event(
+    event: dict,
+    reply_client: ReplyClient,
+    *,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+) -> FollowProcessResult:
+    """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 1節)。"""
+    if event.get("type") != "follow":
+        return FollowProcessResult(handled=False, reply_sent=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if not user_id:
+        return FollowProcessResult(handled=True, reply_sent=False)
+
+    message_text = format_welcome_message(form_link_provider)
+    reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)
+    return FollowProcessResult(handled=True, reply_sent=reply_sent)
+
+
+@dataclass
+class UnfollowProcessResult:
+    """process_unfollow_event()の結果(design 2節「決定のまとめ」)。"""
+
+    handled: bool
+
+
+def process_unfollow_event(event: dict) -> UnfollowProcessResult:
+    """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提、design 2節)。
+
+    design 2節「決定のまとめ」の通り、本ventureはunfollow時に一切のデータ変更を行わない
+    (`pending_links`はuser_idと紐付かないため検索不能・24時間の自然失効に委ねる、
+    `user_profile`・`usage_counter`は再フォロー時の手間を省くため保持)。LINEへの返信も
+    行わない(ブロックされているため送達不可)。course-set-pasha版と異なりlinking_store
+    引数を持たない(削除対象となるデータが存在しないため)。
+    """
+    if event.get("type") != "unfollow":
+        return UnfollowProcessResult(handled=False)
+    return UnfollowProcessResult(handled=True)
+
+
+# ---------------------------------------------------------------------------
 # 月間生成回数カウント・上限接近通知
 # (limit-approaching-notification-design.md 2〜5節の実装。course-set-pashaの
 #  UsageCounterProtocol/InMemoryUsageCounter/build_usage_noticeと同じ構成だが、
@@ -529,6 +630,18 @@ def _demo() -> None:
     image_only_event = {"replyToken": "demo-reply-token-2", "message": {"type": "image"}}
     result2 = process_memo_event(image_only_event, StubLlmClient(), reply_client)
     print(f"\n[image-only event] handled={result2.handled}")
+
+    follow_event = {
+        "type": "follow",
+        "replyToken": "demo-reply-token-3",
+        "source": {"userId": "demo-user-1"},
+    }
+    follow_result = process_follow_event(follow_event, reply_client)
+    print(f"\n[follow event] handled={follow_result.handled} reply_sent={follow_result.reply_sent}")
+
+    unfollow_event = {"type": "unfollow", "source": {"userId": "demo-user-1"}}
+    unfollow_result = process_unfollow_event(unfollow_event)
+    print(f"[unfollow event] handled={unfollow_result.handled}")
 
 
 if __name__ == "__main__":

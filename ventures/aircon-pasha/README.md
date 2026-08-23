@@ -21,6 +21,27 @@
 
 ## ステータス
 
+- フェーズ111(2026-08-23 10:00 UTC): フェーズ110の申し送り通り、follow-unfollow-event-
+  handling-design.md(フェーズ109)で設計済みだった`process_follow_event()`・
+  `process_unfollow_event()`をprototype/cloud_function_webhook.pyに実装した。
+  followイベントは本venture固有の「フォーム送信 → LINE友だち追加」の順序(コード発行済み)
+  を反映し、course-set-pashaと異なり連携コードを発行しない固定文言のウェルカムメッセージ
+  (`format_welcome_message()`、`ApplicationFormLinkProvider`/`InMemoryApplicationFormLinkProvider`
+  経由でフォームURLを差し込み、未接続時はプレースホルダのまま返す)を返信する構成とした。
+  unfollowイベントはdesign 2節「決定のまとめ」通り、`pending_links`・`user_profile`・
+  `usage_counter`のいずれにも一切アクセスせず`handled=True`を返すだけの薄い実装とし、
+  course-set-pasha版のような`linking_store`引数自体を持たせないことで「削除処理が
+  存在しないこと」を構造的に保証した。design「プロトタイプ実装方針」で挙げられていた
+  最低3ケース(follow正常系、form_link_provider未接続/接続時のURL差し替え、unfollow時に
+  データ変更が発生しないこと)に加え、userId欠落時・イベント種別不一致時の防御的分岐も
+  含めテストを追加し(test_cloud_function_webhook.py、ProcessFollowEventTest・
+  ProcessUnfollowEventTest新設)、全50件パスを確認した。_demo()にもfollow/unfollow
+  イベントの実行例を追加した。design「残課題」に残っていた3項目のうち、本フェーズでは
+  follow/unfollow処理本体のみに着手し、(1)`dispatch_webhook_events()`(3つのイベント種別
+  への振り分け経路自体)、(2)`process_message_event()`相当(follow後の1:1トークで受信した
+  テキストが連携コードか施工メモかを判定する分岐、user-account-linking-design.md 3節)は
+  未実装のまま残る。次回はこのうちどちらかへの着手、または候補研究の残る未確認事項
+  (スタッフ数5名以下の直接確認等)の整理を優先候補とする。
 - フェーズ110(2026-08-23 07:00 UTC): interview-rehearsal-script.mdがフェーズ104
   (customer-interview-design.mdへのQ11〈SNS絵文字質問〉新設、全13問→全14問)の反映漏れで
   古い13問構成のまま放置されていた不整合を発見・解消した。フェーズ104のREADME記載では
