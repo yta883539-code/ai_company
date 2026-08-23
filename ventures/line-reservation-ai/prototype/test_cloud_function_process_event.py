@@ -18,11 +18,13 @@ from cloud_function_process_event import (  # noqa: E402
     BOOKING_CONFLICT_MESSAGE,
     BOOKING_CONFLICT_RETRY_MESSAGE,
     CHANGE_NO_CANDIDATES_MESSAGE,
+    CHANGE_REASK_MENU_MESSAGE,
     ConversationEventProcessor,
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
     LinePushDeliveryError,
     REASK_DATE_RANGE_MESSAGE,
+    REASK_MENU_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
     resolve_menu_duration,
 )
@@ -899,12 +901,12 @@ class ChangeIntentTests(unittest.TestCase):
 
         return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call, NOW)
 
-    def _change(self, processor, user_id="U1", date_range_day=None):
+    def _change(self, processor, user_id="U1", date_range_day=None, menu="カット"):
         day = date_range_day or NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
 
         def llm_call():
             return {
-                "intent": "change", "name": None, "menu": "カット",
+                "intent": "change", "name": None, "menu": menu,
                 "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
                 "needs_owner_check": True,
                 "requested_date_range": {"start": day.isoformat(), "end": day.isoformat()},
@@ -1016,6 +1018,44 @@ class ChangeIntentTests(unittest.TestCase):
         self.assertEqual(result.action, "reask")
         self.assertEqual(result.detail, "no_date_range_or_no_candidates")
         self.assertEqual(push.sent[-1][1], REASK_DATE_RANGE_MESSAGE)
+
+    def test_change_after_confirmed_with_menu_not_mentioned_uses_change_specific_reask(self):
+        """menu-unmentioned-vs-unregistered-design.md「既知の限界」で指摘していた、change経由で
+        _start_new_booking()に入りメニューが未言及だった場合の文言出し分け。旧予約を解放済み
+        (confirmed→release)であるにもかかわらずメニューが不明な場合は、通常のREASK_MENU_MESSAGE
+        ではなく「以前のご予約は取り消し済み」である旨を含むCHANGE_REASK_MENU_MESSAGEを送る。
+        """
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        self._select_first_candidate(processor)
+        self._confirm_details(processor, name="山田")
+        confirmed_slot_key = next(iter(flow._slots._slots))
+        self.assertEqual(flow._slots.status(confirmed_slot_key, NOW), "confirmed")
+
+        result = self._change(processor, menu=None)
+
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "menu_not_mentioned_change")
+        # 旧予約は既にreleaseされている(通常のchange成功時と変わらない)。
+        self.assertIsNone(flow._slots.status(confirmed_slot_key, NOW))
+        # 「取り消した」旨の案内 → メニュー未言及時のchange専用文言、の順に2通届く。
+        self.assertIn("取り消し", push.sent[-2][1])
+        self.assertEqual(push.sent[-1][1], CHANGE_REASK_MENU_MESSAGE)
+
+    def test_change_while_candidates_presented_with_menu_not_mentioned_uses_generic_reask(self):
+        """旧予約を解放していない(candidates_presented、まだhold()していない)場合は
+        「取り消した」実体が無いため、change専用文言ではなく通常のREASK_MENU_MESSAGEで
+        聞き直す(test_change_while_candidates_presented_with_no_new_candidates_uses_generic_reask
+        と対称)。
+        """
+        processor, _, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        result = self._change(processor, menu=None)
+
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "menu_not_mentioned")
+        self.assertEqual(push.sent[-1][1], REASK_MENU_MESSAGE)
 
 
 class ConfirmedReplyRecordingTests(unittest.TestCase):

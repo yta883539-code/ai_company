@@ -1470,6 +1470,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-23 16:00 UTC・フェーズ続き128: menu-unmentioned-vs-unregistered-design.mdの
+  「既知の限界・今回のスコープ外」に残っていたもう1点、「change(予約変更)フロー経由で
+  _start_new_booking()が呼ばれメニュー未言及だった場合もCHANGE_NO_CANDIDATES_MESSAGEと同じ
+  文言出し分けが未対応」に対応した。CHANGE_REASK_MENU_MESSAGE定数を新設し、change経由(旧予約を
+  解放済み)でメニュー未言及の場合は「以前のご予約は取り消し済み」である旨を含む専用文言を送る
+  よう`_start_new_booking()`のメニュー未言及分岐を拡張(DispatchResult.detailも
+  "menu_not_mentioned_change"で区別)。CHANGE_NO_CANDIDATES_MESSAGE/REASK_DATE_RANGE_MESSAGEの
+  既存の出し分け(released_old_bookingの有無で判定)と対称の設計とした。
+  test_cloud_function_process_event.pyにchange経由・candidates_presented経由(旧予約未解放)の
+  両ケースのテストを追加(テスト2件追加、プロトタイプ全体305件パス)。残る既知の限界は
+  `_pending_new_booking_context_by_user`にTTLが無い点のみ)
 - (解消済み 2026-08-23 06:00 UTC・フェーズ続き127: menu-unmentioned-vs-unregistered-design.mdの
   残課題だった「LLM構造化出力側での`menu`未言及時の前提の明文化」に対応し、
   llm-system-prompt-draft.md(`menu`フィールド説明・改訂履歴)とintent-to-flow-mapping.md

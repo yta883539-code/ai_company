@@ -56,10 +56,11 @@ conversation-samples-test-cases.md E1(曖昧な日時表現)は「日時は曖�
 
 ## 既知の限界・今回のスコープ外
 
-- change(予約変更)フロー経由で`_start_new_booking()`が呼ばれメニュー未言及だった場合も
-  同じ聞き返しに倒れるが、change専用の文言(旧予約を解放済みである旨)は付与していない。
-  change時のメニュー未言及は現状想定頻度が低いと考え今回は対象外とし、実際に問題になった
-  場合に`CHANGE_NO_CANDIDATES_MESSAGE`同様の専用文言を検討する。
+- (解消済み 2026-08-23 16:00 UTC・フェーズ128: change(予約変更)フロー経由で
+  `_start_new_booking()`が呼ばれメニュー未言及だった場合の専用文言を`CHANGE_REASK_MENU_MESSAGE`
+  として実装した。`CHANGE_NO_CANDIDATES_MESSAGE`と同じくreleased_old_bookingの有無で
+  出し分ける設計。詳細はcloud_function_process_event.pyの`_start_new_booking()`・
+  test_cloud_function_process_event.pyの該当テスト参照)
 - `_pending_new_booking_context_by_user`にTTL・タイムアウトは設けていない
   (`_search_context_by_user`等の既存キャッシュと同様、会話が長時間放置された場合の
   挙動は今後の課題として残す)。

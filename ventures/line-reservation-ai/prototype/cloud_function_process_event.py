@@ -187,6 +187,13 @@ REASK_NAME_MENU_MESSAGE = "当店: お名前とご希望のメニューを教え
 # menu-unmentioned-vs-unregistered-design.md準拠。新規予約開始ターンでメニューが
 # 未言及(LLM出力のmenuがNone)の場合に、検索前に聞き返す文言。
 REASK_MENU_MESSAGE = "当店: ご希望のメニューを教えていただけますか?"
+# menu-unmentioned-vs-unregistered-design.md「既知の限界・今回のスコープ外」準拠。change経由で
+# _start_new_booking()に入りメニュー未言及だった場合、CHANGE_NO_CANDIDATES_MESSAGEと同様に
+# 「以前のご予約は取り消し済み」である旨を含めないと顧客が失念しうるため専用文言を用意する。
+CHANGE_REASK_MENU_MESSAGE = (
+    "当店: 日時変更を承りました(以前のご予約は取り消し済みです)。"
+    "変更後のご希望のメニューを教えていただけますか?"
+)
 BOOKING_CONFLICT_MESSAGE = (
     "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
     "担当より改めて空き状況をご案内いたしますので少々お待ちください。"
@@ -496,9 +503,14 @@ class ConversationEventProcessor:
             # 未言及」は「メニュー未登録」とは区別し、その場でオーナー転送にはせず、検索前に
             # 聞き返す。日時範囲等の既出情報は_pending_new_booking_context_by_userに保持し
             # 次ターンへ引き継ぐ(オーナーへの人手対応を減らす狙い)。
+            # change経由(旧予約を解放済み)の場合はCHANGE_NO_CANDIDATES_MESSAGEと対称に、
+            # 「以前のご予約は取り消し済み」である旨を含む専用文言を送る(menu-unmentioned-vs-
+            # unregistered-design.md「既知の限界」準拠)。
             self._pending_new_booking_context_by_user[user_id] = output
-            self._send(user_id, REASK_MENU_MESSAGE, now)
-            return DispatchResult(action="reask", detail="menu_not_mentioned")
+            message = CHANGE_REASK_MENU_MESSAGE if change_context else REASK_MENU_MESSAGE
+            self._send(user_id, message, now)
+            detail = "menu_not_mentioned_change" if change_context else "menu_not_mentioned"
+            return DispatchResult(action="reask", detail=detail)
         self._pending_new_booking_context_by_user.pop(user_id, None)
 
         menu_minutes = resolve_menu_duration(menu_name, self._menu_durations)
