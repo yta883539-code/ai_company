@@ -32,6 +32,10 @@ class UserProfileStoreProtocol(Protocol):
     stripe-customer-id-linking-design.md(フェーズ97)で追加した、`stripe_customer_id`
     (StripeカスタマーオブジェクトのID)と`user_id`の相互紐付けを表す。Stripe Webhookの
     `resolve_user_id(stripe_customer_id) -> user_id`変換をこの逆引きで実現する。
+
+    `get_stripe_customer_id`(順引き)は checkout-initiation-flow-design.md(フェーズ98)で
+    追加した。Checkout Session作成時に、既存のStripe顧客(過去に決済経験がある解約・再契約
+    ユーザー等)を再利用するかどうかの判定に使う。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
@@ -41,6 +45,9 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        ...
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
         ...
 
     def get_user_id_by_stripe_customer_id(
@@ -81,6 +88,9 @@ class InMemoryUserProfileStore:
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
         self._stripe_customer_ids[user_id] = stripe_customer_id
         self._user_ids_by_stripe_customer_id[stripe_customer_id] = user_id
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
+        return self._stripe_customer_ids.get(user_id)
 
     def get_user_id_by_stripe_customer_id(
         self, stripe_customer_id: str

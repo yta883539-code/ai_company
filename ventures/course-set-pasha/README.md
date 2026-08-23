@@ -1043,10 +1043,25 @@
   course-set-pasha配下計240件パス)。Stripe Checkout Session作成時に
   `client_reference_id`を設定する決済導線自体(申込フォーム提出後、どのUIから
   Checkoutを開始するか)は未設計のまま次の課題として残る。
-- 最終更新: 2026-08-23 02:00 UTC
+- フェーズ98(2026-08-23 08:00 UTC): フェーズ97の残課題だった、Stripe Checkout Session
+  作成時に`client_reference_id`へ内部`user_id`を設定する決済導線を設計した
+  (`checkout-initiation-flow-design.md`)。トリガーはpricing-plan.mdの無料トライアル条件
+  (カード登録不要・自動課金なし)に基づき「本人が有料プランへ進むボタンを押した時」のみとし、
+  なりすまし決済導線を避けるためLINE LIFF経由でLINEのuserIdを取得する方式を採用した(LIFF
+  アプリ自体の実登録はオーナー承認待ちとして扱う)。パラメータ組み立て部分を
+  `build_checkout_session_params()`(`prototype/checkout_session.py`)として実装し、既存
+  `stripe_customer_id`の再利用判定に使う`get_stripe_customer_id()`(順引き)を
+  `application_form_submission_flow.py`に追加した。テスト5件新規追加(course-set-pasha配下
+  計245件パス)。IDトークン検証・実Stripe API呼び出し・トライアル終了通知メッセージ自体は
+  未着手のまま次の課題として残る。
+- 最終更新: 2026-08-23 08:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-23 08:00 UTC: `client_reference_id`を設定する決済導線の設計は
+  `checkout-initiation-flow-design.md`(フェーズ98)で対応した。詳細は上記フェーズ98参照。
+  残るのはLIFFアプリの実登録〈オーナー承認待ち〉・IDトークン検証の実装・トライアル終了
+  通知メッセージ自体の設計)
 - (解消済み 2026-08-23 02:00 UTC: `resolve_user_id`〈`stripe_customer_id → user_id`変換〉の
   実装本体を、フェーズ97・`stripe-customer-id-linking-design.md`/
   `handle_checkout_session_completed()`/`make_resolve_user_id()`で行った
