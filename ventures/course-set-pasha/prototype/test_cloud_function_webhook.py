@@ -700,6 +700,59 @@ class InMemoryUsageCounterAtomicNoticeTest(unittest.TestCase):
         self.assertTrue(counter.has_sent("u-1"))
 
 
+class InMemoryUsageCounterTrialStartAtTest(unittest.TestCase):
+    """InMemoryUsageCounter.set_trial_start_at_if_unset()・get_trial_start_at()、および
+    increment_and_mark_notice()へのtrial_start_at相乗り(trial-start-anchor-decision.md 3節)。"""
+
+    def test_get_trial_start_at_defaults_to_none(self):
+        counter = InMemoryUsageCounter()
+
+        self.assertIsNone(counter.get_trial_start_at("u-1"))
+
+    def test_set_trial_start_at_if_unset_records_value(self):
+        counter = InMemoryUsageCounter()
+        moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        counter.set_trial_start_at_if_unset("u-1", moment)
+
+        self.assertEqual(counter.get_trial_start_at("u-1"), moment)
+
+    def test_set_trial_start_at_if_unset_does_not_overwrite_existing_value(self):
+        counter = InMemoryUsageCounter()
+        first_moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+        later_moment = datetime(2026, 8, 24, 9, 0, tzinfo=timezone(timedelta(hours=9)))
+        counter.set_trial_start_at_if_unset("u-1", first_moment)
+
+        counter.set_trial_start_at_if_unset("u-1", later_moment)
+
+        self.assertEqual(counter.get_trial_start_at("u-1"), first_moment)
+
+    def test_increment_and_mark_notice_sets_trial_start_at_when_provided(self):
+        counter = InMemoryUsageCounter()
+        moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True, trial_start_at=moment)
+
+        self.assertEqual(counter.get_trial_start_at("u-1"), moment)
+
+    def test_increment_and_mark_notice_without_trial_start_at_leaves_it_unset(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True)
+
+        self.assertIsNone(counter.get_trial_start_at("u-1"))
+
+    def test_increment_and_mark_notice_does_not_overwrite_trial_start_at_on_later_calls(self):
+        counter = InMemoryUsageCounter()
+        first_moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+        later_moment = datetime(2026, 9, 1, 9, 0, tzinfo=timezone(timedelta(hours=9)))
+        counter.increment_and_mark_notice("u-1", "2026-08", mark_notice_sent=True, trial_start_at=first_moment)
+
+        counter.increment_and_mark_notice("u-1", "2026-09", mark_notice_sent=False, trial_start_at=later_moment)
+
+        self.assertEqual(counter.get_trial_start_at("u-1"), first_moment)
+
+
 class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
     """increment()・mark_sent()が単体(increment_and_mark_notice()を介さず)で呼ばれた回数を
     記録するスパイ。process_memo_event()が本当にincrement_and_mark_notice()経由の単一書き込み
@@ -723,11 +776,11 @@ class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
             self.direct_mark_sent_calls += 1
         return super().mark_sent(user_id)
 
-    def increment_and_mark_notice(self, user_id, month, mark_notice_sent):
+    def increment_and_mark_notice(self, user_id, month, mark_notice_sent, trial_start_at=None):
         self.atomic_calls += 1
         self._in_atomic_call = True
         try:
-            return super().increment_and_mark_notice(user_id, month, mark_notice_sent)
+            return super().increment_and_mark_notice(user_id, month, mark_notice_sent, trial_start_at)
         finally:
             self._in_atomic_call = False
 
@@ -790,6 +843,71 @@ class ProcessMemoEventAtomicNoticeWriteTest(unittest.TestCase):
         self.assertIn(FIRST_GENERATION_NOTICE_BODY, result.reply_text)
         self.assertTrue(notice_store.has_sent("u-1"))
         self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 1)
+
+
+class ProcessMemoEventTrialStartAtTest(unittest.TestCase):
+    """process_memo_event()がtrial_start_atを初回生成成功時にのみ、指定された`now`で
+    記録すること(trial-start-anchor-decision.md 3節「初回生成成功時に1回だけ設定」)の検証。
+    2ステップの書き込み経路(usage_counterとfirst_generation_notice_storeが別インスタンス)、
+    原子的書き込み経路(同一インスタンス)の両方をカバーする。"""
+
+    def test_first_generation_sets_trial_start_at_via_two_step_path(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+        moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            plan="ライト", month="2026-08", now=moment,
+        )
+
+        self.assertEqual(usage_counter.get_trial_start_at("u-1"), moment)
+
+    def test_first_generation_sets_trial_start_at_via_atomic_path(self):
+        store = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=store, first_generation_notice_store=store,
+            plan="ライト", month="2026-08", now=moment,
+        )
+
+        self.assertEqual(store.get_trial_start_at("u-1"), moment)
+
+    def test_second_generation_does_not_overwrite_trial_start_at(self):
+        usage_counter = InMemoryUsageCounter()
+        notice_store = InMemoryFirstGenerationNoticeStore()
+        reply_client = InMemoryReplyClient()
+        first_moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+        later_moment = datetime(2026, 8, 24, 9, 0, tzinfo=timezone(timedelta(hours=9)))
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            plan="ライト", month="2026-08", now=first_moment,
+        )
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, first_generation_notice_store=notice_store,
+            plan="ライト", month="2026-08", now=later_moment,
+        )
+
+        self.assertEqual(usage_counter.get_trial_start_at("u-1"), first_moment)
+
+    def test_no_usage_counter_means_no_trial_start_at_error(self):
+        # usage_counter未接続時(None)は、trial_start_atの記録もカウント処理自体と同様に
+        # 単純にスキップされる(例外にならないことのみ確認)。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertTrue(result.reply_sent)
 
 
 class SubscriptionProcedureNoticeTest(unittest.TestCase):

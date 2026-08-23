@@ -122,6 +122,18 @@ class UsageCounterProtocol(Protocol):
         """インクリメント後のカウント値を返す契約とする。"""
         ...
 
+    def set_trial_start_at_if_unset(self, user_id: str, trial_start_at: datetime) -> None:
+        """trial-start-anchor-decision.md 3節: usage_counterドキュメントの`trial_start_at`
+        フィールドへの書き込み。既に値が設定済みのユーザーに対しては何もしない(初回生成成功時に
+        1回だけ設定、以降不変という契約を実装側で冪等に保証する)。このメソッドを実装しない
+        UsageCounterProtocol実装ではtrial_start_atの記録自体がスキップされる
+        (process_memo_event側でhasattr()により対応有無を判定する、increment_and_mark_notice
+        と同じ後方互換の考え方)。"""
+        ...
+
+    def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -130,9 +142,17 @@ class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     このメソッドを実装しないUsageCounterProtocol実装は従来通り2ステップの書き込みにとどまる
     (process_memo_event側でhasattr()により対応有無を判定する)。"""
 
-    def increment_and_mark_notice(self, user_id: str, month: str, mark_notice_sent: bool) -> int:
-        """count増分と(mark_notice_sent=Trueの場合のみ)first_generation_notice_sentの更新を
-        単一書き込みとして行う。インクリメント後のカウント値を返す契約とする。"""
+    def increment_and_mark_notice(
+        self,
+        user_id: str,
+        month: str,
+        mark_notice_sent: bool,
+        trial_start_at: Optional[datetime] = None,
+    ) -> int:
+        """count増分と(mark_notice_sent=Trueの場合のみ)first_generation_notice_sentの更新、
+        および(trial_start_atが渡され、かつ未設定の場合のみ)trial_start_atの設定を
+        単一書き込みとして行う(trial-start-anchor-decision.md 3節「同一書き込みに相乗り」)。
+        インクリメント後のカウント値を返す契約とする。"""
         ...
 
 
@@ -149,6 +169,7 @@ class InMemoryUsageCounter:
     def __init__(self) -> None:
         self._counts: dict[tuple[str, str], int] = {}
         self._notice_sent: set = set()
+        self._trial_start_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -164,9 +185,24 @@ class InMemoryUsageCounter:
     def mark_sent(self, user_id: str) -> None:
         self._notice_sent.add(user_id)
 
-    def increment_and_mark_notice(self, user_id: str, month: str, mark_notice_sent: bool) -> int:
+    def set_trial_start_at_if_unset(self, user_id: str, trial_start_at: datetime) -> None:
+        if user_id not in self._trial_start_at:
+            self._trial_start_at[user_id] = trial_start_at
+
+    def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
+        return self._trial_start_at.get(user_id)
+
+    def increment_and_mark_notice(
+        self,
+        user_id: str,
+        month: str,
+        mark_notice_sent: bool,
+        trial_start_at: Optional[datetime] = None,
+    ) -> int:
         if mark_notice_sent:
             self._notice_sent.add(user_id)
+        if trial_start_at is not None:
+            self.set_trial_start_at_if_unset(user_id, trial_start_at)
         return self.increment(user_id, month)
 
 
@@ -781,6 +817,12 @@ def process_memo_event(
                 should_mark_notice_sent = True
                 notice_user_id = user_id
 
+    # trial-start-anchor-decision.md 3節: trial_start_atはfirst_generation_notice_sentと同じ
+    # トリガー(should_mark_notice_sent、初回生成成功時)で1回だけ書き込む。
+    trial_start_at_value = (
+        (now or datetime.now(timezone(timedelta(hours=9)))) if should_mark_notice_sent else None
+    )
+
     notice_marked_atomically = False
     if instance["status"] == "generated" and usage_counter is not None and plan is not None:
         user_id = event.get("source", {}).get("userId")
@@ -793,12 +835,17 @@ def process_memo_event(
                 # 単一ドキュメントに相当)の場合は、notice_sentを更新する必要があるかに関わらず
                 # 常にincrement_and_mark_notice()の単一呼び出しでcount増分を行う
                 # (mark_notice_sent=Falseのときはフラグ更新なしの単なるcount増分として働く)。
+                # trial_start_atも同一書き込みに相乗りさせる(trial-start-anchor-decision.md 3節)。
                 count = usage_counter.increment_and_mark_notice(
-                    user_id, month or current_month_jst(), mark_notice_sent=should_mark_notice_sent
+                    user_id, month or current_month_jst(),
+                    mark_notice_sent=should_mark_notice_sent,
+                    trial_start_at=trial_start_at_value,
                 )
                 notice_marked_atomically = should_mark_notice_sent
             else:
                 count = usage_counter.increment(user_id, month or current_month_jst())
+                if trial_start_at_value is not None and hasattr(usage_counter, "set_trial_start_at_if_unset"):
+                    usage_counter.set_trial_start_at_if_unset(user_id, trial_start_at_value)
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"

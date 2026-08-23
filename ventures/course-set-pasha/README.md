@@ -1075,7 +1075,20 @@
   trial-end-notification-design.md 2節(B)の記述を確定内容に更新した。`trial_start_at`の
   実書き込みロジック(`increment_and_mark_notice()`への引数追加・テスト)、および
   (B)期間到達判定用の日次スケジューラ本体の設計はいずれも次回以降の課題として残る。
-- 最終更新: 2026-08-23 11:00 UTC
+- フェーズ101(2026-08-23 12:00 UTC): フェーズ100の残課題だった、`trial_start_at`の実書き込み
+  ロジックを実装した。`UsageCounterProtocol`に`set_trial_start_at_if_unset()`・
+  `get_trial_start_at()`を追加(2ステップ書き込み経路用)、`AtomicNoticeUsageCounterProtocol.
+  increment_and_mark_notice()`に`trial_start_at`引数(既定None)を追加し、trial-start-anchor-
+  decision.md 3節の方針通り原子的書き込みに相乗りさせた。`InMemoryUsageCounter`側で両経路とも
+  「既に値がある場合は上書きしない」冪等性を実装(初回生成成功時に1回だけ設定、以降不変という
+  契約を保証)。`process_memo_event()`は既存の`should_mark_notice_sent`(初回生成成功時のみ真)
+  をそのままtrial_start_atの書き込みトリガーとして再利用し、値は既存の`now`引数(JST、未指定時は
+  `datetime.now()`)から算出する新規追加イベント・スケジューラなしの構成とした(first-generation-
+  notice-implementation-design.mdと同じ「既存の生成完了フローに便乗」方針を踏襲)。テスト10件
+  新規追加(`InMemoryUsageCounterTrialStartAtTest`・`ProcessMemoEventTrialStartAtTest`、
+  course-set-pasha配下計255件パス)。次の課題である(B)期間到達判定用の日次スケジューラ本体の
+  設計(`trial_start_at`から14日経過したユーザーの抽出・プッシュ送信)は未着手のまま残る。
+- 最終更新: 2026-08-23 12:00 UTC
 
 ## 次にやること(候補)
 
