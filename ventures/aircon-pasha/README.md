@@ -21,6 +21,18 @@
 
 ## ステータス
 
+- フェーズ106(2026-08-22 22:00 UTC): フェーズ104・105の申し送りだった「候補12関連」の
+  確認として、candidate-longlist-draft.md(第1〜58弾)・initial-contact-message-draft.mdを
+  突き合わせたところ、独立系5候補(候補1・3・7・10・12)・フランチャイズ加盟3候補
+  (候補2・13・14)いずれも屋号・所在地・連絡チャネルの一次情報確認が既に完了しており、
+  新規のWebSearch調査は不要と判明した。オーナーが承認可否を判断しやすいよう
+  candidate-readiness-summary.mdを新規作成し、8候補の連絡チャネル確定状況・残る未確認事項
+  (スタッフ数5名以下の直接確認、候補1のドメイン選択、候補7のフォーム有無)を一覧化した。
+  これらの未確認事項はWebSearchでの追加調査が繰り返し頭打ちになっている(候補11・12と同傾向)
+  ため、ヒアリング実施時に自然に確認する運用とする方針を記録した。ドキュメント整理のみで
+  実装・課金・外部連絡を伴わない範囲にとどめた。次回はcharacter-limit-fallback-design.mdの
+  残る1点(実LLM接続待ちのため引き続き着手不可)、llm-quality-verification-plan.mdの精緻化、
+  またはオーナーの初回コンタクト承認可否を待つ間の他領域の前進を検討する。
 - フェーズ105(2026-08-22 21:00 UTC): character-limit-fallback-design.mdの残課題3点目
   だった、LINE文字数上限(5,000文字、UTF-16コード単位)超過時のフォールバック処理の実装に
   着手した。prototype/post_generation_checks.pyに`check_message_length_within_line_limit()`
