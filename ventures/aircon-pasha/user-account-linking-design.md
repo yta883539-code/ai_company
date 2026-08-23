@@ -125,5 +125,9 @@ tech-stack.mdコンポーネント5の記述(「本ventureにはusage_counterの
   に着手できる前提が整った。次回以降、本ドキュメントの`user_profile`・`pending_links`・
   `usage_counter`の3コレクションを前提としたdata-retention-policy.mdの新規作成を優先候補とする
   (course-set-pasha/data-retention-policy.mdの構成を踏襲予定)。
-- プロトタイプ実装(course-set-pashaの`prototype/user_id_linking.py`相当)・テストは未着手。
+- (解消済み 2026-08-23 15:00 UTC・フェーズ113: プロトタイプ実装
+  (course-set-pashaの`prototype/user_id_linking.py`相当)・テストを実装した。詳細は
+  README.mdフェーズ113・prototype/user_id_linking.py・cloud_function_webhook.pyの
+  `process_message_event()`参照。連携失敗時の確定文言は本節記載の通り引き続き未確定のまま
+  次回以降の課題として残る)
   実装自体は実LINE・実Stripe接続を必要としない机上検証が可能なため、次回以降の候補とする。

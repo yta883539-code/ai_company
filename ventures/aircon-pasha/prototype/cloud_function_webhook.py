@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Protocol
 
@@ -35,6 +36,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
+from user_id_linking import (  # noqa: E402
+    LinkingCodeStoreProtocol,
+    UserProfileStoreProtocol,
+    resolve_linking_code,
+)
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -579,6 +585,95 @@ def process_memo_event(
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
+    )
+
+
+# ---------------------------------------------------------------------------
+# messageイベントの入口(連携コード判定 vs 施工メモ)
+# (user-account-linking-design.md 3節の実装。フェーズ111・112で実装したfollow/unfollowに
+#  続き、フェーズ107設計で「未実装のまま残る」としていたもう一方の残課題。)
+# ---------------------------------------------------------------------------
+
+LINKING_SUCCESS_MESSAGE = "連携が完了しました。テスト送信をお試しください。"
+
+# design 3節「解決失敗時の案内文言は次回以降の課題」の通り確定文言ではない。ここでは
+# 「連携コード自体が見つからない(未連携・期限切れ・入力ミス等)」と「未連携のまま施工メモを
+# 送った」を区別せず同一の案内に倒す(design 3節の通り、正規表現の形式一致のみでは連携コードと
+# 判定しないため、この2つのケースをこの時点で区別する手段が無い)。
+LINKING_REQUIRED_MESSAGE = (
+    "先に連携コードの送信が必要です。お申込みフォーム送信完了画面またはメール記載の"
+    "6文字の連携コードを、このトークにそのまま送信してください。"
+)
+
+
+@dataclass
+class MessageEventResult:
+    """process_message_event()の結果。"""
+
+    handled: bool
+    reply_sent: bool
+    reply_text: Optional[str]
+    linked_now: bool = False  # True=本イベントで新規に連携が完了した
+
+
+def process_message_event(
+    event: dict,
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    profile_store: UserProfileStoreProtocol,
+    linking_store: LinkingCodeStoreProtocol,
+    now: datetime,
+    **memo_kwargs,
+) -> MessageEventResult:
+    """LINEの`message`イベント(テキスト)を受け取った際の入口。design 3節の通り、
+    まず送信元user_idが`user_profile`に連携済みかどうかで処理を分岐する。
+
+    - 連携済み(profile_store.exists(user_id)): 通常の施工メモ生成フロー
+      (process_memo_event、mvp-flow-draft.md)へそのまま委譲する。
+    - 未連携: 受信テキストが`pending_links`の連携コードと完全一致するかのみを判定根拠とする
+      (resolve_linking_code、design 3節「辞書引き一致を必須とし、正規表現の形式一致のみでは
+      連携コードと判定しない」)。一致すればuser_profileを新規作成して連携完了を案内し、
+      一致しなければ(誤入力・期限切れ・施工メモの先送り送信のいずれであっても)連携コード
+      送信を促す案内を返す。この間、mvp-flow-draft.mdの生成フロー(process_memo_event)へは
+      一切進めない(design 3節「連携未完了のまま施工メモを送信された場合」の方針通り、
+      未連携user_idの利用回数カウントは発生させない)。
+    - user_idが取得できないイベント(通常発生しない想定)は安全側に倒し連携コード送信を
+      促す案内を返す。
+    """
+    message = event.get("message", {})
+    if message.get("type") != "text":
+        return MessageEventResult(handled=False, reply_sent=False, reply_text=None)
+
+    reply_token = event["replyToken"]
+    user_id = event.get("source", {}).get("userId")
+
+    if user_id and profile_store.exists(user_id):
+        memo_result = process_memo_event(event, llm_call, reply_client, **memo_kwargs)
+        return MessageEventResult(
+            handled=memo_result.handled,
+            reply_sent=memo_result.reply_sent,
+            reply_text=memo_result.reply_text,
+        )
+
+    if not user_id:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+        return MessageEventResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=LINKING_REQUIRED_MESSAGE if reply_sent else None,
+        )
+
+    resolution = resolve_linking_code(message["text"], user_id, linking_store, profile_store, now)
+    if resolution.ok:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_SUCCESS_MESSAGE)
+        return MessageEventResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=LINKING_SUCCESS_MESSAGE if reply_sent else None, linked_now=True,
+        )
+
+    reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+    return MessageEventResult(
+        handled=True, reply_sent=reply_sent,
+        reply_text=LINKING_REQUIRED_MESSAGE if reply_sent else None,
     )
 
 

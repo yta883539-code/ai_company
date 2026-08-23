@@ -21,6 +21,27 @@
 
 ## ステータス
 
+- フェーズ113(2026-08-23 15:00 UTC): フェーズ111・112の申し送り(follow/unfollow実装後の
+  残課題2点のうちの1つ)を受け、user-account-linking-design.md 3節で設計していた
+  「follow後の1:1トークで受信したテキストが連携コードか施工メモかを判定する分岐」を実装した。
+  course-set-pashaのprototype/user_id_linking.pyを踏襲しつつ、本venture固有の紐付けの向き
+  (design 1節: フォーム送信時点でコード発行、LINE側で受信して初めてuser_idが判明)に合わせ、
+  新規prototype/user_id_linking.pyに`PendingLink`/`LinkingCodeStoreProtocol`/
+  `UserProfile`/`UserProfileStoreProtocol`/`issue_linking_code_on_form_submission()`/
+  `resolve_linking_code()`/`purge_expired_links()`を実装した(course-set-pasha版と異なり、
+  `resolve_linking_code()`は`code`だけでなく`user_id`も受け取り、解決成功時に`user_profile`を
+  新規作成するところまで一体で行う)。あわせてcloud_function_webhook.pyに
+  `process_message_event()`を新設し、design 3節の分岐(連携済みなら`process_memo_event()`へ
+  委譲、未連携なら受信テキストが`pending_links`の辞書引きに一致するかのみで連携コードと判定し、
+  一致すれば連携完了案内、一致しなければ「先に連携コードの送信が必要です」という案内を返す)を
+  実装した。design 3節の「解決失敗時の案内文言は次回以降の課題」との記載通り、連携コード自体が
+  見つからない場合と未連携のまま施工メモを送った場合とで文言を区別する根拠が無いため、
+  現時点では両者に同一の案内文言(`LINKING_REQUIRED_MESSAGE`)を返す仕様とした。
+  test_user_id_linking.py(11件)・test_cloud_function_webhook.pyへの
+  `ProcessMessageEventLinkingTest`追加(6件)含め、prototype配下の全テスト実行(101件パス)を
+  確認した。design「残課題」に残っていたもう1点(`dispatch_webhook_events()`、3つのイベント
+  種別への振り分け経路自体)は未着手のまま残る。次回はこちらへの着手、または連携失敗時の
+  確定文言のtone-and-manner-guideline.md整合確認を優先候補とする。
 - フェーズ111(2026-08-23 10:00 UTC): フェーズ110の申し送り通り、follow-unfollow-event-
   handling-design.md(フェーズ109)で設計済みだった`process_follow_event()`・
   `process_unfollow_event()`をprototype/cloud_function_webhook.pyに実装した。

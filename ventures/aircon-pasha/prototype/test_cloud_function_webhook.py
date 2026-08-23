@@ -21,6 +21,8 @@ from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     APPLICATION_FORM_URL_PLACEHOLDER,
     LENGTH_LIMIT_FALLBACK_MESSAGE,
+    LINKING_REQUIRED_MESSAGE,
+    LINKING_SUCCESS_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
@@ -35,11 +37,18 @@ from cloud_function_webhook import (  # noqa: E402
     format_welcome_message,
     process_follow_event,
     process_memo_event,
+    process_message_event,
     process_unfollow_event,
     render_subscription_procedure_notice,
     validate_llm_output,
 )
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
+from user_id_linking import (  # noqa: E402
+    InMemoryLinkingCodeStore,
+    InMemoryUserProfileStore,
+    PendingLink,
+    UserProfile,
+)
 
 
 class FixtureLlmClient:
@@ -619,6 +628,159 @@ class ProcessUnfollowEventTest(unittest.TestCase):
     def test_non_unfollow_event_is_not_handled(self):
         result = process_unfollow_event({"type": "message"})
         self.assertFalse(result.handled)
+
+
+class ProcessMessageEventLinkingTest(unittest.TestCase):
+    """user-account-linking-design.md 3節の実装(process_message_event)。"""
+
+    def _issue_pending_link(self, store, code="AB12CD", now=None):
+        from datetime import datetime, timezone
+
+        issued_at = now or datetime(2026, 8, 23, 0, 0, tzinfo=timezone.utc)
+        store.save(
+            code,
+            PendingLink(
+                form_submission_id="form-1",
+                business_name="テストクリーニング",
+                business_type="独立系",
+                email="owner@example.com",
+                issued_at=issued_at,
+            ),
+        )
+        return issued_at
+
+    def test_linked_user_is_routed_to_memo_flow(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "reply-token-1",
+            "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.linked_now)
+        self.assertIn("作業完了報告メッセージの下書き", result.reply_text)
+
+    def test_unlinked_user_with_matching_code_links_successfully(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        linking_store = InMemoryLinkingCodeStore()
+        self._issue_pending_link(linking_store, code="AB12CD")
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "reply-token-2",
+            "source": {"userId": "u-2"},
+            "message": {"type": "text", "text": "ab12cd"},
+        }
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, 1, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.linked_now)
+        self.assertEqual(result.reply_text, LINKING_SUCCESS_MESSAGE)
+        self.assertTrue(profile_store.exists("u-2"))
+        self.assertIsNone(linking_store.get("AB12CD"))
+
+    def test_unlinked_user_with_expired_code_gets_linking_required_message(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        linking_store = InMemoryLinkingCodeStore()
+        self._issue_pending_link(
+            linking_store, code="AB12CD",
+            now=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "reply-token-3",
+            "source": {"userId": "u-3"},
+            "message": {"type": "text", "text": "AB12CD"},
+        }
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertFalse(result.linked_now)
+        self.assertEqual(result.reply_text, LINKING_REQUIRED_MESSAGE)
+        self.assertFalse(profile_store.exists("u-3"))
+
+    def test_unlinked_user_sending_ordinary_memo_is_not_routed_to_memo_flow(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "reply-token-4",
+            "source": {"userId": "u-4"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.reply_text, LINKING_REQUIRED_MESSAGE)
+        self.assertFalse(profile_store.exists("u-4"))
+
+    def test_image_only_event_is_not_handled(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {"replyToken": "reply-token-5", "source": {"userId": "u-5"}, "message": {"type": "image"}}
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertFalse(result.handled)
+
+    def test_missing_user_id_gets_linking_required_message(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "reply-token-6", "source": {},
+            "message": {"type": "text", "text": "AB12CD"},
+        }
+
+        result = process_message_event(
+            event, FixtureLlmClient("G1_basic"), reply_client,
+            profile_store, linking_store, datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.reply_text, LINKING_REQUIRED_MESSAGE)
 
 
 class ValidateLlmOutputTest(unittest.TestCase):
