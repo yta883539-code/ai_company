@@ -89,6 +89,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
+    CONVERSATION_IDLE_TIMEOUT,
     ConversationFlowStateMachine,
     EscalationConsolidator,
     NotificationLogAggregator,
@@ -283,7 +284,12 @@ class ConversationEventProcessor:
         # stageはNoneのままのため次ターンも_start_new_booking()に落ちてくる。そこで
         # requested_date_range/time_of_day_preferenceのうち今回の出力に無い項目だけを
         # ここから補って引き継ぐ(_carried_over_menu()と対称の設計)。
-        self._pending_new_booking_context_by_user: dict[str, dict] = {}
+        # pending-new-booking-context-ttl-design.md準拠。値は(output, set_at)のタプルで、
+        # set_atはこのエントリを書き込んだ時点のnow。_merge_pending_new_booking_context()で
+        # CONVERSATION_IDLE_TIMEOUT(30分)以上経過していれば期限切れとして破棄する
+        # (present_candidates()未実行のためこのユーザーは_flow._statesにエントリを
+        # 持たず、engine.py側のrelease_idle_conversations()では救えないケース)。
+        self._pending_new_booking_context_by_user: dict[str, tuple[dict, datetime]] = {}
         # escalation-digest-flush-trigger-design.md準拠。Webhook便乗トリガー
         # (maybe_run_escalation_flush())の前回実行時刻。
         self._last_escalation_flush_at: Optional[datetime] = None
@@ -496,7 +502,7 @@ class ConversationEventProcessor:
         change_context: bool = False,
         reply_text: Optional[str] = None,
     ) -> DispatchResult:
-        output = self._merge_pending_new_booking_context(user_id, output)
+        output = self._merge_pending_new_booking_context(user_id, output, now)
         menu_name = output.get("menu")
         if not menu_name:
             # menu-unmentioned-vs-unregistered-design.md準拠(オプションb採用)。「メニュー
@@ -506,7 +512,9 @@ class ConversationEventProcessor:
             # change経由(旧予約を解放済み)の場合はCHANGE_NO_CANDIDATES_MESSAGEと対称に、
             # 「以前のご予約は取り消し済み」である旨を含む専用文言を送る(menu-unmentioned-vs-
             # unregistered-design.md「既知の限界」準拠)。
-            self._pending_new_booking_context_by_user[user_id] = output
+            # pending-new-booking-context-ttl-design.md準拠。書き込み時刻(now)をあわせて
+            # 保持し、次回読み出し時にCONVERSATION_IDLE_TIMEOUTを超えていれば破棄する。
+            self._pending_new_booking_context_by_user[user_id] = (output, now)
             message = CHANGE_REASK_MENU_MESSAGE if change_context else REASK_MENU_MESSAGE
             self._send(user_id, message, now)
             detail = "menu_not_mentioned_change" if change_context else "menu_not_mentioned"
@@ -577,13 +585,22 @@ class ConversationEventProcessor:
         context = self._search_context_by_user.get(user_id)
         return context[0].get("menu") if context else None
 
-    def _merge_pending_new_booking_context(self, user_id: str, output: dict) -> dict:
+    def _merge_pending_new_booking_context(self, user_id: str, output: dict, now: datetime) -> dict:
         """直前ターンでメニュー未言及のためREASK_MENU_MESSAGEを送った場合、当該ターンの
         requested_date_range/time_of_day_preferenceを次ターンへ引き継ぐ(_carried_over_menu()の
         逆方向)。今回の出力に無い項目のみ補う(今回の発言で日時が更新された場合はそちらを優先)。
+
+        pending-new-booking-context-ttl-design.md準拠。保持しているのが
+        CONVERSATION_IDLE_TIMEOUT(30分)以上前のものであれば、顧客がその場を離れた後に
+        全く無関係な要件で話しかけてきた可能性が高いとみなし、期限切れとしてマージせずに
+        エントリを破棄する(古い日時条件を誤って引き継がないため)。
         """
-        pending = self._pending_new_booking_context_by_user.get(user_id)
-        if not pending:
+        entry = self._pending_new_booking_context_by_user.get(user_id)
+        if not entry:
+            return output
+        pending, set_at = entry
+        if now - set_at >= CONVERSATION_IDLE_TIMEOUT:
+            self._pending_new_booking_context_by_user.pop(user_id, None)
             return output
         merged = dict(output)
         for key in ("requested_date_range", "time_of_day_preference"):

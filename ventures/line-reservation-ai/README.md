@@ -1100,9 +1100,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_pending_new_booking_context_by_user`による日時範囲の引き継ぎ挙動を明文化した。
   change経由でのメニュー未言及時の専用文言は、実際に問題になった場合の次回以降の課題として
   引き続き残す(プロンプト文言のみの変更のため実LLM接続・外部連絡は不要、オーナー承認対象外)。
-- 最終更新: 2026-08-23 06:00 UTC
+- 最終更新: 2026-08-23 19:00 UTC
 
 ## ドキュメント
+- pending-new-booking-context-ttl-design.md: `_pending_new_booking_context_by_user`
+  (メニュー未言及の聞き返し中に保持する日時条件)のTTL設計(2026-08-23 19:00 UTC新規作成。
+  present_candidates()未実行のためengine.py側のrelease_idle_conversations()に相乗り
+  できないことを確認し、書き込み時刻を自前保持するlazy expiry方式〈読み出し時にCONVERSATION_
+  IDLE_TIMEOUT=30分以上経過していれば破棄〉を採用。menu-unmentioned-vs-unregistered-design.md
+  「既知の限界」の最後の1点を解消)
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
   (2026-08-16 14:00 UTC新規作成。トライアル未選択の休止モードとは別に、加入後の毎月の
   継続課金失敗〈dunning〉を扱う。検知後7日間の猶予期間→未解消なら新規予約停止の制限モード
@@ -1470,6 +1476,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-23 19:00 UTC・フェーズ続き129: フェーズ128で残る既知の限界として
+  明記した「`_pending_new_booking_context_by_user`にTTLが無い点」に対応した。この
+  キャッシュはメニュー未言及の聞き返し(reask)時点(`present_candidates()`未実行、
+  `ConversationFlowStateMachine._states`にエントリ無し)で書き込まれるため、
+  `release_idle_conversations()`の失効リストには載らずengine.py側の仕組みに
+  相乗りできないことを確認し、代わりに書き込み時刻を`(output, set_at)`のタプルで
+  自前保持するlazy expiry方式を採用した(pending-new-booking-context-ttl-design.md
+  新規作成)。`_merge_pending_new_booking_context()`で読み出し時にCONVERSATION_IDLE_TIMEOUT
+  (30分、engine.pyの既存定数を再利用)以上経過していれば期限切れとしてマージせず
+  エントリを破棄し、古い日時条件(`requested_date_range`/`time_of_day_preference`)を
+  無関係な後続ターンへ誤って引き継がないようにした。境界値(29分後は引き継ぐ、30分後・
+  31分後は引き継がない)をtest_cloud_function_process_event.pyに新規テストクラス
+  `PendingNewBookingContextTtlTests`として3件追加(プロトタイプ全体308件パス、
+  schema検証25件パスも確認)。menu-unmentioned-vs-unregistered-design.mdの
+  「既知の限界」も解消済みに更新した。
 - (解消済み 2026-08-23 16:00 UTC・フェーズ続き128: menu-unmentioned-vs-unregistered-design.mdの
   「既知の限界・今回のスコープ外」に残っていたもう1点、「change(予約変更)フロー経由で
   _start_new_booking()が呼ばれメニュー未言及だった場合もCHANGE_NO_CANDIDATES_MESSAGEと同じ

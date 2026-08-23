@@ -174,6 +174,62 @@ class NewBookingDispatchTests(unittest.TestCase):
     # 意図した経路を検証できないため、重複テストとして残さず削除した。
 
 
+class PendingNewBookingContextTtlTests(unittest.TestCase):
+    """pending-new-booking-context-ttl-design.md準拠。メニュー未言及の聞き返し(reask)で
+    保持した`requested_date_range`が、CONVERSATION_IDLE_TIMEOUT(30分)以内の次ターンでは
+    引き継がれ、それ以上経過した次ターンでは古い条件として破棄される(=候補提示ではなく
+    REASK_DATE_RANGE_MESSAGEでの聞き直しになる)ことを確認する。"""
+
+    def _reask_then_mention_menu_after(self, delay):
+        processor, flow, push, _ = _new_processor()
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def first_llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": None,
+                "datetime_candidate": "来週土曜の空き候補", "confirmed": False,
+                "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        first = processor.process(_event("U1", "来週土曜で空いてますか"), first_llm_call, NOW)
+        self.assertEqual(first.action, "reask")
+        self.assertEqual(first.detail, "menu_not_mentioned")
+        self.assertEqual(push.sent[0][1], REASK_MENU_MESSAGE)
+
+        def second_llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+            }
+
+        second = processor.process(_event("U1", "カットでお願いします"), second_llm_call, NOW + delay)
+        return second, flow, push
+
+    def test_carries_over_date_range_within_ttl(self):
+        # CONVERSATION_IDLE_TIMEOUT(30分)未満なので、1ターン目のrequested_date_rangeを
+        # 引き継いで候補提示まで進む。
+        result, flow, push = self._reask_then_mention_menu_after(timedelta(minutes=29))
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+        self.assertEqual(len(push.sent), 2)
+
+    def test_discards_date_range_at_ttl_boundary(self):
+        # ちょうどCONVERSATION_IDLE_TIMEOUT(30分)経過。既存のCONVERSATION_IDLE_TIMEOUT関連の
+        # 判定(engine.pyのrelease_idle_conversations()等)と同様「以上」で期限切れ扱いとする。
+        result, flow, push = self._reask_then_mention_menu_after(timedelta(minutes=30))
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "no_date_range_or_no_candidates")
+        self.assertEqual(push.sent[-1][1], REASK_DATE_RANGE_MESSAGE)
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_discards_date_range_well_past_ttl(self):
+        result, flow, push = self._reask_then_mention_menu_after(timedelta(minutes=31))
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "no_date_range_or_no_candidates")
+        self.assertEqual(push.sent[-1][1], REASK_DATE_RANGE_MESSAGE)
+
+
 class PushDeliveryFailureTests(unittest.TestCase):
     """api-call-failure-handling.md「方針2」(LINE Push API呼び出し自体の失敗)のテスト。
     ConversationEventProcessor._send()の即時1回のみリトライと、それでも失敗した場合の
