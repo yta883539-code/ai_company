@@ -9,6 +9,7 @@ conversation-flow-state-machine-design.md で残課題としていた、LLMの�
 
 | LLM出力の状態 | 呼び出し側ステージ前提 | 呼ぶメソッド | 備考 |
 |---|---|---|---|
+| `intent: new_booking`(または`change`), `menu`が未言及(null) | `candidates_presented`より前 | (`search_candidates_from_llm_output()`は呼ばない) | `_start_new_booking()`が`resolve_menu_duration()`を呼ぶ前に`menu`のnull判定を行い、`REASK_MENU_MESSAGE`で聞き返して`DispatchResult(action="reask", detail="menu_not_mentioned")`を返す(店舗に未登録のメニューが言及された場合の`unregistered_menu`とは区別。2026-08-22 22:00 UTC実装、[menu-unmentioned-vs-unregistered-design.md](menu-unmentioned-vs-unregistered-design.md)参照)。日時の手がかり(`requested_date_range`/`time_of_day_preference`)は`_pending_new_booking_context_by_user`に一時保持し、次ターンでメニューが判明した時点で`_merge_pending_new_booking_context()`により引き継いで`search_candidates_from_llm_output()`へ進む |
 | `intent: new_booking`, `datetime_candidate`が曖昧(複数候補あり得る) | `candidates_presented`より前 | `search_candidates_from_llm_output()` → `present_candidates()` | 「来週土曜」等は`requested_date_range`/`time_of_day_preference`を`AvailabilitySearcher`に渡して複数候補に展開してから`present_candidates()`を呼ぶ(2026-08-01 00:00 UTC実装済み、下記「このステップで実施したこと」参照) |
 | `intent: new_booking`, 顧客が候補から1件を特定できる返信 | `candidates_presented` | `resolve_candidate_selection()` → `select_slot()` | 提示した候補一覧(`search_candidates_from_llm_output()`の戻り値)から顧客の返信に対応する`slot_key`を特定する処理は`resolve_candidate_selection()`としてルールベースで実装済み(2026-08-01 01:00 UTC、[candidate-presentation-and-selection-design.md](candidate-presentation-and-selection-design.md)参照)。`None`が返った場合は`format_reconfirm_message()`を送信し`select_slot()`は呼ばない |
 | `intent: new_booking`, `name`と`menu`が両方非nullで`confirmed: false` | `awaiting_details` | `provide_details()` | このLLM出力自体は「氏名・メニューを聞き取れた」ことを表し、確定の可否(hold中の枠との整合)はBookingSlotManager側が判定する |
@@ -53,3 +54,11 @@ LLM構造化出力のスキーマ拡張は行わず、顧客の生返信テキ�
   委ねる(`"8/9の方で"`のような日付の数字を候補番号と誤爆させないための設計、詳細は設計doc2節)。
   デモに番号指定・全角数字・漢数字・自然文(日付+時刻)・特定不能の5パターンを追加し、
   いずれも意図通りの結果になることを確認済み。
+- (2026-08-23 06:00 UTC追記)menu-unmentioned-vs-unregistered-design.mdの残課題だった
+  「LLM構造化出力側での`menu`未言及時の前提の明文化」に対応し、上記対応表に新規行を追加した。
+  あわせてllm-system-prompt-draft.mdの`menu`フィールド説明に、未言及の場合は無理に埋めず
+  nullのまま返してよい旨(店舗側で聞き返すため)を追記した。change(予約変更)フロー経由で
+  `menu`が未言及だった場合の専用文言(旧予約を解放済みである旨を含む聞き返し文言)は、
+  menu-unmentioned-vs-unregistered-design.md「既知の限界・今回のスコープ外」に記載の通り
+  未対応のまま残っており、実際にchange経由でのメニュー未言及が問題になった場合の
+  次回以降の課題とする。

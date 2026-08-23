@@ -1091,7 +1091,16 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   不要と判断。残る課題(change経由でのメニュー未言及時の専用文言、llm-system-prompt-draft.md・
   intent-to-flow-mapping.mdへの反映)はmenu-unmentioned-vs-unregistered-design.md
   「既知の限界・今回のスコープ外」参照。
-- 最終更新: 2026-08-22 22:00 UTC
+- フェーズ(続き127、2026-08-23 06:00 UTC): フェーズ(続き126)の残課題のうち、
+  llm-system-prompt-draft.md・intent-to-flow-mapping.mdへの反映を行った。
+  llm-system-prompt-draft.mdの`menu`フィールド説明に「メニュー未言及時は無理に埋めず
+  必ずnullのまま返す(バックエンド側の聞き返しに委ねる)」旨を追記し、店舗に未登録の
+  メニューが言及されたケース(`unregistered_menu`)と区別されることを明記した(改訂履歴に反映)。
+  intent-to-flow-mapping.mdの対応表にも`menu`未言及時の行を新規追加し、
+  `_pending_new_booking_context_by_user`による日時範囲の引き継ぎ挙動を明文化した。
+  change経由でのメニュー未言及時の専用文言は、実際に問題になった場合の次回以降の課題として
+  引き続き残す(プロンプト文言のみの変更のため実LLM接続・外部連絡は不要、オーナー承認対象外)。
+- 最終更新: 2026-08-23 06:00 UTC
 
 ## ドキュメント
 - payment-failure-dunning-design.md: 決済失敗(カード継続課金エラー)時の再試行・案内設計
@@ -1461,6 +1470,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 -m unittest discover`)296件パスを確認済み。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-23 06:00 UTC・フェーズ続き127: menu-unmentioned-vs-unregistered-design.mdの
+  残課題だった「LLM構造化出力側での`menu`未言及時の前提の明文化」に対応し、
+  llm-system-prompt-draft.md(`menu`フィールド説明・改訂履歴)とintent-to-flow-mapping.md
+  (対応表)に反映した。プロンプト文言のみの変更のためオーナー承認は不要。残るのは
+  change経由でのメニュー未言及時の専用文言〈実際に問題になった場合に着手〉と、
+  実LLM接続後にこのプロンプト説明通りの挙動になるかの実機検証〈APIキー・課金がオーナー
+  承認待ちのため未着手〉)
 - (解消済み 2026-08-22 16:00 UTC・フェーズ続き124: multi-turn-scenario-harness-design.mdの
   残課題だった「E1・E3等の崩れ系ケースをscenario_harness.pyで再現する」作業のうち、
   E3(二重予約、仮押さえ中の枠への競合)に着手した。既存の`test_cloud_function_process_event.py`の

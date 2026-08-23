@@ -114,6 +114,14 @@ tech-stack.md の「次のステップ候補」で挙げていた
   1要素以上の配列として必ず付与する(2026-08-02 14:00 UTC改訂、詳細は
   json-schema-multi-intent-extension.md参照)。厳守事項9b(雑談・スパム的入力、特定の
   店舗FAQ項目に基づかない応答)・`escalation` intent・予約系のやり取りでは`null`のままとする。
+- `menu` は、顧客の発言からメニュー名を聞き取れた場合のみ設定する。顧客がまだメニューに
+  触れていない(言及が全くない)場合は、店舗の登録メニュー一覧を推測して埋めようとせず
+  必ず`null`のまま返す。バックエンド側で`menu`が`null`の場合は聞き返しメッセージを送って
+  改めて確認する設計のため(`_start_new_booking()`のメニュー未言及判定、詳細は
+  intent-to-flow-mapping.md・menu-unmentioned-vs-unregistered-design.md参照。2026-08-23
+  06:00 UTC追記)。これは、顧客が言及したが店舗に未登録のメニュー名(例:
+  扱っていない「フェイシャル」)をそのまま`menu`に設定するケースとは区別する。後者は
+  バックエンド側がオーナーへ転送する。
 - `requested_date_range`・`time_of_day_preference` は、`datetime_candidate`(顧客への
   確認メッセージ表示用の自由記述、例:「来週土曜のお昼くらい」)とは別に、AvailabilitySearcher
   (決定的コードによる空き枠算出、slot-search-component-design.md参照)へ渡すための
@@ -133,6 +141,12 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-08-23 06:00 UTC: menu-unmentioned-vs-unregistered-design.md(2026-08-22 22:00 UTC)の
+  残課題だった「LLM側での`menu`未言及時の前提の明文化」に対応し、`menu`フィールドの説明に
+  未言及時は必ずnullのまま返す旨(埋めようとせず、バックエンド側の聞き返しに委ねる)を
+  追記した。あわせてintent-to-flow-mapping.mdの対応表にも同挙動の行を追加。change経由での
+  メニュー未言及時の専用文言は引き続き未対応(menu-unmentioned-vs-unregistered-design.md
+  「既知の限界」参照)。
 - 2026-08-07 09:00 UTC: 「次のステップ候補」に残っていた、escalation-notification-templates.mdの
   通知文面を本ファイルの厳守事項6・10・9a未登録項目の説明文からリンク参照できるようにする作業を行った
   (2026-07-31 02:59 UTC改訂時点から未着手だったもの)。厳守事項6には6-a/6-b/6-c節、9aの未登録項目
