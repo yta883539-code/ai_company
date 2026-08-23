@@ -25,8 +25,8 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
   トライアル中生成回数が5回に達した時点(5回目の生成完了時、返信メッセージの直後)。
   aircon-pasha/course-set-pashaのlimit-approaching-notification-design.mdと同じく
   「生成完了時の返信に便乗させる」方式を踏襲し、追加のプッシュAPI呼び出し・課金を発生させない。
-- **(B) 期間到達**: トライアル開始(初回follow、または初回生成のいずれかを起点とする。
-  起点の確定は5節「今後の課題」参照)から14日経過した時点。生成イベントに便乗できないため、
+- **(B) 期間到達**: トライアル開始(初回生成成功時、`trial_start_at`。起点の確定経緯は
+  trial-start-anchor-decision.md フェーズ100参照)から14日経過した時点。生成イベントに便乗できないため、
   line-reservation-ai/reminder-scheduler-design.mdやaircon-pasha/dormant-mode-scheduler相当の
   日次スケジューラ実行(Cloud Scheduler)によるプッシュメッセージ送信が必要になる
   (実際のCloud Scheduler設定はオーナー承認待ちの範囲、6節参照)。
@@ -82,10 +82,8 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 - 「浮いた作業時間の目安」の試算値そのものが未作成(3節)。line-reservation-ai/
   unit-economics-estimate.mdのような形で、投稿文を手動作成する場合の目安時間を
   market-research.mdの想定顧客像から仮置きする作業が必要。
-- トライアル開始起点(初回follow時 or 初回生成時)の確定。本ドキュメントでは仮に
-  「初回follow時」を起点候補としたが、pricing-plan.mdの「期間: 導入から14日間」の
-  「導入」がどちらを指すか明文化されていないため、pricing-plan.md側への反映と合わせて
-  次回確定する。
+- (解消済み 2026-08-23フェーズ100: トライアル開始起点は「初回生成成功時」に確定した。
+  詳細はtrial-start-anchor-decision.md参照。)
 - (B)期間到達判定用の日次スケジューラ実装、および4節で範囲外とした「生成一時停止」判定の
   実装は次回以降の課題として残す。
 - (A)(B)いずれの経路かをuser_profileストアにどう記録するか(`trial_end_notified_at`の

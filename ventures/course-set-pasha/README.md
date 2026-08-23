@@ -1064,9 +1064,24 @@
   試算値自体が未作成、トライアル開始起点(follow時 or 初回生成時)の確定、期間到達判定用の
   スケジューラ実装・生成一時停止判定の実装はいずれも次回以降の課題として残る。LIFFアプリの
   実登録・Cloud Scheduler実行環境の構築はオーナー承認待ちのため本フェーズでは机上設計のみ。
-- 最終更新: 2026-08-23 09:00 UTC
+- フェーズ100(2026-08-23 11:00 UTC): フェーズ99の残課題だった、トライアル開始起点
+  (初回follow時 or 初回生成時)を確定した(`trial-start-anchor-decision.md`新規作成)。
+  follow時点ではまだ連携コード発行のみでサービス利用不可(申込フォーム提出・連携完了まで
+  利用不能)なため、follow起点だと本人のタイミング次第で実質利用可能日数が目減りする不公平が
+  生じる点、および生成回数条件(5回到達)が自然に初回生成時点をcount=1とする点を踏まえ、
+  「初回生成成功時」を起点に確定した。first-generation-notice-implementation-design.mdが
+  既に`usage_counter`に実装済みの`first_generation_notice_sent`判定(`is_first_generation`)に
+  `trial_start_at`を便乗させる設計とし、pricing-plan.md「無料トライアル条件(仮)」・
+  trial-end-notification-design.md 2節(B)の記述を確定内容に更新した。`trial_start_at`の
+  実書き込みロジック(`increment_and_mark_notice()`への引数追加・テスト)、および
+  (B)期間到達判定用の日次スケジューラ本体の設計はいずれも次回以降の課題として残る。
+- 最終更新: 2026-08-23 11:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-08-23 11:00 UTC: トライアル開始起点〈初回follow時 or 初回生成時〉の確定は
+  `trial-start-anchor-decision.md`(フェーズ100)で対応した。詳細は上記フェーズ100参照。
+  残るのは`trial_start_at`の実書き込みロジック実装・期間到達判定用の日次スケジューラ設計)
 
 - (解消済み 2026-08-23 09:00 UTC: トライアル終了通知メッセージ自体の設計は
   `trial-end-notification-design.md`(フェーズ99)で対応した。詳細は上記フェーズ99参照。
