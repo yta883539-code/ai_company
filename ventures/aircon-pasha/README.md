@@ -21,6 +21,19 @@
 
 ## ステータス
 
+- フェーズ109(2026-08-23 05:00 UTC): フェーズ108の申し送り通り、follow/unfollowイベント
+  受信時の扱いを設計した(follow-unfollow-event-handling-design.md新規作成)。(1)follow時の
+  ウェルカムメッセージは、本ventureはフォーム送信完了時点で既にコード発行済み
+  (user-account-linking-design.md 2節)のため、course-set-pashaと異なりコードを埋め込む
+  必要がなく固定文言のみで足りることを確認した。(2)unfollow時の扱いはcourse-set-pashaの
+  unfollow-event-handling-design.mdを参考にしつつ、本venture固有の差異を発見した:
+  `pending_links`がフォーム送信時点(まだfollowしていない段階)で発行されるため`user_id`
+  フィールドを持たず、unfollowイベントからは対応する`pending_links`エントリを特定できない。
+  course-set-pashaのような`delete_pending_links_for_user()`は適用できないため、本venture版は
+  「何もしない(24時間の自然失効に委ねる)」という結論とした。`user_profile`・`usage_counter`・
+  Stripe課金の扱いはcourse-set-pashaと同じ(保持・自動解約しない)。ドキュメント整備のみで
+  実装は未着手。次回はfollow・unfollow・コード判定分岐(施工メモとの区別)をまとめて
+  prototype/cloud_function_webhook.pyへ実装する作業を優先候補とする。
 - フェーズ108(2026-08-23 04:00 UTC): フェーズ107のuser-account-linking-design.mdが「残課題」
   として残していた2点に対応した。(1)legal-notices-draft.md 2.4節で保留していた「契約終了後の
   データ保存期間」を、確定済みの3コレクション(`pending_links`・`user_profile`・
