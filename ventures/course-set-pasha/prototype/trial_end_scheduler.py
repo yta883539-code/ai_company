@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-trial-end-scheduler-design.mdで設計した「Cloud Function D: send_trial_end_notifications」の
-うち、条件(B)「trial_start_atから14日経過」の対象ユーザーを抽出する判断ロジックを、
+trial-end-scheduler-design.mdで設計した「Cloud Function D: send_trial_end_notifications」を、
 実行可能なコードに落とし込んだもの。
 
 位置づけ:
-- 実際のCloud Scheduler設定・LINE Push Message APIでの送信、およびstripe_webhook.py側の
-  upgraded_at書き込み配線は、いずれもオーナー承認待ち(pending-approval.md参照)か
-  次回以降の実装課題(trial-end-scheduler-design.md 5節)であり、本モジュールの範囲外。
-- 本モジュールは「いつ・どのユーザーにトライアル終了通知を送るべきか」という
-  判定ロジックのみを実クラウド接続なしで検証可能にしたもの。メッセージ整形・実送信は
-  trial-end-notification-design.md 3節の文言・cloud_function_webhook.pyのLLM連携とは
-  別の領分とする。
+- 実際のCloud Scheduler設定・LINE Push Message APIでの送信、およびLIFFアプリの実登録は
+  いずれもオーナー承認待ち(pending-approval.md参照)。本モジュールはそれとは別に、
+  「いつ・どのユーザーにトライアル終了通知を送るべきか」の判定ロジック(3節)と、
+  「実際に送るメッセージの整形・送信・冪等性のための書き込み」の配線(フェーズ104で追加)を
+  実クラウド接続なしで検証可能にしたもの
+  (line-reservation-ai/cloud_function_send_reminders.pyと同じ位置づけ)。
+- LinePushClientはline-reservation-ai/cloud_function_process_event.pyのLinePushClientと
+  同じ形のProtocolを本venture向けに独自定義する(本ventureはこれまでLINE Reply APIしか
+  使っておらず、Push Message API用のクライアントが未定義だったため)。
 
 設計の参照元: trial-end-scheduler-design.md, trial-end-notification-design.md,
 trial-start-anchor-decision.md
@@ -19,9 +20,9 @@ trial-start-anchor-decision.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional, Sequence
+from typing import Optional, Protocol, Sequence
 
 # trial-end-notification-design.md 2節(B): トライアル開始から14日でトライアル終了。
 DEFAULT_TRIAL_PERIOD_DAYS = 14
@@ -75,6 +76,119 @@ def select_due_trial_end_notifications(
     return due
 
 
+# ---------------------------------------------------------------------------
+# メッセージ整形(trial-end-notification-design.md 3節)
+# ---------------------------------------------------------------------------
+
+# trial-end-notification-design.md 5節: 「浮いた作業時間の目安」試算値はunit-economics-
+# estimate.md相当の試算が本venture未着手のため、設計フェーズ時点と同じくプレースホルダの
+# ままとする(cloud_function_webhook.pyのPORTAL_LINK_PLACEHOLDERと同じ考え方で、実際の
+# 値が定まった段階で置き換える)。生成回数(○回)も、trial_start_atからの期間が月をまたぎうる
+# ためusage_counter.get_count()の単純な月次集計では正確に求まらず、期間集計ロジック自体が
+# 本venture未設計(5節「今後の課題」)であるため、同じくプレースホルダのままとする。
+TRIAL_END_NOTIFICATION_TEMPLATE = (
+    "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
+    "\n"
+    "これまでの生成実績:\n"
+    "・投稿文生成: ○回\n"
+    "・浮いた作業時間の目安: 約○分(1回あたり平均○分と仮定)\n"
+    "\n"
+    "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。\n"
+    "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。\n"
+    "\n"
+    "▼ 有料プランへ進む(カード登録)\n"
+    "{liff_url}"
+)
+
+# checkout-initiation-flow-design.mdで採用したLIFF方式の決済導線は、Checkout Session個別の
+# URLではなくLIFFアプリ自体の固定URL(開いた時点でliff.getIDToken()→サーバ側検証→Checkout
+# Session作成→リダイレクトの一連の処理が動く)であるため、cloud_function_webhook.pyの
+# PORTAL_LINK_PLACEHOLDERと同じく、実登録(オーナー承認待ち)までは差し替え用の目印文字列とする。
+LIFF_URL_PLACEHOLDER = "{有料プランへ進むLIFFアプリ URL}"
+
+
+def format_trial_end_notification_message(liff_url: str = LIFF_URL_PLACEHOLDER) -> str:
+    """trial-end-notification-design.md 3節の通知メッセージ文面を組み立てる。"""
+    return TRIAL_END_NOTIFICATION_TEMPLATE.format(liff_url=liff_url)
+
+
+# ---------------------------------------------------------------------------
+# 実送信配線(Cloud Function D本体、trial-end-scheduler-design.md 5節の残課題)
+# ---------------------------------------------------------------------------
+
+
+class LinePushDeliveryError(Exception):
+    """LINE Push Message API呼び出し失敗(タイムアウト・5xx・429等)を表す。
+    api-call-failure-handling.mdのReply API向け失敗ハンドリングと対称の位置づけ。"""
+
+
+class LinePushClient(Protocol):
+    def send_message(self, user_id: str, text: str) -> None:
+        ...
+
+
+class InMemoryLinePushClient:
+    """実LINE Push Message API接続の代わりに送信内容を記録するだけの検証用クライアント
+    (line-reservation-ai/cloud_function_process_event.py InMemoryLinePushClientと同じ位置づけ)。
+    """
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str]] = []
+
+    def send_message(self, user_id: str, text: str) -> None:
+        self.sent.append((user_id, text))
+
+
+class TrialEndNotifiedAtWriter(Protocol):
+    """cloud_function_webhook.py UsageCounterProtocolのうち、本モジュールが実際に使う
+    2メソッドのみを要求する最小限のProtocol(UpgradedAtWriterProtocol、stripe_webhook.pyと
+    同じ「呼び出し側は具象クラスに直接依存しない」という考え方)。"""
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        ...
+
+
+@dataclass
+class SendTrialEndNotificationsResult:
+    """1回のCloud Function D起動での送信結果(呼び出し側のログ・監視用、
+    line-reservation-ai/cloud_function_send_reminders.py SendRemindersResultと対称)。"""
+
+    sent: list[str] = field(default_factory=list)  # user_id
+    failed: list[str] = field(default_factory=list)  # user_id(送信失敗、次回起動時に再試行)
+
+
+def send_trial_end_notifications(
+    users: Sequence[TrialUserState],
+    now: datetime,
+    usage_counter: TrialEndNotifiedAtWriter,
+    push_client: LinePushClient,
+    liff_url: str = LIFF_URL_PLACEHOLDER,
+    trial_period_days: int = DEFAULT_TRIAL_PERIOD_DAYS,
+) -> SendTrialEndNotificationsResult:
+    """trial-end-scheduler-design.md 1節の全体構成図における「Cloud Function D:
+    send_trial_end_notifications」本体。引数のusersは呼び出し元でFirestoreから読み取った
+    候補一覧を想定し(3節の抽出条件をクエリ化したものに相当)、実際の絞り込みは
+    select_due_trial_end_notifications()が行う。
+
+    送信成功時のみ`usage_counter.set_trial_end_notified_at()`を書き込み、送信失敗時は
+    書き込まない(4節の冪等性設計、send_reminders()と同じ「書き込み一発+次回実行時に
+    自然に再試行対象として残る」方式)。
+    """
+    result = SendTrialEndNotificationsResult()
+    text = format_trial_end_notification_message(liff_url)
+
+    for user in select_due_trial_end_notifications(users, now, trial_period_days):
+        try:
+            push_client.send_message(user.user_id, text)
+        except LinePushDeliveryError:
+            result.failed.append(user.user_id)
+            continue
+        usage_counter.set_trial_end_notified_at(user.user_id, now)
+        result.sent.append(user.user_id)
+
+    return result
+
+
 def _demo() -> None:
     now = datetime(2026, 8, 23, 4, 0, 0)
     users = [
@@ -99,6 +213,21 @@ def _demo() -> None:
     ]
     due = select_due_trial_end_notifications(users, now)
     print([u.user_id for u in due])
+
+    # send_trial_end_notifications()の配線確認: u1のみが送信対象になり、
+    # usage_counter.set_trial_end_notified_at()が呼ばれることを確認する。
+    class _InMemoryUsageCounterStub:
+        def __init__(self) -> None:
+            self.notified_at: dict[str, datetime] = {}
+
+        def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+            self.notified_at[user_id] = notified_at
+
+    usage_counter = _InMemoryUsageCounterStub()
+    push = InMemoryLinePushClient()
+    result = send_trial_end_notifications(users, now, usage_counter, push)
+    print(f"sent={result.sent}, failed={result.failed}")
+    print(f"push: {push.sent[-1][1]}")
 
 
 if __name__ == "__main__":

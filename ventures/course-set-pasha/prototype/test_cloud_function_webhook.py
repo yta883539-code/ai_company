@@ -753,6 +753,37 @@ class InMemoryUsageCounterTrialStartAtTest(unittest.TestCase):
         self.assertEqual(counter.get_trial_start_at("u-1"), first_moment)
 
 
+class InMemoryUsageCounterTrialEndNotifiedAtTest(unittest.TestCase):
+    """InMemoryUsageCounter.set_trial_end_notified_at()・get_trial_end_notified_at()
+    (trial-end-scheduler-design.md 4節、trial_end_scheduler.pyのsend_trial_end_notifications()が
+    送信成功時に書き込む冪等性フィールド)。"""
+
+    def test_get_trial_end_notified_at_defaults_to_none(self):
+        counter = InMemoryUsageCounter()
+
+        self.assertIsNone(counter.get_trial_end_notified_at("u-1"))
+
+    def test_set_trial_end_notified_at_records_value(self):
+        counter = InMemoryUsageCounter()
+        moment = datetime(2026, 8, 23, 4, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        counter.set_trial_end_notified_at("u-1", moment)
+
+        self.assertEqual(counter.get_trial_end_notified_at("u-1"), moment)
+
+    def test_set_trial_end_notified_at_overwrites_existing_value(self):
+        # trial_start_atと異なり「未設定なら」ではなく単純な上書きで良い(呼び出し側の
+        # select_due_trial_end_notifications()が既に通知済みのユーザーを除外するため)。
+        counter = InMemoryUsageCounter()
+        first_moment = datetime(2026, 8, 23, 4, 0, tzinfo=timezone(timedelta(hours=9)))
+        later_moment = datetime(2026, 9, 6, 4, 0, tzinfo=timezone(timedelta(hours=9)))
+        counter.set_trial_end_notified_at("u-1", first_moment)
+
+        counter.set_trial_end_notified_at("u-1", later_moment)
+
+        self.assertEqual(counter.get_trial_end_notified_at("u-1"), later_moment)
+
+
 class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
     """increment()・mark_sent()が単体(increment_and_mark_notice()を介さず)で呼ばれた回数を
     記録するスパイ。process_memo_event()が本当にincrement_and_mark_notice()経由の単一書き込み

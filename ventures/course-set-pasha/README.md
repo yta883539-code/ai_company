@@ -1120,10 +1120,36 @@
   紐付け失敗時の非書き込み・receive_stripe_webhook経由の配線確認、course-set-pasha配下
   計268件パス)。これによりtrial-end-scheduler-design.md 5節の残課題2点のうち1点が解消し、
   残るはCloud Function D(`send_trial_end_notifications`)本体の実装のみとなった。
-- 最終更新: 2026-08-23 18:00 UTC
+- フェーズ104(2026-08-23 22:00 UTC): フェーズ103の残課題だったCloud Function D
+  (`send_trial_end_notifications`)本体を`prototype/trial_end_scheduler.py`に実装した。
+  trial-end-notification-design.md 3節の通知文面を`format_trial_end_notification_message()`
+  として実装(line-reservation-aiのcloud_function_process_event.pyに存在しなかったLINE
+  Push Message API用クライアント`LinePushClient`/`InMemoryLinePushClient`/
+  `LinePushDeliveryError`を本venture向けに新規定義)、`select_due_trial_end_notifications()`
+  (フェーズ102)と組み合わせて`send_trial_end_notifications()`として配線した。送信成功時
+  のみ`usage_counter.set_trial_end_notified_at()`(本フェーズで新設、
+  `UsageCounterProtocol`/`InMemoryUsageCounter`に`set_trial_start_at_if_unset`と対称の
+  形で追加)を書き込み、送信失敗時は書き込まずに次回起動時の再試行に委ねる冪等性設計とした
+  (line-reservation-ai/cloud_function_send_reminders.pyのsend_reminders()と同じ方式)。
+  通知文面中の「投稿文生成: ○回」「浮いた作業時間の目安: 約○分」は、trial-end-
+  notification-design.md 5節で試算値自体が未作成と明記されている通り、本フェーズでも
+  プレースホルダ文字列のまま残した(実際の値を埋めるには期間集計ロジック・作業時間試算の
+  別途設計が必要で、次回以降の課題)。CTAリンクは、checkout-initiation-flow-design.mdの
+  LIFF方式決済導線がCheckout Session個別URLではなくLIFFアプリ自体の固定URLである点を
+  踏まえ、`cloud_function_webhook.py`の`PORTAL_LINK_PLACEHOLDER`と同じ考え方の
+  `LIFF_URL_PLACEHOLDER`とした。テスト9件新規追加(course-set-pasha配下計277件パス)。
+  残る課題は3点: (1)通知文面の「○回」「○分」を実際の集計値・試算値に置き換える作業、
+  (2)実際のCloud Scheduler新規作成・LIFFアプリ実登録〈いずれもオーナー承認待ち、
+  pending-approval.md 2026-08-23 09:00 UTC記載分参照〉、(3)実Firestore接続後にLINE側・
+  Stripe側で`usage_counter`インスタンスを共有できるようにする点(フェーズ103から継続)。
+- 最終更新: 2026-08-23 22:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-23 22:00 UTC: Cloud Function D本体の実装は`prototype/
+  trial_end_scheduler.py`の`send_trial_end_notifications()`(フェーズ104)で対応した。
+  詳細は上記フェーズ104参照。残るのは通知文面の「○回」「○分」の実値化・実際のCloud
+  Scheduler作成〈オーナー承認待ち〉)
 - (解消済み 2026-08-23 13:00 UTC: 期間到達判定用の日次スケジューラ本体の設計は
   `trial-end-scheduler-design.md`(フェーズ102)で対応した。詳細は上記フェーズ102参照。
   残るのはCloud Function D本体の実装・`upgraded_at`書き込み配線・実際のCloud Scheduler

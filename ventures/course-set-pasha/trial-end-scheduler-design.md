@@ -94,9 +94,13 @@ course-set-pasha配下計268件パス)。本フェーズ時点で以下2点が�
 - (解消済み・フェーズ103: `upgraded_at`フィールドの実装(stripe_webhook.py
   `handle_checkout_session_completed()`への書き込み配線)。詳細は2節参照。実Firestore接続
   後にLINE側・Stripe側で同一インスタンスを共有できるようにする点のみ引き続き残る)
-- Cloud Function D(`send_trial_end_notifications`)自体の実装(3節の選定ロジックと
-  trial-end-notification-design.md 3節のメッセージ整形・LinePushClient送信の配線)。
-  line-reservation-ai/cloud_function_send_reminders.pyのdispatch構造を参考にする。
+- (解消済み・フェーズ104: Cloud Function D(`send_trial_end_notifications`)自体の実装
+  〈3節の選定ロジックとtrial-end-notification-design.md 3節のメッセージ整形・
+  LinePushClient送信の配線〉を`prototype/trial_end_scheduler.py`で行った。本venture向けに
+  `LinePushClient`/`InMemoryLinePushClient`/`LinePushDeliveryError`を新規定義し、送信成功時
+  のみ`usage_counter.set_trial_end_notified_at()`(新設)を書き込む冪等性設計とした。通知
+  文面中の「○回」「○分」は試算値自体が未作成のためプレースホルダのまま残る。テスト9件追加。
+  詳細はcourse-set-pasha/README.mdフェーズ104参照)
 - 実際のCloud Scheduler新規作成はGCPプロジェクトの課金設定を伴うため、
   引き続きオーナー承認待ちの範囲(pending-approval.md 2026-08-23 09:00 UTC記載分参照、
   本件も同一の承認事項でまとめて扱う想定)。

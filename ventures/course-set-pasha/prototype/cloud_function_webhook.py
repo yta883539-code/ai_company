@@ -144,6 +144,18 @@ class UsageCounterProtocol(Protocol):
     def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
         ...
 
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        """trial-end-scheduler-design.md 4節: Cloud Function D
+        (send_trial_end_notifications、trial_end_scheduler.py)が通知送信に成功した直後に
+        1回だけ書き込む。set_trial_start_at_if_unset/set_upgraded_at_if_unsetと異なり
+        「未設定なら」という条件は呼び出し側(select_due_trial_end_notifications()が
+        既にtrial_end_notified_at is Noneのユーザーのみを対象に絞り込む)で担保するため、
+        本メソッド自体は単純な上書きでよい。"""
+        ...
+
+    def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -181,6 +193,7 @@ class InMemoryUsageCounter:
         self._notice_sent: set = set()
         self._trial_start_at: dict[str, datetime] = {}
         self._upgraded_at: dict[str, datetime] = {}
+        self._trial_end_notified_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -209,6 +222,12 @@ class InMemoryUsageCounter:
 
     def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
         return self._upgraded_at.get(user_id)
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        self._trial_end_notified_at[user_id] = notified_at
+
+    def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
+        return self._trial_end_notified_at.get(user_id)
 
     def increment_and_mark_notice(
         self,
