@@ -1416,3 +1416,22 @@
   (2026-08-22 08:00 UTC・フェーズ100)」参照。次回はcustomer-interview-design.md相当の
   ヒアリング設計への同項目の反映、またはオーナーの初回コンタクト承認可否を待つ間の
   他領域の前進を検討する。
+- (注記: フェーズ101〜114は個別ドキュメント側(follow-unfollow-event-handling-design.md・
+  user-account-linking-design.md・data-retention-policy.md等)とgit commitログには記録されて
+  いるが、本READMEのフェーズログへの追記がフェーズ100で止まっていた。詳細はgit log
+  (b64f15f・b5f9ef9・a7fd472・13488f6等のcommitメッセージ)参照。フェーズ115から本READMEへの
+  記録を再開する。)
+- フェーズ115(2026-08-23 20:00 UTC): follow-unfollow-event-handling-design.md「残課題」・
+  フェーズ114で実装した`dispatch_webhook_events()`の先に残っていた「実HTTPリクエスト
+  (署名ヘッダ付きJSONボディ)を受け取り、署名検証を通してからdispatch_webhook_events()へ
+  渡す入口」を、webhook-http-entry-point-design.mdとして新規設計した。本ventureには
+  course-set-pasha・line-reservation-aiには既にあった`verify_line_signature()`
+  (HMAC-SHA256 + Base64、標準ライブラリのみ)自体が未実装だったため、設計・実装ともに
+  新設した。あわせて`WebhookReceiverResult`・`receive_webhook()`
+  (署名検証→JSONパース→`events`キー確認→`dispatch_webhook_events()`委譲、の4段階、
+  course-set-pashaのreceive_webhook()と同じ設計)をprototype/cloud_function_webhook.pyに
+  実装し、test_cloud_function_webhook.pyに`VerifyLineSignatureTest`・`ReceiveWebhookTest`
+  (計7件)を追加、prototype配下の全テスト実行で116件全件パスを確認した。次回は実際の
+  Cloud Functions(`functions_framework`)のリクエストオブジェクトから`body`・署名ヘッダを
+  取り出して`receive_webhook()`に渡す`main(request)`薄い配線(course-set-pashaフェーズ83
+  相当)を優先する。

@@ -771,6 +771,88 @@ def dispatch_webhook_events(
     return result
 
 
+# ---------------------------------------------------------------------------
+# 署名検証 + HTTPエントリポイント
+# (webhook-http-entry-point-design.md フェーズ115。実HTTPリクエストの署名ヘッダ付き
+#  JSONボディを受け取り、署名検証を通してからdispatch_webhook_events()へ渡す入口。)
+# ---------------------------------------------------------------------------
+
+def verify_line_signature(body: bytes, signature_header: Optional[str], channel_secret: str) -> bool:
+    """X-Line-Signatureの検証(HMAC-SHA256 + Base64)。channel_secretの実際の値は
+    LINE公式アカウント開設(オーナー承認待ち)後に得られるため、実際の検証はその後に行う。"""
+    import base64
+    import hashlib
+    import hmac
+
+    if not signature_header:
+        return False
+    computed = hmac.new(channel_secret.encode("utf-8"), body, hashlib.sha256).digest()
+    computed_b64 = base64.b64encode(computed).decode("utf-8")
+    return hmac.compare_digest(computed_b64, signature_header)
+
+
+@dataclass
+class WebhookReceiverResult:
+    """receive_webhook()の結果。"""
+
+    status_code: int
+    dispatch_result: Optional[DispatchResult] = None
+    error: Optional[str] = None
+
+
+def receive_webhook(
+    body: bytes,
+    signature_header: Optional[str],
+    channel_secret: str,
+    *,
+    reply_client: Optional[ReplyClient] = None,
+    llm_call: Optional[LlmCallClient] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    now: Optional[datetime] = None,
+) -> WebhookReceiverResult:
+    """署名検証済みのHTTPリクエストボディ(bytes)を`dispatch_webhook_events()`まで
+    橋渡しする薄いエントリポイント(webhook-http-entry-point-design.md 2節)。
+
+    1. 署名不正時はJSONパース・dispatchのいずれも行わず401を返す。
+    2. JSONとしてパースできないbodyは400(error="invalid_json")。
+    3. "events"キーがlistでないbodyは400(error="missing_events")。
+    4. 上記を通過したら`events`をdispatch_webhook_events()にそのまま委譲する。
+    """
+    import json
+
+    if not verify_line_signature(body, signature_header, channel_secret):
+        return WebhookReceiverResult(status_code=401, error="invalid_signature")
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return WebhookReceiverResult(status_code=400, error="invalid_json")
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        return WebhookReceiverResult(status_code=400, error="missing_events")
+
+    dispatch_result = dispatch_webhook_events(
+        payload["events"],
+        reply_client=reply_client,
+        llm_call=llm_call,
+        profile_store=profile_store,
+        linking_store=linking_store,
+        form_link_provider=form_link_provider,
+        portal_link_provider=portal_link_provider,
+        usage_counter=usage_counter,
+        plan=plan,
+        month=month,
+        now=now,
+    )
+    return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
 def _demo() -> None:
     class StubLlmClient:
         """schema/validate_test_cases.pyのG1_basicフィクスチャ相当を返す固定スタブ。"""

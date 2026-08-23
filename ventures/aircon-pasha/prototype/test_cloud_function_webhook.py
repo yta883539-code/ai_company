@@ -4,7 +4,9 @@
 schema/validate_test_cases.pyのTEST_CASES(G1〜G3・OOS1・II1)を返すスタブLLMクライアントを
 使い、status別の返信文組み立て・検証失敗時のフォールバックを確認する。
 course-set-pasha/prototype/test_cloud_function_webhook.pyの構成を踏襲しつつ、本venture固有の
-差異(署名検証・写真束ねロジックが存在しないためそれらのテストは対象外)を反映した。
+差異(写真束ねロジックが存在しないためそのテストは対象外。署名検証・HTTPエントリポイントは
+フェーズ115(webhook-http-entry-point-design.md)でcourse-set-pashaと同じ設計を追加した)を
+反映した。
 
 実行方法: python3 -m unittest test_cloud_function_webhook -v
 """
@@ -40,8 +42,10 @@ from cloud_function_webhook import (  # noqa: E402
     process_memo_event,
     process_message_event,
     process_unfollow_event,
+    receive_webhook,
     render_subscription_procedure_notice,
     validate_llm_output,
+    verify_line_signature,
 )
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
 from user_id_linking import (  # noqa: E402
@@ -919,6 +923,86 @@ class ValidateLlmOutputTest(unittest.TestCase):
     def test_format_reply_text_raises_for_unknown_status(self):
         with self.assertRaises(ValueError):
             format_reply_text({"status": "unexpected_status"})
+
+
+class VerifyLineSignatureTest(unittest.TestCase):
+    """verify_line_signature()のテスト(webhook-http-entry-point-design.md 1節、フェーズ115)。"""
+
+    CHANNEL_SECRET = "test-channel-secret"
+
+    def _signature_for(self, body: bytes) -> str:
+        import base64
+        import hashlib
+        import hmac
+
+        digest = hmac.new(self.CHANNEL_SECRET.encode("utf-8"), body, hashlib.sha256).digest()
+        return base64.b64encode(digest).decode("utf-8")
+
+    def test_correct_signature_is_accepted(self):
+        body = b'{"events": []}'
+        self.assertTrue(verify_line_signature(body, self._signature_for(body), self.CHANNEL_SECRET))
+
+    def test_incorrect_signature_is_rejected(self):
+        body = b'{"events": []}'
+        self.assertFalse(verify_line_signature(body, "invalid-signature==", self.CHANNEL_SECRET))
+
+    def test_missing_signature_header_is_rejected(self):
+        body = b'{"events": []}'
+        self.assertFalse(verify_line_signature(body, None, self.CHANNEL_SECRET))
+
+
+class ReceiveWebhookTest(unittest.TestCase):
+    """receive_webhook()のテスト(webhook-http-entry-point-design.md 2節、フェーズ115)。"""
+
+    CHANNEL_SECRET = "test-channel-secret"
+
+    def _signature_for(self, body: bytes) -> str:
+        import base64
+        import hashlib
+        import hmac
+
+        digest = hmac.new(self.CHANNEL_SECRET.encode("utf-8"), body, hashlib.sha256).digest()
+        return base64.b64encode(digest).decode("utf-8")
+
+    def test_invalid_signature_returns_401_without_dispatching(self):
+        reply_client = InMemoryReplyClient()
+        body = b'{"events": [{"type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"}}]}'
+
+        result = receive_webhook(body, "wrong-signature==", self.CHANNEL_SECRET, reply_client=reply_client)
+
+        self.assertEqual(result.status_code, 401)
+        self.assertEqual(result.error, "invalid_signature")
+        self.assertIsNone(result.dispatch_result)
+        self.assertEqual(reply_client.sent, [])
+
+    def test_invalid_json_body_returns_400(self):
+        body = b"{not valid json"
+
+        result = receive_webhook(body, self._signature_for(body), self.CHANNEL_SECRET)
+
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_json")
+
+    def test_missing_events_key_returns_400(self):
+        body = b'{"foo": "bar"}'
+
+        result = receive_webhook(body, self._signature_for(body), self.CHANNEL_SECRET)
+
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "missing_events")
+
+    def test_valid_follow_event_request_returns_200_with_dispatch_result(self):
+        reply_client = InMemoryReplyClient()
+        body = b'{"events": [{"type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"}}]}'
+
+        result = receive_webhook(
+            body, self._signature_for(body), self.CHANNEL_SECRET, reply_client=reply_client,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.error)
+        self.assertEqual(len(result.dispatch_result.follow_results), 1)
+        self.assertEqual(len(reply_client.sent), 1)
 
 
 if __name__ == "__main__":
