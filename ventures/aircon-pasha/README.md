@@ -1435,3 +1435,16 @@
   Cloud Functions(`functions_framework`)のリクエストオブジェクトから`body`・署名ヘッダを
   取り出して`receive_webhook()`に渡す`main(request)`薄い配線(course-set-pashaフェーズ83
   相当)を優先する。
+- フェーズ116(2026-08-23 21:00 UTC): フェーズ115の申し送り・webhook-http-entry-point-design.md
+  「残課題」だった`main(request)`薄い配線に着手した。course-set-pashaのcloud_function_webhook.py
+  (`get_runtime_dependencies()`・`main()`)と同じ設計で、`get_runtime_dependencies()`
+  (実クレデンシャル未接続のため現時点は空辞書を返すファクトリ)・`main(request)`
+  (`functions_framework`のRequestインターフェース`get_data()`・`headers.get(...)`のみに依存し、
+  環境変数`LINE_CHANNEL_SECRET`からchannel_secretを取得、`receive_webhook()`へ委譲)を
+  prototype/cloud_function_webhook.pyに実装した。テストはcourse-set-pashaの
+  `_StubFlaskRequest`・`MainEntryPointTest`をそのまま踏襲し5件追加、prototype配下の全テスト
+  実行で121件全件パス・schema/validate_test_cases.py実行(9件パス)をいずれも確認した。これで
+  webhook-http-entry-point-design.mdの残課題のうち、実デプロイ・アカウント作成に該当しない
+  範囲(署名検証〜HTTPエントリポイントまでの処理ロジック自体)は完了した。次回は本venture未着手の
+  llm-quality-verification-plan.md相当(実LLM接続後の生成品質検証設計、course-set-pasha・
+  line-reservation-aiには既存)の新規作成、または候補研究の残課題の前進を優先する。

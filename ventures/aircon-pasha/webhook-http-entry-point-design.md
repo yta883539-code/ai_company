@@ -74,10 +74,12 @@ def receive_webhook(
 
 ## 残課題
 
-- 実際のCloud Functions(`functions_framework`)のリクエストオブジェクトから
-  `body`(`request.get_data()`)・署名ヘッダ(`request.headers.get("X-Line-Signature")`)を
-  取り出して`receive_webhook()`に渡す`main(request)`薄い配線(course-set-pashaフェーズ83
-  相当)は、本ドキュメントの範囲では未着手のまま次回以降に残す。
+- (解消済み 2026-08-23 21:00 UTC・フェーズ116: 実際のCloud Functions(`functions_framework`)の
+  リクエストオブジェクトから`body`(`request.get_data()`)・署名ヘッダ
+  (`request.headers.get("X-Line-Signature")`)を取り出して`receive_webhook()`に渡す
+  `get_runtime_dependencies()`・`main(request)`(course-set-pashaフェーズ83相当)を
+  prototype/cloud_function_webhook.pyに実装した。テスト5件(`MainEntryPointTest`)を追加、
+  全121件パスを確認した)
 - 実Cloud Functionsデプロイ自体(実GCPプロジェクト作成・実LINE公式アカウント接続)は、
   いずれもアカウント作成・外部サービス公開に該当しオーナー承認待ちのため未着手のまま残る。
 - `channel_secret`の実際の値の取得・保管方法(Secret Manager等)は、上記デプロイ時の

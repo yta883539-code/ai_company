@@ -11,6 +11,11 @@ course-set-pasha/prototype/test_cloud_function_webhook.pyの構成を踏襲し�
 実行方法: python3 -m unittest test_cloud_function_webhook -v
 """
 
+import base64
+import hashlib
+import hmac
+import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -38,6 +43,8 @@ from cloud_function_webhook import (  # noqa: E402
     dispatch_webhook_events,
     format_reply_text,
     format_welcome_message,
+    get_runtime_dependencies,
+    main,
     process_follow_event,
     process_memo_event,
     process_message_event,
@@ -1003,6 +1010,92 @@ class ReceiveWebhookTest(unittest.TestCase):
         self.assertIsNone(result.error)
         self.assertEqual(len(result.dispatch_result.follow_results), 1)
         self.assertEqual(len(reply_client.sent), 1)
+
+
+class _StubFlaskRequest:
+    """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ。
+    本物のflask.Request/functions_frameworkはインストールせず、`get_data()`・
+    `headers.get(...)`という同じインターフェースだけを再現する
+    (course-set-pashaのtest_cloud_function_webhook.pyと同じ構成)。"""
+
+    def __init__(self, body: bytes, headers: dict):
+        self._body = body
+        self.headers = headers
+
+    def get_data(self) -> bytes:
+        return self._body
+
+
+class MainEntryPointTest(unittest.TestCase):
+    """main()(functions_frameworkエントリポイント)のテスト(フェーズ116)。
+
+    webhook-http-entry-point-design.md「残課題」だった、実リクエストオブジェクトからの
+    body・署名ヘッダ取り出し配線を検証する(receive_webhook()自体の分岐は
+    ReceiveWebhookTestで既にカバー済みのため、ここではmain()固有の配線部分に絞る)。"""
+
+    SECRET = "demo-secret"
+
+    def _signed(self, body: bytes) -> str:
+        return base64.b64encode(hmac.new(self.SECRET.encode("utf-8"), body, hashlib.sha256).digest()).decode(
+            "utf-8"
+        )
+
+    def setUp(self):
+        self._original_secret = os.environ.get("LINE_CHANNEL_SECRET")
+        os.environ["LINE_CHANNEL_SECRET"] = self.SECRET
+
+    def tearDown(self):
+        if self._original_secret is None:
+            os.environ.pop("LINE_CHANNEL_SECRET", None)
+        else:
+            os.environ["LINE_CHANNEL_SECRET"] = self._original_secret
+
+    def test_valid_request_extracts_body_and_signature_and_returns_200(self):
+        body = json.dumps({"events": [{"type": "unfollow"}]}).encode("utf-8")
+        request = _StubFlaskRequest(body, {"X-Line-Signature": self._signed(body)})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response_body, "OK")
+
+    def test_invalid_signature_returns_401_with_error_body(self):
+        body = json.dumps({"events": []}).encode("utf-8")
+        request = _StubFlaskRequest(body, {"X-Line-Signature": "invalid-signature"})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+        self.assertEqual(response_body, "invalid_signature")
+
+    def test_missing_signature_header_returns_401(self):
+        body = json.dumps({"events": []}).encode("utf-8")
+        request = _StubFlaskRequest(body, {})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+
+    def test_missing_channel_secret_env_returns_401(self):
+        os.environ.pop("LINE_CHANNEL_SECRET", None)
+        body = json.dumps({"events": []}).encode("utf-8")
+        request = _StubFlaskRequest(body, {"X-Line-Signature": self._signed(body)})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+
+    def test_get_runtime_dependencies_output_is_accepted_by_receive_webhook(self):
+        # 現時点(オーナー承認待ち)では空辞書(=全依存関係が未接続)を返す。
+        # receive_webhook()にそのまま**kwargsとして渡せる(dispatch_webhook_events()側の
+        # None未接続時フォールバックにより例外を起こさない)ことを確認する。
+        deps = get_runtime_dependencies()
+        self.assertEqual(deps, {})
+        body = json.dumps({"events": [{"type": "unfollow"}]}).encode("utf-8")
+
+        result = receive_webhook(body, self._signed(body), self.SECRET, **deps)
+
+        self.assertEqual(result.status_code, 200)
 
 
 if __name__ == "__main__":

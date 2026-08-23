@@ -26,6 +26,7 @@ mvp-flow-draft.mdで整理した「作業後メモ→LLM呼び出し→3種類�
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -851,6 +852,47 @@ def receive_webhook(
         now=now,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
+def get_runtime_dependencies() -> dict:
+    """receive_webhook()に渡す実クライアント一式を組み立てるファクトリ。
+
+    実LINE Messaging API・実LLM API・実ユーザープロフィール/連携コードストア接続は、いずれも
+    実GCPプロジェクト作成・実LINE公式アカウント開設(オーナー承認待ち、pending-approval.md参照)
+    後でなければ実クライアントを構築できないため、現時点では空の辞書(=全依存関係が未接続の
+    `None`扱い)を返す(course-set-pashaのget_runtime_dependencies()と同じ設計)。
+    dispatch_webhook_events()側は`reply_client`/`llm_call`等が`None`のときイベント処理を
+    スキップする既存の安全側フォールバックを持つため、未接続のまま`main()`を呼び出しても
+    例外にはならない。承認・実クレデンシャル取得後は、この関数の中身を実クライアントを
+    返すように差し替えるだけで`main()`・`receive_webhook()`双方を変更せずに接続できる。
+    """
+    return {}
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定)。
+
+    `functions_framework`が渡す`request`はFlaskの`Request`と同じインターフェース
+    (`get_data()`・`headers.get(...)`)を持つため、本関数はそのインターフェースにのみ
+    依存し`functions_framework`自体をインポートしない(ローカルでの単体テスト時は同じ
+    インターフェースを持つ軽量なスタブで代替できる)。
+
+    webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた、実リクエスト
+    オブジェクトからの`body`(`request.get_data()`)・署名ヘッダ
+    (`request.headers.get("X-Line-Signature")`)取り出し配線をここで行い、
+    `receive_webhook()`に委譲する(course-set-pashaのmain()と同じ設計)。`channel_secret`は
+    環境変数`LINE_CHANNEL_SECRET`から取得する(実際の値の取得・保管方法自体は実デプロイ時の
+    設計課題として別途残る)。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("X-Line-Signature")
+    channel_secret = os.environ.get("LINE_CHANNEL_SECRET", "")
+
+    result = receive_webhook(body, signature_header, channel_secret, **get_runtime_dependencies())
+
+    if result.status_code == 200:
+        return "OK", 200
+    return (result.error or "error"), result.status_code
 
 
 def _demo() -> None:
