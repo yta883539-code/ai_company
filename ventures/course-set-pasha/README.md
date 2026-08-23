@@ -1088,13 +1088,33 @@
   新規追加(`InMemoryUsageCounterTrialStartAtTest`・`ProcessMemoEventTrialStartAtTest`、
   course-set-pasha配下計255件パス)。次の課題である(B)期間到達判定用の日次スケジューラ本体の
   設計(`trial_start_at`から14日経過したユーザーの抽出・プッシュ送信)は未着手のまま残る。
-- 最終更新: 2026-08-23 12:00 UTC
+- フェーズ102(2026-08-23 13:00 UTC): フェーズ101の残課題だった(B)期間到達判定用の日次
+  スケジューラ本体を設計した(`trial-end-scheduler-design.md`新規作成)。line-reservation-ai/
+  reminder-scheduler-design.mdと同じく「全ユーザー共通の単一日次ジョブ+範囲条件による
+  抽出」の方式を採用し、`prototype/trial_end_scheduler.py`に選定ロジック
+  `select_due_trial_end_notifications()`を実装した(trial_start_at設定済み・
+  trial_end_notified_at未設定・upgraded_at未設定・14日以上経過の4条件)。設計の過程で、
+  「有料転換済みユーザーを条件(B)の対象から除外する」ために必要な`upgraded_at`
+  フィールドがusage_counter側にもstripe_webhook.py側にも存在しない既存ギャップを発見し、
+  trial-end-scheduler-design.md 2節に対応方針(フィールドを新設し選定ロジックは先に
+  実装、実際の書き込み配線は次回以降の課題とする暫定運用)として明文化した。テスト8件
+  新規追加(`SelectDueTrialEndNotificationsTest`、course-set-pasha配下計263件パス)。
+  次回はCloud Function D(`send_trial_end_notifications`)本体の実装、または
+  `upgraded_at`書き込み配線(stripe_webhook.py `handle_checkout_session_completed()`)
+  への着手を優先候補とする。
+- 最終更新: 2026-08-23 13:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-23 13:00 UTC: 期間到達判定用の日次スケジューラ本体の設計は
+  `trial-end-scheduler-design.md`(フェーズ102)で対応した。詳細は上記フェーズ102参照。
+  残るのはCloud Function D本体の実装・`upgraded_at`書き込み配線・実際のCloud Scheduler
+  作成〈オーナー承認待ち〉)
+
 - (解消済み 2026-08-23 11:00 UTC: トライアル開始起点〈初回follow時 or 初回生成時〉の確定は
   `trial-start-anchor-decision.md`(フェーズ100)で対応した。詳細は上記フェーズ100参照。
-  残るのは`trial_start_at`の実書き込みロジック実装・期間到達判定用の日次スケジューラ設計)
+  残るのは`trial_start_at`の実書き込みロジック実装〈フェーズ101で対応済み〉・期間到達判定用の
+  日次スケジューラ設計〈フェーズ102で対応済み〉)
 
 - (解消済み 2026-08-23 09:00 UTC: トライアル終了通知メッセージ自体の設計は
   `trial-end-notification-design.md`(フェーズ99)で対応した。詳細は上記フェーズ99参照。
