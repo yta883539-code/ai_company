@@ -1504,7 +1504,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要なドキュメント訂正・テスト追加のみで、外部サービスへの公開・アカウント作成等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ続き133(2026-08-24 12:00 UTC): llm-quality-verification-plan.md・
+  multi-turn-scenario-harness-design.mdに残っていた「E1・E3等の崩れ系ケースへの
+  ハーネス展開」という残課題を点検したところ、E1・E3は既に追加済みで、E4(保留タイムアウト)
+  のみ未着手と判明した。`prototype/test_scenario_harness.py`に`E4HoldTimeoutScenarioTest`を
+  新規追加し、顧客Aが仮押さえ後に無応答のまま放置しHOLD_TIMEOUT(5分)超過後、顧客Bが
+  同じ枠を検索・選択すると正常にholdできる(=自動解放される)ことをprocessor.process()
+  のみで会話レベルから確認した。run_scenario()は1回の呼び出しにつき単一の`now`しか
+  取らないため、タイムアウト前後で2回に分けて呼び出す実装とした。あわせて、E4が指す
+  「枠の解放」はBookingSlotManagerのHOLD_TIMEOUT(5分・スロット単位)であり、放置された
+  A自身の会話状態は`release_idle_conversations()`(30分・会話単位)が別途回収するまで
+  残り続ける別物である点を回帰テストで明示した(Aの会話状態は6分後もawaiting_detailsの
+  まま)。テスト1件追加、プロトタイプ全体315件パス・schema検証25件パスを確認した。
+  あわせて上記2ファイルの記載も現状(E1・E3・E4は解消済み、残るはE7・E8等)に更新した。
+  承認不要なテスト追加・ドキュメント訂正のみで、外部サービスへの公開・アカウント作成等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
+- (解消済み 2026-08-24 12:00 UTC・フェーズ続き133: 上記フェーズ続き133参照。
+  崩れ系ケースのハーネス展開はE1・E3・E4が解消済みとなった。次回はE7(JSON構文崩れ)・
+  E8(自然文とJSONの矛盾)のハーネス化、RECONFIRM_MAX_ATTEMPTSの実測見直し〈実データ取得
+  待ち〉、または他venture・アイデア領域の前進を検討する。)
 - (解消済み 2026-08-24 09:00 UTC・フェーズ続き132: 上記フェーズ続き132参照。
   candidate-presentation-and-selection-design.mdの「曜日を含まない」という残課題は
   ドキュメントの記載漏れによる見かけ上のものと判明し訂正した。次回はRECONFIRM_MAX_ATTEMPTSの

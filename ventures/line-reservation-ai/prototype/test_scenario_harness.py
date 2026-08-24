@@ -386,5 +386,97 @@ class E1AmbiguousDatetimeScenarioTest(unittest.TestCase):
         self.assertEqual(flow.stage("U1"), "candidates_presented")
 
 
+class E4HoldTimeoutScenarioTest(unittest.TestCase):
+    """conversation-samples-test-cases.md E4(保留タイムアウト)。
+    multi-turn-scenario-harness-design.md「残る課題」で挙げていたE1・E3に続く3件目の
+    崩れ系ケース。E4自体はBookingSlotManagerTest.test_pending_times_out_and_frees_slot
+    (engine.pyの単体レベル)で既に検証済みだが、本クラスはE3と同じくprocessor.process()
+    のみを使い、顧客Aが仮押さえ後に無応答のまま放置し、HOLD_TIMEOUT(5分)超過後に
+    別の顧客Bが同じ枠を検索・選択すると正常にholdできる(=自動解放される)ことを
+    会話レベルで確認する。
+
+    run_scenario()は1回の呼び出しにつき単一のnowしか取らないため、タイムアウト前後で
+    2回に分けて呼び出す(顧客Aのターンをnow=NOWで実行した後、6分後のnow=NOW+6分で
+    顧客Bのターンを実行する)。
+    """
+
+    def _next_saturday(self) -> str:
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+        return saturday.isoformat()
+
+    def _search_turn(self, user_id: str, message: str, saturday: str) -> ScenarioTurn:
+        return ScenarioTurn(
+            user_id=user_id,
+            message=message,
+            llm_output={
+                "intent": "new_booking",
+                "name": None,
+                "menu": "カット",
+                "datetime_candidate": "来週土曜午後の空き候補(複数)",
+                "confirmed": False,
+                "needs_owner_check": False,
+                "requested_date_range": {"start": saturday, "end": saturday},
+                "time_of_day_preference": "afternoon",
+            },
+            expect_action="candidates_presented",
+            expect_stage="candidates_presented",
+        )
+
+    def test_slot_held_by_unresponsive_customer_becomes_available_to_another_after_timeout(self):
+        processor, flow, push = _new_processor()
+        saturday = self._next_saturday()
+
+        # 1. 顧客Aが検索・1番目の候補を選び、hold()に成功する。この後、
+        #    名前確認(provide_details)に進まないまま放置する(E4の入力例どおり)。
+        before_timeout = [
+            self._search_turn("U_A", "来週土曜の午後にカットお願いしたいです。", saturday),
+            ScenarioTurn(
+                user_id="U_A",
+                message="1番で",
+                llm_output={
+                    "intent": "new_booking", "name": None, "menu": None,
+                    "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+                },
+                expect_action="held",
+                expect_stage="awaiting_details",
+            ),
+        ]
+        run_scenario(processor, before_timeout, NOW)
+
+        # 2. HOLD_TIMEOUT(5分)を超えた6分後、顧客Bが同じ条件で検索すると、
+        #    Aが保持していた枠は自動解放されているため候補一覧に再び現れ、選択・holdできる。
+        after_timeout = NOW + timedelta(minutes=6)
+        after = [
+            self._search_turn("U_B", "土曜の午後、カットで空いてますか?", saturday),
+            ScenarioTurn(
+                user_id="U_B",
+                message="1番で",
+                llm_output={
+                    "intent": "new_booking", "name": None, "menu": None,
+                    "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+                },
+                expect_action="held",
+                expect_stage="awaiting_details",
+            ),
+        ]
+        results = run_scenario(processor, after, after_timeout)
+
+        self.assertEqual(len(results), 2)
+        for step in results:
+            self.assertEqual(step.schema_errors, [])
+            self.assertEqual(step.cross_field_errors, [])
+
+        # E4はconversation-samples-test-cases.md上「日時候補もリセットされる」(=枠が
+        # 解放される)という挙動を指しており、これはBookingSlotManager.HOLD_TIMEOUT
+        # (5分、スロット単位)の話である。一方、放置されたA自身の会話状態
+        # (ConversationFlowStateMachine._states)はrelease_idle_conversations()
+        # (idle-conversation-trigger-design.md、30分・会話単位)が別途回収するまで
+        # awaiting_detailsのまま残り続ける。スロット単位のタイムアウト(5分)と会話単位の
+        # idle timeout(30分)は別物であり、Aが6分後に何もしなくても会話状態は自動では
+        # 消えないことを回帰確認する。
+        self.assertEqual(flow.stage("U_A"), "awaiting_details")
+        self.assertEqual(flow.stage("U_B"), "awaiting_details")
+
+
 if __name__ == "__main__":
     unittest.main()

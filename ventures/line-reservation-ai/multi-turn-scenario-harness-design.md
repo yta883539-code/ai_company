@@ -165,6 +165,20 @@ test_cloud_function_process_event.py等と合わせて別途確認)。
   candidate-presentation-and-selection-design.md 2節参照。テスト4件追加、プロトタイプ
   全体312件パス。llm-system-prompt-draft.md・intent-to-flow-mapping.mdへの反映は実LLM接続後の
   検証と合わせて次回以降の課題として残る)
+- (解消済み 2026-08-24 12:00 UTC・フェーズ続き133: E1・E3に続く3件目の崩れ系ケースとして
+  E4(保留タイムアウト)を`E4HoldTimeoutScenarioTest`としてハーネス化した。E4自体は
+  `BookingSlotManagerTest.test_pending_times_out_and_frees_slot`でengine.py単体レベルでは
+  既に検証済みだったが、本テストはprocessor.process()のみを使い、顧客Aが仮押さえ後に
+  無応答のまま放置し、HOLD_TIMEOUT(5分)超過後に顧客Bが同じ枠を検索・選択すると
+  正常にholdできる(=自動解放される)ことを会話レベルで確認した。run_scenario()は
+  1回の呼び出しにつき単一の`now`しか取らないため、タイムアウト前後で2回に分けて呼び出す
+  実装とした。あわせて、E4が指す「枠の解放」はBookingSlotManagerのHOLD_TIMEOUT(5分・
+  スロット単位)であり、放置されたA自身の会話状態(ConversationFlowStateMachine._states)は
+  release_idle_conversations()(30分・会話単位、idle-conversation-trigger-design.md)が
+  別途回収するまで残り続ける別物である点を回帰テストで明示した(Aの会話状態は6分後も
+  awaiting_detailsのまま)。テスト1件追加、プロトタイプ全体315件パス・schema検証25件パスを
+  確認した。残るE7(JSON構文崩れ)・E8(自然文とJSONの矛盾)等の崩れ系ケースのハーネス化は
+  次回以降の課題として残す)
 - 実LLM接続後、`ScenarioTurn.llm_output`を実際のAPIレスポンスに差し替えて同じハーネスを
   再利用する具体的な接続コード(`process_llm_output()`のllm_call注入)は、
   引き続きAPIキー・課金のオーナー承認待ち(pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。

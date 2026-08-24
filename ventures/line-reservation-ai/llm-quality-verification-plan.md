@@ -96,6 +96,10 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
   到達することを確認した(プロトタイプ全体299件パス)。詳細・N3原文とのずれの発見は
   multi-turn-scenario-harness-design.md参照。残るのはE1・E3等の崩れ系ケースへの同ハーネスの
   展開と、実LLM接続後にllm_outputを実APIレスポンスへ差し替える配線〈オーナー承認待ち〉)
+  (解消済み 2026-08-24 12:00 UTC: 上記の崩れ系ケースへの展開はその後E3(2026-08-22 16:00 UTC)・
+  E1(同19:00 UTC)・E4(2026-08-24 12:00 UTC・フェーズ続き133)の3件を追加済み。詳細は
+  multi-turn-scenario-harness-design.md「残る課題」参照。残るはE7・E8等の未着手ケースと、
+  実LLM接続後にllm_outputを実APIレスポンスへ差し替える配線〈オーナー承認待ち〉のみ)
 - (解消済み 2026-08-22 02:00 UTC: トーン変換の固定語彙不変性チェックの機械化に着手し、
   fixed-vocabulary-tone-check-design.mdで対象語彙リスト`["仮押さえ", "確定"]`を整理・
   `FixedVocabularyInvariantAcrossTonesTest`として実装済み。残る課題は同ドキュメント
