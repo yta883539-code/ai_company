@@ -1173,7 +1173,18 @@
   ため、文言内に「1回あたり平均15分と仮定」という前提をそのまま残す設計とした。テスト3件
   新規追加(course-set-pasha配下計291件パス)。実ヒアリングによる検証は未実施のまま残る
   (content-generation-time-estimate.md「残課題」参照)。
-- 最終更新: 2026-08-24 02:00 UTC
+- フェーズ107(2026-08-24 05:00 UTC): フェーズ106の残課題だった
+  content-generation-time-estimate.md「残課題」1点目、「customer-interview-design.mdの
+  想定ヒアリング項目に『投稿文作成にかかる時間』を追加する」の要否を確認した。
+  customer-interview-design.md「ヒアリング項目」A.現状把握の質問3「告知文の作成に、1回
+  あたりどのくらいの時間をかけていますか?」が既にこの検証観点をカバーしており、追加の
+  質問新設は不要と判明した。content-generation-time-estimate.md「残課題」1点目に
+  (解消済み)注記を追加し、customer-interview-design.md「未検証の仮説」節に、質問3の
+  回答をMINUTES_SAVED_PER_GENERATION(=15分、フェーズ106)の妥当性検証にも直結させる旨を
+  追記した(実ヒアリング自体はオーナー承認・実連絡待ちの範囲、既存のpending-approval.md
+  記載事項の範囲内で変更なし)。ドキュメント整合性確認のみのため新規テスト追加なし
+  (course-set-pasha配下は引き続き291件パス)。
+- 最終更新: 2026-08-24 05:00 UTC
 
 ## 次にやること(候補)
 
