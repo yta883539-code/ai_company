@@ -880,6 +880,88 @@ class ProcessMemoEventTrialGenerationCountTest(unittest.TestCase):
         self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
 
 
+class ProcessMemoEventTrialEndNotificationTest(unittest.TestCase):
+    """process_memo_event()からの条件A(生成回数到達)側トライアル終了通知送信の検証
+    (trial-end-condition-a-implementation-design.md、README.mdフェーズ113)。"""
+
+    def test_fifth_generation_appends_trial_end_notification(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        for _ in range(4):
+            process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08",
+            )
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertIn("無料トライアル、お疲れさまでした", result.reply_text)
+
+    def test_fifth_generation_sets_trial_end_notified_at(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        moment = datetime(2026, 8, 24, 5, 0, 0)
+
+        for _ in range(5):
+            process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08", now=moment,
+            )
+
+        self.assertEqual(usage_counter.get_trial_end_notified_at("u-1"), moment)
+
+    def test_fourth_generation_does_not_append_notification_yet(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = None
+        for _ in range(4):
+            result = process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08",
+            )
+
+        self.assertNotIn("無料トライアル、お疲れさまでした", result.reply_text)
+        self.assertIsNone(usage_counter.get_trial_end_notified_at("u-1"))
+
+    def test_does_not_send_twice_when_already_notified(self):
+        # (B)期間到達側等で既にtrial_end_notified_atが設定済みの場合、
+        # (A)側が5回到達しても二重送信しない(「いずれか早い方で1回のみ」)。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = None
+        for _ in range(5):
+            result = process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08",
+            )
+
+        self.assertNotIn("無料トライアル、お疲れさまでした", result.reply_text)
+        self.assertEqual(usage_counter.get_trial_end_notified_at("u-1"), datetime(2026, 8, 20, 5, 0, 0))
+
+    def test_no_notification_when_already_upgraded(self):
+        # 既に有料転換済みの場合はincrement_trial_generation_count自体が呼ばれないため、
+        # 5回到達しても通知は送られない(既存のget_upgraded_at()ガード経由)。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_upgraded_at_if_unset("u-1", datetime(2026, 8, 20, 4, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = None
+        for _ in range(5):
+            result = process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08",
+            )
+
+        self.assertNotIn("無料トライアル、お疲れさまでした", result.reply_text)
+        self.assertIsNone(usage_counter.get_trial_end_notified_at("u-1"))
+
+
 class InMemoryUsageCounterTrialAreaCountTest(unittest.TestCase):
     """InMemoryUsageCounter.increment_trial_area_count()・get_trial_area_count()
     (README.mdフェーズ109、content-generation-time-estimate.md「複数エリア同時更新時の

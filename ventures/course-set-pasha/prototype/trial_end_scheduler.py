@@ -27,6 +27,13 @@ from typing import Optional, Protocol, Sequence
 # trial-end-notification-design.md 2節(B): トライアル開始から14日でトライアル終了。
 DEFAULT_TRIAL_PERIOD_DAYS = 14
 
+# trial-end-notification-design.md 2節(A) / pricing-plan.md「期間(14日)または生成5回到達の
+# いずれか早い方」: 生成回数側のトライアル終了しきい値。cloud_function_webhook.pyの
+# process_memo_event()がtrial_generation_count(トライアル期間中の生成回数専用カウンタ)を
+# このしきい値と比較し、達した時点でこのモジュールのformat_trial_end_notification_message()を
+# 使って通知を便乗送信する(trial-end-condition-a-implementation-design.md参照)。
+TRIAL_GENERATION_LIMIT = 5
+
 
 @dataclass(frozen=True)
 class TrialUserState:

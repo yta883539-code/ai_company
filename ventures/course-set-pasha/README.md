@@ -1251,7 +1251,20 @@
   とした。テスト6件追加(course-set-pasha配下313件パス・schema検証9件パス)。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-24 19:00 UTC
+- フェーズ113(2026-08-24 20:00 UTC): trial-end-notification-design.md「5. 今後の課題」に
+  残っていた「(A)生成回数到達側の実装」に対応した。`process_memo_event()`の
+  `increment_trial_generation_count()`呼び出し直後に、返り値が`TRIAL_GENERATION_LIMIT`
+  (新設、`trial_end_scheduler.py`に`=5`。pricing-plan.md「生成5回到達」と一致)に達し、
+  かつ`get_trial_end_notified_at()`が未設定の場合のみ、`format_trial_end_notification_message()`
+  で組み立てた通知文を返信本文に便乗追記し`set_trial_end_notified_at()`を書き込む処理を追加した
+  (`trial-end-condition-a-implementation-design.md`)。(B)期間到達側の日次スケジューラ
+  (`select_due_trial_end_notifications()`)は既に`trial_end_notified_at is not None`を除外する
+  設計だったため、どちらが先に発火しても「いずれか早い方で1回のみ」が保たれることを確認した。
+  トライアル終了後の「生成一時停止」自体(4節で範囲外とされた部分)は本フェーズでも未実装のまま
+  次回以降の課題として残す。テスト5件追加(course-set-pasha配下318件パス・schema検証9件パス)。
+  承認不要な実装・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-24 20:00 UTC
 
 ## 次にやること(候補)
 

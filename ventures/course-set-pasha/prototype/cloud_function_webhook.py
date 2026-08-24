@@ -44,6 +44,10 @@ from validate_test_cases import (  # noqa: E402
     validate_against_schema,
     validate_cross_field_rules,
 )
+from trial_end_scheduler import (  # noqa: E402
+    TRIAL_GENERATION_LIMIT,
+    format_trial_end_notification_message,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -935,14 +939,32 @@ def process_memo_event(
                 usage_counter, "get_upgraded_at"
             ):
                 if usage_counter.get_upgraded_at(user_id) is None:
-                    usage_counter.increment_trial_generation_count(user_id)
+                    trial_generation_count = usage_counter.increment_trial_generation_count(user_id)
                     # content-generation-time-estimate.md「複数エリア同時更新時の按分式
                     # (フェーズ109)」: history_rowsの要素数(=更新対象エリア数)をトライアル
                     # 期間中の累計に積み上げる(hasattr()判定は既存の後方互換パターンを踏襲)。
+                    trial_area_count = None
                     if hasattr(usage_counter, "increment_trial_area_count"):
-                        usage_counter.increment_trial_area_count(
+                        trial_area_count = usage_counter.increment_trial_area_count(
                             user_id, len(instance["history_rows"])
                         )
+                    # trial-end-notification-design.md 2節(A)/TRIAL_GENERATION_LIMIT(5回)到達時:
+                    # (B)期間到達用の日次スケジューラ(trial_end_scheduler.py)を待たず、この返信に
+                    # 便乗させてトライアル終了通知を送る(trial-end-condition-a-implementation-
+                    # design.md参照)。get_trial_end_notified_at()が未設定の場合のみ送信し、
+                    # 既に(B)側等で送信済みなら二重送信しない(「いずれか早い方で1回のみ」、2節)。
+                    if (
+                        trial_generation_count == TRIAL_GENERATION_LIMIT
+                        and hasattr(usage_counter, "get_trial_end_notified_at")
+                        and hasattr(usage_counter, "set_trial_end_notified_at")
+                        and usage_counter.get_trial_end_notified_at(user_id) is None
+                    ):
+                        notification_now = now or datetime.now(timezone(timedelta(hours=9)))
+                        trial_end_message = format_trial_end_notification_message(
+                            trial_generation_count, area_count=trial_area_count,
+                        )
+                        reply_text = f"{reply_text}\n\n{trial_end_message}"
+                        usage_counter.set_trial_end_notified_at(user_id, notification_now)
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
