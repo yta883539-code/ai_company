@@ -880,6 +880,103 @@ class ProcessMemoEventTrialGenerationCountTest(unittest.TestCase):
         self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
 
 
+class InMemoryUsageCounterTrialAreaCountTest(unittest.TestCase):
+    """InMemoryUsageCounter.increment_trial_area_count()・get_trial_area_count()
+    (README.mdフェーズ109、content-generation-time-estimate.md「複数エリア同時更新時の
+    按分式」用の専用カウンタ)。"""
+
+    def test_get_trial_area_count_defaults_to_zero(self):
+        counter = InMemoryUsageCounter()
+
+        self.assertEqual(counter.get_trial_area_count("u-1"), 0)
+
+    def test_increment_trial_area_count_accumulates_by_area_count(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment_trial_area_count("u-1", 1)
+        second = counter.increment_trial_area_count("u-1", 3)
+
+        self.assertEqual(second, 4)
+        self.assertEqual(counter.get_trial_area_count("u-1"), 4)
+
+    def test_counts_are_independent_per_user(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment_trial_area_count("u-1", 2)
+        counter.increment_trial_area_count("u-2", 5)
+
+        self.assertEqual(counter.get_trial_area_count("u-1"), 2)
+        self.assertEqual(counter.get_trial_area_count("u-2"), 5)
+
+
+class ProcessMemoEventTrialAreaCountTest(unittest.TestCase):
+    """process_memo_event()からのincrement_trial_area_count()配線の検証(README.mdフェーズ109)。
+    increment_trial_generation_countと同じトリガー条件(status==generated・plan指定・
+    未有料転換)で、history_rowsの要素数(=更新対象エリア数)を積み上げる。"""
+
+    def test_single_area_generation_adds_one(self):
+        # G1_basicはhistory_rowsが1件(単一エリア更新)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_area_count("u-1"), 1)
+
+    def test_multi_area_generation_adds_history_rows_length(self):
+        # G4_multi_area_single_memoはhistory_rowsが3件(3エリア同時更新)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G4_multi_area_single_memo"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_area_count("u-1"), 3)
+
+    def test_count_accumulates_across_multiple_generations(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G4_multi_area_single_memo"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_area_count("u-1"), 4)
+
+    def test_no_increment_after_upgraded(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_upgraded_at_if_unset("u-1", datetime(2026, 8, 20, 4, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_area_count("u-1"), 0)
+
+    def test_out_of_scope_reply_does_not_increment(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="会員になりたい", user_id="u-1"), FixtureLlmClient("OOS1_membership_question"),
+            reply_client, usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_area_count("u-1"), 0)
+
+
 class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
     """increment()・mark_sent()が単体(increment_and_mark_notice()を介さず)で呼ばれた回数を
     記録するスパイ。process_memo_event()が本当にincrement_and_mark_notice()経由の単一書き込み

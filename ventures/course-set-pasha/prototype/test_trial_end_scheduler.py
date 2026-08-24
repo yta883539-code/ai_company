@@ -129,6 +129,36 @@ class FormatTrialEndNotificationMessageTest(unittest.TestCase):
         text = format_trial_end_notification_message(2, minutes_per_generation=10)
         self.assertIn("約20分(1回あたり平均10分と仮定)", text)
 
+    def test_area_count_none_falls_back_to_legacy_formula(self) -> None:
+        # area_count未指定(既定値None)時は、フェーズ109以前の単純化式のまま。
+        text = format_trial_end_notification_message(4)
+        self.assertIn("約60分(1回あたり平均15分と仮定)", text)
+
+    def test_area_count_uses_phase109_formula_single_area(self) -> None:
+        # content-generation-time-estimate.md: minutes(n) = 10 + 5n。生成回数3回・全て
+        # 1エリアずつ(area_count=3)なら10*3 + 5*3 = 45分(=15分×3回と一致)。
+        text = format_trial_end_notification_message(3, area_count=3)
+        self.assertIn("約45分", text)
+        self.assertIn("投稿文生成: 3回", text)
+
+    def test_area_count_uses_phase109_formula_multi_area(self) -> None:
+        # 生成回数2回・エリア更新総数5(例: 1回目1エリア+2回目4エリア)なら
+        # 10*2 + 5*5 = 45分。
+        text = format_trial_end_notification_message(2, area_count=5)
+        self.assertIn("約45分", text)
+
+    def test_area_count_zero_shows_base_minutes_only(self) -> None:
+        text = format_trial_end_notification_message(0, area_count=0)
+        self.assertIn("約0分", text)
+
+    def test_area_count_message_uses_updated_wording(self) -> None:
+        text = format_trial_end_notification_message(3, area_count=3)
+        self.assertIn(
+            "1エリアの更新につき平均15分、複数エリア同時更新時は1エリア追加ごとにさらに約5分と仮定",
+            text,
+        )
+        self.assertNotIn("1回あたり平均15分と仮定", text)
+
 
 class SendTrialEndNotificationsTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -199,6 +229,34 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         sent_by_user = dict(push.sent)
         self.assertIn("投稿文生成: 3回", sent_by_user["u1"])
         self.assertIn("投稿文生成: 9回", sent_by_user["u2"])
+
+    def test_trial_area_count_is_passed_through_per_user(self) -> None:
+        # README.mdフェーズ109: trial_area_countが設定されているユーザーはフェーズ109の
+        # 按分式(10×generation_count + 5×area_count)、未設定(None、既存usage_counter
+        # 実装からの後方互換)のユーザーは従来の単純化式のまま、という違いを確認する。
+        user_with_area_count = TrialUserState(
+            user_id="u1",
+            trial_start_at=self.now - timedelta(days=14),
+            trial_generation_count=2,
+            trial_area_count=5,
+        )
+        user_without_area_count = TrialUserState(
+            user_id="u2",
+            trial_start_at=self.now - timedelta(days=14),
+            trial_generation_count=4,
+        )
+        usage_counter = _FakeUsageCounter()
+        push = InMemoryLinePushClient()
+
+        send_trial_end_notifications(
+            [user_with_area_count, user_without_area_count], self.now, usage_counter, push
+        )
+
+        sent_by_user = dict(push.sent)
+        # 10*2 + 5*5 = 45分
+        self.assertIn("約45分", sent_by_user["u1"])
+        # フォールバック: 4*15 = 60分
+        self.assertIn("約60分(1回あたり平均15分と仮定)", sent_by_user["u2"])
 
 
 if __name__ == "__main__":

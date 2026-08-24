@@ -1205,14 +1205,27 @@
   cloud_function_webhook.pyへの実装反映(トライアル期間中のエリア更新総数を積み上げる
   専用カウンタ新設が必要)は次の課題として残した。ドキュメント作成のみのため新規テスト
   追加なし(course-set-pasha配下は引き続き291件パス)。
-- 最終更新: 2026-08-24 10:00 UTC
+- フェーズ110(2026-08-24 13:00 UTC): フェーズ109の残課題だった按分式`minutes(n) = 10 + 5n`の
+  実装反映を行った。cloud_function_webhook.pyのUsageCounterProtocolに
+  `increment_trial_area_count(user_id, area_count)`/`get_trial_area_count(user_id)`を
+  increment_trial_generation_countと対になる専用カウンタとして新設し(InMemoryUsageCounterにも
+  実装)、process_memo_event()内でincrement_trial_generation_countと同じトリガー条件
+  (status==generated・plan指定・未有料転換)で`len(instance["history_rows"])`を積み上げる
+  よう配線した。trial_end_scheduler.pyはTrialUserStateに`trial_area_count`(既定None、
+  未対応usage_counter実装からの後方互換用)を追加し、format_trial_end_notification_message()に
+  `area_count`引数を新設。area_count指定時は`10×generation_count + 5×area_count`分・
+  「1エリアの更新につき平均15分、複数エリア同時更新時は1エリア追加ごとにさらに約5分と仮定」
+  という新文言、area_count未指定(None)時はフェーズ109以前の`15×generation_count`分・
+  従来文言のまま、という後方互換のフォールバックにした。テスト14件追加
+  (course-set-pasha配下305件パス・schema検証9件パス)。content-generation-time-estimate.md
+  「現状の実装との差分・次の課題」に解消済み注記を追加。
+- 最終更新: 2026-08-24 13:00 UTC
 
 ## 次にやること(候補)
 
-- 複数エリア同時更新時の按分式`minutes(n) = 10 + 5n`(フェーズ109・
-  content-generation-time-estimate.md「複数エリア同時更新時の按分式」節)の実装反映。
-  usage_counterへのエリア更新総数カウンタ新設、trial_end_scheduler.pyの計算式・通知文言の
-  見直しが必要(詳細は同節「現状の実装との差分・次の課題」参照)。
+- フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
+  複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
+  確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。
 - (解消済み 2026-08-24 07:00 UTC: 「時給換算」訴求軸への展開はlanding-page-copy-draft.md・
   フェーズ108で対応した。詳細は上記フェーズ108参照。残るのは15分という前提値自体の実
   ヒアリングによる検証)

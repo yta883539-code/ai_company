@@ -47,6 +47,14 @@ class TrialUserState:
     # usage_counter.get_trial_generation_count(user_id)から読み取って渡す想定(他フィールドと
     # 同じく、本モジュールはusage_counterの値をそのまま反映するだけで自ら集計はしない)。
     trial_generation_count: int = 0
+    # README.mdフェーズ109: content-generation-time-estimate.md「複数エリア同時更新時の
+    # 按分式」用に、cloud_function_webhook.pyのincrement_trial_area_count()で積み上げた
+    # トライアル期間中のエリア更新総数累計(各生成のhistory_rows要素数の合計)。呼び出し元が
+    # usage_counter.get_trial_area_count(user_id)から読み取って渡す想定。Noneは
+    # increment_trial_area_count未対応の既存usage_counter実装からの後方互換用で、
+    # format_trial_end_notification_message()側でフェーズ109以前の単純化式にフォールバック
+    # させる目印として使う。
+    trial_area_count: Optional[int] = None
 
 
 def select_due_trial_end_notifications(
@@ -93,12 +101,37 @@ def select_due_trial_end_notifications(
 # 別立ての専用カウンタ)を新設して解消済み。
 MINUTES_SAVED_PER_GENERATION = 15
 
+# README.mdフェーズ109: content-generation-time-estimate.md「複数エリア同時更新時の按分式」で
+# 導出した`minutes(n) = 10 + 5n`(n=1回の生成で更新したエリア数)をトライアル全体に積み上げると
+# `10×生成回数 + 5×エリア更新総数`になる(n=1のみの場合は15×生成回数と一致)。
+BASE_MINUTES_PER_GENERATION = 10
+ADDITIONAL_MINUTES_PER_AREA = 5
+
 TRIAL_END_NOTIFICATION_TEMPLATE = (
     "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
     "\n"
     "これまでの生成実績:\n"
     "・投稿文生成: {generation_count}回\n"
     "・浮いた作業時間の目安: 約{minutes_saved}分(1回あたり平均{minutes_per_generation}分と仮定)\n"
+    "\n"
+    "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。\n"
+    "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。\n"
+    "\n"
+    "▼ 有料プランへ進む(カード登録)\n"
+    "{liff_url}"
+)
+
+# README.mdフェーズ109: trial_area_countが取得できる場合(usage_counterが
+# increment_trial_area_count対応済み)に使う、複数エリア同時更新を考慮した文言。
+# content-generation-time-estimate.md「現状の実装との差分・次の課題」で提案した表現を採用。
+TRIAL_END_NOTIFICATION_TEMPLATE_WITH_AREA_COUNT = (
+    "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
+    "\n"
+    "これまでの生成実績:\n"
+    "・投稿文生成: {generation_count}回\n"
+    "・浮いた作業時間の目安: 約{minutes_saved}分"
+    "(1エリアの更新につき平均{base_minutes}分、複数エリア同時更新時は1エリア追加ごとに"
+    "さらに約{additional_minutes}分と仮定)\n"
     "\n"
     "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。\n"
     "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。\n"
@@ -118,12 +151,27 @@ def format_trial_end_notification_message(
     generation_count: int,
     liff_url: str = LIFF_URL_PLACEHOLDER,
     minutes_per_generation: int = MINUTES_SAVED_PER_GENERATION,
+    area_count: Optional[int] = None,
 ) -> str:
     """trial-end-notification-design.md 3節の通知メッセージ文面を組み立てる。
 
-    content-generation-time-estimate.md: 「浮いた作業時間の目安」は
-    generation_count × minutes_per_generation(仮置き15分)で算出する。
+    content-generation-time-estimate.md フェーズ109: area_countが渡された場合(usage_counterが
+    trial_area_countに対応済み)は`10×generation_count + 5×area_count`の按分式を使う。
+    area_countがNone(未対応のusage_counter実装からの後方互換)の場合は、フェーズ109以前の
+    `generation_count × minutes_per_generation`(仮置き15分)にフォールバックする。
     """
+    if area_count is not None:
+        minutes_saved = (
+            BASE_MINUTES_PER_GENERATION * generation_count
+            + ADDITIONAL_MINUTES_PER_AREA * area_count
+        )
+        return TRIAL_END_NOTIFICATION_TEMPLATE_WITH_AREA_COUNT.format(
+            generation_count=generation_count,
+            minutes_saved=minutes_saved,
+            base_minutes=BASE_MINUTES_PER_GENERATION + ADDITIONAL_MINUTES_PER_AREA,
+            additional_minutes=ADDITIONAL_MINUTES_PER_AREA,
+            liff_url=liff_url,
+        )
     return TRIAL_END_NOTIFICATION_TEMPLATE.format(
         generation_count=generation_count,
         minutes_saved=generation_count * minutes_per_generation,
@@ -201,7 +249,9 @@ def send_trial_end_notifications(
     result = SendTrialEndNotificationsResult()
 
     for user in select_due_trial_end_notifications(users, now, trial_period_days):
-        text = format_trial_end_notification_message(user.trial_generation_count, liff_url)
+        text = format_trial_end_notification_message(
+            user.trial_generation_count, liff_url, area_count=user.trial_area_count
+        )
         try:
             push_client.send_message(user.user_id, text)
         except LinePushDeliveryError:

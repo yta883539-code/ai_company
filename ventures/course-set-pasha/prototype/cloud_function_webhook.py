@@ -170,6 +170,20 @@ class UsageCounterProtocol(Protocol):
     def get_trial_generation_count(self, user_id: str) -> int:
         ...
 
+    def increment_trial_area_count(self, user_id: str, area_count: int) -> int:
+        """content-generation-time-estimate.md「複数エリア同時更新時の按分式(フェーズ109)」の
+        `minutes(n) = 10 + 5n`をトライアル全体で`10×生成回数 + 5×エリア更新総数`に積み上げる
+        ための、トライアル期間中のエリア更新総数(1回の生成につきhistory_rowsの要素数を加算)。
+        increment_trial_generation_countと対になる専用カウンタで、同じくトライアル期間限定・
+        月境界をまたがない。インクリメント後の累計値を返す契約とする。このメソッドを実装しない
+        UsageCounterProtocol実装では記録がスキップされ、trial_end_scheduler.py側は
+        フェーズ109以前と同じ`minutes(n)=15×generation_count`の単純化式にフォールバックする
+        (hasattr()判定による後方互換の考え方、increment_trial_generation_countと同様)。"""
+        ...
+
+    def get_trial_area_count(self, user_id: str) -> int:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -209,6 +223,7 @@ class InMemoryUsageCounter:
         self._upgraded_at: dict[str, datetime] = {}
         self._trial_end_notified_at: dict[str, datetime] = {}
         self._trial_generation_count: dict[str, int] = {}
+        self._trial_area_count: dict[str, int] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -250,6 +265,13 @@ class InMemoryUsageCounter:
 
     def get_trial_generation_count(self, user_id: str) -> int:
         return self._trial_generation_count.get(user_id, 0)
+
+    def increment_trial_area_count(self, user_id: str, area_count: int) -> int:
+        self._trial_area_count[user_id] = self._trial_area_count.get(user_id, 0) + area_count
+        return self._trial_area_count[user_id]
+
+    def get_trial_area_count(self, user_id: str) -> int:
+        return self._trial_area_count.get(user_id, 0)
 
     def increment_and_mark_notice(
         self,
@@ -914,6 +936,13 @@ def process_memo_event(
             ):
                 if usage_counter.get_upgraded_at(user_id) is None:
                     usage_counter.increment_trial_generation_count(user_id)
+                    # content-generation-time-estimate.md「複数エリア同時更新時の按分式
+                    # (フェーズ109)」: history_rowsの要素数(=更新対象エリア数)をトライアル
+                    # 期間中の累計に積み上げる(hasattr()判定は既存の後方互換パターンを踏襲)。
+                    if hasattr(usage_counter, "increment_trial_area_count"):
+                        usage_counter.increment_trial_area_count(
+                            user_id, len(instance["history_rows"])
+                        )
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"

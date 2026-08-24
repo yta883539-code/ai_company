@@ -58,11 +58,10 @@ AIによる生成自体は数秒〜数十秒で完了し、利用者側の作業
   かけていますか?」が既に本試算の検証観点をカバーしているため、質問の新設は不要と判明した。
   残るのは一次情報(個人経営ジムオーナー・セッターへの実ヒアリング)による検証そのもので、
   実施可能になった段階(オーナー承認後)で質問3の回答を用いて検証・再試算する)
-- (解消済み 2026-08-24 10:00 UTC: 複数エリア同時更新時の(1)〜(3)按分方法をフェーズ109で
-  設計した。詳細は下記「複数エリア同時更新時の按分式(フェーズ109)」節を参照。
-  MINUTES_SAVED_PER_GENERATION=15の単純化を残したまま、より精緻な式を追加提案する形と
-  したため、実装(prototype/trial_end_scheduler.py・cloud_function_webhook.pyへの反映)は
-  次の課題として引き続き残る)
+- (解消済み 2026-08-24 13:00 UTC: 複数エリア同時更新時の(1)〜(3)按分方法をフェーズ109で
+  設計し、実装(prototype/trial_end_scheduler.py・cloud_function_webhook.pyへの反映)を
+  フェーズ110で行った。詳細は下記「複数エリア同時更新時の按分式(フェーズ109)」節「現状の
+  実装との差分・次の課題」を参照。残るのは実Firestore接続後の実データでの検証のみ)
 - (解消済み 2026-08-24 07:00 UTC: 15分という値をpricing-plan.mdの月額料金に対する「時給換算」
   訴求軸へ展開する検討を、landing-page-copy-draft.md「『時給換算』訴求(補足コピー案)」節で
   行った。ライト990円/時・スタンダード928円/時・セッター複数797円/時という試算値を掲載。
@@ -109,19 +108,20 @@ Aとすると、合計の浮いた作業時間は `10×g + 5×A` 分となる。
 
 ### 現状の実装との差分・次の課題
 
-現在のprototype/trial_end_scheduler.py(MINUTES_SAVED_PER_GENERATION=15を生成回数に
-単純に掛ける方式)は、n=1(1回のメモで1エリアのみ更新)のケースでは上式と一致するが、
-複数エリア同時更新が発生すると実際より少なく見積もる(過小評価する)ことになる。
-上式を実装に反映するには、次の対応が必要で本フェーズの範囲を超えるため次の課題として残す。
+(解消済み 2026-08-24 13:00 UTC・フェーズ110): 以下3点をすべて実装に反映した。
 
 - usage_counter(UsageCounterProtocol)に、生成回数(trial_generation_count)とは別に
-  トライアル期間中のエリア更新総数(トライアル用history_rows要素数の累計、仮称
-  trial_area_count)を積み上げる専用カウンタを新設する(increment_trial_generation_countと
-  同様、cloud_function_webhook.py側で`len(instance["history_rows"])`を渡して加算する)。
-- trial_end_scheduler.pyのformat_trial_end_notification_message()を
-  `10 × generation_count + 5 × area_count`で計算する式に置き換え、通知文言の
-  「1回あたり平均15分と仮定」という固定文言も、複数エリア更新を考慮した表現
-  (例:「1エリアの更新につき平均15分、複数エリア同時更新時は1エリア追加ごとに
-  さらに約5分と仮定」)に見直す。
-- 上記いずれも、trial_area_countをまだ持たない既存実装との後方互換
-  (hasattr()判定、既存フェーズのパターンを踏襲)を維持する必要がある。
+  トライアル期間中のエリア更新総数(トライアル用history_rows要素数の累計)を積み上げる
+  専用カウンタ`increment_trial_area_count(user_id, area_count)`/
+  `get_trial_area_count(user_id)`を新設した(cloud_function_webhook.py側で
+  `len(instance["history_rows"])`を渡して加算)。
+- trial_end_scheduler.pyのformat_trial_end_notification_message()に`area_count`引数を
+  新設し、指定時は`10 × generation_count + 5 × area_count`で計算する式を使う。通知文言も
+  「1エリアの更新につき平均15分、複数エリア同時更新時は1エリア追加ごとにさらに約5分と仮定」
+  に見直した。
+- trial_area_countをまだ持たない既存usage_counter実装(area_count=None)との後方互換は
+  hasattr()判定・フォールバック式(従来の`15 × generation_count`・従来文言)で維持した。
+
+残るのは実Firestore接続後、実際のトライアルユーザーの複数エリア同時更新頻度が
+仮定(追加1エリアあたり2.5分)と乖離していないかの実データ検証のみ(オーナー承認待ちの
+範囲)。
