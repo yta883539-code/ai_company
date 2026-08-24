@@ -1448,3 +1448,18 @@
   範囲(署名検証〜HTTPエントリポイントまでの処理ロジック自体)は完了した。次回は本venture未着手の
   llm-quality-verification-plan.md相当(実LLM接続後の生成品質検証設計、course-set-pasha・
   line-reservation-aiには既存)の新規作成、または候補研究の残課題の前進を優先する。
+- フェーズ117(2026-08-24 00:00 UTC): フェーズ116の申し送りを確認したところ、
+  llm-quality-verification-plan.mdは既にフェーズ98(2026-08-21 20:00 UTC)で新規作成済み
+  であり、申し送り自体が古い状態を参照した誤りだったと判明した。改めて各ドキュメントの
+  「残課題」を棚卸しした結果、subscription-cancellation-flow-design.md「本venture固有の
+  論点: 季節性に伴うダウングレードの偏り」に残っていた「想定顧客ヒアリングで『季節に応じた
+  プラン変更のしやすさ』自体へのニーズを確認する必要がある(customer-interview-design.md
+  作成時の追加論点候補)」に対応した。customer-interview-design.mdの質問Bセクションに
+  質問7a(繁忙期対応プランと通常プランを季節に応じて切り替える運用の手続き・請求の分かり
+  やすさ、および「解約せず一時的に生成を止める」選択肢へのニーズを問う質問)を新設し、
+  全14問から全15問に更新、所要時間見積もり・未検証の仮説節の記述もあわせて更新した。
+  subscription-cancellation-flow-design.md側にも解消済みの旨を追記した。実在の業者への
+  ヒアリング実施自体は引き続きオーナー承認待ち(customer-interview-design.md「実施に
+  あたっての留意点」参照)。次回はinterview-candidate-selection-criteria.md相当の
+  選定基準を踏まえた候補研究の残課題、またはllm-quality-verification-plan.mdに残る
+  実LLM接続後の検証(承認待ちのため机上準備のみ可能な範囲)の前進を優先する。
