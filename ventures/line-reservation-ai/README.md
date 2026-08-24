@@ -1491,7 +1491,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   これによりcandidate-presentation-and-selection-design.mdの残課題はRECONFIRM_MAX_ATTEMPTS(=2)の
   実測値に基づく見直し(実データ取得待ち)のみとなった。
 
+- フェーズ続き132(2026-08-24 09:00 UTC): フェーズ続き131で「実データ取得待ち」のみが残る状態に
+  なったcandidate-presentation-and-selection-design.mdを点検した際、1節に残っていた
+  「`_Candidate.label`は曜日を含まない」という既知の残課題(5節にも同項目あり)が、
+  実際には`prototype/engine.py`の`AvailabilitySearcher.find_candidates()`実行結果を確認すると
+  `8/25(火) 09:00〜`のように`_WEEKDAY_JA[day.weekday()]`で既に曜日を含んでいることが判明した。
+  この実装自体は本ドキュメントの新規作成コミット(74412df)時点で既に存在しており、
+  ドキュメント側の記載更新漏れによる見かけ上の残課題だったと確認できたため、1節・5節を
+  解消済みに訂正した。回帰防止テスト`test_candidate_label_includes_weekday`を
+  `AvailabilitySearcherTest`に新規追加し(プロトタイプ全体314件パス・schema検証25件パスを確認)、
+  tone-and-manner-guideline.mdの表記例(`8/9(土)`)との一致を今後も検証できるようにした。
+  承認不要なドキュメント訂正・テスト追加のみで、外部サービスへの公開・アカウント作成等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
+- (解消済み 2026-08-24 09:00 UTC・フェーズ続き132: 上記フェーズ続き132参照。
+  candidate-presentation-and-selection-design.mdの「曜日を含まない」という残課題は
+  ドキュメントの記載漏れによる見かけ上のものと判明し訂正した。次回はRECONFIRM_MAX_ATTEMPTSの
+  実測見直し〈実データ取得待ち〉、または他venture・アイデア領域の前進を検討する。)
 - (解消済み 2026-08-24 04:00 UTC・フェーズ続き131: 上記フェーズ続き131参照。
   「エスカレーション後の会話状態クリーンアップ未設計」は既存の汎用idle cleanupで
   既にカバー済みと判明、回帰テストを追加。次回は他venture・アイデア領域の前進、または

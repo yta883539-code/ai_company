@@ -806,6 +806,20 @@ class AvailabilitySearcherTest(unittest.TestCase):
         )
         self.assertTrue(all(c.slot_key != booked for c in found))
 
+    def test_candidate_label_includes_weekday(self):
+        # candidate-presentation-and-selection-design.mdが一時「曜日を含まない」残課題として
+        # 記載していたが、実際は本フォーマットで既に曜日を含んでいたことが確認できた
+        # (2026-08-24 09:00 UTC訂正)。tone-and-manner-guideline.mdの表記例(`8/9(土)`)との
+        # 一致を回帰防止する。
+        searcher = AvailabilitySearcher(business_hours=(9 * 60, 19 * 60))
+        found = searcher.find_candidates(
+            store_id="shop_1", date_range=(date(2026, 8, 25), date(2026, 8, 25)),
+            time_of_day_preference="morning", menu_duration_minutes=60,
+            booking_slots=BookingSlotManager(), now=T0, max_candidates=1,
+        )
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].label, "8/25(火) 09:00〜")
+
     def test_excludes_closed_weekday(self):
         searcher = AvailabilitySearcher(business_hours=(9 * 60, 19 * 60), closed_weekdays=frozenset({6}))
         found = searcher.find_candidates(
