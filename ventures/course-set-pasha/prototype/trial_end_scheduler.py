@@ -85,18 +85,20 @@ def select_due_trial_end_notifications(
 # メッセージ整形(trial-end-notification-design.md 3節)
 # ---------------------------------------------------------------------------
 
-# trial-end-notification-design.md 5節: 「浮いた作業時間の目安」試算値はunit-economics-
-# estimate.md相当の試算が本venture未着手のため、引き続きプレースホルダのままとする
-# (cloud_function_webhook.pyのPORTAL_LINK_PLACEHOLDERと同じ考え方で、実際の値が定まった
-# 段階で置き換える)。生成回数(○回)は、README.mdフェーズ105でtrial_generation_count
-# (usage_counter.get_trial_generation_count()、月次カウンタとは別立ての専用カウンタ)を
-# 新設して解消したため、以後は実値を埋め込む。
+# content-generation-time-estimate.md: 「浮いた作業時間の目安」は、1回の生成で作られる
+# 3点セット(SNS投稿文・LINE/Web告知文・課題入れ替え履歴記録)を手動作成する場合の仮置き
+# 試算値(1回あたり平均15分、幅12〜18分)を採用する。実ヒアリングによる検証は未実施のため
+# 仮置きであることをメッセージ文言内にも明記する。生成回数(○回)は、README.mdフェーズ105で
+# trial_generation_count(usage_counter.get_trial_generation_count()、月次カウンタとは
+# 別立ての専用カウンタ)を新設して解消済み。
+MINUTES_SAVED_PER_GENERATION = 15
+
 TRIAL_END_NOTIFICATION_TEMPLATE = (
     "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
     "\n"
     "これまでの生成実績:\n"
     "・投稿文生成: {generation_count}回\n"
-    "・浮いた作業時間の目安: 約○分(1回あたり平均○分と仮定)\n"
+    "・浮いた作業時間の目安: 約{minutes_saved}分(1回あたり平均{minutes_per_generation}分と仮定)\n"
     "\n"
     "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。\n"
     "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。\n"
@@ -113,10 +115,21 @@ LIFF_URL_PLACEHOLDER = "{有料プランへ進むLIFFアプリ URL}"
 
 
 def format_trial_end_notification_message(
-    generation_count: int, liff_url: str = LIFF_URL_PLACEHOLDER
+    generation_count: int,
+    liff_url: str = LIFF_URL_PLACEHOLDER,
+    minutes_per_generation: int = MINUTES_SAVED_PER_GENERATION,
 ) -> str:
-    """trial-end-notification-design.md 3節の通知メッセージ文面を組み立てる。"""
-    return TRIAL_END_NOTIFICATION_TEMPLATE.format(generation_count=generation_count, liff_url=liff_url)
+    """trial-end-notification-design.md 3節の通知メッセージ文面を組み立てる。
+
+    content-generation-time-estimate.md: 「浮いた作業時間の目安」は
+    generation_count × minutes_per_generation(仮置き15分)で算出する。
+    """
+    return TRIAL_END_NOTIFICATION_TEMPLATE.format(
+        generation_count=generation_count,
+        minutes_saved=generation_count * minutes_per_generation,
+        minutes_per_generation=minutes_per_generation,
+        liff_url=liff_url,
+    )
 
 
 # ---------------------------------------------------------------------------

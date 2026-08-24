@@ -1160,14 +1160,26 @@
   「○分」(浮いた作業時間の目安)は、投稿作成時間の試算値自体が本venture未着手のため
   引き続きプレースホルダのまま残した(trial-end-notification-design.md 5節参照、次回以降の
   課題)。
-- 最終更新: 2026-08-24 01:00 UTC
+- フェーズ106(2026-08-24 02:00 UTC): フェーズ105で残った「○分」(浮いた作業時間の目安)の
+  試算値作成に対応した。sns-tone-research.mdが既に「個人経営ジムの投稿作成時間の定量データは
+  公開情報から見当たらない」と結論づけていたため、追加のWebSearch調査より先に、1回の生成で
+  作られる3点セット(SNS投稿文・LINE/Web告知文・課題入れ替え履歴記録、llm-api-cost-
+  estimate.md「出力(3件の下書き)」節参照)を手動作成する場合の作業時間を項目別に積み上げる
+  仮置き試算(content-generation-time-estimate.md新規作成)を行い、1回あたり平均15分
+  (幅12〜18分)という値を採用した。`prototype/trial_end_scheduler.py`に
+  `MINUTES_SAVED_PER_GENERATION`定数(=15)を新設し、`format_trial_end_notification_message()`
+  に`minutes_per_generation`引数(デフォルト15)を追加して`generation_count × 15分`を
+  「浮いた作業時間の目安」欄に埋め込むよう配線した。仮置き値であることを利用者にも透明にする
+  ため、文言内に「1回あたり平均15分と仮定」という前提をそのまま残す設計とした。テスト3件
+  新規追加(course-set-pasha配下計291件パス)。実ヒアリングによる検証は未実施のまま残る
+  (content-generation-time-estimate.md「残課題」参照)。
+- 最終更新: 2026-08-24 02:00 UTC
 
 ## 次にやること(候補)
 
-- 「浮いた作業時間の目安」(○分)の試算値作成。sns-tone-research.mdが既に「個人経営ジムの
-  投稿作成時間の定量データは公開情報から見当たらない」と結論づけているため、追加のWebSearch
-  調査より前に、一般的な文章作成速度等からの仮置き試算(line-reservation-ai/
-  unit-economics-estimate.mdのような形式)を検討する候補。
+- (解消済み 2026-08-24 02:00 UTC: 「浮いた作業時間の目安」(○分)の試算値作成は
+  content-generation-time-estimate.md・フェーズ106で対応した。詳細は上記フェーズ106参照。
+  残るのは実ヒアリングによる15分という仮置き値の検証)
 - (解消済み 2026-08-24 01:00 UTC: 通知文面の「○回」の実値化は`trial_generation_count`
   (フェーズ105)で対応した。詳細は上記フェーズ105参照)
 - (解消済み 2026-08-23 22:00 UTC: Cloud Function D本体の実装は`prototype/

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from trial_end_scheduler import (  # noqa: E402
     DEFAULT_TRIAL_PERIOD_DAYS,
     LIFF_URL_PLACEHOLDER,
+    MINUTES_SAVED_PER_GENERATION,
     InMemoryLinePushClient,
     LinePushDeliveryError,
     TrialUserState,
@@ -114,6 +115,19 @@ class FormatTrialEndNotificationMessageTest(unittest.TestCase):
         text = format_trial_end_notification_message(3, "https://liff.line.me/xxxx")
         self.assertIn("https://liff.line.me/xxxx", text)
         self.assertNotIn(LIFF_URL_PLACEHOLDER, text)
+
+    def test_minutes_saved_is_generation_count_times_default_rate(self) -> None:
+        # content-generation-time-estimate.md: 仮置き値は1回あたり15分。
+        text = format_trial_end_notification_message(4)
+        self.assertIn(f"約{4 * MINUTES_SAVED_PER_GENERATION}分(1回あたり平均15分と仮定)", text)
+
+    def test_zero_generation_count_shows_zero_minutes_saved(self) -> None:
+        text = format_trial_end_notification_message(0)
+        self.assertIn("約0分(1回あたり平均15分と仮定)", text)
+
+    def test_custom_minutes_per_generation_is_used(self) -> None:
+        text = format_trial_end_notification_message(2, minutes_per_generation=10)
+        self.assertIn("約20分(1回あたり平均10分と仮定)", text)
 
 
 class SendTrialEndNotificationsTest(unittest.TestCase):
