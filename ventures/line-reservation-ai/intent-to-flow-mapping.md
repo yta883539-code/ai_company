@@ -62,3 +62,14 @@ LLM構造化出力のスキーマ拡張は行わず、顧客の生返信テキ�
   menu-unmentioned-vs-unregistered-design.md「既知の限界・今回のスコープ外」に記載の通り
   未対応のまま残っており、実際にchange経由でのメニュー未言及が問題になった場合の
   次回以降の課題とする。
+- (2026-08-24 03:00 UTC追記)フェーズ130で`resolve_candidate_selection()`に追加した
+  「候補が1件のみの場合に限り、『それで』『その時間で』等の指示語のみの肯定的な返信を
+  その1件として確定する」ロジック(`_is_single_candidate_affirmation()`、
+  candidate-presentation-and-selection-design.md 2節手順6参照)について、本ロジックへの
+  反映要否を確認した。このロジックは`select_slot_from_reply()`が顧客の生返信テキストを
+  直接`resolve_candidate_selection()`に渡す既存の設計(上記表「顧客が候補から1件を特定できる
+  返信」の行、21節「解決済み」参照)の内部判定ルールが1つ増えただけであり、LLM構造化出力
+  (`intent`/`datetime_candidate`等)からConversationFlowStateMachineをどう呼び出すかという
+  本ファイルの対応表・llm-system-prompt-draft.mdのLLMプロンプト設計には影響しないことを確認した
+  (候補選択の自然文解釈はLLMではなくルールベースの決定的コードが担う設計のまま変更なし)。
+  対応表・システムプロンプトへの変更は不要と判断し、本追記のみで完了とする。

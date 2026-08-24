@@ -119,6 +119,16 @@ E8方針と同様、誤確定より聞き直しを優先)に倒して再確認�
 - 番号選択に成功した場合も`reconfirm_count`を0にリセットする。
 
 **今後の課題**: `RECONFIRM_MAX_ATTEMPTS = 2`は他のエスカレーション系設計(escalation-consolidation-logic.mdの
-再発火上限等)と同様、仮の目安であり実測データが取れた際に見直す。また、エスカレーション後に
-顧客が無反応のまま会話が終了した場合の会話状態のクリーンアップ(タイムアウト解放)は未設計で、
-次回以降の課題とする。
+再発火上限等)と同様、仮の目安であり実測データが取れた際に見直す。
+
+**(解消済み 2026-08-24 04:00 UTC)** エスカレーション後に顧客が無反応のまま会話が終了した場合の
+会話状態クリーンアップについて、専用ロジックが必要かを検証した。`select_slot_from_reply()`は
+エスカレーション分岐に入る場合も含め毎回`state.last_activity_at = now`を更新しており
+(prototype/engine.py)、エスカレーション後も`stage`は`candidates_presented`のまま
+`_states`に残り続けるため、idle-conversation-trigger-design.mdで既に実装済みの汎用idle cleanup
+(`release_idle_conversations()`、`CONVERSATION_IDLE_TIMEOUT`=30分経過で失効)がそのまま
+この状態も回収することを確認した。専用の実装は不要と結論づけ、回帰防止テスト
+`test_release_idle_conversations_frees_state_stuck_after_escalation`を
+`prototype/test_engine.py`に追加した(29分後は未失効、31分後に失効することを確認、
+プロトタイプ全体313件パス)。これにより本ステップの「今後の課題」はRECONFIRM_MAX_ATTEMPTSの
+実測見直しのみとなった。

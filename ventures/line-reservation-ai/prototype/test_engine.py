@@ -447,6 +447,33 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         self.assertEqual(kind, "immediate")
         self.assertEqual(event["escalation_reason"], "candidate_selection_unresolved")
 
+    def test_release_idle_conversations_frees_state_stuck_after_escalation(self):
+        # candidate-presentation-and-selection-design.md 6節「今後の課題」で長らく未設計
+        # としてきた「エスカレーション後に顧客が無反応のまま会話が終了した場合のクリーンアップ」
+        # を検証する回帰テスト。select_slot_from_reply()はエスカレーション分岐でも
+        # last_activity_atを更新するため(engine.py L992)、エスカレーション後の
+        # candidates_presented状態も既存の汎用idle cleanup(release_idle_conversations())が
+        # 専用ロジックなしにそのまま回収できることを確認する。
+        candidates = [
+            _fake_candidate(("shop_1", "2026-08-09", "14:00"), "8/9(土) 14:00〜"),
+            _fake_candidate(("shop_1", "2026-08-09", "17:00"), "8/9(土) 17:00〜"),
+        ]
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_escalated_then_silent", candidates, now=T0)
+
+        for _ in range(RECONFIRM_MAX_ATTEMPTS + 1):
+            flow.select_slot_from_reply("user_escalated_then_silent", "午後がいいです", T0)
+        self.assertEqual(flow.stage("user_escalated_then_silent"), "candidates_presented")
+
+        stuck_before_timeout = flow.release_idle_conversations(T0 + timedelta(minutes=29))
+        self.assertEqual(stuck_before_timeout, [])
+        self.assertEqual(flow.stage("user_escalated_then_silent"), "candidates_presented")
+
+        released = flow.release_idle_conversations(T0 + timedelta(minutes=31))
+        released_ids = {r.user_id: r.stage for r in released}
+        self.assertEqual(released_ids.get("user_escalated_then_silent"), "candidates_presented")
+        self.assertIsNone(flow.stage("user_escalated_then_silent"))
+
     def test_unexpected_stage_call_raises(self):
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
         with self.assertRaises(ConversationFlowError):

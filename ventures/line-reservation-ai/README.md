@@ -1475,7 +1475,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   部分(LLM自由文の自然さ)に切り分けて更新した。line-reservation-ai配下の全テスト
   (`python3 -m unittest discover`)296件パスを確認済み。
 
+- フェーズ続き131(2026-08-24 04:00 UTC): フェーズ130の申し送りだった、`_is_single_candidate_
+  affirmation()`(指示語のみの返信での候補確定ロジック)のllm-system-prompt-draft.md・
+  intent-to-flow-mapping.mdへの反映要否を確認した。候補選択の自然文解釈はLLM構造化出力を
+  経由せず顧客の生返信テキストを直接`resolve_candidate_selection()`に渡す既存設計のままであるため、
+  LLMプロンプト自体への変更は不要と判断し、intent-to-flow-mapping.mdに確認結果を追記するのみとした。
+  あわせて、candidate-presentation-and-selection-design.md 6節に長く残っていた「エスカレーション後に
+  顧客が無反応のまま会話が終了した場合の会話状態クリーンアップは未設計」という残課題を検証した。
+  `select_slot_from_reply()`はエスカレーション分岐でも`last_activity_at`を更新しており、
+  エスカレーション後もstageは`candidates_presented`のまま残るため、既存の汎用idle cleanup
+  (`release_idle_conversations()`、idle-conversation-trigger-design.md)が専用ロジックなしに
+  そのまま回収できることを確認した。回帰防止テスト
+  `test_release_idle_conversations_frees_state_stuck_after_escalation`を新規追加し
+  (29分後は未失効・31分後に失効を確認)、プロトタイプ全体313件パス・schema検証25件パスを確認した。
+  これによりcandidate-presentation-and-selection-design.mdの残課題はRECONFIRM_MAX_ATTEMPTS(=2)の
+  実測値に基づく見直し(実データ取得待ち)のみとなった。
+
 ## 次にやること(候補)
+- (解消済み 2026-08-24 04:00 UTC・フェーズ続き131: 上記フェーズ続き131参照。
+  「エスカレーション後の会話状態クリーンアップ未設計」は既存の汎用idle cleanupで
+  既にカバー済みと判明、回帰テストを追加。次回は他venture・アイデア領域の前進、または
+  RECONFIRM_MAX_ATTEMPTSの実測見直し〈実データ取得待ち〉を検討する。)
 - (解消済み 2026-08-23 23:00 UTC・フェーズ続き130: multi-turn-scenario-harness-design.md
   「残る課題」に残っていた「『その時間でお願いします』のような指示語のみの返信を
   resolve_candidate_selection()が解決できない」制約に対応した。同ドキュメントが提案していた
