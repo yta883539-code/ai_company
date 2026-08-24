@@ -1550,4 +1550,20 @@
   経緯と方針転換を追記した。WebSearchでの公開情報確認のみで承認不要。次回は候補研究以外の
   他venture・アイデア領域の前進(course-set-pasha・line-reservation-aiの残課題、または
   新規アイデアの検討)を優先する。
-- 最終更新: 2026-08-24 17:00 UTC
+- フェーズ123(2026-08-24 22:00 UTC): フェーズ122の申し送り通り候補研究以外の領域に前進先を
+  切替え、data-retention-policy.md「今後の課題」に残っていた削除候補化トリガー
+  (Stripe解約Webhook受信時の`deletion_candidate_at`マーク付け、course-set-pashaの
+  stripe-cancellation-deletion-candidate-trigger-design.md相当)を新規設計した
+  (stripe-cancellation-deletion-candidate-trigger-design.md新規作成)。
+  `user_profile/{user_id}`への`deletion_candidate_at`フィールド追加、
+  `customer.subscription.deleted`受信時に365日後を削除候補時刻として記録する
+  `mark_deletion_candidate_on_subscription_deleted()`、再契約時に取り消す
+  `clear_deletion_candidate_on_subscription_reactivated()`、月次バッチから呼ぶ想定の
+  `list_deletion_candidates()`の3関数を設計した。本venture固有の留意点として、
+  Checkout Session作成時に`client_reference_id`へ既知の`user_id`を設定できる
+  (user-account-linking-design.md 4節)ため`checkout.session.completed`の処理は
+  course-set-pashaより単純化されている一方、`customer.subscription.*`系イベントは
+  引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
+  data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
+  受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
+- 最終更新: 2026-08-24 22:00 UTC

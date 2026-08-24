@@ -121,6 +121,10 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
   Googleフォーム作成(pending-approval.md記載事項、オーナー承認待ち)が完了するまでは
   `email`フィールドの実データ収集自体が発生しないため、フォーム作成後に本節の想定を
   再確認する必要がある。
-- 削除候補化トリガー(Stripe解約Webhook受信時の`deletion_candidate_at`マーク付け等、
-  course-set-pashaのstripe-cancellation-deletion-candidate-trigger-design.md相当の設計)は
-  本ventureでは未着手。次回以降の候補とする。
+- (解消済み 2026-08-24 22:00 UTC・フェーズ123: 削除候補化トリガー(Stripe解約Webhook受信時の
+  `deletion_candidate_at`マーク付け等)をstripe-cancellation-deletion-candidate-trigger-
+  design.mdとして新規設計した。`user_profile/{user_id}`への`deletion_candidate_at`
+  フィールド追加、`mark_deletion_candidate_on_subscription_deleted()`・
+  `clear_deletion_candidate_on_subscription_reactivated()`・`list_deletion_candidates()`の
+  3関数設計まで完了。実Stripe Webhook受信口・`prototype/`への実装は引き続き未着手のまま
+  次回以降の課題として残る)
