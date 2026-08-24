@@ -156,6 +156,20 @@ class UsageCounterProtocol(Protocol):
     def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
         ...
 
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        """trial-end-notification-design.md 3節の通知文言「投稿文生成: ○回」に使う、
+        トライアル期間中の生成回数の累計。月次でリセットされるget_count()/increment()
+        (Stripe請求・上限判定用)とは別に、trial_start_atと同様「trial_start_at〜通知時点」の
+        期間をまたぐ月境界の影響を受けない専用カウンタとして持つ(README.mdフェーズ105参照)。
+        インクリメント後のカウント値を返す契約とする。このメソッドを実装しない
+        UsageCounterProtocol実装では、この専用カウントの記録自体がスキップされ、
+        trial_end_scheduler.py側は0件(プレースホルダ)のまま通知する
+        (set_trial_start_at_if_unsetと同じhasattr()判定による後方互換の考え方)。"""
+        ...
+
+    def get_trial_generation_count(self, user_id: str) -> int:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -194,6 +208,7 @@ class InMemoryUsageCounter:
         self._trial_start_at: dict[str, datetime] = {}
         self._upgraded_at: dict[str, datetime] = {}
         self._trial_end_notified_at: dict[str, datetime] = {}
+        self._trial_generation_count: dict[str, int] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -228,6 +243,13 @@ class InMemoryUsageCounter:
 
     def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
         return self._trial_end_notified_at.get(user_id)
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        self._trial_generation_count[user_id] = self._trial_generation_count.get(user_id, 0) + 1
+        return self._trial_generation_count[user_id]
+
+    def get_trial_generation_count(self, user_id: str) -> int:
+        return self._trial_generation_count.get(user_id, 0)
 
     def increment_and_mark_notice(
         self,
@@ -883,6 +905,15 @@ def process_memo_event(
                 count = usage_counter.increment(user_id, month or current_month_jst())
                 if trial_start_at_value is not None and hasattr(usage_counter, "set_trial_start_at_if_unset"):
                     usage_counter.set_trial_start_at_if_unset(user_id, trial_start_at_value)
+            # README.mdフェーズ105: トライアル終了通知(trial_end_scheduler.py)の
+            # 「投稿文生成: ○回」用に、月次でリセットされない専用カウンタを別途積み上げる。
+            # 既に有料転換済み(get_upgraded_atがNoneでない)のユーザーは対象外とし、
+            # トライアル中の生成回数のみを数える(hasattr()判定は既存の後方互換パターンを踏襲)。
+            if hasattr(usage_counter, "increment_trial_generation_count") and hasattr(
+                usage_counter, "get_upgraded_at"
+            ):
+                if usage_counter.get_upgraded_at(user_id) is None:
+                    usage_counter.increment_trial_generation_count(user_id)
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"

@@ -42,6 +42,11 @@ class TrialUserState:
     trial_start_at: Optional[datetime]
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
+    # README.mdフェーズ105: cloud_function_webhook.pyのincrement_trial_generation_count()で
+    # 積み上げた、月次カウンタとは別立てのトライアル期間中の生成回数累計。呼び出し元が
+    # usage_counter.get_trial_generation_count(user_id)から読み取って渡す想定(他フィールドと
+    # 同じく、本モジュールはusage_counterの値をそのまま反映するだけで自ら集計はしない)。
+    trial_generation_count: int = 0
 
 
 def select_due_trial_end_notifications(
@@ -81,16 +86,16 @@ def select_due_trial_end_notifications(
 # ---------------------------------------------------------------------------
 
 # trial-end-notification-design.md 5節: 「浮いた作業時間の目安」試算値はunit-economics-
-# estimate.md相当の試算が本venture未着手のため、設計フェーズ時点と同じくプレースホルダの
-# ままとする(cloud_function_webhook.pyのPORTAL_LINK_PLACEHOLDERと同じ考え方で、実際の
-# 値が定まった段階で置き換える)。生成回数(○回)も、trial_start_atからの期間が月をまたぎうる
-# ためusage_counter.get_count()の単純な月次集計では正確に求まらず、期間集計ロジック自体が
-# 本venture未設計(5節「今後の課題」)であるため、同じくプレースホルダのままとする。
+# estimate.md相当の試算が本venture未着手のため、引き続きプレースホルダのままとする
+# (cloud_function_webhook.pyのPORTAL_LINK_PLACEHOLDERと同じ考え方で、実際の値が定まった
+# 段階で置き換える)。生成回数(○回)は、README.mdフェーズ105でtrial_generation_count
+# (usage_counter.get_trial_generation_count()、月次カウンタとは別立ての専用カウンタ)を
+# 新設して解消したため、以後は実値を埋め込む。
 TRIAL_END_NOTIFICATION_TEMPLATE = (
     "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
     "\n"
     "これまでの生成実績:\n"
-    "・投稿文生成: ○回\n"
+    "・投稿文生成: {generation_count}回\n"
     "・浮いた作業時間の目安: 約○分(1回あたり平均○分と仮定)\n"
     "\n"
     "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。\n"
@@ -107,9 +112,11 @@ TRIAL_END_NOTIFICATION_TEMPLATE = (
 LIFF_URL_PLACEHOLDER = "{有料プランへ進むLIFFアプリ URL}"
 
 
-def format_trial_end_notification_message(liff_url: str = LIFF_URL_PLACEHOLDER) -> str:
+def format_trial_end_notification_message(
+    generation_count: int, liff_url: str = LIFF_URL_PLACEHOLDER
+) -> str:
     """trial-end-notification-design.md 3節の通知メッセージ文面を組み立てる。"""
-    return TRIAL_END_NOTIFICATION_TEMPLATE.format(liff_url=liff_url)
+    return TRIAL_END_NOTIFICATION_TEMPLATE.format(generation_count=generation_count, liff_url=liff_url)
 
 
 # ---------------------------------------------------------------------------
@@ -173,11 +180,15 @@ def send_trial_end_notifications(
     送信成功時のみ`usage_counter.set_trial_end_notified_at()`を書き込み、送信失敗時は
     書き込まない(4節の冪等性設計、send_reminders()と同じ「書き込み一発+次回実行時に
     自然に再試行対象として残る」方式)。
+
+    README.mdフェーズ105: 「投稿文生成: ○回」はユーザーごとに値が異なるため、
+    TrialUserState.trial_generation_countを使って1ユーザーずつ文面を組み立てる
+    (liff_urlは全ユーザー共通のため、フェーズ104までと同じく引数で固定できる)。
     """
     result = SendTrialEndNotificationsResult()
-    text = format_trial_end_notification_message(liff_url)
 
     for user in select_due_trial_end_notifications(users, now, trial_period_days):
+        text = format_trial_end_notification_message(user.trial_generation_count, liff_url)
         try:
             push_client.send_message(user.user_id, text)
         except LinePushDeliveryError:

@@ -784,6 +784,102 @@ class InMemoryUsageCounterTrialEndNotifiedAtTest(unittest.TestCase):
         self.assertEqual(counter.get_trial_end_notified_at("u-1"), later_moment)
 
 
+class InMemoryUsageCounterTrialGenerationCountTest(unittest.TestCase):
+    """InMemoryUsageCounter.increment_trial_generation_count()・get_trial_generation_count()
+    (README.mdフェーズ105、trial_end_scheduler.pyの「投稿文生成: ○回」表示用の専用カウンタ)。"""
+
+    def test_get_trial_generation_count_defaults_to_zero(self):
+        counter = InMemoryUsageCounter()
+
+        self.assertEqual(counter.get_trial_generation_count("u-1"), 0)
+
+    def test_increment_trial_generation_count_accumulates(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment_trial_generation_count("u-1")
+        second = counter.increment_trial_generation_count("u-1")
+
+        self.assertEqual(second, 2)
+        self.assertEqual(counter.get_trial_generation_count("u-1"), 2)
+
+    def test_counts_are_independent_per_user(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment_trial_generation_count("u-1")
+        counter.increment_trial_generation_count("u-1")
+        counter.increment_trial_generation_count("u-2")
+
+        self.assertEqual(counter.get_trial_generation_count("u-1"), 2)
+        self.assertEqual(counter.get_trial_generation_count("u-2"), 1)
+
+
+class ProcessMemoEventTrialGenerationCountTest(unittest.TestCase):
+    """process_memo_event()からのincrement_trial_generation_count()配線の検証
+    (README.mdフェーズ105)。"""
+
+    def test_generated_reply_increments_trial_generation_count(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 1)
+
+    def test_count_accumulates_across_multiple_generations(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        for _ in range(3):
+            process_memo_event(
+                _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+                usage_counter=usage_counter, plan="ライト", month="2026-08",
+            )
+
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 3)
+
+    def test_no_increment_when_plan_not_provided(self):
+        # カウント処理全体(6節)がplan未指定時はスキップされるのと同じく、
+        # trial_generation_countの積み上げもplanが渡された場合にのみ行われる。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter,
+        )
+
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+    def test_no_increment_after_upgraded(self):
+        # 既に有料転換済み(upgraded_at設定済み)のユーザーは、トライアル終了通知の対象外
+        # (trial-end-scheduler-design.md 3節)であるため、専用カウンタも積み増さない。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_upgraded_at_if_unset("u-1", datetime(2026, 8, 20, 4, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+    def test_out_of_scope_reply_does_not_increment(self):
+        # 生成成功(status=="generated")時のみが対象(6節と同じ条件)。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="会員になりたい", user_id="u-1"), FixtureLlmClient("OOS1_membership_question"),
+            reply_client, usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+
 class _AtomicOnlyUsageCounter(InMemoryUsageCounter):
     """increment()・mark_sent()が単体(increment_and_mark_notice()を介さず)で呼ばれた回数を
     記録するスパイ。process_memo_event()が本当にincrement_and_mark_notice()経由の単一書き込み

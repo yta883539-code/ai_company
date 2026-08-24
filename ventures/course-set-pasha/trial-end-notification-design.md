@@ -79,9 +79,18 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 
 ## 5. 今後の課題
 
+- (解消済み 2026-08-24フェーズ105: 「投稿文生成: ○回」は、`usage_counter`に月次カウンタ
+  (`get_count()`/`increment()`)とは別立ての専用カウンタ`trial_generation_count`
+  (`increment_trial_generation_count()`/`get_trial_generation_count()`)を新設して解消した。
+  `trial_start_at`からの期間が月をまたいでも正確に集計できる。有料転換済み
+  (`get_upgraded_at()`が非None)のユーザーは積み増し対象外とする。詳細は
+  README.mdフェーズ105・prototype/cloud_function_webhook.py参照。)
 - 「浮いた作業時間の目安」の試算値そのものが未作成(3節)。line-reservation-ai/
   unit-economics-estimate.mdのような形で、投稿文を手動作成する場合の目安時間を
-  market-research.mdの想定顧客像から仮置きする作業が必要。
+  market-research.mdの想定顧客像から仮置きする作業が必要。sns-tone-research.mdの時点で
+  「個人経営ジムの投稿作成時間の定量データは公開情報から見当たらず、実ヒアリングでしか
+  検証できない可能性が高い」と既に結論づけているため、WebSearchでの追加調査より先に、
+  一般的な文章作成速度等からの仮置き試算(値が仮置きである旨を明記した上で)を検討する。
 - (解消済み 2026-08-23フェーズ100: トライアル開始起点は「初回生成成功時」に確定した。
   詳細はtrial-start-anchor-decision.md参照。)
 - (B)期間到達判定用の日次スケジューラ実装、および4節で範囲外とした「生成一時停止」判定の

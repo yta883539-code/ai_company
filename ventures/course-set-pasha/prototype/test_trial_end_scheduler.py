@@ -95,13 +95,23 @@ class SelectDueTrialEndNotificationsTest(unittest.TestCase):
 
 class FormatTrialEndNotificationMessageTest(unittest.TestCase):
     def test_default_message_contains_placeholder_liff_url(self) -> None:
-        text = format_trial_end_notification_message()
+        text = format_trial_end_notification_message(3)
         self.assertIn(LIFF_URL_PLACEHOLDER, text)
         self.assertIn("14日間の無料トライアル", text)
         self.assertIn("このまま何もしなければ自動課金は発生せず", text)
 
+    def test_generation_count_is_embedded(self) -> None:
+        text = format_trial_end_notification_message(5)
+        self.assertIn("投稿文生成: 5回", text)
+
+    def test_zero_generation_count_is_embedded(self) -> None:
+        # trial_generation_count未接続時(usage_counter側でincrement_trial_generation_count
+        # 未実装)のフォールバック値0でも、プレースホルダに戻らず数値としてそのまま表示される。
+        text = format_trial_end_notification_message(0)
+        self.assertIn("投稿文生成: 0回", text)
+
     def test_custom_liff_url_is_embedded(self) -> None:
-        text = format_trial_end_notification_message("https://liff.line.me/xxxx")
+        text = format_trial_end_notification_message(3, "https://liff.line.me/xxxx")
         self.assertIn("https://liff.line.me/xxxx", text)
         self.assertNotIn(LIFF_URL_PLACEHOLDER, text)
 
@@ -156,6 +166,25 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         )
 
         self.assertIn("https://liff.line.me/yyyy", push.sent[-1][1])
+
+    def test_each_user_generation_count_is_embedded_independently(self) -> None:
+        # README.mdフェーズ105: trial_generation_countはユーザーごとに異なるため、
+        # 1回のsend_trial_end_notifications()呼び出し内でもユーザーごとに正しい値が
+        # 埋め込まれることを確認する。
+        user_a = TrialUserState(
+            user_id="u1", trial_start_at=self.now - timedelta(days=14), trial_generation_count=3
+        )
+        user_b = TrialUserState(
+            user_id="u2", trial_start_at=self.now - timedelta(days=20), trial_generation_count=9
+        )
+        usage_counter = _FakeUsageCounter()
+        push = InMemoryLinePushClient()
+
+        send_trial_end_notifications([user_a, user_b], self.now, usage_counter, push)
+
+        sent_by_user = dict(push.sent)
+        self.assertIn("投稿文生成: 3回", sent_by_user["u1"])
+        self.assertIn("投稿文生成: 9回", sent_by_user["u2"])
 
 
 if __name__ == "__main__":

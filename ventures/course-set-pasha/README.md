@@ -1142,10 +1142,34 @@
   (2)実際のCloud Scheduler新規作成・LIFFアプリ実登録〈いずれもオーナー承認待ち、
   pending-approval.md 2026-08-23 09:00 UTC記載分参照〉、(3)実Firestore接続後にLINE側・
   Stripe側で`usage_counter`インスタンスを共有できるようにする点(フェーズ103から継続)。
-- 最終更新: 2026-08-23 22:00 UTC
+- フェーズ105(2026-08-24 01:00 UTC): フェーズ104の残る課題3点のうち(1)
+  「通知文面の『○回』を実際の集計値に置き換える」に対応した。trial-end-notification-design.md
+  5節が指摘していた「trial_start_atからの期間が月をまたぐため`usage_counter.get_count()`の
+  単純な月次集計では正確に求まらない」問題に対し、月次カウンタとは別立ての専用カウンタ
+  `trial_generation_count`(`increment_trial_generation_count()`/
+  `get_trial_generation_count()`、`UsageCounterProtocol`に追加・`InMemoryUsageCounter`に実装)を
+  新設した。`process_memo_event()`内で、生成成功時(status=="generated")かつ
+  `plan`指定時の既存カウント処理ブロックに、`get_upgraded_at()`がNone(未アップグレード)の
+  ユーザーのみを対象に積み増す1行を追加した(hasattr()判定による後方互換は既存の
+  `set_trial_start_at_if_unset`等と同じパターン)。`trial_end_scheduler.py`側は
+  `TrialUserState`に`trial_generation_count`フィールドを追加し、
+  `format_trial_end_notification_message()`に`generation_count`引数を追加して「○回」を
+  実値に置換、`send_trial_end_notifications()`は全ユーザー共通の文面を1回だけ組み立てる
+  従来方式から、ユーザーごとに`trial_generation_count`が異なる値を持ちうるため1ユーザーずつ
+  文面を組み立てる方式に改めた。テスト11件新規追加(course-set-pasha配下計288件パス)。
+  「○分」(浮いた作業時間の目安)は、投稿作成時間の試算値自体が本venture未着手のため
+  引き続きプレースホルダのまま残した(trial-end-notification-design.md 5節参照、次回以降の
+  課題)。
+- 最終更新: 2026-08-24 01:00 UTC
 
 ## 次にやること(候補)
 
+- 「浮いた作業時間の目安」(○分)の試算値作成。sns-tone-research.mdが既に「個人経営ジムの
+  投稿作成時間の定量データは公開情報から見当たらない」と結論づけているため、追加のWebSearch
+  調査より前に、一般的な文章作成速度等からの仮置き試算(line-reservation-ai/
+  unit-economics-estimate.mdのような形式)を検討する候補。
+- (解消済み 2026-08-24 01:00 UTC: 通知文面の「○回」の実値化は`trial_generation_count`
+  (フェーズ105)で対応した。詳細は上記フェーズ105参照)
 - (解消済み 2026-08-23 22:00 UTC: Cloud Function D本体の実装は`prototype/
   trial_end_scheduler.py`の`send_trial_end_notifications()`(フェーズ104)で対応した。
   詳細は上記フェーズ104参照。残るのは通知文面の「○回」「○分」の実値化・実際のCloud
