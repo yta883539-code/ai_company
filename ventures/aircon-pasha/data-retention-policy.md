@@ -110,7 +110,8 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
 
 ## 今後の課題
 
-- legal-notices-draft.md 2.4節への本方針の要旨反映(未着手、次回以降の候補)。
+- (解消済み 2026-08-24 11:00 UTC・フェーズ121: legal-notices-draft.md 2.4節へ本方針の要旨
+  〈保存期間の基準・削除候補化の流れ・開示請求対応窓口〉を反映した)
 - (解消済み 2026-08-23 14:00 UTC・フェーズ112: unfollow(LINEブロック)時の`user_profile`・
   `usage_counter`の扱いを「未決定」のまま残していた点は、follow-unfollow-event-handling-
   design.md(フェーズ109)・prototype/cloud_function_webhook.pyへの実装(フェーズ111)により

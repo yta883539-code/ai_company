@@ -21,6 +21,21 @@
 
 ## ステータス
 
+- フェーズ121(2026-08-24 11:00 UTC): フェーズ112でdata-retention-policy.mdの「今後の課題」に
+  残していた「legal-notices-draft.md 2.4節への本方針の要旨反映(未着手)」に対応した。
+  data-retention-policy.mdで確定済みの保存期間ポリシー(トライアル中・有料プラン中は保有継続、
+  Stripe解約から1年保有後に削除候補化、LINEブロックのみでは削除起点にならない、削除候補化後は
+  LINE pushまたはメールでの最終確認を経てから削除、連絡不能な場合は運営者が個別判断)の要旨を
+  legal-notices-draft.md 2.4節に反映し、詳細はdata-retention-policy.mdを参照する形に更新した。
+  あわせてdata-retention-policy.md側の「今後の課題」該当項目を解消済みとして記録した。
+  (2026-08-23付フェーズ115〜120はgit logを参照。フェーズ120でsubscription-billing-cost-
+  estimate.mdの決済手数料3.6%一次情報確認まで完了しており、本フェーズが着手可能な範囲での
+  ドキュメント整合作業として残っていた最後の明示的な積み残しだった)。ドキュメント整備のみで
+  実装・課金・外部接続は伴わない。次回はcandidate-readiness-summary.md(フェーズ106)に残る
+  未確認事項(スタッフ数5名以下の直接確認等、実ヒアリング待ち)以外の未着手領域として、
+  llm-quality-verification-plan.mdの「残る未確定事項」(検証結果の記録先は既にフェーズ118で
+  テンプレート作成済みのため当該記述の更新)、またはオーナーの初回コンタクト承認可否を待つ間の
+  他領域の前進を検討する。
 - フェーズ114(2026-08-23 17:00 UTC): フェーズ111「design『残課題』に残っていたもう1点
   (`dispatch_webhook_events()`、3つのイベント種別への振り分け経路自体)は未着手のまま残る」に
   対応した。`prototype/cloud_function_webhook.py`に`DispatchResult`(dataclass)・
