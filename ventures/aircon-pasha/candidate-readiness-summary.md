@@ -1,4 +1,4 @@
-# ヒアリング候補 準備状況サマリ(フェーズ106時点)
+# ヒアリング候補 準備状況サマリ(フェーズ106時点、第五十九弾で打ち切り追記)
 
 candidate-longlist-draft.md(第1〜58弾)・initial-contact-message-draft.mdに散らばっている
 候補ごとの調査結果を、オーナーが承認可否を判断しやすいよう一覧化したもの。新規調査は
@@ -38,3 +38,12 @@ candidate-longlist-draft.md(第1〜58弾)・initial-contact-message-draft.mdに�
   低)よりも、オーナーの承認可否を待つ間の他領域(character-limit-fallback-design.mdの
   ソフト閾値検討は実LLM接続待ちで着手不可、llm-quality-verification-plan.mdの精緻化等)を
   優先する方が生産的と考えられる。
+
+## 追記(第五十九弾、2026-08-24 17:00 UTC)
+
+候補13・14のスタッフ数確認をWebSearchで再試行したが、第四十四弾以降と同じ頭打ちパターンが
+再現され新規情報は得られなかった(candidate-longlist-draft.md第五十九弾参照)。8候補全件で
+屋号・所在地・連絡チャネルの一次情報確認は完了済みであり材料としては揃っているため、
+スタッフ数のWebSearchでの継続調査は本弾をもって打ち切り、初回コンタクト承認後のヒアリング・
+問い合わせ過程で確認する運用に切り替える。以後、本項目のための毎時の定期WebSearch再試行は
+行わない。
