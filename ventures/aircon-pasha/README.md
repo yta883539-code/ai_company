@@ -1463,3 +1463,16 @@
   あたっての留意点」参照)。次回はinterview-candidate-selection-criteria.md相当の
   選定基準を踏まえた候補研究の残課題、またはllm-quality-verification-plan.mdに残る
   実LLM接続後の検証(承認待ちのため机上準備のみ可能な範囲)の前進を優先する。
+- フェーズ118(2026-08-24 03:00 UTC): candidate-readiness-summary.mdが「次回以降の候補研究は
+  優先度が低く、llm-quality-verification-plan.mdの精緻化等を優先する方が生産的」と提案していた
+  点、およびフェーズ117の申し送りを踏まえ、llm-quality-verification-plan.md「残る未確定事項」
+  3点目(検証結果の記録先を検証着手段階で判断する)への準備として、
+  llm-quality-verification-results-template.mdを新規作成した。output-samples-validation.mdの
+  9ケース(G1〜G4・OOS1・II1・CI1〜CI3)×各3試行分の記録表(検証観点表#1〜#8に対応する列、
+  機械/人手の別を明記)、トークン数・コスト実測記録欄、総合結果サマリ欄を先に用意し、実LLM接続の
+  承認が下りた際にその場で記入するだけで着手できる状態にした。本ドキュメント自体は空欄の
+  テンプレートでありAPIキー取得・課金を伴わないため承認不要。次回はテンプレートの空欄を実際に
+  埋める作業(オーナー承認待ち)以外の残課題として、character-limit-fallback-design.mdの
+  ソフト閾値検討(これも実LLM接続待ちで着手不可と記録されている)以外に着手可能な領域が
+  無いか棚卸しし、無ければ候補研究の残課題(スタッフ数5名以下の直接確認等)に優先度を戻すことを
+  検討する。
