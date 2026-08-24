@@ -21,6 +21,17 @@
 
 ## ステータス
 
+- フェーズ122(2026-08-24 18:00 UTC): フェーズ121で申し送った次点候補のうち、
+  llm-quality-verification-plan.mdの「残る未確定事項」3点目(検証結果の記録先が未確定)に
+  対応した。フェーズ118で作成済みのllm-quality-verification-results-template.mdが既に
+  記録先・記入方法・記録表様式を確定していたことを確認し、当該項目を「解消済み」として
+  llm-quality-verification-plan.md側に取り消し線付きで反映した(参照先の追記のみで、
+  新たな設計判断は伴わない整合作業)。これにより実LLM接続承認後にすぐ着手できる状態の
+  ドキュメント整備は一通り出尽くした。残る未確定事項2点(不合格基準の緩め・厳しめ調整、
+  temperatureパラメータ選定)はいずれも実測が前提のため、引き続きAPIキー取得・課金の
+  オーナー承認待ち。次回はcandidate-readiness-summary.md(フェーズ106)に残る実ヒアリング待ち
+  事項以外で、初回コンタクト承認可否を待つ間に前進可能な領域(例: subscription-billing-
+  cost-estimate.mdの決済手数料以外の周辺コスト項目の再確認等)を検討する。
 - フェーズ121(2026-08-24 11:00 UTC): フェーズ112でdata-retention-policy.mdの「今後の課題」に
   残していた「legal-notices-draft.md 2.4節への本方針の要旨反映(未着手)」に対応した。
   data-retention-policy.mdで確定済みの保存期間ポリシー(トライアル中・有料プラン中は保有継続、
