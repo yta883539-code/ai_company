@@ -33,7 +33,7 @@ MENU_DURATIONS = {"カット": 30, "カラー": 90}
 NOW = datetime(2026, 8, 3, 10, 0)  # 月曜
 
 
-def _new_processor():
+def _new_processor(owner_user_id=None):
     logs = NotificationLogAggregator()
     flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), logs=logs)
     searcher = AvailabilitySearcher(business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30)
@@ -47,6 +47,7 @@ def _new_processor():
         push_client=push,
         store_id=STORE_ID,
         menu_durations=MENU_DURATIONS,
+        owner_user_id=owner_user_id,
     )
     return processor, flow, push
 
@@ -537,6 +538,89 @@ class E7JsonRetryFallbackScenarioTest(unittest.TestCase):
         sent_to_customer = [msg for uid, msg in push.sent if uid == "U_E7"]
         self.assertEqual(len(sent_to_customer), 1)
         self.assertIn("担当者に確認のうえ", sent_to_customer[0])
+
+
+class E8NaturalLanguageJsonContradictionScenarioTest(unittest.TestCase):
+    """conversation-samples-test-cases.md E8(自然文とJSONの矛盾)。E7に続く5件目の
+    崩れ系ケースのハーネス化(multi-turn-scenario-harness-design.md「残る課題」参照)。
+
+    E7と同じ理由で、`run_scenario()`の`ScenarioTurn.llm_output`はdict(パース済み)のみを
+    保持し、LLM応答の「自然文」パート自体を表すフィールドを持たない設計のため、E8が本来
+    指す「自然文が『予約を確定しました』なのにJSONは`confirmed: false`」という矛盾**検知**
+    処理そのものをこのハーネス経由で再現することはできない。json-output-retry-fallback.md
+    の想定では、この検知・安全側上書きは「呼び出し側」(`process_llm_output()`に渡す前の層)
+    が担う設計だが(engine.py `process_llm_output()`docstring「自然文とJSONの矛盾検知
+    (E8相当)は呼び出し側で...想定」参照)、現状のprototype/にはその検知処理を行う関数が
+    存在しない。
+
+    そこで本クラスは、conversation-samples-test-cases.mdがE8の「期待される構造化出力」として
+    明記している、矛盾検知・安全側上書き**後**のJSON(`confirmed: false`・
+    `needs_owner_check: true`へ強制上書き済み、`name`/`menu`/`datetime_candidate`はJSONの
+    値をそのまま維持)をそのまま`ConversationEventProcessor.process()`へ投入し、次の2点を
+    会話レベルで確認する。
+
+    1. json-output-retry-fallback.mdのフォールバック方針が最優先で守ろうとしている安全性
+       ---`confirmed`がfalseのままである限り、二重予約防止ロジックの確定枠を誤って動かさない
+       ---が、E8の値をそのまま投入した場合にも実際に保たれること(候補提示止まりで完結し、
+       `confirmed`が`true`になることは無い)。
+    2. 一方で`needs_owner_check: true`という値自体は、intentが`new_booking`のままだと
+       `process()`のintent分岐(`escalation`/`cancel`/`change`/`faq`以外では
+       `needs_owner_check`を参照しない)・`NotificationLogAggregator.record()`
+       (`consultation_count`はintent=`escalation`を要求)のいずれからも現状拾われず、
+       オーナーへの通知・集計のどちらにも一切つながらない(実質無視される)という実装
+       ギャップを本テスト作成の過程で新たに発見した。安全側の「確定させない」という
+       最低限の保証は機能しているが、「要オーナー確認」という値そのものをオーナー通知経路へ
+       つなぐ配線は無いため、次回以降の設計課題(process()のintent非依存でのneeds_owner_check
+       参照、または呼び出し側での矛盾検知時にintentを'escalation'へ倒す設計への変更、
+       等の要検討)として残す。
+    """
+
+    def _next_saturday(self) -> str:
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+        return saturday.isoformat()
+
+    def test_contradiction_safe_side_output_never_confirms_but_owner_check_flag_is_currently_inert(self):
+        processor, flow, push = _new_processor(owner_user_id="U-owner")
+        saturday = self._next_saturday()
+
+        turn = ScenarioTurn(
+            user_id="U_E8",
+            message="その時間で予約お願いします",
+            llm_output={
+                "intent": "new_booking",
+                "name": "田中",
+                "menu": "カット",
+                "datetime_candidate": "来週土曜15時台の候補",
+                "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday, "end": saturday},
+                "time_of_day_preference": "afternoon",
+            },
+            expect_action="candidates_presented",
+            expect_stage="candidates_presented",
+        )
+        results = run_scenario(processor, [turn], NOW)
+
+        self.assertEqual(len(results), 1)
+        step = results[0]
+        # E8のJSONはconversation-samples-test-cases.md記載どおりの正常なスキーマ・
+        # cross-fieldルール準拠dict(E7と異なり構文・スキーマ自体は壊れていない)。
+        self.assertEqual(step.schema_errors, [])
+        self.assertEqual(step.cross_field_errors, [])
+
+        # (1) 安全側の核心: confirmedがfalseのまま候補提示止まりで完結し、
+        # 誤って予約が確定されない(二重予約防止ロジックの確定枠を動かさない)ことを確認する。
+        self.assertEqual(flow.stage("U_E8"), "candidates_presented")
+        self.assertNotEqual(flow.stage("U_E8"), "confirmed")
+
+        # (2) 一方でneeds_owner_check: trueは、上記docstring記載のとおりprocess()の
+        # intent分岐・NotificationLogAggregatorのいずれからも現状拾われず、オーナーへの
+        # pushは一切発生しない(=顧客向け候補提示メッセージ1件のみが送信される)。
+        self.assertEqual(len(push.sent), 1)
+        self.assertNotIn("U-owner", [uid for uid, _ in push.sent])
+        self.assertEqual(flow._logs.consultation_count, 0)
+        self.assertEqual(flow._logs.unimplemented_feature_count, 0)
+        self.assertEqual(flow._logs.system_event_total(), 0)
 
 
 if __name__ == "__main__":

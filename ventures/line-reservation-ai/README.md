@@ -1521,6 +1521,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-24 20:00 UTC・フェーズ続き134: multi-turn-scenario-harness-design.md・
+  llm-quality-verification-plan.mdに残っていた、崩れ系ケースのハーネス展開の最後の2件
+  E7(JSON構文崩れ)・E8(自然文とJSONの矛盾)への対応を完了した。E7は`E7JsonRetryFallback
+  ScenarioTest`として既に着手済み(2026-08-24 15:00 UTC、上記フェーズ続き133時点では
+  未反映)だったため、今回は残るE8を`E8NaturalLanguageJsonContradictionScenarioTest`として
+  `test_scenario_harness.py`に新規追加した。E7・E8とも`ScenarioTurn.llm_output`がdict
+  (パース済み)のみを保持し「壊れたJSON文字列」「LLM応答の自然文パート」自体を表現できない
+  構造上、崩れ検知処理そのものではなく検知・フォールバック後の値を投入した技術的等価物として
+  実装した。E8の作成過程で、`needs_owner_check: true`はintentが`new_booking`のままだと
+  `process()`のintent分岐・NotificationLogAggregatorのいずれからも参照されず実質無視される
+  (安全側の「確定させない」保証自体は機能している)という新たな実装ギャップを発見し、
+  process()のintent非依存でのneeds_owner_check参照等を次回以降の設計課題として残した。
+  詳細は両ドキュメントの該当追記参照。テスト1件追加、プロトタイプ全体317件パス・schema検証
+  25件パスを確認。これでconversation-samples-test-cases.md記載の崩れ系ケース(E1・E3・E4・
+  E7・E8)は一通りハーネスでのカバーが完了した。次回はRECONFIRM_MAX_ATTEMPTSの実測見直し
+  〈実データ取得待ち〉、process()のneeds_owner_check配線ギャップの解消検討、または他
+  venture・アイデア領域の前進を検討する。)
 - (解消済み 2026-08-24 12:00 UTC・フェーズ続き133: 上記フェーズ続き133参照。
   崩れ系ケースのハーネス展開はE1・E3・E4が解消済みとなった。次回はE7(JSON構文崩れ)・
   E8(自然文とJSONの矛盾)のハーネス化、RECONFIRM_MAX_ATTEMPTSの実測見直し〈実データ取得

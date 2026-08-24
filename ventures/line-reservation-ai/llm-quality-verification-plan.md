@@ -100,6 +100,20 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
   E1(同19:00 UTC)・E4(2026-08-24 12:00 UTC・フェーズ続き133)の3件を追加済み。詳細は
   multi-turn-scenario-harness-design.md「残る課題」参照。残るはE7・E8等の未着手ケースと、
   実LLM接続後にllm_outputを実APIレスポンスへ差し替える配線〈オーナー承認待ち〉のみ)
+  (解消済み 2026-08-24 20:00 UTC・フェーズ続き134: 残っていたE7(2026-08-24 15:00 UTC、
+  一部解消)・E8(本日)をそれぞれ`E7JsonRetryFallbackScenarioTest`・
+  `E8NaturalLanguageJsonContradictionScenarioTest`として`test_scenario_harness.py`に
+  追加し、上表40行目「JSON出力の安定性」欄の対象ケース(E7・E8)を機械チェックで
+  実際にカバーした。いずれも`ScenarioTurn.llm_output`がdict(パース済み)のみを保持し
+  「壊れたJSON文字列」「LLM応答の自然文パート」を表現できない構造上、崩れ検知処理そのもの
+  ではなく検知・フォールバック**後**の値を投入した技術的等価物として実装した(詳細は
+  各テストクラスのdocstring・multi-turn-scenario-harness-design.md「残る課題」参照)。
+  E8の作成過程で、`needs_owner_check: true`は`intent`が`new_booking`のままだと
+  `process()`のintent分岐からもNotificationLogAggregatorからも参照されず実質無視される
+  という新たな実装ギャップも発見した(安全側の「確定させない」保証自体は機能している)。
+  これで複数ターンにまたがる状態遷移の検証ハーネスは、conversation-samples-test-cases.md
+  記載の崩れ系ケース(E1・E3・E4・E7・E8)を一通りカバーした。プロトタイプ全体317件パス・
+  schema検証25件パス)
 - (解消済み 2026-08-22 02:00 UTC: トーン変換の固定語彙不変性チェックの機械化に着手し、
   fixed-vocabulary-tone-check-design.mdで対象語彙リスト`["仮押さえ", "確定"]`を整理・
   `FixedVocabularyInvariantAcrossTonesTest`として実装済み。残る課題は同ドキュメント

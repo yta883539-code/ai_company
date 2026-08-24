@@ -179,19 +179,41 @@ test_cloud_function_process_event.py等と合わせて別途確認)。
   awaiting_detailsのまま)。テスト1件追加、プロトタイプ全体315件パス・schema検証25件パスを
   確認した。残るE7(JSON構文崩れ)・E8(自然文とJSONの矛盾)等の崩れ系ケースのハーネス化は
   次回以降の課題として残す)
-- (一部解消済み 2026-08-24 15:00 UTC: E7(JSON構文崩れ)について、`run_scenario()`の
-  `_llm_call`がturn.llm_outputをdict(パース済み)としてそのまま返す作りのため、E7が本来
-  指す「構文的に壊れたJSON文字列」自体を入力として再現することはできない点を確認した。
-  一方、`process_llm_output()`(engine.py)は構文エラーかスキーマ不一致かを区別せず
-  「1回だけ再生成→それでも不正ならSAFE_FALLBACK_OUTPUT」という同一ロジックで扱う設計の
-  ため、技術的に同じ結果になるスキーマ不一致dict(intentが定義済み6種以外の値)を使い、
-  `E7JsonRetryFallbackScenarioTest`(test_scenario_harness.py)としてフォールバック結果が
+- (解消済み 2026-08-24 15:00 UTC〜20:00 UTC・フェーズ続き134: E7(JSON構文崩れ)・E8
+  (自然文とJSONの矛盾)をそれぞれハーネス化した。
+
+  E7は`run_scenario()`の`_llm_call`がturn.llm_outputをdict(パース済み)としてそのまま
+  返す作りのため、E7が本来指す「構文的に壊れたJSON文字列」自体を入力として再現することは
+  できない点を確認した。一方、`process_llm_output()`(engine.py)は構文エラーかスキーマ
+  不一致かを区別せず「1回だけ再生成→それでも不正ならSAFE_FALLBACK_OUTPUT」という同一
+  ロジックで扱う設計のため、技術的に同じ結果になるスキーマ不一致dict(intentが定義済み
+  6種以外の値)を使い、`E7JsonRetryFallbackScenarioTest`としてフォールバック結果が
   ConversationEventProcessor.process()経由でも顧客への保留一次応答・
   NotificationLogAggregator.consultation_countへの計上・confirmed: falseで会話状態が
-  進行しないことに正しくつながることを会話レベルで確認した。テスト1件追加、プロトタイプ
-  全体316件パス・schema検証25件パスを確認。「構文的に壊れたJSON文字列」そのものの再現、
-  およびE8(自然文とJSONの矛盾、顧客向け自然文フィールド自体が現状の構造化出力dictに
-  存在しない)は、いずれも実LLM接続(生レスポンス文字列のパース層)後の課題として残る)
+  進行しないことに正しくつながることを会話レベルで確認した(テスト1件追加、プロトタイプ
+  全体316件パス)。
+
+  E8も同じ理由(自然文フィールド自体が現状の構造化出力dictに存在しない)で「矛盾検知」
+  処理そのものは再現できないため、conversation-samples-test-cases.mdがE8の「期待される
+  構造化出力」として明記している検知・安全側上書き**後**のJSON
+  (`confirmed: false`・`needs_owner_check: true`へ強制上書き済み、`name`/`menu`/
+  `datetime_candidate`はそのまま)を`E8NaturalLanguageJsonContradictionScenarioTest`
+  として投入した。(1)`confirmed`がfalseのまま候補提示止まりで完結し二重予約防止ロジックの
+  確定枠を誤って動かさない、という安全性は実際に保たれることを確認できた一方、
+  (2)`needs_owner_check: true`という値自体は、intentが`new_booking`のままだと
+  `process()`のintent分岐(escalation/cancel/change/faq以外は`needs_owner_check`を
+  参照しない)・`NotificationLogAggregator.record()`(`consultation_count`はintent=
+  `escalation`を要求)のいずれからも現状拾われず、オーナーへの通知・集計に一切つながらない
+  (実質無視される)という新たな実装ギャップを発見した。安全側の「確定させない」という
+  最低限の保証は機能しているが、「要オーナー確認」という値自体をオーナー通知経路へつなぐ
+  配線は無いため、process()のintent非依存でのneeds_owner_check参照、または呼び出し側での
+  矛盾検知時にintentを'escalation'へ倒す設計への変更、等を次回以降の設計課題として残す
+  (テスト1件追加、プロトタイプ全体317件パス・schema検証25件パス)。
+
+  これでconversation-samples-test-cases.md記載の崩れ系ケース(E1・E3・E4・E7・E8)は
+  一通りハーネスでのカバーが完了した。「構文的に壊れたJSON文字列」「自然文とJSONの矛盾
+  検知」処理そのものの再現は、いずれも実LLM接続(生レスポンス文字列のパース層)後の課題
+  として引き続き残る)
 - 実LLM接続後、`ScenarioTurn.llm_output`を実際のAPIレスポンスに差し替えて同じハーネスを
   再利用する具体的な接続コード(`process_llm_output()`のllm_call注入)は、
   引き続きAPIキー・課金のオーナー承認待ち(pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。
