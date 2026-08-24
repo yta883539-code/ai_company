@@ -179,6 +179,19 @@ test_cloud_function_process_event.py等と合わせて別途確認)。
   awaiting_detailsのまま)。テスト1件追加、プロトタイプ全体315件パス・schema検証25件パスを
   確認した。残るE7(JSON構文崩れ)・E8(自然文とJSONの矛盾)等の崩れ系ケースのハーネス化は
   次回以降の課題として残す)
+- (一部解消済み 2026-08-24 15:00 UTC: E7(JSON構文崩れ)について、`run_scenario()`の
+  `_llm_call`がturn.llm_outputをdict(パース済み)としてそのまま返す作りのため、E7が本来
+  指す「構文的に壊れたJSON文字列」自体を入力として再現することはできない点を確認した。
+  一方、`process_llm_output()`(engine.py)は構文エラーかスキーマ不一致かを区別せず
+  「1回だけ再生成→それでも不正ならSAFE_FALLBACK_OUTPUT」という同一ロジックで扱う設計の
+  ため、技術的に同じ結果になるスキーマ不一致dict(intentが定義済み6種以外の値)を使い、
+  `E7JsonRetryFallbackScenarioTest`(test_scenario_harness.py)としてフォールバック結果が
+  ConversationEventProcessor.process()経由でも顧客への保留一次応答・
+  NotificationLogAggregator.consultation_countへの計上・confirmed: falseで会話状態が
+  進行しないことに正しくつながることを会話レベルで確認した。テスト1件追加、プロトタイプ
+  全体316件パス・schema検証25件パスを確認。「構文的に壊れたJSON文字列」そのものの再現、
+  およびE8(自然文とJSONの矛盾、顧客向け自然文フィールド自体が現状の構造化出力dictに
+  存在しない)は、いずれも実LLM接続(生レスポンス文字列のパース層)後の課題として残る)
 - 実LLM接続後、`ScenarioTurn.llm_output`を実際のAPIレスポンスに差し替えて同じハーネスを
   再利用する具体的な接続コード(`process_llm_output()`のllm_call注入)は、
   引き続きAPIキー・課金のオーナー承認待ち(pending-approval.md 2026-07-31 13:58 UTC記載の範囲)。

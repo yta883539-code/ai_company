@@ -478,5 +478,66 @@ class E4HoldTimeoutScenarioTest(unittest.TestCase):
         self.assertEqual(flow.stage("U_B"), "awaiting_details")
 
 
+class E7JsonRetryFallbackScenarioTest(unittest.TestCase):
+    """conversation-samples-test-cases.md E7(JSON出力の構文崩れ)。
+    multi-turn-scenario-harness-design.md「残る課題」で挙げていたE4に続く4件目の崩れ系ケース。
+
+    scenario_harness.run_scenario()の`_llm_call`はturn.llm_outputをdict(パース済み)として
+    毎回そのまま返す作りのため、E7が本来指す「構文的に壊れたJSON文字列」自体を入力として
+    再現することはできない(実LLM接続後、process_llm_output()へ渡すllm_callの中身を実際の
+    レスポンス文字列パースに差し替えて初めて再現可能になる。json-output-retry-fallback.md
+    「未検証・要検討事項」、および本ファイルモジュールdocstring参照)。
+
+    一方、process_llm_output()自身のリトライ・フォールバック判定(engine.py)は構文エラーか
+    スキーマ不一致かを区別せず「1回だけ再生成→それでも不正ならSAFE_FALLBACK_OUTPUT」という
+    同一ロジックで扱う設計であり(json-output-retry-fallback.md「リトライ方針」1〜3節)、
+    このロジック自体はProcessLlmOutputTest(test_engine.py)で単体検証済み。本クラスはその
+    フォールバック結果がConversationEventProcessor.process()を経由してもconversation-
+    samples-test-cases.md記載の期待挙動(顧客への保留一次応答・needs_owner_check: true相当の
+    オーナー転送・confirmed: falseで会話状態が進行しないこと)に正しくつながることを、
+    E7の「構文崩れ」が起きた場合と技術的に同じ結果になるスキーマ不一致dict(intentが
+    定義済み6種以外の値)を使って会話レベルで確認する。
+    """
+
+    def test_repeatedly_invalid_output_falls_back_to_escalation_and_notifies_owner(self):
+        processor, flow, push = _new_processor()
+
+        turn = ScenarioTurn(
+            user_id="U_E7",
+            message="来週土曜の午後にカットお願いしたいです。",
+            llm_output={"intent": "not_a_real_intent", "confirmed": False},
+            expect_action="escalation_replied",
+            expect_stage=None,
+        )
+        results = run_scenario(processor, [turn], NOW)
+
+        self.assertEqual(len(results), 1)
+        step = results[0]
+        # 入力自体がE7を模した意図的なスキーマ不一致dictのため、schema_errorsは
+        # (他のシナリオテストと異なり)非空であることを確認する対象であり、異常ではない。
+        self.assertNotEqual(step.schema_errors, [])
+        self.assertEqual(step.dispatch.action, "escalation_replied")
+        self.assertEqual(step.dispatch.detail, "consultation")
+
+        # process_llm_output()のフォールバック(SAFE_FALLBACK_OUTPUT)がNotificationLogAggregator
+        # まで正しく伝わり、明確なintent='escalation'・needs_owner_check=Trueとして
+        # consultation_count(一般相談扱い)に1件計上されることを確認する
+        # (escalation_reasonがNoneのためunimplemented_feature/system_eventのいずれにも
+        # 該当しない一般相談として扱われる。engine.py NotificationLogAggregator.record()参照)。
+        self.assertEqual(flow._logs.consultation_count, 1)
+        self.assertEqual(flow._logs.unimplemented_feature_count, 0)
+        self.assertEqual(flow._logs.system_event_total(), 0)
+
+        # confirmed: falseのまま安全側フォールバックしたため、二重予約防止の対象となる
+        # 確定枠(ConversationFlowStateMachine)は一切動かず、会話状態も予約フローには
+        # 入らない(intent: "escalation"はConversationFlowStateMachineを経由しないため)。
+        self.assertIsNone(flow.stage("U_E7"))
+
+        # 顧客への一次応答(保留文言)とオーナーへの転送通知の両方が送られていることを確認する。
+        sent_to_customer = [msg for uid, msg in push.sent if uid == "U_E7"]
+        self.assertEqual(len(sent_to_customer), 1)
+        self.assertIn("担当者に確認のうえ", sent_to_customer[0])
+
+
 if __name__ == "__main__":
     unittest.main()
