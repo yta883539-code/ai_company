@@ -174,6 +174,51 @@ class NewBookingDispatchTests(unittest.TestCase):
     # 意図した経路を検証できないため、重複テストとして残さず削除した。
 
 
+class NewBookingContradictionOwnerNotificationTests(unittest.TestCase):
+    """new-booking-needs-owner-check-notification-design.md準拠。E8(自然文とJSONの矛盾)
+    相当、intentがnew_bookingのままneeds_owner_check: trueだけが立つケースで、顧客向けの
+    通常フロー(候補提示)は変更せずオーナーへも要確認通知が届くことを検証する。
+    """
+
+    def _e8_llm_call(self, saturday):
+        def call():
+            return {
+                "intent": "new_booking", "name": "田中", "menu": "カット",
+                "datetime_candidate": "来週土曜15時台の候補", "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return call
+
+    def test_customer_flow_still_presents_candidates_unchanged(self):
+        # 顧客向けの安全性(確定させない・候補提示止まりで完結する)はE8のシナリオハーネス
+        # (test_scenario_harness.py E8NaturalLanguageJsonContradictionScenarioTest)で
+        # 既に確認済みだが、ここではProcessor単体でも同じ挙動が変わらないことを確認する。
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner")
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._e8_llm_call(saturday), NOW)
+
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+        customer_messages = [text for uid, text in push.sent if uid == "U1"]
+        self.assertEqual(len(customer_messages), 1)
+        self.assertIn("番号でお知らせください", customer_messages[0])
+
+    def test_owner_is_notified_with_output_contradiction_label(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        processor.process(_event("U1", "来週土曜カットで"), self._e8_llm_call(saturday), NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("【要確認】", owner_messages[0])
+        self.assertIn("AI応答の矛盾検知(要確認)", owner_messages[0])
+        self.assertEqual(logs.system_event_counts.get("output_contradiction"), 1)
+        self.assertEqual(logs.consultation_count, 0)
+
 class PendingNewBookingContextTtlTests(unittest.TestCase):
     """pending-new-booking-context-ttl-design.md準拠。メニュー未言及の聞き返し(reask)で
     保持した`requested_date_range`が、CONVERSATION_IDLE_TIMEOUT(30分)以内の次ターンでは

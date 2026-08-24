@@ -459,9 +459,24 @@ class ConversationEventProcessor:
 
         llm_result = process_llm_output(llm_call)
         output = llm_result.output
+        intent = output.get("intent")
+
+        if intent == "new_booking" and output.get("needs_owner_check"):
+            # new-booking-needs-owner-check-notification-design.md準拠。E8(自然文とJSONの矛盾)
+            # 相当のケースはintentがnew_bookingのまま安全側でconfirmed=False・
+            # needs_owner_check=Trueだけが上書きされるため、放置すると_notify_owner()にも
+            # NotificationLogAggregatorの集計にもつながらず実質無視されてしまう
+            # (発見の経緯は同mdの「背景・発見の経緯」参照)。現行のllm-system-prompt-draft.md
+            # ではLLMがintent: new_bookingのままescalation_reasonを付与することは無いため
+            # (rule10のunimplemented_feature等は必ずintent: escalationにする)、常に
+            # output_contradictionとして合成してよい。システム内部イベントとしてオーナーへ
+            # 通知しつつ、顧客向けの処理(このあと続くstage分岐による通常の予約フロー)は
+            # 変更しない。
+            output = {**output, "escalation_reason": "output_contradiction"}
+            self._notify_owner(user_id, output, now, reply_text)
+
         self._logs.record(user_id, output, now)
 
-        intent = output.get("intent")
         if intent == "faq" and output.get("faq_segments"):
             return self._handle_faq(user_id, output, now, tone, reply_text)
         if intent == "escalation":

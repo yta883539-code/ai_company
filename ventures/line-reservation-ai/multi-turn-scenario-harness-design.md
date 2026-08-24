@@ -209,6 +209,13 @@ test_cloud_function_process_event.py等と合わせて別途確認)。
   配線は無いため、process()のintent非依存でのneeds_owner_check参照、または呼び出し側での
   矛盾検知時にintentを'escalation'へ倒す設計への変更、等を次回以降の設計課題として残す
   (テスト1件追加、プロトタイプ全体317件パス・schema検証25件パス)。
+  (解消済み 2026-08-24 22:00 UTC・フェーズ続き135:
+  new-booking-needs-owner-check-notification-design.md参照。process()で
+  `intent == "new_booking"`かつ`needs_owner_check: true`の場合に
+  `escalation_reason: "output_contradiction"`をサーバー側で合成し`_notify_owner()`を
+  呼ぶよう修正した。顧客向けの候補提示フローは変更せず、オーナーへの通知・
+  `NotificationLogAggregator.system_event_counts`への計上の両方をつなげた。
+  テスト追加・E8テストの更新を行い、プロトタイプ全体319件パス・schema検証25件パスを確認)。
 
   これでconversation-samples-test-cases.md記載の崩れ系ケース(E1・E3・E4・E7・E8)は
   一通りハーネスでのカバーが完了した。「構文的に壊れたJSON文字列」「自然文とJSONの矛盾

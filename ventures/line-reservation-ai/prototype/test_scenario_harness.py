@@ -563,23 +563,22 @@ class E8NaturalLanguageJsonContradictionScenarioTest(unittest.TestCase):
        ---`confirmed`がfalseのままである限り、二重予約防止ロジックの確定枠を誤って動かさない
        ---が、E8の値をそのまま投入した場合にも実際に保たれること(候補提示止まりで完結し、
        `confirmed`が`true`になることは無い)。
-    2. 一方で`needs_owner_check: true`という値自体は、intentが`new_booking`のままだと
-       `process()`のintent分岐(`escalation`/`cancel`/`change`/`faq`以外では
-       `needs_owner_check`を参照しない)・`NotificationLogAggregator.record()`
-       (`consultation_count`はintent=`escalation`を要求)のいずれからも現状拾われず、
-       オーナーへの通知・集計のどちらにも一切つながらない(実質無視される)という実装
-       ギャップを本テスト作成の過程で新たに発見した。安全側の「確定させない」という
-       最低限の保証は機能しているが、「要オーナー確認」という値そのものをオーナー通知経路へ
-       つなぐ配線は無いため、次回以降の設計課題(process()のintent非依存でのneeds_owner_check
-       参照、または呼び出し側での矛盾検知時にintentを'escalation'へ倒す設計への変更、
-       等の要検討)として残す。
+    2. (解消済み 2026-08-24・new-booking-needs-owner-check-notification-design.md
+       フェーズ続き135)本テスト作成時点では、`needs_owner_check: true`という値自体は
+       intentが`new_booking`のままだと`process()`のintent分岐・`NotificationLogAggregator`
+       のいずれからも拾われず、オーナーへの通知・集計につながらない(実質無視される)という
+       実装ギャップがあった。これを`process()`側で`intent == "new_booking"`かつ
+       `needs_owner_check: true`の場合に`escalation_reason: "output_contradiction"`を
+       合成して`_notify_owner()`を呼ぶよう修正し解消した(顧客向けの候補提示フロー自体は
+       変更していない)。以下では、修正後にオーナー通知・集計の両方が実際に機能することも
+       あわせて確認する。
     """
 
     def _next_saturday(self) -> str:
         saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
         return saturday.isoformat()
 
-    def test_contradiction_safe_side_output_never_confirms_but_owner_check_flag_is_currently_inert(self):
+    def test_contradiction_safe_side_output_never_confirms_and_notifies_owner(self):
         processor, flow, push = _new_processor(owner_user_id="U-owner")
         saturday = self._next_saturday()
 
@@ -613,14 +612,15 @@ class E8NaturalLanguageJsonContradictionScenarioTest(unittest.TestCase):
         self.assertEqual(flow.stage("U_E8"), "candidates_presented")
         self.assertNotEqual(flow.stage("U_E8"), "confirmed")
 
-        # (2) 一方でneeds_owner_check: trueは、上記docstring記載のとおりprocess()の
-        # intent分岐・NotificationLogAggregatorのいずれからも現状拾われず、オーナーへの
-        # pushは一切発生しない(=顧客向け候補提示メッセージ1件のみが送信される)。
-        self.assertEqual(len(push.sent), 1)
-        self.assertNotIn("U-owner", [uid for uid, _ in push.sent])
+        # (2) needs_owner_check: trueは、修正後はoutput_contradictionとして合成され
+        # オーナーへも通知・集計される(顧客向け候補提示メッセージ1件+オーナー向け1件の計2件)。
+        self.assertEqual(len(push.sent), 2)
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("AI応答の矛盾検知(要確認)", owner_messages[0])
         self.assertEqual(flow._logs.consultation_count, 0)
         self.assertEqual(flow._logs.unimplemented_feature_count, 0)
-        self.assertEqual(flow._logs.system_event_total(), 0)
+        self.assertEqual(flow._logs.system_event_counts.get("output_contradiction"), 1)
 
 
 if __name__ == "__main__":

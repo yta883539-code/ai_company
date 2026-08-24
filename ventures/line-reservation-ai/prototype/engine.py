@@ -170,6 +170,10 @@ SYSTEM_ESCALATION_REASONS = frozenset({
     # api-call-failure-handling.md: LLM/LINE Push API呼び出し自体が失敗した場合の内部イベント。
     "llm_unavailable",
     "line_push_failed",
+    # new-booking-needs-owner-check-notification-design.md: E8(自然文とJSONの矛盾)相当。
+    # intentがnew_bookingのままneeds_owner_check: trueだけが立つケースをサーバー側で合成する
+    # escalation_reason(LLM自身は出力しない。booking_output.schema.jsonのenumには含めない)。
+    "output_contradiction",
 })
 
 
@@ -258,6 +262,7 @@ _SYSTEM_EVENT_LABELS = {
     # SYSTEM_ESCALATION_REASONSには含まれないが、_start_new_booking()の
     # unregistered_menu(メニュー未登録)もオーナー要確認イベントのため、ここで併せてラベル付けする。
     "unregistered_menu": "未登録メニューでのご予約希望",
+    "output_contradiction": "AI応答の矛盾検知(要確認)",
 }
 
 
