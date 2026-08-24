@@ -1238,7 +1238,20 @@
   は解決済み、残るのはFirestore化・webhook_secret保管方法)に更新した。承認不要な
   ドキュメント訂正・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-24 16:00 UTC
+- フェーズ112(2026-08-24 19:00 UTC): checkout-initiation-flow-design.md(フェーズ98)「残課題」
+  3点目、IDトークン検証結果を受け取ってから`build_checkout_session_params()`(フェーズ98)へ
+  橋渡しするエントリポイント本体が未設計だった点に対応した。stripe-webhook-http-entry-point-
+  design.md(フェーズ95)の`receive_stripe_webhook()`と同じ考え方(検証・解決の実装は呼び出し元
+  から注入し、エントリポイント自体は薄い配線とテスト可能な純粋関数にする)で
+  `create_checkout_session()`を設計・実装した(checkout-session-endpoint-design.md、
+  `prototype/checkout_session.py`)。`verify_id_token`(LIFF IDトークン検証、実LINE Platform
+  API呼び出しは実LIFF登録後の課題として引き続き残る)・`user_profile_store`
+  (`get_stripe_customer_id`)を注入依存とし、Authorizationヘッダ欠落・非Bearer形式・
+  トークン無効の3パターンはいずれも401、成功時は200で`checkout_session_params`を返す設計
+  とした。テスト6件追加(course-set-pasha配下313件パス・schema検証9件パス)。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-24 19:00 UTC
 
 ## 次にやること(候補)
 
@@ -1276,7 +1289,9 @@
   実装・生成一時停止判定の実装)
 - (解消済み 2026-08-23 08:00 UTC: `client_reference_id`を設定する決済導線の設計は
   `checkout-initiation-flow-design.md`(フェーズ98)で対応した。詳細は上記フェーズ98参照。
-  残るのはLIFFアプリの実登録〈オーナー承認待ち〉・IDトークン検証の実装)
+  IDトークン検証結果を橋渡しするエントリポイント本体はフェーズ112・
+  checkout-session-endpoint-design.mdで対応済み。残るのはLIFFアプリの実登録〈オーナー承認待ち〉・
+  `verify_id_token`実装本体〈実LIFF登録後〉)
 - (解消済み 2026-08-23 02:00 UTC: `resolve_user_id`〈`stripe_customer_id → user_id`変換〉の
   実装本体を、フェーズ97・`stripe-customer-id-linking-design.md`/
   `handle_checkout_session_completed()`/`make_resolve_user_id()`で行った

@@ -81,4 +81,9 @@ IDトークン検証・実Stripe API呼び出しは実アカウント接続後�
   pending-approval.mdに記録する)。
 - トライアル終了通知メッセージ自体(上記1(a))は本venture未設計。次の課題として残す。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
+  (解消済み 2026-08-24 19:00 UTC: `verify_id_token`検証結果を受け取ってから
+  `build_checkout_session_params()`へ橋渡しするエントリポイント本体
+  `create_checkout_session()`の設計・実装はフェーズ112・checkout-session-endpoint-design.mdで
+  対応した。`verify_id_token`実装本体〈実HTTPリクエスト〉のみ引き続き実LIFF登録後の課題として
+  残る)
 - `success_url`/`cancel_url`の実際のLPドメイン確定はLP実装(オーナー承認待ち)と合わせて行う。
