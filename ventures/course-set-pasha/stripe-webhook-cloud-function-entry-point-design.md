@@ -59,10 +59,16 @@ LINE版`main()`と同じ形の戻り値((body, status_code)のタプル)とす�
 
 ## 残課題
 
-- `resolve_user_id`の実装本体(`stripe_customer_id → user_id`)は本設計でも解決せず、
-  常時`None`を返す暫定実装のまま残る。申込フォーム提出フローの設計と合わせて着手する
-  必要がある。
-- `store`をFirestore版に差し替える作業は、実GCPプロジェクト作成(オーナー承認待ち)後の
-  課題として残る。
+- (解消済み 2026-08-24 16:00 UTC: 本節がフェーズ96時点の記述のまま更新されておらず、
+  実際には`resolve_user_id`の実装本体はフェーズ97・`stripe-customer-id-linking-design.md`/
+  `make_resolve_user_id()`で既に対応済みだったことを確認した(README「次にやること」
+  2026-08-23 02:00 UTC・フェーズ97の記載を参照)。`prototype/stripe_webhook.py`の
+  `get_stripe_runtime_dependencies()`は`InMemoryUserProfileStore()`を1つ生成して
+  `resolve_user_id`と共有し、`checkout.session.completed`で書き込んだ紐付けを同一プロセス内の
+  `customer.subscription.*`解決で読める設計に更新済み(常時`None`を返す暫定実装ではない)。
+  本節はドキュメントの記載更新漏れによる見かけ上の残課題だった。)
+- `store`・`user_profile_store`をFirestore版に差し替える作業は、実GCPプロジェクト作成
+  (オーナー承認待ち)後の課題として引き続き残る(プロセス起動ごとに初期化されるため、
+  実Cloud Functions環境では呼び出しをまたいで削除候補フラグ・紐付けが保持されない)。
 - `webhook_secret`実際の値の取得・保管方法(Secret Manager等)も同様に実Stripeアカウント
   接続(オーナー承認待ち)後の課題として残る。

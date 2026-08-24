@@ -1219,7 +1219,26 @@
   従来文言のまま、という後方互換のフォールバックにした。テスト14件追加
   (course-set-pasha配下305件パス・schema検証9件パス)。content-generation-time-estimate.md
   「現状の実装との差分・次の課題」に解消済み注記を追加。
-- 最終更新: 2026-08-24 13:00 UTC
+- フェーズ111(2026-08-24 16:00 UTC): stripe-webhook-cloud-function-entry-point-design.md
+  「残課題」がフェーズ96時点の記述のまま更新されておらず、`resolve_user_id`が「常時Noneを
+  返す暫定実装」であるかのように読める状態だった点を点検・訂正した。実際には
+  `prototype/stripe_webhook.py`の`get_stripe_runtime_dependencies()`はフェーズ97
+  (`make_resolve_user_id()`導入)以降、`InMemoryUserProfileStore()`を1つ生成して
+  `resolve_user_id`と共有し、`checkout.session.completed`で書き込んだ紐付けを同一プロセス内の
+  `customer.subscription.*`解決で読める設計になっていたため、常時Noneを返す暫定実装ではないこと
+  をコードで確認した。回帰防止として`GetStripeRuntimeDependenciesResolutionTest`
+  (test_stripe_webhook.py)を新設し、(1)同一の`get_stripe_runtime_dependencies()`結果を使い回した
+  場合はcheckout→subscription.deletedでcus_A→U1が解決されmarked_user_ids=["U1"]になること、
+  (2)呼び出しごとに別インスタンスを生成した場合は紐付けが共有されずunresolved_customers=["cus_A"]
+  になること(同一プロセス限定という既知の限界の明示)の2件を追加した。あわせて既存の
+  `test_get_stripe_runtime_dependencies_output_is_accepted_by_receive_stripe_webhook`の
+  「resolve_user_idが常にNoneを返す暫定実装のため」というコメントが誤解を生む記述だったため、
+  「cus_Aは一度も紐付けられていないため未解決」という正しい説明に訂正した。テスト2件追加
+  (course-set-pasha配下307件パス・schema検証9件パス)。design側「残課題」も現状(resolve_user_id
+  は解決済み、残るのはFirestore化・webhook_secret保管方法)に更新した。承認不要な
+  ドキュメント訂正・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-24 16:00 UTC
 
 ## 次にやること(候補)
 

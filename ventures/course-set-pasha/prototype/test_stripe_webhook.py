@@ -569,8 +569,95 @@ class MainEntryPointTest(unittest.TestCase):
         )
 
         self.assertEqual(result.status_code, 200)
-        # resolve_user_idが常にNoneを返す暫定実装のため、unresolved_customersとして扱われる。
+        # cus_Aはcheckout.session.completedで一度も紐付けられていないため未解決のまま
+        # (resolve_user_idが常にNoneを返す暫定実装だからではない。紐付け済みcustomerが
+        # 実際に解決されることはGetStripeRuntimeDependenciesResolutionTestで検証する)。
         self.assertEqual(result.dispatch_result.unresolved_customers, ["cus_A"])
+
+
+class GetStripeRuntimeDependenciesResolutionTest(unittest.TestCase):
+    """get_stripe_runtime_dependencies()が返すresolve_user_id・storeが、常にNoneを返す
+    暫定実装ではなく実際にstripe_customer_id→user_idの紐付けを解決できることを検証する
+    (stripe-webhook-cloud-function-entry-point-design.md「残課題」がフェーズ96時点の
+    記述のまま更新されておらず、フェーズ97のmake_resolve_user_id()導入後も常時Noneを返す
+    ままだと誤って読めた点への回帰防止。同一のget_stripe_runtime_dependencies()呼び出し
+    結果(=同一プロセス内)を使い回した場合に限り、checkout.session.completedで書き込んだ
+    紐付けをcustomer.subscription.*側で読めることを確認する)。"""
+
+    ENV_SECRET = "demo-webhook-secret"
+
+    def _signed_header(self, body: bytes, secret: str) -> str:
+        timestamp = int(time.time())
+        return _header(body, secret, timestamp)
+
+    def test_checkout_link_is_resolved_by_subsequent_subscription_event(self):
+        deps = get_stripe_runtime_dependencies()
+
+        checkout_body = json.dumps(
+            {
+                "id": "evt_checkout",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {"client_reference_id": "U1", "customer": "cus_A"}
+                },
+            }
+        ).encode("utf-8")
+        checkout_result = receive_stripe_webhook(
+            checkout_body,
+            self._signed_header(checkout_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+        self.assertEqual(checkout_result.status_code, 200)
+        self.assertTrue(checkout_result.checkout_link_result.linked)
+
+        subscription_body = (
+            b'{"id":"evt_sub","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        subscription_result = receive_stripe_webhook(
+            subscription_body,
+            self._signed_header(subscription_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+
+        self.assertEqual(subscription_result.status_code, 200)
+        self.assertEqual(subscription_result.dispatch_result.unresolved_customers, [])
+        # 紐付けが解決されたため、cus_A→U1がdeletion candidateとしてmarkされる。
+        self.assertEqual(subscription_result.dispatch_result.marked_user_ids, ["U1"])
+
+    def test_two_separate_calls_do_not_share_state(self):
+        checkout_body = json.dumps(
+            {
+                "id": "evt_checkout",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {"client_reference_id": "U1", "customer": "cus_A"}
+                },
+            }
+        ).encode("utf-8")
+        receive_stripe_webhook(
+            checkout_body,
+            self._signed_header(checkout_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **get_stripe_runtime_dependencies(),
+        )
+
+        subscription_body = (
+            b'{"id":"evt_sub","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        subscription_result = receive_stripe_webhook(
+            subscription_body,
+            self._signed_header(subscription_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **get_stripe_runtime_dependencies(),
+        )
+
+        self.assertEqual(
+            subscription_result.dispatch_result.unresolved_customers, ["cus_A"]
+        )
 
 
 if __name__ == "__main__":
