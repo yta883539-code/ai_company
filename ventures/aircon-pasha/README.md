@@ -21,6 +21,24 @@
 
 ## ステータス
 
+- フェーズ125(2026-08-25 02:00 UTC): フェーズ124の申し送り通り、Stripe Webhook受信口自体の
+  設計(署名検証方式)に着手した。course-set-pashaのstripe-webhook-signature-verification-
+  design.md(フェーズ93)と同一のアルゴリズム(`Stripe-Signature`ヘッダのt/v1解析、
+  HMAC-SHA256署名比較、300秒のタイムスタンプ許容範囲チェック、v1複数時のシークレット
+  ローテーション対応、v0無視)を本venture向けに`stripe-webhook-signature-verification-
+  design.md`として新規作成した。実Stripeアカウント接続・Webhookエンドポイント登録なしでも
+  机上実装・テスト可能な部分のみを対象とし、`prototype/stripe_webhook.py`に
+  `verify_stripe_signature()`を新規実装、`prototype/test_stripe_webhook.py`にテスト7件
+  (正常系、ヘッダ欠落・不正形式、署名不一致、許容範囲外〈過去・未来〉、シークレット
+  ローテーション、v0のみの旧方式)を追加した。`prototype/`配下の全テスト実行で141件全件
+  パス(既存133件+新規8件)を確認した。実Stripe
+  Webhookイベント種別ディスパッチ・HTTPエントリポイント本体(`receive_stripe_webhook()`
+  相当)・`resolve_user_id`(`stripe_customer_id → user_id`解決)は本フェーズのスコープ外の
+  まま残る(design「残課題」参照)。実接続・課金・外部公開を伴わないコード実装のみのため
+  承認不要。次回はStripe Webhookイベント種別ディスパッチ設計(course-set-pashaの
+  stripe-webhook-event-dispatch-design.md フェーズ94相当)、またはllm-quality-
+  verification-plan.mdに残る未確定事項(実測前提のため引き続き着手不可)以外で前進可能な
+  領域を検討する。
 - フェーズ124(2026-08-25 01:00 UTC): stripe-cancellation-deletion-candidate-trigger-design.md
   (削除候補化トリガーの関数設計)「未解決事項・次の課題」に残っていた「本ドキュメント自体は
   プロトタイプ関数の設計のみで、prototype/配下への実コード化・テスト追加は次回以降の候補」
