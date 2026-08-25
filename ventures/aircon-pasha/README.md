@@ -21,6 +21,23 @@
 
 ## ステータス
 
+- フェーズ124(2026-08-25 01:00 UTC): stripe-cancellation-deletion-candidate-trigger-design.md
+  (削除候補化トリガーの関数設計)「未解決事項・次の課題」に残っていた「本ドキュメント自体は
+  プロトタイプ関数の設計のみで、prototype/配下への実コード化・テスト追加は次回以降の候補」
+  に対応した。course-set-pasha/prototype/deletion_candidate.py(フェーズ91)と同一の判定
+  ロジックを踏襲しつつ、本venture向けのドキュメント参照・コメントに調整した
+  `prototype/deletion_candidate.py`(`mark_deletion_candidate_on_subscription_deleted()`・
+  `clear_deletion_candidate_on_subscription_reactivated()`・`list_deletion_candidates()`の
+  3関数、`InMemoryProfileDeletionCandidateStore`)を新規作成し、
+  `prototype/test_deletion_candidate.py`にテスト12件を追加した(course-set-pasha版と同じ
+  観点: 365日後への設定・最新解約日での上書き・他ユーザー非干渉・再契約時のクリアと冪等性・
+  now以前/以降の境界値・複数候補のuser_id昇順ソート)。`prototype/`配下の全テスト実行で
+  133件全件パス(既存121件+新規12件)を確認した。実Stripe Webhook受信エンドポイント自体
+  (署名検証・イベント種別ディスパッチ)は引き続き未設計のまま、実Stripeアカウント接続後の
+  課題として残る(design 5節)。実接続・課金・外部公開を伴わないコード実装のみのため承認不要。
+  次回はStripe Webhook受信口自体の設計(署名検証方式・エンドポイントURL)、または
+  llm-quality-verification-plan.mdに残る未確定事項(実測前提のため引き続き着手不可)以外で
+  前進可能な領域を検討する。
 - フェーズ123(2026-08-25 00:00 UTC): フェーズ122の申し送り通り、オーナーの初回コンタクト
   承認可否を待つ間に前進可能な領域として、決済手数料以外の周辺コスト項目の再確認に着手した。
   unit-economics-estimate.mdの粗利率試算がこれまで決済手数料・Firestore原価・LLM API原価の
