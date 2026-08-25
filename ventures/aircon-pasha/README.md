@@ -21,6 +21,24 @@
 
 ## ステータス
 
+- フェーズ126(2026-08-25 04:00 UTC): フェーズ125の申し送り通り、Stripe Webhookイベント種別
+  ディスパッチ設計に着手した。course-set-pashaのstripe-webhook-event-dispatch-design.md
+  (フェーズ94)と同一の方針(`customer` → `user_id`解決を`resolve_user_id`として外部注入、
+  対応3種別`customer.subscription.deleted/created/updated`のみ処理し他は`ignored_types`に
+  記録)を`stripe-webhook-event-dispatch-design.md`として本venture向けに新規作成した。
+  course-set-pasha版は設計のみで留まっていたが、本ventureでは同一フェーズ内で
+  `prototype/stripe_dispatch.py`に`dispatch_stripe_event()`・`StripeDispatchResult`を
+  実装し(既存の`deletion_candidate.py`の3関数をそのまま呼び出す構成)、
+  `prototype/test_stripe_dispatch.py`にテスト13件を追加した(3種別の正常系、対象外type、
+  customer未解決、`created`欠落/非数値/bool混入、`updated`のstatus別分岐)。`prototype/`
+  配下の全テスト実行で154件全件パス(既存141件+新規13件)を確認した。実Stripeアカウント
+  接続・Webhookエンドポイント登録・`resolve_user_id`の実ストア実装(実Firestoreクエリ)は
+  引き続きスコープ外(design 5節)。実接続・課金・外部公開を伴わないコード実装のみのため
+  承認不要。次回はHTTPエントリポイント本体(`receive_stripe_webhook()`、
+  `verify_stripe_signature()`と`dispatch_stripe_event()`を結ぶ薄い配線、course-set-pashaの
+  stripe-webhook-http-entry-point-design.md フェーズ95相当)、またはllm-quality-
+  verification-plan.mdに残る未確定事項(実測前提のため引き続き着手不可)以外で前進可能な
+  領域を検討する。
 - フェーズ125(2026-08-25 02:00 UTC): フェーズ124の申し送り通り、Stripe Webhook受信口自体の
   設計(署名検証方式)に着手した。course-set-pashaのstripe-webhook-signature-verification-
   design.md(フェーズ93)と同一のアルゴリズム(`Stripe-Signature`ヘッダのt/v1解析、
