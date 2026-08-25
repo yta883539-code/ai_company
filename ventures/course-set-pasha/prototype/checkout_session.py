@@ -18,6 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional, Protocol
 
+from application_form_submission_flow import InMemoryUserProfileStore
+
 # design 4節: 実LPドメイン確定までの仮のプレースホルダ。呼び出し元・テストで上書き可能。
 DEFAULT_SUCCESS_URL = "https://example.com/course-set-pasha/checkout/success"
 DEFAULT_CANCEL_URL = "https://example.com/course-set-pasha/checkout/cancel"
@@ -110,3 +112,54 @@ def create_checkout_session(
         cancel_url=cancel_url,
     )
     return CreateCheckoutSessionResult(status_code=200, checkout_session_params=params)
+
+
+def _verify_id_token_not_implemented(id_token: str) -> Optional[str]:
+    """checkout-session-cloud-function-entry-point-design.md 2節のプレースホルダ。
+
+    LINE Platform APIの`/oauth2/v2.1/verify`相当への実HTTPリクエストは、LIFFアプリの
+    実登録(オーナー承認待ち)後に本関数を差し替える。恒久的に失敗を返すダミーだと
+    誤って動いているように見えてしまうため、呼ばれたら意図的にNotImplementedErrorを送出する。
+    """
+    raise NotImplementedError(
+        "verify_id_token is not implemented yet: pending LIFF app registration "
+        "(owner approval required, see pending-approval.md)"
+    )
+
+
+def get_checkout_runtime_dependencies() -> dict:
+    """main()が使う依存の既定値を組み立てる(stripe_webhook.get_stripe_runtime_dependencies()と
+    対称の構成、checkout-session-cloud-function-entry-point-design.md 3節)。
+
+    - user_profile_store: InMemoryUserProfileStore()を1つ生成する。実運用ではStripe側
+      Cloud Functionと同一Firestoreのuser_profileコレクションを共有する想定だが、本プロセス
+      では別プロセス・別インスタンスとして初期化されるため、既存stripe_customer_idの
+      引き継ぎは呼び出しをまたいで保持されない(実Firestore接続後に解消される既知の限界)。
+    - verify_id_token: _verify_id_token_not_implemented。LIFFアプリ実登録後に実装を
+      差し替える(checkout-session-endpoint-design.md「残課題」1点目)。
+    """
+    return {
+        "user_profile_store": InMemoryUserProfileStore(),
+        "verify_id_token": _verify_id_token_not_implemented,
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、Checkout Session版)。
+
+    checkout-session-endpoint-design.md「残課題」2点目で未着手のまま残っていた、実リクエスト
+    オブジェクトからのAuthorizationヘッダ取り出し配線をここで行い、create_checkout_session()に
+    委譲する(stripe_webhook.main()と対称の構成、checkout-session-cloud-function-entry-point-
+    design.md 4節)。
+    """
+    authorization_header = request.headers.get("Authorization")
+    try:
+        result = create_checkout_session(
+            authorization_header, **get_checkout_runtime_dependencies()
+        )
+    except NotImplementedError:
+        return "verify_id_token_not_implemented", 501
+
+    if result.status_code == 200:
+        return result.checkout_session_params, 200
+    return (result.error or "error"), result.status_code

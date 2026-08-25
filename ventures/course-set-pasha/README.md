@@ -1279,7 +1279,22 @@
   flow-design.md参照)は引き続きオーナー承認待ちの範囲として残る。承認不要な実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-25 03:00 UTC
+- フェーズ115(2026-08-25 06:00 UTC): checkout-session-endpoint-design.md(フェーズ112)
+  「残課題」2点目だった、`create_checkout_session()`を実Cloud Functionsのリクエスト
+  オブジェクトに接続する`main(request)`本体を実装した
+  (checkout-session-cloud-function-entry-point-design.md新規作成、stripe_webhook.main()と
+  対称の構成)。`verify_id_token`実装本体(LINE Platform API実HTTPリクエスト)自体は
+  LIFFアプリ実登録待ちで実装できないため、呼ばれたら`NotImplementedError`を送出する
+  プレースホルダ`_verify_id_token_not_implemented()`を用意し、`main()`側で捕捉して
+  `status_code=501`・`error="verify_id_token_not_implemented"`を返す設計とした
+  (Authorizationヘッダ欠落・不正形式は従来通り401でverify_id_token未呼び出し、未実装は
+  501で切り分け)。`get_checkout_runtime_dependencies()`も新設し、
+  `user_profile_store`は`InMemoryUserProfileStore()`を使用(stripe側と同様、実運用では
+  実Firestore接続後にプロセスをまたいだ引き継ぎが必要になる既知の限界が残る)。テスト4件
+  追加(course-set-pasha配下327件パス・schema検証9件パス)。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-25 06:00 UTC
 
 ## 次にやること(候補)
 

@@ -13,6 +13,8 @@ from checkout_session import (  # noqa: E402
     DEFAULT_SUCCESS_URL,
     build_checkout_session_params,
     create_checkout_session,
+    get_checkout_runtime_dependencies,
+    main,
 )
 
 
@@ -132,6 +134,55 @@ class CreateCheckoutSessionTest(unittest.TestCase):
         )
         self.assertEqual(result.checkout_session_params["success_url"], "https://example.com/ok")
         self.assertEqual(result.checkout_session_params["cancel_url"], "https://example.com/ng")
+
+
+class GetCheckoutRuntimeDependenciesTest(unittest.TestCase):
+    def test_returns_user_profile_store_and_placeholder_verify_id_token(self):
+        deps = get_checkout_runtime_dependencies()
+        self.assertIn("user_profile_store", deps)
+        self.assertIn("verify_id_token", deps)
+        self.assertIsNone(deps["user_profile_store"].get_stripe_customer_id("Uabc123"))
+        with self.assertRaises(NotImplementedError):
+            deps["verify_id_token"]("some-id-token")
+
+
+class _StubFlaskRequest:
+    """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ
+    (test_stripe_webhook._StubFlaskRequestと対称)。"""
+
+    def __init__(self, headers: dict):
+        self.headers = headers
+
+
+class MainEntryPointTest(unittest.TestCase):
+    """main()(functions_frameworkエントリポイント、Checkout Session版)のテスト。
+    checkout-session-cloud-function-entry-point-design.mdで設計した、実リクエスト
+    オブジェクトからのAuthorizationヘッダ取り出し配線・verify_id_token未実装時の501分岐を
+    検証する(create_checkout_session()自体の分岐はCreateCheckoutSessionTestで既にカバー済み)。"""
+
+    def test_missing_authorization_header_returns_401(self):
+        request = _StubFlaskRequest({})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+        self.assertEqual(response_body, "missing_or_malformed_authorization_header")
+
+    def test_non_bearer_authorization_header_returns_401(self):
+        request = _StubFlaskRequest({"Authorization": "Basic xxx"})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 401)
+        self.assertEqual(response_body, "missing_or_malformed_authorization_header")
+
+    def test_well_formed_bearer_header_returns_501_pending_verify_id_token(self):
+        request = _StubFlaskRequest({"Authorization": "Bearer some-id-token"})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+        self.assertEqual(response_body, "verify_id_token_not_implemented")
 
 
 if __name__ == "__main__":
