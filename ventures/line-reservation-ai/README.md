@@ -1521,6 +1521,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-25 05:00 UTC・フェーズ続き136: フェーズ続き135の
+  new-booking-needs-owner-check-notification-design.md「残る課題」に残っていた
+  「同様のパターンが他のintentでも起こりうるか」の点検を行った
+  (needs-owner-check-notification-audit-across-intents.md新規作成)。faq/escalation
+  intentは`needs_owner_check`込みで下流(`is_escalation_event_owner_notable()`)が
+  実際にpushするか判定する設計のため対象外と確認。cancel/change intentは一見
+  `_handle_cancel()`/`_handle_change()`が`output`の`needs_owner_check`を参照して
+  いない点でnew_bookingと同型に見えたが、llm-system-prompt-draft.md厳守事項3により
+  この2 intentでは同フラグが「常にtrue」で個別イベントの異常性を区別する情報を
+  持たないこと、cancel-intent-handling-design.mdが通知過多を避けるため予約の実体
+  状態(`result.found`/`result.stage`)を通知要否の判断軸に意図的に採用していたことを
+  確認し、見落としではなく合理的な既存設計と判断した。コード変更は無し(点検・
+  結論の文書化のみ)。点検の過程で、フェーズ続き135自体がREADMEへのフェーズログ
+  追記を伴わずコミットされていたことにも気づいたため、直下に遡って追加した。
+  次回は他venture・アイデア領域の前進、またはRECONFIRM_MAX_ATTEMPTSの実測見直し
+  〈実データ取得待ち〉を検討する。)
+- (解消済み 2026-08-24 23:00 UTC・フェーズ続き135〈2026-08-25 05:00 UTC追記:
+  当時コミット9e8eaa2でコード・設計ドキュメントは反映済みだったがこのREADMEログへの
+  追記が漏れていたため遡って追加〉: multi-turn-scenario-harness-design.md「残る課題」
+  E8の項で発見した実装ギャップ(intentが`new_booking`のまま`needs_owner_check: true`
+  だけが立つケースが、オーナー通知にもNotificationLogAggregatorの集計にも一切
+  つながらず無視されていた問題)の修正設計・実装を行った
+  (new-booking-needs-owner-check-notification-design.md新規作成)。`process()`で
+  `intent == "new_booking" and output.get("needs_owner_check")`のケースのみ
+  `escalation_reason: "output_contradiction"`をサーバー側で合成して`_notify_owner()`を
+  呼ぶよう修正し、顧客向けの候補提示フロー(confirmed=falseのまま完結する安全性)は
+  変更していない。`engine.py`の`SYSTEM_ESCALATION_REASONS`・`_SYSTEM_EVENT_LABELS`に
+  `output_contradiction`を追加し、`NotificationLogAggregator.system_event_counts`側へ
+  正しく計上されるようにした。テスト追加(`NewBookingContradictionOwnerNotificationTests`)・
+  既存E8シナリオテストの更新を行い、プロトタイプ全体319件パス・schema検証25件パスを
+  確認。残る課題として「同様のパターンが他のintentでも起こりうるかは未点検」を残し、
+  フェーズ続き136で点検・解消した(上記参照)。)
 - (解消済み 2026-08-24 20:00 UTC・フェーズ続き134: multi-turn-scenario-harness-design.md・
   llm-quality-verification-plan.mdに残っていた、崩れ系ケースのハーネス展開の最後の2件
   E7(JSON構文崩れ)・E8(自然文とJSONの矛盾)への対応を完了した。E7は`E7JsonRetryFallback
