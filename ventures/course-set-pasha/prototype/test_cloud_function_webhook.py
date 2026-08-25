@@ -24,6 +24,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     APPLICATION_FORM_URL_PLACEHOLDER,
+    GENERATION_PAUSED_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
@@ -960,6 +961,81 @@ class ProcessMemoEventTrialEndNotificationTest(unittest.TestCase):
 
         self.assertNotIn("無料トライアル、お疲れさまでした", result.reply_text)
         self.assertIsNone(usage_counter.get_trial_end_notified_at("u-1"))
+
+
+class _MustNotBeCalledLlmClient:
+    """generate()が呼ばれたら即座に失敗させる、一時停止時にLLM呼び出しが
+    スキップされることを検証するためのスタブ。"""
+
+    def generate(self, memo_text, has_photo, retry_context=None):
+        raise AssertionError("generation_paused中はLLM呼び出しが行われないはず")
+
+
+class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
+    """process_memo_event()からの「生成一時停止」応答の検証
+    (trial-end-notification-design.md 4節、README.mdフェーズ114)。"""
+
+    def test_paused_when_trial_end_notified_and_not_upgraded(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertTrue(result.generation_paused)
+        self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+        self.assertTrue(result.reply_sent)
+
+    def test_paused_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+    def test_not_paused_when_already_upgraded(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        usage_counter.set_upgraded_at_if_unset("u-1", datetime(2026, 8, 20, 6, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertFalse(result.generation_paused)
+        self.assertNotEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+
+    def test_not_paused_when_trial_end_not_yet_notified(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertFalse(result.generation_paused)
+
+    def test_not_paused_when_usage_counter_is_none(self):
+        # usage_counter未接続時(未接続テスト等)は既存の挙動を維持し一時停止しない。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertFalse(result.generation_paused)
 
 
 class InMemoryUsageCounterTrialAreaCountTest(unittest.TestCase):

@@ -71,9 +71,12 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 
 - 通知送信後、実際にトライアル終了条件(A/Bいずれか)に達した以降の生成リクエストは、
   課金なしで従来通り生成を続けるのではなく「生成一時停止」とする(pricing-plan.mdの
-  トライアル条件と整合させるため)。ただし本フェーズでは一時停止の実装(生成リクエスト
-  受信時にトライアル終了済み判定を行う分岐)は範囲外とし、通知メッセージ文言の設計のみに
-  とどめる。実装は次回以降の課題とする。
+  トライアル条件と整合させるため)。
+  (解消済み 2026-08-25フェーズ114: `process_memo_event()`冒頭に`_is_generation_paused()`を
+  追加し実装した。`get_trial_end_notified_at()`設定済みかつ`get_upgraded_at()`がNoneの
+  場合、LLM呼び出しを行わず`GENERATION_PAUSED_MESSAGE`を返信する。詳細はREADME.md
+  フェーズ114・prototype/cloud_function_webhook.py参照。実際の有料プラン登録LIFF URLへの
+  差し替えは引き続きオーナー承認待ちの範囲として残る)
 - 一時停止中に本人がLIFFリンクから有料プランへ進んだ場合は、checkout-initiation-flow-design.md
   のCheckout Session作成〜Stripe決済完了(course-set-pashaのStripe Webhook設計、
   stripe-webhook-event-dispatch-design.md等)により通常の有料ユーザーへ遷移する想定。

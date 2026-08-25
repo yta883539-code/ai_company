@@ -1264,7 +1264,22 @@
   次回以降の課題として残す。テスト5件追加(course-set-pasha配下318件パス・schema検証9件パス)。
   承認不要な実装・テスト追加のみで、外部サービスへの公開・アカウント作成等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-24 20:00 UTC
+- フェーズ114(2026-08-25 03:00 UTC): フェーズ113で未実装のまま残っていたtrial-end-
+  notification-design.md「4. トライアル終了後(未アップグレード)の挙動」の「生成一時停止」を
+  実装した。`process_memo_event()`の冒頭(LLM呼び出しより前)に`_is_generation_paused()`を
+  追加し、`get_trial_end_notified_at()`が設定済み(条件A/Bいずれかの終了通知が送信済み)かつ
+  `get_upgraded_at()`がNone(未アップグレード)の場合のみ、LLM呼び出し・月間カウント・
+  トライアル生成回数カウントのいずれも行わず`GENERATION_PAUSED_MESSAGE`(有料プラン登録
+  LIFF URLプレースホルダ入り)を即座に返信する分岐を追加した。`MemoProcessResult`に
+  `generation_paused`フラグを新設し呼び出し元から一時停止か否かを判別できるようにした。
+  usage_counterが該当メソッド未対応の場合(未接続時)は既存の後方互換パターンを踏襲し常に
+  Falseとし挙動は変わらない。テスト5件追加(LLM呼び出しが一切行われないことを検証する
+  スタブ`_MustNotBeCalledLlmClient`を使用、course-set-pasha配下323件パス・schema検証9件パス)。
+  実際の有料プラン登録LIFF URL・Checkout Session実装への差し替え(checkout-initiation-
+  flow-design.md参照)は引き続きオーナー承認待ちの範囲として残る。承認不要な実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-25 03:00 UTC
 
 ## 次にやること(候補)
 

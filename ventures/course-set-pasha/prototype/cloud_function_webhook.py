@@ -45,9 +45,48 @@ from validate_test_cases import (  # noqa: E402
     validate_cross_field_rules,
 )
 from trial_end_scheduler import (  # noqa: E402
+    LIFF_URL_PLACEHOLDER,
     TRIAL_GENERATION_LIMIT,
     format_trial_end_notification_message,
 )
+
+
+# ---------------------------------------------------------------------------
+# 生成一時停止(trial-end-notification-design.md 4節、README.mdフェーズ114)
+# ---------------------------------------------------------------------------
+
+# トライアル終了通知(条件A/Bいずれか)送信済みかつ未アップグレードのユーザーへの
+# 固定返信文言。4節の方針通り、この間はLLM呼び出し自体を行わず定型文のみ返す。
+GENERATION_PAUSED_MESSAGE = (
+    "現在、無料トライアルの期間または生成回数の上限に達しているため、"
+    "投稿文の生成を一時停止しています。\n"
+    "引き続きご利用いただくには、有料プランへのご登録をお願いいたします。\n"
+    f"ご登録はこちら: {LIFF_URL_PLACEHOLDER}"
+)
+
+
+def _is_generation_paused(
+    usage_counter: Optional["UsageCounterProtocol"], user_id: Optional[str]
+) -> bool:
+    """trial-end-notification-design.md 4節の一時停止判定。
+
+    トライアル終了通知の送信済みフラグ(get_trial_end_notified_at、条件A/Bいずれの経路でも
+    共通してset_trial_end_notified_at()で書き込まれる、trial-end-scheduler-design.md 3節
+    「いずれか早い方で1回のみ」)が設定済みで、かつ有料転換未了(get_upgraded_atがNone)の
+    場合のみ一時停止対象とする。usage_counterがこれらのメソッドに対応していない場合
+    (未接続時・後方互換)は既存の挙動を維持するため常にFalseを返す。
+    """
+    if usage_counter is None or user_id is None:
+        return False
+    if not (
+        hasattr(usage_counter, "get_trial_end_notified_at")
+        and hasattr(usage_counter, "get_upgraded_at")
+    ):
+        return False
+    return (
+        usage_counter.get_trial_end_notified_at(user_id) is not None
+        and usage_counter.get_upgraded_at(user_id) is None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +736,7 @@ class MemoProcessResult:
     validation_errors: list = field(default_factory=list)
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
+    generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -831,6 +871,11 @@ def process_memo_event(
        返信)に先立ってpurge_expired_links()の便乗トリガー(1時間間引き)を実行する
        (linking-code-purge-trigger-design.md準拠)。いずれかがNoneの場合(未接続時・
        テストで不要な場合)はスキップし、既存の呼び出し元への影響はない。
+    8. usage_counterがトライアル終了通知の送信済みフラグ・アップグレード日時に対応している
+       場合のみ、_is_generation_paused()でトライアル終了(条件A/Bいずれか)後かつ未
+       アップグレードかを判定する(trial-end-notification-design.md 4節「生成一時停止」)。
+       該当する場合はLLM呼び出し自体を行わず、GENERATION_PAUSED_MESSAGEを返信して
+       即座に処理を終える(月間カウント・トライアル生成回数カウントも増分しない)。
     """
     if linking_store is not None and purge_throttle is not None:
         purge_throttle.maybe_run(linking_store, now or datetime.now(timezone(timedelta(hours=9))))
@@ -842,6 +887,15 @@ def process_memo_event(
     reply_token = event["replyToken"]
     memo_text = message["text"]
     has_photo = bool(event.get("hasPhoto", False))
+    user_id_for_pause_check = event.get("source", {}).get("userId")
+
+    if _is_generation_paused(usage_counter, user_id_for_pause_check):
+        reply_sent = _reply_with_retry(reply_client, reply_token, GENERATION_PAUSED_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=GENERATION_PAUSED_MESSAGE if reply_sent else None,
+            generation_paused=True,
+        )
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text, has_photo)
