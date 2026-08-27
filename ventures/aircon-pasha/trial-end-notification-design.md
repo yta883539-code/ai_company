@@ -28,13 +28,10 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
   生成回数が10回に達した時点(10回目の生成完了時、返信メッセージの直後)。
   limit-approaching-notification-design.md 5節と同じく「生成完了時の返信に便乗させる」方式を
   踏襲し、追加のプッシュAPI呼び出し・課金を発生させない。
-- **(B) 期間到達**: トライアル開始(初回生成成功時)から14日経過した時点。本venture固有の
-  留意点として、trial-start-anchor-decision.md相当の起点確定ドキュメントはまだ作成していない
-  ため、暫定的に「初回生成成功時」を起点とする前提を本ドキュメントで仮置きする(course-set-pasha
-  フェーズ100の`trial-start-anchor-decision.md`と同一の結論・同一の理由〈followからフォーム
-  提出までの間隔が不確定で不公平が生じる、first-generation-self-check-design.mdが既に
-  `is_first_generation = counter.count == 0`の判定ロジックを実装済みで便乗できる〉がそのまま
-  当てはまるため、本venture固有の再検討は不要と判断した)。期間到達は生成イベントに便乗できない
+- **(B) 期間到達**: トライアル開始(初回生成成功時)から14日経過した時点。起点は
+  trial-start-anchor-decision.md(フェーズ130)で本venture固有のユーザー動線
+  (フォーム提出→LINE連携→初回生成)に照らして正式に確定済み(「初回生成成功時」、
+  course-set-pashaフェーズ100と同一の結論)。期間到達は生成イベントに便乗できない
   ため、line-reservation-ai/reminder-scheduler-design.md相当の日次スケジューラ実行
   (Cloud Scheduler)によるプッシュメッセージ送信が必要になる(実際のCloud Scheduler設定は
   オーナー承認待ちの範囲、6節参照)。
@@ -104,9 +101,8 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 
 ## 6. 今後の課題
 
-- trial-start-anchor-decision.md相当の本venture専用ドキュメントは未作成のまま、2節で
-  courseset-pashaの結論をそのまま仮置きしている。実LLM・実LINE接続後、本venture固有の
-  ユーザー動線(フォーム提出→LINE連携→初回生成)に照らして再確認する必要がある。
+- (解消済み・フェーズ130: trial-start-anchor-decision.mdで本venture専用の起点確定を行った。
+  詳細は同ドキュメント参照)
 - 決済導線設計(course-set-pashaのcheckout-initiation-flow-design.md相当)が本venture未着手
   のため、3節のCTAリンクの具体的な実現方式(LIFF経由のIDトークン検証を使うか等)は未確定。
   pending-approval.mdの2026-08-23 09:00 UTC(course-set-pasha向け、LIFFアプリ登録)と同種の
