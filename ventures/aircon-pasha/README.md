@@ -21,6 +21,23 @@
 
 ## ステータス
 
+- フェーズ127(2026-08-27 17:00 UTC): フェーズ126の申し送り通り、Stripe WebhookのHTTP
+  エントリポイント本体を設計・実装した。course-set-pashaのstripe-webhook-http-entry-point-
+  design.md(フェーズ95)の初期版(`checkout.session.completed`受信配線を含まない範囲)を
+  参照し、stripe-webhook-http-entry-point-design.mdとして本venture向けに新規作成した
+  (本venture固有の留意点として、user-account-linking-design.mdの連携コード方式は
+  course-set-pashaの`client_reference_id`方式と異なり`checkout.session.completed`受信配線が
+  別途必要になる点を「残課題」に明記)。`prototype/stripe_webhook.py`に
+  `StripeWebhookReceiverResult`・`receive_stripe_webhook()`を追加し、既存の
+  `verify_stripe_signature()`(フェーズ125)と`stripe_dispatch.dispatch_stripe_event()`
+  (フェーズ126)を薄く結線した(署名検証失敗時は401、JSONパース失敗・非dictは400、
+  それ以外は`dispatch_stripe_event()`に委譲し200)。`prototype/test_stripe_webhook.py`に
+  `ReceiveStripeWebhookTest`としてテスト5件を追加し(署名不正時401・dispatch未呼び出しの
+  確認を含む)、`prototype/`配下の全テスト実行で159件全件パス(既存154件+新規5件)、
+  `schema/validate_test_cases.py`も9件全件パスを確認した。`main(request)`相当の実配線・
+  `checkout.session.completed`対応・`resolve_user_id`の実装はいずれも未着手のまま
+  次回以降の課題として残る(design「残課題」参照)。実接続・課金・外部公開を伴わない
+  コード実装のみのため承認不要。
 - フェーズ126(2026-08-25 04:00 UTC): フェーズ125の申し送り通り、Stripe Webhookイベント種別
   ディスパッチ設計に着手した。course-set-pashaのstripe-webhook-event-dispatch-design.md
   (フェーズ94)と同一の方針(`customer` → `user_id`解決を`resolve_user_id`として外部注入、
