@@ -21,6 +21,22 @@
 
 ## ステータス
 
+- フェーズ129(2026-08-27 20:00 UTC): フェーズ128「未検証・残課題」2点目
+  (`usage_counter`側の`upgraded_at`書き込み配線は、本venture側にまだトライアル終了通知の
+  実装自体が無いため対象外、という積み残し)に対応し、本venture未着手だったトライアル終了
+  通知を設計した(trial-end-notification-design.md新規作成)。course-set-pashaの
+  trial-end-notification-design.md(フェーズ99)を参考に、pricing-plan.mdの二重条件
+  (期間14日・生成回数10回のいずれか早い方)に基づくトリガー条件・通知文言案・トライアル終了後の
+  生成一時停止方針を整理した。本venture固有の差異として、(1)trial-start-anchor-decision.md
+  相当の起点確定ドキュメントが本venture未作成のため、course-set-pashaフェーズ100の結論
+  (初回生成成功時起点)を同じ理由でそのまま仮置きとして採用した、(2)「浮いた作業時間の目安」
+  相当の試算(course-set-pashaのcontent-generation-time-estimate.md相当)が本venture未作成の
+  ため通知文言からは今回除外した、(3)決済導線設計(course-set-pashaのcheckout-initiation-flow-
+  design.md相当)も本venture未着手のためCTAリンクの具体的な実現方式は未確定のプレースホルダ
+  とした、という3点を明記した。いずれもドキュメント設計のみで、`prototype/`への実装・
+  Firestoreフィールド追加・外部接続は次回以降の課題として残した(ドキュメント整備のみのため
+  承認不要)。次回はtrial-start-anchor-decision.md相当の本venture専用ドキュメント作成による
+  (1)の解消、または決済導線設計の着手による(3)の解消のいずれかを優先候補とする。
 - フェーズ128(2026-08-27 18:00 UTC): フェーズ127の残課題だった`checkout.session.completed`
   受信配線を設計・実装した(checkout-session-completed-handling-design.md新規作成)。
   user-account-linking-design.md 4節のとおり本ventureはCheckout Session作成時点で
