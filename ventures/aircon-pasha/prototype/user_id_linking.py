@@ -139,7 +139,17 @@ class UserProfile:
 
 
 class UserProfileStoreProtocol(Protocol):
-    """`user_profile/{user_id}`ドキュメントへの読み書きを表す(design 5節)。"""
+    """`user_profile/{user_id}`ドキュメントへの読み書きを表す(design 5節)。
+
+    `set_stripe_customer_id`/`get_user_id_by_stripe_customer_id`は
+    checkout-session-completed-handling-design.mdで追加した、`stripe_customer_id`
+    (StripeカスタマーオブジェクトのID)と`user_id`の紐付けを表す。本ventureは
+    `client_reference_id`に既知の`user_id`をそのまま設定できる(design 4節)ため
+    `set_stripe_customer_id`は書き込み専用(順引きの`get_stripe_customer_id`は
+    現時点でどこからも呼ばれないため未追加)、`get_user_id_by_stripe_customer_id`は
+    `customer.subscription.*`系イベントの`resolve_user_id(stripe_customer_id) -> user_id`
+    変換をこの逆引きで実現するために使う(course-set-pashaの
+    `get_user_id_by_stripe_customer_id`と同じ位置づけ)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -150,12 +160,26 @@ class UserProfileStoreProtocol(Protocol):
     def exists(self, user_id: str) -> bool:
         ...
 
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        ...
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        ...
+
 
 class InMemoryUserProfileStore:
-    """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。"""
+    """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
+
+    `stripe_customer_id → user_id`の逆引き用に別辞書も保持する(実Firestoreでは
+    `user_profile`コレクションへの単一フィールド書き込み+別コレクション
+    `stripe_customer_index/{stripe_customer_id}`への逆引きドキュメント書き込みに
+    対応する想定、course-set-pashaの`InMemoryUserProfileStore`と同じ設計)。"""
 
     def __init__(self) -> None:
         self._profiles: dict[str, UserProfile] = {}
+        self._user_ids_by_stripe_customer_id: dict[str, str] = {}
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         self._profiles[user_id] = profile
@@ -165,6 +189,21 @@ class InMemoryUserProfileStore:
 
     def exists(self, user_id: str) -> bool:
         return user_id in self._profiles
+
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        old_stripe_customer_id = profile.stripe_customer_id
+        if old_stripe_customer_id is not None:
+            self._user_ids_by_stripe_customer_id.pop(old_stripe_customer_id, None)
+        profile.stripe_customer_id = stripe_customer_id
+        self._user_ids_by_stripe_customer_id[stripe_customer_id] = user_id
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        return self._user_ids_by_stripe_customer_id.get(stripe_customer_id)
 
 
 @dataclass

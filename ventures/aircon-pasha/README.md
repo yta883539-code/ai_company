@@ -21,6 +21,27 @@
 
 ## ステータス
 
+- フェーズ128(2026-08-27 18:00 UTC): フェーズ127の残課題だった`checkout.session.completed`
+  受信配線を設計・実装した(checkout-session-completed-handling-design.md新規作成)。
+  user-account-linking-design.md 4節のとおり本ventureはCheckout Session作成時点で
+  `client_reference_id`へ既知の`user_id`をそのまま設定できる前提のため、
+  course-set-pashaの`handle_checkout_session_completed()`とほぼ同じ処理をそのまま
+  踏襲しつつ、本venture固有の安全策として対応する`user_profile`が存在しない場合
+  (想定外の順序でCheckout Sessionが作成された異常系)は書き込みを行わず
+  `error="user_profile_not_found"`として区別する分岐を追加した。あわせて
+  `stripe_customer_id → user_id`の逆引きを担う`make_resolve_user_id()`を新設し、
+  `user_id_linking.py`の`UserProfileStoreProtocol`/`InMemoryUserProfileStore`に
+  `set_stripe_customer_id()`・`get_user_id_by_stripe_customer_id()`を追加した。
+  `receive_stripe_webhook()`に`user_profile_store`引数を追加し、
+  `checkout.session.completed`は`dispatch_stripe_event()`ではなく
+  `handle_checkout_session_completed()`へ振り分けるよう分岐した(course-set-pashaの
+  `receive_stripe_webhook()`と同じ方針)。テスト12件追加(`checkout.session.completed`で
+  紐付けた`user_id`を後続の`customer.subscription.deleted`が正しく逆引きできることを
+  確認する一気通貫テストを含む)、`prototype/`配下全テスト実行で171件全件パス
+  (既存159件+新規12件)、`schema/validate_test_cases.py`も9件全件パスを確認した。
+  実Stripeアカウント接続時のCheckout Session作成(`client_reference_id`設定)自体・
+  `stripe_customer_id → user_id`逆引きストアの実Firestore実装はいずれも実接続後の
+  課題として残る。実接続・課金・外部公開を伴わないコード実装のみのため承認不要。
 - フェーズ127(2026-08-27 17:00 UTC): フェーズ126の申し送り通り、Stripe WebhookのHTTP
   エントリポイント本体を設計・実装した。course-set-pashaのstripe-webhook-http-entry-point-
   design.md(フェーズ95)の初期版(`checkout.session.completed`受信配線を含まない範囲)を

@@ -15,6 +15,7 @@ from user_id_linking import (  # noqa: E402
     InMemoryUserProfileStore,
     LinkingResolution,
     PendingLink,
+    UserProfile,
     issue_linking_code_on_form_submission,
     purge_expired_links,
     resolve_linking_code,
@@ -214,6 +215,51 @@ class PurgeExpiredLinksTest(unittest.TestCase):
         self.assertEqual(removed, 1)
         self.assertIsNotNone(store.get("FRESH1"))
         self.assertIsNone(store.get("OLD000"))
+
+
+class InMemoryUserProfileStoreStripeCustomerIdTest(unittest.TestCase):
+    """checkout-session-completed-handling-design.md 1節で追加した
+    set_stripe_customer_id()/get_user_id_by_stripe_customer_id()の単体テスト。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_sets_forward_field_and_reverse_lookup(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_stripe_customer_id("u-1", "cus_1")
+
+        self.assertEqual(store.get("u-1").stripe_customer_id, "cus_1")
+        self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_1"), "u-1")
+
+    def test_unknown_user_id_is_a_noop(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_stripe_customer_id("no-such-user", "cus_1")
+
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_1"))
+
+    def test_unknown_stripe_customer_id_returns_none(self):
+        store = InMemoryUserProfileStore()
+
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_unknown"))
+
+    def test_reassigning_stripe_customer_id_drops_old_reverse_entry(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_stripe_customer_id("u-1", "cus_old")
+
+        store.set_stripe_customer_id("u-1", "cus_new")
+
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_old"))
+        self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "u-1")
 
 
 if __name__ == "__main__":
