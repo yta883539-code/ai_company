@@ -21,7 +21,7 @@ jobs:
       - name: Run unittest suite (prototype)
         working-directory: ventures/aircon-pasha/prototype
         run: |
-          python3 -m unittest test_cloud_function_webhook test_post_generation_checks -v
+          python3 -m unittest discover -p "test_*.py" -v
       - name: Run schema validation (output.schema.json)
         working-directory: ventures/aircon-pasha/schema
         run: |

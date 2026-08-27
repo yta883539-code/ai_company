@@ -27,3 +27,12 @@ line-reservation-ai・course-set-pashaで先行導入していたGitHub Actions�
 - 実際のコミット後、course-set-pashaと同様`mcp__github__actions_list`でCI実行結果
   (status: completed / conclusion: success)を確認する。
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに追加するかを検討する。
+- (解消済み 2026-08-27・フェーズ131: フェーズ26でtest_cloud_function_webhook・
+  test_post_generation_checksの2本を名指しでハードコードした後、フェーズ102前後で
+  test_deletion_candidate・test_stripe_dispatch・test_stripe_webhook・
+  test_user_id_linkingが追加されていたにもかかわらずワークフロー側の更新が漏れており、
+  これらはCI上で実行されないまま残っていたことが判明した。`python3 -m unittest
+  test_cloud_function_webhook test_post_generation_checks -v`を`python3 -m unittest
+  discover -p "test_*.py" -v`に変更し、`prototype/`配下の新規テストファイルが今後
+  ワークフロー側の追記漏れなく自動的に対象へ加わるようにした。ローカルで
+  `python3 -m unittest discover -p "test_*.py" -v`を実行し178件全件パスを確認)

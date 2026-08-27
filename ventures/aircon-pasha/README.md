@@ -21,6 +21,30 @@
 
 ## ステータス
 
+- フェーズ131(2026-08-27 22:00 UTC): フェーズ130の申し送り(次回優先候補1点目)の
+  決済導線設計に着手し、checkout-initiation-flow-design.mdを新規作成した。
+  trial-end-notification-design.md 3節・6節で繰り返し「未確定」と記録されていた
+  CTA「▼有料プランへ進む」リンクの実現方式を、course-set-pashaのLIFF IDトークン検証方式
+  ではなく**LINEのpostbackアクションボタン方式**に確定した。本ventureはuser-account-
+  linking-design.md 4節の前提(Checkout Session作成時点でuser_idは`user_profile`上で
+  判明済み)が成立するため、決済ボタンをLINEトーク内のpostbackアクション
+  (`data="action=start_checkout"`)として提供すれば、webhook-http-entry-point-design.md
+  の署名検証を経た`event["source"]["userId"]`をそのまま認証済みuser_idとして使え、
+  LIFFアプリの追加登録・IDトークン検証実装を本ventureでは省略できるという設計判断を行った。
+  course-set-pashaのcheckout_session.py(`build_checkout_session_params()`)を参考に
+  `prototype/checkout_session.py`を新規実装し(LIFF依存の`create_checkout_session()`相当は
+  本venture不要のため実装せず、パラメータ組み立て純粋関数のみ)、テスト6件を追加した。
+  あわせて、CI設定(`.github/workflows/aircon-pasha-tests.yml`)がフェーズ26でテスト
+  モジュール名を`test_cloud_function_webhook`・`test_post_generation_checks`の2本に
+  ハードコードしたまま、フェーズ102前後で追加された`test_deletion_candidate`・
+  `test_stripe_dispatch`・`test_stripe_webhook`・`test_user_id_linking`がCI上で
+  実行されないまま放置されていたことに気づき、`unittest discover`方式に変更して解消した
+  (ci-setup.md追記)。prototype配下全テストを`python3 -m unittest discover -p
+  "test_*.py" -v`で実行し178件全件パス(既存171件+新規7件)、schema/validate_test_cases.py
+  も9件全件パスを確認した。`dispatch_webhook_events()`への`postback`種別振り分け・
+  `process_postback_event()`本体の実装、実Stripe Checkout Session作成API呼び出しは
+  次回以降の課題として残した(承認不要)。次回は上記残課題への着手、または(B)期間到達
+  判定用の日次スケジューラ設計を優先候補とする。
 - フェーズ130(2026-08-27 21:00 UTC): フェーズ129の申し送り(次回優先候補1点目)に対応し、
   trial-end-notification-design.mdで仮置きしていたトライアル開始起点(初回生成成功時)を
   本venture専用ドキュメントとして正式に確定した(trial-start-anchor-decision.md新規作成)。

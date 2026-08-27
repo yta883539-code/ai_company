@@ -55,8 +55,12 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。
 
 ▼ 有料プランへ進む(カード登録)
-[決済導線リンク]
+[postbackボタン]
 ```
+
+(解消済み 2026-08-27・フェーズ131: `[決済導線リンク]`はプレーンテキストリンクではなく
+Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`〉として実現する
+ことをcheckout-initiation-flow-design.mdで確定した。詳細は同ドキュメント・下記の追記参照)
 
 - pricing-plan.mdの「トライアル終了時: 自動課金はせず...継続を希望する場合のみ本人がプランを
   選択する形にする」という条件をそのまま踏まえ、「何もしなければ自動課金なし」である旨を
@@ -64,12 +68,16 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 - course-set-pashaの「浮いた作業時間の目安」相当の一文は、本venture向けのcontent-generation-
   time-estimate.md相当の試算ドキュメントが未作成のため今回は含めない(4節の「今後の課題」に
   切り出す)。生成実績(回数)のみを事実として提示するにとどめる。
-- CTAリンクは、本venture固有の決済導線設計(course-set-pashaのcheckout-initiation-flow-
-  design.md相当)がまだ作成されていないため、具体的な遷移方式(LIFF経由か否か)は未確定の
-  プレースホルダとする(4節「今後の課題」参照)。checkout-session-completed-handling-
-  design.md 4節で扱っているのはあくまでWebhook受信側(Checkout Session作成後の紐付け)の
-  みで、Checkout Session作成自体をどう起動するか(ユーザーがどこからリンクを踏むか)は
-  本venture未設計のまま残っている。
+- (解消済み 2026-08-27・フェーズ131: CTAの遷移方式は、本venture固有の決済導線設計
+  checkout-initiation-flow-design.mdで「LINEのpostbackアクションボタン方式・LIFF不要」に
+  確定した。user-account-linking-design.md 4節の前提〈Checkout Session作成時点でuser_idは
+  `user_profile`上で判明済み〉を活かし、course-set-pashaのようなLIFF IDトークン検証を
+  経由せず、postbackイベントの`source.userId`〈署名検証済みのため認証済み〉をそのまま
+  使う設計とした。ただし`dispatch_webhook_events()`への`postback`種別振り分け・
+  `process_postback_event()`本体の実装は次回以降の課題として残る。checkout-session-
+  completed-handling-design.md 4節で扱っているのはあくまでWebhook受信側〈Checkout Session
+  作成後の紐付け〉のみで、Checkout Session作成自体の起動方式は本ドキュメントの対応範囲
+  だった)
 
 ## 4. トライアル終了後(未アップグレード)の挙動
 
@@ -103,10 +111,9 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
 
 - (解消済み・フェーズ130: trial-start-anchor-decision.mdで本venture専用の起点確定を行った。
   詳細は同ドキュメント参照)
-- 決済導線設計(course-set-pashaのcheckout-initiation-flow-design.md相当)が本venture未着手
-  のため、3節のCTAリンクの具体的な実現方式(LIFF経由のIDトークン検証を使うか等)は未確定。
-  pending-approval.mdの2026-08-23 09:00 UTC(course-set-pasha向け、LIFFアプリ登録)と同種の
-  承認が必要になる見込みだが、本venture向けの承認事項としてはまだ記録していない。
+- (解消済み・フェーズ131: 決済導線設計をcheckout-initiation-flow-design.mdとして新規作成し、
+  3節のCTAの実現方式をpostbackアクションボタン方式〈LIFF不要〉に確定した。詳細は同ドキュメント
+  参照。`process_postback_event()`本体の実装・実Stripe接続はなお次回以降の課題)
 - 「生成実績」に浮いた作業時間の目安を加えるかどうかは、content-generation-time-estimate.md
   相当のドキュメント作成後に再検討する。
 - (B)期間到達判定用の日次スケジューラ実装、4節の「生成一時停止」判定の実コード実装は
