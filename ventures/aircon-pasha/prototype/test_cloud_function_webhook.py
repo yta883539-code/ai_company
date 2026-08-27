@@ -34,6 +34,7 @@ from cloud_function_webhook import (  # noqa: E402
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryApplicationFormLinkProvider,
+    InMemoryCheckoutSessionClient,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
@@ -41,6 +42,7 @@ from cloud_function_webhook import (  # noqa: E402
     ReplyApiError,
     build_usage_notice,
     dispatch_webhook_events,
+    format_checkout_reply_message,
     format_reply_text,
     format_welcome_message,
     get_runtime_dependencies,
@@ -48,12 +50,14 @@ from cloud_function_webhook import (  # noqa: E402
     process_follow_event,
     process_memo_event,
     process_message_event,
+    process_postback_event,
     process_unfollow_event,
     receive_webhook,
     render_subscription_procedure_notice,
     validate_llm_output,
     verify_line_signature,
 )
+from checkout_session import START_CHECKOUT_POSTBACK_DATA  # noqa: E402
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
 from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
@@ -642,6 +646,119 @@ class ProcessUnfollowEventTest(unittest.TestCase):
         self.assertFalse(result.handled)
 
 
+class ProcessPostbackEventTest(unittest.TestCase):
+    """checkout-initiation-flow-design.md 2〜3節、フェーズ131「残課題」1点目の実装テスト。"""
+
+    def _linked_profile_store(self, stripe_customer_id=None):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                stripe_customer_id=stripe_customer_id,
+            ),
+        )
+        return profile_store
+
+    def test_linked_user_receives_checkout_url_and_client_receives_built_params(self):
+        reply_client = InMemoryReplyClient()
+        checkout_session_client = InMemoryCheckoutSessionClient(url="https://checkout.stripe.com/x")
+        event = {
+            "type": "postback",
+            "replyToken": "rt-1",
+            "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, reply_client, self._linked_profile_store(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.checkout_url, "https://checkout.stripe.com/x")
+        self.assertEqual(reply_client.sent, [("rt-1", format_checkout_reply_message("https://checkout.stripe.com/x"))])
+        self.assertEqual(len(checkout_session_client.calls), 1)
+        self.assertEqual(checkout_session_client.calls[0]["mode"], "subscription")
+        self.assertEqual(checkout_session_client.calls[0]["client_reference_id"], "u-1")
+        self.assertNotIn("customer", checkout_session_client.calls[0])
+
+    def test_existing_stripe_customer_id_is_forwarded_to_params(self):
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback",
+            "replyToken": "rt-2",
+            "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+
+        process_postback_event(
+            event, checkout_session_client, InMemoryReplyClient(),
+            self._linked_profile_store(stripe_customer_id="cus_existing"),
+        )
+
+        self.assertEqual(checkout_session_client.calls[0]["customer"], "cus_existing")
+
+    def test_unlinked_user_gets_linking_required_message_without_calling_checkout_client(self):
+        reply_client = InMemoryReplyClient()
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback",
+            "replyToken": "rt-3",
+            "source": {"userId": "u-unknown"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, reply_client, InMemoryUserProfileStore(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertIsNone(result.checkout_url)
+        self.assertEqual(reply_client.sent, [("rt-3", LINKING_REQUIRED_MESSAGE)])
+        self.assertEqual(checkout_session_client.calls, [])
+
+    def test_missing_user_id_gets_linking_required_message(self):
+        reply_client = InMemoryReplyClient()
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback", "replyToken": "rt-4", "source": {},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, reply_client, InMemoryUserProfileStore(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(reply_client.sent, [("rt-4", LINKING_REQUIRED_MESSAGE)])
+        self.assertEqual(checkout_session_client.calls, [])
+
+    def test_non_start_checkout_postback_is_not_handled(self):
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback", "replyToken": "rt-5", "source": {"userId": "u-1"},
+            "postback": {"data": "action=something_else"},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, InMemoryReplyClient(), self._linked_profile_store(),
+        )
+
+        self.assertFalse(result.handled)
+        self.assertEqual(checkout_session_client.calls, [])
+
+    def test_missing_postback_data_is_not_handled(self):
+        result = process_postback_event(
+            {"type": "postback", "source": {"userId": "u-1"}},
+            InMemoryCheckoutSessionClient(), InMemoryReplyClient(), self._linked_profile_store(),
+        )
+        self.assertFalse(result.handled)
+
+
 class ProcessMessageEventLinkingTest(unittest.TestCase):
     """user-account-linking-design.md 3節の実装(process_message_event)。"""
 
@@ -899,26 +1016,63 @@ class DispatchWebhookEventsTest(unittest.TestCase):
         self.assertEqual(result.message_results, [])
 
     def test_unknown_event_type_is_recorded_in_ignored_types(self):
-        events = [{"type": "postback"}, {"type": "join"}]
+        events = [{"type": "join"}, {"type": "beacon"}]
 
         result = dispatch_webhook_events(events)
 
-        self.assertEqual(result.ignored_types, ["postback", "join"])
+        self.assertEqual(result.ignored_types, ["join", "beacon"])
 
     def test_mixed_events_are_routed_independently(self):
         reply_client = InMemoryReplyClient()
         events = [
             {"type": "follow", "replyToken": "rt-5", "source": {"userId": "u-2"}},
             {"type": "unfollow", "source": {"userId": "u-3"}},
-            {"type": "postback"},
+            {"type": "join"},
         ]
 
         result = dispatch_webhook_events(events, reply_client=reply_client)
 
         self.assertEqual(len(result.follow_results), 1)
         self.assertEqual(len(result.unfollow_results), 1)
-        self.assertEqual(result.ignored_types, ["postback"])
+        self.assertEqual(result.ignored_types, ["join"])
         self.assertEqual(result.message_results, [])
+        self.assertEqual(result.postback_results, [])
+
+    def test_postback_event_is_routed_to_process_postback_event(self):
+        reply_client = InMemoryReplyClient()
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        events = [{
+            "type": "postback",
+            "replyToken": "rt-6",
+            "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=reply_client,
+            profile_store=self._linked_profile_store(),
+            checkout_session_client=checkout_session_client,
+        )
+
+        self.assertEqual(len(result.postback_results), 1)
+        self.assertTrue(result.postback_results[0].handled)
+        self.assertEqual(len(checkout_session_client.calls), 1)
+
+    def test_postback_event_not_processed_without_checkout_session_client(self):
+        events = [{
+            "type": "postback",
+            "replyToken": "rt-7",
+            "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }]
+
+        result = dispatch_webhook_events(
+            events, reply_client=InMemoryReplyClient(), profile_store=self._linked_profile_store(),
+        )
+
+        self.assertEqual(result.postback_results, [])
+        self.assertEqual(result.ignored_types, [])
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

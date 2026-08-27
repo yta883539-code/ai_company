@@ -88,9 +88,20 @@ IDトークン検証を使うか等)は未確定」という記述は、本ド�
 ## 残課題
 
 - `dispatch_webhook_events()`への`postback`イベント種別の振り分け配線、
-  `process_postback_event()`本体の実装(2節手順1〜3)は次回以降の課題として残す。
-- 実Stripe Checkout Session作成API呼び出し・LINEへのURL返信処理は、実Stripeアカウント
-  接続後(オーナー承認待ち)にあわせて設計する。
+  `process_postback_event()`本体の実装(2節手順1〜3)は、フェーズ132で実装済み
+  (`prototype/cloud_function_webhook.py`)。実Stripe接続前の暫定処置として、
+  `llm_call`/`reply_client`と同じ位置づけの`CheckoutSessionClient`Protocol
+  (`create(params) -> str`)を新設し、`InMemoryCheckoutSessionClient`スタブが固定URLを
+  返す形で3節手順4(パラメータ組み立て)〜5(URL取得・返信)までの処理ロジック自体は
+  実Stripe接続なしで検証可能にした。`dispatch_webhook_events()`は`checkout_session_client`
+  引数を追加し、`reply_client`・`profile_store`・`checkout_session_client`のいずれかが
+  未接続の場合はpostbackイベントを素通りする既存の安全側フォールバックに揃えた。
+  テスト13件追加(process_postback_event単体7件・dispatch経由2件・既存ignored_types系
+  テスト2件の更新)、プロトタイプ全体186件全件パス。
+- 実Stripe Checkout Session作成API呼び出し(`CheckoutSessionClient`の実クライアント実装)・
+  LINEへのURL返信処理の実接続は、実Stripeアカウント接続後(オーナー承認待ち)にあわせて行う。
+  `get_runtime_dependencies()`は現状`{}`を返す設計のままのため(実クレデンシャル未接続)、
+  実装差し替えのみで接続できる。
 - `success_url`/`cancel_url`の実際のLPドメイン確定はLP実装(オーナー承認待ち)と合わせて行う。
 - 決済完了後のStripe側処理(`checkout.session.completed`受信)は
   checkout-session-completed-handling-design.md(フェーズ128)で既に設計・実装済みのため、

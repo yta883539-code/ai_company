@@ -36,6 +36,10 @@ from typing import Optional, Protocol
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
+from checkout_session import (  # noqa: E402
+    START_CHECKOUT_POSTBACK_DATA,
+    build_checkout_session_params,
+)
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
@@ -91,6 +95,31 @@ class InMemoryReplyClient:
 
     def reply(self, reply_token: str, message_text: str) -> None:
         self.sent.append((reply_token, message_text))
+
+
+class CheckoutSessionClient(Protocol):
+    """Stripe Checkout Session作成API呼び出しを表す差し替え可能なProtocol
+    (checkout-initiation-flow-design.md 3節手順5、llm_call/reply_clientと同じ位置づけ)。
+    実際の`stripe.checkout.Session.create(**params)`呼び出しは実Stripeアカウント接続後
+    (オーナー承認待ち)に実クライアントへ差し替える。"""
+
+    def create(self, params: dict) -> str:
+        """`params`(build_checkout_session_params()の返り値)からCheckout SessionのURLを
+        返す契約とする。"""
+        ...
+
+
+class InMemoryCheckoutSessionClient:
+    """実Stripe接続の代わりに固定のプレースホルダURLを返すだけの検証用クライアント。
+    呼び出しに使われたparamsを記録し、テストで組み立て内容を検証できるようにする。"""
+
+    def __init__(self, url: str = "https://checkout.stripe.com/stub-session") -> None:
+        self._url = url
+        self.calls: list[dict] = []
+
+    def create(self, params: dict) -> str:
+        self.calls.append(params)
+        return self._url
 
 
 # ---------------------------------------------------------------------------
@@ -679,6 +708,65 @@ def process_message_event(
 
 
 # ---------------------------------------------------------------------------
+# postbackイベント処理(決済導線)
+# (checkout-initiation-flow-design.md フェーズ131「残課題」1点目の実装。トライアル終了
+#  通知のFlex Messageボタン(postbackアクション、data="action=start_checkout")がタップ
+#  された際の入口。design 2節手順1〜3(postback data判定→user_id取得→user_profile確認)に
+#  4節のbuild_checkout_session_params()呼び出しと、実Stripe接続後に差し替える
+#  CheckoutSessionClient.create()呼び出しを組み合わせる。)
+# ---------------------------------------------------------------------------
+
+def format_checkout_reply_message(checkout_url: str) -> str:
+    """design 3節手順5「呼び出し後に得られるURLをLINEへのreplyメッセージとして返す処理」の
+    文面。プレーンテキストでURLを案内する(Flex Message化は本フェーズの対応範囲外)。"""
+    return (
+        "お支払い手続きへのリンクをご案内します。下記URLからお進みください。\n"
+        f"{checkout_url}"
+    )
+
+
+@dataclass
+class PostbackEventResult:
+    """process_postback_event()の結果。"""
+
+    handled: bool
+    reply_sent: bool
+    checkout_url: Optional[str] = None
+
+
+def process_postback_event(
+    event: dict,
+    checkout_session_client: CheckoutSessionClient,
+    reply_client: ReplyClient,
+    profile_store: UserProfileStoreProtocol,
+) -> PostbackEventResult:
+    """LINEの`postback`イベント1件を処理する(署名検証済みの前提、design 2〜3節)。
+
+    `data`が`action=start_checkout`以外のpostback(本venture未着手の将来アクション、
+    design 2節「将来別アクションを追加する場合」)は`handled=False`として素通りする。
+    user_idが取得できない、またはuser_profileが未連携(design 3節手順3の異常系)の場合は
+    user_id_linking.pyの既存の未連携案内文言(LINKING_REQUIRED_MESSAGE)を返す。
+    """
+    if event.get("postback", {}).get("data") != START_CHECKOUT_POSTBACK_DATA:
+        return PostbackEventResult(handled=False, reply_sent=False)
+
+    reply_token = event["replyToken"]
+    user_id = event.get("source", {}).get("userId")
+    profile = profile_store.get(user_id) if user_id else None
+
+    if profile is None:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+        return PostbackEventResult(handled=True, reply_sent=reply_sent)
+
+    params = build_checkout_session_params(user_id, profile.stripe_customer_id)
+    checkout_url = checkout_session_client.create(params)
+    reply_sent = _reply_with_retry(
+        reply_client, reply_token, format_checkout_reply_message(checkout_url)
+    )
+    return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=checkout_url)
+
+
+# ---------------------------------------------------------------------------
 # Webhook本体のイベント種別ディスパッチ
 # (フェーズ111・112(follow/unfollow)・フェーズ113(message)で実装した3つのイベント処理
 #  関数を、実際のWebhookリクエストの`events`配列から呼び分ける入口。フェーズ107設計時点の
@@ -694,6 +782,7 @@ class DispatchResult:
     follow_results: list = field(default_factory=list)
     message_results: list = field(default_factory=list)
     unfollow_results: list = field(default_factory=list)
+    postback_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
 
 
@@ -710,10 +799,11 @@ def dispatch_webhook_events(
     plan: Optional[str] = None,
     month: Optional[str] = None,
     now: Optional[datetime] = None,
+    checkout_session_client: Optional[CheckoutSessionClient] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
-    `process_follow_event()`/`process_message_event()`/`process_unfollow_event()`へ
-    振り分ける。
+    `process_follow_event()`/`process_message_event()`/`process_unfollow_event()`/
+    `process_postback_event()`へ振り分ける。
 
     - "follow": 1件ずつ`process_follow_event()`へ渡す。`reply_client`が未接続の場合は
       該当イベントを処理せず素通りする。
@@ -724,13 +814,17 @@ def dispatch_webhook_events(
       処理条件にlinking_store・profile_storeも含める)。
     - "unfollow": 1件ずつ`process_unfollow_event()`へ渡す(design 2節の通りdata store類は
       不要なため、他の種別と異なり未接続でも常に処理する)。
-    - それ以外の種別(postback・join等)は無視し、`ignored_types`に種別名のみ記録する。
+    - "postback": 1件ずつ`process_postback_event()`へ渡す(checkout-initiation-flow-design.md
+      2〜3節)。`reply_client`・`profile_store`・`checkout_session_client`のいずれかが
+      未接続の場合は素通りする(user_profile確認にprofile_storeが必須、URL取得に
+      checkout_session_clientが必須のため)。
+    - それ以外の種別(join等)は無視し、`ignored_types`に種別名のみ記録する。
     """
     result = DispatchResult()
 
     for event in events:
         event_type = event.get("type")
-        if event_type not in ("follow", "message", "unfollow"):
+        if event_type not in ("follow", "message", "unfollow", "postback"):
             result.ignored_types.append(event_type or "unknown")
 
     follow_events = [e for e in events if e.get("type") == "follow"]
@@ -768,6 +862,18 @@ def dispatch_webhook_events(
     unfollow_events = [e for e in events if e.get("type") == "unfollow"]
     for event in unfollow_events:
         result.unfollow_results.append(process_unfollow_event(event))
+
+    postback_events = [e for e in events if e.get("type") == "postback"]
+    if (
+        postback_events
+        and reply_client is not None
+        and profile_store is not None
+        and checkout_session_client is not None
+    ):
+        for event in postback_events:
+            result.postback_results.append(
+                process_postback_event(event, checkout_session_client, reply_client, profile_store)
+            )
 
     return result
 
@@ -816,6 +922,7 @@ def receive_webhook(
     plan: Optional[str] = None,
     month: Optional[str] = None,
     now: Optional[datetime] = None,
+    checkout_session_client: Optional[CheckoutSessionClient] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)を`dispatch_webhook_events()`まで
     橋渡しする薄いエントリポイント(webhook-http-entry-point-design.md 2節)。
@@ -850,6 +957,7 @@ def receive_webhook(
         plan=plan,
         month=month,
         now=now,
+        checkout_session_client=checkout_session_client,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 

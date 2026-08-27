@@ -21,6 +21,29 @@
 
 ## ステータス
 
+- フェーズ132(2026-08-27 23:00 UTC): フェーズ131の残課題1点目に対応し、
+  `dispatch_webhook_events()`への`postback`イベント種別の振り分け配線と
+  `process_postback_event()`本体(checkout-initiation-flow-design.md 2〜3節)を実装した。
+  実Stripe Checkout Session作成API呼び出し自体は実アカウント接続後(オーナー承認待ち)の
+  ままだが、`llm_call`/`reply_client`と同じ位置づけの`CheckoutSessionClient`Protocol
+  (`create(params) -> str`)を新設し`InMemoryCheckoutSessionClient`スタブで固定URLを返す
+  ことで、data判定→user_id取得→user_profile確認→パラメータ組み立て
+  (`build_checkout_session_params()`)→URL取得→LINE返信、という一連の処理ロジック自体は
+  実接続なしで検証可能にした(course-set-pashaのHTTPレスポンス返却方式と異なり、本venture
+  はLINEトーク内完結のため返信文組み立てまでを`process_postback_event()`が担う)。未連携
+  user_id(異常系)は既存の`LINKING_REQUIRED_MESSAGE`をそのまま流用し新規メッセージを増やさない
+  設計とした。`dispatch_webhook_events()`のignored_types判定から`postback`を除外し(既存の
+  follow/message/unfollowと同じ「未接続時は素通り・ignoredには載せない」方針に統一)、
+  `receive_webhook()`にも`checkout_session_client`引数を追加した。テスト13件追加
+  (`ProcessPostbackEventTest`7件・dispatch経由の新規ルーティング確認2件・既存の
+  `ignored_types`関連テスト2件を`postback`が既知種別になったことに合わせて更新)、
+  prototype配下全テスト`unittest discover`実行で186件全件パス(既存173件+新規13件)、
+  schema/validate_test_cases.pyも9件全件パス。checkout-initiation-flow-design.mdの
+  「残課題」を実装済みの記述に更新した。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は`CheckoutSessionClient`実クライアント接続に向けた準備(実Stripeアカウント
+  接続後の差し替え手順の明文化等、承認不要な範囲)、または(B)期間到達判定用の日次
+  スケジューラ設計を優先候補とする。
 - フェーズ131(2026-08-27 22:00 UTC): フェーズ130の申し送り(次回優先候補1点目)の
   決済導線設計に着手し、checkout-initiation-flow-design.mdを新規作成した。
   trial-end-notification-design.md 3節・6節で繰り返し「未確定」と記録されていた
