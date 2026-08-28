@@ -319,5 +319,50 @@ class InMemoryUserProfileStoreTrialFieldsTest(unittest.TestCase):
         self.assertIsNone(store.get("no-such-user"))
 
 
+class InMemoryUserProfileStorePaymentFailureReminderFieldTest(unittest.TestCase):
+    """payment-failure-reminder-scheduler-design.md(フェーズ143)向けに追加した
+    payment_failure_reminder_sent_atの単体テスト。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_defaults_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("u-1"))
+
+    def test_set_and_get(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_payment_failure_reminder_sent_at("u-1", _NOW)
+
+        self.assertEqual(store.get_payment_failure_reminder_sent_at("u-1"), _NOW)
+        self.assertEqual(store.get("u-1").payment_failure_reminder_sent_at, _NOW)
+
+    def test_set_none_clears_the_field(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_payment_failure_reminder_sent_at("u-1", _NOW)
+
+        store.set_payment_failure_reminder_sent_at("u-1", None)
+
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("u-1"))
+
+    def test_setter_is_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_payment_failure_reminder_sent_at("no-such-user", _NOW)
+
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("no-such-user"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -70,6 +70,24 @@ class ClearPaymentFailureOnSuccessTest(unittest.TestCase):
         self.assertIsNone(store.get_payment_failure_detected_at("U1"))
         self.assertIsNone(store.get_payment_suspended_at("U1"))
 
+    def test_clears_reminder_sent_at_too(self):
+        store = _store_with_user()
+        mark_payment_failure_detected(store, "U1", _EVENT_TIME)
+        store.set_payment_failure_reminder_sent_at("U1", _EVENT_TIME + timedelta(days=4))
+        cleared = clear_payment_failure_on_success(store, "U1")
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("U1"))
+
+    def test_clears_when_only_reminder_sent_at_is_set(self):
+        # design 2節: 現実には起こりにくい組み合わせ(通常はpayment_failure_detected_atも
+        # 併せて設定される)だが、フィールド単位の防御的な網羅性としてこの組み合わせも
+        # クリア対象になることを確認する。
+        store = _store_with_user()
+        store.set_payment_failure_reminder_sent_at("U1", _EVENT_TIME)
+        cleared = clear_payment_failure_on_success(store, "U1")
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("U1"))
+
     def test_clears_when_only_failure_detected_at_is_set(self):
         store = _store_with_user()
         mark_payment_failure_detected(store, "U1", _EVENT_TIME)

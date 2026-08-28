@@ -7,10 +7,14 @@ payment-failure-dunning-design.md(フェーズ139)3・6節で設計した、決�
 
 位置づけ:
 - 猶予期間(7日)終了後に制限モード(`payment_suspended_at`)へ自動移行させるスケジューラ
-  (design 6節「残課題」)、猶予期間終了直前リマインドの送信、および
-  `_is_generation_paused()`の判定条件拡張・制限モード専用メッセージの
-  `process_memo_event()`への配線(design 3節)はいずれも本モジュールの対象外で、
-  次回以降の課題として残る。design 4節末尾で触れた「猶予期間中に決済が成功した場合の
+  (design 6節「残課題」)、および`_is_generation_paused()`の判定条件拡張・制限モード
+  専用メッセージの`process_memo_event()`への配線(design 3節)はいずれも本モジュールの
+  対象外で、次回以降の課題として残る。猶予期間終了直前リマインドの送信は
+  payment_failure_reminder_scheduler.py(フェーズ143)で対応済みで、本モジュールの
+  `clear_payment_failure_on_success()`はそのリマインド送信済みフラグ
+  (`payment_failure_reminder_sent_at`)もあわせてクリアする(次回の決済失敗検知時に
+  再びリマインド対象となるようにするため)。design 4節末尾で触れた「猶予期間中に決済が
+  成功した場合の
   復旧通知の3分岐(制限モードからの復旧/猶予期間中の完了通知/状態リセットのみ)」の
   文言出し分けも、実際のWebhook受信配線(LINE通知送信)実装時の課題として本モジュールでは
   扱わない。
@@ -36,7 +40,8 @@ from typing import Optional, Protocol
 
 class PaymentFailureStoreProtocol(Protocol):
     """`user_profile/{user_id}`ドキュメントのうち`payment_failure_detected_at`・
-    `payment_suspended_at`の2フィールドのみを対象にした薄いインターフェース。"""
+    `payment_suspended_at`・`payment_failure_reminder_sent_at`(フェーズ143追加)の
+    3フィールドのみを対象にした薄いインターフェース。"""
 
     def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
         ...
@@ -50,6 +55,14 @@ class PaymentFailureStoreProtocol(Protocol):
         ...
 
     def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
+        ...
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
         ...
 
 
@@ -73,16 +86,22 @@ def clear_payment_failure_on_success(
     store: PaymentFailureStoreProtocol, user_id: str,
 ) -> bool:
     """design 4節「決済成功による復旧時」: `invoice.payment_succeeded`受信時
-    (逆引き後)に呼ぶ。`payment_failure_detected_at`・`payment_suspended_at`の両方を
-    クリアする(段階を問わず通常運用へ復帰させる)。いずれか一方でも設定済みだった場合に
-    `True`を返す(deletion_candidate.pyのclear_deletion_candidate_on_subscription_
-    reactivated()と同じ、呼び出し側がログ確認できる冪等設計)。両方とも未設定
-    (決済失敗を検知したことが一度もない通常のユーザー)の場合は何もせず`False`を返す。
+    (逆引き後)に呼ぶ。`payment_failure_detected_at`・`payment_suspended_at`・
+    `payment_failure_reminder_sent_at`(フェーズ143追加)の3フィールドすべてをクリア
+    する(段階を問わず通常運用へ復帰させ、次回の決済失敗検知時に再びリマインド対象と
+    なるようにする)。いずれか1つでも設定済みだった場合に`True`を返す
+    (deletion_candidate.pyのclear_deletion_candidate_on_subscription_reactivated()と
+    同じ、呼び出し側がログ確認できる冪等設計)。すべて未設定(決済失敗を検知したことが
+    一度もない通常のユーザー)の場合は何もせず`False`を返す。
     """
     was_failure_detected = store.get_payment_failure_detected_at(user_id) is not None
     was_suspended = store.get_payment_suspended_at(user_id) is not None
-    if not was_failure_detected and not was_suspended:
+    was_reminder_sent = (
+        store.get_payment_failure_reminder_sent_at(user_id) is not None
+    )
+    if not was_failure_detected and not was_suspended and not was_reminder_sent:
         return False
     store.set_payment_failure_detected_at(user_id, None)
     store.set_payment_suspended_at(user_id, None)
+    store.set_payment_failure_reminder_sent_at(user_id, None)
     return True

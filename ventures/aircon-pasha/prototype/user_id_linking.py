@@ -149,7 +149,14 @@ class UserProfile:
     書き換わる。`payment_suspended_at`は猶予期間(7日)終了後に制限モードへ移行した日時を
     記録する想定だが、その自動移行を行うスケジューラ自体はdesign 6節のとおり未実装のため、
     本フェーズ時点では`set_payment_suspended_at()`を呼ぶ経路がまだ存在しない(次回以降の
-    課題)。"""
+    課題)。
+
+    `payment_failure_reminder_sent_at`はpayment-failure-reminder-scheduler-design.md
+    (フェーズ143)で追加した、猶予期間終了直前リマインド(3日前、1回のみ)の送信済み
+    フラグ。`trial_end_notified_at`と同じ「一度設定されたら以降不変」フィールドで、
+    `payment_failure_reminder_scheduler.py`の`send_payment_failure_reminders()`が
+    送信成功時に1回だけ書き込む(`clear_payment_failure_on_success()`で決済成功が
+    確認された場合はこのフラグもクリアし、次回の決済失敗検知に備える)。"""
 
     business_name: str
     business_type: str
@@ -163,6 +170,7 @@ class UserProfile:
     trial_generation_count: int = 0
     payment_failure_detected_at: Optional[datetime] = None
     payment_suspended_at: Optional[datetime] = None
+    payment_failure_reminder_sent_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -193,7 +201,12 @@ class UserProfileStoreProtocol(Protocol):
     payment_failure.pyの`PaymentFailureStoreProtocol`(deletion_candidate.pyの
     `ProfileDeletionCandidateStoreProtocol`と同じ、`user_profile`の一部フィールドのみを
     対象にした薄いインターフェース)を本クラスが構造的に(duck typing)満たすためのメソッド。
-    未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針(何もしない)。"""
+    未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針(何もしない)。
+
+    `get_payment_failure_reminder_sent_at`/`set_payment_failure_reminder_sent_at`は
+    フェーズ143で追加した、payment_failure_reminder_scheduler.pyの
+    `PaymentFailureReminderSentAtWriter`(`set_trial_end_notified_at`と同じ、送信済み
+    フラグ書き込み専用の薄いProtocol)を本クラスが構造的に満たすためのメソッド。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -237,6 +250,14 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
+        ...
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
         ...
 
 
@@ -322,6 +343,18 @@ class InMemoryUserProfileStore:
         if profile is None:
             return
         profile.payment_suspended_at = value
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.payment_failure_reminder_sent_at if profile is not None else None
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.payment_failure_reminder_sent_at = value
 
 
 @dataclass

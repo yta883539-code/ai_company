@@ -198,8 +198,21 @@ Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそ�
   venture全体244件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生していないため
   pending-approval.mdへの追記なし。
-- 猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
-  日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。
+- ~~猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
+  日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。~~ →
+  フェーズ143で対応済み。payment-failure-reminder-scheduler-design.md新規作成、
+  trial-end-scheduler-design.mdと同じ全体構成(Cloud Scheduler日次バッチ→抽出→Flex
+  Message送信→フラグ書き込み)を踏襲した。新規フィールド`payment_failure_reminder_sent_at`
+  をuser_id_linking.pyに追加し、`prototype/payment_failure_reminder_scheduler.py`に
+  `select_due_payment_failure_reminders()`(検知から4日=猶予期間7日-3日経過で対象)・
+  `build_payment_failure_reminder_flex_message()`(ボタンは既存の
+  `UPDATE_PAYMENT_METHOD_BUTTON_LABEL`/`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`を再利用)・
+  `send_payment_failure_reminders()`を実装した。あわせて`clear_payment_failure_on_success()`
+  が新フィールドもクリアするよう拡張し(決済成功後に再度失敗した際もリマインドが送れる
+  ようにするため)、テスト19件追加(payment_failure_reminder_scheduler向け13件・
+  payment_failure向け2件・user_id_linking向け4件)、venture全体263件全件パス・
+  schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は発生していないためpending-approval.mdへの追記なし。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、line-reservation-aiと同じく実測データの

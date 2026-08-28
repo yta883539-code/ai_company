@@ -1939,4 +1939,23 @@
   猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
   日次バッチと同種の仕組みを流用できる見込み、payment-failure-dunning-design.md
   「残課題」参照)への着手を検討する。
-- 最終更新: 2026-08-28 15:00 UTC
+- フェーズ143(2026-08-28 16:00 UTC): payment-failure-dunning-design.md「残課題」に
+  残っていた猶予期間終了直前リマインドを送信するスケジューラを設計・実装した
+  (payment-failure-reminder-scheduler-design.md新規作成)。trial-end-scheduler-design.md
+  (フェーズ133)と同じ全体構成(Cloud Scheduler日次バッチ→対象抽出→Flex Message送信→
+  フラグ書き込み)を踏襲し、猶予期間7日のうち3日前(検知から4日経過時点)に1回のみ
+  リマインドを送る設計とした。既存の`payment_failure_detected_at`・`payment_suspended_at`
+  だけでは「リマインド送信済みか」を区別できなかったため、`trial_end_notified_at`と
+  同じ役割の`payment_failure_reminder_sent_at`フィールドを新設し(user_id_linking.py)、
+  `prototype/payment_failure_reminder_scheduler.py`に`select_due_payment_failure_
+  reminders()`・`build_payment_failure_reminder_flex_message()`(ボタンは既存の
+  `UPDATE_PAYMENT_METHOD_BUTTON_LABEL`/`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`を再利用、
+  新規クライアント種別は不要)・`send_payment_failure_reminders()`を実装した。あわせて
+  `payment_failure.py`の`clear_payment_failure_on_success()`が新フィールドもクリアする
+  よう拡張し(決済成功後に再度失敗した際もリマインドが送れるようにするための対応)、
+  テスト19件追加、venture全体263件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  発生していないためpending-approval.mdへの追記なし。次回は猶予期間(7日)経過後に
+  制限モードへ自動移行させるスケジューラ本体(`payment_suspended_at`への書き込み配線、
+  payment-failure-reminder-scheduler-design.md「今後の課題」参照)への着手を検討する。
+- 最終更新: 2026-08-28 16:00 UTC
