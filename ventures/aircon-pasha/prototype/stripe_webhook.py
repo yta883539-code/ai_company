@@ -15,6 +15,14 @@ user-account-linking-design.md 4節のとおり、本ventureは`client_reference
 既にuser_profile上で判明済みの`user_id`をそのまま設定できる前提のため、
 course-set-pashaのような別動線の連携コード方式は不要で、course-set-pashaの
 `handle_checkout_session_completed()`とほぼ同じ処理をそのまま踏襲できる。
+
+trial-end-scheduler-design.md 2節「今後の課題」で残っていた`upgraded_at`書き込み
+配線(フェーズ135)を`handle_checkout_session_completed()`に追加した。本venture
+側は`UserProfileStoreProtocol`が`upgraded_at`を直接保持する設計(course-set-pashaの
+`usage_counter.set_upgraded_at_if_unset()`のような別オブジェクトへの委譲ではない)
+のため、`store.get(user_id).upgraded_at is None`を呼び出し側で確認してから
+`store.set_upgraded_at()`を呼ぶ形で「一度設定されたら以降不変」(UserProfile
+docstring)を守る。
 """
 
 from __future__ import annotations
@@ -102,11 +110,14 @@ class CheckoutSessionLinkResult:
     user_id: Optional[str] = None
     stripe_customer_id: Optional[str] = None
     error: Optional[str] = None
+    upgraded_at_written: bool = False
 
 
 def handle_checkout_session_completed(
     event: dict,
     store: UserProfileStoreProtocol,
+    *,
+    now: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(=user_id、
     Checkout Session作成時にuser-account-linking-design.md 4節のとおり既知の値を
@@ -118,6 +129,11 @@ def handle_checkout_session_completed(
     対応する`user_profile`が見つからない場合は異常系として区別し、`store`への
     書き込みは行わない(想定外の順序でCheckout Sessionが作成された場合に、
     存在しないuser_idへ書き込んでデータを汚さないための安全策)。
+
+    紐付けに成功した場合、trial-end-scheduler-design.md 2節で残っていた`upgraded_at`
+    書き込み(フェーズ135)もあわせて行う。`upgraded_at`は「有料転換時に1回だけ書き込む」
+    フィールド(UserProfile docstring)のため、既に設定済みの場合は上書きしない
+    (Stripeの再送・重複配信でこのイベントが複数回届いても、最初の転換日時を保持する)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -131,15 +147,25 @@ def handle_checkout_session_completed(
     ):
         return CheckoutSessionLinkResult(linked=False, error="missing_fields")
 
-    if not store.exists(user_id):
+    profile = store.get(user_id)
+    if profile is None:
         return CheckoutSessionLinkResult(
             linked=False, user_id=user_id, error="user_profile_not_found"
         )
 
     store.set_stripe_customer_id(user_id, stripe_customer_id)
 
+    upgraded_at_written = False
+    if profile.upgraded_at is None:
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        store.set_upgraded_at(user_id, resolved_now)
+        upgraded_at_written = True
+
     return CheckoutSessionLinkResult(
-        linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
+        linked=True,
+        user_id=user_id,
+        stripe_customer_id=stripe_customer_id,
+        upgraded_at_written=upgraded_at_written,
     )
 
 
@@ -209,7 +235,9 @@ def receive_stripe_webhook(
 
     if parsed.get("type") == "checkout.session.completed":
         checkout_link_result = (
-            handle_checkout_session_completed(parsed, user_profile_store)
+            handle_checkout_session_completed(
+                parsed, user_profile_store, now=resolved_now
+            )
             if user_profile_store is not None
             else CheckoutSessionLinkResult(linked=False, error="store_not_configured")
         )

@@ -187,12 +187,45 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
             "data": {"object": {"client_reference_id": "user_1", "customer": "cus_1"}},
         }
 
-        result = handle_checkout_session_completed(event, store)
+        result = handle_checkout_session_completed(event, store, now=NOW_DT)
 
         self.assertTrue(result.linked)
         self.assertEqual(result.user_id, "user_1")
         self.assertEqual(result.stripe_customer_id, "cus_1")
         self.assertEqual(store.get("user_1").stripe_customer_id, "cus_1")
+        self.assertTrue(result.upgraded_at_written)
+        self.assertEqual(store.get("user_1").upgraded_at, NOW_DT)
+
+    def test_upgraded_at_defaults_to_current_time_when_now_omitted(self):
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_1"}},
+        }
+
+        result = handle_checkout_session_completed(event, store)
+
+        self.assertTrue(result.upgraded_at_written)
+        self.assertIsNotNone(store.get("user_1").upgraded_at)
+
+    def test_already_upgraded_user_does_not_overwrite_upgraded_at(self):
+        """upgraded_atは有料転換時に1回だけ書き込むフィールド(UserProfile docstring)
+        であり、Stripeの再送等で同一イベントが複数回届いても最初の転換日時を保持する。"""
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        earlier = datetime.fromtimestamp(NOW - 1000, tz=timezone.utc)
+        store.set_upgraded_at("user_1", earlier)
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_1"}},
+        }
+
+        result = handle_checkout_session_completed(event, store, now=NOW_DT)
+
+        self.assertTrue(result.linked)
+        self.assertFalse(result.upgraded_at_written)
+        self.assertEqual(store.get("user_1").upgraded_at, earlier)
 
     def test_missing_client_reference_id_is_not_linked(self):
         store = InMemoryUserProfileStore()
@@ -271,6 +304,8 @@ class ReceiveStripeWebhookCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertIsNone(result.dispatch_result)
         self.assertTrue(result.checkout_link_result.linked)
         self.assertEqual(profile_store.get("user_1").stripe_customer_id, "cus_1")
+        self.assertTrue(result.checkout_link_result.upgraded_at_written)
+        self.assertEqual(profile_store.get("user_1").upgraded_at, NOW_DT)
 
     def test_missing_user_profile_store_returns_200_without_linking(self):
         store = InMemoryProfileDeletionCandidateStore()

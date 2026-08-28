@@ -80,15 +80,19 @@ course-set-pashaと同じ理由(Cloud Schedulerの無料枠制限、ユーザー
 ## 5. 今後の課題
 
 - `prototype/trial_end_scheduler.py`本体の実装(3節の選定ロジックと通知メッセージ
-  組み立て・LinePushClient送信の配線)は次回以降の課題とする。
+  組み立て・LinePushClient送信の配線)は**フェーズ134で実装済み**
+  (`select_due_trial_end_notifications()`・`send_trial_end_notifications()`・
+  `build_trial_end_notification_flex_message()`、テスト29件)。
 - `user_id_linking.py`の`UserProfile`・`UserProfileStoreProtocol`への
   `trial_start_at`・`trial_end_notified_at`・`upgraded_at`3フィールド追加
-  (trial-end-notification-design.md 5節で予告済み、本venture未実装)は、
-  本スケジューラの実装前提として必要。
+  (trial-end-notification-design.md 5節で予告済み)は**フェーズ134で実装済み**。
 - `handle_checkout_session_completed()`への`upgraded_at`書き込み配線
-  (2節で既知の課題として記録)。
+  (2節で既知の課題として記録)は**フェーズ135で実装済み**
+  (`store.get(user_id).upgraded_at is None`の場合のみ書き込む形で「1回だけ書き込む」
+  不変条件を維持、テスト3件追加)。
 - trial-end-notification-design.md 4節の「生成一時停止」判定
-  (`_is_generation_paused()`相当)の実コード実装。
+  (`_is_generation_paused()`相当、course-set-pashaはフェーズ114で実装済み)の
+  実コード実装は本venture側でまだ未着手で、次回以降の課題として残る。
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)は
   オーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントは選定ロジック・
   スケジューラ構成の机上設計にとどめる。
