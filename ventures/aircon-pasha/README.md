@@ -21,6 +21,23 @@
 
 ## ステータス
 
+- フェーズ139(2026-08-28 08:00 UTC): line-reservation-aiにのみ存在し本venture・
+  course-set-pashaには無かった「決済失敗(カード継続課金エラー)時の案内」設計の欠落に
+  気づき、payment-failure-dunning-design.mdを新規作成した。line-reservation-aiの
+  payment-failure-dunning-design.md(猶予期間7日・Stripeスマートリトライ活用・3段階
+  状態遷移)を土台に、本venture固有の前提(「新規予約受付」ではなく既存の`_is_generation_
+  paused`/`GENERATION_PAUSED_MESSAGE`(フェーズ138)と同じ「生成一時停止」機構の対象に
+  決済失敗由来の理由を追加する設計)へ翻案した。猶予期間中は生成を止めない、猶予期間
+  終了後に制限モードへ移行して初めて生成を止める、という3段階構成と、業者向け通知文言
+  4種(検知時・終了直前リマインド・制限モード移行時・復旧時、tone-and-manner-guideline.md
+  準拠でですます調・絵文字不使用・見出しなし)の初版を作成した。CTA方式は本venture既存の
+  postback方式quick_replyを踏襲する一方、支払い方法更新にはcheckout-initiation-flow-
+  design.mdの新規Checkout Session発行とは別にStripe Customer Portalが必要になる見込みを
+  次回以降の検討課題として明記した。設計のみで、`UserProfile`へのフィールド追加・
+  `stripe_dispatch.py`への`invoice.payment_failed`等のイベント種別追加・実装・
+  Webhook配線はいずれも未着手のまま次回以降の課題として残した。承認不要な設計作業のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
 - フェーズ138(2026-08-28 05:00 UTC): フェーズ137の申し送り通り、トライアル終了後(未
   アップグレード)の「生成一時停止」(trial-end-notification-design.md 4節、
   course-set-pashaのフェーズ114相当)を実装した。`_is_generation_paused(profile)`
@@ -1861,4 +1878,4 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-28 05:00 UTC
+- 最終更新: 2026-08-28 08:00 UTC
