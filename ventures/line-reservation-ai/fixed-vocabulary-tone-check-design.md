@@ -56,3 +56,16 @@ formal/standard/casualの3出力を生成、`FIXED_VOCABULARY`の各語につい
 - 将来`format_*_message()`系の新規関数を追加する際は、`FixedVocabularyInvariantAcrossTonesTest`の
   テーブルに追加することを忘れないようにする(all-or-nothing方式のため追加自体を忘れても
   誤検知は起きないが、その関数のトーン不変性はテスト対象外のまま静かに漏れる)。
+- (解消済み 2026-08-28 07:00 UTC: 「自由文側の機械チェック(絵文字不使用の検証等)を追加するか」
+  として持ち越されていた点に対応した。message-tone-variants.mdの絵文字欄
+  (formal/standardは「使用しない」)は、これまで`ToneRenderingTest`が
+  `format_confirmation_message()`・`format_hold_message()`の2関数のみをスポットチェックする
+  にとどまり、残り13関数(FAQ・キャンセル・変更・リマインド等)は未検証だった。
+  `FixedVocabularyInvariantAcrossTonesTest.TONE_FUNCTIONS`(tone引数を持つ全15関数の一覧、
+  同一テーブルを流用するため関数追加時の網羅漏れリスクも共有)を再利用し、
+  `NoEmojiInFormalStandardTonesTest`としてformal/standard出力に絵文字
+  (Unicode範囲`\U0001F300`-`\U0001FAFF`・`☀`-`➿`)が一切含まれないことを機械チェックする
+  テストを`prototype/test_engine.py`に新規追加した(engine.py内で実際に使われている絵文字は
+  現状🙌・🙏の2種のみと確認済み)。テスト1件追加、プロトタイプ全体320件パス・schema検証25件
+  パスを確認した。casualトーンの絵文字頻度上限(1メッセージにつき1個まで)自体は既存の
+  `CasualEmojiFrequencyLimitTest`・`ToneRenderingTest`でカバー済みのため対象外とした。)

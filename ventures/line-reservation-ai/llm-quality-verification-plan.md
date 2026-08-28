@@ -69,8 +69,10 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
 - post_generation_checks.py相当の専用チェック関数群は現時点でline-reservation-aiには存在しない。
   `schema/validate_test_cases.py`の`validate_cross_field_rules()`が構造化フィールド間の整合性
   チェックを担っており、自由文側(顧客への返信メッセージ)の文言チェックは今のところ人手判定に
-  委ねる設計になっている。将来的に自由文側の機械チェック(絵文字不使用の検証等)を追加するかは
-  次回以降の検討課題とする。
+  委ねる設計になっている(一部解消 2026-08-28 07:00 UTC: formal/standardトーンの絵文字
+  不使用については`NoEmojiInFormalStandardTonesTest`として機械チェックを追加した。詳細は
+  fixed-vocabulary-tone-check-design.md「残る課題」参照。固定語彙以外の自由文表現の妥当性
+  〈厳守事項7の語尾変換等〉は引き続き人手判定に委ねる)。
 - トーン変換(厳守事項7)はline-reservation-ai固有の検証項目であり、aircon-pasha・course-set-pasha
   には存在しない(両ventureは応対トーンの3段階変換という概念自体がない)。
 

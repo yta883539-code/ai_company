@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import sys
 import unittest
 from datetime import date, datetime, timedelta
@@ -1155,6 +1156,32 @@ class FixedVocabularyInvariantAcrossTonesTest(unittest.TestCase):
         # 少なくとも件数の変化には気づけるようにする(15はfixed-vocabulary-tone-check-design.md
         # 「実装箇所」に記載した現在の関数数)。
         self.assertEqual(len(self.TONE_FUNCTIONS), 15)
+
+
+class NoEmojiInFormalStandardTonesTest(unittest.TestCase):
+    """message-tone-variants.md 表(絵文字欄): formal/standardトーンは絵文字を「使用しない」が
+    厳守事項であるのに対し、これまでの機械チェックはToneRenderingTest・
+    CasualEmojiFrequencyLimitTestともformat_confirmation_message()・format_hold_message()の
+    2関数のみを対象にしたスポットチェックに留まり、他13関数(FAQ・キャンセル・変更・リマインド等)は
+    未検証だった(fixed-vocabulary-tone-check-design.md「残る課題」2項目目で将来課題として
+    言及されていた「自由文側の機械チェック(絵文字不使用の検証等)」に対応)。
+    FixedVocabularyInvariantAcrossTonesTest.TONE_FUNCTIONSを再利用し、tone引数を持つ全15関数を
+    対象にformal/standard出力に絵文字が一切含まれないことを機械チェックする。
+    """
+
+    # engine.py内で実際に使われている絵文字はこの2種のみ(🙌・🙏)。将来関数を追加した際に
+    # 新しい絵文字を使うと本パターンでは検知できないため、絵文字Unicode範囲での判定にする。
+    EMOJI_PATTERN = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
+
+    def test_formal_and_standard_never_contain_emoji(self):
+        for func, args, kwargs in FixedVocabularyInvariantAcrossTonesTest.TONE_FUNCTIONS:
+            for tone in ("formal", "standard"):
+                text = func(*args, **kwargs, tone=tone)
+                with self.subTest(func=func.__name__, tone=tone):
+                    self.assertNotRegex(
+                        text, self.EMOJI_PATTERN,
+                        f"{func.__name__}(tone={tone}): formal/standardに絵文字が混入している",
+                    )
 
 
 class ReminderMessageTest(unittest.TestCase):

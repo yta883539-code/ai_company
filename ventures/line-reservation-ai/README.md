@@ -1521,6 +1521,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-28 07:00 UTC・フェーズ続き137: fixed-vocabulary-tone-check-design.md
+  「残る課題」に残っていた「自由文側の機械チェック(絵文字不使用の検証等)を追加するか」に
+  対応した。message-tone-variants.mdの絵文字欄(formal/standardは「使用しない」)は、
+  これまで`ToneRenderingTest`が`format_confirmation_message()`・`format_hold_message()`の
+  2関数のみをスポットチェックするにとどまり、残り13関数(FAQ・キャンセル・変更・リマインド等)は
+  未検証だった。既存の`FixedVocabularyInvariantAcrossTonesTest.TONE_FUNCTIONS`(tone引数を
+  持つ全15関数の一覧)を再利用し、`NoEmojiInFormalStandardTonesTest`として
+  `prototype/test_engine.py`に新規追加、formal/standard出力に絵文字(Unicode範囲判定、
+  engine.py内で実際に使われている絵文字は🙌・🙏の2種のみと確認済み)が一切含まれないことを
+  15関数全てで機械チェックする。テスト1件追加、プロトタイプ全体320件パス・schema検証25件
+  パスを確認した。casualトーンの絵文字頻度上限自体は既存テストでカバー済みのため対象外。
+  承認不要なテスト追加・ドキュメント更新のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-25 05:00 UTC・フェーズ続き136: フェーズ続き135の
   new-booking-needs-owner-check-notification-design.md「残る課題」に残っていた
   「同様のパターンが他のintentでも起こりうるか」の点検を行った
