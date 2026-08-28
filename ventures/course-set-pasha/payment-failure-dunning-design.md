@@ -176,8 +176,9 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
   責務を分けた方が明確と判断〉。制限モード専用メッセージ`PAYMENT_SUSPENDED_MESSAGE`の
   `process_memo_event()`への配線もあわせて完了した)
 - 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。
-- 猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
-  日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。
+- (解消済み 2026-08-28 19:00 UTC・フェーズ120: 猶予期間終了直前リマインドを送信する
+  スケジューラを設計・実装した(payment-failure-reminder-scheduler-design.md新規作成、
+  `prototype/payment_failure_reminder_scheduler.py`)。詳細は同ドキュメント参照)
 - 実際のWebhook受信・状態保存・LINE送信配線、決済代行サービスとの契約自体は
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、他venture共通で実測データの無い暫定値のまま。

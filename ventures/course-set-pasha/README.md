@@ -1359,16 +1359,34 @@
   テスト9件新規追加(既存334件と合わせて343件、全件パス)、schema検証9件も引き続き
   パス確認済み。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-28 14:00 UTC
+- フェーズ120(2026-08-28 19:00 UTC): フェーズ119の申し送りだった、payment-failure-
+  dunning-design.md 6節「猶予期間終了直前リマインドを送信するスケジューラ」の設計・実装に
+  対応した(payment-failure-reminder-scheduler-design.md新規作成)。aircon-pashaの
+  payment_failure_reminder_scheduler.py(フェーズ143)と同じ全体構成を踏襲しつつ、
+  本ventureは`payment_suspended_at`のような別立て状態フラグを持たない設計(フェーズ118)
+  のため、`select_due_payment_failure_reminders()`の抽出条件に上限側の条件
+  (`経過日数 < 猶予期間7日`)を追加してaircon-pasha版の`payment_suspended_at is None`条件の
+  代わりとした。`UsageCounterProtocol`に`payment_failure_reminder_sent_at`の
+  get/set/clearを新設(`cloud_function_webhook.py`)し、`stripe_webhook.py`の
+  `invoice.payment_succeeded`ハンドラでも決済失敗検知時刻とあわせてクリアするよう拡張した。
+  CTAは本venture一貫のLIFF経由プレーンテキストリンク方式とし、Flex Message化は行わなかった。
+  `prototype/payment_failure_reminder_scheduler.py`新規作成、テスト16件追加、
+  venture全体358件全件パス・schema検証9件パスを確認した。次点は5節のStripe Customer
+  Portal要否検討、または制限モード移行自体を能動的にオーナーへ知らせる通知の要否検討。
+- 最終更新: 2026-08-28 19:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-28 19:00 UTC: 猶予期間終了直前リマインドを送信するスケジューラの設計・
+  実装はフェーズ120で対応した。詳細は上記フェーズ120参照)
 - (解消済み 2026-08-28 14:00 UTC: Stripe Webhookイベントディスパッチ機構への
   `invoice.payment_failed`・`invoice.payment_succeeded`ハンドラ追加はフェーズ119で
   対応した。詳細は上記フェーズ119参照)
 - payment-failure-dunning-design.md 5節で残っていたStripe Customer Portal
-  (支払い方法更新用URL発行)の要否・実装方式の検討、および猶予期間終了直前リマインドを
-  送信するスケジューラの設計は引き続き未着手。
+  (支払い方法更新用URL発行)の要否・実装方式の検討は引き続き未着手。
+- payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に
+  オーナーへ能動的に知らせる通知(現状は顧客からのメッセージ受信時にPAYMENT_SUSPENDED_MESSAGEを
+  返す受動的経路のみ)の要否検討は未着手。
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。

@@ -132,6 +132,12 @@ class PaymentFailureUsageCounterProtocol(Protocol):
     def clear_payment_failure_detected_at(self, user_id: str) -> None:
         ...
 
+    def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
+        """payment-failure-reminder-scheduler-design.md 3節(フェーズ120で追加)。
+        リマインド送信済みフラグも決済成功と同時に消去し、再度の決済失敗時に
+        リマインドが送信されなくなる不具合を防ぐ。"""
+        ...
+
 
 def dispatch_stripe_event(
     event: dict,
@@ -205,9 +211,13 @@ def dispatch_stripe_event(
     # invoice.payment_succeeded: design 4節「決済成功による復旧時」。
     # payment-failure-dunning-design.mdはaircon-pashaと異なり別立ての`payment_suspended_at`を
     # 持たない設計(制限モードは検知時刻+猶予日数から都度算出、フェーズ118)のため、
-    # クリア対象は`payment_failure_detected_at`のみでよい。
+    # クリア対象は`payment_failure_detected_at`のみでよかったが、フェーズ120で
+    # `payment_failure_reminder_sent_at`(送信済みフラグ)を新設したため、これも
+    # あわせてクリアする(消去しないと再度の決済失敗時にリマインドが送信されなくなるため、
+    # payment-failure-reminder-scheduler-design.md 3節)。
     if usage_counter.get_payment_failure_detected_at(user_id) is not None:
         usage_counter.clear_payment_failure_detected_at(user_id)
+        usage_counter.clear_payment_failure_reminder_sent_at(user_id)
         result.payment_recovered_user_ids.append(user_id)
 
     return result

@@ -287,6 +287,23 @@ class UsageCounterProtocol(Protocol):
         (design 4節「決済成功による復旧時」)。"""
         ...
 
+    def set_payment_failure_reminder_sent_at(self, user_id: str, sent_at: datetime) -> None:
+        """payment-failure-reminder-scheduler-design.md 3節: Cloud Function E
+        (send_payment_failure_reminders、payment_failure_reminder_scheduler.py)が
+        猶予期間終了直前リマインドの送信に成功した直後に1回だけ書き込む。単純な上書きでよい
+        (絞り込み自体はselect_due_payment_failure_reminders()側で行う、
+        set_trial_end_notified_atと同じ考え方)。"""
+        ...
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
+        """invoice.payment_succeededによる復旧時に送信済みフラグも消去する
+        (payment-failure-reminder-scheduler-design.md 3節。消去しないと再度の決済失敗時に
+        リマインドが二度と送信されなくなるため)。"""
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -328,6 +345,7 @@ class InMemoryUsageCounter:
         self._trial_generation_count: dict[str, int] = {}
         self._trial_area_count: dict[str, int] = {}
         self._payment_failure_detected_at: dict[str, datetime] = {}
+        self._payment_failure_reminder_sent_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -385,6 +403,15 @@ class InMemoryUsageCounter:
 
     def clear_payment_failure_detected_at(self, user_id: str) -> None:
         self._payment_failure_detected_at.pop(user_id, None)
+
+    def set_payment_failure_reminder_sent_at(self, user_id: str, sent_at: datetime) -> None:
+        self._payment_failure_reminder_sent_at[user_id] = sent_at
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        return self._payment_failure_reminder_sent_at.get(user_id)
+
+    def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
+        self._payment_failure_reminder_sent_at.pop(user_id, None)
 
     def increment_and_mark_notice(
         self,
