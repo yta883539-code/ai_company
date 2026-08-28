@@ -21,6 +21,21 @@
 
 ## ステータス
 
+- フェーズ133(2026-08-28 00:00 UTC): フェーズ132の申し送り2点目「(B)期間到達判定用の
+  日次スケジューラ設計」に着手し、trial-end-scheduler-design.mdを新規作成した。
+  course-set-pashaのtrial-end-scheduler-design.md(フェーズ102〜104)を参考にしつつ、
+  本venture固有の差分(CTAがLIFF不要のpostbackアクションボタン方式であること、
+  通知メッセージ自体もFlex Message組み立てが必要なこと)を整理した。選定ロジック
+  `select_due_trial_end_notifications()`の抽出条件(`trial_start_at`設定済み・
+  `trial_end_notified_at`未設定・`upgraded_at`未設定・14日経過)を確定し、
+  course-set-pashaと同じ安全策(`upgraded_at`書き込み配線が未接続でも二重送信が
+  起きない設計)を踏襲した。本フェーズは設計のみで`prototype/`への実装は次回以降の
+  課題として残した(UserProfileへの`trial_start_at`等3フィールド追加が実装の前提と
+  なるため)。実Cloud Scheduler環境の構築はオーナー承認待ちの範囲(pending-approval.md
+  参照)。設計作業のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生
+  していないためpending-approval.mdへの追記なし。次回は`UserProfile`への3フィールド
+  追加とtrial_end_scheduler.py本体の実装、または`CheckoutSessionClient`実クライアント
+  接続に向けた準備を優先候補とする。
 - フェーズ132(2026-08-27 23:00 UTC): フェーズ131の残課題1点目に対応し、
   `dispatch_webhook_events()`への`postback`イベント種別の振り分け配線と
   `process_postback_event()`本体(checkout-initiation-flow-design.md 2〜3節)を実装した。

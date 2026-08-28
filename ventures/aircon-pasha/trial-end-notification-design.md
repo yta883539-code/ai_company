@@ -116,8 +116,9 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
   参照。`process_postback_event()`本体の実装・実Stripe接続はなお次回以降の課題)
 - 「生成実績」に浮いた作業時間の目安を加えるかどうかは、content-generation-time-estimate.md
   相当のドキュメント作成後に再検討する。
-- (B)期間到達判定用の日次スケジューラ実装、4節の「生成一時停止」判定の実コード実装は
-  次回以降の課題として残す。
+- (解消済み・フェーズ133: (B)期間到達判定用の日次スケジューラの選定ロジック・構成を
+  trial-end-scheduler-design.mdとして設計した。詳細は同ドキュメント参照。`prototype/`への
+  実装、および4節の「生成一時停止」判定の実コード実装はなお次回以降の課題として残る)
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)、決済導線・LIFF等の
   外部サービス接続はいずれもオーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントは
   メッセージ文言・トリガー条件の机上設計にとどめる。
