@@ -21,6 +21,25 @@
 
 ## ステータス
 
+- フェーズ134(2026-08-28 01:57 UTC): フェーズ133の申し送り1点目・2点目に対応し、
+  trial-end-scheduler-design.mdの選定ロジック・メッセージ設計を`prototype/`へ実装した。
+  `user_id_linking.py`の`UserProfile`/`UserProfileStoreProtocol`/
+  `InMemoryUserProfileStore`に`trial_start_at`・`trial_end_notified_at`・`upgraded_at`
+  の3フィールドと専用setter(`set_trial_start_at`等、未知の`user_id`にはno-op)を追加した。
+  新規`prototype/trial_end_scheduler.py`として、`select_due_trial_end_notifications()`
+  (design 3節の抽出条件をそのままコード化)、`build_trial_end_notification_flex_message()`
+  (本venture固有のpostbackボタン付きFlex Message組み立て。ボタンのpostbackデータは
+  `checkout_session.START_CHECKOUT_POSTBACK_DATA`を再利用し、Checkout Session作成は
+  引き続き`process_postback_event()`側の役割とする分離を維持)、`send_trial_end_notifications()`
+  (送信成功時のみ`trial_end_notified_at`書き込み、失敗時は次回再試行に委ねる冪等性設計)を
+  実装した。テスト29件(test_trial_end_scheduler.py 12件、test_user_id_linking.py新規5件)を
+  追加し、venture全体204件のテストがすべて成功することを確認した。トライアル専用生成回数
+  カウンタ(`trial_generation_count`の実集計配線)・`handle_checkout_session_completed()`への
+  `upgraded_at`書き込み配線・実Cloud Scheduler環境の構築はいずれも次回以降の課題として残る
+  (実クラウド接続はオーナー承認待ちの範囲、pending-approval.md参照)。コード実装・テストの
+  みで外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.md
+  への追記なし。次回は`trial_generation_count`の実集計配線、または`upgraded_at`書き込み配線
+  (`handle_checkout_session_completed()`側)を優先候補とする。
 - フェーズ133(2026-08-28 00:00 UTC): フェーズ132の申し送り2点目「(B)期間到達判定用の
   日次スケジューラ設計」に着手し、trial-end-scheduler-design.mdを新規作成した。
   course-set-pashaのtrial-end-scheduler-design.md(フェーズ102〜104)を参考にしつつ、
@@ -1761,4 +1780,4 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-24 22:00 UTC
+- 最終更新: 2026-08-28 01:57 UTC

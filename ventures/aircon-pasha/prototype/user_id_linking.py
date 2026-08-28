@@ -128,7 +128,14 @@ def issue_linking_code_on_form_submission(
 
 @dataclass
 class UserProfile:
-    """`user_profile/{user_id}`ドキュメント(design 5節)。"""
+    """`user_profile/{user_id}`ドキュメント(design 5節)。
+
+    `trial_start_at`・`trial_end_notified_at`・`upgraded_at`は
+    trial-end-notification-design.md 5節・trial-end-scheduler-design.md(フェーズ133)で
+    予告されていた3フィールド(フェーズ134で追加)。course-set-pashaの
+    `InMemoryUsageCounter`/`user_profile`設計と同じ位置づけで、いずれも一度設定されたら
+    以降不変(`trial_start_at`は初回生成成功時、`trial_end_notified_at`は
+    トライアル終了通知送信時、`upgraded_at`は有料転換時にそれぞれ1回だけ書き込む)。"""
 
     business_name: str
     business_type: str
@@ -136,6 +143,9 @@ class UserProfile:
     linked_at: datetime
     stripe_customer_id: Optional[str] = None
     current_plan_id: Optional[str] = None
+    trial_start_at: Optional[datetime] = None
+    trial_end_notified_at: Optional[datetime] = None
+    upgraded_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -149,7 +159,12 @@ class UserProfileStoreProtocol(Protocol):
     現時点でどこからも呼ばれないため未追加)、`get_user_id_by_stripe_customer_id`は
     `customer.subscription.*`系イベントの`resolve_user_id(stripe_customer_id) -> user_id`
     変換をこの逆引きで実現するために使う(course-set-pashaの
-    `get_user_id_by_stripe_customer_id`と同じ位置づけ)。"""
+    `get_user_id_by_stripe_customer_id`と同じ位置づけ)。
+
+    `set_trial_start_at`/`set_trial_end_notified_at`/`set_upgraded_at`は
+    trial-end-scheduler-design.md(フェーズ133)向けにフェーズ134で追加した3フィールドの
+    書き込み専用メソッド(いずれも未知の`user_id`に対しては何もしない、
+    `set_stripe_customer_id`と同じno-op方針)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -166,6 +181,15 @@ class UserProfileStoreProtocol(Protocol):
     def get_user_id_by_stripe_customer_id(
         self, stripe_customer_id: str
     ) -> Optional[str]:
+        ...
+
+    def set_trial_start_at(self, user_id: str, at: datetime) -> None:
+        ...
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        ...
+
+    def set_upgraded_at(self, user_id: str, at: datetime) -> None:
         ...
 
 
@@ -204,6 +228,24 @@ class InMemoryUserProfileStore:
         self, stripe_customer_id: str
     ) -> Optional[str]:
         return self._user_ids_by_stripe_customer_id.get(stripe_customer_id)
+
+    def set_trial_start_at(self, user_id: str, at: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.trial_start_at = at
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.trial_end_notified_at = notified_at
+
+    def set_upgraded_at(self, user_id: str, at: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.upgraded_at = at
 
 
 @dataclass

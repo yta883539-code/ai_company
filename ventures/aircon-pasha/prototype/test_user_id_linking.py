@@ -262,5 +262,62 @@ class InMemoryUserProfileStoreStripeCustomerIdTest(unittest.TestCase):
         self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "u-1")
 
 
+class InMemoryUserProfileStoreTrialFieldsTest(unittest.TestCase):
+    """trial-end-scheduler-design.md(フェーズ133)向けにフェーズ134で追加した
+    trial_start_at/trial_end_notified_at/upgraded_atの単体テスト。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_new_fields_default_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        profile = store.get("u-1")
+
+        self.assertIsNone(profile.trial_start_at)
+        self.assertIsNone(profile.trial_end_notified_at)
+        self.assertIsNone(profile.upgraded_at)
+
+    def test_set_trial_start_at(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_trial_start_at("u-1", _NOW)
+
+        self.assertEqual(store.get("u-1").trial_start_at, _NOW)
+
+    def test_set_trial_end_notified_at(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_trial_end_notified_at("u-1", _NOW)
+
+        self.assertEqual(store.get("u-1").trial_end_notified_at, _NOW)
+
+    def test_set_upgraded_at(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_upgraded_at("u-1", _NOW)
+
+        self.assertEqual(store.get("u-1").upgraded_at, _NOW)
+
+    def test_setters_are_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_trial_start_at("no-such-user", _NOW)
+        store.set_trial_end_notified_at("no-such-user", _NOW)
+        store.set_upgraded_at("no-such-user", _NOW)
+
+        self.assertIsNone(store.get("no-such-user"))
+
+
 if __name__ == "__main__":
     unittest.main()
