@@ -144,11 +144,23 @@ quick_reply(フェーズ137で確立、`GENERATION_PAUSED_MESSAGE`にも同じ�
 
 ## 6. 残課題
 
-- `UserProfile`・`UserProfileStoreProtocol`への状態フィールド追加(`payment_failure_detected_at`
-  等、フィールド名・型は実装着手時に確定)。
-- `stripe_dispatch.py`の`dispatch_stripe_event()`への`invoice.payment_failed`・
-  `invoice.payment_succeeded`イベント種別の追加(現状この2種別は未対応のまま`ignored_types`
-  相当の扱いになっている想定、実装着手時に要確認)。
+- ~~`UserProfile`・`UserProfileStoreProtocol`への状態フィールド追加(`payment_failure_detected_at`
+  等、フィールド名・型は実装着手時に確定)。~~ → フェーズ140で対応済み。
+  `payment_failure_detected_at`・`payment_suspended_at`の2フィールドを追加した
+  (prototype/user_id_linking.py)。
+- ~~`stripe_dispatch.py`の`dispatch_stripe_event()`への`invoice.payment_failed`・
+  `invoice.payment_succeeded`イベント種別の追加~~ → フェーズ140で対応済み。
+  新規`prototype/payment_failure.py`(deletion_candidate.pyと同じ位置づけの薄いProtocol・
+  純粋関数)を追加し、`dispatch_stripe_event()`に`payment_store`引数(省略時はこれまで
+  通り`ignored_types`扱い、後方互換)を追加して2イベント種別を振り分けるようにした。
+  `invoice.payment_failed`→`mark_payment_failure_detected()`(`payment_failure_
+  detected_at`に検知時刻を記録、猶予期間の日数判定自体はスケジューラ未実装のためまだ
+  行わない)、`invoice.payment_succeeded`→`clear_payment_failure_on_success()`
+  (`payment_failure_detected_at`・`payment_suspended_at`の両方をクリア)とした。
+  テスト15件追加(test_payment_failure.py 8件・test_stripe_dispatch.py 7件)、
+  venture全体235件全件パスを確認した。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.md
+  への追記なし。
 - `_is_generation_paused(profile)`の判定条件拡張(制限モード状態を含める)、および
   制限モード専用メッセージの`process_memo_event()`への配線。
 - 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。

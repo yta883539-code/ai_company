@@ -139,7 +139,17 @@ class UserProfile:
     `trial_generation_count`はtrial-end-notification-design.md 5節で予告されていた
     トライアル専用生成回数カウンタ(フェーズ137で追加)。月次カウンタ(`usage_counter`)とは
     別立てで、有料転換前(`upgraded_at`が未設定)の生成成功のたびに1ずつ増える
-    (`trial_start_at`等と異なり不変フィールドではない)。"""
+    (`trial_start_at`等と異なり不変フィールドではない)。
+
+    `payment_failure_detected_at`・`payment_suspended_at`はpayment-failure-dunning-
+    design.md 3・6節で予告されていた決済失敗(dunning)対応の2フィールド(フェーズ140で
+    追加)。`trial_generation_count`と同じく不変フィールドではなく、`payment_failure.py`の
+    `mark_payment_failure_detected()`/`clear_payment_failure_on_success()`により
+    Stripe Webhook(`invoice.payment_failed`/`invoice.payment_succeeded`)受信のたびに
+    書き換わる。`payment_suspended_at`は猶予期間(7日)終了後に制限モードへ移行した日時を
+    記録する想定だが、その自動移行を行うスケジューラ自体はdesign 6節のとおり未実装のため、
+    本フェーズ時点では`set_payment_suspended_at()`を呼ぶ経路がまだ存在しない(次回以降の
+    課題)。"""
 
     business_name: str
     business_type: str
@@ -151,6 +161,8 @@ class UserProfile:
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
     trial_generation_count: int = 0
+    payment_failure_detected_at: Optional[datetime] = None
+    payment_suspended_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -174,7 +186,14 @@ class UserProfileStoreProtocol(Protocol):
     `increment_trial_generation_count`はフェーズ137で追加した、トライアル専用生成回数
     カウンタのインクリメント専用メソッド(course-set-pashaの
     `increment_trial_generation_count`と同じ位置づけ)。未知の`user_id`に対しては
-    何もせず0を返す(他のno-opメソッドと同じ安全側方針)。"""
+    何もせず0を返す(他のno-opメソッドと同じ安全側方針)。
+
+    `get_payment_failure_detected_at`/`set_payment_failure_detected_at`/
+    `get_payment_suspended_at`/`set_payment_suspended_at`はフェーズ140で追加した、
+    payment_failure.pyの`PaymentFailureStoreProtocol`(deletion_candidate.pyの
+    `ProfileDeletionCandidateStoreProtocol`と同じ、`user_profile`の一部フィールドのみを
+    対象にした薄いインターフェース)を本クラスが構造的に(duck typing)満たすためのメソッド。
+    未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針(何もしない)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -204,6 +223,20 @@ class UserProfileStoreProtocol(Protocol):
 
     def increment_trial_generation_count(self, user_id: str) -> int:
         """インクリメント後のカウント値を返す契約とする。"""
+        ...
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_payment_suspended_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
         ...
 
 
@@ -267,6 +300,28 @@ class InMemoryUserProfileStore:
             return 0
         profile.trial_generation_count += 1
         return profile.trial_generation_count
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.payment_failure_detected_at if profile is not None else None
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.payment_failure_detected_at = value
+
+    def get_payment_suspended_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.payment_suspended_at if profile is not None else None
+
+    def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.payment_suspended_at = value
 
 
 @dataclass

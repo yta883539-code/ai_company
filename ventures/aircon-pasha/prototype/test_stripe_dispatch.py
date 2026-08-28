@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
 from stripe_dispatch import StripeDispatchResult, dispatch_stripe_event  # noqa: E402
+from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
 
 _CUSTOMER = "cus_ABC123"
 _USER_ID = "U1"
@@ -131,6 +132,109 @@ class DispatchSubscriptionUpdatedTest(unittest.TestCase):
         }
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.cleared_user_ids, [])
+
+
+def _profile_store_with_user() -> InMemoryUserProfileStore:
+    store = InMemoryUserProfileStore()
+    store.save(
+        _USER_ID,
+        UserProfile(
+            business_name="テスト洗浄社",
+            business_type="独立系",
+            email="test@example.com",
+            linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        ),
+    )
+    return store
+
+
+class DispatchInvoicePaymentFailedTest(unittest.TestCase):
+    def test_marks_payment_failure_detected_when_customer_resolves(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        created = int(datetime(2026, 8, 28, 9, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "invoice.payment_failed",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, [_USER_ID])
+        self.assertEqual(
+            payment_store.get_payment_failure_detected_at(_USER_ID),
+            datetime(2026, 8, 28, 9, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_invalid_event_when_created_missing(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.invalid_events, ["invoice.payment_failed"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+
+    def test_ignored_when_payment_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "invoice.payment_failed",
+            "created": int(datetime(2026, 8, 28, tzinfo=timezone.utc).timestamp()),
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.ignored_types, ["invoice.payment_failed"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+
+
+class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
+    def test_clears_failure_and_suspended_state(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_suspended_at(
+            _USER_ID, datetime(2026, 9, 4, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [_USER_ID])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+        self.assertIsNone(payment_store.get_payment_suspended_at(_USER_ID))
+
+    def test_idempotent_when_nothing_was_set(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+
+    def test_ignored_when_payment_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.ignored_types, ["invoice.payment_succeeded"])
+        self.assertEqual(result.payment_recovered_user_ids, [])
 
 
 class DispatchIgnoredAndUnresolvedTest(unittest.TestCase):

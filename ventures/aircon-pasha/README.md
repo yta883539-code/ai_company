@@ -21,6 +21,31 @@
 
 ## ステータス
 
+- フェーズ140(2026-08-28 11:00 UTC): フェーズ139のpayment-failure-dunning-design.md
+  「残課題」のうち、外部サービス接続・アカウント作成を伴わない範囲(状態フィールド追加・
+  Webhookイベント種別ディスパッチ)に着手した。`UserProfile`(prototype/user_id_linking.py)へ
+  `payment_failure_detected_at`・`payment_suspended_at`の2フィールドを追加し、
+  `UserProfileStoreProtocol`/`InMemoryUserProfileStore`にも対応するget/setメソッドを
+  追加した。新規`prototype/payment_failure.py`(deletion_candidate.pyと同じ位置づけの
+  薄いProtocol・純粋関数)を新設し、`mark_payment_failure_detected()`
+  (`invoice.payment_failed`受信時に検知時刻を記録)・`clear_payment_failure_on_success()`
+  (`invoice.payment_succeeded`受信時に決済失敗・制限モードの両状態をクリア)の2関数を
+  実装した。`stripe_dispatch.py`の`dispatch_stripe_event()`に`payment_store`引数
+  (省略時はこれまで通り`ignored_types`扱いとする後方互換)を追加し、この2イベント種別を
+  振り分けるようにした。design 6節が予告していた「専用のInMemoryストアを新設するか」
+  という論点は、deletion_candidate.pyのように別系統のdictを持つ専用ストアを新設すると
+  実Firestore接続時に同一user_profileドキュメントのフィールドが2つのストアオブジェクトに
+  分裂して見えてしまうため、専用ストアは新設せず`InMemoryUserProfileStore`が
+  `PaymentFailureStoreProtocol`を構造的に(duck typing)満たす形にした。テスト15件追加
+  (test_payment_failure.py 8件・test_stripe_dispatch.py 7件)、venture全体235件全件
+  パス・schema/validate_test_cases.py 9件全件パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。design 6節の残る項目(猶予期間終了後に制限モードへ
+  自動移行させるスケジューラ、`_is_generation_paused()`の判定条件拡張・専用メッセージの
+  `process_memo_event()`への配線、Stripe Customer Portalの要否検討、猶予期間中の決済成功
+  時の復旧通知3分岐の文言出し分け)はいずれも未着手のまま次回以降の課題として残る。次回は
+  この中で最も既存パターン(GENERATION_PAUSED_MESSAGE・quick_replyの流用)に近い
+  `_is_generation_paused()`の判定条件拡張・専用メッセージ配線を優先候補とする。
 - フェーズ139(2026-08-28 08:00 UTC): line-reservation-aiにのみ存在し本venture・
   course-set-pashaには無かった「決済失敗(カード継続課金エラー)時の案内」設計の欠落に
   気づき、payment-failure-dunning-design.mdを新規作成した。line-reservation-aiの
