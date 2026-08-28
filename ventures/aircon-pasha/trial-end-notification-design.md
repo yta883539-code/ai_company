@@ -85,8 +85,10 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
   従来通り生成を続けるのではなく「生成一時停止」とする(pricing-plan.mdのトライアル条件と
   整合させるため)。course-set-pashaの`_is_generation_paused()`(フェーズ114)と同様、
   `trial_end_notified_at`設定済みかつ`upgraded_at`が未設定の場合はLLM呼び出しを行わず固定文言の
-  一時停止案内を返信する設計を採用する想定だが、`prototype/cloud_function_webhook.py`への実装は
-  次回以降の課題として残す。
+  一時停止案内を返信する設計を採用する。
+  (実装済み・フェーズ138: `prototype/cloud_function_webhook.py`の`_is_generation_paused(profile)`
+  ・`GENERATION_PAUSED_MESSAGE`・`process_memo_event()`冒頭〈LLM呼び出しより前〉への短絡分岐と
+  して実装した。詳細はventures/aircon-pasha/README.mdフェーズ138参照。)
 - 一時停止中に本人が決済導線リンクから有料プランへ進んだ場合は、Checkout Session作成〜Stripe
   決済完了(checkout-session-completed-handling-design.mdの`handle_checkout_session_completed()`)
   により`stripe_customer_id`が`user_profile`へ紐付けられ、通常の有料ユーザーへ遷移する想定。

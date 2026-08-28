@@ -44,6 +44,7 @@ from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # 
 from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
+    UserProfile,
     UserProfileStoreProtocol,
     resolve_linking_code,
 )
@@ -457,6 +458,36 @@ def format_trial_end_condition_a_notice(generation_count: int) -> str:
     return TRIAL_END_CONDITION_A_NOTICE_TEMPLATE.format(generation_count=generation_count)
 
 
+# ---------------------------------------------------------------------------
+# 生成一時停止(trial-end-notification-design.md 4節、course-set-pashaフェーズ114相当)
+# ---------------------------------------------------------------------------
+
+# トライアル終了通知(条件A/Bいずれか)送信済みかつ未アップグレードのユーザーへの固定返信文言。
+# course-set-pashaのGENERATION_PAUSED_MESSAGEと異なり、本ventureのCTAはLIFF URLではなく
+# postbackボタンのため、本文中にURLを埋め込まず「下のボタン」という言い回しにとどめ、
+# 実際のボタンはquick_replyとして別途添付する(TRIAL_END_CONDITION_A_NOTICE_TEMPLATEと
+# 同じ方針)。
+GENERATION_PAUSED_MESSAGE = (
+    "現在、無料トライアルの期間または生成回数の上限に達しているため、"
+    "作業完了報告・お手入れ案内の生成を一時停止しています。\n"
+    "引き続きご利用いただくには、下のボタンから有料プランへお進みください。"
+)
+
+
+def _is_generation_paused(profile: Optional[UserProfile]) -> bool:
+    """trial-end-notification-design.md 4節の一時停止判定。
+
+    `user_profile.trial_end_notified_at`(条件A/Bいずれの経路でも共通して
+    set_trial_end_notified_at()で書き込まれる、trial-end-scheduler-design.md 3節
+    「いずれか早い方で1回のみ」)が設定済みで、かつ`upgraded_at`が未設定(有料転換前)の
+    場合のみ一時停止対象とする。profileがNone(profile_store未接続時・未連携user_id)の
+    場合は既存の挙動を維持するため常にFalseを返す(course-set-pashaの
+    _is_generation_paused()と同じ安全側方針)。"""
+    if profile is None:
+        return False
+    return profile.trial_end_notified_at is not None and profile.upgraded_at is None
+
+
 def _is_length_limit_error(errors: list[str]) -> bool:
     """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
     含まれているかを判定する。"""
@@ -559,6 +590,7 @@ class MemoProcessResult:
     validation_errors: list = field(default_factory=list)
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
+    generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -670,6 +702,13 @@ def process_memo_event(
        埋め込まず、`_reply_with_retry()`へ`quick_reply=QuickReplyButton(...)`を渡して
        LINE Messaging APIのquickReplyとして同じ返信メッセージに添付する(追加のPush API
        呼び出し・課金を発生させない、trial-end-notification-design.md 2節(A)の方針を踏襲)。
+    7. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_generation_paused()で
+       トライアル終了(条件A/Bいずれか、`trial_end_notified_at`設定済み)後かつ未アップグレード
+       (`upgraded_at`未設定)かを判定する(trial-end-notification-design.md 4節「生成一時停止」、
+       course-set-pashaフェーズ114相当)。該当する場合はLLM呼び出し自体を行わず
+       GENERATION_PAUSED_MESSAGEを返信して即座に処理を終える(月間カウント・トライアル
+       生成回数カウント・セルフチェック案内のいずれも行わない)。本venture固有の対応として、
+       CTAボタンは6.と同じくpostback方式のquick_replyとして返信に添付する。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -677,6 +716,21 @@ def process_memo_event(
 
     reply_token = event["replyToken"]
     memo_text = message["text"]
+    user_id = event.get("source", {}).get("userId")
+    profile = profile_store.get(user_id) if profile_store is not None and user_id else None
+
+    if _is_generation_paused(profile):
+        paused_quick_reply = QuickReplyButton(
+            label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
+        )
+        reply_sent = _reply_with_retry(
+            reply_client, reply_token, GENERATION_PAUSED_MESSAGE, quick_reply=paused_quick_reply,
+        )
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=GENERATION_PAUSED_MESSAGE if reply_sent else None,
+            generation_paused=True,
+        )
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text)
@@ -717,7 +771,6 @@ def process_memo_event(
             validation_errors=errors, retried=retried,
         )
 
-    user_id = event.get("source", {}).get("userId")
     reply_text = format_reply_text(
         instance, portal_link_provider=portal_link_provider, user_id=user_id,
     )
@@ -727,8 +780,6 @@ def process_memo_event(
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
-
-    profile = profile_store.get(user_id) if profile_store is not None and user_id else None
 
     if instance["status"] == "generated" and profile_store is not None and profile is not None:
         if profile.trial_start_at is None:

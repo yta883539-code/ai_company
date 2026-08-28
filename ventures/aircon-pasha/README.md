@@ -21,6 +21,35 @@
 
 ## ステータス
 
+- フェーズ138(2026-08-28 05:00 UTC): フェーズ137の申し送り通り、トライアル終了後(未
+  アップグレード)の「生成一時停止」(trial-end-notification-design.md 4節、
+  course-set-pashaのフェーズ114相当)を実装した。`_is_generation_paused(profile)`
+  (`profile.trial_end_notified_at`設定済みかつ`profile.upgraded_at`未設定の場合のみTrue)
+  と`GENERATION_PAUSED_MESSAGE`を新設し、`process_memo_event()`冒頭(LLM呼び出しより前)で
+  該当する場合はLLM呼び出し・月間カウント・トライアル生成回数カウントのいずれも行わず
+  一時停止案内を即座に返信する分岐を追加した。本venture固有の対応として、CTA(有料プランへ
+  進む)はcourse-set-pashaのLIFF URLプレースホルダ埋め込み方式ではなく、フェーズ137で
+  確立したpostback方式のquick_reply(`QuickReplyButton(label=TRIAL_END_BUTTON_LABEL,
+  postback_data=START_CHECKOUT_POSTBACK_DATA)`)を一時停止応答にも同じ形で添付する設計とした。
+  従来`process_memo_event()`後半でLLM呼び出し結果と共に取得していた`user_id`・`profile`を
+  関数冒頭へ前倒しし、一時停止判定と後半の初回セルフチェック・条件A判定の両方で1回の
+  `profile_store.get()`を再利用する形にリファクタした(プロフィール状態はLLM呼び出しの
+  前後で変化しないため、取得タイミングを早めても既存の挙動に影響しない)。既存テスト
+  `test_no_double_send_when_already_notified_by_condition_b`(フェーズ137)は、
+  `trial_end_notified_at`設定済み・`upgraded_at`未設定という同条件がそのまま一時停止対象と
+  一致するため、期待するふるまいを一時停止応答の内容に合わせて更新した(「二重送信しない」
+  という結論自体は変わらない)。テスト6件新規追加(`ProcessMemoEventGenerationPausedTest`、
+  LLM呼び出しが一切行われないことを検証する`_MustNotBeCalledLlmClient`を使用)、venture全体
+  221件全件パス、schema/validate_test_cases.pyも9件全件パスを確認した。
+  trial-end-notification-design.md 4節に実装済みの旨を追記した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。なお4節2点目に挙げられていた一時停止解除後の
+  `upgraded_at`書き込み配線は、`stripe_webhook.py`の`handle_checkout_session_completed()`に
+  既にフェーズ135で実装済み(`profile.upgraded_at is None`のときのみ`set_upgraded_at()`を
+  呼ぶ「1回だけ書き込む」不変条件を維持)であることを確認し、4節の記述は本フェーズの
+  一時停止実装分のみを更新した。次回は他venture・アイデア領域の前進、または本venture内で
+  未着手のまま残っている実LLM・実Stripe接続待ちの残課題(オーナー承認待ち)以外の棚卸しを
+  優先候補とする。
 - フェーズ137(2026-08-28 04:00 UTC): フェーズ136の申し送り「`trial_generation_count`の
   実集計配線」に対応した(trial-end-condition-a-cta-design.md新規作成)。`user_id_linking.py`の
   `UserProfile`に`trial_generation_count`フィールド(既定値0)、
@@ -1832,4 +1861,4 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-28 04:00 UTC
+- 最終更新: 2026-08-28 05:00 UTC

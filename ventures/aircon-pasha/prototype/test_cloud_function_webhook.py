@@ -27,6 +27,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     APPLICATION_FORM_URL_PLACEHOLDER,
+    GENERATION_PAUSED_MESSAGE,
     LENGTH_LIMIT_FALLBACK_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
@@ -629,6 +630,12 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
         self.assertEqual(profile_store.get("u-1").trial_generation_count, TRIAL_GENERATION_LIMIT - 1)
 
     def test_no_double_send_when_already_notified_by_condition_b(self):
+        # 2026-08-28 05:00 UTC追記(フェーズ138): trial_end_notified_at設定済み・
+        # upgraded_at未設定の組み合わせは、_is_generation_paused()の一時停止対象条件と
+        # 完全に一致するため、本ケースはLLM呼び出し自体に到達せず「生成一時停止」応答に
+        # なる(条件Aの二重送信防止ロジックへ到達する前に短絡する、詳細は
+        # ProcessMemoEventGenerationPausedTest参照)。「二重送信しない」という結論自体は
+        # 変わらないため、アサーションを一時停止応答の内容に合わせて更新した。
         from datetime import datetime, timezone
 
         already_notified_at = datetime(2026, 8, 20, tzinfo=timezone.utc)
@@ -643,8 +650,14 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
             profile_store=profile_store,
         )
 
-        self.assertNotIn("無料トライアル", result.reply_text)
-        self.assertEqual(reply_client.quick_replies_sent[-1], None)
+        self.assertTrue(result.generation_paused)
+        self.assertNotIn("お疲れさまでした", result.reply_text)
+        self.assertEqual(
+            reply_client.quick_replies_sent[-1],
+            QuickReplyButton(
+                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
+            ),
+        )
         self.assertEqual(profile_store.get("u-1").trial_end_notified_at, already_notified_at)
 
     def test_no_counting_or_notice_after_upgrade(self):
@@ -666,6 +679,123 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
         self.assertEqual(
             profile_store.get("u-1").trial_generation_count, TRIAL_GENERATION_LIMIT - 1
         )
+
+
+class _MustNotBeCalledLlmClient:
+    """generate()が呼ばれたら即座に失敗させる、一時停止時にLLM呼び出しが
+    スキップされることを検証するためのスタブ(course-set-pashaフェーズ114と同じ位置づけ)。"""
+
+    def generate(self, memo_text, retry_context=None):
+        raise AssertionError("generation_paused中はLLM呼び出しが行われないはず")
+
+
+class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
+    """process_memo_event()からの「生成一時停止」応答の検証
+    (trial-end-notification-design.md 4節、README.mdフェーズ138・course-set-pashaフェーズ114相当)。"""
+
+    def _profile_store(self, **profile_kwargs):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                **profile_kwargs,
+            ),
+        )
+        return profile_store
+
+    def test_paused_when_trial_end_notified_and_not_upgraded(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            trial_end_notified_at=datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.generation_paused)
+        self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(
+            reply_client.quick_replies_sent[-1],
+            QuickReplyButton(
+                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
+            ),
+        )
+
+    def test_paused_does_not_increment_trial_generation_count(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            trial_end_notified_at=datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertEqual(profile_store.get("u-1").trial_generation_count, 0)
+
+    def test_not_paused_when_already_upgraded(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            trial_end_notified_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            upgraded_at=datetime(2026, 8, 21, tzinfo=timezone.utc),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.generation_paused)
+        self.assertNotEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+
+    def test_not_paused_when_trial_end_not_yet_notified(self):
+        profile_store = self._profile_store()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.generation_paused)
+
+    def test_not_paused_when_profile_store_is_none(self):
+        # profile_store未接続時(未接続テスト等)は既存の挙動を維持し一時停止しない。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertFalse(result.generation_paused)
+
+    def test_not_paused_when_user_id_missing(self):
+        profile_store = self._profile_store(
+            trial_end_notified_at=None,
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id=None), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.generation_paused)
 
 
 class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):
