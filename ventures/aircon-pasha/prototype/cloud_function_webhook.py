@@ -488,6 +488,50 @@ def _is_generation_paused(profile: Optional[UserProfile]) -> bool:
     return profile.trial_end_notified_at is not None and profile.upgraded_at is None
 
 
+# ---------------------------------------------------------------------------
+# 決済失敗時の制限モード(payment-failure-dunning-design.md 3節・6節、
+# course-set-pashaフェーズ140の_is_payment_suspended()相当)
+# ---------------------------------------------------------------------------
+
+# 本ventureはcourse-set-pashaと異なり、猶予期間経過を都度計算するのではなく、
+# フェーズ140で追加済みの`payment_suspended_at`フィールド(スケジューラが猶予期間
+# 経過後に1回だけ書き込む想定、payment-failure-dunning-design.md 6節)の設定有無で
+# 判定する。スケジューラ自体は次回以降の課題として未実装のため、本フェーズ時点では
+# `payment_suspended_at`を書き込む経路がまだ存在しないが、判定ロジック・応答文言を
+# 先行して用意しておくことで、スケジューラ実装後は書き込み配線を追加するだけで
+# 機能するようにする。
+#
+# 本ventureのCTA(お支払い方法の確認)は、GENERATION_PAUSED_MESSAGEと同じくpostback
+# ボタンで表現する(_is_generation_pausedと同じ方針)。ただし遷移先はcheckout-
+# initiation-flow-design.mdの新規Checkout Session発行ロジックではなく、Stripe
+# Customer Portal(支払い方法更新)への遷移が必要になる見込みであり、これは
+# payment-failure-dunning-design.md 5節に残る未解決の検討事項のため、ボタンの
+# postback_dataは仮の値にとどめ、process_postback_event()側の実処理配線は
+# 次回以降の課題として残す。
+UPDATE_PAYMENT_METHOD_BUTTON_LABEL = "お支払い方法を確認する"
+UPDATE_PAYMENT_METHOD_POSTBACK_DATA = "action=update_payment_method"
+
+# payment-failure-dunning-design.md 4節「制限モード移行時(段階3)」の案内文言。
+# GENERATION_PAUSED_MESSAGEと同じく、本文中にURLを埋め込まずボタン(quick_reply)を
+# 別途添付する方針にあわせて短縮した。
+PAYMENT_SUSPENDED_MESSAGE = (
+    "お支払い未確認のため、作業完了報告・お手入れ案内の生成を一時停止しています。\n"
+    "恐れ入りますが、下のボタンからお支払い方法をご確認ください。確認完了後、"
+    "自動で生成を再開します。"
+)
+
+
+def _is_payment_suspended(profile: Optional[UserProfile]) -> bool:
+    """payment-failure-dunning-design.md 3節の段階3(制限モード)判定。
+
+    `user_profile.payment_suspended_at`(フェーズ140で追加、猶予期間終了後に
+    スケジューラが1回だけ書き込む想定のフィールド)が設定済みかどうかで判定する。
+    profileがNoneの場合は_is_generation_pausedと同じく安全側でFalseを返す。"""
+    if profile is None:
+        return False
+    return profile.payment_suspended_at is not None
+
+
 def _is_length_limit_error(errors: list[str]) -> bool:
     """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
     含まれているかを判定する。"""
@@ -591,6 +635,7 @@ class MemoProcessResult:
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
+    payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -709,6 +754,15 @@ def process_memo_event(
        GENERATION_PAUSED_MESSAGEを返信して即座に処理を終える(月間カウント・トライアル
        生成回数カウント・セルフチェック案内のいずれも行わない)。本venture固有の対応として、
        CTAボタンは6.と同じくpostback方式のquick_replyとして返信に添付する。
+    8. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_payment_suspended()で
+       決済失敗検知後の猶予期間超過による制限モード(`payment_suspended_at`設定済み、
+       payment-failure-dunning-design.md 3節「段階3」)かを判定する。該当する場合は7.と同様、
+       LLM呼び出し自体を行わずPAYMENT_SUSPENDED_MESSAGEを返信して即座に処理を終える。7.の
+       トライアル未アップグレード判定(`upgraded_at`未設定が前提)とは前提条件が排他的
+       (本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が同時にTrueになる
+       ことは想定しない。CTAボタンはUPDATE_PAYMENT_METHOD_POSTBACK_DATAを使うが、
+       process_postback_event()側の実処理配線は次回以降の課題として残る
+       (payment-failure-dunning-design.md 5節、Stripe Customer Portal要否の検討待ち)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -730,6 +784,20 @@ def process_memo_event(
             handled=True, reply_sent=reply_sent,
             reply_text=GENERATION_PAUSED_MESSAGE if reply_sent else None,
             generation_paused=True,
+        )
+
+    if _is_payment_suspended(profile):
+        suspended_quick_reply = QuickReplyButton(
+            label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
+            postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
+        )
+        reply_sent = _reply_with_retry(
+            reply_client, reply_token, PAYMENT_SUSPENDED_MESSAGE, quick_reply=suspended_quick_reply,
+        )
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=PAYMENT_SUSPENDED_MESSAGE if reply_sent else None,
+            payment_suspended=True,
         )
 
     try:

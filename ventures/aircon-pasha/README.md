@@ -1903,4 +1903,20 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-28 08:00 UTC
+- フェーズ141(2026-08-28 12:00 UTC): payment-failure-dunning-design.md「残課題」に
+  残っていた「`_is_generation_paused`の判定条件拡張(制限モード状態を含める)」に対応した。
+  course-set-pashaフェーズ140の`_is_payment_suspended()`と同じ考え方で、既存関数を拡張
+  するのではなく別関数`_is_payment_suspended(profile)`として新設し(判定条件が
+  `upgraded_at`の有無で排他的なため責務を分離)、`process_memo_event()`に
+  `PAYMENT_SUSPENDED_MESSAGE`を返す分岐(`MemoProcessResult.payment_suspended`)として
+  配線した。本ventureはcourse-set-pasha(検知時刻+猶予日数から都度算出)と異なり、
+  フェーズ140で追加済みの`payment_suspended_at`フィールドの設定有無で判定する設計を
+  踏襲したため、猶予期間経過を検知するスケジューラが未実装の現時点ではこの分岐はまだ
+  実際には発火しない(判定ロジック・応答文言・テストのみ先行整備、スケジューラ実装時に
+  書き込み配線を追加するだけで機能する)。CTAボタンはpostback方式のquick_replyとし、
+  `UPDATE_PAYMENT_METHOD_POSTBACK_DATA`を仮に用意したが、遷移先のStripe Customer Portal
+  実装・`process_postback_event()`への配線は未着手のまま次回以降の課題として残す。
+  テスト4件追加、venture全体239件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-28 12:00 UTC

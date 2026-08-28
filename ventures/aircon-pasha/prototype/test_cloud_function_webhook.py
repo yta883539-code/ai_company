@@ -31,10 +31,13 @@ from cloud_function_webhook import (  # noqa: E402
     LENGTH_LIMIT_FALLBACK_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
+    PAYMENT_SUSPENDED_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     SELF_CHECK_NOTICE_TEXT,
     TRIAL_GENERATION_LIMIT,
+    UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
+    UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryApplicationFormLinkProvider,
     InMemoryCheckoutSessionClient,
@@ -796,6 +799,104 @@ class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
         )
 
         self.assertFalse(result.generation_paused)
+
+
+class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
+    """process_memo_event()からの「制限モード」応答の検証
+    (payment-failure-dunning-design.md 3節・4節、README.mdフェーズ141・
+    course-set-pashaフェーズ140の_is_payment_suspended相当)。"""
+
+    def _profile_store(self, **profile_kwargs):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                upgraded_at=datetime(2026, 8, 5, tzinfo=timezone.utc),
+                **profile_kwargs,
+            ),
+        )
+        return profile_store
+
+    def test_suspended_when_payment_suspended_at_set(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            payment_suspended_at=datetime(2026, 8, 27, tzinfo=timezone.utc)
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.payment_suspended)
+        self.assertFalse(result.generation_paused)
+        self.assertEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(
+            reply_client.quick_replies_sent[-1],
+            QuickReplyButton(
+                label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
+                postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
+            ),
+        )
+
+    def test_not_suspended_when_payment_suspended_at_unset(self):
+        profile_store = self._profile_store()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.payment_suspended)
+        self.assertNotEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
+
+    def test_not_suspended_when_profile_store_is_none(self):
+        # profile_store未接続時は既存の挙動を維持し制限モードにしない。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertFalse(result.payment_suspended)
+
+    def test_generation_paused_takes_precedence_over_payment_suspended(self):
+        # trial_end_notified_at未アップグレード(generation_paused)とpayment_suspended_atは
+        # 前提条件が排他的(upgraded_atの有無)だが、念のため両方設定された場合の優先順位を
+        # 固定しておく(_is_generation_pausedの判定を先に行う実装のため、generation_paused側が
+        # 優先される)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_end_notified_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                payment_suspended_at=datetime(2026, 8, 27, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.generation_paused)
+        self.assertFalse(result.payment_suspended)
+        self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
 
 
 class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):

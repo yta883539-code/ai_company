@@ -161,9 +161,26 @@ quick_reply(フェーズ137で確立、`GENERATION_PAUSED_MESSAGE`にも同じ�
   venture全体235件全件パスを確認した。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.md
   への追記なし。
-- `_is_generation_paused(profile)`の判定条件拡張(制限モード状態を含める)、および
-  制限モード専用メッセージの`process_memo_event()`への配線。
+- ~~`_is_generation_paused(profile)`の判定条件拡張(制限モード状態を含める)、および
+  制限モード専用メッセージの`process_memo_event()`への配線。~~ → フェーズ141で対応済み。
+  course-set-pashaフェーズ140の`_is_payment_suspended()`と同じ考え方で、
+  `_is_generation_paused()`を直接拡張するのではなく別関数`_is_payment_suspended(profile)`
+  として新設し(判定条件が`upgraded_at`の有無で排他的なため、既存関数への条件追加より
+  責務を分けた方が安全と判断)、`process_memo_event()`に`PAYMENT_SUSPENDED_MESSAGE`を
+  返す分岐(`MemoProcessResult.payment_suspended`)として配線した。ただしcourse-set-pasha
+  (検知時刻+猶予日数から都度算出、スケジューラ不要)とは異なり、本ventureは既存の
+  `payment_suspended_at`フィールド(フェーズ140で追加済み)の設定有無で判定する設計の
+  ままとした。このためスケジューラ未実装の現時点では`payment_suspended_at`を書き込む
+  経路がまだ存在せず、制限モード応答は実際にはまだ発火しない(判定ロジック・応答文言・
+  テストのみ先行整備)。CTAボタンの遷移先(Stripe Customer Portal)はpostback_data
+  (`action=update_payment_method`)を仮に用意したのみで、`process_postback_event()`側の
+  実処理配線は次項と合わせて次回以降の課題として残した。テスト4件追加、venture全体239件
+  全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.md
+  への追記なし。
 - 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。
+  上記の通りpostback_dataの受け口は用意したが、実際のポータルセッション作成・
+  `process_postback_event()`への配線は未着手。
 - 猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
   日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は
