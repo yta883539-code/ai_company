@@ -1307,10 +1307,30 @@
   本ドキュメント自体はAPIキー取得・課金を伴わない空のテンプレートであり承認不要。次回は
   他venture・アイデア領域の前進、または本venture内で実LLM・実Firestore・実LIFF登録待ち
   (オーナー承認待ち)以外の残課題の棚卸しを優先候補とする。
-- 最終更新: 2026-08-28 06:00 UTC
+- フェーズ117(2026-08-28 09:00 UTC): aircon-pashaがフェーズ139で指摘した「line-reservation-ai
+  にのみ存在し本venture・aircon-pashaには無かった決済失敗(カード継続課金エラー)時の案内」
+  設計の欠落に、本venture側でも対応した(payment-failure-dunning-design.md新規作成)。
+  aircon-pashaのフェーズ139版を土台に、本venture固有の前提(`UserProfile`ではなく
+  `UsageCounterProtocol`への状態管理メソッド追加という設計、postback方式ではなくLIFF経由の
+  Checkout Session導線をCTAに使う既存方針、message-tone-variants.md相当の複数トーン切り替えを
+  導入していない単一トーン)へ翻案し、業者向け通知文言4種(検知時・終了直前リマインド・
+  制限モード移行時・復旧時)を作成した。既存の生成一時停止(`_is_generation_paused()`/
+  `GENERATION_PAUSED_MESSAGE`、フェーズ114)と同じ骨格を流用しつつ、支払い方法更新には
+  新規Checkout Session発行とは別にStripe Customer Portalが必要になる見込みがある点、
+  および本venture自体のStripe Webhookイベント種別ディスパッチ機構がまだ`resolve_user_id`
+  止まりで未整備なため決済失敗対応の前提として先にそちらの整備が必要になりうる点を、
+  次回以降の検討課題として明記した。設計のみで、`UsageCounterProtocol`へのメソッド追加・
+  `stripe_dispatch.py`相当への実装・Webhook配線はいずれも未着手のまま次回以降の課題として
+  残した。承認不要な設計・ドキュメント作成のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-28 09:00 UTC
 
 ## 次にやること(候補)
 
+- フェーズ117・payment-failure-dunning-design.md「残課題」の実装着手(`UsageCounterProtocol`への
+  状態管理メソッド追加、`_is_generation_paused()`の判定条件拡張、制限モード専用メッセージの
+  配線)。ただし本venture自体のStripe Webhookイベント種別ディスパッチ機構が`resolve_user_id`
+  止まりで未整備なため、先にそちらの棚卸し・整備を優先すべきか次回検討する。
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。
