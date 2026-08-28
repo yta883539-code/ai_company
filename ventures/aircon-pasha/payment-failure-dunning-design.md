@@ -140,7 +140,16 @@ quick_reply(フェーズ137で確立、`GENERATION_PAUSED_MESSAGE`にも同じ�
 「既存サブスクリプションの支払い方法更新」を行うStripe Customer Portalへの遷移が必要になる
 見込みがあり、これはcheckout-initiation-flow-design.mdの新規Checkout Session発行ロジック
 (`build_checkout_session_params()`)とは別物になる(Stripe Billing Portalセッション作成が
-必要)。この差異は次回以降のprototype実装時の検討課題として残す。
+必要)。
+
+**(2026-08-28 追記・フェーズ142で解消)** この懸案は新規クライアント種別を追加するまでもなく、
+本venture既存の`PortalLinkProvider`Protocol(`render_subscription_procedure_notice()`が
+解約・プラン変更案内向けに既に使っている、`get_portal_url(user_id) -> Optional[str]`で
+Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそのまま再利用することで解消した。
+`process_postback_event()`に`portal_link_provider`引数を追加し、`data`が
+`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`の場合は`build_checkout_session_params()`/
+`checkout_session_client.create()`を経由せず`portal_link_provider.get_portal_url(user_id)`を
+呼ぶ分岐とした。詳細は6節・prototype/cloud_function_webhook.py参照。
 
 ## 6. 残課題
 
@@ -178,9 +187,17 @@ quick_reply(フェーズ137で確立、`GENERATION_PAUSED_MESSAGE`にも同じ�
   全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.md
   への追記なし。
-- 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。
-  上記の通りpostback_dataの受け口は用意したが、実際のポータルセッション作成・
-  `process_postback_event()`への配線は未着手。
+- ~~5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。~~
+  → フェーズ142で対応済み。新規クライアント種別は不要で、既存の`PortalLinkProvider`
+  (`render_subscription_procedure_notice()`と共有)を再利用する形で解消した。
+  `process_postback_event()`に`portal_link_provider`引数を追加し、
+  `UPDATE_PAYMENT_METHOD_POSTBACK_DATA`受信時は`portal_link_provider.get_portal_url(user_id)`
+  を呼び、未接続・取得失敗時は`PORTAL_LINK_UNAVAILABLE_FALLBACK`を返す(URL取得に失敗した
+  ことをボタンをタップした業者に無反応で示すのではなく、既存のフォールバック文言で明示する
+  方針)。テスト5件追加(process_postback_event向け4件・dispatch_webhook_events向け1件)、
+  venture全体244件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生していないため
+  pending-approval.mdへの追記なし。
 - 猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
   日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は

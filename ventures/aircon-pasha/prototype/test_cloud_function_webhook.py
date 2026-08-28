@@ -50,6 +50,7 @@ from cloud_function_webhook import (  # noqa: E402
     build_usage_notice,
     dispatch_webhook_events,
     format_checkout_reply_message,
+    format_payment_portal_reply_message,
     format_reply_text,
     format_trial_end_condition_a_notice,
     format_welcome_message,
@@ -1175,6 +1176,75 @@ class ProcessPostbackEventTest(unittest.TestCase):
         )
         self.assertFalse(result.handled)
 
+    def test_update_payment_method_postback_returns_portal_url(self):
+        """payment-failure-dunning-design.md 5節。既存のPortalLinkProvider
+        (render_subscription_procedure_notice()と共有)をCTAボタン側でも再利用する。"""
+        reply_client = InMemoryReplyClient()
+        portal_link_provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/abc")
+        event = {
+            "type": "postback", "replyToken": "rt-8", "source": {"userId": "u-1"},
+            "postback": {"data": UPDATE_PAYMENT_METHOD_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, InMemoryCheckoutSessionClient(), reply_client, self._linked_profile_store(),
+            portal_link_provider=portal_link_provider,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.checkout_url, "https://billing.stripe.com/p/session/abc")
+        self.assertEqual(
+            reply_client.sent,
+            [("rt-8", format_payment_portal_reply_message("https://billing.stripe.com/p/session/abc"))],
+        )
+
+    def test_update_payment_method_postback_without_provider_uses_fallback_message(self):
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "postback", "replyToken": "rt-9", "source": {"userId": "u-1"},
+            "postback": {"data": UPDATE_PAYMENT_METHOD_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, InMemoryCheckoutSessionClient(), reply_client, self._linked_profile_store(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertIsNone(result.checkout_url)
+        self.assertEqual(reply_client.sent, [("rt-9", PORTAL_LINK_UNAVAILABLE_FALLBACK)])
+
+    def test_update_payment_method_postback_provider_returning_none_uses_fallback_message(self):
+        reply_client = InMemoryReplyClient()
+        portal_link_provider = InMemoryPortalLinkProvider(url=None)
+        event = {
+            "type": "postback", "replyToken": "rt-10", "source": {"userId": "u-1"},
+            "postback": {"data": UPDATE_PAYMENT_METHOD_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, InMemoryCheckoutSessionClient(), reply_client, self._linked_profile_store(),
+            portal_link_provider=portal_link_provider,
+        )
+
+        self.assertEqual(reply_client.sent, [("rt-10", PORTAL_LINK_UNAVAILABLE_FALLBACK)])
+
+    def test_update_payment_method_postback_unlinked_user_gets_linking_required_message(self):
+        reply_client = InMemoryReplyClient()
+        portal_link_provider = InMemoryPortalLinkProvider()
+        event = {
+            "type": "postback", "replyToken": "rt-11", "source": {"userId": "u-unknown"},
+            "postback": {"data": UPDATE_PAYMENT_METHOD_POSTBACK_DATA},
+        }
+
+        result = process_postback_event(
+            event, InMemoryCheckoutSessionClient(), reply_client, InMemoryUserProfileStore(),
+            portal_link_provider=portal_link_provider,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(reply_client.sent, [("rt-11", LINKING_REQUIRED_MESSAGE)])
+
 
 class ProcessMessageEventLinkingTest(unittest.TestCase):
     """user-account-linking-design.md 3節の実装(process_message_event)。"""
@@ -1475,6 +1545,31 @@ class DispatchWebhookEventsTest(unittest.TestCase):
         self.assertEqual(len(result.postback_results), 1)
         self.assertTrue(result.postback_results[0].handled)
         self.assertEqual(len(checkout_session_client.calls), 1)
+
+    def test_postback_event_forwards_portal_link_provider_for_payment_method_update(self):
+        reply_client = InMemoryReplyClient()
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        portal_link_provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/xyz")
+        events = [{
+            "type": "postback",
+            "replyToken": "rt-12",
+            "source": {"userId": "u-1"},
+            "postback": {"data": UPDATE_PAYMENT_METHOD_POSTBACK_DATA},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=reply_client,
+            profile_store=self._linked_profile_store(),
+            checkout_session_client=checkout_session_client,
+            portal_link_provider=portal_link_provider,
+        )
+
+        self.assertEqual(len(result.postback_results), 1)
+        self.assertTrue(result.postback_results[0].handled)
+        self.assertEqual(
+            result.postback_results[0].checkout_url, "https://billing.stripe.com/p/session/xyz",
+        )
 
     def test_postback_event_not_processed_without_checkout_session_client(self):
         events = [{

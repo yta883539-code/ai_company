@@ -502,12 +502,14 @@ def _is_generation_paused(profile: Optional[UserProfile]) -> bool:
 # 機能するようにする。
 #
 # 本ventureのCTA(お支払い方法の確認)は、GENERATION_PAUSED_MESSAGEと同じくpostback
-# ボタンで表現する(_is_generation_pausedと同じ方針)。ただし遷移先はcheckout-
+# ボタンで表現する(_is_generation_pausedと同じ方針)。遷移先はcheckout-
 # initiation-flow-design.mdの新規Checkout Session発行ロジックではなく、Stripe
-# Customer Portal(支払い方法更新)への遷移が必要になる見込みであり、これは
-# payment-failure-dunning-design.md 5節に残る未解決の検討事項のため、ボタンの
-# postback_dataは仮の値にとどめ、process_postback_event()側の実処理配線は
-# 次回以降の課題として残す。
+# Customer Portal(支払い方法更新)への遷移が必要という見込みだったが、
+# render_subscription_procedure_notice()(フェーズ131以前・解約/プラン変更案内向け)が
+# 既にPortalLinkProvider.get_portal_url(user_id)というStripe Billing Portalセッション
+# 取得の差し替え可能な口を用意済みであると判明したため、payment-failure-dunning-design.md
+# 5節の懸案(新規クライアント種別が必要か)はこの既存Protocolの再利用で解消する
+# (フェーズ142、process_postback_event()参照)。
 UPDATE_PAYMENT_METHOD_BUTTON_LABEL = "お支払い方法を確認する"
 UPDATE_PAYMENT_METHOD_POSTBACK_DATA = "action=update_payment_method"
 
@@ -995,6 +997,17 @@ def format_checkout_reply_message(checkout_url: str) -> str:
     )
 
 
+def format_payment_portal_reply_message(portal_url: Optional[str]) -> str:
+    """payment-failure-dunning-design.md 5節のCTA(`action=update_payment_method`)が
+    タップされた際の返信文面。取得したStripe Billing PortalのURLをそのまま案内する。
+    `portal_url`が取得できなかった場合(provider未接続・API呼び出し失敗)は、
+    render_subscription_procedure_notice()と同じ安全側フォールバック
+    (PORTAL_LINK_UNAVAILABLE_FALLBACK)へ差し替える。"""
+    if not portal_url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+    return "お支払い方法の確認・変更はこちらからお願いします。\n" f"{portal_url}"
+
+
 @dataclass
 class PostbackEventResult:
     """process_postback_event()の結果。"""
@@ -1009,15 +1022,27 @@ def process_postback_event(
     checkout_session_client: CheckoutSessionClient,
     reply_client: ReplyClient,
     profile_store: UserProfileStoreProtocol,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
 ) -> PostbackEventResult:
-    """LINEの`postback`イベント1件を処理する(署名検証済みの前提、design 2〜3節)。
+    """LINEの`postback`イベント1件を処理する(署名検証済みの前提、design 2〜3節、
+    payment-failure-dunning-design.md 5節)。
 
-    `data`が`action=start_checkout`以外のpostback(本venture未着手の将来アクション、
-    design 2節「将来別アクションを追加する場合」)は`handled=False`として素通りする。
+    `data`が`action=start_checkout`・`action=update_payment_method`以外のpostback
+    (本venture未着手の将来アクション、design 2節「将来別アクションを追加する場合」)は
+    `handled=False`として素通りする。
     user_idが取得できない、またはuser_profileが未連携(design 3節手順3の異常系)の場合は
-    user_id_linking.pyの既存の未連携案内文言(LINKING_REQUIRED_MESSAGE)を返す。
+    user_id_linking.pyの既存の未連携案内文言(LINKING_REQUIRED_MESSAGE)を返す
+    (2つのアクションで共通)。
+
+    `action=update_payment_method`の場合は、既存のCheckout Session発行
+    (`build_checkout_session_params()`)とは別に、`portal_link_provider`
+    (render_subscription_procedure_notice()と共有するPortalLinkProvider Protocol)から
+    Stripe Billing PortalのURLを取得して案内する。`portal_link_provider`が未接続
+    (None)の場合もURL取得失敗時と同様にフォールバック文言を返す(素通りにはしない、
+    ボタンをタップした業者に無反応を返さないため)。
     """
-    if event.get("postback", {}).get("data") != START_CHECKOUT_POSTBACK_DATA:
+    data = event.get("postback", {}).get("data")
+    if data not in (START_CHECKOUT_POSTBACK_DATA, UPDATE_PAYMENT_METHOD_POSTBACK_DATA):
         return PostbackEventResult(handled=False, reply_sent=False)
 
     reply_token = event["replyToken"]
@@ -1027,6 +1052,15 @@ def process_postback_event(
     if profile is None:
         reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
         return PostbackEventResult(handled=True, reply_sent=reply_sent)
+
+    if data == UPDATE_PAYMENT_METHOD_POSTBACK_DATA:
+        portal_url = (
+            portal_link_provider.get_portal_url(user_id) if portal_link_provider else None
+        )
+        reply_sent = _reply_with_retry(
+            reply_client, reply_token, format_payment_portal_reply_message(portal_url)
+        )
+        return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=portal_url)
 
     params = build_checkout_session_params(user_id, profile.stripe_customer_id)
     checkout_url = checkout_session_client.create(params)
@@ -1085,9 +1119,12 @@ def dispatch_webhook_events(
     - "unfollow": 1件ずつ`process_unfollow_event()`へ渡す(design 2節の通りdata store類は
       不要なため、他の種別と異なり未接続でも常に処理する)。
     - "postback": 1件ずつ`process_postback_event()`へ渡す(checkout-initiation-flow-design.md
-      2〜3節)。`reply_client`・`profile_store`・`checkout_session_client`のいずれかが
-      未接続の場合は素通りする(user_profile確認にprofile_storeが必須、URL取得に
-      checkout_session_clientが必須のため)。
+      2〜3節、payment-failure-dunning-design.md 5節)。`reply_client`・`profile_store`・
+      `checkout_session_client`のいずれかが未接続の場合は素通りする(user_profile確認に
+      profile_storeが必須、`action=start_checkout`のURL取得にcheckout_session_clientが
+      必須のため)。`portal_link_provider`は`action=update_payment_method`側のみで使う値
+      のため、未接続でも他のpostback処理自体は素通りしない(process_postback_event()内で
+      フォールバック文言に切り替える)。
     - それ以外の種別(join等)は無視し、`ignored_types`に種別名のみ記録する。
     """
     result = DispatchResult()
@@ -1142,7 +1179,13 @@ def dispatch_webhook_events(
     ):
         for event in postback_events:
             result.postback_results.append(
-                process_postback_event(event, checkout_session_client, reply_client, profile_store)
+                process_postback_event(
+                    event,
+                    checkout_session_client,
+                    reply_client,
+                    profile_store,
+                    portal_link_provider=portal_link_provider,
+                )
             )
 
     return result

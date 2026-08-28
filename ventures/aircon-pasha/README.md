@@ -1919,4 +1919,24 @@
   テスト4件追加、venture全体239件全件パス・schema検証9件パスを確認した。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-28 12:00 UTC
+- フェーズ142(2026-08-28 15:00 UTC): payment-failure-dunning-design.md「残課題」に
+  残っていたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討に
+  対応した。コード調査の結果、本ventureには既に`render_subscription_procedure_notice()`
+  (解約・プラン変更案内向け、フェーズ131以前から存在)が使う`PortalLinkProvider`
+  Protocol(`get_portal_url(user_id) -> Optional[str]`でStripe Billing Portalの
+  一時URLを取得する差し替え可能な口)があり、新規クライアント種別を追加せずそのまま
+  再利用できると判明した。`process_postback_event()`に`portal_link_provider`引数を
+  追加し、`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`受信時はこれまでの
+  `build_checkout_session_params()`/`checkout_session_client.create()`経路とは別に
+  `portal_link_provider.get_portal_url(user_id)`を呼んでURLを案内する分岐
+  (`format_payment_portal_reply_message()`新設)を実装した。未接続・取得失敗時は
+  `render_subscription_procedure_notice()`と同じ`PORTAL_LINK_UNAVAILABLE_FALLBACK`へ
+  差し替える(ボタンタップに無反応で応じることを避けるため)。`dispatch_webhook_events()`
+  にも`portal_link_provider`を配線した。テスト5件追加(process_postback_event向け4件・
+  dispatch_webhook_events向け1件)、venture全体244件全件パス・schema検証9件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い等は発生していないためpending-approval.mdへの追記なし。次回は
+  猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
+  日次バッチと同種の仕組みを流用できる見込み、payment-failure-dunning-design.md
+  「残課題」参照)への着手を検討する。
+- 最終更新: 2026-08-28 15:00 UTC
