@@ -122,12 +122,30 @@ course-set-pasha/prototype/checkout_session.pyと同じ考え方で、Checkout S
 ドメイン・公式アカウント開設後に差し替える(定数として関数の外に切り出し、テストでは
 上書き可能にする)。
 
+## 6. 店舗プロフィールストア実装(2026-08-28追記)
+
+上記「残課題」にあった店舗プロフィールストア(`stripe_customer_id`保持用)を実装した。
+firestore-data-model.md 1節`stores/{storeId}`ドキュメントへ`stripeCustomerId`フィールドを
+追加し、`prototype/store_profile_store.py`に`StoreProfileStoreProtocol`
+(`get_stripe_customer_id`/`set_stripe_customer_id`の順引き2メソッドのみ。本ventureでは
+Webhookディスパッチ側のresolve_user_id〈逆引き〉が別課題として未着手のため、
+course-set-pasha/stripe-customer-id-linking-design.mdの`UserProfileStoreProtocol`より
+薄いスコープとした)と、その場しのぎ検証用の`InMemoryStoreProfileStore`を実装した。
+3節手順3の「既存customerを確認する処理」との結線点として`resolve_existing_stripe_customer_id
+(user_id, store) -> Optional[str]`も追加し、呼び出し元(Checkout Session作成エンドポイント
+予定地)が`store`の型を意識せず`StoreProfileStoreProtocol`のみに依存できるようにした。
+テスト8件追加、venture全体337件全件パスを確認した。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID
   確定)はオーナー承認待ち(pending-approval.mdに記録する)。
-- 店舗プロフィールストア(`stripe_customer_id`保持用)自体の実装(Firestoreスキーマ拡張・
-  InMemory実装)は次の課題として残す。
+- `resolve_existing_stripe_customer_id()`を実際に`build_checkout_session_params()`の
+  呼び出し前に配線するCheckout Session作成エンドポイント本体(Cloud Functions側)は未実装。
+  実Stripe API呼び出しと合わせて実アカウント接続後に着手する。
+- `checkout.session.completed`イベント受信時に`store.set_stripe_customer_id()`を呼ぶ
+  Webhookハンドラ(course-set-pasha/stripe_webhook.pyの
+  `handle_checkout_session_completed()`相当)は本ventureでは未実装。次の課題として残す。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
 - 上記1(b)「オンボーディング完了メッセージへの常設セルフサービスリンク」の文言自体は
   未設計。次の課題として残す。

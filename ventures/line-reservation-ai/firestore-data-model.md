@@ -35,12 +35,19 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
   menus: [{name: "カット", durationMinutes: 30}, ...],
   suspensionReason: null,           // owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」
                                      // null | "trial_unselected" | "payment_failed" | "payment_suspended"
-  paymentFailureDetectedAt: null    // payment-failure-dunning-design.md 3節の猶予期間起点日時
+  paymentFailureDetectedAt: null,   // payment-failure-dunning-design.md 3節の猶予期間起点日時
                                      // (Timestamp、決済失敗検知時にWebhookが設定、決済成功復旧時にnullへ戻す)。
                                      // suspensionReasonが"payment_failed"の間、猶予期間の残り日数は
                                      // paymentFailureDetectedAt + 7日 − 現在日時 で算出する
                                      // (owner-settings-wireframe.md 555行目付近の設計どおり、
                                      // 別途「残り日数」フィールドは持たない)
+  stripeCustomerId: null            // checkout-initiation-flow-design.md 3節手順3・
+                                     // prototype/store_profile_store.py`StoreProfileStoreProtocol`に対応
+                                     // (Stripe Checkout Session作成時、既存契約歴のある店舗が同一customerを
+                                     // 再利用できるようにするための順引きフィールド。文字列 | null。
+                                     // `checkout.session.completed`イベント受信時にWebhookが設定する想定
+                                     // 〈course-set-pasha/stripe-customer-id-linking-design.mdと同じ書き込み
+                                     // タイミングだが、本ventureでは逆引き用の別コレクションは現時点で不要〉)
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、
