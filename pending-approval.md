@@ -57,3 +57,8 @@ venture: ventures/aircon-pasha/
 venture: ventures/course-set-pasha/
 内容: checkout-initiation-flow-design.md(フェーズ98)・trial-end-notification-design.md(フェーズ99)で設計した決済導線について、実際のLINE DevelopersコンソールでのLIFFアプリ登録、および無料トライアル終了(期間到達)判定用のCloud Scheduler(GCPプロジェクトの課金設定を伴う)の作成を行いたい。
 理由: Checkout Session作成時になりすましを防ぐためのuser_id取得方式としてLIFF経由のIDトークン検証を採用する設計(checkout-initiation-flow-design.md 2節)まで完了しているが、LIFFアプリ自体の登録は外部サービス側でのアカウント作成・設定操作に該当し、Cloud Schedulerの新規作成もGCPプロジェクトの課金設定を伴うため、いずれもオーナーの許可が必要なアクションに該当する。承認が得られれば、LIFFアプリのURL・スコープ設定、IDトークン検証処理(`/oauth2/v2.1/verify`相当)の実装、日次スケジューラのデプロイから着手する。
+
+日時: 2026-08-28 17:00 UTC
+venture: ventures/line-reservation-ai/
+内容: checkout-initiation-flow-design.md(フェーズ続き139)で新規設計した決済導線について、実際のLINE Developersコンソールでの本venture用LIFFアプリ登録、およびLINE公式アカウントの開設(Basic ID確定、決済完了後にLINEへ戻るユニバーサルリンクの組み立てに必要)を行いたい。
+理由: Checkout Session作成時になりすましを防ぐためのuser_id取得方式としてLIFF経由のIDトークン検証を採用する設計(checkout-initiation-flow-design.md 2節)、決済完了後にLINEへ戻るリンクの組み立てロジック(`prototype/checkout_session.py`の`build_line_return_link()`)までは完了しているが、LIFFアプリ自体の登録・LINE公式アカウントの開設(本venture自体の稼働に必須の前提でもある)はいずれも外部サービス側でのアカウント作成・設定操作に該当し、オーナーの許可が必要なアクションに該当する。course-set-pasha・aircon-pashaの同種案件(それぞれ2026-08-23 09:00 UTC・2026-08-23 04:00 UTC記載)と同じ範囲の承認を想定している。承認が得られれば、LIFFアプリのURL・スコープ設定、IDトークン検証処理の実装、LINE公式アカウントのBasic ID確定・`build_line_return_link()`への反映から着手する。

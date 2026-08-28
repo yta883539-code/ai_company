@@ -1535,6 +1535,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   あわせて上記2ファイルの記載も現状(E1・E3・E4は解消済み、残るはE7・E8等)に更新した。
   承認不要なテスト追加・ドキュメント訂正のみで、外部サービスへの公開・アカウント作成等は
   今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き139(2026-08-28 17:00 UTC): billing-upgrade-flow-design.md 3節に残っていた
+  「決済完了後にLINEへ戻る導線は、checkout-initiation-flow-design.mdの実装着手時にあわせて
+  設計する」という残課題に対応した。本ventureにはcourse-set-pasha/aircon-pashaのような
+  決済導線設計(checkout-initiation-flow-design.md)がまだ存在しなかったため新規作成し、
+  course-set-pashaと同じLIFF ID トークン検証方式を採用しつつ、本venture固有の前提(課金対象は
+  個人利用者ではなく店舗オーナー)を明記した。あわせてLINEへ戻る導線を新規に検討し、
+  `https://line.me/R/ti/p/<Basic ID>`形式のユニバーサルリンクをsuccess_urlページに設置する
+  方式を採用(LINE公式ドキュメントが新規実装に推奨する形式)。`prototype/checkout_session.py`に
+  `build_checkout_session_params()`(course-set-pasha版と同型)・`build_line_return_link()`
+  (新設)を実装し、テスト9件追加。line-reservation-ai配下計329件全件パス・schema検証25件
+  パスを確認した。LIFFアプリ登録・LINE公式アカウント開設(Basic ID確定)・店舗プロフィール
+  ストアへの`stripe_customer_id`フィールド実装は引き続きオーナー承認待ち・次回以降の課題として
+  残した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-28 07:00 UTC・フェーズ続き137: fixed-vocabulary-tone-check-design.md
