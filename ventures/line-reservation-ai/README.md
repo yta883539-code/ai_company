@@ -1100,7 +1100,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_pending_new_booking_context_by_user`による日時範囲の引き継ぎ挙動を明文化した。
   change経由でのメニュー未言及時の専用文言は、実際に問題になった場合の次回以降の課題として
   引き続き残す(プロンプト文言のみの変更のため実LLM接続・外部連絡は不要、オーナー承認対象外)。
-- 最終更新: 2026-08-23 19:00 UTC
+- フェーズ(続き138、2026-08-28 13:00 UTC): billing-upgrade-flow-design.md「未検証の仮説」に
+  残っていた「LIFF経由の遷移とブラウザ外部リンクのどちらがオーナーにとって迷いが少ないか
+  (Stripe Billing側の対応状況を要確認)」について、web調査で技術的な対応状況を先に整理した。
+  LINE Developers公式ドキュメントを確認したところ、LIFFアプリ内ブラウザと外部ブラウザは
+  利用可能な機能セットが異なり(`liff.openWindow()`自体も外部ブラウザでは動作保証対象外)、
+  2025年10月以降はLIFFアプリを最初から外部ブラウザ(OS標準のSafari/Chrome等)で開く導線
+  (`external: true`)が公式サポートされたことを確認した。決済側の懸念として、Stripe
+  Checkout/Customer Portalの3Dセキュア認証はアプリ埋め込みwebview内でリダイレクトが
+  正しく検知されない等の不具合がStripe公式Issueで複数報告されている(埋め込みwebview全般の
+  既知の弱点で、LINE固有の報告はweb調査の範囲では未確認)ことを踏まえ、Checkout Session/
+  Customer Portalへの遷移はLIFFアプリ内ブラウザに留めずOS標準ブラウザへ切り替える方式を
+  暫定方針として採用した(billing-upgrade-flow-design.mdに出典URL付きで追記)。決済完了後に
+  LINEへ戻る導線の具体設計は、決済導線の実装着手時の課題として新たに残した。実際のLIFF
+  アプリ登録・Stripe Checkoutとの結合テストは引き続きオーナー承認待ち。承認不要なweb調査・
+  ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-28 13:00 UTC
 
 ## ドキュメント
 - pending-new-booking-context-ttl-design.md: `_pending_new_booking_context_by_user`

@@ -112,8 +112,31 @@ trial-to-paid-billing-flow-consistency-check.mdでは「継続利用を希望す
 
 ## 未検証の仮説(要検証)
 
-- LIFF経由の遷移とブラウザ外部リンクのどちらがオーナー(非エンジニア)にとって迷いが
-  少ないか(LIFFはLINEアプリ内ブラウザで完結するがStripe Billing側の対応状況を要確認)。
+- (方針決定 2026-08-28 13:00 UTC: 「LIFF経由の遷移とブラウザ外部リンクのどちらが
+  オーナーにとって迷いが少ないか」について、実際のオーナー行動観察は実LIFFアプリ登録
+  〈オーナー承認待ち〉後でないと検証できないが、技術的な対応状況はweb調査で先に整理できた
+  ため、LINE Developers公式ドキュメントを調査した。LIFFアプリ内ブラウザ(LIFFブラウザ)と
+  外部ブラウザは利用可能な機能セットが異なり、`liff.openWindow()`自体も外部ブラウザでは
+  動作保証対象外という制約がある。一方2025年10月以降、LIFFアプリを最初から外部ブラウザ
+  (OS標準のSafari/Chrome等)で開く導線(`liff.openWindow({ url, external: true })`、
+  またはLIFF URLを外部ブラウザ起動用の形式で共有する方式)がLINE公式にサポートされた。
+  決済ページ側の懸念として、Stripe Checkout/Customer Portalは3Dセキュア認証時に
+  追加のリダイレクト・別ドメインのwebview表示を挟むことがあり、Stripeの各種SDK
+  (react-native等)ではアプリ埋め込みwebview内での3Dセキュア後のリダイレクトが
+  正しく検知されない・画面が固まる等の不具合が公式Issueで複数報告されている
+  (埋め込みwebview全般に共通する既知の弱点であり、LINE固有の不具合報告はweb調査の
+  範囲では見つからなかった)。以上を踏まえ、Checkout Session/Customer Portalへの遷移は
+  LIFFアプリ内ブラウザに留めず`external: true`でOS標準ブラウザへ切り替える方式を
+  暫定方針として採用する。標準ブラウザは3Dセキュアのリダイレクトチェーンに関して
+  最も枯れた実行環境であり、Stripe側の動作保証も前提としているため、埋め込みwebview
+  特有の不具合リスクを避けられる。決済完了後にLINEへ戻る導線(success_url先の
+  案内ページでLINEアプリへの復帰リンクを提示する等)は、checkout-initiation-flow-design.md
+  の実装着手時にあわせて設計する残課題として残す。実際のLIFFアプリ登録・Stripe
+  Checkoutとの結合テストはオーナー承認待ちのため未検証のまま。
+  出典: https://developers.line.biz/en/docs/liff/opening-liff-app/ ,
+  https://developers.line.biz/en/docs/liff/differences-between-liff-browser-and-external-browser/ ,
+  https://developers.line.biz/en/docs/line-mini-app/develop/external-browser/ ,
+  https://github.com/stripe/stripe-react-native/issues/1381)
 - 「利用実績レポート」の3項目がオーナーの継続判断材料として十分か、追加すべき指標
   (例: 対応した顧客数のユニーク数)があるか。
 - 休止モードの再通知頻度が督促として煩わしく感じられないか。
