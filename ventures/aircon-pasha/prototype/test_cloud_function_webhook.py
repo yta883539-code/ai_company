@@ -32,6 +32,7 @@ from cloud_function_webhook import (  # noqa: E402
     LINKING_SUCCESS_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    SELF_CHECK_NOTICE_TEXT,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryApplicationFormLinkProvider,
     InMemoryCheckoutSessionClient,
@@ -480,6 +481,91 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         )
 
         self.assertNotIn("※", result.reply_text)
+
+
+class ProcessMemoEventFirstGenerationSelfCheckTest(unittest.TestCase):
+    """process_memo_event()への初回生成時セルフチェック案内(first-generation-self-check-
+    design.md)・trial_start_at書き込み(trial-start-anchor-decision.md)統合の検証。"""
+
+    def _linked_profile_store(self, trial_start_at=None):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                trial_start_at=trial_start_at,
+            ),
+        )
+        return profile_store
+
+    def test_first_generation_appends_notice_and_sets_trial_start_at(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._linked_profile_store()
+        now = datetime(2026, 8, 28, 3, 0, tzinfo=timezone.utc)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store, now=now,
+        )
+
+        self.assertIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+        self.assertEqual(profile_store.get("u-1").trial_start_at, now)
+
+    def test_second_generation_does_not_repeat_notice_or_overwrite_trial_start_at(self):
+        from datetime import datetime, timezone
+
+        original_trial_start_at = datetime(2026, 8, 20, 1, 0, tzinfo=timezone.utc)
+        profile_store = self._linked_profile_store(trial_start_at=original_trial_start_at)
+        later_now = datetime(2026, 8, 28, 3, 0, tzinfo=timezone.utc)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store, now=later_now,
+        )
+
+        self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+        self.assertEqual(profile_store.get("u-1").trial_start_at, original_trial_start_at)
+
+    def test_out_of_scope_reply_does_not_trigger_notice_or_write(self):
+        # status=="generated"以外はセルフチェック案内・trial_start_at書き込みの対象外
+        # (design 5節、usage_counterのカウント対象条件と同じ方針)。
+        profile_store = self._linked_profile_store()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="予約を受け付けてほしい", user_id="u-1"),
+            FixtureLlmClient("OOS1_reservation_question"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+        self.assertIsNone(profile_store.get("u-1").trial_start_at)
+
+    def test_no_notice_or_write_when_profile_store_not_provided(self):
+        # profile_store未指定(実接続前)の呼び出しは従来通りスキップする。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(_make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+
+    def test_no_write_when_user_profile_not_found(self):
+        # profile_storeは渡されたがuser_idに対応するuser_profileが存在しない(想定外だが
+        # 安全側にスキップする)場合。
+        profile_store = InMemoryUserProfileStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-unknown"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
 
 
 class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):

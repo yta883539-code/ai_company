@@ -95,9 +95,19 @@ course-set-pashaと同じ。
 
 ## 残課題
 
-- `usage_counter`への`first_generation_notice_sent`フィールド追加、および
-  `cloud_function_webhook.py`側での実配線は、実Firestore接続・実LINE API接続自体が
-  オーナー承認待ちのため未着手のまま残す。
+- (解消済み 2026-08-28 03:00 UTC・フェーズ136: `cloud_function_webhook.py`の
+  `process_memo_event()`に実配線した。ただし`usage_counter`側に別立ての
+  `first_generation_notice_sent`フラグを新設する当初案は採らず、
+  trial-start-anchor-decision.md 3節で確定した`user_profile.trial_start_at`
+  (初回生成成功時に1回だけ設定・以降不変、フェーズ134で実装済み)が未設定かどうかを
+  そのままセルフチェック案内の要否判定に兼用する設計に変更した。理由:
+  本ventureはcourse-set-pashaと異なりtrial_start_at自体を`usage_counter`ではなく
+  `user_profile`が直接保持する設計(フェーズ134の判断)であり、かつtrial_start_atは
+  既に「生涯1回だけ書き込む」不変フィールドとして実装済みのため、同じ性質を持つ
+  フラグを`usage_counter`側に重複して新設する必要が無いと判断した。実Firestore接続・
+  実LINE API接続自体は引き続きオーナー承認待みだが、判定ロジック・文言組み立て・
+  `trial_start_at`書き込み自体はコード上で検証済み〈テスト5件追加、
+  test_cloud_function_webhook.py `ProcessMemoEventFirstGenerationSelfCheckTest`〉)
 - 「試験生成のつもりで送ったメモが実は最初の生成ではなかった」ケースはシステム側で区別できない
   既知の限界として残る(course-set-pashaと同じ)。
 

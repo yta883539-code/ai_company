@@ -29,7 +29,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Protocol
 
@@ -380,6 +380,17 @@ LENGTH_LIMIT_FALLBACK_MESSAGE = (
     "恐れ入りますが、入力メモを少し短くして再度お送りください。"
 )
 
+# first-generation-self-check-design.md 4節準拠。そのユーザー(業者)にとって生涯最初の
+# 生成成功時のみ、レスポンス末尾に付記する(completion_report・care_guideのbody自体には
+# 一切混入させない。依頼者へそのまま転送されうる本文と区別するため文面内に転送不要の旨を
+# 明記する、design 2節の安全設計)。
+SELF_CHECK_NOTICE_TEXT = (
+    "【ご確認のお願い(業者様向け・依頼者への転送不要)】\n"
+    "これが最初の生成です。分解洗浄の範囲や次回推奨時期の記載が実際の作業内容と合っているか、"
+    "この機会にご確認ください。冷媒・電気系統についての専門的な当否評価が混ざっていないかも"
+    "あわせてご確認いただくと安心です。問題がなければ今後この案内はありません。"
+)
+
 
 def _is_length_limit_error(errors: list[str]) -> bool:
     """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
@@ -532,6 +543,8 @@ def process_memo_event(
     plan: Optional[str] = None,
     month: Optional[str] = None,
     portal_link_provider: Optional[PortalLinkProvider] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+    now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
 
@@ -552,6 +565,20 @@ def process_memo_event(
        render_subscription_procedure_notice参照)。未接続時は安全側フォールバック文言を返す。
        これら3つのstatusは厳守事項6a準拠でusage_counterの対象外(status=="generated"の
        ときのみカウントする既存方針は変更しない)。
+    5. profile_storeが渡され、かつstatus=="generated"の場合のみ、初回生成時セルフチェック
+       案内(first-generation-self-check-design.md)を行う。「そのユーザーにとって生涯
+       最初の生成成功」の判定は、trial-start-anchor-decision.md 3節で確定した
+       `user_profile.trial_start_at`(初回生成成功時に1回だけ設定・以降不変)が未設定
+       (None)かどうかで行う。course-set-pashaの設計(usage_counter側に別立ての
+       `first_generation_notice_sent`フラグを新設する案)とは異なり、本ventureは
+       trial_start_at自体が既に「生涯1回だけ設定される」不変フィールドとして
+       user_profile側に実装済み(フェーズ134)のため、それをそのままセルフチェック
+       案内の要否判定にも兼用する(新規フラグを追加しない)。未設定なら
+       SELF_CHECK_NOTICE_TEXTを返信本文の末尾に付記し(completion_report・care_guide
+       のbody自体は変更しない、design 2節の安全設計)、`profile_store.set_trial_start_at()`
+       で書き込む。profile_storeがNone、または対応するuser_profileが存在しない場合は
+       スキップする(未連携user_idの通常メモ送信は本フローに到達しない前提だが、念のため
+       安全側に倒す)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -611,6 +638,14 @@ def process_memo_event(
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
+
+    if instance["status"] == "generated" and profile_store is not None:
+        user_id = event.get("source", {}).get("userId")
+        profile = profile_store.get(user_id) if user_id else None
+        if profile is not None and profile.trial_start_at is None:
+            resolved_now = now if now is not None else datetime.now(timezone.utc)
+            reply_text = f"{reply_text}\n\n{SELF_CHECK_NOTICE_TEXT}"
+            profile_store.set_trial_start_at(user_id, resolved_now)
 
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
     return MemoProcessResult(
@@ -678,7 +713,9 @@ def process_message_event(
     user_id = event.get("source", {}).get("userId")
 
     if user_id and profile_store.exists(user_id):
-        memo_result = process_memo_event(event, llm_call, reply_client, **memo_kwargs)
+        memo_result = process_memo_event(
+            event, llm_call, reply_client, profile_store=profile_store, now=now, **memo_kwargs
+        )
         return MessageEventResult(
             handled=memo_result.handled,
             reply_sent=memo_result.reply_sent,

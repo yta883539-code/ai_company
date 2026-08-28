@@ -21,6 +21,34 @@
 
 ## ステータス
 
+- フェーズ136(2026-08-28 03:00 UTC): first-generation-self-check-design.md「残課題」
+  1点目(初回生成時セルフチェック案内の実配線)に対応した。`cloud_function_webhook.py`の
+  `process_memo_event()`に`profile_store`・`now`引数を追加し、status=="generated"かつ
+  `user_profile.trial_start_at`が未設定(=生涯最初の生成成功)の場合のみ、
+  SELF_CHECK_NOTICE_TEXT(業者向け・依頼者への転送不要の旨を明記した確認案内)を
+  返信本文末尾に付記し(completion_report・care_guideのbody自体は不変)、
+  `profile_store.set_trial_start_at()`で書き込む設計とした。course-set-pashaの原設計
+  (`usage_counter`側に別立ての`first_generation_notice_sent`フラグを新設する案)とは
+  異なり、本ventureは`trial_start_at`自体が既に「生涯1回だけ書き込む」不変フィールドと
+  して`user_profile`に実装済み(フェーズ134)のため、新規フラグを追加せずそれをそのまま
+  要否判定に兼用する設計に変更した(trial-start-anchor-decision.md 3節「実装時の変更点」・
+  first-generation-self-check-design.md「残課題」に理由を追記)。`process_message_event()`
+  から`process_memo_event()`への委譲呼び出しに`profile_store`・`now`を明示的に渡すよう
+  配線した。テスト5件追加(`ProcessMemoEventFirstGenerationSelfCheckTest`)、venture全体
+  211件のテストがすべて成功、schema/validate_test_cases.pyも9件全件パスを確認した。
+  コード実装・テスト追加のみで外部サービスへの公開・アカウント作成・支払い等は発生して
+  いないためpending-approval.mdへの追記なし。次回は`trial_generation_count`の実集計配線
+  (trial-end-scheduler-design.md・trial-end-notification-design.md 5節で予告されていた、
+  トライアル専用生成回数カウンタ。現状`TrialUserState.trial_generation_count`は既定値0の
+  まま呼び出し元集計待ちとして残っている)を優先候補とする。
+- フェーズ135(2026-08-28 02:00 UTC・前回実行時にREADME記載漏れ、本フェーズで遡って追記):
+  trial-end-scheduler-design.md 2節「今後の課題」に残っていた`upgraded_at`書き込み配線を
+  `stripe_webhook.py`の`handle_checkout_session_completed()`に実装した。
+  `store.get(user_id).upgraded_at`が未設定の場合のみ`store.set_upgraded_at()`を呼ぶ形で
+  「有料転換時に1回だけ書き込む」不変条件(UserProfile docstring)を維持した。テスト3件
+  追加、venture全体206件のテストがすべて成功、schema/validate_test_cases.pyも9件全件パス
+  を確認した。承認不要な実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は発生していないためpending-approval.mdへの追記なし。
 - フェーズ134(2026-08-28 01:57 UTC): フェーズ133の申し送り1点目・2点目に対応し、
   trial-end-scheduler-design.mdの選定ロジック・メッセージ設計を`prototype/`へ実装した。
   `user_id_linking.py`の`UserProfile`/`UserProfileStoreProtocol`/
@@ -1780,4 +1808,4 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-28 01:57 UTC
+- 最終更新: 2026-08-28 03:00 UTC

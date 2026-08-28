@@ -57,6 +57,17 @@ usage_counter/{user_id}
 - `trial_start_at`が`null`のまま(=初回生成がまだ行われていない)ユーザーに対しては、
   trial-end-notification-design.md 2節(B)の期間到達判定用スケジューラは判定対象外とする。
 
+**実装時の変更点(2026-08-28追記、フェーズ134・136):** 実際にコード化する段階で、
+`trial_start_at`の格納先は本節が想定した`usage_counter/{user_id}`ではなく
+`user_profile/{user_id}`(user_id_linking.pyの`UserProfile`)に変更した。本venture固有の
+事情として、`UserProfileStoreProtocol`が既にtrial-end-scheduler-design.md向けの
+`trial_end_notified_at`・`upgraded_at`という同種の「一度だけ書き込む」フィールドを
+直接保持する設計を採用済み(フェーズ134)であり、`trial_start_at`だけを別ドキュメント
+(`usage_counter`)に切り離す理由が無いと判断したため。`first_generation_notice_sent`
+フィールドの新設も同じ理由で見送り、`trial_start_at is None`をそのままセルフチェック
+案内の要否判定に兼用している(first-generation-self-check-design.md「残課題」参照)。
+5節「今後の課題」1点目のとおり書き込みロジック自体はフェーズ136で実装済み。
+
 ## 4. pricing-plan.md・trial-end-notification-design.mdへの反映
 
 - pricing-plan.md「無料トライアル条件(仮)」の「期間: 導入から14日間」を、「期間: 初回の
@@ -68,8 +79,10 @@ usage_counter/{user_id}
 
 ## 5. 今後の課題
 
-- `trial_start_at`の実書き込みロジック(`InMemoryUsageCounter`相当の実装・テスト)は
-  次回以降の実装フェーズで行う。
+- (解消済み 2026-08-28 03:00 UTC・フェーズ136: `trial_start_at`の実書き込みロジックを
+  `cloud_function_webhook.py`の`process_memo_event()`に実装した。格納先は3節末尾の
+  「実装時の変更点」の通り`user_profile`に変更している。テスト5件追加、venture全体211件
+  全件パス。)
 - (B)期間到達判定用の日次スケジューラ本体は、line-reservation-ai/reminder-scheduler-design.md
   やcourse-set-pasha/trial-end-scheduler-design.mdを参考に別途設計する必要があり、引き続き
   未着手。
