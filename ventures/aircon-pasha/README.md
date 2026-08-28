@@ -1958,4 +1958,23 @@
   発生していないためpending-approval.mdへの追記なし。次回は猶予期間(7日)経過後に
   制限モードへ自動移行させるスケジューラ本体(`payment_suspended_at`への書き込み配線、
   payment-failure-reminder-scheduler-design.md「今後の課題」参照)への着手を検討する。
-- 最終更新: 2026-08-28 16:00 UTC
+- フェーズ145(2026-08-28 18:00 UTC): payment-failure-reminder-scheduler-design.md
+  「今後の課題」に残っていた、猶予期間(7日)経過後に制限モードへ自動移行させる
+  スケジューラ本体を実装した。trial_end_scheduler.py・payment_failure_reminder_
+  scheduler.pyと同じ全体構成(対象抽出→Flex Message送信→フラグ書き込み)を踏襲し、
+  新規モジュール`prototype/payment_suspension_scheduler.py`に
+  `select_due_payment_suspensions()`(`payment_failure_detected_at`から7日以上経過かつ
+  `payment_suspended_at`未設定のユーザーを抽出、「以上」の範囲条件で日次実行の遅延・
+  欠落に耐える設計は他スケジューラと同一)・`build_payment_suspension_flex_message()`・
+  `send_payment_suspensions()`を実装した。Push通知の本文はcloud_function_webhook.pyの
+  `PAYMENT_SUSPENDED_MESSAGE`(リプライ時に返す文言)をそのまま再利用し、プロアクティブな
+  制限モード移行通知とその後のリプライ案内とで文言が食い違わないようにした。書き込みは
+  Push送信成功後にのみ行う設計(失敗時は次回バッチで再試行、他スケジューラと同じ
+  「書き込み一発+自然な再試行」方式)とした。テスト12件追加、venture全体275件全件パス・
+  schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は発生していないためpending-approval.mdへの追記なし。
+  これでpayment-failure-dunning-design.md「残課題」に残っていたコード実装系のタスクは
+  一通り実装済みとなった(残るのは実Cloud Scheduler・LINE Push Message API接続等、
+  オーナー承認待ちのインフラ構築のみ)。次回は他venture(line-reservation-ai・
+  course-set-pasha)の状況も踏まえ、本ventureで未着手の領域への着手を検討する。
+- 最終更新: 2026-08-28 18:00 UTC

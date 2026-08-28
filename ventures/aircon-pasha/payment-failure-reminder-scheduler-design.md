@@ -97,11 +97,17 @@ trial_end_scheduler.pyのbuild_trial_end_notification_flex_message()と同じく
 
 ## 6. 今後の課題
 
-- 猶予期間(7日)経過後に制限モードへ自動移行させるスケジューラ本体
+- ~~猶予期間(7日)経過後に制限モードへ自動移行させるスケジューラ本体
   (`payment_suspended_at`への書き込み配線、payment-failure-dunning-design.md 6節に
   残る別の残課題)は本ドキュメントの対象外。実装時は本モジュールと同じ抽出パターン
   (`now - payment_failure_detected_at >= timedelta(days=7)`かつ`payment_suspended_at
-  is None`)を使い、同じ日次ジョブ内で本モジュールの後に実行する構成を想定する。
+  is None`)を使い、同じ日次ジョブ内で本モジュールの後に実行する構成を想定する。~~ →
+  フェーズ145で対応済み。`prototype/payment_suspension_scheduler.py`に
+  `select_due_payment_suspensions()`(本モジュールと同じ抽出パターン)・
+  `build_payment_suspension_flex_message()`(本文はcloud_function_webhook.pyの
+  `PAYMENT_SUSPENDED_MESSAGE`をそのまま再利用し、Push通知とリプライ時の案内文言を
+  一致させた)・`send_payment_suspensions()`を実装した。テスト12件追加、venture全体
+  275件全件パス・schema検証9件パスを確認した。
 - design 4節末尾で触れた「猶予期間中に決済が成功した場合の復旧通知の3分岐」の文言出し分けは
   引き続き次回以降の課題として残る。
 - 実際のCloud Scheduler実行環境の構築・LINE Push Message API接続は、trial-end-

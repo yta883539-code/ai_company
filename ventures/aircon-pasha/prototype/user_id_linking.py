@@ -147,9 +147,9 @@ class UserProfile:
     `mark_payment_failure_detected()`/`clear_payment_failure_on_success()`により
     Stripe Webhook(`invoice.payment_failed`/`invoice.payment_succeeded`)受信のたびに
     書き換わる。`payment_suspended_at`は猶予期間(7日)終了後に制限モードへ移行した日時を
-    記録する想定だが、その自動移行を行うスケジューラ自体はdesign 6節のとおり未実装のため、
-    本フェーズ時点では`set_payment_suspended_at()`を呼ぶ経路がまだ存在しない(次回以降の
-    課題)。
+    記録する。その自動移行を行うスケジューラ`payment_suspension_scheduler.py`の
+    `send_payment_suspensions()`がフェーズ145で追加され、`set_payment_suspended_at()`を
+    呼ぶ経路が実装済みとなった。
 
     `payment_failure_reminder_sent_at`はpayment-failure-reminder-scheduler-design.md
     (フェーズ143)で追加した、猶予期間終了直前リマインド(3日前、1回のみ)の送信済み
