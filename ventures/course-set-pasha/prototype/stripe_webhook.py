@@ -95,6 +95,8 @@ _HANDLED_EVENT_TYPES = frozenset(
         "customer.subscription.deleted",
         "customer.subscription.created",
         "customer.subscription.updated",
+        "invoice.payment_failed",
+        "invoice.payment_succeeded",
     }
 )
 
@@ -110,6 +112,25 @@ class StripeDispatchResult:
     ignored_types: list = field(default_factory=list)
     unresolved_customers: list = field(default_factory=list)
     invalid_events: list = field(default_factory=list)
+    # payment-failure-dunning-design.md(フェーズ117)6節対応、フェーズ119で追加。
+    payment_failure_detected_user_ids: list = field(default_factory=list)
+    payment_recovered_user_ids: list = field(default_factory=list)
+
+
+class PaymentFailureUsageCounterProtocol(Protocol):
+    """`UsageCounterProtocol`(cloud_function_webhook.py)のうち、`invoice.payment_failed`/
+    `invoice.payment_succeeded`受信時に必要な2メソッドのみを切り出した薄いインターフェース。
+    `UpgradedAtWriterProtocol`と同じ理由(このファイル冒頭の位置づけ説明どおり構造的部分型付けで
+    独立性を保つ)で新設した。"""
+
+    def set_payment_failure_detected_at(self, user_id: str, detected_at: datetime) -> None:
+        ...
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def clear_payment_failure_detected_at(self, user_id: str) -> None:
+        ...
 
 
 def dispatch_stripe_event(
@@ -117,10 +138,17 @@ def dispatch_stripe_event(
     *,
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """stripe-webhook-event-dispatch-design.md 1節のとおり、Stripe Webhookイベント1件を
     種別に応じて`prototype/deletion_candidate.py`の関数へ振り分ける。
+
+    `usage_counter`はpayment-failure-dunning-design.md(フェーズ117)6節対応
+    (フェーズ119で追加)。`invoice.payment_failed`/`invoice.payment_succeeded`受信時のみ
+    参照し、未指定(`None`)の場合はこれら2種別を`ignored_types`として扱う(既存の
+    `customer.subscription.*`専用の呼び出し経路に影響を与えないための後方互換措置、
+    aircon-pashaのstripe_dispatch.py`payment_store`引数と同じ方針)。
     """
     result = StripeDispatchResult()
 
@@ -152,11 +180,35 @@ def dispatch_stripe_event(
         result.cleared_user_ids.append(user_id)
         return result
 
-    # customer.subscription.updated: active/trialing 以外への変化は対象外(design 1節5.)。
-    # 記録すべき異常があるわけではないので、result には何も追加せず終える。
-    if data_object.get("status") in _REACTIVATED_STATUSES:
-        clear_deletion_candidate_on_subscription_reactivated(store, user_id)
-        result.cleared_user_ids.append(user_id)
+    if event_type == "customer.subscription.updated":
+        # active/trialing 以外への変化は対象外(design 1節5.)。
+        # 記録すべき異常があるわけではないので、result には何も追加せず終える。
+        if data_object.get("status") in _REACTIVATED_STATUSES:
+            clear_deletion_candidate_on_subscription_reactivated(store, user_id)
+            result.cleared_user_ids.append(user_id)
+        return result
+
+    if usage_counter is None:
+        result.ignored_types.append(event_type)
+        return result
+
+    if event_type == "invoice.payment_failed":
+        created = event.get("created")
+        if not isinstance(created, (int, float)) or isinstance(created, bool):
+            result.invalid_events.append(event_type)
+            return result
+        event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+        usage_counter.set_payment_failure_detected_at(user_id, event_time)
+        result.payment_failure_detected_user_ids.append(user_id)
+        return result
+
+    # invoice.payment_succeeded: design 4節「決済成功による復旧時」。
+    # payment-failure-dunning-design.mdはaircon-pashaと異なり別立ての`payment_suspended_at`を
+    # 持たない設計(制限モードは検知時刻+猶予日数から都度算出、フェーズ118)のため、
+    # クリア対象は`payment_failure_detected_at`のみでよい。
+    if usage_counter.get_payment_failure_detected_at(user_id) is not None:
+        usage_counter.clear_payment_failure_detected_at(user_id)
+        result.payment_recovered_user_ids.append(user_id)
 
     return result
 
@@ -278,6 +330,12 @@ def receive_stripe_webhook(
     - それ以外のイベント種別はこれまで通りdispatch_stripe_event()にそのまま委譲し200を
       返す。resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、
       Stripe側の再送ループを避けるためリクエスト自体は200(受理)として扱う。
+      `invoice.payment_failed`/`invoice.payment_succeeded`(payment-failure-dunning-
+      design.md 6節対応、フェーズ119)もこの経路でdispatch_stripe_event()へ`usage_counter`
+      ごと委譲する。`usage_counter`はUpgradedAtWriterProtocolとして型注釈しているが、
+      dispatch_stripe_event()側ではPaymentFailureUsageCounterProtocol(set_payment_
+      failure_detected_at等)としても参照される。InMemoryUsageCounterは両方のメソッド群を
+      実装しており、構造的部分型付け上どちらのProtocolも満たすため実害はない。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -309,7 +367,11 @@ def receive_stripe_webhook(
         )
 
     dispatch_result = dispatch_stripe_event(
-        parsed, store=store, resolve_user_id=resolve_user_id, now=resolved_now
+        parsed,
+        store=store,
+        resolve_user_id=resolve_user_id,
+        usage_counter=usage_counter,
+        now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 

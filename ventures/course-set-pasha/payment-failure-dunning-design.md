@@ -161,16 +161,15 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
   `PAYMENT_SUSPENDED_MESSAGE`を返す分岐として配線した。テスト7件追加、
   venture全体334件全件パス・schema検証9件パスを確認した。次点はStripe側の
   実際のイベント受信配線〈下記2点目〉)
-- 本venture未着手のStripe Webhookイベントディスパッチ機構(aircon-pasha/line-reservation-ai
-  の`stripe_dispatch.py`相当)への`invoice.payment_failed`・`invoice.payment_succeeded`
-  イベント種別対応。フェーズ118で`dispatch_stripe_event()`(`stripe_webhook.py`)の
-  実装状況を確認したところ、`_HANDLED_EVENT_TYPES`は`customer.subscription.deleted`/
-  `created`/`updated`の3種別のみで(`checkout.session.completed`は別経路の
-  `receive_stripe_webhook()`が処理)、「`resolve_user_id`止まり」という当時の記述はやや
-  不正確だったが(ディスパッチ機構自体は既に存在する)、`invoice.payment_failed`・
-  `invoice.payment_succeeded`の2種別が未対応という結論自体は正しかった。この2種別への
-  対応(受信時に`set_payment_failure_detected_at()`/`clear_payment_failure_detected_at()`を
-  呼ぶハンドラの追加)は次回以降の課題として残す。
+- (解消済み 2026-08-28 14:00 UTC・フェーズ119: Stripe Webhookイベントディスパッチ機構
+  (`stripe_webhook.py`の`dispatch_stripe_event()`)へ`invoice.payment_failed`・
+  `invoice.payment_succeeded`の2イベント種別ハンドラを追加した。`usage_counter`引数
+  (未指定時は`ignored_types`扱いの後方互換オプトイン、aircon-pashaの`payment_store`引数と
+  同じ方針)を新設し、`invoice.payment_failed`受信時は`set_payment_failure_detected_at()`、
+  `invoice.payment_succeeded`受信時は`get_payment_failure_detected_at()`が非nullの
+  場合のみ`clear_payment_failure_detected_at()`を呼ぶ設計とした。`receive_stripe_
+  webhook()`からも`usage_counter`を委譲するよう配線済み。テスト9件追加、venture全体
+  343件全件パス・schema検証9件パスを確認した)
 - (解消済み 2026-08-28 10:00 UTC・フェーズ118: `_is_generation_paused()`本体は変更せず、
   同じ設計思想の`_is_payment_suspended()`を別関数として新設する形で判定条件を追加した
   〈両者は「既に有料転換済みか否か」で前提条件が排他的なため、1つの関数に統合するより

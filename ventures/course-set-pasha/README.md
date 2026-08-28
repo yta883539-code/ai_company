@@ -1341,14 +1341,34 @@
   テスト7件追加、venture全体334件全件パス・schema検証9件パスを確認した。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-28 10:00 UTC
+- フェーズ119(2026-08-28 14:00 UTC): フェーズ118の申し送りだった、Stripe Webhook
+  イベントディスパッチ機構(`stripe_webhook.py`の`dispatch_stripe_event()`)への
+  `invoice.payment_failed`・`invoice.payment_succeeded`ハンドラ追加に対応した。
+  `_HANDLED_EVENT_TYPES`に2種別を追加し、aircon-pashaの`stripe_dispatch.py`
+  (`payment_store`引数によるオプトイン方式)と同じ設計思想で`usage_counter`引数
+  (未指定時は`ignored_types`扱いとする後方互換)を新設した。本ventureは
+  `UsageCounterProtocol`に`payment_suspended_at`のような別立てフラグを持たない設計
+  (フェーズ118で確定済み)のため、`invoice.payment_failed`受信時は
+  `set_payment_failure_detected_at()`を呼ぶのみ、`invoice.payment_succeeded`受信時は
+  `get_payment_failure_detected_at()`が非nullの場合のみ`clear_payment_failure_
+  detected_at()`を呼ぶ(何も設定されていない場合は`payment_recovered_user_ids`に
+  追加しない冪等設計)、という薄い実装にとどめた。`receive_stripe_webhook()`から
+  `usage_counter`を`dispatch_stripe_event()`へも渡すよう配線し、
+  `PaymentFailureUsageCounterProtocol`という薄いProtocolを新設して既存の
+  `UpgradedAtWriterProtocol`と同じ「構造的部分型付けによる独立性」の方針を踏襲した。
+  テスト9件新規追加(既存334件と合わせて343件、全件パス)、schema検証9件も引き続き
+  パス確認済み。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-28 14:00 UTC
 
 ## 次にやること(候補)
 
-- フェーズ118の申し送り通り、Stripe Webhookイベントディスパッチ機構
-  (`dispatch_stripe_event()`)へ`invoice.payment_failed`・`invoice.payment_succeeded`の
-  2イベント種別を追加し、`set_payment_failure_detected_at()`/
-  `clear_payment_failure_detected_at()`を呼ぶハンドラを実装する。
+- (解消済み 2026-08-28 14:00 UTC: Stripe Webhookイベントディスパッチ機構への
+  `invoice.payment_failed`・`invoice.payment_succeeded`ハンドラ追加はフェーズ119で
+  対応した。詳細は上記フェーズ119参照)
+- payment-failure-dunning-design.md 5節で残っていたStripe Customer Portal
+  (支払い方法更新用URL発行)の要否・実装方式の検討、および猶予期間終了直前リマインドを
+  送信するスケジューラの設計は引き続き未着手。
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。

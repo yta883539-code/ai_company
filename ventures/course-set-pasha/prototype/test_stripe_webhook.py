@@ -215,6 +215,168 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.marked_user_ids, [])
 
 
+class DispatchInvoicePaymentFailedTest(unittest.TestCase):
+    """payment-failure-dunning-design.md 6節・フェーズ119対応。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def test_marks_payment_failure_detected_when_customer_resolves(self):
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, ["user_1"])
+        self.assertEqual(
+            self.usage_counter.get_payment_failure_detected_at("user_1"),
+            datetime.fromtimestamp(1_700_000_000, tz=timezone.utc),
+        )
+
+    def test_invalid_event_when_created_missing(self):
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.invalid_events, ["invoice.payment_failed"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_ignored_when_usage_counter_not_provided(self):
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.ignored_types, ["invoice.payment_failed"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+
+    def test_unresolved_customer_is_recorded_and_no_write_happens(self):
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_unknown"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.unresolved_customers, ["cus_unknown"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+
+
+class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
+    """payment-failure-dunning-design.md 6節・フェーズ119対応。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def test_clears_payment_failure_detected_at(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_idempotent_when_nothing_was_set(self):
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+
+    def test_ignored_when_usage_counter_not_provided(self):
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.ignored_types, ["invoice.payment_succeeded"])
+        self.assertEqual(result.payment_recovered_user_ids, [])
+
+
+class ReceiveStripeWebhookInvoicePaymentEventsTest(unittest.TestCase):
+    """receive_stripe_webhook()がinvoice.payment_failed/succeededをusage_counterごと
+    dispatch_stripe_event()へ委譲することを確認する(フェーズ119)。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def _send(self, body: bytes):
+        timestamp = int(NOW)
+        header = _header(body, SECRET, timestamp)
+        return receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            now=datetime.fromtimestamp(NOW, tz=timezone.utc),
+        )
+
+    def test_payment_failed_event_marks_detected_at(self):
+        body = (
+            b'{"id":"evt_1","type":"invoice.payment_failed","created":1700000000,'
+            b'"data":{"object":{"customer":"cus_A"}}}'
+        )
+        result = self._send(body)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.payment_failure_detected_user_ids, ["user_1"])
+        self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_payment_succeeded_event_clears_detected_at(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        body = (
+            b'{"id":"evt_2","type":"invoice.payment_succeeded",'
+            b'"data":{"object":{"customer":"cus_A"}}}'
+        )
+        result = self._send(body)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.payment_recovered_user_ids, ["user_1"])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+
 class ReceiveStripeWebhookTest(unittest.TestCase):
     """stripe-webhook-http-entry-point-design.md 2節。LINE版ReceiveWebhookTestと対称。"""
 
