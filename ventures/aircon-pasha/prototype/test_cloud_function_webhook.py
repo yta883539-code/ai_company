@@ -33,6 +33,7 @@ from cloud_function_webhook import (  # noqa: E402
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     SELF_CHECK_NOTICE_TEXT,
+    TRIAL_GENERATION_LIMIT,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryApplicationFormLinkProvider,
     InMemoryCheckoutSessionClient,
@@ -40,11 +41,13 @@ from cloud_function_webhook import (  # noqa: E402
     InMemoryReplyClient,
     InMemoryUsageCounter,
     LlmApiError,
+    QuickReplyButton,
     ReplyApiError,
     build_usage_notice,
     dispatch_webhook_events,
     format_checkout_reply_message,
     format_reply_text,
+    format_trial_end_condition_a_notice,
     format_welcome_message,
     get_runtime_dependencies,
     main,
@@ -60,6 +63,7 @@ from cloud_function_webhook import (  # noqa: E402
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA  # noqa: E402
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
+from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
 from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
     InMemoryUserProfileStore,
@@ -566,6 +570,102 @@ class ProcessMemoEventFirstGenerationSelfCheckTest(unittest.TestCase):
         )
 
         self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+
+
+class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
+    """process_memo_event()への条件A(生成回数10回到達)トライアル終了通知
+    (trial-end-condition-a-cta-design.md)統合の検証。"""
+
+    def _profile_store(self, **profile_kwargs):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                **profile_kwargs,
+            ),
+        )
+        return profile_store
+
+    def test_tenth_generation_appends_notice_and_attaches_quick_reply(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(trial_generation_count=TRIAL_GENERATION_LIMIT - 1)
+        now = datetime(2026, 8, 28, 3, 0, tzinfo=timezone.utc)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store, now=now,
+        )
+
+        self.assertIn(
+            format_trial_end_condition_a_notice(TRIAL_GENERATION_LIMIT), result.reply_text
+        )
+        self.assertEqual(
+            reply_client.quick_replies_sent[-1],
+            QuickReplyButton(
+                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
+            ),
+        )
+        self.assertEqual(profile_store.get("u-1").trial_end_notified_at, now)
+
+    def test_ninth_generation_does_not_trigger_notice(self):
+        profile_store = self._profile_store(trial_generation_count=TRIAL_GENERATION_LIMIT - 2)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertNotIn("無料トライアル", result.reply_text)
+        self.assertEqual(reply_client.quick_replies_sent[-1], None)
+        self.assertIsNone(profile_store.get("u-1").trial_end_notified_at)
+        self.assertEqual(profile_store.get("u-1").trial_generation_count, TRIAL_GENERATION_LIMIT - 1)
+
+    def test_no_double_send_when_already_notified_by_condition_b(self):
+        from datetime import datetime, timezone
+
+        already_notified_at = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        profile_store = self._profile_store(
+            trial_generation_count=TRIAL_GENERATION_LIMIT - 1,
+            trial_end_notified_at=already_notified_at,
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertNotIn("無料トライアル", result.reply_text)
+        self.assertEqual(reply_client.quick_replies_sent[-1], None)
+        self.assertEqual(profile_store.get("u-1").trial_end_notified_at, already_notified_at)
+
+    def test_no_counting_or_notice_after_upgrade(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            trial_generation_count=TRIAL_GENERATION_LIMIT - 1,
+            upgraded_at=datetime(2026, 8, 25, tzinfo=timezone.utc),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertNotIn("無料トライアル", result.reply_text)
+        self.assertEqual(reply_client.quick_replies_sent[-1], None)
+        self.assertEqual(
+            profile_store.get("u-1").trial_generation_count, TRIAL_GENERATION_LIMIT - 1
+        )
 
 
 class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):

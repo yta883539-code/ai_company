@@ -21,6 +21,30 @@
 
 ## ステータス
 
+- フェーズ137(2026-08-28 04:00 UTC): フェーズ136の申し送り「`trial_generation_count`の
+  実集計配線」に対応した(trial-end-condition-a-cta-design.md新規作成)。`user_id_linking.py`の
+  `UserProfile`に`trial_generation_count`フィールド(既定値0)、
+  `UserProfileStoreProtocol.increment_trial_generation_count()`を追加し、
+  `process_memo_event()`のstatus=="generated"かつ`upgraded_at`未設定(有料転換前)の経路で
+  毎回インクリメントするよう配線した。インクリメント後の値がTRIAL_GENERATION_LIMIT(10、
+  pricing-plan.mdの「生成10回到達」と一致)ちょうど、かつ`trial_end_notified_at`未設定
+  (=(B)期間到達側の日次スケジューラでまだ未通知)の場合のみ、トライアル終了通知文
+  (format_trial_end_condition_a_notice())を返信本文に追記し`set_trial_end_notified_at()`を
+  書き込む(course-set-pashaのフェーズ113相当)。本venture固有の課題として、CTA(有料プラン
+  へ進む)がLIFF URLではなくpostbackボタンのため、Reply APIへの返信本文への便乗だけでは
+  ボタンを表現できない点への対応が必要だった。検討の結果、LINE Messaging APIのquickReply
+  機能(テキストメッセージにも添付できるボタン領域)を採用し、`ReplyClient.reply()`に
+  `quick_reply: Optional[QuickReplyButton] = None`(キーワード専用引数、既定None)を追加、
+  `_reply_with_retry()`はquick_replyがNoneのときはキーワード引数自体を渡さないことで、
+  既存の2引数シグネチャのみのテスト用スタブ・呼び出し元を一切変更せずに済ませた。
+  `InMemoryReplyClient.sent`の既存タプル形式も変更せず、quick_replyは別属性
+  `quick_replies_sent`に記録する形にした。テスト4件追加
+  (`ProcessMemoEventTrialEndConditionATest`)、venture全体215件全件パス、
+  schema/validate_test_cases.pyも9件全件パスを確認した。設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は発生していないためpending-approval.mdへの
+  追記なし。次回は引き続き対象外としたトライアル終了後(未アップグレード)の「生成一時停止」
+  (trial-end-notification-design.md 4節、course-set-pashaのフェーズ114相当)の実装を
+  優先候補とする。
 - フェーズ136(2026-08-28 03:00 UTC): first-generation-self-check-design.md「残課題」
   1点目(初回生成時セルフチェック案内の実配線)に対応した。`cloud_function_webhook.py`の
   `process_memo_event()`に`profile_store`・`now`引数を追加し、status=="generated"かつ
@@ -1808,4 +1832,4 @@
   引き続き`stripe_customer_id → user_id`の逆引きが必要である点を整理した。
   data-retention-policy.md「今後の課題」にも解消済みの旨を追記した。実Stripe Webhook
   受信口の設計・`prototype/`への実装はいずれも未着手のまま次回以降の課題として残る。
-- 最終更新: 2026-08-28 03:00 UTC
+- 最終更新: 2026-08-28 04:00 UTC

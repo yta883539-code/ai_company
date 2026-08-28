@@ -135,7 +135,11 @@ class UserProfile:
     予告されていた3フィールド(フェーズ134で追加)。course-set-pashaの
     `InMemoryUsageCounter`/`user_profile`設計と同じ位置づけで、いずれも一度設定されたら
     以降不変(`trial_start_at`は初回生成成功時、`trial_end_notified_at`は
-    トライアル終了通知送信時、`upgraded_at`は有料転換時にそれぞれ1回だけ書き込む)。"""
+    トライアル終了通知送信時、`upgraded_at`は有料転換時にそれぞれ1回だけ書き込む)。
+    `trial_generation_count`はtrial-end-notification-design.md 5節で予告されていた
+    トライアル専用生成回数カウンタ(フェーズ137で追加)。月次カウンタ(`usage_counter`)とは
+    別立てで、有料転換前(`upgraded_at`が未設定)の生成成功のたびに1ずつ増える
+    (`trial_start_at`等と異なり不変フィールドではない)。"""
 
     business_name: str
     business_type: str
@@ -146,6 +150,7 @@ class UserProfile:
     trial_start_at: Optional[datetime] = None
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
+    trial_generation_count: int = 0
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -164,7 +169,12 @@ class UserProfileStoreProtocol(Protocol):
     `set_trial_start_at`/`set_trial_end_notified_at`/`set_upgraded_at`は
     trial-end-scheduler-design.md(フェーズ133)向けにフェーズ134で追加した3フィールドの
     書き込み専用メソッド(いずれも未知の`user_id`に対しては何もしない、
-    `set_stripe_customer_id`と同じno-op方針)。"""
+    `set_stripe_customer_id`と同じno-op方針)。
+
+    `increment_trial_generation_count`はフェーズ137で追加した、トライアル専用生成回数
+    カウンタのインクリメント専用メソッド(course-set-pashaの
+    `increment_trial_generation_count`と同じ位置づけ)。未知の`user_id`に対しては
+    何もせず0を返す(他のno-opメソッドと同じ安全側方針)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -190,6 +200,10 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_upgraded_at(self, user_id: str, at: datetime) -> None:
+        ...
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        """インクリメント後のカウント値を返す契約とする。"""
         ...
 
 
@@ -246,6 +260,13 @@ class InMemoryUserProfileStore:
         if profile is None:
             return
         profile.upgraded_at = at
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return 0
+        profile.trial_generation_count += 1
+        return profile.trial_generation_count
 
 
 @dataclass

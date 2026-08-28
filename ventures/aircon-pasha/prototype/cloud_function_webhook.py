@@ -41,6 +41,7 @@ from checkout_session import (  # noqa: E402
     build_checkout_session_params,
 )
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
+from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     UserProfileStoreProtocol,
@@ -81,20 +82,58 @@ class LlmCallClient(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class QuickReplyButton:
+    """テキスト返信に添付するpostbackボタン1個分(trial-end-condition-a-cta-design.md)。
+
+    本ventureのCTA(有料プランへ進む)はLIFF URLのようなプレーンテキストリンクではなく
+    postbackアクションでのみ実現できる(checkout-initiation-flow-design.md)ため、
+    条件A(生成回数到達、process_memo_event()内での返信便乗)ではLINE Messaging APIの
+    quickReply機能(どのメッセージタイプにも添付できる、Flex Message化は不要)で
+    ボタンを添える。postback_dataはtrial_end_scheduler.build_trial_end_notification_
+    flex_message()と同じSTART_CHECKOUT_POSTBACK_DATAを再利用し、process_postback_event()
+    側の処理を変更しない。"""
+
+    label: str
+    postback_data: str
+
+
 class ReplyClient(Protocol):
-    def reply(self, reply_token: str, message_text: str) -> None:
-        """呼び出し自体が失敗した場合はReplyApiErrorを送出する契約とする。"""
+    def reply(
+        self,
+        reply_token: str,
+        message_text: str,
+        *,
+        quick_reply: Optional[QuickReplyButton] = None,
+    ) -> None:
+        """呼び出し自体が失敗した場合はReplyApiErrorを送出する契約とする。
+
+        quick_replyが渡された場合、実装側はLINE Messaging APIのテキストメッセージ
+        オブジェクトに`quickReply.items`として1ボタンのpostbackアクションを追加する
+        想定(既存呼び出し元との後方互換のためキーワード専用引数・デフォルトNone)。"""
         ...
 
 
 class InMemoryReplyClient:
-    """実LINE API/フォーム通知接続の代わりに送信内容を記録するだけの検証用クライアント。"""
+    """実LINE API/フォーム通知接続の代わりに送信内容を記録するだけの検証用クライアント。
+
+    `sent`は既存呼び出し元・既存テストとの後方互換のため`(reply_token, message_text)`の
+    2要素タプルのまま変更しない。quick_replyは`quick_replies_sent`(indexが`sent`と対応)に
+    別途記録する(未指定時はNoneを記録)。"""
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, str]] = []
+        self.quick_replies_sent: list[Optional[QuickReplyButton]] = []
 
-    def reply(self, reply_token: str, message_text: str) -> None:
+    def reply(
+        self,
+        reply_token: str,
+        message_text: str,
+        *,
+        quick_reply: Optional[QuickReplyButton] = None,
+    ) -> None:
         self.sent.append((reply_token, message_text))
+        self.quick_replies_sent.append(quick_reply)
 
 
 class CheckoutSessionClient(Protocol):
@@ -391,6 +430,32 @@ SELF_CHECK_NOTICE_TEXT = (
     "あわせてご確認いただくと安心です。問題がなければ今後この案内はありません。"
 )
 
+# trial-end-notification-design.md 2節(A): 生成回数10回到達で無料トライアル終了通知を送る
+# (pricing-plan.md「無料トライアル条件(仮)」の「生成10回到達」と一致)。
+TRIAL_GENERATION_LIMIT = 10
+
+# trial-end-condition-a-cta-design.md: (B)期間到達側(trial_end_scheduler.py内の
+# build_trial_end_notification_flex_message)と本文の骨子は揃えつつ、こちらは
+# process_memo_event()の返信本文への便乗(プレーンテキスト)のため、CTAボタンの説明のみ
+# 「下のボタン」という共通の言い回しにとどめ、実際のボタンはquick_replyとして別途添付する
+# (本文中にURLやpostbackデータそのものを埋め込まない)。
+TRIAL_END_CONDITION_A_NOTICE_TEMPLATE = (
+    "[エアコンパシャッと] 14日間の無料トライアル、お疲れさまでした!\n\n"
+    "これまでの生成実績:\n"
+    "・作業完了報告・お手入れ案内の生成: {generation_count}回\n\n"
+    "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。"
+    "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。"
+)
+
+
+def format_trial_end_condition_a_notice(generation_count: int) -> str:
+    """条件A(生成回数到達)用のトライアル終了通知文を組み立てる。
+
+    trial-end-notification-design.md 3節の文面と、trial_end_scheduler.build_trial_end_
+    notification_flex_message()(条件B・Push Message側)の本文を揃える(「回数到達だから」
+    「期間到達だから」で文言を分けない、design 3節の判断を踏襲)。"""
+    return TRIAL_END_CONDITION_A_NOTICE_TEMPLATE.format(generation_count=generation_count)
+
 
 def _is_length_limit_error(errors: list[str]) -> bool:
     """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
@@ -516,19 +581,31 @@ def _generate_with_api_retry(
         return llm_call.generate(memo_text, retry_context=retry_context)
 
 
-def _reply_with_retry(reply_client: ReplyClient, reply_token: str, message_text: str) -> bool:
+def _reply_with_retry(
+    reply_client: ReplyClient,
+    reply_token: str,
+    message_text: str,
+    *,
+    quick_reply: Optional[QuickReplyButton] = None,
+) -> bool:
     """Reply API呼び出し自体の失敗(ReplyApiError)に対し、即時1回のみリトライする
     (api-call-failure-handling.md方針2)。reply_tokenは1回限り有効なため、2回とも
     失敗した場合はPush API等の代替送達手段を持たず(tech-stack.mdの方針)、これ以上は
     何もできない。呼び出し元がreply_sent=Falseとして結果を扱えるようboolを返す
-    (例外は外へ伝播させない)。"""
+    (例外は外へ伝播させない)。
+
+    quick_replyは指定された場合のみreply_client.reply()へキーワード引数として渡す
+    (Noneのときは渡さない)。既存の呼び出し元・テスト用スタブの多くは
+    `reply(self, reply_token, message_text)`という2引数シグネチャのままのため、
+    quick_reply未使用の既存経路を一切変更しないための後方互換措置。"""
+    kwargs = {"quick_reply": quick_reply} if quick_reply is not None else {}
     try:
-        reply_client.reply(reply_token, message_text)
+        reply_client.reply(reply_token, message_text, **kwargs)
         return True
     except ReplyApiError:
         pass
     try:
-        reply_client.reply(reply_token, message_text)
+        reply_client.reply(reply_token, message_text, **kwargs)
         return True
     except ReplyApiError:
         return False
@@ -579,6 +656,20 @@ def process_memo_event(
        で書き込む。profile_storeがNone、または対応するuser_profileが存在しない場合は
        スキップする(未連携user_idの通常メモ送信は本フローに到達しない前提だが、念のため
        安全側に倒す)。
+    6. profile_storeが渡され、かつstatus=="generated"、かつ`user_profile.upgraded_at`が
+       未設定(有料転換前)の場合、`profile_store.increment_trial_generation_count()`で
+       トライアル専用生成回数カウンタ(フェーズ137で追加)をインクリメントする
+       (trial-end-notification-design.md 2節(A))。インクリメント後の値が
+       TRIAL_GENERATION_LIMIT(10)ちょうど、かつ`trial_end_notified_at`が未設定
+       (=(B)期間到達側の日次スケジューラでまだ通知していない)の場合のみ、
+       format_trial_end_condition_a_notice()で組み立てたトライアル終了通知文を返信本文の
+       末尾に付記し、`profile_store.set_trial_end_notified_at()`で書き込む
+       (「いずれか早い方で1回のみ」を(A)(B)間で保つ、trial-end-condition-a-cta-design.md
+       参照)。本venture固有の対応として、CTA(有料プランへ進む)はLIFF URLのような
+       プレーンテキストリンクでは表現できないpostbackボタンのため、通知文中にはボタンを
+       埋め込まず、`_reply_with_retry()`へ`quick_reply=QuickReplyButton(...)`を渡して
+       LINE Messaging APIのquickReplyとして同じ返信メッセージに添付する(追加のPush API
+       呼び出し・課金を発生させない、trial-end-notification-design.md 2節(A)の方針を踏襲)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -626,28 +717,51 @@ def process_memo_event(
             validation_errors=errors, retried=retried,
         )
 
+    user_id = event.get("source", {}).get("userId")
     reply_text = format_reply_text(
-        instance,
-        portal_link_provider=portal_link_provider,
-        user_id=event.get("source", {}).get("userId"),
+        instance, portal_link_provider=portal_link_provider, user_id=user_id,
     )
     if instance["status"] == "generated" and usage_counter is not None and plan is not None:
-        user_id = event.get("source", {}).get("userId")
         if user_id:
             count = usage_counter.increment(user_id, month or current_month_jst())
             notice = build_usage_notice(plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
 
-    if instance["status"] == "generated" and profile_store is not None:
-        user_id = event.get("source", {}).get("userId")
-        profile = profile_store.get(user_id) if user_id else None
-        if profile is not None and profile.trial_start_at is None:
+    profile = profile_store.get(user_id) if profile_store is not None and user_id else None
+
+    if instance["status"] == "generated" and profile_store is not None and profile is not None:
+        if profile.trial_start_at is None:
             resolved_now = now if now is not None else datetime.now(timezone.utc)
             reply_text = f"{reply_text}\n\n{SELF_CHECK_NOTICE_TEXT}"
             profile_store.set_trial_start_at(user_id, resolved_now)
 
-    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    # trial-end-condition-a-cta-design.md: 生成回数10回到達(条件A)時、(B)期間到達側の
+    # 日次スケジューラを待たずこの返信に便乗させてトライアル終了通知を送る。有料転換済み
+    # (upgraded_at設定済み)なら対象外、既に((B)側等で)通知済みなら二重送信しない
+    # (trial-end-notification-design.md 2節「いずれか早い方で1回のみ」)。
+    quick_reply: Optional[QuickReplyButton] = None
+    if (
+        instance["status"] == "generated"
+        and profile_store is not None
+        and profile is not None
+        and profile.upgraded_at is None
+    ):
+        trial_generation_count = profile_store.increment_trial_generation_count(user_id)
+        if (
+            trial_generation_count == TRIAL_GENERATION_LIMIT
+            and profile.trial_end_notified_at is None
+        ):
+            resolved_now = now if now is not None else datetime.now(timezone.utc)
+            reply_text = (
+                f"{reply_text}\n\n{format_trial_end_condition_a_notice(trial_generation_count)}"
+            )
+            profile_store.set_trial_end_notified_at(user_id, resolved_now)
+            quick_reply = QuickReplyButton(
+                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
+            )
+
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text, quick_reply=quick_reply)
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
     )
