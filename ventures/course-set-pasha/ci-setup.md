@@ -36,3 +36,17 @@ resource_id: course-set-pasha-tests.yml)経由で、フェーズ29のコミッ�
 ## 今後の課題
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに
   追加するかを検討する。
+
+## 追記(2026-08-28 23:00 UTC): テストファイル列挙方式の陳腐化バグを修正
+上記「実施内容」1.でCI実行対象を`test_history_export test_post_generation_checks`と
+個別ファイル名で列挙する方式を採用していたが、prototype/配下に新規テストファイルが
+追加されるたび(test_checkout_session.py・test_stripe_webhook.py・
+test_trial_end_scheduler.py・test_user_id_linking.py等)ワークフローYAML側を都度
+更新しない限りCIに反映されず、実際には10本中2本(18件)しか実行されておらず
+残り8本・計340件がCI未実行のまま放置されていたことが判明した(line-reservation-ai/
+ci-setup.md追記も参照、同じ問題が同ventureのCIにも存在し同時に修正した)。
+aircon-pashaのCIが当初から採用していた`python3 -m unittest discover -p "test_*.py" -v`
+方式に統一した(`.github/workflows/course-set-pasha-tests.yml`)。ローカルで
+`python3 -m unittest discover -p "test_*.py" -v`を実行し、prototype/配下の
+テストファイル10本・計358件全件パスを確認した(schema/validate_test_cases.pyの
+6件は変更なし)。

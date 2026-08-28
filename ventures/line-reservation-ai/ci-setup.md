@@ -44,3 +44,19 @@ automated-test-suite.mdでprototype/engine.py等をunittest化して以降、動
   結合テスト・デプロイをこのワークフローに追加するかを検討する。
 - venture外(他のventureフォルダ)が増えた場合、ワークフロー名・pathsフィルタを
   venture単位で分割する運用を維持する。
+
+## 追記(2026-08-28 23:00 UTC): テストファイル列挙方式の陳腐化バグを修正
+上記「実施内容」1.でCI実行対象を`test_engine test_cloud_function_webhook
+test_cloud_function_process_event test_reminder_scheduler`と個別ファイル名で
+列挙する方式を採用していたが、prototype/配下に新規テストファイルが追加される
+たび(test_checkout_session.py・test_store_profile_store.py・
+test_trial_end_report_scheduler.py等、直近のフェーズで追加された分だけでも計10本)
+ワークフローYAML側を都度更新しない限りCIに反映されず、実際には14本中4本
+(345件中の一部)しか実行されていなかったことが判明した。aircon-pashaのCI
+(aircon-pasha-tests.yml)は当初から`python3 -m unittest discover -p "test_*.py" -v`
+方式を採用しておりこの問題が起きない設計だったため、同方式に統一した
+(`.github/workflows/line-reservation-ai-tests.yml`)。ローカルで
+`python3 -m unittest discover -p "test_*.py" -v`を実行し、prototype/配下の
+テストファイル14本・計345件全件パスを確認した(schema/validate_test_cases.pyの
+25件は変更なし)。同じ問題がcourse-set-pashaのCI(2本のみ列挙、実際は10本・358件)
+にも存在することを確認し、あわせて修正した(course-set-pasha/ci-setup.md参照)。

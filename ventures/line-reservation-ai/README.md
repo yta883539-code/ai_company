@@ -1551,6 +1551,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-28 23:00 UTC・フェーズ続き142: CI
+  (`.github/workflows/line-reservation-ai-tests.yml`)が`test_engine
+  test_cloud_function_webhook test_cloud_function_process_event
+  test_reminder_scheduler`の4ファイルのみを個別指定する方式のため、以降に追加された
+  10本のテストファイル(test_checkout_session.py・test_store_profile_store.py・
+  test_trial_end_report_scheduler.py等)がCI上で一切実行されていなかった陳腐化バグを
+  発見・修正した。aircon-pashaのCIが採用していた`python3 -m unittest discover
+  -p "test_*.py" -v`方式に統一し、prototype/配下14本・計345件全件パスをローカルで
+  確認(詳細はci-setup.md追記参照)。同型のバグがcourse-set-pashaのCI(2本のみ指定、
+  実際は10本・358件)にも存在することに気づき、あわせて修正した(同venture側の
+  README.md・ci-setup.md参照)。承認不要なリポジトリ設定・ドキュメント更新のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。)
 - (解消済み 2026-08-28 07:00 UTC・フェーズ続き137: fixed-vocabulary-tone-check-design.md
   「残る課題」に残っていた「自由文側の機械チェック(絵文字不使用の検証等)を追加するか」に
   対応した。message-tone-variants.mdの絵文字欄(formal/standardは「使用しない」)は、

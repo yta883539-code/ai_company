@@ -21,7 +21,7 @@ jobs:
       - name: Run unittest suite (prototype)
         working-directory: ventures/line-reservation-ai/prototype
         run: |
-          python3 -m unittest test_engine test_cloud_function_webhook test_cloud_function_process_event test_reminder_scheduler -v
+          python3 -m unittest discover -p "test_*.py" -v
       - name: Run schema validation (booking_output.schema.json)
         working-directory: ventures/line-reservation-ai/schema
         run: |

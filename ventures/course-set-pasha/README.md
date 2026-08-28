@@ -1377,6 +1377,16 @@
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-28 23:00 UTC: CI(`.github/workflows/course-set-pasha-tests.yml`)が
+  `test_history_export test_post_generation_checks`の2ファイルのみを個別指定する方式のため、
+  以降に追加された8本のテストファイル(test_checkout_session.py・test_stripe_webhook.py・
+  test_trial_end_scheduler.py・test_user_id_linking.py等、計340件)がCI上で一切実行されて
+  いなかった陳腐化バグを発見・修正した。aircon-pashaのCIが採用していた
+  `python3 -m unittest discover -p "test_*.py" -v`方式に統一し、prototype/配下10本・
+  計358件全件パスをローカルで確認(詳細はci-setup.md追記参照)。line-reservation-aiの
+  CIにも同型のバグがあることに気づき、あわせて修正した(同venture側のci-setup.md参照)。
+  承認不要なリポジトリ設定・ドキュメント更新のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-28 19:00 UTC: 猶予期間終了直前リマインドを送信するスケジューラの設計・
   実装はフェーズ120で対応した。詳細は上記フェーズ120参照)
 - (解消済み 2026-08-28 14:00 UTC: Stripe Webhookイベントディスパッチ機構への
