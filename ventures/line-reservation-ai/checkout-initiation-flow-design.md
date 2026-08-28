@@ -136,16 +136,29 @@ course-set-pasha/stripe-customer-id-linking-design.mdの`UserProfileStoreProtoco
 予定地)が`store`の型を意識せず`StoreProfileStoreProtocol`のみに依存できるようにした。
 テスト8件追加、venture全体337件全件パスを確認した。
 
+## 7. checkout.session.completed Webhookハンドラ実装(2026-08-28追記・続き)
+
+上記「残課題」にあった、`checkout.session.completed`イベント受信時に
+`store.set_stripe_customer_id()`を呼ぶWebhookハンドラ本体
+(course-set-pasha/stripe_webhook.pyの`handle_checkout_session_completed()`相当)を
+`prototype/store_profile_store.py`に実装した。course-set-pasha版と異なり、本ventureは
+upgraded_at相当のフィールドを持たない(有料転換の判定は
+`cloud_function_subscription_activated_webhook.py`がsuspension_reasonの書き換えで別途
+担当しており、書き込み対象・トリガーが既に別モジュールに分かれている)ため、
+`usage_counter`引数は持たせず、`client_reference_id`(user_id)・`customer`
+(stripe_customer_id)を取り出して`store.set_stripe_customer_id()`を呼ぶだけの薄い版とした。
+いずれかが欠落・非文字列・空文字列の場合は何も書き込まない安全側の設計はcourse-set-pasha版と
+同じ。テスト8件追加(欠落・空文字列・非文字列・Webhook再送での冪等性を含む)、venture全体
+345件全件パス・schema検証25件パスを確認した。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID
   確定)はオーナー承認待ち(pending-approval.mdに記録する)。
-- `resolve_existing_stripe_customer_id()`を実際に`build_checkout_session_params()`の
-  呼び出し前に配線するCheckout Session作成エンドポイント本体(Cloud Functions側)は未実装。
-  実Stripe API呼び出しと合わせて実アカウント接続後に着手する。
-- `checkout.session.completed`イベント受信時に`store.set_stripe_customer_id()`を呼ぶ
-  Webhookハンドラ(course-set-pasha/stripe_webhook.pyの
-  `handle_checkout_session_completed()`相当)は本ventureでは未実装。次の課題として残す。
+- `resolve_existing_stripe_customer_id()`・`handle_checkout_session_completed()`を実際に
+  Cloud Functions側のCheckout Session作成エンドポイント・Stripe Webhook受信エンドポイント
+  本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は未実装。実アカウント接続後に
+  着手する。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
 - 上記1(b)「オンボーディング完了メッセージへの常設セルフサービスリンク」の文言自体は
   未設計。次の課題として残す。

@@ -14,12 +14,20 @@
 - 実Firestore接続(GCPプロジェクト設定を伴う)はオーナー承認待ちのため、本モジュールは
   実HTTPリクエスト・実DB接続なしで検証可能な範囲(Protocol定義・InMemory実装・
   `build_checkout_session_params()`との結線ヘルパー)にとどめる。
+- `handle_checkout_session_completed()`(2026-08-28追記): checkout-initiation-flow-design.md
+  「残課題」に残っていた、`checkout.session.completed`イベント受信時に
+  `store.set_stripe_customer_id()`を呼ぶWebhookハンドラ本体
+  (course-set-pasha/stripe_webhook.pyの`handle_checkout_session_completed()`相当)。
+  本ventureはupgraded_at相当のフィールドを持たない(有料転換の判定は
+  cloud_function_subscription_activated_webhook.pyがsuspension_reasonの書き換えで別途
+  担当する)ため、`usage_counter`引数は持たせず、customer_idの紐付けのみを行う薄い版とする。
 
-設計の参照元: checkout-initiation-flow-design.md 3節、firestore-data-model.md 1節
+設計の参照元: checkout-initiation-flow-design.md 3節・残課題、firestore-data-model.md 1節
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional, Protocol
 
 
@@ -66,3 +74,41 @@ def resolve_existing_stripe_customer_id(
     if not user_id:
         raise ValueError("user_id must be a non-empty string")
     return store.get_stripe_customer_id(user_id)
+
+
+@dataclass
+class CheckoutSessionLinkResult:
+    """`handle_checkout_session_completed()`の結果
+    (checkout-initiation-flow-design.md 残課題)。"""
+
+    linked: bool
+    user_id: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+
+
+def handle_checkout_session_completed(
+    event: dict, store: StoreProfileStoreProtocol
+) -> CheckoutSessionLinkResult:
+    """`checkout.session.completed`イベントから`client_reference_id`(=user_id)と
+    `customer`(=stripe_customer_id)を取り出し、`store`に紐付けを書き込む
+    (course-set-pasha/stripe_webhook.pyの`handle_checkout_session_completed()`と同じ考え方)。
+    いずれかが欠落・非文字列・空文字列の場合は何も書き込まない(安全側。
+    `resolve_existing_stripe_customer_id()`が引き続きNoneを返すだけで実害はなく、次回の
+    Checkout Session作成では既存customerが無いものとして新規customerが作られるのみ)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    user_id = data_object.get("client_reference_id")
+    stripe_customer_id = data_object.get("customer")
+
+    if (
+        not isinstance(user_id, str)
+        or not user_id
+        or not isinstance(stripe_customer_id, str)
+        or not stripe_customer_id
+    ):
+        return CheckoutSessionLinkResult(linked=False)
+
+    store.set_stripe_customer_id(user_id, stripe_customer_id)
+    return CheckoutSessionLinkResult(
+        linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
+    )
