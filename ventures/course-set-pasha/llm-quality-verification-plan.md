@@ -70,3 +70,8 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
   CI1〜CI3(厳守事項7a関連、フェーズ54)が未反映だったドキュメント齟齬を発見・修正した。
   schema/validate_test_cases.pyの実装は全9件パス済みで変更なし、output-samples-validation.md
   側の記載を実装に合わせて更新したのみ)。
+- (解消済み 2026-08-28 06:00 UTC: 「検証結果の記録先」の準備として
+  llm-quality-verification-results-template.mdを新規作成した。aircon-pashaのフェーズ118の
+  同名ドキュメントと同じ考え方で、上表の検証観点(厳守事項1〜9・7a)・9ケース(G1〜G4・
+  OOS1・II1・CI1〜CI3)にあわせた空の記録表を用意した。詳細はcourse-set-pasha/README.md
+  該当フェーズ参照。実際の記入は実LLM接続の承認後)。

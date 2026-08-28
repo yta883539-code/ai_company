@@ -1294,7 +1294,20 @@
   追加(course-set-pasha配下327件パス・schema検証9件パス)。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-25 06:00 UTC
+- フェーズ116(2026-08-28 06:00 UTC): 直近3日間aircon-pashaへ作業が集中していたため、
+  course-set-pashaの棚卸しに戻り、llm-quality-verification-plan.md「残る未確定事項」に
+  対応した。aircon-pashaがフェーズ118で先行して作成したllm-quality-verification-results-
+  template.mdと同じ考え方をcourse-set-pashaに展開し、同名ドキュメントを新規作成した。
+  course-set-pasha固有の検証観点表(厳守事項1〜9・7a、aircon-pashaより1項目多い)・
+  9ケース(G1〜G4・OOS1・II1・CI1〜CI3)にあわせて記録表を分割し(G1〜G4共通観点、
+  G2固有の厳守事項2・3、複数エリア同時更新ケース固有の厳守事項6、OOS1・II1、
+  CI1〜CI3の4グループ)、厳守事項7a(解約意図検知)はaircon-pashaに存在しない
+  course-set-pasha固有の分岐であるためaircon-pasha側の記録と直接比較できない旨を
+  総合結果サマリ欄に明記した。llm-quality-verification-plan.mdにも解消済みの旨を追記した。
+  本ドキュメント自体はAPIキー取得・課金を伴わない空のテンプレートであり承認不要。次回は
+  他venture・アイデア領域の前進、または本venture内で実LLM・実Firestore・実LIFF登録待ち
+  (オーナー承認待ち)以外の残課題の棚卸しを優先候補とする。
+- 最終更新: 2026-08-28 06:00 UTC
 
 ## 次にやること(候補)
 
