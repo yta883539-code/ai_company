@@ -1323,14 +1323,32 @@
   `stripe_dispatch.py`相当への実装・Webhook配線はいずれも未着手のまま次回以降の課題として
   残した。承認不要な設計・ドキュメント作成のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-28 09:00 UTC
+- フェーズ118(2026-08-28 10:00 UTC): フェーズ117の申し送りだった
+  payment-failure-dunning-design.md「残課題」の実装着手として、`UsageCounterProtocol`へ
+  `get_payment_failure_detected_at()`/`set_payment_failure_detected_at()`/
+  `clear_payment_failure_detected_at()`を追加し`InMemoryUsageCounter`にも実装した。
+  制限モード(段階3)の判定は、design 6節が状態管理メソッドを3つしか挙げていなかった
+  意図を汲み、別立ての状態フラグを追加せず検知時刻+猶予日数(`PAYMENT_FAILURE_GRACE_
+  PERIOD_DAYS`=7日)から都度算出する`_is_payment_suspended()`として新設し(既存の
+  `_is_generation_paused()`は変更せず、前提条件が排他的な別関数として追加)、
+  `process_memo_event()`に`PAYMENT_SUSPENDED_MESSAGE`を返す分岐として配線した
+  (`MemoProcessResult`に`payment_suspended`フィールドを新設)。また申し送りにあった
+  「Stripe Webhookイベントディスパッチ機構が`resolve_user_id`止まり」という記述を
+  `stripe_webhook.py`で確認したところ、`dispatch_stripe_event()`自体は
+  `customer.subscription.*`3種別を既に処理しておりディスパッチ機構は存在するが、
+  `invoice.payment_failed`・`invoice.payment_succeeded`の2種別が未対応という結論は
+  正しかったと判明したため、payment-failure-dunning-design.md 6節に訂正を反映した。
+  テスト7件追加、venture全体334件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-28 10:00 UTC
 
 ## 次にやること(候補)
 
-- フェーズ117・payment-failure-dunning-design.md「残課題」の実装着手(`UsageCounterProtocol`への
-  状態管理メソッド追加、`_is_generation_paused()`の判定条件拡張、制限モード専用メッセージの
-  配線)。ただし本venture自体のStripe Webhookイベント種別ディスパッチ機構が`resolve_user_id`
-  止まりで未整備なため、先にそちらの棚卸し・整備を優先すべきか次回検討する。
+- フェーズ118の申し送り通り、Stripe Webhookイベントディスパッチ機構
+  (`dispatch_stripe_event()`)へ`invoice.payment_failed`・`invoice.payment_succeeded`の
+  2イベント種別を追加し、`set_payment_failure_detected_at()`/
+  `clear_payment_failure_detected_at()`を呼ぶハンドラを実装する。
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。

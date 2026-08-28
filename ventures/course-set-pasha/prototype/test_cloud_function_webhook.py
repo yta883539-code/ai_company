@@ -25,6 +25,8 @@ from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     APPLICATION_FORM_URL_PLACEHOLDER,
     GENERATION_PAUSED_MESSAGE,
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    PAYMENT_SUSPENDED_MESSAGE,
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
@@ -1036,6 +1038,110 @@ class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
         )
 
         self.assertFalse(result.generation_paused)
+
+
+class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
+    """process_memo_event()からの「決済失敗による制限モード」応答の検証
+    (payment-failure-dunning-design.md 3節・6節、README.mdフェーズ118)。"""
+
+    def test_suspended_when_grace_period_elapsed(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertTrue(result.payment_suspended)
+        self.assertEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
+        self.assertTrue(result.reply_sent)
+
+    def test_suspended_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+    def test_not_suspended_within_grace_period(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS - 1),
+        )
+
+        self.assertFalse(result.payment_suspended)
+        self.assertNotEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
+
+    def test_not_suspended_when_no_failure_detected(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=datetime(2026, 8, 20),
+        )
+
+        self.assertFalse(result.payment_suspended)
+
+    def test_not_suspended_when_now_not_provided(self):
+        # nowが渡されない呼び出し元(未対応のまま)は安全側にFalseのまま(既存挙動維持)。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_payment_failure_detected_at(
+            "u-1", datetime(2020, 1, 1, 0, 0, 0)
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertFalse(result.payment_suspended)
+
+    def test_not_suspended_when_usage_counter_is_none(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            now=datetime(2026, 8, 20),
+        )
+
+        self.assertFalse(result.payment_suspended)
+
+    def test_recovers_after_clear(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        usage_counter.clear_payment_failure_detected_at("u-1")
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertFalse(result.payment_suspended)
+        self.assertIsNone(usage_counter.get_payment_failure_detected_at("u-1"))
 
 
 class InMemoryUsageCounterTrialAreaCountTest(unittest.TestCase):

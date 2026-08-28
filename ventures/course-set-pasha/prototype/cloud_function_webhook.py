@@ -90,6 +90,48 @@ def _is_generation_paused(
 
 
 # ---------------------------------------------------------------------------
+# 決済失敗時の制限モード(payment-failure-dunning-design.md 3節・6節、README.mdフェーズ118)
+# ---------------------------------------------------------------------------
+
+# payment-failure-dunning-design.md 3節「猶予期間7日」(他venture共通の暫定値、実測データなし)。
+PAYMENT_FAILURE_GRACE_PERIOD_DAYS = 7
+
+# 猶予期間終了後(制限モード)に投稿文の代わりに返す定型文言
+# (payment-failure-dunning-design.md 4節「制限モード移行時」の案内と同趣旨、
+# メモ受信のたびに繰り返し返す応答用に短縮)。
+PAYMENT_SUSPENDED_MESSAGE = (
+    "お支払い手続きが確認できないため、投稿文の生成を一時停止しています。\n"
+    "お支払い方法をご確認いただければ、確認完了後に自動で生成を再開します。\n"
+    f"お支払い方法を確認する: {LIFF_URL_PLACEHOLDER}"
+)
+
+
+def _is_payment_suspended(
+    usage_counter: Optional["UsageCounterProtocol"],
+    user_id: Optional[str],
+    now: Optional[datetime],
+) -> bool:
+    """payment-failure-dunning-design.md 3節の段階3(制限モード)判定。
+
+    決済失敗検知時刻(get_payment_failure_detected_at)からPAYMENT_FAILURE_GRACE_PERIOD_DAYS
+    (7日)以上経過していれば制限モードとみなす。design 6節「残課題」がset/get/clearの
+    3メソッドのみを挙げ、別途の状態フラグを挙げていなかったため、専用フィールドを追加せず
+    検知時刻+猶予日数から都度算出する設計とした。usage_counterが
+    get_payment_failure_detected_atに対応していない場合(未接続時・後方互換)や、
+    検知時刻・nowのいずれかが得られない場合は常にFalseを返す
+    (_is_generation_pausedと同じ安全側デフォルト)。
+    """
+    if usage_counter is None or user_id is None or now is None:
+        return False
+    if not hasattr(usage_counter, "get_payment_failure_detected_at"):
+        return False
+    detected_at = usage_counter.get_payment_failure_detected_at(user_id)
+    if detected_at is None:
+        return False
+    return (now - detected_at) >= timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+
+
+# ---------------------------------------------------------------------------
 # 署名検証(line-reservation-ai/prototype/cloud_function_webhook.pyから移植、変更なし)
 # ---------------------------------------------------------------------------
 
@@ -227,6 +269,24 @@ class UsageCounterProtocol(Protocol):
     def get_trial_area_count(self, user_id: str) -> int:
         ...
 
+    def set_payment_failure_detected_at(self, user_id: str, detected_at: datetime) -> None:
+        """payment-failure-dunning-design.md 6節: 決済失敗(invoice.payment_failed)を
+        検知した時刻の記録。set_trial_start_at_if_unset等と異なり「1回だけ」ではなく、
+        再度の決済失敗検知のたびに上書きする単純な書き込みでよい(猶予期間の起点を
+        最新の失敗検知時刻で数え直す設計。design 3節の猶予期間はいずれも「検知〜N日」で
+        定義されており、複数回失敗した場合に古い検知時刻を残す理由がないため)。
+        このメソッドを実装しないUsageCounterProtocol実装では決済失敗状態の記録自体が
+        スキップされる(他のset_*系メソッドと同じhasattr()判定による後方互換の考え方)。"""
+        ...
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def clear_payment_failure_detected_at(self, user_id: str) -> None:
+        """invoice.payment_succeededによる復旧時に決済失敗検知時刻を消去する
+        (design 4節「決済成功による復旧時」)。"""
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -267,6 +327,7 @@ class InMemoryUsageCounter:
         self._trial_end_notified_at: dict[str, datetime] = {}
         self._trial_generation_count: dict[str, int] = {}
         self._trial_area_count: dict[str, int] = {}
+        self._payment_failure_detected_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -315,6 +376,15 @@ class InMemoryUsageCounter:
 
     def get_trial_area_count(self, user_id: str) -> int:
         return self._trial_area_count.get(user_id, 0)
+
+    def set_payment_failure_detected_at(self, user_id: str, detected_at: datetime) -> None:
+        self._payment_failure_detected_at[user_id] = detected_at
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        return self._payment_failure_detected_at.get(user_id)
+
+    def clear_payment_failure_detected_at(self, user_id: str) -> None:
+        self._payment_failure_detected_at.pop(user_id, None)
 
     def increment_and_mark_notice(
         self,
@@ -737,6 +807,7 @@ class MemoProcessResult:
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
+    payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -876,6 +947,13 @@ def process_memo_event(
        アップグレードかを判定する(trial-end-notification-design.md 4節「生成一時停止」)。
        該当する場合はLLM呼び出し自体を行わず、GENERATION_PAUSED_MESSAGEを返信して
        即座に処理を終える(月間カウント・トライアル生成回数カウントも増分しない)。
+    9. usage_counterが決済失敗検知時刻に対応している場合のみ、_is_payment_suspended()で
+       決済失敗検知からPAYMENT_FAILURE_GRACE_PERIOD_DAYS(7日)以上経過した制限モードかを
+       判定する(payment-failure-dunning-design.md 3節「段階3」)。該当する場合は8と同様、
+       LLM呼び出し・各種カウント増分を一切行わずPAYMENT_SUSPENDED_MESSAGEを返信して
+       即座に処理を終える。8のトライアル未アップグレード判定(get_upgraded_atがNone前提)とは
+       前提条件が排他的(本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が
+       同時にTrueになることは想定しない。
     """
     if linking_store is not None and purge_throttle is not None:
         purge_throttle.maybe_run(linking_store, now or datetime.now(timezone(timedelta(hours=9))))
@@ -895,6 +973,14 @@ def process_memo_event(
             handled=True, reply_sent=reply_sent,
             reply_text=GENERATION_PAUSED_MESSAGE if reply_sent else None,
             generation_paused=True,
+        )
+
+    if _is_payment_suspended(usage_counter, user_id_for_pause_check, now):
+        reply_sent = _reply_with_retry(reply_client, reply_token, PAYMENT_SUSPENDED_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=PAYMENT_SUSPENDED_MESSAGE if reply_sent else None,
+            payment_suspended=True,
         )
 
     try:

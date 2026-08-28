@@ -152,17 +152,30 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 
 ## 6. 残課題
 
-- `UsageCounterProtocol`への状態管理メソッド追加(`get_payment_failure_detected_at()`/
-  `set_payment_failure_detected_at()`/`clear_payment_failure_detected_at()`等、
-  メソッド名・戻り値型は実装着手時に確定)。
+- (解消済み 2026-08-28 10:00 UTC・フェーズ118: `UsageCounterProtocol`への状態管理メソッド
+  `get_payment_failure_detected_at()`/`set_payment_failure_detected_at()`/
+  `clear_payment_failure_detected_at()`を`cloud_function_webhook.py`に追加し、
+  `InMemoryUsageCounter`にも実装した。あわせて`_is_payment_suspended()`
+  (検知時刻からPAYMENT_FAILURE_GRACE_PERIOD_DAYS=7日以上経過したかを都度算出、
+  別立ての状態フラグは追加しない設計とした)を新設し、`process_memo_event()`に
+  `PAYMENT_SUSPENDED_MESSAGE`を返す分岐として配線した。テスト7件追加、
+  venture全体334件全件パス・schema検証9件パスを確認した。次点はStripe側の
+  実際のイベント受信配線〈下記2点目〉)
 - 本venture未着手のStripe Webhookイベントディスパッチ機構(aircon-pasha/line-reservation-ai
   の`stripe_dispatch.py`相当)への`invoice.payment_failed`・`invoice.payment_succeeded`
-  イベント種別対応。本venture自体のStripe Webhook受信エンドポイント設計
-  (stripe-webhook-http-entry-point-design.md相当)がまだ`resolve_user_id`
-  (フェーズ97相当)止まりで、イベント種別ディスパッチ本体は未実装のため、決済失敗対応の
-  前提として先にそちらの整備が必要になる可能性がある(次回棚卸し時に確認)。
-- `_is_generation_paused()`の判定条件拡張(制限モード状態を含める)、および
-  制限モード専用メッセージの`process_memo_event()`への配線。
+  イベント種別対応。フェーズ118で`dispatch_stripe_event()`(`stripe_webhook.py`)の
+  実装状況を確認したところ、`_HANDLED_EVENT_TYPES`は`customer.subscription.deleted`/
+  `created`/`updated`の3種別のみで(`checkout.session.completed`は別経路の
+  `receive_stripe_webhook()`が処理)、「`resolve_user_id`止まり」という当時の記述はやや
+  不正確だったが(ディスパッチ機構自体は既に存在する)、`invoice.payment_failed`・
+  `invoice.payment_succeeded`の2種別が未対応という結論自体は正しかった。この2種別への
+  対応(受信時に`set_payment_failure_detected_at()`/`clear_payment_failure_detected_at()`を
+  呼ぶハンドラの追加)は次回以降の課題として残す。
+- (解消済み 2026-08-28 10:00 UTC・フェーズ118: `_is_generation_paused()`本体は変更せず、
+  同じ設計思想の`_is_payment_suspended()`を別関数として新設する形で判定条件を追加した
+  〈両者は「既に有料転換済みか否か」で前提条件が排他的なため、1つの関数に統合するより
+  責務を分けた方が明確と判断〉。制限モード専用メッセージ`PAYMENT_SUSPENDED_MESSAGE`の
+  `process_memo_event()`への配線もあわせて完了した)
 - 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。
 - 猶予期間終了直前リマインドを送信するスケジューラ(trial-end-scheduler-design.mdの
   日次バッチと同種の仕組みを流用できる見込みだが、本ドキュメントでは未検討)。
