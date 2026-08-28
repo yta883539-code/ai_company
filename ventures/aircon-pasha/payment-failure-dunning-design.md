@@ -130,6 +130,24 @@ line-reservation-aiのフェーズ続き115で判明した「猶予期間中に�
 `invoice.payment_succeeded`Webhookの受信配線を実装する段階(次回以降)で行うこととし、
 本フェーズでは先行して起こりうる論点として書き残すにとどめる。
 
+**(2026-08-28 追記・フェーズ146で対応)** 上記の3分岐を`prototype/payment_recovery_
+notification.py`として実装した。line-reservation-aiの`classify_payment_succeeded()`と
+同じ考え方で`classify_payment_recovery()`を新設し、`payment_suspended_at`設定済み→
+「制限モードからの復旧」(本節のPAYMENT_RECOVERED_MESSAGE、上記文言をそのまま使用)、
+`payment_failure_detected_at`未設定→「dunning対象外」(通知なし)、それ以外で
+`payment_failure_reminder_sent_at`設定済み→「猶予期間中の完了通知」(新設した
+PAYMENT_CONFIRMED_IN_GRACE_MESSAGE、「再開」ではなく「解消」と表現)、いずれでもない→
+「状態リセットのみ」(通知なし)の4分類とした。本ventureはline-reservation-aiと異なり
+決済失敗検知時(段階1)の通知を実際に送信する配線がまだ存在しないため(本節末尾・6節
+「今後の課題」参照)、「猶予期間中に一度でも通知済みか」の判定は`payment_failure_
+reminder_sent_at`(本venture唯一の送信済みフラグ)のみで行った。状態リセットは
+`payment_failure.py`の`clear_payment_failure_on_success()`をそのまま再利用した。
+テスト13件追加、venture全体288件全件パス・schema検証9件パスを確認した。承認不要な
+設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生
+していないためpending-approval.mdへの追記なし。実際のStripe Webhook受信エンドポイント
+からの呼び出し配線、および決済失敗検知時(段階1)通知の実送信配線自体は次回以降の課題
+として残る。
+
 ## 5. CTA方式(本venture固有)
 
 course-set-pashaのdecision(LIFF URLプレースホルダ埋め込み方式)ではなく、本ventureが

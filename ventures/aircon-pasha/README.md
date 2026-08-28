@@ -1977,4 +1977,20 @@
   一通り実装済みとなった(残るのは実Cloud Scheduler・LINE Push Message API接続等、
   オーナー承認待ちのインフラ構築のみ)。次回は他venture(line-reservation-ai・
   course-set-pasha)の状況も踏まえ、本ventureで未着手の領域への着手を検討する。
-- 最終更新: 2026-08-28 18:00 UTC
+- フェーズ146(2026-08-28 21:00 UTC): payment-failure-dunning-design.md 4節末尾に先行して
+  書き残していた「猶予期間中に決済が成功した場合の復旧通知の3分岐(制限モードからの復旧/
+  猶予期間中の完了通知/状態リセットのみ)」を、line-reservation-aiのフェーズ続き115
+  (`classify_payment_succeeded()`)と同じ考え方で移植し、新規`prototype/payment_
+  recovery_notification.py`に`classify_payment_recovery()`・`handle_payment_succeeded()`
+  として実装した。本ventureはline-reservation-aiと異なり決済失敗検知時(段階1)の通知を
+  実際に送信する配線がまだ存在しないため、「猶予期間中に一度でも通知済みか」の判定は
+  本venture唯一の送信済みフラグである`payment_failure_reminder_sent_at`のみで行う設計
+  とした(制限モードからの復旧は既存文言をそのまま使用、猶予期間中の完了通知は新設した
+  `PAYMENT_CONFIRMED_IN_GRACE_MESSAGE`(「再開」ではなく「解消」と表現)を使用)。状態の
+  クリアは既存の`clear_payment_failure_on_success()`をそのまま再利用した。テスト13件
+  追加、venture全体288件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生していないため
+  pending-approval.mdへの追記なし。実際のStripe Webhook受信エンドポイントからの呼び出し
+  配線、および決済失敗検知時(段階1)通知の実送信配線自体は次回以降の課題として残る
+  (payment-failure-dunning-design.md該当箇所に追記済み)。
+- 最終更新: 2026-08-28 21:00 UTC
