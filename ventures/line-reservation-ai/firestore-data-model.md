@@ -41,13 +41,18 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // paymentFailureDetectedAt + 7日 − 現在日時 で算出する
                                      // (owner-settings-wireframe.md 555行目付近の設計どおり、
                                      // 別途「残り日数」フィールドは持たない)
-  stripeCustomerId: null            // checkout-initiation-flow-design.md 3節手順3・
+  stripeCustomerId: null,            // checkout-initiation-flow-design.md 3節手順3・
                                      // prototype/store_profile_store.py`StoreProfileStoreProtocol`に対応
                                      // (Stripe Checkout Session作成時、既存契約歴のある店舗が同一customerを
                                      // 再利用できるようにするための順引きフィールド。文字列 | null。
                                      // `checkout.session.completed`イベント受信時にWebhookが設定する想定
                                      // 〈course-set-pasha/stripe-customer-id-linking-design.mdと同じ書き込み
                                      // タイミングだが、本ventureでは逆引き用の別コレクションは現時点で不要〉)
+  trialStartAt: null                 // trial-start-anchor-decision.mdで確定。店舗全体で最初の予約確定
+                                     // 成功時に1回だけ設定、以降不変(Timestamp | null)。
+                                     // first-booking-self-check-notification-design.mdの
+                                     // `_first_booking_self_check_sent`がTrueになる分岐と同一タイミングで
+                                     // 書き込む想定(実書き込みロジックは未着手)。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、
