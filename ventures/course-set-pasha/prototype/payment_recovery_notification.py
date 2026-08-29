@@ -26,9 +26,21 @@ notification.py)と同じ考え方を、本venture固有の状態モデルへ翻
   「決済失敗検知時(段階1)通知の実送信配線」に対応したもの。aircon-pashaの
   `payment_failure.py` `handle_payment_failure_detected()`と同じ「送信成功時のみ状態を
   書き込む」設計だが、本ventureはFlex Messageのボタン形式ではなくpayment_failure_reminder_
-  scheduler.pyと同じプレーンテキスト+LIFF URLの形式(design 4節の文言をそのまま踏襲)を
+  scheduler.pyと同じプレーンテキスト+URL差し込みの形式(design 4節の文言をそのまま踏襲)を
   採る。`stripe_webhook.py`の`dispatch_stripe_event()`の`invoice.payment_failed`分岐への
   実配線もあわせて行った(フェーズ124)。
+- フェーズ127: フェーズ126のREADME「次にやること」末尾に残課題として記録されていた、
+  本モジュールの`build_payment_failure_detected_message()`(決済失敗検知時〈段階1〉の
+  初回案内)の`LIFF_URL_PLACEHOLDER`誤用(新規Checkout用LIFFリンクを、既存サブスクリプション
+  の支払い方法更新案内に使ってしまっていた)を解消した。フェーズ126の
+  `render_payment_failure_reminder_message()`と同じ`PortalLinkProvider`Protocolを再利用する
+  設計とし、`build_payment_failure_detected_message(liff_url)`を`render_payment_failure_
+  detected_message(portal_link_provider, user_id)`へ差し替えた(プレースホルダを
+  `PORTAL_LINK_PLACEHOLDER`へ、未接続・user_id不明・URL取得失敗時は
+  `PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替える契約もフェーズ126と同一)。
+  `handle_payment_failure_detected()`の`liff_url`引数も`portal_link_provider`引数へ
+  差し替えた。これでdesign 4節の3通知(決済失敗検知時・3日前リマインド・制限モード移行時)
+  すべてが同じPortalLinkProviderベースのURL解決に揃った。
 
 設計の参照元: payment-failure-dunning-design.md 4節,
 aircon-pasha prototype/payment_recovery_notification.py,
@@ -42,8 +54,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, Protocol
 
-from cloud_function_webhook import PAYMENT_FAILURE_GRACE_PERIOD_DAYS
-from trial_end_scheduler import LIFF_URL_PLACEHOLDER, LinePushClient, LinePushDeliveryError
+from cloud_function_webhook import (
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    PORTAL_LINK_PLACEHOLDER,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    PortalLinkProvider,
+)
+from trial_end_scheduler import LinePushClient, LinePushDeliveryError
 
 # classify_payment_recovery()が返す分類。line-reservation-ai・aircon-pashaのOUTCOME_*と
 # 対称の命名。
@@ -125,7 +142,9 @@ def build_payment_recovery_message(outcome: str) -> str:
 
 
 # design 4節「決済失敗検知時(猶予期間開始)」文言。payment_failure_reminder_scheduler.pyの
-# PAYMENT_FAILURE_REMINDER_TEMPLATEと同じプレーンテキスト+liff_url差し込み形式。
+# PAYMENT_FAILURE_REMINDER_TEMPLATEと同じプレーンテキスト+PORTAL_LINK_PLACEHOLDER差し込み
+# 形式(フェーズ127: 誤って新規Checkout用LIFF URLを使っていたのをStripeカスタマー
+# ポータルURLへ差し替えた)。
 PAYMENT_FAILURE_DETECTED_TEMPLATE = (
     "[コースセットパシャッと] お支払いの確認をお願いします\n"
     "\n"
@@ -137,13 +156,27 @@ PAYMENT_FAILURE_DETECTED_TEMPLATE = (
     "7日以内にお支払い方法をご確認・更新いただけますようお願いします。\n"
     "\n"
     "▼ お支払い方法を確認する\n"
-    "{liff_url}"
+    f"{PORTAL_LINK_PLACEHOLDER}"
 )
 
 
-def build_payment_failure_detected_message(liff_url: str = LIFF_URL_PLACEHOLDER) -> str:
-    """design 4節「決済失敗検知時(猶予期間開始)」の文言をそのまま組み立てる。"""
-    return PAYMENT_FAILURE_DETECTED_TEMPLATE.format(liff_url=liff_url)
+def render_payment_failure_detected_message(
+    portal_link_provider: Optional[PortalLinkProvider],
+    user_id: Optional[str],
+) -> str:
+    """design 4節「決済失敗検知時(猶予期間開始)」文言を実際の送信文へ組み立てる(フェーズ127)。
+
+    render_payment_failure_reminder_message()・render_payment_suspended_message()と同じ契約:
+    portal_link_providerが未接続(None)、またはuser_id不明、またはURL取得自体に失敗した
+    場合は、壊れたプレースホルダをそのまま顧客に見せず、PORTAL_LINK_UNAVAILABLE_FALLBACKへ
+    全文差し替える。
+    """
+    url = None
+    if portal_link_provider is not None and user_id:
+        url = portal_link_provider.get_portal_url(user_id)
+    if not url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+    return PAYMENT_FAILURE_DETECTED_TEMPLATE.replace(PORTAL_LINK_PLACEHOLDER, url)
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +293,7 @@ def handle_payment_failure_detected(
     usage_counter: PaymentFailureDetectionUsageCounterProtocol,
     push_client: LinePushClient,
     event_time: datetime,
-    liff_url: str = LIFF_URL_PLACEHOLDER,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
 ) -> PaymentFailureDetectionResult:
     """design 4節「決済失敗検知時(猶予期間開始)」の実送信配線本体。`invoice.payment_failed`
     受信時(`stripe_customer_id → user_id`逆引き後)に呼ぶ。
@@ -269,7 +302,7 @@ def handle_payment_failure_detected(
     状態を書き込む(`handle_payment_succeeded()`と対称に、送信失敗時は状態を一切変更せず
     `PaymentFailureDetectionResult(notified=False)`を返す。呼び出し側がHTTP 5xxを返して
     Webhookリトライに委ねれば、次の再送で送信・状態書き込みが再試行される)。"""
-    text = build_payment_failure_detected_message(liff_url)
+    text = render_payment_failure_detected_message(portal_link_provider, user_id)
     try:
         push_client.send_message(user_id, text)
     except LinePushDeliveryError:

@@ -13,6 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from cloud_function_webhook import (  # noqa: E402
     PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    PORTAL_LINK_PLACEHOLDER,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    InMemoryPortalLinkProvider,
     InMemoryUsageCounter,
 )
 from payment_recovery_notification import (  # noqa: E402
@@ -24,11 +27,11 @@ from payment_recovery_notification import (  # noqa: E402
     PAYMENT_CONFIRMED_IN_GRACE_MESSAGE,
     PAYMENT_FAILURE_DETECTED_TEMPLATE,
     PAYMENT_RECOVERED_MESSAGE,
-    build_payment_failure_detected_message,
     build_payment_recovery_message,
     classify_payment_recovery,
     handle_payment_failure_detected,
     handle_payment_succeeded,
+    render_payment_failure_detected_message,
 )
 from trial_end_scheduler import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
 
@@ -179,39 +182,63 @@ class HandlePaymentSucceededTests(unittest.TestCase):
         self.assertEqual(len(push.sent), 1)
 
 
-class BuildPaymentFailureDetectedMessageTests(unittest.TestCase):
-    def test_default_liff_url_placeholder(self) -> None:
-        text = build_payment_failure_detected_message()
+class RenderPaymentFailureDetectedMessageTests(unittest.TestCase):
+    def test_provider_substitutes_real_url(self) -> None:
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        text = render_payment_failure_detected_message(provider, "u1")
         self.assertIn("お支払いの確認をお願いします", text)
         self.assertIn("7日以内", text)
-        self.assertIn("{有料プランへ進むLIFFアプリ URL}", text)
+        self.assertIn("https://billing.stripe.com/p/session/u1", text)
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, text)
 
-    def test_custom_liff_url_is_substituted(self) -> None:
-        text = build_payment_failure_detected_message("https://example.test/liff")
-        self.assertIn("https://example.test/liff", text)
-        self.assertNotIn("{liff_url}", text)
+    def test_no_provider_falls_back(self) -> None:
+        text = render_payment_failure_detected_message(None, "u1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_missing_user_id_falls_back(self) -> None:
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        text = render_payment_failure_detected_message(provider, None)
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_url_fetch_failure_falls_back(self) -> None:
+        provider = InMemoryPortalLinkProvider(url=None)
+        text = render_payment_failure_detected_message(provider, "u1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
     def test_template_has_single_placeholder(self) -> None:
-        self.assertEqual(PAYMENT_FAILURE_DETECTED_TEMPLATE.count("{liff_url}"), 1)
+        self.assertEqual(PAYMENT_FAILURE_DETECTED_TEMPLATE.count(PORTAL_LINK_PLACEHOLDER), 1)
 
 
 class HandlePaymentFailureDetectedTests(unittest.TestCase):
     def test_success_sends_notification_and_writes_state(self) -> None:
         counter = InMemoryUsageCounter()
         push = InMemoryLinePushClient()
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
         event_time = _NOW
-        result = handle_payment_failure_detected("u1", counter, push, event_time)
+        result = handle_payment_failure_detected("u1", counter, push, event_time, provider)
         self.assertTrue(result.notified)
         self.assertEqual(result.event_time, event_time)
         self.assertEqual(counter.get_payment_failure_detected_at("u1"), event_time)
         self.assertEqual(len(push.sent), 1)
         self.assertEqual(push.sent[0][0], "u1")
         self.assertIn("お支払いの確認をお願いします", push.sent[0][1])
+        self.assertIn("https://billing.stripe.com/p/session/u1", push.sent[0][1])
+
+    def test_no_provider_sends_fallback_message(self) -> None:
+        """portal_link_provider未指定時はPORTAL_LINK_UNAVAILABLE_FALLBACKが送られる
+        (render_payment_suspended_message・render_payment_failure_reminder_messageと
+        同じ安全側の既定動作)。"""
+        counter = InMemoryUsageCounter()
+        push = InMemoryLinePushClient()
+        result = handle_payment_failure_detected("u1", counter, push, _NOW)
+        self.assertTrue(result.notified)
+        self.assertEqual(push.sent[0][1], PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
     def test_send_failure_leaves_state_unwritten(self) -> None:
         counter = InMemoryUsageCounter()
         push = _FailingLinePushClient()
-        result = handle_payment_failure_detected("u1", counter, push, _NOW)
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        result = handle_payment_failure_detected("u1", counter, push, _NOW, provider)
         self.assertFalse(result.notified)
         self.assertIsNone(result.event_time)
         self.assertIsNone(counter.get_payment_failure_detected_at("u1"))
@@ -222,10 +249,11 @@ class HandlePaymentFailureDetectedTests(unittest.TestCase):
         mark_payment_failure_detected()と同じ「安全側」判断)。"""
         counter = InMemoryUsageCounter()
         push = InMemoryLinePushClient()
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
         first_time = _NOW - timedelta(days=1)
         second_time = _NOW
-        handle_payment_failure_detected("u1", counter, push, first_time)
-        handle_payment_failure_detected("u1", counter, push, second_time)
+        handle_payment_failure_detected("u1", counter, push, first_time, provider)
+        handle_payment_failure_detected("u1", counter, push, second_time, provider)
         self.assertEqual(counter.get_payment_failure_detected_at("u1"), second_time)
         self.assertEqual(len(push.sent), 2)
 

@@ -23,7 +23,7 @@ from application_form_submission_flow import (
     InMemoryUserProfileStore,
     UserProfileStoreProtocol,
 )
-from cloud_function_webhook import InMemoryUsageCounter
+from cloud_function_webhook import InMemoryUsageCounter, PortalLinkProvider
 from deletion_candidate import (
     InMemoryProfileDeletionCandidateStore,
     ProfileDeletionCandidateStoreProtocol,
@@ -160,6 +160,7 @@ def dispatch_stripe_event(
     resolve_user_id: Callable[[str], Optional[str]],
     usage_counter: Optional[PaymentFailureUsageCounterProtocol] = None,
     push_client: Optional[LinePushClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """stripe-webhook-event-dispatch-design.md 1節のとおり、Stripe Webhookイベント1件を
@@ -186,6 +187,12 @@ def dispatch_stripe_event(
     `payment_recovery_notification.handle_payment_failure_detected()`経由で
     決済失敗検知時(段階1)の通知を実際に送信してから状態を書き込む(送信失敗時は状態を
     書き込まずWebhookリトライに委ねる)。未指定時は従来通り通知なしで状態のみ書き込む。
+
+    `portal_link_provider`はフェーズ127で追加。決済失敗検知時通知の文面がStripeカスタマー
+    ポータルURLを差し込むよう変わったため(`render_payment_failure_detected_message()`)、
+    `cloud_function_webhook.render_payment_suspended_message()`と同じ`PortalLinkProvider`を
+    そのまま`handle_payment_failure_detected()`へ受け渡す。未指定(`None`)時は
+    `PORTAL_LINK_UNAVAILABLE_FALLBACK`が送られる(既存の安全側デフォルトと同じ)。
     """
     result = StripeDispatchResult()
 
@@ -246,6 +253,7 @@ def dispatch_stripe_event(
                 usage_counter,  # type: ignore[arg-type]
                 push_client,
                 event_time,
+                portal_link_provider,
             )
             if detection_result.notified:
                 result.payment_failure_detected_user_ids.append(user_id)

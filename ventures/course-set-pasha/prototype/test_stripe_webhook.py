@@ -7,7 +7,11 @@ import unittest
 from datetime import datetime, timezone
 
 from application_form_submission_flow import InMemoryUserProfileStore
-from cloud_function_webhook import InMemoryUsageCounter
+from cloud_function_webhook import (
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    InMemoryPortalLinkProvider,
+    InMemoryUsageCounter,
+)
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from stripe_webhook import (
     dispatch_stripe_event,
@@ -306,6 +310,9 @@ class DispatchInvoicePaymentFailedWithPushClientTest(unittest.TestCase):
             resolve_user_id=_resolver({"cus_A": "user_1"}),
             usage_counter=self.usage_counter,
             push_client=push_client,
+            portal_link_provider=InMemoryPortalLinkProvider(
+                url="https://billing.stripe.com/p/session/user_1"
+            ),
         )
         self.assertEqual(result.payment_failure_detected_user_ids, ["user_1"])
         self.assertEqual(result.payment_failure_detection_notification_failed_user_ids, [])
@@ -339,6 +346,47 @@ class DispatchInvoicePaymentFailedWithPushClientTest(unittest.TestCase):
             result.payment_failure_detection_notification_failed_user_ids, ["user_1"]
         )
         self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_portal_link_provider_is_substituted_into_notification(self):
+        """フェーズ127: portal_link_provider指定時、決済失敗検知時通知にも実URLが
+        差し込まれることを確認する(dispatch_stripe_eventからhandle_payment_failure_
+        detected()への配線)。"""
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            portal_link_provider=InMemoryPortalLinkProvider(
+                url="https://billing.stripe.com/p/session/user_1"
+            ),
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, ["user_1"])
+        self.assertIn("https://billing.stripe.com/p/session/user_1", push_client.sent[0][1])
+
+    def test_no_portal_link_provider_sends_fallback_message(self):
+        """portal_link_provider未指定時はPORTAL_LINK_UNAVAILABLE_FALLBACKが送られる
+        (既存の安全側デフォルト、後方互換)。"""
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(push_client.sent[0][1], PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
     def test_invalid_event_when_created_missing_even_with_push_client(self):
         push_client = InMemoryLinePushClient()

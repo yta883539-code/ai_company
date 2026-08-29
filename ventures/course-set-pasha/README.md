@@ -1467,7 +1467,14 @@
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし
   (実際のオーナーLINEユーザーIDの取得・実LINE API接続自体は既存の「実LLM呼び出し・実LINE
   API接続」承認待ち範囲に含まれるため新規追加なし)。
-- 最終更新: 2026-08-29 15:00 UTC
+- フェーズ126(2026-08-29 18:00 UTC): payment-failure-dunning-design.md 5節末尾
+  (フェーズ123追記分)に残っていた、`payment_failure_reminder_scheduler.py`の3日前
+  リマインド文言の`LIFF_URL_PLACEHOLDER`誤用を解消した。詳細は下記「次にやること」の
+  フェーズ126項目を参照。
+- フェーズ127(2026-08-29 20:00 UTC): フェーズ126の残課題だった
+  `payment_recovery_notification.py`の`build_payment_failure_detected_message()`の
+  `LIFF_URL_PLACEHOLDER`誤用を解消した。詳細は下記「次にやること」のフェーズ127項目を参照。
+- 最終更新: 2026-08-29 20:00 UTC
 
 ## 次にやること(候補)
 
@@ -1520,6 +1527,23 @@
   作成・支払い等は発生していないためpending-approval.mdへの追記なし。なお同種の誤用が
   `payment_recovery_notification.py`の`build_payment_failure_detected_message()`
   (決済失敗検知時〈段階1〉の初回案内)にも残っており、次回以降の課題として残る)
+- (解消済み 2026-08-29 20:00 UTC・フェーズ127: 上記フェーズ126末尾の残課題だった
+  `payment_recovery_notification.py`の`build_payment_failure_detected_message()`の
+  `LIFF_URL_PLACEHOLDER`誤用を解消した。フェーズ126の`render_payment_failure_reminder_
+  message()`と同じ`PortalLinkProvider`Protocolを再利用し、`build_payment_failure_
+  detected_message(liff_url)`を`render_payment_failure_detected_message(portal_link_
+  provider, user_id)`へ差し替え(契約はフェーズ126と同一: 未接続・user_id不明・URL取得
+  失敗時は`PORTAL_LINK_UNAVAILABLE_FALLBACK`)、`handle_payment_failure_detected()`・
+  `dispatch_stripe_event()`(`stripe_webhook.py`)にも`portal_link_provider`引数を追加して
+  実配線した(`portal_link_provider`未指定時は従来通りフォールバック文言、既存呼び出し
+  経路への後方互換を維持)。これでdesign 4節の3通知(決済失敗検知時・3日前リマインド・
+  制限モード移行時)すべてが同じPortalLinkProviderベースのURL解決に揃った。テスト
+  (`test_payment_recovery_notification.py`のBuildPaymentFailureDetectedMessageTestsを
+  RenderPaymentFailureDetectedMessageTestsへ差し替え5件・HandlePaymentFailureDetectedTests
+  に1件追加、`test_stripe_webhook.py`に2件追加、既存1件を`portal_link_provider`指定へ更新)、
+  venture全体413件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。)
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。
