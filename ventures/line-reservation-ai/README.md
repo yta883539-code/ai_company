@@ -1624,6 +1624,15 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   dormant-mode-renotification-design.mdに6節として本フェーズの内容を追記した。実際の
   Cloud Schedulerからの定期呼び出し配線・Firestoreからの候補読み取りクエリ組み立ては、
   引き続き実ホスティング基盤接続時(オーナー承認待ち)の課題として残る。
+- フェーズ続き147(2026-08-29 16:00 UTC): 進行中の各設計docの残課題を棚卸しした結果、
+  booking-slot-manager-design.md(2026-07-31作成、フェーズ8以前)の「今後の課題」節が、
+  実際にはフェーズ(続き8)で`ConversationFlowStateMachine`として実装済みの2項目
+  (会話フロー本体とBookingSlotManagerの接続、確定操作競合時のリカバリー)を未着手のまま
+  記載し続けていたドキュメント記載漏れを発見・解消した。解消済みマークを付し、実装が
+  当初の設計(「後着の予約をpending状態に戻す」)から「slot操作は行わずオーナー通知+
+  candidates_presentedへの差し戻し」に変更された経緯も明記した。コード変更は無し、
+  設計docの現状反映のみ。承認不要なドキュメント整理のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-29 13:00 UTC・フェーズ続き146: dormant-mode-renotification-design.md

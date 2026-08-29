@@ -32,7 +32,17 @@ README.mdの「次にやること」で挙げていた「会話フロー本体�
 6. 佐藤さんがタイムアウト後にconfirmを試みる → 失敗(安全側)
 
 ## 今後の課題
-- 会話フロー本体(conversation-flow.mdの「候補提示→確定」の2ステップ、氏名・メニュー確定までの
-  やり取り)とBookingSlotManagerを接続する状態遷移コードの実装。
-- 確定操作自体の競合時のリカバリー(pending状態への差し戻し+オーナー通知)を呼び出し側に実装。
+- (解消済み: 会話フロー本体(conversation-flow.mdの「候補提示→確定」の2ステップ、氏名・
+  メニュー確定までのやり取り)とBookingSlotManagerを接続する状態遷移コードは、
+  `prototype/engine.py`の`ConversationFlowStateMachine`として実装済み。詳細は同クラスの
+  docstring参照)
+- (解消済み: 確定操作自体の競合時のリカバリーは`ConversationFlowStateMachine`の
+  `provide_details()`(confirm()失敗時の分岐)として呼び出し側に実装済み。ただし当初本docが
+  想定していた「後着の予約をpending状態に戻す」形とは異なり、競合時にこのユーザーが保留して
+  いたはずの枠は既に手元に無い(タイムアウト済みか別ユーザーに上書きされた)ため明示的な
+  slot操作(release等)は行わず、このユーザーの会話状態をcandidates_presentedへ差し戻して
+  新しい空き枠を再提示する設計に変更した。EscalationConsolidator経由でオーナーへの即時通知も
+  行う。詳細は`ConversationFlowStateMachine`docstringおよびengine.pyデモの佐藤さんシナリオ参照)
 - 実LLM呼び出しでの動作確認はオーナー承認後(pending-approval.md参照)。
+- タイムアウト`HOLD_TIMEOUT = 5分`固定値の実測データによる見直しは、実運用開始後の課題として
+  引き続き残る。
