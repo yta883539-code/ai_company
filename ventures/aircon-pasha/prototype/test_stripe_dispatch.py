@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
+from payment_failure import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
 from stripe_dispatch import StripeDispatchResult, dispatch_stripe_event  # noqa: E402
 from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
 
@@ -191,6 +192,60 @@ class DispatchInvoicePaymentFailedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.ignored_types, ["invoice.payment_failed"])
         self.assertEqual(result.payment_failure_detected_user_ids, [])
+
+    def test_sends_detection_notification_and_marks_when_push_client_provided(self):
+        # フェーズ147: push_client指定時はhandle_payment_failure_detected()経由で
+        # 実際に通知を送信してから状態を書き込む。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        push_client = InMemoryLinePushClient()
+        created = int(datetime(2026, 8, 28, 9, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "invoice.payment_failed",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            push_client=push_client,
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_failure_notification_failed_user_ids, [])
+        self.assertEqual(
+            payment_store.get_payment_failure_detected_at(_USER_ID),
+            datetime(2026, 8, 28, 9, 0, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0][0], _USER_ID)
+
+    def test_notification_send_failure_leaves_state_untouched(self):
+        # フェーズ147: 送信失敗時は状態を変更せず、Webhookリトライでの再試行に委ねる。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+
+        class _FailingPushClient:
+            def send_flex_message(self, user_id, alt_text, contents):
+                raise LinePushDeliveryError("boom")
+
+        created = int(datetime(2026, 8, 28, 9, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "invoice.payment_failed",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            push_client=_FailingPushClient(),
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertEqual(result.payment_failure_notification_failed_user_ids, [_USER_ID])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
 
 
 class DispatchInvoicePaymentSucceededTest(unittest.TestCase):

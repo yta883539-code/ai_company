@@ -26,8 +26,10 @@ from deletion_candidate import (
     mark_deletion_candidate_on_subscription_deleted,
 )
 from payment_failure import (
+    LinePushClient,
     PaymentFailureStoreProtocol,
     clear_payment_failure_on_success,
+    handle_payment_failure_detected,
     mark_payment_failure_detected,
 )
 
@@ -62,6 +64,9 @@ class StripeDispatchResult:
     # payment-failure-dunning-design.md(フェーズ139)対応、フェーズ140で追加。
     payment_failure_detected_user_ids: List[str] = field(default_factory=list)
     payment_recovered_user_ids: List[str] = field(default_factory=list)
+    # フェーズ147追加: push_client指定時、決済失敗検知通知の送信に失敗したuser_id
+    # (状態は書き込まれておらず、Webhookリトライでの再試行に委ねる想定)。
+    payment_failure_notification_failed_user_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_stripe_event(
@@ -70,6 +75,7 @@ def dispatch_stripe_event(
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
     payment_store: Optional[PaymentFailureStoreProtocol] = None,
+    push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """design 1節: Stripe Webhookイベント1件を受け取り、種別に応じて
@@ -82,6 +88,18 @@ def dispatch_stripe_event(
     未指定(`None`)の場合、これら2種別は`ignored_types`として扱う(呼び出し元が
     `user_profile_store`をまだ用意していない既存の呼び出し経路(customer.subscription.*
     専用)に影響を与えないための後方互換措置)。
+
+    `push_client`はdesign 4・6節「決済失敗検知時(段階1)通知の実送信配線」対応
+    (フェーズ147追加)。指定時、`invoice.payment_failed`受信時に
+    `handle_payment_failure_detected()`(payment_failure.py)経由で実際に通知を送信して
+    から状態を書き込む。未指定(`None`)の場合は従来通り`mark_payment_failure_detected()`を
+    直接呼び、通知は送信しない(既存呼び出し経路への後方互換措置)。
+    `invoice.payment_succeeded`側の復旧通知(`handle_payment_succeeded()`、
+    payment_recovery_notification.py・フェーズ146)は、モジュールごとに
+    `LinePushDeliveryError`を別クラスとして定義している既存の慣習上、本関数の
+    `push_client`とは独立した配線が必要なため、本フェーズでは対象外のまま次回以降の
+    課題として残す(引き続き`clear_payment_failure_on_success()`を直接呼ぶのみで、
+    通知は送信しない)。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -131,8 +149,17 @@ def dispatch_stripe_event(
             result.invalid_events.append(event_type)
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
-        mark_payment_failure_detected(payment_store, user_id, event_time)
-        result.payment_failure_detected_user_ids.append(user_id)
+        if push_client is None:
+            mark_payment_failure_detected(payment_store, user_id, event_time)
+            result.payment_failure_detected_user_ids.append(user_id)
+            return result
+        detection_result = handle_payment_failure_detected(
+            payment_store, user_id, event_time, push_client
+        )
+        if detection_result.notified:
+            result.payment_failure_detected_user_ids.append(user_id)
+        else:
+            result.payment_failure_notification_failed_user_ids.append(user_id)
         return result
 
     # _INVOICE_PAYMENT_SUCCEEDED

@@ -12,7 +12,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from payment_failure import (  # noqa: E402
+    InMemoryLinePushClient,
+    LinePushDeliveryError,
+    PaymentFailureDetectionResult,
+    build_payment_failure_detected_flex_message,
     clear_payment_failure_on_success,
+    handle_payment_failure_detected,
     mark_payment_failure_detected,
 )
 from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
@@ -104,6 +109,43 @@ class ClearPaymentFailureOnSuccessTest(unittest.TestCase):
         store = _store_with_user()
         cleared = clear_payment_failure_on_success(store, "unknown-user")
         self.assertFalse(cleared)
+
+
+class BuildPaymentFailureDetectedFlexMessageTest(unittest.TestCase):
+    def test_includes_update_payment_method_button(self):
+        contents = build_payment_failure_detected_flex_message()
+        button_action = contents["footer"]["contents"][0]["action"]
+        self.assertEqual(button_action["type"], "postback")
+        self.assertEqual(button_action["data"], "action=update_payment_method")
+
+    def test_body_mentions_grace_period(self):
+        contents = build_payment_failure_detected_flex_message()
+        body_text = contents["body"]["contents"][1]["text"]
+        self.assertIn("7日以内", body_text)
+
+
+class HandlePaymentFailureDetectedTest(unittest.TestCase):
+    def test_sends_notification_and_marks_state_on_success(self):
+        store = _store_with_user()
+        push_client = InMemoryLinePushClient()
+        result = handle_payment_failure_detected(store, "U1", _EVENT_TIME, push_client)
+        self.assertEqual(result, PaymentFailureDetectionResult(notified=True, event_time=_EVENT_TIME))
+        self.assertEqual(store.get_payment_failure_detected_at("U1"), _EVENT_TIME)
+        self.assertEqual(len(push_client.sent), 1)
+        user_id, alt_text, _contents = push_client.sent[0]
+        self.assertEqual(user_id, "U1")
+        self.assertEqual(alt_text, "[エアコンパシャッと] お支払いの確認をお願いします")
+
+    def test_send_failure_leaves_state_untouched(self):
+        store = _store_with_user()
+
+        class _FailingPushClient:
+            def send_flex_message(self, user_id, alt_text, contents):
+                raise LinePushDeliveryError("boom")
+
+        result = handle_payment_failure_detected(store, "U1", _EVENT_TIME, _FailingPushClient())
+        self.assertEqual(result, PaymentFailureDetectionResult(notified=False))
+        self.assertIsNone(store.get_payment_failure_detected_at("U1"))
 
 
 if __name__ == "__main__":

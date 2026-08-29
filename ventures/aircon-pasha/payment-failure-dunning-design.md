@@ -231,6 +231,22 @@ Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそ�
   payment_failure向け2件・user_id_linking向け4件)、venture全体263件全件パス・
   schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
   公開・アカウント作成・支払い等は発生していないためpending-approval.mdへの追記なし。
+- ~~決済失敗検知時(段階1)通知の実送信配線~~ → フェーズ147で対応済み。
+  `prototype/payment_failure.py`に`handle_payment_failure_detected()`を新設し、design 4節
+  「決済失敗検知時(猶予期間開始)」の文言をFlex Message化(`build_payment_failure_
+  detected_flex_message()`、既存の`UPDATE_PAYMENT_METHOD_BUTTON_LABEL`/`_POSTBACK_DATA`
+  ボタンを再利用)して送信し、送信成功時のみ`mark_payment_failure_detected()`で状態を
+  書き込む設計とした(`handle_payment_succeeded()`と対称に、送信失敗時は状態を変更せず
+  Webhookリトライに委ねる)。`stripe_dispatch.py`の`dispatch_stripe_event()`に
+  `push_client`引数(省略時はこれまで通り状態書き込みのみで通知なし、後方互換)を追加し、
+  `invoice.payment_failed`受信時に配線した。テスト6件追加(test_payment_failure.py 4件・
+  test_stripe_dispatch.py 2件)、venture全体294件全件パス・schema検証9件パスを確認した。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  発生していないためpending-approval.mdへの追記なし。なお`invoice.payment_succeeded`側の
+  復旧通知(`handle_payment_succeeded()`、フェーズ146で実装済みだが`dispatch_stripe_event()`
+  への配線は未着手のまま)は、モジュールごとに`LinePushDeliveryError`を別クラスとして
+  定義している既存の慣習上、本フェーズの`push_client`とは別の配線検討が必要なため、
+  次回以降の課題として残した。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、line-reservation-aiと同じく実測データの

@@ -1993,4 +1993,26 @@
   pending-approval.mdへの追記なし。実際のStripe Webhook受信エンドポイントからの呼び出し
   配線、および決済失敗検知時(段階1)通知の実送信配線自体は次回以降の課題として残る
   (payment-failure-dunning-design.md該当箇所に追記済み)。
-- 最終更新: 2026-08-28 21:00 UTC
+- フェーズ147(2026-08-29 02:00 UTC): payment-failure-dunning-design.md「残課題」に
+  残っていた「決済失敗検知時(段階1)通知の実送信配線」に対応した。
+  `prototype/payment_failure.py`に`handle_payment_failure_detected()`を新設し、design
+  4節「決済失敗検知時(猶予期間開始)」の文言を`build_payment_failure_detected_flex_
+  message()`でFlex Message化(既存の`UPDATE_PAYMENT_METHOD_BUTTON_LABEL`/`_POSTBACK_DATA`
+  ボタンを再利用、payment_failure_reminder_scheduler.pyと同じ構成)し、送信成功時のみ
+  `mark_payment_failure_detected()`で状態を書き込む設計とした(フェーズ146の
+  `handle_payment_succeeded()`と対称に、送信失敗時は状態を一切変更せずWebhookリトライに
+  委ねる)。`stripe_dispatch.py`の`dispatch_stripe_event()`に`push_client`引数
+  (省略時はこれまで通り`mark_payment_failure_detected()`を直接呼び通知は送信しない、
+  後方互換)を追加し、`invoice.payment_failed`受信時に配線した
+  (`payment_failure_notification_failed_user_ids`を結果へ新設し、送信失敗を区別できる
+  ようにした)。テスト6件追加(test_payment_failure.py 4件・test_stripe_dispatch.py 2件)、
+  venture全体294件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。なお`invoice.payment_succeeded`側の復旧通知
+  (`handle_payment_succeeded()`、フェーズ146で実装済みだが`dispatch_stripe_event()`への
+  配線は未着手のまま)は、モジュールごとに`LinePushDeliveryError`を別クラスとして定義
+  している既存の慣習上、本フェーズの`push_client`とは別の配線検討(例外クラスの共通化、
+  または`invoice.payment_succeeded`専用の別引数を設けるか)が必要と判断し、次回以降の
+  課題として残した。次回はこの`invoice.payment_succeeded`側の復旧通知配線への着手、
+  または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-08-29 02:00 UTC
