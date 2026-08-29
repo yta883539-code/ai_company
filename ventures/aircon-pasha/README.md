@@ -2065,4 +2065,25 @@
   `functions_framework`リクエストからのbody・`Stripe-Signature`ヘッダ取り出し配線)は
   Stripe側にはまだ存在せず(LINE側`cloud_function_webhook.main()`のみ実装済み)、
   次回以降の課題として残る。
-- 最終更新: 2026-08-29 07:00 UTC
+- フェーズ150(2026-08-29 09:00 UTC): フェーズ149末尾で次回課題として残った、Stripe版
+  `main(request)`(実Cloud Functionsの`functions_framework`リクエストからの`body`・
+  `Stripe-Signature`ヘッダ取り出し配線)をstripe-webhook-http-entry-point-design.md
+  「残課題」2点目に沿って実装した。course-set-pashaの`prototype/stripe_webhook.py`の
+  `main(request)`・`get_stripe_runtime_dependencies()`を土台としつつ、本venture固有の
+  差異(専用の`PaymentFailureStoreProtocol`スタブを持たず`UserProfileStoreProtocol`が
+  duck typingで満たす設計)を反映し、`get_stripe_runtime_dependencies()`は
+  `InMemoryUserProfileStore()`を1つ生成して`user_profile_store`・`payment_store`の
+  両方として渡す形にした。`push_client`・`recovery_push_client`は実LINE Push API接続
+  (チャネルアクセストークン)がオーナー承認待ちのため意図的に渡さず、状態の読み書きは
+  できるが実通知送信はまだ行われない状態にとどめた(payment-failure-dunning-design.md
+  6節と同じ区別)。環境変数名は設計どおり`STRIPE_WEBHOOK_SECRET`とした。テスト13件追加
+  (`_StubFlaskRequest`を使った`main()`本体の署名検証・環境変数未設定時401・
+  `get_stripe_runtime_dependencies()`の出力が`receive_stripe_webhook()`に受理される
+  ことの確認、course-set-pashaと同じ紐付け解決の回帰防止テスト2件を含む、いずれも
+  `prototype/test_stripe_webhook.py`)、venture全体312件全件パス・schema検証9件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。あわせて
+  stripe-webhook-http-entry-point-design.md「残課題」2点目を解消済みに更新した。
+  実際のStripeアカウント接続・Webhookエンドポイント登録・`STRIPE_WEBHOOK_SECRET`の
+  実際の値の取得はいずれも引き続きオーナー承認待ちのまま残る(pending-approval.md参照)。
+- 最終更新: 2026-08-29 09:00 UTC

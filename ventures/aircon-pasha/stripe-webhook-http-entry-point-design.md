@@ -84,10 +84,17 @@ course-set-pasha版と同じ形にした。
   本ventureは連携コード方式が申込フォーム送信時点(Checkout Session作成前)で完結する設計
   (user-account-linking-design.md 3節)のため、Checkout Session完了イベント自体をトリガーに
   何かを書き込む必要があるかどうかは別途整理が必要。
-- `main(request)`相当(実Cloud Functionsの`functions_framework`リクエストオブジェクトからの
+- ~~`main(request)`相当(実Cloud Functionsの`functions_framework`リクエストオブジェクトからの
   `body`・`Stripe-Signature`ヘッダ取り出し配線)は、course-set-pashaの`main(request)`(Stripe版)
   と同様の薄い配線となる見込みだが、`webhook_secret`の環境変数名(`STRIPE_WEBHOOK_SECRET`
-  想定)の最終確認と合わせて次の課題として残す。
+  想定)の最終確認と合わせて次の課題として残す。~~ → フェーズ150で解消。`stripe_webhook.py`に
+  course-set-pasha版と対称の`main(request)`・`get_stripe_runtime_dependencies()`を実装した。
+  `get_stripe_runtime_dependencies()`は`InMemoryUserProfileStore()`を1つ生成し
+  `user_profile_store`・`payment_store`の両方として渡す(duck typingで
+  `PaymentFailureStoreProtocol`を満たすため)。`push_client`・`recovery_push_client`は
+  実LINE Push API接続がオーナー承認待ちのため意図的に渡さない(省略時`None`)。
+  環境変数名は予定どおり`STRIPE_WEBHOOK_SECRET`とした。テスト13件追加、詳細は
+  README.mdフェーズ150参照。
 - ~~`resolve_user_id`(`stripe_customer_id → user_id`)の実装自体
   (`stripe-webhook-event-dispatch-design.md`で名指しされていた未解決事項)は本設計の
   範囲外のまま引き続き残る。~~ → フェーズ140以降(`stripe_webhook.py`の

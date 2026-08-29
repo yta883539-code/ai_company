@@ -42,11 +42,13 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from payment_failure import LinePushClient, PaymentFailureStoreProtocol
 from payment_recovery_notification import LinePushClient as RecoveryPushClient
 from stripe_dispatch import (
@@ -54,7 +56,7 @@ from stripe_dispatch import (
     StripeDispatchResult,
     dispatch_stripe_event,
 )
-from user_id_linking import UserProfileStoreProtocol
+from user_id_linking import InMemoryUserProfileStore, UserProfileStoreProtocol
 
 
 def verify_stripe_signature(
@@ -281,6 +283,63 @@ def receive_stripe_webhook(
         now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
+def get_stripe_runtime_dependencies() -> dict:
+    """receive_stripe_webhook()に渡す依存関係一式を組み立てるファクトリ
+    (stripe-webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた項目、
+    course-set-pashaの`get_stripe_runtime_dependencies()`と同じ位置づけ)。
+
+    - store: `InMemoryProfileDeletionCandidateStore()`を暫定的に返す。実Firestore接続は
+      実GCPプロジェクト作成(オーナー承認待ち)後の課題として別途残る。プロセス起動ごとに
+      初期化されるため、実Cloud Functions環境では呼び出しをまたいで削除候補フラグが
+      保持されない点に注意(course-set-pashaの同名ファクトリと同じ既知の限界)。
+    - user_profile_store: `InMemoryUserProfileStore()`を1つ生成する。本ventureは
+      `PaymentFailureStoreProtocol`を専用のInMemoryスタブとして持たず、
+      `UserProfileStoreProtocol`が構造的に(duck typing)満たす設計(payment_failure.py
+      冒頭コメント参照)のため、同じインスタンスを`payment_store`としても渡せる。
+      storeと同様プロセス起動ごとに初期化されるため、実Cloud Functions環境では
+      呼び出しをまたいで紐付け・決済状態が保持されない(実Firestore接続後に解消される
+      既知の限界)。
+    - resolve_user_id: `make_resolve_user_id(user_profile_store)`。紐付けがまだ無い
+      stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
+      unresolved_customersとして安全に扱い200を返す。
+    - push_client・recovery_push_client: 実LINE Push API接続(チャネルアクセストークン)は
+      引き続きオーナー承認待ちのため、ここでは意図的に渡さない(省略時は`None`となり、
+      決済失敗検知・復旧の状態書き込みは行われるが通知は送信されない。
+      payment-failure-dunning-design.md 6節と同じ「配線はできているが実送信はまだ」
+      という区別を保つ)。
+    """
+    user_profile_store = InMemoryUserProfileStore()
+    return {
+        "store": InMemoryProfileDeletionCandidateStore(),
+        "resolve_user_id": make_resolve_user_id(user_profile_store),
+        "user_profile_store": user_profile_store,
+        "payment_store": user_profile_store,
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、Stripe版)。
+
+    stripe-webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた、
+    実リクエストオブジェクトからのbody(`request.get_data()`)・署名ヘッダ
+    (`request.headers.get("Stripe-Signature")`)取り出し配線をここで行い、
+    receive_stripe_webhook()に委譲する(LINE版cloud_function_webhook.main()、
+    course-set-pasha版stripe_webhook.main()と対称の構成)。`webhook_secret`は
+    環境変数`STRIPE_WEBHOOK_SECRET`から取得する。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    result = receive_stripe_webhook(
+        body, signature_header, webhook_secret, **get_stripe_runtime_dependencies()
+    )
+
+    if result.status_code == 200:
+        return "OK", 200
+    return (result.error or "error"), result.status_code
 
 
 def _demo() -> None:
