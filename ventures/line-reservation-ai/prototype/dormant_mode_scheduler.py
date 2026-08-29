@@ -9,6 +9,10 @@ dormant-mode-renotification-design.md 1節(猶予期間)・2節(再通知頻度�
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 本モジュールは dunning_notification_scheduler.py と同じ役割分担
   (判断・整形ロジックのみを切り出し、Webhook受信・Firestore書き込み・LINE送信は行わない)。
+- select_due_dormant_events()は、trial-end-scheduler-design.md 5節・本ファイル
+  compute_dormant_schedule()のdocstringに残っていた「実際の送信要否は(未送信 かつ
+  予定時刻を過ぎている かつ その間にプラン選択が完了していない)で判定する」を実装した
+  もの(フェーズ続き145)。詳細は当該関数のdocstring参照。
 
 設計の参照元: dormant-mode-renotification-design.md 1節・2節・3節・4.2節
 """
@@ -17,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Optional, Sequence
 
 # 1節: 利用実績レポート送信から休止モード移行までの猶予期間(暫定値、実測データ無し)。
 GRACE_PERIOD_DAYS = 3
@@ -51,6 +56,89 @@ def compute_dormant_schedule(report_sent_at: datetime) -> list[DormantEvent]:
             )
         )
     return events
+
+
+# ---------------------------------------------------------------------------
+# 送信要否の判定(trial-end-scheduler-design.md 5節の残課題、フェーズ続き145)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DormantScheduleState:
+    """本関数が参照する、店舗1件分の`stores/{storeId}`状態(firestore-data-model.md)。
+
+    suspension_reason・stripe_customer_idは既存フィールドをそのまま指す。
+    dormant_transitioned_at・dormant_renotify_countは本フェーズで新設する
+    (firestore-data-model.md参照)、1通目(移行時)送信済み時刻と、2〜4通目のうち
+    何通送信済みかを表す冪等性フラグ。
+    """
+
+    store_id: str
+    trial_end_report_sent_at: Optional[datetime]
+    suspension_reason: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+    dormant_transitioned_at: Optional[datetime] = None
+    dormant_renotify_count: int = 0
+
+
+@dataclass(frozen=True)
+class DueDormantEvent:
+    """select_due_dormant_events()が返す、1店舗ぶんの送信対象イベント。"""
+
+    state: DormantScheduleState
+    event: DormantEvent
+
+
+def select_due_dormant_events(
+    states: Sequence[DormantScheduleState], now: datetime
+) -> list[DueDormantEvent]:
+    """compute_dormant_schedule()のdocstringに残っていた「実際の送信要否」判定
+    (未送信 かつ 予定時刻を過ぎている かつ その間にプラン選択が完了していない)を実装する。
+
+    「その間にプラン選択が完了していない」は、trial_end_report_sent_at時点では
+    suspension_reasonがまだ"trial_unselected"に書き換わっていない(1通目送信時に初めて
+    書き換わる、cloud_function_subscription_activated_webhook.py参照)ため、
+    suspension_reasonだけでは猶予期間中の決済完了を判定できない。かわりに
+    stripe_customer_id(checkout.session.completed受信時にWebhookが設定、
+    firestore-data-model.md参照)の有無を「有効な契約が成立したか」の代理指標として使う。
+    1通目未送信のうちにstripe_customer_idが設定されれば、休止モード自体に一度も
+    入らず通常運用へ戻る(dormant_transitioned_atを書き込まない、通知も送らない)。
+
+    2〜4通目(renotify)は、1通目送信後にcloud_function_subscription_activated_webhook.py
+    経由でsuspension_reasonが解除(Noneへ)されていれば対象外とする(dormant-mode-
+    renotification-design.md 4節の復旧通知が既にそちらで送信済みのため)。
+    dormant_renotify_countが3(2nd/3rd/finalすべて送信済み)に達した後は、2節の
+    「4回で打ち切り」方針どおり以降何も返さない。
+    """
+    due: list[DueDormantEvent] = []
+    for state in states:
+        if state.trial_end_report_sent_at is None:
+            continue
+        if state.suspension_reason == "payment_failed":
+            # 決済失敗からの猶予期間・制限モードはdunning_notification_scheduler.pyの担当。
+            continue
+        schedule = compute_dormant_schedule(state.trial_end_report_sent_at)
+
+        if state.dormant_transitioned_at is None:
+            if state.stripe_customer_id is not None:
+                # 猶予期間中(または1通目未送信のまま)にプラン選択が完了済み。
+                # 休止モードへは移行させない。
+                continue
+            transitioned_event = schedule[0]
+            if now >= transitioned_event.scheduled_at:
+                due.append(DueDormantEvent(state=state, event=transitioned_event))
+            continue
+
+        if state.suspension_reason != "trial_unselected":
+            # 1通目送信後に復帰済み(subscription_activated Webhookでクリア済み)。
+            continue
+        if state.dormant_renotify_count >= len(RENOTIFY_OFFSETS_DAYS):
+            continue
+        next_event = schedule[1 + state.dormant_renotify_count]
+        if now >= next_event.scheduled_at:
+            due.append(DueDormantEvent(state=state, event=next_event))
+
+    return due
 
 
 # message-tone-variants.mdの3トーン(formal/standard/casual)出し分けを適用する。

@@ -179,6 +179,38 @@ billing-upgrade-flow-design.md 3節のメッセージは「本日より正式に
 のと対称に、復旧時も顧客への能動的な通知は送らない(次回の問い合わせ時から自動的に通常の
 応答に戻る)。
 
+## 5. 送信要否の判定(2026-08-29 フェーズ続き145で追加)
+
+trial-end-scheduler-design.md 5節に残っていた「レポート送信後、3日間の猶予期間中に
+プラン選択が完了した場合の`trialEndReportSentAt`と`suspensionReason`の整合」を解消する。
+
+`prototype/dormant_mode_scheduler.py`の`compute_dormant_schedule()`はイベントの予定表
+(1〜4通目の予定時刻)を算出するのみで、「実際に今その店舗へ送るべきか」は別途判定が
+必要だった。この判定を`select_due_dormant_events()`として実装した。
+
+- `trial_end_report_sent_at`時点では`suspension_reason`はまだ`"trial_unselected"`に
+  書き換わっていない(1通目送信時に初めて書き換わる、4節の`cloud_function_subscription_
+  activated_webhook.py`参照)ため、`suspension_reason`だけでは猶予期間中の決済完了を
+  判定できない。かわりに`stripeCustomerId`(`checkout.session.completed`受信時に
+  Webhookが設定、firestore-data-model.md参照)の有無を「有効な契約が成立したか」の
+  代理指標として使う。1通目未送信のうちに`stripeCustomerId`が設定されれば、休止モード
+  自体に一度も入らず通常運用へ戻る(1通目を送らず、`dormant_transitioned_at`も書き込まない)。
+- 冪等性フラグとして`dormant_transitioned_at`(1通目送信済み時刻)・
+  `dormant_renotify_count`(2〜4通目のうち何通送信済みか、0〜3)の2フィールドを新設する
+  (firestore-data-model.mdに反映)。
+- 2〜4通目(renotify)は、1通目送信後に`subscription_activated`Webhook経由で
+  `suspension_reason`が解除(`None`へ)されていれば対象外とする(4節の復旧通知が
+  既にそちらで送信済みのため)。`dormant_renotify_count`が3に達した後は2節の
+  「4回で打ち切り」方針どおり以降何も返さない。
+- `suspension_reason == "payment_failed"`の店舗は対象外とする(決済失敗からの猶予期間・
+  制限モードはdunning_notification_scheduler.pyの担当、1節の前提どおり)。
+
+テスト9件追加(test_dormant_mode_scheduler.py `SelectDueDormantEventsTests`)、
+line-reservation-ai配下計383件全件パス・schema検証25件パスを確認した。承認不要な設計・
+実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生していない
+ためpending-approval.mdへの追記なし。実際のCloud Schedulerからの呼び出し配線・
+Firestoreからの候補読み取りクエリ組み立ては、実ホスティング基盤接続時の課題として残る。
+
 ## 未検証の仮説(要検証)
 
 - 猶予期間3日・再通知タイミング(7/30/90日)・4回打ち切りは、いずれも実測データの無い

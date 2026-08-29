@@ -62,6 +62,13 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // ConversationFlowStateMachine._trial_end_report_sent_at・
                                      // get_trial_end_report_sent_at()/mark_trial_end_report_sent()
                                      // として実装済み。
+  dormantTransitionedAt: null,       // dormant-mode-renotification-design.md「5. 送信要否の判定」で
+                                     // 新規追加。休止モード1通目(移行時)通知の送信済み時刻
+                                     // (Timestamp | null)。dormant_mode_scheduler.py
+                                     // select_due_dormant_events()の冪等性フラグ。
+  dormantRenotifyCount: 0            // 同上。休止モード2〜4通目(7/30/90日後)のうち
+                                     // 何通送信済みか(0〜3の整数)。3に達すると2節の
+                                     // 「4回で打ち切り」方針どおり以降送信しない。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

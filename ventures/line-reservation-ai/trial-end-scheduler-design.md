@@ -107,7 +107,9 @@ Cloud Function E: send_trial_end_reports
 - 実際のCloud Scheduler新規作成・LINE公式アカウント開設・
   `auto_handled_inquiry_count`の実集計元(NotificationLogAggregator等)との結線は
   オーナー承認待ち・次回以降の課題として残る(pending-approval.md参照)。
-- レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の
+- ~~レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の
   `trialEndReportSentAt`と`suspensionReason`の整合(dormant_mode_scheduler.py側の
   「その間にプラン選択が完了していない」判定の実装)は、1節で述べた通り
-  dormant-mode-renotification-design.md側の既存の未着手課題として引き続き残す。
+  dormant-mode-renotification-design.md側の既存の未着手課題として引き続き残す。~~ →
+  2026-08-29(フェーズ続き145)、dormant-mode-renotification-design.md側で対応済み。
+  詳細は同ドキュメント「5. 送信要否の判定」参照。

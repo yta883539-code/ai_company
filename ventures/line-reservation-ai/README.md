@@ -1590,10 +1590,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   への追記なし。実Cloud Function本体(functions_framework配線)・実Firestoreからの候補読み
   取りクエリ・実Cloud Scheduler作成・LINE公式アカウント開設は引き続きオーナー承認待ち・
   次回以降の課題として残した。
+- フェーズ続き145(2026-08-29 12:00 UTC): trial-end-scheduler-design.md 5節に残っていた
+  「レポート送信後、3日間の猶予期間中にプラン選択が完了した場合のtrialEndReportSentAtと
+  suspensionReasonの整合(dormant_mode_scheduler.py側の『その間にプラン選択が完了して
+  いない』判定の実装)」に対応した。`compute_dormant_schedule()`のdocstringに元々
+  想定されていた判定条件(未送信 かつ 予定時刻を過ぎている かつ その間にプラン選択が
+  完了していない)を`select_due_dormant_events()`として新規実装。`suspension_reason`は
+  1通目送信時に初めて`"trial_unselected"`へ書き換わる設計のため、猶予期間中の決済完了は
+  `stripeCustomerId`(`checkout.session.completed`受信時に設定済み)の有無を代理指標として
+  判定する方式を採用した。新規フィールド`dormantTransitionedAt`(1通目送信済み時刻)・
+  `dormantRenotifyCount`(2〜4通目のうち送信済み数)をfirestore-data-model.mdに追加し、
+  冪等性・4回打ち切りの判定に使う設計とした。テスト9件追加(test_dormant_mode_scheduler.py
+  `SelectDueDormantEventsTests`)、venture全体383件全件パス・schema検証25件パスを確認した。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。あわせてtrial-end-scheduler-
+  design.md 5節・dormant-mode-renotification-design.mdを更新済みに反映した。実際の
+  Cloud Schedulerからの呼び出し配線・Firestoreからの候補読み取りクエリ組み立ては、実
+  ホスティング基盤接続時の課題として残る。
 
 ## 次にやること(候補)
-- (解消済み 2026-08-29 11:00 UTC・フェーズ続き144: trial-end-scheduler-design.md 5節に
-  残っていた「Cloud Function E本体の実装」に対応した。詳細は上記フェーズ続き144参照。
+- (解消済み 2026-08-29 12:00 UTC・フェーズ続き145: trial-end-scheduler-design.md 5節に
+  残っていた「猶予期間中のプラン選択完了判定」に対応した。詳細は上記フェーズ続き145参照。
   次回はauto_handled_inquiry_countの実集計元との結線検討、または他venture・アイデア領域の
   前進を検討する。)
 - (解消済み 2026-08-28 23:00 UTC・フェーズ続き142: CI

@@ -11,9 +11,11 @@ from datetime import datetime, timedelta
 from dormant_mode_scheduler import (
     GRACE_PERIOD_DAYS,
     RENOTIFY_OFFSETS_DAYS,
+    DormantScheduleState,
     compute_dormant_schedule,
     render_dormant_message,
     render_dormant_recovery_message,
+    select_due_dormant_events,
 )
 
 
@@ -103,6 +105,106 @@ class RenderDormantRecoveryMessageTests(unittest.TestCase):
     def test_recovery_message_formal_tone(self):
         text = render_dormant_recovery_message("2026-09-24", "https://pay.example.com/store1", tone="formal")
         self.assertIn("再開いたしました", text)
+
+
+class SelectDueDormantEventsTests(unittest.TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 8, 28, 4, 0)
+        self.report_sent_at = datetime(2026, 8, 21, 9, 0)  # + 3日 = 8/24 9:00
+
+    def test_transition_due_after_grace_period_with_no_subscription(self):
+        state = DormantScheduleState(
+            store_id="s1", trial_end_report_sent_at=self.report_sent_at
+        )
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0].event.event_type, "transitioned")
+
+    def test_transition_not_yet_due_within_grace_period(self):
+        state = DormantScheduleState(
+            store_id="s1", trial_end_report_sent_at=datetime(2026, 8, 27, 9, 0)
+        )
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(due, [])
+
+    def test_no_report_sent_yet_is_not_due(self):
+        state = DormantScheduleState(store_id="s1", trial_end_report_sent_at=None)
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(due, [])
+
+    def test_subscription_completed_during_grace_period_skips_transition(self):
+        # 猶予期間中にプラン選択が完了(stripe_customer_id設定済み)。
+        # 1通目未送信のため休止モード自体に入らない。
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            stripe_customer_id="cus_123",
+        )
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(due, [])
+
+    def test_payment_failed_reason_is_out_of_scope(self):
+        # 決済失敗からの猶予期間・制限モードはdunning_notification_scheduler.pyの担当。
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason="payment_failed",
+        )
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(due, [])
+
+    def test_2nd_renotify_due_after_transition_plus_7_days(self):
+        transitioned_at = self.report_sent_at + timedelta(days=GRACE_PERIOD_DAYS)
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason="trial_unselected",
+            dormant_transitioned_at=transitioned_at,
+            dormant_renotify_count=0,
+        )
+        now = transitioned_at + timedelta(days=7)
+        due = select_due_dormant_events([state], now)
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0].event.label, "2nd")
+
+    def test_recovered_after_transition_stops_renotify(self):
+        # cloud_function_subscription_activated_webhook.py経由でsuspension_reasonが
+        # 解除(Noneへ)された場合、以降のrenotifyは送らない。
+        transitioned_at = self.report_sent_at + timedelta(days=GRACE_PERIOD_DAYS)
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason=None,
+            stripe_customer_id="cus_123",
+            dormant_transitioned_at=transitioned_at,
+            dormant_renotify_count=0,
+        )
+        now = transitioned_at + timedelta(days=90)
+        due = select_due_dormant_events([state], now)
+        self.assertEqual(due, [])
+
+    def test_stops_after_final_notification(self):
+        transitioned_at = self.report_sent_at + timedelta(days=GRACE_PERIOD_DAYS)
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason="trial_unselected",
+            dormant_transitioned_at=transitioned_at,
+            dormant_renotify_count=3,  # 2nd/3rd/finalすべて送信済み
+        )
+        now = transitioned_at + timedelta(days=365)
+        due = select_due_dormant_events([state], now)
+        self.assertEqual(due, [])
+
+    def test_multiple_stores_only_returns_due_ones(self):
+        due_state = DormantScheduleState(
+            store_id="s1", trial_end_report_sent_at=self.report_sent_at
+        )
+        not_due_state = DormantScheduleState(
+            store_id="s2", trial_end_report_sent_at=datetime(2026, 8, 27, 9, 0)
+        )
+        due = select_due_dormant_events([due_state, not_due_state], self.now)
+        self.assertEqual([d.state.store_id for d in due], ["s1"])
 
 
 if __name__ == "__main__":
