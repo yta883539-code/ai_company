@@ -2086,4 +2086,26 @@
   stripe-webhook-http-entry-point-design.md「残課題」2点目を解消済みに更新した。
   実際のStripeアカウント接続・Webhookエンドポイント登録・`STRIPE_WEBHOOK_SECRET`の
   実際の値の取得はいずれも引き続きオーナー承認待ちのまま残る(pending-approval.md参照)。
-- 最終更新: 2026-08-29 09:00 UTC
+- フェーズ151(2026-08-29 14:00 UTC): 各設計docの残課題を棚卸しした結果、既に実装済み
+  (フェーズ111・112・113・132等)にもかかわらずドキュメント側の更新が漏れていた残課題を
+  複数発見・整理した。follow-unfollow-event-handling-design.mdが「未実装」としていた
+  `process_follow_event()`・`process_unfollow_event()`・`dispatch_webhook_events()`は
+  実際には既に実装済み(prototype/cloud_function_webhook.py)、user-account-linking-design.md
+  が「pending-approval.md未記録」としていた申込フォーム作成案件は実際には2026-08-23
+  04:00 UTC付けで記録済み、「data-retention-policy.md相当が未作成」としていた点も
+  フェーズ108で既に新規作成済みであることを確認し、いずれも解消済みとして更新した。
+  その上で、真に未対応だった2点に着手した。(1)user-account-linking-design.md
+  「未検証・残課題」の`LINKING_SUCCESS_MESSAGE`・`LINKING_REQUIRED_MESSAGE`
+  (連携コード解決成功・連携コード送信依頼の案内文言)の確定文言化を、
+  tone-and-manner-guideline.mdに新設した「連携コード関連文言の最終確定」節で行った
+  (宛先・見出し要否・謝罪表現のいずれもガイドラインの既存方針と整合することを確認し、
+  現行の実装文言のまま確定文言として採用)。(2)同ドキュメントが未実施としていた
+  「6文字・辞書引き一致」ロジックの境界値確認(施工メモの書き出し文言との偶然一致
+  可能性)について、prototype/test_user_id_linking.pyにテスト2件を追加した
+  (コード生成用アルファベットが号数・電圧表記に頻出する`0`・`1`・`O`・`I`・`L`を
+  含まないことの確認、および実際にコードが1件発行された状態で「壁掛型2.2」「100V電源」
+  等の実際的なメモ書き出し文言や実在コードに酷似する1文字違いの文字列がいずれも
+  誤判定されないことの確認)。テスト2件追加、venture全体314件全件パス・schema検証9件
+  パスを確認した。承認不要なドキュメント整理・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-29 14:00 UTC

@@ -66,7 +66,10 @@ onboarding-guide.md 4節に明記済み)。したがって連携コードの発�
 - 解決失敗時(期限切れ・存在しないコード)の案内文言は、course-set-pashaのエラー案内
   (「もう一度フォームを開くと新しいコードが表示されます」等)を本venture向けに読み替えた
   ものを想定するが、確定文言はtone-and-manner-guideline.md整合確認とあわせて次回以降の
-  課題とする。
+  課題とする。(解消済み・フェーズ151: tone-and-manner-guideline.md「連携コード関連文言の
+  最終確定」節で、`LINKING_SUCCESS_MESSAGE`・`LINKING_REQUIRED_MESSAGE`(いずれも
+  フェーズ113実装済み)がガイドラインの方針(宛先・見出し・謝罪表現)と整合していることを
+  確認し、確定文言として扱ってよいと結論した。詳細は同ファイル参照。)
 - 連携未完了のまま(`user_profile`に該当`user_id`が存在しない状態で)施工メモを送信された
   場合は、mvp-flow-draft.mdの生成フローへは進めず、「先に連携コードの送信が必要です」という
   案内を返す(トライアル・有料プランいずれの利用回数カウントも、未連携の`user_id`には
@@ -112,19 +115,20 @@ tech-stack.mdコンポーネント5の記述(「本ventureにはusage_counterの
 
 ## 未検証・残課題
 
-- フォーム送信完了画面(サンクスページ)へのコード表示、メール送信は、Googleフォーム自体が
-  未作成(pending-approval.md 2026-08-18記載の申込フォーム作成案件はcourse-set-pasha分のみで、
-  本venture分はまだpending-approval.mdに記録されていない)。本ventureも同様にフォーム作成・
-  GAS Webhookデプロイがオーナー承認待ちの範囲であることを明確化しておく必要があり、次回
-  pending-approval.mdへの追記を検討する。
-- コード判定(3節)の「6文字・辞書引き一致」ロジックが、実際の施工メモの書き出し文言
-  (例:「壁掛け2.2kW」等)と偶然一致する可能性はごく低いと見込むが、机上での境界値
-  確認(prototype化)は未実施。
-- `user_profile`新設に伴い、data-retention-policy.md相当のドキュメント(本ventureは
-  legal-notices-draft.md 2.4節で「データ保存方式の確定と合わせて検討する」と保留していた)
-  に着手できる前提が整った。次回以降、本ドキュメントの`user_profile`・`pending_links`・
-  `usage_counter`の3コレクションを前提としたdata-retention-policy.mdの新規作成を優先候補とする
-  (course-set-pasha/data-retention-policy.mdの構成を踏襲予定)。
+- (解消済み 2026-08-23 04:00 UTC: フォーム送信完了画面(サンクスページ)へのコード表示・
+  GAS Webhookデプロイを含む本venture分の申込フォーム作成案件をpending-approval.mdへ
+  記録済み。メール送信自体は別途送信用サービスのアカウント作成を要するためオーナー承認待ちの
+  ままだが、記録漏れ自体は解消した。)
+- (解消済み・フェーズ151: コード判定(3節)の「6文字・辞書引き一致」ロジックについて、
+  `prototype/test_user_id_linking.py`に境界値確認テストを2件追加した。
+  (1)コード生成用アルファベット(`_CODE_ALPHABET`)が号数・電圧表記に高頻度で登場する
+  `0`・`1`・`O`・`I`・`L`を含まないことを確認し、これらを含むメモ文言が原理的にコードと
+  一致しえないことをコードで裏付けた。(2)実際にコードが1件発行されている状態で、
+  「壁掛型2.2」「100V電源」「2台目」「室外機」および実在コードに酷似する1文字違いの文字列を
+  `resolve_linking_code()`に渡し、いずれも連携コードと誤認されず元のコードも消費されずに
+  残ることを確認した。venture全体314件全件パス。)
+- (解消済み 2026-08-23 フェーズ108: data-retention-policy.mdを新規作成した。詳細は同ファイル
+  参照。)
 - (解消済み 2026-08-23 15:00 UTC・フェーズ113: プロトタイプ実装
   (course-set-pashaの`prototype/user_id_linking.py`相当)・テストを実装した。詳細は
   README.mdフェーズ113・prototype/user_id_linking.py・cloud_function_webhook.pyの

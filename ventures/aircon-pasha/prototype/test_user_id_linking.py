@@ -16,6 +16,7 @@ from user_id_linking import (  # noqa: E402
     LinkingResolution,
     PendingLink,
     UserProfile,
+    _CODE_ALPHABET,
     issue_linking_code_on_form_submission,
     purge_expired_links,
     resolve_linking_code,
@@ -190,6 +191,42 @@ class ResolveLinkingCodeTest(unittest.TestCase):
         )
 
         self.assertFalse(result.ok)
+
+    def test_code_alphabet_excludes_digits_common_in_equipment_specs(self):
+        """user-account-linking-design.md「未検証・残課題」(境界値確認)への対応。
+
+        施工メモの号数・電圧表記(例:「壁掛け2.2kW」「100V」)には`0`・`1`が高頻度で
+        登場するが、コード生成用アルファベット(_CODE_ALPHABET)は視認性除外ルールにより
+        `0`・`1`・`O`・`I`・`L`を含まない。したがって、これらの文字を含むメモの書き出し
+        文言は、正規化(strip+upper)後も実際に発行されたコードとは原理的に一致しえない
+        ことをここで確定する(「偶然一致する可能性はごく低い」という設計コメントの根拠を
+        実コードで裏付ける)。
+        """
+        for excluded_char in "01OIL":
+            self.assertNotIn(excluded_char, _CODE_ALPHABET)
+        self.assertEqual(len(_CODE_ALPHABET), 31)  # 26+10-5
+
+    def test_realistic_memo_openings_are_rejected_even_when_a_pending_code_exists(self):
+        """辞書引き一致の境界値確認: 実際にコードが1件発行されている状態でも、施工メモに
+        典型的に現れる書き出し文言(号数・電圧・数量表記)はいずれも連携コードと誤認されない
+        ことを確認する(design 3節の「辞書引き一致を必須とする」方針の実効性確認)。"""
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        self._issue(linking_store, code="AB23CD")
+
+        realistic_memo_openings = [
+            "壁掛型2.2",  # 号数表記
+            "100V電源",  # 電圧表記(0/1を含む)
+            "2台目",  # 数量表記
+            "室外機",
+            "AB23CE",  # 実在コードに酷似するが1文字違う(誤入力に近い境界値)
+        ]
+        for text in realistic_memo_openings:
+            with self.subTest(text=text):
+                result = resolve_linking_code(text, "u-1", linking_store, profile_store, _NOW)
+                self.assertFalse(result.ok)
+        # 誤判定を試みても本来のコードは消費されずに残っている(取り違えで使い潰されない)。
+        self.assertIsNotNone(linking_store.get("AB23CD"))
 
 
 class PurgeExpiredLinksTest(unittest.TestCase):

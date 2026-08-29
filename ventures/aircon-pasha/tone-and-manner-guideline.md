@@ -71,6 +71,8 @@ line-reservation-aiには無い構造を持つ。そのため本ガイドライ�
 | 意思確認応答(厳守事項6a(iv)) | 業者向け | llm-system-prompt-draft.md厳守事項6a(iv) | なし |
 | 作業完了報告(出力1) | 依頼者向け | llm-system-prompt-draft.md厳守事項3 | (該当なし、本文そのもの) |
 | お手入れ案内(出力2) | 依頼者向け | llm-system-prompt-draft.md厳守事項4 | (該当なし、本文そのもの) |
+| 連携コード解決成功案内(`LINKING_SUCCESS_MESSAGE`) | 業者向け | user-account-linking-design.md 3節 | 検討要(下記参照) |
+| 連携コード送信依頼(`LINKING_REQUIRED_MESSAGE`) | 業者向け | user-account-linking-design.md 3節 | 検討要(下記参照) |
 
 いずれも確認した範囲で絵文字は使用されておらず、方針2・3と矛盾しない。上記の一覧化により、
 今後新設する業者向け文言(例: llm-quality-verification-plan.md実施後に判明する未対応
@@ -92,6 +94,35 @@ character-limit-fallback-design.mdの例文
 - 以上により、character-limit-fallback-design.mdの例文はトーン&マナーガイドラインとの
   整合確認が完了し、確定文言として扱ってよいと結論する。同ファイルの「残課題」1点目は
   本ドキュメントの新設をもって解消済みとする。
+
+## 連携コード関連文言の最終確定
+
+user-account-linking-design.md 3節「未検証・残課題」に残っていた、`process_message_event()`
+(`prototype/cloud_function_webhook.py`、フェーズ113実装)の`LINKING_SUCCESS_MESSAGE`
+(「連携が完了しました。テスト送信をお試しください。」)・`LINKING_REQUIRED_MESSAGE`
+(「先に連携コードの送信が必要です。お申込みフォーム送信完了画面またはメール記載の6文字の
+連携コードを、このトークにそのまま送信してください。」)を、本ガイドラインの方針に照らして
+検証する。
+
+- 宛先: いずれも業者向け(依頼者に転送されることを想定しない操作案内)であり、design 3節
+  本文の記載と一致する。
+- 見出し要否: いずれも「それ自体が独立した1件の返信として完結する」文言であり、
+  completion_report等の生成物に付記される注記ではないため、方針4に従い【】見出しは
+  付けない方針を採用する(現行の実装どおりで確定)。
+- ですます調・絵文字不使用: 両文言とも該当し、方針2・3と矛盾しない。
+- 謝罪表現: `LINKING_REQUIRED_MESSAGE`は業者側の操作(コード未送信・再送信)を促す文言で
+  あり、方針5「業者側の操作を促す文言では過度な謝罪は不要」に従い謝罪表現を含めない現行の
+  文言で確定する(誤入力・期限切れ・施工メモの先送り送信のいずれであっても業者側の追加操作
+  一つで解決するため、謝意を挟む必要はないと判断する)。`LINKING_SUCCESS_MESSAGE`も同様に
+  完了報告であり謝罪表現は不要。
+- design 3節が「連携コード自体が見つからない(未連携・期限切れ・入力ミス等)」と「未連携の
+  まま施工メモを送った」を区別しない設計とした点(この時点では技術的に区別する手段がない
+  ため)は、`LINKING_REQUIRED_MESSAGE`が原因を問わず同一の次アクション(6文字コードの
+  送信)を促す内容になっており、トーン上も矛盾しないことを確認した。
+- 以上により、`LINKING_SUCCESS_MESSAGE`・`LINKING_REQUIRED_MESSAGE`はトーン&マナー
+  ガイドラインとの整合確認が完了し、確定文言として扱ってよいと結論する。
+  user-account-linking-design.md 3節・「未検証・残課題」の該当項目は本ドキュメントの
+  更新をもって解消済みとする。
 
 ## 未検証の仮説(要検証)
 
