@@ -155,21 +155,52 @@ NotificationLogAggregator が集計する元データを、集計値ではなく
 集計画面側は`category`でフィルタした`count()`クエリを使い分ける
 (notification-log-classification-labels.mdの区分をそのまま踏襲)。
 
+trial-end-scheduler-design.md 5節(フェーズ続き148)で`NotificationLogAggregator`に
+追加した`auto_handled_faq_count`(`faq_segments[].resolved:true`の集計、トライアル
+終了レポートの「自動対応できたお問い合わせ」の実集計元)も、4区分目の
+category:"auto_handled_faq"として同じ`notificationLogEntries`に書き込む
+(`resolved:false`の`unresolved_faq`と異なり`notificationLogUniqueTopics`側への
+ユニーク化書き込みは行わない。値引き目的の重複排除が不要なため、実際に自動応答した
+回数分だけ`notificationLogEntries`に追記すればそのまま件数になる)。
+
 ```
 // notificationLogEntries/{autoId}
 {
   date: "2026-08-09",
   sessionId: "U1234...",
   topic: "parking" | null,          // faq_segments由来、consultation/system_eventはnull
-  category: "unresolved_faq" | "unimplemented_feature" | "consultation" | "system_event",
+  category: "unresolved_faq" | "unimplemented_feature" | "consultation" | "system_event" | "auto_handled_faq",
   escalationReason: "booking_conflict" | null,
-  resolved: false | null,
+  resolved: false | true | null,
   createdAt: <Timestamp>
 }
 
-// notificationLogUniqueTopics/{date}_{sessionId}_{topic}  (存在チェック用、値は空でも可)
+// notificationLogUniqueTopics/{date}_{sessionId}_{topic}  (存在チェック用、値は空でも可。category:"unresolved_faq"のみ書き込む)
 { createdAt: <Timestamp> }
 ```
+
+#### トライアル期間(14日)を跨いだ集計クエリ
+
+`auto_handled_faq_count`は「30日分の読み取り専用画面」(オーナー向け通知ログ集計画面)
+とは異なり、trial-end-scheduler-design.md 2節が定義する「トライアル開始日時
+(`trialStartAt`)から14日間」という店舗ごとに起点が異なる期間で集計する必要がある。
+オーナー向け画面側の`category`等値フィルタ`count()`クエリに加えて、Cloud Function E
+(`send_trial_end_reports()`)側では以下のレンジクエリを`count()`集約で実行する:
+
+```
+stores/{storeId}/notificationLogEntries
+  .where("category", "==", "auto_handled_faq")
+  .where("createdAt", ">=", trialStartAt)
+  .where("createdAt", "<", trialStartAt + 14days)
+  .count()
+```
+
+等値(`category`)+範囲(`createdAt`)の複合条件になるため、Firestoreは
+`(category ASC, createdAt ASC)`の複合インデックスを要求する(単一フィールド
+インデックスでは不足)。実GCPプロジェクト作成後、初回クエリ実行時にコンソールの
+自動提案リンクからインデックスを作成する想定(`firestore.indexes.json`への
+事前定義も可能)。件数のみ必要で内訳(topic別等)は不要なため、`count()`集約
+クエリのみでよく全件読み出しは発生しない(4節冒頭の設計方針と同じ低コスト特性)。
 
 ### 5. `stores/{storeId}/escalationWindows/{sessionId}`
 EscalationConsolidator の `_Window`(集約通知の時間窓管理)に対応する。

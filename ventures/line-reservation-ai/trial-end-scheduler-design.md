@@ -119,6 +119,23 @@ Cloud Function E: send_trial_end_reports
   踏まえた、Firestore上での実際の集計クエリ・永続化方法の設計と、
   `cloud_function_send_trial_end_reports.py`の候補組み立て処理(呼び出し元)への
   実配線。いずれも実Firestore接続後(オーナー承認待ち)の課題として残る)
+- (解消済み 2026-08-29フェーズ続き149: 前項で残っていた「Firestore上での実際の
+  集計クエリ・永続化方法の設計」に着手した。`notificationLogEntries`(firestore-
+  data-model.md 4節)に4区分目の`category:"auto_handled_faq"`を追加し、
+  `auto_handled_faq_count`はオーナー向け画面と同じ`notificationLogEntries`への
+  追記(`resolved:false`の`unresolved_faq`と異なりユニーク化の重複排除書き込みは
+  不要、実際に自動応答した回数分だけ追記すればそのまま件数になる)で永続化する
+  設計とした。トライアル終了レポート側は店舗ごとに起点が異なる「trialStartAtから
+  14日間」を集計する必要があるため、オーナー画面側の`category`等値フィルタとは別に
+  `category`等値+`createdAt`範囲の複合条件`count()`集約クエリを新設し、
+  `(category ASC, createdAt ASC)`の複合インデックスが必要になる点を明記した。
+  詳細はfirestore-data-model.md 4節「トライアル期間(14日)を跨いだ集計クエリ」
+  参照。コード変更は無し(机上設計のみ)、venture全体393件全件パス・schema検証
+  25件パスを確認した(変更前と同数、差分なしの再確認)。承認不要な設計のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。残る課題は`cloud_function_send_trial_end_
+  reports.py`の候補組み立て処理への実配線と、実際の複合インデックス作成で、
+  いずれも実Firestore接続後(オーナー承認待ち)の課題として残る)
 - 実際のCloud Scheduler新規作成・LINE公式アカウント開設は
   オーナー承認待ち・次回以降の課題として残る(pending-approval.md参照)。
 - ~~レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の

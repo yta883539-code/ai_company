@@ -1652,8 +1652,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `cloud_function_send_trial_end_reports.py`の候補組み立て処理への実配線(実Firestore接続
   後、オーナー承認待ち)。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き149(2026-08-29 21:00 UTC): フェーズ続き148で残っていた「Firestore側の
+  実集計・永続化設計」に着手した。`notificationLogEntries`(firestore-data-model.md
+  4節)に4区分目の`category:"auto_handled_faq"`を追加し、`auto_handled_faq_count`は
+  オーナー向け画面集計と同じコレクションへの追記(値引き目的の重複排除が不要なため
+  `notificationLogUniqueTopics`側への書き込みは行わない)で永続化する設計とした。
+  トライアル終了レポート側は店舗ごとに起点が異なる「trialStartAtから14日間」を
+  集計する必要があるため、`category`等値+`createdAt`範囲の複合条件`count()`集約
+  クエリを新設し、`(category ASC, createdAt ASC)`の複合インデックスが必要になる点を
+  明記した。詳細はfirestore-data-model.md 4節「トライアル期間(14日)を跨いだ集計
+  クエリ」・trial-end-scheduler-design.md 5節参照。コード変更は無し(机上設計のみ)、
+  venture全体393件全件パス・schema検証25件パスを確認した(変更前と同数、差分なしの
+  再確認)。残る課題は`cloud_function_send_trial_end_reports.py`の候補組み立て処理への
+  実配線と、実際の複合インデックス作成で、いずれも実Firestore接続後(オーナー承認待ち)
+  の課題として残る。承認不要な設計のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-29 21:00 UTC・フェーズ続き149: trial-end-scheduler-design.md 5節に
+  残っていた「Firestore上での実際の集計クエリ・永続化方法の設計」に対応した。詳細は
+  上記フェーズ続き149参照。残る課題(候補組み立てへの実配線、複合インデックス作成)は
+  実Firestore接続時の課題として残る。)
 - (解消済み 2026-08-29 19:00 UTC・フェーズ続き148: trial-end-scheduler-design.md 5節に
   残っていた「auto_handled_inquiry_countの実集計元との結線」の定義部分に対応した。
   詳細は上記フェーズ続き148参照。残る課題(Firestore実集計・永続化設計、候補組み立てへの
