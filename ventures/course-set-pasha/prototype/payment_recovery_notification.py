@@ -167,6 +167,12 @@ class PaymentRecoveryUsageCounterProtocol(Protocol):
     def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
         ...
 
+    def clear_payment_suspension_owner_notified_at(self, user_id: str) -> None:
+        """payment-suspension-owner-notification-design.md 6節: 復旧時に運営者向け通知の
+        送信済みフラグも消去する(消去しないと再度制限モードへ移行した際にオーナー通知が
+        二度と送信されなくなるため、clear_payment_failure_reminder_sent_atと同じ理由)。"""
+        ...
+
 
 @dataclass
 class PaymentRecoveryResult:
@@ -207,6 +213,7 @@ def handle_payment_succeeded(
     if outcome == OUTCOME_SILENT_RESET:
         usage_counter.clear_payment_failure_detected_at(user_id)
         usage_counter.clear_payment_failure_reminder_sent_at(user_id)
+        usage_counter.clear_payment_suspension_owner_notified_at(user_id)
         return PaymentRecoveryResult(outcome=outcome, state_reset=True)
 
     text = build_payment_recovery_message(outcome)
@@ -217,6 +224,7 @@ def handle_payment_succeeded(
 
     usage_counter.clear_payment_failure_detected_at(user_id)
     usage_counter.clear_payment_failure_reminder_sent_at(user_id)
+    usage_counter.clear_payment_suspension_owner_notified_at(user_id)
     return PaymentRecoveryResult(outcome=outcome, notified=True, state_reset=True)
 
 

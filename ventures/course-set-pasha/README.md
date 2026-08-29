@@ -1444,7 +1444,30 @@
   なお`payment_failure_reminder_scheduler.py`の3日前リマインド文言・決済失敗検知時通知は
   同じ`LIFF_URL_PLACEHOLDER`誤用が残ったままで、いずれも全ユーザー共通の1回限りメッセージ
   整形をユーザーごとのポータルURL解決に対応させる改修が必要なため、次回以降の課題として残す。
-- 最終更新: 2026-08-29 06:00 UTC
+- フェーズ125(2026-08-29 15:00 UTC): フェーズ124末尾で残った「design 4節の3種類の通知
+  のうち残るは制限モード移行時(段階3)の能動的通知のみ」を解消した。これまでの通知は
+  すべて顧客(ボルダリングジムオーナー)向けだったが、本フェーズが扱うのは本venture自体を
+  営む運営者(オーナー)向けの通知であり、顧客への受動的な`PAYMENT_SUSPENDED_MESSAGE`返信
+  (フェーズ118)とは別に、猶予期間超過(制限モード移行)を検知したら運営者へ能動的に
+  知らせる仕組みが無いままだった点に対応した。本ventureは`payment_suspended_at`のような
+  専用フラグを持たず`_is_payment_suspended()`の都度算出のみで判定しているため
+  (フェーズ118)、`payment-suspension-owner-notification-design.md`を新規作成し、
+  検知条件(`payment_failure_detected_at`から`grace_period_days`(7日)以上経過かつ
+  `payment_suspension_owner_notified_at`未設定)・固定の送信先(`OWNER_LINE_USER_ID_
+  PLACEHOLDER`、顧客ごとのuser_idではなく運営者1件固定)・冪等性(送信成功時のみ書き込み)
+  ・復旧時のクリアを設計した。`prototype/payment_suspension_owner_notification.py`
+  (`select_due_payment_suspension_owner_notifications()`・`send_payment_suspension_
+  owner_notifications()`)を新規実装し、`cloud_function_webhook.py`の
+  `UsageCounterProtocol`/`InMemoryUsageCounter`に`payment_suspension_owner_notified_at`
+  の3メソッド(set/get/clear)を追加、`payment_recovery_notification.py`の
+  `handle_payment_succeeded()`の2つの復旧分岐(`OUTCOME_SILENT_RESET`・通知成功時)双方に
+  `clear_payment_suspension_owner_notified_at()`を追加して、将来の再決済失敗時にも
+  オーナー通知が再度飛ぶようにした。テスト14件追加、venture全体405件全件パス・schema検証
+  9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし
+  (実際のオーナーLINEユーザーIDの取得・実LINE API接続自体は既存の「実LLM呼び出し・実LINE
+  API接続」承認待ち範囲に含まれるため新規追加なし)。
+- 最終更新: 2026-08-29 15:00 UTC
 
 ## 次にやること(候補)
 
@@ -1476,9 +1499,11 @@
 - (解消済み 2026-08-29 10:00 UTC・フェーズ124: 決済失敗検知時(段階1)通知の実送信配線は
   上記フェーズ124で対応した。詳細は上記フェーズ124参照。残るのは制限モード移行時(段階3)の
   能動的通知のみ)
-- payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に
-  オーナーへ能動的に知らせる通知(現状は顧客からのメッセージ受信時にPAYMENT_SUSPENDED_MESSAGEを
-  返す受動的経路のみ)の要否検討は未着手。
+- (解消済み 2026-08-29 15:00 UTC・フェーズ125: payment-failure-reminder-scheduler-design.md
+  7節で指摘されていた、制限モード移行時にオーナー(運営者、顧客であるジムオーナーとは別)へ
+  能動的に知らせる通知の設計・実装は、上記フェーズ125・payment-suspension-owner-
+  notification-design.mdで対応した。詳細は上記フェーズ125参照。実際のオーナーLINE
+  ユーザーIDの設定・実LINE API接続は既存の承認待ち範囲に含まれるため新規追加なし)
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。
