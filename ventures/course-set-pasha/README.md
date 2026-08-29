@@ -1422,6 +1422,25 @@
   provider未接続時フォールバック/URL取得失敗時フォールバック)、venture全体382件全件パス・
   schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ124(2026-08-29 10:00 UTC): フェーズ123末尾に残っていた「決済失敗検知時通知は
+  未対応のまま残る」を解消し、`invoice.payment_failed`受信時(段階1)の実送信配線を実装
+  した。aircon-pashaフェーズ147の`handle_payment_failure_detected()`と同じ「送信成功時
+  のみ状態を書き込む(送信失敗時はWebhookリトライに委ねる)」設計だが、aircon-pashaが
+  Flex Message+ボタン形式なのに対し、本ventureは`payment_failure_reminder_scheduler.py`
+  と同じプレーンテキスト+LIFF URL差し込み形式(design 4節「決済失敗検知時(猶予期間開始)」の
+  文言をそのまま踏襲)を採った。`payment_recovery_notification.py`に`build_payment_
+  failure_detected_message()`・`handle_payment_failure_detected()`を追加し、
+  `stripe_webhook.py`の`dispatch_stripe_event()`の`invoice.payment_failed`分岐を
+  `push_client`指定時はこの関数へ委譲するよう差し替えた(`StripeDispatchResult`に
+  `payment_failure_detection_notification_failed_user_ids`を追加)。`push_client`は
+  `invoice.payment_succeeded`側(フェーズ122)と共通の引数をそのまま使い回せた。3日前
+  リマインド(`payment_failure_reminder_scheduler.py`)は既存対応済みのため、design 4節の
+  3種類の通知(段階1検知時・3日前リマインド・制限モード移行時)のうち残るは制限モード
+  移行時(段階3)の能動的通知のみとなった(README「残課題」参照)。テスト9件追加
+  (`payment_recovery_notification`側4件・`stripe_webhook`側3件・メッセージ整形2件)、
+  venture全体391件全件パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
   なお`payment_failure_reminder_scheduler.py`の3日前リマインド文言・決済失敗検知時通知は
   同じ`LIFF_URL_PLACEHOLDER`誤用が残ったままで、いずれも全ユーザー共通の1回限りメッセージ
   整形をユーザーごとのポータルURL解決に対応させる改修が必要なため、次回以降の課題として残す。
@@ -1454,6 +1473,9 @@
   残っていたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討は
   `PAYMENT_SUSPENDED_MESSAGE`(制限モード移行時応答)についてのみ対応した。詳細は上記
   フェーズ123参照。3日前リマインド・決済失敗検知時通知は未対応のまま残る)
+- (解消済み 2026-08-29 10:00 UTC・フェーズ124: 決済失敗検知時(段階1)通知の実送信配線は
+  上記フェーズ124で対応した。詳細は上記フェーズ124参照。残るのは制限モード移行時(段階3)の
+  能動的通知のみ)
 - payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に
   オーナーへ能動的に知らせる通知(現状は顧客からのメッセージ受信時にPAYMENT_SUSPENDED_MESSAGEを
   返す受動的経路のみ)の要否検討は未着手。

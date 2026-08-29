@@ -22,9 +22,12 @@ from payment_recovery_notification import (  # noqa: E402
     OUTCOME_SEND_FAILED,
     OUTCOME_SILENT_RESET,
     PAYMENT_CONFIRMED_IN_GRACE_MESSAGE,
+    PAYMENT_FAILURE_DETECTED_TEMPLATE,
     PAYMENT_RECOVERED_MESSAGE,
+    build_payment_failure_detected_message,
     build_payment_recovery_message,
     classify_payment_recovery,
+    handle_payment_failure_detected,
     handle_payment_succeeded,
 )
 from trial_end_scheduler import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
@@ -174,6 +177,57 @@ class HandlePaymentSucceededTests(unittest.TestCase):
         second = handle_payment_succeeded("u5", counter, push, _NOW)
         self.assertEqual(second.outcome, OUTCOME_NO_DUNNING)
         self.assertEqual(len(push.sent), 1)
+
+
+class BuildPaymentFailureDetectedMessageTests(unittest.TestCase):
+    def test_default_liff_url_placeholder(self) -> None:
+        text = build_payment_failure_detected_message()
+        self.assertIn("お支払いの確認をお願いします", text)
+        self.assertIn("7日以内", text)
+        self.assertIn("{有料プランへ進むLIFFアプリ URL}", text)
+
+    def test_custom_liff_url_is_substituted(self) -> None:
+        text = build_payment_failure_detected_message("https://example.test/liff")
+        self.assertIn("https://example.test/liff", text)
+        self.assertNotIn("{liff_url}", text)
+
+    def test_template_has_single_placeholder(self) -> None:
+        self.assertEqual(PAYMENT_FAILURE_DETECTED_TEMPLATE.count("{liff_url}"), 1)
+
+
+class HandlePaymentFailureDetectedTests(unittest.TestCase):
+    def test_success_sends_notification_and_writes_state(self) -> None:
+        counter = InMemoryUsageCounter()
+        push = InMemoryLinePushClient()
+        event_time = _NOW
+        result = handle_payment_failure_detected("u1", counter, push, event_time)
+        self.assertTrue(result.notified)
+        self.assertEqual(result.event_time, event_time)
+        self.assertEqual(counter.get_payment_failure_detected_at("u1"), event_time)
+        self.assertEqual(len(push.sent), 1)
+        self.assertEqual(push.sent[0][0], "u1")
+        self.assertIn("お支払いの確認をお願いします", push.sent[0][1])
+
+    def test_send_failure_leaves_state_unwritten(self) -> None:
+        counter = InMemoryUsageCounter()
+        push = _FailingLinePushClient()
+        result = handle_payment_failure_detected("u1", counter, push, _NOW)
+        self.assertFalse(result.notified)
+        self.assertIsNone(result.event_time)
+        self.assertIsNone(counter.get_payment_failure_detected_at("u1"))
+
+    def test_repeated_failure_updates_detected_at_to_latest(self) -> None:
+        """Stripeスマートリトライによる複数回の連続失敗通知でも、最新の失敗日時で
+        上書きすることを確認する(aircon-pasha payment_failure.pyの
+        mark_payment_failure_detected()と同じ「安全側」判断)。"""
+        counter = InMemoryUsageCounter()
+        push = InMemoryLinePushClient()
+        first_time = _NOW - timedelta(days=1)
+        second_time = _NOW
+        handle_payment_failure_detected("u1", counter, push, first_time)
+        handle_payment_failure_detected("u1", counter, push, second_time)
+        self.assertEqual(counter.get_payment_failure_detected_at("u1"), second_time)
+        self.assertEqual(len(push.sent), 2)
 
 
 if __name__ == "__main__":

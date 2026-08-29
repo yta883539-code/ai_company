@@ -284,6 +284,79 @@ class DispatchInvoicePaymentFailedTest(unittest.TestCase):
         self.assertEqual(result.payment_failure_detected_user_ids, [])
 
 
+class DispatchInvoicePaymentFailedWithPushClientTest(unittest.TestCase):
+    """payment-failure-dunning-design.md 4節・フェーズ124対応。push_client指定時、
+    payment_recovery_notification.handle_payment_failure_detected()経由で実際に
+    決済失敗検知時(段階1)の通知を送信してから状態を書き込むことを確認する。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def test_sends_notification_and_marks_detected_at(self):
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_detection_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0][0], "user_1")
+        self.assertIn("お支払いの確認をお願いします", push_client.sent[0][1])
+        self.assertEqual(
+            self.usage_counter.get_payment_failure_detected_at("user_1"),
+            datetime.fromtimestamp(1_700_000_000, tz=timezone.utc),
+        )
+
+    def test_send_failure_leaves_state_unwritten(self):
+        class _FailingPushClient:
+            def send_message(self, user_id: str, text: str) -> None:
+                raise LinePushDeliveryError("simulated failure")
+
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=_FailingPushClient(),
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertEqual(
+            result.payment_failure_detection_notification_failed_user_ids, ["user_1"]
+        )
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_invalid_event_when_created_missing_even_with_push_client(self):
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.invalid_events, ["invoice.payment_failed"])
+        self.assertEqual(push_client.sent, [])
+
+
 class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
     """payment-failure-dunning-design.md 6節・フェーズ119対応。"""
 

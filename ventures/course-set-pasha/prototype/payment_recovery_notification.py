@@ -17,16 +17,22 @@ notification.py)と同じ考え方を、本venture固有の状態モデルへ翻
   aircon-pashaと同じ(決済失敗検知時〈段階1〉の通知を送る配線がまだ存在しないため)。
 
 位置づけ:
-- 実際のStripe Webhook `invoice.payment_succeeded`受信エンドポイントからの呼び出し配線
-  (`stripe_webhook.py`の`dispatch_stripe_event()`は現状、通知を送らず状態クリアのみを
-  行う実装〈フェーズ119〉のまま)は本モジュールの対象外で次回以降の課題として残る。
-  実際のLINE Push Message API接続・決済代行サービスとの契約はオーナー承認待ち
-  (pending-approval.md参照)。本モジュールはそれとは別に、「決済成功時にどの通知を
-  送るべきか(あるいは送らないべきか)」の判定ロジックと、送信・状態リセットの配線を
-  実クラウド接続なしで検証可能にしたもの。
+- 実際のStripe Webhook `invoice.payment_succeeded`受信エンドポイントからの呼び出し配線は
+  `stripe_webhook.py`の`dispatch_stripe_event()`(フェーズ122)で対応済み。実際のLINE Push
+  Message API接続・決済代行サービスとの契約はオーナー承認待ち(pending-approval.md参照)。
+  本モジュールはそれとは別に、「決済成功時にどの通知を送るべきか(あるいは送らないべきか)」の
+  判定ロジックと、送信・状態リセットの配線を実クラウド接続なしで検証可能にしたもの。
+- `handle_payment_failure_detected()`(フェーズ124追加)は、README「残課題」に残っていた
+  「決済失敗検知時(段階1)通知の実送信配線」に対応したもの。aircon-pashaの
+  `payment_failure.py` `handle_payment_failure_detected()`と同じ「送信成功時のみ状態を
+  書き込む」設計だが、本ventureはFlex Messageのボタン形式ではなくpayment_failure_reminder_
+  scheduler.pyと同じプレーンテキスト+LIFF URLの形式(design 4節の文言をそのまま踏襲)を
+  採る。`stripe_webhook.py`の`dispatch_stripe_event()`の`invoice.payment_failed`分岐への
+  実配線もあわせて行った(フェーズ124)。
 
 設計の参照元: payment-failure-dunning-design.md 4節,
 aircon-pasha prototype/payment_recovery_notification.py,
+aircon-pasha prototype/payment_failure.py,
 line-reservation-ai prototype/cloud_function_payment_webhook.py
 """
 
@@ -37,7 +43,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Protocol
 
 from cloud_function_webhook import PAYMENT_FAILURE_GRACE_PERIOD_DAYS
-from trial_end_scheduler import LinePushClient, LinePushDeliveryError
+from trial_end_scheduler import LIFF_URL_PLACEHOLDER, LinePushClient, LinePushDeliveryError
 
 # classify_payment_recovery()が返す分類。line-reservation-ai・aircon-pashaのOUTCOME_*と
 # 対称の命名。
@@ -118,6 +124,28 @@ def build_payment_recovery_message(outcome: str) -> str:
     raise ValueError(f"unexpected outcome for message rendering: {outcome!r}")
 
 
+# design 4節「決済失敗検知時(猶予期間開始)」文言。payment_failure_reminder_scheduler.pyの
+# PAYMENT_FAILURE_REMINDER_TEMPLATEと同じプレーンテキスト+liff_url差し込み形式。
+PAYMENT_FAILURE_DETECTED_TEMPLATE = (
+    "[コースセットパシャッと] お支払いの確認をお願いします\n"
+    "\n"
+    "いつもご利用ありがとうございます。\n"
+    "今回のお支払い手続きが完了できませんでした\n"
+    "(カードの有効期限切れ・利用限度額等が考えられます)。\n"
+    "\n"
+    "現在、投稿文の生成は通常どおりご利用いただけます。\n"
+    "7日以内にお支払い方法をご確認・更新いただけますようお願いします。\n"
+    "\n"
+    "▼ お支払い方法を確認する\n"
+    "{liff_url}"
+)
+
+
+def build_payment_failure_detected_message(liff_url: str = LIFF_URL_PLACEHOLDER) -> str:
+    """design 4節「決済失敗検知時(猶予期間開始)」の文言をそのまま組み立てる。"""
+    return PAYMENT_FAILURE_DETECTED_TEMPLATE.format(liff_url=liff_url)
+
+
 # ---------------------------------------------------------------------------
 # 実送信配線
 # ---------------------------------------------------------------------------
@@ -190,6 +218,57 @@ def handle_payment_succeeded(
     usage_counter.clear_payment_failure_detected_at(user_id)
     usage_counter.clear_payment_failure_reminder_sent_at(user_id)
     return PaymentRecoveryResult(outcome=outcome, notified=True, state_reset=True)
+
+
+# ---------------------------------------------------------------------------
+# 決済失敗検知時(段階1)の実送信配線(design 4節、フェーズ124追加)
+# ---------------------------------------------------------------------------
+
+
+class PaymentFailureDetectionUsageCounterProtocol(Protocol):
+    """本モジュールが`handle_payment_failure_detected()`で実際に使う1メソッドのみを
+    要求する最小限のProtocol(`PaymentRecoveryUsageCounterProtocol`と同じ構造的部分型付けの
+    方針)。"""
+
+    def set_payment_failure_detected_at(self, user_id: str, detected_at: datetime) -> None:
+        ...
+
+
+@dataclass
+class PaymentFailureDetectionResult:
+    """1回の`invoice.payment_failed`処理の結果(呼び出し側のログ・HTTPステータス判断用、
+    aircon-pasha `payment_failure.PaymentFailureDetectionResult`と対称)。
+
+    `notified=False`の場合(送信失敗)、`payment_failure_detected_at`は変更されていない
+    ため呼び出し側は5xxを返してWebhookのリトライに委ねる(次の再送で送信・状態書き込みが
+    セットで再試行される)。"""
+
+    notified: bool
+    event_time: Optional[datetime] = None
+
+
+def handle_payment_failure_detected(
+    user_id: str,
+    usage_counter: PaymentFailureDetectionUsageCounterProtocol,
+    push_client: LinePushClient,
+    event_time: datetime,
+    liff_url: str = LIFF_URL_PLACEHOLDER,
+) -> PaymentFailureDetectionResult:
+    """design 4節「決済失敗検知時(猶予期間開始)」の実送信配線本体。`invoice.payment_failed`
+    受信時(`stripe_customer_id → user_id`逆引き後)に呼ぶ。
+
+    通知の送信に成功した場合のみ`usage_counter.set_payment_failure_detected_at()`で
+    状態を書き込む(`handle_payment_succeeded()`と対称に、送信失敗時は状態を一切変更せず
+    `PaymentFailureDetectionResult(notified=False)`を返す。呼び出し側がHTTP 5xxを返して
+    Webhookリトライに委ねれば、次の再送で送信・状態書き込みが再試行される)。"""
+    text = build_payment_failure_detected_message(liff_url)
+    try:
+        push_client.send_message(user_id, text)
+    except LinePushDeliveryError:
+        return PaymentFailureDetectionResult(notified=False)
+
+    usage_counter.set_payment_failure_detected_at(user_id, event_time)
+    return PaymentFailureDetectionResult(notified=True, event_time=event_time)
 
 
 def _demo() -> None:

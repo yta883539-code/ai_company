@@ -30,7 +30,11 @@ from deletion_candidate import (
     clear_deletion_candidate_on_subscription_reactivated,
     mark_deletion_candidate_on_subscription_deleted,
 )
-from payment_recovery_notification import OUTCOME_SEND_FAILED, handle_payment_succeeded
+from payment_recovery_notification import (
+    OUTCOME_SEND_FAILED,
+    handle_payment_failure_detected,
+    handle_payment_succeeded,
+)
 from trial_end_scheduler import LinePushClient
 
 
@@ -120,6 +124,11 @@ class StripeDispatchResult:
     # フェーズ122追加: push_client指定時、決済成功復旧通知の送信に失敗したuser_id
     # (状態は書き込まれておらず、Webhookリトライでの再試行に委ねる想定)。
     payment_recovery_notification_failed_user_ids: list = field(default_factory=list)
+    # フェーズ124追加: push_client指定時、決済失敗検知時(段階1)通知の送信に失敗したuser_id
+    # (状態は書き込まれておらず、Webhookリトライでの再試行に委ねる想定)。
+    payment_failure_detection_notification_failed_user_ids: list = field(
+        default_factory=list
+    )
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -172,6 +181,11 @@ def dispatch_stripe_event(
     `payment_failure.py`のようにモジュールごとに別クラスの例外を定義していないため、
     aircon-pashaのフェーズ147時点で先送りされていた「復旧通知側の配線」を本ventureでは
     そのまま行える。
+
+    フェーズ124で`invoice.payment_failed`側も同様に対応した。`push_client`指定時は
+    `payment_recovery_notification.handle_payment_failure_detected()`経由で
+    決済失敗検知時(段階1)の通知を実際に送信してから状態を書き込む(送信失敗時は状態を
+    書き込まずWebhookリトライに委ねる)。未指定時は従来通り通知なしで状態のみ書き込む。
     """
     result = StripeDispatchResult()
 
@@ -221,6 +235,26 @@ def dispatch_stripe_event(
             result.invalid_events.append(event_type)
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+
+        if push_client is not None:
+            # フェーズ124: 通知の実送信・状態書き込みはhandle_payment_failure_detected()に
+            # 委譲する(usage_counterはPaymentFailureUsageCounterProtocol/PaymentFailure
+            # DetectionUsageCounterProtocolの両方を構造的に満たす、InMemoryUsageCounterで
+            # 確認済み)。
+            detection_result = handle_payment_failure_detected(
+                user_id,
+                usage_counter,  # type: ignore[arg-type]
+                push_client,
+                event_time,
+            )
+            if detection_result.notified:
+                result.payment_failure_detected_user_ids.append(user_id)
+            else:
+                result.payment_failure_detection_notification_failed_user_ids.append(
+                    user_id
+                )
+            return result
+
         usage_counter.set_payment_failure_detected_at(user_id, event_time)
         result.payment_failure_detected_user_ids.append(user_id)
         return result
