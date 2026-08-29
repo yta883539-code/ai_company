@@ -93,13 +93,20 @@ Cloud Function E: send_trial_end_reports
 - bookingsコレクション側の「予約確定累計数」をFirestoreでどう効率よく取得するか
   (都度集計クエリ vs storesドキュメントへのカウンタフィールド追加)は、実Firestore
   接続時に別途設計する。
-- Cloud Function E本体の実装(3節の選定ロジックと
-  trial_end_report_scheduler.py`render_trial_end_report_message()`・LINE Push送信の配線、
-  送信成功時のみ`mark_trial_end_report_sent()`相当のFirestore書き込みを行う冪等性配線)は、
-  course-set-pasha/trial_end_scheduler.pyのCloud Function D相当の実装を参考に、
-  実ホスティング基盤接続時に行う。
-- 実際のCloud Scheduler新規作成・LINE公式アカウント開設はオーナー承認待ち
-  (pending-approval.md参照)。
+- (解消済み 2026-08-29フェーズ続き144: Cloud Function E本体の配線ロジックを
+  `prototype/cloud_function_send_trial_end_reports.py`の`send_trial_end_reports()`として
+  実装した。3節の`select_due_trial_end_reports()`・
+  trial_end_report_scheduler.py`render_trial_end_report_message()`・LinePushClient
+  (cloud_function_process_event.pyで定義済み)を接続し、送信成功時のみ
+  `TrialEndReportCandidate.report_sent_writer.mark_trial_end_report_sent(now)`
+  (engine.py`ConversationFlowStateMachine`が満たすProtocol)を呼ぶ冪等性配線とした。
+  `auto_handled_inquiry_count`(自動対応お問い合わせ件数)の実集計・
+  店舗オーナーLINE user_idの解決は、booking_count同様「呼び出し元が集計済みの値を渡す」
+  想定でスコープ外のまま残した。実Cloud Function本体〈functions_framework配線〉・
+  実Firestoreからの候補読み取りクエリ組み立ては、実ホスティング基盤接続時の課題として残る)
+- 実際のCloud Scheduler新規作成・LINE公式アカウント開設・
+  `auto_handled_inquiry_count`の実集計元(NotificationLogAggregator等)との結線は
+  オーナー承認待ち・次回以降の課題として残る(pending-approval.md参照)。
 - レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の
   `trialEndReportSentAt`と`suspensionReason`の整合(dormant_mode_scheduler.py側の
   「その間にプラン選択が完了していない」判定の実装)は、1節で述べた通り

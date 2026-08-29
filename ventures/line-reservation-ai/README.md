@@ -1568,8 +1568,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   実装・実Cloud Scheduler作成は引き続きオーナー承認待ち・次回以降の課題として残した。
   承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き144(2026-08-29 11:00 UTC): フェーズ続き143の残課題だった「Cloud Function E
+  本体の実装」に、trial-end-scheduler-design.md 5節に沿って着手した。course-set-pasha/
+  trial_end_scheduler.py`send_trial_end_notifications()`・本venture既存の
+  `cloud_function_send_reminders.py`と同じ配線パターンを踏襲し、新規
+  `prototype/cloud_function_send_trial_end_reports.py`に`send_trial_end_reports()`を
+  実装した。`select_due_trial_end_reports()`(既存)・
+  `trial_end_report_scheduler.render_trial_end_report_message()`(既存)・
+  `LinePushClient`(cloud_function_process_event.pyで定義済みを再利用)を接続し、送信成功時
+  のみ`TrialEndReportCandidate.report_sent_writer.mark_trial_end_report_sent(now)`
+  (`engine.ConversationFlowStateMachine`が引数無しで満たすProtocol、店舗ごとに1インスタンス
+  という設計前提のためcourse-set-pasha版のようなuser_id引数を取らない)を呼ぶ冪等性配線と
+  した。`auto_handled_inquiry_count`の実集計元(NotificationLogAggregator等との結線)・
+  店舗オーナーLINE user_idの解決は、`booking_count`と同様「呼び出し元が集計済みの値を渡す」
+  既存方針を踏襲しスコープ外とした。テスト7件追加
+  (test_cloud_function_send_trial_end_reports.py、期間条件到達/件数条件到達/未到達/送信済み
+  スキップ/トーン反映/送信失敗時の状態未変更と次回再試行/複数店舗の独立性を含む)、
+  venture全体374件全件パス・schema検証25件パスを確認した。あわせてtrial-end-scheduler-
+  design.md 5節の該当残課題を解消済みに更新した。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。実Cloud Function本体(functions_framework配線)・実Firestoreからの候補読み
+  取りクエリ・実Cloud Scheduler作成・LINE公式アカウント開設は引き続きオーナー承認待ち・
+  次回以降の課題として残した。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-29 11:00 UTC・フェーズ続き144: trial-end-scheduler-design.md 5節に
+  残っていた「Cloud Function E本体の実装」に対応した。詳細は上記フェーズ続き144参照。
+  次回はauto_handled_inquiry_countの実集計元との結線検討、または他venture・アイデア領域の
+  前進を検討する。)
 - (解消済み 2026-08-28 23:00 UTC・フェーズ続き142: CI
   (`.github/workflows/line-reservation-ai-tests.yml`)が`test_engine
   test_cloud_function_webhook test_cloud_function_process_event
