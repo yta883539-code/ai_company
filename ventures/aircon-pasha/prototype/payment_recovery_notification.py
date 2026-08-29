@@ -45,9 +45,11 @@ line-reservation-aiとの違い(移植にあたっての設計判断):
 - design 4節「決済失敗検知時」の通知を実際に送信する配線(段階1)自体が本venture未実装の
   ままであり、実装された場合は「送信済みか」を示す新規フラグをOUTCOME_CONFIRMED_IN_GRACE
   判定に含める拡張が必要になる(上記説明参照)。
-- 実際のStripe Webhook `invoice.payment_succeeded`受信エンドポイントからの呼び出し配線
-  (stripe_dispatch.pyのdispatch_stripe_event()への接続、あるいは専用のCloud Function化)
-  は本モジュールの対象外で次回以降の課題として残る。
+- (解消済み・フェーズ148: stripe_dispatch.pyのdispatch_stripe_event()から`recovery_push_
+  client`引数経由で`handle_payment_succeeded()`を呼び出す配線を実装した。実際のStripe
+  Webhook `invoice.payment_succeeded`受信エンドポイント自体〈HTTPハンドラ・実LINE Push
+  API接続〉はオーナー承認待ちのまま残る。詳細はstripe_dispatch.pyのdispatch_stripe_event()
+  docstring参照)。
 
 設計の参照元: payment-failure-dunning-design.md 4節,
 line-reservation-ai prototype/cloud_function_payment_webhook.py

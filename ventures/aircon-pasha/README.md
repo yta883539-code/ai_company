@@ -2015,4 +2015,27 @@
   または`invoice.payment_succeeded`専用の別引数を設けるか)が必要と判断し、次回以降の
   課題として残した。次回はこの`invoice.payment_succeeded`側の復旧通知配線への着手、
   または他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-08-29 02:00 UTC
+- フェーズ148(2026-08-29 04:00 UTC): フェーズ147の申し送り通り、`invoice.payment_
+  succeeded`側の復旧通知配線に着手した。フェーズ147時点で挙がっていた2案(例外クラスの
+  共通化/専用の別引数を設ける)のうち、他の各スケジューラ(trial_end_scheduler・
+  payment_failure_reminder_scheduler・payment_suspension_scheduler等)がいずれも自分
+  専用の`push_client`・`LinePushDeliveryError`を持つ既存パターンとの一貫性を優先し、
+  後者(別引数)を採用した。`stripe_dispatch.py`の`dispatch_stripe_event()`に
+  `recovery_push_client`引数(省略時はこれまで通り`clear_payment_failure_on_success()`を
+  直接呼び通知は送信しない、後方互換)を追加し、`invoice.payment_succeeded`受信時に
+  `payment_store`の現在状態を`PaymentFailureReminderUserState`へ詰め替えて
+  `handle_payment_succeeded()`(payment_recovery_notification.py、フェーズ146)を呼ぶ
+  よう配線した(`payment_recovery_notification_failed_user_ids`を結果へ新設し、送信失敗を
+  区別できるようにした。送信失敗時は状態を変更せずWebhookリトライに委ねる設計はフェーズ147の
+  `handle_payment_failure_detected()`と対称)。テスト4件追加(制限モードからの復旧通知/
+  猶予期間中の無通知リセット/通常課金での無処理/送信失敗時の状態未変更、いずれも
+  test_stripe_dispatch.py)、venture全体298件全件パス・schema検証9件パスを確認した。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。これでpayment-failure-dunning-
+  design.md 4・6節に残っていた2つの通知実送信配線(段階1検知・決済成功復旧)はいずれも
+  `dispatch_stripe_event()`から呼び出し可能な状態になった。実際のStripe Webhook HTTP
+  エントリポイント自体・実LINE Push API接続・実Stripeアカウント接続はいずれも引き続き
+  オーナー承認待ちのまま残る(pending-approval.md参照)。次回は他venture・アイデア領域の
+  前進、または猶予期間(7日)終了後に制限モードへ自動移行させるスケジューラ配線(design 6節
+  「残課題」)を検討する。
+- 最終更新: 2026-08-29 04:00 UTC

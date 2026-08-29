@@ -32,6 +32,12 @@ from payment_failure import (
     handle_payment_failure_detected,
     mark_payment_failure_detected,
 )
+from payment_failure_reminder_scheduler import PaymentFailureReminderUserState
+from payment_recovery_notification import (
+    OUTCOME_SEND_FAILED,
+    LinePushClient as RecoveryPushClient,
+    handle_payment_succeeded,
+)
 
 # design 1節: ディスパッチ対象のStripeイベント種別
 _SUBSCRIPTION_DELETED = "customer.subscription.deleted"
@@ -67,6 +73,10 @@ class StripeDispatchResult:
     # フェーズ147追加: push_client指定時、決済失敗検知通知の送信に失敗したuser_id
     # (状態は書き込まれておらず、Webhookリトライでの再試行に委ねる想定)。
     payment_failure_notification_failed_user_ids: List[str] = field(default_factory=list)
+    # フェーズ148追加: recovery_push_client指定時、復旧通知(制限モードからの復旧/
+    # 猶予期間中の完了通知)の送信に失敗したuser_id(状態は書き込まれておらず、
+    # Webhookリトライでの再試行に委ねる想定)。
+    payment_recovery_notification_failed_user_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_stripe_event(
@@ -76,6 +86,7 @@ def dispatch_stripe_event(
     resolve_user_id: Callable[[str], Optional[str]],
     payment_store: Optional[PaymentFailureStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
+    recovery_push_client: Optional[RecoveryPushClient] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """design 1節: Stripe Webhookイベント1件を受け取り、種別に応じて
@@ -94,12 +105,18 @@ def dispatch_stripe_event(
     `handle_payment_failure_detected()`(payment_failure.py)経由で実際に通知を送信して
     から状態を書き込む。未指定(`None`)の場合は従来通り`mark_payment_failure_detected()`を
     直接呼び、通知は送信しない(既存呼び出し経路への後方互換措置)。
-    `invoice.payment_succeeded`側の復旧通知(`handle_payment_succeeded()`、
-    payment_recovery_notification.py・フェーズ146)は、モジュールごとに
-    `LinePushDeliveryError`を別クラスとして定義している既存の慣習上、本関数の
-    `push_client`とは独立した配線が必要なため、本フェーズでは対象外のまま次回以降の
-    課題として残す(引き続き`clear_payment_failure_on_success()`を直接呼ぶのみで、
-    通知は送信しない)。
+    `recovery_push_client`はdesign 4節「猶予期間中に決済が成功した場合の復旧通知」対応
+    (フェーズ148追加)。指定時、`invoice.payment_succeeded`受信時に`payment_store`から
+    読み取った現在状態を`PaymentFailureReminderUserState`へ詰め替え、
+    `handle_payment_succeeded()`(payment_recovery_notification.py・フェーズ146)経由で
+    実際に復旧通知を送信してから状態をクリアする。未指定(`None`)の場合は従来通り
+    `clear_payment_failure_on_success()`を直接呼ぶのみで、通知は送信しない(既存呼び出し
+    経路への後方互換措置)。`push_client`とは別引数にした理由: `LinePushDeliveryError`が
+    モジュールごとに別クラスとして定義されている既存の慣習(本ファイル冒頭のdocstring・
+    payment_failure.pyのモジュールdocstring参照)を踏まえ、フェーズ147時点で挙がっていた
+    「例外クラスの共通化」「専用の別引数を設ける」という2案のうち、他の各種スケジューラも
+    同様に自分専用のpush_client・例外クラスを持つ既存パターンとの一貫性を優先し、後者
+    (別引数)を採用した。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -163,6 +180,22 @@ def dispatch_stripe_event(
         return result
 
     # _INVOICE_PAYMENT_SUCCEEDED
-    if clear_payment_failure_on_success(payment_store, user_id):
+    if recovery_push_client is None:
+        if clear_payment_failure_on_success(payment_store, user_id):
+            result.payment_recovered_user_ids.append(user_id)
+        return result
+
+    state = PaymentFailureReminderUserState(
+        user_id=user_id,
+        payment_failure_detected_at=payment_store.get_payment_failure_detected_at(user_id),
+        payment_suspended_at=payment_store.get_payment_suspended_at(user_id),
+        payment_failure_reminder_sent_at=(
+            payment_store.get_payment_failure_reminder_sent_at(user_id)
+        ),
+    )
+    recovery_result = handle_payment_succeeded(state, payment_store, recovery_push_client)
+    if recovery_result.outcome == OUTCOME_SEND_FAILED:
+        result.payment_recovery_notification_failed_user_ids.append(user_id)
+    elif recovery_result.state_reset:
         result.payment_recovered_user_ids.append(user_id)
     return result

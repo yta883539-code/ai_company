@@ -36,10 +36,12 @@ payment-failure-dunning-design.md(フェーズ139)3・6節で設計した、決�
   送信失敗時は状態を変更せずWebhookリトライに委ねる設計)。`invoice.payment_succeeded`側の
   `handle_payment_succeeded()`(payment_recovery_notification.py、フェーズ146)は、
   モジュールごとに`LinePushDeliveryError`を別クラスとして定義している既存の慣習上、本
-  モジュールの`LinePushDeliveryError`とは別クラスのままである点に注意(1回の
+  モジュールの`LinePushDeliveryError`とは別クラスのままである(1回の
   `dispatch_stripe_event()`呼び出しではイベント種別ごとにどちらか一方のみが実行される
-  ため実害はないが、将来的に両者を1つの実push_clientへ統合する際は例外クラスの
-  共通化を検討する必要がある)。
+  ため実害はない)。フェーズ148でstripe_dispatch.pyへの配線を行った際、例外クラスの
+  共通化ではなく`push_client`/`recovery_push_client`を別々の引数として渡す方式を採用した
+  ため、各モジュールが自分専用の`LinePushDeliveryError`を持つ既存パターンはそのまま
+  維持されている(詳細はstripe_dispatch.pyのdispatch_stripe_event() docstring参照)。
 
 設計の参照元: payment-failure-dunning-design.md 3・4・6節
 """

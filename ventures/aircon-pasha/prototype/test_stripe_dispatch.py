@@ -11,6 +11,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
 from payment_failure import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
+from payment_recovery_notification import (  # noqa: E402
+    InMemoryLinePushClient as InMemoryRecoveryPushClient,
+    LinePushDeliveryError as RecoveryLinePushDeliveryError,
+)
 from stripe_dispatch import StripeDispatchResult, dispatch_stripe_event  # noqa: E402
 from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
 
@@ -290,6 +294,114 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.ignored_types, ["invoice.payment_succeeded"])
         self.assertEqual(result.payment_recovered_user_ids, [])
+
+    def test_sends_recovered_from_suspension_notification_when_recovery_push_client_provided(
+        self,
+    ):
+        # フェーズ148: recovery_push_client指定時はhandle_payment_succeeded()経由で
+        # 制限モードからの復旧通知を送信してから状態をクリアする。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_suspended_at(
+            _USER_ID, datetime(2026, 9, 4, tzinfo=timezone.utc)
+        )
+        recovery_push_client = InMemoryRecoveryPushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+        self.assertIsNone(payment_store.get_payment_suspended_at(_USER_ID))
+        self.assertEqual(len(recovery_push_client.sent), 1)
+        self.assertEqual(recovery_push_client.sent[0][0], _USER_ID)
+
+    def test_silent_reset_sends_no_notification_when_recovery_push_client_provided(self):
+        # フェーズ148: 検知はされているがリマインド未送信(まだ何も通知していない)場合は
+        # 通知を送らず状態のみリセットする(OUTCOME_SILENT_RESET)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        recovery_push_client = InMemoryRecoveryPushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [_USER_ID])
+        self.assertEqual(len(recovery_push_client.sent), 0)
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+
+    def test_no_dunning_when_recovery_push_client_provided_and_nothing_was_set(self):
+        # フェーズ148: 決済失敗を検知したことがない通常の課金成功では通知も状態変更もしない。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        recovery_push_client = InMemoryRecoveryPushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [])
+        self.assertEqual(len(recovery_push_client.sent), 0)
+
+    def test_recovery_notification_send_failure_leaves_state_untouched(self):
+        # フェーズ148: 送信失敗時は状態を変更せず、Webhookリトライでの再試行に委ねる
+        # (payment_failure.pyのhandle_payment_failure_detected()と対称の設計)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_suspended_at(
+            _USER_ID, datetime(2026, 9, 4, tzinfo=timezone.utc)
+        )
+
+        class _FailingRecoveryPushClient:
+            def send_flex_message(self, user_id, alt_text, contents):
+                raise RecoveryLinePushDeliveryError("boom")
+
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=_FailingRecoveryPushClient(),
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [_USER_ID])
+        self.assertIsNotNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+        self.assertIsNotNone(payment_store.get_payment_suspended_at(_USER_ID))
 
 
 class DispatchIgnoredAndUnresolvedTest(unittest.TestCase):
