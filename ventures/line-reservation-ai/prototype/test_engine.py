@@ -380,6 +380,35 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         # 2件目の確定では発火しない(店舗全体で最初の1回のみ)
         self.assertFalse(flow.consume_first_booking_self_check())
 
+    def test_first_confirmed_booking_sets_trial_start_at_once(self):
+        # trial-start-anchor-decision.md準拠。店舗全体で最初の予約確定成功時に1回だけ
+        # trialStartAtを設定し、以降不変。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self.assertIsNone(flow.get_trial_start_at())
+
+        key1 = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key1, T0)
+        flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2))
+        self.assertEqual(flow.get_trial_start_at(), T0 + timedelta(minutes=2))
+
+        key2 = ("shop_1", "2026-08-09", "17:00")
+        flow.present_candidates("user_suzuki", now=T0 + timedelta(minutes=5))
+        flow.select_slot("user_suzuki", key2, T0 + timedelta(minutes=5))
+        flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=6))
+        # 2件目の確定では上書きされない(最初の確定時刻のまま)。
+        self.assertEqual(flow.get_trial_start_at(), T0 + timedelta(minutes=2))
+
+    def test_mark_trial_end_report_sent_is_idempotent_and_keeps_first_timestamp(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self.assertIsNone(flow.get_trial_end_report_sent_at())
+
+        flow.mark_trial_end_report_sent(T0)
+        self.assertEqual(flow.get_trial_end_report_sent_at(), T0)
+
+        flow.mark_trial_end_report_sent(T0 + timedelta(days=1))
+        self.assertEqual(flow.get_trial_end_report_sent_at(), T0)
+
     def test_select_slot_conflict_keeps_stage_and_returns_message(self):
         slots = BookingSlotManager()
         flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
@@ -1317,6 +1346,30 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
         flow.present_candidates("user_a", now=T0)
         flow.select_slot("user_a", ("shop_1", "2026-08-10", "11:00"), T0)
+        self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
+
+    def test_count_confirmed_bookings_counts_per_store(self):
+        # trial-end-scheduler-design.md「件数条件(予約20件)」判定用。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        self._confirm(flow, "user_b", ("shop_1", "2026-08-10", "16:00"), "佐藤", "カラー")
+        self._confirm(flow, "user_c", ("shop_2", "2026-08-10", "12:00"), "山本", "カット")  # 別店舗
+
+        self.assertEqual(store.count_confirmed_bookings("shop_1"), 2)
+        self.assertEqual(store.count_confirmed_bookings("shop_2"), 1)
+        self.assertEqual(store.count_confirmed_bookings("shop_3"), 0)
+
+    def test_count_confirmed_bookings_keeps_counting_cancelled_records(self):
+        # 「予約20件到達」は利用実績の指標であり、キャンセル済みレコードも
+        # カウントし続ける(list_booking_entries()の来店予定一覧とは異なる)。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+        flow.cancel_booking("user_a", T0 + timedelta(minutes=5))
+
+        self.assertEqual(store.count_confirmed_bookings("shop_1"), 1)
         self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
 
     def test_cancel_booking_after_confirmed_updates_record_store_status(self):

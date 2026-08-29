@@ -52,7 +52,16 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // 成功時に1回だけ設定、以降不変(Timestamp | null)。
                                      // first-booking-self-check-notification-design.mdの
                                      // `_first_booking_self_check_sent`がTrueになる分岐と同一タイミングで
-                                     // 書き込む想定(実書き込みロジックは未着手)。
+                                     // 書き込む(InMemory版はConversationFlowStateMachine._trial_start_at・
+                                     // get_trial_start_at()として実装済み。実Firestore書き込み配線は
+                                     // 実接続フェーズの課題として引き続き残る)。
+  trialEndReportSentAt: null         // trial-end-scheduler-design.mdで新規追加。トライアル終了時の
+                                     // 利用実績レポート送信済み時刻(Timestamp | null)。
+                                     // dormant-mode-renotification-design.mdのGRACE_PERIOD_DAYSは
+                                     // このタイムスタンプを起点とする。InMemory版は
+                                     // ConversationFlowStateMachine._trial_end_report_sent_at・
+                                     // get_trial_end_report_sent_at()/mark_trial_end_report_sent()
+                                     // として実装済み。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

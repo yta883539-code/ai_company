@@ -84,13 +84,15 @@ firestore-data-model.md 1節`stores/{storeId}`に以下を追加する。
 
 ## 5. 今後の課題
 
-- `trialStartAt`の実書き込みロジック(`ConversationFlowStateMachine.provide_details()`への
-  Firestore書き込み配線、`InMemoryBookingRecordStore`相当の永続化層実装)は、
-  firestore-data-model.mdの実接続フェーズ(オーナー承認待ち)に合わせて次回以降実装する。
-- 期間到達判定用の日次スケジューラ本体(`trialStartAt`から14日経過した店舗の抽出クエリ・
-  `trial_end_report_scheduler.py`への配線)、および件数条件(予約20件到達)判定ロジック
-  (`InMemoryBookingRecordStore.list_booking_entries()`等での集計)は、
-  aircon-pasha/course-set-pashaの日次スケジューラ設計を参考に別途設計する必要があり、
-  引き続き未着手。
+- (解消済み 2026-08-29・フェーズ続き143: `trialStartAt`のInMemory版書き込みロジックを
+  `ConversationFlowStateMachine.provide_details()`の確定成功分岐(`_first_booking_self_check_sent`
+  と同一分岐)に実装した(`get_trial_start_at()`で参照可能)。実Firestoreへの書き込み配線は
+  firestore-data-model.mdの実接続フェーズ(オーナー承認待ち)に合わせて次回以降実装する。)
+- (解消済み 2026-08-29・フェーズ続き143: 期間到達判定用の日次スケジューラ本体、および
+  件数条件(予約20件到達)判定ロジックをtrial-end-scheduler-design.mdとして新規設計し、
+  `prototype/trial_end_scheduler.py`(`StoreTrialState`/`is_trial_end_report_due()`/
+  `select_due_trial_end_reports()`)として実装した。件数側の集計は
+  `InMemoryBookingRecordStore.count_confirmed_bookings()`を新設して対応した。詳細は
+  trial-end-scheduler-design.md参照。)
 - 実際のFirestore・Cloud Scheduler実行環境の構築、LIFF等の外部サービス接続はオーナー承認待ち
   (pending-approval.md参照)。

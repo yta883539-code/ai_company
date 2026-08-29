@@ -534,6 +534,15 @@ class InMemoryBookingRecordStore:
         matched.sort(key=lambda r: (r.booking_date, r.start_minutes))
         return [r.to_list_entry() for r in matched]
 
+    def count_confirmed_bookings(self, store_id: str) -> int:
+        """trial-start-anchor-decision.md「件数条件(予約20件)」判定用。record_confirmed()が
+        呼ばれた回数(=これまでに確定に至った予約の累計数)を返す。list_booking_entries()と
+        異なり、record_cancelled()でキャンセル・変更済みになったレコードも引き続きカウントに
+        含める(トライアル条件は「その時点で来店予定の件数」ではなく「サービスを実際に使って
+        予約を確定させた回数」という利用実績の指標のため、確定後の解約状況に左右されない)。
+        """
+        return sum(1 for r in self._records if r.store_id == store_id)
+
     def customer_records(self, customer_name: str) -> list[CustomerBookingRecord]:
         """owner-settings-wireframe.md顧客詳細ページのbuild_customer_detail_view()に
         そのまま渡せる。キャンセル・変更済みのレコードもstatusを更新した上でそのまま含める
@@ -903,6 +912,12 @@ class ConversationFlowStateMachine:
         self._last_archive_at: Optional[datetime] = None
         self._first_booking_self_check_sent = False
         self._first_booking_self_check_pending = False
+        # trial-start-anchor-decision.md準拠: 店舗全体で最初の予約確定成功時に1回だけ
+        # 設定し、以降不変(firestore-data-model.mdのtrialStartAtフィールドに相当)。
+        self._trial_start_at: Optional[datetime] = None
+        # trial-end-scheduler-design.md準拠: トライアル終了時利用実績レポート送信済みかどうか
+        # (firestore-data-model.mdのtrialEndReportSentAtフィールドに相当)。
+        self._trial_end_report_sent_at: Optional[datetime] = None
 
     def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> list:
         """システム内部発火のescalationイベント(booking_conflict等、SYSTEM_ESCALATION_REASONS参照)を
@@ -1045,6 +1060,8 @@ class ConversationFlowStateMachine:
             if not self._first_booking_self_check_sent:
                 self._first_booking_self_check_sent = True
                 self._first_booking_self_check_pending = True
+            if self._trial_start_at is None:
+                self._trial_start_at = now
             return ProvideDetailsResult(confirmed=True)
 
         actions = self._notify_system_event(
@@ -1087,6 +1104,25 @@ class ConversationFlowStateMachine:
             self._first_booking_self_check_pending = False
             return True
         return False
+
+    def get_trial_start_at(self) -> Optional[datetime]:
+        """trial-start-anchor-decision.md準拠。店舗全体で最初の予約確定が成功した時刻
+        (=trialStartAt)を返す。未確定ならNone。trial_end_scheduler.pyの
+        select_due_trial_end_reports()に渡すStoreTrialStateの構築に使う想定。"""
+        return self._trial_start_at
+
+    def get_trial_end_report_sent_at(self) -> Optional[datetime]:
+        """trial-end-scheduler-design.md準拠。トライアル終了時利用実績レポートの送信済み
+        時刻(=trialEndReportSentAt)を返す。未送信ならNone。"""
+        return self._trial_end_report_sent_at
+
+    def mark_trial_end_report_sent(self, now: datetime) -> None:
+        """trial-end-scheduler-design.md準拠。呼び出し側がレポート送信に成功した直後に
+        1回だけ呼ぶ(送信失敗時は呼ばず、次回実行時の再送に委ねる。他のスケジューラ系
+        モジュールと同じ「送信成功時のみ状態を書き込む」冪等性設計)。既に送信済みの場合は
+        上書きしない(最初の送信時刻を保持する)。"""
+        if self._trial_end_report_sent_at is None:
+            self._trial_end_report_sent_at = now
 
     def stage(self, user_id: str) -> Optional[str]:
         state = self._states.get(user_id)

@@ -1549,6 +1549,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ストアへの`stripe_customer_id`フィールド実装は引き続きオーナー承認待ち・次回以降の課題として
   残した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き143(2026-08-29 08:00 UTC): trial-start-anchor-decision.md「今後の課題」に
+  残っていた(1)`trialStartAt`のInMemory版書き込みロジック、(2)期間到達判定用の日次
+  スケジューラ本体・件数条件(予約20件到達)判定ロジックの2点に対応した。
+  trial-end-scheduler-design.mdを新規作成し、course-set-pasha/trial-end-scheduler-design.md
+  の構成を踏襲しつつ、本ventureは期間条件(14日)と件数条件(20件)のOR判定が必要な点、
+  および有料転換判定は既存のsuspensionReason("trial_unselected")経路に委ねる点を整理した。
+  `prototype/engine.py`の`ConversationFlowStateMachine`に`_trial_start_at`・
+  `_trial_end_report_sent_at`を追加し(`_first_booking_self_check_sent`と同じ確定成功分岐で
+  設定)、`get_trial_start_at()`/`get_trial_end_report_sent_at()`/
+  `mark_trial_end_report_sent()`を実装した。`InMemoryBookingRecordStore`に
+  `count_confirmed_bookings()`(キャンセル済みも含め累計確定回数を返す)を新設した。
+  選定ロジック自体は`prototype/trial_end_scheduler.py`
+  (`StoreTrialState`/`is_trial_end_report_due()`/`select_due_trial_end_reports()`)として
+  新規実装した。firestore-data-model.mdに`trialEndReportSentAt`フィールドを追加した。
+  テスト15件追加(test_engine.py 4件・test_trial_end_scheduler.py 11件)、venture全体367件
+  全件パス・schema検証25件パスを確認した。実Firestore書き込み配線・Cloud Function本体の
+  実装・実Cloud Scheduler作成は引き続きオーナー承認待ち・次回以降の課題として残した。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-28 23:00 UTC・フェーズ続き142: CI
