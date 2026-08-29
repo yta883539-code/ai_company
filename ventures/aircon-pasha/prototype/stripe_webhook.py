@@ -23,6 +23,18 @@ trial-end-scheduler-design.md 2節「今後の課題」で残っていた`upgrad
 のため、`store.get(user_id).upgraded_at is None`を呼び出し側で確認してから
 `store.set_upgraded_at()`を呼ぶ形で「一度設定されたら以降不変」(UserProfile
 docstring)を守る。
+
+`payment_store`/`push_client`/`recovery_push_client`(フェーズ149追加): stripe_dispatch.py
+の`dispatch_stripe_event()`はフェーズ140・147・148で`invoice.payment_failed`/
+`invoice.payment_succeeded`(決済失敗検知・復旧通知)を扱えるようになっていたが、
+本モジュールの`receive_stripe_webhook()`はこれら3引数を受け取らずダイジェストを
+`dispatch_stripe_event()`へそのまま委譲していたため、実際のHTTPエントリポイント経由
+では`payment_store`が常に`None`扱いになり、決済失敗の検知・復旧通知の両イベントが
+実際には`ignored_types`として処理されないまま素通りしてしまう配線漏れがあった
+(payment-failure-dunning-design.md 6節の一連の実装〈フェーズ141〜148〉が
+`dispatch_stripe_event()`単体では検証済みでも、HTTPエントリポイントを経由した
+一気通貫の経路ではまだ検証されていなかった)。本フェーズで3引数を追加し、そのまま
+`dispatch_stripe_event()`へ委譲するだけの薄い配線で解消した。
 """
 
 from __future__ import annotations
@@ -35,6 +47,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from payment_failure import LinePushClient, PaymentFailureStoreProtocol
+from payment_recovery_notification import LinePushClient as RecoveryPushClient
 from stripe_dispatch import (
     ProfileDeletionCandidateStoreProtocol,
     StripeDispatchResult,
@@ -197,6 +211,9 @@ def receive_stripe_webhook(
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    payment_store: Optional[PaymentFailureStoreProtocol] = None,
+    push_client: Optional[LinePushClient] = None,
+    recovery_push_client: Optional[RecoveryPushClient] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -218,6 +235,15 @@ def receive_stripe_webhook(
     - それ以外のイベント種別はこれまで通りdispatch_stripe_event()にそのまま委譲し200を
       返す。resolve_user_idが解決できなかった場合・対象外のイベント種別であっても、
       Stripe側の再送ループを避けるためリクエスト自体は200(受理)として扱う。
+
+    `payment_store`・`push_client`・`recovery_push_client`はpayment-failure-dunning-
+    design.md 6節対応(フェーズ149追加)。`dispatch_stripe_event()`は`invoice.payment_
+    failed`/`invoice.payment_succeeded`を処理するために既にこれら3引数を受け取れる
+    設計になっていた(フェーズ140・147・148)が、本関数はそのままこれらを内部で握り
+    つぶしており、実際のHTTPエントリポイント経由では`payment_store`が常に`None`扱いに
+    なって決済失敗検知・復旧通知の両イベントが`ignored_types`に落ちてしまう配線漏れが
+    あった。本フェーズはそのままdispatch_stripe_event()へ委譲するだけの薄い配線を追加
+    して解消する。3引数とも省略時(`None`)の挙動はこれまでと変わらない(後方互換)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -246,7 +272,13 @@ def receive_stripe_webhook(
         )
 
     dispatch_result = dispatch_stripe_event(
-        parsed, store=store, resolve_user_id=resolve_user_id, now=resolved_now
+        parsed,
+        store=store,
+        resolve_user_id=resolve_user_id,
+        payment_store=payment_store,
+        push_client=push_client,
+        recovery_push_client=recovery_push_client,
+        now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 

@@ -5,6 +5,11 @@ import unittest
 from datetime import datetime, timezone
 
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
+from payment_failure import InMemoryLinePushClient, LinePushDeliveryError
+from payment_recovery_notification import (
+    InMemoryLinePushClient as InMemoryRecoveryPushClient,
+    LinePushDeliveryError as RecoveryLinePushDeliveryError,
+)
 from stripe_webhook import (
     handle_checkout_session_completed,
     make_resolve_user_id,
@@ -373,6 +378,227 @@ class ReceiveStripeWebhookCheckoutSessionCompletedTest(unittest.TestCase):
 
         self.assertEqual(result.dispatch_result.marked_user_ids, ["user_1"])
         self.assertIsNotNone(store.get_deletion_candidate_at("user_1"))
+
+
+def _payment_profile_store(user_id="user_1") -> InMemoryUserProfileStore:
+    store = InMemoryUserProfileStore()
+    _seed_profile(store, user_id)
+    return store
+
+
+class ReceiveStripeWebhookPaymentFailureWiringTest(unittest.TestCase):
+    """フェーズ149: `dispatch_stripe_event()`は`invoice.payment_failed`/
+    `invoice.payment_succeeded`をpayment_store/push_client/recovery_push_client
+    経由で処理できる設計(フェーズ140・147・148)だが、`receive_stripe_webhook()`が
+    これらを委譲していなかった配線漏れを解消したことの確認。"""
+
+    def test_payment_failed_ignored_without_payment_store(self):
+        """後方互換: payment_store省略時はこれまで通りignored_typesに落ちる。"""
+        store, resolve_user_id = _make_store_and_resolver({"cus_1": "user_1"})
+        event = {
+            "type": "invoice.payment_failed",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body, header, SECRET, store=store, resolve_user_id=resolve_user_id, now=NOW_DT
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.ignored_types, ["invoice.payment_failed"])
+        self.assertEqual(result.dispatch_result.payment_failure_detected_user_ids, [])
+
+    def test_payment_failed_marks_state_when_payment_store_provided(self):
+        store, _ = _make_store_and_resolver()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        event = {
+            "type": "invoice.payment_failed",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.payment_failure_detected_user_ids, ["user_1"]
+        )
+        self.assertEqual(payment_store.get_payment_failure_detected_at("user_1"), NOW_DT)
+
+    def test_payment_failed_sends_notification_when_push_client_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_failed",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            push_client=push_client,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(
+            result.dispatch_result.payment_failure_detected_user_ids, ["user_1"]
+        )
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0][0], "user_1")
+
+    def test_payment_failed_notification_failure_leaves_state_unwritten(self):
+        class _FailingPushClient:
+            def send_flex_message(self, user_id, alt_text, contents):
+                raise LinePushDeliveryError("boom")
+
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        event = {
+            "type": "invoice.payment_failed",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            push_client=_FailingPushClient(),
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.payment_failure_notification_failed_user_ids,
+            ["user_1"],
+        )
+        self.assertIsNone(payment_store.get_payment_failure_detected_at("user_1"))
+
+    def test_payment_succeeded_clears_state_when_payment_store_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        payment_store.set_payment_failure_detected_at("user_1", NOW_DT)
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.dispatch_result.payment_recovered_user_ids, ["user_1"])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at("user_1"))
+
+    def test_payment_succeeded_sends_recovery_notification_when_recovery_push_client_provided(
+        self,
+    ):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        payment_store.set_payment_suspended_at("user_1", NOW_DT)
+        payment_store.set_payment_failure_detected_at("user_1", NOW_DT)
+        recovery_push_client = InMemoryRecoveryPushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.dispatch_result.payment_recovered_user_ids, ["user_1"])
+        self.assertEqual(len(recovery_push_client.sent), 1)
+        self.assertEqual(recovery_push_client.sent[0][0], "user_1")
+        self.assertIsNone(payment_store.get_payment_suspended_at("user_1"))
+
+    def test_payment_succeeded_recovery_notification_failure_leaves_state_unchanged(self):
+        class _FailingRecoveryPushClient:
+            def send_flex_message(self, user_id, alt_text, contents):
+                raise RecoveryLinePushDeliveryError("boom")
+
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        payment_store.set_payment_suspended_at("user_1", NOW_DT)
+        payment_store.set_payment_failure_detected_at("user_1", NOW_DT)
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            payment_store=payment_store,
+            recovery_push_client=_FailingRecoveryPushClient(),
+            now=NOW_DT,
+        )
+
+        self.assertEqual(
+            result.dispatch_result.payment_recovery_notification_failed_user_ids,
+            ["user_1"],
+        )
+        self.assertIsNotNone(payment_store.get_payment_suspended_at("user_1"))
 
 
 if __name__ == "__main__":

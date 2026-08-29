@@ -88,8 +88,18 @@ course-set-pasha版と同じ形にした。
   `body`・`Stripe-Signature`ヘッダ取り出し配線)は、course-set-pashaの`main(request)`(Stripe版)
   と同様の薄い配線となる見込みだが、`webhook_secret`の環境変数名(`STRIPE_WEBHOOK_SECRET`
   想定)の最終確認と合わせて次の課題として残す。
-- `resolve_user_id`(`stripe_customer_id → user_id`)の実装自体
+- ~~`resolve_user_id`(`stripe_customer_id → user_id`)の実装自体
   (`stripe-webhook-event-dispatch-design.md`で名指しされていた未解決事項)は本設計の
-  範囲外のまま引き続き残る。
+  範囲外のまま引き続き残る。~~ → フェーズ140以降(`stripe_webhook.py`の
+  `make_resolve_user_id()`、checkout-session-completed-handling-design.md)で対応済み。
+  `user_profile_store.get_user_id_by_stripe_customer_id`を`resolve_user_id`にそのまま
+  渡す薄いファクトリとして実装されている(本文書作成当初は未着手だったが、後続フェーズで
+  解消され本節の更新が漏れていたため、フェーズ149でまとめて反映)。
+- **(2026-08-29追記・フェーズ149で解消)** `receive_stripe_webhook()`が`dispatch_stripe_
+  event()`の`payment_store`/`push_client`/`recovery_push_client`引数(フェーズ140・147・148で
+  追加済み)を委譲しておらず、HTTPエントリポイント経由では`invoice.payment_failed`/
+  `invoice.payment_succeeded`が常に`ignored_types`扱いになってしまう配線漏れがあった。
+  3引数を`receive_stripe_webhook()`にも追加してそのまま`dispatch_stripe_event()`へ渡す
+  薄い配線を追加し解消した。詳細はREADME.mdフェーズ149参照。
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は実Stripeアカウント接続
   (オーナー承認待ち)後の課題として残る。

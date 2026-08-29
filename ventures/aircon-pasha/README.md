@@ -2038,4 +2038,31 @@
   オーナー承認待ちのまま残る(pending-approval.md参照)。次回は他venture・アイデア領域の
   前進、または猶予期間(7日)終了後に制限モードへ自動移行させるスケジューラ配線(design 6節
   「残課題」)を検討する。
-- 最終更新: 2026-08-29 04:00 UTC
+- フェーズ149(2026-08-29 07:00 UTC): 各設計docの「残課題」を棚卸しした結果、
+  stripe-webhook-http-entry-point-design.mdに残る`resolve_user_id`実装(既に
+  フェーズ140以降で対応済みだが本節の更新が漏れていた)以外に、コード側の実際の配線漏れを
+  発見した。`stripe_dispatch.py`の`dispatch_stripe_event()`は`payment_store`・
+  `push_client`・`recovery_push_client`の3引数(フェーズ140・147・148で追加)により
+  `invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗検知・復旧通知)を
+  処理できる設計になっていたが、`prototype/stripe_webhook.py`の`receive_stripe_webhook()`
+  (実HTTPエントリポイントに最も近い層)はこの3引数を一切受け取らず、常に`None`のまま
+  `dispatch_stripe_event()`へ委譲していたため、HTTPエントリポイント経由の実際の経路では
+  両イベントが`ignored_types`に落ちてしまう配線漏れがあった(`dispatch_stripe_event()`
+  単体のテストは既存だったが、`receive_stripe_webhook()`を通した一気通貫のテストが
+  無かったため気付かれていなかった)。`receive_stripe_webhook()`に同名の3引数
+  (`payment_store`/`push_client`/`recovery_push_client`、いずれも省略時`None`で
+  従来通りの後方互換)を追加し、`dispatch_stripe_event()`へそのまま委譲する薄い配線を
+  追加して解消した。テスト7件追加(`payment_store`省略時のignored_types確認・
+  `payment_store`指定時の状態書き込み・`push_client`指定時の通知送信と送信失敗時の
+  状態未変更・`recovery_push_client`指定時の復旧通知送信と送信失敗時の状態未変更、
+  いずれも`prototype/test_stripe_webhook.py`
+  `ReceiveStripeWebhookPaymentFailureWiringTest`)、venture全体305件全件パス・
+  schema検証9件パスを確認した。あわせてstripe-webhook-http-entry-point-design.md
+  「残課題」に本フェーズの対応内容と、フェーズ140以降で既に解消済みだった
+  `resolve_user_id`項目の更新漏れをまとめて反映した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。なお`main(request)`相当(実Cloud Functionsの
+  `functions_framework`リクエストからのbody・`Stripe-Signature`ヘッダ取り出し配線)は
+  Stripe側にはまだ存在せず(LINE側`cloud_function_webhook.main()`のみ実装済み)、
+  次回以降の課題として残る。
+- 最終更新: 2026-08-29 07:00 UTC
