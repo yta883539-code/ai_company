@@ -151,6 +151,17 @@ upgraded_at相当のフィールドを持たない(有料転換の判定は
 同じ。テスト8件追加(欠落・空文字列・非文字列・Webhook再送での冪等性を含む)、venture全体
 345件全件パス・schema検証25件パスを確認した。
 
+## 8. オンボーディング完了メッセージの文言設計(2026-08-29追記・解消)
+
+上記「残課題」にあった、1(b)「オンボーディング完了メッセージへの常設セルフサービス
+リンク」の文言自体を`onboarding-completion-message-design.md`として新規に設計した。
+送信タイミングは「MVPの最低限必須項目が初めて全て揃った時点(店舗全体で1回のみ)」とし、
+3トーン分の文言・`prototype/onboarding_completion_message.py`の
+`render_onboarding_completion_message()`を実装した。テスト8件追加、venture全体353件
+全件パスを確認した。発火判定の本体配線(店舗設定の保存処理側)は
+owner-settings-wireframe.mdのフォーム保存処理自体が未実装のため、引き続き未着手として
+下記残課題に記録した。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID
@@ -160,6 +171,7 @@ upgraded_at相当のフィールドを持たない(有料転換の判定は
   本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は未実装。実アカウント接続後に
   着手する。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
-- 上記1(b)「オンボーディング完了メッセージへの常設セルフサービスリンク」の文言自体は
-  未設計。次の課題として残す。
 - `success_url`ページの実際のHTML/デザインは、LP実装(オーナー承認待ち)とあわせて行う。
+- オンボーディング完了メッセージの発火判定・1回のみ発火の制御の本体配線は、
+  owner-settings-wireframe.mdのフォーム保存処理の実装着手時にあわせて設計する
+  (onboarding-completion-message-design.md参照)。
