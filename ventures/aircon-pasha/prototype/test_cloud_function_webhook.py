@@ -802,6 +802,86 @@ class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
         self.assertFalse(result.generation_paused)
 
 
+class TrialEndSchedulerToGenerationPausedWiringTest(unittest.TestCase):
+    """trial_end_scheduler.send_trial_end_notifications()が書き込む
+    trial_end_notified_atと、cloud_function_webhook._is_generation_paused()が読む
+    trial_end_notified_atが、実際に同一のInMemoryUserProfileStore経由で一気通貫で
+    つながることを確認する(trial-end-scheduler-design.md 5節・README.mdフェーズ138)。
+
+    これまでtest_trial_end_scheduler.pyのSendTrialEndNotificationsTestはローカル定義の
+    _InMemoryProfileStoreStub、本ファイルのProcessMemoEventGenerationPausedTestは
+    trial_end_notified_atを直接UserProfileに設定したInMemoryUserProfileStoreを使って
+    おり、両モジュールが本物のUserProfileStoreProtocol実装を介して連携することを確認する
+    テストがどちらにも存在しなかった(フェーズ149で発見されたstripe_webhook.py同種の
+    配線漏れと同じ観点の抜け)。"""
+
+    def test_scheduler_notification_causes_next_memo_to_be_paused(self):
+        from datetime import datetime, timedelta, timezone
+
+        from trial_end_scheduler import InMemoryLinePushClient, TrialUserState, send_trial_end_notifications
+
+        now = datetime(2026, 8, 29, 4, 0, 0, tzinfo=timezone.utc)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=now - timedelta(days=14),
+            ),
+        )
+
+        # design 3節の抽出条件により送信対象となり、trial_end_notified_atが書き込まれる。
+        send_result = send_trial_end_notifications(
+            [TrialUserState(user_id="u-1", trial_start_at=now - timedelta(days=14))],
+            now, profile_store, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.sent, ["u-1"])
+        self.assertIsNotNone(profile_store.get("u-1").trial_end_notified_at)
+
+        # 同じprofile_storeを使ってprocess_memo_event()を呼ぶと、書き込まれた
+        # trial_end_notified_atにより一時停止応答となり、LLM呼び出しは行われない。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.generation_paused)
+        self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+
+    def test_not_yet_due_user_scheduler_notification_leaves_memo_unpaused(self):
+        from datetime import datetime, timedelta, timezone
+
+        from trial_end_scheduler import InMemoryLinePushClient, TrialUserState, send_trial_end_notifications
+
+        now = datetime(2026, 8, 29, 4, 0, 0, tzinfo=timezone.utc)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=now - timedelta(days=13),  # まだ14日未満
+            ),
+        )
+
+        send_result = send_trial_end_notifications(
+            [TrialUserState(user_id="u-1", trial_start_at=now - timedelta(days=13))],
+            now, profile_store, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.sent, [])
+        self.assertIsNone(profile_store.get("u-1").trial_end_notified_at)
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.generation_paused)
+
+
 class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
     """process_memo_event()からの「制限モード」応答の検証
     (payment-failure-dunning-design.md 3節・4節、README.mdフェーズ141・

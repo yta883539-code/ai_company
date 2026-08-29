@@ -90,9 +90,17 @@ course-set-pashaと同じ理由(Cloud Schedulerの無料枠制限、ユーザー
   (2節で既知の課題として記録)は**フェーズ135で実装済み**
   (`store.get(user_id).upgraded_at is None`の場合のみ書き込む形で「1回だけ書き込む」
   不変条件を維持、テスト3件追加)。
-- trial-end-notification-design.md 4節の「生成一時停止」判定
+- ~~trial-end-notification-design.md 4節の「生成一時停止」判定
   (`_is_generation_paused()`相当、course-set-pashaはフェーズ114で実装済み)の
-  実コード実装は本venture側でまだ未着手で、次回以降の課題として残る。
+  実コード実装は本venture側でまだ未着手で、次回以降の課題として残る。~~ →
+  **フェーズ138で対応済み**(本ドキュメント作成〈フェーズ133〉時点ではまだ未実装
+  だったため、本節の記載が更新されないまま残っていた)。`cloud_function_webhook.py`に
+  `_is_generation_paused(profile)`・`GENERATION_PAUSED_MESSAGE`を新設し、
+  `process_memo_event()`冒頭で分岐する形で実装済み。あわせてフェーズ153で、本関数が
+  読む`trial_end_notified_at`と、本モジュールの`send_trial_end_notifications()`が
+  書く`trial_end_notified_at`が同一の`InMemoryUserProfileStore`経由で一気通貫で
+  つながることを確認する結線テスト(`TrialEndSchedulerToGenerationPausedWiringTest`、
+  `test_cloud_function_webhook.py`)を追加した。
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)は
   オーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントは選定ロジック・
   スケジューラ構成の机上設計にとどめる。

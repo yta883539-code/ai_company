@@ -2118,4 +2118,24 @@
   同数、テスト自体は変更していないため差分なしを確認する目的での再実行)。承認不要な
   ドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-29 17:00 UTC
+- フェーズ153(2026-08-29 23:00 UTC): trial-end-scheduler-design.md 5節に残っていた
+  「トライアル終了後の『生成一時停止』判定の実コード実装は本venture側でまだ未着手」という
+  記載が、実際にはフェーズ138で`_is_generation_paused()`として実装済みであるにも
+  かかわらず更新されていなかった(同ドキュメントが作成されたフェーズ133時点ではまだ
+  未実装だったための書き漏れ)ことに気づき、解消済みとして反映した。あわせて、この
+  棚卸しの過程で、`send_trial_end_notifications()`(trial_end_scheduler.py)が書き込む
+  `trial_end_notified_at`と`_is_generation_paused()`(cloud_function_webhook.py)が読む
+  `trial_end_notified_at`が、実際に同一の`InMemoryUserProfileStore`(user_id_linking.py)を
+  介して正しくつながることを確認する一気通貫テストがどちらのテストファイルにも存在
+  しなかった(`test_trial_end_scheduler.py`のテストはローカル定義のスタブストア、
+  `test_cloud_function_webhook.py`のテストは`trial_end_notified_at`を直接設定した
+  ストアを使っており、両モジュールを実際に接続するテストが抜けていた)ことを発見し、
+  `test_cloud_function_webhook.py`に`TrialEndSchedulerToGenerationPausedWiringTest`を
+  新設した(スケジューラの通知送信→書き込まれた`trial_end_notified_at`により次回メモが
+  一時停止応答になることの確認、および14日未満でスケジューラ対象外だったユーザーは
+  一時停止しないことの確認、テスト2件)。フェーズ149で発見した`stripe_webhook.py`の
+  配線漏れと同種の「単体テストはあるが結線テストが無い」観点の点検。テスト2件追加、
+  venture全体316件全件パス・schema検証9件パスを確認した。承認不要なドキュメント整理・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-29 23:00 UTC
