@@ -211,6 +211,35 @@ line-reservation-ai配下計383件全件パス・schema検証25件パスを確�
 ためpending-approval.mdへの追記なし。実際のCloud Schedulerからの呼び出し配線・
 Firestoreからの候補読み取りクエリ組み立ては、実ホスティング基盤接続時の課題として残る。
 
+## 6. 送信配線の実装(2026-08-29 13:00 UTC定例更新)
+
+5節で残っていた「`select_due_dormant_events()`とLINE Push送信を実際につなぐ配線」を、
+`dunning_notification_scheduler.py`に対する`cloud_function_send_dunning_notifications.py`
+と同じ役割分担で、`prototype/cloud_function_send_dormant_notifications.py`として実装した。
+
+- `select_due_dormant_events()`は1店舗につき最大1件のイベントしか返さない設計のため、
+  `send_dormant_notifications()`も1回の起動につき各店舗最大1件のみ送信する(複数回分の
+  未送信が溜まっている場合は次回以降の起動で1件ずつ追いつく、既存の`select_due_
+  dormant_events()`の設計をそのまま踏襲)。
+- 5節の docstring が前提としていた「1通目(`transitioned`)送信時に初めて`suspension_
+  reason`が`trial_unselected`に書き換わる」処理を、本モジュールの送信成功時の状態更新と
+  して実際に実装した(これを実装しないと、`select_due_dormant_events()`の2〜4通目判定
+  〈`state.suspension_reason != "trial_unselected"`〉が常に不成立になり2通目以降が
+  永久に送信されないバグになることをテストで発見・修正した)。
+- 送信失敗時は状態(`dormant_transitioned_at`/`dormant_renotify_count`/`suspension_
+  reason`)を一切書き込まず、次回起動時に同じイベントが再度送信対象になる設計とした
+  (`send_dunning_notifications()`と同じ「送信成功時のみ状態を書き込む」方針)。
+- 復旧通知(`render_dormant_recovery_message()`)は決済代行サービスのWebhook
+  (`subscription_activated`)を直接トリガーとする別経路の担当のため、本モジュールの
+  スコープ外(4節参照)。
+
+テスト9件追加(`test_cloud_function_send_dormant_notifications.py`
+`SendDormantNotificationsTests`)、line-reservation-ai配下計392件全件パス・
+schema検証25件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+実際のCloud Schedulerからの定期呼び出し配線・Firestoreからの候補読み取りクエリ組み立ては、
+引き続き実ホスティング基盤接続時(オーナー承認待ち)の課題として残る。
+
 ## 未検証の仮説(要検証)
 
 - 猶予期間3日・再通知タイミング(7/30/90日)・4回打ち切りは、いずれも実測データの無い

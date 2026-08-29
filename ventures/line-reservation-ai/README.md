@@ -1607,12 +1607,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   design.md 5節・dormant-mode-renotification-design.mdを更新済みに反映した。実際の
   Cloud Schedulerからの呼び出し配線・Firestoreからの候補読み取りクエリ組み立ては、実
   ホスティング基盤接続時の課題として残る。
+- フェーズ続き146(2026-08-29 13:00 UTC): フェーズ続き145で残っていた
+  「`select_due_dormant_events()`とLINE Push送信を実際につなぐ配線」を、
+  `dunning_notification_scheduler.py`に対する`cloud_function_send_dunning_
+  notifications.py`と同じ役割分担で`prototype/cloud_function_send_dormant_
+  notifications.py`として実装した。実装過程で、`select_due_dormant_events()`の
+  docstringが前提としていた「1通目(`transitioned`)送信時に初めて`suspension_reason`が
+  `trial_unselected`に書き換わる」処理がどこにも実装されておらず、このままでは2通目以降が
+  永久に送信されないバグになることをテストで発見し、本フェーズの送信成功時の状態更新の
+  一部として実装・解消した。送信失敗時は状態を一切書き込まず次回起動で再送対象になる設計
+  (`send_dunning_notifications()`と同じ「送信成功時のみ状態を書き込む」方針)。テスト9件
+  追加(`test_cloud_function_send_dormant_notifications.py`
+  `SendDormantNotificationsTests`)、venture全体392件全件パス・schema検証25件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。あわせて
+  dormant-mode-renotification-design.mdに6節として本フェーズの内容を追記した。実際の
+  Cloud Schedulerからの定期呼び出し配線・Firestoreからの候補読み取りクエリ組み立ては、
+  引き続き実ホスティング基盤接続時(オーナー承認待ち)の課題として残る。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-29 13:00 UTC・フェーズ続き146: dormant-mode-renotification-design.md
+  5節に残っていた「select_due_dormant_events()とLINE Push送信を実際につなぐ配線」に
+  対応した。詳細は上記フェーズ続き146参照。次回はauto_handled_inquiry_countの実集計元との
+  結線検討、または他venture・アイデア領域の前進を検討する。)
 - (解消済み 2026-08-29 12:00 UTC・フェーズ続き145: trial-end-scheduler-design.md 5節に
-  残っていた「猶予期間中のプラン選択完了判定」に対応した。詳細は上記フェーズ続き145参照。
-  次回はauto_handled_inquiry_countの実集計元との結線検討、または他venture・アイデア領域の
-  前進を検討する。)
+  残っていた「猶予期間中のプラン選択完了判定」に対応した。詳細は上記フェーズ続き145参照。)
 - (解消済み 2026-08-28 23:00 UTC・フェーズ続き142: CI
   (`.github/workflows/line-reservation-ai-tests.yml`)が`test_engine
   test_cloud_function_webhook test_cloud_function_process_event
