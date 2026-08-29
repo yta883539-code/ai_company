@@ -22,7 +22,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, Protocol, Sequence
 
-from trial_end_scheduler import LIFF_URL_PLACEHOLDER, LinePushClient
+from cloud_function_webhook import (
+    PORTAL_LINK_PLACEHOLDER,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    PortalLinkProvider,
+)
+from trial_end_scheduler import LinePushClient
 
 # payment-failure-dunning-design.md 3節と同じ暫定値(他venture共通、実測データなし)。
 DEFAULT_GRACE_PERIOD_DAYS = 7
@@ -82,6 +87,10 @@ def select_due_payment_failure_reminders(
 # メッセージ整形(payment-failure-dunning-design.md 4節「猶予期間終了直前」)
 # ---------------------------------------------------------------------------
 
+# (フェーズ126: payment-failure-dunning-design.md 5節末尾で指摘されていた、本テンプレートの
+# LIFF_URL_PLACEHOLDER誤用(3日前リマインドの案内先は新規Checkout用LIFFではなく、
+# render_payment_suspended_message()と同じく既存サブスクリプションのStripeカスタマー
+# ポータルであるべき)を解消した。PORTAL_LINK_PLACEHOLDERへ差し替える。)
 PAYMENT_FAILURE_REMINDER_TEMPLATE = (
     "[コースセットパシャッと] お支払い確認のお願い(再送)\n"
     "\n"
@@ -89,15 +98,30 @@ PAYMENT_FAILURE_REMINDER_TEMPLATE = (
     "このままですと3日後に投稿文の生成を一時停止いたします。\n"
     "\n"
     "▼ お支払い方法を確認する\n"
-    "{liff_url}"
+    f"{PORTAL_LINK_PLACEHOLDER}"
 )
 
 
-def format_payment_failure_reminder_message(liff_url: str = LIFF_URL_PLACEHOLDER) -> str:
-    """payment-failure-dunning-design.md 4節の「猶予期間終了直前(3日前リマインド)」文言を
-    そのまま組み立てる。全ユーザー共通の固定文言(ユーザーごとに変化する値がない)ため、
-    trial_end_scheduler.pyの通知文言と異なり引数はliff_urlのみでよい。"""
-    return PAYMENT_FAILURE_REMINDER_TEMPLATE.format(liff_url=liff_url)
+def render_payment_failure_reminder_message(
+    portal_link_provider: Optional[PortalLinkProvider],
+    user_id: Optional[str],
+) -> str:
+    """payment-failure-dunning-design.md 4節「猶予期間終了直前(3日前リマインド)」文言を
+    実際の送信文へ組み立てる(フェーズ126)。cloud_function_webhook.pyの
+    render_payment_suspended_message()と同じ契約: portal_link_providerが未接続(None)、
+    またはuser_id不明、またはURL取得自体に失敗した場合は、壊れたプレースホルダをそのまま
+    顧客に見せず、PORTAL_LINK_UNAVAILABLE_FALLBACKへ全文差し替える。
+
+    フェーズ125までのformat_payment_failure_reminder_message()はユーザー間で共通のURLを
+    ループ外で1回だけ組み立てる設計だったが、ポータルURLは顧客ごとに個別発行される値のため
+    本関数はユーザー単位で呼び出す設計に改めた(README.mdフェーズ123の残課題注記参照)。
+    """
+    url = None
+    if portal_link_provider is not None and user_id:
+        url = portal_link_provider.get_portal_url(user_id)
+    if not url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+    return PAYMENT_FAILURE_REMINDER_TEMPLATE.replace(PORTAL_LINK_PLACEHOLDER, url)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +153,7 @@ def send_payment_failure_reminders(
     now: datetime,
     usage_counter: PaymentFailureReminderSentAtWriter,
     push_client: LinePushClient,
-    liff_url: str = LIFF_URL_PLACEHOLDER,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     grace_period_days: int = DEFAULT_GRACE_PERIOD_DAYS,
     reminder_days_before_end: int = DEFAULT_REMINDER_DAYS_BEFORE_END,
 ) -> SendPaymentFailureRemindersResult:
@@ -140,17 +164,20 @@ def send_payment_failure_reminders(
 
     送信成功時のみusage_counter.set_payment_failure_reminder_sent_at()を書き込み、送信失敗時は
     書き込まない(6節の冪等性設計、send_trial_end_notifications()と同じ「書き込み一発+
-    次回実行時に自然に再試行対象として残る」方式)。全ユーザー共通の固定文言のため、
-    メッセージ整形はループの外で1回だけ行う。
+    次回実行時に自然に再試行対象として残る」方式)。ポータルURLはユーザーごとに個別発行される
+    値のため(フェーズ126)、メッセージ整形は共通化できずユーザーごとにrender_payment_
+    failure_reminder_message()を呼び出す。portal_link_provider未指定時はPORTAL_LINK_
+    UNAVAILABLE_FALLBACKが全ユーザーへ送られる(render_payment_suspended_messageと同じ
+    安全側の既定動作)。
     """
     from trial_end_scheduler import LinePushDeliveryError
 
     result = SendPaymentFailureRemindersResult()
-    text = format_payment_failure_reminder_message(liff_url)
 
     for user in select_due_payment_failure_reminders(
         users, now, grace_period_days, reminder_days_before_end
     ):
+        text = render_payment_failure_reminder_message(portal_link_provider, user.user_id)
         try:
             push_client.send_message(user.user_id, text)
         except LinePushDeliveryError:
@@ -163,6 +190,7 @@ def send_payment_failure_reminders(
 
 
 def _demo() -> None:
+    from cloud_function_webhook import InMemoryPortalLinkProvider
     from trial_end_scheduler import InMemoryLinePushClient
 
     now = datetime(2026, 8, 28, 4, 0, 0)
@@ -200,7 +228,8 @@ def _demo() -> None:
 
     usage_counter = _InMemoryUsageCounterStub()
     push = InMemoryLinePushClient()
-    result = send_payment_failure_reminders(users, now, usage_counter, push)
+    portal_link_provider = InMemoryPortalLinkProvider()
+    result = send_payment_failure_reminders(users, now, usage_counter, push, portal_link_provider)
     print(f"sent={result.sent}, failed={result.failed}")
     print(f"push: {push.sent[-1][1]}")
 

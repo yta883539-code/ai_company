@@ -176,8 +176,11 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 
 **(2026-08-29 追記・フェーズ123で一部対応)** 「制限モード移行時(段階3)」の応答文言
 (`PAYMENT_SUSPENDED_MESSAGE`)については、既存の`PortalLinkProvider`Protocolを再利用する
-形で本節の懸念を解消した。詳細は6節参照。3日前リマインド(`payment_failure_reminder_
-scheduler.py`)・決済失敗検知時通知は未対応のまま残る。
+形で本節の懸念を解消した。詳細は6節参照。
+
+**(2026-08-29 追記・フェーズ126で対応)** 3日前リマインド(`payment_failure_reminder_
+scheduler.py`)も同じ`PortalLinkProvider`を再利用する形で対応した。詳細は6節参照。決済失敗
+検知時通知(猶予期間開始時の初回案内)は未対応のまま残る。
 
 ## 6. 残課題
 
@@ -220,6 +223,20 @@ scheduler.py`)・決済失敗検知時通知は未対応のまま残る。
   scheduler.py`の3日前リマインド文言も同じ`LIFF_URL_PLACEHOLDER`の誤用が残っており、
   そちらは全ユーザー共通の1回限りメッセージ整形(ループ外で1回だけ組み立てる設計)を
   ユーザーごとのポータルURL解決に対応させる改修が必要なため、次回以降の課題として残す。
+- (解消済み 2026-08-29 18:00 UTC・フェーズ126: 上記で先送りしていた
+  `payment_failure_reminder_scheduler.py`の改修を行った。`PAYMENT_FAILURE_REMINDER_
+  TEMPLATE`の`LIFF_URL_PLACEHOLDER`を`PORTAL_LINK_PLACEHOLDER`へ差し替え、
+  `render_payment_suspended_message()`と同じ契約の`render_payment_failure_reminder_
+  message(portal_link_provider, user_id)`を新設した。`send_payment_failure_reminders()`
+  は`liff_url`引数を`portal_link_provider`引数へ差し替え、メッセージ整形をループ外の
+  1回限りからユーザーごとの呼び出しへ変更した(`format_payment_failure_reminder_
+  message()`は削除)。テスト7件追加、venture全体408件全件パス・schema検証9件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い等は発生していないためpending-approval.mdへの追記なし。なお`payment_
+  recovery_notification.py`の`build_payment_failure_detected_message()`
+  (決済失敗検知時〈段階1〉の初回案内)も同じ`LIFF_URL_PLACEHOLDER`誤用が残っており、
+  こちらは次回以降の課題として残す。通知本体の実送信配線(実LINE公式アカウント接続)は
+  引き続きオーナー承認待ちの範囲)
 - (解消済み 2026-08-28 19:00 UTC・フェーズ120: 猶予期間終了直前リマインドを送信する
   スケジューラを設計・実装した(payment-failure-reminder-scheduler-design.md新規作成、
   `prototype/payment_failure_reminder_scheduler.py`)。詳細は同ドキュメント参照)

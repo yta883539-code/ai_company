@@ -11,16 +11,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from cloud_function_webhook import (  # noqa: E402
+    PORTAL_LINK_PLACEHOLDER,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    InMemoryPortalLinkProvider,
+)
 from payment_failure_reminder_scheduler import (  # noqa: E402
     DEFAULT_GRACE_PERIOD_DAYS,
     DEFAULT_REMINDER_DAYS_BEFORE_END,
     PaymentFailureUserState,
-    format_payment_failure_reminder_message,
+    render_payment_failure_reminder_message,
     select_due_payment_failure_reminders,
     send_payment_failure_reminders,
 )
 from trial_end_scheduler import (  # noqa: E402
-    LIFF_URL_PLACEHOLDER,
     InMemoryLinePushClient,
     LinePushDeliveryError,
 )
@@ -114,16 +118,27 @@ class SelectDuePaymentFailureRemindersTest(unittest.TestCase):
         )
 
 
-class FormatPaymentFailureReminderMessageTest(unittest.TestCase):
-    def test_default_placeholder_is_used(self) -> None:
-        text = format_payment_failure_reminder_message()
-        self.assertIn(LIFF_URL_PLACEHOLDER, text)
+class RenderPaymentFailureReminderMessageTest(unittest.TestCase):
+    def test_resolves_portal_url_per_user(self) -> None:
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        text = render_payment_failure_reminder_message(provider, "u1")
+        self.assertIn("https://billing.stripe.com/p/session/u1", text)
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, text)
         self.assertIn("3日後に投稿文の生成を一時停止", text)
 
-    def test_custom_liff_url_is_substituted(self) -> None:
-        text = format_payment_failure_reminder_message(liff_url="https://liff.line.me/xyz")
-        self.assertIn("https://liff.line.me/xyz", text)
-        self.assertNotIn(LIFF_URL_PLACEHOLDER, text)
+    def test_provider_none_falls_back(self) -> None:
+        text = render_payment_failure_reminder_message(None, "u1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_user_id_none_falls_back(self) -> None:
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        text = render_payment_failure_reminder_message(provider, None)
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_url_fetch_failure_falls_back(self) -> None:
+        provider = InMemoryPortalLinkProvider(url=None)
+        text = render_payment_failure_reminder_message(provider, "u1")
+        self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
 
 class SendPaymentFailureRemindersTest(unittest.TestCase):
@@ -136,12 +151,29 @@ class SendPaymentFailureRemindersTest(unittest.TestCase):
         )
         usage_counter = _FakeUsageCounter()
         push = InMemoryLinePushClient()
-        result = send_payment_failure_reminders([user], self.now, usage_counter, push)
+        provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/u1")
+        result = send_payment_failure_reminders(
+            [user], self.now, usage_counter, push, provider
+        )
 
         self.assertEqual(result.sent, ["u1"])
         self.assertEqual(result.failed, [])
         self.assertEqual(usage_counter.reminder_sent_at["u1"], self.now)
-        self.assertEqual(push.sent, [("u1", format_payment_failure_reminder_message())])
+        self.assertEqual(
+            push.sent,
+            [("u1", render_payment_failure_reminder_message(provider, "u1"))],
+        )
+
+    def test_sends_fallback_message_when_provider_not_given(self) -> None:
+        user = PaymentFailureUserState(
+            user_id="u1", payment_failure_detected_at=self.now - timedelta(days=5)
+        )
+        usage_counter = _FakeUsageCounter()
+        push = InMemoryLinePushClient()
+        result = send_payment_failure_reminders([user], self.now, usage_counter, push)
+
+        self.assertEqual(result.sent, ["u1"])
+        self.assertEqual(push.sent, [("u1", PORTAL_LINK_UNAVAILABLE_FALLBACK)])
 
     def test_skips_not_due_users(self) -> None:
         user = PaymentFailureUserState(

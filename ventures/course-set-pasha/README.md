@@ -1504,6 +1504,22 @@
   能動的に知らせる通知の設計・実装は、上記フェーズ125・payment-suspension-owner-
   notification-design.mdで対応した。詳細は上記フェーズ125参照。実際のオーナーLINE
   ユーザーIDの設定・実LINE API接続は既存の承認待ち範囲に含まれるため新規追加なし)
+- (解消済み 2026-08-29 18:00 UTC・フェーズ126: payment-failure-dunning-design.md 5節末尾
+  (フェーズ123追記分)に残っていた、`payment_failure_reminder_scheduler.py`の3日前
+  リマインド文言の`LIFF_URL_PLACEHOLDER`誤用(新規Checkout用リンクを既存サブスクリプション
+  の支払い方法更新案内に使ってしまっていた)を解消した。フェーズ123の
+  `render_payment_suspended_message()`と同じ`PortalLinkProvider`Protocolを再利用する
+  設計とし、新設した`render_payment_failure_reminder_message(portal_link_provider,
+  user_id)`はプレースホルダを`PORTAL_LINK_PLACEHOLDER`へ差し替え、未接続・取得失敗時は
+  `PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替える。`send_payment_failure_reminders()`
+  は`liff_url`引数を`portal_link_provider`引数へ差し替え、ポータルURLがユーザーごとに
+  個別発行される値であるため、メッセージ整形をループ外の1回限りからユーザーごとの
+  呼び出しへ変更した(全ユーザー共通固定文言だった旧`format_payment_failure_reminder_
+  message()`は削除)。テスト7件追加、venture全体408件全件パス・schema検証9件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い等は発生していないためpending-approval.mdへの追記なし。なお同種の誤用が
+  `payment_recovery_notification.py`の`build_payment_failure_detected_message()`
+  (決済失敗検知時〈段階1〉の初回案内)にも残っており、次回以降の課題として残る)
 - フェーズ110で反映した按分式の実Firestore接続後の検証。実際のトライアルユーザーの
   複数エリア同時更新頻度が仮定(追加1エリアあたり2.5分)と乖離していないか、実ヒアリングでの
   確認が必要(実LLM・実Firestore接続はオーナー承認待ちの範囲)。
