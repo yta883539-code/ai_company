@@ -1667,8 +1667,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   実配線と、実際の複合インデックス作成で、いずれも実Firestore接続後(オーナー承認待ち)
   の課題として残る。承認不要な設計のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き150(2026-08-29 22:00 UTC): trial-end-scheduler-design.md 5節に残っていた
+  「予約確定累計数のFirestore側取得方法(都度集計クエリ vs カウンタフィールド)」の
+  未確定事項に着手した。auto_handled_faq_countは期間限定・件数も小さいためcount()集約
+  クエリで十分だが、予約確定累計数は店舗が存続する限り増え続けるbookingSlotsサブ
+  コレクション全体が対象になり、件数条件判定(3節、20件到達チェック)が会話処理の
+  ホットパスに近い頻度で走りうるため、書き込み時にインクリメントするカウンタ方式
+  (`stores/{storeId}.bookingConfirmedCount`、`bookingSlots/{slotKey}`の`confirm()`と
+  同一トランザクションで`FieldValue.increment(1)`)を採用する設計とし、
+  firestore-data-model.md 1節に追記した。あわせてInMemory版
+  `InMemoryBookingRecordStore.count_confirmed_bookings()`を、これまでの`record_confirmed()`
+  済みレコードの都度スキャンから`_confirmed_count_by_store`辞書への参照(`record_confirmed()`
+  時にインクリメント)に変更し、設計と実装を一致させた。戻り値の挙動は変更前と同一。
+  venture全体393件全件パス・schema検証25件パスを確認した。残る課題は実Firestore接続後の
+  トランザクション実装自体で、実接続時(オーナー承認待ち)の課題として残る。承認不要な
+  設計・実装のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-29 22:00 UTC・フェーズ続き150: trial-end-scheduler-design.md 5節に
+  残っていた「予約確定累計数のFirestore側取得方法」の未確定事項に対応した。詳細は
+  上記フェーズ続き150参照。残る課題(実Firestore接続後のトランザクション実装)は実接続時
+  の課題として残る。)
 - (解消済み 2026-08-29 21:00 UTC・フェーズ続き149: trial-end-scheduler-design.md 5節に
   残っていた「Firestore上での実際の集計クエリ・永続化方法の設計」に対応した。詳細は
   上記フェーズ続き149参照。残る課題(候補組み立てへの実配線、複合インデックス作成)は

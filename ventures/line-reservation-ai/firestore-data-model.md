@@ -69,6 +69,16 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
   dormantRenotifyCount: 0            // 同上。休止モード2〜4通目(7/30/90日後)のうち
                                      // 何通送信済みか(0〜3の整数)。3に達すると2節の
                                      // 「4回で打ち切り」方針どおり以降送信しない。
+  bookingConfirmedCount: 0           // trial-end-scheduler-design.md 5節(フェーズ続き150)で
+                                     // 新規追加。予約確定累計回数(InMemory版の
+                                     // InMemoryBookingRecordStore.count_confirmed_bookings()
+                                     // 相当)。件数条件(3節、20件到達判定)を都度の
+                                     // 集計クエリではなく本フィールドの単純な読み取りで
+                                     // 判定するためのカウンタ。`bookingSlots/{slotKey}`の
+                                     // confirm()書き込み(2節)と同一トランザクション内で
+                                     // FieldValue.increment(1)する。キャンセル・変更後も
+                                     // 減算しない(count_confirmed_bookings()と同じく
+                                     // 「実際に確定させた回数」の指標のため)。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

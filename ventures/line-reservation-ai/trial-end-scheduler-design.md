@@ -90,9 +90,24 @@ Cloud Function E: send_trial_end_reports
 
 ## 5. 今後の課題
 
-- bookingsコレクション側の「予約確定累計数」をFirestoreでどう効率よく取得するか
-  (都度集計クエリ vs storesドキュメントへのカウンタフィールド追加)は、実Firestore
-  接続時に別途設計する。
+- (解消済み 2026-08-29フェーズ続き150: bookingsコレクション側の「予約確定累計数」の
+  Firestore側取得方法を、都度集計クエリではなくstoresドキュメントへのカウンタフィールド
+  (`bookingConfirmedCount`)追加方式に決定した。理由: `auto_handled_faq_count`
+  (4節)はトライアル開始日から14日間という期間で区切られ件数の絶対値も小さいため
+  `count()`集約クエリで十分だが、予約確定累計数はトライアル終了後も店舗が存続する限り
+  増え続ける`bookingSlots`サブコレクション全体を対象にした都度集計になり、件数条件判定
+  (3節、20件到達チェック)はConversation処理のたびに走る可能性があるホットパスに近い
+  ため、都度集計より書き込み時にインクリメントするカウンタの方が読み取りコスト・
+  レイテンシの両面で有利と判断した。`bookingSlots/{slotKey}`の`confirm()`
+  (`status: "pending" -> "confirmed"`への書き込み、firestore-data-model.md 2節)と
+  同一トランザクション内で`stores/{storeId}.bookingConfirmedCount`を
+  `FieldValue.increment(1)`する設計とし、詳細をfirestore-data-model.md 1節に追記した。
+  InMemory版の`InMemoryBookingRecordStore.count_confirmed_bookings()`はこれまで
+  `record_confirmed()`済みレコードを都度スキャンして数えていたが、今回の決定に合わせて
+  `_confirmed_count_by_store`辞書への参照に変更した(`record_confirmed()`時に
+  インクリメント)。挙動(戻り値)は変更前と同一で、既存テストは変更なしで全件パスを
+  確認した。実Firestore接続後のトランザクション実装自体は引き続き実接続時の課題として
+  残る。)
 - (解消済み 2026-08-29フェーズ続き144: Cloud Function E本体の配線ロジックを
   `prototype/cloud_function_send_trial_end_reports.py`の`send_trial_end_reports()`として
   実装した。3節の`select_due_trial_end_reports()`・

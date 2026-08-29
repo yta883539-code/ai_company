@@ -513,6 +513,11 @@ class InMemoryBookingRecordStore:
 
     def __init__(self) -> None:
         self._records: list[_StoredBookingRecord] = []
+        # trial-end-scheduler-design.md 5節(フェーズ続き150)の決定に合わせ、
+        # count_confirmed_bookings()を都度スキャンではなくカウンタ参照にする
+        # (実Firestore版のstores/{storeId}.bookingConfirmedCountに対応する
+        # インメモリ側の表現)。
+        self._confirmed_count_by_store: dict[str, int] = {}
 
     def record_confirmed(self, store_id: str, slot_key: tuple, customer_name: str, menu: str) -> None:
         _, date_str, time_str = slot_key
@@ -527,6 +532,7 @@ class InMemoryBookingRecordStore:
                 menu=menu,
             )
         )
+        self._confirmed_count_by_store[store_id] = self._confirmed_count_by_store.get(store_id, 0) + 1
 
     def list_booking_entries(self, store_id: str, start_date: date, end_date: date) -> list[BookingListEntry]:
         """owner-settings-wireframe.md予約一覧ページの「[今週分をCSVで書き出す]」ボタンが
@@ -551,7 +557,7 @@ class InMemoryBookingRecordStore:
         含める(トライアル条件は「その時点で来店予定の件数」ではなく「サービスを実際に使って
         予約を確定させた回数」という利用実績の指標のため、確定後の解約状況に左右されない)。
         """
-        return sum(1 for r in self._records if r.store_id == store_id)
+        return self._confirmed_count_by_store.get(store_id, 0)
 
     def customer_records(self, customer_name: str) -> list[CustomerBookingRecord]:
         """owner-settings-wireframe.md顧客詳細ページのbuild_customer_detail_view()に
