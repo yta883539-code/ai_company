@@ -78,12 +78,13 @@ course-set-pasha版と同じ形にした。
 
 ## 残課題
 
-- `checkout.session.completed`の受信配線(user-account-linking-design.mdの連携コード方式との
-  接続)は本設計の範囲外のまま残る。course-set-pashaはこの部分を後のフェーズで
-  `handle_checkout_session_completed()`として`receive_stripe_webhook()`に追加したが、
-  本ventureは連携コード方式が申込フォーム送信時点(Checkout Session作成前)で完結する設計
-  (user-account-linking-design.md 3節)のため、Checkout Session完了イベント自体をトリガーに
-  何かを書き込む必要があるかどうかは別途整理が必要。
+- ~~`checkout.session.completed`の受信配線(user-account-linking-design.mdの連携コード方式との
+  接続)は本設計の範囲外のまま残る。~~ → checkout-session-completed-handling-design.mdで解消
+  済み(フェーズ140台)。`handle_checkout_session_completed()`が`client_reference_id`
+  (=既知の`user_id`)・`customer`(=stripe_customer_id)を`user_profile_store`に書き込む
+  設計とし、`receive_stripe_webhook()`の`user_profile_store`引数経由で配線されている
+  (本文書作成当初は未着手だったが、後続フェーズで解消され本節の更新が漏れていたため、
+  フェーズ151の棚卸しに続きフェーズ152で反映)。
 - ~~`main(request)`相当(実Cloud Functionsの`functions_framework`リクエストオブジェクトからの
   `body`・`Stripe-Signature`ヘッダ取り出し配線)は、course-set-pashaの`main(request)`(Stripe版)
   と同様の薄い配線となる見込みだが、`webhook_secret`の環境変数名(`STRIPE_WEBHOOK_SECRET`
