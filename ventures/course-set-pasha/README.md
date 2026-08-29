@@ -1389,7 +1389,21 @@
   ためpending-approval.mdへの追記なし。`stripe_webhook.py`の`dispatch_stripe_event()`を
   本モジュールへ差し替える実配線、および5節のStripe Customer Portal要否検討は次回以降の
   課題として残る。
-- 最終更新: 2026-08-29 01:00 UTC
+- フェーズ122(2026-08-29 03:00 UTC): フェーズ121の申し送りだった、`stripe_webhook.py`の
+  `dispatch_stripe_event()`を`payment_recovery_notification.handle_payment_succeeded()`へ
+  差し替える実配線を行った。`dispatch_stripe_event()`・`receive_stripe_webhook()`に
+  `push_client`引数(省略時は後方互換で通知なし)を新設し、`invoice.payment_succeeded`
+  受信時に指定されていれば本モジュールへ委譲する設計とした。aircon-pashaはフェーズ147で
+  同種の配線を`invoice.payment_failed`側のみ行い、`payment_failure.py`・
+  `payment_recovery_notification.py`が別クラスの`LinePushDeliveryError`を持つ慣習上
+  `invoice.payment_succeeded`側は次回以降の課題として残していたが、本ventureは
+  `payment_recovery_notification.py`が`trial_end_scheduler.py`の
+  `LinePushClient`/`LinePushDeliveryError`をそのまま再利用しているため、この制約なしに
+  そのまま配線できた。送信失敗時(`OUTCOME_SEND_FAILED`)は状態を変更せずWebhookリトライに
+  委ねる。テスト6件追加、venture全体379件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-29 03:00 UTC
 
 ## 次にやること(候補)
 
@@ -1411,6 +1425,9 @@
 - (解消済み 2026-08-29 01:00 UTC・フェーズ121: 猶予期間中に決済が成功した場合の復旧通知
   3分岐の詳細設計・実装は上記フェーズ121で対応した。詳細は上記フェーズ121・
   payment-failure-dunning-design.md 4節参照)
+- (解消済み 2026-08-29 03:00 UTC・フェーズ122: `stripe_webhook.py`の`dispatch_stripe_event()`を
+  `payment_recovery_notification.handle_payment_succeeded()`へ差し替える実配線は
+  上記フェーズ122で対応した。詳細は上記フェーズ122参照)
 - payment-failure-dunning-design.md 5節で残っていたStripe Customer Portal
   (支払い方法更新用URL発行)の要否・実装方式の検討は引き続き未着手。
 - payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に

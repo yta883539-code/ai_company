@@ -18,6 +18,7 @@ from stripe_webhook import (
     receive_stripe_webhook,
     verify_stripe_signature,
 )
+from trial_end_scheduler import InMemoryLinePushClient, LinePushDeliveryError
 
 SECRET = "whsec_test_secret"
 PAYLOAD = b'{"id":"evt_1","type":"customer.subscription.deleted"}'
@@ -332,6 +333,127 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         self.assertEqual(result.payment_recovered_user_ids, [])
 
 
+class DispatchInvoicePaymentSucceededWithPushClientTest(unittest.TestCase):
+    """payment-failure-dunning-design.md 6節・フェーズ122対応。push_client指定時、
+    payment_recovery_notification.handle_payment_succeeded()経由で実際に通知を送信して
+    から状態をクリアすることを確認する。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def test_recovered_from_suspension_sends_notification_and_clears_state(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+        )
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0][0], "user_1")
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_confirmed_in_grace_sends_notification(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 26, tzinfo=timezone.utc)
+        )
+        self.usage_counter.set_payment_failure_reminder_sent_at(
+            "user_1", datetime(2026, 8, 27, tzinfo=timezone.utc)
+        )
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+        )
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_silent_reset_sends_no_notification(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+        )
+        # 状態はクリアされるが(push_client未指定時と同じ意味)、通知は送信されない。
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [])
+        self.assertEqual(push_client.sent, [])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_no_dunning_is_untouched(self):
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(push_client.sent, [])
+
+    def test_send_failure_leaves_state_untouched(self):
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+
+        class _FailingPushClient:
+            def send_message(self, user_id: str, text: str) -> None:
+                raise LinePushDeliveryError("simulated failure")
+
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=_FailingPushClient(),
+            now=datetime(2026, 8, 29, tzinfo=timezone.utc),
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, ["user_1"])
+        self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+
 class ReceiveStripeWebhookInvoicePaymentEventsTest(unittest.TestCase):
     """receive_stripe_webhook()がinvoice.payment_failed/succeededをusage_counterごと
     dispatch_stripe_event()へ委譲することを確認する(フェーズ119)。"""
@@ -374,6 +496,34 @@ class ReceiveStripeWebhookInvoicePaymentEventsTest(unittest.TestCase):
         result = self._send(body)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.dispatch_result.payment_recovered_user_ids, ["user_1"])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_payment_succeeded_event_sends_notification_when_push_client_given(self):
+        """フェーズ122: receive_stripe_webhook()もpush_clientをdispatch_stripe_event()へ
+        委譲することを確認する。"""
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2020, 1, 1, tzinfo=timezone.utc)
+        )
+        push_client = InMemoryLinePushClient()
+        body = (
+            b'{"id":"evt_2","type":"invoice.payment_succeeded",'
+            b'"data":{"object":{"customer":"cus_A"}}}'
+        )
+        timestamp = int(NOW)
+        header = _header(body, SECRET, timestamp)
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+            now=datetime.fromtimestamp(NOW, tz=timezone.utc),
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.payment_recovered_user_ids, ["user_1"])
+        self.assertEqual(len(push_client.sent), 1)
         self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
 
 

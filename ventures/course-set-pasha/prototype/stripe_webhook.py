@@ -30,6 +30,8 @@ from deletion_candidate import (
     clear_deletion_candidate_on_subscription_reactivated,
     mark_deletion_candidate_on_subscription_deleted,
 )
+from payment_recovery_notification import OUTCOME_SEND_FAILED, handle_payment_succeeded
+from trial_end_scheduler import LinePushClient
 
 
 def verify_stripe_signature(
@@ -115,6 +117,9 @@ class StripeDispatchResult:
     # payment-failure-dunning-design.md(フェーズ117)6節対応、フェーズ119で追加。
     payment_failure_detected_user_ids: list = field(default_factory=list)
     payment_recovered_user_ids: list = field(default_factory=list)
+    # フェーズ122追加: push_client指定時、決済成功復旧通知の送信に失敗したuser_id
+    # (状態は書き込まれておらず、Webhookリトライでの再試行に委ねる想定)。
+    payment_recovery_notification_failed_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -145,6 +150,7 @@ def dispatch_stripe_event(
     store: ProfileDeletionCandidateStoreProtocol,
     resolve_user_id: Callable[[str], Optional[str]],
     usage_counter: Optional[PaymentFailureUsageCounterProtocol] = None,
+    push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """stripe-webhook-event-dispatch-design.md 1節のとおり、Stripe Webhookイベント1件を
@@ -155,6 +161,17 @@ def dispatch_stripe_event(
     参照し、未指定(`None`)の場合はこれら2種別を`ignored_types`として扱う(既存の
     `customer.subscription.*`専用の呼び出し経路に影響を与えないための後方互換措置、
     aircon-pashaのstripe_dispatch.py`payment_store`引数と同じ方針)。
+
+    `push_client`はpayment-failure-dunning-design.md 6節「Stripe側の実際のイベント受信
+    配線」対応(フェーズ122で追加)。指定時、`invoice.payment_succeeded`受信時に
+    `payment_recovery_notification.handle_payment_succeeded()`経由で実際に通知を送信して
+    から状態をクリアする。未指定(`None`)の場合は従来通り状態のクリアのみを行い、
+    通知は送信しない(既存呼び出し経路への後方互換措置)。本ventureは
+    `payment_recovery_notification.py`が`trial_end_scheduler.py`の
+    `LinePushClient`/`LinePushDeliveryError`をそのまま再利用しており、aircon-pashaの
+    `payment_failure.py`のようにモジュールごとに別クラスの例外を定義していないため、
+    aircon-pashaのフェーズ147時点で先送りされていた「復旧通知側の配線」を本ventureでは
+    そのまま行える。
     """
     result = StripeDispatchResult()
 
@@ -209,12 +226,34 @@ def dispatch_stripe_event(
         return result
 
     # invoice.payment_succeeded: design 4節「決済成功による復旧時」。
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+
+    if push_client is not None:
+        # フェーズ122: 分類・通知・状態クリアはすべてhandle_payment_succeeded()に委譲する
+        # (usage_counterはPaymentFailureUsageCounterProtocol/PaymentRecoveryUsageCounter
+        # Protocolの両方を構造的に満たす、InMemoryUsageCounterで確認済み)。
+        recovery_result = handle_payment_succeeded(
+            user_id,
+            usage_counter,  # type: ignore[arg-type]
+            push_client,
+            resolved_now,
+        )
+        if recovery_result.outcome == OUTCOME_SEND_FAILED:
+            result.payment_recovery_notification_failed_user_ids.append(user_id)
+        elif recovery_result.state_reset:
+            # OUTCOME_RECOVERED_FROM_SUSPENSION・OUTCOME_CONFIRMED_IN_GRACE(通知あり)、
+            # OUTCOME_SILENT_RESET(通知なし)のいずれも状態はクリアされるため、
+            # push_client未指定時の既存フィールドの意味(状態がクリアされたか)を保つ。
+            result.payment_recovered_user_ids.append(user_id)
+        return result
+
     # payment-failure-dunning-design.mdはaircon-pashaと異なり別立ての`payment_suspended_at`を
     # 持たない設計(制限モードは検知時刻+猶予日数から都度算出、フェーズ118)のため、
     # クリア対象は`payment_failure_detected_at`のみでよかったが、フェーズ120で
     # `payment_failure_reminder_sent_at`(送信済みフラグ)を新設したため、これも
     # あわせてクリアする(消去しないと再度の決済失敗時にリマインドが送信されなくなるため、
-    # payment-failure-reminder-scheduler-design.md 3節)。
+    # payment-failure-reminder-scheduler-design.md 3節)。push_client未指定時の
+    # 後方互換経路(通知なし)としてそのまま残す。
     if usage_counter.get_payment_failure_detected_at(user_id) is not None:
         usage_counter.clear_payment_failure_detected_at(user_id)
         usage_counter.clear_payment_failure_reminder_sent_at(user_id)
@@ -319,6 +358,7 @@ def receive_stripe_webhook(
     resolve_user_id: Callable[[str], Optional[str]],
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
     usage_counter: Optional[UpgradedAtWriterProtocol] = None,
+    push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -381,6 +421,7 @@ def receive_stripe_webhook(
         store=store,
         resolve_user_id=resolve_user_id,
         usage_counter=usage_counter,
+        push_client=push_client,
         now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

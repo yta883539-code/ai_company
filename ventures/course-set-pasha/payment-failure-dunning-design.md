@@ -207,8 +207,17 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
   成功した場合の復旧通知の3分岐」の詳細設計・実装を行った。`prototype/payment_recovery_
   notification.py`新規作成、`classify_payment_recovery()`・`handle_payment_succeeded()`
   実装。詳細は4節参照)
-- 実際のWebhook受信・状態保存・LINE送信配線、決済代行サービスとの契約自体は
-  引き続きオーナー承認待ち(pending-approval.md参照)。`dispatch_stripe_event()`を
-  `payment_recovery_notification.handle_payment_succeeded()`へ差し替える配線自体は
-  承認不要な範囲だが、次回以降の課題として残す。
+- (解消済み 2026-08-29 03:00 UTC・フェーズ122: `dispatch_stripe_event()`(`stripe_webhook.py`)に
+  `push_client`引数(省略時は後方互換で通知なし、aircon-pashaの`payment_failure.py`
+  `push_client`引数と同じ方針)を追加し、`invoice.payment_succeeded`受信時に
+  `payment_recovery_notification.handle_payment_succeeded()`へ委譲するよう配線した。
+  本ventureは`payment_recovery_notification.py`が`trial_end_scheduler.py`の
+  `LinePushClient`/`LinePushDeliveryError`をそのまま再利用しており、aircon-pashaの
+  `payment_failure.py`のようにモジュールごとに別クラスの例外を定義していないため、
+  aircon-pashaのフェーズ147時点で先送りされていた「復旧通知側の配線」を本ventureでは
+  そのまま行えた。送信失敗時(`OUTCOME_SEND_FAILED`)は状態を変更せずWebhookリトライに
+  委ねる設計とした。`receive_stripe_webhook()`にも同じ`push_client`引数を追加し
+  委譲した。テスト6件追加、venture全体379件全件パス・schema検証9件パスを確認した)
+- 実際のWebhook受信・状態保存・LINE送信配線(実LINE公式アカウント接続)、決済代行サービスとの
+  契約自体は引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、他venture共通で実測データの無い暫定値のまま。
