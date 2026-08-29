@@ -1057,8 +1057,59 @@ class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
         )
 
         self.assertTrue(result.payment_suspended)
-        self.assertEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
         self.assertTrue(result.reply_sent)
+
+    def test_suspended_message_uses_portal_url_when_provider_available(self):
+        # フェーズ123: portal_link_providerが渡されればPORTAL_LINK_PLACEHOLDERが実URLへ
+        # 置き換わる(5節「CTAリンクの実装課題」への対応、render_subscription_procedure_
+        # notice()と同じ契約)。
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+        portal_url = "https://billing.stripe.com/p/session/test123"
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            portal_link_provider=InMemoryPortalLinkProvider(url=portal_url),
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertIn(portal_url, result.reply_text)
+        self.assertNotIn(PORTAL_LINK_PLACEHOLDER, result.reply_text)
+
+    def test_suspended_message_falls_back_when_portal_link_provider_missing(self):
+        # portal_link_provider未接続時は、壊れたプレースホルダをそのまま見せず
+        # PORTAL_LINK_UNAVAILABLE_FALLBACKへ全文差し替える(providerを渡さない呼び出し元、
+        # すなわち従来の呼び出し方を維持したままの動作)。
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertEqual(result.reply_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_suspended_message_falls_back_when_portal_url_fetch_fails(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            portal_link_provider=InMemoryPortalLinkProvider(url=None),
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertEqual(result.reply_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
     def test_suspended_does_not_increment_monthly_count(self):
         usage_counter = InMemoryUsageCounter()

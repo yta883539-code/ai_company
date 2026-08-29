@@ -174,6 +174,11 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 同じLIFFアプリ内から`liff.getIDToken()`で取得したuser_idを使って発行する設計に揃えられる
 見込みが高いが、Portalセッション作成エンドポイント自体の設計は次回以降の課題として残す。
 
+**(2026-08-29 追記・フェーズ123で一部対応)** 「制限モード移行時(段階3)」の応答文言
+(`PAYMENT_SUSPENDED_MESSAGE`)については、既存の`PortalLinkProvider`Protocolを再利用する
+形で本節の懸念を解消した。詳細は6節参照。3日前リマインド(`payment_failure_reminder_
+scheduler.py`)・決済失敗検知時通知は未対応のまま残る。
+
 ## 6. 残課題
 
 - (解消済み 2026-08-28 10:00 UTC・フェーズ118: `UsageCounterProtocol`への状態管理メソッド
@@ -199,7 +204,22 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
   〈両者は「既に有料転換済みか否か」で前提条件が排他的なため、1つの関数に統合するより
   責務を分けた方が明確と判断〉。制限モード専用メッセージ`PAYMENT_SUSPENDED_MESSAGE`の
   `process_memo_event()`への配線もあわせて完了した)
-- 5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。
+- ~~5節で触れたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討。~~
+  → フェーズ123で対応済み。既存の`PortalLinkProvider`(`render_subscription_procedure_
+  notice()`が解約・ダウングレード案内向けに既に使用)をそのまま再利用できると判明し、
+  新規クライアント種別は不要と判断した(aircon-pashaフェーズ142と同じ結論)。
+  `cloud_function_webhook.py`に`render_payment_suspended_message(portal_link_provider,
+  user_id)`を新設し、`PAYMENT_SUSPENDED_MESSAGE`の`PORTAL_LINK_PLACEHOLDER`
+  (従来は誤って新規Checkout用の`LIFF_URL_PLACEHOLDER`を埋め込んでいた)を実URLへ
+  置換する。providerが未接続・user_id不明・URL取得失敗のいずれかの場合は
+  `PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替える(`render_subscription_procedure_
+  notice()`と同じ契約)。`process_memo_event()`の制限モード分岐をこの関数経由に差し替えた。
+  テスト3件追加、venture全体382件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は発生
+  していないためpending-approval.mdへの追記なし。なお`payment_failure_reminder_
+  scheduler.py`の3日前リマインド文言も同じ`LIFF_URL_PLACEHOLDER`の誤用が残っており、
+  そちらは全ユーザー共通の1回限りメッセージ整形(ループ外で1回だけ組み立てる設計)を
+  ユーザーごとのポータルURL解決に対応させる改修が必要なため、次回以降の課題として残す。
 - (解消済み 2026-08-28 19:00 UTC・フェーズ120: 猶予期間終了直前リマインドを送信する
   スケジューラを設計・実装した(payment-failure-reminder-scheduler-design.md新規作成、
   `prototype/payment_failure_reminder_scheduler.py`)。詳細は同ドキュメント参照)

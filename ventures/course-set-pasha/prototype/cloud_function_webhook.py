@@ -90,7 +90,28 @@ def _is_generation_paused(
 
 
 # ---------------------------------------------------------------------------
-# 決済失敗時の制限モード(payment-failure-dunning-design.md 3節・6節、README.mdフェーズ118)
+# Stripeカスタマーポータルへのリンク差し込み(subscription-cancellation-flow-design.md、
+# payment-failure-dunning-design.md 5節。解約・ダウングレード案内と決済失敗時の制限モード
+# 案内はいずれも「新規Checkout用LIFFではなく既存サブスクリプションのStripeカスタマー
+# ポータルへのリンクが必要」という同じ論点を持つため、URL差し込み・失敗時フォールバックの
+# 仕組みを1箇所に定義し両方から再利用する)
+# ---------------------------------------------------------------------------
+
+# schema/validate_test_cases.py CI1・CI2のbody文言、およびPAYMENT_SUSPENDED_MESSAGEに
+# 埋め込まれている、Stripeカスタマーポータルの実URLへ置き換えるべき箇所を示す目印。
+PORTAL_LINK_PLACEHOLDER = "{Stripeカスタマーポータル URL}"
+
+# ポータルURLを取得できなかった場合(provider未接続・API呼び出し失敗)の安全側フォールバック。
+# 壊れたプレースホルダ文字列をそのまま顧客に見せることは避け、問い合わせ導線へ差し替える。
+PORTAL_LINK_UNAVAILABLE_FALLBACK = (
+    "現在、お手続きページの発行に失敗しました。お手数ですが、しばらく経ってから再度"
+    "このメッセージを送信いただくか、店舗まで直接ご連絡ください。"
+)
+
+
+# ---------------------------------------------------------------------------
+# 決済失敗時の制限モード(payment-failure-dunning-design.md 3節・5節・6節、
+# README.mdフェーズ118・フェーズ123)
 # ---------------------------------------------------------------------------
 
 # payment-failure-dunning-design.md 3節「猶予期間7日」(他venture共通の暫定値、実測データなし)。
@@ -99,11 +120,36 @@ PAYMENT_FAILURE_GRACE_PERIOD_DAYS = 7
 # 猶予期間終了後(制限モード)に投稿文の代わりに返す定型文言
 # (payment-failure-dunning-design.md 4節「制限モード移行時」の案内と同趣旨、
 # メモ受信のたびに繰り返し返す応答用に短縮)。
+# (フェーズ123: 5節で指摘されていた通り、決済失敗からの復旧に必要なのは新規Checkout用
+# LIFFのURLではなく既存サブスクリプションのStripeカスタマーポータルURLであるため、
+# LIFF_URL_PLACEHOLDERからPORTAL_LINK_PLACEHOLDERへ差し替えた。実際のURL差し込みは
+# 下記render_payment_suspended_message()が行う)
 PAYMENT_SUSPENDED_MESSAGE = (
     "お支払い手続きが確認できないため、投稿文の生成を一時停止しています。\n"
     "お支払い方法をご確認いただければ、確認完了後に自動で生成を再開します。\n"
-    f"お支払い方法を確認する: {LIFF_URL_PLACEHOLDER}"
+    f"お支払い方法を確認する: {PORTAL_LINK_PLACEHOLDER}"
 )
+
+
+def render_payment_suspended_message(
+    portal_link_provider: Optional["PortalLinkProvider"],
+    user_id: Optional[str],
+) -> str:
+    """payment-failure-dunning-design.md 4節「制限モード移行時」の文言を実際の返信文へ
+    組み立てる(フェーズ123、5節「CTAリンクの実装課題」への対応)。
+
+    render_subscription_procedure_notice()と同じ契約: portal_link_providerが未接続
+    (None)、またはuser_id不明、またはURL取得自体に失敗した場合は、壊れたプレースホルダを
+    そのまま顧客に見せず、PORTAL_LINK_UNAVAILABLE_FALLBACKへ全文差し替える(その状態でも
+    _is_payment_suspended()の判定自体には影響しないため、生成停止という事実は次回のメモ
+    送信時にも変わらず案内される)。
+    """
+    url = None
+    if portal_link_provider is not None and user_id:
+        url = portal_link_provider.get_portal_url(user_id)
+    if not url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+    return PAYMENT_SUSPENDED_MESSAGE.replace(PORTAL_LINK_PLACEHOLDER, url)
 
 
 def _is_payment_suspended(
@@ -511,18 +557,11 @@ class InMemoryGymAreaConfigStore:
 # 解約・ダウングレード案内(subscription-cancellation-flow-design.md、
 # schema/output.schema.jsonのsubscription_procedure_notice、フェーズ54で追加した
 # status=cancellation_intent/downgrade_intent/cancellation_unclearの返信組み立て)
+#
+# PORTAL_LINK_PLACEHOLDER・PORTAL_LINK_UNAVAILABLE_FALLBACKは、決済失敗時制限モードの
+# render_payment_suspended_message()(フェーズ123)とも共有するため、ファイル前方の
+# 「Stripeカスタマーポータルへのリンク差し込み」セクションで定義している。
 # ---------------------------------------------------------------------------
-
-# schema/validate_test_cases.py CI1・CI2のbody文言に埋め込まれている、Stripeカスタマー
-# ポータルの実URLへ置き換えるべき箇所を示す目印(LLM出力にはこの文字列がそのまま含まれる)。
-PORTAL_LINK_PLACEHOLDER = "{Stripeカスタマーポータル URL}"
-
-# ポータルURLを取得できなかった場合(provider未接続・API呼び出し失敗)の安全側フォールバック。
-# 壊れたプレースホルダ文字列をそのまま顧客に見せることは避け、問い合わせ導線へ差し替える。
-PORTAL_LINK_UNAVAILABLE_FALLBACK = (
-    "現在、お手続きページの発行に失敗しました。お手数ですが、しばらく経ってから再度"
-    "このメッセージを送信いただくか、店舗まで直接ご連絡ください。"
-)
 
 
 class PortalLinkProvider(Protocol):
@@ -977,8 +1016,11 @@ def process_memo_event(
     9. usage_counterが決済失敗検知時刻に対応している場合のみ、_is_payment_suspended()で
        決済失敗検知からPAYMENT_FAILURE_GRACE_PERIOD_DAYS(7日)以上経過した制限モードかを
        判定する(payment-failure-dunning-design.md 3節「段階3」)。該当する場合は8と同様、
-       LLM呼び出し・各種カウント増分を一切行わずPAYMENT_SUSPENDED_MESSAGEを返信して
-       即座に処理を終える。8のトライアル未アップグレード判定(get_upgraded_atがNone前提)とは
+       LLM呼び出し・各種カウント増分を一切行わず、render_payment_suspended_message()
+       (フェーズ123、5節「CTAリンクの実装課題」)が組み立てた文言を返信して即座に処理を
+       終える。portal_link_providerが渡されていれば5.と同じStripeカスタマーポータルの
+       実URLへ差し込み、未接続・取得失敗時はPORTAL_LINK_UNAVAILABLE_FALLBACKへ全文
+       差し替える。8のトライアル未アップグレード判定(get_upgraded_atがNone前提)とは
        前提条件が排他的(本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が
        同時にTrueになることは想定しない。
     """
@@ -1003,10 +1045,13 @@ def process_memo_event(
         )
 
     if _is_payment_suspended(usage_counter, user_id_for_pause_check, now):
-        reply_sent = _reply_with_retry(reply_client, reply_token, PAYMENT_SUSPENDED_MESSAGE)
+        payment_suspended_message = render_payment_suspended_message(
+            portal_link_provider, user_id_for_pause_check
+        )
+        reply_sent = _reply_with_retry(reply_client, reply_token, payment_suspended_message)
         return MemoProcessResult(
             handled=True, reply_sent=reply_sent,
-            reply_text=PAYMENT_SUSPENDED_MESSAGE if reply_sent else None,
+            reply_text=payment_suspended_message if reply_sent else None,
             payment_suspended=True,
         )
 

@@ -1403,7 +1403,29 @@
   委ねる。テスト6件追加、venture全体379件全件パス・schema検証9件パスを確認した。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-29 03:00 UTC
+- フェーズ123(2026-08-29 06:00 UTC): payment-failure-dunning-design.md「残課題」に
+  残っていた、5節「CTAリンクの実装課題」(Stripe Customer Portal(支払い方法更新用URL発行)の
+  要否・実装方式の検討)に対応した。aircon-pashaフェーズ142と同じ結論で、既存の
+  `PortalLinkProvider`Protocol(`render_subscription_procedure_notice()`が解約・
+  ダウングレード案内向けに既に使用)をそのまま再利用でき、新規クライアント種別は不要と
+  判明した。`cloud_function_webhook.py`の`PAYMENT_SUSPENDED_MESSAGE`(制限モード移行時の
+  応答文言)が従来誤って新規Checkout用の`LIFF_URL_PLACEHOLDER`を埋め込んでいた
+  (決済失敗からの復旧に必要なのは既存サブスクリプションのStripeカスタマーポータルであり、
+  新規申込用のLIFFリンクとは別物という5節の指摘どおりの不整合)ため、`PORTAL_LINK_
+  PLACEHOLDER`へ差し替えた上で、新設した`render_payment_suspended_message(portal_link_
+  provider, user_id)`が`render_subscription_procedure_notice()`と同じ契約(未接続・
+  user_id不明・URL取得失敗時は`PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替え)で実URLへ
+  置換する設計とした。`process_memo_event()`の制限モード分岐をこの関数経由に差し替えた
+  (引数追加なし、既存の`portal_link_provider`引数をそのまま使う)。`PORTAL_LINK_
+  PLACEHOLDER`/`PORTAL_LINK_UNAVAILABLE_FALLBACK`の定義位置をファイル前方へ移動し、
+  解約案内・制限モード案内の両方から共有する構成に整理した。テスト3件追加(実URL置換/
+  provider未接続時フォールバック/URL取得失敗時フォールバック)、venture全体382件全件パス・
+  schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  なお`payment_failure_reminder_scheduler.py`の3日前リマインド文言・決済失敗検知時通知は
+  同じ`LIFF_URL_PLACEHOLDER`誤用が残ったままで、いずれも全ユーザー共通の1回限りメッセージ
+  整形をユーザーごとのポータルURL解決に対応させる改修が必要なため、次回以降の課題として残す。
+- 最終更新: 2026-08-29 06:00 UTC
 
 ## 次にやること(候補)
 
@@ -1428,8 +1450,10 @@
 - (解消済み 2026-08-29 03:00 UTC・フェーズ122: `stripe_webhook.py`の`dispatch_stripe_event()`を
   `payment_recovery_notification.handle_payment_succeeded()`へ差し替える実配線は
   上記フェーズ122で対応した。詳細は上記フェーズ122参照)
-- payment-failure-dunning-design.md 5節で残っていたStripe Customer Portal
-  (支払い方法更新用URL発行)の要否・実装方式の検討は引き続き未着手。
+- (解消済み 2026-08-29 06:00 UTC・フェーズ123: payment-failure-dunning-design.md 5節で
+  残っていたStripe Customer Portal(支払い方法更新用URL発行)の要否・実装方式の検討は
+  `PAYMENT_SUSPENDED_MESSAGE`(制限モード移行時応答)についてのみ対応した。詳細は上記
+  フェーズ123参照。3日前リマインド・決済失敗検知時通知は未対応のまま残る)
 - payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に
   オーナーへ能動的に知らせる通知(現状は顧客からのメッセージ受信時にPAYMENT_SUSPENDED_MESSAGEを
   返す受動的経路のみ)の要否検討は未着手。
