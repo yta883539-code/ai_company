@@ -1633,8 +1633,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   candidates_presentedへの差し戻し」に変更された経緯も明記した。コード変更は無し、
   設計docの現状反映のみ。承認不要なドキュメント整理のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き148(2026-08-29 19:00 UTC): フェーズ続き147で棚卸しの結果次の一歩として
+  挙げた「`auto_handled_inquiry_count`の実集計元との結線検討」に着手した。
+  `trial_end_report_scheduler.py`の`TrialUsageSummary.auto_handled_inquiry_count`
+  (自動対応できたお問い合わせ件数)は、`booking_count`(`InMemoryBookingRecordStore.
+  count_confirmed_bookings()`)と異なりこれまで実集計元が未設計だった。
+  `faq_segments[].resolved:true`(厳守事項9a準拠、店舗登録済み静的情報に基づきLLMが
+  エスカレーションなしで自己完結して回答できたFAQ項目)を「自動対応できたお問い合わせ」の
+  定義として採用し、`NotificationLogAggregator`に`auto_handled_faq_count`を新設した
+  (`record()`の既存faq_segmentsループにresolved:trueの分岐を追加)。`resolved:false`の
+  未登録FAQ相談集計とは異なりオーナー通知の重複抑止が目的ではないため、
+  (日付,userId,topic)での重複排除は行わず自動応答した回数分をそのままカウントする設計と
+  した。テスト1件追加(`test_resolved_faq_segments_counted_as_auto_handled_without_dedup`)、
+  venture全体393件全件パス・schema検証25件パスを確認した。詳細は
+  trial-end-scheduler-design.md 5節参照。残る課題は、`NotificationLogAggregator`が
+  現状「30日分の読み取り専用画面」用にその都度構築される想定であり、トライアル期間
+  (14日)を跨いだ永続集計の仕組みではない点を踏まえたFirestore側の実集計・永続化設計と、
+  `cloud_function_send_trial_end_reports.py`の候補組み立て処理への実配線(実Firestore接続
+  後、オーナー承認待ち)。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-29 19:00 UTC・フェーズ続き148: trial-end-scheduler-design.md 5節に
+  残っていた「auto_handled_inquiry_countの実集計元との結線」の定義部分に対応した。
+  詳細は上記フェーズ続き148参照。残る課題(Firestore実集計・永続化設計、候補組み立てへの
+  実配線)は実Firestore接続時の課題として残る。)
 - (解消済み 2026-08-29 13:00 UTC・フェーズ続き146: dormant-mode-renotification-design.md
   5節に残っていた「select_due_dormant_events()とLINE Push送信を実際につなぐ配線」に
   対応した。詳細は上記フェーズ続き146参照。次回はauto_handled_inquiry_countの実集計元との

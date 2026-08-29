@@ -168,6 +168,26 @@ class NotificationLogAggregatorTest(unittest.TestCase):
         # システム内部イベントは一般相談件数に混ざらない
         self.assertEqual(logs.consultation_count, 1)
 
+    def test_resolved_faq_segments_counted_as_auto_handled_without_dedup(self):
+        # trial-end-scheduler-design.md 5節: resolved:trueのfaq_segmentsは
+        # 「自動対応できたお問い合わせ」としてauto_handled_faq_countに集計される。
+        # resolved:falseの未登録FAQ相談と異なり、通知の重複抑止が目的ではないため
+        # 同一日・同一userId・同一topicの再送でも実際の応答回数分をそのままカウントする。
+        logs = NotificationLogAggregator()
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": False,
+                                     "faq_segments": [{"topic": "hours", "resolved": True}]}, T0)
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": False,
+                                     "faq_segments": [{"topic": "hours", "resolved": True}]},
+                    T0 + timedelta(hours=1))
+        logs.record("user_sato", {"intent": "faq", "needs_owner_check": True,
+                                   "faq_segments": [
+                                       {"topic": "access", "resolved": True},
+                                       {"topic": "parking", "resolved": False},
+                                   ]}, T0)
+        self.assertEqual(logs.auto_handled_faq_count, 3)
+        # resolved:falseの集計(未登録FAQ相談)には混入しない
+        self.assertEqual(logs.unique_unresolved_topic_count(), 1)
+
     def test_llm_and_line_push_failure_reasons_recorded_as_system_events(self):
         # api-call-failure-handling.md: LLM/LINE Push API呼び出し自体の失敗も
         # 一般相談(consultation_count)とは別枠のsystem_event_countsに記録される。

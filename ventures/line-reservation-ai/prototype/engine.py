@@ -210,6 +210,14 @@ class NotificationLogAggregator:
         # feature_hint別内訳の集計元(自由記述のためカテゴリ正規化はせずテキストをそのままキーにする、
         # notification-log-classification-labels.md「未検討・要検討事項」参照)。
         self.feature_hint_counts: dict[str, int] = {}
+        # trial-end-scheduler-design.md 5節「auto_handled_inquiry_countの実集計元」の結線先。
+        # faq_segments[].resolved:trueは「厳守事項9a(店舗登録済み静的情報)に基づきLLMが
+        # エスカレーションなしで自己完結して回答できたFAQ項目」を意味し、トライアル終了時
+        # レポートの「自動対応できたお問い合わせ」の定義に最も素直に対応する。未登録FAQ
+        # (resolved:false)の集計と異なり、同一日・同一userId・同一topicの再送であっても
+        # 実際に自動応答した回数分をそのままカウントする(オーナー通知の重複抑止が目的の
+        # topic_countsとは性質が異なり、値引きの目的が無いため)。
+        self.auto_handled_faq_count = 0
 
     def record(self, user_id: str, output: dict, now: datetime) -> None:
         date_key = now.date().isoformat()
@@ -219,6 +227,8 @@ class NotificationLogAggregator:
                 if topic_key not in self._seen_topics:
                     self._seen_topics.add(topic_key)
                     self.topic_counts[seg["topic"]] = self.topic_counts.get(seg["topic"], 0) + 1
+            elif seg.get("resolved") is True:
+                self.auto_handled_faq_count += 1
 
         if not output.get("needs_owner_check"):
             return

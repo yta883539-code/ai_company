@@ -104,8 +104,22 @@ Cloud Function E: send_trial_end_reports
   店舗オーナーLINE user_idの解決は、booking_count同様「呼び出し元が集計済みの値を渡す」
   想定でスコープ外のまま残した。実Cloud Function本体〈functions_framework配線〉・
   実Firestoreからの候補読み取りクエリ組み立ては、実ホスティング基盤接続時の課題として残る)
-- 実際のCloud Scheduler新規作成・LINE公式アカウント開設・
-  `auto_handled_inquiry_count`の実集計元(NotificationLogAggregator等)との結線は
+- (解消済み 2026-08-29フェーズ続き148: `auto_handled_inquiry_count`の実集計元を
+  `NotificationLogAggregator`に結線する設計・実装に着手した。`faq_segments[].resolved:true`
+  ―厳守事項9a(店舗登録済み静的情報)に基づきLLMがエスカレーションなしで自己完結して
+  回答できたFAQ項目―を「自動対応できたお問い合わせ」の定義として採用し、
+  `NotificationLogAggregator.auto_handled_faq_count`を新設した。`resolved:false`の
+  未登録FAQ相談集計(`topic_counts`/`unique_unresolved_topic_count()`)とは異なり、
+  オーナー通知の重複抑止が目的ではないため、同一日・同一userId・同一topicの再送でも
+  実際に自動応答した回数分をそのままカウントする(値引きの目的が無いため)。
+  テスト1件追加(`test_resolved_faq_segments_counted_as_auto_handled_without_dedup`)、
+  venture全体393件全件パス・schema検証25件パスを確認した。残る課題は、
+  `NotificationLogAggregator`自体が現状「30日分の読み取り専用画面」用にその都度
+  構築される想定である点(トライアル期間14日分を跨いで永続集計する仕組みではない)を
+  踏まえた、Firestore上での実際の集計クエリ・永続化方法の設計と、
+  `cloud_function_send_trial_end_reports.py`の候補組み立て処理(呼び出し元)への
+  実配線。いずれも実Firestore接続後(オーナー承認待ち)の課題として残る)
+- 実際のCloud Scheduler新規作成・LINE公式アカウント開設は
   オーナー承認待ち・次回以降の課題として残る(pending-approval.md参照)。
 - ~~レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の
   `trialEndReportSentAt`と`suspensionReason`の整合(dormant_mode_scheduler.py側の
