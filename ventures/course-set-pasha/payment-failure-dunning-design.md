@@ -121,22 +121,46 @@ aircon-pashaと同じ「猶予期間7日」を暫定値として踏襲)。
 [LIFF経由の決済導線リンク]
 ```
 
-### 決済成功による復旧時
+### 決済成功による復旧時(3分岐、フェーズ121で確定)
+
+line-reservation-aiのフェーズ続き115・aircon-pashaのフェーズ146と同じ考え方で、
+`invoice.payment_succeeded`受信時は以下の3分岐で通知文言を出し分ける(状態のみリセットし
+通知を送らない「状態リセットのみ」を加えると実質4分岐)。本ventureは`payment_suspended_at`
+のような別立ての状態フラグを持たず、制限モード(段階3)は検知時刻からの経過日数で都度算出する
+設計(3節)のため、分岐の判定にはevent受信時刻(`now`相当)と`payment_failure_detected_at`の
+差分を用いる(aircon-pashaが`payment_suspended_at is not None`という保存済みフラグで
+判定するのと異なり、本ventureは都度計算する点が実装上の相違点)。
+
+| 分岐 | 判定条件 | 文言 |
+|---|---|---|
+| 1. 制限モードからの復旧 | `payment_failure_detected_at`設定済み かつ (`now - payment_failure_detected_at`) ≧ 猶予期間(7日) | 「再開しました」 |
+| 2. 猶予期間中の解消 | `payment_failure_detected_at`設定済み・上記に該当せず、かつ`payment_failure_reminder_sent_at`設定済み(リマインド受信後) | 「解消されました」 |
+| 3. 状態リセットのみ | `payment_failure_detected_at`設定済み・上記いずれにも該当せず(検知はされたがリマインド未送信、生成も止まっていない) | 通知なし、状態のみクリア |
+| 4. 対象外 | `payment_failure_detected_at`未設定(通常の毎月課金成功) | 何もしない |
+
+分岐1(制限モードからの復旧、生成が実際に止まっていた)は「再開しました」、分岐2(猶予期間中で
+生成は止まっていない)は「再開」ではなく「解消されました」と表現を分ける
+(GENERATION_PAUSED_MESSAGE等と同じ「実際には止まっていないものを止まっていたかのように
+書かない」という配慮、line-reservation-ai・aircon-pashaと同じ判断)。
 
 ```
-[コースセットパシャッと] お支払いを確認しました
+[コースセットパシャッと] お支払いを確認しました  ← 分岐1(制限モードからの復旧)
 
 お支払い手続きが完了しました。ご不便をおかけしました。
 投稿文の生成を再開しましたので、引き続きよろしくお願いします。
 ```
 
-line-reservation-aiのフェーズ続き115で判明した「猶予期間中に決済が成功した場合は復旧通知の
-文言を出し分ける必要がある」という論点(3分岐: 制限モードからの復旧/猶予期間中の完了通知/
-状態リセットのみ)は、本ventureでも同様に発生する見込みが高い。ただし本ventureは
-`_is_generation_paused()`の判定条件を1つ増やすだけの単純な構造のため、この分岐の詳細設計は
-`invoice.payment_succeeded`Webhookの受信配線を実装する段階(次回以降)で行うこととし、
-本フェーズでは先行して起こりうる論点として書き残すにとどめる(aircon-pashaフェーズ139と
-同じ判断)。
+```
+[コースセットパシャッと] お支払いを確認しました  ← 分岐2(猶予期間中の解消)
+
+先日ご案内したお支払いに関するご確認事項は解消されました。
+投稿文の生成は引き続きご利用いただけますので、このままご利用ください。
+```
+
+実装は`prototype/payment_recovery_notification.py`(フェーズ121)の`classify_payment_recovery()`・
+`handle_payment_succeeded()`参照。`invoice.payment_succeeded`受信時の実際の呼び出し配線
+(`stripe_webhook.py`の`dispatch_stripe_event()`は現状、通知を送らず状態クリアのみを行う
+実装〈フェーズ119〉のままであり、本モジュールへの差し替えは次回以降の課題として残る)。
 
 ## 5. CTAリンクの実装課題(本venture固有)
 
@@ -179,6 +203,12 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 - (解消済み 2026-08-28 19:00 UTC・フェーズ120: 猶予期間終了直前リマインドを送信する
   スケジューラを設計・実装した(payment-failure-reminder-scheduler-design.md新規作成、
   `prototype/payment_failure_reminder_scheduler.py`)。詳細は同ドキュメント参照)
+- (解消済み 2026-08-29 01:00 UTC・フェーズ121: 4節で先送りしていた「猶予期間中に決済が
+  成功した場合の復旧通知の3分岐」の詳細設計・実装を行った。`prototype/payment_recovery_
+  notification.py`新規作成、`classify_payment_recovery()`・`handle_payment_succeeded()`
+  実装。詳細は4節参照)
 - 実際のWebhook受信・状態保存・LINE送信配線、決済代行サービスとの契約自体は
-  引き続きオーナー承認待ち(pending-approval.md参照)。
+  引き続きオーナー承認待ち(pending-approval.md参照)。`dispatch_stripe_event()`を
+  `payment_recovery_notification.handle_payment_succeeded()`へ差し替える配線自体は
+  承認不要な範囲だが、次回以降の課題として残す。
 - 猶予期間7日・リマインド1回のみという値は、他venture共通で実測データの無い暫定値のまま。

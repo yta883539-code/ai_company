@@ -1373,7 +1373,23 @@
   `prototype/payment_failure_reminder_scheduler.py`新規作成、テスト16件追加、
   venture全体358件全件パス・schema検証9件パスを確認した。次点は5節のStripe Customer
   Portal要否検討、または制限モード移行自体を能動的にオーナーへ知らせる通知の要否検討。
-- 最終更新: 2026-08-28 19:00 UTC
+- フェーズ121(2026-08-29 01:00 UTC): payment-failure-dunning-design.md 4節末尾に先送りして
+  いた「猶予期間中に決済が成功した場合の復旧通知の3分岐(制限モードからの復旧/猶予期間中の
+  解消/状態リセットのみ)」の詳細設計・実装を行った。aircon-pashaのフェーズ146
+  (`payment_recovery_notification.py`)と同じ考え方を移植したが、本ventureは
+  `payment_suspended_at`のような保存済みフラグを持たず`_is_payment_suspended()`同様に
+  検知時刻からの経過日数を都度算出する設計のため、`classify_payment_recovery()`は
+  `payment_suspended_at`ではなく`now`(イベント受信時刻)を引数に取る点がaircon-pasha版
+  との相違点。新規`prototype/payment_recovery_notification.py`に`classify_payment_
+  recovery()`・`build_payment_recovery_message()`・`handle_payment_succeeded()`を実装、
+  「制限モードからの復旧」は既存の「再開しました」文言、「猶予期間中の解消」は新設した
+  `PAYMENT_CONFIRMED_IN_GRACE_MESSAGE`(「再開」ではなく「解消されました」と表現)を使用。
+  テスト15件追加、venture全体373件全件パス・schema検証9件パスを確認した。承認不要な設計・
+  実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。`stripe_webhook.py`の`dispatch_stripe_event()`を
+  本モジュールへ差し替える実配線、および5節のStripe Customer Portal要否検討は次回以降の
+  課題として残る。
+- 最終更新: 2026-08-29 01:00 UTC
 
 ## 次にやること(候補)
 
@@ -1392,6 +1408,9 @@
 - (解消済み 2026-08-28 14:00 UTC: Stripe Webhookイベントディスパッチ機構への
   `invoice.payment_failed`・`invoice.payment_succeeded`ハンドラ追加はフェーズ119で
   対応した。詳細は上記フェーズ119参照)
+- (解消済み 2026-08-29 01:00 UTC・フェーズ121: 猶予期間中に決済が成功した場合の復旧通知
+  3分岐の詳細設計・実装は上記フェーズ121で対応した。詳細は上記フェーズ121・
+  payment-failure-dunning-design.md 4節参照)
 - payment-failure-dunning-design.md 5節で残っていたStripe Customer Portal
   (支払い方法更新用URL発行)の要否・実装方式の検討は引き続き未着手。
 - payment-failure-reminder-scheduler-design.md 7節で新たに指摘した、制限モード移行時に
