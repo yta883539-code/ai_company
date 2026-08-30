@@ -19,9 +19,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from cloud_function_process_event import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
 from cloud_function_send_trial_end_reports import (  # noqa: E402
     TrialEndReportCandidate,
+    TrialEndReportStoreInputs,
+    build_trial_end_report_candidates,
     send_trial_end_reports,
 )
-from engine import InMemoryBookingRecordStore, NotificationLogAggregator  # noqa: E402
+from engine import (  # noqa: E402
+    BookingSlotManager,
+    ConversationFlowStateMachine,
+    EscalationConsolidator,
+    InMemoryBookingRecordStore,
+    NotificationLogAggregator,
+)
 
 STORE_ID = "store-1"
 NOW = datetime(2026, 9, 1, 4, 0, 0)
@@ -220,6 +228,72 @@ class BookingCountWiringTests(unittest.TestCase):
         self.assertEqual(result.sent, [STORE_ID])
         text = push.sent[0][1]
         self.assertIn("・処理した予約件数: 3件", text)
+
+
+class BuildTrialEndReportCandidatesWiringTest(unittest.TestCase):
+    """trial-end-scheduler-design.md 5節の残課題だった「候補組み立て処理(呼び出し元)への
+    実配線」に対応する結線テスト。AutoHandledFaqCountWiringTests・BookingCountWiringTestsは
+    それぞれ個別の値を手動でTrialEndReportCandidateへ渡していたが、実際の
+    ConversationFlowStateMachine(record_store・logsを結線した実運用相当のインスタンス)・
+    InMemoryBookingRecordStore・NotificationLogAggregatorの3つを、build_trial_end_report_
+    candidates()経由で一度に組み立てても、trial_start_at・booking_count・
+    auto_handled_inquiry_countのすべてが壊れずLINE Push文言まで届くこと、および
+    送信成功時にengine自身(report_sent_writer)へmark_trial_end_report_sent()が
+    実際に反映されることを確認する。
+    """
+
+    def test_engine_booking_store_and_aggregator_flow_into_sent_report(self):
+        record_store = InMemoryBookingRecordStore()
+        aggregator = NotificationLogAggregator()
+        flow = ConversationFlowStateMachine(
+            BookingSlotManager(),
+            EscalationConsolidator(),
+            logs=aggregator,
+            record_store=record_store,
+        )
+
+        confirm_at = datetime(2026, 8, 15, 10, 0, 0)
+        key = (STORE_ID, "2026-08-15", "14:00")
+        flow.present_candidates("user_tanaka", now=confirm_at)
+        flow.select_slot("user_tanaka", key, confirm_at)
+        flow.provide_details("user_tanaka", "田中", "カット", confirm_at)
+        self.assertEqual(flow.get_trial_start_at(), confirm_at)
+        self.assertEqual(record_store.count_confirmed_bookings(STORE_ID), 1)
+
+        for topic in ("access", "parking"):
+            aggregator.record(
+                "user_tanaka",
+                {"faq_segments": [{"topic": topic, "resolved": True}]},
+                confirm_at,
+            )
+        self.assertEqual(aggregator.auto_handled_faq_count, 2)
+        self.assertIsNone(flow.get_trial_end_report_sent_at())
+
+        candidates = build_trial_end_report_candidates(
+            [
+                TrialEndReportStoreInputs(
+                    store_id=STORE_ID,
+                    engine=flow,
+                    booking_store=record_store,
+                    log_aggregator=aggregator,
+                    owner_line_user_id="U-owner-1",
+                )
+            ]
+        )
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].trial_start_at, confirm_at)
+        self.assertEqual(candidates[0].booking_count, 1)
+        self.assertEqual(candidates[0].auto_handled_inquiry_count, 2)
+
+        push = InMemoryLinePushClient()
+        result = send_trial_end_reports(candidates, NOW, push)
+
+        self.assertEqual(result.sent, [STORE_ID])
+        text = push.sent[0][1]
+        self.assertIn("・処理した予約件数: 1件", text)
+        self.assertIn("・自動対応できたお問い合わせ: 2件", text)
+        # report_sent_writer=flow自身に冪等性書き込みが実際に反映されることを確認
+        self.assertEqual(flow.get_trial_end_report_sent_at(), NOW)
 
 
 if __name__ == "__main__":

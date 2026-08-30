@@ -87,6 +87,86 @@ class TrialEndReportCandidate:
         )
 
 
+class TrialEndReportEngineState(Protocol):
+    """ConversationFlowStateMachineが満たす読み取り用インターフェース(店舗ごとに1インスタンス、
+    trial-end-scheduler-design.md 1節前提)。TrialEndReportSentAtWriterの書き込みメソッドに
+    加え、build_trial_end_report_candidates()が読み出す2getterをまとめたもの。"""
+
+    def get_trial_start_at(self) -> Optional[datetime]:
+        ...
+
+    def get_trial_end_report_sent_at(self) -> Optional[datetime]:
+        ...
+
+    def mark_trial_end_report_sent(self, now: datetime) -> None:
+        ...
+
+
+class TrialEndReportBookingCountReader(Protocol):
+    """InMemoryBookingRecordStoreが満たすインターフェース(全店舗共有の1インスタンス、
+    store_idで引く)。"""
+
+    def count_confirmed_bookings(self, store_id: str) -> int:
+        ...
+
+
+@dataclass(frozen=True)
+class TrialEndReportStoreInputs:
+    """1店舗ぶんの`build_trial_end_report_candidates()`への入力をまとめたもの。engineは
+    ConversationFlowStateMachine、booking_store・log_aggregatorはengine.pyの
+    InMemoryBookingRecordStore・NotificationLogAggregatorをそのまま想定する。
+
+    owner_line_user_id・message_toneは店舗設定(オーナー設定画面)由来の値で、その集計・
+    永続化元(StoreProfileStore等への追加)は本モジュールのスコープ外
+    (呼び出し元が解決済みの値を渡す想定、cloud_function_send_dunning_notifications.pyの
+    DunningStateと同じ方針)。
+    """
+
+    store_id: str
+    engine: TrialEndReportEngineState
+    booking_store: TrialEndReportBookingCountReader
+    log_aggregator: "NotificationLogAggregatorLike"
+    owner_line_user_id: str
+    message_tone: str = "standard"
+
+
+class NotificationLogAggregatorLike(Protocol):
+    """engine.NotificationLogAggregatorが満たすインターフェース(店舗ごとに1インスタンス、
+    trial-end-scheduler-design.md 5節前提)。auto_handled_faq_countはプロパティではなく
+    公開属性として実装されているため、Protocolでも属性として宣言する。"""
+
+    auto_handled_faq_count: int
+
+
+def build_trial_end_report_candidates(
+    stores: Sequence[TrialEndReportStoreInputs],
+) -> list[TrialEndReportCandidate]:
+    """trial-end-scheduler-design.md 5節に残っていた「候補組み立て処理(呼び出し元)への
+    実配線」のうち、実Firestore接続なしで検証可能な部分に対応する。course-set-pasha/
+    trial_end_scheduler.pyの`build_trial_user_states()`と同じ役割分担で、これまで
+    AutoHandledFaqCountWiringTests・BookingCountWiringTestsがそれぞれ個別の値を手動で
+    TrialEndReportCandidateへ渡して検証していたのに対し、実際のConversationFlowStateMachine・
+    InMemoryBookingRecordStore・NotificationLogAggregatorの3インスタンスから1店舗ぶんの
+    TrialEndReportCandidateを一括で組み立てる関数自体がこれまで存在しなかった配線漏れを
+    解消する。
+    """
+    candidates: list[TrialEndReportCandidate] = []
+    for store in stores:
+        candidates.append(
+            TrialEndReportCandidate(
+                store_id=store.store_id,
+                trial_start_at=store.engine.get_trial_start_at(),
+                trial_end_report_sent_at=store.engine.get_trial_end_report_sent_at(),
+                booking_count=store.booking_store.count_confirmed_bookings(store.store_id),
+                auto_handled_inquiry_count=store.log_aggregator.auto_handled_faq_count,
+                owner_line_user_id=store.owner_line_user_id,
+                report_sent_writer=store.engine,
+                message_tone=store.message_tone,
+            )
+        )
+    return candidates
+
+
 @dataclass
 class SendTrialEndReportsResult:
     """1回のCloud Function E起動での送信結果(呼び出し側のログ・監視用、

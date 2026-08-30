@@ -1685,6 +1685,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-30 10:00 UTC・フェーズ続き153: trial-end-scheduler-design.md 5節に
+  最後まで残っていた「候補組み立て処理(呼び出し元)への実配線」に対応した。
+  AutoHandledFaqCountWiringTests(フェーズ続き151)・BookingCountWiringTests
+  (フェーズ続き152)はそれぞれauto_handled_inquiry_count・booking_countの値を個別に
+  手動でTrialEndReportCandidateへ渡して検証するにとどまり、実際の
+  ConversationFlowStateMachine・InMemoryBookingRecordStore・NotificationLogAggregatorの
+  3インスタンスから1店舗ぶんのTrialEndReportCandidateを一括で組み立てる関数自体が
+  存在しない配線漏れが残っていた。course-set-pasha/aircon-pashaの
+  `build_trial_user_states()`と同じ役割分担で
+  `cloud_function_send_trial_end_reports.build_trial_end_report_candidates()`を新設し、
+  `TrialEndReportStoreInputs`(engine・booking_store・log_aggregator・
+  owner_line_user_id・message_toneを束ねる入力)を受け取って組み立てる設計とした。
+  結線テスト(`BuildTrialEndReportCandidatesWiringTest`)では、record_store・logsを
+  結線した実運用相当のConversationFlowStateMachineで実際に予約確定・FAQ自動応答2件を
+  発生させ、build_trial_end_report_candidates()経由で組み立てた候補がtrial_start_at・
+  booking_count・auto_handled_inquiry_countとも壊れずLINE Push文言まで届くこと、
+  送信成功時にengine自身(report_sent_writer)へmark_trial_end_report_sent()が
+  実際に反映されることまで一気通貫で確認した。owner_line_user_id・message_toneの
+  集計・永続化元(オーナー設定画面からの実際の取得経路)は
+  cloud_function_send_dunning_notifications.pyのDunningStateと同じく引き続き
+  呼び出し元が解決済みの値を渡す想定のスコープ外として残した。テスト1件追加、
+  venture全体396件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-30 06:00 UTC・フェーズ続き152: フェーズ続き151で
   auto_handled_inquiry_count側(NotificationLogAggregator.auto_handled_faq_count)のみ
   結線テストを新設し、booking_count側(InMemoryBookingRecordStore.
