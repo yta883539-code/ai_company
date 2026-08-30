@@ -1685,6 +1685,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-30 06:00 UTC・フェーズ続き152: フェーズ続き151で
+  auto_handled_inquiry_count側(NotificationLogAggregator.auto_handled_faq_count)のみ
+  結線テストを新設し、booking_count側(InMemoryBookingRecordStore.
+  count_confirmed_bookings()、フェーズ続き150でカウンタ方式に変更)が同様に検証されて
+  いなかった対になる欠落に対応した。test_cloud_function_send_trial_end_reports.pyに
+  `BookingCountWiringTests`を新設し、count_confirmed_bookings()の戻り値が
+  TrialEndReportCandidate.booking_count経由でLINE Push文言(「・処理した予約件数: N件」)
+  まで壊れずに届くことを確認した。テスト1件追加、venture全体395件全件パス・schema検証
+  25件パスを確認した。残る課題(Firestore実クエリ組み立て・複合インデックス作成、実配線)は
+  引き続き実Firestore接続時(オーナー承認待ち)の課題として残る。承認不要なテスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。)
 - (解消済み 2026-08-30 02:00 UTC・フェーズ続き151: trial-end-scheduler-design.md 5節に
   残っていた「auto_handled_faq_countとcloud_function_send_trial_end_reports.pyの候補組み立て
   処理への実配線」のうち、実Firestore接続なしで検証可能な部分に対応した。

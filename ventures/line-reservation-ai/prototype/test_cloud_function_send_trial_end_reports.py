@@ -21,7 +21,7 @@ from cloud_function_send_trial_end_reports import (  # noqa: E402
     TrialEndReportCandidate,
     send_trial_end_reports,
 )
-from engine import NotificationLogAggregator  # noqa: E402
+from engine import InMemoryBookingRecordStore, NotificationLogAggregator  # noqa: E402
 
 STORE_ID = "store-1"
 NOW = datetime(2026, 9, 1, 4, 0, 0)
@@ -190,6 +190,36 @@ class AutoHandledFaqCountWiringTests(unittest.TestCase):
         self.assertEqual(result.sent, [STORE_ID])
         text = push.sent[0][1]
         self.assertIn("・自動対応できたお問い合わせ: 3件", text)
+
+
+class BookingCountWiringTests(unittest.TestCase):
+    """trial-end-scheduler-design.md 5節の残課題のうち、AutoHandledFaqCountWiringTests
+    (フェーズ続き151)がauto_handled_inquiry_count側のみを検証し、booking_count側
+    (InMemoryBookingRecordStore.count_confirmed_bookings()、フェーズ続き150で
+    カウンタ方式に変更)は未検証のまま残っていた点に対応する結線テスト。
+    こちらもモジュールdocstring通り「呼び出し元が集計済みの値をそのまま渡す」設計の
+    ため、count_confirmed_bookings()の戻り値がTrialEndReportCandidate.booking_count
+    経由でLINE Push文言まで壊れずに届くことを確認する。
+    """
+
+    def test_confirmed_booking_count_flows_into_rendered_report_message(self):
+        record_store = InMemoryBookingRecordStore()
+        record_store.record_confirmed(STORE_ID, (STORE_ID, "2026-08-16", "11:00"), "田中", "カット")
+        record_store.record_confirmed(STORE_ID, (STORE_ID, "2026-08-17", "12:00"), "佐藤", "カラー")
+        record_store.record_confirmed(STORE_ID, (STORE_ID, "2026-08-18", "13:00"), "山本", "カット")
+        self.assertEqual(record_store.count_confirmed_bookings(STORE_ID), 3)
+
+        writer = _StubWriter()
+        push = InMemoryLinePushClient()
+        # 呼び出し元(Cloud Function E)が行う想定の配線: 集計済みの値をそのまま渡す
+        candidate = _candidate(
+            writer, booking_count=record_store.count_confirmed_bookings(STORE_ID)
+        )
+        result = send_trial_end_reports([candidate], NOW, push)
+
+        self.assertEqual(result.sent, [STORE_ID])
+        text = push.sent[0][1]
+        self.assertIn("・処理した予約件数: 3件", text)
 
 
 if __name__ == "__main__":
