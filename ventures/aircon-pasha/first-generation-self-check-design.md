@@ -125,7 +125,12 @@ course-set-pashaと同じ。
   絵文字・一部の漢字は2文字以上としてカウントされる点に注意)。completion_report・
   care_guideの本文はいずれも数百文字程度の想定(mvp-flow-draft.md参照)であり、通常の
   入力メモの範囲では上限に達する可能性は低いが、極端に長いメモが入力された場合の文字数
-  超過時のフォールバック処理(切り詰め・エラー応答等)は未設計のまま残課題とする。
+  超過時のフォールバック処理(切り詰め・エラー応答等)は、当初は未設計のまま残課題として
+  いた。(解消済み 2026-08-22: character-limit-fallback-design.md(フェーズ102)で
+  「切り詰めは行わず送信失敗として扱う」方針を設計し、フェーズ105で
+  `check_message_length_within_line_limit()`(`prototype/post_generation_checks.py`)・
+  `cloud_function_webhook.py`側のフォールバック分岐として実装・テスト済み。詳細は
+  character-limit-fallback-design.md参照)。
 
 出典: LINE Developers「Send messages」
 (https://developers.line.biz/en/docs/messaging-api/sending-messages/)、
