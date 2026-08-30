@@ -179,8 +179,20 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 形で本節の懸念を解消した。詳細は6節参照。
 
 **(2026-08-29 追記・フェーズ126で対応)** 3日前リマインド(`payment_failure_reminder_
-scheduler.py`)も同じ`PortalLinkProvider`を再利用する形で対応した。詳細は6節参照。決済失敗
-検知時通知(猶予期間開始時の初回案内)は未対応のまま残る。
+scheduler.py`)も同じ`PortalLinkProvider`を再利用する形で対応した。詳細は6節参照。
+
+**(2026-08-30 追記・フェーズ続き132で記載訂正)** 直前の「決済失敗検知時通知(猶予期間開始時の
+初回案内)は未対応のまま残る」という記載は、実際にはフェーズ124(`stripe_webhook.py`
+`dispatch_stripe_event()`の`invoice.payment_failed`受信時に
+`payment_recovery_notification.handle_payment_failure_detected()`経由で実送信する配線)・
+フェーズ127(同通知への`portal_link_provider`差し込み)で既に対応済みだったにもかかわらず
+未訂正のまま残っていた記載漏れ。`test_stripe_webhook.py`の
+`test_marks_payment_failure_detected_when_customer_resolves`以下の一連のテスト、および
+`test_portal_link_provider_is_substituted_into_notification`・
+`test_no_portal_link_provider_sends_fallback_message`で実送信配線・ポータルURL差し込みの
+両方が検証済みであることを確認した。残るのは`PortalLinkProvider`実装側
+(`stripe.billing_portal.Session.create()`相当の実Stripe接続)のみで、これは引き続き
+オーナー承認待ち(pending-approval.md参照)。
 
 ## 6. 残課題
 
