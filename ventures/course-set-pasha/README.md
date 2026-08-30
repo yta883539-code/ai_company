@@ -1510,10 +1510,27 @@
   テスト4件追加、venture全体417件全件パス・schema検証9件パスを確認した。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 05:00 UTC
+- フェーズ131(2026-08-30 12:00 UTC): trial-end-notification-design.md・
+  limit-approaching-notification-design.mdの棚卸しを続け、既に実装済みにもかかわらず
+  未対応扱いのまま残っていたドキュメント記載漏れを2点発見・解消した。
+  (1)limit-approaching-notification-design.md 1節「tech-stack.md本体の更新は次回以降の
+  課題として残す」という記載は、実際にはtech-stack.md「次のステップ候補」
+  2026-08-14 11:00 UTC分で月間生成回数カウント用のコンポーネント5として既に反映済み
+  だった。(2)trial-end-notification-design.md 5節「(B)期間到達判定用の日次スケジューラ
+  実装、および『生成一時停止』判定の実装は次回以降の課題として残す」という記載は、
+  (B)は`prototype/trial_end_scheduler.py`の`select_due_trial_end_notifications()`として、
+  「生成一時停止」判定はフェーズ114で`_is_generation_paused()`として、いずれも同ドキュメント
+  4節に記載済みの通り既に実装済みだった。コード変更は無し(ドキュメント整理のみ)、
+  venture全体419件全件パス・schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 12:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-30 12:00 UTC・フェーズ131: trial-end-notification-design.md・
+  limit-approaching-notification-design.mdに残っていたドキュメント記載漏れ2点を解消した。
+  詳細は上記フェーズ131参照)
 - (解消済み 2026-08-30 00:00 UTC・フェーズ128: payment-failure-reminder-scheduler-design.md
   7節に残っていた2点のドキュメント記載漏れ(オーナー能動通知・PortalLinkProvider移行の
   未反映)を解消した。詳細は上記フェーズ128参照)

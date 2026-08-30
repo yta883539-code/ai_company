@@ -96,11 +96,16 @@ pricing-plan.mdの無料トライアル条件により、以下2つのいずれ�
   estimate.md「残課題」参照。)
 - (解消済み 2026-08-23フェーズ100: トライアル開始起点は「初回生成成功時」に確定した。
   詳細はtrial-start-anchor-decision.md参照。)
-- (B)期間到達判定用の日次スケジューラ実装、および4節で範囲外とした「生成一時停止」判定の
-  実装は次回以降の課題として残す。
+- (解消済み 2026-08-30 12:00 UTC・フェーズ続き: 「(B)期間到達判定用の日次スケジューラ実装、
+  および4節で範囲外とした『生成一時停止』判定の実装は次回以降の課題として残す」という記載が
+  更新されないまま取り残されていた記載漏れを解消した。実際には(B)は
+  `prototype/trial_end_scheduler.py`の`select_due_trial_end_notifications()`として、
+  「生成一時停止」判定は4節に記載の通りフェーズ114で`_is_generation_paused()`として、
+  いずれも既に実装済みだった。)
 - (A)(B)いずれの経路かをuser_profileストアにどう記録するか(`trial_end_notified_at`の
-  具体的なフィールド設計・Firestoreドキュメント構造への反映)はfirestore-data-model.md
-  相当のドキュメントが本venture未作成のため、tech-stack.md側の整理と合わせて次回行う。
+  具体的なフィールド設計)は、trial-end-scheduler-design.mdおよび
+  `prototype/trial_end_scheduler.py`の`TrialUserState`/`build_trial_user_states()`で
+  対応済み。Firestoreドキュメント構造への実際の反映(実接続)はオーナー承認待ちの範囲として残る。
 - LIFFアプリの実登録・Cloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)は
   いずれもオーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントはメッセージ
   文言・トリガー条件の机上設計にとどめる。
