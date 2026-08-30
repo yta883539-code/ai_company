@@ -74,8 +74,12 @@ E6等)は特定の店舗FAQ項目に基づく回答ではないため、引き�
 - 実際のLLMが本改訂の指示(9aは単一項目でも配列で出力)に安定して従えるかは、
   json-schema-multi-intent-extension.mdの既存の未検証事項と同様、実LLM接続後の課題として残る
   (オーナー承認待ち、pending-approval.md参照)。
-- 厳守事項9aの5トピック(access/parking/payment/hours/other)のうち、
-  `faq-response-templates.md`が実際にテンプレートを持つのはaccess/parking/paymentの3つのみで、
-  hours/otherはresolved: trueでも安全側で保留文言にフォールバックする既存の挙動
-  (`test_access_topic_uses_registered_address`参照)は変更していない。hours/otherの
-  テンプレート追加は別課題として残る。
+- (解消済み 2026-08-30 20:00 UTC: 「hours/otherのテンプレート追加は別課題として残る」という
+  本項の記載は、実際には翌日の2026-08-03 08:00 UTC・hours-other-faq-topic-resolution.mdで
+  対応方針が決定・実装済みだったにもかかわらず、本ファイル側の「未解決のまま残した課題」節が
+  未訂正のまま残っていた記載漏れだった。実際の扱いは、hoursは単一区間の「シンプルな店舗」向けに
+  `format_faq_hours_message()`、曜日別営業時間・休憩時間を使う「複雑な店舗」向けに
+  `format_faq_hours_message_weekly()`(2026-08-07 08:00 UTC追加)の2関数でテンプレート回答の
+  対象に含め、otherは登録項目自体が存在しないため常に厳守事項6のエスカレーション(保留文言)に
+  倒す設計判断がなされている。詳細はhours-other-faq-topic-resolution.md参照。コード変更は
+  無し(ドキュメント整理のみ)、venture全体407件全件パス・schema検証25件パスを再確認した。)
