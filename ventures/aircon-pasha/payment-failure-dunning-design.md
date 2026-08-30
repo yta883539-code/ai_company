@@ -246,7 +246,16 @@ Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそ�
   復旧通知(`handle_payment_succeeded()`、フェーズ146で実装済みだが`dispatch_stripe_event()`
   への配線は未着手のまま)は、モジュールごとに`LinePushDeliveryError`を別クラスとして
   定義している既存の慣習上、本フェーズの`push_client`とは別の配線検討が必要なため、
-  次回以降の課題として残した。
+  ~~次回以降の課題として残した。~~ → フェーズ148で対応済み。`dispatch_stripe_event()`に
+  `recovery_push_client`引数(`payment_recovery_notification.LinePushClient`と同名だが
+  別クラスの、既存の慣習を踏襲した専用Protocol)を追加し、`invoice.payment_succeeded`
+  受信時に`payment_store`から読み取った現在状態を`PaymentFailureReminderUserState`へ
+  詰め替えて`handle_payment_succeeded()`へ委譲する形で解消した(未指定時は従来通り
+  `clear_payment_failure_on_success()`を直接呼ぶのみで後方互換)。さらにフェーズ149では
+  実HTTPエントリポイント(`stripe_webhook.py`の`receive_stripe_webhook()`)が
+  `payment_store`・`push_client`・`recovery_push_client`の3引数を`dispatch_stripe_event()`
+  へ委譲せず握りつぶしていた配線漏れも解消済み。テスト・コード変更は既存フェーズで
+  完了済みのため、本フェーズ(154)はこのドキュメント記載漏れの反映のみ。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、line-reservation-aiと同じく実測データの
