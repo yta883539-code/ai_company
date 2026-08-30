@@ -2147,4 +2147,25 @@
   コード変更は無し(ドキュメント整理のみ)、venture全体316件全件パスを再確認した。
   承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 01:00 UTC
+- フェーズ155(2026-08-30 04:00 UTC): 各設計docの残課題を棚卸しした結果、
+  `cloud_function_webhook.py`の`_is_payment_suspended()`直前のコメントに、フェーズ145で
+  `payment_suspension_scheduler.py`の`send_payment_suspensions()`として既に実装済みの
+  スケジューラを「次回以降の課題として未実装」と記載したままの更新漏れを発見した
+  (`user_id_linking.py`側の`UserProfile`docstringは既にフェーズ145実装済みと正しく
+  記載していたが、`cloud_function_webhook.py`側のコメントのみ古いままだった)。この
+  棚卸しの過程で、`test_payment_suspension_scheduler.py`の各テストがローカル定義の
+  スタブストアのみを使っており、`send_payment_suspensions()`が書き込む
+  `payment_suspended_at`と`_is_payment_suspended()`が読む`payment_suspended_at`が
+  実際に同一の`InMemoryUserProfileStore`を介して正しくつながることを確認する一気通貫
+  テストがどちらのテストファイルにも存在しなかった(フェーズ149の`stripe_webhook.py`・
+  フェーズ153の`trial_end_scheduler.py`と同種の「単体テストはあるが結線テストが無い」
+  観点の抜け)ことを発見し、`test_cloud_function_webhook.py`に
+  `PaymentSuspensionSchedulerToPaymentSuspendedWiringTest`を新設した(スケジューラの
+  送信→書き込まれた`payment_suspended_at`により次回メモが制限モード応答になることの
+  確認、および猶予期間7日未経過のユーザーはスケジューラ対象外で制限モードにならない
+  ことの確認、テスト2件)。あわせてコメントをフェーズ145実装済みの旨に更新し、
+  payment-failure-dunning-design.md 6節「残課題」にも反映した。テスト2件追加、venture
+  全体318件全件パス・schema検証9件パスを確認した。承認不要なドキュメント整理・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 04:00 UTC

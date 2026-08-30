@@ -496,10 +496,11 @@ def _is_generation_paused(profile: Optional[UserProfile]) -> bool:
 # 本ventureはcourse-set-pashaと異なり、猶予期間経過を都度計算するのではなく、
 # フェーズ140で追加済みの`payment_suspended_at`フィールド(スケジューラが猶予期間
 # 経過後に1回だけ書き込む想定、payment-failure-dunning-design.md 6節)の設定有無で
-# 判定する。スケジューラ自体は次回以降の課題として未実装のため、本フェーズ時点では
-# `payment_suspended_at`を書き込む経路がまだ存在しないが、判定ロジック・応答文言を
-# 先行して用意しておくことで、スケジューラ実装後は書き込み配線を追加するだけで
-# 機能するようにする。
+# 判定する。この書き込み経路は`payment_suspension_scheduler.py`の
+# `send_payment_suspensions()`としてフェーズ145で実装済み(実Cloud Scheduler接続自体は
+# 引き続きオーナー承認待ち)。両モジュールが同一のInMemoryUserProfileStoreを介して実際に
+# つながることは、フェーズ155の
+# PaymentSuspensionSchedulerToPaymentSuspendedWiringTestで確認済み。
 #
 # 本ventureのCTA(お支払い方法の確認)は、GENERATION_PAUSED_MESSAGEと同じくpostback
 # ボタンで表現する(_is_generation_pausedと同じ方針)。遷移先はcheckout-

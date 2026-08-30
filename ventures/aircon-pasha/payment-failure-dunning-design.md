@@ -256,6 +256,18 @@ Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそ�
   `payment_store`・`push_client`・`recovery_push_client`の3引数を`dispatch_stripe_event()`
   へ委譲せず握りつぶしていた配線漏れも解消済み。テスト・コード変更は既存フェーズで
   完了済みのため、本フェーズ(154)はこのドキュメント記載漏れの反映のみ。
+- ~~`cloud_function_webhook.py`の`_is_payment_suspended()`直前のコメントが「スケジューラ
+  自体は次回以降の課題として未実装」のまま残っていた(フェーズ145で`payment_suspension_
+  scheduler.py`のsend_payment_suspensions()として実装済みだったのに更新漏れ)。~~ →
+  フェーズ155で対応済み。コメントをフェーズ145実装済みの旨に更新し、あわせて
+  `test_payment_suspension_scheduler.py`のテストがローカル定義のスタブストアのみを
+  使っており、`send_payment_suspensions()`が書き込む`payment_suspended_at`と
+  `_is_payment_suspended()`が読む`payment_suspended_at`が実際に同一の
+  `InMemoryUserProfileStore`経由でつながることを確認する結線テストが存在しなかった
+  (フェーズ149のstripe_webhook.py・フェーズ153のtrial_end_scheduler.pyと同種の抜け)ため、
+  `test_cloud_function_webhook.py`に`PaymentSuspensionSchedulerToPaymentSuspendedWiringTest`
+  を新設した(制限モード応答への切り替わり確認・猶予期間未経過ユーザーは切り替わらない
+  ことの確認、テスト2件)。venture全体318件全件パス・schema検証9件パスを確認した。
 - 実際のWebhook受信・Firestore書き込み・LINE送信配線、決済代行サービスとの契約自体は
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、line-reservation-aiと同じく実測データの

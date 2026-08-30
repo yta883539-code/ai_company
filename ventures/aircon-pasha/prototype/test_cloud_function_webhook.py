@@ -1844,5 +1844,94 @@ class MainEntryPointTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
 
 
+class PaymentSuspensionSchedulerToPaymentSuspendedWiringTest(unittest.TestCase):
+    """payment_suspension_scheduler.send_payment_suspensions()が書き込む
+    payment_suspended_atと、cloud_function_webhook._is_payment_suspended()が読む
+    payment_suspended_atが、実際に同一のInMemoryUserProfileStore経由で一気通貫で
+    つながることを確認する(payment-failure-dunning-design.md 6節・README.mdフェーズ145)。
+
+    フェーズ145でpayment_suspension_scheduler.pyが実装されて以降、_is_payment_suspended()
+    直前のコメントは「スケジューラ自体は次回以降の課題として未実装」のまま更新されておらず、
+    かつtest_payment_suspension_scheduler.pyのSendPaymentSuspensionsTestはローカル定義の
+    スタブストアを使っていたため、両モジュールが本物のUserProfileStoreProtocol実装を介して
+    連携することを確認するテストがどちらにも存在しなかった(フェーズ149のstripe_webhook.py・
+    フェーズ153のtrial_end_scheduler.pyと同種の配線漏れ観点の抜け)。"""
+
+    def test_scheduler_suspension_causes_next_memo_to_be_payment_suspended(self):
+        from datetime import datetime, timedelta, timezone
+
+        from payment_suspension_scheduler import (
+            InMemoryLinePushClient,
+            PaymentSuspensionUserState,
+            send_payment_suspensions,
+        )
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                payment_failure_detected_at=now - timedelta(days=7),
+            ),
+        )
+
+        # design 6節の抽出条件(猶予期間7日経過)により送信対象となり、payment_suspended_atが
+        # 書き込まれる。
+        send_result = send_payment_suspensions(
+            [PaymentSuspensionUserState(user_id="u-1", payment_failure_detected_at=now - timedelta(days=7))],
+            now, profile_store, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.suspended, ["u-1"])
+        self.assertIsNotNone(profile_store.get("u-1").payment_suspended_at)
+
+        # 同じprofile_storeを使ってprocess_memo_event()を呼ぶと、書き込まれたpayment_suspended_at
+        # により制限モード応答となり、LLM呼び出しは行われない。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.payment_suspended)
+        self.assertEqual(result.reply_text, PAYMENT_SUSPENDED_MESSAGE)
+
+    def test_not_yet_due_user_scheduler_run_leaves_memo_unsuspended(self):
+        from datetime import datetime, timedelta, timezone
+
+        from payment_suspension_scheduler import (
+            InMemoryLinePushClient,
+            PaymentSuspensionUserState,
+            send_payment_suspensions,
+        )
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                payment_failure_detected_at=now - timedelta(days=6),  # まだ7日未満
+            ),
+        )
+
+        send_result = send_payment_suspensions(
+            [PaymentSuspensionUserState(user_id="u-1", payment_failure_detected_at=now - timedelta(days=6))],
+            now, profile_store, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.suspended, [])
+        self.assertIsNone(profile_store.get("u-1").payment_suspended_at)
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.payment_suspended)
+
+
 if __name__ == "__main__":
     unittest.main()
