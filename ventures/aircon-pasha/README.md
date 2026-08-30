@@ -2182,4 +2182,18 @@
   パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 07:00 UTC
+- フェーズ157(2026-08-30 11:00 UTC): trial-end-scheduler-design.md 2節に残っていた
+  「条件(A)(生成回数10回到達)側の実装(`process_memo_event()`相当)は本venture未着手」
+  という記載が、実際にはフェーズ137(trial-end-condition-a-cta-design.md)で既に実装
+  済み(その後フェーズ138で「生成一時停止」判定にも統合済み)だったにもかかわらず、
+  本ドキュメント(フェーズ133作成)側の更新が漏れていた記載漏れを解消した。あわせて、
+  `process_memo_event()`が条件A到達時に書き込む`trial_end_notified_at`と、本モジュールの
+  `select_due_trial_end_notifications()`(条件B側)が読む`trial_end_notified_at`が、
+  `build_trial_user_states()`を介して実際に同一の`InMemoryUserProfileStore`経由で
+  つながり、条件A到達後は条件B側の日次送信対象から自動的に除外される(二重送信しない)
+  ことを確認する結線テスト(`ConditionAWriteExcludesFromTrialEndSchedulerWiringTest`、
+  `test_trial_end_scheduler.py`、条件A未到達〈9回目〉では引き続き条件B側の対象に
+  残ることを確認するケースも含め2件)を追加した。テスト2件追加、venture全体324件全件
+  パス・schema検証9件パスを確認した。承認不要な設計・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 11:00 UTC

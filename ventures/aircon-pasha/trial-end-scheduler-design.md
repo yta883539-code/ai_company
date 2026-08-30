@@ -64,10 +64,16 @@ course-set-pashaと同じ理由(Cloud Schedulerの無料枠制限、ユーザー
   - `trial_end_notified_at is None`
   - `upgraded_at is None`
   - `now - trial_start_at >= timedelta(days=trial_period_days)`
-- 条件(A)(生成回数10回到達、trial-end-notification-design.md 2節)側の実装
-  (`process_memo_event()`相当、本venture未着手)が将来`trial_end_notified_at`を
-  書き込むようになれば、本関数は自動的にそのユーザーを対象から除外する
-  (「いずれか早い方で1回のみ送信」の設計をそのまま反映する)。
+- (更新 2026-08-30・フェーズ157: 「本venture未着手」としていた条件(A)側の実装
+  〈`process_memo_event()`相当〉は、本ドキュメント作成〈フェーズ133〉より後の
+  フェーズ137で`trial-end-condition-a-cta-design.md`として設計・実装済み(その後の
+  フェーズ138で「生成一時停止」判定にも統合済み)であり、本節作成時点の記載が
+  更新されないまま残っていた記載漏れだった。実際に`process_memo_event()`が書き込む
+  `trial_end_notified_at`と、本関数(3節)が読む`trial_end_notified_at`が同一の
+  `InMemoryUserProfileStore`経由でつながり、条件(A)到達後は条件(B)側の日次送信対象から
+  自動的に除外されることを確認する結線テスト
+  (`ConditionAWriteExcludesFromTrialEndSchedulerWiringTest`、`test_trial_end_scheduler.py`)
+  を追加し、「いずれか早い方で1回のみ送信」が実際に(A)(B)間で成立していることを検証した)
 
 ## 4. 冪等性
 

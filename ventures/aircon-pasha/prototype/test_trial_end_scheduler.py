@@ -262,10 +262,116 @@ class StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest(unittest.TestCase):
             ),
         )
 
-        # checkout.session.completedを一度も受け取っていない(upgraded_at未設定)ユーザーは
-        # 引き続き通知対象として残る。
         states = build_trial_user_states(store, ["u1"])
         due = select_due_trial_end_notifications(states, _NOW)
+
+        self.assertEqual([u.user_id for u in due], ["u1"])
+
+
+class ConditionAWriteExcludesFromTrialEndSchedulerWiringTest(unittest.TestCase):
+    """process_memo_event()の条件A(生成回数10回到達、trial-end-condition-a-cta-design.md、
+    フェーズ137)が書き込むtrial_end_notified_atと、本モジュールの
+    select_due_trial_end_notifications()(条件B、期間到達)が読むtrial_end_notified_atが、
+    build_trial_user_states()を介して実際に同一のInMemoryUserProfileStore経由でつながり、
+    「いずれか早い方で1回のみ送信」(trial-end-notification-design.md 2節)が(A)(B)間で
+    実際に成立することを確認する(trial-end-scheduler-design.md 2節の記載漏れ、
+    StripeWebhookUpgradedAtToTrialEndSchedulerWiringTestと同種の観点)。"""
+
+    def test_tenth_generation_excludes_user_from_next_trial_end_scan(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
+        from validate_test_cases import TEST_CASES  # noqa: E402
+
+        from cloud_function_webhook import (
+            InMemoryReplyClient,
+            TRIAL_GENERATION_LIMIT,
+            process_memo_event,
+        )
+        from user_id_linking import InMemoryUserProfileStore, UserProfile
+
+        class _FixtureLlmClient:
+            def generate(self, memo_text, retry_context=None):
+                return dict(TEST_CASES["G1_basic"])
+
+        # trial_start_atは13日前とし、条件B(14日経過)はまだ満たさない状態から出発する
+        # (条件Aの効果だけを切り分けて確認するため)。
+        trial_start_at = _NOW - timedelta(days=13)
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=trial_start_at,
+                trial_start_at=trial_start_at,
+                trial_generation_count=TRIAL_GENERATION_LIMIT - 1,
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "rt-1",
+            "message": {"type": "text", "text": "壁掛け型2.2kW、フィルター清掃"},
+            "source": {"userId": "u1"},
+        }
+
+        # 10回目の生成完了(process_memo_event、cloud_function_webhook.py)により、
+        # 同一storeへtrial_end_notified_atが書き込まれる。
+        result = process_memo_event(
+            event, _FixtureLlmClient(), reply_client, profile_store=store, now=_NOW,
+        )
+        self.assertIsNotNone(store.get("u1").trial_end_notified_at)
+        self.assertTrue(result.reply_sent)
+
+        # trial_start_atから20日後(条件Bの14日を満たす時点)にbuild_trial_user_states()
+        # 経由で同じstoreを読み取っても、条件A側で既にtrial_end_notified_atが設定済み
+        # のため、日次スケジューラ(条件B)の送信対象からは除外される(二重送信しない)。
+        later = trial_start_at + timedelta(days=20)
+        states = build_trial_user_states(store, ["u1"])
+        due = select_due_trial_end_notifications(states, later)
+
+        self.assertEqual(due, [])
+
+    def test_ninth_generation_still_leaves_user_due_once_period_elapses(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
+        from validate_test_cases import TEST_CASES  # noqa: E402
+
+        from cloud_function_webhook import (
+            InMemoryReplyClient,
+            TRIAL_GENERATION_LIMIT,
+            process_memo_event,
+        )
+        from user_id_linking import InMemoryUserProfileStore, UserProfile
+
+        class _FixtureLlmClient:
+            def generate(self, memo_text, retry_context=None):
+                return dict(TEST_CASES["G1_basic"])
+
+        trial_start_at = _NOW - timedelta(days=13)
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=trial_start_at,
+                trial_start_at=trial_start_at,
+                trial_generation_count=TRIAL_GENERATION_LIMIT - 2,
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {
+            "replyToken": "rt-1",
+            "message": {"type": "text", "text": "壁掛け型2.2kW、フィルター清掃"},
+            "source": {"userId": "u1"},
+        }
+
+        # 9回目の生成完了では条件Aは発火せず、trial_end_notified_atは未設定のまま。
+        process_memo_event(
+            event, _FixtureLlmClient(), reply_client, profile_store=store, now=_NOW,
+        )
+        self.assertIsNone(store.get("u1").trial_end_notified_at)
+
+        # 条件B(14日経過)を満たす時点になれば、条件Aが未発火のため通常通り送信対象になる。
+        later = trial_start_at + timedelta(days=20)
+        states = build_trial_user_states(store, ["u1"])
+        due = select_due_trial_end_notifications(states, later)
 
         self.assertEqual([u.user_id for u in due], ["u1"])
 
