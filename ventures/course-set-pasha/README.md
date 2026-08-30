@@ -1474,10 +1474,26 @@
 - フェーズ127(2026-08-29 20:00 UTC): フェーズ126の残課題だった
   `payment_recovery_notification.py`の`build_payment_failure_detected_message()`の
   `LIFF_URL_PLACEHOLDER`誤用を解消した。詳細は下記「次にやること」のフェーズ127項目を参照。
-- 最終更新: 2026-08-29 20:00 UTC
+- フェーズ128(2026-08-30 00:00 UTC): 各設計docの残課題を棚卸しした結果、
+  payment-failure-reminder-scheduler-design.md 7節「今後の課題」に、既に実装済み
+  (フェーズ123・125・126)にもかかわらず未対応扱いのまま残っていたドキュメント記載漏れを
+  2点発見・解消した。(1)「制限モードへの移行を検知してオーナーへ知らせる能動通知が無い」
+  という記載は、フェーズ125の`payment-suspension-owner-notification-design.md`・
+  `prototype/payment_suspension_owner_notification.py`で既に実装済みだった。
+  (2)「決済失敗リマインドの案内先URLを新規Checkout用LIFFか既存契約の支払い方法更新用
+  Customer Portalかまだ未決着で、本ドキュメントは暫定でLIFF_URL_PLACEHOLDERをそのまま
+  使う」という記載は、フェーズ123でCustomer Portal採用の決着がつき、フェーズ126で
+  `payment_failure_reminder_scheduler.py`が実際に`PORTAL_LINK_PLACEHOLDER`・
+  `PortalLinkProvider`ベースへ移行済みだった。コード変更は無し(ドキュメント整理のみ)、
+  venture全体413件全件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 00:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-30 00:00 UTC・フェーズ128: payment-failure-reminder-scheduler-design.md
+  7節に残っていた2点のドキュメント記載漏れ(オーナー能動通知・PortalLinkProvider移行の
+  未反映)を解消した。詳細は上記フェーズ128参照)
 - (解消済み 2026-08-28 23:00 UTC: CI(`.github/workflows/course-set-pasha-tests.yml`)が
   `test_history_export test_post_generation_checks`の2ファイルのみを個別指定する方式のため、
   以降に追加された8本のテストファイル(test_checkout_session.py・test_stripe_webhook.py・

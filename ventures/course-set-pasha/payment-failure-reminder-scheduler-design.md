@@ -105,17 +105,30 @@ payment-failure-dunning-design.md 4節「猶予期間終了直前(3日前リマ�
 
 ## 7. 今後の課題
 
-- 猶予期間(7日)経過後に制限モードへ移行させる仕組みは、本ventureは別立てのフィールドを
+- ~~猶予期間(7日)経過後に制限モードへ移行させる仕組みは、本ventureは別立てのフィールドを
   持たず`_is_payment_suspended()`の都度算出のみで実現済み(フェーズ118)であり、
   aircon-pashaのような専用スケジューラ(payment_suspension_scheduler.py)は本venture
   では不要と判断する。ただしその場合、制限モードへの移行を検知してオーナーへ知らせる
   能動通知(顧客からのメッセージが届いた際にPAYMENT_SUSPENDED_MESSAGEを返信する受動的な
-  経路のみが現状存在)は無いままであり、これは別の残課題として残る。
-- 5節で触れたStripe Customer Portal(`PortalLinkProvider`、cloud_function_webhook.py
+  経路のみが現状存在)は無いままであり、これは別の残課題として残る。~~
+  → **(2026-08-30 追記・フェーズ128で解消済みと判明)** フェーズ125で
+  `payment-suspension-owner-notification-design.md`を新設し、
+  `prototype/payment_suspension_owner_notification.py`
+  (`select_due_payment_suspension_owner_notifications()`・
+  `send_payment_suspension_owner_notifications()`)として能動通知を実装済み。本節が
+  更新されないまま「無いまま残る」という記載だけが取り残されていた記載漏れ。詳細は
+  README フェーズ125参照。
+- ~~5節で触れたStripe Customer Portal(`PortalLinkProvider`、cloud_function_webhook.py
   501行目)は既にProtocol定義自体は存在するが、決済失敗リマインドの文中リンクを
   「新規Checkout Session(LIFF)」と「既存契約の支払い方法更新(Customer Portal)」の
   どちらにすべきかは、payment-failure-dunning-design.md 5節が指摘したとおり未決着のまま
-  次回以降の課題として残す(本ドキュメントは暫定でLIFF_URL_PLACEHOLDERをそのまま使う)。
+  次回以降の課題として残す(本ドキュメントは暫定でLIFF_URL_PLACEHOLDERをそのまま使う)。~~
+  → **(2026-08-30 追記・フェーズ128で解消済みと判明)** フェーズ123で
+  「既存契約の支払い方法更新(Customer Portal)」を採用する決着がつき、フェーズ126で
+  `PAYMENT_FAILURE_REMINDER_TEMPLATE`・`render_payment_failure_reminder_message()`が
+  実際に`PORTAL_LINK_PLACEHOLDER`・`PortalLinkProvider`ベースへ移行済み(本ドキュメント
+  4節・prototype/payment_failure_reminder_scheduler.py参照)。本節だけが「暫定で
+  LIFF_URL_PLACEHOLDERをそのまま使う」という古い記載のまま更新されていなかった記載漏れ。
 - 実際のCloud Scheduler実行環境の構築・LINE Push Message API接続は、
   trial-end-scheduler-design.mdと同じくオーナー承認待ちの範囲(pending-approval.md参照)。
   本ドキュメントは選定ロジック・スケジューラ構成の机上設計にとどめる。
