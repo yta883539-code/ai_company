@@ -47,11 +47,14 @@ LINE Developersコンソールでの追加登録」「IDトークンをLINE Plat
 1. `dispatch_webhook_events()`(cloud_function_webhook.py)に`postback`イベント種別の
    振り分けを追加する(現状は「それ以外の種別(postback・join等)は無視」とコメントされて
    おり、本フェーズの対応範囲としてこの一文を「postbackはprocess_postback_event()へ
-   振り分け、join等その他は引き続き無視」に更新する必要がある。**振り分け配線自体の実装は
-   次回以降の課題とし、本フェーズは4節のパラメータ組み立てロジックの実装にとどめる**)。
-2. `process_postback_event(event, user_profile_store)`(新設予定、次回以降の課題)が
-   `event["postback"]["data"] == "action=start_checkout"`を確認し、
-   `user_id = event["source"]["userId"]`を取得する。
+   振り分け、join等その他は引き続き無視」に更新する必要がある。**(更新 2026-08-30・
+   フェーズ158: 振り分け配線自体の実装は「次回以降の課題」としていたが、実際には
+   フェーズ132で対応済み。下記「残課題」1点目のとおり`dispatch_webhook_events()`に
+   `postback`振り分けが実装され、本節作成〈フェーズ131〉時点ではまだ実装前だったため
+   このまま更新漏れとして残っていた**)。
+2. `process_postback_event(event, user_profile_store)`(**フェーズ132で実装済み**、
+   `prototype/cloud_function_webhook.py`)が`event["postback"]["data"] ==
+   "action=start_checkout"`を確認し、`user_id = event["source"]["userId"]`を取得する。
 3. `user_profile_store.get(user_id)`で`UserProfile`を取得する。存在しない場合
    (連携未完了のまま何らかの経路でpostbackが送られた異常系)は、user_id_linking.pyの
    既存の未連携案内文言(design 3節)と同じ方針で「先に連携コードの送信が必要です」を返す。

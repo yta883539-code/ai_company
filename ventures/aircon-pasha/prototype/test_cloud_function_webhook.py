@@ -68,6 +68,7 @@ from cloud_function_webhook import (  # noqa: E402
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA  # noqa: E402
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
+from stripe_webhook import handle_checkout_session_completed  # noqa: E402
 from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
 from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
@@ -1324,6 +1325,79 @@ class ProcessPostbackEventTest(unittest.TestCase):
 
         self.assertTrue(result.handled)
         self.assertEqual(reply_client.sent, [("rt-11", LINKING_REQUIRED_MESSAGE)])
+
+
+class CheckoutSessionCompletedToPostbackCheckoutWiringTest(unittest.TestCase):
+    """checkout-initiation-flow-design.md「残課題」の棚卸し(フェーズ158)で発見した
+    「単体テストはあるが結線テストが無い」観点の抜けに対応する。
+
+    `stripe_webhook.handle_checkout_session_completed()`が書き込む
+    `stripe_customer_id`と、`cloud_function_webhook.process_postback_event()`
+    (`build_checkout_session_params()`経由)が読む`stripe_customer_id`が、実際に
+    同一の`InMemoryUserProfileStore`を介してつながることを確認する。既存の
+    `test_existing_stripe_customer_id_is_forwarded_to_params`は`stripe_customer_id`を
+    プロフィール作成時に直接指定するのみで、書き込み側モジュール
+    (`stripe_webhook.py`)を経由していなかった。想定シナリオは、解約後に既存の
+    Stripe顧客IDを保持したまま再度「▼ 有料プランへ進む」をタップし再契約する場合
+    (二重のStripe顧客レコード作成を防ぐため、既存customer_idの再利用が必要)。"""
+
+    def test_stripe_customer_id_written_by_checkout_completed_is_forwarded_on_next_postback(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        self.assertIsNone(profile_store.get("u-1").stripe_customer_id)
+
+        completed_event = {
+            "data": {
+                "object": {
+                    "client_reference_id": "u-1", "customer": "cus_from_webhook",
+                }
+            }
+        }
+        link_result = handle_checkout_session_completed(completed_event, profile_store)
+        self.assertTrue(link_result.linked)
+
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        postback_event = {
+            "type": "postback", "replyToken": "rt-wiring", "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+        process_postback_event(
+            postback_event, checkout_session_client, InMemoryReplyClient(), profile_store,
+        )
+
+        self.assertEqual(checkout_session_client.calls[0]["customer"], "cus_from_webhook")
+
+    def test_before_checkout_completed_no_customer_id_is_forwarded(self):
+        """書き込み前(初回契約時)はcustomerキー自体が付与されないことを対照として確認する。"""
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        postback_event = {
+            "type": "postback", "replyToken": "rt-wiring-2", "source": {"userId": "u-1"},
+            "postback": {"data": START_CHECKOUT_POSTBACK_DATA},
+        }
+        process_postback_event(
+            postback_event, checkout_session_client, InMemoryReplyClient(), profile_store,
+        )
+
+        self.assertNotIn("customer", checkout_session_client.calls[0])
 
 
 class ProcessMessageEventLinkingTest(unittest.TestCase):

@@ -2196,4 +2196,24 @@
   残ることを確認するケースも含め2件)を追加した。テスト2件追加、venture全体324件全件
   パス・schema検証9件パスを確認した。承認不要な設計・テスト追加のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 11:00 UTC
+- フェーズ158(2026-08-30 14:00 UTC): checkout-initiation-flow-design.md(フェーズ131)
+  3節「処理フロー(設計)」手順1・2に残っていた「`dispatch_webhook_events()`へのpostback
+  振り分け配線」「`process_postback_event()`は新設予定・次回以降の課題」という記載が、
+  実際にはフェーズ132で両方とも実装済み(`prototype/cloud_function_webhook.py`)だった
+  にもかかわらず、同ドキュメント下部の「残課題」節は更新済みなのに本文3節側の更新が
+  漏れていた記載漏れを解消した。あわせてこの棚卸しの過程で、
+  `stripe_webhook.handle_checkout_session_completed()`が書き込む`stripe_customer_id`
+  (`store.set_stripe_customer_id()`経由)と、`process_postback_event()`
+  (`build_checkout_session_params()`経由)が読む`stripe_customer_id`が、実際に同一の
+  `InMemoryUserProfileStore`を介してつながることを確認する結線テストが存在しなかった
+  (既存の`test_existing_stripe_customer_id_is_forwarded_to_params`はプロフィール作成時
+  に`stripe_customer_id`を直接指定するのみで、書き込み側モジュール`stripe_webhook.py`
+  を経由していなかった)ことを発見し、`test_cloud_function_webhook.py`に
+  `CheckoutSessionCompletedToPostbackCheckoutWiringTest`を新設した(解約後の再契約等で
+  既存Stripe顧客IDが次回のCheckout Session作成パラメータに正しく引き継がれることの
+  確認、および書き込み前は`customer`キー自体が付与されないことを対照確認するケースの
+  計2件)。フェーズ149・153・155・156・157と同種の「単体テストはあるが結線テストが無い」
+  観点の点検。テスト2件追加、venture全体326件全件パス・schema検証9件パスを確認した。
+  承認不要なドキュメント整理・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 14:00 UTC
