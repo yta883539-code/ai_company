@@ -1685,6 +1685,14 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-30 02:00 UTC・フェーズ続き151: trial-end-scheduler-design.md 5節に
+  残っていた「auto_handled_faq_countとcloud_function_send_trial_end_reports.pyの候補組み立て
+  処理への実配線」のうち、実Firestore接続なしで検証可能な部分に対応した。
+  `NotificationLogAggregator.auto_handled_faq_count`が実際に
+  `TrialEndReportCandidate.auto_handled_inquiry_count`へ正しく渡り、LINE Push文言まで
+  反映されることを確認する結線テスト(`AutoHandledFaqCountWiringTests`)を新設した。
+  テスト1件追加、venture全体394件全件パス・schema検証25件パスを確認した。残る課題
+  (Firestore実クエリ組み立て・複合インデックス作成)は実Firestore接続時の課題として残る。)
 - (解消済み 2026-08-29 22:00 UTC・フェーズ続き150: trial-end-scheduler-design.md 5節に
   残っていた「予約確定累計数のFirestore側取得方法」の未確定事項に対応した。詳細は
   上記フェーズ続き150参照。残る課題(実Firestore接続後のトランザクション実装)は実接続時

@@ -21,6 +21,7 @@ from cloud_function_send_trial_end_reports import (  # noqa: E402
     TrialEndReportCandidate,
     send_trial_end_reports,
 )
+from engine import NotificationLogAggregator  # noqa: E402
 
 STORE_ID = "store-1"
 NOW = datetime(2026, 9, 1, 4, 0, 0)
@@ -149,6 +150,46 @@ class SendTrialEndReportsTests(unittest.TestCase):
         self.assertEqual(result.sent, ["store-a"])
         self.assertIsNotNone(writer_a.sent_at)
         self.assertIsNone(writer_b.sent_at)
+
+
+class AutoHandledFaqCountWiringTests(unittest.TestCase):
+    """trial-end-scheduler-design.md 5節の残課題だった「NotificationLogAggregator.
+    auto_handled_faq_count(フェーズ続き148)とcloud_function_send_trial_end_reports.pyの
+    候補組み立て(TrialEndReportCandidate.auto_handled_inquiry_count)が実際につながるか」の
+    結線テスト。auto_handled_faq_countは本モジュールのスコープ外(呼び出し元が集計済みの値を
+    渡す設計、モジュールdocstring参照)のため、production配線に相当する「aggregatorの値を
+    そのままcandidateへ渡す」処理が壊れていないことをここで確認する
+    (course-set-pashaのTrialEndSchedulerToGenerationPausedWiringTestと同種の位置づけ)。
+    """
+
+    def test_resolved_faq_segments_flow_into_rendered_report_message(self):
+        aggregator = NotificationLogAggregator()
+        now = datetime(2026, 8, 20, 12, 0, 0)
+        # resolved:trueが3件(自動対応)、resolved:falseが1件(未登録FAQ、対象外)
+        for topic in ("access", "parking", "hours"):
+            aggregator.record(
+                "U-customer-1",
+                {"faq_segments": [{"topic": topic, "resolved": True}]},
+                now,
+            )
+        aggregator.record(
+            "U-customer-1",
+            {"faq_segments": [{"topic": "other", "resolved": False}]},
+            now,
+        )
+        self.assertEqual(aggregator.auto_handled_faq_count, 3)
+
+        writer = _StubWriter()
+        push = InMemoryLinePushClient()
+        # 呼び出し元(Cloud Function E)が行う想定の配線: 集計済みの値をそのまま渡す
+        candidate = _candidate(
+            writer, auto_handled_inquiry_count=aggregator.auto_handled_faq_count
+        )
+        result = send_trial_end_reports([candidate], NOW, push)
+
+        self.assertEqual(result.sent, [STORE_ID])
+        text = push.sent[0][1]
+        self.assertIn("・自動対応できたお問い合わせ: 3件", text)
 
 
 if __name__ == "__main__":

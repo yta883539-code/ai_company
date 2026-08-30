@@ -151,6 +151,23 @@ Cloud Function E: send_trial_end_reports
   pending-approval.mdへの追記なし。残る課題は`cloud_function_send_trial_end_
   reports.py`の候補組み立て処理への実配線と、実際の複合インデックス作成で、
   いずれも実Firestore接続後(オーナー承認待ち)の課題として残る)
+- (解消済み 2026-08-30フェーズ続き151: 前項の残課題のうち、実Firestore接続を伴わず
+  検証可能な範囲として、`NotificationLogAggregator.auto_handled_faq_count`
+  (フェーズ続き148で新設)と`cloud_function_send_trial_end_reports.py`の
+  `TrialEndReportCandidate.auto_handled_inquiry_count`(呼び出し元が集計済みの値を
+  渡す設計、5節参照)が実際に正しくつながるかを確認する結線テスト
+  (`AutoHandledFaqCountWiringTests`、course-set-pashaの
+  `TrialEndSchedulerToGenerationPausedWiringTest`と同種の位置づけ)を
+  `test_cloud_function_send_trial_end_reports.py`に新設した。
+  `NotificationLogAggregator`にresolved:true(自動対応)3件・resolved:false
+  (未登録FAQ、集計対象外)1件を記録し、`auto_handled_faq_count`が3であることと、
+  その値をそのまま`TrialEndReportCandidate`へ渡した場合に
+  `render_trial_end_report_message()`が組み立てる実際のLINE Push文言に
+  「自動対応できたお問い合わせ: 3件」が反映されることまでを一気通貫で確認した。
+  テスト1件追加、venture全体394件全件パス・schema検証25件パスを確認。
+  Firestore上の実クエリ組み立て自体(呼び出し元がstoresコレクションと
+  notificationLogEntriesを実際に読み取る処理)と複合インデックス作成は、
+  引き続き実Firestore接続後(オーナー承認待ち)の課題として残る。)
 - 実際のCloud Scheduler新規作成・LINE公式アカウント開設は
   オーナー承認待ち・次回以降の課題として残る(pending-approval.md参照)。
 - ~~レポート送信後、3日間の猶予期間中にプラン選択が完了した場合の
