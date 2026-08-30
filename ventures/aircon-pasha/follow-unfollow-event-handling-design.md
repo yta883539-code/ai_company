@@ -124,17 +124,17 @@ course-set-pashaとの唯一の差異は「pending_links」行であり、これ
   `process_unfollow_event()`をprototype/cloud_function_webhook.pyに実装した。テスト50件
   全件パス。詳細はREADME.mdフェーズ111参照。残る2項目〈ディスパッチ経路自体、
   `process_message_event()`相当のコード判定分岐〉は引き続き未実装のまま残る)
-- 本ventureには`follow`/`unfollow`のディスパッチ経路自体(course-set-pashaの
-  `webhook-event-dispatch-design.md`・`receive-webhook-http-entry-point-design.md`相当)が
-  まだ存在しない。現状の`prototype/cloud_function_webhook.py`は`process_memo_event()`
-  (施工メモ処理)のみが実装されており、本ドキュメントで設計した`process_follow_event()`・
-  `process_unfollow_event()`、およびそれらへの振り分けを行う`dispatch_webhook_events()`は
-  いずれも未実装。次回以降のプロトタイプ実装候補とする。
-- user-account-linking-design.md 3節で設計した「連携コード判定 vs 施工メモ判定」の分岐
-  (`process_message_event()`相当、`follow`後の1:1トークで受信したテキストがコードか
-  施工メモかを判定する処理)も未実装のまま残っている。本ドキュメントのfollow/unfollow設計と
-  合わせて、次回のプロトタイプ実装ではこの3つ(follow・unfollow・コード判定分岐)を
-  まとめて着手するのが効率的と見込む。
+- (解消済み・フェーズ112・113: user-account-linking-design.md 3節で設計した「連携コード判定
+  vs 施工メモ判定」の分岐は`process_message_event()`として実装済み(`profile_store.exists()`で
+  連携済みか判定し、連携済みなら`process_memo_event()`へ委譲、未連携なら`resolve_linking_code()`
+  でコード一致のみを判定根拠とする)。`follow`/`unfollow`/`message`/`postback`の4種別を
+  振り分ける`dispatch_webhook_events()`も実装済みで、`prototype/cloud_function_webhook.py`の
+  `DispatchWebhookEventsTest`・`ProcessMessageEventLinkingTest`でカバーされている(連携済み
+  ユーザーのmessageイベントが`process_memo_event()`側の生成フローまで実際に到達すること、
+  未連携ユーザーは`linking_store`未接続時は素通りする安全側フォールバックになることを含む)。
+  本節作成当初(フェーズ109)時点では未実装だったこの2項目について、後続フェーズで解消
+  済みであるにもかかわらず本ドキュメント側の更新が漏れていた記載漏れを、2026-08-30 18:00 UTC
+  時点の棚卸しで解消した。コード変更は無し(ドキュメント整理のみ)。)
 - 「ブロックしたのに課金だけ続く」場合のオーナー向け運用課題(course-set-pasha
   unfollow-event-handling-design.md「今後の課題」と同一の未解決事項)は、本venture側でも
   同様にスコープ外として残る。

@@ -2216,4 +2216,20 @@
   観点の点検。テスト2件追加、venture全体326件全件パス・schema検証9件パスを確認した。
   承認不要なドキュメント整理・テスト追加のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 14:00 UTC
+- フェーズ159(2026-08-30 18:00 UTC): follow-unfollow-event-handling-design.md(フェーズ109)
+  「残課題」節に残っていた「本ventureには`follow`/`unfollow`のディスパッチ経路自体が
+  まだ存在しない」「`process_message_event()`相当のコード判定分岐も未実装」という記載が、
+  実際にはフェーズ111〜113で`process_follow_event()`・`process_unfollow_event()`・
+  `process_message_event()`(連携済みユーザーは`process_memo_event()`へ委譲、未連携ユーザーは
+  `resolve_linking_code()`でコード一致のみを判定根拠とする分岐)・`dispatch_webhook_events()`
+  (follow/unfollow/message/postbackの4種別振り分け)がいずれも実装済み(それぞれ
+  `test_cloud_function_webhook.py`の`ProcessMessageEventLinkingTest`・
+  `DispatchWebhookEventsTest`でカバー済み、連携済みユーザーのmessageイベントが実際に
+  `process_memo_event()`側の生成フローまで到達することを確認する結線テストも含む)だった
+  にもかかわらず、本ドキュメント側の更新が漏れていた記載漏れを解消した。フェーズ150台の
+  一連の「単体テストはあるが結線テストが無い」棚卸しとは異なり、本件は結線テスト自体は
+  既に存在しドキュメントの記載のみが古かったケース。コード変更は無し(ドキュメント整理
+  のみ)、venture全体326件全件パス・schema検証9件パスを確認した。承認不要なドキュメント
+  整理のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 18:00 UTC
