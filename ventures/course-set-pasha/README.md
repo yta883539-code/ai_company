@@ -1548,7 +1548,23 @@
   (フェーズ12・22・51・128・129・131・132と同種のドキュメント整合性メンテナンス)。
   承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 19:00 UTC
+- フェーズ134(2026-08-30 22:00 UTC): payment-suspension-owner-notification-design.mdの
+  「Cloud Function F」について、`stripe_webhook.dispatch_stripe_event()`が
+  `invoice.payment_failed`受信時に書き込む`payment_failure_detected_at`と、
+  `select_due_payment_suspension_owner_notifications()`が読む`payment_failure_detected_at`・
+  `payment_suspension_owner_notified_at`が、実際に同一の`InMemoryUsageCounter`経由で
+  つながることを確認する手段が存在しなかった配線漏れ(フェーズ130の
+  `build_trial_user_states()`と同種の観点)を発見・解消した。`payment_suspension_owner_
+  notification.py`に`build_payment_suspension_customer_states(usage_counter, user_ids)`を
+  新設し、`test_payment_suspension_owner_notification.py`に
+  `StripeWebhookPaymentFailureDetectedToOwnerNotificationWiringTest`を追加した
+  (猶予期間〈7日〉未経過時は対象外のまま・経過後に対象へ入ること、および
+  `send_payment_suspension_owner_notifications()`実行後は`payment_suspension_owner_
+  notified_at`書き込みにより次回スキャンの対象から除外される〈二重送信しない〉ことの
+  計2件)。テスト2件追加、venture全体421件全件パス・schema検証9件パスを確認した。
+  承認不要な実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 22:00 UTC
 
 ## 次にやること(候補)
 

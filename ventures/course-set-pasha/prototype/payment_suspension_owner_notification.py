@@ -77,6 +77,51 @@ def select_due_payment_suspension_owner_notifications(
     return due
 
 
+class PaymentSuspensionCustomerStateReader(Protocol):
+    """InMemoryUsageCounter(cloud_function_webhook.py)のうち、
+    build_payment_suspension_customer_states()が実際に使う2メソッドのみを要求する
+    最小限のProtocol(trial_end_scheduler.pyのTrialUserStateReaderと同じ考え方)。"""
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_payment_suspension_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+def build_payment_suspension_customer_states(
+    usage_counter: PaymentSuspensionCustomerStateReader,
+    user_ids: Sequence[str],
+) -> list[PaymentSuspensionCustomerState]:
+    """usage_counterの各getterから、user_idごとにPaymentSuspensionCustomerStateを組み立てる。
+
+    trial_end_scheduler.build_trial_user_states()(フェーズ130)と同種の配線漏れの
+    観点で発見: stripe_webhook.dispatch_stripe_event()が`invoice.payment_failed`受信時に
+    書き込むpayment_failure_detected_atと、select_due_payment_suspension_owner_
+    notifications()が読むpayment_failure_detected_atは、これまでPaymentSuspension
+    CustomerStateが各テスト・_demo()内で手動構築されるのみで、実際のUsageCounterProtocol
+    実装(InMemoryUsageCounter等)から読み取って組み立てる関数が存在しなかったため、
+    実際に同一のusage_counter経由でつながることを確認する手段がなかった。呼び出し元は
+    実際にはFirestoreクエリの結果としてuser_idsを得る想定で、本関数はその後の1件ずつの
+    フィールド読み出し部分のみを担う(design 3節「usage_counterストアから対象顧客を抽出」
+    に相当)。
+    """
+    states: list[PaymentSuspensionCustomerState] = []
+    for user_id in user_ids:
+        states.append(
+            PaymentSuspensionCustomerState(
+                user_id=user_id,
+                payment_failure_detected_at=usage_counter.get_payment_failure_detected_at(
+                    user_id
+                ),
+                payment_suspension_owner_notified_at=(
+                    usage_counter.get_payment_suspension_owner_notified_at(user_id)
+                ),
+            )
+        )
+    return states
+
+
 # ---------------------------------------------------------------------------
 # メッセージ整形(payment-suspension-owner-notification-design.md 4節)
 # ---------------------------------------------------------------------------
