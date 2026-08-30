@@ -1685,6 +1685,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-30 13:00 UTC・フェーズ続き154: unit-economics-estimate.mdの
+  「残課題(新規)」に残っていた「決済代行サービス(Stripe Billing等)の手数料試算が
+  未着手」に対応した。checkout-initiation-flow-design.mdで採用済みのStripe Checkout
+  Session決済導線を前提に、Stripe標準料率(一般に公開されている3.6%、実装着手時に
+  公式ページでの再確認が必要)を用いてpayment-gateway-fee-estimate.mdを新規作成した。
+  3プラン(スタータープラン2,980円/スタンダードプラン5,980円/プロプラン9,800円)いずれも
+  月額料金に対する手数料比率は約3.60〜3.61%とほぼ一定で、unit-economics-estimate.mdが
+  既に無視できる水準と結論していたGCP/Firestoreインフラ原価(0.004%〜0.03%)と合わせても
+  粗利率は96%超を維持できる見込みであることを定量的に確認した。ドキュメント作成のみで
+  コード変更・テストは無し。承認不要な試算・ドキュメント作成のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-30 10:00 UTC・フェーズ続き153: trial-end-scheduler-design.md 5節に
   最後まで残っていた「候補組み立て処理(呼び出し元)への実配線」に対応した。
   AutoHandledFaqCountWiringTests(フェーズ続き151)・BookingCountWiringTests
