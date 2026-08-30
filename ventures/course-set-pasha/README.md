@@ -1487,7 +1487,17 @@
   `PortalLinkProvider`ベースへ移行済みだった。コード変更は無し(ドキュメント整理のみ)、
   venture全体413件全件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 00:00 UTC
+- フェーズ129(2026-08-30 03:00 UTC): payment-failure-dunning-design.mdの棚卸しを続け、
+  フェーズ126末尾に残っていたドキュメント記載漏れを発見・解消した。「`payment_recovery_
+  notification.py`の`build_payment_failure_detected_message()`も同じ`LIFF_URL_
+  PLACEHOLDER`誤用が残っており、次回以降の課題として残す」という記載は、実際には
+  フェーズ127で`render_payment_failure_detected_message(portal_link_provider,
+  user_id)`への差し替えが既に完了しており(`prototype/payment_recovery_
+  notification.py`163行目)、フェーズ128と同種の「実装済みなのに未対応扱いのまま」の
+  記載漏れだった。コード変更は無し(ドキュメント整理のみ)、venture全体413件全件パス・
+  schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 03:00 UTC
 
 ## 次にやること(候補)
 

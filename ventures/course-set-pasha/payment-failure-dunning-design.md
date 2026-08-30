@@ -237,6 +237,12 @@ scheduler.py`)も同じ`PortalLinkProvider`を再利用する形で対応した�
   (決済失敗検知時〈段階1〉の初回案内)も同じ`LIFF_URL_PLACEHOLDER`誤用が残っており、
   こちらは次回以降の課題として残す。通知本体の実送信配線(実LINE公式アカウント接続)は
   引き続きオーナー承認待ちの範囲)
+  → **(2026-08-30 追記・フェーズ129で解消済みと判明)** フェーズ127で
+  `build_payment_failure_detected_message(liff_url)`を`render_payment_failure_
+  detected_message(portal_link_provider, user_id)`へ差し替え済み(`prototype/
+  payment_recovery_notification.py`163行目)。本節の「次回以降の課題として残す」
+  という記載だけがフェーズ127実施後も更新されず取り残されていた記載漏れ。詳細は
+  README フェーズ127参照。
 - (解消済み 2026-08-28 19:00 UTC・フェーズ120: 猶予期間終了直前リマインドを送信する
   スケジューラを設計・実装した(payment-failure-reminder-scheduler-design.md新規作成、
   `prototype/payment_failure_reminder_scheduler.py`)。詳細は同ドキュメント参照)
