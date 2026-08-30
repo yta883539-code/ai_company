@@ -1497,7 +1497,20 @@
   記載漏れだった。コード変更は無し(ドキュメント整理のみ)、venture全体413件全件パス・
   schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 03:00 UTC
+- フェーズ130(2026-08-30 05:00 UTC): trial-end-scheduler-design.md 2節で「有料転換済み
+  ユーザーの除外」用に新設した`upgraded_at`フィールドについて、`stripe_webhook.
+  handle_checkout_session_completed()`が書き込む配線(フェーズ103)自体は完了していたが、
+  それを`trial_end_scheduler.select_due_trial_end_notifications()`側の抽出条件へ実際に
+  反映する経路(`TrialUserState`をusage_counterから読み取って組み立てる関数)が
+  存在しなかった配線漏れを発見・解消した。`trial_end_scheduler.py`に
+  `build_trial_user_states(usage_counter, user_ids)`を新設し、同一の
+  `InMemoryUsageCounter`インスタンスを介して`handle_checkout_session_completed()`の
+  書き込みが`select_due_trial_end_notifications()`の除外条件に実際に反映されることを
+  確認する結線テスト(`StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest`)を新設した。
+  テスト4件追加、venture全体417件全件パス・schema検証9件パスを確認した。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 05:00 UTC
 
 ## 次にやること(候補)
 

@@ -91,6 +91,18 @@ course-set-pasha配下計268件パス)。本フェーズ時点で以下2点が�
 
 ## 5. 今後の課題
 
+- (解消済み・フェーズ130: 3節`select_due_trial_end_notifications()`が受け取る
+  `TrialUserState`のリストは、これまで各テスト・`_demo()`内で手動構築されるのみで、
+  実際の`UsageCounterProtocol`実装(`InMemoryUsageCounter`等)から読み取って組み立てる
+  関数が存在しなかった(=2節の`upgraded_at`書き込み配線が完了していても、それを
+  スケジューラ側の抽出条件へ実際に反映する経路が未接続だった)。`trial_end_scheduler.py`に
+  `build_trial_user_states(usage_counter, user_ids)`を新設し、
+  `stripe_webhook.handle_checkout_session_completed()`が書き込む`upgraded_at`が
+  同一の`InMemoryUsageCounter`インスタンス経由で`select_due_trial_end_notifications()`の
+  除外条件に実際に反映されることを確認する結線テスト
+  (`StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest`)を追加した。テスト4件追加。
+  呼び出し元(実運用ではFirestoreクエリ結果のuser_id一覧を渡す想定)の実装は
+  引き続き範囲外)
 - (解消済み・フェーズ103: `upgraded_at`フィールドの実装(stripe_webhook.py
   `handle_checkout_session_completed()`への書き込み配線)。詳細は2節参照。実Firestore接続
   後にLINE側・Stripe側で同一インスタンスを共有できるようにする点のみ引き続き残る)

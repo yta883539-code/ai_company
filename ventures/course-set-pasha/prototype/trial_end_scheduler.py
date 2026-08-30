@@ -64,6 +64,62 @@ class TrialUserState:
     trial_area_count: Optional[int] = None
 
 
+class TrialUserStateReader(Protocol):
+    """cloud_function_webhook.UsageCounterProtocolのうち、TrialUserStateの組み立てに
+    必要なgetter群のみを要求する最小限のProtocol(UpgradedAtWriterProtocol・
+    TrialEndNotifiedAtWriterと同じ「呼び出し側は具象クラスに直接依存しない」考え方)。"""
+
+    def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_trial_generation_count(self, user_id: str) -> int:
+        ...
+
+
+def build_trial_user_states(
+    usage_counter: TrialUserStateReader,
+    user_ids: Sequence[str],
+) -> list[TrialUserState]:
+    """usage_counterの各getterから、user_idごとにTrialUserStateを組み立てる。
+
+    trial-end-scheduler-design.md 1節「usage_counterストアから...ユーザーを抽出」の
+    Firestoreクエリ相当部分について、これまでTrialUserStateは各テスト・_demo()内で
+    手動構築されるのみで、実際のUsageCounterProtocol実装(InMemoryUsageCounter等)から
+    読み取って組み立てる関数が存在しなかった配線漏れを解消する(呼び出し元は実際には
+    Firestoreクエリの結果としてuser_idsを得る想定で、本関数はその後の1件ずつの
+    フィールド読み出し部分のみを担う)。
+
+    trial_area_countはフェーズ109で後方互換用にOptional[int]としたため、
+    usage_counterがget_trial_area_countに対応している場合のみ値を設定し、
+    非対応の実装(hasattr==False)ではNoneのままとする
+    (format_trial_end_notification_message()の按分式フォールバックと同じ判定基準)。
+    """
+    states: list[TrialUserState] = []
+    for user_id in user_ids:
+        trial_area_count = (
+            usage_counter.get_trial_area_count(user_id)
+            if hasattr(usage_counter, "get_trial_area_count")
+            else None
+        )
+        states.append(
+            TrialUserState(
+                user_id=user_id,
+                trial_start_at=usage_counter.get_trial_start_at(user_id),
+                trial_end_notified_at=usage_counter.get_trial_end_notified_at(user_id),
+                upgraded_at=usage_counter.get_upgraded_at(user_id),
+                trial_generation_count=usage_counter.get_trial_generation_count(user_id),
+                trial_area_count=trial_area_count,
+            )
+        )
+    return states
+
+
 def select_due_trial_end_notifications(
     users: Sequence[TrialUserState],
     now: datetime,

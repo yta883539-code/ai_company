@@ -17,6 +17,7 @@ from trial_end_scheduler import (  # noqa: E402
     InMemoryLinePushClient,
     LinePushDeliveryError,
     TrialUserState,
+    build_trial_user_states,
     format_trial_end_notification_message,
     select_due_trial_end_notifications,
     send_trial_end_notifications,
@@ -257,6 +258,124 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         self.assertIn("約45分", sent_by_user["u1"])
         # フォールバック: 4*15 = 60分
         self.assertIn("約60分(1回あたり平均15分と仮定)", sent_by_user["u2"])
+
+
+class BuildTrialUserStatesTest(unittest.TestCase):
+    """build_trial_user_states()単体の組み立て挙動を確認する。"""
+
+    def test_reads_all_fields_from_usage_counter(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 8, 30, 4, 0, 0)
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_start_at_if_unset("u1", now - timedelta(days=20))
+        usage_counter.increment_trial_generation_count("u1")
+        usage_counter.increment_trial_generation_count("u1")
+        usage_counter.increment_trial_area_count("u1", 3)
+
+        states = build_trial_user_states(usage_counter, ["u1", "u2"])
+
+        self.assertEqual(
+            states,
+            [
+                TrialUserState(
+                    user_id="u1",
+                    trial_start_at=now - timedelta(days=20),
+                    trial_end_notified_at=None,
+                    upgraded_at=None,
+                    trial_generation_count=2,
+                    trial_area_count=3,
+                ),
+                TrialUserState(
+                    user_id="u2",
+                    trial_start_at=None,
+                    trial_end_notified_at=None,
+                    upgraded_at=None,
+                    trial_generation_count=0,
+                    trial_area_count=0,
+                ),
+            ],
+        )
+
+    def test_falls_back_to_none_area_count_when_unsupported(self) -> None:
+        class _LegacyUsageCounter:
+            """フェーズ109以前のincrement_trial_area_count未対応usage_counter相当。"""
+
+            def get_trial_start_at(self, user_id: str):
+                return None
+
+            def get_trial_end_notified_at(self, user_id: str):
+                return None
+
+            def get_upgraded_at(self, user_id: str):
+                return None
+
+            def get_trial_generation_count(self, user_id: str) -> int:
+                return 1
+
+        states = build_trial_user_states(_LegacyUsageCounter(), ["u1"])
+
+        self.assertIsNone(states[0].trial_area_count)
+
+
+class StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest(unittest.TestCase):
+    """stripe_webhook.handle_checkout_session_completed()が書き込むupgraded_atと、
+    trial_end_scheduler.select_due_trial_end_notifications()が読むupgraded_atが、
+    build_trial_user_states()を介して実際に同一のInMemoryUsageCounter経由でつながる
+    ことを確認する(trial-end-scheduler-design.md 2節の残課題)。
+
+    これまでTrialUserStateはselect_due_trial_end_notifications()側のテストでも
+    stripe_webhook.py側のテストでも手動構築されるのみで、両モジュールがUsageCounter
+    Protocol実装を介して連携することを確認するテストが存在しなかった(course-set-pasha
+    フェーズ103・104・109・aircon-pashaフェーズ138・149と同種の配線漏れの観点)。"""
+
+    def test_checkout_completion_excludes_user_from_next_trial_end_scan(self) -> None:
+        from datetime import timezone
+
+        from application_form_submission_flow import InMemoryUserProfileStore
+        from cloud_function_webhook import InMemoryUsageCounter
+        from stripe_webhook import handle_checkout_session_completed
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_start_at_if_unset("U1", now - timedelta(days=20))
+
+        # 決済完了(checkout.session.completed)により、同一usage_counterへupgraded_atが
+        # 書き込まれる(stripe_webhook.py 2節)。
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1", "customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(
+            event,
+            InMemoryUserProfileStore(),
+            usage_counter=usage_counter,
+            now=now,
+        )
+        self.assertTrue(result.upgraded_at_written)
+
+        # 同じusage_counterをbuild_trial_user_states()経由で読み取ると、trial_start_atから
+        # 20日経過(条件Bを満たす)にもかかわらず、upgraded_at設定済みのため対象から外れる。
+        states = build_trial_user_states(usage_counter, ["U1"])
+        due = select_due_trial_end_notifications(states, now)
+
+        self.assertEqual(due, [])
+
+    def test_user_without_checkout_completion_remains_due(self) -> None:
+        from datetime import timezone
+
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_start_at_if_unset("U1", now - timedelta(days=20))
+
+        # checkout.session.completedを一度も受け取っていない(upgraded_at未設定)ユーザーは
+        # 引き続き通知対象として残る。
+        states = build_trial_user_states(usage_counter, ["U1"])
+        due = select_due_trial_end_notifications(states, now)
+
+        self.assertEqual([u.user_id for u in due], ["U1"])
 
 
 if __name__ == "__main__":
