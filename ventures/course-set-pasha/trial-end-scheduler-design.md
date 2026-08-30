@@ -116,5 +116,11 @@ course-set-pasha配下計268件パス)。本フェーズ時点で以下2点が�
 - 実際のCloud Scheduler新規作成はGCPプロジェクトの課金設定を伴うため、
   引き続きオーナー承認待ちの範囲(pending-approval.md 2026-08-23 09:00 UTC記載分参照、
   本件も同一の承認事項でまとめて扱う想定)。
-- trial-end-notification-design.md 4節で範囲外とした「トライアル終了後の生成一時停止」
-  判定の実装は本ドキュメントでも引き続き範囲外。
+- (解消済み・フェーズ114: trial-end-notification-design.md 4節で範囲外とした「トライアル
+  終了後の生成一時停止」判定は、README.mdフェーズ114で`cloud_function_webhook.py`
+  `_is_generation_paused()`として既に実装済み。本ドキュメントの本節が実装済み後も
+  「引き続き範囲外」の記載のまま更新されていなかった記載漏れであり、フェーズ続き131で
+  解消した。あわせて、本モジュールが書き込む`trial_end_notified_at`と
+  `_is_generation_paused()`が読む`trial_end_notified_at`が同一の`InMemoryUsageCounter`
+  経由で実際につながることを確認する結線テスト
+  (`TrialEndSchedulerToGenerationPausedWiringTest`)を追加した。テスト2件追加)

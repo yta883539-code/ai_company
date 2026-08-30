@@ -1040,6 +1040,69 @@ class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
         self.assertFalse(result.generation_paused)
 
 
+class TrialEndSchedulerToGenerationPausedWiringTest(unittest.TestCase):
+    """trial_end_scheduler.send_trial_end_notifications()が書き込む
+    trial_end_notified_atと、cloud_function_webhook._is_generation_paused()が読む
+    trial_end_notified_atが、実際に同一のInMemoryUsageCounter経由で一気通貫でつながる
+    ことを確認する(trial-end-scheduler-design.md 5節)。
+
+    aircon-pashaのTrialEndSchedulerToGenerationPausedWiringTest(README.mdフェーズ138)と
+    同じ観点。これまでtrial_end_scheduler.pyのテストはローカルスタブのusage_counter、
+    本ファイルのProcessMemoEventGenerationPausedTestはtrial_end_notified_atを直接
+    InMemoryUsageCounterに設定したものを使っており、両モジュールが本物の
+    TrialEndNotifiedAtWriter実装を介して連携することを確認するテストがどちらにも
+    存在しなかった。trial-end-scheduler-design.md 5節はこの観点の生成一時停止判定を
+    「本ドキュメントでも引き続き範囲外」と記載していたが、実際にはフェーズ114で
+    _is_generation_paused()として既に実装済みであり、単に結線を確認するテストが
+    欠けていただけだった(記載自体の更新はtrial-end-scheduler-design.md側で行う)。"""
+
+    def test_scheduler_notification_causes_next_memo_to_be_paused(self):
+        from trial_end_scheduler import InMemoryLinePushClient, TrialUserState, send_trial_end_notifications
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+
+        # design 3節の抽出条件により送信対象となり、trial_end_notified_atが書き込まれる。
+        send_result = send_trial_end_notifications(
+            [TrialUserState(user_id="u-1", trial_start_at=now - timedelta(days=14))],
+            now, usage_counter, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.sent, ["u-1"])
+        self.assertIsNotNone(usage_counter.get_trial_end_notified_at("u-1"))
+
+        # 同じusage_counterを使ってprocess_memo_event()を呼ぶと、書き込まれた
+        # trial_end_notified_atにより一時停止応答となり、LLM呼び出しは行われない。
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertTrue(result.generation_paused)
+        self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+
+    def test_not_yet_due_user_scheduler_notification_leaves_memo_unpaused(self):
+        from trial_end_scheduler import InMemoryLinePushClient, TrialUserState, send_trial_end_notifications
+
+        now = datetime(2026, 8, 30, 4, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+
+        send_result = send_trial_end_notifications(
+            [TrialUserState(user_id="u-1", trial_start_at=now - timedelta(days=13))],  # まだ14日未満
+            now, usage_counter, InMemoryLinePushClient(),
+        )
+        self.assertEqual(send_result.sent, [])
+        self.assertIsNone(usage_counter.get_trial_end_notified_at("u-1"))
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertFalse(result.generation_paused)
+
+
 class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
     """process_memo_event()からの「決済失敗による制限モード」応答の検証
     (payment-failure-dunning-design.md 3節・6節、README.mdフェーズ118)。"""
