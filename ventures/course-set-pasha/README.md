@@ -1524,10 +1524,27 @@
   venture全体419件全件パス・schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 12:00 UTC
+- フェーズ132(2026-08-30 15:00 UTC): onboarding-settings-and-self-check-design.mdの
+  「残課題」節の棚卸しを行い、既に実装・反映済みにもかかわらず未着手扱いのまま残っていた
+  ドキュメント記載漏れを2点発見・解消した。(1)「`usage_counter`への
+  `first_generation_notice_sent`フィールド追加・`cloud_function_webhook.py`側での配線は
+  実Firestore・実LINE API接続待ちのため未着手」という記載は、実際にはフェーズ73
+  (スタブ/InMemory実装)・フェーズ74(`gym_area_configured`実データ参照経路)・フェーズ75
+  (count増分とフラグ更新の単一書き込み原子性)で既に実装済みで、first-generation-notice-
+  implementation-design.mdには正しく反映されていたが本ドキュメント側が未更新のままだった。
+  (2)「ジム名・地域名の複数組入力の優先順位ルールをllm-system-prompt-draft.mdへ反映するのは
+  次の課題」という記載は、実際にはフェーズ62で厳守事項4への反映が完了済みだった。いずれも
+  コード変更は無し(ドキュメント整理のみ)、venture全体419件全件パス・schema検証9件パスを
+  再確認した(フェーズ12・22・51・131と同種のドキュメント整合性メンテナンス)。承認不要な
+  ドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 15:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-30 15:00 UTC・フェーズ132: onboarding-settings-and-self-check-design.mdの
+  「残課題」節に残っていたドキュメント記載漏れ2点(first_generation_notice_sentフィールド・
+  ジム名地域名優先順位ルールの反映状況)を解消した。詳細は上記フェーズ132参照)
 - (解消済み 2026-08-30 12:00 UTC・フェーズ131: trial-end-notification-design.md・
   limit-approaching-notification-design.mdに残っていたドキュメント記載漏れ2点を解消した。
   詳細は上記フェーズ131参照)
