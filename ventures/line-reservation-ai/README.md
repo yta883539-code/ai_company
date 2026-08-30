@@ -1685,6 +1685,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-30 16:00 UTC・フェーズ続き155: onboarding-completion-message-design.md
+  「残課題」に残っていた、「MVPの最低限必須項目(営業曜日・営業時間・予約枠の間隔・
+  同時受付可能数・メニュー一覧最低1件)が初めて全て揃ったか」を判定し1回だけ発火させる
+  処理本体に対応した。`prototype/store_profile_store.py`に
+  `evaluate_onboarding_completion_message_dispatch()`を新設し、`InMemoryStoreProfileStore`
+  へ`is_onboarding_completion_message_sent()`/`mark_onboarding_completion_message_sent()`を
+  追加、first-booking-self-check-notification-design.mdの`consume_first_booking_self_check()`
+  と同じ「店舗全体で最初の1回のみ」冪等性パターンを踏襲した。あわせて実装の過程で、
+  firestore-data-model.md 1節`stores/{storeId}`ドキュメントにowner-settings-wireframe.mdの
+  「予約枠の間隔」「同時受付可能数」に対応するフィールド(`slotIntervalMinutes`・
+  `concurrentCapacity`)が定義されていなかった欠落を発見し、`onboardingCompletionMessageSentAt`
+  とあわせて追加した。テスト11件追加、venture全体407件全件パス・schema検証25件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-30 13:00 UTC・フェーズ続き154: unit-economics-estimate.mdの
   「残課題(新規)」に残っていた「決済代行サービス(Stripe Billing等)の手数料試算が
   未着手」に対応した。checkout-initiation-flow-design.mdで採用済みのStripe Checkout

@@ -79,6 +79,23 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // FieldValue.increment(1)する。キャンセル・変更後も
                                      // 減算しない(count_confirmed_bookings()と同じく
                                      // 「実際に確定させた回数」の指標のため)。
+  onboardingCompletionMessageSentAt: null // onboarding-completion-message-design.md
+                                     // (フェーズ続き155)で新規追加。オンボーディング完了
+                                     // メッセージの送信済み時刻(Timestamp | null)。
+                                     // 「MVPの最低限必須項目が初めて全て揃った」保存時に
+                                     // 1回だけ書き込む冪等性フラグ。InMemory版は
+                                     // InMemoryStoreProfileStoreの
+                                     // is_onboarding_completion_message_sent()/
+                                     // mark_onboarding_completion_message_sent()として
+                                     // 実装済み(現状は真偽値相当のset保持、実Firestore化時に
+                                     // Timestampへ拡張する)。
+  slotIntervalMinutes: null,         // owner-settings-wireframe.md「予約枠の間隔」に対応する
+                                     // フィールドが未定義だった欠落を2026-08-30(フェーズ続き155)
+                                     // で追加。MVPの最低限必須項目(onboarding-guide.md
+                                     // ステップ3)の1つ。AvailabilitySearcherの
+                                     // slot_interval_minutesコンストラクタ引数に対応。
+  concurrentCapacity: null           // 同上、「同時受付可能数」に対応するフィールドの欠落を
+                                     // 同時に解消。MVPの最低限必須項目の1つ。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

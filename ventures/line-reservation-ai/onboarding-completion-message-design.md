@@ -118,10 +118,26 @@ LIFFページのURLを渡す想定(実LIFF登録後に確定する値のプレ�
 
 ## 残課題
 
-- 「MVPの最低限必須項目が初めて全て揃ったか」を判定し1回だけ発火させる処理本体
-  (店舗設定の保存処理・Firestore書き込みイベントへの配線)は、owner-settings-wireframe.mdの
-  フォーム保存処理自体が未実装のため未着手。保存処理の実装着手時にあわせて設計する。
+- (解消済み 2026-08-30定例更新・フェーズ続き155: 「MVPの最低限必須項目が初めて全て
+  揃ったか」を判定し1回だけ発火させる処理本体を実装した
+  (`prototype/store_profile_store.py`の`evaluate_onboarding_completion_message_dispatch()`)。
+  `InMemoryStoreProfileStore`に`is_onboarding_completion_message_sent()`/
+  `mark_onboarding_completion_message_sent()`を追加し、`first_booking_self_check`の
+  `consume_*()`と同じ「店舗全体で最初の1回のみ」冪等性パターンを踏襲した。owner-settings-
+  wireframe.mdのフォーム保存処理自体(実Firestore書き込み)はまだ実装されていないため、
+  呼び出し元は「保存後の最新設定値(営業時間の有無・予約枠の間隔・同時受付可能数・
+  メニュー件数)を渡して判定結果を受け取る」という結線点までを先行して用意した形。
+  テスト11件追加、venture全体407件全件パス・schema検証25件パスを確認した。承認不要な
+  実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生
+  していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-29定例更新: トライアル起算点は「店舗全体で最初の予約確定時」として
   `trial-start-anchor-decision.md`で確定した。)
 - `payment_page_url`の実URLへの差し替えは、他のプレースホルダ(`success_url`・`basic_id`等)と
   同様、実LIFF登録・LINE公式アカウント開設(オーナー承認待ち)後に行う。
+- firestore-data-model.md 1節`stores/{storeId}`ドキュメントには、owner-settings-
+  wireframe.mdで言及されている「予約枠の間隔」「同時受付可能数」に対応するフィールド
+  (`slotIntervalMinutes`・`concurrentCapacity`)がまだ定義されていないことが今回の実装で
+  判明した。`evaluate_onboarding_completion_message_dispatch()`はこれらを呼び出し元から
+  渡される値として受け取る設計にしたため実装自体はブロックされないが、実際のフォーム
+  保存処理(owner-settings-wireframe.md)実装時にはこの2フィールドをFirestoreスキーマへ
+  追加する必要がある。次回以降の課題として残す。

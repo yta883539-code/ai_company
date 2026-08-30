@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from store_profile_store import (  # noqa: E402
     InMemoryStoreProfileStore,
+    evaluate_onboarding_completion_message_dispatch,
     handle_checkout_session_completed,
     resolve_existing_stripe_customer_id,
 )
@@ -132,6 +133,69 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         second = handle_checkout_session_completed(event, self.store)
         self.assertTrue(second.linked)
         self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_abc")
+
+
+class EvaluateOnboardingCompletionMessageDispatchTest(unittest.TestCase):
+    """onboarding-completion-message-design.md 残課題。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def _call(self, **overrides):
+        params = dict(
+            user_id="Uowner123",
+            business_hours_configured=True,
+            slot_interval_minutes=30,
+            concurrent_capacity=1,
+            menu_count=1,
+            store=self.store,
+        )
+        params.update(overrides)
+        return evaluate_onboarding_completion_message_dispatch(**params)
+
+    def test_returns_true_first_time_all_required_fields_present(self):
+        self.assertTrue(self._call())
+        self.assertTrue(
+            self.store.is_onboarding_completion_message_sent("Uowner123")
+        )
+
+    def test_returns_false_on_second_call_even_if_still_complete(self):
+        self._call()
+        self.assertFalse(self._call())
+
+    def test_returns_false_when_business_hours_not_configured(self):
+        self.assertFalse(self._call(business_hours_configured=False))
+        self.assertFalse(
+            self.store.is_onboarding_completion_message_sent("Uowner123")
+        )
+
+    def test_returns_false_when_slot_interval_minutes_is_none(self):
+        self.assertFalse(self._call(slot_interval_minutes=None))
+
+    def test_returns_false_when_slot_interval_minutes_is_zero(self):
+        self.assertFalse(self._call(slot_interval_minutes=0))
+
+    def test_returns_false_when_concurrent_capacity_is_none(self):
+        self.assertFalse(self._call(concurrent_capacity=None))
+
+    def test_returns_false_when_concurrent_capacity_is_zero(self):
+        self.assertFalse(self._call(concurrent_capacity=0))
+
+    def test_returns_false_when_menu_count_is_zero(self):
+        self.assertFalse(self._call(menu_count=0))
+
+    def test_raises_on_empty_user_id(self):
+        with self.assertRaises(ValueError):
+            self._call(user_id="")
+
+    def test_incomplete_then_complete_fires_only_once_on_the_completing_save(self):
+        self.assertFalse(self._call(menu_count=0))
+        self.assertTrue(self._call(menu_count=1))
+        self.assertFalse(self._call(menu_count=1))
+
+    def test_different_stores_are_isolated(self):
+        self.assertTrue(self._call(user_id="Uowner123"))
+        self.assertTrue(self._call(user_id="Uowner999"))
 
 
 if __name__ == "__main__":

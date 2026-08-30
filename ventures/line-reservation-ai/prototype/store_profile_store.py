@@ -21,8 +21,17 @@
   本ventureはupgraded_at相当のフィールドを持たない(有料転換の判定は
   cloud_function_subscription_activated_webhook.pyがsuspension_reasonの書き換えで別途
   担当する)ため、`usage_counter`引数は持たせず、customer_idの紐付けのみを行う薄い版とする。
+- `evaluate_onboarding_completion_message_dispatch()`(2026-08-30追記):
+  onboarding-completion-message-design.md「残課題」に残っていた、「MVPの最低限必須項目
+  (onboarding-guide.mdステップ3: 営業曜日・営業時間・予約枠の間隔・同時受付可能数・
+  メニュー一覧最低1件)が今回の保存で初めて全て揃ったか」を判定し、初めて揃った場合のみ
+  一度だけTrueを返す判定本体。first-booking-self-check-notification-design.mdの
+  `consume_first_booking_self_check()`と同じ「店舗全体で最初の1回のみ」パターンを、
+  `ConversationFlowStateMachine`側ではなく店舗プロフィールストア側(owner-settings-
+  wireframe.mdのフォーム保存処理から呼ばれる想定)に実装したもの。
 
-設計の参照元: checkout-initiation-flow-design.md 3節・残課題、firestore-data-model.md 1節
+設計の参照元: checkout-initiation-flow-design.md 3節・残課題、firestore-data-model.md 1節、
+onboarding-completion-message-design.md 残課題
 """
 
 from __future__ import annotations
@@ -41,6 +50,12 @@ class StoreProfileStoreProtocol(Protocol):
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
         ...
 
+    def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
+        ...
+
+    def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
+        ...
+
 
 class InMemoryStoreProfileStore:
     """実Firestore接続前の検証用スタブ。プロセス内の`dict`に保持するのみで、
@@ -50,6 +65,7 @@ class InMemoryStoreProfileStore:
 
     def __init__(self) -> None:
         self._stripe_customer_ids: dict[str, str] = {}
+        self._onboarding_completion_message_sent: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
         return self._stripe_customer_ids.get(user_id)
@@ -60,6 +76,14 @@ class InMemoryStoreProfileStore:
         if not stripe_customer_id:
             raise ValueError("stripe_customer_id must be a non-empty string")
         self._stripe_customer_ids[user_id] = stripe_customer_id
+
+    def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
+        return user_id in self._onboarding_completion_message_sent
+
+    def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._onboarding_completion_message_sent.add(user_id)
 
 
 def resolve_existing_stripe_customer_id(
@@ -112,3 +136,46 @@ def handle_checkout_session_completed(
     return CheckoutSessionLinkResult(
         linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
     )
+
+
+def evaluate_onboarding_completion_message_dispatch(
+    user_id: str,
+    *,
+    business_hours_configured: bool,
+    slot_interval_minutes: Optional[int],
+    concurrent_capacity: Optional[int],
+    menu_count: int,
+    store: StoreProfileStoreProtocol,
+) -> bool:
+    """onboarding-guide.mdステップ3のフォーム保存処理から都度呼ばれる想定の判定関数
+    (onboarding-completion-message-design.md 残課題)。
+
+    「MVPの最低限必須項目」(営業曜日・営業時間・予約枠の間隔・同時受付可能数・
+    メニュー一覧最低1件)が今回の保存で初めて全て揃ったかを判定し、初めて揃った場合の
+    みTrueを返す(呼び出し元はTrueが返った時のみ`render_onboarding_completion_message()`
+    を送信する)。営業曜日・営業時間は既存のバリデーション(availability-closed-weekday-
+    support.md・business-hours-lunch-break.md)を通過済みの値である前提のため、ここでは
+    単純に「1件以上設定されているか」の`business_hours_configured`のみを受け取る。
+
+    既に送信済み(`store.is_onboarding_completion_message_sent()`がTrue)の店舗では、
+    2回目以降の設定変更・再編集のたびに毎回Falseを返す(何度も送ると煩わしい通知になる
+    ため、first-booking-self-check-notification-design.mdと同じ「店舗全体で1回のみ」方針)。
+    """
+    if not user_id:
+        raise ValueError("user_id must be a non-empty string")
+    if store.is_onboarding_completion_message_sent(user_id):
+        return False
+
+    required_fields_present = (
+        business_hours_configured
+        and slot_interval_minutes is not None
+        and slot_interval_minutes > 0
+        and concurrent_capacity is not None
+        and concurrent_capacity > 0
+        and menu_count >= 1
+    )
+    if not required_fields_present:
+        return False
+
+    store.mark_onboarding_completion_message_sent(user_id)
+    return True
