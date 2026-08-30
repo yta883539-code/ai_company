@@ -2168,4 +2168,18 @@
   全体318件全件パス・schema検証9件パスを確認した。承認不要なドキュメント整理・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 04:00 UTC
+- フェーズ156(2026-08-30 07:00 UTC): trial-end-scheduler-design.md 5節に記載の
+  「`user_profile`ストアから対象ユーザーを抽出」部分について、実際に
+  `InMemoryUserProfileStore`(`user_id_linking.py`)から`trial_end_scheduler.
+  TrialUserState`を組み立てる関数が存在しない配線漏れ(course-set-pashaが
+  フェーズ158で解消したのと同種の観点)を発見し、`build_trial_user_states()`を
+  新設した。あわせて、`stripe_webhook.handle_checkout_session_completed()`が
+  書き込む`upgraded_at`と`trial_end_scheduler.select_due_trial_end_notifications()`
+  が読む`upgraded_at`が、`build_trial_user_states()`を介して実際に同一の
+  `InMemoryUserProfileStore`経由でつながることを確認する結線テスト
+  (`StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest`、
+  `test_trial_end_scheduler.py`)を追加した。テスト4件追加、venture全体322件全件
+  パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-30 07:00 UTC

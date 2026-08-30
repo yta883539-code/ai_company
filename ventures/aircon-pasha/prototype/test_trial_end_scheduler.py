@@ -16,6 +16,7 @@ from trial_end_scheduler import (  # noqa: E402
     LinePushDeliveryError,
     TrialUserState,
     build_trial_end_notification_flex_message,
+    build_trial_user_states,
     select_due_trial_end_notifications,
     send_trial_end_notifications,
 )
@@ -168,6 +169,105 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         self.assertEqual(result.sent, [])
         self.assertEqual(result.failed, [])
         self.assertEqual(push.sent, [])
+
+
+class BuildTrialUserStatesTest(unittest.TestCase):
+    def test_builds_state_from_existing_profile(self) -> None:
+        from user_id_linking import InMemoryUserProfileStore, UserProfile
+
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+                trial_start_at=_NOW - timedelta(days=20),
+                trial_generation_count=3,
+            ),
+        )
+
+        states = build_trial_user_states(store, ["u1"])
+
+        self.assertEqual(len(states), 1)
+        self.assertEqual(states[0].user_id, "u1")
+        self.assertEqual(states[0].trial_start_at, _NOW - timedelta(days=20))
+        self.assertIsNone(states[0].trial_end_notified_at)
+        self.assertIsNone(states[0].upgraded_at)
+        self.assertEqual(states[0].trial_generation_count, 3)
+
+    def test_unknown_user_id_becomes_trial_not_started_state(self) -> None:
+        from user_id_linking import InMemoryUserProfileStore
+
+        store = InMemoryUserProfileStore()
+
+        states = build_trial_user_states(store, ["ghost"])
+
+        self.assertEqual(
+            states, [TrialUserState(user_id="ghost", trial_start_at=None)]
+        )
+
+
+class StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest(unittest.TestCase):
+    """stripe_webhook.handle_checkout_session_completed()が書き込むupgraded_atと、
+    trial_end_scheduler.select_due_trial_end_notifications()が読むupgraded_atが、
+    build_trial_user_states()を介して実際に同一のInMemoryUserProfileStore経由で
+    つながることを確認する(trial-end-scheduler-design.md 2節の残課題)。
+
+    これまでTrialUserStateはselect_due_trial_end_notifications()側のテストでも
+    stripe_webhook.py側のテストでも手動構築されるのみで、両モジュールが
+    UserProfileStoreProtocol実装を介して連携することを確認するテストが存在しなかった
+    (course-set-pashaフェーズ158のStripeWebhookUpgradedAtToTrialEndSchedulerWiring
+    Testと同種の配線漏れの観点)。"""
+
+    def test_checkout_completion_excludes_user_from_next_trial_end_scan(self) -> None:
+        from stripe_webhook import handle_checkout_session_completed
+        from user_id_linking import InMemoryUserProfileStore, UserProfile
+
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+                trial_start_at=_NOW - timedelta(days=20),
+            ),
+        )
+
+        # 決済完了(checkout.session.completed)により、同一storeへupgraded_atが
+        # 書き込まれる(stripe_webhook.py handle_checkout_session_completed())。
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "u1", "customer": "cus_1"}},
+        }
+        result = handle_checkout_session_completed(event, store, now=_NOW)
+        self.assertTrue(result.upgraded_at_written)
+
+        # 同じstoreをbuild_trial_user_states()経由で読み取ると、trial_start_atから
+        # 20日経過(条件Bを満たす)にもかかわらず、upgraded_at設定済みのため対象から外れる。
+        states = build_trial_user_states(store, ["u1"])
+        due = select_due_trial_end_notifications(states, _NOW)
+
+        self.assertEqual(due, [])
+
+    def test_user_without_checkout_completion_remains_due(self) -> None:
+        from user_id_linking import InMemoryUserProfileStore, UserProfile
+
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+                trial_start_at=_NOW - timedelta(days=20),
+            ),
+        )
+
+        # checkout.session.completedを一度も受け取っていない(upgraded_at未設定)ユーザーは
+        # 引き続き通知対象として残る。
+        states = build_trial_user_states(store, ["u1"])
+        due = select_due_trial_end_notifications(states, _NOW)
+
+        self.assertEqual([u.user_id for u in due], ["u1"])
 
 
 if __name__ == "__main__":

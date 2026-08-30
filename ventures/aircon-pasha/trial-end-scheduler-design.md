@@ -101,6 +101,15 @@ course-set-pashaと同じ理由(Cloud Schedulerの無料枠制限、ユーザー
   書く`trial_end_notified_at`が同一の`InMemoryUserProfileStore`経由で一気通貫で
   つながることを確認する結線テスト(`TrialEndSchedulerToGenerationPausedWiringTest`、
   `test_cloud_function_webhook.py`)を追加した。
+- 1節「`user_profile`ストアから...ユーザーを抽出」に相当する、実際の
+  `UserProfileStoreProtocol`実装から`TrialUserState`を組み立てる関数
+  (`build_trial_user_states()`)は**フェーズ156で実装済み**(course-set-pashaの
+  同名関数と同種、`store.get(user_id)`一発でTrialUserStateを組み立てる構成)。
+  あわせて、`handle_checkout_session_completed()`が書き込む`upgraded_at`と
+  `select_due_trial_end_notifications()`が読む`upgraded_at`が同一の
+  `InMemoryUserProfileStore`経由でつながることを確認する結線テスト
+  (`StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest`、
+  `test_trial_end_scheduler.py`)を追加した。
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)は
   オーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントは選定ロジック・
   スケジューラ構成の机上設計にとどめる。

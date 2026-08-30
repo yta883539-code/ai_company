@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Protocol, Sequence
 
 from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from user_id_linking import UserProfile
 
 # trial-end-notification-design.md 2節(B): トライアル開始から14日でトライアル終了。
 DEFAULT_TRIAL_PERIOD_DAYS = 14
@@ -49,6 +50,52 @@ class TrialUserState:
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
     trial_generation_count: int = 0
+
+
+class TrialUserStateReader(Protocol):
+    """user_id_linking.UserProfileStoreProtocolのうち、TrialUserStateの組み立てに
+    必要なgetter(get()のみ)を要求する最小限のProtocol(course-set-pashaの
+    TrialUserStateReaderと同じ「呼び出し側は具象クラスに直接依存しない」考え方)。
+    本ventureはcourse-set-pasha(usage_counterがフィールドごとの個別getterを持つ設計)
+    と異なり、UserProfile1件が各フィールドを直接保持する設計(2節)のため、
+    get(user_id)一発で足りる。"""
+
+    def get(self, user_id: str) -> Optional[UserProfile]:
+        ...
+
+
+def build_trial_user_states(
+    store: TrialUserStateReader,
+    user_ids: Sequence[str],
+) -> list[TrialUserState]:
+    """storeのget()から、user_idごとにTrialUserStateを組み立てる。
+
+    trial-end-scheduler-design.md 1節「user_profileストアから...ユーザーを抽出」の
+    Firestoreクエリ相当部分について、これまでTrialUserStateは各テスト・_demo()内で
+    手動構築されるのみで、実際のUserProfileStoreProtocol実装(InMemoryUserProfileStore等)
+    から読み取って組み立てる関数が存在しなかった配線漏れを解消する(course-set-pashaの
+    build_trial_user_states()と同種の観点。呼び出し元は実際にはFirestoreクエリの結果
+    としてuser_idsを得る想定で、本関数はその後の1件ずつの読み出し部分のみを担う)。
+    存在しないuser_id(store.get()がNoneを返す)はtrial_start_at未設定の
+    TrialUserStateとして扱い、select_due_trial_end_notifications()側の既存の除外条件
+    (trial_start_at is None)にそのまま乗せる。
+    """
+    states: list[TrialUserState] = []
+    for user_id in user_ids:
+        profile = store.get(user_id)
+        if profile is None:
+            states.append(TrialUserState(user_id=user_id, trial_start_at=None))
+            continue
+        states.append(
+            TrialUserState(
+                user_id=user_id,
+                trial_start_at=profile.trial_start_at,
+                trial_end_notified_at=profile.trial_end_notified_at,
+                upgraded_at=profile.upgraded_at,
+                trial_generation_count=profile.trial_generation_count,
+            )
+        )
+    return states
 
 
 def select_due_trial_end_notifications(
