@@ -2340,4 +2340,20 @@
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   本venture内で未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題
   (オーナー承認待ち)以外の棚卸しを優先候補とする。
-- 最終更新: 2026-08-31 07:00 UTC
+- フェーズ164(2026-08-31 12:00 UTC): 各設計docの残課題を棚卸しした結果、
+  trial-start-anchor-decision.md 5節に残っていた「(B)期間到達判定用の日次スケジューラ
+  本体は...別途設計する必要があり、引き続き未着手」という記載が、実際には本ドキュメント
+  作成(フェーズ134)より後のフェーズ133〜138でtrial-end-scheduler-design.mdとして
+  設計され`prototype/trial_end_scheduler.py`に実装済み(`select_due_trial_end_
+  notifications()`・`send_trial_end_notifications()`・
+  `build_trial_end_notification_flex_message()`、フェーズ156の`build_trial_user_states()`
+  結線まで完了)だった記載漏れ(フェーズ155・157・159・160・163と同種の「本文中の古い
+  記載がその後の実装で追い越されたまま残る」棚卸し)を解消した。コード変更は無し
+  (ドキュメント整理のみ)、venture全体358件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  `schema/validate_test_cases.py`9件全件パスを再確認した。承認不要なドキュメント整理・
+  アイデア追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  本venture内で未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題
+  (オーナー承認待ち)以外の棚卸しを優先候補とする。
+- 最終更新: 2026-08-31 12:00 UTC

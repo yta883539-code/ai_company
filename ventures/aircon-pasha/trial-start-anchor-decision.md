@@ -83,9 +83,14 @@ usage_counter/{user_id}
   `cloud_function_webhook.py`の`process_memo_event()`に実装した。格納先は3節末尾の
   「実装時の変更点」の通り`user_profile`に変更している。テスト5件追加、venture全体211件
   全件パス。)
-- (B)期間到達判定用の日次スケジューラ本体は、line-reservation-ai/reminder-scheduler-design.md
-  やcourse-set-pasha/trial-end-scheduler-design.mdを参考に別途設計する必要があり、引き続き
-  未着手。
+- (解消済み 2026-08-31 12:00 UTC: (B)期間到達判定用の日次スケジューラ本体は
+  「引き続き未着手」としていたが、本ドキュメント作成〈フェーズ134〉より後の
+  フェーズ133〜138でtrial-end-scheduler-design.mdとして設計・
+  `prototype/trial_end_scheduler.py`に実装済み(`select_due_trial_end_notifications()`・
+  `send_trial_end_notifications()`・`build_trial_end_notification_flex_message()`、
+  フェーズ156の`build_trial_user_states()`結線まで完了)であり、本節の記載が更新
+  されないまま取り残されていた記載漏れだった。詳細はtrial-end-scheduler-design.md
+  5節参照。コード変更は無し(ドキュメント整理のみ))。
 - trial-end-notification-design.md 6節に残る「浮いた作業時間の目安」試算値未作成・決済導線
   未設計・`prototype/`未実装は、本ドキュメントの範囲外として引き続き残る。
 - 実際のCloud Scheduler実行環境の構築・LIFF等の外部サービス接続はオーナー承認待ち
