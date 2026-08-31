@@ -98,6 +98,14 @@ onboarding-guide.mdのステップ6(トライアル終了後のプラン選択)�
   未契約時はnull)フィールドを追加し、`customer.subscription.*`受信のたびに更新する。
   subscription-cancellation-flow-design.mdで確定済みの「Stripe Webhookで受信した最新の
   プランIDに紐づける」という指摘は、この`current_plan_id`フィールドで解消される。
+  (実装済み 2026-08-31・フェーズ161: フィールド自体はフェーズ134で追加されていたが
+  実際に書き込む処理が一度も実装されず常に`None`のまま放置されていた配線漏れを発見し、
+  `prototype/subscription_plan_sync.py`(`resolve_plan_id_from_subscription()`・
+  `sync_current_plan_on_subscription_event()`・`clear_current_plan_on_subscription_
+  deleted()`)として実装、`stripe_dispatch.py`の`dispatch_stripe_event()`に`plan_store`
+  引数を追加して`customer.subscription.created/updated`受信時の同期・`deleted`受信時の
+  クリアを配線した。プラン識別はStripeの`price.lookup_key`〈本ventureが自由に設定できる
+  識別子〉経由とし、実Stripeアカウント接続前でも机上実装・テスト可能な範囲に留めた)。
 
 ## 5. `user_profile`コレクションの確定(tech-stack.mdへの反映が必要)
 

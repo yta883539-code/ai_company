@@ -35,6 +35,11 @@ docstring)を守る。
 `dispatch_stripe_event()`単体では検証済みでも、HTTPエントリポイントを経由した
 一気通貫の経路ではまだ検証されていなかった)。本フェーズで3引数を追加し、そのまま
 `dispatch_stripe_event()`へ委譲するだけの薄い配線で解消した。
+
+`plan_store`(フェーズ161追加): user-account-linking-design.md 4節が「`customer.
+subscription.*`受信のたびに更新する」と確定していた`current_plan_id`の同期処理
+(subscription_plan_sync.py)を`dispatch_stripe_event()`が受け取れるようになったのに
+合わせ、本モジュールでも`payment_store`等と同じ薄い委譲配線を追加した。
 """
 
 from __future__ import annotations
@@ -56,6 +61,7 @@ from stripe_dispatch import (
     StripeDispatchResult,
     dispatch_stripe_event,
 )
+from subscription_plan_sync import CurrentPlanStoreProtocol
 from user_id_linking import InMemoryUserProfileStore, UserProfileStoreProtocol
 
 
@@ -216,6 +222,7 @@ def receive_stripe_webhook(
     payment_store: Optional[PaymentFailureStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
     recovery_push_client: Optional[RecoveryPushClient] = None,
+    plan_store: Optional[CurrentPlanStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -246,6 +253,12 @@ def receive_stripe_webhook(
     なって決済失敗検知・復旧通知の両イベントが`ignored_types`に落ちてしまう配線漏れが
     あった。本フェーズはそのままdispatch_stripe_event()へ委譲するだけの薄い配線を追加
     して解消する。3引数とも省略時(`None`)の挙動はこれまでと変わらない(後方互換)。
+
+    `plan_store`はuser-account-linking-design.md 4節対応(フェーズ161追加)。
+    `dispatch_stripe_event()`が新たに受け取れるようになった`plan_store`をそのまま
+    委譲する薄い配線で、`payment_store`等と同じく実HTTPエントリポイント経由でも
+    `customer.subscription.*`受信時のプランID同期が機能するようにする。省略時
+    (`None`)は同期を行わない(既存呼び出し経路への後方互換措置)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -280,6 +293,7 @@ def receive_stripe_webhook(
         payment_store=payment_store,
         push_client=push_client,
         recovery_push_client=recovery_push_client,
+        plan_store=plan_store,
         now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
@@ -298,9 +312,11 @@ def get_stripe_runtime_dependencies() -> dict:
       `PaymentFailureStoreProtocol`を専用のInMemoryスタブとして持たず、
       `UserProfileStoreProtocol`が構造的に(duck typing)満たす設計(payment_failure.py
       冒頭コメント参照)のため、同じインスタンスを`payment_store`としても渡せる。
+      `CurrentPlanStoreProtocol`(subscription_plan_sync.py、フェーズ161追加)も同じ
+      理由で構造的に満たすため、同じインスタンスを`plan_store`としても渡す。
       storeと同様プロセス起動ごとに初期化されるため、実Cloud Functions環境では
-      呼び出しをまたいで紐付け・決済状態が保持されない(実Firestore接続後に解消される
-      既知の限界)。
+      呼び出しをまたいで紐付け・決済状態・プランIDが保持されない(実Firestore接続後に
+      解消される既知の限界)。
     - resolve_user_id: `make_resolve_user_id(user_profile_store)`。紐付けがまだ無い
       stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
       unresolved_customersとして安全に扱い200を返す。
@@ -316,6 +332,7 @@ def get_stripe_runtime_dependencies() -> dict:
         "resolve_user_id": make_resolve_user_id(user_profile_store),
         "user_profile_store": user_profile_store,
         "payment_store": user_profile_store,
+        "plan_store": user_profile_store,
     }
 
 

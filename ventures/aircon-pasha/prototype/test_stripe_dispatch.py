@@ -43,6 +43,33 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         self.assertEqual(result.marked_user_ids, [_USER_ID])
         self.assertIsNotNone(store.get_deletion_candidate_at(_USER_ID))
 
+    def test_clears_current_plan_id_when_plan_store_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        plan_store = _profile_store_with_user()
+        plan_store.set_current_plan_id(_USER_ID, "スタンダード")
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, plan_store=plan_store
+        )
+        self.assertEqual(result.plan_cleared_user_ids, [_USER_ID])
+        self.assertIsNone(plan_store.get_current_plan_id(_USER_ID))
+
+    def test_plan_id_untouched_when_plan_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.plan_cleared_user_ids, [])
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {
@@ -97,6 +124,56 @@ class DispatchSubscriptionCreatedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.cleared_user_ids, [_USER_ID])
 
+    def test_syncs_current_plan_id_when_plan_store_provided_and_lookup_key_known(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        plan_store = _profile_store_with_user()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "items": {"data": [{"price": {"lookup_key": "aircon_pasha_busy"}}]},
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, plan_store=plan_store
+        )
+        self.assertEqual(result.plan_synced_user_ids, [_USER_ID])
+        self.assertEqual(plan_store.get_current_plan_id(_USER_ID), "繁忙期対応")
+
+    def test_plan_id_untouched_when_lookup_key_unknown(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        plan_store = _profile_store_with_user()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "items": {"data": [{"price": {"lookup_key": "not_a_plan"}}]},
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, plan_store=plan_store
+        )
+        self.assertEqual(result.plan_synced_user_ids, [])
+        self.assertIsNone(plan_store.get_current_plan_id(_USER_ID))
+
+    def test_no_plan_sync_attempted_when_plan_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "items": {"data": [{"price": {"lookup_key": "aircon_pasha_small"}}]},
+                }
+            },
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.plan_synced_user_ids, [])
+
 
 class DispatchSubscriptionUpdatedTest(unittest.TestCase):
     def test_clears_when_status_active(self):
@@ -137,6 +214,32 @@ class DispatchSubscriptionUpdatedTest(unittest.TestCase):
         }
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.cleared_user_ids, [])
+
+    def test_syncs_current_plan_id_on_upgrade_regardless_of_deletion_candidate_status(self):
+        # design: current_plan_idは「customer.subscription.*受信のたびに」更新する対象で、
+        # 削除候補化(status)の判定条件とは独立している(past_dueでもプラン変更自体は
+        # 起こりうる)ことを確認する。
+        store = InMemoryProfileDeletionCandidateStore()
+        plan_store = _profile_store_with_user()
+        plan_store.set_current_plan_id(_USER_ID, "スモール")
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "past_due",
+                    "items": {
+                        "data": [{"price": {"lookup_key": "aircon_pasha_standard"}}]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, plan_store=plan_store
+        )
+        self.assertEqual(result.cleared_user_ids, [])
+        self.assertEqual(result.plan_synced_user_ids, [_USER_ID])
+        self.assertEqual(plan_store.get_current_plan_id(_USER_ID), "スタンダード")
 
 
 def _profile_store_with_user() -> InMemoryUserProfileStore:

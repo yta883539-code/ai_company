@@ -107,6 +107,11 @@ course-set-pasha/subscription-cancellation-flow-design.mdがWebSearchで確認�
   (実装自体はオーナー承認待ちの範囲)。(解消済み 2026-08-23・フェーズ107:
   user-account-linking-design.mdで`user_profile/{user_id}.current_plan_id`フィールドとして
   設計した。`customer.subscription.*`受信のたびに更新する方針を確定済み)。
+  (実装済み 2026-08-31・フェーズ161: `current_plan_id`への実際の書き込み処理
+  〈`prototype/subscription_plan_sync.py`・`stripe_dispatch.py`の`plan_store`配線〉を
+  実装した。ただし`process_memo_event()`側が`current_plan_id`を読んで`plan`引数へ
+  反映する配線〈月間生成回数の上限判定・上限接近通知に実際に使う経路〉はまだ未着手のまま
+  次回以降の課題として残る)。
 
 ## 本venture固有の論点: 季節性に伴うダウングレードの偏り
 

@@ -401,5 +401,51 @@ class InMemoryUserProfileStorePaymentFailureReminderFieldTest(unittest.TestCase)
         self.assertIsNone(store.get_payment_failure_reminder_sent_at("no-such-user"))
 
 
+class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
+    """user-account-linking-design.md 4節向けに追加した`current_plan_id`の単体テスト
+    (フェーズ161、subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが
+    構造的に満たすためのメソッド)。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_defaults_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_current_plan_id("u-1"))
+
+    def test_set_and_get(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_current_plan_id("u-1", "スタンダード")
+
+        self.assertEqual(store.get_current_plan_id("u-1"), "スタンダード")
+        self.assertEqual(store.get("u-1").current_plan_id, "スタンダード")
+
+    def test_set_none_clears_the_field(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_current_plan_id("u-1", "スモール")
+
+        store.set_current_plan_id("u-1", None)
+
+        self.assertIsNone(store.get_current_plan_id("u-1"))
+
+    def test_setter_is_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_current_plan_id("no-such-user", "スモール")
+
+        self.assertIsNone(store.get_current_plan_id("no-such-user"))
+
+
 if __name__ == "__main__":
     unittest.main()

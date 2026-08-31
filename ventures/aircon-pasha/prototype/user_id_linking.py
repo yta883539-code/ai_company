@@ -156,7 +156,15 @@ class UserProfile:
     フラグ。`trial_end_notified_at`と同じ「一度設定されたら以降不変」フィールドで、
     `payment_failure_reminder_scheduler.py`の`send_payment_failure_reminders()`が
     送信成功時に1回だけ書き込む(`clear_payment_failure_on_success()`で決済成功が
-    確認された場合はこのフラグもクリアし、次回の決済失敗検知に備える)。"""
+    確認された場合はこのフラグもクリアし、次回の決済失敗検知に備える)。
+
+    `current_plan_id`はuser-account-linking-design.md 4節で予告されていたフィールド
+    (既定値`None`=未契約)で、当初から存在していたが実際に書き込む処理が長らく無いまま
+    残っていた配線漏れをフェーズ161で解消した。`subscription_plan_sync.py`の
+    `sync_current_plan_on_subscription_event()`/`clear_current_plan_on_subscription_
+    deleted()`が、Stripe Webhookの`customer.subscription.created/updated/deleted`受信の
+    たびに書き換える(`trial_generation_count`・`payment_failure_detected_at`等と同じく
+    不変フィールドではない)。"""
 
     business_name: str
     business_type: str
@@ -206,7 +214,12 @@ class UserProfileStoreProtocol(Protocol):
     `get_payment_failure_reminder_sent_at`/`set_payment_failure_reminder_sent_at`は
     フェーズ143で追加した、payment_failure_reminder_scheduler.pyの
     `PaymentFailureReminderSentAtWriter`(`set_trial_end_notified_at`と同じ、送信済み
-    フラグ書き込み専用の薄いProtocol)を本クラスが構造的に満たすためのメソッド。"""
+    フラグ書き込み専用の薄いProtocol)を本クラスが構造的に満たすためのメソッド。
+
+    `get_current_plan_id`/`set_current_plan_id`はフェーズ161で追加した、
+    subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが構造的に
+    (duck typing)満たすためのメソッド。未知の`user_id`に対する`set_current_plan_id`は
+    他のno-opメソッドと同じ安全側方針(何もしない)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -258,6 +271,12 @@ class UserProfileStoreProtocol(Protocol):
     def set_payment_failure_reminder_sent_at(
         self, user_id: str, value: Optional[datetime]
     ) -> None:
+        ...
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        ...
+
+    def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
         ...
 
 
@@ -355,6 +374,16 @@ class InMemoryUserProfileStore:
         if profile is None:
             return
         profile.payment_failure_reminder_sent_at = value
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        profile = self._profiles.get(user_id)
+        return profile.current_plan_id if profile is not None else None
+
+    def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.current_plan_id = plan_id
 
 
 @dataclass

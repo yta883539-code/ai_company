@@ -2245,4 +2245,40 @@
   schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-08-30 21:00 UTC
+- フェーズ161(2026-08-31 00:00 UTC): 直近8フェーズ(149・151・153〜160)が「既に実装済み
+  だが更新漏れのドキュメント記載を解消する」棚卸しに偏っていたため、各設計docの
+  「残課題」を実装コード側から再点検し、本当に未実装のまま残っている配線漏れを探した。
+  user-account-linking-design.md 4節・subscription-cancellation-flow-design.md
+  「当月生成回数上限の適用方法」がそれぞれ「`user_profile/{user_id}.current_plan_id`
+  フィールドを`customer.subscription.*`受信のたびに更新する」と確定済み(いずれもフェーズ
+  107)だったにもかかわらず、`UserProfile.current_plan_id`フィールド自体はフェーズ134で
+  追加された既定値`None`のまま、実際に書き込む処理が一度も実装されていなかった(直近の
+  棚卸し8件はいずれも「ドキュメント記載の更新漏れ」だったのに対し、これは「コード側の
+  実装自体の抜け」という異なる種類のギャップ)。新規`prototype/subscription_plan_sync.py`
+  (deletion_candidate.py・payment_failure.pyと同じ位置づけの薄いProtocol・純粋関数)を
+  新設し、`resolve_plan_id_from_subscription()`(Stripeの`items.data[0].price.
+  lookup_key`から`LOOKUP_KEY_TO_PLAN_ID`経由でpricing-plan.mdの3プラン名へ解決、
+  未知のlookup_key・欠落時はNoneで現状維持)・`sync_current_plan_on_subscription_event()`・
+  `clear_current_plan_on_subscription_deleted()`の3関数を実装した。`user_id_linking.py`の
+  `UserProfileStoreProtocol`/`InMemoryUserProfileStore`に`get_current_plan_id`/
+  `set_current_plan_id`を追加し(フェーズ140の`PaymentFailureStoreProtocol`と同じ考え方で、
+  専用のInMemoryストアは新設せず`InMemoryUserProfileStore`が`CurrentPlanStoreProtocol`を
+  構造的にduck typingで満たす形にした)、`stripe_dispatch.py`の`dispatch_stripe_event()`に
+  `plan_store`引数(省略時はこれまで通り同期を行わない後方互換)を追加して
+  `customer.subscription.created/updated`受信時の同期・`deleted`受信時のクリアを配線した
+  (結果集約用に`plan_synced_user_ids`・`plan_cleared_user_ids`をStripeDispatchResultへ
+  新設)。フェーズ149・153・155・156・157・158と同種の「HTTPエントリポイントへの委譲漏れ」
+  を防ぐため、`stripe_webhook.py`の`receive_stripe_webhook()`・
+  `get_stripe_runtime_dependencies()`にも同じ`plan_store`(`payment_store`と同じ
+  `InMemoryUserProfileStore`インスタンスを共用)を配線した。テスト28件追加
+  (test_subscription_plan_sync.py新規作成13件、test_stripe_dispatch.py 6件、
+  test_stripe_webhook.py 5件、test_user_id_linking.py 4件)、venture全体354件全件パス・
+  schema/validate_test_cases.py 9件全件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  `current_plan_id`の書き込み配線は完成したが、`cloud_function_webhook.py`の
+  `process_memo_event()`側が`current_plan_id`を読んで月間生成回数の上限判定・上限接近
+  通知に使う`plan`引数へ実際に反映する配線(limit-approaching-notification-design.md・
+  subscription-cancellation-flow-design.mdが前提とする「Stripeで受信した最新プランIDを
+  上限判定に使う」の後段部分)はまだ未着手のまま次回以降の課題として残る(該当箇所に
+  追記済み)。次回はこちらへの着手を優先候補とする。
+- 最終更新: 2026-08-31 00:00 UTC

@@ -605,6 +605,102 @@ class ReceiveStripeWebhookPaymentFailureWiringTest(unittest.TestCase):
         self.assertIsNotNone(payment_store.get_payment_suspended_at("user_1"))
 
 
+class ReceiveStripeWebhookPlanSyncWiringTest(unittest.TestCase):
+    """フェーズ161: `dispatch_stripe_event()`は`plan_store`経由で`customer.
+    subscription.created/updated/deleted`受信時に`current_plan_id`を同期できる設計
+    (subscription_plan_sync.py)だが、`receive_stripe_webhook()`側の委譲配線が
+    存在しなかった配線漏れを解消したことの確認(フェーズ149の`payment_store`と同種の
+    観点)。"""
+
+    def test_ignored_without_plan_store_but_still_dispatches(self):
+        """後方互換: plan_store省略時でもcustomer.subscription.createdの削除候補解除
+        自体は従来通り行われ、current_plan_idには一切触れない。"""
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": "cus_1",
+                    "items": {
+                        "data": [{"price": {"lookup_key": "aircon_pasha_standard"}}]
+                    },
+                }
+            },
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body, header, SECRET, store=store, resolve_user_id=resolve_user_id, now=NOW_DT
+        )
+
+        self.assertEqual(result.dispatch_result.cleared_user_ids, ["user_1"])
+        self.assertEqual(result.dispatch_result.plan_synced_user_ids, [])
+        self.assertIsNone(payment_store.get_current_plan_id("user_1"))
+
+    def test_syncs_current_plan_id_when_plan_store_provided(self):
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": "cus_1",
+                    "items": {
+                        "data": [{"price": {"lookup_key": "aircon_pasha_standard"}}]
+                    },
+                }
+            },
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            plan_store=payment_store,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.dispatch_result.plan_synced_user_ids, ["user_1"])
+        self.assertEqual(payment_store.get_current_plan_id("user_1"), "スタンダード")
+
+    def test_clears_current_plan_id_on_subscription_deleted_when_plan_store_provided(self):
+        payment_store = _payment_profile_store("user_1")
+        payment_store.set_current_plan_id("user_1", "スタンダード")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            plan_store=payment_store,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.dispatch_result.plan_cleared_user_ids, ["user_1"])
+        self.assertIsNone(payment_store.get_current_plan_id("user_1"))
+
+
 class _StubFlaskRequest:
     """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ
     (course-set-pasha/prototype/test_stripe_webhook.py `_StubFlaskRequest`と対称)。"""
@@ -786,6 +882,69 @@ class GetStripeRuntimeDependenciesResolutionTest(unittest.TestCase):
 
         self.assertEqual(
             subscription_result.dispatch_result.unresolved_customers, ["cus_A"]
+        )
+
+    def test_plan_store_key_present_and_shares_instance_with_payment_store(self):
+        # フェーズ161: plan_storeもuser_profile_store/payment_storeと同一インスタンス
+        # (duck typing)であることを確認する。
+        deps = get_stripe_runtime_dependencies()
+        self.assertIn("plan_store", deps)
+        self.assertIs(deps["plan_store"], deps["user_profile_store"])
+
+    def test_current_plan_id_is_synced_by_subsequent_subscription_event(self):
+        deps = get_stripe_runtime_dependencies()
+        deps["user_profile_store"].save(
+            "U1",
+            UserProfile(
+                business_name="テスト事業者",
+                business_type="独立系",
+                email="u1@example.com",
+                linked_at=NOW_DT,
+            ),
+        )
+
+        checkout_body = json.dumps(
+            {
+                "id": "evt_checkout",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {"client_reference_id": "U1", "customer": "cus_A"}
+                },
+            }
+        ).encode("utf-8")
+        receive_stripe_webhook(
+            checkout_body,
+            self._signed_header(checkout_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+
+        subscription_body = json.dumps(
+            {
+                "id": "evt_sub_created",
+                "type": "customer.subscription.created",
+                "data": {
+                    "object": {
+                        "customer": "cus_A",
+                        "items": {
+                            "data": [
+                                {"price": {"lookup_key": "aircon_pasha_busy"}}
+                            ]
+                        },
+                    }
+                },
+            }
+        ).encode("utf-8")
+        subscription_result = receive_stripe_webhook(
+            subscription_body,
+            self._signed_header(subscription_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+
+        self.assertEqual(subscription_result.dispatch_result.plan_synced_user_ids, ["U1"])
+        self.assertEqual(
+            deps["user_profile_store"].get_current_plan_id("U1"), "繁忙期対応"
         )
 
 
