@@ -16,6 +16,7 @@ from cloud_function_payment_webhook import (
     OUTCOME_SEND_FAILED,
     OUTCOME_SILENT_RESET,
     classify_payment_succeeded,
+    handle_payment_failed,
     handle_payment_succeeded,
 )
 from cloud_function_send_dunning_notifications import StoreDunningState
@@ -171,6 +172,39 @@ class HandlePaymentSucceededTests(unittest.TestCase):
         handle_payment_succeeded(state, push)
 
         self.assertIn("いたしました", push.sent[0][1])
+
+
+class HandlePaymentFailedTests(unittest.TestCase):
+    """stripe-webhook-event-dispatch-design.md 4節。invoice.payment_failed受信時の検知時刻書き込み。"""
+
+    def test_fresh_state_records_detected_at_and_returns_true(self):
+        state = _store(payment_failure_detected_at=None, suspension_reason=None)
+        event_time = datetime(2026, 8, 31, 9, 0)
+
+        result = handle_payment_failed(state, event_time)
+
+        self.assertTrue(result)
+        self.assertEqual(state.payment_failure_detected_at, event_time)
+
+    def test_already_detected_is_not_overwritten(self):
+        """Stripeの決済失敗リトライで複数回届いても、検知時刻(dunning起点)はずらさない。"""
+        state = _store(payment_failure_detected_at=DETECTED_AT, suspension_reason=None)
+        later = datetime(2026, 8, 31, 9, 0)
+
+        result = handle_payment_failed(state, later)
+
+        self.assertFalse(result)
+        self.assertEqual(state.payment_failure_detected_at, DETECTED_AT)
+
+    def test_trial_unselected_is_out_of_scope(self):
+        """別の休止経路(trial_unselected)の状態には触れない。"""
+        state = _store(payment_failure_detected_at=None, suspension_reason="trial_unselected")
+        event_time = datetime(2026, 8, 31, 9, 0)
+
+        result = handle_payment_failed(state, event_time)
+
+        self.assertFalse(result)
+        self.assertIsNone(state.payment_failure_detected_at)
 
 
 if __name__ == "__main__":

@@ -1706,6 +1706,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ続き159(2026-08-31 10:00 UTC): フェーズ続き158の残課題(責務分担の整理)に
+  対応し、stripe-webhook-event-dispatch-design.mdを新規作成した。`cloud_function_payment_
+  webhook.py`(概念名`payment_succeeded`)・`cloud_function_subscription_activated_
+  webhook.py`(概念名`subscription_activated`)が実際のStripeイベント種別を明示していな
+  かった点を整理し、前者は`invoice.payment_succeeded`、後者はcheckout-initiation-flow-
+  design.mdの決済導線が発行する`checkout.session.completed`が実体であると確定した。この
+  棚卸しの過程で、`cloud_function_send_dunning_notifications.py`が読む`payment_failure_
+  detected_at`(dunningスケジュール全体の起点)を実際に書き込むハンドラが本venture内の
+  どこにも存在しない欠落(`_demo()`が手動で埋めたテスト用データのみで検証していた)を
+  発見し、`cloud_function_payment_webhook.py`に`handle_payment_failed()`を新設して解消
+  した(Stripeの決済失敗リトライで複数回イベントが届いても検知時刻を上書きしない冪等性、
+  および`trial_unselected`側の状態には触れない責務分離を担保)。あわせて`prototype/
+  stripe_webhook.py`に`route_stripe_event()`を実装し、`checkout.session.completed`は
+  `client_reference_id`から店舗IDを直接解決(本venture固有の単純化点、外部コールバック
+  不要)、`invoice.payment_succeeded`/`invoice.payment_failed`は注入された`resolve_
+  store_id_by_customer`経由で解決する設計とした。実際にFirestore状態を読み込みハンドラを
+  呼び出すCloud Functionsエントリポイント本体、および`customer → store_id`変換テーブル
+  自体の実装は、実Firestore接続が前提のため引き続き次回以降の課題として残る(design 5節
+  参照)。テスト9件追加(route_stripe_event 6件・handle_payment_failed 3件)、venture
+  全体450件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加の
+  みで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 10:00 UTC
+
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
   「残課題」に残っていた、`store_profile_store.evaluate_onboarding_completion_message_

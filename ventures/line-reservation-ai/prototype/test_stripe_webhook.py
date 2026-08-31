@@ -2,7 +2,13 @@ import hashlib
 import hmac
 import unittest
 
-from stripe_webhook import verify_stripe_signature
+from stripe_webhook import (
+    EVENT_CHECKOUT_SESSION_COMPLETED,
+    EVENT_INVOICE_PAYMENT_FAILED,
+    EVENT_INVOICE_PAYMENT_SUCCEEDED,
+    route_stripe_event,
+    verify_stripe_signature,
+)
 
 SECRET = "whsec_test_secret"
 PAYLOAD = b'{"id":"evt_1","type":"checkout.session.completed"}'
@@ -72,6 +78,77 @@ class VerifyStripeSignatureTest(unittest.TestCase):
         v0_sig = hmac.new(SECRET.encode("utf-8"), PAYLOAD, hashlib.sha1).hexdigest()
         header = f"t={timestamp},v0={v0_sig}"
         self.assertFalse(verify_stripe_signature(PAYLOAD, header, SECRET, now=NOW))
+
+
+def _raise_if_called(customer_id: str):
+    raise AssertionError(
+        "resolve_store_id_by_customer must not be called for checkout.session.completed"
+    )
+
+
+class RouteStripeEventTest(unittest.TestCase):
+    def test_ignored_event_type(self):
+        route = route_stripe_event(
+            {"type": "invoice.paid", "data": {"object": {}}},
+            resolve_store_id_by_customer=_raise_if_called,
+        )
+        self.assertTrue(route.ignored)
+        self.assertIsNone(route.store_id)
+
+    def test_checkout_session_completed_uses_client_reference_id_directly(self):
+        event = {
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {
+                "object": {
+                    "client_reference_id": "store-owner-line-id-1",
+                    "customer": "cus_ABC123",
+                }
+            },
+        }
+        route = route_stripe_event(event, resolve_store_id_by_customer=_raise_if_called)
+        self.assertEqual(route.store_id, "store-owner-line-id-1")
+        self.assertEqual(route.customer_id, "cus_ABC123")
+        self.assertFalse(route.unresolved_customer)
+        self.assertFalse(route.ignored)
+
+    def test_checkout_session_completed_missing_client_reference_id_is_unresolved(self):
+        event = {
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {"object": {"customer": "cus_ABC123"}},
+        }
+        route = route_stripe_event(event, resolve_store_id_by_customer=_raise_if_called)
+        self.assertTrue(route.unresolved_customer)
+        self.assertIsNone(route.store_id)
+
+    def test_invoice_payment_succeeded_resolves_via_customer(self):
+        event = {
+            "type": EVENT_INVOICE_PAYMENT_SUCCEEDED,
+            "data": {"object": {"customer": "cus_XYZ789"}},
+        }
+        route = route_stripe_event(
+            event,
+            resolve_store_id_by_customer=lambda customer_id: {
+                "cus_XYZ789": "store-owner-line-id-2"
+            }.get(customer_id),
+        )
+        self.assertEqual(route.store_id, "store-owner-line-id-2")
+        self.assertFalse(route.unresolved_customer)
+
+    def test_invoice_payment_failed_unknown_customer_is_unresolved(self):
+        event = {
+            "type": EVENT_INVOICE_PAYMENT_FAILED,
+            "data": {"object": {"customer": "cus_UNKNOWN"}},
+        }
+        route = route_stripe_event(
+            event, resolve_store_id_by_customer=lambda customer_id: None
+        )
+        self.assertTrue(route.unresolved_customer)
+        self.assertIsNone(route.store_id)
+
+    def test_invoice_event_missing_customer_is_unresolved(self):
+        event = {"type": EVENT_INVOICE_PAYMENT_FAILED, "data": {"object": {}}}
+        route = route_stripe_event(event, resolve_store_id_by_customer=_raise_if_called)
+        self.assertTrue(route.unresolved_customer)
 
 
 if __name__ == "__main__":

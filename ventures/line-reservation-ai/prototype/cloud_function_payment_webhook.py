@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -127,6 +128,35 @@ def handle_payment_succeeded(
 
     _clear_dunning_state(state)
     return PaymentSucceededResult(outcome=outcome, notified=True, state_reset=True)
+
+
+def handle_payment_failed(state: StoreDunningState, event_time: datetime) -> bool:
+    """決済代行サービスの`invoice.payment_failed`Webhook受信時の処理本体
+    (stripe-webhook-event-dispatch-design.md 4節)。
+
+    フェーズ続き159で新設。従来、`payment_failure_detected_at`(本モジュールの
+    `classify_payment_succeeded()`や`cloud_function_send_dunning_notifications.py`が読む
+    dunningスケジュールの起点)を実際に書き込むハンドラが本venture内のどこにも存在せず、
+    `_demo()`が手動でこのフィールドを埋めたStoreDunningStateを使って検証していただけだった
+    という欠落を埋める。
+
+    - 既に`payment_failure_detected_at`が設定済み(dunning進行中)の場合は何もせず`False`。
+      Stripeは決済失敗を複数回リトライしうるため、2回目以降の`invoice.payment_failed`で
+      検知時刻を上書きするとdunningスケジュールの起点がずれてしまう(冪等性を状態そのもので
+      担保する既存方針`classify_payment_succeeded()`と同じ考え方)。
+    - `suspension_reason == "trial_unselected"`(既存の別の休止経路)の場合も何もせず
+      `False`。cloud_function_subscription_activated_webhook.pyの`classify_subscription_
+      activated()`が`payment_failed`側の状態に触れないのと対称に、本関数も
+      `trial_unselected`側の状態には触れない。
+    - それ以外は`payment_failure_detected_at`にevent_timeを設定し`True`を返す(呼び出し側で
+      Firestoreへ書き戻すことでdunningスケジュールが起動する)。
+    """
+    if state.payment_failure_detected_at is not None:
+        return False
+    if state.suspension_reason == "trial_unselected":
+        return False
+    state.payment_failure_detected_at = event_time
+    return True
 
 
 def _demo() -> None:
