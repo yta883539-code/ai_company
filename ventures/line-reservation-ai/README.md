@@ -1789,7 +1789,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   design側の「残課題」に記録した(本フェーズでは既存モジュールへの変更は見送り)。
   承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 16:00 UTC
+- フェーズ続き163(2026-08-31 18:00 UTC): aircon-pashaフェーズ165の申し送り通り、本venture
+  に未着手のまま残っていたLINE `follow`/`unfollow`Webhookイベントの扱いを設計した
+  (follow-unfollow-event-handling-design.md新規作成)。設計の過程で、`prototype/
+  cloud_function_process_event.py`の`ConversationEventProcessor.process()`が
+  `event["type"]`を一度も参照しておらず、`follow`/`unfollow`イベントもそのまま
+  `message`向けのintent処理経路に流れ込んでしまう実装上の空白を発見した。本venture固有の
+  事情(店舗のLINE公式アカウントを主にフォローするのは顧客であり、オーナー自身も同じ
+  アカウントをフォローする側であるため、aircon-pasha/course-set-pashaのように「フォロー
+  した人=課金する事業者本人」が常には成立しない)を踏まえ、(1)`event["type"]`による
+  振り分け層(`dispatch_process_event()`)の新設方針、(2)followイベント: オーナー/顧客の
+  判別ができない前提での共通ウェルカムメッセージ文言、(3)unfollowイベント: 会話状態・
+  `bookingSlots`・通知ログのいずれも変更しない(data-retention-policy.mdの保持方針と
+  aircon-pasha/course-set-pashaの「LINEブロックとStripe解約は別レイヤー」原則を踏襲)、
+  の3点を整理した。`owner_user_id`(owner-notification-channel-design.md)と
+  Stripe決済導線が用いる`store_id`/`user_id`が同一のLINE userIdかどうかは未確認のまま
+  残したため、これを確認できればaircon-pashaのunfollow-billing-faq.md相当の文書が本
+  ventureにも必要になる可能性がある。プロトタイプ実装・テスト追加は行っていない
+  (設計のみ、次回以降のフェーズで着手)。承認不要な設計のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 18:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
