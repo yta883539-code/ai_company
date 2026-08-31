@@ -1728,7 +1728,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   全体450件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加の
   みで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 10:00 UTC
+
+- フェーズ続き160(2026-08-31 11:00 UTC): フェーズ続き159の残課題(stripe-webhook-event-
+  dispatch-design.md 5節「`customer → store_id`変換テーブル自体も未設計」)に対応し、
+  stripe-customer-id-reverse-lookup-design.mdを新規作成した。course-set-pasha/
+  stripe-customer-id-linking-design.md(フェーズ97)と同じ課題設定だが、本ventureは
+  `user_id`をそのまま`store_id`として扱うため、既存の`store_profile_store.py`の順引き
+  インデックス(`user_id → stripe_customer_id`、checkout-initiation-flow-design.mdで
+  実装済み)に逆引き辞書を追加するだけで解決できると判断した。`StoreProfileStoreProtocol`に
+  `get_store_id_by_stripe_customer_id()`を追加し、`InMemoryStoreProfileStore.
+  set_stripe_customer_id()`が順引き・逆引き両方を同時に更新するよう拡張(同一user_idへの
+  再紐付け時に古い逆引きエントリが残り別店舗への誤解決を招くリスクを防ぐため、古いエントリの
+  除去も実装)。`route_stripe_event()`への結線用に`make_resolve_store_id_by_customer()`を
+  新設した。テスト11件追加(`GetStoreIdByStripeCustomerIdTest`5件・
+  `MakeResolveStoreIdByCustomerTest`2件・`HandleCheckoutSessionCompletedTest`への追加1件・
+  `RouteStripeEventWithStoreProfileStoreWiringTest`3件、うち後者は`checkout.session.
+  completed`受信→`invoice.payment_succeeded`/`invoice.payment_failed`が実際に`store_id`を
+  解決できることを結線レベルで確認)、venture全体461件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、既存450件+新規11件)・
+  `schema/validate_test_cases.py`25件全件パスを確認した。stripe-webhook-event-dispatch-
+  design.md 5節「残課題」にも本フェーズで解消済みの旨を追記した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。残る課題は実際のCloud Functionsエントリポイント本体
+  (実Firestore接続が前提、オーナー承認待ち)のみ。
+- 最終更新: 2026-08-31 11:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

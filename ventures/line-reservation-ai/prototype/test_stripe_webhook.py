@@ -2,6 +2,11 @@ import hashlib
 import hmac
 import unittest
 
+from store_profile_store import (
+    InMemoryStoreProfileStore,
+    handle_checkout_session_completed,
+    make_resolve_store_id_by_customer,
+)
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_INVOICE_PAYMENT_FAILED,
@@ -149,6 +154,73 @@ class RouteStripeEventTest(unittest.TestCase):
         event = {"type": EVENT_INVOICE_PAYMENT_FAILED, "data": {"object": {}}}
         route = route_stripe_event(event, resolve_store_id_by_customer=_raise_if_called)
         self.assertTrue(route.unresolved_customer)
+
+
+class RouteStripeEventWithStoreProfileStoreWiringTest(unittest.TestCase):
+    """stripe-webhook-event-dispatch-design.md 5節・stripe-customer-id-reverse-lookup-
+    design.md: checkout.session.completed受信でstore_profile_store.pyに書き込まれた
+    紐付けを、後続のinvoice.payment_succeeded/invoice.payment_failedが
+    make_resolve_store_id_by_customer()経由で実際に解決できることを結線レベルで確認する
+    (course-set-pashaのDispatchStripeEventWiringTest系と同種のテスト)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+        self.resolve_store_id_by_customer = make_resolve_store_id_by_customer(self.store)
+
+    def test_customer_unresolved_before_checkout_session_completed(self):
+        event = {
+            "type": EVENT_INVOICE_PAYMENT_SUCCEEDED,
+            "data": {"object": {"customer": "cus_ABC123"}},
+        }
+        route = route_stripe_event(
+            event, resolve_store_id_by_customer=self.resolve_store_id_by_customer
+        )
+        self.assertTrue(route.unresolved_customer)
+        self.assertIsNone(route.store_id)
+
+    def test_invoice_payment_succeeded_resolves_after_checkout_session_completed(self):
+        checkout_event = {
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {
+                "object": {
+                    "client_reference_id": "store-owner-line-id-1",
+                    "customer": "cus_ABC123",
+                }
+            },
+        }
+        handle_checkout_session_completed(checkout_event, self.store)
+
+        invoice_event = {
+            "type": EVENT_INVOICE_PAYMENT_SUCCEEDED,
+            "data": {"object": {"customer": "cus_ABC123"}},
+        }
+        route = route_stripe_event(
+            invoice_event, resolve_store_id_by_customer=self.resolve_store_id_by_customer
+        )
+        self.assertEqual(route.store_id, "store-owner-line-id-1")
+        self.assertFalse(route.unresolved_customer)
+
+    def test_invoice_payment_failed_resolves_after_checkout_session_completed(self):
+        checkout_event = {
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {
+                "object": {
+                    "client_reference_id": "store-owner-line-id-1",
+                    "customer": "cus_ABC123",
+                }
+            },
+        }
+        handle_checkout_session_completed(checkout_event, self.store)
+
+        invoice_event = {
+            "type": EVENT_INVOICE_PAYMENT_FAILED,
+            "data": {"object": {"customer": "cus_ABC123"}},
+        }
+        route = route_stripe_event(
+            invoice_event, resolve_store_id_by_customer=self.resolve_store_id_by_customer
+        )
+        self.assertEqual(route.store_id, "store-owner-line-id-1")
+        self.assertFalse(route.unresolved_customer)
 
 
 if __name__ == "__main__":

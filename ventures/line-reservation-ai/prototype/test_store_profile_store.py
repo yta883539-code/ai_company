@@ -13,6 +13,7 @@ from store_profile_store import (  # noqa: E402
     InMemoryStoreProfileStore,
     evaluate_onboarding_completion_message_dispatch,
     handle_checkout_session_completed,
+    make_resolve_store_id_by_customer,
     resolve_existing_stripe_customer_id,
 )
 
@@ -41,6 +42,64 @@ class InMemoryStoreProfileStoreTest(unittest.TestCase):
         store = InMemoryStoreProfileStore()
         store.set_stripe_customer_id("Uowner123", "cus_abc")
         self.assertIsNone(store.get_stripe_customer_id("Uowner999"))
+
+
+class GetStoreIdByStripeCustomerIdTest(unittest.TestCase):
+    """stripe-webhook-event-dispatch-design.md 5節・
+    stripe-customer-id-reverse-lookup-design.mdの逆引き。"""
+
+    def test_returns_none_when_unset(self):
+        store = InMemoryStoreProfileStore()
+        self.assertIsNone(store.get_store_id_by_stripe_customer_id("cus_abc"))
+
+    def test_reverse_lookup_after_forward_set(self):
+        store = InMemoryStoreProfileStore()
+        store.set_stripe_customer_id("Uowner123", "cus_abc")
+        self.assertEqual(
+            store.get_store_id_by_stripe_customer_id("cus_abc"), "Uowner123"
+        )
+
+    def test_replaying_same_link_is_idempotent(self):
+        store = InMemoryStoreProfileStore()
+        store.set_stripe_customer_id("Uowner123", "cus_abc")
+        store.set_stripe_customer_id("Uowner123", "cus_abc")
+        self.assertEqual(
+            store.get_store_id_by_stripe_customer_id("cus_abc"), "Uowner123"
+        )
+
+    def test_relinking_user_to_new_customer_id_drops_stale_reverse_entry(self):
+        store = InMemoryStoreProfileStore()
+        store.set_stripe_customer_id("Uowner123", "cus_old")
+        store.set_stripe_customer_id("Uowner123", "cus_new")
+        self.assertIsNone(store.get_store_id_by_stripe_customer_id("cus_old"))
+        self.assertEqual(
+            store.get_store_id_by_stripe_customer_id("cus_new"), "Uowner123"
+        )
+        self.assertEqual(store.get_stripe_customer_id("Uowner123"), "cus_new")
+
+    def test_different_customers_are_isolated(self):
+        store = InMemoryStoreProfileStore()
+        store.set_stripe_customer_id("Uowner123", "cus_abc")
+        store.set_stripe_customer_id("Uowner999", "cus_xyz")
+        self.assertEqual(
+            store.get_store_id_by_stripe_customer_id("cus_abc"), "Uowner123"
+        )
+        self.assertEqual(
+            store.get_store_id_by_stripe_customer_id("cus_xyz"), "Uowner999"
+        )
+
+
+class MakeResolveStoreIdByCustomerTest(unittest.TestCase):
+    def test_returns_callable_backed_by_store(self):
+        store = InMemoryStoreProfileStore()
+        store.set_stripe_customer_id("Uowner123", "cus_abc")
+        resolve = make_resolve_store_id_by_customer(store)
+        self.assertEqual(resolve("cus_abc"), "Uowner123")
+
+    def test_returns_none_for_unknown_customer(self):
+        store = InMemoryStoreProfileStore()
+        resolve = make_resolve_store_id_by_customer(store)
+        self.assertIsNone(resolve("cus_unknown"))
 
 
 class ResolveExistingStripeCustomerIdTest(unittest.TestCase):
@@ -133,6 +192,18 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         second = handle_checkout_session_completed(event, self.store)
         self.assertTrue(second.linked)
         self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_abc")
+
+    def test_linking_also_populates_reverse_lookup(self):
+        """stripe-webhook-event-dispatch-design.md 5節: checkout.session.completed受信時に
+        後続のinvoice.payment_succeeded等が使う逆引きも同時に整備されることを確認する。"""
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "Uowner123", "customer": "cus_abc"}},
+        }
+        handle_checkout_session_completed(event, self.store)
+        self.assertEqual(
+            self.store.get_store_id_by_stripe_customer_id("cus_abc"), "Uowner123"
+        )
 
 
 class EvaluateOnboardingCompletionMessageDispatchTest(unittest.TestCase):

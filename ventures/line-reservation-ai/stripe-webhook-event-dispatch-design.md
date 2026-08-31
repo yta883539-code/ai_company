@@ -109,9 +109,12 @@ def handle_payment_failed(state: StoreDunningState, event_time: datetime) -> boo
   Firestore読み込み→該当ハンドラ〈`handle_payment_succeeded()`/`handle_subscription_
   activated()`/`handle_payment_failed()`〉呼び出し→書き戻し、の一連の配線)は、実Firestore
   接続(オーナー承認待ち)が前提のため引き続き次回以降の課題として残る。
-- `customer → store_id`変換テーブル(`resolve_store_id_by_customer`の実装)自体も未設計。
-  `checkout.session.completed`受信時に得られる`customer`を店舗プロフィールへ
-  `stripe_customer_id`として書き込むタイミングの設計が必要(course-set-pashaが
-  `stripe-customer-id-linking-design.md`〈フェーズ97〉で行ったのと同種の課題)。
+- (解消済み 2026-08-31・フェーズ続き160: `customer → store_id`変換テーブルを
+  stripe-customer-id-reverse-lookup-design.mdとして設計・実装した。
+  `store_profile_store.py`に`get_store_id_by_stripe_customer_id()`(逆引き)・
+  `make_resolve_store_id_by_customer()`(`route_stripe_event()`への結線用ファクトリ)を
+  追加し、既存の`handle_checkout_session_completed()`が順引きと同時に逆引きも書き込むよう
+  拡張した。テスト11件追加、venture全体461件全件パス。実際のCloud Functionsエントリ
+  ポイント本体は実Firestore接続が前提のため引き続き次回以降の課題として残る)。
 - 実Stripe Webhookエンドポイントのデプロイ・`webhook_secret`の取得・保管はいずれも
   オーナー承認待ちの範囲(pending-approval.md参照)。

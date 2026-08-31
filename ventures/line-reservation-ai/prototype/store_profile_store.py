@@ -29,15 +29,24 @@
   `consume_first_booking_self_check()`と同じ「店舗全体で最初の1回のみ」パターンを、
   `ConversationFlowStateMachine`側ではなく店舗プロフィールストア側(owner-settings-
   wireframe.mdのフォーム保存処理から呼ばれる想定)に実装したもの。
+- `get_store_id_by_stripe_customer_id()`・`make_resolve_store_id_by_customer()`
+  (2026-08-31追記): stripe-webhook-event-dispatch-design.md 5節・stripe-customer-id-
+  reverse-lookup-design.md「残課題」に残っていた、`route_stripe_event()`
+  (stripe_webhook.py)が`invoice.payment_succeeded`/`invoice.payment_failed`受信時に
+  必要とする`resolve_store_id_by_customer`(`customer → store_id`逆引き)の実装本体。
+  course-set-pasha/stripe-customer-id-linking-design.mdの
+  `get_user_id_by_stripe_customer_id`と同じ考え方だが、本ventureは`user_id`をそのまま
+  `store_id`として扱う(2節参照)ため、逆引き専用のメソッド名は`store_id`呼称に揃える。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・残課題、firestore-data-model.md 1節、
-onboarding-completion-message-design.md 残課題
+onboarding-completion-message-design.md 残課題、stripe-webhook-event-dispatch-design.md 5節、
+stripe-customer-id-reverse-lookup-design.md
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Callable, Optional, Protocol
 
 
 class StoreProfileStoreProtocol(Protocol):
@@ -48,6 +57,11 @@ class StoreProfileStoreProtocol(Protocol):
         ...
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        ...
+
+    def get_store_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
         ...
 
     def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
@@ -65,6 +79,7 @@ class InMemoryStoreProfileStore:
 
     def __init__(self) -> None:
         self._stripe_customer_ids: dict[str, str] = {}
+        self._store_ids_by_stripe_customer_id: dict[str, str] = {}
         self._onboarding_completion_message_sent: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
@@ -75,7 +90,23 @@ class InMemoryStoreProfileStore:
             raise ValueError("user_id must be a non-empty string")
         if not stripe_customer_id:
             raise ValueError("stripe_customer_id must be a non-empty string")
+        previous_stripe_customer_id = self._stripe_customer_ids.get(user_id)
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            # 同一user_idに別のstripe_customer_idが再紐付けされた場合、逆引き辞書に
+            # 古いcustomer_idのエントリが残ると別ユーザーへの誤解決につながるため除去する
+            # (通常はresolve_existing_stripe_customer_id()で既存customerが再利用されるため
+            # 起こらない想定だが、防御的に対応する)。
+            self._store_ids_by_stripe_customer_id.pop(previous_stripe_customer_id, None)
         self._stripe_customer_ids[user_id] = stripe_customer_id
+        self._store_ids_by_stripe_customer_id[stripe_customer_id] = user_id
+
+    def get_store_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        return self._store_ids_by_stripe_customer_id.get(stripe_customer_id)
 
     def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
         return user_id in self._onboarding_completion_message_sent
@@ -98,6 +129,18 @@ def resolve_existing_stripe_customer_id(
     if not user_id:
         raise ValueError("user_id must be a non-empty string")
     return store.get_stripe_customer_id(user_id)
+
+
+def make_resolve_store_id_by_customer(
+    store: StoreProfileStoreProtocol,
+) -> Callable[[str], Optional[str]]:
+    """stripe-webhook-event-dispatch-design.md 5節で残課題だった、
+    `route_stripe_event()`の`resolve_store_id_by_customer`引数の実装本体。
+    `store.get_store_id_by_stripe_customer_id`をそのまま返す薄いファクトリ
+    (course-set-pasha/stripe-customer-id-linking-design.mdの
+    `make_resolve_user_id()`と同じ考え方)。
+    """
+    return store.get_store_id_by_stripe_customer_id
 
 
 @dataclass
