@@ -36,8 +36,9 @@ message-design.mdの発火判定(`evaluate_onboarding_completion_message_dispatc
 - 臨時休業日の入力バリデーション: ad-hoc-closed-dates-support.md・本ワイヤーフレーム
   「臨時休業日」欄の追記が既に担当。
 - メッセージトーン・常連客とみなす来店回数・FAQ情報の保存: MVP必須項目ではないため
-  (onboarding-guide.mdステップ3の必須項目に含まれない)、発火判定に影響しない。
-  Firestoreへの書き込み自体は必要だが、次回以降の課題として残す。
+  (onboarding-guide.mdステップ3の必須項目に含まれない)、発火判定(3節の入力には含めない)には
+  影響させない。ただしFirestoreへの書き込み自体は7節で結線する(次回以降の課題として残していた
+  ものへの対応、2026-08-31定例更新)。
 
 ## 3. ペイロード形状
 
@@ -109,13 +110,61 @@ message_dispatch()`を呼び出す(判定→整形→送信までは実装済み
   tone="standard") -> StoreSettingsSubmissionResult`: 3節のペイロードを検証・4節の
   正規化を行い、5節の書き込み・結線までを行うエントリポイント。
 
+## 7. メッセージトーン・常連客閾値・FAQ情報の保存(2節「対象外」への対応)
+
+2節で「発火判定に影響しないため次回以降の課題」としていたメッセージトーン・常連客とみなす
+来店回数・FAQ情報について、保存処理(書き込みのみ)を本フローに結線する。発火判定
+(`evaluate_onboarding_completion_message_dispatch()`への入力)には引き続き含めない
+(3節のペイロードのうち`user_id`〜`menus`の5項目のみが判定対象という2節の方針は変更しない)。
+
+### 7.1 追加ペイロード項目
+
+```json
+{
+  "message_tone_raw": "standard",
+  "repeat_customer_visit_threshold_raw": "3回",
+  "faq_address": "○○駅から徒歩5分",
+  "faq_parking_available": "あり",
+  "faq_parking_capacity_raw": "3",
+  "faq_payment_methods": ["現金", "クレジット"]
+}
+```
+
+- `message_tone_raw`: owner-settings-wireframe.mdのプルダウン値(`standard`/`formal`/
+  `casual`のいずれか、message-tone-variants.md参照)。想定外の値は`standard`(既定値)に
+  フォールバックする(誤ったトーンで送信するより既定の安全な文体を優先する)。
+- `repeat_customer_visit_threshold_raw`: `"3回"`のような表示文字列。4節の
+  `_extract_positive_int()`を再利用して抽出する。抽出できない場合は`firestore-data-model.md`の
+  既定値3を書き込む(未入力によりprecheck-strengthening.mdの簡略化判定が機能しなくなることを
+  避けるため、`slot_interval_minutes`等とは異なり`None`のまま放置しない)。
+- `faq_address`/`faq_parking_available`/`faq_parking_capacity_raw`/`faq_payment_methods`:
+  owner-settings-wireframe.md「店舗FAQ情報の入力欄」に対応。`faq_parking_available`が
+  `"あり"`以外の場合は`faq_parking_capacity_raw`を無視する(ワイヤーフレームの条件分岐と
+  同じ)。`faq_payment_methods`は`["現金", "クレジット", "電子マネー", "QRコード決済"]`の
+  部分集合以外の値は不正入力として除外する(faq-response-templates.mdのテンプレート項目と
+  一致しない値を回答に使わせないため)。未入力の項目は`faqInfo`の対応キーを空文字列/空配列
+  のまま書き込む(owner-settings-wireframe.md 232行目の「空欄は未登録として扱う」方針どおり、
+  未登録扱いにするのが正しい挙動であり、エラーにはしない)。
+
+### 7.2 書き込み先
+
+`stores/{storeId}`ドキュメントの`messageTone`・`repeatCustomerVisitThreshold`・`faqInfo`
+(`{address, parking, paymentMethods}`、firestore-data-model.md 1節)へ、5節と同じ全体上書きで
+書き込む。発火判定への結線(5節)より後に実行する順序上の制約はない(判定対象外のため)。
+
+### 7.3 プロトタイプ実装方針
+
+`StoreSettingsStoreProtocol`に`set_message_tone`・`set_repeat_customer_visit_threshold`・
+`set_faq_info`を追加し、`InMemoryStoreSettingsStore`に対応する保持先を追加する。
+`normalize_message_tone()`・`normalize_repeat_customer_visit_threshold()`・
+`normalize_faq_info()`を新設し、`handle_store_settings_submission()`から6節のフィールドと
+同じ検証済みストアへの書き込み処理として呼び出す(発火判定ロジックへの入力には含めない)。
+
 ## 残課題
 
 - Googleフォーム自体の作成・GAS配置(外部サービスへの実設定)はオーナー承認待ち。
 - 曜日別営業時間(複数区間)トグルON時のペイロード形状・正規化は本ドキュメントの範囲外。
   weekday-specific-business-hours.md側の設計が確定次第、別途本フローへの統合を検討する。
-- メッセージトーン・常連客とみなす来店回数・FAQ情報の保存処理(MVP必須項目ではないため
-  発火判定には影響しないが、Firestoreへの書き込み自体は別途必要)。
 - 実Firestore接続後、`FirestoreStoreSettingsStore`が`StoreSettingsStoreProtocol`と
   `StoreProfileStoreProtocol`の両方を満たす実装になることの最終確認(実接続はオーナー
   承認待ち)。

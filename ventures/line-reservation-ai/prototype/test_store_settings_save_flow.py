@@ -13,7 +13,10 @@ from cloud_function_process_event import InMemoryLinePushClient  # noqa: E402
 from store_settings_save_flow import (  # noqa: E402
     InMemoryStoreSettingsStore,
     handle_store_settings_submission,
+    normalize_faq_info,
     normalize_menus,
+    normalize_message_tone,
+    normalize_repeat_customer_visit_threshold,
 )
 
 
@@ -45,6 +48,61 @@ class NormalizeMenusTest(unittest.TestCase):
     def test_non_list_input_returns_empty_list(self):
         self.assertEqual(normalize_menus(None), [])
         self.assertEqual(normalize_menus("カット"), [])
+
+
+class NormalizeMessageToneTest(unittest.TestCase):
+    def test_valid_values_pass_through(self):
+        self.assertEqual(normalize_message_tone("formal"), "formal")
+        self.assertEqual(normalize_message_tone("casual"), "casual")
+
+    def test_invalid_or_missing_falls_back_to_standard(self):
+        self.assertEqual(normalize_message_tone("丁寧"), "standard")
+        self.assertEqual(normalize_message_tone(None), "standard")
+
+
+class NormalizeRepeatCustomerVisitThresholdTest(unittest.TestCase):
+    def test_extracts_digits_from_display_string(self):
+        self.assertEqual(normalize_repeat_customer_visit_threshold("5回"), 5)
+
+    def test_unparseable_falls_back_to_default_three(self):
+        self.assertEqual(normalize_repeat_customer_visit_threshold("未定"), 3)
+        self.assertEqual(normalize_repeat_customer_visit_threshold(None), 3)
+
+
+class NormalizeFaqInfoTest(unittest.TestCase):
+    def test_full_payload_is_normalized(self):
+        faq_info = normalize_faq_info(
+            {
+                "faq_address": "  ○○駅から徒歩5分  ",
+                "faq_parking_available": "あり",
+                "faq_parking_capacity_raw": "3台",
+                "faq_payment_methods": ["現金", "クレジット", "仮想通貨"],
+            }
+        )
+        self.assertEqual(
+            faq_info,
+            {
+                "address": "○○駅から徒歩5分",
+                "parking": "あり(3台)",
+                "paymentMethods": ["現金", "クレジット"],
+            },
+        )
+
+    def test_parking_without_capacity_still_recorded_as_available(self):
+        faq_info = normalize_faq_info(
+            {"faq_parking_available": "あり", "faq_parking_capacity_raw": "未定"}
+        )
+        self.assertEqual(faq_info["parking"], "あり")
+
+    def test_no_parking_is_recorded(self):
+        faq_info = normalize_faq_info({"faq_parking_available": "なし"})
+        self.assertEqual(faq_info["parking"], "なし")
+
+    def test_empty_payload_leaves_fields_blank_not_erroring(self):
+        faq_info = normalize_faq_info({})
+        self.assertEqual(
+            faq_info, {"address": "", "parking": "", "paymentMethods": []}
+        )
 
 
 class HandleStoreSettingsSubmissionTest(unittest.TestCase):
@@ -85,6 +143,52 @@ class HandleStoreSettingsSubmissionTest(unittest.TestCase):
             self.store.get_menus("Uowner123"),
             [{"name": "カット", "duration_minutes": 60}],
         )
+
+    def test_writes_message_tone_repeat_threshold_and_faq_info_to_store(self):
+        self._call(
+            payload=_complete_payload(
+                message_tone_raw="formal",
+                repeat_customer_visit_threshold_raw="5回",
+                faq_address="○○駅から徒歩5分",
+                faq_parking_available="あり",
+                faq_parking_capacity_raw="3",
+                faq_payment_methods=["現金"],
+            )
+        )
+        self.assertEqual(self.store.get_message_tone("Uowner123"), "formal")
+        self.assertEqual(
+            self.store.get_repeat_customer_visit_threshold("Uowner123"), 5
+        )
+        self.assertEqual(
+            self.store.get_faq_info("Uowner123"),
+            {
+                "address": "○○駅から徒歩5分",
+                "parking": "あり(3台)",
+                "paymentMethods": ["現金"],
+            },
+        )
+
+    def test_optional_fields_default_when_omitted(self):
+        result = self._call()
+        self.assertEqual(result.message_tone, "standard")
+        self.assertEqual(result.repeat_customer_visit_threshold, 3)
+        self.assertEqual(
+            result.faq_info, {"address": "", "parking": "", "paymentMethods": []}
+        )
+        self.assertEqual(self.store.get_message_tone("Uowner123"), "standard")
+
+    def test_optional_fields_do_not_affect_dispatch_judgment(self):
+        result = self._call(
+            payload=_complete_payload(
+                closed_weekdays=[0, 1, 2, 3, 4, 5, 6],
+                message_tone_raw="formal",
+                repeat_customer_visit_threshold_raw="10回",
+            )
+        )
+        self.assertFalse(result.business_hours_configured)
+        self.assertFalse(result.onboarding_completion_message_dispatched)
+        # 判定には使われないが、書き込み自体は行われる。
+        self.assertEqual(self.store.get_message_tone("Uowner123"), "formal")
 
     def test_dispatches_onboarding_completion_message_when_first_complete(self):
         result = self._call()

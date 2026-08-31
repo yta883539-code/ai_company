@@ -10,8 +10,9 @@ evaluate_onboarding_completion_message_dispatch()呼び出しまでを結線す�
   (営業曜日・営業時間の設定有無・予約枠の間隔・同時受付可能数・メニュー件数)の
   正規化・書き込みのみを扱う。曜日別営業時間の複数区間バリデーション
   (business-hours-lunch-break.md・weekday-specific-business-hours.md)や
-  臨時休業日・メッセージトーン・常連客閾値・FAQ情報の保存処理は別課題として残す
-  (store-settings-save-flow-design.md 2節)。
+  臨時休業日の保存処理は別課題として残す(store-settings-save-flow-design.md 2節)。
+- メッセージトーン・常連客とみなす来店回数・FAQ情報は発火判定には使わないが、
+  Firestoreへの書き込み自体は7節で結線する(2026-08-31定例更新)。
 - 実際のGoogleフォーム作成・GAS配置、実Firestore接続は「外部サービスへの実設定」
   「アカウント作成」に該当し、引き続きオーナー承認待ち(pending-approval.md参照)。
   本モジュールはGAS Webhookから届く想定のペイロードをどう検証・正規化し、
@@ -64,11 +65,21 @@ class StoreSettingsStoreProtocol(StoreProfileStoreProtocol, Protocol):
     def set_menus(self, user_id: str, menus: list) -> None:
         ...
 
+    def set_message_tone(self, user_id: str, message_tone: str) -> None:
+        ...
+
+    def set_repeat_customer_visit_threshold(self, user_id: str, threshold: int) -> None:
+        ...
+
+    def set_faq_info(self, user_id: str, faq_info: dict) -> None:
+        ...
+
 
 class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
     """`InMemoryStoreProfileStore`に、design 6節で追加するMVP必須項目フィールド
     (businessHoursRaw・closedWeekdays・slotIntervalMinutes・concurrentCapacity・
-    menus)の保持を追加した検証用スタブ。"""
+    menus)と、design 7節で追加する任意項目フィールド(messageTone・
+    repeatCustomerVisitThreshold・faqInfo)の保持を追加した検証用スタブ。"""
 
     def __init__(self) -> None:
         super().__init__()
@@ -77,6 +88,9 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
         self._slot_interval_minutes: dict[str, int] = {}
         self._concurrent_capacity: dict[str, int] = {}
         self._menus: dict[str, list] = {}
+        self._message_tone: dict[str, str] = {}
+        self._repeat_customer_visit_threshold: dict[str, int] = {}
+        self._faq_info: dict[str, dict] = {}
 
     def set_business_hours_raw(self, user_id: str, business_hours_raw: str) -> None:
         self._business_hours_raw[user_id] = business_hours_raw
@@ -108,11 +122,47 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
     def get_menus(self, user_id: str) -> list:
         return list(self._menus.get(user_id, []))
 
+    def set_message_tone(self, user_id: str, message_tone: str) -> None:
+        self._message_tone[user_id] = message_tone
+
+    def get_message_tone(self, user_id: str) -> str:
+        return self._message_tone.get(user_id, _DEFAULT_MESSAGE_TONE)
+
+    def set_repeat_customer_visit_threshold(self, user_id: str, threshold: int) -> None:
+        self._repeat_customer_visit_threshold[user_id] = threshold
+
+    def get_repeat_customer_visit_threshold(self, user_id: str) -> int:
+        return self._repeat_customer_visit_threshold.get(
+            user_id, _DEFAULT_REPEAT_CUSTOMER_VISIT_THRESHOLD
+        )
+
+    def set_faq_info(self, user_id: str, faq_info: dict) -> None:
+        self._faq_info[user_id] = dict(faq_info)
+
+    def get_faq_info(self, user_id: str) -> dict:
+        return dict(self._faq_info.get(user_id, _EMPTY_FAQ_INFO))
+
 
 # design 4節: "30分"・"1"のような表示文字列から数字部分を抽出するために使う。
 _DIGITS_PATTERN = re.compile(r"\d+")
 
 _WEEKDAYS_PER_WEEK = 7
+
+# design 7.1節: message-tone-variants.mdで定義済みの3値。owner-settings-wireframe.mdの
+# プルダウンの既定値でもある。
+_VALID_MESSAGE_TONES = frozenset({"standard", "formal", "casual"})
+_DEFAULT_MESSAGE_TONE = "standard"
+
+# design 7.1節: 未入力・抽出不能時、precheck-strengthening.mdの簡略化判定を機能させ続ける
+# ためNoneのまま放置せずこの既定値を書き込む(firestore-data-model.mdの既定値3と一致)。
+_DEFAULT_REPEAT_CUSTOMER_VISIT_THRESHOLD = 3
+
+# design 7.1節: faq-response-templates.mdのテンプレート項目と一致する支払い方法のみを許可する。
+_VALID_FAQ_PAYMENT_METHODS = frozenset(
+    {"現金", "クレジット", "電子マネー", "QRコード決済"}
+)
+
+_EMPTY_FAQ_INFO = {"address": "", "parking": "", "paymentMethods": []}
 
 
 def _extract_positive_int(raw_value: object) -> Optional[int]:
@@ -144,6 +194,56 @@ def normalize_menus(raw_menus: object) -> list[dict]:
     return normalized
 
 
+def normalize_message_tone(raw_value: object) -> str:
+    """design 7.1節: 想定外の値は既定値`standard`にフォールバックする
+    (誤ったトーンで送信するより既定の安全な文体を優先する)。"""
+    if isinstance(raw_value, str) and raw_value in _VALID_MESSAGE_TONES:
+        return raw_value
+    return _DEFAULT_MESSAGE_TONE
+
+
+def normalize_repeat_customer_visit_threshold(raw_value: object) -> int:
+    """design 7.1節: `_extract_positive_int()`を再利用しつつ、`slot_interval_minutes`等
+    とは異なり抽出できない場合もNoneのまま放置せず既定値3を返す。"""
+    extracted = _extract_positive_int(raw_value)
+    if extracted is None:
+        return _DEFAULT_REPEAT_CUSTOMER_VISIT_THRESHOLD
+    return extracted
+
+
+def normalize_faq_info(payload: dict) -> dict:
+    """design 7.1節: owner-settings-wireframe.md「店舗FAQ情報の入力欄」の3項目を正規化する。
+    未入力の項目はエラーにせず空文字列/空配列のまま返す(232行目の「空欄は未登録として扱う」
+    方針どおり)。"""
+    address = payload.get("faq_address", "")
+    if not isinstance(address, str):
+        address = ""
+
+    parking_available = payload.get("faq_parking_available")
+    if parking_available == "あり":
+        capacity = _extract_positive_int(payload.get("faq_parking_capacity_raw"))
+        parking = f"あり({capacity}台)" if capacity is not None else "あり"
+    elif parking_available == "なし":
+        parking = "なし"
+    else:
+        parking = ""
+
+    raw_payment_methods = payload.get("faq_payment_methods", [])
+    if not isinstance(raw_payment_methods, list):
+        raw_payment_methods = []
+    payment_methods = [
+        method
+        for method in raw_payment_methods
+        if isinstance(method, str) and method in _VALID_FAQ_PAYMENT_METHODS
+    ]
+
+    return {
+        "address": address.strip(),
+        "parking": parking,
+        "paymentMethods": payment_methods,
+    }
+
+
 @dataclass
 class StoreSettingsSubmissionResult:
     """`handle_store_settings_submission()`の結果(design 6節のエントリポイントの
@@ -156,7 +256,14 @@ class StoreSettingsSubmissionResult:
     concurrent_capacity: Optional[int] = None
     menu_count: int = 0
     onboarding_completion_message_dispatched: bool = False
+    message_tone: str = _DEFAULT_MESSAGE_TONE
+    repeat_customer_visit_threshold: int = _DEFAULT_REPEAT_CUSTOMER_VISIT_THRESHOLD
+    faq_info: dict = None  # type: ignore[assignment]
     error: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.faq_info is None:
+            self.faq_info = dict(_EMPTY_FAQ_INFO)
 
 
 def handle_store_settings_submission(
@@ -194,6 +301,11 @@ def handle_store_settings_submission(
         payload.get("concurrent_capacity_raw")
     )
     menus = normalize_menus(payload.get("menus"))
+    message_tone = normalize_message_tone(payload.get("message_tone_raw"))
+    repeat_customer_visit_threshold = normalize_repeat_customer_visit_threshold(
+        payload.get("repeat_customer_visit_threshold_raw")
+    )
+    faq_info = normalize_faq_info(payload)
 
     business_hours_configured = bool(business_hours_raw.strip()) and (
         len(set(closed_weekdays)) < _WEEKDAYS_PER_WEEK
@@ -206,6 +318,11 @@ def handle_store_settings_submission(
     if concurrent_capacity is not None:
         store.set_concurrent_capacity(user_id, concurrent_capacity)
     store.set_menus(user_id, menus)
+    store.set_message_tone(user_id, message_tone)
+    store.set_repeat_customer_visit_threshold(
+        user_id, repeat_customer_visit_threshold
+    )
+    store.set_faq_info(user_id, faq_info)
 
     dispatched = handle_onboarding_completion_message_dispatch(
         user_id,
@@ -227,4 +344,7 @@ def handle_store_settings_submission(
         concurrent_capacity=concurrent_capacity,
         menu_count=len(menus),
         onboarding_completion_message_dispatched=dispatched,
+        message_tone=message_tone,
+        repeat_customer_visit_threshold=repeat_customer_visit_threshold,
+        faq_info=faq_info,
     )

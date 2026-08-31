@@ -32,6 +32,10 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
   closedWeekdays: [0],                                          // availability-closed-weekday-support.md
   messageTone: "standard",                                      // message-tone-variants.md: formal|standard|casual
   faqInfo: {address: "...", parking: "...", paymentMethods: [...]}, // faq-response-templates.md 9a用
+  repeatCustomerVisitThreshold: 3,  // owner-settings-wireframe.md「常連客とみなす来店回数」、
+                                     // precheck-strengthening.md案Aの簡略化判定に使う閾値(整数、既定3回)。
+                                     // store-settings-save-flow-design.md 7節でstore_settings_save_flow.py
+                                     // からの書き込みを結線(2026-08-31定例更新)。
   menus: [{name: "カット", durationMinutes: 30}, ...],
   suspensionReason: null,           // owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」
                                      // null | "trial_unselected" | "payment_failed" | "payment_suspended"
