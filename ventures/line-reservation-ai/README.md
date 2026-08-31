@@ -1751,7 +1751,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。残る課題は実際のCloud Functionsエントリポイント本体
   (実Firestore接続が前提、オーナー承認待ち)のみ。
-- 最終更新: 2026-08-31 11:00 UTC
+- フェーズ続き161(2026-08-31 13:00 UTC): trial-to-paid-billing-flow-consistency-check.mdの
+  「残る検討事項」に残っていた「有料プラン選択時のカード登録フロー自体はUI設計として未着手」
+  という記載が、実際には同日作成のbilling-upgrade-flow-design.mdで既に設計済み・
+  `prototype/trial_end_report_scheduler.py`(2026-08-21 13:00 UTC)・
+  `prototype/cloud_function_subscription_activated_webhook.py`(2026-08-21 00:00 UTC)として
+  実装・テスト済みだった記載漏れを発見・解消した(course-set-pashaのフェーズ126・127・132・133・
+  136と同種のドキュメント整合性メンテナンス)。コード変更は無し(ドキュメント整理のみ)、
+  venture全体461件全件パス・schema検証25件パスを再確認した。承認不要なドキュメント整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-08-31 13:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
