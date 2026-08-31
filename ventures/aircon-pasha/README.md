@@ -2356,4 +2356,19 @@
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   本venture内で未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題
   (オーナー承認待ち)以外の棚卸しを優先候補とする。
-- 最終更新: 2026-08-31 12:00 UTC
+- フェーズ165(2026-08-31 15:00 UTC): フェーズ164の申し送り通り他venture・アイデア領域の
+  前進を優先し、follow-unfollow-event-handling-design.md「残課題」に残っていた「『ブロック
+  したのに課金だけ続く』場合のオーナー向け運用課題は本venture側でもスコープ外として残る」
+  という未着手事項に対応した。course-set-pashaのunfollow-billing-faq.md(フェーズ86)を
+  土台に、本venture固有のサービス名・解約フロー(subscription-cancellation-flow-design.md、
+  `PortalLinkProvider`)へ翻案したunfollow-billing-faq.mdを新規作成し、(1)LP掲載用FAQ文面
+  (「ブロック=解約ではない」の事前周知)、(2)オーナー自身がメール等の問い合わせに使える
+  返信テンプレート(事後対応)の2点を整理した。1.のFAQ文面はlanding-page-copy-draft.mdの
+  既存FAQセクションに4問目として反映し、follow-unfollow-event-handling-design.md側の
+  該当記載にも解消済みの旨を追記した。文面整理のみでコード変更は無し、venture全体358件
+  全件パス・schema検証9件パスを再確認した。プロアクティブな検知・通知バッチの要否は
+  unfollow-billing-faq.md「今後の課題」として引き続き未着手のまま残る。line-reservation-ai
+  にも同種の未着手課題(user-account-linking-design.md周辺)が残っているため次回以降の
+  候補とする。承認不要な文書作成・整理のみで、外部サービスへの公開・アカウント作成・
+  メール送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 15:00 UTC
