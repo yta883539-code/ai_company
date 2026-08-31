@@ -1685,6 +1685,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
+- (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
+  「残課題」に残っていた、`store_profile_store.evaluate_onboarding_completion_message_
+  dispatch()`(フェーズ続き155で実装済みの判定ロジック)と`onboarding_completion_message.
+  render_onboarding_completion_message()`(メッセージ整形)・`LinePushClient`(実送信)を
+  実際につなぐ配線本体を新規実装した(`prototype/cloud_function_send_onboarding_
+  completion_message.py`の`handle_onboarding_completion_message_dispatch()`)。
+  併せて、同ファイル(onboarding_completion_message.py)冒頭のコメントに残っていた
+  「判定処理本体は未着手」という記載が、実際にはフェーズ続き155で既に実装済みだった
+  記載漏れを解消し、onboarding-completion-message-design.mdの「firestore-data-model.md
+  にslotIntervalMinutes・concurrentCapacityがまだ定義されていない」という残課題の記載も、
+  実際には同じフェーズ続き155の中で追加済み(firestore-data-model.md 92・97行目)だった
+  記載漏れと判明したため訂正した。送信失敗(`LinePushDeliveryError`)時も判定側の送信済み
+  フラグは既に立っているため再送されない制約は、`consume_first_booking_self_check()`と
+  同じMVPスコープの割り切りとして踏襲する設計とした。テスト5件追加(`test_cloud_function_
+  send_onboarding_completion_message.py`)、venture全体412件全件パス・schema検証25件パスを
+  確認した。残る課題はowner-settings-wireframe.mdのフォーム保存処理自体(実Firestore
+  書き込み・実UI、ホスティング基盤確定後・オーナー承認待ち)からの実呼び出し配線のみ。
+  承認不要な実装・テスト追加・ドキュメント整理のみで、外部サービスへの公開・アカウント
+  作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-30 23:00 UTC・フェーズ続き156: candidate-presentation-and-selection-design.md
   3節に残っていた「再確認を送った後も特定できない状態が続く場合のエスカレーション判断は
   未設計。次回以降の課題とする」という記載が、実際には同ドキュメント6節

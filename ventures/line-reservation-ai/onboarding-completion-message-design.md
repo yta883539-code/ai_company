@@ -118,6 +118,21 @@ LIFFページのURLを渡す想定(実LIFF登録後に確定する値のプレ�
 
 ## 残課題
 
+- (解消済み 2026-08-31定例更新・フェーズ続き157: 上記「firestore-data-model.md 1節に
+  `slotIntervalMinutes`・`concurrentCapacity`がまだ定義されていない」という記載は、
+  実際には同じフェーズ続き155の中で追加済みだった記載漏れと判明したため訂正した
+  (firestore-data-model.md 92・97行目参照)。あわせて、`evaluate_onboarding_completion_
+  message_dispatch()`(判定)と`render_onboarding_completion_message()`(整形)を
+  実際につなぎ、`LinePushClient`での送信呼び出しまで結線する配線本体
+  `prototype/cloud_function_send_onboarding_completion_message.py`の
+  `handle_onboarding_completion_message_dispatch()`を新規実装した。送信失敗
+  (`LinePushDeliveryError`)時も判定側の送信済みフラグは既に立っているため再送されない
+  制約は、`consume_first_booking_self_check()`と同じMVPスコープの割り切りとして
+  そのまま踏襲する方針とした。テスト5件追加、venture全体412件全件パス・schema検証25件
+  パスを確認した。残る課題はowner-settings-wireframe.mdのフォーム保存処理自体
+  (実Firestore書き込み・実UI、ホスティング基盤確定後・オーナー承認待ち)からの実呼び出し
+  配線のみ。承認不要な実装・テスト追加・ドキュメント整理のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-30定例更新・フェーズ続き155: 「MVPの最低限必須項目が初めて全て
   揃ったか」を判定し1回だけ発火させる処理本体を実装した
   (`prototype/store_profile_store.py`の`evaluate_onboarding_completion_message_dispatch()`)。

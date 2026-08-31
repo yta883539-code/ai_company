@@ -3,12 +3,15 @@
 onboarding-completion-message-design.md を、実行可能なコードに落とし込んだもの。
 
 位置づけ:
-- 「MVPの最低限必須項目が初めて全て揃ったか」を判定し1回だけ発火させる処理本体
-  (店舗設定の保存処理・Firestore書き込みイベントへの配線)は、
-  owner-settings-wireframe.mdのフォーム保存処理自体が未実装のため未着手
-  (design 4節・残課題)。
-- 本モジュールはtrial_end_report_scheduler.pyと同じ役割分担(判断・整形ロジックの
-  うちメッセージ文言の組み立て部分のみを担う)。
+- 「MVPの最低限必須項目が初めて全て揃ったか」を判定し1回だけ発火させる処理本体は
+  store_profile_store.evaluate_onboarding_completion_message_dispatch()として
+  実装済み(2026-08-30)。本モジュールはtrial_end_report_scheduler.pyと同じ役割分担
+  (判断・整形ロジックのうちメッセージ文言の組み立て部分のみを担う)。
+  判定→整形→LinePushClientでの実送信の配線本体は
+  cloud_function_send_onboarding_completion_message.handle_onboarding_completion_
+  message_dispatch()を参照(2026-08-31実装)。
+- owner-settings-wireframe.mdのフォーム保存処理自体(Firestore書き込み・実UI)は
+  ホスティング基盤確定後の配線が引き続き必要(design 4節・残課題、オーナー承認待ち)。
 
 設計の参照元: onboarding-completion-message-design.md 3節・4節
 """
