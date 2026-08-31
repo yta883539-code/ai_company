@@ -67,9 +67,10 @@ stripe-webhook-cloud-function-entry-point-design.md(フェーズ96)「残課題�
 
 ## 残課題
 
-- Stripe Checkout Session作成時に`client_reference_id`へ内部`user_id`を設定する
-  導線(決済ボタン設置・Checkout Session作成API呼び出し)自体は本ドキュメントの
-  範囲外で未設計。申込フォーム提出後の決済導線として別途設計が必要。
+- (解消済み 2026-08-23 08:00 UTC・フェーズ98: Stripe Checkout Session作成時に
+  `client_reference_id`へ内部`user_id`を設定する導線を`checkout-initiation-flow-design.md`
+  として設計し、`build_checkout_session_params()`(`prototype/checkout_session.py`)として
+  実装済み。)
 - `user_profile`をFirestore版に差し替える作業(フェーズ96からの持ち越し)。
 - 本設計の導入前に決済済みだった既存顧客(もしいた場合)の`stripe_customer_id`は
   遡って紐付けられない。実運用開始前(実Stripeアカウント接続はオーナー承認待ち)の
