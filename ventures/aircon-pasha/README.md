@@ -2380,4 +2380,24 @@
   無し(ドキュメント整理のみ)、venture全体358件全件パス・schema検証9件パスを再確認した。
   承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント作成・メール送信等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 17:00 UTC
+- フェーズ167(2026-08-31 21:00 UTC): unfollow-billing-faq.md「今後の課題」に残っていた
+  「本サービス側から能動的に『ブロック中かつ契約継続中』の業者を検知するプロアクティブな
+  通知バッチの要否・設計は未着手」に対応した。設計に着手する前段階で、そもそも本venture側に
+  「誰がLINEをブロックしたか」を記録する手段自体が無かった(process_unfollow_event()が
+  design 2節の通り「何もしない」実装だったため)ことを発見し、blocked-but-billing-
+  detection-design.mdとして新規設計した。`UserProfile`に`is_following: bool = True`
+  フィールドを追加し、`process_follow_event()`/`process_unfollow_event()`が
+  follow/unfollowイベント受信のたびに更新するよう配線(`dispatch_webhook_events()`からの
+  `profile_store`結線含む)、`prototype/blocked_but_billing_candidates.py`に
+  `list_blocked_but_billing_candidates()`(`is_following=False`かつ`current_plan_id`が
+  設定されているuser_idを洗い出す読み出し専用関数、deletion_candidate.pyと同じ位置づけ)を
+  新規実装した。契約情報(`current_plan_id`等)は従来通り一切変更せず、`is_following`は
+  別軸の追加フラグという整理としたためfollow-unfollow-event-handling-design.md 2節の
+  既存決定とは矛盾しない。テスト12件追加(follow/unfollowイベント処理4件・dispatch結線
+  1件・候補洗い出しロジック6件・postback系の既存動作に影響がないことの確認含む)、
+  venture全体370件全件パス・schema検証9件パスを確認した。候補一覧を実際にオーナーへ届ける
+  手段(バッチ実行主体・通知チャネル)は未設計のまま残る(blocked-but-billing-detection-
+  design.md 4節)。承認不要な設計・実装・テスト追加・アイデア追加のみで、外部サービスへの
+  公開・アカウント作成・メール送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-08-31 21:00 UTC

@@ -228,14 +228,25 @@ def process_follow_event(
     reply_client: ReplyClient,
     *,
     form_link_provider: Optional[ApplicationFormLinkProvider] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
 ) -> FollowProcessResult:
-    """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 1節)。"""
+    """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 1節)。
+
+    `profile_store`が渡され、かつ`user_id`に対応する連携済みprofileが既に存在する場合
+    (blocked-but-billing-detection-design.md フェーズ167で追加した再フォローのケース)、
+    `is_following`を`True`に戻す。未連携の`user_id`(初回follow、まだ連携コード未送信)は
+    そもそもprofileが存在しないため対象外(`UserProfile.is_following`の既定値`True`のまま
+    連携時に作成される、design 2節)。
+    """
     if event.get("type") != "follow":
         return FollowProcessResult(handled=False, reply_sent=False)
 
     user_id = event.get("source", {}).get("userId")
     if not user_id:
         return FollowProcessResult(handled=True, reply_sent=False)
+
+    if profile_store is not None and profile_store.exists(user_id):
+        profile_store.set_is_following(user_id, True)
 
     message_text = format_welcome_message(form_link_provider)
     reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)
@@ -249,17 +260,32 @@ class UnfollowProcessResult:
     handled: bool
 
 
-def process_unfollow_event(event: dict) -> UnfollowProcessResult:
+def process_unfollow_event(
+    event: dict,
+    *,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+) -> UnfollowProcessResult:
     """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提、design 2節)。
 
-    design 2節「決定のまとめ」の通り、本ventureはunfollow時に一切のデータ変更を行わない
-    (`pending_links`はuser_idと紐付かないため検索不能・24時間の自然失効に委ねる、
-    `user_profile`・`usage_counter`は再フォロー時の手間を省くため保持)。LINEへの返信も
-    行わない(ブロックされているため送達不可)。course-set-pasha版と異なりlinking_store
-    引数を持たない(削除対象となるデータが存在しないため)。
+    design 2節「決定のまとめ」の通り、本ventureはunfollow時に契約情報(`current_plan_id`・
+    `stripe_customer_id`等)を一切変更しない(`pending_links`はuser_idと紐付かないため
+    検索不能・24時間の自然失効に委ねる、`user_profile`・`usage_counter`は再フォロー時の
+    手間を省くため保持)。LINEへの返信も行わない(ブロックされているため送達不可)。
+    course-set-pasha版と異なりlinking_store引数を持たない(削除対象となるデータが
+    存在しないため)。
+
+    `profile_store`が渡され、かつ`user_id`に対応する連携済みprofileが存在する場合のみ、
+    blocked-but-billing-detection-design.md(フェーズ167)で追加した`is_following`を
+    `False`に更新する。これは契約情報の変更ではなく「実際にメッセージが届くか」を
+    追跡するためのフラグ更新であり、design 2節の決定(契約情報は不変)とは矛盾しない。
     """
     if event.get("type") != "unfollow":
         return UnfollowProcessResult(handled=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if profile_store is not None and user_id and profile_store.exists(user_id):
+        profile_store.set_is_following(user_id, False)
+
     return UnfollowProcessResult(handled=True)
 
 
@@ -1168,8 +1194,10 @@ def dispatch_webhook_events(
       `linking_store`・`now`のいずれかが未接続の場合は素通りする(連携済みか未連携かの
       判定自体に`profile_store`が必須のため、course-set-pashaと異なりmessageイベントの
       処理条件にlinking_store・profile_storeも含める)。
-    - "unfollow": 1件ずつ`process_unfollow_event()`へ渡す(design 2節の通りdata store類は
-      不要なため、他の種別と異なり未接続でも常に処理する)。
+    - "unfollow": 1件ずつ`process_unfollow_event()`へ渡す(design 2節の通り契約情報の
+      data store類は不要なため、他の種別と異なり`profile_store`未接続でも常に処理する。
+      `profile_store`が接続されている場合のみ、フェーズ167で追加した`is_following`の
+      更新を行う)。
     - "postback": 1件ずつ`process_postback_event()`へ渡す(checkout-initiation-flow-design.md
       2〜3節、payment-failure-dunning-design.md 5節)。`reply_client`・`profile_store`・
       `checkout_session_client`のいずれかが未接続の場合は素通りする(user_profile確認に
@@ -1190,7 +1218,12 @@ def dispatch_webhook_events(
     if follow_events and reply_client is not None:
         for event in follow_events:
             result.follow_results.append(
-                process_follow_event(event, reply_client, form_link_provider=form_link_provider)
+                process_follow_event(
+                    event,
+                    reply_client,
+                    form_link_provider=form_link_provider,
+                    profile_store=profile_store,
+                )
             )
 
     message_events = [e for e in events if e.get("type") == "message"]
@@ -1220,7 +1253,9 @@ def dispatch_webhook_events(
 
     unfollow_events = [e for e in events if e.get("type") == "unfollow"]
     for event in unfollow_events:
-        result.unfollow_results.append(process_unfollow_event(event))
+        result.unfollow_results.append(
+            process_unfollow_event(event, profile_store=profile_store)
+        )
 
     postback_events = [e for e in events if e.get("type") == "postback"]
     if (

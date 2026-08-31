@@ -104,6 +104,13 @@ course-set-pashaの結論(論点3)と同じ考え方を採用する。**一切�
 course-set-pashaとの唯一の差異は「pending_links」行であり、これは本venture固有のフォーム
 起点方式(コードがuser_id非依存で発行される)という構造的な違いに起因する。
 
+(追記 2026-08-31 21:00 UTC・フェーズ167: 上表の「LINEへの返信 = 行わない」は現在も不変だが、
+`user_profile`について「何もしない(保持)」に加えて、blocked-but-billing-detection-design.md
+で`is_following`フィールドを新設し、unfollow時に`False`へ更新するようになった。これは
+`current_plan_id`等の契約情報そのものではなく「実際にメッセージが届くか」を追跡する別軸の
+フラグであり、本表が定めた「契約情報は一切変更しない」という決定とは矛盾しない、追加の
+書き込み対象という位置づけ。詳細はblocked-but-billing-detection-design.md参照。)
+
 ### プロトタイプ実装方針
 
 - `cloud_function_webhook.py`に`process_unfollow_event(event) -> UnfollowProcessResult`

@@ -1210,6 +1210,37 @@ class ProcessFollowEventTest(unittest.TestCase):
         message = format_welcome_message(None)
         self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, message)
 
+    def test_refollow_of_a_linked_user_resets_is_following_to_true(self):
+        # blocked-but-billing-detection-design.md(フェーズ167)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                current_plan_id="スタンダード", is_following=False,
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "reply-token-5", "source": {"userId": "u-1"}}
+
+        process_follow_event(event, reply_client, profile_store=profile_store)
+
+        self.assertTrue(profile_store.get_is_following("u-1"))
+
+    def test_follow_of_an_unlinked_user_does_not_touch_profile_store(self):
+        # design: 未連携user_id(profile未作成)はそもそもis_followingの対象外。
+        profile_store = InMemoryUserProfileStore()
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "reply-token-6", "source": {"userId": "u-new"}}
+
+        result = process_follow_event(event, reply_client, profile_store=profile_store)
+
+        self.assertTrue(result.handled)
+        self.assertFalse(profile_store.exists("u-new"))
+
 
 class ProcessUnfollowEventTest(unittest.TestCase):
     """follow-unfollow-event-handling-design.md 2節、残課題の想定テストケース(3)。
@@ -1228,6 +1259,40 @@ class ProcessUnfollowEventTest(unittest.TestCase):
     def test_non_unfollow_event_is_not_handled(self):
         result = process_unfollow_event({"type": "message"})
         self.assertFalse(result.handled)
+
+    def test_unfollow_of_a_linked_user_sets_is_following_false(self):
+        # blocked-but-billing-detection-design.md(フェーズ167)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                current_plan_id="スタンダード",
+            ),
+        )
+        result = process_unfollow_event(
+            {"type": "unfollow", "source": {"userId": "u-1"}}, profile_store=profile_store,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertFalse(profile_store.get_is_following("u-1"))
+        # design 2節: 契約情報は一切変更しない
+        self.assertEqual(profile_store.get_current_plan_id("u-1"), "スタンダード")
+
+    def test_unfollow_of_an_unlinked_user_does_not_touch_profile_store(self):
+        profile_store = InMemoryUserProfileStore()
+        result = process_unfollow_event(
+            {"type": "unfollow", "source": {"userId": "u-unknown"}}, profile_store=profile_store,
+        )
+        self.assertTrue(result.handled)
+        self.assertFalse(profile_store.exists("u-unknown"))
+
+    def test_unfollow_event_handled_even_without_profile_store(self):
+        result = process_unfollow_event({"type": "unfollow", "source": {"userId": "u-1"}})
+        self.assertTrue(result.handled)
 
 
 class ProcessPostbackEventTest(unittest.TestCase):
@@ -1679,6 +1744,28 @@ class DispatchWebhookEventsTest(unittest.TestCase):
 
         self.assertEqual(len(result.unfollow_results), 1)
         self.assertTrue(result.unfollow_results[0].handled)
+
+    def test_unfollow_event_wires_profile_store_through_to_is_following(self):
+        # blocked-but-billing-detection-design.md(フェーズ167)。
+        # dispatch_webhook_events()経由でもis_followingの更新が実際に届くことの確認
+        # (フェーズ158〜160・フェーズ167自身のProcessUnfollowEventTestと同種の結線テスト)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                current_plan_id="スタンダード",
+            ),
+        )
+        events = [{"type": "unfollow", "source": {"userId": "u-1"}}]
+
+        result = dispatch_webhook_events(events, profile_store=profile_store)
+
+        self.assertTrue(result.unfollow_results[0].handled)
+        self.assertFalse(profile_store.get_is_following("u-1"))
 
     def test_message_event_for_linked_user_is_routed_to_memo_flow(self):
         from datetime import datetime, timezone

@@ -164,7 +164,16 @@ class UserProfile:
     `sync_current_plan_on_subscription_event()`/`clear_current_plan_on_subscription_
     deleted()`が、Stripe Webhookの`customer.subscription.created/updated/deleted`受信の
     たびに書き換える(`trial_generation_count`・`payment_failure_detected_at`等と同じく
-    不変フィールドではない)。"""
+    不変フィールドではない)。
+
+    `is_following`はblocked-but-billing-detection-design.md(フェーズ167)で追加した、
+    LINE公式アカウントのフォロー状態を表すフィールド(既定値`True`。連携時=フォロー中の
+    前提で生成されるため)。`cloud_function_webhook.py`の`process_follow_event()`/
+    `process_unfollow_event()`が、LINEの`follow`/`unfollow`イベント受信のたびに書き換える。
+    unfollow時も他のフィールド(`current_plan_id`・`stripe_customer_id`等)は
+    follow-unfollow-event-handling-design.md 2節の決定通り一切変更しない
+    (削除・失効させない)ため、本フィールドは「保持されたままの契約情報」と「実際に
+    メッセージが届くかどうか」を分離して追跡するための追加フラグという位置づけ。"""
 
     business_name: str
     business_type: str
@@ -179,6 +188,7 @@ class UserProfile:
     payment_failure_detected_at: Optional[datetime] = None
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
+    is_following: bool = True
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -219,7 +229,15 @@ class UserProfileStoreProtocol(Protocol):
     `get_current_plan_id`/`set_current_plan_id`はフェーズ161で追加した、
     subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが構造的に
     (duck typing)満たすためのメソッド。未知の`user_id`に対する`set_current_plan_id`は
-    他のno-opメソッドと同じ安全側方針(何もしない)。"""
+    他のno-opメソッドと同じ安全側方針(何もしない)。
+
+    `get_is_following`/`set_is_following`/`all_user_ids`はフェーズ167で追加した、
+    blocked_but_billing_candidates.pyの`BlockedButBillingCandidateStoreProtocol`を
+    本クラスが構造的に満たすためのメソッド。`get_is_following`は未知の`user_id`に対して
+    `True`を返す(存在しないprofileを「フォロー中」扱いする安全側デフォルト。実際には
+    連携済みprofileが存在しない`user_id`が候補判定の対象になることはない、design 2節)。
+    `all_user_ids`はdeletion_candidate.pyの`ProfileDeletionCandidateStoreProtocol.
+    all_user_ids`と同じ位置づけの列挙用メソッド。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -277,6 +295,15 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
+        ...
+
+    def get_is_following(self, user_id: str) -> bool:
+        ...
+
+    def set_is_following(self, user_id: str, value: bool) -> None:
+        ...
+
+    def all_user_ids(self) -> Iterable[str]:
         ...
 
 
@@ -384,6 +411,19 @@ class InMemoryUserProfileStore:
         if profile is None:
             return
         profile.current_plan_id = plan_id
+
+    def get_is_following(self, user_id: str) -> bool:
+        profile = self._profiles.get(user_id)
+        return profile.is_following if profile is not None else True
+
+    def set_is_following(self, user_id: str, value: bool) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.is_following = value
+
+    def all_user_ids(self) -> Iterable[str]:
+        return list(self._profiles.keys())
 
 
 @dataclass
