@@ -158,9 +158,18 @@ line-reservation-aiのフェーズ続き115・aircon-pashaのフェーズ146と�
 ```
 
 実装は`prototype/payment_recovery_notification.py`(フェーズ121)の`classify_payment_recovery()`・
-`handle_payment_succeeded()`参照。`invoice.payment_succeeded`受信時の実際の呼び出し配線
-(`stripe_webhook.py`の`dispatch_stripe_event()`は現状、通知を送らず状態クリアのみを行う
-実装〈フェーズ119〉のままであり、本モジュールへの差し替えは次回以降の課題として残る)。
+`handle_payment_succeeded()`参照。
+
+**(2026-08-31 追記・フェーズ136で記載訂正)** 直前の「`invoice.payment_succeeded`受信時の
+実際の呼び出し配線(`stripe_webhook.py`の`dispatch_stripe_event()`は現状、通知を送らず
+状態クリアのみを行う実装〈フェーズ119〉のままであり、本モジュールへの差し替えは次回以降の
+課題として残る)」という記載は、実際にはフェーズ122(`dispatch_stripe_event()`への
+`push_client`引数追加、`invoice.payment_succeeded`受信時に`handle_payment_succeeded()`へ
+委譲する配線)で既に対応済みだったにもかかわらず未訂正のまま残っていた記載漏れ
+(下記6節フェーズ122の記載、およびフェーズ127・132・133と同種のドキュメント整合性
+メンテナンス)。実装は`stripe_webhook.py` `dispatch_stripe_event()`の
+`invoice.payment_succeeded`分岐(`push_client is not None`時に`handle_payment_succeeded()`へ
+委譲)、および`test_stripe_webhook.py`の関連テストで検証済みであることを確認した。
 
 ## 5. CTAリンクの実装課題(本venture固有)
 

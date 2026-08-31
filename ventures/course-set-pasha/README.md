@@ -1582,7 +1582,19 @@
   venture全体423件全件パス・schema検証9件パスを確認した。承認不要な実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 05:00 UTC
+- フェーズ136(2026-08-31 09:00 UTC): payment-failure-dunning-design.md 4節末尾に残っていた、
+  「`invoice.payment_succeeded`受信時の実際の呼び出し配線(`stripe_webhook.py`の
+  `dispatch_stripe_event()`は現状、通知を送らず状態クリアのみを行う実装〈フェーズ119〉の
+  ままであり、本モジュールへの差し替えは次回以降の課題として残る)」という記載漏れを発見・
+  解消した。実際には同ドキュメント6節・README上記フェーズ122で記載のとおり、
+  `dispatch_stripe_event()`への`push_client`引数追加、`invoice.payment_succeeded`受信時に
+  `payment_recovery_notification.handle_payment_succeeded()`へ委譲する配線はフェーズ122で
+  既に完了しており(`test_stripe_webhook.py`で検証済み)、4節側の記載だけがフェーズ122実施後も
+  未訂正のまま取り残されていた(フェーズ127・132・133と同種のドキュメント整合性
+  メンテナンス)。コード変更は無し(ドキュメント整理のみ)、venture全体423件全件パス・
+  schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 09:00 UTC
 
 ## 次にやること(候補)
 
