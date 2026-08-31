@@ -118,6 +118,20 @@ LIFFページのURLを渡す想定(実LIFF登録後に確定する値のプレ�
 
 ## 残課題
 
+- (解消済み 2026-08-31定例更新・フェーズ続き158: 前項の残課題だった
+  「owner-settings-wireframe.mdのフォーム保存処理自体からの実呼び出し配線」に、
+  MVP必須項目の判定に必要な最小範囲で着手した(store-settings-save-flow-design.md
+  新規作成)。GAS Webhookペイロード(営業時間の生値・定休日・予約枠の間隔/同時受付
+  可能数の表示文字列・メニュー一覧)を検証・正規化し、`stores/{storeId}`への書き込みと
+  `handle_onboarding_completion_message_dispatch()`呼び出しまでを結線する
+  `prototype/store_settings_save_flow.py`の`handle_store_settings_submission()`を
+  新規実装した。曜日別営業時間の複数区間バリデーション・臨時休業日・メッセージトーン・
+  常連客閾値・FAQ情報の保存処理は別課題として明示的に対象外とした
+  (store-settings-save-flow-design.md 2節)。テスト10件追加、venture全体422件全件パス・
+  schema検証25件パスを確認した。残る課題はGoogleフォーム自体の作成・GAS配置
+  (外部サービスへの実設定、オーナー承認待ち)と、対象外とした各項目の保存処理設計。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。)
 - (解消済み 2026-08-31定例更新・フェーズ続き157: 上記「firestore-data-model.md 1節に
   `slotIntervalMinutes`・`concurrentCapacity`がまだ定義されていない」という記載は、
   実際には同じフェーズ続き155の中で追加済みだった記載漏れと判明したため訂正した
