@@ -493,6 +493,91 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         self.assertNotIn("※", result.reply_text)
 
 
+class ProcessMemoEventPlanFromProfileTest(unittest.TestCase):
+    """フェーズ162: process_memo_event()が`profile.current_plan_id`(subscription_plan_
+    sync.pyがフェーズ161で書き込むフィールド)を月間生成回数の上限判定・上限接近通知に
+    実際に使う配線(_resolve_plan_for_limit_check())の検証。"""
+
+    def _profile_store(self, *, current_plan_id=None, upgraded_at=None):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                # trial_start_atを設定済みにして初回生成時セルフチェック案内(別機能)が
+                # 混入しないようにする(本テストの関心事はプラン解決のみ)。
+                trial_start_at=datetime(2026, 8, 21, tzinfo=timezone.utc),
+                current_plan_id=current_plan_id, upgraded_at=upgraded_at,
+            ),
+        )
+        return profile_store
+
+    def test_synced_current_plan_id_overrides_explicit_plan_argument(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            current_plan_id="スタンダード", upgraded_at=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        )
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(84):
+            usage_counter.increment("u-1", "2026-08")
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), InMemoryReplyClient(),
+            usage_counter=usage_counter, plan="スモール", month="2026-08",
+            profile_store=profile_store,
+        )
+
+        # current_plan_id(スタンダード、90回・50円)が明示的なplan引数(スモール)より
+        # 優先される。85回目(残り5回)通知の単価がスタンダードのものであることで確認する。
+        self.assertIn("残り5回です", result.reply_text)
+        self.assertIn("50円", result.reply_text)
+
+    def test_unsynced_but_upgraded_user_falls_back_to_default_plan(self):
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            current_plan_id=None, upgraded_at=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        )
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(34):
+            usage_counter.increment("u-1", "2026-08")
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), InMemoryReplyClient(),
+            usage_counter=usage_counter, month="2026-08",
+            profile_store=profile_store,
+        )
+
+        # current_plan_id未同期でもupgraded_at設定済みなら、上限判定自体を省略せず
+        # DEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER(スモール、40回・60円)を使う。
+        self.assertIn("残り5回です", result.reply_text)
+        self.assertIn("60円", result.reply_text)
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 35)
+
+    def test_trial_user_without_synced_plan_is_not_subject_to_monthly_limit(self):
+        profile_store = self._profile_store(current_plan_id=None, upgraded_at=None)
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(34):
+            usage_counter.increment("u-1", "2026-08")
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), InMemoryReplyClient(),
+            usage_counter=usage_counter, month="2026-08",
+            profile_store=profile_store,
+        )
+
+        # トライアル中(upgraded_at未設定)かつcurrent_plan_id未同期・明示plan引数も
+        # 未指定の場合は、月間プラン上限を補わない(TRIAL_GENERATION_LIMIT側に委ねる既存
+        # 方針を維持)。usage_counter自体もインクリメントされない(既存の
+        # test_no_counting_when_usage_counter_not_provided相当の安全側挙動)。
+        self.assertNotIn("※", result.reply_text)
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 34)
+
+
 class ProcessMemoEventFirstGenerationSelfCheckTest(unittest.TestCase):
     """process_memo_event()への初回生成時セルフチェック案内(first-generation-self-check-
     design.md)・trial_start_at書き込み(trial-start-anchor-decision.md)統合の検証。"""
@@ -1739,6 +1824,57 @@ class DispatchWebhookEventsTest(unittest.TestCase):
 
         self.assertEqual(result.postback_results, [])
         self.assertEqual(result.ignored_types, [])
+
+
+class DispatchWebhookEventsPlanFromProfileWiringTest(unittest.TestCase):
+    """フェーズ162: dispatch_webhook_events()(Webhookのevents配列を受け取る入口)経由で
+    messageイベントを処理した場合にも、profile.current_plan_idが月間生成回数の上限判定に
+    実際に反映されることを確認する結線テスト(単体テストはProcessMemoEventPlanFromProfileTest
+    に既にあるが、フェーズ158・159・160と同種の「単体テストはあるが結線テストが無い」観点の
+    抜けを未然に防ぐため、dispatch層を経由した経路も確認する)。"""
+
+    def test_message_event_dispatch_reflects_synced_plan_limit(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 21, tzinfo=timezone.utc),
+                current_plan_id="繁忙期対応", upgraded_at=datetime(2026, 8, 22, tzinfo=timezone.utc),
+            ),
+        )
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(144):
+            usage_counter.increment("u-1", "2026-08")
+
+        events = [{
+            "replyToken": "rt-plan-wiring",
+            "type": "message",
+            "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=InMemoryReplyClient(),
+            llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=profile_store,
+            linking_store=InMemoryLinkingCodeStore(),
+            usage_counter=usage_counter,
+            plan="スモール",  # current_plan_id(繁忙期対応)が優先され無視されるはずの値
+            month="2026-08",
+            now=datetime(2026, 8, 23, tzinfo=timezone.utc),
+        )
+
+        reply_text = result.message_results[0].reply_text
+        # 繁忙期対応(150回・40円)の「残り5回」文言が出ること、かつスモールの60円ではない
+        # ことの両方で、current_plan_idがdispatch層経由でも実際に使われたことを確認する。
+        self.assertIn("残り5回です", reply_text)
+        self.assertIn("40円", reply_text)
+        self.assertNotIn("60円", reply_text)
 
 
 class ValidateLlmOutputTest(unittest.TestCase):

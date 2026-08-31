@@ -2281,4 +2281,47 @@
   subscription-cancellation-flow-design.mdが前提とする「Stripeで受信した最新プランIDを
   上限判定に使う」の後段部分)はまだ未着手のまま次回以降の課題として残る(該当箇所に
   追記済み)。次回はこちらへの着手を優先候補とする。
-- 最終更新: 2026-08-31 00:00 UTC
+- フェーズ162(2026-08-31 02:00 UTC): フェーズ161の申し送り通り、
+  `process_memo_event()`側が`current_plan_id`を読んで月間生成回数の上限判定・上限接近
+  通知に使う`plan`引数へ反映する配線(subscription-cancellation-flow-design.md「当月生成
+  回数上限の適用方法」節の後段部分、limit-approaching-notification-design.md)を実装した。
+  `prototype/cloud_function_webhook.py`に`_resolve_plan_for_limit_check(profile, plan)`を
+  新設し、月間カウント処理の直前でこの関数の返り値を実際に使うプランとして
+  `build_usage_notice()`へ渡すよう変更した(従来はイベント処理関数の外側から渡される
+  静的な`plan`引数のみを使用し、常に`None`のままだった`current_plan_id`との接続が
+  存在しなかった)。優先順位は(1)`profile.current_plan_id`が設定済みならそれを最優先
+  (値自体は`profile_store.get_current_plan_id(user_id)`と同一だが、
+  `process_memo_event()`冒頭で既に取得済みの`profile`をそのまま再利用し、同一ストアへの
+  重複呼び出しを避けた、フェーズ138と同じ考え方)、(2)`current_plan_id`が未設定でも
+  `profile.upgraded_at`が設定済み(一度は有料転換済みだがStripe Webhookの受信順序次第の
+  一時的な同期漏れ)の場合は上限判定自体を省略せず新設の
+  `DEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER`(スモール、既存の3プラン中で最も低い上限・
+  最も高い従量単価という安全側の初期値)を採用、(3)それ以外(トライアル中で
+  `upgraded_at`未設定、または`profile_store`未接続・未連携user_id)は既存の呼び出し元
+  引数`plan`をそのまま使う、という3段構成にした。(3)を残したのは、pricing-plan.mdの
+  月間プラン上限がトライアル終了後にのみ適用対象であり、トライアル中の回数制限は
+  既存の`TRIAL_GENERATION_LIMIT`側が別途担うため、ここでプランを補うと本来無制限のはずの
+  トライアル生成に誤って月間上限を適用してしまう(既存の`plan is None`時はカウント処理
+  自体をスキップするという既存呼び出し元との後方互換も兼ねる)。
+  `dispatch_webhook_events()`・`receive_webhook()`は`profile_store`・`plan`のいずれも
+  フェーズ113・136で既に`process_message_event()`/`process_memo_event()`まで配線済み
+  だったため、Webhookエントリポイント側の追加配線は不要だった(フェーズ161の
+  `stripe_webhook.py`側`plan_store`配線とは異なり、本フェーズはStripe側ではなくLINE側の
+  受信経路のため対象外)。テスト4件追加
+  (`ProcessMemoEventPlanFromProfileTest`3件: 同期済みプランが明示的な`plan`引数より
+  優先されること・有料転換済みだが未同期の場合にデフォルトプランへ落ちること・トライアル中
+  未同期の場合は月間上限を補わずカウント処理自体をスキップすること、
+  `DispatchWebhookEventsPlanFromProfileWiringTest`1件: `dispatch_webhook_events()`
+  経由のmessageイベント処理でも`current_plan_id`が実際に反映されることを確認する
+  フェーズ158〜160と同種の結線テスト)、venture全体358件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  `schema/validate_test_cases.py`9件全件パスを確認した。あわせて
+  subscription-cancellation-flow-design.md「当月生成回数上限の適用方法」節の該当箇所に
+  本フェーズで解消済みの旨を追記した。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。これによりフェーズ107・134・161から続いていた
+  「`current_plan_id`フィールド追加→書き込み配線→読み取り配線」の一連の配線漏れは
+  解消済みとなった。次回は他venture・アイデア領域の前進、または本venture内で
+  未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題(オーナー承認待ち)
+  以外の棚卸しを優先候補とする。
+- 最終更新: 2026-08-31 02:00 UTC

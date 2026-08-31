@@ -302,6 +302,14 @@ PLAN_OVERAGE_UNIT_PRICE_JPY = {"スモール": 60, "スタンダード": 50, "�
 # (日次件数の上振れ〈繁忙期含む〉をカバーできる最大値として採用、プラン別の使い分けは見送り)。
 NOTICE_THRESHOLD = 5
 
+# フェーズ162: subscription-cancellation-flow-design.md「当月生成回数上限の適用方法」節が
+# 前提とする「Stripe Webhookで受信した最新プランIDに上限判定を紐づける」を実際に配線する際、
+# 有料転換済み(upgraded_at設定済み)なのに`current_plan_id`がまだ同期されていない
+# (subscription.created/updated受信前の一時的なずれ、またはsubscription_plan_sync.py導入
+# 以前に転換した既存ユーザー)場合の安全側デフォルトとして使う最小プラン。上限判定自体を
+# 省略する(無制限扱いになる)よりは、最も低い上限で従量課金に切り替わる側に倒す。
+DEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER = "スモール"
+
 
 def current_month_jst() -> str:
     """JST基準の暦月をYYYY-MM形式で返す(limit-approaching-notification-design.md 3節、
@@ -326,6 +334,39 @@ def build_usage_notice(plan: str, count_after_increment: int) -> Optional[str]:
             f"(上限到達後は1回あたり{unit_price}円の追加料金がかかります)"
         )
     return None
+
+
+def _resolve_plan_for_limit_check(
+    profile: Optional[UserProfile], plan: Optional[str]
+) -> Optional[str]:
+    """月間生成回数の上限判定・上限接近通知(build_usage_notice)に使うプランIDを決定する
+    (subscription_plan_sync.pyがStripe `customer.subscription.*`受信のたびに書き込む
+    `user_profile.current_plan_id`〈フェーズ161〉を実際にここへ配線する、
+    subscription-cancellation-flow-design.md「当月生成回数上限の適用方法」節の
+    後段部分)。
+
+    - `profile.current_plan_id`が設定済みならそれを最優先で使う。値自体は
+      `profile_store.get_current_plan_id(user_id)`と同じもの(InMemoryUserProfileStoreの
+      実装参照)だが、process_memo_event()冒頭で一度取得済みのprofileをそのまま再利用し、
+      同一ストアへの重複呼び出しを避ける(フェーズ138でprofile取得を前倒しした際と
+      同じ考え方)。
+    - `current_plan_id`が未設定(None)でも`profile.upgraded_at`が設定済み(一度は有料転換
+      済み)の場合は、Stripe Webhookの受信順序次第で一時的に同期漏れが起きているだけと
+      判断し、上限判定自体を省略せずDEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER(スモール)を
+      安全側デフォルトとして使う。
+    - それ以外(トライアル中で一度も有料転換していない、またはprofile自体が無い=
+      profile_store未接続・未連携user_id)の場合は、呼び出し元が明示的に渡した`plan`引数
+      (未指定ならNone)をそのまま使う。トライアル中はcurrent_plan_idが無くて当然であり
+      (pricing-plan.mdの月間プラン上限はトライアル終了後にのみ適用対象で、トライアル中の
+      回数制限はTRIAL_GENERATION_LIMIT側が別途担う)、ここでプランを補ってしまうと
+      本来無制限のはずのトライアル生成に誤って月間上限を適用することになるため補わない。
+    """
+    if profile is not None:
+        if profile.current_plan_id is not None:
+            return profile.current_plan_id
+        if profile.upgraded_at is not None:
+            return DEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER
+    return plan
 
 
 # ---------------------------------------------------------------------------
@@ -712,10 +753,19 @@ def process_memo_event(
        (course-set-pasha/line-reservation-aiのjson-output-retry-fallback.mdの
        「同一入力で1回だけ」方針を踏襲。再生成後もエラーが残る場合は安全側に倒し、
        定型の再送依頼文言を返す)。
-    3. usage_counter・planが渡された場合のみ、月間生成回数カウント・上限接近通知
+    3. usage_counterが渡された場合のみ、月間生成回数カウント・上限接近通知
        (limit-approaching-notification-design.md)を行う。カウント対象はstatus=="generated"の
        場合のみとし、返信本文組み立て直後にインクリメントする。
        usage_counterがNoneの場合(未接続時)はカウント処理自体をスキップする。
+       上限判定に使うプランIDは_resolve_plan_for_limit_check()で決定する(フェーズ162、
+       subscription-cancellation-flow-design.md「当月生成回数上限の適用方法」節の後段部分)。
+       profile_storeが渡され対応するprofileが存在し、かつ`profile.current_plan_id`が
+       設定済み(subscription_plan_sync.pyがStripe `customer.subscription.*`受信のたびに
+       同期する、フェーズ161)ならそれを最優先で使い、引数`plan`は無視する。
+       `current_plan_id`未設定でも`upgraded_at`設定済み(同期漏れの一時的なずれ)なら
+       DEFAULT_PLAN_FOR_UNSYNCED_UPGRADED_USER(スモール)を使う。それ以外
+       (トライアル中、またはprofile_store未接続・未連携user_id)は従来通り引数`plan`を
+       そのまま使う(plan・resolved_planのいずれもNoneならカウント処理自体をスキップする)。
     4. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
        portal_link_providerが渡されていればsubscription_procedure_notice.body中の
        ポータルURLプレースホルダを実URLへ置換する(subscription-cancellation-flow-design.md、
@@ -845,10 +895,11 @@ def process_memo_event(
     reply_text = format_reply_text(
         instance, portal_link_provider=portal_link_provider, user_id=user_id,
     )
-    if instance["status"] == "generated" and usage_counter is not None and plan is not None:
-        if user_id:
+    if instance["status"] == "generated" and usage_counter is not None:
+        resolved_plan = _resolve_plan_for_limit_check(profile, plan)
+        if user_id and resolved_plan is not None:
             count = usage_counter.increment(user_id, month or current_month_jst())
-            notice = build_usage_notice(plan, count)
+            notice = build_usage_notice(resolved_plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
 

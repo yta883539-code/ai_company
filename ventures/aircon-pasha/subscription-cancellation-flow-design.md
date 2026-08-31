@@ -112,6 +112,14 @@ course-set-pasha/subscription-cancellation-flow-design.mdがWebSearchで確認�
   実装した。ただし`process_memo_event()`側が`current_plan_id`を読んで`plan`引数へ
   反映する配線〈月間生成回数の上限判定・上限接近通知に実際に使う経路〉はまだ未着手のまま
   次回以降の課題として残る)。
+  (実装済み 2026-08-31・フェーズ162: `process_memo_event()`内に
+  `_resolve_plan_for_limit_check()`を新設し、`current_plan_id`を上限判定・上限接近通知に
+  実際に使う配線を完成させた。`profile.current_plan_id`が設定済みならそれを最優先で使い、
+  未設定でも`upgraded_at`設定済み(有料転換済みだがWebhook受信順序次第の一時的な同期漏れ)
+  なら最小プラン〈スモール〉を安全側デフォルトとして採用、トライアル中(`upgraded_at`未設定)
+  や`profile_store`未接続時は従来通り呼び出し元が渡す`plan`引数を使う〈トライアル中は
+  月間プラン上限を適用対象外のままTRIAL_GENERATION_LIMIT側に委ねる、という既存方針を維持〉。
+  これにより本節の「後段部分」の残課題は解消済み)。
 
 ## 本venture固有の論点: 季節性に伴うダウングレードの偏り
 
