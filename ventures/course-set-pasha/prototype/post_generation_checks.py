@@ -19,13 +19,29 @@ LLM構造化出力(schema/output.schema.json)を受け取った後に、プロ�
   続き、history_rows[]に登場するエリア名自体が本文中に一切言及されていないケース
   (厳守事項4・5の「エリア・改訂日の明示」指示への違反疑い)を検出するチェックも追加した。
 - 実LLM呼び出しは行わない(APIキー・課金が必要なため、実行にはオーナー承認が必要な範囲)。
+- 2026-08-31追記: character-limit-fallback-design.md準拠のLINEテキストメッセージ文字数
+  上限チェック(check_message_length_within_line_limit())を追加した。aircon-pashaと異なり
+  本ventureは出力1・2・3を1通のメッセージにまとめて送信するため、個々のフィールドではなく
+  組み立て後の全体テキスト(cloud_function_webhook.pyのformat_generated_reply()相当)の
+  長さを判定する。
 """
 
 import re
 
+from history_export import history_rows_to_csv_text
+
 PHOTO_REFERENCE_KEYWORDS = ("写真の課題", "写真")
 NEW_CONTENT_KEYWORDS = ("新着", "追加", "入れ替え", "新規")
 UNCHANGED_KEYWORDS = ("変更なし", "変更ありません", "変わりません", "変更はありません")
+
+# character-limit-fallback-design.md準拠。LINE Messaging APIのテキストメッセージ
+# 1件あたりの文字数上限(UTF-16コード単位)。
+LINE_TEXT_MESSAGE_UTF16_LIMIT = 5000
+
+# 検証エラーの中からLINE文字数上限超過を区別するための接頭辞(呼び出し元の
+# cloud_function_webhook.pyが専用フォールバック文言(LENGTH_LIMIT_FALLBACK_MESSAGE)を
+# 選択するための目印。aircon-pashaのpost_generation_checks.pyと同じ命名)。
+LENGTH_LIMIT_ERROR_PREFIX = "LINE_LENGTH_LIMIT_EXCEEDED"
 
 # 厳守事項9の機械チェック用。絵文字そのものを網羅する完全な判定は困難なため、
 # 実際に投稿文で使われやすい絵文字が集中する主要ブロック(顔文字・記号・ピクトグラム等)を
@@ -408,6 +424,57 @@ def check_subscription_notice_consistency(instance):
     return errors
 
 
+def _build_combined_reply_text_for_length_check(instance):
+    """cloud_function_webhook.pyのformat_generated_reply()と同じ組み立てロジックを
+    ここで再現し、実際に1通として送信される返信文全体を返す(循環import(post_generation_
+    checks.py→cloud_function_webhook.py→post_generation_checks.py)を避けるため、
+    共有関数化はせずロジックを複製している。format_generated_reply()側の組み立て方を
+    変更した場合はこちらも合わせて更新する必要がある既知の限界として残る)。
+    """
+    sns_post = instance["sns_post"]
+    line_web_notice = instance["line_web_notice"]
+    history_rows = instance["history_rows"]
+
+    sns_body = sns_post["body"]
+    hashtags_line = " ".join(sns_post["hashtags"])
+    csv_text = history_rows_to_csv_text(history_rows)
+
+    parts = [
+        "【SNS投稿文の下書き】",
+        sns_body if not hashtags_line else f"{sns_body}\n{hashtags_line}",
+        "",
+        "【LINE/Web告知文の下書き】",
+        line_web_notice["body"],
+        "",
+        "【更新履歴(スプレッドシート転記用)】",
+        csv_text.rstrip("\n"),
+    ]
+    return "\n".join(parts)
+
+
+def check_message_length_within_line_limit(instance):
+    """character-limit-fallback-design.md準拠チェック。status=generatedのとき、実際に
+    1通として送信される組み立て済み返信文(format_generated_reply()と同じ内容)が、
+    LINE Messaging APIのテキストメッセージ上限(LINE_TEXT_MESSAGE_UTF16_LIMIT、UTF-16
+    コード単位)を超えていないかを確認する。超過が検出された場合、エラーメッセージは
+    LENGTH_LIMIT_ERROR_PREFIXで始まる(呼び出し元のcloud_function_webhook.pyが他の検証
+    エラーと区別し、専用のフォールバック文言を選択するための目印)。
+    """
+    errors = []
+    if instance.get("status") != "generated":
+        return errors
+
+    combined_text = _build_combined_reply_text_for_length_check(instance)
+    length = len(combined_text.encode("utf-16-le")) // 2
+    if length > LINE_TEXT_MESSAGE_UTF16_LIMIT:
+        errors.append(
+            f"{LENGTH_LIMIT_ERROR_PREFIX}: 組み立て後の返信文全体がLINE文字数上限"
+            f"({LINE_TEXT_MESSAGE_UTF16_LIMIT}文字、UTF-16コード単位)を超えています"
+            f"({length}文字)"
+        )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -418,4 +485,5 @@ def run_all_checks(instance):
     errors += check_updated_areas_mentioned_in_text(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     errors += check_subscription_notice_consistency(instance)
+    errors += check_message_length_within_line_limit(instance)
     return errors

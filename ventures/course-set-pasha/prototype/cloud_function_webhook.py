@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from history_export import history_rows_to_csv_text  # noqa: E402
-from post_generation_checks import run_all_checks  # noqa: E402
+from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodePurgeThrottle,
     LinkingCodeStoreProtocol,
@@ -824,6 +824,21 @@ API_FAILURE_FALLBACK_MESSAGE = (
     "只今混み合っております。少し時間をおいて同じ内容をもう一度送ってください。"
 )
 
+# character-limit-fallback-design.md準拠。組み立て後の返信文全体がLINE文字数上限を
+# 超えた場合専用のフォールバック通知。汎用のVALIDATION_FAILURE_FALLBACK_MESSAGEとは
+# 文面を区別し、本venture固有の回避策(1回のメモでの更新エリア数を減らす)も案内する。
+LENGTH_LIMIT_FALLBACK_MESSAGE = (
+    "生成結果が長くなりすぎたため、下書きを作成できませんでした。"
+    "恐れ入りますが、入力メモを少し短くして再度お送りください"
+    "(1回のメモでの更新エリア数を減らしていただくのも有効です)。"
+)
+
+
+def _is_length_limit_error(errors: list[str]) -> bool:
+    """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
+    含まれているかを判定する。"""
+    return any(error.startswith(LENGTH_LIMIT_ERROR_PREFIX) for error in errors)
+
 
 def format_generated_reply(instance: dict) -> str:
     """status=generatedの構造化出力を、出力1・出力2・出力3をまとめた1通の返信文に組み立てる。"""
@@ -1110,10 +1125,14 @@ def process_memo_event(
         errors = validate_llm_output(instance)
 
     if errors:
-        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        fallback_message = (
+            LENGTH_LIMIT_FALLBACK_MESSAGE if _is_length_limit_error(errors)
+            else VALIDATION_FAILURE_FALLBACK_MESSAGE
+        )
+        reply_sent = _reply_with_retry(reply_client, reply_token, fallback_message)
         return MemoProcessResult(
             handled=True, reply_sent=reply_sent,
-            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            reply_text=fallback_message if reply_sent else None,
             validation_errors=errors, retried=retried,
         )
 

@@ -1609,10 +1609,36 @@
   pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または本venture内で
   未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題(オーナー承認待ち)
   以外の棚卸しを優先候補とする。
-- 最終更新: 2026-08-31 14:00 UTC
+- フェーズ138(2026-08-31 19:00 UTC): aircon-pashaには存在する
+  `character-limit-fallback-design.md`(LINE Messaging APIのテキストメッセージ文字数上限
+  超過時のフォールバック設計)が本ventureには一度も設計されていなかった点を発見し、
+  設計・実装した。aircon-pashaは出力2件を別々のメッセージとして送るためフィールド単位で
+  上限判定すればよかったが、本ventureはwebhook-processing-flow-design.md(フェーズ38)の
+  方針により出力1・2・3を1通のメッセージにまとめて返信するため、組み立て後の全体テキスト
+  (見出し・改行・history_rowsのCSV変換を含む)の長さで判定する必要がある点をaircon-pasha
+  との構造的な違いとして整理した(character-limit-fallback-design.md新規作成)。
+  `prototype/post_generation_checks.py`に`check_message_length_within_line_limit()`を
+  新規実装(`_build_combined_reply_text_for_length_check()`で`format_generated_reply()`と
+  同じ組み立てロジックを再現、循環import回避のため意図的にロジックを複製)し、
+  `run_all_checks()`に組み込んだ。`prototype/cloud_function_webhook.py`には
+  `LENGTH_LIMIT_FALLBACK_MESSAGE`(本venture固有の回避策として「更新エリア数を減らす」旨を
+  追記)と`_is_length_limit_error()`を新設し、検証エラーがLINE文字数上限超過の場合のみ
+  汎用の`VALIDATION_FAILURE_FALLBACK_MESSAGE`ではなく専用文言を返すよう分岐した
+  (aircon-pashaのフェーズ103・105と同じ設計・命名パターン)。テスト8件追加
+  (post_generation_checks側7件、cloud_function_webhook側1件、UTF-16サロゲートペア文字の
+  境界値テストを含む)、venture全体431件全件パス・schema検証9件パスを確認した。実装自体は
+  純粋なテキスト処理・分岐ロジックであり実LLM・実LINE API接続を必要としないため、承認待ちの
+  ままでも着手可能と判断した(course-set-pashaのStripe署名検証実装等と同じ考え方)。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生
+  していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 19:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-08-31 19:00 UTC・フェーズ138: aircon-pashaに存在しaircon-pashaとの機能差分
+  として本ventureに欠けていたLINE文字数上限超過時のフォールバック設計・実装
+  (character-limit-fallback-design.md)を行った。詳細は上記フェーズ138参照。実運用での
+  実際の超過発生頻度・ソフトな事前警告閾値の要否は実LLM接続後の課題として残る)
 - (解消済み 2026-08-30 15:00 UTC・フェーズ132: onboarding-settings-and-self-check-design.mdの
   「残課題」節に残っていたドキュメント記載漏れ2点(first_generation_notice_sentフィールド・
   ジム名地域名優先順位ルールの反映状況)を解消した。詳細は上記フェーズ132参照)

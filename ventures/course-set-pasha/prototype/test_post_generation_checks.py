@@ -16,9 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
+    LENGTH_LIMIT_ERROR_PREFIX,
+    LINE_TEXT_MESSAGE_UTF16_LIMIT,
     check_emoji_usage_rules,
     check_history_row_counts_mentioned_in_text,
     check_mentions_photo_consistency,
+    check_message_length_within_line_limit,
     check_no_out_of_scope_topics_in_generated_output,
     check_subscription_notice_consistency,
     check_unchanged_areas_not_mentioned_as_new,
@@ -588,6 +591,85 @@ class SubscriptionNoticeConsistencyTest(unittest.TestCase):
             }
         }
         self.assertEqual(check_subscription_notice_consistency(instance), [])
+
+
+class MessageLengthWithinLineLimitTest(unittest.TestCase):
+    def _base_instance(self, sns_body="通常の投稿文です。", notice_body="通常の告知文です。"):
+        return {
+            "status": "generated",
+            "sns_post": {
+                "body": sns_body,
+                "hashtags": ["#ボルダリング"],
+                "mentions_photo": False,
+            },
+            "line_web_notice": {"body": notice_body},
+            "history_rows": [
+                {
+                    "revision_date": "2026-08-07",
+                    "area": "エリアA",
+                    "tape_color_or_grade_band": "黄テープ",
+                    "count": 8,
+                    "feature_keywords": ["ダイナミック"],
+                },
+            ],
+        }
+
+    def test_short_message_passes(self):
+        instance = self._base_instance()
+        self.assertEqual(check_message_length_within_line_limit(instance), [])
+
+    def test_over_limit_sns_body_is_flagged(self):
+        instance = self._base_instance(sns_body="あ" * 6000)
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith(LENGTH_LIMIT_ERROR_PREFIX))
+
+    def test_over_limit_notice_body_is_flagged(self):
+        instance = self._base_instance(notice_body="い" * 6000)
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith(LENGTH_LIMIT_ERROR_PREFIX))
+
+    def test_many_history_rows_pushing_over_limit_is_flagged(self):
+        instance = self._base_instance()
+        instance["history_rows"] = [
+            {
+                "revision_date": "2026-08-07",
+                "area": f"エリア{i}",
+                "tape_color_or_grade_band": "黄テープ〜黒テープ",
+                "count": i,
+                "feature_keywords": ["ダイナミック", "ムーブ重視", "パワー系"],
+            }
+            for i in range(400)
+        ]
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith(LENGTH_LIMIT_ERROR_PREFIX))
+
+    def test_exactly_at_limit_passes(self):
+        # ヘッダー・区切り文字等の固定オーバーヘッド分を差し引いた長さのsns_bodyで、
+        # 組み立て後ちょうど上限文字数になるよう調整して境界値を確認する。
+        instance = self._base_instance()
+        from post_generation_checks import _build_combined_reply_text_for_length_check
+
+        overhead_instance = self._base_instance(sns_body="")
+        overhead_length = len(
+            _build_combined_reply_text_for_length_check(overhead_instance).encode("utf-16-le")
+        ) // 2
+        instance["sns_post"]["body"] = "あ" * (LINE_TEXT_MESSAGE_UTF16_LIMIT - overhead_length)
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(errors, [])
+
+    def test_non_generated_status_is_skipped(self):
+        instance = {"status": "out_of_scope"}
+        self.assertEqual(check_message_length_within_line_limit(instance), [])
+
+    def test_surrogate_pair_characters_counted_as_two_units(self):
+        # 補助文字面(U+10000以降、例: 𠮟る の「𠮟」U+20B9F)はUTF-16では2コード単位。
+        instance = self._base_instance(sns_body="𠮟" * 3000)
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

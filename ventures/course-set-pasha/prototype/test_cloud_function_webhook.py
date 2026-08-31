@@ -25,6 +25,7 @@ from cloud_function_webhook import (  # noqa: E402
     API_FAILURE_FALLBACK_MESSAGE,
     APPLICATION_FORM_URL_PLACEHOLDER,
     GENERATION_PAUSED_MESSAGE,
+    LENGTH_LIMIT_FALLBACK_MESSAGE,
     PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
     PAYMENT_SUSPENDED_MESSAGE,
     PLAN_MONTHLY_LIMITS,
@@ -236,6 +237,26 @@ class ProcessMemoEventTest(unittest.TestCase):
         )
 
         self.assertEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        self.assertTrue(result.validation_errors)
+        self.assertTrue(result.retried)
+
+    def test_length_limit_violation_falls_back_to_length_limit_message(self):
+        # character-limit-fallback-design.md準拠。汎用のVALIDATION_FAILURE_FALLBACK_MESSAGE
+        # ではなく、LINE文字数上限超過専用のLENGTH_LIMIT_FALLBACK_MESSAGEが返されることを
+        # 確認する(1回のメモでの更新エリア数を減らす、という本venture固有の回避策を含む)。
+        def make_sns_body_too_long(instance):
+            instance = dict(instance)
+            instance["sns_post"] = dict(instance["sns_post"])
+            instance["sns_post"]["body"] = "あ" * 6000
+            return instance
+
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(), FixtureLlmClient("G1_basic", mutate=make_sns_body_too_long), reply_client
+        )
+
+        self.assertEqual(result.reply_text, LENGTH_LIMIT_FALLBACK_MESSAGE)
+        self.assertNotEqual(result.reply_text, VALIDATION_FAILURE_FALLBACK_MESSAGE)
         self.assertTrue(result.validation_errors)
         self.assertTrue(result.retried)
 
