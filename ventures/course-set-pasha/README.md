@@ -1564,7 +1564,25 @@
   計2件)。テスト2件追加、venture全体421件全件パス・schema検証9件パスを確認した。
   承認不要な実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-30 22:00 UTC
+- フェーズ135(2026-08-31 05:00 UTC): payment-failure-reminder-scheduler-design.mdの
+  「Cloud Function E」について、フェーズ130(trial_end_scheduler.build_trial_user_states)・
+  フェーズ134(payment_suspension_owner_notification.build_payment_suspension_customer_states)
+  と同種の配線漏れを発見・解消した。`stripe_webhook.dispatch_stripe_event()`が
+  `invoice.payment_failed`受信時に書き込む`payment_failure_detected_at`と、
+  `select_due_payment_failure_reminders()`が読む`payment_failure_detected_at`・
+  `payment_failure_reminder_sent_at`が、実際に同一の`InMemoryUsageCounter`経由でつながる
+  ことを確認する手段が存在しなかった。`payment_failure_reminder_scheduler.py`に
+  `build_payment_failure_user_states(usage_counter, user_ids)`を新設し、
+  `test_payment_failure_reminder_scheduler.py`に
+  `StripeWebhookPaymentFailureDetectedToReminderSchedulerWiringTest`を追加した(検知から
+  4日未満はリマインド窓の対象外・4日以上7日未満で対象・7日以上〈制限モード相当、
+  payment_suspension_owner_notification側の対象へ切り替わる〉は対象外に戻ること、および
+  `send_payment_failure_reminders()`実行後は`payment_failure_reminder_sent_at`書き込みに
+  より次回スキャンの対象から除外される〈二重送信しない〉ことの計2件)。テスト2件追加、
+  venture全体423件全件パス・schema検証9件パスを確認した。承認不要な実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 05:00 UTC
 
 ## 次にやること(候補)
 

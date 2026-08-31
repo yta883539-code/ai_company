@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -205,6 +205,94 @@ class SendPaymentFailureRemindersTest(unittest.TestCase):
         # 一致していることを固定する回帰テスト。
         self.assertEqual(DEFAULT_GRACE_PERIOD_DAYS, 7)
         self.assertEqual(DEFAULT_REMINDER_DAYS_BEFORE_END, 3)
+
+
+class StripeWebhookPaymentFailureDetectedToReminderSchedulerWiringTest(unittest.TestCase):
+    """stripe_webhook.dispatch_stripe_event()が`invoice.payment_failed`受信時に書き込む
+    payment_failure_detected_atと、select_due_payment_failure_reminders()が読む
+    payment_failure_detected_at・payment_failure_reminder_sent_atが、
+    build_payment_failure_user_states()を介して実際に同一のInMemoryUsageCounter経由で
+    つながることを確認する(trial_end_scheduler.pyのStripeWebhookUpgradedAtTo
+    TrialEndSchedulerWiringTest〈フェーズ130〉・payment_suspension_owner_notification.pyの
+    StripeWebhookPaymentFailureDetectedToOwnerNotificationWiringTest〈フェーズ134〉と
+    同種の配線漏れの観点、フェーズ135)。"""
+
+    def setUp(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+        from deletion_candidate import InMemoryProfileDeletionCandidateStore
+
+        self.usage_counter = InMemoryUsageCounter()
+        self.store = InMemoryProfileDeletionCandidateStore()
+
+    def test_payment_failure_event_becomes_due_within_reminder_window(self) -> None:
+        from stripe_webhook import dispatch_stripe_event
+
+        from payment_failure_reminder_scheduler import build_payment_failure_user_states
+
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,  # 2023-11-14T22:13:20Z
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=lambda customer: {"cus_A": "u1"}.get(customer),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.payment_failure_detected_user_ids, ["u1"])
+
+        event_time = datetime.fromtimestamp(1_700_000_000, tz=timezone.utc)
+
+        # 検知から2日(4日未満、リマインド窓の下限前): build_payment_failure_user_states()
+        # 経由でもまだ対象外のまま。
+        states = build_payment_failure_user_states(self.usage_counter, ["u1"])
+        due = select_due_payment_failure_reminders(states, event_time + timedelta(days=2))
+        self.assertEqual(due, [])
+
+        # 検知から5日(4日以上7日未満、リマインド窓): 対象となる。
+        states = build_payment_failure_user_states(self.usage_counter, ["u1"])
+        due = select_due_payment_failure_reminders(states, event_time + timedelta(days=5))
+        self.assertEqual([u.user_id for u in due], ["u1"])
+
+        # 検知から8日(猶予期間超過、制限モード相当): 既に対象外(payment_suspension_
+        # owner_notification.py側の対象へ切り替わる想定)。
+        states = build_payment_failure_user_states(self.usage_counter, ["u1"])
+        due = select_due_payment_failure_reminders(states, event_time + timedelta(days=8))
+        self.assertEqual(due, [])
+
+    def test_reminder_sent_excludes_user_from_next_scan(self) -> None:
+        from stripe_webhook import dispatch_stripe_event
+
+        from payment_failure_reminder_scheduler import build_payment_failure_user_states
+
+        event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=lambda customer: {"cus_A": "u1"}.get(customer),
+            usage_counter=self.usage_counter,
+        )
+        event_time = datetime.fromtimestamp(1_700_000_000, tz=timezone.utc)
+        now = event_time + timedelta(days=5)
+
+        # send_payment_failure_reminders()を、dispatch_stripe_event()と同一の
+        # usage_counterに対して実行すると、payment_failure_reminder_sent_atが書き込まれる。
+        states = build_payment_failure_user_states(self.usage_counter, ["u1"])
+        push = InMemoryLinePushClient()
+        send_result = send_payment_failure_reminders(states, now, self.usage_counter, push)
+        self.assertEqual(send_result.sent, ["u1"])
+
+        # 同じusage_counterを再度build_payment_failure_user_states()経由で読み取ると、
+        # payment_failure_reminder_sent_at設定済みのため次回スキャンの対象から除外される
+        # (二重送信しない)。
+        states_after = build_payment_failure_user_states(self.usage_counter, ["u1"])
+        due_after = select_due_payment_failure_reminders(states_after, now)
+        self.assertEqual(due_after, [])
 
 
 if __name__ == "__main__":

@@ -47,6 +47,53 @@ class PaymentFailureUserState:
     payment_failure_reminder_sent_at: Optional[datetime] = None
 
 
+class PaymentFailureUserStateReader(Protocol):
+    """InMemoryUsageCounter(cloud_function_webhook.py)のうち、
+    build_payment_failure_user_states()が実際に使う2メソッドのみを要求する最小限の
+    Protocol(trial_end_scheduler.pyのTrialUserStateReader・payment_suspension_owner_
+    notification.pyのPaymentSuspensionCustomerStateReaderと同じ考え方)。"""
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+def build_payment_failure_user_states(
+    usage_counter: PaymentFailureUserStateReader,
+    user_ids: Sequence[str],
+) -> list[PaymentFailureUserState]:
+    """usage_counterの各getterから、user_idごとにPaymentFailureUserStateを組み立てる。
+
+    trial_end_scheduler.build_trial_user_states()(フェーズ130)・payment_suspension_
+    owner_notification.build_payment_suspension_customer_states()(フェーズ134)と同種の
+    配線漏れの観点で発見: stripe_webhook.dispatch_stripe_event()が`invoice.payment_failed`
+    受信時に書き込むpayment_failure_detected_atと、select_due_payment_failure_reminders()が
+    読むpayment_failure_detected_at・payment_failure_reminder_sent_atは、これまで
+    PaymentFailureUserStateが各テスト・_demo()内で手動構築されるのみで、実際の
+    UsageCounterProtocol実装(InMemoryUsageCounter等)から読み取って組み立てる関数が
+    存在しなかったため、実際に同一のusage_counter経由でつながることを確認する手段が
+    なかった。呼び出し元は実際にはFirestoreクエリの結果としてuser_idsを得る想定で、
+    本関数はその後の1件ずつのフィールド読み出し部分のみを担う(design 4節
+    「usage_counterストアから...ユーザーを抽出」に相当)。
+    """
+    states: list[PaymentFailureUserState] = []
+    for user_id in user_ids:
+        states.append(
+            PaymentFailureUserState(
+                user_id=user_id,
+                payment_failure_detected_at=usage_counter.get_payment_failure_detected_at(
+                    user_id
+                ),
+                payment_failure_reminder_sent_at=(
+                    usage_counter.get_payment_failure_reminder_sent_at(user_id)
+                ),
+            )
+        )
+    return states
+
+
 def select_due_payment_failure_reminders(
     users: Sequence[PaymentFailureUserState],
     now: datetime,
