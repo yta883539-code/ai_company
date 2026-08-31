@@ -20,12 +20,15 @@ from cloud_function_process_event import (  # noqa: E402
     CHANGE_NO_CANDIDATES_MESSAGE,
     CHANGE_REASK_MENU_MESSAGE,
     ConversationEventProcessor,
+    DispatchResult,
+    FOLLOW_WELCOME_MESSAGE,
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
     LinePushDeliveryError,
     REASK_DATE_RANGE_MESSAGE,
     REASK_MENU_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
+    dispatch_process_event,
     resolve_menu_duration,
 )
 from engine import (  # noqa: E402
@@ -1711,6 +1714,124 @@ class FlowInternalEventOwnerNotificationTests(unittest.TestCase):
         self.assertEqual(len(change_messages), 1)
         self.assertIn("山田様", change_messages[0])
         self.assertEqual(logs.system_event_counts.get("booking_change_started"), 1)
+
+
+class FollowUnfollowEventTests(unittest.TestCase):
+    """follow-unfollow-event-handling-design.md準拠。dispatch_process_event()の
+    type別振り分けと、process_follow_event()/process_unfollow_event()の挙動を検証する。
+    """
+
+    def test_dispatch_routes_message_event_to_process(self):
+        processor, flow, push, _ = _new_processor()
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        event = {"type": "message", **_event("U1", "来週土曜カットで")}
+        result = dispatch_process_event(processor, event, llm_call, NOW)
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+    def test_dispatch_routes_follow_event_and_sends_welcome_message(self):
+        processor, flow, push, _ = _new_processor()
+        event = {"type": "follow", "source": {"userId": "U1"}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.reply_sent, True)
+        self.assertEqual(push.sent, [("U1", FOLLOW_WELCOME_MESSAGE)])
+        # follow単体では会話フローの状態を一切作らない。
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_follow_event_without_user_id_sends_nothing(self):
+        processor, _, push, _ = _new_processor()
+        event = {"type": "follow", "source": {}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.reply_sent, False)
+        self.assertEqual(push.sent, [])
+
+    def test_dispatch_routes_unfollow_event_without_touching_state(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+        self._reach_confirmed(processor, flow)
+        slots_before = dict(flow._slots._slots)
+        push.sent.clear()
+
+        event = {"type": "unfollow", "source": {"userId": "U1"}}
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.handled, True)
+        # 会話状態・予約枠・通知ログのいずれも変更しない。
+        self.assertEqual(flow.stage("U1"), "confirmed")
+        self.assertEqual(dict(flow._slots._slots), slots_before)
+        self.assertEqual(logs.system_event_counts.get("line_push_failed"), None)
+        # LINEへの返信・オーナー通知も一切発生しない。
+        self.assertEqual(push.sent, [])
+
+    def test_unfollow_event_without_user_id_is_still_handled(self):
+        # userId欠落時も安全側で何もしないだけで、処理自体は正常終了する
+        # (followと異なり、unfollow側はそもそも送信を行わないため分岐不要)。
+        processor, _, push, _ = _new_processor()
+        event = {"type": "unfollow", "source": {}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.handled, True)
+        self.assertEqual(push.sent, [])
+
+    def test_dispatch_ignores_unknown_event_type(self):
+        processor, _, push, _ = _new_processor()
+        event = {"type": "postback", "source": {"userId": "U1"}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertIsInstance(result, DispatchResult)
+        self.assertEqual(result.action, "ignored")
+        self.assertEqual(result.detail, "postback")
+        self.assertEqual(push.sent, [])
+
+    def test_dispatch_ignores_event_with_missing_type(self):
+        processor, _, push, _ = _new_processor()
+        event = {"source": {"userId": "U1"}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.action, "ignored")
+        self.assertEqual(result.detail, "unknown")
+
+    def _reach_confirmed(self, processor, flow):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call_search():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor.process(_event("U1", "来週土曜カットで"), llm_call_search, NOW)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), llm_call_select, NOW)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "山田です、カットでお願いします"), llm_call_details, NOW)
 
 
 if __name__ == "__main__":

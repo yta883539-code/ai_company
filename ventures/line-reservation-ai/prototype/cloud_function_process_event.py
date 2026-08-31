@@ -213,6 +213,31 @@ class DispatchResult:
     detail: str = ""
 
 
+@dataclass
+class FollowProcessResult:
+    reply_sent: bool
+
+
+@dataclass
+class UnfollowProcessResult:
+    handled: bool
+
+
+# follow-unfollow-event-handling-design.md 2節準拠。フォロー時点ではオーナー/顧客の
+# 判別ができないため、どちらが読んでも違和感のない共通の固定文言を送る。
+FOLLOW_WELCOME_MESSAGE = (
+    "ご登録ありがとうございます!\n"
+    "\n"
+    "こちらのLINE公式アカウントでは、空き時間の確認から予約の確定・前日リマインドまで、"
+    "トークだけで完結します。\n"
+    "\n"
+    "ご希望の日時やメニューを、そのままメッセージで送ってください。\n"
+    "(例:「今週土曜の午後に予約したいです」)\n"
+    "\n"
+    "営業日・アクセス・お支払い方法などのご質問もこちらでお答えします。"
+)
+
+
 def resolve_menu_duration(menu_name: Optional[str], menu_durations: dict) -> Optional[int]:
     """店舗設定のメニュー別所要時間から検索用の分数を引く。未登録メニューはNoneを返し、
     呼び出し側はオーナーへのエスカレーションに倒す(owner-settings-wireframe.mdの
@@ -826,6 +851,47 @@ class ConversationEventProcessor:
         return self._start_new_booking(
             user_id, output, now, change_context=released_old_booking, reply_text=reply_text
         )
+
+    def process_follow_event(self, event: dict, now: datetime) -> FollowProcessResult:
+        """follow-unfollow-event-handling-design.md 2節準拠。`userId`欠落時は送信しない
+        (aircon-pasha・course-set-pashaと同じ防御的分岐)。オーナー/顧客の判別ができない
+        時点のイベントのため、共通の固定文言を1回送るだけの薄い実装に留める。
+        """
+        user_id = event.get("source", {}).get("userId")
+        if not user_id:
+            return FollowProcessResult(reply_sent=False)
+        self._send(user_id, FOLLOW_WELCOME_MESSAGE, now)
+        return FollowProcessResult(reply_sent=True)
+
+    def process_unfollow_event(self, event: dict, now: datetime) -> UnfollowProcessResult:
+        """follow-unfollow-event-handling-design.md 3節準拠。会話状態・bookingSlots・
+        Stripeサブスクリプション・通知ログのいずれも変更しない(意図的な設計判断)。
+        LINEへの返信・オーナー通知も行わない(送達不可のため)。実装としてはaircon-pasha版と
+        同様にデータの検索・削除処理を一切行わない極めて薄いものになる。
+        """
+        return UnfollowProcessResult(handled=True)
+
+
+def dispatch_process_event(
+    processor: ConversationEventProcessor,
+    event: dict,
+    llm_call: Callable[[], dict],
+    now: datetime,
+    tone: str = "standard",
+):
+    """follow-unfollow-event-handling-design.md 1節準拠。Cloud Tasksからデキューされた
+    1件を`event["type"]`ごとに振り分ける。Function B本体(未実装)は今後
+    `processor.process(...)`を直接呼ぶ代わりにこちらを呼ぶ形に差し替える想定。
+    `message`イベントの扱い(`processor.process()`)自体は変更しない。
+    """
+    event_type = event.get("type")
+    if event_type == "message":
+        return processor.process(event, llm_call, now, tone)
+    if event_type == "follow":
+        return processor.process_follow_event(event, now)
+    if event_type == "unfollow":
+        return processor.process_unfollow_event(event, now)
+    return DispatchResult(action="ignored", detail=event_type or "unknown")
 
 
 def _demo() -> None:

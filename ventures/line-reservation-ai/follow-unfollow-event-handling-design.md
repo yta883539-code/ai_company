@@ -126,6 +126,21 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
 だったのに対し、本ventureは「意図的に何もしない」という設計判断が理由という違いはあるが、
 実装としての薄さは同じ)。
 
+## 実装状況(2026-08-31 20:00 UTC追記)
+
+`dispatch_process_event()`・`process_follow_event()`・`process_unfollow_event()`を
+`prototype/cloud_function_process_event.py`に実装し、テスト7件を追加した(venture全体
+492件全件パス・schema検証25件パスを確認)。1節の設計通り、`event["type"]`が
+`"message"`なら既存の`processor.process()`へ、`"follow"`なら`process_follow_event()`へ、
+`"unfollow"`なら`process_unfollow_event()`へ振り分け、それ以外は
+`DispatchResult(action="ignored", detail=event.get("type", "unknown"))`を返す(送信・状態
+変更は一切行わない)。`process_follow_event()`はFOLLOW_WELCOME_MESSAGE(2節の固定文言、
+原文の誤字「营业日」は「営業日」に修正して採用)を1回送るのみ、`process_unfollow_event()`は
+`UnfollowProcessResult(handled=True)`を返すだけで会話状態・予約枠・通知ログのいずれにも
+書き込み・削除を行わない(3節の方針通り)。ただしFunction B本体(Cloud Tasksデキュー後の
+実エントリポイント)は未実装のままのため、`dispatch_process_event()`を実際に呼び出す配線は
+次回以降の課題として残る。
+
 ## 残課題
 
 - `owner_user_id`(owner-notification-channel-design.md)と、Stripe決済導線が用いる
@@ -142,9 +157,6 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
   事前確認を促せる可能性がある)。本ドキュメントのスコープ外として次回以降の検討候補とする。
 - 店舗名差し込み版ウェルカムメッセージ(2節参照)の実装は、owner-settings-wireframe.mdの
   店舗設定フィールド名確定後に着手する。
-- `dispatch_process_event()`・`process_follow_event()`・`process_unfollow_event()`の
-  実プロトタイプ実装・テスト追加(aircon-pashaフェーズ111相当)は次回以降のフェーズで行う。
-  想定テストケース: (1)`dispatch_process_event()`が`type`ごとに正しく振り分けること、
-  (2)`follow`受信時に固定文言で1回だけ返信されること、`userId`欠落時は送信しないこと、
-  (3)`unfollow`受信時に会話状態・`bookingSlots`・通知ログのいずれにも書き込み・削除が
-  発生しないこと、既存のLINE push送信も呼ばれないこと。
+- `dispatch_process_event()`を実際に呼び出すFunction B本体(Cloud Tasksデキュー後の
+  実エントリポイント)は未実装のため、その配線自体は次回以降の課題として残る
+  (上記「実装状況」参照)。
