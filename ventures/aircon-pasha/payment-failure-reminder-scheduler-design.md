@@ -108,8 +108,13 @@ trial_end_scheduler.pyのbuild_trial_end_notification_flex_message()と同じく
   `PAYMENT_SUSPENDED_MESSAGE`をそのまま再利用し、Push通知とリプライ時の案内文言を
   一致させた)・`send_payment_suspensions()`を実装した。テスト12件追加、venture全体
   275件全件パス・schema検証9件パスを確認した。
-- design 4節末尾で触れた「猶予期間中に決済が成功した場合の復旧通知の3分岐」の文言出し分けは
-  引き続き次回以降の課題として残る。
+- ~~design 4節末尾で触れた「猶予期間中に決済が成功した場合の復旧通知の3分岐」の文言出し分けは
+  引き続き次回以降の課題として残る。~~ → 本ドキュメント作成と同じフェーズ143の時点では
+  未着手だったが、フェーズ146で`prototype/payment_recovery_notification.py`の
+  `classify_payment_recovery()`として対応済み(制限モードからの復旧/猶予期間中の完了通知/
+  dunning対象外/状態リセットのみ、の4分類)。フェーズ148で`stripe_dispatch.py`の
+  `dispatch_stripe_event()`への`recovery_push_client`引数配線も完了しており、
+  payment-failure-dunning-design.md 6節参照。
 - 実際のCloud Scheduler実行環境の構築・LINE Push Message API接続は、trial-end-
   scheduler-design.mdと同じくオーナー承認待ちの範囲(pending-approval.md参照)。
   本ドキュメントは選定ロジック・スケジューラ構成の机上設計にとどめる。

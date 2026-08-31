@@ -2324,4 +2324,20 @@
   解消済みとなった。次回は他venture・アイデア領域の前進、または本venture内で
   未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題(オーナー承認待ち)
   以外の棚卸しを優先候補とする。
-- 最終更新: 2026-08-31 02:00 UTC
+- フェーズ163(2026-08-31 07:00 UTC): 各設計docの残課題を棚卸しした結果、
+  payment-failure-reminder-scheduler-design.md 6節に残っていた「design 4節末尾で
+  触れた『猶予期間中に決済が成功した場合の復旧通知の3分岐』の文言出し分けは引き続き
+  次回以降の課題として残る」という記載が、実際にはフェーズ146(`prototype/
+  payment_recovery_notification.py`の`classify_payment_recovery()`、制限モードからの
+  復旧/猶予期間中の完了通知/dunning対象外/状態リセットのみの4分類)・フェーズ148
+  (`stripe_dispatch.py`の`dispatch_stripe_event()`への`recovery_push_client`引数配線)で
+  既に対応済みだった記載漏れ(payment-failure-dunning-design.md 6節側は同日中に追記・
+  修正済みだったが、本ドキュメント側の「今後の課題」節が未更新のまま取り残されていた)を
+  解消した。コード変更は無し(ドキュメント整理のみ)、venture全体358件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  `schema/validate_test_cases.py`9件全件パスを再確認した。承認不要なドキュメント整理・
+  アイデア追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  本venture内で未着手のまま残っている実LLM・実LINE API・実Stripe接続待ちの残課題
+  (オーナー承認待ち)以外の棚卸しを優先候補とする。
+- 最終更新: 2026-08-31 07:00 UTC
