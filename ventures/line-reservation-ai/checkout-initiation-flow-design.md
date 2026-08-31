@@ -169,7 +169,10 @@ owner-settings-wireframe.mdのフォーム保存処理自体が未実装のた�
 - `resolve_existing_stripe_customer_id()`・`handle_checkout_session_completed()`を実際に
   Cloud Functions側のCheckout Session作成エンドポイント・Stripe Webhook受信エンドポイント
   本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は未実装。実アカウント接続後に
-  着手する。
+  着手する。うち署名検証部分(`verify_stripe_signature()`)は実アカウント接続前でも机上
+  実装・テスト可能だったため、stripe-webhook-signature-verification-design.md(フェーズ続き
+  158)として先行着手済み。エンドポイント本体(署名検証〜イベント種別ディスパッチ〜各
+  ハンドラ呼び出しを結ぶ層)は引き続き未着手のまま残る。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
 - `success_url`ページの実際のHTML/デザインは、LP実装(オーナー承認待ち)とあわせて行う。
 - オンボーディング完了メッセージの発火判定・1回のみ発火の制御の本体配線は、

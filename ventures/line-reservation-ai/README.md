@@ -1683,6 +1683,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   トランザクション実装自体で、実接続時(オーナー承認待ち)の課題として残る。承認不要な
   設計・実装のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。
+- フェーズ続き158(2026-08-31 08:00 UTC): checkout-initiation-flow-design.md「残課題」に
+  「`resolve_existing_stripe_customer_id()`・`handle_checkout_session_completed()`の実
+  エンドポイント配線は未実装、実アカウント接続後に着手する」と記載されたままだったが、
+  aircon-pasha・course-set-pashaの両ventureに既にある「Stripe Webhook署名検証」自体が
+  本ventureにはまだ存在しないという、配線漏れ以前の欠落に気づいた。実Stripeアカウント
+  作成・Webhookエンドポイント登録(オーナー承認待ち)なしでも公開仕様のみから机上実装・
+  テスト可能な署名検証部分のみを先行着手し、stripe-webhook-signature-verification-
+  design.mdを新規作成した(aircon-pashaのフェーズ125版と同一アルゴリズム、`Stripe-
+  Signature`ヘッダのt/v1解析・HMAC-SHA256署名比較・300秒のタイムスタンプ許容範囲・v1
+  複数時のシークレットローテーション対応・v0無視)。新規`prototype/stripe_webhook.py`に
+  `verify_stripe_signature()`を実装し、`prototype/test_stripe_webhook.py`にテスト8件
+  (正常系、ヘッダ欠落・不正形式、署名不一致、許容範囲外〈過去・未来〉、シークレット
+  ローテーション、v0のみの旧方式)を追加した。venture全体441件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、既存433件+新規8件)・
+  `schema/validate_test_cases.py`25件全件パスを確認した。checkout-initiation-flow-
+  design.md「残課題」にも本フェーズで先行着手済みの旨を追記した。実際のWebhook
+  エンドポイント本体(署名検証〜イベント種別ディスパッチ〜`handle_checkout_session_
+  completed()`等の呼び出しを結ぶ層。本venture固有の課題として、`checkout.session.
+  completed`以外を扱う`cloud_function_payment_webhook.py`・`cloud_function_
+  subscription_activated_webhook.py`との責務分担も要整理)は次回以降の課題として残る。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
