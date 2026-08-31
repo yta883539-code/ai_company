@@ -1761,7 +1761,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   venture全体461件全件パス・schema検証25件パスを再確認した。承認不要なドキュメント整理のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-08-31 13:00 UTC
+- フェーズ続き162(2026-08-31 16:00 UTC): course-set-pasha・aircon-pashaには存在する
+  `subscription-cancellation-flow-design.md`(オーナー自らの意思による解約フロー設計)が
+  本ventureには一度も存在しなかったことを発見し、新規に設計・実装した。owner-settings-
+  wireframe.md「4. プラン・お支払い状況ページ」でStripeカスタマーポータルへの遷移導線は
+  設計済みだったが、その先のWebhook側(`customer.subscription.updated`の
+  `cancel_at_period_end`変化・`customer.subscription.deleted`)は
+  stripe-webhook-signature-verification-design.mdでイベント名にのみ言及され、実際の
+  ハンドラは未着手のまま残っていた。本ventureは進行中の予約・確定済み予約を抱える
+  点でcourse-set-pashaと性質が異なるため、course-set-pasha版をそのまま流用せず、
+  (1)解約操作直後(`cancel_at_period_end: false→true`、サービス継続中のため状態は
+  変更しない)、(2)解約取り消し(`true→false`)、(3)請求期間終了・契約実終了
+  (`customer.subscription.deleted`、ここで初めて`suspension_reason`に新値
+  `"cancelled"`を設定し、休止モードと同じ「新規予約受付停止・既存確定予約と
+  前日リマインドは継続」へ移行)の3イベントに分けて設計した(subscription-
+  cancellation-flow-design.md新規作成)。`"cancelled"`は`"trial_unselected"`・
+  `"payment_failed"`と異なりオーナーの明確な意思表示のため、dormant-mode-
+  renotification-design.mdの7/30/90日再通知の対象には含めない方針とした。
+  `prototype/cloud_function_subscription_cancelled_webhook.py`に
+  `classify_subscription_update()`・`classify_subscription_deleted()`・
+  `handle_subscription_updated()`・`handle_subscription_deleted()`を新規実装し
+  (`cloud_function_subscription_activated_webhook.py`と同じ「自分が担当しない
+  suspension_reasonの値には触れない」設計を踏襲)、テスト22件を新規作成した
+  (test_cloud_function_subscription_cancelled_webhook.py)。venture全体485件全件パス・
+  schema検証25件パスを確認した。`"cancelled"`から再契約した店舗への再開通知が
+  `cloud_function_subscription_activated_webhook.py`側で欠落する新たな課題を発見し、
+  design側の「残課題」に記録した(本フェーズでは既存モジュールへの変更は見送り)。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-08-31 16:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
