@@ -118,8 +118,11 @@ onboarding-guide.mdのステップ6(トライアル終了後のプラン選択)�
 | `user_profile/{user_id}` | LINE user_id | `business_name`・`business_type`・`email`・`stripe_customer_id`・`current_plan_id`・`linked_at` | 連携済み業者のプロフィール・課金状態 |
 | `usage_counter/{user_id}` | LINE user_id | `month`・`count`(既存) | 月間生成回数の積算(tech-stack.md既存設計のまま変更なし) |
 
-tech-stack.mdコンポーネント5の記述(「本ventureにはusage_counterのみ」)は本ドキュメントの
-内容を踏まえて次回以降に更新が必要な残課題として残す。
+(解消済み 2026-08-23・フェーズ107: tech-stack.mdコンポーネント5に本ドキュメントの内容を
+踏まえた追記を行った〈「usage_counterのみが唯一の永続データ」という整理が不正確だったこと、
+`pending_links`・`user_profile`の2コレクションが別途必要であることを明記〉。本ドキュメントの
+作成と同一フェーズ内で反映済みだったが、当時この節自体を「残課題」のまま更新し忘れていたため
+本フェーズ〈168〉で解消済みとして訂正する。)
 
 ## 未検証・残課題
 
@@ -140,6 +143,8 @@ tech-stack.mdコンポーネント5の記述(「本ventureにはusage_counterの
 - (解消済み 2026-08-23 15:00 UTC・フェーズ113: プロトタイプ実装
   (course-set-pashaの`prototype/user_id_linking.py`相当)・テストを実装した。詳細は
   README.mdフェーズ113・prototype/user_id_linking.py・cloud_function_webhook.pyの
-  `process_message_event()`参照。連携失敗時の確定文言は本節記載の通り引き続き未確定のまま
-  次回以降の課題として残る)
-  実装自体は実LINE・実Stripe接続を必要としない机上検証が可能なため、次回以降の候補とする。
+  `process_message_event()`参照。連携失敗時の確定文言〈`LINKING_SUCCESS_MESSAGE`・
+  `LINKING_REQUIRED_MESSAGE`〉は当時未確定のまま残っていたが、その後tone-and-manner-
+  guideline.md「連携コード関連文言の最終確定」節〈本フェーズ168で確認〉でトーン&マナー
+  ガイドラインとの整合確認が完了し確定文言として結論済みのため、本節の記載も解消済みとして
+  訂正する)
