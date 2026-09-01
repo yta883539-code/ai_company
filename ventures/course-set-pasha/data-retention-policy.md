@@ -78,8 +78,8 @@ line-reservation-ai/data-retention-policy.mdの「最終確認の連絡経路」
 - 主経路: LINE公式アカウントからのpush送信。ただしunfollow(ブロック)済みの場合は
   送達できない(unfollow-event-handling-design.md「決定のまとめ」表のとおり、ブロック中は
   LINEへの返信自体を行わない方針のため、この経路は使えない)。
-- 代替経路: onboarding-guide.mdの申込フォーム提出時に収集した連絡先情報(メールアドレス等、
-  実際の収集項目はapplication-form-submission-flow-design.md側の実装確定後に確認)を用いた
+- 代替経路: onboarding-guide.mdの申込フォーム提出時に収集する`user_profile.email`
+  (contact-email-field-design.md、フェーズ139で必須フィールドとして実装確定)を用いた
   最終確認。実際のメール送信には送信用サービスのアカウント作成が別途必要であり、これは
   「アカウント作成」に該当するためオーナー承認待ちの範囲として残る(現時点では「どの宛先を
   使うか」の方針決定にとどめる)。
@@ -118,9 +118,13 @@ line-reservation-ai/data-retention-policy.mdの「最終確認の連絡経路」
   行った。`deletion_candidate_at`フィールドの設計・解約時のマーク付け/再契約時の取り消し/
   月次バッチ用の読み出し関数を整理済み。残るのは実Stripe Webhook受信エンドポイント自体の
   設計で、実Stripeアカウント接続後(オーナー承認待ち)の課題として残る)
-- 削除候補化後の連絡先(代替経路)は、申込フォームの実際の収集項目が
-  application-form-submission-flow-design.mdの実装確定時点でまだ「メールアドレス」と
-  確定していないため、実装確定後に本文書の「代替経路」記述を見直す必要がある。
+- (解消済み 2026-09-01 21:00 UTC・フェーズ139: 「実装確定後に確認する」としていた前提自体が
+  誤りで、実際には`user_profile.email`の収集・保存経路そのものが未設計のまま放置されていた
+  ことが判明した。onboarding-guide.mdが当初から明記していた「連絡先メールアドレス」を
+  必須フィールドとして`application_form_submission_flow.py`・`user_id_linking.py`
+  (連携コード経由の実エントリポイント)に実装し、詳細はcontact-email-field-design.mdとして
+  新規作成した。上記「代替経路」節が指す「メールアドレス」は`user_profile.email`として
+  確定した)
 - (解消済み 2026-08-21 18:00 UTC・フェーズ86: unfollow-event-handling-design.mdが別途
   今後の課題として残した「ブロックしたのに課金だけ続く」状態へのオーナー向けFAQ・
   問い合わせ対応文言整備は、本文書のスコープ外(削除方針ではなく問い合わせ対応文言の課題)

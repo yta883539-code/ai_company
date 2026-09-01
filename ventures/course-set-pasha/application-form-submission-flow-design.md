@@ -34,13 +34,18 @@ first-generation-notice-implementation-design.md 5節・
 ## 2. 受信データの形と正規化
 
 - Googleフォーム側の項目は onboarding-settings-and-self-check-design.md 1.の通り、
-  「ジム名・地域名(任意、複数可)」の自由記述欄1つ(カンマ区切りで複数組)。
+  「ジム名・地域名(任意、複数可)」の自由記述欄1つ(カンマ区切りで複数組)。加えて、
+  onboarding-guide.md 1.が申込フォームの入力項目として当初から挙げていた「連絡先
+  メールアドレス」は、本ドキュメント作成時点(フェーズ76)ではペイロード・スキーマに
+  未反映のまま放置されていたことがフェーズ139で判明し、`email`として追加した
+  (詳細はcontact-email-field-design.md参照)。
 - GAS Webhookからのペイロード想定(簡略化したJSON。実フィールド名はフォーム実装時に確定):
 
   ```json
   {
     "user_id": "U1234567890abcdef",
-    "gym_area_pairs_raw": "クライミングジムA/○○区, ボルダリングジムB/△△市"
+    "gym_area_pairs_raw": "クライミングジムA/○○区, ボルダリングジムB/△△市",
+    "email": "owner@example.com"
   }
   ```
 
@@ -63,9 +68,12 @@ first-generation-notice-implementation-design.md 5節・
 - `user_profile/{user_id}` ドキュメントの `gym_area_pairs` フィールドへ`set()`(新規作成
   または上書き)。既存の`GymAreaConfigStoreProtocol.is_configured(user_id)`はこの
   フィールドが非空かどうかで判定する。
+- 同ドキュメントの`email`フィールドへも同時に`set()`する(フェーズ139・
+  contact-email-field-design.md)。`gym_area_pairs`と異なり必須項目のため、欠落・空文字列は
+  提出全体をエラーとして扱い、いずれのフィールドも書き込まない。
 - 複数回の申込フォーム再提出(ジム移籍・地域追加等での更新)は**全体を上書き**する仕様とする
   (追記ではない。ユーザーが最新の状態を都度フォームで再入力する運用を想定し、差分マージの
-  複雑さを避ける)。
+  複雑さを避ける)。`email`も同様に最新提出内容で上書きする。
 
 ## 4. プロトタイプ実装方針
 

@@ -1631,10 +1631,33 @@
   ままでも着手可能と判断した(course-set-pashaのStripe署名検証実装等と同じ考え方)。承認不要な
   設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生
   していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 19:00 UTC
+- フェーズ139(2026-09-01 21:00 UTC): data-retention-policy.md・legal-notices-draft.mdが
+  いずれも「削除候補化後の代替連絡経路として使うメールアドレスの収集項目は、
+  application-form-submission-flow-design.mdの実装確定後に確認する」として先送りしていた
+  課題を棚卸ししたところ、その前提自体が誤りで、onboarding-guide.md 1.が申込フォーム項目
+  として当初から明記していた「連絡先メールアドレス」が、実際には`user_profile`のペイロード・
+  スキーマ設計(application-form-submission-flow-design.md)にも`prototype/`実装にも一度も
+  反映されていなかった記載漏れ(実装の空白)であることを発見した。contact-email-field-
+  design.mdとして新規設計し、`user_profile/{user_id}.email`を`gym_area_pairs`と異なり
+  必須フィールドとして追加した(`UserProfileStoreProtocol.set_email`/`get_email`、
+  `InMemoryUserProfileStore`、`handle_form_submission()`の検証・書き込み)。実際のGoogle
+  フォーム提出は連携コード経由の`handle_form_submission_with_linking_code()`
+  (user_id_linking.py)が真のエントリポイントであるため、同関数が組み立てる`inner_payload`に
+  `email`を素通しする配線漏れも合わせて修正した(この配線漏れを見落としたままだと、
+  実フォーム経由の提出ではメールアドレスが一切保存されない状態になっていた)。テスト10件
+  追加、venture全体438件全件パス・schema検証9件パスを確認した。data-retention-policy.md・
+  legal-notices-draft.md・application-form-submission-flow-design.mdの該当記載も本フェーズで
+  解消済みに更新した。承認不要な設計・実装・テスト追加・ドキュメント整理のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-01 21:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-01 21:00 UTC・フェーズ139: data-retention-policy.md・
+  legal-notices-draft.mdが先送りしていた「削除候補化の代替連絡経路メールアドレスの収集項目
+  確定」は、実際には`user_profile.email`の収集・保存経路自体が未設計だった記載漏れと判明し、
+  contact-email-field-design.mdとして実装した。詳細は上記フェーズ139参照)
 - (解消済み 2026-08-31 19:00 UTC・フェーズ138: aircon-pashaに存在しaircon-pashaとの機能差分
   として本ventureに欠けていたLINE文字数上限超過時のフォールバック設計・実装
   (character-limit-fallback-design.md)を行った。詳細は上記フェーズ138参照。実運用での

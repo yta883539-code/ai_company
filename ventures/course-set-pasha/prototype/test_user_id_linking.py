@@ -122,7 +122,11 @@ class HandleFormSubmissionWithLinkingCodeTest(unittest.TestCase):
         profile_store = InMemoryUserProfileStore()
 
         result = handle_form_submission_with_linking_code(
-            {"linking_code": "ABC234", "gym_area_pairs_raw": "ジムA/○○区"},
+            {
+                "linking_code": "ABC234",
+                "gym_area_pairs_raw": "ジムA/○○区",
+                "email": "owner@example.com",
+            },
             profile_store,
             linking_store,
             _NOW,
@@ -131,6 +135,7 @@ class HandleFormSubmissionWithLinkingCodeTest(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.user_id, "U1234")
         self.assertEqual(profile_store.get_gym_area_pairs("U1234"), "ジムA/○○区")
+        self.assertEqual(profile_store.get_email("U1234"), "owner@example.com")
 
     def test_invalid_code_does_not_write_anything(self):
         linking_store = InMemoryLinkingCodeStore()
@@ -146,6 +151,22 @@ class HandleFormSubmissionWithLinkingCodeTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertIsNone(result.user_id)
         self.assertEqual(profile_store.get_gym_area_pairs("U1234"), "")
+
+    def test_valid_code_but_missing_email_is_rejected_without_writing(self):
+        linking_store = InMemoryLinkingCodeStore()
+        linking_store.save("ABC234", "U1234", _NOW)
+        profile_store = InMemoryUserProfileStore()
+
+        result = handle_form_submission_with_linking_code(
+            {"linking_code": "ABC234", "gym_area_pairs_raw": "ジムA/○○区"},
+            profile_store,
+            linking_store,
+            _NOW,
+        )
+
+        self.assertFalse(result.ok)
+        self.assertFalse(profile_store.is_configured("U1234"))
+        self.assertIsNone(profile_store.get_email("U1234"))
 
 
 class PurgeExpiredLinksTest(unittest.TestCase):

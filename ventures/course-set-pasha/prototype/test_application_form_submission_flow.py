@@ -84,6 +84,21 @@ class InMemoryUserProfileStoreTest(unittest.TestCase):
         store.set_stripe_customer_id("U1", "cus_A")
         self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_A"), "U1")
 
+    def test_unregistered_user_email_returns_none(self):
+        store = InMemoryUserProfileStore()
+        self.assertIsNone(store.get_email("U_unknown"))
+
+    def test_email_set_then_get_round_trips(self):
+        store = InMemoryUserProfileStore()
+        store.set_email("U1", "owner@example.com")
+        self.assertEqual(store.get_email("U1"), "owner@example.com")
+
+    def test_email_resubmission_overwrites(self):
+        store = InMemoryUserProfileStore()
+        store.set_email("U1", "old@example.com")
+        store.set_email("U1", "new@example.com")
+        self.assertEqual(store.get_email("U1"), "new@example.com")
+
     def test_relinking_same_user_to_new_customer_id_updates_forward_lookup(self):
         # Checkoutのやり直し等で同一user_idに新しいstripe_customer_idが割り当たった場合、
         # 新しい方からの逆引きが有効になる(古いcustomer_idの逆引きエントリの明示的な
@@ -101,6 +116,7 @@ class HandleFormSubmissionTest(unittest.TestCase):
             {
                 "user_id": "U1234567890abcdef",
                 "gym_area_pairs_raw": " クライミングジムA/○○区 ,ボルダリングジムB/△△市 ",
+                "email": " owner@example.com ",
             },
             store,
         )
@@ -110,6 +126,7 @@ class HandleFormSubmissionTest(unittest.TestCase):
                 ok=True,
                 user_id="U1234567890abcdef",
                 normalized_gym_area_pairs="クライミングジムA/○○区, ボルダリングジムB/△△市",
+                email="owner@example.com",
             ),
         )
         self.assertEqual(
@@ -117,10 +134,13 @@ class HandleFormSubmissionTest(unittest.TestCase):
             "クライミングジムA/○○区, ボルダリングジムB/△△市",
         )
         self.assertTrue(store.is_configured("U1234567890abcdef"))
+        self.assertEqual(store.get_email("U1234567890abcdef"), "owner@example.com")
 
     def test_missing_gym_area_pairs_raw_defaults_to_empty_and_stays_unconfigured(self):
         store = InMemoryUserProfileStore()
-        result = handle_form_submission({"user_id": "U1"}, store)
+        result = handle_form_submission(
+            {"user_id": "U1", "email": "owner@example.com"}, store
+        )
         self.assertTrue(result.ok)
         self.assertEqual(result.normalized_gym_area_pairs, "")
         self.assertFalse(store.is_configured("U1"))
@@ -128,7 +148,11 @@ class HandleFormSubmissionTest(unittest.TestCase):
     def test_missing_user_id_is_rejected_without_writing(self):
         store = InMemoryUserProfileStore()
         result = handle_form_submission(
-            {"gym_area_pairs_raw": "クライミングジムA/○○区"}, store
+            {
+                "gym_area_pairs_raw": "クライミングジムA/○○区",
+                "email": "owner@example.com",
+            },
+            store,
         )
         self.assertFalse(result.ok)
         self.assertIsNotNone(result.error)
@@ -137,26 +161,69 @@ class HandleFormSubmissionTest(unittest.TestCase):
     def test_blank_user_id_is_rejected(self):
         store = InMemoryUserProfileStore()
         result = handle_form_submission(
-            {"user_id": "   ", "gym_area_pairs_raw": "クライミングジムA/○○区"}, store
+            {
+                "user_id": "   ",
+                "gym_area_pairs_raw": "クライミングジムA/○○区",
+                "email": "owner@example.com",
+            },
+            store,
         )
         self.assertFalse(result.ok)
 
     def test_non_string_gym_area_pairs_raw_is_rejected_without_writing(self):
         store = InMemoryUserProfileStore()
         result = handle_form_submission(
-            {"user_id": "U1", "gym_area_pairs_raw": 12345}, store
+            {"user_id": "U1", "gym_area_pairs_raw": 12345, "email": "owner@example.com"},
+            store,
         )
         self.assertFalse(result.ok)
         self.assertFalse(store.is_configured("U1"))
 
+    def test_missing_email_is_rejected_without_writing(self):
+        store = InMemoryUserProfileStore()
+        result = handle_form_submission(
+            {"user_id": "U1", "gym_area_pairs_raw": "クライミングジムA/○○区"}, store
+        )
+        self.assertFalse(result.ok)
+        self.assertIsNotNone(result.error)
+        self.assertFalse(store.is_configured("U1"))
+        self.assertIsNone(store.get_email("U1"))
+
+    def test_blank_email_is_rejected(self):
+        store = InMemoryUserProfileStore()
+        result = handle_form_submission(
+            {"user_id": "U1", "gym_area_pairs_raw": "クライミングジムA/○○区", "email": "   "},
+            store,
+        )
+        self.assertFalse(result.ok)
+        self.assertIsNone(store.get_email("U1"))
+
+    def test_non_string_email_is_rejected_without_writing(self):
+        store = InMemoryUserProfileStore()
+        result = handle_form_submission(
+            {"user_id": "U1", "gym_area_pairs_raw": "クライミングジムA/○○区", "email": 12345},
+            store,
+        )
+        self.assertFalse(result.ok)
+        self.assertIsNone(store.get_email("U1"))
+
     def test_resubmission_via_handler_overwrites(self):
         store = InMemoryUserProfileStore()
         handle_form_submission(
-            {"user_id": "U1", "gym_area_pairs_raw": "クライミングジムA/○○区"}, store
+            {
+                "user_id": "U1",
+                "gym_area_pairs_raw": "クライミングジムA/○○区",
+                "email": "old@example.com",
+            },
+            store,
         )
-        handle_form_submission({"user_id": "U1", "gym_area_pairs_raw": ""}, store)
+        handle_form_submission(
+            {"user_id": "U1", "gym_area_pairs_raw": "", "email": "new@example.com"},
+            store,
+        )
         self.assertEqual(store.get_gym_area_pairs("U1"), "")
         self.assertFalse(store.is_configured("U1"))
+        self.assertEqual(store.get_email("U1"), "new@example.com")
 
 
 if __name__ == "__main__":

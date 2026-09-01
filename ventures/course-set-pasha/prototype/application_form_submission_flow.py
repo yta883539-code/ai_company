@@ -36,12 +36,22 @@ class UserProfileStoreProtocol(Protocol):
     `get_stripe_customer_id`(順引き)は checkout-initiation-flow-design.md(フェーズ98)で
     追加した。Checkout Session作成時に、既存のStripe顧客(過去に決済経験がある解約・再契約
     ユーザー等)を再利用するかどうかの判定に使う。
+
+    `set_email`/`get_email`はcontact-email-field-design.md(フェーズ139)で追加した。
+    申込フォームで収集する連絡先メールアドレス(onboarding-guide.md 1.)を
+    `user_profile/{user_id}.email`として保持する。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         ...
 
     def get_gym_area_pairs(self, user_id: str) -> str:
+        ...
+
+    def set_email(self, user_id: str, email: str) -> None:
+        ...
+
+    def get_email(self, user_id: str) -> Optional[str]:
         ...
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
@@ -73,6 +83,7 @@ class InMemoryUserProfileStore:
 
     def __init__(self) -> None:
         self._profiles: dict[str, str] = {}
+        self._emails: dict[str, str] = {}
         self._stripe_customer_ids: dict[str, str] = {}
         self._user_ids_by_stripe_customer_id: dict[str, str] = {}
 
@@ -81,6 +92,12 @@ class InMemoryUserProfileStore:
 
     def get_gym_area_pairs(self, user_id: str) -> str:
         return self._profiles.get(user_id, "")
+
+    def set_email(self, user_id: str, email: str) -> None:
+        self._emails[user_id] = email
+
+    def get_email(self, user_id: str) -> Optional[str]:
+        return self._emails.get(user_id)
 
     def is_configured(self, user_id: str) -> bool:
         return bool(self._profiles.get(user_id, ""))
@@ -128,6 +145,7 @@ class FormSubmissionResult:
     ok: bool
     user_id: Optional[str] = None
     normalized_gym_area_pairs: Optional[str] = None
+    email: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -136,14 +154,23 @@ def handle_form_submission(
     store: UserProfileStoreProtocol,
 ) -> FormSubmissionResult:
     """design 2節・3節・4節に沿って、GAS Webhookペイロードを検証・正規化し、
-    `user_profile/{user_id}.gym_area_pairs`へ書き込む(全体上書き)。
+    `user_profile/{user_id}.gym_area_pairs`・`user_profile/{user_id}.email`へ書き込む
+    (gym_area_pairsは全体上書き、emailも同様に最新提出内容で上書きする)。
 
-    想定ペイロード: {"user_id": "...", "gym_area_pairs_raw": "..."}
+    想定ペイロード: {"user_id": "...", "gym_area_pairs_raw": "...", "email": "..."}
+    `email`はonboarding-guide.md 1.の通り申込フォームの必須項目(contact-email-field-design.md
+    フェーズ139)であり、`gym_area_pairs_raw`と異なり欠落・空文字列はエラーとする。
     """
     user_id = payload.get("user_id")
     if not isinstance(user_id, str) or not user_id.strip():
         return FormSubmissionResult(
             ok=False, error="user_id is missing or not a non-empty string"
+        )
+
+    email = payload.get("email")
+    if not isinstance(email, str) or not email.strip():
+        return FormSubmissionResult(
+            ok=False, error="email is missing or not a non-empty string"
         )
 
     raw_value = payload.get("gym_area_pairs_raw", "")
@@ -152,9 +179,14 @@ def handle_form_submission(
             ok=False, error="gym_area_pairs_raw must be a string or absent"
         )
 
+    normalized_email = email.strip()
     normalized = normalize_gym_area_pairs_raw(raw_value)
     store.set_gym_area_pairs(user_id, normalized)
+    store.set_email(user_id, normalized_email)
 
     return FormSubmissionResult(
-        ok=True, user_id=user_id, normalized_gym_area_pairs=normalized
+        ok=True,
+        user_id=user_id,
+        normalized_gym_area_pairs=normalized,
+        email=normalized_email,
     )

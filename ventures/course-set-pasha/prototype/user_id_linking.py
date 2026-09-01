@@ -163,6 +163,7 @@ def handle_form_submission_with_linking_code(
     inner_payload = {
         "user_id": resolution.user_id,
         "gym_area_pairs_raw": payload.get("gym_area_pairs_raw", ""),
+        "email": payload.get("email"),
     }
     return handle_form_submission(inner_payload, profile_store)
 
