@@ -1808,7 +1808,41 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ventureにも必要になる可能性がある。プロトタイプ実装・テスト追加は行っていない
   (設計のみ、次回以降のフェーズで着手)。承認不要な設計のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-08-31 18:00 UTC
+- フェーズ続き164(2026-08-31 20:00 UTC): フェーズ続き163で設計したfollow-unfollow-
+  event-handling-design.mdの実プロトタイプ実装を行った(このREADMEへの記載が漏れていた
+  ため本フェーズで遡って追記する)。`prototype/cloud_function_process_event.py`に
+  `dispatch_process_event()`(`event["type"]`により`message`/`follow`/`unfollow`を
+  振り分け、それ以外は`DispatchResult(action="ignored", ...)`)・`process_follow_event()`
+  (`FOLLOW_WELCOME_MESSAGE`を1回送信、原文の誤字「营业日」は「営業日」に修正)・
+  `process_unfollow_event()`(`UnfollowProcessResult(handled=True)`を返すのみで会話状態・
+  予約枠・通知ログのいずれも変更しない)を実装した。テスト7件追加、venture全体492件全件
+  パス・schema検証25件パスを確認した。Function B本体(Cloud Tasksデキュー後の実
+  エントリポイント)から`dispatch_process_event()`を実際に呼び出す配線は未実装のまま
+  次回以降の課題として残る。承認不要な実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き165(2026-09-01 19:00 UTC): フェーズ続き163「残課題」の
+  「`owner_user_id`と決済導線の`user_id`が同一のLINE userIdか」の確認に着手した過程で、
+  より根本的な未解決事項を発見した。firestore-data-model.mdは`stores/{storeId}`配下の
+  全コレクションを店舗単位で分離する設計だが、Webhookイベント1件からどう`storeId`を
+  解決するかが一度も設計されていなかった。一方、stripe-webhook-event-dispatch-design.md
+  2節・stripe-customer-id-reverse-lookup-design.md 1節は「`user_id`(LIFF ID Token検証で
+  得るオーナー個人のLINE userId)をそのまま`store_id`として扱う」と明記しており、
+  `prototype/store_profile_store.py`のコードも同じ辞書キーとしてこの2つを扱っている。
+  会話フロー側は顧客からのメッセージも含めて店舗を識別する必要があるため、本来は
+  「宛先(公式アカウント自身のuserId、LINE Webhookボディの`destination`フィールド相当)」
+  ベースで店舗を識別すべきであり、「決済操作者(オーナー)個人のuserId」をそのまま
+  store_idとする現行設計とは定義が食い違っていることを発見した。
+  store-id-resolution-and-owner-identity-design.mdとして新規に整理し、
+  (1) storeIdは`destination`を正とする、(2) 決済導線はLIFF起動リンクへ`store_id`を
+  明示的なクエリパラメータとして埋め込む、(3) LIFF ID Token検証で得る個人userIdは
+  store_idとしてではなく`owner_user_id`との一致を確認する認可チェックの材料として使う、
+  という方針を結論とした。Checkout Session作成エンドポイント・Function B本体はいずれも
+  未実装のままだったため、今回の訂正で書き直しが必要な既存コードは存在しない。元の疑問
+  (owner_user_idと決済導線user_idの同一性)は、両者ともstore_idとしては使われなくなる
+  ため解消されると整理した。コード変更・テスト追加は無し(設計のみ)。承認不要な設計のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-01 19:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

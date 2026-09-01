@@ -143,14 +143,17 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
 
 ## 残課題
 
-- `owner_user_id`(owner-notification-channel-design.md)と、Stripe決済導線が用いる
-  `store_id`/`user_id`(checkout-initiation-flow-design.md)が同一のLINE userIdを指すか
-  どうかの確認。同一であることが確認できれば、オーナー自身がunfollowした場合に
-  「エスカレーション通知・利用実績レポート・休止モード通知等の一連のオーナー向けpushが
-  今後すべて送達不可になる」という運用上重要な事実を、aircon-pashaのunfollow-billing-faq.md
-  相当の文書として整理する価値が生まれる(オーナーが「なぜ通知が来なくなったか」を
-  問い合わせてきた際の回答テンプレート等)。別概念だった場合は、どちらのuserIdを基準に
-  「オーナーのunfollow」を判定すべきかを再検討する必要がある。
+- (一部解消 2026-09-01 19:00 UTC・フェーズ続き165: `owner_user_id`と決済導線の
+  `user_id`の同一性を確認する過程で、より根本的に「storeId自体をWebhookイベントから
+  どう解決するか」が未設計だったことを発見した。store-id-resolution-and-owner-identity-
+  design.mdとして整理し、storeIdは`destination`(公式アカウント自身のuserId)を正とし、
+  決済導線の個人userIdはstore_idとしてではなく`owner_user_id`との一致を確認する認可
+  チェックの材料として使う方針とした。この整理により、当初の問い(同一かどうか)は
+  「両者ともstore_idとしては使われないため解消される」という結論になった。ただし
+  この方針をcheckout-initiation-flow-design.md等の該当記述に反映する作業自体は次回以降の
+  課題として残る。オーナー自身がunfollowした場合の一連のオーナー向けpush送達不可という
+  運用上重要な事実をaircon-pashaのunfollow-billing-faq.md相当の文書として整理する価値が
+  ある点は変わらず残課題のままとする。)
 - 顧客がunfollowした後にリマインド送信(`_send()`)が失敗し続けるケースを、
   no-show-handling.mdの無断キャンセルリスク判定シグナルとして活用できないかは未検討
   (「事前リマインドが届いていない」ことを把握できれば、無断キャンセル発生前にオーナーへ
