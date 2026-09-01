@@ -1650,7 +1650,21 @@
   解消済みに更新した。承認不要な設計・実装・テスト追加・ドキュメント整理のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-09-01 21:00 UTC
+- フェーズ140(2026-09-01 22:00 UTC): stripe-webhook-event-dispatch-design.md(フェーズ94)
+  4節「未解決事項・次の課題」とstripe-webhook-http-entry-point-design.md(フェーズ95)
+  「残課題」に、いずれも`resolve_user_id`(`stripe_customer_id → user_id`変換)の実装が
+  「未設計」のまま残っているという記載が残っていることを発見した。実際にはフェーズ97
+  (stripe-customer-id-linking-design.md)・フェーズ98(checkout-initiation-flow-design.md)で
+  `checkout.session.completed`受信時に`client_reference_id`・`customer`を`user_profile`へ
+  書き込む方式として設計・実装済みで、`prototype/stripe_webhook.py`の
+  `handle_checkout_session_completed()`・`make_resolve_user_id()`として現存する
+  (stripe-webhook-cloud-function-entry-point-design.md側の同種の記載漏れは既に
+  2026-08-24 16:00 UTCに解消済みだったが、本フェーズで確認した2ファイルは見落とされたまま
+  残っていた)。両ファイルの該当箇所を解消済みとして訂正した。ドキュメント間の整合確認・
+  記載修正のみでコード変更は無し、venture全体438件全件パス・schema検証9件パスを再確認した。
+  承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-01 22:00 UTC
 
 ## 次にやること(候補)
 

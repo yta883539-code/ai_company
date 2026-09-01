@@ -78,9 +78,10 @@ LINE版`WebhookReceiverResult`と同じ形にした。
   `body`・`Stripe-Signature`ヘッダ取り出し配線)は、LINE版フェーズ83の`main(request)`と
   同様の薄い配線となる見込みだが、`webhook_secret`の環境変数名(`STRIPE_WEBHOOK_SECRET`
   想定)の最終確認と合わせて次の課題として残す。
-- `resolve_user_id`(`stripe_customer_id → user_id`)の実装自体
-  (`stripe-webhook-event-dispatch-design.md`で名指しされていた未解決事項)は本設計の
-  範囲外のまま引き続き残る。申込フォーム提出フローのどこで`stripe_customer_id`を
-  `user_profile`に書き込むかの設計と合わせて検討が必要。
+- (解消済み 2026-09-01 22:00 UTC: `resolve_user_id`(`stripe_customer_id → user_id`)の
+  実装自体は本設計(フェーズ95)の範囲外としていたが、フェーズ97
+  (stripe-customer-id-linking-design.md)・フェーズ98(checkout-initiation-flow-design.md)
+  で設計・実装済みであることを本フェーズで確認した。`make_resolve_user_id()`
+  (`prototype/stripe_webhook.py`)として実装されており、本項目は解消済み)
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は実Stripeアカウント接続
   (オーナー承認待ち)後の課題として残る。

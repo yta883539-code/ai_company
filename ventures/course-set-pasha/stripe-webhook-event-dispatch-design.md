@@ -87,13 +87,16 @@ class StripeDispatchResult:
 
 ## 4. 未解決事項・次の課題
 
-- `stripe_customer_id → user_id`の対応付けストア自体(`resolve_user_id`の実装)は未設計。
-  実Stripe接続時に、申込フォーム提出フロー(application-form-submission-flow-design.md)の
-  どの段階で`user_profile/{user_id}`に`stripe_customer_id`を書き込むかを含めて設計する
-  必要がある。
-- `receive_stripe_webhook()`(HTTPエントリポイント本体、`verify_stripe_signature()`と
-  `dispatch_stripe_event()`を結ぶ薄い配線)自体はまだ実装していない。LINE側
-  `receive_webhook()`と同じ構成で追加できる見込みだが、`webhook_secret`の取得方法
-  (環境変数 or Secret Manager)の設計と合わせ次回に持ち越す。
-- 実Stripe Webhookエンドポイントのデプロイ(実GCPプロジェクト・実Stripeアカウント接続)は
-  引き続きオーナー承認待ちの範囲。
+- (解消済み 2026-09-01 22:00 UTC: 本節作成時点(フェーズ94)では`resolve_user_id`の
+  実装ストア自体が未設計だったが、`checkout.session.completed`受信時に
+  `client_reference_id`(=user_id)・`customer`(=stripe_customer_id)を`user_profile`へ
+  書き込む方式でフェーズ97(stripe-customer-id-linking-design.md)・フェーズ98
+  (checkout-initiation-flow-design.md、Checkout Session作成時の`client_reference_id`
+  設定)が設計・実装済みであることを本フェーズで確認した。`prototype/stripe_webhook.py`の
+  `handle_checkout_session_completed()`・`make_resolve_user_id()`として実装されており、
+  本項目は解消済み。本ファイル自体はフェーズ94時点の設計記録として残す)
+- (解消済み 2026-09-01 22:00 UTC: `receive_stripe_webhook()`はフェーズ95
+  (stripe-webhook-http-entry-point-design.md)で実装済み。`prototype/stripe_webhook.py`
+  参照)
+- 実Stripe Webhookエンドポイントのデプロイ(実GCPプロジェクト・実Stripeアカウント接続、
+  `webhook_secret`の実際の値の取得・保管方法を含む)は引き続きオーナー承認待ちの範囲。
