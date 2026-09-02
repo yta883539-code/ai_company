@@ -194,6 +194,68 @@ store-id-resolution-and-owner-identity-design.md(フェーズ続き165〜168)に
   ため引き続き未着手のまま残る(store-id-resolution-and-owner-identity-design.md「残課題」
   参照)。
 
+## 10. 認可チェック不一致時のエラー文言・案内先設計(フェーズ続き171・新規)
+
+store-id-resolution-and-owner-identity-design.md「残課題」に残っていた、9節手順3の認可
+チェック(`stores/{store_id}.owner_user_id`と検証済み個人`user_id`の一致確認)が不一致
+だった場合の、オーナー向けエラー文言・案内先を設計する。
+
+### 想定される不一致の種類
+
+9節手順3の認可チェックが失敗するケースは2種類あり、原因が異なるため文言も分ける。
+
+1. **`owner_user_id`未設定**: 店舗が接続テスト(owner-notification-channel-design.md
+   参照、公式アカウントへの特別な発言でオーナーを特定する運用)をまだ実施しておらず、
+   `stores/{store_id}.owner_user_id`自体が保存されていない状態。この場合は「誰も
+   決済できない」状態であり、店舗側の設定不備が原因。
+2. **個人`user_id`不一致**: `owner_user_id`は設定済みだが、LIFFを起動した人物(検証済み
+   個人`user_id`)がその値と一致しない状態。想定される主因は、オーナー以外の人物
+   (スタッフ・顧客等)が誤ってLIFF起動リンクを開いた、または不正な`store_id`クエリ
+   パラメータ(9節・3節「残課題」参照、改ざんされた場合でもこの認可チェックが最終防波堤
+   となる)を渡された場合。
+
+### 表示方法
+
+success_urlページ(4節)と同じく、認可チェック自体はCheckout Session作成エンドポイント
+(サーバーサイド)で行うため、エラー時はCheckout Sessionを作成せず、エンドポイントが
+直接エラーページ(Web静的ページ)を返す構成とする(LIFFページ→サーバーサイドの往復では
+なく、サーバーサイドが最終的にブラウザへ返すレスポンスの一種という位置づけ)。4節の
+結論(Web側の静的ページは店舗オーナーという単一の管理担当者向けであり、トーン分岐に
+見合う効果が薄い)を踏襲し、エラーページもトーン分岐しない単一文言とする。
+
+- 「`owner_user_id`未設定」時: 接続テストの実施を促す文言とする。
+- 「個人`user_id`不一致」時: オーナー本人のLINEアカウントでの再試行を促す文言とする。
+
+いずれも4節と同じ「LINEに戻る」ボタン(`build_line_return_link()`のユニバーサルリンク)を
+併設し、エラー画面で行き止まりにしない。
+
+### プロトタイプ実装
+
+`prototype/checkout_session.py`に以下を実装した(store-profile-store.pyへの
+`get_owner_user_id()`/`set_owner_user_id()`追加とあわせて)。
+
+- `verify_checkout_authorization(store_id, requester_user_id, store) -> AuthorizationResult`:
+  9節手順3の認可チェック本体。`AuthorizationResult(authorized, denied_reason)`を返し、
+  `denied_reason`は`AUTHORIZATION_DENIED_OWNER_NOT_SET`/
+  `AUTHORIZATION_DENIED_USER_ID_MISMATCH`のいずれか。
+- `render_checkout_authorization_error_page(denied_reason, line_return_link) -> str`:
+  上記2種の文言+「LINEに戻る」リンクを組み立てる。
+
+テスト16件追加(`verify_checkout_authorization()`5件・
+`render_checkout_authorization_error_page()`4件・`get_owner_user_id`/
+`set_owner_user_id`7件)、venture全体519件全件パス・schema検証25件パスを確認した。
+
+### 残課題(本節)
+
+- `owner_user_id`自体の書き込み配線(接続テストメッセージ受信時に
+  `store.set_owner_user_id()`を呼ぶ処理、owner-notification-channel-design.md参照)は、
+  実Firestore接続待ちのため引き続き未着手のまま残る。
+- Checkout Session作成エンドポイント本体(9節手順1〜4を結ぶHTTPハンドラ)から
+  `verify_checkout_authorization()`/`render_checkout_authorization_error_page()`を
+  実際に呼び出す配線も、エンドポイント本体自体が未実装(残課題参照)のため次回以降。
+- エラーページの実際のHTML/デザインは、`success_url`ページ(4節)と同様、LP実装
+  (オーナー承認待ち)とあわせて行う。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID

@@ -37,10 +37,14 @@
   course-set-pasha/stripe-customer-id-linking-design.mdの
   `get_user_id_by_stripe_customer_id`と同じ考え方だが、本ventureは`user_id`をそのまま
   `store_id`として扱う(2節参照)ため、逆引き専用のメソッド名は`store_id`呼称に揃える。
+- `get_owner_user_id()`/`set_owner_user_id()`(2026-09-02追記): checkout-initiation-flow-
+  design.md 9節・store-id-resolution-and-owner-identity-design.md「残課題」に残っていた
+  認可チェック(`stores/{store_id}.owner_user_id`と検証済み個人`user_id`の一致確認)の
+  参照元を実装した。`checkout_session.py`の`verify_checkout_authorization()`から呼ばれる。
 
-設計の参照元: checkout-initiation-flow-design.md 3節・残課題、firestore-data-model.md 1節、
-onboarding-completion-message-design.md 残課題、stripe-webhook-event-dispatch-design.md 5節、
-stripe-customer-id-reverse-lookup-design.md
+設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
+firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
+stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md
 """
 
 from __future__ import annotations
@@ -70,6 +74,12 @@ class StoreProfileStoreProtocol(Protocol):
     def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
         ...
 
+    def get_owner_user_id(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_owner_user_id(self, store_id: str, owner_user_id: str) -> None:
+        ...
+
 
 class InMemoryStoreProfileStore:
     """実Firestore接続前の検証用スタブ。プロセス内の`dict`に保持するのみで、
@@ -81,6 +91,7 @@ class InMemoryStoreProfileStore:
         self._stripe_customer_ids: dict[str, str] = {}
         self._store_ids_by_stripe_customer_id: dict[str, str] = {}
         self._onboarding_completion_message_sent: set[str] = set()
+        self._owner_user_ids: dict[str, str] = {}
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
         return self._stripe_customer_ids.get(user_id)
@@ -115,6 +126,16 @@ class InMemoryStoreProfileStore:
         if not user_id:
             raise ValueError("user_id must be a non-empty string")
         self._onboarding_completion_message_sent.add(user_id)
+
+    def get_owner_user_id(self, store_id: str) -> Optional[str]:
+        return self._owner_user_ids.get(store_id)
+
+    def set_owner_user_id(self, store_id: str, owner_user_id: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_user_id:
+            raise ValueError("owner_user_id must be a non-empty string")
+        self._owner_user_ids[store_id] = owner_user_id
 
 
 def resolve_existing_stripe_customer_id(

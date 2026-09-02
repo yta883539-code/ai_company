@@ -269,5 +269,36 @@ class EvaluateOnboardingCompletionMessageDispatchTest(unittest.TestCase):
         self.assertTrue(self._call(user_id="Uowner999"))
 
 
+class OwnerUserIdTest(unittest.TestCase):
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_none_when_not_set(self):
+        self.assertIsNone(self.store.get_owner_user_id("store123"))
+
+    def test_set_then_get_roundtrips(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        self.assertEqual(self.store.get_owner_user_id("store123"), "Uowner123")
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_owner_user_id("", "Uowner123")
+
+    def test_raises_on_empty_owner_user_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_owner_user_id("store123", "")
+
+    def test_different_stores_have_independent_owner_user_ids(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        self.store.set_owner_user_id("store456", "Uowner456")
+        self.assertEqual(self.store.get_owner_user_id("store123"), "Uowner123")
+        self.assertEqual(self.store.get_owner_user_id("store456"), "Uowner456")
+
+    def test_re_setting_overwrites_previous_owner(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        self.store.set_owner_user_id("store123", "UownerReplaced")
+        self.assertEqual(self.store.get_owner_user_id("store123"), "UownerReplaced")
+
+
 if __name__ == "__main__":
     unittest.main()

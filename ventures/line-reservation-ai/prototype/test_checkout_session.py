@@ -9,11 +9,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from checkout_session import (  # noqa: E402
+    AUTHORIZATION_DENIED_OWNER_NOT_SET,
+    AUTHORIZATION_DENIED_USER_ID_MISMATCH,
     DEFAULT_CANCEL_URL,
     DEFAULT_SUCCESS_URL,
     build_checkout_session_params,
     build_line_return_link,
+    render_checkout_authorization_error_page,
+    verify_checkout_authorization,
 )
+from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
 
 class BuildCheckoutSessionParamsTest(unittest.TestCase):
@@ -67,6 +72,71 @@ class BuildLineReturnLinkTest(unittest.TestCase):
         link = build_line_return_link("@ab c")
         self.assertTrue(link.startswith("https://line.me/R/ti/p/"))
         self.assertIn("%40ab%20c", link)
+
+
+class VerifyCheckoutAuthorizationTest(unittest.TestCase):
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            verify_checkout_authorization("", "Uowner123", self.store)
+
+    def test_raises_on_empty_requester_user_id(self):
+        with self.assertRaises(ValueError):
+            verify_checkout_authorization("store123", "", self.store)
+
+    def test_denied_when_owner_user_id_not_set(self):
+        result = verify_checkout_authorization("store123", "Uowner123", self.store)
+        self.assertFalse(result.authorized)
+        self.assertEqual(result.denied_reason, AUTHORIZATION_DENIED_OWNER_NOT_SET)
+
+    def test_denied_when_requester_does_not_match_owner(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        result = verify_checkout_authorization("store123", "Ucustomer999", self.store)
+        self.assertFalse(result.authorized)
+        self.assertEqual(result.denied_reason, AUTHORIZATION_DENIED_USER_ID_MISMATCH)
+
+    def test_authorized_when_requester_matches_owner(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        result = verify_checkout_authorization("store123", "Uowner123", self.store)
+        self.assertTrue(result.authorized)
+        self.assertIsNone(result.denied_reason)
+
+    def test_different_stores_have_independent_owners(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        self.store.set_owner_user_id("store456", "Uowner456")
+        result = verify_checkout_authorization("store456", "Uowner123", self.store)
+        self.assertFalse(result.authorized)
+        self.assertEqual(result.denied_reason, AUTHORIZATION_DENIED_USER_ID_MISMATCH)
+
+
+class RenderCheckoutAuthorizationErrorPageTest(unittest.TestCase):
+    def test_raises_on_unknown_denied_reason(self):
+        with self.assertRaises(ValueError):
+            render_checkout_authorization_error_page(
+                "unknown_reason", "https://line.me/R/ti/p/%40abc1234"
+            )
+
+    def test_raises_on_empty_line_return_link(self):
+        with self.assertRaises(ValueError):
+            render_checkout_authorization_error_page(
+                AUTHORIZATION_DENIED_OWNER_NOT_SET, ""
+            )
+
+    def test_owner_not_set_message_mentions_connection_test(self):
+        page = render_checkout_authorization_error_page(
+            AUTHORIZATION_DENIED_OWNER_NOT_SET, "https://line.me/R/ti/p/%40abc1234"
+        )
+        self.assertIn("接続テスト", page)
+        self.assertIn("https://line.me/R/ti/p/%40abc1234", page)
+
+    def test_user_id_mismatch_message_mentions_owner_account(self):
+        page = render_checkout_authorization_error_page(
+            AUTHORIZATION_DENIED_USER_ID_MISMATCH, "https://line.me/R/ti/p/%40abc1234"
+        )
+        self.assertIn("オーナー様ご本人", page)
+        self.assertIn("https://line.me/R/ti/p/%40abc1234", page)
 
 
 if __name__ == "__main__":

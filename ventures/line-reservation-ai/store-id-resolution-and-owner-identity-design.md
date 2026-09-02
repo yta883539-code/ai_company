@@ -139,8 +139,9 @@ follow-unfollow-event-handling-design.mdが残していた「`owner_user_id`と�
   改ざん検知の要否)は、checkout-initiation-flow-design.md本体の更新とあわせて次回以降に
   設計する。改ざんされても最終的にはLIFF ID Tokenでの認可チェック(3.)が防波堤になるため、
   クエリパラメータ自体への署名等の追加防御は現時点では過剰と考えるが、実装時に再検討する。
-- 認可チェック不一致時(不正な`store_id`指定、または`owner_user_id`未設定)のオーナー向け
-  エラー文言・案内先は未設計のまま残る。
+- (解消済み 2026-09-02 08:00 UTC・フェーズ続き171: 認可チェック不一致時(不正な`store_id`
+  指定、または`owner_user_id`未設定)のオーナー向けエラー文言・案内先を、
+  checkout-initiation-flow-design.md 10節として新規設計した。詳細は同節参照。)
 - (解消済み 2026-09-02 05:00 UTC・フェーズ続き169: checkout-initiation-flow-design.md
   9節・stripe-webhook-event-dispatch-design.md 2節・stripe-customer-id-reverse-
   lookup-design.md 1節に、それぞれ本ドキュメントを参照する形の訂正節・訂正段落を追加した。
