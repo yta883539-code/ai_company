@@ -2415,4 +2415,16 @@
   既存の判断(フェーズ167)を踏襲し、本フェーズでは対象外のまま据え置いた。承認不要な
   ドキュメント整理のみで、外部サービスへの公開・アカウント作成・メール送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-01 21:00 UTC
+- フェーズ169(2026-09-02 00:00 UTC): limit-approaching-notification-design.md「5. 実装への
+  影響メモ」に残っていた「設計のみ、実装は次回以降」という記載が、実際にはフェーズ76
+  (2026-08-18 03:00 UTC)で`UsageCounterProtocol`/`InMemoryUsageCounter`/固定閾値
+  `NOTICE_THRESHOLD = 5`としてprototype/cloud_function_webhook.pyに実装済み(境界値
+  35/85/145回目到達・上限超過を含むテスト13件も追加済み)だった記載漏れを発見した。
+  あわせて、本節が実装前のイベント処理関数の仮称として書いていた
+  `process_visit_memo_event()`も、実装時に実際の関数名`process_memo_event()`へ
+  命名変更されていた点も併せて訂正した。ドキュメント間の整合確認・記載修正のみで
+  コード変更は無し、venture全体370件全件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)パスを再確認した。承認不要なドキュメント整理・アイデア追加のみで、
+  外部サービスへの公開・アカウント作成・メール送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 00:00 UTC

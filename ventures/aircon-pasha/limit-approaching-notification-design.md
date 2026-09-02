@@ -68,18 +68,22 @@ course-set-pashaと同じ方針を踏襲する(本venture固有の差異は無�
 対象(厳守事項の違反検知)には含めない(課金案内であり、厳守事項1〜4等が対象とする
 「作業完了報告・お手入れ案内の内容そのもの」とは性質が異なる運用メッセージのため)。
 
-## 5. 実装への影響メモ(設計のみ、実装は次回以降)
+## 5. 実装への影響メモ(解消済み: フェーズ76で実装済み)
 
-- course-set-pashaと同じく、`process_visit_memo_event()`のシグネチャに月間カウントの
-  読み書きを行うインターフェース(仮称`usage_counter: UsageCounterProtocol`、
-  `get_count(user_id, month) -> int` / `increment(user_id, month) -> int`の2メソッド)を
-  新規に1つ追加する想定。tech-stack.mdコンポーネント5で既に同名のProtocolを想定済みのため、
-  本設計は「残り5回」判定ロジックをこのProtocolの上に乗せる形になる。
-- テスト(prototype/test_cloud_function_webhook.py)では、course-set-pashaの
-  `InMemoryUsageCounter`と同様のdictベースのスタブを用意し、3プランそれぞれの境界値
-  (35/85/145回目、および各上限到達・超過)をユニットテストで検証する方針とする。
-- 実際のFirestore接続(プロジェクト作成・課金設定)はオーナー承認待ちの範囲であり、
-  本フェーズでは設計とスタブ実装の方針整理のみに留める。
+- フェーズ76(2026-08-18 03:00 UTC)で、本節の想定通り`UsageCounterProtocol`
+  (`get_count(user_id, month) -> int` / `increment(user_id, month) -> int`)を
+  prototype/cloud_function_webhook.pyに新規実装し、イベント処理関数
+  `process_memo_event()`(本節作成時点の仮称`process_visit_memo_event()`から
+  実装時に命名変更)へ`usage_counter`引数として結線済み。course-set-pashaと異なり
+  プラン別閾値マッピング(`PLAN_NOTICE_THRESHOLDS`)は持たず、2節の方針通り
+  3プラン共通固定閾値`NOTICE_THRESHOLD = 5`のみを採用している。
+- テスト(prototype/test_cloud_function_webhook.py)には、course-set-pashaと同様の
+  dictベーススタブ`InMemoryUsageCounter`を用意し、3プランそれぞれの境界値
+  (35/85/145回目到達・上限超過)を含むテスト13件で検証済み(フェーズ76時点で
+  test_cloud_function_webhook.py全26件パス、以降のフェーズ追加分も含め本フェーズ
+  〈169〉時点でventure全体370件全件パス)。
+- 実際のFirestore接続(プロジェクト作成・課金設定)は引き続きオーナー承認待ちの範囲であり、
+  現状はInMemoryスタブでの検証にとどまる(この点のみ本節作成時点の想定通り未着手)。
 
 ## 6. 今後の課題
 
