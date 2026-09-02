@@ -13,10 +13,12 @@ from cloud_function_process_event import InMemoryLinePushClient  # noqa: E402
 from store_settings_save_flow import (  # noqa: E402
     InMemoryStoreSettingsStore,
     handle_store_settings_submission,
+    normalize_closed_dates,
     normalize_faq_info,
     normalize_menus,
     normalize_message_tone,
     normalize_repeat_customer_visit_threshold,
+    normalize_weekday_business_hours_raw,
 )
 
 
@@ -105,6 +107,67 @@ class NormalizeFaqInfoTest(unittest.TestCase):
         )
 
 
+class NormalizeWeekdayBusinessHoursRawTest(unittest.TestCase):
+    def test_string_and_int_weekday_keys_are_both_accepted(self):
+        result = normalize_weekday_business_hours_raw(
+            {"weekday_business_hours_raw": {"5": "10:00-15:00", 6: "定休日"}}
+        )
+        self.assertEqual(result, {5: "10:00-15:00", 6: "定休日"})
+
+    def test_out_of_range_and_non_integer_weekday_keys_are_dropped(self):
+        result = normalize_weekday_business_hours_raw(
+            {
+                "weekday_business_hours_raw": {
+                    "7": "10:00-15:00",
+                    "-1": "10:00-15:00",
+                    "月曜": "9:00-19:00",
+                }
+            }
+        )
+        self.assertEqual(result, {})
+
+    def test_blank_or_non_string_values_are_dropped(self):
+        result = normalize_weekday_business_hours_raw(
+            {"weekday_business_hours_raw": {"0": "", "1": "   ", "2": 900}}
+        )
+        self.assertEqual(result, {})
+
+    def test_toggle_off_or_missing_field_returns_empty_dict(self):
+        self.assertEqual(normalize_weekday_business_hours_raw({}), {})
+        self.assertEqual(
+            normalize_weekday_business_hours_raw(
+                {"weekday_business_hours_raw": "10:00-19:00"}
+            ),
+            {},
+        )
+
+
+class NormalizeClosedDatesTest(unittest.TestCase):
+    def test_valid_dates_are_kept_in_order(self):
+        result = normalize_closed_dates(
+            {"closed_dates": ["2026-09-15", "2026-12-31"]}
+        )
+        self.assertEqual(result, ["2026-09-15", "2026-12-31"])
+
+    def test_duplicate_dates_are_deduplicated_keeping_first_occurrence(self):
+        result = normalize_closed_dates(
+            {"closed_dates": ["2026-09-15", "2026-09-15", "2026-12-31"]}
+        )
+        self.assertEqual(result, ["2026-09-15", "2026-12-31"])
+
+    def test_blank_and_non_string_entries_are_dropped(self):
+        result = normalize_closed_dates(
+            {"closed_dates": ["2026-09-15", "", "   ", None, 20260915]}
+        )
+        self.assertEqual(result, ["2026-09-15"])
+
+    def test_missing_or_non_list_field_returns_empty_list(self):
+        self.assertEqual(normalize_closed_dates({}), [])
+        self.assertEqual(
+            normalize_closed_dates({"closed_dates": "2026-09-15"}), []
+        )
+
+
 class HandleStoreSettingsSubmissionTest(unittest.TestCase):
     def setUp(self):
         self.store = InMemoryStoreSettingsStore()
@@ -168,6 +231,23 @@ class HandleStoreSettingsSubmissionTest(unittest.TestCase):
             },
         )
 
+    def test_writes_weekday_business_hours_raw_and_closed_dates_to_store(self):
+        result = self._call(
+            payload=_complete_payload(
+                weekday_business_hours_raw={"5": "10:00-15:00"},
+                closed_dates=["2026-09-15", "2026-09-15"],
+            )
+        )
+        self.assertEqual(
+            self.store.get_weekday_business_hours_raw("Uowner123"),
+            {5: "10:00-15:00"},
+        )
+        self.assertEqual(
+            self.store.get_closed_dates("Uowner123"), ["2026-09-15"]
+        )
+        self.assertEqual(result.weekday_business_hours_raw, {5: "10:00-15:00"})
+        self.assertEqual(result.closed_dates, ["2026-09-15"])
+
     def test_optional_fields_default_when_omitted(self):
         result = self._call()
         self.assertEqual(result.message_tone, "standard")
@@ -175,6 +255,8 @@ class HandleStoreSettingsSubmissionTest(unittest.TestCase):
         self.assertEqual(
             result.faq_info, {"address": "", "parking": "", "paymentMethods": []}
         )
+        self.assertEqual(result.weekday_business_hours_raw, {})
+        self.assertEqual(result.closed_dates, [])
         self.assertEqual(self.store.get_message_tone("Uowner123"), "standard")
 
     def test_optional_fields_do_not_affect_dispatch_judgment(self):

@@ -8,11 +8,22 @@ evaluate_onboarding_completion_message_dispatch()呼び出しまでを結線す�
 位置づけ:
 - 本モジュールはonboarding-completion-message-design.mdの発火判定に必要な最小範囲
   (営業曜日・営業時間の設定有無・予約枠の間隔・同時受付可能数・メニュー件数)の
-  正規化・書き込みのみを扱う。曜日別営業時間の複数区間バリデーション
-  (business-hours-lunch-break.md・weekday-specific-business-hours.md)や
-  臨時休業日の保存処理は別課題として残す(store-settings-save-flow-design.md 2節)。
+  正規化・書き込みのみを扱う。曜日別営業時間の複数区間バリデーション自体
+  (business-hours-lunch-break.md・weekday-specific-business-hours.md)や、臨時休業日の
+  入力バリデーション自体(ad-hoc-closed-dates-support.md、過去日付・重複日付チェックは
+  No-codeフォームツールのUX側に委ねる方針で本コードの範囲外)は別課題として残る
+  (store-settings-save-flow-design.md 2節)が、両者の生値(raw)自体の保存は8節で
+  結線した(2026-09-02定例更新)。
 - メッセージトーン・常連客とみなす来店回数・FAQ情報は発火判定には使わないが、
   Firestoreへの書き込み自体は7節で結線する(2026-08-31定例更新)。
+- 曜日別営業時間・臨時休業日も同様に発火判定には使わないが、Firestoreへの書き込み自体は
+  8節で結線した(2026-09-02定例更新)。`AvailabilitySearcher`が要求する分単位の
+  構造化済み値(`weekday_business_hours: dict[int, tuple[int,int]]`・
+  `closed_dates: frozenset[date]`、weekday-specific-business-hours.md・
+  ad-hoc-closed-dates-support.md参照)への変換は、`business_hours_raw`と同様
+  raw文字列のまま保存するに留め、実際の変換処理はConversationEventProcessorの
+  組み立て(store-id-resolution-and-owner-identity-design.md「残課題」記載の
+  ファクトリ関数)側の課題として残す。
 - 実際のGoogleフォーム作成・GAS配置、実Firestore接続は「外部サービスへの実設定」
   「アカウント作成」に該当し、引き続きオーナー承認待ち(pending-approval.md参照)。
   本モジュールはGAS Webhookから届く想定のペイロードをどう検証・正規化し、
@@ -74,12 +85,21 @@ class StoreSettingsStoreProtocol(StoreProfileStoreProtocol, Protocol):
     def set_faq_info(self, user_id: str, faq_info: dict) -> None:
         ...
 
+    def set_weekday_business_hours_raw(
+        self, user_id: str, weekday_business_hours_raw: dict
+    ) -> None:
+        ...
+
+    def set_closed_dates(self, user_id: str, closed_dates: list) -> None:
+        ...
+
 
 class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
     """`InMemoryStoreProfileStore`に、design 6節で追加するMVP必須項目フィールド
     (businessHoursRaw・closedWeekdays・slotIntervalMinutes・concurrentCapacity・
-    menus)と、design 7節で追加する任意項目フィールド(messageTone・
-    repeatCustomerVisitThreshold・faqInfo)の保持を追加した検証用スタブ。"""
+    menus)と、design 7節・8節で追加する任意項目フィールド(messageTone・
+    repeatCustomerVisitThreshold・faqInfo・weekdayBusinessHoursRaw・closedDates)の
+    保持を追加した検証用スタブ。"""
 
     def __init__(self) -> None:
         super().__init__()
@@ -91,6 +111,8 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
         self._message_tone: dict[str, str] = {}
         self._repeat_customer_visit_threshold: dict[str, int] = {}
         self._faq_info: dict[str, dict] = {}
+        self._weekday_business_hours_raw: dict[str, dict] = {}
+        self._closed_dates: dict[str, list] = {}
 
     def set_business_hours_raw(self, user_id: str, business_hours_raw: str) -> None:
         self._business_hours_raw[user_id] = business_hours_raw
@@ -141,6 +163,20 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
 
     def get_faq_info(self, user_id: str) -> dict:
         return dict(self._faq_info.get(user_id, _EMPTY_FAQ_INFO))
+
+    def set_weekday_business_hours_raw(
+        self, user_id: str, weekday_business_hours_raw: dict
+    ) -> None:
+        self._weekday_business_hours_raw[user_id] = dict(weekday_business_hours_raw)
+
+    def get_weekday_business_hours_raw(self, user_id: str) -> dict:
+        return dict(self._weekday_business_hours_raw.get(user_id, {}))
+
+    def set_closed_dates(self, user_id: str, closed_dates: list) -> None:
+        self._closed_dates[user_id] = list(closed_dates)
+
+    def get_closed_dates(self, user_id: str) -> list:
+        return list(self._closed_dates.get(user_id, []))
 
 
 # design 4節: "30分"・"1"のような表示文字列から数字部分を抽出するために使う。
@@ -244,6 +280,51 @@ def normalize_faq_info(payload: dict) -> dict:
     }
 
 
+def normalize_weekday_business_hours_raw(payload: dict) -> dict[int, str]:
+    """design 8節: 「曜日ごとに営業時間を変える」トグルON時に届く
+    `weekday_business_hours_raw`(キー: `date.weekday()`準拠0〜6、値: `business_hours_raw`と
+    同じ表記の生文字列)を正規化する。トグルOFF・未入力時はキー自体が省略される想定のため
+    空dictを返す。妥当な曜日キー(0〜6の整数、JSON経由の文字列キーも許容)以外・
+    空文字列の値は不正入力として黙って除外する(business_hours_rawの空欄チェックと同様、
+    区間としての妥当性検証自体はweekday-specific-business-hours.md側の担当)。"""
+    raw = payload.get("weekday_business_hours_raw", {})
+    if not isinstance(raw, dict):
+        return {}
+    normalized: dict[int, str] = {}
+    for raw_weekday, raw_value in raw.items():
+        try:
+            weekday = int(raw_weekday)
+        except (TypeError, ValueError):
+            continue
+        if weekday < 0 or weekday >= _WEEKDAYS_PER_WEEK:
+            continue
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            continue
+        normalized[weekday] = raw_value.strip()
+    return normalized
+
+
+def normalize_closed_dates(payload: dict) -> list[str]:
+    """design 8節: 臨時休業日入力欄(`closed_dates`、`YYYY-MM-DD`形式の生文字列の配列)を
+    正規化する。過去日付・重複日付のインライン警告はNo-codeフォームツールのUX側に委ねる方針
+    (ad-hoc-closed-dates-support.md「残課題」)のため、ここでは非文字列・空文字列の除外と
+    重複排除(入力順を保持)のみを行う。"""
+    raw = payload.get("closed_dates", [])
+    if not isinstance(raw, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        value = item.strip()
+        if value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
 @dataclass
 class StoreSettingsSubmissionResult:
     """`handle_store_settings_submission()`の結果(design 6節のエントリポイントの
@@ -259,11 +340,17 @@ class StoreSettingsSubmissionResult:
     message_tone: str = _DEFAULT_MESSAGE_TONE
     repeat_customer_visit_threshold: int = _DEFAULT_REPEAT_CUSTOMER_VISIT_THRESHOLD
     faq_info: dict = None  # type: ignore[assignment]
+    weekday_business_hours_raw: dict = None  # type: ignore[assignment]
+    closed_dates: list = None  # type: ignore[assignment]
     error: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.faq_info is None:
             self.faq_info = dict(_EMPTY_FAQ_INFO)
+        if self.weekday_business_hours_raw is None:
+            self.weekday_business_hours_raw = {}
+        if self.closed_dates is None:
+            self.closed_dates = []
 
 
 def handle_store_settings_submission(
@@ -306,6 +393,8 @@ def handle_store_settings_submission(
         payload.get("repeat_customer_visit_threshold_raw")
     )
     faq_info = normalize_faq_info(payload)
+    weekday_business_hours_raw = normalize_weekday_business_hours_raw(payload)
+    closed_dates = normalize_closed_dates(payload)
 
     business_hours_configured = bool(business_hours_raw.strip()) and (
         len(set(closed_weekdays)) < _WEEKDAYS_PER_WEEK
@@ -323,6 +412,8 @@ def handle_store_settings_submission(
         user_id, repeat_customer_visit_threshold
     )
     store.set_faq_info(user_id, faq_info)
+    store.set_weekday_business_hours_raw(user_id, weekday_business_hours_raw)
+    store.set_closed_dates(user_id, closed_dates)
 
     dispatched = handle_onboarding_completion_message_dispatch(
         user_id,
@@ -347,4 +438,6 @@ def handle_store_settings_submission(
         message_tone=message_tone,
         repeat_customer_visit_threshold=repeat_customer_visit_threshold,
         faq_info=faq_info,
+        weekday_business_hours_raw=weekday_business_hours_raw,
+        closed_dates=closed_dates,
     )

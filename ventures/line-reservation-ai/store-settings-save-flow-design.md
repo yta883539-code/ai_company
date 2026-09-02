@@ -160,11 +160,60 @@ message_dispatch()`を呼び出す(判定→整形→送信までは実装済み
 `normalize_faq_info()`を新設し、`handle_store_settings_submission()`から6節のフィールドと
 同じ検証済みストアへの書き込み処理として呼び出す(発火判定ロジックへの入力には含めない)。
 
+## 8. 曜日別営業時間・臨時休業日の生値(raw)の保存(2節「対象外」への統合、2026-09-02追記)
+
+2節で「別課題として残す」としていた曜日別営業時間・臨時休業日について、7節と同じ考え方
+(発火判定には使わないが書き込みだけ本フローに結線する)で、生値(raw)のみの保存を統合する。
+区間の妥当性検証自体(重複区間・0分間区間チェック等)は引き続きweekday-specific-business-
+hours.md・ad-hoc-closed-dates-support.md側の担当のまま変更しない。
+
+### 8.1 追加ペイロード項目
+
+```json
+{
+  "weekday_business_hours_raw": {"5": "10:00-15:00", "6": "定休日"},
+  "closed_dates": ["2026-09-15", "2026-12-31"]
+}
+```
+
+- `weekday_business_hours_raw`: 「曜日ごとに営業時間を変える」トグルON時のみ届く想定
+  (owner-settings-wireframe.md)。キーは`date.weekday()`準拠0(月)〜6(日)、値は
+  `business_hours_raw`と同じ表記の生文字列。トグルOFF・未入力時はフィールド自体が省略される
+  想定で、その場合は空dictとして扱う。キーが0〜6の整数として解釈できない、または値が
+  空文字列・非文字列の要素は不正入力として黙って除外する(区間としての妥当性検証には
+  踏み込まない、7節のFAQ情報未入力時と同じ「エラーにせず空のまま扱う」方針)。
+- `closed_dates`: 臨時休業日入力欄(日付追加/削除リスト)。`YYYY-MM-DD`形式を想定するが
+  本フローでは書式検証は行わず、非文字列・空文字列の除外と重複排除(入力順維持)のみ行う。
+  過去日付・重複日付のインライン警告はNo-codeフォームツールのUX側に委ねる方針
+  (ad-hoc-closed-dates-support.md「残課題」)のため、専用のバリデーションコードは実装しない。
+
+### 8.2 書き込み先
+
+`stores/{storeId}`ドキュメントの`weekdayBusinessHoursRaw`・`closedDates`へ、7節と同じく
+5節の発火判定用フィールドとは独立に(判定への結線順序制約なしで)全体上書きする。
+
+### 8.3 構造化値への変換は対象外
+
+`AvailabilitySearcher`(prototype/engine.py)が実際に要求する分単位の構造化済み値
+(`weekday_business_hours: dict[int, tuple[int,int]]`・`closed_dates: frozenset[date]`)への
+変換・パースは、本フローの範囲外のまま残す。`business_hours_raw`同様、生値の保存までが
+本モジュールの責務であり、実際の変換は
+store-id-resolution-and-owner-identity-design.md「残課題」に記載の
+`ConversationEventProcessor`組み立てファクトリ関数(実Firestore接続待ちのため未着手)側で
+行う想定。
+
+### 8.4 プロトタイプ実装方針
+
+`StoreSettingsStoreProtocol`に`set_weekday_business_hours_raw`・`set_closed_dates`を追加し、
+`InMemoryStoreSettingsStore`に対応する保持先を追加した。`normalize_weekday_business_hours_raw()`・
+`normalize_closed_dates()`を新設し、`handle_store_settings_submission()`から7節と同じ
+「発火判定ロジックへの入力には含めない」書き込み処理として呼び出す。テスト9件追加。
+
 ## 残課題
 
 - Googleフォーム自体の作成・GAS配置(外部サービスへの実設定)はオーナー承認待ち。
-- 曜日別営業時間(複数区間)トグルON時のペイロード形状・正規化は本ドキュメントの範囲外。
-  weekday-specific-business-hours.md側の設計が確定次第、別途本フローへの統合を検討する。
 - 実Firestore接続後、`FirestoreStoreSettingsStore`が`StoreSettingsStoreProtocol`と
   `StoreProfileStoreProtocol`の両方を満たす実装になることの最終確認(実接続はオーナー
   承認待ち)。
+- 8.3節の通り、raw値から`AvailabilitySearcher`向けの構造化済み値への変換自体は引き続き
+  未着手(ConversationEventProcessor組み立てファクトリ関数側の課題として残す)。

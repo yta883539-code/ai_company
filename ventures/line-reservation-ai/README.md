@@ -1939,7 +1939,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   全件パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-09-02 11:58 UTC
+- フェーズ続き173(2026-09-02 16:58 UTC): store-settings-save-flow-design.md 2節「対象外」に
+  「別課題として残す」と記載されていた曜日別営業時間(複数区間)・臨時休業日について、
+  7節(メッセージトーン等)と同じ「発火判定には使わないが書き込みのみ結線する」方針で、
+  生値(raw)の保存を統合した(同ドキュメント新設8節)。`StoreSettingsStoreProtocol`に
+  `set_weekday_business_hours_raw`/`set_closed_dates`を追加し、`InMemoryStoreSettingsStore`に
+  対応する保持先を追加、`normalize_weekday_business_hours_raw()`(曜日キー0〜6の整数解釈・
+  空値除外)・`normalize_closed_dates()`(非文字列/空文字列除外・入力順を保った重複排除)を
+  新設して`handle_store_settings_submission()`から呼び出した。`AvailabilitySearcher`
+  (engine.py)が実際に要求する分単位の構造化済み値(`weekday_business_hours`・
+  `closed_dates: frozenset[date]`)への変換自体は、`business_hours_raw`と同様に生値保存
+  までを本フローの責務とし、store-id-resolution-and-owner-identity-design.md「残課題」記載の
+  `ConversationEventProcessor`組み立てファクトリ関数(実Firestore接続待ちのため未着手)側の
+  課題として引き続き残した。テスト9件追加(正規化関数8件・書き込み結線1件)、venture全体
+  538件全件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 16:58 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
