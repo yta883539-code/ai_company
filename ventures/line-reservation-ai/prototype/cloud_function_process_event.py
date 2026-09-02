@@ -894,6 +894,52 @@ def dispatch_process_event(
     return DispatchResult(action="ignored", detail=event_type or "unknown")
 
 
+@dataclass
+class ProcessEventResult:
+    status_code: int
+    detail: str
+
+
+def handle_process_conversation_event(
+    payload: dict,
+    processor: ConversationEventProcessor,
+    llm_call: Callable[[], dict],
+    now: datetime,
+    tone: str = "standard",
+) -> ProcessEventResult:
+    """Cloud Function B(process_conversation_event)の実エントリポイント。
+
+    Cloud Function A(cloud_function_webhook.pyのhandle_webhook_event())がCloud Tasksへ
+    `payload=event`としてenqueueした、LINEイベント1件のdictをそのまま受け取る。これまで
+    `dispatch_process_event()`はintentごとの振り分けロジックとしては実装済みだったが、
+    Cloud Tasksからデキューされて実際に呼び出される側のエントリポイント自体が存在しない
+    「配線漏れ」(フェーズ続き164の残課題)だった。本関数がその配線本体にあたる。
+
+    1呼び出し=1店舗分の`ConversationEventProcessor`を呼び出し元が既に構築済み(store-id-
+    resolution-and-owner-identity-design.md準拠でWebhookの`destination`からstore_idを
+    解決し、店舗ごとのFirestoreコレクションを束ねたprocessorを組み立てる想定)であることを
+    前提とし、本関数自身はstore_idの解決やFirestore接続には関与しない(実Firestore接続は
+    引き続きGCPプロジェクト作成後のオーナー承認待ち)。
+
+    `dispatch_process_event()`が送出した例外はCloud TasksがHTTPステータスでリトライ要否を
+    判断できるよう`status_code=500`へ正規化して返す(Cloud Tasksへのenqueue自体は
+    webhookEventId起点で決定的に重複排除されているため、再試行させても同じイベントが
+    複数回処理されるだけで安全側に倒れる)。
+    """
+    try:
+        result = dispatch_process_event(processor, payload, llm_call, now, tone)
+    except Exception as exc:  # noqa: BLE001 - Cloud Tasksへのリトライ判断のため意図的に広く捕捉
+        return ProcessEventResult(status_code=500, detail=f"unhandled_error: {exc}")
+    # dispatch_process_event()はevent["type"]に応じてDispatchResult/FollowProcessResult/
+    # UnfollowProcessResultのいずれかを返す(型が異なるのはevent["type"]自体が既にログへ
+    # 残っているため、ここでの返り値はデバッグ用の付随情報でよいという判断)。
+    if isinstance(result, DispatchResult):
+        detail = result.action
+    else:
+        detail = type(result).__name__
+    return ProcessEventResult(status_code=200, detail=detail)
+
+
 def _demo() -> None:
     from datetime import date, timedelta
 

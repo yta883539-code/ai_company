@@ -1816,10 +1816,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`FOLLOW_WELCOME_MESSAGE`を1回送信、原文の誤字「营业日」は「営業日」に修正)・
   `process_unfollow_event()`(`UnfollowProcessResult(handled=True)`を返すのみで会話状態・
   予約枠・通知ログのいずれも変更しない)を実装した。テスト7件追加、venture全体492件全件
-  パス・schema検証25件パスを確認した。Function B本体(Cloud Tasksデキュー後の実
-  エントリポイント)から`dispatch_process_event()`を実際に呼び出す配線は未実装のまま
-  次回以降の課題として残る。承認不要な実装・テスト追加のみで、外部サービスへの公開・
-  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  パス・schema検証25件パスを確認した。(解消済み 2026-09-02 02:00 UTC・フェーズ続き167:
+  Function B本体(Cloud Tasksデキュー後の実エントリポイント)から`dispatch_process_event()`
+  を実際に呼び出す配線を実装した。詳細は下記フェーズ続き167参照)。承認不要な実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
 - フェーズ続き165(2026-09-01 19:00 UTC): フェーズ続き163「残課題」の
   「`owner_user_id`と決済導線の`user_id`が同一のLINE userIdか」の確認に着手した過程で、
   より根本的な未解決事項を発見した。firestore-data-model.mdは`stores/{storeId}`配下の
@@ -1852,7 +1853,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   メールを使う案を推奨、送信は一括ではなく優先度順に3〜5件ずつ様子を見ながら行う方式を
   提案した。いずれも文書上の整理のみで実際の送信・新規メールアドレス取得は行っておらず、
   承認不要な設計・文書更新のみのためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-01 23:00 UTC
+- フェーズ続き167(2026-09-02 02:00 UTC): フェーズ続き164の残課題だった「Function B本体
+  (Cloud Tasksデキュー後の実エントリポイント)から`dispatch_process_event()`を実際に
+  呼び出す配線」を実装した。`prototype/cloud_function_process_event.py`に
+  `handle_process_conversation_event(payload, processor, llm_call, now, tone)`を新設し、
+  Cloud Function A(`cloud_function_webhook.py`)がCloud Tasksへ`payload=event`として
+  enqueueしたLINEイベント1件をそのまま受け取って`dispatch_process_event()`へ委譲する形と
+  した。1呼び出し=1店舗分の`ConversationEventProcessor`が呼び出し元で既に構築済みである
+  ことを前提とし(store_idの解決自体はstore-id-resolution-and-owner-identity-design.md
+  準拠で別途行う想定)、本関数自体はstore_idの解決やFirestore接続には関与しない。
+  `dispatch_process_event()`が送出した例外はCloud TasksがHTTPステータスでリトライ要否を
+  判断できるよう`ProcessEventResult(status_code=500, ...)`へ正規化する(webhookEventId
+  起点で決定的にenqueueが重複排除されているため、再試行させても安全側に倒れる設計)。
+  あわせて、`cloud_function_webhook.py`冒頭のモジュールdocstringに残っていた
+  「Cloud Function Bは実LLM呼び出しがオーナー承認待ちのため引き続き未着手」という記載が、
+  実際にはフェーズ続き163・164で`cloud_function_process_event.py`として大部分実装済み
+  だったにもかかわらず訂正されていなかった記載漏れであることを発見し、本フェーズの実装
+  内容を反映する形で訂正した。テスト4件追加(200/500系のエントリポイント検証、follow/
+  未知イベント種別の200確認含む)、venture全体496件全件パス・schema検証25件パスを確認
+  した。承認不要な実装・テスト追加・ドキュメント訂正のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 02:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

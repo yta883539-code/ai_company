@@ -25,10 +25,12 @@ from cloud_function_process_event import (  # noqa: E402
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
     LinePushDeliveryError,
+    ProcessEventResult,
     REASK_DATE_RANGE_MESSAGE,
     REASK_MENU_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
     dispatch_process_event,
+    handle_process_conversation_event,
     resolve_menu_duration,
 )
 from engine import (  # noqa: E402
@@ -1832,6 +1834,65 @@ class FollowUnfollowEventTests(unittest.TestCase):
             }
 
         processor.process(_event("U1", "山田です、カットでお願いします"), llm_call_details, NOW)
+
+
+class ProcessConversationEventEntryPointTests(unittest.TestCase):
+    """webhook-function-b-implementation.mdの残課題(フェーズ続き164)だった、Cloud Tasksが
+    実際に呼び出す側のエントリポイント`handle_process_conversation_event()`を検証する。
+    `dispatch_process_event()`への委譲自体はFollowUnfollowEventTestsで確認済みのため、
+    ここではCloud Tasks向けのHTTPステータス正規化(200/500)のみを対象とする。
+    """
+
+    def test_message_event_delegates_to_dispatch_and_returns_200(self):
+        processor, flow, push, _ = _new_processor()
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        payload = {"type": "message", **_event("U1", "来週土曜カットで")}
+        result = handle_process_conversation_event(payload, processor, llm_call, NOW)
+
+        self.assertIsInstance(result, ProcessEventResult)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.detail, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+    def test_follow_event_returns_200(self):
+        processor, _, push, _ = _new_processor()
+        payload = {"type": "follow", "source": {"userId": "U1"}}
+
+        result = handle_process_conversation_event(payload, processor, lambda: {}, NOW)
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(push.sent, [("U1", FOLLOW_WELCOME_MESSAGE)])
+
+    def test_unknown_event_type_returns_200_with_ignored_detail(self):
+        processor, _, push, _ = _new_processor()
+        payload = {"type": "postback", "source": {"userId": "U1"}}
+
+        result = handle_process_conversation_event(payload, processor, lambda: {}, NOW)
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.detail, "ignored")
+        self.assertEqual(push.sent, [])
+
+    def test_processing_error_is_normalized_to_500_for_cloud_tasks_retry(self):
+        # source.userId欠落はprocessor.process()がValueErrorを送出するケース
+        # (ConversationEventProcessor.process()参照)。Cloud Tasksにリトライさせるため、
+        # エントリポイントは例外を外へ伝播させず500として返す。
+        processor, _, push, _ = _new_processor()
+        payload = {"type": "message", "message": {"text": "こんにちは"}, "source": {}}
+
+        result = handle_process_conversation_event(payload, processor, lambda: {}, NOW)
+
+        self.assertEqual(result.status_code, 500)
+        self.assertIn("unhandled_error", result.detail)
+        self.assertEqual(push.sent, [])
 
 
 if __name__ == "__main__":

@@ -12,8 +12,12 @@ webhook-async-processing-design.mdで設計した「Cloud Function A: receive_we
   承認後は`InMemoryTaskQueueClient`を実際の`google.cloud.tasks_v2`クライアントに
   差し替えるだけで動作させられるように設計している。
 - 実装対象はAのみ(署名検証・イベント構造チェック・Cloud Tasksへのenqueue判断・即時200)。
-  Cloud Function B(process_conversation_event、LLM呼び出し〜push送信)は、実LLM呼び出し
-  自体がオーナー承認待ちのため引き続き未着手(README.mdの次の課題参照)。
+  Cloud Function B(process_conversation_event、LLM呼び出し〜push送信)は
+  cloud_function_process_event.pyへ実装済み(フェーズ続き167で、Cloud Tasksが実際に
+  呼び出す側のエントリポイント`handle_process_conversation_event()`まで配線済み)。
+  実LLM呼び出し・実Cloud Tasks/Firestore接続自体はオーナー承認待ちのため、`llm_call`
+  スタブ・`InMemoryLinePushClient`等の差し替え可能な形で留めている(README.mdの
+  次の課題参照)。
 
 設計の参照元: webhook-async-processing-design.md
 """
