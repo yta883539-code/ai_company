@@ -25,6 +25,7 @@ from cloud_function_process_event import (  # noqa: E402
     InMemoryConfirmedReplyRecorder,
     InMemoryLinePushClient,
     LinePushDeliveryError,
+    MissingDestinationError,
     ProcessEventResult,
     REASK_DATE_RANGE_MESSAGE,
     REASK_MENU_MESSAGE,
@@ -32,6 +33,7 @@ from cloud_function_process_event import (  # noqa: E402
     dispatch_process_event,
     handle_process_conversation_event,
     resolve_menu_duration,
+    resolve_store_id_from_destination,
 )
 from engine import (  # noqa: E402
     AvailabilitySearcher,
@@ -1893,6 +1895,36 @@ class ProcessConversationEventEntryPointTests(unittest.TestCase):
         self.assertEqual(result.status_code, 500)
         self.assertIn("unhandled_error", result.detail)
         self.assertEqual(push.sent, [])
+
+
+class ResolveStoreIdFromDestinationTests(unittest.TestCase):
+    """store-id-resolution-and-owner-identity-design.md「結論・推奨方針」1.準拠。
+    storeIdは`destination`を正とすることを検証する。
+    """
+
+    def test_returns_destination_value_as_store_id(self):
+        payload = {"type": "message", "destination": "Uofficialaccount123", "source": {"userId": "U1"}}
+        self.assertEqual(resolve_store_id_from_destination(payload), "Uofficialaccount123")
+
+    def test_missing_destination_raises(self):
+        payload = {"type": "message", "source": {"userId": "U1"}}
+        with self.assertRaises(MissingDestinationError):
+            resolve_store_id_from_destination(payload)
+
+    def test_empty_destination_raises(self):
+        payload = {"type": "message", "destination": "", "source": {"userId": "U1"}}
+        with self.assertRaises(MissingDestinationError):
+            resolve_store_id_from_destination(payload)
+
+    def test_non_string_destination_raises(self):
+        payload = {"type": "message", "destination": 12345, "source": {"userId": "U1"}}
+        with self.assertRaises(MissingDestinationError):
+            resolve_store_id_from_destination(payload)
+
+    def test_missing_destination_error_is_a_value_error(self):
+        # Cloud Function AがdispatchするpayloadでValueError系がCloud Tasksへの500正規化
+        # (handle_process_conversation_event()参照)と同じ扱いを受けられることを確認する。
+        self.assertTrue(issubclass(MissingDestinationError, ValueError))
 
 
 if __name__ == "__main__":

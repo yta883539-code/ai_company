@@ -1853,6 +1853,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   メールを使う案を推奨、送信は一括ではなく優先度順に3〜5件ずつ様子を見ながら行う方式を
   提案した。いずれも文書上の整理のみで実際の送信・新規メールアドレス取得は行っておらず、
   承認不要な設計・文書更新のみのためpending-approval.mdへの追記なし。
+- フェーズ続き168(2026-09-02 03:00 UTC): store-id-resolution-and-owner-identity-design.md
+  「残課題」に残っていた「Function B本体(`destination`を読んでstoreIdを解決する実処理)
+  自体の実装」に着手した。`destination`(LINE Webhookのチャネル自身のuserId、そのWebhookが
+  どの公式アカウント=店舗宛かを示すフィールド)は`events`配列とは別の階層にありイベント
+  個々には含まれないため、まずCloud Function A(`cloud_function_webhook.py`の
+  `webhook_receiver()`)に`destination`引数(省略可、既存呼び出し元との後方互換を維持)を
+  追加し、渡された場合はenqueueする各イベントのpayloadへ複製するようにした。次に
+  `cloud_function_process_event.py`に`resolve_store_id_from_destination(payload) -> str`を
+  新設し、payloadの`destination`を読んでstoreIdとして返す関数を実装した(欠落・非文字列・
+  空文字列は`MissingDestinationError`(`ValueError`のサブクラス)を送出し、Cloud Tasksの
+  500正規化と同じ扱いを受けられる)。ただし`handle_process_conversation_event()`自体は
+  これまで通り既に構築済みの`processor`を受け取る前提のままで、本関数をそこから呼び出す
+  配線(=Firestoreから店舗プロフィールを読み込んで`ConversationEventProcessor`を
+  組み立てる工程に先立ってstoreIdを解決する処理)は実Firestore接続がオーナー承認待ちのため
+  未着手のまま残る。詳細はstore-id-resolution-and-owner-identity-design.md「残課題」参照。
+  テスト9件追加(webhook側5件・process_event側4件)、venture全体503件全件パス・
+  schema検証25件パスを確認した。承認不要な実装・テスト追加・ドキュメント整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
 - フェーズ続き167(2026-09-02 02:00 UTC): フェーズ続き164の残課題だった「Function B本体
   (Cloud Tasksデキュー後の実エントリポイント)から`dispatch_process_event()`を実際に
   呼び出す配線」を実装した。`prototype/cloud_function_process_event.py`に
@@ -1873,7 +1892,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   未知イベント種別の200確認含む)、venture全体496件全件パス・schema検証25件パスを確認
   した。承認不要な実装・テスト追加・ドキュメント訂正のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 02:00 UTC
+- 最終更新: 2026-09-02 03:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

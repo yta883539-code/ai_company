@@ -894,6 +894,38 @@ def dispatch_process_event(
     return DispatchResult(action="ignored", detail=event_type or "unknown")
 
 
+class MissingDestinationError(ValueError):
+    """`destination`フィールドが欠落したペイロードに対して送出される
+    (store-id-resolution-and-owner-identity-design.md準拠)。"""
+
+
+def resolve_store_id_from_destination(payload: dict) -> str:
+    """store-id-resolution-and-owner-identity-design.md「結論・推奨方針」1.準拠。
+
+    storeIdは`destination`(LINE Webhookのチャネル自身のuserId、そのWebhookがどの
+    公式アカウント=店舗宛かを示す値)を正とする。Cloud Function A
+    (`cloud_function_webhook.py`の`webhook_receiver()`)が`destination`引数を
+    渡された場合、enqueueする各イベントのpayloadに複製しているため、ここでは
+    それをそのまま読み出すだけでよい。
+
+    1呼び出し=1店舗分の`ConversationEventProcessor`を組み立てる呼び出し元
+    (Firestoreから店舗プロフィールを読み込んで`ConversationEventProcessor`を
+    構築する工程、実Firestore接続はオーナー承認待ちのため未実装)は、まず本関数で
+    storeIdを解決してから店舗プロフィールを引く、という順序になる想定
+    (`handle_process_conversation_event()`はそのように組み立て済みの`processor`を
+    受け取る前提のままで、本関数自体はまだそこから呼び出されていない)。
+
+    `destination`が欠落・非文字列・空文字列の場合は`MissingDestinationError`
+    (`ValueError`のサブクラス)を送出する。LINE Messaging APIの仕様上
+    `destination`は常に付与されるはずのため、欠落は通常発生しない異常系
+    (Cloud Function Aの実装漏れ等)とみなし、安全側で早期に失敗させる。
+    """
+    destination = payload.get("destination")
+    if not isinstance(destination, str) or not destination:
+        raise MissingDestinationError("payload is missing required field 'destination'")
+    return destination
+
+
 @dataclass
 class ProcessEventResult:
     status_code: int

@@ -155,6 +155,38 @@ class WebhookReceiverTests(unittest.TestCase):
         self.assertEqual(len(result.results), 1)
         self.assertEqual(result.results[0].webhook_event_id, "E2")
 
+    def test_destination_is_copied_into_each_enqueued_payload(self):
+        # store-id-resolution-and-owner-identity-design.md準拠。Cloud Function B
+        # (cloud_function_process_event.pyのresolve_store_id_from_destination())が
+        # デキュー後にstoreIdを解決できるよう、Cloud Function Aの時点で各イベントの
+        # payloadにdestinationを複製しておく必要がある。
+        events = [
+            {"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}},
+            {"webhookEventId": "E2", "deliveryContext": {"isRedelivery": False}},
+        ]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(
+            body, signature, CHANNEL_SECRET, events, self.queue, destination="Uofficialaccount123"
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            self.queue.created["line-event-E1"]["destination"], "Uofficialaccount123"
+        )
+        self.assertEqual(
+            self.queue.created["line-event-E2"]["destination"], "Uofficialaccount123"
+        )
+        # 呼び出し元が渡した元のeventsリストの要素自体は変更しない(webhook_receiver内で
+        # コピーしてから複製している)。
+        self.assertNotIn("destination", events[0])
+
+    def test_destination_omitted_keeps_previous_behavior(self):
+        # destination未指定(既存呼び出し元との後方互換)の場合はキー自体を付与しない。
+        events = [{"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}}]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(body, signature, CHANNEL_SECRET, events, self.queue)
+        self.assertEqual(result.status_code, 200)
+        self.assertNotIn("destination", self.queue.created["line-event-E1"])
+
 
 if __name__ == "__main__":
     unittest.main()

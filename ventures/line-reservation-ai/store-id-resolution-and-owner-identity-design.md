@@ -109,13 +109,32 @@ follow-unfollow-event-handling-design.mdが残していた「`owner_user_id`と�
 
 ## 残課題
 
+- (解消済み 2026-09-02 03:00 UTC・フェーズ続き168: 「destinationを読んでstoreIdを解決する
+  実処理」を2段階に分けて実装した。(1)Cloud Function A(`cloud_function_webhook.py`の
+  `webhook_receiver()`)に`destination`引数(省略可、既存呼び出し元との後方互換を維持)を
+  追加し、渡された場合はenqueueする各イベントのpayloadへ複製するようにした
+  (`events`配列内の個々のイベント自体には`destination`が含まれないため、Aの時点で
+  複製しておく必要がある)。(2)`cloud_function_process_event.py`に
+  `resolve_store_id_from_destination(payload) -> str`を新設し、payloadの`destination`を
+  読んでstoreIdとして返す(欠落・非文字列・空文字列は`MissingDestinationError`
+  (`ValueError`のサブクラス)を送出、Cloud Tasksの500正規化と同じ扱いを受けられる)。
+  ただし`handle_process_conversation_event()`はこれまで通り既に構築済みの`processor`を
+  受け取る前提のままで、本関数をそこから呼び出す配線(=店舗プロフィールをFirestoreから
+  読み込んで`ConversationEventProcessor`を組み立てる工程に先立ってstoreIdを解決する処理)は
+  実Firestore接続がオーナー承認待ちのため未着手のまま残る。テスト9件追加(webhook側5件・
+  process_event側4件を含む)、venture全体503件全件パス・schema検証25件パスを確認した。)
 - `destination`フィールドの仕様(LINE Messaging APIの一次情報での確認、複数チャネルを
   1つのCloud Functionsエンドポイントで受ける場合の挙動)は、実LINE Developersコンソールでの
   チャネル登録・実Webhook受信後に一次情報で最終確認する必要がある(現時点は一般的な知識に
   基づく設計であり、実装着手時の確認事項として残す)。
-- Function B本体(`destination`を読んで`storeId`を解決する実処理)自体の実装は、
-  follow-unfollow-event-handling-design.md「残課題」に記載の通り、引き続き次回以降の
-  課題として残る。
+- Cloud Function AのHTTPハンドラ本体(実リクエストボディをJSONパースして`events`と
+  `destination`を取り出し`webhook_receiver()`へ渡す層)自体は、デプロイ環境確定後の
+  課題として引き続き未実装のまま残る(`webhook_receiver()`は`events`・`destination`を
+  既に呼び出し元が取り出し済みの引数として受け取る設計を維持している)。
+- Firestoreから店舗プロフィール(`owner_user_id`・`menu_durations`・FAQ情報・営業時間等)を
+  読み込んで`ConversationEventProcessor`を組み立てるファクトリ関数、およびそこから
+  `resolve_store_id_from_destination()`を呼び出す配線自体は、実Firestore接続待ちのため
+  引き続き次回以降の課題として残る。
 - LIFF起動リンクへの`store_id`クエリパラメータ埋め込みの具体的な実装(URLの組み立て、
   改ざん検知の要否)は、checkout-initiation-flow-design.md本体の更新とあわせて次回以降に
   設計する。改ざんされても最終的にはLIFF ID Tokenでの認可チェック(3.)が防波堤になるため、

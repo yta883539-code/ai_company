@@ -152,6 +152,7 @@ def webhook_receiver(
     channel_secret: str,
     events: list[dict],
     queue_client: TaskQueueClient,
+    destination: Optional[str] = None,
 ) -> WebhookReceiverResult:
     """Cloud Function Aの本体。LINE Platformへは常にできる限り速やかに200を返す。
 
@@ -160,12 +161,24 @@ def webhook_receiver(
       通常発生しないはずの異常系)そのイベントだけスキップし、200自体は返す設計とする
       (LINE側からの不要な再送の連鎖を避けるため。異常はログ出力想定だが、本モジュールの
       責務外のためログ出力先の設計はデプロイ環境確定後の課題として残す)。
+    - `destination`: store-id-resolution-and-owner-identity-design.md準拠。LINE Webhookの
+      リクエストボディ直下(`events`配列とは別の階層)に載る、そのWebhookがどのチャネル
+      (公式アカウント=店舗)宛かを示すフィールド。本関数の呼び出し元(実HTTPハンドラ、
+      デプロイ環境確定後に実装)がリクエストボディをパースする際に`events`と一緒に
+      取り出して渡す想定。渡された場合、enqueueする各イベントのpayloadに`destination`
+      キーとして複製する(Cloud Function B側がCloud Tasksからデキュー後に
+      `resolve_store_id_from_destination()`でstoreIdを解決できるようにするため。
+      `events`配列内の個々のイベント自体にはdestinationは含まれないため、Aの時点で
+      複製しておく必要がある)。未指定(None)の場合は従来通りdestinationを付与しない
+      (呼び出し元の後方互換のためデフォルト引数とした)。
     """
     if not verify_line_signature(body, signature_header, channel_secret):
         return WebhookReceiverResult(status_code=401, results=[])
 
     results = []
     for event in events:
+        if destination:
+            event = {**event, "destination": destination}
         try:
             results.append(handle_webhook_event(event, queue_client))
         except ValueError:
