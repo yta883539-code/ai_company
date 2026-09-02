@@ -297,18 +297,86 @@ store_id別リンク検証4件)、venture全体529件全件パス・schema検証
 - オンボーディング完了メッセージ以外にも今後決済導線への言及を追加するメッセージが
   増えた場合、同じ`build_liff_checkout_link()`を再利用する。
 
+## 12. Checkout Session作成エンドポイント本体の実装(フェーズ続き174・新規)
+
+10節「残課題」・11節「残課題」に残っていた、9節手順1〜4・10節の認可チェックをすべて
+結ぶCheckout Session作成エンドポイント本体を実装する。course-set-pasha/
+checkout-session-cloud-function-entry-point-design.md(フェーズ115)と同じ「依存注入で
+テスト可能な本体+実`functions_framework`リクエストを扱う薄い`main(request)`」という
+構成を踏襲する。
+
+### 処理順序
+
+`prototype/checkout_session.py`に`create_checkout_session(store_id,
+authorization_header, *, verify_id_token, store, line_return_link, success_url=...,
+cancel_url=...) -> CreateCheckoutSessionResult`を新設し、9節手順1〜4を実装した。
+
+1. `store_id`(design 11節のLIFF起動リンクが埋め込むクエリパラメータ)が空文字列・Noneの
+   場合は400(design 9節手順1、認可チェックより前段のガード。`store_id`自体が読み取れなければ
+   `owner_user_id`の参照先も定まらないため)。
+2. `authorization_header`が`Bearer `形式でない場合は401(design 9節手順2の前段、
+   course-set-pasha版と同じガード)。
+3. `verify_id_token(id_token)`で個人`user_id`を取得する(design 9節手順2)。`None`が返れば
+   401。`NotImplementedError`はここでは捕捉せず`main()`側に伝播させる(course-set-pasha版と
+   同じ「未実装は501で明示する」方針)。
+4. `verify_checkout_authorization(store_id, requester_user_id, store)`(design 9節手順3・
+   10節)で不一致なら403+`render_checkout_authorization_error_page()`のエラーページを返し、
+   Checkout Sessionは作成しない。
+5. 認可を通過した場合のみ`store.get_stripe_customer_id(store_id)`(design 9節手順3、
+   `store_id`をキーとする想定に読み替え済み)で既存Stripe顧客を確認し、design 3節・5節の
+   `build_checkout_session_params()`で200を返す。
+
+`CreateCheckoutSessionResult`はcourse-set-pasha版の`status_code`必須構成に、認可チェック
+不一致時専用の`error_page`(design 10節のWeb静的ページ文言)を追加した形とした。
+
+### プレースホルダの追加
+
+design 4節で「Basic IDは公式アカウント開設(オーナー承認待ち)後に確定するため、実装では
+プレースホルダ定数として切り出す」としていた方針を、`DEFAULT_LINE_BASIC_ID =
+"LINE_BASIC_ID_PLACEHOLDER"`として実装した(design 11節の`DEFAULT_LIFF_ID`と対称)。
+
+### `get_checkout_runtime_dependencies()`・`main(request)`
+
+course-set-pasha版と対称の構成。`store`(`InMemoryStoreProfileStore()`、実運用では
+Cloud Function A/B・Stripe Webhook側と同一Firestoreの`stores`コレクションを共有する想定だが
+本プロセスでは別インスタンスのため呼び出しをまたいだ引き継ぎは無い、実Firestore接続後に
+解消される既知の限界)・`verify_id_token`(`_verify_id_token_not_implemented`)・
+`line_return_link`(`build_line_return_link(DEFAULT_LINE_BASIC_ID)`)を組み立てる。
+`main(request)`は`request.args.get("store_id")`・`request.headers.get("Authorization")`を
+取り出して`create_checkout_session()`に委譲し、`NotImplementedError`捕捉時は501を返す。
+
+テスト15件追加(`create_checkout_session()`10件・`get_checkout_runtime_dependencies()`1件・
+`main()`4件)、venture全体553件全件パス・schema検証25件パスを確認した。
+
+### 残課題(本節)
+
+- 実LIFFアプリ登録後、`verify_id_token`実装本体(LINE Platform APIの
+  `/oauth2/v2.1/verify`相当への実HTTPリクエスト)への差し替えが必要(引き続きオーナー
+  承認待ち)。それまでの間`main(request)`が501を返すことで「未実装」であることを明示できる
+  状態にした。
+- `checkout_session_params`を実際にStripe Checkout Session作成APIへ渡し、返り値のURLを
+  レスポンスとして返す処理(実Stripeアカウント接続後の課題)は未着手のまま残る
+  (course-set-pasha版「残課題」と同種)。
+- 実Cloud Functions環境で`store`をFirestore版に差し替える配線、および`owner_user_id`
+  自体の書き込み配線(10節「残課題」参照)は実Firestore接続確定後に行う。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID
   確定)はオーナー承認待ち(pending-approval.mdに記録する)。
 - `resolve_existing_stripe_customer_id()`・`handle_checkout_session_completed()`を実際に
-  Cloud Functions側のCheckout Session作成エンドポイント・Stripe Webhook受信エンドポイント
-  本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は未実装。実アカウント接続後に
-  着手する。うち署名検証部分(`verify_stripe_signature()`)は実アカウント接続前でも机上
-  実装・テスト可能だったため、stripe-webhook-signature-verification-design.md(フェーズ続き
-  158)として先行着手済み。エンドポイント本体(署名検証〜イベント種別ディスパッチ〜各
-  ハンドラ呼び出しを結ぶ層)は引き続き未着手のまま残る。
-- IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
+  Stripe Webhook受信エンドポイント本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は
+  未実装。実アカウント接続後に着手する。うち署名検証部分(`verify_stripe_signature()`)は
+  実アカウント接続前でも机上実装・テスト可能だったため、stripe-webhook-signature-
+  verification-design.md(フェーズ続き158)として先行着手済み。エンドポイント本体(署名
+  検証〜イベント種別ディスパッチ〜各ハンドラ呼び出しを結ぶ層)は引き続き未着手のまま残る。
+  Checkout Session作成エンドポイント側の本体配線(9節手順1〜4・10節を結ぶ層)は12節
+  (フェーズ続き174)で実装済み。
+- IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手
+  (12節`_verify_id_token_not_implemented`プレースホルダを差し替える)。
+- Checkout Session作成APIへの実HTTPリクエスト送信(`build_checkout_session_params()`が
+  組み立てたdictを実際に`stripe.checkout.Session.create(**params)`へ渡す処理)は実Stripe
+  アカウント接続後の課題として残る(12節「残課題」参照)。
 - `success_url`ページの実際のHTML/デザインは、LP実装(オーナー承認待ち)とあわせて行う。
 - オンボーディング完了メッセージの発火判定・1回のみ発火の制御の本体配線は、
   owner-settings-wireframe.mdのフォーム保存処理の実装着手時にあわせて設計する

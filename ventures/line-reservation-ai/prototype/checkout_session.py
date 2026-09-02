@@ -16,6 +16,12 @@
   owner-identity-design.md「残課題」に残っていた、認可チェック(`store_id`から解決した
   `owner_user_id`とLIFF IDトークン検証済みの個人`user_id`の一致確認)不一致時のオーナー向け
   エラー文言・案内先を設計・実装した。
+- `create_checkout_session()`/`main()`(2026-09-02追記・フェーズ続き174): design 9節手順1〜4・
+  10節の認可チェック・11節のLIFF起動リンクをすべて結ぶCheckout Session作成エンドポイント
+  本体(design 10節・11節「残課題」に残っていた配線)を実装した。course-set-pasha/aircon-pasha
+  のstripe_webhook.main()/checkout_session.main()と同じ「本体は依存注入でテスト可能、
+  `main(request)`だけが実`functions_framework`リクエストオブジェクトを扱う薄い配線」という
+  構成を踏襲する。
 
 設計の参照元: checkout-initiation-flow-design.md
 """
@@ -23,10 +29,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import quote
 
-from store_profile_store import StoreProfileStoreProtocol
+from store_profile_store import InMemoryStoreProfileStore, StoreProfileStoreProtocol
 
 # design 3節: 実LPドメイン確定までの仮のプレースホルダ。呼び出し元・テストで上書き可能。
 DEFAULT_SUCCESS_URL = "https://example.com/line-reservation-ai/checkout/success"
@@ -34,6 +40,9 @@ DEFAULT_CANCEL_URL = "https://example.com/line-reservation-ai/checkout/cancel"
 
 # design 11節: 実LIFFアプリ登録(オーナー承認待ち)までの仮のプレースホルダ。
 DEFAULT_LIFF_ID = "LIFF_ID_PLACEHOLDER"
+
+# design 4節: LINE公式アカウント開設(オーナー承認待ち、Basic ID確定)までの仮のプレースホルダ。
+DEFAULT_LINE_BASIC_ID = "LINE_BASIC_ID_PLACEHOLDER"
 
 _LINE_UNIVERSAL_LINK_BASE = "https://line.me/R/ti/p/"
 _LIFF_LINK_BASE = "https://liff.line.me/"
@@ -204,3 +213,143 @@ def render_checkout_authorization_error_page(
         f"▼ LINEに戻る\n"
         f"{line_return_link}"
     )
+
+
+@dataclass
+class CreateCheckoutSessionResult:
+    """`create_checkout_session()`の結果(design 9節手順1〜4・10節を結んだ最終結果、
+    course-set-pasha/checkout_session.CreateCheckoutSessionResultと同じ形の
+    status_code必須・他はいずれか一方のみ埋まる構成に、認可チェック不一致時専用の
+    `error_page`〈design 10節のWeb静的ページ文言〉を追加したもの)。"""
+
+    status_code: int
+    checkout_session_params: Optional[dict] = None
+    error: Optional[str] = None
+    error_page: Optional[str] = None
+
+
+_BEARER_PREFIX = "Bearer "
+
+
+def create_checkout_session(
+    store_id: Optional[str],
+    authorization_header: Optional[str],
+    *,
+    verify_id_token: Callable[[str], Optional[str]],
+    store: StoreProfileStoreProtocol,
+    line_return_link: str,
+    success_url: str = DEFAULT_SUCCESS_URL,
+    cancel_url: str = DEFAULT_CANCEL_URL,
+) -> CreateCheckoutSessionResult:
+    """design 9節手順1〜4・10節の処理順序をすべて結ぶエンドポイント本体(design 9節「訂正」・
+    10節「残課題」・11節「残課題」に残っていた配線、フェーズ続き174で新設)。
+
+    `verify_id_token`(LIFF IDトークン文字列 -> 個人user_id、失敗時None)・`store`
+    (`owner_user_id`・既存`stripe_customer_id`の問い合わせ)・`line_return_link`
+    (`build_line_return_link()`の返り値をそのまま渡す想定)はいずれも呼び出し元から注入する
+    依存で、実LINE Platform API・実Firestore接続なしでテスト可能にする。
+
+    処理順序(design 9節手順1〜4):
+    1. `store_id`(design 11節の`build_liff_checkout_link()`が埋め込んだクエリパラメータ)が
+       空文字列・Noneの場合は400を返す(design 9節手順1、LIFF起動リンク自体の破損・改ざんを
+       検知する最初の防波堤。10節の認可チェックより前段のガード)。
+    2. `authorization_header`が`Bearer `形式でない場合は401を返す(design 9節手順2の前段、
+       course-set-pashaの`create_checkout_session()`と同じガード)。
+    3. `verify_id_token(id_token)`で個人`user_id`を取得する(design 9節手順2)。`None`が
+       返れば401(`NotImplementedError`はここでは捕捉せず、呼び出し元〈`main()`〉に伝播させる。
+       courseset-pasha版と同じ「未実装は501で明示する」方針)。
+    4. `verify_checkout_authorization(store_id, requester_user_id, store)`(design 9節手順3・
+       10節)で不一致なら403+`error_page`(`render_checkout_authorization_error_page()`)を
+       返し、Checkout Sessionは作成しない。
+    5. 認可を通過した場合のみ、`store.get_stripe_customer_id(store_id)`(design 9節手順3で
+       `store_id`をキーとする想定に読み替え済み)で既存Stripe顧客を確認し、design 3節・5節の
+       `build_checkout_session_params()`で200を返す。
+    """
+    if not store_id:
+        return CreateCheckoutSessionResult(status_code=400, error="missing_store_id")
+
+    if authorization_header is None or not authorization_header.startswith(_BEARER_PREFIX):
+        return CreateCheckoutSessionResult(
+            status_code=401, error="missing_or_malformed_authorization_header"
+        )
+
+    id_token = authorization_header[len(_BEARER_PREFIX):]
+    requester_user_id = verify_id_token(id_token)
+    if requester_user_id is None:
+        return CreateCheckoutSessionResult(status_code=401, error="invalid_id_token")
+
+    authorization_result = verify_checkout_authorization(store_id, requester_user_id, store)
+    if not authorization_result.authorized:
+        error_page = render_checkout_authorization_error_page(
+            authorization_result.denied_reason, line_return_link
+        )
+        return CreateCheckoutSessionResult(status_code=403, error_page=error_page)
+
+    existing_stripe_customer_id = store.get_stripe_customer_id(store_id)
+    params = build_checkout_session_params(
+        store_id,
+        existing_stripe_customer_id,
+        success_url=success_url,
+        cancel_url=cancel_url,
+    )
+    return CreateCheckoutSessionResult(status_code=200, checkout_session_params=params)
+
+
+def _verify_id_token_not_implemented(id_token: str) -> Optional[str]:
+    """course-set-pasha/checkout_session._verify_id_token_not_implementedと同じ位置づけの
+    プレースホルダ。LINE Platform APIの`/oauth2/v2.1/verify`相当への実HTTPリクエストは、
+    LIFFアプリの実登録(オーナー承認待ち)後に本関数を差し替える。恒久的に失敗を返すダミーだと
+    誤って動いているように見えてしまうため、呼ばれたら意図的に`NotImplementedError`を送出する。
+    """
+    raise NotImplementedError(
+        "verify_id_token is not implemented yet: pending LIFF app registration "
+        "(owner approval required, see pending-approval.md)"
+    )
+
+
+def get_checkout_runtime_dependencies() -> dict:
+    """`main()`が使う依存の既定値を組み立てる(course-set-pasha/checkout_session.
+    get_checkout_runtime_dependencies()と対称の構成)。
+
+    - `store`: `InMemoryStoreProfileStore()`を1つ生成する。実運用ではCloud Function A/B・
+      Stripe Webhook側と同一Firestoreの`stores`コレクションを共有する想定だが、本プロセスでは
+      別プロセス・別インスタンスとして初期化されるため、`owner_user_id`・既存
+      `stripe_customer_id`の引き継ぎは呼び出しをまたいで保持されない(実Firestore接続後に
+      解消される既知の限界、course-set-pasha側と同種)。
+    - `verify_id_token`: `_verify_id_token_not_implemented`。LIFFアプリ実登録後に実装本体へ
+      差し替える(design 9節「残課題」)。
+    - `line_return_link`: `build_line_return_link(DEFAULT_LINE_BASIC_ID)`。LINE公式アカウント
+      開設(オーナー承認待ち、Basic ID確定)後に`DEFAULT_LINE_BASIC_ID`プレースホルダから
+      差し替える(design 4節)。
+    """
+    return {
+        "store": InMemoryStoreProfileStore(),
+        "verify_id_token": _verify_id_token_not_implemented,
+        "line_return_link": build_line_return_link(DEFAULT_LINE_BASIC_ID),
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、design 9節手順1〜4・
+    10節・11節を結ぶCheckout Session作成エンドポイント本体)。
+
+    `request.args.get("store_id")`でLIFF起動リンク(design 11節)のクエリパラメータから
+    `store_id`を取り出し、`request.headers.get("Authorization")`と合わせて
+    `create_checkout_session()`に委譲する(course-set-pasha/checkout_session.main()と対称の
+    構成)。`verify_id_token`が`NotImplementedError`を送出した場合は501を返し、LIFFアプリ
+    未登録による未実装であることを呼び出し元(LIFFフロントエンド)が判別しやすくする。
+    """
+    store_id = request.args.get("store_id")
+    authorization_header = request.headers.get("Authorization")
+    try:
+        result = create_checkout_session(
+            store_id, authorization_header, **get_checkout_runtime_dependencies()
+        )
+    except NotImplementedError:
+        return "verify_id_token_not_implemented", 501
+
+    if result.status_code == 200:
+        return result.checkout_session_params, 200
+    if result.error_page is not None:
+        return result.error_page, result.status_code
+    return (result.error or "error"), result.status_code

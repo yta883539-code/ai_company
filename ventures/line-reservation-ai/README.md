@@ -1954,7 +1954,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   課題として引き続き残した。テスト9件追加(正規化関数8件・書き込み結線1件)、venture全体
   538件全件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 16:58 UTC
+- フェーズ続き174(2026-09-02 17:59 UTC): checkout-initiation-flow-design.md 10節・11節
+  「残課題」に残っていた、Checkout Session作成エンドポイント本体(9節手順1〜4・10節の認可
+  チェックをすべて結ぶHTTPハンドラ)を実装した(同ドキュメント新設12節)。course-set-pasha/
+  checkout-session-cloud-function-entry-point-design.md(フェーズ115)と同じ「依存注入で
+  テスト可能な本体+実`functions_framework`リクエストを扱う薄い`main(request)`」という
+  構成を踏襲し、`prototype/checkout_session.py`に`create_checkout_session(store_id,
+  authorization_header, *, verify_id_token, store, line_return_link, ...)`・
+  `get_checkout_runtime_dependencies()`・`main(request)`を新設した。`store_id`欠落は400、
+  `verify_id_token`未実装(`NotImplementedError`)は`main()`側で捕捉し501、認可チェック
+  不一致は403+`render_checkout_authorization_error_page()`のエラーページを返す。design 4節で
+  プレースホルダ化していたLINE公式アカウントのBasic IDも`DEFAULT_LINE_BASIC_ID`定数として
+  実装した(design 11節`DEFAULT_LIFF_ID`と対称)。テスト15件追加、venture全体553件全件
+  パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービス
+  への公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 17:59 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
