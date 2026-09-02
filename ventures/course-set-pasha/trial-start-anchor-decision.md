@@ -65,11 +65,16 @@ usage_counter/{user_id}
 
 ## 5. 今後の課題
 
-- `trial_start_at`の実書き込みロジック(`increment_and_mark_notice()`への引数追加・
-  `InMemoryUsageCounter`側の実装・テスト)は次回以降の実装フェーズで行う。
-- (B)期間到達判定用の日次スケジューラ本体(`trial_start_at`から14日経過したユーザーの
-  抽出クエリ・プッシュ送信)は、line-reservation-ai/reminder-scheduler-design.mdや
-  aircon-pashaの日次スケジューラ設計を参考に別途設計する必要があり、引き続き未着手。
+- (解消済み 2026-08-23 12:00 UTC・フェーズ101: `trial_start_at`の実書き込みロジックを
+  実装した。`UsageCounterProtocol`に`set_trial_start_at_if_unset()`・`get_trial_start_at()`を
+  追加、`AtomicNoticeUsageCounterProtocol.increment_and_mark_notice()`に`trial_start_at`
+  引数〈既定None〉を追加し、`InMemoryUsageCounter`側の実装・テストも完了済み。
+  `prototype/cloud_function_webhook.py`に現存する。本節は本ドキュメント〈フェーズ100〉作成後の
+  更新が漏れていた記載漏れであり、フェーズ147で発見・訂正した)
+- (解消済み 2026-08-23 15:00 UTC・フェーズ102: (B)期間到達判定用の日次スケジューラ本体を
+  `trial-end-scheduler-design.md`として新規設計し、`prototype/trial_end_scheduler.py`に
+  `select_due_trial_end_notifications()`・`send_trial_end_notifications()`として実装した。
+  上記と同じくフェーズ147で発見・訂正した記載漏れ)。
 - 「浮いた作業時間の目安」の試算値未作成、生成一時停止判定の実装は
   trial-end-notification-design.md 5節に記載の通り未解決のまま。
 - LIFFアプリの実登録・Cloud Scheduler実行環境の構築はオーナー承認待ち

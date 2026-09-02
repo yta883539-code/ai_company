@@ -1749,7 +1749,20 @@
   venture全体471件全件パスを再確認した。承認不要な調査・ドキュメント作成のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-09-02 15:59 UTC
+- フェーズ147(2026-09-02 22:57 UTC): trial-start-anchor-decision.md(フェーズ100作成)
+  5節「今後の課題」に残っていた「`trial_start_at`の実書き込みロジックは次回以降の実装
+  フェーズで行う」「(B)期間到達判定用の日次スケジューラ本体は...引き続き未着手」という
+  2件の記載が、実際にはいずれも直後のフェーズ101(`set_trial_start_at_if_unset()`・
+  `get_trial_start_at()`・`increment_and_mark_notice()`への`trial_start_at`引数追加)・
+  フェーズ102(`trial-end-scheduler-design.md`新規作成、`prototype/trial_end_scheduler.py`の
+  `select_due_trial_end_notifications()`・`send_trial_end_notifications()`実装)で解消
+  済みだったにもかかわらず、本ドキュメント側の更新が漏れていた記載漏れ(フェーズ140・141・
+  145・aircon-pashaフェーズ167・172・173等と同種のドキュメント棚卸し)であることを発見・
+  解消した。コード変更は無し(ドキュメント整理のみ)、venture全体471件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
+  再確認した。承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 22:57 UTC
 
 ## 次にやること(候補)
 
