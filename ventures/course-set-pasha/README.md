@@ -1713,14 +1713,30 @@
   残る(design 4節・6節)。テスト10件追加、venture全体464件全件パス・schema検証9件パスを
   確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 06:00 UTC
+- フェーズ144(2026-09-02 09:00 UTC): フェーズ143の残課題だった、
+  blocked-but-billing-owner-notification-design.md 4節「クリア」で設計した
+  `blocked_but_billing_owner_notified_at`のクリア配線を実装した(design 6節には実装済みの
+  旨を記載していたが、本README側への記載が漏れていたための追記)。
+  `application_form_submission_flow.UserProfileStoreProtocol`/`InMemoryUserProfileStore`に
+  `set_blocked_but_billing_owner_notified_at`/`get_blocked_but_billing_owner_notified_at`/
+  `clear_blocked_but_billing_owner_notified_at`を追加し、
+  `cloud_function_webhook.process_follow_event()`の`set_is_following(user_id, True)`実行時、
+  および`stripe_webhook.dispatch_stripe_event()`の`customer.subscription.deleted`分岐
+  (`mark_deletion_candidate_on_subscription_deleted()`実行時)の両方にクリア呼び出しを配線
+  した。`dispatch_stripe_event()`に`user_profile_store`引数を新設し、
+  `receive_stripe_webhook()`側で既存の`user_profile_store`(checkout.session.completed経路と
+  共有)をそのまま渡すことで新規の依存関係追加なしに実現した。テスト7件追加、venture全体
+  471件全件パス・schema検証9件パスを確認した。承認不要な実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-02 09:00 UTC
 
 ## 次にやること(候補)
 
-- (2026-09-02 06:00 UTC・フェーズ143: blocked-but-billing-owner-notification-design.md
+- (解消済み 2026-09-02 09:00 UTC・フェーズ144: blocked-but-billing-owner-notification-design.md
   4節「クリア」で設計した、フォロー再開・解約確定時の`blocked_but_billing_owner_notified_at`
-  クリア配線(`process_follow_event()`・解約確定処理への呼び出し追加)がまだ未実装のまま
-  残る。次回以降の実装課題として優先候補とする)
+  クリア配線(`process_follow_event()`・解約確定処理への呼び出し追加)を実装した。詳細は
+  上記フェーズ144参照)
 
 - (解消済み 2026-09-02 04:00 UTC・フェーズ142: unfollow-billing-faq.mdの「プロアクティブな
   通知バッチの要否・設計は未着手」に対応し、blocked-but-billing-detection-design.mdとして
