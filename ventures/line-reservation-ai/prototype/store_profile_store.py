@@ -41,10 +41,18 @@
   design.md 9節・store-id-resolution-and-owner-identity-design.md「残課題」に残っていた
   認可チェック(`stores/{store_id}.owner_user_id`と検証済み個人`user_id`の一致確認)の
   参照元を実装した。`checkout_session.py`の`verify_checkout_authorization()`から呼ばれる。
+- `get_owner_is_following()`/`set_owner_is_following()`・`get_suspension_reason()`/
+  `set_suspension_reason()`・`all_store_ids()`(2026-09-02追記、フェーズ続き176):
+  blocked-but-billing-detection-design.md 1節・3節で設計した、オーナー自身の
+  ブロック状態(`ownerIsFollowing`)と契約状態(`suspensionReason`)を店舗単位で
+  追跡するための最小インターフェース。いずれも`stores/{storeId}`の同一ドキュメント上の
+  フィールド(firestore-data-model.md)に対応する。`prototype/
+  blocked_but_billing_candidates.py`の候補抽出ロジックから参照される。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
-stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md
+stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md、
+blocked-but-billing-detection-design.md 1節・3節
 """
 
 from __future__ import annotations
@@ -80,6 +88,21 @@ class StoreProfileStoreProtocol(Protocol):
     def set_owner_user_id(self, store_id: str, owner_user_id: str) -> None:
         ...
 
+    def get_owner_is_following(self, store_id: str) -> bool:
+        ...
+
+    def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
+        ...
+
+    def get_suspension_reason(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_suspension_reason(self, store_id: str, suspension_reason: Optional[str]) -> None:
+        ...
+
+    def all_store_ids(self):
+        ...
+
 
 class InMemoryStoreProfileStore:
     """実Firestore接続前の検証用スタブ。プロセス内の`dict`に保持するのみで、
@@ -92,6 +115,9 @@ class InMemoryStoreProfileStore:
         self._store_ids_by_stripe_customer_id: dict[str, str] = {}
         self._onboarding_completion_message_sent: set[str] = set()
         self._owner_user_ids: dict[str, str] = {}
+        self._owner_is_following: dict[str, bool] = {}
+        self._suspension_reasons: dict[str, Optional[str]] = {}
+        self._known_store_ids: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
         return self._stripe_customer_ids.get(user_id)
@@ -136,6 +162,36 @@ class InMemoryStoreProfileStore:
         if not owner_user_id:
             raise ValueError("owner_user_id must be a non-empty string")
         self._owner_user_ids[store_id] = owner_user_id
+        self._known_store_ids.add(store_id)
+
+    def get_owner_is_following(self, store_id: str) -> bool:
+        # blocked-but-billing-detection-design.md 1節: 未設定の間は安全側で
+        # 「フォロー中」として扱う(値が確定するのはfollow/unfollowイベントを
+        # 一度でも受信した後のみ)。
+        return self._owner_is_following.get(store_id, True)
+
+    def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._owner_is_following[store_id] = bool(is_following)
+        self._known_store_ids.add(store_id)
+
+    def get_suspension_reason(self, store_id: str) -> Optional[str]:
+        return self._suspension_reasons.get(store_id)
+
+    def set_suspension_reason(self, store_id: str, suspension_reason: Optional[str]) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._suspension_reasons[store_id] = suspension_reason
+        self._known_store_ids.add(store_id)
+
+    def all_store_ids(self):
+        # blocked-but-billing-detection-design.md 3節: MVPでは既知のstore_id
+        # (いずれかのsetterが一度でも呼ばれたstore)を昇順で線形走査する。将来
+        # Firestoreの複合クエリに置き換える際もこのメソッドのシグネチャは
+        # そのまま流用できる想定(aircon-pasha/blocked_but_billing_candidates.py
+        # の`all_user_ids()`と同じ考え方)。
+        return sorted(self._known_store_ids)
 
 
 def resolve_existing_stripe_customer_id(

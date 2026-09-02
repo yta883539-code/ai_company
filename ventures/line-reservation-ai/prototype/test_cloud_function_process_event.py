@@ -43,6 +43,7 @@ from engine import (  # noqa: E402
     InMemoryBookingRecordStore,
     NotificationLogAggregator,
 )
+from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
 STORE_ID = "store-1"
 MENU_DURATIONS = {"カット": 30, "カラー": 90}
@@ -80,6 +81,7 @@ def _new_processor(
     push_client=None,
     owner_user_id=None,
     record_store=None,
+    store_profile=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
@@ -103,6 +105,7 @@ def _new_processor(
         store_faq_info=STORE_FAQ_INFO if store_faq_info is None else store_faq_info,
         confirmed_reply_recorder=confirmed_reply_recorder,
         owner_user_id=owner_user_id,
+        store_profile=store_profile,
     )
     return processor, flow, push, logs
 
@@ -1808,6 +1811,70 @@ class FollowUnfollowEventTests(unittest.TestCase):
 
         self.assertEqual(result.action, "ignored")
         self.assertEqual(result.detail, "unknown")
+
+    # blocked-but-billing-detection-design.md 1節準拠。owner_user_idと一致する
+    # follow/unfollowでのみowner_is_followingが更新されることを検証する。
+
+    def test_owner_follow_event_sets_owner_is_following_true(self):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-owner"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertTrue(store.get_owner_is_following(STORE_ID))
+
+    def test_customer_follow_event_does_not_touch_owner_is_following(self):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-customer"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertFalse(store.get_owner_is_following(STORE_ID))
+
+    def test_owner_unfollow_event_sets_owner_is_following_false(self):
+        store = InMemoryStoreProfileStore()
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "unfollow", "source": {"userId": "U-owner"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertFalse(store.get_owner_is_following(STORE_ID))
+
+    def test_customer_unfollow_event_does_not_touch_owner_is_following(self):
+        store = InMemoryStoreProfileStore()
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "unfollow", "source": {"userId": "U-customer"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertTrue(store.get_owner_is_following(STORE_ID))
+
+    def test_unfollow_event_without_store_profile_does_not_raise(self):
+        # store_profile未指定(既定None)でも従来通り例外を送出せず正常終了する
+        # (後方互換、既存のtest_dispatch_routes_unfollow_event_without_touching_stateと同じ前提)。
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner")
+
+        event = {"type": "unfollow", "source": {"userId": "U-owner"}}
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.handled, True)
+
+    def test_owner_unfollow_event_without_owner_user_id_configured_does_not_raise(self):
+        # owner_user_id未確定(オンボーディング未完了)の間はどのuserIdでも一致しようが
+        # ないため、store_profileが渡されていても書き込みは発生しない
+        # (blocked-but-billing-detection-design.md 1節「実害は小さいと判断する」の通り)。
+        store = InMemoryStoreProfileStore()
+        processor, _, _, _ = _new_processor(store_profile=store)
+
+        event = {"type": "unfollow", "source": {"userId": "U-someone"}}
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.handled, True)
+        self.assertTrue(store.get_owner_is_following(STORE_ID))
 
     def _reach_confirmed(self, processor, flow):
         saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)

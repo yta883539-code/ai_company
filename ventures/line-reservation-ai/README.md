@@ -1983,7 +1983,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   作成・送信等は今回発生していないためpending-approval.mdへの追記なし。line-reservation-ai固有の
   blocked-but-billing-detection-design.md相当(能動検知バッチ)の要否検討は未着手のまま次回以降の
   課題として残る。
-- 最終更新: 2026-09-02 18:59 UTC
+- フェーズ続き176(2026-09-02 23:02 UTC): フェーズ続き175で未着手のまま残った
+  aircon-pashaフェーズ167相当(能動検知バッチ)の要否検討に着手し、
+  blocked-but-billing-detection-design.mdを新規作成した。本venture固有の事情
+  (LINE公式アカウントを一般顧客とオーナー自身の両方がフォローする構造)を踏まえ、
+  aircon-pasha/course-set-pashaのuser_id単位`is_following`をそのまま持ち込まず、
+  store_id単位の`owner_is_following`(オーナー自身のブロック状態のみを追跡)を採用した。
+  検知条件は`owner_is_following == False`かつ`suspension_reason`が`"cancelled"`
+  (契約終了済み)・`"trial_unselected"`(有料転換前に休止、そもそも課金なし)のいずれにも
+  該当しない場合とし、`None`(通常課金中)・`"payment_failed"`(猶予期間中)・
+  `"payment_suspended"`(制限モード)を候補に含めた。`prototype/store_profile_store.py`に
+  `get_owner_is_following`/`set_owner_is_following`・`get_suspension_reason`/
+  `set_suspension_reason`・`all_store_ids`を追加し、`prototype/
+  blocked_but_billing_candidates.py`(新規)に`list_blocked_but_billing_candidates()`を
+  実装した。`ConversationEventProcessor`に任意引数`store_profile`を追加し、
+  `process_follow_event()`/`process_unfollow_event()`から`event["source"]["userId"]`が
+  `owner_user_id`本人と一致する場合のみ`owner_is_following`を更新する配線を行った
+  (一般顧客のfollow/unfollowでは何も書き込まない、follow-unfollow-event-handling-
+  design.md 3節の既存方針は変更しない)。テスト14件追加、venture全体567件全件
+  (`python3 -m unittest discover -p "test_*.py"`、prototype/ディレクトリで実行)
+  パス・schema検証25件パスを確認した。候補一覧を実際にオーナーへ届ける手段は、本venture
+  固有の制約(オーナー自身がブロックした対象そのものでありLINE経由の通知が原理的に
+  使えない)によりメール等の代替チャネルが必要になるが、送信の実行自体はオーナー承認が
+  必要なアクションのため次回以降の課題として残る(詳細はdesign 4節参照)。承認不要な
+  設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 23:02 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

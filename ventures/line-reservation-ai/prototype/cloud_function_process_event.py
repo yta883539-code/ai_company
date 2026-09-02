@@ -168,6 +168,17 @@ class InMemoryConfirmedReplyRecorder:
         self.recorded.append((user_id, now))
 
 
+class OwnerFollowStatusStoreProtocol(Protocol):
+    """blocked-but-billing-detection-design.md 1節準拠。オーナー自身の店舗公式アカウント
+    ブロック状態(`ownerIsFollowing`)を書き込むための最小インターフェース。
+    `store_profile_store.StoreProfileStoreProtocol`(ひいては`InMemoryStoreProfileStore`)は
+    このメソッドを既に持つため、構造的に(duck typing)本Protocolを満たす。
+    """
+
+    def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
+        ...
+
+
 # ---------------------------------------------------------------------------
 # 顧客への案内文言(未実装の聞き直しパターン向けの暫定文言)
 # ---------------------------------------------------------------------------
@@ -279,6 +290,7 @@ class ConversationEventProcessor:
         store_faq_info: Optional[dict] = None,
         confirmed_reply_recorder: Optional[ConfirmedReplyRecorder] = None,
         owner_user_id: Optional[str] = None,
+        store_profile: Optional[OwnerFollowStatusStoreProtocol] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -294,6 +306,10 @@ class ConversationEventProcessor:
         # (onboarding-guide.mdステップ4のテストメッセージ経由で取得する想定)。
         # 未設定(オンボーディング未完了等)の場合はオーナー宛の直接送信を静かにスキップする。
         self._owner_user_id = owner_user_id
+        # blocked-but-billing-detection-design.md 1節準拠。未指定(None)の場合は
+        # `owner_is_following`の更新を行わない(customer-reply-detection-design.mdの
+        # confirmed_reply_recorderと同じ「未指定時は何もしない」後方互換パターン)。
+        self._store_profile = store_profile
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -856,10 +872,21 @@ class ConversationEventProcessor:
         """follow-unfollow-event-handling-design.md 2節準拠。`userId`欠落時は送信しない
         (aircon-pasha・course-set-pashaと同じ防御的分岐)。オーナー/顧客の判別ができない
         時点のイベントのため、共通の固定文言を1回送るだけの薄い実装に留める。
+
+        blocked-but-billing-detection-design.md 1節準拠。フォローしたのが
+        `owner_user_id`本人(かつ確定済み)の場合のみ、`store_profile`が渡されていれば
+        `owner_is_following`を`True`に戻す(再フォロー)。一般顧客のfollowでは何も
+        書き込まない。
         """
         user_id = event.get("source", {}).get("userId")
         if not user_id:
             return FollowProcessResult(reply_sent=False)
+        if (
+            self._store_profile is not None
+            and self._owner_user_id is not None
+            and user_id == self._owner_user_id
+        ):
+            self._store_profile.set_owner_is_following(self._store_id, True)
         self._send(user_id, FOLLOW_WELCOME_MESSAGE, now)
         return FollowProcessResult(reply_sent=True)
 
@@ -868,7 +895,20 @@ class ConversationEventProcessor:
         Stripeサブスクリプション・通知ログのいずれも変更しない(意図的な設計判断)。
         LINEへの返信・オーナー通知も行わない(送達不可のため)。実装としてはaircon-pasha版と
         同様にデータの検索・削除処理を一切行わない極めて薄いものになる。
+
+        blocked-but-billing-detection-design.md 1節準拠。unfollowしたのが
+        `owner_user_id`本人(かつ確定済み)の場合のみ、`store_profile`が渡されていれば
+        `owner_is_following`を`False`に設定する(能動検知バッチの候補抽出に使う)。
+        一般顧客のunfollowでは何も書き込まない(3節の表の方針は変更しない)。
         """
+        user_id = event.get("source", {}).get("userId")
+        if (
+            self._store_profile is not None
+            and self._owner_user_id is not None
+            and user_id is not None
+            and user_id == self._owner_user_id
+        ):
+            self._store_profile.set_owner_is_following(self._store_id, False)
         return UnfollowProcessResult(handled=True)
 
 
