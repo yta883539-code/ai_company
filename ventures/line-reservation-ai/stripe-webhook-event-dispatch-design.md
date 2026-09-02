@@ -30,6 +30,16 @@ checkout-initiation-flow-design.md 3節で`build_checkout_session_params()`が
 client_reference_id`を読むだけでstore_idが直接得られ、別ストアへの問い合わせが不要という
 点が本venture固有の単純化点。
 
+**訂正(フェーズ続き169、store-id-resolution-and-owner-identity-design.md参照)**:
+`client_reference_id`に設定する値は、店舗オーナー個人のLINE user_idではなく`store_id`
+(=`destination`、店舗の公式アカウント自身のuserId)である。checkout-initiation-flow-
+design.md 9節の訂正どおり、Checkout Session作成エンドポイントはLIFF起動リンクの
+クエリパラメータから`store_id`を受け取り、個人`user_id`はLIFF IDトークン検証による
+認可チェック(`owner_user_id`との一致確認)にのみ使う。本節・本ドキュメントの「store_id」
+という記述自体は変更不要(元々`store_id`と呼んでいた値の由来のみが訂正される)であり、
+`route_stripe_event()`が`client_reference_id`を直接`store_id`として読む処理・下記の
+`customer → store_id`変換の仕組みもそのまま変更不要。
+
 一方、`invoice.payment_succeeded`・`invoice.payment_failed`はInvoiceオブジェクトが持つのは
 `customer`(Stripeカスタマー ID)のみで`client_reference_id`は含まれないため、
 course-set-pasha同様に`customer → store_id`変換を外部から注入する

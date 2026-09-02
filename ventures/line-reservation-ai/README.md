@@ -1892,7 +1892,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   未知イベント種別の200確認含む)、venture全体496件全件パス・schema検証25件パスを確認
   した。承認不要な実装・テスト追加・ドキュメント訂正のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 03:00 UTC
+- フェーズ続き169(2026-09-02 05:00 UTC): store-id-resolution-and-owner-identity-
+  design.md「残課題」に残っていた「本ドキュメントの結論をcheckout-initiation-flow-
+  design.md 2〜3節・stripe-webhook-event-dispatch-design.md 2節・stripe-customer-id-
+  reverse-lookup-design.md 1節へ反映する」作業に着手した。3ドキュメントそれぞれに
+  本ドキュメントを参照する形の訂正節・訂正段落を追加し、「`client_reference_id`/
+  `store_id`として書き込まれる値は店舗オーナー個人のLINE user_idではなく`store_id`
+  (=`destination`、店舗の公式アカウント自身のuserId)である」「LIFF IDトークン検証で
+  得られる個人`user_id`は`owner_user_id`との一致確認〈認可チェック〉にのみ使う」という
+  4節の結論を明文化した。checkout-initiation-flow-design.mdには新規9節として、Checkout
+  Session作成エンドポイントの手順を「(1)クエリパラメータから`store_id`受領→(2)LIFF ID
+  トークン検証で個人`user_id`取得→(3)`owner_user_id`との一致確認→(4)`store_id`をキーに
+  決済処理」の4段階に具体化した版を追記した。store-id-resolution-and-owner-identity-
+  design.md 4節の結論どおり、`prototype/store_profile_store.py`・
+  `prototype/checkout_session.py`はいずれも引数名`user_id`のままでよく書き直しは不要
+  (呼び出し元が渡す値の由来のみが変わる)ため、コード変更は無し。venture全体503件
+  全件パス・schema検証25件パスを再確認した。認可チェック本体の実装は実Firestore接続待ち
+  のため引き続き未着手のまま残る(store-id-resolution-and-owner-identity-design.md
+  「残課題」参照)。承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント
+  作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 05:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

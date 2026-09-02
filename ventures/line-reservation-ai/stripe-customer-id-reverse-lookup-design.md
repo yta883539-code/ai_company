@@ -22,6 +22,14 @@ stripe-webhook-event-dispatch-design.md(フェーズ続き159)5節「残課題�
   したが、本ventureでは`user_id`=`store_id`という呼称の一貫性を保つため、メソッド名は
   `get_store_id_by_stripe_customer_id`とする。
 
+**訂正(フェーズ続き169、store-id-resolution-and-owner-identity-design.md参照)**: 上記
+「`user_id`をそのまま`store_id`として扱う」の`user_id`は、店舗オーナー個人のLINE user_id
+ではなく`store_id`(=`destination`)を指す(checkout-initiation-flow-design.md 9節・
+stripe-webhook-event-dispatch-design.md 2節の訂正と同じ)。`store_profile_store.py`の
+各メソッドが引数名`user_id`をキーとして扱う実装自体は変更不要で、渡す値の由来のみが
+訂正される。本節・本ドキュメントの結論(`get_store_id_by_stripe_customer_id`という
+メソッド名・データモデル)への影響は無い。
+
 ## 2. データモデル
 
 - `StoreProfileStoreProtocol`に`get_store_id_by_stripe_customer_id(stripe_customer_id) ->

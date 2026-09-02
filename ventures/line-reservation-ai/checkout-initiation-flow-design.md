@@ -162,6 +162,38 @@ upgraded_at相当のフィールドを持たない(有料転換の判定は
 owner-settings-wireframe.mdのフォーム保存処理自体が未実装のため、引き続き未着手として
 下記残課題に記録した。
 
+## 9. store-id-resolution-and-owner-identity-design.mdとの整合(訂正、フェーズ続き169)
+
+store-id-resolution-and-owner-identity-design.md(フェーズ続き165〜168)により、本ドキュメント
+0節・2節・3節・4節が前提としていた「LIFF IDトークンで得た個人LINE user_idをそのまま
+`store_id`(`client_reference_id`)として扱う」という設計は訂正が必要であることが判明した。
+本節に正しい前提を記録する。
+
+- **0節・2節への訂正**: `store_id`は`destination`(店舗の公式アカウント自身のuserId、
+  store-id-resolution-and-owner-identity-design.md 3節参照)を正とする。LIFF
+  `liff.getIDToken()`で得られる個人`user_id`(店舗オーナー本人のLINE userId)は`store_id`
+  そのものではない。
+- **3節への訂正**: Checkout Session作成エンドポイントの手順を以下のように改める。
+  1. LIFF起動リンクのクエリパラメータ(`?store_id=<destination値>`)から`store_id`を
+     受け取る(store-id-resolution-and-owner-identity-design.md 2節)。
+  2. `Authorization`ヘッダのLIFF IDトークンをLINE Platform APIで検証し、個人`user_id`
+     (操作者本人)を取得する。
+  3. `stores/{store_id}.owner_user_id`と検証済み個人`user_id`が一致するかを確認する
+     認可チェックを行う(不一致・`owner_user_id`未設定の場合は決済を拒否する。文言は
+     引き続き未設計)。
+  4. 3.を通過した場合のみ、3節手順3以降(既存`stripe_customer_id`確認〜Checkout Session
+     作成)を、`store_id`をキーとして実行する。`client_reference_id`には個人`user_id`では
+     なく`store_id`を設定する。
+- **コードへの影響は無い**: store-id-resolution-and-owner-identity-design.md 4節の結論
+  どおり、`prototype/store_profile_store.py`・`prototype/checkout_session.py`の各関数は
+  いずれも引数名`user_id`をキーとして扱う実装のままでよく、書き直しは不要。呼び出し元が
+  渡す値の由来(個人LINE userId → `store_id`(`destination`))が変わるだけである。
+  `build_checkout_session_params(user_id, ...)`の`user_id`引数も、実際には`store_id`を
+  渡す想定に読み替える(関数シグネチャ自体の変更は次回以降、実装着手時に行う)。
+- 上記3.の認可チェック自体の実装(`owner_user_id`の参照元含む)は、実Firestore接続待ちの
+  ため引き続き未着手のまま残る(store-id-resolution-and-owner-identity-design.md「残課題」
+  参照)。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID

@@ -141,8 +141,15 @@ follow-unfollow-event-handling-design.mdが残していた「`owner_user_id`と�
   クエリパラメータ自体への署名等の追加防御は現時点では過剰と考えるが、実装時に再検討する。
 - 認可チェック不一致時(不正な`store_id`指定、または`owner_user_id`未設定)のオーナー向け
   エラー文言・案内先は未設計のまま残る。
-- 本ドキュメントの結論を反映するため、checkout-initiation-flow-design.md 2〜3節・
-  stripe-webhook-event-dispatch-design.md 2節・stripe-customer-id-reverse-lookup-
-  design.md 1節の該当記述(個人userIdを store_id として扱う旨の記載)を、本ドキュメントを
-  参照する形に更新する作業自体は次回以降のフェーズで行う(本フェーズでは発見・方針決定
-  までとし、複数ドキュメントへの一括改訂は次回に見送る)。
+- (解消済み 2026-09-02 05:00 UTC・フェーズ続き169: checkout-initiation-flow-design.md
+  9節・stripe-webhook-event-dispatch-design.md 2節・stripe-customer-id-reverse-
+  lookup-design.md 1節に、それぞれ本ドキュメントを参照する形の訂正節・訂正段落を追加した。
+  いずれも「`client_reference_id`/`store_id`として書き込まれる値は個人LINE user_idでは
+  なく`store_id`(=`destination`)である」「既存コード(`store_profile_store.py`・
+  `checkout_session.py`)は引数名`user_id`のままでよく書き直しは不要、呼び出し元が渡す
+  値の由来のみが変わる」という4節の結論を反映した。checkout-initiation-flow-design.md
+  9節ではCheckout Session作成エンドポイントの手順を「(1)クエリパラメータから`store_id`
+  受領→(2)LIFF IDトークン検証で個人`user_id`取得→(3)`owner_user_id`との一致確認〈認可
+  チェック〉→(4)`store_id`をキーに決済処理」の4段階に具体化した。いずれもドキュメント
+  整合のみでコード変更は無し、venture全体503件全件パス・schema検証25件パスを再確認
+  した。)
