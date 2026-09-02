@@ -161,6 +161,7 @@ def dispatch_stripe_event(
     usage_counter: Optional[PaymentFailureUsageCounterProtocol] = None,
     push_client: Optional[LinePushClient] = None,
     portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """stripe-webhook-event-dispatch-design.md 1節のとおり、Stripe Webhookイベント1件を
@@ -193,6 +194,12 @@ def dispatch_stripe_event(
     `cloud_function_webhook.render_payment_suspended_message()`と同じ`PortalLinkProvider`を
     そのまま`handle_payment_failure_detected()`へ受け渡す。未指定(`None`)時は
     `PORTAL_LINK_UNAVAILABLE_FALLBACK`が送られる(既存の安全側デフォルトと同じ)。
+
+    `user_profile_store`はblocked-but-billing-owner-notification-design.md 4節対応
+    (フェーズ144で追加)。指定時、`customer.subscription.deleted`受信時(=解約確定)に
+    `blocked_but_billing_owner_notified_at`もあわせてクリアする(解約確定後に再契約した
+    顧客が再度「ブロック中かつ契約継続中」になった場合に通知が飛ばなくなる不具合を防ぐ)。
+    未指定(`None`)の場合は他の任意引数と同じ「未接続時は安全側で素通り」方針とする。
     """
     result = StripeDispatchResult()
 
@@ -216,6 +223,8 @@ def dispatch_stripe_event(
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
         mark_deletion_candidate_on_subscription_deleted(store, user_id, event_time)
+        if user_profile_store is not None:
+            user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
         result.marked_user_ids.append(user_id)
         return result
 
@@ -428,6 +437,10 @@ def receive_stripe_webhook(
       dispatch_stripe_event()側ではPaymentFailureUsageCounterProtocol(set_payment_
       failure_detected_at等)としても参照される。InMemoryUsageCounterは両方のメソッド群を
       実装しており、構造的部分型付け上どちらのProtocolも満たすため実害はない。
+      `user_profile_store`はcheckout.session.completed経路だけでなく、フェーズ144以降は
+      dispatch_stripe_event()へもそのまま渡し、`customer.subscription.deleted`受信時の
+      `blocked_but_billing_owner_notified_at`クリア(blocked-but-billing-owner-notification-
+      design.md 4節)にも使う。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -464,6 +477,7 @@ def receive_stripe_webhook(
         resolve_user_id=resolve_user_id,
         usage_counter=usage_counter,
         push_client=push_client,
+        user_profile_store=user_profile_store,
         now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

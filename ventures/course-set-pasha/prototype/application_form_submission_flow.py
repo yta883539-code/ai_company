@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Iterable, Optional, Protocol
 
 
@@ -46,6 +47,15 @@ class UserProfileStoreProtocol(Protocol):
     フォロー中かどうか、aircon-pashaの`UserProfile.is_following`と同じ考え方)を保持する。
     未記録のuser_id(followイベントを一度も受けていない等)は`True`(フォロー中)として
     扱う(aircon-pashaの`is_following: bool = True`のデフォルトと同じ安全側の初期値)。
+
+    `set_blocked_but_billing_owner_notified_at`/`get_blocked_but_billing_owner_notified_at`/
+    `clear_blocked_but_billing_owner_notified_at`はblocked-but-billing-owner-notification-
+    design.md(フェーズ143)3節で追加した。`user_profile/{user_id}.
+    blocked_but_billing_owner_notified_at`(「ブロック中かつ契約継続中」候補としてオーナーへ
+    通知済みかどうかの冪等性フラグ)を保持する。同design 4節: `clear`はフォロー再開
+    (`set_is_following(user_id, True)`)または解約確定
+    (`mark_deletion_candidate_on_subscription_deleted()`)のいずれかが起きた時点で
+    呼び出し側が呼ぶ(本Protocol自体は単純な読み書き・消去のみを表す)。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
@@ -80,6 +90,19 @@ class UserProfileStoreProtocol(Protocol):
     def all_user_ids(self) -> Iterable[str]:
         ...
 
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        ...
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        ...
+
+    def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -102,6 +125,7 @@ class InMemoryUserProfileStore:
         self._stripe_customer_ids: dict[str, str] = {}
         self._user_ids_by_stripe_customer_id: dict[str, str] = {}
         self._is_following: dict[str, bool] = {}
+        self._blocked_but_billing_owner_notified_at: dict[str, datetime] = {}
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         self._profiles[user_id] = raw_value
@@ -145,6 +169,19 @@ class InMemoryUserProfileStore:
             | set(self._stripe_customer_ids)
             | set(self._is_following)
         )
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        self._blocked_but_billing_owner_notified_at[user_id] = notified_at
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        return self._blocked_but_billing_owner_notified_at.get(user_id)
+
+    def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
+        self._blocked_but_billing_owner_notified_at.pop(user_id, None)
 
 
 # design 2節: 連続カンマのみ等、要素がすべて空になる入力を「実質空」とみなすための判定に使う。

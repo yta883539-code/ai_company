@@ -700,6 +700,11 @@ def process_follow_event(
     `profile_store`はblocked-but-billing-detection-design.md準拠。渡された場合のみ、
     `user_profile/{user_id}.is_following`を`True`に更新する(再フォロー時の復帰含む)。
     未指定(`None`)の場合は他のイベントハンドラと同じ「未接続時は安全側で素通り」方針とする。
+
+    同時に`blocked_but_billing_owner_notified_at`もクリアする
+    (blocked-but-billing-owner-notification-design.md 4節。フォロー再開時にクリアしないと、
+    一度通知された顧客が再度フォロー解除→再契約継続という状態に戻った場合に二度と通知が
+    飛ばなくなるため)。
     """
     resolved_now = now or datetime.now(timezone(timedelta(hours=9)))
 
@@ -715,6 +720,7 @@ def process_follow_event(
 
     if profile_store is not None:
         profile_store.set_is_following(user_id, True)
+        profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
 
     resolved_rng = rng if rng is not None else random.Random()
     linking_code = issue_linking_code_on_follow(

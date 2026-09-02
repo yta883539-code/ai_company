@@ -70,9 +70,17 @@ payment-failure-reminder-scheduler-design.md 3節参照)。本設計フェーズ
 
 ## 6. 今後の課題
 
-- 4節のクリア配線(`process_follow_event()`・解約確定処理への
-  `clear_blocked_but_billing_owner_notified_at()`呼び出し追加)は本フェーズでは未実装。
-  次回以降の実装課題として残す。
+- 4節のクリア配線はフェーズ144で実装済み。`blocked_but_billing_owner_notified_at`は
+  `application_form_submission_flow.UserProfileStoreProtocol`/`InMemoryUserProfileStore`側の
+  フィールドとして追加し、`cloud_function_webhook.process_follow_event()`
+  (`profile_store`指定時、`set_is_following(user_id, True)`と同時に
+  `clear_blocked_but_billing_owner_notified_at()`を呼ぶ)と、
+  `stripe_webhook.dispatch_stripe_event()`の`customer.subscription.deleted`分岐
+  (`user_profile_store`指定時、`mark_deletion_candidate_on_subscription_deleted()`と同時に
+  クリア)の両方に配線した。`dispatch_stripe_event()`・`receive_stripe_webhook()`の
+  `user_profile_store`引数は既存のcheckout.session.completed経路のものをそのまま再利用して
+  おり、新規の依存関係追加はない。テスト7件追加、venture全体471件全件パス・schema検証9件
+  パスを確認した。
 - `blocked_but_billing_owner_notified_at`の実Firestoreフィールド追加・実際のCloud Scheduler
   作成・実LINE API接続はオーナー承認待ちの範囲(既存の記載を参照、新規追加なし)。
 - aircon-pashaは`current_plan_id`ベースの同種ロジックを持つが、本ドキュメントと同じ

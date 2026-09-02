@@ -129,6 +129,40 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.marked_user_ids, ["user_1"])
         self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
 
+    def test_subscription_deleted_clears_blocked_but_billing_owner_notified_at(self):
+        # blocked-but-billing-owner-notification-design.md 4節: 解約確定
+        # (customer.subscription.deleted)時にも通知済みフラグをクリアする。
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_blocked_but_billing_owner_notified_at(
+            "user_1", datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertIsNone(
+            user_profile_store.get_blocked_but_billing_owner_notified_at("user_1")
+        )
+
+    def test_subscription_deleted_without_user_profile_store_is_backward_compatible(self):
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+
     def test_subscription_deleted_with_non_numeric_created_is_invalid(self):
         event = {
             "type": "customer.subscription.deleted",

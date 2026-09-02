@@ -1829,6 +1829,36 @@ class ProcessFollowEventTest(unittest.TestCase):
 
         self.assertTrue(profile_store.get_is_following("U1234"))
 
+    def test_clears_blocked_but_billing_owner_notified_at_when_profile_store_given(self):
+        # blocked-but-billing-owner-notification-design.md 4節: フォロー再開時に
+        # 通知済みフラグもクリアしないと、再度ブロック→再契約継続に戻った際に通知が
+        # 二度と飛ばなくなる。
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_is_following("U1234", False)
+        profile_store.set_blocked_but_billing_owner_notified_at(
+            "U1234", datetime(2026, 1, 1)
+        )
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        process_follow_event(
+            event,
+            store,
+            reply_client,
+            rng=self._rng(),
+            profile_store=profile_store,
+            now=datetime(2026, 1, 3),
+        )
+
+        self.assertIsNone(
+            profile_store.get_blocked_but_billing_owner_notified_at("U1234")
+        )
+
     def test_is_following_untouched_when_profile_store_not_given(self):
         store = InMemoryLinkingCodeStore()
         reply_client = InMemoryReplyClient()

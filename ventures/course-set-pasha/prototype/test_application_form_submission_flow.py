@@ -5,6 +5,7 @@ application-form-submission-flow-design.mdの正規化ルール・書き込み�
 
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -131,6 +132,32 @@ class InMemoryUserProfileStoreTest(unittest.TestCase):
     def test_all_user_ids_empty_store_returns_empty(self):
         store = InMemoryUserProfileStore()
         self.assertEqual(list(store.all_user_ids()), [])
+
+    def test_unrecorded_blocked_but_billing_owner_notified_at_returns_none(self):
+        # blocked-but-billing-owner-notification-design.md 3節。
+        store = InMemoryUserProfileStore()
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("U_unknown"))
+
+    def test_set_then_get_blocked_but_billing_owner_notified_at_round_trips(self):
+        store = InMemoryUserProfileStore()
+        notified_at = datetime(2026, 9, 2, 6, 0, 0)
+        store.set_blocked_but_billing_owner_notified_at("U1", notified_at)
+        self.assertEqual(
+            store.get_blocked_but_billing_owner_notified_at("U1"), notified_at
+        )
+
+    def test_clear_blocked_but_billing_owner_notified_at_resets_to_none(self):
+        store = InMemoryUserProfileStore()
+        store.set_blocked_but_billing_owner_notified_at("U1", datetime(2026, 9, 2))
+        store.clear_blocked_but_billing_owner_notified_at("U1")
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("U1"))
+
+    def test_clear_blocked_but_billing_owner_notified_at_is_idempotent_when_unset(self):
+        store = InMemoryUserProfileStore()
+        store.clear_blocked_but_billing_owner_notified_at("U_unknown")
+        self.assertIsNone(
+            store.get_blocked_but_billing_owner_notified_at("U_unknown")
+        )
 
 
 class HandleFormSubmissionTest(unittest.TestCase):
