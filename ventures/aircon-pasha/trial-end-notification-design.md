@@ -92,9 +92,10 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
 - 一時停止中に本人が決済導線リンクから有料プランへ進んだ場合は、Checkout Session作成〜Stripe
   決済完了(checkout-session-completed-handling-design.mdの`handle_checkout_session_completed()`)
   により`stripe_customer_id`が`user_profile`へ紐付けられ、通常の有料ユーザーへ遷移する想定。
-  ただし現状の`handle_checkout_session_completed()`は`stripe_customer_id`の書き込みのみを行い、
-  `upgraded_at`(有料転換日時)そのものは書き込んでいないため、この点も次回以降の実装課題として
-  残る。
+  (解消済み・フェーズ135: `handle_checkout_session_completed()`は`stripe_customer_id`の
+  書き込みに加え、`profile.upgraded_at is None`の場合のみ`upgraded_at`(有料転換日時)も
+  書き込むよう実装済み〈`prototype/stripe_webhook.py`〉。本節作成〈フェーズ129〉時点では
+  まだ未実装だったため、記載が更新されないまま残っていた記載漏れだった。)
 
 ## 5. 実装への影響メモ(設計のみ、実装は次回以降)
 

@@ -44,15 +44,14 @@ course-set-pashaと同じ理由(Cloud Schedulerの無料枠制限、ユーザー
   あくまで「通知メッセージの文面組み立て」のみを担う関数として独立させる
   (postbackボタンのdata自体は固定文字列のため、Checkout Session作成はボタン押下時の
   process_postback_event()側で行う、という既存の役割分担を維持する)。
-- **`upgraded_at`の書き込み配線が本venture側でも未実装**: course-set-pashaの2節と
-  同じギャップ(checkout-session-completed-handling-design.mdの
-  `handle_checkout_session_completed()`は`stripe_customer_id`の書き込みのみで
-  `upgraded_at`は未書き込み、trial-end-notification-design.md 4節で既知の課題として
-  記録済み)がそのまま残っている。本設計でも、選定ロジック(3節)は
-  `upgraded_at is not None`のユーザーを除外する形で先に書き、実際の書き込み配線は
-  次回以降の課題として残す(course-set-pashaと同じ安全策: `trial_end_notified_at`が
-  未設定であることも独立した必要条件とし、`upgraded_at`未配線のまま(B)が先に稼働しても
-  二重送信は起きない設計とする)。
+- **`upgraded_at`の書き込み配線**: 本ドキュメント作成(フェーズ133)時点ではcourse-set-pashaの
+  2節と同じギャップ(`handle_checkout_session_completed()`が`stripe_customer_id`の書き込み
+  のみで`upgraded_at`は未書き込み)が残っていたため、選定ロジック(3節)は
+  `upgraded_at is not None`のユーザーを除外する形で先に書いていたが、(解消済み・フェーズ135:
+  `handle_checkout_session_completed()`に`upgraded_at`書き込み配線〈`profile.upgraded_at is
+  None`の場合のみ書き込む「1回だけ」不変条件付き、テスト3件〉が実装済み。本節の記載が
+  更新されないまま残っていた記載漏れだった。3節の抽出条件はこの実装と整合しているため
+  変更不要。)
 
 ## 3. 選定ロジック(`prototype/trial_end_scheduler.py`想定)
 

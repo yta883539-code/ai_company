@@ -2427,4 +2427,18 @@
   -p "test_*.py"`)パスを再確認した。承認不要なドキュメント整理・アイデア追加のみで、
   外部サービスへの公開・アカウント作成・メール送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 00:00 UTC
+- フェーズ170(2026-09-02 07:00 UTC): trial-end-scheduler-design.md 2節・
+  trial-end-notification-design.md 4節の両方に残っていた「`handle_checkout_session_
+  completed()`は`stripe_customer_id`の書き込みのみで`upgraded_at`(有料転換日時)は
+  未書き込み、書き込み配線は次回以降の課題」という記載が、実際には`prototype/
+  stripe_webhook.py`のdocstring・`test_stripe_webhook.py`の`test_upgraded_at_
+  defaults_to_current_time_when_now_omitted`等のテストが示す通りフェーズ135で
+  既に実装済み(`profile.upgraded_at is None`の場合のみ`store.set_upgraded_at()`を
+  呼ぶ「1回だけ書き込む」不変条件付き)だった記載漏れを、両ドキュメント作成
+  (それぞれフェーズ133・129)以降フェーズ135の実装内容が反映されないまま残っていたと
+  発見・解消した。ドキュメント間の整合確認・記載修正のみでコード変更は無し、venture
+  全体370件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・
+  schema検証9件パスを再確認した。承認不要なドキュメント整理・アイデア追加のみで、
+  外部サービスへの公開・アカウント作成・メール送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 07:00 UTC
