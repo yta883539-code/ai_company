@@ -11,10 +11,11 @@ trial-end-notification-design.md 4節の「生成一時停止」)とは別に、
 加入し継続課金が始まった後、カード期限切れ・利用限度額超過等で毎月の自動課金自体が
 失敗するケース」(dunning対応)を扱っている。本ventureにも「生成一時停止」機構
 (フェーズ114実装済み、`_is_generation_paused()`/`GENERATION_PAUSED_MESSAGE`)・解約時の
-データ削除候補化(stripe-cancellation-deletion-candidate-trigger-design.md相当は本venture
-未着手、別課題)は存在するが、「加入後にカード決済そのものが失敗するケース」はどの
-ドキュメントにも定義がなく未検討のまま残っていたため、aircon-pashaと同様に本ドキュメントで
-整理する。
+データ削除候補化(フェーズ91・stripe-cancellation-deletion-candidate-trigger-design.mdで
+既に設計済み。本ドキュメント作成時点(フェーズ117)で「本venture未着手」と誤記していたが、
+実際には本venture自身の既存ドキュメントであり誤り)は存在するが、「加入後にカード決済
+そのものが失敗するケース」はどのドキュメントにも定義がなく未検討のまま残っていたため、
+aircon-pashaと同様に本ドキュメントで整理する。
 
 決済代行サービス自体の契約・実装配線は引き続きオーナー承認待ち(pending-approval.md参照)
 のため、本ドキュメントは机上の設計のみを行い、実装・実際の課金は行わない。
