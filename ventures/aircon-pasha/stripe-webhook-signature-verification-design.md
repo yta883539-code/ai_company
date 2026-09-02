@@ -83,14 +83,17 @@ def verify_stripe_signature(
 
 ## 残課題
 
-- 実際のWebhookエンドポイント本体(`receive_webhook()`のStripe版に相当する、リクエスト
-  ボディの受け取り〜`verify_stripe_signature()`〜イベント種別
-  (`customer.subscription.deleted`等)ディスパッチ〜
-  `mark_deletion_candidate_on_subscription_deleted()`等(`prototype/deletion_candidate.py`
-  フェーズ124で実装済み)の呼び出しを結ぶ層)は、今回のスコープ外(署名検証のみ先行実装)
-  として次の課題に残す。course-set-pashaのstripe-webhook-event-dispatch-design.md
-  (フェーズ94)・stripe-webhook-http-entry-point-design.md(フェーズ95)相当を、本venture
-  向けに`resolve_user_id`の解決先(`stripe_customer_id → user_id`)含めて設計する必要がある。
+- (解消済み 2026-09-02 14:02 UTC・フェーズ173点検: 「実際のWebhookエンドポイント本体を結ぶ層は
+  次の課題」という本項目は、実際にはフェーズ127(2026-08-27、stripe-webhook-http-entry-point-
+  design.md)で`prototype/stripe_webhook.py`の`receive_stripe_webhook()`として既に実装済み
+  だったにもかかわらず本ファイルが未訂正のまま残っていた記載漏れと判明した。
+  `receive_stripe_webhook()`は`verify_stripe_signature()`→JSONパース→`dispatch_stripe_event()`
+  (`customer.subscription.*`)/`handle_checkout_session_completed()`
+  (`checkout.session.completed`)への振り分けまでを結線済み。`resolve_user_id`の解決先
+  (`stripe_customer_id → user_id`)も`make_resolve_user_id()`(同ファイル)が
+  `user_profile_store.get_user_id_by_stripe_customer_id()`(`prototype/user_id_linking.py`、
+  インメモリ実装・テスト済み)を返す形で解決済み。実Firestore接続のみが実Stripeアカウント
+  接続後の課題として残る)
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は、実Stripeアカウント接続
   (オーナー承認待ち)後の設計課題として別途残る。
 - Stripeイベントの重複配信対策(`event.id`によるべき等性チェック)は、エンドポイント本体側の

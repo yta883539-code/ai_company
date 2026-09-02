@@ -4,10 +4,13 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
 イベント種別ディスパッチロジックを実行可能なコードに落とし込んだもの。
 
 位置づけ:
-- `stripe_customer_id → user_id`の解決(実Firestoreクエリ等)、および実際のHTTPエントリ
-  ポイント(`verify_stripe_signature()`との結線)はいずれもdesign 5節「未解決事項・次の課題」
-  のとおり本ventureにまだ存在せず、実Stripeアカウント接続後の課題として引き続き残る。本
-  モジュールはイベント種別に応じた振り分けロジックのみを、実Firestore接続なしで検証可能な
+- `stripe_customer_id → user_id`の解決はuser_id_linking.pyの`get_user_id_by_stripe_
+  customer_id()`(インメモリ実装)として、実際のHTTPエントリポイント
+  (`verify_stripe_signature()`との結線)はstripe_webhook.pyの`receive_stripe_webhook()`
+  (フェーズ127)としてそれぞれ実装済み。実Firestore接続・実Stripeアカウント接続のみが
+  引き続きオーナー承認待ちの課題として残る(2026-09-02 フェーズ173点検で本docstringの
+  記載漏れ〈design 5節「未解決事項・次の課題」が既に解消済みだった点が未反映〉を訂正)。
+  本モジュールはイベント種別に応じた振り分けロジックを、実Firestore接続なしで検証可能な
   形で実装する(`deletion_candidate.py`と同じ「Protocol/Callableの差し替えで実接続を
   後回しにする」パターンの踏襲)。
 

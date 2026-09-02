@@ -2476,4 +2476,21 @@
   次回は他venture・アイデア領域の前進、またはpayment-failure-dunning-design.md 6節・
   blocked-but-billing-detection-design.md 4節等に残る実LINE・実Stripe接続待ちの残課題
   (オーナー承認待ち)以外の棚卸しを優先候補とする。
-- 最終更新: 2026-09-02 10:58 UTC
+- フェーズ173(2026-09-02 14:02 UTC): 各設計docの残課題を棚卸しした結果、
+  stripe-webhook-signature-verification-design.md「残課題」・stripe-webhook-event-
+  dispatch-design.md 3節・5節に残っていた「HTTPエントリポイント本体
+  (`receive_stripe_webhook()`)・`resolve_user_id`(`stripe_customer_id → user_id`解決)は
+  未実装・次の課題」という記載が、実際にはフェーズ127(stripe-webhook-http-entry-point-
+  design.md)で`prototype/stripe_webhook.py`の`receive_stripe_webhook()`・
+  `make_resolve_user_id()`として、フェーズ107で`prototype/user_id_linking.py`の
+  `get_user_id_by_stripe_customer_id()`として、いずれも実装済みだった記載漏れ(フェーズ155・
+  157・159・160・163・164・168・169・170・171・172と同種のドキュメント棚卸し)を発見・
+  解消した。あわせて`prototype/stripe_dispatch.py`冒頭のモジュールdocstringに残っていた
+  同種の古い記載(「HTTPエントリポイントは本ventureにまだ存在せず」)も訂正した。コード変更は
+  無し(ドキュメント・docstring整理のみ)、venture全体370件全件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)パスを再確認した。承認不要なドキュメント整理・
+  アイデア追加のみで、外部サービスへの公開・アカウント作成・メール送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  payment-failure-dunning-design.md 6節・blocked-but-billing-detection-design.md 4節等に
+  残る実LINE・実Stripe接続待ちの残課題(オーナー承認待ち)以外の棚卸しを優先候補とする。
+- 最終更新: 2026-09-02 14:02 UTC

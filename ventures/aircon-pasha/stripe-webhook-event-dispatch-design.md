@@ -76,6 +76,13 @@ class StripeDispatchResult:
 
 ## 3. `verify_stripe_signature()`との結線
 
+(解消済み 2026-09-02 14:02 UTC・フェーズ173点検: 以下は執筆時点〈フェーズ94〉の想定として
+残っていたが、実際にはフェーズ127(stripe-webhook-http-entry-point-design.md)で
+`receive_stripe_webhook()`として実装済み。想定通り(1)`verify_stripe_signature()`で署名検証、
+(2)`json.loads()`でパース、(3)`dispatch_stripe_event()`(`customer.subscription.*`)/
+`handle_checkout_session_completed()`(`checkout.session.completed`)への委譲、という順序で
+結線されている)
+
 `webhook-http-entry-point-design.md`(LINE版`receive_webhook()`)と同じ構成で、将来的に
 生のHTTPリクエストボディを受け取るエントリポイント(`receive_stripe_webhook()`相当)を
 追加する際は、(1)`verify_stripe_signature()`(フェーズ125実装済み)で署名検証、
@@ -103,12 +110,18 @@ class StripeDispatchResult:
 
 ## 5. 未解決事項・次の課題
 
-- `stripe_customer_id → user_id`の対応付けストア自体(`resolve_user_id`の実装)は
+- (解消済み 2026-09-02 14:02 UTC・フェーズ173点検: 以下の2点は執筆時点〈フェーズ94〉の
+  記載として残っていたが、実際にはフェーズ107(user-account-linking-design.md、`get_user_id_
+  by_stripe_customer_id()`のインメモリ実装)・フェーズ127(stripe-webhook-http-entry-point-
+  design.md、`receive_stripe_webhook()`実装)でいずれも解消済みだったにもかかわらず本ファイルが
+  未訂正のまま残っていた記載漏れと判明した)
+- ~~`stripe_customer_id → user_id`の対応付けストア自体(`resolve_user_id`の実装)は
   user-account-linking-design.md(フェーズ107)で連携コード方式の設計までは完了しているが、
-  実際のストア実装(実Firestoreクエリ)は未着手。
-- `receive_stripe_webhook()`(HTTPエントリポイント本体、`verify_stripe_signature()`と
-  `dispatch_stripe_event()`を結ぶ薄い配線)自体はまだ実装していない。LINE側
-  `receive_webhook()`と同じ構成で追加できる見込みだが、`webhook_secret`の取得方法
-  (環境変数 or Secret Manager)の設計と合わせ次回に持ち越す。
+  実際のストア実装(実Firestoreクエリ)は未着手。~~ → `prototype/user_id_linking.py`の
+  `get_user_id_by_stripe_customer_id()`としてインメモリ実装・テスト済み(実Firestore接続のみ
+  実Stripeアカウント接続後の課題として残る)。
+- ~~`receive_stripe_webhook()`(HTTPエントリポイント本体、`verify_stripe_signature()`と
+  `dispatch_stripe_event()`を結ぶ薄い配線)自体はまだ実装していない。~~ →
+  `prototype/stripe_webhook.py`の`receive_stripe_webhook()`として実装済み(フェーズ127)。
 - 実Stripe Webhookエンドポイントのデプロイ(実GCPプロジェクト・実Stripeアカウント接続)は
   引き続きオーナー承認待ちの範囲。
