@@ -2456,4 +2456,24 @@
   追記なし。次回は他venture・アイデア領域の前進、またはpayment-failure-dunning-design.md
   6節・blocked-but-billing-detection-design.md 4節等に残る実LINE・実Stripe接続待ちの
   残課題(オーナー承認待ち)以外の棚卸しを優先候補とする。
-- 最終更新: 2026-09-02 09:58 UTC
+- フェーズ172(2026-09-02 10:58 UTC): 各設計docの残課題を棚卸しした結果、
+  character-limit-fallback-design.md冒頭(フェーズ102作成時点)に残っていた
+  「実装未着手・動作未検証(実LLM・実LINE API接続はオーナー承認待ちのため)」という記載が、
+  実際には同ドキュメント末尾の「残課題」節が示す通りフェーズ103(トーン&マナー整合確認)・
+  フェーズ105(`check_message_length_within_line_limit()`の`prototype/post_generation_
+  checks.py`への実装、`cloud_function_webhook.py`側の`LENGTH_LIMIT_FALLBACK_MESSAGE`
+  分岐配線、テスト13件追加)で実装・検証まで完了済みだった記載漏れ(フェーズ155・157・
+  159・160・163・164・168・169・170・171と同種のドキュメント棚卸し。冒頭の課題提起文と
+  末尾の解決記録が矛盾したまま長期間放置されていたケース)を発見・解消した。
+  `check_message_length_within_line_limit`・`LENGTH_LIMIT_FALLBACK_MESSAGE`・
+  `LENGTH_LIMIT_ERROR_PREFIX`が`prototype/post_generation_checks.py`・
+  `prototype/cloud_function_webhook.py`に現存し、`test_post_generation_checks.py`・
+  `test_cloud_function_webhook.py`双方にテストが存在することをコード上で確認した上で
+  冒頭の記載を訂正した。コード変更は無し(ドキュメント整理のみ)、venture全体370件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
+  再確認した。承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの公開・
+  アカウント作成・メール送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、またはpayment-failure-dunning-design.md 6節・
+  blocked-but-billing-detection-design.md 4節等に残る実LINE・実Stripe接続待ちの残課題
+  (オーナー承認待ち)以外の棚卸しを優先候補とする。
+- 最終更新: 2026-09-02 10:58 UTC
