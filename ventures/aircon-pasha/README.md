@@ -2493,4 +2493,26 @@
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   payment-failure-dunning-design.md 6節・blocked-but-billing-detection-design.md 4節等に
   残る実LINE・実Stripe接続待ちの残課題(オーナー承認待ち)以外の棚卸しを優先候補とする。
-- 最終更新: 2026-09-02 14:02 UTC
+- フェーズ174(2026-09-02 19:59 UTC): blocked-but-billing-detection-design.md(フェーズ167)
+  4節「未着手のまま残る課題」に残っていた「候補一覧をオーナーへ実際に届ける手段は未設計・
+  未接続」に対応した。フェーズ167時点では実LINE・実Stripe接続後の実測データ待ちとして
+  あえて先送りしていたが、course-set-pashaが同種の課題をフェーズ143で「固定のオーナー1件へ
+  LINE Push」という既存パターンの転用のみ(実測データ不要)で解決していた前例
+  (blocked-but-billing-owner-notification-design.md 6節「同様の設計はaircon-pasha側でも
+  横展開可能」の記載)に基づき、本venture向けにも横展開した。本venture一貫の
+  `LinePushClient`がプレーンテキストではなくFlex Messageのみ(`send_flex_message`)を
+  提供する点がcourse-set-pasha版との差分であるため、ボタンを持たないシンプルなbubble形式の
+  Flex Messageとして通知文面を組み立てる設計・実装とした
+  (blocked-but-billing-owner-notification-design.md新規作成)。
+  `prototype/blocked_but_billing_owner_notification.py`に
+  `select_new_blocked_but_billing_candidates_for_notification()`・
+  `build_blocked_but_billing_owner_notification_flex_message()`・
+  `send_blocked_but_billing_owner_notifications()`(Cloud Function G相当)を実装、
+  `user_id_linking.py`の`UserProfile`に`blocked_but_billing_owner_notified_at`
+  フィールド(1候補=1回のみ通知の冪等性フラグ)を追加し`UserProfileStoreProtocol`/
+  `InMemoryUserProfileStore`にget/setメソッドを追加した。フォロー再開・解約確定時の
+  クリア配線は次回以降の実装課題として残す(course-set-pashaもフェーズ142→143→144の
+  3段階で同じ順序を踏んだ、詳細はdesign 6節参照)。テスト11件追加、venture全体381件全件
+  パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 19:59 UTC

@@ -73,12 +73,18 @@ user_id昇順ソート・profile未存在の無視)を追加、venture全体370�
 
 ## 4. 未着手のまま残る課題
 
-- **候補一覧をオーナーへ実際に届ける手段は未設計・未接続**。本フェーズで実装したのは
-  「候補を洗い出す純粋関数」までであり、(a) 誰が/どの頻度でこの関数を呼ぶか(日次バッチ、
-  Cloud Scheduler等)、(b) 洗い出した結果をオーナーにどう届けるか(メール・Slack通知等)は
-  未設計のまま残る。これらは実LINE・実Stripe接続(いずれもオーナー承認待ち、
-  pending-approval.md記載済み)後、実際にunfollowイベントが発生し始めてから設計する方が
-  精度が高いと判断し、あえて先送りする。
+- (一部解消 2026-09-02 19:59 UTC・フェーズ174: 「候補一覧をオーナーへ実際に届ける手段」は
+  blocked-but-billing-owner-notification-design.mdとして設計・実装した。course-set-pasha
+  (フェーズ143)が同種の課題を実測データ待ちにせず「固定のオーナー1件へLINE Push」という
+  既存パターンの転用のみで解決できた前例があったため、本節が想定していた「実測データが
+  取れてからの方が精度が高い」という先送り判断は通知チャネル設計自体には当てはまらないと
+  判断し直し、着手した。実装したのは(a)`select_new_blocked_but_billing_candidates_for_
+  notification()`(新規候補のみへの絞り込み)・(b)Flex Message形式での通知文面組み立て・
+  送信(`send_blocked_but_billing_owner_notifications()`、Cloud Function G相当)まで。
+  フォロー再開・解約確定時の`blocked_but_billing_owner_notified_at`クリア配線は
+  引き続き次回以降の実装課題として残る(詳細はblocked-but-billing-owner-notification-
+  design.md 6節参照)。誰が/どの頻度でこの関数を呼ぶか(日次Cloud Scheduler)自体の実際の
+  作成・実LINE API接続はオーナー承認待ちの範囲として変わらず残る。)
 - Cloud Schedulerの新規作成・メール送信の実行はいずれも外部サービス側の設定・送信操作に
   該当し、オーナーの許可が必要なアクションであるため、実際の接続作業自体は着手しない
   (course-set-pasha・line-reservation-aiの同種案件と同じ整理)。

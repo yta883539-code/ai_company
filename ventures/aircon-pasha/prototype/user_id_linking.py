@@ -173,7 +173,17 @@ class UserProfile:
     unfollow時も他のフィールド(`current_plan_id`・`stripe_customer_id`等)は
     follow-unfollow-event-handling-design.md 2節の決定通り一切変更しない
     (削除・失効させない)ため、本フィールドは「保持されたままの契約情報」と「実際に
-    メッセージが届くかどうか」を分離して追跡するための追加フラグという位置づけ。"""
+    メッセージが届くかどうか」を分離して追跡するための追加フラグという位置づけ。
+
+    `blocked_but_billing_owner_notified_at`はblocked-but-billing-owner-notification-
+    design.md(フェーズ174)で追加した、`list_blocked_but_billing_candidates()`が
+    洗い出した候補について運営者(オーナー)へLINE Pushで通知済みかどうかを表す
+    フラグ(既定値`None`=未通知)。`payment_failure_reminder_sent_at`と同じ「一度設定
+    されたら以降不変(次にクリアされるまで)」フィールドで、
+    `blocked_but_billing_owner_notification.py`の
+    `send_blocked_but_billing_owner_notifications()`が送信成功時に1回だけ書き込む。
+    フォロー再開・解約確定時のクリア配線は次回以降の実装課題として残る
+    (design 4節参照)。"""
 
     business_name: str
     business_type: str
@@ -189,6 +199,7 @@ class UserProfile:
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
     is_following: bool = True
+    blocked_but_billing_owner_notified_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -237,7 +248,12 @@ class UserProfileStoreProtocol(Protocol):
     `True`を返す(存在しないprofileを「フォロー中」扱いする安全側デフォルト。実際には
     連携済みprofileが存在しない`user_id`が候補判定の対象になることはない、design 2節)。
     `all_user_ids`はdeletion_candidate.pyの`ProfileDeletionCandidateStoreProtocol.
-    all_user_ids`と同じ位置づけの列挙用メソッド。"""
+    all_user_ids`と同じ位置づけの列挙用メソッド。
+
+    `get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_
+    notified_at`はフェーズ174で追加した、blocked_but_billing_owner_notification.pyの
+    `BlockedButBillingOwnerNotifiedAtReader`/`Writer`を本クラスが構造的に満たすための
+    メソッド。未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -304,6 +320,14 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def all_user_ids(self) -> Iterable[str]:
+        ...
+
+    def get_blocked_but_billing_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
         ...
 
 
@@ -424,6 +448,18 @@ class InMemoryUserProfileStore:
 
     def all_user_ids(self) -> Iterable[str]:
         return list(self._profiles.keys())
+
+    def get_blocked_but_billing_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.blocked_but_billing_owner_notified_at if profile is not None else None
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.blocked_but_billing_owner_notified_at = notified_at
 
 
 @dataclass
