@@ -2441,4 +2441,19 @@
   schema検証9件パスを再確認した。承認不要なドキュメント整理・アイデア追加のみで、
   外部サービスへの公開・アカウント作成・メール送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 07:00 UTC
+- フェーズ171(2026-09-02 09:58 UTC): trial-end-condition-a-cta-design.md「4. 対象外に
+  した範囲」に残っていた「trial-end-notification-design.md 4節の『生成一時停止』実装は
+  本フェーズでも引き続き対象外・本venture未着手のまま次回以降の課題」という記載が、
+  実際には同ドキュメント作成(フェーズ137)の直後のフェーズ138で
+  `prototype/cloud_function_webhook.py`に`_is_generation_paused(profile)`・
+  `GENERATION_PAUSED_MESSAGE`・`process_memo_event()`冒頭の短絡分岐として実装済み
+  (trial-end-notification-design.md 4節側には解消済みの旨が既に記載されていた)だった
+  記載漏れ(フェーズ155・157・159・160・163・164・168・169・170と同種のドキュメント
+  棚卸し)を発見・解消した。コード変更は無し(ドキュメント整理のみ)、venture全体370件
+  全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  パスを再確認した。承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの
+  公開・アカウント作成・メール送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は他venture・アイデア領域の前進、またはpayment-failure-dunning-design.md
+  6節・blocked-but-billing-detection-design.md 4節等に残る実LINE・実Stripe接続待ちの
+  残課題(オーナー承認待ち)以外の棚卸しを優先候補とする。
+- 最終更新: 2026-09-02 09:58 UTC

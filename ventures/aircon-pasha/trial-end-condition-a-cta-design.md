@@ -70,9 +70,16 @@ quick_replyは別属性`quick_replies_sent`(indexが`sent`と対応)に記録す
 
 ## 4. 対象外にした範囲
 
-- trial-end-notification-design.md「4. トライアル終了後(未アップグレード)の挙動」の
+- ~~trial-end-notification-design.md「4. トライアル終了後(未アップグレード)の挙動」の
   「生成一時停止」実装は、本フェーズでも引き続き対象外(course-set-pashaのフェーズ114相当は
-  本venture未着手のまま次回以降の課題として残る)。
+  本venture未着手のまま次回以降の課題として残る)。~~ → フェーズ138で対応済み。本ドキュメント
+  (フェーズ137)作成時点では未実装だったが、同一フェーズ続きのフェーズ138で
+  `prototype/cloud_function_webhook.py`に`_is_generation_paused(profile)`
+  (`trial_end_notified_at`設定済みかつ`upgraded_at`未設定で判定)・`GENERATION_PAUSED_MESSAGE`・
+  `process_memo_event()`冒頭〈LLM呼び出しより前〉での短絡分岐として実装済み(本節が参照する
+  trial-end-notification-design.md 4節側には解消済みの旨が記載されていたが、本ドキュメント側の
+  本節が更新されないまま取り残されていた記載漏れだった)。詳細はREADME.mdフェーズ138・
+  trial-end-notification-design.md 4節参照。
 - 実LINE Messaging API接続(quickReplyの実際のJSON形式でのpostback送信含む)はオーナー承認
   待ちの範囲のまま変更なし。
 
