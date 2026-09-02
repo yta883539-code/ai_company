@@ -2,8 +2,9 @@
 
 aircon-pashaには存在する`character-limit-fallback-design.md`(フェーズ102・103・105、
 LINE Messaging APIのテキストメッセージ文字数上限超過時のフォールバック設計)が本venture
-には一度も設計されていなかった点に対応する。実装未着手・動作未検証(実LLM・実LINE API接続は
-オーナー承認待ちのため)。
+には一度も設計されていなかった点に対応する。設計と同じフェーズ138で実装済み(実LLM・実LINE
+API接続を必要としない純粋なテキスト処理・分岐ロジックのため、承認待ちのままでも着手可能と
+判断した)。詳細は「残課題」節参照。
 
 ## 前提の再確認
 
@@ -75,7 +76,7 @@ UTF-16コード単位数を算出する実装とする。
 - 5,000文字という値自体はLINE APIのハード上限であり、実運用上はその手前でソフトな閾値を
   設けるかどうかは、実LLM接続後の生成品質検証(llm-quality-verification-plan.md)の中で
   実測データを見ながら検討する(aircon-pashaと同じ位置づけ)。
-- 実装(`check_message_length_within_line_limit()`のprototype/post_generation_checks.pyへの
-  追加、cloud_function_webhook.pyへの`LENGTH_LIMIT_FALLBACK_MESSAGE`分岐の配線)は、
-  純粋なテキスト処理・分岐ロジックであり実LLM・実LINE API接続を必要としないため、承認待ちの
-  ままでも着手可能(aircon-pashaフェーズ105と同じ考え方)。本フェーズに続けて着手する。
+- (解消済み・フェーズ138: `check_message_length_within_line_limit()`をprototype/
+  post_generation_checks.pyに実装し、cloud_function_webhook.pyに`LENGTH_LIMIT_FALLBACK_MESSAGE`
+  分岐を配線した。テスト8件追加、venture全体431件全件パスを確認済み。詳細はREADME.mdフェーズ
+  138参照)
