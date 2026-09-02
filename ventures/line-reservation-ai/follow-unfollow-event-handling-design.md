@@ -151,9 +151,13 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
   チェックの材料として使う方針とした。この整理により、当初の問い(同一かどうか)は
   「両者ともstore_idとしては使われないため解消される」という結論になった。ただし
   この方針をcheckout-initiation-flow-design.md等の該当記述に反映する作業自体は次回以降の
-  課題として残る。オーナー自身がunfollowした場合の一連のオーナー向けpush送達不可という
-  運用上重要な事実をaircon-pashaのunfollow-billing-faq.md相当の文書として整理する価値が
-  ある点は変わらず残課題のままとする。)
+  課題として残る。
+  (解消 2026-09-02 18:59 UTC・フェーズ続き175: オーナー自身がunfollowした場合の一連の
+  オーナー向けpush送達不可という運用上重要な事実を、aircon-pashaのunfollow-billing-faq.md
+  相当の文書としてunfollow-billing-faq.mdに整理した。本venture固有の「オーナーも一般顧客と
+  同じ公式アカウントをフォローする」構造を踏まえ、ブロック中は予約通知等の業務通知も止まる
+  旨を追加した点がaircon-pasha・course-set-pasha版との差分。LP掲載・実際の問い合わせ対応は
+  未実施のまま、文面整理のみ。詳細はunfollow-billing-faq.md参照。)
 - 顧客がunfollowした後にリマインド送信(`_send()`)が失敗し続けるケースを、
   no-show-handling.mdの無断キャンセルリスク判定シグナルとして活用できないかは未検討
   (「事前リマインドが届いていない」ことを把握できれば、無断キャンセル発生前にオーナーへ

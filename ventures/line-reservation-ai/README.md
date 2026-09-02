@@ -1968,7 +1968,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   実装した(design 11節`DEFAULT_LIFF_ID`と対称)。テスト15件追加、venture全体553件全件
   パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービス
   への公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 17:59 UTC
+- フェーズ続き175(2026-09-02 18:59 UTC): follow-unfollow-event-handling-design.md「残課題」に
+  残っていた「オーナー自身がunfollowした場合の一連のオーナー向けpush送達不可という運用上重要な
+  事実をaircon-pashaのunfollow-billing-faq.md相当の文書として整理する価値がある」という未着手
+  事項に対応した。aircon-pasha(フェーズ165)・course-set-pasha(フェーズ86)のunfollow-billing-
+  faq.mdを土台に、本venture固有の事情(LINE公式アカウントを一般顧客とオーナー自身の両方が
+  フォローする構造、follow-unfollow-event-handling-design.md「前提の整理」節)を踏まえて翻案した
+  unfollow-billing-faq.mdを新規作成した。他venture版との差分として、オーナーがブロック中は課金
+  停止だけでなく予約確定・無断キャンセル確認等の業務通知も届かなくなる旨をLP掲載用FAQ文面・
+  問い合わせ対応テンプレートの両方に追加した。LP(landing-page-copy-draft.md)への反映・実際の
+  問い合わせ対応は行っていない(文面整理のみ)。follow-unfollow-event-handling-design.md「残課題」
+  該当箇所にも解消済みの旨を追記した。文面作成のみでコード変更は無し、venture全体553件全件パスを
+  再確認した。承認不要な文書作成・整理・アイデア追加のみで、外部サービスへの公開・アカウント
+  作成・送信等は今回発生していないためpending-approval.mdへの追記なし。line-reservation-ai固有の
+  blocked-but-billing-detection-design.md相当(能動検知バッチ)の要否検討は未着手のまま次回以降の
+  課題として残る。
+- 最終更新: 2026-09-02 18:59 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
