@@ -35,6 +35,10 @@ from typing import Optional, Protocol, Sequence
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from checkout_session import (  # noqa: E402
+    DEFAULT_LIFF_ID,
+    build_liff_checkout_link,
+)
 from cloud_function_process_event import (  # noqa: E402
     InMemoryLinePushClient,
     LinePushClient,
@@ -48,11 +52,6 @@ from trial_end_scheduler import (  # noqa: E402
     StoreTrialState,
     select_due_trial_end_reports,
 )
-
-# checkout-initiation-flow-design.mdのLIFF方式決済導線は、Checkout Session個別のURLでは
-# なくLIFFアプリ自体の固定URLであるため、course-set-pasha/trial_end_scheduler.py
-# LIFF_URL_PLACEHOLDERと同じく、実登録(オーナー承認待ち)までは差し替え用の目印文字列とする。
-PAYMENT_LIFF_URL_PLACEHOLDER = "{有料プランへ進むLIFFアプリ URL}"
 
 
 class TrialEndReportSentAtWriter(Protocol):
@@ -180,12 +179,18 @@ def send_trial_end_reports(
     candidates: Sequence[TrialEndReportCandidate],
     now: datetime,
     push_client: LinePushClient,
-    payment_page_url: str = PAYMENT_LIFF_URL_PLACEHOLDER,
+    liff_id: str = DEFAULT_LIFF_ID,
 ) -> SendTrialEndReportsResult:
     """trial-end-scheduler-design.md 2節の全体構成図における「Cloud Function E:
     send_trial_end_reports」本体。引数のcandidatesは呼び出し元でFirestoreから読み取った
     候補一覧(booking_count・auto_handled_inquiry_countは集計済みの値)を想定し、
     実際の絞り込みはselect_due_trial_end_reports()が行う。
+
+    決済ページURLは、checkout-initiation-flow-design.md 11節・
+    store-id-resolution-and-owner-identity-design.md「残課題」対応として、候補ごとに
+    `build_liff_checkout_link(candidate.store_id, liff_id=liff_id)`で個別に組み立てる
+    (design 9節手順1が読み取る`store_id`クエリパラメータを埋め込むため、以前のような
+    全店舗共通の固定プレースホルダ文字列では手順1が成立しない)。
 
     送信成功時のみcandidate.report_sent_writer.mark_trial_end_report_sent(now)を呼び、
     送信失敗時は呼ばない(4節の冪等性設計、send_reminders()と同じ「書き込み一発+次回実行時に
@@ -206,6 +211,9 @@ def send_trial_end_reports(
         summary = TrialUsageSummary(
             booking_count=candidate.booking_count,
             auto_handled_inquiry_count=candidate.auto_handled_inquiry_count,
+        )
+        payment_page_url = build_liff_checkout_link(
+            candidate.store_id, liff_id=liff_id
         )
         text = render_trial_end_report_message(
             summary, payment_page_url, tone=candidate.message_tone

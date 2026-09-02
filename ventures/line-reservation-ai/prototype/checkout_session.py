@@ -32,7 +32,11 @@ from store_profile_store import StoreProfileStoreProtocol
 DEFAULT_SUCCESS_URL = "https://example.com/line-reservation-ai/checkout/success"
 DEFAULT_CANCEL_URL = "https://example.com/line-reservation-ai/checkout/cancel"
 
+# design 11節: 実LIFFアプリ登録(オーナー承認待ち)までの仮のプレースホルダ。
+DEFAULT_LIFF_ID = "LIFF_ID_PLACEHOLDER"
+
 _LINE_UNIVERSAL_LINK_BASE = "https://line.me/R/ti/p/"
+_LIFF_LINK_BASE = "https://liff.line.me/"
 
 
 def build_checkout_session_params(
@@ -79,6 +83,29 @@ def build_line_return_link(basic_id: str) -> str:
         raise ValueError("basic_id must be a non-empty string")
 
     return _LINE_UNIVERSAL_LINK_BASE + quote(basic_id)
+
+
+def build_liff_checkout_link(store_id: str, *, liff_id: str = DEFAULT_LIFF_ID) -> str:
+    """決済導線への入口となるLIFF起動リンクを組み立てる(design 11節、
+    store-id-resolution-and-owner-identity-design.md「残課題」対応)。
+
+    `https://liff.line.me/{liff_id}?store_id={store_id}`形式。design 9節手順1
+    (「クエリパラメータからstore_id受領」)がこの`store_id`クエリパラメータを読み取る
+    前提。trial-end-report・オンボーディング完了メッセージいずれも送信時点で対象店舗の
+    `store_id`を把握済みのため、送信直前にこの関数で個別リンクを組み立てて埋め込む。
+
+    改ざん検知(署名付与等)は行わない。store-id-resolution-and-owner-identity-design.md
+    「残課題」の結論どおり、`store_id`が改ざん・誤入力されても最終的には
+    `verify_checkout_authorization()`(design 10節、`owner_user_id`との一致確認)が
+    防波堤になるため、現時点では過剰な防御と判断した。
+
+    `store_id`が空文字列・Noneの場合は`ValueError`(送信前に必ず対象店舗のstore_idが
+    解決済みであるべきという呼び出し側の実装ミスを早期に検知するガード)。
+    """
+    if not store_id:
+        raise ValueError("store_id must be a non-empty string")
+
+    return f"{_LIFF_LINK_BASE}{liff_id}?store_id={quote(store_id)}"
 
 
 # design 9節手順3の認可チェック不一致理由(design 10節)。

@@ -256,6 +256,47 @@ success_urlページ(4節)と同じく、認可チェック自体はCheckout Ses
 - エラーページの実際のHTML/デザインは、`success_url`ページ(4節)と同様、LP実装
   (オーナー承認待ち)とあわせて行う。
 
+## 11. LIFF起動リンクの組み立て(store_idクエリパラメータ埋め込み、フェーズ続き172・新規)
+
+store-id-resolution-and-owner-identity-design.md「残課題」に最後まで残っていた、
+「LIFF起動リンクへの`store_id`クエリパラメータ埋め込みの具体的な実装」に対応する。
+
+### 背景
+
+9節手順1は「クエリパラメータから`store_id`受領」を前提にしているが、実際に
+オーナーへLIFF起動リンクを届けている送信元(`cloud_function_send_trial_end_reports.py`の
+`send_trial_end_reports()`)は、全店舗共通の固定プレースホルダ文字列
+(`PAYMENT_LIFF_URL_PLACEHOLDER = "{有料プランへ進むLIFFアプリ URL}"`)を送っているだけで、
+`store_id`を一切埋め込んでいなかった。これでは実LIFFアプリ登録後もどの店舗の決済か
+特定できず、9節手順1が成立しない配線漏れだった。
+
+### 採用方針
+
+`prototype/checkout_session.py`に`build_liff_checkout_link(store_id, *, liff_id=
+DEFAULT_LIFF_ID) -> str`を新設した。`https://liff.line.me/{liff_id}?store_id={store_id}`
+形式で、`store_id`はURLエンコードして埋め込む。改ざん検知(署名付与等)は行わない。
+store-id-resolution-and-owner-identity-design.md「残課題」の結論どおり、`store_id`が
+改ざん・誤入力されても最終的には`verify_checkout_authorization()`(10節、
+`owner_user_id`との一致確認)が防波堤になるため、現時点では過剰な防御と判断した
+(3節「残課題」に既にあった判断を踏襲)。
+
+`cloud_function_send_trial_end_reports.py`の`send_trial_end_reports()`を、固定の
+`payment_page_url`引数から`liff_id`引数(既定値`DEFAULT_LIFF_ID`)へ差し替え、候補
+(`TrialEndReportCandidate`)ごとに`build_liff_checkout_link(candidate.store_id,
+liff_id=liff_id)`で個別のリンクを組み立ててから`render_trial_end_report_message()`へ
+渡すよう変更した。オンボーディング完了メッセージ側(`cloud_function_send_onboarding_
+completion_message.py`)は決済導線への言及がないため対象外。
+
+テスト10件追加(`build_liff_checkout_link()`単体6件・`send_trial_end_reports()`の
+store_id別リンク検証4件)、venture全体529件全件パス・schema検証25件パスを確認した。
+
+### 残課題(本節)
+
+- 実LIFF ID自体はLIFFアプリ実登録(オーナー承認待ち)後に`DEFAULT_LIFF_ID`
+  プレースホルダから差し替える。
+- オンボーディング完了メッセージ以外にも今後決済導線への言及を追加するメッセージが
+  増えた場合、同じ`build_liff_checkout_link()`を再利用する。
+
 ## 残課題
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID

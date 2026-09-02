@@ -16,6 +16,7 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from checkout_session import DEFAULT_LIFF_ID, build_liff_checkout_link  # noqa: E402
 from cloud_function_process_event import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
 from cloud_function_send_trial_end_reports import (  # noqa: E402
     TrialEndReportCandidate,
@@ -158,6 +159,58 @@ class SendTrialEndReportsTests(unittest.TestCase):
         self.assertEqual(result.sent, ["store-a"])
         self.assertIsNotNone(writer_a.sent_at)
         self.assertIsNone(writer_b.sent_at)
+
+
+class PaymentPageUrlWiringTests(unittest.TestCase):
+    """checkout-initiation-flow-design.md 11節対応: 送信メッセージに店舗ごとの
+    store_idを埋め込んだLIFF起動リンクが含まれることを確認する。"""
+
+    def test_message_contains_store_specific_liff_link(self):
+        writer = _StubWriter()
+        push = InMemoryLinePushClient()
+        send_trial_end_reports([_candidate(writer)], NOW, push)
+
+        expected_link = build_liff_checkout_link(STORE_ID)
+        self.assertEqual(len(push.sent), 1)
+        self.assertIn(expected_link, push.sent[0][1])
+
+    def test_different_stores_get_different_links_in_message(self):
+        writer_a = _StubWriter()
+        writer_b = _StubWriter()
+        push = InMemoryLinePushClient()
+        candidate_a = _candidate(
+            writer_a, store_id="store-a", owner_line_user_id="U-owner-a"
+        )
+        candidate_b = _candidate(
+            writer_b, store_id="store-b", owner_line_user_id="U-owner-b"
+        )
+        send_trial_end_reports([candidate_a, candidate_b], NOW, push)
+
+        texts_by_owner = {user_id: text for user_id, text in push.sent}
+        link_a = build_liff_checkout_link("store-a")
+        link_b = build_liff_checkout_link("store-b")
+        self.assertIn(link_a, texts_by_owner["U-owner-a"])
+        self.assertIn(link_b, texts_by_owner["U-owner-b"])
+        self.assertNotIn(link_b, texts_by_owner["U-owner-a"])
+
+    def test_custom_liff_id_is_used_in_link(self):
+        writer = _StubWriter()
+        push = InMemoryLinePushClient()
+        send_trial_end_reports(
+            [_candidate(writer)], NOW, push, liff_id="1234567890-abcdefgh"
+        )
+
+        expected_link = build_liff_checkout_link(
+            STORE_ID, liff_id="1234567890-abcdefgh"
+        )
+        self.assertIn(expected_link, push.sent[0][1])
+
+    def test_default_liff_id_placeholder_used_when_not_specified(self):
+        writer = _StubWriter()
+        push = InMemoryLinePushClient()
+        send_trial_end_reports([_candidate(writer)], NOW, push)
+
+        self.assertIn(DEFAULT_LIFF_ID, push.sent[0][1])
 
 
 class AutoHandledFaqCountWiringTests(unittest.TestCase):

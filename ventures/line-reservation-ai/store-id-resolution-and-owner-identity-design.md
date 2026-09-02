@@ -135,10 +135,12 @@ follow-unfollow-event-handling-design.mdが残していた「`owner_user_id`と�
   読み込んで`ConversationEventProcessor`を組み立てるファクトリ関数、およびそこから
   `resolve_store_id_from_destination()`を呼び出す配線自体は、実Firestore接続待ちのため
   引き続き次回以降の課題として残る。
-- LIFF起動リンクへの`store_id`クエリパラメータ埋め込みの具体的な実装(URLの組み立て、
-  改ざん検知の要否)は、checkout-initiation-flow-design.md本体の更新とあわせて次回以降に
-  設計する。改ざんされても最終的にはLIFF ID Tokenでの認可チェック(3.)が防波堤になるため、
-  クエリパラメータ自体への署名等の追加防御は現時点では過剰と考えるが、実装時に再検討する。
+- (解消済み 2026-09-02 11:58 UTC・フェーズ続き172: LIFF起動リンクへの`store_id`クエリ
+  パラメータ埋め込みを実装した。`prototype/checkout_session.py`に
+  `build_liff_checkout_link(store_id, *, liff_id=DEFAULT_LIFF_ID)`を新設し、
+  `cloud_function_send_trial_end_reports.send_trial_end_reports()`が候補ごとに個別の
+  リンクを組み立てるよう配線した。改ざん検知は行わない(3.の結論どおりLIFF ID Tokenでの
+  認可チェックが最終防波堤)。詳細はcheckout-initiation-flow-design.md 11節参照。)
 - (解消済み 2026-09-02 08:00 UTC・フェーズ続き171: 認可チェック不一致時(不正な`store_id`
   指定、または`owner_user_id`未設定)のオーナー向けエラー文言・案内先を、
   checkout-initiation-flow-design.md 10節として新規設計した。詳細は同節参照。)

@@ -1911,7 +1911,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   のため引き続き未着手のまま残る(store-id-resolution-and-owner-identity-design.md
   「残課題」参照)。承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント
   作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 05:00 UTC
+- フェーズ続き171(2026-09-02 08:00 UTC・README反映遅延分を遡及記載): store-id-
+  resolution-and-owner-identity-design.md「残課題」に残っていた、認可チェック不一致時
+  (不正な`store_id`指定、または`owner_user_id`未設定)のオーナー向けエラー文言・案内先を
+  checkout-initiation-flow-design.md 10節として新規設計した。`StoreProfileStoreProtocol`に
+  `get_owner_user_id()`/`set_owner_user_id()`を追加し、`prototype/checkout_session.py`に
+  `verify_checkout_authorization()`・`render_checkout_authorization_error_page()`を実装、
+  success_urlページ(4節)と同じ単一トーン方針・LINEに戻るリンクを踏襲した。テスト16件
+  追加、venture全体519件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- フェーズ続き172(2026-09-02 11:58 UTC): store-id-resolution-and-owner-identity-
+  design.md「残課題」に最後まで残っていた「LIFF起動リンクへの`store_id`クエリパラメータ
+  埋め込みの具体的な実装」に対応した。実際にオーナーへLIFF起動リンクを届けている
+  `cloud_function_send_trial_end_reports.py`の`send_trial_end_reports()`が、全店舗共通の
+  固定プレースホルダ文字列(`PAYMENT_LIFF_URL_PLACEHOLDER`)を送っているだけで`store_id`を
+  一切埋め込んでおらず、9節手順1(「クエリパラメータから`store_id`受領」)が実際には成立
+  しない配線漏れになっていたことを発見した。`prototype/checkout_session.py`に
+  `build_liff_checkout_link(store_id, *, liff_id=DEFAULT_LIFF_ID) -> str`
+  (`https://liff.line.me/{liff_id}?store_id={store_id}`形式)を新設し、
+  `send_trial_end_reports()`の引数を固定`payment_page_url`から`liff_id`(既定値
+  `DEFAULT_LIFF_ID`)へ差し替え、候補(`TrialEndReportCandidate`)ごとに個別のリンクを
+  組み立てて`render_trial_end_report_message()`へ渡すよう変更した。改ざん検知(署名付与等)は
+  行わず、`verify_checkout_authorization()`(10節)を最終防波堤とする既存方針を踏襲した。
+  詳細はcheckout-initiation-flow-design.md 11節参照。テスト10件追加(`build_liff_checkout_
+  link()`単体6件・`send_trial_end_reports()`のstore_id別リンク検証4件)、venture全体529件
+  全件パス・schema検証25件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-02 11:58 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

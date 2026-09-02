@@ -12,8 +12,10 @@ from checkout_session import (  # noqa: E402
     AUTHORIZATION_DENIED_OWNER_NOT_SET,
     AUTHORIZATION_DENIED_USER_ID_MISMATCH,
     DEFAULT_CANCEL_URL,
+    DEFAULT_LIFF_ID,
     DEFAULT_SUCCESS_URL,
     build_checkout_session_params,
+    build_liff_checkout_link,
     build_line_return_link,
     render_checkout_authorization_error_page,
     verify_checkout_authorization,
@@ -72,6 +74,35 @@ class BuildLineReturnLinkTest(unittest.TestCase):
         link = build_line_return_link("@ab c")
         self.assertTrue(link.startswith("https://line.me/R/ti/p/"))
         self.assertIn("%40ab%20c", link)
+
+
+class BuildLiffCheckoutLinkTest(unittest.TestCase):
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            build_liff_checkout_link("")
+
+    def test_raises_on_none_store_id(self):
+        with self.assertRaises(ValueError):
+            build_liff_checkout_link(None)
+
+    def test_builds_link_with_default_liff_id_and_store_id_param(self):
+        link = build_liff_checkout_link("Ustore123")
+        self.assertEqual(
+            link, f"https://liff.line.me/{DEFAULT_LIFF_ID}?store_id=Ustore123"
+        )
+
+    def test_custom_liff_id_is_used(self):
+        link = build_liff_checkout_link("Ustore123", liff_id="1234567890-abcdefgh")
+        self.assertTrue(link.startswith("https://liff.line.me/1234567890-abcdefgh?"))
+
+    def test_percent_encodes_special_characters_in_store_id(self):
+        link = build_liff_checkout_link("Ustore 123")
+        self.assertIn("store_id=Ustore%20123", link)
+
+    def test_different_stores_get_different_links(self):
+        link_a = build_liff_checkout_link("UstoreA")
+        link_b = build_liff_checkout_link("UstoreB")
+        self.assertNotEqual(link_a, link_b)
 
 
 class VerifyCheckoutAuthorizationTest(unittest.TestCase):
