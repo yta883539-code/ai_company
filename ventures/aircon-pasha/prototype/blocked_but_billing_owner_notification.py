@@ -18,6 +18,14 @@ blocked-but-billing-owner-notification-design.md(フェーズ174)で設計した
   LinePushDeliveryErrorはtrial_end_scheduler.pyで既に定義済みのものをそのまま再利用する
   (本モジュールで重複定義しない)。送信先は顧客ごとのuser_idではなく固定のオーナー1件で
   あるため、send_flex_message()に渡すidはOWNER_LINE_USER_ID_PLACEHOLDERで固定する。
+- `clear_blocked_but_billing_owner_notified_at()`(design 6節「クリア配線」、フェーズ175
+  追加)は、フェーズ174時点で未実装のまま残っていた「フォロー再開」・「解約確定」時の
+  `blocked_but_billing_owner_notified_at`クリア処理をpayment_failure.py
+  `clear_payment_failure_on_success()`と同じ「設定済みの場合のみクリアしTrue/Falseを
+  返す」形の純粋関数として実装したもの。呼び出し配線自体は本モジュールの対象外で、
+  `cloud_function_webhook.process_follow_event()`(フォロー再開)・`stripe_dispatch.
+  dispatch_stripe_event()`の`customer.subscription.deleted`分岐(解約確定)の両方から
+  呼ばれる(course-set-pashaのフェーズ144相当)。
 
 設計の参照元: blocked-but-billing-owner-notification-design.md
 """
@@ -49,10 +57,20 @@ class BlockedButBillingOwnerNotifiedAtReader(Protocol):
 
 class BlockedButBillingOwnerNotifiedAtWriter(Protocol):
     """design 4節「送信成功時のみ書き込む」が使う書き込み専用のProtocol
-    (course-set-pasha版と同じ考え方)。"""
+    (course-set-pasha版と同じ考え方)。design 6節のクリア配線(フェーズ175)は同じ
+    メソッドに`None`を渡すことで表現する(payment_failure.pyのset_payment_failure_
+    detected_at等、本venture一貫の「クリアも同じsetterで表現する」方針を踏襲)。"""
 
-    def set_blocked_but_billing_owner_notified_at(self, user_id: str, notified_at: datetime) -> None:
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
         ...
+
+
+class BlockedButBillingOwnerNotifiedAtStoreProtocol(
+    BlockedButBillingOwnerNotifiedAtReader, BlockedButBillingOwnerNotifiedAtWriter, Protocol
+):
+    """design 6節「クリア配線」(フェーズ175)が使う、読み書き両方を要求する合成Protocol。"""
 
 
 def select_new_blocked_but_billing_candidates_for_notification(
@@ -72,6 +90,27 @@ def select_new_blocked_but_billing_candidates_for_notification(
         for user_id in candidate_user_ids
         if notified_at_reader.get_blocked_but_billing_owner_notified_at(user_id) is None
     ]
+
+
+def clear_blocked_but_billing_owner_notified_at(
+    store: BlockedButBillingOwnerNotifiedAtStoreProtocol, user_id: str,
+) -> bool:
+    """design 6節「クリア配線」(フェーズ175): 「フォロー再開」(is_followingがTrueに
+    戻る)、または「解約確定」(customer.subscription.deleted受信でcurrent_plan_idが
+    Noneに戻る)のいずれかが起きた時点で呼ぶ。`blocked_but_billing_owner_notified_at`が
+    設定済みの場合のみクリアし、変更があったかどうか(True/False)を返す
+    (payment_failure.py`clear_payment_failure_on_success()`と同じ、呼び出し側が
+    ログ確認できる冪等設計)。未設定(そもそも一度も通知対象になったことがない、または
+    既にクリア済み)の場合は何もせず`False`を返す。
+
+    呼び出し配線自体は本関数の対象外で、`cloud_function_webhook.process_follow_event()`
+    (フォロー再開)・`stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.
+    deleted`分岐(解約確定)の両方から呼ばれる。
+    """
+    if store.get_blocked_but_billing_owner_notified_at(user_id) is None:
+        return False
+    store.set_blocked_but_billing_owner_notified_at(user_id, None)
+    return True
 
 
 # ---------------------------------------------------------------------------

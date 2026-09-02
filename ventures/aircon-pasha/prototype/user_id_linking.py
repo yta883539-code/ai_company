@@ -182,8 +182,11 @@ class UserProfile:
     されたら以降不変(次にクリアされるまで)」フィールドで、
     `blocked_but_billing_owner_notification.py`の
     `send_blocked_but_billing_owner_notifications()`が送信成功時に1回だけ書き込む。
-    フォロー再開・解約確定時のクリア配線は次回以降の実装課題として残る
-    (design 4節参照)。"""
+    フォロー再開(`cloud_function_webhook.process_follow_event()`)・解約確定
+    (`stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐)の
+    いずれかが起きた時点で`None`へクリアする配線をフェーズ175で実装した
+    (`blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
+    経由、design 6節参照)。"""
 
     business_name: str
     business_type: str
@@ -253,7 +256,10 @@ class UserProfileStoreProtocol(Protocol):
     `get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_
     notified_at`はフェーズ174で追加した、blocked_but_billing_owner_notification.pyの
     `BlockedButBillingOwnerNotifiedAtReader`/`Writer`を本クラスが構造的に満たすための
-    メソッド。未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。"""
+    メソッド。未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。
+    `set_blocked_but_billing_owner_notified_at`の値は`payment_failure_detected_at`等と
+    同じく`Optional[datetime]`(フェーズ175でクリア配線に対応するため`None`も許容する
+    形へ拡張、値自体の意味は変わらない)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -326,7 +332,7 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_blocked_but_billing_owner_notified_at(
-        self, user_id: str, notified_at: datetime
+        self, user_id: str, notified_at: Optional[datetime]
     ) -> None:
         ...
 
@@ -454,7 +460,7 @@ class InMemoryUserProfileStore:
         return profile.blocked_but_billing_owner_notified_at if profile is not None else None
 
     def set_blocked_but_billing_owner_notified_at(
-        self, user_id: str, notified_at: datetime
+        self, user_id: str, notified_at: Optional[datetime]
     ) -> None:
         profile = self._profiles.get(user_id)
         if profile is None:

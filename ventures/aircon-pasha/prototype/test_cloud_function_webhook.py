@@ -1230,6 +1230,28 @@ class ProcessFollowEventTest(unittest.TestCase):
 
         self.assertTrue(profile_store.get_is_following("u-1"))
 
+    def test_refollow_clears_blocked_but_billing_owner_notified_at(self):
+        # blocked-but-billing-owner-notification-design.md 6節「クリア配線」(フェーズ175)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                current_plan_id="スタンダード", is_following=False,
+                blocked_but_billing_owner_notified_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "reply-token-7", "source": {"userId": "u-1"}}
+
+        process_follow_event(event, reply_client, profile_store=profile_store)
+
+        self.assertTrue(profile_store.get_is_following("u-1"))
+        self.assertIsNone(profile_store.get_blocked_but_billing_owner_notified_at("u-1"))
+
     def test_follow_of_an_unlinked_user_does_not_touch_profile_store(self):
         # design: 未連携user_id(profile未作成)はそもそもis_followingの対象外。
         profile_store = InMemoryUserProfileStore()

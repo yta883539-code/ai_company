@@ -70,6 +70,58 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.plan_cleared_user_ids, [])
 
+    def test_clears_blocked_but_billing_owner_notified_at_when_store_provided(self):
+        # blocked-but-billing-owner-notification-design.md 6節「クリア配線」(フェーズ175)。
+        store = InMemoryProfileDeletionCandidateStore()
+        blocked_but_billing_store = _profile_store_with_user()
+        blocked_but_billing_store.set_blocked_but_billing_owner_notified_at(
+            _USER_ID, datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            blocked_but_billing_store=blocked_but_billing_store,
+        )
+        self.assertEqual(result.blocked_but_billing_owner_notified_cleared_user_ids, [_USER_ID])
+        self.assertIsNone(
+            blocked_but_billing_store.get_blocked_but_billing_owner_notified_at(_USER_ID)
+        )
+
+    def test_blocked_but_billing_owner_notified_at_untouched_when_already_unset(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        blocked_but_billing_store = _profile_store_with_user()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            blocked_but_billing_store=blocked_but_billing_store,
+        )
+        self.assertEqual(result.blocked_but_billing_owner_notified_cleared_user_ids, [])
+
+    def test_blocked_but_billing_owner_notified_at_untouched_when_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.blocked_but_billing_owner_notified_cleared_user_ids, [])
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {

@@ -16,6 +16,7 @@ from blocked_but_billing_owner_notification import (  # noqa: E402
     BLOCKED_BUT_BILLING_OWNER_NOTIFICATION_ALT_TEXT,
     OWNER_LINE_USER_ID_PLACEHOLDER,
     build_blocked_but_billing_owner_notification_flex_message,
+    clear_blocked_but_billing_owner_notified_at,
     select_new_blocked_but_billing_candidates_for_notification,
     send_blocked_but_billing_owner_notifications,
 )
@@ -31,7 +32,9 @@ class _FakeNotifiedAtStore:
     def get_blocked_but_billing_owner_notified_at(self, user_id: str) -> Optional[datetime]:
         return self.notified_at.get(user_id)
 
-    def set_blocked_but_billing_owner_notified_at(self, user_id: str, notified_at: datetime) -> None:
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
         self.notified_at[user_id] = notified_at
 
 
@@ -67,6 +70,34 @@ class SelectNewBlockedButBillingCandidatesForNotificationTest(unittest.TestCase)
             select_new_blocked_but_billing_candidates_for_notification(["u3", "u1", "u2"], store),
             ["u3", "u1", "u2"],
         )
+
+
+class ClearBlockedButBillingOwnerNotifiedAtTest(unittest.TestCase):
+    """design 6節「クリア配線」(フェーズ175)、
+    clear_blocked_but_billing_owner_notified_at()自体の挙動を検証する。実際の呼び出し配線
+    (フォロー再開・解約確定)側のテストはtest_cloud_function_webhook.py・
+    test_stripe_dispatch.pyにそれぞれ追加する。"""
+
+    def test_clears_when_notified_at_is_set(self) -> None:
+        store = _FakeNotifiedAtStore({"u1": datetime(2026, 9, 1, 18, 0, 0)})
+        self.assertTrue(clear_blocked_but_billing_owner_notified_at(store, "u1"))
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("u1"))
+
+    def test_returns_false_and_no_op_when_already_unset(self) -> None:
+        store = _FakeNotifiedAtStore()
+        self.assertFalse(clear_blocked_but_billing_owner_notified_at(store, "u1"))
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("u1"))
+
+    def test_only_clears_the_specified_user(self) -> None:
+        store = _FakeNotifiedAtStore(
+            {
+                "u1": datetime(2026, 9, 1, 18, 0, 0),
+                "u2": datetime(2026, 9, 1, 18, 0, 0),
+            }
+        )
+        self.assertTrue(clear_blocked_but_billing_owner_notified_at(store, "u1"))
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("u1"))
+        self.assertIsNotNone(store.get_blocked_but_billing_owner_notified_at("u2"))
 
 
 class BuildBlockedButBillingOwnerNotificationFlexMessageTest(unittest.TestCase):

@@ -13,6 +13,12 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   本モジュールはイベント種別に応じた振り分けロジックを、実Firestore接続なしで検証可能な
   形で実装する(`deletion_candidate.py`と同じ「Protocol/Callableの差し替えで実接続を
   後回しにする」パターンの踏襲)。
+- `blocked_but_billing_store`(フェーズ175追加): blocked-but-billing-owner-notification-
+  design.md 6節「クリア配線」に残っていた、`customer.subscription.deleted`受信(解約確定)
+  時の`blocked_but_billing_owner_notified_at`クリアに対応する。`plan_store`と同じく
+  `customer.subscription.deleted`分岐でのみ参照し、指定時のみ
+  `blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
+  を呼ぶ(未指定時はこれまで通りクリアを行わない後方互換措置)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -23,6 +29,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from blocked_but_billing_owner_notification import (
+    BlockedButBillingOwnerNotifiedAtStoreProtocol,
+    clear_blocked_but_billing_owner_notified_at,
+)
 from deletion_candidate import (
     ProfileDeletionCandidateStoreProtocol,
     clear_deletion_candidate_on_subscription_reactivated,
@@ -92,6 +102,12 @@ class StripeDispatchResult:
     # フェーズ161追加: plan_store指定時、customer.subscription.deleted受信により
     # `current_plan_id`をNone(未契約)へ戻したuser_id。
     plan_cleared_user_ids: List[str] = field(default_factory=list)
+    # フェーズ175追加: blocked_but_billing_store指定時、customer.subscription.deleted
+    # 受信により`blocked_but_billing_owner_notified_at`をクリアした(=クリア前に設定
+    # 済みだった)user_id。
+    blocked_but_billing_owner_notified_cleared_user_ids: List[str] = field(
+        default_factory=list
+    )
 
 
 def dispatch_stripe_event(
@@ -103,6 +119,7 @@ def dispatch_stripe_event(
     push_client: Optional[LinePushClient] = None,
     recovery_push_client: Optional[RecoveryPushClient] = None,
     plan_store: Optional[CurrentPlanStoreProtocol] = None,
+    blocked_but_billing_store: Optional[BlockedButBillingOwnerNotifiedAtStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """design 1節: Stripe Webhookイベント1件を受け取り、種別に応じて
@@ -143,6 +160,14 @@ def dispatch_stripe_event(
     通りプランIDの同期を一切行わない(既存呼び出し経路への後方互換措置)。`payment_store`
     と同じく専用のInMemoryストアは新設せず、`InMemoryUserProfileStore`が
     `CurrentPlanStoreProtocol`を構造的に(duck typing)満たす設計とした。
+
+    `blocked_but_billing_store`はblocked-but-billing-owner-notification-design.md
+    6節「クリア配線」対応(フェーズ175追加)。指定時、`customer.subscription.deleted`
+    受信のたびに`blocked_but_billing_owner_notified_at`が設定済みであればクリアする
+    (`clear_blocked_but_billing_owner_notified_at()`、blocked_but_billing_owner_
+    notification.py参照)。未指定(`None`)の場合はこれまで通りクリアを行わない
+    (既存呼び出し経路への後方互換措置)。`payment_store`/`plan_store`と同じく専用の
+    InMemoryストアは新設せず、`InMemoryUserProfileStore`が構造的に満たす設計とした。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -171,6 +196,9 @@ def dispatch_stripe_event(
         if plan_store is not None:
             clear_current_plan_on_subscription_deleted(plan_store, user_id)
             result.plan_cleared_user_ids.append(user_id)
+        if blocked_but_billing_store is not None:
+            if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
+                result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
         return result
 
     if event_type == _SUBSCRIPTION_CREATED:

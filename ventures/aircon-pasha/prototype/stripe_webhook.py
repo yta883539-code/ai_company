@@ -40,6 +40,13 @@ docstring)を守る。
 subscription.*`受信のたびに更新する」と確定していた`current_plan_id`の同期処理
 (subscription_plan_sync.py)を`dispatch_stripe_event()`が受け取れるようになったのに
 合わせ、本モジュールでも`payment_store`等と同じ薄い委譲配線を追加した。
+
+`blocked_but_billing_store`(フェーズ175追加): blocked-but-billing-owner-notification-
+design.md 6節「クリア配線」対応。`dispatch_stripe_event()`が新たに受け取れるように
+なった`blocked_but_billing_store`をそのまま委譲する薄い配線で、`payment_store`等と
+同じく実HTTPエントリポイント経由でも`customer.subscription.deleted`受信時の
+`blocked_but_billing_owner_notified_at`クリアが機能するようにする。省略時(`None`)は
+クリアを行わない(既存呼び出し経路への後方互換措置)。
 """
 
 from __future__ import annotations
@@ -53,6 +60,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from blocked_but_billing_owner_notification import (
+    BlockedButBillingOwnerNotifiedAtStoreProtocol,
+)
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from payment_failure import LinePushClient, PaymentFailureStoreProtocol
 from payment_recovery_notification import LinePushClient as RecoveryPushClient
@@ -223,6 +233,7 @@ def receive_stripe_webhook(
     push_client: Optional[LinePushClient] = None,
     recovery_push_client: Optional[RecoveryPushClient] = None,
     plan_store: Optional[CurrentPlanStoreProtocol] = None,
+    blocked_but_billing_store: Optional[BlockedButBillingOwnerNotifiedAtStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -294,6 +305,7 @@ def receive_stripe_webhook(
         push_client=push_client,
         recovery_push_client=recovery_push_client,
         plan_store=plan_store,
+        blocked_but_billing_store=blocked_but_billing_store,
         now=resolved_now,
     )
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
@@ -314,9 +326,12 @@ def get_stripe_runtime_dependencies() -> dict:
       冒頭コメント参照)のため、同じインスタンスを`payment_store`としても渡せる。
       `CurrentPlanStoreProtocol`(subscription_plan_sync.py、フェーズ161追加)も同じ
       理由で構造的に満たすため、同じインスタンスを`plan_store`としても渡す。
+      `BlockedButBillingOwnerNotifiedAtStoreProtocol`(blocked_but_billing_owner_
+      notification.py、フェーズ175追加)も同じ理由で構造的に満たすため、同じ
+      インスタンスを`blocked_but_billing_store`としても渡す。
       storeと同様プロセス起動ごとに初期化されるため、実Cloud Functions環境では
-      呼び出しをまたいで紐付け・決済状態・プランIDが保持されない(実Firestore接続後に
-      解消される既知の限界)。
+      呼び出しをまたいで紐付け・決済状態・プランID・通知済みフラグが保持されない
+      (実Firestore接続後に解消される既知の限界)。
     - resolve_user_id: `make_resolve_user_id(user_profile_store)`。紐付けがまだ無い
       stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
       unresolved_customersとして安全に扱い200を返す。
@@ -333,6 +348,7 @@ def get_stripe_runtime_dependencies() -> dict:
         "user_profile_store": user_profile_store,
         "payment_store": user_profile_store,
         "plan_store": user_profile_store,
+        "blocked_but_billing_store": user_profile_store,
     }
 
 

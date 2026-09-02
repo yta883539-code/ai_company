@@ -36,6 +36,9 @@ from typing import Optional, Protocol
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
+from blocked_but_billing_owner_notification import (  # noqa: E402
+    clear_blocked_but_billing_owner_notified_at,
+)
 from checkout_session import (  # noqa: E402
     START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
@@ -237,6 +240,12 @@ def process_follow_event(
     `is_following`を`True`に戻す。未連携の`user_id`(初回follow、まだ連携コード未送信)は
     そもそもprofileが存在しないため対象外(`UserProfile.is_following`の既定値`True`のまま
     連携時に作成される、design 2節)。
+
+    同じ再フォロー時に、blocked-but-billing-owner-notification-design.md 6節
+    「クリア配線」(フェーズ175)のとおり`blocked_but_billing_owner_notified_at`も
+    あわせてクリアする(「ブロック中かつ契約継続中」候補として一度オーナーへ通知された
+    後にフォローが再開された場合、次に再びブロックされたときに改めて通知できるようにする
+    ため)。
     """
     if event.get("type") != "follow":
         return FollowProcessResult(handled=False, reply_sent=False)
@@ -247,6 +256,7 @@ def process_follow_event(
 
     if profile_store is not None and profile_store.exists(user_id):
         profile_store.set_is_following(user_id, True)
+        clear_blocked_but_billing_owner_notified_at(profile_store, user_id)
 
     message_text = format_welcome_message(form_link_provider)
     reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)

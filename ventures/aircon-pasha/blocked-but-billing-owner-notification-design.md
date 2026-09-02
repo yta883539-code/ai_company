@@ -71,16 +71,23 @@ notified_at`フィールドを追加し、`UserProfileStoreProtocol`/
 `BlockedButBillingOwnerNotifiedAtReader`/`Writer`を満たす)。テスト追加、
 venture全体テストパスを確認済み(詳細は上記README.md本フェーズ参照)。
 
-## 6. 今後の課題
+## 6. クリア配線(フェーズ175で実装済み)
 
-- **クリア配線は未実装**。course-set-pasha版4節と同じく、「フォロー再開
-  (is_followingがTrueに戻る)」または「解約確定(customer.subscription.deleted
-  受信でcurrent_plan_idがNoneに戻る)」のいずれかが起きた時点で
-  `blocked_but_billing_owner_notified_at`をクリアする配線
-  (`process_follow_event()`・`subscription_plan_sync.clear_current_plan_on_
-  subscription_deleted()`相当の箇所への追加呼び出し)が必要だが、本フェーズでは
-  判定条件・送信ロジックの実装までにとどめ、クリア配線自体は次回以降の実装課題として
-  残す(course-set-pashaもフェーズ142→143→144の3段階で同じ順序を踏んだ)。
+- 「フォロー再開(is_followingがTrueに戻る)」または「解約確定
+  (customer.subscription.deleted受信でcurrent_plan_idがNoneに戻る)」のいずれかが
+  起きた時点で`blocked_but_billing_owner_notified_at`をクリアする配線を実装した
+  (course-set-pashaがフェーズ142→143→144の3段階で踏んだ順序の最終段階に相当)。
+  `blocked_but_billing_owner_notification.py`の
+  `clear_blocked_but_billing_owner_notified_at()`(設定済みの場合のみクリアし
+  True/Falseを返す純粋関数)を新設し、`cloud_function_webhook.process_follow_
+  event()`・`stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.
+  deleted`分岐の両方から呼び出す。`dispatch_stripe_event()`/`receive_stripe_
+  webhook()`/`get_stripe_runtime_dependencies()`に新規引数`blocked_but_billing_
+  store`(省略時はクリアを行わない後方互換)を追加した。テスト7件追加、venture全体
+  388件全件パス・schema検証9件パスを確認した(詳細は上記README.mdフェーズ175参照)。
+
+## 7. 今後の課題
+
 - `blocked_but_billing_owner_notified_at`の実Firestoreフィールド追加・実際の
   Cloud Scheduler作成・実LINE API接続はオーナー承認待ちの範囲(既存の記載を参照、
   新規追加なし)。

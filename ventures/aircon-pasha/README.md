@@ -2515,4 +2515,24 @@
   3段階で同じ順序を踏んだ、詳細はdesign 6節参照)。テスト11件追加、venture全体381件全件
   パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 19:59 UTC
+- フェーズ175(2026-09-02 21:59 UTC): フェーズ174「次回以降の実装課題」に残っていた、
+  「フォロー再開」・「解約確定」時の`blocked_but_billing_owner_notified_at`クリア配線を
+  実装した。course-set-pashaが同種の課題をフェーズ142→143→144の3段階で解決した前例の
+  最終段階(フェーズ144相当)に当たる。`blocked_but_billing_owner_notification.py`に
+  `clear_blocked_but_billing_owner_notified_at()`(`payment_failure.py`の
+  `clear_payment_failure_on_success()`と同じ「設定済みの場合のみクリアしTrue/Falseを
+  返す」純粋関数、および読み書き両方を要求する合成Protocol
+  `BlockedButBillingOwnerNotifiedAtStoreProtocol`)を新設し、
+  `cloud_function_webhook.process_follow_event()`(フォロー再開)・
+  `stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐
+  (解約確定)の両方から呼び出す配線を追加した。`dispatch_stripe_event()`・
+  `receive_stripe_webhook()`・`get_stripe_runtime_dependencies()`に新規引数
+  `blocked_but_billing_store`(省略時は従来通りクリアを行わない後方互換)を追加し、
+  `plan_store`等と同じく`InMemoryUserProfileStore`が構造的に満たす設計とした。
+  `set_blocked_but_billing_owner_notified_at`の型を`Optional[datetime]`へ拡張し
+  `None`渡しでクリアを表現する、本venture一貫の方針を踏襲した。テスト7件追加、
+  venture全体388件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`
+  相当、pytest実行)パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 21:59 UTC
