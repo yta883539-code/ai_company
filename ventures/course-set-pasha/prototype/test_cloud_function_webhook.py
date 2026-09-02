@@ -61,6 +61,9 @@ from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
     LinkingCodePurgeThrottle,
 )
+from application_form_submission_flow import (  # noqa: E402
+    InMemoryUserProfileStore,
+)
 
 
 class FixtureLlmClient:
@@ -1804,6 +1807,43 @@ class ProcessFollowEventTest(unittest.TestCase):
 
         self.assertIsNone(store.get("OLDCOD"))
 
+    def test_sets_is_following_true_when_profile_store_given(self):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_is_following("U1234", False)
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        process_follow_event(
+            event,
+            store,
+            reply_client,
+            rng=self._rng(),
+            profile_store=profile_store,
+            now=datetime(2026, 1, 3),
+        )
+
+        self.assertTrue(profile_store.get_is_following("U1234"))
+
+    def test_is_following_untouched_when_profile_store_not_given(self):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        result = process_follow_event(
+            event, store, reply_client, rng=self._rng(), now=datetime(2026, 1, 3)
+        )
+
+        self.assertTrue(result.handled)
+
 
 class ProcessUnfollowEventTest(unittest.TestCase):
     """process_unfollow_event()のテスト(unfollow-event-handling-design.md参照)。"""
@@ -1857,6 +1897,34 @@ class ProcessUnfollowEventTest(unittest.TestCase):
 
         self.assertTrue(result.handled)
         self.assertEqual(result.deleted_link_count, 0)
+
+    def test_sets_is_following_false_when_profile_store_given(self):
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        event = {"type": "unfollow", "source": {"userId": "U-bye"}}
+
+        result = process_unfollow_event(event, linking_store, profile_store=profile_store)
+
+        self.assertTrue(result.handled)
+        self.assertFalse(profile_store.get_is_following("U-bye"))
+
+    def test_sets_is_following_false_even_without_linking_store(self):
+        profile_store = InMemoryUserProfileStore()
+        event = {"type": "unfollow", "source": {"userId": "U-bye"}}
+
+        result = process_unfollow_event(event, None, profile_store=profile_store)
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.deleted_link_count, 0)
+        self.assertFalse(profile_store.get_is_following("U-bye"))
+
+    def test_is_following_untouched_when_profile_store_not_given(self):
+        linking_store = InMemoryLinkingCodeStore()
+        event = {"type": "unfollow", "source": {"userId": "U-bye"}}
+
+        result = process_unfollow_event(event, linking_store)
+
+        self.assertTrue(result.handled)
 
 
 class DispatchWebhookEventsTest(unittest.TestCase):
@@ -1952,6 +2020,33 @@ class DispatchWebhookEventsTest(unittest.TestCase):
         self.assertTrue(result.unfollow_results[0].handled)
         self.assertEqual(result.unfollow_results[0].deleted_link_count, 1)
         self.assertIsNone(linking_store.get("ABCDEF"))
+
+    def test_profile_store_is_following_updated_via_dispatch(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        profile_store = InMemoryUserProfileStore()
+        follow_event = {
+            "type": "follow",
+            "replyToken": "rt-follow",
+            "source": {"userId": "U-toggle"},
+        }
+        unfollow_event = {"type": "unfollow", "source": {"userId": "U-toggle"}}
+
+        dispatch_webhook_events(
+            [follow_event],
+            linking_store=linking_store,
+            reply_client=reply_client,
+            profile_store=profile_store,
+            rng=self._rng(),
+        )
+        self.assertTrue(profile_store.get_is_following("U-toggle"))
+
+        dispatch_webhook_events(
+            [unfollow_event],
+            linking_store=linking_store,
+            profile_store=profile_store,
+        )
+        self.assertFalse(profile_store.get_is_following("U-toggle"))
 
     def test_follow_events_are_skipped_when_linking_store_not_connected(self):
         reply_client = InMemoryReplyClient()

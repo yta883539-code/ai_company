@@ -1675,9 +1675,37 @@
   変更は無し、venture全体438件全件パスを再確認した。承認不要なドキュメント整理・アイデア
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 01:00 UTC
+- フェーズ142(2026-09-02 04:00 UTC): unfollow-billing-faq.md「今後の課題」に残っていた
+  「本サービス側から能動的に『ブロック中かつ契約継続中』のユーザーを検知するプロアクティブな
+  通知バッチの要否・設計は未着手」に対応した。着手前に、そもそも本venture側に
+  「誰がLINEをブロックしたか」を記録する手段自体が無かった(`process_unfollow_event()`が
+  design 2節の通り`pending_links`削除のみを行う実装だったため)ことを発見し、
+  aircon-pashaフェーズ167と同種の記載漏れであることを確認した。blocked-but-billing-
+  detection-design.mdとして新規設計した(aircon-pashaと異なり本ventureは`current_plan_id`
+  フィールドを持たないため、既存の`deletion_candidate_at`(フェーズ91)を再利用する設計とした
+  点が差異)。`application_form_submission_flow.UserProfileStoreProtocol`に
+  `is_following`/`all_user_ids`を追加、`cloud_function_webhook.process_follow_event()`/
+  `process_unfollow_event()`/`dispatch_webhook_events()`にfollow/unfollowイベント受信時の
+  `is_following`更新配線を追加し、`prototype/blocked_but_billing_candidates.py`に
+  `list_blocked_but_billing_candidates(profile_store, deletion_store)`
+  (`is_following=False`かつ`stripe_customer_id`設定済みかつ`deletion_candidate_at`未設定の
+  user_idを洗い出す読み出し専用関数)を新規実装した。unfollow-event-handling-design.md
+  論点3(user_profileは一切変更しない)には`is_following`のみ例外である旨を注記追加した。
+  テスト16件追加(is_following往復2件・all_user_ids2件・follow/unfollowイベント処理4件・
+  dispatch結線1件・候補洗い出しロジック6件・既存挙動に影響がないことの確認1件)、
+  venture全体454件全件パス・schema検証9件パスを確認した。候補一覧を実際にオーナーへ届ける
+  手段(バッチ実行主体・通知チャネル)はaircon-pashaと同様に未設計のまま残る
+  (blocked-but-billing-detection-design.md「残る限界・今後の課題」参照)。承認不要な
+  設計・実装・テスト追加・アイデア追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 04:00 UTC
 
 ## 次にやること(候補)
+
+- (解消済み 2026-09-02 04:00 UTC・フェーズ142: unfollow-billing-faq.mdの「プロアクティブな
+  通知バッチの要否・設計は未着手」に対応し、blocked-but-billing-detection-design.mdとして
+  設計・実装した。詳細は上記フェーズ142参照。候補一覧をオーナーへ届ける手段は引き続き
+  未設計のまま残る)
 
 - (解消済み 2026-09-02 01:00 UTC・フェーズ141: payment-failure-dunning-design.md「背景」節の
   「解約時のデータ削除候補化は本venture未着手」という誤記を、フェーズ91で既に設計済みだった

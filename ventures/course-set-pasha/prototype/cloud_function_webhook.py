@@ -49,6 +49,9 @@ from trial_end_scheduler import (  # noqa: E402
     TRIAL_GENERATION_LIMIT,
     format_trial_end_notification_message,
 )
+from application_form_submission_flow import (  # noqa: E402
+    UserProfileStoreProtocol,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -684,6 +687,7 @@ def process_follow_event(
     form_link_provider: Optional[ApplicationFormLinkProvider] = None,
     rng: Optional[RandomChoiceSource] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> FollowProcessResult:
     """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
@@ -692,6 +696,10 @@ def process_follow_event(
     案B(followイベント便乗パージ)を実行する。MVP初期の呼び出し元は`purge_throttle`を
     渡さない(案Cのみ稼働)方針を維持するが、将来案Bを有効化する際にコード変更なしで
     対応できるよう引数自体は用意しておく。
+
+    `profile_store`はblocked-but-billing-detection-design.md準拠。渡された場合のみ、
+    `user_profile/{user_id}.is_following`を`True`に更新する(再フォロー時の復帰含む)。
+    未指定(`None`)の場合は他のイベントハンドラと同じ「未接続時は安全側で素通り」方針とする。
     """
     resolved_now = now or datetime.now(timezone(timedelta(hours=9)))
 
@@ -704,6 +712,9 @@ def process_follow_event(
     user_id = event.get("source", {}).get("userId")
     if not user_id:
         return FollowProcessResult(handled=True, reply_sent=False)
+
+    if profile_store is not None:
+        profile_store.set_is_following(user_id, True)
 
     resolved_rng = rng if rng is not None else random.Random()
     linking_code = issue_linking_code_on_follow(
@@ -725,21 +736,34 @@ class UnfollowProcessResult:
 def process_unfollow_event(
     event: dict,
     linking_store: Optional[LinkingCodeStoreProtocol],
+    *,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
 ) -> UnfollowProcessResult:
     """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提、
     unfollow-event-handling-design.md「決定のまとめ」)。
 
-    - `user_profile`・`usage_counter`・履歴データはいずれも変更しない(再フォロー時に
-      設定し直す手間を省くため保持する)。
+    - `gym_area_pairs`・`email`・`usage_counter`・履歴データはいずれも変更しない
+      (再フォロー時に設定し直す手間を省くため保持する、unfollow-event-handling-design.md
+      論点3)。`is_following`フラグのみ例外で、blocked-but-billing-detection-design.md準拠
+      `profile_store`が渡された場合に`False`へ更新する(「ブロック中かつ契約継続中」の
+      検知に使うためのフラグであり、論点3が対象とした「ユーザー設定・利用実績データ」とは
+      別種の状態である)。
     - LINEへの返信は行わない(ブロックされているため送達不可)。
-    - `linking_store`未接続の場合は該当user_id宛の未使用連携コードの削除も行わず、
-      安全側で素通りする(他のイベントハンドラと同じ方針)。
+    - `linking_store`未接続の場合は該当user_id宛の未使用連携コードの削除を行わず、
+      `profile_store`未接続の場合は`is_following`の更新を行わない。いずれも他のイベント
+      ハンドラと同じ「未接続時は安全側で素通り」方針。
     """
     if event.get("type") != "unfollow":
         return UnfollowProcessResult(handled=False)
 
     user_id = event.get("source", {}).get("userId")
-    if not user_id or linking_store is None:
+    if not user_id:
+        return UnfollowProcessResult(handled=True, deleted_link_count=0)
+
+    if profile_store is not None:
+        profile_store.set_is_following(user_id, False)
+
+    if linking_store is None:
         return UnfollowProcessResult(handled=True, deleted_link_count=0)
 
     deleted_count = delete_pending_links_for_user(user_id, linking_store)
@@ -1265,6 +1289,7 @@ def dispatch_webhook_events(
     gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     rng: Optional[RandomChoiceSource] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
@@ -1279,6 +1304,10 @@ def dispatch_webhook_events(
     - それ以外の種別(postback・join等)は無視し、`ignored_types`に種別名のみ記録する。
     - `reply_client`/`linking_store`が未接続(follow)、`reply_client`/`llm_call`が
       未接続(message)の場合は、該当種別のイベントを処理せず素通りする(design 1節)。
+
+    `profile_store`はblocked-but-billing-detection-design.md準拠(フェーズ続き)。指定時、
+    follow/unfollowイベント受信のたびに`user_profile/{user_id}.is_following`を更新する。
+    未指定(`None`)時は従来通り更新を行わない(既存呼び出し経路への後方互換)。
     """
     result = DispatchResult()
 
@@ -1298,6 +1327,7 @@ def dispatch_webhook_events(
                     form_link_provider=form_link_provider,
                     rng=rng,
                     purge_throttle=purge_throttle,
+                    profile_store=profile_store,
                     now=now,
                 )
             )
@@ -1324,7 +1354,9 @@ def dispatch_webhook_events(
 
     unfollow_events = [e for e in events if e.get("type") == "unfollow"]
     for event in unfollow_events:
-        result.unfollow_results.append(process_unfollow_event(event, linking_store))
+        result.unfollow_results.append(
+            process_unfollow_event(event, linking_store, profile_store=profile_store)
+        )
 
     return result
 

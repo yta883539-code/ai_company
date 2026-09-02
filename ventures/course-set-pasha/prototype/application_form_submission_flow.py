@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Iterable, Optional, Protocol
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -40,6 +40,12 @@ class UserProfileStoreProtocol(Protocol):
     `set_email`/`get_email`はcontact-email-field-design.md(フェーズ139)で追加した。
     申込フォームで収集する連絡先メールアドレス(onboarding-guide.md 1.)を
     `user_profile/{user_id}.email`として保持する。
+
+    `set_is_following`/`get_is_following`/`all_user_ids`はblocked-but-billing-detection-
+    design.mdで追加した。`user_profile/{user_id}.is_following`(LINE公式アカウントを
+    フォロー中かどうか、aircon-pashaの`UserProfile.is_following`と同じ考え方)を保持する。
+    未記録のuser_id(followイベントを一度も受けていない等)は`True`(フォロー中)として
+    扱う(aircon-pashaの`is_following: bool = True`のデフォルトと同じ安全側の初期値)。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
@@ -65,6 +71,15 @@ class UserProfileStoreProtocol(Protocol):
     ) -> Optional[str]:
         ...
 
+    def set_is_following(self, user_id: str, is_following: bool) -> None:
+        ...
+
+    def get_is_following(self, user_id: str) -> bool:
+        ...
+
+    def all_user_ids(self) -> Iterable[str]:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -86,6 +101,7 @@ class InMemoryUserProfileStore:
         self._emails: dict[str, str] = {}
         self._stripe_customer_ids: dict[str, str] = {}
         self._user_ids_by_stripe_customer_id: dict[str, str] = {}
+        self._is_following: dict[str, bool] = {}
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         self._profiles[user_id] = raw_value
@@ -113,6 +129,22 @@ class InMemoryUserProfileStore:
         self, stripe_customer_id: str
     ) -> Optional[str]:
         return self._user_ids_by_stripe_customer_id.get(stripe_customer_id)
+
+    def set_is_following(self, user_id: str, is_following: bool) -> None:
+        self._is_following[user_id] = is_following
+
+    def get_is_following(self, user_id: str) -> bool:
+        return self._is_following.get(user_id, True)
+
+    def all_user_ids(self) -> Iterable[str]:
+        # design: is_following/gym_area_pairs/stripe_customer_idいずれかの記録がある
+        # user_idを漏れなく列挙する(blocked_but_billing_candidates.list_...()の走査対象)。
+        return sorted(
+            set(self._profiles)
+            | set(self._emails)
+            | set(self._stripe_customer_ids)
+            | set(self._is_following)
+        )
 
 
 # design 2節: 連続カンマのみ等、要素がすべて空になる入力を「実質空」とみなすための判定に使う。

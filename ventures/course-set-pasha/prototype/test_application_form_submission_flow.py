@@ -108,6 +108,30 @@ class InMemoryUserProfileStoreTest(unittest.TestCase):
         store.set_stripe_customer_id("U1", "cus_new")
         self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "U1")
 
+    def test_unrecorded_user_is_following_defaults_true(self):
+        # blocked-but-billing-detection-design.md: 未記録のuser_idは安全側でTrue扱い。
+        store = InMemoryUserProfileStore()
+        self.assertTrue(store.get_is_following("U_unknown"))
+
+    def test_set_is_following_false_then_true_round_trips(self):
+        store = InMemoryUserProfileStore()
+        store.set_is_following("U1", False)
+        self.assertFalse(store.get_is_following("U1"))
+        store.set_is_following("U1", True)
+        self.assertTrue(store.get_is_following("U1"))
+
+    def test_all_user_ids_collects_across_all_fields(self):
+        store = InMemoryUserProfileStore()
+        store.set_gym_area_pairs("U1", "クライミングジムA/○○区")
+        store.set_email("U2", "owner@example.com")
+        store.set_stripe_customer_id("U3", "cus_A")
+        store.set_is_following("U4", False)
+        self.assertEqual(list(store.all_user_ids()), ["U1", "U2", "U3", "U4"])
+
+    def test_all_user_ids_empty_store_returns_empty(self):
+        store = InMemoryUserProfileStore()
+        self.assertEqual(list(store.all_user_ids()), [])
+
 
 class HandleFormSubmissionTest(unittest.TestCase):
     def test_valid_payload_writes_normalized_value_and_returns_ok(self):
