@@ -1698,14 +1698,34 @@
   (blocked-but-billing-detection-design.md「残る限界・今後の課題」参照)。承認不要な
   設計・実装・テスト追加・アイデア追加のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 04:00 UTC
+- フェーズ143(2026-09-02 06:00 UTC): フェーズ142の残課題だった「候補一覧を実際にオーナーへ
+  届ける手段(バッチ実行主体・通知チャネル)」の設計・実装を行った。
+  payment-suspension-owner-notification-design.md(フェーズ125)が既に確立した「顧客ごとの
+  user_idではなく固定のオーナー1件へLINE Push」というチャネル設計をそのまま踏襲し、
+  blocked-but-billing-owner-notification-design.mdとして新規設計した。冪等性は
+  payment_suspension_owner_notified_atと同型の新規フィールド
+  `blocked_but_billing_owner_notified_at`(1候補=1回のみ通知、digest形式は採らない)を
+  `user_profile`側に追加する設計とした。`prototype/blocked_but_billing_owner_
+  notification.py`に`select_new_blocked_but_billing_candidates_for_notification()`
+  (未通知候補の絞り込み)・`send_blocked_but_billing_owner_notifications()`(Cloud
+  Function G相当、送信成功時のみ通知済みとして記録)を実装した。フォロー再開・解約確定時の
+  `blocked_but_billing_owner_notified_at`クリア配線は設計のみで実装は次回以降の課題として
+  残る(design 4節・6節)。テスト10件追加、venture全体464件全件パス・schema検証9件パスを
+  確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-02 06:00 UTC
 
 ## 次にやること(候補)
 
+- (2026-09-02 06:00 UTC・フェーズ143: blocked-but-billing-owner-notification-design.md
+  4節「クリア」で設計した、フォロー再開・解約確定時の`blocked_but_billing_owner_notified_at`
+  クリア配線(`process_follow_event()`・解約確定処理への呼び出し追加)がまだ未実装のまま
+  残る。次回以降の実装課題として優先候補とする)
+
 - (解消済み 2026-09-02 04:00 UTC・フェーズ142: unfollow-billing-faq.mdの「プロアクティブな
   通知バッチの要否・設計は未着手」に対応し、blocked-but-billing-detection-design.mdとして
-  設計・実装した。詳細は上記フェーズ142参照。候補一覧をオーナーへ届ける手段は引き続き
-  未設計のまま残る)
+  設計・実装した。詳細は上記フェーズ142参照。候補一覧をオーナーへ届ける手段は
+  フェーズ143で対応済み)
 
 - (解消済み 2026-09-02 01:00 UTC・フェーズ141: payment-failure-dunning-design.md「背景」節の
   「解約時のデータ削除候補化は本venture未着手」という誤記を、フェーズ91で既に設計済みだった
