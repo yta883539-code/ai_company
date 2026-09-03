@@ -2589,4 +2589,24 @@
   アカウント接続(オーナー承認待ち)後の課題として引き続き残す。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 11:01 UTC
+- フェーズ179(2026-09-03 17:00 UTC): course-set-pasha・line-reservation-aiの
+  「Checkout Sessionが購入プランを記録していない」ギャップの横展開検討中に、本ventureは
+  それ以上に根本的なギャップ(`build_checkout_session_params()`が`line_items`を一切
+  含めておらず、`mode="subscription"`のCheckout Sessionは実Stripe接続後にAPI呼び出し
+  自体が失敗する状態のまま放置されていた)を発見した。
+  checkout-session-plan-selection-design.mdを新規作成し、`PLAN_TO_STRIPE_PRICE_ID_
+  PLACEHOLDER`(pricing-plan.mdの3プラン名→Price IDプレースホルダ)・
+  `DEFAULT_CHECKOUT_PLAN`(`"スタンダード"`)を新設、`build_checkout_session_params()`に
+  `plan`引数(既定値`DEFAULT_CHECKOUT_PLAN`、未知の値は`ValueError`)を追加し常に1件の
+  `line_items`を含めるようにした。本venture固有の事情(決済導線が単一postbackボタンで
+  LIFFプラン選択UIを持たない)を踏まえ、全ユーザーをスタンダードプランで開始させ、開始後の
+  プラン変更は既存のStripe Customer Portal導線(フェーズ178)に委ねる設計とした
+  (`subscription_plan_sync.py`が`customer.subscription.updated`から`current_plan_id`を
+  自動追従するため、追加のアプリ側実装は不要)。`cloud_function_webhook.py`が既に
+  `checkout_session.py`をインポートしているため循環インポートを避け、プラン名リテラルは
+  本venture既存の重複パターンを踏襲し独立して保持した(course-set-pashaとインポート方向が
+  逆のため同じ横展開手法は使えなかった)。テスト5件追加、venture全体411件全件パス・
+  schema検証9件パスを確認した。プラン選択UI(postbackボタンの複数分割)・実Price ID確定は
+  次回以降の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 17:00 UTC

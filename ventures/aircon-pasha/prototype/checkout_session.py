@@ -29,11 +29,32 @@ DEFAULT_CANCEL_URL = "https://example.com/aircon-pasha/checkout/cancel"
 # design 2節: トライアル終了通知メッセージ内のpostbackボタンに埋め込む固定データ。
 START_CHECKOUT_POSTBACK_DATA = "action=start_checkout"
 
+# checkout-session-plan-selection-design.md(フェーズ179): pricing-plan.md「プラン案」表と
+# 同じ3プラン名(cloud_function_webhook.PLAN_MONTHLY_LIMITS・
+# subscription_plan_sync.LOOKUP_KEY_TO_PLAN_IDと同じキー集合)を、Stripe Price ID
+# (実アカウント接続後に確定、それまでのプレースホルダ)へ対応付ける。
+# `cloud_function_webhook.py`が既に本モジュールをインポートしているため、循環インポートを
+# 避けるためここから逆にインポートすることはできない(3モジュールでプラン名リテラルを
+# 個別に保持する、本venture既存の重複パターンを踏襲する)。
+PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER = {
+    "スモール": "price_PLACEHOLDER_AIRCON_PASHA_SMALL",
+    "スタンダード": "price_PLACEHOLDER_AIRCON_PASHA_STANDARD",
+    "繁忙期対応": "price_PLACEHOLDER_AIRCON_PASHA_BUSY",
+}
+
+# design 1節: 本ventureの決済導線は単一ボタン(start_checkout)のみでプラン選択UIを
+# 提供しないため、全ユーザーをこのプランで開始する。market-research.mdの標準的な利用量
+# (月60〜100件)に最も近い「想定顧客像」を持つプランを既定値とした。開始後のプラン変更は
+# 既存のStripe Customer Portal導線(update_payment_methodポストバック→portal_session.py)
+# で行う想定(portal-session-provider-design.md)。
+DEFAULT_CHECKOUT_PLAN = "スタンダード"
+
 
 def build_checkout_session_params(
     user_id: str,
     existing_stripe_customer_id: Optional[str] = None,
     *,
+    plan: str = DEFAULT_CHECKOUT_PLAN,
     success_url: str = DEFAULT_SUCCESS_URL,
     cancel_url: str = DEFAULT_CANCEL_URL,
 ) -> dict:
@@ -43,15 +64,23 @@ def build_checkout_session_params(
       `source.userId`取得が必ず先に成功している認証済みuser_idである前提を明示するガード。
     - `existing_stripe_customer_id`が渡された場合のみ`"customer"`キーを追加し、既存の
       Stripe顧客を再利用する(重複顧客レコード防止、course-set-pashaと同じ理由)。
+    - `plan`は`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の既知のキーでなければ`ValueError`
+      (checkout-session-plan-selection-design.md 1節)。`mode="subscription"`のCheckout
+      Sessionは`line_items`なしでは作成できないため、常に1件の`line_items`を含める。
     """
     if not user_id:
         raise ValueError("user_id must be a non-empty string")
+    if plan not in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER:
+        raise ValueError(f"unknown plan: {plan!r}")
 
     params: dict = {
         "mode": "subscription",
         "client_reference_id": user_id,
         "success_url": success_url,
         "cancel_url": cancel_url,
+        "line_items": [
+            {"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER[plan], "quantity": 1}
+        ],
     }
     if existing_stripe_customer_id:
         params["customer"] = existing_stripe_customer_id

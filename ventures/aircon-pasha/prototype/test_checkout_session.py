@@ -11,7 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from checkout_session import (  # noqa: E402
     DEFAULT_CANCEL_URL,
+    DEFAULT_CHECKOUT_PLAN,
     DEFAULT_SUCCESS_URL,
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
     START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
 )
@@ -52,6 +54,37 @@ class BuildCheckoutSessionParamsTest(unittest.TestCase):
         )
         self.assertEqual(params["success_url"], "https://example.com/custom/success")
         self.assertEqual(params["cancel_url"], "https://example.com/custom/cancel")
+
+    def test_default_plan_is_used_when_omitted(self):
+        params = build_checkout_session_params("Uabc123")
+        self.assertEqual(
+            params["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER[DEFAULT_CHECKOUT_PLAN], "quantity": 1}],
+        )
+
+    def test_explicit_plan_selects_matching_price(self):
+        params = build_checkout_session_params("Uabc123", plan="スモール")
+        self.assertEqual(
+            params["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スモール"], "quantity": 1}],
+        )
+
+    def test_busy_plan_selects_matching_price(self):
+        params = build_checkout_session_params("Uabc123", plan="繁忙期対応")
+        self.assertEqual(
+            params["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["繁忙期対応"], "quantity": 1}],
+        )
+
+    def test_raises_on_unknown_plan(self):
+        with self.assertRaises(ValueError):
+            build_checkout_session_params("Uabc123", plan="プレミアム")
+
+    def test_line_items_present_even_for_existing_customer(self):
+        params = build_checkout_session_params(
+            "Uabc123", existing_stripe_customer_id="cus_existing456"
+        )
+        self.assertIn("line_items", params)
 
 
 class StartCheckoutPostbackDataTest(unittest.TestCase):
