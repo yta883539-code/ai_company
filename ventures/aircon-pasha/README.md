@@ -2551,4 +2551,19 @@
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。次回は
   他venture・アイデア領域の前進、または実Cloud Scheduler・実Stripe接続待ち(オーナー承認待ち)
   以外の残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-03 00:58 UTC
+- フェーズ177(2026-09-03 04:01 UTC): 各設計docの残課題を棚卸しした結果、
+  `prototype/payment_failure.py`のモジュールdocstring(フェーズ139作成時点のまま)に、
+  「猶予期間終了後に制限モードへ移行させるスケジューラ」「`_is_generation_paused()`の
+  判定条件拡張・制限モード専用メッセージの配線」「決済成功時の復旧通知3分岐の文言出し分け」
+  の3件が「次回以降の課題」として残ったままの記載漏れを発見した。payment-failure-dunning-
+  design.md 6節では既にフェーズ143・141・148でそれぞれ対応済みと正しく記録されており
+  (前者2件はフェーズ155・176の棚卸しでも`cloud_function_webhook.py`側のコメントは訂正済み
+  だったが、`payment_failure.py`自身のdocstringは今回まで未訂正のまま残っていた)、実際に
+  `payment_suspension_scheduler.py`(フェーズ145)・`_is_payment_suspended()`
+  (フェーズ141)・`payment_recovery_notification.py`+`recovery_push_client`配線
+  (フェーズ146・148・149)がいずれも現存することをコード上で確認した上で、docstringを
+  解消済みの旨に訂正した。コード変更は無し(docstring整理のみ)、venture全体388件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
+  再確認した。承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 04:01 UTC

@@ -7,17 +7,20 @@ payment-failure-dunning-design.md(フェーズ139)3・6節で設計した、決�
 
 位置づけ:
 - 猶予期間(7日)終了後に制限モード(`payment_suspended_at`)へ自動移行させるスケジューラ
-  (design 6節「残課題」)、および`_is_generation_paused()`の判定条件拡張・制限モード
-  専用メッセージの`process_memo_event()`への配線(design 3節)はいずれも本モジュールの
-  対象外で、次回以降の課題として残る。猶予期間終了直前リマインドの送信は
-  payment_failure_reminder_scheduler.py(フェーズ143)で対応済みで、本モジュールの
-  `clear_payment_failure_on_success()`はそのリマインド送信済みフラグ
-  (`payment_failure_reminder_sent_at`)もあわせてクリアする(次回の決済失敗検知時に
+  (design 6節「残課題」)は本モジュールの対象外だが、フェーズ145で
+  `payment_suspension_scheduler.py`として実装済み(結線テストはフェーズ155で追加済み)。
+  `_is_generation_paused()`の判定条件拡張・制限モード専用メッセージの
+  `process_memo_event()`への配線(design 3節)はフェーズ141で`_is_payment_suspended()`
+  として対応済み。猶予期間終了直前リマインドの送信はpayment_failure_reminder_scheduler.py
+  (フェーズ143)で対応済みで、本モジュールの`clear_payment_failure_on_success()`はそのリマインド
+  送信済みフラグ(`payment_failure_reminder_sent_at`)もあわせてクリアする(次回の決済失敗検知時に
   再びリマインド対象となるようにするため)。design 4節末尾で触れた「猶予期間中に決済が
-  成功した場合の
-  復旧通知の3分岐(制限モードからの復旧/猶予期間中の完了通知/状態リセットのみ)」の
-  文言出し分けも、実際のWebhook受信配線(LINE通知送信)実装時の課題として本モジュールでは
-  扱わない。
+  成功した場合の復旧通知の3分岐(制限モードからの復旧/猶予期間中の完了通知/状態リセットのみ)」の
+  文言出し分けも、payment_recovery_notification.py(フェーズ146)・
+  stripe_dispatch.py/stripe_webhook.pyのrecovery_push_client配線(フェーズ148・149)で
+  対応済み。以上、本モジュール作成時点(フェーズ139)で「次回以降の課題」としていた項目は
+  いずれもフェーズ177時点で解消済み(このdocstring自体がフェーズ177まで更新されずに
+  残っていた記載漏れ)。
 - deletion_candidate.pyと同じ位置づけで、Webhookイベント種別を受け取った"後"に呼ばれる
   中身の判断・データ更新ロジックのみを、実Firestore接続なしで検証可能な純粋関数として
   実装する。`PaymentFailureStoreProtocol`はdeletion_candidate.pyの
