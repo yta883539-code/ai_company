@@ -2123,7 +2123,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 14:00 UTC
+- フェーズ続き183(2026-09-03 16:00 UTC): stripe-event-idempotency-design.md「残課題」に
+  残っていた、`route_stripe_event()`(ルート解決のみを行う薄い層)を実際に
+  `handle_subscription_activated()`・`handle_payment_succeeded()`・
+  `handle_payment_failed()`へつなぐ統合エントリポイントが本venture内のどこにも
+  存在しないというギャップに対応した(course-set-pasha/aircon-pashaの
+  `stripe-webhook-http-entry-point-design.md`相当を本venture向けに設計)。本venture
+  固有の事情として、Stripeの状態が`StoreDunningState`(dunning・復旧)と
+  `StoreSubscriptionState`(トライアル後の初回プラン選択)の2つの独立した状態モデルに
+  分かれているため、`stripe-webhook-http-entry-point-design.md`を新規作成し、それぞれ
+  専用のストアProtocol(`StoreDunningStateStoreProtocol`/
+  `StoreSubscriptionStateStoreProtocol`)を介して読み書きする設計とした。
+  `prototype/stripe_webhook_entry_point.py`(新規)に上記2つのストアProtocol・
+  インメモリ実装・`receive_stripe_webhook()`(署名検証→JSONパース→
+  `route_stripe_event()`→イベント種別に応じたハンドラ呼び出し・状態書き戻し)を実装した。
+  ストア未指定・`push_client`未指定・該当`store_id`の状態が見つからない場合はいずれも
+  ハンドラを呼び出さず200を返す安全側フォールバックとした(`invoice.payment_failed`
+  経路のみ、`handle_payment_failed()`自体が`push_client`を取らない設計〈検知のみを行い
+  実際の通知は別経路のCloud Scheduler起動処理が担う〉のため`push_client`の有無を
+  問わない)。テスト13件追加、venture全体642件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実際のCloud Functions HTTP
+  エントリポイント(`main(request)`相当)・実Stripeアカウント接続は引き続き実Stripe接続
+  待ち(オーナー承認)の課題として残す。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-03 16:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

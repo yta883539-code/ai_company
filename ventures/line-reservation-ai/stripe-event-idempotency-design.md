@@ -72,16 +72,16 @@ venture全体603件全件(python3 -m unittest discover -p "test_*.py")パス・s
 
 ## 残課題
 
-- `route_stripe_event()`は解決(`store_id`の判定)のみを行う層であり、実際に
-  `handle_payment_succeeded()`等のハンドラを呼び出す統合エントリポイント
-  (`receive_stripe_webhook()`相当)自体がまだ存在しない。これは本ドキュメントのスコープ外
-  で、stripe-webhook-signature-verification-design.md「残課題」に記載のとおり
-  course-set-pasha/aircon-pashaの`stripe-webhook-http-entry-point-design.md`相当を本
-  venture向けに設計することが引き続き必要(本venture固有の留意点として、
-  `cloud_function_payment_webhook.py`・`cloud_function_subscription_activated_webhook.py`
-  との責務分担整理も必要)。
-- 将来その統合エントリポイントを新設する際、`route_stripe_event()`が返す`duplicate=True`
-  ルートを見てハンドラ呼び出しをスキップする配線を忘れないこと(今回はルート解決層のみの
-  対応であり、まだ実際のハンドラは存在しないため呼び出しスキップの配線自体も次の課題)。
+- (解消済み 2026-09-03 16:00 UTC・フェーズ続き183: `route_stripe_event()`を実際に
+  `handle_subscription_activated()`・`handle_payment_succeeded()`・
+  `handle_payment_failed()`へつなぐ統合エントリポイント`receive_stripe_webhook()`を
+  stripe-webhook-http-entry-point-design.mdで設計し、
+  `prototype/stripe_webhook_entry_point.py`として実装した。`route_stripe_event()`が
+  返す`duplicate=True`ルートを見てハンドラ呼び出しをスキップする配線も含めて対応済み。
+  詳細は同ドキュメント参照)
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は、実Stripeアカウント接続
   (オーナー承認待ち)後の設計課題として別途残る(署名検証設計から持ち越しの既存課題)。
+- 実際のCloud Functions HTTPエントリポイント(`main(request)`相当、`request.get_data()`・
+  `request.headers.get("Stripe-Signature")`からの取り出し配線)は、
+  stripe-webhook-http-entry-point-design.md「今後の課題」のとおり本venture向けに
+  まだ新規作成されていない(次回以降の課題)。
