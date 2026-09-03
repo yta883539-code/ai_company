@@ -79,12 +79,22 @@ pricing-plan.mdは既に3プラン(スモール/スタンダード/繁忙期対�
 - `PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の実Price ID(Stripeダッシュボードでの商品・価格
   作成、`subscription_plan_sync.LOOKUP_KEY_TO_PLAN_ID`と対応する`lookup_key`の設定を含む)
   は実Stripeアカウント接続(オーナー承認待ち、pending-approval.md参照)後の課題として残る。
-- 単一ボタン(`action=start_checkout`)による「全員スタンダードプランで開始」という現状の
-  割り切りは、業者が最初からスモール/繁忙期対応プランを選びたい場合に対応できない。
-  postbackボタンを3プラン分に分割する(例:`action=start_checkout&plan=スモール`等)
-  UI変更、または`QuickReplyButton`を複数ボタン対応にする(現状`Optional[QuickReplyButton]`
-  単数、`ReplyClient.reply()`・`InMemoryReplyClient`・呼び出し元3箇所の変更を伴う)設計は
-  次回以降の課題として残す。
+- (解消済み 2026-09-03フェーズ180: トライアル終了通知(Push Message、業者が最初にプランを
+  選ぶ主要な入口)のFlex Messageフッターを、`checkout_session.build_start_checkout_postback_data(plan)`
+  (`"action=start_checkout&plan=<プラン名>"`)を使った3プラン分のボタンに分割した
+  〈`trial_end_scheduler.build_trial_end_notification_flex_message()`〉。
+  `process_postback_event()`側は`checkout_session.parse_start_checkout_postback_data()`で
+  postbackデータからプラン名を解決し(プラン未指定の`START_CHECKOUT_POSTBACK_DATA`は
+  `DEFAULT_CHECKOUT_PLAN`へ後方互換、未知のプラン名は他アクション同様`handled=False`で
+  素通り)、`build_checkout_session_params()`へ渡すよう対応した。テスト9件追加
+  (`test_checkout_session.py`7件・`test_cloud_function_webhook.py`2件、
+  `test_trial_end_scheduler.py`の既存テストは3ボタン確認に更新)、venture全体420件
+  全件パス・schema検証9件パスを確認した。
+  一方、`QuickReplyButton`(プレーンテキストへのボタン添付、条件A(生成回数到達)・
+  一時停止/制限モード通知等で使用)は現状`Optional[QuickReplyButton]`単数のままで、
+  これらの経路はなお既定プラン(`DEFAULT_CHECKOUT_PLAN`)据え置き。`QuickReplyButton`を
+  複数ボタン対応にする(`ReplyClient.reply()`・`InMemoryReplyClient`・呼び出し元3箇所の
+  変更を伴う)設計は次回以降の課題として残す)
 - Stripe Customer Portalの設定でプラン変更(price切り替え)を実際に許可するかどうかの
   ダッシュボード設定確認は、実Stripeアカウント接続後の課題として残る。
 - 実Stripe接続後、`build_checkout_session_params()`が組み立てたパラメータで実際に

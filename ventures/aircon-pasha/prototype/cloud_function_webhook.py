@@ -42,6 +42,7 @@ from blocked_but_billing_owner_notification import (  # noqa: E402
 from checkout_session import (  # noqa: E402
     START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
+    parse_start_checkout_postback_data,
 )
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
 from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
@@ -1115,9 +1116,12 @@ def process_postback_event(
     """LINEの`postback`イベント1件を処理する(署名検証済みの前提、design 2〜3節、
     payment-failure-dunning-design.md 5節)。
 
-    `data`が`action=start_checkout`・`action=update_payment_method`以外のpostback
-    (本venture未着手の将来アクション、design 2節「将来別アクションを追加する場合」)は
-    `handled=False`として素通りする。
+    `data`がstart_checkout系(プラン未指定の`START_CHECKOUT_POSTBACK_DATA`、または
+    checkout-session-plan-selection-design.md 3節・フェーズ180対応の
+    `"action=start_checkout&plan=<プラン名>"`)・`action=update_payment_method`以外の
+    postback(本venture未着手の将来アクション、design 2節「将来別アクションを追加する場合」。
+    未知のプラン名を含むstart_checkout系postbackもここに含む、
+    parse_start_checkout_postback_data()参照)は`handled=False`として素通りする。
     user_idが取得できない、またはuser_profileが未連携(design 3節手順3の異常系)の場合は
     user_id_linking.pyの既存の未連携案内文言(LINKING_REQUIRED_MESSAGE)を返す
     (2つのアクションで共通)。
@@ -1130,7 +1134,8 @@ def process_postback_event(
     ボタンをタップした業者に無反応を返さないため)。
     """
     data = event.get("postback", {}).get("data")
-    if data not in (START_CHECKOUT_POSTBACK_DATA, UPDATE_PAYMENT_METHOD_POSTBACK_DATA):
+    start_checkout_plan = parse_start_checkout_postback_data(data)
+    if start_checkout_plan is None and data != UPDATE_PAYMENT_METHOD_POSTBACK_DATA:
         return PostbackEventResult(handled=False, reply_sent=False)
 
     reply_token = event["replyToken"]
@@ -1150,7 +1155,9 @@ def process_postback_event(
         )
         return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=portal_url)
 
-    params = build_checkout_session_params(user_id, profile.stripe_customer_id)
+    params = build_checkout_session_params(
+        user_id, profile.stripe_customer_id, plan=start_checkout_plan
+    )
     checkout_url = checkout_session_client.create(params)
     reply_sent = _reply_with_retry(
         reply_client, reply_token, format_checkout_reply_message(checkout_url)

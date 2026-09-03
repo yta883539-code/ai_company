@@ -26,7 +26,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, Protocol, Sequence
 
-from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from checkout_session import (
+    DEFAULT_CHECKOUT_PLAN,
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
+    build_start_checkout_postback_data,
+)
 from user_id_linking import UserProfile
 
 # trial-end-notification-design.md 2節(B): トライアル開始から14日でトライアル終了。
@@ -143,10 +147,16 @@ def build_trial_end_notification_flex_message(generation_count: int) -> dict:
     """design 1節「本venture固有の差分」: 通知メッセージ自体もFlex Messageの
     ボタン込みで組み立てる(プレーンテキストリンクではない)。
 
-    ボタンのpostbackデータはcheckout_session.START_CHECKOUT_POSTBACK_DATA
-    (`action=start_checkout`)を固定で使う。実際のCheckout Session作成は
+    checkout-session-plan-selection-design.md 3節「次回以降の課題」フェーズ180対応:
+    footerのボタンは、pricing-plan.mdの3プラン(`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の
+    キー順、スモール/スタンダード/繁忙期対応)ぶんに分割する。各ボタンのpostbackデータは
+    `checkout_session.build_start_checkout_postback_data(plan)`
+    (`"action=start_checkout&plan=<プラン名>"`)で組み立てる。実際のCheckout Session作成は
     process_postback_event()側の役割のため、本関数はメッセージ整形のみを担う
-    (design 2節「独立させる」方針)。
+    (design 2節「独立させる」方針)。トライアル終了通知(Push Message、業者が最初に
+    プランを選ぶ入口)のみを本フェーズの対象とし、条件A(生成回数到達)・一時停止/制限
+    モード通知等、QuickReplyButton(単一ボタン)経由の他CTAは既定プラン
+    (`DEFAULT_CHECKOUT_PLAN`)据え置きのまま次回以降の課題として残す(README.md参照)。
 
     戻り値はLINE Messaging APIのFlex Message `contents`(bubble)相当のdictで、
     実送信時はこれを`{"type": "flex", "altText": ..., "contents": ...}`として
@@ -192,13 +202,14 @@ def build_trial_end_notification_flex_message(generation_count: int) -> dict:
             "contents": [
                 {
                     "type": "button",
-                    "style": "primary",
+                    "style": "primary" if plan == DEFAULT_CHECKOUT_PLAN else "secondary",
                     "action": {
                         "type": "postback",
-                        "label": TRIAL_END_BUTTON_LABEL,
-                        "data": START_CHECKOUT_POSTBACK_DATA,
+                        "label": f"{plan}プランで始める",
+                        "data": build_start_checkout_postback_data(plan),
                     },
                 }
+                for plan in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER
             ],
         },
     }

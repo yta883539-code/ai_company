@@ -66,7 +66,11 @@ from cloud_function_webhook import (  # noqa: E402
     validate_llm_output,
     verify_line_signature,
 )
-from checkout_session import START_CHECKOUT_POSTBACK_DATA  # noqa: E402
+from checkout_session import (  # noqa: E402
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
+    START_CHECKOUT_POSTBACK_DATA,
+    build_start_checkout_postback_data,
+)
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
 from stripe_webhook import handle_checkout_session_completed  # noqa: E402
 from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
@@ -1372,6 +1376,44 @@ class ProcessPostbackEventTest(unittest.TestCase):
         )
 
         self.assertEqual(checkout_session_client.calls[0]["customer"], "cus_existing")
+
+    def test_plan_specific_postback_selects_matching_price(self):
+        """checkout-session-plan-selection-design.md 3節・フェーズ180対応。"""
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback",
+            "replyToken": "rt-plan",
+            "source": {"userId": "u-1"},
+            "postback": {"data": build_start_checkout_postback_data("スモール")},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, InMemoryReplyClient(), self._linked_profile_store(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(
+            checkout_session_client.calls[0]["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スモール"], "quantity": 1}],
+        )
+
+    def test_unknown_plan_postback_is_not_handled(self):
+        """未知のプラン名を含むstart_checkout系postbackは、他アクション同様に素通りする
+        (parse_start_checkout_postback_data()参照、不正なCheckout Session作成を防ぐ)。"""
+        checkout_session_client = InMemoryCheckoutSessionClient()
+        event = {
+            "type": "postback",
+            "replyToken": "rt-unknown-plan",
+            "source": {"userId": "u-1"},
+            "postback": {"data": "action=start_checkout&plan=プレミアム"},
+        }
+
+        result = process_postback_event(
+            event, checkout_session_client, InMemoryReplyClient(), self._linked_profile_store(),
+        )
+
+        self.assertFalse(result.handled)
+        self.assertEqual(checkout_session_client.calls, [])
 
     def test_unlinked_user_gets_linking_required_message_without_calling_checkout_client(self):
         reply_client = InMemoryReplyClient()

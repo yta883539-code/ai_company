@@ -2609,4 +2609,27 @@
   schema検証9件パスを確認した。プラン選択UI(postbackボタンの複数分割)・実Price ID確定は
   次回以降の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 17:00 UTC
+- フェーズ180(2026-09-03 21:00 UTC): フェーズ179「次回以降の課題」に残っていた
+  postbackボタンの複数プラン分割に着手した。`checkout_session.py`に
+  `build_start_checkout_postback_data(plan)`(`"action=start_checkout&plan=<プラン名>"`を
+  組み立て)・`parse_start_checkout_postback_data(data)`(逆にプラン名を解決、プラン未指定の
+  `START_CHECKOUT_POSTBACK_DATA`は`DEFAULT_CHECKOUT_PLAN`へ後方互換、未知のプラン名は`None`)
+  を新設した。`trial_end_scheduler.build_trial_end_notification_flex_message()`
+  (業者が最初にプランを選ぶ主要な入口であるトライアル終了通知Push Message)のFlex
+  Messageフッターを、単一ボタンから3プラン分のボタン(スモール/スタンダード/繁忙期対応、
+  既定プランのみ`style: primary`)へ変更した。`cloud_function_webhook.process_postback_event()`
+  は`parse_start_checkout_postback_data()`でpostbackデータからプラン名を解決し
+  `build_checkout_session_params(..., plan=...)`へ渡すよう変更、未知のプラン名は他の
+  未対応アクションと同様`handled=False`で素通りする(安全側)。条件A(生成回数到達)・
+  一時停止/制限モード通知等、`QuickReplyButton`(現状`Optional`単数)経由の他CTAは
+  対象外とし、既定プラン据え置きのまま次回以降の課題として残した(`QuickReplyButton`の
+  複数ボタン対応は`ReplyClient.reply()`・`InMemoryReplyClient`・呼び出し元3箇所の変更を
+  伴うため)。テスト9件追加(`test_checkout_session.py`7件・`test_cloud_function_webhook.py`
+  2件、`test_trial_end_scheduler.py`の既存テスト1件を3ボタン確認に更新)、venture全体
+  420件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証
+  9件(`python3 schema/validate_test_cases.py`)パスを確認した。詳細は
+  checkout-session-plan-selection-design.md「残課題」節参照。実Price ID確定・Stripe
+  Customer Portalでのプラン変更許可設定は引き続き実Stripeアカウント接続(オーナー承認待ち)
+  後の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 21:00 UTC

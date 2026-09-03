@@ -86,3 +86,43 @@ def build_checkout_session_params(
         params["customer"] = existing_stripe_customer_id
 
     return params
+
+
+# checkout-session-plan-selection-design.md 3節「次回以降の課題」(postbackボタンの
+# 複数プラン分割)フェーズ180対応: START_CHECKOUT_POSTBACK_DATAへプラン名を埋め込む/
+# 埋め込まれたプラン名を取り出すための組み立て・パース関数。build_checkout_session_params()
+# 側のplan引数はここでは検証せず(既存の関数が既にValueErrorで守っているため)、
+# postbackイベントという「外部(LINEプラットフォーム経由だが業者のタップに由来)」から
+# 来るデータの解釈のみをここで扱う。
+
+
+def build_start_checkout_postback_data(plan: str) -> str:
+    """プラン別のpostbackボタンに埋め込むdata文字列を組み立てる(例:
+    `"action=start_checkout&plan=スモール"`)。未知のplanはbuild_checkout_session_params()
+    と同じ安全側の方針で`ValueError`。"""
+    if plan not in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER:
+        raise ValueError(f"unknown plan: {plan!r}")
+    return f"{START_CHECKOUT_POSTBACK_DATA}&plan={plan}"
+
+
+def parse_start_checkout_postback_data(data: Optional[str]) -> Optional[str]:
+    """postbackイベントの`data`がstart_checkout系アクションかどうかを判定し、選択された
+    プラン名を返す。
+
+    - 完全一致`START_CHECKOUT_POSTBACK_DATA`(プラン未指定、既存のQuickReplyButton経由の
+      CTA(条件A・trial_end_scheduler以外の一時停止/制限モード通知等)との後方互換)の場合は
+      `DEFAULT_CHECKOUT_PLAN`を返す。
+    - `build_start_checkout_postback_data()`が組み立てた`"action=start_checkout&plan=<プラン名>"`
+      形式で、`<プラン名>`が既知のプランの場合はそのプラン名を返す。
+    - それ以外(start_checkout系ではない、または未知のプラン名)は`None`を返す。呼び出し元
+      (process_postback_event())はNoneの場合、他アクション同様`handled=False`で素通りする
+      (未知のプラン名を含むpostbackを不正なCheckout Session作成に繋げないための安全側の判断)。
+    """
+    if data == START_CHECKOUT_POSTBACK_DATA:
+        return DEFAULT_CHECKOUT_PLAN
+    prefix = f"{START_CHECKOUT_POSTBACK_DATA}&plan="
+    if data is not None and data.startswith(prefix):
+        plan = data[len(prefix):]
+        if plan in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER:
+            return plan
+    return None

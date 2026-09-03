@@ -16,6 +16,8 @@ from checkout_session import (  # noqa: E402
     PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
     START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
+    build_start_checkout_postback_data,
+    parse_start_checkout_postback_data,
 )
 
 
@@ -92,6 +94,46 @@ class StartCheckoutPostbackDataTest(unittest.TestCase):
         # checkout-initiation-flow-design.md 2節: トライアル終了通知メッセージ内の
         # postbackボタンに埋め込む固定データ。
         self.assertEqual(START_CHECKOUT_POSTBACK_DATA, "action=start_checkout")
+
+
+class BuildStartCheckoutPostbackDataTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md 3節・フェーズ180対応。"""
+
+    def test_builds_plan_specific_data_string(self):
+        self.assertEqual(
+            build_start_checkout_postback_data("スモール"), "action=start_checkout&plan=スモール"
+        )
+
+    def test_raises_on_unknown_plan(self):
+        with self.assertRaises(ValueError):
+            build_start_checkout_postback_data("プレミアム")
+
+
+class ParseStartCheckoutPostbackDataTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md 3節・フェーズ180対応。"""
+
+    def test_bare_constant_resolves_to_default_plan(self):
+        self.assertEqual(
+            parse_start_checkout_postback_data(START_CHECKOUT_POSTBACK_DATA),
+            DEFAULT_CHECKOUT_PLAN,
+        )
+
+    def test_plan_specific_data_resolves_to_that_plan(self):
+        for plan in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER:
+            with self.subTest(plan=plan):
+                self.assertEqual(
+                    parse_start_checkout_postback_data(build_start_checkout_postback_data(plan)),
+                    plan,
+                )
+
+    def test_unrelated_action_returns_none(self):
+        self.assertIsNone(parse_start_checkout_postback_data("action=update_payment_method"))
+
+    def test_unknown_plan_returns_none(self):
+        self.assertIsNone(parse_start_checkout_postback_data("action=start_checkout&plan=プレミアム"))
+
+    def test_none_returns_none(self):
+        self.assertIsNone(parse_start_checkout_postback_data(None))
 
 
 if __name__ == "__main__":

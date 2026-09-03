@@ -10,7 +10,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from checkout_session import START_CHECKOUT_POSTBACK_DATA  # noqa: E402
+from checkout_session import (  # noqa: E402
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
+    build_start_checkout_postback_data,
+)
 from trial_end_scheduler import (  # noqa: E402
     InMemoryLinePushClient,
     LinePushDeliveryError,
@@ -108,12 +111,16 @@ class BuildTrialEndNotificationFlexMessageTest(unittest.TestCase):
         ]
         self.assertTrue(any("8回" in text for text in body_texts))
 
-    def test_footer_button_uses_start_checkout_postback_data(self):
+    def test_footer_has_one_button_per_plan_with_plan_specific_postback_data(self):
+        """checkout-session-plan-selection-design.md 3節・フェーズ180対応。"""
         contents = build_trial_end_notification_flex_message(generation_count=0)
 
-        button = contents["footer"]["contents"][0]
-        self.assertEqual(button["action"]["type"], "postback")
-        self.assertEqual(button["action"]["data"], START_CHECKOUT_POSTBACK_DATA)
+        buttons = contents["footer"]["contents"]
+        self.assertEqual(len(buttons), len(PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER))
+        for button, plan in zip(buttons, PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER):
+            self.assertEqual(button["action"]["type"], "postback")
+            self.assertEqual(button["action"]["data"], build_start_checkout_postback_data(plan))
+            self.assertIn(plan, button["action"]["label"])
 
 
 class SendTrialEndNotificationsTest(unittest.TestCase):
