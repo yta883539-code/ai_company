@@ -2,7 +2,8 @@
 """stripe-webhook-http-entry-point-design.md(フェーズ続き183)で設計した、
 `route_stripe_event()`(ルート解決のみ)と各Stripeイベントハンドラ
 (`handle_subscription_activated()`・`handle_payment_succeeded()`・
-`handle_payment_failed()`・`handle_subscription_deleted()`)を結ぶ統合エントリポイント
+`handle_payment_failed()`・`handle_subscription_deleted()`・
+`handle_subscription_updated()`、最後者はフェーズ続き185で追加)を結ぶ統合エントリポイント
 `receive_stripe_webhook()`。
 
 位置づけ:
@@ -40,10 +41,12 @@ from cloud_function_subscription_cancelled_webhook import (
     OUTCOME_SEND_FAILED as CANCELLATION_OUTCOME_SEND_FAILED,
     StoreSubscriptionState as StoreCancellationState,
     handle_subscription_deleted,
+    handle_subscription_updated,
 )
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
+    EVENT_CUSTOMER_SUBSCRIPTION_UPDATED,
     EVENT_INVOICE_PAYMENT_FAILED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
     StripeEventIdStoreProtocol,
@@ -233,6 +236,29 @@ def receive_stripe_webhook(
                 status_code=200, route=route, outcome=result.outcome
             )
         cancellation_store.set_cancellation_state(store_id, state)
+        return StripeWebhookReceiverResult(status_code=200, route=route, outcome=result.outcome)
+
+    if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
+        # customer-subscription-updated-event-routing-design.md 3節:
+        # handle_subscription_updated()はstateを一切書き換えないため、書き戻しは行わない。
+        if cancellation_store is None or push_client is None:
+            return StripeWebhookReceiverResult(status_code=200, route=route)
+        state = cancellation_store.get_cancellation_state(store_id)
+        if state is None:
+            return StripeWebhookReceiverResult(status_code=200, route=route)
+        data_object = parsed.get("data", {}).get("object", {})
+        previous_attributes = parsed.get("data", {}).get("previous_attributes", {})
+        cancel_at_period_end_after = bool(data_object.get("cancel_at_period_end", False))
+        cancel_at_period_end_before = bool(
+            previous_attributes.get("cancel_at_period_end", cancel_at_period_end_after)
+        )
+        result = handle_subscription_updated(
+            state, cancel_at_period_end_before, cancel_at_period_end_after, push_client
+        )
+        if result.outcome == CANCELLATION_OUTCOME_SEND_FAILED:
+            return StripeWebhookReceiverResult(
+                status_code=200, route=route, outcome=result.outcome
+            )
         return StripeWebhookReceiverResult(status_code=200, route=route, outcome=result.outcome)
 
     return StripeWebhookReceiverResult(status_code=200, route=route)

@@ -45,6 +45,18 @@ def _event_payload(event_id: str, event_type: str, data_object: dict) -> bytes:
     ).encode("utf-8")
 
 
+def _event_payload_with_previous(
+    event_id: str, event_type: str, data_object: dict, previous_attributes: dict
+) -> bytes:
+    return json.dumps(
+        {
+            "id": event_id,
+            "type": event_type,
+            "data": {"object": data_object, "previous_attributes": previous_attributes},
+        }
+    ).encode("utf-8")
+
+
 def _resolve_by_customer(customer_id: str):
     return {"cus_1": "store-1"}.get(customer_id)
 
@@ -468,6 +480,157 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
                 raise LinePushDeliveryError()
 
         payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=FailingPushClient(),
+            now=NOW,
+        )
+
+        self.assertEqual(result.outcome, "send_failed")
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertIsNone(stored.suspension_reason)
+
+
+class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
+    """customer-subscription-updated-event-routing-design.mdで追加した
+    `customer.subscription.updated`のディスパッチ(`cancellation_store`経由・書き戻し無し)
+    を確認する。"""
+
+    def setUp(self) -> None:
+        self.cancellation_store = InMemoryStoreCancellationStateStore()
+        self.cancellation_store.set_cancellation_state(
+            "store-1",
+            StoreCancellationState(
+                store_id="store-1",
+                owner_line_user_id="owner-line-1",
+                plan_name="スタンダードプラン",
+                period_end_date="2026-09-14",
+                portal_url="https://example.com/portal",
+                suspension_reason=None,
+            ),
+        )
+        self.push_client = InMemoryLinePushClient()
+
+    def test_cancellation_scheduled_notifies_and_does_not_change_state(self):
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "cancellation_scheduled")
+        self.assertEqual(len(self.push_client.sent), 1)
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertIsNone(stored.suspension_reason)
+
+    def test_unrelated_field_change_is_no_change_and_no_notification(self):
+        # previous_attributesにcancel_at_period_endが含まれない
+        # (=このイベントで変化したのは別フィールド)場合はbefore==afterとして扱う。
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": False},
+            {"default_payment_method": "pm_new"},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "no_change")
+        self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_skipped_when_cancellation_store_missing(self):
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.outcome)
+        self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_skipped_when_store_id_has_no_known_state(self):
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_unknown_store", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        def resolve(customer_id):
+            return {"cus_unknown_store": "store-unknown"}.get(customer_id)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=resolve,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.outcome)
+        self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_send_failure_leaves_state_unchanged(self):
+        class FailingPushClient:
+            def send_message(self, user_id, text):
+                raise LinePushDeliveryError()
+
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
         timestamp = int(NOW.timestamp())
         header = _header(payload, SECRET, timestamp)
 
