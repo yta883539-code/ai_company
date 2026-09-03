@@ -178,6 +178,63 @@ class DispatchStripeEventTest(unittest.TestCase):
         )
         self.assertEqual(result.marked_user_ids, ["user_1"])
 
+    def test_subscription_deleted_with_push_client_sends_cancellation_notice(self):
+        # subscription-cancelled-notification-design.md(フェーズ155)対応。
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_notified_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 1)
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertEqual(sent_user_id, "user_1")
+        self.assertIn("ご契約が終了しました", sent_text)
+
+    def test_subscription_deleted_without_push_client_sends_no_notice(self):
+        # push_client未指定時は従来通り通知を送らない(後方互換)。
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [])
+
+    def test_subscription_deleted_notification_failure_does_not_block_state_change(self):
+        # design 3節: 送信失敗時も削除候補化(marked_user_ids)は実行済みのままとする。
+        class _FailingPushClient:
+            def send_message(self, user_id, text):
+                raise LinePushDeliveryError("simulated failure")
+
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=_FailingPushClient(),
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, ["user_1"])
+
     def test_subscription_deleted_with_non_numeric_created_is_invalid(self):
         event = {
             "type": "customer.subscription.deleted",

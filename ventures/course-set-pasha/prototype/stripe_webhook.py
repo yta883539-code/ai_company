@@ -43,6 +43,7 @@ from payment_recovery_notification import (
     handle_payment_failure_detected,
     handle_payment_succeeded,
 )
+from subscription_cancellation_notification import handle_subscription_cancelled
 from trial_end_scheduler import LinePushClient
 
 
@@ -168,6 +169,11 @@ class StripeDispatchResult:
     # 値が解決された場合は書き込み自体を行わないため含まれない(フェーズ続き154の差分
     # チェック、無駄な書き込み回避)。
     plan_updated_user_ids: list = field(default_factory=list)
+    # subscription-cancelled-notification-design.md(フェーズ155)対応: push_client指定時、
+    # customer.subscription.deleted受信時の解約確定案内の送信結果。状態変更
+    # (marked_user_ids等)は送信成否と独立して常に行われる(design 3節)。
+    cancellation_notified_user_ids: list = field(default_factory=list)
+    cancellation_notification_failed_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -244,6 +250,14 @@ def dispatch_stripe_event(
     subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
     (アップグレード/ダウングレード)を`user_profile_store.set_plan()`へも反映する
     (`_resolve_plan_from_subscription_updated()`参照)。
+
+    `push_client`はsubscription-cancelled-notification-design.md(フェーズ155)対応も
+    兼ねる。指定時、`customer.subscription.deleted`受信時に解約確定案内メッセージを
+    実際に送信する(`subscription_cancellation_notification.handle_subscription_
+    cancelled()`)。送信の成否にかかわらず`marked_user_ids`等の状態変更(削除候補化)は
+    実行済みのため送信失敗時もWebhookリトライに委ねる必要はない(design 3節、
+    payment-failure系ハンドラとは異なる方針)。未指定(`None`)時は従来通り通知を
+    送らない。
     """
     result = StripeDispatchResult()
 
@@ -270,6 +284,15 @@ def dispatch_stripe_event(
         if user_profile_store is not None:
             user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
         result.marked_user_ids.append(user_id)
+        # subscription-cancelled-notification-design.md(フェーズ155)3節: 状態変更は
+        # 上記ですでに完了しており、通知の送信成否とは独立させる(未指定時は従来通り
+        # 通知を送らない、既存呼び出し経路への後方互換措置)。
+        if push_client is not None:
+            notification_result = handle_subscription_cancelled(user_id, push_client)
+            if notification_result.notified:
+                result.cancellation_notified_user_ids.append(user_id)
+            else:
+                result.cancellation_notification_failed_user_ids.append(user_id)
         return result
 
     if event_type == "customer.subscription.created":
