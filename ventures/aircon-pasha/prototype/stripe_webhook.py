@@ -47,6 +47,12 @@ design.md 6節「クリア配線」対応。`dispatch_stripe_event()`が新た�
 同じく実HTTPエントリポイント経由でも`customer.subscription.deleted`受信時の
 `blocked_but_billing_owner_notified_at`クリアが機能するようにする。省略時(`None`)は
 クリアを行わない(既存呼び出し経路への後方互換措置)。
+
+`event_id_store`(フェーズ177追加): stripe-event-idempotency-design.mdで設計した、
+`event.id`によるべき等性チェック。指定時、同一`event.id`を持つイベントが2回目以降
+届いた場合はハンドラを一切呼び出さずに200を返す(決済失敗検知・復旧通知等の
+非べき等なLINE Push送信が重複配信により複数回実行されるのを防ぐ)。省略時(`None`)は
+従来通りべき等性チェックを行わない(既存呼び出し経路への後方互換措置)。
 """
 
 from __future__ import annotations
@@ -73,6 +79,33 @@ from stripe_dispatch import (
 )
 from subscription_plan_sync import CurrentPlanStoreProtocol
 from user_id_linking import InMemoryUserProfileStore, UserProfileStoreProtocol
+
+
+class StripeEventIdStoreProtocol:
+    """stripe-event-idempotency-design.md 2節: `event.id`単位の処理済み記録を
+    保持するストアのインターフェース。`user_id`単位の各種Protocolとはキーの性質が
+    異なるため独立させた(design 2節参照)。"""
+
+    def has_processed(self, event_id: str) -> bool:
+        raise NotImplementedError
+
+    def mark_processed(self, event_id: str) -> None:
+        raise NotImplementedError
+
+
+class InMemoryStripeEventIdStore:
+    """design 3節: 検証用のインメモリ実装。プロセス起動ごとに初期化されるため、
+    実Cloud Functions環境では呼び出しをまたいで保持されない(既存の各種InMemory
+    ストアと同じ既知の限界)。"""
+
+    def __init__(self) -> None:
+        self._processed_event_ids: set = set()
+
+    def has_processed(self, event_id: str) -> bool:
+        return event_id in self._processed_event_ids
+
+    def mark_processed(self, event_id: str) -> None:
+        self._processed_event_ids.add(event_id)
 
 
 def verify_stripe_signature(
@@ -219,6 +252,9 @@ class StripeWebhookReceiverResult:
     dispatch_result: Optional[StripeDispatchResult] = None
     checkout_link_result: Optional[CheckoutSessionLinkResult] = None
     error: Optional[str] = None
+    # フェーズ177追加: event_id_store指定時、`event.id`が処理済みのため
+    # ハンドラを呼び出さずに200を返した場合`True`。
+    duplicate: bool = False
 
 
 def receive_stripe_webhook(
@@ -234,6 +270,7 @@ def receive_stripe_webhook(
     recovery_push_client: Optional[RecoveryPushClient] = None,
     plan_store: Optional[CurrentPlanStoreProtocol] = None,
     blocked_but_billing_store: Optional[BlockedButBillingOwnerNotifiedAtStoreProtocol] = None,
+    event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -270,6 +307,13 @@ def receive_stripe_webhook(
     委譲する薄い配線で、`payment_store`等と同じく実HTTPエントリポイント経由でも
     `customer.subscription.*`受信時のプランID同期が機能するようにする。省略時
     (`None`)は同期を行わない(既存呼び出し経路への後方互換措置)。
+
+    `event_id_store`はstripe-event-idempotency-design.md対応(フェーズ177追加)。
+    指定時、パース済みイベントの`id`が既に処理済みであれば`checkout.session.
+    completed`分岐・`dispatch_stripe_event()`のいずれも呼び出さず、`duplicate=True`
+    とともに200を返す(副作用ゼロ)。`id`が欠落・非文字列の場合はチェックを
+    スキップし従来通り処理する(安全側)。省略時(`None`)はべき等性チェックを
+    一切行わない(既存呼び出し経路への後方互換措置)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -285,6 +329,11 @@ def receive_stripe_webhook(
     if not isinstance(parsed, dict):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_event")
 
+    event_id = parsed.get("id")
+    check_idempotency = event_id_store is not None and isinstance(event_id, str)
+    if check_idempotency and event_id_store.has_processed(event_id):
+        return StripeWebhookReceiverResult(status_code=200, duplicate=True)
+
     if parsed.get("type") == "checkout.session.completed":
         checkout_link_result = (
             handle_checkout_session_completed(
@@ -293,6 +342,8 @@ def receive_stripe_webhook(
             if user_profile_store is not None
             else CheckoutSessionLinkResult(linked=False, error="store_not_configured")
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, checkout_link_result=checkout_link_result
         )
@@ -308,6 +359,8 @@ def receive_stripe_webhook(
         blocked_but_billing_store=blocked_but_billing_store,
         now=resolved_now,
     )
+    if check_idempotency:
+        event_id_store.mark_processed(event_id)
     return StripeWebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 
 
@@ -340,6 +393,9 @@ def get_stripe_runtime_dependencies() -> dict:
       決済失敗検知・復旧の状態書き込みは行われるが通知は送信されない。
       payment-failure-dunning-design.md 6節と同じ「配線はできているが実送信はまだ」
       という区別を保つ)。
+    - event_id_store(フェーズ177追加): stripe-event-idempotency-design.md対応。
+      `InMemoryStripeEventIdStore()`を`user_profile_store`とは独立に1つ生成する
+      (design 2節のとおりキーの性質〈event_idかuser_idか〉が異なるため使い回さない)。
     """
     user_profile_store = InMemoryUserProfileStore()
     return {
@@ -349,6 +405,7 @@ def get_stripe_runtime_dependencies() -> dict:
         "payment_store": user_profile_store,
         "plan_store": user_profile_store,
         "blocked_but_billing_store": user_profile_store,
+        "event_id_store": InMemoryStripeEventIdStore(),
     }
 
 

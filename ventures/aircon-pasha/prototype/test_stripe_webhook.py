@@ -13,6 +13,7 @@ from payment_recovery_notification import (
     LinePushDeliveryError as RecoveryLinePushDeliveryError,
 )
 from stripe_webhook import (
+    InMemoryStripeEventIdStore,
     get_stripe_runtime_dependencies,
     handle_checkout_session_completed,
     main,
@@ -699,6 +700,141 @@ class ReceiveStripeWebhookPlanSyncWiringTest(unittest.TestCase):
 
         self.assertEqual(result.dispatch_result.plan_cleared_user_ids, ["user_1"])
         self.assertIsNone(payment_store.get_current_plan_id("user_1"))
+
+
+class ReceiveStripeWebhookIdempotencyWiringTest(unittest.TestCase):
+    """stripe-event-idempotency-design.md対応(フェーズ177)。`event_id_store`指定時に
+    同一`event.id`の2回目以降の配信でハンドラが呼ばれず副作用ゼロで200を返すことを
+    検証する。"""
+
+    def test_duplicate_event_id_is_ignored_on_second_delivery(self):
+        store, resolve_user_id = _make_store_and_resolver({"cus_1": "user_1"})
+        event_id_store = InMemoryStripeEventIdStore()
+        event = {
+            "id": "evt_dup_1",
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        first = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            event_id_store=event_id_store,
+            now=NOW_DT,
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertFalse(first.duplicate)
+        self.assertEqual(first.dispatch_result.marked_user_ids, ["user_1"])
+
+        second = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            event_id_store=event_id_store,
+            now=NOW_DT,
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(second.duplicate)
+        self.assertIsNone(second.dispatch_result)
+
+    def test_duplicate_checkout_session_completed_does_not_relink(self):
+        store = InMemoryUserProfileStore()
+        _seed_profile(store)
+        event_id_store = InMemoryStripeEventIdStore()
+        event = {
+            "id": "evt_dup_checkout",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {"client_reference_id": "user_1", "customer": "cus_new"}
+            },
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+        base_kwargs = dict(
+            store=InMemoryProfileDeletionCandidateStore(),
+            resolve_user_id=lambda customer: None,
+            user_profile_store=store,
+            event_id_store=event_id_store,
+            now=NOW_DT,
+        )
+
+        first = receive_stripe_webhook(body, header, SECRET, **base_kwargs)
+        self.assertTrue(first.checkout_link_result.linked)
+
+        second = receive_stripe_webhook(body, header, SECRET, **base_kwargs)
+        self.assertTrue(second.duplicate)
+        self.assertIsNone(second.checkout_link_result)
+
+    def test_missing_event_id_skips_idempotency_check(self):
+        store, resolve_user_id = _make_store_and_resolver({"cus_1": "user_1"})
+        event_id_store = InMemoryStripeEventIdStore()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        for _ in range(2):
+            result = receive_stripe_webhook(
+                body,
+                header,
+                SECRET,
+                store=store,
+                resolve_user_id=resolve_user_id,
+                event_id_store=event_id_store,
+                now=NOW_DT,
+            )
+            self.assertEqual(result.status_code, 200)
+            self.assertFalse(result.duplicate)
+
+    def test_event_id_store_none_preserves_existing_behavior(self):
+        store, resolve_user_id = _make_store_and_resolver({"cus_1": "user_1"})
+        event = {
+            "id": "evt_no_store",
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        for _ in range(2):
+            result = receive_stripe_webhook(
+                body, header, SECRET, store=store, resolve_user_id=resolve_user_id, now=NOW_DT
+            )
+            self.assertEqual(result.status_code, 200)
+            self.assertFalse(result.duplicate)
+
+
+class InMemoryStripeEventIdStoreTest(unittest.TestCase):
+    def test_unmarked_event_id_has_not_processed(self):
+        self.assertFalse(InMemoryStripeEventIdStore().has_processed("evt_1"))
+
+    def test_marked_event_id_has_processed(self):
+        event_id_store = InMemoryStripeEventIdStore()
+        event_id_store.mark_processed("evt_1")
+        self.assertTrue(event_id_store.has_processed("evt_1"))
+        self.assertFalse(event_id_store.has_processed("evt_2"))
+
+
+class GetStripeRuntimeDependenciesEventIdStoreTest(unittest.TestCase):
+    def test_event_id_store_key_present_and_independent_per_call(self):
+        deps = get_stripe_runtime_dependencies()
+        self.assertIsInstance(deps["event_id_store"], InMemoryStripeEventIdStore)
+        deps["event_id_store"].mark_processed("evt_1")
+
+        other_deps = get_stripe_runtime_dependencies()
+        self.assertFalse(other_deps["event_id_store"].has_processed("evt_1"))
 
 
 class _StubFlaskRequest:
