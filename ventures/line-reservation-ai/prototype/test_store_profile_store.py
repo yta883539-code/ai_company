@@ -15,6 +15,7 @@ from store_profile_store import (  # noqa: E402
     handle_checkout_session_completed,
     make_resolve_store_id_by_customer,
     resolve_existing_stripe_customer_id,
+    resolve_monthly_booking_limit,
 )
 
 
@@ -384,6 +385,37 @@ class PlanTest(unittest.TestCase):
         self.store.set_plan("store123", "スタータープラン")
         self.store.set_plan("store123", "プロプラン")
         self.assertEqual(self.store.get_plan("store123"), "プロプラン")
+
+
+class ResolveMonthlyBookingLimitTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md「残課題」対応(フェーズ続き182)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_returns_none_when_plan_not_set(self):
+        # トライアル中(未購入)の店舗はNone=機能無効のまま。
+        self.assertIsNone(resolve_monthly_booking_limit("store123", self.store))
+
+    def test_returns_limit_for_starter_plan(self):
+        self.store.set_plan("store123", "スタータープラン")
+        self.assertEqual(resolve_monthly_booking_limit("store123", self.store), 50)
+
+    def test_returns_limit_for_standard_plan(self):
+        self.store.set_plan("store123", "スタンダードプラン")
+        self.assertEqual(resolve_monthly_booking_limit("store123", self.store), 150)
+
+    def test_returns_limit_for_pro_plan(self):
+        self.store.set_plan("store123", "プロプラン")
+        self.assertEqual(resolve_monthly_booking_limit("store123", self.store), 300)
+
+    def test_different_stores_are_isolated(self):
+        self.store.set_plan("store123", "スタータープラン")
+        self.assertIsNone(resolve_monthly_booking_limit("store456", self.store))
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            resolve_monthly_booking_limit("", self.store)
 
 
 class HandleCheckoutSessionCompletedPlanTest(unittest.TestCase):

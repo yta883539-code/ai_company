@@ -2102,7 +2102,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   選択UIは実LIFF・実Stripe接続待ち(オーナー承認)の課題として残る。承認不要な設計・
   実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 13:02 UTC
+- フェーズ続き182(2026-09-03 14:00 UTC): フェーズ続き181(checkout-session-plan-
+  selection-design.md)が「残課題」として残していた、`ConversationFlowStateMachine`
+  構築時に`store.get_plan(store_id)`から`monthly_booking_limit`引数へ渡す値を求める
+  部分を実装した。`prototype/store_profile_store.py`に
+  `resolve_monthly_booking_limit(store_id, store) -> Optional[int]`を新設し、
+  `store.get_plan()`がNone(トライアル中で未購入)ならNoneを、既知のプラン名なら
+  `PLAN_MONTHLY_BOOKING_LIMITS[plan]`を返すようにした。同モジュールの
+  `resolve_existing_stripe_customer_id()`/`make_resolve_store_id_by_customer()`と
+  同じ「店舗プロフィールストアと呼び出し元(engine.py)の結線点を切り出す」薄い
+  ヘルパー関数という位置づけで、`ConversationFlowStateMachine`本体(engine.py)には
+  変更を加えていない。本ヘルパーを実際に呼び出して
+  `ConversationFlowStateMachine(monthly_booking_limit=...)`のコンストラクタへ渡す
+  配線自体は、店舗の会話状態機械をどのタイミング・単位で構築するか
+  (`prototype/cloud_function_process_event.py`側、store-id-resolution-and-owner-
+  identity-design.md「残課題」に残る`ConversationEventProcessor`組み立てファクトリ
+  関数と同じ、実Firestore接続待ちの制約)が未確定なため、引き続き次回以降の課題として
+  残す。テスト6件追加、venture全体629件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 14:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

@@ -99,11 +99,41 @@ selection-design.md(フェーズ152)と同じ方針を、本venture固有の事�
   実LIFFアプリ登録(オーナー承認待ち)後、UIから`plan`クエリパラメータを付与する実装と
   あわせて着手する。
 - `ConversationFlowStateMachine`構築時に`store.get_plan(store_id)`→
-  `PLAN_MONTHLY_BOOKING_LIMITS[plan]`→`monthly_booking_limit`引数への配線
-  (1節手順5参照)は、`prototype/cloud_function_process_event.py`側の
-  `ConversationFlowStateMachine`構築タイミングの設計とあわせて次回以降の課題として残す。
-  プラン未記録(トライアル中で未購入)の店舗では`monthly_booking_limit=None`
-  (機能無効、フェーズ続き180の既定動作)のままにする想定。
+  `PLAN_MONTHLY_BOOKING_LIMITS[plan]`→`monthly_booking_limit`引数への配線(1節手順5参照)
+  のうち、値を求める部分(`store_profile_store.resolve_monthly_booking_limit()`、
+  フェーズ続き182で追加)は実装済みになった(4節参照)。実際にこのヘルパーを呼び出して
+  `ConversationFlowStateMachine`のコンストラクタへ渡す配線自体は、
+  `prototype/cloud_function_process_event.py`側の`ConversationFlowStateMachine`構築タイミング
+  (会話イベントごとに毎回構築するか、店舗単位でキャッシュするか)の設計が未確定な
+  (実Firestore接続後に確定させる想定の)ままのため、引き続き次回以降の課題として残す。
+  プラン未記録(トライアル中で未購入)の店舗では`resolve_monthly_booking_limit()`がNoneを
+  返し、`monthly_booking_limit=None`(機能無効、フェーズ続き180の既定動作)のままになる。
+
+## 4. `ConversationFlowStateMachine`構築時の配線ヘルパー(フェーズ続き182)
+
+3節で残していた「`ConversationFlowStateMachine`構築時に`store.get_plan(store_id)`から
+`monthly_booking_limit`引数へ渡す値を求める」部分について、`prototype/store_profile_store.py`に
+`resolve_monthly_booking_limit(store_id, store) -> Optional[int]`を新設した。
+`store.get_plan(store_id)`がNone(トライアル中で未購入)ならNoneをそのまま返し、既知のプラン名
+なら`PLAN_MONTHLY_BOOKING_LIMITS[plan]`を返す(`store.set_plan()`が未知のプラン名を
+`ValueError`で拒否済みのため、`.get()`が未知キーに当たることは想定していないが防御的に使う)。
+同モジュールの`resolve_existing_stripe_customer_id()`/`make_resolve_store_id_by_customer()`と
+同じ「店舗プロフィールストアと呼び出し元(engine.py)の結線点を切り出す」位置づけの薄い
+ヘルパー関数であり、`ConversationFlowStateMachine`側(engine.py)には変更を加えていない。
+
+呼び出し元(実際に`ConversationFlowStateMachine(monthly_booking_limit=...)`を構築している
+箇所)自体は、店舗の会話状態機械をどのタイミング・単位で構築するかという設計(1節手順5・
+3節参照)が実Firestore接続後まで確定しないため、本ヘルパーをそこから呼ぶ配線は
+引き続き次回以降の課題として残る(store-id-resolution-and-owner-identity-design.md
+「残課題」に残っている`ConversationEventProcessor`組み立てファクトリ関数〈実Firestore接続待ち〉
+と同じ制約)。
+
+テスト: `test_store_profile_store.py`に`ResolveMonthlyBookingLimitTest`6件を追加
+(プラン未設定時None・3プランそれぞれの上限値・店舗間の独立性・空store_id時の
+`ValueError`)。venture全体629件全件
+(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+(`python3 schema/validate_test_cases.py`)パスを確認済み(詳細はREADME.mdフェーズ続き182
+参照)。
 - プラン変更(アップグレード・ダウングレード)時に`stores/{storeId}.plan`を更新する経路は
   未設計のまま残る(現状は`checkout.session.completed`、すなわち新規契約時のみ書き込む
   設計。course-set-pashaのcheckout-session-plan-selection-design.md「残課題」と同じ

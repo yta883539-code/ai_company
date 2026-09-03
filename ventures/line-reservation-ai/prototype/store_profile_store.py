@@ -63,6 +63,11 @@
   「次回以降の課題」として残した「store_profile_store.pyに契約プランを保持する
   フィールドが無い」ギャップに対応する(course-set-pashaがフェーズ152で同種の
   ギャップに対応したcheckout-session-plan-selection-design.mdの横展開)。
+- `resolve_monthly_booking_limit()`(2026-09-03追記、フェーズ続き182):
+  checkout-session-plan-selection-design.md「残課題」に残っていた、
+  `ConversationFlowStateMachine`構築時に`store.get_plan(store_id)`から
+  `monthly_booking_limit`引数へ渡す値を求める結線ヘルパー。
+  `resolve_existing_stripe_customer_id()`と同じ位置づけ。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
@@ -300,6 +305,39 @@ def make_resolve_store_id_by_customer(
     `make_resolve_user_id()`と同じ考え方)。
     """
     return store.get_store_id_by_stripe_customer_id
+
+
+def resolve_monthly_booking_limit(
+    store_id: str, store: StoreProfileStoreProtocol
+) -> Optional[int]:
+    """checkout-session-plan-selection-design.md 1節手順5・「残課題」で設計した、
+    `ConversationFlowStateMachine`(engine.py)を構築する際に`monthly_booking_limit`引数へ
+    渡すべき値を`store.get_plan(store_id)`から求めるヘルパー(フェーズ続き182)。
+
+    店舗がまだプランを購入していない(トライアル中で`store.get_plan()`がNoneを返す)場合は
+    Noneを返す。`ConversationFlowStateMachine.__init__`はmonthly_booking_limit未指定(None)を
+    「機能無効」として扱う既定動作(monthly-booking-limit-notification-design.md準拠)のため、
+    このNoneをそのまま`monthly_booking_limit`引数へ渡せば意図通り機能が無効のままになる
+    (checkout-session-plan-selection-design.md「残課題」に記載していた想定通り)。
+
+    `store.set_plan()`が`PLAN_MONTHLY_BOOKING_LIMITS`にないプラン名をそもそも拒否する
+    (ValueError)ため、`store.get_plan()`が返す値は常にNoneかこの辞書の既知キーのいずれかで
+    あり、ここでの`.get()`が未知のキーに当たることは想定していない(防御的に`.get()`を使う)。
+
+    `resolve_existing_stripe_customer_id()`/`make_resolve_store_id_by_customer()`と同じ、
+    店舗プロフィールストアと呼び出し元(engine.py)との結線点を切り出すヘルパー関数という
+    位置づけ。呼び出し元自体(実際に`ConversationFlowStateMachine`を構築している箇所)は、
+    実Firestore接続後にどのタイミングで構築するか(会話イベントごとに毎回構築するか、
+    店舗単位でキャッシュするか)が未確定なため、本関数をそこから実際に呼ぶ配線は
+    checkout-session-plan-selection-design.md「残課題」に記載の通り引き続き次回以降の課題
+    として残る。
+    """
+    if not store_id:
+        raise ValueError("store_id must be a non-empty string")
+    plan = store.get_plan(store_id)
+    if plan is None:
+        return None
+    return PLAN_MONTHLY_BOOKING_LIMITS.get(plan)
 
 
 @dataclass
