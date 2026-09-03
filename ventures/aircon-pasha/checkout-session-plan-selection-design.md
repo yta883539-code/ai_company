@@ -95,6 +95,22 @@ pricing-plan.mdは既に3プラン(スモール/スタンダード/繁忙期対�
   これらの経路はなお既定プラン(`DEFAULT_CHECKOUT_PLAN`)据え置き。`QuickReplyButton`を
   複数ボタン対応にする(`ReplyClient.reply()`・`InMemoryReplyClient`・呼び出し元3箇所の
   変更を伴う)設計は次回以降の課題として残す)
+- (解消済み 2026-09-03 22:00 UTCフェーズ181: 上記で残っていた`QuickReplyButton`の複数ボタン
+  対応に着手した。`ReplyClient.reply()`・`InMemoryReplyClient.reply()`・`_reply_with_retry()`の
+  `quick_reply`引数を`Optional[QuickReplyButton]`単数から`Optional[list[QuickReplyButton]]`へ
+  変更し、新設の`_build_plan_selection_quick_reply()`(`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の
+  3プラン分、`build_start_checkout_postback_data(plan)`でpostback_dataを組み立て、ラベルは
+  `build_trial_end_notification_flex_message()`のfooterボタンと表記を揃えた
+  `"{plan}プランで始める"`)を条件A(生成回数到達)・生成一時停止の2経路に適用した。
+  `process_postback_event()`側は`parse_start_checkout_postback_data()`で従来通り解釈できる
+  ため変更不要。決済失敗時の制限モード通知(`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`)は
+  プラン選択ではなく支払い方法の更新のCTAのため対象外とし、単一ボタンを要素数1の
+  リストとして渡す形のみ変更した。テスト更新のみ(新規テスト追加なし、既存の3テストの
+  期待値を単一`QuickReplyButton`から3ボタンのリストへ更新)、venture全体420件全件パス・
+  schema検証9件パスを確認した。実Price ID確定は引き続き実Stripeアカウント接続
+  (オーナー承認待ち)後の課題として残る。承認不要な設計・実装・テスト更新のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし)
 - Stripe Customer Portalの設定でプラン変更(price切り替え)を実際に許可するかどうかの
   ダッシュボード設定確認は、実Stripeアカウント接続後の課題として残る。
 - 実Stripe接続後、`build_checkout_session_params()`が組み立てたパラメータで実際に

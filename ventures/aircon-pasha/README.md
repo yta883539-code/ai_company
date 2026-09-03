@@ -2632,4 +2632,27 @@
   Customer Portalでのプラン変更許可設定は引き続き実Stripeアカウント接続(オーナー承認待ち)
   後の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 21:00 UTC
+- フェーズ181(2026-09-03 23:00 UTC): フェーズ180「次回以降の課題」に残っていた、
+  条件A(生成回数到達)・生成一時停止通知の`QuickReplyButton`複数ボタン対応に着手した。
+  `ReplyClient.reply()`・`InMemoryReplyClient.reply()`・`_reply_with_retry()`の
+  `quick_reply`引数を`Optional[QuickReplyButton]`単数から`Optional[list[QuickReplyButton]]`へ
+  変更し、新設の`_build_plan_selection_quick_reply()`(`checkout_session.
+  PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の3プラン分、`build_start_checkout_postback_data(plan)`で
+  postback_dataを組み立て、ラベルは`trial_end_scheduler.build_trial_end_notification_
+  flex_message()`のfooterボタンと表記を揃えた`"{plan}プランで始める"`)を`process_memo_event()`の
+  条件A・生成一時停止の2経路に適用した。`process_postback_event()`側は
+  `parse_start_checkout_postback_data()`で従来通り解釈できるため変更不要。決済失敗時の
+  制限モード通知(`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`)はプラン選択ではなく支払い方法の
+  更新のCTAのため対象外とし、単一ボタンを要素数1のリストとして渡す形のみ変更した。
+  本venture内で`TRIAL_END_BUTTON_LABEL`・`START_CHECKOUT_POSTBACK_DATA`(いずれも旧単一ボタン
+  用)がcloud_function_webhook.py側で不要になったためimportを削除した(テスト側は
+  払込方法CTAの単一ボタンケース・postbackイベントテストで引き続き使用するため残した)。
+  テスト更新のみ(新規テスト追加なし、既存3テストの期待値を単一`QuickReplyButton`から
+  3ボタンのリストへ更新)、venture全体420件全件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)パス・schema検証9件(`python3 schema/validate_test_cases.py`)パスを
+  確認した。詳細はcheckout-session-plan-selection-design.md「残課題」節参照。実Price ID確定・
+  Stripe Customer Portalでのプラン変更許可設定は引き続き実Stripeアカウント接続
+  (オーナー承認待ち)後の課題として残る。承認不要な設計・実装・テスト更新のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 23:00 UTC

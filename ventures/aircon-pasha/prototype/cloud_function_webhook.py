@@ -40,12 +40,12 @@ from blocked_but_billing_owner_notification import (  # noqa: E402
     clear_blocked_but_billing_owner_notified_at,
 )
 from checkout_session import (  # noqa: E402
-    START_CHECKOUT_POSTBACK_DATA,
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
     build_checkout_session_params,
+    build_start_checkout_postback_data,
     parse_start_checkout_postback_data,
 )
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
-from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     UserProfile,
@@ -95,9 +95,13 @@ class QuickReplyButton:
     postbackアクションでのみ実現できる(checkout-initiation-flow-design.md)ため、
     条件A(生成回数到達、process_memo_event()内での返信便乗)ではLINE Messaging APIの
     quickReply機能(どのメッセージタイプにも添付できる、Flex Message化は不要)で
-    ボタンを添える。postback_dataはtrial_end_scheduler.build_trial_end_notification_
-    flex_message()と同じSTART_CHECKOUT_POSTBACK_DATAを再利用し、process_postback_event()
-    側の処理を変更しない。"""
+    ボタンを添える。checkout-session-plan-selection-design.md 3節フェーズ181対応:
+    条件A・一時停止(生成一時停止/制限モード)通知のCTAは`_build_plan_selection_
+    quick_reply()`で本クラス3個分(スモール/スタンダード/繁忙期対応)のリストとして
+    組み立て、trial_end_scheduler.build_trial_end_notification_flex_message()の
+    footerボタンとpostback_data(checkout_session.build_start_checkout_postback_data()、
+    `"action=start_checkout&plan=<プラン名>"`)を揃える。process_postback_event()側は
+    parse_start_checkout_postback_data()で従来通り解釈できるため変更不要。"""
 
     label: str
     postback_data: str
@@ -109,13 +113,17 @@ class ReplyClient(Protocol):
         reply_token: str,
         message_text: str,
         *,
-        quick_reply: Optional[QuickReplyButton] = None,
+        quick_reply: Optional[list[QuickReplyButton]] = None,
     ) -> None:
         """呼び出し自体が失敗した場合はReplyApiErrorを送出する契約とする。
 
         quick_replyが渡された場合、実装側はLINE Messaging APIのテキストメッセージ
-        オブジェクトに`quickReply.items`として1ボタンのpostbackアクションを追加する
-        想定(既存呼び出し元との後方互換のためキーワード専用引数・デフォルトNone)。"""
+        オブジェクトに`quickReply.items`として渡されたボタン数ぶんのpostbackアクションを
+        追加する想定(既存呼び出し元との後方互換のためキーワード専用引数・デフォルトNone)。
+        checkout-session-plan-selection-design.md 3節フェーズ181対応: 従来はボタン1個分の
+        `QuickReplyButton`単体を受け取っていたが、条件A・一時停止/制限モード通知等の
+        checkout系CTAをtrial_end_scheduler.build_trial_end_notification_flex_message()と
+        同じ3プラン分割にするため、リストで受け取る形に変更した。"""
         ...
 
 
@@ -128,14 +136,14 @@ class InMemoryReplyClient:
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, str]] = []
-        self.quick_replies_sent: list[Optional[QuickReplyButton]] = []
+        self.quick_replies_sent: list[Optional[list[QuickReplyButton]]] = []
 
     def reply(
         self,
         reply_token: str,
         message_text: str,
         *,
-        quick_reply: Optional[QuickReplyButton] = None,
+        quick_reply: Optional[list[QuickReplyButton]] = None,
     ) -> None:
         self.sent.append((reply_token, message_text))
         self.quick_replies_sent.append(quick_reply)
@@ -744,7 +752,7 @@ def _reply_with_retry(
     reply_token: str,
     message_text: str,
     *,
-    quick_reply: Optional[QuickReplyButton] = None,
+    quick_reply: Optional[list[QuickReplyButton]] = None,
 ) -> bool:
     """Reply API呼び出し自体の失敗(ReplyApiError)に対し、即時1回のみリトライする
     (api-call-failure-handling.md方針2)。reply_tokenは1回限り有効なため、2回とも
@@ -767,6 +775,20 @@ def _reply_with_retry(
         return True
     except ReplyApiError:
         return False
+
+
+def _build_plan_selection_quick_reply() -> list[QuickReplyButton]:
+    """checkout-session-plan-selection-design.md 3節フェーズ181対応: 条件A(生成回数到達)・
+    一時停止(生成一時停止/制限モード)通知のCTAを、trial_end_scheduler.build_trial_end_
+    notification_flex_message()と同じくpricing-plan.mdの3プラン(`PLAN_TO_STRIPE_PRICE_ID_
+    PLACEHOLDER`のキー順、スモール/スタンダード/繁忙期対応)ぶんのボタンに分割する。
+    ラベルは同関数のfooterボタンと表記を揃える(`"{plan}プランで始める"`)。"""
+    return [
+        QuickReplyButton(
+            label=f"{plan}プランで始める", postback_data=build_start_checkout_postback_data(plan),
+        )
+        for plan in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER
+    ]
 
 
 def process_memo_event(
@@ -834,23 +856,28 @@ def process_memo_event(
        (「いずれか早い方で1回のみ」を(A)(B)間で保つ、trial-end-condition-a-cta-design.md
        参照)。本venture固有の対応として、CTA(有料プランへ進む)はLIFF URLのような
        プレーンテキストリンクでは表現できないpostbackボタンのため、通知文中にはボタンを
-       埋め込まず、`_reply_with_retry()`へ`quick_reply=QuickReplyButton(...)`を渡して
-       LINE Messaging APIのquickReplyとして同じ返信メッセージに添付する(追加のPush API
-       呼び出し・課金を発生させない、trial-end-notification-design.md 2節(A)の方針を踏襲)。
+       埋め込まず、`_reply_with_retry()`へ`quick_reply=_build_plan_selection_quick_reply()`
+       (checkout-session-plan-selection-design.md 3節フェーズ181対応、3プラン分の
+       `QuickReplyButton`リスト)を渡してLINE Messaging APIのquickReplyとして同じ返信
+       メッセージに添付する(追加のPush API呼び出し・課金を発生させない、
+       trial-end-notification-design.md 2節(A)の方針を踏襲)。
     7. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_generation_paused()で
        トライアル終了(条件A/Bいずれか、`trial_end_notified_at`設定済み)後かつ未アップグレード
        (`upgraded_at`未設定)かを判定する(trial-end-notification-design.md 4節「生成一時停止」、
        course-set-pashaフェーズ114相当)。該当する場合はLLM呼び出し自体を行わず
        GENERATION_PAUSED_MESSAGEを返信して即座に処理を終える(月間カウント・トライアル
        生成回数カウント・セルフチェック案内のいずれも行わない)。本venture固有の対応として、
-       CTAボタンは6.と同じくpostback方式のquick_replyとして返信に添付する。
+       CTAボタンは6.と同じく`_build_plan_selection_quick_reply()`のquick_replyとして
+       返信に添付する。
     8. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_payment_suspended()で
        決済失敗検知後の猶予期間超過による制限モード(`payment_suspended_at`設定済み、
        payment-failure-dunning-design.md 3節「段階3」)かを判定する。該当する場合は7.と同様、
        LLM呼び出し自体を行わずPAYMENT_SUSPENDED_MESSAGEを返信して即座に処理を終える。7.の
        トライアル未アップグレード判定(`upgraded_at`未設定が前提)とは前提条件が排他的
        (本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が同時にTrueになる
-       ことは想定しない。CTAボタンはUPDATE_PAYMENT_METHOD_POSTBACK_DATAを使うが、
+       ことは想定しない。CTAボタンはプラン選択ではない(支払い方法の更新)ため、6.・7.とは
+       異なり`_build_plan_selection_quick_reply()`は使わずUPDATE_PAYMENT_METHOD_POSTBACK_DATAの
+       単一ボタンのまま(quick_reply引数の型に合わせ要素数1のリストとして渡す)。
        process_postback_event()側の実処理配線は次回以降の課題として残る
        (payment-failure-dunning-design.md 5節、Stripe Customer Portal要否の検討待ち)。
     """
@@ -864,11 +891,9 @@ def process_memo_event(
     profile = profile_store.get(user_id) if profile_store is not None and user_id else None
 
     if _is_generation_paused(profile):
-        paused_quick_reply = QuickReplyButton(
-            label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
-        )
         reply_sent = _reply_with_retry(
-            reply_client, reply_token, GENERATION_PAUSED_MESSAGE, quick_reply=paused_quick_reply,
+            reply_client, reply_token, GENERATION_PAUSED_MESSAGE,
+            quick_reply=_build_plan_selection_quick_reply(),
         )
         return MemoProcessResult(
             handled=True, reply_sent=reply_sent,
@@ -877,10 +902,14 @@ def process_memo_event(
         )
 
     if _is_payment_suspended(profile):
-        suspended_quick_reply = QuickReplyButton(
-            label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
-            postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
-        )
+        # 支払い方法の更新はプラン選択ではないため、他の2ケースと異なり単一ボタンのまま
+        # (Stripe Customer Portalへの導線、_build_plan_selection_quick_reply()は使わない)。
+        suspended_quick_reply = [
+            QuickReplyButton(
+                label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
+                postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
+            )
+        ]
         reply_sent = _reply_with_retry(
             reply_client, reply_token, PAYMENT_SUSPENDED_MESSAGE, quick_reply=suspended_quick_reply,
         )
@@ -950,7 +979,7 @@ def process_memo_event(
     # 日次スケジューラを待たずこの返信に便乗させてトライアル終了通知を送る。有料転換済み
     # (upgraded_at設定済み)なら対象外、既に((B)側等で)通知済みなら二重送信しない
     # (trial-end-notification-design.md 2節「いずれか早い方で1回のみ」)。
-    quick_reply: Optional[QuickReplyButton] = None
+    quick_reply: Optional[list[QuickReplyButton]] = None
     if (
         instance["status"] == "generated"
         and profile_store is not None
@@ -967,9 +996,7 @@ def process_memo_event(
                 f"{reply_text}\n\n{format_trial_end_condition_a_notice(trial_generation_count)}"
             )
             profile_store.set_trial_end_notified_at(user_id, resolved_now)
-            quick_reply = QuickReplyButton(
-                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
-            )
+            quick_reply = _build_plan_selection_quick_reply()
 
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text, quick_reply=quick_reply)
     return MemoProcessResult(

@@ -190,6 +190,18 @@ def _make_event(reply_token="rt-1", text="壁掛け型2.2kW、フィルター・
     return event
 
 
+def _expected_plan_selection_quick_reply():
+    """cloud_function_webhook._build_plan_selection_quick_reply()(フェーズ181)の
+    期待値。条件A・生成一時停止のCTAが、pricing-plan.mdの3プラン分の`QuickReplyButton`
+    リストとして返信に添付されることを検証するために使う。"""
+    return [
+        QuickReplyButton(
+            label=f"{plan}プランで始める", postback_data=build_start_checkout_postback_data(plan),
+        )
+        for plan in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER
+    ]
+
+
 class ProcessMemoEventTest(unittest.TestCase):
     def test_generated_case_sends_combined_reply(self):
         reply_client = InMemoryReplyClient()
@@ -702,10 +714,7 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
             format_trial_end_condition_a_notice(TRIAL_GENERATION_LIMIT), result.reply_text
         )
         self.assertEqual(
-            reply_client.quick_replies_sent[-1],
-            QuickReplyButton(
-                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
-            ),
+            reply_client.quick_replies_sent[-1], _expected_plan_selection_quick_reply(),
         )
         self.assertEqual(profile_store.get("u-1").trial_end_notified_at, now)
 
@@ -747,10 +756,7 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
         self.assertTrue(result.generation_paused)
         self.assertNotIn("お疲れさまでした", result.reply_text)
         self.assertEqual(
-            reply_client.quick_replies_sent[-1],
-            QuickReplyButton(
-                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
-            ),
+            reply_client.quick_replies_sent[-1], _expected_plan_selection_quick_reply(),
         )
         self.assertEqual(profile_store.get("u-1").trial_end_notified_at, already_notified_at)
 
@@ -819,10 +825,7 @@ class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
         self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
         self.assertTrue(result.reply_sent)
         self.assertEqual(
-            reply_client.quick_replies_sent[-1],
-            QuickReplyButton(
-                label=TRIAL_END_BUTTON_LABEL, postback_data=START_CHECKOUT_POSTBACK_DATA,
-            ),
+            reply_client.quick_replies_sent[-1], _expected_plan_selection_quick_reply(),
         )
 
     def test_paused_does_not_increment_trial_generation_count(self):
@@ -1012,10 +1015,12 @@ class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
         self.assertTrue(result.reply_sent)
         self.assertEqual(
             reply_client.quick_replies_sent[-1],
-            QuickReplyButton(
-                label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
-                postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
-            ),
+            [
+                QuickReplyButton(
+                    label=UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
+                    postback_data=UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
+                ),
+            ],
         )
 
     def test_not_suspended_when_payment_suspended_at_unset(self):
