@@ -184,6 +184,15 @@ trial-end-notification-design.md 3節のCTAリンクは「LIFF経由のCheckout 
 同じLIFFアプリ内から`liff.getIDToken()`で取得したuser_idを使って発行する設計に揃えられる
 見込みが高いが、Portalセッション作成エンドポイント自体の設計は次回以降の課題として残す。
 
+**(2026-09-03 追記・フェーズ148で対応)** Portalセッション作成エンドポイント自体の設計を
+customer-portal-session-endpoint-design.md(新規)で行い、`prototype/portal_session.py`に
+`create_portal_session()`・`build_portal_session_params()`・`main(request)`を実装した
+(checkout-session-endpoint-design.md・`checkout_session.py`と対称の構成)。既存
+`stripe_customer_id`を持たないuser_idへの誤発行を防ぐガード(404・`no_stripe_customer`)を
+新設した点がCheckout Session版との差分。`PortalLinkProvider`の実装本体(実
+`stripe.billing_portal.Session.create()`呼び出し)は引き続きオーナー承認待ちの課題として
+残る(詳細はcustomer-portal-session-endpoint-design.md 6節)。
+
 **(2026-08-29 追記・フェーズ123で一部対応)** 「制限モード移行時(段階3)」の応答文言
 (`PAYMENT_SUSPENDED_MESSAGE`)については、既存の`PortalLinkProvider`Protocolを再利用する
 形で本節の懸念を解消した。詳細は6節参照。

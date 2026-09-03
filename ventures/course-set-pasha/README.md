@@ -1762,10 +1762,32 @@
   (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
   再確認した。承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 22:57 UTC
+- フェーズ148(2026-09-03 00:00 UTC): payment-failure-dunning-design.md 5節に
+  「Portalセッション作成エンドポイント自体の設計は次回以降の課題として残す」と記載されていた
+  項目に対応した。checkout-session-endpoint-design.md・`prototype/checkout_session.py`
+  (Checkout Session=新規契約用)と対称の構成で、Portal Session(既存サブスクリプションの
+  支払い方法更新用)側のエンドポイントを
+  customer-portal-session-endpoint-design.md(新規)として設計し、
+  `prototype/portal_session.py`に`create_portal_session()`・
+  `build_portal_session_params()`・`get_portal_runtime_dependencies()`・`main(request)`を
+  実装した。Checkout Session版との差分として、既存`stripe_customer_id`を持たない
+  user_id(≒未加入者)がポータルリンクを踏んだ場合に不正なセッション作成を試みないよう
+  `status_code=404`・`error="no_stripe_customer"`を返す早期リターンを新設した。
+  `cloud_function_webhook.py`の`PortalLinkProvider`Protocolの実装本体(実
+  `stripe.billing_portal.Session.create()`呼び出し)は、`verify_id_token`の実装本体と
+  同じくLIFFアプリ実登録・実Stripe接続(オーナー承認待ち)後の課題として引き続き残す
+  (詳細はcustomer-portal-session-endpoint-design.md 6節)。テスト14件追加、venture全体
+  485件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証
+  9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 00:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-03 00:00 UTC・フェーズ148: payment-failure-dunning-design.md 5節に
+  残っていたPortalセッション作成エンドポイント自体の設計を
+  customer-portal-session-endpoint-design.mdとして行った。詳細は上記フェーズ148参照。
+  `PortalLinkProvider`の実装本体〈実Stripe接続〉は引き続きオーナー承認待ちの範囲として残る)
 - (解消済み 2026-09-02 15:59 UTC・フェーズ146: pricing-plan.md「未検証の仮説」に残っていた
   従量単価(100〜150円/回)の妥当性検証(要検証のまま)について、人手クラウドソーシング発注の
   相場との比較による価値側の検証をoverage-price-value-validation.mdとして実施した。詳細は
