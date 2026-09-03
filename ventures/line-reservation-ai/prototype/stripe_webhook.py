@@ -112,15 +112,19 @@ def verify_stripe_signature(
     )
 
 
-# route_stripe_event()が扱う3種(stripe-webhook-event-dispatch-design.md 1節)。
+# route_stripe_event()が扱うイベント種別(stripe-webhook-event-dispatch-design.md 1節)。
+# EVENT_CUSTOMER_SUBSCRIPTION_DELETED(フェーズ続き184、
+# subscription-deleted-event-routing-design.md)で4種目として追加。
 EVENT_CHECKOUT_SESSION_COMPLETED = "checkout.session.completed"
 EVENT_INVOICE_PAYMENT_SUCCEEDED = "invoice.payment_succeeded"
 EVENT_INVOICE_PAYMENT_FAILED = "invoice.payment_failed"
+EVENT_CUSTOMER_SUBSCRIPTION_DELETED = "customer.subscription.deleted"
 
 _ROUTABLE_EVENT_TYPES = (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
     EVENT_INVOICE_PAYMENT_FAILED,
+    EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
 )
 
 

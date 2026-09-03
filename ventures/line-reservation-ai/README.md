@@ -2148,7 +2148,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   待ち(オーナー承認)の課題として残す。承認不要な設計・実装・テスト追加のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。
-- 最終更新: 2026-09-03 16:00 UTC
+- フェーズ続き184(2026-09-03 19:00 UTC): stripe-webhook-http-entry-point-design.md
+  7節の「今後の課題」に残っていた「`customer.subscription.updated`/
+  `customer.subscription.deleted`は`route_stripe_event()`が扱う3種に含まれておらず
+  本エントリポイントの対象外」というギャップのうち、`customer.subscription.deleted`
+  (契約の実終了)のみを対応した(`customer.subscription.updated`は「直前の
+  `cancel_at_period_end`の保持・比較」という別の設計課題を含むため対象外のまま残す。
+  詳細はsubscription-deleted-event-routing-design.md 1節参照)。対応の過程で、
+  `cloud_function_subscription_activated_webhook.py`と
+  `cloud_function_subscription_cancelled_webhook.py`が同名(`StoreSubscriptionState`)
+  だが実際にはフィールド構成の異なる別クラスであること(`next_billing_date`↔
+  `period_end_date`、`blocked_but_billing_owner_notified_at`の有無)を発見し、
+  既存の`subscription_store`を使い回すと`handle_subscription_deleted()`が
+  `AttributeError`になる潜在的な不整合を確認した(同design 3節)。`stripe_webhook.py`に
+  `EVENT_CUSTOMER_SUBSCRIPTION_DELETED`を追加、`stripe_webhook_entry_point.py`に
+  専用の`StoreCancellationStateStoreProtocol`/`InMemoryStoreCancellationStateStore`・
+  `cancellation_store`引数・ディスパッチ分岐を追加した(既存の`dunning_store`/
+  `subscription_store`分離パターンをそのまま踏襲、既存コードへの変更は最小限)。
+  テスト7件追加、venture全体649件全件(`python3 -m unittest discover -p "test_*.py"`)
+  パス・schema検証25件パスを確認した。`customer.subscription.updated`の配線、
+  activated側・cancelled側の`StoreSubscriptionState`統合要否、実Cloud Functions
+  HTTPエントリポイント(`main(request)`相当)・実Stripe接続自体は引き続き次回以降
+  /オーナー承認待ちの課題として残す。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-03 19:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

@@ -9,6 +9,7 @@ from store_profile_store import (
 )
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
+    EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
     EVENT_INVOICE_PAYMENT_FAILED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
     InMemoryStripeEventIdStore,
@@ -155,6 +156,34 @@ class RouteStripeEventTest(unittest.TestCase):
         event = {"type": EVENT_INVOICE_PAYMENT_FAILED, "data": {"object": {}}}
         route = route_stripe_event(event, resolve_store_id_by_customer=_raise_if_called)
         self.assertTrue(route.unresolved_customer)
+
+    def test_customer_subscription_deleted_resolves_via_customer(self):
+        # subscription-deleted-event-routing-design.md 2節: 追加の分岐は無く、
+        # invoice系と同じcustomerベースの解決に乗ることを確認する。
+        event = {
+            "type": EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
+            "data": {"object": {"customer": "cus_XYZ789"}},
+        }
+        route = route_stripe_event(
+            event,
+            resolve_store_id_by_customer=lambda customer_id: {
+                "cus_XYZ789": "store-owner-line-id-2"
+            }.get(customer_id),
+        )
+        self.assertEqual(route.store_id, "store-owner-line-id-2")
+        self.assertFalse(route.unresolved_customer)
+        self.assertFalse(route.ignored)
+
+    def test_customer_subscription_deleted_unknown_customer_is_unresolved(self):
+        event = {
+            "type": EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
+            "data": {"object": {"customer": "cus_UNKNOWN"}},
+        }
+        route = route_stripe_event(
+            event, resolve_store_id_by_customer=lambda customer_id: None
+        )
+        self.assertTrue(route.unresolved_customer)
+        self.assertIsNone(route.store_id)
 
 
 class RouteStripeEventWithStoreProfileStoreWiringTest(unittest.TestCase):

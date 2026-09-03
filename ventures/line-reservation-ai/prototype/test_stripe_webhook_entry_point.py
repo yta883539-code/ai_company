@@ -14,9 +14,13 @@ from datetime import datetime, timezone
 from cloud_function_process_event import InMemoryLinePushClient, LinePushDeliveryError
 from cloud_function_send_dunning_notifications import StoreDunningState
 from cloud_function_subscription_activated_webhook import StoreSubscriptionState
+from cloud_function_subscription_cancelled_webhook import (
+    StoreSubscriptionState as StoreCancellationState,
+)
 from dunning_notification_scheduler import DUNNING_CONFIG_A_7DAYS
 from stripe_webhook import InMemoryStripeEventIdStore
 from stripe_webhook_entry_point import (
+    InMemoryStoreCancellationStateStore,
     InMemoryStoreDunningStateStore,
     InMemoryStoreSubscriptionStateStore,
     receive_stripe_webhook,
@@ -351,6 +355,135 @@ class ReceiveStripeWebhookPaymentFailedTest(unittest.TestCase):
 
         self.assertEqual(result.status_code, 200)
         self.assertIsNone(result.outcome)
+
+
+class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
+    """subscription-deleted-event-routing-design.mdで追加した
+    `customer.subscription.deleted`のディスパッチ(専用の`cancellation_store`経由)を、
+    `ReceiveStripeWebhookSubscriptionActivatedTest`と同型の観点で確認する。"""
+
+    def setUp(self) -> None:
+        self.cancellation_store = InMemoryStoreCancellationStateStore()
+        self.cancellation_store.set_cancellation_state(
+            "store-1",
+            StoreCancellationState(
+                store_id="store-1",
+                owner_line_user_id="owner-line-1",
+                plan_name="スタンダードプラン",
+                period_end_date="2026-09-14",
+                portal_url="https://example.com/portal",
+                suspension_reason=None,
+            ),
+        )
+        self.push_client = InMemoryLinePushClient()
+
+    def _payload(self):
+        return _event_payload(
+            "evt_1", "customer.subscription.deleted", {"customer": "cus_1"}
+        )
+
+    def test_handler_is_called_and_state_is_written_back(self):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "cancelled")
+        self.assertEqual(len(self.push_client.sent), 1)
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertEqual(stored.suspension_reason, "cancelled")
+
+    def test_skipped_when_cancellation_store_missing(self):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.outcome)
+        self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_skipped_when_push_client_missing(self):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.outcome)
+
+    def test_skipped_when_store_id_has_no_known_state(self):
+        payload = _event_payload(
+            "evt_1", "customer.subscription.deleted", {"customer": "cus_unknown_store"}
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        def resolve(customer_id):
+            return {"cus_unknown_store": "store-unknown"}.get(customer_id)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=resolve,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.outcome)
+        self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_send_failure_leaves_state_unchanged(self):
+        class FailingPushClient:
+            def send_message(self, user_id, text):
+                raise LinePushDeliveryError()
+
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=FailingPushClient(),
+            now=NOW,
+        )
+
+        self.assertEqual(result.outcome, "send_failed")
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertIsNone(stored.suspension_reason)
 
 
 if __name__ == "__main__":

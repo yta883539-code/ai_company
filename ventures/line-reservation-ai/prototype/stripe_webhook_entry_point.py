@@ -2,16 +2,19 @@
 """stripe-webhook-http-entry-point-design.md(フェーズ続き183)で設計した、
 `route_stripe_event()`(ルート解決のみ)と各Stripeイベントハンドラ
 (`handle_subscription_activated()`・`handle_payment_succeeded()`・
-`handle_payment_failed()`)を結ぶ統合エントリポイント`receive_stripe_webhook()`。
+`handle_payment_failed()`・`handle_subscription_deleted()`)を結ぶ統合エントリポイント
+`receive_stripe_webhook()`。
 
 位置づけ:
 - 実Stripeアカウント接続・Webhookエンドポイント公開・Firestore書き込みは引き続き
   オーナー承認待ち(pending-approval.md参照)。本モジュールは実クラウド接続なしで
   検証可能な「判断・配線ロジック自体」のみを実装する。
 - course-set-pasha/aircon-pashaの`stripe_webhook.py`の`receive_stripe_webhook()`と
-  同じ位置づけだが、本ventureは状態モデルが`StoreDunningState`(dunning・復旧)と
-  `StoreSubscriptionState`(トライアル後の初回プラン選択)の2つに分かれているため、
-  それぞれ専用のストアProtocolを介して読み書きする(design 0節参照)。
+  同じ位置づけだが、本ventureは状態モデルが`StoreDunningState`(dunning・復旧)・
+  `StoreSubscriptionState`(トライアル後の初回プラン選択)・`StoreCancellationState`
+  (契約終了、フェーズ続き184で追加)の3つに分かれているため、それぞれ専用の
+  ストアProtocolを介して読み書きする(design 0節参照、3つ目の追加理由は
+  subscription-deleted-event-routing-design.md 3節参照)。
 """
 
 from __future__ import annotations
@@ -33,8 +36,14 @@ from cloud_function_subscription_activated_webhook import (
     StoreSubscriptionState,
     handle_subscription_activated,
 )
+from cloud_function_subscription_cancelled_webhook import (
+    OUTCOME_SEND_FAILED as CANCELLATION_OUTCOME_SEND_FAILED,
+    StoreSubscriptionState as StoreCancellationState,
+    handle_subscription_deleted,
+)
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
+    EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
     EVENT_INVOICE_PAYMENT_FAILED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
     StripeEventIdStoreProtocol,
@@ -83,6 +92,30 @@ class InMemoryStoreSubscriptionStateStore:
         self._states[store_id] = state
 
 
+class StoreCancellationStateStoreProtocol(Protocol):
+    def get_cancellation_state(self, store_id: str) -> Optional[StoreCancellationState]: ...
+
+    def set_cancellation_state(self, store_id: str, state: StoreCancellationState) -> None: ...
+
+
+class InMemoryStoreCancellationStateStore:
+    """`StoreCancellationStateStoreProtocol`のインメモリ実装(デモ・テスト用)。
+
+    subscription-deleted-event-routing-design.md 3節の通り、`subscription_store`
+    (`cloud_function_subscription_activated_webhook.StoreSubscriptionState`)とは
+    フィールド構成が異なる別クラスを保持するため、意図的に別のストアとして分離している。
+    """
+
+    def __init__(self) -> None:
+        self._states: dict[str, StoreCancellationState] = {}
+
+    def get_cancellation_state(self, store_id: str) -> Optional[StoreCancellationState]:
+        return self._states.get(store_id)
+
+    def set_cancellation_state(self, store_id: str, state: StoreCancellationState) -> None:
+        self._states[store_id] = state
+
+
 @dataclass
 class StripeWebhookReceiverResult:
     """`receive_stripe_webhook()`の結果(design 5節)。"""
@@ -102,6 +135,7 @@ def receive_stripe_webhook(
     resolve_store_id_by_customer: Callable[[str], Optional[str]],
     dunning_store: Optional[StoreDunningStateStoreProtocol] = None,
     subscription_store: Optional[StoreSubscriptionStateStoreProtocol] = None,
+    cancellation_store: Optional[StoreCancellationStateStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
@@ -184,5 +218,21 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(
             status_code=200, route=route, outcome=str(state_changed)
         )
+
+    if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
+        # subscription-deleted-event-routing-design.md 3節: activated用の
+        # `subscription_store`とはフィールド構成が異なるため専用の`cancellation_store`を使う。
+        if cancellation_store is None or push_client is None:
+            return StripeWebhookReceiverResult(status_code=200, route=route)
+        state = cancellation_store.get_cancellation_state(store_id)
+        if state is None:
+            return StripeWebhookReceiverResult(status_code=200, route=route)
+        result = handle_subscription_deleted(state, push_client)
+        if result.outcome == CANCELLATION_OUTCOME_SEND_FAILED:
+            return StripeWebhookReceiverResult(
+                status_code=200, route=route, outcome=result.outcome
+            )
+        cancellation_store.set_cancellation_state(store_id, state)
+        return StripeWebhookReceiverResult(status_code=200, route=route, outcome=result.outcome)
 
     return StripeWebhookReceiverResult(status_code=200, route=route)
