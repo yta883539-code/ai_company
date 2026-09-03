@@ -1797,10 +1797,27 @@
   489件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証
   9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 03:59 UTC
+- フェーズ150(2026-09-03 07:01 UTC): 各設計docの残課題を棚卸しした結果、
+  sns-tone-research.md(フェーズ4・5、2026-08-07作成)の「未検証事項(次回以降の課題)」に
+  「ハッシュタグ3分類方針をllm-system-prompt-draft.md本文・schema/output.schema.jsonに
+  反映する作業は未着手」という記載が残ったままになっていた記載漏れを発見した。
+  llm-system-prompt-draft.mdの厳守事項4を確認したところ、(1)一般ハッシュタグ・
+  (2)ジム独自のブランドタグ・(3)地域タグの3分類方針は既に反映済みであることを確認した
+  (反映時期は特定できなかったが、少なくとも現行の厳守事項4に明記されている)。
+  出力1(SNS投稿文)は自由記述の文字列フィールドでありハッシュタグも本文の一部として
+  生成されるため、schema/output.schema.json側に構造化フィールドを追加する必要はないと
+  判断し、その旨をsns-tone-research.mdに追記して解消済みとした。コード変更は無し
+  (ドキュメント整理のみ)、venture全体489件全件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)パス・schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-03 07:01 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-03 07:01 UTC・フェーズ150: sns-tone-research.mdに残っていた
+  「ハッシュタグ3分類方針の反映は未着手」という記載漏れ(実際はllm-system-prompt-draft.md
+  厳守事項4に反映済み)を解消した。詳細は上記フェーズ150参照)
 - (解消済み 2026-09-03 03:59 UTC・フェーズ149: customer-portal-session-endpoint-design.md
   6節に残っていた`PortalLinkProvider`実装本体を`StripePortalLinkProvider`として実装した。
   詳細は上記フェーズ149参照。呼び出し元の実配線・実`session_creator`実装は実Stripe接続後の
