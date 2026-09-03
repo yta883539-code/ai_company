@@ -2535,4 +2535,20 @@
   相当、pytest実行)パス・schema検証9件パスを確認した。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-02 21:59 UTC
+- フェーズ176(2026-09-03 00:58 UTC): 各設計docの残課題を棚卸しした結果、
+  trial-end-notification-design.md 6節に残っていた「`process_postback_event()`本体の実装・
+  実Stripe接続はなお次回以降の課題」「4節の『生成一時停止』判定の実コード実装はなお次回以降の
+  課題として残る」という2件の記載が、実際にはそれぞれフェーズ132(`prototype/
+  cloud_function_webhook.py`の`process_postback_event()`・`dispatch_webhook_events()`への
+  `postback`種別振り分け)・フェーズ138(`_is_generation_paused()`・
+  `GENERATION_PAUSED_MESSAGE`)で実装済みだった記載漏れ(フェーズ155・157・159・160・163・
+  164・168・169・170・171・172・173と同種のドキュメント棚卸し)を発見・解消した。コード上で
+  `process_postback_event`・`dispatch_webhook_events`・`_is_generation_paused`がいずれも
+  `prototype/cloud_function_webhook.py`に現存することを確認した上で該当箇所を訂正した。
+  コード変更は無し(ドキュメント整理のみ)、venture全体388件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
+  再確認した。承認不要なドキュメント整理・アイデア追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  他venture・アイデア領域の前進、または実Cloud Scheduler・実Stripe接続待ち(オーナー承認待ち)
+  以外の残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-03 00:58 UTC

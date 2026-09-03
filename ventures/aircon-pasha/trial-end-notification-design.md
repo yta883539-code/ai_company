@@ -116,12 +116,20 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
   詳細は同ドキュメント参照)
 - (解消済み・フェーズ131: 決済導線設計をcheckout-initiation-flow-design.mdとして新規作成し、
   3節のCTAの実現方式をpostbackアクションボタン方式〈LIFF不要〉に確定した。詳細は同ドキュメント
-  参照。`process_postback_event()`本体の実装・実Stripe接続はなお次回以降の課題)
+  参照。`process_postback_event()`本体は**フェーズ132で実装済み**(`prototype/
+  cloud_function_webhook.py`、`dispatch_webhook_events()`への`postback`種別振り分けも
+  同フェーズで配線済み)。実Stripe接続(Checkout Session作成の実API呼び出し)のみ
+  オーナー承認待ちとして残る〈フェーズ176・2026-09-03: 本節が「なお次回以降の課題」と
+  していたのは記載漏れで、実際にはフェーズ132で解消済みだったことを発見・訂正した〉)
 - 「生成実績」に浮いた作業時間の目安を加えるかどうかは、content-generation-time-estimate.md
   相当のドキュメント作成後に再検討する。
 - (解消済み・フェーズ133: (B)期間到達判定用の日次スケジューラの選定ロジック・構成を
-  trial-end-scheduler-design.mdとして設計した。詳細は同ドキュメント参照。`prototype/`への
-  実装、および4節の「生成一時停止」判定の実コード実装はなお次回以降の課題として残る)
+  trial-end-scheduler-design.mdとして設計した。詳細は同ドキュメント参照。4節の「生成一時
+  停止」判定の実コード実装は**フェーズ138で実装済み**(`_is_generation_paused()`・
+  `GENERATION_PAUSED_MESSAGE`、詳細は4節参照)。`prototype/`への日次スケジューラ本体
+  (Cloud Scheduler)の実装のみ、実行環境構築がオーナー承認待ちのため未着手のまま残る
+  〈フェーズ176・2026-09-03: 本節が両方とも「なお次回以降の課題」としていたのは記載漏れで、
+  実際には解消済みだったことを発見・訂正した〉)
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)、決済導線・LIFF等の
   外部サービス接続はいずれもオーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントは
   メッセージ文言・トリガー条件の机上設計にとどめる。
