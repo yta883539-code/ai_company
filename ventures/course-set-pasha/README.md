@@ -1824,10 +1824,58 @@
   line-reservation-aiへの同種対応の横展開は次回以降の課題として残す。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 08:01 UTC
+- フェーズ152(2026-09-03 12:08 UTC): notification-threshold-per-plan-review.md「残課題」の
+  棚卸しの過程で、`PLAN_NOTICE_THRESHOLDS`(プラン→閾値マッピング)が実際にどこでユーザーの
+  プランと突き合わされているかを追ったところ、より大きな未設計のギャップを発見した。
+  `checkout-initiation-flow-design.md`・`checkout-session-endpoint-design.md`はいずれも
+  プラン選択について一切触れておらず、`prototype/checkout_session.py`の
+  `build_checkout_session_params()`はどのプランを購入するかを表す`line_items`を含めて
+  いなかった。結果として`stripe_webhook.handle_checkout_session_completed()`は購入プランを
+  どこにも記録しておらず、`cloud_function_webhook.dispatch_webhook_events()`は`plan`を
+  呼び出し元がリクエスト全体に一律で注入する引数としてのみ扱っていた(1回のWebhook
+  リクエストに複数ユーザーのイベントが混在しうる実運用では、複数プラン混在時に誤った
+  上限・単価が適用されるおそれがある構造的なギャップ、line-reservation-aiが
+  monthly-booking-limit-notification-design.mdで残した「store_profile_store.pyへの
+  プラン保持フィールド追加」と同種)。checkout-session-plan-selection-design.mdを新規作成し、
+  以下を実装した。(1)`application_form_submission_flow.py`の`UserProfileStoreProtocol`/
+  `InMemoryUserProfileStore`に`set_plan`/`get_plan`を追加。(2)`checkout_session.py`に
+  `PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`(3プラン分のプレースホルダPrice ID)を新設し、
+  `build_checkout_session_params()`が`plan`引数(省略時は従来通り後方互換)から
+  `line_items`・`metadata: {"plan": plan}`を組み立てるようにした。`create_checkout_session()`
+  に`plan`引数と400エラー分岐(認証成功後に検証、未認証ユーザーにプラン名の有効集合を
+  推測させない)、`main()`に`request.args.get("plan")`からの読み取り配線(`args`を持たない
+  旧来のリクエストスタブでも`AttributeError`にならないフォールバック付き)を追加した。
+  (3)`stripe_webhook.handle_checkout_session_completed()`が`metadata.plan`
+  (Checkout Sessionオブジェクトにそのまま含まれるため`line_items`のexpand等の追加API呼び
+  出し不要)から既知のプラン値のみ`user_profile_store.set_plan()`へ書き込むようにし、
+  `CheckoutSessionLinkResult`に`plan_written`フィールドを追加した。(4)
+  `cloud_function_webhook.process_memo_event()`に`profile_store`引数を追加し、
+  `profile_store.get_plan(user_id)`が値を持つ場合は引数`plan`(従来の一律値)より優先する
+  `resolved_plan`によって上限判定・通知文言生成を行うようにした(`profile_store`未指定・
+  未記録時は従来通り引数`plan`にフォールバック、後方互換)。`dispatch_webhook_events()`から
+  `process_memo_event()`呼び出しへ`profile_store`を配線した。あわせて
+  notification-threshold-per-plan-review.md「残課題」の該当記載も解消済みとして訂正した。
+  テスト16件追加(test_checkout_session.py 9件・test_stripe_webhook.py 4件・
+  test_cloud_function_webhook.py 3件)、venture全体512件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実Stripe Price ID確定・
+  LIFFフロントエンドのプラン選択UI実装・プラン変更(アップグレード/ダウングレード)時の
+  `plan`更新経路は、いずれも実LIFF・実Stripe接続待ち(オーナー承認)の課題として引き続き
+  残す(詳細はcheckout-session-plan-selection-design.md「残課題」参照)。承認不要な設計・
+  実装・テスト追加・ドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 12:08 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ152、2026-09-03 12:08 UTC: Checkout Sessionが購入プランを一切
+  記録していなかった未設計のギャップ〈checkout-session-plan-selection-design.md〉を
+  発見・設計・実装した。`user_profile/{user_id}.plan`保持フィールド追加、
+  `checkout_session.py`の`line_items`/`metadata.plan`組み立て、
+  `stripe_webhook.handle_checkout_session_completed()`の書き込み配線、
+  `cloud_function_webhook.process_memo_event()`のユーザーごとのプラン優先解決まで対応。
+  詳細は上記フェーズ152参照。実Stripe Price ID確定・LIFFプラン選択UI・プラン変更時の
+  更新経路は実LIFF・実Stripe接続待ちとして残る)
 - (解消済み 2026-09-03 08:01 UTC・フェーズ151: stripe-webhook-signature-verification-
   design.md「残課題」に残っていたStripeイベントのべき等性チェック〈`event.id`による
   重複配信対策〉を実装した。aircon-pashaフェーズ177版を横展開。詳細は上記フェーズ151参照。

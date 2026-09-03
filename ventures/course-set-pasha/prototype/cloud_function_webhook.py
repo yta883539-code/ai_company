@@ -1040,6 +1040,7 @@ def process_memo_event(
     gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
@@ -1056,6 +1057,12 @@ def process_memo_event(
        (limit-approaching-notification-design.md)を行う。カウント対象はstatus=="generated"の
        場合のみとし、返信本文組み立て直後(2節の方針通り)にインクリメントする。
        usage_counterがNoneの場合(未接続時)はカウント処理自体をスキップする。
+       plan判定にはprofile_store(渡された場合のみ)によるユーザーごとの実際のプラン
+       (checkout-session-plan-selection-design.md、フェーズ152でuser_profile/{user_id}.planに
+       書き込まれる値)を優先する。profile_store未指定、またはそのユーザーにplanが
+       未記録(トライアル中で未購入等)の場合は、引数`plan`(呼び出し元が全イベント一律で
+       渡す従来値、複数プラン混在のバッチでは不正確になりうる)にフォールバックする
+       (詳細はcheckout-session-plan-selection-design.md「残課題」参照)。
     5. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
        portal_link_providerが渡されていればsubscription_procedure_notice.body中の
        ポータルURLプレースホルダを実URLへ置換する(subscription-cancellation-flow-design.md、
@@ -1196,8 +1203,21 @@ def process_memo_event(
         (now or datetime.now(timezone(timedelta(hours=9)))) if should_mark_notice_sent else None
     )
 
+    # checkout-session-plan-selection-design.md(フェーズ152): profile_storeが渡され、かつ
+    # そのユーザーのplanが記録済み(実際にCheckout Session経由で契約済み)であれば、引数
+    # `plan`(呼び出し元がバッチ全体に一律で渡す従来値)より優先する。未記録(トライアル中等)
+    # またはprofile_store未指定の場合は、従来通り引数`plan`にフォールバックする(後方互換、
+    # profile_storeを渡さない既存の呼び出し元・テストは挙動不変)。
+    resolved_plan = plan
+    if profile_store is not None and hasattr(profile_store, "get_plan"):
+        plan_lookup_user_id = event.get("source", {}).get("userId")
+        if plan_lookup_user_id:
+            stored_plan = profile_store.get_plan(plan_lookup_user_id)
+            if stored_plan is not None:
+                resolved_plan = stored_plan
+
     notice_marked_atomically = False
-    if instance["status"] == "generated" and usage_counter is not None and plan is not None:
+    if instance["status"] == "generated" and usage_counter is not None and resolved_plan is not None:
         user_id = event.get("source", {}).get("userId")
         if user_id:
             if (
@@ -1253,7 +1273,7 @@ def process_memo_event(
                         )
                         reply_text = f"{reply_text}\n\n{trial_end_message}"
                         usage_counter.set_trial_end_notified_at(user_id, notification_now)
-            notice = build_usage_notice(plan, count)
+            notice = build_usage_notice(resolved_plan, count)
             if notice:
                 reply_text = f"{reply_text}\n\n{notice}"
 
@@ -1354,6 +1374,7 @@ def dispatch_webhook_events(
                     gym_area_config_store=gym_area_config_store,
                     linking_store=linking_store,
                     purge_throttle=purge_throttle,
+                    profile_store=profile_store,
                     now=now,
                 )
             )

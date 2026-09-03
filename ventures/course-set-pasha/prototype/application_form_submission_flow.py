@@ -56,6 +56,14 @@ class UserProfileStoreProtocol(Protocol):
     (`set_is_following(user_id, True)`)または解約確定
     (`mark_deletion_candidate_on_subscription_deleted()`)のいずれかが起きた時点で
     呼び出し側が呼ぶ(本Protocol自体は単純な読み書き・消去のみを表す)。
+
+    `set_plan`/`get_plan`はcheckout-session-plan-selection-design.md(フェーズ152)で追加した。
+    `user_profile/{user_id}.plan`(pricing-plan.mdの3プラン名のいずれか)を保持する。
+    `stripe_webhook.handle_checkout_session_completed()`がCheckout Session完了時の
+    `metadata.plan`から書き込み、`cloud_function_webhook.process_memo_event()`が
+    `dispatch_webhook_events()`から注入される単一の`plan`引数(全ユーザー一律、複数プラン
+    混在時は不正確)より優先してユーザーごとの実際のプランを解決するために読み出す。
+    未設定(トライアル中で未購入、またはFirestore未接続)の場合は`None`を返す。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
@@ -103,6 +111,12 @@ class UserProfileStoreProtocol(Protocol):
     def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
         ...
 
+    def set_plan(self, user_id: str, plan: str) -> None:
+        ...
+
+    def get_plan(self, user_id: str) -> Optional[str]:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -126,6 +140,7 @@ class InMemoryUserProfileStore:
         self._user_ids_by_stripe_customer_id: dict[str, str] = {}
         self._is_following: dict[str, bool] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, datetime] = {}
+        self._plans: dict[str, str] = {}
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         self._profiles[user_id] = raw_value
@@ -168,6 +183,7 @@ class InMemoryUserProfileStore:
             | set(self._emails)
             | set(self._stripe_customer_ids)
             | set(self._is_following)
+            | set(self._plans)
         )
 
     def set_blocked_but_billing_owner_notified_at(
@@ -182,6 +198,12 @@ class InMemoryUserProfileStore:
 
     def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
         self._blocked_but_billing_owner_notified_at.pop(user_id, None)
+
+    def set_plan(self, user_id: str, plan: str) -> None:
+        self._plans[user_id] = plan
+
+    def get_plan(self, user_id: str) -> Optional[str]:
+        return self._plans.get(user_id)
 
 
 # design 2節: 連続カンマのみ等、要素がすべて空になる入力を「実質空」とみなすための判定に使う。

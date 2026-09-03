@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from checkout_session import (  # noqa: E402
     DEFAULT_CANCEL_URL,
     DEFAULT_SUCCESS_URL,
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
     build_checkout_session_params,
     create_checkout_session,
     get_checkout_runtime_dependencies,
@@ -50,6 +51,31 @@ class BuildCheckoutSessionParamsTest(unittest.TestCase):
         )
         self.assertEqual(params["success_url"], "https://example.com/ok")
         self.assertEqual(params["cancel_url"], "https://example.com/ng")
+
+    def test_omitted_plan_has_no_line_items_or_metadata(self):
+        # checkout-session-plan-selection-design.md(フェーズ152)追加前の後方互換確認。
+        params = build_checkout_session_params("Uabc123")
+        self.assertNotIn("line_items", params)
+        self.assertNotIn("metadata", params)
+
+    def test_valid_plan_adds_line_items_and_metadata(self):
+        params = build_checkout_session_params("Uabc123", plan="スタンダード")
+        self.assertEqual(
+            params["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"], "quantity": 1}],
+        )
+        self.assertEqual(params["metadata"], {"plan": "スタンダード"})
+
+    def test_each_known_plan_maps_to_a_distinct_price_id(self):
+        for plan in ("ライト", "スタンダード", "セッター複数"):
+            params = build_checkout_session_params("Uabc123", plan=plan)
+            self.assertEqual(params["metadata"]["plan"], plan)
+        price_ids = set(PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER.values())
+        self.assertEqual(len(price_ids), 3)
+
+    def test_unknown_plan_raises(self):
+        with self.assertRaises(ValueError):
+            build_checkout_session_params("Uabc123", plan="プレミアム")
 
 
 class _StubUserProfileStore:
@@ -135,6 +161,42 @@ class CreateCheckoutSessionTest(unittest.TestCase):
         self.assertEqual(result.checkout_session_params["success_url"], "https://example.com/ok")
         self.assertEqual(result.checkout_session_params["cancel_url"], "https://example.com/ng")
 
+    def test_valid_plan_is_propagated_to_params(self):
+        store = _StubUserProfileStore()
+        result = create_checkout_session(
+            "Bearer valid-token",
+            verify_id_token=lambda token: "Uabc123",
+            user_profile_store=store,
+            plan="ライト",
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.checkout_session_params["metadata"], {"plan": "ライト"})
+
+    def test_invalid_plan_returns_400_without_querying_store(self):
+        store = _StubUserProfileStore()
+        result = create_checkout_session(
+            "Bearer valid-token",
+            verify_id_token=lambda token: "Uabc123",
+            user_profile_store=store,
+            plan="プレミアム",
+        )
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_plan")
+        self.assertIsNone(result.checkout_session_params)
+        self.assertEqual(store.get_stripe_customer_id_calls, [])
+
+    def test_invalid_plan_check_happens_after_authentication(self):
+        # 未認証(invalid_id_token)が先に検出され、プラン名の有効集合を推測させない(design 2節)。
+        store = _StubUserProfileStore()
+        result = create_checkout_session(
+            "Bearer invalid-token",
+            verify_id_token=lambda token: None,
+            user_profile_store=store,
+            plan="プレミアム",
+        )
+        self.assertEqual(result.status_code, 401)
+        self.assertEqual(result.error, "invalid_id_token")
+
 
 class GetCheckoutRuntimeDependenciesTest(unittest.TestCase):
     def test_returns_user_profile_store_and_placeholder_verify_id_token(self):
@@ -148,10 +210,18 @@ class GetCheckoutRuntimeDependenciesTest(unittest.TestCase):
 
 class _StubFlaskRequest:
     """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ
-    (test_stripe_webhook._StubFlaskRequestと対称)。"""
+    (test_stripe_webhook._StubFlaskRequestと対称)。
 
-    def __init__(self, headers: dict):
+    `args`(クエリパラメータ、フェーズ152で`plan`読み取りに追加)は省略可能。省略時、
+    `main()`側は`getattr(request, "args", {})`で空dict扱いにフォールバックするため、
+    `args`を持たない旧来のリクエストスタブでも従来通り動作する
+    (既存テストが本引数無しのまま変更不要である所以)。
+    """
+
+    def __init__(self, headers: dict, args: dict = None):
         self.headers = headers
+        if args is not None:
+            self.args = args
 
 
 class MainEntryPointTest(unittest.TestCase):
@@ -183,6 +253,30 @@ class MainEntryPointTest(unittest.TestCase):
 
         self.assertEqual(status_code, 501)
         self.assertEqual(response_body, "verify_id_token_not_implemented")
+
+    def test_request_with_plan_query_param_does_not_crash(self):
+        # request.argsからのplan読み取り配線(フェーズ152)の回帰確認。verify_id_token自体は
+        # 未実装のプレースホルダのままなので、plan値に関わらず結果は501のまま変わらない
+        # (プラン検証はcreate_checkout_session()内でverify_id_token成功後に行われるため、
+        # 本エントリポイントのテストではまだ到達しない)。
+        request = _StubFlaskRequest(
+            {"Authorization": "Bearer some-id-token"}, args={"plan": "ライト"}
+        )
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+        self.assertEqual(response_body, "verify_id_token_not_implemented")
+
+    def test_request_without_args_attribute_falls_back_to_no_plan(self):
+        # `args`を持たない旧来のリクエストスタブ(本ファイルの他テスト全て)でも
+        # AttributeErrorにならず従来通り動作することの明示的な回帰確認。
+        request = _StubFlaskRequest({"Authorization": "Bearer some-id-token"})
+        self.assertFalse(hasattr(request, "args"))
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
 
 
 if __name__ == "__main__":

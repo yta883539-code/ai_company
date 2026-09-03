@@ -30,7 +30,7 @@ from application_form_submission_flow import (
     InMemoryUserProfileStore,
     UserProfileStoreProtocol,
 )
-from cloud_function_webhook import InMemoryUsageCounter, PortalLinkProvider
+from cloud_function_webhook import InMemoryUsageCounter, PLAN_MONTHLY_LIMITS, PortalLinkProvider
 from deletion_candidate import (
     InMemoryProfileDeletionCandidateStore,
     ProfileDeletionCandidateStoreProtocol,
@@ -340,6 +340,7 @@ class CheckoutSessionLinkResult:
     user_id: Optional[str] = None
     stripe_customer_id: Optional[str] = None
     upgraded_at_written: bool = False
+    plan_written: bool = False
 
 
 def handle_checkout_session_completed(
@@ -360,6 +361,15 @@ def handle_checkout_session_completed(
     同じ「既に値がある場合は上書きしない」冪等性は書き込み先(InMemoryUsageCounter等)側の
     契約であり、本関数は無条件に呼び出すのみ。`usage_counter`未指定時は従来通り
     upgraded_atの書き込みを行わない(後方互換、テストでも指定なしのまま動作する)。
+
+    `plan`(checkout-session-plan-selection-design.md、フェーズ152で追加)は、
+    `checkout_session.build_checkout_session_params()`がCheckout Session作成時に設定した
+    `metadata.plan`(セッションオブジェクトにそのまま含まれるフィールド、line_itemsの
+    expand等の追加API呼び出し不要)から取り出す。`PLAN_MONTHLY_LIMITS`(pricing-plan.mdの
+    3プラン)にある既知の値のみ`store.set_plan(user_id, plan)`で書き込み、`metadata`欠落・
+    `plan`欠落・未知の値の場合は何も書き込まない(安全側。古いCheckout Session実装
+    〈metadata省略〉からのイベントでも紐付け自体は従来通り行える)。`store`が`set_plan`を
+    持たない場合(最小限のスタブを使うテスト等)は`hasattr`で検出しスキップする。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -381,11 +391,19 @@ def handle_checkout_session_completed(
         usage_counter.set_upgraded_at_if_unset(user_id, resolved_now)
         upgraded_at_written = True
 
+    plan_written = False
+    metadata = data_object.get("metadata")
+    plan = metadata.get("plan") if isinstance(metadata, dict) else None
+    if isinstance(plan, str) and plan in PLAN_MONTHLY_LIMITS and hasattr(store, "set_plan"):
+        store.set_plan(user_id, plan)
+        plan_written = True
+
     return CheckoutSessionLinkResult(
         linked=True,
         user_id=user_id,
         stripe_customer_id=stripe_customer_id,
         upgraded_at_written=upgraded_at_written,
+        plan_written=plan_written,
     )
 
 

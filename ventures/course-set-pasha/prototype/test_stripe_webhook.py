@@ -843,6 +843,58 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertFalse(result.upgraded_at_written)
         self.assertIsNone(usage_counter.get_upgraded_at("U1"))
 
+    def test_metadata_plan_is_written_to_store(self):
+        # checkout-session-plan-selection-design.md(フェーズ152)。
+        # checkout_session.build_checkout_session_params()がmetadata.planとして設定した
+        # 値を、line_itemsのexpand等の追加API呼び出しなしにそのまま読み取れることの確認。
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "U1",
+                    "customer": "cus_A",
+                    "metadata": {"plan": "スタンダード"},
+                }
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertTrue(result.plan_written)
+        self.assertEqual(self.store.get_plan("U1"), "スタンダード")
+
+    def test_missing_metadata_does_not_write_plan(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "U1", "customer": "cus_A"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.plan_written)
+        self.assertIsNone(self.store.get_plan("U1"))
+
+    def test_unknown_plan_value_does_not_write_plan(self):
+        # PLAN_MONTHLY_LIMITSにない値(古いフロントエンド由来の想定外文字列等)は書き込まない。
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "U1",
+                    "customer": "cus_A",
+                    "metadata": {"plan": "プレミアム"},
+                }
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.plan_written)
+        self.assertIsNone(self.store.get_plan("U1"))
+
+    def test_link_failure_does_not_write_plan_even_with_metadata(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"customer": "cus_A", "metadata": {"plan": "ライト"}}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.linked)
+        self.assertFalse(result.plan_written)
+
 
 class MakeResolveUserIdTest(unittest.TestCase):
     def test_returns_callable_backed_by_store(self):

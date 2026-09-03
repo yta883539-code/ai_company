@@ -474,6 +474,59 @@ class ProcessMemoEventUsageCounterTest(unittest.TestCase):
         self.assertNotIn("※", result.reply_text)
 
 
+class ProcessMemoEventProfileStorePlanResolutionTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md(フェーズ152)。profile_storeに記録された
+    ユーザーごとのplanが、引数`plan`(呼び出し元がバッチ全体に一律で渡す従来値)より
+    優先されることの検証。"""
+
+    def test_profile_store_plan_overrides_argument_plan(self):
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(28):
+            usage_counter.increment("u-1", "2026-08")
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_plan("u-1", "セッター複数")  # 月30回・従量100円/回
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            profile_store=profile_store,
+        )
+
+        # 引数plan="ライト"(月8回)のままなら残り2回に到達しているはずだが、実際に記録された
+        # セッター複数プラン(月30回)を優先すればまだ通知は出ない。
+        self.assertNotIn("※", result.reply_text)
+
+    def test_profile_store_without_recorded_plan_falls_back_to_argument(self):
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(5):
+            usage_counter.increment("u-1", "2026-08")
+        profile_store = InMemoryUserProfileStore()  # 未記録(トライアル中を想定)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            profile_store=profile_store,
+        )
+
+        self.assertIn("残り2回です", result.reply_text)
+
+    def test_no_profile_store_falls_back_to_argument_plan(self):
+        # profile_store省略時(後方互換)は従来通り引数planのみで判定する。
+        usage_counter = InMemoryUsageCounter()
+        for _ in range(5):
+            usage_counter.increment("u-1", "2026-08")
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertIn("残り2回です", result.reply_text)
+
+
 class ProcessMemoEventPurgeThrottleTest(unittest.TestCase):
     """linking-code-purge-trigger-design.mdで採用した、process_memo_event便乗での
     purge_expired_links()呼び出し配線の検証。"""
