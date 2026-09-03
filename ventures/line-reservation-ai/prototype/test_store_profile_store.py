@@ -353,5 +353,99 @@ class BlockedButBillingOwnerNotifiedAtTest(unittest.TestCase):
             self.store.set_blocked_but_billing_owner_notified_at("", "2026-09-03T01:00:00Z")
 
 
+class PlanTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md(フェーズ続き181)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_none_when_not_set(self):
+        self.assertIsNone(self.store.get_plan("store123"))
+
+    def test_set_then_get_roundtrips(self):
+        self.store.set_plan("store123", "スタンダードプラン")
+        self.assertEqual(self.store.get_plan("store123"), "スタンダードプラン")
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_plan("", "スタンダードプラン")
+
+    def test_raises_on_unknown_plan(self):
+        with self.assertRaises(ValueError):
+            self.store.set_plan("store123", "存在しないプラン")
+
+    def test_different_stores_have_independent_plans(self):
+        self.store.set_plan("store123", "スタータープラン")
+        self.store.set_plan("store456", "プロプラン")
+        self.assertEqual(self.store.get_plan("store123"), "スタータープラン")
+        self.assertEqual(self.store.get_plan("store456"), "プロプラン")
+
+    def test_re_setting_overwrites_previous_plan(self):
+        self.store.set_plan("store123", "スタータープラン")
+        self.store.set_plan("store123", "プロプラン")
+        self.assertEqual(self.store.get_plan("store123"), "プロプラン")
+
+
+class HandleCheckoutSessionCompletedPlanTest(unittest.TestCase):
+    """checkout-session-plan-selection-design.md(フェーズ続き181):
+    `metadata.plan`からのプラン記録のテスト。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_known_plan_in_metadata_is_written(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "store123",
+                    "customer": "cus_abc",
+                    "metadata": {"plan": "スタンダードプラン"},
+                }
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertTrue(result.plan_written)
+        self.assertEqual(self.store.get_plan("store123"), "スタンダードプラン")
+
+    def test_missing_metadata_does_not_write_plan(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "store123", "customer": "cus_abc"}},
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.plan_written)
+        self.assertIsNone(self.store.get_plan("store123"))
+
+    def test_unknown_plan_in_metadata_does_not_write(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "store123",
+                    "customer": "cus_abc",
+                    "metadata": {"plan": "存在しないプラン"},
+                }
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.plan_written)
+        self.assertIsNone(self.store.get_plan("store123"))
+
+    def test_non_dict_metadata_does_not_write_plan(self):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "store123",
+                    "customer": "cus_abc",
+                    "metadata": "not-a-dict",
+                }
+            },
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertFalse(result.plan_written)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2083,7 +2083,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   課題として残る(設計doc6節・5節参照)。承認不要な設計・実装・テスト追加のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。
-- 最終更新: 2026-09-03 10:57 UTC
+- フェーズ続き181(2026-09-03 13:02 UTC): フェーズ続き180(monthly-booking-limit-
+  notification-design.md)で「次回以降の課題」として残していた「store_profile_store.py
+  に契約プランを保持するフィールドが無い」ギャップに対応した(course-set-pashaが
+  フェーズ152で同種のギャップに対応したcheckout-session-plan-selection-design.mdの
+  横展開)。checkout-session-plan-selection-design.mdを新規作成し、
+  `prototype/store_profile_store.py`に`PLAN_MONTHLY_BOOKING_LIMITS`(pricing-plan.mdの
+  3プラン名→月間予約件数上限マッピング)・`get_plan()`/`set_plan()`を追加、
+  `handle_checkout_session_completed()`が`metadata.plan`から購入プランを読み取り
+  `store.set_plan()`へ書き込むよう配線した。`prototype/checkout_session.py`に
+  `PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`を新設し、`build_checkout_session_params()`が
+  `plan`引数から`line_items`・`metadata.plan`を組み立てるようにし、
+  `create_checkout_session()`が`verify_id_token`成功後・認可チェック前に`plan`を検証
+  (未知の値は400 `invalid_plan`)するようにした。テスト15件追加、venture全体623件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件パスを
+  確認した。`ConversationFlowStateMachine`構築時に`store.get_plan()`を
+  `monthly_booking_limit`引数へ実際に接続する配線、実Stripe Price ID確定・LIFFプラン
+  選択UIは実LIFF・実Stripe接続待ち(オーナー承認)の課題として残る。承認不要な設計・
+  実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 13:02 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

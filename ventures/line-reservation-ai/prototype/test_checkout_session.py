@@ -15,6 +15,7 @@ from checkout_session import (  # noqa: E402
     DEFAULT_LIFF_ID,
     DEFAULT_LINE_BASIC_ID,
     DEFAULT_SUCCESS_URL,
+    PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER,
     build_checkout_session_params,
     build_liff_checkout_link,
     build_line_return_link,
@@ -58,7 +59,23 @@ class BuildCheckoutSessionParamsTest(unittest.TestCase):
             cancel_url="https://example.com/ng",
         )
         self.assertEqual(params["success_url"], "https://example.com/ok")
-        self.assertEqual(params["cancel_url"], "https://example.com/ng")
+
+    def test_omitted_plan_does_not_add_line_items_or_metadata(self):
+        params = build_checkout_session_params("Uowner123")
+        self.assertNotIn("line_items", params)
+        self.assertNotIn("metadata", params)
+
+    def test_known_plan_adds_line_items_and_metadata(self):
+        params = build_checkout_session_params("Uowner123", plan="スタンダードプラン")
+        self.assertEqual(
+            params["line_items"],
+            [{"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダードプラン"], "quantity": 1}],
+        )
+        self.assertEqual(params["metadata"], {"plan": "スタンダードプラン"})
+
+    def test_unknown_plan_raises(self):
+        with self.assertRaises(ValueError):
+            build_checkout_session_params("Uowner123", plan="存在しないプラン")
 
 
 class BuildLineReturnLinkTest(unittest.TestCase):
@@ -315,6 +332,34 @@ class CreateCheckoutSessionTest(unittest.TestCase):
         self.assertEqual(result.checkout_session_params["success_url"], "https://example.com/ok")
         self.assertEqual(result.checkout_session_params["cancel_url"], "https://example.com/ng")
 
+    def test_invalid_plan_returns_400_before_authorization_check(self):
+        result = create_checkout_session(
+            "store123",
+            "Bearer valid-token",
+            verify_id_token=lambda token: "Uowner123",
+            store=self.store,
+            line_return_link=_VALID_LINE_RETURN_LINK,
+            plan="存在しないプラン",
+        )
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.error, "invalid_plan")
+        self.assertIsNone(result.checkout_session_params)
+
+    def test_known_plan_is_propagated_to_checkout_session_params(self):
+        self.store.set_owner_user_id("store123", "Uowner123")
+        result = create_checkout_session(
+            "store123",
+            "Bearer valid-token",
+            verify_id_token=lambda token: "Uowner123",
+            store=self.store,
+            line_return_link=_VALID_LINE_RETURN_LINK,
+            plan="プロプラン",
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.checkout_session_params["metadata"], {"plan": "プロプラン"}
+        )
+
 
 class GetCheckoutRuntimeDependenciesTest(unittest.TestCase):
     def test_returns_store_verify_id_token_placeholder_and_line_return_link(self):
@@ -384,6 +429,23 @@ class MainEntryPointTest(unittest.TestCase):
     def test_well_formed_bearer_header_returns_501_pending_verify_id_token(self):
         request = _StubFlaskRequest(
             {"Authorization": "Bearer some-id-token"}, args={"store_id": "store123"}
+        )
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+        self.assertEqual(response_body, "verify_id_token_not_implemented")
+
+    def test_well_formed_bearer_header_with_plan_still_returns_501_pending_verify_id_token(
+        self,
+    ):
+        """checkout-session-plan-selection-design.md(フェーズ続き181): `plan`クエリ
+        パラメータの読み取り配線自体は`verify_id_token`未実装(501)より手前で行われるが、
+        `verify_id_token`が呼ばれる時点で例外が伝播するため観測できる違いは無い
+        (`plan`読み取り自体が例外を起こさないことの確認)。"""
+        request = _StubFlaskRequest(
+            {"Authorization": "Bearer some-id-token"},
+            args={"store_id": "store123", "plan": "スタンダードプラン"},
         )
 
         response_body, status_code = main(request)

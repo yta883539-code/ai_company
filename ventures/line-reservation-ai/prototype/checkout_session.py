@@ -22,8 +22,12 @@
   のstripe_webhook.main()/checkout_session.main()と同じ「本体は依存注入でテスト可能、
   `main(request)`だけが実`functions_framework`リクエストオブジェクトを扱う薄い配線」という
   構成を踏襲する。
+- プラン選択・`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`(2026-09-03追記・フェーズ続き181):
+  checkout-session-plan-selection-design.mdで設計した、Checkout Session作成時に購入プランを
+  `line_items`・`metadata.plan`として組み立てる処理(course-set-pashaがフェーズ152で実装した
+  同名の仕組みの横展開)。
 
-設計の参照元: checkout-initiation-flow-design.md
+設計の参照元: checkout-initiation-flow-design.md、checkout-session-plan-selection-design.md
 """
 
 from __future__ import annotations
@@ -32,7 +36,11 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 from urllib.parse import quote
 
-from store_profile_store import InMemoryStoreProfileStore, StoreProfileStoreProtocol
+from store_profile_store import (
+    PLAN_MONTHLY_BOOKING_LIMITS,
+    InMemoryStoreProfileStore,
+    StoreProfileStoreProtocol,
+)
 
 # design 3節: 実LPドメイン確定までの仮のプレースホルダ。呼び出し元・テストで上書き可能。
 DEFAULT_SUCCESS_URL = "https://example.com/line-reservation-ai/checkout/success"
@@ -44,6 +52,17 @@ DEFAULT_LIFF_ID = "LIFF_ID_PLACEHOLDER"
 # design 4節: LINE公式アカウント開設(オーナー承認待ち、Basic ID確定)までの仮のプレースホルダ。
 DEFAULT_LINE_BASIC_ID = "LINE_BASIC_ID_PLACEHOLDER"
 
+# checkout-session-plan-selection-design.md(フェーズ続き181): pricing-plan.mdの3プラン名
+# (PLAN_MONTHLY_BOOKING_LIMITSのキーと同一集合、store_profile_store.pyを単一の正とし重複
+# 定義を避ける)それぞれに対応するStripe Price IDのプレースホルダ。実Price ID確定(Stripe
+# ダッシュボードでの商品・価格作成、オーナー承認待ち・pending-approval.md参照)後に
+# 差し替える。
+PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER = {
+    "スタータープラン": "price_PLACEHOLDER_line_reservation_ai_starter",
+    "スタンダードプラン": "price_PLACEHOLDER_line_reservation_ai_standard",
+    "プロプラン": "price_PLACEHOLDER_line_reservation_ai_pro",
+}
+
 _LINE_UNIVERSAL_LINK_BASE = "https://line.me/R/ti/p/"
 _LIFF_LINK_BASE = "https://liff.line.me/"
 
@@ -52,16 +71,26 @@ def build_checkout_session_params(
     user_id: str,
     existing_stripe_customer_id: Optional[str] = None,
     *,
+    plan: Optional[str] = None,
     success_url: str = DEFAULT_SUCCESS_URL,
     cancel_url: str = DEFAULT_CANCEL_URL,
 ) -> dict:
     """Stripe Checkout Session作成APIへ渡すパラメータを組み立てる(design 3節・5節)。
 
-    - `user_id`は店舗オーナーのLINE user_id(design 0節)。空文字列・Noneの場合は
-      `ValueError`。呼び出し元でLIFF IDトークン検証済みの認証済みuser_idが必ず先に
-      得られている前提を明示するガード。
+    - `user_id`は店舗オーナーのLINE user_id(design 0節、本ventureは`store_id`をそのまま
+      `user_id`として扱う)。空文字列・Noneの場合は`ValueError`。呼び出し元でLIFF IDトークン
+      検証済みの認証済みuser_idが必ず先に得られている前提を明示するガード。
     - `existing_stripe_customer_id`が渡された場合のみ`"customer"`キーを追加し、既存の
       Stripe顧客を再利用する(重複顧客レコード防止、design 3節手順3)。
+    - `plan`(checkout-session-plan-selection-design.md、フェーズ続き181で追加)が渡された
+      場合、`PLAN_MONTHLY_BOOKING_LIMITS`(pricing-plan.mdの3プラン)にない値は
+      `ValueError`。有効な場合は`"line_items"`(選択プランに対応するStripe Priceを1件・
+      数量1)と`"metadata": {"plan": plan}`を追加する。`metadata.plan`は
+      `checkout.session.completed`Webhookイベントのセッションオブジェクトにそのまま
+      含まれるため、`store_profile_store.handle_checkout_session_completed()`側で追加の
+      API呼び出し(line_itemsのexpand等)なしに購入プランを特定できる。
+    - `plan`を省略した場合(後方互換)は従来通り`line_items`・`metadata`を含めない
+      (既存の呼び出し元・テストの挙動を変えない)。
     """
     if not user_id:
         raise ValueError("user_id must be a non-empty string")
@@ -74,6 +103,13 @@ def build_checkout_session_params(
     }
     if existing_stripe_customer_id:
         params["customer"] = existing_stripe_customer_id
+    if plan is not None:
+        if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
+            raise ValueError(f"unknown plan: {plan!r}")
+        params["line_items"] = [
+            {"price": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER[plan], "quantity": 1}
+        ]
+        params["metadata"] = {"plan": plan}
 
     return params
 
@@ -238,6 +274,7 @@ def create_checkout_session(
     verify_id_token: Callable[[str], Optional[str]],
     store: StoreProfileStoreProtocol,
     line_return_link: str,
+    plan: Optional[str] = None,
     success_url: str = DEFAULT_SUCCESS_URL,
     cancel_url: str = DEFAULT_CANCEL_URL,
 ) -> CreateCheckoutSessionResult:
@@ -258,10 +295,14 @@ def create_checkout_session(
     3. `verify_id_token(id_token)`で個人`user_id`を取得する(design 9節手順2)。`None`が
        返れば401(`NotImplementedError`はここでは捕捉せず、呼び出し元〈`main()`〉に伝播させる。
        courseset-pasha版と同じ「未実装は501で明示する」方針)。
-    4. `verify_checkout_authorization(store_id, requester_user_id, store)`(design 9節手順3・
+    4. `plan`(checkout-session-plan-selection-design.md、フェーズ続き181で追加)が
+       `PLAN_MONTHLY_BOOKING_LIMITS`にない値の場合は400を返す(design 9節手順3の認可
+       チェックより前。未認証ユーザーにプラン名の有効集合を推測させないため、`verify_id_token`
+       成功後・認可チェック前のこの時点で検証する)。
+    5. `verify_checkout_authorization(store_id, requester_user_id, store)`(design 9節手順3・
        10節)で不一致なら403+`error_page`(`render_checkout_authorization_error_page()`)を
        返し、Checkout Sessionは作成しない。
-    5. 認可を通過した場合のみ、`store.get_stripe_customer_id(store_id)`(design 9節手順3で
+    6. 認可を通過した場合のみ、`store.get_stripe_customer_id(store_id)`(design 9節手順3で
        `store_id`をキーとする想定に読み替え済み)で既存Stripe顧客を確認し、design 3節・5節の
        `build_checkout_session_params()`で200を返す。
     """
@@ -278,6 +319,9 @@ def create_checkout_session(
     if requester_user_id is None:
         return CreateCheckoutSessionResult(status_code=401, error="invalid_id_token")
 
+    if plan is not None and plan not in PLAN_MONTHLY_BOOKING_LIMITS:
+        return CreateCheckoutSessionResult(status_code=400, error="invalid_plan")
+
     authorization_result = verify_checkout_authorization(store_id, requester_user_id, store)
     if not authorization_result.authorized:
         error_page = render_checkout_authorization_error_page(
@@ -289,6 +333,7 @@ def create_checkout_session(
     params = build_checkout_session_params(
         store_id,
         existing_stripe_customer_id,
+        plan=plan,
         success_url=success_url,
         cancel_url=cancel_url,
     )
@@ -341,9 +386,16 @@ def main(request):
     """
     store_id = request.args.get("store_id")
     authorization_header = request.headers.get("Authorization")
+    # checkout-session-plan-selection-design.md(フェーズ続き181): クエリパラメータ`plan`
+    # からプラン選択を受け取る(LIFFフロントエンド側のプラン選択UIは未実装、実LIFF登録後の
+    # 課題として残る)。
+    plan = request.args.get("plan")
     try:
         result = create_checkout_session(
-            store_id, authorization_header, **get_checkout_runtime_dependencies()
+            store_id,
+            authorization_header,
+            plan=plan,
+            **get_checkout_runtime_dependencies(),
         )
     except NotImplementedError:
         return "verify_id_token_not_implemented", 501

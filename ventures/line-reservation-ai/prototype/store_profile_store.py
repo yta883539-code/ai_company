@@ -56,17 +56,35 @@
   (`ownerEmail`)と冪等性フラグ(`blockedButBillingOwnerNotifiedAt`)。いずれも
   `stores/{storeId}`の同一ドキュメント上のフィールド。`prototype/
   blocked_but_billing_owner_email_notification.py`から参照される。
+- `PLAN_MONTHLY_BOOKING_LIMITS`・`get_plan()`/`set_plan()`(2026-09-03追記、
+  フェーズ続き181): checkout-session-plan-selection-design.mdで設計した、
+  `checkout.session.completed`受信時に購入プラン(pricing-plan.mdの3プラン)を
+  記録するための保持先。フェーズ続き180(monthly-booking-limit-notification-design.md)が
+  「次回以降の課題」として残した「store_profile_store.pyに契約プランを保持する
+  フィールドが無い」ギャップに対応する(course-set-pashaがフェーズ152で同種の
+  ギャップに対応したcheckout-session-plan-selection-design.mdの横展開)。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
 stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md、
-blocked-but-billing-detection-design.md 1節・3節
+blocked-but-billing-detection-design.md 1節・3節、checkout-session-plan-selection-design.md
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, Optional, Protocol
+
+# checkout-session-plan-selection-design.md(フェーズ続き181): pricing-plan.mdが定める
+# 3プラン名をキーとする月間予約件数上限。course-set-pasha/cloud_function_webhook.py の
+# PLAN_MONTHLY_LIMITSと同じ位置づけで、本venture(line-reservation-ai)にはPLAN定数を
+# 置く既存の一元管理場所(cloud_function_webhook.py相当)が無いため、店舗プロフィールを
+# 扱う本モジュールを単一の正とする。checkout_session.py・engine.pyの双方から参照する。
+PLAN_MONTHLY_BOOKING_LIMITS = {
+    "スタータープラン": 50,
+    "スタンダードプラン": 150,
+    "プロプラン": 300,
+}
 
 
 class StoreProfileStoreProtocol(Protocol):
@@ -122,6 +140,12 @@ class StoreProfileStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_plan(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_plan(self, store_id: str, plan: str) -> None:
+        ...
+
     def all_store_ids(self):
         ...
 
@@ -141,6 +165,7 @@ class InMemoryStoreProfileStore:
         self._suspension_reasons: dict[str, Optional[str]] = {}
         self._owner_emails: dict[str, str] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
+        self._plans: dict[str, str] = {}
         self._known_store_ids: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
@@ -231,6 +256,17 @@ class InMemoryStoreProfileStore:
         self._blocked_but_billing_owner_notified_at[store_id] = value
         self._known_store_ids.add(store_id)
 
+    def get_plan(self, store_id: str) -> Optional[str]:
+        return self._plans.get(store_id)
+
+    def set_plan(self, store_id: str, plan: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
+            raise ValueError(f"unknown plan: {plan!r}")
+        self._plans[store_id] = plan
+        self._known_store_ids.add(store_id)
+
     def all_store_ids(self):
         # blocked-but-billing-detection-design.md 3節: MVPでは既知のstore_id
         # (いずれかのsetterが一度でも呼ばれたstore)を昇順で線形走査する。将来
@@ -274,6 +310,7 @@ class CheckoutSessionLinkResult:
     linked: bool
     user_id: Optional[str] = None
     stripe_customer_id: Optional[str] = None
+    plan_written: bool = False
 
 
 def handle_checkout_session_completed(
@@ -285,6 +322,13 @@ def handle_checkout_session_completed(
     いずれかが欠落・非文字列・空文字列の場合は何も書き込まない(安全側。
     `resolve_existing_stripe_customer_id()`が引き続きNoneを返すだけで実害はなく、次回の
     Checkout Session作成では既存customerが無いものとして新規customerが作られるのみ)。
+
+    `plan`(checkout-session-plan-selection-design.md、フェーズ続き181で追加)は、
+    `checkout_session.build_checkout_session_params()`がCheckout Session作成時に設定した
+    `metadata.plan`から取り出す。`PLAN_MONTHLY_BOOKING_LIMITS`にある既知の値のみ
+    `store.set_plan(user_id, plan)`で書き込み、`metadata`欠落・`plan`欠落・未知の値の
+    場合は何も書き込まない(安全側。古いCheckout Session実装〈metadata省略〉からの
+    イベントでも紐付け自体は従来通り行える)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -299,8 +343,19 @@ def handle_checkout_session_completed(
         return CheckoutSessionLinkResult(linked=False)
 
     store.set_stripe_customer_id(user_id, stripe_customer_id)
+
+    plan_written = False
+    metadata = data_object.get("metadata")
+    plan = metadata.get("plan") if isinstance(metadata, dict) else None
+    if isinstance(plan, str) and plan in PLAN_MONTHLY_BOOKING_LIMITS:
+        store.set_plan(user_id, plan)
+        plan_written = True
+
     return CheckoutSessionLinkResult(
-        linked=True, user_id=user_id, stripe_customer_id=stripe_customer_id
+        linked=True,
+        user_id=user_id,
+        stripe_customer_id=stripe_customer_id,
+        plan_written=plan_written,
     )
 
 
