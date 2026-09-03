@@ -53,6 +53,12 @@ MESSAGE_TONES = ("formal", "standard", "casual")
 class StoreSubscriptionState:
     """1店舗ぶんの契約状態(cloud_function_subscription_activated_webhook.pyの
     同名クラスと同型。suspension_reasonは同じFirestoreフィールドを指す)。
+
+    `blocked_but_billing_owner_notified_at`(2026-09-03追記、フェーズ続き178)は
+    blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」対応。
+    呼び出し元がFirestoreから読み込んだ現在値を渡し、`handle_subscription_deleted()`が
+    解約確定時にクリアする(値そのものはメール送信時刻の文字列表現だが、本モジュールは
+    内容を解釈せず「設定済みかどうか」だけを見る)。
     """
 
     store_id: str
@@ -62,6 +68,7 @@ class StoreSubscriptionState:
     portal_url: str
     message_tone: str = "standard"
     suspension_reason: str | None = None
+    blocked_but_billing_owner_notified_at: str | None = None
 
 
 @dataclass
@@ -78,11 +85,17 @@ class SubscriptionCancellationResult:
 
     outcomeがOUTCOME_SEND_FAILEDの場合、状態は変更されていないため呼び出し側は
     5xxを返してWebhookのリトライに委ねる(既存2モジュールと同じ方針)。
+
+    `blocked_but_billing_owner_notified_at_cleared`(2026-09-03追記、フェーズ続き178)は
+    blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」対応。
+    解約確定時に`state.blocked_but_billing_owner_notified_at`をクリアした(=クリア前に
+    設定済みだった)場合のみ`True`。
     """
 
     outcome: str
     notified: bool = False
     state_changed: bool = False
+    blocked_but_billing_owner_notified_at_cleared: bool = False
 
 
 def classify_subscription_update(
@@ -296,7 +309,23 @@ def handle_subscription_deleted(
         return SubscriptionCancellationResult(outcome=OUTCOME_SEND_FAILED)
 
     state.suspension_reason = "cancelled"
-    return SubscriptionCancellationResult(outcome=outcome, notified=True, state_changed=True)
+
+    # blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
+    # (フェーズ続き178)。「設定済みの場合のみクリアしTrue/Falseを返す」ロジックを、
+    # blocked_but_billing_owner_email_notification.clear_blocked_but_billing_owner_
+    # notified_at()と同じ考え方で`state`属性の書き換えとしてインライン実装する
+    # (本モジュールはstore_id keyed Protocolではなく1件ぶんのstateを直接扱う設計のため、
+    # 同関数はそのままでは呼べない。理由の詳細は同関数のdocstring参照)。
+    cleared = state.blocked_but_billing_owner_notified_at is not None
+    if cleared:
+        state.blocked_but_billing_owner_notified_at = None
+
+    return SubscriptionCancellationResult(
+        outcome=outcome,
+        notified=True,
+        state_changed=True,
+        blocked_but_billing_owner_notified_at_cleared=cleared,
+    )
 
 
 def _demo() -> None:

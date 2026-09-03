@@ -99,7 +99,40 @@ blocked-but-billing-detection-design.md 1節)であるため、`owner_is_followi
   参照)。
 - 誰が/どの頻度でこの関数を呼ぶか(日次Cloud Scheduler相当)自体の実際の作成・接続も
   オーナー承認待ちの範囲(course-set-pasha・aircon-pashaの同種案件と同じ整理)。
-- クリア配線(フォロー再開・解約確定時に`blocked_but_billing_owner_notified_at`を
-  `None`へ戻す)は次回以降の課題として残す(aircon-pashaフェーズ175相当)。
+- (解消済み 2026-09-03、フェーズ続き178: 6節参照) クリア配線(フォロー再開・解約確定時に
+  `blocked_but_billing_owner_notified_at`を`None`へ戻す)。
 - `owner_email`の収集手段(オンボーディングフォームへの項目追加)自体は1節記載の通り
   本フェーズの対象外。
+
+## 6. クリア配線(フェーズ続き178)
+
+5節に残っていた「フォロー再開」・「解約確定」時のクリア配線を実装した。aircon-pashaが
+フェーズ175で踏んだのと同じ最終段階(course-set-pashaフェーズ144相当)に当たる。
+
+- フォロー再開側: `prototype/blocked_but_billing_owner_email_notification.py`に
+  `clear_blocked_but_billing_owner_notified_at(store, store_id) -> bool`
+  (`BlockedButBillingOwnerNotifiedAtStoreProtocol`引数、`blocked_but_billing_owner_
+  notified_at`が設定済みの場合のみクリアしTrue/Falseを返す純粋関数、
+  aircon-pashaの同名関数と同じ考え方)を新設した。`cloud_function_process_event.
+  ConversationEventProcessor.process_follow_event()`が、オーナー本人の再フォロー時に
+  `set_owner_is_following(store_id, True)`と同じ分岐でこの関数を呼ぶよう配線した
+  (`OwnerFollowStatusStoreProtocol`に`get_blocked_but_billing_owner_notified_at`/
+  `set_blocked_but_billing_owner_notified_at`を追加要求するよう拡張)。
+- 解約確定側: 本ventureの`cloud_function_subscription_cancelled_webhook.py`は
+  store_id keyed Protocolではなく、呼び出し元が既にFirestoreから読み込んだ1件ぶんの
+  `StoreSubscriptionState`を直接書き換える設計(1節冒頭参照)であるため、上記の
+  `clear_blocked_but_billing_owner_notified_at()`はそのままでは呼べない。同じ
+  「設定済みの場合のみクリアしTrue/Falseを返す」ロジックを、`StoreSubscriptionState`に
+  新設した`blocked_but_billing_owner_notified_at`フィールドの書き換えとして
+  `handle_subscription_deleted()`内にインライン実装し(`suspension_reason = "cancelled"`と
+  同じ「stateを書き換え、実際のFirestore書き戻しは呼び出し側」という本モジュール既存の
+  方針を踏襲)、結果を`SubscriptionCancellationResult.blocked_but_billing_owner_
+  notified_at_cleared`として返すようにした。`OUTCOME_ALREADY_CANCELLED`(Webhook再送)の
+  場合は早期returnのためクリア処理自体を通らず、二重クリアは発生しない。
+- テスト11件追加(process_follow_event側3件・clear_blocked_but_billing_owner_notified_at
+  単体4件・handle_subscription_deleted側4件)、venture全体598件全件
+  (`python3 -m unittest discover -p "test_*.py"`、prototype/ディレクトリで実行)パス・
+  schema検証25件パスを確認した。
+- 実際にこの2箇所(LINE follow Webhook・Stripe `customer.subscription.deleted`
+  Webhook)を呼び出すエントリポイント本体、および実Firestore接続自体は、他の各種
+  Webhookハンドラと同じく引き続き次回以降の課題(実クラウド接続はオーナー承認待ち)。

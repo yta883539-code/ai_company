@@ -102,6 +102,48 @@ class EmailSenderProtocol(Protocol):
         ...
 
 
+class BlockedButBillingOwnerNotifiedAtStoreProtocol(Protocol):
+    """design 5節「クリア配線」(フェーズ続き178)が使う、
+    `blocked_but_billing_owner_notified_at`の読み書き両方のみを要求する最小限の
+    Protocol(aircon-pashaフェーズ175の同名Protocolと同じ考え方)。
+    `store_profile_store.StoreProfileStoreProtocol`(ひいては`InMemoryStoreProfileStore`)は
+    このメソッドを既に持つため、構造的に(duck typing)本Protocolを満たす。
+    """
+
+    def get_blocked_but_billing_owner_notified_at(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        ...
+
+
+def clear_blocked_but_billing_owner_notified_at(
+    store: BlockedButBillingOwnerNotifiedAtStoreProtocol, store_id: str,
+) -> bool:
+    """design 5節「クリア配線」(フェーズ続き178): 「フォロー再開」(`owner_is_following`が
+    `True`に戻る)、または「解約確定」(`customer.subscription.deleted`受信で
+    `suspension_reason`が`"cancelled"`になる)のいずれかが起きた時点で呼ぶ。
+    `blocked_but_billing_owner_notified_at`が設定済みの場合のみクリアし、変更があったか
+    どうか(`True`/`False`)を返す(aircon-pashaフェーズ175の同名関数と同じ、呼び出し側が
+    ログ確認できる冪等設計)。未設定(そもそも一度も通知対象になったことがない、または
+    既にクリア済み)の場合は何もせず`False`を返す。
+
+    フォロー再開側の呼び出し配線は`cloud_function_process_event.
+    ConversationEventProcessor.process_follow_event()`から行う。解約確定側は、本venture
+    の`cloud_function_subscription_cancelled_webhook.py`が`store_profile_store`のような
+    store_id keyed Protocolではなく1件ぶんの`StoreSubscriptionState`(呼び出し元が既に
+    Firestoreから読み込んだ状態)を直接書き換える設計のため、本関数はそちらからは呼ばず、
+    `handle_subscription_deleted()`内で同じ「設定済みの場合のみクリアしTrue/Falseを返す」
+    ロジックを`state`オブジェクトの属性書き換えとしてインライン実装している(design 5節)。
+    """
+    if store.get_blocked_but_billing_owner_notified_at(store_id) is None:
+        return False
+    store.set_blocked_but_billing_owner_notified_at(store_id, None)
+    return True
+
+
 def send_blocked_but_billing_owner_email_notifications(
     store: EmailOwnerNotificationStoreProtocol,
     email_sender: EmailSenderProtocol,

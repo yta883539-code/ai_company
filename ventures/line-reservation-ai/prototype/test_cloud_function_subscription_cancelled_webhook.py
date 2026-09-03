@@ -206,6 +206,41 @@ class HandleSubscriptionDeletedTests(unittest.TestCase):
         self.assertFalse(result.state_changed)
         self.assertIsNone(state.suspension_reason)
 
+    # blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
+    # (フェーズ続き178)準拠。
+
+    def test_cancellation_clears_blocked_but_billing_owner_notified_at(self):
+        state = _store(blocked_but_billing_owner_notified_at="2026-09-01T00:00:00Z")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_deleted(state, push)
+        self.assertTrue(result.blocked_but_billing_owner_notified_at_cleared)
+        self.assertIsNone(state.blocked_but_billing_owner_notified_at)
+
+    def test_cancellation_without_prior_notification_leaves_flag_unset(self):
+        state = _store()
+        push = InMemoryLinePushClient()
+        result = handle_subscription_deleted(state, push)
+        self.assertFalse(result.blocked_but_billing_owner_notified_at_cleared)
+        self.assertIsNone(state.blocked_but_billing_owner_notified_at)
+
+    def test_send_failure_does_not_clear_blocked_but_billing_owner_notified_at(self):
+        state = _store(blocked_but_billing_owner_notified_at="2026-09-01T00:00:00Z")
+        result = handle_subscription_deleted(state, AlwaysFailingLinePushClient())
+        self.assertFalse(result.blocked_but_billing_owner_notified_at_cleared)
+        self.assertEqual(state.blocked_but_billing_owner_notified_at, "2026-09-01T00:00:00Z")
+
+    def test_webhook_retry_does_not_reclear_already_cleared_flag(self):
+        # 冪等性: suspension_reasonが既に"cancelled"(=前回配信で処理済み)の場合、
+        # OUTCOME_ALREADY_CANCELLEDで早期returnするためclearedはFalseのまま。
+        state = _store(
+            suspension_reason="cancelled",
+            blocked_but_billing_owner_notified_at=None,
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_deleted(state, push)
+        self.assertEqual(result.outcome, OUTCOME_ALREADY_CANCELLED)
+        self.assertFalse(result.blocked_but_billing_owner_notified_at_cleared)
+
 
 if __name__ == "__main__":
     unittest.main()

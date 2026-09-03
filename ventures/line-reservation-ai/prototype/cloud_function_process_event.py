@@ -86,6 +86,9 @@ from typing import Callable, Optional, Protocol
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from blocked_but_billing_owner_email_notification import (  # noqa: E402
+    clear_blocked_but_billing_owner_notified_at,
+)
 from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
@@ -171,11 +174,22 @@ class InMemoryConfirmedReplyRecorder:
 class OwnerFollowStatusStoreProtocol(Protocol):
     """blocked-but-billing-detection-design.md 1節準拠。オーナー自身の店舗公式アカウント
     ブロック状態(`ownerIsFollowing`)を書き込むための最小インターフェース。
-    `store_profile_store.StoreProfileStoreProtocol`(ひいては`InMemoryStoreProfileStore`)は
-    このメソッドを既に持つため、構造的に(duck typing)本Protocolを満たす。
+    blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
+    (フェーズ続き178)対応で、`blocked_but_billing_owner_notified_at`の読み書きも
+    あわせて要求するよう拡張した。`store_profile_store.StoreProfileStoreProtocol`
+    (ひいては`InMemoryStoreProfileStore`)はいずれのメソッドも既に持つため、
+    構造的に(duck typing)本Protocolを満たす。
     """
 
     def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
+        ...
+
+    def get_blocked_but_billing_owner_notified_at(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
         ...
 
 
@@ -877,6 +891,12 @@ class ConversationEventProcessor:
         `owner_user_id`本人(かつ確定済み)の場合のみ、`store_profile`が渡されていれば
         `owner_is_following`を`True`に戻す(再フォロー)。一般顧客のfollowでは何も
         書き込まない。
+
+        blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
+        (フェーズ続き178)準拠。同じ再フォロー時に、`blocked_but_billing_owner_
+        notified_at`が設定済み(=一度「ブロック中かつ契約継続中」候補として通知
+        メールを送っている)であればあわせてクリアする。再びブロックされた場合に
+        改めて通知できるようにするため。
         """
         user_id = event.get("source", {}).get("userId")
         if not user_id:
@@ -887,6 +907,7 @@ class ConversationEventProcessor:
             and user_id == self._owner_user_id
         ):
             self._store_profile.set_owner_is_following(self._store_id, True)
+            clear_blocked_but_billing_owner_notified_at(self._store_profile, self._store_id)
         self._send(user_id, FOLLOW_WELCOME_MESSAGE, now)
         return FollowProcessResult(reply_sent=True)
 

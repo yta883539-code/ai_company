@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from blocked_but_billing_owner_email_notification import (  # noqa: E402
     build_blocked_but_billing_owner_email,
+    clear_blocked_but_billing_owner_notified_at,
     select_new_blocked_but_billing_candidates_for_email_notification,
     send_blocked_but_billing_owner_email_notifications,
 )
@@ -158,6 +159,49 @@ class SendBlockedButBillingOwnerEmailNotificationsTest(unittest.TestCase):
         sender = _FakeEmailSender()
         with self.assertRaises(ValueError):
             send_blocked_but_billing_owner_email_notifications(store, sender, notified_at="")
+
+
+class ClearBlockedButBillingOwnerNotifiedAtTest(unittest.TestCase):
+    """design 5節「クリア配線」(フェーズ続き178)。"""
+
+    def test_clears_when_set_and_returns_true(self):
+        store = InMemoryStoreProfileStore()
+        store.set_blocked_but_billing_owner_notified_at("store-1", "2026-09-01T00:00:00Z")
+
+        changed = clear_blocked_but_billing_owner_notified_at(store, "store-1")
+
+        self.assertTrue(changed)
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("store-1"))
+
+    def test_returns_false_when_already_unset(self):
+        store = InMemoryStoreProfileStore()
+
+        changed = clear_blocked_but_billing_owner_notified_at(store, "store-1")
+
+        self.assertFalse(changed)
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("store-1"))
+
+    def test_second_call_is_idempotent(self):
+        store = InMemoryStoreProfileStore()
+        store.set_blocked_but_billing_owner_notified_at("store-1", "2026-09-01T00:00:00Z")
+
+        first = clear_blocked_but_billing_owner_notified_at(store, "store-1")
+        second = clear_blocked_but_billing_owner_notified_at(store, "store-1")
+
+        self.assertTrue(first)
+        self.assertFalse(second)
+
+    def test_does_not_affect_other_store_ids(self):
+        store = InMemoryStoreProfileStore()
+        store.set_blocked_but_billing_owner_notified_at("store-1", "2026-09-01T00:00:00Z")
+        store.set_blocked_but_billing_owner_notified_at("store-2", "2026-09-01T00:00:00Z")
+
+        clear_blocked_but_billing_owner_notified_at(store, "store-1")
+
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("store-1"))
+        self.assertEqual(
+            store.get_blocked_but_billing_owner_notified_at("store-2"), "2026-09-01T00:00:00Z"
+        )
 
 
 if __name__ == "__main__":

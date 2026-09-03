@@ -1825,6 +1825,46 @@ class FollowUnfollowEventTests(unittest.TestCase):
 
         self.assertTrue(store.get_owner_is_following(STORE_ID))
 
+    # blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
+    # (フェーズ続き178)準拠。オーナー本人の再フォロー時、`blocked_but_billing_owner_
+    # notified_at`が設定済みであればあわせてクリアされることを検証する。
+
+    def test_owner_follow_event_clears_blocked_but_billing_owner_notified_at(self):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        store.set_blocked_but_billing_owner_notified_at(STORE_ID, "2026-09-01T00:00:00Z")
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-owner"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at(STORE_ID))
+
+    def test_owner_follow_event_without_prior_notification_leaves_unset(self):
+        # 一度も通知されていない(Noneのまま)場合、クリア呼び出しがあっても
+        # 例外を送出せずNoneのままであることを確認する。
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-owner"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertIsNone(store.get_blocked_but_billing_owner_notified_at(STORE_ID))
+
+    def test_customer_follow_event_does_not_clear_blocked_but_billing_owner_notified_at(self):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        store.set_blocked_but_billing_owner_notified_at(STORE_ID, "2026-09-01T00:00:00Z")
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-customer"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(
+            store.get_blocked_but_billing_owner_notified_at(STORE_ID), "2026-09-01T00:00:00Z"
+        )
+
     def test_customer_follow_event_does_not_touch_owner_is_following(self):
         store = InMemoryStoreProfileStore()
         store.set_owner_is_following(STORE_ID, False)
