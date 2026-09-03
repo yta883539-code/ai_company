@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from portal_session import (  # noqa: E402
     DEFAULT_RETURN_URL,
+    StripePortalLinkProvider,
     build_portal_session_params,
     create_portal_session,
     get_portal_runtime_dependencies,
@@ -168,6 +169,61 @@ class MainEntryPointTest(unittest.TestCase):
 
         self.assertEqual(status_code, 501)
         self.assertEqual(response_body, "verify_id_token_not_implemented")
+
+
+class StripePortalLinkProviderTest(unittest.TestCase):
+    """`StripePortalLinkProvider`(`cloud_function_webhook.PortalLinkProvider`実装本体、
+    customer-portal-session-endpoint-design.md 6節「残課題」対応)のテスト。"""
+
+    def test_returns_none_when_user_has_no_stripe_customer_id(self):
+        store = _StubUserProfileStore()
+        creator_calls = []
+        provider = StripePortalLinkProvider(
+            store, session_creator=lambda params: creator_calls.append(params) or "unused"
+        )
+
+        result = provider.get_portal_url("Uabc123")
+
+        self.assertIsNone(result)
+        self.assertEqual(creator_calls, [])
+
+    def test_calls_session_creator_with_built_params_and_returns_its_result(self):
+        store = _StubUserProfileStore({"Uabc123": "cus_existing456"})
+        creator_calls = []
+
+        def fake_session_creator(params):
+            creator_calls.append(params)
+            return "https://billing.stripe.com/p/session/fake123"
+
+        provider = StripePortalLinkProvider(store, session_creator=fake_session_creator)
+
+        result = provider.get_portal_url("Uabc123")
+
+        self.assertEqual(result, "https://billing.stripe.com/p/session/fake123")
+        self.assertEqual(
+            creator_calls,
+            [{"customer": "cus_existing456", "return_url": DEFAULT_RETURN_URL}],
+        )
+
+    def test_custom_return_url_is_propagated_to_session_creator(self):
+        store = _StubUserProfileStore({"Uabc123": "cus_existing456"})
+        creator_calls = []
+        provider = StripePortalLinkProvider(
+            store,
+            session_creator=lambda params: creator_calls.append(params) or "url",
+            return_url="https://example.com/back",
+        )
+
+        provider.get_portal_url("Uabc123")
+
+        self.assertEqual(creator_calls[0]["return_url"], "https://example.com/back")
+
+    def test_default_session_creator_raises_not_implemented(self):
+        store = _StubUserProfileStore({"Uabc123": "cus_existing456"})
+        provider = StripePortalLinkProvider(store)
+
+        with self.assertRaises(NotImplementedError):
+            provider.get_portal_url("Uabc123")
 
 
 if __name__ == "__main__":

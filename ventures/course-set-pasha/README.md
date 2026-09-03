@@ -1780,10 +1780,31 @@
   485件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証
   9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 00:00 UTC
+- フェーズ149(2026-09-03 03:59 UTC): customer-portal-session-endpoint-design.md(フェーズ148)
+  6節「残課題」に残っていた`PortalLinkProvider`(`cloud_function_webhook.py`)実装本体を
+  `prototype/portal_session.py`の`StripePortalLinkProvider`として実装した。
+  `create_portal_session()`(LIFF IDトークン検証を伴うHTTPエンドポイント側)とは異なり、
+  本クラスは`payment_failure_reminder_scheduler.py`等のサーバー起点呼び出しで`user_id`が
+  既知の想定のためIDトークン検証は行わず、`user_profile_store.get_stripe_customer_id()`→
+  `build_portal_session_params()`→実API呼び出しの3段のみを担う。実
+  `stripe.billing_portal.Session.create()`呼び出し自体は`verify_id_token`と同じ
+  プレースホルダパターン(`session_creator`引数、既定値
+  `_create_billing_portal_session_not_implemented`が`NotImplementedError`を送出)で
+  外部から差し替え可能にし、実Stripe接続後は`session_creator`を差し替えるだけで
+  `InMemoryPortalLinkProvider`から本実装へ切り替えられる設計とした。呼び出し元
+  (`payment_failure_reminder_scheduler.py`等)を実際に差し替える配線自体は、実Stripe接続
+  確定後の課題として引き続き残す(詳細は上記design 6節参照)。テスト4件追加、venture全体
+  489件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証
+  9件パスを確認した。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 03:59 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-03 03:59 UTC・フェーズ149: customer-portal-session-endpoint-design.md
+  6節に残っていた`PortalLinkProvider`実装本体を`StripePortalLinkProvider`として実装した。
+  詳細は上記フェーズ149参照。呼び出し元の実配線・実`session_creator`実装は実Stripe接続後の
+  課題として残る)
 - (解消済み 2026-09-03 00:00 UTC・フェーズ148: payment-failure-dunning-design.md 5節に
   残っていたPortalセッション作成エンドポイント自体の設計を
   customer-portal-session-endpoint-design.mdとして行った。詳細は上記フェーズ148参照。

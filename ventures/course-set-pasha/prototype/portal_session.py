@@ -118,6 +118,59 @@ def _verify_id_token_not_implemented(id_token: str) -> Optional[str]:
     )
 
 
+def _create_billing_portal_session_not_implemented(params: dict) -> Optional[str]:
+    """`cloud_function_webhook.PortalLinkProvider`実装本体が内部で使う、実
+    `stripe.billing_portal.Session.create(**params)`呼び出しのプレースホルダ。
+
+    `_verify_id_token_not_implemented`と同じ考え方(design 6節「残課題」参照)。実Stripe
+    アカウント接続(オーナー承認待ち、pending-approval.md参照)後、この関数を実API呼び出しへ
+    差し替えるだけで`StripePortalLinkProvider`がそのまま動く設計とする。
+    """
+    raise NotImplementedError(
+        "billing_portal_session_creator is not implemented yet: pending real Stripe "
+        "account connection (owner approval required, see pending-approval.md)"
+    )
+
+
+class StripePortalLinkProvider:
+    """`cloud_function_webhook.PortalLinkProvider`Protocol(`get_portal_url(user_id) ->
+    Optional[str]`)の実装本体。customer-portal-session-endpoint-design.md 6節「残課題」に
+    残っていた項目のうち、`stripe_customer_id`の有無判定・
+    `build_portal_session_params()`によるパラメータ組み立てまでを本クラスに集約し、実
+    `stripe.billing_portal.Session.create()`呼び出し自体のみを`session_creator`として
+    外部から差し替え可能にする(`verify_id_token`と同じ注入パターン)。
+
+    `create_portal_session()`(LIFF IDトークン検証を伴うHTTPエンドポイント側)とは異なり、
+    本クラスはフォロー再開通知・支払い失敗リマインド等のサーバー起点の呼び出し
+    (`payment_failure_reminder_scheduler.py`等)から`user_id`が既知の状態で呼ばれる想定
+    のため、IDトークン検証は行わない。
+
+    Structural typing (Protocol) により`cloud_function_webhook.PortalLinkProvider`を
+    直接importせずとも構造的に満たせるため、本ventureのcheckout_session.py/portal_session.py
+    が一貫して採る「循環インポートを避けるため再定義する」方針をここでも踏襲する。
+    """
+
+    def __init__(
+        self,
+        user_profile_store: UserProfileStoreProtocol,
+        *,
+        session_creator: Callable[[dict], Optional[str]] = (
+            _create_billing_portal_session_not_implemented
+        ),
+        return_url: str = DEFAULT_RETURN_URL,
+    ) -> None:
+        self._user_profile_store = user_profile_store
+        self._session_creator = session_creator
+        self._return_url = return_url
+
+    def get_portal_url(self, user_id: str) -> Optional[str]:
+        stripe_customer_id = self._user_profile_store.get_stripe_customer_id(user_id)
+        if stripe_customer_id is None:
+            return None
+        params = build_portal_session_params(stripe_customer_id, return_url=self._return_url)
+        return self._session_creator(params)
+
+
 def get_portal_runtime_dependencies() -> dict:
     """main()が使う依存の既定値を組み立てる(checkout_session.get_checkout_runtime_
     dependencies()と対称の構成、customer-portal-session-endpoint-design.md 4節)。

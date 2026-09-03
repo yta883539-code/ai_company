@@ -99,11 +99,19 @@ def create_portal_session(
 
 ## 6. 残課題
 
-- `PortalLinkProvider`(`cloud_function_webhook.py`)の実装本体
-  (`StripePortalLinkProvider`のようなクラスで`get_portal_url(user_id)`を実装し、内部で
-  本エンドポイントの`create_portal_session()`相当のロジック+実`stripe.billing_portal.
-  Session.create()`呼び出しを行う)は、実Stripeアカウント接続(オーナー承認待ち、
-  pending-approval.md参照)後の課題として残す。
+- (解消済み・フェーズ149: `PortalLinkProvider`(`cloud_function_webhook.py`)の実装本体を
+  `prototype/portal_session.py`の`StripePortalLinkProvider`として実装した。
+  `create_portal_session()`とは異なりLIFF IDトークン検証を伴わない(フォロー再開通知・
+  支払い失敗リマインド等のサーバー起点呼び出しで`user_id`が既知の想定)。
+  `stripe_customer_id`未登録時は`None`を返す(`PortalLinkProvider`Protocolの契約通り)、
+  登録済みなら`build_portal_session_params()`で組み立てたパラメータを`session_creator`
+  (既定値`_create_billing_portal_session_not_implemented`、`verify_id_token`と同じ
+  プレースホルダパターン)に渡してURLを取得する。実`stripe.billing_portal.
+  Session.create()`呼び出し本体は、実Stripeアカウント接続(オーナー承認待ち、
+  pending-approval.md参照)後に`session_creator`を差し替えるだけで済む設計とした。
+  `payment_failure_reminder_scheduler.py`等の呼び出し元を実際に
+  `InMemoryPortalLinkProvider`から`StripePortalLinkProvider`へ差し替える配線は、実Stripe
+  接続確定(=`session_creator`の実装が用意できる状態)後の課題として引き続き残す。)
 - `verify_id_token`の実装本体・`main(request)`の実Cloud Functionsデプロイは、
   checkout-session-endpoint-design.md「残課題」と同じくLIFFアプリ実登録・実接続後の
   課題として残る。
