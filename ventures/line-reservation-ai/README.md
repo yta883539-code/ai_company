@@ -2044,7 +2044,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   次回以降の課題(オーナー承認待ち)。承認不要な設計・実装・テスト追加のみで、外部
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 06:01 UTC
+- フェーズ続き179(2026-09-03 09:01 UTC): stripe-webhook-signature-verification-
+  design.md「残課題」に残っていたStripeイベントの重複配信対策(`event.id`によるべき等性
+  チェック)に対応した(aircon-pashaフェーズ177・course-set-pashaフェーズ151が先行実装
+  した設計の横展開)。本ventureは`receive_stripe_webhook()`相当の統合エントリポイントが
+  まだ存在しないため、唯一の共通経路である`route_stripe_event()`自体にべき等性チェックを
+  組み込む方針とした(stripe-event-idempotency-design.md新規作成)。
+  `prototype/stripe_webhook.py`に`StripeEventIdStoreProtocol`・
+  `InMemoryStripeEventIdStore`を新設し、`route_stripe_event()`に`event_id_store`引数
+  (省略時は従来通りチェックなし)を追加、2回目以降の同一`event.id`配信では
+  `resolve_store_id_by_customer()`の呼び出しも含め一切の解決処理を行わず
+  `duplicate=True`のルートを返すようにした(`StripeEventRoute`に`duplicate`・
+  `event_id`フィールドを追加)。`ignored`(対象外イベント種別)も処理済みとして記録する
+  方針はaircon-pashaと同じ。テスト6件追加、venture全体603件全件パス・schema検証25件
+  パスを確認した。統合エントリポイント自体(`route_stripe_event()`の結果を受けて実
+  ハンドラを呼び出す層)は引き続き次回以降の課題として残す。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 09:01 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

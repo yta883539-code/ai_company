@@ -11,6 +11,7 @@ from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_INVOICE_PAYMENT_FAILED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
+    InMemoryStripeEventIdStore,
     route_stripe_event,
     verify_stripe_signature,
 )
@@ -221,6 +222,93 @@ class RouteStripeEventWithStoreProfileStoreWiringTest(unittest.TestCase):
         )
         self.assertEqual(route.store_id, "store-owner-line-id-1")
         self.assertFalse(route.unresolved_customer)
+
+
+class RouteStripeEventIdempotencyTest(unittest.TestCase):
+    """stripe-event-idempotency-design.md(フェーズ続き179)対応。aircon-pasha/
+    course-set-pashaのべき等性テストと同種の観点を、本ventureのroute_stripe_event()に
+    対して確認する。"""
+
+    def _checkout_event(self, event_id: str = "evt_1"):
+        return {
+            "id": event_id,
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {
+                "object": {
+                    "client_reference_id": "store-owner-line-id-1",
+                    "customer": "cus_ABC123",
+                }
+            },
+        }
+
+    def test_first_delivery_is_processed_and_marked(self):
+        store = InMemoryStripeEventIdStore()
+        route = route_stripe_event(
+            self._checkout_event(),
+            resolve_store_id_by_customer=_raise_if_called,
+            event_id_store=store,
+        )
+        self.assertFalse(route.duplicate)
+        self.assertEqual(route.store_id, "store-owner-line-id-1")
+        self.assertTrue(store.has_processed("evt_1"))
+
+    def test_duplicate_delivery_skips_resolution(self):
+        store = InMemoryStripeEventIdStore()
+        route_stripe_event(
+            self._checkout_event(),
+            resolve_store_id_by_customer=_raise_if_called,
+            event_id_store=store,
+        )
+        duplicate_route = route_stripe_event(
+            self._checkout_event(),
+            resolve_store_id_by_customer=_raise_if_called,
+            event_id_store=store,
+        )
+        self.assertTrue(duplicate_route.duplicate)
+        self.assertIsNone(duplicate_route.store_id)
+
+    def test_ignored_event_type_is_also_marked_processed(self):
+        store = InMemoryStripeEventIdStore()
+        event = {"id": "evt_ignored", "type": "invoice.paid", "data": {"object": {}}}
+        route = route_stripe_event(
+            event, resolve_store_id_by_customer=_raise_if_called, event_id_store=store
+        )
+        self.assertTrue(route.ignored)
+        self.assertFalse(route.duplicate)
+        self.assertTrue(store.has_processed("evt_ignored"))
+
+        duplicate_route = route_stripe_event(
+            event, resolve_store_id_by_customer=_raise_if_called, event_id_store=store
+        )
+        self.assertTrue(duplicate_route.duplicate)
+
+    def test_missing_event_id_skips_idempotency_check(self):
+        store = InMemoryStripeEventIdStore()
+        event = {
+            "type": EVENT_CHECKOUT_SESSION_COMPLETED,
+            "data": {
+                "object": {
+                    "client_reference_id": "store-owner-line-id-1",
+                    "customer": "cus_ABC123",
+                }
+            },
+        }
+        first = route_stripe_event(
+            event, resolve_store_id_by_customer=_raise_if_called, event_id_store=store
+        )
+        second = route_stripe_event(
+            event, resolve_store_id_by_customer=_raise_if_called, event_id_store=store
+        )
+        self.assertFalse(first.duplicate)
+        self.assertFalse(second.duplicate)
+        self.assertEqual(second.store_id, "store-owner-line-id-1")
+
+    def test_event_id_store_omitted_defaults_to_no_check(self):
+        route = route_stripe_event(
+            self._checkout_event(), resolve_store_id_by_customer=_raise_if_called
+        )
+        self.assertFalse(route.duplicate)
+        self.assertEqual(route.store_id, "store-owner-line-id-1")
 
 
 if __name__ == "__main__":
