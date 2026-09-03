@@ -37,6 +37,15 @@ PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER = {
     "セッター複数": "price_PLACEHOLDER_course_set_pasha_multi_setter",
 }
 
+# subscription-plan-change-design.md(フェーズ153): `customer.subscription.updated`
+# イベント(`stripe_webhook.py`)がプラン変更(アップグレード/ダウングレード)を検出する際、
+# サブスクリプション本体に含まれるStripe Price IDから逆引きするための反転マップ。
+# PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDERを単一の正とし、値の重複(1プラン1Price ID)が
+# 保たれている前提で機械的に生成する。
+STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER = {
+    price_id: plan for plan, price_id in PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER.items()
+}
+
 
 class UserProfileStoreProtocol(Protocol):
     """create_checkout_session()が必要とする部分のみを表す最小限のProtocol。

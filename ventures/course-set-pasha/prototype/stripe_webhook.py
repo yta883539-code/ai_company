@@ -30,6 +30,7 @@ from application_form_submission_flow import (
     InMemoryUserProfileStore,
     UserProfileStoreProtocol,
 )
+from checkout_session import STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER
 from cloud_function_webhook import InMemoryUsageCounter, PLAN_MONTHLY_LIMITS, PortalLinkProvider
 from deletion_candidate import (
     InMemoryProfileDeletionCandidateStore,
@@ -116,6 +117,32 @@ _HANDLED_EVENT_TYPES = frozenset(
 _REACTIVATED_STATUSES = frozenset({"active", "trialing"})
 
 
+def _resolve_plan_from_subscription_updated(data_object: dict) -> Optional[str]:
+    """subscription-plan-change-design.md(フェーズ153)2節。`customer.subscription.updated`
+    イベントの`items.data[0].price.id`(サブスクリプションオブジェクトにそのまま含まれる
+    フィールド、`handle_checkout_session_completed()`のmetadata.plan読み取りと同様
+    追加API呼び出し不要)を、checkout_session.STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDERで
+    既知のプラン名へ逆引きする。pricing-plan.mdの3プランはいずれも単一line item構成が
+    前提のため先頭要素のみを見る(design 2節)。`items`欠落・空・非dict、`price.id`が
+    既知のPrice IDでない場合はNoneを返す(安全側。plan更新を行わない)。"""
+    items = data_object.get("items")
+    if not isinstance(items, dict):
+        return None
+    item_list = items.get("data")
+    if not isinstance(item_list, list) or not item_list:
+        return None
+    first_item = item_list[0]
+    if not isinstance(first_item, dict):
+        return None
+    price = first_item.get("price")
+    if not isinstance(price, dict):
+        return None
+    price_id = price.get("id")
+    if not isinstance(price_id, str):
+        return None
+    return STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER.get(price_id)
+
+
 @dataclass
 class StripeDispatchResult:
     """stripe-webhook-event-dispatch-design.md 2節。"""
@@ -136,6 +163,9 @@ class StripeDispatchResult:
     payment_failure_detection_notification_failed_user_ids: list = field(
         default_factory=list
     )
+    # subscription-plan-change-design.md(フェーズ153)対応: `customer.subscription.updated`
+    # 受信時にuser_profile_store.set_plan()でプランを書き換えたuser_id。
+    plan_updated_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -207,6 +237,11 @@ def dispatch_stripe_event(
     `blocked_but_billing_owner_notified_at`もあわせてクリアする(解約確定後に再契約した
     顧客が再度「ブロック中かつ契約継続中」になった場合に通知が飛ばなくなる不具合を防ぐ)。
     未指定(`None`)の場合は他の任意引数と同じ「未接続時は安全側で素通り」方針とする。
+
+    `user_profile_store`指定時は、`customer.subscription.updated`受信時に
+    subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
+    (アップグレード/ダウングレード)を`user_profile_store.set_plan()`へも反映する
+    (`_resolve_plan_from_subscription_updated()`参照)。
     """
     result = StripeDispatchResult()
 
@@ -241,6 +276,17 @@ def dispatch_stripe_event(
         return result
 
     if event_type == "customer.subscription.updated":
+        # subscription-plan-change-design.md(フェーズ153): checkout-session-plan-
+        # selection-design.md「残課題」に残っていたプラン変更(アップグレード/ダウングレード)
+        # 時のplan更新経路。ステータス(active/trialing以外への遷移を含む)にかかわらず、
+        # プラン変更自体は独立して反映する(契約中のプラン変更は通常ステータスをactiveの
+        # まま行われるため、下記のステータス分岐より前に評価する)。
+        if user_profile_store is not None:
+            plan = _resolve_plan_from_subscription_updated(data_object)
+            if plan is not None:
+                user_profile_store.set_plan(user_id, plan)
+                result.plan_updated_user_ids.append(user_id)
+
         # active/trialing 以外への変化は対象外(design 1節5.)。
         # 記録すべき異常があるわけではないので、result には何も追加せず終える。
         if data_object.get("status") in _REACTIVATED_STATUSES:

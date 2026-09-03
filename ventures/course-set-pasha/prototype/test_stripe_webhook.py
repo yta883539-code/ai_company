@@ -7,6 +7,7 @@ import unittest
 from datetime import datetime, timezone
 
 from application_form_submission_flow import InMemoryUserProfileStore
+from checkout_session import PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER
 from cloud_function_webhook import (
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     InMemoryPortalLinkProvider,
@@ -233,6 +234,138 @@ class DispatchStripeEventTest(unittest.TestCase):
         )
         self.assertEqual(result.cleared_user_ids, [])
         self.assertEqual(result.marked_user_ids, [])
+        self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
+
+    def test_subscription_updated_with_known_price_id_writes_plan(self):
+        # subscription-plan-change-design.md(フェーズ153): プラン変更(アップグレード/
+        # ダウングレード)時、Price IDから逆引きしたプランをuser_profile_storeへ書き込む。
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_plan("user_1", "ライト")
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.plan_updated_user_ids, ["user_1"])
+        self.assertEqual(result.cleared_user_ids, ["user_1"])
+        self.assertEqual(user_profile_store.get_plan("user_1"), "スタンダード")
+
+    def test_subscription_updated_with_unknown_price_id_does_not_write_plan(self):
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_plan("user_1", "ライト")
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {"data": [{"price": {"id": "price_unknown"}}]},
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.plan_updated_user_ids, [])
+        self.assertEqual(user_profile_store.get_plan("user_1"), "ライト")
+
+    def test_subscription_updated_without_items_does_not_write_plan(self):
+        user_profile_store = InMemoryUserProfileStore()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {"object": {"customer": "cus_A", "status": "active"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.plan_updated_user_ids, [])
+        self.assertIsNone(user_profile_store.get_plan("user_1"))
+
+    def test_subscription_updated_without_user_profile_store_is_backward_compatible(self):
+        # user_profile_store未指定時は従来通りプラン更新を試みず例外も発生しない。
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.plan_updated_user_ids, [])
+        self.assertEqual(result.cleared_user_ids, ["user_1"])
+
+    def test_subscription_updated_plan_change_with_non_reactivated_status_still_writes_plan(
+        self,
+    ):
+        # ステータスがactive/trialing以外(past_due等)でも、プラン変更自体は独立して
+        # 反映する(design 1節5.)。削除候補クリアの方は従来通り行われない。
+        self.store.set_deletion_candidate_at("user_1", self.now)
+        user_profile_store = InMemoryUserProfileStore()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "past_due",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["セッター複数"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.plan_updated_user_ids, ["user_1"])
+        self.assertEqual(user_profile_store.get_plan("user_1"), "セッター複数")
+        self.assertEqual(result.cleared_user_ids, [])
         self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
 
     def test_unhandled_type_is_recorded_as_ignored(self):

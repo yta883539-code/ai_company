@@ -1864,10 +1864,41 @@
   残す(詳細はcheckout-session-plan-selection-design.md「残課題」参照)。承認不要な設計・
   実装・テスト追加・ドキュメント整理のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 12:08 UTC
+- フェーズ153(2026-09-03 15:00 UTC): checkout-session-plan-selection-design.md(フェーズ152)
+  「残課題」に残っていた「ダウングレード・アップグレード時に`user_profile/{user_id}.plan`を
+  更新する経路は未設計のまま残る(現状は`checkout.session.completed`、すなわち新規契約時
+  のみ書き込む設計)」というギャップに対応した。契約中のユーザーがStripeカスタマーポータル
+  経由でプランを変更しても、`user_profile`側の`plan`フィールドが古い値のままになってしまう
+  問題である。subscription-plan-change-design.mdを新規作成し、以下を実装した。
+  (1)`prototype/checkout_session.py`に`STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER`
+  (`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の反転辞書、機械的に生成)を新設。
+  (2)`prototype/stripe_webhook.py`に`_resolve_plan_from_subscription_updated()`を新設し、
+  `customer.subscription.updated`イベントの`items.data[0].price.id`(サブスクリプション
+  オブジェクトにそのまま含まれるフィールド、追加API呼び出し不要)から既知のプラン名を
+  逆引きするようにした。(3)`dispatch_stripe_event()`の`customer.subscription.updated`
+  分岐冒頭で、`user_profile_store`指定時に上記関数でプランを解決できた場合のみ
+  `user_profile_store.set_plan()`を呼び出すようにした(ステータス〈active/trialing〉に
+  よる既存の削除候補クリア判定より前に、ステータスに関係なく独立して評価する設計とした)。
+  `StripeDispatchResult`に`plan_updated_user_ids`フィールドを追加した。
+  `receive_stripe_webhook()`・`get_stripe_runtime_dependencies()`は既にフェーズ144以降
+  `user_profile_store`を`dispatch_stripe_event()`へ渡す配線が済んでいたため、追加の配線
+  変更は不要だった。テスト5件追加(`test_subscription_updated_with_known_price_id_writes_
+  plan`等)、venture全体517件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)パス・schema検証9件(`python3 schema/validate_test_cases.py`)パスを
+  確認した。実Stripe Price ID確定(`PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の実値差し替え)・
+  実Stripeカスタマーポータルでのプラン変更操作による実際のイベント形状の検証は、実Stripe
+  接続待ち(オーナー承認)の課題として引き続き残す。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-03 15:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ153、2026-09-03 15:00 UTC: checkout-session-plan-selection-design.md
+  「残課題」に残っていた、プラン変更〈アップグレード/ダウングレード〉時に
+  `user_profile/{user_id}.plan`を更新する経路〈`customer.subscription.updated`
+  イベント対応〉が未設計だったギャップに対応した。詳細は上記フェーズ153参照。実Stripe
+  Price ID確定・実Stripeカスタマーポータルでの実イベント検証は実Stripe接続待ちとして残る)
 - (新規解消・フェーズ152、2026-09-03 12:08 UTC: Checkout Sessionが購入プランを一切
   記録していなかった未設計のギャップ〈checkout-session-plan-selection-design.md〉を
   発見・設計・実装した。`user_profile/{user_id}.plan`保持フィールド追加、
