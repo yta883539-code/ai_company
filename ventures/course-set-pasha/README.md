@@ -1811,10 +1811,27 @@
   -p "test_*.py"`)パス・schema検証9件パスを再確認した。承認不要なドキュメント整理のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの
   追記なし。
-- 最終更新: 2026-09-03 07:01 UTC
+- フェーズ151(2026-09-03 08:01 UTC): stripe-webhook-signature-verification-design.md
+  「残課題」に残っていたStripeイベントの重複配信対策(`event.id`によるべき等性チェック)に
+  対応した。aircon-pashaがフェーズ177で先行実装した設計(3venture共通の未解決事項だったと
+  aircon-pasha側で確認済み)をそのまま本venture向けに横展開した。
+  stripe-event-idempotency-design.mdを新規作成し、`prototype/stripe_webhook.py`に
+  `StripeEventIdStoreProtocol`・`InMemoryStripeEventIdStore`を新設、
+  `receive_stripe_webhook()`に`event_id_store`引数(省略時は従来通りチェックなし)を追加、
+  2回目以降の同一`event.id`配信ではハンドラを呼び出さずduplicate=Trueで200を返すように
+  した。`get_stripe_runtime_dependencies()`にも配線した。テスト7件追加、venture全体496件
+  全件(`python3 -m unittest discover -p "test_*.py"`)パス・schema検証9件パスを確認した。
+  line-reservation-aiへの同種対応の横展開は次回以降の課題として残す。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 08:01 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-03 08:01 UTC・フェーズ151: stripe-webhook-signature-verification-
+  design.md「残課題」に残っていたStripeイベントのべき等性チェック〈`event.id`による
+  重複配信対策〉を実装した。aircon-pashaフェーズ177版を横展開。詳細は上記フェーズ151参照。
+  line-reservation-aiへの横展開は引き続き次回以降の課題)
 - (解消済み 2026-09-03 07:01 UTC・フェーズ150: sns-tone-research.mdに残っていた
   「ハッシュタグ3分類方針の反映は未着手」という記載漏れ(実際はllm-system-prompt-draft.md
   厳守事項4に反映済み)を解消した。詳細は上記フェーズ150参照)
