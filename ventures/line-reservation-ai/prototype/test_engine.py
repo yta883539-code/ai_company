@@ -60,6 +60,7 @@ from engine import (  # noqa: E402
     format_faq_unregistered_message,
     format_first_booking_self_check_message,
     format_hold_message,
+    format_monthly_booking_limit_notice_message,
     format_notification_log_csv,
     format_reminder_message,
     format_reminder_resend_message,
@@ -399,6 +400,63 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         flow.provide_details("user_suzuki", "鈴木", "カラー", T0 + timedelta(minutes=6))
         # 2件目の確定では発火しない(店舗全体で最初の1回のみ)
         self.assertFalse(flow.consume_first_booking_self_check())
+
+    def _confirm_booking(self, flow, user_id, hour, now):
+        key = ("shop_1", "2026-08-09", f"{hour:02d}:00")
+        flow.present_candidates(user_id, now=now)
+        flow.select_slot(user_id, key, now)
+        return flow.provide_details(user_id, "田中", "カット", now)
+
+    def test_monthly_booking_limit_notice_fires_once_at_threshold(self):
+        # monthly-booking-limit-notification-design.md準拠。plan_limit=10なら
+        # 10-5=5件目の確定で1回だけ発火する。
+        flow = ConversationFlowStateMachine(
+            BookingSlotManager(), EscalationConsolidator(), monthly_booking_limit=10
+        )
+        for i in range(4):
+            self._confirm_booking(flow, f"user_{i}", 9 + i, T0 + timedelta(minutes=i))
+            self.assertFalse(flow.consume_monthly_booking_limit_notice())
+
+        self._confirm_booking(flow, "user_4", 13, T0 + timedelta(minutes=4))
+        self.assertTrue(flow.consume_monthly_booking_limit_notice())
+        # 消費済みなので同じ月の以降の確定では再度Trueにならない
+        self.assertFalse(flow.consume_monthly_booking_limit_notice())
+
+        self._confirm_booking(flow, "user_5", 14, T0 + timedelta(minutes=5))
+        self.assertFalse(flow.consume_monthly_booking_limit_notice())
+
+    def test_monthly_booking_limit_notice_disabled_when_limit_not_set(self):
+        # monthly_booking_limit未指定(None)では従来通り発火しない(後方互換)。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        for i in range(5):
+            self._confirm_booking(flow, f"user_{i}", 9 + i, T0 + timedelta(minutes=i))
+            self.assertFalse(flow.consume_monthly_booking_limit_notice())
+
+    def test_monthly_booking_limit_notice_resets_across_month_boundary(self):
+        # 月が変わるとカウンタ・通知フラグとも別キーへ移り、翌月あらためて閾値到達時に発火する。
+        flow = ConversationFlowStateMachine(
+            BookingSlotManager(), EscalationConsolidator(), monthly_booking_limit=10
+        )
+        july_now = datetime(2026, 7, 31, 10, 0, 0)
+        for i in range(5):
+            self._confirm_booking(flow, f"user_jul_{i}", 9 + i, july_now + timedelta(minutes=i))
+        self.assertTrue(flow.consume_monthly_booking_limit_notice())
+        self.assertEqual(flow.get_monthly_confirmed_count("2026-07"), 5)
+
+        august_now = datetime(2026, 8, 1, 10, 0, 0)
+        self._confirm_booking(flow, "user_aug_0", 15, august_now)
+        # 8月分のカウンタは0からやり直しなので、7月分の累計は引き継がない
+        self.assertEqual(flow.get_monthly_confirmed_count("2026-08"), 1)
+        self.assertFalse(flow.consume_monthly_booking_limit_notice())
+
+        for i in range(1, 5):
+            self._confirm_booking(flow, f"user_aug_{i}", 15 + i, august_now + timedelta(minutes=i))
+        self.assertTrue(flow.consume_monthly_booking_limit_notice())
+
+    def test_monthly_booking_limit_notice_message_includes_counts(self):
+        message = format_monthly_booking_limit_notice_message(plan_limit=50, current_count=45)
+        self.assertIn("50件", message)
+        self.assertIn("45件", message)
 
     def test_first_confirmed_booking_sets_trial_start_at_once(self):
         # trial-start-anchor-decision.md準拠。店舗全体で最初の予約確定成功時に1回だけ

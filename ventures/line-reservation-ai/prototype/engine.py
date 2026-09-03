@@ -803,6 +803,10 @@ SLOT_CONFLICT_MESSAGE_TEMPLATE = (
 # 再確認メッセージの繰り返しをやめてオーナーへエスカレーションする。
 RECONFIRM_MAX_ATTEMPTS = 2
 
+# monthly-booking-limit-notification-design.md 3節。aircon-pashaのlimit-approaching-
+# notification-design.mdと同じ「プラン上限−5件」を3プラン共通の固定閾値として踏襲する。
+MONTHLY_BOOKING_LIMIT_NOTICE_MARGIN = 5
+
 ESCALATION_HANDOFF_MESSAGE = (
     "申し訳ございません、うまく聞き取れませんでした。"
     "担当より改めてご連絡いたしますので少々お待ちください。"
@@ -908,6 +912,7 @@ class ConversationFlowStateMachine:
         consolidator: EscalationConsolidator,
         logs: Optional["NotificationLogAggregator"] = None,
         record_store: Optional["InMemoryBookingRecordStore"] = None,
+        monthly_booking_limit: Optional[int] = None,
     ) -> None:
         """logsはsystem-event-log-gap-fix.md準拠。booking_conflict/booking_cancelled/
         booking_change_started/candidate_selection_unresolvedといったシステム内部発火の
@@ -918,11 +923,16 @@ class ConversationFlowStateMachine:
         record_storeはInMemoryBookingRecordStoreのdocstring準拠。渡すとprovide_details()の
         確定成功時に自動でrecord_confirmed()が呼ばれる。未指定(None)の場合は従来通り
         記録を行わない(後方互換の任意引数)。
+        monthly_booking_limitはmonthly-booking-limit-notification-design.md準拠。店舗の
+        契約プランの月間予約件数上限目安(pricing-plan.md)を渡すと、上限−5件到達時に
+        consume_monthly_booking_limit_notice()が一度だけTrueを返すようになる。未指定(None)
+        の場合は従来通り機能しない(後方互換の任意引数)。
         """
         self._slots = slots
         self._consolidator = consolidator
         self._logs = logs
         self._record_store = record_store
+        self._monthly_booking_limit = monthly_booking_limit
         self._states: dict[str, _ConversationState] = {}
         self._last_idle_cleanup_at: Optional[datetime] = None
         self._last_archive_at: Optional[datetime] = None
@@ -934,6 +944,10 @@ class ConversationFlowStateMachine:
         # trial-end-scheduler-design.md準拠: トライアル終了時利用実績レポート送信済みかどうか
         # (firestore-data-model.mdのtrialEndReportSentAtフィールドに相当)。
         self._trial_end_report_sent_at: Optional[datetime] = None
+        # monthly-booking-limit-notification-design.md準拠: 月キー(YYYY-MM)ごとの予約確定件数と、
+        # 上限−5件到達時に一度だけ消費される通知フラグ(月が変われば別キーになるため自然にリセットされる)。
+        self._monthly_confirmed_counts: dict[str, int] = {}
+        self._monthly_booking_limit_notice_pending = False
 
     def _notify_system_event(self, user_id: str, event: dict, now: datetime) -> list:
         """システム内部発火のescalationイベント(booking_conflict等、SYSTEM_ESCALATION_REASONS参照)を
@@ -1078,6 +1092,12 @@ class ConversationFlowStateMachine:
                 self._first_booking_self_check_pending = True
             if self._trial_start_at is None:
                 self._trial_start_at = now
+            if self._monthly_booking_limit is not None:
+                month_key = now.strftime("%Y-%m")
+                count = self._monthly_confirmed_counts.get(month_key, 0) + 1
+                self._monthly_confirmed_counts[month_key] = count
+                if count == self._monthly_booking_limit - MONTHLY_BOOKING_LIMIT_NOTICE_MARGIN:
+                    self._monthly_booking_limit_notice_pending = True
             return ProvideDetailsResult(confirmed=True)
 
         actions = self._notify_system_event(
@@ -1120,6 +1140,22 @@ class ConversationFlowStateMachine:
             self._first_booking_self_check_pending = False
             return True
         return False
+
+    def consume_monthly_booking_limit_notice(self) -> bool:
+        """monthly-booking-limit-notification-design.md準拠。当月の予約確定件数が
+        `monthly_booking_limit - MONTHLY_BOOKING_LIMIT_NOTICE_MARGIN`件に達した直後にTrueを
+        一度だけ返す(月が変わればカウンタ・フラグとも別キーへ移るため、翌月あらためて
+        閾値到達時に発火する)。呼び出し側はprovide_details()のconfirmedがTrueだった直後に
+        これを呼び、Trueならformat_monthly_booking_limit_notice_message()をオーナーへ
+        追加送信する想定。"""
+        if self._monthly_booking_limit_notice_pending:
+            self._monthly_booking_limit_notice_pending = False
+            return True
+        return False
+
+    def get_monthly_confirmed_count(self, month: str) -> int:
+        """指定した月キー(YYYY-MM)の予約確定件数を返す。通知文言の組み立て・テスト用。"""
+        return self._monthly_confirmed_counts.get(month, 0)
 
     def get_trial_start_at(self) -> Optional[datetime]:
         """trial-start-anchor-decision.md準拠。店舗全体で最初の予約確定が成功した時刻
@@ -1639,6 +1675,20 @@ def format_first_booking_self_check_message(candidate_label: str, menu: str, cus
         "    営業時間・メニュー内容・所要時間などの店舗設定が意図通りかを、"
         "この機会に一度ご確認ください。\n"
         "    問題がなければ今後この通知はありません。"
+    )
+
+
+def format_monthly_booking_limit_notice_message(plan_limit: int, current_count: int) -> str:
+    """monthly-booking-limit-notification-design.md準拠。当月の予約確定件数がプラン上限目安
+    (pricing-plan.md)の残り5件に達した時点で、オーナーへ月内1回だけ送る通知。
+    escalation-notification-templates.mdの「主語は店ではなくシステム管理側」ルールに従った
+    固定文面とし(顧客向けのようなトーン別出し分けは行わない)、予約の受付自体は止めず
+    プラン見直しの要否をオーナー自身に判断してもらう(3節参照)。
+    """
+    return (
+        f"【ご確認のお願い】今月のご予約確定件数が{current_count}件になりました"
+        f"(現在のプラン上限目安: {plan_limit}件)。\n"
+        "    上限に近づいていますので、プランの見直しが必要かご確認ください。"
     )
 
 

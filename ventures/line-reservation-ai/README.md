@@ -2061,7 +2061,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ハンドラを呼び出す層)は引き続き次回以降の課題として残す。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 09:01 UTC
+- フェーズ続き180(2026-09-03 10:57 UTC): pricing-plan.mdが定める月間予約件数上限目安
+  (スタータープラン50件/スタンダードプラン150件/プロプラン300件)について、店舗の
+  月間予約確定件数がこの上限へ近づいた際にオーナーへ知らせる仕組みが本ventureには
+  存在しなかった(aircon-pasha/course-set-pashaのlimit-approaching-notification-design.md
+  に相当する検討の欠落)ことに気づき、対応した(monthly-booking-limit-notification-design.md
+  新規作成)。生成回数上限を扱う他2ventureとは異なり本ventureの上限は予約件数であるため、
+  「上限−5件」到達時に閾値通知1回のみ(aircon-pashaの固定閾値方式を踏襲)という点は
+  揃えつつ、通知先は顧客向け確定メッセージではなくfirst-booking-self-check-notification-
+  design.mdと同じ「オーナー宛の別送メッセージ」方式とし、上限超過時に予約を機械的に
+  止める設計は見送った(来店機会の逸失につながるため。詳細は同ドキュメント3節)。
+  `prototype/engine.py`の`ConversationFlowStateMachine`に`monthly_booking_limit`引数
+  (省略時None=機能無効)、月キー(YYYY-MM)ごとの確定件数カウンタ、
+  `consume_monthly_booking_limit_notice()`・`get_monthly_confirmed_count()`を追加し、
+  `format_monthly_booking_limit_notice_message()`を新設した。本venture一貫の
+  「1インスタンス=1店舗」前提(first-booking-self-check-notification-design.md「残課題」
+  参照)によりstore_id単位の辞書は不要だった。テスト4件追加、venture全体607件全件
+  (`python3 -m unittest discover -p "test_*.py"`)パス・schema検証25件パスを確認した。
+  store_profile_store.pyに店舗の契約プランを保持するフィールドが無く`monthly_booking_limit`
+  を実際に接続する配線が無い点、オーナーへの実送信(実LINE API接続待ち)は次回以降の
+  課題として残る(設計doc6節・5節参照)。承認不要な設計・実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-03 10:57 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
