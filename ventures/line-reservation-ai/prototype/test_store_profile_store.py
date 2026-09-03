@@ -300,5 +300,58 @@ class OwnerUserIdTest(unittest.TestCase):
         self.assertEqual(self.store.get_owner_user_id("store123"), "UownerReplaced")
 
 
+class OwnerEmailTest(unittest.TestCase):
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_none_when_not_set(self):
+        self.assertIsNone(self.store.get_owner_email("store123"))
+
+    def test_set_then_get_roundtrips(self):
+        self.store.set_owner_email("store123", "owner@example.com")
+        self.assertEqual(self.store.get_owner_email("store123"), "owner@example.com")
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_owner_email("", "owner@example.com")
+
+    def test_raises_on_empty_owner_email(self):
+        with self.assertRaises(ValueError):
+            self.store.set_owner_email("store123", "")
+
+    def test_re_setting_overwrites_previous_email(self):
+        self.store.set_owner_email("store123", "owner@example.com")
+        self.store.set_owner_email("store123", "new-owner@example.com")
+        self.assertEqual(self.store.get_owner_email("store123"), "new-owner@example.com")
+
+
+class BlockedButBillingOwnerNotifiedAtTest(unittest.TestCase):
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_none_when_not_set(self):
+        self.assertIsNone(self.store.get_blocked_but_billing_owner_notified_at("store123"))
+
+    def test_set_then_get_roundtrips(self):
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "store123", "2026-09-03T01:00:00Z"
+        )
+        self.assertEqual(
+            self.store.get_blocked_but_billing_owner_notified_at("store123"),
+            "2026-09-03T01:00:00Z",
+        )
+
+    def test_set_none_clears_previous_value(self):
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "store123", "2026-09-03T01:00:00Z"
+        )
+        self.store.set_blocked_but_billing_owner_notified_at("store123", None)
+        self.assertIsNone(self.store.get_blocked_but_billing_owner_notified_at("store123"))
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_blocked_but_billing_owner_notified_at("", "2026-09-03T01:00:00Z")
+
+
 if __name__ == "__main__":
     unittest.main()

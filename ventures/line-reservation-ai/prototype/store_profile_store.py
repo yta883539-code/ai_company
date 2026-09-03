@@ -48,6 +48,14 @@
   追跡するための最小インターフェース。いずれも`stores/{storeId}`の同一ドキュメント上の
   フィールド(firestore-data-model.md)に対応する。`prototype/
   blocked_but_billing_candidates.py`の候補抽出ロジックから参照される。
+- `get_owner_email()`/`set_owner_email()`・
+  `get_blocked_but_billing_owner_notified_at()`/
+  `set_blocked_but_billing_owner_notified_at()`(2026-09-03追記、フェーズ続き177):
+  blocked-but-billing-owner-email-notification-design.md 1節・3節で設計した、
+  ブロック中かつ契約継続中の店舗オーナーへメール通知するための送信先
+  (`ownerEmail`)と冪等性フラグ(`blockedButBillingOwnerNotifiedAt`)。いずれも
+  `stores/{storeId}`の同一ドキュメント上のフィールド。`prototype/
+  blocked_but_billing_owner_email_notification.py`から参照される。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
@@ -100,6 +108,20 @@ class StoreProfileStoreProtocol(Protocol):
     def set_suspension_reason(self, store_id: str, suspension_reason: Optional[str]) -> None:
         ...
 
+    def get_owner_email(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_owner_email(self, store_id: str, owner_email: str) -> None:
+        ...
+
+    def get_blocked_but_billing_owner_notified_at(self, store_id: str) -> Optional[str]:
+        ...
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        ...
+
     def all_store_ids(self):
         ...
 
@@ -117,6 +139,8 @@ class InMemoryStoreProfileStore:
         self._owner_user_ids: dict[str, str] = {}
         self._owner_is_following: dict[str, bool] = {}
         self._suspension_reasons: dict[str, Optional[str]] = {}
+        self._owner_emails: dict[str, str] = {}
+        self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
         self._known_store_ids: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
@@ -183,6 +207,28 @@ class InMemoryStoreProfileStore:
         if not store_id:
             raise ValueError("store_id must be a non-empty string")
         self._suspension_reasons[store_id] = suspension_reason
+        self._known_store_ids.add(store_id)
+
+    def get_owner_email(self, store_id: str) -> Optional[str]:
+        return self._owner_emails.get(store_id)
+
+    def set_owner_email(self, store_id: str, owner_email: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_email:
+            raise ValueError("owner_email must be a non-empty string")
+        self._owner_emails[store_id] = owner_email
+        self._known_store_ids.add(store_id)
+
+    def get_blocked_but_billing_owner_notified_at(self, store_id: str) -> Optional[str]:
+        return self._blocked_but_billing_owner_notified_at.get(store_id)
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._blocked_but_billing_owner_notified_at[store_id] = value
         self._known_store_ids.add(store_id)
 
     def all_store_ids(self):
