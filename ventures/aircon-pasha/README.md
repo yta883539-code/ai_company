@@ -2566,4 +2566,27 @@
   (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件パスを
   再確認した。承認不要なドキュメント整理のみで、外部サービスへの公開・アカウント作成・
   支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 04:01 UTC
+- フェーズ178(2026-09-03 11:01 UTC): `cloud_function_webhook.py`の`PortalLinkProvider`
+  Protocol(`get_portal_url(user_id) -> Optional[str]`)は既存だが、その実装本体
+  (実`stripe.billing_portal.Session.create()`呼び出し)が未設計のまま`InMemoryPortalLinkProvider`
+  (検証用の固定URLスタブ)のみが存在していたギャップに対応した。course-set-pashaがフェーズ
+  148・149で実装した`customer-portal-session-endpoint-design.md`/`StripePortalLinkProvider`
+  を横展開したが、本ventureのCheckout Session作成がLIFF IDトークン検証を経由せずLINEの
+  postbackイベント(`source.userId`がプラットフォーム自身に認証済み)を前提とする設計
+  (checkout_session.py)であるため、対称となるLIFF検証を伴うHTTPエンドポイント
+  (`create_portal_session()`)は不要と判断し、`PortalLinkProvider`実装本体
+  (`StripePortalLinkProvider`)のみを設計・実装する`portal-session-provider-design.md`を
+  新規作成した。前提として、`StripePortalLinkProvider`が必要とする順引きgetter
+  `user_id_linking.UserProfileStoreProtocol.get_stripe_customer_id(user_id)`が、
+  「現時点でどこからも呼ばれないため未追加」と明記されたまま存在していなかったため、
+  `UserProfileStoreProtocol`/`InMemoryUserProfileStore`に追加した。`prototype/portal_session.py`
+  (新規)に`build_portal_session_params()`・`StripePortalLinkProvider`・
+  `_create_billing_portal_session_not_implemented()`を実装した。テスト11件追加
+  (`user_id_linking`側3件・`portal_session`側8件)、venture全体406件全件
+  (`python3 -m unittest discover -p "test_*.py"`)パス・schema検証9件パスを確認した。
+  実`session_creator`差し替え・呼び出し元(`get_runtime_dependencies()`等)を実際に
+  `InMemoryPortalLinkProvider`から`StripePortalLinkProvider`へ差し替える配線は、実Stripe
+  アカウント接続(オーナー承認待ち)後の課題として引き続き残す。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 11:01 UTC

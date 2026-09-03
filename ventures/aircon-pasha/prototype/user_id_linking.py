@@ -212,11 +212,16 @@ class UserProfileStoreProtocol(Protocol):
     checkout-session-completed-handling-design.mdで追加した、`stripe_customer_id`
     (StripeカスタマーオブジェクトのID)と`user_id`の紐付けを表す。本ventureは
     `client_reference_id`に既知の`user_id`をそのまま設定できる(design 4節)ため
-    `set_stripe_customer_id`は書き込み専用(順引きの`get_stripe_customer_id`は
-    現時点でどこからも呼ばれないため未追加)、`get_user_id_by_stripe_customer_id`は
-    `customer.subscription.*`系イベントの`resolve_user_id(stripe_customer_id) -> user_id`
-    変換をこの逆引きで実現するために使う(course-set-pashaの
+    `set_stripe_customer_id`は書き込み専用として先に追加し、`get_user_id_by_stripe_
+    customer_id`は`customer.subscription.*`系イベントの`resolve_user_id(stripe_
+    customer_id) -> user_id`変換をこの逆引きで実現するために使う(course-set-pashaの
     `get_user_id_by_stripe_customer_id`と同じ位置づけ)。
+
+    `get_stripe_customer_id`(順引き)はportal-session-provider-design.md(フェーズ176)で
+    `StripePortalLinkProvider`(既存customerの有無判定・Billing Portalセッションパラメータ
+    組み立てに使う)向けに追加した。既存の`UserProfile.stripe_customer_id`フィールドを
+    そのまま読むだけの単純なgetterで、未知の`user_id`に対しては`None`を返す(他のno-op系
+    getterと同じ安全側方針)。
 
     `set_trial_start_at`/`set_trial_end_notified_at`/`set_upgraded_at`は
     trial-end-scheduler-design.md(フェーズ133)向けにフェーズ134で追加した3フィールドの
@@ -276,6 +281,9 @@ class UserProfileStoreProtocol(Protocol):
     def get_user_id_by_stripe_customer_id(
         self, stripe_customer_id: str
     ) -> Optional[str]:
+        ...
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
         ...
 
     def set_trial_start_at(self, user_id: str, at: datetime) -> None:
@@ -372,6 +380,12 @@ class InMemoryUserProfileStore:
         self, stripe_customer_id: str
     ) -> Optional[str]:
         return self._user_ids_by_stripe_customer_id.get(stripe_customer_id)
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return None
+        return profile.stripe_customer_id
 
     def set_trial_start_at(self, user_id: str, at: datetime) -> None:
         profile = self._profiles.get(user_id)

@@ -298,6 +298,25 @@ class InMemoryUserProfileStoreStripeCustomerIdTest(unittest.TestCase):
         self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_old"))
         self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "u-1")
 
+    def test_get_stripe_customer_id_returns_forward_value(self):
+        """portal-session-provider-design.md(フェーズ176)で追加した順引きgetter。"""
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_stripe_customer_id("u-1", "cus_1")
+
+        self.assertEqual(store.get_stripe_customer_id("u-1"), "cus_1")
+
+    def test_get_stripe_customer_id_returns_none_when_unset(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_stripe_customer_id("u-1"))
+
+    def test_get_stripe_customer_id_returns_none_for_unknown_user(self):
+        store = InMemoryUserProfileStore()
+
+        self.assertIsNone(store.get_stripe_customer_id("no-such-user"))
+
 
 class InMemoryUserProfileStoreTrialFieldsTest(unittest.TestCase):
     """trial-end-scheduler-design.md(フェーズ133)向けにフェーズ134で追加した
