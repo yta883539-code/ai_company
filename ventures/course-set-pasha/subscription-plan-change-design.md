@@ -70,8 +70,13 @@ set_plan()`を書き込んでおり、契約中のユーザーがStripeカスタ
 - 実際のStripeカスタマーポータルでのプラン変更操作によるイベント配信(`items`の実際の
   形状・複数line item化の有無を含む)は、実Stripe接続後の検証課題として残る
   (本ドキュメントの設計・実装はあくまで机上検証)。
-- `customer.subscription.updated`が「プラン変更を伴わない」更新(支払い方法変更・
-  試用期間延長等、Price IDが変わらないケース)で届いた場合は、`price.id`が既存と
-  同じ値のまま`set_plan()`が呼ばれるだけで実害はないが、無駄な書き込みを避ける
-  差分チェック(変更前後の比較)は行っていない。実運用での書き込み頻度が問題になれば
-  次回以降の最適化課題として検討する。
+- (解消済み・フェーズ続き154: `customer.subscription.updated`が「プラン変更を伴わない」
+  更新(支払い方法変更・試用期間延長等、Price IDが変わらないケース)で届いた場合に
+  `set_plan()`が無駄に呼ばれる件は、`user_profile_store.get_plan(user_id)`と解決した
+  `plan`を比較する差分チェックを`dispatch_stripe_event()`の`customer.subscription.updated`
+  分岐に追加して解消した。値が一致する場合は`set_plan()`を呼び出さず、
+  `plan_updated_user_ids`にも含めない。テスト1件追加
+  〈`test_subscription_updated_with_unchanged_plan_skips_write`〉、venture全体518件
+  全件パス・schema検証9件パスを確認済み。実運用での実際の書き込み頻度・
+  `customer.subscription.updated`の実発火頻度自体は引き続き実Stripe接続後の検証課題
+  として残る)

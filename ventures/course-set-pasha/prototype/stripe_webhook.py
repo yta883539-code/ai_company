@@ -164,7 +164,9 @@ class StripeDispatchResult:
         default_factory=list
     )
     # subscription-plan-change-design.md(フェーズ153)対応: `customer.subscription.updated`
-    # 受信時にuser_profile_store.set_plan()でプランを書き換えたuser_id。
+    # 受信時にuser_profile_store.set_plan()でプランを書き換えたuser_id。既存プランと同じ
+    # 値が解決された場合は書き込み自体を行わないため含まれない(フェーズ続き154の差分
+    # チェック、無駄な書き込み回避)。
     plan_updated_user_ids: list = field(default_factory=list)
 
 
@@ -283,7 +285,7 @@ def dispatch_stripe_event(
         # まま行われるため、下記のステータス分岐より前に評価する)。
         if user_profile_store is not None:
             plan = _resolve_plan_from_subscription_updated(data_object)
-            if plan is not None:
+            if plan is not None and user_profile_store.get_plan(user_id) != plan:
                 user_profile_store.set_plan(user_id, plan)
                 result.plan_updated_user_ids.append(user_id)
 

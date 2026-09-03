@@ -1890,10 +1890,32 @@
   接続待ち(オーナー承認)の課題として引き続き残す。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。
-- 最終更新: 2026-09-03 15:00 UTC
+- フェーズ続き154(2026-09-03 18:00 UTC): subscription-plan-change-design.md
+  (フェーズ153)「残課題」に残っていた、`customer.subscription.updated`が「プラン変更を
+  伴わない」更新(支払い方法変更・試用期間延長等、Price IDが変わらないケース)で届いた
+  場合に`user_profile_store.set_plan()`が無駄に呼ばれてしまう(差分チェック未実装)という
+  ギャップに対応した。実害はなかったが、実運用でこのイベントが頻繁に届いた場合の無駄な
+  書き込みを避けるための最適化として、`dispatch_stripe_event()`の
+  `customer.subscription.updated`分岐で`user_profile_store.get_plan(user_id)`と
+  `_resolve_plan_from_subscription_updated()`が解決した`plan`を比較し、値が既存と
+  異なる場合のみ`set_plan()`を呼び出すよう変更した(値が同じ場合は`plan_updated_user_ids`
+  にも含めない)。`StripeDispatchResult.plan_updated_user_ids`のdocstringコメントも
+  この挙動に合わせて更新した。テスト1件追加
+  (`test_subscription_updated_with_unchanged_plan_skips_write`、set_plan()の呼び出し
+  回数を数える`_CountingSetPlanUserProfileStore`スタブを新設して検証)、venture全体518件
+  全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実Stripe Price ID確定・
+  実Stripeカスタマーポータルでの実イベント形状の検証は、引き続き実Stripe接続待ち
+  (オーナー承認)の課題として残す。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-03 18:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ続き154、2026-09-03 18:00 UTC: subscription-plan-change-design.md
+  「残課題」に残っていた`customer.subscription.updated`の無駄な書き込みを避ける差分
+  チェックを実装した。詳細は上記フェーズ続き154参照。実Stripe接続後の実イベント検証は
+  引き続き残る)
 - (新規解消・フェーズ153、2026-09-03 15:00 UTC: checkout-session-plan-selection-design.md
   「残課題」に残っていた、プラン変更〈アップグレード/ダウングレード〉時に
   `user_profile/{user_id}.plan`を更新する経路〈`customer.subscription.updated`

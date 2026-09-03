@@ -31,6 +31,19 @@ PAYLOAD = b'{"id":"evt_1","type":"customer.subscription.deleted"}'
 NOW = 1_700_000_000.0
 
 
+class _CountingSetPlanUserProfileStore(InMemoryUserProfileStore):
+    """set_plan()の呼び出し回数を数える。差分チェック(フェーズ続き154)により
+    プランに変化がない場合は呼び出されないことをテストで確認するためのスタブ。"""
+
+    def __init__(self):
+        super().__init__()
+        self.set_plan_call_count = 0
+
+    def set_plan(self, user_id: str, plan: str) -> None:
+        self.set_plan_call_count += 1
+        super().set_plan(user_id, plan)
+
+
 def _sign(payload: bytes, secret: str, timestamp: int) -> str:
     signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8")
     return hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
@@ -367,6 +380,42 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(user_profile_store.get_plan("user_1"), "セッター複数")
         self.assertEqual(result.cleared_user_ids, [])
         self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
+
+    def test_subscription_updated_with_unchanged_plan_skips_write(self):
+        # subscription-plan-change-design.md「残課題」の差分チェック(フェーズ続き154):
+        # 解決されたプランが既存のuser_profile_store側の値と同じ場合は、set_plan()自体を
+        # 呼び出さず(無駄な書き込みを避ける)、plan_updated_user_idsにも含めない。
+        user_profile_store = _CountingSetPlanUserProfileStore()
+        user_profile_store.set_plan("user_1", "スタンダード")
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.plan_updated_user_ids, [])
+        self.assertEqual(user_profile_store.get_plan("user_1"), "スタンダード")
+        # 差分がない場合はset_plan()の呼び出し自体が発生しないことを確認する
+        # (実売の直近書き込みが1回〈事前セット分〉のみであること)。
+        self.assertEqual(user_profile_store.set_plan_call_count, 1)
 
     def test_unhandled_type_is_recorded_as_ignored(self):
         event = {"type": "invoice.paid", "data": {"object": {"customer": "cus_A"}}}
