@@ -53,6 +53,13 @@ design.md 6節「クリア配線」対応。`dispatch_stripe_event()`が新た�
 届いた場合はハンドラを一切呼び出さずに200を返す(決済失敗検知・復旧通知等の
 非べき等なLINE Push送信が重複配信により複数回実行されるのを防ぐ)。省略時(`None`)は
 従来通りべき等性チェックを行わない(既存呼び出し経路への後方互換措置)。
+
+`cancellation_push_client`/`portal_link_provider`(フェーズ186追加): フェーズ184・185で
+`dispatch_stripe_event()`が受け取れるようになった、`customer.subscription.deleted`
+(解約完了案内)・`customer.subscription.updated`(解約予約受理・取り消し案内)向けの
+2引数を、`payment_store`等と同じく本モジュールが委譲していなかった配線漏れを解消した
+(フェーズ185「残課題」参照)。そのまま委譲するだけの薄い配線で、省略時(`None`)は
+これまで通り解約関連の通知を送信しない(既存呼び出し経路への後方互換措置)。
 """
 
 from __future__ import annotations
@@ -69,6 +76,7 @@ from typing import Callable, List, Optional
 from blocked_but_billing_owner_notification import (
     BlockedButBillingOwnerNotifiedAtStoreProtocol,
 )
+from cloud_function_webhook import PortalLinkProvider
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from payment_failure import LinePushClient, PaymentFailureStoreProtocol
 from payment_recovery_notification import LinePushClient as RecoveryPushClient
@@ -76,6 +84,9 @@ from stripe_dispatch import (
     ProfileDeletionCandidateStoreProtocol,
     StripeDispatchResult,
     dispatch_stripe_event,
+)
+from subscription_cancellation_notification import (
+    LinePushClient as CancellationPushClient,
 )
 from subscription_plan_sync import CurrentPlanStoreProtocol
 from user_id_linking import InMemoryUserProfileStore, UserProfileStoreProtocol
@@ -271,6 +282,8 @@ def receive_stripe_webhook(
     plan_store: Optional[CurrentPlanStoreProtocol] = None,
     blocked_but_billing_store: Optional[BlockedButBillingOwnerNotifiedAtStoreProtocol] = None,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
+    cancellation_push_client: Optional[CancellationPushClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版)。生のリクエストボディ(bytes)を
@@ -314,6 +327,16 @@ def receive_stripe_webhook(
     とともに200を返す(副作用ゼロ)。`id`が欠落・非文字列の場合はチェックを
     スキップし従来通り処理する(安全側)。省略時(`None`)はべき等性チェックを
     一切行わない(既存呼び出し経路への後方互換措置)。
+
+    `cancellation_push_client`/`portal_link_provider`(フェーズ186追加):
+    subscription-cancellation-notification-design.md(フェーズ184・185)対応。
+    `dispatch_stripe_event()`はフェーズ184・185で`customer.subscription.deleted`
+    (解約完了案内)・`customer.subscription.updated`(解約予約受理・取り消し案内)を
+    これら2引数経由で処理できる設計になっていたが、`payment_store`等と同じく本関数が
+    委譲していなかったため、実際のHTTPエントリポイント経由では常に`None`扱いとなり
+    解約関連の通知が送信されない配線漏れがあった(フェーズ185「残課題」参照)。
+    そのままdispatch_stripe_event()へ委譲するだけの薄い配線で解消する。2引数とも
+    省略時(`None`)の挙動はこれまでと変わらない(既存呼び出し経路への後方互換措置)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -357,6 +380,8 @@ def receive_stripe_webhook(
         recovery_push_client=recovery_push_client,
         plan_store=plan_store,
         blocked_but_billing_store=blocked_but_billing_store,
+        cancellation_push_client=cancellation_push_client,
+        portal_link_provider=portal_link_provider,
         now=resolved_now,
     )
     if check_idempotency:
@@ -388,11 +413,16 @@ def get_stripe_runtime_dependencies() -> dict:
     - resolve_user_id: `make_resolve_user_id(user_profile_store)`。紐付けがまだ無い
       stripe_customer_idに対してはNoneを返し、dispatch_stripe_event()はそれを
       unresolved_customersとして安全に扱い200を返す。
-    - push_client・recovery_push_client: 実LINE Push API接続(チャネルアクセストークン)は
-      引き続きオーナー承認待ちのため、ここでは意図的に渡さない(省略時は`None`となり、
-      決済失敗検知・復旧の状態書き込みは行われるが通知は送信されない。
-      payment-failure-dunning-design.md 6節と同じ「配線はできているが実送信はまだ」
-      という区別を保つ)。
+    - push_client・recovery_push_client・cancellation_push_client: 実LINE Push API接続
+      (チャネルアクセストークン)は引き続きオーナー承認待ちのため、ここでは意図的に渡さない
+      (省略時は`None`となり、決済失敗検知・復旧・解約関連の状態書き込みは行われるが通知は
+      送信されない。payment-failure-dunning-design.md 6節と同じ「配線はできているが実送信は
+      まだ」という区別を保つ)。
+    - portal_link_provider(フェーズ186追加): 実Stripeカスタマーポータル接続(Billing
+      Portalの設定・実URL取得)も引き続きオーナー承認待ちのため、ここでは意図的に渡さない
+      (省略時は`None`となり、解約予約受理案内はPORTAL_LINK_UNAVAILABLE_FALLBACK文言に
+      差し替えられた状態で組み立てられる。render_subscription_cancellation_scheduled_
+      message()の既存の安全側フォールバック)。
     - event_id_store(フェーズ177追加): stripe-event-idempotency-design.md対応。
       `InMemoryStripeEventIdStore()`を`user_profile_store`とは独立に1つ生成する
       (design 2節のとおりキーの性質〈event_idかuser_idか〉が異なるため使い回さない)。

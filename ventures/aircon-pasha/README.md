@@ -2763,4 +2763,30 @@
   いないためpending-approval.mdへの追記なし。次回は`stripe_webhook.receive_stripe_
   webhook()`への`cancellation_push_client`/`portal_link_provider`配線、または他venture・
   アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-04 11:00 UTC
+- フェーズ186(2026-09-04 12:00 UTC): フェーズ185「残課題」に残っていた
+  `stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
+  `portal_link_provider`配線を実施した。`dispatch_stripe_event()`はフェーズ184・185で
+  これら2引数を受け取り`customer.subscription.deleted`(解約完了案内)・
+  `customer.subscription.updated`(解約予約受理・取り消し案内)を送信できる設計だったが、
+  `receive_stripe_webhook()`が委譲していなかったため実HTTPエントリポイント経由では常に
+  `None`扱いとなり通知が送信されない配線漏れがあった(フェーズ149の`payment_store`・
+  フェーズ161の`plan_store`と同種の配線漏れ)。両引数をシグネチャに追加し、
+  `dispatch_stripe_event()`への呼び出しにそのまま渡す薄い配線で解消した。
+  `get_stripe_runtime_dependencies()`は`push_client`・`recovery_push_client`と同様、
+  実LINE Push API接続・実Stripeカスタマーポータル接続がオーナー承認待ちのため
+  `cancellation_push_client`・`portal_link_provider`とも意図的に渡さない(省略時は
+  `None`のまま、配線はできているが実送信はまだという既存の区別を保つ)。
+  テスト3件追加(`test_stripe_webhook.py`の
+  `ReceiveStripeWebhookCancellationNotificationWiringTest`: 省略時に通知が送信され
+  ないことの後方互換確認・`customer.subscription.deleted`受信時の解約完了通知送信
+  確認・`customer.subscription.updated`受信時のポータルURL差し込み済み解約予約受理
+  通知送信確認)、venture全体462件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、実行前459件+新規3件)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
+  いないためpending-approval.mdへの追記なし。フェーズ184・185で残っていた
+  `dispatch_stripe_event()`側の配線漏れはこれで解消し、`stripe_webhook.py`の
+  `payment_store`/`plan_store`/`blocked_but_billing_store`/`cancellation_push_client`/
+  `portal_link_provider`の委譲配線が出揃った。次回は他venture・アイデア領域の前進、
+  または未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-04 12:00 UTC

@@ -6,11 +6,15 @@ import time
 import unittest
 from datetime import datetime, timezone
 
+from cloud_function_webhook import InMemoryPortalLinkProvider
 from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from payment_failure import InMemoryLinePushClient, LinePushDeliveryError
 from payment_recovery_notification import (
     InMemoryLinePushClient as InMemoryRecoveryPushClient,
     LinePushDeliveryError as RecoveryLinePushDeliveryError,
+)
+from subscription_cancellation_notification import (
+    InMemoryLinePushClient as InMemoryCancellationPushClient,
 )
 from stripe_webhook import (
     InMemoryStripeEventIdStore,
@@ -700,6 +704,104 @@ class ReceiveStripeWebhookPlanSyncWiringTest(unittest.TestCase):
 
         self.assertEqual(result.dispatch_result.plan_cleared_user_ids, ["user_1"])
         self.assertIsNone(payment_store.get_current_plan_id("user_1"))
+
+
+class ReceiveStripeWebhookCancellationNotificationWiringTest(unittest.TestCase):
+    """フェーズ186: `dispatch_stripe_event()`はフェーズ184・185で`cancellation_push_
+    client`/`portal_link_provider`経由で`customer.subscription.deleted`(解約完了案内)・
+    `customer.subscription.updated`(解約予約受理・取り消し案内)を処理できる設計だったが、
+    `receive_stripe_webhook()`側の委譲配線が存在しなかった配線漏れを解消したことの確認
+    (フェーズ149の`payment_store`・フェーズ161の`plan_store`と同種の観点)。"""
+
+    def test_ignored_without_cancellation_push_client(self):
+        """後方互換: cancellation_push_client省略時は解約完了通知を送信しない。"""
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body, header, SECRET, store=store, resolve_user_id=resolve_user_id, now=NOW_DT
+        )
+
+        self.assertEqual(result.dispatch_result.cancellation_notified_user_ids, [])
+
+    def test_sends_cancellation_completed_notification_when_push_client_provided(self):
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        push_client = InMemoryCancellationPushClient()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": int(NOW),
+            "data": {"object": {"customer": "cus_1"}},
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            cancellation_push_client=push_client,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(result.dispatch_result.cancellation_notified_user_ids, ["user_1"])
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0][0], "user_1")
+
+    def test_sends_scheduled_notification_with_portal_link_when_both_provided(self):
+        payment_store = _payment_profile_store("user_1")
+        resolve_user_id = make_resolve_user_id(payment_store)
+        payment_store.set_stripe_customer_id("user_1", "cus_1")
+        store = InMemoryProfileDeletionCandidateStore()
+        push_client = InMemoryCancellationPushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.test/portal")
+        period_end = int(datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_1",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": period_end,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        body = json.dumps(event).encode("utf-8")
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=store,
+            resolve_user_id=resolve_user_id,
+            cancellation_push_client=push_client,
+            portal_link_provider=portal_link_provider,
+            now=NOW_DT,
+        )
+
+        self.assertEqual(
+            result.dispatch_result.cancellation_scheduled_notified_user_ids, ["user_1"]
+        )
+        self.assertEqual(len(push_client.sent), 1)
+        body_text = push_client.sent[0][2]["body"]["contents"][0]["text"]
+        self.assertNotIn("{Stripeカスタマーポータル URL}", body_text)
+        self.assertIn("https://example.test/portal", body_text)
 
 
 class ReceiveStripeWebhookIdempotencyWiringTest(unittest.TestCase):
