@@ -106,10 +106,17 @@ booking_limit_notice()`が返す通知をオーナーへ実際に送る配線(Cl
 
 ## 6. 今後の課題
 
-- `monthly_booking_limit`は現状呼び出し側が直接値を渡す設計にとどまり、
-  store_profile_store.pyには店舗が現在どのプランを契約しているかを保持するフィールドが
-  まだ無い(get_plan/set_plan相当の追加が必要)。プラン変更(アップグレード/ダウングレード)
-  時にこの値をどう更新するかも含め、次回以降の実装課題として残す。
+- (解消済み 2026-09-04・フェーズ続き187: `monthly_booking_limit`が呼び出し側の直接値渡し
+  にとどまっていた点のうち、store_profile_store.pyへの契約プラン保持フィールド
+  (`get_plan`/`set_plan`)はフェーズ続き181で、その値から`monthly_booking_limit`を求める
+  ヘルパー(`resolve_monthly_booking_limit()`)はフェーズ続き182で、実際に
+  `ConversationFlowStateMachine`のコンストラクタへ渡す構築ヘルパー
+  (`build_conversation_flow_state_machine_for_store()`)はフェーズ続き187で、それぞれ
+  解消済み(詳細はcheckout-session-plan-selection-design.md「残課題」・
+  conversation-flow-construction-design.md参照)。プラン変更(アップグレード/ダウングレード)
+  時に`store_profile_store`側の値をどう更新するかは、checkout-session-plan-selection-
+  design.md「残課題」に記載の別の残課題として引き続き残る。この構築ヘルパーを実際に
+  どこから呼ぶか(会話状態の永続化・復元方式)は実Firestore接続後の課題として残る)
 - 「残り5件」という固定閾値は、aircon-pashaの先例に倣った机上の仮決めであり、実際の
   予約ペース(繁忙期・閑散期の差など)を踏まえた妥当性検証は実運用データが取れてから
   行う。

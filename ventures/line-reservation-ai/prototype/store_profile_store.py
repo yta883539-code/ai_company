@@ -68,17 +68,35 @@
   `ConversationFlowStateMachine`構築時に`store.get_plan(store_id)`から
   `monthly_booking_limit`引数へ渡す値を求める結線ヘルパー。
   `resolve_existing_stripe_customer_id()`と同じ位置づけ。
+- `build_conversation_flow_state_machine_for_store()`(2026-09-04追記、フェーズ続き187):
+  conversation-flow-construction-design.mdで設計した、`resolve_monthly_booking_limit()`が
+  求めた値を実際に`ConversationFlowStateMachine`(engine.py)のコンストラクタへ渡す構築
+  ヘルパー。会話状態(`_states`)自体の永続化・復元方式(実Firestore接続後の課題)は
+  対象外で、構築時の引数組み立てのみを切り出す。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
 stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md、
-blocked-but-billing-detection-design.md 1節・3節、checkout-session-plan-selection-design.md
+blocked-but-billing-detection-design.md 1節・3節、checkout-session-plan-selection-design.md、
+conversation-flow-construction-design.md
 """
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Optional, Protocol
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from engine import (  # noqa: E402
+    BookingSlotManager,
+    ConversationFlowStateMachine,
+    EscalationConsolidator,
+    InMemoryBookingRecordStore,
+    NotificationLogAggregator,
+)
 
 # checkout-session-plan-selection-design.md(フェーズ続き181): pricing-plan.mdが定める
 # 3プラン名をキーとする月間予約件数上限。course-set-pasha/cloud_function_webhook.py の
@@ -326,11 +344,8 @@ def resolve_monthly_booking_limit(
 
     `resolve_existing_stripe_customer_id()`/`make_resolve_store_id_by_customer()`と同じ、
     店舗プロフィールストアと呼び出し元(engine.py)との結線点を切り出すヘルパー関数という
-    位置づけ。呼び出し元自体(実際に`ConversationFlowStateMachine`を構築している箇所)は、
-    実Firestore接続後にどのタイミングで構築するか(会話イベントごとに毎回構築するか、
-    店舗単位でキャッシュするか)が未確定なため、本関数をそこから実際に呼ぶ配線は
-    checkout-session-plan-selection-design.md「残課題」に記載の通り引き続き次回以降の課題
-    として残る。
+    位置づけ。実際に`ConversationFlowStateMachine`のコンストラクタへこの値を渡す配線は
+    `build_conversation_flow_state_machine_for_store()`(フェーズ続き187、下記)が担う。
     """
     if not store_id:
         raise ValueError("store_id must be a non-empty string")
@@ -338,6 +353,45 @@ def resolve_monthly_booking_limit(
     if plan is None:
         return None
     return PLAN_MONTHLY_BOOKING_LIMITS.get(plan)
+
+
+def build_conversation_flow_state_machine_for_store(
+    store_id: str,
+    store: StoreProfileStoreProtocol,
+    *,
+    slots: Optional[BookingSlotManager] = None,
+    consolidator: Optional[EscalationConsolidator] = None,
+    logs: Optional[NotificationLogAggregator] = None,
+    record_store: Optional[InMemoryBookingRecordStore] = None,
+) -> ConversationFlowStateMachine:
+    """conversation-flow-construction-design.mdで設計した、`resolve_monthly_booking_limit()`
+    (フェーズ続き182)が求めた値を実際に`ConversationFlowStateMachine`(engine.py)の
+    コンストラクタへ渡す構築ヘルパー(フェーズ続き187)。
+
+    `slots`・`consolidator`は未指定時それぞれ新規`BookingSlotManager()`・
+    `EscalationConsolidator()`を生成する。既存インスタンスを再利用したい呼び出し側
+    (例: テストで内部状態を検査したい場合)は明示的に渡せる。`logs`・`record_store`は
+    そのまま`ConversationFlowStateMachine`へ透過する(未指定時は従来通り機能しない
+    後方互換)。
+
+    位置づけの範囲(conversation-flow-construction-design.md 4節参照): 本関数が担うのは
+    「構築時に`monthly_booking_limit`引数へ渡す値の組み立て」のみ。この関数を実際に
+    どこから(Cloud Function Bの初回リクエスト時か、店舗単位のキャッシュ層か)呼ぶかという
+    配線、および会話状態(`_states`)自体をFirestoreドキュメントとの間でhydrate/dehydrate
+    する方式は、実Firestore接続後の課題として引き続き別途残る(cloud_function_process_event.py
+    の`ConversationEventProcessor`docstring参照)。
+
+    `store_id`が空文字列の場合は`resolve_monthly_booking_limit()`と同じ`ValueError`が
+    そのまま送出される。
+    """
+    monthly_booking_limit = resolve_monthly_booking_limit(store_id, store)
+    return ConversationFlowStateMachine(
+        slots if slots is not None else BookingSlotManager(),
+        consolidator if consolidator is not None else EscalationConsolidator(),
+        logs=logs,
+        record_store=record_store,
+        monthly_booking_limit=monthly_booking_limit,
+    )
 
 
 @dataclass

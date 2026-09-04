@@ -11,12 +11,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from store_profile_store import (  # noqa: E402
     InMemoryStoreProfileStore,
+    build_conversation_flow_state_machine_for_store,
     evaluate_onboarding_completion_message_dispatch,
     handle_checkout_session_completed,
     make_resolve_store_id_by_customer,
     resolve_existing_stripe_customer_id,
     resolve_monthly_booking_limit,
 )
+from engine import BookingSlotManager, ConversationFlowStateMachine, EscalationConsolidator  # noqa: E402
 
 
 class InMemoryStoreProfileStoreTest(unittest.TestCase):
@@ -416,6 +418,58 @@ class ResolveMonthlyBookingLimitTest(unittest.TestCase):
     def test_raises_on_empty_store_id(self):
         with self.assertRaises(ValueError):
             resolve_monthly_booking_limit("", self.store)
+
+
+class BuildConversationFlowStateMachineForStoreTest(unittest.TestCase):
+    """conversation-flow-construction-design.md(フェーズ続き187)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_returns_conversation_flow_state_machine_instance(self):
+        flow = build_conversation_flow_state_machine_for_store("store123", self.store)
+        self.assertIsInstance(flow, ConversationFlowStateMachine)
+
+    def test_monthly_booking_limit_is_none_when_plan_not_set(self):
+        # トライアル中(未購入)の店舗は機能無効(None)のまま構築される。
+        flow = build_conversation_flow_state_machine_for_store("store123", self.store)
+        self.assertIsNone(flow._monthly_booking_limit)
+
+    def test_monthly_booking_limit_reflects_standard_plan(self):
+        self.store.set_plan("store123", "スタンダードプラン")
+        flow = build_conversation_flow_state_machine_for_store("store123", self.store)
+        self.assertEqual(flow._monthly_booking_limit, 150)
+
+    def test_monthly_booking_limit_reflects_pro_plan(self):
+        self.store.set_plan("store123", "プロプラン")
+        flow = build_conversation_flow_state_machine_for_store("store123", self.store)
+        self.assertEqual(flow._monthly_booking_limit, 300)
+
+    def test_default_slots_and_consolidator_are_fresh_instances(self):
+        flow1 = build_conversation_flow_state_machine_for_store("store123", self.store)
+        flow2 = build_conversation_flow_state_machine_for_store("store123", self.store)
+        self.assertIsNot(flow1._slots, flow2._slots)
+        self.assertIsNot(flow1._consolidator, flow2._consolidator)
+
+    def test_explicit_slots_and_consolidator_are_reused(self):
+        slots = BookingSlotManager()
+        consolidator = EscalationConsolidator()
+        flow = build_conversation_flow_state_machine_for_store(
+            "store123", self.store, slots=slots, consolidator=consolidator,
+        )
+        self.assertIs(flow._slots, slots)
+        self.assertIs(flow._consolidator, consolidator)
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            build_conversation_flow_state_machine_for_store("", self.store)
+
+    def test_different_stores_are_isolated(self):
+        self.store.set_plan("store-a", "スタータープラン")
+        flow_a = build_conversation_flow_state_machine_for_store("store-a", self.store)
+        flow_b = build_conversation_flow_state_machine_for_store("store-b", self.store)
+        self.assertEqual(flow_a._monthly_booking_limit, 50)
+        self.assertIsNone(flow_b._monthly_booking_limit)
 
 
 class HandleCheckoutSessionCompletedPlanTest(unittest.TestCase):

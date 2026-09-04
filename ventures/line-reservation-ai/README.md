@@ -2206,7 +2206,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   Webhookエンドポイント公開自体は引き続き実Stripe接続待ち(オーナー承認)の課題として残る。
   承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 00:00 UTC
+- フェーズ続き187(2026-09-04 02:00 UTC): checkout-session-plan-selection-design.md「残課題」・
+  monthly-booking-limit-notification-design.md 6節に残っていた、`store_profile_store.
+  resolve_monthly_booking_limit()`(フェーズ続き182)が求めた値を実際に
+  `ConversationFlowStateMachine`(engine.py)のコンストラクタへ渡す配線の欠落に対応した。
+  conversation-flow-construction-design.mdを新規作成し、この配線を「構築時の引数組み立て」
+  (店舗プロフィールストア側の値を求めてコンストラクタへ渡す部分)と「実際にどこから・
+  どのタイミングで呼ぶか」(会話イベントごとに毎回構築するか店舗単位でキャッシュするか、
+  会話状態の永続化・復元方式)の2つに切り分け、前者のみを本フェーズで解消する設計とした。
+  `prototype/store_profile_store.py`に`build_conversation_flow_state_machine_for_store()`
+  (`resolve_monthly_booking_limit()`を呼び、`BookingSlotManager`・`EscalationConsolidator`の
+  既定インスタンス生成込みで`ConversationFlowStateMachine`を構築する薄いヘルパー、
+  `resolve_existing_stripe_customer_id()`と同じ位置づけ)を新設した。後者(実際の呼び出し
+  タイミング・会話状態の永続化)は実Firestore接続待ちの課題として引き続き次回以降に残る。
+  テスト7件追加(`BuildConversationFlowStateMachineForStoreTest`、インスタンス型確認・
+  プラン未設定時None・スタンダード/プロプラン反映・既定slots/consolidatorが毎回新規生成
+  されること・明示指定時は再利用されること・空store_id時の`ValueError`・店舗間の独立性)、
+  venture全体669件全件(`python3 -m unittest discover -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 02:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

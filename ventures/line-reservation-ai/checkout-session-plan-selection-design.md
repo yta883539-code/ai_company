@@ -98,16 +98,18 @@ selection-design.md(フェーズ152)と同じ方針を、本venture固有の事�
 - LIFFフロントエンド側のプラン選択UI自体(3プランのいずれかを選ばせるLIFF画面)は未着手。
   実LIFFアプリ登録(オーナー承認待ち)後、UIから`plan`クエリパラメータを付与する実装と
   あわせて着手する。
-- `ConversationFlowStateMachine`構築時に`store.get_plan(store_id)`→
-  `PLAN_MONTHLY_BOOKING_LIMITS[plan]`→`monthly_booking_limit`引数への配線(1節手順5参照)
-  のうち、値を求める部分(`store_profile_store.resolve_monthly_booking_limit()`、
-  フェーズ続き182で追加)は実装済みになった(4節参照)。実際にこのヘルパーを呼び出して
-  `ConversationFlowStateMachine`のコンストラクタへ渡す配線自体は、
-  `prototype/cloud_function_process_event.py`側の`ConversationFlowStateMachine`構築タイミング
-  (会話イベントごとに毎回構築するか、店舗単位でキャッシュするか)の設計が未確定な
-  (実Firestore接続後に確定させる想定の)ままのため、引き続き次回以降の課題として残す。
-  プラン未記録(トライアル中で未購入)の店舗では`resolve_monthly_booking_limit()`がNoneを
-  返し、`monthly_booking_limit=None`(機能無効、フェーズ続き180の既定動作)のままになる。
+- (解消済み 2026-09-04・フェーズ続き187: `ConversationFlowStateMachine`構築時に
+  `store.get_plan(store_id)`から`monthly_booking_limit`引数への配線(1節手順5参照)のうち、
+  値を求める部分(`resolve_monthly_booking_limit()`、フェーズ続き182)に続き、実際に
+  `ConversationFlowStateMachine`のコンストラクタへこの値を渡す構築ヘルパー
+  `build_conversation_flow_state_machine_for_store()`を`prototype/store_profile_store.py`に
+  新設した(conversation-flow-construction-design.md参照)。この関数を
+  `cloud_function_process_event.py`側のどのタイミング(会話イベントごとに毎回構築するか、
+  店舗単位でキャッシュするか)から呼ぶかという配線自体は、会話状態の永続化・復元方式が
+  実Firestore接続後に確定するまで引き続き次回以降の課題として残る。プラン未記録
+  (トライアル中で未購入)の店舗では引き続き`monthly_booking_limit=None`(機能無効、
+  フェーズ続き180の既定動作)のまま構築される。テスト7件追加、venture全体669件全件パス・
+  schema検証25件パスを確認した)。
 
 ## 4. `ConversationFlowStateMachine`構築時の配線ヘルパー(フェーズ続き182)
 
