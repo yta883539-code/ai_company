@@ -43,7 +43,12 @@ from payment_recovery_notification import (
     handle_payment_failure_detected,
     handle_payment_succeeded,
 )
-from subscription_cancellation_notification import handle_subscription_cancelled
+from subscription_cancellation_notification import (
+    OUTCOME_CANCELLATION_RESCHEDULED,
+    OUTCOME_CANCELLATION_SCHEDULED,
+    handle_subscription_cancellation_update,
+    handle_subscription_cancelled,
+)
 from trial_end_scheduler import LinePushClient
 
 
@@ -174,6 +179,14 @@ class StripeDispatchResult:
     # (marked_user_ids等)は送信成否と独立して常に行われる(design 3節)。
     cancellation_notified_user_ids: list = field(default_factory=list)
     cancellation_notification_failed_user_ids: list = field(default_factory=list)
+    # subscription-cancellation-scheduled-notification-design.md(フェーズ156)対応:
+    # push_client指定時、customer.subscription.updated受信時のcancel_at_period_end変化
+    # (解約予約受理・解約取り消し)案内の送信結果。フェーズ155の
+    # cancellation_notification_failed_user_idsと同様、失敗理由(scheduled/rescheduled)は
+    # 区別せず1つにまとめる(design 5節)。
+    cancellation_scheduled_notified_user_ids: list = field(default_factory=list)
+    cancellation_rescheduled_notified_user_ids: list = field(default_factory=list)
+    cancellation_update_notification_failed_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -258,6 +271,13 @@ def dispatch_stripe_event(
     実行済みのため送信失敗時もWebhookリトライに委ねる必要はない(design 3節、
     payment-failure系ハンドラとは異なる方針)。未指定(`None`)時は従来通り通知を
     送らない。
+
+    `push_client`はsubscription-cancellation-scheduled-notification-design.md
+    (フェーズ156)対応も兼ねる。指定時、`customer.subscription.updated`受信時に
+    `cancel_at_period_end`の変化(`previous_attributes`との前後比較)から解約予約受理・
+    解約取り消しの案内を送信する(`subscription_cancellation_notification.handle_
+    subscription_cancellation_update()`)。変化なし(`OUTCOME_NO_CHANGE`)の場合は送信
+    しない。本イベントは契約継続中に発火するため`store`側の状態変更は行わない。
     """
     result = StripeDispatchResult()
 
@@ -311,6 +331,35 @@ def dispatch_stripe_event(
             if plan is not None and user_profile_store.get_plan(user_id) != plan:
                 user_profile_store.set_plan(user_id, plan)
                 result.plan_updated_user_ids.append(user_id)
+
+        # subscription-cancellation-scheduled-notification-design.md(フェーズ156)対応:
+        # cancel_at_period_endの変化(解約予約受理・解約取り消し)案内。プラン変更検知とは
+        # 独立した処理のため互いの結果に影響しない(design 5節)。previous_attributesに
+        # cancel_at_period_endキーが無い場合は変化なしとして扱う(design 1節)。
+        if push_client is not None:
+            previous_attrs = event.get("data", {}).get("previous_attributes", {})
+            if not isinstance(previous_attrs, dict):
+                previous_attrs = {}
+            after = data_object.get("cancel_at_period_end", False)
+            before = previous_attrs.get("cancel_at_period_end", after)
+            update_result = handle_subscription_cancellation_update(
+                user_id,
+                before,
+                after,
+                data_object.get("current_period_end"),
+                push_client,
+                portal_link_provider,
+            )
+            if update_result.notified:
+                if update_result.outcome == OUTCOME_CANCELLATION_SCHEDULED:
+                    result.cancellation_scheduled_notified_user_ids.append(user_id)
+                elif update_result.outcome == OUTCOME_CANCELLATION_RESCHEDULED:
+                    result.cancellation_rescheduled_notified_user_ids.append(user_id)
+            elif update_result.outcome in (
+                OUTCOME_CANCELLATION_SCHEDULED,
+                OUTCOME_CANCELLATION_RESCHEDULED,
+            ):
+                result.cancellation_update_notification_failed_user_ids.append(user_id)
 
         # active/trialing 以外への変化は対象外(design 1節5.)。
         # 記録すべき異常があるわけではないので、result には何も追加せず終える。

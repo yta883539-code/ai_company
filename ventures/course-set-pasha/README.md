@@ -1937,10 +1937,44 @@
   ロジックの新規実装を要するため次回以降の課題として残す(詳細はsubscription-cancelled-
   notification-design.md 4節参照)。承認不要な設計・実装・テスト追加のみで、外部サービスへの
   公開・アカウント作成・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 22:00 UTC
+- フェーズ156(2026-09-04 01:00 UTC): フェーズ155「次回以降の課題」に残っていた
+  「解約予約受理時点(`cancel_at_period_end`の`false→true`変化)」「解約取り消し時点
+  (`true→false`変化)」の顧客向けLINE通知を実装した。line-reservation-aiフェーズ続き185
+  (`customer-subscription-updated-event-routing-design.md`、
+  `cloud_function_subscription_cancelled_webhook.py`
+  `classify_subscription_update()`・`handle_subscription_updated()`)を翻案し、
+  subscription-cancellation-scheduled-notification-design.mdを新規作成した。
+  `prototype/subscription_cancellation_notification.py`に
+  `classify_cancel_at_period_end_change()`・
+  `render_subscription_cancellation_scheduled_message()`(期間終了日・Stripeカスタマー
+  ポータルURLを差し込み、`payment_recovery_notification.py`と同じ
+  `PORTAL_LINK_PLACEHOLDER`+`PORTAL_LINK_UNAVAILABLE_FALLBACK`方式を踏襲)・
+  `render_subscription_cancellation_rescheduled_message()`・
+  `handle_subscription_cancellation_update()`を追加した。`stripe_webhook.py`の
+  `customer.subscription.updated`分岐(プラン変更検知の直後)に、
+  `event.data.previous_attributes.cancel_at_period_end`との前後比較による配線を追加した
+  (`previous_attributes`に`cancel_at_period_end`キーが無い場合は変化なしとして扱う)。
+  `StripeDispatchResult`に`cancellation_scheduled_notified_user_ids`・
+  `cancellation_rescheduled_notified_user_ids`・
+  `cancellation_update_notification_failed_user_ids`を新設した。本イベントは契約継続中
+  (scheduled)または契約継続確定(rescheduled)時のみ発火するため`store`側の状態変更は
+  行わない。本ventureは`suspension_reason`相当の別立て状態を持たないため、
+  line-reservation-ai版にある「決済失敗による制限モード中は解約予約通知を出さない」
+  ガードは移植せず、検証課題として設計docの「次回以降の課題」に残した(design 3節・7節)。
+  テスト20件追加(新規モジュール15件・`test_stripe_webhook.py`5件)、venture全体546件
+  全件(`python3 -m unittest discover -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 01:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ156、2026-09-04 01:00 UTC: フェーズ155「次回以降の課題」に残っていた
+  「解約予約受理時点(`cancel_at_period_end`変化)」の即時案内配線
+  〈line-reservation-aiフェーズ続き185相当〉を実装した。詳細は上記フェーズ156・
+  subscription-cancellation-scheduled-notification-design.md参照。決済失敗による制限
+  モード中の解約予約通知の扱いは検証課題として残る)
 - (新規解消・フェーズ155、2026-09-03 22:00 UTC: subscription-cancellation-flow-design.md
   2節に草案のみ存在し配線されていなかった解約確定(`customer.subscription.deleted`)時の
   顧客向けLINE通知を実装した。詳細は上記フェーズ155・subscription-cancelled-notification-

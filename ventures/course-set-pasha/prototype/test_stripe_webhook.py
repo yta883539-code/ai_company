@@ -474,6 +474,134 @@ class DispatchStripeEventTest(unittest.TestCase):
         # (実売の直近書き込みが1回〈事前セット分〉のみであること)。
         self.assertEqual(user_profile_store.set_plan_call_count, 1)
 
+    def test_subscription_updated_cancel_at_period_end_false_to_true_sends_scheduled_notice(
+        self,
+    ):
+        # subscription-cancellation-scheduled-notification-design.md(フェーズ156)対応。
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.com/portal")
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": 1_700_000_000,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+            portal_link_provider=portal_link_provider,
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_update_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 1)
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertEqual(sent_user_id, "user_1")
+        self.assertIn("解約のお手続きを承りました", sent_text)
+
+    def test_subscription_updated_cancel_at_period_end_true_to_false_sends_rescheduled_notice(
+        self,
+    ):
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": False,
+                },
+                "previous_attributes": {"cancel_at_period_end": True},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+        )
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertIn("解約のお取り消しを承りました", sent_text)
+
+    def test_subscription_updated_without_cancel_at_period_end_change_sends_no_notice(self):
+        # previous_attributesにcancel_at_period_endが無い(別フィールドの変化で発火した)
+        # 場合は変化なしとして扱い、送信しない(design 1節)。
+        push_client = InMemoryLinePushClient()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": False,
+                },
+                "previous_attributes": {"default_payment_method": "pm_1"},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+        self.assertEqual(len(push_client.sent), 0)
+
+    def test_subscription_updated_without_push_client_sends_no_cancellation_update_notice(self):
+        # push_client未指定時は従来通り通知を送らない(後方互換)。
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+
+    def test_subscription_updated_cancel_at_period_end_notice_send_failure_is_recorded(self):
+        class _FailingPushClient:
+            def send_message(self, user_id, text):
+                raise LinePushDeliveryError("simulated failure")
+
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=_FailingPushClient(),
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_update_notification_failed_user_ids, ["user_1"])
+
     def test_unhandled_type_is_recorded_as_ignored(self):
         event = {"type": "invoice.paid", "data": {"object": {"customer": "cus_A"}}}
         result = dispatch_stripe_event(
