@@ -82,7 +82,11 @@ user_id昇順ソート・profile未存在の無視)を追加、venture全体370�
   notification()`(新規候補のみへの絞り込み)・(b)Flex Message形式での通知文面組み立て・
   送信(`send_blocked_but_billing_owner_notifications()`、Cloud Function G相当)まで。
   フォロー再開・解約確定時の`blocked_but_billing_owner_notified_at`クリア配線は
-  引き続き次回以降の実装課題として残る(詳細はblocked-but-billing-owner-notification-
+  当初次回以降の実装課題として残っていたが、フェーズ175で解消済み
+  (`clear_blocked_but_billing_owner_notified_at()`を新設し、
+  `cloud_function_webhook.process_follow_event()`〈フォロー再開〉・
+  `stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐
+  〈解約確定〉の両方から呼び出す配線を追加した。詳細はblocked-but-billing-owner-notification-
   design.md 6節参照)。誰が/どの頻度でこの関数を呼ぶか(日次Cloud Scheduler)自体の実際の
   作成・実LINE API接続はオーナー承認待ちの範囲として変わらず残る。)
 - Cloud Schedulerの新規作成・メール送信の実行はいずれも外部サービス側の設定・送信操作に

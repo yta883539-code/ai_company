@@ -2655,4 +2655,26 @@
   (オーナー承認待ち)後の課題として残る。承認不要な設計・実装・テスト更新のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-03 23:00 UTC
+- フェーズ182(2026-09-04 02:00 UTC): 各設計docの残課題を棚卸しした結果、
+  blocked-but-billing-detection-design.md 4節「未着手のまま残る課題」の記載
+  (フェーズ174時点で追記した「フォロー再開・解約確定時の
+  `blocked_but_billing_owner_notified_at`クリア配線は引き続き次回以降の実装課題として
+  残る」という一文)が、実際にはフェーズ175で解消済みであるにもかかわらず訂正されずに
+  残っていた記載漏れを発見した(フェーズ155・157・159・160・163・164・168・169・170・171・
+  172・173・176・177と同種のドキュメント棚卸し)。コード上で
+  `blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`が
+  `prototype/blocked_but_billing_owner_notification.py`に実装済みであり、
+  `prototype/cloud_function_webhook.py`の`process_follow_event()`(フォロー再開)・
+  `prototype/stripe_dispatch.py`の`dispatch_stripe_event()`の
+  `customer.subscription.deleted`分岐(解約確定)の両方から実際に呼び出されていることを
+  確認した上で、4節の該当箇所をフェーズ175での解消内容(新設関数名・呼び出し元2箇所)を
+  明記する記載へ訂正した(blocked-but-billing-owner-notification-design.md 6節の記載とも
+  整合させた)。コード変更は無し(ドキュメント整理のみ)、venture全体420件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを再確認した(いずれも変更前と同じ件数、
+  ドキュメントのみの変更であるため差分なし)。承認不要なドキュメント整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。次回はcheckout-session-plan-selection-design.md
+  「残課題」に残る実Price ID確定(オーナー承認待ち)以外の、他venture・アイデア領域の
+  前進、または未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-04 02:00 UTC
