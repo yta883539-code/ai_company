@@ -6,14 +6,21 @@ design.md フェーズ156)。"""
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timedelta, timezone
 
-from cloud_function_webhook import PORTAL_LINK_UNAVAILABLE_FALLBACK, InMemoryPortalLinkProvider
+from cloud_function_webhook import (
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    InMemoryPortalLinkProvider,
+    InMemoryUsageCounter,
+)
 from subscription_cancellation_notification import (
     OUTCOME_CANCELLATION_RESCHEDULED,
     OUTCOME_CANCELLATION_SCHEDULED,
     OUTCOME_NO_CHANGE,
     SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE,
     SUBSCRIPTION_CANCELLED_MESSAGE,
+    _is_payment_suspended_now,
     classify_cancel_at_period_end_change,
     handle_subscription_cancellation_update,
     handle_subscription_cancelled,
@@ -113,6 +120,72 @@ class RenderSubscriptionCancellationScheduledMessageTest(unittest.TestCase):
         )
         self.assertEqual(text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
 
+    def test_default_is_currently_suspended_false_keeps_no_restriction_wording(self):
+        # フェーズ157以前の呼び出し経路(引数省略)への後方互換確認。
+        text = render_subscription_cancellation_scheduled_message(
+            "2026-10-04", InMemoryPortalLinkProvider("https://example.com/portal"), "user_1"
+        )
+        self.assertIn("投稿文の生成に制限はありません", text)
+
+    def test_is_currently_suspended_true_replaces_no_restriction_wording(self):
+        # フェーズ157: 制限モード中は「制限はありません」という矛盾した案内を出さない。
+        text = render_subscription_cancellation_scheduled_message(
+            "2026-10-04",
+            InMemoryPortalLinkProvider("https://example.com/portal"),
+            "user_1",
+            True,
+        )
+        self.assertNotIn("投稿文の生成に制限はありません", text)
+        self.assertIn("投稿文の生成は既に一時停止しています", text)
+        # 終了日までの契約継続自体は制限モード中でも変わらない事実のため、引き続き案内する。
+        self.assertIn("2026-10-04", text)
+        self.assertIn("契約自体は", text)
+
+
+class IsPaymentSuspendedNowTest(unittest.TestCase):
+    """フェーズ157: subscription-cancellation-scheduled-message-suspension-
+    consistency-design.md 3節。"""
+
+    def test_true_when_grace_period_exceeded(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+        self.assertTrue(_is_payment_suspended_now(usage_counter, "user_1", now))
+
+    def test_false_when_grace_period_not_yet_exceeded(self):
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS - 1)
+        self.assertFalse(_is_payment_suspended_now(usage_counter, "user_1", now))
+
+    def test_false_when_no_detected_at_recorded(self):
+        usage_counter = InMemoryUsageCounter()
+        self.assertFalse(
+            _is_payment_suspended_now(usage_counter, "user_1", datetime.now(timezone.utc))
+        )
+
+    def test_false_when_usage_counter_none(self):
+        self.assertFalse(_is_payment_suspended_now(None, "user_1", datetime.now(timezone.utc)))
+
+    def test_false_when_now_none(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 1, 1, tzinfo=timezone.utc)
+        )
+        self.assertFalse(_is_payment_suspended_now(usage_counter, "user_1", None))
+
+    def test_false_when_usage_counter_lacks_get_payment_failure_detected_at(self):
+        class _NoLookupUsageCounter:
+            pass
+
+        self.assertFalse(
+            _is_payment_suspended_now(
+                _NoLookupUsageCounter(), "user_1", datetime.now(timezone.utc)
+            )
+        )
+
 
 class RenderSubscriptionCancellationRescheduledMessageTest(unittest.TestCase):
     def test_render_returns_the_message_constant(self):
@@ -170,6 +243,79 @@ class HandleSubscriptionCancellationUpdateTest(unittest.TestCase):
         )
         self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
         self.assertFalse(result.notified)
+
+    def test_scheduled_while_suspended_sends_suspension_aware_message(self):
+        # フェーズ157: usage_counterが制限モード中(猶予期間超過)を記録している場合、
+        # 送信される文面が「制限はありません」から切り替わることを確認する。
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.com/portal")
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+
+        result = handle_subscription_cancellation_update(
+            "user_1",
+            False,
+            True,
+            1_700_000_000,
+            push_client,
+            portal_link_provider,
+            usage_counter,
+            now,
+        )
+
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        _, sent_text = push_client.sent[0]
+        self.assertNotIn("投稿文の生成に制限はありません", sent_text)
+        self.assertIn("投稿文の生成は既に一時停止しています", sent_text)
+
+    def test_scheduled_while_not_yet_suspended_keeps_default_message(self):
+        # 猶予期間内(まだ制限モードに移行していない)場合は従来通りの文言のまま。
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.com/portal")
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS - 1)
+
+        result = handle_subscription_cancellation_update(
+            "user_1",
+            False,
+            True,
+            1_700_000_000,
+            push_client,
+            portal_link_provider,
+            usage_counter,
+            now,
+        )
+
+        _, sent_text = push_client.sent[0]
+        self.assertIn("投稿文の生成に制限はありません", sent_text)
+
+    def test_rescheduled_message_unaffected_by_suspension_state(self):
+        # OUTCOME_CANCELLATION_RESCHEDULED側は制限モードの有無に関わらず文言が変わらない
+        # (design 2節)ため、usage_counter/nowを渡しても固定文言のまま送信される。
+        push_client = InMemoryLinePushClient()
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+
+        result = handle_subscription_cancellation_update(
+            "user_1",
+            True,
+            False,
+            1_700_000_000,
+            push_client,
+            usage_counter=usage_counter,
+            now=now,
+        )
+
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_RESCHEDULED)
+        _, sent_text = push_client.sent[0]
+        self.assertEqual(sent_text, SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE)
 
 
 if __name__ == "__main__":

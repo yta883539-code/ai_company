@@ -278,6 +278,15 @@ def dispatch_stripe_event(
     解約取り消しの案内を送信する(`subscription_cancellation_notification.handle_
     subscription_cancellation_update()`)。変化なし(`OUTCOME_NO_CHANGE`)の場合は送信
     しない。本イベントは契約継続中に発火するため`store`側の状態変更は行わない。
+
+    subscription-cancellation-scheduled-message-suspension-consistency-design.md
+    (フェーズ157)対応: 上記の解約予約受理案内(`OUTCOME_CANCELLATION_SCHEDULED`)には
+    「投稿文の生成に制限はありません」という一文が含まれるが、`usage_counter`が既に
+    決済失敗の制限モード(payment-failure-dunning-design.md 3節の段階3)を記録している
+    顧客がこのタイミングで解約予約を行った場合、この一文は事実と矛盾する。そのため
+    `usage_counter`指定時は`handle_subscription_cancellation_update()`へ`usage_counter`と
+    現在時刻もあわせて渡し、制限モード中かどうかを案内メッセージへ反映する
+    (`subscription_cancellation_notification._is_payment_suspended_now()`参照)。
     """
     result = StripeDispatchResult()
 
@@ -336,12 +345,20 @@ def dispatch_stripe_event(
         # cancel_at_period_endの変化(解約予約受理・解約取り消し)案内。プラン変更検知とは
         # 独立した処理のため互いの結果に影響しない(design 5節)。previous_attributesに
         # cancel_at_period_endキーが無い場合は変化なしとして扱う(design 1節)。
+        #
+        # subscription-cancellation-scheduled-message-suspension-consistency-design.md
+        # (フェーズ157)対応: usage_counter指定時は現在時刻(resolved_now、invoice.*分岐と
+        # 同じ「未指定ならdatetime.now()」方針)とあわせて渡し、解約予約時点で既に決済失敗の
+        # 制限モードへ移行済みかどうかを案内メッセージへ反映する。
         if push_client is not None:
             previous_attrs = event.get("data", {}).get("previous_attributes", {})
             if not isinstance(previous_attrs, dict):
                 previous_attrs = {}
             after = data_object.get("cancel_at_period_end", False)
             before = previous_attrs.get("cancel_at_period_end", after)
+            resolved_now_for_suspension_check = (
+                now if now is not None else datetime.now(timezone.utc)
+            )
             update_result = handle_subscription_cancellation_update(
                 user_id,
                 before,
@@ -349,6 +366,8 @@ def dispatch_stripe_event(
                 data_object.get("current_period_end"),
                 push_client,
                 portal_link_provider,
+                usage_counter,
+                resolved_now_for_suspension_check,
             )
             if update_result.notified:
                 if update_result.outcome == OUTCOME_CANCELLATION_SCHEDULED:

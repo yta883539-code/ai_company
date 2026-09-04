@@ -1966,10 +1966,42 @@
   (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 01:00 UTC
+- フェーズ157(2026-09-04 07:00 UTC): フェーズ156の実装内容を確認する過程で、
+  `render_subscription_cancellation_scheduled_message()`が固定で含む「投稿文の生成に
+  制限はありません」という一文が、決済失敗の猶予期間(`PAYMENT_FAILURE_GRACE_PERIOD_DAYS`
+  7日、`cloud_function_webhook._is_payment_suspended()`)を超えて既に制限モードへ
+  移行済みの顧客が解約予約を行った場合、実際の状態(投稿文の生成は既に停止中)と矛盾した
+  まま送信されてしまう記載漏れを発見・対応した(フェーズ156時点では「通知を送るか否かの
+  ガード」の観点のみ検証課題として残されており、「送る内容の正確性」は未検討だった)。
+  subscription-cancellation-scheduled-message-suspension-consistency-design.mdを
+  新規作成し、`prototype/subscription_cancellation_notification.py`に
+  `_is_payment_suspended_now()`(`cloud_function_webhook._is_payment_suspended()`と
+  同一の判定条件を、Stripe側Cloud Function内で独立に評価。猶予日数の定数のみ
+  `cloud_function_webhook.py`から共有インポート)を新設し、
+  `render_subscription_cancellation_scheduled_message()`に`is_currently_suspended`
+  引数(デフォルト`False`)、`handle_subscription_cancellation_update()`に
+  `usage_counter`・`now`引数(いずれもデフォルト`None`)を追加、`OUTCOME_CANCELLATION_
+  SCHEDULED`の場合のみ制限モード中かどうかを判定してメッセージ内容を切り替えるよう
+  配線した。`stripe_webhook.dispatch_stripe_event()`の`customer.subscription.updated`
+  分岐では、既存の`usage_counter`引数と(invoice側分岐と同じ「未指定なら
+  `datetime.now(timezone.utc)`」方針で解決した)現在時刻をあわせて渡すよう変更した。
+  `OUTCOME_CANCELLATION_RESCHEDULED`(解約取り消し)側の文言は生成可否に触れておらず
+  矛盾しないため変更していない。テスト12件追加(新規モジュール10件・
+  `test_stripe_webhook.py`1件・既存の後方互換確認1件)、venture全体558件全件
+  (`python3 -m unittest discover -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 07:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ157、2026-09-04 07:00 UTC: フェーズ156の解約予約受理案内メッセージが
+  決済失敗による制限モード中の顧客に対して「投稿文の生成に制限はありません」という矛盾した
+  文言を送ってしまう記載漏れを発見・対応した。詳細は上記フェーズ157・
+  subscription-cancellation-scheduled-message-suspension-consistency-design.md参照。
+  メッセージ文言自体の実顧客での妥当性検証、line-reservation-ai・aircon-pashaが将来
+  解約予約受理通知を実装する際の同判定ロジックの横展開は次回以降の課題として残る)
 - (新規解消・フェーズ156、2026-09-04 01:00 UTC: フェーズ155「次回以降の課題」に残っていた
   「解約予約受理時点(`cancel_at_period_end`変化)」の即時案内配線
   〈line-reservation-aiフェーズ続き185相当〉を実装した。詳細は上記フェーズ156・

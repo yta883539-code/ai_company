@@ -4,11 +4,12 @@ import json
 import os
 import time
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from application_form_submission_flow import InMemoryUserProfileStore
 from checkout_session import PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER
 from cloud_function_webhook import (
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     InMemoryPortalLinkProvider,
     InMemoryUsageCounter,
@@ -506,6 +507,44 @@ class DispatchStripeEventTest(unittest.TestCase):
         sent_user_id, sent_text = push_client.sent[0]
         self.assertEqual(sent_user_id, "user_1")
         self.assertIn("解約のお手続きを承りました", sent_text)
+
+    def test_subscription_updated_cancel_at_period_end_scheduled_while_suspended(self):
+        # subscription-cancellation-scheduled-message-suspension-consistency-design.md
+        # (フェーズ157)対応。usage_counterが制限モード中(猶予期間超過)を記録している
+        # 顧客が解約予約を行った場合、「投稿文の生成に制限はありません」という矛盾した
+        # 案内を送らないことを確認する。
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.com/portal")
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        usage_counter.set_payment_failure_detected_at("user_1", detected_at)
+        now = detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": 1_700_000_000,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            push_client=push_client,
+            portal_link_provider=portal_link_provider,
+            now=now,
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, ["user_1"])
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertEqual(sent_user_id, "user_1")
+        self.assertNotIn("投稿文の生成に制限はありません", sent_text)
+        self.assertIn("投稿文の生成は既に一時停止しています", sent_text)
 
     def test_subscription_updated_cancel_at_period_end_true_to_false_sends_rescheduled_notice(
         self,

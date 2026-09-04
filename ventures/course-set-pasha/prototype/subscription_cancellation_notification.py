@@ -35,6 +35,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from cloud_function_webhook import (
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     PortalLinkProvider,
@@ -117,6 +118,32 @@ SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE = (
 )
 
 
+def _is_payment_suspended_now(
+    usage_counter: Optional[object],
+    user_id: Optional[str],
+    now: Optional[datetime],
+) -> bool:
+    """subscription-cancellation-scheduled-message-suspension-consistency-design.md
+    (フェーズ157)。`cloud_function_webhook._is_payment_suspended()`と同じ判定条件
+    (payment-failure-dunning-design.md 3節の段階3)を、本モジュール(Stripe側Cloud
+    Function)からも独立に評価する。両Cloud Functionは別々にデプロイされる想定のため
+    判定ロジック自体は薄く複製する(aircon-pashaのstripe_dispatch.py等と同じ既存方針)が、
+    猶予日数の定数(`PAYMENT_FAILURE_GRACE_PERIOD_DAYS`)は値のズレを防ぐため同一
+    プロトタイプディレクトリ内の`cloud_function_webhook.py`からそのままインポートして
+    使う。`usage_counter`が`get_payment_failure_detected_at`に対応していない場合
+    (未接続時・後方互換)や、検知時刻・`now`のいずれかが得られない場合は常に`False`を
+    返す(安全側デフォルト、既存の`_is_payment_suspended`と同じ)。"""
+    if usage_counter is None or user_id is None or now is None:
+        return False
+    get_detected_at = getattr(usage_counter, "get_payment_failure_detected_at", None)
+    if get_detected_at is None:
+        return False
+    detected_at = get_detected_at(user_id)
+    if detected_at is None:
+        return False
+    return (now - detected_at) >= timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
+
+
 def classify_cancel_at_period_end_change(before: bool, after: bool) -> str:
     """design 3節。`customer.subscription.updated`受信時、`cancel_at_period_end`の
     前後比較から分類する。本ventureは`suspension_reason`相当の別立て状態を持たないため、
@@ -143,23 +170,38 @@ def render_subscription_cancellation_scheduled_message(
     period_end_date: Optional[str],
     portal_link_provider: Optional[PortalLinkProvider],
     user_id: Optional[str],
+    is_currently_suspended: bool = False,
 ) -> str:
     """design 4節「解約予約受理時の案内メッセージ」を組み立てる。`period_end_date`が
     `None`の場合(2節のフォールバック)は日付なしの表現に差し替える。URL差し込みは
     `payment_recovery_notification.render_payment_failure_detected_message()`と同じ
     `PORTAL_LINK_PLACEHOLDER`+`.replace()`方式。未接続・user_id不明・URL取得失敗時は
-    `PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替える(壊れたURLを顧客に見せない)。"""
+    `PORTAL_LINK_UNAVAILABLE_FALLBACK`へ全文差し替える(壊れたURLを顧客に見せない)。
+
+    `is_currently_suspended`はsubscription-cancellation-scheduled-message-suspension-
+    consistency-design.md(フェーズ157)対応。決済失敗の猶予期間超過により既に投稿文の
+    生成が制限モードへ移行済みの顧客が解約予約を行った場合、従来の文言(「投稿文の生成に
+    制限はありません」)は事実と矛盾するため、`True`の場合は制限モード中である旨を案内する
+    文言に差し替える(design 2節)。"""
     until_phrase = (
         f"今回の請求期間の終了日({period_end_date})まで"
         if period_end_date is not None
         else "今回の請求期間の終了日まで"
     )
+    if is_currently_suspended:
+        usage_line = (
+            f"・契約自体は{until_phrase}継続しますが、お支払い方法のご確認が必要な状態のため"
+            "投稿文の生成は既に一時停止しています(解約予約とは別に、お支払い方法をご確認"
+            "いただくまで生成は再開しません)\n"
+        )
+    else:
+        usage_line = f"・ご利用は{until_phrase}通常通り継続します(投稿文の生成に制限はありません)\n"
     text = (
         "【コースセットパシャッと】解約のお手続きを承りました\n"
         "\n"
         "解約のお手続きを承りました。以下の点をご確認ください。\n"
         "\n"
-        f"・ご利用は{until_phrase}通常通り継続します(投稿文の生成に制限はありません)\n"
+        f"{usage_line}"
         "・終了日以降は投稿文の生成がご利用いただけなくなります\n"
         "・日割りでの返金は行っておりません\n"
         "\n"
@@ -200,11 +242,20 @@ def handle_subscription_cancellation_update(
     current_period_end: object,
     push_client: LinePushClient,
     portal_link_provider: Optional[PortalLinkProvider] = None,
+    usage_counter: Optional[object] = None,
+    now: Optional[datetime] = None,
 ) -> SubscriptionCancellationUpdateResult:
     """design 5節。`dispatch_stripe_event()`の`customer.subscription.updated`分岐から
     呼ばれる処理本体。design 5節のとおり本イベントは契約継続中(scheduled)または契約
     継続が確定した(rescheduled)場合のみ発火するため、`store`(削除候補管理)側の状態は
-    一切変更しない(呼び出し側でも変更しない、design 5節)。"""
+    一切変更しない(呼び出し側でも変更しない、design 5節)。
+
+    `usage_counter`・`now`はフェーズ157対応。`OUTCOME_CANCELLATION_SCHEDULED`の場合のみ
+    `_is_payment_suspended_now()`で現在の制限モード状態を判定し、案内メッセージの内容へ
+    反映する(`OUTCOME_CANCELLATION_RESCHEDULED`側のメッセージは制限モードの有無に
+    関わらず文言が変わらないため参照しない)。いずれも未指定(`None`)の場合は
+    `_is_payment_suspended_now()`が安全側で`False`を返すため、既存呼び出し経路への
+    後方互換を保つ。"""
     outcome = classify_cancel_at_period_end_change(
         cancel_at_period_end_before, cancel_at_period_end_after
     )
@@ -212,8 +263,12 @@ def handle_subscription_cancellation_update(
         return SubscriptionCancellationUpdateResult(outcome=outcome)
 
     if outcome == OUTCOME_CANCELLATION_SCHEDULED:
+        is_currently_suspended = _is_payment_suspended_now(usage_counter, user_id, now)
         text = render_subscription_cancellation_scheduled_message(
-            _format_period_end_date_jst(current_period_end), portal_link_provider, user_id
+            _format_period_end_date_jst(current_period_end),
+            portal_link_provider,
+            user_id,
+            is_currently_suspended,
         )
     else:
         text = render_subscription_cancellation_rescheduled_message()
