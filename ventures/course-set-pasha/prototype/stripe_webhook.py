@@ -735,6 +735,19 @@ def get_stripe_runtime_dependencies() -> dict:
     - event_id_store(フェーズ151追加): stripe-event-idempotency-design.md対応。
       `InMemoryStripeEventIdStore()`を`user_profile_store`とは独立に1つ生成する
       (design 2節のとおりキーの性質〈event_idかuser_idか〉が異なるため使い回さない)。
+    - push_client(フェーズ159で本docstringに明記): 実LINE Push API接続(チャネル
+      アクセストークン)は引き続きオーナー承認待ちのため、ここでは意図的に渡さない
+      (省略時は`None`となり、決済失敗検知・復旧・解約関連の状態書き込みは行われるが
+      通知は送信されない。payment-failure-dunning-design.md 6節と同じ「配線はできて
+      いるが実送信はまだ」という区別を保つ。aircon-pashaのフェーズ186で同ファクトリの
+      docstringに同種のbullet群が追加されたのを受け、本ventureでは実装済みだった
+      意図的省略の理由が本docstringに未記載だった記載漏れをフェーズ159で解消した)。
+    - portal_link_provider(フェーズ158でreceive_stripe_webhook()への配線を追加、
+      フェーズ159で本docstringに明記): 実Stripeカスタマーポータル接続(Billing Portalの
+      設定・実URL取得)も引き続きオーナー承認待ちのため、ここでは意図的に渡さない
+      (省略時は`None`となり、解約予約受理案内はPORTAL_LINK_UNAVAILABLE_FALLBACK文言に
+      差し替えられた状態で組み立てられる。render_subscription_cancellation_scheduled_
+      message()の既存の安全側フォールバック)。
     """
     user_profile_store = InMemoryUserProfileStore()
     return {

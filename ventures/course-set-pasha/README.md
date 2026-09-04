@@ -2016,10 +2016,35 @@
   発生していないためpending-approval.mdへの追記なし。次回はline-reservation-ai側にも
   同種の配線漏れが残っていないかの確認、または他venture・アイデア領域の前進を優先候補
   とする。
-- 最終更新: 2026-09-04 14:00 UTC
+- フェーズ159(2026-09-04 16:00 UTC): フェーズ158で`receive_stripe_webhook()`への
+  `portal_link_provider`配線を追加した際、`get_stripe_runtime_dependencies()`の
+  docstringには`push_client`・`portal_link_provider`をなぜ意図的に返り値の辞書へ
+  含めないか(いずれも実LINE Push API・実Stripeカスタマーポータル接続がオーナー承認待ち)
+  の理由が一切明記されないままだったことに気づいた。aircon-pashaが同フェーズ186で
+  自身の`get_stripe_runtime_dependencies()`docstringへ同種のbullet(push_client・
+  recovery_push_client・cancellation_push_client・portal_link_providerの省略理由)を
+  追加していたのに対し、本ventureはフェーズ158時点でREADME側にのみ理由を書き、
+  コード本体のdocstringには反映していなかった記載漏れだった(現行の実装・返り値の
+  辞書の中身自体は元々フェーズ158時点から正しく、意図通り`push_client`/
+  `portal_link_provider`を渡していない)。`prototype/stripe_webhook.py`の
+  `get_stripe_runtime_dependencies()`docstringに、aircon-pashaフェーズ186と同内容の
+  bulletを2件(push_client・portal_link_provider)追記した。コード動作・返り値は
+  無変更のためテスト追加は無し、venture全体560件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要なdocstring整理のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回はline-reservation-ai側の同種配線漏れ確認、
+  または他venture・アイデア領域の前進を優先候補とする(フェーズ158からの持ち越し)。
+- 最終更新: 2026-09-04 16:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ159、2026-09-04 16:00 UTC: `get_stripe_runtime_dependencies()`の
+  docstringに`push_client`・`portal_link_provider`を意図的に返り値へ含めない理由が
+  未記載だった記載漏れを、aircon-pashaフェーズ186のdocstring bulletを参考に解消した。
+  詳細は上記フェーズ159参照。実装・テストへの影響は無し。line-reservation-ai側に
+  `receive_stripe_webhook()`類似の配線漏れが残っていないかの確認は引き続き次回以降の
+  課題として残る)
 - (新規解消・フェーズ158、2026-09-04 14:00 UTC: `stripe_webhook.receive_stripe_webhook()`
   (実HTTPエントリポイント)に`portal_link_provider`引数が欠落しており、
   `dispatch_stripe_event()`側の同引数(フェーズ127)へ常に`None`のまま委譲されていた
