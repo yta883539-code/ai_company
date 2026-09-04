@@ -75,16 +75,14 @@ firestore-data-model.mdの`slotKey`文字列(`"2026-08-09_15:30"`)はドキュ�
   決定し、`ConversationEventProcessor`にget→import/export→setの配線を実装した。
   ただしCloud Function B自身が持つユーザーごとのローカルキャッシュ
   〈`_candidates_by_user`等〉の永続化は新たな残課題として同md 4節に残った)
-- `BookingSlotManager`(`stores/{storeId}/bookingSlots/{slotKey}`)・
-  `NotificationLogAggregator`(`stores/{storeId}/notificationLogEntries/{autoId}`)・
-  `EscalationConsolidator`(`stores/{storeId}/escalationWindows/{sessionId}`)は
-  それぞれ別コレクションとして設計済み(firestore-data-model.md 2・4・5節)だが、
-  これらの内部状態についても同様のhydrate/dehydrateメソッドが必要かどうかは未検討。
-  会話状態(本フェーズ)と異なり、これらは基本的に「1操作=1ドキュメントへの
-  読み書き」で完結する設計(hold()/confirm()がトランザクション内で完結する、
-  firestore-transaction-design.md参照)のため、`_states`辞書のような
-  「複数フィールドをまとめてメモリに保持し、後でまとめて書き戻す」形の変換が
-  同じ形で必要になるとは限らない。次回以降、個別に要否を検討する。
+- (解消済み 2026-09-04 08:00 UTC: `BookingSlotManager`・`NotificationLogAggregator`・
+  `EscalationConsolidator`の内部状態にhydrate/dehydrateが必要かどうかは、既存の
+  firestore-transaction-design.md(`BookingSlotManager`/`EscalationConsolidator`は
+  メソッド内部を直接Firestoreトランザクションに置き換えるため不要)・
+  firestore-data-model.md 4節(`NotificationLogAggregator`は追記+冪等set+都度
+  count()クエリに置き換えるため、そもそもインメモリ状態を持たせる設計自体が不要)が
+  既に結論を出していたことを、secondary-state-classes-persistence-conclusion.mdで
+  明文化・相互参照した)
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き
   残る課題。
 

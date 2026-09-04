@@ -95,8 +95,10 @@ schema検証(`python3 schema/validate_test_cases.py`)25件全件パスを確認�
 
 ## 5. 引き続き残る課題
 
-- `BookingSlotManager`/`NotificationLogAggregator`/`EscalationConsolidator`のhydrate/
-  dehydrate要否の検討(conversation-state-persistence-design.md 4節から持ち越し、未変更)。
+- (解消済み 2026-09-04 08:00 UTC: `BookingSlotManager`/`NotificationLogAggregator`/
+  `EscalationConsolidator`のhydrate/dehydrate要否は、
+  secondary-state-classes-persistence-conclusion.mdで「3クラスともhydrate/dehydrate
+  という形自体が不要」と結論付けた。詳細は同md参照)
 - `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)を実際にCloud
   Function Bのどこから呼ぶかの結線(conversation-state-wiring-design.md 6節から持ち越し、
   未変更)。
