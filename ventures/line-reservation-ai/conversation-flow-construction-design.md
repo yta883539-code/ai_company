@@ -80,9 +80,12 @@ def build_conversation_flow_state_machine_for_store(
   docstringが明記する「1呼び出し=1店舗分のprocessorを呼び出し元が既に構築済み」という
   前提の実体(実Firestore接続後にどう構築するか)が未確定なままのため、次回以降の課題
   として残る。
-- 会話状態(`_states`)自体をFirestoreドキュメントとの間でhydrate/dehydrateする方式
-  (`ConversationEventProcessor`のdocstringが「実装ではFirestoreの会話状態ドキュメントに
-  含める想定」と述べている部分)は、本フェーズの対象外のまま残る。
+- (解消済み 2026-09-04 03:00 UTC・フェーズ続き188: 会話状態(`_states`)自体を
+  Firestoreドキュメントとの間でhydrate/dehydrateする方式は、
+  conversation-state-persistence-design.mdで`export_state_for_persistence()`/
+  `import_state_from_persistence()`として実装した。ただしこれを実際に「どこから」
+  呼ぶか〈上記と同じ、キャッシュ有無の判断待ち〉は同ドキュメント4節に次回以降の
+  課題として引き続き残る)
 - プラン変更(アップグレード/ダウングレード)がキャッシュ済みインスタンスへどう反映される
   かの検討は、2節で述べた「店舗単位でキャッシュする設計を採る場合」の派生課題として、
   キャッシュ方式自体が決まった後にあらためて設計する。

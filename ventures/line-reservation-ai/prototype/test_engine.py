@@ -1360,6 +1360,94 @@ def _fake_candidate(slot_key, label):
     return _Candidate(slot_key=slot_key, label=label, start_minutes=0)
 
 
+class ConversationStatePersistenceTest(unittest.TestCase):
+    """conversation-state-persistence-design.md準拠。
+    export_state_for_persistence()/import_state_from_persistence()による
+    firestore-data-model.md 3節スキーマとの相互変換。
+    """
+
+    def test_export_returns_none_when_no_state(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        self.assertIsNone(flow.export_state_for_persistence("user_tanaka"))
+
+    def test_round_trip_candidates_presented_stage(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        candidates = [
+            _fake_candidate(("shop_1", "2026-08-09", "14:00"), "8/9(日) 14:00〜"),
+            _fake_candidate(("shop_1", "2026-08-09", "17:00"), "8/9(日) 17:00〜"),
+        ]
+        flow.present_candidates("user_tanaka", candidates, now=T0)
+
+        exported = flow.export_state_for_persistence("user_tanaka")
+        self.assertEqual(exported["stage"], "candidates_presented")
+        self.assertIsNone(exported["slotKey"])
+        self.assertEqual(
+            exported["candidates"],
+            [
+                {"slotKey": "2026-08-09_14:00", "label": "8/9(日) 14:00〜", "startMinutes": 0},
+                {"slotKey": "2026-08-09_17:00", "label": "8/9(日) 17:00〜", "startMinutes": 0},
+            ],
+        )
+        self.assertEqual(exported["lastActivityAt"], T0)
+
+        restored = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        restored.import_state_from_persistence("user_tanaka", "shop_1", exported)
+        self.assertEqual(restored.stage("user_tanaka"), "candidates_presented")
+        # 復元後も通常のselect_slot()フローがそのまま使えること
+        result = restored.select_slot("user_tanaka", ("shop_1", "2026-08-09", "14:00"), T0)
+        self.assertTrue(result.success)
+
+    def test_round_trip_awaiting_details_and_confirmed_stage(self):
+        # BookingSlotManagerの保留状態(bookingSlotsコレクション、firestore-data-model.md 2節)は
+        # export_state_for_persistence()の対象外の別コレクションのため、実運用ではrestored側も
+        # 同じ店舗のBookingSlotManagerを共有する想定でテストする(会話状態だけを差し替えても、
+        # 保留した枠の実体〈hold済みslot〉自体は別途同じ店舗のslotsストアから復元される前提)。
+        slots = BookingSlotManager()
+        flow = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        key = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key, T0)
+
+        exported = flow.export_state_for_persistence("user_tanaka")
+        self.assertEqual(exported["stage"], "awaiting_details")
+        self.assertEqual(exported["slotKey"], "2026-08-09_14:00")
+        self.assertIsNone(exported["candidates"])
+
+        restored = ConversationFlowStateMachine(slots, EscalationConsolidator())
+        restored.import_state_from_persistence("user_tanaka", "shop_1", exported)
+        confirm_result = restored.provide_details(
+            "user_tanaka", "田中", "カット", T0 + timedelta(minutes=2)
+        )
+        self.assertTrue(confirm_result.confirmed)
+
+        confirmed_exported = restored.export_state_for_persistence("user_tanaka")
+        self.assertEqual(confirmed_exported["stage"], "confirmed")
+        self.assertEqual(confirmed_exported["name"], "田中")
+        self.assertEqual(confirmed_exported["menu"], "カット")
+
+    def test_import_defaults_optional_fields_when_absent(self):
+        # reconfirmCount/emojiUsedLastを含まない最小限のdict(例: 過去バージョンの
+        # ドキュメントとの後方互換)でも復元できること。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.import_state_from_persistence(
+            "user_tanaka", "shop_1", {"stage": "candidates_presented", "slotKey": None}
+        )
+        self.assertEqual(flow.stage("user_tanaka"), "candidates_presented")
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))
+
+    def test_emoji_used_last_round_trips(self):
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_tanaka", now=T0)
+        self.assertTrue(flow.consume_casual_emoji_allowance("user_tanaka"))  # emoji_used_last -> True
+
+        exported = flow.export_state_for_persistence("user_tanaka")
+        self.assertTrue(exported["emojiUsedLast"])
+
+        restored = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        restored.import_state_from_persistence("user_tanaka", "shop_1", exported)
+        self.assertFalse(restored.consume_casual_emoji_allowance("user_tanaka"))
+
+
 class InMemoryBookingRecordStoreTest(unittest.TestCase):
     """InMemoryBookingRecordStoreとConversationFlowStateMachine.provide_details()の連動、
     および取得結果がformat_booking_list_csv()/build_customer_detail_view()にそのまま

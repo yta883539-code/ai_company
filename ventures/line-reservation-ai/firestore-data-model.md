@@ -132,15 +132,29 @@ BookingSlotManager の `_Slot` に対応する、仮押さえ→確定の2段階
 
 ### 3. `stores/{storeId}/conversations/{sessionId}`
 ConversationFlowStateMachine の `_ConversationState` に対応する会話状態。
+conversation-state-persistence-design.md(フェーズ続き188)で新設した
+`export_state_for_persistence()`/`import_state_from_persistence()`が読み書きする
+plain dictの形と一致する(下記スキーマは同メソッドの実装が正)。
 ```
 {
   stage: "candidates_presented" | "awaiting_details" | "confirmed",
-  slotKey: "2026-08-09_15:30" | null,
+  slotKey: "2026-08-09_15:30" | null,   // (storeId, dateStr, timeStr)の3要素タプルからstoreIdを
+                                          // 除いた文字列。storeIdはドキュメントパス自体に含まれる
+                                          // ため復元時はパスのstoreIdを使う(2節のslotKeyと同じ形式)
   name: "山田太郎" | null,
   menu: "カット" | null,
-  candidates: [{slotKey: "...", label: "8/9(土) 15:30〜"}, ...] | null,
+  candidates: [{slotKey: "...", label: "8/9(土) 15:30〜", startMinutes: 840}, ...] | null,
+                                          // startMinutesはAvailabilitySearcherが算出した営業開始
+                                          // 時刻からの分数(_Candidate.start_minutes)。当初この
+                                          // フィールドの記載漏れがあったが、実際に永続化対象の
+                                          // dictへ変換する際にlabel再構築へ必要と判明し追記した
+                                          // (conversation-state-persistence-design.md参照)
   reconfirmCount: 0,
-  lastActivityAt: <Timestamp>
+  lastActivityAt: <Timestamp>,
+  emojiUsedLast: false                   // message-tone-variants.md「絵文字頻度上限」用
+                                          // (consume_casual_emoji_allowance()が参照する内部状態)。
+                                          // 当初本ドキュメントへの記載が漏れていた
+                                          // (conversation-state-persistence-design.md参照)
 }
 ```
 - `release_idle_conversations()`(30分無応答失効)・`archive_completed_conversations()`

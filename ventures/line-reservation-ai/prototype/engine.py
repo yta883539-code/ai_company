@@ -872,6 +872,20 @@ class ReleasedConversation:
 CONVERSATION_IDLE_TIMEOUT = timedelta(minutes=30)
 
 
+# conversation-state-persistence-design.md準拠。engine.py内部のslot_keyタプルは
+# (store_id, date_str, time_str)の3要素だが、firestore-data-model.mdのslotKey文字列は
+# ドキュメントパス自体にstoreIdを含む(stores/{storeId}/conversations/{sessionId})ため
+# "{date_str}_{time_str}"のみを持つ。この2つの形式を変換する。
+def _slot_key_to_string(slot_key: tuple) -> str:
+    _, date_str, time_str = slot_key
+    return f"{date_str}_{time_str}"
+
+
+def _slot_key_from_string(store_id: str, slot_key_str: str) -> tuple:
+    date_str, time_str = slot_key_str.split("_", 1)
+    return (store_id, date_str, time_str)
+
+
 @dataclass
 class _ConversationState:
     stage: str  # "candidates_presented" | "awaiting_details" | "confirmed"
@@ -1344,6 +1358,72 @@ class ConversationFlowStateMachine:
             return None
         self._last_archive_at = now
         return self.archive_completed_conversations(now)
+
+    def export_state_for_persistence(self, user_id: str) -> Optional[dict]:
+        """conversation-state-persistence-design.md準拠。firestore-data-model.md 3節
+        `stores/{storeId}/conversations/{sessionId}`のスキーマに対応するplain dictへ、
+        この会話状態(_states[user_id])を変換する。実際のFirestore書き込み(set())は
+        呼び出し側(Cloud Function B)の責務とし、ここではdictへの変換のみを行う。
+        該当する会話状態が無い場合はNoneを返す(呼び出し側はドキュメントを削除するか
+        何もしないかのいずれかを選べる、書き込み自体は行わない後方互換の判断)。
+        """
+        state = self._states.get(user_id)
+        if state is None:
+            return None
+        return {
+            "stage": state.stage,
+            "slotKey": _slot_key_to_string(state.slot_key) if state.slot_key is not None else None,
+            "name": state.name,
+            "menu": state.menu,
+            "candidates": (
+                [
+                    {
+                        "slotKey": _slot_key_to_string(c.slot_key),
+                        "label": c.label,
+                        "startMinutes": c.start_minutes,
+                    }
+                    for c in state.candidates
+                ]
+                if state.candidates is not None
+                else None
+            ),
+            "reconfirmCount": state.reconfirm_count,
+            "lastActivityAt": state.last_activity_at,
+            "emojiUsedLast": state.emoji_used_last,
+        }
+
+    def import_state_from_persistence(self, user_id: str, store_id: str, data: dict) -> None:
+        """export_state_for_persistence()の逆変換。dataはFirestoreドキュメントを読み取った
+        plain dict(同メソッドの戻り値と同じスキーマ)を想定する。store_idは
+        slotKey文字列からengine.py内部のslot_keyタプル((store_id, date_str, time_str))を
+        復元するために必要(3節参照、ドキュメントパスのstoreIdをそのまま渡す想定)。
+        既存の_states[user_id]があれば上書きする。
+        """
+        self._states[user_id] = _ConversationState(
+            stage=data["stage"],
+            slot_key=(
+                _slot_key_from_string(store_id, data["slotKey"])
+                if data.get("slotKey") is not None
+                else None
+            ),
+            name=data.get("name"),
+            menu=data.get("menu"),
+            candidates=(
+                [
+                    _Candidate(
+                        slot_key=_slot_key_from_string(store_id, c["slotKey"]),
+                        label=c["label"],
+                        start_minutes=c["startMinutes"],
+                    )
+                    for c in data["candidates"]
+                ]
+                if data.get("candidates") is not None
+                else None
+            ),
+            reconfirm_count=data.get("reconfirmCount", 0),
+            last_activity_at=data.get("lastActivityAt"),
+            emoji_used_last=data.get("emojiUsedLast", False),
+        )
 
 
 # ---------------------------------------------------------------------------

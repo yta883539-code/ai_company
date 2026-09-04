@@ -2226,7 +2226,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 02:00 UTC
+- フェーズ続き188(2026-09-04 03:00 UTC): conversation-flow-construction-design.md
+  (フェーズ続き187)4節に残っていた、会話状態(`_states`)をFirestoreドキュメントとの
+  間でhydrate/dehydrateする方式が未着手だったギャップに対応した
+  (conversation-state-persistence-design.md新規作成)。`prototype/engine.py`の
+  `ConversationFlowStateMachine`に`export_state_for_persistence()`(`_states[user_id]`を
+  firestore-data-model.md 3節スキーマのplain dictへ変換)・
+  `import_state_from_persistence()`(逆変換)を新設した。engine.py内部の`slot_key`
+  ((store_id, date_str, time_str)の3要素タプル)とFirestoreの`slotKey`文字列
+  (storeIdを含まない、ドキュメントパス自体に含まれるため)を相互変換する
+  `_slot_key_to_string()`/`_slot_key_from_string()`もあわせて新設した。実装の過程で、
+  firestore-data-model.md 3節のスキーマに`emojiUsedLast`(絵文字頻度上限の内部状態)・
+  `candidates[].startMinutes`(`_Candidate.start_minutes`)の記載が漏れていたことを
+  発見し、あわせて追記した。実際にこれらを「どこから呼ぶか」(Cloud Function Bの
+  処理冒頭でget→import、末尾でexport→setという組み合わせになる見込み)は、
+  フェーズ続き187から持ち越しの「店舗単位でインスタンスをキャッシュするか毎回
+  新規構築するか」という判断待ちのため、引き続き次回以降の課題として残る
+  (conversation-state-persistence-design.md 4節参照)。テスト5件追加
+  (`ConversationStatePersistenceTest`、状態未作成時のNone・候補提示中/保留中/確定後
+  各ステージの往復変換・過去バージョンとの後方互換・絵文字使用フラグの往復)、
+  venture全体674件全件(`python3 -m unittest discover -p "test_*.py"`)パス・
+  schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  設計・実装・テスト追加・ドキュメント整備のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 03:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
