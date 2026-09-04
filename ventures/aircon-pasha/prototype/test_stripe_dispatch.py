@@ -16,10 +16,19 @@ from payment_recovery_notification import (  # noqa: E402
     LinePushDeliveryError as RecoveryLinePushDeliveryError,
 )
 from stripe_dispatch import StripeDispatchResult, dispatch_stripe_event  # noqa: E402
+from subscription_cancellation_notification import (  # noqa: E402
+    InMemoryLinePushClient as InMemoryCancellationPushClient,
+    LinePushDeliveryError as CancellationLinePushDeliveryError,
+)
 from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
 
 _CUSTOMER = "cus_ABC123"
 _USER_ID = "U1"
+
+
+class _FailingCancellationPushClient:
+    def send_flex_message(self, user_id, alt_text, contents):
+        raise CancellationLinePushDeliveryError("boom")
 
 
 def _resolve_known(customer):
@@ -557,6 +566,136 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         self.assertEqual(result.payment_recovery_notification_failed_user_ids, [_USER_ID])
         self.assertIsNotNone(payment_store.get_payment_failure_detected_at(_USER_ID))
         self.assertIsNotNone(payment_store.get_payment_suspended_at(_USER_ID))
+
+
+class DispatchSubscriptionCancellationNotificationTest(unittest.TestCase):
+    """subscription-cancellation-notification-design.md(フェーズ184)対応。"""
+
+    def test_sends_cancellation_completed_notification_on_deleted(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        created = int(datetime(2026, 9, 4, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_notified_user_ids, [_USER_ID])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [])
+        self.assertEqual(len(push.sent), 1)
+
+    def test_no_cancellation_notification_when_push_client_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        created = int(datetime(2026, 9, 4, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+
+    def test_records_failure_when_deleted_notification_send_fails(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = _FailingCancellationPushClient()
+        created = int(datetime(2026, 9, 4, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [_USER_ID])
+
+    def test_sends_scheduled_notification_when_cancel_at_period_end_becomes_true(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        period_end = int(datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": period_end,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [_USER_ID])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+        self.assertEqual(len(push.sent), 1)
+
+    def test_sends_rescheduled_notification_when_cancel_at_period_end_becomes_false(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {"customer": _CUSTOMER, "status": "active", "cancel_at_period_end": False},
+                "previous_attributes": {"cancel_at_period_end": True},
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [_USER_ID])
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+
+    def test_no_update_notification_when_previous_attributes_missing_key(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {"customer": _CUSTOMER, "status": "active"},
+                "previous_attributes": {"items": {}},
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+        self.assertEqual(len(push.sent), 0)
+
+    def test_no_update_notification_when_push_client_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {"customer": _CUSTOMER, "status": "active", "cancel_at_period_end": True},
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+
+    def test_records_failure_when_update_notification_send_fails(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = _FailingCancellationPushClient()
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {"customer": _CUSTOMER, "status": "active", "cancel_at_period_end": True},
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, cancellation_push_client=push
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
+        self.assertEqual(result.cancellation_update_notification_failed_user_ids, [_USER_ID])
 
 
 class DispatchIgnoredAndUnresolvedTest(unittest.TestCase):

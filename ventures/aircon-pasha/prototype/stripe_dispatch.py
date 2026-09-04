@@ -51,6 +51,15 @@ from payment_recovery_notification import (
     LinePushClient as RecoveryPushClient,
     handle_payment_succeeded,
 )
+from cloud_function_webhook import PortalLinkProvider
+from subscription_cancellation_notification import (
+    OUTCOME_CANCELLATION_RESCHEDULED as _OUTCOME_CANCELLATION_RESCHEDULED,
+    OUTCOME_CANCELLATION_SCHEDULED as _OUTCOME_CANCELLATION_SCHEDULED,
+    OUTCOME_NO_CHANGE as _OUTCOME_NO_CHANGE,
+    LinePushClient as CancellationPushClient,
+    handle_subscription_cancellation_update,
+    handle_subscription_cancelled,
+)
 from subscription_plan_sync import (
     CurrentPlanStoreProtocol,
     clear_current_plan_on_subscription_deleted,
@@ -108,6 +117,18 @@ class StripeDispatchResult:
     blocked_but_billing_owner_notified_cleared_user_ids: List[str] = field(
         default_factory=list
     )
+    # フェーズ184追加: cancellation_push_client指定時、customer.subscription.deleted
+    # 受信により解約完了案内の送信に成功した/失敗したuser_id
+    # (subscription-cancellation-notification-design.md参照)。
+    cancellation_notified_user_ids: List[str] = field(default_factory=list)
+    cancellation_notification_failed_user_ids: List[str] = field(default_factory=list)
+    # フェーズ184追加: cancellation_push_client指定時、customer.subscription.updated
+    # 受信によりcancel_at_period_endが変化し解約予約受理/解約取り消し案内の送信に成功した
+    # user_id。送信失敗はいずれの分類かを問わずcancellation_update_notification_failed_
+    # user_idsへ記録する(失敗理由の細分はしない、course-set-pashaフェーズ156と同じ)。
+    cancellation_scheduled_notified_user_ids: List[str] = field(default_factory=list)
+    cancellation_rescheduled_notified_user_ids: List[str] = field(default_factory=list)
+    cancellation_update_notification_failed_user_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_stripe_event(
@@ -120,6 +141,8 @@ def dispatch_stripe_event(
     recovery_push_client: Optional[RecoveryPushClient] = None,
     plan_store: Optional[CurrentPlanStoreProtocol] = None,
     blocked_but_billing_store: Optional[BlockedButBillingOwnerNotifiedAtStoreProtocol] = None,
+    cancellation_push_client: Optional[CancellationPushClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     now: Optional[datetime] = None,
 ) -> StripeDispatchResult:
     """design 1節: Stripe Webhookイベント1件を受け取り、種別に応じて
@@ -168,6 +191,15 @@ def dispatch_stripe_event(
     notification.py参照)。未指定(`None`)の場合はこれまで通りクリアを行わない
     (既存呼び出し経路への後方互換措置)。`payment_store`/`plan_store`と同じく専用の
     InMemoryストアは新設せず、`InMemoryUserProfileStore`が構造的に満たす設計とした。
+
+    `cancellation_push_client`/`portal_link_provider`はsubscription-cancellation-
+    notification-design.md(フェーズ184)対応。指定時、`customer.subscription.deleted`
+    受信で解約完了案内(`handle_subscription_cancelled()`)を、`customer.subscription.
+    updated`受信で`previous_attributes`との比較から`cancel_at_period_end`の変化が
+    検出できた場合に解約予約受理/解約取り消し案内(`handle_subscription_cancellation_
+    update()`)を送信する。`portal_link_provider`は解約予約受理案内本文のポータルURL
+    差し込みにのみ使う(省略時は`PORTAL_LINK_UNAVAILABLE_FALLBACK`)。未指定
+    (`None`)の場合はこれまで通り通知を一切行わない(既存呼び出し経路への後方互換措置)。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -199,6 +231,12 @@ def dispatch_stripe_event(
         if blocked_but_billing_store is not None:
             if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
                 result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
+        if cancellation_push_client is not None:
+            notification_result = handle_subscription_cancelled(user_id, cancellation_push_client)
+            if notification_result.notified:
+                result.cancellation_notified_user_ids.append(user_id)
+            else:
+                result.cancellation_notification_failed_user_ids.append(user_id)
         return result
 
     if event_type == _SUBSCRIPTION_CREATED:
@@ -217,6 +255,24 @@ def dispatch_stripe_event(
         if plan_store is not None:
             if sync_current_plan_on_subscription_event(plan_store, user_id, data_object):
                 result.plan_synced_user_ids.append(user_id)
+        if cancellation_push_client is not None:
+            previous_attrs = event.get("data", {}).get("previous_attributes", {})
+            if isinstance(previous_attrs, dict) and "cancel_at_period_end" in previous_attrs:
+                update_result = handle_subscription_cancellation_update(
+                    user_id,
+                    bool(previous_attrs["cancel_at_period_end"]),
+                    bool(data_object.get("cancel_at_period_end")),
+                    data_object.get("current_period_end"),
+                    cancellation_push_client,
+                    portal_link_provider,
+                )
+                if update_result.notified:
+                    if update_result.outcome == _OUTCOME_CANCELLATION_SCHEDULED:
+                        result.cancellation_scheduled_notified_user_ids.append(user_id)
+                    elif update_result.outcome == _OUTCOME_CANCELLATION_RESCHEDULED:
+                        result.cancellation_rescheduled_notified_user_ids.append(user_id)
+                elif update_result.outcome != _OUTCOME_NO_CHANGE:
+                    result.cancellation_update_notification_failed_user_ids.append(user_id)
         return result
 
     if payment_store is None:

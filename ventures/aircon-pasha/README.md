@@ -1419,6 +1419,14 @@
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ184、2026-09-04 10:00 UTC: `customer.subscription.deleted`の解約完了
+  案内、`customer.subscription.updated`の`cancel_at_period_end`変化(解約予約受理・解約
+  取り消し)案内を新規実装した。詳細は上記フェーズ184・
+  subscription-cancellation-notification-design.md参照。次回以降の課題として、
+  (1)制限モード中〈`payment_suspended_at`設定済み〉の解約予約受理案内の文言整合性チェック
+  〈course-set-pashaフェーズ157の横展開〉、(2)`stripe_webhook.receive_stripe_webhook()`
+  〈実HTTPエントリポイント〉への`cancellation_push_client`/`portal_link_provider`配線、
+  (3)解約取り消し案内メッセージの問い合わせ導線文言の見直しが残る)
 - (解消(効果薄と確認) 2026-08-18 08:00 UTC: フェーズ80で複数メニュー展開のハウスクリー
   ニング業者区分の新規探索を「個人事業主 一人で 開業」「くらしのマーケット セット 出張」の
   新キーワードで再試行したが、開業ガイド記事・ポータルのカテゴリページばかりがヒットし
@@ -2699,4 +2707,31 @@
   他venture・アイデア領域の前進、またはcheckout-session-plan-selection-design.md「残課題」
   に残る実Price ID確定(オーナー承認待ち)以外の、未走査の設計docの残課題棚卸しを
   優先候補とする。
-- 最終更新: 2026-09-04 09:00 UTC
+- フェーズ184(2026-09-04 10:00 UTC): course-set-pashaフェーズ157「次にやること(候補)」に
+  残っていた「line-reservation-ai・aircon-pashaが将来解約予約受理通知を実装する際の同判定
+  ロジックの横展開」を受け、本ventureの現状を確認したところ、`customer.subscription.deleted`
+  (契約終了)受信時の解約完了案内、`customer.subscription.updated`受信時の
+  `cancel_at_period_end`変化(解約予約受理・解約取り消し)案内のいずれも未実装(通知配線
+  自体が候補にすら挙がっていなかった)ことが判明したため対応した。
+  subscription-cancellation-notification-design.mdを新規作成し、course-set-pashaの
+  フェーズ155・156を本venture固有の通知パターン(全モジュール共通の
+  `LinePushClient.send_flex_message()`によるFlex Message送信、course-set-pashaの
+  プレーンテキスト`send_message()`とは異なる)に翻案して1モジュール
+  (`prototype/subscription_cancellation_notification.py`)にまとめて実装した。
+  `classify_cancel_at_period_end_change()`・`handle_subscription_cancelled()`・
+  `handle_subscription_cancellation_update()`を新設し、`stripe_dispatch.
+  dispatch_stripe_event()`に`cancellation_push_client`・`portal_link_provider`引数を
+  追加して`_SUBSCRIPTION_DELETED`分岐・`_SUBSCRIPTION_UPDATED`分岐(`previous_attributes`
+  との比較で`cancel_at_period_end`の変化を検出)へ配線した。`StripeDispatchResult`に
+  `cancellation_notified_user_ids`・`cancellation_notification_failed_user_ids`・
+  `cancellation_scheduled_notified_user_ids`・`cancellation_rescheduled_notified_user_ids`・
+  `cancellation_update_notification_failed_user_ids`を新設した。course-set-pashaフェーズ157
+  (制限モード中の文言整合性チェック)は本フェーズのスコープ外とし、design 4・6節に次回以降の
+  課題として明記した。`stripe_webhook.receive_stripe_webhook()`(実HTTPエントリポイント)への
+  配線も、既存の`payment_store`等の先例(フェーズ139→149)にならい次回以降の課題として残した。
+  テスト24件追加(新規モジュール16件・`test_stripe_dispatch.py`8件)、venture全体444件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 10:00 UTC
