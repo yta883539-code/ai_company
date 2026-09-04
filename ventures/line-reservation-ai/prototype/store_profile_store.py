@@ -169,6 +169,18 @@ class StoreProfileStoreProtocol(Protocol):
     def set_plan(self, store_id: str, plan: str) -> None:
         ...
 
+    def get_menu_durations(self, store_id: str) -> dict:
+        ...
+
+    def set_menu_durations(self, store_id: str, menu_durations: dict) -> None:
+        ...
+
+    def get_store_faq_info(self, store_id: str) -> dict:
+        ...
+
+    def set_store_faq_info(self, store_id: str, store_faq_info: dict) -> None:
+        ...
+
     def all_store_ids(self):
         ...
 
@@ -189,6 +201,8 @@ class InMemoryStoreProfileStore:
         self._owner_emails: dict[str, str] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
         self._plans: dict[str, str] = {}
+        self._menu_durations: dict[str, dict] = {}
+        self._store_faq_info: dict[str, dict] = {}
         self._known_store_ids: set[str] = set()
 
     def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
@@ -288,6 +302,29 @@ class InMemoryStoreProfileStore:
         if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
             raise ValueError(f"unknown plan: {plan!r}")
         self._plans[store_id] = plan
+        self._known_store_ids.add(store_id)
+
+    def get_menu_durations(self, store_id: str) -> dict:
+        # conversation-event-processor-assembly-design.md準拠。未設定の店舗は空dictを
+        # 返す(cloud_function_process_event.ConversationEventProcessorのmenu_durations
+        # 引数はNone非許容のdict必須のため、Noneではなく空dictをデフォルトにする)。
+        return dict(self._menu_durations.get(store_id, {}))
+
+    def set_menu_durations(self, store_id: str, menu_durations: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._menu_durations[store_id] = dict(menu_durations)
+        self._known_store_ids.add(store_id)
+
+    def get_store_faq_info(self, store_id: str) -> dict:
+        # ConversationEventProcessor.__init__のstore_faq_info引数と同じ「未登録は空dict」
+        # という既定値の考え方(engine.py側docstring参照)に揃える。
+        return dict(self._store_faq_info.get(store_id, {}))
+
+    def set_store_faq_info(self, store_id: str, store_faq_info: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._store_faq_info[store_id] = dict(store_faq_info)
         self._known_store_ids.add(store_id)
 
     def all_store_ids(self):

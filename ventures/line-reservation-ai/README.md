@@ -2307,9 +2307,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   venture全体679件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・
   テスト追加・ドキュメント整備のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 05:00 UTC
+- フェーズ続き191(2026-09-04 13:00 UTC): conversation-state-wiring-design.md 6節に残って
+  いた「`build_conversation_flow_state_machine_for_store()`を実際にCloud Function Bの
+  どこから呼ぶか(`processor`自体をどう組み立てるか)の結線」に着手した
+  (conversation-event-processor-assembly-design.md新規作成)。`ConversationEventProcessor`
+  の組み立てに必要な部品を棚卸しした結果、`menu_durations`・`store_faq_info`は`get_plan()`・
+  `get_owner_email()`と同じ「店舗プロフィールの単純な読み書き」として実Firestore接続なしで
+  今すぐ設計・実装できる一方、`searcher`(`AvailabilitySearcher`)の組み立てに必要な
+  店舗の営業時間・スロット間隔データは曜日別・複数時間帯対応(weekday-specific-business-
+  hours.md等)のため単純なgetterでは表現できず、別途データモデル設計が必要と判明した。
+  今回は前者(`menu_durations`・`store_faq_info`)のみ`StoreProfileStoreProtocol`・
+  `InMemoryStoreProfileStore`に`get_menu_durations()`/`set_menu_durations()`・
+  `get_store_faq_info()`/`set_store_faq_info()`として追加した。いずれも未設定時は
+  `None`ではなく空dictを返す(`ConversationEventProcessor`の対応引数の既定値と揃える
+  ため)。dictを返す初めてのフィールドのため、戻り値は内部状態のコピーを返すようにした
+  (呼び出し元の変更が漏れ伝わらないようにするため)。テスト12件追加、venture全体691件
+  全件パス・schema検証25件パスを確認した。`searcher`組み立てに必要な営業時間データモデルの
+  設計、および実際の組み立て関数(`build_conversation_event_processor_for_payload()`相当)の
+  実装は次回以降の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 13:00 UTC
 
 ## 次にやること(候補)
+- (新規解消・フェーズ続き191、2026-09-04 13:00 UTC: conversation-state-wiring-design.md 6節の
+  「`ConversationEventProcessor`組み立ての結線」課題に着手し、`menu_durations`・
+  `store_faq_info`のstore経由取得を実装した。詳細は上記フェーズ続き191・
+  conversation-event-processor-assembly-design.md参照。`searcher`組み立てに必要な営業時間
+  データモデルの設計と、組み立て関数本体の実装は次回以降の課題として残る)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
   「残課題」に残っていた、`store_profile_store.evaluate_onboarding_completion_message_
   dispatch()`(フェーズ続き155で実装済みの判定ロジック)と`onboarding_completion_message.

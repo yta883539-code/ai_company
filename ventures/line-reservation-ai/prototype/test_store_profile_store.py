@@ -389,6 +389,82 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(self.store.get_plan("store123"), "プロプラン")
 
 
+class MenuDurationsTest(unittest.TestCase):
+    """conversation-event-processor-assembly-design.md準拠(フェーズ続き191)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_empty_dict_when_not_set(self):
+        self.assertEqual(self.store.get_menu_durations("store123"), {})
+
+    def test_set_then_get_roundtrips(self):
+        self.store.set_menu_durations("store123", {"カット": 30, "カラー": 90})
+        self.assertEqual(
+            self.store.get_menu_durations("store123"), {"カット": 30, "カラー": 90}
+        )
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_menu_durations("", {"カット": 30})
+
+    def test_different_stores_are_isolated(self):
+        self.store.set_menu_durations("store123", {"カット": 30})
+        self.store.set_menu_durations("store456", {"施術A": 60})
+        self.assertEqual(self.store.get_menu_durations("store123"), {"カット": 30})
+        self.assertEqual(self.store.get_menu_durations("store456"), {"施術A": 60})
+
+    def test_re_setting_overwrites_previous_value(self):
+        self.store.set_menu_durations("store123", {"カット": 30})
+        self.store.set_menu_durations("store123", {"カット": 45})
+        self.assertEqual(self.store.get_menu_durations("store123"), {"カット": 45})
+
+    def test_returned_dict_is_a_copy(self):
+        # 呼び出し元が戻り値を変更してもストア内部の状態に影響しないことを確認する
+        # (get_owner_email等の他フィールドと異なりdictはミュータブルなため、
+        # 参照をそのまま返すと呼び出し元の変更が漏れ伝わるおそれがある)。
+        self.store.set_menu_durations("store123", {"カット": 30})
+        result = self.store.get_menu_durations("store123")
+        result["カット"] = 999
+        self.assertEqual(self.store.get_menu_durations("store123"), {"カット": 30})
+
+
+class StoreFaqInfoTest(unittest.TestCase):
+    """conversation-event-processor-assembly-design.md準拠(フェーズ続き191)。"""
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_empty_dict_when_not_set(self):
+        self.assertEqual(self.store.get_store_faq_info("store123"), {})
+
+    def test_set_then_get_roundtrips(self):
+        faq_info = {"address": "○○駅から徒歩5分", "payment_methods": ["現金", "クレジットカード"]}
+        self.store.set_store_faq_info("store123", faq_info)
+        self.assertEqual(self.store.get_store_faq_info("store123"), faq_info)
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_store_faq_info("", {"address": "○○駅から徒歩5分"})
+
+    def test_different_stores_are_isolated(self):
+        self.store.set_store_faq_info("store123", {"address": "A"})
+        self.store.set_store_faq_info("store456", {"address": "B"})
+        self.assertEqual(self.store.get_store_faq_info("store123"), {"address": "A"})
+        self.assertEqual(self.store.get_store_faq_info("store456"), {"address": "B"})
+
+    def test_re_setting_overwrites_previous_value(self):
+        self.store.set_store_faq_info("store123", {"address": "A"})
+        self.store.set_store_faq_info("store123", {"address": "B"})
+        self.assertEqual(self.store.get_store_faq_info("store123"), {"address": "B"})
+
+    def test_returned_dict_is_a_copy(self):
+        self.store.set_store_faq_info("store123", {"address": "A"})
+        result = self.store.get_store_faq_info("store123")
+        result["address"] = "改変後"
+        self.assertEqual(self.store.get_store_faq_info("store123"), {"address": "A"})
+
+
 class ResolveMonthlyBookingLimitTest(unittest.TestCase):
     """checkout-session-plan-selection-design.md「残課題」対応(フェーズ続き182)。"""
 
