@@ -68,11 +68,13 @@ firestore-data-model.mdの`slotKey`文字列(`"2026-08-09_15:30"`)はドキュ�
 
 ## 4. 本フェーズでは対応しない範囲(引き続き残る課題)
 
-- `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)と
-  今回のhydrate/dehydrateを実際にどこから(Cloud Function Bの処理冒頭で
-  `get()`→`import_state_from_persistence()`、処理末尾で`export_state_for_persistence()`
-  →`set()`、という組み合わせになる見込み)呼ぶ配線自体は、2節で述べたキャッシュ有無の
-  判断が未確定なままのため、次回以降の課題として残る。
+- (解消済み 2026-09-04 04:00 UTC・フェーズ続き189: `build_conversation_flow_state_
+  machine_for_store()`(フェーズ続き187)と今回のhydrate/dehydrateを実際にどこから
+  呼ぶかは、conversation-state-wiring-design.mdで「インスタンス内キャッシュは採用せず、
+  `ConversationEventProcessor.process()`呼び出しのたびにhydrate/dehydrateする」方式に
+  決定し、`ConversationEventProcessor`にget→import/export→setの配線を実装した。
+  ただしCloud Function B自身が持つユーザーごとのローカルキャッシュ
+  〈`_candidates_by_user`等〉の永続化は新たな残課題として同md 4節に残った)
 - `BookingSlotManager`(`stores/{storeId}/bookingSlots/{slotKey}`)・
   `NotificationLogAggregator`(`stores/{storeId}/notificationLogEntries/{autoId}`)・
   `EscalationConsolidator`(`stores/{storeId}/escalationWindows/{sessionId}`)は

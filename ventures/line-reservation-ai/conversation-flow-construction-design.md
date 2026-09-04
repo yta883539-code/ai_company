@@ -79,7 +79,10 @@ def build_conversation_flow_state_machine_for_store(
   呼ぶ配線自体は、cloud_function_process_event.pyの`ConversationEventProcessor`
   docstringが明記する「1呼び出し=1店舗分のprocessorを呼び出し元が既に構築済み」という
   前提の実体(実Firestore接続後にどう構築するか)が未確定なままのため、次回以降の課題
-  として残る。
+  として残る(会話状態`_states`自体のhydrate/dehydrate配線は2026-09-04 04:00 UTC・
+  フェーズ続き189でconversation-state-wiring-design.md準拠、`ConversationEventProcessor`
+  内部で「キャッシュなし・毎回hydrate/dehydrate」方式として解消済み。本関数自体を
+  どこから呼ぶかは引き続き別課題として残る)。
 - (解消済み 2026-09-04 03:00 UTC・フェーズ続き188: 会話状態(`_states`)自体を
   Firestoreドキュメントとの間でhydrate/dehydrateする方式は、
   conversation-state-persistence-design.mdで`export_state_for_persistence()`/

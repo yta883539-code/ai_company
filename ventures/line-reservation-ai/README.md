@@ -2249,7 +2249,44 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
   設計・実装・テスト追加・ドキュメント整備のみで、外部サービスへの公開・
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 03:00 UTC
+- フェーズ続き189(2026-09-04 04:00 UTC): conversation-state-persistence-design.md
+  (フェーズ続き188)2節・conversation-flow-construction-design.md(フェーズ続き187)
+  4節の両方に共通して残っていた、「`ConversationFlowStateMachine`インスタンスを
+  店舗単位でキャッシュするか毎回新規構築するか」という判断待ちの課題に対応した
+  (conversation-state-wiring-design.md新規作成)。結論: HTTP起動のCloud Functions
+  インスタンスはウォームスタート保証が無く、hydrate/dehydrateの部品(フェーズ続き187・188)は
+  既に安価に呼べる状態のため、**インスタンス内キャッシュは採用せず、
+  `ConversationEventProcessor.process()`呼び出しのたびに対象ユーザーの会話状態を
+  hydrate/dehydrateする**方式を採用した。`prototype/cloud_function_process_event.py`に
+  `ConversationStateStoreProtocol`(`get`/`set`/`delete`の最小インターフェース、
+  `LinePushClient`等と同じ「実クライアントとInMemory版の共通インターフェース」パターン)・
+  `InMemoryConversationStateStore`(検証用実装)を新設し、`ConversationEventProcessor`に
+  `conversation_state_store`引数(未指定時は従来通り何もしない後方互換)を追加した。
+  `process()`を薄いラッパーへ分割し、`_hydrate_conversation_state()`(get→
+  `import_state_from_persistence()`)→従来の本体(`_process_message_event()`へリネーム、
+  ロジック自体は無変更)→`_persist_conversation_state()`(`export_state_for_persistence()`→
+  set、Noneならdelete)の順に呼ぶ構成にした。処理中に例外が送出された場合は書き戻しを
+  スキップする(Cloud Tasksの再試行時は直近の正常完了時点から再度hydrateすれば良く、
+  不完全な状態を書き戻さない方が安全側という判断)。follow/unfollowイベントは
+  `ConversationFlowStateMachine`を参照しないためhydrate/dehydrate対象外とした。
+  実装中に新たな残課題を発見した: `ConversationEventProcessor`自身が持つuser_idごとの
+  ローカルキャッシュ(`_candidates_by_user`・`_held_label_by_user`・
+  `_search_context_by_user`・`_pending_new_booking_context_by_user`、いずれも同クラスの
+  docstringが元々「実装ではFirestoreの会話状態ドキュメントに含める想定」と述べていた箇所)は
+  今回のhydrate/dehydrateの対象に含めておらず、「キャッシュなし・毎回新規構築」の運用では
+  ターンをまたぐたびに空になる。`ConversationFlowStateMachine`自体の状態遷移(hold/confirm
+  可否の判定)には影響しないが、顧客向け案内文言の一部(hold時・confirm時のメッセージに
+  含める候補ラベル文字列)が空文字列になりうるという顧客体験上のギャップが残ることを確認した
+  (conversation-state-wiring-design.md 4節に詳細と対応方針の候補を記載、次回以降の課題)。
+  テスト4件追加(`ConversationStateWiringTests`: 初回会話でのhydrate無し→dehydrate有りの
+  確認、候補提示→hold→confirmの3ターンを完全に独立した3つのprocessor/flowインスタンス
+  〈`BookingSlotManager`と`conversation_state_store`のみ共有〉にまたがって正しく継続できる
+  ことの確認、cancel時の永続化ドキュメント削除の確認、`conversation_state_store`未指定時の
+  後方互換確認)、venture全体678件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを
+  確認した。承認不要な設計・実装・テスト追加・ドキュメント整備のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 04:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

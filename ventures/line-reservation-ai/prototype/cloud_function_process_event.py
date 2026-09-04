@@ -193,6 +193,52 @@ class OwnerFollowStatusStoreProtocol(Protocol):
         ...
 
 
+class ConversationStateStoreProtocol(Protocol):
+    """conversation-state-wiring-design.md準拠。firestore-data-model.md 3節
+    `stores/{storeId}/conversations/{sessionId}`ドキュメント1件分のget/set/deleteのみを
+    要求する最小インターフェース。`ConversationFlowStateMachine.export_state_for_persistence()`/
+    `import_state_from_persistence()`(conversation-state-persistence-design.md、フェーズ続き188)が
+    変換するplain dictをそのまま読み書きする想定で、Firestoreクエリ等の高度な操作は含めない
+    (`OwnerFollowStatusStoreProtocol`と同じ「実クライアントとInMemory版の共通インターフェース」
+    という位置づけ)。
+    """
+
+    def get(self, store_id: str, user_id: str) -> Optional[dict]:
+        """該当するドキュメントが無ければNoneを返す(初回会話・アイドル失効後の再会話等)。"""
+        ...
+
+    def set(self, store_id: str, user_id: str, data: dict) -> None:
+        ...
+
+    def delete(self, store_id: str, user_id: str) -> None:
+        """cancel_booking()/change_booking()が`_states`からエントリを削除した結果、
+        `export_state_for_persistence()`がNoneを返す場合に呼ばれる想定
+        (firestore-data-model.md 3節の「会話状態自体を削除する」運用に対応)。
+        既に存在しないドキュメントに対して呼ばれても例外を送出しない(冪等)。
+        """
+        ...
+
+
+class InMemoryConversationStateStore:
+    """conversation-state-wiring-design.md準拠。Firestoreの
+    `stores/{storeId}/conversations/{sessionId}`ドキュメントを模した検証用ストア。
+    実装時は実Firestoreクライアントの`get()`/`set()`/`delete()`呼び出しに差し替えるだけで
+    動作する設計(`InMemoryLinePushClient`等と同じ位置づけ)。
+    """
+
+    def __init__(self) -> None:
+        self._docs: dict[tuple[str, str], dict] = {}
+
+    def get(self, store_id: str, user_id: str) -> Optional[dict]:
+        return self._docs.get((store_id, user_id))
+
+    def set(self, store_id: str, user_id: str, data: dict) -> None:
+        self._docs[(store_id, user_id)] = data
+
+    def delete(self, store_id: str, user_id: str) -> None:
+        self._docs.pop((store_id, user_id), None)
+
+
 # ---------------------------------------------------------------------------
 # 顧客への案内文言(未実装の聞き直しパターン向けの暫定文言)
 # ---------------------------------------------------------------------------
@@ -288,6 +334,22 @@ class ConversationEventProcessor:
     ConversationFlowStateMachine自体の責務(hold/confirm可否の判定)には不要なため、
     Flow内部状態には追加せずこちらでキャッシュする(実装ではFirestoreの
     会話状態ドキュメントに含める想定、firestore-data-model.md参照)。
+
+    conversation-state-wiring-design.md(フェーズ続き189)準拠。`conversation_state_store`を
+    渡すと、`process()`冒頭で該当ユーザーの永続化済み会話状態を`ConversationFlowStateMachine`へ
+    hydrateし、処理完了後にdehydrateして書き戻す(HTTP起動のCloud Functionsインスタンスが
+    ウォームスタートを保証されないため、`flow`自体は毎回新規構築される前提の設計、同md 2節参照)。
+    未指定(None)の場合は従来通りhydrate/dehydrateを行わず、呼び出し元が保持し続ける`flow`
+    インスタンスの内部状態(オンメモリ)だけに依存する(既存呼び出し元・テストへの後方互換)。
+
+    既知の残課題(同md「本フェーズでは対応しない範囲」参照): 上記の`_candidates_by_user`等
+    このクラス自身が持つuser_idごとのローカルキャッシュ(`_held_label_by_user`・
+    `_search_context_by_user`・`_pending_new_booking_context_by_user`も同様)は、本フェーズの
+    hydrate/dehydrateの対象に含めていない。そのため`conversation_state_store`を使い
+    インスタンスを都度新規構築する運用では、複数ターンにまたがるこれらのキャッシュは
+    ターンごとに空になり、案内文言中の候補ラベル等の一部表示が欠落しうる
+    (状態遷移そのもの、すなわちConversationFlowStateMachine側のhold/confirm可否判定は
+    `_states`のhydrate/dehydrateにより正しく動作し続ける)。
     """
 
     def __init__(
@@ -305,6 +367,7 @@ class ConversationEventProcessor:
         confirmed_reply_recorder: Optional[ConfirmedReplyRecorder] = None,
         owner_user_id: Optional[str] = None,
         store_profile: Optional[OwnerFollowStatusStoreProtocol] = None,
+        conversation_state_store: Optional[ConversationStateStoreProtocol] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -324,6 +387,9 @@ class ConversationEventProcessor:
         # `owner_is_following`の更新を行わない(customer-reply-detection-design.mdの
         # confirmed_reply_recorderと同じ「未指定時は何もしない」後方互換パターン)。
         self._store_profile = store_profile
+        # conversation-state-wiring-design.md(フェーズ続き189)準拠。未指定(None)の場合は
+        # hydrate/dehydrateを行わない(上記docstring参照、既存呼び出し元への後方互換)。
+        self._conversation_state_store = conversation_state_store
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -487,6 +553,30 @@ class ConversationEventProcessor:
         self._last_escalation_flush_at = now
         return self.flush_escalation_windows(now)
 
+    def _hydrate_conversation_state(self, user_id: str) -> None:
+        """conversation-state-wiring-design.md準拠。`conversation_state_store`未指定時は
+        何もしない(後方互換)。永続化済みドキュメントが無い場合(初回会話・アイドル失効後の
+        再会話等)も何もせず、`flow`側は状態なし(stage() is None)のまま新規会話として扱われる。
+        """
+        if self._conversation_state_store is None:
+            return
+        data = self._conversation_state_store.get(self._store_id, user_id)
+        if data is not None:
+            self._flow.import_state_from_persistence(user_id, self._store_id, data)
+
+    def _persist_conversation_state(self, user_id: str) -> None:
+        """`_hydrate_conversation_state()`の対。`export_state_for_persistence()`がNoneを返す
+        場合(cancel_booking()/change_booking()が`_states`から当該エントリを削除済みの場合)は
+        ドキュメントを削除する(ConversationStateStoreProtocol.delete()参照)。
+        """
+        if self._conversation_state_store is None:
+            return
+        data = self._flow.export_state_for_persistence(user_id)
+        if data is not None:
+            self._conversation_state_store.set(self._store_id, user_id, data)
+        else:
+            self._conversation_state_store.delete(self._store_id, user_id)
+
     def process(
         self,
         event: dict,
@@ -494,10 +584,34 @@ class ConversationEventProcessor:
         now: datetime,
         tone: str = "standard",
     ) -> DispatchResult:
-        """Cloud Tasksから1件デキューされたイベント(Cloud Function Aのenqueueペイロード)を処理する。"""
+        """Cloud Tasksから1件デキューされたイベント(Cloud Function Aのenqueueペイロード)を処理する。
+
+        conversation-state-wiring-design.md準拠。`conversation_state_store`が設定されていれば、
+        実処理(`_process_message_event()`)の前後で会話状態をhydrate/dehydrateする。
+        `_process_message_event()`が例外を送出した場合はdehydrate(書き戻し)を行わない
+        (`handle_process_conversation_event()`がstatus_code=500へ正規化しCloud Tasksに
+        再実行させる想定のため、次回の再試行時は直近の永続化済み状態から再度hydrateし直せば良く、
+        失敗した処理途中の不完全な状態を書き戻さない方が安全側)。
+        """
         user_id = event.get("source", {}).get("userId")
         if not user_id:
             raise ValueError("event is missing required field 'source.userId'")
+        self._hydrate_conversation_state(user_id)
+        result = self._process_message_event(user_id, event, llm_call, now, tone)
+        self._persist_conversation_state(user_id)
+        return result
+
+    def _process_message_event(
+        self,
+        user_id: str,
+        event: dict,
+        llm_call: Callable[[], dict],
+        now: datetime,
+        tone: str,
+    ) -> DispatchResult:
+        """process()の本体(intentごとの振り分け)。user_idの取り出し・会話状態の
+        hydrate/dehydrateはprocess()側の責務のため、ここではuser_idを引数で受け取る。
+        """
         reply_text = event.get("message", {}).get("text", "")
 
         # customer-reply-detection-design.md準拠。LLM呼び出し・intent判定より前に、

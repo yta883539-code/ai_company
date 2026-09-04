@@ -23,6 +23,7 @@ from cloud_function_process_event import (  # noqa: E402
     DispatchResult,
     FOLLOW_WELCOME_MESSAGE,
     InMemoryConfirmedReplyRecorder,
+    InMemoryConversationStateStore,
     InMemoryLinePushClient,
     LinePushDeliveryError,
     MissingDestinationError,
@@ -82,12 +83,22 @@ def _new_processor(
     owner_user_id=None,
     record_store=None,
     store_profile=None,
+    conversation_state_store=None,
+    booking_slots=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
     logs = NotificationLogAggregator()
+    # conversation-state-wiring-design.md(フェーズ続き189)準拠。booking_slotsを呼び出し側から
+    # 明示的に渡せるようにしたのは、「複数の新規ConversationFlowStateMachineインスタンス
+    # (キャッシュなし想定)が同じ店舗のbookingSlotsだけは共有する」round-tripテストのため
+    # (本フェーズの対象はあくまで`_states`のhydrate/dehydrateであり、BookingSlotManager自体の
+    # 永続化は引き続き別課題として残る、conversation-state-persistence-design.md 4節参照)。
     flow = ConversationFlowStateMachine(
-        BookingSlotManager(), EscalationConsolidator(), logs=logs, record_store=record_store
+        booking_slots if booking_slots is not None else BookingSlotManager(),
+        EscalationConsolidator(),
+        logs=logs,
+        record_store=record_store,
     )
     searcher = AvailabilitySearcher(
         business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
@@ -106,6 +117,7 @@ def _new_processor(
         confirmed_reply_recorder=confirmed_reply_recorder,
         owner_user_id=owner_user_id,
         store_profile=store_profile,
+        conversation_state_store=conversation_state_store,
     )
     return processor, flow, push, logs
 
@@ -2002,6 +2014,134 @@ class ProcessConversationEventEntryPointTests(unittest.TestCase):
         self.assertEqual(result.status_code, 500)
         self.assertIn("unhandled_error", result.detail)
         self.assertEqual(push.sent, [])
+
+
+class ConversationStateWiringTests(unittest.TestCase):
+    """conversation-state-wiring-design.md(フェーズ続き189)準拠。`conversation_state_store`を
+    渡した場合の`ConversationEventProcessor.process()`のhydrate/dehydrate配線を検証する。
+    「キャッシュなし・呼び出しのたびに新規`ConversationFlowStateMachine`を構築する」設計
+    (同md 2節)を再現するため、各テストの後半では`_new_processor()`を複数回呼んで、
+    直前のターンとは別インスタンスの`flow`/`processor`(ただし同じ`conversation_state_store`と
+    `BookingSlotManager`)で処理を継続する。
+    """
+
+    def _llm_call_ambiguous_date_range(self):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+        return {
+            "intent": "new_booking", "name": None, "menu": "カット",
+            "datetime_candidate": "来週土曜の空き候補", "confirmed": False,
+            "needs_owner_check": False,
+            "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+        }
+
+    def test_first_turn_with_no_persisted_document_behaves_as_fresh_conversation(self):
+        # 初回会話(まだ永続化済みドキュメントが無い)場合、get()がNoneを返すため
+        # import_state_from_persistence()は呼ばれず、従来通り新規会話として扱われる。
+        store = InMemoryConversationStateStore()
+        self.assertIsNone(store.get(STORE_ID, "U1"))
+        processor, flow, push, _ = _new_processor(conversation_state_store=store)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._llm_call_ambiguous_date_range, NOW)
+
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+        # process()完了時にdehydrate(export_state_for_persistence→set())されているはず。
+        persisted = store.get(STORE_ID, "U1")
+        self.assertIsNotNone(persisted)
+        self.assertEqual(persisted["stage"], "candidates_presented")
+        self.assertEqual(persisted, flow.export_state_for_persistence("U1"))
+
+    def test_round_trip_persistence_across_fresh_state_machine_instances(self):
+        # bookingSlots自体の永続化は本フェーズの対象外(conversation-state-persistence-
+        # design.md 4節)のため、テストでは各「呼び出し」間でBookingSlotManagerのみ共有する
+        # (実装ではこちらも別コレクションとして別途永続化される想定、firestore-data-model.md
+        # 2節参照)。
+        shared_slots = BookingSlotManager()
+        store = InMemoryConversationStateStore()
+
+        # 1ターン目: 曖昧な日時 → 候補提示。
+        processor1, flow1, push1, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots
+        )
+        r1 = processor1.process(
+            _event("U1", "来週土曜カットで"), self._llm_call_ambiguous_date_range, NOW
+        )
+        self.assertEqual(r1.action, "candidates_presented")
+
+        # 2ターン目: 全く新規の(=_candidates_by_user等のローカルキャッシュを一切持たない)
+        # processor/flowインスタンスで処理を継続する。conversation_state_storeが同じであれば、
+        # process()冒頭のhydrateでflow2._statesが1ターン目の状態から復元されるため、
+        # 「1番で」に対するselect_slot_from_reply()がFlow内部のcandidates一覧を使って
+        # 正しく解決できる(ConversationFlowStateMachine自身が持つ状態、すなわちhold/confirm
+        # 可否の判定に必要な部分は、hydrate/dehydrateにより正しく引き継がれることの確認)。
+        processor2, flow2, push2, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots
+        )
+        self.assertIsNone(flow2.stage("U1"))  # hydrate前はまだ空
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目の候補", "confirmed": False, "needs_owner_check": False,
+            }
+
+        r2 = processor2.process(_event("U1", "1番で"), llm_call_select, NOW)
+        self.assertEqual(r2.action, "held")
+        self.assertEqual(flow2.stage("U1"), "awaiting_details")
+        self.assertEqual(store.get(STORE_ID, "U1")["stage"], "awaiting_details")
+
+        # 3ターン目: さらに別の新規processor/flowインスタンスで氏名・メニューを確定する。
+        processor3, flow3, push3, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots
+        )
+        self.assertIsNone(flow3.stage("U1"))  # hydrate前はまだ空
+
+        def llm_call_confirm():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        r3 = processor3.process(_event("U1", "山田です、カットでお願いします"), llm_call_confirm, NOW)
+        self.assertEqual(r3.action, "confirmed")
+        self.assertEqual(flow3.stage("U1"), "confirmed")
+        persisted = store.get(STORE_ID, "U1")
+        self.assertEqual(persisted["stage"], "confirmed")
+        self.assertEqual(persisted["name"], "山田")
+        self.assertEqual(persisted["menu"], "カット")
+
+    def test_cancel_deletes_persisted_document(self):
+        # cancel_booking()が_statesから当該エントリを削除する(=export_state_for_persistence()が
+        # Noneを返す)場合、永続化側もdelete()されることを確認する。
+        store = InMemoryConversationStateStore()
+        processor1, flow1, push1, _ = _new_processor(conversation_state_store=store)
+        processor1.process(_event("U1", "来週土曜カットで"), self._llm_call_ambiguous_date_range, NOW)
+        self.assertIsNotNone(store.get(STORE_ID, "U1"))
+
+        processor2, flow2, push2, _ = _new_processor(conversation_state_store=store)
+
+        def llm_call_cancel():
+            return {
+                "intent": "cancel", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": True,
+            }
+
+        result = processor2.process(_event("U1", "キャンセルします"), llm_call_cancel, NOW)
+
+        self.assertEqual(result.action, "cancelled")
+        self.assertIsNone(flow2.stage("U1"))
+        self.assertIsNone(store.get(STORE_ID, "U1"))
+
+    def test_no_conversation_state_store_skips_hydrate_and_persist(self):
+        # conversation_state_store未指定(None)時は従来通り何もしない後方互換の確認
+        # (process()内のNoneガードが機能していることの直接テスト)。
+        processor, flow, push, _ = _new_processor()
+        result = processor.process(
+            _event("U1", "来週土曜カットで"), self._llm_call_ambiguous_date_range, NOW
+        )
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+        self.assertIsNone(processor._conversation_state_store)
 
 
 class ResolveStoreIdFromDestinationTests(unittest.TestCase):
