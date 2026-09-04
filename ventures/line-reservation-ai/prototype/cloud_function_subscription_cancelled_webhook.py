@@ -25,6 +25,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -54,6 +55,14 @@ class StoreSubscriptionState:
     """1店舗ぶんの契約状態(cloud_function_subscription_activated_webhook.pyの
     同名クラスと同型。suspension_reasonは同じFirestoreフィールドを指す)。
 
+    portal_url(Stripeカスタマーポータルへの一時リンク)はportal-session-provider-
+    design.md(フェーズ続き192)により、stateへ保存する固定フィールドから、呼び出し時に
+    都度`PortalLinkProvider.get_portal_url()`で解決する方式へ変更した(フェーズ続き193、
+    cloud_function_subscription_activated_webhook.StoreSubscriptionStateと同じ変更)。
+    そのためstateからは削除し、`handle_subscription_updated()`の引数として渡す
+    (`handle_subscription_deleted()`は解約確定メッセージにポータルリンクを含めないため
+    影響なし)。
+
     `blocked_but_billing_owner_notified_at`(2026-09-03追記、フェーズ続き178)は
     blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」対応。
     呼び出し元がFirestoreから読み込んだ現在値を渡し、`handle_subscription_deleted()`が
@@ -65,7 +74,6 @@ class StoreSubscriptionState:
     owner_line_user_id: str
     plan_name: str
     period_end_date: str
-    portal_url: str
     message_tone: str = "standard"
     suspension_reason: str | None = None
     blocked_but_billing_owner_notified_at: str | None = None
@@ -132,9 +140,41 @@ def _render_by_tone(tone: str, variants: dict) -> str:
 
 
 def render_cancellation_scheduled_message(
-    plan_name: str, period_end_date: str, portal_url: str, tone: str = "standard"
+    plan_name: str, period_end_date: str, portal_url: Optional[str], tone: str = "standard"
 ) -> str:
-    """design 3節「解約予約受理時の案内メッセージ」をトーン別に整形する。"""
+    """design 3節「解約予約受理時の案内メッセージ」をトーン別に整形する。
+
+    portal_urlは`PortalLinkProvider.get_portal_url()`で都度解決した値を呼び出し元から
+    渡す想定(portal-session-provider-design.md 4節)。取得できなかった場合は`None`となり、
+    「▼ お手続きはこちら」のURLブロックを、既存の`render_cancellation_rescheduled_message()`
+    等と同じ「このトークルームへご返信ください」導線に差し替える安全側フォールバックとする
+    (design 4節2.、壊れたURLや古いリンクを本文に残さないため)。
+    """
+    if portal_url:
+        formal_howto = f"""解約をお取り消しになりたい場合は、終了日より前であれば下記から「更新を再開」の
+お手続きが可能です。
+
+▼ お手続きはこちら
+{portal_url}"""
+        standard_howto = f"""解約を取り消したい場合は、終了日より前であれば下記から「更新を再開」の
+お手続きが可能です。
+
+▼ お手続きはこちら
+{portal_url}"""
+        casual_howto = f"""やっぱり続けたい場合は、終了日より前なら下記から「更新を再開」できます。
+
+▼ こちら
+{portal_url}"""
+    else:
+        formal_howto = (
+            "解約をお取り消しになりたい場合は、終了日より前であればこのトークルームへ"
+            "ご返信くださいませ。"
+        )
+        standard_howto = (
+            "解約を取り消したい場合は、終了日より前であればこのトークルームにご返信ください。"
+        )
+        casual_howto = "やっぱり続けたい場合は、終了日より前ならこのトークルームに返信してください。"
+
     variants = {
         "formal": f"""【予約とれる君】解約のお手続きを承りました
 
@@ -147,11 +187,7 @@ def render_cancellation_scheduled_message(
   前日リマインドのみ引き続き対応いたします
 ・日割りでの返金は行っておりません
 
-解約をお取り消しになりたい場合は、終了日より前であれば下記から「更新を再開」の
-お手続きが可能です。
-
-▼ お手続きはこちら
-{portal_url}
+{formal_howto}
 
 またのご利用をお待ち申し上げております。""",
         "standard": f"""【予約とれる君】解約のお手続きを承りました
@@ -165,11 +201,7 @@ def render_cancellation_scheduled_message(
   前日リマインドのみ引き続き対応します
 ・日割りでの返金は行っておりません
 
-解約を取り消したい場合は、終了日より前であれば下記から「更新を再開」の
-お手続きが可能です。
-
-▼ お手続きはこちら
-{portal_url}
+{standard_howto}
 
 またのご利用をお待ちしております。""",
         "casual": f"""【予約とれる君】解約のお手続き、承りました
@@ -183,10 +215,7 @@ def render_cancellation_scheduled_message(
   引き続き対応します
 ・日割り返金はありません
 
-やっぱり続けたい場合は、終了日より前なら下記から「更新を再開」できます。
-
-▼ こちら
-{portal_url}
+{casual_howto}
 
 またのご利用をお待ちしています。""",
     }
@@ -259,10 +288,14 @@ def handle_subscription_updated(
     cancel_at_period_end_before: bool,
     cancel_at_period_end_after: bool,
     push_client: LinePushClient,
+    portal_url: Optional[str] = None,
 ) -> SubscriptionCancellationUpdateResult:
     """`customer.subscription.updated`(cancel_at_period_end変化)受信時の処理本体。
 
     design 1節の通り、この時点では契約は継続中のためsuspension_reasonは変更しない。
+    portal_urlは呼び出し元(`receive_stripe_webhook()`)が`PortalLinkProvider`から
+    都度解決した値を渡す想定(OUTCOME_CANCELLATION_SCHEDULEDの場合のみ使用、省略時は
+    `None`でrender側のフォールバックに委ねる。portal-session-provider-design.md 4節)。
     """
     outcome = classify_subscription_update(
         cancel_at_period_end_before, cancel_at_period_end_after, state.suspension_reason
@@ -273,7 +306,7 @@ def handle_subscription_updated(
 
     if outcome == OUTCOME_CANCELLATION_SCHEDULED:
         text = render_cancellation_scheduled_message(
-            state.plan_name, state.period_end_date, state.portal_url, state.message_tone
+            state.plan_name, state.period_end_date, portal_url, state.message_tone
         )
     else:
         text = render_cancellation_rescheduled_message(
@@ -338,10 +371,14 @@ def _demo() -> None:
         owner_line_user_id="owner-line-5",
         plan_name="スタンダードプラン",
         period_end_date="2026-09-14",
-        portal_url="https://example.com/billing/portal",
     )
 
-    print("1) 解約操作直後:", handle_subscription_updated(store, False, True, push))
+    print(
+        "1) 解約操作直後:",
+        handle_subscription_updated(
+            store, False, True, push, portal_url="https://example.com/billing/portal"
+        ),
+    )
     print("2) 解約取り消し:", handle_subscription_updated(store, True, False, push))
     print("3) Webhook再送(変化なし):", handle_subscription_updated(store, False, False, push))
 
@@ -354,7 +391,6 @@ def _demo() -> None:
         owner_line_user_id="owner-line-6",
         plan_name="スタンダードプラン",
         period_end_date="2026-09-20",
-        portal_url="https://example.com/billing/portal",
         suspension_reason="payment_failed",
     )
     print("6) 決済失敗で制限モード中の店舗への誤配信:", handle_subscription_deleted(suspended, push))

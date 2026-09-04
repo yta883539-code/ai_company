@@ -40,7 +40,6 @@ def _store(**overrides) -> StoreSubscriptionState:
         owner_line_user_id="owner-1",
         plan_name="スタンダードプラン",
         period_end_date="2026-09-14",
-        portal_url="https://example.com/billing/portal",
     )
     defaults.update(overrides)
     return StoreSubscriptionState(**defaults)
@@ -103,6 +102,19 @@ class RenderMessageTests(unittest.TestCase):
         )
         self.assertEqual(standard, unknown)
 
+    def test_scheduled_message_none_portal_url_falls_back_to_reply_in_chat(self):
+        # portal-session-provider-design.md 4節2.: 取得失敗時はURLブロックを
+        # 「このトークルームへご返信ください」導線に差し替える。
+        for tone in ("formal", "standard", "casual"):
+            text = render_cancellation_scheduled_message(
+                "スタンダードプラン", "2026-09-14", None, tone=tone
+            )
+            self.assertNotIn("お手続きはこちら", text)
+            self.assertNotIn("example.com", text)
+            self.assertIn("トークルーム", text)
+            self.assertIn("スタンダードプラン", text)
+            self.assertIn("2026-09-14", text)
+
     def test_rescheduled_message_contains_plan_and_date(self):
         text = render_cancellation_rescheduled_message("スタンダードプラン", "2026-09-14")
         self.assertIn("スタンダードプラン", text)
@@ -128,11 +140,24 @@ class HandleSubscriptionUpdatedTests(unittest.TestCase):
     def test_scheduled_sends_message_and_does_not_change_state(self):
         state = _store()
         push = InMemoryLinePushClient()
-        result = handle_subscription_updated(state, False, True, push)
+        result = handle_subscription_updated(
+            state, False, True, push, portal_url="https://example.com/billing/portal"
+        )
         self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
         self.assertTrue(result.notified)
         self.assertIsNone(state.suspension_reason)
         self.assertEqual(len(push.sent), 1)
+        self.assertIn("https://example.com/billing/portal", push.sent[0][1])
+
+    def test_scheduled_without_portal_url_still_sends_message(self):
+        # portal_link_provider未接続(None)でも送信自体はブロックしない
+        # (portal-session-provider-design.md 4節2.のフォールバック文言に委ねる)。
+        state = _store()
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, False, True, push)
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        self.assertIn("トークルーム", push.sent[0][1])
 
     def test_rescheduled_sends_message(self):
         state = _store()

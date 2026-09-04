@@ -33,7 +33,6 @@ def _store(**overrides) -> StoreSubscriptionState:
         owner_line_user_id="owner-1",
         plan_name="スタンダードプラン",
         next_billing_date="2026-09-14",
-        portal_url="https://example.com/billing/portal",
     )
     defaults.update(overrides)
     return StoreSubscriptionState(**defaults)
@@ -88,12 +87,25 @@ class RenderSubscriptionActivatedMessageTests(unittest.TestCase):
         )
         self.assertEqual(actual, expected)
 
+    def test_none_portal_url_omits_portal_line(self):
+        # portal-session-provider-design.md 4節2.: 取得失敗時は案内行自体を省略する。
+        for tone in ("formal", "standard", "casual"):
+            text = render_subscription_activated_message(
+                "スタンダードプラン", "2026-09-14", None, tone
+            )
+            self.assertNotIn("マイページ", text)
+            self.assertNotIn("ご登録内容の確認・変更", text)
+            self.assertIn("スタンダードプラン", text)
+            self.assertIn("2026-09-14", text)
+
 
 class HandleSubscriptionActivatedTests(unittest.TestCase):
     def test_activation_sends_message_and_clears_suspension(self):
         state = _store(suspension_reason="trial_unselected")
         push = InMemoryLinePushClient()
-        result = handle_subscription_activated(state, push)
+        result = handle_subscription_activated(
+            state, push, portal_url="https://example.com/billing/portal"
+        )
 
         self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
         self.assertTrue(result.notified)
@@ -101,6 +113,18 @@ class HandleSubscriptionActivatedTests(unittest.TestCase):
         self.assertIsNone(state.suspension_reason)
         self.assertEqual(len(push.sent), 1)
         self.assertEqual(push.sent[0][0], "owner-1")
+        self.assertIn("https://example.com/billing/portal", push.sent[0][1])
+
+    def test_activation_without_portal_url_still_sends_message(self):
+        # portal_link_provider未接続(None)でも送信自体はブロックしない
+        # (portal-session-provider-design.md 4節2.のフォールバック文言に委ねる)。
+        state = _store(suspension_reason="trial_unselected")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_activated(state, push)
+
+        self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
+        self.assertTrue(result.notified)
+        self.assertNotIn("マイページ", push.sent[0][1])
 
     def test_webhook_replay_after_activation_is_noop(self):
         state = _store(suspension_reason=None)

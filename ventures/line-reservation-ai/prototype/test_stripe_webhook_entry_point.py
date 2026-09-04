@@ -20,6 +20,7 @@ from cloud_function_subscription_cancelled_webhook import (
     StoreSubscriptionState as StoreCancellationState,
 )
 from dunning_notification_scheduler import DUNNING_CONFIG_A_7DAYS
+from portal_session import InMemoryPortalLinkProvider
 from stripe_webhook import InMemoryStripeEventIdStore
 from stripe_webhook_entry_point import (
     InMemoryStoreCancellationStateStore,
@@ -164,7 +165,6 @@ class ReceiveStripeWebhookSubscriptionActivatedTest(unittest.TestCase):
                 owner_line_user_id="owner-line-1",
                 plan_name="スタンダードプラン",
                 next_billing_date="2026-10-03",
-                portal_url="https://example.com/portal",
                 suspension_reason="trial_unselected",
             ),
         )
@@ -215,6 +215,34 @@ class ReceiveStripeWebhookSubscriptionActivatedTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertIsNone(result.outcome)
         self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_portal_link_provider_resolves_url_into_message(self):
+        # portal-session-provider-design.md 4節3.: providerが渡された場合のみ都度解決する。
+        result = receive_stripe_webhook(
+            *self._signed_payload(),
+            resolve_store_id_by_customer=_resolve_by_customer,
+            subscription_store=self.subscription_store,
+            push_client=self.push_client,
+            portal_link_provider=InMemoryPortalLinkProvider("https://example.test/portal"),
+            now=NOW,
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertIn("https://example.test/portal", self.push_client.sent[0][1])
+
+    def test_omitted_portal_link_provider_falls_back_to_no_portal_line(self):
+        result = self._send()
+        self.assertEqual(result.status_code, 200)
+        self.assertNotIn("マイページ", self.push_client.sent[0][1])
+
+    def _signed_payload(self):
+        payload = _event_payload(
+            "evt_1",
+            "checkout.session.completed",
+            {"client_reference_id": "store-1", "customer": "cus_1"},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+        return payload, header, SECRET
 
     def test_skipped_when_push_client_missing(self):
         payload = _event_payload(
@@ -387,7 +415,6 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
                 owner_line_user_id="owner-line-1",
                 plan_name="スタンダードプラン",
                 period_end_date="2026-09-14",
-                portal_url="https://example.com/portal",
                 suspension_reason=None,
             ),
         )
@@ -516,7 +543,6 @@ class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
                 owner_line_user_id="owner-line-1",
                 plan_name="スタンダードプラン",
                 period_end_date="2026-09-14",
-                portal_url="https://example.com/portal",
                 suspension_reason=None,
             ),
         )
@@ -547,6 +573,54 @@ class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
         self.assertEqual(len(self.push_client.sent), 1)
         stored = self.cancellation_store.get_cancellation_state("store-1")
         self.assertIsNone(stored.suspension_reason)
+
+    def test_portal_link_provider_resolves_url_into_message(self):
+        # portal-session-provider-design.md 4節3.: providerが渡された場合のみ都度解決する。
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            portal_link_provider=InMemoryPortalLinkProvider("https://example.test/portal"),
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIn("https://example.test/portal", self.push_client.sent[0][1])
+
+    def test_omitted_portal_link_provider_falls_back_to_reply_in_chat(self):
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIn("トークルーム", self.push_client.sent[0][1])
 
     def test_unrelated_field_change_is_no_change_and_no_notification(self):
         # previous_attributesにcancel_at_period_endが含まれない

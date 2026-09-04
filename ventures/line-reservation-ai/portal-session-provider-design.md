@@ -76,17 +76,37 @@ aircon-pasha・course-set-pashaと同じ`PortalLinkProvider`パターンへ揃�
 
 ## 5. 実装状況
 
-未着手(本フェーズは設計・発見のみ)。次回以降、上記4点を実装しテストを追加する。
+実装済み(2026-09-04 17:00 UTC、フェーズ続き193)。上記4点をすべて実装した。
+
+1. `cloud_function_subscription_activated_webhook.StoreSubscriptionState`・
+   `cloud_function_subscription_cancelled_webhook.StoreSubscriptionState`から
+   `portal_url: str`フィールドを削除した。
+2. `render_subscription_activated_message()`・`render_cancellation_scheduled_message()`の
+   引数を`portal_url: Optional[str]`に変更した。`None`の場合、前者は「ご登録内容の
+   確認・変更」案内行自体を省略し、後者は「▼ お手続きはこちら」のURLブロックを
+   「このトークルームへご返信ください」導線に差し替える(3.で定めた通りの安全側
+   フォールバック)。
+3. `handle_subscription_activated()`・`handle_subscription_updated()`に
+   `portal_url: Optional[str] = None`引数を追加し、`stripe_webhook_entry_point.
+   receive_stripe_webhook()`が`EVENT_CHECKOUT_SESSION_COMPLETED`・
+   `EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`の各分岐でメッセージ整形の直前に
+   `portal_link_provider.get_portal_url(store_id)`を呼んで都度解決し引数として渡す
+   (`portal_link_provider`が`None`の場合は解決せず`None`のまま渡し、2.のフォールバックに
+   委ねる)。
+4. `PortalLinkProvider`Protocol定義・`StripePortalLinkProvider`実装本体を
+   `prototype/portal_session.py`として新規作成した(aircon-pashaのportal_session.pyを
+   ほぼそのまま流用、`store_profile_store.StoreProfileStoreProtocol.
+   get_stripe_customer_id()`を最小限のstructural typingで利用)。
+
+テスト16件追加(`test_portal_session.py`9件新規・`test_cloud_function_subscription_
+activated_webhook.py`2件追加・`test_cloud_function_subscription_cancelled_webhook.py`
+3件追加・`test_stripe_webhook_entry_point.py`4件追加)、venture全体710件全件
+(`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+(`python3 schema/validate_test_cases.py`)パスを確認した。
 
 ## 6. 今後の課題
 
-- `state.portal_url`削除に伴う既存テスト
-  (`test_cloud_function_subscription_activated_webhook.py`・
-  `test_cloud_function_subscription_cancelled_webhook.py`)の`portal_url="https://
-  example.com/billing/portal"`引数の除去・置き換えが必要(次回実装フェーズで対応)。
 - `PortalLinkProvider`実装本体の実`stripe.billing_portal.Session.create()`呼び出しへの
   差し替え、および`get_stripe_webhook_runtime_dependencies()`への実際の配線は、
   実Stripeアカウント接続(オーナー承認待ち、pending-approval.md参照)後の課題として残る
   (aircon-pashaの同ドキュメント6節と同じ位置づけ)。
-- `get_stripe_customer_id(user_id)`相当のgetterが本venture側の`store_profile_store.py`に
-  既に存在するかどうかの確認は未実施のため、実装着手時に確認する。

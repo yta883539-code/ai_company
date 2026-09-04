@@ -2345,15 +2345,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (`state.portal_url`削除・`portal_session.py`新規実装・関連テスト更新)、または
   フェーズ続き191「次回以降の課題」の`searcher`組み立て(営業時間データモデル設計)を
   優先候補とする。
-- 最終更新: 2026-09-04 15:00 UTC
+- フェーズ続き193(2026-09-04 17:00 UTC): フェーズ続き192で設計した
+  `portal-session-provider-design.md`の実装に着手した。
+  `cloud_function_subscription_activated_webhook.StoreSubscriptionState`・
+  `cloud_function_subscription_cancelled_webhook.StoreSubscriptionState`から
+  `portal_url: str`フィールドを削除し、`render_subscription_activated_message()`・
+  `render_cancellation_scheduled_message()`の引数を`portal_url: Optional[str]`に変更、
+  `None`時は前者が案内行省略・後者が「このトークルームへご返信ください」導線への
+  差し替えという安全側フォールバックを新設した。`handle_subscription_activated()`・
+  `handle_subscription_updated()`に`portal_url`引数を追加し、
+  `stripe_webhook_entry_point.receive_stripe_webhook()`に`portal_link_provider`引数を
+  新設して`EVENT_CHECKOUT_SESSION_COMPLETED`・`EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`の
+  各分岐でメッセージ整形直前に都度`get_portal_url(store_id)`を解決するよう配線した。
+  `PortalLinkProvider`Protocol・`StripePortalLinkProvider`実装本体は
+  `prototype/portal_session.py`として新規作成し、aircon-pashaの同名モジュールをほぼ
+  そのまま流用した(`store_profile_store.get_stripe_customer_id()`をstructural typingで
+  利用)。テスト16件追加(`test_portal_session.py`9件新規・活性化/解約webhookテストへの
+  追加5件・エントリポイントの配線テスト2件)、venture全体710件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前694件+新規16件)
+  パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  `get_stripe_webhook_runtime_dependencies()`は`push_client`と同様、実Stripe Billing
+  Portalセッション作成API接続がオーナー承認待ちのため`portal_link_provider`を引き続き
+  意図的に渡さない。承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、またはフェーズ続き191「次回以降の課題」の
+  `searcher`組み立て(営業時間データモデル設計)を優先候補とする。
+- 最終更新: 2026-09-04 17:00 UTC
 
 ## 次にやること(候補)
-- (新規発見・フェーズ続き192、2026-09-04 15:00 UTC: `StoreSubscriptionState.portal_url`が
-  Stripeカスタマーポータルの一時的なセッションURLを店舗状態に固定文字列として保存する
-  設計になっており、特に解約予約受理案内でリンク失効リスクを抱えていることを発見。
-  aircon-pasha・course-set-pasha同様の`PortalLinkProvider`パターンへの移行方針を
-  portal-session-provider-design.mdとして設計した。実装(state側フィールド削除・
-  `portal_session.py`新規実装・関連テスト更新)は次回以降の課題として残る)
+- (解消済み 2026-09-04 17:00 UTC・フェーズ続き193: `StoreSubscriptionState.portal_url`の
+  `PortalLinkProvider`パターンへの移行を実装した。詳細は上記フェーズ続き193・
+  portal-session-provider-design.md 5節参照。実`stripe.billing_portal.Session.create()`
+  呼び出しへの差し替えは実Stripeアカウント接続(オーナー承認待ち)後の課題として残る)
 - (新規解消・フェーズ続き191、2026-09-04 13:00 UTC: conversation-state-wiring-design.md 6節の
   「`ConversationEventProcessor`組み立ての結線」課題に着手し、`menu_durations`・
   `store_faq_info`のstore経由取得を実装した。詳細は上記フェーズ続き191・

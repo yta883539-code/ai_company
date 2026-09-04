@@ -36,6 +36,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -63,13 +64,17 @@ class StoreSubscriptionState:
     同じフィールドを指す(dormant-mode-renotification-design.mdの3分岐: なし/
     "trial_unselected"/"payment_failed")。本モジュールが読み書きの対象とするのは
     "trial_unselected"のときのみ。
+
+    portal_url(Stripeカスタマーポータルへの一時リンク)はportal-session-provider-
+    design.md(フェーズ続き192)により、stateへ保存する固定フィールドから、呼び出し時に
+    都度`PortalLinkProvider.get_portal_url()`で解決する方式へ変更した(フェーズ続き193)。
+    そのためstateからは削除し、`handle_subscription_activated()`の引数として渡す。
     """
 
     store_id: str
     owner_line_user_id: str
     plan_name: str
     next_billing_date: str
-    portal_url: str
     message_tone: str = "standard"
     suspension_reason: str | None = None
 
@@ -105,15 +110,22 @@ def _render_by_tone(tone: str, variants: dict) -> str:
 
 
 def render_subscription_activated_message(
-    plan_name: str, next_billing_date: str, portal_url: str, tone: str = "standard"
+    plan_name: str, next_billing_date: str, portal_url: Optional[str], tone: str = "standard"
 ) -> str:
     """billing-upgrade-flow-design.md 3節の「決済完了後のメッセージ」をトーン別に整形する。
 
-    plan_name・next_billing_date・portal_urlは決済代行サービスのWebhookペイロードに
-    含まれる値をそのまま埋め込む想定(3節の注記通り、実装時の項目名確定は決済代行サービス
-    選定後の課題として残す)。message-tone-variants.mdの規則(実質情報はトーンで変わらない)に
-    従い、これら3つの値自体はトーンに関わらず同じ形式で埋め込む。
+    plan_name・next_billing_dateは決済代行サービスのWebhookペイロードに含まれる値を
+    そのまま埋め込む想定(3節の注記通り、実装時の項目名確定は決済代行サービス選定後の
+    課題として残す)。message-tone-variants.mdの規則(実質情報はトーンで変わらない)に
+    従い、これらの値自体はトーンに関わらず同じ形式で埋め込む。
+
+    portal_urlは`PortalLinkProvider.get_portal_url()`で都度解決した値を呼び出し元から
+    渡す想定(portal-session-provider-design.md 4節)。取得できなかった場合(provider
+    未接続・store_idにStripe顧客IDが紐付いていない・API呼び出し失敗)は`None`となり、
+    「ご登録内容の確認・変更」の案内行自体を省略する安全側フォールバックとする
+    (design 4節2.、壊れたURLや古いリンクを本文に残さないため)。
     """
+    portal_line = f"・ご登録内容の確認・変更: {portal_url}(マイページ)\n" if portal_url else ""
     variants = {
         "formal": f"""【予約とれる君】ご登録ありがとうございます
 
@@ -121,8 +133,7 @@ def render_subscription_activated_message(
 本日より正式にご利用いただけます。
 
 ・次回請求日: {next_billing_date}
-・ご登録内容の確認・変更: {portal_url}(マイページ)
-
+{portal_line}
 引き続きどうぞよろしくお願い申し上げます。""",
         "standard": f"""【予約とれる君】ご登録ありがとうございます
 
@@ -130,8 +141,7 @@ def render_subscription_activated_message(
 本日より正式にご利用いただけます。
 
 ・次回請求日: {next_billing_date}
-・ご登録内容の確認・変更: {portal_url}(マイページ)
-
+{portal_line}
 引き続きよろしくお願いいたします。""",
         "casual": f"""【予約とれる君】ご登録ありがとうございます🎉
 
@@ -139,20 +149,24 @@ def render_subscription_activated_message(
 本日から使えます。
 
 ・次回請求日: {next_billing_date}
-・登録内容の確認・変更: {portal_url}(マイページ)
-
+{portal_line}
 引き続きよろしくお願いします。""",
     }
     return _render_by_tone(tone, variants)
 
 
 def handle_subscription_activated(
-    state: StoreSubscriptionState, push_client: LinePushClient
+    state: StoreSubscriptionState,
+    push_client: LinePushClient,
+    portal_url: Optional[str] = None,
 ) -> SubscriptionActivatedResult:
     """決済代行サービスの`subscription_activated`Webhook受信時の処理本体。
 
     引数のstateは呼び出し元でFirestoreから読み取った当該店舗の状態を想定し、
     本関数は必要な通知送信と状態の書き換えを行う(実際のFirestore書き戻しは呼び出し側)。
+    portal_urlは呼び出し元(`receive_stripe_webhook()`)が`PortalLinkProvider`から
+    都度解決した値を渡す想定(portal-session-provider-design.md 4節、省略時は`None`で
+    render側のフォールバックに委ねる)。
     """
     outcome = classify_subscription_activated(state)
 
@@ -160,7 +174,7 @@ def handle_subscription_activated(
         return SubscriptionActivatedResult(outcome=outcome)
 
     text = render_subscription_activated_message(
-        state.plan_name, state.next_billing_date, state.portal_url, state.message_tone
+        state.plan_name, state.next_billing_date, portal_url, state.message_tone
     )
 
     try:
@@ -183,10 +197,14 @@ def _demo() -> None:
         owner_line_user_id="owner-line-3",
         plan_name="スタンダードプラン",
         next_billing_date="2026-09-14",
-        portal_url="https://example.com/billing/portal",
         suspension_reason="trial_unselected",
     )
-    print("1回目(初回登録完了):", handle_subscription_activated(store, push))
+    print(
+        "1回目(初回登録完了):",
+        handle_subscription_activated(
+            store, push, portal_url="https://example.com/billing/portal"
+        ),
+    )
     print("  状態:", store.suspension_reason)
 
     # 2) Webhook再送: 既にsuspension_reasonが解除済みのため二重送信されない(冪等性の確認)。
@@ -199,7 +217,6 @@ def _demo() -> None:
         owner_line_user_id="owner-line-4",
         plan_name="スタンダードプラン",
         next_billing_date="2026-09-20",
-        portal_url="https://example.com/billing/portal",
         suspension_reason="payment_failed",
     )
     result = handle_subscription_activated(suspended, push)

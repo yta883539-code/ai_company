@@ -44,6 +44,7 @@ from cloud_function_subscription_cancelled_webhook import (
     handle_subscription_deleted,
     handle_subscription_updated,
 )
+from portal_session import PortalLinkProvider
 from store_profile_store import InMemoryStoreProfileStore, make_resolve_store_id_by_customer
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
@@ -144,6 +145,7 @@ def receive_stripe_webhook(
     cancellation_store: Optional[StoreCancellationStateStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版、design 2節)。
@@ -152,6 +154,12 @@ def receive_stripe_webhook(
     対応するハンドラ呼び出し・状態書き戻し、という流れを行う。各段階の安全側フォール
     バックはdesign 2節の番号付き手順の通り(course-set-pasha/aircon-pashaの
     `receive_stripe_webhook()`と同じ「未接続・未解決時はハンドラを呼ばず200」方針)。
+
+    `portal_link_provider`(portal-session-provider-design.md、フェーズ続き193)は
+    省略時`None`。`EVENT_CHECKOUT_SESSION_COMPLETED`(決済完了案内)・
+    `EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`(解約予約受理案内)の直前にのみ
+    `get_portal_url(store_id)`を呼び都度URLを解決する(design 4節3.、stateには
+    保存しない)。`None`の場合は各render関数側の安全側フォールバック文言に委ねる。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
 
@@ -188,7 +196,12 @@ def receive_stripe_webhook(
         state = subscription_store.get_subscription_state(store_id)
         if state is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
-        result = handle_subscription_activated(state, push_client)
+        portal_url = (
+            portal_link_provider.get_portal_url(store_id)
+            if portal_link_provider is not None
+            else None
+        )
+        result = handle_subscription_activated(state, push_client, portal_url=portal_url)
         if result.outcome == SUBSCRIPTION_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
                 status_code=200, route=route, outcome=result.outcome
@@ -255,8 +268,17 @@ def receive_stripe_webhook(
         cancel_at_period_end_before = bool(
             previous_attributes.get("cancel_at_period_end", cancel_at_period_end_after)
         )
+        portal_url = (
+            portal_link_provider.get_portal_url(store_id)
+            if portal_link_provider is not None
+            else None
+        )
         result = handle_subscription_updated(
-            state, cancel_at_period_end_before, cancel_at_period_end_after, push_client
+            state,
+            cancel_at_period_end_before,
+            cancel_at_period_end_after,
+            push_client,
+            portal_url=portal_url,
         )
         if result.outcome == CANCELLATION_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
@@ -278,11 +300,14 @@ def get_stripe_webhook_runtime_dependencies() -> dict:
     初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/aircon-pashaの
     同名ファクトリと同じ既知の限界)。
 
-    `push_client`は意図的に返り値へ含めない。実LINE Messaging API接続
-    (Channel Access Token取得、オーナー承認待ち)が済むまでは`receive_stripe_webhook()`に
-    `None`のまま渡り、各分岐の「`push_client`が`None`の場合はハンドラを呼ばず200を返す」
-    既存の安全側フォールバックがそのまま効く(course-set-pasha/stripe_webhook.
-    get_stripe_runtime_dependencies()と同じ判断)。
+    `push_client`・`portal_link_provider`は意図的に返り値へ含めない。実LINE Messaging
+    API接続(Channel Access Token取得)・実Stripe Billing Portalセッション作成API接続は
+    いずれもオーナー承認待ちのため、`receive_stripe_webhook()`には`None`のまま渡り、
+    `push_client`は各分岐の「`None`の場合はハンドラを呼ばず200を返す」既存の安全側
+    フォールバックが、`portal_link_provider`は各render関数側の「`None`の場合は
+    案内文言を省略・トークルーム返信導線に差し替える」安全側フォールバック(portal-
+    session-provider-design.md 4節)がそれぞれ効く(course-set-pasha/aircon-pashaの
+    stripe_webhook.get_stripe_runtime_dependencies()と同じ判断)。
     """
     store = InMemoryStoreProfileStore()
     return {
