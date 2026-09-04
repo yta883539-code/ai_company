@@ -604,6 +604,7 @@ def receive_stripe_webhook(
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
     usage_counter: Optional[UpgradedAtWriterProtocol] = None,
     push_client: Optional[LinePushClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
@@ -643,6 +644,16 @@ def receive_stripe_webhook(
     とともに200を返す(副作用ゼロ)。`id`が欠落・非文字列の場合はチェックを
     スキップし従来通り処理する(安全側)。省略時(`None`)はべき等性チェックを
     一切行わない(既存呼び出し経路への後方互換措置)。
+
+    `portal_link_provider`はフェーズ127で`dispatch_stripe_event()`側の引数として
+    追加済みだったが、本関数(実HTTPエントリポイント)側のシグネチャに欠落しており
+    常に`None`のまま委譲されていた配線漏れがあった(aircon-pashaフェーズ186・
+    `cancellation_push_client`/`portal_link_provider`と同種)。フェーズ158で追加し、
+    `dispatch_stripe_event()`へそのまま委譲する。決済失敗検知時通知
+    (`render_payment_failure_detected_message()`)・解約予約受理案内の両方の文面へ
+    実際のStripeカスタマーポータルURLが差し込まれるようになる。未指定(`None`)時は
+    従来通り`PORTAL_LINK_UNAVAILABLE_FALLBACK`が使われる(既存呼び出し経路への
+    後方互換措置)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -686,6 +697,7 @@ def receive_stripe_webhook(
         resolve_user_id=resolve_user_id,
         usage_counter=usage_counter,
         push_client=push_client,
+        portal_link_provider=portal_link_provider,
         user_profile_store=user_profile_store,
         now=resolved_now,
     )

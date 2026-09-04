@@ -1698,6 +1698,77 @@ class ReceiveStripeWebhookIdempotencyWiringTest(unittest.TestCase):
             self.assertFalse(result.duplicate)
 
 
+class ReceiveStripeWebhookPortalLinkProviderWiringTest(unittest.TestCase):
+    """フェーズ158: `dispatch_stripe_event()`側にはフェーズ127で追加済みだった
+    `portal_link_provider`が、実HTTPエントリポイントである`receive_stripe_webhook()`側の
+    シグネチャに欠落しており常に`None`のまま委譲されていた配線漏れ(aircon-pashaフェーズ186・
+    `cancellation_push_client`/`portal_link_provider`と同種)を検証する。"""
+
+    def setUp(self):
+        self.now = datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
+
+    def _cancellation_scheduled_body(self) -> bytes:
+        return json.dumps(
+            {
+                "id": "evt_portal_link_wiring",
+                "type": "customer.subscription.updated",
+                "data": {
+                    "object": {
+                        "customer": "cus_A",
+                        "status": "active",
+                        "cancel_at_period_end": True,
+                        "current_period_end": 1_700_500_000,
+                    },
+                    "previous_attributes": {"cancel_at_period_end": False},
+                },
+            }
+        ).encode("utf-8")
+
+    def test_portal_link_provider_is_wired_through_to_cancellation_scheduled_message(self):
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider("https://example.com/portal")
+        body = self._cancellation_scheduled_body()
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=InMemoryProfileDeletionCandidateStore(),
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+            portal_link_provider=portal_link_provider,
+            now=self.now,
+        )
+
+        self.assertEqual(result.dispatch_result.cancellation_scheduled_notified_user_ids, ["user_1"])
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertEqual(sent_user_id, "user_1")
+        self.assertIn("https://example.com/portal", sent_text)
+        self.assertNotEqual(sent_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+    def test_no_portal_link_provider_sends_fallback_message(self):
+        # 後方互換: portal_link_provider省略時は従来通りPORTAL_LINK_UNAVAILABLE_FALLBACKが
+        # 送られる(壊れたURLを顧客に見せないための既存の安全側デフォルト)。
+        push_client = InMemoryLinePushClient()
+        body = self._cancellation_scheduled_body()
+        header = _header(body, SECRET, int(NOW))
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            store=InMemoryProfileDeletionCandidateStore(),
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            push_client=push_client,
+            now=self.now,
+        )
+
+        self.assertEqual(result.dispatch_result.cancellation_scheduled_notified_user_ids, ["user_1"])
+        sent_user_id, sent_text = push_client.sent[0]
+        self.assertEqual(sent_text, PORTAL_LINK_UNAVAILABLE_FALLBACK)
+
+
 class InMemoryStripeEventIdStoreTest(unittest.TestCase):
     def test_unmarked_event_id_has_not_processed(self):
         self.assertFalse(InMemoryStripeEventIdStore().has_processed("evt_1"))

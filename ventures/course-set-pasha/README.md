@@ -1992,10 +1992,39 @@
   (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 07:00 UTC
+- フェーズ158(2026-09-04 14:00 UTC): 他venture(aircon-pashaフェーズ186)が
+  `stripe_webhook.receive_stripe_webhook()`(実HTTPエントリポイント)への
+  `cancellation_push_client`/`portal_link_provider`配線漏れを解消していたのを受け、
+  本venture側も同種の配線漏れが残っていないか確認したところ、`dispatch_stripe_event()`
+  側には`portal_link_provider`引数がフェーズ127時点から存在するにもかかわらず、
+  `receive_stripe_webhook()`側のシグネチャに`portal_link_provider`が欠落しており、
+  実HTTPエントリポイント経由では常に`None`のまま`dispatch_stripe_event()`へ委譲されて
+  いた(決済失敗検知時通知は`get_stripe_runtime_dependencies()`が`push_client`自体を
+  意図的に渡していないため実害が顕在化していなかったが、解約予約受理案内の文面へ実際の
+  Stripeカスタマーポータルリンクを差し込む経路が実質的に機能しない状態だった)ことを
+  発見した。`receive_stripe_webhook()`に`portal_link_provider: Optional[PortalLinkProvider]
+  = None`引数を追加し、`dispatch_stripe_event()`呼び出しへそのまま委譲する薄い配線で
+  解消した。`get_stripe_runtime_dependencies()`側は、実LINE Push API・実Stripeカスタマー
+  ポータル接続がオーナー承認待ちのため`push_client`と同様に引き続き意図的に渡さない
+  (配線はできているが実接続はまだ、という既存の区別を保つ)。テスト2件追加
+  (`ReceiveStripeWebhookPortalLinkProviderWiringTest`: `portal_link_provider`指定時に
+  解約予約受理案内へ実際のポータルURLが差し込まれることの確認・省略時は従来通り
+  `PORTAL_LINK_UNAVAILABLE_FALLBACK`が送られることの後方互換確認)、venture全体560件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前558件+新規2件)パス・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な調査・
+  実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回はline-reservation-ai側にも
+  同種の配線漏れが残っていないかの確認、または他venture・アイデア領域の前進を優先候補
+  とする。
+- 最終更新: 2026-09-04 14:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ158、2026-09-04 14:00 UTC: `stripe_webhook.receive_stripe_webhook()`
+  (実HTTPエントリポイント)に`portal_link_provider`引数が欠落しており、
+  `dispatch_stripe_event()`側の同引数(フェーズ127)へ常に`None`のまま委譲されていた
+  配線漏れを解消した。詳細は上記フェーズ158参照。line-reservation-ai側に同種の配線漏れが
+  残っていないかの確認は次回以降の課題として残る)
 - (新規解消・フェーズ157、2026-09-04 07:00 UTC: フェーズ156の解約予約受理案内メッセージが
   決済失敗による制限モード中の顧客に対して「投稿文の生成に制限はありません」という矛盾した
   文言を送ってしまう記載漏れを発見・対応した。詳細は上記フェーズ157・
