@@ -2049,7 +2049,16 @@ class ConversationStateWiringTests(unittest.TestCase):
         persisted = store.get(STORE_ID, "U1")
         self.assertIsNotNone(persisted)
         self.assertEqual(persisted["stage"], "candidates_presented")
-        self.assertEqual(persisted, flow.export_state_for_persistence("U1"))
+        # processor-cache-persistence-design.md(フェーズ続き190)準拠。`_states`由来の
+        # フィールドに加えて、`_candidates_by_user`/`_search_context_by_user`が
+        # `processorCache`キーとして同じドキュメントへマージされる。
+        expected = dict(flow.export_state_for_persistence("U1"))
+        expected["processorCache"] = persisted["processorCache"]
+        self.assertEqual(persisted, expected)
+        self.assertIn("candidates", persisted["processorCache"])
+        self.assertIn("searchContext", persisted["processorCache"])
+        self.assertNotIn("heldLabel", persisted["processorCache"])
+        self.assertNotIn("pendingNewBookingContext", persisted["processorCache"])
 
     def test_round_trip_persistence_across_fresh_state_machine_instances(self):
         # bookingSlots自体の永続化は本フェーズの対象外(conversation-state-persistence-
@@ -2089,6 +2098,15 @@ class ConversationStateWiringTests(unittest.TestCase):
         self.assertEqual(r2.action, "held")
         self.assertEqual(flow2.stage("U1"), "awaiting_details")
         self.assertEqual(store.get(STORE_ID, "U1")["stage"], "awaiting_details")
+        # processor-cache-persistence-design.md(フェーズ続き190)準拠。processor2は
+        # processor1の`_candidates_by_user`を一切共有していない新規インスタンスだが、
+        # hydrate時に`processorCache.candidates`から復元されるため、hold時の案内文言に
+        # 含める候補ラベルが正しく解決できる(この復元が無いと`_held_label_by_user`が
+        # 空文字列のままになり、案内文言の候補ラベルが欠落する、
+        # conversation-state-wiring-design.md 4節参照)。
+        held_label = processor2._held_label_by_user["U1"]
+        self.assertNotEqual(held_label, "")
+        self.assertIn(held_label, push2.sent[-1][1])
 
         # 3ターン目: さらに別の新規processor/flowインスタンスで氏名・メニューを確定する。
         processor3, flow3, push3, _ = _new_processor(
@@ -2109,6 +2127,10 @@ class ConversationStateWiringTests(unittest.TestCase):
         self.assertEqual(persisted["stage"], "confirmed")
         self.assertEqual(persisted["name"], "山田")
         self.assertEqual(persisted["menu"], "カット")
+        # processor3もprocessor2の`_held_label_by_user`を共有していない新規インスタンスだが、
+        # hydrateされた`processorCache.heldLabel`から確定案内文言の候補ラベルが正しく
+        # 復元できていることを確認する(held_labelと同じ値のはず)。
+        self.assertIn(held_label, push3.sent[-1][1])
 
     def test_cancel_deletes_persisted_document(self):
         # cancel_booking()が_statesから当該エントリを削除する(=export_state_for_persistence()が
@@ -2131,6 +2153,52 @@ class ConversationStateWiringTests(unittest.TestCase):
         self.assertEqual(result.action, "cancelled")
         self.assertIsNone(flow2.stage("U1"))
         self.assertIsNone(store.get(STORE_ID, "U1"))
+
+    def test_pending_new_booking_context_persists_without_flow_state(self):
+        # processor-cache-persistence-design.md(フェーズ続き190)準拠。メニュー未言及の
+        # 新規予約1ターン目は`ConversationFlowStateMachine.present_candidates()`が未実行のため
+        # `_flow._states`にエントリを持たない(=`export_state_for_persistence()`はNoneを返す)が、
+        # `_pending_new_booking_context_by_user`だけは日時範囲の引き継ぎのため設定される。
+        # このケースで永続化ドキュメントに`stage`キーの無い`processorCache`のみのdictが
+        # 書き込まれ、次ターンのhydrateで正しく読み戻せることを確認する
+        # (`_hydrate_conversation_state()`の`"stage" in data`ガードの直接テスト)。
+        store = InMemoryConversationStateStore()
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call_menu_unmentioned():
+            return {
+                "intent": "new_booking", "name": None, "menu": None,
+                "datetime_candidate": "来週土曜の午後", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor1, flow1, push1, _ = _new_processor(conversation_state_store=store)
+        r1 = processor1.process(_event("U1", "来週土曜の午後お願いします"), llm_call_menu_unmentioned, NOW)
+
+        self.assertEqual(r1.action, "reask")
+        self.assertEqual(r1.detail, "menu_not_mentioned")
+        self.assertIsNone(flow1.stage("U1"))  # _statesにエントリ無し
+
+        persisted = store.get(STORE_ID, "U1")
+        self.assertIsNotNone(persisted)
+        self.assertNotIn("stage", persisted)
+        self.assertIn("pendingNewBookingContext", persisted["processorCache"])
+
+        # 2ターン目: 全く新規のprocessor/flowインスタンスで、今度はメニューのみ伝える
+        # (日時範囲は1ターン目の分をpendingNewBookingContext経由で引き継ぐ想定)。
+        processor2, flow2, push2, _ = _new_processor(conversation_state_store=store)
+
+        def llm_call_menu_only():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "カットで", "confirmed": False, "needs_owner_check": False,
+            }
+
+        r2 = processor2.process(_event("U1", "カットでお願いします"), llm_call_menu_only, NOW)
+
+        self.assertEqual(r2.action, "candidates_presented")
+        self.assertEqual(flow2.stage("U1"), "candidates_presented")
+        self.assertNotIn("U1", processor2._pending_new_booking_context_by_user)
 
     def test_no_conversation_state_store_skips_hydrate_and_persist(self):
         # conversation_state_store未指定(None)時は従来通り何もしない後方互換の確認

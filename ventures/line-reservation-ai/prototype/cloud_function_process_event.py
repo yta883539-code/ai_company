@@ -96,6 +96,9 @@ from engine import (  # noqa: E402
     ConversationFlowStateMachine,
     EscalationConsolidator,
     NotificationLogAggregator,
+    _Candidate,
+    _slot_key_from_string,
+    _slot_key_to_string,
     format_candidates_message,
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
@@ -342,14 +345,12 @@ class ConversationEventProcessor:
     未指定(None)の場合は従来通りhydrate/dehydrateを行わず、呼び出し元が保持し続ける`flow`
     インスタンスの内部状態(オンメモリ)だけに依存する(既存呼び出し元・テストへの後方互換)。
 
-    既知の残課題(同md「本フェーズでは対応しない範囲」参照): 上記の`_candidates_by_user`等
+    processor-cache-persistence-design.md(フェーズ続き190)準拠。上記の`_candidates_by_user`等
     このクラス自身が持つuser_idごとのローカルキャッシュ(`_held_label_by_user`・
-    `_search_context_by_user`・`_pending_new_booking_context_by_user`も同様)は、本フェーズの
-    hydrate/dehydrateの対象に含めていない。そのため`conversation_state_store`を使い
-    インスタンスを都度新規構築する運用では、複数ターンにまたがるこれらのキャッシュは
-    ターンごとに空になり、案内文言中の候補ラベル等の一部表示が欠落しうる
-    (状態遷移そのもの、すなわちConversationFlowStateMachine側のhold/confirm可否判定は
-    `_states`のhydrate/dehydrateにより正しく動作し続ける)。
+    `_search_context_by_user`・`_pending_new_booking_context_by_user`も同様)も、
+    `conversation_state_store`が設定されていれば`_states`と同じドキュメントの
+    `processorCache`キーへhydrate/dehydrateされる(conversation-state-wiring-design.md 4節の
+    残課題への対応、対応方針(b)を採用)。
     """
 
     def __init__(
@@ -557,25 +558,94 @@ class ConversationEventProcessor:
         """conversation-state-wiring-design.md準拠。`conversation_state_store`未指定時は
         何もしない(後方互換)。永続化済みドキュメントが無い場合(初回会話・アイドル失効後の
         再会話等)も何もせず、`flow`側は状態なし(stage() is None)のまま新規会話として扱われる。
+
+        processor-cache-persistence-design.md(フェーズ続き190)準拠。`processorCache`キーが
+        あれば`_candidates_by_user`等4つのローカルキャッシュも復元する。`stage`キーが無い
+        (=`_pending_new_booking_context_by_user`のみ永続化されており`_flow._states`側の
+        エントリが存在しなかった)場合は`import_state_from_persistence()`を呼ばない
+        (同メソッドは`data["stage"]`必須のため)。
         """
         if self._conversation_state_store is None:
             return
         data = self._conversation_state_store.get(self._store_id, user_id)
-        if data is not None:
+        if data is None:
+            return
+        if "stage" in data:
             self._flow.import_state_from_persistence(user_id, self._store_id, data)
+        cache = data.get("processorCache")
+        if cache is not None:
+            self._import_processor_cache_for_user(user_id, cache)
 
     def _persist_conversation_state(self, user_id: str) -> None:
-        """`_hydrate_conversation_state()`の対。`export_state_for_persistence()`がNoneを返す
-        場合(cancel_booking()/change_booking()が`_states`から当該エントリを削除済みの場合)は
-        ドキュメントを削除する(ConversationStateStoreProtocol.delete()参照)。
+        """`_hydrate_conversation_state()`の対。`export_state_for_persistence()`と
+        `_export_processor_cache_for_user()`の両方がNoneを返す場合のみドキュメントを削除する
+        (ConversationStateStoreProtocol.delete()参照)。どちらか一方でも値があれば、同じ
+        ドキュメントへ`processorCache`キーとしてマージして書き込む
+        (processor-cache-persistence-design.md、フェーズ続き190。conversation-state-wiring-
+        design.md 4節の対応方針(b)を採用)。
         """
         if self._conversation_state_store is None:
             return
         data = self._flow.export_state_for_persistence(user_id)
-        if data is not None:
-            self._conversation_state_store.set(self._store_id, user_id, data)
-        else:
+        cache = self._export_processor_cache_for_user(user_id)
+        if data is None and cache is None:
             self._conversation_state_store.delete(self._store_id, user_id)
+            return
+        merged = dict(data) if data is not None else {}
+        if cache is not None:
+            merged["processorCache"] = cache
+        self._conversation_state_store.set(self._store_id, user_id, merged)
+
+    def _export_processor_cache_for_user(self, user_id: str) -> Optional[dict]:
+        """processor-cache-persistence-design.md準拠。`_candidates_by_user`等4つの
+        ローカルキャッシュのうち、当該user_idの分だけをplain dictへ変換する。
+        いずれのキャッシュにもuser_idのエントリが無ければNoneを返す。
+        """
+        cache: dict = {}
+        if user_id in self._candidates_by_user:
+            cache["candidates"] = [
+                {
+                    "slotKey": _slot_key_to_string(c.slot_key),
+                    "label": c.label,
+                    "startMinutes": c.start_minutes,
+                }
+                for c in self._candidates_by_user[user_id]
+            ]
+        if user_id in self._held_label_by_user:
+            cache["heldLabel"] = self._held_label_by_user[user_id]
+        if user_id in self._search_context_by_user:
+            output, menu_minutes = self._search_context_by_user[user_id]
+            cache["searchContext"] = {"output": output, "menuMinutes": menu_minutes}
+        if user_id in self._pending_new_booking_context_by_user:
+            output, set_at = self._pending_new_booking_context_by_user[user_id]
+            cache["pendingNewBookingContext"] = {"output": output, "setAt": set_at}
+        return cache if cache else None
+
+    def _import_processor_cache_for_user(self, user_id: str, data: dict) -> None:
+        """`_export_processor_cache_for_user()`の逆変換。"""
+        if "candidates" in data:
+            self._candidates_by_user[user_id] = [
+                _Candidate(
+                    slot_key=_slot_key_from_string(self._store_id, c["slotKey"]),
+                    label=c["label"],
+                    start_minutes=c["startMinutes"],
+                )
+                for c in data["candidates"]
+            ]
+        if "heldLabel" in data:
+            self._held_label_by_user[user_id] = data["heldLabel"]
+        if "searchContext" in data:
+            search_context = data["searchContext"]
+            self._search_context_by_user[user_id] = (
+                search_context["output"],
+                search_context["menuMinutes"],
+            )
+        if "pendingNewBookingContext" in data:
+            pending = data["pendingNewBookingContext"]
+            self._pending_new_booking_context_by_user[user_id] = (
+                pending["output"],
+                pending["setAt"],
+            )
 
     def process(
         self,

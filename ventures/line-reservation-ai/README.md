@@ -2286,7 +2286,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   "test_*.py"`)パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを
   確認した。承認不要な設計・実装・テスト追加・ドキュメント整備のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 04:00 UTC
+- フェーズ続き190(2026-09-04 05:00 UTC): conversation-state-wiring-design.md
+  (フェーズ続き189)4節に残っていた、`ConversationEventProcessor`自身が持つ
+  user_idごとのローカルキャッシュ(`_candidates_by_user`・`_held_label_by_user`・
+  `_search_context_by_user`・`_pending_new_booking_context_by_user`)が
+  hydrate/dehydrateの対象に含まれておらず、案内文言の候補ラベルが空文字列になりうる
+  ギャップに対応した(processor-cache-persistence-design.md新規作成)。同md 4節が挙げていた
+  2つの対応方針候補のうち、(b)`ConversationEventProcessor`側に専用のhydrate/dehydrateを
+  追加し同じ`conversation_state_store`ドキュメントへ`processorCache`キーとして追記する方式を
+  採用した(engine.py側の`_ConversationState`スキーマは変更しない)。
+  `_export_processor_cache_for_user()`/`_import_processor_cache_for_user()`を新設し、
+  `_persist_conversation_state()`/`_hydrate_conversation_state()`から呼び出す形に変更、
+  firestore-data-model.md 3節に`processorCache`サブスキーマを追記した。実装の過程で、
+  「新規予約1ターン目でメニュー未言及のため聞き返す」分岐は`present_candidates()`未実行の
+  ため`_states`にエントリを持たず、`processorCache.pendingNewBookingContext`のみの
+  ドキュメント(`stage`キー無し)になりうることを再確認し、`_hydrate_conversation_state()`に
+  `"stage" in data`ガードを追加した(無いと`import_state_from_persistence()`が
+  `KeyError`になる)。テスト1件新規追加・既存2件拡張(`ConversationStateWiringTests`、
+  hold時・confirm時の案内文言に候補ラベルが正しく復元されることの直接確認を含む)、
+  venture全体679件全件パス・schema検証25件パスを確認した。承認不要な設計・実装・
+  テスト追加・ドキュメント整備のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 05:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの

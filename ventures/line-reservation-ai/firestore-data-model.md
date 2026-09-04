@@ -151,12 +151,43 @@ plain dictの形と一致する(下記スキーマは同メソッドの実装が
                                           // (conversation-state-persistence-design.md参照)
   reconfirmCount: 0,
   lastActivityAt: <Timestamp>,
-  emojiUsedLast: false                   // message-tone-variants.md「絵文字頻度上限」用
+  emojiUsedLast: false,                  // message-tone-variants.md「絵文字頻度上限」用
                                           // (consume_casual_emoji_allowance()が参照する内部状態)。
                                           // 当初本ドキュメントへの記載が漏れていた
                                           // (conversation-state-persistence-design.md参照)
+  processorCache: {                      // processor-cache-persistence-design.md(フェーズ続き190)
+                                          // 準拠。ConversationFlowStateMachineではなく
+                                          // Cloud Function B本体(ConversationEventProcessor)が
+                                          // 案内文言組み立てのためだけに保持するキャッシュ。
+                                          // いずれのサブフィールドも該当データが無ければ
+                                          // キー自体を省略する。
+    candidates: [{slotKey: "...", label: "8/9(土) 15:30〜", startMinutes: 840}, ...],
+                                          // 直近提示した候補一覧(hold時の案内文言の候補ラベル用)。
+                                          // 上記candidatesフィールドと同じ形式。
+    heldLabel: "8/9(土) 15:30〜",         // holdした枠のラベル(confirm時の予約内容ラベル用)。
+    searchContext: {                     // 直近の空き枠検索条件。確定操作競合時の再検索・
+                                          // メニュー名のターン間引き継ぎ(_carried_over_menu())用。
+      output: { /* LLM構造化出力(booking_output.schema.json準拠) */ },
+      menuMinutes: 30
+    },
+    pendingNewBookingContext: {          // メニュー未言及時の聞き返し中に保持する日時範囲等。
+                                          // pending-new-booking-context-ttl-design.md準拠、
+                                          // setAtから30分(CONVERSATION_IDLE_TIMEOUT)超過分は
+                                          // 読み出し時に破棄する。stage等の他フィールドが
+                                          // 存在せずprocessorCacheのみのドキュメントになりうる
+                                          // (present_candidates()未実行のケース、下記参照)。
+      output: { /* LLM構造化出力 */ },
+      setAt: <Timestamp>
+    }
+  }
 }
 ```
+`processorCache`の各サブフィールドは、`stage`等の`_ConversationState`由来フィールドとは
+独立して存在しうる。「新規予約1ターン目でメニュー未言及のため聞き返した」場合は
+`present_candidates()`が未実行で`_states`にエントリが無いため、ドキュメント全体が
+`{processorCache: {pendingNewBookingContext: {...}}}`(`stage`キー無し)になる
+(`ConversationEventProcessor._hydrate_conversation_state()`はこの場合`import_state_from_
+persistence()`を呼ばずスキップする設計)。
 - `release_idle_conversations()`(30分無応答失効)・`archive_completed_conversations()`
   は idle-conversation-trigger-design.md で設計済みの「Webhook便乗+5分間引き」方式
   のまま、Cloud Functions側でLINE Webhook受信のたびに`lastActivityAt`が
