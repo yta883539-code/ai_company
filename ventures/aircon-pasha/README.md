@@ -2803,4 +2803,24 @@
   整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-04 18:00 UTC
+- フェーズ188(2026-09-04 21:00 UTC): subscription-cancellation-notification-design.md
+  「6. 残課題」に残っていた「解約取り消し案内メッセージの問い合わせ導線文言の見直し」に
+  対応した。`SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE`(`prototype/subscription_
+  cancellation_notification.py`)は「トライアル終了案内・生成一時停止のメッセージに
+  記載のお問い合わせ先までご連絡ください」という暫定文言だったが、参照先の
+  `trial_end_scheduler.py`(TRIAL_END_ALT_TEXT等)・`payment_suspension_scheduler.py`・
+  `cloud_function_webhook.PAYMENT_SUSPENDED_MESSAGE`をいずれも確認した結果、
+  どのメッセージにもお問い合わせ先の記載自体が存在せず(いずれもFlex Messageのボタン
+  誘導のみ)、事実と異なる案内文になっていたことが判明した。本ventureのLLMシステム
+  プロンプトはstatus=cancellation_intent/downgrade_intent/cancellation_unclearとして
+  トークルームへの自由文の請求関連の質問を既に処理できる
+  (`render_subscription_procedure_notice()`)ため、「本トークルームに質問内容を
+  メッセージでお送りください」という、生成フロー(業務報告の投稿)との混同を避けつつ
+  実際に機能する導線を案内する文言へ修正した。design doc(4節・6節)も合わせて更新した。
+  文言定数の変更のみでテストに文字列アサーションが無かったため既存テストの修正は不要、
+  venture全体462件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  文言修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-04 21:00 UTC

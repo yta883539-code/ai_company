@@ -75,15 +75,21 @@ course-set-pashaの文言を本venture固有の業務内容(「投稿文の生�
 
 解約のお取り消しを承りました。引き続きご利用いただけます。
 
-ご不明な点がございましたら、トライアル終了案内・生成一時停止のメッセージに記載の
-お問い合わせ先までご連絡ください。
+ご不明な点がございましたら、本トークルームに質問内容をメッセージでお送りください。
 ```
 
 (course-set-pashaは「このトークルームへご返信ください」だが、本ventureのLINE公式
 アカウントは業者からのフリーテキスト返信をトリガーに投稿文生成を行う設計〈LLMシステム
-プロンプト〉のため、返信を促す文言は生成フローと混同を招く。既存のtrial_end_scheduler.py
-等が問い合わせ導線をどう案内しているか未確認のため、暫定でこの表現とし実LINE接続後に
-見直す。)
+プロンプト〉のため、返信を促す文言は生成フローと混同を招く。当初は「トライアル終了案内・
+生成一時停止のメッセージに記載のお問い合わせ先までご連絡ください」という暫定文言としたが、
+フェーズ188でtrial_end_scheduler.py・payment_suspension_scheduler.py・
+cloud_function_webhook.pyのPAYMENT_SUSPENDED_MESSAGEを確認した結果、いずれもFlex
+Messageのボタン誘導のみでお問い合わせ先の記載自体が存在せず、この参照が事実と異なる
+不整合だったと判明した。本ventureのLLMシステムプロンプトはstatus=cancellation_intent/
+downgrade_intent/cancellation_unclearとしてトークルームへの自由文の請求関連の質問を
+既に処理できる(render_subscription_procedure_notice、5節参照)ため、「返信」ではなく
+「質問内容をメッセージで送る」という表現にすることで、生成フロー〈業務報告の投稿〉との
+混同を避けつつ実際に機能する問い合わせ導線を案内する文言へ修正した。)
 
 `SUBSCRIPTION_CANCELLATION_SCHEDULED_MESSAGE`(解約予約受理向け、`period_end_date`・
 ポータルURLを差し込む):
@@ -158,6 +164,9 @@ suspension-consistency-design.md参照)。
 - `stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
   `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証)。フェーズ185時点で
   未着手のまま残っている(同ドキュメント6節参照)。
-- 解約取り消し案内メッセージの問い合わせ導線文言の見直し(design 4節参照)。
+- ~~解約取り消し案内メッセージの問い合わせ導線文言の見直し(design 4節参照)。~~ →
+  フェーズ188で対応済み。事実と異なる参照(トライアル終了案内・生成一時停止メッセージに
+  お問い合わせ先の記載があるという誤った前提)を修正し、実際に機能する
+  cancellation_unclear等の自由文問い合わせ導線を案内する文言へ変更した(4節参照)。
 - 実LINE Push Message API・実Stripeアカウント接続はオーナー承認待ち(pending-approval.md
   参照)。

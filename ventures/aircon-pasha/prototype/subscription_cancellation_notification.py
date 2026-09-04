@@ -153,12 +153,15 @@ OUTCOME_NO_CHANGE = "no_change"
 SUBSCRIPTION_CANCELLATION_SCHEDULED_ALT_TEXT = "[エアコンパシャッと] 解約のお手続きを承りました"
 SUBSCRIPTION_CANCELLATION_RESCHEDULED_ALT_TEXT = "[エアコンパシャッと] 解約のお取り消しを承りました"
 
-# design 4節。差し込み情報なし(暫定文言、design 4節「残課題」参照)。
+# design 4節。差し込み情報なし。フェーズ188で、トライアル終了案内・生成一時停止の
+# メッセージには実際にはお問い合わせ先の記載が無い(いずれもFlex Messageのボタン
+# 誘導のみ)という不整合を解消し、cancellation_intent/downgrade_intent/
+# cancellation_unclear(render_subscription_procedure_notice)が実際に処理できる
+# 「本トークルームへの質問メッセージ送信」を案内する文言へ変更した。
 SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE = (
     "解約のお取り消しを承りました。引き続きご利用いただけます。\n"
     "\n"
-    "ご不明な点がございましたら、トライアル終了案内・生成一時停止のメッセージに記載の"
-    "お問い合わせ先までご連絡ください。"
+    "ご不明な点がございましたら、本トークルームに質問内容をメッセージでお送りください。"
 )
 
 
