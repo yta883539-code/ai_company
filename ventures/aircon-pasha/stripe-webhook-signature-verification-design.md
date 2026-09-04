@@ -96,5 +96,15 @@ def verify_stripe_signature(
   接続後の課題として残る)
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は、実Stripeアカウント接続
   (オーナー承認待ち)後の設計課題として別途残る。
-- Stripeイベントの重複配信対策(`event.id`によるべき等性チェック)は、エンドポイント本体側の
-  設計課題として次回以降に持ち越す(署名検証層のスコープ外)。
+- (解消済み 2026-09-04 09:00 UTC・フェーズ183点検: 「エンドポイント本体側の設計課題として
+  次回以降に持ち越す」という本項目は、実際にはstripe-event-idempotency-design.mdとして
+  設計され`prototype/stripe_webhook.py`に`StripeEventIdStoreProtocol`・
+  `InMemoryStripeEventIdStore`・`receive_stripe_webhook()`の`event_id_store`引数
+  (指定時、同一`event.id`の2回目以降の配信はハンドラを呼び出さず200を返す)として
+  実装済みだったにもかかわらず、本ファイルが未訂正のまま「次回以降」の記載を残していた
+  記載漏れと判明した。`test_stripe_webhook.py`の`InMemoryStripeEventIdStoreTest`・
+  `event_id_store`関連テストで検証済み。なお本項目の実装作業自体はコミット履歴上
+  「フェーズ177」として行われていたが、README.mdの現行フェーズ177エントリは別内容
+  (`payment_failure.py`docstring整理)であり、当時の並行作業によるフェーズ番号の
+  重複でREADME.md側に本実装のフェーズログ記載が欠落していたことも判明した
+  〈詳細はREADME.mdフェーズ183参照〉)

@@ -2677,4 +2677,26 @@
   pending-approval.mdへの追記なし。次回はcheckout-session-plan-selection-design.md
   「残課題」に残る実Price ID確定(オーナー承認待ち)以外の、他venture・アイデア領域の
   前進、または未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-04 02:00 UTC
+- フェーズ183(2026-09-04 09:00 UTC): フェーズ182「次回候補」の「未走査の設計docの残課題
+  棚卸し」に沿って各設計docを棚卸しした結果、stripe-webhook-signature-verification-design.md
+  「残課題」に残っていた「Stripeイベントの重複配信対策(`event.id`によるべき等性チェック)は、
+  エンドポイント本体側の設計課題として次回以降に持ち越す」という記載が、実際には
+  stripe-event-idempotency-design.mdとして設計され`prototype/stripe_webhook.py`に
+  `StripeEventIdStoreProtocol`・`InMemoryStripeEventIdStore`・`receive_stripe_webhook()`の
+  `event_id_store`引数(同一`event.id`の2回目以降の配信ではハンドラを呼び出さず200を返す、
+  省略時は従来通り無効という後方互換設計)として実装済み(`test_stripe_webhook.py`の
+  `InMemoryStripeEventIdStoreTest`他で検証済み)だった記載漏れを発見・解消した。加えて、
+  この実装作業自体はコミット履歴上「フェーズ177」として行われていたにもかかわらず、
+  README.md側の現行フェーズ177エントリは別内容(`payment_failure.py`docstring整理、
+  当時の並行セッションによるフェーズ番号の重複)であり、本実装のフェーズログ記載自体が
+  README.mdから欠落していたことも判明した(コードは既存、ログ記載のみの欠落であるため
+  過去フェーズ番号を付け直すことはせず、本フェーズの記載として補記する形で整理した)。
+  コード変更は無し(ドキュメント整理のみ)、venture全体420件全件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)パス・schema検証9件(`python3 schema/
+  validate_test_cases.py`)パスを再確認した(いずれも変更前と同じ件数、ドキュメントのみの
+  変更であるため差分なし)。承認不要なドキュメント整理のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  他venture・アイデア領域の前進、またはcheckout-session-plan-selection-design.md「残課題」
+  に残る実Price ID確定(オーナー承認待ち)以外の、未走査の設計docの残課題棚卸しを
+  優先候補とする。
+- 最終更新: 2026-09-04 09:00 UTC
