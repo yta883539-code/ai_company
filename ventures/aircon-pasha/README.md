@@ -2789,4 +2789,18 @@
   `payment_store`/`plan_store`/`blocked_but_billing_store`/`cancellation_push_client`/
   `portal_link_provider`の委譲配線が出揃った。次回は他venture・アイデア領域の前進、
   または未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-04 12:00 UTC
+- フェーズ187(2026-09-04 18:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  subscription-cancellation-scheduled-message-suspension-consistency-design.md
+  (フェーズ185)「7. 残課題」に、フェーズ186で既に解消済みの項目
+  (`stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
+  `portal_link_provider`引数の配線)が未訂正のまま残っていた記載漏れを発見した
+  (course-set-pashaフェーズ159・本ventureフェーズ168〜171等で繰り返し見つかっている、
+  実装フェーズが先行し設計docの残課題節の更新が追いつかない同種のパターン)。同節の
+  該当項目に取り消し線を付け、フェーズ186で解消済みである旨と対応内容の要約を追記した。
+  実装・返り値・テストへの影響は無く、venture全体462件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計doc記載の
+  整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-04 18:00 UTC

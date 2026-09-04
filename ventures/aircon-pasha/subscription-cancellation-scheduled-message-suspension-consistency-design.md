@@ -130,8 +130,10 @@ subscription-cancellation-notification-design.md(フェーズ184)6節に残っ�
 
 ## 7. 残課題
 
-- `stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
-  `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証、6節参照)。
+- ~~`stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
+  `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証、6節参照)。~~
+  → フェーズ186で解消済み。`receive_stripe_webhook()`に両引数を追加し
+  `dispatch_stripe_event()`へ委譲する配線を実装、テスト3件追加(README.mdフェーズ186参照)。
 - 制限モード中の解約予約受理案内メッセージの具体的な文言(お支払い方法確認と解約予約という
   2つの手続きが並行して存在する状態の説明)は、実際の顧客からの問い合わせ実績が無い
   ため、初期案として妥当性を検証する必要がある(course-set-pashaフェーズ157と同じ課題)。
