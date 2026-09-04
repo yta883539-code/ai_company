@@ -2054,10 +2054,30 @@
   発生していないためpending-approval.mdへの追記なし。フェーズ158からの持ち越し課題は
   これで解消。次回はaircon-pasha側にも同種の確認要否がないかの棚卸し、または他venture・
   アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-04 19:00 UTC
+- フェーズ161(2026-09-04 22:00 UTC): フェーズ160「次にやること」で候補としていた
+  「aircon-pasha側にも同種の確認要否がないかの棚卸し」を実施した。
+  aircon-pasha/prototype/stripe_webhook.pyの`get_stripe_runtime_dependencies()`・
+  stripe_dispatch.py・cloud_function_webhook.pyを確認した結果、フェーズ186で
+  `portal_link_provider`が`receive_stripe_webhook()`から`dispatch_stripe_event()`まで
+  一貫して配線済みであり、`get_stripe_runtime_dependencies()`のdocstringにも実Stripe
+  カスタマーポータル接続がオーナー承認待ちのため意図的に渡さない旨(フェーズ186追加の
+  bullet)が既に明記されていることを確認した。line-reservation-ai側の確認(フェーズ160)と
+  同様、配線漏れ・記載漏れのいずれも無く、コード変更は不要と判断した。実装変更が無いため
+  テスト実行は行っていない(aircon-pasha側は直前フェーズで全件パス確認済み)。承認不要な
+  調査のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。これでcourse-set-pasha・line-reservation-ai・
+  aircon-pashaの3venture間でのportal_link_provider配線・記載漏れの相互棚卸しは一巡した。
+  次回は他venture・アイデア領域の前進、または各設計docの未走査の残課題棚卸しを優先候補
+  とする。
+- 最終更新: 2026-09-04 22:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-04 22:00 UTC・フェーズ161: aircon-pasha側に`portal_link_provider`の
+  配線漏れ・記載漏れが残っていないかを確認した結果、フェーズ186で既に配線・docstring記載とも
+  完了済みであることを確認した。詳細は上記フェーズ161参照。これでcourse-set-pasha・
+  line-reservation-ai・aircon-pashaの3venture間の相互棚卸しは一巡したため、次は他venture・
+  アイデア領域の前進、または各設計docの未走査の残課題棚卸しを候補とする)
 - (解消済み 2026-09-04 19:00 UTC・フェーズ160: line-reservation-ai側に
   `receive_stripe_webhook()`類似の`portal_link_provider`配線漏れが残っていないかを確認した
   結果、同venture自身のフェーズ続き192・193で既に設計・実装済みで配線漏れ・記載漏れとも
