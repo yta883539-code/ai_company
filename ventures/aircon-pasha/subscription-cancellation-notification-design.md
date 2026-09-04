@@ -114,12 +114,14 @@ course-set-pashaの文言を本venture固有の業務内容(「投稿文の生�
 `PORTAL_LINK_UNAVAILABLE_FALLBACK`方式を再利用する(`format_payment_portal_reply_
 message()`と同じ2定数)。
 
-**本フェーズのスコープ外(次回以降の課題、design 6節参照)**: course-set-pashaフェーズ157
-(subscription-cancellation-scheduled-message-suspension-consistency-design.md)で対応した
-「決済失敗による制限モード中に解約予約を行った場合、上記の『生成に制限はありません』が
-事実と矛盾する」というギャップは、本ventureにも`payment_suspended_at`という同種の状態が
-存在するため将来的に同じ問題が起こりうる。本フェーズはまず通知そのものの新規実装を優先し、
-制限モード整合性チェックは次フェーズ以降に横展開する。
+**本フェーズのスコープ外だった項目(次回以降の課題、design 6節参照)**: course-set-pasha
+フェーズ157(subscription-cancellation-scheduled-message-suspension-consistency-
+design.md)で対応した「決済失敗による制限モード中に解約予約を行った場合、上記の『生成に
+制限はありません』が事実と矛盾する」というギャップは、本ventureにも`payment_suspended_at`
+という同種の状態が存在するため同じ問題が起こりうる。本フェーズ(184)はまず通知そのものの
+新規実装を優先し、制限モード整合性チェックは次フェーズ以降に横展開する方針としたが、
+フェーズ185で対応済み(本venture版subscription-cancellation-scheduled-message-
+suspension-consistency-design.md参照)。
 
 ## 5. `stripe_dispatch.py`への配線
 
@@ -150,10 +152,12 @@ message()`と同じ2定数)。
 
 ## 6. 残課題
 
+- ~~制限モード中(`payment_suspended_at`設定済み)の解約予約受理案内の文言整合性チェック
+  (course-set-pashaフェーズ157の横展開)。~~ → フェーズ185で対応済み
+  (subscription-cancellation-scheduled-message-suspension-consistency-design.md参照)。
 - `stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
-  `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証)。
-- 制限モード中(`payment_suspended_at`設定済み)の解約予約受理案内の文言整合性チェック
-  (course-set-pashaフェーズ157の横展開)。
+  `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証)。フェーズ185時点で
+  未着手のまま残っている(同ドキュメント6節参照)。
 - 解約取り消し案内メッセージの問い合わせ導線文言の見直し(design 4節参照)。
 - 実LINE Push Message API・実Stripeアカウント接続はオーナー承認待ち(pending-approval.md
   参照)。

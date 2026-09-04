@@ -2734,4 +2734,33 @@
   (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 10:00 UTC
+- フェーズ185(2026-09-04 11:00 UTC): フェーズ184「残課題」に残っていた「制限モード中
+  (`payment_suspended_at`設定済み)の解約予約受理案内の文言整合性チェック(course-set-pasha
+  フェーズ157相当)」に対応した。course-set-pashaのsubscription-cancellation-scheduled-
+  message-suspension-consistency-design.md(フェーズ157)を横展開し、本venture版として
+  同名の設計ドキュメントを新規作成した。ただし実装は同一ではなく本venture固有の設計に
+  合わせた: course-set-pashaの`_is_payment_suspended_now()`は猶予日数の定数
+  (`PAYMENT_FAILURE_GRACE_PERIOD_DAYS`)から都度期限超過を計算するのに対し、本ventureの
+  `cloud_function_webhook._is_payment_suspended()`は猶予期間経過を都度計算せず
+  `payment_suspension_scheduler.py`が1回だけ書き込む`payment_suspended_at`フィールドの
+  設定有無のみで判定する既存方式のため、`prototype/subscription_cancellation_
+  notification.py`に新設した`_is_payment_suspended_now(payment_store, user_id)`も
+  同じ判定条件(`payment_store.get_payment_suspended_at(user_id) is not None`)を再利用する
+  形にした。判定に必要な状態の読み出しも、`stripe_dispatch.dispatch_stripe_event()`が
+  `invoice.payment_failed`/`invoice.payment_succeeded`向けに既に受け取っている
+  `payment_store`引数(`payment_failure.PaymentFailureStoreProtocol`)をそのまま
+  `handle_subscription_cancellation_update()`へ配線するだけで済み、新規のstore引数は
+  追加していない。`render_subscription_cancellation_scheduled_message()`に
+  `is_currently_suspended: bool = False`引数を追加し、`True`の場合のみ「生成に制限は
+  ありません」の一文を、制限モード中である旨を案内する文言に差し替える。もう一方の
+  残課題「`stripe_webhook.receive_stripe_webhook()`への実HTTPエントリポイント配線」は、
+  文言矛盾という実害の解消を優先するため今回はスコープ外とし、新設した設計ドキュメント
+  6・7節に理由と共に残課題として明記した。テスト15件追加(`test_subscription_
+  cancellation_notification.py`12件・`test_stripe_dispatch.py`3件)、venture全体459件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前444件+新規15件)パス・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・
+  実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生して
+  いないためpending-approval.mdへの追記なし。次回は`stripe_webhook.receive_stripe_
+  webhook()`への`cancellation_push_client`/`portal_link_provider`配線、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-04 11:00 UTC

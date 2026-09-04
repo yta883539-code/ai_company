@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from cloud_function_webhook import InMemoryPortalLinkProvider  # noqa: E402
 from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
 from payment_failure import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
 from payment_recovery_notification import (  # noqa: E402
@@ -696,6 +697,102 @@ class DispatchSubscriptionCancellationNotificationTest(unittest.TestCase):
         )
         self.assertEqual(result.cancellation_scheduled_notified_user_ids, [])
         self.assertEqual(result.cancellation_update_notification_failed_user_ids, [_USER_ID])
+
+    def test_scheduled_message_reflects_suspension_when_payment_store_suspended(self):
+        """subscription-cancellation-scheduled-message-suspension-consistency-design.md
+        (フェーズ185)。既存の`payment_store`引数がcancel_at_period_end変化通知にも
+        配線されていることを確認する。"""
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_suspended_at(
+            _USER_ID, datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        period_end = int(datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": period_end,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            cancellation_push_client=push,
+            payment_store=payment_store,
+            portal_link_provider=InMemoryPortalLinkProvider("https://example.test/portal"),
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [_USER_ID])
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertIn("作業完了報告・お手入れ案内の生成は既に一時停止しています", text)
+        self.assertNotIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+
+    def test_scheduled_message_default_when_payment_store_provided_but_not_suspended(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        payment_store = _profile_store_with_user()
+        period_end = int(datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": period_end,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            cancellation_push_client=push,
+            payment_store=payment_store,
+            portal_link_provider=InMemoryPortalLinkProvider("https://example.test/portal"),
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [_USER_ID])
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+
+    def test_scheduled_message_default_when_payment_store_not_provided(self):
+        """`payment_store`未指定時はフェーズ184時点と同じ挙動(制限モード判定なし)。"""
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryCancellationPushClient()
+        period_end = int(datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                    "current_period_end": period_end,
+                },
+                "previous_attributes": {"cancel_at_period_end": False},
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            cancellation_push_client=push,
+            portal_link_provider=InMemoryPortalLinkProvider("https://example.test/portal"),
+        )
+        self.assertEqual(result.cancellation_scheduled_notified_user_ids, [_USER_ID])
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
 
 
 class DispatchIgnoredAndUnresolvedTest(unittest.TestCase):

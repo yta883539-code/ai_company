@@ -17,6 +17,7 @@ from subscription_cancellation_notification import (  # noqa: E402
     OUTCOME_NO_CHANGE,
     InMemoryLinePushClient,
     LinePushDeliveryError,
+    _is_payment_suspended_now,
     classify_cancel_at_period_end_change,
     handle_subscription_cancellation_update,
     handle_subscription_cancelled,
@@ -24,6 +25,21 @@ from subscription_cancellation_notification import (  # noqa: E402
     render_subscription_cancellation_rescheduled_message,
     render_subscription_cancelled_message,
 )
+from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
+
+
+def _profile_store_with_user(user_id: str = "u1") -> InMemoryUserProfileStore:
+    store = InMemoryUserProfileStore()
+    store.save(
+        user_id,
+        UserProfile(
+            business_name="テスト洗浄社",
+            business_type="独立系",
+            email="test@example.com",
+            linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        ),
+    )
+    return store
 
 
 class _FailingPushClient:
@@ -90,6 +106,62 @@ class RenderScheduledMessageTest(unittest.TestCase):
         )
         self.assertIn("お手続きページの発行に失敗", text)
 
+    def test_default_message_when_not_suspended(self):
+        text = render_subscription_cancellation_scheduled_message(
+            "2026-10-01", InMemoryPortalLinkProvider("https://example.test/portal"), "u1"
+        )
+        self.assertIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+
+    def test_suspension_message_when_currently_suspended(self):
+        text = render_subscription_cancellation_scheduled_message(
+            "2026-10-01",
+            InMemoryPortalLinkProvider("https://example.test/portal"),
+            "u1",
+            True,
+        )
+        self.assertNotIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+        self.assertIn("作業完了報告・お手入れ案内の生成は既に一時停止しています", text)
+        self.assertIn("2026-10-01", text)
+        self.assertIn("https://example.test/portal", text)
+
+
+class IsPaymentSuspendedNowTest(unittest.TestCase):
+    """subscription-cancellation-scheduled-message-suspension-consistency-design.md
+    (フェーズ185)。"""
+
+    def test_true_when_payment_suspended_at_set(self):
+        store = _profile_store_with_user()
+        store.set_payment_suspended_at("u1", datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertTrue(_is_payment_suspended_now(store, "u1"))
+
+    def test_false_when_payment_suspended_at_not_set(self):
+        store = _profile_store_with_user()
+        self.assertFalse(_is_payment_suspended_now(store, "u1"))
+
+    def test_false_when_payment_store_none(self):
+        self.assertFalse(_is_payment_suspended_now(None, "u1"))
+
+    def test_false_when_user_id_none(self):
+        store = _profile_store_with_user()
+        store.set_payment_suspended_at("u1", datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertFalse(_is_payment_suspended_now(store, None))
+
+    def test_false_when_user_id_empty(self):
+        store = _profile_store_with_user()
+        store.set_payment_suspended_at("u1", datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertFalse(_is_payment_suspended_now(store, ""))
+
+    def test_false_when_unknown_user_id(self):
+        store = _profile_store_with_user()
+        store.set_payment_suspended_at("u1", datetime(2026, 9, 1, tzinfo=timezone.utc))
+        self.assertFalse(_is_payment_suspended_now(store, "u-unknown"))
+
+    def test_false_when_store_lacks_get_payment_suspended_at(self):
+        class _BareStore:
+            pass
+
+        self.assertFalse(_is_payment_suspended_now(_BareStore(), "u1"))
+
 
 class RenderRescheduledMessageTest(unittest.TestCase):
     def test_fixed_message(self):
@@ -127,6 +199,59 @@ class HandleSubscriptionCancellationUpdateTest(unittest.TestCase):
         )
         self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
         self.assertFalse(result.notified)
+
+    def test_scheduled_message_reflects_suspension_when_payment_store_suspended(self):
+        push = InMemoryLinePushClient()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_suspended_at(
+            "u1", datetime(2026, 9, 1, tzinfo=timezone.utc)
+        )
+        result = handle_subscription_cancellation_update(
+            "u1",
+            False,
+            True,
+            None,
+            push,
+            InMemoryPortalLinkProvider(),
+            payment_store,
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertIn("作業完了報告・お手入れ案内の生成は既に一時停止しています", text)
+        self.assertNotIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+
+    def test_scheduled_message_default_when_payment_store_not_suspended(self):
+        push = InMemoryLinePushClient()
+        payment_store = _profile_store_with_user()
+        result = handle_subscription_cancellation_update(
+            "u1",
+            False,
+            True,
+            None,
+            push,
+            InMemoryPortalLinkProvider(),
+            payment_store,
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertIn("作業完了報告・お手入れ案内の生成に制限はありません", text)
+
+    def test_rescheduled_message_unaffected_by_payment_store_suspended(self):
+        push = InMemoryLinePushClient()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_suspended_at(
+            "u1", datetime(2026, 9, 1, tzinfo=timezone.utc)
+        )
+        result = handle_subscription_cancellation_update(
+            "u1", True, False, None, push, None, payment_store
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_RESCHEDULED)
+        _, _, contents = push.sent[0]
+        text = contents["body"]["contents"][0]["text"]
+        self.assertEqual(text, render_subscription_cancellation_rescheduled_message())
 
 
 class RenderCancelledMessageTest(unittest.TestCase):

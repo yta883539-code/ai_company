@@ -19,6 +19,10 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   `customer.subscription.deleted`分岐でのみ参照し、指定時のみ
   `blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
   を呼ぶ(未指定時はこれまで通りクリアを行わない後方互換措置)。
+- `payment_store`の`customer.subscription.updated`分岐への追加配線(フェーズ185):
+  subscription-cancellation-scheduled-message-suspension-consistency-design.md参照。
+  既存の`payment_store`引数を解約予約受理案内の制限モード文言整合性チェックにも
+  再利用する(新規引数なし)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -200,6 +204,16 @@ def dispatch_stripe_event(
     update()`)を送信する。`portal_link_provider`は解約予約受理案内本文のポータルURL
     差し込みにのみ使う(省略時は`PORTAL_LINK_UNAVAILABLE_FALLBACK`)。未指定
     (`None`)の場合はこれまで通り通知を一切行わない(既存呼び出し経路への後方互換措置)。
+
+    `customer.subscription.updated`分岐へは、上記`payment_store`(`invoice.payment_failed`/
+    `invoice.payment_succeeded`向けに既に受け取っている引数)をそのまま
+    `handle_subscription_cancellation_update()`へも渡す(subscription-cancellation-
+    scheduled-message-suspension-consistency-design.md、フェーズ185)。解約予約受理案内が
+    「生成に制限はありません」と案内する一方で、決済失敗の猶予期間超過により実際には
+    既に制限モード(`payment_suspended_at`設定済み)へ移行済みという文言矛盾を防ぐための
+    もので、新規の引数は追加していない。`payment_store`未指定(`None`)の場合は
+    `_is_payment_suspended_now()`が安全側で`False`を返すため、フェーズ184時点の挙動
+    (制限モード判定なし)と変わらない。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -265,6 +279,7 @@ def dispatch_stripe_event(
                     data_object.get("current_period_end"),
                     cancellation_push_client,
                     portal_link_provider,
+                    payment_store,
                 )
                 if update_result.notified:
                     if update_result.outcome == _OUTCOME_CANCELLATION_SCHEDULED:
