@@ -72,6 +72,11 @@ conversation-event-processor-assembly-design.md 4節の残課題「`searcher`
   `push_client`・`conversation_state_store`等の実クラウド接続に依存する引数がある間は
   実際にCloud Functions上で動作させられないため、優先度は引き続き低いと判断する。
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き残る課題。
-- 3区間以上(朝・昼・夜の3部制)の営業時間はowner-settings-wireframe.mdのUI自体が現時点で
-  対象外(business-hours-lunch-break.md記載)のため、本モジュールの`parse_business_hours_
-  segments()`はカンマ区切りである限り区間数の上限を設けていないが、UI側の対応が別途必要。
+- (訂正 2026-09-04 23:00 UTC: 上記で「3区間以上(朝・昼・夜の3部制)の営業時間はowner-settings-
+  wireframe.mdのUI自体が現時点で対象外」と記載していたが誤りだった。business-hours-lunch-
+  break.md「追記: 曜日別営業時間×複数休憩区間のレイアウト(2026-08-07)」の通り、「+ 休憩時間を
+  追加」は既に複数回押せる設計に変更済みで、UI側も区間数を制限していない。本モジュールの
+  `parse_business_hours_segments()`(カンマ区切りである限り区間数上限なし)と合わせて、
+  3区間以上の営業時間はUI・変換処理の双方で対応済みであり、追加のUI対応は不要。business-hours-
+  lunch-break.mdが2026-08-07時点で既に解消済みとしていた課題を、本designが古い文言のまま
+  再掲していたのが原因。今後この項目を「残課題」として再掲しないこと)
