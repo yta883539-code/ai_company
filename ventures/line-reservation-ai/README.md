@@ -2326,9 +2326,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   設計、および実際の組み立て関数(`build_conversation_event_processor_for_payload()`相当)の
   実装は次回以降の課題として残る。承認不要な設計・実装・テスト追加のみで、外部サービスへの
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 13:00 UTC
+- フェーズ続き192(2026-09-04 15:00 UTC): course-set-pashaフェーズ158の申し送り
+  (「本venture側にも`cancellation_push_client`/`portal_link_provider`の配線漏れが
+  残っていないか確認」)を受けて棚卸しした結果、配線漏れではなく、そもそも
+  aircon-pasha・course-set-pashaが採用した`PortalLinkProvider`パターン(解約案内等への
+  Stripeカスタマーポータルリンクを呼び出し時に都度生成する方式)自体が本ventureには
+  導入されておらず、`StoreSubscriptionState.portal_url`が店舗状態に保存された固定
+  文字列フィールドとして扱われていることを発見した。Stripe Customer Portalのセッション
+  URLは作成直後の一時的なリダイレクト用リンクであり長期保存を想定したものではないため、
+  特に解約予約受理案内(送信から実際にクリックされるまで請求期間終了近くまで日数が
+  空きうる)で「送信時点の固定URL」を埋め込む現状設計はリンク失効のリスクを抱えている。
+  `PortalLinkProvider`パターンへの移行方針(state側の`portal_url`フィールド削除・
+  メッセージ整形直前の都度解決・`portal_link_provider`引数の追加)を
+  `portal-session-provider-design.md`として新規設計した(aircon-pashaの同名ドキュメント
+  3節の設計をほぼそのまま流用可能と確認)。本フェーズは設計・発見のみで実装は未着手。
+  承認不要な調査・設計のみで、外部サービスへの公開・アカウント作成・支払い等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は本設計の実装
+  (`state.portal_url`削除・`portal_session.py`新規実装・関連テスト更新)、または
+  フェーズ続き191「次回以降の課題」の`searcher`組み立て(営業時間データモデル設計)を
+  優先候補とする。
+- 最終更新: 2026-09-04 15:00 UTC
 
 ## 次にやること(候補)
+- (新規発見・フェーズ続き192、2026-09-04 15:00 UTC: `StoreSubscriptionState.portal_url`が
+  Stripeカスタマーポータルの一時的なセッションURLを店舗状態に固定文字列として保存する
+  設計になっており、特に解約予約受理案内でリンク失効リスクを抱えていることを発見。
+  aircon-pasha・course-set-pasha同様の`PortalLinkProvider`パターンへの移行方針を
+  portal-session-provider-design.mdとして設計した。実装(state側フィールド削除・
+  `portal_session.py`新規実装・関連テスト更新)は次回以降の課題として残る)
 - (新規解消・フェーズ続き191、2026-09-04 13:00 UTC: conversation-state-wiring-design.md 6節の
   「`ConversationEventProcessor`組み立ての結線」課題に着手し、`menu_durations`・
   `store_faq_info`のstore経由取得を実装した。詳細は上記フェーズ続き191・
