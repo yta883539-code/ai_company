@@ -158,19 +158,44 @@ class StripeWebhookReceiverResult:
    該当経路がスキップされる(後方互換の確認)
 10. 該当`store_id`の状態が見つからない場合はスキップされる
 
-## 7. 今後の課題
+## 7. 今後の課題(2026-09-03時点、フェーズ続き183時点の記載)
 
-- `customer.subscription.updated`/`customer.subscription.deleted`
-  (`cloud_function_subscription_cancelled_webhook.py`)は`route_stripe_event()`が
-  扱う3種に含まれていないため、本エントリポイントの対象外のまま残る。将来対応する場合、
-  `route_stripe_event()`側に対象イベント種別を追加した上で本設計と同様の振り分けを
-  追加する必要がある。
-- 実際のCloud FunctionsエントリポイントHTTP関数(`main(request)`相当、
-  `request.get_data()`・`request.headers.get("Stripe-Signature")`からの取り出し配線)は
-  course-set-pasha/aircon-pashaの`stripe_webhook.py`側`main()`相当がまだ存在しない
-  (現状`cloud_function_payment_webhook.py`等はいずれも`main()`を持たずロジック本体の
-  みが実装されている)ため、本venture向けに新規作成する必要がある。次回以降の課題として
-  残す。
+- `customer.subscription.updated`/`customer.subscription.deleted`は
+  フェーズ続き184・185でそれぞれ対応済み(詳細はsubscription-deleted-event-routing-design.md・
+  customer-subscription-updated-event-routing-design.md参照)。
+- 実際のCloud FunctionsエントリポイントHTTP関数(`main(request)`相当)は8節で対応した。
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)、実Stripeアカウント
   接続自体は、引き続き実Stripe接続待ち(オーナー承認)の課題として残る(既存の記載を
   参照、新規追加なし)。
+
+## 8. `main(request)`エントリポイント(フェーズ続き186で追加)
+
+7節に残っていた「実際のCloud FunctionsエントリポイントHTTP関数」に対応した。
+course-set-pasha/aircon-pashaの`stripe_webhook.py`側`main(request)`と対称の構成で、
+`prototype/stripe_webhook_entry_point.py`に`get_stripe_webhook_runtime_dependencies()`・
+`main(request)`を追加した。
+
+- `get_stripe_webhook_runtime_dependencies()`: `resolve_store_id_by_customer`は
+  `store_profile_store.make_resolve_store_id_by_customer(InMemoryStoreProfileStore())`、
+  `dunning_store`/`subscription_store`/`cancellation_store`/`event_id_store`は本ファイルの
+  各`InMemory*`実装を1つずつ生成して返す。実運用ではLINE側Cloud Functionと同一Firestoreの
+  各コレクションを共有する想定だが、本プロセスでは別プロセス・別インスタンスとして
+  初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/aircon-pashaの
+  同名ファクトリと同じ既知の限界)。
+  - `push_client`は**意図的に返り値へ含めない**(course-set-pasha/stripe_webhook.py
+    `get_stripe_runtime_dependencies()`と同じ判断)。実LINE Messaging API接続
+    (Channel Access Token取得、オーナー承認待ち)が済むまでは`None`のまま
+    `receive_stripe_webhook()`に渡り、各分岐の「`push_client`が`None`の場合はハンドラを
+    呼ばず200を返す」既存の安全側フォールバック(2節)がそのまま効く。
+- `main(request)`: `request.get_data()`でbody、`request.headers.get("Stripe-Signature")`で
+  署名ヘッダ、環境変数`STRIPE_WEBHOOK_SECRET`(未設定時は空文字列、`verify_stripe_signature()`
+  が必ず401を返す安全側)でwebhook_secretを取り出し、`receive_stripe_webhook()`に委譲する。
+  `status_code == 200`なら`("OK", 200)`、それ以外は`(result.error or "error", result.status_code)`
+  を返す(course-set-pasha側と同一の戻り値規約)。
+- テスト: `test_stripe_webhook_entry_point.py`に`MainEntryPointTest`
+  (`_StubFlaskRequest`スタブ経由、course-set-pasha/test_stripe_webhook.pyの同名クラスと
+  同型)を追加し、正常系・署名不正・署名ヘッダ欠落・`STRIPE_WEBHOOK_SECRET`未設定の4パターンと、
+  `get_stripe_webhook_runtime_dependencies()`の戻り値が`receive_stripe_webhook()`に
+  そのまま渡せることを確認した。
+- 実Stripeアカウント接続・Webhookエンドポイント公開自体は引き続き実Stripe接続待ち
+  (オーナー承認)の課題として残る。

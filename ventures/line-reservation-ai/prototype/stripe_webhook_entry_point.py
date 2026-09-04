@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Optional, Protocol
@@ -43,12 +44,14 @@ from cloud_function_subscription_cancelled_webhook import (
     handle_subscription_deleted,
     handle_subscription_updated,
 )
+from store_profile_store import InMemoryStoreProfileStore, make_resolve_store_id_by_customer
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
     EVENT_CUSTOMER_SUBSCRIPTION_UPDATED,
     EVENT_INVOICE_PAYMENT_FAILED,
     EVENT_INVOICE_PAYMENT_SUCCEEDED,
+    InMemoryStripeEventIdStore,
     StripeEventIdStoreProtocol,
     StripeEventRoute,
     route_stripe_event,
@@ -262,3 +265,52 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, route=route, outcome=result.outcome)
 
     return StripeWebhookReceiverResult(status_code=200, route=route)
+
+
+def get_stripe_webhook_runtime_dependencies() -> dict:
+    """`main()`が使う依存の既定値を組み立てる(design 8節、course-set-pasha/stripe_webhook.
+    get_stripe_runtime_dependencies()と対称の構成)。
+
+    `dunning_store`/`subscription_store`/`cancellation_store`/`event_id_store`は
+    いずれも本プロセス内で1つずつ生成する`InMemory*`実装。実運用ではLINE側Cloud Function
+    (cloud_function_process_event.py・cloud_function_webhook.py)と同一Firestoreの各
+    コレクションを共有する想定だが、本プロセスでは別プロセス・別インスタンスとして
+    初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/aircon-pashaの
+    同名ファクトリと同じ既知の限界)。
+
+    `push_client`は意図的に返り値へ含めない。実LINE Messaging API接続
+    (Channel Access Token取得、オーナー承認待ち)が済むまでは`receive_stripe_webhook()`に
+    `None`のまま渡り、各分岐の「`push_client`が`None`の場合はハンドラを呼ばず200を返す」
+    既存の安全側フォールバックがそのまま効く(course-set-pasha/stripe_webhook.
+    get_stripe_runtime_dependencies()と同じ判断)。
+    """
+    store = InMemoryStoreProfileStore()
+    return {
+        "resolve_store_id_by_customer": make_resolve_store_id_by_customer(store),
+        "dunning_store": InMemoryStoreDunningStateStore(),
+        "subscription_store": InMemoryStoreSubscriptionStateStore(),
+        "cancellation_store": InMemoryStoreCancellationStateStore(),
+        "event_id_store": InMemoryStripeEventIdStore(),
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、Stripe版、design 8節)。
+
+    `request.get_data()`・`request.headers.get("Stripe-Signature")`からのbody・署名ヘッダ
+    取り出し配線を行い、`receive_stripe_webhook()`に委譲する(course-set-pasha/stripe_webhook.
+    main()・本venture自身のcheckout_session.main()と対称の構成)。`webhook_secret`は
+    環境変数`STRIPE_WEBHOOK_SECRET`から取得する(未設定時は空文字列となり、
+    `verify_stripe_signature()`が必ず401を返す安全側)。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+    result = receive_stripe_webhook(
+        body, signature_header, webhook_secret, **get_stripe_webhook_runtime_dependencies()
+    )
+
+    if result.status_code == 200:
+        return "OK", 200
+    return (result.error or "error"), result.status_code

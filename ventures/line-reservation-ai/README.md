@@ -2172,7 +2172,41 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   /オーナー承認待ちの課題として残す。承認不要な設計・実装・テスト追加のみで、外部
   サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。
-- 最終更新: 2026-09-03 19:00 UTC
+- フェーズ続き185(2026-09-03 20:00 UTC、遡及記載): subscription-deleted-event-routing-design.md
+  6節「今後の課題」に残っていた`customer.subscription.updated`(解約予約・取り消し)の
+  `route_stripe_event()`/`receive_stripe_webhook()`配線を実装した。Stripeイベントの
+  `event.data.previous_attributes`から`cancel_at_period_end`の変化前後を取り出す設計とし
+  (`previous_attributes`に`cancel_at_period_end`が無い場合は「今回のイベントでは変化して
+  いない」とみなしbefore=afterとして扱う、customer-subscription-updated-event-routing-design.md
+  新規作成)、Firestore側に「前回値」を別途保存・比較する設計は不要(Stripe自身が差分を
+  運んでくれるため)と判断した。`stripe_webhook.py`に`EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`を
+  追加、`stripe_webhook_entry_point.py`の`receive_stripe_webhook()`に対応分岐を追加した。
+  `handle_subscription_updated()`は状態を一切書き換えないため(契約継続中でsuspension_reasonは
+  変更しない)、`cancellation_store.set_cancellation_state()`による書き戻しは意図的に行わない。
+  テスト7件追加、venture全体656件全件パス確認。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。(本エントリは2026-09-03 20:00 UTC定例更新のコミットで既にコードは
+  実装済みだったが、README.mdへのフェーズ記載が漏れていたため今回遡及記載した。)
+- フェーズ続き186(2026-09-04 00:00 UTC): stripe-webhook-http-entry-point-design.md 7節に
+  残っていた「実際のCloud FunctionsエントリポイントHTTP関数(`main(request)`相当)が
+  本venture向けに存在しない」というギャップに対応した(course-set-pasha/aircon-pashaの
+  `stripe_webhook.py`側`main()`相当の横展開、design 8節新規作成)。
+  `prototype/stripe_webhook_entry_point.py`に`get_stripe_webhook_runtime_dependencies()`
+  (`resolve_store_id_by_customer`は`store_profile_store.make_resolve_store_id_by_customer()`、
+  `dunning_store`/`subscription_store`/`cancellation_store`/`event_id_store`はいずれも
+  `InMemory*`実装を1つずつ生成)・`main(request)`(`request.get_data()`・
+  `request.headers.get("Stripe-Signature")`・環境変数`STRIPE_WEBHOOK_SECRET`から
+  `receive_stripe_webhook()`へ委譲)を新設した。`push_client`はcourse-set-pashaの
+  同名ファクトリと同じ判断で返り値に含めず、実LINE Messaging API接続(オーナー承認待ち)
+  までは`None`のまま既存の安全側フォールバックに委ねる。テスト5件追加
+  (`MainEntryPointTest`、正常系・署名不正・署名ヘッダ欠落・`STRIPE_WEBHOOK_SECRET`未設定・
+  ランタイム依存の疎通確認)、venture全体661件全件
+  (`python3 -m unittest discover -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実Stripeアカウント接続・
+  Webhookエンドポイント公開自体は引き続き実Stripe接続待ち(オーナー承認)の課題として残る。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 00:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-08-31 01:00 UTC・フェーズ続き157: onboarding-completion-message-design.mdの
