@@ -2370,9 +2370,40 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
   次回は他venture・アイデア領域の前進、またはフェーズ続き191「次回以降の課題」の
   `searcher`組み立て(営業時間データモデル設計)を優先候補とする。
-- 最終更新: 2026-09-04 17:00 UTC
+- フェーズ続き194(2026-09-04 20:00 UTC): フェーズ続き191「次回以降の課題」に残っていた
+  `searcher`(`AvailabilitySearcher`)組み立てに必要な店舗の営業時間データを
+  `StoreSettingsStoreProtocol`経由でどう読み出すかを設計・実装した
+  (`business-hours-raw-to-searcher-assembly-design.md`新規作成)。
+  `store_settings_save_flow.py`には`business_hours_raw`(例:"10:00-19:00")・
+  `weekday_business_hours_raw`(例:{5:"10:00-15:00", 6:"定休日"})・`closed_weekdays`・
+  `closed_dates`・`slot_interval_minutes`のraw値が既に保存されていたが、
+  `AvailabilitySearcher`が要求する分単位の構造化値への変換処理は
+  store-settings-save-flow-design.md 8.3節で「本フローの範囲外」と明記されたまま
+  未実装だった。`prototype/business_hours_assembly.py`を新規作成し、
+  `parse_business_hours_segments()`(カンマ区切りの複数区間raw文字列を分単位タプル列へ、
+  複数区間のraw表記自体も本フェーズで新規定義)・`parse_weekday_business_hours_raw()`
+  (`"定休日"`の曜日を`weekday_business_hours`ではなく`closed_weekdays`側へ分離し、
+  既存の`closed_weekdays`とは和集合として扱う)・`parse_closed_dates()`
+  (`YYYY-MM-DD`書式を初めて検証)・`build_availability_searcher_for_store()`
+  (上記を組み合わせた最上位組み立て関数、`business_hours_raw`未設定時は
+  `BusinessHoursRawFormatError`を送出)を実装した。テスト13件新規追加
+  (`test_business_hours_assembly.py`)、venture全体723件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前710件+新規13件)
+  パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  残る課題は`menu_durations`・`store_faq_info`(実装済み)と`searcher`(本フェーズで実装)が
+  揃った後の`ConversationEventProcessor`本体を組み立てる最上位ファクトリ関数自体
+  (`push_client`等の実クラウド接続待ちのため優先度は引き続き低い)、および
+  3区間以上の営業時間へのUI対応。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-04 20:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった
+  `searcher`組み立てに必要な営業時間データモデルの設計・実装を行った。詳細は上記
+  フェーズ続き194・business-hours-raw-to-searcher-assembly-design.md参照。
+  `ConversationEventProcessor`本体を組み立てる最上位ファクトリ関数自体は
+  実クラウド接続待ちのため引き続き次回以降の課題として残る)
 - (解消済み 2026-09-04 17:00 UTC・フェーズ続き193: `StoreSubscriptionState.portal_url`の
   `PortalLinkProvider`パターンへの移行を実装した。詳細は上記フェーズ続き193・
   portal-session-provider-design.md 5節参照。実`stripe.billing_portal.Session.create()`
