@@ -2035,16 +2035,40 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。次回はline-reservation-ai側の同種配線漏れ確認、
   または他venture・アイデア領域の前進を優先候補とする(フェーズ158からの持ち越し)。
-- 最終更新: 2026-09-04 16:00 UTC
+- フェーズ160(2026-09-04 19:00 UTC): フェーズ158・159から持ち越していた「line-reservation-ai
+  側に`receive_stripe_webhook()`類似の`portal_link_provider`配線漏れが残っていないか」の
+  確認を行った。line-reservation-ai/prototype/stripe_webhook_entry_point.pyを確認した結果、
+  同venture自身のフェーズ続き192・193(2026-09-04 15:00・17:00 UTC)で`portal-session-
+  provider-design.md`として設計・実装済みであり、`receive_stripe_webhook()`は既に
+  `portal_link_provider: Optional[PortalLinkProvider] = None`引数を持ち、
+  `EVENT_CHECKOUT_SESSION_COMPLETED`・`EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`の各分岐で
+  メッセージ整形直前に`get_portal_url(store_id)`を都度解決する配線が入っていることを
+  確認した。`get_stripe_webhook_runtime_dependencies()`のdocstringにも、実LINE Push API・
+  実Stripeカスタマーポータル接続がオーナー承認待ちのため`push_client`・
+  `portal_link_provider`を意図的に返り値へ含めない理由が既に明記されており(本venture
+  フェーズ159で追記したのと同内容のbulletが、line-reservation-ai側はフェーズ続き193の
+  実装時点から最初から記載済み)、本venture側にあった記載漏れは発生していなかった。
+  結論として配線漏れ・記載漏れのいずれも無く、コード変更は不要と判断した。実装変更は
+  無いためテスト実行は行っていない(両venture側とも直前フェーズで全件パス確認済み)。
+  承認不要な調査のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。フェーズ158からの持ち越し課題は
+  これで解消。次回はaircon-pasha側にも同種の確認要否がないかの棚卸し、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-04 19:00 UTC
 
 ## 次にやること(候補)
 
+- (解消済み 2026-09-04 19:00 UTC・フェーズ160: line-reservation-ai側に
+  `receive_stripe_webhook()`類似の`portal_link_provider`配線漏れが残っていないかを確認した
+  結果、同venture自身のフェーズ続き192・193で既に設計・実装済みで配線漏れ・記載漏れとも
+  無いことを確認した。詳細は上記フェーズ160参照。次はaircon-pasha側の同種確認要否の棚卸しを
+  候補とする)
 - (新規解消・フェーズ159、2026-09-04 16:00 UTC: `get_stripe_runtime_dependencies()`の
   docstringに`push_client`・`portal_link_provider`を意図的に返り値へ含めない理由が
   未記載だった記載漏れを、aircon-pashaフェーズ186のdocstring bulletを参考に解消した。
   詳細は上記フェーズ159参照。実装・テストへの影響は無し。line-reservation-ai側に
-  `receive_stripe_webhook()`類似の配線漏れが残っていないかの確認は引き続き次回以降の
-  課題として残る)
+  `receive_stripe_webhook()`類似の配線漏れが残っていないかの確認は、フェーズ160で
+  解消済み)
 - (新規解消・フェーズ158、2026-09-04 14:00 UTC: `stripe_webhook.receive_stripe_webhook()`
   (実HTTPエントリポイント)に`portal_link_provider`引数が欠落しており、
   `dispatch_stripe_event()`側の同引数(フェーズ127)へ常に`None`のまま委譲されていた
