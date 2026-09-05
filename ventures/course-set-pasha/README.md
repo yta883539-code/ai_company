@@ -2120,10 +2120,32 @@
   承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。次回以降の課題は、プラン変更時の
   起点UI画面の要否検討、または他venture・アイデア領域の前進。
-- 最終更新: 2026-09-05 15:00 UTC
+- フェーズ165(2026-09-05 17:00 UTC): フェーズ164「次回以降の課題」として残っていた
+  「プラン変更(アップグレード/ダウングレード)時に本画面を再利用するか、専用の変更画面を
+  別途設けるか」の未検討事項に対応した。専用画面は新設せず、liff-plan-selection-ui-
+  wireframe.mdの既存画面を再利用する方針とし、各プランカードの「このプランを選ぶ」
+  ボタンの遷移先を契約状態で分岐させる設計を`prototype/liff_plan_card_action.py`の
+  `resolve_plan_card_action(current_plan, card_plan)`として実装した。未契約(トライアル中)
+  は従来通り`create_checkout_session()`、契約中で選択カードが現在のプランと同じ場合は
+  「ご利用中」表示でボタン無効化、契約中で異なるプランを選んだ場合は
+  `create_portal_session()`(portal_session.py)へ遷移する3分岐とした。`mode="subscription"`
+  のCheckout Sessionは常に新規サブスクリプションを作成するため契約中ユーザーには使えず、
+  subscription-plan-change-design.mdが既にStripeカスタマーポータル経由のプラン変更を
+  前提に`customer.subscription.updated`からの`plan`自動更新を設計済みであることから、
+  遷移先をポータルに揃えるのが最小の変更で済むと判断した。liff-plan-selection-ui-
+  wireframe.md「未確定・今後の課題」を解消済みに更新した。テスト4件追加、venture全体
+  570件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実LIFF SDK接続後のボタン
+  表示・無効化自体の実装(HTML/JS側)は引き続き未着手のまま残る。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 17:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ165、2026-09-05 17:00 UTC: プラン変更時の起点UI画面の要否を
+  検討し、既存のLIFFプラン選択画面を再利用する方針に決定した。詳細は上記フェーズ165参照)
 - (新規解消・フェーズ164、2026-09-05 15:00 UTC: liff-plan-selection-ui-wireframe.mdの
   「現在のご利用状況」欄が参照していた残回数・残日数取得ロジックとの接続を
   `prototype/liff_usage_status.py`の`get_current_usage_status()`として実装した。詳細は
