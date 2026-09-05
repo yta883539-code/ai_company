@@ -106,12 +106,20 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
   を実装済み(テスト6件、結線テスト含め計12件追加)。ただし洗い出した候補一覧をオーナーへ
   実際に届ける手段(日次バッチの実行主体・通知チャネル)は未設計のまま残る。詳細は
   blocked-but-billing-detection-design.md 4節参照。)
-- (一部解消 2026-09-02 19:59 UTC・フェーズ174: 上記の残課題だった「候補一覧をオーナーへ
-  実際に届ける手段」をblocked-but-billing-owner-notification-design.mdとして設計・実装した。
-  「固定のオーナー1件へLINE Push」というcourse-set-pashaの既存パターンを転用し、新規候補への
-  絞り込み・Flex Message通知文面・送信ロジックまで実装した。フォロー再開・解約確定時の
-  通知済みフラグのクリア配線は次回以降の実装課題として残る。詳細はblocked-but-billing-
-  detection-design.md 4節・blocked-but-billing-owner-notification-design.md 6節参照。)
+- (解消済み 2026-09-02 19:59 UTC・フェーズ174/2026-09-03 UTC・フェーズ175: 上記の残課題
+  だった「候補一覧をオーナーへ実際に届ける手段」をblocked-but-billing-owner-notification-
+  design.mdとして設計・実装した(フェーズ174)。「固定のオーナー1件へLINE Push」という
+  course-set-pashaの既存パターンを転用し、新規候補への絞り込み・Flex Message通知文面・
+  送信ロジックまで実装した。フォロー再開・解約確定時の通知済みフラグのクリア配線は
+  当初次回以降の実装課題として残っていたが、フェーズ175で既に解消済みだった
+  (`clear_blocked_but_billing_owner_notified_at()`を新設し、`cloud_function_webhook.
+  process_follow_event()`〈フォロー再開〉・`stripe_dispatch.dispatch_stripe_event()`の
+  `customer.subscription.deleted`分岐〈解約確定〉の両方から呼び出す配線)。この訂正は
+  blocked-but-billing-detection-design.md 4節では既にフェーズ175時点で反映済みだったが、
+  本ファイルの本項目のみ「次回以降の実装課題として残る」という古い記載のまま更新漏れと
+  なっていた(本ventureで繰り返し見つかっている、実装フェーズが先行し関連する複数ファイルの
+  残課題節の更新が追いつかない同種のパターン)。詳細はblocked-but-billing-detection-
+  design.md 4節・blocked-but-billing-owner-notification-design.md 6節参照。)
 - (解消済み 2026-08-31 15:00 UTC・フェーズ165: 上記1.のFAQ文面はlanding-page-copy-draft.md
   「よくある質問(FAQ)セクション(案)」の4問目として反映済み。本ドキュメント作成と同一
   フェーズ内で完了しており、別作業としての実施は不要だった。反映漏れ防止のため本項目を

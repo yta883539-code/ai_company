@@ -2852,4 +2852,25 @@
   設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
   領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-05 10:00 UTC
+- フェーズ191(2026-09-05 13:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  unfollow-billing-faq.md(フェーズ165)「今後の課題」に、フェーズ174の追記として
+  「フォロー再開・解約確定時の通知済みフラグのクリア配線は次回以降の実装課題として残る」と
+  記載されたまま更新されていない記載漏れを発見した。実際には`prototype/blocked_but_
+  billing_owner_notification.py`の`clear_blocked_but_billing_owner_notified_at()`が
+  フェーズ175で新設され、`cloud_function_webhook.process_follow_event()`(フォロー再開、
+  268行)・`stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`
+  分岐(解約確定、245〜246行、`blocked_but_billing_store`引数経由)の両方から既に
+  呼び出されていることを確認した。同じ内容の訂正はblocked-but-billing-detection-
+  design.md「4. 未着手のまま残る課題」では既にフェーズ175時点で反映済みだったが、
+  参照元として並記されているunfollow-billing-faq.md側のみ「次回以降の実装課題として
+  残る」という古い記載のまま取り残されていた(フェーズ187・189・190で繰り返し見つかって
+  いる、実装フェーズが先行し関連する複数ファイルの残課題節の更新が追いつかない同種の
+  パターンの再発、かつ今回は同一事実を参照する2ファイルのうち1ファイルだけが未訂正のまま
+  残っていた点が特徴的だった)。該当項目を解消済みに更新し、フェーズ175での対応内容の
+  要約とフェーズ間の記載不整合の経緯を追記した。実装・返り値・テストへの影響は無く、
+  venture全体462件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
+  領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 13:00 UTC
