@@ -466,5 +466,62 @@ class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
         self.assertIsNone(store.get_current_plan_id("no-such-user"))
 
 
+class InMemoryUserProfileStoreTrialUnitCountFieldTest(unittest.TestCase):
+    """content-generation-time-estimate.md(フェーズ192)向けに追加した
+    trial_unit_countの単体テスト(increment_trial_generation_countと対になる
+    分解洗浄台数の累計カウンタ)。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_new_field_defaults_to_zero(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertEqual(store.get("u-1").trial_unit_count, 0)
+        self.assertEqual(store.get_trial_unit_count("u-1"), 0)
+
+    def test_increment_adds_unit_count_and_returns_cumulative_total(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        first = store.increment_trial_unit_count("u-1", 1)
+        second = store.increment_trial_unit_count("u-1", 2)
+
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 3)
+        self.assertEqual(store.get_trial_unit_count("u-1"), 3)
+        self.assertEqual(store.get("u-1").trial_unit_count, 3)
+
+    def test_increment_is_independent_from_trial_generation_count(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.increment_trial_generation_count("u-1")
+        store.increment_trial_unit_count("u-1", 2)
+
+        self.assertEqual(store.get("u-1").trial_generation_count, 1)
+        self.assertEqual(store.get("u-1").trial_unit_count, 2)
+
+    def test_increment_is_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        result = store.increment_trial_unit_count("no-such-user", 3)
+
+        self.assertEqual(result, 0)
+        self.assertIsNone(store.get("no-such-user"))
+
+    def test_get_returns_zero_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        self.assertEqual(store.get_trial_unit_count("no-such-user"), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

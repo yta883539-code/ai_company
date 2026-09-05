@@ -137,7 +137,11 @@ subscription-cancellation-notification-design.md(フェーズ184)6節に残っ�
 - 制限モード中の解約予約受理案内メッセージの具体的な文言(お支払い方法確認と解約予約という
   2つの手続きが並行して存在する状態の説明)は、実際の顧客からの問い合わせ実績が無い
   ため、初期案として妥当性を検証する必要がある(course-set-pashaフェーズ157と同じ課題)。
-- 解約取り消し案内メッセージの問い合わせ導線文言の見直し(subscription-cancellation-
-  notification-design.md 4節参照、フェーズ184から持ち越し)。
+- ~~解約取り消し案内メッセージの問い合わせ導線文言の見直し(subscription-cancellation-
+  notification-design.md 4節参照、フェーズ184から持ち越し)。~~ → フェーズ188で解消済み
+  (フェーズ192の棚卸しで本節の更新漏れを発見・訂正)。`SUBSCRIPTION_CANCELLATION_
+  RESCHEDULED_MESSAGE`の文言を、実際には存在しない「お問い合わせ先の記載」への誤った
+  参照から、cancellation_unclear等の自由文問い合わせ導線(本トークルームへのメッセージ)を
+  案内する文言へ修正済み。詳細はsubscription-cancellation-notification-design.md 6節参照。
 - 実LINE Push Message API・実Stripeアカウント接続はいずれも実アカウント作成
   (オーナー承認待ち)後の課題として引き続き残る。

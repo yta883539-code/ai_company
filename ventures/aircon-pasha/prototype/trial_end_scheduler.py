@@ -43,10 +43,13 @@ class TrialUserState:
 
     trial_start_at・trial_end_notified_at・upgraded_atはuser_id_linking.pyの
     UserProfile(フェーズ134で追加した3フィールド)をそのまま反映する。
-    trial_generation_countはtrial-end-notification-design.md 5節で予告されている
-    トライアル専用生成回数カウンタ(本venture未実装)を想定した値で、呼び出し元が
-    別途集計して渡す前提。未接続の間は既定値0のまま(メッセージ文言上「0回」と
-    表示されるだけで、選定ロジック自体には影響しない)。
+    trial_generation_countはtrial-end-notification-design.md 5節で予告されていた
+    トライアル専用生成回数カウンタ(フェーズ137でuser_id_linking.UserProfileへ実装済み)を
+    反映する値で、build_trial_user_states()がprofileから読み取って渡す。
+    trial_unit_countはcontent-generation-time-estimate.md(フェーズ192)で追加した、
+    分解洗浄台数の累計カウンタ(同じくUserProfileから読み取る)。いずれも未接続の間は
+    既定値0のまま(メッセージ文言上「0回」「0分」等と表示されるだけで、選定ロジック
+    自体には影響しない)。
     """
 
     user_id: str
@@ -54,6 +57,7 @@ class TrialUserState:
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
     trial_generation_count: int = 0
+    trial_unit_count: int = 0
 
 
 class TrialUserStateReader(Protocol):
@@ -97,6 +101,7 @@ def build_trial_user_states(
                 trial_end_notified_at=profile.trial_end_notified_at,
                 upgraded_at=profile.upgraded_at,
                 trial_generation_count=profile.trial_generation_count,
+                trial_unit_count=profile.trial_unit_count,
             )
         )
     return states
@@ -143,7 +148,43 @@ TRIAL_END_ALT_TEXT = "[エアコンパシャッと] 14日間の無料トライ�
 TRIAL_END_BUTTON_LABEL = "有料プランへ進む"
 
 
-def build_trial_end_notification_flex_message(generation_count: int) -> dict:
+# content-generation-time-estimate.md(フェーズ192)「試算(仮置き)」節: 1回の生成で
+# 作成される3点セット(completion_report・care_guide・history_rows)のうち、
+# completion_report/care_guideは分解洗浄台数が増えても文章のトーン設定・書き出しなど
+# 大半を使い回せるため1台目が支配的(BASE_MINUTES_PER_GENERATION)、history_rowsは
+# 台数分の行を書く必要があるため台数に線形(ADDITIONAL_MINUTES_PER_UNIT、2台目以降の
+# completion_report/care_guide追記分もあわせて按分)。course-set-pashaの
+# BASE_MINUTES_PER_GENERATION/ADDITIONAL_MINUTES_PER_AREAと同じ考え方(値は本venture
+# 固有の仮置き)。
+BASE_MINUTES_PER_GENERATION = 8
+ADDITIONAL_MINUTES_PER_UNIT = 5
+
+
+def estimate_trial_minutes_saved(generation_count: int, unit_count: int) -> int:
+    """content-generation-time-estimate.md「試算(仮置き)」節の式
+    `8×生成回数 + 5×分解洗浄台数総数`をそのままコード化したもの。1回の生成が常に1台のみの
+    場合(unit_count == generation_count)は1回あたり13分の仮置き値と一致する。"""
+    return BASE_MINUTES_PER_GENERATION * generation_count + ADDITIONAL_MINUTES_PER_UNIT * unit_count
+
+
+def format_minutes_saved_line(generation_count: int, unit_count: int) -> str:
+    """「浮いた作業時間の目安」の1行を組み立てる。条件A
+    (cloud_function_webhook.format_trial_end_condition_a_notice())・条件B(本関数の
+    呼び出し元build_trial_end_notification_flex_message())の両方から呼ばれ、文言を統一する
+    (trial-end-notification-design.md 3節「回数到達だから」「期間到達だから」で文言を
+    分けない、という既存方針を踏襲)。"""
+    minutes_saved = estimate_trial_minutes_saved(generation_count, unit_count)
+    per_unit_minutes = BASE_MINUTES_PER_GENERATION + ADDITIONAL_MINUTES_PER_UNIT
+    return (
+        f"・浮いた作業時間の目安: 約{minutes_saved}分"
+        f"(1台の分解洗浄につき平均{per_unit_minutes}分、複数台同時分解洗浄時は"
+        f"1台追加ごとにさらに約{ADDITIONAL_MINUTES_PER_UNIT}分と仮定)"
+    )
+
+
+def build_trial_end_notification_flex_message(
+    generation_count: int, unit_count: int = 0,
+) -> dict:
     """design 1節「本venture固有の差分」: 通知メッセージ自体もFlex Messageの
     ボタン込みで組み立てる(プレーンテキストリンクではない)。
 
@@ -179,7 +220,8 @@ def build_trial_end_notification_flex_message(generation_count: int) -> dict:
                     "type": "text",
                     "text": (
                         f"これまでの生成実績:\n"
-                        f"・作業完了報告・お手入れ案内の生成: {generation_count}回"
+                        f"・作業完了報告・お手入れ案内の生成: {generation_count}回\n"
+                        f"{format_minutes_saved_line(generation_count, unit_count)}"
                     ),
                     "wrap": True,
                     "margin": "md",
@@ -280,7 +322,7 @@ def send_trial_end_notifications(
 
     for user in select_due_trial_end_notifications(users, now, trial_period_days):
         contents = build_trial_end_notification_flex_message(
-            user.trial_generation_count
+            user.trial_generation_count, unit_count=user.trial_unit_count,
         )
         try:
             push_client.send_flex_message(user.user_id, TRIAL_END_ALT_TEXT, contents)

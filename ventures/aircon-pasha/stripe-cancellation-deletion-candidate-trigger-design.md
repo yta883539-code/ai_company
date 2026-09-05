@@ -105,12 +105,16 @@ user-account-linking-design.md 4節に設計済み)が引き続き必要にな�
 
 ## 5. 未解決事項・次の課題
 
-- 実際のStripe Webhook受信エンドポイント(署名検証・イベント種別ディスパッチ)は本venture
+- ~~実際のStripe Webhook受信エンドポイント(署名検証・イベント種別ディスパッチ)は本venture
   にまだ存在しない(LINE Webhook用の`receive_webhook()`/`dispatch_webhook_events()`
   (webhook-http-entry-point-design.md)はあるが、Stripe側のWebhook受信口は未設計)。
   本フェーズはStripeイベント受信後に呼ばれる中身の関数設計にとどめ、受信口自体の設計
   (署名検証方式・エンドポイントURL)は実Stripeアカウント接続後の課題として残す
-  (course-set-pashaも同じ制約を残したまま)。
+  (course-set-pashaも同じ制約を残したまま)。~~ → フェーズ150で解消済み(フェーズ192の
+  棚卸しで本節の更新漏れを発見・訂正)。`prototype/stripe_webhook.py`の
+  `receive_stripe_webhook()`(署名検証・イベント種別ディスパッチ)が実装済み。詳細は
+  stripe-webhook-http-entry-point-design.md・stripe-webhook-signature-verification-
+  design.md参照。
 - `customer.subscription.created`が「再契約」と「(同一ユーザーの)初回契約」のどちらでも
   発火する点をどう区別するかは、実Stripe接続後にWebhookペイロードの`customer`フィールド
   (既存顧客IDかどうか)を確認して切り分ける必要がある。初回契約時は`deletion_candidate_at`が
@@ -120,5 +124,11 @@ user-account-linking-design.md 4節に設計済み)が引き続き必要にな�
   削除候補化後の最終確認(LINE push / 代替連絡経路)への引き渡しは、
   data-retention-policy.md「削除候補化後の最終確認」節の設計をそのまま使う想定だが、
   実際の呼び出し配線は実Firestore/実Stripe接続後の課題として残す。
-- 本ドキュメント自体はプロトタイプ関数の設計のみで、`prototype/`配下への実コード化・
-  テスト追加は次回以降の候補とする。
+- ~~本ドキュメント自体はプロトタイプ関数の設計のみで、`prototype/`配下への実コード化・
+  テスト追加は次回以降の候補とする。~~ → フェーズ124で解消済み(フェーズ192の棚卸しで
+  本節の更新漏れを発見・訂正)。`prototype/deletion_candidate.py`
+  (`mark_deletion_candidate_on_subscription_deleted()`・
+  `clear_deletion_candidate_on_subscription_reactivated()`・`list_deletion_candidates()`の
+  3関数)・`prototype/test_deletion_candidate.py`(テスト12件)を実装し、
+  `stripe_dispatch.dispatch_stripe_event()`にも配線済み(`prototype/stripe_dispatch.py`
+  40〜43・240・257・267行)。詳細はREADME.mdフェーズ124参照。

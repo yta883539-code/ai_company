@@ -46,6 +46,7 @@ from checkout_session import (  # noqa: E402
     parse_start_checkout_postback_data,
 )
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
+from trial_end_scheduler import format_minutes_saved_line  # noqa: E402
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     UserProfile,
@@ -529,19 +530,25 @@ TRIAL_GENERATION_LIMIT = 10
 TRIAL_END_CONDITION_A_NOTICE_TEMPLATE = (
     "[エアコンパシャッと] 14日間の無料トライアル、お疲れさまでした!\n\n"
     "これまでの生成実績:\n"
-    "・作業完了報告・お手入れ案内の生成: {generation_count}回\n\n"
+    "・作業完了報告・お手入れ案内の生成: {generation_count}回\n"
+    "{minutes_saved_line}\n\n"
     "引き続きご利用いただく場合は、下のボタンから有料プランをお選びください。"
     "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。"
 )
 
 
-def format_trial_end_condition_a_notice(generation_count: int) -> str:
+def format_trial_end_condition_a_notice(generation_count: int, unit_count: int = 0) -> str:
     """条件A(生成回数到達)用のトライアル終了通知文を組み立てる。
 
     trial-end-notification-design.md 3節の文面と、trial_end_scheduler.build_trial_end_
     notification_flex_message()(条件B・Push Message側)の本文を揃える(「回数到達だから」
-    「期間到達だから」で文言を分けない、design 3節の判断を踏襲)。"""
-    return TRIAL_END_CONDITION_A_NOTICE_TEMPLATE.format(generation_count=generation_count)
+    「期間到達だから」で文言を分けない、design 3節の判断を踏襲)。「浮いた作業時間の目安」の
+    行は、両者で共通のtrial_end_scheduler.format_minutes_saved_line()を呼んで組み立てる
+    (content-generation-time-estimate.md、フェーズ192)。"""
+    return TRIAL_END_CONDITION_A_NOTICE_TEMPLATE.format(
+        generation_count=generation_count,
+        minutes_saved_line=format_minutes_saved_line(generation_count, unit_count),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -987,13 +994,17 @@ def process_memo_event(
         and profile.upgraded_at is None
     ):
         trial_generation_count = profile_store.increment_trial_generation_count(user_id)
+        trial_unit_count = profile_store.increment_trial_unit_count(
+            user_id, len(instance["history_rows"])
+        )
         if (
             trial_generation_count == TRIAL_GENERATION_LIMIT
             and profile.trial_end_notified_at is None
         ):
             resolved_now = now if now is not None else datetime.now(timezone.utc)
             reply_text = (
-                f"{reply_text}\n\n{format_trial_end_condition_a_notice(trial_generation_count)}"
+                f"{reply_text}\n\n"
+                f"{format_trial_end_condition_a_notice(trial_generation_count, trial_unit_count)}"
             )
             profile_store.set_trial_end_notified_at(user_id, resolved_now)
             quick_reply = _build_plan_selection_quick_reply()

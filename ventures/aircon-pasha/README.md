@@ -2873,4 +2873,44 @@
   設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は
   今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
   領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-05 13:00 UTC
+- フェーズ192(2026-09-05 18:00 UTC): 直近2フェーズ(190・191)の設計doc棚卸しに続き、
+  今回は実質的な前進を優先する方針のもと、trial-end-notification-design.md 3節・6節に
+  積み残っていた「course-set-pashaの『浮いた作業時間の目安』相当の一文は、本venture向けの
+  content-generation-time-estimate.md相当の試算ドキュメントが未作成のため今回は含めない」
+  (フェーズ131以降、ドキュメント作成自体が未着手のまま放置されていた積み残し。直近2フェーズの
+  棚卸しでは発見されていなかった)に対応した。course-set-pashaのcontent-generation-time-
+  estimate.md(フェーズ109)を参考に、本venture固有の出力構造(completion_report・
+  care_guide・history_rows、course-set-pashaの「エリア」に相当する単位が「分解洗浄台数」)に
+  合わせて按分式を導出したcontent-generation-time-estimate.mdを新規作成した(1回の生成が
+  1台のみの場合の仮置き値13分/回、2台目以降は追加1台につき約5分、`minutes(n) = 8 + 5n`)。
+  実装として、`user_id_linking.UserProfile`に`trial_generation_count`と対になる
+  `trial_unit_count`(トライアル期間中の分解洗浄台数累計)フィールドを新設し、
+  `increment_trial_unit_count()`/`get_trial_unit_count()`を`UserProfileStoreProtocol`・
+  `InMemoryUserProfileStore`に実装した。`prototype/trial_end_scheduler.py`に
+  `BASE_MINUTES_PER_GENERATION`/`ADDITIONAL_MINUTES_PER_UNIT`・
+  `estimate_trial_minutes_saved()`・`format_minutes_saved_line()`を新設し、条件A
+  (`cloud_function_webhook.format_trial_end_condition_a_notice()`、新たに
+  `trial_end_scheduler`からこの関数をimportして共通化)・条件B
+  (`trial_end_scheduler.build_trial_end_notification_flex_message()`)の両方の通知文言に
+  「浮いた作業時間の目安: 約○分(1台の分解洗浄につき平均13分、複数台同時分解洗浄時は1台
+  追加ごとにさらに約5分と仮定)」の1行を追加した(design 3節「回数到達だから」「期間到達
+  だから」で文言を分けない、という既存方針を維持)。`process_memo_event()`は生成成功のたびに
+  `len(instance["history_rows"])`分を`increment_trial_unit_count()`で加算する。
+  テスト12件追加(`test_user_id_linking.py`5件・`test_trial_end_scheduler.py`6件・
+  `test_cloud_function_webhook.py`1件、うち1件はG4_multiple_units_same_visitフィクスチャ
+  〈2台〉での複数台分の加算・通知文言反映を確認)、venture全体474件全件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`、実行前462件+新規12件)パス・schema検証
+  9件(`python3 schema/validate_test_cases.py`)パスを確認した。あわせて、本フェーズの
+  調査中に見つけた記載漏れ2件(いずれも実装済みの内容が「未着手」のまま残っていた
+  古い記載)を訂正した: (1)subscription-cancellation-scheduled-message-suspension-
+  consistency-design.md 7節の「解約取り消し案内メッセージの問い合わせ導線文言の見直し」
+  (実際はフェーズ188で解消済み)、(2)stripe-cancellation-deletion-candidate-trigger-
+  design.md 5節の「Stripe Webhook受信口・prototype/への実コード化は未着手」
+  (実際はフェーズ150・124でそれぞれ解消済み)。いずれもコード変更を伴わないドキュメント
+  整理。承認不要な設計・実装・テスト追加・ドキュメント整理のみで、外部サービスへの公開・
+  アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  content-generation-time-estimate.md自体の試算値(1台あたり13分等)は実ヒアリング未実施の
+  仮置きのまま残る(同ドキュメント「残課題」参照)。次回は他venture・アイデア領域の前進、
+  landing-page-copy-draft.mdへの「時給換算」訴求反映(本ドキュメント「残課題」参照)、
+  または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 18:00 UTC

@@ -186,7 +186,15 @@ class UserProfile:
     (`stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐)の
     いずれかが起きた時点で`None`へクリアする配線をフェーズ175で実装した
     (`blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
-    経由、design 6節参照)。"""
+    経由、design 6節参照)。
+
+    `trial_unit_count`はcontent-generation-time-estimate.md(フェーズ192)で追加した、
+    トライアル期間中に分解洗浄した台数(history_rows要素数)の累計カウンタ。
+    `trial_generation_count`(生成回数)とは別立てで、有料転換前(`upgraded_at`が未設定)の
+    生成成功のたびに`len(history_rows)`分だけ加算する(course-set-pashaの
+    `trial_area_count`と同じ位置づけ)。trial-end-notification-design.md 3節・6節の
+    「浮いた作業時間の目安」表示(`trial_end_scheduler.estimate_trial_minutes_saved()`)の
+    算出に使う。"""
 
     business_name: str
     business_type: str
@@ -198,6 +206,7 @@ class UserProfile:
     trial_end_notified_at: Optional[datetime] = None
     upgraded_at: Optional[datetime] = None
     trial_generation_count: int = 0
+    trial_unit_count: int = 0
     payment_failure_detected_at: Optional[datetime] = None
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
@@ -264,7 +273,12 @@ class UserProfileStoreProtocol(Protocol):
     メソッド。未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。
     `set_blocked_but_billing_owner_notified_at`の値は`payment_failure_detected_at`等と
     同じく`Optional[datetime]`(フェーズ175でクリア配線に対応するため`None`も許容する
-    形へ拡張、値自体の意味は変わらない)。"""
+    形へ拡張、値自体の意味は変わらない)。
+
+    `increment_trial_unit_count`/`get_trial_unit_count`はフェーズ192で追加した、
+    `increment_trial_generation_count`と対になる分解洗浄台数の累計カウンタ用メソッド
+    (course-set-pashaの`increment_trial_area_count`と同じ位置づけ)。未知の`user_id`に
+    対しては他のno-opメソッドと同じ安全側方針で何もせず0を返す。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -297,6 +311,13 @@ class UserProfileStoreProtocol(Protocol):
 
     def increment_trial_generation_count(self, user_id: str) -> int:
         """インクリメント後のカウント値を返す契約とする。"""
+        ...
+
+    def increment_trial_unit_count(self, user_id: str, unit_count: int) -> int:
+        """インクリメント後の累計台数を返す契約とする(unit_count分をまとめて加算)。"""
+        ...
+
+    def get_trial_unit_count(self, user_id: str) -> int:
         ...
 
     def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
@@ -411,6 +432,17 @@ class InMemoryUserProfileStore:
             return 0
         profile.trial_generation_count += 1
         return profile.trial_generation_count
+
+    def increment_trial_unit_count(self, user_id: str, unit_count: int) -> int:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return 0
+        profile.trial_unit_count += unit_count
+        return profile.trial_unit_count
+
+    def get_trial_unit_count(self, user_id: str) -> int:
+        profile = self._profiles.get(user_id)
+        return profile.trial_unit_count if profile is not None else 0
 
     def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
         profile = self._profiles.get(user_id)

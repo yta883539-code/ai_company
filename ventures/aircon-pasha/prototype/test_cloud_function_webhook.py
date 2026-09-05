@@ -711,7 +711,8 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
         )
 
         self.assertIn(
-            format_trial_end_condition_a_notice(TRIAL_GENERATION_LIMIT), result.reply_text
+            format_trial_end_condition_a_notice(TRIAL_GENERATION_LIMIT, unit_count=1),
+            result.reply_text,
         )
         self.assertEqual(
             reply_client.quick_replies_sent[-1], _expected_plan_selection_quick_reply(),
@@ -731,6 +732,33 @@ class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):
         self.assertEqual(reply_client.quick_replies_sent[-1], None)
         self.assertIsNone(profile_store.get("u-1").trial_end_notified_at)
         self.assertEqual(profile_store.get("u-1").trial_generation_count, TRIAL_GENERATION_LIMIT - 1)
+        # content-generation-time-estimate.md(フェーズ192): 通知条件に達していなくても
+        # trial_unit_countはtrial_generation_countと同様に毎回積み上がる(G1_basicは1台)。
+        self.assertEqual(profile_store.get("u-1").trial_unit_count, 1)
+
+    def test_tenth_generation_with_multiple_units_accumulates_trial_unit_count(self):
+        """content-generation-time-estimate.md(フェーズ192): 複数台分解洗浄(history_rows
+        複数件)のG4フィクスチャでも、trial_unit_countがhistory_rows要素数分だけ加算され、
+        通知文の「浮いた作業時間の目安」に反映されることを確認する。"""
+        from datetime import datetime, timezone
+
+        profile_store = self._profile_store(
+            trial_generation_count=TRIAL_GENERATION_LIMIT - 1, trial_unit_count=5,
+        )
+        now = datetime(2026, 8, 28, 3, 0, tzinfo=timezone.utc)
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G4_multiple_units_same_visit"),
+            reply_client, profile_store=profile_store, now=now,
+        )
+
+        # G4は2台分のhistory_rowsを持つため、5+2=7が最終的なtrial_unit_countになる。
+        self.assertEqual(profile_store.get("u-1").trial_unit_count, 7)
+        self.assertIn(
+            format_trial_end_condition_a_notice(TRIAL_GENERATION_LIMIT, unit_count=7),
+            result.reply_text,
+        )
 
     def test_no_double_send_when_already_notified_by_condition_b(self):
         # 2026-08-28 05:00 UTC追記(フェーズ138): trial_end_notified_at設定済み・

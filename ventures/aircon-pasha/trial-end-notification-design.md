@@ -65,9 +65,13 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
 - pricing-plan.mdの「トライアル終了時: 自動課金はせず...継続を希望する場合のみ本人がプランを
   選択する形にする」という条件をそのまま踏まえ、「何もしなければ自動課金なし」である旨を
   明記する(tone-and-manner-guideline.mdの絵文字不使用・ですます調方針を踏襲)。
-- course-set-pashaの「浮いた作業時間の目安」相当の一文は、本venture向けのcontent-generation-
-  time-estimate.md相当の試算ドキュメントが未作成のため今回は含めない(4節の「今後の課題」に
-  切り出す)。生成実績(回数)のみを事実として提示するにとどめる。
+- ~~course-set-pashaの「浮いた作業時間の目安」相当の一文は、本venture向けのcontent-
+  generation-time-estimate.md相当の試算ドキュメントが未作成のため今回は含めない(4節の
+  「今後の課題」に切り出す)。生成実績(回数)のみを事実として提示するにとどめる。~~ →
+  フェーズ192で対応済み。content-generation-time-estimate.mdを新規作成し、
+  「浮いた作業時間の目安: 約○分(1台の分解洗浄につき平均13分、複数台同時分解洗浄時は
+  1台追加ごとにさらに約5分と仮定)」の1行を通知文言(条件A・条件Bの両方)に追加した。
+  詳細は6節・content-generation-time-estimate.md参照。
 - (解消済み 2026-08-27・フェーズ131: CTAの遷移方式は、本venture固有の決済導線設計
   checkout-initiation-flow-design.mdで「LINEのpostbackアクションボタン方式・LIFF不要」に
   確定した。user-account-linking-design.md 4節の前提〈Checkout Session作成時点でuser_idは
@@ -121,8 +125,16 @@ Flex Messageのpostbackアクションボタン〈`data="action=start_checkout"`
   同フェーズで配線済み)。実Stripe接続(Checkout Session作成の実API呼び出し)のみ
   オーナー承認待ちとして残る〈フェーズ176・2026-09-03: 本節が「なお次回以降の課題」と
   していたのは記載漏れで、実際にはフェーズ132で解消済みだったことを発見・訂正した〉)
-- 「生成実績」に浮いた作業時間の目安を加えるかどうかは、content-generation-time-estimate.md
-  相当のドキュメント作成後に再検討する。
+- ~~「生成実績」に浮いた作業時間の目安を加えるかどうかは、content-generation-time-
+  estimate.md相当のドキュメント作成後に再検討する。~~ → フェーズ192で対応済み。
+  content-generation-time-estimate.mdを新規作成し、「1回の生成で作成される3点セット
+  (completion_report・care_guide・history_rows)を手動作成する場合、分解洗浄1台あたり
+  平均13分・複数台同時分解洗浄時は1台追加ごとにさらに約5分」という仮置き試算を採用した。
+  `user_id_linking.UserProfile.trial_unit_count`(トライアル期間中の分解洗浄台数累計)を
+  新設し、`trial_end_scheduler.estimate_trial_minutes_saved()`/`format_minutes_saved_line()`を
+  条件A・条件Bの両方から共通で呼ぶことで、通知文言に「浮いた作業時間の目安」の1行を追加した。
+  試算値自体は実ヒアリング未実施の仮置きのまま(content-generation-time-estimate.md
+  「残課題」参照)。
 - (解消済み・フェーズ133: (B)期間到達判定用の日次スケジューラの選定ロジック・構成を
   trial-end-scheduler-design.mdとして設計した。詳細は同ドキュメント参照。4節の「生成一時
   停止」判定の実コード実装は**フェーズ138で実装済み**(`_is_generation_paused()`・

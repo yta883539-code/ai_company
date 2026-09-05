@@ -15,11 +15,15 @@ from checkout_session import (  # noqa: E402
     build_start_checkout_postback_data,
 )
 from trial_end_scheduler import (  # noqa: E402
+    ADDITIONAL_MINUTES_PER_UNIT,
+    BASE_MINUTES_PER_GENERATION,
     InMemoryLinePushClient,
     LinePushDeliveryError,
     TrialUserState,
     build_trial_end_notification_flex_message,
     build_trial_user_states,
+    estimate_trial_minutes_saved,
+    format_minutes_saved_line,
     select_due_trial_end_notifications,
     send_trial_end_notifications,
 )
@@ -122,6 +126,55 @@ class BuildTrialEndNotificationFlexMessageTest(unittest.TestCase):
             self.assertEqual(button["action"]["data"], build_start_checkout_postback_data(plan))
             self.assertIn(plan, button["action"]["label"])
 
+    def test_includes_minutes_saved_estimate_using_unit_count(self):
+        """content-generation-time-estimate.md(フェーズ192)。"""
+        contents = build_trial_end_notification_flex_message(generation_count=3, unit_count=4)
+
+        body_texts = [
+            block["text"]
+            for block in contents["body"]["contents"]
+            if block["type"] == "text"
+        ]
+        expected_minutes = estimate_trial_minutes_saved(3, 4)
+        self.assertTrue(any(f"約{expected_minutes}分" in text for text in body_texts))
+
+    def test_minutes_saved_defaults_to_zero_unit_count_when_omitted(self):
+        contents = build_trial_end_notification_flex_message(generation_count=3)
+
+        body_texts = [
+            block["text"]
+            for block in contents["body"]["contents"]
+            if block["type"] == "text"
+        ]
+        expected_minutes = BASE_MINUTES_PER_GENERATION * 3
+        self.assertTrue(any(f"約{expected_minutes}分" in text for text in body_texts))
+
+
+class EstimateTrialMinutesSavedTest(unittest.TestCase):
+    """content-generation-time-estimate.md「試算(仮置き)」節の式の単体テスト
+    (フェーズ192)。"""
+
+    def test_single_generation_single_unit_matches_flat_estimate(self):
+        # 1回の生成が常に1台のみの場合、1回あたり13分(8+5)の仮置き値と一致する。
+        self.assertEqual(estimate_trial_minutes_saved(1, 1), 13)
+
+    def test_scales_with_generation_count_and_unit_count_independently(self):
+        self.assertEqual(
+            estimate_trial_minutes_saved(3, 5),
+            BASE_MINUTES_PER_GENERATION * 3 + ADDITIONAL_MINUTES_PER_UNIT * 5,
+        )
+
+    def test_zero_generations_and_units_is_zero(self):
+        self.assertEqual(estimate_trial_minutes_saved(0, 0), 0)
+
+
+class FormatMinutesSavedLineTest(unittest.TestCase):
+    def test_line_starts_with_bullet_and_contains_estimate(self):
+        line = format_minutes_saved_line(2, 3)
+
+        self.assertTrue(line.startswith("・浮いた作業時間の目安"))
+        self.assertIn(f"約{estimate_trial_minutes_saved(2, 3)}分", line)
+
 
 class SendTrialEndNotificationsTest(unittest.TestCase):
     class _InMemoryProfileStoreStub:
@@ -135,7 +188,7 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         users = [
             TrialUserState(
                 user_id="u1", trial_start_at=_NOW - timedelta(days=14),
-                trial_generation_count=3,
+                trial_generation_count=3, trial_unit_count=4,
             ),
             TrialUserState(user_id="u2", trial_start_at=_NOW - timedelta(days=1)),
         ]
@@ -151,6 +204,14 @@ class SendTrialEndNotificationsTest(unittest.TestCase):
         sent_user_id, alt_text, contents = push.sent[0]
         self.assertEqual(sent_user_id, "u1")
         self.assertIn("トライアル", alt_text)
+        body_texts = [
+            block["text"]
+            for block in contents["body"]["contents"]
+            if block["type"] == "text"
+        ]
+        self.assertTrue(
+            any(f"約{estimate_trial_minutes_saved(3, 4)}分" in text for text in body_texts)
+        )
 
     def test_delivery_failure_does_not_write_notified_at_and_is_reported_as_failed(self):
         users = [TrialUserState(user_id="u1", trial_start_at=_NOW - timedelta(days=14))]
@@ -190,6 +251,7 @@ class BuildTrialUserStatesTest(unittest.TestCase):
                 email="owner@example.com", linked_at=_NOW,
                 trial_start_at=_NOW - timedelta(days=20),
                 trial_generation_count=3,
+                trial_unit_count=4,
             ),
         )
 
@@ -201,6 +263,7 @@ class BuildTrialUserStatesTest(unittest.TestCase):
         self.assertIsNone(states[0].trial_end_notified_at)
         self.assertIsNone(states[0].upgraded_at)
         self.assertEqual(states[0].trial_generation_count, 3)
+        self.assertEqual(states[0].trial_unit_count, 4)
 
     def test_unknown_user_id_becomes_trial_not_started_state(self) -> None:
         from user_id_linking import InMemoryUserProfileStore
