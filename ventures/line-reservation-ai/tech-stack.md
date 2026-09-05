@@ -33,4 +33,5 @@ LINE公式アカウント(Messaging API) ⇄ Webhookサーバー ⇄ LLM(予約�
 - ~~二重予約防止のロジック設計~~ → double-booking-prevention.md・BookingSlotManager(prototype/engine.py)にて設計・実装済み
 - ~~LINE Messaging APIの最新の料金・利用規約の確認(要web調査)~~ → line-api-pricing.md にて調査済み
 - ~~ホスティング基盤の具体的な選定~~ → hosting-platform-selection.md にてGCP Cloud Functions + Firestoreを選定済み
-- Firestoreのデータモデル(会話状態・予約枠・通知ログのコレクション設計)の具体化(未着手)
+- ~~Firestoreのデータモデル(会話状態・予約枠・通知ログのコレクション設計)の具体化~~ → firestore-data-model.md にて設計済み(以降フェーズ続き198・199で複合インデックスもfirestore-composite-index-plan.md・reminder-scheduler-composite-index-design.mdに集約済み)
+- 上記に伴い設計・実装が進んだ主要ドキュメント(2026-09-05 08:00 UTC時点の棚卸し、抜粋): conversation-flow.md/conversation-event-processor-assembly-design.md(会話フロー・イベント処理の組み立て)、stripe-webhook-*.md/checkout-session関連(決済・Webhook)、reminder-scheduler-design.md(前日リマインド)、firestore.indexes.json(複合インデックス定義本体)。本セクション冒頭時点の「初回メモ」というタイトルとは裏腹に、実装は129ファイル・フェーズ199まで進行しており、tech-stack.mdの本欄は更新が追いついていなかった。
