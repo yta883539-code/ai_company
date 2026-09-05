@@ -2396,7 +2396,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   3区間以上の営業時間へのUI対応。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-04 20:00 UTC
+- フェーズ続き195(2026-09-05 02:00 UTC): conversation-event-processor-assembly-
+  design.md 4節「引き続き残る課題」に残っていた、`ConversationEventProcessor`本体を
+  組み立てる最上位ファクトリ関数`build_conversation_event_processor_for_payload()`を
+  `prototype/conversation_event_processor_assembly.py`として新規実装した。同designは
+  「`push_client`・`conversation_state_store`等の実クラウド接続に依存する引数がある間は
+  実装しても動かせないため優先度は低い」としていたが、aircon-pasha・course-set-pashaの
+  `portal_link_provider`配線と同じDI(依存性注入)パターンでInMemory実装を注入すれば
+  実クラウド接続なしでも組み立てロジック自体を机上検証できると判断し、本フェーズで
+  着手した。`resolve_store_id_from_destination()`でstore_idを解決し、
+  `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)・
+  `build_availability_searcher_for_store()`(フェーズ続き194)をそれぞれ呼び出して
+  `flow`・`searcher`を組み立て、`booking_slots`/`consolidator`は`flow._slots`/
+  `flow._consolidator`を共有、`logs`は`flow`・processor間で同一インスタンスを共有する
+  (`_demo()`と同じ考え方)。`menu_durations`・`store_faq_info`・`owner_user_id`は
+  `store`(`StoreSettingsStoreProtocol`、`StoreProfileStoreProtocol`を継承)から読み出す。
+  `store`引数は`store_settings_save_flow.py`の設計方針(単一`stores/{storeId}`ドキュメント
+  想定)に合わせ1つのみとし、design時点のスケッチ通りの引数構成にした。テスト4件新規追加
+  (`test_conversation_event_processor_assembly.py`、store_idの解決・オンボーディング
+  未完了店舗でのエラー・destination欠落時のエラー・実際にnew_bookingメッセージを1件
+  処理できることを確認)、venture全体727件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前723件+新規4件)
+  パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  残る課題は、この関数を実際にCloud Functions上のどこから呼ぶか(Cloud Tasksの
+  payloadを受け取ってから`handle_process_conversation_event()`へ渡すまでの配線)自体、
+  および実Firestore接続(店舗プロフィールストアの実装をInMemoryから差し替え)は
+  引き続きオーナー承認待ちのため未着手。承認不要な設計・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-05 02:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった

@@ -50,16 +50,19 @@ Cloud Function Bのどこから呼ぶか(`handle_process_conversation_event()`�
 
 ## 4. 引き続き残る課題
 
-- `searcher`(`AvailabilitySearcher`)の組み立てに必要な店舗の営業時間・スロット間隔
-  データは、weekday-specific-business-hours.md・business-hours-lunch-break.mdで
-  曜日別・複数時間帯対応の設計が既にされているが、それを`StoreProfileStoreProtocol`
-  経由でどう読み出すかはまだ未設計(単純なgetter 1つでは表現できない構造のため、
-  別途データモデルの設計が必要)。
-- 上記が揃った後、実際に`ConversationEventProcessor`を組み立てて`handle_process_
-  conversation_event()`へ渡す最上位の組み立て関数(例:
-  `build_conversation_event_processor_for_payload(payload, store, push_client, ...)`)
-  自体はまだ実装していない。`push_client`・`conversation_state_store`等の実クラウド
-  接続に依存する引数がある間は、組み立て関数を実装しても実際にCloud Functions上で
-  動作させることはできないため、優先度は`searcher`組み立てロジックの設計より低いと
-  判断した。
+- (解消済み 2026-09-05 02:00 UTC: `searcher`〈`AvailabilitySearcher`〉の組み立てに
+  必要な店舗の営業時間・スロット間隔データの読み出しは、business-hours-raw-to-
+  searcher-assembly-design.md〈フェーズ続き194〉で`prototype/business_hours_
+  assembly.py`の`build_availability_searcher_for_store()`として実装済み)
+- (解消済み 2026-09-05 02:00 UTC: 最上位の組み立て関数
+  `build_conversation_event_processor_for_payload(payload, store, push_client, ...)`を
+  `prototype/conversation_event_processor_assembly.py`〈フェーズ続き195〉として実装した。
+  `push_client`・`conversation_state_store`等の実クラウド接続に依存する引数は、他venture
+  〈aircon-pasha・course-set-pashaのportal_link_provider配線等〉と同じDIパターンで
+  そのまま呼び出し元から受け取る形とし、InMemory実装を注入すれば実クラウド接続なしでも
+  組み立てロジック自体を机上検証できることを確認した〈テスト4件追加〉。実際に
+  Cloud Functions上でこの関数を呼び出す配線〈Cloud Tasksのpayloadを受け取ってから
+  `handle_process_conversation_event()`へ渡すまでの間のどこで呼ぶか〉自体は、
+  実Firestore接続〈店舗プロフィールストアの実装をInMemoryから差し替える〉が済むまで
+  引き続き未着手)
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き残る課題。
