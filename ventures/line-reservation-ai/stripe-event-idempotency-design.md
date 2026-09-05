@@ -81,7 +81,9 @@ venture全体603件全件(python3 -m unittest discover -p "test_*.py")パス・s
   詳細は同ドキュメント参照)
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は、実Stripeアカウント接続
   (オーナー承認待ち)後の設計課題として別途残る(署名検証設計から持ち越しの既存課題)。
-- 実際のCloud Functions HTTPエントリポイント(`main(request)`相当、`request.get_data()`・
-  `request.headers.get("Stripe-Signature")`からの取り出し配線)は、
-  stripe-webhook-http-entry-point-design.md「今後の課題」のとおり本venture向けに
-  まだ新規作成されていない(次回以降の課題)。
+- (解消済み 2026-09-05 01:00 UTC・フェーズ続き195: 実際のCloud Functions HTTPエントリ
+  ポイント(`main(request)`相当)は、stripe-webhook-http-entry-point-design.md
+  8節(フェーズ続き186)で`prototype/stripe_webhook_entry_point.py`の`main(request)`・
+  `get_stripe_webhook_runtime_dependencies()`として既に実装済みであることを確認した。
+  本節はフェーズ続き183時点の記載のまま更新されていなかった記載漏れであり、コード変更は
+  無い。venture全体のテストは既存のまま全件パスを確認した)
