@@ -2547,9 +2547,41 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進、または1,000件という閾値の妥当性を左右するarchive処理
   (archive_completed_conversations())の実行頻度・遅延の再確認を優先候補とする。
-- 最終更新: 2026-09-05 11:00 UTC
+- フェーズ続き202(2026-09-05 14:00 UTC): フェーズ続き201が優先候補として挙げた
+  archive_completed_conversations()の実行頻度・遅延の再確認に着手した。現行設計
+  (idle-conversation-trigger-design.md)の「Webhook便乗トリガー(案B)のみ」だと、
+  来店日超過後にその店舗への問い合わせが長期間途絶えた場合(閑散期・廃業間際等)、
+  `archivedAt`がnullのまま無制限に遅延しうるという見落としを発見した。この遅延は
+  reminder-scheduler-composite-index-design.md/target-datetime-denormalization-
+  contingency-design.mdが前提とする「Cloud Function Cが読み込むconfirmed件数」を
+  実態以上に膨らませる変動要因になる。対策として、店舗トラフィックに関係なく
+  全店舗を定期的(15分間隔暫定)に見て回るCloud Function C(reminder-scheduler-
+  design.md)側にも同等の判定を実装し、こちらを正規のトリガー・Webhook便乗を補助的な
+  早期実行と位置づけることで最大遅延をCloud Scheduler起動間隔まで縮めた
+  (archive-trigger-unification-design.md新規作成)。`prototype/reminder_scheduler.py`に
+  `ReminderBooking.archived_at`フィールドと`select_confirmed_to_archive()`を追加し、
+  `prototype/cloud_function_send_reminders.py`の`send_reminders()`から呼び出す配線を
+  実装した(`SendRemindersResult.archived`追加)。confirmed-state-archival.md・
+  idle-conversation-trigger-design.mdの該当節も本設計への確定を反映して更新した。
+  テスト11件追加(reminder_scheduler側7件・cloud_function_send_reminders側4件)、
+  venture全体746件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)
+  パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  実際のFirestoreクエリ・Cloud Scheduler設定は実Firestore接続後の課題として残る。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、またはarchive-trigger-unification-design.mdの残る課題
+  (Cloud Function Cへの「未送信/再送候補」と「未アーカイブconfirmed」の2種類の
+  クエリ結果の結線)を優先候補とする。
+- 最終更新: 2026-09-05 14:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-05 14:00 UTC・フェーズ続き202: archive_completed_conversations()の
+  実行頻度・遅延を再点検し、Webhook便乗トリガー単独では店舗トラフィック途絶時に
+  無制限に遅延しうる問題を発見した。Cloud Function C(全店舗横断・トラフィック非依存で
+  定期起動)にも同等の判定〈select_confirmed_to_archive()〉を実装し、正規のトリガーと
+  することで最大遅延をCloud Scheduler起動間隔(暫定15分)まで縮めた。詳細は
+  archive-trigger-unification-design.md参照。次回はCloud Function Cへの2種類のクエリ
+  結果の結線、または他venture・アイデア領域の前進を候補とする)
 - (解消済み 2026-09-05 11:00 UTC・フェーズ続き201: reminder-scheduler-composite-index-
   design.mdの残課題だった「確定予約総数増加時のtarget_datetime再設計要否」について、
   切り替えトリガー(Cloud Function C 1回の実行での読み込み件数が概ね1,000件超で継続)・

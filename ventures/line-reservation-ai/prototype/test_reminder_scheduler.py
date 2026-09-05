@@ -13,6 +13,7 @@ from reminder_scheduler import (
     ReminderConfigError,
     StoreReminderConfig,
     compute_initial_reminder_target,
+    select_confirmed_to_archive,
     select_due_initial_reminders,
     select_due_resends,
     should_send_initial_reminder,
@@ -212,6 +213,54 @@ class SelectDueResendsTests(unittest.TestCase):
         now = datetime(2026, 8, 9, 9, 5)
         due = select_due_resends([booking], now)
         self.assertEqual(due, [])
+
+
+class SelectConfirmedToArchiveTests(unittest.TestCase):
+    def _booking(self, **overrides):
+        base = dict(
+            booking_id="b1",
+            store_id="store-1",
+            booking_date=date(2026, 8, 10),
+            start_minutes=15 * 60,
+            confirmed_at=datetime(2026, 8, 5, 10, 0),
+        )
+        base.update(overrides)
+        return ReminderBooking(**base)
+
+    def test_not_yet_due_on_visit_day_itself(self):
+        booking = self._booking()
+        now = datetime(2026, 8, 10, 20, 0)
+        self.assertEqual(select_confirmed_to_archive([booking], now), [])
+
+    def test_due_from_the_calendar_day_after_visit_regardless_of_time_of_day(self):
+        # confirmed-state-archival.md準拠: 判定は`now.date() - visit_date`という日付
+        # (calendar day)単位の差分であり、時刻は問わない(来店日の翌日早朝でも対象)。
+        booking = self._booking()
+        now = datetime(2026, 8, 11, 0, 1)
+        self.assertEqual(select_confirmed_to_archive([booking], now), [booking])
+
+    def test_due_well_after_visit(self):
+        booking = self._booking()
+        now = datetime(2026, 9, 1, 0, 0)
+        self.assertEqual(select_confirmed_to_archive([booking], now), [booking])
+
+    def test_already_archived_is_excluded(self):
+        booking = self._booking(archived_at=datetime(2026, 8, 12, 0, 0))
+        now = datetime(2026, 9, 1, 0, 0)
+        self.assertEqual(select_confirmed_to_archive([booking], now), [])
+
+    def test_future_booking_is_excluded(self):
+        booking = self._booking(booking_date=date(2026, 9, 10))
+        now = datetime(2026, 8, 11, 0, 0)
+        self.assertEqual(select_confirmed_to_archive([booking], now), [])
+
+    def test_custom_after_visit_days_threshold(self):
+        booking = self._booking()
+        now = datetime(2026, 8, 12, 0, 0)  # 来店日+2日
+        self.assertEqual(select_confirmed_to_archive([booking], now, after_visit_days=3), [])
+        self.assertEqual(
+            select_confirmed_to_archive([booking], now, after_visit_days=2), [booking]
+        )
 
 
 if __name__ == "__main__":

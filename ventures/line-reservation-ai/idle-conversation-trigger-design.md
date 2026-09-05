@@ -42,8 +42,17 @@ Webhookは顧客からのメッセージ到着ごとに発火するため、ト�
   (release/archiveはどちらも冪等であり、遅延実行による副作用はない)。
 
 ## 未解決事項
-- トラフィックが長時間絶える営業時間外にconfirmed会話が長時間`_states`に残り続ける点は
-  実害がない(メモリ量が小さいMVP規模では許容)が、将来的な規模拡大時はA(専用スケジューラ)
-  への切り替えが必須になる。
+- (解消済み 2026-09-05 フェーズ続き202: 「トラフィックが長時間絶える営業時間外に
+  confirmed会話が長時間`_states`に残り続ける点」について、`archive_completed_
+  conversations()`に限っては、来店日超過後にその店舗へのWebhookが長期間途絶えると
+  (閑散期・廃業間際等)最大遅延が無制限になりうる実害があることが判明した
+  (archive-trigger-unification-design.md)。reminder-scheduler-design.mdの
+  Cloud Function C(全店舗共通・トラフィック非依存で15分間隔起動)にも同等の判定
+  〈`select_confirmed_to_archive()`〉を実装し、こちらを正規のトリガー・本設計の
+  Webhook便乗(案B)を補助的な早期実行と位置づけることで、最大遅延をCloud Scheduler
+  起動間隔(暫定15分)まで縮めた。`release_idle_conversations()`側(無応答離脱、
+  影響がメモリ解放のみ)は実害が小さいため、引き続き本設計(案B単独)のままで良いと
+  判断した)
 - 前日リマインド送信など「Webhook受信に依存せず能動的に動く必要がある処理」は本設計の
-  対象外であり、そちらは案A相当の専用トリガーが必須になる(別途検討)。
+  対象外であり、そちらは案A相当の専用トリガーが必須になる(別途検討、reminder-
+  scheduler-design.mdで対応済み)。

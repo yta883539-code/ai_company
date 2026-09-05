@@ -72,6 +72,9 @@ class ReminderBooking:
     reminder_skipped: bool = False
     resend_sent_at: Optional[datetime] = None
     customer_replied_at: Optional[datetime] = None
+    # archive-trigger-unification-design.md準拠。confirmed-state-archival.mdの
+    # archivedAtフィールドに対応(select_confirmed_to_archive()の選定対象・除外条件に使う)。
+    archived_at: Optional[datetime] = None
     # 以下2フィールドは選定ロジック自体では未使用だが、選定結果をそのまま
     # cloud_function_send_reminders.pyでのメッセージ整形・送信に渡せるよう、
     # firestore-data-model.mdのconversationsドキュメントが元々保持している値をここにも運ぶ。
@@ -177,3 +180,36 @@ def select_due_resends(
         if now >= open_dt:
             due.append(booking)
     return due
+
+
+# confirmed-state-archival.mdのARCHIVE_AFTER_VISIT(1日)と同じ値。
+# archive-trigger-unification-design.md準拠でCloud Function C側にも複製する
+# (ロジックの整合性はテストで担保する。confirmed-state-archival.md側の値を
+# 変更した場合は本値も合わせて変更すること)。
+ARCHIVE_AFTER_VISIT_DAYS = 1
+
+
+def select_confirmed_to_archive(
+    bookings: list[ReminderBooking],
+    now: datetime,
+    after_visit_days: int = ARCHIVE_AFTER_VISIT_DAYS,
+) -> list[ReminderBooking]:
+    """archive-trigger-unification-design.md準拠。
+    confirmed-state-archival.mdのarchive_completed_conversations()と同じ判定
+    (来店日からafter_visit_days日以上経過、かつ未アーカイブ)を、Cloud Function C
+    (send_reminders、全店舗横断で15分間隔起動)側でも実行できるようにしたもの。
+
+    idle-conversation-trigger-design.mdのWebhook便乗トリガー(maybe_run_archive())は
+    店舗ごとにWebhookが届かない限り実行されず、来店日超過後にその店舗への問い合わせが
+    途絶えると際限なく遅延しうる。Cloud Function Cは店舗の問い合わせ有無に関係なく
+    全店舗を定期的に見て回るため、こちらを正規のトリガーとすることで最大遅延を
+    Cloud Schedulerの起動間隔(暫定15分)まで縮められる。
+    """
+    to_archive: list[ReminderBooking] = []
+    for booking in bookings:
+        if booking.archived_at is not None:
+            continue
+        if (now.date() - booking.booking_date).days < after_visit_days:
+            continue
+        to_archive.append(booking)
+    return to_archive

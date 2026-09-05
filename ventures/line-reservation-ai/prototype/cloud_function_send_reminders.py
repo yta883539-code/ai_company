@@ -40,6 +40,7 @@ from engine import (  # noqa: E402
 from reminder_scheduler import (  # noqa: E402
     ReminderBooking,
     StoreReminderConfig,
+    select_confirmed_to_archive,
     select_due_initial_reminders,
     select_due_resends,
 )
@@ -69,6 +70,7 @@ class SendRemindersResult:
     initial_sent: list[str] = field(default_factory=list)  # booking_id
     resend_sent: list[str] = field(default_factory=list)  # booking_id
     failed: list[str] = field(default_factory=list)  # booking_id(送信失敗、次回再試行)
+    archived: list[str] = field(default_factory=list)  # booking_id(archive-trigger-unification-design.md)
 
 
 def send_reminders(
@@ -104,6 +106,16 @@ def send_reminders(
             continue
         booking.resend_sent_at = now
         result.resend_sent.append(booking.booking_id)
+
+    # archive-trigger-unification-design.md準拠。confirmed-state-archival.mdの
+    # archive_completed_conversations()の実行トリガーとして、店舗ごとのWebhook到着に
+    # 依存するidle-conversation-trigger-design.mdの便乗トリガーだけでなく、全店舗横断で
+    # 定期実行される本Cloud Function Cでも実行し、最大遅延をCloud Scheduler起動間隔
+    # (暫定15分)まで縮める。送信処理(reminder_sent_at/resend_sent_at)とは独立した
+    # 関心事のため、送信失敗の有無に関わらず常に実行する。
+    for booking in select_confirmed_to_archive(bookings, now):
+        booking.archived_at = now
+        result.archived.append(booking.booking_id)
 
     return result
 

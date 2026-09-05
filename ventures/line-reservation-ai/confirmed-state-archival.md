@@ -44,11 +44,21 @@ conversation-state-cleanup.mdで曖昧だった「アーカイブ=履歴も消�
 
 ## 実行トリガー
 
-conversation-state-cleanup.mdのスイープ処理(`release_idle_conversations`)と同様、
+(解消済み 2026-09-05 フェーズ続き202: 以下の「実際のホスティング基盤が決まった時点で
+確定する」という未確定の記載を、archive-trigger-unification-design.mdにより確定した。
+idle-conversation-trigger-design.mdのWebhook便乗トリガー(案B、`maybe_run_archive()`)を
+補助的な早期実行として残しつつ、reminder-scheduler-design.mdのCloud Function C
+(全店舗共通・トラフィック非依存で15分間隔起動)を正規のトリガーとする。理由は
+Webhook便乗単独では、来店日超過後にその店舗への問い合わせが長期間途絶えると
+`archivedAt`がnullのまま無制限に遅延しうり、reminder-scheduler-composite-
+index-design.mdのconfirmed件数試算を狂わせるため。判定ロジック自体は
+`prototype/reminder_scheduler.py`の`select_confirmed_to_archive()`として実装済み。)
+
+~~conversation-state-cleanup.mdのスイープ処理(`release_idle_conversations`)と同様、
 実行トリガー(cron/バッチ間隔、Webhook受信時の副作用実行)は実際のホスティング基盤が
 決まった時点で確定する。1日1回程度の低頻度実行で十分なため、
 `release_idle_conversations`(30分間隔目安)とは別のより粗い間隔のジョブとして
-分離してよい。
+分離してよい。~~
 
 ## 挙動
 

@@ -158,5 +158,59 @@ class SendBothInSameRunTests(unittest.TestCase):
         self.assertEqual(len(push.sent), 1)
 
 
+class ArchiveDuringSendRemindersTests(unittest.TestCase):
+    """archive-trigger-unification-design.md準拠。send_reminders()実行のたびに
+    select_confirmed_to_archive()も呼ばれ、来店日+1日以上経過したconfirmed予約が
+    店舗のWebhook到着有無に関係なくアーカイブされることを確認する。"""
+
+    def test_visited_booking_is_archived_after_one_day(self):
+        booking = _booking(booking_date=date(2026, 8, 10))
+        push = InMemoryLinePushClient()
+        now = datetime(2026, 8, 11, 20, 0)  # 来店日+1日、Webhookトラフィックとは無関係
+        result = send_reminders([booking], now, {STORE_ID: _store()}, push)
+
+        self.assertEqual(result.archived, ["b1"])
+        self.assertEqual(booking.archived_at, now)
+
+    def test_booking_on_visit_day_is_not_yet_archived(self):
+        booking = _booking(booking_date=date(2026, 8, 10))
+        push = InMemoryLinePushClient()
+        now = datetime(2026, 8, 10, 23, 0)
+        result = send_reminders([booking], now, {STORE_ID: _store()}, push)
+
+        self.assertEqual(result.archived, [])
+        self.assertIsNone(booking.archived_at)
+
+    def test_already_archived_booking_is_not_reported_again(self):
+        booking = _booking(booking_date=date(2026, 8, 10), archived_at=datetime(2026, 8, 12, 0, 0))
+        push = InMemoryLinePushClient()
+        now = datetime(2026, 9, 1, 0, 0)
+        result = send_reminders([booking], now, {STORE_ID: _store()}, push)
+
+        self.assertEqual(result.archived, [])
+
+    def test_archival_runs_independently_of_reminder_delivery_failure(self):
+        # 同一実行内の別予約への送信失敗(failed)があっても、アーカイブ判定は
+        # 別関心事のため影響を受けない。
+        failing_booking = _booking(
+            booking_id="b-failing",
+            booking_date=date(2026, 8, 10),
+            reminder_sent_at=datetime(2026, 8, 9, 17, 0),
+        )  # 当日朝の再送対象(送信失敗させる)
+        archivable_booking = _booking(booking_id="b-archivable", booking_date=date(2026, 7, 1))
+        now = datetime(2026, 8, 10, 9, 5)
+
+        class _FailingClient:
+            def send_message(self, user_id: str, text: str) -> None:
+                raise LinePushDeliveryError("simulated outage")
+
+        result = send_reminders(
+            [failing_booking, archivable_booking], now, {STORE_ID: _store()}, _FailingClient()
+        )
+        self.assertEqual(result.failed, ["b-failing"])
+        self.assertEqual(result.archived, ["b-archivable"])
+        self.assertEqual(archivable_booking.archived_at, now)
+
+
 if __name__ == "__main__":
     unittest.main()
