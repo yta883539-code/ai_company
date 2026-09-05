@@ -158,10 +158,14 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
   同じ公式アカウントをフォローする」構造を踏まえ、ブロック中は予約通知等の業務通知も止まる
   旨を追加した点がaircon-pasha・course-set-pasha版との差分。LP掲載・実際の問い合わせ対応は
   未実施のまま、文面整理のみ。詳細はunfollow-billing-faq.md参照。)
-- 顧客がunfollowした後にリマインド送信(`_send()`)が失敗し続けるケースを、
-  no-show-handling.mdの無断キャンセルリスク判定シグナルとして活用できないかは未検討
-  (「事前リマインドが届いていない」ことを把握できれば、無断キャンセル発生前にオーナーへ
-  事前確認を促せる可能性がある)。本ドキュメントのスコープ外として次回以降の検討候補とする。
+- (解消済み 2026-09-05 21:00 UTC: reminder-blocked-delivery-owner-signal-design.md新規作成。
+  前日リマインド送信(`send_reminders()`)がLINEブロック・未フォローで失敗したことを表す
+  `LinePushBlockedError`(`LinePushDeliveryError`の新規サブクラス)を新設し、一時的な障害と
+  区別できるようにした。ブロックによる配信不能を検知した場合、無断キャンセルリスクの
+  早期シグナルとしてオーナーへ1回だけ通知する(`reminder_blocked_owner_notified_at`で
+  冪等性を担保、`format_reminder_blocked_owner_notice()`をengine.pyに新規実装)。
+  テスト7件追加(engine.py 2件・cloud_function_send_reminders.py 5件)、venture全体754件
+  全件パス・schema検証25件パスを確認した)
 - 店舗名差し込み版ウェルカムメッセージ(2節参照)の実装は、owner-settings-wireframe.mdの
   店舗設定フィールド名確定後に着手する。
 - `dispatch_process_event()`を実際に呼び出すFunction B本体(Cloud Tasksデキュー後の

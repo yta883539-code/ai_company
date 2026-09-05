@@ -55,6 +55,8 @@ class StoreReminderConfig:
     message_tone: str = "standard"  # owner-settings-wireframe.md「メッセージトーン」設定
     # (message-tone-variants.md準拠。format_reminder_message()/format_reminder_resend_message()の
     # tone引数にそのまま渡す想定。未知の値はengine.py側で"standard"にフォールバックする)
+    owner_line_user_id: str = ""  # reminder-blocked-delivery-owner-signal-design.md準拠。
+    # 前日リマインドがLinePushBlockedErrorで失敗した際の早期通知先。未設定時は通知を静かにスキップする。
 
 
 @dataclass
@@ -75,6 +77,9 @@ class ReminderBooking:
     # archive-trigger-unification-design.md準拠。confirmed-state-archival.mdの
     # archivedAtフィールドに対応(select_confirmed_to_archive()の選定対象・除外条件に使う)。
     archived_at: Optional[datetime] = None
+    # reminder-blocked-delivery-owner-signal-design.md準拠。LinePushBlockedErrorによる
+    # オーナーへの早期通知を1回のみに絞るための冪等性フラグ。
+    reminder_blocked_owner_notified_at: Optional[datetime] = None
     # 以下2フィールドは選定ロジック自体では未使用だが、選定結果をそのまま
     # cloud_function_send_reminders.pyでのメッセージ整形・送信に渡せるよう、
     # firestore-data-model.mdのconversationsドキュメントが元々保持している値をここにも運ぶ。

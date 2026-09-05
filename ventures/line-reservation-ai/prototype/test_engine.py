@@ -63,6 +63,7 @@ from engine import (  # noqa: E402
     format_monthly_booking_limit_notice_message,
     format_notification_log_csv,
     format_reminder_message,
+    format_reminder_blocked_owner_notice,
     format_reminder_resend_message,
     label_from_slot_key,
     mark_booking_no_show_confirmed,
@@ -1324,6 +1325,26 @@ class ReminderMessageTest(unittest.TestCase):
         initial = format_reminder_message("8/9(土) 15:30〜", "カット", tone="standard")
         resend = format_reminder_resend_message("15:30〜", "カット", tone="standard")
         self.assertLess(len(resend), len(initial))
+
+
+class ReminderBlockedOwnerNoticeTest(unittest.TestCase):
+    """format_reminder_blocked_owner_notice()
+    (reminder-blocked-delivery-owner-signal-design.md、前日リマインドがLINEブロックで
+    配信不能だった際のオーナー向け早期通知)。
+    """
+
+    def test_notice_mentions_booking_details_and_blocked_possibility(self):
+        text = format_reminder_blocked_owner_notice("8/9(土) 15:30〜", "カット")
+        self.assertIn("8/9(土) 15:30〜", text)
+        self.assertIn("カット", text)
+        self.assertIn("ブロック", text)
+        self.assertIn("要確認", text)
+
+    def test_notice_has_no_tone_variants(self):
+        # format_escalation_notification()と同様、オーナー向け事実通知にトーン引数は無い。
+        first = format_reminder_blocked_owner_notice("8/9(土) 15:30〜", "カット")
+        second = format_reminder_blocked_owner_notice("8/9(土) 15:30〜", "カット")
+        self.assertEqual(first, second)
 
 
 class CasualEmojiFrequencyLimitTest(unittest.TestCase):

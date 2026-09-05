@@ -14,7 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from cloud_function_process_event import InMemoryLinePushClient, LinePushDeliveryError  # noqa: E402
+from cloud_function_process_event import (  # noqa: E402
+    InMemoryLinePushClient,
+    LinePushBlockedError,
+    LinePushDeliveryError,
+)
 from cloud_function_send_reminders import send_reminders  # noqa: E402
 from reminder_scheduler import ReminderBooking, StoreReminderConfig  # noqa: E402
 
@@ -94,6 +98,101 @@ class SendInitialReminderTests(unittest.TestCase):
         result2 = send_reminders([booking], now2, {STORE_ID: _store()}, push)
         self.assertEqual(result2.initial_sent, ["b1"])
         self.assertEqual(booking.reminder_sent_at, now2)
+
+
+class BlockedDeliverySignalTests(unittest.TestCase):
+    """reminder-blocked-delivery-owner-signal-design.md準拠。前日リマインドが
+    LinePushBlockedError(LINEブロック・未フォロー)で失敗した場合の、オーナーへの
+    早期通知(無断キャンセルリスクの先行シグナル)の挙動を確認する。
+    """
+
+    def _client_blocking_customer_only(self, owner_id="owner-1", sent_to_owner=None):
+        sent_to_owner = sent_to_owner if sent_to_owner is not None else []
+
+        class _Client:
+            def send_message(self, user_id: str, text: str) -> None:
+                if user_id == owner_id:
+                    sent_to_owner.append((user_id, text))
+                    return
+                raise LinePushBlockedError("simulated block")
+
+        return _Client(), sent_to_owner
+
+    def test_blocked_delivery_notifies_owner_once(self):
+        booking = _booking()
+        now = datetime(2026, 8, 9, 17, 30)
+        client, sent_to_owner = self._client_blocking_customer_only()
+
+        result = send_reminders(
+            [booking], now, {STORE_ID: _store(owner_line_user_id="owner-1")}, client
+        )
+
+        self.assertEqual(result.initial_sent, [])
+        self.assertEqual(result.failed, ["b1"])
+        self.assertEqual(result.blocked_owner_notified, ["b1"])
+        self.assertIsNone(booking.reminder_sent_at)
+        self.assertEqual(booking.reminder_blocked_owner_notified_at, now)
+        self.assertEqual(len(sent_to_owner), 1)
+        owner_id, text = sent_to_owner[0]
+        self.assertEqual(owner_id, "owner-1")
+        self.assertIn("カット", text)
+
+    def test_owner_is_not_renotified_on_next_retry(self):
+        booking = _booking(reminder_blocked_owner_notified_at=datetime(2026, 8, 9, 17, 30))
+        now = datetime(2026, 8, 9, 17, 45)
+        client, sent_to_owner = self._client_blocking_customer_only()
+
+        result = send_reminders(
+            [booking], now, {STORE_ID: _store(owner_line_user_id="owner-1")}, client
+        )
+
+        self.assertEqual(result.blocked_owner_notified, [])
+        self.assertEqual(sent_to_owner, [])
+        # ブロックが解消しない限り、顧客への再試行自体は今後も続く(failedへの計上は変わらず)。
+        self.assertEqual(result.failed, ["b1"])
+
+    def test_no_owner_configured_skips_notification_silently(self):
+        booking = _booking()
+        now = datetime(2026, 8, 9, 17, 30)
+        client, sent_to_owner = self._client_blocking_customer_only(owner_id="")
+
+        result = send_reminders([booking], now, {STORE_ID: _store()}, client)
+
+        self.assertEqual(result.blocked_owner_notified, [])
+        self.assertEqual(sent_to_owner, [])
+        self.assertIsNone(booking.reminder_blocked_owner_notified_at)
+
+    def test_owner_notification_failure_does_not_set_idempotency_flag(self):
+        booking = _booking()
+        now = datetime(2026, 8, 9, 17, 30)
+
+        class _AllFailingClient:
+            def send_message(self, user_id: str, text: str) -> None:
+                if user_id == "owner-1":
+                    raise LinePushDeliveryError("simulated owner outage")
+                raise LinePushBlockedError("simulated block")
+
+        result = send_reminders(
+            [booking], now, {STORE_ID: _store(owner_line_user_id="owner-1")}, _AllFailingClient()
+        )
+
+        self.assertEqual(result.blocked_owner_notified, [])
+        self.assertIsNone(booking.reminder_blocked_owner_notified_at)
+
+    def test_resend_does_not_trigger_owner_notification(self):
+        # 初回リマインドの時点で既に通知済みのため、当日朝の再送では追加通知しない。
+        booking = _booking(reminder_sent_at=datetime(2026, 8, 9, 17, 0))
+        now = datetime(2026, 8, 10, 9, 5)
+        client, sent_to_owner = self._client_blocking_customer_only()
+
+        result = send_reminders(
+            [booking], now, {STORE_ID: _store(owner_line_user_id="owner-1")}, client
+        )
+
+        self.assertEqual(result.resend_sent, [])
+        self.assertEqual(result.failed, ["b1"])
+        self.assertEqual(sent_to_owner, [])
+        self.assertIsNone(booking.reminder_blocked_owner_notified_at)
 
 
 class SendResendTests(unittest.TestCase):

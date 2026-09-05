@@ -137,6 +137,17 @@ class LinePushDeliveryError(Exception):
     """
 
 
+class LinePushBlockedError(LinePushDeliveryError):
+    """reminder-blocked-delivery-owner-signal-design.md準拠。LINEのブロック・未フォロー
+    (「the user hasn't added the LINE Official Account as a friend」等)を理由とした
+    配信不能を表す。5xx・レート制限等の一時的な失敗(基底クラスLinePushDeliveryError)とは異なり
+    顧客が能動的に関係を断っている限り解消しないため、cloud_function_send_reminders.pyの
+    send_reminders()はこれを区別して捕捉し、無断キャンセルリスクの早期シグナルとして
+    オーナーへ一次通知する。LinePushDeliveryErrorのサブクラスのため、区別しない既存の
+    `except LinePushDeliveryError`箇所(ConversationEventProcessor._send()等)の挙動は
+    変わらない。"""
+
+
 class LinePushClient(Protocol):
     def send_message(self, user_id: str, text: str) -> None:
         """送信に失敗した場合はLinePushDeliveryErrorを送出する想定。"""

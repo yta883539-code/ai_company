@@ -1818,6 +1818,23 @@ def format_reminder_resend_message(candidate_label: str, menu: str, tone: str = 
     return _render_by_tone(tone, variants)
 
 
+def format_reminder_blocked_owner_notice(candidate_label: str, menu: str) -> str:
+    """reminder-blocked-delivery-owner-signal-design.md準拠。前日リマインドの送信が
+    LinePushBlockedError(LINEのブロック・未フォロー)で失敗した際に、オーナーへ1回だけ
+    送る早期通知(cloud_function_send_reminders.pyのsend_reminders()から呼ばれる)。
+
+    no-show-handling.mdの通知文言と同じく催促・追及調にせず事実通知に留める。顧客名は
+    保持していないため予約日時・メニューで特定できるようにする。format_escalation_notification()と
+    同様にトーン(formal/standard/casual)による出し分けは行わない(オーナー向けの事実通知に
+    接客トーンの使い分けは不要と判断)。
+    """
+    return (
+        f"【要確認】明日{candidate_label} {menu}のご予約について、前日リマインドを"
+        "お届けできませんでした(LINEのブロック・削除の可能性があります)。\n"
+        "ご来店の意思をお電話等の別経路でご確認いただくことをおすすめします。"
+    )
+
+
 def format_hold_message(candidate_label: str, menu: str, tone: str = "standard", emoji_allowed: bool = True) -> str:
     """仮押さえ直後の案内(LLM出力起点、pending-timeout-ux.md 1.準拠)。
 

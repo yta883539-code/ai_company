@@ -16,6 +16,10 @@ LinePushClient(実送信、cloud_function_process_event.pyで定義済み)を実
 - 冪等性はreminder-scheduler-design.md「冪等性の設計」準拠。送信成功時のみ
   `reminder_sent_at`/`resend_sent_at`を更新し、送信失敗(LinePushDeliveryError)時は
   更新しないことで、次回のCloud Scheduler起動時に自然に再送対象として拾われる設計とした。
+- reminder-blocked-delivery-owner-signal-design.md準拠。初回リマインド送信が
+  `LinePushBlockedError`(LINEのブロック・未フォロー)で失敗した場合のみ、無断キャンセル
+  リスクの早期シグナルとしてオーナーへ1回だけ通知する(`reminder_blocked_owner_notified_at`で
+  冪等性を担保)。一時的な障害(基底クラス`LinePushDeliveryError`)では通知しない。
 """
 
 from __future__ import annotations
@@ -29,11 +33,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from cloud_function_process_event import (  # noqa: E402
     InMemoryLinePushClient,
+    LinePushBlockedError,
     LinePushClient,
     LinePushDeliveryError,
 )
 from engine import (  # noqa: E402
     _WEEKDAY_JA,
+    format_reminder_blocked_owner_notice,
     format_reminder_message,
     format_reminder_resend_message,
 )
@@ -71,6 +77,9 @@ class SendRemindersResult:
     resend_sent: list[str] = field(default_factory=list)  # booking_id
     failed: list[str] = field(default_factory=list)  # booking_id(送信失敗、次回再試行)
     archived: list[str] = field(default_factory=list)  # booking_id(archive-trigger-unification-design.md)
+    # booking_id(reminder-blocked-delivery-owner-signal-design.md準拠。
+    # LinePushBlockedErrorを検知しオーナーへ早期通知を送れたもの)
+    blocked_owner_notified: list[str] = field(default_factory=list)
 
 
 def send_reminders(
@@ -86,10 +95,25 @@ def send_reminders(
     result = SendRemindersResult()
 
     for booking in select_due_initial_reminders(bookings, now, stores):
-        tone = stores[booking.store_id].message_tone
-        text = format_reminder_message(_full_label(booking), booking.menu, tone=tone)
+        store = stores[booking.store_id]
+        text = format_reminder_message(_full_label(booking), booking.menu, tone=store.message_tone)
         try:
             push_client.send_message(booking.line_user_id, text)
+        except LinePushBlockedError:
+            result.failed.append(booking.booking_id)
+            # reminder-blocked-delivery-owner-signal-design.md準拠。ブロックによる配信不能は
+            # 一時障害と異なり解消しないため、無断キャンセルリスクの早期シグナルとしてオーナーへ
+            # 1回だけ通知する(reminder_blocked_owner_notified_atで冪等性を担保)。
+            if booking.reminder_blocked_owner_notified_at is None and store.owner_line_user_id:
+                owner_text = format_reminder_blocked_owner_notice(_full_label(booking), booking.menu)
+                try:
+                    push_client.send_message(store.owner_line_user_id, owner_text)
+                except LinePushDeliveryError:
+                    pass  # オーナー通知自体の失敗も次回起動時に自然に再試行される
+                else:
+                    booking.reminder_blocked_owner_notified_at = now
+                    result.blocked_owner_notified.append(booking.booking_id)
+            continue
         except LinePushDeliveryError:
             result.failed.append(booking.booking_id)
             continue
