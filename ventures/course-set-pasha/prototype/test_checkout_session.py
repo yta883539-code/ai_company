@@ -218,10 +218,17 @@ class _StubFlaskRequest:
     (既存テストが本引数無しのまま変更不要である所以)。
     """
 
-    def __init__(self, headers: dict, args: dict = None):
+    def __init__(self, headers: dict, args: dict = None, json_body: dict = None):
         self.headers = headers
         if args is not None:
             self.args = args
+        if json_body is not None:
+            self._json_body = json_body
+
+    def get_json(self, silent: bool = False):
+        # フェーズ166: POSTボディ(JSON)経由の`plan`読み取り配線の回帰確認用。
+        # functions_frameworkのFlask Requestの`get_json(silent=True)`相当の最小スタブ。
+        return getattr(self, "_json_body", None)
 
 
 class MainEntryPointTest(unittest.TestCase):
@@ -273,6 +280,49 @@ class MainEntryPointTest(unittest.TestCase):
         # AttributeErrorにならず従来通り動作することの明示的な回帰確認。
         request = _StubFlaskRequest({"Authorization": "Bearer some-id-token"})
         self.assertFalse(hasattr(request, "args"))
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+
+    def test_plan_from_json_body_when_args_missing_plan(self):
+        # フェーズ166: クエリパラメータに`plan`が無い場合、POSTボディ(JSON)の`plan`に
+        # フォールバックする配線の回帰確認。verify_id_token未実装のため結果は501のまま
+        # (query paramのテストと同様、プラン検証自体には到達しない)。
+        request = _StubFlaskRequest(
+            {"Authorization": "Bearer some-id-token"}, json_body={"plan": "スタンダード"}
+        )
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+        self.assertEqual(response_body, "verify_id_token_not_implemented")
+
+    def test_request_without_get_json_attribute_falls_back_to_no_plan(self):
+        # `get_json`を持たない旧来のリクエストスタブでもAttributeErrorにならないことの
+        # 明示的な回帰確認(_StubFlaskRequestは常にget_jsonを持つため、無い場合を素の
+        # objectで模擬する)。
+        class _BareRequest:
+            def __init__(self, headers):
+                self.headers = headers
+
+        request = _BareRequest({"Authorization": "Bearer some-id-token"})
+        self.assertFalse(hasattr(request, "get_json"))
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 501)
+
+    def test_query_param_plan_takes_precedence_over_json_body(self):
+        # クエリパラメータとJSONボディの両方に`plan`がある場合、既存の暫定挙動を変えない
+        # ためクエリパラメータを優先する(create_checkout_session()への到達確認は
+        # CreateCheckoutSessionTest側でカバー済みのため、ここではmain()が501のまま
+        # クラッシュしないことのみを確認する)。
+        request = _StubFlaskRequest(
+            {"Authorization": "Bearer some-id-token"},
+            args={"plan": "ライト"},
+            json_body={"plan": "スタンダード"},
+        )
 
         response_body, status_code = main(request)
 

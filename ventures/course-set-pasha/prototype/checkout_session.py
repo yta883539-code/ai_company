@@ -201,12 +201,27 @@ def main(request):
     オブジェクトからのAuthorizationヘッダ取り出し配線をここで行い、create_checkout_session()に
     委譲する(stripe_webhook.main()と対称の構成、checkout-session-cloud-function-entry-point-
     design.md 4節)。
+
+    checkout-session-plan-selection-design.md「残課題」に残っていた、`plan`をクエリ
+    パラメータ・POSTボディ(JSON)のどちらで受け取るかが実LIFF実装時まで未確定だった点
+    (フェーズ166)について、実LIFF接続待ちのままどちらの形式で送られてきても動作するよう
+    両対応にした(実LIFF実装時にどちらか一方に確定しても呼び出し元の変更は不要)。
+    クエリパラメータを優先し(既存の暫定挙動を変えない)、無ければPOSTボディの`plan`
+    キーを見る。
     """
     authorization_header = request.headers.get("Authorization")
     # design(checkout-session-plan-selection-design.md フェーズ152): クエリパラメータ`plan`
     # からプラン選択を受け取る。`request`に`args`が無い(既存テストのスタブ等)場合は
     # 空dict扱いとし、`plan=None`(=省略時の従来挙動)にフォールバックする。
     plan = getattr(request, "args", {}).get("plan")
+    if plan is None:
+        # フェーズ166: POSTボディ(JSON)経由の`plan`にも対応する。`get_json`を持たない
+        # リクエストスタブ(既存テスト)ではAttributeErrorにならず従来通りNoneのままとする。
+        get_json = getattr(request, "get_json", None)
+        if callable(get_json):
+            json_body = get_json(silent=True)
+            if isinstance(json_body, dict):
+                plan = json_body.get("plan")
     try:
         result = create_checkout_session(
             authorization_header, plan=plan, **get_checkout_runtime_dependencies()

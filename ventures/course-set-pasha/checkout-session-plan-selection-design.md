@@ -87,9 +87,13 @@ notification-threshold-per-plan-review.md 4節が採用した`PLAN_NOTICE_THRESH
 - LIFFフロントエンド側のプラン選択UI自体(3プランのいずれかを選ばせるLIFF画面)は未着手。
   実LIFFアプリ登録(オーナー承認待ち)後、UIから`plan`クエリパラメータを付与する実装と
   あわせて着手する。
-- `main(request)`の`plan`読み取りは現状クエリパラメータ(`request.args`)からのみで、
-  POSTボディでの受け渡しを想定していない。実際のLIFF実装がどちらの形式でリクエストを
-  送るかは、実LIFFアプリ実装時にあわせて確定する。
+- (解消済み・フェーズ166: `main(request)`の`plan`読み取りが現状クエリパラメータ
+  (`request.args`)からのみで、POSTボディでの受け渡しを想定していなかった点について、
+  クエリパラメータを優先しつつ無ければPOSTボディ(JSON)の`plan`キーにもフォールバック
+  する両対応にした。実際のLIFF実装がどちらの形式で送ってきても呼び出し元の変更なしで
+  動作する。実LIFFアプリ実装時にどちらか一方の形式に確定した後も、この両対応自体は
+  そのまま残して差し支えない〈使われない側は単に読まれないだけ〉。詳細は
+  `prototype/checkout_session.py`の`main()`・README.mdフェーズ166参照)
 - (解消済み・フェーズ153/フェーズ続き154: ダウングレード・アップグレード時に
   `user_profile/{user_id}.plan`を更新する経路を`subscription-plan-change-design.md`で
   設計・実装した。`customer.subscription.updated`イベントの`items.data[0].price.id`から

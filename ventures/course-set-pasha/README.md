@@ -2140,10 +2140,41 @@
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-05 17:00 UTC
+- フェーズ166(2026-09-05 20:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  checkout-session-plan-selection-design.md「残課題」を確認したところ、
+  `prototype/checkout_session.py`の`main(request)`における`plan`読み取りが現状クエリ
+  パラメータ(`request.args`)からのみで、POSTボディでの受け渡しを想定していない点
+  (「実際のLIFF実装がどちらの形式でリクエストを送るかは、実LIFFアプリ実装時にあわせて
+  確定する」として保留されていた)を解消した。実LIFF接続自体はオーナー承認待ちで着手
+  できないが、どちらの形式で送られてきても動作するよう`main()`を両対応にする変更自体は
+  実接続を必要としないため、実LIFF実装時の形式確定を待たずに先に済ませられると判断した。
+  クエリパラメータを優先(既存の暫定挙動を変えない後方互換)しつつ、`plan`が無い場合は
+  `request.get_json(silent=True)`(functions_frameworkのFlask Request相当)の`plan`キーに
+  フォールバックする。`get_json`を持たない旧来のリクエストスタブ(既存テスト全て)では
+  `getattr(request, "get_json", None)`が`None`となり`callable()`が`False`を返すため
+  `AttributeError`にならず従来通り`plan=None`のままとなる(既存の`args`欠落時と同じ
+  フォールバックパターン)。テスト3件(POSTボディ経由・`get_json`属性自体が無いスタブでの
+  回帰・クエリパラメータとJSONボディ両方存在時のクエリパラメータ優先)を
+  `test_checkout_session.py`に追加、venture全体573件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。
+  checkout-session-plan-selection-design.md「残課題」の該当bulletを解消済みに更新した。
+  `create_checkout_session()`・`build_checkout_session_params()`自体の分岐は変更していない
+  (`main()`のリクエストパラメータ取り出し配線のみの変更)。実LIFF実装がどちらの形式に
+  最終的に確定するか、確定後にもう一方の読み取りコードを削るか残すかの判断は、実LIFF
+  接続確定後の課題として残る。承認不要な設計doc更新・実装・テスト追加のみで、外部サービス
+  への公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題
+  棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 20:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ166、2026-09-05 20:00 UTC: checkout-session-plan-selection-design.md
+  「残課題」に残っていた、`checkout_session.main(request)`の`plan`読み取りがクエリ
+  パラメータのみでPOSTボディを想定していなかった点を、両対応にすることで解消した。詳細は
+  上記フェーズ166参照。実LIFF実装がどちらの形式に最終的に確定するかは実LIFF接続確定後の
+  課題として残る)
 - (新規解消・フェーズ165、2026-09-05 17:00 UTC: プラン変更時の起点UI画面の要否を
   検討し、既存のLIFFプラン選択画面を再利用する方針に決定した。詳細は上記フェーズ165参照)
 - (新規解消・フェーズ164、2026-09-05 15:00 UTC: liff-plan-selection-ui-wireframe.mdの
