@@ -2069,7 +2069,22 @@
   aircon-pashaの3venture間でのportal_link_provider配線・記載漏れの相互棚卸しは一巡した。
   次回は他venture・アイデア領域の前進、または各設計docの未走査の残課題棚卸しを優先候補
   とする。
-- 最終更新: 2026-09-04 22:00 UTC
+- フェーズ162(2026-09-05 03:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  checkout-session-plan-selection-design.md(フェーズ152)「残課題」に、フェーズ153・
+  フェーズ続き154(subscription-plan-change-design.md)で既に解消済みの項目
+  (ダウングレード・アップグレード時の`customer.subscription.updated`受信による
+  `user_profile/{user_id}.plan`更新経路)が「次回以降の課題」として未着手のまま残って
+  いた記載漏れを発見・訂正した(aircon-pashaフェーズ187・189、本venture以前の同種
+  パターンの再発)。実際には`prototype/stripe_webhook.py`の
+  `_resolve_plan_from_subscription_updated()`・`STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER`
+  逆引きマップ・既存プランとの差分チェックまで実装・テスト済みであることを確認し、
+  同節の該当項目に解消済みである旨と対応内容の要約を追記した。実装変更は無く、venture
+  全体560件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 03:00 UTC
 
 ## 次にやること(候補)
 

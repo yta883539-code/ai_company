@@ -90,10 +90,12 @@ notification-threshold-per-plan-review.md 4節が採用した`PLAN_NOTICE_THRESH
 - `main(request)`の`plan`読み取りは現状クエリパラメータ(`request.args`)からのみで、
   POSTボディでの受け渡しを想定していない。実際のLIFF実装がどちらの形式でリクエストを
   送るかは、実LIFFアプリ実装時にあわせて確定する。
-- ダウングレード・アップグレード時(`subscription-cancellation-flow-design.md`が扱う
-  プラン変更フロー)に`user_profile/{user_id}.plan`を更新する経路は未設計のまま残る
-  (現状は`checkout.session.completed`、すなわち新規契約時のみ書き込む設計)。
-  Stripeの`customer.subscription.updated`イベント(プラン変更時に発火)からの`plan`更新は
-  次回以降の課題として残す。
+- (解消済み・フェーズ153/フェーズ続き154: ダウングレード・アップグレード時に
+  `user_profile/{user_id}.plan`を更新する経路を`subscription-plan-change-design.md`で
+  設計・実装した。`customer.subscription.updated`イベントの`items.data[0].price.id`から
+  `STRIPE_PRICE_ID_TO_PLAN_PLACEHOLDER`でプラン名を逆引きし、`dispatch_stripe_event()`が
+  `user_profile_store.set_plan()`を書き込む。プラン変更を伴わない更新〈支払い方法変更等〉
+  では既存プランとの差分チェックにより無駄な書き込みをスキップする。実Stripe Price ID確定・
+  実カスタマーポータル操作でのイベント検証は実Stripe接続後の課題として引き続き残る)
 - 実LLM・実Stripe接続後、複数プランのユーザーが実際に混在するWebhookバッチでの
   動作検証(本ドキュメントの設計はあくまで机上検証)は、実接続確定後の検証課題として残る。
