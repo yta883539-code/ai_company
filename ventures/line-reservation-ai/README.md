@@ -2449,7 +2449,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   プロジェクト作成、オーナー承認待ち)のみとなった。承認不要な設計・実装・テスト
   追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-05 04:00 UTC
+- フェーズ続き197(2026-09-05 05:00 UTC): フェーズ続き196「残る課題」(a)に残っていた、
+  `process_conversation_event_from_payload()`を実際にCloud Functions上で呼び出す
+  HTTPハンドラ本体を`prototype/conversation_event_processor_assembly.py`に実装した。
+  checkout_session.py/stripe_webhook_entry_point.pyと同じ「本体は依存注入でテスト可能、
+  `main(request)`だけが実`functions_framework`リクエストオブジェクトを扱う薄い配線」
+  構成を踏襲し、Cloud Tasksがpush配信するJSONボディを`request.get_json(silent=True)`で
+  取り出して`process_conversation_event_from_payload()`へそのまま渡す設計とした。
+  `get_process_conversation_event_runtime_dependencies()`で`store`(`InMemoryStoreSettingsStore`)・
+  `push_client`(`InMemoryLinePushClient`)・`llm_call`(`_llm_call_not_implemented`、
+  checkout_session.`_verify_id_token_not_implemented`と同じ「呼ばれたら意図的に
+  `NotImplementedError`を送出するプレースホルダ」方針)の既定値を組み立てる。
+  checkout_session.main()のverify_id_tokenは組み立て前に判定できるため501で即時判別
+  できるのに対し、本関数のllm_callはintent振り分け後に呼ばれるため`handle_process_
+  conversation_event()`が他の実行時エラーと同様status_code=500へ正規化する(5xxのため
+  Cloud Tasksのリトライ対象にはなるが、承認・実装差し替えまでは同じpayloadを再試行しても
+  解消しない)。テスト4件新規追加(runtime_dependenciesの既定値・llm_callプレースホルダの
+  NotImplementedError・main()のJSONボディ欠落時400・llm_call未実装時500の各分岐)、
+  venture全体736件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  実行前731件+新規5件)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。残る課題はフェーズ続き196から
+  変わらず、store・conversation_state_store・confirmed_reply_recorder・store_profileの
+  実Firestore実装への差し替え(実GCPプロジェクト作成)・実LINE Messaging API・実LLM API
+  接続自体(いずれもオーナー承認待ち)のみとなった。承認不要な実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-05 05:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった

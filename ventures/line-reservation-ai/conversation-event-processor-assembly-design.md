@@ -81,4 +81,20 @@ Cloud Function Bのどこから呼ぶか(`handle_process_conversation_event()`�
   Cloud Function Aの`webhook_receiver()`の呼び出し元と同様デプロイ環境確定後の課題〉、
   (b)store・conversation_state_store・confirmed_reply_recorder・store_profileの
   実Firestore実装への差し替え〈実GCPプロジェクト作成、オーナー承認待ち〉)
+- (解消済み 2026-09-05 05:00 UTC: 前項の残課題(a)だった、
+  `process_conversation_event_from_payload()`を実際に呼び出すHTTPハンドラ本体
+  `main(request)`・依存の既定値を組み立てる`get_process_conversation_event_runtime_
+  dependencies()`を`prototype/conversation_event_processor_assembly.py`〈フェーズ続き197〉
+  として実装した。checkout_session.py/stripe_webhook_entry_point.pyと同じ「本体は依存
+  注入でテスト可能、`main(request)`だけが実`functions_framework`リクエストオブジェクトを
+  扱う薄い配線」構成を踏襲し、Cloud Tasksがpush配信するJSONボディを
+  `request.get_json(silent=True)`でそのまま取り出す設計とした。実LINE Messaging API・
+  実LLM API接続自体は、checkout_session.`_verify_id_token_not_implemented`と同じ
+  「呼ばれたら意図的にNotImplementedErrorを送出するプレースホルダ」方針の
+  `_llm_call_not_implemented`のまま残し、`handle_process_conversation_event()`が
+  他の実行時エラーと同様500へ正規化する。テスト4件追加・venture全体736件全件・
+  schema検証25件パス。残る課題は(b)のみ、すなわちstore・conversation_state_store・
+  confirmed_reply_recorder・store_profileの実Firestore実装への差し替え〈実GCP
+  プロジェクト作成〉・実LINE Messaging API・実LLM API接続自体〈いずれもオーナー
+  承認待ち〉となった)
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き残る課題。

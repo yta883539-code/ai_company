@@ -5,6 +5,7 @@ build_conversation_event_processor_for_payload()を検証する。"""
 
 import sys
 import unittest
+import unittest.mock
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from cloud_function_process_event import (  # noqa: E402
 )
 from conversation_event_processor_assembly import (  # noqa: E402
     build_conversation_event_processor_for_payload,
+    get_process_conversation_event_runtime_dependencies,
+    main,
     process_conversation_event_from_payload,
 )
 from store_settings_save_flow import InMemoryStoreSettingsStore  # noqa: E402
@@ -138,6 +141,80 @@ class ProcessConversationEventFromPayloadTest(unittest.TestCase):
         )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.detail, "ignored")
+
+
+class _StubFlaskRequest:
+    """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ
+    (checkout_session._StubFlaskRequest・stripe_webhook_entry_point._StubFlaskRequestと
+    対称。本エンドポイントはCloud Tasksからのpush配信を受けるためJSONボディのみを扱う)。"""
+
+    def __init__(self, json_body):
+        self._json_body = json_body
+
+    def get_json(self, silent: bool = False):
+        return self._json_body
+
+
+class GetProcessConversationEventRuntimeDependenciesTest(unittest.TestCase):
+    def test_returns_expected_keys(self):
+        deps = get_process_conversation_event_runtime_dependencies()
+        self.assertEqual(set(deps.keys()), {"store", "push_client", "llm_call"})
+        self.assertIsInstance(deps["store"], InMemoryStoreSettingsStore)
+        self.assertIsInstance(deps["push_client"], InMemoryLinePushClient)
+
+    def test_llm_call_placeholder_raises_not_implemented(self):
+        deps = get_process_conversation_event_runtime_dependencies()
+        with self.assertRaises(NotImplementedError):
+            deps["llm_call"]()
+
+
+class MainEntryPointTest(unittest.TestCase):
+    """main()(functions_frameworkエントリポイント)のテスト(フェーズ続き197)。
+    process_conversation_event_from_payload()自体の分岐は
+    ProcessConversationEventFromPayloadTestで既にカバー済みのため、ここではCloud Tasksの
+    JSONボディ取り出し配線・欠落時の空dictフォールバックのみを検証する。"""
+
+    def test_missing_destination_payload_returns_400(self):
+        request = _StubFlaskRequest({"type": "message"})
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 400)
+
+    def test_empty_body_does_not_raise_and_returns_400(self):
+        request = _StubFlaskRequest(None)
+
+        response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 400)
+
+    def test_llm_call_not_implemented_surfaces_as_500(self):
+        payload = {
+            "destination": "store-1",
+            "type": "message",
+            "source": {"userId": "U1"},
+            "message": {"text": "来週土曜カットでお願いします"},
+        }
+        store = InMemoryStoreSettingsStore()
+        store.set_business_hours_raw("store-1", "10:00-19:00")
+        store.set_slot_interval_minutes("store-1", 30)
+        store.set_owner_user_id("store-1", "U-owner")
+        store.set_menu_durations("store-1", {"カット": 30})
+
+        # get_process_conversation_event_runtime_dependencies()と同じ組み合わせのうち
+        # storeのみ差し替えて、未実装のllm_callがdispatch経路で実際に呼ばれることを確認する。
+        deps = get_process_conversation_event_runtime_dependencies()
+        deps["store"] = store
+        with unittest.mock.patch(
+            "conversation_event_processor_assembly."
+            "get_process_conversation_event_runtime_dependencies",
+            return_value=deps,
+        ):
+            request = _StubFlaskRequest(payload)
+            response_body, status_code = main(request)
+
+        self.assertEqual(status_code, 500)
+        self.assertIn("llm_call is not implemented yet", response_body)
 
 
 if __name__ == "__main__":
