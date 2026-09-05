@@ -212,5 +212,39 @@ class ArchiveDuringSendRemindersTests(unittest.TestCase):
         self.assertEqual(archivable_booking.archived_at, now)
 
 
+class SingleQueryCoversAllThreeCategoriesTests(unittest.TestCase):
+    """archive-trigger-unification-design.md「残る課題」で検討していた、Cloud Function Cの
+    呼び出し元が「未送信/再送候補」と「未アーカイブconfirmed」の2種類のクエリ結果を
+    どう結合するかという懸念を検証する。reminder-scheduler-design.mdの元々の想定
+    (`全店舗のconfirmed かつ archivedAt == null な予約`という単一クエリ)の結果を
+    そのままbookingsへ渡すだけで、初回リマインド対象(未来の予約)・当日再送対象
+    (本日の予約)・アーカイブ対象(来店日+1日以上経過)の3カテゴリすべてを1回の
+    send_reminders()呼び出しで正しく処理できることを、3カテゴリを混在させた1つの
+    bookingsリストで確認する(クエリを2種類用意して結合する必要が無いことの裏付け)。"""
+
+    def test_one_unified_bookings_list_handles_all_three_categories_at_once(self):
+        initial_due = _booking(booking_id="b-initial", booking_date=date(2026, 8, 20))
+        resend_due = _booking(
+            booking_id="b-resend",
+            line_user_id="U2",
+            booking_date=date(2026, 8, 10),
+            reminder_sent_at=datetime(2026, 8, 9, 17, 0),
+        )
+        archive_due = _booking(
+            booking_id="b-archive", line_user_id="U3", booking_date=date(2026, 7, 1),
+        )
+        push = InMemoryLinePushClient()
+        now = datetime(2026, 8, 10, 9, 5)  # b-resend当日朝・b-archiveは来店日超過済み
+
+        result = send_reminders(
+            [initial_due, resend_due, archive_due], now, {STORE_ID: _store()}, push
+        )
+
+        self.assertEqual(result.initial_sent, [])  # b-initialの目標時刻(8/19 17:00)はまだ先
+        self.assertEqual(result.resend_sent, ["b-resend"])
+        self.assertEqual(result.archived, ["b-archive"])
+        self.assertEqual(len(push.sent), 1)  # b-resend宛の1通のみ
+
+
 if __name__ == "__main__":
     unittest.main()

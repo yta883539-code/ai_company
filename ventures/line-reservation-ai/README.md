@@ -2572,9 +2572,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アイデア領域の前進、またはarchive-trigger-unification-design.mdの残る課題
   (Cloud Function Cへの「未送信/再送候補」と「未アーカイブconfirmed」の2種類の
   クエリ結果の結線)を優先候補とする。
-- 最終更新: 2026-09-05 14:00 UTC
+- フェーズ続き203(2026-09-05 16:00 UTC): フェーズ続き202が残した
+  archive-trigger-unification-design.md「残る課題」(Cloud Function Cへの
+  「未送信/再送候補」と「未アーカイブconfirmed」の2種類のクエリ結果の結線)に着手した。
+  結論として、この課題設定自体が前提を誤っていたことが判明した。
+  reminder-scheduler-design.mdの全体構成図(手順1)は元々「全店舗のconfirmed かつ
+  archivedAt == null な予約」という単一のFirestoreクエリを想定しており、この条件は
+  「未送信・当日再送候補」(予約日が未来または当日)と「未アーカイブconfirmed」
+  (来店日超過)のいずれも包含する上位集合になっている。`select_due_initial_reminders()`・
+  `select_due_resends()`・`select_confirmed_to_archive()`は互いに`booking_date`と
+  `now`の関係で排他的に分岐する条件のため、単一クエリの結果をそのまま1回の
+  `send_reminders()`呼び出しに渡すだけで3カテゴリすべてが正しく処理され、2種類の
+  クエリを結合する処理も`send_reminders()`を2回に分ける処理も不要だった。
+  `prototype/test_cloud_function_send_reminders.py`に、初回リマインド対象・当日
+  再送対象・アーカイブ対象の3カテゴリを1つのbookingsリストに混在させて1回の呼び出しで
+  検証する`SingleQueryCoversAllThreeCategoriesTests`を追加した。テスト1件追加、
+  venture全体747件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  呼び出し元が実際に発行するFirestoreクエリ自体は引き続き実Firestore接続後の課題
+  (オーナー承認待ち)として残る。承認不要な設計整理・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
+  優先候補とする。
+- 最終更新: 2026-09-05 16:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-05 16:00 UTC・フェーズ続き203: archive-trigger-unification-
+  design.mdの残る課題だった「Cloud Function Cへの2種類のクエリ結果の結線」は、
+  前提(クエリが2種類必要)自体が誤りで、reminder-scheduler-design.mdが元々想定していた
+  単一クエリ〈confirmed && archivedAt == null〉の結果をそのまま渡せば3カテゴリ
+  〈初回リマインド・当日再送・アーカイブ〉すべてが処理されることを確認・テストで
+  裏付けた。詳細は上記フェーズ続き203・archive-trigger-unification-design.md「残る
+  課題」参照)
 - (解消済み 2026-09-05 14:00 UTC・フェーズ続き202: archive_completed_conversations()の
   実行頻度・遅延を再点検し、Webhook便乗トリガー単独では店舗トラフィック途絶時に
   無制限に遅延しうる問題を発見した。Cloud Function C(全店舗横断・トラフィック非依存で

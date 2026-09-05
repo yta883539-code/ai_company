@@ -90,10 +90,27 @@ Cloud Function C側を**正規のトリガー**、Webhook便乗を**補助的な
 - 実際のFirestoreクエリ(Cloud Function Cがconfirmed予約を読み込む際の
   `archivedAt`更新の書き込み)・実Cloud Scheduler設定は実Firestore接続後の課題
   (オーナー承認待ち、pending-approval.md参照)。
-- Cloud Function Cは現状「未送信・当日再送候補」の絞り込み済みbookingsを引数で
+- ~~Cloud Function Cは現状「未送信・当日再送候補」の絞り込み済みbookingsを引数で
   受け取る設計(reminder-scheduler-design.md)だが、アーカイブ対象の判定には
   「archivedAtがnullな全confirmed予約」が必要なため、呼び出し元(Firestore読み取り
   クエリ)側で「未送信/再送候補」と「未アーカイブconfirmed」の2種類のクエリ結果を
   どうbookings一覧にまとめて渡すか(またはsend_reminders()を2回に分けて呼ぶか)の
   結線は、実Firestore接続時に別途詰める必要がある(本フェーズは判定ロジック自体の
-  実装・検証にとどめた)。
+  実装・検証にとどめた)。~~ → フェーズ続き203(2026-09-05 16:00 UTC)で解消済み。
+  この懸念は「2種類のクエリ結果を結合する必要がある」という前提そのものが誤りだった。
+  reminder-scheduler-design.md冒頭の全体構成図(手順1)は元々「全店舗のconfirmed かつ
+  archivedAt == null な予約」という**単一のFirestoreクエリ**を想定しており、この
+  条件は「未送信・当日再送候補」(予約日が未来または当日)と「未アーカイブconfirmed」
+  (来店日超過)のいずれも包含する上位集合になっている。`select_due_initial_reminders()`
+  (予約日 > 今日)・`select_due_resends()`(予約日 == 今日)・
+  `select_confirmed_to_archive()`(来店日+`after_visit_days`日以上経過)は互いに
+  `booking_date`と`now`の関係で排他的に分岐する条件のため、この単一クエリの結果を
+  そのまま1回の`send_reminders()`呼び出しに渡すだけで3カテゴリすべてが正しく
+  処理される(クエリを2種類用意して結合する処理も、`send_reminders()`を2回に
+  分けて呼ぶ処理も不要)。`prototype/test_cloud_function_send_reminders.py`の
+  `SingleQueryCoversAllThreeCategoriesTests`に、初回リマインド対象・当日再送対象・
+  アーカイブ対象の3カテゴリを1つのbookingsリストに混在させて1回の呼び出しで
+  検証するテストを追加した(テスト1件追加、venture全体747件全件・schema検証25件
+  パスを確認)。呼び出し元が実際に発行するFirestoreクエリ自体(`WHERE stage ==
+  "confirmed" AND archivedAt == null`相当)の実装は引き続き実Firestore接続後の
+  課題として残る(上記1点目と同じ)。
