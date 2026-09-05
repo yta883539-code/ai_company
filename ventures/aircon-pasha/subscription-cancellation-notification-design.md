@@ -161,9 +161,11 @@ suspension-consistency-design.md参照)。
 - ~~制限モード中(`payment_suspended_at`設定済み)の解約予約受理案内の文言整合性チェック
   (course-set-pashaフェーズ157の横展開)。~~ → フェーズ185で対応済み
   (subscription-cancellation-scheduled-message-suspension-consistency-design.md参照)。
-- `stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
+- ~~`stripe_webhook.receive_stripe_webhook()`への`cancellation_push_client`/
   `portal_link_provider`引数の配線(実HTTPエントリポイント経由での検証)。フェーズ185時点で
-  未着手のまま残っている(同ドキュメント6節参照)。
+  未着手のまま残っている。~~ → フェーズ186で対応済み(`prototype/stripe_webhook.py`の
+  `receive_stripe_webhook()`に両引数を追加し`dispatch_stripe_event()`へそのまま委譲済み。
+  同ファイル57・331行のdocstring参照)。
 - ~~解約取り消し案内メッセージの問い合わせ導線文言の見直し(design 4節参照)。~~ →
   フェーズ188で対応済み。事実と異なる参照(トライアル終了案内・生成一時停止メッセージに
   お問い合わせ先の記載があるという誤った前提)を修正し、実際に機能する

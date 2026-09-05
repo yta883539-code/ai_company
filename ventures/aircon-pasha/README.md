@@ -2823,4 +2823,18 @@
   文言修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-04 21:00 UTC
+- フェーズ189(2026-09-04 24:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  subscription-cancellation-notification-design.md「6. 残課題」に、フェーズ186で
+  既に解消済みの項目(`stripe_webhook.receive_stripe_webhook()`への
+  `cancellation_push_client`/`portal_link_provider`引数の配線)が「フェーズ185時点で
+  未着手のまま残っている」という古い記載のまま残っていた記載漏れを発見した(フェーズ187で
+  別ファイルsubscription-cancellation-scheduled-message-suspension-consistency-
+  design.mdに見つけた同種のパターンの再発)。実際には`prototype/stripe_webhook.py`
+  (57・331行)で両引数とも配線・docstring記載済みであることを確認し、同節の該当項目に
+  取り消し線を付けフェーズ186で解消済みである旨を追記した。実装変更は無く、venture全体
+  462件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計doc記載の
+  整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-04 24:00 UTC
