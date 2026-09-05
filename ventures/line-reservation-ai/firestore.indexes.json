@@ -31,6 +31,14 @@
         { "fieldPath": "trialStartAt", "order": "ASCENDING" },
         { "fieldPath": "trialEndReportSentAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "stage", "order": "ASCENDING" },
+        { "fieldPath": "archivedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -61,8 +61,12 @@ firestore-transaction-design.md・firestore-data-model.md・trial-end-scheduler-
 
 ## 残る課題
 
-- reminder-scheduler-design.mdの`select_due_initial_reminders()`/`select_due_resends()`が
-  実際に必要とするFirestore複合クエリ・インデックスの具体化(上記補足参照)。
+- ~~reminder-scheduler-design.mdの`select_due_initial_reminders()`/`select_due_resends()`が
+  実際に必要とするFirestore複合クエリ・インデックスの具体化(上記補足参照)。~~
+  (解消済み 2026-09-05 07:00 UTC: reminder-scheduler-composite-index-design.md
+  〈フェーズ続き199〉参照。実際にFirestoreクエリ条件になるのは`stage == "confirmed"
+  AND archivedAt == null`(collection group、索引#5として追加)のみで、
+  `target_datetime`等はインメモリ判定のため追加インデックス不要と判明した)
 - 本表の各インデックスが実際にFirestoreコンソールの「クエリ実行時エラーからの自動提案」と
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
 - 想定データ量でのインデックス自体のストレージ課金への影響は、firestore-traffic-cost-estimate.md
