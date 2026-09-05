@@ -2166,10 +2166,34 @@
   への公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題
   棚卸しを優先候補とする。
-- 最終更新: 2026-09-05 20:00 UTC
+- フェーズ167(2026-09-05 23:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  checkout-session-plan-selection-design.md「3. 残課題」を確認したところ、本節作成時点
+  (フェーズ152)の記載「LIFFフロントエンド側のプラン選択UI自体(3プランのいずれかを
+  選ばせるLIFF画面)は未着手」が、実際にはフェーズ163〜165で
+  liff-plan-selection-ui-wireframe.md(画面構成・遷移)・
+  `prototype/liff_usage_status.py`の`get_current_usage_status()`(残回数・残日数取得
+  ロジック接続)・`prototype/liff_plan_card_action.py`の`resolve_plan_card_action()`
+  (プラン変更時のボタン遷移先分岐)まで設計・実装が進んでいたにもかかわらず、更新されずに
+  古い「未着手」表記のまま残っていた記載漏れだったと判明した。フェーズ191(aircon-pasha)・
+  フェーズ194(aircon-pasha)と同じ「同一事実を参照する複数ファイルのうち1ファイルだけが
+  未訂正」というパターンで、該当bulletを実際の対応済み範囲(フェーズ163〜165で対応した
+  部分)と、引き続き残る部分(実LIFF SDK接続・実LIFFチャネル登録・ボタン表示/無効化の
+  HTML/JS側実装は実LIFFアプリ登録〈オーナー承認待ち〉後の課題として残る旨)を明確に
+  分けて更新した。コード変更は無く、実装・返り値への影響も無いドキュメント整合性修正の
+  みで、venture全体573件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 23:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ167、2026-09-05 23:00 UTC: checkout-session-plan-selection-design.md
+  「3. 残課題」に残っていた古い「LIFFフロントエンド側のプラン選択UI自体は未着手」という
+  記載漏れを、実際にはフェーズ163〜165で対応済みだった内容を反映して更新した。詳細は
+  上記フェーズ167参照。実LIFF SDK接続・実LIFFチャネル登録は実LIFFアプリ登録〈オーナー
+  承認待ち〉後の課題として引き続き残る)
 - (新規解消・フェーズ166、2026-09-05 20:00 UTC: checkout-session-plan-selection-design.md
   「残課題」に残っていた、`checkout_session.main(request)`の`plan`読み取りがクエリ
   パラメータのみでPOSTボディを想定していなかった点を、両対応にすることで解消した。詳細は

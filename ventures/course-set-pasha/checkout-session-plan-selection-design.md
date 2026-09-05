@@ -84,9 +84,17 @@ notification-threshold-per-plan-review.md 4節が採用した`PLAN_NOTICE_THRESH
 - `PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`の実Price ID(Stripeダッシュボードでの商品・価格
   作成)は実Stripeアカウント接続(オーナー承認待ち、pending-approval.md参照)後の課題として
   残る。
-- LIFFフロントエンド側のプラン選択UI自体(3プランのいずれかを選ばせるLIFF画面)は未着手。
-  実LIFFアプリ登録(オーナー承認待ち)後、UIから`plan`クエリパラメータを付与する実装と
-  あわせて着手する。
+- (解消済み・フェーズ163〜165: 「LIFFフロントエンド側のプラン選択UI自体(3プランの
+  いずれかを選ばせるLIFF画面)は未着手」という本節作成時点(フェーズ152)の記載は、
+  実際にはliff-plan-selection-ui-wireframe.mdとして画面構成・遷移(フェーズ163)、
+  「現在のご利用状況」欄の残回数・残日数取得ロジック接続(フェーズ164、
+  `prototype/liff_usage_status.py`の`get_current_usage_status()`)、プラン変更時の
+  ボタン遷移先分岐(フェーズ165、`prototype/liff_plan_card_action.py`の
+  `resolve_plan_card_action()`)まで設計・実装済みであるにもかかわらず、本節が
+  更新されずに古い「未着手」表記のまま残っていた記載漏れだった。実LIFF SDK接続
+  (`liff.init()`等)・実LIFFチャネル登録・ボタン表示/無効化のHTML/JS側実装自体は、
+  liff-plan-selection-ui-wireframe.md「未確定・今後の課題」記載の通り実LIFFアプリ登録
+  (オーナー承認待ち)後の課題として引き続き残る。)
 - (解消済み・フェーズ166: `main(request)`の`plan`読み取りが現状クエリパラメータ
   (`request.args`)からのみで、POSTボディでの受け渡しを想定していなかった点について、
   クエリパラメータを優先しつつ無ければPOSTボディ(JSON)の`plan`キーにもフォールバック
