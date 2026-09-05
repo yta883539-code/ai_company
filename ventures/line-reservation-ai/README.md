@@ -2531,9 +2531,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、またはreminder-
   scheduler-composite-index-design.mdの「残る課題」(確定予約総数増加時のtarget_datetime
   再設計要否の再検証)を優先候補とする。
-- 最終更新: 2026-09-05 09:00 UTC
+- フェーズ続き201(2026-09-05 11:00 UTC): フェーズ続き200が優先候補として挙げた
+  reminder-scheduler-composite-index-design.md「残る課題」(確定予約総数増加時の
+  target_datetime再設計要否)に着手した。現時点では想定顧客規模でインメモリ判定のままで
+  問題ない結論は維持しつつ、「いつ切り替えるか」の具体的トリガー(Cloud Function C
+  1回の実行で読み込むconfirmed予約が概ね1,000件を超える状態が継続する場合)、
+  「切り替え後のデータモデル」(`conversations`への`target_datetime`非正規化フィールド
+  追加・書き込みタイミング3箇所)、「移行手順」(新規予約への書き込み開始→既存予約への
+  バックフィル→クエリ条件切り替えの3段階、フィールド欠落によるリマインド欠落を防ぐ順序)を
+  target-datetime-denormalization-contingency-design.mdとして具体化した。実装・
+  バックフィル実行はいずれも実Firestore接続(オーナー承認待ち)後の課題として残るため
+  コード変更は無く、venture全体736件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを
+  確認した。承認不要な設計docの追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または1,000件という閾値の妥当性を左右するarchive処理
+  (archive_completed_conversations())の実行頻度・遅延の再確認を優先候補とする。
+- 最終更新: 2026-09-05 11:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-05 11:00 UTC・フェーズ続き201: reminder-scheduler-composite-index-
+  design.mdの残課題だった「確定予約総数増加時のtarget_datetime再設計要否」について、
+  切り替えトリガー(Cloud Function C 1回の実行での読み込み件数が概ね1,000件超で継続)・
+  切り替え後のデータモデル・移行手順(新規書き込み開始→バックフィル→クエリ条件切替の
+  3段階)をtarget-datetime-denormalization-contingency-design.mdとして具体化した。
+  実装・バックフィルは実Firestore接続後の課題として残る。詳細は上記フェーズ続き201参照。
+  次回は他venture・アイデア領域の前進、またはarchive_completed_conversations()の実行
+  頻度・遅延の再確認を候補とする)
 - (解消済み 2026-09-05 09:00 UTC・フェーズ続き200: README.mdのフェーズログを棚卸しした
   結果、フェーズ続き199(reminder-scheduler-composite-index-design.md、コミット188fa02で
   2026-09-05 07:00 UTCに完了済み)が上記フェーズログに未反映のまま「最終更新:
