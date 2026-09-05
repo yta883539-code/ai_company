@@ -2837,4 +2837,19 @@
   整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-04 24:00 UTC
+- フェーズ190(2026-09-05 10:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  follow-unfollow-event-handling-design.md(フェーズ109)「残課題」に、フェーズ165で
+  「プロアクティブな検知・通知バッチの要否は…今後の課題として引き続き未着手のまま
+  残る」と記載したまま更新されていない記載漏れを発見した。実際にはフェーズ165より
+  後のフェーズ109〜175で新設されたblocked-but-billing-detection-design.md
+  (`is_following`検知・blocked_but_billing判定)・blocked-but-billing-owner-
+  notification-design.md(判定結果をオーナーへ届ける日次バッチ設計・
+  `prototype/blocked_but_billing_owner_notification.py`実装済み)により、実LINE・
+  実Stripe接続を除く設計・実装の範囲では既に解消済みであることを確認した。同節に
+  解消済みである旨と対応内容の要約を追記した。実装・返り値・テストへの影響は無く、
+  venture全体462件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
+  領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-05 10:00 UTC

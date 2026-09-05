@@ -148,3 +148,13 @@ course-set-pashaとの唯一の差異は「pending_links」行であり、これ
   土台に本venture固有の文面へ翻案したunfollow-billing-faq.mdを新規作成し、LP掲載用FAQ文面・
   問い合わせ対応テンプレートを整理した。プロアクティブな検知・通知バッチの要否は同ドキュメント
   「今後の課題」として引き続き未着手のまま残る。)
+  → (解消済み 2026-09-05 10:00 UTC・フェーズ190: 上記「プロアクティブな検知・通知バッチの
+  要否」は、本節作成(フェーズ165)より後のフェーズ109〜175で新設された
+  blocked-but-billing-detection-design.md(is_following検知・blocked_but_billing判定)・
+  blocked-but-billing-owner-notification-design.md(判定結果をオーナーへ届ける日次バッチ設計・
+  `prototype/blocked_but_billing_owner_notification.py`実装済み)により、実LINE・実Stripe
+  接続を除く設計・実装の範囲では既に解消済みであることを確認した。本節の記載が更新されないまま
+  「引き続き未着手」と読める状態で残っていた記載漏れであり、コード変更は無し(ドキュメント
+  整理のみ)。残るのは実Firestoreフィールド追加・実Cloud Scheduler作成・実LINE API接続という
+  オーナー承認待ちの範囲のみ(blocked-but-billing-owner-notification-design.md「7. 今後の課題」
+  参照)。)
