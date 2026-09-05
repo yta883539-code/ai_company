@@ -2424,7 +2424,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   引き続きオーナー承認待ちのため未着手。承認不要な設計・実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-05 02:00 UTC
+- フェーズ続き196(2026-09-05 04:00 UTC): フェーズ続き195「残る課題」に残っていた、
+  `build_conversation_event_processor_for_payload()`と
+  `handle_process_conversation_event()`を1件のCloud Tasksペイロードから順に呼び出す
+  配線本体`process_conversation_event_from_payload()`を
+  `prototype/conversation_event_processor_assembly.py`に追加実装した。design時点では
+  「実Firestore接続が済むまで未着手」としていたが、この配線自体は組み立て段階
+  (`build_conversation_event_processor_for_payload()`)の実装さえ揃えばDIパターンにより
+  実クラウド接続なしで机上検証できると判断し、フェーズ続き195と同じ考え方で待たずに
+  実装した。組み立て段階が送出する`MissingDestinationError`・`ValueError`
+  (store未オンボーディング)は、いずれもpayload・store設定側の不備でCloud Tasksに
+  リトライさせても解消しないため、Cloud Function Aが署名検証失敗時に401を返すのと
+  同じ考え方でstatus_code=400として区別し、`dispatch_process_event()`起因の実行時
+  エラー(500、リトライで解消しうる)とは切り分けた。テスト4件新規追加
+  (`test_conversation_event_processor_assembly.py`、new_bookingメッセージの正常系200、
+  destination欠落・store未オンボーディングの400、未知のevent typeの200(ignored))、
+  venture全体731件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、実行前727件+新規4件)
+  パス・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。
+  残る課題は(a)実際にCloud Functions上で本関数を呼び出すHTTPハンドラ本体(Cloud
+  Tasksのリクエストボディをパースする層、Cloud Function Aの`webhook_receiver()`の
+  呼び出し元と同様デプロイ環境確定後の課題)、(b)store・conversation_state_store・
+  confirmed_reply_recorder・store_profileの実Firestore実装への差し替え(実GCP
+  プロジェクト作成、オーナー承認待ち)のみとなった。承認不要な設計・実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-05 04:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった

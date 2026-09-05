@@ -65,4 +65,20 @@ Cloud Function Bのどこから呼ぶか(`handle_process_conversation_event()`�
   `handle_process_conversation_event()`へ渡すまでの間のどこで呼ぶか〉自体は、
   実Firestore接続〈店舗プロフィールストアの実装をInMemoryから差し替える〉が済むまで
   引き続き未着手)
+- (解消済み 2026-09-05 04:00 UTC: 前項の残課題だった、
+  `build_conversation_event_processor_for_payload()`と
+  `handle_process_conversation_event()`を1件のpayloadから順に呼び出す配線本体を
+  `process_conversation_event_from_payload()`〈フェーズ続き196〉として実装した。
+  他venture〈aircon-pasha・course-set-pasha〉と同じ判断で、この配線自体は組み立て段階の
+  実装さえ揃えばDIパターンにより実Firestore接続なしで机上検証できると判断し、
+  待たずに実装した。`build_conversation_event_processor_for_payload()`が送出する
+  `MissingDestinationError`・`ValueError`(store未オンボーディング)はリトライしても
+  解消しないペイロード・設定不備のため、Cloud Function Aが署名検証失敗時に401を返すのと
+  同じ考え方でstatus_code=400として区別し、`dispatch_process_event()`起因の実行時エラー
+  (500、リトライで解消しうる)とは切り分けた。テスト4件追加・
+  venture全体731件全件・schema検証25件パス。残る課題は(a)実際にCloud Functions上で
+  本関数を呼び出すHTTPハンドラ本体〈Cloud Tasksのリクエストボディをパースする層、
+  Cloud Function Aの`webhook_receiver()`の呼び出し元と同様デプロイ環境確定後の課題〉、
+  (b)store・conversation_state_store・confirmed_reply_recorder・store_profileの
+  実Firestore実装への差し替え〈実GCPプロジェクト作成、オーナー承認待ち〉)
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き残る課題。

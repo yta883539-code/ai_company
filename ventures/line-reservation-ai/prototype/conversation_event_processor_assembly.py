@@ -29,13 +29,19 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from datetime import datetime  # noqa: E402
+from typing import Callable  # noqa: E402
+
 from business_hours_assembly import build_availability_searcher_for_store  # noqa: E402
 from cloud_function_process_event import (  # noqa: E402
     ConfirmedReplyRecorder,
     ConversationEventProcessor,
     ConversationStateStoreProtocol,
     LinePushClient,
+    MissingDestinationError,
     OwnerFollowStatusStoreProtocol,
+    ProcessEventResult,
+    handle_process_conversation_event,
     resolve_store_id_from_destination,
 )
 from engine import NotificationLogAggregator  # noqa: E402
@@ -98,3 +104,57 @@ def build_conversation_event_processor_for_payload(
         store_profile=store_profile,
         conversation_state_store=conversation_state_store,
     )
+
+
+def process_conversation_event_from_payload(
+    payload: dict,
+    store: StoreSettingsStoreProtocol,
+    push_client: LinePushClient,
+    llm_call: Callable[[], dict],
+    now: datetime,
+    *,
+    tone: str = "standard",
+    conversation_state_store: ConversationStateStoreProtocol | None = None,
+    confirmed_reply_recorder: ConfirmedReplyRecorder | None = None,
+    store_profile: OwnerFollowStatusStoreProtocol | None = None,
+) -> ProcessEventResult:
+    """Cloud Function B(process_conversation_event)の実エントリポイント本体。
+
+    design 4節に残っていた最後の配線ギャップ(フェーズ続き196)。
+    `build_conversation_event_processor_for_payload()`(processor組み立て)と
+    `handle_process_conversation_event()`(組み立て済みprocessorでの実処理)は
+    フェーズ続き195までに個別には実装済みだったが、Cloud Tasksからデキューされた
+    1件のpayloadを受け取ってから両者を順に呼び出す配線本体が存在しなかった。
+
+    `handle_process_conversation_event()`は`dispatch_process_event()`が送出した例外を
+    status_code=500へ正規化するが、これは処理対象を正しく組み立てられた後の実行時エラー
+    (リトライすれば直る可能性がある)を想定したもの。一方、組み立て段階
+    (`build_conversation_event_processor_for_payload()`)で送出される
+    `MissingDestinationError`(payloadにdestinationが無い)・`ValueError`
+    (destinationが解決するstore_idが未オンボーディングでbusiness_hours_raw未設定)は
+    いずれもpayload自体かstore設定の不備であり、Cloud Tasksに同じpayloadをリトライさせても
+    解消しない。これらは400(非リトライ)として区別し、Cloud Function Aが署名検証失敗時に
+    401を返すのと同じ「リトライしても無駄なものは専用のステータスで切り分ける」設計方針に
+    揃える。
+
+    実際にCloud Functions上のHTTPハンドラ(Cloud Tasksのリクエストボディをパースして
+    本関数を呼び出す側)自体は、Cloud Function AのHTTPハンドラ本体(webhook_receiver()の
+    呼び出し元)と同様、デプロイ環境確定後の課題として引き続き残る。store・
+    conversation_state_store・confirmed_reply_recorder・store_profileの実Firestore実装
+    への差し替えも、実GCPプロジェクト作成(オーナー承認待ち)後の課題として残る。
+    """
+    try:
+        processor = build_conversation_event_processor_for_payload(
+            payload,
+            store,
+            push_client,
+            conversation_state_store=conversation_state_store,
+            confirmed_reply_recorder=confirmed_reply_recorder,
+            store_profile=store_profile,
+        )
+    except MissingDestinationError as exc:
+        return ProcessEventResult(status_code=400, detail=f"missing_destination: {exc}")
+    except ValueError as exc:
+        return ProcessEventResult(status_code=400, detail=f"store_not_onboarded: {exc}")
+
+    return handle_process_conversation_event(payload, processor, llm_call, now, tone)
