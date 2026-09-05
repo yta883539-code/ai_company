@@ -66,10 +66,14 @@ Cloud Function E: send_trial_end_reports
   `is_trial_end_report_due()`が`True`のものだけを抽出するラッパー
   (course-set-pashaの`select_due_trial_end_notifications()`と同じ役割分担)。
   Firestoreクエリへの変換は、期間条件側は「trialStartAt <= (now - 14日) の範囲クエリ +
-  trialEndReportSentAt == null の等価クエリ」の複合インデックスで表現できるが、件数条件側
+  trialEndReportSentAt == null の等価クエリ」の複合インデックスで表現できる
+  (具体的な`firestore.indexes.json`定義はfirestore-composite-index-plan.md
+  〈フェーズ続き198〉に集約済み)が、件数条件側
   (`booking_count >= 20`)は現状bookingsコレクション側の集計値をどう保持するか未確定
   (都度カウントクエリを打つか、stores側にキャッシュ用の集計フィールドを持たせるか)であり、
-  実装時の課題として残す(4節参照)。
+  実装時の課題として残す(4節参照。この件数条件は`bookingConfirmedCount`カウンタ
+  フィールド追加〈5節、フェーズ続き150で解消済み〉により、実際には`stores`ドキュメント
+  自身のフィールド比較で済むため追加の複合インデックスは不要になった)。
 
 ## 4. InMemory版の実装状況(フェーズ続き143時点)
 

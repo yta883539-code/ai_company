@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "escalationWindows",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "queuedCount", "order": "ASCENDING" },
+        { "fieldPath": "windowOpenedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "storeId", "order": "ASCENDING" },
+        { "fieldPath": "lastActivityAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificationLogEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trialStartAt", "order": "ASCENDING" },
+        { "fieldPath": "trialEndReportSentAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

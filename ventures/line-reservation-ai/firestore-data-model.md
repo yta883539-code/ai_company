@@ -193,7 +193,9 @@ persistence()`を呼ばずスキップする設計)。
   のまま、Cloud Functions側でLINE Webhook受信のたびに`lastActivityAt`が
   閾値を超えたドキュメントをクエリして処理する。Firestoreは`lastActivityAt`への
   範囲クエリ(複合インデックス: storeId昇順+lastActivityAt昇順)で失効候補を
-  効率的に取得できる。
+  効率的に取得できる(全店舗横断のcollection groupクエリになる点を含め、具体的な
+  `firestore.indexes.json`定義はfirestore-composite-index-plan.md〈フェーズ続き198〉に
+  集約済み)。
 - confirmed状態は前日リマインド等で参照され続けるため、アーカイブ時は削除ではなく
   `archivedAt`フィールドを立てるだけに留め(conversation-state-cleanup.md方針を踏襲)、
   前日リマインド送信バッチは`stage == "confirmed" AND archivedAt == null`のクエリで
@@ -273,10 +275,12 @@ stores/{storeId}/notificationLogEntries
 
 等値(`category`)+範囲(`createdAt`)の複合条件になるため、Firestoreは
 `(category ASC, createdAt ASC)`の複合インデックスを要求する(単一フィールド
-インデックスでは不足)。実GCPプロジェクト作成後、初回クエリ実行時にコンソールの
-自動提案リンクからインデックスを作成する想定(`firestore.indexes.json`への
-事前定義も可能)。件数のみ必要で内訳(topic別等)は不要なため、`count()`集約
+インデックスでは不足)。件数のみ必要で内訳(topic別等)は不要なため、`count()`集約
 クエリのみでよく全件読み出しは発生しない(4節冒頭の設計方針と同じ低コスト特性)。
+本クエリは`storeId`が既知の1店舗内サブコレクションへの問い合わせのためcollection group
+指定は不要。具体的な`firestore.indexes.json`定義はfirestore-composite-index-plan.md
+〈フェーズ続き198〉に集約済み(実GCPプロジェクト作成・デプロイ自体はオーナー承認待ちの
+まま)。
 
 ### 5. `stores/{storeId}/escalationWindows/{sessionId}`
 EscalationConsolidator の `_Window`(集約通知の時間窓管理)に対応する。

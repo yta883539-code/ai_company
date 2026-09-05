@@ -2474,7 +2474,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   接続自体(いずれもオーナー承認待ち)のみとなった。承認不要な実装・テスト追加のみで、
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-05 05:00 UTC
+- フェーズ続き198(2026-09-05 06:00 UTC): 実Firestore接続待ち(オーナー承認待ち)以外の
+  残課題として、deployment-runbook.mdステップ2が参照していた「firestore.indexes.json」が
+  実は具体的に書き出されておらず、複合インデックスの必要箇所もfirestore-transaction-
+  design.md・firestore-data-model.md・trial-end-scheduler-design.mdの3ファイルに
+  分散したまま「実装着手時に具体化する」と先送りにされ続けていたことに気づいた。
+  firestore-composite-index-plan.mdを新規作成し、4箇所(escalationWindowsの
+  `queuedCount`+`windowOpenedAt`、conversationsの`storeId`+`lastActivityAt`、
+  notificationLogEntriesの`category`+`createdAt`、storesの`trialStartAt`+
+  `trialEndReportSentAt`)を集約したうえで、venture直下に`firestore.indexes.json`を
+  実際に書き出した。escalationWindows・conversationsは`stores/{storeId}/...`という
+  店舗ごとのサブコレクション構造(firestore-data-model.md)のため全店舗横断の
+  バッチ処理には`collection group`クエリが必須になるが、この`queryScope:
+  COLLECTION_GROUP`指定の要否はこれまでどの設計docにも明記されていなかった実装時の
+  見落としやすい注意点だったため、本ドキュメントで新たに指摘した。deployment-runbook.md
+  が例示していた「booking_slotsのstore_id+status+start_time」は具体的なクエリ条件として
+  裏付けが見当たらず執筆時点の見込み記載だったと判断し、reminder-scheduler-design.mdの
+  conversationsクエリの具体化(次回以降の課題)に置き換えて記載を更新した。コード変更は
+  無く(机上のJSON定義・doc整理のみ)、venture全体736件全件・schema検証25件パスを確認した。
+  承認不要な設計・doc整理のみで、外部サービスへの公開・アカウント作成・支払い等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、またはreminder-scheduler-design.mdのconversations複合クエリ具体化を優先候補
+  とする。
+- 最終更新: 2026-09-05 06:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった

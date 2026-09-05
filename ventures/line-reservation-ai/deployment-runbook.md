@@ -31,11 +31,12 @@ engine.py)は、以下の手順に沿ってそのまま接続できる設計に�
 
 ### ステップ2: Firestore有効化・コレクション初期設定
 - firestore-data-model.mdの設計通り、Native modeでFirestoreを有効化。
-- コレクション(conversations・booking_slots・notification_logs等)はコード側の
-  初回書き込みで自動作成されるため、事前の手動作成は不要。ただしfirestore-transaction-design.mdで
-  前提としているコンポジットインデックスのみ、デプロイ前に`firestore.indexes.json`として
-  定義しコンソールまたは`gcloud firestore indexes composite create`で先行作成する
-  (対象: booking_slotsのstore_id+status+start_time等、複合クエリを使う箇所)。
+- コレクション(conversations・escalationWindows・notificationLogEntries等)はコード側の
+  初回書き込みで自動作成されるため、事前の手動作成は不要。ただし複合クエリを使う箇所のみ、
+  デプロイ前に`firestore.indexes.json`(venture直下、firestore-composite-index-plan.md
+  〈フェーズ続き198〉で集約・生成済み)を`gcloud firestore deploy --only firestore:indexes`
+  で先行作成する。escalationWindows・conversationsは全店舗横断のcollection groupクエリの
+  ため`queryScope: COLLECTION_GROUP`の指定が必須である点に注意(詳細は同ドキュメント参照)。
 
 ### ステップ3: シークレット管理
 - LLM APIキー・LINE Channel Secret/Channel Access Tokenは環境変数に直書きせず、

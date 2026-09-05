@@ -161,7 +161,13 @@ idle-conversation-trigger-design.mdと同じ「Webhook便乗+間引き」方式�
 - 上記はいずれも疑似コードレベルの設計であり、実際のFirestore Pythonクライアント
   (`google-cloud-firestore`)を用いた動作確認は、GCPプロジェクト作成・Firestore
   有効化(オーナー承認待ち、pending-approval.md参照)の後に着手する。
-- `flush_due_windows()`用の複合インデックス定義(Firestoreの`firestore.indexes.json`
-  相当)の具体的な記述は、実装着手時に行う。
+- ~~`flush_due_windows()`用の複合インデックス定義(Firestoreの`firestore.indexes.json`
+  相当)の具体的な記述は、実装着手時に行う。~~ (解消済み 2026-09-05 06:00 UTC:
+  firestore-composite-index-plan.md〈フェーズ続き198〉で、本ドキュメントが要求する
+  `queuedCount`+`windowOpenedAt`の複合インデックスを含む venture全体の複合インデックスを
+  集約し、`firestore.indexes.json`として具体的に書き出した。escalationWindowsは
+  全店舗横断のcollection groupクエリのため`queryScope: COLLECTION_GROUP`が必要な点も
+  明記した。実際の`gcloud firestore deploy`実行は引き続き実GCPプロジェクト作成
+  〈オーナー承認待ち〉後の課題として残る)
 - 想定トラフィックでのトランザクションリトライ発生率・読み書き課金試算は、
   firestore-data-model.mdの残課題と合わせて未着手のまま。
