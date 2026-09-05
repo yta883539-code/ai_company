@@ -2099,10 +2099,35 @@
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回以降の課題は
   「現在のご利用状況」欄の残回数・残日数取得ロジックとの接続、プラン変更時の起点UI画面の
   要否検討。
-- 最終更新: 2026-09-05 12:00 UTC
+- フェーズ164(2026-09-05 15:00 UTC): フェーズ163で「次のステップ候補」として残っていた
+  liff-plan-selection-ui-wireframe.md「現在のご利用状況」欄の残回数・残日数取得ロジックとの
+  接続を、`prototype/liff_usage_status.py`の`get_current_usage_status()`として新規実装した。
+  `checkout_session.UserProfileStoreProtocol`の`get_plan()`が設定済みなら`PaidUsageStatus`
+  (現在のプラン名・`cloud_function_webhook.PLAN_MONTHLY_LIMITS`の上限・
+  `usage_counter.get_count(user_id, current_month)`による今月の生成回数)を、未設定
+  (トライアル中)なら`TrialUsageStatus`(`trial_end_scheduler.TRIAL_GENERATION_LIMIT`から
+  `get_trial_generation_count()`を差し引いた残回数、`trial_start_at`未設定〈トライアル
+  開始日時決定design.mdの起点=初回生成成功時点にまだ到達していない〉場合は満額の
+  `DEFAULT_TRIAL_PERIOD_DAYS`・設定済みなら経過日数を差し引いた残日数、いずれも0未満には
+  落ちないようクランプ)を返す。既存のPLAN_MONTHLY_LIMITS・TRIAL_GENERATION_LIMIT・
+  DEFAULT_TRIAL_PERIOD_DAYSを単一の正として再利用し値の重複定義は避けた。ワイヤーフレーム
+  文言「トライアル残り: ○回 / ○日」「現在のプラン: ○○」への変換用に
+  `format_usage_status_line()`も実装した。liff-plan-selection-ui-wireframe.mdの該当節を
+  解消済みに更新した。テスト6件追加、venture全体566件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。実LIFF SDK接続・実Firestore
+  接続(usage_counter・user_profile_storeの実体)は引き続きオーナー承認後の課題として残る。
+  承認不要な設計・実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。次回以降の課題は、プラン変更時の
+  起点UI画面の要否検討、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-05 15:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ164、2026-09-05 15:00 UTC: liff-plan-selection-ui-wireframe.mdの
+  「現在のご利用状況」欄が参照していた残回数・残日数取得ロジックとの接続を
+  `prototype/liff_usage_status.py`の`get_current_usage_status()`として実装した。詳細は
+  上記フェーズ164参照。プラン変更起点UI画面の要否は引き続き次回以降の課題として残る)
 - (新規解消・フェーズ163、2026-09-05 12:00 UTC: LIFFプラン選択UIワイヤーフレームを
   liff-plan-selection-ui-wireframe.mdとして新規作成した。詳細は上記フェーズ163参照。
   残回数・残日数取得ロジックとの接続、プラン変更起点UI画面の要否は次回以降の課題として残る)

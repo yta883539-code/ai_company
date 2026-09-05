@@ -105,15 +105,25 @@ wireframe.mdと同様にテキストベースのワイヤーフレームとし�
 - **「現在のご利用状況」表示の要否**: `get_plan()`(checkout-session-plan-selection-
   design.md実装済み)により、画面表示時点で選択済みプランの有無を判定できる。
   未選択(トライアル中)なら残回数・残日数、選択済みなら現在のプラン名を出し分ける設計とし、
-  「今何を選ぶべきか」を利用者が迷わないようにした。ただし残回数・残日数の実際の取得元
-  (`usage_counter`等)との接続は本ワイヤーフレームのスコープ外とし、次のステップ候補とする。
+  「今何を選ぶべきか」を利用者が迷わないようにした。残回数・残日数の実際の取得元
+  (`usage_counter`等)との接続は、フェーズ164・`prototype/liff_usage_status.py`の
+  `get_current_usage_status()`で実装した(下記「未確定・今後の課題」参照)。
 
 ## 未確定・今後の課題
 
 - 実LIFF SDK接続(`liff.init()`・チャネルID設定)はLIFFチャネル登録(LINE Developersでの
   設定作業に相当)後の課題として未着手。着手にはオーナー承認が必要(pending-approval.md参照)。
-- 「現在のご利用状況」欄が参照する残回数・残日数の実際の取得ロジック(`usage_counter`・
-  トライアル開始日時からの日数計算)との接続は未設計。次回以降の課題として残す。
+- (解消済み フェーズ164、2026-09-05: 「現在のご利用状況」欄が参照する残回数・残日数の
+  実際の取得ロジックを`prototype/liff_usage_status.py`の`get_current_usage_status()`として
+  実装した。`get_plan()`設定済みなら`PaidUsageStatus`(現在のプラン名・
+  `usage_counter.get_count(user_id, current_month)`・`PLAN_MONTHLY_LIMITS`上限)、未設定
+  〈トライアル中〉なら`TrialUsageStatus`(`TRIAL_GENERATION_LIMIT -
+  get_trial_generation_count()`を0未満に落ちないようクランプした残回数、`trial_start_at`
+  未設定〈初回生成前〉なら満額`DEFAULT_TRIAL_PERIOD_DAYS`・設定済みなら経過日数を差し引いた
+  残り日数)を返す。`format_usage_status_line()`でワイヤーフレーム文言
+  「トライアル残り: ○回 / ○日」「現在のプラン: ○○」への変換も実装した。実LIFF SDK接続・
+  実Firestore接続〈`usage_counter`・`user_profile_store`の実体〉は引き続きオーナー承認後の
+  課題として残る)
 - プラン変更(アップグレード/ダウングレード)時に本画面を再利用するか、専用の変更画面を
   別途設けるかは未検討。subscription-plan-change-design.mdは`customer.subscription.updated`
   受信後のサーバー側処理のみを扱っており、変更操作の起点となるUI画面は本ワイヤーフレームの
