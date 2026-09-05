@@ -2930,4 +2930,23 @@
   pending-approval.mdへの追記なし。13分/回・按分係数はいずれも仮置き値であり実ヒアリング
   検証は引き続き課題として残る。次回は他venture・アイデア領域の前進、または引き続き
   未走査の設計docの残課題棚卸しを優先候補とする。
+- フェーズ194(2026-09-05 22:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  `prototype/cloud_function_webhook.py`の`process_memo_event()`docstring 8.に、
+  フェーズ141時点の記載「CTAボタン(`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`)の
+  `process_postback_event()`側の実処理配線は次回以降の課題として残る
+  (payment-failure-dunning-design.md 5節、Stripe Customer Portal要否の検討待ち)」が、
+  実際にはフェーズ142で対応済み(既存の`PortalLinkProvider`を再利用し
+  `process_postback_event()`に`portal_link_provider`引数を追加、
+  `UPDATE_PAYMENT_METHOD_POSTBACK_DATA`受信時に`portal_link_provider.get_portal_url
+  (user_id)`を呼ぶ分岐を実装)であるにもかかわらず、docstringのみ更新されずに残っていた
+  記載漏れを発見した。payment-failure-dunning-design.md 5節・7節側は既にフェーズ142時点で
+  取り消し線付きの解消済み表記に更新されていたが、同じ内容を参照するコード側docstring
+  だけが古い記載のまま取り残されていた点が、フェーズ191で見つかった「同一事実を参照する
+  複数ファイルのうち1ファイルだけが未訂正」のパターンの再発だった。該当箇所を解消済みの
+  旨(対応フェーズ・実装内容の要約)に更新した。実装・返り値への影響は無く、venture全体
+  474件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計doc記載の
+  整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
 - 最終更新: 2026-09-05 19:00 UTC

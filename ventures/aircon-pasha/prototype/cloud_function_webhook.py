@@ -885,8 +885,12 @@ def process_memo_event(
        ことは想定しない。CTAボタンはプラン選択ではない(支払い方法の更新)ため、6.・7.とは
        異なり`_build_plan_selection_quick_reply()`は使わずUPDATE_PAYMENT_METHOD_POSTBACK_DATAの
        単一ボタンのまま(quick_reply引数の型に合わせ要素数1のリストとして渡す)。
-       process_postback_event()側の実処理配線は次回以降の課題として残る
-       (payment-failure-dunning-design.md 5節、Stripe Customer Portal要否の検討待ち)。
+       process_postback_event()側の実処理配線はフェーズ142で対応済み(既存の
+       `PortalLinkProvider`を再利用し、`UPDATE_PAYMENT_METHOD_POSTBACK_DATA`受信時に
+       `portal_link_provider.get_portal_url(user_id)`を呼ぶ分岐を実装。本docstringの
+       この一文はフェーズ141時点のまま更新されずに残っていた記載漏れで、
+       payment-failure-dunning-design.md 5節・7節では既にフェーズ142対応済みと
+       記載されている。フェーズ194で訂正)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
