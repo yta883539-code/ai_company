@@ -2084,10 +2084,28 @@
   設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
   前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-05 03:00 UTC
+- フェーズ163(2026-09-05 12:00 UTC): 直近数フェーズが3venture間の相互棚卸し・doc記載
+  整合性の修正に偏っていたため、フェーズ152「実Stripe Price ID確定・LIFFプラン選択UI・
+  プラン変更時の更新経路は実LIFF・実Stripe接続待ちとして残る」で未着手のまま残っていた
+  「LIFFプラン選択UI」の画面設計を新規に具体化した(liff-plan-selection-ui-wireframe.md)。
+  pricing-plan.mdの3プラン(ライト/スタンダード/セッター複数)を縦積みカードで提示し、
+  「このプランを選ぶ」タップでcheckout-session-plan-selection-design.md(フェーズ152)の
+  `create_checkout_session()`へ`plan`クエリパラメータを渡す遷移を定義した。landing-page-
+  wireframe.mdと同様テキストベースのワイヤーフレームに留め、実LIFF SDK接続・LIFFチャネル
+  登録はオーナー承認後の課題として明示的に残した。実装変更は無く、venture全体560件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した(コード変更なしのため念のための
+  確認)。承認不要な設計・ワイヤーフレーム作成のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回以降の課題は
+  「現在のご利用状況」欄の残回数・残日数取得ロジックとの接続、プラン変更時の起点UI画面の
+  要否検討。
+- 最終更新: 2026-09-05 12:00 UTC
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ163、2026-09-05 12:00 UTC: LIFFプラン選択UIワイヤーフレームを
+  liff-plan-selection-ui-wireframe.mdとして新規作成した。詳細は上記フェーズ163参照。
+  残回数・残日数取得ロジックとの接続、プラン変更起点UI画面の要否は次回以降の課題として残る)
 - (解消済み 2026-09-04 22:00 UTC・フェーズ161: aircon-pasha側に`portal_link_provider`の
   配線漏れ・記載漏れが残っていないかを確認した結果、フェーズ186で既に配線・docstring記載とも
   完了済みであることを確認した。詳細は上記フェーズ161参照。これでcourse-set-pasha・
