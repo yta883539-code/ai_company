@@ -2496,9 +2496,58 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
   前進、またはreminder-scheduler-design.mdのconversations複合クエリ具体化を優先候補
   とする。
-- 最終更新: 2026-09-05 06:00 UTC
+- フェーズ続き199(2026-09-05 07:00 UTC、遡及記載): firestore-composite-index-plan.md
+  (フェーズ続き198)「残る課題」に残っていた、reminder-scheduler-design.mdの
+  `select_due_initial_reminders()`/`select_due_resends()`が実際に必要とするFirestore
+  複合クエリ・インデックスを具体化した(reminder-scheduler-composite-index-design.md
+  新規作成)。Cloud Function Cの処理を「Firestoreクエリ(全店舗横断でconfirmedかつ
+  archivedAt==nullな予約を取得)」と「インメモリ判定(target_datetime<=now・
+  customer_replied_atの有無等)」の2段階に切り分け、実際にFirestore複合インデックスが
+  必要になるのは前者の`stage == "confirmed" AND archivedAt == null`
+  (`conversations`のcollection group)のみで、後者は取得済みのPythonオブジェクトに対する
+  通常の関数呼び出しのため追加インデックスは不要と結論した。`firestore.indexes.json`に
+  5件目の索引(`conversations`の`stage`+`archivedAt`、`queryScope: COLLECTION_GROUP`)を
+  追加した。コード変更は無く(設計doc整理・JSON追記のみ)、venture全体736件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・doc整理のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないため
+  pending-approval.mdへの追記なし。(本エントリは2026-09-05 07:00 UTC定例更新のコミット
+  〈188fa02〉で既に設計・実装ともコードとdocの追加は完了していたが、README.mdの
+  フェーズログへの反映が漏れていたため今回遡及記載した。)
+- フェーズ続き200(2026-09-05 09:00 UTC): README.mdのフェーズログを棚卸しした結果、
+  フェーズ続き199(reminder-scheduler-composite-index-design.md、2026-09-05 07:00 UTC
+  コミット188fa02で完了済み)が上記フェーズログに一件も反映されておらず、フェーズ続き198の
+  直後が「最終更新: 2026-09-05 06:00 UTC」のまま止まっていた記載漏れを発見した。
+  stripe-webhook-http-entry-point-design.md関連で過去に繰り返し発生していた
+  「コードは実装済みだがREADME.mdのフェーズ記載が漏れる」パターン(フェーズ続き171・177・
+  185で遡及記載済み)の再発であり、tech-stack.md側の「次のステップ候補」記載漏れ
+  (2026-09-05 08:00 UTCコミットd3799c1で訂正済み)とあわせて、フェーズ番号を伴う
+  詳細ログとサマリ的なdocの両方でREADME反映の遅延が続いていたことになる。上記に
+  フェーズ続き199の全文を遡及記載し、本フェーズ続き200としてその発見・訂正の経緯自体を
+  記録した。コード変更は無く(README.md記載整合性の修正のみ)、venture全体736件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)パス・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを再確認した。承認不要なdoc整合性修正の
+  みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、またはreminder-
+  scheduler-composite-index-design.mdの「残る課題」(確定予約総数増加時のtarget_datetime
+  再設計要否の再検証)を優先候補とする。
+- 最終更新: 2026-09-05 09:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-05 09:00 UTC・フェーズ続き200: README.mdのフェーズログを棚卸しした
+  結果、フェーズ続き199(reminder-scheduler-composite-index-design.md、コミット188fa02で
+  2026-09-05 07:00 UTCに完了済み)が上記フェーズログに未反映のまま「最終更新:
+  2026-09-05 06:00 UTC」で止まっていた記載漏れを発見し、フェーズ続き199の全文を上記に
+  遡及記載した。コード変更は無く、venture全体736件全件・schema検証25件パスを再確認した。
+  承認不要なdoc整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし)
+- (解消済み 2026-09-05 07:00 UTC・フェーズ続き199、遡及記載: firestore-composite-index-
+  plan.md(フェーズ続き198)「残る課題」だったreminder-scheduler-design.mdの
+  `select_due_initial_reminders()`/`select_due_resends()`が必要とするFirestore複合
+  インデックスを具体化した。詳細は上記フェーズ続き199・reminder-scheduler-composite-
+  index-design.md参照。実際に必要な複合インデックスは`conversations`の`stage`+
+  `archivedAt`(collection group)の1件のみで、`firestore.indexes.json`に追加済み。
+  将来確定予約数が増加した場合の`target_datetime`再設計要否は次回以降の課題として残る)
 - (解消済み 2026-09-04 20:00 UTC・フェーズ続き194: フェーズ続き191「次回以降の課題」だった
   `searcher`組み立てに必要な営業時間データモデルの設計・実装を行った。詳細は上記
   フェーズ続き194・business-hours-raw-to-searcher-assembly-design.md参照。
