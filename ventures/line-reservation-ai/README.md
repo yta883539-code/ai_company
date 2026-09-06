@@ -2618,6 +2618,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの
   残課題棚卸しを優先候補とする。
+- フェーズ続き206(2026-09-06 11:00 UTC): subscription-cancellation-flow-design.md
+  「未確定事項・残課題」に残っていたバグを修正した。`classify_subscription_activated()`
+  (`cloud_function_subscription_activated_webhook.py`)は`suspension_reason ==
+  "trial_unselected"`の店舗しか`OUTCOME_ACTIVATED`(初回登録案内メッセージ送信・
+  `suspension_reason`解除)として扱っておらず、`cloud_function_subscription_cancelled_
+  webhook.py`が解約確定として記録した`suspension_reason == "cancelled"`の店舗が
+  再契約した場合は`OUTCOME_ALREADY_ACTIVE`(何もしない)に落ちてしまい、再開通知が
+  届かない欠落があった。同関数の分岐に`"cancelled"`を追加し、`"trial_unselected"`と
+  同じ扱い(既存の`render_subscription_activated_message()`をそのまま流用)とした。
+  トップのモジュールdocstring・`StoreSubscriptionState`のdocstring・`_demo()`の
+  デモケースも同様に更新した。テスト2件追加(`test_cancelled_is_activated`・
+  `test_cancelled_store_reactivation_sends_message_and_clears_suspension`)、
+  venture全体760件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  バグ修正・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
+  領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
 - フェーズ続き205(2026-09-06 02:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
   cancel-intent-handling-design.md「残る課題」・change-intent-handling-design.md
   「残る課題」の2ファイル双方に、フェーズ(続き42)で既に解消済みの項目
@@ -2640,9 +2657,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-06 02:00 UTC
+- 最終更新: 2026-09-06 11:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-06 11:00 UTC・フェーズ続き206: subscription-cancellation-flow-
+  design.mdの残課題だった、解約確定済み(`suspension_reason == "cancelled"`)店舗の
+  再契約時に再開通知が届かない欠落を`classify_subscription_activated()`の修正で
+  解消した。詳細は上記フェーズ続き206参照)
 - (解消済み 2026-09-06 02:00 UTC・フェーズ続き205: cancel-intent-handling-design.md・
   change-intent-handling-design.mdの「残る課題」双方に残っていた、フェーズ(続き42)で
   既に解消済みのNotificationLogAggregator記録ギャップに関する記載漏れ(cancel側は加えて

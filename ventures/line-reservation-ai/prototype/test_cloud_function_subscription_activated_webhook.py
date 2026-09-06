@@ -43,6 +43,10 @@ class ClassifySubscriptionActivatedTests(unittest.TestCase):
         state = _store(suspension_reason="trial_unselected")
         self.assertEqual(classify_subscription_activated(state), OUTCOME_ACTIVATED)
 
+    def test_cancelled_is_activated(self):
+        state = _store(suspension_reason="cancelled")
+        self.assertEqual(classify_subscription_activated(state), OUTCOME_ACTIVATED)
+
     def test_no_suspension_reason_is_already_active(self):
         state = _store(suspension_reason=None)
         self.assertEqual(classify_subscription_activated(state), OUTCOME_ALREADY_ACTIVE)
@@ -125,6 +129,19 @@ class HandleSubscriptionActivatedTests(unittest.TestCase):
         self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
         self.assertTrue(result.notified)
         self.assertNotIn("マイページ", push.sent[0][1])
+
+    def test_cancelled_store_reactivation_sends_message_and_clears_suspension(self):
+        # subscription-cancellation-flow-design.md「未確定事項・残課題」で指摘されていた、
+        # suspension_reason="cancelled"の店舗が再契約しても再開通知が届かない欠落の解消確認。
+        state = _store(suspension_reason="cancelled")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_activated(state, push)
+
+        self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
+        self.assertTrue(result.notified)
+        self.assertTrue(result.state_reset)
+        self.assertIsNone(state.suspension_reason)
+        self.assertEqual(len(push.sent), 1)
 
     def test_webhook_replay_after_activation_is_noop(self):
         state = _store(suspension_reason=None)

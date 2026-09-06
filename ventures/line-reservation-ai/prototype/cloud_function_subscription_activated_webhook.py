@@ -18,9 +18,12 @@ Webhook(初回のプラン選択・カード登録完了を通知するイベン
 - `cloud_function_payment_webhook.py`は「猶予期間中・制限モードからの決済成功」
   (suspension_reason == "payment_failed"、またはpayment_failure_detected_atありの状態)を
   扱う。本モジュールは「トライアル終了後、有料プラン未選択のまま休止モードに入っていた店舗が
-  初めてプランを選択し決済を完了した」(suspension_reason == "trial_unselected")を扱う。
-  billing-upgrade-flow-design.md 4節とdormant-mode-renotification-design.mdで
-  suspension_reasonの値として明確に区別されている2つの休止要因に対応する形で、
+  初めてプランを選択し決済を完了した」(suspension_reason == "trial_unselected")、および
+  「解約確定済み(suspension_reason == "cancelled"、cloud_function_subscription_cancelled_
+  webhook.py担当)の店舗が再契約した」場合を扱う(2026-09-06追記: 後者はsubscription-
+  cancellation-flow-design.md「未確定事項・残課題」で指摘されていた、再開通知が届かない
+  欠落の解消)。billing-upgrade-flow-design.md 4節とdormant-mode-renotification-design.mdで
+  suspension_reasonの値として明確に区別されている休止要因に対応する形で、
   Webhookイベント自体も別種(初回のプラン登録 vs 既存契約の決済失敗からの復旧)と整理する。
 - 両モジュールとも「自分が担当しないsuspension_reasonの値には触れない」設計を踏襲する
   (cloud_function_payment_webhook.pyの_clear_dunning_state()のコメント参照)。これにより、
@@ -61,9 +64,8 @@ class StoreSubscriptionState:
     """1店舗ぶんの契約状態(Firestoreのstoresドキュメントに相当する項目のみ抜粋)。
 
     suspension_reasonはcloud_function_send_dunning_notifications.StoreDunningStateと
-    同じフィールドを指す(dormant-mode-renotification-design.mdの3分岐: なし/
-    "trial_unselected"/"payment_failed")。本モジュールが読み書きの対象とするのは
-    "trial_unselected"のときのみ。
+    同じフィールドを指す(なし/"trial_unselected"/"payment_failed"/"cancelled")。
+    本モジュールが読み書きの対象とするのは"trial_unselected"・"cancelled"のときのみ。
 
     portal_url(Stripeカスタマーポータルへの一時リンク)はportal-session-provider-
     design.md(フェーズ続き192)により、stateへ保存する固定フィールドから、呼び出し時に
@@ -98,10 +100,14 @@ def classify_subscription_activated(state: StoreSubscriptionState) -> str:
         # 既存契約の決済失敗からの復旧はcloud_function_payment_webhook.pyの担当。
         # 本モジュールが誤ってsuspension_reasonを解除しないよう、ここで弾く。
         return OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED
-    if state.suspension_reason != "trial_unselected":
-        # 既に有効な契約がある(またはそもそも休止していない)店舗への重複配信。
-        return OUTCOME_ALREADY_ACTIVE
-    return OUTCOME_ACTIVATED
+    if state.suspension_reason in ("trial_unselected", "cancelled"):
+        # trial_unselected: トライアル終了後、有料プラン未選択のまま休止していた店舗の初回登録。
+        # cancelled: cloud_function_subscription_cancelled_webhook.pyが解約確定として記録した
+        # 店舗が再契約した場合(subscription-cancellation-flow-design.md「未確定事項・残課題」
+        # で指摘された欠落の解消)。いずれも初回登録と同じ案内メッセージ・状態解除で扱う。
+        return OUTCOME_ACTIVATED
+    # 既に有効な契約がある(またはそもそも休止していない)店舗への重複配信。
+    return OUTCOME_ALREADY_ACTIVE
 
 
 def _render_by_tone(tone: str, variants: dict) -> str:
@@ -209,6 +215,20 @@ def _demo() -> None:
 
     # 2) Webhook再送: 既にsuspension_reasonが解除済みのため二重送信されない(冪等性の確認)。
     print("2回目(Webhook再送):", handle_subscription_activated(store, push))
+
+    # 1b) 解約確定済み(suspension_reason="cancelled")の店舗が再契約したケース。
+    reactivated = StoreSubscriptionState(
+        store_id="store-5",
+        owner_line_user_id="owner-line-5",
+        plan_name="スタンダードプラン",
+        next_billing_date="2026-10-01",
+        suspension_reason="cancelled",
+    )
+    print(
+        "再契約(解約済みからの再開):",
+        handle_subscription_activated(reactivated, push),
+    )
+    print("  状態:", reactivated.suspension_reason)
 
     # 3) 既存契約が決済失敗で制限モード中に、無関係な`subscription_activated`が届いた場合。
     #    本モジュールはdunning側の状態(suspension_reason="payment_failed")に触れない。

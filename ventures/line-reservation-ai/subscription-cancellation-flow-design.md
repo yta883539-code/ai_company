@@ -184,10 +184,15 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
 
 ## 未確定事項・残課題
 
-- `classify_subscription_activated()`(`cloud_function_subscription_activated_
+- ~~`classify_subscription_activated()`(`cloud_function_subscription_activated_
   webhook.py`)が`suspension_reason == "cancelled"`から再契約した店舗を
   `OUTCOME_ALREADY_ACTIVE`(何もしない)として扱ってしまい、再開通知が届かない欠落が
-  ある(2節参照)。次回以降、同関数の分岐に`"cancelled"`を追加する改修を優先候補とする。
+  ある(2節参照)。次回以降、同関数の分岐に`"cancelled"`を追加する改修を優先候補とする。~~
+  (解消済み 2026-09-06 11:00 UTC: `classify_subscription_activated()`の分岐に
+  `"cancelled"`を追加し、`"trial_unselected"`と同じ`OUTCOME_ACTIVATED`(初回登録と同じ
+  案内メッセージ送信・`suspension_reason`解除)として扱うよう修正した。テスト2件追加
+  (`test_cancelled_is_activated`・`test_cancelled_store_reactivation_sends_message_
+  and_clears_suspension`)、venture全体760件全件・schema検証25件パスを確認した)
 - dormant_mode_scheduler.pyの`select_due_dormant_events()`に`suspension_reason ==
   "cancelled"`を対象外とする条件を追加する実装は本ドキュメントでは未着手(設計のみ、
   2節)。既存の`suspension_reason == "payment_failed"`除外条件と同じ形で追加できる見込み。
