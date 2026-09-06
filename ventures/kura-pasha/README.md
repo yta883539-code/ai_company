@@ -153,14 +153,26 @@
   設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
 
+- フェーズ14(2026-09-06 19:00 UTC): 「次にやること」2点目だったcustomer-interview-design.md
+  相当の質問項目リストを新規作成した。course-set-pasha/customer-interview-design.mdの構成
+  (目的→対象→質問項目→実施方法→留意点)を踏襲しつつ、本venture固有の論点(受注頻度の
+  低さ・pricing-plan.mdの課金単位(区分問わず一律1回)への納得感・llm-system-prompt-draft.md
+  厳守事項2(修理可否判断への不介入)の実務感覚との整合)を反映した全13問を設計した。
+  対象はcandidate-longlist-draft.md第五弾の優先順位1・2を中心に2〜3件(他venture(7〜10件)
+  より少ない、フェーズ9で見直した現実的な目標合計5〜6件を踏まえた設定)とした。実際の
+  連絡・ヒアリング依頼は行っておらず、着手する場合は別途pending-approval.mdへの記録・
+  オーナー承認が必要である旨を明記した。承認不要な設計文書作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
 - ジャパンギャロップスインポーターについて、修理が自社職人による受注生産か単なる付帯
   サービスかを追加確認し、正式候補化するか除外するかを判断する。
-- customer-interview-design.md相当の質問項目リスト(course-set-pasha・line-reservation-ai
-  参照)を本venture向けに作成する。
+- customer-interview-design.mdの質問数13問が10〜15分に収まるか検証するリハーサル台本
+  (line-reservation-ai/interview-rehearsal-script.md相当)を作成する。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
   についてオーナーの方針を確認する。実際の連絡・ヒアリング依頼はオーナー承認が必要な範囲と
   して別途pending-approval.mdに記録する。
 
-最終更新: 2026-09-06 18:00 UTC
+最終更新: 2026-09-06 19:00 UTC
