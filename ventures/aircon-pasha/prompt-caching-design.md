@@ -18,10 +18,16 @@ prompt-caching-design.mdの構成に対応するドキュメントとしては�
   ```
 - レンダー順は`tools` → `system` → `messages`。本ventureはツール呼び出しを使わない
   バッチ処理(単方向)のため、システムプロンプト(llm-system-prompt-draft.md)+構造化
-  出力スキーマ(`schema/output.schema.json`、本ventureは既に実体が存在する点が
-  course-set-pasha〈作成時点で未作成〉と異なる)を連結したsystemブロック末尾に1つ
+  出力スキーマ(`schema/output.schema.json`)を連結したsystemブロック末尾に1つ
   ブレークポイントを置けばよい。業者からのメモ(生成ごとに異なる可変部分)はブレーク
   ポイントより後ろ(messagesの最後)に置き、キャッシュ対象に含めない。
+  (訂正・2026-09-06 21:00 UTC: 本文はかつて「本ventureは既に実体が存在する点が
+  course-set-pasha〈作成時点で未作成〉と異なる」と記載していたが、course-set-pasha側の
+  schema/output.schema.jsonは同ventureのフェーズ54〈2026-08-15 08:00 UTC〉時点で既に
+  作成済みであり、course-set-pashaのprompt-caching-design.md新設〈フェーズ195〉時点でも
+  「未作成」ではなかったことが判明した〈course-set-pashaフェーズ196で自ファイルの同種の
+  誤記を訂正済み〉。両ventureともドキュメント作成時点で既にschemaの実体が存在していた点は
+  同じであり差異はなかったため、誤った比較の記述を削除した。)
 - キャッシュ書き込みコストは1時間TTLで通常の約2倍、5分TTL(デフォルト)は約1.25倍。
   読み取り単価(通常の約0.1倍)はTTLの長さによらず共通。損益分岐点は概ね3回目以降の
   生成でキャッシュ書き込みコストの増分を回収できる計算になる(llm-api-cost-estimate.md

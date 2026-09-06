@@ -2988,4 +2988,20 @@
   支払い等は今回発生していないためpending-approval.mdへの追記なし。実際のリクエスト
   時間帯の偏りを踏まえた精緻化は引き続き実LLM接続後の実測待ち。次回は他venture・
   アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-06 12:00 UTC
+- フェーズ197(2026-09-06 21:00 UTC): course-set-pashaフェーズ196(2026-09-06 20:00 UTC)が
+  発見した「course-set-pasha側prompt-caching-design.mdの誤記の発生源であるaircon-pasha側
+  prompt-caching-design.mdの同一bullet(『本ventureは既に実体が存在する点がcourse-set-pasha
+  〈作成時点で未作成〉と異なる』)の訂正はaircon-pasha自身の次回以降の課題として残る」と
+  明記していた越境課題に対応した。course-set-pasha側のschema/output.schema.jsonは同venture
+  のフェーズ54(2026-08-15 08:00 UTC)時点で既に作成済みであり、prompt-caching-design.md新設
+  (フェーズ195)時点でも「未作成」ではなかったことが確認済みのため(course-set-pashaフェーズ
+  196で自ファイルの同種の誤記を訂正済み)、本ventureのprompt-caching-design.md「`cache_control`
+  の配置方法」節に残っていた「本ventureは既に実体が存在する点がcourse-set-pasha〈作成時点で
+  未作成〉と異なる」という誤った比較記述を削除し、両ventureとも作成時点で既にschemaの実体が
+  存在していた点は同じで差異が無かった旨を訂正注記として追記した。コード変更は無く、venture
+  全体474件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した(変更前と同じ結果)。承認不要な
+  設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-06 21:00 UTC
