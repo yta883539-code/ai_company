@@ -104,6 +104,10 @@ change専用文言を出すと「以前のご予約は取り消し済みです�
 場合/していなかった場合それぞれで0件になるケース)・既存分含め全119件パス。
 
 ## 残る課題
-- 上記「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの解消
-  (cancel-intent-handling-design.mdからの継続課題)
+- ~~上記「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの解消
+  (cancel-intent-handling-design.mdからの継続課題)~~ → 対応済み(2026-09-06、フェーズ続き205で
+  本節記載を訂正)。system-event-log-gap-fix.md(2026-08-02 19:00 UTC)で`booking_change_started`/
+  `change_not_found`を含む4種のシステム内部イベント全てが`NotificationLogAggregator.record()`
+  まで届くよう配線済み。cancel-intent-handling-design.md側にも同じ記載漏れがあったため、
+  あわせて訂正した。
 - 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)

@@ -2618,9 +2618,36 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
   への追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの
   残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-06 01:00 UTC
+- フェーズ続き205(2026-09-06 02:00 UTC): 未走査の設計docの残課題棚卸しを行った結果、
+  cancel-intent-handling-design.md「残る課題」・change-intent-handling-design.md
+  「残る課題」の2ファイル双方に、フェーズ(続き42)で既に解消済みの項目
+  「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの
+  解消が、未訂正のまま残っていた記載漏れを発見した(いずれも2026-08-02 16:00/17:00 UTC
+  執筆時点の記載で、19:00 UTCのフェーズ(続き42)・system-event-log-gap-fix.mdより前に
+  書かれたまま放置されていた)。加えてcancel-intent-handling-design.md側には、同じく
+  フェーズ(続き42)より前(16:00 UTC)の執筆時点の記載である「`change` intent(日時変更)の
+  設計・実装」も未訂正のまま残っていた(17:00 UTCのchange-intent-handling-design.mdで
+  対応済み)。過去に繰り返し見つかっている「実装フェーズが先行し、同一事実を参照する
+  複数ファイルの残課題節の更新が追いつかない」パターンの再発だが、今回は2ファイル
+  「両方」が未訂正のまま残っていた点が特徴的だった(通常は1ファイルのみ訂正漏れ)。
+  `test_engine.py`の`test_cancel_booking_after_confirmed_records_booking_cancelled_in_logs`・
+  `test_change_booking_after_confirmed_records_booking_change_started_in_logs`で実際に
+  `NotificationLogAggregator.system_event_counts`へ記録されることを再確認したうえで、
+  両ファイルの該当項目に取り消し線を付け、解消済みである旨と対応フェーズ・相互参照の
+  経緯を追記した。実装・返り値・テストへの影響は無く、venture全体758件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計doc記載の
+  整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-06 02:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-06 02:00 UTC・フェーズ続き205: cancel-intent-handling-design.md・
+  change-intent-handling-design.mdの「残る課題」双方に残っていた、フェーズ(続き42)で
+  既に解消済みのNotificationLogAggregator記録ギャップに関する記載漏れ(cancel側は加えて
+  change intent実装自体の記載漏れも)を訂正した。詳細は上記フェーズ続き205参照。
+  コード変更は無いドキュメント整合性の修正のみ)
 - (解消済み 2026-09-06 01:00 UTC・フェーズ続き204: monthly-booking-limit-notification-
   design.mdの記載漏れ(4節の配線済み事項の未訂正)と、5節で「未着手」とされていた
   Cloud Function側のオーナー通知配線を、first_booking_self_checkと同じパターンで実装した。

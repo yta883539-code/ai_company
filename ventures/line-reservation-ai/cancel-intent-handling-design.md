@@ -59,6 +59,12 @@ enumには追加しない。`engine.py`の`SYSTEM_ESCALATION_REASONS`に追加�
 残す)。
 
 ## 残る課題
-- `change` intent(日時変更)の設計・実装
-- 上記「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの解消
+- ~~`change` intent(日時変更)の設計・実装~~ → 対応済み。change-intent-handling-design.md
+  (2026-08-02 17:00 UTC)で`ConversationFlowStateMachine.change_booking()`として実装済み。
+- ~~上記「システム内部イベントが`NotificationLogAggregator`に実際には記録されない」ギャップの解消~~
+  → 対応済み(2026-09-06、フェーズ続き205で本節記載を訂正)。system-event-log-gap-fix.md
+  (2026-08-02 19:00 UTC)で`ConversationFlowStateMachine`に`logs`引数・`_notify_system_event()`
+  ヘルパーを新設し、本設計の`booking_cancelled`/`cancel_not_found`を含む4種のシステム内部
+  イベント全てが`NotificationLogAggregator.record()`まで届くよう配線済み。change-intent-
+  handling-design.md側にも同じ記載漏れがあったため、あわせて訂正した。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)
