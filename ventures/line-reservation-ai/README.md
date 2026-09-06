@@ -2594,9 +2594,37 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   公開・アカウント作成・支払い等は今回発生していないためpending-approval.mdへの追記なし。
   次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
   優先候補とする。
-- 最終更新: 2026-09-05 16:00 UTC
+- フェーズ続き204(2026-09-06 01:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  monthly-booking-limit-notification-design.mdを確認した結果、2箇所の記載漏れ・未着手
+  項目を発見した。(1)4節の実装記述に残っていた「plan_store等プランをstore_profile_
+  store.pyから取得する配線自体は次回以降の課題(6節参照)」という記載が、実際には
+  resolve_monthly_booking_limit()(フェーズ続き182)・build_conversation_flow_state_
+  machine_for_store()(フェーズ続き187)で既に解消済みだったにもかかわらず未訂正のまま
+  残っていたため訂正した。(2)5節で「未着手」とされていたCloud Function側の実配線
+  (`consume_monthly_booking_limit_notice()`が返す通知をオーナーへ実際に送る処理)は、
+  first-booking-self-check-notification-design.mdの`consume_first_booking_self_check()`
+  配線(cloud_function_process_event.pyの`_handle_details()`)と同じパターンで実際には
+  未接続のままだったため、今回新規に配線した。`engine.py`の`ConversationFlowStateMachine`
+  に`get_monthly_booking_limit()`(コンストラクタ渡しのmonthly_booking_limitを返す
+  getter)を新設し、`_handle_details()`で`consume_monthly_booking_limit_notice()`が
+  Trueかつ`owner_user_id`設定済みの場合に`format_monthly_booking_limit_notice_message()`
+  をオーナーへ追加送信する処理を、`consume_first_booking_self_check()`のすぐ後に追加した。
+  テスト4件追加(`MonthlyBookingLimitNoticeNotificationTests`、monthly_booking_limit=6・
+  MARGIN=5として1件目の確定で即発火する設定で「閾値到達時に送信」「未設定時は送信しない」
+  「月内2回目は再送しない」「owner_user_id未設定時は送信しない」を検証)、venture全体758件
+  全件パス・schema検証25件パスを確認した。実LINE API接続自体は引き続きオーナー承認待ちの
+  課題として残るが、それより手前のCloud Function内配線(in-memory pushクライアントで
+  検証可能な範囲)は解消済み。承認不要な設計doc記載の整合性修正・実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い等は今回発生していないためpending-approval.md
+  への追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの
+  残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-06 01:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-06 01:00 UTC・フェーズ続き204: monthly-booking-limit-notification-
+  design.mdの記載漏れ(4節の配線済み事項の未訂正)と、5節で「未着手」とされていた
+  Cloud Function側のオーナー通知配線を、first_booking_self_checkと同じパターンで実装した。
+  詳細は上記フェーズ続き204・monthly-booking-limit-notification-design.md参照)
 - (解消済み 2026-09-05 16:00 UTC・フェーズ続き203: archive-trigger-unification-
   design.mdの残る課題だった「Cloud Function Cへの2種類のクエリ結果の結線」は、
   前提(クエリが2種類必要)自体が誤りで、reminder-scheduler-design.mdが元々想定していた

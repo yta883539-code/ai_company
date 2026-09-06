@@ -67,7 +67,9 @@ limit-approaching-notification-design.mdに相当する検討が本ventureには
 
 - `__init__`に`monthly_booking_limit: Optional[int] = None`引数を追加(既定None=機能無効、
   後方互換)。店舗のプラン上限件数を渡す。plan_store等プランをstore_profile_store.pyから
-  取得する配線自体は次回以降の課題(6節参照)。
+  取得する配線は、resolve_monthly_booking_limit()(フェーズ続き182)・
+  build_conversation_flow_state_machine_for_store()(フェーズ続き187)で解消済み
+  (詳細は6節参照)。
 - `_monthly_confirmed_counts: dict[str, int]`(月キー→件数)、
   `_monthly_booking_limit_notice_pending: bool`を新設。
 - `provide_details()`の確定成功分岐で、`monthly_booking_limit`が指定されていれば
@@ -98,11 +100,17 @@ limit-approaching-notification-design.mdに相当する検討が本ventureには
 
 ## 5. 通知経路との接続
 
-first-booking-self-check-notification-design.md「残課題」と同様、`consume_monthly_
-booking_limit_notice()`が返す通知をオーナーへ実際に送る配線(Cloud Function B側で
-`provide_details()`成功直後にこれを呼び、Trueなら追加送信する)は、オーナー向け送信先
-(LINE以外の経路も含めて未確定)自体が実LINE API接続(オーナー承認待ち)後の課題として
-残る他のオーナー通知実装(first_booking_self_check含む)と合わせて未着手。
+(2026-09-06追記): `prototype/cloud_function_process_event.py`の`_handle_details()`に、
+`consume_first_booking_self_check()`と同じ位置・同じパターン(オーナーuserId直接1回送信、
+`owner_user_id`未設定時は静かにスキップ、確定処理自体は失敗させない)で配線した。
+`get_monthly_booking_limit()`(新設、コンストラクタ渡しのmonthly_booking_limitをそのまま
+返すgetter)と`get_monthly_confirmed_count()`を使って`format_monthly_booking_limit_notice_
+message()`のplan_limit・current_countを組み立てる。テスト4件追加
+(`MonthlyBookingLimitNoticeNotificationTests`、monthly_booking_limit=6・MARGIN=5として
+1件目の確定で即発火する設定で検証)。実LINE API接続自体は引き続きオーナー承認待ちの
+課題として残るが(pending-approval.md記載)、それより手前のCloud Function内配線
+(in-memoryのLINE Pushクライアントを使った単体テストで検証可能な範囲)は本課題の
+対象外ではなくなり解消済み。
 
 ## 6. 今後の課題
 

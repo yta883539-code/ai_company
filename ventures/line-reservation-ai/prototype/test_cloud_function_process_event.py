@@ -85,6 +85,7 @@ def _new_processor(
     store_profile=None,
     conversation_state_store=None,
     booking_slots=None,
+    monthly_booking_limit=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
@@ -99,6 +100,7 @@ def _new_processor(
         EscalationConsolidator(),
         logs=logs,
         record_store=record_store,
+        monthly_booking_limit=monthly_booking_limit,
     )
     searcher = AvailabilitySearcher(
         business_hours=(9 * 60, 18 * 60), slot_interval_minutes=30, closed_weekdays=closed_weekdays
@@ -881,6 +883,81 @@ class FirstBookingSelfCheckNotificationTests(unittest.TestCase):
         self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
         # オーナー宛が無いだけで、顧客への確定メッセージ送信自体は成功していること。
         self.assertIn("山田様", push.sent[-1][1])
+
+
+class MonthlyBookingLimitNoticeNotificationTests(unittest.TestCase):
+    """monthly-booking-limit-notification-design.md準拠。engine.py側の
+    consume_monthly_booking_limit_notice()/get_monthly_booking_limit()/
+    get_monthly_confirmed_count()は既に実装・テスト済み(test_engine.py)だが、
+    Cloud Function側(_handle_details)への実配線(オーナーuserId直接1回送信)は
+    未接続のまま残っていた(同設計doc5節)。first_booking_self_checkと同じ配線パターンで
+    接続したことを確認する。monthly_booking_limit=6・MARGIN=5とすることで、
+    1件目の確定(count=1)で即座に通知が発火する設定にしている。
+    """
+
+    def _present_candidates(self, processor, user_id):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return processor.process(_event(user_id, "来週土曜カットで"), llm_call, NOW)
+
+    def _reach_confirmed(self, processor, user_id, name="山田"):
+        self._present_candidates(processor, user_id)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "1番で"), llm_call_select, NOW)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": name, "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        return processor.process(_event(user_id, f"{name}です、カットでお願いします"), llm_call_details, NOW)
+
+    def test_threshold_confirmation_sends_notice_to_owner(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner", monthly_booking_limit=6)
+        result = self._reach_confirmed(processor, "U1", name="山田")
+
+        self.assertEqual(result.action, "confirmed")
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        limit_messages = [m for m in owner_messages if "プラン上限" in m]
+        self.assertEqual(len(limit_messages), 1)
+        self.assertIn("1件になりました", limit_messages[0])
+        self.assertIn("6件", limit_messages[0])
+
+    def test_no_notice_when_monthly_booking_limit_not_configured(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner", monthly_booking_limit=None)
+        self._reach_confirmed(processor, "U1", name="山田")
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual([m for m in owner_messages if "プラン上限" in m], [])
+
+    def test_second_confirmation_in_same_month_does_not_resend_notice(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner", monthly_booking_limit=6)
+        self._reach_confirmed(processor, "U1", name="山田")
+        self._reach_confirmed(processor, "U2", name="鈴木")
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len([m for m in owner_messages if "プラン上限" in m]), 1)
+
+    def test_no_owner_push_when_owner_user_id_not_configured(self):
+        processor, flow, push, _ = _new_processor(owner_user_id=None, monthly_booking_limit=6)
+        result = self._reach_confirmed(processor, "U1", name="山田")
+
+        self.assertEqual(result.action, "confirmed")
+        self.assertEqual([uid for uid, _ in push.sent if uid == "U-owner"], [])
 
 
 class CancelIntentTests(unittest.TestCase):

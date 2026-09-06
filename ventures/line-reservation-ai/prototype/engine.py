@@ -1171,6 +1171,12 @@ class ConversationFlowStateMachine:
         """指定した月キー(YYYY-MM)の予約確定件数を返す。通知文言の組み立て・テスト用。"""
         return self._monthly_confirmed_counts.get(month, 0)
 
+    def get_monthly_booking_limit(self) -> Optional[int]:
+        """コンストラクタに渡されたmonthly_booking_limitをそのまま返す(未指定ならNone)。
+        呼び出し側がconsume_monthly_booking_limit_notice()発火時に
+        format_monthly_booking_limit_notice_message()のplan_limit引数を組み立てるのに使う。"""
+        return self._monthly_booking_limit
+
     def get_trial_start_at(self) -> Optional[datetime]:
         """trial-start-anchor-decision.md準拠。店舗全体で最初の予約確定が成功した時刻
         (=trialStartAt)を返す。未確定ならNone。trial_end_scheduler.pyの

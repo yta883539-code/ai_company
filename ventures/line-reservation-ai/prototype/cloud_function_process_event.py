@@ -117,6 +117,7 @@ from engine import (  # noqa: E402
     format_faq_unregistered_message,
     format_first_booking_self_check_message,
     format_hold_message,
+    format_monthly_booking_limit_notice_message,
     label_from_slot_key,
     process_llm_output,
     resolve_candidate_selection,
@@ -909,6 +910,22 @@ class ConversationEventProcessor:
                 ),
                 now,
             )
+        # monthly-booking-limit-notification-design.md準拠。上記first_booking_self_checkと
+        # 同じ「オーナーuserId直接1回送信・未設定時は静かにスキップ」パターンを踏襲する。
+        # 月キーはconsume側(engine.py)がnowのJST月で判定済みのため、ここではその月の
+        # 確定件数を取り直して文言に埋め込むだけでよい。
+        if self._flow.consume_monthly_booking_limit_notice() and self._owner_user_id:
+            plan_limit = self._flow.get_monthly_booking_limit()
+            month_key = now.strftime("%Y-%m")
+            current_count = self._flow.get_monthly_confirmed_count(month_key)
+            if plan_limit is not None:
+                self._send(
+                    self._owner_user_id,
+                    format_monthly_booking_limit_notice_message(
+                        plan_limit=plan_limit, current_count=current_count
+                    ),
+                    now,
+                )
         return DispatchResult(action="confirmed")
 
     def _represent_candidates_after_conflict(self, user_id: str, now: datetime) -> DispatchResult:
