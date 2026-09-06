@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "鞍パシャッと 構造化出力スキーマ",
+  "description": "llm-system-prompt-draft.md(2026-09-06 04:00 UTC作成)『構造化出力の方針』を実ファイル化した草案。他venture(aircon-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フローが存在しないため、aircon-pashaのsubscription_procedure_notice相当のフィールドは設けず3値のみとした(llm-system-prompt-draft.md『構造化出力の方針』の判断を踏襲)。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(course-set-pashaと同様、statusに応じた非null制約はコード側検証(validate_test_cases.py相当、未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。",
+  "type": "object",
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "order_summary", "delivery_notice", "care_notice"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項3/7(区分欠落・入力不足時の再送依頼)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項6の定型応答(『本サービスは受注整理・納品案内・お手入れ案内の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ非nullとなるフィールド。厳守事項7に基づき、不足している項目(区分未記入等、厳守事項3参照)を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "order_summary": {
+      "description": "出力1(受注内容整理メモ)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの入力項目(区分・鞍の型・革の種類・金具仕様・用途・納期・備考)を整理した形で保持する。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["category", "saddle_type", "leather_type", "hardware_spec", "usage", "due_date", "remarks", "body"],
+      "properties": {
+        "category": {
+          "description": "厳守事項3・4の分岐元となる区分。入力メモに記載が無い場合は本フィールドをnullとし、status=insufficient_inputとして扱う(推測で埋めない)。",
+          "type": ["string", "null"],
+          "enum": ["new", "repair", null]
+        },
+        "saddle_type": { "type": ["string", "null"] },
+        "leather_type": { "type": ["string", "null"] },
+        "hardware_spec": {
+          "description": "金具仕様。mvp-flow-draft.mdで任意項目とされているため、記載が無い場合はnullを許容する(insufficient_input扱いにはしない)。",
+          "type": ["string", "null"]
+        },
+        "usage": { "type": ["string", "null"] },
+        "due_date": { "type": ["string", "null"] },
+        "remarks": {
+          "description": "備考欄。category=repairの場合、破損箇所・症状の記述をそのまま転記する(厳守事項2、AIによる修理可否判断・診断は加えない)。",
+          "type": ["string", "null"]
+        },
+        "body": {
+          "description": "上記項目を整理した受注内容整理メモ本文(職人自身の備忘・作業記録用)。",
+          "type": "string"
+        }
+      }
+    },
+    "delivery_notice": {
+      "description": "出力2(納品案内下書き)。status=generatedの場合のみ非nullとなるフィールド。厳守事項4に基づきorder_summary.categoryに応じて内容を出し分ける。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["category", "body"],
+      "properties": {
+        "category": {
+          "description": "厳守事項4準拠の検証用フィールド。order_summary.categoryと一致することをプログラム側で突き合わせ検証する想定(mvp-flow-draft.md『構造化出力の方針』参照)。",
+          "type": "string",
+          "enum": ["new", "repair"]
+        },
+        "body": {
+          "description": "category=newの場合: 装着時の皮革のなじませ方・初期の締め具合調整の必要性・雨天時の取り扱い注意を含む。category=repairの場合: 修理箇所の説明・修理直後の強度/馴染みに関する注意(新規制作時ほど長期の慣らしは不要な場合が多い旨)を含む。",
+          "type": "string"
+        }
+      }
+    },
+    "care_notice": {
+      "description": "出力3(お手入れ案内下書き)。status=generatedの場合のみ非nullとなるフィールド。厳守事項5に基づき区分に関わらず共通の1本の文面とする(オイル・クリームでの定期的な革の保湿、カビ・ひび割れ防止のための保管環境、金具のさび防止手入れを含む)。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    }
+  }
+}

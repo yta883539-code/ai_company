@@ -81,9 +81,24 @@ course-set-pasha・line-reservation-aiのoutput.schema.jsonを参考に、3出�
 ## 次の課題
 
 - pricing-plan.md(料金プラン仮決め)の作成。
-- schema/output.schema.jsonの実ファイル化(JSON Schema形式での定義)。
 - 対象候補(実在の鞍職人・馬具師)のロングリスト作成(WebSearchによる公開情報調査に
   限定し、実際の連絡・ヒアリング依頼はオーナー承認が必要な範囲として別途
   pending-approval.mdに記録する)。
+- schema/output.schema.jsonに対応するvalidate_test_cases.py相当のテストケース作成
+  (他venture(course-set-pasha等)のconversation-samples-test-cases.md相当、
+  status分岐(generated/out_of_scope/insufficient_input)とcategory整合性の机上検証)。
 
-最終更新: 2026-09-06 04:00 UTC
+## 2026-09-06 05:00 UTC追記: schema/output.schema.json 実ファイル化
+
+上記「次の課題」2点目だったJSON Schemaの実ファイル化を行った(schema/output.schema.json)。
+aircon-pasha/course-set-pashaのstatus分岐パターン(generated/out_of_scope/insufficient_input)を
+踏襲しつつ、本ventureには継続課金・解約フローが無いためsubscription_procedure_notice相当の
+フィールドは設けていない(上記「構造化出力の方針」の判断どおり)。allOf+if/thenは使わず
+トップレベル全プロパティをrequired化し、statusに応じた非null制約(例:
+status!=generatedのときorder_summary/delivery_notice/care_noticeは必ずnull)はコード側検証
+(validate_test_cases.py相当、未作成)で担保する方針とした。order_summary.categoryと
+delivery_notice.categoryは同一値になることをコード側で突き合わせ検証する想定の補助
+フィールドとして両方に持たせている。実LLMでの動作検証・JSON Schema自体の構文検証
+(python3 -m json.toolでの構文チェックのみ実施、意味的な妥当性は未検証)は引き続き未実施。
+
+最終更新: 2026-09-06 05:00 UTC
