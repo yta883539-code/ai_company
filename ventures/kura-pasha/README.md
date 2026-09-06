@@ -38,12 +38,24 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ3(2026-09-06 05:00 UTC): schema/output.schema.jsonを新規作成した。
+  aircon-pasha/course-set-pashaのstatus分岐パターン(generated/out_of_scope/
+  insufficient_input)を踏襲し、category(new/repair)整合性検証用フィールドを
+  order_summary・delivery_notice双方に持たせた。実LLMでの動作検証は未実施。
+- フェーズ4(2026-09-06 06:00 UTC): schema/validate_test_cases.pyを新規作成した。
+  course-set-pashaのvalidate_test_cases.pyと同じ簡易バリデータ方式(pure stdlib、
+  draft-07のサブセットのみ解釈)を踏襲し、G1(新規制作)・G2(修理、備考欄の症状転記)・
+  OOS1(会員管理等への不応答)・II1(区分欠落)・II2(鞍の型欠落)の5ケースに加え、
+  厳守事項4(order_summary.categoryとdelivery_notice.categoryの一致)違反を意図的に
+  仕込んだネガティブケースを1件作成し、バリデータがその不整合を実際に検出できることを
+  確認した。全6件パス。実LLM呼び出しは行っていない(APIキー取得はオーナー承認待ち、
+  pending-approval.md参照)。
+
 ## 次にやること(候補)
 
 - pricing-plan.md(料金プラン仮決め)の作成。
-- schema/output.schema.jsonの実ファイル化(JSON Schema形式での定義)。
 - 対象候補(実在の鞍職人・馬具師)のロングリスト作成(WebSearchによる公開情報調査、
   実際の連絡・ヒアリング依頼はオーナー承認が必要な範囲として別途pending-approval.mdに
   記録する)。
 
-最終更新: 2026-09-06 04:00 UTC
+最終更新: 2026-09-06 06:00 UTC
