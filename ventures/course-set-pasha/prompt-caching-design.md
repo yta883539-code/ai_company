@@ -9,6 +9,10 @@ unit-economics-estimate.md・llm-api-cost-estimate.mdが「プロンプトキャ
 留める。claude-apiスキルの最新のプロンプトキャッシュ仕様(2026年9月時点)を
 参照して整理した。
 
+2026-09-06 20:00 UTC訂正(フェーズ196): 作成時点の本文・残課題に「構造化出力
+スキーマ(`schema/output.schema.json`)は本venture未作成」という誤記があったが、
+同ファイルはフェーズ54時点で既に作成・改訂済みであり誤りだった(訂正済み)。
+
 ## 1時間TTLの正しい実装方法(訂正含む)
 
 - `cache_control`はブロック単位で付与する(ベータヘッダーは不要、GA機能)。
@@ -17,10 +21,10 @@ unit-economics-estimate.md・llm-api-cost-estimate.mdが「プロンプトキャ
   ```
 - レンダー順は`tools` → `system` → `messages`。本ventureはツール呼び出しを
   使わないバッチ処理(単方向)のため、システムプロンプト(llm-system-prompt-
-  draft.md)+構造化出力スキーマ(schema/output.schema.json、未作成なら実装時に
-  system末尾に含める)の末尾ブロックに1つブレークポイントを置けばよい。
-  入力メモ(オーナーごとに異なる可変部分)はブレークポイントより後ろ
-  (messagesの最後)に置き、キャッシュ対象に含めない。
+  draft.md)+構造化出力スキーマ(`schema/output.schema.json`、フェーズ54時点で
+  既に実体が存在する)を連結したsystemブロック末尾に1つブレークポイントを
+  置けばよい。入力メモ(オーナーごとに異なる可変部分)はブレークポイントより
+  後ろ(messagesの最後)に置き、キャッシュ対象に含めない。
 - キャッシュ書き込みコストは1時間TTLで通常の2倍、5分TTL(デフォルト)は1.25倍。
   損益分岐点は1時間TTLの場合「3回以上の読み取り」が必要(2倍+0.2倍 vs 3倍の
   非キャッシュ)。5分TTLは2回で元が取れる。
@@ -78,8 +82,5 @@ llm-api-cost-estimate.mdは「週2〜3回程度(sns-tone-research.md)という�
 
 - 実際のリクエスト時間帯の偏り(営業時間内集中等)を踏まえた、より精緻な
   平均間隔試算は実LLM接続後の実測データが必要。
-- 構造化出力スキーマ(schema/output.schema.json)は本venture未作成のため、
-  作成時にはシステムプロンプトと合わせてキャッシュ対象ブロックに含める設計と
-  すること。
 - 実LLM API接続自体はオーナー承認待ちの範囲(pending-approval.md記載の既存
   承認待ち事項の範囲内)。

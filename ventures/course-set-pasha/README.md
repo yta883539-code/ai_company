@@ -2681,3 +2681,20 @@
   効果を左右するのは契約オーナー数を合算したサービス全体のリクエスト間隔であることを指摘、
   契約オーナー数別(10/50/100/200)の平均リクエスト間隔試算を追加した。実LLM接続・実測は
   引き続きオーナー承認待ちの範囲。
+- フェーズ196(2026-09-06 20:00 UTC): フェーズ195で新規作成したprompt-caching-design.mdの
+  本文・「残課題」に「構造化出力スキーマ(`schema/output.schema.json`)は本venture未作成」
+  という誤記があることを発見した。実際には同ファイルはフェーズ54(2026-08-15)時点で
+  厳守事項7a対応のため既に作成・改訂済みであり(`schema/`ディレクトリに実体が存在することを
+  確認済み)、aircon-pashaのフェーズ196版が同じ位置で「本ventureは既に実体が存在する点が
+  course-set-pashaと異なる」と誤って前提していたのと対になる、本venture側の記載ミスだった。
+  本文の「未作成なら実装時にsystem末尾に含める」という条件付き記述を「フェーズ54時点で
+  既に実体が存在する」に、残課題の「本venture未作成」bulletを削除する形で訂正し、位置づけ
+  節に訂正の経緯を追記した。コード変更は無く、venture全体573件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した(いずれも変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。なお本venture側の誤記の
+  発生源であるaircon-pasha側prompt-caching-design.mdの同一bullet(「本ventureは既に実体が
+  存在する点がcourse-set-pasha〈作成時点で未作成〉と異なる」)の訂正はaircon-pasha自身の
+  次回以降の課題として残る(本ventureからの越境編集は範囲外のため見送り)。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
