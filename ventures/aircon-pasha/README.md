@@ -2970,4 +2970,22 @@
   ドキュメントレビューのみで、外部サービスへの公開・アカウント作成・支払い等は今回発生
   していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、
   または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-06 00:00 UTC
+- フェーズ196(2026-09-06 12:00 UTC): course-set-pashaフェーズ195(prompt-caching-
+  design.md新設)に対応するドキュメントが本ventureに無かったため、prompt-caching-
+  design.mdを新規作成した。llm-api-cost-estimate.md(フェーズ121)の「1時間TTLの一次
+  情報確認」が1業者単独の生成間隔を前提にしていた誤り(course-set-pashaフェーズ195と
+  同種のパターン)を訂正し、システムプロンプト+`schema/output.schema.json`
+  (本ventureは既に実体があり、course-set-pasha作成時点〈未作成〉と異なる点を明記)を
+  対象にした`cache_control`の具体的な配置方法と、全契約業者合算のリクエスト間隔に基づく
+  契約業者数別(3/8/20/50/96/200業者)の平均間隔試算を整理した。pricing-plan.mdの1業者
+  あたり生成頻度(月40〜150回)がcourse-set-pasha(月8〜30回程度)より一桁多いため、
+  1時間TTLが効く帯(平均間隔5〜60分)に届く契約業者数の目安が約8〜96業者と、
+  course-set-pasha(50〜200業者)より一桁少ない規模で足りる計算になることを新たに示した。
+  llm-api-cost-estimate.md側にも訂正注記と本ファイルへの参照を追加した。コード変更は無く、
+  venture全体474件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な
+  設計ドキュメント作成・既存記載の訂正のみで、外部サービスへの公開・アカウント作成・
+  支払い等は今回発生していないためpending-approval.mdへの追記なし。実際のリクエスト
+  時間帯の偏りを踏まえた精緻化は引き続き実LLM接続後の実測待ち。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-06 12:00 UTC
