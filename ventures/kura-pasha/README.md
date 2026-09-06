@@ -82,11 +82,22 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ8(2026-09-06 13:00 UTC): 「次にやること」1点目だった選定基準ドキュメントを
+  新規作成した(interview-candidate-selection-criteria.md)。aircon-pasha/course-set-pasha/
+  line-reservation-aiの既存選定基準の構成(必須条件・望ましい条件・除外条件・情報源・
+  選定プロセス)を踏襲しつつ、本venture固有の除外条件(馬具の販売・仲介のみを行い自ら
+  制作・修理を行わない小売・卸業者、乗馬クラブ専属スタッフとしてのみ修理を担当し独立した
+  受注を行っていない者)を追加した。候補が5件と他ventureの目標合計(8〜10件)より少ない
+  ため、選定プロセスに3〜5件の追加探索によるロングリスト拡充を組み込んだ。実際の連絡・
+  ヒアリング依頼は行っておらず、着手する場合は別途pending-approval.mdへの記録・オーナー
+  承認が必要である旨を明記した。承認不要な設計文書作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- candidate-longlist-draft.mdの5候補について、所在地・運営体制・SNS発信の有無をさらに
-  絞り込み、本venture用の選定基準ドキュメント(interview-candidate-selection-criteria.md
-  相当)を作成し優先順位付けを行う。実際の連絡・ヒアリング依頼はオーナー承認が必要な範囲
-  として別途pending-approval.mdに記録する。
+- interview-candidate-selection-criteria.mdの選定プロセスに沿って、candidate-longlist-
+  draft.mdの5候補の追加情報確認(所在地・運営体制・価格表公開有無)と、候補を8〜10件程度に
+  拡充するための追加探索(3〜5件)をWebSearchで行う。実際の連絡・ヒアリング依頼はオーナー
+  承認が必要な範囲として別途pending-approval.mdに記録する。
 
-最終更新: 2026-09-06 10:00 UTC
+最終更新: 2026-09-06 13:00 UTC
