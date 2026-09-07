@@ -313,10 +313,24 @@
   みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ26(2026-09-07 09:59 UTC): 「次にやること」1点目だった`usage_counter`の
+  キーをuser_idからworkshop_idへ読み替える対応を検討した
+  (usage-counter-workshop-key-design.md新規作成)。検討の結果、`usage_counter`は
+  LLM構造化出力(schema/output.schema.json)には元々登場しないFirestore側の
+  カウンタであることを確認したため、両ファイルへの直接編集ではなく、複数職人プランの
+  月間生成回数上限が「工房(workshop)単位」であることを明確化する設計文書を作成する形で
+  対応した。生成リクエスト受信時のカウント処理手順(user_id→workshop_id→
+  usage_counter参照の3ステップ)とダウングレード時の`count`維持方針を確定した。
+  これによりcraftsman-account-linking-design.md(フェーズ25)の残課題1点目を解消した。
+  実装(プロトタイプコード)は本venture未着手のため次の課題として残した。実際の
+  Stripe接続・LINE公式アカウント接続は行っていない。承認不要な設計文書作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- `usage_counter`のキーをuser_idからworkshop_idへ読み替える対応
-  (schema/output.schema.json・validate_test_cases.pyへの反映、本venture未着手)。
+- 生成リクエスト処理のプロトタイプコード(course-set-pasha/prototype相当)の作成、
+  本venture未着手(usage-counter-workshop-key-design.md残課題)。
 - 複数職人プランからライト/スタンダードプランへのダウングレード時の余剰メンバーの扱い
   (craftsman-account-linking-design.md残課題)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -327,4 +341,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 08:00 UTC
+最終更新: 2026-09-07 09:59 UTC
