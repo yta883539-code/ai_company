@@ -2660,6 +2660,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-06 11:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-07 07:59 UTC・フェーズ続き207: conversation-state-wiring-design.md
+  6節・secondary-state-classes-persistence-conclusion.md「残課題」に残っていた
+  `build_conversation_flow_state_machine_for_store()`の結線を「未着手」と記載していた
+  記載漏れを訂正した。実際にはconversation-event-processor-assembly-design.md
+  (フェーズ続き191〜197)で`build_conversation_event_processor_for_payload()`・
+  `process_conversation_event_from_payload()`・`main(request)`として既に実装済みだった
+  ため、両ファイルの残課題欄を解消済みに更新した。あわせてconversation-state-wiring-
+  design.md 6節の「Cloud Function B自身が持つユーザーごとのローカルキャッシュの永続化」
+  (processor-cache-persistence-design.md・フェーズ続き190で対応済み)、「BookingSlotManager
+  等のhydrate/dehydrate要否」(secondary-state-classes-persistence-conclusion.mdで
+  「不要」と結論済み)も同様に未反映のまま残っていたため解消済みに更新した。コード変更は
+  無く、venture全体760件全件パス・schema検証25件パスを確認した(変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし)
 - (解消済み 2026-09-06 11:00 UTC・フェーズ続き206: subscription-cancellation-flow-
   design.mdの残課題だった、解約確定済み(`suspension_reason == "cancelled"`)店舗の
   再契約時に再開通知が届かない欠落を`classify_subscription_activated()`の修正で

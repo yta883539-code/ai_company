@@ -153,13 +153,17 @@ venture全体678件全件(`python3 -m unittest discover -s prototype -p "test_*.
 
 ## 6. 引き続き残る課題
 
-- 4節の「Cloud Function B自身が持つユーザーごとのローカルキャッシュ」の永続化。
-- `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)を実際に
-  Cloud Function Bのどこから呼ぶか(`handle_process_conversation_event()`が受け取る
-  `processor`自体をどう組み立てるか)の結線。本フェーズは`processor`が既に構築済みで
-  あることを前提にした`ConversationEventProcessor`内部の配線のみを対象にしたため、
-  エントリポイント自体の変更は行っていない。
-- `BookingSlotManager`/`NotificationLogAggregator`/`EscalationConsolidator`の
-  hydrate/dehydrate要否の検討(conversation-state-persistence-design.md 4節から
-  持ち越し、未変更)。
+- (解消済み: 4節の「Cloud Function B自身が持つユーザーごとのローカルキャッシュ」の
+  永続化は、processor-cache-persistence-design.md(フェーズ続き190)で対応済み)
+- (解消済み: `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)を
+  実際にCloud Function Bのどこから呼ぶか〈`handle_process_conversation_event()`が
+  受け取る`processor`自体をどう組み立てるか〉の結線は、
+  conversation-event-processor-assembly-design.md(フェーズ続き191〜197)で
+  `build_conversation_event_processor_for_payload()`・
+  `process_conversation_event_from_payload()`・`main(request)`として実装済み。
+  残るのは実Firestore・実LINE Messaging API・実LLM API接続への差し替え〈いずれも
+  オーナー承認待ち〉のみ)
+- (解消済み: `BookingSlotManager`/`NotificationLogAggregator`/`EscalationConsolidator`の
+  hydrate/dehydrate要否の検討は、secondary-state-classes-persistence-conclusion.mdで
+  「3クラスともhydrate/dehydrateという形自体が不要」という結論に到達済み)
 - 実際のFirestore接続(GCPプロジェクト作成、オーナー承認待ち)自体は引き続き残る課題。

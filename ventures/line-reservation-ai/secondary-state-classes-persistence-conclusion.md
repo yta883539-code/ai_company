@@ -82,6 +82,9 @@ Firestore側から取得できるため、インメモリにキャッシュし�
   メソッドをFirestoreトランザクション呼び出しに、`NotificationLogAggregator`の
   `record()`相当のメソッドをFirestore書き込み+`count()`クエリ呼び出しに、
   それぞれ実際に置き換える実装作業自体は引き続き残る。
-- `build_conversation_flow_state_machine_for_store()`(フェーズ続き187)を実際に
-  Cloud Function Bのどこから呼ぶかの結線(conversation-state-wiring-design.md 6節・
-  processor-cache-persistence-design.md 5節から持ち越し、未変更)。
+- (解消済み: `build_conversation_flow_state_machine_for_store()`〈フェーズ続き187〉を
+  実際にCloud Function Bのどこから呼ぶかの結線〈conversation-state-wiring-design.md 6節・
+  processor-cache-persistence-design.md 5節から持ち越し〉は、
+  conversation-event-processor-assembly-design.md〈フェーズ続き191〜197〉で既に
+  実装済みだったことを本フェーズで確認した。本ファイル作成時点でこの解消が未反映の
+  まま持ち越されていた記載漏れであり、コード変更は無い)
