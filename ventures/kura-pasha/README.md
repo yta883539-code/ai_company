@@ -223,11 +223,24 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ20(2026-09-07 03:00 UTC): 「次にやること」1点目だった本venture固有の
+  data-retention-policy.mdを新規作成した。course-set-pasha/data-retention-policy.mdの
+  構成(前提整理→保存期間ポリシー→削除候補化後の最終確認→開示・削除請求対応)を
+  踏襲しつつ、legal-notices-draft.md 2.4節が残していた固有論点(依頼頻度の低さ・
+  単価の高さゆえに保有期間を延ばすべきか)を検討した。結論として、`user_profile`が
+  保持するのは屋号・メールアドレス・決済ID等の登録情報のみで発注内容自体は保存
+  しない設計のため、依頼頻度の低さは保有期間延長の積極的根拠にならないと判断し、
+  他venture(aircon-pasha・course-set-pasha)と同じ1年をそのまま採用した。
+  legal-notices-draft.md 2.4節の暫定準用記載を正式内容へ差し替える作業は次のステップ
+  候補として残した。実際のデータ削除・通知実装は行っていない。承認不要な設計文書
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- 本venture固有のdata-retention-policy.md(aircon-pasha・course-set-pasha相当)の新規作成。
-  legal-notices-draft.md 2.4節が暫定準用している保存期間(1年)の妥当性を、本venture固有の
-  受注特性(1件あたりの制作期間が長く依頼頻度が低い)を踏まえて検討する。
+- legal-notices-draft.md 2.4節の「暫定準用」記載を、新規作成したdata-retention-policy.md
+  の内容(1年保有・解約起点、`user_profile`・`usage_counter`の2種類のみ)に基づいて
+  正式な記載へ差し替える。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -236,4 +249,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 02:00 UTC
+最終更新: 2026-09-07 03:00 UTC
