@@ -152,6 +152,40 @@ def validate_cross_field_rules(instance, path="$"):
         if notice is not None:
             errors.append(f"{path}: status={status!r}のときsubscription_procedure_noticeはnullである必要があります")
 
+    # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md対応のstatus2値
+    # (member_retention_selection/member_retention_unclear)の非null制約チェック。
+    retention_statuses = {"member_retention_selection", "member_retention_unclear"}
+    retention_notice = instance.get("member_retention_notice")
+    if status in retention_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+        if retention_notice is None:
+            errors.append(f"{path}: status={status}のときmember_retention_noticeは非nullである必要があります")
+        else:
+            if retention_notice.get("kind") != status:
+                errors.append(
+                    f"{path}.member_retention_notice.kind: status({status!r})と"
+                    f"一致していません(実際={retention_notice.get('kind')!r})"
+                )
+            expected_has_name = status == "member_retention_selection"
+            has_name = retention_notice.get("specified_member_name") is not None
+            if has_name != expected_has_name:
+                errors.append(
+                    f"{path}.member_retention_notice.specified_member_name: "
+                    f"status={status!r}のとき非null={expected_has_name}である必要があります"
+                    f"(実際のspecified_member_name={retention_notice.get('specified_member_name')!r})"
+                )
+    else:
+        if retention_notice is not None:
+            errors.append(f"{path}: status={status!r}のときmember_retention_noticeはnullである必要があります")
+
     return errors
 
 
@@ -185,6 +219,7 @@ TEST_CASES = {
             "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
         ),
         "subscription_procedure_notice": None,
+        "member_retention_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -215,6 +250,7 @@ TEST_CASES = {
             "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
         ),
         "subscription_procedure_notice": None,
+        "member_retention_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -224,6 +260,7 @@ TEST_CASES = {
         "delivery_notice": None,
         "care_notice": None,
         "subscription_procedure_notice": None,
+        "member_retention_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -233,6 +270,7 @@ TEST_CASES = {
         "delivery_notice": None,
         "care_notice": None,
         "subscription_procedure_notice": None,
+        "member_retention_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -242,6 +280,7 @@ TEST_CASES = {
         "delivery_notice": None,
         "care_notice": None,
         "subscription_procedure_notice": None,
+        "member_retention_notice": None,
     },
     # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
     # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
@@ -261,6 +300,7 @@ TEST_CASES = {
             ),
             "includes_portal_link": True,
         },
+        "member_retention_notice": None,
     },
     # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
     "C2_downgrade_intent": {
@@ -278,6 +318,7 @@ TEST_CASES = {
             ),
             "includes_portal_link": True,
         },
+        "member_retention_notice": None,
     },
     # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
     "C3_cancellation_unclear": {
@@ -291,6 +332,38 @@ TEST_CASES = {
             "kind": "cancellation_unclear",
             "body": "解約をご希望でしょうか?よろしければ「解約したい」とお送りください。",
             "includes_portal_link": False,
+        },
+        "member_retention_notice": None,
+    },
+    # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
+    # (明確な指定)相当の期待出力。
+    "M1_member_retention_selection": {
+        "status": "member_retention_selection",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": {
+            "kind": "member_retention_selection",
+            "specified_member_name": "田中",
+            "body": "田中様を継続利用メンバーとして承りました。切り替え日に反映いたします。",
+        },
+    },
+    # member-retention-notice-design.md「2. 検知パターンの整理」2(不明確)相当の期待出力。
+    "M2_member_retention_unclear": {
+        "status": "member_retention_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": {
+            "kind": "member_retention_unclear",
+            "specified_member_name": None,
+            "body": "どなたを継続利用としてご希望か、お名前をお知らせください。",
         },
     },
 }
@@ -318,6 +391,7 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
     },
     "care_notice": "定期的な保湿・保管環境・さび防止手入れ...",
     "subscription_procedure_notice": None,
+    "member_retention_notice": None,
 }
 
 # 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
@@ -333,6 +407,25 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
         "kind": "cancellation_unclear",
         "body": "解約をご希望でしょうか?",
         "includes_portal_link": True,
+    },
+    "member_retention_notice": None,
+}
+
+# 2026-09-07 13:02 UTC追加。member_retention_notice.kindがstatusと不一致な不正フィクスチャ
+# (member_retention_unclearなのにkind=member_retention_selectionのまま出力してしまう
+# ケースを想定)。validate_cross_field_rulesが検出できることを確認するためのネガティブテスト。
+NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH = {
+    "status": "member_retention_unclear",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": {
+        "kind": "member_retention_selection",
+        "specified_member_name": None,
+        "body": "どなたを継続利用としてご希望か、お名前をお知らせください。",
     },
 }
 
@@ -376,6 +469,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG2_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: member_retention_notice.kindのstatus不一致がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg_errors3 = validate_against_schema(NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH, SCHEMA)
+    neg_errors3 += validate_cross_field_rules(NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH)
+    if neg_errors3:
+        print("[OK] NEG3_member_retention_kind_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors3:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG3_member_retention_kind_mismatch_is_detected: kind不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

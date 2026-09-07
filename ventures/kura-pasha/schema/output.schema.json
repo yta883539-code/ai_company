@@ -1,15 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "鞍パシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-09-06 04:00 UTC作成)『構造化出力の方針』を実ファイル化した草案。他venture(aircon-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フローが存在しないため、aircon-pashaのsubscription_procedure_notice相当のフィールドは設けず3値のみとした(llm-system-prompt-draft.md『構造化出力の方針』の判断を踏襲)。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(course-set-pashaと同様、statusに応じた非null制約はコード側検証(validate_test_cases.py相当、未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。2026-09-07 07:00 UTC改訂(フェーズ24): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.md(フェーズ23)に対応し、course-set-pashaのフェーズ54改訂を踏襲して`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。",
+  "description": "llm-system-prompt-draft.md(2026-09-06 04:00 UTC作成)『構造化出力の方針』を実ファイル化した草案。他venture(aircon-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フローが存在しないため、aircon-pashaのsubscription_procedure_notice相当のフィールドは設けず3値のみとした(llm-system-prompt-draft.md『構造化出力の方針』の判断を踏襲)。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(course-set-pashaと同様、statusに応じた非null制約はコード側検証(validate_test_cases.py相当、未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。2026-09-07 07:00 UTC改訂(フェーズ24): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.md(フェーズ23)に対応し、course-set-pashaのフェーズ54改訂を踏襲して`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。2026-09-07 13:02 UTC改訂: member-retention-notice-design.md対応で`status`のenumへ`member_retention_selection`/`member_retention_unclear`の2値と、これらのときのみ非nullとなる`member_retention_notice`フィールドを追加した。",
   "type": "object",
-  "required": ["status", "out_of_scope_message", "missing_fields_request", "order_summary", "delivery_notice", "care_notice", "subscription_procedure_notice"],
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "order_summary", "delivery_notice", "care_notice", "subscription_procedure_notice", "member_retention_notice"],
   "additionalProperties": false,
   "properties": {
     "status": {
       "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項3/7(区分欠落・入力不足時の再送依頼)・厳守事項7a(解約意図検知、2026-09-07追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項7a(iii)相当(雑談の域を出ない表現)は解約意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-09-07 07:00 UTC追加(フェーズ24): 厳守事項7a(i)(ii)(iv)相当に対応するcancellation_intent/downgrade_intent/cancellation_unclearの3値を追加した。",
       "type": "string",
-      "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear"]
+      "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear", "member_retention_selection", "member_retention_unclear"]
     },
     "out_of_scope_message": {
       "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項6の定型応答(『本サービスは受注整理・納品案内・お手入れ案内の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
@@ -87,6 +87,27 @@
         "includes_portal_link": {
           "description": "厳守事項7a(iv)相当の『Stripeカスタマーポータルのリンクや解約完了を前提にした文言は含めない』を機械的に検証するための補助フィールド。kind=cancellation_intent/downgrade_intentのときは必ずtrue、kind=cancellation_unclearのときは必ずfalse(コード側検証で担保)。",
           "type": "boolean"
+        }
+      }
+    },
+    "member_retention_notice": {
+      "description": "2026-09-07 13:02 UTC追加。member-retention-notice-design.md対応。statusがmember_retention_selection/member_retention_unclearのいずれかの場合のみ非nullとなるフィールド。それ以外のときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "specified_member_name", "body"],
+      "properties": {
+        "kind": {
+          "description": "statusと1:1で対応する分類(subscription_procedure_notice.kindと同じ設計思想)。",
+          "type": "string",
+          "enum": ["member_retention_selection", "member_retention_unclear"]
+        },
+        "specified_member_name": {
+          "description": "kind=member_retention_selectionのときのみ非null。入力メッセージから抽出した名前・呼称をそのまま転記する(workshop内メンバーとの突き合わせは行わない、member-retention-notice-design.md『4. 未検証・残課題』参照)。kind=member_retention_unclearのときは必ずnull。",
+          "type": ["string", "null"]
+        },
+        "body": {
+          "description": "kind=member_retention_selectionのときは受付確認文言(この時点ではmember_user_idsは変更しない)、kind=member_retention_unclearのときは残すメンバーの意思確認一言のみ。",
+          "type": "string"
         }
       }
     }

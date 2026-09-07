@@ -357,13 +357,28 @@
   文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
   していないためpending-approval.mdへの追記なし。
 
+- フェーズ29(2026-09-07 13:02 UTC): 「次にやること」1点目だった、猶予期間中に契約者が
+  「残すメンバー」を連絡する導線のLINE上での意図検知文言・schema拡張を行った
+  (member-retention-notice-design.md新規作成)。course-set-pashaの解約意図検知
+  パターン(フェーズ24)を踏襲し、`status`のenumへ`member_retention_selection`
+  (明確な指定)/`member_retention_unclear`(不明確)の2値と、非nullとなる
+  `member_retention_notice`(kind・specified_member_name・body)フィールドを
+  output.schema.jsonへ追加した。validate_test_cases.pyへ対応するクロスフィールド
+  検証ロジックと新規2テストケース(M1・M2)・ネガティブテストケース(kind不一致検出)を
+  追加し、全13件パスを確認した(`python3 schema/validate_test_cases.py`)。
+  `specified_member_name`と`member_user_ids`の突き合わせロジック、
+  `pending_member_reduction_effective_at`の都度チェック処理自体の実装は本フェーズでは
+  扱わず次の課題として残した。実際のStripe接続・LINE公式アカウント接続は行っていない。
+  承認不要な設計文書作成・schema拡張・検証スクリプト更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
-- 猶予期間中(ダウングレード確定〜次回請求サイクル開始まで)に契約者が「残すメンバー」を
-  連絡する導線のLINE上での意図検知文言・schema拡張(downgrade-excess-member-handling-
-  design.md残課題)。
 - `pending_member_reduction_effective_at`の都度チェック処理のプロトタイプコード実装
-  (prototype/usage_counter_workshop.pyの拡張)。
+  (prototype/usage_counter_workshop.pyの拡張)。`specified_member_name`と
+  `member_user_ids`(LINE表示名)との突き合わせロジック
+  (member-retention-notice-design.md「4. 未検証・残課題」参照)もあわせて検討する。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -372,4 +387,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 12:02 UTC
+最終更新: 2026-09-07 13:02 UTC
