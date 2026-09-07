@@ -294,9 +294,31 @@
   承認不要な設計文書・検証スクリプトの作成のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ25(2026-09-07 08:00 UTC): 「次にやること」1点目だった複数職人プランの
+  「契約者本人」判定の仕組みを設計した(craftsman-account-linking-design.md新規作成)。
+  着手にあたり、本ventureには単一契約向けのLINE user_id紐付け基本設計自体が
+  存在しないことが判明したため、course-set-pasha/line-user-id-linking-design.mdの
+  連携コード方式(友だち追加時にコード発行)をまず踏襲した上で、複数の職人が1契約を
+  共有する単位として`craftsman_workshop/{workshop_id}`を新設し、
+  「workshopを最初に作成したuser_id=契約者本人(`contractor_user_id`)」という
+  機械的に判定可能なルールを確定した。単一契約(ライト/スタンダード)もメンバー1名の
+  workshopとして統一的に扱う設計とし、複数職人プランへのアップグレード時に招待コード
+  (`pending_workshop_invites`)で職人を追加できる導線も設計した。これにより
+  subscription-cancellation-flow-design.mdの未確定事項(契約者本人の判定方法)を解消
+  した。一方で、本設計により`usage_counter`のキーがuser_idからworkshop_idへ読み替え
+  られる必要があることが新たに判明し、schema/output.schema.json・
+  validate_test_cases.pyへの反映は次の課題として残した。ダウングレード時の余剰
+  メンバーの扱い・契約者の譲渡機能もMVP範囲外として次の課題とした。実際のLINE公式
+  アカウント接続・Stripe接続・招待コード発行の実装は未着手。承認不要な設計文書作成の
+  みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- 複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計(本venture未着手)。
+- `usage_counter`のキーをuser_idからworkshop_idへ読み替える対応
+  (schema/output.schema.json・validate_test_cases.pyへの反映、本venture未着手)。
+- 複数職人プランからライト/スタンダードプランへのダウングレード時の余剰メンバーの扱い
+  (craftsman-account-linking-design.md残課題)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -305,4 +327,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 07:00 UTC
+最終更新: 2026-09-07 08:00 UTC
