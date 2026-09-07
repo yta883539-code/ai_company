@@ -421,6 +421,21 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ33(2026-09-07 16:58 UTC): 「次にやること」で挙げていた契約者譲渡機能の
+  要否検討に着手した(contractor-transfer-design.md新規作成)。伝統工芸の工房は
+  師弟制・家族経営による事業承継が本venture固有に発生しやすく、`contractor_user_id`
+  が解約・ダウングレード操作権限の判定基準そのものになっている(craftsman-account-linking-design.md
+  4節)ため、契約者引退時に後継者が解約操作すら行えなくなるリスクがあると判断し、
+  「必要な機能」と結論づけた。MVPスコープは既存workshopメンバーへの譲渡のみに限定し
+  (第三者への直接譲渡は本人確認の新課題を生むため対象外)、契約者本人からの譲渡意図
+  検知→対象メンバーの名指し一致判定(member-retention-notice-design.mdの
+  `specified_member_name`ロジックを再利用)→契約者の再確認応答を経た2段階確定、
+  という設計を確定した。status enumへの`contractor_transfer_selection`/
+  `contractor_transfer_unclear`追加、schema/validate_test_cases.pyへの反映、
+  prototypeコード化はいずれも次の課題として残した。設計文書作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -430,8 +445,9 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 技術的な残課題は現時点で解消済み。次の技術的な前進候補は、契約者譲渡機能
-  (MVP範囲外としてきたが将来課題)の要否検討、またはStripe/LINE実接続の
-  プロトタイプ化(いずれもオーナー承認待ちの範囲を除く設計・下書き部分)。
+- 契約者譲渡機能(contractor-transfer-design.md、フェーズ33)の schema拡張
+  (status enum・`contractor_transfer_notice`フィールド追加、validate_test_cases.py
+  クロスフィールド検証)。次いでprototype/usage_counter_workshop.py側への
+  `craftsman_workshop`データ構造・契約者更新処理の実装。
 
-最終更新: 2026-09-07 16:02 UTC
+最終更新: 2026-09-07 16:58 UTC
