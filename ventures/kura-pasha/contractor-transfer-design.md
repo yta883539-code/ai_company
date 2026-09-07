@@ -83,9 +83,11 @@ downgrade-excess-member-handling-design.md(フェーズ28)4節で、いずれも
 
 ## 4. 未検証・残課題
 
-- schema/output.schema.json・validate_test_cases.pyへの反映(新規enum値2つ・
-  `contractor_transfer_notice`フィールド・クロスフィールド検証)は本ファイルでは
-  机上設計にとどまり未着手。
+- ~~schema/output.schema.json・validate_test_cases.pyへの反映(新規enum値2つ・
+  `contractor_transfer_notice`フィールド・クロスフィールド検証)~~ → フェーズ34で対応済み
+  (`status`のenumへ`contractor_transfer_selection`/`contractor_transfer_unclear`追加、
+  `contractor_transfer_notice`フィールド追加、クロスフィールド検証・新規テストケース
+  CT1/CT2・ネガティブテストケース追加、全16件パス確認)。
 - 「契約者からの再確認応答」をどう検知するか(単純な「はい」「お願いします」等の
   自由記述をLLMにどう判定させるか)の具体的なプロンプト設計は未着手。
 - prototype/usage_counter_workshop.py側の`craftsman_workshop`データ構造は現状
@@ -94,4 +96,4 @@ downgrade-excess-member-handling-design.md(フェーズ28)4節で、いずれも
 - 実際のLINE公式アカウント接続・Firestore接続は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 
-最終更新: 2026-09-07 16:58 UTC
+最終更新: 2026-09-07 17:58 UTC(フェーズ34: schema反映)

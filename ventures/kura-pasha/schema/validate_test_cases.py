@@ -186,6 +186,43 @@ def validate_cross_field_rules(instance, path="$"):
         if retention_notice is not None:
             errors.append(f"{path}: status={status!r}のときmember_retention_noticeはnullである必要があります")
 
+    # 2026-09-07 17:58 UTC追加(フェーズ34): contractor-transfer-design.md対応のstatus2値
+    # (contractor_transfer_selection/contractor_transfer_unclear)の非null制約チェック。
+    # member_retention_notice用のロジックと同じ設計思想を踏襲。
+    transfer_statuses = {"contractor_transfer_selection", "contractor_transfer_unclear"}
+    transfer_notice = instance.get("contractor_transfer_notice")
+    if status in transfer_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+        if instance.get("member_retention_notice") is not None:
+            errors.append(f"{path}: status={status}のときmember_retention_noticeはnullである必要があります")
+        if transfer_notice is None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_noticeは非nullである必要があります")
+        else:
+            if transfer_notice.get("kind") != status:
+                errors.append(
+                    f"{path}.contractor_transfer_notice.kind: status({status!r})と"
+                    f"一致していません(実際={transfer_notice.get('kind')!r})"
+                )
+            expected_has_name = status == "contractor_transfer_selection"
+            has_name = transfer_notice.get("specified_member_name") is not None
+            if has_name != expected_has_name:
+                errors.append(
+                    f"{path}.contractor_transfer_notice.specified_member_name: "
+                    f"status={status!r}のとき非null={expected_has_name}である必要があります"
+                    f"(実際のspecified_member_name={transfer_notice.get('specified_member_name')!r})"
+                )
+    else:
+        if transfer_notice is not None:
+            errors.append(f"{path}: status={status!r}のときcontractor_transfer_noticeはnullである必要があります")
+
     return errors
 
 
@@ -220,6 +257,7 @@ TEST_CASES = {
         ),
         "subscription_procedure_notice": None,
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -251,6 +289,7 @@ TEST_CASES = {
         ),
         "subscription_procedure_notice": None,
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -261,6 +300,7 @@ TEST_CASES = {
         "care_notice": None,
         "subscription_procedure_notice": None,
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -271,6 +311,7 @@ TEST_CASES = {
         "care_notice": None,
         "subscription_procedure_notice": None,
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -281,6 +322,7 @@ TEST_CASES = {
         "care_notice": None,
         "subscription_procedure_notice": None,
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
     # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
@@ -301,6 +343,7 @@ TEST_CASES = {
             "includes_portal_link": True,
         },
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
     "C2_downgrade_intent": {
@@ -319,6 +362,7 @@ TEST_CASES = {
             "includes_portal_link": True,
         },
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
     "C3_cancellation_unclear": {
@@ -334,6 +378,7 @@ TEST_CASES = {
             "includes_portal_link": False,
         },
         "member_retention_notice": None,
+        "contractor_transfer_notice": None,
     },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
@@ -350,6 +395,7 @@ TEST_CASES = {
             "specified_member_name": "田中",
             "body": "田中様を継続利用メンバーとして承りました。切り替え日に反映いたします。",
         },
+        "contractor_transfer_notice": None,
     },
     # member-retention-notice-design.md「2. 検知パターンの整理」2(不明確)相当の期待出力。
     "M2_member_retention_unclear": {
@@ -364,6 +410,41 @@ TEST_CASES = {
             "kind": "member_retention_unclear",
             "specified_member_name": None,
             "body": "どなたを継続利用としてご希望か、お名前をお知らせください。",
+        },
+        "contractor_transfer_notice": None,
+    },
+    # 2026-09-07 17:58 UTC追加(フェーズ34): contractor-transfer-design.md「3. 確定する設計」
+    # (名指しされた相手がmember_user_idsに含まれる場合)相当の期待出力。
+    "CT1_contractor_transfer_selection": {
+        "status": "contractor_transfer_selection",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": {
+            "kind": "contractor_transfer_selection",
+            "specified_member_name": "山田",
+            "body": "山田様を新しい契約者として設定します。よろしいですか?",
+        },
+    },
+    # contractor-transfer-design.md「3. 確定する設計」(名指しされた相手がmember_user_idsに
+    # 含まれない場合、まだworkshopに参加していない第三者を指定した場合を含む)相当の期待出力。
+    "CT2_contractor_transfer_unclear": {
+        "status": "contractor_transfer_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": {
+            "kind": "contractor_transfer_unclear",
+            "specified_member_name": None,
+            "body": "先に招待コードでworkshopへ加わっていただいてから、改めて契約者交代のご連絡をください。",
         },
     },
 }
@@ -392,6 +473,7 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
     "care_notice": "定期的な保湿・保管環境・さび防止手入れ...",
     "subscription_procedure_notice": None,
     "member_retention_notice": None,
+    "contractor_transfer_notice": None,
 }
 
 # 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
@@ -409,6 +491,7 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
         "includes_portal_link": True,
     },
     "member_retention_notice": None,
+    "contractor_transfer_notice": None,
 }
 
 # 2026-09-07 13:02 UTC追加。member_retention_notice.kindがstatusと不一致な不正フィクスチャ
@@ -426,6 +509,27 @@ NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH = {
         "kind": "member_retention_selection",
         "specified_member_name": None,
         "body": "どなたを継続利用としてご希望か、お名前をお知らせください。",
+    },
+    "contractor_transfer_notice": None,
+}
+
+# 2026-09-07 17:58 UTC追加(フェーズ34)。contractor_transfer_notice.kindがstatusと
+# 不一致な不正フィクスチャ(contractor_transfer_unclearなのにkind=contractor_transfer_selection
+# のまま出力してしまうケースを想定)。validate_cross_field_rulesが検出できることを
+# 確認するためのネガティブテスト。
+NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH = {
+    "status": "contractor_transfer_unclear",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": None,
+    "contractor_transfer_notice": {
+        "kind": "contractor_transfer_selection",
+        "specified_member_name": None,
+        "body": "先に招待コードでworkshopへ加わっていただいてから、改めて契約者交代のご連絡をください。",
     },
 }
 
@@ -482,6 +586,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG3_member_retention_kind_mismatch_is_detected: kind不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: contractor_transfer_notice.kindのstatus不一致がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg_errors4 = validate_against_schema(NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH, SCHEMA)
+    neg_errors4 += validate_cross_field_rules(NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH)
+    if neg_errors4:
+        print("[OK] NEG4_contractor_transfer_kind_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors4:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG4_contractor_transfer_kind_mismatch_is_detected: kind不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

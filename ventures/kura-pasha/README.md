@@ -436,6 +436,23 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ34(2026-09-07 17:58 UTC): 「次にやること」4点目だった、契約者譲渡機能
+  (contractor-transfer-design.md、フェーズ33)のschema拡張に着手した。`status`のenumへ
+  `contractor_transfer_selection`/`contractor_transfer_unclear`の2値と、これらのときのみ
+  非nullとなる`contractor_transfer_notice`フィールド(`kind`/`specified_member_name`/`body`、
+  member_retention_noticeと同じ設計思想)をschema/output.schema.jsonへ追加し、
+  validate_test_cases.pyにクロスフィールド検証ロジック(status⇔kind一致・
+  specified_member_nameの非null制約)と新規2テストケース(CT1/CT2)・ネガティブテスト
+  ケース(kind不一致検出)を追加、既存テストケース(M1・M2・NEG1・NEG2・NEG3)へも
+  新フィールド追加漏れが無いことを確認し全16件パスを確認した
+  (`python3 schema/validate_test_cases.py`)。あわせてprototype側の既存39件のテスト
+  (`python3 prototype/test_usage_counter_workshop.py`)が本改修の影響を受けず全件パス
+  することを確認した。`craftsman_workshop`データ構造のprototypeコード化・
+  `contractor_user_id`更新処理の実装、契約者からの再確認応答の検知プロンプト設計は
+  次の課題として残した。承認不要なschema拡張・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -445,9 +462,9 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 契約者譲渡機能(contractor-transfer-design.md、フェーズ33)の schema拡張
-  (status enum・`contractor_transfer_notice`フィールド追加、validate_test_cases.py
-  クロスフィールド検証)。次いでprototype/usage_counter_workshop.py側への
-  `craftsman_workshop`データ構造・契約者更新処理の実装。
+- 契約者譲渡機能(contractor-transfer-design.md、フェーズ33/schema拡張はフェーズ34で完了)の
+  prototype/usage_counter_workshop.py側への`craftsman_workshop`データ構造・
+  `contractor_user_id`更新処理の実装。あわせて契約者からの再確認応答(「はい」等の自由記述)を
+  どう検知するかの具体的なプロンプト設計。
 
-最終更新: 2026-09-07 16:58 UTC
+最終更新: 2026-09-07 17:58 UTC
