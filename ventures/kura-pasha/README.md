@@ -264,13 +264,28 @@
   接続は行っていない。承認不要な設計文書間の整合性修正のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ23(2026-09-07 06:00 UTC): フェーズ22で先送りとした、本venture固有の解約フロー
+  設計文書を新規作成した(subscription-cancellation-flow-design.md)。
+  course-set-pasha/subscription-cancellation-flow-design.mdの構成(背景→前提→解約フロー→
+  案内メッセージ→ダウングレードフロー→未検証の仮説)を踏襲しつつ、本venture固有の
+  pricing-plan.md「複数職人プラン」(複数の職人が共同で1契約を利用する形態)に特有の
+  「誰が解約操作を行える権限を持つか」という論点を新設節として追加し、契約者本人のみが
+  解約・ダウングレード操作を行える権限モデルを仮決めした。ダウングレード時の当月生成回数
+  上限の適用方法は、course-set-pashaがStripe公式ドキュメント調査済みの確定方式
+  (`usage_counter`のcountは維持し上限のみ新プラン値へ差し替え)をそのまま踏襲できると
+  判断し独自の再調査は行わなかった。schema/output.schema.jsonのstatus enum拡張
+  (cancellation_intent等の追加)・validate_test_cases.pyへの対応テストケース追加、
+  および複数職人プランの「契約者本人」判定の仕組み自体は未着手のため次の課題として残した。
+  実際のStripe接続・Webhook実装・LINE公式アカウント接続は行っていない。承認不要な設計
+  文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- llm-system-prompt-draft.md フェーズ22で先送りとした、本venture固有の解約フロー設計文書
-  (course-set-pasha/subscription-cancellation-flow-design.md相当)の新規作成、および
-  それに続くschema/output.schema.jsonのstatus enum拡張(cancellation_intent/
-  downgrade_intent/cancellation_unclear相当の追加)・validate_test_cases.pyへの
-  対応テストケース追加。
+- subscription-cancellation-flow-design.md フェーズ23で先送りとした、
+  schema/output.schema.jsonのstatus enum拡張(cancellation_intent/downgrade_intent/
+  cancellation_unclear相当の追加)・validate_test_cases.pyへの対応テストケース追加。
+- 複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計(本venture未着手)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -279,4 +294,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 05:00 UTC
+最終更新: 2026-09-07 06:00 UTC
