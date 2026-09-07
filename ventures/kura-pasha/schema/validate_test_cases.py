@@ -120,6 +120,38 @@ def validate_cross_field_rules(instance, path="$"):
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=insufficient_inputのとき{f}はnullである必要があります")
 
+    # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
+    # 対応のstatus3値(cancellation_intent/downgrade_intent/cancellation_unclear)の
+    # 非null制約チェック。course-set-pasha/schema/validate_test_cases.pyの同種ロジックを踏襲。
+    notice_statuses = {"cancellation_intent", "downgrade_intent", "cancellation_unclear"}
+    notice = instance.get("subscription_procedure_notice")
+    if status in notice_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if notice is None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeは非nullである必要があります")
+        else:
+            if notice.get("kind") != status:
+                errors.append(
+                    f"{path}.subscription_procedure_notice.kind: status({status!r})と"
+                    f"一致していません(実際={notice.get('kind')!r})"
+                )
+            expected_portal_link = status in {"cancellation_intent", "downgrade_intent"}
+            if notice.get("includes_portal_link") != expected_portal_link:
+                errors.append(
+                    f"{path}.subscription_procedure_notice.includes_portal_link: "
+                    f"kind={status!r}のとき{expected_portal_link}である必要があります"
+                    f"(厳守事項7a(iv)相当、実際={notice.get('includes_portal_link')!r})"
+                )
+    else:
+        if notice is not None:
+            errors.append(f"{path}: status={status!r}のときsubscription_procedure_noticeはnullである必要があります")
+
     return errors
 
 
@@ -152,6 +184,7 @@ TEST_CASES = {
             "定期的にオイル・クリームで革に保湿を与えてください。高温多湿・直射日光を避けた"
             "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
         ),
+        "subscription_procedure_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -181,6 +214,7 @@ TEST_CASES = {
             "定期的にオイル・クリームで革に保湿を与えてください。高温多湿・直射日光を避けた"
             "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
         ),
+        "subscription_procedure_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -189,6 +223,7 @@ TEST_CASES = {
         "order_summary": None,
         "delivery_notice": None,
         "care_notice": None,
+        "subscription_procedure_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -197,6 +232,7 @@ TEST_CASES = {
         "order_summary": None,
         "delivery_notice": None,
         "care_notice": None,
+        "subscription_procedure_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -205,6 +241,57 @@ TEST_CASES = {
         "order_summary": None,
         "delivery_notice": None,
         "care_notice": None,
+        "subscription_procedure_notice": None,
+    },
+    # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
+    # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
+    "C1_cancellation_intent": {
+        "status": "cancellation_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": {
+            "kind": "cancellation_intent",
+            "body": (
+                "解約をご希望とのことで承知しました。現在のご契約内容をご確認のうえ、"
+                "下記リンクから解約手続きをお願いいたします。手続き完了後も今回のご請求"
+                "サイクルの終了日まではサービスをご利用いただけます。"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
+    "C2_downgrade_intent": {
+        "status": "downgrade_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": {
+            "kind": "downgrade_intent",
+            "body": (
+                "プラン変更をご希望とのことで承知しました。下記リンクからご希望のプランへの"
+                "変更手続きをお願いいたします。日割り差額は変更申込み時点で精算されます。"
+            ),
+            "includes_portal_link": True,
+        },
+    },
+    # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
+    "C3_cancellation_unclear": {
+        "status": "cancellation_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": {
+            "kind": "cancellation_unclear",
+            "body": "解約をご希望でしょうか?よろしければ「解約したい」とお送りください。",
+            "includes_portal_link": False,
+        },
     },
 }
 
@@ -230,6 +317,23 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
         "body": "修理箇所の説明...",
     },
     "care_notice": "定期的な保湿・保管環境・さび防止手入れ...",
+    "subscription_procedure_notice": None,
+}
+
+# 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
+# cancellation_unclearなのにポータルリンクへの言及ありとして出力してしまうケースを想定。
+NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
+    "status": "cancellation_unclear",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": {
+        "kind": "cancellation_unclear",
+        "body": "解約をご希望でしょうか?",
+        "includes_portal_link": True,
+    },
 }
 
 
@@ -259,6 +363,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG1_category_mismatch_is_detected: category不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: includes_portal_linkの不一致(厳守事項7a(iv)相当違反)がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg_errors2 = validate_against_schema(NEGATIVE_CASE_PORTAL_LINK_MISMATCH, SCHEMA)
+    neg_errors2 += validate_cross_field_rules(NEGATIVE_CASE_PORTAL_LINK_MISMATCH)
+    if neg_errors2:
+        print("[OK] NEG2_portal_link_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors2:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG2_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

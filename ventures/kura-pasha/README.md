@@ -280,11 +280,22 @@
   文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
 
+- フェーズ24(2026-09-07 07:00 UTC): 「次にやること」1点目だった、フェーズ23
+  (subscription-cancellation-flow-design.md)で先送りとしたschema拡張を行った。
+  course-set-pasha/schema/output.schema.jsonのフェーズ54改訂を踏襲し、
+  schema/output.schema.jsonの`status` enumへ`cancellation_intent`/`downgrade_intent`/
+  `cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`
+  フィールド(kind/body/includes_portal_link)を追加した。schema/validate_test_cases.pyにも
+  対応するcross-field検証ロジックと3件の期待出力テストケース(C1解約意図/C2ダウングレード
+  意図/C3解約意図不明瞭)、およびincludes_portal_link不一致を検出できるかのネガティブ
+  テストケースを追加し、全10件(既存7件+新規3件)パス・ネガティブ2件とも想定通りエラー
+  検出を確認した(`python3 schema/validate_test_cases.py`)。実LLM呼び出しは未実施。
+  複数職人プランの「契約者本人」判定の仕組み自体は引き続き未着手で次の課題として残した。
+  承認不要な設計文書・検証スクリプトの作成のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- subscription-cancellation-flow-design.md フェーズ23で先送りとした、
-  schema/output.schema.jsonのstatus enum拡張(cancellation_intent/downgrade_intent/
-  cancellation_unclear相当の追加)・validate_test_cases.pyへの対応テストケース追加。
 - 複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計(本venture未着手)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
@@ -294,4 +305,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 06:00 UTC
+最終更新: 2026-09-07 07:00 UTC
