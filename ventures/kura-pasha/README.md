@@ -247,8 +247,30 @@
   設計文書の整合性更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ22(2026-09-07 05:00 UTC): llm-system-prompt-draft.md作成時(04:00 UTC)の前提
+  「本ventureは継続課金(サブスクリプション)を伴わない単発の下書き生成サービスである」が、
+  3時間後に作成されたpricing-plan.md(07:00 UTC、月額サブスク+月間生成回数上限という設計)
+  および data-retention-policy.md(`user_profile`が決済ID等を保持)と矛盾していることを
+  発見した。本venture固有の受注特性(低頻度・高単価)ゆえに価格体系こそ他venture
+  (course-set-pasha等)と異なるが、「月額サブスクリプションである」点自体は同じである
+  ことが後に確定したにもかかわらず、先行して書かれたllm-system-prompt-draft.mdの前提が
+  未更新のままだったギャップである。course-set-pasha/llm-system-prompt-draft.mdの
+  厳守事項7a(解約意図検知、2026-08-15追記分)を参考に、本ventureにも同種の厳守事項7aを
+  新設して前提を訂正した。ただし本venture固有の解約フロー設計文書(course-set-pasha/
+  subscription-cancellation-flow-design.md相当)・Stripe連携設計は未着手のため、案内先の
+  具体的な導線確定やschema/output.schema.jsonのstatus enum拡張(cancellation_intent等の
+  追加)は、course-set-pashaが7a新設から5時間後にschema拡張(フェーズ54)を行った前例に
+  倣い、次の課題として段階的に進める方針とした。実際のStripe連携・LINE公式アカウント
+  接続は行っていない。承認不要な設計文書間の整合性修正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
+- llm-system-prompt-draft.md フェーズ22で先送りとした、本venture固有の解約フロー設計文書
+  (course-set-pasha/subscription-cancellation-flow-design.md相当)の新規作成、および
+  それに続くschema/output.schema.jsonのstatus enum拡張(cancellation_intent/
+  downgrade_intent/cancellation_unclear相当の追加)・validate_test_cases.pyへの
+  対応テストケース追加。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -257,4 +279,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 04:00 UTC
+最終更新: 2026-09-07 05:00 UTC
