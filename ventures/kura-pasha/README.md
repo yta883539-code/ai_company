@@ -373,12 +373,32 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ30(2026-09-07 14:02 UTC): 「次にやること」1点目だった
+  `pending_member_reduction_effective_at`の都度チェック処理をprototype/
+  usage_counter_workshop.pyへ実装した(`check_and_apply_pending_member_reduction`)。
+  downgrade-excess-member-handling-design.md「3. 確定する設計」の通り、猶予期間
+  未到達時は何もせず、到達後は`member_user_ids`を契約者のみに縮小し
+  `pending_member_reduction_effective_at`をクリアする。あわせて
+  member-retention-notice-design.md「4. 未検証・残課題」1点目だった
+  `specified_member_name`と表示名の突き合わせロジックも実装し、契約者本人の表示名と
+  一致する場合のみ「一致」として扱い、契約者以外を指した指定は契約者譲渡機能が
+  MVP範囲外のため反映できない旨をnoteに記録したうえでデフォルトルール(契約者のみ
+  残す)を適用する設計とした。縮小後に除外されたメンバーからの生成リクエストを
+  検知する`MemberRemovedError`・`ensure_member_is_active`も
+  `WorkshopNotLinkedError`の既存例外設計を踏襲して追加し、
+  test_usage_counter_workshop.pyに新規7テストケースを追加して全30件パスを確認した
+  (`python3 prototype/test_usage_counter_workshop.py`)。縮小処理・除外検知・
+  usage_counter加算(`check_and_increment_usage`)の呼び出し順序の統合自体は
+  本モジュール未着手のため次の課題として残した。実際のStripe接続・LINE公式
+  アカウント接続は行っていない。承認不要なプロトタイプコード実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- `pending_member_reduction_effective_at`の都度チェック処理のプロトタイプコード実装
-  (prototype/usage_counter_workshop.pyの拡張)。`specified_member_name`と
-  `member_user_ids`(LINE表示名)との突き合わせロジック
-  (member-retention-notice-design.md「4. 未検証・残課題」参照)もあわせて検討する。
+- `check_and_apply_pending_member_reduction`→`ensure_member_is_active`→
+  `check_and_increment_usage`の呼び出し順序を実際の生成リクエスト処理フローとして
+  統合するプロトタイプコード(現状は3関数がそれぞれ独立して呼び出し可能な状態)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -387,4 +407,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 13:02 UTC
+最終更新: 2026-09-07 14:02 UTC
