@@ -27,6 +27,12 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
 - フェーズ31: フェーズ30末尾の残課題だった、`check_and_apply_pending_member_reduction`→
   `ensure_member_is_active`→`check_and_increment_usage`の呼び出し順序を実際の生成
   リクエスト処理フローとして統合する`process_generation_request`を追加した。
+- フェーズ35: contractor-transfer-design.md(フェーズ33・schema反映はフェーズ34)の
+  「4. 未検証・残課題」に残っていた、`craftsman_workshop`データ構造側の契約者譲渡
+  確定処理(`contractor_user_id`更新)のプロトタイプコード化に対応した
+  (`resolve_contractor_transfer_target`・`apply_contractor_transfer`)。契約者からの
+  再確認応答(「はい」等の自由記述)自体の検知プロンプト設計は引き続き次の課題として
+  残す。
 """
 
 from __future__ import annotations
@@ -104,6 +110,10 @@ class WorkshopStoreProtocol(Protocol):
 
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
         """member_user_idsを置き換え、pending_member_reduction_effective_atをクリアする。"""
+        ...
+
+    def set_contractor_user_id(self, workshop_id: str, user_id: str) -> None:
+        """contractor-transfer-design.md 3節の確定処理でcontractor_user_idを更新する。"""
         ...
 
 
@@ -185,6 +195,9 @@ class InMemoryWorkshopStore:
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
         self._member_user_ids_by_workshop[workshop_id] = list(retained_user_ids)
         self._pending_reduction_effective_at_by_workshop.pop(workshop_id, None)
+
+    def set_contractor_user_id(self, workshop_id: str, user_id: str) -> None:
+        self._contractor_by_workshop[workshop_id] = user_id
 
 
 class InMemoryUsageCounterStore:
@@ -396,3 +409,73 @@ def process_generation_request(
         user_id, now, user_profile_store, workshop_store, usage_counter_store
     )
     return GenerationRequestResult(usage=usage, member_reduction=member_reduction)
+
+
+class ContractorTransferTargetNotFoundError(Exception):
+    """契約者譲渡の確定処理を、既存メンバーに含まれないuser_idに対して呼び出した場合に
+    送出する(contractor-transfer-design.md 2節のスコープ限定違反)。呼び出し側は本来
+    resolve_contractor_transfer_targetがNoneを返した時点でcontractor_transfer_unclearの
+    案内に切り替える想定であり、本例外はその前段チェックを取りこぼした場合の防御用。
+    """
+
+
+@dataclass
+class ContractorTransferResult:
+    workshop_id: str
+    previous_contractor_user_id: str
+    new_contractor_user_id: str
+    matched_display_name: str
+
+
+def resolve_contractor_transfer_target(
+    workshop_id: str,
+    specified_member_name: str,
+    workshop_store: WorkshopStoreProtocol,
+) -> Optional[str]:
+    """contractor-transfer-design.md 3節: 契約者のメッセージ中で名指しされた相手が、
+    workshopの既存メンバー(契約者自身を除く)の表示名と一致するかを判定する。
+
+    一致するuser_idを返す(status=contractor_transfer_selectionに対応)。一致しない
+    場合はNoneを返し、呼び出し側でstatus=contractor_transfer_unclearの案内文言
+    (「先に招待コードでworkshopへ加わっていただいてから」)に切り替える想定。
+    """
+    contractor_user_id = workshop_store.get_contractor_user_id(workshop_id)
+    for member_user_id in workshop_store.get_member_user_ids(workshop_id):
+        if member_user_id == contractor_user_id:
+            continue
+        display_name = workshop_store.get_member_display_name(workshop_id, member_user_id)
+        if display_name is not None and display_name == specified_member_name:
+            return member_user_id
+    return None
+
+
+def apply_contractor_transfer(
+    workshop_id: str,
+    new_contractor_user_id: str,
+    workshop_store: WorkshopStoreProtocol,
+) -> ContractorTransferResult:
+    """contractor-transfer-design.md 3節の確定処理。契約者からの再確認応答(「はい」等)を
+    受けた後に呼び出す想定(再確認応答自体の検知プロンプト設計は次の課題として残す)。
+
+    new_contractor_user_idは事前にresolve_contractor_transfer_targetで既存メンバーと
+    確認済みであることを前提とするが、本関数でも再度member_user_ids所属を検証する
+    (2節のスコープ限定: workshop外の第三者への直接譲渡は不可)。旧契約者は
+    member_user_idsから自動的には外さない(3節の方針通り、脱退は別途本人の意思表示に
+    委ねる)。usage_counter/{workshop_id}はworkshop_id不変のため影響を受けない。
+    """
+    if new_contractor_user_id not in workshop_store.get_member_user_ids(workshop_id):
+        raise ContractorTransferTargetNotFoundError(
+            f"user_id={new_contractor_user_id!r}はworkshop_id={workshop_id!r}の"
+            "既存メンバーに含まれていません(workshop外への直接譲渡はスコープ外)"
+        )
+    previous_contractor_user_id = workshop_store.get_contractor_user_id(workshop_id)
+    matched_display_name = workshop_store.get_member_display_name(
+        workshop_id, new_contractor_user_id
+    )
+    workshop_store.set_contractor_user_id(workshop_id, new_contractor_user_id)
+    return ContractorTransferResult(
+        workshop_id=workshop_id,
+        previous_contractor_user_id=previous_contractor_user_id,
+        new_contractor_user_id=new_contractor_user_id,
+        matched_display_name=matched_display_name or "",
+    )

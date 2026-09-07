@@ -453,6 +453,25 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ35(2026-09-07 20:02 UTC): 「次にやること」4点目だった、契約者譲渡機能
+  (contractor-transfer-design.md、フェーズ33/schema拡張はフェーズ34)の
+  `prototype/usage_counter_workshop.py`側への`contractor_user_id`更新処理の実装に着手
+  した。`WorkshopStoreProtocol`に`set_contractor_user_id`を追加し(InMemory実装含む)、
+  契約者のメッセージ中で名指しされた相手が既存メンバー(契約者自身を除く)の表示名と
+  一致するかを判定する`resolve_contractor_transfer_target`(一致しなければNoneを返し
+  呼び出し側でcontractor_transfer_unclearの案内に切り替える想定)、契約者からの
+  再確認応答後に呼び出す確定処理`apply_contractor_transfer`(既存メンバー外への
+  呼び出しは`ContractorTransferTargetNotFoundError`で防御、旧契約者は
+  `member_user_ids`から自動的には外さない)を実装した。新規5テストケース
+  (名指し一致・契約者自身を除外・未加入者はNone・確定処理での更新と旧契約者の残留・
+  既存メンバー外への防御)を追加し、`python3 test_usage_counter_workshop.py`で全49件
+  パスを確認した。他venture(aircon-pasha・course-set-pasha・line-reservation-ai)の
+  prototypeテスト(474件・573件・760件)・4venture合計のschema検証(9+9+16+25件)も
+  あわせて実行し、いずれも変更前と同じ結果でパスすることを確認した。契約者からの
+  再確認応答自体の検知プロンプト設計は引き続き次の課題として残した。承認不要な
+  プロトタイプコード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -462,9 +481,8 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 契約者譲渡機能(contractor-transfer-design.md、フェーズ33/schema拡張はフェーズ34で完了)の
-  prototype/usage_counter_workshop.py側への`craftsman_workshop`データ構造・
-  `contractor_user_id`更新処理の実装。あわせて契約者からの再確認応答(「はい」等の自由記述)を
-  どう検知するかの具体的なプロンプト設計。
+- 契約者譲渡機能(contractor-transfer-design.md)の残課題である、契約者からの再確認応答
+  (「はい」等の自由記述)をどう検知するかの具体的なプロンプト設計(member-retention-
+  notice-design.md等の既存の意図検知パターンを参考に、次回以降で着手予定)。
 
-最終更新: 2026-09-07 17:58 UTC
+最終更新: 2026-09-07 20:02 UTC

@@ -4,16 +4,19 @@
 from datetime import datetime
 
 from usage_counter_workshop import (
+    ContractorTransferTargetNotFoundError,
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
     InMemoryWorkshopStore,
     MemberRemovedError,
     UnknownPlanError,
     WorkshopNotLinkedError,
+    apply_contractor_transfer,
     check_and_apply_pending_member_reduction,
     check_and_increment_usage,
     ensure_member_is_active,
     process_generation_request,
+    resolve_contractor_transfer_target,
 )
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
@@ -259,6 +262,94 @@ def test_process_generation_request_workshop_not_linked_raises():
         check("workshop未設定でWorkshopNotLinkedErrorが送出される(統合版)", True)
 
 
+def test_resolve_contractor_transfer_target_matches_existing_member():
+    """contractor-transfer-design.md 3節: 名指しされた相手が既存メンバーの表示名と
+    一致する場合、そのuser_idが返る(status=contractor_transfer_selectionに対応)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W16",
+        "CONTRACTOR16",
+        ["MEMBER16A", "MEMBER16B"],
+        display_names={"CONTRACTOR16": "親方", "MEMBER16A": "弟子太郎", "MEMBER16B": "弟子次郎"},
+    )
+
+    target = resolve_contractor_transfer_target("W16", "弟子太郎", workshops)
+    check("名指しされた既存メンバーのuser_idが返る", target == "MEMBER16A")
+
+
+def test_resolve_contractor_transfer_target_ignores_contractor_self():
+    """契約者自身の表示名を指定した場合は譲渡先として一致させない(自分自身への
+    譲渡は意味を持たないため、既存メンバー〈契約者以外〉からのみ探す)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W17",
+        "CONTRACTOR17",
+        ["MEMBER17"],
+        display_names={"CONTRACTOR17": "親方", "MEMBER17": "弟子"},
+    )
+
+    target = resolve_contractor_transfer_target("W17", "親方", workshops)
+    check("契約者自身の表示名は譲渡先として一致しない", target is None)
+
+
+def test_resolve_contractor_transfer_target_returns_none_for_unknown_name():
+    """workshopに参加していない第三者を指定した場合はNoneが返る
+    (status=contractor_transfer_unclearに対応する呼び出し側の分岐条件)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W18",
+        "CONTRACTOR18",
+        ["MEMBER18"],
+        display_names={"CONTRACTOR18": "親方", "MEMBER18": "弟子"},
+    )
+
+    target = resolve_contractor_transfer_target("W18", "未加入の三郎", workshops)
+    check("未加入の第三者はNoneが返る", target is None)
+
+
+def test_apply_contractor_transfer_updates_contractor_and_keeps_previous_as_member():
+    """契約者からの再確認応答後に確定処理を呼ぶと、contractor_user_idが更新され、
+    旧契約者はmember_user_idsから自動的には外されない(3節の方針)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W19",
+        "CONTRACTOR19",
+        ["MEMBER19"],
+        display_names={"CONTRACTOR19": "親方", "MEMBER19": "弟子太郎"},
+    )
+
+    result = apply_contractor_transfer("W19", "MEMBER19", workshops)
+    check("previous_contractor_user_idは旧契約者", result.previous_contractor_user_id == "CONTRACTOR19")
+    check("new_contractor_user_idは新契約者", result.new_contractor_user_id == "MEMBER19")
+    check("matched_display_nameは新契約者の表示名", result.matched_display_name == "弟子太郎")
+    check("workshop_store側のcontractor_user_idも更新される", workshops.get_contractor_user_id("W19") == "MEMBER19")
+    check("旧契約者はmember_user_idsに残る", "CONTRACTOR19" in workshops.get_member_user_ids("W19"))
+
+
+def test_apply_contractor_transfer_raises_for_non_member():
+    """workshop外(member_user_idsに含まれない)user_idを渡した場合は
+    ContractorTransferTargetNotFoundErrorが送出される(2節のスコープ限定違反への防御)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W20",
+        "CONTRACTOR20",
+        ["MEMBER20"],
+        display_names={"CONTRACTOR20": "親方", "MEMBER20": "弟子"},
+    )
+
+    try:
+        apply_contractor_transfer("W20", "OUTSIDER20", workshops)
+        check("既存メンバー外への譲渡はContractorTransferTargetNotFoundError", False)
+    except ContractorTransferTargetNotFoundError:
+        check("既存メンバー外への譲渡はContractorTransferTargetNotFoundError", True)
+    check("例外発生時はcontractor_user_idが変更されない", workshops.get_contractor_user_id("W20") == "CONTRACTOR20")
+
+
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
@@ -276,6 +367,11 @@ if __name__ == "__main__":
     test_process_generation_request_applies_reduction_before_usage_check()
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()
+    test_resolve_contractor_transfer_target_matches_existing_member()
+    test_resolve_contractor_transfer_target_ignores_contractor_self()
+    test_resolve_contractor_transfer_target_returns_none_for_unknown_name()
+    test_apply_contractor_transfer_updates_contractor_and_keeps_previous_as_member()
+    test_apply_contractor_transfer_raises_for_non_member()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)

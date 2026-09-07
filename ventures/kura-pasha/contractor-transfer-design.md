@@ -88,12 +88,18 @@ downgrade-excess-member-handling-design.md(フェーズ28)4節で、いずれも
   (`status`のenumへ`contractor_transfer_selection`/`contractor_transfer_unclear`追加、
   `contractor_transfer_notice`フィールド追加、クロスフィールド検証・新規テストケース
   CT1/CT2・ネガティブテストケース追加、全16件パス確認)。
-- 「契約者からの再確認応答」をどう検知するか(単純な「はい」「お願いします」等の
-  自由記述をLLMにどう判定させるか)の具体的なプロンプト設計は未着手。
-- prototype/usage_counter_workshop.py側の`craftsman_workshop`データ構造は現状
+- ~~prototype/usage_counter_workshop.py側の`craftsman_workshop`データ構造は現状
   Firestore設計の机上表現のみで実装されていないため、`contractor_user_id`更新処理の
-  プロトタイプコード化も未着手。
+  プロトタイプコード化も未着手。~~ → フェーズ35で対応済み(`WorkshopStoreProtocol`に
+  `set_contractor_user_id`を追加、名指しされた相手が既存メンバーの表示名と一致するかを
+  判定する`resolve_contractor_transfer_target`、契約者からの再確認応答後に呼び出す
+  確定処理`apply_contractor_transfer`〈既存メンバー外への呼び出しは
+  `ContractorTransferTargetNotFoundError`で防御〉を実装し、新規5テストケースを追加して
+  全49件パスを確認した)。
+- 「契約者からの再確認応答」をどう検知するか(単純な「はい」「お願いします」等の
+  自由記述をLLMにどう判定させるか)の具体的なプロンプト設計は未着手のまま残る。
 - 実際のLINE公式アカウント接続・Firestore接続は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 
-最終更新: 2026-09-07 17:58 UTC(フェーズ34: schema反映)
+最終更新: 2026-09-07 20:02 UTC(フェーズ35: `contractor_user_id`更新処理のプロトタイプ
+コード化)
