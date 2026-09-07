@@ -100,12 +100,18 @@ deleted()`呼び出しの後に`push_client`指定時のみ通知を送信する
 
 ## 4. 次回以降の課題
 
-- 1節で述べた「解約予約受理時点(`cancel_at_period_end`の`false→true`変化)」の
-  即時案内メッセージ配線は、line-reservation-aiフェーズ続き185
-  (`customer-subscription-updated-event-routing-design.md`)と同じ
-  `previous_attributes`からの前後比較ロジックの新規実装を要するため、次回以降の
-  課題として残す。実装時は本ventureの`customer.subscription.updated`分岐に
-  既に存在するプラン変更検知ロジック(フェーズ153・154)と同じ分岐内で
-  `cancel_at_period_end`の変化も検知する構成になる見込み。
+- (解消済み 2026-09-04 01:00 UTC・フェーズ156〜157: 1節で述べた「解約予約受理時点
+  (`cancel_at_period_end`の`false→true`変化)」「解約取り消し時点(`true→false`変化)」の
+  即時案内メッセージ配線を、subscription-cancellation-scheduled-notification-design.md
+  として新規設計・`prototype/subscription_cancellation_notification.py`
+  `classify_cancel_at_period_end_change()`・`render_subscription_cancellation_
+  scheduled_message()`・`render_subscription_cancellation_rescheduled_message()`・
+  `handle_subscription_cancellation_update()`として実装した。`stripe_webhook.py`の
+  `customer.subscription.updated`分岐(プラン変更検知〈フェーズ153・154〉の直後)に
+  `previous_attributes`からの前後比較ロジックを配線済み。フェーズ157で、制限モード
+  (決済失敗猶予期間超過)中の顧客への案内文言が実状態と矛盾する記載漏れも追加で
+  対応済み。詳細はsubscription-cancellation-scheduled-notification-design.md・
+  subscription-cancellation-scheduled-message-suspension-consistency-design.md
+  参照)
 - 実LINE Push Message API接続・実Stripe接続はいずれも実アカウント作成
   (オーナー承認待ち)後の課題として引き続き残る。

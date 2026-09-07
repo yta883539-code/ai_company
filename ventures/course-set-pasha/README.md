@@ -2698,3 +2698,21 @@
   存在する点がcourse-set-pasha〈作成時点で未作成〉と異なる」)の訂正はaircon-pasha自身の
   次回以降の課題として残る(本ventureからの越境編集は範囲外のため見送り)。次回は他venture・
   アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- フェーズ197(2026-09-07 18:58 UTC): 未走査の設計docの残課題棚卸しの一環として
+  subscription-cancelled-notification-design.md(フェーズ155)「4. 次回以降の課題」を
+  確認したところ、1点目の「解約予約受理時点(`cancel_at_period_end`の`false→true`変化)」の
+  即時案内メッセージ配線が「次回以降の課題として残る」と書かれたままになっていたが、
+  実際にはフェーズ156(subscription-cancellation-scheduled-notification-design.md新規作成、
+  `prototype/subscription_cancellation_notification.py`の`classify_cancel_at_period_end_
+  change()`・`render_subscription_cancellation_scheduled_message()`・
+  `render_subscription_cancellation_rescheduled_message()`・
+  `handle_subscription_cancellation_update()`実装、`stripe_webhook.py`への配線)・
+  フェーズ157(制限モード中の案内文言矛盾の追加対応)で既に解消済みだったにもかかわらず
+  未訂正のまま残っていた記載漏れだったと判明した(フェーズ196で発見したaircon-pasha側の
+  同種の記載漏れと同じパターン)。該当bulletを「解消済み」として書き換え、関連する2設計docへの
+  参照を追記した。コード変更は無く、venture全体573件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)パスを確認した(いずれも変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
