@@ -13,6 +13,7 @@ from usage_counter_workshop import (
     check_and_apply_pending_member_reduction,
     check_and_increment_usage,
     ensure_member_is_active,
+    process_generation_request,
 )
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
@@ -198,6 +199,66 @@ def test_ensure_member_is_active_raises_for_removed_member():
         check("縮小で除外されたメンバーはMemberRemovedErrorが送出される", True)
 
 
+def test_process_generation_request_normal_case_no_pending_reduction():
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12", "W12")
+    workshops.set_plan("W12", "standard")
+    workshops.set_members("W12", "U12", ["U12"])
+
+    result = process_generation_request("U12", FEB, profiles, workshops, counters)
+    check("縮小待ちなしの通常時はmember_reductionがNone", result.member_reduction is None)
+    check("usageは1回目としてカウントされる", result.usage.count_after_increment == 1)
+
+
+def test_process_generation_request_applies_reduction_before_usage_check():
+    """猶予期間到達後の最初の生成リクエストで、縮小(1)→除外チェック(2)→
+    カウント加算(3)が同一呼び出し内で正しい順序で行われることを検証する。
+    契約者本人からのリクエストなので、縮小が適用されてもensure_member_is_activeは
+    例外を送出せずusageまで到達する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR13", "W13")
+    profiles.link("MEMBER13", "W13")
+    workshops.set_plan("W13", "multi_craftsman")
+    workshops.set_members("W13", "CONTRACTOR13", ["CONTRACTOR13", "MEMBER13"])
+    workshops.set_pending_reduction_effective_at("W13", FEB)
+
+    result = process_generation_request("CONTRACTOR13", MAR, profiles, workshops, counters)
+    check("縮小が適用されmember_reduction.appliedはTrue", result.member_reduction.applied is True)
+    check("除外されたのはMEMBER13", result.member_reduction.removed_user_ids == ["MEMBER13"])
+    check("縮小適用後もcheck_and_increment_usageまで到達しカウントされる", result.usage.count_after_increment == 1)
+    check("縮小後のmember_user_idsは契約者のみ", workshops.get_member_user_ids("W13") == ["CONTRACTOR13"])
+
+
+def test_process_generation_request_raises_for_member_removed_in_same_call():
+    """猶予期間到達後、除外される側のメンバーが生成リクエストを送ってきた場合、
+    (1)の縮小適用で除外が確定した直後に(2)でMemberRemovedErrorが送出され、
+    (3)のusageカウントには到達しない(=課金対象にならない)ことを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR14", "W14")
+    profiles.link("MEMBER14", "W14")
+    workshops.set_plan("W14", "multi_craftsman")
+    workshops.set_members("W14", "CONTRACTOR14", ["CONTRACTOR14", "MEMBER14"])
+    workshops.set_pending_reduction_effective_at("W14", FEB)
+
+    try:
+        process_generation_request("MEMBER14", MAR, profiles, workshops, counters)
+        check("除外対象メンバーはMemberRemovedErrorが送出される", False)
+    except MemberRemovedError:
+        check("除外対象メンバーはMemberRemovedErrorが送出される", True)
+    check("除外された場合usage_counter_storeには何も書き込まれない", counters.get("W14") is None)
+
+
+def test_process_generation_request_workshop_not_linked_raises():
+    profiles, workshops, counters = make_stores()
+    try:
+        process_generation_request("UNKNOWN15", FEB, profiles, workshops, counters)
+        check("workshop未設定でWorkshopNotLinkedErrorが送出される(統合版)", False)
+    except WorkshopNotLinkedError:
+        check("workshop未設定でWorkshopNotLinkedErrorが送出される(統合版)", True)
+
+
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
@@ -211,6 +272,10 @@ if __name__ == "__main__":
     test_pending_reduction_already_single_member_clears_flag_only()
     test_ensure_member_is_active_allows_contractor_and_current_members()
     test_ensure_member_is_active_raises_for_removed_member()
+    test_process_generation_request_normal_case_no_pending_reduction()
+    test_process_generation_request_applies_reduction_before_usage_check()
+    test_process_generation_request_raises_for_member_removed_in_same_call()
+    test_process_generation_request_workshop_not_linked_raises()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)

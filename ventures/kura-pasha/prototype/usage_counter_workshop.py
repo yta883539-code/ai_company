@@ -24,6 +24,9 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   (`check_and_apply_pending_member_reduction`・`ensure_member_is_active`)。
   縮小後に除外されたメンバーからの生成リクエストを検知する`MemberRemovedError`も
   あわせて追加した(`WorkshopNotLinkedError`相当の扱い)。
+- フェーズ31: フェーズ30末尾の残課題だった、`check_and_apply_pending_member_reduction`→
+  `ensure_member_is_active`→`check_and_increment_usage`の呼び出し順序を実際の生成
+  リクエスト処理フローとして統合する`process_generation_request`を追加した。
 """
 
 from __future__ import annotations
@@ -353,3 +356,43 @@ def ensure_member_is_active(
     raise MemberRemovedError(
         f"user_id={user_id!r}はworkshop_id={workshop_id!r}のメンバーから除外済みです"
     )
+
+
+@dataclass
+class GenerationRequestResult:
+    usage: UsageCheckResult
+    member_reduction: Optional[MemberReductionResult]
+
+
+def process_generation_request(
+    user_id: str,
+    now: datetime,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+    usage_counter_store: UsageCounterStoreProtocol,
+) -> GenerationRequestResult:
+    """生成リクエスト受信時に呼び出す統合エントリポイント。
+
+    フェーズ30時点では3関数がそれぞれ独立して呼び出し可能なだけで、実際の
+    呼び出し順序(ensure_member_is_activeのdocstring記載)が統合されていなかった。
+    本関数で (1) check_and_apply_pending_member_reduction → (2)
+    ensure_member_is_active → (3) check_and_increment_usage の順に実行する。
+
+    (1)を先に行うのは、契約者が縮小猶予期間の到達後に最初に生成リクエストを
+    送ってきた場合、その1回のリクエストで縮小を確定させたうえで(2)の判定に
+    反映させるため(縮小と除外検知が同一リクエスト内で整合する必要がある)。
+    """
+    workshop_id = user_profile_store.get_workshop_id(user_id)
+    if workshop_id is None:
+        raise WorkshopNotLinkedError(
+            f"user_id={user_id!r}にworkshop_idが未設定です(新規契約フロー未完了)"
+        )
+
+    member_reduction = check_and_apply_pending_member_reduction(
+        workshop_id, now, workshop_store
+    )
+    ensure_member_is_active(user_id, workshop_id, workshop_store)
+    usage = check_and_increment_usage(
+        user_id, now, user_profile_store, workshop_store, usage_counter_store
+    )
+    return GenerationRequestResult(usage=usage, member_reduction=member_reduction)

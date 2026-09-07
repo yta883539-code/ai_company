@@ -394,11 +394,21 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ31(2026-09-07 15:02 UTC): 「次にやること」1点目だった、
+  `check_and_apply_pending_member_reduction`→`ensure_member_is_active`→
+  `check_and_increment_usage`の呼び出し順序を実際の生成リクエスト処理フローとして
+  統合する`process_generation_request`をprototype/usage_counter_workshop.pyに
+  追加した。縮小猶予期間到達後の最初の生成リクエストで(1)縮小適用→(2)除外
+  チェック→(3)カウント加算が同一呼び出し内で正しい順序で行われること、除外
+  対象メンバーからのリクエストは(2)で`MemberRemovedError`を送出しカウント
+  加算(課金対象化)に到達しないこと、を新規4テストケースで検証し全39件パスを
+  確認した(`python3 prototype/test_usage_counter_workshop.py`)。実Firestore接続・
+  実LINE Messaging API接続は行っていない。承認不要なプロトタイプコード実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- `check_and_apply_pending_member_reduction`→`ensure_member_is_active`→
-  `check_and_increment_usage`の呼び出し順序を実際の生成リクエスト処理フローとして
-  統合するプロトタイプコード(現状は3関数がそれぞれ独立して呼び出し可能な状態)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -407,4 +417,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 14:02 UTC
+最終更新: 2026-09-07 15:02 UTC
