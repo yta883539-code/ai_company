@@ -342,10 +342,28 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ28(2026-09-07 12:02 UTC): 「次にやること」1点目だった、複数職人プランから
+  ライト/スタンダードプランへのダウングレード時の余剰メンバーの扱いを設計した
+  (downgrade-excess-member-handling-design.md新規作成)。course-set-pasha・
+  aircon-pashaには複数人契約の概念自体が存在せず参照できる既存踏襲元がなかったため、
+  即時強制解除・猶予期間付き解除・契約者による選択制の3案を比較検討し、次回請求
+  サイクル開始まで猶予したうえで契約者(`contractor_user_id`)のみを残すデフォルト
+  ルールで機械的に縮小する方式(猶予期間付き解除)を採用した。これにより
+  craftsman-account-linking-design.md(フェーズ25)・subscription-cancellation-
+  flow-design.md(フェーズ23)双方に残っていた同一の残課題を解消した。猶予期間中の
+  「残すメンバー」連絡導線の具体的な文言・schema拡張、`pending_member_reduction_
+  effective_at`の都度チェック実装(prototype拡張)は机上設計にとどまり、次の課題として
+  残した。実際のStripe接続・LINE公式アカウント接続は行っていない。承認不要な設計
+  文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
+  していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- 複数職人プランからライト/スタンダードプランへのダウングレード時の余剰メンバーの扱い
-  (craftsman-account-linking-design.md残課題)。
+- 猶予期間中(ダウングレード確定〜次回請求サイクル開始まで)に契約者が「残すメンバー」を
+  連絡する導線のLINE上での意図検知文言・schema拡張(downgrade-excess-member-handling-
+  design.md残課題)。
+- `pending_member_reduction_effective_at`の都度チェック処理のプロトタイプコード実装
+  (prototype/usage_counter_workshop.pyの拡張)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -354,4 +372,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 11:02 UTC
+最終更新: 2026-09-07 12:02 UTC
