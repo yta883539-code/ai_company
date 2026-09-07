@@ -2657,9 +2657,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   整合性修正のみで、外部サービスへの公開・アカウント作成・支払い等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-06 11:00 UTC
+- フェーズ続き208(2026-09-07 22:00 UTC): subscription-billing-cost-estimate.md
+  「結論・次のステップ候補」に残っていた課題「deposit-payment-research.md(顧客からの
+  デポジット徴収)と本ドキュメント(オーナーからのサブスク徴収)の決済代行サービス一本化の
+  検討」に対応した(deposit-payment-processor-unification-design.md新規作成)。
+  checkout-initiation-flow-design.md・stripe-webhook-*.md群からサブスク課金は既にStripe
+  Checkout/Billingに確定済みであることを確認したうえで、デポジット決済(将来オプション)を
+  同じStripeへ一本化できるかを検討した。両者は資金の受取人が異なる(サブスクは本サービス、
+  デポジットは各店舗オーナー)ため単純な流用はできないが、Stripe Connect (Standard)を
+  採用すればStripe API・Webhook基盤自体は1系統に一本化できると結論づけた。ただし一本化
+  しても店舗オーナー側のStripeアカウント開設・KYCは避けられないため、デポジット機能
+  自体をMVPに含めるかの判断(現時点では見送り)には影響しない旨も明記した。
+  deposit-payment-research.mdの決済方式比較表と、subscription-billing-cost-estimate.mdの
+  「結論・次のステップ候補」に相互参照を追記し、後者は解消済みに更新した。コード変更は
+  無く、venture全体760件全件(`/root/.local/bin/pytest -q`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)パスを確認した(変更前と同じ結果)。承認不要な
+  設計文書作成・既存文書の整合性更新のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-07 22:00 UTC
 
 ## 次にやること(候補)
+- (解消済み 2026-09-07 22:00 UTC・フェーズ続き208: subscription-billing-cost-estimate.mdの
+  「結論・次のステップ候補」に残っていたデポジット決済とサブスク課金の決済代行サービス
+  一本化検討を行った。詳細は上記フェーズ続き208・deposit-payment-processor-unification-
+  design.md参照)
 - (解消済み 2026-09-07 07:59 UTC・フェーズ続き207: conversation-state-wiring-design.md
   6節・secondary-state-classes-persistence-conclusion.md「残課題」に残っていた
   `build_conversation_flow_state_machine_for_store()`の結線を「未着手」と記載していた
