@@ -327,10 +327,23 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ27(2026-09-07 11:02 UTC): 「次にやること」1点目だった生成リクエスト処理の
+  プロトタイプコード(course-set-pasha/prototype相当)を新規作成した
+  (prototype/usage_counter_workshop.py・test_usage_counter_workshop.py)。
+  usage-counter-workshop-key-design.md(フェーズ26)2節で確定した「user_id→
+  workshop_id→usage_counter参照」の3ステップと、pricing-plan.mdのプラン別上限
+  (ライト3回/スタンダード8回/複数職人20回)・従量単価を実行可能なコードに落とし込んだ。
+  同設計書末尾の残課題だった「`user_profile.workshop_id`が未設定(workshop未作成)の
+  エッジケース」は`WorkshopNotLinkedError`として明示的に例外処理する形で解消した。
+  複数職人プランで異なるuser_idが同一workshopのカウンタを共有し合算される(抜け穴が
+  塞がれている)こと、月替わりでcountがリセットされることをテストケースで検証し、
+  全12件パスを確認した(`python3 test_usage_counter_workshop.py`)。実Firestore接続・
+  実LINE Messaging API接続は行っていない。承認不要なプロトタイプコード作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- 生成リクエスト処理のプロトタイプコード(course-set-pasha/prototype相当)の作成、
-  本venture未着手(usage-counter-workshop-key-design.md残課題)。
 - 複数職人プランからライト/スタンダードプランへのダウングレード時の余剰メンバーの扱い
   (craftsman-account-linking-design.md残課題)。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -341,4 +354,4 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 
-最終更新: 2026-09-07 09:59 UTC
+最終更新: 2026-09-07 11:02 UTC
