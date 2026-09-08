@@ -566,6 +566,21 @@
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
   していないためpending-approval.mdへの追記なし。
 
+- フェーズ41(2026-09-08 07:00 UTC): 「次にやること」4点目だった、契約者以外(譲渡候補
+  本人や第三者)が`pending_contractor_transfer`存在中・期限切れ後に何かメッセージを
+  送ってきた場合の扱いを検討し、contractor-transfer-non-contractor-message-design.mdと
+  して結論を記録した。既存のcontractor-transfer-confirmation-detection-design.md2節の
+  条件式(送信者=`contractor_user_id`のときのみ文脈注入)が既に「契約者以外は通常メッセージ
+  処理にフォールスルー」という設計になっており、候補者が「はい、お願いします」等と発言
+  しても送信者不一致のため`apply_contractor_transfer`が誤って呼ばれることはないと確認
+  した。進行中の交代手続きの状態を契約者以外に開示する個別案内も検討したが、契約者以外
+  への途中経過の開示は意図しない状況漏洩リスクを伴うためMVPでは見送り、追加のschema
+  拡張・prototype変更は行わないことを確定した。コード変更は無く、venture全体70件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な検討・設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -575,9 +590,7 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 契約者以外(譲渡候補本人や第三者)が期限切れ後に何かメッセージを送ってきた場合の扱いは
-  contractor-transfer-expired-notice-design.md4節に範囲外として残る未着手課題。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 06:00 UTC(フェーズ40: 期限切れ後の案内文言のschema/prototype
-反映)
+最終更新: 2026-09-08 07:00 UTC(フェーズ41: 契約者以外からのメッセージの扱いを検討・
+結論確定)
