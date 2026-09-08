@@ -23,6 +23,7 @@ from usage_counter_workshop import (
     ensure_member_is_active,
     get_contractor_transfer_expired_notice_context,
     is_contractor_transfer_confirmation_context,
+    is_trial_period_over,
     process_generation_request,
     resolve_contractor_transfer_target,
     select_message_context,
@@ -114,6 +115,42 @@ def test_unknown_plan_raises():
         check("不明なplan_idでUnknownPlanErrorが送出される", False)
     except UnknownPlanError:
         check("不明なplan_idでUnknownPlanErrorが送出される", True)
+
+
+def test_is_trial_period_over_false_when_trial_start_at_unset():
+    _, workshops, _ = make_stores()
+    check(
+        "trial_start_at未設定はFalse(安全側)",
+        is_trial_period_over("W1", FEB, workshops) is False,
+    )
+
+
+def test_is_trial_period_over_false_within_30_days_and_unused():
+    _, workshops, _ = make_stores()
+    workshops.set_trial_start_at("W1", FEB)
+    check(
+        "30日未経過かつ未使用はFalse",
+        is_trial_period_over("W1", FEB + timedelta(days=29), workshops) is False,
+    )
+
+
+def test_is_trial_period_over_true_at_exactly_30_days():
+    _, workshops, _ = make_stores()
+    workshops.set_trial_start_at("W1", FEB)
+    check(
+        "ちょうど30日経過でTrue",
+        is_trial_period_over("W1", FEB + timedelta(days=30), workshops) is True,
+    )
+
+
+def test_is_trial_period_over_true_when_generation_used_even_within_30_days():
+    _, workshops, _ = make_stores()
+    workshops.set_trial_start_at("W1", FEB)
+    workshops.set_trial_generation_used("W1")
+    check(
+        "30日未経過でも生成済みならTrue(1回無料の使い切り)",
+        is_trial_period_over("W1", FEB + timedelta(days=1), workshops) is True,
+    )
 
 
 def test_pending_reduction_not_yet_effective_does_nothing():
@@ -688,6 +725,10 @@ if __name__ == "__main__":
     test_month_rollover_resets_count()
     test_workshop_not_linked_raises()
     test_unknown_plan_raises()
+    test_is_trial_period_over_false_when_trial_start_at_unset()
+    test_is_trial_period_over_false_within_30_days_and_unused()
+    test_is_trial_period_over_true_at_exactly_30_days()
+    test_is_trial_period_over_true_when_generation_used_even_within_30_days()
     test_pending_reduction_not_yet_effective_does_nothing()
     test_pending_reduction_default_rule_keeps_contractor_only()
     test_pending_reduction_specified_name_matches_contractor()

@@ -56,6 +56,12 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   を直接呼び出す(契約者限定の`get_contractor_transfer_expired_notice_context`は
   使わない)。(d)のみ内部で既存の`process_generation_request`をそのまま呼び出し、
   既存関数のシグネチャ・挙動は変更していない。
+- フェーズ47: trial-end-condition-design.md「4. 判定関数」で設計した、無料トライアル
+  終了判定(`is_trial_period_over`)をプロトタイプコード化した。同design.md 2節の通り、
+  他venture(起点=初回生成成功時)とは異なり`trial_start_at`の起点をworkshop作成時と
+  確定したうえで、「生成成功1回」または「30日経過」いずれか早い方でトライアル終了と
+  判定する。`trial_generation_used`フラグの書き込み処理・生成リクエスト処理への組み込み
+  自体は同design.md「6. 今後の課題」の通り引き続き次の課題として残す。
 """
 
 from __future__ import annotations
@@ -103,6 +109,9 @@ REMOVED_MEMBER_NOTICE = (
 
 # contractor-transfer-confirmation-detection-design.md(フェーズ36)1節: requested_at+24時間。
 PENDING_CONTRACTOR_TRANSFER_EXPIRY_HOURS = 24
+
+# trial-end-condition-design.md(フェーズ47)確定値。pricing-plan.md「無料トライアル条件(仮)」。
+TRIAL_PERIOD_DAYS = 30
 
 
 @dataclass
@@ -170,6 +179,16 @@ class WorkshopStoreProtocol(Protocol):
         """確定処理実行時・キャンセル時・期限切れ時のいずれでも呼び出される削除処理。"""
         ...
 
+    def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
+        """trial-end-condition-design.md 2節: workshop作成時に1回だけ設定される起点。"""
+        ...
+
+    def get_trial_generation_used(self, workshop_id: str) -> bool:
+        """trial-end-condition-design.md 3節: 生涯最初の生成成功時に1回だけTrueになる
+        一度切りのフラグ(月次リセットされるusage_counterとは独立)。
+        """
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -202,6 +221,8 @@ class InMemoryWorkshopStore:
         self._pending_reduction_effective_at_by_workshop: dict[str, datetime] = {}
         self._specified_retention_name_by_workshop: dict[str, str] = {}
         self._pending_contractor_transfer_by_workshop: dict[str, PendingContractorTransfer] = {}
+        self._trial_start_at_by_workshop: dict[str, datetime] = {}
+        self._trial_generation_used_by_workshop: dict[str, bool] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -264,6 +285,18 @@ class InMemoryWorkshopStore:
 
     def clear_pending_contractor_transfer(self, workshop_id: str) -> None:
         self._pending_contractor_transfer_by_workshop.pop(workshop_id, None)
+
+    def set_trial_start_at(self, workshop_id: str, trial_start_at: datetime) -> None:
+        self._trial_start_at_by_workshop[workshop_id] = trial_start_at
+
+    def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._trial_start_at_by_workshop.get(workshop_id)
+
+    def set_trial_generation_used(self, workshop_id: str, used: bool = True) -> None:
+        self._trial_generation_used_by_workshop[workshop_id] = used
+
+    def get_trial_generation_used(self, workshop_id: str) -> bool:
+        return self._trial_generation_used_by_workshop.get(workshop_id, False)
 
 
 class InMemoryUsageCounterStore:
@@ -338,6 +371,27 @@ def check_and_increment_usage(
         within_limit=count_after <= limits["monthly_limit"],
         overage_price_jpy=limits["overage_price_jpy"],
     )
+
+
+def is_trial_period_over(
+    workshop_id: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+) -> bool:
+    """trial-end-condition-design.md「4. 判定関数」。
+
+    pricing-plan.md「無料トライアル条件(仮)」の「初回の生成成功から1回無料、または30日間の
+    いずれか早い方まで」を、(1)生涯最初の生成が既に完了しているか、(2)`trial_start_at`
+    (workshop作成時に設定、他venture〈起点=初回生成成功時〉とは異なる)から30日経過したか、
+    の論理和として判定する。`trial_start_at`が未設定(データ不整合・移行中)の場合は安全側に
+    倒しFalse(トライアル終了とは判定しない)を返す。
+    """
+    trial_start_at = workshop_store.get_trial_start_at(workshop_id)
+    if trial_start_at is None:
+        return False
+    if workshop_store.get_trial_generation_used(workshop_id):
+        return True
+    return now >= trial_start_at + timedelta(days=TRIAL_PERIOD_DAYS)
 
 
 @dataclass

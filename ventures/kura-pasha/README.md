@@ -678,6 +678,23 @@
   (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
   承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ47(2026-09-08 19:00 UTC): subscription-billing-data-model-design.md
+  (フェーズ46)「未検証・残課題」に残っていたpricing-plan.md「無料トライアル条件(仮)」の
+  判定関数設計(他venture`trial-end-condition-a-*-design.md`相当)にtrial-end-condition-
+  design.mdとして対応した。他venture(起点=初回生成成功時)をそのまま踏襲せず、
+  pricing-plan.mdが期間上限を設けた理由(回数基準だけだと受注が数ヶ月無い場合にトライアル
+  無期限化する懸念)に照らし、`trial_start_at`の起点を「workshop作成時」に確定した(初回
+  生成成功時を起点にすると期間条件が回数条件と同じ弱点を持ち期間上限の意味が失われるため)。
+  月次リセットされる`usage_counter`とは独立な一度切りフラグ`trial_generation_used`を新設し、
+  `is_trial_period_over(workshop_id, now, workshop_store)`として「生成1回使用済み」または
+  「30日経過」いずれか早い方でトライアル終了と判定する関数をprototype/usage_counter_
+  workshop.pyに実装した。pricing-plan.md「無料トライアル条件(仮)」の文言もこの起点確定を
+  反映して更新した。トライアル終了後の生成一時停止・通知・`trial_generation_used`書き込み
+  処理自体は次の課題として残した。新規テスト4件追加、venture全体83件→87件全件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な設計文書
+  作成・プロトタイプコード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 
@@ -686,8 +703,10 @@
   `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
   Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
   stripe-webhook-http-entry-point-design.md相当)を設計・実装する。
-- pricing-plan.md「無料トライアル条件(仮)」の判定関数設計(他venture
-  `trial-end-condition-a-*-design.md`相当、`trial_start_at`起算での判定)。
+- trial-end-condition-design.md(フェーズ47)の「6. 今後の課題」: `trial_generation_used`を
+  生成成功時にTrueへ更新する書き込み処理、`is_trial_period_over`の`process_generation_
+  request`/`select_message_context`への組み込み(トライアル終了後の生成一時停止・案内文言
+  への切り替え)、`trial_start_at`をworkshop作成時に書き込む実処理。
 - unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
   `user_profile`の`is_following`相当フィールドの実装後に、「ブロック中かつ契約継続中」
   契約者の検知バッチを設計する。landing-page-copy-draft.md新規作成時にFAQ文面を反映する。
@@ -700,5 +719,5 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 17:00 UTC(フェーズ46: Stripe課金データモデルの配置設計を
-subscription-billing-data-model-design.mdとして新規作成)
+最終更新: 2026-09-08 19:00 UTC(フェーズ47: 無料トライアル終了判定関数
+`is_trial_period_over`をtrial-end-condition-design.mdとして設計・プロトタイプコード化)
