@@ -472,6 +472,29 @@
   プロトタイプコード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ36(2026-09-08 01:00 UTC): 「次にやること」4点目だった、契約者譲渡機能
+  (contractor-transfer-design.md、フェーズ33)の残課題「契約者からの再確認応答
+  (『はい』等の自由記述)をどう検知するか」の具体的なプロンプト設計に着手した
+  (contractor-transfer-confirmation-detection-design.md新規作成)。member-retention-
+  notice-design.md等の既存の一時状態管理パターンを踏襲し、`craftsman_workshop/
+  {workshop_id}.pending_contractor_transfer`(候補user_id・候補メンバー名・申請日時・
+  期限〈24時間〉)をアプリケーション側で保持し、送信者が契約者本人かつこの一時状態が
+  期限内である場合のみLLM呼び出し時にその文脈を注入する設計とした。契約者の返信を
+  肯定(`contractor_transfer_confirmed`)・否定(`contractor_transfer_cancelled`)・
+  不明瞭(`contractor_transfer_reconfirm_unclear`)の3パターンに分類する`status`
+  enum拡張と`contractor_transfer_confirmation`フィールド(`kind`/`body`)を設計し、
+  肯定時のみアプリケーション側がフェーズ35実装済みの`apply_contractor_transfer`を
+  呼び出す(LLMは文言生成のみを担い更新処理には関与しない)役割分担を明確化した。
+  期限切れ後の扱いは、line-reservation-aiのcandidates-expired-notification-design.md
+  (能動プッシュ通知は課金・実測データ不在を理由に見送り)と同種の判断で、本venture
+  でも能動通知は行わず次回メッセージ受信時の受動的な案内に留める方針とした。
+  schema/output.schema.jsonへの実反映、prototype側の`pending_contractor_transfer`
+  読み書き実装、期限切れ後の案内文言自体のschema設計はいずれも次の課題として残した。
+  コード変更は無く、venture全体49件(`python3 prototype/test_usage_counter_workshop.py`)・
+  schema検証16件(`python3 schema/validate_test_cases.py`)パスを確認した(変更前と
+  同じ結果)。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -481,8 +504,9 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 契約者譲渡機能(contractor-transfer-design.md)の残課題である、契約者からの再確認応答
-  (「はい」等の自由記述)をどう検知するかの具体的なプロンプト設計(member-retention-
-  notice-design.md等の既存の意図検知パターンを参考に、次回以降で着手予定)。
+- 契約者譲渡機能の再確認応答検知(contractor-transfer-confirmation-detection-design.md、
+  フェーズ36)のschema拡張(新規enum値3つ・`contractor_transfer_confirmation`
+  フィールド・クロスフィールド検証)への反映、およびprototype側の
+  `pending_contractor_transfer`読み書き実装。
 
-最終更新: 2026-09-07 20:02 UTC
+最終更新: 2026-09-08 01:00 UTC
