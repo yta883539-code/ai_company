@@ -59,12 +59,22 @@ test_subsequent_subscription_event_resolves_via_linked_profile`で一気通貫�
 
 ## 未検証・残課題
 
-- `resolve_linking_code()`(LINE友だち追加時の連携コード解決)と`set_stripe_customer_id()`
-  がどちらも同じ`user_profile/{user_id}`ドキュメントを更新する経路であり、実Firestore
-  接続後は書き込み順序・競合(理論上は稀だが、LINE連携完了前にStripe決済が完了する
-  レースコンディション)の検討が必要。MVPの想定顧客動線(onboarding-guide.mdステップ6の
-  とおりLINE連携完了後にプラン選択)では発生しないため、本フェーズでは対応不要と判断し
-  次回以降の課題として残す。
+- (解消済み 2026-09-08 09:00 UTC・フェーズ199: 当初懸念していた「LINE連携完了前に
+  Stripe決済が完了する」順序自体は、`handle_checkout_session_completed()`が`user_profile`
+  未存在時に`error="user_profile_not_found"`として書き込みを拒否する(本ドキュメント1節)
+  ため実際には発生し得ないと確認した。一方で見落としていたのは、決済連携済みの`user_id`が
+  何らかの理由(サポート対応での再連携、ユーザーが2つ目の連携コードを送信する等)で
+  `resolve_linking_code()`をもう一度通ると、同関数が`UserProfile`を都度新規生成して
+  `profile_store.save()`で丸ごと上書きしていたため`stripe_customer_id`・
+  `current_plan_id`・`upgraded_at`等の決済関連フィールドが揃って消え、以後
+  `customer.subscription.*`イベントの逆引き(`get_user_id_by_stripe_customer_id`)が
+  失敗し続けるデータ消失バグになり得た点だった。`prototype/user_id_linking.py`の
+  `resolve_linking_code()`を、再連携時は既存`user_profile`(あれば)の決済・トライアル
+  関連フィールドを引き継ぎ、氏名・業種・メール・連携日時のみを新しい連携コードの値で
+  更新する実装に修正した。新規テスト`test_re_linking_an_existing_user_id_preserves_
+  billing_fields`を追加し、venture全体474件→475件全件・schema検証9件(変更なし)
+  いずれもパスを確認した。承認不要なコード修正・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。)
 - `usage_counter`側の`upgraded_at`書き込み配線(course-set-pashaのtrial-end-scheduler-design.md
   2節相当)は、本venture側にまだ`usage_counter`のトライアル終了通知の実装自体が無いため
   今回は対象外。トライアル関連の実装に着手する際にあわせて検討する。

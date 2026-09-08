@@ -537,6 +537,16 @@ def resolve_linking_code(
     形式チェックを先に行わない理由: 施工メモの書き出し文言が偶然6文字の英数字混在に
     一致する可能性はごく低いが皆無ではないため、辞書引き(store.get)の成否のみを判定根拠とする
     (design 3節の「正規表現の形式一致のみでは連携コードと判定しない」方針に厳密に従う)。
+
+    checkout-session-completed-handling-design.md「未検証・残課題」1点目で指摘されていた
+    競合への対応(フェーズ199): 同じ`user_id`に既存の`user_profile`が存在する場合(例:
+    サポート対応での再連携、何らかの理由でユーザーが2つ目の連携コードを送った等)、
+    以前のフィールド一式(`stripe_customer_id`・`current_plan_id`・`upgraded_at`・
+    トライアル/決済失敗関連フィールド等)を引き継ぐ。従来は`UserProfile`を都度新規生成して
+    上書きしていたため、決済連携完了後に再連携が起きると`stripe_customer_id`等が消え、
+    `customer.subscription.*`イベントの逆引き(`get_user_id_by_stripe_customer_id`)が
+    以後失敗するデータ消失バグになり得た。氏名・業種・メール・連携日時(=`entry`由来の値)
+    のみを再連携のたびに更新し、それ以外は既存値を引き継ぐことで解消する。
     """
     if not isinstance(text, str):
         return LinkingResolution(ok=False, error="text is not a string")
@@ -554,6 +564,7 @@ def resolve_linking_code(
         return LinkingResolution(ok=False, error="linking_code expired")
 
     linking_store.delete(normalized_code)
+    existing_profile = profile_store.get(user_id)
     profile_store.save(
         user_id,
         UserProfile(
@@ -561,6 +572,46 @@ def resolve_linking_code(
             business_type=entry.business_type,
             email=entry.email,
             linked_at=now,
+            stripe_customer_id=(
+                existing_profile.stripe_customer_id if existing_profile else None
+            ),
+            current_plan_id=(
+                existing_profile.current_plan_id if existing_profile else None
+            ),
+            trial_start_at=(
+                existing_profile.trial_start_at if existing_profile else None
+            ),
+            trial_end_notified_at=(
+                existing_profile.trial_end_notified_at if existing_profile else None
+            ),
+            upgraded_at=(existing_profile.upgraded_at if existing_profile else None),
+            trial_generation_count=(
+                existing_profile.trial_generation_count if existing_profile else 0
+            ),
+            trial_unit_count=(
+                existing_profile.trial_unit_count if existing_profile else 0
+            ),
+            payment_failure_detected_at=(
+                existing_profile.payment_failure_detected_at
+                if existing_profile
+                else None
+            ),
+            payment_suspended_at=(
+                existing_profile.payment_suspended_at if existing_profile else None
+            ),
+            payment_failure_reminder_sent_at=(
+                existing_profile.payment_failure_reminder_sent_at
+                if existing_profile
+                else None
+            ),
+            is_following=(
+                existing_profile.is_following if existing_profile else True
+            ),
+            blocked_but_billing_owner_notified_at=(
+                existing_profile.blocked_but_billing_owner_notified_at
+                if existing_profile
+                else None
+            ),
         ),
     )
     return LinkingResolution(ok=True)

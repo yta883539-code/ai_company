@@ -181,6 +181,35 @@ class ResolveLinkingCodeTest(unittest.TestCase):
 
         self.assertFalse(result.ok)
 
+    def test_re_linking_an_existing_user_id_preserves_billing_fields(self):
+        """checkout-session-completed-handling-design.md「未検証・残課題」1点目・
+        フェーズ199で解消: 既に決済連携済みのuser_idへ2つ目の連携コードが解決されても、
+        stripe_customer_id等が消えないことを確認する(再連携でUserProfileが丸ごと
+        新規生成に置き換わっていた旧実装ではここが失敗していた)。"""
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        self._issue(linking_store, code="AB12CD")
+        resolve_linking_code("AB12CD", "u-1", linking_store, profile_store, _NOW)
+        profile_store.set_stripe_customer_id("u-1", "cus_123")
+        profile_store.set_current_plan_id("u-1", "plan_standard")
+        profile_store.set_upgraded_at("u-1", _NOW)
+
+        self._issue(linking_store, code="EF34GH", issued_at=_NOW + timedelta(hours=1))
+        result = resolve_linking_code(
+            "EF34GH", "u-1", linking_store, profile_store, _NOW + timedelta(hours=1)
+        )
+
+        self.assertTrue(result.ok)
+        profile = profile_store.get("u-1")
+        self.assertEqual(profile.stripe_customer_id, "cus_123")
+        self.assertEqual(profile.current_plan_id, "plan_standard")
+        self.assertEqual(profile.upgraded_at, _NOW)
+        self.assertEqual(
+            profile_store.get_user_id_by_stripe_customer_id("cus_123"), "u-1"
+        )
+        # 氏名等はentry(新しい連携コード)側の値で更新される。
+        self.assertEqual(profile.linked_at, _NOW + timedelta(hours=1))
+
     def test_ordinary_memo_text_is_not_mistaken_for_a_code(self):
         """design 3節: 形式一致のみでは連携コードと判定しない(辞書引き一致を必須とする)。"""
         linking_store = InMemoryLinkingCodeStore()

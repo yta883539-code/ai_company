@@ -3040,4 +3040,19 @@
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他
   venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補
   とする。
-- 最終更新: 2026-09-07 21:00 UTC
+- フェーズ199(2026-09-08 09:00 UTC): checkout-session-completed-handling-design.md
+  「未検証・残課題」1点目に残っていた、`resolve_linking_code()`(LINE友だち追加時の
+  連携コード解決)と`set_stripe_customer_id()`が同じ`user_profile/{user_id}`ドキュメント
+  を更新する経路の競合懸念を再検討した。当初懸念していた「LINE連携完了前にStripe決済が
+  完了する」順序自体は`handle_checkout_session_completed()`の`user_profile_not_found`
+  安全策により発生し得ないと確認できたが、代わりに、決済連携済みの`user_id`が再度
+  `resolve_linking_code()`を通ると`UserProfile`が都度新規生成・丸ごと上書きされるため
+  `stripe_customer_id`等の決済関連フィールドが消えるデータ消失バグを発見した。
+  `prototype/user_id_linking.py`の`resolve_linking_code()`を、再連携時は既存プロフィールの
+  決済・トライアル関連フィールドを引き継ぐ実装に修正し、新規テスト1件を追加した(詳細は
+  checkout-session-completed-handling-design.md参照)。venture全体474件→475件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要なコード修正・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
+  していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-08 09:00 UTC
