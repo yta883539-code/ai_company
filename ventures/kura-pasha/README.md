@@ -494,6 +494,23 @@
   schema検証16件(`python3 schema/validate_test_cases.py`)パスを確認した(変更前と
   同じ結果)。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ37(2026-09-08 02:00 UTC): 「次にやること」4点目だった、契約者譲渡機能の
+  再確認応答検知(contractor-transfer-confirmation-detection-design.md、フェーズ36)の
+  schema/output.schema.json・validate_test_cases.pyへの反映を実施した。`status`のenumへ
+  `contractor_transfer_confirmed`/`contractor_transfer_cancelled`/
+  `contractor_transfer_reconfirm_unclear`の3値と、これらのときのみ非nullとなる
+  `contractor_transfer_confirmation`フィールド(`kind`/`body`)を追加し、既存の
+  `contractor_transfer_notice`と同型のクロスフィールド検証ロジック(status不一致時の
+  他フィールドnull制約、kind一致検証)をvalidate_cross_field_rulesに追加した。新規
+  期待出力テストケース3件(肯定/否定/不明瞭それぞれ)、kind不一致を検出するネガティブ
+  テストケース1件を追加し、schema検証は全20件パスを確認した。prototype/usage_counter_
+  workshop.py側の`pending_contractor_transfer`一時状態の読み書き実装(design.md1節、
+  `WorkshopStoreProtocol`への追加・`apply_contractor_transfer`呼び出し時/キャンセル時/
+  期限切れ時の削除処理)は未着手のため次の課題として残した。venture全体49件
+  (`python3 prototype/test_usage_counter_workshop.py`)パスも確認した(コード変更が
+  無いため変更前と同じ結果)。承認不要なschema拡張・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
 
 ## 次にやること(候補)
 
@@ -505,8 +522,9 @@
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 契約者譲渡機能の再確認応答検知(contractor-transfer-confirmation-detection-design.md、
-  フェーズ36)のschema拡張(新規enum値3つ・`contractor_transfer_confirmation`
-  フィールド・クロスフィールド検証)への反映、およびprototype側の
-  `pending_contractor_transfer`読み書き実装。
+  フェーズ36)のschema拡張(フェーズ37で解消済み)を踏まえ、prototype/usage_counter_
+  workshop.py側の`pending_contractor_transfer`一時状態の読み書き実装(`WorkshopStoreProtocol`
+  への追加、`apply_contractor_transfer`呼び出し時・キャンセル時・期限切れ時の削除処理)。
+- 期限切れ後の案内文言自体のschema・プロンプト設計(design.md4節の残課題)。
 
-最終更新: 2026-09-08 01:00 UTC
+最終更新: 2026-09-08 02:00 UTC
