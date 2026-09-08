@@ -12,6 +12,7 @@ from usage_counter_workshop import (
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
     InMemoryWorkshopStore,
+    InvalidSubscriptionStatusError,
     MemberRemovedError,
     UnknownPlanError,
     WorkshopNotLinkedError,
@@ -318,6 +319,63 @@ def test_process_generation_request_does_not_mark_trial_generation_used_when_mem
     check(
         "除外された場合trial_generation_usedは更新されない",
         workshops.get_trial_generation_used("W12D") is False,
+    )
+
+
+def test_stripe_customer_id_defaults_to_none_and_can_be_set():
+    """subscription-billing-data-model-design.md 1節: stripe_customer_idは
+    未契約workshopではNone、Checkout Session完了時に書き込まれることを検証する。
+    """
+    _, workshops, _ = make_stores()
+    check(
+        "未契約workshopのstripe_customer_idはNone",
+        workshops.get_stripe_customer_id("W13A") is None,
+    )
+    workshops.set_stripe_customer_id("W13A", "cus_ABC123")
+    check(
+        "set_stripe_customer_id後は書き込んだ値を返す",
+        workshops.get_stripe_customer_id("W13A") == "cus_ABC123",
+    )
+
+
+def test_subscription_status_defaults_to_trialing():
+    """subscription-billing-data-model-design.md 1節: 未設定のworkshopは
+    "trialing"を返す(trial-end-condition-design.mdの前提と一致させる)。
+    """
+    _, workshops, _ = make_stores()
+    check(
+        "未設定workshopのsubscription_statusはtrialing",
+        workshops.get_subscription_status("W13B") == "trialing",
+    )
+
+
+def test_set_subscription_status_accepts_all_declared_values():
+    """SUBSCRIPTION_STATUSES(trialing/active/past_due/canceled)いずれも
+    正常に書き込み・読み取りできることを検証する。
+    """
+    _, workshops, _ = make_stores()
+    for status in ("trialing", "active", "past_due", "canceled"):
+        workshops.set_subscription_status("W13C", status)
+        check(
+            f"subscription_statusを{status!r}へ更新できる",
+            workshops.get_subscription_status("W13C") == status,
+        )
+
+
+def test_set_subscription_status_rejects_unknown_value():
+    """未知のstatus文字列を渡した場合はInvalidSubscriptionStatusErrorを送出し、
+    既存の値を書き換えないことを検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_subscription_status("W13D", "active")
+    try:
+        workshops.set_subscription_status("W13D", "unpaid")
+        check("未知のsubscription_statusはInvalidSubscriptionStatusErrorが送出される", False)
+    except InvalidSubscriptionStatusError:
+        check("未知のsubscription_statusはInvalidSubscriptionStatusErrorが送出される", True)
+    check(
+        "送出後も既存のsubscription_statusは書き換わらない",
+        workshops.get_subscription_status("W13D") == "active",
     )
 
 
@@ -801,6 +859,10 @@ if __name__ == "__main__":
     test_process_generation_request_marks_trial_generation_used_on_first_success()
     test_process_generation_request_keeps_trial_generation_used_true_on_later_success()
     test_process_generation_request_does_not_mark_trial_generation_used_when_member_removed()
+    test_stripe_customer_id_defaults_to_none_and_can_be_set()
+    test_subscription_status_defaults_to_trialing()
+    test_set_subscription_status_accepts_all_declared_values()
+    test_set_subscription_status_rejects_unknown_value()
     test_process_generation_request_applies_reduction_before_usage_check()
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()

@@ -714,13 +714,26 @@
   承認不要なプロトタイプコード実装・テスト追加・設計doc記載更新のみで、外部サービスへの
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
+- フェーズ49(2026-09-08 21:00 UTC): subscription-billing-data-model-design.md
+  (フェーズ46)「4. 未検証・残課題」1点目のうち、`WorkshopStoreProtocol`への
+  `get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`/
+  `set_subscription_status`メソッド追加を実装した(`InMemoryWorkshopStore`にも対応する
+  実装を追加)。`subscription_status`は未契約(トライアル中)workshopの初期値を
+  `"trialing"`とし、design.md1節が列挙した4値("trialing"/"active"/"past_due"/
+  "canceled")以外を設定しようとした場合は新設の`InvalidSubscriptionStatusError`を
+  送出してデータ不整合を早期検知するようにした。Checkout Session発行フロー・Stripe
+  Webhookの署名検証・イベントディスパッチの実装、およびフェーズ48で見送った
+  `is_trial_period_over`の生成一時停止への配線は、引き続き次の課題として残す
+  (`current_period_end`フィールドの読み書きも未着手)。新規テスト4件追加、venture全体
+  92件→101件全件(`python3 prototype/test_usage_counter_workshop.py`)・schema検証
+  23件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  プロトタイプコード実装・テスト追加・設計doc記載更新のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
 ## 次にやること(候補)
 
-- subscription-billing-data-model-design.md(フェーズ46)の「未検証・残課題」:
-  `WorkshopStoreProtocol`への`get_stripe_customer_id`/`set_stripe_customer_id`/
-  `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
-  Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
+- subscription-billing-data-model-design.md(フェーズ46・49)の残課題: Checkout Session
+  発行フロー、Stripe Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
   stripe-webhook-http-entry-point-design.md相当)を設計・実装する。フェーズ48で
   見送った`is_trial_period_over`の生成一時停止配線は、この完了後に着手する。
 - trial-end-condition-design.md(フェーズ47・48)の残課題: `trial_start_at`をworkshop
@@ -737,6 +750,6 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 20:00 UTC(フェーズ48: `trial_generation_used`を生成成功時に
-Trueへ更新する書き込み処理を実装。生成一時停止配線は有償契約判定手段の実装後に見送りと
-明記)
+最終更新: 2026-09-08 21:00 UTC(フェーズ49: `WorkshopStoreProtocol`に
+`get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`/
+`set_subscription_status`を追加実装。生成一時停止配線はStripe Webhook実装後に着手予定)

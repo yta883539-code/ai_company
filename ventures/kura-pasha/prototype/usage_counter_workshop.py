@@ -76,6 +76,17 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   配線は、有償契約判定手段(`get_subscription_status`等)が実装された後にまとめて
   対応する方が安全と判断し、trial-end-condition-design.md「6. 今後の課題」を更新して
   明記した。
+- フェーズ49: subscription-billing-data-model-design.md(フェーズ46)「4. 未検証・
+  残課題」1点目のうち、`WorkshopStoreProtocol`への`get_stripe_customer_id`/
+  `set_stripe_customer_id`/`get_subscription_status`/`set_subscription_status`
+  メソッド追加を行った(同design.md1節で確定した`craftsman_workshop`側フィールド配置を
+  そのまま反映)。`subscription_status`は未契約(トライアル中)workshopの初期値を
+  `"trialing"`とし、design.mdが列挙した4値("trialing"/"active"/"past_due"/
+  "canceled")以外を`set_subscription_status`に渡した場合は
+  `InvalidSubscriptionStatusError`を送出してデータ不整合を早期検知する。Checkout
+  Session発行フロー・Stripe Webhookの署名検証・イベントディスパッチの実装、および
+  フェーズ48で見送った`is_trial_period_over`の生成一時停止への配線は、引き続き次の
+  課題として残す(`current_period_end`フィールドの読み書きも未着手)。
 """
 
 from __future__ import annotations
@@ -106,6 +117,12 @@ class UnknownPlanError(Exception):
     """workshopのplan_idがPLAN_LIMITSに存在しない場合に送出する(データ不整合)。"""
 
 
+class InvalidSubscriptionStatusError(Exception):
+    """`subscription_status`にSUBSCRIPTION_STATUSES以外の値を設定しようとした場合に
+    送出する(データ不整合の早期検知)。
+    """
+
+
 class MemberRemovedError(Exception):
     """downgrade-excess-member-handling-design.md 3節の縮小処理によって
     member_user_idsから除外されたuser_idから生成リクエストが来た場合に送出する。
@@ -126,6 +143,10 @@ PENDING_CONTRACTOR_TRANSFER_EXPIRY_HOURS = 24
 
 # trial-end-condition-design.md(フェーズ47)確定値。pricing-plan.md「無料トライアル条件(仮)」。
 TRIAL_PERIOD_DAYS = 30
+
+# subscription-billing-data-model-design.md(フェーズ46)1節で確定した
+# `craftsman_workshop.subscription_status`の許容値。
+SUBSCRIPTION_STATUSES = ("trialing", "active", "past_due", "canceled")
 
 
 @dataclass
@@ -209,6 +230,29 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_stripe_customer_id(self, workshop_id: str) -> Optional[str]:
+        """subscription-billing-data-model-design.md 1節: 未契約(トライアル中含む)は
+        Noneを返す。
+        """
+        ...
+
+    def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
+        """Checkout Session完了時にStripe顧客IDをworkshop側へ紐付ける書き込み処理。"""
+        ...
+
+    def get_subscription_status(self, workshop_id: str) -> str:
+        """subscription-billing-data-model-design.md 1節: SUBSCRIPTION_STATUSESの
+        いずれかを返す(未契約・トライアル中のworkshopは"trialing")。
+        """
+        ...
+
+    def set_subscription_status(self, workshop_id: str, status: str) -> None:
+        """Stripe Webhookのイベントディスパッチから呼び出される想定の更新処理。
+        statusがSUBSCRIPTION_STATUSESに含まれない場合はInvalidSubscriptionStatusErrorを
+        送出する。
+        """
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -243,6 +287,8 @@ class InMemoryWorkshopStore:
         self._pending_contractor_transfer_by_workshop: dict[str, PendingContractorTransfer] = {}
         self._trial_start_at_by_workshop: dict[str, datetime] = {}
         self._trial_generation_used_by_workshop: dict[str, bool] = {}
+        self._stripe_customer_id_by_workshop: dict[str, str] = {}
+        self._subscription_status_by_workshop: dict[str, str] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -317,6 +363,22 @@ class InMemoryWorkshopStore:
 
     def get_trial_generation_used(self, workshop_id: str) -> bool:
         return self._trial_generation_used_by_workshop.get(workshop_id, False)
+
+    def get_stripe_customer_id(self, workshop_id: str) -> Optional[str]:
+        return self._stripe_customer_id_by_workshop.get(workshop_id)
+
+    def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
+        self._stripe_customer_id_by_workshop[workshop_id] = stripe_customer_id
+
+    def get_subscription_status(self, workshop_id: str) -> str:
+        return self._subscription_status_by_workshop.get(workshop_id, "trialing")
+
+    def set_subscription_status(self, workshop_id: str, status: str) -> None:
+        if status not in SUBSCRIPTION_STATUSES:
+            raise InvalidSubscriptionStatusError(
+                f"unknown subscription_status: {status!r} (expected one of {SUBSCRIPTION_STATUSES})"
+            )
+        self._subscription_status_by_workshop[workshop_id] = status
 
 
 class InMemoryUsageCounterStore:

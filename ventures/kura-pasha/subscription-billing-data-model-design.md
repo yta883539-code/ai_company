@@ -71,11 +71,18 @@ Webhook受信時に更新すべきドキュメントも`user_profile/{user_id}`�
 
 ## 4. 未検証・残課題
 
-- 本ファイルはデータモデルの配置のみを確定するものであり、`WorkshopStoreProtocol`への
-  `get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`等の
-  メソッド追加、Checkout Session発行フロー、Stripe Webhookの署名検証・イベント
-  ディスパッチの実装(course-set-pasha/stripe-webhook-http-entry-point-design.md相当)は
-  いずれも次の課題として残す。
+- (対応済み 2026-09-08 21:00 UTC・フェーズ49): `WorkshopStoreProtocol`への
+  `get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`/
+  `set_subscription_status`メソッド追加は`prototype/usage_counter_workshop.py`に実装した。
+  `subscription_status`は未契約(トライアル中)workshopの初期値を`"trialing"`とし、
+  `SUBSCRIPTION_STATUSES`(4値)以外を設定しようとした場合は`InvalidSubscriptionStatusError`
+  を送出する。テスト4件追加、全101件パス。
+- Checkout Session発行フロー、Stripe Webhookの署名検証・イベントディスパッチの実装
+  (course-set-pasha/stripe-webhook-http-entry-point-design.md相当)は次の課題として残す。
+  これが完了し次第、フェーズ48で見送った`is_trial_period_over`の生成一時停止への配線
+  (`get_subscription_status`が`"active"`のworkshopは生成を止めない、という条件を
+  追加する形になる見込み)に着手する。
+- `current_period_end`フィールドの読み書きメソッドは未着手。
 - トライアル条件(pricing-plan.md「無料トライアル条件(仮)」: 初回生成成功から1回無料、
   または30日間のいずれか早い方)を`trial_start_at`起算でどう判定するかの具体的な関数設計
   (他venture`trial-end-condition-a-*-design.md`相当)は未着手。
