@@ -17,6 +17,7 @@ from usage_counter_workshop import (
     check_and_expire_pending_contractor_transfer,
     check_and_increment_usage,
     ensure_member_is_active,
+    get_contractor_transfer_expired_notice_context,
     is_contractor_transfer_confirmation_context,
     process_generation_request,
     resolve_contractor_transfer_target,
@@ -485,6 +486,59 @@ def test_check_and_expire_pending_contractor_transfer_noop_within_expiry():
     )
 
 
+def test_get_contractor_transfer_expired_notice_context_returns_pending_after_expiry():
+    """contractor-transfer-expired-notice-design.md 1節: 契約者本人からのメッセージで、
+    かつ期限切れが検出された場合に(削除前の)PendingContractorTransferを返すことを
+    検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W30", "CONTRACTOR30", ["MEMBER30"])
+    start_pending_contractor_transfer("W30", "MEMBER30", "弟子花子", FEB, workshops)
+
+    after_expiry = FEB + timedelta(hours=25)
+    result = get_contractor_transfer_expired_notice_context("CONTRACTOR30", "W30", after_expiry, workshops)
+    check(
+        "契約者本人・期限切れ後はPendingContractorTransferが返る",
+        result is not None and result.candidate_member_name == "弟子花子",
+    )
+    check(
+        "期限切れ検出によりpending_contractor_transferが削除される",
+        workshops.get_pending_contractor_transfer("W30") is None,
+    )
+
+
+def test_get_contractor_transfer_expired_notice_context_none_for_non_contractor():
+    """契約者以外からのメッセージの場合はcheck_and_expire自体を呼び出さずNoneを返す
+    (2節「受信メッセージの本来の用件は今回処理しない」の前提となる契約者限定の
+    スコープ)ことを検証する。期限切れ後もpending状態自体は変更されない。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W31", "CONTRACTOR31", ["MEMBER31"])
+    start_pending_contractor_transfer("W31", "MEMBER31", "弟子", FEB, workshops)
+
+    after_expiry = FEB + timedelta(hours=25)
+    result = get_contractor_transfer_expired_notice_context("MEMBER31", "W31", after_expiry, workshops)
+    check("契約者以外はNoneを返す", result is None)
+    check(
+        "契約者以外からの場合はpending_contractor_transferが削除されない",
+        workshops.get_pending_contractor_transfer("W31") is not None,
+    )
+
+
+def test_get_contractor_transfer_expired_notice_context_none_within_expiry():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W32", "CONTRACTOR32", ["MEMBER32"])
+    start_pending_contractor_transfer("W32", "MEMBER32", "弟子", FEB, workshops)
+
+    within_expiry = FEB + timedelta(hours=1)
+    result = get_contractor_transfer_expired_notice_context("CONTRACTOR32", "W32", within_expiry, workshops)
+    check("期限内はNoneを返す(is_contractor_transfer_confirmation_context側の経路)", result is None)
+    check(
+        "期限内はpending_contractor_transferが維持される",
+        workshops.get_pending_contractor_transfer("W32") is not None,
+    )
+
+
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
@@ -516,6 +570,9 @@ if __name__ == "__main__":
     test_cancel_pending_contractor_transfer_clears_without_updating_contractor()
     test_check_and_expire_pending_contractor_transfer_clears_and_returns_when_expired()
     test_check_and_expire_pending_contractor_transfer_noop_within_expiry()
+    test_get_contractor_transfer_expired_notice_context_returns_pending_after_expiry()
+    test_get_contractor_transfer_expired_notice_context_none_for_non_contractor()
+    test_get_contractor_transfer_expired_notice_context_none_within_expiry()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)

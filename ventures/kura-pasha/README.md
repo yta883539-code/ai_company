@@ -545,6 +545,27 @@
   (変更前と同じ結果)。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント
   作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ40(2026-09-08 06:00 UTC): フェーズ39の残課題だった、contractor-transfer-
+  expired-notice-design.mdのschema/output.schema.json・validate_test_cases.py・
+  prototypeへの反映を行った。schema側は`status`のenumへ`contractor_transfer_expired_
+  notice`の1値、これに対応する`contractor_transfer_expired_notice`(kind/candidate_
+  member_name/body)フィールドを追加し、既存のcontractor_transfer_confirmation等と
+  同じ設計思想(kindはstatusと冗長だがbody生成分岐用、candidate_member_nameは常に
+  非null)を踏襲した。validate_test_cases.pyには期待出力テストケース1件(CTE1)に加え、
+  ネガティブテストケース2件(statusが別値なのにフィールドが非nullのまま残る排他性違反
+  〈NEG6〉、design.md3節「常に非null」に違反するcandidate_member_name null制約違反
+  〈NEG7〉)を追加した(design.md4節が挙げていた1件に、排他性違反の1件を追加した)。
+  prototype側は`check_and_expire_pending_contractor_transfer`の呼び出し元配線・
+  文脈注入条件として`get_contractor_transfer_expired_notice_context`を新設した。
+  design.md1節は`is_contractor_transfer_confirmation_context`と対になる関数名として
+  `is_`接頭辞の例を挙げていたが、本関数はbool単体ではなくLLMへ転記するcandidate_
+  member_nameを含むPendingContractorTransfer自体を返す必要があるため`get_`接頭辞と
+  した(design.md4節に命名差分として記録済み)。テスト3件追加、venture全体70件全件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件全件
+  (`python3 schema/validate_test_cases.py`)パスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
+  していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -554,10 +575,9 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- contractor-transfer-expired-notice-design.md(フェーズ39)のschema/output.schema.json・
-  validate_test_cases.py・prototypeへの反映(新規enum値1つ・`contractor_transfer_expired_
-  notice`フィールド追加、クロスフィールド検証、期待出力・ネガティブ各1件のテストケース
-  追加、文脈注入条件の実装)。
+- 契約者以外(譲渡候補本人や第三者)が期限切れ後に何かメッセージを送ってきた場合の扱いは
+  contractor-transfer-expired-notice-design.md4節に範囲外として残る未着手課題。
+- 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 04:00 UTC(フェーズ39: 期限切れ後の案内文言のschema・プロンプト
-設計)
+最終更新: 2026-09-08 06:00 UTC(フェーズ40: 期限切れ後の案内文言のschema/prototype
+反映)

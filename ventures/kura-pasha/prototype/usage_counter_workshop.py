@@ -41,6 +41,14 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   `is_contractor_transfer_confirmation_context`・`cancel_pending_contractor_transfer`・
   `check_and_expire_pending_contractor_transfer`)。期限切れ後の案内文言自体の
   schema・プロンプト設計(同ファイル5節1点目)は引き続き次の課題として残す。
+- フェーズ40: contractor-transfer-expired-notice-design.md(フェーズ39、schema反映も
+  本フェーズ)「4. 未検証・残課題」2点目に残っていた、`check_and_expire_pending_
+  contractor_transfer`の呼び出し元への配線・文脈注入条件の実装に対応した
+  (`get_contractor_transfer_expired_notice_context`)。design.md1節は
+  `is_contractor_transfer_confirmation_context`と対になる関数名(`is_`接頭辞)を例示
+  していたが、本関数はbool単体ではなくLLMへ転記するcandidate_member_nameを含む
+  `PendingContractorTransfer`自体を返す必要があるため、`is_`ではなく`get_`接頭辞とした
+  (契約者以外からのメッセージの場合はcheck_and_expire自体を呼ばずNoneを返す)。
 """
 
 from __future__ import annotations
@@ -604,3 +612,24 @@ def check_and_expire_pending_contractor_transfer(
         return None
     workshop_store.clear_pending_contractor_transfer(workshop_id)
     return pending
+
+
+def get_contractor_transfer_expired_notice_context(
+    user_id: str,
+    workshop_id: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+) -> Optional[PendingContractorTransfer]:
+    """contractor-transfer-expired-notice-design.md 1節: メッセージ送信者がcontractor_
+    user_idと一致する場合に限りcheck_and_expire_pending_contractor_transferを呼び出し、
+    期限切れが検出された場合はその(削除前の)値を返す。呼び出し側はNone以外が返った
+    場合のみstatus=contractor_transfer_expired_notice文脈をLLM呼び出しに注入し、返り値の
+    candidate_member_nameをcontractor_transfer_expired_notice.candidate_member_nameへ
+    そのまま転記する(is_contractor_transfer_confirmation_contextとは排他的、同design.md
+    1節)。契約者以外からのメッセージの場合はcheck_and_expire自体を呼び出さず(2節
+    「受信メッセージの本来の用件は今回処理しない」の前提となる契約者限定のスコープを
+    踏襲)、Noneを返す。
+    """
+    if user_id != workshop_store.get_contractor_user_id(workshop_id):
+        return None
+    return check_and_expire_pending_contractor_transfer(workshop_id, now, workshop_store)

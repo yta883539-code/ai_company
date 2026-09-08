@@ -259,6 +259,44 @@ def validate_cross_field_rules(instance, path="$"):
         if confirmation is not None:
             errors.append(f"{path}: status={status!r}のときcontractor_transfer_confirmationはnullである必要があります")
 
+    # 2026-09-08 06:00 UTC追加(フェーズ40): contractor-transfer-expired-notice-design.md
+    # 対応のstatus1値(contractor_transfer_expired_notice)の非null制約チェック。
+    # confirmation用のロジックと同じ設計思想を踏襲。candidate_member_nameは常に非null
+    # (design.md3節、この文脈が注入される時点で必ず候補者名が存在するため)。
+    expired_notice = instance.get("contractor_transfer_expired_notice")
+    if status == "contractor_transfer_expired_notice":
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+        if instance.get("member_retention_notice") is not None:
+            errors.append(f"{path}: status={status}のときmember_retention_noticeはnullである必要があります")
+        if transfer_notice is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_noticeはnullである必要があります")
+        if confirmation is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_confirmationはnullである必要があります")
+        if expired_notice is None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_expired_noticeは非nullである必要があります")
+        else:
+            if expired_notice.get("kind") != status:
+                errors.append(
+                    f"{path}.contractor_transfer_expired_notice.kind: status({status!r})と"
+                    f"一致していません(実際={expired_notice.get('kind')!r})"
+                )
+            if expired_notice.get("candidate_member_name") is None:
+                errors.append(
+                    f"{path}.contractor_transfer_expired_notice.candidate_member_name: "
+                    "常に非nullである必要があります(design.md3節)"
+                )
+    else:
+        if expired_notice is not None:
+            errors.append(f"{path}: status={status!r}のときcontractor_transfer_expired_noticeはnullである必要があります")
+
     return errors
 
 
@@ -295,6 +333,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -328,6 +367,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -340,6 +380,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -352,6 +393,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -364,6 +406,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
     # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
@@ -386,6 +429,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
     "C2_downgrade_intent": {
@@ -406,6 +450,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
     "C3_cancellation_unclear": {
@@ -423,6 +468,7 @@ TEST_CASES = {
         "member_retention_notice": None,
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
@@ -441,6 +487,7 @@ TEST_CASES = {
         },
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # member-retention-notice-design.md「2. 検知パターンの整理」2(不明確)相当の期待出力。
     "M2_member_retention_unclear": {
@@ -458,6 +505,7 @@ TEST_CASES = {
         },
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # 2026-09-07 17:58 UTC追加(フェーズ34): contractor-transfer-design.md「3. 確定する設計」
     # (名指しされた相手がmember_user_idsに含まれる場合)相当の期待出力。
@@ -476,6 +524,7 @@ TEST_CASES = {
             "body": "山田様を新しい契約者として設定します。よろしいですか?",
         },
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # contractor-transfer-design.md「3. 確定する設計」(名指しされた相手がmember_user_idsに
     # 含まれない場合、まだworkshopに参加していない第三者を指定した場合を含む)相当の期待出力。
@@ -494,6 +543,7 @@ TEST_CASES = {
             "body": "先に招待コードでworkshopへ加わっていただいてから、改めて契約者交代のご連絡をください。",
         },
         "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
     },
     # 2026-09-08 02:00 UTC追加(フェーズ37): contractor-transfer-confirmation-detection-design.md
     # 「3. 検知パターン・schema拡張」1(肯定)相当の期待出力。
@@ -511,6 +561,7 @@ TEST_CASES = {
             "kind": "contractor_transfer_confirmed",
             "body": "契約者を山田様に変更いたしました。",
         },
+        "contractor_transfer_expired_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」2
     # (否定)相当の期待出力。
@@ -528,6 +579,7 @@ TEST_CASES = {
             "kind": "contractor_transfer_cancelled",
             "body": "契約者交代の手続きを取り消しました。現在の契約者のまま変更ございません。",
         },
+        "contractor_transfer_expired_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」3
     # (不明瞭)相当の期待出力。
@@ -544,6 +596,29 @@ TEST_CASES = {
         "contractor_transfer_confirmation": {
             "kind": "contractor_transfer_reconfirm_unclear",
             "body": "契約者交代についてのご返信でよろしいでしょうか?「はい」か「いいえ」でお知らせください。",
+        },
+        "contractor_transfer_expired_notice": None,
+    },
+    # 2026-09-08 06:00 UTC追加(フェーズ40): contractor-transfer-expired-notice-design.md
+    # 「3. status・schema拡張」相当の期待出力。
+    "CTE1_contractor_transfer_expired_notice": {
+        "status": "contractor_transfer_expired_notice",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": {
+            "kind": "contractor_transfer_expired_notice",
+            "candidate_member_name": "山田",
+            "body": (
+                "契約者交代(山田様への変更)の確認期限が過ぎたため、手続きを一旦"
+                "取り消しました。交代をご希望の場合は、お手数ですが改めてご連絡ください。"
+            ),
         },
     },
 }
@@ -574,6 +649,7 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
     "member_retention_notice": None,
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
 }
 
 # 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
@@ -593,6 +669,7 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
     "member_retention_notice": None,
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
 }
 
 # 2026-09-07 13:02 UTC追加。member_retention_notice.kindがstatusと不一致な不正フィクスチャ
@@ -613,6 +690,7 @@ NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH = {
     },
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
 }
 
 # 2026-09-07 17:58 UTC追加(フェーズ34)。contractor_transfer_notice.kindがstatusと
@@ -634,6 +712,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH = {
         "body": "先に招待コードでworkshopへ加わっていただいてから、改めて契約者交代のご連絡をください。",
     },
     "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
 }
 
 # 2026-09-08 02:00 UTC追加(フェーズ37)。contractor_transfer_confirmation.kindがstatusと
@@ -653,6 +732,55 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_CONFIRMATION_KIND_MISMATCH = {
     "contractor_transfer_confirmation": {
         "kind": "contractor_transfer_confirmed",
         "body": "契約者交代の手続きを取り消しました。現在の契約者のまま変更ございません。",
+    },
+    "contractor_transfer_expired_notice": None,
+}
+
+# 2026-09-08 06:00 UTC追加(フェーズ40)。contractor_transfer_expired_notice.kindは固定
+# enum値1つしか取り得ないため他フィールドのような値違いのkind不一致は起こり得ないが、
+# 代わりに「statusが別値なのにcontractor_transfer_expired_noticeが非nullのまま残って
+# しまう」誤り(排他性違反)を仕込んだ不正フィクスチャ。validate_cross_field_rulesが
+# 検出できることを確認するためのネガティブテスト。
+NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_PRESENT_WHEN_STATUS_MISMATCH = {
+    "status": "contractor_transfer_cancelled",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": None,
+    "contractor_transfer_notice": None,
+    "contractor_transfer_confirmation": {
+        "kind": "contractor_transfer_cancelled",
+        "body": "契約者交代の手続きを取り消しました。現在の契約者のまま変更ございません。",
+    },
+    "contractor_transfer_expired_notice": {
+        "kind": "contractor_transfer_expired_notice",
+        "candidate_member_name": "山田",
+        "body": "契約者交代(山田様への変更)の確認期限が過ぎたため、手続きを一旦取り消しました。",
+    },
+}
+
+# 2026-09-08 06:00 UTC追加(フェーズ40)。contractor-transfer-expired-notice-design.md3節
+# 「常に非null(この文脈が注入される時点で必ず候補者名が存在するため)」に違反する
+# 不正フィクスチャ(candidate_member_nameがnullのまま出力してしまうケースを想定)。
+# validate_cross_field_rulesが検出できることを確認するためのネガティブテスト。
+NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_NAME_NULL = {
+    "status": "contractor_transfer_expired_notice",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": None,
+    "contractor_transfer_notice": None,
+    "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": {
+        "kind": "contractor_transfer_expired_notice",
+        "candidate_member_name": None,
+        "body": "契約者交代の確認期限が過ぎたため、手続きを一旦取り消しました。",
     },
 }
 
@@ -735,6 +863,42 @@ def main():
     else:
         failed += 1
         print("[NG] NEG5_contractor_transfer_confirmation_kind_mismatch_is_detected: kind不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: statusが別値なのにcontractor_transfer_expired_noticeが非nullの
+    # まま残ってしまう排他性違反がちゃんと検出されることを確認する
+    total += 1
+    neg_errors6 = validate_against_schema(
+        NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_PRESENT_WHEN_STATUS_MISMATCH, SCHEMA
+    )
+    neg_errors6 += validate_cross_field_rules(
+        NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_PRESENT_WHEN_STATUS_MISMATCH
+    )
+    if neg_errors6:
+        print("[OK] NEG6_contractor_transfer_expired_notice_present_when_status_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors6:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print(
+            "[NG] NEG6_contractor_transfer_expired_notice_present_when_status_mismatch_is_detected: "
+            "排他性違反を検出できませんでした(バリデータの不備)"
+        )
+
+    # ネガティブテスト: contractor_transfer_expired_notice.candidate_member_nameのnull
+    # 制約違反(design.md3節「常に非null」)がちゃんと検出されることを確認する
+    total += 1
+    neg_errors7 = validate_against_schema(NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_NAME_NULL, SCHEMA)
+    neg_errors7 += validate_cross_field_rules(NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_NAME_NULL)
+    if neg_errors7:
+        print("[OK] NEG7_contractor_transfer_expired_notice_name_null_is_detected (想定通りエラー検出)")
+        for e in neg_errors7:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print(
+            "[NG] NEG7_contractor_transfer_expired_notice_name_null_is_detected: "
+            "candidate_member_nameのnull制約違反を検出できませんでした(バリデータの不備)"
+        )
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

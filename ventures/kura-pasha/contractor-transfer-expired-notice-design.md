@@ -80,18 +80,24 @@ notice`は必ずnull(他フィールドと同様、コード側検証で担保)�
 
 ## 4. 未検証・残課題
 
-- schema/output.schema.json(status enum・新規フィールド)・validate_test_cases.pyへの
-  反映(期待出力テストケース1件、`candidate_member_name`のnull制約違反を検出する
-  ネガティブテストケース1件)は次の課題として残す。フェーズ37(contractor_transfer_
-  confirmation追加時)と同様の反映パターンを踏襲する想定。
-- `check_and_expire_pending_contractor_transfer`の呼び出し元(webhook受信処理相当)への
-  配線、および1節の文脈注入条件の実装(`is_contractor_transfer_confirmation_context`と
-  対になる新関数、例: `is_contractor_transfer_expired_notice_context`)はprototype/
-  usage_counter_workshop.py側で未着手。
+- (解消済み 2026-09-08 06:00 UTC・フェーズ40: schema/output.schema.json〈status enum・
+  新規フィールドcontractor_transfer_expired_notice〉・validate_test_cases.pyへの反映を
+  行った。期待出力テストケース1件〈CTE1〉、`candidate_member_name`のnull制約違反を検出
+  するネガティブテストケース1件〈NEG7〉に加え、statusが別値なのにフィールドが非null
+  のまま残る排他性違反を検出するネガティブテストケース1件〈NEG6〉も追加した。
+  venture全体schema検証23件全件パス)
+- (解消済み 2026-09-08 06:00 UTC・フェーズ40: `check_and_expire_pending_contractor_
+  transfer`の呼び出し元(webhook受信処理相当)への配線、および1節の文脈注入条件の
+  実装として`get_contractor_transfer_expired_notice_context`をprototype/usage_
+  counter_workshop.pyに追加した。design.mdは`is_contractor_transfer_confirmation_
+  context`と対になる関数名として`is_`接頭辞の例を挙げていたが、本関数はbool単体では
+  なくLLMへ転記するcandidate_member_nameを含むPendingContractorTransfer自体を返す
+  必要があるため`get_`接頭辞とした点は命名上の差分として記録する。テスト3件追加、
+  venture全体70件全件パス)
 - 契約者以外(譲渡候補本人や第三者)が期限切れ後に何かメッセージを送ってきた場合の扱い
   (本ファイルは契約者からのメッセージのみを対象とする、フェーズ36 2節の前提を踏襲)は
   範囲外のまま。
 - 実際のLINE公式アカウント接続・実LLM検証は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 
-最終更新: 2026-09-08 04:00 UTC(フェーズ39)
+最終更新: 2026-09-08 06:00 UTC(フェーズ40)
