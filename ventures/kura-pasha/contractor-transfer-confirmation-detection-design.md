@@ -99,9 +99,12 @@ course-set-pashaの解約意図検知、および本venture既存のmember_reten
 
 ## 5. 未検証・残課題
 
-- 4節の「期限切れ後の案内文言」自体のschema・プロンプト設計(新たなstatus値が必要か、
-  既存のinsufficient_input等で代替できるか)は本ファイルでは扱わず、次回以降の課題と
-  する。
+- (解消済み 2026-09-08 04:00 UTC・フェーズ39: 4節の「期限切れ後の案内文言」自体の
+  schema・プロンプト設計はcontractor-transfer-expired-notice-design.mdで設計した。
+  新たなstatus値`contractor_transfer_expired_notice`を追加する方針とし、既存の
+  insufficient_input等では代替せず専用の文脈注入条件・フィールドを新設した。schema/
+  output.schema.json・validate_test_cases.py・prototypeへの反映は同ファイル4節の
+  残課題として引き続き残る)
 - schema/output.schema.json・validate_test_cases.pyへの反映(新規enum値3つ・
   `contractor_transfer_confirmation`フィールド追加、クロスフィールド検証、新規テスト
   ケース・ネガティブテストケース追加)は次の課題として残す。

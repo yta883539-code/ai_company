@@ -532,6 +532,19 @@
   残した。承認不要なコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ39(2026-09-08 04:00 UTC): 「次にやること」4点目だった、期限切れ後の案内
+  文言自体のschema・プロンプト設計をcontractor-transfer-expired-notice-design.mdとして
+  新規作成した。`check_and_expire_pending_contractor_transfer`(フェーズ38実装済み)が
+  非Noneを返した(=直前に期限切れを検出した)場合に限り新設の文脈を注入し、受信メッセージ
+  の内容によらずstatusを`contractor_transfer_expired_notice`に強制する設計とした。新規
+  フィールド`contractor_transfer_expired_notice`(kind/candidate_member_name/body)は
+  既存のcontractor_transfer_notice等と同じ設計思想(kindはstatusと冗長だがbody生成分岐
+  用)を踏襲した。schema/output.schema.json・validate_test_cases.py・prototypeへの反映
+  は次の課題として残した。コード変更は無く、venture全体64件(`python3 prototype/
+  test_usage_counter_workshop.py`)・schema検証20件(変更なし)いずれもパスを確認した
+  (変更前と同じ結果)。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -541,9 +554,10 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 期限切れ後の案内文言自体のschema・プロンプト設計(contractor-transfer-confirmation-
-  detection-design.md 5節1点目の残課題)。`check_and_expire_pending_contractor_transfer`
-  (フェーズ38実装済み)の戻り値をどう案内文言生成に繋げるかを含む。
+- contractor-transfer-expired-notice-design.md(フェーズ39)のschema/output.schema.json・
+  validate_test_cases.py・prototypeへの反映(新規enum値1つ・`contractor_transfer_expired_
+  notice`フィールド追加、クロスフィールド検証、期待出力・ネガティブ各1件のテストケース
+  追加、文脈注入条件の実装)。
 
-最終更新: 2026-09-08 03:00 UTC(フェーズ38: `pending_contractor_transfer`一時状態の
-読み書き実装)
+最終更新: 2026-09-08 04:00 UTC(フェーズ39: 期限切れ後の案内文言のschema・プロンプト
+設計)
