@@ -658,8 +658,36 @@
   承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ46(2026-09-08 17:00 UTC): 本ventureにはこれまでStripe課金関連の
+  データモデルが一度も設計されていなかったことに気付き、
+  subscription-billing-data-model-design.mdを新規作成した。他3venture
+  (aircon-pasha等)は「1事業者=1LINEアカウント=1契約者」構造のため
+  `user_profile`に`stripe_customer_id`等を直接持たせるが、本ventureは複数職人プランで
+  複数のuser_idが1つの`craftsman_workshop/{workshop_id}`を共同利用し支払い名義人は
+  `contractor_user_id`一人に限定される構造(subscription-cancellation-flow-design.md
+  「複数職人プラン固有の論点」)であるため、`stripe_customer_id`・
+  `subscription_status`・`trial_start_at`・`current_period_end`はworkshop側の
+  フィールドとして持たせる設計とした。この配置により、契約者交代
+  (contractor-transfer-design.md)発生時もStripe側の顧客・サブスクリプション情報を
+  何も変更する必要がなくなり、aircon-pashaフェーズ199・200で発見・横断確認された
+  「再連携時にUserProfileを丸ごと上書きし決済関連フィールドが消える」バグと同種の
+  問題を構造的に発生させない設計上の利点があることも整理した。`resolve_user_id`の
+  解決先が他venture(`stripe_customer_id → user_id`)と異なり
+  `stripe_customer_id → workshop_id`になる点も明記した。コード変更は無く、venture全体
+  83件全件(`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
+- subscription-billing-data-model-design.md(フェーズ46)の「未検証・残課題」:
+  `WorkshopStoreProtocol`への`get_stripe_customer_id`/`set_stripe_customer_id`/
+  `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
+  Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
+  stripe-webhook-http-entry-point-design.md相当)を設計・実装する。
+- pricing-plan.md「無料トライアル条件(仮)」の判定関数設計(他venture
+  `trial-end-condition-a-*-design.md`相当、`trial_start_at`起算での判定)。
 - unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
   `user_profile`の`is_following`相当フィールドの実装後に、「ブロック中かつ契約継続中」
   契約者の検知バッチを設計する。landing-page-copy-draft.md新規作成時にFAQ文面を反映する。
@@ -672,5 +700,5 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 15:00 UTC(フェーズ45: 「ブロックしたのに課金だけ続く」問い合わせ
-対応FAQ・返信テンプレートをunfollow-billing-faq.mdとして新規作成)
+最終更新: 2026-09-08 17:00 UTC(フェーズ46: Stripe課金データモデルの配置設計を
+subscription-billing-data-model-design.mdとして新規作成)
