@@ -696,17 +696,35 @@
   作成・プロトタイプコード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ48(2026-09-08 20:00 UTC): trial-end-condition-design.md(フェーズ47)
+  「6. 今後の課題」1点目のうち、`trial_generation_used`を生成成功時にTrueへ更新する
+  書き込み処理を実装した。`WorkshopStoreProtocol`に`set_trial_generation_used`を追加し、
+  `process_generation_request`が`check_and_increment_usage`成功後、未設定であれば1回だけ
+  Trueへ更新するようにした(`MemberRemovedError`等でusage加算まで到達しなかった場合は
+  更新されないことを新規テストで確認)。同課題のもう一方(`is_trial_period_over`を
+  トライアル終了後の生成一時停止に組み込む配線)は意図的に見送った。`WorkshopStoreProtocol`
+  にはまだ有償契約状態(`subscription_status`相当)を判定する手段が無く(subscription-
+  billing-data-model-design.mdフェーズ46「未検証・残課題」1点目が未着手のため)、この状態で
+  `is_trial_period_over`の結果だけを使って生成を止めると、30日経過後に正規に有償契約した
+  利用者まで永久に生成できなくなる(トライアル終了判定と有償契約済み判定を混同する)バグを
+  自ら作り込むことになるため、有償契約判定手段の実装後にまとめて対応する方針とし
+  trial-end-condition-design.md「6. 今後の課題」を更新して明記した。新規テスト3件追加、
+  venture全体87件→92件全件(`python3 prototype/test_usage_counter_workshop.py`)・
+  schema検証23件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なプロトタイプコード実装・テスト追加・設計doc記載更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
 - subscription-billing-data-model-design.md(フェーズ46)の「未検証・残課題」:
   `WorkshopStoreProtocol`への`get_stripe_customer_id`/`set_stripe_customer_id`/
   `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
   Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
-  stripe-webhook-http-entry-point-design.md相当)を設計・実装する。
-- trial-end-condition-design.md(フェーズ47)の「6. 今後の課題」: `trial_generation_used`を
-  生成成功時にTrueへ更新する書き込み処理、`is_trial_period_over`の`process_generation_
-  request`/`select_message_context`への組み込み(トライアル終了後の生成一時停止・案内文言
-  への切り替え)、`trial_start_at`をworkshop作成時に書き込む実処理。
+  stripe-webhook-http-entry-point-design.md相当)を設計・実装する。フェーズ48で
+  見送った`is_trial_period_over`の生成一時停止配線は、この完了後に着手する。
+- trial-end-condition-design.md(フェーズ47・48)の残課題: `trial_start_at`をworkshop
+  作成時に書き込む実処理(craftsman-account-linking-design.mdのworkshop新規作成フロー側)。
 - unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
   `user_profile`の`is_following`相当フィールドの実装後に、「ブロック中かつ契約継続中」
   契約者の検知バッチを設計する。landing-page-copy-draft.md新規作成時にFAQ文面を反映する。
@@ -719,5 +737,6 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 19:00 UTC(フェーズ47: 無料トライアル終了判定関数
-`is_trial_period_over`をtrial-end-condition-design.mdとして設計・プロトタイプコード化)
+最終更新: 2026-09-08 20:00 UTC(フェーズ48: `trial_generation_used`を生成成功時に
+Trueへ更新する書き込み処理を実装。生成一時停止配線は有償契約判定手段の実装後に見送りと
+明記)

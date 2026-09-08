@@ -90,12 +90,30 @@ def is_trial_period_over(
 
 ## 6. 今後の課題
 
-- `trial_generation_used`を生成成功時にTrueへ更新する書き込み処理、および
-  `process_generation_request`/`select_message_context`への`is_trial_period_over`の
-  組み込み(トライアル終了後の生成一時停止・案内文言への切り替え)は未着手。
+- (解消済み 2026-09-08・フェーズ48: `trial_generation_used`を生成成功時にTrueへ更新する
+  書き込み処理を実装した。`WorkshopStoreProtocol.set_trial_generation_used`を追加し、
+  `process_generation_request`が`check_and_increment_usage`成功後、未設定であれば
+  1回だけTrueへ更新する〈`MemberRemovedError`等でusage加算まで到達しなかった場合は
+  更新しない〉。詳細はprototype/usage_counter_workshop.pyのモジュールdocstring
+  フェーズ48参照)
+- `process_generation_request`/`select_message_context`への`is_trial_period_over`の
+  組み込み(トライアル終了後の生成一時停止・案内文言への切り替え)は意図的に見送り、
+  引き続き未着手として残す。理由: `WorkshopStoreProtocol`にはまだ有償契約状態
+  (`subscription_status`相当)を判定する手段が無く(下記2点目・subscription-billing-
+  data-model-design.mdフェーズ46「未検証・残課題」1点目が未着手のため)、この状態で
+  `is_trial_period_over`の結果だけを使って生成を一時停止すると、30日経過後に正規に
+  有償契約した利用者まで永久に生成できなくなる(トライアル終了判定と有償契約済み判定を
+  混同する)バグを自ら作り込むことになる。有償契約判定手段(`get_subscription_status`等)
+  の実装後にまとめて対応する。
+- `WorkshopStoreProtocol`への`get_stripe_customer_id`/`set_stripe_customer_id`/
+  `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
+  Webhookの署名検証・イベントディスパッチの実装(subscription-billing-data-model-design.md
+  フェーズ46「未検証・残課題」、course-set-pasha/stripe-webhook-http-entry-point-design.md
+  相当)は未着手。上記の生成一時停止配線はこれの完了後に着手する。
 - `trial_start_at`をworkshop作成時に書き込む実処理(craftsman-account-linking-design.mdの
   workshop新規作成フロー側)は未実装。本設計は判定関数側のみをプロトタイプコード化する。
 - 実Stripe接続・Checkout Session発行フロー自体は引き続きオーナー承認待ちの範囲
   (pending-approval.md参照)。
 
-最終更新: 2026-09-08 19:00 UTC
+最終更新: 2026-09-08 20:00 UTC(フェーズ48: trial_generation_used書き込み処理を実装、
+生成一時停止配線は有償契約判定手段の実装後に見送りと明記)

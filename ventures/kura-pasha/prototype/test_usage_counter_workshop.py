@@ -260,6 +260,67 @@ def test_process_generation_request_normal_case_no_pending_reduction():
     check("usageは1回目としてカウントされる", result.usage.count_after_increment == 1)
 
 
+def test_process_generation_request_marks_trial_generation_used_on_first_success():
+    """フェーズ48: 生成成功時にtrial_generation_usedが未設定(False)からTrueへ
+    1回だけ更新されることを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12B", "W12B")
+    workshops.set_plan("W12B", "standard")
+    workshops.set_members("W12B", "U12B", ["U12B"])
+
+    check(
+        "生成前はtrial_generation_used未設定(False)",
+        workshops.get_trial_generation_used("W12B") is False,
+    )
+    process_generation_request("U12B", FEB, profiles, workshops, counters)
+    check(
+        "1回目の生成成功後にtrial_generation_usedがTrueへ更新される",
+        workshops.get_trial_generation_used("W12B") is True,
+    )
+
+
+def test_process_generation_request_keeps_trial_generation_used_true_on_later_success():
+    """2回目以降の生成成功時もtrial_generation_usedはTrueのまま(再書き込みしても
+    崩れない)ことを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12C", "W12C")
+    workshops.set_plan("W12C", "standard")
+    workshops.set_members("W12C", "U12C", ["U12C"])
+
+    process_generation_request("U12C", FEB, profiles, workshops, counters)
+    process_generation_request("U12C", FEB, profiles, workshops, counters)
+    check(
+        "2回目の生成成功後もtrial_generation_usedはTrueのまま",
+        workshops.get_trial_generation_used("W12C") is True,
+    )
+
+
+def test_process_generation_request_does_not_mark_trial_generation_used_when_member_removed():
+    """除外済みメンバーからのリクエストでMemberRemovedErrorが送出される場合
+    (=usage_counterへの加算に到達しない場合)は、trial_generation_usedも
+    更新されないことを検証する(課金対象化しないリクエストをトライアル消費
+    扱いにもしない)。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR12D", "W12D")
+    profiles.link("MEMBER12D", "W12D")
+    workshops.set_plan("W12D", "multi_craftsman")
+    workshops.set_members("W12D", "CONTRACTOR12D", ["CONTRACTOR12D", "MEMBER12D"])
+    workshops.set_pending_reduction_effective_at("W12D", FEB)
+
+    try:
+        process_generation_request("MEMBER12D", MAR, profiles, workshops, counters)
+        check("除外対象メンバーはMemberRemovedErrorが送出される(trial副作用確認用)", False)
+    except MemberRemovedError:
+        check("除外対象メンバーはMemberRemovedErrorが送出される(trial副作用確認用)", True)
+    check(
+        "除外された場合trial_generation_usedは更新されない",
+        workshops.get_trial_generation_used("W12D") is False,
+    )
+
+
 def test_process_generation_request_applies_reduction_before_usage_check():
     """猶予期間到達後の最初の生成リクエストで、縮小(1)→除外チェック(2)→
     カウント加算(3)が同一呼び出し内で正しい順序で行われることを検証する。
@@ -737,6 +798,9 @@ if __name__ == "__main__":
     test_ensure_member_is_active_allows_contractor_and_current_members()
     test_ensure_member_is_active_raises_for_removed_member()
     test_process_generation_request_normal_case_no_pending_reduction()
+    test_process_generation_request_marks_trial_generation_used_on_first_success()
+    test_process_generation_request_keeps_trial_generation_used_true_on_later_success()
+    test_process_generation_request_does_not_mark_trial_generation_used_when_member_removed()
     test_process_generation_request_applies_reduction_before_usage_check()
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()

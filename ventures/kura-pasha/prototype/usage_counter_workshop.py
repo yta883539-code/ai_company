@@ -62,6 +62,20 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   確定したうえで、「生成成功1回」または「30日経過」いずれか早い方でトライアル終了と
   判定する。`trial_generation_used`フラグの書き込み処理・生成リクエスト処理への組み込み
   自体は同design.md「6. 今後の課題」の通り引き続き次の課題として残す。
+- フェーズ48: trial-end-condition-design.md「6. 今後の課題」1点目のうち、
+  `trial_generation_used`を生成成功時にTrueへ更新する書き込み処理を実装した
+  (`WorkshopStoreProtocol.set_trial_generation_used`追加、`process_generation_request`が
+  `check_and_increment_usage`成功後に未設定であれば1回だけTrueへ更新)。同課題の
+  もう一方(`is_trial_period_over`をトライアル終了後の生成一時停止に組み込む配線)は
+  意図的に見送った。理由は、`WorkshopStoreProtocol`にはまだ`subscription_status`
+  相当の有償契約判定手段が存在せず(subscription-billing-data-model-design.md
+  フェーズ46「未検証・残課題」1点目のCheckout Session・Stripe Webhook実装が未着手の
+  ため)、この状態で`is_trial_period_over`の結果だけを使って生成を止めると、30日経過後に
+  Stripeで正規に有償契約した利用者まで永久に生成できなくなってしまう(トライアル終了
+  判定と有償契約済み判定を混同するバグを自ら作り込むことになる)ため。生成一時停止の
+  配線は、有償契約判定手段(`get_subscription_status`等)が実装された後にまとめて
+  対応する方が安全と判断し、trial-end-condition-design.md「6. 今後の課題」を更新して
+  明記した。
 """
 
 from __future__ import annotations
@@ -186,6 +200,12 @@ class WorkshopStoreProtocol(Protocol):
     def get_trial_generation_used(self, workshop_id: str) -> bool:
         """trial-end-condition-design.md 3節: 生涯最初の生成成功時に1回だけTrueになる
         一度切りのフラグ(月次リセットされるusage_counterとは独立)。
+        """
+        ...
+
+    def set_trial_generation_used(self, workshop_id: str, used: bool = True) -> None:
+        """trial-end-condition-design.md「6. 今後の課題」1点目: 生涯最初の生成成功時に
+        1回だけTrueへ更新する書き込み処理。
         """
         ...
 
@@ -528,6 +548,12 @@ def process_generation_request(
     usage = check_and_increment_usage(
         user_id, now, user_profile_store, workshop_store, usage_counter_store
     )
+    # trial-end-condition-design.md「6. 今後の課題」1点目: 生成が実際に成功した
+    # (usage_counterへの加算まで到達した)場合に限り、trial_generation_usedを1回だけ
+    # Trueへ更新する。既にTrueの場合は再書き込みしない(冪等だが不要なストア書き込みを
+    # 避けるため明示的にガードする)。
+    if not workshop_store.get_trial_generation_used(workshop_id):
+        workshop_store.set_trial_generation_used(workshop_id, True)
     return GenerationRequestResult(usage=usage, member_reduction=member_reduction)
 
 
