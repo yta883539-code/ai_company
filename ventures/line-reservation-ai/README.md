@@ -3435,6 +3435,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   次回以降の課題」という記載が、実際にはcustomer-subscription-updated-event-routing-design.md
   (フェーズ続き185)で既に設計・実装・テスト済みだったにもかかわらず訂正されていなかった
   記載漏れを発見・訂正した。`python3 -m unittest discover`でprototype配下771件全件パスを確認)
+- (解消済み 2026-09-08 16:00 UTC・フェーズ続き212: 未走査の設計docの残課題棚卸しの一環として
+  firestore-data-model.mdを確認したところ、`conversations`ドキュメントへの`reminderSentAt`/
+  `reminderSkipped`/`resendSentAt`/`customerRepliedAt`4フィールド追加が「実装は未着手」
+  (2026-08-02 13:00 UTC追記)のまま残っていた。しかし同じ記載漏れはreminder-scheduler-
+  design.md側では既にフェーズ続き120(2026-08-21 23:00 UTC)で「4フィールドは
+  `prototype/reminder_scheduler.py`の`ReminderBooking`データクラスで実装済み」と訂正
+  済みであり、その訂正の発生源であるfirestore-data-model.md自身の記載が同期して
+  更新されないまま取り残されていたことが判明した(webhook-function-a-implementation.md・
+  owner-settings-wireframe.md等と同種の「訂正が波及元まで反映されない」パターン)。
+  `reminder_sent_at`/`reminder_skipped`/`resend_sent_at`/`customer_replied_at`として
+  `prototype/reminder_scheduler.py`(`ReminderBooking`)に実装済みで、
+  `prototype/cloud_function_send_reminders.py`が送信成功時に`reminder_sent_at`/
+  `resend_sent_at`へ実際に書き込んでいることをコードで再確認したうえで、
+  firestore-data-model.mdの該当箇所を「実装は未着手」から実装済み(未着手のまま残るのは
+  実Firestore接続自体のみ)に訂正した。コード変更は無く、venture全体771件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする)
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

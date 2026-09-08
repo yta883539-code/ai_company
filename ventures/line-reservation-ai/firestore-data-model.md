@@ -201,13 +201,23 @@ persistence()`を呼ばずスキップする設計)。
   前日リマインド送信バッチは`stage == "confirmed" AND archivedAt == null`のクエリで
   対象を拾う。
 - reminder-scheduler-design.mdで設計したCloud Function C(send_reminders)の冪等性・
-  再送判定のため、以下4フィールドを追加する(2026-08-02 13:00 UTC追記。実装は未着手)。
+  再送判定のため、以下4フィールドを追加する(2026-08-02 13:00 UTC追記)。
   ```
   reminderSentAt: <Timestamp> | null,   // 初回リマインド送信済み時刻(未送信はnull)
   reminderSkipped: false,               // 確定時点で目標送信時刻を既に過ぎていたためスキップ
   resendSentAt: <Timestamp> | null,     // 当日朝の再送済み時刻(未送信はnull)
-  customerRepliedAt: <Timestamp> | null // 確定後の顧客からの返信検知時刻(配線はcustomer-reply-detection-design.mdで設計・実装済み、Firestore書き込み自体は未着手)
+  customerRepliedAt: <Timestamp> | null // 確定後の顧客からの返信検知時刻(配線はcustomer-reply-detection-design.mdで設計・実装済み)
   ```
+  (訂正 2026-09-08 16:00 UTC: 上記4フィールドは`prototype/reminder_scheduler.py`の
+  `ReminderBooking`データクラス(フェーズ続き40)で`reminder_sent_at`/`reminder_skipped`/
+  `resend_sent_at`/`customer_replied_at`として既に実装済みであり、
+  `prototype/cloud_function_send_reminders.py`が送信成功時に`reminder_sent_at`/
+  `resend_sent_at`へ実際に書き込んでいることをコードで確認した。この記載漏れ自体は
+  reminder-scheduler-design.md側ではフェーズ続き120(2026-08-21 23:00 UTC)で既に訂正
+  済みだったが、その訂正元である本ファイルの記載が同期して更新されないまま「実装は
+  未着手」の表記だけが取り消し線無しで残っていた。未着手のまま残るのは、この4
+  フィールドを実際のFirestoreドキュメントとして読み書きする接続自体(GCPプロジェクト
+  作成・オーナー承認待ち)のみ。)
 
 ### 4. `stores/{storeId}/notificationLogEntries/{autoId}`
 NotificationLogAggregator が集計する元データを、集計値ではなく生ログとして
