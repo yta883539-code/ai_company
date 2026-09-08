@@ -730,12 +730,38 @@
   プロトタイプコード実装・テスト追加・設計doc記載更新のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ50(2026-09-08 22:00 UTC): subscription-billing-data-model-design.md
+  (フェーズ46・49)「次にやること」1点目のうち、Checkout Session発行フロー(有料プラン
+  開始時の申込側導線)をcheckout-initiation-flow-design.mdとして設計した。course-set-pasha/
+  checkout-initiation-flow-design.md(フェーズ98)はLIFFアプリ経由のIDトークン検証を
+  採用していたが、本ventureはsubscription-cancellation-flow-design.md(フェーズ23)が
+  既に確立していた「LINEトーク内の意図検知」方式を有料プラン開始導線にも踏襲することで、
+  LINE Platform Webhook受信時点で検証済みの`event.source.userId`をそのまま使え、LIFF
+  アプリの新規登録(オーナー承認待ち事項)自体を不要にできる設計とした。契約者
+  (`contractor_user_id`)本人のみが開始できる権限チェック、既存`stripe_customer_id`の
+  再利用、フェーズ49実装済みの`get_subscription_status`による重複契約防止も設計に含めた。
+  Checkout Session作成APIへ渡すパラメータ組み立てを純粋関数として
+  `prototype/checkout_session.py`の`build_checkout_session_params(workshop_id, plan_id,
+  existing_stripe_customer_id=None)`に実装し(plan_id→Stripe Price ID対応表・
+  success_url/cancel_urlは実Stripe接続前の仮プレースホルダ)、新規テスト14件
+  (`test_checkout_session.py`)を追加した。Stripe Webhook受信・署名検証・イベント
+  ディスパッチ自体、およびフェーズ48で見送った`is_trial_period_over`の生成一時停止配線は
+  引き続き次の課題として残す。venture全体101件(usage_counter_workshop)+14件
+  (checkout_session)=115件全件・schema検証23件いずれもパスを確認した。承認不要な設計
+  文書作成・プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- subscription-billing-data-model-design.md(フェーズ46・49)の残課題: Checkout Session
-  発行フロー、Stripe Webhookの署名検証・イベントディスパッチの実装(course-set-pasha/
-  stripe-webhook-http-entry-point-design.md相当)を設計・実装する。フェーズ48で
-  見送った`is_trial_period_over`の生成一時停止配線は、この完了後に着手する。
+- checkout-initiation-flow-design.md(フェーズ50)の残課題: Stripe Webhook
+  (`checkout.session.completed`)の受信・署名検証・イベントディスパッチの設計・実装
+  (course-set-pasha/stripe-webhook-*-design.md相当)。受信後にフェーズ49実装済みの
+  `set_stripe_customer_id`/`set_subscription_status`を実際に配線する。
+- 上記完了後、フェーズ48で見送った`is_trial_period_over`のトライアル終了時生成一時停止
+  への配線に着手する。
+- checkout-initiation-flow-design.md(フェーズ50)の残課題: 有料プラン開始の意図検知
+  (「有料プランを始めたい」等)をllm-system-prompt-draft.mdの厳守事項として追加する
+  (解約意図検知の厳守事項7aと対になる新規項目)。
 - trial-end-condition-design.md(フェーズ47・48)の残課題: `trial_start_at`をworkshop
   作成時に書き込む実処理(craftsman-account-linking-design.mdのworkshop新規作成フロー側)。
 - unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
@@ -750,6 +776,7 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 21:00 UTC(フェーズ49: `WorkshopStoreProtocol`に
-`get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`/
-`set_subscription_status`を追加実装。生成一時停止配線はStripe Webhook実装後に着手予定)
+最終更新: 2026-09-08 22:00 UTC(フェーズ50: checkout-initiation-flow-design.mdを新規作成し、
+LINEトーク内意図検知方式(LIFF不要)でのCheckout Session発行フローを設計、
+`prototype/checkout_session.py`の`build_checkout_session_params()`を実装。Stripe Webhook
+受信・署名検証・イベントディスパッチの設計は次の課題として残る)
