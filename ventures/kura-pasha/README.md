@@ -619,11 +619,28 @@
   結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ44(2026-09-08 14:00 UTC): 「次にやること」1点目だった、
+  message-context-selection-design.md(フェーズ43)1節の4段階の優先順位を
+  prototype/usage_counter_workshop.pyに`select_message_context`として統合実装した。
+  (a)は設計通り送信者を問わず`check_and_expire_pending_contractor_transfer`を直接
+  呼び出す形にし(契約者限定の`get_contractor_transfer_expired_notice_context`は
+  使わない)、(d)のみ内部で既存の`process_generation_request`をそのまま呼び出すことで
+  既存関数のシグネチャ・挙動を変更しなかった。design.md3節が明示的に求めていた
+  「(a)(b)が同時に真になりうる状態で(a)が優先されることを検証するケース」を含め、
+  (a)〜(d)それぞれの分岐・契約者以外へのフォールスルー・workshop未連携時の例外の
+  計8件の新規テストケースを追加し、venture全体70件→83件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件(コード変更の
+  みのため変更なし、`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  他venture(aircon-pasha 9件・course-set-pasha 9件・line-reservation-ai 25件)の
+  schema検証、および各prototypeディレクトリの既存テストスイートもあわせて実行し、
+  いずれも変更前と同じ結果でパスすることを確認した(本venture以外への影響なし)。
+  実際のLINE公式アカウント接続・実LLM検証は引き続きオーナー承認待ちの範囲
+  (pending-approval.md参照)。承認不要なプロトタイプコード実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- message-context-selection-design.md(フェーズ43)で確定した4段階の優先順位を、
-  prototype/usage_counter_workshop.pyに`select_message_context`相当の統合関数として
-  実装し、テストケースを追加する。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -633,5 +650,5 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 13:00 UTC(フェーズ43: 複数の一時状態が同時に存在する場合の
-プロンプト文脈選択優先順位を設計)
+最終更新: 2026-09-08 14:00 UTC(フェーズ44: 受信メッセージのプロンプト文脈選択優先
+順位を統合する`select_message_context`をプロトタイプに実装)

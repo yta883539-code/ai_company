@@ -4,6 +4,10 @@
 from datetime import datetime, timedelta
 
 from usage_counter_workshop import (
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+    MESSAGE_CONTEXT_GENERATION_REQUEST,
+    MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
     ContractorTransferTargetNotFoundError,
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
@@ -21,6 +25,7 @@ from usage_counter_workshop import (
     is_contractor_transfer_confirmation_context,
     process_generation_request,
     resolve_contractor_transfer_target,
+    select_message_context,
     start_pending_contractor_transfer,
 )
 
@@ -539,6 +544,144 @@ def test_get_contractor_transfer_expired_notice_context_none_within_expiry():
     )
 
 
+def test_select_message_context_a_wins_over_b_and_c_for_contractor():
+    """message-context-selection-design.md 1節(a): 期限切れ検出・契約者譲渡再確認
+    待ち・残すメンバー連絡待ちが同時に成立しうる状態を人為的に作り、契約者本人からの
+    メッセージでも(a)が最優先されることを検証する(design.mdが明示的に求めるケース)。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR40", "W40")
+    workshops.set_plan("W40", "multi_craftsman")
+    workshops.set_members("W40", "CONTRACTOR40", ["MEMBER40"])
+    start_pending_contractor_transfer("W40", "MEMBER40", "弟子", FEB, workshops)
+    workshops.set_pending_reduction_effective_at("W40", FEB + timedelta(hours=1))
+
+    after_expiry = FEB + timedelta(hours=25)
+    ctx = select_message_context("CONTRACTOR40", after_expiry, profiles, workshops, counters)
+    check(
+        "(a)期限切れ案内が最優先される",
+        ctx.kind == MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+    )
+    check(
+        "expired_transferに削除前の値が入る",
+        ctx.expired_transfer is not None and ctx.expired_transfer.candidate_user_id == "MEMBER40",
+    )
+    check(
+        "(a)処理後もpending_reduction_effective_atは(c)を後回しにしただけで維持される",
+        workshops.get_pending_reduction_effective_at("W40") is not None,
+    )
+
+
+def test_select_message_context_a_triggers_regardless_of_sender():
+    """design.md 1節(a)の「送信者が契約者本人かどうかを問わない」を、契約者以外からの
+    メッセージでも検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("MEMBER41", "W41")
+    workshops.set_plan("W41", "multi_craftsman")
+    workshops.set_members("W41", "CONTRACTOR41", ["MEMBER41"])
+    start_pending_contractor_transfer("W41", "MEMBER41", "弟子", FEB, workshops)
+
+    after_expiry = FEB + timedelta(hours=25)
+    ctx = select_message_context("MEMBER41", after_expiry, profiles, workshops, counters)
+    check(
+        "契約者以外からでも(a)が発動する",
+        ctx.kind == MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+    )
+
+
+def test_select_message_context_b_confirmation_for_contractor_within_expiry():
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR42", "W42")
+    workshops.set_plan("W42", "multi_craftsman")
+    workshops.set_members("W42", "CONTRACTOR42", ["MEMBER42"])
+    start_pending_contractor_transfer("W42", "MEMBER42", "弟子", FEB, workshops)
+
+    within_expiry = FEB + timedelta(hours=1)
+    ctx = select_message_context("CONTRACTOR42", within_expiry, profiles, workshops, counters)
+    check(
+        "(b)契約者譲渡の再確認応答文脈が選ばれる",
+        ctx.kind == MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
+    )
+
+
+def test_select_message_context_b_not_triggered_for_non_contractor_falls_through_to_d():
+    """(b)は契約者本人限定であり、譲渡候補本人からのメッセージは(d)通常の生成
+    リクエスト処理にフォールスルーする(contractor-transfer-non-contractor-message-
+    design.mdの既存結論と整合)ことを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("MEMBER43", "W43")
+    workshops.set_plan("W43", "multi_craftsman")
+    workshops.set_members("W43", "CONTRACTOR43", ["MEMBER43"])
+    start_pending_contractor_transfer("W43", "MEMBER43", "弟子", FEB, workshops)
+
+    within_expiry = FEB + timedelta(hours=1)
+    ctx = select_message_context("MEMBER43", within_expiry, profiles, workshops, counters)
+    check("契約者以外は(d)通常の生成リクエストへフォールスルーする", ctx.kind == MESSAGE_CONTEXT_GENERATION_REQUEST)
+    check(
+        "(d)側でusage_counterが加算されている",
+        ctx.generation_result is not None and ctx.generation_result.usage.count_after_increment == 1,
+    )
+
+
+def test_select_message_context_c_member_retention_for_contractor_with_pending_reduction():
+    profiles, workshops, counters = make_stores()
+    profiles.link("CONTRACTOR44", "W44")
+    workshops.set_plan("W44", "multi_craftsman")
+    workshops.set_members("W44", "CONTRACTOR44", ["MEMBER44"])
+    workshops.set_pending_reduction_effective_at("W44", FEB + timedelta(days=10))
+
+    ctx = select_message_context("CONTRACTOR44", FEB, profiles, workshops, counters)
+    check(
+        "(c)残すメンバー連絡文脈が選ばれる",
+        ctx.kind == MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
+    )
+
+
+def test_select_message_context_c_not_triggered_for_non_contractor_falls_through_to_d():
+    profiles, workshops, counters = make_stores()
+    profiles.link("MEMBER45", "W45")
+    workshops.set_plan("W45", "multi_craftsman")
+    workshops.set_members("W45", "CONTRACTOR45", ["MEMBER45"])
+    workshops.set_pending_reduction_effective_at("W45", FEB + timedelta(days=10))
+
+    ctx = select_message_context("MEMBER45", FEB, profiles, workshops, counters)
+    check(
+        "契約者以外は(c)を経由せず(d)通常の生成リクエストへフォールスルーする",
+        ctx.kind == MESSAGE_CONTEXT_GENERATION_REQUEST,
+    )
+    check(
+        "猶予期間未到達のため縮小は適用されない(member_reductionはNone)",
+        ctx.generation_result is not None and ctx.generation_result.member_reduction is None,
+    )
+
+
+def test_select_message_context_d_default_generation_request():
+    profiles, workshops, counters = make_stores()
+    profiles.link("U46", "W46")
+    workshops.set_plan("W46", "light")
+    workshops.set_members("W46", "U46", [])
+
+    ctx = select_message_context("U46", FEB, profiles, workshops, counters)
+    check("いずれの一時状態も無ければ(d)が選ばれる", ctx.kind == MESSAGE_CONTEXT_GENERATION_REQUEST)
+    check(
+        "process_generation_requestと同じ結果がgeneration_resultに入る",
+        ctx.generation_result is not None
+        and ctx.generation_result.usage.plan_id == "light"
+        and ctx.generation_result.usage.count_after_increment == 1,
+    )
+
+
+def test_select_message_context_workshop_not_linked_raises():
+    profiles, workshops, counters = make_stores()
+    try:
+        select_message_context("UNLINKED", FEB, profiles, workshops, counters)
+        check("workshop未連携はWorkshopNotLinkedErrorを送出する", False)
+    except WorkshopNotLinkedError:
+        check("workshop未連携はWorkshopNotLinkedErrorを送出する", True)
+
+
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
@@ -573,6 +716,14 @@ if __name__ == "__main__":
     test_get_contractor_transfer_expired_notice_context_returns_pending_after_expiry()
     test_get_contractor_transfer_expired_notice_context_none_for_non_contractor()
     test_get_contractor_transfer_expired_notice_context_none_within_expiry()
+    test_select_message_context_a_wins_over_b_and_c_for_contractor()
+    test_select_message_context_a_triggers_regardless_of_sender()
+    test_select_message_context_b_confirmation_for_contractor_within_expiry()
+    test_select_message_context_b_not_triggered_for_non_contractor_falls_through_to_d()
+    test_select_message_context_c_member_retention_for_contractor_with_pending_reduction()
+    test_select_message_context_c_not_triggered_for_non_contractor_falls_through_to_d()
+    test_select_message_context_d_default_generation_request()
+    test_select_message_context_workshop_not_linked_raises()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)

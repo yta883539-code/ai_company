@@ -49,6 +49,13 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   していたが、本関数はbool単体ではなくLLMへ転記するcandidate_member_nameを含む
   `PendingContractorTransfer`自体を返す必要があるため、`is_`ではなく`get_`接頭辞とした
   (契約者以外からのメッセージの場合はcheck_and_expire自体を呼ばずNoneを返す)。
+- フェーズ44: message-context-selection-design.md(フェーズ43)3節の残課題だった、
+  4段階の優先順位((a)期限切れ案内→(b)契約者譲渡再確認応答→(c)残すメンバー連絡→
+  (d)通常の生成リクエスト)を1箇所に統合する`select_message_context`を追加した。
+  同design.md1節の通り(a)は送信者を問わず`check_and_expire_pending_contractor_transfer`
+  を直接呼び出す(契約者限定の`get_contractor_transfer_expired_notice_context`は
+  使わない)。(d)のみ内部で既存の`process_generation_request`をそのまま呼び出し、
+  既存関数のシグネチャ・挙動は変更していない。
 """
 
 from __future__ import annotations
@@ -633,3 +640,84 @@ def get_contractor_transfer_expired_notice_context(
     if user_id != workshop_store.get_contractor_user_id(workshop_id):
         return None
     return check_and_expire_pending_contractor_transfer(workshop_id, now, workshop_store)
+
+
+# message-context-selection-design.md(フェーズ43)1節の優先順位に対応するkind定数。
+MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE = "contractor_transfer_expired_notice"
+MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION = "contractor_transfer_confirmation"
+MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE = "member_retention_notice"
+MESSAGE_CONTEXT_GENERATION_REQUEST = "generation_request"
+
+
+@dataclass
+class MessageContext:
+    """select_message_contextの戻り値。`kind`がLLM呼び出し前に注入すべき文脈を表す。
+
+    (a)(b)(c)はLLM呼び出し前のアプリケーション側の文脈選択結果であり、実際の構造化
+    出力(status enum)はLLMが後続で決定する(message-context-selection-design.md
+    2節「両者を混同しないよう」の通り、本クラスはLLM出力のstatusそのものではない)。
+    """
+
+    kind: str
+    workshop_id: str
+    expired_transfer: Optional[PendingContractorTransfer] = None
+    generation_result: Optional[GenerationRequestResult] = None
+
+
+def select_message_context(
+    user_id: str,
+    now: datetime,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+    usage_counter_store: UsageCounterStoreProtocol,
+) -> MessageContext:
+    """message-context-selection-design.md(フェーズ43)1節の4段階の優先順位
+    (先勝ち・排他)を1つの関数に統合する。
+
+    (a) check_and_expire_pending_contractor_transferが非Noneを返した場合
+        (送信者を問わない。同design.md1節(a)の通り、契約者以外からのメッセージでも
+        期限切れ検出自体は行う)
+        → contractor_transfer_expired_notice文脈を返す。
+    (b) 送信者が契約者本人かつis_contractor_transfer_confirmation_contextが真
+        → contractor_transfer_confirmation文脈を返す。
+    (c) 送信者が契約者本人かつpending_member_reduction_effective_atが設定済み
+        → member_retention_notice文脈を返す。
+    (d) いずれにも該当しない
+        → process_generation_requestをそのまま呼び出し、generation_request文脈で
+          その結果を包んで返す(既存関数のシグネチャ・挙動は変更しない)。
+    """
+    workshop_id = user_profile_store.get_workshop_id(user_id)
+    if workshop_id is None:
+        raise WorkshopNotLinkedError(
+            f"user_id={user_id!r}にworkshop_idが未設定です(新規契約フロー未完了)"
+        )
+
+    expired = check_and_expire_pending_contractor_transfer(workshop_id, now, workshop_store)
+    if expired is not None:
+        return MessageContext(
+            kind=MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+            workshop_id=workshop_id,
+            expired_transfer=expired,
+        )
+
+    if is_contractor_transfer_confirmation_context(user_id, workshop_id, now, workshop_store):
+        return MessageContext(
+            kind=MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
+            workshop_id=workshop_id,
+        )
+
+    is_contractor = user_id == workshop_store.get_contractor_user_id(workshop_id)
+    if is_contractor and workshop_store.get_pending_reduction_effective_at(workshop_id) is not None:
+        return MessageContext(
+            kind=MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
+            workshop_id=workshop_id,
+        )
+
+    result = process_generation_request(
+        user_id, now, user_profile_store, workshop_store, usage_counter_store
+    )
+    return MessageContext(
+        kind=MESSAGE_CONTEXT_GENERATION_REQUEST,
+        workshop_id=workshop_id,
+        generation_result=result,
+    )
