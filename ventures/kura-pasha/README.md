@@ -639,8 +639,30 @@
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 
+- フェーズ45(2026-09-08 15:00 UTC): aircon-pasha(フェーズ165)・course-set-pasha
+  (フェーズ86)・line-reservation-aiの3ventureが既に整備済みだった「ブロックしたのに
+  課金だけ続く」問い合わせ対応FAQ・返信テンプレートが、本ventureにはまだ無いという
+  cross-venture parityのギャップに気付き、unfollow-billing-faq.mdとして新規作成した。
+  data-retention-policy.md「削除候補化後の最終確認」節が既にunfollow時のLINE送達不能
+  ケースに言及していたにもかかわらず、問い合わせ対応の文面自体は未整備だった。LP掲載用
+  FAQ文面(予防)・メール問い合わせ対応テンプレート(事後対応)の2点を他venture3件と
+  同一方針で用意し、あわせて本venture固有の複数職人プランの契約者権限モデル
+  (subscription-cancellation-flow-design.md「複数職人プラン固有の論点」)を踏まえた
+  追加考慮事項(共同利用者からの問い合わせ時は契約者本人のみ手続き可能である旨の案内)を
+  盛り込んだ。本ventureはStripe Webhook受信・PortalLinkProvider相当の実装がまだ無い
+  段階のため、Stripeカスタマーポータルのプレースホルダ・「ブロック中かつ契約継続中」
+  契約者の検知バッチ(他venture3件のblocked-but-billing-detection-design.md相当)は
+  今後の課題として明記するにとどめた。コード変更は無く、venture全体83件全件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
+- unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
+  `user_profile`の`is_following`相当フィールドの実装後に、「ブロック中かつ契約継続中」
+  契約者の検知バッチを設計する。landing-page-copy-draft.md新規作成時にFAQ文面を反映する。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -650,5 +672,5 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 14:00 UTC(フェーズ44: 受信メッセージのプロンプト文脈選択優先
-順位を統合する`select_message_context`をプロトタイプに実装)
+最終更新: 2026-09-08 15:00 UTC(フェーズ45: 「ブロックしたのに課金だけ続く」問い合わせ
+対応FAQ・返信テンプレートをunfollow-billing-faq.mdとして新規作成)
