@@ -512,6 +512,26 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ38(2026-09-08 03:00 UTC): 「次にやること」4点目だった、
+  contractor-transfer-confirmation-detection-design.md(フェーズ36)1節の
+  `pending_contractor_transfer`一時状態の読み書きをprototype/usage_counter_workshop.py側に
+  実装した。`PendingContractorTransfer`データクラス(candidate_user_id/
+  candidate_member_name/requested_at/expires_at)、`WorkshopStoreProtocol`への
+  `get_pending_contractor_transfer`/`set_pending_contractor_transfer`/
+  `clear_pending_contractor_transfer`追加に加え、(1)`start_pending_contractor_transfer`
+  (status=contractor_transfer_selection生成と同時にexpires_at=requested_at+24時間で
+  書き込む)、(2)`is_contractor_transfer_confirmation_context`(2節のLLM呼び出し前
+  コンテキスト注入条件: 送信者が契約者本人かつpending存在かつ期限内)、(3)
+  `cancel_pending_contractor_transfer`(3節kind=contractor_transfer_cancelledの
+  削除のみの処理)、(4)`check_and_expire_pending_contractor_transfer`(4節の期限切れ
+  削除、能動通知は行わず戻り値を受動案内判定に使う想定)を実装し、`apply_contractor_
+  transfer`確定処理からも同状態を削除するよう変更した。新規テストケース10件を追加し
+  venture全体59件→64件(`python3 prototype/test_usage_counter_workshop.py`)・schema
+  検証20件(変更なし、コード変更のみのため)いずれもパスを確認した。4節末尾の「期限切れ
+  後の案内文言自体のschema・プロンプト設計」は本フェーズでは扱わず引き続き次の課題として
+  残した。承認不要なコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
@@ -521,10 +541,9 @@
   して別途pending-approval.mdに記録する。
 - ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 契約者譲渡機能の再確認応答検知(contractor-transfer-confirmation-detection-design.md、
-  フェーズ36)のschema拡張(フェーズ37で解消済み)を踏まえ、prototype/usage_counter_
-  workshop.py側の`pending_contractor_transfer`一時状態の読み書き実装(`WorkshopStoreProtocol`
-  への追加、`apply_contractor_transfer`呼び出し時・キャンセル時・期限切れ時の削除処理)。
-- 期限切れ後の案内文言自体のschema・プロンプト設計(design.md4節の残課題)。
+- 期限切れ後の案内文言自体のschema・プロンプト設計(contractor-transfer-confirmation-
+  detection-design.md 5節1点目の残課題)。`check_and_expire_pending_contractor_transfer`
+  (フェーズ38実装済み)の戻り値をどう案内文言生成に繋げるかを含む。
 
-最終更新: 2026-09-08 02:00 UTC
+最終更新: 2026-09-08 03:00 UTC(フェーズ38: `pending_contractor_transfer`一時状態の
+読み書き実装)

@@ -33,12 +33,20 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   (`resolve_contractor_transfer_target`・`apply_contractor_transfer`)。契約者からの
   再確認応答(「はい」等の自由記述)自体の検知プロンプト設計は引き続き次の課題として
   残す。
+- フェーズ38: contractor-transfer-confirmation-detection-design.md(フェーズ36・
+  schema反映はフェーズ37)「5. 未検証・残課題」に残っていた、
+  `pending_contractor_transfer`一時状態の読み書き(`WorkshopStoreProtocol`への追加、
+  `apply_contractor_transfer`呼び出し時・キャンセル時・期限切れ時の削除処理)を
+  プロトタイプコード化した(`start_pending_contractor_transfer`・
+  `is_contractor_transfer_confirmation_context`・`cancel_pending_contractor_transfer`・
+  `check_and_expire_pending_contractor_transfer`)。期限切れ後の案内文言自体の
+  schema・プロンプト設計(同ファイル5節1点目)は引き続き次の課題として残す。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Protocol
 
 
@@ -76,6 +84,24 @@ REMOVED_MEMBER_NOTICE = (
     "所属していたworkshopのプラン変更により、現在はご利用いただけません。"
     "利用を続けるには契約者様に新規のworkshopへの再招待をご依頼ください。"
 )
+
+
+# contractor-transfer-confirmation-detection-design.md(フェーズ36)1節: requested_at+24時間。
+PENDING_CONTRACTOR_TRANSFER_EXPIRY_HOURS = 24
+
+
+@dataclass
+class PendingContractorTransfer:
+    """`craftsman_workshop/{workshop_id}.pending_contractor_transfer`の机上表現。
+
+    contractor-transfer-confirmation-detection-design.md 1節で確定したフィールド構成
+    (candidate_user_id/candidate_member_name/requested_at/expires_at)にそのまま対応する。
+    """
+
+    candidate_user_id: str
+    candidate_member_name: str
+    requested_at: datetime
+    expires_at: datetime
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -116,6 +142,19 @@ class WorkshopStoreProtocol(Protocol):
         """contractor-transfer-design.md 3節の確定処理でcontractor_user_idを更新する。"""
         ...
 
+    def get_pending_contractor_transfer(self, workshop_id: str) -> Optional[PendingContractorTransfer]:
+        """`pending_contractor_transfer`を返す(未設定ならNone)。"""
+        ...
+
+    def set_pending_contractor_transfer(
+        self, workshop_id: str, pending: PendingContractorTransfer
+    ) -> None:
+        ...
+
+    def clear_pending_contractor_transfer(self, workshop_id: str) -> None:
+        """確定処理実行時・キャンセル時・期限切れ時のいずれでも呼び出される削除処理。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -147,6 +186,7 @@ class InMemoryWorkshopStore:
         self._display_names_by_workshop: dict[str, dict[str, str]] = {}
         self._pending_reduction_effective_at_by_workshop: dict[str, datetime] = {}
         self._specified_retention_name_by_workshop: dict[str, str] = {}
+        self._pending_contractor_transfer_by_workshop: dict[str, PendingContractorTransfer] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -198,6 +238,17 @@ class InMemoryWorkshopStore:
 
     def set_contractor_user_id(self, workshop_id: str, user_id: str) -> None:
         self._contractor_by_workshop[workshop_id] = user_id
+
+    def get_pending_contractor_transfer(self, workshop_id: str) -> Optional[PendingContractorTransfer]:
+        return self._pending_contractor_transfer_by_workshop.get(workshop_id)
+
+    def set_pending_contractor_transfer(
+        self, workshop_id: str, pending: PendingContractorTransfer
+    ) -> None:
+        self._pending_contractor_transfer_by_workshop[workshop_id] = pending
+
+    def clear_pending_contractor_transfer(self, workshop_id: str) -> None:
+        self._pending_contractor_transfer_by_workshop.pop(workshop_id, None)
 
 
 class InMemoryUsageCounterStore:
@@ -473,9 +524,83 @@ def apply_contractor_transfer(
         workshop_id, new_contractor_user_id
     )
     workshop_store.set_contractor_user_id(workshop_id, new_contractor_user_id)
+    # contractor-transfer-confirmation-detection-design.md 1節: 確定処理実行時に
+    # pending_contractor_transferを削除する。
+    workshop_store.clear_pending_contractor_transfer(workshop_id)
     return ContractorTransferResult(
         workshop_id=workshop_id,
         previous_contractor_user_id=previous_contractor_user_id,
         new_contractor_user_id=new_contractor_user_id,
         matched_display_name=matched_display_name or "",
     )
+
+
+def start_pending_contractor_transfer(
+    workshop_id: str,
+    candidate_user_id: str,
+    candidate_member_name: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+    expiry_hours: int = PENDING_CONTRACTOR_TRANSFER_EXPIRY_HOURS,
+) -> PendingContractorTransfer:
+    """contractor-transfer-confirmation-detection-design.md 1節: status=
+    contractor_transfer_selectionの確認文言生成(resolve_contractor_transfer_targetが
+    一致を返した時点)と同時に、アプリケーション側でpending_contractor_transferを
+    書き込む。expires_atはrequested_at(=now)+expiry_hoursとする。
+    """
+    pending = PendingContractorTransfer(
+        candidate_user_id=candidate_user_id,
+        candidate_member_name=candidate_member_name,
+        requested_at=now,
+        expires_at=now + timedelta(hours=expiry_hours),
+    )
+    workshop_store.set_pending_contractor_transfer(workshop_id, pending)
+    return pending
+
+
+def is_contractor_transfer_confirmation_context(
+    user_id: str,
+    workshop_id: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+) -> bool:
+    """contractor-transfer-confirmation-detection-design.md 2節: メッセージ送信者が
+    contractor_user_idと一致し、かつpending_contractor_transferが存在しexpires_at
+    以内である場合に限りTrueを返す。呼び出し側はTrueのときのみ「契約者交代の確認待ち」
+    という文脈をプロンプトへ埋め込んだ上でLLMを呼び出す想定(3節の3パターン判定)。
+    """
+    if user_id != workshop_store.get_contractor_user_id(workshop_id):
+        return False
+    pending = workshop_store.get_pending_contractor_transfer(workshop_id)
+    if pending is None:
+        return False
+    return now <= pending.expires_at
+
+
+def cancel_pending_contractor_transfer(
+    workshop_id: str,
+    workshop_store: WorkshopStoreProtocol,
+) -> None:
+    """contractor-transfer-confirmation-detection-design.md 3節:
+    kind=contractor_transfer_cancelledのとき、pending_contractor_transferを削除する
+    のみでcontractor_user_idは更新しない。
+    """
+    workshop_store.clear_pending_contractor_transfer(workshop_id)
+
+
+def check_and_expire_pending_contractor_transfer(
+    workshop_id: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+) -> Optional[PendingContractorTransfer]:
+    """contractor-transfer-confirmation-detection-design.md 4節: expires_atを過ぎた
+    pending_contractor_transferを削除する。期限切れであった場合はその(削除前の)値を
+    返し、呼び出し側で受動的な案内文言への切り替え判定に使えるようにする
+    (案内文言自体のschema・プロンプト設計は5節の残課題として本関数では扱わない)。
+    期限内、または未設定の場合はNoneを返し何もしない。
+    """
+    pending = workshop_store.get_pending_contractor_transfer(workshop_id)
+    if pending is None or now <= pending.expires_at:
+        return None
+    workshop_store.clear_pending_contractor_transfer(workshop_id)
+    return pending

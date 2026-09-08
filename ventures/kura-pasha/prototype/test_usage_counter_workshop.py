@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """usage_counter_workshop.pyの検証用テスト。`python3 test_usage_counter_workshop.py`で実行する。"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from usage_counter_workshop import (
     ContractorTransferTargetNotFoundError,
@@ -12,11 +12,15 @@ from usage_counter_workshop import (
     UnknownPlanError,
     WorkshopNotLinkedError,
     apply_contractor_transfer,
+    cancel_pending_contractor_transfer,
     check_and_apply_pending_member_reduction,
+    check_and_expire_pending_contractor_transfer,
     check_and_increment_usage,
     ensure_member_is_active,
+    is_contractor_transfer_confirmation_context,
     process_generation_request,
     resolve_contractor_transfer_target,
+    start_pending_contractor_transfer,
 )
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
@@ -350,6 +354,137 @@ def test_apply_contractor_transfer_raises_for_non_member():
     check("例外発生時はcontractor_user_idが変更されない", workshops.get_contractor_user_id("W20") == "CONTRACTOR20")
 
 
+def test_start_pending_contractor_transfer_writes_expected_state():
+    """contractor-transfer-confirmation-detection-design.md 1節: status=
+    contractor_transfer_selection生成と同時にpending_contractor_transferを書き込み、
+    expires_atはrequested_at(=now)+24時間になることを検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W21", "CONTRACTOR21", ["MEMBER21"])
+
+    pending = start_pending_contractor_transfer(
+        "W21", "MEMBER21", "弟子太郎", FEB, workshops
+    )
+    check("candidate_user_idが記録される", pending.candidate_user_id == "MEMBER21")
+    check("candidate_member_nameが記録される", pending.candidate_member_name == "弟子太郎")
+    check("expires_atはrequested_at+24時間", pending.expires_at == FEB + timedelta(hours=24))
+    stored = workshops.get_pending_contractor_transfer("W21")
+    check("workshop_store側にも同じ内容が保存される", stored == pending)
+
+
+def test_is_contractor_transfer_confirmation_context_true_for_contractor_within_expiry():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W22", "CONTRACTOR22", ["MEMBER22"])
+    start_pending_contractor_transfer("W22", "MEMBER22", "弟子", FEB, workshops)
+
+    within_expiry = FEB + timedelta(hours=1)
+    check(
+        "契約者本人・期限内はTrue",
+        is_contractor_transfer_confirmation_context("CONTRACTOR22", "W22", within_expiry, workshops) is True,
+    )
+
+
+def test_is_contractor_transfer_confirmation_context_false_for_non_contractor():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W23", "CONTRACTOR23", ["MEMBER23"])
+    start_pending_contractor_transfer("W23", "MEMBER23", "弟子", FEB, workshops)
+
+    check(
+        "契約者以外はFalse(6節・7a等の既存判定ルールをそのまま適用)",
+        is_contractor_transfer_confirmation_context("MEMBER23", "W23", FEB, workshops) is False,
+    )
+
+
+def test_is_contractor_transfer_confirmation_context_false_when_no_pending():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W24", "CONTRACTOR24", ["MEMBER24"])
+
+    check(
+        "pending_contractor_transfer未設定ならFalse",
+        is_contractor_transfer_confirmation_context("CONTRACTOR24", "W24", FEB, workshops) is False,
+    )
+
+
+def test_is_contractor_transfer_confirmation_context_false_after_expiry():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W25", "CONTRACTOR25", ["MEMBER25"])
+    start_pending_contractor_transfer("W25", "MEMBER25", "弟子", FEB, workshops)
+
+    after_expiry = FEB + timedelta(hours=24, minutes=1)
+    check(
+        "expires_atを過ぎるとFalse(4節: 通常メッセージとして扱う)",
+        is_contractor_transfer_confirmation_context("CONTRACTOR25", "W25", after_expiry, workshops) is False,
+    )
+
+
+def test_apply_contractor_transfer_clears_pending_state():
+    """1節: 確定処理(apply_contractor_transfer)実行時にpending_contractor_transferを
+    削除することを検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W26", "CONTRACTOR26", ["MEMBER26"], display_names={"MEMBER26": "弟子太郎"}
+    )
+    start_pending_contractor_transfer("W26", "MEMBER26", "弟子太郎", FEB, workshops)
+
+    apply_contractor_transfer("W26", "MEMBER26", workshops)
+    check(
+        "確定処理後はpending_contractor_transferが削除される",
+        workshops.get_pending_contractor_transfer("W26") is None,
+    )
+
+
+def test_cancel_pending_contractor_transfer_clears_without_updating_contractor():
+    """3節: kind=contractor_transfer_cancelledのとき、pending_contractor_transferを
+    削除するのみでcontractor_user_idは更新しないことを検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W27", "CONTRACTOR27", ["MEMBER27"])
+    start_pending_contractor_transfer("W27", "MEMBER27", "弟子", FEB, workshops)
+
+    cancel_pending_contractor_transfer("W27", workshops)
+    check(
+        "キャンセル後はpending_contractor_transferが削除される",
+        workshops.get_pending_contractor_transfer("W27") is None,
+    )
+    check(
+        "contractor_user_idは変更されない",
+        workshops.get_contractor_user_id("W27") == "CONTRACTOR27",
+    )
+
+
+def test_check_and_expire_pending_contractor_transfer_clears_and_returns_when_expired():
+    """4節: expires_atを過ぎたpending_contractor_transferを削除し、削除前の値を
+    返すことを検証する(能動プッシュ通知は行わない方針のため戻り値は呼び出し側の
+    受動案内判定にのみ使う想定)。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W28", "CONTRACTOR28", ["MEMBER28"])
+    start_pending_contractor_transfer("W28", "MEMBER28", "弟子", FEB, workshops)
+
+    after_expiry = FEB + timedelta(hours=25)
+    expired = check_and_expire_pending_contractor_transfer("W28", after_expiry, workshops)
+    check("期限切れ分が返る", expired is not None and expired.candidate_user_id == "MEMBER28")
+    check(
+        "期限切れ後はpending_contractor_transferが削除される",
+        workshops.get_pending_contractor_transfer("W28") is None,
+    )
+
+
+def test_check_and_expire_pending_contractor_transfer_noop_within_expiry():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W29", "CONTRACTOR29", ["MEMBER29"])
+    start_pending_contractor_transfer("W29", "MEMBER29", "弟子", FEB, workshops)
+
+    within_expiry = FEB + timedelta(hours=1)
+    result = check_and_expire_pending_contractor_transfer("W29", within_expiry, workshops)
+    check("期限内はNoneを返し何もしない", result is None)
+    check(
+        "期限内はpending_contractor_transferが維持される",
+        workshops.get_pending_contractor_transfer("W29") is not None,
+    )
+
+
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
@@ -372,6 +507,15 @@ if __name__ == "__main__":
     test_resolve_contractor_transfer_target_returns_none_for_unknown_name()
     test_apply_contractor_transfer_updates_contractor_and_keeps_previous_as_member()
     test_apply_contractor_transfer_raises_for_non_member()
+    test_start_pending_contractor_transfer_writes_expected_state()
+    test_is_contractor_transfer_confirmation_context_true_for_contractor_within_expiry()
+    test_is_contractor_transfer_confirmation_context_false_for_non_contractor()
+    test_is_contractor_transfer_confirmation_context_false_when_no_pending()
+    test_is_contractor_transfer_confirmation_context_false_after_expiry()
+    test_apply_contractor_transfer_clears_pending_state()
+    test_cancel_pending_contractor_transfer_clears_without_updating_contractor()
+    test_check_and_expire_pending_contractor_transfer_clears_and_returns_when_expired()
+    test_check_and_expire_pending_contractor_transfer_noop_within_expiry()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)
