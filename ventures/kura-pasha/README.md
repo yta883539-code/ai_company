@@ -581,8 +581,49 @@
   承認不要な検討・設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ42(2026-09-08 11:00 UTC): ドキュメント整合性の記載漏れを訂正した。
+  subscription-cancellation-flow-design.md(フェーズ23)「未検証の仮説・次の課題」に
+  残っていた「schema/output.schema.jsonのstatus enum拡張・validate_test_cases.pyへの
+  テストケース追加は未着手」という記載が、実際にはフェーズ24(本ファイル作成の1時間後)で
+  既に対応済みだったにもかかわらず訂正されないまま持ち越されていた記載漏れであることを
+  発見し、同ファイル内に訂正の追記を行った(`python3 schema/validate_test_cases.py`実行、
+  23件全件パスを確認)。本README.mdのステータス欄がフェーズ41止まりで本フェーズの記録が
+  漏れていたため、本フェーズ42のエントリとして追記する(記載漏れの発見自体の記載漏れという
+  形になっていたための遡及記録)。承認不要なドキュメント整合性修正のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
+- フェーズ43(2026-09-08 13:00 UTC): 「次にやること」で挙げていなかったが、
+  prototype/usage_counter_workshop.pyのコードを見直す中で新たに気付いた設計上の未整理点に
+  対応した(message-context-selection-design.md新規作成)。これまで(1)member-retention-
+  notice-design.md(フェーズ29、猶予期間中の「残すメンバー」連絡検知)、(2)contractor-
+  transfer-confirmation-detection-design.md(フェーズ36、契約者譲渡の再確認応答検知)、
+  (3)contractor-transfer-expired-notice-design.md(フェーズ39、譲渡申請の期限切れ案内)、
+  という3つの「一時状態に応じてLLM呼び出し前のプロンプト文脈を切り替える」設計がそれぞれ
+  個別に確定していたが、1つのworkshopに複数の一時状態が同時に存在しうる場合(例:譲渡
+  申請中〈pending_contractor_transfer〉かつメンバー縮小の猶予期間中
+  〈pending_member_reduction_effective_at〉)に、どちらの文脈を優先して注入すべきかという
+  優先順位が一度も明文化されていないことに気付いた。本ファイルで、(a)期限切れ検知
+  (`check_and_expire_pending_contractor_transfer`)を最優先(送信者に依らず強制的に案内を
+  返す必要があるため)、(b)契約者本人かつ`pending_contractor_transfer`が期限内なら契約者
+  譲渡の再確認応答文脈、(c)契約者本人かつ`pending_member_reduction_effective_at`が
+  設定済みなら残すメンバー連絡文脈、(d)いずれにも該当しなければ通常の生成リクエスト文脈
+  (`process_generation_request`)、という4段階の優先順位を確定した。優先順位の根拠
+  (期限切れ通知は受動案内である以上取りこぼすと機会を失う一方、契約者譲渡は工房の統治
+  そのものに関わるため縮小猶予の連絡より優先させる、という2点)を明記した。schema側の
+  クロスフィールド制約(status enum同士は排他的に設計済みのため優先順位を人為的に決めて
+  も既存schemaと矛盾しない)を確認したが、prototype側に上記4段階を1つの関数へ統合する
+  実装(`select_message_context`相当)はまだ無く、次の課題として残した。設計文書作成の
+  みで、コード変更は無くventure全体70件(`python3 prototype/test_usage_counter_workshop.py`)・
+  schema検証23件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ
+  結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
+- message-context-selection-design.md(フェーズ43)で確定した4段階の優先順位を、
+  prototype/usage_counter_workshop.pyに`select_message_context`相当の統合関数として
+  実装し、テストケースを追加する。
 - 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
   interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
@@ -592,5 +633,5 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 07:00 UTC(フェーズ41: 契約者以外からのメッセージの扱いを検討・
-結論確定)
+最終更新: 2026-09-08 13:00 UTC(フェーズ43: 複数の一時状態が同時に存在する場合の
+プロンプト文脈選択優先順位を設計)
