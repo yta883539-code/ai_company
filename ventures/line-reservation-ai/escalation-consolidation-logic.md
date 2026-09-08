@@ -124,7 +124,14 @@ no-show-handling.mdの「翌朝ダイジェスト」方式(全件を遅延集約
 - 上記の「再発火3回で都度通知に切り替え」「30分途絶えでリセット」の閾値は
   いずれも仮の目安であり、実際の利用データ(1顧客あたりのエスカレーション頻度)が
   取れるまでは机上の値である。
-- 実際のジョブスケジューリング実装方式の技術選定(tech-stack.md側で別途検討)。
+- ~~実際のジョブスケジューリング実装方式の技術選定(tech-stack.md側で別途検討)。~~ →
+  解消済み(2026-09-08追記)。escalation-digest-flush-trigger-design.mdで、
+  `flush_due_windows()`(本ファイル記載のウィンドウ集約)を実際にいつ呼び出すかを
+  検討し、idle-conversation-trigger-design.mdと同じ「Webhook便乗」方式を採用した
+  (`ConversationEventProcessor.maybe_run_escalation_flush()`、間引き間隔1分)。
+  実Cloud Scheduler接続時は`flush_escalation_windows()`を直接呼び出すだけで移行できる
+  設計になっており、専用スケジューラ自体の設定(GCPプロジェクト作成を伴う)は引き続き
+  オーナー承認待ちとして残る(pending-approval.md参照)。
 
 ## 追記(2026-07-31 17:58 UTC): 実装(prototype/engine.py)で確定した詳細
 上記の文章では明記していなかった「5分ウィンドウの起点」について、

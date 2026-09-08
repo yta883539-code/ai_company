@@ -2675,7 +2675,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   設計文書作成・既存文書の整合性更新のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-07 22:00 UTC
+- フェーズ続き209(2026-09-08 00:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  escalation-consolidation-logic.md「未検討・要検討事項」を確認したところ、2点目の
+  「実際のジョブスケジューリング実装方式の技術選定(tech-stack.md側で別途検討)」が
+  未解決のまま残っていたが、実際にはescalation-digest-flush-trigger-design.md(既存)で
+  idle-conversation-trigger-design.mdと同じ「Webhook便乗」方式を採用し、
+  `ConversationEventProcessor.maybe_run_escalation_flush()`(間引き間隔1分)として
+  既に実装・検証済みだったにもかかわらず未訂正のまま残っていた記載漏れだったと判明した
+  (フェーズ196・197・198で見つかったaircon-pasha・course-set-pasha側の同種の記載漏れと
+  同じパターン)。該当bulletを解消済みとして書き換え、関連する設計docへの参照を追記した。
+  コード変更は無く、venture全体760件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証25件(`python3 schema/validate_test_cases.py`)パスを確認した
+  (変更前と同じ結果)。承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
+  優先候補とする。
+- 最終更新: 2026-09-08 00:00 UTC
 
 ## 次にやること(候補)
 - (解消済み 2026-09-07 22:00 UTC・フェーズ続き208: subscription-billing-cost-estimate.mdの
