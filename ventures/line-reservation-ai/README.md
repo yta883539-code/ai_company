@@ -3430,6 +3430,11 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   既に0分間区間を拒否するため解消済みと確認。UI側の追加バリデーションは不要と判断)
 - (解消済み 2026-08-01 10:00 UTC: 1日に複数の営業時間帯がある(昼休憩)ケースはbusiness-hours-lunch-break.md参照。
   同ファイルの残課題だった区間同士の重複・逆転バリデーションも2026-08-01 11:00 UTCに実装済み)
+- (解消済み 2026-09-08 12:00 UTC・フェーズ続き211: subscription-deleted-event-routing-design.md
+  6節「今後の課題」に残っていた「`customer.subscription.updated`(解約予約・取り消し)の配線は
+  次回以降の課題」という記載が、実際にはcustomer-subscription-updated-event-routing-design.md
+  (フェーズ続き185)で既に設計・実装・テスト済みだったにもかかわらず訂正されていなかった
+  記載漏れを発見・訂正した。`python3 -m unittest discover`でprototype配下771件全件パスを確認)
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

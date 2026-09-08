@@ -98,9 +98,10 @@ activated側の呼び出し元・既存テスト群への影響範囲確認が�
 
 ## 6. 今後の課題
 
-- `customer.subscription.updated`(解約予約・取り消し)の配線は、
-  「直前の`cancel_at_period_end`をどう保持・比較するか」の設計が別途必要なため、
-  引き続き次回以降の課題として残す。
+- (解消済み・フェーズ続き211で訂正: `customer.subscription.updated`(解約予約・取り消し)の配線は
+  customer-subscription-updated-event-routing-design.md(フェーズ続き185)で既に設計・実装・
+  テスト(`ReceiveStripeWebhookSubscriptionUpdatedTest`等)済みだったにもかかわらず、
+  本ファイルの本節が未訂正のまま残課題として記載され続けていた記載漏れを発見・訂正した)
 - activated側・cancelled側の`StoreSubscriptionState`の統合要否(Firestore上で
   同一ドキュメントを指すのであれば、どちらかに寄せるか共通化する方が実装時の
   混乱が少ない)は、実Firestore接続後にデータモデルを固める段階で改めて検討する。
