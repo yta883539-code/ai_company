@@ -114,12 +114,20 @@ course-set-pasha/subscription-cancellation-flow-design.mdの確定方式をそ�
 
 ## 未検証の仮説・次の課題
 
-- schema/output.schema.jsonの`status` enum拡張(course-set-pashaの
+- ~~schema/output.schema.jsonの`status` enum拡張(course-set-pashaの
   cancellation_intent/downgrade_intent/cancellation_unclear相当の追加)、
   schema/validate_test_cases.pyへの対応テストケース追加は未着手。フェーズ22からの
-  持ち越し課題であり、次のステップ候補とする。
+  持ち越し課題であり、次のステップ候補とする。~~
+  → 2026-09-08 11:00 UTC訂正(フェーズ42): この記載はフェーズ22時点のまま更新
+  されず持ち越されていた記載漏れであり、実際にはフェーズ24(2026-09-07 07:00 UTC、
+  本ファイル作成の1時間後)で`schema/output.schema.json`の`status` enumへ
+  `cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と
+  `subscription_procedure_notice`フィールドが追加済みであり、
+  `schema/validate_test_cases.py`にも対応するテストケース(C1/C2/C3および
+  NEG2)が追加済みであることを確認した(python3 validate_test_cases.py実行、
+  23件全件パスを確認)。着手済みのため次の課題からは除外する。
 - 複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計は本venture未着手。
 - 実際のStripe接続・Webhook実装・LINE公式アカウント接続はオーナー承認待ちの範囲
   (アカウント開設・契約が必要)として残る。設計・下書き作成の範囲に留める。
 
-最終更新: 2026-09-07 06:00 UTC
+最終更新: 2026-09-08 11:00 UTC(フェーズ続き211、記載漏れ訂正)
