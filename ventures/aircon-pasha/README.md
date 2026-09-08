@@ -3055,4 +3055,19 @@
   (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要なコード修正・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
   していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-08 09:00 UTC
+- フェーズ200(2026-09-08 16:02 UTC): フェーズ199で発見した`resolve_linking_code()`の
+  データ消失バグ(再連携時に`UserProfile`を丸ごと新規生成・上書きし決済関連フィールドが
+  消える)が他ventureにも同様に存在しないか横断確認した。course-set-pashaの
+  `prototype/user_id_linking.py`の`resolve_linking_code()`はコードから`user_id`を解決する
+  のみで`UserProfileStore`への書き込みは行わず、実際の保存は別関数
+  `handle_form_submission_with_linking_code()`がフォーム送信内容を個別フィールドとして
+  `application_form_submission_flow.handle_form_submission()`へ渡す設計のため、
+  `UserProfile`をまるごと上書きする経路が存在せず同型の問題は生じないことを確認した
+  (kura-pasha・line-reservation-aiは連携コード方式の`user_id_linking.py`モジュール自体を
+  持たないため対象外)。詳細はcheckout-session-completed-handling-design.md「未検証・
+  残課題」参照。コード変更は無く確認のみ、venture全体475件全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(変更前と同じ結果)。
+  承認不要な横断確認・設計doc記載のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-08 16:02 UTC

@@ -78,3 +78,15 @@ test_subsequent_subscription_event_resolves_via_linked_profile`で一気通貫�
 - `usage_counter`側の`upgraded_at`書き込み配線(course-set-pashaのtrial-end-scheduler-design.md
   2節相当)は、本venture側にまだ`usage_counter`のトライアル終了通知の実装自体が無いため
   今回は対象外。トライアル関連の実装に着手する際にあわせて検討する。
+- (確認済み 2026-09-08 16:02 UTC・フェーズ200: フェーズ199で見つけた上記データ消失バグ
+  (`resolve_linking_code()`の再連携時`UserProfile`丸ごと上書き)が他ventureにも同様に
+  存在しないか横断確認した。course-set-pashaの`prototype/user_id_linking.py`の
+  `resolve_linking_code()`は、コードから`user_id`を解決するのみで`UserProfileStore`への
+  書き込みは一切行わず、実際の申込フォーム内容の保存は別関数
+  `handle_form_submission_with_linking_code()`が`application_form_submission_flow.
+  handle_form_submission()`へ委譲する設計(フォーム送信内容をその都度個別フィールドとして
+  渡す方式)であるため、`UserProfile`をまるごと新規生成して上書きする経路が存在せず、
+  本バグと同型の問題は生じないことを確認した(kura-pasha・line-reservation-aiは
+  そもそも連携コード方式の`user_id_linking.py`モジュール自体を持たず対象外)。コード変更は
+  無く、確認のみ。外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。)
