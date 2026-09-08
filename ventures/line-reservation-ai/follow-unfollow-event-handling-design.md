@@ -166,8 +166,20 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
   冪等性を担保、`format_reminder_blocked_owner_notice()`をengine.pyに新規実装)。
   テスト7件追加(engine.py 2件・cloud_function_send_reminders.py 5件)、venture全体754件
   全件パス・schema検証25件パスを確認した)
-- 店舗名差し込み版ウェルカムメッセージ(2節参照)の実装は、owner-settings-wireframe.mdの
-  店舗設定フィールド名確定後に着手する。
+- (解消 2026-09-08 10:00 UTC: 店舗名差し込み版ウェルカムメッセージを実装した。
+  owner-settings-wireframe.mdの「店舗名」欄はstore-settings-save-flow-design.md 9節
+  (新設)で`business_name_raw`ペイロード項目・`businessName`Firestoreフィールドとして
+  正式にフィールド名を確定し、`normalize_business_name()`で正規化して書き込む。
+  `prototype/cloud_function_process_event.py`に`StoreNameProviderProtocol`
+  (aircon-pashaの`ApplicationFormLinkProvider`と同じ「未接続・未設定時は安全側
+  フォールバックを返す」設計)を新設し、`ConversationEventProcessor`に
+  `store_name_provider`引数(未指定時はNone、後方互換)を追加した。
+  `FOLLOW_WELCOME_MESSAGE`定数は`format_follow_welcome_message(business_name="")`
+  関数に置き換え、店舗名が取得できた場合は「〇〇にご登録ありがとうございます!」、
+  空文字列(未接続・未設定)の場合は従来通り「ご登録ありがとうございます!」を冒頭に
+  差し込む。テスト11件追加(cloud_function_process_event側5件・
+  store_settings_save_flow側6件)、venture全体771件全件パス・schema検証25件パスを
+  確認した。)
 - `dispatch_process_event()`を実際に呼び出すFunction B本体(Cloud Tasksデキュー後の
   実エントリポイント)は未実装のため、その配線自体は次回以降の課題として残る
   (上記「実装状況」参照)。

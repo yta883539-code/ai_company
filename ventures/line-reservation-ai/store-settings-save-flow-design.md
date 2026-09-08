@@ -209,6 +209,41 @@ store-id-resolution-and-owner-identity-design.md「残課題」に記載の
 `normalize_closed_dates()`を新設し、`handle_store_settings_submission()`から7節と同じ
 「発火判定ロジックへの入力には含めない」書き込み処理として呼び出す。テスト9件追加。
 
+## 9. 店舗名(business_name)の保存(2026-09-08追記)
+
+follow-unfollow-event-handling-design.md 2節「残課題」に残っていた「店舗名を差し込みたい
+場合は店舗設定フィールド名の確定後に着手する」に対応する。owner-settings-wireframe.mdの
+「店舗名」欄(19行目)を、7節・8節と同じ「発火判定には使わないが書き込みだけ本フローに
+結線する」対象外項目として正式に統合する。
+
+### 9.1 追加ペイロード項目
+
+```json
+{
+  "business_name_raw": "〇〇美容室"
+}
+```
+
+- `business_name_raw`: owner-settings-wireframe.mdの「店舗名」欄の生文字列。
+  `normalize_business_name()`で前後空白を除去する。非文字列・空白のみの入力は
+  未設定として扱い空文字列を返す(7節のFAQ情報未入力時と同じ「エラーにせず空のまま
+  扱う」方針)。
+
+### 9.2 書き込み先
+
+`stores/{storeId}`ドキュメントの`businessName`へ、7節・8節と同じく5節の発火判定用
+フィールドとは独立に全体上書きで書き込む。
+
+### 9.3 プロトタイプ実装方針
+
+`StoreSettingsStoreProtocol`に`set_business_name`・`get_business_name`を追加し、
+`InMemoryStoreSettingsStore`に対応する保持先を追加した。`get_business_name(user_id)`は
+follow-unfollow-event-handling-design.md 2節が新設した
+`StoreNameProviderProtocol.get_business_name(store_id)`と構造的に(duck typing)一致するため、
+`InMemoryStoreSettingsStore`はそのまま`ConversationEventProcessor(store_name_provider=...)`
+にも渡せる(`StoreProfileStoreProtocol`が`OwnerFollowStatusStoreProtocol`を構造的に
+満たすのと同じ考え方)。テスト6件追加。
+
 ## 残課題
 
 - Googleフォーム自体の作成・GAS配置(外部サービスへの実設定)はオーナー承認待ち。

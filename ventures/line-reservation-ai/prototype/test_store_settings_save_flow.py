@@ -13,6 +13,7 @@ from cloud_function_process_event import InMemoryLinePushClient  # noqa: E402
 from store_settings_save_flow import (  # noqa: E402
     InMemoryStoreSettingsStore,
     handle_store_settings_submission,
+    normalize_business_name,
     normalize_closed_dates,
     normalize_faq_info,
     normalize_menus,
@@ -168,6 +169,18 @@ class NormalizeClosedDatesTest(unittest.TestCase):
         )
 
 
+class NormalizeBusinessNameTest(unittest.TestCase):
+    def test_strips_surrounding_whitespace(self):
+        self.assertEqual(normalize_business_name("  〇〇美容室  "), "〇〇美容室")
+
+    def test_missing_or_non_string_value_returns_empty_string(self):
+        self.assertEqual(normalize_business_name(None), "")
+        self.assertEqual(normalize_business_name(123), "")
+
+    def test_whitespace_only_value_returns_empty_string(self):
+        self.assertEqual(normalize_business_name("   "), "")
+
+
 class HandleStoreSettingsSubmissionTest(unittest.TestCase):
     def setUp(self):
         self.store = InMemoryStoreSettingsStore()
@@ -206,6 +219,19 @@ class HandleStoreSettingsSubmissionTest(unittest.TestCase):
             self.store.get_menus("Uowner123"),
             [{"name": "カット", "duration_minutes": 60}],
         )
+
+    def test_writes_business_name_to_store(self):
+        self._call(payload=_complete_payload(business_name_raw="  〇〇美容室  "))
+        self.assertEqual(self.store.get_business_name("Uowner123"), "〇〇美容室")
+        self.assertEqual(self.store.get_business_hours_raw("Uowner123"), "10:00-19:00")
+
+    def test_missing_business_name_raw_writes_empty_string(self):
+        self._call()
+        self.assertEqual(self.store.get_business_name("Uowner123"), "")
+
+    def test_result_includes_normalized_business_name(self):
+        result = self._call(payload=_complete_payload(business_name_raw="〇〇美容室"))
+        self.assertEqual(result.business_name, "〇〇美容室")
 
     def test_writes_message_tone_repeat_threshold_and_faq_info_to_store(self):
         self._call(

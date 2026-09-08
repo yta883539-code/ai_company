@@ -21,10 +21,11 @@ from cloud_function_process_event import (  # noqa: E402
     CHANGE_REASK_MENU_MESSAGE,
     ConversationEventProcessor,
     DispatchResult,
-    FOLLOW_WELCOME_MESSAGE,
+    format_follow_welcome_message,
     InMemoryConfirmedReplyRecorder,
     InMemoryConversationStateStore,
     InMemoryLinePushClient,
+    InMemoryStoreNameProvider,
     LinePushDeliveryError,
     MissingDestinationError,
     ProcessEventResult,
@@ -86,6 +87,7 @@ def _new_processor(
     conversation_state_store=None,
     booking_slots=None,
     monthly_booking_limit=None,
+    store_name_provider=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
@@ -120,12 +122,26 @@ def _new_processor(
         owner_user_id=owner_user_id,
         store_profile=store_profile,
         conversation_state_store=conversation_state_store,
+        store_name_provider=store_name_provider,
     )
     return processor, flow, push, logs
 
 
 def _event(user_id: str, text: str) -> dict:
     return {"source": {"userId": user_id}, "message": {"text": text}}
+
+
+class FormatFollowWelcomeMessageTests(unittest.TestCase):
+    def test_without_business_name_uses_generic_greeting(self):
+        message = format_follow_welcome_message()
+        self.assertTrue(message.startswith("ご登録ありがとうございます!"))
+
+    def test_with_business_name_prefixes_greeting(self):
+        message = format_follow_welcome_message("〇〇美容室")
+        self.assertTrue(message.startswith("〇〇美容室にご登録ありがとうございます!"))
+
+    def test_empty_string_falls_back_to_generic_greeting(self):
+        self.assertEqual(format_follow_welcome_message(""), format_follow_welcome_message())
 
 
 class ResolveMenuDurationTests(unittest.TestCase):
@@ -1840,7 +1856,7 @@ class FollowUnfollowEventTests(unittest.TestCase):
         result = dispatch_process_event(processor, event, lambda: {}, NOW)
 
         self.assertEqual(result.reply_sent, True)
-        self.assertEqual(push.sent, [("U1", FOLLOW_WELCOME_MESSAGE)])
+        self.assertEqual(push.sent, [("U1", format_follow_welcome_message())])
         # follow単体では会話フローの状態を一切作らない。
         self.assertIsNone(flow.stage("U1"))
 
@@ -1852,6 +1868,30 @@ class FollowUnfollowEventTests(unittest.TestCase):
 
         self.assertEqual(result.reply_sent, False)
         self.assertEqual(push.sent, [])
+
+    def test_follow_event_with_store_name_provider_includes_business_name(self):
+        processor, _, push, _ = _new_processor(
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室")
+        )
+        event = {"type": "follow", "source": {"userId": "U1"}}
+
+        result = dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(result.reply_sent, True)
+        self.assertEqual(
+            push.sent, [("U1", format_follow_welcome_message("〇〇美容室"))]
+        )
+        self.assertIn("〇〇美容室にご登録ありがとうございます!", push.sent[0][1])
+
+    def test_follow_event_with_unset_store_name_provider_falls_back_to_generic_greeting(self):
+        processor, _, push, _ = _new_processor(
+            store_name_provider=InMemoryStoreNameProvider("")
+        )
+        event = {"type": "follow", "source": {"userId": "U1"}}
+
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(push.sent, [("U1", format_follow_welcome_message())])
 
     def test_dispatch_routes_unfollow_event_without_touching_state(self):
         processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
@@ -2067,7 +2107,7 @@ class ProcessConversationEventEntryPointTests(unittest.TestCase):
         result = handle_process_conversation_event(payload, processor, lambda: {}, NOW)
 
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(push.sent, [("U1", FOLLOW_WELCOME_MESSAGE)])
+        self.assertEqual(push.sent, [("U1", format_follow_welcome_message())])
 
     def test_unknown_event_type_returns_200_with_ignored_detail(self):
         processor, _, push, _ = _new_processor()

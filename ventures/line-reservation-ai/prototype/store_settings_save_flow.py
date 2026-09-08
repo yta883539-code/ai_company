@@ -93,6 +93,12 @@ class StoreSettingsStoreProtocol(StoreProfileStoreProtocol, Protocol):
     def set_closed_dates(self, user_id: str, closed_dates: list) -> None:
         ...
 
+    def set_business_name(self, user_id: str, business_name: str) -> None:
+        ...
+
+    def get_business_name(self, user_id: str) -> str:
+        ...
+
 
 class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
     """`InMemoryStoreProfileStore`に、design 6節で追加するMVP必須項目フィールド
@@ -113,6 +119,7 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
         self._faq_info: dict[str, dict] = {}
         self._weekday_business_hours_raw: dict[str, dict] = {}
         self._closed_dates: dict[str, list] = {}
+        self._business_name: dict[str, str] = {}
 
     def set_business_hours_raw(self, user_id: str, business_hours_raw: str) -> None:
         self._business_hours_raw[user_id] = business_hours_raw
@@ -177,6 +184,12 @@ class InMemoryStoreSettingsStore(InMemoryStoreProfileStore):
 
     def get_closed_dates(self, user_id: str) -> list:
         return list(self._closed_dates.get(user_id, []))
+
+    def set_business_name(self, user_id: str, business_name: str) -> None:
+        self._business_name[user_id] = business_name
+
+    def get_business_name(self, user_id: str) -> str:
+        return self._business_name.get(user_id, "")
 
 
 # design 4節: "30分"・"1"のような表示文字列から数字部分を抽出するために使う。
@@ -325,6 +338,15 @@ def normalize_closed_dates(payload: dict) -> list[str]:
     return normalized
 
 
+def normalize_business_name(raw_value: object) -> str:
+    """design 9.1節: owner-settings-wireframe.mdの「店舗名」欄を正規化する。非文字列・
+    前後空白のみの入力は未設定として扱い、follow-unfollow-event-handling-design.md 2節の
+    店舗名なしフォールバック文言に委ねる(faq_address等と同じ「空欄は未登録として扱う」方針)。"""
+    if not isinstance(raw_value, str):
+        return ""
+    return raw_value.strip()
+
+
 @dataclass
 class StoreSettingsSubmissionResult:
     """`handle_store_settings_submission()`の結果(design 6節のエントリポイントの
@@ -342,6 +364,7 @@ class StoreSettingsSubmissionResult:
     faq_info: dict = None  # type: ignore[assignment]
     weekday_business_hours_raw: dict = None  # type: ignore[assignment]
     closed_dates: list = None  # type: ignore[assignment]
+    business_name: str = ""
     error: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -395,6 +418,7 @@ def handle_store_settings_submission(
     faq_info = normalize_faq_info(payload)
     weekday_business_hours_raw = normalize_weekday_business_hours_raw(payload)
     closed_dates = normalize_closed_dates(payload)
+    business_name = normalize_business_name(payload.get("business_name_raw"))
 
     business_hours_configured = bool(business_hours_raw.strip()) and (
         len(set(closed_weekdays)) < _WEEKDAYS_PER_WEEK
@@ -414,6 +438,7 @@ def handle_store_settings_submission(
     store.set_faq_info(user_id, faq_info)
     store.set_weekday_business_hours_raw(user_id, weekday_business_hours_raw)
     store.set_closed_dates(user_id, closed_dates)
+    store.set_business_name(user_id, business_name)
 
     dispatched = handle_onboarding_completion_message_dispatch(
         user_id,
@@ -440,4 +465,5 @@ def handle_store_settings_submission(
         faq_info=faq_info,
         weekday_business_hours_raw=weekday_business_hours_raw,
         closed_dates=closed_dates,
+        business_name=business_name,
     )

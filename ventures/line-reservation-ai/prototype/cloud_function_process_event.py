@@ -208,6 +208,29 @@ class OwnerFollowStatusStoreProtocol(Protocol):
         ...
 
 
+class StoreNameProviderProtocol(Protocol):
+    """follow-unfollow-event-handling-design.md 2節準拠。ウェルカムメッセージへの店舗名
+    差し込み用に、`stores/{storeId}`ドキュメントの`businessName`(store-settings-save-
+    flow-design.md 9節)を取得するための最小インターフェース。aircon-pashaの
+    `ApplicationFormLinkProvider`と同じ「未接続・未設定時は安全側のフォールバック
+    (プレースホルダの代わりに店舗名なしの共通文言)を返す」設計方針を踏襲する。
+    """
+
+    def get_business_name(self, store_id: str) -> str:
+        """未設定・取得失敗時は空文字列を返す契約とする(店舗名なし文言へのフォールバック)。"""
+        ...
+
+
+class InMemoryStoreNameProvider:
+    """固定の店舗名(または未設定を表す空文字列)を返す検証用スタブ。"""
+
+    def __init__(self, business_name: str = "") -> None:
+        self._business_name = business_name
+
+    def get_business_name(self, store_id: str) -> str:
+        return self._business_name
+
+
 class ConversationStateStoreProtocol(Protocol):
     """conversation-state-wiring-design.md準拠。firestore-data-model.md 3節
     `stores/{storeId}/conversations/{sessionId}`ドキュメント1件分のget/set/deleteのみを
@@ -311,9 +334,7 @@ class UnfollowProcessResult:
 
 # follow-unfollow-event-handling-design.md 2節準拠。フォロー時点ではオーナー/顧客の
 # 判別ができないため、どちらが読んでも違和感のない共通の固定文言を送る。
-FOLLOW_WELCOME_MESSAGE = (
-    "ご登録ありがとうございます!\n"
-    "\n"
+FOLLOW_WELCOME_MESSAGE_BODY = (
     "こちらのLINE公式アカウントでは、空き時間の確認から予約の確定・前日リマインドまで、"
     "トークだけで完結します。\n"
     "\n"
@@ -322,6 +343,21 @@ FOLLOW_WELCOME_MESSAGE = (
     "\n"
     "営業日・アクセス・お支払い方法などのご質問もこちらでお答えします。"
 )
+
+# 店舗名が取得できない場合の冒頭文言(従来のFOLLOW_WELCOME_MESSAGE相当)。
+_FOLLOW_WELCOME_GREETING_WITHOUT_NAME = "ご登録ありがとうございます!"
+
+
+def format_follow_welcome_message(business_name: str = "") -> str:
+    """follow-unfollow-event-handling-design.md 2節「店舗名差し込み版ウェルカムメッセージ」
+    準拠。`business_name`が空文字列(店舗設定未保存・StoreNameProviderProtocol未接続時の
+    安全側フォールバック)の場合は従来通りの店舗名なし共通文言を返す。"""
+    greeting = (
+        f"{business_name}にご登録ありがとうございます!"
+        if business_name
+        else _FOLLOW_WELCOME_GREETING_WITHOUT_NAME
+    )
+    return f"{greeting}\n\n{FOLLOW_WELCOME_MESSAGE_BODY}"
 
 
 def resolve_menu_duration(menu_name: Optional[str], menu_durations: dict) -> Optional[int]:
@@ -381,6 +417,7 @@ class ConversationEventProcessor:
         owner_user_id: Optional[str] = None,
         store_profile: Optional[OwnerFollowStatusStoreProtocol] = None,
         conversation_state_store: Optional[ConversationStateStoreProtocol] = None,
+        store_name_provider: Optional[StoreNameProviderProtocol] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -403,6 +440,10 @@ class ConversationEventProcessor:
         # conversation-state-wiring-design.md(フェーズ続き189)準拠。未指定(None)の場合は
         # hydrate/dehydrateを行わない(上記docstring参照、既存呼び出し元への後方互換)。
         self._conversation_state_store = conversation_state_store
+        # follow-unfollow-event-handling-design.md 2節準拠。ウェルカムメッセージへの店舗名
+        # 差し込み用(未指定(None)の場合は店舗名なしの共通文言のまま、aircon-pashaの
+        # form_link_providerと同じ「未接続時は安全側フォールバック」パターン)。
+        self._store_name_provider = store_name_provider
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -1109,6 +1150,12 @@ class ConversationEventProcessor:
         notified_at`が設定済み(=一度「ブロック中かつ契約継続中」候補として通知
         メールを送っている)であればあわせてクリアする。再びブロックされた場合に
         改めて通知できるようにするため。
+
+        follow-unfollow-event-handling-design.md 2節「店舗名差し込み版ウェルカム
+        メッセージ」(2026-09-08追記)準拠。`store_name_provider`が設定されていれば
+        `get_business_name(store_id)`で店舗名を取得しメッセージ冒頭に差し込む。
+        未接続、または未設定(空文字列)の場合は従来通り店舗名なしの共通文言を送る
+        (安全側フォールバック、取得失敗時に例外で処理全体を止めない)。
         """
         user_id = event.get("source", {}).get("userId")
         if not user_id:
@@ -1120,7 +1167,10 @@ class ConversationEventProcessor:
         ):
             self._store_profile.set_owner_is_following(self._store_id, True)
             clear_blocked_but_billing_owner_notified_at(self._store_profile, self._store_id)
-        self._send(user_id, FOLLOW_WELCOME_MESSAGE, now)
+        business_name = ""
+        if self._store_name_provider is not None:
+            business_name = self._store_name_provider.get_business_name(self._store_id) or ""
+        self._send(user_id, format_follow_welcome_message(business_name), now)
         return FollowProcessResult(reply_sent=True)
 
     def process_unfollow_event(self, event: dict, now: datetime) -> UnfollowProcessResult:
