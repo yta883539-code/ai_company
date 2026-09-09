@@ -111,6 +111,14 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   `process_generation_request()`の判定を、`subscription_status == "past_due"`の場合は
   `is_payment_suspended()`のみで生成可否を決める専用分岐に切り出し、既存の`is_trial_period_over`
   分岐とは独立させた(design 3節「修正するバグ」参照)。
+- フェーズ60: trial-end-notification-design.md(フェーズ59)「5. 実装への影響メモ」1点目・
+  2点目に対応し、(A)生涯最初の生成完了経路の通知要否判定を実装した。`WorkshopStoreProtocol`へ
+  `get_trial_end_notified_at`/`set_trial_end_notified_at`を追加し(命名は
+  `get_payment_failure_detected_at`と同スタイル)、`process_generation_request()`内で
+  `trial_generation_used`が今回の呼び出しで初めてFalse→Trueになった場合に限り
+  `GenerationRequestResult.trial_end_notification_due`をTrueにして`trial_end_notified_at`を
+  書き込む(二重送信防止、design 2節)。(B)期間到達経路は本venture未着手の日次スケジューラが
+  前提のため引き続き次の課題として残す。
 """
 
 from __future__ import annotations
@@ -335,6 +343,16 @@ class WorkshopStoreProtocol(Protocol):
         """`invoice.payment_succeeded`受信時に解消済みとして削除する。"""
         ...
 
+    def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        """trial-end-notification-design.md(フェーズ59)2節: トライアル終了通知を
+        (A)(B)いずれかの経路で送信済みの時刻。未送信の場合はNoneを返す(二重送信防止用)。
+        """
+        ...
+
+    def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
+        """(A)または(B)経路で通知を送信した時点で1回だけ書き込む。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -373,6 +391,7 @@ class InMemoryWorkshopStore:
         self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
+        self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -476,6 +495,12 @@ class InMemoryWorkshopStore:
 
     def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
         self._payment_failure_detected_at_by_workshop.pop(workshop_id, None)
+
+    def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._trial_end_notified_at_by_workshop.get(workshop_id)
+
+    def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
+        self._trial_end_notified_at_by_workshop[workshop_id] = notified_at
 
 
 class InMemoryUsageCounterStore:
@@ -692,6 +717,7 @@ def ensure_member_is_active(
 class GenerationRequestResult:
     usage: UsageCheckResult
     member_reduction: Optional[MemberReductionResult]
+    trial_end_notification_due: bool = False
 
 
 def process_generation_request(
@@ -752,9 +778,21 @@ def process_generation_request(
     # (usage_counterへの加算まで到達した)場合に限り、trial_generation_usedを1回だけ
     # Trueへ更新する。既にTrueの場合は再書き込みしない(冪等だが不要なストア書き込みを
     # 避けるため明示的にガードする)。
+    # フェーズ60: trial-end-notification-design.md 2節(A)経路。今回の呼び出しで
+    # trial_generation_usedが初めてFalse→Trueになった、かつまだ(A)(B)いずれの経路でも
+    # 通知未送信(trial_end_notified_atが未設定)の場合に限り通知要と判定し、
+    # 二重送信防止のためtrial_end_notified_atを即座に書き込む。
+    trial_end_notification_due = False
     if not workshop_store.get_trial_generation_used(workshop_id):
         workshop_store.set_trial_generation_used(workshop_id, True)
-    return GenerationRequestResult(usage=usage, member_reduction=member_reduction)
+        if workshop_store.get_trial_end_notified_at(workshop_id) is None:
+            trial_end_notification_due = True
+            workshop_store.set_trial_end_notified_at(workshop_id, now)
+    return GenerationRequestResult(
+        usage=usage,
+        member_reduction=member_reduction,
+        trial_end_notification_due=trial_end_notification_due,
+    )
 
 
 class ContractorTransferTargetNotFoundError(Exception):

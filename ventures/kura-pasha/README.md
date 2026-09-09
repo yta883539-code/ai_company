@@ -1003,3 +1003,27 @@ includes_checkout_urlが常にfalseであることをテストで担保)
 のに残課題のまま放置されていた〉を訂正。残っていた真の未着手項目だったトライアル終了
 通知メッセージをtrial-end-notification-design.mdとして新規設計。実コード実装・日次
 スケジューラ本体は次の課題として残る)
+
+- フェーズ60(2026-09-09 09:00 UTC): trial-end-notification-design.md(フェーズ59)
+  「5. 実装への影響メモ」に残っていた(A)生涯最初の生成完了経路の通知要否判定を
+  `prototype/usage_counter_workshop.py`に実装した。`WorkshopStoreProtocol`へ
+  `get_trial_end_notified_at`/`set_trial_end_notified_at`を追加(命名は既存の
+  `get_payment_failure_detected_at`と同スタイル)し、`process_generation_request()`で
+  `trial_generation_used`が今回の呼び出しで初めてFalse→Trueになった、かつ
+  `trial_end_notified_at`未設定の場合に限り`GenerationRequestResult.
+  trial_end_notification_due`をTrueにして返しつつ`trial_end_notified_at`を書き込む
+  (二重送信防止、design.md 2節)処理を追加した。2回目以降の生成では再判定しないこと、
+  (B)経路相当で既に通知済みの場合は(A)経路条件を満たしても再通知しないことをテストで
+  確認した。新規テスト3件追加、venture全体283件→291件全件
+  (`test_checkout_session.py`14件・`test_payment_failure_notification.py`22件・
+  `test_stripe_webhook.py`107件・`test_subscription_cancellation_notification.py`28件・
+  `test_usage_counter_workshop.py`120件)・schema検証27件いずれもパスを確認した。
+  (A)経路の実LINEプッシュ送信配線・(B)経路の日次スケジューラ本体・3節の通知メッセージ
+  からの直接ボタン起動配線はいずれも次の課題として残る。承認不要な設計文書更新・
+  プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 09:00 UTC(フェーズ60: トライアル終了通知(A)経路〈生涯最初の生成
+完了〉の通知要否判定を実装。`trial_end_notified_at`による二重送信防止フラグを追加し、
+`process_generation_request`が`trial_end_notification_due`を返すようにした。実LINE
+プッシュ送信配線・(B)経路の日次スケジューラ本体は次の課題として残る)

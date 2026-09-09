@@ -93,19 +93,25 @@ content-generation-time-estimate.md参照)
   `subscription_status`が`"active"`へ更新され、通常の有料契約workshopへ遷移する
   (この経路は本ドキュメント作成前から実装済み)。
 
-## 5. 実装への影響メモ(設計のみ、実装は次回以降)
+## 5. 実装への影響メモ(フェーズ60で(A)経路のみ実装済み)
 
 - `WorkshopStoreProtocol`(prototype/usage_counter_workshop.py)へ
-  `get_trial_end_notified_at`/`set_trial_end_notified_at`の2メソッド追加が必要になる
-  想定(2節の二重送信防止フラグ)。命名は既存の`get_payment_failure_detected_at`/
-  `set_payment_failure_detected_at`(フェーズ56)と同じスタイルを踏襲する。
-- (A)経路は`process_generation_request()`内、`trial_generation_used`をFalse→Trueへ
-  更新した直後に通知要否を判定する分岐を追加する想定。
+  `get_trial_end_notified_at`/`set_trial_end_notified_at`の2メソッドを追加した
+  (2節の二重送信防止フラグ)。命名は既存の`get_payment_failure_detected_at`/
+  `set_payment_failure_detected_at`(フェーズ56)と同じスタイルを踏襲した。
+- (A)経路は`process_generation_request()`内、`trial_generation_used`が今回の呼び出しで
+  初めてFalse→Trueへ更新された、かつ`trial_end_notified_at`が未設定の場合に限り
+  `GenerationRequestResult.trial_end_notification_due`をTrueにして返し、同時に
+  `trial_end_notified_at`へ`now`を書き込む処理として実装した(呼び出し側はこの
+  戻り値を見て3節の通知メッセージ送信要否を判断する想定。実際のLINEプッシュ送信自体は
+  実LINE Messaging API接続がオーナー承認待ちのため未実装)。
 - (B)経路は本venture側にまだ存在しない日次スケジューラ本体の実装が前提となる(6節参照)。
-- テスト(`prototype/test_usage_counter_workshop.py`)では、(A)経路の通知要否判定
-  (`trial_generation_used`が今回の呼び出しで初めてTrueになった場合のみ通知対象と
-  判定し、2回目以降の生成では判定しないこと)を中心に検証する方針とする。実装自体は
-  本フェーズでは着手しない。
+  ただし`trial_end_notified_at`のデータ構造自体は(A)(B)共通で使える形にしてあるため、
+  (B)経路実装時に(A)経路が既に送信済みかどうかを同じフィールドで判定できる。
+- テスト(`prototype/test_usage_counter_workshop.py`)で、(A)経路の通知要否判定
+  (1回目の生成成功でtrial_end_notification_dueがTrue・trial_end_notified_atが
+  書き込まれる/2回目以降はFalse・上書きされない/(B)経路相当で既に通知済みの場合は
+  (A)経路条件を満たしてもFalseのまま)を検証した(新規テスト3件)。
 
 ## 6. 今後の課題
 
@@ -114,10 +120,12 @@ content-generation-time-estimate.md参照)
   本venture未着手。本venture固有の低頻度受注特性(候補workshopの多くは(A)経路で
   完結し(B)経路の発生頻度自体が低いと見込まれる)を踏まえ、他venture(高頻度利用が
   前提)ほどの優先度は無いと判断し、次の課題として残す。
-- 2節の`trial_end_notified_at`フラグ・(A)経路の通知要否判定処理の実コード実装
-  (`prototype/usage_counter_workshop.py`)は次の課題として残す。
 - 3節の通知メッセージからの直接ボタン起動(postbackイベント処理)の配線は
   checkout-initiation-flow-design.mdの対象外であるため、別途の設計・実装が必要
+  (次の課題として残す)。
+- `trial_end_notification_due`がTrueになった場合に実際にLINEプッシュメッセージ
+  (3節の文言)を送信する呼び出し側の配線(生成完了時の通常返信への便乗)は、実LINE
+  Messaging API接続がオーナー承認待ちのため机上設計・戻り値の受け渡しまでにとどまる
   (次の課題として残す)。
 - 実際のCloud Scheduler実行環境の構築、LINE公式アカウント接続・Stripe接続はいずれも
   オーナー承認待ちの範囲(pending-approval.md参照)。本ドキュメントはメッセージ文言・
@@ -127,3 +135,9 @@ content-generation-time-estimate.md参照)
 generation-time-estimate.md〈フェーズ18〉の20分試算を用いて設計。(A)生涯最初の生成完了
 経路と(B)30日期間到達経路の二重トリガー・二重送信防止方針を確定。実コード実装・日次
 スケジューラ本体は次の課題として残る)
+
+最終更新: 2026-09-09 09:00 UTC(フェーズ60: (A)経路の通知要否判定を
+`prototype/usage_counter_workshop.py`に実装。`WorkshopStoreProtocol`へ
+`get_trial_end_notified_at`/`set_trial_end_notified_at`追加、`process_generation_request`が
+`GenerationRequestResult.trial_end_notification_due`を返すようにした。新規テスト3件追加、
+venture全体291件・schema検証27件いずれもパス。(B)経路本体・実プッシュ送信配線は次の課題)

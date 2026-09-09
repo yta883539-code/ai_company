@@ -325,6 +325,77 @@ def test_process_generation_request_does_not_mark_trial_generation_used_when_mem
     )
 
 
+def test_process_generation_request_trial_end_notification_due_on_first_success():
+    """フェーズ60・trial-end-notification-design.md 2節(A)経路: 生涯最初の生成成功時
+    (trial_generation_usedがFalse→Trueになった、まさにその呼び出し)に限り
+    trial_end_notification_dueがTrueになり、trial_end_notified_atが書き込まれることを
+    検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12E", "W12E")
+    workshops.set_plan("W12E", "standard")
+    workshops.set_members("W12E", "U12E", ["U12E"])
+
+    check(
+        "生成前はtrial_end_notified_at未設定",
+        workshops.get_trial_end_notified_at("W12E") is None,
+    )
+    result = process_generation_request("U12E", FEB, profiles, workshops, counters)
+    check(
+        "1回目の生成成功でtrial_end_notification_dueがTrue",
+        result.trial_end_notification_due is True,
+    )
+    check(
+        "1回目の生成成功でtrial_end_notified_atがnowで書き込まれる",
+        workshops.get_trial_end_notified_at("W12E") == FEB,
+    )
+
+
+def test_process_generation_request_trial_end_notification_not_due_on_later_success():
+    """2回目以降の生成成功時はtrial_generation_usedが既にTrueのため
+    trial_end_notification_dueはFalseのまま(再通知しない)ことを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12F", "W12F")
+    workshops.set_plan("W12F", "standard")
+    workshops.set_members("W12F", "U12F", ["U12F"])
+
+    first = process_generation_request("U12F", FEB, profiles, workshops, counters)
+    check("1回目はtrial_end_notification_dueがTrue", first.trial_end_notification_due is True)
+    second = process_generation_request("U12F", MAR, profiles, workshops, counters)
+    check(
+        "2回目はtrial_end_notification_dueがFalse(二重送信防止)",
+        second.trial_end_notification_due is False,
+    )
+    check(
+        "trial_end_notified_atは1回目のnow(FEB)のまま上書きされない",
+        workshops.get_trial_end_notified_at("W12F") == FEB,
+    )
+
+
+def test_process_generation_request_trial_end_notification_not_due_when_already_notified():
+    """(B)経路(本テストでは未実装のため直接set_trial_end_notified_atで模擬)で
+    既に通知済みのworkshopは、(A)経路の条件(trial_generation_used未使用→使用)を
+    満たしていても再通知しないことを検証する(design 2節「一度いずれかの経路で送信した
+    場合は、他方の経路では二重送信しない」)。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U12G", "W12G")
+    workshops.set_plan("W12G", "standard")
+    workshops.set_members("W12G", "U12G", ["U12G"])
+    workshops.set_trial_end_notified_at("W12G", FEB)
+
+    result = process_generation_request("U12G", MAR, profiles, workshops, counters)
+    check(
+        "(B)経路相当で既に通知済みの場合、(A)経路条件を満たしてもtrial_end_notification_dueはFalse",
+        result.trial_end_notification_due is False,
+    )
+    check(
+        "trial_generation_usedは通常通りTrueへ更新される(通知判定とは独立)",
+        workshops.get_trial_generation_used("W12G") is True,
+    )
+
+
 def test_stripe_customer_id_defaults_to_none_and_can_be_set():
     """subscription-billing-data-model-design.md 1節: stripe_customer_idは
     未契約workshopではNone、Checkout Session完了時に書き込まれることを検証する。
@@ -993,6 +1064,9 @@ if __name__ == "__main__":
     test_process_generation_request_marks_trial_generation_used_on_first_success()
     test_process_generation_request_keeps_trial_generation_used_true_on_later_success()
     test_process_generation_request_does_not_mark_trial_generation_used_when_member_removed()
+    test_process_generation_request_trial_end_notification_due_on_first_success()
+    test_process_generation_request_trial_end_notification_not_due_on_later_success()
+    test_process_generation_request_trial_end_notification_not_due_when_already_notified()
     test_stripe_customer_id_defaults_to_none_and_can_be_set()
     test_get_workshop_id_by_stripe_customer_id_resolves_after_set()
     test_subscription_status_defaults_to_trialing()
