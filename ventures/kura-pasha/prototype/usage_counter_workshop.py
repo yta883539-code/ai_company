@@ -119,6 +119,9 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   `GenerationRequestResult.trial_end_notification_due`をTrueにして`trial_end_notified_at`を
   書き込む(二重送信防止、design 2節)。(B)期間到達経路は本venture未着手の日次スケジューラが
   前提のため引き続き次の課題として残す。
+- フェーズ66: workshop_linking.py(新規)がfollowイベント経由の新規workshop作成処理から
+  呼び出せるよう、`UserProfileStoreProtocol`へ`link(user_id, workshop_id)`を追加した
+  (`InMemoryUserProfileStore.link()`自体はフェーズ26から既存)。
 """
 
 from __future__ import annotations
@@ -232,9 +235,15 @@ class PendingContractorTransfer:
 
 
 class UserProfileStoreProtocol(Protocol):
-    """`user_profile/{user_id}.workshop_id`への読み取りを表す。"""
+    """`user_profile/{user_id}.workshop_id`への読み書きを表す。"""
 
     def get_workshop_id(self, user_id: str) -> Optional[str]:
+        ...
+
+    def link(self, user_id: str, workshop_id: str) -> None:
+        """フェーズ66: workshop_linking.pyの新規workshop作成処理から呼び出される
+        書き込み処理。InMemoryUserProfileStoreは既存実装(フェーズ26)をそのまま使う。
+        """
         ...
 
 

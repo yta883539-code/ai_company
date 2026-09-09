@@ -1187,3 +1187,33 @@ event()のLLM呼び出し前に配線し、トライアル終了・決済失敗�
 process_memo_event()へ振り分けられるようにした(follow/unfollow/postbackは次の課題として
 ignored_types記録のみ)。新規テスト11件追加、venture全体393件・schema検証27件いずれも
 パス。follow/unfollow/postback処理関数・初回生成セルフチェック案内は次の課題として残る)
+
+- フェーズ66(2026-09-09 17:00 UTC): フェーズ65で次の課題として残した「follow/unfollow/
+  postback処理関数自体は本venture未着手」に着手する第一歩として、followイベント処理の
+  前提となる連携コード発行・解決・workshop新規作成ロジックをprototype/workshop_linking.py
+  として新規実装した(craftsman-account-linking-design.md フェーズ25の2〜3節)。
+  course-set-pasha/prototype/user_id_linking.pyのコード発行(`issue_linking_code_on_
+  follow`)・パージ(`purge_expired_links`/`delete_pending_links_for_user`)ロジックを
+  ほぼそのまま踏襲しつつ、解決先を(申込フォームが存在しない本venture固有の事情により)
+  フォーム送信ではなく`craftsman_workshop`の新規作成(`create_workshop_from_linking_code`)
+  へ差し替えた。実装の過程で、既存のcheck_and_increment_usage()がトライアル中の生成
+  リクエストでもworkshop_store.get_plan_id()を必ず参照するため、workshop新規作成時に
+  plan_id未設定のままだと生涯最初の無料生成がKeyErrorで失敗するという既存の抜け穴が
+  判明し、craftsman-account-linking-design.mdに7節を追記して「workshop作成時は最安
+  プラン`"light"`で仮設定し、Checkout完了時に実際に選ばれたプランで上書きする」という
+  暫定対応を決定した(上書き処理自体は本ファイル未着手で次の課題)。あわせて
+  `UserProfileStoreProtocol`へ`link(user_id, workshop_id)`を追加した
+  (`InMemoryUserProfileStore.link()`自体はフェーズ26から既存)。新規テスト23件追加、
+  venture全体393件→416件全件・schema検証27件いずれもパスを確認した。
+  `process_follow_event()`自体(本モジュールをcloud_function_webhook.pyへ配線する処理)・
+  unfollow/postback処理関数・5節の招待コード(`pending_workshop_invites`)・4節のStripe
+  Checkout連携(`client_reference_id`=workshop_id)・初回生成セルフチェック案内は
+  いずれも未着手のため引き続き次の課題として残る。承認不要なプロトタイプコード実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 17:00 UTC(フェーズ66: followイベント処理の前提となる連携コード
+発行・解決・workshop新規作成ロジックをworkshop_linking.pyとして新規実装した。workshop
+作成時のplan_id未設定によるKeyErrorの抜け穴を発見しdesignへ暫定対応を追記。新規テスト
+23件追加、venture全体416件・schema検証27件いずれもパス。process_follow_event()自体への
+配線・unfollow/postback処理関数は次の課題として残る)

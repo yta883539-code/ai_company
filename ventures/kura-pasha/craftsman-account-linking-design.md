@@ -131,4 +131,34 @@ subscription-cancellation-flow-design.mdの仮決め(契約者以外からの解
 - 実際のLINE公式アカウント接続・Stripe接続・招待コード発行の実装(プロトタイプコード)は
   未着手。実接続はオーナー承認待ちの範囲(pending-approval.md参照)。
 
-最終更新: 2026-09-07 08:59 UTC
+## 7. 追記(フェーズ66): workshop新規作成時の暫定plan_id
+
+usage-counter-workshop-key-design.md(フェーズ26)実装の`check_and_increment_usage()`は
+トライアル中の生成リクエストでも`workshop_store.get_plan_id(workshop_id)`を必ず参照する
+(`process_generation_request()`内、トライアル終了前の分岐でも到達する)ため、2節の
+「友だち追加→コード解決の時点でworkshopを自動作成する」処理はplan_id未設定のままでは
+生涯最初の無料生成リクエストがKeyErrorで失敗してしまう既存の抜け穴だったことが判明した。
+
+一方、checkout-initiation-flow-design.md(フェーズ38〜)の通りplan_id(ライト/スタンダード/
+複数職人)は本来Stripe Checkout開始時に職人自身が選ぶものであり、友だち追加直後の
+コード解決時点ではまだ確定していない。
+
+暫定対応として、workshop作成時のplan_idはpricing-plan.mdの最安プラン`"light"`
+(月間生成3回)で仮設定し、Checkout完了(`checkout.session.completed`受信、design 4節)時に
+`set_plan()`相当の書き込みで実際に選ばれたプランへ上書きする、という2段階の運用とする
+(`set_plan()`書き込み処理自体は本venture未実装のため次の課題)。トライアル中(生涯最初の
+1回)に限り、この仮のplan_id上限(月3回)が実質的な制約にならないことは
+trial-end-condition-design.md 3節の「生涯最初の1回」判定(回数条件ではなく専用フラグで
+判定)により保証されている。
+
+## workshop_linking.py(フェーズ66)の実装状況
+
+上記2節の連携コード発行(`issue_linking_code_on_follow`)・解決(`resolve_linking_code`)、
+3節のworkshop新規作成(`create_workshop_from_linking_code`)を実行可能なコードに落とし込んだ
+(`prototype/workshop_linking.py`)。course-set-pasha/prototype/user_id_linking.pyの
+コード発行・パージロジックをほぼそのまま踏襲しつつ、解決先をフォーム送信ではなく本venture
+固有のworkshop新規作成に差し替えた。5節の招待コード(`pending_workshop_invites`)・4節の
+Stripe Checkout連携(`client_reference_id`=workshop_id)は本ファイル未着手のため引き続き
+次の課題として残す。
+
+最終更新: 2026-09-09(フェーズ66) UTC
