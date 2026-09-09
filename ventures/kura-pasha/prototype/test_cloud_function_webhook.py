@@ -5,11 +5,15 @@ import base64
 import hashlib
 import hmac
 
+from datetime import datetime, timedelta
+
 from cloud_function_webhook import (
     API_FAILURE_FALLBACK_MESSAGE,
+    PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     TRIAL_END_BUTTON_LABEL,
     TRIAL_END_QUICK_REPLY,
+    TRIAL_PERIOD_OVER_NOTICE,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
@@ -20,7 +24,15 @@ from cloud_function_webhook import (
     verify_line_signature,
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from usage_counter_workshop import (
+    InMemoryUsageCounterStore,
+    InMemoryUserProfileStore,
+    InMemoryWorkshopStore,
+)
 from validate_test_cases import TEST_CASES
+
+FEB = datetime(2026, 2, 1, 9, 0, 0)
+MAR = datetime(2026, 3, 1, 9, 0, 0)
 
 PASS = 0
 FAIL = 0
@@ -286,6 +298,177 @@ def test_process_memo_event_falls_back_after_llm_api_error_retried_once():
     check("即時リトライは1回のみ(合計2回呼ばれる)", llm_call.calls == 2)
 
 
+# ---------------------------------------------------------------------------
+# process_memo_event()のusage_counter_workshop.py連携(フェーズ64)
+# ---------------------------------------------------------------------------
+
+def _make_stores():
+    return InMemoryUserProfileStore(), InMemoryWorkshopStore(), InMemoryUsageCounterStore()
+
+
+def test_process_memo_event_blocks_with_trial_period_over_notice():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_TRIAL_OVER", "W_TRIAL_OVER")
+    workshops.set_plan("W_TRIAL_OVER", "standard")
+    workshops.set_members("W_TRIAL_OVER", "U_TRIAL_OVER", ["U_TRIAL_OVER"])
+    workshops.set_trial_start_at("W_TRIAL_OVER", FEB)
+    workshops.set_trial_generation_used("W_TRIAL_OVER", True)
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_TRIAL_OVER"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR,
+    )
+    check("トライアル終了時はTRIAL_PERIOD_OVER_NOTICEを返す", result.reply_text == TRIAL_PERIOD_OVER_NOTICE)
+    check("トライアル終了時はgeneration_paused=True", result.generation_paused is True)
+    check("トライアル終了時はLLMを呼び出さない", llm_call.calls == [])
+    check(
+        "トライアル終了時はTRIAL_END_QUICK_REPLYを添付する",
+        reply_client.quick_replies_sent[0] is TRIAL_END_QUICK_REPLY,
+    )
+
+
+def test_process_memo_event_allows_generation_when_subscription_active_despite_trial_over():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_ACTIVE", "W_ACTIVE")
+    workshops.set_plan("W_ACTIVE", "standard")
+    workshops.set_members("W_ACTIVE", "U_ACTIVE", ["U_ACTIVE"])
+    workshops.set_trial_start_at("W_ACTIVE", FEB)
+    workshops.set_trial_generation_used("W_ACTIVE", True)
+    workshops.set_subscription_status("W_ACTIVE", "active")
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_ACTIVE"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR,
+    )
+    check("有償契約中(active)はトライアル終了後も通常どおり生成できる", result.reply_sent is True)
+    check("有償契約中は通常の生成本文を返す", "【受注内容整理メモ】" in result.reply_text)
+    check("有償契約中は生成一時停止フラグが立たない", result.generation_paused is False)
+
+
+def test_process_memo_event_blocks_with_payment_suspended_notice_after_grace_period():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PAY_SUSPENDED", "W_PAY_SUSPENDED")
+    workshops.set_plan("W_PAY_SUSPENDED", "standard")
+    workshops.set_members("W_PAY_SUSPENDED", "U_PAY_SUSPENDED", ["U_PAY_SUSPENDED"])
+    workshops.set_trial_start_at("W_PAY_SUSPENDED", FEB)
+    workshops.set_trial_generation_used("W_PAY_SUSPENDED", True)
+    workshops.set_subscription_status("W_PAY_SUSPENDED", "past_due")
+    workshops.set_payment_failure_detected_at("W_PAY_SUSPENDED", MAR)
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_PAY_SUSPENDED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR + timedelta(days=8),
+    )
+    check("猶予期間超過時はPAYMENT_SUSPENDED_NOTICEを返す", result.reply_text == PAYMENT_SUSPENDED_NOTICE)
+    check("猶予期間超過時はpayment_suspended=True", result.payment_suspended is True)
+    check("猶予期間超過時はLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_memo_event_allows_generation_within_payment_failure_grace_period():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PAY_GRACE", "W_PAY_GRACE")
+    workshops.set_plan("W_PAY_GRACE", "standard")
+    workshops.set_members("W_PAY_GRACE", "U_PAY_GRACE", ["U_PAY_GRACE"])
+    workshops.set_trial_start_at("W_PAY_GRACE", FEB)
+    workshops.set_trial_generation_used("W_PAY_GRACE", True)
+    workshops.set_subscription_status("W_PAY_GRACE", "past_due")
+    workshops.set_payment_failure_detected_at("W_PAY_GRACE", MAR)
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_PAY_GRACE"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR + timedelta(days=3),
+    )
+    check("猶予期間内は通常どおり生成できる", result.reply_sent is True)
+    check("猶予期間内は生成一時停止フラグが立たない", result.payment_suspended is False)
+
+
+def test_process_memo_event_appends_trial_end_notification_on_first_success():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_FIRST", "W_FIRST")
+    workshops.set_plan("W_FIRST", "standard")
+    workshops.set_members("W_FIRST", "U_FIRST", ["U_FIRST"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_FIRST"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("生涯最初の生成成功でtrial_end_notification_sent=True", result.trial_end_notification_sent is True)
+    check(
+        "返信本文末尾にトライアル終了通知が便乗する",
+        format_trial_end_notification_message(1) in result.reply_text,
+    )
+    check(
+        "トライアル終了通知にはTRIAL_END_QUICK_REPLYを添付する",
+        reply_client.quick_replies_sent[0] is TRIAL_END_QUICK_REPLY,
+    )
+    check("trial_generation_usedがTrueへ更新される", workshops.get_trial_generation_used("W_FIRST") is True)
+    check("trial_end_notified_atがnowで書き込まれる", workshops.get_trial_end_notified_at("W_FIRST") == FEB)
+    check("usage_counter_storeにも加算される", counters.get("W_FIRST") is not None)
+
+
+def test_process_memo_event_does_not_append_trial_end_notification_on_second_success():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_SECOND", "W_SECOND")
+    workshops.set_plan("W_SECOND", "standard")
+    workshops.set_members("W_SECOND", "U_SECOND", ["U_SECOND"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_SECOND"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    second_result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_SECOND"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR,
+    )
+    check("2回目の生成成功ではtrial_end_notification_sent=False", second_result.trial_end_notification_sent is False)
+    check(
+        "2回目の返信本文にはトライアル終了通知が含まれない",
+        format_trial_end_notification_message(1) not in second_result.reply_text,
+    )
+    check("2回目もquick_replyは付与しない", reply_client.quick_replies_sent[1] is None)
+
+
+def test_process_memo_event_skips_store_integration_when_stores_not_provided():
+    """従来通りuser_profile_store等を渡さない場合は、ストア連携をスキップし
+    LLM呼び出し前のブロック判定・トライアル終了通知の便乗のいずれも発生しないことを
+    確認する(後方互換性、フェーズ63以前の呼び出し方が引き続き動作する)。"""
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_NO_STORES"),
+        _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client,
+    )
+    check("ストア未接続時は通常どおり生成できる", result.reply_sent is True)
+    check("ストア未接続時はtrial_end_notification_sent=False", result.trial_end_notification_sent is False)
+    check("ストア未接続時はgeneration_paused=False", result.generation_paused is False)
+    check("ストア未接続時はpayment_suspended=False", result.payment_suspended is False)
+
+
 if __name__ == "__main__":
     test_verify_line_signature_accepts_correct_signature()
     test_verify_line_signature_rejects_wrong_signature()
@@ -311,6 +494,13 @@ if __name__ == "__main__":
     test_process_memo_event_retries_once_on_validation_error_then_succeeds()
     test_process_memo_event_falls_back_after_second_validation_error()
     test_process_memo_event_falls_back_after_llm_api_error_retried_once()
+    test_process_memo_event_blocks_with_trial_period_over_notice()
+    test_process_memo_event_allows_generation_when_subscription_active_despite_trial_over()
+    test_process_memo_event_blocks_with_payment_suspended_notice_after_grace_period()
+    test_process_memo_event_allows_generation_within_payment_failure_grace_period()
+    test_process_memo_event_appends_trial_end_notification_on_first_success()
+    test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
+    test_process_memo_event_skips_store_integration_when_stores_not_provided()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)

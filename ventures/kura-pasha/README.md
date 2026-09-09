@@ -1113,3 +1113,45 @@ cancellation_intent系のStripeカスタマーポータルURL置換〈PortalLink
 新規テスト12件追加、venture全体346件・schema検証27件いずれもパス。usage_counter・
 profile_store連携〈トライアル/生成一時停止/決済失敗制限モード〉・HTTPエントリポイント・
 dispatch層は次の課題として残る)
+
+- フェーズ64(2026-09-09 14:00 UTC): フェーズ63で次の課題として残した項目のうち、
+  usage_counter・profile_store連携(トライアル生成回数カウント・生成一時停止・決済失敗
+  制限モード)に着手した。本venture固有の`usage_counter_workshop.py`が既に持つ統合
+  エントリポイント`process_generation_request()`(workshop単位、フェーズ30〜60で実装・
+  テスト済み)を`process_memo_event()`からLLM呼び出し前に呼び出すよう配線した。
+  `user_profile_store`・`workshop_store`・`usage_counter_store`の3引数を新設し
+  (いずれも省略可、未接続時は従来通りストア連携なしで動作する後方互換設計)、
+  `TrialPeriodOverError`・`PaymentSuspendedError`送出時はLLM呼び出しを行わずそれぞれ
+  `TRIAL_PERIOD_OVER_NOTICE`(本フェーズ新規の文言)・`PAYMENT_SUSPENDED_NOTICE`
+  (payment-failure-dunning-design.md 4節「制限モード移行時(段階3)」の文言をそのまま
+  `prototype/payment_failure_notification.py`に実装)を返す。いずれもtrial-end-condition-
+  design.md(フェーズ52)・payment-failure-dunning-design.md(フェーズ56)が呼び出し側の
+  変換先として既に名指ししていた定数名をそのまま採用した。`process_generation_request()`が
+  返す`trial_end_notification_due=True`(経路(A)、生涯最初の生成成功)の場合は、
+  最終的な返信本文の末尾に`format_trial_end_notification_message(1)`(フェーズ62実装済み)
+  を付記し`TRIAL_END_QUICK_REPLY`を添付する(aircon-pashaフェーズ137相当)。
+  `WorkshopNotLinkedError`・`MemberRemovedError`は、本venture側にまだdispatch層(連携状態に
+  応じたルーティング振り分け、aircon-pashaのdispatch_webhook_events()相当)が存在せず
+  「process_memo_eventへ到達するのは常に連携済みuser_idのみ」という前提が確立していない
+  ため、あえて捕捉せず伝播させる設計とし、次の課題として明記した。また、
+  `process_generation_request()`のLLM呼び出し前実行という設計上、`trial_end_notified_at`が
+  ブロック判定・カウント成功の時点で書き込まれるため、その後LLM呼び出し自体が失敗する・
+  検証エラーが解消しない場合に通知が「送信済み扱いのまま実際には届かない」既知の制約が
+  あることをdocstringに明記した(発生頻度は低いと見込むが未解消)。新規テスト7件追加
+  (トライアル終了ブロック・active時の継続生成・決済制限モードブロック・猶予期間内の
+  継続生成・初回成功時の通知便乗・2回目以降の非重複・ストア未接続時の後方互換動作)、
+  venture全体346件→371件全件(`test_checkout_session.py`23件・`test_cloud_function_
+  webhook.py`46件→71件・`test_payment_failure_notification.py`22件・
+  `test_stripe_webhook.py`107件・`test_subscription_cancellation_notification.py`28件・
+  `test_usage_counter_workshop.py`120件)・schema検証27件いずれもパスを確認した。
+  `receive_webhook()`(HTTPエントリポイント)・`dispatch_webhook_events()`・初回生成
+  セルフチェック案内(aircon-pasha相当)はいずれも本venture未着手のため引き続き次の課題
+  として残る。承認不要なプロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 14:00 UTC(フェーズ64: process_generation_request()をprocess_memo_
+event()のLLM呼び出し前に配線し、トライアル終了・決済失敗制限モード時のブロック応答
+(TRIAL_PERIOD_OVER_NOTICE/PAYMENT_SUSPENDED_NOTICE)と、生涯最初の生成成功時のトライアル
+終了通知便乗を実装した。新規テスト7件追加、venture全体371件・schema検証27件いずれも
+パス。receive_webhook()・dispatch_webhook_events()・初回生成セルフチェック案内は次の課題
+として残る)

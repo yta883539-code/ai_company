@@ -43,6 +43,18 @@ def render_payment_failure_detected_message() -> str:
     return PAYMENT_FAILURE_DETECTED_MESSAGE
 
 
+# design 4節「制限モード移行時(段階3)」。プッシュ通知ではなく、猶予期間超過後に届いた
+# 生成リクエストへの応答としてcloud_function_webhook.pyのprocess_memo_event()から
+# 返す想定(design 4節の注記どおり、TRIAL_PERIOD_OVER_NOTICEと同じ「生成リクエストへの
+# 応答」という位置づけ)。PortalLinkProvider相当が未実装のためURLは差し込まない
+# (PAYMENT_FAILURE_DETECTED_MESSAGEと同じ方針)。
+PAYMENT_SUSPENDED_NOTICE = (
+    "お支払い手続きが確認できないため、受注内容整理メモ・納品案内・お手入れ案内の生成を"
+    "一時停止しています。\n"
+    "お支払い方法をご確認いただければ、確認完了後に自動で生成を再開します。"
+)
+
+
 @dataclass
 class PaymentFailureDetectedResult:
     """1回の`invoice.payment_failed`通知送信の結果。

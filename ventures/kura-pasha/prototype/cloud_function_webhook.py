@@ -30,12 +30,22 @@ import hashlib
 import hmac
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Protocol, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
+from usage_counter_workshop import (
+    PaymentSuspendedError,
+    TrialPeriodOverError,
+    UsageCounterStoreProtocol,
+    UserProfileStoreProtocol,
+    WorkshopStoreProtocol,
+    process_generation_request,
+)
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -320,6 +330,21 @@ def validate_llm_output(instance: dict) -> List[str]:
     return errors + validate_cross_field_rules(instance)
 
 
+# trial-end-condition-design.md(フェーズ52)・payment-failure-dunning-design.md
+# (フェーズ56)がそれぞれ`TrialPeriodOverError`・`PaymentSuspendedError`送出時の
+# 呼び出し側文言として名指ししていた定数(README.mdフェーズ52・payment-failure-
+# dunning-design.md 4節「制限モード移行時(段階3)」参照)。PAYMENT_SUSPENDED_NOTICEは
+# design 4節の文言をそのまま踏襲し`payment_failure_notification.py`に定義済み(本フェーズで
+# 新設)、TRIAL_PERIOD_OVER_NOTICEは対応する verbatim 文言が設計文書内に無かったため、
+# aircon-pashaのGENERATION_PAUSED_MESSAGEと同じ構成(状態説明+CTA)で本フェーズ新規に
+# 組み立てる。CTAボタンはTRIAL_END_QUICK_REPLY(フェーズ62で定義済み)をそのまま再利用する。
+TRIAL_PERIOD_OVER_NOTICE = (
+    "無料トライアル期間(初回の生成1回、またはworkshop作成から30日のいずれか早い方)が"
+    "終了したため、受注内容整理メモ・納品案内・お手入れ案内の生成を一時停止しています。\n"
+    "引き続きご利用いただく場合は、下のボタンから有料プランへお進みください。"
+)
+
+
 @dataclass
 class MemoProcessResult:
     handled: bool  # False=テキスト以外の単体イベント等、本フローの処理対象外だったため何もしなかった
@@ -328,6 +353,9 @@ class MemoProcessResult:
     validation_errors: list = field(default_factory=list)
     retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
+    generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
+    payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モードの応答
+    trial_end_notification_sent: bool = False  # True=今回の返信にトライアル終了通知を便乗させた
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -377,6 +405,10 @@ def process_memo_event(
     reply_client: ReplyClient,
     *,
     portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
 
@@ -388,10 +420,42 @@ def process_memo_event(
     3. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
        portal_link_providerが渡されていればsubscription_procedure_notice.body中の
        ポータルURLプレースホルダを実URLへ置換する。未接続時は安全側フォールバック文言を返す。
-    4. usage_counter・profile_store(トライアル生成回数カウント・生成一時停止・決済失敗
-       制限モード・初回生成セルフチェック案内)の配線は、本venture側にまだこれらの
-       ストア・スケジューラが実装されていないため対象外とし、次の課題として残す
-       (README.md参照)。
+    4. (フェーズ64、新設) `user_profile_store`・`workshop_store`・`usage_counter_store`の
+       3つ全てが渡された場合のみ、LLM呼び出しの前に`usage_counter_workshop.
+       process_generation_request()`(フェーズ30〜60で実装済みの統合エントリポイント)を
+       呼び出す。これは(1)`check_and_apply_pending_member_reduction`→(2)
+       `ensure_member_is_active`→(3)`is_payment_suspended`/`is_trial_period_over`による
+       生成可否判定→(4)`check_and_increment_usage`→(5)トライアル終了通知要否判定、の順で
+       実行される(usage_counter_workshop.py参照)。`TrialPeriodOverError`・
+       `PaymentSuspendedError`が送出された場合はLLM呼び出しを行わずそれぞれ
+       `TRIAL_PERIOD_OVER_NOTICE`・`PAYMENT_SUSPENDED_NOTICE`を返信して即座に処理を終える
+       (aircon-pashaの`_is_generation_paused()`/`_is_payment_suspended()`と同じ「LLM呼び出し
+       前にブロックする」方針)。3つのうちいずれかが未接続(None)の場合は本ブロックを
+       スキップし、従来通りusage_counter・トライアル判定なしで動作する(安全側デフォルト、
+       本venture側にまだdispatch層〈フェーズ62・63で次の課題として残した`dispatch_webhook_
+       events()`〉が無く常に連携済みuser_idのみがここへ到達する前提が確立していないため)。
+       `WorkshopNotLinkedError`・`MemberRemovedError`(未連携user_id・除外済みメンバーからの
+       リクエスト)はいずれもdispatch層が連携状態に応じてルーティングを振り分ける前提
+       (aircon-pashaのdispatch_webhook_events()参照)で、本venture側dispatch層が未実装の
+       現時点ではこの前提が保証されないため、あえて捕捉せずそのまま呼び出し元へ伝播させる
+       (次の課題)。
+    5. (フェーズ64、新設) 4.の`process_generation_request()`が
+       `GenerationRequestResult.trial_end_notification_due=True`を返した場合(経路(A)、
+       trial-end-notification-design.md 2節)、最終的な返信文の末尾に
+       `format_trial_end_notification_message(1)`(経路(A)は常に実績1回、design 2節)を
+       付記し、`TRIAL_END_QUICK_REPLY`を返信のquick_replyとして添付する
+       (aircon-pashaのフェーズ137相当、追加のPush API呼び出し・課金を発生させない方針)。
+       この付記は`process_generation_request()`がLLM呼び出し前に実行される(4.参照)ため、
+       最終的なstatusがgenerated以外(out_of_scope等)であっても行われる。これは
+       `trial_generation_used`自体がLLM呼び出しの成否・内容と独立して「生成リクエストを
+       受け付けた時点」で確定する既存の設計(usage_counter_workshop.pyフェーズ60時点の
+       実装、`process_generation_request()`のdocstring参照)をそのまま踏襲したものであり、
+       本フェーズで新たな判断を加えたものではない。なお、4.の時点で`trial_end_notified_at`
+       は既に書き込み済みのため、この後LLM呼び出し自体が失敗(`api_failure=True`)・
+       検証エラーが2回とも解消しない(定型フォールバック文言を返す)場合、通知文言は
+       ユーザーへ届かないまま「送信済み」として記録される(二重送信防止フラグが先に
+       立ってしまうため、次回以降の生成でも再送されない)。発生頻度は低いと見込むが
+       未解消の既知の制約として次の課題に残す。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -400,6 +464,36 @@ def process_memo_event(
     reply_token = event["replyToken"]
     memo_text = message["text"]
     user_id = event.get("source", {}).get("userId")
+
+    trial_end_notification_due = False
+    if (
+        user_profile_store is not None
+        and workshop_store is not None
+        and usage_counter_store is not None
+        and user_id
+    ):
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        try:
+            generation_result = process_generation_request(
+                user_id, resolved_now, user_profile_store, workshop_store, usage_counter_store,
+            )
+        except TrialPeriodOverError:
+            reply_sent = _reply_with_retry(
+                reply_client, reply_token, TRIAL_PERIOD_OVER_NOTICE, quick_reply=TRIAL_END_QUICK_REPLY,
+            )
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=TRIAL_PERIOD_OVER_NOTICE if reply_sent else None,
+                generation_paused=True,
+            )
+        except PaymentSuspendedError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, PAYMENT_SUSPENDED_NOTICE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=PAYMENT_SUSPENDED_NOTICE if reply_sent else None,
+                payment_suspended=True,
+            )
+        trial_end_notification_due = generation_result.trial_end_notification_due
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text)
@@ -439,9 +533,15 @@ def process_memo_event(
     reply_text = format_reply_text(
         instance, portal_link_provider=portal_link_provider, user_id=user_id,
     )
-    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    if trial_end_notification_due:
+        reply_text = f"{reply_text}\n\n{format_trial_end_notification_message(1)}"
+    reply_sent = _reply_with_retry(
+        reply_client, reply_token, reply_text,
+        quick_reply=TRIAL_END_QUICK_REPLY if trial_end_notification_due else None,
+    )
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
+        trial_end_notification_sent=reply_sent and trial_end_notification_due,
     )
 
 
