@@ -9,14 +9,20 @@ import time
 from stripe_webhook import (
     CheckoutSessionCompletedResult,
     CustomerSubscriptionDeletedResult,
+    CustomerSubscriptionUpdatedResult,
     handle_checkout_session_completed,
     handle_customer_subscription_deleted,
+    handle_customer_subscription_updated,
     receive_stripe_webhook,
     verify_stripe_signature,
 )
 from subscription_cancellation_notification import (
     InMemoryLinePushClient,
     LinePushDeliveryError,
+    OUTCOME_CANCELLATION_RESCHEDULED,
+    OUTCOME_CANCELLATION_SCHEDULED,
+    OUTCOME_NO_CHANGE,
+    SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE,
     SUBSCRIPTION_CANCELLED_MESSAGE,
 )
 from usage_counter_workshop import InMemoryWorkshopStore
@@ -221,6 +227,88 @@ def test_deleted_status_update_independent_of_notification_failure():
     )
 
 
+# --- handle_customer_subscription_updated ---
+
+
+def _updated_event(customer="cus_20", before=False, after=True, current_period_end=1_760_000_000):
+    previous_attributes = {}
+    if before != after:
+        previous_attributes["cancel_at_period_end"] = before
+    return {
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "customer": customer,
+                "cancel_at_period_end": after,
+                "current_period_end": current_period_end,
+            },
+            "previous_attributes": previous_attributes,
+        },
+    }
+
+
+def test_updated_returns_invalid_when_customer_missing():
+    store = InMemoryWorkshopStore()
+    result = handle_customer_subscription_updated({"data": {"object": {}}}, store)
+    check("customer欠落はinvalid=True", result.invalid is True)
+
+
+def test_updated_returns_unresolved_when_customer_unknown():
+    store = InMemoryWorkshopStore()
+    result = handle_customer_subscription_updated(
+        _updated_event(customer="cus_unknown"), store
+    )
+    check("紐付け無しのcustomerはunresolved=True", result.unresolved is True)
+
+
+def test_updated_without_push_client_does_not_notify():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W20", "cus_20")
+    result = handle_customer_subscription_updated(_updated_event(), store)
+    check("push_client未指定時はnotified=False", result.notified is False)
+    check("workshop_idは返す", result.workshop_id == "W20")
+
+
+def test_updated_scheduled_notifies_contractor():
+    store = InMemoryWorkshopStore()
+    store.set_members("W21", contractor_user_id="contractor_21", member_user_ids=["contractor_21"])
+    store.set_stripe_customer_id("W21", "cus_21")
+    push = InMemoryLinePushClient()
+    result = handle_customer_subscription_updated(
+        _updated_event(customer="cus_21", before=False, after=True), store, push_client=push
+    )
+    check("outcome=cancellation_scheduled", result.outcome == OUTCOME_CANCELLATION_SCHEDULED)
+    check("notified=True", result.notified is True)
+    check("契約者へ送信される", len(push.sent) == 1 and push.sent[0][0] == "contractor_21")
+
+
+def test_updated_rescheduled_notifies_contractor():
+    store = InMemoryWorkshopStore()
+    store.set_members("W22", contractor_user_id="contractor_22", member_user_ids=["contractor_22"])
+    store.set_stripe_customer_id("W22", "cus_22")
+    push = InMemoryLinePushClient()
+    result = handle_customer_subscription_updated(
+        _updated_event(customer="cus_22", before=True, after=False), store, push_client=push
+    )
+    check("outcome=cancellation_rescheduled", result.outcome == OUTCOME_CANCELLATION_RESCHEDULED)
+    check(
+        "解約取り消しメッセージが送信される",
+        push.sent == [("contractor_22", SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE)],
+    )
+
+
+def test_updated_no_change_sends_nothing():
+    store = InMemoryWorkshopStore()
+    store.set_members("W23", contractor_user_id="contractor_23", member_user_ids=["contractor_23"])
+    store.set_stripe_customer_id("W23", "cus_23")
+    push = InMemoryLinePushClient()
+    result = handle_customer_subscription_updated(
+        _updated_event(customer="cus_23", before=False, after=False), store, push_client=push
+    )
+    check("outcome=no_change", result.outcome == OUTCOME_NO_CHANGE)
+    check("送信は行われない", push.sent == [])
+
+
 # --- receive_stripe_webhook ---
 
 
@@ -324,6 +412,63 @@ def test_receive_returns_400_for_missing_customer_on_deleted():
     check("エラーコードmissing_customer", result.error == "missing_customer")
 
 
+def _updated_event_body(customer="cus_24", before=False, after=True):
+    previous_attributes = {}
+    if before != after:
+        previous_attributes["cancel_at_period_end"] = before
+    return json.dumps(
+        {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": customer,
+                    "cancel_at_period_end": after,
+                    "current_period_end": 1_760_000_000,
+                },
+                "previous_attributes": previous_attributes,
+            },
+        }
+    ).encode("utf-8")
+
+
+def test_receive_dispatches_customer_subscription_updated():
+    store = InMemoryWorkshopStore()
+    store.set_members("W24", contractor_user_id="contractor_24", member_user_ids=["contractor_24"])
+    store.set_stripe_customer_id("W24", "cus_24")
+    push = InMemoryLinePushClient()
+    now = int(time.time())
+    body = _updated_event_body(customer="cus_24", before=False, after=True)
+    header = _sign(body, now)
+    result = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, push_client=push
+    )
+    check("正常系は200", result.status_code == 200)
+    check("workshop_idを返す", result.workshop_id == "W24")
+    check("契約者へ解約予約受理通知が送信される", len(push.sent) == 1 and push.sent[0][0] == "contractor_24")
+
+
+def test_receive_returns_200_for_unresolved_customer_on_updated():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = _updated_event_body(customer="cus_unmapped_2")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("紐付け無しcustomerでも200(Stripe側の再送を避ける)", result.status_code == 200)
+    check("unresolved_customer=True", result.unresolved_customer is True)
+
+
+def test_receive_returns_400_for_missing_customer_on_updated():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = json.dumps(
+        {"type": "customer.subscription.updated", "data": {"object": {}}}
+    ).encode("utf-8")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("customer欠落は400", result.status_code == 400)
+    check("エラーコードmissing_customer", result.error == "missing_customer")
+
+
 def test_receive_dispatches_checkout_session_completed():
     store = InMemoryWorkshopStore()
     now = int(time.time())
@@ -380,6 +525,15 @@ if __name__ == "__main__":
     test_deleted_sets_subscription_status_canceled()
     test_deleted_sends_notification_to_contractor_when_push_client_given()
     test_deleted_status_update_independent_of_notification_failure()
+    test_updated_returns_invalid_when_customer_missing()
+    test_updated_returns_unresolved_when_customer_unknown()
+    test_updated_without_push_client_does_not_notify()
+    test_updated_scheduled_notifies_contractor()
+    test_updated_rescheduled_notifies_contractor()
+    test_updated_no_change_sends_nothing()
+    test_receive_dispatches_customer_subscription_updated()
+    test_receive_returns_200_for_unresolved_customer_on_updated()
+    test_receive_returns_400_for_missing_customer_on_updated()
     test_receive_rejects_invalid_signature()
     test_receive_rejects_invalid_json()
     test_receive_ignores_unhandled_event_type()

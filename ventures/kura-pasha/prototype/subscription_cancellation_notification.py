@@ -11,17 +11,22 @@ course-set-pasha/prototype/subscription_cancellation_notification.py(フェー�
 cancelled()`の引数は`user_id`ではなく`workshop_id`とし、関数内部で送信先(契約者本人の
 user_id)を解決する(design 3節)。
 
-`customer.subscription.updated`のcancel_at_period_end前後比較(course-set-pashaの
-`classify_cancel_at_period_end_change()`相当)は本venture未着手のため対象外
-(design 5節、次の課題)。
+フェーズ55: `customer.subscription.updated`のcancel_at_period_end前後比較
+(subscription-cancellation-scheduled-notification-design.md)による「解約予約受理」
+「解約取り消し」通知を追加した。course-set-pashaフェーズ156と異なりPortalLinkProvider
+相当の抽象化を本venture側に持たないため、案内メッセージにURL差し込みは行わない
+(同design.md 5節)。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Protocol
 
 from usage_counter_workshop import WorkshopStoreProtocol
+
+_JST = timezone(timedelta(hours=9))
 
 # design 2節: 「契約終了」「本日以降、3点セットの生成は利用不可」「再開時は新規契約と
 # 同じ手続き」の3点を含む。「それまでは引き続きご利用いただけます」という草案の一文は、
@@ -98,6 +103,114 @@ def handle_subscription_cancelled(
         )
     return SubscriptionCancelledNotificationResult(
         notified=True, contractor_user_id=contractor_user_id
+    )
+
+
+# subscription-cancellation-scheduled-notification-design.md(フェーズ55)4節。
+OUTCOME_CANCELLATION_SCHEDULED = "cancellation_scheduled"
+OUTCOME_CANCELLATION_RESCHEDULED = "cancellation_rescheduled"
+OUTCOME_NO_CHANGE = "no_change"
+
+
+def classify_cancel_at_period_end_change(before: bool, after: bool) -> str:
+    """design 4節。`cancel_at_period_end`の前後比較のみで分類する
+    (course-set-pashaと同一、本ventureも決済失敗ダニング相当の別立て状態を
+    持たないためガード条件は無い)。"""
+    if not before and after:
+        return OUTCOME_CANCELLATION_SCHEDULED
+    if before and not after:
+        return OUTCOME_CANCELLATION_RESCHEDULED
+    return OUTCOME_NO_CHANGE
+
+
+def _format_period_end_date_jst(current_period_end: object) -> Optional[str]:
+    """design 3節。`current_period_end`(Unixタイムスタンプ)をJSTの`YYYY-MM-DD`形式へ
+    変換する。存在しない・数値でない・bool(intのサブクラス)の場合は`None`を返す
+    (安全側フォールバック)。"""
+    if not isinstance(current_period_end, (int, float)) or isinstance(current_period_end, bool):
+        return None
+    return datetime.fromtimestamp(current_period_end, tz=_JST).strftime("%Y-%m-%d")
+
+
+def render_subscription_cancellation_scheduled_message(period_end_date: Optional[str]) -> str:
+    """design 5節「解約予約受理時の案内メッセージ」。`period_end_date`が`None`の場合
+    (`_format_period_end_date_jst`のフォールバック)は日付なしの表現に差し替える。
+    本venture側にPortalLinkProvider相当の抽象化が無いためURL差し込みは行わない
+    (design 5節)。"""
+    until_phrase = (
+        f"今回の請求期間の終了日({period_end_date})まで"
+        if period_end_date is not None
+        else "今回の請求期間の終了日まで"
+    )
+    return (
+        "【鞍パシャッと】解約のお手続きを承りました\n"
+        "\n"
+        f"解約のお手続きを承りました。{until_phrase}は引き続きご利用いただけます。\n"
+        "終了日以降は受注内容整理メモ・納品案内・お手入れ案内の生成はご利用いただけません。\n"
+        "\n"
+        "取り消しをご希望の場合は、終了日より前にこのトークでその旨をお知らせください。\n"
+        "\n"
+        "またのご利用をお待ちしております。"
+    )
+
+
+SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE = (
+    "【鞍パシャッと】解約のお取り消しを承りました\n"
+    "\n"
+    "解約のお取り消しを承りました。引き続きご利用いただけます。"
+)
+
+
+def render_subscription_cancellation_rescheduled_message() -> str:
+    """design 5節の文言をそのまま返す(差し込み情報なし)。"""
+    return SUBSCRIPTION_CANCELLATION_RESCHEDULED_MESSAGE
+
+
+@dataclass
+class SubscriptionCancellationUpdateResult:
+    """1回の`customer.subscription.updated`(cancel_at_period_end変化)処理の結果。
+    `outcome`が`OUTCOME_NO_CHANGE`の場合、送信は行われず`notified`は常に`False`。"""
+
+    outcome: str
+    contractor_user_id: Optional[str] = None
+    notified: bool = False
+
+
+def handle_subscription_cancellation_update(
+    workshop_id: str,
+    cancel_at_period_end_before: bool,
+    cancel_at_period_end_after: bool,
+    current_period_end: object,
+    workshop_store: WorkshopStoreProtocol,
+    push_client: LinePushClient,
+) -> SubscriptionCancellationUpdateResult:
+    """design 6節。`stripe_webhook.handle_customer_subscription_updated()`から
+    呼ばれる処理本体。design 6節のとおり本イベントは`set_subscription_status`等の状態
+    変更を一切伴わない(本関数も状態変更は行わない)。送信先は解約完了通知(フェーズ54)と
+    同じく契約者本人(`contractor_user_id`)に限定する。"""
+    outcome = classify_cancel_at_period_end_change(
+        cancel_at_period_end_before, cancel_at_period_end_after
+    )
+    if outcome == OUTCOME_NO_CHANGE:
+        return SubscriptionCancellationUpdateResult(outcome=outcome)
+
+    contractor_user_id = workshop_store.get_contractor_user_id(workshop_id)
+    if outcome == OUTCOME_CANCELLATION_SCHEDULED:
+        text = render_subscription_cancellation_scheduled_message(
+            _format_period_end_date_jst(current_period_end)
+        )
+    else:
+        text = render_subscription_cancellation_rescheduled_message()
+
+    try:
+        push_client.send_message(contractor_user_id, text)
+    except LinePushDeliveryError:
+        return SubscriptionCancellationUpdateResult(
+            outcome=outcome, contractor_user_id=contractor_user_id, notified=False
+        )
+
+    return SubscriptionCancellationUpdateResult(
+        outcome=outcome, contractor_user_id=contractor_user_id, notified=True
     )
 
 

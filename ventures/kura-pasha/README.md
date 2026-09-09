@@ -870,3 +870,28 @@
 実装、あわせてsubscription-cancellation-flow-design.md 2節の案内文言の事実矛盾を訂正。
 `customer.subscription.updated`のcancel_at_period_end対応・`invoice.payment_failed`/
 `invoice.payment_succeeded`のダニング対応は次の課題として残る)
+
+- フェーズ55(2026-09-09 03:00 UTC): フェーズ54「5. 残課題」に残っていた
+  `customer.subscription.updated`のcancel_at_period_end前後比較による「解約予約受理・
+  解約取り消し」案内を、subscription-cancellation-scheduled-notification-design.mdとして
+  設計・実装した。course-set-pashaフェーズ156の設計(`classify_cancel_at_period_end_
+  change()`・`render_subscription_cancellation_scheduled_message()`・
+  `render_subscription_cancellation_rescheduled_message()`・`handle_subscription_
+  cancellation_update()`)を本venture固有のworkshop単位契約構造へ翻案し、通知先を
+  契約者本人(`contractor_user_id`)に限定した。本venture側にはPortalLinkProvider相当の
+  抽象化がまだ無いため、course-set-pasha版と異なり案内メッセージへのURL差し込みは行わない
+  簡略化を採用し、design.mdに理由を明記した。`stripe_webhook.py`に
+  `handle_customer_subscription_updated()`を新規追加し、`receive_stripe_webhook()`が
+  受理するイベント種別に`customer.subscription.updated`を加えて配線した(本イベントは
+  `set_subscription_status`等の状態変更を一切伴わない)。新規テスト37件
+  (test_subscription_cancellation_notification.py 19件・test_stripe_webhook.py
+  追加分18件)、venture全体184件→221件全件・schema検証23件いずれもパスを確認した。
+  承認不要な設計文書作成・プロトタイプコード実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
+最終更新: 2026-09-09 03:00 UTC(フェーズ55: `customer.subscription.updated`の
+cancel_at_period_end前後比較による解約予約受理・解約取り消し通知を
+subscription-cancellation-scheduled-notification-design.mdとして設計・実装。
+`invoice.payment_failed`/`invoice.payment_succeeded`のダニング対応、実際の解約取り消し
+メッセージ受信時の処理(LINEトーク内での取り消し意図検知)は次の課題として残る)
