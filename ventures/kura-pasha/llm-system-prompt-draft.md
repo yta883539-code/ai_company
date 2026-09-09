@@ -200,3 +200,28 @@ checkout-initiation-flow-design.md(フェーズ50)「残課題」に残ってい
 
 最終更新: 2026-09-09 06:00 UTC(フェーズ57: 厳守事項7b〈有料プラン開始意図検知〉を新設。
 対応するschema拡張〈status enum拡張〉は実API接続オーナー承認待ちのため次の課題として残す)
+
+## 2026-09-09 07:00 UTC追記(フェーズ58): 厳守事項7bに対応するschema拡張
+
+フェーズ57で次の課題として残した「schema/output.schema.jsonのstatus enum拡張」に対応した。
+`status`のenumへ厳守事項7b(i)(ii)(iv)相当の`checkout_intent`/`pricing_inquiry`/
+`checkout_intent_unclear`の3値を追加し、これらのときのみ非nullとなる`checkout_notice`
+フィールドを新設した(厳守事項7a対応のsubscription_procedure_noticeと同じ設計思想)。
+
+厳守事項7aのsubscription_procedure_noticeは`includes_portal_link`をkindに応じてtrue/false
+使い分ける設計だったが、厳守事項7bは(i)の場合も実際のCheckout Session URLを自己判断で
+返さない(handle_checkout_intent側に委ねる)ため、対応する`includes_checkout_url`は
+kindによらず常にfalseとし、その旨をvalidate_test_cases.pyのコード側検証で担保した。
+
+新規テストケース3件(CO1_checkout_intent/CO2_pricing_inquiry/CO3_checkout_intent_unclear)
+とネガティブテスト1件(NEG8_checkout_url_mismatch_is_detected、includes_checkout_urlを
+誤ってtrueにしてしまった場合の検出確認)をschema/validate_test_cases.pyに追加し、schema
+検証23件→27件全件パスを確認した。venture全体の既存テスト(283件、
+test_usage_counter_workshop.py等)は本フェーズでは変更しておらず、変更前と同じ283件
+パスを確認した。承認不要な設計文書更新・schema/テストコード変更のみで、外部サービスへの
+公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+追記なし。
+
+最終更新: 2026-09-09 07:00 UTC(フェーズ58: 厳守事項7bに対応するschema拡張〈status enum
+拡張・checkout_notice新設〉を行った。実LLMでの動作検証は引き続きAPIキー取得オーナー
+承認待ち)

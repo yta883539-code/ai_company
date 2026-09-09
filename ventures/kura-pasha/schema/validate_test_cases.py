@@ -297,6 +297,49 @@ def validate_cross_field_rules(instance, path="$"):
         if expired_notice is not None:
             errors.append(f"{path}: status={status!r}のときcontractor_transfer_expired_noticeはnullである必要があります")
 
+    # 2026-09-09 07:00 UTC追加(フェーズ58): llm-system-prompt-draft.md厳守事項7b・
+    # checkout-initiation-flow-design.md対応のstatus3値(checkout_intent/pricing_inquiry/
+    # checkout_intent_unclear)の非null制約チェック。subscription_procedure_notice用の
+    # ロジックと同じ設計思想を踏襲するが、includes_checkout_urlはkindによらず常にfalseで
+    # ある点が厳守事項7bの設計(実際のCheckout Session URL発行は自己判断で行わない)を反映している。
+    checkout_statuses = {"checkout_intent", "pricing_inquiry", "checkout_intent_unclear"}
+    checkout_notice = instance.get("checkout_notice")
+    if status in checkout_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+        if instance.get("member_retention_notice") is not None:
+            errors.append(f"{path}: status={status}のときmember_retention_noticeはnullである必要があります")
+        if transfer_notice is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_noticeはnullである必要があります")
+        if confirmation is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_confirmationはnullである必要があります")
+        if expired_notice is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_expired_noticeはnullである必要があります")
+        if checkout_notice is None:
+            errors.append(f"{path}: status={status}のときcheckout_noticeは非nullである必要があります")
+        else:
+            if checkout_notice.get("kind") != status:
+                errors.append(
+                    f"{path}.checkout_notice.kind: status({status!r})と"
+                    f"一致していません(実際={checkout_notice.get('kind')!r})"
+                )
+            if checkout_notice.get("includes_checkout_url") is not False:
+                errors.append(
+                    f"{path}.checkout_notice.includes_checkout_url: "
+                    f"kindによらず常にfalseである必要があります(厳守事項7b、実際="
+                    f"{checkout_notice.get('includes_checkout_url')!r})"
+                )
+    else:
+        if checkout_notice is not None:
+            errors.append(f"{path}: status={status!r}のときcheckout_noticeはnullである必要があります")
+
     return errors
 
 
@@ -334,6 +377,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -368,6 +412,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -381,6 +426,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -394,6 +440,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -407,6 +454,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
     # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
@@ -430,6 +478,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
     "C2_downgrade_intent": {
@@ -451,6 +500,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
     "C3_cancellation_unclear": {
@@ -469,6 +519,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
@@ -488,6 +539,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # member-retention-notice-design.md「2. 検知パターンの整理」2(不明確)相当の期待出力。
     "M2_member_retention_unclear": {
@@ -506,6 +558,7 @@ TEST_CASES = {
         "contractor_transfer_notice": None,
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 2026-09-07 17:58 UTC追加(フェーズ34): contractor-transfer-design.md「3. 確定する設計」
     # (名指しされた相手がmember_user_idsに含まれる場合)相当の期待出力。
@@ -525,6 +578,7 @@ TEST_CASES = {
         },
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # contractor-transfer-design.md「3. 確定する設計」(名指しされた相手がmember_user_idsに
     # 含まれない場合、まだworkshopに参加していない第三者を指定した場合を含む)相当の期待出力。
@@ -544,6 +598,7 @@ TEST_CASES = {
         },
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 2026-09-08 02:00 UTC追加(フェーズ37): contractor-transfer-confirmation-detection-design.md
     # 「3. 検知パターン・schema拡張」1(肯定)相当の期待出力。
@@ -562,6 +617,7 @@ TEST_CASES = {
             "body": "契約者を山田様に変更いたしました。",
         },
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」2
     # (否定)相当の期待出力。
@@ -580,6 +636,7 @@ TEST_CASES = {
             "body": "契約者交代の手続きを取り消しました。現在の契約者のまま変更ございません。",
         },
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」3
     # (不明瞭)相当の期待出力。
@@ -598,6 +655,7 @@ TEST_CASES = {
             "body": "契約者交代についてのご返信でよろしいでしょうか?「はい」か「いいえ」でお知らせください。",
         },
         "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
     },
     # 2026-09-08 06:00 UTC追加(フェーズ40): contractor-transfer-expired-notice-design.md
     # 「3. status・schema拡張」相当の期待出力。
@@ -619,6 +677,70 @@ TEST_CASES = {
                 "契約者交代(山田様への変更)の確認期限が過ぎたため、手続きを一旦"
                 "取り消しました。交代をご希望の場合は、お手数ですが改めてご連絡ください。"
             ),
+        },
+        "checkout_notice": None,
+    },
+    # 2026-09-09 07:00 UTC追加(フェーズ58): checkout-initiation-flow-design.md・厳守事項7b(i)
+    # 相当の期待出力。実際のCheckout Session URLはhandle_checkout_intent(Python側)に委ね、
+    # LLM側は一次応答文言のみを返す(includes_checkout_urlは常にfalse)。
+    "CO1_checkout_intent": {
+        "status": "checkout_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": {
+            "kind": "checkout_intent",
+            "body": "お申し込みのご案内をお送りしますね。",
+            "includes_checkout_url": False,
+        },
+    },
+    # 厳守事項7b(ii)相当: 料金・プラン内容についての問い合わせ。pricing-plan.mdの内容を
+    # もとにした案内を返す(3出力の生成対象からは除外する)。
+    "CO2_pricing_inquiry": {
+        "status": "pricing_inquiry",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": {
+            "kind": "pricing_inquiry",
+            "body": (
+                "料金プランは、ライト980円/月・スタンダード1,980円/月・複数職人3,980円/月の"
+                "3種類(いずれも月間生成回数の上限+従量課金)がございます。"
+            ),
+            "includes_checkout_url": False,
+        },
+    },
+    # 厳守事項7b(iv)相当: 開始意図か問い合わせか判断できない場合の意思確認一言のみの出力。
+    "CO3_checkout_intent_unclear": {
+        "status": "checkout_intent_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": {
+            "kind": "checkout_intent_unclear",
+            "body": "有料プランのお申し込みをご希望でしょうか?よろしければ「有料プランを始めたい」とお送りください。",
+            "includes_checkout_url": False,
         },
     },
 }
@@ -650,6 +772,7 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
 }
 
 # 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
@@ -670,6 +793,7 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
 }
 
 # 2026-09-07 13:02 UTC追加。member_retention_notice.kindがstatusと不一致な不正フィクスチャ
@@ -691,6 +815,7 @@ NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH = {
     "contractor_transfer_notice": None,
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
 }
 
 # 2026-09-07 17:58 UTC追加(フェーズ34)。contractor_transfer_notice.kindがstatusと
@@ -713,6 +838,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH = {
     },
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
 }
 
 # 2026-09-08 02:00 UTC追加(フェーズ37)。contractor_transfer_confirmation.kindがstatusと
@@ -734,6 +860,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_CONFIRMATION_KIND_MISMATCH = {
         "body": "契約者交代の手続きを取り消しました。現在の契約者のまま変更ございません。",
     },
     "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
 }
 
 # 2026-09-08 06:00 UTC追加(フェーズ40)。contractor_transfer_expired_notice.kindは固定
@@ -760,6 +887,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_PRESENT_WHEN_STATUS_MISMATCH = 
         "candidate_member_name": "山田",
         "body": "契約者交代(山田様への変更)の確認期限が過ぎたため、手続きを一旦取り消しました。",
     },
+    "checkout_notice": None,
 }
 
 # 2026-09-08 06:00 UTC追加(フェーズ40)。contractor-transfer-expired-notice-design.md3節
@@ -781,6 +909,31 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_NAME_NULL = {
         "kind": "contractor_transfer_expired_notice",
         "candidate_member_name": None,
         "body": "契約者交代の確認期限が過ぎたため、手続きを一旦取り消しました。",
+    },
+    "checkout_notice": None,
+}
+
+# 2026-09-09 07:00 UTC追加(フェーズ58)。厳守事項7b違反(includes_checkout_url不一致)を
+# 意図的に仕込んだ不正フィクスチャ。checkout_intentなのに実際のCheckout Session URLを
+# 自己判断で発行したとしてincludes_checkout_url=trueで出力してしまうケースを想定。
+# validate_cross_field_rulesが実際にこの違反を検出できることを確認するためのネガティブ
+# テスト。NEGATIVE_CASE_PORTAL_LINK_MISMATCHと同じ設計思想を踏襲。
+NEGATIVE_CASE_CHECKOUT_URL_MISMATCH = {
+    "status": "checkout_intent",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": None,
+    "contractor_transfer_notice": None,
+    "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
+    "checkout_notice": {
+        "kind": "checkout_intent",
+        "body": "お申し込みのご案内をお送りしますね。",
+        "includes_checkout_url": True,
     },
 }
 
@@ -899,6 +1052,19 @@ def main():
             "[NG] NEG7_contractor_transfer_expired_notice_name_null_is_detected: "
             "candidate_member_nameのnull制約違反を検出できませんでした(バリデータの不備)"
         )
+
+    # ネガティブテスト: checkout_notice.includes_checkout_urlの不一致(厳守事項7b違反)が
+    # ちゃんと検出されることを確認する
+    total += 1
+    neg_errors8 = validate_against_schema(NEGATIVE_CASE_CHECKOUT_URL_MISMATCH, SCHEMA)
+    neg_errors8 += validate_cross_field_rules(NEGATIVE_CASE_CHECKOUT_URL_MISMATCH)
+    if neg_errors8:
+        print("[OK] NEG8_checkout_url_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors8:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG8_checkout_url_mismatch_is_detected: includes_checkout_url不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

@@ -1,15 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "鞍パシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-09-06 04:00 UTC作成)『構造化出力の方針』を実ファイル化した草案。他venture(aircon-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フローが存在しないため、aircon-pashaのsubscription_procedure_notice相当のフィールドは設けず3値のみとした(llm-system-prompt-draft.md『構造化出力の方針』の判断を踏襲)。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(course-set-pashaと同様、statusに応じた非null制約はコード側検証(validate_test_cases.py相当、未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。2026-09-07 07:00 UTC改訂(フェーズ24): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.md(フェーズ23)に対応し、course-set-pashaのフェーズ54改訂を踏襲して`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。2026-09-07 13:02 UTC改訂: member-retention-notice-design.md対応で`status`のenumへ`member_retention_selection`/`member_retention_unclear`の2値と、これらのときのみ非nullとなる`member_retention_notice`フィールドを追加した。2026-09-07 17:58 UTC改訂(フェーズ34): contractor-transfer-design.md(フェーズ33)対応で`status`のenumへ`contractor_transfer_selection`/`contractor_transfer_unclear`の2値と、これらのときのみ非nullとなる`contractor_transfer_notice`フィールドを追加した。member_retention_noticeと同じ設計思想(specified_member_nameによるworkshop内メンバー名指し表現の転記)を踏襲した。2026-09-08 02:00 UTC改訂(フェーズ37): contractor-transfer-confirmation-detection-design.md(フェーズ36)対応で`status`のenumへ`contractor_transfer_confirmed`/`contractor_transfer_cancelled`/`contractor_transfer_reconfirm_unclear`の3値と、これらのときのみ非nullとなる`contractor_transfer_confirmation`フィールドを追加した(契約者からの再確認応答〈2段階目〉の検知)。2026-09-08 06:00 UTC改訂(フェーズ40): contractor-transfer-expired-notice-design.md(フェーズ39)対応で`status`のenumへ`contractor_transfer_expired_notice`の1値と、このときのみ非nullとなる`contractor_transfer_expired_notice`フィールドを追加した(契約者交代確認の期限切れをアプリケーション側で検出した場合の受動的な案内)。",
+  "description": "llm-system-prompt-draft.md(2026-09-06 04:00 UTC作成)『構造化出力の方針』を実ファイル化した草案。他venture(aircon-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フローが存在しないため、aircon-pashaのsubscription_procedure_notice相当のフィールドは設けず3値のみとした(llm-system-prompt-draft.md『構造化出力の方針』の判断を踏襲)。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(course-set-pashaと同様、statusに応じた非null制約はコード側検証(validate_test_cases.py相当、未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。2026-09-07 07:00 UTC改訂(フェーズ24): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.md(フェーズ23)に対応し、course-set-pashaのフェーズ54改訂を踏襲して`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。2026-09-07 13:02 UTC改訂: member-retention-notice-design.md対応で`status`のenumへ`member_retention_selection`/`member_retention_unclear`の2値と、これらのときのみ非nullとなる`member_retention_notice`フィールドを追加した。2026-09-07 17:58 UTC改訂(フェーズ34): contractor-transfer-design.md(フェーズ33)対応で`status`のenumへ`contractor_transfer_selection`/`contractor_transfer_unclear`の2値と、これらのときのみ非nullとなる`contractor_transfer_notice`フィールドを追加した。member_retention_noticeと同じ設計思想(specified_member_nameによるworkshop内メンバー名指し表現の転記)を踏襲した。2026-09-08 02:00 UTC改訂(フェーズ37): contractor-transfer-confirmation-detection-design.md(フェーズ36)対応で`status`のenumへ`contractor_transfer_confirmed`/`contractor_transfer_cancelled`/`contractor_transfer_reconfirm_unclear`の3値と、これらのときのみ非nullとなる`contractor_transfer_confirmation`フィールドを追加した(契約者からの再確認応答〈2段階目〉の検知)。2026-09-08 06:00 UTC改訂(フェーズ40): contractor-transfer-expired-notice-design.md(フェーズ39)対応で`status`のenumへ`contractor_transfer_expired_notice`の1値と、このときのみ非nullとなる`contractor_transfer_expired_notice`フィールドを追加した(契約者交代確認の期限切れをアプリケーション側で検出した場合の受動的な案内)。2026-09-09 07:00 UTC改訂(フェーズ58): llm-system-prompt-draft.md厳守事項7b(フェーズ57)・checkout-initiation-flow-design.mdに対応し、`status`のenumへ`checkout_intent`/`pricing_inquiry`/`checkout_intent_unclear`の3値と、これらのときのみ非nullとなる`checkout_notice`フィールドを追加した。厳守事項7aのsubscription_procedure_noticeと異なり、7bはどのkindでも実際のCheckout Session URLを自己判断で返さない設計(厳守事項7b本文参照)であるため、includes_portal_link相当のフィールドは`includes_checkout_url`とし、kindによらず常にfalseであることをコード側検証で担保する方針とした。",
   "type": "object",
-  "required": ["status", "out_of_scope_message", "missing_fields_request", "order_summary", "delivery_notice", "care_notice", "subscription_procedure_notice", "member_retention_notice", "contractor_transfer_notice", "contractor_transfer_confirmation", "contractor_transfer_expired_notice"],
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "order_summary", "delivery_notice", "care_notice", "subscription_procedure_notice", "member_retention_notice", "contractor_transfer_notice", "contractor_transfer_confirmation", "contractor_transfer_expired_notice", "checkout_notice"],
   "additionalProperties": false,
   "properties": {
     "status": {
-      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項3/7(区分欠落・入力不足時の再送依頼)・厳守事項7a(解約意図検知、2026-09-07追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項7a(iii)相当(雑談の域を出ない表現)は解約意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-09-07 07:00 UTC追加(フェーズ24): 厳守事項7a(i)(ii)(iv)相当に対応するcancellation_intent/downgrade_intent/cancellation_unclearの3値を追加した。",
+      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項3/7(区分欠落・入力不足時の再送依頼)・厳守事項7a(解約意図検知、2026-09-07追加)・厳守事項7b(有料プラン開始意図検知、2026-09-09追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項7a(iii)・7b(iii)相当(雑談の域を出ない表現)は解約・開始意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-09-07 07:00 UTC追加(フェーズ24): 厳守事項7a(i)(ii)(iv)相当に対応するcancellation_intent/downgrade_intent/cancellation_unclearの3値を追加した。2026-09-09 07:00 UTC追加(フェーズ58): 厳守事項7b(i)(ii)(iv)相当に対応するcheckout_intent/pricing_inquiry/checkout_intent_unclearの3値を追加した。",
       "type": "string",
-      "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear", "member_retention_selection", "member_retention_unclear", "contractor_transfer_selection", "contractor_transfer_unclear", "contractor_transfer_confirmed", "contractor_transfer_cancelled", "contractor_transfer_reconfirm_unclear", "contractor_transfer_expired_notice"]
+      "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear", "member_retention_selection", "member_retention_unclear", "contractor_transfer_selection", "contractor_transfer_unclear", "contractor_transfer_confirmed", "contractor_transfer_cancelled", "contractor_transfer_reconfirm_unclear", "contractor_transfer_expired_notice", "checkout_intent", "pricing_inquiry", "checkout_intent_unclear"]
     },
     "out_of_scope_message": {
       "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(常に本フィールド自体は出力必須、値としてnullを許容)。厳守事項6の定型応答(『本サービスは受注整理・納品案内・お手入れ案内の下書き作成支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
@@ -167,6 +167,27 @@
         "body": {
           "description": "『契約者交代の確認期限が過ぎたため手続きを一旦取り消した、交代希望の場合は改めて連絡してほしい』相当の一言案内のみ。契約者自身の操作でキャンセルされたのではなく時間切れで自動的に取り消された旨が伝わる文言にする(contractor_transfer_confirmed/contractor_transfer_cancelledと混同しないこと、同design.md3節の厳守事項)。",
           "type": "string"
+        }
+      }
+    },
+    "checkout_notice": {
+      "description": "2026-09-09 07:00 UTC追加(フェーズ58)。厳守事項7b・checkout-initiation-flow-design.md対応。statusがcheckout_intent/pricing_inquiry/checkout_intent_unclearのいずれかの場合のみ非nullとなるフィールド。それ以外のときは必ずnull(コード側検証で担保、他フィールドと同様の方針)。subscription_procedure_noticeと似た設計だが、7bはどのkindでも実際のCheckout Session URLを自己判断で返さないため、includes_portal_link相当の`includes_checkout_url`はkindによらず常にfalseとする点が異なる。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "body", "includes_checkout_url"],
+      "properties": {
+        "kind": {
+          "description": "statusと1:1で対応する分類(subscription_procedure_notice.kindと同じ設計思想)。",
+          "type": "string",
+          "enum": ["checkout_intent", "pricing_inquiry", "checkout_intent_unclear"]
+        },
+        "body": {
+          "description": "kind=checkout_intentのときは厳守事項7b(i)相当の一次応答文言(例:『お申し込みのご案内をお送りしますね』、実際の権限確認・重複契約確認・URL発行はcheckout-initiation-flow-design.md3節のhandle_checkout_intent(Python側)に委ねる)、kind=pricing_inquiryのときは厳守事項7b(ii)相当のpricing-plan.mdの内容をもとにした料金・プラン案内、kind=checkout_intent_unclearのときは厳守事項7b(iv)相当の意思確認一言のみ(開始手続きの案内文言は含めない)。",
+          "type": "string"
+        },
+        "includes_checkout_url": {
+          "description": "厳守事項7bが『実際のCheckout SessionのURL発行はhandle_checkout_intent側に委ね、LLM側は一次応答にとどめる』としていることを機械的に検証するための補助フィールド。kindの値によらず常にfalse(コード側検証で担保)。",
+          "type": "boolean"
         }
       }
     }
