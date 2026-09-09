@@ -117,8 +117,11 @@ dict`(新設`prototype/checkout_session.py`):
 - フェーズ48で見送った`is_trial_period_over`のトライアル終了時生成一時停止への配線
   (本ドキュメントとStripe Webhook実装が揃った後に着手)。
 - トライアル終了通知メッセージ自体(上記2(a))は本venture未設計。次の課題として残す。
-- 意図検知(「有料プランを始めたい」等)のllm-system-prompt-draft.mdへの厳守事項追加
-  (解約意図検知の厳守事項7aと対になる新規項目)は本ドキュメントでは未着手。
+- ~~意図検知(「有料プランを始めたい」等)のllm-system-prompt-draft.mdへの厳守事項追加
+  (解約意図検知の厳守事項7aと対になる新規項目)は本ドキュメントでは未着手。~~
+  → フェーズ57(2026-09-09 06:00 UTC)でllm-system-prompt-draft.mdに厳守事項7bとして
+  対応済み。対応するschema拡張(status enum拡張)は実API接続オーナー承認待ちのため
+  引き続き次の課題として残る。
 - `plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定は、実Stripe
   ダッシュボードでの商品登録(オーナー承認待ち)と合わせて行う。
 - 実LINE Messaging API・実Stripe API接続はオーナー承認待ち(pending-approval.md参照)。

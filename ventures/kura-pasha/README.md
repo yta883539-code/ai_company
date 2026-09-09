@@ -930,3 +930,27 @@ subscription-cancellation-scheduled-notification-design.mdとして設計・実�
 設計・実装。あわせてフェーズ52が意図的に見送っていた「`past_due`即時ブロック(猶予期間
 なし)」という既知の制約を解消した。3日前リマインド送信・運営者向け通知は、本venture側の
 定期実行基盤(Cloud Scheduler等)の設計自体がまだ無いため次の課題として残る)
+
+- フェーズ57(2026-09-09 06:00 UTC): checkout-initiation-flow-design.md(フェーズ50)
+  「残課題」に残っていた「意図検知(「有料プランを始めたい」等)のllm-system-prompt-
+  draft.mdへの厳守事項追加(解約意図検知の厳守事項7aと対になる新規項目)」に対応し、
+  厳守事項7b(有料プラン開始意図検知)を新設した。7aの(iv)「解約完了・ポータルリンクを
+  含む文言は自己判断で返さない」と同じ設計思想を踏襲し、7bも「開始手続きの案内(Checkout
+  SessionのURL等)を自己判断で返さない」構成とした。理由は、実際のURL発行は
+  checkout-initiation-flow-design.md 3節の`handle_checkout_intent`(契約者本人確認・
+  重複契約確認を経る)が担う前提であり、LLM側が意図判定の段階でURLまで生成すると契約者
+  以外や既契約中のケースでも誤って開始案内を返しかねないためである。対応するschema拡張
+  (status enumへのcheckout_intent/pricing_inquiry相当の追加)は、
+  checkout-initiation-flow-design.md自体が実LINE Messaging API・実Stripe API接続を
+  オーナー承認待ちとして見送っている段階であるため、7aのときのような即時追随の必要性は
+  無いと判断し次の課題として残した。プロンプト文面の設計のみでコード変更は無く、
+  venture全体283件(test_checkout_session.py 14件・test_payment_failure_
+  notification.py 22件・test_stripe_webhook.py 107件・test_subscription_
+  cancellation_notification.py 28件・test_usage_counter_workshop.py 112件)・
+  schema検証23件いずれも変更前と同じ結果でパスすることを確認した。承認不要な設計文書
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 06:00 UTC(フェーズ57: 厳守事項7b〈有料プラン開始意図検知〉を
+llm-system-prompt-draft.mdに新設。対応するschema拡張は実API接続オーナー承認待ちのため
+次の課題として残る)
