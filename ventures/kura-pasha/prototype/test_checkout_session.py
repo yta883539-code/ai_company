@@ -58,6 +58,7 @@ def test_basic_params_without_existing_customer():
     check("customerキーは含まれない", "customer" not in params)
     check("success_urlが既定値", params["success_url"].endswith("/success"))
     check("cancel_urlが既定値", params["cancel_url"].endswith("/cancel"))
+    check("metadata.plan_idにplan_idを埋め込む", params["metadata"] == {"plan_id": "light"})
 
 
 def test_includes_customer_when_existing_stripe_customer_id_given():

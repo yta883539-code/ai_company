@@ -161,4 +161,23 @@ trial-end-condition-design.md 3節の「生涯最初の1回」判定(回数条�
 Stripe Checkout連携(`client_reference_id`=workshop_id)は本ファイル未着手のため引き続き
 次の課題として残す。
 
-最終更新: 2026-09-09(フェーズ66) UTC
+## 8. 追記(フェーズ67): Checkout完了時のplan_id上書き配線
+
+7節で残課題としていた`set_plan()`書き込み処理を配線した。course-set-pashaの
+checkout-session-plan-selection-design.md(フェーズ152)の`metadata.plan`と同じ方式を採用し、
+`checkout_session.build_checkout_session_params()`がCheckout Session作成時に
+`metadata: {"plan_id": plan_id}`を設定するようにした(line_itemsのexpand等の追加API呼び出し
+不要)。`stripe_webhook.handle_checkout_session_completed()`側では、受信した
+`data_object.metadata.plan_id`が`VALID_PLAN_IDS`にある既知の値の場合のみ
+`workshop_store.set_plan(workshop_id, plan_id)`で上書きする(未知の値・metadata欠落時は
+何も書き込まない安全側の設計、`CheckoutSessionCompletedResult.plan_written`で呼び出し元が
+判別可能)。これにより、2節のworkshop自動作成時に暫定設定した最安プラン`"light"`は、
+契約者が実際にCheckout Sessionを完了した時点で選択したプランへ確実に上書きされるように
+なった。`WorkshopStoreProtocol`にも`set_plan()`を宣言として追加した(実装
+`InMemoryWorkshopStore.set_plan()`は既存、Protocol宣言漏れだった)。
+
+新規テスト3件(`test_stripe_webhook.py`)+既存テストへのアサーション1件追加
+(`test_checkout_session.py`)、venture全体416件→423件全件・schema検証27件いずれもパスを
+確認した。
+
+最終更新: 2026-09-09(フェーズ67) UTC

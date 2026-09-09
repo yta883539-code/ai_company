@@ -88,6 +88,12 @@ def build_checkout_session_params(
         ],
         "success_url": success_url,
         "cancel_url": cancel_url,
+        # checkout.session.completed受信時にline_itemsのexpand無しでplan_idを復元する
+        # ための埋め込み(course-set-pashaのcheckout-session-plan-selection-design.md
+        # フェーズ152、metadata.planと同じ狙い)。craftsman-account-linking-design.md
+        # フェーズ66追記7節の「workshop作成時は仮のplan_idで生成し、Checkout完了時に
+        # 実際に選ばれたプランへ上書きする」の受け皿。
+        "metadata": {"plan_id": plan_id},
     }
     if existing_stripe_customer_id:
         params["customer"] = existing_stripe_customer_id

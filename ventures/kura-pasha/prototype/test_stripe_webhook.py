@@ -183,6 +183,49 @@ def test_handle_returns_workshop_id_on_success():
     check("成功時はinvalid=False", result.invalid is False)
 
 
+def test_handle_writes_plan_from_metadata_when_known():
+    store = InMemoryWorkshopStore()
+    store.set_plan("W5", "light")
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W5",
+            "customer": "cus_5",
+            "metadata": {"plan_id": "multi_craftsman"},
+        },
+        store,
+    )
+    check(
+        "既知のplan_idはworkshop_store.set_plan()で上書きされる",
+        store.get_plan_id("W5") == "multi_craftsman",
+    )
+    check("plan_written=True", result.plan_written is True)
+
+
+def test_handle_ignores_unknown_plan_id_in_metadata():
+    store = InMemoryWorkshopStore()
+    store.set_plan("W6", "light")
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W6",
+            "customer": "cus_6",
+            "metadata": {"plan_id": "unknown_plan"},
+        },
+        store,
+    )
+    check("未知のplan_idは上書きしない", store.get_plan_id("W6") == "light")
+    check("plan_written=False", result.plan_written is False)
+
+
+def test_handle_missing_metadata_leaves_plan_untouched():
+    store = InMemoryWorkshopStore()
+    store.set_plan("W7", "light")
+    result = handle_checkout_session_completed(
+        {"client_reference_id": "W7", "customer": "cus_7"}, store
+    )
+    check("metadata欠落時は既存plan_idを保持", store.get_plan_id("W7") == "light")
+    check("plan_written=False", result.plan_written is False)
+
+
 # --- handle_customer_subscription_deleted ---
 
 
@@ -755,6 +798,9 @@ if __name__ == "__main__":
     test_handle_sets_subscription_status_active()
     test_handle_does_not_overwrite_existing_stripe_customer_id()
     test_handle_returns_workshop_id_on_success()
+    test_handle_writes_plan_from_metadata_when_known()
+    test_handle_ignores_unknown_plan_id_in_metadata()
+    test_handle_missing_metadata_leaves_plan_untouched()
     test_deleted_returns_invalid_when_customer_missing()
     test_deleted_returns_unresolved_when_customer_unknown()
     test_deleted_sets_subscription_status_canceled()

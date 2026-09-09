@@ -255,6 +255,13 @@ class WorkshopStoreProtocol(Protocol):
     def get_plan_id(self, workshop_id: str) -> str:
         ...
 
+    def set_plan(self, workshop_id: str, plan_id: str) -> None:
+        """checkout.session.completed受信時、workshop作成時に暫定設定した仮のplan_id
+        (craftsman-account-linking-design.md フェーズ66追記7節)を実際に選ばれたプランへ
+        上書きする書き込み処理。
+        """
+        ...
+
     def get_contractor_user_id(self, workshop_id: str) -> str:
         ...
 

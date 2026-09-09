@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from checkout_session import VALID_PLAN_IDS
 from payment_failure_notification import (
     OUTCOME_NOT_APPLICABLE,
     handle_payment_failure_detected,
@@ -100,10 +101,12 @@ def verify_stripe_signature(
 
 @dataclass
 class CheckoutSessionCompletedResult:
-    """handle_checkout_session_completed()の戻り値(design 2節)。"""
+    """handle_checkout_session_completed()の戻り値(design 2節、plan_written追加は
+    craftsman-account-linking-design.md フェーズ66追記7節の暫定plan_id上書き配線)。"""
 
     workshop_id: Optional[str] = None
     stripe_customer_id_written: bool = False
+    plan_written: bool = False
     invalid: bool = False
 
 
@@ -117,6 +120,15 @@ def handle_checkout_session_completed(
     `client_reference_id`(=workshop_id、checkout-initiation-flow-design.md 3節の通り
     `build_checkout_session_params()`が設定したもの)が空・欠落の場合は不正なイベントとして
     `invalid=True`を返し、以降の書き込みは一切行わない。
+
+    `metadata.plan_id`(`checkout_session.build_checkout_session_params()`がSession作成時に
+    設定したもの、line_itemsのexpand等の追加API呼び出し不要)に既知のplan_id
+    (`VALID_PLAN_IDS`)が入っている場合、`workshop_store.set_plan()`で上書きする
+    (craftsman-account-linking-design.md フェーズ66追記7節: workshop作成時は暫定で
+    最安プランを仮設定し、Checkout完了時に実際に選ばれたプランへ上書きする2段階運用の
+    2段階目)。`metadata`欠落・`plan_id`欠落・未知の値の場合は何も書き込まない
+    (安全側。古いCheckout Session実装〈metadata省略〉からのイベントでも
+    顧客ID紐付け自体は従来通り行える)。
     """
     workshop_id = data_object.get("client_reference_id")
     if not workshop_id:
@@ -131,9 +143,17 @@ def handle_checkout_session_completed(
 
     workshop_store.set_subscription_status(workshop_id, "active")
 
+    plan_written = False
+    metadata = data_object.get("metadata")
+    plan_id = metadata.get("plan_id") if isinstance(metadata, dict) else None
+    if isinstance(plan_id, str) and plan_id in VALID_PLAN_IDS:
+        workshop_store.set_plan(workshop_id, plan_id)
+        plan_written = True
+
     return CheckoutSessionCompletedResult(
         workshop_id=workshop_id,
         stripe_customer_id_written=stripe_customer_id_written,
+        plan_written=plan_written,
     )
 
 
