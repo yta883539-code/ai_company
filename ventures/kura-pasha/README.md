@@ -1155,3 +1155,35 @@ event()のLLM呼び出し前に配線し、トライアル終了・決済失敗�
 終了通知便乗を実装した。新規テスト7件追加、venture全体371件・schema検証27件いずれも
 パス。receive_webhook()・dispatch_webhook_events()・初回生成セルフチェック案内は次の課題
 として残る)
+
+- フェーズ65(2026-09-09 14:01 UTC): フェーズ64で次の課題として残した3項目のうち、
+  dispatch_webhook_events()とreceive_webhook()(HTTPエントリポイント)を実装した
+  (prototype/cloud_function_webhook.py)。aircon-pashaのwebhook-http-entry-point-design.md
+  (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲するが、
+  本ventureはfollow/unfollow/postbackイベントの処理関数(process_follow_event()等)が
+  まだ存在しないため、本フェーズはmessageイベントのprocess_memo_event()への振り分けのみを
+  スコープとし、それ以外の種別(follow/unfollow/postback等)は全て`ignored_types`に記録して
+  素通りする設計とした(次の課題として明記)。`dispatch_webhook_events()`は`llm_call`・
+  `reply_client`のいずれかが未接続(None)の場合は該当イベントを一切処理しない安全側
+  フォールバックを持ち、`user_profile_store`等の3つはprocess_memo_event()自体が省略可能な
+  設計(フェーズ64)のため未接続でもmessageイベント処理自体は行う。`receive_webhook()`は
+  aircon-pasha/course-set-pashaと同じ4段階(署名検証→JSON parse→"events"キー形式検証→
+  dispatch_webhook_events()への委譲)の薄いエントリポイントとし、`get_runtime_dependencies()`
+  (現時点では空の辞書、実LINE公式アカウント開設・実GCPプロジェクト作成はオーナー承認待ち)・
+  `main()`(Cloud FunctionsのHTTPエントリポイント、`functions_framework`想定)もあわせて
+  実装した。テスト作成時、テストヘルパー`_make_event()`に実際のLINE webhookイベントが持つ
+  `"type": "message"`キーが欠落していたことが判明し(process_memo_event()単体テストでは
+  event["type"]を参照しないため問題化していなかった潜在的な不整合)、本フェーズであわせて
+  修正した。新規テスト11件追加、venture全体371件→393件全件(`python3 test_*.py`を各ファイル
+  で直接実行)・schema検証27件いずれもパスを確認した。実LINE Messaging API接続・実LINE公式
+  アカウント開設・実GCPプロジェクト作成はいずれもオーナー承認待ち(pending-approval.md参照)
+  のため未接続のまま。follow/unfollow/postbackイベントの処理関数自体、初回生成セルフチェック
+  案内(aircon-pasha相当)は本venture未着手のため引き続き次の課題として残る。承認不要な
+  プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 14:01 UTC(フェーズ65: dispatch_webhook_events()・receive_webhook()
+〈HTTPエントリポイント〉・get_runtime_dependencies()・main()を実装し、messageイベントを
+process_memo_event()へ振り分けられるようにした(follow/unfollow/postbackは次の課題として
+ignored_types記録のみ)。新規テスト11件追加、venture全体393件・schema検証27件いずれも
+パス。follow/unfollow/postback処理関数・初回生成セルフチェック案内は次の課題として残る)

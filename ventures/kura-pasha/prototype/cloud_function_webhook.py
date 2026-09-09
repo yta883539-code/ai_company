@@ -28,6 +28,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import json
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -543,6 +545,161 @@ def process_memo_event(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         trial_end_notification_sent=reply_sent and trial_end_notification_due,
     )
+
+
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events() + receive_webhook()(フェーズ65)
+#
+# README.md「次にやること」に残っていたreceive_webhook()(HTTPエントリポイント)・
+# dispatch_webhook_events()に着手する。aircon-pashaのwebhook-http-entry-point-design.md
+# (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲するが、
+# 本ventureはfollow/unfollow/postbackイベントの処理関数(process_follow_event()等)が
+# まだ存在しないため、本フェーズはmessageイベントのprocess_memo_event()への振り分けのみを
+# スコープとし、それ以外の種別は全てignored_typesに記録して素通りする(次の課題として残す)。
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DispatchResult:
+    """dispatch_webhook_events()の結果。"""
+
+    message_results: List[MemoProcessResult] = field(default_factory=list)
+    ignored_types: List[str] = field(default_factory=list)
+
+
+def dispatch_webhook_events(
+    events: List[dict],
+    *,
+    llm_call: Optional[LlmCallClient] = None,
+    reply_client: Optional[ReplyClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    now: Optional[datetime] = None,
+) -> DispatchResult:
+    """署名検証済みのWebhookリクエストの`events`配列を`event["type"]`ごとに振り分ける。
+
+    - "message": 1件ずつprocess_memo_event()へ渡す。`llm_call`・`reply_client`のいずれかが
+      未接続(None)の場合は該当イベントを一切処理せず素通りする。`user_profile_store`等の
+      3つはprocess_memo_event()自体が省略可能な設計(フェーズ64)のため、未接続でも
+      messageイベントの処理自体は行う(その場合usage_counter連携なしで動作する)。
+    - それ以外の種別(follow/unfollow/postback等)は、対応する処理関数が本venture未実装の
+      ため常に無視し、`ignored_types`に種別名のみ記録する(次の課題)。
+    """
+    result = DispatchResult()
+
+    for event in events:
+        event_type = event.get("type")
+        if event_type != "message":
+            result.ignored_types.append(event_type or "unknown")
+
+    if llm_call is None or reply_client is None:
+        return result
+
+    for event in events:
+        if event.get("type") != "message":
+            continue
+        result.message_results.append(
+            process_memo_event(
+                event,
+                llm_call,
+                reply_client,
+                portal_link_provider=portal_link_provider,
+                user_profile_store=user_profile_store,
+                workshop_store=workshop_store,
+                usage_counter_store=usage_counter_store,
+                now=now,
+            )
+        )
+
+    return result
+
+
+@dataclass
+class WebhookReceiverResult:
+    """receive_webhook()の結果。"""
+
+    status_code: int
+    dispatch_result: Optional[DispatchResult] = None
+    error: Optional[str] = None
+
+
+def receive_webhook(
+    body: bytes,
+    signature_header: Optional[str],
+    channel_secret: str,
+    *,
+    llm_call: Optional[LlmCallClient] = None,
+    reply_client: Optional[ReplyClient] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    now: Optional[datetime] = None,
+) -> WebhookReceiverResult:
+    """署名検証済みのHTTPリクエストボディ(bytes)をdispatch_webhook_events()まで橋渡しする
+    薄いエントリポイント(aircon-pashaのwebhook-http-entry-point-design.md 2節と同じ設計)。
+
+    1. 署名不正時はJSONパース・dispatchのいずれも行わず401を返す。
+    2. JSONとしてパースできないbodyは400(error="invalid_json")。
+    3. "events"キーがlistでないbodyは400(error="missing_events")。
+    4. 上記を通過したらeventsをdispatch_webhook_events()にそのまま委譲する。
+    """
+    if not verify_line_signature(body, signature_header, channel_secret):
+        return WebhookReceiverResult(status_code=401, error="invalid_signature")
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return WebhookReceiverResult(status_code=400, error="invalid_json")
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        return WebhookReceiverResult(status_code=400, error="missing_events")
+
+    dispatch_result = dispatch_webhook_events(
+        payload["events"],
+        llm_call=llm_call,
+        reply_client=reply_client,
+        portal_link_provider=portal_link_provider,
+        user_profile_store=user_profile_store,
+        workshop_store=workshop_store,
+        usage_counter_store=usage_counter_store,
+        now=now,
+    )
+    return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
+
+
+def get_runtime_dependencies() -> dict:
+    """receive_webhook()に渡す実クライアント一式を組み立てるファクトリ。
+
+    実LINE Messaging API・実LLM API・実Firestore接続は、いずれも実GCPプロジェクト作成・
+    実LINE公式アカウント開設(オーナー承認待ち、pending-approval.md参照)後でなければ実
+    クライアントを構築できないため、現時点では空の辞書(=全依存関係が未接続のNone扱い)を
+    返す(aircon-pasha/course-set-pashaのget_runtime_dependencies()と同じ設計)。
+    dispatch_webhook_events()側はllm_call/reply_clientがNoneのときイベント処理をスキップ
+    する既存の安全側フォールバックを持つため、未接続のままmain()を呼び出しても例外には
+    ならない。承認・実クレデンシャル取得後は、この関数の中身を実クライアントを返すように
+    差し替えるだけでmain()・receive_webhook()双方を変更せずに接続できる。
+    """
+    return {}
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定)。
+
+    aircon-pasha/course-set-pashaのmain()と同じ設計。`functions_framework`が渡す
+    `request`はFlaskの`Request`と同じインターフェース(`get_data()`・
+    `headers.get(...)`)を持つため、本関数はそのインターフェースにのみ依存し
+    `functions_framework`自体をインポートしない。`channel_secret`は環境変数
+    `LINE_CHANNEL_SECRET`から取得する(実際の値の取得・保管方法自体は実デプロイ時の
+    設計課題として別途残る)。
+    """
+    body = request.get_data()
+    signature_header = request.headers.get("X-Line-Signature")
+    channel_secret = os.environ.get("LINE_CHANNEL_SECRET", "")
+
+    result = receive_webhook(body, signature_header, channel_secret, **get_runtime_dependencies())
+    return ("", result.status_code)
 
 
 def _demo() -> None:

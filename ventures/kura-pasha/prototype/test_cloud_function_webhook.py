@@ -19,8 +19,10 @@ from cloud_function_webhook import (
     InMemoryReplyClient,
     LlmApiError,
     QuickReplyButton,
+    dispatch_webhook_events,
     format_trial_end_notification_message,
     process_memo_event,
+    receive_webhook,
     verify_line_signature,
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA
@@ -146,6 +148,7 @@ def test_format_trial_end_notification_message_rejects_negative_count():
 
 def _make_event(text: str, *, reply_token: str = "reply-token-1", user_id: str = "U123") -> dict:
     return {
+        "type": "message",
         "message": {"type": "text", "text": text},
         "replyToken": reply_token,
         "source": {"userId": user_id},
@@ -469,6 +472,139 @@ def test_process_memo_event_skips_store_integration_when_stores_not_provided():
     check("ストア未接続時はpayment_suspended=False", result.payment_suspended is False)
 
 
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events() / receive_webhook()(フェーズ65)
+# ---------------------------------------------------------------------------
+
+def test_dispatch_webhook_events_routes_message_event_to_process_memo_event():
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = dispatch_webhook_events(
+        [_make_event("新規、ブリティッシュ、牛革")],
+        llm_call=llm_call,
+        reply_client=reply_client,
+    )
+    check("message1件がmessage_resultsに1件記録される", len(result.message_results) == 1)
+    check("message_resultsの中身はhandled=True", result.message_results[0].handled is True)
+    check("ignored_typesは空", result.ignored_types == [])
+    check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_dispatch_webhook_events_records_ignored_types_for_non_message_events():
+    events = [
+        {"type": "follow", "source": {"userId": "U1"}},
+        {"type": "unfollow", "source": {"userId": "U2"}},
+        {"type": "postback", "postback": {"data": "action=start_checkout"}},
+    ]
+    result = dispatch_webhook_events(
+        events, llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=InMemoryReplyClient(),
+    )
+    check("follow/unfollow/postbackはmessage_resultsに含まれない", result.message_results == [])
+    check(
+        "3件とも種別名がignored_typesに記録される",
+        result.ignored_types == ["follow", "unfollow", "postback"],
+    )
+
+
+def test_dispatch_webhook_events_skips_message_when_llm_call_missing():
+    result = dispatch_webhook_events(
+        [_make_event("新規、ブリティッシュ、牛革")], llm_call=None, reply_client=InMemoryReplyClient(),
+    )
+    check("llm_call未接続時はmessage_resultsが空", result.message_results == [])
+
+
+def test_dispatch_webhook_events_skips_message_when_reply_client_missing():
+    result = dispatch_webhook_events(
+        [_make_event("新規、ブリティッシュ、牛革")],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=None,
+    )
+    check("reply_client未接続時はmessage_resultsが空", result.message_results == [])
+
+
+def test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_WS", "W_WS")
+    workshops.set_plan("W_WS", "standard")
+    workshops.set_members("W_WS", "U_WS", ["U_WS"])
+
+    reply_client = InMemoryReplyClient()
+    result = dispatch_webhook_events(
+        [_make_event("新規、ブリティッシュ、牛革", user_id="U_WS")],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check(
+        "workshop連携済みuser_idではストア連携が実際に働く(trial_end_notification_sent=True)",
+        result.message_results[0].trial_end_notification_sent is True,
+    )
+
+
+_TEST_CHANNEL_SECRET = "test-channel-secret"
+
+
+def _webhook_body(events: list) -> bytes:
+    import json
+
+    return json.dumps({"events": events}).encode("utf-8")
+
+
+def test_receive_webhook_rejects_invalid_signature():
+    body = _webhook_body([_make_event("新規、ブリティッシュ、牛革")])
+    result = receive_webhook(body, "invalid-signature", _TEST_CHANNEL_SECRET)
+    check("署名不正時は401", result.status_code == 401)
+    check("errorはinvalid_signature", result.error == "invalid_signature")
+    check("dispatch_resultはNoneのまま", result.dispatch_result is None)
+
+
+def test_receive_webhook_rejects_missing_signature_header():
+    body = _webhook_body([_make_event("新規、ブリティッシュ、牛革")])
+    result = receive_webhook(body, None, _TEST_CHANNEL_SECRET)
+    check("署名ヘッダ欠落時も401", result.status_code == 401)
+
+
+def test_receive_webhook_rejects_invalid_json():
+    body = b"not-a-json-body"
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    result = receive_webhook(body, signature, _TEST_CHANNEL_SECRET)
+    check("不正JSON時は400", result.status_code == 400)
+    check("errorはinvalid_json", result.error == "invalid_json")
+
+
+def test_receive_webhook_rejects_missing_events_key():
+    import json
+
+    body = json.dumps({"not_events": []}).encode("utf-8")
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    result = receive_webhook(body, signature, _TEST_CHANNEL_SECRET)
+    check("eventsキー欠落時は400", result.status_code == 400)
+    check("errorはmissing_events", result.error == "missing_events")
+
+
+def test_receive_webhook_dispatches_message_event_on_success():
+    body = _webhook_body([_make_event("新規、ブリティッシュ、牛革")])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    reply_client = InMemoryReplyClient()
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+    )
+    check("署名・JSON・events全て正常時は200", result.status_code == 200)
+    check("dispatch_resultにmessage_resultsが1件ある", len(result.dispatch_result.message_results) == 1)
+    check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_receive_webhook_with_all_dependencies_none_does_not_raise():
+    body = _webhook_body([_make_event("新規、ブリティッシュ、牛革")])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    result = receive_webhook(body, signature, _TEST_CHANNEL_SECRET)
+    check("依存関係が全て未接続でも200かつignored扱いにならず例外なし", result.status_code == 200)
+    check("llm_call未接続のためmessage_resultsは空", result.dispatch_result.message_results == [])
+
+
 if __name__ == "__main__":
     test_verify_line_signature_accepts_correct_signature()
     test_verify_line_signature_rejects_wrong_signature()
@@ -501,6 +637,17 @@ if __name__ == "__main__":
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
+    test_dispatch_webhook_events_routes_message_event_to_process_memo_event()
+    test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
+    test_dispatch_webhook_events_skips_message_when_llm_call_missing()
+    test_dispatch_webhook_events_skips_message_when_reply_client_missing()
+    test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event()
+    test_receive_webhook_rejects_invalid_signature()
+    test_receive_webhook_rejects_missing_signature_header()
+    test_receive_webhook_rejects_invalid_json()
+    test_receive_webhook_rejects_missing_events_key()
+    test_receive_webhook_dispatches_message_event_on_success()
+    test_receive_webhook_with_all_dependencies_none_does_not_raise()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)
