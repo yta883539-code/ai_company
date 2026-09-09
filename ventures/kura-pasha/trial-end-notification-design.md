@@ -77,8 +77,28 @@ content-generation-time-estimate.md参照)
   checkout-initiation-flow-design.md 3節が既に確定済みの「LINEトーク内意図検知方式」を
   前提とするが、通知メッセージ自体からのボタン起動という導線はcheckout-initiation-
   flow-design.mdの対象外(同ドキュメントは利用者が能動的に「有料プランを始めたい」と
-  発言した場合のみを扱う)であるため、本ドキュメントでは机上設計にとどめ、実際の
-  postbackイベント処理配線は次の課題として残す。
+  発言した場合のみを扱う)であるため、本ドキュメントでは机上設計にとどめる。
+
+### 3.1 postback_data形式(フェーズ61追記)
+
+aircon-pashaのtrial-end-condition-a-cta-design.md(フェーズ137)が採用した形式をそのまま
+踏襲し、`prototype/checkout_session.py`に次の2関数を実装した(本venture固有差分として、
+plan_idはpricing-plan.mdの3プラン`light`/`standard`/`multi_craftsman`、キーはaircon-pashaの
+日本語プラン名〈"スタンダード"等〉ではなく`build_checkout_session_params()`が既に使っている
+英語plan_idをそのまま使う)。
+
+- `build_start_checkout_postback_data(plan_id)`: `"action=start_checkout&plan=<plan_id>"`を
+  組み立てる。未知のplan_idは`ValueError`(`build_checkout_session_params()`と同じ安全側方針)。
+- `parse_start_checkout_postback_data(data)`: 上記形式を解釈しplan_idを返す。プラン未指定の
+  完全一致`"action=start_checkout"`(本ドキュメント3節の汎用「▼ 有料プランへ進む」ボタン用)は
+  `DEFAULT_CHECKOUT_PLAN`(`"standard"`)を返す。それ以外(無関係なdata・未知のplan_id)は
+  `None`を返し、呼び出し側は不正なCheckout Session作成に繋げず素通りする想定。
+
+本フェーズはpostback_dataの組み立て・解釈という純粋関数のみを対象とし、実際にLINEの
+返信・プッシュメッセージへボタンを添付して送る配線(aircon-pashaの`ReplyClient.reply()`
+`quick_reply`引数・`process_postback_event()`相当)は、本venture自体にまだLINE Webhook層
+(`cloud_function_webhook.py`相当)が存在しないため対象外とし、次の課題として残す
+(6節参照)。
 
 ## 4. トライアル終了後(未アップグレード)の挙動
 
@@ -120,9 +140,12 @@ content-generation-time-estimate.md参照)
   本venture未着手。本venture固有の低頻度受注特性(候補workshopの多くは(A)経路で
   完結し(B)経路の発生頻度自体が低いと見込まれる)を踏まえ、他venture(高頻度利用が
   前提)ほどの優先度は無いと判断し、次の課題として残す。
-- 3節の通知メッセージからの直接ボタン起動(postbackイベント処理)の配線は
-  checkout-initiation-flow-design.mdの対象外であるため、別途の設計・実装が必要
-  (次の課題として残す)。
+- 3節の通知メッセージからの直接ボタン起動について、postback_dataの組み立て・解釈
+  (`build_start_checkout_postback_data`/`parse_start_checkout_postback_data`)は
+  フェーズ61で対応済み(3.1節)。ただしLINE返信・プッシュメッセージへ実際にボタンを
+  添付して送信する配線(aircon-pashaの`ReplyClient.reply()`quick_reply引数・
+  `process_postback_event()`相当)は、本venture自体にLINE Webhook層
+  (`cloud_function_webhook.py`相当)がまだ存在しないため引き続き次の課題として残す。
 - `trial_end_notification_due`がTrueになった場合に実際にLINEプッシュメッセージ
   (3節の文言)を送信する呼び出し側の配線(生成完了時の通常返信への便乗)は、実LINE
   Messaging API接続がオーナー承認待ちのため机上設計・戻り値の受け渡しまでにとどまる
@@ -135,6 +158,13 @@ content-generation-time-estimate.md参照)
 generation-time-estimate.md〈フェーズ18〉の20分試算を用いて設計。(A)生涯最初の生成完了
 経路と(B)30日期間到達経路の二重トリガー・二重送信防止方針を確定。実コード実装・日次
 スケジューラ本体は次の課題として残る)
+
+最終更新: 2026-09-09 10:00 UTC(フェーズ61: 3節「▼ 有料プランへ進む」ボタンの
+postback_data形式を、aircon-pashaのtrial-end-condition-a-cta-design.md〈フェーズ137〉と
+同じ形式で確定し`prototype/checkout_session.py`に`build_start_checkout_postback_data`/
+`parse_start_checkout_postback_data`を実装した(3.1節)。新規テスト9件追加、venture全体
+291件→300件全件・schema検証27件いずれもパス。実際にLINE返信へボタンを添付する配線は
+本venture未着手のLINE Webhook層を要するため引き続き次の課題)
 
 最終更新: 2026-09-09 09:00 UTC(フェーズ60: (A)経路の通知要否判定を
 `prototype/usage_counter_workshop.py`に実装。`WorkshopStoreProtocol`へ

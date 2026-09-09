@@ -24,6 +24,45 @@ PLAN_ID_TO_STRIPE_PRICE_ID = {
 }
 
 
+DEFAULT_CHECKOUT_PLAN = "standard"
+
+# trial-end-notification-design.md 3節・6節(フェーズ61)対応: トライアル終了通知メッセージの
+# 「▼ 有料プランへ進む」postbackボタンに埋め込むdata文字列。aircon-pashaの
+# trial-end-condition-a-cta-design.md(フェーズ137)と同じ形式(`"action=start_checkout"`、
+# プラン別に絞り込みたい場合は`"&plan=<plan_id>"`を付加)を踏襲する。
+START_CHECKOUT_POSTBACK_DATA = "action=start_checkout"
+
+
+def build_start_checkout_postback_data(plan_id: str) -> str:
+    """プラン別のpostbackボタンに埋め込むdata文字列を組み立てる(例:
+    `"action=start_checkout&plan=standard"`)。未知のplan_idはbuild_checkout_session_params()
+    と同じ安全側の方針で`ValueError`。"""
+    if plan_id not in VALID_PLAN_IDS:
+        raise ValueError(f"unknown plan_id: {plan_id!r}")
+    return f"{START_CHECKOUT_POSTBACK_DATA}&plan={plan_id}"
+
+
+def parse_start_checkout_postback_data(data: Optional[str]) -> Optional[str]:
+    """postbackイベントの`data`がstart_checkout系アクションかどうかを判定し、選択された
+    plan_idを返す。
+
+    - 完全一致`START_CHECKOUT_POSTBACK_DATA`(プラン未指定、trial-end-notification-design.md
+      3節の汎用「▼ 有料プランへ進む」ボタン用)の場合は`DEFAULT_CHECKOUT_PLAN`を返す。
+    - `build_start_checkout_postback_data()`が組み立てた`"action=start_checkout&plan=<plan_id>"`
+      形式で、`<plan_id>`が既知のプランの場合はそのplan_idを返す。
+    - それ以外(start_checkout系ではない、または未知のplan_id)は`None`を返す。呼び出し元は
+      Noneの場合、未知のpostbackを不正なCheckout Session作成に繋げないため素通りする想定。
+    """
+    if data == START_CHECKOUT_POSTBACK_DATA:
+        return DEFAULT_CHECKOUT_PLAN
+    prefix = f"{START_CHECKOUT_POSTBACK_DATA}&plan="
+    if data is not None and data.startswith(prefix):
+        plan_id = data[len(prefix):]
+        if plan_id in VALID_PLAN_IDS:
+            return plan_id
+    return None
+
+
 def build_checkout_session_params(
     workshop_id: str,
     plan_id: str,

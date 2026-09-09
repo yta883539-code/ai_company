@@ -1027,3 +1027,24 @@ includes_checkout_urlが常にfalseであることをテストで担保)
 完了〉の通知要否判定を実装。`trial_end_notified_at`による二重送信防止フラグを追加し、
 `process_generation_request`が`trial_end_notification_due`を返すようにした。実LINE
 プッシュ送信配線・(B)経路の日次スケジューラ本体は次の課題として残る)
+
+- フェーズ61(2026-09-09 10:00 UTC): trial-end-notification-design.md(フェーズ59)6節に
+  残っていた課題のうち、3節の通知メッセージ「▼ 有料プランへ進む」ボタンのpostback_data
+  形式を設計・実装した。aircon-pashaのtrial-end-condition-a-cta-design.md(フェーズ137)が
+  確立した`"action=start_checkout"`(プラン未指定時はDEFAULT_CHECKOUT_PLAN=standardを既定)/
+  `"action=start_checkout&plan=<plan_id>"`形式をそのまま踏襲し、`prototype/checkout_session.py`に
+  `build_start_checkout_postback_data(plan_id)`・`parse_start_checkout_postback_data(data)`を
+  実装した(design.md 3.1節)。未知のplan_idは`build_checkout_session_params()`と同じ安全側
+  方針でValueError(build)・None(parse)とした。新規テスト9件追加、venture全体291件→300件全件
+  (`test_checkout_session.py`14件→23件・他4ファイルは変更なし)・schema検証27件いずれも
+  パスを確認した。実際にLINE返信・プッシュメッセージへボタンを添付して送る配線
+  (aircon-pashaの`ReplyClient.reply()`quick_reply引数・`process_postback_event()`相当)は、
+  本venture自体にLINE Webhook層(`cloud_function_webhook.py`相当)がまだ存在しないため
+  引き続き次の課題として残す。承認不要な設計文書更新・プロトタイプコード実装・テスト追加
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 10:00 UTC(フェーズ61: トライアル終了通知の「▼ 有料プランへ進む」
+ボタンのpostback_data形式をaircon-pashaフェーズ137と同じ形式で確定し、組み立て・解釈用の
+純粋関数2つを実装。新規テスト9件追加、venture全体300件・schema検証27件いずれもパス。
+実LINE返信への添付配線は本venture未着手のWebhook層を要するため次の課題として残る)

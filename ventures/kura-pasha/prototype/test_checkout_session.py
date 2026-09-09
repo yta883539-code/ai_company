@@ -2,8 +2,12 @@
 """checkout_session.pyの検証用テスト。`python3 test_checkout_session.py`で実行する。"""
 
 from checkout_session import (
+    DEFAULT_CHECKOUT_PLAN,
     PLAN_ID_TO_STRIPE_PRICE_ID,
+    START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
+    build_start_checkout_postback_data,
+    parse_start_checkout_postback_data,
 )
 
 PASS = 0
@@ -84,6 +88,54 @@ def test_custom_success_and_cancel_url_override_defaults():
     check("cancel_urlの上書きが反映される", params["cancel_url"] == "https://example.com/custom/cancel")
 
 
+def test_build_start_checkout_postback_data_embeds_plan_id():
+    check(
+        "light用postback_data",
+        build_start_checkout_postback_data("light") == "action=start_checkout&plan=light",
+    )
+    check(
+        "multi_craftsman用postback_data",
+        build_start_checkout_postback_data("multi_craftsman")
+        == "action=start_checkout&plan=multi_craftsman",
+    )
+
+
+def test_build_start_checkout_postback_data_raises_for_unknown_plan_id():
+    try:
+        build_start_checkout_postback_data("unknown_plan")
+        check("未知のplan_idでValueError(build)", False)
+    except ValueError:
+        check("未知のplan_idでValueError(build)", True)
+
+
+def test_parse_start_checkout_postback_data_plan_specific():
+    check(
+        "plan=standardを解釈",
+        parse_start_checkout_postback_data("action=start_checkout&plan=standard") == "standard",
+    )
+    check(
+        "plan=multi_craftsmanを解釈",
+        parse_start_checkout_postback_data("action=start_checkout&plan=multi_craftsman")
+        == "multi_craftsman",
+    )
+
+
+def test_parse_start_checkout_postback_data_plan_unspecified_returns_default():
+    check(
+        "プラン未指定はDEFAULT_CHECKOUT_PLAN",
+        parse_start_checkout_postback_data(START_CHECKOUT_POSTBACK_DATA) == DEFAULT_CHECKOUT_PLAN,
+    )
+
+
+def test_parse_start_checkout_postback_data_returns_none_for_unrelated_or_unknown():
+    check("無関係なdataはNone", parse_start_checkout_postback_data("action=cancel_subscription") is None)
+    check("Noneはそのまま None", parse_start_checkout_postback_data(None) is None)
+    check(
+        "未知のplan_idはNone",
+        parse_start_checkout_postback_data("action=start_checkout&plan=unknown_plan") is None,
+    )
+
+
 if __name__ == "__main__":
     test_raises_for_empty_workshop_id()
     test_raises_for_none_workshop_id()
@@ -92,6 +144,11 @@ if __name__ == "__main__":
     test_includes_customer_when_existing_stripe_customer_id_given()
     test_multi_craftsman_plan_resolves_correct_price_id()
     test_custom_success_and_cancel_url_override_defaults()
+    test_build_start_checkout_postback_data_embeds_plan_id()
+    test_build_start_checkout_postback_data_raises_for_unknown_plan_id()
+    test_parse_start_checkout_postback_data_plan_specific()
+    test_parse_start_checkout_postback_data_plan_unspecified_returns_default()
+    test_parse_start_checkout_postback_data_returns_none_for_unrelated_or_unknown()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:
         raise SystemExit(1)
