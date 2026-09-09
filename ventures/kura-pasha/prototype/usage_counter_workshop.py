@@ -87,6 +87,21 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   Session発行フロー・Stripe Webhookの署名検証・イベントディスパッチの実装、および
   フェーズ48で見送った`is_trial_period_over`の生成一時停止への配線は、引き続き次の
   課題として残す(`current_period_end`フィールドの読み書きも未着手)。
+- フェーズ52: checkout-initiation-flow-design.md(フェーズ50)・
+  stripe-webhook-checkout-completed-design.md(フェーズ51)によりStripe Webhook受信時に
+  `set_subscription_status(workshop_id, "active")`が実際に書き込まれるようになった
+  ことで、フェーズ48が見送っていた`is_trial_period_over`の生成一時停止への配線が
+  安全に行えるようになったため実装した。`process_generation_request`に
+  `ensure_member_is_active`成功後・`check_and_increment_usage`実行前の段階で、
+  `is_trial_period_over(workshop_id, now, workshop_store)`が真かつ
+  `get_subscription_status(workshop_id) != "active"`の場合に`TrialPeriodOverError`を
+  送出する判定を追加した(`WorkshopNotLinkedError`・`MemberRemovedError`と同様、
+  呼び出し側は`TRIAL_PERIOD_OVER_NOTICE`の文言に変換して返す想定)。`"past_due"`
+  (決済失敗ダニング)も本フェーズでは`"active"`ではない値として一律ブロック対象とし、
+  ダニング固有の猶予期間の扱いは「次にやること」候補2点目
+  (`invoice.payment_failed`対応)に委ねる。ブロック時は`check_and_increment_usage`・
+  `trial_generation_used`の更新いずれにも到達しないため、月間カウントもトライアル
+  消費フラグも変化しない。
 """
 
 from __future__ import annotations
@@ -132,9 +147,25 @@ class MemberRemovedError(Exception):
     """
 
 
+class TrialPeriodOverError(Exception):
+    """無料トライアル終了後(is_trial_period_over=True)かつ有償契約未確認
+    (subscription_status != "active")のworkshopから生成リクエストが来た場合に
+    送出する(フェーズ52)。
+
+    WorkshopNotLinkedError・MemberRemovedError相当の扱いとし、呼び出し側は
+    TRIAL_PERIOD_OVER_NOTICEの文言に変換して返す想定。
+    """
+
+
 REMOVED_MEMBER_NOTICE = (
     "所属していたworkshopのプラン変更により、現在はご利用いただけません。"
     "利用を続けるには契約者様に新規のworkshopへの再招待をご依頼ください。"
+)
+
+TRIAL_PERIOD_OVER_NOTICE = (
+    "無料トライアル期間(生成1回、または30日間のいずれか早い方)が終了しているため、"
+    "受注内容整理メモ・納品案内・お手入れ案内の生成を一時停止しています。\n"
+    "引き続きご利用いただくには、有料プランへのお申し込みをお願いします。"
 )
 
 
@@ -607,6 +638,19 @@ def process_generation_request(
         workshop_id, now, workshop_store
     )
     ensure_member_is_active(user_id, workshop_id, workshop_store)
+    # フェーズ52: トライアル終了かつ有償契約未確認(activeでない)の場合は
+    # usage_counterへの加算・trial_generation_usedの更新いずれにも到達させず
+    # 生成を一時停止する(subscription-billing-data-model-design.mdフェーズ46・49で
+    # 実装済みのget_subscription_statusと、フェーズ50・51のStripe Webhook配線により
+    # "active"への更新が実際に行われるようになったため、フェーズ48で見送っていた
+    # この配線が安全に行えるようになった)。
+    if is_trial_period_over(
+        workshop_id, now, workshop_store
+    ) and workshop_store.get_subscription_status(workshop_id) != "active":
+        raise TrialPeriodOverError(
+            f"workshop_id={workshop_id!r}はトライアル終了済みかつ有償契約未確認のため"
+            "生成を一時停止します"
+        )
     usage = check_and_increment_usage(
         user_id, now, user_profile_store, workshop_store, usage_counter_store
     )

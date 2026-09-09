@@ -14,6 +14,7 @@ from usage_counter_workshop import (
     InMemoryWorkshopStore,
     InvalidSubscriptionStatusError,
     MemberRemovedError,
+    TrialPeriodOverError,
     UnknownPlanError,
     WorkshopNotLinkedError,
     apply_contractor_transfer,
@@ -426,6 +427,80 @@ def test_process_generation_request_workshop_not_linked_raises():
         check("workshop未設定でWorkshopNotLinkedErrorが送出される(統合版)", False)
     except WorkshopNotLinkedError:
         check("workshop未設定でWorkshopNotLinkedErrorが送出される(統合版)", True)
+
+
+def test_process_generation_request_raises_trial_period_over_when_not_active():
+    """フェーズ52: トライアル終了(生成1回使用済み)かつsubscription_statusが
+    デフォルトの"trialing"のまま(有償契約未確認)のworkshopは、生成リクエストで
+    TrialPeriodOverErrorが送出され、usage_counterへの加算に到達しないことを検証する。
+    """
+    profiles, workshops, counters = make_stores()
+    profiles.link("U16", "W16")
+    workshops.set_plan("W16", "standard")
+    workshops.set_members("W16", "U16", ["U16"])
+    workshops.set_trial_start_at("W16", FEB)
+    workshops.set_trial_generation_used("W16", True)
+
+    try:
+        process_generation_request("U16", MAR, profiles, workshops, counters)
+        check("トライアル終了かつ未契約でTrialPeriodOverErrorが送出される", False)
+    except TrialPeriodOverError:
+        check("トライアル終了かつ未契約でTrialPeriodOverErrorが送出される", True)
+    check("ブロック時usage_counter_storeには何も書き込まれない", counters.get("W16") is None)
+
+
+def test_process_generation_request_allows_generation_when_subscription_active():
+    """トライアルが終了していても、subscription_statusが"active"
+    (Stripe Webhook経由で更新済み)であれば生成が継続できることを検証する。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U17", "W17")
+    workshops.set_plan("W17", "standard")
+    workshops.set_members("W17", "U17", ["U17"])
+    workshops.set_trial_start_at("W17", FEB)
+    workshops.set_trial_generation_used("W17", True)
+    workshops.set_subscription_status("W17", "active")
+
+    result = process_generation_request("U17", MAR, profiles, workshops, counters)
+    check(
+        "有償契約中(active)であればトライアル終了後も生成できる",
+        result.usage.count_after_increment == 1,
+    )
+
+
+def test_process_generation_request_blocks_when_subscription_past_due():
+    """"past_due"(決済失敗)はまだ"active"ではないため、トライアル終了後は
+    ダニング専用の猶予処理が実装されるまで一律ブロック対象とすることを検証する
+    (フェーズ52のdocstringに明記した方針)。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U18", "W18")
+    workshops.set_plan("W18", "standard")
+    workshops.set_members("W18", "U18", ["U18"])
+    workshops.set_trial_start_at("W18", FEB)
+    workshops.set_trial_generation_used("W18", True)
+    workshops.set_subscription_status("W18", "past_due")
+
+    try:
+        process_generation_request("U18", MAR, profiles, workshops, counters)
+        check("past_dueはactiveではないためTrialPeriodOverErrorが送出される", False)
+    except TrialPeriodOverError:
+        check("past_dueはactiveではないためTrialPeriodOverErrorが送出される", True)
+
+
+def test_process_generation_request_allows_generation_within_trial_period():
+    """トライアル期間内(is_trial_period_over=False)であれば、
+    subscription_statusがデフォルトの"trialing"のままでも生成できる
+    (既存フェーズ1〜51の挙動を壊していないことの回帰確認)。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U19", "W19")
+    workshops.set_plan("W19", "standard")
+    workshops.set_members("W19", "U19", ["U19"])
+    workshops.set_trial_start_at("W19", FEB)
+
+    result = process_generation_request("U19", FEB, profiles, workshops, counters)
+    check(
+        "トライアル期間内はtrialingのままでも生成できる",
+        result.usage.count_after_increment == 1,
+    )
 
 
 def test_resolve_contractor_transfer_target_matches_existing_member():
@@ -866,6 +941,10 @@ if __name__ == "__main__":
     test_process_generation_request_applies_reduction_before_usage_check()
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()
+    test_process_generation_request_raises_trial_period_over_when_not_active()
+    test_process_generation_request_allows_generation_when_subscription_active()
+    test_process_generation_request_blocks_when_subscription_past_due()
+    test_process_generation_request_allows_generation_within_trial_period()
     test_resolve_contractor_transfer_target_matches_existing_member()
     test_resolve_contractor_transfer_target_ignores_contractor_self()
     test_resolve_contractor_transfer_target_returns_none_for_unknown_name()

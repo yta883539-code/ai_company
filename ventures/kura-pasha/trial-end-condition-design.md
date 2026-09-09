@@ -105,15 +105,33 @@ def is_trial_period_over(
   有償契約した利用者まで永久に生成できなくなる(トライアル終了判定と有償契約済み判定を
   混同する)バグを自ら作り込むことになる。有償契約判定手段(`get_subscription_status`等)
   の実装後にまとめて対応する。
+- (対応済み 2026-09-09 00:00 UTC・フェーズ52): `WorkshopStoreProtocol`への
+  `get_stripe_customer_id`/`set_stripe_customer_id`/`get_subscription_status`等の
+  メソッド追加(フェーズ49)、Checkout Session発行フロー(フェーズ50)、Stripe
+  Webhookの署名検証・イベントディスパッチの実装(フェーズ51)がいずれも完了したため、
+  見送っていた生成一時停止配線に着手した。`process_generation_request`
+  (`prototype/usage_counter_workshop.py`)に、`ensure_member_is_active`成功後・
+  `check_and_increment_usage`実行前の段階で`is_trial_period_over(...)`が真かつ
+  `get_subscription_status(workshop_id) != "active"`の場合に`TrialPeriodOverError`を
+  送出する判定を追加した。`"past_due"`(決済失敗)も本フェーズでは`"active"`ではない値
+  として一律ブロック対象とし、決済失敗時の猶予期間付き扱い(ダニング)は下記の別課題に
+  委ねた。新規テスト5件追加、venture全体101件→106件全件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証23件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
 - `WorkshopStoreProtocol`への`get_stripe_customer_id`/`set_stripe_customer_id`/
   `get_subscription_status`等のメソッド追加、Checkout Session発行フロー、Stripe
   Webhookの署名検証・イベントディスパッチの実装(subscription-billing-data-model-design.md
   フェーズ46「未検証・残課題」、course-set-pasha/stripe-webhook-http-entry-point-design.md
-  相当)は未着手。上記の生成一時停止配線はこれの完了後に着手する。
+  相当)は完了した(フェーズ49〜51、上記参照)。
+- `customer.subscription.deleted`(解約確定)・`invoice.payment_failed`/
+  `invoice.payment_succeeded`(決済失敗ダニング)へのStripe Webhookイベント種別対応
+  (course-set-pasha/aircon-pashaの既存設計を横展開)は未着手。対応後、`"past_due"`を
+  一律ブロックする現状の単純化(上記フェーズ52)を、ダニング固有の猶予期間つき扱いへ
+  見直す必要がある。
 - `trial_start_at`をworkshop作成時に書き込む実処理(craftsman-account-linking-design.mdの
   workshop新規作成フロー側)は未実装。本設計は判定関数側のみをプロトタイプコード化する。
 - 実Stripe接続・Checkout Session発行フロー自体は引き続きオーナー承認待ちの範囲
   (pending-approval.md参照)。
 
-最終更新: 2026-09-08 20:00 UTC(フェーズ48: trial_generation_used書き込み処理を実装、
-生成一時停止配線は有償契約判定手段の実装後に見送りと明記)
+最終更新: 2026-09-09 00:00 UTC(フェーズ52: is_trial_period_overの生成一時停止への
+配線を実装、"past_due"は一律ブロック対象としダニング対応は今後の課題として明記)

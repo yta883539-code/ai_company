@@ -771,14 +771,32 @@
   コード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
+- フェーズ52(2026-09-09 00:00 UTC): stripe-webhook-checkout-completed-design.md
+  (フェーズ51)の残課題だった、フェーズ48で見送った`is_trial_period_over`の
+  トライアル終了時生成一時停止への配線を実装した(trial-end-condition-design.md更新)。
+  `process_generation_request`(`prototype/usage_counter_workshop.py`)に、
+  `ensure_member_is_active`成功後・`check_and_increment_usage`実行前の段階で
+  `is_trial_period_over(...)`が真かつ`get_subscription_status(workshop_id) != "active"`
+  の場合に新設の`TrialPeriodOverError`を送出する判定を追加した(呼び出し側は
+  `TRIAL_PERIOD_OVER_NOTICE`の文言に変換して返す想定、`WorkshopNotLinkedError`・
+  `MemberRemovedError`と同じ扱い)。`"past_due"`(決済失敗)もこの時点では`"active"`
+  ではない値として一律ブロック対象とし、ダニング固有の猶予期間つき扱いは
+  `invoice.payment_failed`イベント対応(次の課題2点目)に委ねると明記した。ブロック時は
+  `check_and_increment_usage`・`trial_generation_used`の更新いずれにも到達しないため、
+  月間カウントもトライアル消費フラグも変化しないことを新規テストで確認した。新規テスト
+  5件追加、venture全体101件→106件全件(`python3 prototype/test_usage_counter_workshop.py`)・
+  schema検証23件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なプロトタイプコード実装・テスト追加・設計doc記載更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
 ## 次にやること(候補)
 
-- stripe-webhook-checkout-completed-design.md(フェーズ51)の残課題: フェーズ48で
-  見送った`is_trial_period_over`のトライアル終了時生成一時停止への配線
-  (`get_subscription_status(workshop_id) == "active"`を判定条件に含める)に着手する。
 - `customer.subscription.deleted`(解約確定)・`invoice.payment_failed`/
   `invoice.payment_succeeded`(決済失敗ダニング)へのイベント種別対応
-  (course-set-pasha/aircon-pashaの既存設計を横展開)。
+  (course-set-pasha/aircon-pashaの既存設計を横展開)。対応後、フェーズ52が
+  `"past_due"`を一律ブロック対象とした簡易実装を、ダニング固有の猶予期間つき扱いへ
+  見直す必要がある。
 - checkout-initiation-flow-design.md(フェーズ50)の残課題: 有料プラン開始の意図検知
   (「有料プランを始めたい」等)をllm-system-prompt-draft.mdの厳守事項として追加する
   (解約意図検知の厳守事項7aと対になる新規項目)。
@@ -796,8 +814,6 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-08 23:00 UTC(フェーズ51: stripe-webhook-checkout-completed-design.mdを
-新規作成し、`checkout.session.completed`のStripe Webhook署名検証・受信処理を設計、
-`prototype/stripe_webhook.py`の`verify_stripe_signature()`・
-`handle_checkout_session_completed()`・`receive_stripe_webhook()`を実装。
-`is_trial_period_over`の生成一時停止配線・他イベント種別対応は次の課題として残る)
+最終更新: 2026-09-09 00:00 UTC(フェーズ52: `is_trial_period_over`のトライアル終了時
+生成一時停止への配線を実装、`process_generation_request`に`TrialPeriodOverError`を
+追加。`"past_due"`は一律ブロック対象としダニング対応は次の課題として残る)
