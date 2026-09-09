@@ -28,10 +28,19 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional, Protocol, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
+
 from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from validate_test_cases import (  # noqa: E402
+    SCHEMA,
+    validate_against_schema,
+    validate_cross_field_rules,
+)
 
 
 def verify_line_signature(
@@ -145,6 +154,295 @@ def format_trial_end_notification_message(generation_count: int) -> str:
         "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。",
     ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# process_memo_event()本体(フェーズ63)
+#
+# README.md「次にやること」(フェーズ62)に残っていた3つの未着手項目のうち、
+# process_memo_event()本体(LLM出力の17通りのstatus分岐をテキストへ変換する処理)に着手する。
+# aircon-pasha/prototype/cloud_function_webhook.pyのprocess_memo_event()と同じ骨格
+# (LLM呼び出し即時1回リトライ→スキーマ検証→検証エラー時は同一入力で1回だけ再生成→
+# それでも検証エラーなら定型フォールバック文言)を踏襲するが、本ventureはusage_counter・
+# profile_store(トライアル生成回数カウント・生成一時停止・決済失敗制限モード)を
+# まだ持たないため、それらのケースは対象外とし引き続き次の課題として残す(README.md参照)。
+# receive_webhook()(HTTPエントリポイント)・dispatch_webhook_events()も本フェーズの対象外。
+# ---------------------------------------------------------------------------
+
+class LlmApiError(Exception):
+    """llm_call.generate()自体が失敗した(タイムアウト・5xx・429・ネットワーク断等)ことを
+    表す例外。実クライアント側はこの例外を送出する契約とする
+    (aircon-pasha/course-set-pashaのapi-call-failure-handling.md方針1と同じ設計)。"""
+
+
+class ReplyApiError(Exception):
+    """reply_client.reply()自体が失敗したことを表す例外(方針2)。"""
+
+
+class LlmCallClient(Protocol):
+    def generate(self, memo_text: str, retry_context: Optional[str] = None) -> dict:
+        """schema/output.schema.jsonに準拠した構造化出力(dict)を返す想定。
+
+        retry_contextが渡された場合(1回目の検証エラー後の再生成時)、直前の出力の
+        何が不正だったかの概要を実LLM接続後にプロンプトへ添える想定(他ventureの
+        json-output-retry-fallback.md「同一入力で1回だけ再生成」方針を踏襲)。
+        呼び出し自体が失敗した場合はLlmApiErrorを送出する契約とする。
+        """
+        ...
+
+
+VALIDATION_FAILURE_FALLBACK_MESSAGE = (
+    "内容の確認中に問題が発生しました。お手数ですが、もう一度メモを送り直してください。"
+)
+
+API_FAILURE_FALLBACK_MESSAGE = (
+    "只今混み合っております。少し時間をおいて同じ内容をもう一度送ってください。"
+)
+
+# subscription-cancellation-flow-design.md 「1. 解約意図検知時の案内メッセージ」記載の
+# プレースホルダ文字列(aircon-pasha/course-set-pashaのPORTAL_LINK_PLACEHOLDERと同じ位置づけ)。
+PORTAL_LINK_PLACEHOLDER = "{Stripeカスタマーポータル URL}"
+
+PORTAL_LINK_UNAVAILABLE_FALLBACK = (
+    "現在、お手続きページの発行に失敗しました。お手数ですが、しばらく経ってから再度"
+    "このメッセージを送信いただくか、サポート窓口まで直接ご連絡ください。"
+)
+
+
+class PortalLinkProvider(Protocol):
+    """Stripe Billing Portalのセッション作成を表す差し替え可能なProtocol
+    (aircon-pasha/course-set-pashaと同じ位置づけ)。実Stripe接続はオーナー承認待ちのため
+    本モジュールではProtocol化のみ行う。取得できない場合はNoneを返す契約とする。"""
+
+    def get_portal_url(self, user_id: str) -> Optional[str]:
+        ...
+
+
+class InMemoryPortalLinkProvider:
+    """実Stripe接続の代わりに固定URL(またはNone)を返す検証用スタブ。"""
+
+    def __init__(self, url: Optional[str] = "https://billing.stripe.com/p/session/stub") -> None:
+        self._url = url
+
+    def get_portal_url(self, user_id: str) -> Optional[str]:
+        return self._url
+
+
+def render_subscription_procedure_notice(
+    notice: dict,
+    portal_link_provider: Optional[PortalLinkProvider],
+    user_id: Optional[str],
+) -> str:
+    """status=cancellation_intent/downgrade_intent/cancellation_unclearの
+    subscription_procedure_notice.bodyを実際の返信文へ組み立てる
+    (aircon-pashaの同名関数と同じ設計)。
+
+    includes_portal_link=Falseの場合(cancellation_unclear)はbodyをそのまま返す
+    (厳守事項7a(iv)準拠)。includes_portal_link=Trueの場合はPORTAL_LINK_PLACEHOLDERを
+    実URLへ置換する。providerが未接続・user_id不明・URL取得失敗のいずれかの場合は
+    プレースホルダの露出を避けるためPORTAL_LINK_UNAVAILABLE_FALLBACKへ全文差し替える。
+    """
+    body = notice["body"]
+    if not notice["includes_portal_link"]:
+        return body
+
+    url = None
+    if portal_link_provider is not None and user_id:
+        url = portal_link_provider.get_portal_url(user_id)
+
+    if not url:
+        return PORTAL_LINK_UNAVAILABLE_FALLBACK
+
+    return body.replace(PORTAL_LINK_PLACEHOLDER, url)
+
+
+def format_generated_reply(instance: dict) -> str:
+    """status=generatedの構造化出力を、出力1・出力2・出力3をまとめた1通の返信文に組み立てる。"""
+    return "\n".join(
+        [
+            "【受注内容整理メモ】",
+            instance["order_summary"]["body"],
+            "",
+            "【納品案内の下書き】",
+            instance["delivery_notice"]["body"],
+            "",
+            "【お手入れ案内の下書き】",
+            instance["care_notice"],
+        ]
+    )
+
+
+def format_reply_text(
+    instance: dict,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_id: Optional[str] = None,
+) -> str:
+    """schema/output.schema.jsonの17通りのstatusを、実際の返信文へ変換する。"""
+    status = instance["status"]
+    if status == "generated":
+        return format_generated_reply(instance)
+    if status == "out_of_scope":
+        return instance["out_of_scope_message"]
+    if status == "insufficient_input":
+        return instance["missing_fields_request"]
+    if status in ("cancellation_intent", "downgrade_intent", "cancellation_unclear"):
+        return render_subscription_procedure_notice(
+            instance["subscription_procedure_notice"], portal_link_provider, user_id
+        )
+    if status in ("member_retention_selection", "member_retention_unclear"):
+        return instance["member_retention_notice"]["body"]
+    if status in ("contractor_transfer_selection", "contractor_transfer_unclear"):
+        return instance["contractor_transfer_notice"]["body"]
+    if status in (
+        "contractor_transfer_confirmed",
+        "contractor_transfer_cancelled",
+        "contractor_transfer_reconfirm_unclear",
+    ):
+        return instance["contractor_transfer_confirmation"]["body"]
+    if status == "contractor_transfer_expired_notice":
+        return instance["contractor_transfer_expired_notice"]["body"]
+    if status in ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear"):
+        return instance["checkout_notice"]["body"]
+    raise ValueError(f"unexpected status: {status!r}")
+
+
+def validate_llm_output(instance: dict) -> List[str]:
+    """スキーマ適合性・クロスフィールドルールをまとめて検証し、エラーメッセージの
+    リストを返す(空リスト=検証OK)。schema/validate_test_cases.pyのvalidate_against_schema()・
+    validate_cross_field_rules()をそのまま再利用する(他venture同様、後処理ヒューリスティック
+    〈post_generation_checks相当〉は本ventureに存在しないため対象外)。"""
+    errors = validate_against_schema(instance, SCHEMA)
+    if errors:
+        # スキーマ自体に適合しない場合、cross-fieldチェックはstatus等の前提が崩れているため
+        # 実行しない(aircon-pasha/course-set-pashaと同じ考え方)。
+        return errors
+    return errors + validate_cross_field_rules(instance)
+
+
+@dataclass
+class MemoProcessResult:
+    handled: bool  # False=テキスト以外の単体イベント等、本フローの処理対象外だったため何もしなかった
+    reply_sent: bool
+    reply_text: Optional[str]
+    validation_errors: list = field(default_factory=list)
+    retried: bool = False  # True=1回目の検証エラー後、再生成を1回試みた
+    api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
+
+
+def _summarize_errors_for_retry(errors: List[str]) -> str:
+    """再生成プロンプトに添える検証エラーの短い概要(実LLM接続後に使用)。"""
+    return "; ".join(errors[:3])
+
+
+def _generate_with_api_retry(
+    llm_call: LlmCallClient,
+    memo_text: str,
+    retry_context: Optional[str] = None,
+) -> dict:
+    """LLM API呼び出し自体の失敗(LlmApiError)に対し、即時1回のみリトライする。
+    2回とも失敗した場合はLlmApiErrorをそのまま呼び出し元へ伝播させる。"""
+    try:
+        return llm_call.generate(memo_text, retry_context=retry_context)
+    except LlmApiError:
+        return llm_call.generate(memo_text, retry_context=retry_context)
+
+
+def _reply_with_retry(
+    reply_client: ReplyClient,
+    reply_token: str,
+    message_text: str,
+    *,
+    quick_reply: Optional[QuickReplyButton] = None,
+) -> bool:
+    """Reply API呼び出し自体の失敗(ReplyApiError)に対し、即時1回のみリトライする。
+    reply_tokenは1回限り有効なため、2回とも失敗した場合はこれ以上何もできない。
+    呼び出し元がreply_sent=Falseとして結果を扱えるようboolを返す(例外は外へ伝播させない)。"""
+    kwargs = {"quick_reply": quick_reply} if quick_reply is not None else {}
+    try:
+        reply_client.reply(reply_token, message_text, **kwargs)
+        return True
+    except ReplyApiError:
+        pass
+    try:
+        reply_client.reply(reply_token, message_text, **kwargs)
+        return True
+    except ReplyApiError:
+        return False
+
+
+def process_memo_event(
+    event: dict,
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+) -> MemoProcessResult:
+    """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
+
+    設計上の判断(mvp-flow-draft.md準拠、aircon-pashaのprocess_memo_event()と同じ骨格):
+    1. message.type != "text" のイベント(画像単体送信等)は本フローの対象外とし、
+       返信を送らずhandled=Falseで返す。
+    2. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする。
+       再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す。
+    3. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
+       portal_link_providerが渡されていればsubscription_procedure_notice.body中の
+       ポータルURLプレースホルダを実URLへ置換する。未接続時は安全側フォールバック文言を返す。
+    4. usage_counter・profile_store(トライアル生成回数カウント・生成一時停止・決済失敗
+       制限モード・初回生成セルフチェック案内)の配線は、本venture側にまだこれらの
+       ストア・スケジューラが実装されていないため対象外とし、次の課題として残す
+       (README.md参照)。
+    """
+    message = event.get("message", {})
+    if message.get("type") != "text":
+        return MemoProcessResult(handled=False, reply_sent=False, reply_text=None)
+
+    reply_token = event["replyToken"]
+    memo_text = message["text"]
+    user_id = event.get("source", {}).get("userId")
+
+    try:
+        instance = _generate_with_api_retry(llm_call, memo_text)
+    except LlmApiError:
+        reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None, api_failure=True,
+        )
+
+    errors = validate_llm_output(instance)
+    retried = False
+
+    if errors:
+        retried = True
+        try:
+            instance = _generate_with_api_retry(
+                llm_call, memo_text, retry_context=_summarize_errors_for_retry(errors)
+            )
+        except LlmApiError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+                retried=retried, api_failure=True,
+            )
+        errors = validate_llm_output(instance)
+
+    if errors:
+        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            validation_errors=errors, retried=retried,
+        )
+
+    reply_text = format_reply_text(
+        instance, portal_link_provider=portal_link_provider, user_id=user_id,
+    )
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
+    )
 
 
 def _demo() -> None:

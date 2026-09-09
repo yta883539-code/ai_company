@@ -1073,3 +1073,43 @@ includes_checkout_urlが常にfalseであることをテストで担保)
 添付用ReplyClient抽象化・トライアル終了通知文言の組み立て)を`prototype/cloud_function_
 webhook.py`として新規実装。新規テスト12件追加、venture全体320件・schema検証27件いずれも
 パス。process_memo_event()本体・HTTPエントリポイント・dispatch層は次の課題として残る)
+
+- フェーズ63(2026-09-09 13:00 UTC): フェーズ62で次の課題として残した3項目のうち、
+  process_memo_event()本体(LLM出力の17通りのstatus分岐をテキスト返信へ変換する処理)に
+  着手した。aircon-pasha/prototype/cloud_function_webhook.pyのprocess_memo_event()と
+  同じ骨格(LLM呼び出し即時1回リトライ→schema/validate_test_cases.pyのvalidate_against_
+  schema()・validate_cross_field_rules()で検証→エラーがあれば同一入力で1回だけ再生成→
+  それでも検証エラーが残る場合は定型フォールバック文言)を踏襲し、`format_reply_text()`が
+  schema/output.schema.jsonの全17通りのstatus値(generated/out_of_scope/insufficient_input/
+  cancellation_intent/downgrade_intent/cancellation_unclear/member_retention_selection/
+  member_retention_unclear/contractor_transfer_selection/contractor_transfer_unclear/
+  contractor_transfer_confirmed/contractor_transfer_cancelled/contractor_transfer_
+  reconfirm_unclear/contractor_transfer_expired_notice/checkout_intent/pricing_inquiry/
+  checkout_intent_unclear)を返信文へ振り分ける。cancellation_intent/downgrade_intent/
+  cancellation_unclearについては、aircon-pashaと同じ`PortalLinkProvider`Protocol・
+  `render_subscription_procedure_notice()`(StripeカスタマーポータルURLプレースホルダの
+  置換、未接続時は安全側フォールバック文言)も新規実装した。
+
+  本venture側にはaircon-pasha/course-set-pashaが持つusage_counter・profile_store
+  (トライアル生成回数カウント・生成一時停止・決済失敗制限モード・初回生成セルフチェック
+  案内)に相当するストア・スケジューラがまだ実装されていないため、それらの配線は今回
+  スコープ外とし引き続き次の課題として残した(receive_webhook()〈HTTPエントリポイント〉・
+  dispatch_webhook_events()・follow/unfollowイベント処理も同様に未着手のまま)。
+
+  新規テスト12件追加(非テキストメッセージの無視、generated時の3出力見出し、out_of_scope/
+  insufficient_inputのメッセージそのまま転記、cancellation_intentのポータルURL置換〈provider
+  接続時・未接続時双方〉、cancellation_unclearのプレースホルダ無し文面、checkout_intent・
+  contractor_transfer_expired_noticeの単純転記、検証エラー1回リトライ成功、2回とも失敗時の
+  フォールバック、LLM API呼び出し失敗時のフォールバック)。venture全体320件→346件全件
+  (`python3 test_*.py`を各ファイルで直接実行、`python3 -m unittest discover`ではなく
+  この形式が実際の実行方法である点は本フェーズで確認した。README過去記載の「unittest
+  discover」表記は実態と異なるため今後の記載では留意する)・schema検証27件いずれもパスを
+  確認した。承認不要なプロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 13:00 UTC(フェーズ63: process_memo_event()本体を実装し、schema/
+output.schema.jsonの17通りのstatus分岐すべてを返信文へ変換できるようにした。
+cancellation_intent系のStripeカスタマーポータルURL置換〈PortalLinkProvider〉も実装。
+新規テスト12件追加、venture全体346件・schema検証27件いずれもパス。usage_counter・
+profile_store連携〈トライアル/生成一時停止/決済失敗制限モード〉・HTTPエントリポイント・
+dispatch層は次の課題として残る)
