@@ -199,4 +199,32 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 
 新規テスト12件追加、venture全体423件→444件全件・schema検証27件いずれもパスを確認した。
 
-最終更新: 2026-09-09(フェーズ68) UTC
+## 10. 追記(フェーズ69): message event側の連携コード判定ルーティング
+
+9節で次の課題として残した「職人がコードをトーク上に送り返すと解決される」部分を実装した。
+`cloud_function_webhook.process_message_event()`を新設し、messageイベントの入口として
+`dispatch_webhook_events()`の委譲先を`process_memo_event()`から本関数へ差し替えた
+(aircon-pashaのuser-account-linking-design.md 3節・`process_message_event()`と同じ骨格)。
+
+`user_profile_store`・`workshop_store`・`linking_store`の3つ全てが渡された場合のみ、以下の
+順で分岐する。
+
+1. `user_profile_store.get_workshop_id(user_id)`が設定済み(連携済み)なら、従来通り
+   `process_memo_event()`へそのまま委譲する。
+2. 未連携の場合、受信テキストをそのまま`workshop_linking.create_workshop_from_linking_code()`
+   へ渡す(2〜3節・`workshop_linking.py`フェーズ66実装済みの解決+workshop新規作成を1関数で
+   行うロジックをそのまま利用)。成功時はLINKING_SUCCESS_MESSAGE(本フェーズ新設)を返信し、
+   `process_memo_event()`(LLM呼び出し・usage_counter連携)へは一切進めない。
+3. 解決に失敗した場合(コード不一致・期限切れ・依頼メモの先送り送信、いずれも区別しない、
+   aircon-pashaと同じ「辞書引き一致を必須とし正規表現の形式一致のみでは連携コードと判定
+   しない」方針)・user_idが取得できない場合は、いずれもLINKING_REQUIRED_MESSAGE(本フェーズ
+   新設)を返す。
+
+3ストアのいずれかが未接続(None)の場合は連携判定自体を行わず、フェーズ68以前と同じく
+`process_memo_event()`へ直接委譲する後方互換設計とした(フェーズ64のusage_counter連携と
+同じ考え方)。これにより、9節末尾で指摘していた「連携コードをそのまま送信する」という2節の
+想定導線が、本フェーズで実際に接続された。
+
+新規テスト18件追加、venture全体444件→462件全件・schema検証27件いずれもパスを確認した。
+
+最終更新: 2026-09-09(フェーズ69) UTC

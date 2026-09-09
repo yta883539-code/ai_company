@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 
 from cloud_function_webhook import (
     API_FAILURE_FALLBACK_MESSAGE,
+    LINKING_REQUIRED_MESSAGE,
+    LINKING_SUCCESS_MESSAGE,
     PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     TRIAL_END_BUTTON_LABEL,
@@ -25,6 +27,7 @@ from cloud_function_webhook import (
     format_trial_end_notification_message,
     process_follow_event,
     process_memo_event,
+    process_message_event,
     receive_webhook,
     verify_line_signature,
 )
@@ -35,7 +38,7 @@ from usage_counter_workshop import (
     InMemoryWorkshopStore,
 )
 from validate_test_cases import TEST_CASES
-from workshop_linking import InMemoryLinkingCodeStore
+from workshop_linking import InMemoryLinkingCodeStore, issue_linking_code_on_follow
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
 MAR = datetime(2026, 3, 1, 9, 0, 0)
@@ -521,6 +524,99 @@ def test_process_memo_event_skips_store_integration_when_stores_not_provided():
 
 
 # ---------------------------------------------------------------------------
+# process_message_event()(フェーズ69)
+# ---------------------------------------------------------------------------
+
+def test_process_message_event_delegates_when_stores_not_provided():
+    """3ストアが1つでも欠けている場合は連携判定を行わず、従来通りprocess_memo_event()へ
+    直接委譲する(後方互換、フェーズ68以前の呼び出し方が引き続き動作する)。"""
+    reply_client = InMemoryReplyClient()
+    result = process_message_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_NO_LINKING"),
+        _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client,
+    )
+    check("ストア未接続時は通常どおり生成できる", result.reply_sent is True)
+    check("ストア未接続時は生成本文がそのまま返る", "【受注内容整理メモ】" in result.reply_text)
+
+
+def test_process_message_event_delegates_when_user_already_linked():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LINKED", "W_LINKED")
+    workshops.set_plan("W_LINKED", "standard")
+    workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    linking_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_LINKED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("連携済みuser_idは通常どおり生成できる", result.reply_sent is True)
+    check("連携済みuser_idは生成本文がそのまま返る", "【受注内容整理メモ】" in result.reply_text)
+    check("連携済みuser_idはLLMが呼ばれる", len(llm_call.calls) == 1)
+
+
+def test_process_message_event_creates_workshop_on_valid_linking_code():
+    profiles, workshops, counters = _make_stores()
+    linking_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 9, 12, 0, 0)
+    code = issue_linking_code_on_follow("U_NEW", linking_store, now, random.Random(1))
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event(code, user_id="U_NEW"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, now=now,
+    )
+    check("有効な連携コード送信時はhandled=True", result.handled is True)
+    check("有効な連携コード送信時は返信送信済み", result.reply_sent is True)
+    check("有効な連携コード送信時はLINKING_SUCCESS_MESSAGEを返す", result.reply_text == LINKING_SUCCESS_MESSAGE)
+    check("有効な連携コード送信時はLLMを呼び出さない(依頼メモとして処理しない)", llm_call.calls == [])
+    check("user_profileにworkshop_idが紐付く", profiles.get_workshop_id("U_NEW") is not None)
+    check("連携コードは使い切りで消費される", linking_store.get(code) is None)
+
+
+def test_process_message_event_replies_linking_required_on_invalid_text():
+    profiles, workshops, counters = _make_stores()
+    linking_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_UNLINKED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("未連携かつコード不一致時はLINKING_REQUIRED_MESSAGEを返す", result.reply_text == LINKING_REQUIRED_MESSAGE)
+    check("未連携かつコード不一致時はLLMを呼び出さない", llm_call.calls == [])
+    check("未連携かつコード不一致時はworkshopが作られない", profiles.get_workshop_id("U_UNLINKED") is None)
+
+
+def test_process_message_event_replies_linking_required_when_user_id_missing():
+    profiles, workshops, counters = _make_stores()
+    linking_store = InMemoryLinkingCodeStore()
+    event = {
+        "type": "message",
+        "message": {"type": "text", "text": "ABC234"},
+        "replyToken": "r1",
+        "source": {},
+    }
+    reply_client = InMemoryReplyClient()
+    result = process_message_event(
+        event, _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("user_id欠落時はLINKING_REQUIRED_MESSAGEを返す", result.reply_text == LINKING_REQUIRED_MESSAGE)
+
+
+# ---------------------------------------------------------------------------
 # dispatch_webhook_events() / receive_webhook()(フェーズ65)
 # ---------------------------------------------------------------------------
 
@@ -536,6 +632,28 @@ def test_dispatch_webhook_events_routes_message_event_to_process_memo_event():
     check("message_resultsの中身はhandled=True", result.message_results[0].handled is True)
     check("ignored_typesは空", result.ignored_types == [])
     check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_dispatch_webhook_events_routes_valid_linking_code_to_workshop_creation():
+    """フェーズ69: dispatch_webhook_events()がlinking_store等を渡された場合、messageの
+    委譲先がprocess_message_event()になり、連携コード送信をworkshop作成として処理できる
+    ことをdispatch経由で確認する。"""
+    profiles, workshops, counters = _make_stores()
+    linking_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 9, 12, 0, 0)
+    code = issue_linking_code_on_follow("U_DISPATCH_NEW", linking_store, now, random.Random(2))
+
+    reply_client = InMemoryReplyClient()
+    result = dispatch_webhook_events(
+        [_make_event(code, user_id="U_DISPATCH_NEW")],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, now=now,
+    )
+    check("連携コード送信はmessage_resultsに1件記録される", len(result.message_results) == 1)
+    check("連携コード送信はLINKING_SUCCESS_MESSAGEを返す", result.message_results[0].reply_text == LINKING_SUCCESS_MESSAGE)
+    check("連携コード送信でworkshopが作られる", profiles.get_workshop_id("U_DISPATCH_NEW") is not None)
 
 
 def test_dispatch_webhook_events_records_ignored_types_for_non_message_events():
@@ -720,7 +838,13 @@ if __name__ == "__main__":
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
+    test_process_message_event_delegates_when_stores_not_provided()
+    test_process_message_event_delegates_when_user_already_linked()
+    test_process_message_event_creates_workshop_on_valid_linking_code()
+    test_process_message_event_replies_linking_required_on_invalid_text()
+    test_process_message_event_replies_linking_required_when_user_id_missing()
     test_dispatch_webhook_events_routes_message_event_to_process_memo_event()
+    test_dispatch_webhook_events_routes_valid_linking_code_to_workshop_creation()
     test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
     test_dispatch_webhook_events_skips_message_when_llm_call_missing()
     test_dispatch_webhook_events_skips_message_when_reply_client_missing()

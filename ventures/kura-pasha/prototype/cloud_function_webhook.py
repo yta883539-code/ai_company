@@ -57,6 +57,7 @@ from validate_test_cases import (  # noqa: E402
 from workshop_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     RandomChoiceSource,
+    create_workshop_from_linking_code,
     issue_linking_code_on_follow,
 )
 
@@ -630,14 +631,135 @@ def process_memo_event(
 
 
 # ---------------------------------------------------------------------------
-# dispatch_webhook_events() + receive_webhook()(フェーズ65、フェーズ68で follow を追加)
+# process_message_event()(フェーズ69)
+#
+# フェーズ68「トーク上で送り返されたコードのworkshop作成への解決(message event側で
+# コード形式のテキストをcreate_workshop_from_linking_code()へルーティングする処理)」を
+# 次の課題として残していたのに着手する。aircon-pashaのprocess_message_event()
+# (user-account-linking-design.md 3節)と同じ骨格(連携済みか否かで最初に分岐し、
+# 未連携時は受信テキストが連携コードと解決できるかどうかのみを判定根拠とする、
+# 「辞書引き一致を必須とし正規表現の形式一致のみでは連携コードと判定しない」方針)を
+# 踏襲する。ただし本ventureはworkshop_linking.pyのcreate_workshop_from_linking_code()が
+# 解決(resolve)とworkshop新規作成を1つの関数にまとめている点、および
+# user_profile_store・workshop_store・linking_store3つ全てが揃わない限り連携判定
+# そのものを行わない後方互換設計(フェーズ64のusage_counter連携と同じ考え方)である点が
+# aircon-pasha版との差分となる。dispatch_webhook_events()側は本フェーズでmessageイベントの
+# 委譲先をprocess_memo_event()からprocess_message_event()へ差し替える。
+# ---------------------------------------------------------------------------
+
+LINKING_SUCCESS_MESSAGE = (
+    "連携が完了しました。依頼内容の簡単なメモを送ってください。"
+)
+
+# design自体は解決失敗時の案内文言を確定させていないため、aircon-pashaのLINKING_REQUIRED_
+# MESSAGEと同じ考え方(「連携コード自体が見つからない(未連携・期限切れ・入力ミス等)」と
+# 「未連携のまま依頼メモを送った」を区別せず同一の案内に倒す)で本フェーズ新規に定める。
+LINKING_REQUIRED_MESSAGE = (
+    "先に連携コードの送信が必要です。友だち追加時にお送りした6文字の連携コードを、"
+    "このトークにそのまま送信してください。コードの有効期限が切れた場合は、もう一度"
+    "このトークを開くと新しいコードが届きます。"
+)
+
+
+def process_message_event(
+    event: dict,
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    now: Optional[datetime] = None,
+) -> MemoProcessResult:
+    """messageイベントの入口(dispatch_webhook_events()からの委譲先)。
+
+    `user_profile_store`・`workshop_store`・`linking_store`の3つ全てが渡された場合のみ、
+    process_memo_event()へ進む前に連携状態で分岐する。
+
+    - message.type != "text": process_memo_event()にそのまま委譲する(process_memo_event()
+      自体が非テキストをhandled=Falseとして扱う既存の分岐をそのまま利用する)。
+    - 連携済み(user_idかつ`user_profile_store.get_workshop_id(user_id)`が設定済み):
+      process_memo_event()へそのまま委譲する。
+    - 未連携: 受信テキストを`create_workshop_from_linking_code()`へ渡す。連携コードとして
+      解決・workshop新規作成に成功した場合のみLINKING_SUCCESS_MESSAGEを返す。解決できない
+      場合(コード不一致・期限切れ・依頼メモの先送り送信等、いずれも区別しない)は
+      LINKING_REQUIRED_MESSAGEを返す。process_memo_event()へは一切進めない(未連携user_idの
+      利用回数カウントを発生させないため)。
+    - user_idが取得できない未連携イベント(通常発生しない想定)も安全側に倒し
+      LINKING_REQUIRED_MESSAGEを返す。
+    - 3つのストアのいずれかが未接続(None)の場合は、フェーズ68以前と同じ後方互換動作として
+      連携判定自体を行わずprocess_memo_event()へ直接委譲する(本venture側dispatch層が
+      「process_memo_eventへ到達するのは常に連携済みuser_idのみ」という前提をまだ
+      保証していないケースを含む、フェーズ64のprocess_memo_event() docstring 4.と同じ考え方)。
+    """
+    linking_enabled = (
+        user_profile_store is not None
+        and workshop_store is not None
+        and linking_store is not None
+    )
+    message = event.get("message", {})
+
+    if not linking_enabled or message.get("type") != "text":
+        return process_memo_event(
+            event, llm_call, reply_client,
+            portal_link_provider=portal_link_provider,
+            user_profile_store=user_profile_store,
+            workshop_store=workshop_store,
+            usage_counter_store=usage_counter_store,
+            now=now,
+        )
+
+    user_id = event.get("source", {}).get("userId")
+    if user_id and user_profile_store.get_workshop_id(user_id) is not None:
+        return process_memo_event(
+            event, llm_call, reply_client,
+            portal_link_provider=portal_link_provider,
+            user_profile_store=user_profile_store,
+            workshop_store=workshop_store,
+            usage_counter_store=usage_counter_store,
+            now=now,
+        )
+
+    reply_token = event["replyToken"]
+    if not user_id:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=LINKING_REQUIRED_MESSAGE if reply_sent else None,
+        )
+
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    creation = create_workshop_from_linking_code(
+        message.get("text"), linking_store, user_profile_store, workshop_store, resolved_now,
+    )
+    if creation.ok:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_SUCCESS_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=LINKING_SUCCESS_MESSAGE if reply_sent else None,
+        )
+
+    reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent,
+        reply_text=LINKING_REQUIRED_MESSAGE if reply_sent else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events() + receive_webhook()(フェーズ65、フェーズ68で follow を追加、
+# フェーズ69でmessageの委譲先をprocess_message_event()へ差し替え)
 #
 # README.md「次にやること」に残っていたreceive_webhook()(HTTPエントリポイント)・
 # dispatch_webhook_events()に着手する。aircon-pashaのwebhook-http-entry-point-design.md
 # (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲する。
 # フェーズ68でprocess_follow_event()を実装したため、"follow"種別もmessageと同様に
-# 振り分け対象へ追加した。unfollow/postbackはまだ処理関数が本venture未実装のため
-# 引き続きignored_typesに記録して素通りする(次の課題として残す)。
+# 振り分け対象へ追加した。フェーズ69で"message"種別の委譲先をprocess_memo_event()から
+# process_message_event()(連携コード判定を挟む)へ差し替えた。unfollow/postbackはまだ
+# 処理関数が本venture未実装のため引き続きignored_typesに記録して素通りする
+# (次の課題として残す)。
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -664,10 +786,12 @@ def dispatch_webhook_events(
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を`event["type"]`ごとに振り分ける。
 
-    - "message": 1件ずつprocess_memo_event()へ渡す。`llm_call`・`reply_client`のいずれかが
-      未接続(None)の場合は該当イベントを一切処理せず素通りする。`user_profile_store`等の
-      3つはprocess_memo_event()自体が省略可能な設計(フェーズ64)のため、未接続でも
-      messageイベントの処理自体は行う(その場合usage_counter連携なしで動作する)。
+    - "message": 1件ずつprocess_message_event()(フェーズ69)へ渡す。`llm_call`・
+      `reply_client`のいずれかが未接続(None)の場合は該当イベントを一切処理せず素通りする。
+      `user_profile_store`・`workshop_store`・`linking_store`の3つはprocess_message_event()
+      自体が省略可能な設計(3つ全てが揃わない限り連携判定自体を行わない後方互換設計)のため、
+      未接続でもmessageイベントの処理自体は行う(その場合連携コード判定・usage_counter連携
+      なしで、フェーズ68以前と同じくprocess_memo_event()への直接委譲として動作する)。
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。
@@ -685,7 +809,7 @@ def dispatch_webhook_events(
                 result.ignored_types.append(event_type)
                 continue
             result.message_results.append(
-                process_memo_event(
+                process_message_event(
                     event,
                     llm_call,
                     reply_client,
@@ -693,6 +817,7 @@ def dispatch_webhook_events(
                     user_profile_store=user_profile_store,
                     workshop_store=workshop_store,
                     usage_counter_store=usage_counter_store,
+                    linking_store=linking_store,
                     now=now,
                 )
             )

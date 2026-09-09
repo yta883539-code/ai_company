@@ -1248,3 +1248,25 @@ ignored_types記録のみ)。新規テスト11件追加、venture全体393件・
 配線した。新規テスト12件追加、venture全体444件・schema検証27件いずれもパス。トーク上で
 送り返されたコードのworkshop作成への解決(message event側のルーティング)・unfollow/
 postback処理関数は次の課題として残る)
+
+- フェーズ69(2026-09-09 UTC): フェーズ68で次の課題として残した「友だち追加後にユーザーが
+  コードをトーク上に送り返した際の解決(message event側でコード形式のテキストを
+  `create_workshop_from_linking_code()`へルーティングする処理)」を実装した
+  (craftsman-account-linking-design.md 10節)。`cloud_function_webhook.
+  process_message_event()`を新設し、`dispatch_webhook_events()`のmessageイベント委譲先を
+  `process_memo_event()`から本関数へ差し替えた(aircon-pashaのprocess_message_event()と
+  同じ骨格)。`user_profile_store`・`workshop_store`・`linking_store`の3つ全てが渡された
+  場合のみ、(1)連携済みuser_idはそのまま`process_memo_event()`へ委譲、(2)未連携の場合は
+  受信テキストを`workshop_linking.create_workshop_from_linking_code()`へ渡し、成功時は
+  新設の`LINKING_SUCCESS_MESSAGE`を返してLLM呼び出しには進まず、失敗時(コード不一致・
+  期限切れ・依頼メモの先送り送信のいずれも区別しない)・user_id欠落時は新設の
+  `LINKING_REQUIRED_MESSAGE`を返す、という順で分岐する。3ストアのいずれかが未接続の場合は
+  連携判定自体を行わずフェーズ68以前と同じく`process_memo_event()`へ直接委譲する後方互換を
+  維持した。新規テスト18件追加、venture全体444件→462件全件・schema検証27件いずれもパスを
+  確認した。承認不要なプロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 UTC(フェーズ69: message event側でコード形式のテキストを
+create_workshop_from_linking_code()へルーティングするprocess_message_event()を新規実装し、
+dispatch_webhook_events()のmessage委譲先を差し替えた。新規テスト18件追加、venture全体462件・
+schema検証27件いずれもパス。unfollow/postback処理関数は次の課題として残る)
