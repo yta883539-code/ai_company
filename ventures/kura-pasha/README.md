@@ -1212,8 +1212,39 @@ ignored_types記録のみ)。新規テスト11件追加、venture全体393件・
   テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
   いないためpending-approval.mdへの追記なし。
 
-最終更新: 2026-09-09 17:00 UTC(フェーズ66: followイベント処理の前提となる連携コード
-発行・解決・workshop新規作成ロジックをworkshop_linking.pyとして新規実装した。workshop
-作成時のplan_id未設定によるKeyErrorの抜け穴を発見しdesignへ暫定対応を追記。新規テスト
-23件追加、venture全体416件・schema検証27件いずれもパス。process_follow_event()自体への
-配線・unfollow/postback処理関数は次の課題として残る)
+- フェーズ67(2026-09-09 17:02 UTC、遡及記録): フェーズ66追記7節で次の課題としていた
+  Checkout完了時のplan_id上書き配線を実装した(craftsman-account-linking-design.md 8節)。
+  `checkout_session.build_checkout_session_params()`がCheckout Session作成時に
+  `metadata.plan_id`を埋め込み、`stripe_webhook.handle_checkout_session_completed()`が
+  既知のplan_idの場合のみ`workshop_store.set_plan()`で上書きするようにした
+  (course-set-pashaの`metadata.plan`方式を踏襲)。`WorkshopStoreProtocol`に`set_plan()`の
+  宣言が漏れていたため追加した。新規テスト3件+既存テストへのアサーション1件追加、
+  venture全体416件→423件全件・schema検証27件いずれもパスを確認した。承認不要な
+  プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  (本エントリはコミット7a55808時点でREADME.mdへの記載自体が漏れていたため、フェーズ68で
+  遡及記録した。)
+
+- フェーズ68(2026-09-09 UTC): フェーズ66「process_follow_event()自体(workshop_linking.py
+  をcloud_function_webhook.pyへ配線する処理)は未着手」に着手した。
+  craftsman-account-linking-design.md 2節の通り、友だち追加(`follow`イベント)時に
+  `workshop_linking.issue_linking_code_on_follow()`で連携コードを発行し、
+  `format_follow_welcome_message()`で組み立てたウェルカムメッセージ(コード埋め込み、
+  本ventureには申込フォームが無いためcourse-set-pashaと異なりフォームURLの差し込みは
+  行わない)を返信する`process_follow_event()`を新規実装した。あわせて
+  `dispatch_webhook_events()`・`receive_webhook()`に`linking_store`・`rng`引数を追加し、
+  `"follow"`種別のイベントも(`reply_client`・`linking_store`双方が接続済みの場合のみ)
+  `process_follow_event()`へ振り分けるようにした(`DispatchResult`に`follow_results`を
+  新設)。未接続時・`unfollow`/`postback`は従来通り`ignored_types`に記録して素通りする
+  安全側フォールバックを維持した。友だち追加後にユーザーがコードをトーク上に送り返した
+  際の解決(message event側でコード形式のテキストを`create_workshop_from_linking_code()`
+  へルーティングする処理)は本フェーズの対象外とし、引き続き次の課題として残す。
+  新規テスト12件追加、venture全体423件→444件全件・schema検証27件いずれもパスを確認した。
+  承認不要なプロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 UTC(フェーズ68: 友だち追加時に連携コードを発行しウェルカムメッセージを
+返信するprocess_follow_event()を新規実装し、dispatch_webhook_events()のfollow種別振り分けに
+配線した。新規テスト12件追加、venture全体444件・schema検証27件いずれもパス。トーク上で
+送り返されたコードのworkshop作成への解決(message event側のルーティング)・unfollow/
+postback処理関数は次の課題として残る)

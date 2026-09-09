@@ -180,4 +180,23 @@ checkout-session-plan-selection-design.md(フェーズ152)の`metadata.plan`と�
 (`test_checkout_session.py`)、venture全体416件→423件全件・schema検証27件いずれもパスを
 確認した。
 
-最終更新: 2026-09-09(フェーズ67) UTC
+## 9. 追記(フェーズ68): process_follow_event()の実装
+
+2節の「友だち追加時のコード発行」を実行可能なコードとして`cloud_function_webhook.
+process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_code_on_follow()`を
+呼び出してコードを発行し、`format_follow_welcome_message()`で組み立てたウェルカム
+メッセージ(コードを埋め込むのみ、本ventureは申込フォームを持たないためURL差し込みは
+行わない)を返信する。`dispatch_webhook_events()`側にも`"follow"`種別の振り分けを追加した
+(`reply_client`・`linking_store`双方が接続済みの場合のみ処理し、未接続時は`unfollow`/
+`postback`と同様`ignored_types`に記録して素通りする安全側フォールバック)。
+
+2節で想定していた「職人がコードをトーク上に送り返すと解決される」部分(message event側で
+コード形式のテキストを`create_workshop_from_linking_code()`へルーティングする処理)は
+本フェーズの対象外とし、引き続き次の課題として残す。`process_memo_event()`は現状
+受信した全テキストをそのままLLMへのメモとして扱うため、この次の課題が着手されるまでは
+「連携コードをそのまま送信する」という2節の想定導線自体は未接続のままである点に注意
+(ウェルカムメッセージの送信自体は本フェーズで実装済み)。
+
+新規テスト12件追加、venture全体423件→444件全件・schema検証27件いずれもパスを確認した。
+
+最終更新: 2026-09-09(フェーズ68) UTC

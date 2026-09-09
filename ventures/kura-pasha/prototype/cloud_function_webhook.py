@@ -30,6 +30,7 @@ import hashlib
 import hmac
 import json
 import os
+import random
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -52,6 +53,11 @@ from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
     validate_cross_field_rules,
+)
+from workshop_linking import (  # noqa: E402
+    LinkingCodeStoreProtocol,
+    RandomChoiceSource,
+    issue_linking_code_on_follow,
 )
 
 
@@ -166,6 +172,82 @@ def format_trial_end_notification_message(generation_count: int) -> str:
         "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。",
     ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# process_follow_event()(フェーズ68)
+#
+# フェーズ66「次の課題」に残っていた「process_follow_event()自体(workshop_linking.pyを
+# cloud_function_webhook.pyへ配線する処理)は未着手」に着手する。craftsman-account-
+# linking-design.md 2節の通り、本ventureはaircon-pashaのような申込フォーム主導ではなく
+# course-set-pashaと同じ「LINE友だち追加時にコードを発行する」方式を踏襲するが、
+# 解決先が申込フォームではなく本venture固有のworkshop新規作成(design 3節)である点が
+# 差分となる(prototype/workshop_linking.pyのcreate_workshop_from_linking_code()参照)。
+# 友だち追加直後に届いたコードを職人がトーク上に送り返した際の解決(message event側での
+# ルーティング)自体は本フェーズの対象外とし、引き続き次の課題として残す(README.md参照)。
+# ---------------------------------------------------------------------------
+
+def format_follow_welcome_message(linking_code: str) -> str:
+    """craftsman-account-linking-design.md 2節のウェルカムメッセージ本文を組み立てる。
+
+    course-set-pashaのformat_welcome_message()と異なり、本ventureには申込フォームが
+    存在せず連携コードはこのままLINEトーク上に送り返してもらう想定(design 1節)のため、
+    フォームURLの差し込みは行わない(固定テンプレート+コード埋め込みのみ)。
+    """
+    return (
+        "鞍パシャッと 友だち追加ありがとうございます!\n\n"
+        "このサービスは、依頼内容の簡単なメモを送るだけで受注内容整理メモ・納品案内・"
+        "お手入れ案内の下書きをまとめて生成するツールです。\n\n"
+        "ご利用開始には、下記の連携コードをこのままこのトークに送信してください"
+        "(24時間有効・1回限り)。\n\n"
+        f"連携コード: {linking_code}\n\n"
+        "コードの有効期限が切れた場合は、もう一度このトークを開くと新しいコードが届きます。"
+    )
+
+
+@dataclass
+class FollowProcessResult:
+    """process_follow_event()の結果(design 2節)。course-set-pashaのFollowProcessResultと
+    同じ構造だが、profile_storeによるis_following復帰・purge_throttle便乗パージは
+    本venture未着手(該当する設計・残課題自体が存在しない)のため対象外とする。"""
+
+    handled: bool
+    reply_sent: bool
+    linking_code: Optional[str] = None
+
+
+def process_follow_event(
+    event: dict,
+    linking_store: LinkingCodeStoreProtocol,
+    reply_client: ReplyClient,
+    *,
+    rng: Optional[RandomChoiceSource] = None,
+    now: Optional[datetime] = None,
+) -> FollowProcessResult:
+    """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
+
+    1. `event["type"] != "follow"`の場合は対象外としhandled=Falseで返す。
+    2. `source.userId`が取得できない場合はhandled=Trueのまま何もせず返す
+       (`workshop_linking.issue_linking_code_on_follow()`はuser_id必須のため)。
+    3. 連携コードを発行し(`workshop_linking.issue_linking_code_on_follow()`、
+       `rng`未指定時は`random.Random()`)、`format_follow_welcome_message()`で
+       組み立てたウェルカムメッセージを返信する。
+    """
+    if event.get("type") != "follow":
+        return FollowProcessResult(handled=False, reply_sent=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if not user_id:
+        return FollowProcessResult(handled=True, reply_sent=False)
+
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    resolved_rng = rng if rng is not None else random.Random()
+    linking_code = issue_linking_code_on_follow(
+        user_id, linking_store, resolved_now, resolved_rng
+    )
+    message_text = format_follow_welcome_message(linking_code)
+    reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)
+    return FollowProcessResult(handled=True, reply_sent=reply_sent, linking_code=linking_code)
 
 
 # ---------------------------------------------------------------------------
@@ -548,14 +630,14 @@ def process_memo_event(
 
 
 # ---------------------------------------------------------------------------
-# dispatch_webhook_events() + receive_webhook()(フェーズ65)
+# dispatch_webhook_events() + receive_webhook()(フェーズ65、フェーズ68で follow を追加)
 #
 # README.md「次にやること」に残っていたreceive_webhook()(HTTPエントリポイント)・
 # dispatch_webhook_events()に着手する。aircon-pashaのwebhook-http-entry-point-design.md
-# (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲するが、
-# 本ventureはfollow/unfollow/postbackイベントの処理関数(process_follow_event()等)が
-# まだ存在しないため、本フェーズはmessageイベントのprocess_memo_event()への振り分けのみを
-# スコープとし、それ以外の種別は全てignored_typesに記録して素通りする(次の課題として残す)。
+# (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲する。
+# フェーズ68でprocess_follow_event()を実装したため、"follow"種別もmessageと同様に
+# 振り分け対象へ追加した。unfollow/postbackはまだ処理関数が本venture未実装のため
+# 引き続きignored_typesに記録して素通りする(次の課題として残す)。
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -563,6 +645,7 @@ class DispatchResult:
     """dispatch_webhook_events()の結果。"""
 
     message_results: List[MemoProcessResult] = field(default_factory=list)
+    follow_results: List[FollowProcessResult] = field(default_factory=list)
     ignored_types: List[str] = field(default_factory=list)
 
 
@@ -575,6 +658,8 @@ def dispatch_webhook_events(
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を`event["type"]`ごとに振り分ける。
@@ -583,34 +668,43 @@ def dispatch_webhook_events(
       未接続(None)の場合は該当イベントを一切処理せず素通りする。`user_profile_store`等の
       3つはprocess_memo_event()自体が省略可能な設計(フェーズ64)のため、未接続でも
       messageイベントの処理自体は行う(その場合usage_counter連携なしで動作する)。
-    - それ以外の種別(follow/unfollow/postback等)は、対応する処理関数が本venture未実装の
+    - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
+      `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
+      一切処理せず`ignored_types`に記録する(安全側フォールバック)。
+    - それ以外の種別(unfollow/postback等)は、対応する処理関数が本venture未実装の
       ため常に無視し、`ignored_types`に種別名のみ記録する(次の課題)。
     """
     result = DispatchResult()
+    message_ok = llm_call is not None and reply_client is not None
+    follow_ok = reply_client is not None and linking_store is not None
 
     for event in events:
         event_type = event.get("type")
-        if event_type != "message":
-            result.ignored_types.append(event_type or "unknown")
-
-    if llm_call is None or reply_client is None:
-        return result
-
-    for event in events:
-        if event.get("type") != "message":
-            continue
-        result.message_results.append(
-            process_memo_event(
-                event,
-                llm_call,
-                reply_client,
-                portal_link_provider=portal_link_provider,
-                user_profile_store=user_profile_store,
-                workshop_store=workshop_store,
-                usage_counter_store=usage_counter_store,
-                now=now,
+        if event_type == "message":
+            if not message_ok:
+                result.ignored_types.append(event_type)
+                continue
+            result.message_results.append(
+                process_memo_event(
+                    event,
+                    llm_call,
+                    reply_client,
+                    portal_link_provider=portal_link_provider,
+                    user_profile_store=user_profile_store,
+                    workshop_store=workshop_store,
+                    usage_counter_store=usage_counter_store,
+                    now=now,
+                )
             )
-        )
+        elif event_type == "follow":
+            if not follow_ok:
+                result.ignored_types.append(event_type)
+                continue
+            result.follow_results.append(
+                process_follow_event(event, linking_store, reply_client, rng=rng, now=now)
+            )
+        else:
+            result.ignored_types.append(event_type or "unknown")
 
     return result
 
@@ -635,6 +729,8 @@ def receive_webhook(
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)をdispatch_webhook_events()まで橋渡しする
@@ -664,6 +760,8 @@ def receive_webhook(
         user_profile_store=user_profile_store,
         workshop_store=workshop_store,
         usage_counter_store=usage_counter_store,
+        linking_store=linking_store,
+        rng=rng,
         now=now,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

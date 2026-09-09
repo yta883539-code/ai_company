@@ -4,6 +4,7 @@
 import base64
 import hashlib
 import hmac
+import random
 
 from datetime import datetime, timedelta
 
@@ -20,7 +21,9 @@ from cloud_function_webhook import (
     LlmApiError,
     QuickReplyButton,
     dispatch_webhook_events,
+    format_follow_welcome_message,
     format_trial_end_notification_message,
+    process_follow_event,
     process_memo_event,
     receive_webhook,
     verify_line_signature,
@@ -32,6 +35,7 @@ from usage_counter_workshop import (
     InMemoryWorkshopStore,
 )
 from validate_test_cases import TEST_CASES
+from workshop_linking import InMemoryLinkingCodeStore
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
 MAR = datetime(2026, 3, 1, 9, 0, 0)
@@ -153,6 +157,50 @@ def _make_event(text: str, *, reply_token: str = "reply-token-1", user_id: str =
         "replyToken": reply_token,
         "source": {"userId": user_id},
     }
+
+
+def _make_follow_event(*, reply_token: str = "reply-token-follow", user_id: str = "U123") -> dict:
+    return {
+        "type": "follow",
+        "replyToken": reply_token,
+        "source": {"userId": user_id},
+    }
+
+
+def test_format_follow_welcome_message_embeds_linking_code():
+    message = format_follow_welcome_message("ABC234")
+    check("連携コードが本文に含まれる", "連携コード: ABC234" in message)
+    check("トークに送信するよう案内している", "このトークに送信してください" in message)
+
+
+def test_process_follow_event_ignores_non_follow_event():
+    result = process_follow_event(_make_event("メモです"), InMemoryLinkingCodeStore(), InMemoryReplyClient())
+    check("follow以外はhandled=False", result.handled is False)
+    check("follow以外は返信もしない", result.reply_sent is False)
+
+
+def test_process_follow_event_issues_code_and_sends_welcome_message():
+    linking_store = InMemoryLinkingCodeStore()
+    reply_client = InMemoryReplyClient()
+    now = datetime(2026, 9, 9, 12, 0, 0)
+    result = process_follow_event(
+        _make_follow_event(user_id="U_FOLLOW"), linking_store, reply_client, rng=random.Random(1), now=now,
+    )
+    check("handled=True", result.handled is True)
+    check("返信が送られている", result.reply_sent is True)
+    check("linking_codeが6文字返る", result.linking_code is not None and len(result.linking_code) == 6)
+    check("pending_linksへ保存されている", linking_store.get(result.linking_code) == ("U_FOLLOW", now))
+    check("返信本文にコードが埋め込まれている", f"連携コード: {result.linking_code}" in reply_client.sent[0][1])
+
+
+def test_process_follow_event_without_user_id_does_not_reply():
+    event = {"type": "follow", "replyToken": "r1", "source": {}}
+    reply_client = InMemoryReplyClient()
+    result = process_follow_event(event, InMemoryLinkingCodeStore(), reply_client)
+    check("user_id欠落時はhandled=True", result.handled is True)
+    check("user_id欠落時は返信しない", result.reply_sent is False)
+    check("user_id欠落時はlinking_codeもNone", result.linking_code is None)
+    check("実際に返信は送られていない", reply_client.sent == [])
 
 
 class _StubLlmCall:
@@ -542,6 +590,37 @@ def test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_eve
     )
 
 
+def test_dispatch_webhook_events_routes_follow_event_to_process_follow_event():
+    linking_store = InMemoryLinkingCodeStore()
+    reply_client = InMemoryReplyClient()
+    result = dispatch_webhook_events(
+        [_make_follow_event(user_id="U_FOLLOW_DISPATCH")],
+        reply_client=reply_client,
+        linking_store=linking_store,
+        rng=random.Random(3),
+    )
+    check("follow1件がfollow_resultsに1件記録される", len(result.follow_results) == 1)
+    check("follow_resultsの中身はhandled=True", result.follow_results[0].handled is True)
+    check("ignored_typesは空", result.ignored_types == [])
+    check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_dispatch_webhook_events_skips_follow_when_linking_store_missing():
+    result = dispatch_webhook_events(
+        [_make_follow_event()], reply_client=InMemoryReplyClient(), linking_store=None,
+    )
+    check("linking_store未接続時はfollow_resultsが空", result.follow_results == [])
+    check("linking_store未接続時はignored_typesに記録される", result.ignored_types == ["follow"])
+
+
+def test_dispatch_webhook_events_skips_follow_when_reply_client_missing():
+    result = dispatch_webhook_events(
+        [_make_follow_event()], reply_client=None, linking_store=InMemoryLinkingCodeStore(),
+    )
+    check("reply_client未接続時はfollow_resultsが空", result.follow_results == [])
+    check("reply_client未接続時はignored_typesに記録される", result.ignored_types == ["follow"])
+
+
 _TEST_CHANNEL_SECRET = "test-channel-secret"
 
 
@@ -618,6 +697,10 @@ if __name__ == "__main__":
     test_format_trial_end_notification_message_omits_time_estimate_when_generation_count_zero()
     test_format_trial_end_notification_message_does_not_embed_postback_data_or_url()
     test_format_trial_end_notification_message_rejects_negative_count()
+    test_format_follow_welcome_message_embeds_linking_code()
+    test_process_follow_event_ignores_non_follow_event()
+    test_process_follow_event_issues_code_and_sends_welcome_message()
+    test_process_follow_event_without_user_id_does_not_reply()
     test_process_memo_event_ignores_non_text_message()
     test_process_memo_event_generated_includes_three_outputs()
     test_process_memo_event_out_of_scope_returns_message_as_is()
@@ -642,6 +725,9 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_skips_message_when_llm_call_missing()
     test_dispatch_webhook_events_skips_message_when_reply_client_missing()
     test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event()
+    test_dispatch_webhook_events_routes_follow_event_to_process_follow_event()
+    test_dispatch_webhook_events_skips_follow_when_linking_store_missing()
+    test_dispatch_webhook_events_skips_follow_when_reply_client_missing()
     test_receive_webhook_rejects_invalid_signature()
     test_receive_webhook_rejects_missing_signature_header()
     test_receive_webhook_rejects_invalid_json()
