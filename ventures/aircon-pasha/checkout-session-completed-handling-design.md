@@ -75,9 +75,21 @@ test_subsequent_subscription_event_resolves_via_linked_profile`で一気通貫�
   billing_fields`を追加し、venture全体474件→475件全件・schema検証9件(変更なし)
   いずれもパスを確認した。承認不要なコード修正・テスト追加のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。)
-- `usage_counter`側の`upgraded_at`書き込み配線(course-set-pashaのtrial-end-scheduler-design.md
-  2節相当)は、本venture側にまだ`usage_counter`のトライアル終了通知の実装自体が無いため
-  今回は対象外。トライアル関連の実装に着手する際にあわせて検討する。
+- (解消済み・記載訂正 2026-09-09 16:00 UTC・フェーズ201: 本項目は「本venture側にまだ
+  `usage_counter`のトライアル終了通知の実装自体が無いため今回は対象外」としていたが、
+  実際には本ドキュメント1節の`handle_checkout_session_completed()`自体が`upgraded_at`を
+  「未設定なら1回だけ書き込む」形で既にフェーズ135時点で実装済み(`prototype/stripe_webhook.py`
+  209〜238行目、`store.get(user_id).upgraded_at is None`確認後`store.set_upgraded_at()`)
+  であり、course-set-pashaのような別オブジェクト(`usage_counter`)への委譲を要さない設計
+  (`UserProfileStoreProtocol`が`upgraded_at`を直接保持)だったため、そもそも「対象外」と
+  記載すること自体が誤りだったと判明した。`prototype/trial_end_scheduler.py`
+  (フェーズ133〜)のトライアル終了通知ロジックも`UserProfile.upgraded_at`をそのまま
+  参照しており(`select_due_trial_end_notifications()`の除外条件)、実際に書き込まれた
+  値を読む配線まで一気通貫で成立していることを確認した。コード変更は無く記載訂正のみ、
+  venture全体475件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント整合性修正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。)
 - (確認済み 2026-09-08 16:02 UTC・フェーズ200: フェーズ199で見つけた上記データ消失バグ
   (`resolve_linking_code()`の再連携時`UserProfile`丸ごと上書き)が他ventureにも同様に
   存在しないか横断確認した。course-set-pashaの`prototype/user_id_linking.py`の

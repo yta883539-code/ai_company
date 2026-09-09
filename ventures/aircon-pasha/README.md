@@ -3070,4 +3070,16 @@
   (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(変更前と同じ結果)。
   承認不要な横断確認・設計doc記載のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-08 16:02 UTC
+- フェーズ201(2026-09-09 16:00 UTC): checkout-session-completed-handling-design.md
+  「未検証・残課題」に残っていた「`usage_counter`側の`upgraded_at`書き込み配線は本venture
+  未着手のため対象外」という記載が誤りだったことを発見・訂正した。実際には`upgraded_at`は
+  本venture固有の設計(`UserProfileStoreProtocol`が直接保持、`usage_counter`のような別
+  オブジェクトへの委譲を要さない)により、`handle_checkout_session_completed()`内で
+  フェーズ135時点で既に書き込み済みであり(`prototype/stripe_webhook.py`209〜238行目)、
+  `prototype/trial_end_scheduler.py`のトライアル終了通知除外条件もその値を正しく参照する
+  一気通貫の配線が成立していることを確認した。コード変更は無く、venture全体475件全件・
+  schema検証9件いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント整合性
+  修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-09 16:00 UTC
