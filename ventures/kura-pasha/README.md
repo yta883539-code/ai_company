@@ -1048,3 +1048,28 @@ includes_checkout_urlが常にfalseであることをテストで担保)
 ボタンのpostback_data形式をaircon-pashaフェーズ137と同じ形式で確定し、組み立て・解釈用の
 純粋関数2つを実装。新規テスト9件追加、venture全体300件・schema検証27件いずれもパス。
 実LINE返信への添付配線は本venture未着手のWebhook層を要するため次の課題として残る)
+
+- フェーズ62(2026-09-09 12:00 UTC): trial-end-notification-design.md(フェーズ59)6節に
+  繰り返し残っていた「本venture自体にLINE Webhook層(`cloud_function_webhook.py`相当)が
+  まだ存在しない」というギャップに対応する最初の一歩として、`prototype/cloud_function_
+  webhook.py`を新規作成した。aircon-pashaのwebhook-http-entry-point-design.md(フェーズ115)・
+  trial-end-condition-a-cta-design.md(フェーズ137)と同じ構成要素のうち、(1)`verify_line_
+  signature()`(HMAC-SHA256署名検証、line-reservation-ai/course-set-pasha/aircon-pashaと同じ
+  実装)、(2)`QuickReplyButton`/`ReplyClient`(Protocol)/`InMemoryReplyClient`(返信へ
+  postbackボタンを添付するための抽象化)、(3)`format_trial_end_notification_message()`
+  (trial-end-notification-design.md 3節の通知文言。経路(A)生成1回完了時は「浮いた事務作業
+  時間の目安」を含め、経路(B)相当の生成0回時は当該行を省略する分岐を実装)の3点のみを
+  今回のスコープとした。schema/output.schema.jsonの17通りのstatus分岐をテキスト返信へ
+  変換する`process_memo_event()`本体・`receive_webhook()`(HTTPエントリポイント)・
+  `dispatch_webhook_events()`は本venture側にまだ存在しないため対象外とし、次の課題として
+  残す。新規テスト12件追加、venture全体300件→320件全件(`test_checkout_session.py`23件・
+  `test_cloud_function_webhook.py`12件〈新設〉・`test_payment_failure_notification.py`22件・
+  `test_stripe_webhook.py`107件・`test_subscription_cancellation_notification.py`28件・
+  `test_usage_counter_workshop.py`120件)・schema検証27件いずれもパスを確認した。承認不要な
+  プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 12:00 UTC(フェーズ62: LINE Webhook層の基盤部品(署名検証・quick_reply
+添付用ReplyClient抽象化・トライアル終了通知文言の組み立て)を`prototype/cloud_function_
+webhook.py`として新規実装。新規テスト12件追加、venture全体320件・schema検証27件いずれも
+パス。process_memo_event()本体・HTTPエントリポイント・dispatch層は次の課題として残る)

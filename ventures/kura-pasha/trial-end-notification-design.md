@@ -142,10 +142,16 @@ plan_idはpricing-plan.mdの3プラン`light`/`standard`/`multi_craftsman`、キ
   前提)ほどの優先度は無いと判断し、次の課題として残す。
 - 3節の通知メッセージからの直接ボタン起動について、postback_dataの組み立て・解釈
   (`build_start_checkout_postback_data`/`parse_start_checkout_postback_data`)は
-  フェーズ61で対応済み(3.1節)。ただしLINE返信・プッシュメッセージへ実際にボタンを
-  添付して送信する配線(aircon-pashaの`ReplyClient.reply()`quick_reply引数・
-  `process_postback_event()`相当)は、本venture自体にLINE Webhook層
-  (`cloud_function_webhook.py`相当)がまだ存在しないため引き続き次の課題として残す。
+  フェーズ61で対応済み(3.1節)。フェーズ62で`prototype/cloud_function_webhook.py`を
+  新規作成し、LINE返信へボタンを添付するための抽象化(`QuickReplyButton`・
+  `ReplyClient`(Protocol)・`InMemoryReplyClient`、aircon-pashaの`ReplyClient.reply()`
+  quick_reply引数相当)と、3節の通知文言を組み立てる`format_trial_end_notification_
+  message()`を実装した。ただし`process_memo_event()`本体(schema/output.schema.jsonの
+  17通りのstatus分岐をテキスト返信へ変換する処理。本venture未着手)・
+  `receive_webhook()`(HTTPエントリポイント)・`dispatch_webhook_events()`
+  (`process_postback_event()`相当を含む)はまだ存在しないため、実際に生成完了時の
+  返信へ`format_trial_end_notification_message()`の出力と`TRIAL_END_QUICK_REPLY`を
+  便乗させる配線自体は引き続き次の課題として残る。
 - `trial_end_notification_due`がTrueになった場合に実際にLINEプッシュメッセージ
   (3節の文言)を送信する呼び出し側の配線(生成完了時の通常返信への便乗)は、実LINE
   Messaging API接続がオーナー承認待ちのため机上設計・戻り値の受け渡しまでにとどまる
@@ -165,6 +171,15 @@ postback_data形式を、aircon-pashaのtrial-end-condition-a-cta-design.md〈�
 `parse_start_checkout_postback_data`を実装した(3.1節)。新規テスト9件追加、venture全体
 291件→300件全件・schema検証27件いずれもパス。実際にLINE返信へボタンを添付する配線は
 本venture未着手のLINE Webhook層を要するため引き続き次の課題)
+
+最終更新: 2026-09-09 12:00 UTC(フェーズ62: 本venture未着手だったLINE Webhook層
+(`prototype/cloud_function_webhook.py`)の基盤部品として、署名検証(`verify_line_
+signature()`)・ボタン添付用の抽象化(`QuickReplyButton`/`ReplyClient`/
+`InMemoryReplyClient`)・3節の通知文言を組み立てる`format_trial_end_notification_
+message()`を新規実装した(6節参照)。新規テスト12件追加、venture全体300件→320件全件・
+schema検証27件いずれもパス。`process_memo_event()`本体・HTTPエントリポイント・
+`dispatch_webhook_events()`はまだ存在しないため、生成完了時の返信への実際の便乗配線は
+引き続き次の課題)
 
 最終更新: 2026-09-09 09:00 UTC(フェーズ60: (A)経路の通知要否判定を
 `prototype/usage_counter_workshop.py`に実装。`WorkshopStoreProtocol`へ
