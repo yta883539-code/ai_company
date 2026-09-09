@@ -816,11 +816,12 @@
   イベント種別対応(course-set-pasha/aircon-pashaの既存設計を横展開)。対応後、
   フェーズ52が`"past_due"`を一律ブロック対象とした簡易実装を、ダニング固有の猶予期間
   つき扱いへ見直す必要がある。
-- subscription-canceled-webhook-design.md(フェーズ53)の残課題:
-  `customer.subscription.deleted`受信時の契約者向け解約完了案内(LINEトーク送信)は
-  未設計(course-set-pasha/aircon-pashaのsubscription-cancellation-notification-
-  design.md相当)。実LINE Push API接続はオーナー承認待ちのため、配線のみ先行実装する
-  形を想定。
+- subscription-cancellation-notification-design.md(フェーズ54)の残課題:
+  `customer.subscription.updated`受信時の`cancel_at_period_end`前後比較による
+  「解約予約受理・解約取り消し」案内(course-set-pasha/aircon-pashaが対応済みの
+  もう一方のイベント種別)は本venture未着手。
+- `receive_stripe_webhook()`実HTTPエントリポイントでの`push_client`配線・実LINE Push
+  Message API接続はオーナー承認待ち(pending-approval.md参照)。
 - checkout-initiation-flow-design.md(フェーズ50)の残課題: 有料プラン開始の意図検知
   (「有料プランを始めたい」等)をllm-system-prompt-draft.mdの厳守事項として追加する
   (解約意図検知の厳守事項7aと対になる新規項目)。
@@ -838,7 +839,34 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-09 01:00 UTC(フェーズ53: `customer.subscription.deleted`
-〈解約確定〉受信処理をsubscription-canceled-webhook-design.mdとして設計・実装、
-`get_workshop_id_by_stripe_customer_id()`による逆引きを新設。`invoice.payment_failed`/
+- フェーズ54(2026-09-09 02:00 UTC): subscription-canceled-webhook-design.md
+  (フェーズ53)「4. 未検証・残課題」に残っていた、`customer.subscription.deleted`
+  受信時の契約者向け解約完了案内(LINEトーク送信)をsubscription-cancellation-
+  notification-design.mdとして設計・実装した。着手にあたり、
+  subscription-cancellation-flow-design.md(フェーズ23)2節が草案していた案内文言
+  「それまでは引き続きご利用いただけます」が、`customer.subscription.deleted`が
+  契約完全終了後に届くイベントであるという事実と矛盾していることを発見し
+  (course-set-pashaフェーズ155が発見したのと同種の誤り)、course-set-pasha/
+  aircon-pashaが確定した「契約終了のご案内」パターンに合わせて文言を訂正した
+  (同ファイルにも訂正を反映)。本venture固有の契約構造(`craftsman_workshop/
+  {workshop_id}`単位、支払い名義人は`contractor_user_id`一人)を踏まえ、
+  course-set-pashaの`handle_subscription_cancelled(user_id, push_client)`をそのまま
+  踏襲せず`handle_subscription_cancelled(workshop_id, workshop_store, push_client)`
+  とし、関数内部で`get_contractor_user_id()`により送信先を契約者本人に限定する設計とした
+  (共同利用者には送らない)。新規モジュールprototype/subscription_cancellation_
+  notification.pyを作成し、`handle_customer_subscription_deleted()`・
+  `receive_stripe_webhook()`双方に`push_client`引数(省略時None、後方互換)を追加して
+  配線した。状態更新(`set_subscription_status`)は通知の送信成否と独立して常に行う
+  設計とした(course-set-pashaフェーズ155と同じ判断)。新規テスト13件
+  (test_subscription_cancellation_notification.py 9件・test_stripe_webhook.py
+  追加分4件)、venture全体167件→184件全件・schema検証23件いずれもパスを確認した。
+  `customer.subscription.updated`のcancel_at_period_end前後比較(解約予約受理・取消)
+  対応は本venture未着手のため次の課題として残した。承認不要な設計文書作成・記載訂正・
+  プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 02:00 UTC(フェーズ54: `customer.subscription.deleted`受信時の
+契約者向け解約完了案内をsubscription-cancellation-notification-design.mdとして設計・
+実装、あわせてsubscription-cancellation-flow-design.md 2節の案内文言の事実矛盾を訂正。
+`customer.subscription.updated`のcancel_at_period_end対応・`invoice.payment_failed`/
 `invoice.payment_succeeded`のダニング対応は次の課題として残る)

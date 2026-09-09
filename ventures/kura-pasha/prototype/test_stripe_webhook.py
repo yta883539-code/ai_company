@@ -14,7 +14,17 @@ from stripe_webhook import (
     receive_stripe_webhook,
     verify_stripe_signature,
 )
+from subscription_cancellation_notification import (
+    InMemoryLinePushClient,
+    LinePushDeliveryError,
+    SUBSCRIPTION_CANCELLED_MESSAGE,
+)
 from usage_counter_workshop import InMemoryWorkshopStore
+
+
+class _FailingPushClient:
+    def send_message(self, user_id: str, text: str) -> None:
+        raise LinePushDeliveryError("send failed")
 
 PASS = 0
 FAIL = 0
@@ -179,6 +189,36 @@ def test_deleted_sets_subscription_status_canceled():
     check("subscription_statusがcanceledへ遷移", store.get_subscription_status("W8") == "canceled")
     check("成功時はworkshop_idを返す", result.workshop_id == "W8")
     check("成功時はinvalid=False・unresolved=False", not result.invalid and not result.unresolved)
+    check("push_client未指定時はnotified=False", result.notified is False)
+
+
+def test_deleted_sends_notification_to_contractor_when_push_client_given():
+    store = InMemoryWorkshopStore()
+    store.set_members("W10", contractor_user_id="contractor_10", member_user_ids=["contractor_10", "member_10"])
+    store.set_stripe_customer_id("W10", "cus_10")
+    store.set_subscription_status("W10", "active")
+    push = InMemoryLinePushClient()
+    result = handle_customer_subscription_deleted(
+        {"customer": "cus_10"}, store, push_client=push
+    )
+    check("push_client指定時はnotified=True", result.notified is True)
+    check("送信先は契約者本人のuser_id", push.sent == [("contractor_10", SUBSCRIPTION_CANCELLED_MESSAGE)])
+    check("subscription_statusはcanceledへ遷移", store.get_subscription_status("W10") == "canceled")
+
+
+def test_deleted_status_update_independent_of_notification_failure():
+    store = InMemoryWorkshopStore()
+    store.set_members("W11", contractor_user_id="contractor_11", member_user_ids=["contractor_11"])
+    store.set_stripe_customer_id("W11", "cus_11")
+    store.set_subscription_status("W11", "active")
+    result = handle_customer_subscription_deleted(
+        {"customer": "cus_11"}, store, push_client=_FailingPushClient()
+    )
+    check("通知送信失敗時もnotified=False", result.notified is False)
+    check(
+        "通知送信失敗時もsubscription_statusはcanceledへ更新される",
+        store.get_subscription_status("W11") == "canceled",
+    )
 
 
 # --- receive_stripe_webhook ---
@@ -244,6 +284,22 @@ def test_receive_dispatches_customer_subscription_deleted():
     check("正常系は200", result.status_code == 200)
     check("workshop_idを返す", result.workshop_id == "W9")
     check("workshop_storeが更新される", store.get_subscription_status("W9") == "canceled")
+
+
+def test_receive_dispatches_push_client_on_customer_subscription_deleted():
+    store = InMemoryWorkshopStore()
+    store.set_members("W12", contractor_user_id="contractor_12", member_user_ids=["contractor_12"])
+    store.set_stripe_customer_id("W12", "cus_12")
+    store.set_subscription_status("W12", "active")
+    push = InMemoryLinePushClient()
+    now = int(time.time())
+    body = _event_body(customer="cus_12", event_type="customer.subscription.deleted")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, push_client=push
+    )
+    check("正常系は200", result.status_code == 200)
+    check("契約者へ通知が送信される", push.sent == [("contractor_12", SUBSCRIPTION_CANCELLED_MESSAGE)])
 
 
 def test_receive_returns_200_for_unresolved_customer_on_deleted():
@@ -322,11 +378,14 @@ if __name__ == "__main__":
     test_deleted_returns_invalid_when_customer_missing()
     test_deleted_returns_unresolved_when_customer_unknown()
     test_deleted_sets_subscription_status_canceled()
+    test_deleted_sends_notification_to_contractor_when_push_client_given()
+    test_deleted_status_update_independent_of_notification_failure()
     test_receive_rejects_invalid_signature()
     test_receive_rejects_invalid_json()
     test_receive_ignores_unhandled_event_type()
     test_receive_dispatches_checkout_session_completed()
     test_receive_dispatches_customer_subscription_deleted()
+    test_receive_dispatches_push_client_on_customer_subscription_deleted()
     test_receive_returns_200_for_unresolved_customer_on_deleted()
     test_receive_returns_400_for_missing_customer_on_deleted()
     test_receive_returns_400_when_workshop_store_missing()

@@ -1,6 +1,7 @@
 """Stripe Webhookの署名検証・`checkout.session.completed`/`customer.subscription.deleted`
 受信処理(stripe-webhook-checkout-completed-design.md フェーズ51、
-subscription-canceled-webhook-design.md フェーズ53)。
+subscription-canceled-webhook-design.md フェーズ53、契約者向け解約完了通知の配線は
+subscription-cancellation-notification-design.md フェーズ54)。
 
 実Stripeアカウント接続(オーナー承認待ち)なしでも検証できる、`Stripe-Signature`ヘッダの
 検証ロジック・各イベントハンドラ・両者を結ぶHTTPエントリポイントのみを切り出した
@@ -21,6 +22,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+from subscription_cancellation_notification import LinePushClient, handle_subscription_cancelled
 from usage_counter_workshop import WorkshopStoreProtocol
 
 
@@ -123,16 +125,20 @@ def handle_checkout_session_completed(
 
 @dataclass
 class CustomerSubscriptionDeletedResult:
-    """handle_customer_subscription_deleted()の戻り値(design 2節)。"""
+    """handle_customer_subscription_deleted()の戻り値(design 2節、
+    subscription-cancellation-notification-design.md フェーズ54で`notified`追加)。"""
 
     workshop_id: Optional[str] = None
     invalid: bool = False
     unresolved: bool = False
+    notified: bool = False
 
 
 def handle_customer_subscription_deleted(
     data_object: dict,
     workshop_store: WorkshopStoreProtocol,
+    *,
+    push_client: Optional[LinePushClient] = None,
 ) -> CustomerSubscriptionDeletedResult:
     """subscription-canceled-webhook-design.md 2節。`customer.subscription.deleted`
     イベントの`data.object`を受け取り、対応するworkshopの`subscription_status`を
@@ -143,6 +149,11 @@ def handle_customer_subscription_deleted(
     `workshop_store.get_workshop_id_by_stripe_customer_id()`で逆引きしてworkshop_idを
     解決する。`customer`が空・欠落の場合は`invalid=True`、逆引きで解決できなかった
     場合は`unresolved=True`を返し、いずれも`set_subscription_status`は呼ばない。
+
+    `push_client`指定時(subscription-cancellation-notification-design.md フェーズ54)は
+    `set_subscription_status`成功後に契約者(`contractor_user_id`)へLINE通知を送信する。
+    通知の送信成否は状態更新の成否と独立とし(design 4節)、`push_client`省略時は従来通り
+    通知なし(既存呼び出し元への後方互換)。
     """
     stripe_customer_id = data_object.get("customer")
     if not stripe_customer_id:
@@ -153,7 +164,15 @@ def handle_customer_subscription_deleted(
         return CustomerSubscriptionDeletedResult(unresolved=True)
 
     workshop_store.set_subscription_status(workshop_id, "canceled")
-    return CustomerSubscriptionDeletedResult(workshop_id=workshop_id)
+
+    notified = False
+    if push_client is not None:
+        notification_result = handle_subscription_cancelled(
+            workshop_id, workshop_store, push_client
+        )
+        notified = notification_result.notified
+
+    return CustomerSubscriptionDeletedResult(workshop_id=workshop_id, notified=notified)
 
 
 @dataclass
@@ -176,6 +195,7 @@ def receive_stripe_webhook(
     webhook_secret: str,
     *,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
+    push_client: Optional[LinePushClient] = None,
 ) -> StripeWebhookReceiverResult:
     """design 3節。署名検証→JSONパース→`checkout.session.completed`/
     `customer.subscription.deleted`をディスパッチする薄いHTTPエントリポイント。
@@ -207,7 +227,9 @@ def receive_stripe_webhook(
             return StripeWebhookReceiverResult(status_code=400, error="missing_client_reference_id")
         return StripeWebhookReceiverResult(status_code=200, workshop_id=result.workshop_id)
 
-    deleted_result = handle_customer_subscription_deleted(data_object, workshop_store)
+    deleted_result = handle_customer_subscription_deleted(
+        data_object, workshop_store, push_client=push_client
+    )
     if deleted_result.invalid:
         return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
     if deleted_result.unresolved:
