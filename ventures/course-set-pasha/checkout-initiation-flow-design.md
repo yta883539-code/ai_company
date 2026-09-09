@@ -79,7 +79,14 @@ IDトークン検証・実Stripe API呼び出しは実アカウント接続後�
 
 - LIFFアプリのLINE Developersコンソールでの実登録(オーナー承認待ち。実施した場合、
   pending-approval.mdに記録する)。
-- トライアル終了通知メッセージ自体(上記1(a))は本venture未設計。次の課題として残す。
+- (解消済み 2026-09-09 11:00 UTC: 「トライアル終了通知メッセージ自体(上記1(a))は本venture
+  未設計」という本節作成時点(フェーズ98)の記載が、その後の作業で解消されたにもかかわらず
+  更新されないまま取り残されていた記載漏れだった。実際にはフェーズ99でtrial-end-notification-
+  design.mdとして通知メッセージ本文・トリガー条件(生成回数到達/期間到達のいずれか早い方)を
+  設計し、フェーズ100〜114にかけてtrial_generation_count・trial_end_scheduler・
+  `_is_generation_paused()`まで実装済みであることをtrial-end-notification-design.mdで
+  再確認した。実LIFF登録・実Cloud Scheduler実行環境の構築(オーナー承認待ち)のみ引き続き
+  未着手のまま残る。)
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手。
   (解消済み 2026-08-24 19:00 UTC: `verify_id_token`検証結果を受け取ってから
   `build_checkout_session_params()`へ橋渡しするエントリポイント本体
