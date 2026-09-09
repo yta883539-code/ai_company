@@ -271,6 +271,14 @@ class WorkshopStoreProtocol(Protocol):
         """Checkout Session完了時にStripe顧客IDをworkshop側へ紐付ける書き込み処理。"""
         ...
 
+    def get_workshop_id_by_stripe_customer_id(self, stripe_customer_id: str) -> Optional[str]:
+        """subscription-canceled-webhook-design.md 1節: `customer.subscription.deleted`等、
+        `client_reference_id`を持たないイベントがworkshop_idを解決するための逆引き。
+        紐付けが無いstripe_customer_idにはNoneを返す(aircon-pasha/course-set-pashaの
+        `get_user_id_by_stripe_customer_id`と同じ位置づけ)。
+        """
+        ...
+
     def get_subscription_status(self, workshop_id: str) -> str:
         """subscription-billing-data-model-design.md 1節: SUBSCRIPTION_STATUSESの
         いずれかを返す(未契約・トライアル中のworkshopは"trialing")。
@@ -319,6 +327,7 @@ class InMemoryWorkshopStore:
         self._trial_start_at_by_workshop: dict[str, datetime] = {}
         self._trial_generation_used_by_workshop: dict[str, bool] = {}
         self._stripe_customer_id_by_workshop: dict[str, str] = {}
+        self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
@@ -400,6 +409,10 @@ class InMemoryWorkshopStore:
 
     def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
         self._stripe_customer_id_by_workshop[workshop_id] = stripe_customer_id
+        self._workshop_id_by_stripe_customer_id[stripe_customer_id] = workshop_id
+
+    def get_workshop_id_by_stripe_customer_id(self, stripe_customer_id: str) -> Optional[str]:
+        return self._workshop_id_by_stripe_customer_id.get(stripe_customer_id)
 
     def get_subscription_status(self, workshop_id: str) -> str:
         return self._subscription_status_by_workshop.get(workshop_id, "trialing")

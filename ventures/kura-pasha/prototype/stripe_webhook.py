@@ -1,10 +1,11 @@
-"""Stripe Webhookの署名検証・`checkout.session.completed`受信処理
-(stripe-webhook-checkout-completed-design.md フェーズ51)。
+"""Stripe Webhookの署名検証・`checkout.session.completed`/`customer.subscription.deleted`
+受信処理(stripe-webhook-checkout-completed-design.md フェーズ51、
+subscription-canceled-webhook-design.md フェーズ53)。
 
 実Stripeアカウント接続(オーナー承認待ち)なしでも検証できる、`Stripe-Signature`ヘッダの
-検証ロジック・`checkout.session.completed`ハンドラ・両者を結ぶHTTPエントリポイントのみを
-切り出したモジュール。`usage_counter_workshop.py`・`checkout_session.py`とは独立した
-別ファイルとし、既存コードには一切影響を与えない。
+検証ロジック・各イベントハンドラ・両者を結ぶHTTPエントリポイントのみを切り出した
+モジュール。`usage_counter_workshop.py`・`checkout_session.py`とは独立した別ファイルとし、
+既存コードには一切影響を与えない。
 
 `verify_stripe_signature()`はcourse-set-pasha/prototype/stripe_webhook.py(フェーズ93)・
 aircon-pasha/prototype/stripe_webhook.py(フェーズ125)と同一アルゴリズム
@@ -121,13 +122,52 @@ def handle_checkout_session_completed(
 
 
 @dataclass
+class CustomerSubscriptionDeletedResult:
+    """handle_customer_subscription_deleted()の戻り値(design 2節)。"""
+
+    workshop_id: Optional[str] = None
+    invalid: bool = False
+    unresolved: bool = False
+
+
+def handle_customer_subscription_deleted(
+    data_object: dict,
+    workshop_store: WorkshopStoreProtocol,
+) -> CustomerSubscriptionDeletedResult:
+    """subscription-canceled-webhook-design.md 2節。`customer.subscription.deleted`
+    イベントの`data.object`を受け取り、対応するworkshopの`subscription_status`を
+    `"canceled"`へ更新する。
+
+    このイベントは`checkout.session.completed`と異なり`client_reference_id`を
+    持たないため、`data_object["customer"]`(Stripe顧客ID)を
+    `workshop_store.get_workshop_id_by_stripe_customer_id()`で逆引きしてworkshop_idを
+    解決する。`customer`が空・欠落の場合は`invalid=True`、逆引きで解決できなかった
+    場合は`unresolved=True`を返し、いずれも`set_subscription_status`は呼ばない。
+    """
+    stripe_customer_id = data_object.get("customer")
+    if not stripe_customer_id:
+        return CustomerSubscriptionDeletedResult(invalid=True)
+
+    workshop_id = workshop_store.get_workshop_id_by_stripe_customer_id(stripe_customer_id)
+    if workshop_id is None:
+        return CustomerSubscriptionDeletedResult(unresolved=True)
+
+    workshop_store.set_subscription_status(workshop_id, "canceled")
+    return CustomerSubscriptionDeletedResult(workshop_id=workshop_id)
+
+
+@dataclass
 class StripeWebhookReceiverResult:
-    """design 3節。"""
+    """design 3節。`unresolved_customer`はsubscription-canceled-webhook-design.md
+    2節対応(フェーズ53追加): `customer.subscription.deleted`のstripe_customer_idが
+    どのworkshopにも紐付いていなかった場合に`True`となる(Stripe側へは200を返す)。
+    """
 
     status_code: int
     workshop_id: Optional[str] = None
     ignored_type: Optional[str] = None
     error: Optional[str] = None
+    unresolved_customer: bool = False
 
 
 def receive_stripe_webhook(
@@ -137,9 +177,10 @@ def receive_stripe_webhook(
     *,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
 ) -> StripeWebhookReceiverResult:
-    """design 3節。署名検証→JSONパース→`checkout.session.completed`のみディスパッチする
-    薄いHTTPエントリポイント。未対応のイベント種別は無視して200を返す(Stripe側の
-    無限リトライを避ける、course-set-pasha/aircon-pashaと同じ方針)。
+    """design 3節。署名検証→JSONパース→`checkout.session.completed`/
+    `customer.subscription.deleted`をディスパッチする薄いHTTPエントリポイント。
+    未対応のイベント種別は無視して200を返す(Stripe側の無限リトライを避ける、
+    course-set-pasha/aircon-pashaと同じ方針)。
     """
     if not verify_stripe_signature(body, sig_header, webhook_secret):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_signature")
@@ -153,15 +194,23 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=400, error="invalid_json")
 
     event_type = event.get("type")
-    if event_type != "checkout.session.completed":
+    if event_type not in ("checkout.session.completed", "customer.subscription.deleted"):
         return StripeWebhookReceiverResult(status_code=200, ignored_type=event_type)
 
     data_object = event.get("data", {}).get("object", {})
     if workshop_store is None:
         return StripeWebhookReceiverResult(status_code=400, error="missing_workshop_store")
 
-    result = handle_checkout_session_completed(data_object, workshop_store)
-    if result.invalid:
-        return StripeWebhookReceiverResult(status_code=400, error="missing_client_reference_id")
+    if event_type == "checkout.session.completed":
+        result = handle_checkout_session_completed(data_object, workshop_store)
+        if result.invalid:
+            return StripeWebhookReceiverResult(status_code=400, error="missing_client_reference_id")
+        return StripeWebhookReceiverResult(status_code=200, workshop_id=result.workshop_id)
 
-    return StripeWebhookReceiverResult(status_code=200, workshop_id=result.workshop_id)
+    deleted_result = handle_customer_subscription_deleted(data_object, workshop_store)
+    if deleted_result.invalid:
+        return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+    if deleted_result.unresolved:
+        return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
+
+    return StripeWebhookReceiverResult(status_code=200, workshop_id=deleted_result.workshop_id)

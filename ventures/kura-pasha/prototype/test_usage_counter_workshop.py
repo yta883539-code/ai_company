@@ -339,6 +339,26 @@ def test_stripe_customer_id_defaults_to_none_and_can_be_set():
     )
 
 
+def test_get_workshop_id_by_stripe_customer_id_resolves_after_set():
+    """subscription-canceled-webhook-design.md 1節: `customer.subscription.deleted`等の
+    client_reference_idを持たないイベントがworkshop_idを逆引きできることを検証する。
+    """
+    _, workshops, _ = make_stores()
+    check(
+        "紐付け前はNoneを返す",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_XYZ789") is None,
+    )
+    workshops.set_stripe_customer_id("W13C", "cus_XYZ789")
+    check(
+        "set_stripe_customer_id後は逆引きでworkshop_idを返す",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_XYZ789") == "W13C",
+    )
+    check(
+        "未知のstripe_customer_idはNoneのまま",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_never_set") is None,
+    )
+
+
 def test_subscription_status_defaults_to_trialing():
     """subscription-billing-data-model-design.md 1節: 未設定のworkshopは
     "trialing"を返す(trial-end-condition-design.mdの前提と一致させる)。
@@ -935,6 +955,7 @@ if __name__ == "__main__":
     test_process_generation_request_keeps_trial_generation_used_true_on_later_success()
     test_process_generation_request_does_not_mark_trial_generation_used_when_member_removed()
     test_stripe_customer_id_defaults_to_none_and_can_be_set()
+    test_get_workshop_id_by_stripe_customer_id_resolves_after_set()
     test_subscription_status_defaults_to_trialing()
     test_set_subscription_status_accepts_all_declared_values()
     test_set_subscription_status_rejects_unknown_value()

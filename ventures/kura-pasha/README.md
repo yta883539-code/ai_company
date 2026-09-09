@@ -790,13 +790,37 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。
 
+- フェーズ53(2026-09-09 01:00 UTC): stripe-webhook-checkout-completed-design.md
+  (フェーズ51)「未検証・残課題」に残っていた`customer.subscription.deleted`
+  (解約確定)へのイベント種別対応を、course-set-pasha/aircon-pashaの既存設計を横展開する
+  形でsubscription-canceled-webhook-design.mdとして設計・実装した(`invoice.payment_
+  failed`/`invoice.payment_succeeded`のダニング対応は本フェーズの対象外)。
+  `client_reference_id`を持たないこのイベント種別のためにworkshop_idを`customer`
+  (Stripe顧客ID)から逆引きする必要があり、`WorkshopStoreProtocol`に
+  `get_workshop_id_by_stripe_customer_id()`を新設、`InMemoryWorkshopStore`が
+  `set_stripe_customer_id()`実行時に逆引き用辞書も同時更新するようにした。
+  `handle_customer_subscription_deleted(data_object, workshop_store)`を
+  `prototype/stripe_webhook.py`に実装し、`receive_stripe_webhook()`が
+  `checkout.session.completed`と並べてディスパッチできるよう配線した(customer欠落は
+  400、逆引き失敗〈unresolved〉はStripe側の再送を避けるため200のまま無視、成功時は
+  `subscription_status`を`"canceled"`へ更新)。新規テスト16件
+  (usage_counter_workshop 3件・stripe_webhook 13件)追加、venture全体146件→167件全件
+  (`python3 -m unittest`相当の各`test_*.py`個別実行)・schema検証23件いずれもパスを
+  確認した。承認不要な設計文書作成・プロトタイプコード実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
 ## 次にやること(候補)
 
-- `customer.subscription.deleted`(解約確定)・`invoice.payment_failed`/
-  `invoice.payment_succeeded`(決済失敗ダニング)へのイベント種別対応
-  (course-set-pasha/aircon-pashaの既存設計を横展開)。対応後、フェーズ52が
-  `"past_due"`を一律ブロック対象とした簡易実装を、ダニング固有の猶予期間つき扱いへ
-  見直す必要がある。
+- `invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗ダニング)への
+  イベント種別対応(course-set-pasha/aircon-pashaの既存設計を横展開)。対応後、
+  フェーズ52が`"past_due"`を一律ブロック対象とした簡易実装を、ダニング固有の猶予期間
+  つき扱いへ見直す必要がある。
+- subscription-canceled-webhook-design.md(フェーズ53)の残課題:
+  `customer.subscription.deleted`受信時の契約者向け解約完了案内(LINEトーク送信)は
+  未設計(course-set-pasha/aircon-pashaのsubscription-cancellation-notification-
+  design.md相当)。実LINE Push API接続はオーナー承認待ちのため、配線のみ先行実装する
+  形を想定。
 - checkout-initiation-flow-design.md(フェーズ50)の残課題: 有料プラン開始の意図検知
   (「有料プランを始めたい」等)をllm-system-prompt-draft.mdの厳守事項として追加する
   (解約意図検知の厳守事項7aと対になる新規項目)。
@@ -814,6 +838,7 @@
   ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
 - 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
 
-最終更新: 2026-09-09 00:00 UTC(フェーズ52: `is_trial_period_over`のトライアル終了時
-生成一時停止への配線を実装、`process_generation_request`に`TrialPeriodOverError`を
-追加。`"past_due"`は一律ブロック対象としダニング対応は次の課題として残る)
+最終更新: 2026-09-09 01:00 UTC(フェーズ53: `customer.subscription.deleted`
+〈解約確定〉受信処理をsubscription-canceled-webhook-design.mdとして設計・実装、
+`get_workshop_id_by_stripe_customer_id()`による逆引きを新設。`invoice.payment_failed`/
+`invoice.payment_succeeded`のダニング対応は次の課題として残る)

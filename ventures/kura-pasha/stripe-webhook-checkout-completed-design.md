@@ -79,10 +79,10 @@ def receive_stripe_webhook(
 - 実Stripeアカウント接続・実webhook_secretの取得・Cloud Functionsへのデプロイは
   いずれもアカウント作成・外部サービス公開に該当しオーナー承認待ちのため未着手のまま残る
   (pending-approval.md参照)。
-- `customer.subscription.deleted`(解約確定)・`invoice.payment_failed`/
-  `invoice.payment_succeeded`(決済失敗ダニング)への対応は、course-set-pasha/
-  aircon-pashaの既存設計を横展開する形で別途設計する(本フェーズでは
-  `checkout.session.completed`のみに範囲を絞った)。
+- `customer.subscription.deleted`(解約確定)への対応は
+  subscription-canceled-webhook-design.md(フェーズ53)で実装済み。
+  `invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗ダニング)への対応は
+  course-set-pasha/aircon-pashaの既存設計を横展開する形で引き続き別途設計する。
 - 本フェーズ完了後、フェーズ48で見送った`is_trial_period_over`のトライアル終了時
   生成一時停止への配線に着手できる状態になる
   (`get_subscription_status(workshop_id) == "active"`を判定条件に含めることで、
