@@ -895,3 +895,38 @@ cancel_at_period_end前後比較による解約予約受理・解約取り消し
 subscription-cancellation-scheduled-notification-design.mdとして設計・実装。
 `invoice.payment_failed`/`invoice.payment_succeeded`のダニング対応、実際の解約取り消し
 メッセージ受信時の処理(LINEトーク内での取り消し意図検知)は次の課題として残る)
+
+- フェーズ56(2026-09-09 05:00 UTC): フェーズ55「残課題」に残っていた
+  `invoice.payment_failed`/`invoice.payment_succeeded`のダニング対応を、
+  payment-failure-dunning-design.md(新規)として設計・実装した。course-set-pasha・
+  aircon-pasha・line-reservation-aiのpayment-failure-dunning-design.mdを本venture固有の
+  前提(workshop単位契約・契約者1名限定・PortalLinkProvider相当の抽象化が未実装)へ
+  翻案する過程で、usage_counter_workshop.mdフェーズ52が意図的に見送っていた既知の制約
+  (`subscription_status="past_due"`になった瞬間に猶予期間なく生成が即座に止まっていた)を
+  発見し、本フェーズで解消した。`WorkshopStoreProtocol`へ`get_payment_failure_detected_at`/
+  `set_payment_failure_detected_at`/`clear_payment_failure_detected_at`を追加し、
+  `is_payment_suspended()`(検知時刻から7日間の猶予、is_trial_period_overと同じ都度算出
+  方式)を新設したうえで、`process_generation_request()`の`"past_due"`判定を
+  `is_trial_period_over`分岐から独立した専用分岐に切り出した。新規モジュール
+  `prototype/payment_failure_notification.py`(`render_payment_failure_detected_message()`・
+  `classify_payment_recovery()`・`handle_payment_failure_detected()`・
+  `handle_payment_succeeded()`)を作成し、`stripe_webhook.py`に
+  `handle_invoice_payment_failed()`・`handle_invoice_payment_succeeded()`を追加、
+  `receive_stripe_webhook()`が受理するイベント種別に`invoice.payment_failed`/
+  `invoice.payment_succeeded`を加えて配線した。本venture固有の簡略化として、(1)
+  PortalLinkProvider相当が未実装のため通知本文へURLを差し込まない(design 1節)、
+  (2)3日前リマインド送信インフラが本フェーズの対象外のため、決済成功時の分類を他
+  venture3件の3〜4分岐ではなく2分岐(制限モードからの復旧/猶予期間中の解消〈通知なし・
+  状態リセットのみ〉)に簡略化した(design 4節)、という2点を明記した。新規テスト62件
+  (test_usage_counter_workshop.py 3件差し替え〈旧`past_due`即時ブロックのテストは
+  猶予期間ありの正しい挙動へ更新〉、test_payment_failure_notification.py新規22件、
+  test_stripe_webhook.py新規17件)、venture全体221件→283件全件・schema検証23件いずれも
+  パスを確認した。承認不要な設計文書作成・記載訂正・プロトタイプコード実装・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 05:00 UTC(フェーズ56: `invoice.payment_failed`/
+`invoice.payment_succeeded`のダニング対応をpayment-failure-dunning-design.mdとして
+設計・実装。あわせてフェーズ52が意図的に見送っていた「`past_due`即時ブロック(猶予期間
+なし)」という既知の制約を解消した。3日前リマインド送信・運営者向け通知は、本venture側の
+定期実行基盤(Cloud Scheduler等)の設計自体がまだ無いため次の課題として残る)

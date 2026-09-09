@@ -14,6 +14,7 @@ from usage_counter_workshop import (
     InMemoryWorkshopStore,
     InvalidSubscriptionStatusError,
     MemberRemovedError,
+    PaymentSuspendedError,
     TrialPeriodOverError,
     UnknownPlanError,
     WorkshopNotLinkedError,
@@ -25,6 +26,7 @@ from usage_counter_workshop import (
     ensure_member_is_active,
     get_contractor_transfer_expired_notice_context,
     is_contractor_transfer_confirmation_context,
+    is_payment_suspended,
     is_trial_period_over,
     process_generation_request,
     resolve_contractor_transfer_target,
@@ -487,10 +489,10 @@ def test_process_generation_request_allows_generation_when_subscription_active()
     )
 
 
-def test_process_generation_request_blocks_when_subscription_past_due():
-    """"past_due"(決済失敗)はまだ"active"ではないため、トライアル終了後は
-    ダニング専用の猶予処理が実装されるまで一律ブロック対象とすることを検証する
-    (フェーズ52のdocstringに明記した方針)。"""
+def test_process_generation_request_allows_generation_within_payment_failure_grace_period():
+    """フェーズ56: "past_due"(決済失敗)でも、検知時刻から猶予期間(7日)以内であれば
+    生成が継続できることを検証する(payment-failure-dunning-design.md 3節、フェーズ52で
+    見送っていた「猶予期間なしの即時ブロック」という既知の制約を解消したことの確認)。"""
     profiles, workshops, counters = make_stores()
     profiles.link("U18", "W18")
     workshops.set_plan("W18", "standard")
@@ -498,12 +500,49 @@ def test_process_generation_request_blocks_when_subscription_past_due():
     workshops.set_trial_start_at("W18", FEB)
     workshops.set_trial_generation_used("W18", True)
     workshops.set_subscription_status("W18", "past_due")
+    workshops.set_payment_failure_detected_at("W18", MAR)
+
+    result = process_generation_request(
+        "U18", MAR + timedelta(days=3), profiles, workshops, counters
+    )
+    check(
+        "past_dueでも猶予期間(7日)以内であれば生成できる",
+        result.usage.count_after_increment == 1,
+    )
+
+
+def test_process_generation_request_raises_payment_suspended_after_grace_period():
+    """フェーズ56: "past_due"かつ検知時刻から猶予期間(7日)を超えた場合は
+    PaymentSuspendedErrorが送出され、usage_counterへの加算に到達しないことを検証する。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U18B", "W18B")
+    workshops.set_plan("W18B", "standard")
+    workshops.set_members("W18B", "U18B", ["U18B"])
+    workshops.set_trial_start_at("W18B", FEB)
+    workshops.set_trial_generation_used("W18B", True)
+    workshops.set_subscription_status("W18B", "past_due")
+    workshops.set_payment_failure_detected_at("W18B", MAR)
 
     try:
-        process_generation_request("U18", MAR, profiles, workshops, counters)
-        check("past_dueはactiveではないためTrialPeriodOverErrorが送出される", False)
-    except TrialPeriodOverError:
-        check("past_dueはactiveではないためTrialPeriodOverErrorが送出される", True)
+        process_generation_request(
+            "U18B", MAR + timedelta(days=8), profiles, workshops, counters
+        )
+        check("猶予期間超過でPaymentSuspendedErrorが送出される", False)
+    except PaymentSuspendedError:
+        check("猶予期間超過でPaymentSuspendedErrorが送出される", True)
+    check(
+        "ブロック時usage_counter_storeには何も書き込まれない(past_due版)",
+        counters.get("W18B") is None,
+    )
+
+
+def test_is_payment_suspended_false_when_never_detected():
+    _, workshops, _ = make_stores()
+    workshops.set_members("W18C", "U18C", ["U18C"])
+    check(
+        "payment_failure_detected_at未設定であればis_payment_suspendedはFalse",
+        is_payment_suspended("W18C", MAR, workshops) is False,
+    )
 
 
 def test_process_generation_request_allows_generation_within_trial_period():
@@ -964,7 +1003,9 @@ if __name__ == "__main__":
     test_process_generation_request_workshop_not_linked_raises()
     test_process_generation_request_raises_trial_period_over_when_not_active()
     test_process_generation_request_allows_generation_when_subscription_active()
-    test_process_generation_request_blocks_when_subscription_past_due()
+    test_process_generation_request_allows_generation_within_payment_failure_grace_period()
+    test_process_generation_request_raises_payment_suspended_after_grace_period()
+    test_is_payment_suspended_false_when_never_detected()
     test_process_generation_request_allows_generation_within_trial_period()
     test_resolve_contractor_transfer_target_matches_existing_member()
     test_resolve_contractor_transfer_target_ignores_contractor_self()

@@ -102,6 +102,15 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   (`invoice.payment_failed`対応)に委ねる。ブロック時は`check_and_increment_usage`・
   `trial_generation_used`の更新いずれにも到達しないため、月間カウントもトライアル
   消費フラグも変化しない。
+- フェーズ56: payment-failure-dunning-design.md(新規)で、フェーズ52が意図的に見送っていた
+  「`subscription_status="past_due"`になった瞬間に猶予期間なく生成が止まる」という既知の
+  制約を解消した。`WorkshopStoreProtocol`へ`get_payment_failure_detected_at`/
+  `set_payment_failure_detected_at`/`clear_payment_failure_detected_at`を追加し、
+  `is_payment_suspended()`(検知時刻からPAYMENT_FAILURE_GRACE_PERIOD_DAYS=7日以上経過したかを
+  都度算出、別立ての状態フラグは追加しない設計。is_trial_period_overと同じスタイル)を新設した。
+  `process_generation_request()`の判定を、`subscription_status == "past_due"`の場合は
+  `is_payment_suspended()`のみで生成可否を決める専用分岐に切り出し、既存の`is_trial_period_over`
+  分岐とは独立させた(design 3節「修正するバグ」参照)。
 """
 
 from __future__ import annotations
@@ -147,6 +156,16 @@ class MemberRemovedError(Exception):
     """
 
 
+class PaymentSuspendedError(Exception):
+    """`subscription_status="past_due"`かつ決済失敗検知時刻から
+    PAYMENT_FAILURE_GRACE_PERIOD_DAYS以上経過した(猶予期間終了後も未解消の)workshopから
+    生成リクエストが来た場合に送出する(フェーズ56、payment-failure-dunning-design.md 3節)。
+
+    WorkshopNotLinkedError・TrialPeriodOverError相当の扱いとし、呼び出し側は
+    PAYMENT_SUSPENDED_NOTICEの文言に変換して返す想定。
+    """
+
+
 class TrialPeriodOverError(Exception):
     """無料トライアル終了後(is_trial_period_over=True)かつ有償契約未確認
     (subscription_status != "active")のworkshopから生成リクエストが来た場合に
@@ -168,6 +187,13 @@ TRIAL_PERIOD_OVER_NOTICE = (
     "引き続きご利用いただくには、有料プランへのお申し込みをお願いします。"
 )
 
+# payment-failure-dunning-design.md(フェーズ56)4節「制限モード移行時」。
+PAYMENT_SUSPENDED_NOTICE = (
+    "お支払い手続きが確認できないため、受注内容整理メモ・納品案内・お手入れ案内の生成を"
+    "一時停止しています。\n"
+    "お支払い方法をご確認いただければ、確認完了後に自動で生成を再開します。"
+)
+
 
 # contractor-transfer-confirmation-detection-design.md(フェーズ36)1節: requested_at+24時間。
 PENDING_CONTRACTOR_TRANSFER_EXPIRY_HOURS = 24
@@ -178,6 +204,9 @@ TRIAL_PERIOD_DAYS = 30
 # subscription-billing-data-model-design.md(フェーズ46)1節で確定した
 # `craftsman_workshop.subscription_status`の許容値。
 SUBSCRIPTION_STATUSES = ("trialing", "active", "past_due", "canceled")
+
+# payment-failure-dunning-design.md(フェーズ56)3節確定値。他venture3件と同じ暫定値。
+PAYMENT_FAILURE_GRACE_PERIOD_DAYS = 7
 
 
 @dataclass
@@ -292,6 +321,20 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
+        """payment-failure-dunning-design.md(フェーズ56)3節: `invoice.payment_failed`受信
+        時刻。未検知(通常運用中、または既に解消済み)の場合はNoneを返す。
+        """
+        ...
+
+    def set_payment_failure_detected_at(self, workshop_id: str, detected_at: datetime) -> None:
+        """`invoice.payment_failed`受信時に書き込む。"""
+        ...
+
+    def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
+        """`invoice.payment_succeeded`受信時に解消済みとして削除する。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -329,6 +372,7 @@ class InMemoryWorkshopStore:
         self._stripe_customer_id_by_workshop: dict[str, str] = {}
         self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
+        self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -424,6 +468,15 @@ class InMemoryWorkshopStore:
             )
         self._subscription_status_by_workshop[workshop_id] = status
 
+    def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._payment_failure_detected_at_by_workshop.get(workshop_id)
+
+    def set_payment_failure_detected_at(self, workshop_id: str, detected_at: datetime) -> None:
+        self._payment_failure_detected_at_by_workshop[workshop_id] = detected_at
+
+    def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
+        self._payment_failure_detected_at_by_workshop.pop(workshop_id, None)
+
 
 class InMemoryUsageCounterStore:
     def __init__(self) -> None:
@@ -518,6 +571,24 @@ def is_trial_period_over(
     if workshop_store.get_trial_generation_used(workshop_id):
         return True
     return now >= trial_start_at + timedelta(days=TRIAL_PERIOD_DAYS)
+
+
+def is_payment_suspended(
+    workshop_id: str,
+    now: datetime,
+    workshop_store: WorkshopStoreProtocol,
+) -> bool:
+    """payment-failure-dunning-design.md(フェーズ56)3節「制限モード」の判定。
+
+    `payment_failure_detected_at`が未設定(決済失敗を検知したことがない)場合はFalseを
+    返す。設定済みの場合、検知時刻からPAYMENT_FAILURE_GRACE_PERIOD_DAYS(7日)以上
+    経過していれば制限モードに該当する(is_trial_period_overと同じ、別立ての状態フラグを
+    持たず都度算出する設計)。
+    """
+    detected_at = workshop_store.get_payment_failure_detected_at(workshop_id)
+    if detected_at is None:
+        return False
+    return now >= detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS)
 
 
 @dataclass
@@ -657,9 +728,19 @@ def process_generation_request(
     # 実装済みのget_subscription_statusと、フェーズ50・51のStripe Webhook配線により
     # "active"への更新が実際に行われるようになったため、フェーズ48で見送っていた
     # この配線が安全に行えるようになった)。
-    if is_trial_period_over(
-        workshop_id, now, workshop_store
-    ) and workshop_store.get_subscription_status(workshop_id) != "active":
+    # フェーズ56: "past_due"(決済失敗ダニング)は、フェーズ52時点では"active"以外の
+    # 値として上記条件に一律含めていたため猶予期間なく即座にブロックされていた
+    # (payment-failure-dunning-design.md 3節「修正するバグ」)。"past_due"の場合は
+    # is_trial_period_overを経由せず、is_payment_suspended()(検知時刻から7日間の猶予)
+    # のみで生成可否を判定する専用分岐に切り出す。
+    subscription_status = workshop_store.get_subscription_status(workshop_id)
+    if subscription_status == "past_due":
+        if is_payment_suspended(workshop_id, now, workshop_store):
+            raise PaymentSuspendedError(
+                f"workshop_id={workshop_id!r}は決済失敗の猶予期間(7日)を超えたため"
+                "生成を一時停止します"
+            )
+    elif is_trial_period_over(workshop_id, now, workshop_store) and subscription_status != "active":
         raise TrialPeriodOverError(
             f"workshop_id={workshop_id!r}はトライアル終了済みかつ有償契約未確認のため"
             "生成を一時停止します"

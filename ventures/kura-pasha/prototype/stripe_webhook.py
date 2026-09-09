@@ -1,9 +1,10 @@
 """Stripe Webhookの署名検証・`checkout.session.completed`/`customer.subscription.deleted`/
-`customer.subscription.updated`受信処理(stripe-webhook-checkout-completed-design.md
-フェーズ51、subscription-canceled-webhook-design.md フェーズ53、契約者向け解約完了通知の
-配線はsubscription-cancellation-notification-design.md フェーズ54、解約予約受理・
-解約取り消し通知の配線はsubscription-cancellation-scheduled-notification-design.md
-フェーズ55)。
+`customer.subscription.updated`/`invoice.payment_failed`/`invoice.payment_succeeded`受信処理
+(stripe-webhook-checkout-completed-design.md フェーズ51、subscription-canceled-webhook-
+design.md フェーズ53、契約者向け解約完了通知の配線はsubscription-cancellation-notification-
+design.md フェーズ54、解約予約受理・解約取り消し通知の配線はsubscription-cancellation-
+scheduled-notification-design.md フェーズ55、決済失敗ダニングの配線はpayment-failure-
+dunning-design.md フェーズ56)。
 
 実Stripeアカウント接続(オーナー承認待ち)なしでも検証できる、`Stripe-Signature`ヘッダの
 検証ロジック・各イベントハンドラ・両者を結ぶHTTPエントリポイントのみを切り出した
@@ -22,8 +23,14 @@ import hmac
 import json
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
+from payment_failure_notification import (
+    OUTCOME_NOT_APPLICABLE,
+    handle_payment_failure_detected,
+    handle_payment_succeeded,
+)
 from subscription_cancellation_notification import (
     OUTCOME_NO_CHANGE,
     LinePushClient,
@@ -245,6 +252,115 @@ def handle_customer_subscription_updated(
 
 
 @dataclass
+class InvoicePaymentFailedResult:
+    """handle_invoice_payment_failed()の戻り値(payment-failure-dunning-design.md
+    フェーズ56 5節)。`invalid`/`unresolved`は他イベントハンドラと同じ意味。"""
+
+    workshop_id: Optional[str] = None
+    invalid: bool = False
+    unresolved: bool = False
+    notified: bool = False
+
+
+def handle_invoice_payment_failed(
+    data_object: dict,
+    workshop_store: WorkshopStoreProtocol,
+    *,
+    push_client: Optional[LinePushClient] = None,
+    now: Optional[datetime] = None,
+) -> InvoicePaymentFailedResult:
+    """payment-failure-dunning-design.md 5節。`invoice.payment_failed`イベントの
+    `data.object`を受け取り、対応するworkshopの`subscription_status`を`"past_due"`へ、
+    `payment_failure_detected_at`を検知時刻へ更新する。
+
+    `customer.subscription.deleted`と同じ`get_workshop_id_by_stripe_customer_id()`逆引きで
+    workshop_idを解決する。検知時刻は`data_object.created`(Unixタイムスタンプ)を優先し、
+    存在しない場合は`now`(省略時は`datetime.now(timezone.utc)`)にフォールバックする。
+
+    `push_client`指定時は状態更新後に契約者へLINE通知を送信する(design 4節「決済失敗
+    検知時」)。通知の送信成否は状態更新の成否と独立とし、`push_client`省略時は通知なし。
+    """
+    stripe_customer_id = data_object.get("customer")
+    if not stripe_customer_id:
+        return InvoicePaymentFailedResult(invalid=True)
+
+    workshop_id = workshop_store.get_workshop_id_by_stripe_customer_id(stripe_customer_id)
+    if workshop_id is None:
+        return InvoicePaymentFailedResult(unresolved=True)
+
+    created = data_object.get("created")
+    if isinstance(created, (int, float)) and not isinstance(created, bool):
+        detected_at = datetime.fromtimestamp(created, tz=timezone.utc)
+    else:
+        detected_at = now if now is not None else datetime.now(timezone.utc)
+
+    workshop_store.set_subscription_status(workshop_id, "past_due")
+    workshop_store.set_payment_failure_detected_at(workshop_id, detected_at)
+
+    notified = False
+    if push_client is not None:
+        detection_result = handle_payment_failure_detected(workshop_id, workshop_store, push_client)
+        notified = detection_result.notified
+
+    return InvoicePaymentFailedResult(workshop_id=workshop_id, notified=notified)
+
+
+@dataclass
+class InvoicePaymentSucceededResult:
+    """handle_invoice_payment_succeeded()の戻り値(payment-failure-dunning-design.md
+    フェーズ56 5節)。`invalid`/`unresolved`は他イベントハンドラと同じ意味。"""
+
+    workshop_id: Optional[str] = None
+    invalid: bool = False
+    unresolved: bool = False
+    outcome: str = OUTCOME_NOT_APPLICABLE
+    notified: bool = False
+
+
+def handle_invoice_payment_succeeded(
+    data_object: dict,
+    workshop_store: WorkshopStoreProtocol,
+    *,
+    push_client: Optional[LinePushClient] = None,
+    now: Optional[datetime] = None,
+) -> InvoicePaymentSucceededResult:
+    """payment-failure-dunning-design.md 5節。`invoice.payment_succeeded`イベントの
+    `data.object`を受け取り、対応するworkshopの`subscription_status`を`"active"`へ戻す
+    (design 1節: 既存の`checkout.session.completed`と同じ値へ揃える)。
+
+    `push_client`指定時は`payment_failure_notification.handle_payment_succeeded()`へ
+    委譲し、分類(design 4節2分岐)・通知・`payment_failure_detected_at`クリアを行う。
+    送信失敗時(OUTCOME_SEND_FAILED)は`payment_failure_detected_at`をクリアせずWebhook
+    リトライに委ねる(`subscription_status`の"active"化自体は既に完了しているため、
+    リトライは通知・状態クリアのみをやり直す)。`push_client`省略時は通知を行わず
+    `payment_failure_detected_at`が設定済みであれば直接クリアする(後方互換経路)。
+    """
+    stripe_customer_id = data_object.get("customer")
+    if not stripe_customer_id:
+        return InvoicePaymentSucceededResult(invalid=True)
+
+    workshop_id = workshop_store.get_workshop_id_by_stripe_customer_id(stripe_customer_id)
+    if workshop_id is None:
+        return InvoicePaymentSucceededResult(unresolved=True)
+
+    workshop_store.set_subscription_status(workshop_id, "active")
+
+    if push_client is not None:
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        recovery_result = handle_payment_succeeded(workshop_id, resolved_now, workshop_store, push_client)
+        return InvoicePaymentSucceededResult(
+            workshop_id=workshop_id,
+            outcome=recovery_result.outcome,
+            notified=recovery_result.notified,
+        )
+
+    if workshop_store.get_payment_failure_detected_at(workshop_id) is not None:
+        workshop_store.clear_payment_failure_detected_at(workshop_id)
+
+    return InvoicePaymentSucceededResult(workshop_id=workshop_id)
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """design 3節。`unresolved_customer`はsubscription-canceled-webhook-design.md
     2節対応(フェーズ53追加): `customer.subscription.deleted`のstripe_customer_idが
@@ -267,9 +383,10 @@ def receive_stripe_webhook(
     push_client: Optional[LinePushClient] = None,
 ) -> StripeWebhookReceiverResult:
     """design 3節。署名検証→JSONパース→`checkout.session.completed`/
-    `customer.subscription.deleted`をディスパッチする薄いHTTPエントリポイント。
-    未対応のイベント種別は無視して200を返す(Stripe側の無限リトライを避ける、
-    course-set-pasha/aircon-pashaと同じ方針)。
+    `customer.subscription.deleted`/`customer.subscription.updated`/
+    `invoice.payment_failed`/`invoice.payment_succeeded`をディスパッチする薄いHTTP
+    エントリポイント。未対応のイベント種別は無視して200を返す(Stripe側の無限リトライを
+    避ける、course-set-pasha/aircon-pashaと同じ方針)。
     """
     if not verify_stripe_signature(body, sig_header, webhook_secret):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_signature")
@@ -287,6 +404,8 @@ def receive_stripe_webhook(
         "checkout.session.completed",
         "customer.subscription.deleted",
         "customer.subscription.updated",
+        "invoice.payment_failed",
+        "invoice.payment_succeeded",
     ):
         return StripeWebhookReceiverResult(status_code=200, ignored_type=event_type)
 
@@ -310,12 +429,32 @@ def receive_stripe_webhook(
             return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
         return StripeWebhookReceiverResult(status_code=200, workshop_id=updated_result.workshop_id)
 
-    deleted_result = handle_customer_subscription_deleted(
+    if event_type == "customer.subscription.deleted":
+        deleted_result = handle_customer_subscription_deleted(
+            data_object, workshop_store, push_client=push_client
+        )
+        if deleted_result.invalid:
+            return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+        if deleted_result.unresolved:
+            return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
+        return StripeWebhookReceiverResult(status_code=200, workshop_id=deleted_result.workshop_id)
+
+    if event_type == "invoice.payment_failed":
+        failed_result = handle_invoice_payment_failed(
+            data_object, workshop_store, push_client=push_client
+        )
+        if failed_result.invalid:
+            return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+        if failed_result.unresolved:
+            return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
+        return StripeWebhookReceiverResult(status_code=200, workshop_id=failed_result.workshop_id)
+
+    succeeded_result = handle_invoice_payment_succeeded(
         data_object, workshop_store, push_client=push_client
     )
-    if deleted_result.invalid:
+    if succeeded_result.invalid:
         return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
-    if deleted_result.unresolved:
+    if succeeded_result.unresolved:
         return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
 
-    return StripeWebhookReceiverResult(status_code=200, workshop_id=deleted_result.workshop_id)
+    return StripeWebhookReceiverResult(status_code=200, workshop_id=succeeded_result.workshop_id)

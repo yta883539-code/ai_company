@@ -5,16 +5,28 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import datetime, timedelta, timezone
 
 from stripe_webhook import (
     CheckoutSessionCompletedResult,
     CustomerSubscriptionDeletedResult,
     CustomerSubscriptionUpdatedResult,
+    InvoicePaymentFailedResult,
+    InvoicePaymentSucceededResult,
     handle_checkout_session_completed,
     handle_customer_subscription_deleted,
     handle_customer_subscription_updated,
+    handle_invoice_payment_failed,
+    handle_invoice_payment_succeeded,
     receive_stripe_webhook,
     verify_stripe_signature,
+)
+from payment_failure_notification import (
+    OUTCOME_NOT_APPLICABLE,
+    OUTCOME_RECOVERED_FROM_SUSPENSION,
+    OUTCOME_SILENT_RESET,
+    PAYMENT_FAILURE_DETECTED_MESSAGE,
+    PAYMENT_RECOVERED_MESSAGE,
 )
 from subscription_cancellation_notification import (
     InMemoryLinePushClient,
@@ -347,13 +359,13 @@ def test_receive_rejects_invalid_json():
 def test_receive_ignores_unhandled_event_type():
     store = InMemoryWorkshopStore()
     now = int(time.time())
-    body = _event_body(event_type="invoice.payment_failed")
+    body = _event_body(event_type="invoice.created")
     header = _sign(body, now)
     result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
     check("未対応イベント種別も200", result.status_code == 200)
     check(
         "未対応イベント種別はignored_typeに元のtypeを格納",
-        result.ignored_type == "invoice.payment_failed",
+        result.ignored_type == "invoice.created",
     )
     check(
         "未対応イベント種別はworkshop_storeへ書き込まれない",
@@ -507,6 +519,229 @@ def test_receive_returns_400_for_missing_client_reference_id():
     )
 
 
+# --- handle_invoice_payment_failed ---
+
+
+def test_invoice_failed_returns_invalid_when_customer_missing():
+    store = InMemoryWorkshopStore()
+    result = handle_invoice_payment_failed({}, store)
+    check("customer欠落はinvalid=True(payment_failed)", result.invalid is True)
+
+
+def test_invoice_failed_returns_unresolved_when_customer_unknown():
+    store = InMemoryWorkshopStore()
+    result = handle_invoice_payment_failed({"customer": "cus_unknown"}, store)
+    check("紐付け無しのcustomerはunresolved=True(payment_failed)", result.unresolved is True)
+
+
+def test_invoice_failed_sets_past_due_and_detected_at():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W30", "cus_30")
+    store.set_subscription_status("W30", "active")
+    now = datetime(2026, 9, 9, 9, 0, 0, tzinfo=timezone.utc)
+    result = handle_invoice_payment_failed({"customer": "cus_30"}, store, now=now)
+    check("subscription_statusがpast_dueへ遷移", store.get_subscription_status("W30") == "past_due")
+    check(
+        "payment_failure_detected_atがnow(created未指定時)で設定される",
+        store.get_payment_failure_detected_at("W30") == now,
+    )
+    check("成功時はworkshop_idを返す", result.workshop_id == "W30")
+
+
+def test_invoice_failed_uses_created_timestamp_when_present():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W31", "cus_31")
+    created = 1_760_000_000
+    handle_invoice_payment_failed({"customer": "cus_31", "created": created}, store)
+    expected = datetime.fromtimestamp(created, tz=timezone.utc)
+    check(
+        "created指定時はそのタイムスタンプがdetected_atになる",
+        store.get_payment_failure_detected_at("W31") == expected,
+    )
+
+
+def test_invoice_failed_notifies_contractor_when_push_client_given():
+    store = InMemoryWorkshopStore()
+    store.set_members("W32", contractor_user_id="contractor_32", member_user_ids=["contractor_32", "member_32"])
+    store.set_stripe_customer_id("W32", "cus_32")
+    push = InMemoryLinePushClient()
+    result = handle_invoice_payment_failed({"customer": "cus_32"}, store, push_client=push)
+    check("push_client指定時はnotified=True", result.notified is True)
+    check(
+        "検知通知は契約者本人にのみ送信される",
+        push.sent == [("contractor_32", PAYMENT_FAILURE_DETECTED_MESSAGE)],
+    )
+
+
+def test_invoice_failed_without_push_client_does_not_notify():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W33", "cus_33")
+    result = handle_invoice_payment_failed({"customer": "cus_33"}, store)
+    check("push_client未指定時はnotified=False", result.notified is False)
+    check(
+        "push_client未指定でも状態は更新される",
+        store.get_subscription_status("W33") == "past_due",
+    )
+
+
+# --- handle_invoice_payment_succeeded ---
+
+
+def test_invoice_succeeded_returns_invalid_when_customer_missing():
+    store = InMemoryWorkshopStore()
+    result = handle_invoice_payment_succeeded({}, store)
+    check("customer欠落はinvalid=True(payment_succeeded)", result.invalid is True)
+
+
+def test_invoice_succeeded_returns_unresolved_when_customer_unknown():
+    store = InMemoryWorkshopStore()
+    result = handle_invoice_payment_succeeded({"customer": "cus_unknown"}, store)
+    check("紐付け無しのcustomerはunresolved=True(payment_succeeded)", result.unresolved is True)
+
+
+def test_invoice_succeeded_sets_active_and_clears_state_without_push_client():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W34", "cus_34")
+    store.set_subscription_status("W34", "past_due")
+    store.set_payment_failure_detected_at("W34", datetime(2026, 9, 1, tzinfo=timezone.utc))
+    result = handle_invoice_payment_succeeded({"customer": "cus_34"}, store)
+    check("subscription_statusがactiveへ遷移", store.get_subscription_status("W34") == "active")
+    check(
+        "push_client未指定でもpayment_failure_detected_atはクリアされる",
+        store.get_payment_failure_detected_at("W34") is None,
+    )
+    check("outcomeはデフォルト値のNOT_APPLICABLE", result.outcome == OUTCOME_NOT_APPLICABLE)
+
+
+def test_invoice_succeeded_recovered_notifies_contractor_when_push_client_given():
+    store = InMemoryWorkshopStore()
+    store.set_members("W35", contractor_user_id="contractor_35", member_user_ids=["contractor_35"])
+    store.set_stripe_customer_id("W35", "cus_35")
+    store.set_subscription_status("W35", "past_due")
+    detected_at = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    store.set_payment_failure_detected_at("W35", detected_at)
+    push = InMemoryLinePushClient()
+    now = detected_at + timedelta(days=8)
+    result = handle_invoice_payment_succeeded(
+        {"customer": "cus_35"}, store, push_client=push, now=now
+    )
+    check("subscription_statusがactiveへ遷移(復旧時)", store.get_subscription_status("W35") == "active")
+    check("outcomeはrecovered_from_suspension", result.outcome == OUTCOME_RECOVERED_FROM_SUSPENSION)
+    check(
+        "復旧メッセージが契約者へ送信される",
+        push.sent == [("contractor_35", PAYMENT_RECOVERED_MESSAGE)],
+    )
+    check(
+        "復旧後はpayment_failure_detected_atがクリアされる",
+        store.get_payment_failure_detected_at("W35") is None,
+    )
+
+
+def test_invoice_succeeded_silent_reset_within_grace_sends_nothing():
+    store = InMemoryWorkshopStore()
+    store.set_members("W36", contractor_user_id="contractor_36", member_user_ids=["contractor_36"])
+    store.set_stripe_customer_id("W36", "cus_36")
+    store.set_subscription_status("W36", "past_due")
+    detected_at = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    store.set_payment_failure_detected_at("W36", detected_at)
+    push = InMemoryLinePushClient()
+    now = detected_at + timedelta(days=2)
+    result = handle_invoice_payment_succeeded(
+        {"customer": "cus_36"}, store, push_client=push, now=now
+    )
+    check("outcomeはsilent_reset", result.outcome == OUTCOME_SILENT_RESET)
+    check("猶予期間中の解消は通知を送らない", push.sent == [])
+    check(
+        "猶予期間中の解消でも状態はクリアされる",
+        store.get_payment_failure_detected_at("W36") is None,
+    )
+
+
+# --- receive_stripe_webhook: invoice.payment_failed / invoice.payment_succeeded ---
+
+
+def _invoice_event_body(customer="cus_40", event_type="invoice.payment_failed", created=None):
+    data_object = {"customer": customer}
+    if created is not None:
+        data_object["created"] = created
+    return json.dumps({"type": event_type, "data": {"object": data_object}}).encode("utf-8")
+
+
+def test_receive_dispatches_invoice_payment_failed():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W40", "cus_40")
+    store.set_subscription_status("W40", "active")
+    now = int(time.time())
+    body = _invoice_event_body(customer="cus_40", event_type="invoice.payment_failed")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("正常系は200(payment_failed)", result.status_code == 200)
+    check("workshop_idを返す(payment_failed)", result.workshop_id == "W40")
+    check("subscription_statusがpast_dueへ更新される", store.get_subscription_status("W40") == "past_due")
+    check(
+        "payment_failure_detected_atが設定される",
+        store.get_payment_failure_detected_at("W40") is not None,
+    )
+
+
+def test_receive_returns_200_for_unresolved_customer_on_invoice_payment_failed():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = _invoice_event_body(customer="cus_unmapped_3", event_type="invoice.payment_failed")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("紐付け無しcustomerでも200(payment_failed)", result.status_code == 200)
+    check("unresolved_customer=True(payment_failed)", result.unresolved_customer is True)
+
+
+def test_receive_returns_400_for_missing_customer_on_invoice_payment_failed():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = json.dumps(
+        {"type": "invoice.payment_failed", "data": {"object": {}}}
+    ).encode("utf-8")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("customer欠落は400(payment_failed)", result.status_code == 400)
+    check("エラーコードmissing_customer(payment_failed)", result.error == "missing_customer")
+
+
+def test_receive_dispatches_invoice_payment_succeeded():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W41", "cus_41")
+    store.set_subscription_status("W41", "past_due")
+    store.set_payment_failure_detected_at("W41", datetime(2026, 9, 1, tzinfo=timezone.utc))
+    now = int(time.time())
+    body = _invoice_event_body(customer="cus_41", event_type="invoice.payment_succeeded")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("正常系は200(payment_succeeded)", result.status_code == 200)
+    check("workshop_idを返す(payment_succeeded)", result.workshop_id == "W41")
+    check("subscription_statusがactiveへ更新される", store.get_subscription_status("W41") == "active")
+
+
+def test_receive_returns_200_for_unresolved_customer_on_invoice_payment_succeeded():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = _invoice_event_body(customer="cus_unmapped_4", event_type="invoice.payment_succeeded")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("紐付け無しcustomerでも200(payment_succeeded)", result.status_code == 200)
+    check("unresolved_customer=True(payment_succeeded)", result.unresolved_customer is True)
+
+
+def test_receive_returns_400_for_missing_customer_on_invoice_payment_succeeded():
+    store = InMemoryWorkshopStore()
+    now = int(time.time())
+    body = json.dumps(
+        {"type": "invoice.payment_succeeded", "data": {"object": {}}}
+    ).encode("utf-8")
+    header = _sign(body, now)
+    result = receive_stripe_webhook(body, header, WEBHOOK_SECRET, workshop_store=store)
+    check("customer欠落は400(payment_succeeded)", result.status_code == 400)
+    check("エラーコードmissing_customer(payment_succeeded)", result.error == "missing_customer")
+
+
 if __name__ == "__main__":
     test_verify_rejects_missing_header()
     test_verify_rejects_malformed_header()
@@ -544,6 +779,23 @@ if __name__ == "__main__":
     test_receive_returns_400_for_missing_customer_on_deleted()
     test_receive_returns_400_when_workshop_store_missing()
     test_receive_returns_400_for_missing_client_reference_id()
+    test_invoice_failed_returns_invalid_when_customer_missing()
+    test_invoice_failed_returns_unresolved_when_customer_unknown()
+    test_invoice_failed_sets_past_due_and_detected_at()
+    test_invoice_failed_uses_created_timestamp_when_present()
+    test_invoice_failed_notifies_contractor_when_push_client_given()
+    test_invoice_failed_without_push_client_does_not_notify()
+    test_invoice_succeeded_returns_invalid_when_customer_missing()
+    test_invoice_succeeded_returns_unresolved_when_customer_unknown()
+    test_invoice_succeeded_sets_active_and_clears_state_without_push_client()
+    test_invoice_succeeded_recovered_notifies_contractor_when_push_client_given()
+    test_invoice_succeeded_silent_reset_within_grace_sends_nothing()
+    test_receive_dispatches_invoice_payment_failed()
+    test_receive_returns_200_for_unresolved_customer_on_invoice_payment_failed()
+    test_receive_returns_400_for_missing_customer_on_invoice_payment_failed()
+    test_receive_dispatches_invoice_payment_succeeded()
+    test_receive_returns_200_for_unresolved_customer_on_invoice_payment_succeeded()
+    test_receive_returns_400_for_missing_customer_on_invoice_payment_succeeded()
 
     print(f"\n{PASS} passed, {FAIL} failed")
     if FAIL:
