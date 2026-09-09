@@ -954,3 +954,52 @@ subscription-cancellation-scheduled-notification-design.mdとして設計・実�
 最終更新: 2026-09-09 06:00 UTC(フェーズ57: 厳守事項7b〈有料プラン開始意図検知〉を
 llm-system-prompt-draft.mdに新設。対応するschema拡張は実API接続オーナー承認待ちのため
 次の課題として残る)
+
+- フェーズ58(2026-09-09 07:00 UTC): フェーズ57で次の課題としていた厳守事項7b
+  (有料プラン開始意図検知)対応のschema拡張を行った。`status` enumへ
+  `checkout_intent`/`pricing_inquiry`/`checkout_intent_unclear`の3値、非nullフィールド
+  `checkout_notice`を新設し、`includes_checkout_url`は`kind`によらず常にfalse(実際の
+  Checkout Session URL発行はcheckout-initiation-flow-design.md 3節の
+  `handle_checkout_intent`に委ね、LLM側の自己判断では返さない設計)であることを
+  `validate_test_cases.py`側のクロスフィールド検証で担保した。新規期待出力テスト
+  ケース3件(有料プラン開始意図/料金問い合わせ/意図不明瞭それぞれ)、
+  `includes_checkout_url`不一致を検出するネガティブテストケース1件を追加し、schema検証
+  23件→27件全件・venture全体283件いずれもパスを確認した。承認不要な設計文書更新・
+  schema/テストコード変更のみで、外部サービスへの公開・アカウント作成・支払い等は
+  今回発生していないためpending-approval.mdへの追記なし。
+  (本エントリは2026-09-09 08:00 UTC・フェーズ59作業時に、README.mdへの記録が漏れて
+  いたことを発見し遡及記録したもの。実際の作業自体はフェーズ58〈07:00 UTCコミット〉で
+  完了済み。)
+
+最終更新: 2026-09-09 07:00 UTC(フェーズ58: 厳守事項7b対応のschema拡張。
+`status` enumへcheckout_intent/pricing_inquiry/checkout_intent_unclearの3値追加、
+includes_checkout_urlが常にfalseであることをテストで担保)
+
+- フェーズ59(2026-09-09 08:00 UTC): checkout-initiation-flow-design.md(フェーズ50)
+  「残課題」節を確認したところ、(1)Stripe Webhook(`checkout.session.completed`)受信・
+  署名検証・実装が未着手と記載されていたが実際にはフェーズ51で対応済み、(2)
+  `is_trial_period_over`の生成一時停止への配線が未着手と記載されていたが実際には
+  フェーズ52で対応済み、という2件の記載漏れ(いずれも作成当時〈フェーズ50〉時点では
+  正しかったが、後続フェーズでの対応後に訂正されないまま残っていたもの)を発見し、
+  該当箇所にコード確認結果とあわせて訂正を追記した。残っていた真の未着手項目
+  「トライアル終了通知メッセージ自体は本venture未設計」に対応し、
+  trial-end-notification-design.mdを新規作成した。aircon-pasha/trial-end-notification-
+  design.md(フェーズ129)の構成(トリガー条件→通知メッセージ→終了後の挙動→実装への
+  影響メモ→今後の課題)を踏襲しつつ、本venture固有の無料トライアル条件(「生涯最初の
+  生成1回まで無料」という一度切りフラグ+「workshop作成から30日」の二重条件、
+  trial-end-condition-design.mdフェーズ47で確定)に合わせ、(A)生涯最初の生成完了時
+  (返信に便乗)・(B)30日経過時(日次スケジューラ、本venture未着手のため次の課題)の
+  2経路と二重送信防止方針を設計した。通知文言にはcontent-generation-time-estimate.md
+  (フェーズ18)の1回20分試算を用いた「浮いた事務作業時間の目安」を含めた。実コード
+  実装・(B)経路用の日次スケジューラ本体・通知メッセージからの直接ボタン起動配線は
+  いずれも次の課題として残した。コード変更は無く、venture全体283件
+  (`python3 prototype/test_usage_counter_workshop.py`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書作成・記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-09 08:00 UTC(フェーズ59: checkout-initiation-flow-design.mdの記載漏れ
+2件〈Stripe Webhook実装・トライアル終了時生成一時停止配線、いずれも既に対応済みだった
+のに残課題のまま放置されていた〉を訂正。残っていた真の未着手項目だったトライアル終了
+通知メッセージをtrial-end-notification-design.mdとして新規設計。実コード実装・日次
+スケジューラ本体は次の課題として残る)

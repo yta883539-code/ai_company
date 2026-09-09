@@ -109,19 +109,31 @@ dict`(新設`prototype/checkout_session.py`):
 
 ## 残課題
 
-- Stripe Webhook(`checkout.session.completed`)受信・署名検証・イベントディスパッチの
+- ~~Stripe Webhook(`checkout.session.completed`)受信・署名検証・イベントディスパッチの
   設計・実装(course-set-pasha/stripe-webhook-*-design.md相当)。受信後、
   `client_reference_id`(=`workshop_id`)から対象workshopを特定し、
   `set_stripe_customer_id`・`set_subscription_status(workshop_id, "active")`を呼び出す
-  処理が必要(フェーズ49で実装済みのメソッドを実際に配線する箇所)。
-- フェーズ48で見送った`is_trial_period_over`のトライアル終了時生成一時停止への配線
-  (本ドキュメントとStripe Webhook実装が揃った後に着手)。
-- トライアル終了通知メッセージ自体(上記2(a))は本venture未設計。次の課題として残す。
+  処理が必要(フェーズ49で実装済みのメソッドを実際に配線する箇所)。~~ →
+  フェーズ51(2026-09-06 21:00 UTC)でstripe-webhook-checkout-completed-design.mdとして
+  設計・`prototype/stripe_webhook.py`の`handle_checkout_session_completed()`として実装
+  済み。`set_stripe_customer_id`・`set_subscription_status(workshop_id, "active")`双方を
+  呼び出していることをコード確認済み(2026-09-09 08:00 UTC・フェーズ59で本ドキュメントの
+  記載漏れとして発見・訂正)。
+- ~~フェーズ48で見送った`is_trial_period_over`のトライアル終了時生成一時停止への配線
+  (本ドキュメントとStripe Webhook実装が揃った後に着手)。~~ →
+  フェーズ52(2026-09-09 00:00 UTC)でtrial-end-condition-design.mdの`process_generation_
+  request`へ配線済み(`TrialPeriodOverError`)。同じく2026-09-09 08:00 UTC・フェーズ59で
+  記載漏れとして発見・訂正。
+- ~~トライアル終了通知メッセージ自体(上記2(a))は本venture未設計。次の課題として残す。~~
+  → フェーズ59(2026-09-09 08:00 UTC)でtrial-end-notification-design.mdとして設計した。
+  実コード実装・(B)期間到達経路用の日次スケジューラ本体は同ドキュメント6節の通り次の
+  課題として残る。
 - ~~意図検知(「有料プランを始めたい」等)のllm-system-prompt-draft.mdへの厳守事項追加
   (解約意図検知の厳守事項7aと対になる新規項目)は本ドキュメントでは未着手。~~
   → フェーズ57(2026-09-09 06:00 UTC)でllm-system-prompt-draft.mdに厳守事項7bとして
-  対応済み。対応するschema拡張(status enum拡張)は実API接続オーナー承認待ちのため
-  引き続き次の課題として残る。
+  対応済み。対応するschema拡張(status enum拡張)もフェーズ58(2026-09-09 07:00 UTC)で
+  `checkout_intent`/`pricing_inquiry`/`checkout_intent_unclear`として対応済み
+  (`includes_checkout_url`は常にfalse)。
 - `plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定は、実Stripe
   ダッシュボードでの商品登録(オーナー承認待ち)と合わせて行う。
 - 実LINE Messaging API・実Stripe API接続はオーナー承認待ち(pending-approval.md参照)。
