@@ -3455,6 +3455,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする)
+- フェーズ続き213(2026-09-10 23:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  subscription-billing-cost-estimate.md「結論・次のステップ候補」に残っていた1点目
+  (クレジットカード継続課金採用時、pricing-plan.mdの無料トライアル条件「カード登録なしで
+  開始可能」と、トライアル終了後の本課金移行時にカード登録を求めるタイミングとの整合性の
+  確認が必要、という2026-08-14時点の課題)を確認した。本ドキュメントの4日後に作成された
+  billing-upgrade-flow-design.md・checkout-initiation-flow-design.mdにて、「トライアル
+  終了時は自動課金せず、利用実績レポート提示→オーナーの能動的な有料プラン選択→その時点で
+  初めてカード登録」という順序が実際のLINE案内文言・画面遷移として既に具体化・実装済みで
+  あり、本ドキュメントが求めていた整合性(トライアル中は登録不要、継続利用の意思表示時に
+  初めて登録を求める設計)がまさにその通りに成立していることを確認できたため、
+  subscription-billing-cost-estimate.md側の当該項目を解消済みに更新した(webhook-function-
+  a-implementation.md・firestore-data-model.md等と同種の「先行docの課題が後続docで
+  実質解消済みなのに記載が同期していない」パターン)。コード変更は無く、venture全体771件
+  全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。
