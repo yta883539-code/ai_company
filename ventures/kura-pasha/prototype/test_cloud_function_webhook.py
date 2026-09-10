@@ -28,6 +28,7 @@ from cloud_function_webhook import (
     dispatch_webhook_events,
     format_checkout_reply_message,
     format_follow_welcome_message,
+    format_limit_approaching_notice,
     format_trial_end_notification_message,
     process_follow_event,
     process_memo_event,
@@ -42,6 +43,7 @@ from usage_counter_workshop import (
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
     InMemoryWorkshopStore,
+    UsageCheckResult,
 )
 from validate_test_cases import TEST_CASES
 from workshop_linking import InMemoryLinkingCodeStore, issue_linking_code_on_follow
@@ -153,6 +155,57 @@ def test_format_trial_end_notification_message_rejects_negative_count():
         check("負のgeneration_countでValueError", False)
     except ValueError:
         check("負のgeneration_countでValueError", True)
+
+
+# ---------------------------------------------------------------------------
+# format_limit_approaching_notice()(フェーズ73、limit-approaching-notification-design.md)
+# ---------------------------------------------------------------------------
+
+def _usage(monthly_limit: int, count_after_increment: int, overage_price_jpy: int = 250) -> UsageCheckResult:
+    return UsageCheckResult(
+        workshop_id="W_X", plan_id="light", month="2026-03",
+        count_after_increment=count_after_increment, monthly_limit=monthly_limit,
+        within_limit=count_after_increment <= monthly_limit, overage_price_jpy=overage_price_jpy,
+    )
+
+
+def test_format_limit_approaching_notice_at_remaining_one():
+    message = format_limit_approaching_notice(_usage(3, 2, overage_price_jpy=250))
+    check("残り1回到達時は通知文言を返す", message is not None)
+    check("残り1回の文言を含む", "残り1回" in message)
+    check("従量単価を埋め込む", "250円" in message)
+
+
+def test_format_limit_approaching_notice_returns_none_before_threshold():
+    check(
+        "残り1回に達していない場合はNone(1回目/3回中)",
+        format_limit_approaching_notice(_usage(3, 1)) is None,
+    )
+    check(
+        "残り1回に達していない場合はNone(5回目/8回中)",
+        format_limit_approaching_notice(_usage(8, 5)) is None,
+    )
+
+
+def test_format_limit_approaching_notice_returns_none_exactly_at_limit():
+    check(
+        "上限ちょうど(超過なし)の場合はNone",
+        format_limit_approaching_notice(_usage(3, 3)) is None,
+    )
+
+
+def test_format_limit_approaching_notice_on_overage():
+    message = format_limit_approaching_notice(_usage(3, 4, overage_price_jpy=250))
+    check("上限超過時は通知文言を返す", message is not None)
+    check("上限超過の文言を含む", "上限を超えた" in message)
+    check("従量単価を埋め込む", "250円" in message)
+
+
+def test_format_limit_approaching_notice_guards_monthly_limit_le_one():
+    check(
+        "monthly_limit<=1の場合は「残り1回」判定を誤発火しない",
+        format_limit_approaching_notice(_usage(1, 1)) is None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -620,6 +673,33 @@ def test_process_memo_event_does_not_append_trial_end_notification_on_second_suc
         format_trial_end_notification_message(1) not in second_result.reply_text,
     )
     check("2回目もquick_replyは付与しない", reply_client.quick_replies_sent[1] is None)
+
+
+def test_process_memo_event_appends_limit_approaching_and_overage_notices():
+    """limit-approaching-notification-design.md 2節: ライトプラン(月3回)で4回連続生成し、
+    2回目(残り1回)・4回目(上限超過)にのみ通知が付記されることを確認する。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LIMIT", "W_LIMIT")
+    workshops.set_plan("W_LIMIT", "light")
+    workshops.set_members("W_LIMIT", "U_LIMIT", ["U_LIMIT"])
+    workshops.set_subscription_status("W_LIMIT", "active")
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 4)
+    results = [
+        process_memo_event(
+            _make_event("新規、ブリティッシュ、牛革", user_id="U_LIMIT"),
+            llm_call, reply_client,
+            user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+            now=FEB,
+        )
+        for _ in range(4)
+    ]
+    check("1回目(3回中)は残り1回通知を含まない", "残り1回" not in results[0].reply_text)
+    check("2回目(3回中、残り1回)は通知を含む", "残り1回" in results[1].reply_text)
+    check("3回目(上限ちょうど)は通知を含まない", "残り1回" not in results[2].reply_text and "上限を超えた" not in results[2].reply_text)
+    check("4回目(上限超過)は超過通知を含む", "上限を超えた" in results[3].reply_text)
+    check("超過分の従量単価(250円)を含む", "250円" in results[3].reply_text)
 
 
 def test_process_memo_event_skips_store_integration_when_stores_not_provided():
@@ -1168,6 +1248,11 @@ if __name__ == "__main__":
     test_format_trial_end_notification_message_omits_time_estimate_when_generation_count_zero()
     test_format_trial_end_notification_message_does_not_embed_postback_data_or_url()
     test_format_trial_end_notification_message_rejects_negative_count()
+    test_format_limit_approaching_notice_at_remaining_one()
+    test_format_limit_approaching_notice_returns_none_before_threshold()
+    test_format_limit_approaching_notice_returns_none_exactly_at_limit()
+    test_format_limit_approaching_notice_on_overage()
+    test_format_limit_approaching_notice_guards_monthly_limit_le_one()
     test_format_follow_welcome_message_embeds_linking_code()
     test_process_follow_event_ignores_non_follow_event()
     test_process_follow_event_issues_code_and_sends_welcome_message()
@@ -1198,6 +1283,7 @@ if __name__ == "__main__":
     test_process_memo_event_allows_generation_within_payment_failure_grace_period()
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
+    test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()

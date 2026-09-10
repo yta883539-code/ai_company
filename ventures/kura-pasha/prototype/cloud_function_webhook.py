@@ -49,6 +49,7 @@ from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
     PaymentSuspendedError,
     TrialPeriodOverError,
+    UsageCheckResult,
     UsageCounterStoreProtocol,
     UserProfileStoreProtocol,
     WorkshopStoreProtocol,
@@ -178,6 +179,31 @@ def format_trial_end_notification_message(generation_count: int) -> str:
         "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。",
     ]
     return "\n".join(lines)
+
+
+def format_limit_approaching_notice(usage: UsageCheckResult) -> Optional[str]:
+    """limit-approaching-notification-design.md 3節・4節の通知文言を組み立てる。
+
+    `check_and_increment_usage()`が返す`UsageCheckResult`をそのまま入力とする。
+    - 残り1回(`count_after_increment == monthly_limit - 1`)に達した生成完了時点:
+      上限接近の事前通知文言を返す。
+    - 上限を超えた(`count_after_increment > monthly_limit`)生成完了時点:
+      従量課金発生の通知文言を返す。
+    - それ以外: Noneを返す(呼び出し側は追記しない)。
+    `monthly_limit <= 1`の場合は「残り1回」判定自体が成立しない(design 4節のガード)ため
+    上限超過判定のみ行う。
+    """
+    if usage.monthly_limit - 1 >= 1 and usage.count_after_increment == usage.monthly_limit - 1:
+        return (
+            "※今月の生成回数は残り1回です"
+            f"(上限到達後は1回あたり{usage.overage_price_jpy}円の追加料金がかかります)"
+        )
+    if usage.count_after_increment > usage.monthly_limit:
+        return (
+            "※今月の無料生成回数の上限を超えたため、"
+            f"本回は追加料金{usage.overage_price_jpy}円が発生します"
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +599,13 @@ def process_memo_event(
        ユーザーへ届かないまま「送信済み」として記録される(二重送信防止フラグが先に
        立ってしまうため、次回以降の生成でも再送されない)。発生頻度は低いと見込むが
        未解消の既知の制約として次の課題に残す。
+    6. (フェーズ73、新設) 4.の`process_generation_request()`が返す
+       `GenerationRequestResult.usage`(`UsageCheckResult`)を
+       `format_limit_approaching_notice()`(limit-approaching-notification-design.md)に
+       渡し、月間生成回数が「残り1回」に達した、または上限を超えた場合の定型文言を
+       最終的な返信文の末尾に付記する。5.のトライアル終了通知と判定条件が独立している
+       (現行3プランでは原理的に同一回で重複しない)ため、両方が真になった場合は
+       いずれも付記する。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -583,6 +616,7 @@ def process_memo_event(
     user_id = event.get("source", {}).get("userId")
 
     trial_end_notification_due = False
+    limit_notice: Optional[str] = None
     if (
         user_profile_store is not None
         and workshop_store is not None
@@ -611,6 +645,7 @@ def process_memo_event(
                 payment_suspended=True,
             )
         trial_end_notification_due = generation_result.trial_end_notification_due
+        limit_notice = format_limit_approaching_notice(generation_result.usage)
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text)
@@ -671,6 +706,8 @@ def process_memo_event(
             instance, portal_link_provider=portal_link_provider, user_id=user_id,
         )
         checkout_url = None
+    if limit_notice is not None:
+        reply_text = f"{reply_text}\n\n{limit_notice}"
     if trial_end_notification_due:
         reply_text = f"{reply_text}\n\n{format_trial_end_notification_message(1)}"
     reply_sent = _reply_with_retry(

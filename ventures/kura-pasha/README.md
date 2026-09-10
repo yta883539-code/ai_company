@@ -1361,3 +1361,30 @@ checkout_intent分岐からも呼び出せるようにした(handle_checkout_int
 従来通りcheckout_notice.bodyのみを返す後方互換。新規テスト13件追加、venture全体520件・
 schema検証27件いずれもパス。トライアル終了接近通知からの起動(design 2節(a))は次の課題
 として残る)
+
+- フェーズ73(2026-09-10 21:00 UTC): pricing-plan.md「月間生成回数の上限超過時の挙動」・
+  checkout-initiation-flow-design.md 2節(a)にそれぞれ残っていた、月間生成回数の上限接近時
+  通知が未設計という課題に着手した。aircon-pasha/limit-approaching-notification-design.md
+  (月60〜100回、閾値「残り5回」)をそのまま流用すると本ventureのライトプラン(月3回)には
+  閾値自体が成立しないため、本venture固有の低頻度利用(pricing-plan.mdより月3回/8回/20回)
+  に合わせて独自にlimit-approaching-notification-design.mdとして再設計した(3プラン共通
+  閾値「残り1回」を採用)。`prototype/usage_counter_workshop.py`の
+  `check_and_increment_usage()`が既に返す`UsageCheckResult`(count_after_increment・
+  monthly_limit・overage_price_jpy)をそのまま入力とする純粋関数
+  `format_limit_approaching_notice()`を`prototype/cloud_function_webhook.py`に新設し
+  (`format_trial_end_notification_message()`と同じ配置方針)、`process_memo_event()`の
+  usage_counter_store連携ブロック(フェーズ64)内で`generation_result.usage`を渡し、
+  最終的な返信文の末尾にトライアル終了通知と同様の位置で付記するようにした
+  (両者は判定条件が独立しており現行3プランでは同一回で重複しない)。新規テスト15件
+  (format_limit_approaching_notice()単体5関数・process_memo_event統合1関数〈4回連続生成で
+  2回目=残り1回・4回目=超過を確認〉、check()単位で計15件)追加、venture全体520件→535件
+  全件・schema検証27件いずれもパスを確認した。トライアル
+  期間中の仮plan_idに基づく本通知の文言精度(design 5節)は次の課題として残る。承認不要な
+  設計文書作成・プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-10 21:00 UTC(フェーズ73: 月間生成回数の上限接近時通知を
+limit-approaching-notification-design.mdとして設計〈3プラン共通閾値「残り1回」〉、
+format_limit_approaching_notice()を新設しprocess_memo_event()の返信文末尾に配線した。
+新規テスト15件追加、venture全体535件・schema検証27件いずれもパス。トライアル期間中の
+文言精度は次の課題として残る)
