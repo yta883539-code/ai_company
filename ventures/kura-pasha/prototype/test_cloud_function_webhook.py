@@ -9,7 +9,9 @@ import random
 from datetime import datetime, timedelta
 
 from cloud_function_webhook import (
+    ALREADY_SUBSCRIBED_NOTICE,
     API_FAILURE_FALLBACK_MESSAGE,
+    CONTRACTOR_ONLY_CHECKOUT_NOTICE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
     PAYMENT_SUSPENDED_NOTICE,
@@ -18,21 +20,24 @@ from cloud_function_webhook import (
     TRIAL_END_QUICK_REPLY,
     TRIAL_PERIOD_OVER_NOTICE,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    InMemoryCheckoutSessionClient,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     LlmApiError,
     QuickReplyButton,
     dispatch_webhook_events,
+    format_checkout_reply_message,
     format_follow_welcome_message,
     format_trial_end_notification_message,
     process_follow_event,
     process_memo_event,
     process_message_event,
+    process_postback_event,
     process_unfollow_event,
     receive_webhook,
     verify_line_signature,
 )
-from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_postback_data
 from usage_counter_workshop import (
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
@@ -635,7 +640,153 @@ def test_process_message_event_replies_linking_required_when_user_id_missing():
 
 
 # ---------------------------------------------------------------------------
-# dispatch_webhook_events() / receive_webhook()(フェーズ65)
+# process_postback_event()(フェーズ71)
+# ---------------------------------------------------------------------------
+
+def _make_postback_event(
+    data: str, *, reply_token: str = "reply-token-postback", user_id: str = "U_CONTRACTOR"
+) -> dict:
+    return {
+        "type": "postback",
+        "postback": {"data": data},
+        "replyToken": reply_token,
+        "source": {"userId": user_id},
+    }
+
+
+def _link_contractor_workshop(profiles, workshops, user_id: str, workshop_id: str) -> None:
+    """process_postback_event()のテスト共通セットアップ: user_idを契約者とするworkshopを
+    連携する(profiles.link()・workshops.set_members()の組み合わせ)。"""
+    profiles.link(user_id, workshop_id)
+    workshops.set_plan(workshop_id, "standard")
+    workshops.set_members(workshop_id, user_id, [user_id])
+
+
+def test_process_postback_event_ignores_unknown_postback_data():
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+    result = process_postback_event(
+        _make_postback_event("action=unknown"), checkout_client, reply_client, profiles, workshops,
+    )
+    check("未知のpostback dataはhandled=False", result.handled is False)
+    check("未知のpostback dataは返信しない", result.reply_sent is False)
+    check("未知のpostback dataはCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_postback_event_creates_checkout_session_for_linked_contractor():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_CHECKOUT")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_postback_event(
+        _make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_CONTRACTOR"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check("契約者本人・未契約workshopではhandled=True", result.handled is True)
+    check("Checkout SessionのURLが返信される", result.reply_sent is True)
+    check("checkout_urlがInMemoryCheckoutSessionClientの固定URL", result.checkout_url == "https://checkout.stripe.com/stub-session")
+    check(
+        "返信本文はformat_checkout_reply_message()と一致する",
+        reply_client.sent[0][1] == format_checkout_reply_message(result.checkout_url),
+    )
+    check("プラン未指定時はDEFAULT_CHECKOUT_PLAN(standard)でparamsが組み立てられる", checkout_client.calls[0]["line_items"][0]["price"].endswith("standard_PLACEHOLDER"))
+    check("client_reference_idはworkshop_id", checkout_client.calls[0]["client_reference_id"] == "W_CHECKOUT")
+    check("既存stripe_customer_idが無い場合はcustomerキーを含まない", "customer" not in checkout_client.calls[0])
+
+
+def test_process_postback_event_uses_plan_id_from_postback_data():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_LIGHT")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    process_postback_event(
+        _make_postback_event(build_start_checkout_postback_data("light"), user_id="U_CONTRACTOR"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check(
+        "plan=light指定時はlightプランのStripe Price IDが使われる",
+        checkout_client.calls[0]["line_items"][0]["price"].endswith("light_PLACEHOLDER"),
+    )
+
+
+def test_process_postback_event_reuses_existing_stripe_customer_id():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_REPEAT")
+    workshops.set_stripe_customer_id("W_REPEAT", "cus_existing123")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    process_postback_event(
+        _make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_CONTRACTOR"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check("既存stripe_customer_idがある場合はcustomerキーに設定される", checkout_client.calls[0]["customer"] == "cus_existing123")
+
+
+def test_process_postback_event_replies_linking_required_when_unlinked():
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_postback_event(
+        _make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_UNLINKED"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check("未連携user_idはhandled=True", result.handled is True)
+    check("未連携user_idはLINKING_REQUIRED_MESSAGEを返す", reply_client.sent[0][1] == LINKING_REQUIRED_MESSAGE)
+    check("未連携user_idはCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_postback_event_replies_linking_required_when_user_id_missing():
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+    event = {"type": "postback", "postback": {"data": START_CHECKOUT_POSTBACK_DATA}, "replyToken": "r1", "source": {}}
+
+    result = process_postback_event(event, checkout_client, reply_client, profiles, workshops)
+    check("user_id欠落時もhandled=True", result.handled is True)
+    check("user_id欠落時はLINKING_REQUIRED_MESSAGEを返す", reply_client.sent[0][1] == LINKING_REQUIRED_MESSAGE)
+
+
+def test_process_postback_event_rejects_non_contractor_member():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_CONTRACTOR", "W_MULTI")
+    workshops.set_plan("W_MULTI", "multi_craftsman")
+    workshops.set_members("W_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    profiles.link("U_MEMBER", "W_MULTI")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_postback_event(
+        _make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_MEMBER"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check("契約者以外はhandled=True", result.handled is True)
+    check("契約者以外はCONTRACTOR_ONLY_CHECKOUT_NOTICEを返す", reply_client.sent[0][1] == CONTRACTOR_ONLY_CHECKOUT_NOTICE)
+    check("契約者以外はCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_postback_event_rejects_when_already_subscribed():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_ACTIVE_CHECKOUT")
+    workshops.set_subscription_status("W_ACTIVE_CHECKOUT", "active")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_postback_event(
+        _make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_CONTRACTOR"),
+        checkout_client, reply_client, profiles, workshops,
+    )
+    check("契約中(active)はhandled=True", result.handled is True)
+    check("契約中(active)はALREADY_SUBSCRIBED_NOTICEを返す", reply_client.sent[0][1] == ALREADY_SUBSCRIBED_NOTICE)
+    check("契約中(active)はCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events() / receive_webhook()(フェーズ65、フェーズ71でpostbackを追加)
 # ---------------------------------------------------------------------------
 
 def test_dispatch_webhook_events_routes_message_event_to_process_memo_event():
@@ -767,6 +918,72 @@ def test_dispatch_webhook_events_skips_follow_when_reply_client_missing():
     check("reply_client未接続時はignored_typesに記録される", result.ignored_types == ["follow"])
 
 
+def test_dispatch_webhook_events_routes_postback_event_to_process_postback_event():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_DISPATCH_CHECKOUT")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = dispatch_webhook_events(
+        [_make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_CONTRACTOR")],
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        checkout_session_client=checkout_client,
+    )
+    check("postback1件がpostback_resultsに1件記録される", len(result.postback_results) == 1)
+    check("postback_resultsの中身はhandled=True", result.postback_results[0].handled is True)
+    check("ignored_typesは空", result.ignored_types == [])
+    check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_dispatch_webhook_events_skips_postback_when_checkout_session_client_missing():
+    profiles, workshops, _ = _make_stores()
+    result = dispatch_webhook_events(
+        [_make_postback_event(START_CHECKOUT_POSTBACK_DATA)],
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        checkout_session_client=None,
+    )
+    check("checkout_session_client未接続時はpostback_resultsが空", result.postback_results == [])
+    check("checkout_session_client未接続時はignored_typesに記録される", result.ignored_types == ["postback"])
+
+
+def test_dispatch_webhook_events_skips_postback_when_user_profile_store_missing():
+    _, workshops, _ = _make_stores()
+    result = dispatch_webhook_events(
+        [_make_postback_event(START_CHECKOUT_POSTBACK_DATA)],
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=None, workshop_store=workshops,
+        checkout_session_client=InMemoryCheckoutSessionClient(),
+    )
+    check("user_profile_store未接続時はpostback_resultsが空", result.postback_results == [])
+    check("user_profile_store未接続時はignored_typesに記録される", result.ignored_types == ["postback"])
+
+
+def test_dispatch_webhook_events_skips_postback_when_workshop_store_missing():
+    profiles, _, _ = _make_stores()
+    result = dispatch_webhook_events(
+        [_make_postback_event(START_CHECKOUT_POSTBACK_DATA)],
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=None,
+        checkout_session_client=InMemoryCheckoutSessionClient(),
+    )
+    check("workshop_store未接続時はpostback_resultsが空", result.postback_results == [])
+    check("workshop_store未接続時はignored_typesに記録される", result.ignored_types == ["postback"])
+
+
+def test_dispatch_webhook_events_skips_postback_when_reply_client_missing():
+    profiles, workshops, _ = _make_stores()
+    result = dispatch_webhook_events(
+        [_make_postback_event(START_CHECKOUT_POSTBACK_DATA)],
+        reply_client=None,
+        user_profile_store=profiles, workshop_store=workshops,
+        checkout_session_client=InMemoryCheckoutSessionClient(),
+    )
+    check("reply_client未接続時はpostback_resultsが空", result.postback_results == [])
+    check("reply_client未接続時はignored_typesに記録される", result.ignored_types == ["postback"])
+
+
 _TEST_CHANNEL_SECRET = "test-channel-secret"
 
 
@@ -822,6 +1039,23 @@ def test_receive_webhook_dispatches_message_event_on_success():
     check("実際に返信が送られている", len(reply_client.sent) == 1)
 
 
+def test_receive_webhook_dispatches_postback_event_on_success():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_RECEIVE_CHECKOUT")
+    body = _webhook_body([_make_postback_event(START_CHECKOUT_POSTBACK_DATA, user_id="U_CONTRACTOR")])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    reply_client = InMemoryReplyClient()
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        checkout_session_client=InMemoryCheckoutSessionClient(),
+    )
+    check("postbackイベントも200で処理される", result.status_code == 200)
+    check("dispatch_resultにpostback_resultsが1件ある", len(result.dispatch_result.postback_results) == 1)
+    check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
 def test_receive_webhook_with_all_dependencies_none_does_not_raise():
     body = _webhook_body([_make_event("新規、ブリティッシュ、牛革")])
     signature = _sign(body, _TEST_CHANNEL_SECRET)
@@ -874,6 +1108,14 @@ if __name__ == "__main__":
     test_process_message_event_creates_workshop_on_valid_linking_code()
     test_process_message_event_replies_linking_required_on_invalid_text()
     test_process_message_event_replies_linking_required_when_user_id_missing()
+    test_process_postback_event_ignores_unknown_postback_data()
+    test_process_postback_event_creates_checkout_session_for_linked_contractor()
+    test_process_postback_event_uses_plan_id_from_postback_data()
+    test_process_postback_event_reuses_existing_stripe_customer_id()
+    test_process_postback_event_replies_linking_required_when_unlinked()
+    test_process_postback_event_replies_linking_required_when_user_id_missing()
+    test_process_postback_event_rejects_non_contractor_member()
+    test_process_postback_event_rejects_when_already_subscribed()
     test_dispatch_webhook_events_routes_message_event_to_process_memo_event()
     test_dispatch_webhook_events_routes_valid_linking_code_to_workshop_creation()
     test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
@@ -884,11 +1126,17 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_routes_follow_event_to_process_follow_event()
     test_dispatch_webhook_events_skips_follow_when_linking_store_missing()
     test_dispatch_webhook_events_skips_follow_when_reply_client_missing()
+    test_dispatch_webhook_events_routes_postback_event_to_process_postback_event()
+    test_dispatch_webhook_events_skips_postback_when_checkout_session_client_missing()
+    test_dispatch_webhook_events_skips_postback_when_user_profile_store_missing()
+    test_dispatch_webhook_events_skips_postback_when_workshop_store_missing()
+    test_dispatch_webhook_events_skips_postback_when_reply_client_missing()
     test_receive_webhook_rejects_invalid_signature()
     test_receive_webhook_rejects_missing_signature_header()
     test_receive_webhook_rejects_invalid_json()
     test_receive_webhook_rejects_missing_events_key()
     test_receive_webhook_dispatches_message_event_on_success()
+    test_receive_webhook_dispatches_postback_event_on_success()
     test_receive_webhook_with_all_dependencies_none_does_not_raise()
     print(f"PASS={PASS} FAIL={FAIL}")
     if FAIL:

@@ -39,7 +39,11 @@ from typing import List, Optional, Protocol, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
-from checkout_session import START_CHECKOUT_POSTBACK_DATA
+from checkout_session import (
+    START_CHECKOUT_POSTBACK_DATA,
+    build_checkout_session_params,
+    parse_start_checkout_postback_data,
+)
 from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
     PaymentSuspendedError,
@@ -774,9 +778,137 @@ def process_message_event(
 
 
 # ---------------------------------------------------------------------------
+# process_postback_event()(フェーズ71)
+#
+# フェーズ70で次の課題として残した「postback(有料プラン開始ボタン押下の処理関数)」に
+# 着手する。aircon-pasha/prototype/cloud_function_webhook.pyのprocess_postback_event()・
+# checkout-initiation-flow-design.md(フェーズ50)3節の`handle_checkout_intent`手順2〜7
+# (手順1のLLM意図検知はpostback発火時には不要、ボタンのdata自体がstart_checkout系である
+# ことで意図が既に確定しているため)と同じ骨格を、本ventureのworkshop単位の
+# WorkshopStoreProtocol/UserProfileStoreProtocolへ翻案する。トライアル終了通知の
+# 「▼ 有料プランへ進む」ボタン(TRIAL_END_QUICK_REPLY、フェーズ61・62で
+# postback_data="action=start_checkout"を確定済み)がタップされた際の入口となる。
+#
+# aircon-pashaのprocess_postback_event()と異なり、本ventureにはStripe Billing Portal相当の
+# `action=update_payment_method`ボタンの設計自体が無い(payment-failure-dunning-design.md
+# 「1. 前提」参照、PortalLinkProviderは通知本文へのURL差し込みではなく文言案内のみで代替する
+# 設計のため)。よって本フェーズはstart_checkout系postback1種類のみを対象とし、それ以外の
+# `data`(未知のアクション・未知のplan_id)はhandled=Falseとして素通りする(将来別アクションを
+# 追加する場合の拡張点、aircon-pashaと同じ考え方)。
+# ---------------------------------------------------------------------------
+
+CONTRACTOR_ONLY_CHECKOUT_NOTICE = (
+    "有料プランのお申し込みは、契約者(工房を最初に作成した方)のみ操作できます。"
+    "お手数ですが、契約者の方から改めてお申し込みください。"
+)
+
+ALREADY_SUBSCRIBED_NOTICE = (
+    "既にご契約中のため、この操作は不要です。プラン変更やお手続きについてご不明な点が"
+    "あれば、そのままメモとしてご質問をお送りください。"
+)
+
+
+def format_checkout_reply_message(checkout_url: str) -> str:
+    """checkout-initiation-flow-design.md 3節手順7の文面。aircon-pashaの
+    format_checkout_reply_message()と同じくプレーンテキストでURLを案内する
+    (Flex Message化は本フェーズの対応範囲外)。"""
+    return (
+        "お支払い手続きへのリンクをご案内します。下記URLからお進みください。\n"
+        f"{checkout_url}"
+    )
+
+
+class CheckoutSessionClient(Protocol):
+    """Stripe Checkout Session作成API呼び出しを表す差し替え可能なProtocol
+    (checkout-initiation-flow-design.md 3節手順6、llm_call/reply_clientと同じ位置づけ)。
+    実際の`stripe.checkout.Session.create(**params)`呼び出しは実Stripeアカウント接続後
+    (オーナー承認待ち)に実クライアントへ差し替える。"""
+
+    def create(self, params: dict) -> str:
+        """`params`(build_checkout_session_params()の返り値)からCheckout SessionのURLを
+        返す契約とする。"""
+        ...
+
+
+class InMemoryCheckoutSessionClient:
+    """実Stripe接続の代わりに固定のプレースホルダURLを返すだけの検証用クライアント。
+    呼び出しに使われたparamsを記録し、テストで組み立て内容を検証できるようにする。"""
+
+    def __init__(self, url: str = "https://checkout.stripe.com/stub-session") -> None:
+        self._url = url
+        self.calls: List[dict] = []
+
+    def create(self, params: dict) -> str:
+        self.calls.append(params)
+        return self._url
+
+
+@dataclass
+class PostbackEventResult:
+    """process_postback_event()の結果。"""
+
+    handled: bool
+    reply_sent: bool
+    checkout_url: Optional[str] = None
+
+
+def process_postback_event(
+    event: dict,
+    checkout_session_client: CheckoutSessionClient,
+    reply_client: ReplyClient,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+) -> PostbackEventResult:
+    """LINEの`postback`イベント1件を処理する(署名検証済みの前提、checkout-initiation-
+    flow-design.md 3節手順2〜7)。
+
+    1. `event["postback"]["data"]`をparse_start_checkout_postback_data()で解釈し、
+       start_checkout系以外(未知のアクション・未知のplan_id)はhandled=Falseで素通りする。
+    2. `user_profile_store.get_workshop_id(user_id)`でworkshopを特定する。user_id欠落・
+       未連携(workshop_id未設定)の場合はLINKING_REQUIRED_MESSAGEを返す(design 3節手順2の
+       異常系、craftsman-account-linking-design.mdの連携コード案内へフォールバック)。
+    3. `workshop_store.get_contractor_user_id(workshop_id)`と`user_id`が一致しない場合、
+       CONTRACTOR_ONLY_CHECKOUT_NOTICEを返し打ち切る(design 1節の権限モデル、design 3節
+       手順3)。
+    4. `workshop_store.get_subscription_status(workshop_id)`が既に`"active"`の場合、
+       ALREADY_SUBSCRIBED_NOTICEを返し重複契約を防ぐ(design 3節手順4)。
+    5. `workshop_store.get_stripe_customer_id(workshop_id)`(既存顧客の再利用、design 3節
+       手順5)・`build_checkout_session_params()`(design 4節)・
+       `checkout_session_client.create()`(design 3節手順6)でCheckout SessionのURLを取得し、
+       `format_checkout_reply_message()`で返信する(design 3節手順7)。
+    """
+    data = event.get("postback", {}).get("data")
+    plan_id = parse_start_checkout_postback_data(data)
+    if plan_id is None:
+        return PostbackEventResult(handled=False, reply_sent=False)
+
+    reply_token = event["replyToken"]
+    user_id = event.get("source", {}).get("userId")
+    workshop_id = user_profile_store.get_workshop_id(user_id) if user_id else None
+
+    if workshop_id is None:
+        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
+        return PostbackEventResult(handled=True, reply_sent=reply_sent)
+
+    if user_id != workshop_store.get_contractor_user_id(workshop_id):
+        reply_sent = _reply_with_retry(reply_client, reply_token, CONTRACTOR_ONLY_CHECKOUT_NOTICE)
+        return PostbackEventResult(handled=True, reply_sent=reply_sent)
+
+    if workshop_store.get_subscription_status(workshop_id) == "active":
+        reply_sent = _reply_with_retry(reply_client, reply_token, ALREADY_SUBSCRIBED_NOTICE)
+        return PostbackEventResult(handled=True, reply_sent=reply_sent)
+
+    existing_stripe_customer_id = workshop_store.get_stripe_customer_id(workshop_id)
+    params = build_checkout_session_params(workshop_id, plan_id, existing_stripe_customer_id)
+    checkout_url = checkout_session_client.create(params)
+    reply_sent = _reply_with_retry(reply_client, reply_token, format_checkout_reply_message(checkout_url))
+    return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=checkout_url)
+
+
+# ---------------------------------------------------------------------------
 # dispatch_webhook_events() + receive_webhook()(フェーズ65、フェーズ68で follow を追加、
 # フェーズ69でmessageの委譲先をprocess_message_event()へ差し替え、フェーズ70で unfollow
-# を追加)
+# を追加、フェーズ71で postback を追加)
 #
 # README.md「次にやること」に残っていたreceive_webhook()(HTTPエントリポイント)・
 # dispatch_webhook_events()に着手する。aircon-pashaのwebhook-http-entry-point-design.md
@@ -786,8 +918,10 @@ def process_message_event(
 # process_message_event()(連携コード判定を挟む)へ差し替えた。フェーズ70でunfollowも
 # process_unfollow_event()(handled=Trueを返すのみの受け皿)へ振り分けるようにした。
 # unfollowはfollow/messageと異なり依存関係の有無を問わず常に処理する(返信を伴わず、
-# 未接続でも安全側にフォールバックする必要が無いため)。postbackは処理関数が本venture
-# 未実装のため引き続きignored_typesに記録して素通りする(次の課題として残す)。
+# 未接続でも安全側にフォールバックする必要が無いため)。フェーズ71でpostbackも
+# process_postback_event()へ振り分けるようにした(message/followと同様、依存する
+# reply_client・user_profile_store・workshop_store・checkout_session_clientのいずれかが
+# 未接続の場合はignored_typesに記録して素通りする安全側フォールバック)。
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -797,6 +931,7 @@ class DispatchResult:
     message_results: List[MemoProcessResult] = field(default_factory=list)
     follow_results: List[FollowProcessResult] = field(default_factory=list)
     unfollow_results: List[UnfollowProcessResult] = field(default_factory=list)
+    postback_results: List[PostbackEventResult] = field(default_factory=list)
     ignored_types: List[str] = field(default_factory=list)
 
 
@@ -810,6 +945,7 @@ def dispatch_webhook_events(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    checkout_session_client: Optional[CheckoutSessionClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
@@ -826,12 +962,21 @@ def dispatch_webhook_events(
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。
     - "unfollow"(フェーズ70で追加): 1件ずつprocess_unfollow_event()へ渡す。返信を伴わず
       依存する外部ストアも無いため、message/followと異なり依存関係の有無を問わず常に処理する。
-    - それ以外の種別(postback等)は、対応する処理関数が本venture未実装のため常に無視し、
-      `ignored_types`に種別名のみ記録する(次の課題)。
+    - "postback"(フェーズ71で追加): 1件ずつprocess_postback_event()へ渡す。`reply_client`・
+      `user_profile_store`・`workshop_store`・`checkout_session_client`のいずれかが未接続
+      (None)の場合はmessage/followと同様、該当イベントを一切処理せず`ignored_types`に記録する
+      (安全側フォールバック)。
+    - それ以外の種別(join等)は常に無視し、`ignored_types`に種別名のみ記録する。
     """
     result = DispatchResult()
     message_ok = llm_call is not None and reply_client is not None
     follow_ok = reply_client is not None and linking_store is not None
+    postback_ok = (
+        reply_client is not None
+        and user_profile_store is not None
+        and workshop_store is not None
+        and checkout_session_client is not None
+    )
 
     for event in events:
         event_type = event.get("type")
@@ -861,6 +1006,15 @@ def dispatch_webhook_events(
             )
         elif event_type == "unfollow":
             result.unfollow_results.append(process_unfollow_event(event))
+        elif event_type == "postback":
+            if not postback_ok:
+                result.ignored_types.append(event_type)
+                continue
+            result.postback_results.append(
+                process_postback_event(
+                    event, checkout_session_client, reply_client, user_profile_store, workshop_store,
+                )
+            )
         else:
             result.ignored_types.append(event_type or "unknown")
 
@@ -888,6 +1042,7 @@ def receive_webhook(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    checkout_session_client: Optional[CheckoutSessionClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> WebhookReceiverResult:
@@ -919,6 +1074,7 @@ def receive_webhook(
         workshop_store=workshop_store,
         usage_counter_store=usage_counter_store,
         linking_store=linking_store,
+        checkout_session_client=checkout_session_client,
         rng=rng,
         now=now,
     )

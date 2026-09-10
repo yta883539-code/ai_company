@@ -107,6 +107,45 @@ dict`(新設`prototype/checkout_session.py`):
   仮のプレースホルダとし、実Stripeダッシュボードでの商品登録・実LPドメイン確定後に
   差し替える(定数として関数の外に切り出し、テストでは上書き可能にする)。
 
+## 5. 追記(フェーズ71): postbackイベントからの起動(process_postback_event)
+
+trial-end-notification-design.md(フェーズ59・61・62)が確定・実装した「▼ 有料プランへ進む」
+ボタン(`TRIAL_END_QUICK_REPLY`、postback_data=`START_CHECKOUT_POSTBACK_DATA`)がタップされた
+際の入口として、`prototype/cloud_function_webhook.py`に`process_postback_event()`を新規実装
+した。aircon-pashaの同名関数と同じ骨格で、本ドキュメント3節「Checkout Session作成
+エンドポイント(設計)」の手順2〜7(手順1のLLM意図検知はpostback発火時には不要、ボタンの
+`data`自体がstart_checkout系であることで意図が既に確定しているため対象外)をそのまま
+実装したものである。
+
+- 手順2(`workshop_store.get_workshop_id`相当、実際は`user_profile_store.get_workshop_id`)
+  →未連携時はLINKING_REQUIRED_MESSAGE(craftsman-account-linking-design.mdの連携コード案内)。
+- 手順3(契約者本人確認、1節の権限モデル)→不一致時はCONTRACTOR_ONLY_CHECKOUT_NOTICE。
+- 手順4(重複契約防止)→`get_subscription_status(workshop_id) == "active"`の場合は
+  ALREADY_SUBSCRIBED_NOTICE。
+- 手順5〜7(既存stripe_customer_id再利用→`build_checkout_session_params()`→
+  `checkout_session_client.create()`→URL返信)は既存実装(`prototype/checkout_session.py`
+  フェーズ50・61)をそのまま呼び出す。
+
+`dispatch_webhook_events()`に`postback_results`を新設し、"postback"種別は`reply_client`・
+`user_profile_store`・`workshop_store`・`checkout_session_client`の4つ全てが接続されている
+場合のみ処理し、いずれか未接続の場合は他の種別(message/follow)と同じく`ignored_types`に
+記録する安全側フォールバックとした。`checkout_session_client`は新設のCheckoutSessionClient
+Protocol(aircon-pashaと同じ位置づけ、`create(params) -> str`)で、実Stripe接続後に実
+クライアントへ差し替える。
+
+本venture固有の簡略化として、aircon-pashaが持つ`action=update_payment_method`
+(Stripe Billing Portal起動用の別postbackアクション)は実装対象外とした。payment-failure-
+dunning-design.md「1. 前提」の通り、本ventureのPortalLinkProviderは通知本文へのURL差し込み
+自体を行わない設計(文言案内のみで代替)であり、対応するpostbackボタンの設計自体が
+存在しないため(unfollow-billing-faq.mdにも同種の記述なし)、次の課題にも含めない
+(対応する設計が生まれた時点で初めて着手対象になる)。
+
+意図検知(LINEメッセージで「有料プランを始めたい」と伝える経路、本ドキュメント2節(b)・
+厳守事項7b)側の実際のCheckout Session発行(3節手順1〜7全体を`handle_checkout_intent`として
+message event側から呼び出す配線)は、本フェーズでは対象外とし引き続き次の課題として残す
+(process_postback_eventが3節手順2〜7の実装を既に提供しているため、次に着手する際は
+本関数のロジックをmessage event側と共有できる形にリファクタリングできる見込み)。
+
 ## 残課題
 
 - ~~Stripe Webhook(`checkout.session.completed`)受信・署名検証・イベントディスパッチの
@@ -137,3 +176,9 @@ dict`(新設`prototype/checkout_session.py`):
 - `plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定は、実Stripe
   ダッシュボードでの商品登録(オーナー承認待ち)と合わせて行う。
 - 実LINE Messaging API・実Stripe API接続はオーナー承認待ち(pending-approval.md参照)。
+- ~~postbackイベント(トライアル終了通知の「▼ 有料プランへ進む」ボタン)からの起動は
+  本ドキュメントでは未実装。~~ → フェーズ71(2026-09-10 UTC)で`process_postback_event()`
+  として実装した(5節)。本ドキュメント2節(b)の「契約者がいつでもLINEトーク上で意図を示す
+  メッセージを送信する経路(セルフサービス)」側、すなわち3節手順1(LLM意図検知)を経て
+  `handle_checkout_intent`をmessage event側から呼び出す配線は、フェーズ71の対象外のため
+  引き続き次の課題として残る。

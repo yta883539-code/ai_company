@@ -1291,3 +1291,44 @@ schema検証27件いずれもパス。unfollow/postback処理関数は次の課�
 のみの受け皿としてprocess_unfollow_event()を新規実装し、dispatch_webhook_events()に
 unfollow_results経路を新設した(依存ストア無しで常に処理)。新規テスト7件追加、
 venture全体469件・schema検証27件いずれもパス。postback処理関数は次の課題として残る)
+
+- フェーズ71(2026-09-10 UTC): フェーズ70で次の課題として残した「postback(有料プラン開始
+  ボタン押下の処理関数)」に着手した。trial-end-notification-design.md(フェーズ59・61・62)が
+  確定・実装済みの「▼ 有料プランへ進む」ボタン(postback_data=`START_CHECKOUT_POSTBACK_DATA`)
+  がタップされた際の入口として`process_postback_event()`を新規実装した
+  (checkout-initiation-flow-design.md 5節、フェーズ50・3節「Checkout Session作成
+  エンドポイント(設計)」手順2〜7の実装、aircon-pashaの同名関数と同じ骨格)。
+  `event["postback"]["data"]`を既存の`parse_start_checkout_postback_data()`(フェーズ61)で
+  解釈し、start_checkout系以外はhandled=Falseで素通り、未連携user_idはLINKING_REQUIRED_
+  MESSAGE、契約者本人以外はCONTRACTOR_ONLY_CHECKOUT_NOTICE(本フェーズ新設)、既に
+  `subscription_status="active"`の場合はALREADY_SUBSCRIBED_NOTICE(本フェーズ新設)を
+  それぞれ返し打ち切る。いずれにも該当しない場合のみ、既存の`build_checkout_session_params()`
+  (フェーズ50)と新設の`CheckoutSessionClient`Protocol・`InMemoryCheckoutSessionClient`
+  (aircon-pashaと同じ抽象化)でCheckout SessionのURLを取得し返信する。
+  `dispatch_webhook_events()`に`postback_results`を新設し、"postback"種別は`reply_client`・
+  `user_profile_store`・`workshop_store`・`checkout_session_client`の4つ全てが接続されている
+  場合のみ処理し、いずれか未接続時は他の種別(message/follow)と同じく`ignored_types`に
+  記録する安全側フォールバックとした。aircon-pashaが持つ`action=update_payment_method`
+  (Stripe Billing Portal起動用の別postbackアクション)は、本ventureにはPortalLinkProviderが
+  通知本文へURLを差し込まない設計(payment-failure-dunning-design.md「1. 前提」)ゆえ対応する
+  ボタン自体の設計が存在しないため対象外とし、次の課題にも含めなかった(unfollow-billing-
+  faq.mdにも同種の記述なし)。意図検知(LINEメッセージで「有料プランを始めたい」と伝える経路、
+  checkout-initiation-flow-design.md 2節(b)・厳守事項7b)側からの実際のCheckout Session発行
+  (`handle_checkout_intent`のmessage event側配線)は本フェーズの対象外とし、引き続き次の
+  課題として残す。新規テスト38件追加(process_postback_event()単体8件・dispatch_webhook_
+  events()の振り分け/フォールバック5件・receive_webhook()の疎通確認1件、計14関数)、
+  venture全体469件→507件全件(`test_checkout_session.py`24件・`test_cloud_function_
+  webhook.py`139件→177件・`test_payment_failure_notification.py`22件・
+  `test_stripe_webhook.py`113件・`test_subscription_cancellation_notification.py`28件・
+  `test_usage_counter_workshop.py`120件・`test_workshop_linking.py`23件)・schema検証27件
+  (変更なし、schema/output.schema.jsonへの変更は本フェーズに含まれないため)いずれもパスを
+  確認した。承認不要なプロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-10 UTC(フェーズ71: トライアル終了通知の「▼ 有料プランへ進む」ボタンが
+タップされた際の入口process_postback_event()を新規実装し、dispatch_webhook_events()に
+postback_results経路を新設した(4依存すべて接続時のみ処理、未接続時はignored_types)。
+契約者本人確認・重複契約防止(CONTRACTOR_ONLY_CHECKOUT_NOTICE/ALREADY_SUBSCRIBED_NOTICE)も
+実装。新規テスト38件追加、venture全体507件・schema検証27件いずれもパス。update_payment_
+method相当のpostback(本venture未設計のため対象外)・LINEメッセージ意図検知からの
+Checkout Session発行配線(handle_checkout_intent)は次の課題として残る)
