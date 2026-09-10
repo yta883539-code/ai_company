@@ -251,6 +251,31 @@ def process_follow_event(
     return FollowProcessResult(handled=True, reply_sent=reply_sent, linking_code=linking_code)
 
 
+@dataclass
+class UnfollowProcessResult:
+    """process_unfollow_event()の結果(unfollow-billing-faq.md「前提の整理」節)。"""
+
+    handled: bool
+
+
+def process_unfollow_event(event: dict) -> UnfollowProcessResult:
+    """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提)。
+
+    unfollow-billing-faq.md「前提の整理」節の通り、ブロック中はLINEへの返信自体が
+    送達不可であるため返信は行わない。aircon-pasha等のprocess_unfollow_event()と異なり、
+    本ventureのWorkshopStoreProtocol/UserProfileStoreProtocolにはis_following相当の
+    フラグが存在せず(craftsman-account-linking-design.mdにもblocked-but-billing検知
+    〈他venture相当〉の設計自体がまだ無い、unfollow-billing-faq.md「今後の課題」参照)、
+    契約情報(plan_id・subscription_status等)を変更する対象も無いため、本関数は
+    イベント種別の判定とhandled=Trueを返すのみの受け皿にとどめる(契約情報不変という
+    設計判断は他venture3件と揃っている)。
+    """
+    if event.get("type") != "unfollow":
+        return UnfollowProcessResult(handled=False)
+
+    return UnfollowProcessResult(handled=True)
+
+
 # ---------------------------------------------------------------------------
 # process_memo_event()本体(フェーズ63)
 #
@@ -750,16 +775,19 @@ def process_message_event(
 
 # ---------------------------------------------------------------------------
 # dispatch_webhook_events() + receive_webhook()(フェーズ65、フェーズ68で follow を追加、
-# フェーズ69でmessageの委譲先をprocess_message_event()へ差し替え)
+# フェーズ69でmessageの委譲先をprocess_message_event()へ差し替え、フェーズ70で unfollow
+# を追加)
 #
 # README.md「次にやること」に残っていたreceive_webhook()(HTTPエントリポイント)・
 # dispatch_webhook_events()に着手する。aircon-pashaのwebhook-http-entry-point-design.md
 # (フェーズ115)・dispatch_webhook_events()(フェーズ111〜114)と同じ構成を踏襲する。
 # フェーズ68でprocess_follow_event()を実装したため、"follow"種別もmessageと同様に
 # 振り分け対象へ追加した。フェーズ69で"message"種別の委譲先をprocess_memo_event()から
-# process_message_event()(連携コード判定を挟む)へ差し替えた。unfollow/postbackはまだ
-# 処理関数が本venture未実装のため引き続きignored_typesに記録して素通りする
-# (次の課題として残す)。
+# process_message_event()(連携コード判定を挟む)へ差し替えた。フェーズ70でunfollowも
+# process_unfollow_event()(handled=Trueを返すのみの受け皿)へ振り分けるようにした。
+# unfollowはfollow/messageと異なり依存関係の有無を問わず常に処理する(返信を伴わず、
+# 未接続でも安全側にフォールバックする必要が無いため)。postbackは処理関数が本venture
+# 未実装のため引き続きignored_typesに記録して素通りする(次の課題として残す)。
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -768,6 +796,7 @@ class DispatchResult:
 
     message_results: List[MemoProcessResult] = field(default_factory=list)
     follow_results: List[FollowProcessResult] = field(default_factory=list)
+    unfollow_results: List[UnfollowProcessResult] = field(default_factory=list)
     ignored_types: List[str] = field(default_factory=list)
 
 
@@ -795,8 +824,10 @@ def dispatch_webhook_events(
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。
-    - それ以外の種別(unfollow/postback等)は、対応する処理関数が本venture未実装の
-      ため常に無視し、`ignored_types`に種別名のみ記録する(次の課題)。
+    - "unfollow"(フェーズ70で追加): 1件ずつprocess_unfollow_event()へ渡す。返信を伴わず
+      依存する外部ストアも無いため、message/followと異なり依存関係の有無を問わず常に処理する。
+    - それ以外の種別(postback等)は、対応する処理関数が本venture未実装のため常に無視し、
+      `ignored_types`に種別名のみ記録する(次の課題)。
     """
     result = DispatchResult()
     message_ok = llm_call is not None and reply_client is not None
@@ -828,6 +859,8 @@ def dispatch_webhook_events(
             result.follow_results.append(
                 process_follow_event(event, linking_store, reply_client, rng=rng, now=now)
             )
+        elif event_type == "unfollow":
+            result.unfollow_results.append(process_unfollow_event(event))
         else:
             result.ignored_types.append(event_type or "unknown")
 

@@ -28,6 +28,7 @@ from cloud_function_webhook import (
     process_follow_event,
     process_memo_event,
     process_message_event,
+    process_unfollow_event,
     receive_webhook,
     verify_line_signature,
 )
@@ -204,6 +205,23 @@ def test_process_follow_event_without_user_id_does_not_reply():
     check("user_id欠落時は返信しない", result.reply_sent is False)
     check("user_id欠落時はlinking_codeもNone", result.linking_code is None)
     check("実際に返信は送られていない", reply_client.sent == [])
+
+
+def test_process_unfollow_event_ignores_non_unfollow_event():
+    result = process_unfollow_event(_make_event("メモです"))
+    check("unfollow以外はhandled=False", result.handled is False)
+
+
+def test_process_unfollow_event_returns_handled_without_user_id():
+    event = {"type": "unfollow", "source": {}}
+    result = process_unfollow_event(event)
+    check("user_id欠落でもhandled=True", result.handled is True)
+
+
+def test_process_unfollow_event_returns_handled_for_known_user():
+    event = {"type": "unfollow", "source": {"userId": "U_UNFOLLOW"}}
+    result = process_unfollow_event(event)
+    check("unfollowはhandled=True", result.handled is True)
 
 
 class _StubLlmCall:
@@ -666,10 +684,20 @@ def test_dispatch_webhook_events_records_ignored_types_for_non_message_events():
         events, llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=InMemoryReplyClient(),
     )
     check("follow/unfollow/postbackはmessage_resultsに含まれない", result.message_results == [])
+    check("unfollowはフェーズ70からunfollow_resultsに1件記録される", len(result.unfollow_results) == 1)
     check(
-        "3件とも種別名がignored_typesに記録される",
-        result.ignored_types == ["follow", "unfollow", "postback"],
+        "ignored_typesにはfollow・postbackのみ記録される(unfollowは常に処理されるため対象外)",
+        result.ignored_types == ["follow", "postback"],
     )
+
+
+def test_dispatch_webhook_events_routes_unfollow_event_to_process_unfollow_event():
+    result = dispatch_webhook_events(
+        [{"type": "unfollow", "source": {"userId": "U_UNFOLLOW_DISPATCH"}}],
+    )
+    check("unfollow1件がunfollow_resultsに1件記録される", len(result.unfollow_results) == 1)
+    check("unfollow_resultsの中身はhandled=True", result.unfollow_results[0].handled is True)
+    check("ignored_typesは空", result.ignored_types == [])
 
 
 def test_dispatch_webhook_events_skips_message_when_llm_call_missing():
@@ -819,6 +847,9 @@ if __name__ == "__main__":
     test_process_follow_event_ignores_non_follow_event()
     test_process_follow_event_issues_code_and_sends_welcome_message()
     test_process_follow_event_without_user_id_does_not_reply()
+    test_process_unfollow_event_ignores_non_unfollow_event()
+    test_process_unfollow_event_returns_handled_without_user_id()
+    test_process_unfollow_event_returns_handled_for_known_user()
     test_process_memo_event_ignores_non_text_message()
     test_process_memo_event_generated_includes_three_outputs()
     test_process_memo_event_out_of_scope_returns_message_as_is()
@@ -846,6 +877,7 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_routes_message_event_to_process_memo_event()
     test_dispatch_webhook_events_routes_valid_linking_code_to_workshop_creation()
     test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
+    test_dispatch_webhook_events_routes_unfollow_event_to_process_unfollow_event()
     test_dispatch_webhook_events_skips_message_when_llm_call_missing()
     test_dispatch_webhook_events_skips_message_when_reply_client_missing()
     test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event()

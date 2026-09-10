@@ -1270,3 +1270,24 @@ postback処理関数は次の課題として残る)
 create_workshop_from_linking_code()へルーティングするprocess_message_event()を新規実装し、
 dispatch_webhook_events()のmessage委譲先を差し替えた。新規テスト18件追加、venture全体462件・
 schema検証27件いずれもパス。unfollow/postback処理関数は次の課題として残る)
+
+- フェーズ70(2026-09-10 UTC): フェーズ69で次の課題として残した「unfollow/postback処理
+  関数」のうちunfollowに着手した。unfollow-billing-faq.md「前提の整理」節の通りブロック中は
+  LINEへの返信自体が送達不可であるため返信は行わない`process_unfollow_event()`を新規実装
+  した。aircon-pasha等の同名関数と異なり、本ventureのWorkshopStoreProtocol/
+  UserProfileStoreProtocolにはis_following相当のフラグ自体が存在せず(blocked-but-billing
+  検知〈他venture相当〉の設計もまだ無い、unfollow-billing-faq.md「今後の課題」参照)、
+  契約情報(plan_id・subscription_status等)を変更する対象も無いため、本関数はイベント種別
+  判定とhandled=Trueを返すのみの受け皿とした(契約情報不変という設計判断自体は他venture3件
+  と揃っている)。`dispatch_webhook_events()`に`unfollow_results`を新設し、"unfollow"種別は
+  返信・外部ストア依存が無いためmessage/followと異なり依存関係の有無を問わず常に処理する
+  ようにした(従来の`ignored_types`記録対象から除外)。新規テスト7件追加、venture全体462件
+  →469件全件・schema検証27件いずれもパスを確認した。postback(有料プラン開始ボタン押下の
+  処理関数)は未着手のため引き続き次の課題として残す。承認不要なプロトタイプコード実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-10 UTC(フェーズ70: ブロック時のLINE送達不可を踏まえhandled=Trueを返す
+のみの受け皿としてprocess_unfollow_event()を新規実装し、dispatch_webhook_events()に
+unfollow_results経路を新設した(依存ストア無しで常に処理)。新規テスト7件追加、
+venture全体469件・schema検証27件いずれもパス。postback処理関数は次の課題として残る)
