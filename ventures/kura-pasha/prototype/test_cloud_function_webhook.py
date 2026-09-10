@@ -330,6 +330,97 @@ def test_process_memo_event_checkout_intent_returns_notice_body():
     reply_client = InMemoryReplyClient()
     result = process_memo_event(_make_event("有料プラン始めたい"), _StubLlmCall([TEST_CASES["CO1_checkout_intent"]]), reply_client)
     check("checkout_intentはcheckout_notice.bodyを返す", result.reply_text == TEST_CASES["CO1_checkout_intent"]["checkout_notice"]["body"])
+    check("checkout_session_client未接続時はcheckout_urlを発行しない", result.checkout_url is None)
+
+
+# ---------------------------------------------------------------------------
+# process_memo_event() の checkout_intent 実Checkout Session発行(フェーズ72)
+#
+# checkout-initiation-flow-design.md 5節末尾で次の課題として残していた
+# 「意図検知(メッセージでcheckout_intentを検知した経路)からの実際のCheckout Session
+# 発行(handle_checkout_intentのmessage event側配線)」に対応する。process_postback_event()
+# と共通のresolve_checkout_intent()を、status=checkout_intentかつcheckout_session_client・
+# user_profile_store・workshop_storeの3つが揃った場合のみ呼び出す設計のテスト。
+# ---------------------------------------------------------------------------
+
+def test_process_memo_event_checkout_intent_issues_real_checkout_session_when_connected():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_MEMO_CHECKOUT")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_memo_event(
+        _make_event("有料プラン始めたい", user_id="U_CONTRACTOR"),
+        _StubLlmCall([TEST_CASES["CO1_checkout_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, checkout_session_client=checkout_client,
+    )
+    check("3依存が揃うとcheckout_notice.bodyではなく実URL案内を返す", result.reply_text == format_checkout_reply_message(result.checkout_url))
+    check("checkout_urlがInMemoryCheckoutSessionClientの固定URL", result.checkout_url == "https://checkout.stripe.com/stub-session")
+    check("client_reference_idはworkshop_id", checkout_client.calls[0]["client_reference_id"] == "W_MEMO_CHECKOUT")
+    check("plan_id未指定(メッセージ起点)時はDEFAULT_CHECKOUT_PLAN(standard)が使われる", checkout_client.calls[0]["line_items"][0]["price"].endswith("standard_PLACEHOLDER"))
+
+
+def test_process_memo_event_checkout_intent_requires_linking_when_unlinked_with_client_connected():
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_memo_event(
+        _make_event("有料プラン始めたい", user_id="U_UNLINKED"),
+        _StubLlmCall([TEST_CASES["CO1_checkout_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, checkout_session_client=checkout_client,
+    )
+    check("未連携user_idはLINKING_REQUIRED_MESSAGEを返す", result.reply_text == LINKING_REQUIRED_MESSAGE)
+    check("未連携user_idはCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_memo_event_checkout_intent_rejects_non_contractor():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_CONTRACTOR", "W_MEMO_MULTI")
+    workshops.set_plan("W_MEMO_MULTI", "multi_craftsman")
+    workshops.set_members("W_MEMO_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    profiles.link("U_MEMBER", "W_MEMO_MULTI")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_memo_event(
+        _make_event("有料プラン始めたい", user_id="U_MEMBER"),
+        _StubLlmCall([TEST_CASES["CO1_checkout_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, checkout_session_client=checkout_client,
+    )
+    check("契約者以外はCONTRACTOR_ONLY_CHECKOUT_NOTICEを返す", result.reply_text == CONTRACTOR_ONLY_CHECKOUT_NOTICE)
+    check("契約者以外はCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_memo_event_checkout_intent_rejects_when_already_subscribed():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_MEMO_ACTIVE")
+    workshops.set_subscription_status("W_MEMO_ACTIVE", "active")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_memo_event(
+        _make_event("有料プラン始めたい", user_id="U_CONTRACTOR"),
+        _StubLlmCall([TEST_CASES["CO1_checkout_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, checkout_session_client=checkout_client,
+    )
+    check("契約中(active)はALREADY_SUBSCRIBED_NOTICEを返す", result.reply_text == ALREADY_SUBSCRIBED_NOTICE)
+    check("契約中(active)はCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+def test_process_memo_event_pricing_inquiry_does_not_issue_checkout_session():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_MEMO_PRICING")
+    reply_client = InMemoryReplyClient()
+    checkout_client = InMemoryCheckoutSessionClient()
+
+    result = process_memo_event(
+        _make_event("料金はいくらですか", user_id="U_CONTRACTOR"),
+        _StubLlmCall([TEST_CASES["CO2_pricing_inquiry"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, checkout_session_client=checkout_client,
+    )
+    check("pricing_inquiryはcheckout_session_client接続時もcheckout_notice.bodyのまま", result.reply_text == TEST_CASES["CO2_pricing_inquiry"]["checkout_notice"]["body"])
+    check("pricing_inquiryはCheckout Sessionを作らない", checkout_client.calls == [])
 
 
 def test_process_memo_event_contractor_transfer_expired_notice_returns_body():
@@ -1092,6 +1183,11 @@ if __name__ == "__main__":
     test_process_memo_event_cancellation_intent_falls_back_when_provider_missing()
     test_process_memo_event_cancellation_unclear_does_not_need_provider()
     test_process_memo_event_checkout_intent_returns_notice_body()
+    test_process_memo_event_checkout_intent_issues_real_checkout_session_when_connected()
+    test_process_memo_event_checkout_intent_requires_linking_when_unlinked_with_client_connected()
+    test_process_memo_event_checkout_intent_rejects_non_contractor()
+    test_process_memo_event_checkout_intent_rejects_when_already_subscribed()
+    test_process_memo_event_pricing_inquiry_does_not_issue_checkout_session()
     test_process_memo_event_contractor_transfer_expired_notice_returns_body()
     test_process_memo_event_retries_once_on_validation_error_then_succeeds()
     test_process_memo_event_falls_back_after_second_validation_error()

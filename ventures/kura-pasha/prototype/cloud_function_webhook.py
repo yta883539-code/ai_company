@@ -40,6 +40,7 @@ from typing import List, Optional, Protocol, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from checkout_session import (
+    DEFAULT_CHECKOUT_PLAN,
     START_CHECKOUT_POSTBACK_DATA,
     build_checkout_session_params,
     parse_start_checkout_postback_data,
@@ -470,6 +471,7 @@ class MemoProcessResult:
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モードの応答
     trial_end_notification_sent: bool = False  # True=今回の返信にトライアル終了通知を便乗させた
+    checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -522,6 +524,7 @@ def process_memo_event(
     user_profile_store: Optional[UserProfileStoreProtocol] = None,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    checkout_session_client: Optional["CheckoutSessionClient"] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
@@ -644,9 +647,30 @@ def process_memo_event(
             validation_errors=errors, retried=retried,
         )
 
-    reply_text = format_reply_text(
-        instance, portal_link_provider=portal_link_provider, user_id=user_id,
-    )
+    if (
+        instance["status"] == "checkout_intent"
+        and checkout_session_client is not None
+        and user_profile_store is not None
+        and workshop_store is not None
+    ):
+        # handle_checkout_intent(checkout-initiation-flow-design.md 3節・5節末尾)。
+        # LLMがcheckout_notice.bodyとして一次応答の文面を組み立てているが(厳守事項7b、
+        # includes_checkout_urlは常にfalse)、status=checkout_intent(明確な意図、
+        # pricing_inquiry/checkout_intent_unclearは対象外)かつ3依存が揃っている場合は、
+        # resolve_checkout_intent()(process_postback_event()と共通の3節手順2〜7実装)が
+        # 組み立てる実際の案内(未連携/非契約者/重複契約防止/実Checkout SessionのURL)で
+        # checkout_notice.bodyを置き換える。3依存のいずれかが未接続の場合は従来通り
+        # checkout_notice.bodyをそのまま返す(実Stripe接続前の後方互換フォールバック)。
+        resolution = resolve_checkout_intent(
+            user_id, checkout_session_client, user_profile_store, workshop_store,
+        )
+        reply_text = resolution.message
+        checkout_url = resolution.checkout_url
+    else:
+        reply_text = format_reply_text(
+            instance, portal_link_provider=portal_link_provider, user_id=user_id,
+        )
+        checkout_url = None
     if trial_end_notification_due:
         reply_text = f"{reply_text}\n\n{format_trial_end_notification_message(1)}"
     reply_sent = _reply_with_retry(
@@ -656,6 +680,7 @@ def process_memo_event(
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         trial_end_notification_sent=reply_sent and trial_end_notification_due,
+        checkout_url=checkout_url if reply_sent else None,
     )
 
 
@@ -700,6 +725,7 @@ def process_message_event(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    checkout_session_client: Optional["CheckoutSessionClient"] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """messageイベントの入口(dispatch_webhook_events()からの委譲先)。
@@ -737,6 +763,7 @@ def process_message_event(
             user_profile_store=user_profile_store,
             workshop_store=workshop_store,
             usage_counter_store=usage_counter_store,
+            checkout_session_client=checkout_session_client,
             now=now,
         )
 
@@ -748,6 +775,7 @@ def process_message_event(
             user_profile_store=user_profile_store,
             workshop_store=workshop_store,
             usage_counter_store=usage_counter_store,
+            checkout_session_client=checkout_session_client,
             now=now,
         )
 
@@ -852,6 +880,63 @@ class PostbackEventResult:
     checkout_url: Optional[str] = None
 
 
+@dataclass
+class CheckoutIntentResolution:
+    """resolve_checkout_intent()の結果。`message`は呼び出し元がそのまま返信本文として
+    使う想定(postback側はreply_token経由、message側はformat_reply_textの代わりに直接
+    使う)。"""
+
+    message: str
+    checkout_url: Optional[str] = None
+
+
+def resolve_checkout_intent(
+    user_id: Optional[str],
+    checkout_session_client: CheckoutSessionClient,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+    plan_id: str = DEFAULT_CHECKOUT_PLAN,
+) -> CheckoutIntentResolution:
+    """checkout-initiation-flow-design.md 3節手順2〜7の共通実装。
+
+    process_postback_event()(postbackの`data`からplan_idが確定済みの経路)と
+    process_memo_event()のcheckout_intent分岐(handle_checkout_intent、message eventで
+    LLMが厳守事項7bによりcheckout_intentを検知した経路。ボタンによる明示的なplan選択が
+    無いためDEFAULT_CHECKOUT_PLANを用いる)の双方から呼び出される
+    (checkout-initiation-flow-design.md 5節末尾で「次に着手する際は本関数のロジックを
+    message event側と共有できる形にリファクタリングできる見込み」としていた通り)。
+
+    1. `user_profile_store.get_workshop_id(user_id)`でworkshopを特定する。user_id欠落・
+       未連携(workshop_id未設定)の場合はLINKING_REQUIRED_MESSAGEを返す(design 3節手順2の
+       異常系、craftsman-account-linking-design.mdの連携コード案内へフォールバック)。
+    2. `workshop_store.get_contractor_user_id(workshop_id)`と`user_id`が一致しない場合、
+       CONTRACTOR_ONLY_CHECKOUT_NOTICEを返し打ち切る(design 1節の権限モデル、design 3節
+       手順3)。
+    3. `workshop_store.get_subscription_status(workshop_id)`が既に`"active"`の場合、
+       ALREADY_SUBSCRIBED_NOTICEを返し重複契約を防ぐ(design 3節手順4)。
+    4. `workshop_store.get_stripe_customer_id(workshop_id)`(既存顧客の再利用、design 3節
+       手順5)・`build_checkout_session_params()`(design 4節)・
+       `checkout_session_client.create()`(design 3節手順6)でCheckout SessionのURLを取得し、
+       `format_checkout_reply_message()`で返信本文を組み立てる(design 3節手順7)。
+    """
+    workshop_id = user_profile_store.get_workshop_id(user_id) if user_id else None
+    if workshop_id is None:
+        return CheckoutIntentResolution(message=LINKING_REQUIRED_MESSAGE)
+
+    if user_id != workshop_store.get_contractor_user_id(workshop_id):
+        return CheckoutIntentResolution(message=CONTRACTOR_ONLY_CHECKOUT_NOTICE)
+
+    if workshop_store.get_subscription_status(workshop_id) == "active":
+        return CheckoutIntentResolution(message=ALREADY_SUBSCRIBED_NOTICE)
+
+    existing_stripe_customer_id = workshop_store.get_stripe_customer_id(workshop_id)
+    params = build_checkout_session_params(workshop_id, plan_id, existing_stripe_customer_id)
+    checkout_url = checkout_session_client.create(params)
+    return CheckoutIntentResolution(
+        message=format_checkout_reply_message(checkout_url), checkout_url=checkout_url,
+    )
+
+
 def process_postback_event(
     event: dict,
     checkout_session_client: CheckoutSessionClient,
@@ -862,20 +947,10 @@ def process_postback_event(
     """LINEの`postback`イベント1件を処理する(署名検証済みの前提、checkout-initiation-
     flow-design.md 3節手順2〜7)。
 
-    1. `event["postback"]["data"]`をparse_start_checkout_postback_data()で解釈し、
-       start_checkout系以外(未知のアクション・未知のplan_id)はhandled=Falseで素通りする。
-    2. `user_profile_store.get_workshop_id(user_id)`でworkshopを特定する。user_id欠落・
-       未連携(workshop_id未設定)の場合はLINKING_REQUIRED_MESSAGEを返す(design 3節手順2の
-       異常系、craftsman-account-linking-design.mdの連携コード案内へフォールバック)。
-    3. `workshop_store.get_contractor_user_id(workshop_id)`と`user_id`が一致しない場合、
-       CONTRACTOR_ONLY_CHECKOUT_NOTICEを返し打ち切る(design 1節の権限モデル、design 3節
-       手順3)。
-    4. `workshop_store.get_subscription_status(workshop_id)`が既に`"active"`の場合、
-       ALREADY_SUBSCRIBED_NOTICEを返し重複契約を防ぐ(design 3節手順4)。
-    5. `workshop_store.get_stripe_customer_id(workshop_id)`(既存顧客の再利用、design 3節
-       手順5)・`build_checkout_session_params()`(design 4節)・
-       `checkout_session_client.create()`(design 3節手順6)でCheckout SessionのURLを取得し、
-       `format_checkout_reply_message()`で返信する(design 3節手順7)。
+    `event["postback"]["data"]`をparse_start_checkout_postback_data()で解釈し、
+    start_checkout系以外(未知のアクション・未知のplan_id)はhandled=Falseで素通りする。
+    plan_idが確定した場合の以降の判定(未連携・非契約者・重複契約防止・Checkout Session
+    発行)はresolve_checkout_intent()(design 3節手順2〜7の共通実装)に委譲する。
     """
     data = event.get("postback", {}).get("data")
     plan_id = parse_start_checkout_postback_data(data)
@@ -884,25 +959,11 @@ def process_postback_event(
 
     reply_token = event["replyToken"]
     user_id = event.get("source", {}).get("userId")
-    workshop_id = user_profile_store.get_workshop_id(user_id) if user_id else None
-
-    if workshop_id is None:
-        reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
-        return PostbackEventResult(handled=True, reply_sent=reply_sent)
-
-    if user_id != workshop_store.get_contractor_user_id(workshop_id):
-        reply_sent = _reply_with_retry(reply_client, reply_token, CONTRACTOR_ONLY_CHECKOUT_NOTICE)
-        return PostbackEventResult(handled=True, reply_sent=reply_sent)
-
-    if workshop_store.get_subscription_status(workshop_id) == "active":
-        reply_sent = _reply_with_retry(reply_client, reply_token, ALREADY_SUBSCRIBED_NOTICE)
-        return PostbackEventResult(handled=True, reply_sent=reply_sent)
-
-    existing_stripe_customer_id = workshop_store.get_stripe_customer_id(workshop_id)
-    params = build_checkout_session_params(workshop_id, plan_id, existing_stripe_customer_id)
-    checkout_url = checkout_session_client.create(params)
-    reply_sent = _reply_with_retry(reply_client, reply_token, format_checkout_reply_message(checkout_url))
-    return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=checkout_url)
+    resolution = resolve_checkout_intent(
+        user_id, checkout_session_client, user_profile_store, workshop_store, plan_id,
+    )
+    reply_sent = _reply_with_retry(reply_client, reply_token, resolution.message)
+    return PostbackEventResult(handled=True, reply_sent=reply_sent, checkout_url=resolution.checkout_url)
 
 
 # ---------------------------------------------------------------------------
@@ -957,6 +1018,10 @@ def dispatch_webhook_events(
       自体が省略可能な設計(3つ全てが揃わない限り連携判定自体を行わない後方互換設計)のため、
       未接続でもmessageイベントの処理自体は行う(その場合連携コード判定・usage_counter連携
       なしで、フェーズ68以前と同じくprocess_memo_event()への直接委譲として動作する)。
+      `checkout_session_client`(フェーズ72で追加)も同様に省略可能で、未接続の場合は
+      status=checkout_intentであっても実Checkout Sessionを発行せずcheckout_notice.bodyの
+      一次応答文言のみを返す後方互換動作となる(postbackとは異なりmessageイベント自体は
+      その他のstatus分岐処理のためignored_types送りにはしない)。
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。
@@ -994,6 +1059,7 @@ def dispatch_webhook_events(
                     workshop_store=workshop_store,
                     usage_counter_store=usage_counter_store,
                     linking_store=linking_store,
+                    checkout_session_client=checkout_session_client,
                     now=now,
                 )
             )

@@ -181,4 +181,46 @@ message event側から呼び出す配線)は、本フェーズでは対象外と
   として実装した(5節)。本ドキュメント2節(b)の「契約者がいつでもLINEトーク上で意図を示す
   メッセージを送信する経路(セルフサービス)」側、すなわち3節手順1(LLM意図検知)を経て
   `handle_checkout_intent`をmessage event側から呼び出す配線は、フェーズ71の対象外のため
-  引き続き次の課題として残る。
+  引き続き次の課題として残る。~~ → フェーズ72(2026-09-10 UTC)で対応した(6節)。
+
+## 6. 追記(フェーズ72): message eventからの起動(handle_checkout_intent)
+
+5節末尾で次の課題として残していた、意図検知(2節(b)、LLMが厳守事項7bによりmessageイベントで
+`checkout_intent`を検知した経路)からの実際のCheckout Session発行に着手した。5節の予告通り、
+`process_postback_event()`が実装していた3節手順2〜7を`resolve_checkout_intent()`という
+共通関数に切り出し(`prototype/cloud_function_webhook.py`)、`process_postback_event()`・
+`process_memo_event()`の両方から呼び出す構成にリファクタリングした。
+
+- `process_memo_event()`に`checkout_session_client`引数(他の3ストア同様Optional、未接続時は
+  後方互換で従来動作)を追加した。LLM出力の`status`が`checkout_intent`(厳守事項7bで明確な
+  意図と判定された場合のみ。`pricing_inquiry`・`checkout_intent_unclear`は対象外、6節末尾
+  参照)かつ`checkout_session_client`・`user_profile_store`・`workshop_store`の3つ全てが
+  接続されている場合のみ、`resolve_checkout_intent(user_id, checkout_session_client,
+  user_profile_store, workshop_store)`(plan_id省略時は`DEFAULT_CHECKOUT_PLAN`)を呼び出し、
+  その結果(未連携時はLINKING_REQUIRED_MESSAGE、非契約者はCONTRACTOR_ONLY_CHECKOUT_NOTICE、
+  重複契約防止はALREADY_SUBSCRIBED_NOTICE、それ以外は実Checkout SessionのURLを含む案内)で
+  LLMが組み立てた`checkout_notice.body`(一次応答)を置き換える。3依存のいずれか未接続時は
+  従来通り`checkout_notice.body`をそのまま返す(実Stripe接続前の後方互換フォールバック、
+  postbackと異なりmessageイベント自体は他のstatus分岐処理があるためignored_types送りには
+  しない)。
+- `process_message_event()`・`dispatch_webhook_events()`にも`checkout_session_client`を
+  そのまま貫通させる配線を追加した(postback専用だった依存を、messageイベント側にも
+  受け渡せるようにしただけで、`message_ok`の必須依存には加えていない=後方互換維持)。
+- `pricing_inquiry`(料金を尋ねただけで契約意図が確定していない)・`checkout_intent_unclear`
+  (意図が曖昧)の2つのstatusはresolve_checkout_intent()を呼ばず、引き続きLLMの一次応答
+  (`checkout_notice.body`)のみを返す。これは厳守事項7b本文の「実際のCheckout Session URL
+  発行は明確な意図の場合のみ」という前提(llm-system-prompt-draft.mdの`checkout_intent`と
+  `pricing_inquiry`/`checkout_intent_unclear`のkind区分の使い分け)をそのままコード側の
+  分岐条件にも反映したもので、新たな設計判断ではない。
+- 新規テスト13件(`test_cloud_function_webhook.py`、checkout_intent実発行1件・未連携1件・
+  非契約者1件・重複契約防止1件・pricing_inquiryが対象外であることの確認1件、各テストの
+  check()呼び出し複数)追加、venture全体507件→520件全件・schema検証27件いずれもパスを
+  確認した。
+
+残る課題:
+
+- `plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定、実LINE
+  Messaging API・実Stripe API接続はいずれもオーナー承認待ち(pending-approval.md参照)の
+  ため引き続き次の課題として残る(本フェーズの対象外)。
+- トライアル終了が近づいた際の通知メッセージ内の案内文からの起動(2節(a)、aircon-pasha/
+  limit-approaching-notification-design.md相当)は本venture未設計のまま残る。

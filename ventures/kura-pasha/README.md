@@ -1332,3 +1332,32 @@ postback_results経路を新設した(4依存すべて接続時のみ処理、�
 実装。新規テスト38件追加、venture全体507件・schema検証27件いずれもパス。update_payment_
 method相当のpostback(本venture未設計のため対象外)・LINEメッセージ意図検知からの
 Checkout Session発行配線(handle_checkout_intent)は次の課題として残る)
+
+- フェーズ72(2026-09-10 20:00 UTC): フェーズ71で次の課題として残した「LINEメッセージ意図
+  検知からの実際のCheckout Session発行(handle_checkout_intentのmessage event側配線)」に
+  着手した(checkout-initiation-flow-design.md 6節)。process_postback_event()が実装して
+  いたCheckout Session作成エンドポイント(design 3節手順2〜7)を`resolve_checkout_intent()`
+  という共通関数に切り出し、process_postback_event()・process_memo_event()の両方から
+  呼び出す構成にリファクタリングした(5節末尾で予告していた通り)。process_memo_event()に
+  `checkout_session_client`引数を追加し、LLM出力のstatusが`checkout_intent`(厳守事項7bで
+  明確な意図と判定された場合のみ、`pricing_inquiry`・`checkout_intent_unclear`は対象外)
+  かつ`checkout_session_client`・`user_profile_store`・`workshop_store`の3つ全てが接続
+  されている場合のみ、resolve_checkout_intent()の結果(未連携→LINKING_REQUIRED_MESSAGE、
+  非契約者→CONTRACTOR_ONLY_CHECKOUT_NOTICE、重複契約防止→ALREADY_SUBSCRIBED_NOTICE、
+  それ以外→実Checkout SessionのURL案内)でLLMの一次応答(checkout_notice.body)を置き換える
+  ようにした。3依存いずれか未接続時は従来通りcheckout_notice.bodyをそのまま返す後方互換
+  フォールバックとし、process_message_event()・dispatch_webhook_events()にも
+  checkout_session_clientの貫通配線を追加した(必須依存には加えず後方互換維持)。新規
+  テスト13件追加、venture全体507件→520件全件・schema検証27件いずれもパスを確認した。
+  トライアル終了が近づいた際の通知メッセージ内の案内文からの起動(design 2節(a))は本
+  venture未設計のまま次の課題として残る。承認不要なプロトタイプコード実装・テスト追加
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-10 20:00 UTC(フェーズ72: process_postback_event()のCheckout Session
+発行ロジックをresolve_checkout_intent()として共通化し、process_memo_event()のstatus=
+checkout_intent分岐からも呼び出せるようにした(handle_checkout_intentのmessage event側
+配線)。3依存〈checkout_session_client・user_profile_store・workshop_store〉未接続時は
+従来通りcheckout_notice.bodyのみを返す後方互換。新規テスト13件追加、venture全体520件・
+schema検証27件いずれもパス。トライアル終了接近通知からの起動(design 2節(a))は次の課題
+として残る)
