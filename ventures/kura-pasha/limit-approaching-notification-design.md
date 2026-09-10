@@ -88,11 +88,51 @@ Optional[str]`を`prototype/cloud_function_webhook.py`に新設する
 - 決済代行サービス側の都度課金対応可否確認(pricing-plan.md未確定事項)が完了した段階で、
   3節の「追加料金[単価]円」の具体的な請求タイミング(即時課金か翌月合算請求か)を通知文言に
   反映する。
-- トライアル期間中(有償契約が未確定な状態)でもcheck_and_increment_usageは仮設定された
-  plan_id(craftsman-account-linking-design.md「最安プランで仮設定」)に基づき加算される
-  既存の挙動があり、トライアル中に「残り1回」通知が届くケースが起こりうる。この場合、
-  文言中の「上限到達後は追加料金」という表現がトライアル中のユーザーには正確でない
-  (実際にはトライアル終了・有償契約が別途必要)可能性があるが、本ドキュメントでは
-  対象外とし、実運用データが得られた段階で文言の出し分けが必要か再検討する。
+- ~~トライアル期間中(有償契約が未確定な状態)でもcheck_and_increment_usageは仮設定された~~
+  ~~plan_id(craftsman-account-linking-design.md「最安プランで仮設定」)に基づき加算される~~
+  ~~既存の挙動があり、トライアル中に「残り1回」通知が届くケースが起こりうる。この場合、~~
+  ~~文言中の「上限到達後は追加料金」という表現がトライアル中のユーザーには正確でない~~
+  ~~(実際にはトライアル終了・有償契約が別途必要)可能性があるが、本ドキュメントでは~~
+  ~~対象外とし、実運用データが得られた段階で文言の出し分けが必要か再検討する。~~
+  → フェーズ74(6節)で対応済み。
 
-最終更新: 2026-09-10 21:00 UTC
+## 6. トライアル期間中の文言分岐(フェーズ74、2026-09-10 22:00 UTC)
+
+5節に残っていた課題(トライアル期間中は「上限到達後は追加料金」という表現が不正確)に
+対応する。
+
+- **判定式**: `workshop_store.get_subscription_status(workshop_id) != "active"`を
+  「トライアル中(有償契約が未確定)」の判定に使う。これは`process_generation_request()`が
+  `TrialPeriodOverError`を送出するかどうかの判定式(`subscription_status != "active"`、
+  usage_counter_workshop.py)で既に使われているものと同じ式であり、新しい状態フラグは
+  追加しない。`subscription_status`の初期値は`"trialing"`(craftsman-account-linking-
+  design.md「workshop作成時は最安プラン`"light"`で仮設定」と同時期に`"trialing"`のまま)
+  であり、Checkout完了時に`stripe_webhook.handle_checkout_session_completed()`が
+  `"active"`へ書き換えるまでの間は本判定により「トライアル中」として扱われる。
+  `"past_due"`(既に有償契約済みで決済失敗中)は「トライアル中」に含めない
+  (既に一度有償契約に至っているため、上限到達時の性質は「追加料金」に近い)。
+- **文言の差し替え**: `is_trial=True`の場合、3節の「上限到達後は追加料金[単価]円」
+  「本回は追加料金[単価]円が発生します」という表現を使わず、以下に差し替える
+  (単価には一切触れない。トライアル中のplan_idはcraftsman-account-linking-design.md
+  7節の通りあくまで仮設定であり、実際の従量課金額を保証する情報ではないため)。
+  - 残り1回時: 「※トライアル期間中にご利用いただける生成回数は残り1回です
+    (トライアル終了後も引き続きご利用いただくには有料プランへのお申し込みが必要です)」
+  - 上限到達時: 「※トライアル期間中にご利用いただける生成回数の上限に達しました。
+    引き続きご利用いただくには有料プランへのお申し込みが必要です」
+- **実装**: `format_limit_approaching_notice(usage: UsageCheckResult, is_trial: bool)`に
+  `is_trial`引数を追加し、`is_trial`の値で上記2種類の文言セットを出し分ける。呼び出し元の
+  `process_memo_event()`は`generation_result.usage.workshop_id`から
+  `workshop_store.get_subscription_status()`を呼び、結果を`is_trial`として渡す
+  (追加のストア読み取りは発生するが、同一リクエスト内で既に`process_generation_request()`
+  がstoreへアクセス済みのため新規の外部呼び出しは発生しない)。
+- **範囲外(次の課題)**: 本フェーズはトライアル中かどうかで文言を出し分けるのみであり、
+  トライアル終了通知(`format_trial_end_notification_message`・`TRIAL_END_QUICK_REPLY`)を
+  本通知にも添付する(「▼ 有料プランへ進む」ボタンを本通知からも押せるようにする)ことは
+  対象外とした。本通知は「残り1回」到達時点(生涯最初の生成とは独立したタイミング)で
+  発火するため、ボタン添付を追加するには`process_memo_event()`側のquick_reply選択ロジック
+  自体の拡張が必要であり、本フェーズのスコープ(文言の出し分けのみ)を超えると判断した。
+
+最終更新: 2026-09-10 22:00 UTC(フェーズ74: 5節の課題だったトライアル中の文言不正確さに対応。
+`format_limit_approaching_notice()`に`is_trial`引数を追加し、トライアル中
+〈`subscription_status != "active"`〉は「追加料金」に触れず有料プラン申し込みを案内する
+文言に差し替えた〈6節〉)

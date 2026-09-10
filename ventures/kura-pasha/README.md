@@ -1388,3 +1388,44 @@ limit-approaching-notification-design.mdとして設計〈3プラン共通閾値
 format_limit_approaching_notice()を新設しprocess_memo_event()の返信文末尾に配線した。
 新規テスト15件追加、venture全体535件・schema検証27件いずれもパス。トライアル期間中の
 文言精度は次の課題として残る)
+
+- フェーズ74(2026-09-10 22:00 UTC): フェーズ73がlimit-approaching-notification-design.md 5節に
+  残していた「トライアル期間中(有償契約が未確定な状態)でも「残り1回」通知が届くケースが
+  あり、文言中の「上限到達後は追加料金」という表現がトライアル中のユーザーには正確でない」
+  という課題に着手した。トライアル中かどうかの判定には新しい状態フラグを追加せず、
+  `process_generation_request()`が`TrialPeriodOverError`送出可否の判定に既に使っている
+  `workshop_store.get_subscription_status(workshop_id) != "active"`という既存の判定式を
+  そのまま流用した(craftsman-account-linking-design.md 7節「workshop作成時は最安プラン
+  `"light"`で仮設定」の通り、`subscription_status`はCheckout完了までデフォルト値
+  `"trialing"`のままである)。`format_limit_approaching_notice()`に`is_trial: bool`引数を
+  新設し、`is_trial=True`の場合は単価(`overage_price_jpy`)に一切触れず「トライアル終了後は
+  有料プランへのお申し込みが必要です」という文言に差し替え、`is_trial=False`
+  (`subscription_status=="active"`)の場合は従来通り「上限到達後は追加料金[単価]円」の
+  文言を返す2分岐とした(design.md 6節として追記、5節の該当課題は取り消し線で完了扱いに
+  更新)。`process_memo_event()`側は`generation_result.usage.workshop_id`から
+  `workshop_store.get_subscription_status()`を呼んで`is_trial`を求め、
+  `format_limit_approaching_notice()`へ渡すよう配線した(追加の外部呼び出しは発生しない、
+  同一リクエスト内で`process_generation_request()`が既にworkshop_storeへアクセス済みの
+  ため)。トライアル終了通知(`TRIAL_END_QUICK_REPLY`)を本通知にも添付する(「▼ 有料プラン
+  へ進む」ボタンを本通知からも押せるようにする)ことは、`process_memo_event()`の
+  quick_reply選択ロジック自体の拡張が必要になり本フェーズ(文言の出し分けのみ)のスコープを
+  超えるため対象外とし、次の課題として残した。新規テスト17件(`format_limit_approaching_
+  notice()`のトライアル文言単体4関数・`process_memo_event()`統合1関数〈ライトプランで
+  4回連続生成し、`subscription_status`をactiveへ更新せず既定値`"trialing"`のまま2回目
+  =残り1回・4回目=上限超過いずれもトライアル文言になることを確認〉、check()単位で計17件)
+  追加、venture全体535件→552件全件(`test_checkout_session.py`24件・
+  `test_cloud_function_webhook.py`205件→222件・`test_payment_failure_notification.py`
+  22件・`test_stripe_webhook.py`113件・`test_subscription_cancellation_notification.py`
+  28件・`test_usage_counter_workshop.py`120件・`test_workshop_linking.py`23件)・
+  schema検証27件(変更なし、schema/output.schema.jsonへの変更は本フェーズに含まれないため)
+  いずれもパスを確認した。承認不要な設計文書更新・プロトタイプコード実装・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-10 22:00 UTC(フェーズ74: limit-approaching-notification-design.md 5節の
+課題だったトライアル中の文言不正確さに対応し6節として追記。format_limit_approaching_
+notice()にis_trial引数を新設し、workshop_store.get_subscription_status()!="active"を
+判定式に流用して「上限到達後は追加料金」ではなく「トライアル終了後は有料プランへの
+お申し込みが必要」という文言に差し替えた(process_memo_event()側の配線も追加)。
+新規テスト17件追加、venture全体552件・schema検証27件いずれもパス。トライアル終了通知
+ボタンの本通知への添付は次の課題として残る)

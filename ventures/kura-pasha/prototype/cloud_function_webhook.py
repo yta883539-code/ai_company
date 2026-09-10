@@ -181,8 +181,8 @@ def format_trial_end_notification_message(generation_count: int) -> str:
     return "\n".join(lines)
 
 
-def format_limit_approaching_notice(usage: UsageCheckResult) -> Optional[str]:
-    """limit-approaching-notification-design.md 3節・4節の通知文言を組み立てる。
+def format_limit_approaching_notice(usage: UsageCheckResult, is_trial: bool) -> Optional[str]:
+    """limit-approaching-notification-design.md 3節・4節・6節の通知文言を組み立てる。
 
     `check_and_increment_usage()`が返す`UsageCheckResult`をそのまま入力とする。
     - 残り1回(`count_after_increment == monthly_limit - 1`)に達した生成完了時点:
@@ -192,7 +192,31 @@ def format_limit_approaching_notice(usage: UsageCheckResult) -> Optional[str]:
     - それ以外: Noneを返す(呼び出し側は追記しない)。
     `monthly_limit <= 1`の場合は「残り1回」判定自体が成立しない(design 4節のガード)ため
     上限超過判定のみ行う。
+
+    `is_trial`(フェーズ74、design 6節): 呼び出し側が`workshop_store.
+    get_subscription_status(workshop_id) != "active"`(`process_generation_request()`が
+    トライアル終了判定〈`is_trial_period_over`〉と組み合わせて既に使っている判定式と同じ)を
+    渡す想定。design 5節で残っていた課題の通り、トライアル中のworkshopはcraftsman-account-
+    linking-design.md 7節の通り仮のplan_id(`"light"`)で上限判定が行われているだけで、
+    実際には有償契約が未確定な状態のため、「上限到達後は追加料金」という表現は不正確
+    (現実には従量課金ではなくトライアル終了・有償プラン開始が必要)である。`is_trial=True`
+    の場合は従量単価(`overage_price_jpy`)に触れず、トライアル終了後は有料プランへの
+    申し込みが必要である旨に差し替える。`is_trial=False`(`subscription_status=="active"`)
+    の場合は従来通りの従量課金文言を返す。
     """
+    if is_trial:
+        if usage.monthly_limit - 1 >= 1 and usage.count_after_increment == usage.monthly_limit - 1:
+            return (
+                "※トライアル期間中にご利用いただける生成回数は残り1回です"
+                "(トライアル終了後も引き続きご利用いただくには有料プランへのお申し込みが"
+                "必要です)"
+            )
+        if usage.count_after_increment > usage.monthly_limit:
+            return (
+                "※トライアル期間中にご利用いただける生成回数の上限に達しました。"
+                "引き続きご利用いただくには有料プランへのお申し込みが必要です"
+            )
+        return None
     if usage.monthly_limit - 1 >= 1 and usage.count_after_increment == usage.monthly_limit - 1:
         return (
             "※今月の生成回数は残り1回です"
@@ -599,13 +623,17 @@ def process_memo_event(
        ユーザーへ届かないまま「送信済み」として記録される(二重送信防止フラグが先に
        立ってしまうため、次回以降の生成でも再送されない)。発生頻度は低いと見込むが
        未解消の既知の制約として次の課題に残す。
-    6. (フェーズ73、新設) 4.の`process_generation_request()`が返す
-       `GenerationRequestResult.usage`(`UsageCheckResult`)を
-       `format_limit_approaching_notice()`(limit-approaching-notification-design.md)に
-       渡し、月間生成回数が「残り1回」に達した、または上限を超えた場合の定型文言を
-       最終的な返信文の末尾に付記する。5.のトライアル終了通知と判定条件が独立している
-       (現行3プランでは原理的に同一回で重複しない)ため、両方が真になった場合は
-       いずれも付記する。
+    6. (フェーズ73、フェーズ74で文言分岐を追加) 4.の`process_generation_request()`が返す
+       `GenerationRequestResult.usage`(`UsageCheckResult`)と、`workshop_store.
+       get_subscription_status()`から求めた`is_trial`(`!= "active"`、4.の
+       `TrialPeriodOverError`判定と同じ式)を`format_limit_approaching_notice()`
+       (limit-approaching-notification-design.md)に渡し、月間生成回数が「残り1回」に
+       達した、または上限を超えた場合の定型文言を最終的な返信文の末尾に付記する。
+       `is_trial=True`(トライアル中、有償契約未確定)の場合は「上限到達後は追加料金」
+       ではなく「トライアル終了後は有料プランへの申し込みが必要」という文言に差し替わる
+       (design 6節、フェーズ73が5節に残していた課題への対応)。5.のトライアル終了通知と
+       判定条件が独立している(現行3プランでは原理的に同一回で重複しない)ため、両方が
+       真になった場合はいずれも付記する。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -645,7 +673,11 @@ def process_memo_event(
                 payment_suspended=True,
             )
         trial_end_notification_due = generation_result.trial_end_notification_due
-        limit_notice = format_limit_approaching_notice(generation_result.usage)
+        # フェーズ74: process_generation_request()内のTrialPeriodOverError分岐
+        # (subscription_status != "active"判定)と同じ式で「トライアル中か」を求め、
+        # format_limit_approaching_notice()の文言分岐に渡す(design 6節)。
+        is_trial = workshop_store.get_subscription_status(generation_result.usage.workshop_id) != "active"
+        limit_notice = format_limit_approaching_notice(generation_result.usage, is_trial)
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text)

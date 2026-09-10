@@ -170,7 +170,7 @@ def _usage(monthly_limit: int, count_after_increment: int, overage_price_jpy: in
 
 
 def test_format_limit_approaching_notice_at_remaining_one():
-    message = format_limit_approaching_notice(_usage(3, 2, overage_price_jpy=250))
+    message = format_limit_approaching_notice(_usage(3, 2, overage_price_jpy=250), False)
     check("残り1回到達時は通知文言を返す", message is not None)
     check("残り1回の文言を含む", "残り1回" in message)
     check("従量単価を埋め込む", "250円" in message)
@@ -179,23 +179,23 @@ def test_format_limit_approaching_notice_at_remaining_one():
 def test_format_limit_approaching_notice_returns_none_before_threshold():
     check(
         "残り1回に達していない場合はNone(1回目/3回中)",
-        format_limit_approaching_notice(_usage(3, 1)) is None,
+        format_limit_approaching_notice(_usage(3, 1), False) is None,
     )
     check(
         "残り1回に達していない場合はNone(5回目/8回中)",
-        format_limit_approaching_notice(_usage(8, 5)) is None,
+        format_limit_approaching_notice(_usage(8, 5), False) is None,
     )
 
 
 def test_format_limit_approaching_notice_returns_none_exactly_at_limit():
     check(
         "上限ちょうど(超過なし)の場合はNone",
-        format_limit_approaching_notice(_usage(3, 3)) is None,
+        format_limit_approaching_notice(_usage(3, 3), False) is None,
     )
 
 
 def test_format_limit_approaching_notice_on_overage():
-    message = format_limit_approaching_notice(_usage(3, 4, overage_price_jpy=250))
+    message = format_limit_approaching_notice(_usage(3, 4, overage_price_jpy=250), False)
     check("上限超過時は通知文言を返す", message is not None)
     check("上限超過の文言を含む", "上限を超えた" in message)
     check("従量単価を埋め込む", "250円" in message)
@@ -204,7 +204,41 @@ def test_format_limit_approaching_notice_on_overage():
 def test_format_limit_approaching_notice_guards_monthly_limit_le_one():
     check(
         "monthly_limit<=1の場合は「残り1回」判定を誤発火しない",
-        format_limit_approaching_notice(_usage(1, 1)) is None,
+        format_limit_approaching_notice(_usage(1, 1), False) is None,
+    )
+
+
+# フェーズ74: is_trial=Trueの場合の文言分岐(limit-approaching-notification-design.md 6節)。
+
+
+def test_format_limit_approaching_notice_trial_at_remaining_one():
+    message = format_limit_approaching_notice(_usage(3, 2, overage_price_jpy=250), True)
+    check("トライアル中・残り1回到達時は通知文言を返す", message is not None)
+    check("トライアル中は残り1回の文言を含む", "残り1回" in message)
+    check("トライアル中は追加料金の表現を含まない", "追加料金" not in message)
+    check("トライアル中は従量単価を含まない", "250円" not in message)
+    check("トライアル中は有料プラン申し込みを案内する", "有料プランへのお申し込みが必要です" in message)
+
+
+def test_format_limit_approaching_notice_trial_on_overage():
+    message = format_limit_approaching_notice(_usage(3, 4, overage_price_jpy=250), True)
+    check("トライアル中・上限超過時は通知文言を返す", message is not None)
+    check("トライアル中は追加料金の表現を含まない", "追加料金" not in message)
+    check("トライアル中は従量単価を含まない", "250円" not in message)
+    check("トライアル中は有料プラン申し込みを案内する", "有料プランへのお申し込みが必要です" in message)
+
+
+def test_format_limit_approaching_notice_trial_returns_none_before_threshold():
+    check(
+        "トライアル中でも残り1回に達していない場合はNone",
+        format_limit_approaching_notice(_usage(3, 1), True) is None,
+    )
+
+
+def test_format_limit_approaching_notice_trial_guards_monthly_limit_le_one():
+    check(
+        "トライアル中でもmonthly_limit<=1の場合は「残り1回」判定を誤発火しない",
+        format_limit_approaching_notice(_usage(1, 1), True) is None,
     )
 
 
@@ -700,6 +734,39 @@ def test_process_memo_event_appends_limit_approaching_and_overage_notices():
     check("3回目(上限ちょうど)は通知を含まない", "残り1回" not in results[2].reply_text and "上限を超えた" not in results[2].reply_text)
     check("4回目(上限超過)は超過通知を含む", "上限を超えた" in results[3].reply_text)
     check("超過分の従量単価(250円)を含む", "250円" in results[3].reply_text)
+
+
+def test_process_memo_event_appends_trial_wording_when_subscription_not_active():
+    """フェーズ74・limit-approaching-notification-design.md 6節: subscription_statusが
+    "active"でない(デフォルトの"trialing"のまま、仮plan_idで上限判定が行われている)workshop
+    では、「追加料金」ではなくトライアル終了後の有料プラン申し込みを案内する文言になる
+    ことを確認する(set_subscription_status()を呼ばず既定値"trialing"のままにする点が
+    test_process_memo_event_appends_limit_approaching_and_overage_notices()との差分)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_TRIAL_LIMIT", "W_TRIAL_LIMIT")
+    workshops.set_plan("W_TRIAL_LIMIT", "light")
+    workshops.set_members("W_TRIAL_LIMIT", "U_TRIAL_LIMIT", ["U_TRIAL_LIMIT"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 4)
+    results = [
+        process_memo_event(
+            _make_event("新規、ブリティッシュ、牛革", user_id="U_TRIAL_LIMIT"),
+            llm_call, reply_client,
+            user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+            now=FEB,
+        )
+        for _ in range(4)
+    ]
+    check("トライアル中2回目は残り1回通知を含む", "残り1回" in results[1].reply_text)
+    check("トライアル中2回目は追加料金の表現を含まない", "追加料金" not in results[1].reply_text)
+    check(
+        "トライアル中2回目は有料プラン申し込みを案内する",
+        "有料プランへのお申し込みが必要です" in results[1].reply_text,
+    )
+    check("トライアル中4回目は上限超過通知を含む", "上限に達しました" in results[3].reply_text)
+    check("トライアル中4回目は追加料金の表現を含まない", "追加料金" not in results[3].reply_text)
+    check("トライアル中4回目は従量単価(250円)を含まない", "250円" not in results[3].reply_text)
 
 
 def test_process_memo_event_skips_store_integration_when_stores_not_provided():
@@ -1253,6 +1320,10 @@ if __name__ == "__main__":
     test_format_limit_approaching_notice_returns_none_exactly_at_limit()
     test_format_limit_approaching_notice_on_overage()
     test_format_limit_approaching_notice_guards_monthly_limit_le_one()
+    test_format_limit_approaching_notice_trial_at_remaining_one()
+    test_format_limit_approaching_notice_trial_on_overage()
+    test_format_limit_approaching_notice_trial_returns_none_before_threshold()
+    test_format_limit_approaching_notice_trial_guards_monthly_limit_le_one()
     test_format_follow_welcome_message_embeds_linking_code()
     test_process_follow_event_ignores_non_follow_event()
     test_process_follow_event_issues_code_and_sends_welcome_message()
@@ -1284,6 +1355,7 @@ if __name__ == "__main__":
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
+    test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()
