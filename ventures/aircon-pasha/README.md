@@ -3082,4 +3082,18 @@
   修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-09 16:00 UTC
+- フェーズ202(2026-09-11 12:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  landing-page-copy-draft.md「次のステップ候補」1点目に残っていた「上記LPコピーに対応する
+  ワイヤーフレームの作成(course-set-pasha・line-reservation-aiは作成済み、本venture
+  未着手)」という記載を確認したところ、実際にはその直後のフェーズ24(2026-08-13 21:59 UTC)で
+  landing-page-wireframe.mdとして既に作成済みであることが判明した(フェーズ23でLPコピー
+  草案作成時に書いた「次の課題」が、フェーズ24で解消された後も同期して更新されないまま
+  約1か月近く取り残されていた、webhook-function-a-implementation.md・firestore-data-model.md
+  等と同種の「訂正が波及元まで反映されない」記載漏れパターン)。landing-page-copy-draft.mdの
+  該当bulletを解消済みに更新した。コード変更は無く、venture全体475件全件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(変更前と同じ結果)。
+  承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
+  領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-11 12:00 UTC
