@@ -1751,3 +1751,26 @@ estimate.mdを新規作成し、決済手数料・Firestore原価・LLM API原�
 実装は既に完了済みだったことを確認したうえで新規文書化し、未検証だった3パターン
 (LLM API/Reply APIのリトライ成功・Reply API連続失敗時のフォールバック)を検証する
 新規テスト11件を追加した。venture全体638件→649件・schema検証27件いずれもパス)
+
+- フェーズ86(2026-09-11 16:00 UTC): 他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)には既にあるが本venture未着手だったtone-and-manner-
+  guideline.mdというcross-venture parityのギャップに対応し、新規作成した。作成の過程で
+  `prototype/*.py`内の運用メッセージ見出しを全数確認したところ、course-set-pashaフェーズ
+  203が発見したのと同種の不整合が1箇所見つかった。`cloud_function_webhook.
+  format_trial_end_notification_message()`のみ半角「[鞍パシャッと] 」を使用しており、
+  他の全メッセージ(`payment_failure_notification.py`・`subscription_cancellation_
+  notification.py`・`blocked_but_billing_owner_notification.py`)が使う全角
+  「【鞍パシャッと】」と表記が分裂していたため、全角に統一する修正を行った。あわせて
+  `blocked_but_billing_owner_notification.py`の見出し「【鞍パシャッと運営】」は職人向けと
+  運営(オーナー)向けを区別する意図的な設計(design.md 3節で確認)であり修正対象では
+  ないことをガイドラインに明記した。この文言をハードコードで検証するテストは無く、
+  `prototype/`配下の単体テスト9ファイル合計649件全件・schema検証27件いずれも変更前と
+  同じ結果でパスすることを確認した。承認不要な設計文書作成・既存コードの表記統一修正の
+  みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 16:00 UTC(フェーズ86: 他venture〈aircon-pasha・course-set-pasha・
+line-reservation-ai〉には既にあるが本venture未着手だったtone-and-manner-guideline.mdを
+新規作成。作成過程で発見した見出し表記の不整合(トライアル終了通知のみ半角「[鞍パシャッと]」)
+を全角「【鞍パシャッと】」に統一する修正を行った。venture全体649件・schema検証27件いずれも
+パス〈変更前と同じ〉)

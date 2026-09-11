@@ -162,7 +162,7 @@ def format_trial_end_notification_message(generation_count: int) -> str:
     if generation_count < 0:
         raise ValueError(f"generation_count must be >= 0: {generation_count!r}")
     lines = [
-        "[鞍パシャッと] 無料トライアル、お疲れさまでした!",
+        "【鞍パシャッと】無料トライアル、お疲れさまでした!",
         "",
         "これまでの生成実績:",
         f"・受注内容整理メモ・納品案内・お手入れ案内の生成: {generation_count}回",
