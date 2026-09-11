@@ -2814,4 +2814,22 @@
   venture全体573件→575件全件・schema検証9件いずれもパスを確認した。承認不要な
   プロトタイプコード改修・テスト追加のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-09 11:00 UTC
+- フェーズ203(2026-09-11 14:00 UTC): 他venture
+  (aircon-pasha・line-reservation-ai)には既にあるが本venture未着手だった
+  tone-and-manner-guideline.mdというcross-venture parityのギャップに対応し、新規作成した。
+  本ventureは顧客向け(出力1・2)・内部記録(出力3)・セッター本人向け運用メッセージという
+  3種類の宛先が存在する点をaircon-pasha版(2種類)との前提の違いとして整理したうえで、
+  `prototype/*.py`内の運用メッセージ定数を全数確認したところ、見出し行の括弧記法が
+  全角「【】」(`subscription_cancellation_notification.py`)と半角「[...] 」
+  (`payment_recovery_notification.py`・`payment_failure_reminder_scheduler.py`・
+  `trial_end_scheduler.py`、計5箇所)の2種類に分裂していたことを発見した。半角側は
+  aircon-pashaのFlex Message alt_text専用の記法をそのまま転用したものと推測されるが、
+  本ventureはFlex Message・alt_textを実装しておらず常にプレーンテキスト本文を送信する
+  設計(kura-pashaと同じ)であるため、先行していた全角「【】」表記に5箇所を統一する修正を
+  行った。いずれの文言も括弧を含めて厳密一致検証するテストは無く(該当テストは
+  `assertIn("コースセットパシャッと", sent_text)`という部分文字列検証のみ)、既存テストへの
+  影響は無いことを確認済み。venture全体573件→575件(件数変更なし、テキスト定数の文言修正
+  のみ)全件・schema検証9件いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+  設計文書作成・既存コードの文言統一修正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-11 14:00 UTC

@@ -139,7 +139,7 @@ def select_due_payment_failure_reminders(
 # render_payment_suspended_message()と同じく既存サブスクリプションのStripeカスタマー
 # ポータルであるべき)を解消した。PORTAL_LINK_PLACEHOLDERへ差し替える。)
 PAYMENT_FAILURE_REMINDER_TEMPLATE = (
-    "[コースセットパシャッと] お支払い確認のお願い(再送)\n"
+    "【コースセットパシャッと】お支払い確認のお願い(再送)\n"
     "\n"
     "お支払い手続きが未完了のままです。\n"
     "このままですと3日後に投稿文の生成を一時停止いたします。\n"

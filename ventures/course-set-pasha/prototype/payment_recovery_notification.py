@@ -110,7 +110,7 @@ def classify_payment_recovery(
 # メッセージ文言(design 4節)
 # ---------------------------------------------------------------------------
 
-_TITLE_LINE = "[コースセットパシャッと] お支払いを確認しました"
+_TITLE_LINE = "【コースセットパシャッと】お支払いを確認しました"
 
 # design 4節「決済成功による復旧時」分岐1(制限モードから復旧、生成が実際に止まっていた)。
 PAYMENT_RECOVERED_MESSAGE = (
@@ -146,7 +146,7 @@ def build_payment_recovery_message(outcome: str) -> str:
 # 形式(フェーズ127: 誤って新規Checkout用LIFF URLを使っていたのをStripeカスタマー
 # ポータルURLへ差し替えた)。
 PAYMENT_FAILURE_DETECTED_TEMPLATE = (
-    "[コースセットパシャッと] お支払いの確認をお願いします\n"
+    "【コースセットパシャッと】お支払いの確認をお願いします\n"
     "\n"
     "いつもご利用ありがとうございます。\n"
     "今回のお支払い手続きが完了できませんでした\n"

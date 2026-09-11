@@ -171,7 +171,7 @@ BASE_MINUTES_PER_GENERATION = 10
 ADDITIONAL_MINUTES_PER_AREA = 5
 
 TRIAL_END_NOTIFICATION_TEMPLATE = (
-    "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
+    "【コースセットパシャッと】14日間の無料トライアル、お疲れさまでした!\n"
     "\n"
     "これまでの生成実績:\n"
     "・投稿文生成: {generation_count}回\n"
@@ -188,7 +188,7 @@ TRIAL_END_NOTIFICATION_TEMPLATE = (
 # increment_trial_area_count対応済み)に使う、複数エリア同時更新を考慮した文言。
 # content-generation-time-estimate.md「現状の実装との差分・次の課題」で提案した表現を採用。
 TRIAL_END_NOTIFICATION_TEMPLATE_WITH_AREA_COUNT = (
-    "[コースセットパシャッと] 14日間の無料トライアル、お疲れさまでした!\n"
+    "【コースセットパシャッと】14日間の無料トライアル、お疲れさまでした!\n"
     "\n"
     "これまでの生成実績:\n"
     "・投稿文生成: {generation_count}回\n"
