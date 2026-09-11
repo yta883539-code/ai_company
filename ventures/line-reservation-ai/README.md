@@ -3491,6 +3491,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
   優先候補とする。
+- フェーズ続き215(2026-09-11 17:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  json-schema-multi-intent-extension.md冒頭の「机上設計のみ、実装・実LLM検証は未着手」
+  という記載(2026-08-02 14:00 UTC改訂時点のもの)を確認したところ、`faq_segments`は
+  `schema/booking_output.schema.json`・`schema/validate_test_cases.py`
+  (conversation-samples-test-cases.mdのE10〜E16フィクスチャ全件)・`prototype/engine.py`
+  (通知ログ集計のresolved:falseユニーク化処理)のいずれにも実装済みであることが
+  コード確認により判明した(webhook-function-a-implementation.md・firestore-data-model.md
+  等と同種の「解消後も冒頭サマリ側の記載が同期更新されない」記載漏れパターンの再発)。
+  未着手のまま残るのは実LLM(Claude API等)への投入検証(APIキー取得・課金が必要で
+  オーナー承認待ち)のみであることを明記し、該当箇所を解消済みに更新した。コード変更は
+  無く、venture全体771件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)
+  を確認した。承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補
+  とする。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。

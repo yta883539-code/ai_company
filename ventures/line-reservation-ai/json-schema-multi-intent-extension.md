@@ -4,7 +4,17 @@ conversation-samples-test-cases.md の E13(複合質問の分割送信)で見つ
 「1回のAI応答内で `intent` が項目ごとに混在しうる(例: 駐車場は`faq`で回答済み、
 電子マネーは`escalation`)点を、json-output-retry-fallback.md が前提としてきた
 「1応答=1 JSON」の構造とどう整合させるか」について設計する。
-机上設計のみ、実装・実LLM検証は未着手。
+(解消済み 2026-09-11 17:00 UTC・フェーズ続き215: 「机上設計のみ、実装・実LLM検証は未着手」との
+本文冒頭の記載は、実装面については既に解消済みであることが判明した。`faq_segments`は
+`schema/booking_output.schema.json`(フィールド定義・依存関係の説明)、
+`schema/validate_test_cases.py`(resolved:false時のneeds_owner_check必須チェック、
+conversation-samples-test-cases.mdのE10〜E16フィクスチャ全件に反映済み)、
+`prototype/engine.py`(通知ログ集計でのresolved:falseユニーク化処理・E13相当のデモ
+シナリオ)のいずれにも実装済みであることをコードで確認した。未着手のまま残るのは、
+本ファイル末尾の「未検証・要検討事項」に記載の通り実LLM(Claude API等)への投入検証
+(APIキー取得・課金が必要でオーナー承認待ち、pending-approval.md参照)のみである。
+コード変更は無く、venture全体771件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+schema検証25件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。)
 
 ## 方針: トップレベルの1 JSONは維持し、任意フィールドで内訳を表現する
 
