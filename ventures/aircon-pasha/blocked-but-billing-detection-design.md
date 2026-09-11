@@ -92,6 +92,16 @@ user_id昇順ソート・profile未存在の無視)を追加、venture全体370�
 - Cloud Schedulerの新規作成・メール送信の実行はいずれも外部サービス側の設定・送信操作に
   該当し、オーナーの許可が必要なアクションであるため、実際の接続作業自体は着手しない
   (course-set-pasha・line-reservation-aiの同種案件と同じ整理)。
-- line-reservation-aiにも同種の未着手課題(unfollow時のuser_profile扱い)が残っているため、
-  次回以降の展開候補とする(本venture固有の`is_following`設計をそのまま持ち込めるかは
-  line-reservation-ai側のuser_profileスキーマ次第で要確認)。
+- (解消済み 2026-09-11 15:00 UTC・aircon-pashaフェーズ203として訂正: 本行は本節作成時点
+  〈フェーズ167、2026-08-28頃〉の記載で、line-reservation-aiは当時未着手だったが、実際には
+  その後line-reservation-aiフェーズ続き176(2026-09-02 23:02 UTC)で対応済みとなっている。
+  本venture固有の`is_following`(user_id単位)をそのまま持ち込むのではなく、
+  line-reservation-ai固有の事情(LINE公式アカウントを一般顧客とオーナー自身の両方が
+  フォローする構造)を踏まえ、`owner_is_following`(store_id単位、オーナー自身のブロック
+  状態のみを追跡)という別設計へ翻案したうえで
+  `blocked-but-billing-detection-design.md`(line-reservation-ai側)として実装済み
+  (`prototype/store_profile_store.py`の`get_owner_is_following`/`set_owner_is_following`、
+  `prototype/blocked_but_billing_candidates.py`の`list_blocked_but_billing_candidates()`)。
+  本行が想定していた「本venture固有の設計をそのまま持ち込めるか」という懸念は該当せず、
+  対象venture側で個別に適した設計へ翻案する形で既に解消されている。次回以降の展開候補では
+  なく、本venture・line-reservation-aiとも本課題は解消済みとして扱う。)
