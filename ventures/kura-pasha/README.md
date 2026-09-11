@@ -1704,3 +1704,25 @@ design.md相当の設計が本ventureに無かったcross-venture parityのギ�
 character-limit-fallback-design.mdとして新規作成・実装した。3出力を1通に連結する本venture
 固有の構造に合わせ、連結後テキスト全体をUTF-16コード単位でチェックする設計とした。
 新規テスト4件追加、venture全体624件→638件・schema検証27件いずれもパス)
+
+- フェーズ84(2026-09-11 10:00 UTC): 他venture(line-reservation-ai・course-set-pasha・
+  aircon-pasha)には既にあるが本venture未着手だったunit-economics-estimate.md
+  (決済手数料・Firestore原価・LLM API原価を統合した1工房あたり月次粗利試算)という
+  cross-venture parityのギャップに対応し、新規作成した。決済手数料3.6%・Firestore原価
+  0円(他venture以上に低頻度のため無料枠内と判断)の前提を他ventureから踏襲し、
+  llm-api-cost-estimate.md(フェーズ6)のSonnet 5・シナリオB試算(キャッシュなし
+  5.09円/回・キャッシュ利用2.27円/回)と組み合わせて3プランの粗利率を試算した結果、
+  93.8〜95.7%(含まれる回数を使い切った場合)と他venture以上の水準であることを確認した。
+  pricing-plan.mdが従量単価・基本料を原価積み上げでなく顧客の受注単価との比較で
+  高めに仮決めしたことが主因である点、含まれる回数を使い切らない月が多いほど実際には
+  粗利率がさらに高くなる方向に働く可能性がある点(aircon-pashaの季節変動シミュレーション
+  と同じ方向性)を結論として記録した。コード変更は無く、venture全体638件・schema検証
+  27件いずれもパス(変更前と同じ結果)を確認した。承認不要な設計文書作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 10:00 UTC(フェーズ84: 他venture〈line-reservation-ai・
+course-set-pasha・aircon-pasha〉には既にあるが本venture未着手だったunit-economics-
+estimate.mdを新規作成し、決済手数料・Firestore原価・LLM API原価を統合した1工房あたり
+月次粗利試算〈93.8〜95.7%〉を行った。コード変更なし、venture全体638件・schema検証
+27件いずれもパス〈変更前と同じ〉)
