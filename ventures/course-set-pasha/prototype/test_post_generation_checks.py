@@ -266,6 +266,21 @@ class EmojiUsageRulesTest(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("line_web_notice", errors[0])
 
+    def test_line_web_notice_with_squared_vs_symbol_is_flagged(self):
+        instance = {"line_web_notice": {"body": "本日の1本勝負🆚明日は休講です"}}
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice", errors[0])
+
+    def test_sns_post_with_negative_squared_letter_counts_as_emoji(self):
+        instance = {
+            "sns_post": {"body": "🅰🅱🅾今週の新着課題です", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": ""},
+        }
+        errors = check_emoji_usage_rules(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sns_post", errors[0])
+
 
 class HistoryRowCountsMentionedInTextTest(unittest.TestCase):
     def test_count_present_in_sns_post_body_is_allowed(self):

@@ -257,3 +257,23 @@ schema/validate_test_cases.pyのvalidate_cross_field_rules()がstatus=out_of_sco
   ケースは対象外)ことで担保している。
 - 実LLM接続後に生成文の実例が得られた段階で、他に取りこぼしている言い回し
   (例:「入会金」「月謝」等)が無いか改めて確認する必要がある。
+
+## 追記(2026-09-11 09:00 UTC・フェーズ202): EMOJI_PATTERNに囲み英数字補助の非重複範囲を追加
+
+2026-08-09 06:00 UTC追記の「残る既知の限界」で保留していた、囲み英数字補助
+(Enclosed Alphanumeric Supplement、U+1F100-U+1F1FF)のうち地域指示記号
+(U+1F1E6-U+1F1FF)と重複しない範囲(U+1F100-U+1F1E5)への対応に着手した。
+この範囲には🅰🅱🅾(血液型記号)・🆚(対決記号)等、装飾目的でSNS投稿文に使われうる
+記号が含まれる。地域指示記号ブロックは既にEMOJI_PATTERNでカバー済みのため、
+重複する`\U0001F1E6-\U0001F1FF`は据え置き、非重複範囲`\U0001F100-\U0001F1E5`のみを
+`prototype/post_generation_checks.py`のEMOJI_PATTERNに追加した。
+
+`prototype/test_post_generation_checks.py`に新規テスト2件を追加
+(`test_line_web_notice_with_squared_vs_symbol_is_flagged`・
+`test_sns_post_with_negative_squared_letter_counts_as_emoji`)。venture全体
+573件→575件全件・schema検証9件いずれもパス確認済み。
+
+### 残る既知の限界(引き続き未対応)
+- 上記2026-08-09 06:00 UTC追記で挙げていた「囲み英数字補助」自体は本追記で対応したため、
+  未対応のまま残る主なブロックは将来のUnicode改定で追加されるブロック全般のみとなった。
+- 「1〜2個程度」という目安の解釈(0個は許容、超過のみ検出)についての判断は据え置き。
