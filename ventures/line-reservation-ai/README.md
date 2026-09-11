@@ -3473,6 +3473,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- フェーズ続き214(2026-09-11 13:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  faq-escalation-boundary.md「残課題」に残っていた「owner-settings-wireframe.mdの
+  『店舗FAQ情報』入力欄追加を受けたllm-system-prompt-draft.md厳守事項9aの説明文への反映は
+  未着手(次回以降)」という記載(2026-07-30 18:58 UTC時点のもの)を確認したところ、
+  llm-system-prompt-draft.mdの改訂履歴上、実際には同日のうちに(1)18:58 UTCで厳守事項9を
+  9a(店舗登録済み静的情報に基づくFAQ回答)/9b(挨拶・雑談・スパムへの定型応答)に分割、
+  (2)20:58 UTCでowner-settings-wireframe.mdの「店舗FAQ情報」入力欄の具体項目(駐車場の
+  有無・台数、支払い方法のチェックボックス内訳)を9aの説明文へ反映、(3)23:58 UTCで
+  faq-response-templates.mdの項目別回答テンプレート参照を追記、の3段階で既に反映済み
+  だったことが判明した(webhook-function-a-implementation.md・firestore-data-model.md
+  等と同種の「解消後も残課題側の記載が同期更新されない」記載漏れパターンの再発)。
+  faq-escalation-boundary.mdの該当bulletを解消済みに更新した。コード変更は無く、
+  venture全体771件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した
+  (変更前と同じ結果)。承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
+  優先候補とする。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。
