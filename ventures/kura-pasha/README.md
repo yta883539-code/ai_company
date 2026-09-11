@@ -1678,3 +1678,29 @@ design.md「5. 残課題」に残っていた`customer.subscription.updated`対�
 〈フェーズ55で解消済みだったが訂正されていなかった〉を訂正。あわせて「次にやること
 (候補)」節のblocked-but-billing系2項目を解消済みに整理した。コード変更なし、
 venture全体624件・schema検証27件いずれもパス〈変更前と同じ〉)
+
+- フェーズ83(2026-09-11 08:00 UTC): aircon-pasha/character-limit-fallback-design.md
+  (フェーズ102)相当の設計が本ventureに存在しないcross-venture parityのギャップに気付き、
+  character-limit-fallback-design.mdとして本venture向けに翻案・実装した。本ventureは
+  出力1(受注内容整理メモ)・出力2(納品案内下書き)・出力3(お手入れ案内下書き)を
+  `format_generated_reply()`で1通のテキストメッセージに連結して返信する設計
+  (aircon-pashaが`completion_report`/`care_guide`をそれぞれ独立に文字数チェックするのとは
+  異なる)であるため、チェック対象を連結後の1本のテキスト全体とする翻案を行った。
+  `count_utf16_code_units()`(LINE Messaging APIの文字数上限がUTF-16コード単位でカウント
+  される点に対応)・`check_message_length_within_line_limit()`
+  (`LINE_TEXT_MESSAGE_MAX_LENGTH = 5000`)を新設し、`process_memo_event()`の
+  `status == "generated"`かつ連結後テキストが上限超過の場合、`limit_notice`・
+  トライアル終了通知の付記を行わず(既存の`LlmApiError`・検証エラー時フォールバックと
+  同じ扱い)`CHARACTER_LIMIT_FALLBACK_MESSAGE`を職人向けに返す分岐を追加した。切り詰めは
+  行わず送信失敗(生成失敗)として扱う方針もaircon-pasha版を踏襲した。`MemoProcessResult`に
+  `character_limit_exceeded`フィールドを新設した。新規テスト4件(UTF-16コード単位カウント・
+  境界値・上限超過時フォールバック・limit_notice/トライアル終了通知の非付記)を追加し、
+  venture全体624件→638件全件・schema検証27件いずれもパスを確認した。承認不要な設計文書
+  作成・プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 08:00 UTC(フェーズ83: aircon-pasha/character-limit-fallback-
+design.md相当の設計が本ventureに無かったcross-venture parityのギャップに対応し、
+character-limit-fallback-design.mdとして新規作成・実装した。3出力を1通に連結する本venture
+固有の構造に合わせ、連結後テキスト全体をUTF-16コード単位でチェックする設計とした。
+新規テスト4件追加、venture全体624件→638件・schema検証27件いずれもパス)

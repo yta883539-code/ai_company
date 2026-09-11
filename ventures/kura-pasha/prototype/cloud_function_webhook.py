@@ -410,6 +410,27 @@ API_FAILURE_FALLBACK_MESSAGE = (
     "只今混み合っております。少し時間をおいて同じ内容をもう一度送ってください。"
 )
 
+# character-limit-fallback-design.md(フェーズ83)。LINE Messaging APIのテキストメッセージ
+# 1件あたりの文字数上限(UTF-16コード単位)。
+LINE_TEXT_MESSAGE_MAX_LENGTH = 5000
+
+CHARACTER_LIMIT_FALLBACK_MESSAGE = (
+    "生成結果が長くなりすぎたため、下書きを作成できませんでした。お手数ですが、入力"
+    "メモを少し短くして再度お送りください。"
+)
+
+
+def count_utf16_code_units(text: str) -> int:
+    """LINE Messaging APIの文字数上限はUTF-16コード単位でカウントされるため、
+    Python標準のlen(str)(コードポイント単位)ではなくこちらを用いる
+    (character-limit-fallback-design.md)。"""
+    return len(text.encode("utf-16-le")) // 2
+
+
+def check_message_length_within_line_limit(text: str) -> bool:
+    """テキストがLINE Messaging APIの文字数上限(5,000文字、UTF-16コード単位)以内かどうか。"""
+    return count_utf16_code_units(text) <= LINE_TEXT_MESSAGE_MAX_LENGTH
+
 # subscription-cancellation-flow-design.md 「1. 解約意図検知時の案内メッセージ」記載の
 # プレースホルダ文字列(aircon-pasha/course-set-pashaのPORTAL_LINK_PLACEHOLDERと同じ位置づけ)。
 PORTAL_LINK_PLACEHOLDER = "{Stripeカスタマーポータル URL}"
@@ -559,6 +580,7 @@ class MemoProcessResult:
     trial_end_notification_sent: bool = False  # True=今回の返信にトライアル終了通知を便乗させた
     limit_notice_cta_attached: bool = False  # True=トライアル中の上限接近/超過通知にCTAボタンを添付した
     checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
+    character_limit_exceeded: bool = False  # True=生成結果がLINE文字数上限を超えフォールバック応答した
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -786,6 +808,19 @@ def process_memo_event(
             instance, portal_link_provider=portal_link_provider, user_id=user_id,
         )
         checkout_url = None
+
+    # character-limit-fallback-design.md(フェーズ83): status=generatedの3出力連結後の
+    # 1本のテキストがLINE文字数上限を超える場合、limit_notice・トライアル終了通知の付記を
+    # 行わず(既存のLlmApiError・検証エラー時フォールバックと同じ扱い)、
+    # CHARACTER_LIMIT_FALLBACK_MESSAGEを職人向けに返す。
+    if instance["status"] == "generated" and not check_message_length_within_line_limit(reply_text):
+        reply_sent = _reply_with_retry(reply_client, reply_token, CHARACTER_LIMIT_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=CHARACTER_LIMIT_FALLBACK_MESSAGE if reply_sent else None,
+            retried=retried, character_limit_exceeded=True,
+        )
+
     if limit_notice is not None:
         reply_text = f"{reply_text}\n\n{limit_notice}"
     if trial_end_notification_due:

@@ -8,9 +8,12 @@ import random
 
 from datetime import datetime, timedelta
 
+import copy
+
 from cloud_function_webhook import (
     ALREADY_SUBSCRIBED_NOTICE,
     API_FAILURE_FALLBACK_MESSAGE,
+    CHARACTER_LIMIT_FALLBACK_MESSAGE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
@@ -37,6 +40,8 @@ from cloud_function_webhook import (
     process_unfollow_event,
     receive_webhook,
     verify_line_signature,
+    check_message_length_within_line_limit,
+    count_utf16_code_units,
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_postback_data
 from usage_counter_workshop import (
@@ -455,6 +460,64 @@ def test_process_memo_event_generated_includes_three_outputs():
     check("納品案内の下書きの見出しを含む", "【納品案内の下書き】" in result.reply_text)
     check("お手入れ案内の下書きの見出しを含む", "【お手入れ案内の下書き】" in result.reply_text)
     check("order_summary.bodyが含まれる", TEST_CASES["G1_new_basic"]["order_summary"]["body"] in result.reply_text)
+    check("character_limit_exceeded=False(通常長)", result.character_limit_exceeded is False)
+
+
+def test_count_utf16_code_units_counts_surrogate_pairs_as_two():
+    # サロゲートペアとなる文字(絵文字等、U+10000以上)はUTF-16で2コード単位を消費する。
+    check("ASCII文字はコードポイント数と一致", count_utf16_code_units("abc") == 3)
+    check("サロゲートペア文字は2コード単位", count_utf16_code_units("\U0001F600") == 2)
+
+
+def test_check_message_length_within_line_limit_boundary():
+    check("5000文字ちょうどはTrue", check_message_length_within_line_limit("あ" * 5000) is True)
+    check("5001文字はFalse", check_message_length_within_line_limit("あ" * 5001) is False)
+
+
+def test_process_memo_event_generated_over_limit_returns_character_limit_fallback():
+    # character-limit-fallback-design.md(フェーズ83): 3出力連結後のテキストが
+    # 5,000文字(UTF-16コード単位)を超える場合、下書きを送らずフォールバック文言を返す。
+    over_limit = copy.deepcopy(TEST_CASES["G1_new_basic"])
+    over_limit["delivery_notice"]["body"] = "あ" * 5000
+    reply_client = InMemoryReplyClient()
+
+    result = process_memo_event(_make_event("新規、ブリティッシュ、牛革"), _StubLlmCall([over_limit]), reply_client)
+
+    check("文字数超過時もhandled=True", result.handled is True)
+    check("文字数超過時も返信送信済み", result.reply_sent is True)
+    check("返信はCHARACTER_LIMIT_FALLBACK_MESSAGE", result.reply_text == CHARACTER_LIMIT_FALLBACK_MESSAGE)
+    check("character_limit_exceeded=True", result.character_limit_exceeded is True)
+    check("下書き本文は送信しない", "【納品案内の下書き】" not in reply_client.sent[0][1])
+
+
+def test_process_memo_event_generated_over_limit_omits_limit_notice_and_trial_end_notification():
+    # 既存のLlmApiError・検証エラー時フォールバックと同じ扱い: limit_notice・
+    # トライアル終了通知は付記しない(character-limit-fallback-design.md 検知・
+    # フォールバックのフロー2.)。本来なら生涯最初の生成成功でtrial_end_notification_sent=True
+    # になる条件(test_process_memo_event_appends_trial_end_notification_on_first_successと
+    # 同じセットアップ)でも、文字数超過フォールバックが優先されることを確認する。
+    over_limit = copy.deepcopy(TEST_CASES["G1_new_basic"])
+    over_limit["delivery_notice"]["body"] = "あ" * 5000
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CL1", "W_CL1")
+    workshops.set_plan("W_CL1", "standard")
+    workshops.set_members("W_CL1", "U_CL1", ["U_CL1"])
+
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_CL1"),
+        _StubLlmCall([over_limit]),
+        reply_client,
+        user_profile_store=profiles,
+        workshop_store=workshops,
+        usage_counter_store=counters,
+        now=FEB,
+    )
+
+    check("文字数超過時はcharacter_limit_exceeded=True", result.character_limit_exceeded is True)
+    check("トライアル終了通知は便乗しない", result.trial_end_notification_sent is False)
+    check("上限接近CTAは添付しない", result.limit_notice_cta_attached is False)
+    check("返信本文はCHARACTER_LIMIT_FALLBACK_MESSAGEそのもの", result.reply_text == CHARACTER_LIMIT_FALLBACK_MESSAGE)
 
 
 def test_process_memo_event_out_of_scope_returns_message_as_is():
@@ -1579,6 +1642,10 @@ if __name__ == "__main__":
     test_process_follow_event_of_an_unlinked_user_does_not_touch_profile_store()
     test_process_memo_event_ignores_non_text_message()
     test_process_memo_event_generated_includes_three_outputs()
+    test_count_utf16_code_units_counts_surrogate_pairs_as_two()
+    test_check_message_length_within_line_limit_boundary()
+    test_process_memo_event_generated_over_limit_returns_character_limit_fallback()
+    test_process_memo_event_generated_over_limit_omits_limit_notice_and_trial_end_notification()
     test_process_memo_event_out_of_scope_returns_message_as_is()
     test_process_memo_event_insufficient_input_returns_missing_fields_request()
     test_process_memo_event_cancellation_intent_replaces_portal_placeholder()
