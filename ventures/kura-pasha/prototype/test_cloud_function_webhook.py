@@ -767,6 +767,51 @@ def test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     check("トライアル中4回目は上限超過通知を含む", "上限に達しました" in results[3].reply_text)
     check("トライアル中4回目は追加料金の表現を含まない", "追加料金" not in results[3].reply_text)
     check("トライアル中4回目は従量単価(250円)を含まない", "250円" not in results[3].reply_text)
+    check(
+        "トライアル中2回目(残り1回)にはCTAボタンを添付する",
+        reply_client.quick_replies_sent[1] is TRIAL_END_QUICK_REPLY,
+    )
+    check("トライアル中2回目はlimit_notice_cta_attached=True", results[1].limit_notice_cta_attached is True)
+    check(
+        "トライアル中4回目(上限超過)にもCTAボタンを添付する",
+        reply_client.quick_replies_sent[3] is TRIAL_END_QUICK_REPLY,
+    )
+    check("トライアル中4回目はlimit_notice_cta_attached=True", results[3].limit_notice_cta_attached is True)
+    check(
+        "トライアル中1回目は生涯最初の生成としてCTAボタンを添付する(limit_noticeとは無関係)",
+        reply_client.quick_replies_sent[0] is TRIAL_END_QUICK_REPLY,
+    )
+    check("トライアル中1回目はlimit_notice_cta_attached=False(trial_end側の添付)", results[0].limit_notice_cta_attached is False)
+    check("トライアル中3回目(通知なし)はCTAボタンを添付しない", reply_client.quick_replies_sent[2] is None)
+
+
+def test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice():
+    """フェーズ75・limit-approaching-notification-design.md 7節: 既に有償契約済み
+    (subscription_status="active")で従量課金が発生するケースでは、
+    「有料プランへ進む」ボタンは不要なため添付しないことを確認する
+    (test_process_memo_event_appends_limit_approaching_and_overage_notices()と同じ
+    シナリオにquick_reply添付有無の確認を追加する)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LIMIT_ACTIVE", "W_LIMIT_ACTIVE")
+    workshops.set_plan("W_LIMIT_ACTIVE", "light")
+    workshops.set_members("W_LIMIT_ACTIVE", "U_LIMIT_ACTIVE", ["U_LIMIT_ACTIVE"])
+    workshops.set_subscription_status("W_LIMIT_ACTIVE", "active")
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 4)
+    results = [
+        process_memo_event(
+            _make_event("新規、ブリティッシュ、牛革", user_id="U_LIMIT_ACTIVE"),
+            llm_call, reply_client,
+            user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+            now=FEB,
+        )
+        for _ in range(4)
+    ]
+    check("契約中2回目(残り1回)にはCTAボタンを添付しない", reply_client.quick_replies_sent[1] is None)
+    check("契約中2回目はlimit_notice_cta_attached=False", results[1].limit_notice_cta_attached is False)
+    check("契約中4回目(上限超過)にもCTAボタンを添付しない", reply_client.quick_replies_sent[3] is None)
+    check("契約中4回目はlimit_notice_cta_attached=False", results[3].limit_notice_cta_attached is False)
 
 
 def test_process_memo_event_skips_store_integration_when_stores_not_provided():
@@ -1356,6 +1401,7 @@ if __name__ == "__main__":
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_appends_trial_wording_when_subscription_not_active()
+    test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()

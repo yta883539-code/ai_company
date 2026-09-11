@@ -521,6 +521,7 @@ class MemoProcessResult:
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モードの応答
     trial_end_notification_sent: bool = False  # True=今回の返信にトライアル終了通知を便乗させた
+    limit_notice_cta_attached: bool = False  # True=トライアル中の上限接近/超過通知にCTAボタンを添付した
     checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
 
 
@@ -634,6 +635,15 @@ def process_memo_event(
        (design 6節、フェーズ73が5節に残していた課題への対応)。5.のトライアル終了通知と
        判定条件が独立している(現行3プランでは原理的に同一回で重複しない)ため、両方が
        真になった場合はいずれも付記する。
+    7. (フェーズ75、新設) 6.の`limit_notice`が`is_trial=True`(トライアル期間中)の文言で
+       付記された場合、5.のトライアル終了通知と同じ`TRIAL_END_QUICK_REPLY`
+       (「▼ 有料プランへ進む」ボタン)を返信のquick_replyとして併せて添付する
+       (limit-approaching-notification-design.md 7節、フェーズ74が範囲外としていた課題への
+       対応)。`is_trial=False`(既に有償契約済みで従量課金が発生するケース)の場合は
+       ボタンを添付しない(既に契約済みのため「有料プランへ進む」という導線が不要なため)。
+       5.のトライアル終了通知添付条件(生涯最初の生成1回目のみ)と6.の本条件(「残り1回」
+       到達時のみ)は判定条件が独立しており現行プランでは同一回で重複しないため、
+       両者の単純なor条件でボタン添付要否を決定する。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -645,6 +655,7 @@ def process_memo_event(
 
     trial_end_notification_due = False
     limit_notice: Optional[str] = None
+    limit_notice_is_trial = False
     if (
         user_profile_store is not None
         and workshop_store is not None
@@ -678,6 +689,7 @@ def process_memo_event(
         # format_limit_approaching_notice()の文言分岐に渡す(design 6節)。
         is_trial = workshop_store.get_subscription_status(generation_result.usage.workshop_id) != "active"
         limit_notice = format_limit_approaching_notice(generation_result.usage, is_trial)
+        limit_notice_is_trial = is_trial
 
     try:
         instance = _generate_with_api_retry(llm_call, memo_text)
@@ -742,13 +754,20 @@ def process_memo_event(
         reply_text = f"{reply_text}\n\n{limit_notice}"
     if trial_end_notification_due:
         reply_text = f"{reply_text}\n\n{format_trial_end_notification_message(1)}"
+    # フェーズ75: limit_notice_is_trial(トライアル中の残り1回/上限超過通知)の場合も
+    # trial_end_notification_dueと同じCTAボタン(TRIAL_END_QUICK_REPLY)を添付する
+    # (design.md 7節)。両条件が同時に真になることはない(5.のトライアル終了通知は生涯
+    # 最初の生成1回目のみ、本CTAは「残り1回」到達時のみで現行プランでは同一回で重複
+    # しない)ため、単純なor条件で足りる。
+    attach_limit_notice_cta = limit_notice is not None and limit_notice_is_trial
     reply_sent = _reply_with_retry(
         reply_client, reply_token, reply_text,
-        quick_reply=TRIAL_END_QUICK_REPLY if trial_end_notification_due else None,
+        quick_reply=TRIAL_END_QUICK_REPLY if (trial_end_notification_due or attach_limit_notice_cta) else None,
     )
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         trial_end_notification_sent=reply_sent and trial_end_notification_due,
+        limit_notice_cta_attached=reply_sent and attach_limit_notice_cta,
         checkout_url=checkout_url if reply_sent else None,
     )
 

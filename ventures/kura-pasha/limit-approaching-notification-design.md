@@ -132,7 +132,33 @@ Optional[str]`を`prototype/cloud_function_webhook.py`に新設する
   発火するため、ボタン添付を追加するには`process_memo_event()`側のquick_reply選択ロジック
   自体の拡張が必要であり、本フェーズのスコープ(文言の出し分けのみ)を超えると判断した。
 
-最終更新: 2026-09-10 22:00 UTC(フェーズ74: 5節の課題だったトライアル中の文言不正確さに対応。
-`format_limit_approaching_notice()`に`is_trial`引数を追加し、トライアル中
-〈`subscription_status != "active"`〉は「追加料金」に触れず有料プラン申し込みを案内する
-文言に差し替えた〈6節〉)
+## 7. トライアル中の本通知へのCTAボタン添付(フェーズ75、2026-09-11 00:00 UTC)
+
+6節末尾で範囲外としていた課題(「有料プランへ進む」ボタンを本通知〈「残り1回」/上限超過〉
+からも押せるようにする)に対応する。
+
+- **対象**: `is_trial=True`の場合の本通知(6節の2種類の文言、「残り1回」到達時・上限超過時の
+  両方)のみ。`is_trial=False`(既に有償契約済みで従量課金が発生するケース)は対象外とする。
+  既に有償契約に至っているユーザーに対して「有料プランへ進む」ボタン(実体は
+  `TRIAL_END_QUICK_REPLY`、`resolve_checkout_intent()`が処理する新規Checkout Session発行の
+  導線)を提示するのは文脈として不自然であり、pricing-plan.mdが定めるプラン変更(アップ
+  グレード/ダウングレード)導線とも役割が重複するため。
+- **実装**: `process_memo_event()`側で`limit_notice`が`None`でなく、かつ`limit_notice_is_trial`
+  (=`format_limit_approaching_notice()`呼び出し時に渡した`is_trial`)が`True`の場合、
+  5.のトライアル終了通知(生涯最初の生成1回目)と同じ`TRIAL_END_QUICK_REPLY`を返信の
+  quick_replyとして添付する。両条件(5.と本条件)は判定タイミングが独立しており
+  (5.は生涯最初の生成1回目のみ、本条件は「残り1回」到達時のみ)、現行3プラン(月3回以上)
+  では同一回で重複しないため、単純なor条件で足りる(重複時の排他処理は設けない)。
+  返信結果には新規フィールド`MemoProcessResult.limit_notice_cta_attached`を追加し、
+  本条件によってボタンが添付されたかどうかを`trial_end_notification_sent`と独立して
+  追跡できるようにした。
+- **範囲外(次の課題)**: 本フェーズはトライアル中の本通知へのボタン添付のみを扱う。
+  トライアル期間中の仮plan_id(craftsman-account-linking-design.md 7節)に基づく通知文言・
+  ボタン導線が、実際にCheckout完了後に選ばれたプランと異なる場合の整合性(例:仮設定の
+  ライトプランで「残り1回」通知を受け取ったユーザーが、実際にはスタンダードプランで
+  契約する場合の案内の齟齬)は未検証のまま残る。
+
+最終更新: 2026-09-11 00:00 UTC(フェーズ75: 6節末尾の課題だったトライアル中の本通知への
+CTAボタン添付に対応。`process_memo_event()`が`limit_notice_is_trial=True`の場合に
+`TRIAL_END_QUICK_REPLY`を添付するようにし、`MemoProcessResult.limit_notice_cta_attached`を
+新設した〈7節〉。既に有償契約済み〈`is_trial=False`〉の場合はボタンを添付しない)

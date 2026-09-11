@@ -1429,3 +1429,33 @@ notice()にis_trial引数を新設し、workshop_store.get_subscription_status()
 お申し込みが必要」という文言に差し替えた(process_memo_event()側の配線も追加)。
 新規テスト17件追加、venture全体552件・schema検証27件いずれもパス。トライアル終了通知
 ボタンの本通知への添付は次の課題として残る)
+
+- フェーズ75(2026-09-11 00:00 UTC): フェーズ74がlimit-approaching-notification-design.md
+  6節末尾に残していた「トライアル終了通知ボタン(TRIAL_END_QUICK_REPLY)を本通知(「残り1回」
+  /上限超過)にも添付する」課題に着手した。`process_memo_event()`が`limit_notice`を
+  `is_trial=True`で組み立てた場合(トライアル期間中、有償契約未確定)のみ、5.のトライアル
+  終了通知(生涯最初の生成1回目)と同じ`TRIAL_END_QUICK_REPLY`を返信のquick_replyとして
+  併せて添付するようにした。`is_trial=False`(既に有償契約済みで従量課金が発生するケース)は
+  「有料プランへ進む」ボタンが文脈上不自然(既に契約済み)なため対象外とした
+  (design.md 7節)。両条件(生涯最初の生成1回目/「残り1回」到達時)は判定タイミングが
+  独立しており現行3プランでは同一回で重複しないため、単純なor条件で足りる。
+  `MemoProcessResult`に新規フィールド`limit_notice_cta_attached`を追加し、本条件による
+  ボタン添付の有無を`trial_end_notification_sent`と独立して追跡できるようにした。
+  新規テスト2件(トライアル中の「残り1回」/上限超過時にボタンが添付されることを確認する
+  統合テスト1件〈既存のtest_process_memo_event_appends_trial_wording_when_subscription_
+  not_activeへのアサーション追加を含む〉、既に有償契約済みの場合はボタンを添付しない
+  ことを確認する統合テスト1件)追加、venture全体552件→563件全件
+  (`test_checkout_session.py`24件・`test_cloud_function_webhook.py`222件→233件・
+  `test_payment_failure_notification.py`22件・`test_stripe_webhook.py`113件・
+  `test_subscription_cancellation_notification.py`28件・`test_usage_counter_workshop.py`
+  120件・`test_workshop_linking.py`23件)・schema検証27件(変更なし)いずれもパスを
+  確認した。トライアル中の仮plan_idに基づく通知文言・ボタン導線と、実際にCheckout完了後に
+  選ばれたプランとの整合性(design.md 7節「範囲外」)は次の課題として残る。承認不要な
+  設計文書更新・プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 00:00 UTC(フェーズ75: limit-approaching-notification-design.md 6節末尾の
+課題だったトライアル中の本通知へのCTAボタン添付に対応。is_trial=Trueの場合のみ
+TRIAL_END_QUICK_REPLYを添付するようにし、MemoProcessResult.limit_notice_cta_attachedを
+新設した〈7節〉。新規テスト追加、venture全体563件・schema検証27件いずれもパス。トライアル中の
+仮plan_idと実際の契約プランとの整合性は次の課題として残る)
