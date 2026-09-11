@@ -812,14 +812,16 @@
 
 ## 次にやること(候補)
 
-(2026-09-11 04:00 UTC、フェーズ79で棚卸し・更新。旧リストの8項目中5項目は既に
-解消済みだったため以下に差し替えた。)
+(2026-09-11 07:00 UTC、フェーズ82で更新。blocked-but-billing系はフェーズ80・81で
+候補検知〜オーナー通知設計まで一通り完了したため、残る項目を整理し直した。)
 
 - (解消済み 2026-09-11 05:00 UTC・フェーズ80: unfollow-billing-faq.md(フェーズ45)
   「今後の課題」だった「ブロック中かつ契約継続中」契約者の検知バッチは
-  blocked-but-billing-detection-design.mdとして設計・実装した。次の課題は、
-  aircon-pasha/blocked-but-billing-owner-notification-design.md相当の、候補一覧を
-  実際にオーナーへ届ける通知手段〈Flex Message通知・日次Cloud Scheduler〉の設計)
+  blocked-but-billing-detection-design.mdとして設計・実装した)
+- (解消済み 2026-09-11 06:00 UTC・フェーズ81: 上記の候補一覧を実際にオーナーへ届ける
+  通知手段は、本venture一貫のプレーンテキスト送信へ翻案しblocked-but-billing-owner-
+  notification-design.mdとして設計・実装した。残るのは実Firestoreフィールド追加・実際の
+  Cloud Scheduler作成・実LINE API接続のみで、いずれもオーナー承認待ちの範囲〈下記〉)
 - trial-end-condition-design.md(フェーズ76の発見)の残課題: 「生涯最初の1回のみ
   無料」というトライアル条件により、limit-approaching-notification-design.mdの
   is_trial=True分岐(残り1回/上限超過通知)が実際のオンボーディング経路では
@@ -1655,3 +1657,24 @@ design.mdとして解消。本venture一貫のプレーンテキスト送信へ�
 `prototype/blocked_but_billing_owner_notification.py`新規実装・再フォロー/解約確定時の
 クリア配線まで実装した。新規テスト21件追加、venture全体603件→624件・schema検証27件
 いずれもパス)
+
+- フェーズ82(2026-09-11 07:00 UTC): subscription-cancellation-notification-design.md
+  (フェーズ54)「5. 残課題」に残っていた「`customer.subscription.updated`の
+  `cancel_at_period_end`前後比較による解約予約受理・解約取り消し案内は本venture未着手」
+  という記載が、実際には直後のフェーズ55(subscription-cancellation-scheduled-
+  notification-design.md、`handle_customer_subscription_updated()`実装・
+  `receive_stripe_webhook()`へのディスパッチ配線)で既に解消されていたにもかかわらず
+  訂正されていなかった記載漏れであることを発見した。`prototype/stripe_webhook.py`に
+  `handle_customer_subscription_updated()`が実装済みで`receive_stripe_webhook()`が
+  `"customer.subscription.updated"`を受理・ディスパッチしていることをコードで確認した
+  うえで、該当箇所を解消済みに訂正した。あわせて「次にやること(候補)」節の
+  blocked-but-billing系2項目(フェーズ80・81で完了済み)を解消済みとして整理した。
+  コード変更は無く、venture全体624件・schema検証27件いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント整合性修正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 07:00 UTC(フェーズ82: subscription-cancellation-notification-
+design.md「5. 残課題」に残っていた`customer.subscription.updated`対応の記載漏れ
+〈フェーズ55で解消済みだったが訂正されていなかった〉を訂正。あわせて「次にやること
+(候補)」節のblocked-but-billing系2項目を解消済みに整理した。コード変更なし、
+venture全体624件・schema検証27件いずれもパス〈変更前と同じ〉)

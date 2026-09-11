@@ -103,13 +103,13 @@ completed`分岐には影響しない)。
 
 ## 5. 残課題
 
-- `customer.subscription.updated`の`cancel_at_period_end`前後比較による「解約予約受理・
-  解約取り消し」案内(course-set-pasha/aircon-pashaが対応済みのもう一方のイベント種別)は
-  本venture未着手。本venture固有の解約フローは現状LINEトーク内の意図検知方式
-  (厳守事項7a)で代替しているため優先度は他venture対応時より低いが、実際にStripe
-  カスタマーポータルでの自己解約操作(subscription-cancellation-flow-design.md1節の
-  フロー図)が有効である以上、`cancel_at_period_end`の変化がユーザー操作と無関係に
-  ズレるケースを完全には排除できず、次の課題として残す。
+- (解消済み 2026-09-09・フェーズ55: `customer.subscription.updated`の
+  `cancel_at_period_end`前後比較による「解約予約受理・解約取り消し」案内は
+  subscription-cancellation-scheduled-notification-design.mdとして設計・実装済み
+  〈`handle_customer_subscription_updated()`・`receive_stripe_webhook()`への
+  ディスパッチ配線を含む〉。本項目は作成時(フェーズ54)時点で未着手だったが、
+  直後のフェーズ55で解消されたにもかかわらず本ファイル側の訂正が漏れていたもの。
+  2026-09-11 07:00 UTC・フェーズ82で訂正。)
 - `receive_stripe_webhook()`実HTTPエントリポイントでの`push_client`配線・実LINE Push
   Message API接続はオーナー承認待ち(pending-approval.md参照)。
 - `invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗ダニング)への対応は
