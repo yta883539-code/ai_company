@@ -1459,3 +1459,37 @@ notice()にis_trial引数を新設し、workshop_store.get_subscription_status()
 TRIAL_END_QUICK_REPLYを添付するようにし、MemoProcessResult.limit_notice_cta_attachedを
 新設した〈7節〉。新規テスト追加、venture全体563件・schema検証27件いずれもパス。トライアル中の
 仮plan_idと実際の契約プランとの整合性は次の課題として残る)
+
+- フェーズ76(2026-09-11 01:00 UTC): フェーズ75が7節に残していた「トライアル期間中の仮plan_id
+  に基づく通知文言・ボタン導線と実際の契約プランとの整合性」を調査した結果、それ以前に
+  6〜7節の`is_trial=True`分岐(「残り1回」/上限超過の文言・CTAボタン添付)自体が、実際に
+  オンボーディングされたworkshopでは到達不能であることを発見した。`pricing-plan.md`の
+  無料トライアルは「生涯最初の1回無料」であり、`is_trial_period_over()`は
+  `trial_generation_used`が真になった時点(=1回目の生成成功直後)で即座に`True`を返す。
+  `process_generation_request()`はこの判定を`check_and_increment_usage()`(6節の
+  「残り1回」判定の入力元)より先に行うため、2回目の生成リクエストは常に
+  `TrialPeriodOverError`(→`TRIAL_PERIOD_OVER_NOTICE`)で遮断され、6〜7節が想定した
+  「2回目=残り1回・4回目=上限超過」という状態には至らない。フェーズ74・75のテストが
+  この矛盾に気付かなかったのは、テストが`workshop_store.set_trial_start_at()`を呼ばずに
+  workshopを用意していたため(`is_trial_period_over()`が恒久的に`False`のまま)であることも
+  特定した。実際のオンボーディング経路(`workshop_linking.create_workshop_from_linking_
+  code()`)を通した場合に2回目で遮断されることを実証する新規テスト1件
+  (`test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded_
+  workshop`)を追加し、design.mdに8節として発見内容を記録した。6〜7節のコード自体の削除・
+  トライアル条件(生涯1回無料)の再設計はどちらもpricing-plan.mdに関わる製品判断のため
+  本フェーズでは行わず、オーナー判断待ちの次の課題として残した(到達不能なだけで誤った
+  文言が実際に送信されるわけではないため緊急度は低いと判断)。新規テスト6件(check()単位)
+  追加、venture全体563件→569件全件(test_checkout_session.py 24件・
+  test_cloud_function_webhook.py 233件→239件・test_payment_failure_notification.py
+  22件・test_stripe_webhook.py 113件・test_subscription_cancellation_notification.py
+  28件・test_usage_counter_workshop.py 120件・test_workshop_linking.py 23件)・
+  schema検証27件いずれもパスを確認した。承認不要な設計文書更新・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 01:00 UTC(フェーズ76: limit-approaching-notification-design.md 6〜7節の
+is_trial=True分岐〈「残り1回」/上限超過通知・CTAボタン〉が、実際のオンボーディング経路では
+生涯最初の1回の生成後に必ずTrialPeriodOverErrorで遮断されるため到達不能であることを発見し、
+実際の経路を通した新規テストで実証した〈8節〉。コード自体の削除・トライアル条件の再設計は
+製品判断のためオーナー判断待ちの次の課題として残す。新規テスト追加、venture全体569件・
+schema検証27件いずれもパス)

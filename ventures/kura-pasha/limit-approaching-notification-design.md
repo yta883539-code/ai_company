@@ -162,3 +162,63 @@ Optional[str]`を`prototype/cloud_function_webhook.py`に新設する
 CTAボタン添付に対応。`process_memo_event()`が`limit_notice_is_trial=True`の場合に
 `TRIAL_END_QUICK_REPLY`を添付するようにし、`MemoProcessResult.limit_notice_cta_attached`を
 新設した〈7節〉。既に有償契約済み〈`is_trial=False`〉の場合はボタンを添付しない)
+
+## 8. 発見(フェーズ76、2026-09-11 01:00 UTC): 6〜7節のis_trial=True分岐は実際には到達不能
+
+7節の「範囲外(次の課題)」を調査する過程で、6〜7節が実装した`format_limit_approaching_notice
+(usage, is_trial=True)`の「残り1回」/上限超過の文言と、それに伴う`TRIAL_END_QUICK_REPLY`の
+CTAボタン添付(7節)は、**実際にオンボーディングされたworkshopでは原理的に到達し得ない**
+ことが判明した。
+
+- `pricing-plan.md`「無料トライアル条件(仮)」が定めるトライアルは「初回の生成成功から
+  1回無料、または30日間のいずれか早い方」であり、月間の複数回無料ではなく生涯1回のみ無料
+  という条件である。
+- `usage_counter_workshop.is_trial_period_over()`は、`trial_generation_used`が既に
+  `True`(=生涯最初の生成が完了済み)であれば、経過日数を問わず即座に`True`を返す。
+- `process_generation_request()`は`is_trial_period_over() and subscription_status != "active"`
+  が真の場合、`check_and_increment_usage()`(=`UsageCheckResult.count_after_increment`を
+  加算する処理、6節の「残り1回」/上限判定の入力元)へ到達する**前**に`TrialPeriodOverError`
+  を送出する。`trial_generation_used`は1回目の生成が成功した直後に`True`へ更新される
+  (`process_generation_request()`内、`check_and_increment_usage()`呼び出し後)。
+- 一方、`workshop_linking.create_workshop_from_linking_code()`(実際のオンボーディング
+  経路、craftsman-account-linking-design.md 7節)はworkshop作成時に必ず`trial_start_at`を
+  明示的に設定する(未設定=安全側False、というのはデータ不整合時のフォールバックであり
+  正常経路では発生しない)。
+
+以上を組み合わせると、正常にオンボーディングされたworkshopは、`subscription_status`が
+`"active"`になる(=Checkout完了)前は、**生涯最初の1回の生成にしか成功できない**。
+2回目の生成リクエストは、`format_limit_approaching_notice()`へ到達する前に必ず
+`TrialPeriodOverError`(→`TRIAL_PERIOD_OVER_NOTICE`、こちらも`TRIAL_END_QUICK_REPLY`を
+添付済み)で遮断される。ライトプラン(月3回)を前提に「2回目=残り1回・4回目=上限超過」を
+想定した6〜7節の文言・CTAボタンが実際に送信される機会は存在しない。
+
+`test_process_memo_event_appends_trial_wording_when_subscription_not_active()`
+(フェーズ74)・`test_process_memo_event_does_not_attach_cta_for_active_subscription_
+limit_notice()`(フェーズ75)がこの矛盾に気付かなかったのは、いずれも`_make_stores()`が
+返す素のstoreに対して`workshops.set_plan()`・`set_members()`のみを呼び、
+`workshops.set_trial_start_at()`を一度も呼んでいなかったためである。この場合
+`is_trial_period_over()`は`trial_start_at`未設定を理由に恒久的に`False`を返し続け、
+本来はあり得ない「トライアル状態のまま4回連続で生成に成功する」状態を作り出してしまって
+いた。実際のオンボーディング経路(`create_workshop_from_linking_code()`)を通した場合に
+2回目で`TrialPeriodOverError`により遮断されることを
+`test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded_workshop()`
+として新規に追加し、この矛盾を再現・実証した(既存の2テストは削除していない。
+`trial_start_at`未設定という「実際には起きない」状態を前提にしたテストとして残る)。
+
+- **今回は対応しない(次の課題として残す判断)**: 本フェーズは矛盾の発見・実証に留め、
+  6〜7節のコード(`format_limit_approaching_notice()`のis_trial分岐、
+  `limit_notice_cta_attached`関連)自体の削除・トライアル条件の再設計は行わない。
+  理由は、どちらの方向に直すべきかが`pricing-plan.md`のトライアル条件という製品判断に
+  関わるため(a. 現状の「生涯1回無料」を維持するなら6〜7節のis_trial分岐は到達不能な
+  デッドコードとして削除するのが妥当、b. 6〜7節を活かすなら「生涯1回無料」ではなく
+  「トライアル期間中は各プランの月間上限まで無料」等にトライアル条件自体を変更する必要が
+  ある)。オーナー判断または次フェーズでの方針決定を待つ。実害(誤った文言がユーザーに
+  送信される等)は無い(到達不能なだけで誤動作はしていない)ため、緊急の修正は不要と
+  判断した。
+
+最終更新: 2026-09-11 01:00 UTC(フェーズ76: 6〜7節のis_trial=True分岐が、実際の
+オンボーディング経路〈`create_workshop_from_linking_code()`が必ず`trial_start_at`を
+設定すること〉と`is_trial_period_over()`〈生涯最初の生成完了で即トライアル終了〉の
+組み合わせにより、現実には到達不能であることを発見・テストで実証した〈8節〉。
+`pricing-plan.md`のトライアル条件(生涯1回無料)自体の見直しが必要かはオーナー判断待ちの
+次の課題として残す)

@@ -46,7 +46,11 @@ from usage_counter_workshop import (
     UsageCheckResult,
 )
 from validate_test_cases import TEST_CASES
-from workshop_linking import InMemoryLinkingCodeStore, issue_linking_code_on_follow
+from workshop_linking import (
+    InMemoryLinkingCodeStore,
+    create_workshop_from_linking_code,
+    issue_linking_code_on_follow,
+)
 
 FEB = datetime(2026, 2, 1, 9, 0, 0)
 MAR = datetime(2026, 3, 1, 9, 0, 0)
@@ -814,6 +818,52 @@ def test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_no
     check("契約中4回目はlimit_notice_cta_attached=False", results[3].limit_notice_cta_attached is False)
 
 
+def test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded_workshop():
+    """フェーズ76・limit-approaching-notification-design.md 8節: フェーズ73〜75の
+    is_trial=True向け「残り1回」/上限超過通知(・そのCTAボタン添付)は、
+    test_process_memo_event_appends_trial_wording_when_subscription_not_active()等の
+    テストのように4回連続で生成が成功する状態を前提としているが、その前提自体が
+    `create_workshop_from_linking_code()`(実際のオンボーディング経路)を通って作られた
+    workshopでは成立しないことを確認する。上記テストは`workshops.set_trial_start_at()`を
+    一度も呼ばないため`is_trial_period_over()`が常にFalseのまま(design 8節の発見)だが、
+    実際のworkshopはcraftsman-account-linking-design.md 7節の通り作成時に
+    `trial_start_at=now`が設定されるため、`trial_generation_used`が1回目の生成成功時点で
+    Trueになった直後、2回目の生成リクエストは`format_limit_approaching_notice()`
+    (`limit_notice`)に到達する前に`TrialPeriodOverError`で遮断される
+    (`process_generation_request()`の判定順序、design 8節)。"""
+    linking_store = InMemoryLinkingCodeStore()
+    profiles, workshops, counters = _make_stores()
+    linking_store.save("ABC234", "U_REAL_ONBOARD", FEB)
+    creation = create_workshop_from_linking_code(
+        "ABC234", linking_store, profiles, workshops, FEB,
+    )
+    check("実オンボーディング経路でworkshop作成に成功する", creation.ok)
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 2)
+    first = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_REAL_ONBOARD"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("1回目(生涯最初)は生成に成功する(残り1回通知は含まない)", "残り1回" not in (first.reply_text or ""))
+    check("1回目でtrial_generation_usedがTrueになる", workshops.get_trial_generation_used(creation.workshop_id))
+
+    second = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_REAL_ONBOARD"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check(
+        "2回目はformat_limit_approaching_notice(is_trial=True)ではなくTRIAL_PERIOD_OVER_NOTICEで遮断される",
+        second.reply_text == TRIAL_PERIOD_OVER_NOTICE,
+    )
+    check("2回目はgeneration_paused=True(LLM呼び出し前に遮断)", second.generation_paused is True)
+    check("2回目はLLMを呼び出さない(1回目分の1呼び出しのみ)", len(llm_call.calls) == 1)
+
+
 def test_process_memo_event_skips_store_integration_when_stores_not_provided():
     """従来通りuser_profile_store等を渡さない場合は、ストア連携をスキップし
     LLM呼び出し前のブロック判定・トライアル終了通知の便乗のいずれも発生しないことを
@@ -1402,6 +1452,7 @@ if __name__ == "__main__":
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()
+    test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded_workshop()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()
