@@ -1726,3 +1726,28 @@ course-set-pasha・aircon-pasha〉には既にあるが本venture未着手だっ
 estimate.mdを新規作成し、決済手数料・Firestore原価・LLM API原価を統合した1工房あたり
 月次粗利試算〈93.8〜95.7%〉を行った。コード変更なし、venture全体638件・schema検証
 27件いずれもパス〈変更前と同じ〉)
+
+- フェーズ85(2026-09-11 11:00 UTC): 他venture(aircon-pasha・course-set-pasha)には
+  既にあるが本venture未着手だったapi-call-failure-handling.mdというcross-venture
+  parityのギャップに気付き調査したところ、`LlmApiError`・`ReplyApiError`・
+  `_generate_with_api_retry()`・`_reply_with_retry()`・`API_FAILURE_FALLBACK_MESSAGE`・
+  `MemoProcessResult.api_failure`はいずれも`prototype/cloud_function_webhook.py`に
+  既に実装済みだったにもかかわらず、これを文書化した設計書が存在しない記載漏れで
+  あることが判明した。api-call-failure-handling.mdとして本venture向けに新規文書化する
+  とともに、テストカバレッジを点検した結果、他venture相当の4パターン(LLM API失敗→
+  リトライ成功/リトライも失敗、Reply API失敗→リトライ成功/リトライも失敗)のうち
+  「LLM API連続失敗→フォールバック」の1パターンしか検証されておらず、残り3パターンが
+  未検証だったことを発見した。`_FlakyOnceLlmCall`・`_FlakyOnceReplyClient`・
+  `_AlwaysFailingReplyClient`スタブを新規追加し、残り3パターン(LLM APIリトライ成功、
+  Reply APIリトライ成功、Reply API連続失敗時にreply_sent=Falseで例外を投げず諦める)を
+  検証する新規テスト11件(check()呼び出し単位)を追加した。`test_cloud_function_
+  webhook.py`は265件→276件全件・venture全体638件→649件・schema検証27件いずれも
+  パスを確認した。コード自体の変更は無く(既存実装の文書化・テスト追加のみ)、承認
+  不要な設計文書作成・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 11:00 UTC(フェーズ85: 他venture〈aircon-pasha・course-set-pasha〉
+には既にあるが本venture未着手だったapi-call-failure-handling.mdの記載漏れに対応。
+実装は既に完了済みだったことを確認したうえで新規文書化し、未検証だった3パターン
+(LLM API/Reply APIのリトライ成功・Reply API連続失敗時のフォールバック)を検証する
+新規テスト11件を追加した。venture全体638件→649件・schema検証27件いずれもパス)

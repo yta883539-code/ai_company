@@ -28,6 +28,7 @@ from cloud_function_webhook import (
     InMemoryReplyClient,
     LlmApiError,
     QuickReplyButton,
+    ReplyApiError,
     dispatch_webhook_events,
     format_checkout_reply_message,
     format_follow_welcome_message,
@@ -440,6 +441,50 @@ class _AlwaysFailingLlmCall:
         raise LlmApiError("stub failure")
 
 
+class _FlakyOnceLlmCall:
+    """1回目はLlmApiErrorを送出し、2回目(即時リトライ)で成功するスタブ
+    (api-call-failure-handling.md 方針1、_generate_with_api_retry()の成功系検証用)。"""
+
+    def __init__(self, instance):
+        self._instance = instance
+        self.calls = 0
+
+    def generate(self, memo_text, retry_context=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise LlmApiError("stub failure")
+        return self._instance
+
+
+class _FlakyOnceReplyClient:
+    """1回目はReplyApiErrorを送出し、2回目(即時リトライ)で成功するスタブ
+    (api-call-failure-handling.md 方針2、_reply_with_retry()の成功系検証用)。"""
+
+    def __init__(self):
+        self.calls = 0
+        self.sent = []
+        self.quick_replies_sent = []
+
+    def reply(self, reply_token, message_text, *, quick_reply=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise ReplyApiError("stub failure")
+        self.sent.append((reply_token, message_text))
+        self.quick_replies_sent.append(quick_reply)
+
+
+class _AlwaysFailingReplyClient:
+    """常にReplyApiErrorを送出するスタブ(api-call-failure-handling.md 方針2、
+    2回とも失敗しreply_sent=Falseで諦めるケースの検証用)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def reply(self, reply_token, message_text, *, quick_reply=None):
+        self.calls += 1
+        raise ReplyApiError("stub failure")
+
+
 def test_process_memo_event_ignores_non_text_message():
     reply_client = InMemoryReplyClient()
     result = process_memo_event(
@@ -710,6 +755,43 @@ def test_process_memo_event_falls_back_after_llm_api_error_retried_once():
     check("LLM API呼び出し失敗時はAPI_FAILURE_FALLBACK_MESSAGEを返す", result.reply_text == API_FAILURE_FALLBACK_MESSAGE)
     check("api_failure=Trueが記録される", result.api_failure is True)
     check("即時リトライは1回のみ(合計2回呼ばれる)", llm_call.calls == 2)
+
+
+def test_process_memo_event_succeeds_after_llm_api_error_retried_once():
+    # api-call-failure-handling.md 方針1: 1回目のLLM API呼び出し失敗は即時リトライで
+    # 救済され、通常どおりgeneratedとして処理が続く(api_failure=Falseのまま)。
+    reply_client = InMemoryReplyClient()
+    llm_call = _FlakyOnceLlmCall(TEST_CASES["G1_new_basic"])
+    result = process_memo_event(_make_event("新規、ブリティッシュ、牛革"), llm_call, reply_client)
+    check("リトライ成功時はhandled=True", result.handled is True)
+    check("リトライ成功時は返信送信済み", result.reply_sent is True)
+    check("リトライ成功時はapi_failure=False", result.api_failure is False)
+    check("即時リトライ後に成功(合計2回呼ばれる)", llm_call.calls == 2)
+
+
+def test_process_memo_event_succeeds_after_reply_api_error_retried_once():
+    # api-call-failure-handling.md 方針2: Reply API呼び出し失敗も即時1回のみリトライされ、
+    # 成功すれば通常どおりreply_sent=Trueとして扱われる。
+    reply_client = _FlakyOnceReplyClient()
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革"), _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client
+    )
+    check("Reply APIリトライ成功時もhandled=True", result.handled is True)
+    check("Reply APIリトライ成功時は返信送信済み", result.reply_sent is True)
+    check("即時リトライ後に成功(合計2回呼ばれる)", reply_client.calls == 2)
+
+
+def test_process_memo_event_gives_up_after_reply_api_error_exhausts_retry():
+    # api-call-failure-handling.md 方針2: Reply APIが即時リトライ後も失敗し続ける場合、
+    # 代替の送達手段(Push API)を持たないため例外を投げずreply_sent=Falseで諦める。
+    reply_client = _AlwaysFailingReplyClient()
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革"), _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client
+    )
+    check("Reply API連続失敗時もhandled=True", result.handled is True)
+    check("Reply API連続失敗時はreply_sent=False", result.reply_sent is False)
+    check("Reply API連続失敗時はreply_textもNone", result.reply_text is None)
+    check("即時リトライは1回のみ(合計2回呼ばれる)", reply_client.calls == 2)
 
 
 # ---------------------------------------------------------------------------
@@ -1661,6 +1743,9 @@ if __name__ == "__main__":
     test_process_memo_event_retries_once_on_validation_error_then_succeeds()
     test_process_memo_event_falls_back_after_second_validation_error()
     test_process_memo_event_falls_back_after_llm_api_error_retried_once()
+    test_process_memo_event_succeeds_after_llm_api_error_retried_once()
+    test_process_memo_event_succeeds_after_reply_api_error_retried_once()
+    test_process_memo_event_gives_up_after_reply_api_error_exhausts_retry()
     test_process_memo_event_blocks_with_trial_period_over_notice()
     test_process_memo_event_allows_generation_when_subscription_active_despite_trial_over()
     test_process_memo_event_blocks_with_payment_suspended_notice_after_grace_period()
