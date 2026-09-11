@@ -121,10 +121,12 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
 
 ## 今後の課題
 
-- 「ブロック中かつ契約継続中」契約者の検知手段(他venture3件のblocked-but-billing-
-  detection-design.md相当)の設計・実装は、その前提となるStripe Webhook受信・
-  `user_profile`の`is_following`相当フィールドの追加自体が本venture未着手のため、
-  それらの実装後の課題として残る。
+- (解消済み 2026-09-11 05:00 UTC・フェーズ80: 「ブロック中かつ契約継続中」契約者の検知手段は
+  blocked-but-billing-detection-design.mdとして設計・実装した。`user_profile.is_following`
+  フィールドの追加、`craftsman_workshop.subscription_status`を用いた「契約継続中」判定、
+  `prototype/blocked_but_billing_candidates.py`の候補洗い出しロジックまで対応済み。
+  実際にオーナーへ候補一覧を届ける通知手段〈aircon-pasha/blocked-but-billing-owner-
+  notification-design.md相当〉は同ドキュメント5節の通り引き続き次回以降の課題として残る)
 - 上記1.のFAQ文面のlanding-page-copy-draft.mdへの反映は、同ファイル自体が本venture
   未作成のため、同ファイル新規作成時にあわせて反映する。
 - 複数職人プランの契約者本人確認の仕組み(craftsman-account-linking-design.md未着手

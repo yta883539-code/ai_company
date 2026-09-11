@@ -320,6 +320,55 @@ def test_process_unfollow_event_returns_handled_for_known_user():
     check("unfollowはhandled=True", result.handled is True)
 
 
+def test_process_unfollow_event_of_a_linked_user_sets_is_following_false():
+    # blocked-but-billing-detection-design.md(フェーズ80)。
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_UNFOLLOW", "W1")
+    event = {"type": "unfollow", "source": {"userId": "U_UNFOLLOW"}}
+    result = process_unfollow_event(event, profile_store=profile_store)
+    check("unfollowはhandled=True", result.handled is True)
+    check("is_followingがFalseに更新される", profile_store.get_is_following("U_UNFOLLOW") is False)
+
+
+def test_process_unfollow_event_of_an_unlinked_user_does_not_touch_profile_store():
+    # design 1節: workshop未作成のuser_id(profile未作成)はis_following自体を持つ意味が
+    # 無いため対象外。
+    profile_store = InMemoryUserProfileStore()
+    event = {"type": "unfollow", "source": {"userId": "U_NEW"}}
+    process_unfollow_event(event, profile_store=profile_store)
+    check(
+        "未連携user_idはis_followingが既定値Trueのまま",
+        profile_store.get_is_following("U_NEW") is True,
+    )
+
+
+def test_process_follow_event_of_a_linked_user_resets_is_following_to_true():
+    # blocked-but-billing-detection-design.md(フェーズ80)。
+    linking_store = InMemoryLinkingCodeStore()
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_REFOLLOW", "W1")
+    profile_store.set_is_following("U_REFOLLOW", False)
+    reply_client = InMemoryReplyClient()
+    event = _make_follow_event(user_id="U_REFOLLOW")
+
+    process_follow_event(event, linking_store, reply_client, profile_store=profile_store)
+
+    check("再フォローでis_followingがTrueに戻る", profile_store.get_is_following("U_REFOLLOW") is True)
+
+
+def test_process_follow_event_of_an_unlinked_user_does_not_touch_profile_store():
+    # design 1節: 未連携user_id(初回follow、profile未作成)はis_following復帰の対象外。
+    linking_store = InMemoryLinkingCodeStore()
+    profile_store = InMemoryUserProfileStore()
+    reply_client = InMemoryReplyClient()
+    event = _make_follow_event(user_id="U_NEW")
+
+    result = process_follow_event(event, linking_store, reply_client, profile_store=profile_store)
+
+    check("handled=True", result.handled is True)
+    check("未連携user_idはget_workshop_idがNoneのまま", profile_store.get_workshop_id("U_NEW") is None)
+
+
 class _StubLlmCall:
     """呼び出しのたびにinstancesを順に返すスタブ。空になったら最後の値を返し続ける。"""
 
@@ -1184,6 +1233,34 @@ def test_dispatch_webhook_events_routes_unfollow_event_to_process_unfollow_event
     check("ignored_typesは空", result.ignored_types == [])
 
 
+def test_dispatch_webhook_events_wires_user_profile_store_through_to_is_following():
+    # blocked-but-billing-detection-design.md(フェーズ80)。dispatch_webhook_events()
+    # 経由でもfollow/unfollow両方のis_following更新が実際に届くことの確認。
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_DISPATCH", "W1")
+
+    dispatch_webhook_events(
+        [{"type": "unfollow", "source": {"userId": "U_DISPATCH"}}],
+        user_profile_store=profile_store,
+    )
+    check(
+        "unfollow配線でis_followingがFalseになる",
+        profile_store.get_is_following("U_DISPATCH") is False,
+    )
+
+    dispatch_webhook_events(
+        [_make_follow_event(user_id="U_DISPATCH")],
+        reply_client=InMemoryReplyClient(),
+        linking_store=InMemoryLinkingCodeStore(),
+        user_profile_store=profile_store,
+        rng=random.Random(5),
+    )
+    check(
+        "follow配線でis_followingがTrueに戻る",
+        profile_store.get_is_following("U_DISPATCH") is True,
+    )
+
+
 def test_dispatch_webhook_events_skips_message_when_llm_call_missing():
     result = dispatch_webhook_events(
         [_make_event("新規、ブリティッシュ、牛革")], llm_call=None, reply_client=InMemoryReplyClient(),
@@ -1426,6 +1503,10 @@ if __name__ == "__main__":
     test_process_unfollow_event_ignores_non_unfollow_event()
     test_process_unfollow_event_returns_handled_without_user_id()
     test_process_unfollow_event_returns_handled_for_known_user()
+    test_process_unfollow_event_of_a_linked_user_sets_is_following_false()
+    test_process_unfollow_event_of_an_unlinked_user_does_not_touch_profile_store()
+    test_process_follow_event_of_a_linked_user_resets_is_following_to_true()
+    test_process_follow_event_of_an_unlinked_user_does_not_touch_profile_store()
     test_process_memo_event_ignores_non_text_message()
     test_process_memo_event_generated_includes_three_outputs()
     test_process_memo_event_out_of_scope_returns_message_as_is()
@@ -1471,6 +1552,7 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_routes_valid_linking_code_to_workshop_creation()
     test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
     test_dispatch_webhook_events_routes_unfollow_event_to_process_unfollow_event()
+    test_dispatch_webhook_events_wires_user_profile_store_through_to_is_following()
     test_dispatch_webhook_events_skips_message_when_llm_call_missing()
     test_dispatch_webhook_events_skips_message_when_reply_client_missing()
     test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event()

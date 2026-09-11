@@ -815,10 +815,11 @@
 (2026-09-11 04:00 UTC、フェーズ79で棚卸し・更新。旧リストの8項目中5項目は既に
 解消済みだったため以下に差し替えた。)
 
-- unfollow-billing-faq.md(フェーズ45)の「今後の課題」: `WorkshopStoreProtocol`/
-  `UserProfileStoreProtocol`に`is_following`相当のフラグ自体が存在せず
-  (フェーズ70で判明)、「ブロック中かつ契約継続中」契約者の検知バッチの設計に
-  未着手。まずはフィールド追加の設計から着手する必要がある。
+- (解消済み 2026-09-11 05:00 UTC・フェーズ80: unfollow-billing-faq.md(フェーズ45)
+  「今後の課題」だった「ブロック中かつ契約継続中」契約者の検知バッチは
+  blocked-but-billing-detection-design.mdとして設計・実装した。次の課題は、
+  aircon-pasha/blocked-but-billing-owner-notification-design.md相当の、候補一覧を
+  実際にオーナーへ届ける通知手段〈Flex Message通知・日次Cloud Scheduler〉の設計)
 - trial-end-condition-design.md(フェーズ76の発見)の残課題: 「生涯最初の1回のみ
   無料」というトライアル条件により、limit-approaching-notification-design.mdの
   is_trial=True分岐(残り1回/上限超過通知)が実際のオンボーディング経路では
@@ -1591,3 +1592,30 @@ venture全体569件→588件全件・schema検証27件いずれもパス)
 あわせて、フェーズ7〜16で完了させていた想定顧客ヒアリング候補選定・文面草案について
 pending-approval.mdへの記録が一度も行われていなかった記載漏れを発見・解消した。
 コード変更なし、venture全体588件・schema検証27件いずれもパス〈変更前と同じ〉)
+
+- フェーズ80(2026-09-11 05:00 UTC): unfollow-billing-faq.md「今後の課題」に残っていた
+  「『ブロック中かつ契約継続中』契約者の検知手段(他venture3件のblocked-but-billing-
+  detection-design.md相当)は本venture未着手」に対応した。前提だったStripe Webhook受信は
+  既に実装済みだったため、残る前提の`user_profile.is_following`フィールド追加とあわせて
+  着手し、blocked-but-billing-detection-design.mdとして設計・実装した。本venture固有の
+  workshop(工房)構造(契約単位=workshop、フォロー状態はuser_id単位)を踏まえ、課金関連
+  通知が一貫して契約者(`contractor_user_id`)のみを宛先とする既存方針(design 1節)から、
+  検知対象も契約者本人の`is_following`に限定する設計とした。「契約継続中」の判定は、
+  本ventureの`plan_id`が解約後もクリアされない(aircon-pasha等の`current_plan_id`とは
+  異なる)ため`subscription_status != "canceled"`を用いる翻案を行った(design 3節)。
+  `prototype/blocked_but_billing_candidates.py`(`list_blocked_but_billing_candidates()`)を
+  新規実装し、`process_follow_event()`/`process_unfollow_event()`への`is_following`
+  更新配線・`dispatch_webhook_events()`からの`user_profile_store`結線もあわせて行った。
+  新規テスト15件(候補洗い出しロジック7件・follow/unfollow配線8件)を追加し、
+  venture全体588件→603件全件(`python3 test_*.py`を各ファイルで直接実行)・schema検証
+  27件いずれもパスを確認した。あわせてunfollow-billing-faq.md該当箇所を解消済みに更新した。
+  承認不要な設計・コード追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。オーナーへ実際に候補一覧を届ける
+  通知手段(aircon-pasha/blocked-but-billing-owner-notification-design.md相当)は次回以降の
+  課題として残る。
+
+最終更新: 2026-09-11 05:00 UTC(フェーズ80: unfollow-billing-faq.md「今後の課題」に
+残っていた「ブロック中かつ契約継続中」契約者の検知手段の未着手をblocked-but-billing-
+detection-design.mdとして解消。`user_profile.is_following`追加・
+`prototype/blocked_but_billing_candidates.py`新規実装・follow/unfollowイベントへの配線を
+行った。新規テスト15件追加、venture全体588件→603件・schema検証27件いずれもパス)

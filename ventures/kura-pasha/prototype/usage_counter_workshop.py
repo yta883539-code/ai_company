@@ -128,7 +128,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Protocol
+from typing import Iterable, Optional, Protocol
 
 
 # pricing-plan.md確定値(プラン名→月間生成回数上限・超過分の従量単価)。
@@ -246,6 +246,15 @@ class UserProfileStoreProtocol(Protocol):
         """
         ...
 
+    def get_is_following(self, user_id: str) -> bool:
+        """フェーズ80: blocked-but-billing-detection-design.md 1節。
+        プロフィール未作成のuser_idに対してはTrue(未フォロー状態は存在しない)を返す。
+        """
+        ...
+
+    def set_is_following(self, user_id: str, is_following: bool) -> None:
+        ...
+
 
 class WorkshopStoreProtocol(Protocol):
     """`craftsman_workshop/{workshop_id}`への読み取りを表す(plan_id・複数職人プラン
@@ -263,6 +272,12 @@ class WorkshopStoreProtocol(Protocol):
         ...
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
+        ...
+
+    def all_workshop_ids(self) -> Iterable[str]:
+        """blocked-but-billing-detection-design.md 3節の候補走査対象を列挙する
+        (aircon-pashaのUserProfileStoreProtocol.all_user_ids()相当、本ventureは
+        workshop単位契約のためworkshop_idを列挙する)。"""
         ...
 
     def get_member_user_ids(self, workshop_id: str) -> list[str]:
@@ -384,12 +399,19 @@ class UsageCounterStoreProtocol(Protocol):
 class InMemoryUserProfileStore:
     def __init__(self) -> None:
         self._workshop_id_by_user: dict[str, str] = {}
+        self._is_following_by_user: dict[str, bool] = {}
 
     def link(self, user_id: str, workshop_id: str) -> None:
         self._workshop_id_by_user[user_id] = workshop_id
 
     def get_workshop_id(self, user_id: str) -> Optional[str]:
         return self._workshop_id_by_user.get(user_id)
+
+    def get_is_following(self, user_id: str) -> bool:
+        return self._is_following_by_user.get(user_id, True)
+
+    def set_is_following(self, user_id: str, is_following: bool) -> None:
+        self._is_following_by_user[user_id] = is_following
 
 
 class InMemoryWorkshopStore:
@@ -434,6 +456,9 @@ class InMemoryWorkshopStore:
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
         return self._contractor_by_workshop[workshop_id]
+
+    def all_workshop_ids(self) -> Iterable[str]:
+        return list(self._contractor_by_workshop.keys())
 
     def get_member_user_ids(self, workshop_id: str) -> list[str]:
         return list(self._member_user_ids_by_workshop.get(workshop_id, []))

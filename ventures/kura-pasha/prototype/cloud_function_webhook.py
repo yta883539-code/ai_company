@@ -264,8 +264,9 @@ def format_follow_welcome_message(linking_code: str) -> str:
 @dataclass
 class FollowProcessResult:
     """process_follow_event()の結果(design 2節)。course-set-pashaのFollowProcessResultと
-    同じ構造だが、profile_storeによるis_following復帰・purge_throttle便乗パージは
-    本venture未着手(該当する設計・残課題自体が存在しない)のため対象外とする。"""
+    同じ構造だが、purge_throttle便乗パージは本venture未着手(該当する設計・残課題自体が
+    存在しない)のため対象外とする(profile_storeによるis_following復帰は
+    blocked-but-billing-detection-design.md フェーズ80で追加した)。"""
 
     handled: bool
     reply_sent: bool
@@ -279,13 +280,23 @@ def process_follow_event(
     *,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
 ) -> FollowProcessResult:
     """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
 
     1. `event["type"] != "follow"`の場合は対象外としhandled=Falseで返す。
     2. `source.userId`が取得できない場合はhandled=Trueのまま何もせず返す
        (`workshop_linking.issue_linking_code_on_follow()`はuser_id必須のため)。
-    3. 連携コードを発行し(`workshop_linking.issue_linking_code_on_follow()`、
+    3. `profile_store`が渡され、かつ`user_id`が既にworkshopへ連携済み
+       (`get_workshop_id(user_id)`が非None、blocked-but-billing-detection-design.md
+       フェーズ80で追加した再フォローのケース)の場合、`is_following`を`True`に戻す。
+       未連携の`user_id`(初回follow、まだ連携コード未送信でprofile自体が未作成)は
+       対象外(aircon-pashaのprocess_follow_event()と同じ判定方針だが、本ventureは
+       `exists()`ではなく既存の`get_workshop_id()`をそのまま流用する。profile作成
+       〈workshop_linking.create_workshop_from_linking_code()〉自体が本関数の対象外
+       〈message event側で行う〉ため、`is_following`の初期値True設定は
+       `InMemoryUserProfileStore.get_is_following()`の既定値True頼りで足りる)。
+    4. 連携コードを発行し(`workshop_linking.issue_linking_code_on_follow()`、
        `rng`未指定時は`random.Random()`)、`format_follow_welcome_message()`で
        組み立てたウェルカムメッセージを返信する。
     """
@@ -295,6 +306,9 @@ def process_follow_event(
     user_id = event.get("source", {}).get("userId")
     if not user_id:
         return FollowProcessResult(handled=True, reply_sent=False)
+
+    if profile_store is not None and profile_store.get_workshop_id(user_id) is not None:
+        profile_store.set_is_following(user_id, True)
 
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     resolved_rng = rng if rng is not None else random.Random()
@@ -313,20 +327,31 @@ class UnfollowProcessResult:
     handled: bool
 
 
-def process_unfollow_event(event: dict) -> UnfollowProcessResult:
+def process_unfollow_event(
+    event: dict,
+    *,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+) -> UnfollowProcessResult:
     """LINEの`unfollow`イベント1件を処理する(署名検証済みの前提)。
 
     unfollow-billing-faq.md「前提の整理」節の通り、ブロック中はLINEへの返信自体が
-    送達不可であるため返信は行わない。aircon-pasha等のprocess_unfollow_event()と異なり、
-    本ventureのWorkshopStoreProtocol/UserProfileStoreProtocolにはis_following相当の
-    フラグが存在せず(craftsman-account-linking-design.mdにもblocked-but-billing検知
-    〈他venture相当〉の設計自体がまだ無い、unfollow-billing-faq.md「今後の課題」参照)、
-    契約情報(plan_id・subscription_status等)を変更する対象も無いため、本関数は
-    イベント種別の判定とhandled=Trueを返すのみの受け皿にとどめる(契約情報不変という
-    設計判断は他venture3件と揃っている)。
+    送達不可であるため返信は行わない。契約情報(plan_id・subscription_status等)を
+    変更しない(契約情報不変という設計判断は他venture3件と揃っている)点も変わらない。
+
+    blocked-but-billing-detection-design.md(フェーズ80)で`user_profile.is_following`
+    フィールドを追加したため、`profile_store`が渡され、かつ`user_id`が既にworkshopへ
+    連携済み(`get_workshop_id(user_id)`が非None)の場合のみ`is_following`を`False`に
+    更新する(aircon-pasha等のprocess_unfollow_event()と同じ位置づけ。契約情報の変更
+    ではなく「実際にメッセージが届くか」を追跡するためのフラグ更新であり、上記の
+    契約情報不変という決定とは矛盾しない)。未連携のuser_id(そもそもworkshopを
+    作らずに離脱したケース)はis_following自体を持つ意味が無いため対象外とする。
     """
     if event.get("type") != "unfollow":
         return UnfollowProcessResult(handled=False)
+
+    user_id = event.get("source", {}).get("userId")
+    if profile_store is not None and user_id and profile_store.get_workshop_id(user_id) is not None:
+        profile_store.set_is_following(user_id, False)
 
     return UnfollowProcessResult(handled=True)
 
@@ -1112,9 +1137,13 @@ def dispatch_webhook_events(
       その他のstatus分岐処理のためignored_types送りにはしない)。
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
-      一切処理せず`ignored_types`に記録する(安全側フォールバック)。
+      一切処理せず`ignored_types`に記録する(安全側フォールバック)。`user_profile_store`
+      (フェーズ80でis_following復帰用に追加)は省略可能で、未接続でも連携コード発行・
+      返信自体は行う(is_following復帰のみスキップされる後方互換動作)。
     - "unfollow"(フェーズ70で追加): 1件ずつprocess_unfollow_event()へ渡す。返信を伴わず
-      依存する外部ストアも無いため、message/followと異なり依存関係の有無を問わず常に処理する。
+      必須の外部ストアも無いため、message/followと異なり依存関係の有無を問わず常に処理する
+      (`user_profile_store`〈フェーズ80で追加〉は省略可能で、未接続の場合はis_following
+      更新のみスキップされる)。
     - "postback"(フェーズ71で追加): 1件ずつprocess_postback_event()へ渡す。`reply_client`・
       `user_profile_store`・`workshop_store`・`checkout_session_client`のいずれかが未接続
       (None)の場合はmessage/followと同様、該当イベントを一切処理せず`ignored_types`に記録する
@@ -1156,10 +1185,19 @@ def dispatch_webhook_events(
                 result.ignored_types.append(event_type)
                 continue
             result.follow_results.append(
-                process_follow_event(event, linking_store, reply_client, rng=rng, now=now)
+                process_follow_event(
+                    event,
+                    linking_store,
+                    reply_client,
+                    rng=rng,
+                    now=now,
+                    profile_store=user_profile_store,
+                )
             )
         elif event_type == "unfollow":
-            result.unfollow_results.append(process_unfollow_event(event))
+            result.unfollow_results.append(
+                process_unfollow_event(event, profile_store=user_profile_store)
+            )
         elif event_type == "postback":
             if not postback_ok:
                 result.ignored_types.append(event_type)
