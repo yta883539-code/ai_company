@@ -812,32 +812,28 @@
 
 ## 次にやること(候補)
 
-- `invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗ダニング)への
-  イベント種別対応(course-set-pasha/aircon-pashaの既存設計を横展開)。対応後、
-  フェーズ52が`"past_due"`を一律ブロック対象とした簡易実装を、ダニング固有の猶予期間
-  つき扱いへ見直す必要がある。
-- subscription-cancellation-notification-design.md(フェーズ54)の残課題:
-  `customer.subscription.updated`受信時の`cancel_at_period_end`前後比較による
-  「解約予約受理・解約取り消し」案内(course-set-pasha/aircon-pashaが対応済みの
-  もう一方のイベント種別)は本venture未着手。
-- `receive_stripe_webhook()`実HTTPエントリポイントでの`push_client`配線・実LINE Push
-  Message API接続はオーナー承認待ち(pending-approval.md参照)。
-- checkout-initiation-flow-design.md(フェーズ50)の残課題: 有料プラン開始の意図検知
-  (「有料プランを始めたい」等)をllm-system-prompt-draft.mdの厳守事項として追加する
-  (解約意図検知の厳守事項7aと対になる新規項目)。
-- trial-end-condition-design.md(フェーズ47・48)の残課題: `trial_start_at`をworkshop
-  作成時に書き込む実処理(craftsman-account-linking-design.mdのworkshop新規作成フロー側)。
-- unfollow-billing-faq.md(フェーズ45)の「今後の課題」: Stripe Webhook受信・
-  `user_profile`の`is_following`相当フィールドの実装後に、「ブロック中かつ契約継続中」
-  契約者の検知バッチを設計する。landing-page-copy-draft.md新規作成時にFAQ文面を反映する。
-- 社内リハーサルの実施(オーナー内部で完結するため許可不要)を踏まえた
-  interview-rehearsal-script.mdのタイムテーブル・ト書きの見直し。
-- initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先連絡先)
-  についてオーナーの方針を確認する。実際の連絡・ヒアリング依頼はオーナー承認が必要な範囲と
-  して別途pending-approval.mdに記録する。
-- ジャパンギャロップスインポーターの正式化・除外の最終判断は、優先順位1・2候補への
-  ヒアリング実施(承認後)時に併せて確認する(公開情報のみでの追加探索は当面見送り)。
-- 実際のLINE公式アカウント接続・実LLM検証はオーナー承認待ち(pending-approval.md参照)。
+(2026-09-11 04:00 UTC、フェーズ79で棚卸し・更新。旧リストの8項目中5項目は既に
+解消済みだったため以下に差し替えた。)
+
+- unfollow-billing-faq.md(フェーズ45)の「今後の課題」: `WorkshopStoreProtocol`/
+  `UserProfileStoreProtocol`に`is_following`相当のフラグ自体が存在せず
+  (フェーズ70で判明)、「ブロック中かつ契約継続中」契約者の検知バッチの設計に
+  未着手。まずはフィールド追加の設計から着手する必要がある。
+- trial-end-condition-design.md(フェーズ76の発見)の残課題: 「生涯最初の1回のみ
+  無料」というトライアル条件により、limit-approaching-notification-design.mdの
+  is_trial=True分岐(残り1回/上限超過通知)が実際のオンボーディング経路では
+  到達不能となっている。コード自体の削除・トライアル条件の再設計は
+  pricing-plan.mdに関わる製品判断のため、引き続きオーナー判断待ち。
+- 想定顧客ヒアリング(ライディングショップ池上・エクウスワールド)の実施は
+  2026-09-11 04:00 UTC付でpending-approval.mdに新規記録済み。オーナー承認待ち。
+  承認後は本エージェントに電話発信・LINE送信機能が無いため、電話・フォーム送信の
+  実連絡はオーナー自身が行うか、Gmail連携接続後の送信直前確認を経てのみ行う。
+- ジャパンギャロップスインポーターの正式化・除外の最終判断は、上記ヒアリングが
+  承認・実施された際に併せて確認する(公開情報のみでの追加探索は費用対効果が
+  低いため見送り済み)。
+- `receive_stripe_webhook()`実HTTPエントリポイントでの`push_client`配線・
+  実LINE公式アカウント接続・実LLM API検証はいずれもオーナー承認待ち
+  (pending-approval.md参照、外部サービスの新規接続・アカウント作成を伴うため)。
 
 - フェーズ54(2026-09-09 02:00 UTC): subscription-canceled-webhook-design.md
   (フェーズ53)「4. 未検証・残課題」に残っていた、`customer.subscription.deleted`
@@ -1562,3 +1558,36 @@ venture全体569件→588件全件・schema検証27件いずれもパス)
 記載漏れを発見・訂正した。実際にはフェーズ61・62・73・75でいずれも実装済みであることを
 コードで確認した。コード変更なし、venture全体588件・schema検証27件いずれもパス
 〈変更前と同じ〉)
+
+- フェーズ79(2026-09-11 04:00 UTC): 「次にやること(候補)」節(フェーズ54時点で
+  作成、以後未更新のまま放置されていた)を棚卸しした結果、記載されていた8項目の
+  うち5項目(`invoice.payment_failed`/`payment_succeeded`対応〈フェーズ56〉、
+  `customer.subscription.updated`のcancel_at_period_end対応〈フェーズ55〉、
+  有料プラン開始の意図検知〈フェーズ72〉、`trial_start_at`のworkshop作成時書き込み
+  〈craftsman-account-linking-design.md実装時に対応済み〉)が既に解消済みで
+  記載が古いままだったことを確認し、同節を現時点の残課題(blocked-but-billing検知の
+  未設計〈フェーズ70で判明〉・実LINE公式アカウント接続/実LLM検証/実Push配線は
+  オーナー承認待ち・トライアル条件の再設計はpricing-plan.mdに関わる製品判断のため
+  オーナー判断待ち〈フェーズ76〉)に更新した。あわせて棚卸しの過程で、
+  interview-candidate-selection-criteria.md・interview-rehearsal-script.md・
+  initial-contact-message-draft.md(フェーズ7〜16、2026-09-06 10:00〜23:00 UTC)で
+  想定顧客ヒアリング(ライディングショップ池上・エクウスワールド)の候補選定・文面草案
+  作成まで完了させていたにもかかわらず、他venture(line-reservation-ai・course-set-pasha・
+  aircon-pasha)では毎回行っていた「実際の連絡はオーナー許可が必要なためpending-approval.md
+  に記録する」という手順自体が本ventureでは一度も実行されていなかった記載漏れを発見した。
+  各フェーズの文面には「着手する場合は別途pending-approval.mdへの記録・オーナー承認が
+  必要」との記載こそあったが、実際にpending-approval.mdへ記録する作業が漏れていたもの。
+  本フェーズでpending-approval.mdに新規エントリを追加して解消した。コード変更は無く、
+  venture全体588件(test_checkout_session.py 24件・test_cloud_function_webhook.py 239件・
+  test_payment_failure_notification.py 22件・test_stripe_webhook.py 132件・
+  test_subscription_cancellation_notification.py 28件・test_usage_counter_workshop.py 120件・
+  test_workshop_linking.py 23件)・schema検証27件いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント整合性修正・pending-approval.md記載のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないため、これ以外のpending-approval.mdへの
+  追記なし。
+
+最終更新: 2026-09-11 04:00 UTC(フェーズ79: フェーズ54作成のまま未更新だった
+「次にやること(候補)」節を現状に合わせて更新〈5項目が既に解消済みと判明〉。
+あわせて、フェーズ7〜16で完了させていた想定顧客ヒアリング候補選定・文面草案について
+pending-approval.mdへの記録が一度も行われていなかった記載漏れを発見・解消した。
+コード変更なし、venture全体588件・schema検証27件いずれもパス〈変更前と同じ〉)
