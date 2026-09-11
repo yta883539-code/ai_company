@@ -3131,4 +3131,16 @@
   記載明確化のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き
   未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-11 19:00 UTC
+- フェーズ205(2026-09-11 23:00 UTC): course-set-pashaフェーズ205(2026-09-11 22:00 UTC)が
+  multi-setter-shared-usage-design.md「残る課題」に対応してlanding-page-copy-draft.mdへ
+  複数店舗共有運用のFAQを追加したのと同種の対応を、本ventureのmulti-technician-shared-
+  usage-design.md(フェーズ204)「残る課題」に残っていた「landing-page-copy-draft.mdに
+  複数職人を抱える法人向けの記載・FAQが無い」に対して行った。FAQセクションに「複数職人を
+  抱えていますが、職人ごとに契約が必要ですか?」を追加し、同ドキュメントの結論(MVPでは
+  複数user_id対応を見送り、1つのLINEアカウントを事業所内で共有運用する前提)を顧客向けの
+  言葉に翻訳した。multi-technician-shared-usage-design.mdの該当bulletも解消済みに更新した。
+  コード変更は無く、venture全体475件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証9件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要な設計文書更新のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-11 23:00 UTC
