@@ -1536,3 +1536,29 @@ schema検証27件いずれもパス)
 stripe-event-idempotency-design.md)。特に`invoice.payment_failed`の再配信時に猶予期間の
 起算点が後ろへずれ続け通知も二重送信される実害を解消した。新規テスト19件追加、
 venture全体569件→588件全件・schema検証27件いずれもパス)
+
+- フェーズ78(2026-09-11 03:00 UTC): checkout-initiation-flow-design.md(フェーズ50)2節(a)・
+  「残る課題」に残っていた「トライアル終了が近づいた際の通知メッセージ内の案内文からの
+  起動(aircon-pasha/limit-approaching-notification-design.md相当)は本venture未設計」と
+  いう記載が、実際にはtrial-end-notification-design.md(フェーズ61・62)・
+  limit-approaching-notification-design.md(フェーズ73・75)でいずれも設計・実装済みだった
+  にもかかわらず訂正されていなかった記載漏れを発見した。`TRIAL_END_QUICK_REPLY`
+  (postback_data=`START_CHECKOUT_POSTBACK_DATA`)が両通知に添付され、押下時は
+  `resolve_checkout_intent()`(フェーズ72で共通化)へ配線済みであることをコードで確認した
+  うえで、両箇所を解消済みとして訂正した。あわせて、limit-approaching側はフェーズ76の
+  調査で「生涯最初の1回のみ無料」というトライアル条件により実際のオンボーディング経路
+  では到達不能であることが判明済みである旨も参照として書き添えた(コード削除・トライアル
+  条件の再設計はpricing-plan.mdに関わる製品判断のため、引き続きオーナー判断待ちの別課題)。
+  コード変更は無く、venture全体588件全件(test_checkout_session.py 24件・
+  test_cloud_function_webhook.py 239件・test_payment_failure_notification.py 22件・
+  test_stripe_webhook.py 132件・test_subscription_cancellation_notification.py 28件・
+  test_usage_counter_workshop.py 120件・test_workshop_linking.py 23件)・schema検証27件
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント整合性修正のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 03:00 UTC(フェーズ78: checkout-initiation-flow-design.md 2節(a)・
+「残る課題」に残っていた「トライアル終了通知からの決済導線起動は本venture未設計」という
+記載漏れを発見・訂正した。実際にはフェーズ61・62・73・75でいずれも実装済みであることを
+コードで確認した。コード変更なし、venture全体588件・schema検証27件いずれもパス
+〈変更前と同じ〉)

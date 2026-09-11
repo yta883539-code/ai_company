@@ -53,7 +53,17 @@ Webボタンを想定していたが、本ventureでは以下の理由により*
 
 - (a) トライアル終了が近づいた際の通知メッセージ内の案内文(aircon-pasha/
   limit-approaching-notification-design.md相当を本venture向けに設計する必要があるが、
-  本ドキュメントの範囲外。次の課題として残す)。
+  本ドキュメントの範囲外。次の課題として残す)。→ (解消済み・2026-09-11追記)
+  トライアル終了通知(trial-end-notification-design.md、フェーズ61・62)側で
+  `TRIAL_END_QUICK_REPLY`(postback_data=`START_CHECKOUT_POSTBACK_DATA`)が本文と
+  同時に添付され、押下時は本ドキュメント6節の`resolve_checkout_intent()`
+  (フェーズ72で`process_postback_event()`と共通化)へ配線済みのため、この経路は
+  実装済みと確認した。なお、aircon-pasha相当の「月間生成回数の上限接近時通知」への
+  同ボタン添付(limit-approaching-notification-design.md、フェーズ73・75)自体も
+  実装済みだが、フェーズ76の調査で、本venture固有の「生涯最初の1回のみ無料」という
+  トライアル条件により、この通知が実際のオンボーディング経路では到達不能である
+  ことが判明している(design.md 8節参照、コード削除・トライアル条件の再設計は
+  pricing-plan.mdに関わる製品判断のためオーナー判断待ちの別課題)。
 - (b) 契約者がいつでもLINEトーク上で「有料プランを始めたい」「申し込みたい」等の意図を
   示すメッセージを送信する経路(セルフサービス)。
 
@@ -222,5 +232,8 @@ message event側から呼び出す配線)は、本フェーズでは対象外と
 - `plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定、実LINE
   Messaging API・実Stripe API接続はいずれもオーナー承認待ち(pending-approval.md参照)の
   ため引き続き次の課題として残る(本フェーズの対象外)。
-- トライアル終了が近づいた際の通知メッセージ内の案内文からの起動(2節(a)、aircon-pasha/
-  limit-approaching-notification-design.md相当)は本venture未設計のまま残る。
+- (解消済み・2026-09-11追記) トライアル終了が近づいた際の通知メッセージ内の案内文からの
+  起動(2節(a))は、trial-end-notification-design.md(フェーズ61・62)・
+  limit-approaching-notification-design.md(フェーズ73・75)でいずれも設計・実装済みと
+  なった。詳細は2節(a)の追記を参照(ただしlimit-approaching側は本venture固有のトライアル
+  条件により到達不能というフェーズ76の別課題が残る)。
