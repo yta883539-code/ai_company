@@ -2855,4 +2855,17 @@
   今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
   前進、またはlanding-page-copy-draft.mdのFAQ文言追加(次回以降の課題として残した部分)を
   優先候補とする。
-- 最終更新: 2026-09-11 18:00 UTC
+- フェーズ205(2026-09-11 22:00 UTC): フェーズ204のmulti-setter-shared-usage-design.md
+  「残る課題」に残っていた「landing-page-copy-draft.mdのFAQに『複数店舗を運営する事業者が
+  1アカウントを共有する』前提の補足が無い」という課題に対応した。FAQセクションに
+  「複数店舗を運営していますが、店舗ごとに契約が必要ですか?」の問答を新規追加し、
+  フェーズ204の結論(1つのLINEアカウントを店舗内で複数スタッフが共有運用する前提、複数の
+  異なるLINEアカウントで共有したい場合は店舗ごとに個別契約が必要)を顧客向けの言葉に翻訳
+  した。multi-setter-shared-usage-design.md側の「残る課題」も解消済みに更新した。コード
+  変更は無く、venture全体575件全件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証9件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要な設計文書・LPコピー草案の追記のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の
+  設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-11 22:00 UTC

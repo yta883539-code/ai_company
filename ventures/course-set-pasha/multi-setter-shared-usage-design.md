@@ -60,8 +60,10 @@ kura-pashaのcraftsman-account-linking-design.md・contractor-transfer-design.md
 
 ## 残る課題
 
-- landing-page-copy-draft.mdのFAQは現状「1人のフリーランスセッター」の想定のみを説明して
+- ~~landing-page-copy-draft.mdのFAQは現状「1人のフリーランスセッター」の想定のみを説明して
   おり、「複数店舗を運営する事業者が1アカウントを共有する」前提の補足は無い。マーケティング
-  訴求のトーン調整を伴うため、文言追加は次回以降の課題として残す。
+  訴求のトーン調整を伴うため、文言追加は次回以降の課題として残す。~~
+  → フェーズ205(2026-09-11 22:00 UTC)でlanding-page-copy-draft.mdのFAQセクションに
+  「複数店舗を運営していますが、店舗ごとに契約が必要ですか?」の問答を追加し、解消した。
 - 実際の複数店舗事業者への顧客ヒアリングでの需要検証(customer-interview-design.md実施後、
   オーナー承認済みの範囲で進行中のヒアリングに項目として追加できないか検討する)。
