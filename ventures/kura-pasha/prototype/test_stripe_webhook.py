@@ -254,6 +254,31 @@ def test_deleted_sets_subscription_status_canceled():
     check("push_client未指定時はnotified=False", result.notified is False)
 
 
+def test_deleted_clears_blocked_but_billing_owner_notified_at():
+    # blocked-but-billing-owner-notification-design.md(フェーズ81)6節「クリア配線」。
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W9", "cus_9")
+    store.set_subscription_status("W9", "active")
+    store.set_blocked_but_billing_owner_notified_at("W9", datetime(2026, 9, 1, 9, 0, 0))
+    handle_customer_subscription_deleted({"customer": "cus_9"}, store)
+    check(
+        "解約確定でblocked_but_billing_owner_notified_atがクリアされる",
+        store.get_blocked_but_billing_owner_notified_at("W9") is None,
+    )
+
+
+def test_deleted_clear_is_no_op_when_notified_at_was_unset():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W9b", "cus_9b")
+    store.set_subscription_status("W9b", "active")
+    result = handle_customer_subscription_deleted({"customer": "cus_9b"}, store)
+    check("未通知のworkshopでもエラーにならない", result.invalid is False and result.unresolved is False)
+    check(
+        "未通知のままNoneを維持",
+        store.get_blocked_but_billing_owner_notified_at("W9b") is None,
+    )
+
+
 def test_deleted_sends_notification_to_contractor_when_push_client_given():
     store = InMemoryWorkshopStore()
     store.set_members("W10", contractor_user_id="contractor_10", member_user_ids=["contractor_10", "member_10"])
@@ -1051,6 +1076,8 @@ if __name__ == "__main__":
     test_deleted_returns_invalid_when_customer_missing()
     test_deleted_returns_unresolved_when_customer_unknown()
     test_deleted_sets_subscription_status_canceled()
+    test_deleted_clears_blocked_but_billing_owner_notified_at()
+    test_deleted_clear_is_no_op_when_notified_at_was_unset()
     test_deleted_sends_notification_to_contractor_when_push_client_given()
     test_deleted_status_update_independent_of_notification_failure()
     test_updated_returns_invalid_when_customer_missing()

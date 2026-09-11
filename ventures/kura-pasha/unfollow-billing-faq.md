@@ -127,6 +127,9 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
   `prototype/blocked_but_billing_candidates.py`の候補洗い出しロジックまで対応済み。
   実際にオーナーへ候補一覧を届ける通知手段〈aircon-pasha/blocked-but-billing-owner-
   notification-design.md相当〉は同ドキュメント5節の通り引き続き次回以降の課題として残る)
+  → (解消済み 2026-09-11 06:00 UTC・フェーズ81: オーナー通知手段自体も
+  blocked-but-billing-owner-notification-design.mdとして設計・実装した。本venture一貫の
+  プレーンテキスト送信・冪等性フィールド・再フォロー/解約確定時のクリア配線まで対応済み)
 - 上記1.のFAQ文面のlanding-page-copy-draft.mdへの反映は、同ファイル自体が本venture
   未作成のため、同ファイル新規作成時にあわせて反映する。
 - 複数職人プランの契約者本人確認の仕組み(craftsman-account-linking-design.md未着手

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional, Protocol
 
+from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
 from checkout_session import VALID_PLAN_IDS
 from payment_failure_notification import (
     OUTCOME_NOT_APPLICABLE,
@@ -223,6 +224,13 @@ def handle_customer_subscription_deleted(
     `set_subscription_status`成功後に契約者(`contractor_user_id`)へLINE通知を送信する。
     通知の送信成否は状態更新の成否と独立とし(design 4節)、`push_client`省略時は従来通り
     通知なし(既存呼び出し元への後方互換)。
+
+    (フェーズ81、blocked-but-billing-owner-notification-design.md 6節)`set_subscription_
+    status(workshop_id, "canceled")`成功時、常に`clear_blocked_but_billing_owner_
+    notified_at(workshop_store, workshop_id)`を呼ぶ(解約確定=もう課金されないため、
+    ブロック中かつ契約継続中というオーナー通知の前提が解消したことを表す)。
+    `workshop_store`自体が`BlockedButBillingOwnerNotifiedAtStoreProtocol`を構造的に
+    満たすため、追加の引数は不要。
     """
     stripe_customer_id = data_object.get("customer")
     if not stripe_customer_id:
@@ -233,6 +241,7 @@ def handle_customer_subscription_deleted(
         return CustomerSubscriptionDeletedResult(unresolved=True)
 
     workshop_store.set_subscription_status(workshop_id, "canceled")
+    clear_blocked_but_billing_owner_notified_at(workshop_store, workshop_id)
 
     notified = False
     if push_client is not None:

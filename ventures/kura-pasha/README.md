@@ -1619,3 +1619,39 @@ pending-approval.mdへの記録が一度も行われていなかった記載漏�
 detection-design.mdとして解消。`user_profile.is_following`追加・
 `prototype/blocked_but_billing_candidates.py`新規実装・follow/unfollowイベントへの配線を
 行った。新規テスト15件追加、venture全体588件→603件・schema検証27件いずれもパス)
+
+- フェーズ81(2026-09-11 06:00 UTC): blocked-but-billing-detection-design.md(フェーズ80)
+  「5. 未着手のまま残る課題」に残っていた「候補一覧を実際にオーナーへ届ける手段
+  (aircon-pasha/blocked-but-billing-owner-notification-design.md相当)は本フェーズの対象外」
+  に対応した。aircon-pasha版はFlex Message専用クライアント向けの設計だったが、本ventureの
+  `LinePushClient`(subscription_cancellation_notification.py)はcourse-set-pasha方式と同じ
+  プレーンテキストの`send_message()`のみを提供するため、blocked-but-billing-owner-
+  notification-design.mdとして本venture向けに翻案した設計書を新規作成した。候補一覧は
+  workshop_id単位(aircon-pasha等のuser_id単位とは異なる)のため、通知フィールド
+  `blocked_but_billing_owner_notified_at`は`user_profile`ではなく`craftsman_workshop`
+  (`WorkshopStoreProtocol`)側に新設し、送信文言には`get_contractor_user_id()`で解決した
+  契約者user_idを差し込む設計とした。`prototype/blocked_but_billing_owner_notification.py`
+  (新規)に`select_new_blocked_but_billing_candidates_for_notification()`・
+  `build_blocked_but_billing_owner_notification_message()`・
+  `send_blocked_but_billing_owner_notifications()`・
+  `clear_blocked_but_billing_owner_notified_at()`を実装し、`cloud_function_webhook.
+  process_follow_event()`(新規引数`workshop_store`、再フォロー時のクリア)・
+  `stripe_webhook.handle_customer_subscription_deleted()`(解約確定時のクリア、
+  `set_subscription_status`成功時に常時呼び出し)の両方に配線した(aircon-pashaがフェーズ
+  174→175の2段階で行ったクリア配線を本venture側は1フェーズにまとめて実装)。
+  `dispatch_webhook_events()`のfollowイベント処理からも`workshop_store`を新たに配線した。
+  新規テスト21件(新規ファイルtest_blocked_but_billing_owner_notification.py 14件・
+  process_follow_event経由のクリア2件・dispatch_webhook_events経由のクリア配線1件・
+  handle_customer_subscription_deleted経由のクリア2件、うち一部は既存分類に計上)を追加し、
+  venture全体603件→624件全件・schema検証27件いずれもパスを確認した。あわせて
+  blocked-but-billing-detection-design.md「5. 未着手のまま残る課題」・
+  unfollow-billing-faq.md「今後の課題」の該当箇所を解消済みに更新した。承認不要な設計文書
+  作成・プロトタイプコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 06:00 UTC(フェーズ81: blocked-but-billing-detection-design.mdに
+残っていた「オーナーへの候補通知手段は未設計」をblocked-but-billing-owner-notification-
+design.mdとして解消。本venture一貫のプレーンテキスト送信へ翻案し、
+`prototype/blocked_but_billing_owner_notification.py`新規実装・再フォロー/解約確定時の
+クリア配線まで実装した。新規テスト21件追加、venture全体603件→624件・schema検証27件
+いずれもパス)

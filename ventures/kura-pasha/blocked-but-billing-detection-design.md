@@ -104,9 +104,11 @@ workshop_id昇順ソート・候補0件時の空リスト)を追加、venture全
 
 ## 5. 未着手のまま残る課題
 
-- 候補一覧を実際にオーナーへ届ける手段(aircon-pasha/blocked-but-billing-owner-
+- ~~候補一覧を実際にオーナーへ届ける手段(aircon-pasha/blocked-but-billing-owner-
   notification-design.md相当のFlex Message通知・日次Cloud Schedulerでの実行)は本フェーズの
-  対象外とし、次回以降の課題として残す。
+  対象外とし、次回以降の課題として残す。~~ → フェーズ81・
+  blocked-but-billing-owner-notification-design.mdで解消済み(本venture一貫の
+  プレーンテキスト形式へ翻案、送信ロジック・冪等性フィールド・クリア配線を実装済み)。
 - Cloud Schedulerの新規作成・メール送信の実行はいずれも外部サービス側の設定・送信操作に
   該当し、オーナーの許可が必要なアクションであるため、実際の接続作業自体は着手しない
   (他venture3件と同じ整理)。

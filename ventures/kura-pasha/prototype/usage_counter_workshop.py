@@ -384,6 +384,24 @@ class WorkshopStoreProtocol(Protocol):
         """(A)または(B)経路で通知を送信した時点で1回だけ書き込む。"""
         ...
 
+    def get_blocked_but_billing_owner_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        """blocked-but-billing-owner-notification-design.md(フェーズ81)4節: 当該workshopの
+        「ブロック中かつ契約継続中」候補をオーナーへ通知済みの時刻。未通知(または既に
+        クリア済み)の場合はNoneを返す(二重通知防止用)。`list_blocked_but_billing_
+        candidates()`の返り値がworkshop_id単位であるため、本フィールドも`user_profile`
+        ではなく`craftsman_workshop`側に持たせる(get_trial_end_notified_atと同じ理由)。
+        """
+        ...
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        """送信成功時に1回だけ書き込む。クリア配線(design 6節)は`None`を渡すことで表現する
+        (payment_failure_detected_atのset/clearを2メソッドに分けた方式とは異なり、
+        trial_end_notified_at同様1メソッドに統一する)。
+        """
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -430,6 +448,7 @@ class InMemoryWorkshopStore:
         self._subscription_status_by_workshop: dict[str, str] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
         self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
+        self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -542,6 +561,17 @@ class InMemoryWorkshopStore:
 
     def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
         self._trial_end_notified_at_by_workshop[workshop_id] = notified_at
+
+    def get_blocked_but_billing_owner_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._blocked_but_billing_owner_notified_at_by_workshop.get(workshop_id)
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        if notified_at is None:
+            self._blocked_but_billing_owner_notified_at_by_workshop.pop(workshop_id, None)
+        else:
+            self._blocked_but_billing_owner_notified_at_by_workshop[workshop_id] = notified_at
 
 
 class InMemoryUsageCounterStore:

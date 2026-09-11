@@ -45,6 +45,7 @@ from checkout_session import (
     build_checkout_session_params,
     parse_start_checkout_postback_data,
 )
+from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
 from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
     PaymentSuspendedError,
@@ -281,6 +282,7 @@ def process_follow_event(
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
     profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
 ) -> FollowProcessResult:
     """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
 
@@ -296,6 +298,11 @@ def process_follow_event(
        〈workshop_linking.create_workshop_from_linking_code()〉自体が本関数の対象外
        〈message event側で行う〉ため、`is_following`の初期値True設定は
        `InMemoryUserProfileStore.get_is_following()`の既定値True頼りで足りる)。
+       (フェーズ81、blocked-but-billing-owner-notification-design.md 6節)さらに
+       `workshop_store`も渡されている場合、この再フォロー時に
+       `clear_blocked_but_billing_owner_notified_at()`を呼び、当該workshopの
+       オーナー通知済みフラグをクリアする(再ブロック時に再度通知できるようにするため)。
+       `workshop_store`省略時は従来通りクリアをスキップする(後方互換)。
     4. 連携コードを発行し(`workshop_linking.issue_linking_code_on_follow()`、
        `rng`未指定時は`random.Random()`)、`format_follow_welcome_message()`で
        組み立てたウェルカムメッセージを返信する。
@@ -309,6 +316,10 @@ def process_follow_event(
 
     if profile_store is not None and profile_store.get_workshop_id(user_id) is not None:
         profile_store.set_is_following(user_id, True)
+        if workshop_store is not None:
+            clear_blocked_but_billing_owner_notified_at(
+                workshop_store, profile_store.get_workshop_id(user_id)
+            )
 
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     resolved_rng = rng if rng is not None else random.Random()
@@ -1138,8 +1149,10 @@ def dispatch_webhook_events(
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。`user_profile_store`
-      (フェーズ80でis_following復帰用に追加)は省略可能で、未接続でも連携コード発行・
-      返信自体は行う(is_following復帰のみスキップされる後方互換動作)。
+      (フェーズ80でis_following復帰用に追加)・`workshop_store`(フェーズ81で
+      blocked_but_billing_owner_notified_atクリア用に追加)はいずれも省略可能で、未接続でも
+      連携コード発行・返信自体は行う(is_following復帰・オーナー通知済みフラグのクリアの
+      みスキップされる後方互換動作)。
     - "unfollow"(フェーズ70で追加): 1件ずつprocess_unfollow_event()へ渡す。返信を伴わず
       必須の外部ストアも無いため、message/followと異なり依存関係の有無を問わず常に処理する
       (`user_profile_store`〈フェーズ80で追加〉は省略可能で、未接続の場合はis_following
@@ -1192,6 +1205,7 @@ def dispatch_webhook_events(
                     rng=rng,
                     now=now,
                     profile_store=user_profile_store,
+                    workshop_store=workshop_store,
                 )
             )
         elif event_type == "unfollow":

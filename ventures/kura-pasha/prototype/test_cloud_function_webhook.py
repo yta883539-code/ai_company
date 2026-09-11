@@ -356,6 +356,49 @@ def test_process_follow_event_of_a_linked_user_resets_is_following_to_true():
     check("再フォローでis_followingがTrueに戻る", profile_store.get_is_following("U_REFOLLOW") is True)
 
 
+def test_process_follow_event_of_a_linked_user_clears_blocked_but_billing_owner_notified_at():
+    # blocked-but-billing-owner-notification-design.md(フェーズ81)6節「クリア配線」。
+    linking_store = InMemoryLinkingCodeStore()
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_REFOLLOW2", "W1")
+    profile_store.set_is_following("U_REFOLLOW2", False)
+    workshop_store = InMemoryWorkshopStore()
+    workshop_store.set_members("W1", "U_REFOLLOW2", [])
+    workshop_store.set_blocked_but_billing_owner_notified_at("W1", FEB)
+    reply_client = InMemoryReplyClient()
+    event = _make_follow_event(user_id="U_REFOLLOW2")
+
+    process_follow_event(
+        event,
+        linking_store,
+        reply_client,
+        profile_store=profile_store,
+        workshop_store=workshop_store,
+    )
+
+    check(
+        "再フォローでblocked_but_billing_owner_notified_atがクリアされる",
+        workshop_store.get_blocked_but_billing_owner_notified_at("W1") is None,
+    )
+
+
+def test_process_follow_event_without_workshop_store_does_not_raise():
+    # workshop_store省略時は従来通りクリアをスキップする(後方互換)。
+    linking_store = InMemoryLinkingCodeStore()
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_REFOLLOW3", "W1")
+    profile_store.set_is_following("U_REFOLLOW3", False)
+    reply_client = InMemoryReplyClient()
+    event = _make_follow_event(user_id="U_REFOLLOW3")
+
+    result = process_follow_event(
+        event, linking_store, reply_client, profile_store=profile_store
+    )
+
+    check("workshop_store省略時もhandled=True", result.handled is True)
+    check("is_followingは更新される", profile_store.get_is_following("U_REFOLLOW3") is True)
+
+
 def test_process_follow_event_of_an_unlinked_user_does_not_touch_profile_store():
     # design 1節: 未連携user_id(初回follow、profile未作成)はis_following復帰の対象外。
     linking_store = InMemoryLinkingCodeStore()
@@ -1261,6 +1304,31 @@ def test_dispatch_webhook_events_wires_user_profile_store_through_to_is_followin
     )
 
 
+def test_dispatch_webhook_events_wires_workshop_store_through_to_owner_notified_at_clear():
+    # blocked-but-billing-owner-notification-design.md(フェーズ81)6節。dispatch_webhook_
+    # events()経由でも再フォロー時のblocked_but_billing_owner_notified_atクリアが実際に
+    # 届くことの確認。
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_DISPATCH2", "W1")
+    profile_store.set_is_following("U_DISPATCH2", False)
+    workshop_store = InMemoryWorkshopStore()
+    workshop_store.set_members("W1", "U_DISPATCH2", [])
+    workshop_store.set_blocked_but_billing_owner_notified_at("W1", FEB)
+
+    dispatch_webhook_events(
+        [_make_follow_event(user_id="U_DISPATCH2")],
+        reply_client=InMemoryReplyClient(),
+        linking_store=InMemoryLinkingCodeStore(),
+        user_profile_store=profile_store,
+        workshop_store=workshop_store,
+        rng=random.Random(6),
+    )
+    check(
+        "follow配線でblocked_but_billing_owner_notified_atがクリアされる",
+        workshop_store.get_blocked_but_billing_owner_notified_at("W1") is None,
+    )
+
+
 def test_dispatch_webhook_events_skips_message_when_llm_call_missing():
     result = dispatch_webhook_events(
         [_make_event("新規、ブリティッシュ、牛革")], llm_call=None, reply_client=InMemoryReplyClient(),
@@ -1506,6 +1574,8 @@ if __name__ == "__main__":
     test_process_unfollow_event_of_a_linked_user_sets_is_following_false()
     test_process_unfollow_event_of_an_unlinked_user_does_not_touch_profile_store()
     test_process_follow_event_of_a_linked_user_resets_is_following_to_true()
+    test_process_follow_event_of_a_linked_user_clears_blocked_but_billing_owner_notified_at()
+    test_process_follow_event_without_workshop_store_does_not_raise()
     test_process_follow_event_of_an_unlinked_user_does_not_touch_profile_store()
     test_process_memo_event_ignores_non_text_message()
     test_process_memo_event_generated_includes_three_outputs()
@@ -1553,6 +1623,7 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_records_ignored_types_for_non_message_events()
     test_dispatch_webhook_events_routes_unfollow_event_to_process_unfollow_event()
     test_dispatch_webhook_events_wires_user_profile_store_through_to_is_following()
+    test_dispatch_webhook_events_wires_workshop_store_through_to_owner_notified_at_clear()
     test_dispatch_webhook_events_skips_message_when_llm_call_missing()
     test_dispatch_webhook_events_skips_message_when_reply_client_missing()
     test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_event()
