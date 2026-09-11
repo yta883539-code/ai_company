@@ -1774,3 +1774,20 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 新規作成。作成過程で発見した見出し表記の不整合(トライアル終了通知のみ半角「[鞍パシャッと]」)
 を全角「【鞍パシャッと】」に統一する修正を行った。venture全体649件・schema検証27件いずれも
 パス〈変更前と同じ〉)
+
+- フェーズ87(2026-09-11 20:00 UTC): 他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)には既にあるが本venture未着手だったlanding-page-wireframe.mdという
+  cross-venture parityのギャップに対応し、新規作成した。landing-page-copy-draft.mdの
+  セクション順・CTA文言(30日間無料で試してみる)をそのまま踏襲しつつ、本venture固有の
+  「区分(新規制作/修理)によって納品案内下書きの内容が分岐する」という特性を可視化する
+  ため、ヒーローセクションのビフォーアフター画像をaircon-pasha(1パターンのみ)とは異なり
+  新規制作用・修理用の2パターン(タブ/カルーセル切替)併記する構成とした。実装(HTML/CSS)・
+  画像そのものの制作・公開は行わず、テキストベースの画面構成案のみに留めた(他venture
+  同様)。コード変更は無く、venture全体(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証(`python3 schema/validate_test_cases.py`)27件いずれもパス
+  (変更前と同じ結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
+  優先候補とする。
+
+最終更新: 2026-09-11 20:00 UTC
