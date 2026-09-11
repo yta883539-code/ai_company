@@ -1493,3 +1493,46 @@ is_trial=True分岐〈「残り1回」/上限超過通知・CTAボタン〉が�
 実際の経路を通した新規テストで実証した〈8節〉。コード自体の削除・トライアル条件の再設計は
 製品判断のためオーナー判断待ちの次の課題として残す。新規テスト追加、venture全体569件・
 schema検証27件いずれもパス)
+
+- フェーズ77(2026-09-11 02:00 UTC): stripe-webhook-checkout-completed-design.md
+  「4. 未検証・残課題」最後の項目に残っていた「イベントID(`event.id`)による
+  べき等性チェックは、本ventureでは`checkout.session.completed`が複数回届いても実害が
+  無いため当面省略した。将来`invoice.payment_failed`等の非べき等な通知処理を追加する際に
+  改めて必要性を検討する」に着手した。`invoice.payment_failed`(フェーズ56)・
+  `customer.subscription.deleted`(フェーズ53)・`customer.subscription.updated`
+  (フェーズ55)がいずれも実装済みとなった現時点で条件が揃ったと判断し、まず
+  各ハンドラの現状を棚卸しした結果、`handle_invoice_payment_failed()`が同一イベントの
+  再配信のたびに`payment_failure_detected_at`を新しいタイムスタンプで上書きし
+  (猶予期間の起算点が際限なく後ろへずれる)、かつ決済失敗検知のLINE通知を毎回再送する
+  という、他の3ハンドラより実害の大きい非べき等性を持つことを確認した(`customer.
+  subscription.deleted`の解約完了通知・`customer.subscription.updated`の解約予約
+  受理/取り消し通知も同様に再送されるが、状態変更を一切伴わないため実害の性質は同じ)。
+  aircon-pashaのstripe-event-idempotency-design.md(フェーズ177)の設計・実装
+  (`StripeEventIdStoreProtocol`・`InMemoryStripeEventIdStore`、エントリポイント層
+  〈`receive_stripe_webhook()`〉での一括判定)を本ventureへ翻案し、新設した
+  stripe-event-idempotency-design.mdとして記録した。翻案にあたり、本venture固有の
+  追加判断として「ハンドラ結果が`invalid`(400、`customer`欠落等の不正なイベント)の
+  場合は処理済みとして記録しない」ルールを設けた(処理済みにしてしまうとStripe側の
+  本物の不具合が2回目以降400を返さなくなり、Stripeダッシュボード上のエラー可視性が
+  失われるため)。`unresolved`(逆引き失敗、200)はアプリケーション側では正常な結果
+  であるため処理済みとして記録する。`event.id`が欠落・非文字列の場合は従来通り
+  チェックをスキップする(安全側)。`event_id_store`は新規キーワード引数(既定`None`)
+  とし省略時は従来通りべき等性チェックを行わない(既存呼び出し経路への後方互換)。
+  新規テスト12関数・check()単位で19件(`invoice.payment_failed`の重複配信で
+  `payment_failure_detected_at`が上書きされず通知も再送されないことを確認する
+  回帰テストを含む)追加、venture全体569件→588件全件(test_checkout_session.py 24件・
+  test_cloud_function_webhook.py 239件・test_payment_failure_notification.py 22件・
+  test_stripe_webhook.py 113件→132件・test_subscription_cancellation_notification.py
+  28件・test_usage_counter_workshop.py 120件・test_workshop_linking.py 23件)・
+  schema検証27件(変更なし、schema/output.schema.jsonへの変更は本フェーズに含まれない
+  ため)いずれもパスを確認した。承認不要な設計文書作成・プロトタイプコード実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-11 02:00 UTC(フェーズ77: stripe-webhook-checkout-completed-design.md
+「4. 未検証・残課題」に残っていたevent.idべき等性チェックを実装。aircon-pashaフェーズ177の
+設計を翻案し`StripeEventIdStoreProtocol`・`InMemoryStripeEventIdStore`を新設、
+`receive_stripe_webhook()`のエントリポイント層で一括判定する方式とした(新設
+stripe-event-idempotency-design.md)。特に`invoice.payment_failed`の再配信時に猶予期間の
+起算点が後ろへずれ続け通知も二重送信される実害を解消した。新規テスト19件追加、
+venture全体569件→588件全件・schema検証27件いずれもパス)

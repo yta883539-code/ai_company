@@ -4,7 +4,8 @@
 design.md フェーズ53、契約者向け解約完了通知の配線はsubscription-cancellation-notification-
 design.md フェーズ54、解約予約受理・解約取り消し通知の配線はsubscription-cancellation-
 scheduled-notification-design.md フェーズ55、決済失敗ダニングの配線はpayment-failure-
-dunning-design.md フェーズ56)。
+dunning-design.md フェーズ56、`event.id`によるべき等性チェックはstripe-event-
+idempotency-design.md フェーズ77)。
 
 実Stripeアカウント接続(オーナー承認待ち)なしでも検証できる、`Stripe-Signature`ヘッダの
 検証ロジック・各イベントハンドラ・両者を結ぶHTTPエントリポイントのみを切り出した
@@ -24,7 +25,7 @@ import json
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Protocol
 
 from checkout_session import VALID_PLAN_IDS
 from payment_failure_notification import (
@@ -97,6 +98,40 @@ def verify_stripe_signature(
         return False
 
     return True
+
+
+# ---------------------------------------------------------------------------
+# event.idべき等性チェック(フェーズ77、stripe-event-idempotency-design.md)
+#
+# aircon-pashaフェーズ177の同名設計を本venture固有のディスパッチ構造(workshop_store
+# 単位のイベントハンドラ群)へそのまま翻案する。`WorkshopStoreProtocol`とはキーの性質
+# (`event_id`か`workshop_id`か)が異なるため独立したProtocolとする(design 2節)。
+# ---------------------------------------------------------------------------
+
+class StripeEventIdStoreProtocol(Protocol):
+    """`event.id`単位の処理済み記録を保持するストアのインターフェース
+    (stripe-event-idempotency-design.md 2節)。"""
+
+    def has_processed(self, event_id: str) -> bool:
+        ...
+
+    def mark_processed(self, event_id: str) -> None:
+        ...
+
+
+class InMemoryStripeEventIdStore:
+    """design 3節: 検証用のインメモリ実装。プロセス起動ごとに初期化されるため、実Cloud
+    Functions環境では呼び出しをまたいで保持されない(他のInMemory系ストアと同じ既知の
+    限界)。"""
+
+    def __init__(self) -> None:
+        self._processed_event_ids: set = set()
+
+    def has_processed(self, event_id: str) -> bool:
+        return event_id in self._processed_event_ids
+
+    def mark_processed(self, event_id: str) -> None:
+        self._processed_event_ids.add(event_id)
 
 
 @dataclass
@@ -385,6 +420,9 @@ class StripeWebhookReceiverResult:
     """design 3節。`unresolved_customer`はsubscription-canceled-webhook-design.md
     2節対応(フェーズ53追加): `customer.subscription.deleted`のstripe_customer_idが
     どのworkshopにも紐付いていなかった場合に`True`となる(Stripe側へは200を返す)。
+    `duplicate_event`はstripe-event-idempotency-design.md対応(フェーズ77追加):
+    `event_id_store`指定時、既に処理済みの`event.id`を再受信した場合に`True`となる
+    (200を返し、いずれのハンドラも呼び出さない)。
     """
 
     status_code: int
@@ -392,6 +430,7 @@ class StripeWebhookReceiverResult:
     ignored_type: Optional[str] = None
     error: Optional[str] = None
     unresolved_customer: bool = False
+    duplicate_event: bool = False
 
 
 def receive_stripe_webhook(
@@ -401,12 +440,31 @@ def receive_stripe_webhook(
     *,
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
+    event_id_store: Optional[StripeEventIdStoreProtocol] = None,
 ) -> StripeWebhookReceiverResult:
-    """design 3節。署名検証→JSONパース→`checkout.session.completed`/
-    `customer.subscription.deleted`/`customer.subscription.updated`/
-    `invoice.payment_failed`/`invoice.payment_succeeded`をディスパッチする薄いHTTP
-    エントリポイント。未対応のイベント種別は無視して200を返す(Stripe側の無限リトライを
-    避ける、course-set-pasha/aircon-pashaと同じ方針)。
+    """design 3節。署名検証→JSONパース→(フェーズ77追加)event.idべき等性チェック→
+    `checkout.session.completed`/`customer.subscription.deleted`/
+    `customer.subscription.updated`/`invoice.payment_failed`/`invoice.payment_succeeded`を
+    ディスパッチする薄いHTTPエントリポイント。未対応のイベント種別は無視して200を返す
+    (Stripe側の無限リトライを避ける、course-set-pasha/aircon-pashaと同じ方針)。
+
+    `event_id_store`(stripe-event-idempotency-design.md、フェーズ77新設): 指定時、
+    パース済みイベントの`id`が既に処理済みであれば以降のいずれの分岐・ハンドラも
+    呼び出さず`duplicate_event=True`とともに200を返す(副作用ゼロ)。Stripeは
+    「at least once」配信のため、`customer.subscription.deleted`の解約完了通知・
+    `invoice.payment_failed`の決済失敗検知通知等、通知送信を伴うハンドラは同一
+    イベントの再配信時に二重送信してしまう(individual各ハンドラでべき等性を
+    作り込むのではなく、本関数エントリポイント層で一括して弾く。design 2節、
+    aircon-pashaフェーズ177と同じ方針)。`id`が欠落・非文字列の場合はチェックを
+    スキップし従来通り処理する(Stripeの実イベントでは通常発生しないが、テスト用の
+    最小イベントdict等では省略されうるため安全側〈処理を止めない〉に倒す)。
+    省略時(`None`)はべき等性チェックを一切行わない(既存呼び出し経路への後方互換
+    措置)。記録(`mark_processed`)はハンドラ呼び出し「後」、かつ`invalid`
+    (400、不正なイベント)以外の場合に限り行う。`invalid`のまま処理済みにしてしまうと
+    Stripe側の本物の不具合(データ欠落した不正イベント)が2回目以降400を返さなくなり
+    Stripeダッシュボード上のエラー可視性が失われるため、あえて対象外とした
+    (`unresolved_customer`は逆引き失敗というアプリケーション側では正常な結果のため
+    処理済みとして記録する)。
     """
     if not verify_stripe_signature(body, sig_header, webhook_secret):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_signature")
@@ -418,6 +476,11 @@ def receive_stripe_webhook(
 
     if not isinstance(event, dict):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_json")
+
+    event_id = event.get("id")
+    check_idempotency = event_id_store is not None and isinstance(event_id, str)
+    if check_idempotency and event_id_store.has_processed(event_id):
+        return StripeWebhookReceiverResult(status_code=200, duplicate_event=True)
 
     event_type = event.get("type")
     if event_type not in (
@@ -437,6 +500,8 @@ def receive_stripe_webhook(
         result = handle_checkout_session_completed(data_object, workshop_store)
         if result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_client_reference_id")
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(status_code=200, workshop_id=result.workshop_id)
 
     if event_type == "customer.subscription.updated":
@@ -445,6 +510,8 @@ def receive_stripe_webhook(
         )
         if updated_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         if updated_result.unresolved:
             return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
         return StripeWebhookReceiverResult(status_code=200, workshop_id=updated_result.workshop_id)
@@ -455,6 +522,8 @@ def receive_stripe_webhook(
         )
         if deleted_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         if deleted_result.unresolved:
             return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
         return StripeWebhookReceiverResult(status_code=200, workshop_id=deleted_result.workshop_id)
@@ -465,6 +534,8 @@ def receive_stripe_webhook(
         )
         if failed_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         if failed_result.unresolved:
             return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
         return StripeWebhookReceiverResult(status_code=200, workshop_id=failed_result.workshop_id)
@@ -474,6 +545,8 @@ def receive_stripe_webhook(
     )
     if succeeded_result.invalid:
         return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
+    if check_idempotency:
+        event_id_store.mark_processed(event_id)
     if succeeded_result.unresolved:
         return StripeWebhookReceiverResult(status_code=200, unresolved_customer=True)
 

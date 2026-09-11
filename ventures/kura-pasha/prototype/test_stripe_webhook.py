@@ -11,6 +11,7 @@ from stripe_webhook import (
     CheckoutSessionCompletedResult,
     CustomerSubscriptionDeletedResult,
     CustomerSubscriptionUpdatedResult,
+    InMemoryStripeEventIdStore,
     InvoicePaymentFailedResult,
     InvoicePaymentSucceededResult,
     handle_checkout_session_completed,
@@ -367,13 +368,16 @@ def test_updated_no_change_sends_nothing():
 # --- receive_stripe_webhook ---
 
 
-def _event_body(workshop_id="W5", customer="cus_5", event_type="checkout.session.completed"):
-    return json.dumps(
-        {
-            "type": event_type,
-            "data": {"object": {"client_reference_id": workshop_id, "customer": customer}},
-        }
-    ).encode("utf-8")
+def _event_body(
+    workshop_id="W5", customer="cus_5", event_type="checkout.session.completed", event_id=None
+):
+    event = {
+        "type": event_type,
+        "data": {"object": {"client_reference_id": workshop_id, "customer": customer}},
+    }
+    if event_id is not None:
+        event["id"] = event_id
+    return json.dumps(event).encode("utf-8")
 
 
 def test_receive_rejects_invalid_signature():
@@ -467,23 +471,24 @@ def test_receive_returns_400_for_missing_customer_on_deleted():
     check("エラーコードmissing_customer", result.error == "missing_customer")
 
 
-def _updated_event_body(customer="cus_24", before=False, after=True):
+def _updated_event_body(customer="cus_24", before=False, after=True, event_id=None):
     previous_attributes = {}
     if before != after:
         previous_attributes["cancel_at_period_end"] = before
-    return json.dumps(
-        {
-            "type": "customer.subscription.updated",
-            "data": {
-                "object": {
-                    "customer": customer,
-                    "cancel_at_period_end": after,
-                    "current_period_end": 1_760_000_000,
-                },
-                "previous_attributes": previous_attributes,
+    event = {
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "customer": customer,
+                "cancel_at_period_end": after,
+                "current_period_end": 1_760_000_000,
             },
-        }
-    ).encode("utf-8")
+            "previous_attributes": previous_attributes,
+        },
+    }
+    if event_id is not None:
+        event["id"] = event_id
+    return json.dumps(event).encode("utf-8")
 
 
 def test_receive_dispatches_customer_subscription_updated():
@@ -703,11 +708,16 @@ def test_invoice_succeeded_silent_reset_within_grace_sends_nothing():
 # --- receive_stripe_webhook: invoice.payment_failed / invoice.payment_succeeded ---
 
 
-def _invoice_event_body(customer="cus_40", event_type="invoice.payment_failed", created=None):
+def _invoice_event_body(
+    customer="cus_40", event_type="invoice.payment_failed", created=None, event_id=None
+):
     data_object = {"customer": customer}
     if created is not None:
         data_object["created"] = created
-    return json.dumps({"type": event_type, "data": {"object": data_object}}).encode("utf-8")
+    event = {"type": event_type, "data": {"object": data_object}}
+    if event_id is not None:
+        event["id"] = event_id
+    return json.dumps(event).encode("utf-8")
 
 
 def test_receive_dispatches_invoice_payment_failed():
@@ -785,6 +795,243 @@ def test_receive_returns_400_for_missing_customer_on_invoice_payment_succeeded()
     check("エラーコードmissing_customer(payment_succeeded)", result.error == "missing_customer")
 
 
+# --- event.idべき等性チェック(stripe-event-idempotency-design.md フェーズ77) ---
+
+
+def test_event_id_store_has_processed_false_initially():
+    store = InMemoryStripeEventIdStore()
+    check("初期状態はhas_processed=False", store.has_processed("evt_1") is False)
+
+
+def test_event_id_store_mark_processed_then_has_processed_true():
+    store = InMemoryStripeEventIdStore()
+    store.mark_processed("evt_1")
+    check("mark_processed後はhas_processed=True", store.has_processed("evt_1") is True)
+    check(
+        "別のevent_idには影響しない",
+        store.has_processed("evt_2") is False,
+    )
+
+
+def test_receive_duplicate_invoice_payment_failed_returns_200_duplicate():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W50", "cus_50")
+    event_id_store = InMemoryStripeEventIdStore()
+    now = int(time.time())
+    body = _invoice_event_body(customer="cus_50", event_id="evt_50")
+    header = _sign(body, now)
+    first = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    second = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    check("1回目は通常どおりworkshop_idを返す", first.workshop_id == "W50")
+    check("2回目は200", second.status_code == 200)
+    check("2回目はduplicate_event=True", second.duplicate_event is True)
+    check("2回目はworkshop_idを返さない(ハンドラ未呼び出し)", second.workshop_id is None)
+
+
+def test_receive_duplicate_invoice_payment_failed_does_not_overwrite_detected_at():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W51", "cus_51")
+    event_id_store = InMemoryStripeEventIdStore()
+    first_created = 1_760_000_000
+    second_created = 1_760_100_000
+    first_body = _invoice_event_body(
+        customer="cus_51", created=first_created, event_id="evt_51"
+    )
+    header = _sign(first_body, int(time.time()))
+    receive_stripe_webhook(
+        first_body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    expected_detected_at = store.get_payment_failure_detected_at("W51")
+
+    # Stripeの再配信を模す: event.idは同じだがcreatedを含むbodyが異なる(Stripeは実際には
+    # 同一event.idなら中身も同一だが、万一異なっていても2回目以降はevent.idのみで判定し
+    # ハンドラ自体を呼ばないことを確認するため、あえてcreatedを変えている)。
+    second_body = _invoice_event_body(
+        customer="cus_51", created=second_created, event_id="evt_51"
+    )
+    header2 = _sign(second_body, int(time.time()))
+    receive_stripe_webhook(
+        second_body, header2, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    check(
+        "2回目の配信でpayment_failure_detected_atが上書きされない",
+        store.get_payment_failure_detected_at("W51") == expected_detected_at,
+    )
+
+
+def test_receive_duplicate_invoice_payment_failed_does_not_resend_notification():
+    store = InMemoryWorkshopStore()
+    store.set_members("W52", contractor_user_id="contractor_52", member_user_ids=["contractor_52"])
+    store.set_stripe_customer_id("W52", "cus_52")
+    push = InMemoryLinePushClient()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = _invoice_event_body(customer="cus_52", event_id="evt_52")
+    header = _sign(body, int(time.time()))
+    for _ in range(2):
+        receive_stripe_webhook(
+            body,
+            header,
+            WEBHOOK_SECRET,
+            workshop_store=store,
+            push_client=push,
+            event_id_store=event_id_store,
+        )
+    check(
+        "同一event.idの2回配信でも通知は1回のみ",
+        push.sent == [("contractor_52", PAYMENT_FAILURE_DETECTED_MESSAGE)],
+    )
+
+
+def test_receive_duplicate_customer_subscription_deleted_does_not_resend_notification():
+    store = InMemoryWorkshopStore()
+    store.set_members("W53", contractor_user_id="contractor_53", member_user_ids=["contractor_53"])
+    store.set_stripe_customer_id("W53", "cus_53")
+    store.set_subscription_status("W53", "active")
+    push = InMemoryLinePushClient()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = _event_body(customer="cus_53", event_type="customer.subscription.deleted", event_id="evt_53")
+    header = _sign(body, int(time.time()))
+    for _ in range(2):
+        receive_stripe_webhook(
+            body,
+            header,
+            WEBHOOK_SECRET,
+            workshop_store=store,
+            push_client=push,
+            event_id_store=event_id_store,
+        )
+    check(
+        "同一event.idの解約完了イベント2回配信でも通知は1回のみ",
+        push.sent == [("contractor_53", SUBSCRIPTION_CANCELLED_MESSAGE)],
+    )
+
+
+def test_receive_duplicate_customer_subscription_updated_does_not_resend_notification():
+    store = InMemoryWorkshopStore()
+    store.set_members("W54", contractor_user_id="contractor_54", member_user_ids=["contractor_54"])
+    store.set_stripe_customer_id("W54", "cus_54")
+    push = InMemoryLinePushClient()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = _updated_event_body(customer="cus_54", before=False, after=True, event_id="evt_54")
+    header = _sign(body, int(time.time()))
+    for _ in range(2):
+        receive_stripe_webhook(
+            body,
+            header,
+            WEBHOOK_SECRET,
+            workshop_store=store,
+            push_client=push,
+            event_id_store=event_id_store,
+        )
+    check(
+        "同一event.idの解約予約受理イベント2回配信でも通知は1回のみ",
+        len(push.sent) == 1,
+    )
+
+
+def test_receive_missing_event_id_skips_idempotency_check():
+    store = InMemoryWorkshopStore()
+    store.set_members("W55", contractor_user_id="contractor_55", member_user_ids=["contractor_55"])
+    store.set_stripe_customer_id("W55", "cus_55")
+    push = InMemoryLinePushClient()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = _invoice_event_body(customer="cus_55")  # event_id省略
+    header = _sign(body, int(time.time()))
+    for _ in range(2):
+        receive_stripe_webhook(
+            body,
+            header,
+            WEBHOOK_SECRET,
+            workshop_store=store,
+            push_client=push,
+            event_id_store=event_id_store,
+        )
+    check(
+        "event.id欠落時はチェックをスキップし毎回処理される(通知2回)",
+        push.sent == [("contractor_55", PAYMENT_FAILURE_DETECTED_MESSAGE)] * 2,
+    )
+
+
+def test_receive_non_string_event_id_skips_idempotency_check():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W56", "cus_56")
+    event_id_store = InMemoryStripeEventIdStore()
+    body_dict = json.loads(_invoice_event_body(customer="cus_56"))
+    body_dict["id"] = 12345  # 非文字列
+    body = json.dumps(body_dict).encode("utf-8")
+    header = _sign(body, int(time.time()))
+    first = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    second = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    check("event.idが非文字列の場合は1回目も通常処理", first.workshop_id == "W56")
+    check(
+        "event.idが非文字列の場合は2回目もduplicate扱いされない",
+        second.duplicate_event is False,
+    )
+
+
+def test_receive_without_event_id_store_processes_duplicates_normally():
+    store = InMemoryWorkshopStore()
+    store.set_members("W57", contractor_user_id="contractor_57", member_user_ids=["contractor_57"])
+    store.set_stripe_customer_id("W57", "cus_57")
+    push = InMemoryLinePushClient()
+    body = _invoice_event_body(customer="cus_57", event_id="evt_57")
+    header = _sign(body, int(time.time()))
+    for _ in range(2):
+        receive_stripe_webhook(
+            body, header, WEBHOOK_SECRET, workshop_store=store, push_client=push,
+        )
+    check(
+        "event_id_store省略時は同一event.idでも毎回処理される(既存呼び出し経路への後方互換)",
+        push.sent == [("contractor_57", PAYMENT_FAILURE_DETECTED_MESSAGE)] * 2,
+    )
+
+
+def test_receive_marks_unresolved_customer_as_processed():
+    store = InMemoryWorkshopStore()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = _invoice_event_body(customer="cus_unmapped_58", event_id="evt_58")
+    header = _sign(body, int(time.time()))
+    first = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    second = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    check("1回目はunresolved_customer=True", first.unresolved_customer is True)
+    check(
+        "unresolvedな結果も処理済みとして記録され2回目はduplicate_event=True",
+        second.duplicate_event is True,
+    )
+
+
+def test_receive_does_not_mark_invalid_event_as_processed():
+    store = InMemoryWorkshopStore()
+    event_id_store = InMemoryStripeEventIdStore()
+    body = json.dumps(
+        {"type": "invoice.payment_failed", "data": {"object": {}}, "id": "evt_59"}
+    ).encode("utf-8")
+    header = _sign(body, int(time.time()))
+    first = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    second = receive_stripe_webhook(
+        body, header, WEBHOOK_SECRET, workshop_store=store, event_id_store=event_id_store
+    )
+    check("1回目はcustomer欠落で400", first.status_code == 400)
+    check(
+        "invalidな結果は処理済みとして記録されず2回目も400のまま",
+        second.status_code == 400 and second.duplicate_event is False,
+    )
+
+
 if __name__ == "__main__":
     test_verify_rejects_missing_header()
     test_verify_rejects_malformed_header()
@@ -842,6 +1089,18 @@ if __name__ == "__main__":
     test_receive_dispatches_invoice_payment_succeeded()
     test_receive_returns_200_for_unresolved_customer_on_invoice_payment_succeeded()
     test_receive_returns_400_for_missing_customer_on_invoice_payment_succeeded()
+    test_event_id_store_has_processed_false_initially()
+    test_event_id_store_mark_processed_then_has_processed_true()
+    test_receive_duplicate_invoice_payment_failed_returns_200_duplicate()
+    test_receive_duplicate_invoice_payment_failed_does_not_overwrite_detected_at()
+    test_receive_duplicate_invoice_payment_failed_does_not_resend_notification()
+    test_receive_duplicate_customer_subscription_deleted_does_not_resend_notification()
+    test_receive_duplicate_customer_subscription_updated_does_not_resend_notification()
+    test_receive_missing_event_id_skips_idempotency_check()
+    test_receive_non_string_event_id_skips_idempotency_check()
+    test_receive_without_event_id_store_processes_duplicates_normally()
+    test_receive_marks_unresolved_customer_as_processed()
+    test_receive_does_not_mark_invalid_event_as_processed()
 
     print(f"\n{PASS} passed, {FAIL} failed")
     if FAIL:

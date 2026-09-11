@@ -87,8 +87,11 @@ def receive_stripe_webhook(
   生成一時停止への配線に着手できる状態になる
   (`get_subscription_status(workshop_id) == "active"`を判定条件に含めることで、
   正規契約者を誤って生成停止にする問題を回避できる)。
-- イベントID(`event.id`)によるべき等性チェック(course-set-pashaフェーズ151・
+- ~~イベントID(`event.id`)によるべき等性チェック(course-set-pashaフェーズ151・
   aircon-pashaフェーズ177が実装済み)は、本ventureでは`checkout.session.completed`が
   workshop_idごとに複数回届いても`set_subscription_status`の上書きで実害が無いため
   当面省略した。将来`invoice.payment_failed`等の非べき等な通知処理を追加する際に
-  改めて必要性を検討する。
+  改めて必要性を検討する。~~ → 2026-09-11 02:00 UTC対応済み(フェーズ77)。
+  `invoice.payment_failed`等の非べき等な通知処理が実装済みとなったため、
+  stripe-event-idempotency-design.md(フェーズ77)としてaircon-pashaフェーズ177の
+  設計を翻案・実装した。
