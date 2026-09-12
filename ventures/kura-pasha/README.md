@@ -1930,4 +1930,22 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   line-reservation-aiへの同種ギャップの横展開要否(店舗単位契約で複数プランを持つか自体の
   確認が必要)、または他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 17:00 UTC
+- フェーズ94(2026-09-12 19:00 UTC): 他venture・アイデア領域の前進の一環として、
+  aircon-pasha/course-set-pashaには既に存在する「実LLM接続後の生成品質検証プラン」
+  (llm-quality-verification-plan.md)が本ventureにはまだ作成されていなかったことに
+  気づき、新規作成した。llm-system-prompt-draft.mdの厳守事項1〜8・7a・7bと、
+  schema/validate_test_cases.pyの19正常系テストケース(G1・G2・OOS1・II1・II2・
+  C1〜C3・M1〜M2・CT1〜CT2・CTC1〜CTC3・CTE1・CO1〜CO3)を突き合わせ、各厳守事項の
+  検証観点・機械チェック可否・人手判定基準を一覧表にまとめた。aircon-pashaの
+  「3回中1回でも不合格なら要改善」という基準を踏襲しつつ、member-retention-notice-
+  design.md・contractor-transfer-design.md系のケース(M/CT/CTC/CTE)は専用設計文書側で
+  既に判定基準が詳細に定義済みのため本表には重複掲載せず参照にとどめた。コード変更は
+  無く、venture全体673件(`python3 prototype/run_all_tests.py`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書の新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。実際のAPIキー取得・
+  課金の承認が下りるまで、本プランに基づく実LLM検証自体は引き続き未実施。次回は
+  llm-quality-verification-results-template.md(記録表の様式)の作成、または他venture・
+  アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 19:00 UTC
