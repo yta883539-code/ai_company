@@ -1948,4 +1948,19 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   llm-quality-verification-results-template.md(記録表の様式)の作成、または他venture・
   アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 19:00 UTC
+- フェーズ95(2026-09-12 20:00 UTC): フェーズ94が次回候補としていた
+  llm-quality-verification-results-template.mdを新規作成した。aircon-pasha/
+  course-set-pashaの同名ファイルと同じ位置づけ・記入方法を踏襲しつつ、本ventureの
+  ケース構成(schema/validate_test_cases.pyの19正常系: G1・G2・OOS1・II1・II2・
+  C1〜C3・M1・M2・CT1・CT2・CTC1〜CTC3・CTE1・CO1〜CO3)にあわせて表を分割した
+  (G1・G2表、OOS1・II1・II2表、C1〜C3表、CO1〜CO3表、トークン数・コスト実測表)。
+  llm-quality-verification-plan.mdの方針どおり、M1・M2・CT1・CT2・CTC1〜CTC3・CTE1は
+  member-retention-notice-design.md・contractor-transfer-design.md系の各設計文書側で
+  結果を記録する対象外ケースとして一覧のみ残し、本表には重複掲載しなかった。コード変更は
+  無く、venture全体673件(`python3 prototype/run_all_tests.py`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書の新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。実際の記入自体は
+  引き続き実LLM接続の承認待ち。次回は他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 20:00 UTC
