@@ -1963,4 +1963,19 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   送信等は今回発生していないためpending-approval.mdへの追記なし。実際の記入自体は
   引き続き実LLM接続の承認待ち。次回は他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 20:00 UTC
+- フェーズ96(2026-09-12 21:00 UTC): 他venture(aircon-pasha・course-set-pasha)には
+  既にあるが本venture未着手だったonboarding-guide.md自体のcross-venture parityギャップに
+  対応し新規作成した。aircon-pasha/onboarding-guide.mdの構成を踏襲しつつ、本venture固有の
+  craftsman-account-linking-design.md(フェーズ25)で確定済みの「LINE友だち追加が先→
+  フォームで連携コード入力」という順序(aircon-pashaの申込フォーム主導方式とは逆順、
+  course-set-pashaと同じ)、workshop単位の複数職人プランの存在、trial-end-condition-
+  design.mdの30日期間上限(低頻度受注特性のため生成回数到達より期間経過でトライアル
+  終了を迎える職人が多いと見込まれる点)を反映した。あわせて、craftsman-account-linking-
+  design.mdには「代表者以外の職人を同一workshopへ追加登録する具体的な手順」が未確定の
+  まま残っていることを本フェーズで確認し、次のステップ候補として明記した。コード変更は
+  無く、venture全体673件・schema検証27件いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書の新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は上記「代表者以外の
+  職人の追加登録手順」の設計、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 21:00 UTC
