@@ -1839,4 +1839,19 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   調査・新規スクリプト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
-最終更新: 2026-09-12 04:00 UTC
+- フェーズ90(2026-09-12 08:00 UTC): フェーズ89で「次の課題」として残していた、
+  discover非互換が他venture(aircon-pasha・course-set-pasha・line-reservation-ai)にも
+  存在するかの横展開確認を行った。3venture全てで`python3 -m unittest discover -s
+  prototype -p "test_*.py"`を実行した結果、line-reservation-ai(771件)・
+  aircon-pasha(475件)・course-set-pasha(575件)いずれもdiscoverが全テストファイルを
+  収集し、従来コミット履歴で報告されてきたテスト総数と一致することを確認した。各venture内の
+  全test_*.pyファイルが`unittest.TestCase`を継承していることも`grep`で確認し、
+  kura-pashaの6ファイルのような独自check()/PASS/FAIL形式のスクリプトは存在しないことを
+  確認した。確認結果をcross-venture-discover-compatibility-review.mdとして新規記録し、
+  discover非互換はkura-pasha固有の問題(フェーズ89のrun_all_tests.py新設で対応済み)であり
+  他ventureへの横展開は不要と結論した。コード変更は無く、確認のみのため各venture既存の
+  テスト・schema検証結果への影響もない。承認不要な調査・設計docレビューのみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。
+
+最終更新: 2026-09-12 08:00 UTC
