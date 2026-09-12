@@ -2908,4 +2908,22 @@
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   line-reservation-aiへの同種横展開(aircon-pashaは対応済み、本venture対応済み、
   line-reservation-aiは未着手のまま残る)は次の課題として残す。
-- 最終更新: 2026-09-12 10:00 UTC
+- フェーズ208(2026-09-12 14:00 UTC): フェーズ207が「次の課題」としていた
+  line-reservation-aiへの同種横展開(厳守事項7b「有料プラン開始意図検知」/
+  checkout_notice整合性チェック)について、line-reservation-ai側で既に
+  フェーズ続き217(2026-09-12 11:00 UTC)がこの要否を検討済みだったことを発見した
+  (ventures/line-reservation-ai/checkout-intent-detection-parity-review.md)。
+  同venture固有の理由(課金対象者=店舗オーナーとLLM会話の相手=お客様が別人物であり、
+  オーナー向けの有料プラン案内・決済導線はbilling-upgrade-flow-design.md/
+  checkout-initiation-flow-design.mdのプッシュ通知+LIFF決済リンクの経路のみで完結して
+  おり、LLM構造化出力に課金意図検知フィールドを追加しても発火対象〈お客様〉が契約主体
+  ではないため7b/6bと同じ機能を果たせない)により、そのままの形での横展開は不要と
+  結論済みだった。aircon-pashaは既にフェーズ207時点でこの結論を反映済み(「既に対応
+  不要と判明しているため残課題としない」)だったが、本ventureのREADMEはこの結論を
+  未反映のまま「未着手のまま残る」という古い記載が取り残されていたため、本フェーズで
+  上記のとおり訂正した。コード変更は無く、venture全体583件全件・schema検証13件
+  いずれもパス(変更前と同じ結果)を確認した。承認不要な設計文書(README)の記載整合性
+  修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進を優先候補
+  とする。
+- 最終更新: 2026-09-12 14:00 UTC
