@@ -46,6 +46,7 @@ from cloud_function_subscription_cancelled_webhook import (
 )
 from portal_session import PortalLinkProvider
 from store_profile_store import InMemoryStoreProfileStore, make_resolve_store_id_by_customer
+from subscription_plan_sync import PlanStoreProtocol, sync_plan_on_subscription_event
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
     EVENT_CUSTOMER_SUBSCRIPTION_DELETED,
@@ -143,6 +144,7 @@ def receive_stripe_webhook(
     dunning_store: Optional[StoreDunningStateStoreProtocol] = None,
     subscription_store: Optional[StoreSubscriptionStateStoreProtocol] = None,
     cancellation_store: Optional[StoreCancellationStateStoreProtocol] = None,
+    store_profile_store: Optional[PlanStoreProtocol] = None,
     push_client: Optional[LinePushClient] = None,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     portal_link_provider: Optional[PortalLinkProvider] = None,
@@ -160,6 +162,12 @@ def receive_stripe_webhook(
     `EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`(解約予約受理案内)の直前にのみ
     `get_portal_url(store_id)`を呼び都度URLを解決する(design 4節3.、stateには
     保存しない)。`None`の場合は各render関数側の安全側フォールバック文言に委ねる。
+
+    `store_profile_store`(subscription-plan-sync-design.md、フェーズ続き220)は
+    `EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`受信のたびに`items.data[0].price.lookup_key`
+    からプランを解決できれば`stores/{storeId}.plan`へ同期する(`cancellation_store`/
+    `push_client`の要否とは独立)。省略時`None`はプラン同期をスキップするだけの
+    安全側フォールバック。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
 
@@ -257,13 +265,19 @@ def receive_stripe_webhook(
     if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
         # customer-subscription-updated-event-routing-design.md 3節:
         # handle_subscription_updated()はstateを一切書き換えないため、書き戻しは行わない。
+        data_object = parsed.get("data", {}).get("object", {})
+        previous_attributes = parsed.get("data", {}).get("previous_attributes", {})
+        # subscription-plan-sync-design.md(フェーズ続き220): プラン変更を伴わない
+        # イベント(支払い方法変更等)でも毎回届くため、解約通知(cancellation_store/
+        # push_client)の要否・成否とは独立に同期する。store_profile_store未指定時は
+        # 何もしない(安全側、他イベントの既存フォールバックと同じ方針)。
+        if store_profile_store is not None:
+            sync_plan_on_subscription_event(store_profile_store, store_id, data_object)
         if cancellation_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = cancellation_store.get_cancellation_state(store_id)
         if state is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
-        data_object = parsed.get("data", {}).get("object", {})
-        previous_attributes = parsed.get("data", {}).get("previous_attributes", {})
         cancel_at_period_end_after = bool(data_object.get("cancel_at_period_end", False))
         cancel_at_period_end_before = bool(
             previous_attributes.get("cancel_at_period_end", cancel_at_period_end_after)
@@ -315,6 +329,7 @@ def get_stripe_webhook_runtime_dependencies() -> dict:
         "dunning_store": InMemoryStoreDunningStateStore(),
         "subscription_store": InMemoryStoreSubscriptionStateStore(),
         "cancellation_store": InMemoryStoreCancellationStateStore(),
+        "store_profile_store": store,
         "event_id_store": InMemoryStripeEventIdStore(),
     }
 

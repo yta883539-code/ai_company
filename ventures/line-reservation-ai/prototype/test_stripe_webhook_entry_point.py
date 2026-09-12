@@ -21,6 +21,7 @@ from cloud_function_subscription_cancelled_webhook import (
 )
 from dunning_notification_scheduler import DUNNING_CONFIG_A_7DAYS
 from portal_session import InMemoryPortalLinkProvider
+from store_profile_store import InMemoryStoreProfileStore
 from stripe_webhook import InMemoryStripeEventIdStore
 from stripe_webhook_entry_point import (
     InMemoryStoreCancellationStateStore,
@@ -647,6 +648,98 @@ class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.outcome, "no_change")
         self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_plan_is_synced_when_store_profile_store_provided(self):
+        # subscription-plan-sync-design.md(フェーズ続き220)。
+        store_profile_store = InMemoryStoreProfileStore()
+        store_profile_store.set_plan("store-1", "スタンダードプラン")
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {
+                "customer": "cus_1",
+                "cancel_at_period_end": False,
+                "items": {
+                    "data": [{"price": {"lookup_key": "line_reservation_ai_pro"}}]
+                },
+            },
+            {"default_payment_method": "pm_new"},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            store_profile_store=store_profile_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(store_profile_store.get_plan("store-1"), "プロプラン")
+
+    def test_plan_sync_is_independent_of_push_client_and_cancellation_store(self):
+        # 通知(cancellation_store/push_client)が未指定・stateが無い場合でも
+        # プラン同期自体は行われる。
+        store_profile_store = InMemoryStoreProfileStore()
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {
+                "customer": "cus_1",
+                "cancel_at_period_end": False,
+                "items": {
+                    "data": [{"price": {"lookup_key": "line_reservation_ai_starter"}}]
+                },
+            },
+            {},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            store_profile_store=store_profile_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(store_profile_store.get_plan("store-1"), "スタータープラン")
+
+    def test_omitted_store_profile_store_skips_plan_sync_without_error(self):
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {
+                "customer": "cus_1",
+                "cancel_at_period_end": False,
+                "items": {
+                    "data": [{"price": {"lookup_key": "line_reservation_ai_pro"}}]
+                },
+            },
+            {},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
 
     def test_skipped_when_cancellation_store_missing(self):
         payload = _event_payload_with_previous(

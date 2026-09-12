@@ -3588,3 +3588,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回以降の課題
   (menu-pricing-faq-topic-decision.md参照): メニュー詳細説明文への対応、メニュー件数が
   多い店舗での列挙省略要否は次回以降の課題として残す。
+- フェーズ続き220(2026-09-12 18:00 UTC): kura-pashaフェーズ93が「line-reservation-aiへの
+  横展開要否は次回以降の棚卸し候補(店舗単位で複数プランを持つか自体を要確認)」と
+  申し送っていた件を棚卸しした。本ventureはpricing-plan.mdの通り店舗単位でスタータープラン/
+  スタンダードプラン/プロプランの3プランを持ち横展開の前提が成立すること、`set_plan()`
+  (store_profile_store.py)が`checkout.session.completed`受信時のみ書き込まれ
+  `customer.subscription.updated`(Stripeカスタマーポータル経由のプラン変更)受信時には
+  一度も同期されていなかったこと(aircon-pasha/kura-pashaと同種のギャップ)を確認した。
+  `prototype/subscription_plan_sync.py`を新設し(`resolve_plan_from_subscription()`・
+  `sync_plan_on_subscription_event()`、差分チェックは最初から組み込み)、
+  `stripe_webhook_entry_point.py`の`receive_stripe_webhook()`に`store_profile_store`引数を
+  追加して`EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`分岐の冒頭(解約通知の要否チェックより前)で
+  呼び出す配線とした(詳細はsubscription-plan-sync-design.md参照)。本ventureはmonthly-
+  booking-limit-notification-design.mdの「通知のみで予約はブロックしない」設計のため実害は
+  通知しきい値のズレにとどまること、`customer.subscription.deleted`時の`plan`クリアは
+  `suspension_reason`側が独立に制御するため不要と判断し実装しないことも設計docに明記した。
+  テスト19件追加(test_subscription_plan_sync.py新設16件、test_stripe_webhook_entry_point.py
+  に3件)、venture全体796件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  776件→796件)・schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパスを
+  確認した。承認不要なアイデア追加・設計文書作成・コード実装・テスト追加のみで、実Stripe
+  アカウントの接続・Price作成(lookup_key設定)自体は引き続きオーナー承認待ちの範囲
+  (pending-approval.md参照)であり本フェーズでは行っていない。外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  aircon-pasha/course-set-pasha/kura-pasha・本ventureいずれも同種のギャップは解消済みと
+  なったため、次回は他venture・アイデア領域の前進を優先候補とする。
