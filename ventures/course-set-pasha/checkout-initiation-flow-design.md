@@ -94,3 +94,12 @@ IDトークン検証・実Stripe API呼び出しは実アカウント接続後�
   対応した。`verify_id_token`実装本体〈実HTTPリクエスト〉のみ引き続き実LIFF登録後の課題として
   残る)
 - `success_url`/`cancel_url`の実際のLPドメイン確定はLP実装(オーナー承認待ち)と合わせて行う。
+- (解消済み 2026-09-12 02:00 UTC・フェーズ206: 「チャット上で『有料プランを始めたい』等の
+  意図検知(解約意図検知の厳守事項7aと対になる新規項目)」自体が、本ドキュメント作成時点
+  (フェーズ98)から一度も設計されないまま残っていた記載漏れだった〈kura-pashaフェーズ57〜58
+  で先行実装され、line-reservation-ai・aircon-pashaにも未着手のまま残っていたcross-venture
+  parityのギャップと判明〉。llm-system-prompt-draft.md追記(2026-09-12 02:00 UTC)として
+  厳守事項7bを新設し、schema/output.schema.json・schema/validate_test_cases.pyへ
+  checkout_intent/pricing_inquiry/checkout_intent_unclearの3値対応を追加した。実際の
+  Checkout Session作成エンドポイント〈本ドキュメント3節〉との配線は、本節1・3節で既に
+  述べているとおりLIFF実登録後の課題として引き続き残る。)

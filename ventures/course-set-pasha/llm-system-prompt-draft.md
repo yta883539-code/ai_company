@@ -190,3 +190,60 @@ generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答�
   `prototype/post_generation_checks.py`として初めて実行可能なコードに落とし込んだ
   (詳細はREADME.mdフェーズ21参照)。あくまでキーワード近傍探索のヒューリスティックで
   あり、実LLM接続後は拾いきれない違反パターンの収集・ルール改善が引き続き課題として残る。
+
+## 2026-09-12 02:00 UTC追記(フェーズ206): 厳守事項7b(有料プラン開始意図検知)の新設
+
+kura-pashaがフェーズ57〜58で新設した厳守事項7b(有料プラン開始意図検知)が、
+line-reservation-ai・aircon-pasha・本ventureのいずれにも横展開されていないcross-venture
+parityのギャップであることを確認した(全venture中`checkout_intent`を扱っているのは
+kura-pashaのみだった)。厳守事項7a(解約意図検知)は本ventureも既にフェーズ54で対応済み
+だが、その対になる「有料プランの申し込み・開始に関する意思表示」への対応が本venture
+未着手のまま残っていたため、kura-pashaの設計をそのまま本venture向けに翻案して新設する。
+
+```
+7b. 送られてきたメッセージが「課題入れ替えメモ」ではなく、有料プランの申し込み・開始に
+    関する意思表示である疑いがある場合、以下の優先順位で判定する。
+    - (i) 申し込み・開始の意思が明確(例:「有料プランを始めたい」「申し込みたい」等)
+      → 開始意図として扱い、3出力(sns_post/line_web_notice/history_rows)の生成対象
+      からは除外する。この場合の実際の権限確認(契約者本人か)・重複契約確認(既に
+      "active"でないか)はLLM側では行わず、checkout-initiation-flow-design.md 3節の
+      Checkout Session作成エンドポイント側(Python)が担う前提とし、LLM側は「これは
+      開始意図である」という判定結果と一次応答文言(例:「お申し込みのご案内をお送り
+      しますね」)の返却にとどめる。
+    - (ii) 料金・プラン内容についての質問(例:「いくらですか」「プランの違いは?」)
+      → 申込意図ではなく問い合わせとして扱い、pricing-plan.mdの内容(ライト1,980円/月・
+      スタンダード3,480円/月・セッター複数5,980円/月の3プラン)をもとにした案内を
+      返す(3出力の生成対象からは除外する)。
+    - (iii) 契約に関わらない一般的な相談・世間話の域を出ない表現 → 通常どおり課題
+      入れ替えメモの内容として扱えるか判断し、扱えない場合のみ厳守事項7(入力不足時の
+      再送依頼)に従う。
+    - (iv) 開始意図か問い合わせか判断できない場合、開始手続きの案内文言は返さず、意思
+      確認を促す一言のみ返す(自己判断で申込手続きを進めない)。
+```
+
+厳守事項7aが「解約完了・ポータルリンクを含む文言は自己判断で返さない」(iv)としているのと
+同様、7bも「開始手続きの案内(Checkout SessionのURL等)を自己判断で返さない」設計とした。
+理由はkura-pashaと同じで、実際のCheckout SessionのURL発行はcheckout-initiation-flow-
+design.md 3節の手順(署名検証・重複契約確認・パラメータ組み立て)を経て初めて安全に生成
+できるものであり、LLM側が意図判定の段階でURLを含む案内文言まで生成してしまうと、契約者
+以外からのメッセージや既に契約中のケースでも誤って開始案内を返しかねないためである。
+
+schema拡張(status enumへのcheckout_intent/pricing_inquiry/checkout_intent_unclear追加・
+checkout_noticeフィールド新設)もkura-pashaフェーズ58と同じ設計思想で本フェーズ内に
+併せて実施した(下記スキーマ・schema/validate_test_cases.py参照)。kura-pashaはフェーズ57
+(プロンプト設計)とフェーズ58(schema拡張)を1時間差の2フェーズに分けていたが、既に
+kura-pasha側で実LLM未検証のまま机上設計として確定した前例があるため、本ventureでは
+同時に反映して差し支えないと判断した。
+
+新規テストケース3件(CO1_checkout_intent/CO2_pricing_inquiry/CO3_checkout_intent_unclear)
+とネガティブテスト1件(includes_checkout_url不一致の検出確認)をschema/validate_test_cases.py
+に追加し、schema検証9件→13件全件パスを確認した。venture全体の既存テスト(575件)は本
+フェーズで変更しておらず、変更前と同じ575件パスを確認した。承認不要な設計文書作成・
+schema/テストコード変更のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+今回発生していないためpending-approval.mdへの追記なし。実LLMでの動作検証は引き続き
+APIキー取得オーナー承認待ち(line-reservation-ai・aircon-pashaへの同種横展開は次の課題
+として残す)。
+
+最終更新: 2026-09-12 02:00 UTC(フェーズ206: kura-pasha発の厳守事項7b〈有料プラン開始
+意図検知〉をcross-venture parityのギャップとして発見し、プロンプト設計・schema拡張・
+テストケース追加までを本venture向けに翻案・移植した)

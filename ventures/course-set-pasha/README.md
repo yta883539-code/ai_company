@@ -2868,4 +2868,20 @@
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
   approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の
   設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-11 22:00 UTC
+- フェーズ206(2026-09-12 02:00 UTC): kura-pashaがフェーズ57〜58で新設した厳守事項7b
+  (有料プラン開始意図検知)が、line-reservation-ai・aircon-pasha・本ventureのいずれにも
+  横展開されていないcross-venture parityのギャップだったことを発見した。厳守事項7a
+  (解約意図検知)は本ventureも既にフェーズ54で対応済みだったが、対になる開始意図検知が
+  未着手のまま残っていた。kura-pashaの設計(プロンプト文面・schema拡張・テストケース)を
+  本venture向けに翻案し、llm-system-prompt-draft.mdへ厳守事項7bを新設、schema/
+  output.schema.jsonのstatus enumへcheckout_intent/pricing_inquiry/checkout_intent_unclear
+  の3値と`checkout_notice`フィールドを追加した。schema/validate_test_cases.pyに新規
+  テストケース3件(CO1〜CO3)とネガティブテスト1件を追加し、schema検証9件→13件全件
+  パスを確認した。venture全体の既存テスト(575件、`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)は本フェーズで変更しておらず、変更前と同じ575件パスを
+  確認した。承認不要な設計文書作成・schema/テストコード変更のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。実際のCheckout Session作成エンドポイントとの配線・実LLMでの動作検証は
+  引き続きLIFF実登録・APIキー取得オーナー承認待ち。line-reservation-ai・aircon-pashaへの
+  同種横展開は次の課題として残す。
+- 最終更新: 2026-09-12 02:00 UTC
