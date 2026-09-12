@@ -18,6 +18,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 from post_generation_checks import (  # noqa: E402
     LENGTH_LIMIT_ERROR_PREFIX,
     LINE_TEXT_MESSAGE_UTF16_LIMIT,
+    check_checkout_notice_consistency,
     check_emoji_usage_rules,
     check_history_row_counts_mentioned_in_text,
     check_mentions_photo_consistency,
@@ -606,6 +607,88 @@ class SubscriptionNoticeConsistencyTest(unittest.TestCase):
             }
         }
         self.assertEqual(check_subscription_notice_consistency(instance), [])
+
+
+class CheckoutNoticeConsistencyTest(unittest.TestCase):
+    def test_includes_checkout_url_true_is_flagged_regardless_of_kind(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent",
+                "body": "お申し込みのご案内をお送りしますね。",
+                "includes_checkout_url": True,
+            }
+        }
+        errors = check_checkout_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_body_with_actual_url_is_flagged(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent",
+                "body": "お申し込みはこちらから: https://checkout.stripe.com/pay/xxx",
+                "includes_checkout_url": False,
+            }
+        }
+        errors = check_checkout_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_checkout_intent_plain_first_response_is_ok(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent",
+                "body": "お申し込みのご案内をお送りしますね。",
+                "includes_checkout_url": False,
+            }
+        }
+        self.assertEqual(check_checkout_notice_consistency(instance), [])
+
+    def test_checkout_intent_unclear_with_completion_wording_is_flagged(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent_unclear",
+                "body": "お申し込みのお手続き完了しましたのでご確認ください。",
+                "includes_checkout_url": False,
+            }
+        }
+        errors = check_checkout_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_checkout_intent_unclear_with_plan_name_is_flagged(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent_unclear",
+                "body": "スタンダードプランのお申し込みでよろしいでしょうか?",
+                "includes_checkout_url": False,
+            }
+        }
+        errors = check_checkout_notice_consistency(instance)
+        self.assertEqual(len(errors), 1)
+
+    def test_checkout_intent_unclear_plain_confirmation_is_ok(self):
+        instance = {
+            "checkout_notice": {
+                "kind": "checkout_intent_unclear",
+                "body": "有料プランのお申し込みをご希望でしょうか?"
+                        "よろしければ改めてその旨お知らせください。",
+                "includes_checkout_url": False,
+            }
+        }
+        self.assertEqual(check_checkout_notice_consistency(instance), [])
+
+    def test_pricing_inquiry_with_plan_names_is_ok(self):
+        # kind=pricing_inquiryはプラン名・料金を案内すること自体が目的のため、
+        # checkout_intent_unclear向けのプラン名チェックは適用されない。
+        instance = {
+            "checkout_notice": {
+                "kind": "pricing_inquiry",
+                "body": "ライトプラン(月8回まで/月額1,980円)がございます。",
+                "includes_checkout_url": False,
+            }
+        }
+        self.assertEqual(check_checkout_notice_consistency(instance), [])
+
+    def test_missing_notice_is_skipped(self):
+        self.assertEqual(check_checkout_notice_consistency({}), [])
 
 
 class MessageLengthWithinLineLimitTest(unittest.TestCase):

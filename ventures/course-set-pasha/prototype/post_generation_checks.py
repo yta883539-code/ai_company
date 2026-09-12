@@ -94,6 +94,12 @@ SHORT_URL_DOMAIN_PATTERN = re.compile(
     r"\b(?:bit\.ly|lin\.ee|tinyurl\.com|t\.co|x\.gd|is\.gd)/\S+"
 )
 
+# 厳守事項7b(iv)の機械チェック用。kind=checkout_intent_unclearのとき、pricing_inquiry
+# 向けの案内であるはずの具体的なプラン名への言及が混入していないか(意思確認の一言のみに
+# 留めるべきという指示からの逸脱疑い)を検出するためのキーワード。pricing-plan.mdの
+# プラン名(ライトプラン/スタンダードプラン/セッター複数プラン)をそのまま列挙する。
+CHECKOUT_PLAN_NAME_KEYWORDS = ("ライトプラン", "スタンダードプラン", "セッター複数プラン")
+
 
 def check_mentions_photo_consistency(instance):
     """厳守事項3準拠チェック。sns_post.mentions_photoの値と、本文中に実際に写真への
@@ -425,6 +431,60 @@ def check_subscription_notice_consistency(instance):
     return errors
 
 
+def check_checkout_notice_consistency(instance):
+    """厳守事項7b準拠チェック。checkout_notice.includes_checkout_urlはkindによらず
+    常にfalseである設計(7b(i)、LLMが自己判断でCheckout SessionのURLを発行・案内
+    しない)のため、フィールド値・本文の両方でこの前提が崩れていないかを確認する。
+    check_subscription_notice_consistency()とは異なり、「kindに応じてtrue/falseを
+    使い分ける」設計ではなく「kindによらず常にfalse」という設計のため、まず
+    includes_checkout_url自体とbody中の実URLらしき記述の両方をkind共通でチェックする。
+
+    加えてkind=checkout_intent_unclearのときは、厳守事項7b(iv)により意思確認の
+    一言のみに留めるべきで、手続き完了を前提にした文言(7a(iv)と同じ
+    PROCEDURE_COMPLETION_KEYWORDS)や、pricing_inquiry向けの案内であるはずの
+    具体的なプラン名(CHECKOUT_PLAN_NAME_KEYWORDS)への言及が混入していないかを
+    確認する。
+    """
+    errors = []
+    notice = instance.get("checkout_notice")
+    if notice is None:
+        return errors
+
+    kind = notice.get("kind")
+    body = notice.get("body", "")
+    body_mentions_url = (
+        bool(LINK_PLACEHOLDER_PATTERN.search(body))
+        or bool(SHORT_URL_DOMAIN_PATTERN.search(body))
+    )
+
+    if notice.get("includes_checkout_url") is True:
+        errors.append(
+            "checkout_notice: includes_checkout_url=trueは想定されていません"
+            "(厳守事項7b(i)違反の疑い。LLMは自己判断でCheckout SessionのURLを"
+            "発行・案内しない設計のため、kindによらず常にfalseのはず)"
+        )
+    if body_mentions_url:
+        errors.append(
+            "checkout_notice: bodyに実際のURLと疑われる記述が含まれています"
+            "(厳守事項7b(i)違反の疑い。includes_checkout_urlは常にfalseの設計と矛盾)"
+        )
+
+    if kind == "checkout_intent_unclear":
+        if any(kw in body for kw in PROCEDURE_COMPLETION_KEYWORDS):
+            errors.append(
+                "checkout_notice: kind=checkout_intent_unclearだが本文に"
+                "手続き完了を前提にした文言が含まれています(厳守事項7b(iv)違反の疑い)"
+            )
+        if any(kw in body for kw in CHECKOUT_PLAN_NAME_KEYWORDS):
+            errors.append(
+                "checkout_notice: kind=checkout_intent_unclearだが本文に"
+                "具体的なプラン名への言及が含まれています(厳守事項7b(iv)違反の疑い。"
+                "pricing_inquiry向けの案内と混同している疑い)"
+            )
+
+    return errors
+
+
 def _build_combined_reply_text_for_length_check(instance):
     """cloud_function_webhook.pyのformat_generated_reply()と同じ組み立てロジックを
     ここで再現し、実際に1通として送信される返信文全体を返す(循環import(post_generation_
@@ -486,5 +546,6 @@ def run_all_checks(instance):
     errors += check_updated_areas_mentioned_in_text(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     errors += check_subscription_notice_consistency(instance)
+    errors += check_checkout_notice_consistency(instance)
     errors += check_message_length_within_line_limit(instance)
     return errors

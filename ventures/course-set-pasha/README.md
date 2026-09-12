@@ -2884,4 +2884,28 @@
   追記なし。実際のCheckout Session作成エンドポイントとの配線・実LLMでの動作検証は
   引き続きLIFF実登録・APIキー取得オーナー承認待ち。line-reservation-ai・aircon-pashaへの
   同種横展開は次の課題として残す。
-- 最終更新: 2026-09-12 02:00 UTC
+- フェーズ207(2026-09-12 10:00 UTC): フェーズ206「実LLMでの動作検証は引き続き…オーナー
+  承認待ち」の残課題のうち、承認不要な範囲で前進できる部分として、aircon-pasha側で
+  同日先行実装された`check_checkout_notice_consistency()`(厳守事項6b・aircon-pasha
+  命名)を確認したところ、本venture側にはフェーズ206でschema/validate_test_cases.pyの
+  クロスフィールド検証(status別のnull制約)のみ実装済みで、check_subscription_notice_
+  consistency()と対になる本文レベルの後処理チェック(post_generation_checks.py)が
+  厳守事項7b分だけ未実装のまま残っていたことを発見した(check_mentions_photo_consistency
+  等の既存チェック群と同じ「構造化フィールドと本文の突き合わせ」という位置づけの
+  抜け)。aircon-pasha実装を本venture向けに翻案し、`check_checkout_notice_consistency()`
+  をprototype/post_generation_checks.pyに新設した。checkout_notice.includes_checkout_url
+  がkindによらず常にfalseである設計(厳守事項7b(i))を本文中の実URL・短縮URLドメインの
+  記述と突き合わせるチェックに加え、kind=checkout_intent_unclearのとき本文に手続き完了
+  文言(厳守事項7b(iv)違反疑い)や、pricing_inquiry向けの案内であるはずの具体的な
+  プラン名(CHECKOUT_PLAN_NAME_KEYWORDS = ライトプラン/スタンダードプラン/セッター複数
+  プラン、pricing-plan.md記載の3プラン名をそのまま列挙)が混入していないかを確認する。
+  run_all_checks()にも組み込み、test_post_generation_checks.pyへ新規テスト8件
+  (CheckoutNoticeConsistencyTest、aircon-pasha版と同じ観点を本venture向けプラン名で
+  検証)を追加した。venture全体575件→583件全件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証13件(`python3 schema/validate_test_cases.py`、
+  既存のCO1〜CO3・NEG1フィクスチャがいずれも新チェックにも違反しないことを確認)いずれも
+  パスした。承認不要なプロトタイプコード改修・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  line-reservation-aiへの同種横展開(aircon-pashaは対応済み、本venture対応済み、
+  line-reservation-aiは未着手のまま残る)は次の課題として残す。
+- 最終更新: 2026-09-12 10:00 UTC
