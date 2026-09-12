@@ -1839,4 +1839,24 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   調査・新規スクリプト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
 
-最終更新: 2026-09-12 04:00 UTC
+- フェーズ90(2026-09-12 07:00 UTC): フェーズ89が「次の課題」として残した、
+  `python3 -m unittest discover`非互換(本venture固有のcheck()/PASS/FAIL形式の
+  独自テストファイル問題)の他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)への横展開要否を調査した。各venture配下で
+  `grep -L "unittest.TestCase" test_*.py`を実行した結果、3venture全ファイルが
+  `unittest.TestCase`ベースで書かれていることを確認し、実際に各venture配下で
+  `python3 -m unittest discover -s . -p "test_*.py"`を実行したところ
+  aircon-pasha 475件・course-set-pasha 575件・line-reservation-ai 771件のいずれも
+  discoverで正しく収集され全件パスすることを確認した。したがって、フェーズ88〜89で
+  発見したdiscover非互換は本venture固有(過去のフェーズで一部テストファイルを
+  check()/PASS/FAIL形式の独自スクリプトとして書いた経緯によるもの)であり、他3
+  ventureへの横展開は不要と結論した。本venture側についても、6ファイルを
+  TestCaseベースへ書き直す作業は引き続き大きな変更になるため見送り、
+  既存の`run_all_tests.py`ラッパーを正式な実行方法として維持する方針とする。
+  コード変更は無く、venture全体649件(`python3 prototype/run_all_tests.py`)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要な調査のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+
+最終更新: 2026-09-12 07:00 UTC
