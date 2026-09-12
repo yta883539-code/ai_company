@@ -55,6 +55,11 @@ STORE_FAQ_INFO = {
     "parking": {"available": True, "capacity": "3"},
     "payment_methods": ["現金", "クレジットカード"],
     "hours": {"open_minutes": 9 * 60, "close_minutes": 18 * 60, "closed_weekdays": frozenset({6})},
+    "menu": [
+        {"name": "カット", "price": 4000, "price_displayed": True},
+        {"name": "カラー", "price": 8000, "price_displayed": True},
+        {"name": "トリートメント", "price": 3000, "price_displayed": False},
+    ],
 }
 
 
@@ -522,6 +527,42 @@ class FaqSegmentReplyTests(unittest.TestCase):
             "当店の営業時間は月〜金: 10:00〜13:00、14:00〜19:00、土: 10:00〜15:00、"
             "日: 定休日です。",
         )
+
+    def test_menu_topic_uses_registered_menu_with_partial_price_display(self):
+        # menu-pricing-faq-topic-decision.md(2026-09-12追加)。メニュー設定ページに
+        # 登録済みのメニュー名を列挙し、料金は「任意表示」がオンの項目のみ金額を添える
+        # (トリートメントは price_displayed: False のため金額を書かず名称のみ列挙する)。
+        processor, flow, push, logs = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "menu", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "メニューと料金を教えてください"), llm_call, NOW)
+        self.assertEqual(
+            push.sent[0][1],
+            "当店のメニューはカット(¥4,000)、カラー(¥8,000)、トリートメントです。",
+        )
+
+    def test_menu_topic_falls_back_when_no_menu_registered(self):
+        # メニュー設定ページに1件も登録されていない店舗(store_faq_infoに"menu"キーが
+        # 無い、またはリストが空)は、他トピックと同じく安全側でエスカレーションに倒す。
+        info = dict(STORE_FAQ_INFO)
+        del info["menu"]
+        processor, flow, push, logs = _new_processor(store_faq_info=info)
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "menu", "resolved": True}],
+            }
+
+        processor.process(_event("U1", "メニューと料金を教えてください"), llm_call, NOW)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
 
     def test_other_topic_always_falls_back_to_holding_message(self):
         # topic: "other"は店舗FAQ情報欄に対応する登録項目が存在しないため常にエスカレーションに

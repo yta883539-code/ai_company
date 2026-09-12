@@ -55,6 +55,7 @@ from engine import (  # noqa: E402
     format_faq_address_message,
     format_faq_hours_message,
     format_faq_hours_message_weekly,
+    format_faq_menu_message,
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
@@ -1175,6 +1176,38 @@ class FormatFaqHoursMessageWeeklyTest(unittest.TestCase):
         self.assertTrue(casual.endswith("!"))
 
 
+class FormatFaqMenuMessageTest(unittest.TestCase):
+    """menu-pricing-faq-topic-decision.md(2026-09-12追加)に対応した
+    format_faq_menu_message() の単体テスト。メニュー設定ページに登録済みの
+    メニュー名をそのまま列挙し、料金は「任意表示」がオンの項目のみ金額を添える。
+    """
+
+    def test_lists_names_and_shows_price_only_when_displayed(self):
+        message = format_faq_menu_message([
+            {"name": "カット", "price": 4000, "price_displayed": True},
+            {"name": "カラー", "price": 8000, "price_displayed": True},
+            {"name": "トリートメント", "price": 3000, "price_displayed": False},
+        ])
+        self.assertEqual(
+            message,
+            "当店のメニューはカット(¥4,000)、カラー(¥8,000)、トリートメントです。",
+        )
+
+    def test_single_item_with_no_price_displayed_omits_amount(self):
+        message = format_faq_menu_message([{"name": "カット", "price": None, "price_displayed": False}])
+        self.assertEqual(message, "当店のメニューはカットです。")
+
+    def test_tone_variants_differ(self):
+        formal = format_faq_menu_message(
+            [{"name": "カット", "price": 4000, "price_displayed": True}], tone="formal",
+        )
+        casual = format_faq_menu_message(
+            [{"name": "カット", "price": 4000, "price_displayed": True}], tone="casual",
+        )
+        self.assertNotEqual(formal, casual)
+        self.assertTrue(casual.endswith("!"))
+
+
 class ToneRenderingTest(unittest.TestCase):
     def test_known_tone_selects_matching_variant(self):
         formal = format_confirmation_message("8/9(土) 15:30〜", "カット", "田中", tone="formal")
@@ -1241,6 +1274,7 @@ class FixedVocabularyInvariantAcrossTonesTest(unittest.TestCase):
         (format_faq_payment_message, (["現金", "クレジットカード"],), {}),
         (format_faq_hours_message, (10 * 60, 19 * 60), {}),
         (format_faq_hours_message_weekly, (), {"default_ranges": [(10 * 60, 19 * 60)], "weekday_ranges": {}}),
+        (format_faq_menu_message, ([{"name": "カット", "price": 4000, "price_displayed": True}],), {}),
         (format_faq_unregistered_message, (), {}),
     ]
 
@@ -1261,9 +1295,9 @@ class FixedVocabularyInvariantAcrossTonesTest(unittest.TestCase):
     def test_table_covers_every_tone_rendering_function(self):
         # TONE_FUNCTIONSの網羅漏れを検知する。engine.py側でtone引数を持つ関数を追加したのに
         # ここへの追加を忘れると、fixed-vocabulary-tone-check-design.mdの前提が崩れるため、
-        # 少なくとも件数の変化には気づけるようにする(15はfixed-vocabulary-tone-check-design.md
-        # 「実装箇所」に記載した現在の関数数)。
-        self.assertEqual(len(self.TONE_FUNCTIONS), 15)
+        # 少なくとも件数の変化には気づけるようにする(16はformat_faq_menu_message追加
+        # (2026-09-12、menu-pricing-faq-topic-decision.md)後の現在の関数数)。
+        self.assertEqual(len(self.TONE_FUNCTIONS), 16)
 
 
 class NoEmojiInFormalStandardTonesTest(unittest.TestCase):

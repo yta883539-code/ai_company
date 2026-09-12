@@ -246,6 +246,11 @@ TEST_CASES = {
         "datetime_candidate": None, "confirmed": False,
         "needs_owner_check": True,
     },
+    "E20": {
+        "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+        "confirmed": False, "needs_owner_check": False,
+        "faq_segments": [{"topic": "menu", "resolved": True}],
+    },
 }
 
 

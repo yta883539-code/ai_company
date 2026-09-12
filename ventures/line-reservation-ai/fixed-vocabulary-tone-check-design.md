@@ -42,7 +42,8 @@ llm-quality-verification-plan.md「残る未確定事項」の最後の項目
 `format_cancel_pending_message`・`format_cancel_not_found_message`・`format_change_started_message`・
 `format_change_not_found_message`・`format_faq_parking_message`・`format_faq_address_message`・
 `format_faq_payment_message`・`format_faq_hours_message`・`format_faq_hours_message_weekly`・
-`format_faq_unregistered_message`、計15関数)を代表引数付きでテーブル化し、各関数について
+`format_faq_menu_message`(2026-09-12追加、menu-pricing-faq-topic-decision.md参照)・
+`format_faq_unregistered_message`、計16関数)を代表引数付きでテーブル化し、各関数について
 formal/standard/casualの3出力を生成、`FIXED_VOCABULARY`の各語について3出力間で出現有無が
 一致することを検証する。
 

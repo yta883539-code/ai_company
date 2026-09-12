@@ -2056,6 +2056,28 @@ def format_faq_hours_message_weekly(default_ranges: list, weekday_ranges: dict,
     return _render_by_tone(tone, variants)
 
 
+def format_faq_menu_message(items: list, tone: str = "standard") -> str:
+    """FAQ回答テンプレート・メニュー内容/料金表(topic: "menu")のトーン別文例
+    (menu-pricing-faq-topic-decision.md参照)。owner-settings-wireframe.mdの
+    メニュー設定ページに登録済みのメニュー名を列挙し、料金は「任意表示」設定が
+    オンの項目のみ金額を添える(オフの項目は名称のみを列挙し、金額を推測で
+    補わない)。所要時間は予約枠計算専用の内部値のため、本FAQ回答には含めない。
+    """
+    parts = []
+    for item in items:
+        if item.get("price_displayed") and item.get("price") is not None:
+            parts.append(f"{item['name']}(¥{item['price']:,})")
+        else:
+            parts.append(item["name"])
+    joined = "、".join(parts)
+    variants = {
+        "formal": f"当店のメニューは{joined}でございます。",
+        "standard": f"当店のメニューは{joined}です。",
+        "casual": f"メニューは{joined}です!",
+    }
+    return _render_by_tone(tone, variants)
+
+
 def format_faq_unregistered_message(tone: str = "standard") -> str:
     """厳守事項6のエスカレーション時の保留文言(faq-response-templates.mdの
     「未登録・一部未入力のケース(共通)」準拠)。faq_segmentsのresolved:falseの項目、

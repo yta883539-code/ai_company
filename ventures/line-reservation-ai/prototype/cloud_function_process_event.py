@@ -112,6 +112,7 @@ from engine import (  # noqa: E402
     is_escalation_event_owner_notable,
     format_faq_hours_message,
     format_faq_hours_message_weekly,
+    format_faq_menu_message,
     format_faq_parking_message,
     format_faq_payment_message,
     format_faq_unregistered_message,
@@ -1034,6 +1035,8 @@ class ConversationEventProcessor:
                 hours["open_minutes"], hours["close_minutes"],
                 hours.get("closed_weekdays", frozenset()), tone,
             )
+        if topic == "menu" and self._store_faq_info.get("menu"):
+            return format_faq_menu_message(self._store_faq_info["menu"], tone)
         # topic: "other"は店舗FAQ情報欄に対応する登録項目が無いため常にこのフォールバックに落ちる
         # (hours-other-faq-topic-resolution.md参照、意図的な設計でありバグではない)。
         # resolved: trueだがstore_faq_infoに該当する登録値が無い(店舗設定と構造化出力の

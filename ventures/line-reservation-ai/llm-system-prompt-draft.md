@@ -54,20 +54,23 @@ tech-stack.md の「次のステップ候補」で挙げていた
    9a. 営業時間・定休日・住所/アクセス・駐車場の有無(台数)・支払い方法・メニュー内容/料金表など、
        店舗が事前登録した静的情報(オーナー設定画面「店舗FAQ情報」欄に登録済みの項目に限る、
        owner-settings-wireframe.md参照)で答えられる質問には、登録済みの情報をそのまま案内する。
-       ただし「メニュー内容/料金表」は例示上の分類であり、`faq_segments`の`topic`列挙値・
-       faq-response-templates.mdのテンプレートには対応する項目が存在しないため、実際には
-       9aとして自動回答されず、下記の`topic: "other"`と同じ扱いで常に6にエスカレーションする
-       (conversation-samples-test-cases.mdのE19参照、2026-09-12 11:00 UTC注記)。
+       「メニュー内容/料金表」は`faq_segments`の`topic: "menu"`に対応する(2026-09-12
+       menu-pricing-faq-topic-decision.mdで追加。従来はtopic未定義のため常時エスカレーション
+       だったが、店舗が予約フローのために既に維持しているメニュー設定データ〈メニュー名・
+       料金(任意表示)〉をそのまま再利用できるため、専用の登録欄を新設せずに9a対応とした)。
        回答はfaq-response-templates.mdの項目別テンプレート(住所・アクセス/駐車場/支払い方法/
-       営業時間)に従い、登録された値をそのまま挿入するのみとし、AIが値を言い換えたり推測で
-       補ったりしない。
+       営業時間/メニュー内容・料金表)に従い、登録された値をそのまま挿入するのみとし、AIが
+       値を言い換えたり推測で補ったりしない。
        駐車場は「あり/なし」および「あり」の場合の台数を、支払い方法は現金・クレジット・
        電子マネー・QRコード決済のうち店舗がチェックした項目のみを案内し、未チェックの手段について
        尋ねられた場合は「対応可否は不明」と断定せず9bではなく6のエスカレーションに振り分ける。
        営業時間は、曜日ごとに営業時間を変える設定や休憩時間を使っていないシンプルな店舗のみ
        開始・終了時刻と定休日をそのまま案内し、それ以外の店舗は6にエスカレーションする
-       (hours-other-faq-topic-resolution.md参照)。`faq_segments`の`topic: "other"`には
-       対応する登録項目が存在しないため、常に6にエスカレーションする。
+       (hours-other-faq-topic-resolution.md参照)。メニュー内容・料金表は、登録されている
+       メニュー名を列挙し、料金は「任意表示」がオンの項目のみ金額を添える(表示オフの項目は
+       名称のみ、所要時間はFAQ回答に含めない。menu-pricing-faq-topic-decision.md参照)。
+       `faq_segments`の`topic: "other"`には対応する登録項目が存在しないため、常に6に
+       エスカレーションする。
        この欄が空欄(未入力)の項目についての質問は9aの対象外とし、
        6(オーナーへのエスカレーション)に振り分ける(=未登録は「情報なし」ではなく「要確認」として扱う。
        通知文面はescalation-notification-templates.md「厳守事項6-d」節、複合質問で一部項目のみ
@@ -109,13 +112,13 @@ tech-stack.md の「次のステップ候補」で挙げていた
    datetime_candidate: string | null,
    confirmed: boolean,
    needs_owner_check: boolean,
-   faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "other", resolved: boolean}] | null,
+   faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "menu" | "other", resolved: boolean}] | null,
    requested_date_range: {start: string, end: string} | null,
    time_of_day_preference: "morning" | "afternoon" | "evening" | "none"}
 ```
-- `faq_segments` は、厳守事項9a(店舗登録済み静的情報: access/parking/payment/hoursの
+- `faq_segments` は、厳守事項9a(店舗登録済み静的情報: access/parking/payment/hours/menuの
   いずれかに基づく回答)に該当する`intent: "faq"`では、項目数によらず(単一項目でも)
-  1要素以上の配列として必ず付与する(2026-08-02 14:00 UTC改訂、詳細は
+  1要素以上の配列として必ず付与する(2026-08-02 14:00 UTC改訂、menuは2026-09-12追加、詳細は
   json-schema-multi-intent-extension.md参照)。厳守事項9b(雑談・スパム的入力、特定の
   店舗FAQ項目に基づかない応答)・`escalation` intent・予約系のやり取りでは`null`のままとする。
 - `menu` は、顧客の発言からメニュー名を聞き取れた場合のみ設定する。顧客がまだメニューに
@@ -145,6 +148,13 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-09-12 16:00 UTC: E19「補足」・フェーズ続き218が残していた「メニュー・料金表を
+  9a相当の自動回答対象へ含めるかどうか」を検討し(menu-pricing-faq-topic-decision.md新規
+  作成)、`faq_segments`の`topic`列挙値に`"menu"`を追加した。店舗が予約フローのために既に
+  維持しているメニュー設定データ(メニュー名・料金の任意表示)をそのまま再利用できるため、
+  FAQ専用の別入力欄を新設する運用負荷は発生しないと判断した。厳守事項9aの説明文・出力形式の
+  topic列挙値を更新し、これまで「メニュー内容/料金表は例示のみで実際は常時エスカレーション」
+  としていた注記を「`topic: "menu"`として自動回答対象」に修正した。
 - 2026-08-23 06:00 UTC: menu-unmentioned-vs-unregistered-design.md(2026-08-22 22:00 UTC)の
   残課題だった「LLM側での`menu`未言及時の前提の明文化」に対応し、`menu`フィールドの説明に
   未言及時は必ずnullのまま返す旨(埋めようとせず、バックエンド側の聞き返しに委ねる)を
