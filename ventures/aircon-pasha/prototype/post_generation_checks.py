@@ -54,6 +54,12 @@ SHORT_URL_DOMAIN_PATTERN = re.compile(
     r"\b(?:bit\.ly|lin\.ee|tinyurl\.com|t\.co|x\.gd|is\.gd)/\S+"
 )
 
+# 厳守事項6b準拠チェック用。pricing-plan.mdのプラン名(kind=pricing_inquiry向けの
+# 案内にのみ登場すべき固有名詞)。kind=checkout_intent_unclearの本文にこれらが
+# 登場していれば、6b(iv)が求める「意思確認の一言のみ」を逸脱しpricing_inquiry向けの
+# 案内と混同している疑いとして検出する。
+CHECKOUT_PLAN_NAME_KEYWORDS = ("スモールプラン", "スタンダードプラン", "繁忙期対応プラン")
+
 # character-limit-fallback-design.md(フェーズ102)準拠チェック用。LINE Messaging APIの
 # テキストメッセージ1件あたりの文字数上限(UTF-16コード単位)。依頼者へ直接転送される
 # completion_report.body・care_guide.bodyがこれを超える場合は、切り詰めずに生成全体を
@@ -324,6 +330,61 @@ def check_subscription_notice_consistency(instance):
     return errors
 
 
+def check_checkout_notice_consistency(instance):
+    """厳守事項6b準拠チェック。checkout_notice.includes_checkout_urlはkindによらず
+    常にfalseである設計(6b(i)、LLMが自己判断でCheckout SessionのURLを発行・案内
+    しない)のため、フィールド値・本文の両方でこの前提が崩れていないかを確認する。
+    course-set-pasha/kura-pashaのcheck_subscription_notice_consistency()とは異なり、
+    「kindに応じてtrue/falseを使い分ける」設計ではなく「kindによらず常にfalse」という
+    設計のため、まずincludes_checkout_url自体とbody中の実URLらしき記述の両方を
+    kind共通でチェックする。
+
+    加えてkind=checkout_intent_unclearのときは、厳守事項6b(iv)により意思確認の
+    一言のみに留めるべきで、手続き完了を前提にした文言(6a(iv)と同じ
+    PROCEDURE_COMPLETION_KEYWORDS)や、pricing_inquiry向けの案内であるはずの
+    具体的なプラン名(CHECKOUT_PLAN_NAME_KEYWORDS)への言及が混入していないかを
+    確認する。
+    """
+    errors = []
+    notice = instance.get("checkout_notice")
+    if notice is None:
+        return errors
+
+    kind = notice.get("kind")
+    body = notice.get("body", "")
+    body_mentions_url = (
+        bool(LINK_PLACEHOLDER_PATTERN.search(body))
+        or bool(SHORT_URL_DOMAIN_PATTERN.search(body))
+    )
+
+    if notice.get("includes_checkout_url") is True:
+        errors.append(
+            "checkout_notice: includes_checkout_url=trueは想定されていません"
+            "(厳守事項6b(i)違反の疑い。LLMは自己判断でCheckout SessionのURLを"
+            "発行・案内しない設計のため、kindによらず常にfalseのはず)"
+        )
+    if body_mentions_url:
+        errors.append(
+            "checkout_notice: bodyに実際のURLと疑われる記述が含まれています"
+            "(厳守事項6b(i)違反の疑い。includes_checkout_urlは常にfalseの設計と矛盾)"
+        )
+
+    if kind == "checkout_intent_unclear":
+        if any(kw in body for kw in PROCEDURE_COMPLETION_KEYWORDS):
+            errors.append(
+                "checkout_notice: kind=checkout_intent_unclearだが本文に"
+                "手続き完了を前提にした文言が含まれています(厳守事項6b(iv)違反の疑い)"
+            )
+        if any(kw in body for kw in CHECKOUT_PLAN_NAME_KEYWORDS):
+            errors.append(
+                "checkout_notice: kind=checkout_intent_unclearだが本文に"
+                "具体的なプラン名への言及が含まれています(厳守事項6b(iv)違反の疑い。"
+                "pricing_inquiry向けの案内と混同している疑い)"
+            )
+
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -334,5 +395,6 @@ def run_all_checks(instance):
     errors += check_additional_treatment_mentioned_in_text(instance)
     errors += check_next_recommended_date_history_care_guide_consistency(instance)
     errors += check_subscription_notice_consistency(instance)
+    errors += check_checkout_notice_consistency(instance)
     errors += check_message_length_within_line_limit(instance)
     return errors

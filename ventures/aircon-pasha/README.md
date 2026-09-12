@@ -3162,4 +3162,27 @@
   作成エンドポイントとの配線・実LLMでの動作検証は引き続きLIFF実登録・APIキー取得オーナー
   承認待ち。post_generation_checks.pyへのcheck_checkout_notice_consistency()実装は次の
   課題として残す(line-reservation-aiへの同種横展開も残課題)。
-- 最終更新: 2026-09-12 03:00 UTC
+- フェーズ207(2026-09-12 09:00 UTC): フェーズ206で「次の課題」として残していた
+  post_generation_checks.pyへのcheck_checkout_notice_consistency()実装に着手した。
+  course-set-pasha/kura-pashaのcheck_subscription_notice_consistency()と同じ構成を
+  踏襲しつつ、checkout_notice固有の設計差(subscription_procedure_noticeは
+  includes_portal_linkをkindに応じてtrue/falseに使い分けるのに対し、checkout_noticeの
+  includes_checkout_urlはschema/output.schema.json記載の通りkindによらず常にfalseの
+  設計)を反映し、(1)includes_checkout_url=trueそのものの検出、(2)本文への実URL・
+  短縮URLらしき記述の検出をkind共通で行ったうえで、(3)kind=checkout_intent_unclearの
+  ときのみ、手続き完了を前提にした文言(PROCEDURE_COMPLETION_KEYWORDS流用)と、
+  pricing_inquiry向けの案内であるはずの具体的なプラン名(pricing-plan.md記載の
+  スモールプラン/スタンダードプラン/繁忙期対応プラン、新規CHECKOUT_PLAN_NAME_KEYWORDS)
+  への言及混入を検出する3段構成とした。run_all_checks()に組み込み、
+  test_post_generation_checks.pyにCheckoutNoticeConsistencyTestを新設(8件)。
+  schema/validate_test_cases.pyの既存フィクスチャCO1〜CO3は本チェックにも違反しない
+  ことをFixtureCasesTest経由で確認済み。venture全体483件全件(475件→483件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証13件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  コード・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。line-reservation-aiへの
+  同種横展開(フェーズ217のレビューにより、同venture固有の事情でLLM構造化出力への
+  横展開自体が不要と結論済み、checkout-intent-detection-parity-review.md参照)は
+  既に対応不要と判明しているため残課題としない。次回は他venture・アイデア領域の
+  前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-12 09:00 UTC
