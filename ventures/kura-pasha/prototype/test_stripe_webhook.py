@@ -311,18 +311,27 @@ def test_deleted_status_update_independent_of_notification_failure():
 # --- handle_customer_subscription_updated ---
 
 
-def _updated_event(customer="cus_20", before=False, after=True, current_period_end=1_760_000_000):
+def _updated_event(
+    customer="cus_20",
+    before=False,
+    after=True,
+    current_period_end=1_760_000_000,
+    lookup_key=None,
+):
     previous_attributes = {}
     if before != after:
         previous_attributes["cancel_at_period_end"] = before
+    data_object = {
+        "customer": customer,
+        "cancel_at_period_end": after,
+        "current_period_end": current_period_end,
+    }
+    if lookup_key is not None:
+        data_object["items"] = {"data": [{"price": {"lookup_key": lookup_key}}]}
     return {
         "type": "customer.subscription.updated",
         "data": {
-            "object": {
-                "customer": customer,
-                "cancel_at_period_end": after,
-                "current_period_end": current_period_end,
-            },
+            "object": data_object,
             "previous_attributes": previous_attributes,
         },
     }
@@ -382,6 +391,44 @@ def test_updated_without_current_period_end_leaves_it_unset():
         "current_period_end欠落時は書き込まずNoneのまま(フェーズ92)",
         store.get_current_period_end("W20c") is None,
     )
+
+
+def test_updated_syncs_plan_id_when_lookup_key_resolves():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W20d", "cus_20d")
+    store.set_plan("W20d", "light")
+    handle_customer_subscription_updated(
+        _updated_event(customer="cus_20d", lookup_key="kura_pasha_standard"), store
+    )
+    check(
+        "lookup_keyが解決できればplan_idが同期される(フェーズ93)",
+        store.get_plan_id("W20d") == "standard",
+    )
+
+
+def test_updated_leaves_plan_id_untouched_when_lookup_key_missing():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W20e", "cus_20e")
+    store.set_plan("W20e", "light")
+    handle_customer_subscription_updated(_updated_event(customer="cus_20e"), store)
+    check(
+        "items欠落時はplan_idを変更しない(フェーズ93)",
+        store.get_plan_id("W20e") == "light",
+    )
+
+
+def test_updated_syncs_plan_id_without_push_client():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W20f", "cus_20f")
+    store.set_plan("W20f", "standard")
+    result = handle_customer_subscription_updated(
+        _updated_event(customer="cus_20f", lookup_key="kura_pasha_multi_craftsman"), store
+    )
+    check(
+        "push_client未指定でもplan_idは同期される(current_period_endと同じ扱い、フェーズ93)",
+        store.get_plan_id("W20f") == "multi_craftsman",
+    )
+    check("push_client未指定時はnotified=False", result.notified is False)
 
 
 def test_updated_scheduled_notifies_contractor():
@@ -1119,6 +1166,9 @@ if __name__ == "__main__":
     test_updated_without_push_client_does_not_notify()
     test_updated_persists_current_period_end_with_push_client()
     test_updated_without_current_period_end_leaves_it_unset()
+    test_updated_syncs_plan_id_when_lookup_key_resolves()
+    test_updated_leaves_plan_id_untouched_when_lookup_key_missing()
+    test_updated_syncs_plan_id_without_push_client()
     test_updated_scheduled_notifies_contractor()
     test_updated_rescheduled_notifies_contractor()
     test_updated_no_change_sends_nothing()

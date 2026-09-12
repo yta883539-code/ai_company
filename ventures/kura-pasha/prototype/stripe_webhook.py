@@ -40,6 +40,7 @@ from subscription_cancellation_notification import (
     handle_subscription_cancellation_update,
     handle_subscription_cancelled,
 )
+from subscription_plan_sync import sync_plan_on_subscription_event
 from usage_counter_workshop import WorkshopStoreProtocol
 
 
@@ -285,6 +286,9 @@ def handle_customer_subscription_updated(
     (design 6節)、`current_period_end`(Unixタイムスタンプ)のみは、
     subscription-billing-data-model-design.md「4. 未検証・残課題」(フェーズ91→92で対応)の
     通りworkshop側へ`set_current_period_end`で永続化する(通知の要否とは独立に行う)。
+    同様に`plan_id`も、`subscription_plan_sync.sync_plan_on_subscription_event()`
+    (フェーズ93)へ委譲し、`items.data[0].price.lookup_key`から解決できた場合のみ
+    通知の要否とは独立に永続化する(Stripeカスタマーポータル経由のプラン変更を反映する)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -302,6 +306,8 @@ def handle_customer_subscription_updated(
         workshop_store.set_current_period_end(
             workshop_id, datetime.fromtimestamp(raw_current_period_end, tz=timezone.utc)
         )
+
+    sync_plan_on_subscription_event(workshop_store, workshop_id, data_object)
 
     if push_client is None:
         return CustomerSubscriptionUpdatedResult(workshop_id=workshop_id)

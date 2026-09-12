@@ -1903,4 +1903,31 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   parityギャップ(他venture既存で本venture未確認のドキュメント種別)の棚卸しを優先
   候補とする。
 
-最終更新: 2026-09-12 12:58 UTC
+- フェーズ93(2026-09-12 17:00 UTC): aircon-pashaフェーズ208(course-set-pashaの
+  subscription-plan-change-design.mdフェーズ続き154で解消済みの「プラン変更を伴わない
+  `customer.subscription.updated`イベントでの無駄な書き込み」と同種のギャップが
+  `subscription_plan_sync.py`に残っていた件を解消)が「kura-pasha・line-reservation-ai
+  への横展開要否は次回以降の棚卸し候補」と申し送っていたのを受け、本venture側を確認した。
+  その結果、aircon-pasha側の対応(差分チェックの追加)より手前の段階、すなわち
+  `customer.subscription.updated`受信時にworkshopの`plan_id`を同期する処理自体が
+  一度も実装されていない、より根本的な配線漏れだったと判明した(`plan_id`は
+  `checkout.session.completed`受信時のみ書き込まれ、Stripeカスタマーポータル経由の
+  プラン変更後の`当月上限へ即時適用する`という設計上の確定事項(subscription-
+  cancellation-flow-design.md「ダウングレード(プラン変更)フロー」)が実現手段を
+  持たないまま残っていた)。aircon-pasha/prototype/subscription_plan_sync.pyの設計を
+  翻案し`prototype/subscription_plan_sync.py`を新設(差分チェックはaircon-pashaフェーズ
+  208の教訓を踏まえ最初から組み込んだ)、`handle_customer_subscription_updated()`
+  (stripe_webhook.py)へ`current_period_end`永続化と同じ位置で配線した。詳細は
+  subscription-plan-sync-design.md参照。新規テスト: test_subscription_plan_sync.py
+  (新設、14件)、test_stripe_webhook.pyへ3件追加。venture全体673件(`python3
+  prototype/run_all_tests.py`、10 files run, 10 passed、既存652件→673件)・schema検証
+  27件(`python3 schema/validate_test_cases.py`)いずれもパス(schema/output.schema.json
+  への影響は無し、`plan_id`はLLM構造化出力に登場しないフィールド)を確認した。
+  承認不要なコード実装・テスト追加・設計文書作成のみで、実Stripeアカウントの接続・
+  Price作成(lookup_key設定)自体は引き続きオーナー承認待ちの範囲(pending-approval.md
+  参照)であり本フェーズでは行っていない。外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  line-reservation-aiへの同種ギャップの横展開要否(店舗単位契約で複数プランを持つか自体の
+  確認が必要)、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 17:00 UTC

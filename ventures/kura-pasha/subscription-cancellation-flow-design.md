@@ -115,6 +115,11 @@ course-set-pasha/subscription-cancellation-flow-design.mdの確定方式をそ�
   基づき確定した結論(`billing_cycle_anchor`はダウングレード操作では途切れない)を
   本venture固有の`usage_counter`にもそのまま当てはめられると判断し、独自の再調査は
   行わなかった。
+  → 2026-09-12 17:00 UTC追記(フェーズ93): 「即時適用」を実現する同期処理自体が
+  フェーズ92時点まで未実装だった(`plan_id`は`checkout.session.completed`受信時のみ
+  書き込まれ、`customer.subscription.updated`受信時のプラン変更反映が配線漏れ)ことを
+  発見し、`prototype/subscription_plan_sync.py`を新設して解消した
+  (subscription-plan-sync-design.md参照)。
 - 複数職人プランからライト/スタンダードプランへのダウングレードは、共同利用機能自体が
   失われる(複数職人プランのみの機能)ため、上記の生成回数上限の話に加えて「共同利用者の
   扱い」という論点が生じるが、共同利用機能自体が未設計のため本ファイルでは扱わず
