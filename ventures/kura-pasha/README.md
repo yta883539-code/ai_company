@@ -1817,4 +1817,26 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
   前進、または本フェーズで見つけたdiscover非互換の原因調査を優先候補とする。
 
-最終更新: 2026-09-12 00:00 UTC
+- フェーズ89(2026-09-12 04:00 UTC): フェーズ88で見つけた`python3 -m unittest discover`
+  非互換の原因調査を行った。`grep -l "unittest.TestCase" test_*.py`で切り分けた結果、
+  discoverが収集した3ファイル(test_blocked_but_billing_candidates.py・
+  test_blocked_but_billing_owner_notification.py・test_workshop_linking.py)のみが
+  `unittest.TestCase`ベースで書かれており、残り6ファイル(test_checkout_session.py・
+  test_cloud_function_webhook.py・test_payment_failure_notification.py・
+  test_stripe_webhook.py・test_subscription_cancellation_notification.py・
+  test_usage_counter_workshop.py)は独自のcheck()/PASS/FAIL関数と
+  `if __name__ == "__main__":`直接呼び出しのスクリプト形式であり、TestCaseクラスが
+  存在しないためdiscoverの収集対象にならないことを確定した(フェーズ88時点の推測どおり)。
+  6ファイルをTestCaseベースへ書き直すのはテスト内容そのものに手を入れる大きな変更に
+  なり本フェーズの範囲を超えると判断し、既存ファイルは変更せず、
+  `prototype/run_all_tests.py`を新規作成した。各test_*.pyを`python3 <file>`として
+  個別プロセス実行し終了コードで合否判定・集約表示する薄いラッパーで、
+  discover非互換を回避しつつ9ファイル・649件を一括実行できることを確認した
+  (`python3 run_all_tests.py`で9 files run, 9 passed, 0 failed)。
+  schema検証(`python3 schema/validate_test_cases.py`)27件も変更前と同じ結果でパス。
+  他venture(aircon-pasha・course-set-pasha・line-reservation-ai)にも同じ
+  discover非互換が存在する可能性があるため、横展開は次の課題として残す。承認不要な
+  調査・新規スクリプト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-12 04:00 UTC
