@@ -3143,4 +3143,23 @@
   "test_*.py"`)・schema検証9件(`python3 schema/validate_test_cases.py`)いずれもパス
   (変更前と同じ結果)を確認した。承認不要な設計文書更新のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-11 23:00 UTC
+- フェーズ206(2026-09-12 03:00 UTC): course-set-pashaフェーズ206(2026-09-12 02:00 UTC)が
+  発見したcross-venture parityのギャップ(kura-pashaがフェーズ57〜58で新設した厳守事項7b
+  〈有料プラン開始意図検知〉が、line-reservation-ai・aircon-pasha・course-set-pashaのいずれ
+  にも未展開だった件)のうち、本venture分の横展開を行った。本ventureは既存の厳守事項番号が
+  6/6a/7/8(会員管理等不応答/解約意図検知/入力不足時再送依頼/文体)であるため、解約意図検知
+  (6a)と対になる形で厳守事項6bとして新設した(他venture〈7b〉とは番号が異なるが、位置づけは
+  同一)。llm-system-prompt-draft.mdに6b本文を追記し、schema/output.schema.jsonの`status`
+  enumへ`checkout_intent`/`pricing_inquiry`/`checkout_intent_unclear`の3値と、これらのとき
+  のみ非nullとなる`checkout_notice`フィールド(kind/body/includes_checkout_url)を追加した。
+  schema/validate_test_cases.pyに新規テストケース3件(CO1〜CO3)とネガティブテスト1件
+  (includes_checkout_url不一致の検出確認)を追加し、schema検証9件→13件全件パスを確認した。
+  既存フィクスチャ9件全てに`checkout_notice: None`を追加(スキーマのrequired化に伴う必須
+  対応)。venture全体の既存テスト(475件、`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)は本フェーズで変更しておらず、変更前と同じ475件パスを確認した。承認不要な
+  設計文書作成・schema/テストコード変更のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。実際のCheckout Session
+  作成エンドポイントとの配線・実LLMでの動作検証は引き続きLIFF実登録・APIキー取得オーナー
+  承認待ち。post_generation_checks.pyへのcheck_checkout_notice_consistency()実装は次の
+  課題として残す(line-reservation-aiへの同種横展開も残課題)。
+- 最終更新: 2026-09-12 03:00 UTC

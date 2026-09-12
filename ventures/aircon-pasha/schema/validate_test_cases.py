@@ -140,6 +140,31 @@ def validate_cross_field_rules(instance, path="$"):
         if instance.get("subscription_procedure_notice") is not None:
             errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
 
+    checkout_statuses = ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear")
+    if status in checkout_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        notice = instance.get("checkout_notice")
+        if notice is None:
+            errors.append(f"{path}: status={status}のときcheckout_noticeは非nullである必要があります")
+        else:
+            if notice.get("kind") != status:
+                errors.append(f"{path}.checkout_notice.kind: statusと一致する必要があります(期待={status}, 実際={notice.get('kind')!r})")
+            if notice.get("includes_checkout_url") is not False:
+                errors.append(
+                    f"{path}.checkout_notice.includes_checkout_url: "
+                    f"厳守事項6b(i)によりstatus={status}のときは常にfalseである必要があります"
+                    f"(実際={notice.get('includes_checkout_url')!r})"
+                )
+    else:
+        if instance.get("checkout_notice") is not None:
+            errors.append(f"{path}: status={status!r}のときcheckout_noticeはnullである必要があります")
+
     completion_report = instance.get("completion_report")
     if completion_report is not None:
         m = completion_report.get("mentions_refrigerant_or_electrical")
@@ -195,6 +220,7 @@ TEST_CASES = {
             },
         ],
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "G2_estimate_next_date": {
         "status": "generated",
@@ -222,6 +248,7 @@ TEST_CASES = {
             },
         ],
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "G3_model_and_date_unextractable": {
         "status": "generated",
@@ -248,6 +275,7 @@ TEST_CASES = {
             },
         ],
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "G4_multiple_units_same_visit": {
         "status": "generated",
@@ -282,6 +310,7 @@ TEST_CASES = {
             },
         ],
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "OOS1_reservation_question": {
         "status": "out_of_scope",
@@ -292,6 +321,7 @@ TEST_CASES = {
         "care_guide": None,
         "history_rows": None,
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "II1_no_work_content": {
         "status": "insufficient_input",
@@ -302,6 +332,7 @@ TEST_CASES = {
         "care_guide": None,
         "history_rows": None,
         "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
     "CI1_cancellation_intent_clear": {
         "status": "cancellation_intent",
@@ -321,6 +352,7 @@ TEST_CASES = {
             ),
             "includes_portal_link": True,
         },
+        "checkout_notice": None,
     },
     "CI2_downgrade_intent": {
         "status": "downgrade_intent",
@@ -339,6 +371,7 @@ TEST_CASES = {
             ),
             "includes_portal_link": True,
         },
+        "checkout_notice": None,
     },
     "CI3_cancellation_unclear": {
         "status": "cancellation_unclear",
@@ -352,6 +385,73 @@ TEST_CASES = {
             "body": "解約(またはプラン変更)をご希望でしょうか?よろしければ改めてその旨お知らせください。",
             "includes_portal_link": False,
         },
+        "checkout_notice": None,
+    },
+    # 2026-09-12 03:00 UTC追加(厳守事項6b新設)。kura-pasha/schema/validate_test_cases.pyの
+    # CO1〜CO3、course-set-pasha/schema/validate_test_cases.pyのCO1〜CO3と同じ設計思想を踏襲。
+    "CO1_checkout_intent": {
+        "status": "checkout_intent",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_rows": None,
+        "subscription_procedure_notice": None,
+        "checkout_notice": {
+            "kind": "checkout_intent",
+            "body": "お申し込みのご案内をお送りしますね。",
+            "includes_checkout_url": False,
+        },
+    },
+    "CO2_pricing_inquiry": {
+        "status": "pricing_inquiry",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_rows": None,
+        "subscription_procedure_notice": None,
+        "checkout_notice": {
+            "kind": "pricing_inquiry",
+            "body": "料金プランのご案内です。スモールプラン(月30回まで/月額2,980円)・"
+                    "スタンダードプラン(月90回まで/月額5,980円)・繁忙期対応プラン"
+                    "(月200回まで/月額9,800円)の3プランがございます。",
+            "includes_checkout_url": False,
+        },
+    },
+    "CO3_checkout_intent_unclear": {
+        "status": "checkout_intent_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": None,
+        "care_guide": None,
+        "history_rows": None,
+        "subscription_procedure_notice": None,
+        "checkout_notice": {
+            "kind": "checkout_intent_unclear",
+            "body": "有料プランのお申し込みをご希望でしょうか?よろしければ改めてその旨お知らせください。",
+            "includes_checkout_url": False,
+        },
+    },
+}
+
+# 2026-09-12 03:00 UTC追加。厳守事項6b違反(includes_checkout_url不一致)を意図的に仕込んだ
+# 不正フィクスチャ。checkout_intentなのに実際のCheckout Session URLを自己判断で発行したとして
+# includes_checkout_url=trueで出力してしまうケースを想定。validate_cross_field_rulesが
+# 実際にこの違反を検出できることを確認するためのネガティブテスト。course-set-pasha/
+# schema/validate_test_cases.pyのNEGATIVE_CASE_CHECKOUT_URL_MISMATCHと同じ設計思想。
+NEGATIVE_CASE_CHECKOUT_URL_MISMATCH = {
+    "status": "checkout_intent",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "completion_report": None,
+    "care_guide": None,
+    "history_rows": None,
+    "subscription_procedure_notice": None,
+    "checkout_notice": {
+        "kind": "checkout_intent",
+        "body": "お申し込みのご案内をお送りしますね。",
+        "includes_checkout_url": True,
     },
 }
 
@@ -370,6 +470,19 @@ def main():
                 print(f"      - {e}")
         else:
             print(f"[OK] {case_id}")
+
+    # ネガティブテスト: includes_checkout_urlの不一致(厳守事項6b違反)がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg_errors = validate_against_schema(NEGATIVE_CASE_CHECKOUT_URL_MISMATCH, SCHEMA)
+    neg_errors += validate_cross_field_rules(NEGATIVE_CASE_CHECKOUT_URL_MISMATCH)
+    if neg_errors:
+        print("[OK] NEG1_checkout_url_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG1_checkout_url_mismatch_is_detected: includes_checkout_url不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
