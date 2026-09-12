@@ -3523,6 +3523,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
   追記なし。次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題
   棚卸しを優先候補とする。
+- フェーズ続き217(2026-09-12 05:00 UTC): aircon-pashaフェーズ206・course-set-pashaフェーズ206が
+  「line-reservation-aiへの同種横展開は次の課題として残す」と申し送っていた、kura-pasha発の
+  厳守事項7b(有料プラン開始意図検知、LLM構造化出力への`checkout_intent`等のstatus値追加)の
+  横展開要否をレビューした(checkout-intent-detection-parity-review.md新規作成)。他venture
+  (kura-pasha/aircon-pasha/course-set-pasha)はLLM会話の相手=課金対象者(職人・セッター本人)が
+  同一人物のためLLM構造化出力での課金意図検知が意味を持つが、本ventureは課金対象者(店舗
+  オーナー)とLLM会話の相手(店舗のお客様)が別人物であり、オーナーは本venture用LLM会話エンジン
+  (`prototype/engine.py`)と対話する経路を持たない。オーナー向けの有料プラン案内・決済導線は
+  既にbilling-upgrade-flow-design.md・checkout-initiation-flow-design.md(LIFF決済リンクの
+  プッシュ配信)で7b/6bと同じ目的をカバー済みと確認し、そのままの形でのLLM構造化出力への
+  横展開は不要(機能欠落ではなく実装方式の違い)と結論した。お客様から料金体系そのものへの
+  質問が来た場合の厳守事項9a/9b/6への振り分けテストケース(E17候補)は未着手のまま次回以降の
+  課題として残した。コード変更は無く、venture全体771件全件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証25件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(変更前と同じ結果)を確認した。承認不要な設計docレビュー・新規作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  本レビューの結論をaircon-pasha・course-set-pasha側のREADME申し送りへ反映(参照リンク追記)する
+  作業は他venture側ファイルの編集となるため本フェーズの範囲外とし、次回以降に譲る。
 - 実LLM呼び出しでの安定生成確認(conversation-samples-test-cases.mdのN1〜N4・E1〜E16を実際にClaude API等へ
   投入するテスト)は、APIキー取得・課金が発生するためオーナー承認後に着手する(pending-approval.md参照)。
   承認が得られ次第、prototype/engine.pyのllm_callスタブに実API呼び出し関数を注入するだけで着手できる状態にしてある。
