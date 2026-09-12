@@ -241,6 +241,11 @@ TEST_CASES = {
         "requested_date_range": {"start": "2026-08-08", "end": "2026-08-08"},
         "time_of_day_preference": "none",
     },
+    "E19": {
+        "intent": "escalation", "name": None, "menu": None,
+        "datetime_candidate": None, "confirmed": False,
+        "needs_owner_check": True,
+    },
 }
 
 
