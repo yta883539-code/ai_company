@@ -1790,4 +1790,31 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
   優先候補とする。
 
-最終更新: 2026-09-11 20:00 UTC
+- フェーズ88(2026-09-12 00:00 UTC): 他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)には既にあるが本venture未着手だったtech-stack.mdという
+  cross-venture parityのギャップに対応し、新規作成した。aircon-pasha/tech-stack.mdの
+  構成(全体構成イメージ→想定コンポーネント→MVPスコープ→初期投資・ランニングコストの
+  目安→次のステップ候補)を踏襲しつつ、本venture固有の構造(craftsman-account-linking-
+  design.md・subscription-billing-data-model-design.md・usage-counter-workshop-key-
+  design.mdで確定済みの、課金・回数上限管理が`user_id`単位ではなく
+  `craftsman_workshop/{workshop_id}`単位である点、Stripe Webhookの解決先が
+  `stripe_customer_id → workshop_id`になる点)を他3ventureとの構造的差異として明記した。
+  既存設計文書の内容を集約しただけで新たな設計判断は発生していない。コード変更は無く、
+  venture全体649件(`prototype/`配下の単体テスト9ファイルをそれぞれ個別実行、
+  test_blocked_but_billing_candidates.py 7件・test_blocked_but_billing_owner_
+  notification.py 14件・test_checkout_session.py 24件・test_cloud_function_webhook.py
+  276件・test_payment_failure_notification.py 22件・test_stripe_webhook.py 135件・
+  test_subscription_cancellation_notification.py 28件・test_usage_counter_workshop.py
+  120件・test_workshop_linking.py 23件)・schema検証27件(`python3 schema/
+  validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。なお
+  `python3 -m unittest discover -s prototype -p "test_*.py"`はモジュールの一部
+  (test_blocked_but_billing_candidates・test_blocked_but_billing_owner_notification・
+  test_workshop_linkingの3ファイル、計44件)しか収集せず649件との差異があることに
+  気付いたが、原因調査(各テストファイルが個別実行前提のスクリプト形式で書かれており
+  discover互換のテストランナー統一がされていないためと推測)は本フェーズの範囲外のため
+  次の課題として残し、今回の検証は他venture同様「各ファイル個別実行」の方法で行った。
+  承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または本フェーズで見つけたdiscover非互換の原因調査を優先候補とする。
+
+最終更新: 2026-09-12 00:00 UTC
