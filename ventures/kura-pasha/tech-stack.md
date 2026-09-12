@@ -75,14 +75,21 @@ course-set-pasha・aircon-pashaと同様、双方向の会話状態管理は不�
 
 ## 未検証・残課題
 
-- Checkout Session発行フロー・Stripe Webhookの署名検証・イベントディスパッチの実装
-  (course-set-pasha/stripe-webhook-http-entry-point-design.md相当)は
-  subscription-billing-data-model-design.md記載のとおり引き続き未着手。
-- `current_period_end`フィールドの読み書きメソッド、トライアル条件判定関数
-  (他venture`trial-end-condition-a-*-design.md`相当)は未着手。
+- (訂正 2026-09-12 12:00 UTC・フェーズ91): 本節はsubscription-billing-data-model-
+  design.md「4. 未検証・残課題」を要約する形でフェーズ88に作成したが、同ファイルの
+  「Checkout Session発行フロー・Stripe Webhookの署名検証・イベントディスパッチの実装は
+  未着手」という記載自体がフェーズ50・51(2026-09-08)で対応済みにもかかわらず訂正
+  されていなかった記載漏れであり、本節も同じ記載漏れをそのまま引き継いでいたことが
+  判明した。実際には`prototype/checkout_session.py`(Checkout Session発行)・
+  `prototype/stripe_webhook.py`(`verify_stripe_signature()`・`receive_stripe_webhook()`)
+  として実装済みであることを確認した(subscription-billing-data-model-design.md側も
+  本フェーズであわせて訂正済み)。
+- `current_period_end`フィールドの読み書きメソッド(`WorkshopStoreProtocol`への
+  永続化用メソッド)は引き続き未着手。トライアル条件判定関数はtrial-end-condition-
+  design.md(フェーズ52、`is_trial_period_over`)として対応済み。
 - 実際のGCPプロジェクト作成・LINE公式アカウント接続・Stripeアカウント接続は、
   他ventureと同様にアカウント作成・支払いが発生するためオーナー承認待ちの範囲
   (pending-approval.md参照)。今回は技術構成の整理・cross-venture parityギャップの
   解消のみに留める。
 
-最終更新: 2026-09-12 00:00 UTC
+最終更新: 2026-09-12 12:00 UTC(フェーズ91: 記載漏れ訂正)

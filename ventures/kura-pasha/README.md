@@ -1854,4 +1854,24 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
   approval.mdへの追記なし。
 
-最終更新: 2026-09-12 08:00 UTC
+- フェーズ91(2026-09-12 12:00 UTC): tech-stack.md(フェーズ88)を見直す過程で、同ファイルが
+  要約元としていたsubscription-billing-data-model-design.md「4. 未検証・残課題」の
+  「Checkout Session発行フロー・Stripe Webhookの署名検証・イベントディスパッチの実装は
+  未着手」という記載が、実際にはフェーズ50(checkout-initiation-flow-design.md)・
+  フェーズ51(stripe-webhook-checkout-completed-design.md、2026-09-06)で実装済み
+  (`prototype/checkout_session.py`・`prototype/stripe_webhook.py`の`verify_stripe_
+  signature()`・`receive_stripe_webhook()`)であるにもかかわらず訂正されずに残っていた
+  記載漏れであることを発見した。同じ理由で「トライアル条件判定関数は未着手」という記載も
+  trial-end-condition-design.md(フェーズ52、`is_trial_period_over`)で既に対応済みだった。
+  一方「`current_period_end`フィールドの読み書きメソッド」は実際に`prototype/stripe_
+  webhook.py`を確認したところ、Stripeイベントの値をその場で解約予約通知の文面生成に渡す
+  のみで永続化用のget/setメソッドは存在せず、こちらは記載どおり引き続き未着手と確認した。
+  subscription-billing-data-model-design.md「4.未検証・残課題」・tech-stack.md
+  「未検証・残課題」双方を実態に合わせて訂正した。コード変更は無く、venture全体649件
+  (`python3 prototype/run_all_tests.py`)・schema検証27件(`python3 schema/
+  validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な設計
+  文書の記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は`current_period_end`の
+  読み書きメソッド実装、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 12:00 UTC

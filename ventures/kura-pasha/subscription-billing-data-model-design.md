@@ -77,16 +77,23 @@ Webhook受信時に更新すべきドキュメントも`user_profile/{user_id}`�
   `subscription_status`は未契約(トライアル中)workshopの初期値を`"trialing"`とし、
   `SUBSCRIPTION_STATUSES`(4値)以外を設定しようとした場合は`InvalidSubscriptionStatusError`
   を送出する。テスト4件追加、全101件パス。
-- Checkout Session発行フロー、Stripe Webhookの署名検証・イベントディスパッチの実装
-  (course-set-pasha/stripe-webhook-http-entry-point-design.md相当)は次の課題として残す。
-  これが完了し次第、フェーズ48で見送った`is_trial_period_over`の生成一時停止への配線
-  (`get_subscription_status`が`"active"`のworkshopは生成を止めない、という条件を
-  追加する形になる見込み)に着手する。
-- `current_period_end`フィールドの読み書きメソッドは未着手。
+- (対応済み 2026-09-12 12:00 UTC・フェーズ91訂正): Checkout Session発行フロー
+  (checkout-initiation-flow-design.md、フェーズ50)、Stripe Webhookの署名検証・
+  イベントディスパッチの実装(stripe-webhook-checkout-completed-design.md、フェーズ51、
+  `prototype/stripe_webhook.py`の`verify_stripe_signature()`・`receive_stripe_webhook()`)は
+  本項目作成の数時間後には完了していたが、本ファイル側の「次の課題として残す」記載が
+  未更新のまま残っていた記載漏れだった。`is_trial_period_over`の生成一時停止への配線も
+  trial-end-condition-design.md(フェーズ52)で完了済みであることを確認した。
+- `current_period_end`フィールドの読み書きメソッド(`WorkshopStoreProtocol`への
+  `get_current_period_end`/`set_current_period_end`相当)は引き続き未着手(`prototype/
+  stripe_webhook.py`はStripeイベントの`current_period_end`をその場で読み取り解約予約
+  通知の文面生成に渡すのみで、永続化はしていないことを確認した)。
 - トライアル条件(pricing-plan.md「無料トライアル条件(仮)」: 初回生成成功から1回無料、
   または30日間のいずれか早い方)を`trial_start_at`起算でどう判定するかの具体的な関数設計
-  (他venture`trial-end-condition-a-*-design.md`相当)は未着手。
+  (他venture`trial-end-condition-a-*-design.md`相当)は、実際にはtrial-end-condition-
+  design.md(フェーズ52、`is_trial_period_over`)として対応済みであることを確認した
+  (これも本ファイル側の記載漏れだった)。
 - 実際のStripeアカウント接続・Webhookエンドポイントのデプロイは引き続きオーナー承認待ちの
   範囲(pending-approval.md参照)。
 
-最終更新: 2026-09-08 17:00 UTC
+最終更新: 2026-09-12 12:00 UTC(フェーズ91: 記載漏れ訂正)
