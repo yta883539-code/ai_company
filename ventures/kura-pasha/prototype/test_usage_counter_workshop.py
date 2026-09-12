@@ -473,6 +473,36 @@ def test_set_subscription_status_rejects_unknown_value():
     )
 
 
+def test_current_period_end_defaults_to_none():
+    """subscription-billing-data-model-design.md「4. 未検証・残課題」(フェーズ92対応):
+    未設定(未契約・イベント未受信)のworkshopはNoneを返す。
+    """
+    _, workshops, _ = make_stores()
+    check(
+        "未設定workshopのcurrent_period_endはNone",
+        workshops.get_current_period_end("W13E") is None,
+    )
+
+
+def test_set_current_period_end_round_trips():
+    """`customer.subscription.updated`等から渡されるdatetimeをそのまま読み書きできる
+    ことを検証する(フェーズ92)。
+    """
+    _, workshops, _ = make_stores()
+    period_end = datetime(2026, 10, 1, 9, 0, 0)
+    workshops.set_current_period_end("W13F", period_end)
+    check(
+        "set_current_period_endで書き込んだ値をそのまま読み取れる",
+        workshops.get_current_period_end("W13F") == period_end,
+    )
+    later = period_end + timedelta(days=30)
+    workshops.set_current_period_end("W13F", later)
+    check(
+        "再設定すると新しい値に上書きされる",
+        workshops.get_current_period_end("W13F") == later,
+    )
+
+
 def test_process_generation_request_applies_reduction_before_usage_check():
     """猶予期間到達後の最初の生成リクエストで、縮小(1)→除外チェック(2)→
     カウント加算(3)が同一呼び出し内で正しい順序で行われることを検証する。
@@ -1072,6 +1102,8 @@ if __name__ == "__main__":
     test_subscription_status_defaults_to_trialing()
     test_set_subscription_status_accepts_all_declared_values()
     test_set_subscription_status_rejects_unknown_value()
+    test_current_period_end_defaults_to_none()
+    test_set_current_period_end_round_trips()
     test_process_generation_request_applies_reduction_before_usage_check()
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()

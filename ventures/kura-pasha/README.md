@@ -1874,4 +1874,33 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   今回発生していないためpending-approval.mdへの追記なし。次回は`current_period_end`の
   読み書きメソッド実装、または他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 12:00 UTC
+- フェーズ92(2026-09-12 12:58 UTC): フェーズ91で「次にやること」1点目だった
+  `current_period_end`フィールドの読み書きメソッド(subscription-billing-data-model-
+  design.md「4. 未検証・残課題」)を実装した。`WorkshopStoreProtocol`へ
+  `get_current_period_end`/`set_current_period_end`を追加し(`InMemoryWorkshopStore`に
+  実装、未設定workshopは他の日時系フィールド〈`trial_start_at`等〉と同じくNoneを返す)、
+  `prototype/stripe_webhook.py`の`handle_customer_subscription_updated`を、
+  `data_object.get("current_period_end")`(Unixタイムスタンプ)が数値であればUTCの
+  `datetime`へ変換して`set_current_period_end`で永続化するよう配線した。従来この値は
+  `handle_subscription_cancellation_update`へその場で渡され解約予約通知の文面生成
+  (`_format_period_end_date_jst`)に使われるのみで永続化されていなかった(フェーズ91で
+  確認済みの記載漏れ)ため、今回で解消した。永続化と解約予約通知の要否判定は独立した
+  処理とし、`push_client`未指定(通知を送らない)経路でも永続化自体は行われるよう
+  `push_client is None`の早期returnより前に配線した。schema/output.schema.jsonへの
+  影響は無い(`current_period_end`はLLM構造化出力にはそもそも登場しないフィールドで
+  あることをフェーズ26で確認済み)。新規テスト: test_usage_counter_workshop.pyへ2件
+  (デフォルトNone・set/再設定の読み書き)、test_stripe_webhook.pyへ3件相当
+  (push_client未指定時の永続化確認1件の既存テスト拡張+新規2件: push_client指定時の
+  永続化・current_period_end欠落時は書き込まれないことの確認)を追加し、venture全体
+  652件(`python3 prototype/run_all_tests.py`、9 files run, 9 passed)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  subscription-billing-data-model-design.md・tech-stack.mdの該当する残課題記載も
+  対応済みへ更新した。実際のStripeアカウント接続・Webhookエンドポイントのデプロイは
+  引き続きオーナー承認待ちの範囲(pending-approval.md参照)で、本フェーズでは行って
+  いない。承認不要なコード実装・テスト追加・設計文書更新のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。次回は他venture・アイデア領域の前進、または本venture未着手のcross-venture
+  parityギャップ(他venture既存で本venture未確認のドキュメント種別)の棚卸しを優先
+  候補とする。
+
+最終更新: 2026-09-12 12:58 UTC

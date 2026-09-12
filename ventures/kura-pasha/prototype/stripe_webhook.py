@@ -281,8 +281,10 @@ def handle_customer_subscription_updated(
     `client_reference_id`を持たないイベントのため、`customer.subscription.deleted`と
     同じ`get_workshop_id_by_stripe_customer_id()`逆引きでworkshop_idを解決する
     (design 2節)。`push_client`省略時、または分類結果が`OUTCOME_NO_CHANGE`の場合は
-    通知を送信しない。本イベントは`set_subscription_status`等の状態変更を一切伴わない
-    (design 6節)。
+    通知を送信しない。本イベントは`set_subscription_status`等の状態変更を一切伴わないが
+    (design 6節)、`current_period_end`(Unixタイムスタンプ)のみは、
+    subscription-billing-data-model-design.md「4. 未検証・残課題」(フェーズ91→92で対応)の
+    通りworkshop側へ`set_current_period_end`で永続化する(通知の要否とは独立に行う)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -292,6 +294,14 @@ def handle_customer_subscription_updated(
     workshop_id = workshop_store.get_workshop_id_by_stripe_customer_id(stripe_customer_id)
     if workshop_id is None:
         return CustomerSubscriptionUpdatedResult(unresolved=True)
+
+    raw_current_period_end = data_object.get("current_period_end")
+    if isinstance(raw_current_period_end, (int, float)) and not isinstance(
+        raw_current_period_end, bool
+    ):
+        workshop_store.set_current_period_end(
+            workshop_id, datetime.fromtimestamp(raw_current_period_end, tz=timezone.utc)
+        )
 
     if push_client is None:
         return CustomerSubscriptionUpdatedResult(workshop_id=workshop_id)

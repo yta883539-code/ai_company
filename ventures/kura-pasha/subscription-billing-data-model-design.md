@@ -84,10 +84,13 @@ Webhook受信時に更新すべきドキュメントも`user_profile/{user_id}`�
   本項目作成の数時間後には完了していたが、本ファイル側の「次の課題として残す」記載が
   未更新のまま残っていた記載漏れだった。`is_trial_period_over`の生成一時停止への配線も
   trial-end-condition-design.md(フェーズ52)で完了済みであることを確認した。
-- `current_period_end`フィールドの読み書きメソッド(`WorkshopStoreProtocol`への
-  `get_current_period_end`/`set_current_period_end`相当)は引き続き未着手(`prototype/
-  stripe_webhook.py`はStripeイベントの`current_period_end`をその場で読み取り解約予約
-  通知の文面生成に渡すのみで、永続化はしていないことを確認した)。
+- (対応済み 2026-09-12 12:58 UTC・フェーズ92): `current_period_end`フィールドの読み書き
+  メソッド(`WorkshopStoreProtocol`への`get_current_period_end`/`set_current_period_end`)を
+  `prototype/usage_counter_workshop.py`に実装した。`prototype/stripe_webhook.py`の
+  `handle_customer_subscription_updated`が`current_period_end`(Unixタイムスタンプ)を
+  UTCの`datetime`へ変換して永続化するよう配線し、解約予約通知の文面生成への引き渡しは
+  従来どおり維持した(永続化と通知は独立に行う設計とした)。`push_client`未指定時(通知を
+  送らない経路)でも永続化自体は行われる。
 - トライアル条件(pricing-plan.md「無料トライアル条件(仮)」: 初回生成成功から1回無料、
   または30日間のいずれか早い方)を`trial_start_at`起算でどう判定するかの具体的な関数設計
   (他venture`trial-end-condition-a-*-design.md`相当)は、実際にはtrial-end-condition-

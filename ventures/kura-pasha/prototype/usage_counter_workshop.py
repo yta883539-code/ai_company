@@ -360,6 +360,18 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
+        """subscription-billing-data-model-design.md 1節: 次回請求日・トライアル終了
+        予定日の判定に使用する。未設定(未契約・イベント未受信)のworkshopはNoneを返す。
+        """
+        ...
+
+    def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
+        """`customer.subscription.updated`等のStripeイベントが持つ`current_period_end`
+        (Unixタイムスタンプ)をdatetimeへ変換した値で永続化する書き込み処理。
+        """
+        ...
+
     def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
         """payment-failure-dunning-design.md(フェーズ56)3節: `invoice.payment_failed`受信
         時刻。未検知(通常運用中、または既に解消済み)の場合はNoneを返す。
@@ -446,6 +458,7 @@ class InMemoryWorkshopStore:
         self._stripe_customer_id_by_workshop: dict[str, str] = {}
         self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
+        self._current_period_end_by_workshop: dict[str, datetime] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
         self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
         self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
@@ -546,6 +559,12 @@ class InMemoryWorkshopStore:
                 f"unknown subscription_status: {status!r} (expected one of {SUBSCRIPTION_STATUSES})"
             )
         self._subscription_status_by_workshop[workshop_id] = status
+
+    def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
+        return self._current_period_end_by_workshop.get(workshop_id)
+
+    def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
+        self._current_period_end_by_workshop[workshop_id] = current_period_end
 
     def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
         return self._payment_failure_detected_at_by_workshop.get(workshop_id)

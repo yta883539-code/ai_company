@@ -84,9 +84,11 @@ course-set-pasha・aircon-pashaと同様、双方向の会話状態管理は不�
   `prototype/stripe_webhook.py`(`verify_stripe_signature()`・`receive_stripe_webhook()`)
   として実装済みであることを確認した(subscription-billing-data-model-design.md側も
   本フェーズであわせて訂正済み)。
-- `current_period_end`フィールドの読み書きメソッド(`WorkshopStoreProtocol`への
-  永続化用メソッド)は引き続き未着手。トライアル条件判定関数はtrial-end-condition-
-  design.md(フェーズ52、`is_trial_period_over`)として対応済み。
+- (対応済み 2026-09-12 12:58 UTC・フェーズ92): `current_period_end`フィールドの読み書き
+  メソッド(`WorkshopStoreProtocol`への永続化用メソッド)を実装した
+  (subscription-billing-data-model-design.md「4. 未検証・残課題」参照)。トライアル
+  条件判定関数はtrial-end-condition-design.md(フェーズ52、`is_trial_period_over`)として
+  対応済み。
 - 実際のGCPプロジェクト作成・LINE公式アカウント接続・Stripeアカウント接続は、
   他ventureと同様にアカウント作成・支払いが発生するためオーナー承認待ちの範囲
   (pending-approval.md参照)。今回は技術構成の整理・cross-venture parityギャップの

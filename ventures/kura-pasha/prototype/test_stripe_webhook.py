@@ -348,6 +348,40 @@ def test_updated_without_push_client_does_not_notify():
     result = handle_customer_subscription_updated(_updated_event(), store)
     check("push_client未指定時はnotified=False", result.notified is False)
     check("workshop_idは返す", result.workshop_id == "W20")
+    check(
+        "push_client未指定でもcurrent_period_endは永続化される(フェーズ92)",
+        store.get_current_period_end("W20")
+        == datetime.fromtimestamp(1_760_000_000, tz=timezone.utc),
+    )
+
+
+def test_updated_persists_current_period_end_with_push_client():
+    store = InMemoryWorkshopStore()
+    store.set_members("W20b", contractor_user_id="contractor_20b", member_user_ids=["contractor_20b"])
+    store.set_stripe_customer_id("W20b", "cus_20b")
+    push = InMemoryLinePushClient()
+    handle_customer_subscription_updated(
+        _updated_event(customer="cus_20b", current_period_end=1_800_000_000),
+        store,
+        push_client=push,
+    )
+    check(
+        "push_client指定時もcurrent_period_endは永続化される(フェーズ92)",
+        store.get_current_period_end("W20b")
+        == datetime.fromtimestamp(1_800_000_000, tz=timezone.utc),
+    )
+
+
+def test_updated_without_current_period_end_leaves_it_unset():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W20c", "cus_20c")
+    event = _updated_event(customer="cus_20c")
+    event["data"]["object"]["current_period_end"] = None
+    handle_customer_subscription_updated(event, store)
+    check(
+        "current_period_end欠落時は書き込まずNoneのまま(フェーズ92)",
+        store.get_current_period_end("W20c") is None,
+    )
 
 
 def test_updated_scheduled_notifies_contractor():
@@ -1083,6 +1117,8 @@ if __name__ == "__main__":
     test_updated_returns_invalid_when_customer_missing()
     test_updated_returns_unresolved_when_customer_unknown()
     test_updated_without_push_client_does_not_notify()
+    test_updated_persists_current_period_end_with_push_client()
+    test_updated_without_current_period_end_leaves_it_unset()
     test_updated_scheduled_notifies_contractor()
     test_updated_rescheduled_notifies_contractor()
     test_updated_no_change_sends_nothing()
