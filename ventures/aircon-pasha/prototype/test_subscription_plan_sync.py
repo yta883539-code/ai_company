@@ -7,6 +7,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -19,6 +20,22 @@ from subscription_plan_sync import (  # noqa: E402
 from user_id_linking import InMemoryUserProfileStore, UserProfile  # noqa: E402
 
 _USER_ID = "U1"
+
+
+class _CountingPlanStore:
+    """`set_current_plan_id`の呼び出し回数を数える薄いラッパー(委譲先は
+    `InMemoryUserProfileStore`)。差分チェックによる書き込み省略を検証するためだけに使う。"""
+
+    def __init__(self, inner: InMemoryUserProfileStore) -> None:
+        self._inner = inner
+        self.set_call_count = 0
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        return self._inner.get_current_plan_id(user_id)
+
+    def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
+        self.set_call_count += 1
+        self._inner.set_current_plan_id(user_id, plan_id)
 
 
 def _profile_store_with_user() -> InMemoryUserProfileStore:
@@ -119,6 +136,30 @@ class SyncCurrentPlanOnSubscriptionEventTest(unittest.TestCase):
         )
         self.assertEqual(result, "スモール")  # 解決自体は行うがstore書き込みはno-op
         self.assertIsNone(store.get_current_plan_id("no-such-user"))
+
+    def test_skips_write_when_resolved_plan_id_unchanged(self):
+        store = _CountingPlanStore(_profile_store_with_user())
+        sync_current_plan_on_subscription_event(
+            store, _USER_ID, _subscription_object("aircon_pasha_standard")
+        )
+        self.assertEqual(store.set_call_count, 1)
+        result = sync_current_plan_on_subscription_event(
+            store, _USER_ID, _subscription_object("aircon_pasha_standard")
+        )
+        self.assertEqual(result, "スタンダード")
+        self.assertEqual(store.set_call_count, 1)  # 2回目は値が同じなので書き込まれない
+        self.assertEqual(store.get_current_plan_id(_USER_ID), "スタンダード")
+
+    def test_writes_again_when_resolved_plan_id_changes(self):
+        store = _CountingPlanStore(_profile_store_with_user())
+        sync_current_plan_on_subscription_event(
+            store, _USER_ID, _subscription_object("aircon_pasha_standard")
+        )
+        sync_current_plan_on_subscription_event(
+            store, _USER_ID, _subscription_object("aircon_pasha_busy")
+        )
+        self.assertEqual(store.set_call_count, 2)
+        self.assertEqual(store.get_current_plan_id(_USER_ID), "繁忙期対応")
 
 
 class ClearCurrentPlanOnSubscriptionDeletedTest(unittest.TestCase):

@@ -3185,4 +3185,30 @@
   横展開自体が不要と結論済み、checkout-intent-detection-parity-review.md参照)は
   既に対応不要と判明しているため残課題としない。次回は他venture・アイデア領域の
   前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-12 09:00 UTC
+- フェーズ208(2026-09-12 15:00 UTC): 他venture・アイデア領域の前進を優先候補として
+  棚卸ししたところ、course-set-pashaのsubscription-plan-change-design.md
+  (フェーズ続き154で解消済みの残課題)と同種のギャップが本ventureの
+  subscription_plan_sync.pyにも残っていたことを発見し、本フェーズで解消した。
+  本ventureの`sync_current_plan_on_subscription_event()`は、`customer.subscription.
+  updated`受信のたびに`price.lookup_key`からプランIDを解決できれば常に
+  `store.set_current_plan_id()`を呼ぶ実装のままで、支払い方法変更等プランが
+  実際には変わらない`.updated`イベントでも無駄な書き込みが発生する設計のまま
+  フェーズ161の新規実装以降見直されていなかった。`CurrentPlanStoreProtocol`に
+  既存の`InMemoryUserProfileStore.get_current_plan_id()`を型として明示的に追加し、
+  `sync_current_plan_on_subscription_event()`側で解決したplan_idを既存の
+  `current_plan_id`と比較し、一致する場合は`set_current_plan_id()`を呼ばない差分
+  チェックを追加した(戻り値・呼び出し元`stripe_dispatch.py`の`plan_synced_user_ids`
+  への追加判定ロジックは変更していない。解決自体は行われたとみなし、書き込みの有無
+  のみを変える設計とした)。test_subscription_plan_sync.pyに呼び出し回数を数える
+  `_CountingPlanStore`ラッパーを新設し、同一プランが連続して届いた場合に
+  `set_current_plan_id`が1回しか呼ばれないこと、プランが実際に変わった場合は
+  再度呼ばれることを確認するテストを2件追加した。venture全体485件全件(483件→485件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証13件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  コード・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。course-set-pashaの同種対応
+  (フェーズ続き154)とは異なり、本ventureは元々`set_plan()`相当の呼び出し回数を結果
+  オブジェクトで区別していなかったため、`plan_synced_user_ids`の意味(「解決できた」
+  ことを示す)はそのまま残した。kura-pasha・line-reservation-aiへの同種ギャップの
+  横展開要否は次回以降の棚卸し候補として残す。
+- 最終更新: 2026-09-12 15:00 UTC

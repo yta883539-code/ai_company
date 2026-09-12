@@ -45,9 +45,16 @@ LOOKUP_KEY_TO_PLAN_ID = {
 
 
 class CurrentPlanStoreProtocol(Protocol):
-    """`user_profile/{user_id}.current_plan_id`への書き込みのみを表す薄いインターフェース
+    """`user_profile/{user_id}.current_plan_id`への読み書きを表す薄いインターフェース
     (payment_failure.pyの`PaymentFailureStoreProtocol`と同じ位置づけ)。専用のInMemoryストアは
-    新設せず、`user_id_linking.InMemoryUserProfileStore`が構造的に(duck typing)満たす。"""
+    新設せず、`user_id_linking.InMemoryUserProfileStore`が構造的に(duck typing)満たす。
+    `get_current_plan_id`は、変更なしの`customer.subscription.updated`(支払い方法変更等、
+    price.lookup_keyが変わらないケース)で`set_current_plan_id`を無駄に呼ばないための
+    差分チェックに使う(course-set-pashaのsubscription-plan-change-design.md「残課題」
+    〈フェーズ続き154で解消済み〉と同種の対応)。"""
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        ...
 
     def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
         ...
@@ -85,13 +92,16 @@ def sync_current_plan_on_subscription_event(
     store: CurrentPlanStoreProtocol, user_id: str, data_object: dict
 ) -> Optional[str]:
     """`customer.subscription.created`/`.updated`受信時に呼ぶ。プランIDを解決できた
-    場合のみ`current_plan_id`へ書き込み、解決できたplan_idを返す(呼び出し元が同期の
-    成否を区別できるようにする)。解決できない場合は`store`に一切触れず、既存の
-    `current_plan_id`をそのまま維持してNoneを返す。"""
+    場合は解決できたplan_idを返す(呼び出し元が同期の成否を区別できるようにする)。
+    解決できない場合は`store`に一切触れず、既存の`current_plan_id`をそのまま維持して
+    Noneを返す。解決できたplan_idが既存の`current_plan_id`と同じ場合は、支払い方法変更
+    等price.lookup_keyが変わらない`.updated`イベントでの無駄な書き込みを避けるため
+    `set_current_plan_id`を呼ばない(値は既に一致しているため結果的に冪等)。"""
     plan_id = resolve_plan_id_from_subscription(data_object)
     if plan_id is None:
         return None
-    store.set_current_plan_id(user_id, plan_id)
+    if store.get_current_plan_id(user_id) != plan_id:
+        store.set_current_plan_id(user_id, plan_id)
     return plan_id
 
 
