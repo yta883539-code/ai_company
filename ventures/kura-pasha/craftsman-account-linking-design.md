@@ -227,4 +227,73 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 
 新規テスト18件追加、venture全体444件→462件全件・schema検証27件いずれもパスを確認した。
 
-最終更新: 2026-09-09(フェーズ69) UTC
+## 11. 追記(フェーズ97): 招待コード(pending_workshop_invites)発行・解決フロー詳細設計・実装
+
+背景: フェーズ96のREADME整理で、5節「追加職人の招待」が概念設計にとどまり
+(`pending_workshop_invites`という名前空間の存在のみ確定、発行契機の具体的判定条件・
+コード解決後にworkshopへどう反映するかの手順・エラー時の扱いは未確定)、実装が一切
+着手されていない(workshop_linking.py冒頭コメント参照)ことが判明した。本節は5節の
+概念設計を、実装可能な具体的手順に落とし込む。
+
+### 11.1 発行条件(issue_invite_code_for_workshop)
+
+- 発行主体チェック: メッセージ送信元user_idが対象workshopの`contractor_user_id`と
+  一致することを要求する(5節「契約者本人と一致する`user_id`から...検知された場合」の
+  通り)。不一致の場合は`not_contractor`エラーとし、コードは発行しない。
+- プランチェック: `plan_id`が`multi_craftsman`であることを要求する(5節末尾
+  「ライト/スタンダードプランでは...アップグレードが必要です、という案内に置き換える」)。
+  `multi_craftsman`以外の場合は`upgrade_required`エラーとし、コードは発行しない
+  (呼び出し側はこのエラー種別を見てアップグレード案内文言に切り替える)。
+- 上記2条件を満たす場合のみ、2節の連携コードと同一のコード仕様(6文字・31種の
+  アルファベット・24時間TTL・使い切り一回限り)で`pending_workshop_invites/{code}`に
+  `{workshop_id, issued_at}`を保存する(2節の`pending_links`と名前空間を分離することで、
+  新規workshop作成用コードと既存workshopへの追加用コードが混同されない=解決ロジックが
+  誤ったコレクションを参照して事故る可能性を構造的に排除する)。
+
+### 11.2 解決・メンバー追加(add_member_from_invite_code)
+
+招待コードを受け取った側(追加される職人)がLINEトーク上でコードを送信した際の
+処理手順:
+
+1. コードを`pending_workshop_invites`から解決する(存在確認・24時間TTL判定・使い切り、
+   いずれも2節の連携コードと同じ判定ロジックを共有する)。失敗時はエラーを返す。
+2. 解決した`workshop_id`に対し、送信元user_idの現在の所属状況を確認する。
+   - 既に**同じ**workshopへ所属済み(`user_profile.workshop_id`が解決先と一致)の場合、
+     冪等に`already_member=True`で成功を返す(2節`create_workshop_from_linking_code`の
+     `already_linked`分岐と同じ考え方。二重送信・再タップ対策)。
+   - 既に**別の**workshopへ所属済みの場合、3節で確定済みの「1人1工房のみ」という
+     MVP前提(craftsman-account-linking-design.md 3節)に違反するため`already_in_
+     another_workshop`エラーとし、追加は行わない(workshop移籍・脱退機能はMVP範囲外、
+     次の課題とする)。
+   - 未所属の場合のみ、workshopの`member_user_ids`へuser_idを追記
+     (`WorkshopStoreProtocol.add_member_user_id`新設)し、
+     `user_profile_store.link(user_id, workshop_id)`で所属を確定する。
+
+`pending_workshop_invites`の期限切れパージ・unfollow時の即時削除は、2節の`pending_links`と
+同じ`LinkingCodeStoreProtocol`形状を共有するため、既存の`purge_expired_links`・
+`delete_pending_links_for_user`・`LinkingCodePurgeThrottle`をそのまま(別インスタンスの
+ストアを渡すだけで)再利用できる。専用関数の新設は不要と判断した。
+
+### 11.3 未検証・残課題
+
+- 発行契機となる「職人を追加したい」という意図のLINEメッセージからの検知(LLM構造化
+  出力への項目追加、または専用キーワード判定)自体は本節未着手。message-context-
+  selection-design.md(フェーズ43)の優先順位に新しいkind(例:
+  `workshop_invite_request`)を追加する形になる見込みだが、既存の4段階優先順位への
+  割り込み位置(契約者からの通常メモ送信とどう区別するか)の検討含め次の課題とする。
+- 招待コード解決(message event側のルーティング、2節フェーズ69の
+  `process_message_event()`相当の配線)自体も本節未着手。現状は
+  `issue_invite_code_for_workshop`・`add_member_from_invite_code`という関数単体が
+  実行可能な状態にとどまる。
+- 複数職人プランの`member_user_ids`上限数(何名まで許容するか)はpricing-plan.md未確定
+  (月間生成回数20回という利用量の上限のみ確定、人数上限は言及なし)。無制限のまま
+  運用してよいか要検討、次の課題とする。
+- 招待コード解決に成功したメッセージへの返信文言(ウェルカムメッセージ相当)自体は
+  本節未設計。9節`format_follow_welcome_message()`相当のフォーマット関数を次の課題とする。
+
+新規テスト10件追加(`IssueInviteCodeForWorkshopTest`3件・`ResolveInviteCodeTest`3件・
+`AddMemberFromInviteCodeTest`4件)、venture全体673件→683件全件
+(`python3 prototype/run_all_tests.py`)・schema検証27件(`python3 schema/validate_test_cases.py`)
+いずれもパスを確認した。
+
+最終更新: 2026-09-12 22:00 UTC(フェーズ97)

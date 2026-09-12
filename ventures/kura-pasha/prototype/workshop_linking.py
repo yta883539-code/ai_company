@@ -17,11 +17,16 @@ LINE友だち追加(follow event)時に発行する連携コードでworkshop(�
 - design 7節(フェーズ66追記)の通り、workshop新規作成時のplan_idは暫定的に最安プラン
   `"light"`で仮設定する(Checkout完了時に実際に選ばれたプランで上書きする想定、
   上書き処理自体は本ファイル未着手で次の課題)。
-- 5節の招待コード(`pending_workshop_invites`、既存workshopへのメンバー追加)、4節の
-  Stripe Checkout連携(`client_reference_id`=workshop_id)は本ファイル未着手のため
+- 4節のStripe Checkout連携(`client_reference_id`=workshop_id)は本ファイル未着手のため
+  引き続き次の課題として残す。
+- フェーズ97: 5節の招待コード(`pending_workshop_invites`、既存workshopへのメンバー追加)を
+  craftsman-account-linking-design.md 11節の詳細設計に沿って実装した
+  (`issue_invite_code_for_workshop`・`add_member_from_invite_code`)。発行契機となる
+  「職人を追加したい」という意図のLINEメッセージ検知・message event側のルーティング
+  (2節のフェーズ69相当の配線)は11節「未検証・残課題」の通り本ファイル未着手のため
   引き続き次の課題として残す。
 
-設計の参照元: craftsman-account-linking-design.md(フェーズ25、フェーズ66追記)
+設計の参照元: craftsman-account-linking-design.md(フェーズ25、フェーズ66追記、フェーズ97追記)
 """
 
 from __future__ import annotations
@@ -212,6 +217,142 @@ def create_workshop_from_linking_code(
     user_profile_store.link(user_id, workshop_id)
 
     return WorkshopCreationResult(ok=True, workshop_id=workshop_id, already_linked=False)
+
+
+@dataclass
+class InviteIssuanceResult:
+    """`issue_invite_code_for_workshop()`の結果(design 5節・11.1節)。"""
+
+    ok: bool
+    code: Optional[str] = None
+    error: Optional[str] = None
+
+
+def issue_invite_code_for_workshop(
+    workshop_id: str,
+    requesting_user_id: str,
+    workshop_store: WorkshopStoreProtocol,
+    invite_store: LinkingCodeStoreProtocol,
+    now: datetime,
+    rng: RandomChoiceSource,
+) -> InviteIssuanceResult:
+    """design 5節・11.1節: 契約者が「職人を追加したい」意図を示した際に呼ばれる想定
+    (意図検知自体は次の課題、design 11.3節)。
+
+    `invite_store`には`pending_links`とは別インスタンス
+    (`pending_workshop_invites`相当)を渡す想定。コード仕様(6文字・31種の
+    アルファベット・24時間TTL)は2節の連携コードと同一のため
+    `LinkingCodeStoreProtocol`/`_generate_candidate_code`をそのまま再利用するが、
+    保存する値は`user_id`ではなく`workshop_id`になる(値の意味が異なるだけで
+    ストアの形は同一)。
+
+    1. 発行主体チェック: `requesting_user_id`が対象workshopの`contractor_user_id`と
+       一致しない場合は`not_contractor`エラーを返しコードは発行しない。
+    2. プランチェック: `plan_id`が`multi_craftsman`でない場合は`upgrade_required`
+       エラーを返す(呼び出し側はアップグレード案内文言に切り替える想定)。
+    """
+    if requesting_user_id != workshop_store.get_contractor_user_id(workshop_id):
+        return InviteIssuanceResult(ok=False, error="not_contractor")
+
+    if workshop_store.get_plan_id(workshop_id) != "multi_craftsman":
+        return InviteIssuanceResult(ok=False, error="upgrade_required")
+
+    for _ in range(_MAX_GENERATION_ATTEMPTS):
+        code = _generate_candidate_code(rng)
+        if invite_store.get(code) is None:
+            invite_store.save(code, workshop_id, now)
+            return InviteIssuanceResult(ok=True, code=code)
+    raise RuntimeError(
+        f"invite code generation collided {_MAX_GENERATION_ATTEMPTS} times in a row"
+    )
+
+
+@dataclass
+class InviteCodeResolution:
+    """招待コード解決結果(design 11.2節)。`resolve_linking_code`のworkshop版。"""
+
+    ok: bool
+    workshop_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+def resolve_invite_code(
+    code: Optional[str],
+    invite_store: LinkingCodeStoreProtocol,
+    now: datetime,
+) -> InviteCodeResolution:
+    """design 11.2節1: 存在確認・期限切れ判定・使い切りを行う(`resolve_linking_code`と
+    同じ判定ロジック、保存されている値が`user_id`ではなく`workshop_id`である点のみ差分)。
+    """
+    if not isinstance(code, str) or not code.strip():
+        return InviteCodeResolution(
+            ok=False, error="invite_code is missing or not a non-empty string"
+        )
+
+    normalized_code = code.strip().upper()
+    entry = invite_store.get(normalized_code)
+    if entry is None:
+        return InviteCodeResolution(
+            ok=False,
+            error="invite_code not found (already used, expired and purged, or never issued)",
+        )
+
+    workshop_id, issued_at = entry
+    if now - issued_at > _LINK_TTL:
+        invite_store.delete(normalized_code)
+        return InviteCodeResolution(ok=False, error="invite_code expired")
+
+    invite_store.delete(normalized_code)
+    return InviteCodeResolution(ok=True, workshop_id=workshop_id)
+
+
+@dataclass
+class AddMemberResult:
+    """`add_member_from_invite_code()`の結果(design 11.2節)。"""
+
+    ok: bool
+    workshop_id: Optional[str] = None
+    already_member: bool = False
+    error: Optional[str] = None
+
+
+def add_member_from_invite_code(
+    code: Optional[str],
+    user_id: str,
+    invite_store: LinkingCodeStoreProtocol,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+    now: datetime,
+) -> AddMemberResult:
+    """design 11.2節: 招待コードを受け取った職人がLINEトーク上でコードを送信した際の
+    エントリポイント。
+
+    1. `resolve_invite_code()`でコードをworkshop_idへ解決する(失敗時はそのまま
+       エラーを返す)。
+    2. 送信元user_idの現在の所属状況を確認する。
+       - 既に解決先と**同じ**workshopへ所属済みなら、冪等に`already_member=True`で
+         成功を返す(二重送信・再タップ対策、`create_workshop_from_linking_code`の
+         `already_linked`分岐と同じ考え方)。
+       - 既に**別の**workshopへ所属済みなら、craftsman-account-linking-design.md
+         3節の「1人1工房のみ」というMVP前提に違反するため`already_in_another_
+         workshop`エラーとし、追加は行わない(移籍・脱退機能はMVP範囲外)。
+       - 未所属の場合のみ、`workshop_store.add_member_user_id()`でメンバーへ追加し、
+         `user_profile_store.link()`で所属を確定する。
+    """
+    resolution = resolve_invite_code(code, invite_store, now)
+    if not resolution.ok:
+        return AddMemberResult(ok=False, error=resolution.error)
+
+    workshop_id = resolution.workshop_id
+    existing_workshop_id = user_profile_store.get_workshop_id(user_id)
+    if existing_workshop_id is not None:
+        if existing_workshop_id == workshop_id:
+            return AddMemberResult(ok=True, workshop_id=workshop_id, already_member=True)
+        return AddMemberResult(ok=False, error="already_in_another_workshop")
+
+    workshop_store.add_member_user_id(workshop_id, user_id)
+    user_profile_store.link(user_id, workshop_id)
+    return AddMemberResult(ok=True, workshop_id=workshop_id, already_member=False)
 
 
 class LinkingCodePurgeThrottle:

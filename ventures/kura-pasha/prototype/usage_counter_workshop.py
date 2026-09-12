@@ -122,6 +122,10 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
 - フェーズ66: workshop_linking.py(新規)がfollowイベント経由の新規workshop作成処理から
   呼び出せるよう、`UserProfileStoreProtocol`へ`link(user_id, workshop_id)`を追加した
   (`InMemoryUserProfileStore.link()`自体はフェーズ26から既存)。
+- フェーズ97: craftsman-account-linking-design.md 5節・11節(招待コードによる既存
+  workshopへの職人追加)向けに、`WorkshopStoreProtocol`へ`add_member_user_id`を追加した。
+  `set_members`は初期作成時の一括設定用のため、招待コード解決時の1名追加には使えず
+  新設した(既存メンバーに含まれる場合は何もしない冪等設計)。
 """
 
 from __future__ import annotations
@@ -281,6 +285,13 @@ class WorkshopStoreProtocol(Protocol):
         ...
 
     def get_member_user_ids(self, workshop_id: str) -> list[str]:
+        ...
+
+    def add_member_user_id(self, workshop_id: str, user_id: str) -> None:
+        """craftsman-account-linking-design.md 5節・11節(フェーズ97): 招待コード解決時に
+        既存workshopへ1名追加する書き込み処理。既にmember_user_idsに含まれる場合は
+        何もしない(冪等)。
+        """
         ...
 
     def get_member_display_name(self, workshop_id: str, user_id: str) -> Optional[str]:
@@ -494,6 +505,11 @@ class InMemoryWorkshopStore:
 
     def get_member_user_ids(self, workshop_id: str) -> list[str]:
         return list(self._member_user_ids_by_workshop.get(workshop_id, []))
+
+    def add_member_user_id(self, workshop_id: str, user_id: str) -> None:
+        existing = self._member_user_ids_by_workshop.setdefault(workshop_id, [])
+        if user_id not in existing:
+            existing.append(user_id)
 
     def get_member_display_name(self, workshop_id: str, user_id: str) -> Optional[str]:
         return self._display_names_by_workshop.get(workshop_id, {}).get(user_id)

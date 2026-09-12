@@ -1978,4 +1978,25 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は上記「代表者以外の
   職人の追加登録手順」の設計、または他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 21:00 UTC
+- フェーズ97(2026-09-12 22:00 UTC): フェーズ96が次のステップ候補としていた「代表者以外の
+  職人を同一workshopへ追加登録する具体的な手順」に対応した。craftsman-account-linking-
+  design.md 5節の概念設計(招待コード`pending_workshop_invites`)を11節として詳細化し、
+  発行条件(契約者本人からの発行であること・`multi_craftsman`プランであること、いずれか
+  欠く場合は`not_contractor`/`upgrade_required`エラー)、解決・メンバー追加手順(招待コード
+  解決→送信元の所属状況で分岐: 同一workshop既加入なら冪等成功、別workshop加入済みなら
+  「1人1工房のみ」というMVP前提〈3節〉に反するため追加を拒否、未所属なら追加)を確定した。
+  `workshop_linking.py`に`issue_invite_code_for_workshop`・`resolve_invite_code`・
+  `add_member_from_invite_code`を新設し、`WorkshopStoreProtocol`へ`add_member_user_id`を
+  追加した(`set_members`は初期作成時の一括設定用のため1名追加には使えず新設)。招待コードの
+  期限切れパージ・unfollow時の即時削除は2節の連携コードと同じ`LinkingCodeStoreProtocol`
+  形状を共有するため、既存の`purge_expired_links`等を別インスタンスのストアでそのまま
+  再利用でき専用関数の新設は不要と判断した。発行契機となる「職人を追加したい」という意図の
+  LINEメッセージ検知・message event側のルーティング配線は本フェーズ未着手で次の課題として
+  残した(詳細はdesign 11.3節)。新規テスト10件追加、venture全体673件→683件全件
+  (`python3 prototype/run_all_tests.py`)・schema検証27件(`python3 schema/validate_test_cases.py`)
+  いずれもパスを確認した。承認不要な設計文書追記・コード実装・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。次回は上記「意図検知・ルーティング配線」、または他venture・
+  アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 22:00 UTC

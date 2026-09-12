@@ -20,10 +20,13 @@ from workshop_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
     LinkingCodePurgeThrottle,
     LinkingResolution,
+    add_member_from_invite_code,
     create_workshop_from_linking_code,
     delete_pending_links_for_user,
+    issue_invite_code_for_workshop,
     issue_linking_code_on_follow,
     purge_expired_links,
+    resolve_invite_code,
     resolve_linking_code,
 )
 
@@ -203,6 +206,139 @@ class CreateWorkshopFromLinkingCodeTest(unittest.TestCase):
         )
 
         self.assertNotEqual(first.workshop_id, second.workshop_id)
+
+
+class IssueInviteCodeForWorkshopTest(unittest.TestCase):
+    """craftsman-account-linking-design.md 5節・11.1節(フェーズ97)。"""
+
+    def _make_multi_craftsman_workshop(self, workshop_store, workshop_id="W1", contractor="U-contractor"):
+        workshop_store.set_members(workshop_id, contractor_user_id=contractor, member_user_ids=[contractor])
+        workshop_store.set_plan(workshop_id, "multi_craftsman")
+
+    def test_issues_code_for_contractor_of_multi_craftsman_workshop(self):
+        workshop_store = InMemoryWorkshopStore()
+        self._make_multi_craftsman_workshop(workshop_store)
+        invite_store = InMemoryLinkingCodeStore()
+
+        result = issue_invite_code_for_workshop(
+            "W1", "U-contractor", workshop_store, invite_store, _NOW, random.Random(1)
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(len(result.code), 6)
+        self.assertEqual(invite_store.get(result.code), ("W1", _NOW))
+
+    def test_rejects_non_contractor(self):
+        workshop_store = InMemoryWorkshopStore()
+        self._make_multi_craftsman_workshop(workshop_store)
+        invite_store = InMemoryLinkingCodeStore()
+
+        result = issue_invite_code_for_workshop(
+            "W1", "U-other-member", workshop_store, invite_store, _NOW, random.Random(1)
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "not_contractor")
+        self.assertIsNone(result.code)
+
+    def test_rejects_non_multi_craftsman_plan(self):
+        workshop_store = InMemoryWorkshopStore()
+        workshop_store.set_members("W1", contractor_user_id="U-contractor", member_user_ids=["U-contractor"])
+        workshop_store.set_plan("W1", "standard")
+        invite_store = InMemoryLinkingCodeStore()
+
+        result = issue_invite_code_for_workshop(
+            "W1", "U-contractor", workshop_store, invite_store, _NOW, random.Random(1)
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "upgrade_required")
+
+
+class ResolveInviteCodeTest(unittest.TestCase):
+    def test_resolves_a_valid_unexpired_code_to_workshop_id(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "W1", _NOW)
+        result = resolve_invite_code("ABC234", store, _NOW + timedelta(hours=1))
+        self.assertTrue(result.ok)
+        self.assertEqual(result.workshop_id, "W1")
+
+    def test_rejects_expired_code(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "W1", _NOW)
+        result = resolve_invite_code("ABC234", store, _NOW + timedelta(hours=24, minutes=1))
+        self.assertFalse(result.ok)
+        self.assertIn("expired", result.error)
+
+    def test_code_is_one_time_use(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "W1", _NOW)
+        first = resolve_invite_code("ABC234", store, _NOW)
+        second = resolve_invite_code("ABC234", store, _NOW)
+        self.assertTrue(first.ok)
+        self.assertFalse(second.ok)
+
+
+class AddMemberFromInviteCodeTest(unittest.TestCase):
+    """craftsman-account-linking-design.md 11.2節(フェーズ97)。"""
+
+    def _make_stores(self):
+        return InMemoryLinkingCodeStore(), InMemoryUserProfileStore(), InMemoryWorkshopStore()
+
+    def test_adds_unlinked_user_as_new_member(self):
+        invite_store, profile_store, workshop_store = self._make_stores()
+        workshop_store.set_members("W1", contractor_user_id="U-contractor", member_user_ids=["U-contractor"])
+        invite_store.save("ABC234", "W1", _NOW)
+
+        result = add_member_from_invite_code(
+            "ABC234", "U-new", invite_store, profile_store, workshop_store, _NOW
+        )
+
+        self.assertTrue(result.ok)
+        self.assertFalse(result.already_member)
+        self.assertEqual(result.workshop_id, "W1")
+        self.assertEqual(workshop_store.get_member_user_ids("W1"), ["U-contractor", "U-new"])
+        self.assertEqual(profile_store.get_workshop_id("U-new"), "W1")
+
+    def test_is_idempotent_when_already_a_member_of_the_same_workshop(self):
+        invite_store, profile_store, workshop_store = self._make_stores()
+        workshop_store.set_members("W1", contractor_user_id="U-contractor", member_user_ids=["U-contractor", "U-new"])
+        profile_store.link("U-new", "W1")
+        invite_store.save("ABC234", "W1", _NOW)
+
+        result = add_member_from_invite_code(
+            "ABC234", "U-new", invite_store, profile_store, workshop_store, _NOW
+        )
+
+        self.assertTrue(result.ok)
+        self.assertTrue(result.already_member)
+        self.assertEqual(workshop_store.get_member_user_ids("W1"), ["U-contractor", "U-new"])
+
+    def test_rejects_user_already_belonging_to_a_different_workshop(self):
+        invite_store, profile_store, workshop_store = self._make_stores()
+        workshop_store.set_members("W1", contractor_user_id="U-contractor", member_user_ids=["U-contractor"])
+        profile_store.link("U-elsewhere", "W-other")
+        invite_store.save("ABC234", "W1", _NOW)
+
+        result = add_member_from_invite_code(
+            "ABC234", "U-elsewhere", invite_store, profile_store, workshop_store, _NOW
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "already_in_another_workshop")
+        self.assertEqual(workshop_store.get_member_user_ids("W1"), ["U-contractor"])
+        self.assertEqual(profile_store.get_workshop_id("U-elsewhere"), "W-other")
+
+    def test_invalid_code_adds_no_member(self):
+        invite_store, profile_store, workshop_store = self._make_stores()
+        workshop_store.set_members("W1", contractor_user_id="U-contractor", member_user_ids=["U-contractor"])
+
+        result = add_member_from_invite_code(
+            "ZZZ999", "U-new", invite_store, profile_store, workshop_store, _NOW
+        )
+
+        self.assertFalse(result.ok)
+        self.assertIsNone(profile_store.get_workshop_id("U-new"))
 
 
 class PurgeExpiredLinksTest(unittest.TestCase):
