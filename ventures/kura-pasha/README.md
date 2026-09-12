@@ -1999,4 +1999,23 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   approval.mdへの追記なし。次回は上記「意図検知・ルーティング配線」、または他venture・
   アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 22:00 UTC
+- フェーズ98(2026-09-12 23:00 UTC): フェーズ97が次のステップ候補としていた「招待コード
+  解決のmessage event側ルーティング配線」・「ウェルカムメッセージ」の2点に対応した
+  (発行契機のLLM意図検知・複数職人プランの人数上限は引き続き次の課題)。
+  `cloud_function_webhook.process_message_event()`に`invite_store`引数を追加し、未連携
+  ユーザーが送ったテキストを、まず連携コード(`pending_links`、workshop新規作成)、失敗
+  した場合のみ招待コード(`pending_workshop_invites`、既存workshopへの追加)の順で解決を
+  試みる2段構成とした。両者は11.1節で別名前空間に保存する設計のため、順に試しても事故は
+  起きない。`invite_store`は完全省略可能パラメータとし、未指定時はフェーズ69までと同じ
+  挙動を保つ後方互換設計とした。`dispatch_webhook_events()`にも同引数を追加し配線した。
+  招待コード解決成功時の返信文言として`INVITE_JOIN_SUCCESS_MESSAGE`(「工房への参加が
+  完了しました。...」)を新設し、11.3節が未設計としていたウェルカムメッセージを確定した
+  (詳細はcraftsman-account-linking-design.md 11.4節)。新規テスト3件(check()呼び出し
+  13件分)追加、venture全体`python3 prototype/run_all_tests.py`(10ファイル全件)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なコード・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は11.3節に残る
+  「発行契機の意図検知・LLM構造化出力へのkind追加」「人数上限の検討」、または他venture・
+  アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-12 23:00 UTC

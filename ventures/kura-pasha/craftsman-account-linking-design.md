@@ -281,19 +281,61 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
   selection-design.md(フェーズ43)の優先順位に新しいkind(例:
   `workshop_invite_request`)を追加する形になる見込みだが、既存の4段階優先順位への
   割り込み位置(契約者からの通常メモ送信とどう区別するか)の検討含め次の課題とする。
-- 招待コード解決(message event側のルーティング、2節フェーズ69の
-  `process_message_event()`相当の配線)自体も本節未着手。現状は
-  `issue_invite_code_for_workshop`・`add_member_from_invite_code`という関数単体が
-  実行可能な状態にとどまる。
+- ~~招待コード解決(message event側のルーティング、2節フェーズ69の
+  `process_message_event()`相当の配線)自体も本節未着手。~~ → フェーズ98で対応済み
+  (11.4節参照)。
 - 複数職人プランの`member_user_ids`上限数(何名まで許容するか)はpricing-plan.md未確定
   (月間生成回数20回という利用量の上限のみ確定、人数上限は言及なし)。無制限のまま
   運用してよいか要検討、次の課題とする。
-- 招待コード解決に成功したメッセージへの返信文言(ウェルカムメッセージ相当)自体は
-  本節未設計。9節`format_follow_welcome_message()`相当のフォーマット関数を次の課題とする。
+- ~~招待コード解決に成功したメッセージへの返信文言(ウェルカムメッセージ相当)自体は
+  本節未設計。~~ → フェーズ98で`INVITE_JOIN_SUCCESS_MESSAGE`として確定済み(11.4節参照)。
 
 新規テスト10件追加(`IssueInviteCodeForWorkshopTest`3件・`ResolveInviteCodeTest`3件・
 `AddMemberFromInviteCodeTest`4件)、venture全体673件→683件全件
 (`python3 prototype/run_all_tests.py`)・schema検証27件(`python3 schema/validate_test_cases.py`)
 いずれもパスを確認した。
 
-最終更新: 2026-09-12 22:00 UTC(フェーズ97)
+## 11.4 追記(フェーズ98): 招待コード解決のmessage event側ルーティング配線・ウェルカムメッセージ
+
+11.3節の残課題のうち、以下2点に対応した(発行契機のLLM意図検知・人数上限は未着手のまま残す)。
+
+**ルーティング配線**: `process_message_event()`(2節フェーズ69で新設)に
+`invite_store: Optional[LinkingCodeStoreProtocol] = None`を追加した。未連携ユーザーが
+送ってきたテキストは、(1)まず`create_workshop_from_linking_code()`(workshop新規作成用の
+連携コード、`pending_links`)への解決を試み、(2)それが失敗し、かつ`invite_store`が渡されて
+いる場合のみ`add_member_from_invite_code()`(既存workshopへの追加用の招待コード、
+`pending_workshop_invites`)への解決を試みる、という2段構成とした。11.1節で連携コードと
+招待コードを別名前空間で保存する設計としていたため、両方を順に試しても誤って別の意味の
+コードとして解決される事故は構造的に起きない。`invite_store`は`user_profile_store`・
+`workshop_store`・`linking_store`の3つとは別枠の完全省略可能パラメータとし、未指定時は
+フェーズ69までと同じ「連携コードのみを試す」挙動をそのまま維持する後方互換設計とした
+(招待コード機能自体をvent全体に一括で有効化する前の段階的ロールアウトを想定)。
+`dispatch_webhook_events()`にも同様に`invite_store`引数を追加し、`process_message_event()`
+への委譲時にそのまま渡すよう配線した。
+
+**ウェルカムメッセージ**: 招待コード解決に成功した場合の返信文言として
+`INVITE_JOIN_SUCCESS_MESSAGE`(「工房への参加が完了しました。依頼内容の簡単なメモを
+送ってください。」)を新設した。2節`LINKING_SUCCESS_MESSAGE`(「連携が完了しました。...」)と
+同じ構成だが、「連携」ではなく「工房への参加」という招待コード特有の文脈を明示する点のみ
+差分とした。解決失敗時(連携コード・招待コードいずれとしても解決できない場合)は、
+既存の`LINKING_REQUIRED_MESSAGE`をそのまま流用し区別しない設計とした(利用者から見て
+どちらのつもりで送ったコードかをこのメッセージ単体からは判別できないため、2節と同じ
+「原因を区別しない」方針を踏襲)。
+
+`add_member_from_invite_code()`自体が「既に同じworkshopに所属済みなら冪等成功」
+「既に別workshopに所属済みならエラー」を内包しているが、`process_message_event()`側は
+この関数へ到達する時点で既に「送信元user_idがどのworkshopにも所属していない」ことを
+直前の分岐で確認済みのため、招待コード解決に成功した場合は常に新規追加(`already_member
+=False`)の分岐のみを通る。
+
+新規テスト3件追加(`test_process_message_event_joins_workshop_on_valid_invite_code`・
+`test_process_message_event_falls_back_to_linking_required_when_invite_store_not_provided`・
+`test_process_message_event_replies_linking_required_when_invite_code_invalid`、
+test_cloud_function_webhook.pyのcheck()呼び出しとしては13件分)、
+venture全体`python3 prototype/run_all_tests.py`(10ファイル全件)・schema検証27件
+(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要なコード・
+テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+いないためpending-approval.mdへの追記なし。次回は11.3節に残る「発行契機の意図検知・
+LLM構造化出力へのkind追加」または「`member_user_ids`上限数の検討」を優先候補とする。
+
+最終更新: 2026-09-12 23:00 UTC(フェーズ98)

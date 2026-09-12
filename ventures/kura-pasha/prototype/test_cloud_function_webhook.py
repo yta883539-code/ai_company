@@ -15,6 +15,7 @@ from cloud_function_webhook import (
     API_FAILURE_FALLBACK_MESSAGE,
     CHARACTER_LIMIT_FALLBACK_MESSAGE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
+    INVITE_JOIN_SUCCESS_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
     PAYMENT_SUSPENDED_NOTICE,
@@ -55,6 +56,7 @@ from validate_test_cases import TEST_CASES
 from workshop_linking import (
     InMemoryLinkingCodeStore,
     create_workshop_from_linking_code,
+    issue_invite_code_for_workshop,
     issue_linking_code_on_follow,
 )
 
@@ -1210,6 +1212,99 @@ def test_process_message_event_replies_linking_required_when_user_id_missing():
 
 
 # ---------------------------------------------------------------------------
+# process_message_event()の招待コード解決(フェーズ98、design 11.3節)
+# ---------------------------------------------------------------------------
+
+def _make_multi_craftsman_workshop(profiles, workshops, *, workshop_id="W_MULTI", contractor_id="U_CONTRACTOR"):
+    profiles.link(contractor_id, workshop_id)
+    workshops.set_members(workshop_id, contractor_id, [contractor_id])
+    workshops.set_plan(workshop_id, "multi_craftsman")
+    return workshop_id, contractor_id
+
+
+def test_process_message_event_joins_workshop_on_valid_invite_code():
+    profiles, workshops, counters = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops)
+    linking_store = InMemoryLinkingCodeStore()
+    invite_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 12, 12, 0, 0)
+    issuance = issue_invite_code_for_workshop(
+        workshop_id, contractor_id, workshops, invite_store, now, random.Random(1),
+    )
+    check("招待コード発行に成功する(事前条件)", issuance.ok is True)
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event(issuance.code, user_id="U_NEW_CRAFTSMAN"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, invite_store=invite_store, now=now,
+    )
+    check("有効な招待コード送信時はhandled=True", result.handled is True)
+    check("有効な招待コード送信時は返信送信済み", result.reply_sent is True)
+    check(
+        "有効な招待コード送信時はINVITE_JOIN_SUCCESS_MESSAGEを返す",
+        result.reply_text == INVITE_JOIN_SUCCESS_MESSAGE,
+    )
+    check("有効な招待コード送信時はLLMを呼び出さない(依頼メモとして処理しない)", llm_call.calls == [])
+    check(
+        "招待された職人は対象workshopに紐付く",
+        profiles.get_workshop_id("U_NEW_CRAFTSMAN") == workshop_id,
+    )
+    check("招待コードは使い切りで消費される", invite_store.get(issuance.code) is None)
+
+
+def test_process_message_event_falls_back_to_linking_required_when_invite_store_not_provided():
+    profiles, workshops, counters = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops)
+    linking_store = InMemoryLinkingCodeStore()
+    invite_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 12, 12, 0, 0)
+    issuance = issue_invite_code_for_workshop(
+        workshop_id, contractor_id, workshops, invite_store, now, random.Random(1),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event(issuance.code, user_id="U_NEW_CRAFTSMAN"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, now=now,
+    )
+    check(
+        "invite_store未指定時は招待コードでもLINKING_REQUIRED_MESSAGEを返す(後方互換)",
+        result.reply_text == LINKING_REQUIRED_MESSAGE,
+    )
+    check(
+        "invite_store未指定時は招待コードを送ってもworkshopへ加入しない",
+        profiles.get_workshop_id("U_NEW_CRAFTSMAN") is None,
+    )
+    check("招待コード自体は未指定時も消費されず残る", invite_store.get(issuance.code) is not None)
+
+
+def test_process_message_event_replies_linking_required_when_invite_code_invalid():
+    profiles, workshops, counters = _make_stores()
+    linking_store = InMemoryLinkingCodeStore()
+    invite_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("XXXXXX", user_id="U_UNLINKED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, invite_store=invite_store,
+    )
+    check(
+        "連携コード・招待コードいずれとしても解決できない場合はLINKING_REQUIRED_MESSAGEを返す",
+        result.reply_text == LINKING_REQUIRED_MESSAGE,
+    )
+    check("LLMを呼び出さない", llm_call.calls == [])
+
+
+# ---------------------------------------------------------------------------
 # process_postback_event()(フェーズ71)
 # ---------------------------------------------------------------------------
 
@@ -1762,6 +1857,9 @@ if __name__ == "__main__":
     test_process_message_event_creates_workshop_on_valid_linking_code()
     test_process_message_event_replies_linking_required_on_invalid_text()
     test_process_message_event_replies_linking_required_when_user_id_missing()
+    test_process_message_event_joins_workshop_on_valid_invite_code()
+    test_process_message_event_falls_back_to_linking_required_when_invite_store_not_provided()
+    test_process_message_event_replies_linking_required_when_invite_code_invalid()
     test_process_postback_event_ignores_unknown_postback_data()
     test_process_postback_event_creates_checkout_session_for_linked_contractor()
     test_process_postback_event_uses_plan_id_from_postback_data()

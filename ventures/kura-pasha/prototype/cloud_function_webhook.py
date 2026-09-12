@@ -64,6 +64,7 @@ from validate_test_cases import (  # noqa: E402
 from workshop_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     RandomChoiceSource,
+    add_member_from_invite_code,
     create_workshop_from_linking_code,
     issue_linking_code_on_follow,
 )
@@ -844,7 +845,7 @@ def process_memo_event(
 
 
 # ---------------------------------------------------------------------------
-# process_message_event()(フェーズ69)
+# process_message_event()(フェーズ69、フェーズ98で招待コード解決を追加)
 #
 # フェーズ68「トーク上で送り返されたコードのworkshop作成への解決(message event側で
 # コード形式のテキストをcreate_workshop_from_linking_code()へルーティングする処理)」を
@@ -858,15 +859,42 @@ def process_memo_event(
 # そのものを行わない後方互換設計(フェーズ64のusage_counter連携と同じ考え方)である点が
 # aircon-pasha版との差分となる。dispatch_webhook_events()側は本フェーズでmessageイベントの
 # 委譲先をprocess_memo_event()からprocess_message_event()へ差し替える。
+#
+# フェーズ98追記: craftsman-account-linking-design.md 11.3節が残課題としていた
+# 「招待コード(pending_workshop_invites)解決のmessage event側ルーティング配線」に
+# 着手する。11.1〜11.2節の設計どおり、workshop新規作成用の連携コード(pending_links)と
+# 既存workshopへの追加用の招待コード(pending_workshop_invites)は別名前空間で保存される
+# ため、未連携ユーザーが送ってきたテキストは(1)まず連携コードとして
+# create_workshop_from_linking_code()に解決を試み、(2)失敗した場合のみ招待コードとして
+# add_member_from_invite_code()に解決を試みる、の2段構成とした(名前空間が分離されている
+# ため両方を順に試しても誤って別の意味のコードとして解決される事故は起きない)。
+# add_member_from_invite_code()自体が「既に同じworkshopに所属済みなら冪等成功」
+# 「既に別workshopに所属済みならエラー」を内包しているが、本関数へ到達する時点で
+# 呼び出し元は既に「user_profile_store.get_workshop_id(user_id) is None」を確認済み
+# (このブロックの直前の分岐)であるため、招待コード解決に成功した場合は常に新規追加の
+# 分岐(already_member=False)を通る。招待コードのみ有効(invite_storeのみ渡された)と
+# いった組み合わせは想定していないため、招待コード解決の追加試行は`invite_store`が
+# 渡された場合のみ行う後方互換設計とした(未指定時はフェーズ69までと同じ、連携コードの
+# みを試す挙動のまま)。
 # ---------------------------------------------------------------------------
 
 LINKING_SUCCESS_MESSAGE = (
     "連携が完了しました。依頼内容の簡単なメモを送ってください。"
 )
 
+# design 11.3節が「本節未設計」として残していた招待コード解決成功時のウェルカムメッセージ
+# (LINKING_SUCCESS_MESSAGE相当)。「連携」ではなく「工房への参加」という招待コード特有の
+# 文脈を明示する以外はLINKING_SUCCESS_MESSAGEと同じ構成とした。
+INVITE_JOIN_SUCCESS_MESSAGE = (
+    "工房への参加が完了しました。依頼内容の簡単なメモを送ってください。"
+)
+
 # design自体は解決失敗時の案内文言を確定させていないため、aircon-pashaのLINKING_REQUIRED_
 # MESSAGEと同じ考え方(「連携コード自体が見つからない(未連携・期限切れ・入力ミス等)」と
 # 「未連携のまま依頼メモを送った」を区別せず同一の案内に倒す)で本フェーズ新規に定める。
+# フェーズ98: 招待コードとしても解決できなかった場合も同じ案内に倒す(連携コード・招待
+# コードいずれも「6文字のコード」という見た目は同じであり、ユーザー視点でどちらの
+# コードを送ったつもりかを区別する情報をこのメッセージだけでは持たないため)。
 LINKING_REQUIRED_MESSAGE = (
     "先に連携コードの送信が必要です。友だち追加時にお送りした6文字の連携コードを、"
     "このトークにそのまま送信してください。コードの有効期限が切れた場合は、もう一度"
@@ -884,6 +912,7 @@ def process_message_event(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional["CheckoutSessionClient"] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
@@ -898,15 +927,21 @@ def process_message_event(
       process_memo_event()へそのまま委譲する。
     - 未連携: 受信テキストを`create_workshop_from_linking_code()`へ渡す。連携コードとして
       解決・workshop新規作成に成功した場合のみLINKING_SUCCESS_MESSAGEを返す。解決できない
-      場合(コード不一致・期限切れ・依頼メモの先送り送信等、いずれも区別しない)は
-      LINKING_REQUIRED_MESSAGEを返す。process_memo_event()へは一切進めない(未連携user_idの
-      利用回数カウントを発生させないため)。
+      場合で、かつ`invite_store`が渡されている場合は、続けて`add_member_from_invite_code()`
+      (design 11.2節、既存workshopへの追加用招待コードの解決)を試みる。こちらが成功した
+      場合はINVITE_JOIN_SUCCESS_MESSAGEを返す(フェーズ98、design 11.3節「ウェルカム
+      メッセージ」の残課題に対応)。いずれの解決にも失敗した場合(コード不一致・期限切れ・
+      依頼メモの先送り送信等、いずれも区別しない)はLINKING_REQUIRED_MESSAGEを返す。
+      process_memo_event()へは一切進めない(未連携user_idの利用回数カウントを発生させ
+      ないため)。
     - user_idが取得できない未連携イベント(通常発生しない想定)も安全側に倒し
       LINKING_REQUIRED_MESSAGEを返す。
     - 3つのストアのいずれかが未接続(None)の場合は、フェーズ68以前と同じ後方互換動作として
       連携判定自体を行わずprocess_memo_event()へ直接委譲する(本venture側dispatch層が
       「process_memo_eventへ到達するのは常に連携済みuser_idのみ」という前提をまだ
       保証していないケースを含む、フェーズ64のprocess_memo_event() docstring 4.と同じ考え方)。
+      `invite_store`はこの3つには含めない(招待コード解決は連携コード解決が失敗した
+      場合の追加試行に過ぎず、未指定でもフェーズ69までの挙動をそのまま維持できるため)。
     """
     linking_enabled = (
         user_profile_store is not None
@@ -956,6 +991,20 @@ def process_message_event(
             handled=True, reply_sent=reply_sent,
             reply_text=LINKING_SUCCESS_MESSAGE if reply_sent else None,
         )
+
+    if invite_store is not None:
+        membership = add_member_from_invite_code(
+            message.get("text"), user_id, invite_store, user_profile_store, workshop_store,
+            resolved_now,
+        )
+        if membership.ok:
+            reply_sent = _reply_with_retry(
+                reply_client, reply_token, INVITE_JOIN_SUCCESS_MESSAGE
+            )
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=INVITE_JOIN_SUCCESS_MESSAGE if reply_sent else None,
+            )
 
     reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)
     return MemoProcessResult(
@@ -1165,6 +1214,7 @@ def dispatch_webhook_events(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
@@ -1177,6 +1227,9 @@ def dispatch_webhook_events(
       自体が省略可能な設計(3つ全てが揃わない限り連携判定自体を行わない後方互換設計)のため、
       未接続でもmessageイベントの処理自体は行う(その場合連携コード判定・usage_counter連携
       なしで、フェーズ68以前と同じくprocess_memo_event()への直接委譲として動作する)。
+      `invite_store`(フェーズ98で追加、design 11.3節の招待コード解決ルーティング)も同様に
+      省略可能で、未接続の場合は招待コード(既存workshopへの追加)の解決は一切試みず連携
+      コード(workshop新規作成)の判定のみ行う後方互換動作となる。
       `checkout_session_client`(フェーズ72で追加)も同様に省略可能で、未接続の場合は
       status=checkout_intentであっても実Checkout Sessionを発行せずcheckout_notice.bodyの
       一次応答文言のみを返す後方互換動作となる(postbackとは異なりmessageイベント自体は
@@ -1224,6 +1277,7 @@ def dispatch_webhook_events(
                     workshop_store=workshop_store,
                     usage_counter_store=usage_counter_store,
                     linking_store=linking_store,
+                    invite_store=invite_store,
                     checkout_session_client=checkout_session_client,
                     now=now,
                 )
