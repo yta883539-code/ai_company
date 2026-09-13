@@ -2944,4 +2944,21 @@
   分類精度検証は引き続き実LLM接続後(オーナー承認待ち)の課題として残る。承認不要な
   設計文書作成・schema/テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-13 02:00 UTC
+- フェーズ210(2026-09-13 18:00 UTC): subscription-cancellation-scheduled-message-
+  suspension-consistency-design.md(フェーズ157)5節の残課題「制限モード中の解約予約
+  案内メッセージの具体的な文言は初期案として妥当性を検証する必要がある」について、
+  aircon-pashaが本venture発の課題をフェーズ195で翻案・先行レビュー済み
+  (restricted-mode-cancellation-message-copy-review.md)だったにもかかわらず、起点で
+  ある本venture自身には同種のレビュー文書が存在しないcross-venture parityの抜けが
+  あったことを発見した。aircon-pasha版のレビュー観点(状況の理解しやすさ・次の行動の
+  明確さ・不安を煽らない言い回し・トーン一貫性)・代替候補案(案A現行/案B行動起点/
+  案C列挙)をそのまま本venture実装(`render_subscription_cancellation_scheduled_message()`
+  の「投稿文の生成」版文言)向けに翻案し、restricted-mode-cancellation-message-copy-
+  review.mdを新規作成した。結論は現行の案A維持を推奨(aircon-pasha版と同一理由)。
+  コード変更は無く、venture全体583件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証15件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(変更前と同じ結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
+  への追記なし。line-reservation-aiの同種通知が制限モードとの整合性を考慮済みかの
+  確認は次の課題として残す。
+- 最終更新: 2026-09-13 18:00 UTC
