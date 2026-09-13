@@ -2192,3 +2192,28 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 
 最終更新: 2026-09-13 10:00 UTC(フェーズ106: (b)契約者交代・再確認応答検知のプロンプト
 文面を新設。(c)・schema反映・実配線は次の課題)
+
+- フェーズ107(2026-09-13 12:00 UTC): フェーズ106が次のステップ候補としていた
+  (c)「残すメンバー」連絡検知のプロンプト文面新設に対応した(message-context-
+  selection-design.md 9節・llm-system-prompt-draft.md参照)。着手の前提としていた
+  「メンバー一覧(`member_user_ids`)をどうプロンプトへ渡すか」を検討した結果、
+  member-retention-notice-design.md 3節が既に「LLMによる本人確認・workshop内
+  メンバーとの突き合わせは行わない」と定めていたことから、メンバー一覧・名前は
+  プロンプトへ一切渡さず、LLMは受信メッセージ本文からの自由な名前・呼称抽出のみを
+  担当する方針で確定した(「どう渡すか」ではなく「渡さない」が答えだったと判明)。
+  この結論をもとにllm-system-prompt-draft.mdへ(c)のプロンプト文面(kind=
+  member_retention_selection/member_retention_unclearの2分岐)を新設した。
+  schema(`member_retention_notice`のstatus enum・専用フィールド)は2026-09-07
+  13:02 UTC改訂で既に反映済みのため追加反映は不要だった。これにより(a)(b)(c)いずれも
+  プロンプト文面の設計が完了した。コード変更は無く、venture全体687件
+  (`python3 prototype/run_all_tests.py`)・schema検証30件(`python3 schema/
+  validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+  設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は6節で整理した実配線
+  (`LlmCallClient.generate()`への文脈注入経路の実装、`process_message_event()`/
+  `process_memo_event()`の`select_message_context()`経由への配線、統合テストの追加)、
+  または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 12:00 UTC(フェーズ107: (c)「残すメンバー」連絡検知のプロンプト
+文面を新設。メンバー一覧はプロンプトへ渡さない方針を確定。(a)(b)(c)すべてプロンプト
+文面完了、次は実配線)
