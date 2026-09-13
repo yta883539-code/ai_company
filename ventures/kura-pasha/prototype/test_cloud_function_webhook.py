@@ -48,9 +48,11 @@ from cloud_function_webhook import (
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_postback_data
 from usage_counter_workshop import (
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
     InMemoryWorkshopStore,
+    PendingContractorTransfer,
     UsageCheckResult,
 )
 from validate_test_cases import TEST_CASES
@@ -428,8 +430,8 @@ class _StubLlmCall:
         self._instances = list(instances)
         self.calls = []
 
-    def generate(self, memo_text, retry_context=None):
-        self.calls.append((memo_text, retry_context))
+    def generate(self, memo_text, retry_context=None, context=None):
+        self.calls.append((memo_text, retry_context, context))
         if len(self._instances) > 1:
             return self._instances.pop(0)
         return self._instances[0]
@@ -439,7 +441,7 @@ class _AlwaysFailingLlmCall:
     def __init__(self):
         self.calls = 0
 
-    def generate(self, memo_text, retry_context=None):
+    def generate(self, memo_text, retry_context=None, context=None):
         self.calls += 1
         raise LlmApiError("stub failure")
 
@@ -452,7 +454,7 @@ class _FlakyOnceLlmCall:
         self._instance = instance
         self.calls = 0
 
-    def generate(self, memo_text, retry_context=None):
+    def generate(self, memo_text, retry_context=None, context=None):
         self.calls += 1
         if self.calls == 1:
             raise LlmApiError("stub failure")
@@ -951,6 +953,97 @@ def test_process_memo_event_does_not_append_trial_end_notification_on_second_suc
         format_trial_end_notification_message(1) not in second_result.reply_text,
     )
     check("2回目もquick_replyは付与しない", reply_client.quick_replies_sent[1] is None)
+
+
+def test_process_memo_event_wires_contractor_transfer_expired_notice_from_store():
+    """message-context-selection-design.md 6節が指摘していた配線漏れのうち(a)分を
+    フェーズ108で解消したことの検証(以前のtest_process_memo_event_contractor_transfer_
+    expired_notice_returns_body()はformat_reply_text()の文面抽出のみをスタブで検証して
+    おり、check_and_expire_pending_contractor_transfer()による実際の検出経路は未検証
+    だった)。workshop_storeへ期限切れ済みのpending_contractor_transferを設定した状態で
+    process_memo_event()を呼び、process_generation_request()を経由せずLLM呼び出しへ
+    (a)の文脈が注入され、contractor_transfer_expired_notice.bodyが返信されることを
+    確認する。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTE", "W_CTE")
+    workshops.set_plan("W_CTE", "standard")
+    workshops.set_members("W_CTE", "U_CTE", ["U_CTE"])
+    workshops.set_pending_contractor_transfer(
+        "W_CTE",
+        PendingContractorTransfer(
+            candidate_user_id="U_CANDIDATE",
+            candidate_member_name="山田",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["CTE1_contractor_transfer_expired_notice"]])
+    result = process_memo_event(
+        _make_event("いつもお世話になっております", user_id="U_CTE"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=25),  # expires_at(FEB+24h)を過ぎている
+    )
+
+    check(
+        "期限切れpendingを検出した場合、contractor_transfer_expired_notice.bodyを返す",
+        result.reply_text
+        == TEST_CASES["CTE1_contractor_transfer_expired_notice"]["contractor_transfer_expired_notice"]["body"],
+    )
+    check("contractor_transfer_expired_notice_sent=True", result.contractor_transfer_expired_notice_sent is True)
+    check(
+        "LLM呼び出しに(a)の文脈(kind・candidate_member_name)が注入される",
+        llm_call.calls[0][2]
+        == {"kind": MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE, "candidate_member_name": "山田"},
+    )
+    check(
+        "この経路ではprocess_generation_request()を経由しないためusage_counterは加算されない",
+        counters.get("W_CTE") is None,
+    )
+    check(
+        "pending_contractor_transferは期限切れ検出により削除される(1回限りの受動案内)",
+        workshops.get_pending_contractor_transfer("W_CTE") is None,
+    )
+
+
+def test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid():
+    """期限内のpending_contractor_transferでは(a)は発火せず、通常の生成フローに進む
+    (フェーズ108の新規分岐が誤って早期リターンしないことの回帰確認)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTV", "W_CTV")
+    workshops.set_plan("W_CTV", "standard")
+    workshops.set_members("W_CTV", "U_CTV", ["U_CTV"])
+    workshops.set_pending_contractor_transfer(
+        "W_CTV",
+        PendingContractorTransfer(
+            candidate_user_id="U_CANDIDATE",
+            candidate_member_name="次郎",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_CTV"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),  # expires_at(FEB+24h)より前
+    )
+
+    check(
+        "期限内のpendingでは(a)は発火せず通常生成が行われる",
+        result.reply_text is not None and "受注内容整理メモ" in result.reply_text,
+    )
+    check("contractor_transfer_expired_notice_sent=False", result.contractor_transfer_expired_notice_sent is False)
+    check(
+        "期限内はpending_contractor_transferが維持される",
+        workshops.get_pending_contractor_transfer("W_CTV") is not None,
+    )
+    check("通常生成経路ではLLM呼び出しにcontextが渡らない", llm_call.calls[0][2] is None)
 
 
 def test_process_memo_event_appends_limit_approaching_and_overage_notices():
@@ -1892,6 +1985,8 @@ if __name__ == "__main__":
     test_process_memo_event_allows_generation_within_payment_failure_grace_period()
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
+    test_process_memo_event_wires_contractor_transfer_expired_notice_from_store()
+    test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid()
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()

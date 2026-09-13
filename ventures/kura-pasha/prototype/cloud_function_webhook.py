@@ -48,12 +48,14 @@ from checkout_session import (
 from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
 from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
     PaymentSuspendedError,
     TrialPeriodOverError,
     UsageCheckResult,
     UsageCounterStoreProtocol,
     UserProfileStoreProtocol,
     WorkshopStoreProtocol,
+    check_and_expire_pending_contractor_transfer,
     process_generation_request,
 )
 from validate_test_cases import (  # noqa: E402
@@ -392,13 +394,27 @@ class ReplyApiError(Exception):
 
 
 class LlmCallClient(Protocol):
-    def generate(self, memo_text: str, retry_context: Optional[str] = None) -> dict:
+    def generate(
+        self,
+        memo_text: str,
+        retry_context: Optional[str] = None,
+        context: Optional[dict] = None,
+    ) -> dict:
         """schema/output.schema.jsonに準拠した構造化出力(dict)を返す想定。
 
         retry_contextが渡された場合(1回目の検証エラー後の再生成時)、直前の出力の
         何が不正だったかの概要を実LLM接続後にプロンプトへ添える想定(他ventureの
         json-output-retry-fallback.md「同一入力で1回だけ再生成」方針を踏襲)。
         呼び出し自体が失敗した場合はLlmApiErrorを送出する契約とする。
+
+        contextが渡された場合(フェーズ108、新設)、message-context-selection-design.md
+        1節(a)〜(c)のうちアプリケーション側が検出した強制文脈を表す
+        `{"kind": ..., "candidate_member_name": ...}`(kind以外のキーは文脈により
+        有無が異なる)を渡す。実LLM接続後、llm-system-prompt-draft.mdの「文脈注入時の
+        追加指示」(2026-09-13 07:00/10:00/12:00 UTC追記)をkindに応じてシステム
+        プロンプトへ追加する契約とする(本protocol・スタブ実装は文脈をそのまま保持する
+        だけで、実際のプロンプト組み立ては実LLM接続時の課題として残す)。Noneの場合は
+        (d)通常の生成リクエスト文脈のまま呼び出す(既存呼び出し元の挙動は変更しない)。
         """
         ...
 
@@ -582,6 +598,7 @@ class MemoProcessResult:
     limit_notice_cta_attached: bool = False  # True=トライアル中の上限接近/超過通知にCTAボタンを添付した
     checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
     character_limit_exceeded: bool = False  # True=生成結果がLINE文字数上限を超えフォールバック応答した
+    contractor_transfer_expired_notice_sent: bool = False  # True=(a)期限切れ案内の文脈注入経路で返信した(フェーズ108)
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -593,13 +610,19 @@ def _generate_with_api_retry(
     llm_call: LlmCallClient,
     memo_text: str,
     retry_context: Optional[str] = None,
+    context: Optional[dict] = None,
 ) -> dict:
     """LLM API呼び出し自体の失敗(LlmApiError)に対し、即時1回のみリトライする。
-    2回とも失敗した場合はLlmApiErrorをそのまま呼び出し元へ伝播させる。"""
+    2回とも失敗した場合はLlmApiErrorをそのまま呼び出し元へ伝播させる。
+
+    contextはLlmCallClient.generate()のcontext引数へそのまま転送する(フェーズ108、
+    新設)。再生成時(retry_context指定時)も同じcontextを渡し続ける(強制文脈は検証
+    エラーの有無に関わらず維持される)。
+    """
     try:
-        return llm_call.generate(memo_text, retry_context=retry_context)
+        return llm_call.generate(memo_text, retry_context=retry_context, context=context)
     except LlmApiError:
-        return llm_call.generate(memo_text, retry_context=retry_context)
+        return llm_call.generate(memo_text, retry_context=retry_context, context=context)
 
 
 def _reply_with_retry(
@@ -623,6 +646,75 @@ def _reply_with_retry(
         return True
     except ReplyApiError:
         return False
+
+
+def _process_contractor_transfer_expired_notice(
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    reply_token: str,
+    memo_text: str,
+    *,
+    candidate_member_name: str,
+) -> MemoProcessResult:
+    """message-context-selection-design.md 1節(a)・6節が指摘していた配線漏れのうち
+    (a)分をフェーズ108で実配線する処理。process_memo_event()から、
+    check_and_expire_pending_contractor_transfer()が非Noneを返した場合にのみ
+    呼び出される。llm-system-prompt-draft.md 2026-09-13 07:00 UTC追記の文脈注入指示
+    (kind=contractor_transfer_expired_notice・candidate_member_name)をLLM呼び出しへ
+    渡し、通常の受注メモ生成(process_generation_request以降、7a〜7cの意図検知含む)は
+    一切行わない(7節「帰結」の通り、(a)(b)(c)は(d)そのものを差し替える強制文脈のため)。
+    usage_counter・トライアル終了通知・上限接近通知もこの経路では発生しない
+    (select_message_context()の(a)がprocess_generation_request()自体を呼び出さない
+    設計と同じ)。
+
+    LLM API失敗時・検証エラー時のフォールバック(API_FAILURE_FALLBACK_MESSAGE・
+    VALIDATION_FAILURE_FALLBACK_MESSAGE、1回だけの再生成)はprocess_memo_event()本体の
+    (d)経路と同じ扱いとする。
+    """
+    context = {
+        "kind": MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+        "candidate_member_name": candidate_member_name,
+    }
+    try:
+        instance = _generate_with_api_retry(llm_call, memo_text, context=context)
+    except LlmApiError:
+        reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None, api_failure=True,
+        )
+
+    errors = validate_llm_output(instance)
+    retried = False
+    if errors:
+        retried = True
+        try:
+            instance = _generate_with_api_retry(
+                llm_call, memo_text, retry_context=_summarize_errors_for_retry(errors), context=context,
+            )
+        except LlmApiError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+                retried=retried, api_failure=True,
+            )
+        errors = validate_llm_output(instance)
+
+    if errors:
+        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            validation_errors=errors, retried=retried,
+        )
+
+    reply_text = format_reply_text(instance)
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None,
+        retried=retried, contractor_transfer_expired_notice_sent=reply_sent,
+    )
 
 
 def process_memo_event(
@@ -703,6 +795,17 @@ def process_memo_event(
        5.のトライアル終了通知添付条件(生涯最初の生成1回目のみ)と6.の本条件(「残り1回」
        到達時のみ)は判定条件が独立しており現行プランでは同一回で重複しないため、
        両者の単純なor条件でボタン添付要否を決定する。
+    8. (フェーズ108、新設) message-context-selection-design.md 6節が指摘していた
+       `select_message_context()`未配線の3系統(a)(b)(c)のうち(a)契約者譲渡・期限切れ
+       案内のみを本フェーズで実配線した。4.の`process_generation_request()`を呼び出す
+       直前に`check_and_expire_pending_contractor_transfer()`(select_message_context()の
+       (a)判定と同じ関数)を直接呼び出し、非Noneが返った場合は4.以降(通常の受注メモ生成・
+       7a〜7cの意図検知・5.6.7.の付記)へは一切進まず、
+       `_process_contractor_transfer_expired_notice()`(文脈注入付きのLLM呼び出し・
+       `contractor_transfer_expired_notice.body`の返信)へ委譲して即座にreturnする。
+       (b)契約者交代・再確認応答検知、(c)「残すメンバー」連絡検知は本フェーズでは配線
+       せず次の課題として残した(`select_message_context()`統合関数自体はまだ呼び出さず、
+       (a)専用の判定関数を直接呼び出す最小限の変更にとどめた)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -722,6 +825,27 @@ def process_memo_event(
         and user_id
     ):
         resolved_now = now if now is not None else datetime.now(timezone.utc)
+
+        # フェーズ108(message-context-selection-design.md 6節の配線漏れのうち(a)分に
+        # 対応): select_message_context()と同じcheck_and_expire_pending_contractor_
+        # transfer()を直接呼び出し、期限切れpendingを検出した場合はprocess_generation_
+        # request()以降(7a〜7cの意図検知を含む通常の受注メモ生成)へは一切進まず、(a)の
+        # 文脈注入経路へ委譲する。送信者が契約者本人かどうかは問わない(1節(a)の通り)。
+        # (b)契約者交代・再確認応答検知、(c)「残すメンバー」連絡検知への配線は次の課題
+        # として未着手のまま残す(select_message_context()自体はまだ呼び出さない)。
+        workshop_id_for_context = user_profile_store.get_workshop_id(user_id)
+        expired_transfer = (
+            check_and_expire_pending_contractor_transfer(
+                workshop_id_for_context, resolved_now, workshop_store,
+            )
+            if workshop_id_for_context is not None else None
+        )
+        if expired_transfer is not None:
+            return _process_contractor_transfer_expired_notice(
+                llm_call, reply_client, reply_token, memo_text,
+                candidate_member_name=expired_transfer.candidate_member_name,
+            )
+
         try:
             generation_result = process_generation_request(
                 user_id, resolved_now, user_profile_store, workshop_store, usage_counter_store,

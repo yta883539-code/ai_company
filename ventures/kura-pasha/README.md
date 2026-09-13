@@ -2217,3 +2217,31 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 最終更新: 2026-09-13 12:00 UTC(フェーズ107: (c)「残すメンバー」連絡検知のプロンプト
 文面を新設。メンバー一覧はプロンプトへ渡さない方針を確定。(a)(b)(c)すべてプロンプト
 文面完了、次は実配線)
+
+- フェーズ108(2026-09-13 14:00 UTC): フェーズ107が次の課題としていた実配線に
+  着手した。6節(message-context-selection-design.md)が挙げていた3項目
+  (`LlmCallClient.generate()`への文脈注入経路の実装・`process_message_event()`/
+  `process_memo_event()`の制御フロー変更・統合テスト追加)を一度に配線するのは
+  「1フェーズの作業量を超える」としていた見立て通りだったため、(a)契約者譲渡・期限切れ
+  案内1系統のみに絞って配線した。`LlmCallClient.generate()`(Protocol)・
+  `_generate_with_api_retry()`へ`context`引数を新設し、`process_memo_event()`が
+  `process_generation_request()`を呼び出す直前で`check_and_expire_pending_
+  contractor_transfer()`(`select_message_context()`の(a)判定と同じ関数)を直接
+  呼び出す分岐を追加、非None検出時は新設の`_process_contractor_transfer_expired_
+  notice()`(文脈注入付きLLM呼び出し・既存`format_reply_text()`での返信)へ委譲する
+  ようにした。`select_message_context()`統合関数自体はまだ呼び出さず、(a)専用の判定
+  関数を直接呼ぶ最小限の変更にとどめた((b)(c)の条件が同時に真の場合のフォールスルーを
+  避けるため)。統合テスト2件(期限切れpending検出時の実際のLLM呼び出し・文脈注入・
+  usage_counter非加算の確認、期限内pendingでは誤発火しないことの回帰確認)を追加した。
+  詳細はmessage-context-selection-design.md 10節参照。(b)契約者交代・再確認応答検知・
+  (c)「残すメンバー」連絡検知は同様の配線を次の課題として残した。
+  `prototype/test_cloud_function_webhook.py`のcheck()件数292件→301件(統合テスト2件
+  追加分)、`python3 prototype/run_all_tests.py`(全10ファイル)・`python3 schema/
+  validate_test_cases.py`(30件)いずれもパスすることを確認した。承認不要なコード実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。次回は(b)(c)への同様の配線、または他
+  venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 14:00 UTC(フェーズ108: (a)契約者譲渡・期限切れ案内のみ実配線
+〈LlmCallClient.generate()のcontext引数新設・process_memo_event()への分岐追加・
+統合テスト2件追加〉。(b)(c)・select_message_context()への一本化は次の課題)

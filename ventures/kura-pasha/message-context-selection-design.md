@@ -297,3 +297,78 @@ LLMは受信メッセージ本文からの自由な名前・呼称抽出のみ�
 
 これにより(a)(b)(c)いずれもプロンプト文面の設計が完了した(llm-system-prompt-draft.md
 参照)。次の課題は6節で整理した実配線そのものに移る。
+
+## 10. 追記(フェーズ108): 実配線のうち(a)契約者譲渡・期限切れ案内のみを配線
+
+6節「次の課題」が挙げていた実配線3項目((1)`LlmCallClient.generate()`への文脈注入経路の
+実装、(2)`process_message_event()`/`process_memo_event()`を`select_message_context()`
+経由に置き換える制御フロー変更、(3)統合テストの追加)のうち、6節末尾が「1フェーズの
+作業量を超える」としていた通り3項目全てを一度に配線するのは見送り、(a)契約者譲渡・
+期限切れ案内1系統のみを対象に絞って本フェーズで配線した。(b)契約者交代・再確認応答検知・
+(c)「残すメンバー」連絡検知は次の課題として引き続き未配線のまま残す。
+
+**実装した内容**:
+
+1. `prototype/cloud_function_webhook.py`の`LlmCallClient.generate()`(Protocol)・
+   `_generate_with_api_retry()`へ`context: Optional[dict] = None`引数を新設した
+   (項目(1)、ただし(a)専用の最小限の実装であり、(b)(c)が必要とする
+   `candidate_member_name`以外の変数〈(b)も同じ〉・文脈フラグのみ〈(c)〉への一般化は
+   まだ行っていない)。
+2. `process_memo_event()`が`process_generation_request()`を呼び出す直前(3ストア全てが
+   渡された場合のみの既存ブロック内)に、`usage_counter_workshop.check_and_expire_
+   pending_contractor_transfer()`(`select_message_context()`の(a)判定と同じ関数)を
+   直接呼び出す分岐を追加した。非Noneが返った場合は4.(旧docstring番号)以降(通常の
+   受注メモ生成・7a〜7cの意図検知・トライアル終了通知・上限接近通知の付記)へは一切
+   進まず、新設した`_process_contractor_transfer_expired_notice()`(文脈注入付きの
+   LLM呼び出し・既存の`format_reply_text()`による`contractor_transfer_expired_notice.
+   body`の返信、LLM API失敗・検証エラー時のフォールバックは(d)経路と同じ扱い)へ
+   委譲する(項目(2)のうち(a)分のみ)。`select_message_context()`統合関数自体は本フェーズ
+   では呼び出さず、(a)専用の判定関数を直接呼び出す最小限の変更にとどめた(select_
+   message_context()を丸ごと呼び出すと(b)(c)の条件も同時に真になった場合にそのまま
+   フォールスルーしてしまい、(b)(c)側の文脈注入未実装という状態と矛盾するため)。
+   `MemoProcessResult`に`contractor_transfer_expired_notice_sent`フィールドを追加した。
+3. `prototype/test_cloud_function_webhook.py`に統合テスト2件を追加した(項目(3)のうち
+   (a)分のみ)。
+   - `test_process_memo_event_wires_contractor_transfer_expired_notice_from_store()`:
+     `InMemoryWorkshopStore`へ期限切れ済みの`pending_contractor_transfer`を設定した
+     状態で`process_memo_event()`を呼び、(i)`process_generation_request()`を経由せず
+     `contractor_transfer_expired_notice.body`が返信されること、(ii)LLM呼び出しへ
+     `{"kind": "contractor_transfer_expired_notice", "candidate_member_name": ...}`が
+     実際に渡ること、(iii)usage_counterが加算されないこと、(iv)pendingが削除される
+     ことを検証する。これは6節が「`test_process_memo_event_contractor_transfer_
+     expired_notice_returns_body()`等はLLM出力のスタブ止まりであるため、統合テスト
+     としては不十分」と指摘していたギャップに対応する。
+   - `test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_
+     valid()`: 期限内のpendingでは新設分岐が誤発火せず通常の生成フローに進むことの
+     回帰確認。
+   - 上記に伴い、`_StubLlmCall`・`_AlwaysFailingLlmCall`・`_FlakyOnceLlmCall`の
+     `generate()`シグネチャへ`context=None`引数を追加し(`_StubLlmCall`は`calls`に
+     `(memo_text, retry_context, context)`のタプルとして記録するよう変更、既存の
+     `.calls[N][1]`によるretry_context検証箇所への影響は無いことを確認済み)。
+
+**本フェーズで対応しなかった範囲**: (b)(c)への同様の配線(3節が指摘した通り(b)は
+`candidate_member_name`の受け渡し、(c)は文脈フラグのみで足りるためそれぞれ個別の
+分岐追加が必要)、および`select_message_context()`統合関数自体への一本化(現状は
+`process_memo_event()`が(a)判定関数を個別に直接呼び出す形にとどまり、(b)(c)も配線
+された段階で`select_message_context()`へ寄せるか、個別分岐のまま積み上げるかを
+改めて設計判断する必要がある)。
+
+テスト件数: `prototype/test_cloud_function_webhook.py`のcheck()件数292件→301件(9件
+増、うち2件は新規テスト関数自体の追加、残りはその内訳のcheck()呼び出し)。
+`python3 prototype/run_all_tests.py`(全10ファイル)・`python3 schema/validate_test_
+cases.py`(30件)いずれもパスを確認した。承認不要なコード実装・テスト追加のみで、
+外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+pending-approval.mdへの追記なし。
+
+**次の課題**: (b)契約者交代・再確認応答検知、(c)「残すメンバー」連絡検知についても
+同様の配線(`process_memo_event()`側の判定分岐追加・統合テスト追加)を行う。(b)は
+`is_contractor_transfer_confirmation_context()`の判定結果と`pending_contractor_
+transfer.candidate_member_name`を文脈へ渡す必要があり、(c)は`pending_member_
+reduction_effective_at`の存在確認のみで足りる(9節の通りメンバー一覧は渡さない)。
+いずれも本フェーズの(a)実装と同じ構造(判定→`_process_..._notice()`相当の専用関数→
+`format_reply_text()`は変更不要)を踏襲できる見込み。(a)(b)(c)すべて配線された段階で、
+個別分岐の積み上げを`select_message_context()`への一本化に置き換えるかどうかも
+併せて検討する。
+
+最終更新: 2026-09-13 14:00 UTC(フェーズ108: (a)契約者譲渡・期限切れ案内のみ実配線。
+(b)(c)・`select_message_context()`への一本化は次の課題)
