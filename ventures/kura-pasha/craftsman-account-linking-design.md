@@ -279,10 +279,14 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 - ~~発行契機となる「職人を追加したい」という意図のLINEメッセージからの検知(LLM構造化
   出力への項目追加、または専用キーワード判定)自体は本節未着手。~~ → フェーズ99
   (llm-system-prompt-draft.md厳守事項7c参照)で判定方針(契約者本人からの明確な
-  追加意思表示/非契約者からの表明/一般的な相談/判断不能、の4分岐)を新設した。ただし
-  対応するschema拡張(status enumへの`workshop_invite_request`/
-  `workshop_invite_request_unclear`追加、`workshop_invite_notice`フィールド新設)、
-  および message-context-selection-design.md(フェーズ43)の優先順位への組み込み
+  追加意思表示/非契約者からの表明/一般的な相談/判断不能、の4分岐)を新設した。
+  ~~対応するschema拡張(status enumへの`workshop_invite_request`/
+  `workshop_invite_request_unclear`追加、`workshop_invite_notice`フィールド新設)は
+  未着手。~~ → フェーズ100でschema/output.schema.jsonに反映済み(checkout_notice
+  〈厳守事項7b〉と同じ設計思想、`includes_invite_code`をkindによらず常にfalseとする
+  補助フィールドを追加)。schema/validate_test_cases.pyにも正例2件(WIR1・WIR2)・
+  ネガティブテスト1件(NEG9、includes_invite_code不一致検出)を追加した。
+  message-context-selection-design.md(フェーズ43)の優先順位への組み込み
   (契約者からの通常メモ送信・他の一時状態〈(a)〜(d)〉との割り込み位置の検討)は
   未着手のまま次の課題として残す。
 - ~~招待コード解決(message event側のルーティング、2節フェーズ69の
@@ -342,4 +346,31 @@ venture全体`python3 prototype/run_all_tests.py`(10ファイル全件)・schema
 いないためpending-approval.mdへの追記なし。次回は11.3節に残る「発行契機の意図検知・
 LLM構造化出力へのkind追加」または「`member_user_ids`上限数の検討」を優先候補とする。
 
-最終更新: 2026-09-12 23:00 UTC(フェーズ98)
+## 11.5 追記(フェーズ100): 厳守事項7cに対応するschema拡張
+
+llm-system-prompt-draft.md厳守事項7c(フェーズ99)・本doc 11.3節が「次回すぐに着手できる」
+としていたschema拡張に対応した。course-set-pasha/aircon-pashaのフェーズ58(厳守事項7b・
+checkout_notice新設)と同じ設計思想を踏襲し、`schema/output.schema.json`の`status`enumへ
+`workshop_invite_request`/`workshop_invite_request_unclear`の2値を追加、これらのときのみ
+非nullとなる`workshop_invite_notice`フィールド(`kind`・`body`・`includes_invite_code`)を
+新設した。厳守事項7c(ii)(契約者以外からの表明)は6節の既存パターン(「契約者様に
+ご確認ください」)にそのまま帰着させるため、専用のstatus・フィールドは追加していない
+(7bのpricing_inquiryのような独立ステータスではなく、判定自体をPython側の
+`contractor_user_id`一致チェックに委ねる6節の設計と整合)。`checkout_notice`の
+`includes_checkout_url`と同じ設計思想で、`includes_invite_code`はkindによらず常にfalseと
+なる(招待コード自体をLLM側で自己判断で本文に含めない、実際の発行は11.1節
+`issue_invite_code_for_workshop`に委ねる)ことをコード側検証で担保する。
+
+`schema/validate_test_cases.py`に正例2件(`WIR1_workshop_invite_request`・
+`WIR2_workshop_invite_request_unclear`)・ネガティブテスト1件
+(`NEGATIVE_CASE_WORKSHOP_INVITE_CODE_MISMATCH`、includes_invite_code不一致の検出確認)を
+追加し、既存フィクスチャ全27件にも`workshop_invite_notice: null`を追記した(additionalProperties:
+falseかつrequired化のため、既存フィクスチャの更新が必須)。schema検証は27件→30件全件
+(`python3 schema/validate_test_cases.py`)、venture全体は`python3 prototype/run_all_tests.py`
+(10ファイル全件、コード変更が無いため683件は変更前と同じ結果)いずれもパスを確認した。
+承認不要なschema・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+今回発生していないためpending-approval.mdへの追記なし。次回は11.3節に残る
+message-context-selection-design.mdへの優先順位組み込み、または「`member_user_ids`上限数の
+検討」を優先候補とする。
+
+最終更新: 2026-09-13 01:00 UTC(フェーズ100)

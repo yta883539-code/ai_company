@@ -2039,4 +2039,20 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は上記schema拡張・
   優先順位組み込み、または他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 00:00 UTC
+- フェーズ100(2026-09-13 01:00 UTC): フェーズ99が次のステップ候補としていたschema拡張に
+  着手し、schema/output.schema.jsonの`status`enumへ`workshop_invite_request`/
+  `workshop_invite_request_unclear`の2値と、これらのときのみ非nullとなる
+  `workshop_invite_notice`フィールド(`kind`・`body`・`includes_invite_code`)を新設した
+  (checkout_notice〈厳守事項7b、フェーズ58〉と同じ設計思想、`includes_invite_code`は
+  kindによらず常にfalse)。厳守事項7c(ii)相当(契約者以外からの表明)は6節の既存パターンに
+  帰着させる設計のため専用status・フィールドは追加していない。schema/validate_test_cases.py
+  に正例2件(WIR1・WIR2)・ネガティブテスト1件(NEG9、includes_invite_code不一致検出)を
+  追加し、既存フィクスチャ全27件にも`workshop_invite_notice: null`を追記した
+  (craftsman-account-linking-design.md 11.5節参照)。schema検証27件→30件全件・venture
+  全体683件(コード変更無しのため変更前と同じ結果)いずれもパスを確認した。承認不要な
+  schema・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は11.3節に残る
+  message-context-selection-design.mdへの優先順位組み込み、または「`member_user_ids`
+  上限数の検討」、他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 01:00 UTC

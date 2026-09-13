@@ -340,6 +340,52 @@ def validate_cross_field_rules(instance, path="$"):
         if checkout_notice is not None:
             errors.append(f"{path}: status={status!r}のときcheckout_noticeはnullである必要があります")
 
+    # 2026-09-13 01:00 UTC追加(フェーズ100): llm-system-prompt-draft.md厳守事項7c・
+    # craftsman-account-linking-design.md 11.1〜11.3節対応のstatus2値
+    # (workshop_invite_request/workshop_invite_request_unclear)の非null制約チェック。
+    # checkout_notice用のロジックと同じ設計思想を踏襲するが、includes_invite_codeはkindに
+    # よらず常にfalseである点(厳守事項7cの設計、実際の招待コード発行は自己判断で行わない)
+    # がincludes_checkout_urlと同様に反映されている。
+    invite_statuses = {"workshop_invite_request", "workshop_invite_request_unclear"}
+    invite_notice = instance.get("workshop_invite_notice")
+    if status in invite_statuses:
+        if instance.get("out_of_scope_message") is not None:
+            errors.append(f"{path}: status={status}のときout_of_scope_messageはnullである必要があります")
+        if instance.get("missing_fields_request") is not None:
+            errors.append(f"{path}: status={status}のときmissing_fields_requestはnullである必要があります")
+        for f in generated_fields:
+            if instance.get(f) is not None:
+                errors.append(f"{path}: status={status}のとき{f}はnullである必要があります")
+        if instance.get("subscription_procedure_notice") is not None:
+            errors.append(f"{path}: status={status}のときsubscription_procedure_noticeはnullである必要があります")
+        if instance.get("member_retention_notice") is not None:
+            errors.append(f"{path}: status={status}のときmember_retention_noticeはnullである必要があります")
+        if transfer_notice is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_noticeはnullである必要があります")
+        if confirmation is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_confirmationはnullである必要があります")
+        if expired_notice is not None:
+            errors.append(f"{path}: status={status}のときcontractor_transfer_expired_noticeはnullである必要があります")
+        if checkout_notice is not None:
+            errors.append(f"{path}: status={status}のときcheckout_noticeはnullである必要があります")
+        if invite_notice is None:
+            errors.append(f"{path}: status={status}のときworkshop_invite_noticeは非nullである必要があります")
+        else:
+            if invite_notice.get("kind") != status:
+                errors.append(
+                    f"{path}.workshop_invite_notice.kind: status({status!r})と"
+                    f"一致していません(実際={invite_notice.get('kind')!r})"
+                )
+            if invite_notice.get("includes_invite_code") is not False:
+                errors.append(
+                    f"{path}.workshop_invite_notice.includes_invite_code: "
+                    f"kindによらず常にfalseである必要があります(厳守事項7c、実際="
+                    f"{invite_notice.get('includes_invite_code')!r})"
+                )
+    else:
+        if invite_notice is not None:
+            errors.append(f"{path}: status={status!r}のときworkshop_invite_noticeはnullである必要があります")
+
     return errors
 
 
@@ -378,6 +424,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     "G2_repair_with_remarks": {
         "status": "generated",
@@ -413,6 +460,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     "OOS1_membership_question": {
         "status": "out_of_scope",
@@ -427,6 +475,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     "II1_no_category": {
         "status": "insufficient_input",
@@ -441,6 +490,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     "II2_no_saddle_type": {
         "status": "insufficient_input",
@@ -455,6 +505,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-07 07:00 UTC追加(フェーズ24): subscription-cancellation-flow-design.md
     # 「1. 解約意図検知時の案内メッセージ」相当の期待出力。
@@ -479,6 +530,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」相当。
     "C2_downgrade_intent": {
@@ -501,6 +553,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 厳守事項7a(iv)相当: 解約意図か雑談か判別しづらい入力に対する意思確認一言のみの出力。
     "C3_cancellation_unclear": {
@@ -520,6 +573,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
@@ -540,6 +594,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # member-retention-notice-design.md「2. 検知パターンの整理」2(不明確)相当の期待出力。
     "M2_member_retention_unclear": {
@@ -559,6 +614,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-07 17:58 UTC追加(フェーズ34): contractor-transfer-design.md「3. 確定する設計」
     # (名指しされた相手がmember_user_idsに含まれる場合)相当の期待出力。
@@ -579,6 +635,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # contractor-transfer-design.md「3. 確定する設計」(名指しされた相手がmember_user_idsに
     # 含まれない場合、まだworkshopに参加していない第三者を指定した場合を含む)相当の期待出力。
@@ -599,6 +656,7 @@ TEST_CASES = {
         "contractor_transfer_confirmation": None,
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-08 02:00 UTC追加(フェーズ37): contractor-transfer-confirmation-detection-design.md
     # 「3. 検知パターン・schema拡張」1(肯定)相当の期待出力。
@@ -618,6 +676,7 @@ TEST_CASES = {
         },
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」2
     # (否定)相当の期待出力。
@@ -637,6 +696,7 @@ TEST_CASES = {
         },
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # contractor-transfer-confirmation-detection-design.md「3. 検知パターン・schema拡張」3
     # (不明瞭)相当の期待出力。
@@ -656,6 +716,7 @@ TEST_CASES = {
         },
         "contractor_transfer_expired_notice": None,
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-08 06:00 UTC追加(フェーズ40): contractor-transfer-expired-notice-design.md
     # 「3. status・schema拡張」相当の期待出力。
@@ -679,6 +740,7 @@ TEST_CASES = {
             ),
         },
         "checkout_notice": None,
+        "workshop_invite_notice": None,
     },
     # 2026-09-09 07:00 UTC追加(フェーズ58): checkout-initiation-flow-design.md・厳守事項7b(i)
     # 相当の期待出力。実際のCheckout Session URLはhandle_checkout_intent(Python側)に委ね、
@@ -700,6 +762,7 @@ TEST_CASES = {
             "body": "お申し込みのご案内をお送りしますね。",
             "includes_checkout_url": False,
         },
+        "workshop_invite_notice": None,
     },
     # 厳守事項7b(ii)相当: 料金・プラン内容についての問い合わせ。pricing-plan.mdの内容を
     # もとにした案内を返す(3出力の生成対象からは除外する)。
@@ -723,6 +786,7 @@ TEST_CASES = {
             ),
             "includes_checkout_url": False,
         },
+        "workshop_invite_notice": None,
     },
     # 厳守事項7b(iv)相当: 開始意図か問い合わせか判断できない場合の意思確認一言のみの出力。
     "CO3_checkout_intent_unclear": {
@@ -741,6 +805,50 @@ TEST_CASES = {
             "kind": "checkout_intent_unclear",
             "body": "有料プランのお申し込みをご希望でしょうか?よろしければ「有料プランを始めたい」とお送りください。",
             "includes_checkout_url": False,
+        },
+        "workshop_invite_notice": None,
+    },
+    # 2026-09-13 01:00 UTC追加(フェーズ100): craftsman-account-linking-design.md 11.1節・
+    # 厳守事項7c(i)相当の期待出力。実際の発行主体チェック・プランチェック・招待コードの
+    # 発行自体はissue_invite_code_for_workshop(Python側)に委ね、LLM側は一次応答文言のみを
+    # 返す(includes_invite_codeは常にfalse、プラン名にも言及しない)。
+    "WIR1_workshop_invite_request": {
+        "status": "workshop_invite_request",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
+        "workshop_invite_notice": {
+            "kind": "workshop_invite_request",
+            "body": "招待コードを発行しますね。少々お待ちください。",
+            "includes_invite_code": False,
+        },
+    },
+    # 厳守事項7c(iv)相当: 職人追加意図か判断できない場合の意思確認一言のみの出力。
+    "WIR2_workshop_invite_request_unclear": {
+        "status": "workshop_invite_request_unclear",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": None,
+        "delivery_notice": None,
+        "care_notice": None,
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
+        "workshop_invite_notice": {
+            "kind": "workshop_invite_request_unclear",
+            "body": "職人を追加したいということでしょうか?よろしければ「職人を追加したい」とお送りください。",
+            "includes_invite_code": False,
         },
     },
 }
@@ -773,6 +881,7 @@ NEGATIVE_CASE_CATEGORY_MISMATCH = {
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 厳守事項7a(iv)相当違反(includes_portal_link不一致)を意図的に仕込んだ不正フィクスチャ。
@@ -794,6 +903,7 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-07 13:02 UTC追加。member_retention_notice.kindがstatusと不一致な不正フィクスチャ
@@ -816,6 +926,7 @@ NEGATIVE_CASE_MEMBER_RETENTION_KIND_MISMATCH = {
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-07 17:58 UTC追加(フェーズ34)。contractor_transfer_notice.kindがstatusと
@@ -839,6 +950,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_KIND_MISMATCH = {
     "contractor_transfer_confirmation": None,
     "contractor_transfer_expired_notice": None,
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-08 02:00 UTC追加(フェーズ37)。contractor_transfer_confirmation.kindがstatusと
@@ -861,6 +973,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_CONFIRMATION_KIND_MISMATCH = {
     },
     "contractor_transfer_expired_notice": None,
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-08 06:00 UTC追加(フェーズ40)。contractor_transfer_expired_notice.kindは固定
@@ -888,6 +1001,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_PRESENT_WHEN_STATUS_MISMATCH = 
         "body": "契約者交代(山田様への変更)の確認期限が過ぎたため、手続きを一旦取り消しました。",
     },
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-08 06:00 UTC追加(フェーズ40)。contractor-transfer-expired-notice-design.md3節
@@ -911,6 +1025,7 @@ NEGATIVE_CASE_CONTRACTOR_TRANSFER_EXPIRED_NOTICE_NAME_NULL = {
         "body": "契約者交代の確認期限が過ぎたため、手続きを一旦取り消しました。",
     },
     "checkout_notice": None,
+    "workshop_invite_notice": None,
 }
 
 # 2026-09-09 07:00 UTC追加(フェーズ58)。厳守事項7b違反(includes_checkout_url不一致)を
@@ -934,6 +1049,32 @@ NEGATIVE_CASE_CHECKOUT_URL_MISMATCH = {
         "kind": "checkout_intent",
         "body": "お申し込みのご案内をお送りしますね。",
         "includes_checkout_url": True,
+    },
+    "workshop_invite_notice": None,
+}
+
+# 2026-09-13 01:00 UTC追加(フェーズ100)。厳守事項7c違反(includes_invite_code不一致)を
+# 意図的に仕込んだ不正フィクスチャ。workshop_invite_requestなのに実際の招待コードを
+# 自己判断で発行したとしてincludes_invite_code=trueで出力してしまうケースを想定。
+# validate_cross_field_rulesが実際にこの違反を検出できることを確認するためのネガティブ
+# テスト。NEGATIVE_CASE_CHECKOUT_URL_MISMATCHと同じ設計思想を踏襲。
+NEGATIVE_CASE_WORKSHOP_INVITE_CODE_MISMATCH = {
+    "status": "workshop_invite_request",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "order_summary": None,
+    "delivery_notice": None,
+    "care_notice": None,
+    "subscription_procedure_notice": None,
+    "member_retention_notice": None,
+    "contractor_transfer_notice": None,
+    "contractor_transfer_confirmation": None,
+    "contractor_transfer_expired_notice": None,
+    "checkout_notice": None,
+    "workshop_invite_notice": {
+        "kind": "workshop_invite_request",
+        "body": "招待コードを発行しますね。少々お待ちください。",
+        "includes_invite_code": True,
     },
 }
 
@@ -1065,6 +1206,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG8_checkout_url_mismatch_is_detected: includes_checkout_url不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: workshop_invite_notice.includes_invite_codeの不一致(厳守事項7c違反)が
+    # ちゃんと検出されることを確認する
+    total += 1
+    neg_errors9 = validate_against_schema(NEGATIVE_CASE_WORKSHOP_INVITE_CODE_MISMATCH, SCHEMA)
+    neg_errors9 += validate_cross_field_rules(NEGATIVE_CASE_WORKSHOP_INVITE_CODE_MISMATCH)
+    if neg_errors9:
+        print("[OK] NEG9_workshop_invite_code_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg_errors9:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG9_workshop_invite_code_mismatch_is_detected: includes_invite_code不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
