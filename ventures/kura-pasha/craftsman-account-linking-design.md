@@ -276,11 +276,15 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 
 ### 11.3 未検証・残課題
 
-- 発行契機となる「職人を追加したい」という意図のLINEメッセージからの検知(LLM構造化
-  出力への項目追加、または専用キーワード判定)自体は本節未着手。message-context-
-  selection-design.md(フェーズ43)の優先順位に新しいkind(例:
-  `workshop_invite_request`)を追加する形になる見込みだが、既存の4段階優先順位への
-  割り込み位置(契約者からの通常メモ送信とどう区別するか)の検討含め次の課題とする。
+- ~~発行契機となる「職人を追加したい」という意図のLINEメッセージからの検知(LLM構造化
+  出力への項目追加、または専用キーワード判定)自体は本節未着手。~~ → フェーズ99
+  (llm-system-prompt-draft.md厳守事項7c参照)で判定方針(契約者本人からの明確な
+  追加意思表示/非契約者からの表明/一般的な相談/判断不能、の4分岐)を新設した。ただし
+  対応するschema拡張(status enumへの`workshop_invite_request`/
+  `workshop_invite_request_unclear`追加、`workshop_invite_notice`フィールド新設)、
+  および message-context-selection-design.md(フェーズ43)の優先順位への組み込み
+  (契約者からの通常メモ送信・他の一時状態〈(a)〜(d)〉との割り込み位置の検討)は
+  未着手のまま次の課題として残す。
 - ~~招待コード解決(message event側のルーティング、2節フェーズ69の
   `process_message_event()`相当の配線)自体も本節未着手。~~ → フェーズ98で対応済み
   (11.4節参照)。

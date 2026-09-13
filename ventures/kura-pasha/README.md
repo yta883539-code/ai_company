@@ -2018,4 +2018,25 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   「発行契機の意図検知・LLM構造化出力へのkind追加」「人数上限の検討」、または他venture・
   アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-12 23:00 UTC
+- フェーズ99(2026-09-13 00:00 UTC): フェーズ98が次のステップ候補としていた「発行契機の
+  意図検知・LLM構造化出力へのkind追加」に着手し、llm-system-prompt-draft.mdに厳守事項7c
+  (職人追加・招待コード発行意図検知)を新設した。厳守事項7a(解約意図検知)・7b(有料プラン
+  開始意図検知)と対になる構成で、(i)契約者本人からの明確な追加意思表示→招待コード発行
+  意図として扱い一次応答文言のみ返す(実際の発行主体チェック・コード発行自体は11.1節
+  `issue_invite_code_for_workshop`側の責務)、(ii)非契約者からの同種表明→既存の「契約者様
+  にご確認ください」パターンを踏襲、(iii)一般的な相談→通常の受注メモ判定、(iv)判断不能→
+  意思確認の一言のみ、の4分岐とした。7bと同様、招待コード自体を自己判断で本文に含めない
+  設計とし(コードらしき文字列の生成・引用を避ける)、実際のコード差し込みはPython側に
+  委ねる方針を明記した。craftsman-account-linking-design.md 11.3節の該当課題を本フェーズ
+  対応済みに更新した。本フェーズはプロンプト文面の設計のみで、対応するschema拡張
+  (status enumへの`workshop_invite_request`/`workshop_invite_request_unclear`追加、
+  `workshop_invite_notice`フィールド新設)・message-context-selection-design.mdの優先
+  順位への組み込みは次の課題として残す(7a・7bと同様、設計→schema拡張を分ける既存の
+  進め方を踏襲)。新規テスト・コード変更は無し、venture全体683件
+  (`python3 prototype/run_all_tests.py`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを
+  確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は上記schema拡張・
+  優先順位組み込み、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 00:00 UTC
