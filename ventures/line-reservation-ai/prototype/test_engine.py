@@ -39,12 +39,14 @@ from engine import (  # noqa: E402
     CustomerBookingRecord,
     EscalationConsolidator,
     InMemoryBookingRecordStore,
+    LINE_TEXT_MESSAGE_MAX_UTF16_UNITS,
     NO_SHOW_CONFIRMED_STATUS,
     NotificationLogAggregator,
     PRECHECK_STRENGTHENING_BADGE_THRESHOLD,
     RECONFIRM_MAX_ATTEMPTS,
     VISITED_STATUS,
     build_customer_detail_view,
+    count_utf16_code_units,
     format_booking_list_csv,
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
@@ -1206,6 +1208,24 @@ class FormatFaqMenuMessageTest(unittest.TestCase):
         )
         self.assertNotEqual(formal, casual)
         self.assertTrue(casual.endswith("!"))
+
+
+class CountUtf16CodeUnitsTest(unittest.TestCase):
+    """character-limit-fallback-design.md準拠。count_utf16_code_units()の単体テスト。"""
+
+    def test_ascii_and_japanese_bmp_characters_count_one_unit_each(self):
+        self.assertEqual(count_utf16_code_units("abc"), 3)
+        self.assertEqual(count_utf16_code_units("当店のメニュー"), 7)
+
+    def test_supplementary_plane_character_counts_as_surrogate_pair(self):
+        # 基本多言語面外の文字(補助文字面、U+10000以降)はUTF-16では2コード単位になるが、
+        # Pythonのlen()では1文字と数えるためズレが生じる。ここでは絵文字(U+1F600)で確認する。
+        supplementary_char = "\U0001F600"
+        self.assertEqual(len(supplementary_char), 1)
+        self.assertEqual(count_utf16_code_units(supplementary_char), 2)
+
+    def test_empty_string_is_zero(self):
+        self.assertEqual(count_utf16_code_units(""), 0)
 
 
 class ToneRenderingTest(unittest.TestCase):

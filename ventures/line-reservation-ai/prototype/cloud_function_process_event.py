@@ -97,8 +97,10 @@ from engine import (  # noqa: E402
     EscalationConsolidator,
     NotificationLogAggregator,
     _Candidate,
+    LINE_TEXT_MESSAGE_MAX_UTF16_UNITS,
     _slot_key_from_string,
     _slot_key_to_string,
+    count_utf16_code_units,
     format_candidates_message,
     format_cancel_confirmed_message,
     format_cancel_not_found_message,
@@ -768,6 +770,7 @@ class ConversationEventProcessor:
             output = {**output, "escalation_reason": "output_contradiction"}
             self._notify_owner(user_id, output, now, reply_text)
 
+        self._apply_menu_length_fallback(output, tone)
         self._logs.record(user_id, output, now)
 
         if intent == "faq" and output.get("faq_segments"):
@@ -1001,6 +1004,9 @@ class ConversationEventProcessor:
     ) -> DispatchResult:
         """複合FAQ質問(faq_segments、json-schema-multi-intent-extension.md)への顧客向け返信。
         faq-response-templates.mdの「1メッセージ1用件」原則に従い、項目ごとに1通ずつ送信する。
+        文字数上限超過による`resolved`の安全側書き換え(character-limit-fallback-design.md)は
+        `_apply_menu_length_fallback()`で`_logs.record()`より前に完了している前提のため、
+        ここでは通常の未解決項目と同じ扱いでそのまま`_render_faq_segment()`に委ねる。
         """
         segments = output["faq_segments"]
         for seg in segments:
@@ -1010,6 +1016,26 @@ class ConversationEventProcessor:
         self._notify_owner(user_id, output, now, reply_text)
         unresolved = sum(1 for seg in segments if not seg["resolved"])
         return DispatchResult(action="faq_replied", detail=f"{len(segments)}_segments_{unresolved}_unresolved")
+
+    def _apply_menu_length_fallback(self, output: dict, tone: str) -> None:
+        """character-limit-fallback-design.md準拠。`faq_segments`のうち店舗のメニュー登録件数に
+        比例して際限なく伸びうる`topic: "menu"`について、組み立て後の本文がLINE Messaging APIの
+        テキストメッセージ文字数上限(UTF-16コード単位、LINE_TEXT_MESSAGE_MAX_UTF16_UNITS)を
+        超えていないか確認する。超過時は長文のまま送信させず(尻切れ・API側エラーを避けるため)、
+        `seg["resolved"]`をFalseへ書き換えて他の未登録項目と同じ安全側の保留文言に倒す
+        (`_render_faq_segment()`がresolved:falseを`format_faq_unregistered_message()`に
+        変換する既存の仕組みをそのまま利用する)。
+
+        `_process_message_event()`が`self._logs.record()`を呼ぶ**前**に呼ぶこと。
+        NotificationLogAggregator.record()はこの時点のoutputをそのまま集計するため、
+        `_handle_faq()`側で書き換えても未解決件数の集計には反映されない。
+        """
+        for seg in output.get("faq_segments") or []:
+            if not seg.get("resolved") or seg.get("topic") != "menu":
+                continue
+            text = self._render_faq_segment(seg["topic"], seg["resolved"], tone)
+            if count_utf16_code_units(text) > LINE_TEXT_MESSAGE_MAX_UTF16_UNITS:
+                seg["resolved"] = False
 
     def _render_faq_segment(self, topic: str, resolved: bool, tone: str) -> str:
         if not resolved:

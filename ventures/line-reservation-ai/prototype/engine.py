@@ -2056,6 +2056,21 @@ def format_faq_hours_message_weekly(default_ranges: list, weekday_ranges: dict,
     return _render_by_tone(tone, variants)
 
 
+# character-limit-fallback-design.md準拠。LINE Messaging APIのテキストメッセージ1件あたりの
+# 文字数上限(UTF-16コード単位)。本venture固有の固定文言・トーン別テンプレートは全て
+# 数百文字程度に収まる設計だが、format_faq_menu_message()のみ店舗が登録するメニュー件数に
+# 比例して際限なく伸びうるため、この定数を用いた上限チェックの対象とする。
+LINE_TEXT_MESSAGE_MAX_UTF16_UNITS = 5000
+
+
+def count_utf16_code_units(text: str) -> int:
+    """character-limit-fallback-design.md準拠。LINE APIの文字数上限はUTF-16コード単位での
+    カウントであり、Pythonの`len(str)`(Unicodeコードポイント数)とは基本多言語面外の文字
+    (サロゲートペア)で一致しないため、`encode("utf-16-le")`を介して正確に算出する。
+    """
+    return len(text.encode("utf-16-le")) // 2
+
+
 def format_faq_menu_message(items: list, tone: str = "standard") -> str:
     """FAQ回答テンプレート・メニュー内容/料金表(topic: "menu")のトーン別文例
     (menu-pricing-faq-topic-decision.md参照)。owner-settings-wireframe.mdの

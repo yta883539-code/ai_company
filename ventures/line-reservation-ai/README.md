@@ -2690,7 +2690,7 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
   優先候補とする。
-- 最終更新: 2026-09-12 16:00 UTC(実際の最新フェーズはファイル末尾のフェーズ続き219を参照。
+- 最終更新: 2026-09-13 17:00 UTC(実際の最新フェーズはファイル末尾のフェーズ続き221を参照。
   訂正の経緯: 本行は長らく2026-09-08 00:00 UTCのまま更新されずに残っていた記載漏れ
   〈フェーズ続き210〜218は本行より後方の「次にやること」節の下に追記され続けていたため、
   この集約マーカーが同期していなかった〉が、フェーズ続き218で2026-09-12 11:00 UTCへ訂正済み)
@@ -3612,3 +3612,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   aircon-pasha/course-set-pasha/kura-pasha・本ventureいずれも同種のギャップは解消済みと
   なったため、次回は他venture・アイデア領域の前進を優先候補とする。
+- フェーズ続き221(2026-09-13 17:00 UTC): menu-pricing-faq-topic-decision.md(フェーズ続き219)
+  「未解決のまま残す課題」に残っていた「メニュー件数が多い店舗で全件列挙が長文になりすぎる
+  場合の省略・要約要否は未検討」を棚卸しした過程で、aircon-pasha/course-set-pasha/kura-pasha
+  の3venture全てに存在する「LINE Messaging APIのテキストメッセージ文字数上限超過時の
+  フォールバック設計」(character-limit-fallback-design.md)自体が、本ventureにだけ存在しない
+  ギャップであることを発見した。本venture固有の事情(顧客への回答文言はLLMの自由生成では
+  なくformat_faq_*系テンプレートが店舗登録値を機械的に組み立てるのみで、`topic: "menu"`
+  〈format_faq_menu_message()、店舗のメニュー登録件数に比例して際限なく伸びうる〉以外の
+  トピックは本質的に有界であること)を踏まえ、character-limit-fallback-design.mdを新設し、
+  「メニューFAQのみを対象に、文字数超過時は他の未登録FAQ項目と同じ既存の保留文言
+  〈format_faq_unregistered_message()〉へフォールバックする(切り詰め・省略は行わない)」
+  方針を確定した。engine.pyに`LINE_TEXT_MESSAGE_MAX_UTF16_UNITS`(5,000、UTF-16コード単位)・
+  `count_utf16_code_units()`を新設し、cloud_function_process_event.pyの
+  `ConversationEventProcessor`に`_apply_menu_length_fallback()`を新設して
+  `_process_message_event()`内`self._logs.record()`呼び出しの直前(`_handle_faq()`より前)で
+  呼び出す配線とした。呼び出し順序を`_logs.record()`より前にする必要があるのは、
+  NotificationLogAggregator.record()がその時点の`resolved`値をそのまま未解決topic集計に
+  使うため、`_handle_faq()`内(送信直前)で書き換えると通知ログ・オーナー通知に反映されない
+  不整合が生じるためで、詳細はcharacter-limit-fallback-design.md「実装上の注意」参照。
+  テスト追加(engine側`CountUtf16CodeUnitsTest`3件・cloud_function_process_event側
+  メニュー600件で文字数超過を発生させる境界値テスト1件)、venture全体800件(796件→800件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`、コード変更は`faq_segments`のresolved書き換えの
+  みでスキーマ自体は不変のため27件のまま)いずれもパスを確認した。承認不要な設計文書作成・
+  コード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。ソフトな閾値の要否等の残課題は
+  character-limit-fallback-design.md「残る課題」参照。

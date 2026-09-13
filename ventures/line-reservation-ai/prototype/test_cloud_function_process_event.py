@@ -26,6 +26,7 @@ from cloud_function_process_event import (  # noqa: E402
     InMemoryConversationStateStore,
     InMemoryLinePushClient,
     InMemoryStoreNameProvider,
+    LINE_TEXT_MESSAGE_MAX_UTF16_UNITS,
     LinePushDeliveryError,
     MissingDestinationError,
     ProcessEventResult,
@@ -44,6 +45,7 @@ from engine import (  # noqa: E402
     EscalationConsolidator,
     InMemoryBookingRecordStore,
     NotificationLogAggregator,
+    count_utf16_code_units,
 )
 from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
@@ -563,6 +565,34 @@ class FaqSegmentReplyTests(unittest.TestCase):
 
         processor.process(_event("U1", "メニューと料金を教えてください"), llm_call, NOW)
         self.assertIn("担当者に確認のうえ", push.sent[0][1])
+
+    def test_menu_topic_falls_back_when_message_exceeds_line_text_length_limit(self):
+        # character-limit-fallback-design.md準拠。登録メニュー件数が多い店舗では
+        # format_faq_menu_message()の組み立て結果がLINE APIの文字数上限
+        # (LINE_TEXT_MESSAGE_MAX_UTF16_UNITS)を超えうる。超過時は尻切れ・API側エラーの
+        # まま送信せず、未登録時と同じ保留文言に差し替え、オーナー通知・未解決件数集計にも
+        # 反映される(seg["resolved"]がFalseへ書き換わる)ことを確認する。
+        many_menu_items = [
+            {"name": f"メニュー{i:04d}", "price": 1000 + i, "price_displayed": True}
+            for i in range(600)
+        ]
+        info = dict(STORE_FAQ_INFO)
+        info["menu"] = many_menu_items
+        processor, flow, push, logs = _new_processor(store_faq_info=info)
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": False,
+                "faq_segments": [{"topic": "menu", "resolved": True}],
+            }
+
+        result = processor.process(_event("U1", "メニューと料金を教えてください"), llm_call, NOW)
+        self.assertGreater(count_utf16_code_units(push.sent[0][1]), 0)
+        self.assertIn("担当者に確認のうえ", push.sent[0][1])
+        self.assertLessEqual(count_utf16_code_units(push.sent[0][1]), LINE_TEXT_MESSAGE_MAX_UTF16_UNITS)
+        self.assertEqual(result.detail, "1_segments_1_unresolved")
+        self.assertEqual(logs.unique_unresolved_topic_count(), 1)
 
     def test_other_topic_always_falls_back_to_holding_message(self):
         # topic: "other"は店舗FAQ情報欄に対応する登録項目が存在しないため常にエスカレーションに
