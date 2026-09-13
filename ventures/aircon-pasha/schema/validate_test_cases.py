@@ -312,6 +312,69 @@ TEST_CASES = {
         "subscription_procedure_notice": None,
         "checkout_notice": None,
     },
+    # 2026-09-13 19:00 UTC追加。output-samples-validation.md「残る未検証事項」・
+    # llm-system-prompt-draft.md「次の課題」に残っていた厳守事項4のデフォルト目安の
+    # 粒度分岐(1〜2年に1回/年1回/年2回)のうち、G2・G3は「1〜2年に1回」のみを扱っており、
+    # 使用頻度が高い場合の「年1回」・ペット/喫煙環境がある場合の「年2回」への分岐は
+    # サンプル未作成だったため追加した。
+    "G5_estimate_high_usage_annual": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄いたしました。"
+                    "常時稼働に近い使用頻度とのことで、汚れは中程度でした。",
+            "mentions_refrigerant_or_electrical": False,
+        },
+        "care_guide": {
+            "body": "フィルターは2週間に1回程度を目安にお手入れください。次回の分解洗浄の時期については、"
+                    "ほぼ毎日稼働させているとのことですので、一般的な目安として年1回程度のご検討を"
+                    "おすすめします(今回のメモに次回推奨時期の記載が無いため、あくまで一般的な目安です)。"
+                    "自己分解洗浄は内部の破損・感電等のリスクがあるため、分解を伴う清掃は専門業者への"
+                    "ご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": True,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-13",
+                "model_type_and_capacity": "壁掛け型2.2kW",
+                "dirt_condition": "中程度",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    "G6_estimate_pet_smoking_semiannual": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.8kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄いたしました。"
+                    "ペットを飼われているご家庭とのことで、フィルターに毛の付着が多く見られ、汚れはひどい状態でした。",
+            "mentions_refrigerant_or_electrical": False,
+        },
+        "care_guide": {
+            "body": "フィルターは2週間に1回程度を目安に、掃除機で毛を取り除いてからのお手入れをおすすめします。"
+                    "次回の分解洗浄の時期については、ペットを飼われている環境とのことですので、"
+                    "一般的な目安として年2回程度のご検討をおすすめします(今回のメモに次回推奨時期の"
+                    "記載が無いため、あくまで一般的な目安です)。自己分解洗浄は内部の破損・感電等の"
+                    "リスクがあるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": True,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-13",
+                "model_type_and_capacity": "壁掛け型2.8kW",
+                "dirt_condition": "ひどい状態",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
     "OOS1_reservation_question": {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは作業完了報告・お手入れ案内文の下書き作成支援のみを行っており、"

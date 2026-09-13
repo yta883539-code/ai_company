@@ -3239,4 +3239,20 @@
   (13件)を実行し、いずれも変更前と同じ結果でパスすることを確認した。承認不要なドキュメント
   整合性修正・回帰確認のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
   発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-13 14:00 UTC
+- フェーズ211(2026-09-13 19:00 UTC): llm-system-prompt-draft.md「次の課題」に残っていた、
+  厳守事項4(次回推奨時期のデフォルト目安)の粒度分岐(1〜2年に1回/年1回/年2回)のうち
+  「年1回」(高頻度使用時)・「年2回」(ペット・喫煙環境時)の期待JSON出力サンプルが
+  未作成だった件に対応した。schema/validate_test_cases.pyへG5_estimate_high_usage_annual・
+  G6_estimate_pet_smoking_semiannualの2フィクスチャを追加し(既存G1〜G4・OOS1・II1・
+  CI1〜3・CO1〜3・NEG1の13件と合わせて計15件)、
+  output-samples-validation.mdのケース一覧・結果件数(9→15、2026-09-12改訂分の反映漏れも
+  併せて解消)を更新した。追加当初はprototype/post_generation_checks.pyの
+  ESTIMATE_DISCLAIMER_KEYWORDS(「記載が無いため」等の定型打消し文言)チェックに
+  引っかかり回帰テストが4件失敗したため、G2・G3と同じ定型表現に文面を揃えて再修正した。
+  `python3 schema/validate_test_cases.py`(15件全件パス)・`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(485件全件パス)を確認した。承認不要な机上サンプル作成・
+  ドキュメント更新・回帰確認のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は実LLM接続後に残る検証課題
+  (G5・G6を含む粒度分岐が実際のLLM出力で安定するか)、または他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-13 19:00 UTC

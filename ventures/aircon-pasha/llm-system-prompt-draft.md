@@ -159,9 +159,10 @@ insufficient_input)パターンを踏襲する方向で検討している。
   「構造化出力の方針」の記述・schema/output.schema.json・schema/validate_test_cases.pyに
   反映済み。実LLMが複数台メモから配列を正しく分割生成できるかは引き続き実LLM接続後の
   検証課題として残る)
-- 厳守事項4に追記した次回推奨時期のデフォルト目安(1〜2年に1回/年1回/年2回の粒度分岐)を
-  実際にどこまで使うか(最も無難な「1〜2年に1回」のみに単純化するか)は、期待JSON出力
-  サンプル作成時に確定する必要がある(sns-blog-example-observation.md参照)。
+- (解消済み 2026-09-13 19:00 UTC: 厳守事項4に追記した次回推奨時期のデフォルト目安
+  〈1〜2年に1回/年1回/年2回の粒度分岐〉について、期待JSON出力サンプル(G5・G6)を
+  schema/validate_test_cases.pyに作成し、粒度分岐を単純化せず3パターンとも維持する
+  方針で確定した。出力サンプルはoutput-samples-validation.md参照)。
 
 ## 次の課題
 
@@ -175,10 +176,13 @@ insufficient_input)パターンを踏襲する方向で検討している。
 - 期待JSON出力サンプル(status別)の作成と机上バリデーション
   (course-set-pashaのoutput-samples-validation.md相当)は、6a各分岐(cancellation_intent/
   downgrade_intent/cancellation_unclear)についてはschema/validate_test_cases.pyの
-  CI1〜CI3フィクスチャとして作成済み(全8件パス)。厳守事項4のデフォルト目安の粒度別
-  サンプル(次回推奨時期が1〜2年に1回/年1回/年2回のケース別)はoutput-samples-validation.md
-  側の既存G1〜G3で部分的にカバーしているが、粒度分岐そのものを網羅したサンプルは未作成のまま
-  残る。
+  CI1〜CI3フィクスチャとして作成済み(全8件パス)。(解消済み 2026-09-13 19:00 UTC:
+  厳守事項4のデフォルト目安の粒度別サンプル(次回推奨時期が1〜2年に1回/年1回/年2回の
+  ケース別)は、既存G1〜G3(1〜2年に1回相当)に加えてG5_estimate_high_usage_annual
+  (年1回)・G6_estimate_pet_smoking_semiannual(年2回)をschema/validate_test_cases.pyに
+  追加し、3パターンすべてのサンプルが揃った。prototype/post_generation_checks.pyの
+  打消し文言チェック(ESTIMATE_DISCLAIMER_KEYWORDS)を通過する文面設計が必要な点も
+  確認済み。output-samples-validation.md参照)。
 - 厳守事項6aの境界(特に(iii)雑談と(iv)判断不能の切り分け、繁忙期の施工件数の多さを
   愚痴る発言との混同防止)は机上での言い回し例に基づく設計であり、実LLM接続後に実際の
   誤検知パターンが無いか改めて検証する必要がある(course-set-pashaの厳守事項7a同様の
