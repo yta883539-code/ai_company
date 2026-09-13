@@ -431,3 +431,56 @@ cases.py`(30件)いずれもパスすることを確認した。承認不要な�
 最終更新: 2026-09-13 15:00 UTC(フェーズ109: (b)契約者交代・再確認応答検知を実配線
 〈status別のapply_contractor_transfer()/cancel_pending_contractor_transfer()呼び分け〉。
 既存回帰テストの送信者設定を(a)(b)分離のため修正。(c)は次の課題)
+
+## 12. 追記(フェーズ110): (c)「残すメンバー」連絡検知の実配線
+
+11節が次の課題としていた(c)への同様の配線を行った。`process_memo_event()`で(a)(b)
+いずれも該当しない場合に続けて、`select_message_context()`の(c)判定と同じ条件
+(送信者が契約者本人かつ`workshop_store.get_pending_reduction_effective_at()`が設定済み)
+を直接評価する分岐を追加した。真の場合は(a)(b)と同様4.(`process_generation_request()`)
+以降(通常の受注メモ生成・7a〜7cの意図検知・限度通知等の付記)へは一切進まず、新設した
+`_process_member_retention_notice()`(文脈注入付きのLLM呼び出し)へ委譲する。
+
+(a)(b)との構造上の違い: (a)は`format_reply_text()`のみで完結し(受動案内、状態更新を
+伴わない)、(b)はLLMが返した`status`に応じて即座に`contractor_user_id`を更新するのに
+対し、(c)はmember-retention-notice-design.md 3節が明示する通り、この時点ではまだ
+`member_user_ids`を縮小しない。`status=member_retention_selection`のときは
+`workshop_store.set_specified_retention_member_name()`で`specified_member_name`を
+記録するだけにとどめ、実際の縮小反映は次回生成リクエスト受信時の
+`check_and_apply_pending_member_reduction()`都度チェック(フェーズ30で実装済み)側で
+行う。`status=member_retention_unclear`のときは何もしない(`pending_member_reduction_
+effective_at`を維持したまま、期限内であれば次回も判定対象とする)。また(c)は9節で
+確定した通りメンバー一覧・名前をプロンプトへ一切渡さないため、注入する`context`は
+`{"kind": "member_retention_notice"}`のみで(a)(b)のような`candidate_member_name`は
+含まない。
+
+**新設した統合テスト(prototype/test_cloud_function_webhook.py)**:
+- 明確な指定(`member_retention_selection`)時に`set_specified_retention_member_name()`
+  が実際に呼ばれ`specified_member_name`が記録されること、かつこの時点では
+  `member_user_ids`がまだ縮小されないことの確認。
+- 不明確(`member_retention_unclear`)時に`specified_member_name`が記録されず、
+  `pending_member_reduction_effective_at`が維持されることの確認。
+- 契約者以外からのメッセージでは(c)が発火せず通常生成に進むことの回帰確認
+  (1節(c)の送信者限定スコープの検証)。
+
+`prototype/test_cloud_function_webhook.py`のcheck()件数318件→331件(13件増)、
+`python3 prototype/run_all_tests.py`(全10ファイル)・`python3 schema/validate_test_
+cases.py`(30件)いずれもパスすることを確認した(schema側の変更は無く、既存の
+`member_retention_notice`フィールド〈2026-09-07 13:02 UTC追加〉をそのまま利用した)。
+承認不要なコード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+これで(a)(b)(c)すべてが`process_memo_event()`へ実配線された。
+
+**次の課題**: (a)(b)(c)それぞれ専用の判定条件を`process_memo_event()`内で個別に
+直接評価する現状の積み上げ方式を、`select_message_context()`統合関数への一本化に
+置き換えるかどうかを検討する(6節末尾で既に指摘していた論点)。一本化する場合、
+`MessageContext.generation_result`が(d)経路で`process_generation_request()`の
+結果を既に保持している設計との整合(現状の`process_memo_event()`は(d)到達後に
+別途4.〜7.のロジックを実行しており、`select_message_context()`の(d)戻り値を
+そのまま使うと二重呼び出しになる)を先に解消する必要がある。
+
+最終更新: 2026-09-13 16:00 UTC(フェーズ110: (c)「残すメンバー」連絡検知を実配線
+〈status=member_retention_selectionならset_specified_retention_member_name()で記録、
+実際の縮小は次回都度チェック時〉。(a)(b)(c)すべて配線完了。次は
+`select_message_context()`への一本化検討)

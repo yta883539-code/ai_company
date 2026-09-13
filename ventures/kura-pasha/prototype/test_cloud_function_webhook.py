@@ -50,6 +50,7 @@ from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_
 from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+    MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
     InMemoryWorkshopStore,
@@ -1236,6 +1237,115 @@ def test_process_memo_event_does_not_trigger_confirmation_for_non_contractor_sen
     check("通常生成経路ではLLM呼び出しにcontextが渡らない", llm_call.calls[0][2] is None)
 
 
+def test_process_memo_event_wires_member_retention_notice_selection_from_store():
+    """message-context-selection-design.md 6節が指摘していた配線漏れのうち(c)分を
+    フェーズ110で解消したことの検証。契約者本人が縮小猶予期間中(pending_member_
+    reduction_effective_at設定済み)に返信した場合、(c)の文脈(kind=member_retention_
+    notice、メンバー一覧・名前は渡さない)がLLM呼び出しへ注入され、
+    status=member_retention_selectionならset_specified_retention_member_name()で
+    specified_member_nameが実際に記録されることを確認する。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_MRN_CONTRACTOR", "W_MRN")
+    workshops.set_plan("W_MRN", "standard")
+    workshops.set_members(
+        "W_MRN", "U_MRN_CONTRACTOR", ["U_MRN_CONTRACTOR", "U_MRN_MEMBER"],
+        display_names={"U_MRN_MEMBER": "田中"},
+    )
+    workshops.set_pending_reduction_effective_at("W_MRN", FEB + timedelta(days=5))
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["M1_member_retention_selection"]])
+    result = process_memo_event(
+        _make_event("田中さんを残してください", user_id="U_MRN_CONTRACTOR"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),  # effective_at(FEB+5日)より前(猶予期間中)
+    )
+
+    check(
+        "明確な指定時はmember_retention_notice.bodyを返す",
+        result.reply_text == TEST_CASES["M1_member_retention_selection"]["member_retention_notice"]["body"],
+    )
+    check("member_retention_notice_sent=True", result.member_retention_notice_sent is True)
+    check(
+        "LLM呼び出しに(c)の文脈(kindのみ、メンバー一覧・名前は渡さない)が注入される",
+        llm_call.calls[0][2] == {"kind": MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE},
+    )
+    check(
+        "specified_member_nameが実際に記録される",
+        workshops.get_specified_retention_member_name("W_MRN") == "田中",
+    )
+    check(
+        "この時点ではまだmember_user_idsは縮小されない(design 3節、反映は次回都度チェック時)",
+        workshops.get_member_user_ids("W_MRN") == ["U_MRN_CONTRACTOR", "U_MRN_MEMBER"],
+    )
+    check(
+        "この経路ではprocess_generation_request()を経由しないためusage_counterは加算されない",
+        counters.get("W_MRN") is None,
+    )
+
+
+def test_process_memo_event_wires_member_retention_notice_unclear_from_store():
+    """status=member_retention_unclearの場合、set_specified_retention_member_name()は
+    呼び出されず(specified_member_nameを記録せず)、意思確認一言のみを返すことを確認する
+    (design 3節、次回メッセージでも再度判定対象とする)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_MRN_CONTRACTOR2", "W_MRN2")
+    workshops.set_plan("W_MRN2", "standard")
+    workshops.set_members("W_MRN2", "U_MRN_CONTRACTOR2", ["U_MRN_CONTRACTOR2", "U_MRN_MEMBER2"])
+    workshops.set_pending_reduction_effective_at("W_MRN2", FEB + timedelta(days=5))
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["M2_member_retention_unclear"]])
+    result = process_memo_event(
+        _make_event("メンバーの件ですが", user_id="U_MRN_CONTRACTOR2"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),
+    )
+
+    check(
+        "不明確な場合はmember_retention_notice.bodyを返す",
+        result.reply_text == TEST_CASES["M2_member_retention_unclear"]["member_retention_notice"]["body"],
+    )
+    check("member_retention_notice_sent=True", result.member_retention_notice_sent is True)
+    check(
+        "不明確な場合はspecified_member_nameを記録しない",
+        workshops.get_specified_retention_member_name("W_MRN2") is None,
+    )
+    check(
+        "pending_member_reduction_effective_atは維持される(期限内なら次回も判定対象)",
+        workshops.get_pending_reduction_effective_at("W_MRN2") is not None,
+    )
+
+
+def test_process_memo_event_does_not_trigger_member_retention_for_non_contractor_sender():
+    """(c)は送信者が契約者本人の場合に限られる(design 1節(c))ため、猶予期間中でも
+    契約者以外からのメッセージでは(c)は発火せず通常の生成フローに進むことを確認する
+    (回帰確認)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_MRN_OTHER", "W_MRN3")
+    workshops.set_plan("W_MRN3", "standard")
+    workshops.set_members("W_MRN3", "U_MRN_CONTRACTOR3", ["U_MRN_CONTRACTOR3", "U_MRN_OTHER"])
+    workshops.set_pending_reduction_effective_at("W_MRN3", FEB + timedelta(days=5))
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_MRN_OTHER"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),
+    )
+
+    check(
+        "契約者以外からのメッセージでは(c)は発火せず通常生成が行われる",
+        result.reply_text is not None and "受注内容整理メモ" in result.reply_text,
+    )
+    check("member_retention_notice_sent=False", result.member_retention_notice_sent is False)
+    check("通常生成経路ではLLM呼び出しにcontextが渡らない", llm_call.calls[0][2] is None)
+
+
 def test_process_memo_event_appends_limit_approaching_and_overage_notices():
     """limit-approaching-notification-design.md 2節: ライトプラン(月3回)で4回連続生成し、
     2回目(残り1回)・4回目(上限超過)にのみ通知が付記されることを確認する。"""
@@ -2181,6 +2291,9 @@ if __name__ == "__main__":
     test_process_memo_event_wires_contractor_transfer_confirmation_cancelled_from_store()
     test_process_memo_event_wires_contractor_transfer_confirmation_reconfirm_unclear_from_store()
     test_process_memo_event_does_not_trigger_confirmation_for_non_contractor_sender()
+    test_process_memo_event_wires_member_retention_notice_selection_from_store()
+    test_process_memo_event_wires_member_retention_notice_unclear_from_store()
+    test_process_memo_event_does_not_trigger_member_retention_for_non_contractor_sender()
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()

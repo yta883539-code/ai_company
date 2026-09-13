@@ -50,6 +50,7 @@ from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
+    MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
     PaymentSuspendedError,
     TrialPeriodOverError,
     UsageCheckResult,
@@ -604,6 +605,7 @@ class MemoProcessResult:
     character_limit_exceeded: bool = False  # True=生成結果がLINE文字数上限を超えフォールバック応答した
     contractor_transfer_expired_notice_sent: bool = False  # True=(a)期限切れ案内の文脈注入経路で返信した(フェーズ108)
     contractor_transfer_confirmation_sent: bool = False  # True=(b)契約者交代・再確認応答検知の文脈注入経路で返信した(フェーズ109)
+    member_retention_notice_sent: bool = False  # True=(c)「残すメンバー」連絡検知の文脈注入経路で返信した(フェーズ110)
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -807,6 +809,88 @@ def _process_contractor_transfer_confirmation(
     )
 
 
+def _process_member_retention_notice(
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    reply_token: str,
+    memo_text: str,
+    *,
+    workshop_id: str,
+    workshop_store: WorkshopStoreProtocol,
+) -> MemoProcessResult:
+    """message-context-selection-design.md 1節(c)・6節が指摘していた配線漏れのうち
+    (c)分をフェーズ110で実配線する処理。process_memo_event()から、(a)(b)いずれも
+    該当せず、送信者が契約者本人かつ`workshop_store.get_pending_reduction_effective_at()`
+    が設定済みの場合にのみ呼び出される。llm-system-prompt-draft.md 2026-09-13 12:00 UTC
+    追記の文脈注入指示(kind=member_retention_notice)をLLM呼び出しへ渡す。(a)(b)と同様、
+    メンバー一覧・名前はプロンプトへ一切渡さない(9節の通り、LLMは受信メッセージ本文からの
+    自由な名前・呼称抽出のみを担当する)。(a)と同様に通常の受注メモ生成(7a〜7cの意図検知
+    含む)は一切行わない。
+
+    member-retention-notice-design.md 3節の通り、LLMが返したstatusに応じて
+    アプリケーション側の状態更新を行う(LLMは文言生成のみを担い、実際の`member_user_ids`
+    縮小自体には関与しない。同design.md「3. schema拡張」body欄の通り、この時点では
+    まだ縮小せず、次回生成リクエスト受信時の`check_and_apply_pending_member_reduction`
+    都度チェックで反映する):
+    - member_retention_selection: `workshop_store.set_specified_retention_member_name()`
+      で`specified_member_name`を記録する(contractor-transfer-confirmation-detection-
+      design.mdの`apply_contractor_transfer()`のような即時のメンバー入れ替えは行わない)。
+    - member_retention_unclear: 何もしない(次回メッセージでも再度この2パターンの
+      判定対象となる)。
+
+    LLM API失敗時・検証エラー時のフォールバックは(a)(b)・process_memo_event()本体の
+    (d)経路と同じ扱いとする。
+    """
+    context = {"kind": MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE}
+    try:
+        instance = _generate_with_api_retry(llm_call, memo_text, context=context)
+    except LlmApiError:
+        reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None, api_failure=True,
+        )
+
+    errors = validate_llm_output(instance)
+    retried = False
+    if errors:
+        retried = True
+        try:
+            instance = _generate_with_api_retry(
+                llm_call, memo_text, retry_context=_summarize_errors_for_retry(errors), context=context,
+            )
+        except LlmApiError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+                retried=retried, api_failure=True,
+            )
+        errors = validate_llm_output(instance)
+
+    if errors:
+        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            validation_errors=errors, retried=retried,
+        )
+
+    status = instance["status"]
+    if status == "member_retention_selection":
+        specified_member_name = instance["member_retention_notice"]["specified_member_name"]
+        workshop_store.set_specified_retention_member_name(workshop_id, specified_member_name)
+    # member_retention_unclearの場合は何もしない(design 3節、次回メッセージでも
+    # 再度この2パターンの判定対象とする)。
+
+    reply_text = format_reply_text(instance)
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None,
+        retried=retried, member_retention_notice_sent=reply_sent,
+    )
+
+
 def process_memo_event(
     event: dict,
     llm_call: LlmCallClient,
@@ -885,9 +969,9 @@ def process_memo_event(
        5.のトライアル終了通知添付条件(生涯最初の生成1回目のみ)と6.の本条件(「残り1回」
        到達時のみ)は判定条件が独立しており現行プランでは同一回で重複しないため、
        両者の単純なor条件でボタン添付要否を決定する。
-    8. (フェーズ108、新設。フェーズ109で(b)を追加) message-context-selection-design.md
-       6節が指摘していた`select_message_context()`未配線の3系統(a)(b)(c)のうち、
-       フェーズ108で(a)契約者譲渡・期限切れ案内を実配線した。4.の
+    8. (フェーズ108、新設。フェーズ109で(b)、フェーズ110で(c)を追加) message-context-
+       selection-design.md 6節が指摘していた`select_message_context()`未配線の3系統
+       (a)(b)(c)のうち、フェーズ108で(a)契約者譲渡・期限切れ案内を実配線した。4.の
        `process_generation_request()`を呼び出す直前に
        `check_and_expire_pending_contractor_transfer()`(select_message_context()の
        (a)判定と同じ関数)を直接呼び出し、非Noneが返った場合は4.以降(通常の受注メモ生成・
@@ -900,9 +984,15 @@ def process_memo_event(
        `_process_contractor_transfer_confirmation()`(文脈注入付きのLLM呼び出し・
        LLMが返したstatusに応じた`apply_contractor_transfer()`/`cancel_pending_
        contractor_transfer()`の呼び分け・`contractor_transfer_confirmation.body`の
-       返信)へ委譲して即座にreturnする。(c)「残すメンバー」連絡検知は本フェーズでは配線
-       せず次の課題として残した(`select_message_context()`統合関数自体はまだ呼び出さず、
-       (a)(b)それぞれ専用の判定関数を個別に直接呼び出す最小限の変更の積み上げにとどめた)。
+       返信)へ委譲して即座にreturnする。フェーズ110では、(a)(b)いずれも該当しない場合に
+       続けて、送信者が契約者本人かつ`workshop_store.get_pending_reduction_effective_at()`
+       が設定済みか(select_message_context()の(c)判定と同じ条件)を直接評価し、真の場合は
+       同様に4.以降へは進まず`_process_member_retention_notice()`(文脈注入付きのLLM
+       呼び出し・LLMが返したstatusに応じた`set_specified_retention_member_name()`の
+       呼び出し要否判定・`member_retention_notice.body`の返信)へ委譲して即座にreturnする。
+       これで(a)(b)(c)すべてが配線された(`select_message_context()`統合関数自体は
+       まだ呼び出さず、(a)(b)(c)それぞれ専用の判定条件を個別に直接評価する最小限の変更の
+       積み上げにとどめた。統合関数への一本化は次の課題として残す)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -959,6 +1049,23 @@ def process_memo_event(
                 workshop_id=workshop_id_for_context,
                 candidate_user_id=pending_transfer.candidate_user_id,
                 candidate_member_name=pending_transfer.candidate_member_name,
+                workshop_store=workshop_store,
+            )
+
+        # フェーズ110(message-context-selection-design.md 6節の配線漏れのうち(c)分に
+        # 対応): (a)(b)いずれもNone/偽の場合のみ、select_message_context()の(c)判定と
+        # 同じ条件(送信者が契約者本人かつpending_member_reduction_effective_atが設定済み)
+        # を直接評価する。真の場合は(a)(b)と同様process_generation_request()以降へは進まず、
+        # (c)の文脈注入経路へ委譲する。これで(a)(b)(c)すべてが配線された
+        # (select_message_context()統合関数自体は10節・11節と同じ理由でまだ呼び出さない)。
+        if (
+            workshop_id_for_context is not None
+            and user_id == workshop_store.get_contractor_user_id(workshop_id_for_context)
+            and workshop_store.get_pending_reduction_effective_at(workshop_id_for_context) is not None
+        ):
+            return _process_member_retention_notice(
+                llm_call, reply_client, reply_token, memo_text,
+                workshop_id=workshop_id_for_context,
                 workshop_store=workshop_store,
             )
 

@@ -2267,3 +2267,30 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 最終更新: 2026-09-13 15:00 UTC(フェーズ109: (b)契約者交代・再確認応答検知を実配線
 〈status別のapply_contractor_transfer()/cancel_pending_contractor_transfer()呼び分け〉。
 既存回帰テストの送信者設定を(a)(b)分離のため修正。(c)は次の課題)
+
+- フェーズ110(2026-09-13 16:00 UTC): フェーズ109が次の課題としていた(c)「残すメンバー」
+  連絡検知の実配線に対応した(message-context-selection-design.md 12節参照)。
+  `process_memo_event()`で(a)(b)いずれも該当しない場合に続けて、送信者が契約者本人かつ
+  `workshop_store.get_pending_reduction_effective_at()`が設定済みか(select_message_
+  context()の(c)判定と同じ条件)を直接評価する分岐を追加し、真の場合は新設した
+  `_process_member_retention_notice()`(文脈注入付きのLLM呼び出し)へ委譲する。(a)(b)と
+  異なり(c)はこの時点ではまだ`member_user_ids`を縮小せず、`status=member_retention_
+  selection`のときのみ`workshop_store.set_specified_retention_member_name()`で
+  `specified_member_name`を記録するにとどめる(member-retention-notice-design.md 3節の
+  通り、実際の縮小反映は次回生成リクエスト受信時の`check_and_apply_pending_member_
+  reduction()`都度チェックで行う)。`status=member_retention_unclear`のときは何もしない。
+  (c)は9節で確定した通りメンバー一覧・名前をプロンプトへ渡さないため、注入する
+  contextは`{"kind": "member_retention_notice"}`のみとした((a)(b)のような
+  `candidate_member_name`は含まない)。統合テスト3件(明確な指定時の記録確認・不明確時の
+  未記録確認・契約者以外からのメッセージでは発火しない回帰確認)を新設し、
+  `test_cloud_function_webhook.py`のcheck()件数318件→331件、`python3 prototype/
+  run_all_tests.py`(全10ファイル)・`python3 schema/validate_test_cases.py`(30件)
+  いずれもパスを確認した(schema側の変更は無く既存の`member_retention_notice`
+  フィールドをそのまま利用)。これにより(a)(b)(c)すべての実配線が完了した。承認不要な
+  コード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は(a)(b)(c)個別分岐の
+  積み上げを`select_message_context()`統合関数への一本化に置き換えるかどうかの検討
+  (12節「次の課題」参照)、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 16:00 UTC(フェーズ110: (c)「残すメンバー」連絡検知を実配線。
+(a)(b)(c)すべて配線完了。次は`select_message_context()`への一本化検討)
