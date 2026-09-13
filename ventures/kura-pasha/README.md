@@ -2168,3 +2168,27 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 
 最終更新: 2026-09-13 07:00 UTC(フェーズ105: (a)(b)(c)返信文面生成方針を決定〈LLM
 構造化出力への委任を維持〉、(a)契約者交代確認・期限切れ案内のプロンプト文面を新設)
+
+- フェーズ106(2026-09-13 10:00 UTC): フェーズ105が次のステップ候補としていた
+  (b)契約者交代・再確認応答検知のプロンプト文面新設に対応した(message-context-
+  selection-design.md 8節参照)。contractor-transfer-confirmation-detection-design.md
+  3節で既に確定していた判定パターン(送信者〈現契約者本人〉からの自由記述の返信を
+  肯定/否定/不明瞭の3分類に判定するルール)・schema設計(status 3値・`contractor_
+  transfer_confirmation`フィールド)をもとに、llm-system-prompt-draft.mdへ「文脈注入
+  時の追加指示: 契約者交代・再確認応答検知」のプロンプト文面を新設した。(a)が「受信
+  内容を問わず常に同じ一言を返す」構造だったのに対し、(b)は厳守事項7a〜7cと同種の
+  自然文からの意図解釈による3分岐判定である点が異なる(ただし7a〜7cの番号体系には
+  含めず、(a)と同じ別区分として扱う)。着手にあたり確認したところ、schema/output.
+  schema.json・schema/validate_test_cases.pyへの反映(status enum3値・`contractor_
+  transfer_confirmation`フィールド追加)はフェーズ37(2026-09-08 02:00 UTC)の時点で
+  既に完了済みであり、本フェーズで新規に必要だったのはプロンプト文面のみだった。
+  コード変更は無く、venture全体687件(`python3 prototype/run_all_tests.py`)・
+  schema検証30件(`python3 schema/validate_test_cases.py`)いずれも変更前と同じ結果で
+  パスすることを確認した。承認不要な設計文書作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。次回は(c)「残すメンバー」連絡検知のプロンプト文面新設(前提となるメンバー
+  一覧のプロンプトへの渡し方の設計判断を含む)、または他venture・アイデア領域の前進を
+  優先候補とする。
+
+最終更新: 2026-09-13 10:00 UTC(フェーズ106: (b)契約者交代・再確認応答検知のプロンプト
+文面を新設。(c)・schema反映・実配線は次の課題)

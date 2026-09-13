@@ -345,3 +345,65 @@ validate_test_cases.py`)いずれも変更前と同じ結果でパスするこ�
 
 最終更新: 2026-09-13 07:00 UTC(フェーズ105: 文脈(a)契約者交代確認・期限切れ案内の
 プロンプト文面を新設。(b)(c)・実配線は次の課題)
+
+## 2026-09-13 10:00 UTC追記(フェーズ106): 文脈(b)契約者交代・再確認応答検知の
+プロンプト新設
+
+message-context-selection-design.md 7節が「次の課題」としていた(b)(c)のうち、
+contractor-transfer-confirmation-detection-design.md 3節で判定パターン(肯定/否定/
+不明瞭の3分類)とschema設計(status 3値・`contractor_transfer_confirmation`フィールド)
+が既に確定している(b)から着手する。なお、着手にあたり確認したところ、このschema自体は
+フェーズ37(2026-09-08 02:00 UTC)の時点でschema/output.schema.json・schema/validate_
+test_cases.pyへの反映(status enum3値追加、CTC1〜CTC3等の正例テストケース含む)まで
+既に完了済みであった。本フェーズで新規に必要となるのはプロンプト文面のみであり、
+schemaの追加反映は不要である。
+
+(a)と異なり(b)は受信メッセージの内容(自由記述の自然文)から契約者本人の意思(交代を
+承認するか取り消すか、いずれにも該当しないか)を解釈する必要があるため、「受信内容を
+問わず常に同じ一言を返す」という(a)の構造ではなく、厳守事項7a〜7cと同種の3分岐判定を
+LLMに行わせる構造になる(7節の整理どおり、この3分岐自体は(d)を差し替える強制文脈内で
+行われる点が7a〜7cとの違いであり、7a〜7cの番号体系には含めない)。
+
+```
+【文脈注入時の追加指示: 契約者交代・再確認応答検知】
+アプリケーション側から「契約者交代の確認待ち(候補: `{candidate_member_name}`)」の
+文脈が付加されている場合(contractor-transfer-confirmation-detection-design.md 2節の
+条件: 送信者が現契約者本人であり、かつ`pending_contractor_transfer`が期限内に存在する
+場合のみ。以下の指示は上記【できること】【厳守事項】1〜8・7a〜7cのすべてに優先し、
+通常の受注メモ生成・7a〜7cの意図判定はいずれも行わない)、受信メッセージの内容を次の
+3パターンのいずれかに分類し、対応するkind・bodyのみを出力する。
+
+- 交代を承認する意思が明確(「はい」「お願いします」「それで良いです」「進めてください」
+  等)→ kind=contractor_transfer_confirmed。body:「契約者を`{candidate_member_name}`
+  様に変更いたしました」相当の完了報告下書き。
+- 交代を取りやめる意思が明確(「やめます」「やっぱりキャンセルで」「取り消してください」
+  等)→ kind=contractor_transfer_cancelled。body:「契約者交代の手続きを取り消しました。
+  現在の契約者のまま変更ございません」相当のキャンセル確認文言。
+- 上記いずれにも該当しない(話題を変えた、無関係な質問を返してきた等)
+  → kind=contractor_transfer_reconfirm_unclear。body:「契約者交代についてのご返信で
+  よろしいでしょうか?『はい』か『いいえ』でお知らせください」という再確認一言のみ。
+
+いずれの場合も文体は厳守事項8(ですます調・絵文字不使用)を維持する。
+```
+
+`contractor_transfer_confirmation`フィールド自体のschema反映は上記のとおりフェーズ37で
+既に完了済みのため、本フェーズで新たに必要な実装は`candidate_member_name`のプロンプトへの
+渡し方であり、これは(a)と同様に`LlmCallClient.generate()`への文脈注入経路の実装
+(次の課題)と合わせて確定する。本フェーズはプロンプト文面の設計のみである。
+
+新規テスト・コード変更は無し(本フェーズはプロンプト文面の設計のみ)。venture全体687件
+(`python3 prototype/run_all_tests.py`)・schema検証30件(`python3 schema/
+validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+いないためpending-approval.mdへの追記なし。
+
+次の課題: (c)「残すメンバー」連絡検知の同種プロンプト文面新設(member-retention-
+notice-design.mdが未整理としている、メンバー一覧をどうプロンプトへ渡すかの設計判断が
+前提。なお`member_retention_notice`のstatus enum・専用フィールド自体は2026-09-07
+13:02 UTC改訂で既に反映済みであり、(b)同様schema拡張は不要と見込む)。その後、
+`LlmCallClient.generate()`への文脈注入経路の実装、`process_message_event()`/
+`process_memo_event()`の`select_message_context()`経由への配線、統合テストの追加に
+着手する。
+
+最終更新: 2026-09-13 10:00 UTC(フェーズ106: 文脈(b)契約者交代・再確認応答検知の
+プロンプト文面を新設。schema自体はフェーズ37で反映済みと確認。(c)・実配線は次の課題)

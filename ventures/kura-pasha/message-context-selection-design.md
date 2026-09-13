@@ -253,3 +253,30 @@ llm-system-prompt-draft.mdへ新設した(該当追記参照)。(b)(c)は以下�
 
 最終更新: 2026-09-13 07:00 UTC(フェーズ105: 6節「次の課題1.」の方針決定〈LLM構造化出力
 への委任を維持〉、(a)のプロンプト文面新設に着手)
+
+## 8. 追記(フェーズ106): (b)契約者交代・再確認応答検知のプロンプト新設
+
+7節「本フェーズで着手した範囲」が(b)(c)のうち先に着手する対象として挙げていた(b)に
+ついて、contractor-transfer-confirmation-detection-design.md 3節で既に確定していた
+判定パターン(肯定/否定/不明瞭の3分類)・schema設計(status 3値・`contractor_
+transfer_confirmation`フィールド)をもとに、llm-system-prompt-draft.mdへプロンプト
+文面を新設した(該当追記参照)。(a)が「受信内容を問わず常に同じ一言を返す」構造だった
+のに対し、(b)は厳守事項7a〜7cと同種の自然文からの意図解釈による3分岐判定である点が
+異なる。
+
+なお着手にあたり確認したところ、schema/output.schema.json・schema/validate_test_
+cases.pyへの反映(status enum3値・`contractor_transfer_confirmation`フィールド追加、
+CTC1〜CTC3等の正例テストケース)はフェーズ37(2026-09-08 02:00 UTC)の時点で既に完了
+済みであった。本フェーズで必要だったのはプロンプト文面のみであり、schemaへの追加反映は
+不要だった。
+
+**次の課題**: (c)「残すメンバー」連絡検知のプロンプト文面新設。member-retention-
+notice-design.mdが未整理としている「メンバー一覧(`member_user_ids`)をどうプロンプト
+へ渡すか(名前のみか、user_id自体も渡すか)」の設計判断が(c)着手の前提となる(`member_
+retention_notice`のstatus enum・専用フィールド自体は2026-09-07 13:02 UTC改訂で既に
+反映済みであり、(b)同様schema拡張は不要と見込む)。その後、`LlmCallClient.generate()`
+への文脈注入経路の実装、`process_message_event()`/`process_memo_event()`を
+`select_message_context()`経由に置き換える制御フロー変更、統合テストの追加に着手する。
+
+最終更新: 2026-09-13 10:00 UTC(フェーズ106: (b)契約者交代・再確認応答検知のプロンプト
+文面を新設。(c)・schema反映・実配線は次の課題)
