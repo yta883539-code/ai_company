@@ -3211,4 +3211,20 @@
   オブジェクトで区別していなかったため、`plan_synced_user_ids`の意味(「解決できた」
   ことを示す)はそのまま残した。kura-pasha・line-reservation-aiへの同種ギャップの
   横展開要否は次回以降の棚卸し候補として残す。
-- 最終更新: 2026-09-12 15:00 UTC
+- フェーズ209(2026-09-13 10:59 UTC): 各設計docの残課題を棚卸しした。
+  character-limit-fallback-design.md(ソフト閾値検討)・trial-end-scheduler-design.md
+  (同時実行時のトランザクション化)・unit-economics-estimate.md(実行時間の実測)・
+  llm-quality-verification-plan.md(実LLM検証)・output-samples-validation.md(実LLM
+  検証)・unfollow-billing-faq.md(問い合わせ対応テンプレートの宛先メールアドレス)・
+  candidate-readiness-summary.md(候補研究)を確認したが、いずれも実LLM接続・実LINE/
+  Stripeアカウント接続・オーナー自身の連絡先確定・実運用データのいずれかを前提とする
+  項目であり、承認不要な机上作業の範囲では前進させられる新規ギャップは見当たらなかった
+  (kura-pasha・line-reservation-aiへの横展開要否として残っていたsubscription_plan_sync
+  周りの棚卸しは、line-reservation-aiフェーズ続き220で全venture分の解消が確認済みのため
+  本フェーズでの対応は不要)。念のため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(485件)・`python3 schema/validate_test_cases.py`
+  (13件)を実行し、いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+  ドキュメント棚卸し・回帰確認のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-13 10:59 UTC
