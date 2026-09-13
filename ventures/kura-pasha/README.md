@@ -2146,3 +2146,25 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 最終更新: 2026-09-13 06:00 UTC(フェーズ104: select_message_context「未実装」記載の
 誤りを訂正、および実装済みだが呼び出し元に配線されていない・LLMプロンプトにも対応する
 記述が無いという、より本質的な配線漏れを発見・記録)
+
+- フェーズ105(2026-09-13 07:00 UTC): フェーズ104が次のステップ候補としていた
+  message-context-selection-design.md 6節の次の課題(1. (a)(b)(c)の返信文面生成方針の
+  決定)に対応した(craftsman-account-linking-design.md 11.10節参照)。(a)(b)(c)いずれも
+  既存方針(LLM構造化出力への委任)を維持し、`member_limit_reached`のようなPython側
+  決定論的テンプレートには切り替えないと結論した((b)(c)は自由記述の自然文からの意図
+  解釈が必須、(a)はtone-and-manner-guideline.mdが定める文体一貫性を他のLLM生成文言と
+  揃えるため)。あわせて、3つのうち最も設計が確定している(a)契約者交代確認・期限切れ
+  案内のプロンプト文面をllm-system-prompt-draft.mdへ新設した(7a〜7cとは別区分の
+  「文脈注入時の追加指示」として、通常の依頼メモ生成・7a〜7cの意図判定すべてに優先する
+  旨を明記)。(b)(c)のプロンプト文面新設、および`LlmCallClient.generate()`への文脈注入
+  経路の実装・`process_message_event()`/`process_memo_event()`の`select_message_
+  context()`経由への配線は、渡すべき情報の整理がまだ必要なため次の課題として残した。
+  コード変更は無く、venture全体687件(`python3 prototype/run_all_tests.py`)・
+  schema検証30件(`python3 schema/validate_test_cases.py`)いずれも変更前と同じ結果で
+  パスすることを確認した。承認不要な設計文書作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。次回は(b)(c)のプロンプト文面新設、または他venture・アイデア領域の前進を優先
+  候補とする。
+
+最終更新: 2026-09-13 07:00 UTC(フェーズ105: (a)(b)(c)返信文面生成方針を決定〈LLM
+構造化出力への委任を維持〉、(a)契約者交代確認・期限切れ案内のプロンプト文面を新設)
