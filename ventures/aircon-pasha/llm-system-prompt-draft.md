@@ -118,10 +118,12 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
    性質上、course-set-pashaのSNS投稿文とは異なり絵文字を含めない方針とする)。
 ```
 
-## 構造化出力の方針(方針のみ、スキーマファイル未作成)
+## 構造化出力の方針(2026-08-21解消済み: schema/output.schema.json作成済み。以下は執筆当時の
+検討メモとして残す)
 
 course-set-pasha/schema/output.schema.jsonの`status`分岐(generated/out_of_scope/
-insufficient_input)パターンを踏襲する方向で検討している。
+insufficient_input)パターンを踏襲する方向で検討していた(その後schema/output.schema.json
+として実装済み。下記の各項目も実装済み。詳細は「次の課題」節参照)。
 
 - `status`で厳守事項6(会員管理等への不応答)・厳守事項7(入力不足時の再送依頼)の分岐を
   表現し、通常の3出力生成(`completion_report`/`care_guide`/`history_row`)が行われるのは
@@ -144,7 +146,9 @@ insufficient_input)パターンを踏襲する方向で検討している。
   (配列、1メモ=1台の場合は要素数1)に変更した。具体的なスキーマ改訂はschema/output.schema.json・
   schema/validate_test_cases.py(G4_multiple_units_same_visit新規追加)に反映済み。
 
-実際のJSON Schemaファイル(schema/output.schema.json相当)の作成は次回以降の課題とする。
+(2026-08-21解消済み: 実際のJSON Schemaファイルはschema/output.schema.jsonとして作成済み。
+本行は執筆当時〈スキーマ未作成の時点〉の記載がその後の改訂で訂正されないまま残っていた
+ものと判明したため、フェーズ212でこの節の見出し・本文とあわせて訂正した)。
 
 ## 未検証事項
 
