@@ -2926,4 +2926,22 @@
   修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
   ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進を優先候補
   とする。
-- 最終更新: 2026-09-12 14:00 UTC
+- フェーズ209(2026-09-13 02:00 UTC): llm-system-prompt-draft.mdの「次の課題」に
+  2026-08-15 05:00 UTCから残っていた「厳守事項7aの境界(特に(iii)雑談と(iv)判断不能の
+  切り分け)は机上での言い回し例に基づく仮の線引きであり、実LLM接続後に実際の入力文で
+  どちらに判定されるかの検証が必要」のうち、実LLM接続(オーナー承認待ち)を要しない範囲、
+  すなわち「(iii)雑談と判定された場合にstatus enumのどの値へ帰着させるか」を机上で
+  確定させた(subscription-intent-iii-chitchat-status-mapping-review.md新規作成)。
+  schema/output.schema.jsonの`status`フィールド説明には既に「(iii)はgenerated/
+  out_of_scope/insufficient_inputのいずれかに帰着」と記載済みだったが、実際にどれに
+  帰着するかを示すテストケースが存在しなかったギャップを解消し、雑談のみで課題入れ替え
+  情報を含まない場合は`insufficient_input`、雑談に加えて課題入れ替え情報も含む場合は
+  雑談部分を無視して`generated`に帰着させる方針を確定した。schema/validate_test_cases.py
+  にCI4(insufficient_input帰着)・CI5(generated帰着)を追加し(schema検証13件→15件
+  全件パス)、llm-system-prompt-draft.mdの厳守事項7a(iii)本文・「次の課題」一覧にも
+  この決定を反映した。venture全体583件(コード変更無しのため変更前と同じ結果)いずれも
+  パスを確認した。「実際の入力文が(iii)雑談と(iv)判断不能のどちらに分類されるか」自体の
+  分類精度検証は引き続き実LLM接続後(オーナー承認待ち)の課題として残る。承認不要な
+  設計文書作成・schema/テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-13 02:00 UTC

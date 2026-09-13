@@ -14,6 +14,9 @@ schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対�
 - フェーズ54(2026-08-15 08:00 UTC)で厳守事項7a(解約意図検知)対応のstatus3値
   (cancellation_intent/downgrade_intent/cancellation_unclear)と`subscription_procedure_notice`
   フィールドを追加したことに伴い、CI1〜CI3として各分岐のケースを追加した。
+- 2026-09-13 02:00 UTC、subscription-intent-iii-chitchat-status-mapping-review.mdで
+  厳守事項7a(iii)(雑談の域を出ない表現)の帰着先を机上決定したことに伴い、CI4・CI5として
+  (iii)判定時のinsufficient_input/generatedへの帰着ケースを追加した。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -374,6 +377,46 @@ TEST_CASES = {
             "body": "解約をご希望でしょうか?よろしければ改めてその旨お知らせください。",
             "includes_portal_link": False,
         },
+        "checkout_notice": None,
+    },
+    # 2026-09-13 02:00 UTC追加: 厳守事項7a(iii)(雑談の域を出ない表現)の帰着先を
+    # subscription-intent-iii-chitchat-status-mapping-review.mdで机上決定したことに伴う
+    # 期待出力。(iii)自体は専用statusを持たず、他の入力内容次第でinsufficient_input/
+    # generatedのいずれかに帰着する。
+    "CI4_chitchat_no_course_content": {
+        "status": "insufficient_input",
+        "out_of_scope_message": None,
+        "missing_fields_request": "エリア名と本数が不明なため、告知文・記録を作成できません。エリア名(例:エリアA)と入れ替えた本数を教えてください。",
+        "sns_post": None,
+        "line_web_notice": None,
+        "history_rows": None,
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    "CI5_chitchat_with_course_content": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【課題入れ替えのお知らせ】エリアAに新着課題8本追加しました。ダイナミックなムーブが特徴です。",
+            "hashtags": ["#ボルダリング", "#クライミングジム", "#新着課題"],
+            "mentions_photo": False,
+        },
+        "line_web_notice": {
+            "body": "エリアA:新着8本(黄テープ帯)を追加しました。ぜひチャレンジしてください。",
+        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアA",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 8,
+                "feature_keywords": ["ダイナミック", "ムーブ重視"],
+            },
+        ],
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
         "checkout_notice": None,
     },
     # 2026-09-12 02:00 UTC追加(フェーズ206): 厳守事項7b(i)(ii)(iv)相当の期待出力。

@@ -89,6 +89,10 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
      (定型の対象外案内、または通常のメモとして扱えない旨)にとどめ、解約案内メッセージは
      送らない(faq-escalation-boundary.mdの「挨拶・雑談は定型応答に留める」考え方を踏襲し、
      未確定の意思表示に対して手続き案内という重い応答を送って利用者を驚かせないため)。
+     (iii)自体は専用の`status`値を持たず、同じメモ内に課題入れ替え内容(エリア名・本数等)が
+     含まれていなければ`insufficient_input`(厳守事項8の再送依頼)に、含まれていれば雑談部分を
+     無視して`generated`(通常の3出力生成)に帰着させる
+     (subscription-intent-iii-chitchat-status-mapping-review.md、2026-09-13 02:00 UTC)。
    - (iv) (i)〜(iii)のいずれか判断がつかない場合(解約したいのか単なる感想なのか本文だけでは
      読み取れない)→ 断定せず、「解約をご希望でしょうか?」のように意思確認を一言添えた
      定型応答を返すに留め、Stripeカスタマーポータルのリンクや解約完了を前提にした文言は
@@ -155,6 +159,11 @@ generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答�
 - (解消済み 2026-08-15 08:00 UTC: schema/output.schema.jsonへの厳守事項7a反映をフェーズ54で
   実施した。`status`enumの拡張・`subscription_procedure_notice`フィールドの新設・
   validate_test_cases.pyへのテストケース追加まで完了。残るのは実LLM接続後の分類精度検証)。
+- (一部解消 2026-09-13 02:00 UTC: 「(iii)と判定された場合にstatus enumのどの値へ
+  帰着させるか」をsubscription-intent-iii-chitchat-status-mapping-review.mdで机上決定し、
+  schema/validate_test_cases.pyにCI4(insufficient_input帰着)・CI5(generated帰着)を追加した。
+  ただし「実際の入力文が(iii)雑談と(iv)判断不能のどちらに分類されるか」自体の分類精度検証は
+  実LLM接続後(オーナー承認待ち)のまま残る)
 - 厳守事項7aの境界(特に(iii)雑談と(iv)判断不能の切り分け)は机上での言い回し例に基づく
   仮の線引きであり、実LLM接続後に実際の入力文でどちらに判定されるかの検証が必要
   (2026-08-15 05:00 UTC追記)。
