@@ -286,9 +286,13 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
   〈厳守事項7b〉と同じ設計思想、`includes_invite_code`をkindによらず常にfalseとする
   補助フィールドを追加)。schema/validate_test_cases.pyにも正例2件(WIR1・WIR2)・
   ネガティブテスト1件(NEG9、includes_invite_code不一致検出)を追加した。
-  message-context-selection-design.md(フェーズ43)の優先順位への組み込み
+  ~~message-context-selection-design.md(フェーズ43)の優先順位への組み込み
   (契約者からの通常メモ送信・他の一時状態〈(a)〜(d)〉との割り込み位置の検討)は
-  未着手のまま次の課題として残す。
+  未着手。~~ → フェーズ101(message-context-selection-design.md 5節参照)で対応済み。
+  7a/7b/7cはいずれも(a)(b)(c)のような独立したpre-injection文脈ではなく、(d)「通常の
+  生成リクエスト文脈」1回のLLM呼び出しが返す構造化出力の一部であるため、(a)〜(d)の
+  優先順位自体への変更は不要と結論した。(a)(b)(c)に該当するメッセージでは7a/7b/7cの
+  意図検知は行われず次回メッセージへ持ち越される(意図的な設計、詳細は同5節)。
 - ~~招待コード解決(message event側のルーティング、2節フェーズ69の
   `process_message_event()`相当の配線)自体も本節未着手。~~ → フェーズ98で対応済み
   (11.4節参照)。
@@ -373,4 +377,24 @@ falseかつrequired化のため、既存フィクスチャの更新が必須)。
 message-context-selection-design.mdへの優先順位組み込み、または「`member_user_ids`上限数の
 検討」を優先候補とする。
 
-最終更新: 2026-09-13 01:00 UTC(フェーズ100)
+## 11.6 追記(フェーズ101): message-context-selection-design.mdへの優先順位組み込み
+
+11.3節の残課題のうち「message-context-selection-design.md(フェーズ43)の優先順位への
+組み込み」に対応した。詳細はmessage-context-selection-design.md 5節に記載したため要旨のみ
+記す。厳守事項7a(解約意図検知)・7b(有料プラン開始意図検知)・7c(職人追加・招待コード
+発行意図検知)はいずれも、`select_message_context`(仮称)が呼び出し前に文脈を差し替える
+(a)(b)(c)の一時状態とは異なり、(d)「通常の生成リクエスト文脈」1回のLLM呼び出しが返す
+構造化出力(`status`enum値)の一部にすぎない。したがって(a)〜(d)の4段階優先順位自体への
+変更は不要と結論し、`select_message_context`の実装スコープも3節に記載の4分岐のままで
+足りることを確定した。あわせて、(a)(b)(c)に該当したメッセージでは7a/7b/7cの意図検知が
+行われず次回メッセージへ持ち越されるという意図的な挙動を明文化した。
+
+本フェーズはドキュメント間の整合性確定のみでコード変更は無く、venture全体683件
+(`python3 prototype/run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)
+いずれも変更前と同じ結果でパスすることを確認した。承認不要な設計文書作成のみで、外部
+サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+approval.mdへの追記なし。次回は11.3節に残る「`member_user_ids`上限数の検討」、または
+3節`select_message_context`統合関数自体の実装、他venture・アイデア領域の前進を優先候補
+とする。
+
+最終更新: 2026-09-13 03:00 UTC(フェーズ101)

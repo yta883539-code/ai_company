@@ -2055,4 +2055,21 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   message-context-selection-design.mdへの優先順位組み込み、または「`member_user_ids`
   上限数の検討」、他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 01:00 UTC
+- フェーズ101(2026-09-13 03:00 UTC): フェーズ100が次のステップ候補としていた
+  message-context-selection-design.mdへの優先順位組み込みに対応した。厳守事項7a
+  (解約意図検知)・7b(有料プラン開始意図検知)・7c(職人追加・招待コード発行意図検知)は
+  いずれも、message-context-selection-design.mdが定める(a)〜(c)のような呼び出し前の
+  pre-injection文脈ではなく、(d)「通常の生成リクエスト文脈」1回のLLM呼び出しが返す
+  構造化出力(`status`enum値)の一部にすぎないため、(a)〜(d)の4段階優先順位自体への
+  変更は不要と結論した(message-context-selection-design.md 5節・craftsman-account-
+  linking-design.md 11.6節)。あわせて、(a)(b)(c)に該当したメッセージでは7a/7b/7cの
+  意図検知が行われず次回メッセージへ持ち越されるという意図的な挙動を明文化した。本
+  フェーズはドキュメント間の整合性確定のみでコード変更は無く、venture全体683件
+  (`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを
+  確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は11.3節に残る
+  「`member_user_ids`上限数の検討」、または3節`select_message_context`統合関数自体の
+  実装、他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 03:00 UTC
