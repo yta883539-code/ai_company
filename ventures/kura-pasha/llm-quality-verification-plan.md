@@ -38,11 +38,13 @@ llm-system-prompt-draft.mdの厳守事項1〜8・7a・7bを対象に、schema/va
 
 ## 検証手順(承認後に着手する想定)
 
-1. 本venture固有の実装状況を確認する。kura-pashaは`prototype/`配下にLLM呼び出しの
-   Protocol実装差し替え口(aircon-pashaの`LlmCallClient`相当)がまだ整理されていない
-   可能性があるため、着手前にaircon-pasha/course-set-pashaの実装パターン(Protocol差し
-   替えのみで着手できる設計)を踏襲できているか確認する。未整理であれば本検証着手前の
-   前提作業として先に着手する。
+1. 【2026-09-13 09:00 UTC確認済み】本venture固有の実装状況を確認した。
+   `prototype/cloud_function_webhook.py`には既に`LlmCallClient(Protocol)`
+   (`generate(memo_text, retry_context=None) -> dict`、失敗時`LlmApiError`送出)が
+   aircon-pasha・course-set-pashaと同一のシグネチャ・契約で実装済みであることを確認した
+   (差分なし)。よって本項の前提作業(Protocol差し替え口の整理)は完了しており、承認が
+   下り次第、実クライアント実装(`LlmCallClient`を満たすAPI呼び出しラッパー)を用意する
+   だけで本検証に着手できる状態にある。追加の前提作業は不要。
 2. schema/validate_test_cases.pyの19正常系ケースの入力メモ文面(各ケースの
    `order_summary.body`相当の元メモ)を実際にAPIへ投入し、構造化出力を
    `validate_against_schema()`・`validate_cross_field_rules()`にそのまま通す(型・
