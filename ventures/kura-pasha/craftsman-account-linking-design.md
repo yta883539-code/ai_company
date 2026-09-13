@@ -493,4 +493,27 @@ venture全体687件(686件→687件、`python3 prototype/run_all_tests.py`)・sc
 追記なし。次回は3節`select_message_context`統合関数自体の実装、または他venture・アイデア
 領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 05:00 UTC(フェーズ103)
+## 11.9 追記(フェーズ104): 11.6〜11.8節が引き継ぎ続けていた「次回候補」の誤りを訂正
+
+11.6節・11.7節・11.8節がいずれも「次回候補」として引き継いでいた「3節`select_message_
+context`統合関数自体の実装」は、実際にはフェーズ44(2026-09-08 14:00 UTC)の時点で既に
+実装・テスト済みであることが判明した(message-context-selection-design.md 3・4節に訂正
+済み)。少なくとも3フェーズ分、既に解消済みの課題を誤って「未着手」と引き継ぎ続けていた。
+
+あわせて、`select_message_context`は実装・単体テストとも存在するにもかかわらず、実際の
+LINEメッセージ受信の入口である`process_message_event()`/`process_memo_event()`のどちらから
+も一度も呼び出されておらず、`llm-system-prompt-draft.md`にも(a)(b)(c)の3状態
+(契約者譲渡期限切れ案内・再確認・残すメンバー連絡)を扱う記述が一切無いため、これら3つの
+通知系統は現時点の実装では実際のメッセージ受信フローから到達不可能であるという、より
+本質的な配線漏れを発見した。詳細・次の課題の優先順位案はmessage-context-selection-
+design.md 6節に記載したため本節では要旨のみ記す。
+
+本フェーズはドキュメント間の整合性確定・調査のみでコード変更は無く、venture全体687件
+(`python3 prototype/run_all_tests.py`)・schema検証30件(`python3 schema/
+validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+調査・設計文書修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+発生していないためpending-approval.mdへの追記なし。次回はmessage-context-selection-
+design.md 6節の次の課題(1. (a)(b)(c)の返信文面生成方針の決定)、または他venture・
+アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 06:00 UTC(フェーズ104)

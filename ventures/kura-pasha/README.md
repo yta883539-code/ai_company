@@ -2116,5 +2116,33 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   ためpending-approval.mdへの追記なし。次回は3節`select_message_context`統合関数
   自体の実装、または他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 05:00 UTC(フェーズ103: 招待コード上限到達時の案内文言を設計・
-実装し、process_message_event()の実装漏れを修正)
+- フェーズ104(2026-09-13 06:00 UTC): フェーズ102・103(craftsman-account-linking-
+  design.md 11.6〜11.8節)が「次回候補」として引き継ぎ続けていた「3節`select_message_
+  context`統合関数自体の実装」に着手しようとしたところ、実際にはフェーズ44
+  (2026-09-08 14:00 UTC)の時点で既に`prototype/usage_counter_workshop.py`へ実装・
+  テスト8件追加済みであることが判明した。message-context-selection-design.md 3・4節が
+  作成当初(フェーズ43)のまま「未実装」と記載され続け、少なくとも3フェーズにわたり
+  解消済みの課題を誤って引き継いでいた記載漏れを訂正した。あわせて調査を進めた結果、
+  より本質的なギャップとして、`select_message_context`が実装・単体テストとも存在する
+  にもかかわらず、実際のLINEメッセージ受信の入口である`process_message_event()`/
+  `process_memo_event()`のどちらからも一度も呼び出されていないこと、および
+  `llm-system-prompt-draft.md`に契約者譲渡期限切れ案内・再確認・残すメンバー連絡の
+  3状態(a)(b)(c)を扱う記述が一切無いことを発見した。既存テスト(`test_process_memo_
+  event_contractor_transfer_expired_notice_returns_body()`等)はLLM呼び出し自体を
+  スタブ化し「LLMが該当statusを返した前提」で整形ロジックのみを検証しており、実運用で
+  この3状態が実際に到達可能かは検証していなかった。すなわち(a)(b)(c)の3つの通知系統は
+  設計文書・schema・整形ロジックが揃っていながら現時点の実装では到達不可能という配線漏れ
+  である。配線の修正自体は返信文面生成方針の決定(LLM呼び出し無しの定型文言化か、
+  プロンプト文脈新設によるLLM出力への委任か)を要する規模のため本フェーズでは着手せず、
+  message-context-selection-design.md 6節・craftsman-account-linking-design.md 11.9節に
+  次の課題として記録するにとどめた。コード変更は無く、venture全体687件
+  (`python3 prototype/run_all_tests.py`)・schema検証30件(`python3 schema/
+  validate_test_cases.py`)いずれも変更前と同じ結果でパスすることを確認した。承認不要な
+  調査・設計文書修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回はmessage-context-selection-
+  design.md 6節の次の課題(1. (a)(b)(c)の返信文面生成方針の決定)、または他venture・
+  アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 06:00 UTC(フェーズ104: select_message_context「未実装」記載の
+誤りを訂正、および実装済みだが呼び出し元に配線されていない・LLMプロンプトにも対応する
+記述が無いという、より本質的な配線漏れを発見・記録)
