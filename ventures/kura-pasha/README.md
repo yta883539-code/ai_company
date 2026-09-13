@@ -2245,3 +2245,25 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 最終更新: 2026-09-13 14:00 UTC(フェーズ108: (a)契約者譲渡・期限切れ案内のみ実配線
 〈LlmCallClient.generate()のcontext引数新設・process_memo_event()への分岐追加・
 統合テスト2件追加〉。(b)(c)・select_message_context()への一本化は次の課題)
+
+- フェーズ109(2026-09-13 15:00 UTC): フェーズ108が次の課題としていた(b)契約者交代・
+  再確認応答検知の実配線に対応した(message-context-selection-design.md 11節参照)。
+  `process_memo_event()`で(a)がNoneを返した場合に続けて`is_contractor_transfer_
+  confirmation_context()`を呼び出す分岐を追加し、真の場合は新設した`_process_
+  contractor_transfer_confirmation()`(文脈注入付きLLM呼び出し)へ委譲する。(a)と異なり
+  (b)はLLMが返したstatusに応じてアプリケーション側の状態更新(`apply_contractor_
+  transfer()`によるcontractor_user_id更新、または`cancel_pending_contractor_
+  transfer()`によるpending削除のみ)を行う必要があり、3分岐(確定/取消/不明瞭)の
+  呼び分けを実装した。統合テスト追加時、既存の期限内pending回帰テストが送信者を
+  契約者本人としていたため図らずも(b)の条件も満たしてしまい、テスト側の前提を
+  修正する必要が生じたことも判明した(詳細は同design.md 11節)。統合テスト4件を
+  新設し、`test_cloud_function_webhook.py`のcheck()件数301件→318件・venture全体
+  10ファイル・schema検証30件いずれもパスを確認した。承認不要なコード実装・テスト
+  追加・既存テストの前提修正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は(c)「残す
+  メンバー」連絡検知への同様の配線、または他venture・アイデア領域の前進を優先候補
+  とする。
+
+最終更新: 2026-09-13 15:00 UTC(フェーズ109: (b)契約者交代・再確認応答検知を実配線
+〈status別のapply_contractor_transfer()/cancel_pending_contractor_transfer()呼び分け〉。
+既存回帰テストの送信者設定を(a)(b)分離のため修正。(c)は次の課題)

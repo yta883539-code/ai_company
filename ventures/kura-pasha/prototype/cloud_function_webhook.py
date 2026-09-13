@@ -48,6 +48,7 @@ from checkout_session import (
 from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
 from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
     PaymentSuspendedError,
     TrialPeriodOverError,
@@ -55,7 +56,10 @@ from usage_counter_workshop import (
     UsageCounterStoreProtocol,
     UserProfileStoreProtocol,
     WorkshopStoreProtocol,
+    apply_contractor_transfer,
+    cancel_pending_contractor_transfer,
     check_and_expire_pending_contractor_transfer,
+    is_contractor_transfer_confirmation_context,
     process_generation_request,
 )
 from validate_test_cases import (  # noqa: E402
@@ -599,6 +603,7 @@ class MemoProcessResult:
     checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
     character_limit_exceeded: bool = False  # True=生成結果がLINE文字数上限を超えフォールバック応答した
     contractor_transfer_expired_notice_sent: bool = False  # True=(a)期限切れ案内の文脈注入経路で返信した(フェーズ108)
+    contractor_transfer_confirmation_sent: bool = False  # True=(b)契約者交代・再確認応答検知の文脈注入経路で返信した(フェーズ109)
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -717,6 +722,91 @@ def _process_contractor_transfer_expired_notice(
     )
 
 
+def _process_contractor_transfer_confirmation(
+    llm_call: LlmCallClient,
+    reply_client: ReplyClient,
+    reply_token: str,
+    memo_text: str,
+    *,
+    workshop_id: str,
+    candidate_user_id: str,
+    candidate_member_name: str,
+    workshop_store: WorkshopStoreProtocol,
+) -> MemoProcessResult:
+    """message-context-selection-design.md 1節(b)・6節が指摘していた配線漏れのうち
+    (b)分をフェーズ109で実配線する処理。process_memo_event()から、
+    is_contractor_transfer_confirmation_context()が真の場合にのみ呼び出される。
+    llm-system-prompt-draft.md 2026-09-13 10:00 UTC追記の文脈注入指示
+    (kind=contractor_transfer_confirmation・candidate_member_name)をLLM呼び出しへ
+    渡し、(a)と同様に通常の受注メモ生成(7a〜7cの意図検知含む)は一切行わない。
+
+    contractor-transfer-confirmation-detection-design.md 3節の通り、LLMが返した
+    statusに応じてアプリケーション側の状態更新を行う(LLMは文言生成のみを担い、
+    更新処理自体には関与しない):
+    - contractor_transfer_confirmed: apply_contractor_transfer()でcontractor_user_id
+      を実際に更新する(pending_contractor_transferの削除も同関数内で行う)。
+    - contractor_transfer_cancelled: cancel_pending_contractor_transfer()で
+      pending_contractor_transferのみ削除し、contractor_user_idは更新しない。
+    - contractor_transfer_reconfirm_unclear: pending_contractor_transferを維持したまま
+      何もしない(期限内であれば次回メッセージでも再度この3パターンの判定対象となる)。
+
+    LLM API失敗時・検証エラー時のフォールバックは(a)・process_memo_event()本体の
+    (d)経路と同じ扱いとする。
+    """
+    context = {
+        "kind": MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
+        "candidate_member_name": candidate_member_name,
+    }
+    try:
+        instance = _generate_with_api_retry(llm_call, memo_text, context=context)
+    except LlmApiError:
+        reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None, api_failure=True,
+        )
+
+    errors = validate_llm_output(instance)
+    retried = False
+    if errors:
+        retried = True
+        try:
+            instance = _generate_with_api_retry(
+                llm_call, memo_text, retry_context=_summarize_errors_for_retry(errors), context=context,
+            )
+        except LlmApiError:
+            reply_sent = _reply_with_retry(reply_client, reply_token, API_FAILURE_FALLBACK_MESSAGE)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=API_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+                retried=retried, api_failure=True,
+            )
+        errors = validate_llm_output(instance)
+
+    if errors:
+        reply_sent = _reply_with_retry(reply_client, reply_token, VALIDATION_FAILURE_FALLBACK_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=VALIDATION_FAILURE_FALLBACK_MESSAGE if reply_sent else None,
+            validation_errors=errors, retried=retried,
+        )
+
+    status = instance["status"]
+    if status == "contractor_transfer_confirmed":
+        apply_contractor_transfer(workshop_id, candidate_user_id, workshop_store)
+    elif status == "contractor_transfer_cancelled":
+        cancel_pending_contractor_transfer(workshop_id, workshop_store)
+    # contractor_transfer_reconfirm_unclearの場合はpending_contractor_transferを
+    # 維持したまま何もしない(design 3節、期限内であれば再度判定対象とする)。
+
+    reply_text = format_reply_text(instance)
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None,
+        retried=retried, contractor_transfer_confirmation_sent=reply_sent,
+    )
+
+
 def process_memo_event(
     event: dict,
     llm_call: LlmCallClient,
@@ -795,17 +885,24 @@ def process_memo_event(
        5.のトライアル終了通知添付条件(生涯最初の生成1回目のみ)と6.の本条件(「残り1回」
        到達時のみ)は判定条件が独立しており現行プランでは同一回で重複しないため、
        両者の単純なor条件でボタン添付要否を決定する。
-    8. (フェーズ108、新設) message-context-selection-design.md 6節が指摘していた
-       `select_message_context()`未配線の3系統(a)(b)(c)のうち(a)契約者譲渡・期限切れ
-       案内のみを本フェーズで実配線した。4.の`process_generation_request()`を呼び出す
-       直前に`check_and_expire_pending_contractor_transfer()`(select_message_context()の
+    8. (フェーズ108、新設。フェーズ109で(b)を追加) message-context-selection-design.md
+       6節が指摘していた`select_message_context()`未配線の3系統(a)(b)(c)のうち、
+       フェーズ108で(a)契約者譲渡・期限切れ案内を実配線した。4.の
+       `process_generation_request()`を呼び出す直前に
+       `check_and_expire_pending_contractor_transfer()`(select_message_context()の
        (a)判定と同じ関数)を直接呼び出し、非Noneが返った場合は4.以降(通常の受注メモ生成・
        7a〜7cの意図検知・5.6.7.の付記)へは一切進まず、
        `_process_contractor_transfer_expired_notice()`(文脈注入付きのLLM呼び出し・
        `contractor_transfer_expired_notice.body`の返信)へ委譲して即座にreturnする。
-       (b)契約者交代・再確認応答検知、(c)「残すメンバー」連絡検知は本フェーズでは配線
+       フェーズ109では、(a)がNoneを返した場合に続けて
+       `is_contractor_transfer_confirmation_context()`(select_message_context()の
+       (b)判定と同じ関数)を呼び出し、真の場合は同様に4.以降へは進まず
+       `_process_contractor_transfer_confirmation()`(文脈注入付きのLLM呼び出し・
+       LLMが返したstatusに応じた`apply_contractor_transfer()`/`cancel_pending_
+       contractor_transfer()`の呼び分け・`contractor_transfer_confirmation.body`の
+       返信)へ委譲して即座にreturnする。(c)「残すメンバー」連絡検知は本フェーズでは配線
        せず次の課題として残した(`select_message_context()`統合関数自体はまだ呼び出さず、
-       (a)専用の判定関数を直接呼び出す最小限の変更にとどめた)。
+       (a)(b)それぞれ専用の判定関数を個別に直接呼び出す最小限の変更の積み上げにとどめた)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -844,6 +941,25 @@ def process_memo_event(
             return _process_contractor_transfer_expired_notice(
                 llm_call, reply_client, reply_token, memo_text,
                 candidate_member_name=expired_transfer.candidate_member_name,
+            )
+
+        # フェーズ109(message-context-selection-design.md 6節の配線漏れのうち(b)分に
+        # 対応): (a)がNoneを返した場合のみ、select_message_context()と同じ
+        # is_contractor_transfer_confirmation_context()を呼び出す。真の場合は(a)と同様
+        # process_generation_request()以降へは一切進まず、(b)の文脈注入経路へ委譲する
+        # (契約者本人からの返信に限られる、is_contractor_transfer_confirmation_context()
+        # 自体がcontractor_user_id一致を検証済み)。(c)「残すメンバー」連絡検知への配線は
+        # 次の課題として未着手のまま残す。
+        if workshop_id_for_context is not None and is_contractor_transfer_confirmation_context(
+            user_id, workshop_id_for_context, resolved_now, workshop_store,
+        ):
+            pending_transfer = workshop_store.get_pending_contractor_transfer(workshop_id_for_context)
+            return _process_contractor_transfer_confirmation(
+                llm_call, reply_client, reply_token, memo_text,
+                workshop_id=workshop_id_for_context,
+                candidate_user_id=pending_transfer.candidate_user_id,
+                candidate_member_name=pending_transfer.candidate_member_name,
+                workshop_store=workshop_store,
             )
 
         try:

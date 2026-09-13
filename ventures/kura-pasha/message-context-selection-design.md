@@ -372,3 +372,62 @@ reduction_effective_at`の存在確認のみで足りる(9節の通りメンバ�
 
 最終更新: 2026-09-13 14:00 UTC(フェーズ108: (a)契約者譲渡・期限切れ案内のみ実配線。
 (b)(c)・`select_message_context()`への一本化は次の課題)
+
+## 11. 追記(フェーズ109): (b)契約者交代・再確認応答検知の実配線
+
+10節が次の課題としていた(b)への同様の配線に着手した。`process_memo_event()`で
+`check_and_expire_pending_contractor_transfer()`(a)がNoneを返した場合に続けて、
+`is_contractor_transfer_confirmation_context()`(select_message_context()の(b)判定と
+同じ関数)を呼び出す分岐を追加した。真の場合は(a)と同様4.(`process_generation_
+request()`)以降(通常の受注メモ生成・7a〜7cの意図検知・限度通知等の付記)へは一切
+進まず、新設した`_process_contractor_transfer_confirmation()`(文脈注入付きのLLM
+呼び出し)へ委譲する。
+
+(a)との構造上の違い: (a)は`format_reply_text()`のみで完結する(受動案内、Python側の
+状態更新を伴わない)のに対し、(b)はLLMが返した`status`に応じてアプリケーション側の
+状態更新を行う必要がある(contractor-transfer-confirmation-detection-design.md 3節)。
+具体的には`contractor_transfer_confirmed`のとき`apply_contractor_transfer()`
+(`contractor_user_id`を実際に更新し`pending_contractor_transfer`を削除)、
+`contractor_transfer_cancelled`のとき`cancel_pending_contractor_transfer()`
+(`pending_contractor_transfer`のみ削除)、`contractor_transfer_reconfirm_unclear`
+のときは何もしない(`pending_contractor_transfer`を維持し、期限内であれば次回も
+判定対象とする)、という3分岐の呼び分けを`_process_contractor_transfer_confirmation()`
+内に実装した。
+
+**テスト実装時に発見した既存テストの前提の誤り**: 統合テスト追加にあたり、10節の
+`test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid()`
+(期限内のpendingでは(a)が誤発火しないことの回帰確認)が、送信者を契約者本人
+(`workshop_store.set_members()`の第2引数)としたまま組み立てられていたことに気付いた。
+本フェーズで(b)を実配線した結果、契約者本人・期限内pendingという条件は同時に2節の
+`is_contractor_transfer_confirmation_context()`の成立条件でもあるため、このテストは
+図らずも(b)の文脈注入経路(通常生成ではなくLLM呼び出しにcontextが渡る経路)へ迂回する
+ようになり、「通常生成経路ではLLM呼び出しにcontextが渡らない」というアサーションが
+落ちた。これは実装のバグではなく、(a)単体の回帰確認という本来の検証意図に対し、
+テストの登場人物設定が(b)の条件も同時に満たしてしまっていたテスト側の前提の誤りで
+あったため、送信者を契約者本人ではない別メンバー(`U_CTV_MEMBER`)に変更し、(a)と(b)を
+明確に切り分けた(送信者非依存の(a)固有の挙動のみを検証する形に修正)。
+
+**新設した統合テスト(prototype/test_cloud_function_webhook.py)**:
+- 肯定応答(`contractor_transfer_confirmed`)時に`apply_contractor_transfer()`が実際に
+  呼ばれ`contractor_user_id`が更新されることの確認。
+- 否定応答(`contractor_transfer_cancelled`)時に`contractor_user_id`は更新されず
+  `pending_contractor_transfer`のみ削除されることの確認。
+- 不明瞭(`contractor_transfer_reconfirm_unclear`)時に状態が一切変わらず
+  `pending_contractor_transfer`が維持されることの確認。
+- 契約者以外からのメッセージでは(b)が発火せず通常生成に進むことの回帰確認
+  (2節の送信者限定スコープの検証)。
+
+`prototype/test_cloud_function_webhook.py`のcheck()件数301件→318件(17件増)、
+`python3 prototype/run_all_tests.py`(全10ファイル)・`python3 schema/validate_test_
+cases.py`(30件)いずれもパスすることを確認した。承認不要なコード実装・テスト追加・
+既存テストの前提修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+今回発生していないためpending-approval.mdへの追記なし。
+
+**次の課題**: (c)「残すメンバー」連絡検知についても同様の配線を行う(9節の通り
+メンバー一覧は渡さないため、`pending_member_reduction_effective_at`の存在確認のみで
+足りる見込み)。(a)(b)(c)すべて配線された段階で、個別分岐の積み上げを
+`select_message_context()`への一本化に置き換えるかどうかも併せて検討する。
+
+最終更新: 2026-09-13 15:00 UTC(フェーズ109: (b)契約者交代・再確認応答検知を実配線
+〈status別のapply_contractor_transfer()/cancel_pending_contractor_transfer()呼び分け〉。
+既存回帰テストの送信者設定を(a)(b)分離のため修正。(c)は次の課題)

@@ -48,6 +48,7 @@ from cloud_function_webhook import (
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_postback_data
 from usage_counter_workshop import (
+    MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
     InMemoryUsageCounterStore,
     InMemoryUserProfileStore,
@@ -1010,11 +1011,18 @@ def test_process_memo_event_wires_contractor_transfer_expired_notice_from_store(
 
 def test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid():
     """期限内のpending_contractor_transferでは(a)は発火せず、通常の生成フローに進む
-    (フェーズ108の新規分岐が誤って早期リターンしないことの回帰確認)。"""
+    (フェーズ108の新規分岐が誤って早期リターンしないことの回帰確認)。
+
+    送信者はあえて契約者本人以外のメンバーとする(フェーズ109で(b)契約者交代・
+    再確認応答検知が実配線されたため、契約者本人が送信者だと2節の条件を満たし
+    (b)の文脈注入経路(test_process_memo_event_wires_contractor_transfer_confirmation_
+    *_from_store()参照)へ迂回してしまい、本来検証したい(a)単体の回帰確認にならない
+    ため、両者を切り分ける)。"""
     profiles, workshops, counters = _make_stores()
     profiles.link("U_CTV", "W_CTV")
+    profiles.link("U_CTV_MEMBER", "W_CTV")
     workshops.set_plan("W_CTV", "standard")
-    workshops.set_members("W_CTV", "U_CTV", ["U_CTV"])
+    workshops.set_members("W_CTV", "U_CTV", ["U_CTV", "U_CTV_MEMBER"])
     workshops.set_pending_contractor_transfer(
         "W_CTV",
         PendingContractorTransfer(
@@ -1028,7 +1036,7 @@ def test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
     result = process_memo_event(
-        _make_event("新規、ブリティッシュ、牛革", user_id="U_CTV"),
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_CTV_MEMBER"),
         llm_call, reply_client,
         user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
         now=FEB + timedelta(hours=1),  # expires_at(FEB+24h)より前
@@ -1043,6 +1051,188 @@ def test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_
         "期限内はpending_contractor_transferが維持される",
         workshops.get_pending_contractor_transfer("W_CTV") is not None,
     )
+    check("通常生成経路ではLLM呼び出しにcontextが渡らない", llm_call.calls[0][2] is None)
+
+
+def test_process_memo_event_wires_contractor_transfer_confirmation_confirmed_from_store():
+    """message-context-selection-design.md 6節が指摘していた配線漏れのうち(b)分を
+    フェーズ109で解消したことの検証。契約者本人が期限内に返信した場合、
+    is_contractor_transfer_confirmation_context()経由で(b)の文脈がLLM呼び出しへ注入され、
+    status=contractor_transfer_confirmedならapply_contractor_transfer()で
+    contractor_user_idが実際に更新されることを確認する。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTC_CONTRACTOR", "W_CTC")
+    workshops.set_plan("W_CTC", "standard")
+    workshops.set_members(
+        "W_CTC", "U_CTC_CONTRACTOR", ["U_CTC_CONTRACTOR", "U_CANDIDATE"],
+        display_names={"U_CANDIDATE": "山田"},
+    )
+    workshops.set_pending_contractor_transfer(
+        "W_CTC",
+        PendingContractorTransfer(
+            candidate_user_id="U_CANDIDATE",
+            candidate_member_name="山田",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["CTC1_contractor_transfer_confirmed"]])
+    result = process_memo_event(
+        _make_event("はい、お願いします", user_id="U_CTC_CONTRACTOR"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),  # expires_at(FEB+24h)以内
+    )
+
+    check(
+        "肯定応答時はcontractor_transfer_confirmation.bodyを返す",
+        result.reply_text
+        == TEST_CASES["CTC1_contractor_transfer_confirmed"]["contractor_transfer_confirmation"]["body"],
+    )
+    check("contractor_transfer_confirmation_sent=True", result.contractor_transfer_confirmation_sent is True)
+    check(
+        "LLM呼び出しに(b)の文脈(kind・candidate_member_name)が注入される",
+        llm_call.calls[0][2]
+        == {"kind": MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION, "candidate_member_name": "山田"},
+    )
+    check("contractor_user_idが候補者へ実際に更新される", workshops.get_contractor_user_id("W_CTC") == "U_CANDIDATE")
+    check(
+        "確定処理によりpending_contractor_transferは削除される",
+        workshops.get_pending_contractor_transfer("W_CTC") is None,
+    )
+    check(
+        "この経路ではprocess_generation_request()を経由しないためusage_counterは加算されない",
+        counters.get("W_CTC") is None,
+    )
+
+
+def test_process_memo_event_wires_contractor_transfer_confirmation_cancelled_from_store():
+    """status=contractor_transfer_cancelledの場合、cancel_pending_contractor_transfer()で
+    pending_contractor_transferのみ削除され、contractor_user_idは更新されないことを確認する
+    (design 3節)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTC_CONTRACTOR2", "W_CTC2")
+    workshops.set_plan("W_CTC2", "standard")
+    workshops.set_members(
+        "W_CTC2", "U_CTC_CONTRACTOR2", ["U_CTC_CONTRACTOR2", "U_CANDIDATE2"],
+        display_names={"U_CANDIDATE2": "鈴木"},
+    )
+    workshops.set_pending_contractor_transfer(
+        "W_CTC2",
+        PendingContractorTransfer(
+            candidate_user_id="U_CANDIDATE2",
+            candidate_member_name="鈴木",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["CTC2_contractor_transfer_cancelled"]])
+    result = process_memo_event(
+        _make_event("やっぱりキャンセルでお願いします", user_id="U_CTC_CONTRACTOR2"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),
+    )
+
+    check(
+        "否定応答時はcontractor_transfer_confirmation.bodyを返す",
+        result.reply_text
+        == TEST_CASES["CTC2_contractor_transfer_cancelled"]["contractor_transfer_confirmation"]["body"],
+    )
+    check("contractor_transfer_confirmation_sent=True", result.contractor_transfer_confirmation_sent is True)
+    check(
+        "キャンセル時はcontractor_user_idを更新しない",
+        workshops.get_contractor_user_id("W_CTC2") == "U_CTC_CONTRACTOR2",
+    )
+    check(
+        "キャンセル時もpending_contractor_transferは削除される",
+        workshops.get_pending_contractor_transfer("W_CTC2") is None,
+    )
+
+
+def test_process_memo_event_wires_contractor_transfer_confirmation_reconfirm_unclear_from_store():
+    """status=contractor_transfer_reconfirm_unclearの場合、pending_contractor_transferを
+    維持したまま何もしないことを確認する(design 3節、期限内であれば次回も判定対象)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTC_CONTRACTOR3", "W_CTC3")
+    workshops.set_plan("W_CTC3", "standard")
+    workshops.set_members(
+        "W_CTC3", "U_CTC_CONTRACTOR3", ["U_CTC_CONTRACTOR3", "U_CANDIDATE3"],
+        display_names={"U_CANDIDATE3": "佐藤"},
+    )
+    workshops.set_pending_contractor_transfer(
+        "W_CTC3",
+        PendingContractorTransfer(
+            candidate_user_id="U_CANDIDATE3",
+            candidate_member_name="佐藤",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["CTC3_contractor_transfer_reconfirm_unclear"]])
+    result = process_memo_event(
+        _make_event("ところで別件ですが", user_id="U_CTC_CONTRACTOR3"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),
+    )
+
+    check(
+        "不明瞭応答時はcontractor_transfer_confirmation.bodyを返す",
+        result.reply_text
+        == TEST_CASES["CTC3_contractor_transfer_reconfirm_unclear"]["contractor_transfer_confirmation"]["body"],
+    )
+    check("contractor_transfer_confirmation_sent=True", result.contractor_transfer_confirmation_sent is True)
+    check(
+        "不明瞭時はcontractor_user_idを更新しない",
+        workshops.get_contractor_user_id("W_CTC3") == "U_CTC_CONTRACTOR3",
+    )
+    check(
+        "不明瞭時はpending_contractor_transferを維持する(期限内なら次回も判定対象)",
+        workshops.get_pending_contractor_transfer("W_CTC3") is not None,
+    )
+
+
+def test_process_memo_event_does_not_trigger_confirmation_for_non_contractor_sender():
+    """is_contractor_transfer_confirmation_context()は送信者がcontractor_user_idと
+    一致しない場合Falseを返す(design 2節)ため、契約者以外からのメッセージでは(b)は
+    発火せず通常の生成フローに進むことを確認する(回帰確認)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_CTC_OTHER", "W_CTC4")
+    workshops.set_plan("W_CTC4", "standard")
+    workshops.set_members(
+        "W_CTC4", "U_CTC_CONTRACTOR4", ["U_CTC_CONTRACTOR4", "U_CTC_OTHER"],
+    )
+    workshops.set_pending_contractor_transfer(
+        "W_CTC4",
+        PendingContractorTransfer(
+            candidate_user_id="U_CTC_OTHER",
+            candidate_member_name="次郎",
+            requested_at=FEB,
+            expires_at=FEB + timedelta(hours=24),
+        ),
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_CTC_OTHER"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB + timedelta(hours=1),
+    )
+
+    check(
+        "契約者以外からの返信では(b)は発火せず通常生成が行われる",
+        result.reply_text is not None and "受注内容整理メモ" in result.reply_text,
+    )
+    check("contractor_transfer_confirmation_sent=False", result.contractor_transfer_confirmation_sent is False)
     check("通常生成経路ではLLM呼び出しにcontextが渡らない", llm_call.calls[0][2] is None)
 
 
@@ -1987,6 +2177,10 @@ if __name__ == "__main__":
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
     test_process_memo_event_wires_contractor_transfer_expired_notice_from_store()
     test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid()
+    test_process_memo_event_wires_contractor_transfer_confirmation_confirmed_from_store()
+    test_process_memo_event_wires_contractor_transfer_confirmation_cancelled_from_store()
+    test_process_memo_event_wires_contractor_transfer_confirmation_reconfirm_unclear_from_store()
+    test_process_memo_event_does_not_trigger_confirmation_for_non_contractor_sender()
     test_process_memo_event_appends_limit_approaching_and_overage_notices()
     test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()
