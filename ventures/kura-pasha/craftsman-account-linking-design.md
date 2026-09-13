@@ -397,4 +397,50 @@ approval.mdへの追記なし。次回は11.3節に残る「`member_user_ids`上
 3節`select_message_context`統合関数自体の実装、他venture・アイデア領域の前進を優先候補
 とする。
 
-最終更新: 2026-09-13 03:00 UTC(フェーズ101)
+## 11.7 追記(フェーズ102): 複数職人プランのmember_user_ids上限数を決定・実装
+
+11.3節に残っていた「複数職人プランの`member_user_ids`上限数(何名まで許容するか)は
+pricing-plan.md未確定」に対応した。
+
+**上限の決定**: pricing-plan.mdの複数職人プラン(月額3,980円・月20回まで)は
+market-research.mdが確認した実在事業者(ライディングショップ池上・Apion等)と同様
+「個人〜小規模の職人が複数在籍する工房、乗馬クラブ専属で継続的に依頼を受ける業態」を
+想定顧客像とし、法人規模の大人数工房は元々の想定顧客像に含まれない。この前提を踏まえ、
+契約者本人を含めて**5名**を暫定上限とする(`prototype/workshop_linking.py`の
+`MAX_MEMBER_COUNT`)。5名を超える規模の工房から要望があった場合は、本プランの機械的な
+値上げ・上限緩和では対応せず、README「投資・大規模につき要相談」領域の個別カスタム対応
+として扱う方針とし、pricing-plan.mdにもその旨を追記した。市場調査・想定顧客ヒアリングは
+未実施のため(実際の連絡はオーナー承認待ちの範囲)、この上限数自体は他venture同様
+「実顧客の声で検証すべき仮決め」の位置づけである。
+
+**実装**: 2箇所で多重防御する設計とした。
+1. `issue_invite_code_for_workshop()`(11.1節): 発行主体チェック・プランチェックに続けて
+   `len(get_member_user_ids(workshop_id)) >= MAX_MEMBER_COUNT`を確認し、上限到達時は
+   `member_limit_reached`エラーを返してコード自体を発行しない(呼び出し側は「上限に
+   達しているため追加できません」という案内文言に切り替える想定、文言自体は未設計で
+   次の課題とする)。
+2. `add_member_from_invite_code()`(11.2節): 1つのworkshopに対して複数の招待コードが
+   並行して発行され得るため(発行時点では上限未満でも、片方が使われて上限に達した後に
+   もう片方が使われる事故があり得る)、未所属メンバーの追加直前にも同じ上限チェックを
+   行う。上限到達時は`member_limit_reached`エラーとするが、招待コード自体は
+   `resolve_invite_code()`の時点で既に使い切り済みのため消費される(11.2節の
+   `already_in_another_workshop`分岐と同じ扱い)。
+
+契約者自身がダウングレード等で`member_user_ids`が一時的に上限を超えて存在するケース
+(downgrade-excess-member-handling-design.md参照、猶予期間中の縮小待ち状態)は本節の
+発行・追加チェックの対象外であり影響しない(上限チェックは新規追加時のみに作用し、
+既存メンバーを強制的に削除する処理ではないため)。
+
+`prototype/test_workshop_linking.py`に新規テスト3件追加
+(`test_rejects_issuance_when_member_limit_already_reached`・
+`test_allows_issuance_one_below_the_member_limit`・
+`test_rejects_new_member_when_member_limit_already_reached`)、venture全体686件
+(683件→686件、`python3 prototype/run_all_tests.py`)・schema検証30件
+(`python3 schema/validate_test_cases.py`、schema・フィクスチャへの変更なしのため
+変更前と同じ結果)いずれもパスを確認した。承認不要な設計文書・コード・テスト追加のみで、
+外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+pending-approval.mdへの追記なし。次回は上限到達時の案内文言の設計(LLM構造化出力への
+反映要否含む)、または3節`select_message_context`統合関数自体の実装、他venture・
+アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 04:00 UTC(フェーズ102)

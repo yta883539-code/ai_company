@@ -47,6 +47,12 @@ _CODE_LENGTH = 6
 _LINK_TTL = timedelta(hours=24)
 _MAX_GENERATION_ATTEMPTS = 5
 
+# design 11.7節(フェーズ102): 複数職人プランのmember_user_ids上限数。個人〜小規模の
+# 鞍・馬具工房を対象とするMVPの前提(pricing-plan.md「複数職人が在籍する工房」)に
+# 照らし、大規模工房・法人向けの契約形態は本プランの対象外(要相談・投資分類の
+# 領域)とみなし、5名(契約者含む)に仮設定する。
+MAX_MEMBER_COUNT = 5
+
 # design 7節(フェーズ66追記): workshop新規作成時の暫定plan_id。
 PROVISIONAL_PLAN_ID_ON_CREATION = "light"
 
@@ -250,12 +256,19 @@ def issue_invite_code_for_workshop(
        一致しない場合は`not_contractor`エラーを返しコードは発行しない。
     2. プランチェック: `plan_id`が`multi_craftsman`でない場合は`upgrade_required`
        エラーを返す(呼び出し側はアップグレード案内文言に切り替える想定)。
+    3. 人数上限チェック(design 11.7節・フェーズ102): 現在の`member_user_ids`件数が
+       `MAX_MEMBER_COUNT`に既に達している場合は`member_limit_reached`エラーを返し
+       コードは発行しない(招待コード発行の時点で防ぐことで、上限超過状態のまま
+       招待コードだけが出回ることを避ける)。
     """
     if requesting_user_id != workshop_store.get_contractor_user_id(workshop_id):
         return InviteIssuanceResult(ok=False, error="not_contractor")
 
     if workshop_store.get_plan_id(workshop_id) != "multi_craftsman":
         return InviteIssuanceResult(ok=False, error="upgrade_required")
+
+    if len(workshop_store.get_member_user_ids(workshop_id)) >= MAX_MEMBER_COUNT:
+        return InviteIssuanceResult(ok=False, error="member_limit_reached")
 
     for _ in range(_MAX_GENERATION_ATTEMPTS):
         code = _generate_candidate_code(rng)
@@ -336,7 +349,12 @@ def add_member_from_invite_code(
        - 既に**別の**workshopへ所属済みなら、craftsman-account-linking-design.md
          3節の「1人1工房のみ」というMVP前提に違反するため`already_in_another_
          workshop`エラーとし、追加は行わない(移籍・脱退機能はMVP範囲外)。
-       - 未所属の場合のみ、`workshop_store.add_member_user_id()`でメンバーへ追加し、
+       - 未所属の場合のみ、人数上限チェック(design 11.7節・フェーズ102)を行い、
+         `MAX_MEMBER_COUNT`に既に達していれば`member_limit_reached`エラーとする
+         (`issue_invite_code_for_workshop`側で発行時点で防いでいるが、1つの
+         workshopに対して複数の招待コードが並行して発行され得るため、片方が使われて
+         上限に達した後にもう片方が使われる事故を防ぐ多重防御)。達していなければ
+         `workshop_store.add_member_user_id()`でメンバーへ追加し、
          `user_profile_store.link()`で所属を確定する。
     """
     resolution = resolve_invite_code(code, invite_store, now)
@@ -349,6 +367,9 @@ def add_member_from_invite_code(
         if existing_workshop_id == workshop_id:
             return AddMemberResult(ok=True, workshop_id=workshop_id, already_member=True)
         return AddMemberResult(ok=False, error="already_in_another_workshop")
+
+    if len(workshop_store.get_member_user_ids(workshop_id)) >= MAX_MEMBER_COUNT:
+        return AddMemberResult(ok=False, error="member_limit_reached")
 
     workshop_store.add_member_user_id(workshop_id, user_id)
     user_profile_store.link(user_id, workshop_id)

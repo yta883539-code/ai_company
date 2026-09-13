@@ -254,6 +254,41 @@ class IssueInviteCodeForWorkshopTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.error, "upgrade_required")
 
+    def test_rejects_issuance_when_member_limit_already_reached(self):
+        workshop_store = InMemoryWorkshopStore()
+        workshop_store.set_members(
+            "W1",
+            contractor_user_id="U-contractor",
+            member_user_ids=["U-contractor", "M2", "M3", "M4", "M5"],
+        )
+        workshop_store.set_plan("W1", "multi_craftsman")
+        invite_store = InMemoryLinkingCodeStore()
+
+        result = issue_invite_code_for_workshop(
+            "W1", "U-contractor", workshop_store, invite_store, _NOW, random.Random(1)
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "member_limit_reached")
+        self.assertIsNone(result.code)
+        self.assertEqual(list(invite_store.items()), [])
+
+    def test_allows_issuance_one_below_the_member_limit(self):
+        workshop_store = InMemoryWorkshopStore()
+        workshop_store.set_members(
+            "W1",
+            contractor_user_id="U-contractor",
+            member_user_ids=["U-contractor", "M2", "M3", "M4"],
+        )
+        workshop_store.set_plan("W1", "multi_craftsman")
+        invite_store = InMemoryLinkingCodeStore()
+
+        result = issue_invite_code_for_workshop(
+            "W1", "U-contractor", workshop_store, invite_store, _NOW, random.Random(1)
+        )
+
+        self.assertTrue(result.ok)
+
 
 class ResolveInviteCodeTest(unittest.TestCase):
     def test_resolves_a_valid_unexpired_code_to_workshop_id(self):
@@ -338,6 +373,30 @@ class AddMemberFromInviteCodeTest(unittest.TestCase):
         )
 
         self.assertFalse(result.ok)
+        self.assertIsNone(profile_store.get_workshop_id("U-new"))
+
+    def test_rejects_new_member_when_member_limit_already_reached(self):
+        """design 11.7節(フェーズ102)の多重防御: 発行時点では上限未満でも、他の招待
+        コード経由で先にメンバーが追加され上限に達した後にこちらが使われた場合は
+        ここで拒否する(招待コード自体は使い切りのため消費される)。"""
+        invite_store, profile_store, workshop_store = self._make_stores()
+        workshop_store.set_members(
+            "W1",
+            contractor_user_id="U-contractor",
+            member_user_ids=["U-contractor", "M2", "M3", "M4", "M5"],
+        )
+        invite_store.save("ABC234", "W1", _NOW)
+
+        result = add_member_from_invite_code(
+            "ABC234", "U-new", invite_store, profile_store, workshop_store, _NOW
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.error, "member_limit_reached")
+        self.assertEqual(
+            workshop_store.get_member_user_ids("W1"),
+            ["U-contractor", "M2", "M3", "M4", "M5"],
+        )
         self.assertIsNone(profile_store.get_workshop_id("U-new"))
 
 

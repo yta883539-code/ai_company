@@ -2072,4 +2072,24 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   「`member_user_ids`上限数の検討」、または3節`select_message_context`統合関数自体の
   実装、他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 03:00 UTC
+- フェーズ102(2026-09-13 04:00 UTC): 11.3節に残っていた「複数職人プランの
+  `member_user_ids`上限数(何名まで許容するか)」の検討・実装に対応した
+  (craftsman-account-linking-design.md 11.7節参照)。market-research.mdが確認した
+  実在事業者(個人〜小規模の職人が複数在籍する工房)を想定顧客像とし、契約者本人を
+  含めて5名を暫定上限に決定した(pricing-plan.mdにも追記)。5名を超える規模の工房は
+  本プランの機械的な値上げ・上限緩和では対応せず、README「投資・大規模につき要相談」
+  領域の個別カスタム対応として扱う方針とした。`prototype/workshop_linking.py`に
+  `MAX_MEMBER_COUNT`定数を新設し、(1)`issue_invite_code_for_workshop()`で招待コード
+  発行時点で上限到達なら`member_limit_reached`エラーとして発行しない、(2)並行して
+  発行された別の招待コード経由で上限に達した後にもう片方が使われる事故に備え、
+  `add_member_from_invite_code()`側でもメンバー追加直前に同じ上限チェックを行う、
+  という2箇所での多重防御構成とした。新規テスト3件追加、venture全体686件
+  (683件→686件、`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`、schema・フィクスチャへの変更なしのため
+  変更前と同じ結果)いずれもパスを確認した。承認不要な設計文書・コード・テスト追加
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は上限到達時の案内文言の設計、または3節
+  `select_message_context`統合関数自体の実装、他venture・アイデア領域の前進を優先
+  候補とする。
+
+最終更新: 2026-09-13 04:00 UTC
