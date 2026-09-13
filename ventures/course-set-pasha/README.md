@@ -2961,4 +2961,26 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
   への追記なし。line-reservation-aiの同種通知が制限モードとの整合性を考慮済みかの
   確認は次の課題として残す。
-- 最終更新: 2026-09-13 18:00 UTC
+- フェーズ211(2026-09-13 22:00 UTC): llm-system-prompt-draft.mdの厳守事項7b(有料プラン
+  開始意図検知、フェーズ206新設)(iii)本文に、厳守事項番号の誤り(「厳守事項7(入力不足時の
+  再送依頼)」となっていたが、厳守事項7は「会員管理・予約受付・決済への不応答」であり
+  「入力不足時の再送依頼」は厳守事項8が正しい。厳守事項7a(iii)の同種記述では厳守事項8と
+  正しく参照されており、7bを新設したフェーズ206での書き間違いと判明)があり、かつ
+  フェーズ209でstatus enumへの帰着先を確定した厳守事項7a(iii)(subscription-intent-iii-
+  chitchat-status-mapping-review.md)と対になるべき厳守事項7b(iii)には対応する机上検証・
+  テストケースが存在しないcross-item parityの抜けがあることを発見した。厳守事項番号を
+  7→8に訂正のうえ、7a(iii)と同様に「同一メモ内に課題入れ替え内容(エリア名・本数等)が
+  含まれなければinsufficient_input、含まれればgenerated」への帰着基準を本文に明記し、
+  checkout-intent-iii-chitchat-status-mapping-review.mdを新規作成して検討過程を記録した。
+  schema/output.schema.jsonの`status`フィールド説明にも厳守事項7b(iii)の帰着方針を追記し、
+  schema/validate_test_cases.pyにCO4(insufficient_input帰着)・CO5(generated帰着)を
+  追加した(CI4・CI5と対になるcheckout版)。venture全体583件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、コード変更が無いため変更前と同じ結果)・
+  schema検証17件(`python3 schema/validate_test_cases.py`、15件→17件、既存のG1〜G4・
+  OOS1・II1・CI1〜CI5・CO1〜CO3・NEG1がいずれも新規CO4・CO5追加後も違反しないことを確認)
+  いずれもパスした。承認不要な設計文書の訂正・新規作成、schema/テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。「実際の入力文が7b(iii)雑談と7b(iv)判断不能の
+  どちらに分類されるか」自体の分類精度検証は、7a(iii)/(iv)と同様に引き続き実LLM接続後
+  (オーナー承認待ち)の課題として残る。
+- 最終更新: 2026-09-13 22:00 UTC

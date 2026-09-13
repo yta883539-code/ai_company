@@ -17,6 +17,10 @@ schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対�
 - 2026-09-13 02:00 UTC、subscription-intent-iii-chitchat-status-mapping-review.mdで
   厳守事項7a(iii)(雑談の域を出ない表現)の帰着先を机上決定したことに伴い、CI4・CI5として
   (iii)判定時のinsufficient_input/generatedへの帰着ケースを追加した。
+- 2026-09-13 22:00 UTC、checkout-intent-iii-chitchat-status-mapping-review.mdで
+  厳守事項7b(iii)(雑談の域を出ない表現)の帰着先を机上決定したことに伴い、CO4・CO5として
+  (iii)判定時のinsufficient_input/generatedへの帰着ケースを追加した(CI4・CI5と対になる
+  checkout版)。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -469,6 +473,46 @@ TEST_CASES = {
             "body": "有料プランのお申し込みをご希望でしょうか?よろしければ「有料プランを始めたい」とお送りください。",
             "includes_checkout_url": False,
         },
+    },
+    # 2026-09-13 22:00 UTC追加: 厳守事項7b(iii)(雑談の域を出ない表現)の帰着先を
+    # checkout-intent-iii-chitchat-status-mapping-review.mdで机上決定したことに伴う
+    # 期待出力。CI4・CI5(7a(iii)版)と対になるcheckout版。(iii)自体は専用statusを持たず、
+    # 他の入力内容次第でinsufficient_input/generatedのいずれかに帰着する。
+    "CO4_chitchat_no_course_content": {
+        "status": "insufficient_input",
+        "out_of_scope_message": None,
+        "missing_fields_request": "エリア名と本数が不明なため、告知文・記録を作成できません。エリア名(例:エリアA)と入れ替えた本数を教えてください。",
+        "sns_post": None,
+        "line_web_notice": None,
+        "history_rows": None,
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    "CO5_chitchat_with_course_content": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【課題入れ替えのお知らせ】エリアAに新着課題8本追加しました。ダイナミックなムーブが特徴です。",
+            "hashtags": ["#ボルダリング", "#クライミングジム", "#新着課題"],
+            "mentions_photo": False,
+        },
+        "line_web_notice": {
+            "body": "エリアA:新着8本(黄テープ帯)を追加しました。ぜひチャレンジしてください。",
+        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアA",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 8,
+                "feature_keywords": ["ダイナミック", "ムーブ重視"],
+            },
+        ],
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
     },
 }
 
