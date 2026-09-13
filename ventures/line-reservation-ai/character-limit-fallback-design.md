@@ -94,6 +94,16 @@ venture全体800件(796件→800件)・schema検証27件いずれもパスを確
 
 ## 残る課題
 
+- (解消済み・フェーズ続き222): 「メニューFAQのみを対象に、文字数超過時は既存の保留文言へ
+  フォールバックする」方針自体は決定済みだったが、実装(`_apply_menu_length_fallback()`の
+  `count_utf16_code_units(text) > LINE_TEXT_MESSAGE_MAX_UTF16_UNITS`という比較演算子)が
+  境界(ちょうど上限文字数か、上限+1文字か)を意図通りに扱えているかは、フェーズ続き221時点で
+  未検証だった(既存テストはメニュー600件という「明らかに超過する」ケースのみを確認)。
+  ちょうど上限文字数では過剰にフォールバックしない(false positive回避)こと、上限+1文字では
+  必ずフォールバックすること(off-by-one)の両方を、`format_faq_menu_message()`の定型文言の
+  固定部分長を`name=""`のケースから逆算しメニュー名1件の長さで正確に境界を作るテストで確認し、
+  解消済みとした(`prototype/test_cloud_function_process_event.py`
+  `test_menu_topic_boundary_exact_limit_does_not_fallback_but_one_over_does`)。
 - 実際の店舗のメニュー登録件数の実態(customer-interview-design.md)が見えた段階で、
   5,000文字という値より手前のソフトな閾値(実運用上「これは多すぎるのでは」と気づく水準)を
   別途設けるかどうかは、aircon-pashaのcharacter-limit-fallback-design.md「残課題」と同様、

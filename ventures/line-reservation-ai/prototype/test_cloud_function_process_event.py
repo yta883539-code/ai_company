@@ -46,6 +46,7 @@ from engine import (  # noqa: E402
     InMemoryBookingRecordStore,
     NotificationLogAggregator,
     count_utf16_code_units,
+    format_faq_menu_message,
 )
 from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
@@ -593,6 +594,50 @@ class FaqSegmentReplyTests(unittest.TestCase):
         self.assertLessEqual(count_utf16_code_units(push.sent[0][1]), LINE_TEXT_MESSAGE_MAX_UTF16_UNITS)
         self.assertEqual(result.detail, "1_segments_1_unresolved")
         self.assertEqual(logs.unique_unresolved_topic_count(), 1)
+
+    def test_menu_topic_boundary_exact_limit_does_not_fallback_but_one_over_does(self):
+        # character-limit-fallback-design.md「残る課題」の棚卸しで見つけた未検証の境界値。
+        # 既存のtest_menu_topic_falls_back_when_message_exceeds_line_text_length_limit()は
+        # メニュー600件という「明らかに超過する」ケースのみを確認しており、
+        # LINE_TEXT_MESSAGE_MAX_UTF16_UNITSちょうどでは(尻切れを恐れて)過剰に
+        # フォールバックさせないこと(false positive回避)、1文字でも超えた瞬間には必ず
+        # フォールバックすること(off-by-one)の両方の境界は未検証だった。
+        # format_faq_menu_message()の定型文言の前後固定部分の長さをname=""のケースから逆算し、
+        # メニュー名の長さだけでちょうど上限文字数/上限+1文字になるよう調整して検証する
+        # (固定文言そのものの文字列に依存しないため、文言変更にも追随できる)。
+        overhead = count_utf16_code_units(
+            format_faq_menu_message([{"name": "", "price_displayed": False}])
+        )
+        exact_limit_name_len = LINE_TEXT_MESSAGE_MAX_UTF16_UNITS - overhead
+        over_limit_name_len = exact_limit_name_len + 1
+
+        def process_with_menu_name_length(name_len):
+            info = dict(STORE_FAQ_INFO)
+            info["menu"] = [{"name": "あ" * name_len, "price_displayed": False}]
+            processor, flow, push, logs = _new_processor(store_faq_info=info)
+
+            def llm_call():
+                return {
+                    "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                    "confirmed": False, "needs_owner_check": False,
+                    "faq_segments": [{"topic": "menu", "resolved": True}],
+                }
+
+            result = processor.process(_event("U1", "メニューと料金を教えてください"), llm_call, NOW)
+            return result, push, logs
+
+        result_exact, push_exact, logs_exact = process_with_menu_name_length(exact_limit_name_len)
+        self.assertEqual(
+            count_utf16_code_units(push_exact.sent[0][1]), LINE_TEXT_MESSAGE_MAX_UTF16_UNITS
+        )
+        self.assertNotIn("担当者に確認のうえ", push_exact.sent[0][1])
+        self.assertEqual(result_exact.detail, "1_segments_0_unresolved")
+        self.assertEqual(logs_exact.unique_unresolved_topic_count(), 0)
+
+        result_over, push_over, logs_over = process_with_menu_name_length(over_limit_name_len)
+        self.assertIn("担当者に確認のうえ", push_over.sent[0][1])
+        self.assertEqual(result_over.detail, "1_segments_1_unresolved")
+        self.assertEqual(logs_over.unique_unresolved_topic_count(), 1)
 
     def test_other_topic_always_falls_back_to_holding_message(self):
         # topic: "other"は店舗FAQ情報欄に対応する登録項目が存在しないため常にエスカレーションに
