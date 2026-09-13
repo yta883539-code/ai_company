@@ -18,6 +18,7 @@ from cloud_function_webhook import (
     INVITE_JOIN_SUCCESS_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
+    MEMBER_LIMIT_REACHED_MESSAGE,
     PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     TRIAL_END_BUTTON_LABEL,
@@ -1304,6 +1305,50 @@ def test_process_message_event_replies_linking_required_when_invite_code_invalid
     check("LLMを呼び出さない", llm_call.calls == [])
 
 
+def test_process_message_event_replies_member_limit_reached_message_when_workshop_full():
+    """design 11.8節(フェーズ103): 発行時点(4名)では上限未満だったが、コード解決までの
+    間に別経路で5人目が加わり上限(MAX_MEMBER_COUNT=5)に達したケース(design 11.7節が
+    多重防御の対象としていたシナリオ)。コード自体は有効に解決できるため、LINKING_
+    REQUIRED_MESSAGEではなくMEMBER_LIMIT_REACHED_MESSAGEを返すべきことを確認する。"""
+    profiles, workshops, counters = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops)
+    workshops.set_members(
+        workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3"],
+    )
+    linking_store = InMemoryLinkingCodeStore()
+    invite_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 13, 5, 0, 0)
+    issuance = issue_invite_code_for_workshop(
+        workshop_id, contractor_id, workshops, invite_store, now, random.Random(1),
+    )
+    check("4名(上限未満)の時点では招待コード発行に成功する(事前条件)", issuance.ok is True)
+
+    workshops.set_members(
+        workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3", "U_M4", "U_M5"],
+    )
+    check(
+        "コード解決前に別経路で5名(上限)に達している(事前条件)",
+        len(workshops.get_member_user_ids(workshop_id)) == 5,
+    )
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event(issuance.code, user_id="U_NEW_CRAFTSMAN"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, invite_store=invite_store, now=now,
+    )
+    check(
+        "上限到達済みworkshopへの招待コード送信時はMEMBER_LIMIT_REACHED_MESSAGEを返す",
+        result.reply_text == MEMBER_LIMIT_REACHED_MESSAGE,
+    )
+    check(
+        "上限到達時は新規メンバーとして加入しない",
+        profiles.get_workshop_id("U_NEW_CRAFTSMAN") is None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # process_postback_event()(フェーズ71)
 # ---------------------------------------------------------------------------
@@ -1860,6 +1905,7 @@ if __name__ == "__main__":
     test_process_message_event_joins_workshop_on_valid_invite_code()
     test_process_message_event_falls_back_to_linking_required_when_invite_store_not_provided()
     test_process_message_event_replies_linking_required_when_invite_code_invalid()
+    test_process_message_event_replies_member_limit_reached_message_when_workshop_full()
     test_process_postback_event_ignores_unknown_postback_data()
     test_process_postback_event_creates_checkout_session_for_linked_contractor()
     test_process_postback_event_uses_plan_id_from_postback_data()

@@ -889,6 +889,19 @@ INVITE_JOIN_SUCCESS_MESSAGE = (
     "工房への参加が完了しました。依頼内容の簡単なメモを送ってください。"
 )
 
+# design 11.8節(フェーズ103): フェーズ102でadd_member_from_invite_code()に
+# member_limit_reachedエラーが追加されたが、当時(フェーズ98)のcall site実装は
+# membership.errorを見ずに「okでなければ全てLINKING_REQUIRED_MESSAGE」という分岐の
+# ままだった。このエラーは「コード自体は正しく解決できたが業務ルールで拒否された」
+# ケースであり、「コードが無効・期限切れ」と同じ案内では利用者が誤解する(正しい
+# コードを送ったはずなのに連携コードの再送を促されてしまう)ため、専用の案内文言を
+# 新設する(同エラーが追加された経緯・already_in_another_workshopとの扱いの違いは
+# design 11.8節参照)。
+MEMBER_LIMIT_REACHED_MESSAGE = (
+    "このコードは有効ですが、工房の登録人数が上限に達しているため追加できません。"
+    "人数の調整については契約者様にご確認ください。"
+)
+
 # design自体は解決失敗時の案内文言を確定させていないため、aircon-pashaのLINKING_REQUIRED_
 # MESSAGEと同じ考え方(「連携コード自体が見つからない(未連携・期限切れ・入力ミス等)」と
 # 「未連携のまま依頼メモを送った」を区別せず同一の案内に倒す)で本フェーズ新規に定める。
@@ -930,10 +943,15 @@ def process_message_event(
       場合で、かつ`invite_store`が渡されている場合は、続けて`add_member_from_invite_code()`
       (design 11.2節、既存workshopへの追加用招待コードの解決)を試みる。こちらが成功した
       場合はINVITE_JOIN_SUCCESS_MESSAGEを返す(フェーズ98、design 11.3節「ウェルカム
-      メッセージ」の残課題に対応)。いずれの解決にも失敗した場合(コード不一致・期限切れ・
-      依頼メモの先送り送信等、いずれも区別しない)はLINKING_REQUIRED_MESSAGEを返す。
-      process_memo_event()へは一切進めない(未連携user_idの利用回数カウントを発生させ
-      ないため)。
+      メッセージ」の残課題に対応)。工房の人数上限到達で拒否された場合
+      (`member_limit_reached`、design 11.8節、フェーズ103)は、コード自体は有効に
+      解決できているため「コードが無効・期限切れ」の場合と区別してMEMBER_LIMIT_
+      REACHED_MESSAGEを返す(`already_in_another_workshop`は本関数へ到達する時点で
+      呼び出し元が既にuser_idが未連携であることを確認済みのため実質到達し得ない分岐で
+      あり、専用メッセージへの分岐は設けていない。design 11.8節参照)。それ以外の解決
+      失敗(コード不一致・期限切れ・依頼メモの先送り送信等、いずれも区別しない)は
+      LINKING_REQUIRED_MESSAGEを返す。process_memo_event()へは一切進めない(未連携
+      user_idの利用回数カウントを発生させないため)。
     - user_idが取得できない未連携イベント(通常発生しない想定)も安全側に倒し
       LINKING_REQUIRED_MESSAGEを返す。
     - 3つのストアのいずれかが未接続(None)の場合は、フェーズ68以前と同じ後方互換動作として
@@ -1004,6 +1022,14 @@ def process_message_event(
             return MemoProcessResult(
                 handled=True, reply_sent=reply_sent,
                 reply_text=INVITE_JOIN_SUCCESS_MESSAGE if reply_sent else None,
+            )
+        if membership.error == "member_limit_reached":
+            reply_sent = _reply_with_retry(
+                reply_client, reply_token, MEMBER_LIMIT_REACHED_MESSAGE
+            )
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=MEMBER_LIMIT_REACHED_MESSAGE if reply_sent else None,
             )
 
     reply_sent = _reply_with_retry(reply_client, reply_token, LINKING_REQUIRED_MESSAGE)

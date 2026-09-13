@@ -2092,4 +2092,29 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   `select_message_context`統合関数自体の実装、他venture・アイデア領域の前進を優先
   候補とする。
 
-最終更新: 2026-09-13 04:00 UTC
+- フェーズ103(2026-09-13 05:00 UTC): フェーズ102が次のステップ候補としていた
+  「上限到達時の案内文言の設計(LLM構造化出力への反映要否含む)」に対応した
+  (craftsman-account-linking-design.md 11.8節参照)。LLM構造化出力への反映は不要と
+  結論した(`member_limit_reached`はPython側が人数を数えて機械的に判定する決定論的な
+  分岐であり、LLMによる意図検知を必要としないため)。設計を進める過程で、
+  `add_member_from_invite_code()`自体はフェーズ102で`member_limit_reached`エラーを
+  返すよう実装済みだったにもかかわらず、呼び出し側の`process_message_event()`
+  (フェーズ98)が`membership.ok`のみを見て失敗時は常に`LINKING_REQUIRED_MESSAGE`
+  (「先に連携コードの送信が必要です」)を返す実装のままだったため、有効な招待コードを
+  送っても工房満員時にはコードが無効であるかのように誤解させる実装漏れを発見・修正した。
+  `MEMBER_LIMIT_REACHED_MESSAGE`を新設し、上限到達時はこちらを返すよう修正した
+  (`prototype/cloud_function_webhook.py`)。あわせて`already_in_another_workshop`
+  エラーにも同様の専用文言を用意しようとしたが、`process_message_event()`の冒頭分岐に
+  より`add_member_from_invite_code()`へ到達する時点で送信元は必ず未連携であることが
+  保証されているため、同エラー分岐は現在の呼び出し経路では到達不可能であることが判明し、
+  対応を見送った(将来workshop移籍機能が追加された場合の課題として11.8節に記録)。
+  新規テスト1件追加(発行時点では上限未満だったが解決までの間に別経路で上限に達した
+  ケースを再現)、venture全体687件(686件→687件、`python3 prototype/run_all_tests.py`)・
+  schema検証30件(`python3 schema/validate_test_cases.py`、schema・フィクスチャへの
+  変更なしのため変更前と同じ結果)いずれもパスを確認した。承認不要なコード・テスト
+  追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は3節`select_message_context`統合関数
+  自体の実装、または他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 05:00 UTC(フェーズ103: 招待コード上限到達時の案内文言を設計・
+実装し、process_message_event()の実装漏れを修正)

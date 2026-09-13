@@ -443,4 +443,54 @@ pending-approval.mdへの追記なし。次回は上限到達時の案内文言�
 反映要否含む)、または3節`select_message_context`統合関数自体の実装、他venture・
 アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-13 04:00 UTC(フェーズ102)
+## 11.8 追記(フェーズ103): 上限到達時の案内文言の設計・実装
+
+フェーズ102が次のステップ候補としていた「上限到達時の案内文言の設計(LLM構造化出力への
+反映要否含む)」に対応した。
+
+**LLM構造化出力への反映要否**: 不要と結論した。`member_limit_reached`は契約者の
+明確な追加意思(厳守事項7c)をLLMが検知した後、Python側(`issue_invite_code_for_
+workshop`・`add_member_from_invite_code`)が人数を数えて機械的に判定する決定論的な
+分岐であり、7a/7b/7cのような「メッセージ文面からLLMが意図を読み取る」判定を必要としない。
+`already_in_another_workshop`(11.2節)・`upgrade_required`・`not_contractor`(11.1節)と
+同種の「Python側エラーコード→固定文言」という既存パターン(`LINKING_REQUIRED_MESSAGE`・
+`INVITE_JOIN_SUCCESS_MESSAGE`と同じ構成)を踏襲すればよい。
+
+**発見した実装漏れ**: `add_member_from_invite_code()`自体は11.7節(フェーズ102)で
+`member_limit_reached`エラーを返すよう実装済みだったが、呼び出し側の
+`process_message_event()`(フェーズ98、11.4節)は`membership.ok`のみを見て、`False`の
+場合は全て`LINKING_REQUIRED_MESSAGE`(「先に連携コードの送信が必要です」)を返す実装の
+ままだった。招待コード自体は有効に解決できているにもかかわらず「連携コードの送信が
+必要です」という案内を返すのは、あたかもコードが無効・期限切れであるかのように利用者に
+誤解させてしまう(実際には工房が満員であることが原因)。本フェーズで
+`MEMBER_LIMIT_REACHED_MESSAGE`(「このコードは有効ですが、工房の登録人数が上限に達して
+いるため追加できません。人数の調整については契約者様にご確認ください。」)を新設し、
+`membership.error == "member_limit_reached"`の場合はこちらを返すよう`process_message_
+event()`を修正した(`prototype/cloud_function_webhook.py`)。
+
+**`already_in_another_workshop`は対応対象外とした理由**: 同エラーにも当初は専用文言
+(`ALREADY_IN_ANOTHER_WORKSHOP_MESSAGE`)を用意し同様に分岐を追加したが、テスト実装の
+過程で、`process_message_event()`の冒頭分岐(「`user_profile_store.get_workshop_id
+(user_id)`が設定済みなら`process_memo_event()`へ委譲」)により、`add_member_from_
+invite_code()`へ到達する時点で送信元は必ず未連携(`existing_workshop_id is None`)である
+ことが保証されていることが判明した。すなわち`add_member_from_invite_code()`内部の
+`already_in_another_workshop`分岐(11.2節)は、本関数を直接呼び出す単体テスト以外では
+現在到達不可能であり、`process_message_event()`経由の統合テストでは検証できない
+(意図的に到達不可能にしている11.4節の設計とも整合する)。到達不可能な分岐に対する
+call site側のメッセージ分岐・テストを追加するのは実際には検証できないコードを追加する
+だけであり、`ALREADY_IN_ANOTHER_WORKSHOP_MESSAGE`および対応する分岐は本フェーズでは
+見送った(将来、workshop間の移籍・脱退機能(11.2節が「MVP範囲外」としている)が
+追加され、既に連携済みのユーザーが招待コードを送れる経路ができた場合には、同様の
+専用メッセージ設計が必要になる)。
+
+`prototype/test_cloud_function_webhook.py`に新規テスト1件追加
+(`test_process_message_event_replies_member_limit_reached_message_when_workshop_full`、
+発行時点(4名)では上限未満だったが解決までの間に別経路で5名に達したケースを再現)、
+venture全体687件(686件→687件、`python3 prototype/run_all_tests.py`)・schema検証30件
+(`python3 schema/validate_test_cases.py`、schema・フィクスチャへの変更なしのため変更前
+と同じ結果)いずれもパスを確認した。承認不要なコード・テスト追加のみで、外部サービスへ
+の公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+追記なし。次回は3節`select_message_context`統合関数自体の実装、または他venture・アイデア
+領域の前進を優先候補とする。
+
+最終更新: 2026-09-13 05:00 UTC(フェーズ103)
