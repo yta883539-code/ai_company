@@ -3227,4 +3227,16 @@
   ドキュメント棚卸し・回帰確認のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-13 10:59 UTC
+- フェーズ210(2026-09-13 14:00 UTC): llm-system-prompt-draft.mdの「次の課題」に
+  取り残されていた記載漏れを修正した。厳守事項6bのpost_generation_checks.pyへの
+  check_checkout_notice_consistency()実装は、実際にはフェーズ207(2026-09-12 09:00 UTC)
+  で既に完了していた(run_all_checks()への組み込み・test_post_generation_checks.pyへの
+  CheckoutNoticeConsistencyTest 8件追加まで完済)にもかかわらず、llm-system-prompt-draft.md
+  側の「次の課題」一覧には「次回以降の課題として残す」という古い記載がそのまま取り残されて
+  いたため、course-set-pashaフェーズ208(2026-09-12 14:00 UTC)と同種のドキュメント整合性
+  修正として解消済みに訂正した。コード変更は無く、念のため回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(485件)・`python3 schema/validate_test_cases.py`
+  (13件)を実行し、いずれも変更前と同じ結果でパスすることを確認した。承認不要なドキュメント
+  整合性修正・回帰確認のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-13 14:00 UTC

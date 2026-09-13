@@ -191,6 +191,7 @@ insufficient_input)パターンを踏襲する方向で検討している。
   確認した。テスト6件追加、prototype配下全25件パス)。
 - 厳守事項6b(2026-09-12新設)の境界(特に(iii)雑談と(iv)判断不能の切り分け)も、6aと
   同様に机上での言い回し例に基づく設計であり、実LLM接続後に実際の誤検知パターンが無いか
-  改めて検証する必要がある。post_generation_checks.pyへのcheck_checkout_notice_
-  consistency()実装(check_subscription_notice_consistency()と同種)は次回以降の課題
-  として残す。
+  改めて検証する必要がある。(解消済み 2026-09-12 09:00 UTC: post_generation_checks.pyへの
+  check_checkout_notice_consistency()実装〈check_subscription_notice_consistency()と同種〉
+  はフェーズ207で完了済み。本節の記載更新が漏れていたため2026-09-13 14:00 UTCに訂正した。
+  実装・スキーマ自体への変更は無し。README.mdフェーズ207参照)。
