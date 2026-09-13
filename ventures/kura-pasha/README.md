@@ -2294,3 +2294,29 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 
 最終更新: 2026-09-13 16:00 UTC(フェーズ110: (c)「残すメンバー」連絡検知を実配線。
 (a)(b)(c)すべて配線完了。次は`select_message_context()`への一本化検討)
+
+- フェーズ111(2026-09-13 20:00 UTC): フェーズ110が次の課題としていた
+  `select_message_context()`統合関数への一本化(message-context-selection-design.md
+  12節)を実施した。`process_memo_event()`内で(a)(b)(c)それぞれ専用の判定条件を
+  個別に直接評価していた積み上げ方式(フェーズ108〜110)と、それに続く
+  `process_generation_request()`の直接呼び出しを、`select_message_context()`の
+  単一呼び出し1つに置き換え、返ってきた`MessageContext.kind`で(a)(b)(c)(d)を
+  分岐する形にした。12節が懸念していた「(d)経路で二重呼び出しになる」という論点は、
+  実際には二重呼び出しではなく単純な置き換えの問題であり、`select_message_context()`が
+  返す`MessageContext.generation_result`をそのまま使えば
+  `process_generation_request()`の呼び出し回数は変わらないことを確認した。
+  `TrialPeriodOverError`・`PaymentSuspendedError`は(d)経路(select_message_context()
+  内部のprocess_generation_request呼び出し)でのみ送出されるため、
+  `select_message_context()`呼び出し全体を1つのtry/exceptで囲むだけで従来と同じ捕捉が
+  できた。`check_and_expire_pending_contractor_transfer`・
+  `is_contractor_transfer_confirmation_context`・`process_generation_request`の
+  3関数はcloud_function_webhook.py側で直接使わなくなったためimportから削除した。
+  `test_cloud_function_webhook.py`単体でPASS=331(フェーズ110時点と同じ件数、挙動に
+  変化なし)、`python3 prototype/run_all_tests.py`(全10ファイル)・`python3 schema/
+  validate_test_cases.py`(30件)いずれもパスを確認した。承認不要なリファクタリング
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-13 20:00 UTC(フェーズ111: (a)(b)(c)(d)の分岐を
+`select_message_context()`統合関数への単一呼び出しに一本化。挙動・テスト件数に
+変化なしを確認。次は他venture・アイデア領域の前進を優先候補とする)

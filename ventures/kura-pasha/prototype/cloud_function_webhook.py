@@ -59,9 +59,7 @@ from usage_counter_workshop import (
     WorkshopStoreProtocol,
     apply_contractor_transfer,
     cancel_pending_contractor_transfer,
-    check_and_expire_pending_contractor_transfer,
-    is_contractor_transfer_confirmation_context,
-    process_generation_request,
+    select_message_context,
 )
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
@@ -969,30 +967,24 @@ def process_memo_event(
        5.のトライアル終了通知添付条件(生涯最初の生成1回目のみ)と6.の本条件(「残り1回」
        到達時のみ)は判定条件が独立しており現行プランでは同一回で重複しないため、
        両者の単純なor条件でボタン添付要否を決定する。
-    8. (フェーズ108、新設。フェーズ109で(b)、フェーズ110で(c)を追加) message-context-
-       selection-design.md 6節が指摘していた`select_message_context()`未配線の3系統
-       (a)(b)(c)のうち、フェーズ108で(a)契約者譲渡・期限切れ案内を実配線した。4.の
-       `process_generation_request()`を呼び出す直前に
-       `check_and_expire_pending_contractor_transfer()`(select_message_context()の
-       (a)判定と同じ関数)を直接呼び出し、非Noneが返った場合は4.以降(通常の受注メモ生成・
-       7a〜7cの意図検知・5.6.7.の付記)へは一切進まず、
-       `_process_contractor_transfer_expired_notice()`(文脈注入付きのLLM呼び出し・
-       `contractor_transfer_expired_notice.body`の返信)へ委譲して即座にreturnする。
-       フェーズ109では、(a)がNoneを返した場合に続けて
-       `is_contractor_transfer_confirmation_context()`(select_message_context()の
-       (b)判定と同じ関数)を呼び出し、真の場合は同様に4.以降へは進まず
-       `_process_contractor_transfer_confirmation()`(文脈注入付きのLLM呼び出し・
-       LLMが返したstatusに応じた`apply_contractor_transfer()`/`cancel_pending_
-       contractor_transfer()`の呼び分け・`contractor_transfer_confirmation.body`の
-       返信)へ委譲して即座にreturnする。フェーズ110では、(a)(b)いずれも該当しない場合に
-       続けて、送信者が契約者本人かつ`workshop_store.get_pending_reduction_effective_at()`
-       が設定済みか(select_message_context()の(c)判定と同じ条件)を直接評価し、真の場合は
-       同様に4.以降へは進まず`_process_member_retention_notice()`(文脈注入付きのLLM
-       呼び出し・LLMが返したstatusに応じた`set_specified_retention_member_name()`の
-       呼び出し要否判定・`member_retention_notice.body`の返信)へ委譲して即座にreturnする。
-       これで(a)(b)(c)すべてが配線された(`select_message_context()`統合関数自体は
-       まだ呼び出さず、(a)(b)(c)それぞれ専用の判定条件を個別に直接評価する最小限の変更の
-       積み上げにとどめた。統合関数への一本化は次の課題として残す)。
+    8. (フェーズ108〜110で(a)(b)(c)個別に直接評価する積み上げ方式として実配線し、
+       フェーズ111で`select_message_context()`統合関数への一本化に置き換えた)
+       message-context-selection-design.md 6節が指摘していた`select_message_context()`
+       未配線の3系統(a)(b)(c)について、4.の`process_generation_request()`を直接
+       呼び出す代わりに`select_message_context()`を1回だけ呼び出し、その`kind`で
+       (a)`contractor_transfer_expired_notice`→`_process_contractor_transfer_expired_
+       notice()`、(b)`contractor_transfer_confirmation`→`_process_contractor_transfer_
+       confirmation()`、(c)`member_retention_notice`→`_process_member_retention_
+       notice()`、のいずれかへ委譲して即座にreturnする(いずれも文脈注入付きのLLM
+       呼び出しで、4.以降〈通常の受注メモ生成・7a〜7cの意図検知・5.6.7.の付記〉へは
+       一切進まない)。(d)`generation_request`の場合のみ、`select_message_context()`が
+       内部で1回だけ実行した`process_generation_request()`の結果を
+       `MessageContext.generation_result`からそのまま受け取り、4.以降の処理を続ける
+       (message-context-selection-design.md 12節が一本化の前提条件としていた「(d)戻り値を
+       そのまま使えば二重呼び出しにはならない」という整理の通り、本関数側で改めて
+       `process_generation_request()`を呼び出すことはない)。`TrialPeriodOverError`・
+       `PaymentSuspendedError`は(d)経路でのみ送出されうるため、`select_message_context()`
+       呼び出し全体を1つのtry/exceptで囲めば従来と同じ捕捉ができる。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -1020,57 +1012,19 @@ def process_memo_event(
         # 文脈注入経路へ委譲する。送信者が契約者本人かどうかは問わない(1節(a)の通り)。
         # (b)契約者交代・再確認応答検知、(c)「残すメンバー」連絡検知への配線は次の課題
         # として未着手のまま残す(select_message_context()自体はまだ呼び出さない)。
-        workshop_id_for_context = user_profile_store.get_workshop_id(user_id)
-        expired_transfer = (
-            check_and_expire_pending_contractor_transfer(
-                workshop_id_for_context, resolved_now, workshop_store,
-            )
-            if workshop_id_for_context is not None else None
-        )
-        if expired_transfer is not None:
-            return _process_contractor_transfer_expired_notice(
-                llm_call, reply_client, reply_token, memo_text,
-                candidate_member_name=expired_transfer.candidate_member_name,
-            )
-
-        # フェーズ109(message-context-selection-design.md 6節の配線漏れのうち(b)分に
-        # 対応): (a)がNoneを返した場合のみ、select_message_context()と同じ
-        # is_contractor_transfer_confirmation_context()を呼び出す。真の場合は(a)と同様
-        # process_generation_request()以降へは一切進まず、(b)の文脈注入経路へ委譲する
-        # (契約者本人からの返信に限られる、is_contractor_transfer_confirmation_context()
-        # 自体がcontractor_user_id一致を検証済み)。(c)「残すメンバー」連絡検知への配線は
-        # 次の課題として未着手のまま残す。
-        if workshop_id_for_context is not None and is_contractor_transfer_confirmation_context(
-            user_id, workshop_id_for_context, resolved_now, workshop_store,
-        ):
-            pending_transfer = workshop_store.get_pending_contractor_transfer(workshop_id_for_context)
-            return _process_contractor_transfer_confirmation(
-                llm_call, reply_client, reply_token, memo_text,
-                workshop_id=workshop_id_for_context,
-                candidate_user_id=pending_transfer.candidate_user_id,
-                candidate_member_name=pending_transfer.candidate_member_name,
-                workshop_store=workshop_store,
-            )
-
-        # フェーズ110(message-context-selection-design.md 6節の配線漏れのうち(c)分に
-        # 対応): (a)(b)いずれもNone/偽の場合のみ、select_message_context()の(c)判定と
-        # 同じ条件(送信者が契約者本人かつpending_member_reduction_effective_atが設定済み)
-        # を直接評価する。真の場合は(a)(b)と同様process_generation_request()以降へは進まず、
-        # (c)の文脈注入経路へ委譲する。これで(a)(b)(c)すべてが配線された
-        # (select_message_context()統合関数自体は10節・11節と同じ理由でまだ呼び出さない)。
-        if (
-            workshop_id_for_context is not None
-            and user_id == workshop_store.get_contractor_user_id(workshop_id_for_context)
-            and workshop_store.get_pending_reduction_effective_at(workshop_id_for_context) is not None
-        ):
-            return _process_member_retention_notice(
-                llm_call, reply_client, reply_token, memo_text,
-                workshop_id=workshop_id_for_context,
-                workshop_store=workshop_store,
-            )
-
+        # フェーズ111(message-context-selection-design.md 12節「次の課題」に対応):
+        # (a)(b)(c)それぞれ専用の判定条件をここで個別に直接評価していた積み上げ方式
+        # (フェーズ108〜110)を廃し、select_message_context()への一本化に置き換えた。
+        # (d)経路のprocess_generation_request()呼び出しもselect_message_context()内で
+        # 1回のみ行われ、その結果はMessageContext.generation_resultとしてそのまま
+        # 受け取るため、12節が懸念していた二重呼び出しは発生しない(select_message_
+        # context()自身がprocess_generation_requestを呼ぶのは(d)判定に到達した場合の
+        # 1回のみで、本関数側で改めて呼び出すことはない)。TrialPeriodOverError・
+        # PaymentSuspendedErrorは(d)経路でのみ送出されうる(select_message_context()の
+        # (a)(b)(c)判定自体はprocess_generation_requestを呼ばない)ため、従来通り
+        # select_message_context()呼び出し全体を1つのtry/exceptで囲めば足りる。
         try:
-            generation_result = process_generation_request(
+            context = select_message_context(
                 user_id, resolved_now, user_profile_store, workshop_store, usage_counter_store,
             )
         except TrialPeriodOverError:
@@ -1089,6 +1043,29 @@ def process_memo_event(
                 reply_text=PAYMENT_SUSPENDED_NOTICE if reply_sent else None,
                 payment_suspended=True,
             )
+
+        if context.kind == MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE:
+            return _process_contractor_transfer_expired_notice(
+                llm_call, reply_client, reply_token, memo_text,
+                candidate_member_name=context.expired_transfer.candidate_member_name,
+            )
+        if context.kind == MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION:
+            pending_transfer = workshop_store.get_pending_contractor_transfer(context.workshop_id)
+            return _process_contractor_transfer_confirmation(
+                llm_call, reply_client, reply_token, memo_text,
+                workshop_id=context.workshop_id,
+                candidate_user_id=pending_transfer.candidate_user_id,
+                candidate_member_name=pending_transfer.candidate_member_name,
+                workshop_store=workshop_store,
+            )
+        if context.kind == MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE:
+            return _process_member_retention_notice(
+                llm_call, reply_client, reply_token, memo_text,
+                workshop_id=context.workshop_id,
+                workshop_store=workshop_store,
+            )
+
+        generation_result = context.generation_result
         trial_end_notification_due = generation_result.trial_end_notification_due
         # フェーズ74: process_generation_request()内のTrialPeriodOverError分岐
         # (subscription_status != "active"判定)と同じ式で「トライアル中か」を求め、

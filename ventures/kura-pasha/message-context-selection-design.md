@@ -472,15 +472,48 @@ cases.py`(30件)いずれもパスすることを確認した(schema側の変更
 
 これで(a)(b)(c)すべてが`process_memo_event()`へ実配線された。
 
-**次の課題**: (a)(b)(c)それぞれ専用の判定条件を`process_memo_event()`内で個別に
-直接評価する現状の積み上げ方式を、`select_message_context()`統合関数への一本化に
-置き換えるかどうかを検討する(6節末尾で既に指摘していた論点)。一本化する場合、
-`MessageContext.generation_result`が(d)経路で`process_generation_request()`の
-結果を既に保持している設計との整合(現状の`process_memo_event()`は(d)到達後に
-別途4.〜7.のロジックを実行しており、`select_message_context()`の(d)戻り値を
-そのまま使うと二重呼び出しになる)を先に解消する必要がある。
+**次の課題(フェーズ111で対応済み)**: (a)(b)(c)それぞれ専用の判定条件を
+`process_memo_event()`内で個別に直接評価する現状の積み上げ方式を、
+`select_message_context()`統合関数への一本化に置き換えるかどうかを検討する
+(6節末尾で既に指摘していた論点)。
 
-最終更新: 2026-09-13 16:00 UTC(フェーズ110: (c)「残すメンバー」連絡検知を実配線
-〈status=member_retention_selectionならset_specified_retention_member_name()で記録、
-実際の縮小は次回都度チェック時〉。(a)(b)(c)すべて配線完了。次は
-`select_message_context()`への一本化検討)
+## 13. 追記(フェーズ111): `select_message_context()`への一本化
+
+12節が次の課題としていた一本化を実施した。懸念点だった「`MessageContext.
+generation_result`が(d)経路で`process_generation_request()`の結果を既に保持して
+いる設計との整合」は、実際には二重呼び出しの問題ではなく置き換えの問題だったと
+判明した。`process_memo_event()`側が(d)到達後に`process_generation_request()`を
+改めて直接呼び出していた既存の1行を、`select_message_context()`が返す
+`MessageContext.generation_result`をそのまま使う形に置き換えるだけでよく、
+`process_generation_request()`の呼び出し自体は`select_message_context()`内部の
+1回のみに保たれる(呼び出し回数は変わらず、呼び出し元が変わっただけ)。
+
+具体的には、`process_memo_event()`の(a)(b)(c)個別条件評価
+(`check_and_expire_pending_contractor_transfer()`直接呼び出し・
+`is_contractor_transfer_confirmation_context()`直接呼び出し・
+`get_pending_reduction_effective_at()`直接評価の3ブロック、フェーズ108〜110で
+積み上げたもの)と、それに続く`process_generation_request()`の直接呼び出しを、
+`select_message_context()`の単一呼び出し1つに置き換え、返ってきた
+`MessageContext.kind`で(a)(b)(c)(d)を分岐する形にした。`TrialPeriodOverError`・
+`PaymentSuspendedError`は(d)経路(`select_message_context()`内部の
+`process_generation_request()`呼び出し)でのみ送出されるため、
+`select_message_context()`呼び出し全体を1つのtry/exceptで囲むだけで従来と同じ
+捕捉ができた。
+
+これにより`check_and_expire_pending_contractor_transfer`・
+`is_contractor_transfer_confirmation_context`・`process_generation_request`の
+3関数はcloud_function_webhook.py側で直接importする必要が無くなった(いずれも
+`select_message_context()`内部で使われるのみ)ため、importからも削除した。
+
+回帰確認として`python3 prototype/run_all_tests.py`(全10ファイル)・
+`test_cloud_function_webhook.py`単体(PASS=331、フェーズ110時点と同じ件数)・
+`python3 schema/validate_test_cases.py`(30件)いずれもパス(変更前と同じ結果)を
+確認した。コード変更は`process_memo_event()`内の条件分岐の構造整理のみで、挙動・
+テスト件数に変化は無い。承認不要なリファクタリングのみで、外部サービスへの公開・
+アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+追記なし。
+
+最終更新: 2026-09-13 20:00 UTC(フェーズ111: (a)(b)(c)(d)の分岐を
+`select_message_context()`統合関数への単一呼び出しに一本化。12節の懸念点は
+二重呼び出しではなく「(d)の結果をそのまま使う」だけで解消することを確認。
+次は他venture・アイデア領域の前進を優先候補とする)
