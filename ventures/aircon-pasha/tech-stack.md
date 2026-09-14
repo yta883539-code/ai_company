@@ -76,12 +76,25 @@ course-set-pashaと同じく、月間生成回数の上限管理(pricing-plan.md
 
 ## 次のステップ候補
 
-- 本venture固有の季節性(繁忙期は施工件数が閑散期の2〜3倍)を踏まえた、上限接近時の事前通知
-  設計(course-set-pasha/limit-approaching-notification-design.md相当のドキュメント作成)。
-- 月間生成回数カウント用データストア(Firestore等)の読み書き課金の原価試算
-  (course-set-pasha/subscription-billing-cost-estimate.mdの試算方法を踏まえた追試算)。
-- システムプロンプト草案・構造化出力スキーマ(JSON Schema)の作成
-  (mvp-flow-draft.md「次の課題」より引き続き未着手)。
+(2026-09-14 09:00 UTC追記: 本節作成〈フェーズ33相当〉時点では以下3項目とも未着手だったが、
+その後のフェーズでいずれも解消済みであるにもかかわらず本節が更新されないまま取り残されていた
+記載漏れを発見・訂正した。3項目消化後に残るのはオーナー承認待ちの範囲のみであることを明記する。)
+
+- ~~本venture固有の季節性(繁忙期は施工件数が閑散期の2〜3倍)を踏まえた、上限接近時の事前通知
+  設計(course-set-pasha/limit-approaching-notification-design.md相当のドキュメント作成)。~~
+  → フェーズ36でlimit-approaching-notification-design.mdを新規作成し解消済み(季節性を踏まえた
+  閾値・タイミングの検討はフェーズ76・118で継続対応)。
+- ~~月間生成回数カウント用データストア(Firestore等)の読み書き課金の原価試算
+  (course-set-pasha/subscription-billing-cost-estimate.mdの試算方法を踏まえた追試算)。~~
+  → フェーズ37でsubscription-billing-cost-estimate.mdを新規作成し解消済み(残課題はフェーズ120で
+  追加対応)。
+- ~~システムプロンプト草案・構造化出力スキーマ(JSON Schema)の作成
+  (mvp-flow-draft.md「次の課題」より引き続き未着手)。~~
+  → 構造化出力スキーマ(schema/output.schema.json)はフェーズ3で、システムプロンプト草案
+  (llm-system-prompt-draft.md)はフェーズ91で「次の課題」最後の残項目まで解消済み。
 - 実LLM呼び出し・LINE公式アカウントとの実接続は、line-reservation-ai・course-set-pashaと
-  同様にAPIキー取得・アカウント作成が必要でありオーナー承認待ちの範囲。今回は技術構成の
-  設計整理のみに留める。
+  同様にAPIキー取得・アカウント作成が必要でありオーナー承認待ちの範囲(pending-approval.md参照)。
+  実際のCloud Scheduler実行環境の構築・Stripe接続も同様にオーナー承認待ちとして残る
+  (trial-end-notification-design.md 6節参照)。現時点で技術構成面での自走可能な未着手項目は
+  無く、次に進める余地があるとすれば market-research.md が残す「BtoB経由の需要(管理会社との
+  提携)の具体的な単価水準」等、実ヒアリングを伴わない範囲での追加調査に限られる。

@@ -3304,4 +3304,21 @@
   追記なし。残る未検証事項(実際の管理会社との提携新規開拓の実例・一括契約の単価水準)は
   実際のヒアリング(オーナー承認待ち)なしには確認できないため、次回以降の課題として
   market-research.mdに明記した。
-- 最終更新: 2026-09-14 08:00 UTC
+- フェーズ215(2026-09-14 09:00 UTC): tech-stack.md「次のステップ候補」節に取り残されていた
+  記載漏れを発見・訂正した。同節が挙げていた3項目(上限接近時の事前通知設計、Firestore読み書き
+  課金の原価試算、システムプロンプト草案・構造化出力スキーマ作成)は、本節作成〈フェーズ33相当〉
+  時点では未着手だったが、実際にはフェーズ3(schema/output.schema.json)・フェーズ36
+  (limit-approaching-notification-design.md)・フェーズ37(subscription-billing-cost-
+  estimate.md)・フェーズ91(llm-system-prompt-draft.mdの残項目)でいずれも解消済みだった
+  にもかかわらず、tech-stack.md自体が一度も更新されないまま古い「未着手」表記が取り残されて
+  いた。course-set-pashaフェーズ212(mvp-flow-draft.mdの同種記載漏れ)・kura-pashaフェーズ
+  114・line-reservation-aiフェーズ続き225と同じ「実装docを扱うコミットとその参照元docの
+  更新が同一コミット内で保証されない」パターンだった。3項目それぞれに解消フェーズへの参照を
+  付記し、残るのはオーナー承認待ちの範囲(実LLM接続・Cloud Scheduler実行環境・Stripe接続)
+  のみである旨を明記した。コード変更は無く、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(485件)・`python3 schema/validate_test_cases.py`(15件)を
+  実行し、いずれも変更前と同じ結果でパスすることを確認した。承認不要なドキュメント整合性
+  修正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または市場調査の
+  残課題(BtoB経由需要の追加調査)を優先候補とする。
+- 最終更新: 2026-09-14 09:00 UTC
