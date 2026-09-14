@@ -2320,3 +2320,26 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 最終更新: 2026-09-13 20:00 UTC(フェーズ111: (a)(b)(c)(d)の分岐を
 `select_message_context()`統合関数への単一呼び出しに一本化。挙動・テスト件数に
 変化なしを確認。次は他venture・アイデア領域の前進を優先候補とする)
+
+- フェーズ112(2026-09-14 03:00 UTC): aircon-pasha・course-set-pasha・line-reservation-aiには
+  既にGitHub Actionsによるテスト自動実行(各venture配下のci-setup.md参照)が導入済みだったが、
+  本ventureにはCIワークフロー自体が未導入だったcross-venture parityのギャップに対応した。
+  `.github/workflows/kura-pasha-tests.yml`を新規作成し、`ventures/kura-pasha/`配下への変更を
+  トリガーに`prototype/run_all_tests.py`(単体テスト)・`schema/validate_test_cases.py`
+  (期待出力検証)を自動実行する構成とした。他3ventureのワークフローがそのまま採用している
+  `python3 -m unittest discover -p "test_*.py" -v`は、本ventureのprototype/test_*.py
+  11ファイルのうち8ファイルが`unittest.TestCase`ベースではなく独自のcheck()/PASS/FAIL形式の
+  スクリプトであるため(フェーズ88〜90・cross-venture-discover-compatibility-review.md参照)
+  そのまま流用するとテストの大半が実行されずCIが見かけ上「成功」してしまう重大な問題がある
+  ことに気付き、discoverコマンドは使わず既存の`run_all_tests.py`(全test_*.pyを個別プロセスで
+  実行し終了コードを集約するラッパー)をワークフロー側でも採用した。経緯・判断理由を
+  ci-setup.md(新規作成)に記録した。ローカルで`python3 prototype/run_all_tests.py`
+  (11ファイル全件パス)・`python3 schema/validate_test_cases.py`(30件全件パス、いずれも
+  変更前と同じ結果)を確認した。リポジトリ設定ファイルの追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回はコミット後のCI実行結果(status: completed / conclusion: success)の確認、または
+  他venture・アイデア領域の前進を優先候補とする。
+
+最終更新: 2026-09-14 03:00 UTC(フェーズ112: GitHub ActionsによるCI自動実行を新規導入
+〈discover非互換のため既存run_all_tests.pyを採用〉。他3ventureとのcross-venture parity
+ギャップを解消)

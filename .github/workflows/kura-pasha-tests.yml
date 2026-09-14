@@ -1,0 +1,28 @@
+name: kura-pasha tests
+
+on:
+  push:
+    paths:
+      - "ventures/kura-pasha/**"
+      - ".github/workflows/kura-pasha-tests.yml"
+  pull_request:
+    paths:
+      - "ventures/kura-pasha/**"
+      - ".github/workflows/kura-pasha-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run unittest suite (prototype)
+        working-directory: ventures/kura-pasha/prototype
+        run: |
+          python3 run_all_tests.py
+      - name: Run schema validation (output.schema.json)
+        working-directory: ventures/kura-pasha/schema
+        run: |
+          python3 validate_test_cases.py
