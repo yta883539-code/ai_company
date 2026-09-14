@@ -135,11 +135,16 @@ plan_idはpricing-plan.mdの3プラン`light`/`standard`/`multi_craftsman`、キ
 
 ## 6. 今後の課題
 
-- (B)期間到達判定用の日次スケジューラの選定ロジック・構成(line-reservation-ai/
+- ~~(B)期間到達判定用の日次スケジューラの選定ロジック・構成(line-reservation-ai/
   reminder-scheduler-design.md・aircon-pasha/trial-end-scheduler-design.md相当)は
   本venture未着手。本venture固有の低頻度受注特性(候補workshopの多くは(A)経路で
   完結し(B)経路の発生頻度自体が低いと見込まれる)を踏まえ、他venture(高頻度利用が
-  前提)ほどの優先度は無いと判断し、次の課題として残す。
+  前提)ほどの優先度は無いと判断し、次の課題として残す。~~ → フェーズ112で対応済み。
+  daily-scheduler-design.mdとして、決済失敗3日前リマインド(payment-failure-dunning-
+  design.md 6節)と合わせた日次スケジューラ設計を新規作成し、
+  `prototype/daily_scheduler.py`に`is_trial_end_report_due()`/
+  `select_due_trial_end_reports()`を実装した。実際のCloud Function本体・LINE Push送信
+  配線は引き続き次の課題(daily-scheduler-design.md 6節参照)。
 - 3節の通知メッセージからの直接ボタン起動について、postback_dataの組み立て・解釈
   (`build_start_checkout_postback_data`/`parse_start_checkout_postback_data`)は
   フェーズ61で対応済み(3.1節)。フェーズ62で`prototype/cloud_function_webhook.py`を

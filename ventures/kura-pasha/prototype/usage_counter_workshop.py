@@ -397,6 +397,20 @@ class WorkshopStoreProtocol(Protocol):
         """`invoice.payment_succeeded`受信時に解消済みとして削除する。"""
         ...
 
+    def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        """daily-scheduler-design.md(フェーズ112)3.2節: 決済失敗猶予期間終了3日前
+        リマインドを送信済みの時刻。未送信(または解消済みでクリア済み)の場合はNoneを
+        返す(二重送信防止用)。`clear_payment_failure_detected_at()`実行時にあわせて
+        本フィールドもクリアされる(1回目の決済失敗でリマインド送信済みのworkshopが
+        決済成功で復旧した後、再度決済に失敗した際にリマインドが二度と送信されなく
+        なることを防ぐため)。
+        """
+        ...
+
+    def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
+        """リマインド送信成功時に1回だけ書き込む。"""
+        ...
+
     def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
         """trial-end-notification-design.md(フェーズ59)2節: トライアル終了通知を
         (A)(B)いずれかの経路で送信済みの時刻。未送信の場合はNoneを返す(二重送信防止用)。
@@ -471,6 +485,7 @@ class InMemoryWorkshopStore:
         self._subscription_status_by_workshop: dict[str, str] = {}
         self._current_period_end_by_workshop: dict[str, datetime] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
+        self._payment_failure_reminder_sent_at_by_workshop: dict[str, datetime] = {}
         self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
         self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
 
@@ -590,6 +605,13 @@ class InMemoryWorkshopStore:
 
     def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
         self._payment_failure_detected_at_by_workshop.pop(workshop_id, None)
+        self._payment_failure_reminder_sent_at_by_workshop.pop(workshop_id, None)
+
+    def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._payment_failure_reminder_sent_at_by_workshop.get(workshop_id)
+
+    def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
+        self._payment_failure_reminder_sent_at_by_workshop[workshop_id] = sent_at
 
     def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
         return self._trial_end_notified_at_by_workshop.get(workshop_id)
