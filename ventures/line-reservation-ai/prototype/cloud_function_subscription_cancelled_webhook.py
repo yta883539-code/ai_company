@@ -113,10 +113,18 @@ def classify_subscription_update(
 ) -> str:
     """`customer.subscription.updated`受信時、cancel_at_period_endの変化をどう扱うか判定する。
 
-    design 5節の通り、suspension_reasonが"payment_failed"(dunning側が担当する猶予期間・
-    制限モード)の店舗には触れない。
+    design 5節の通り、suspension_reasonが"payment_failed"(dunning側が担当する猶予期間、
+    payment-failure-dunning-design.md 3節「段階2」)の店舗には触れない。
+
+    "payment_suspended"(猶予期間終了後の制限モード、同design 3節「段階3」)も同様に
+    除外する(2026-09-14 restricted-mode-cancellation-consistency-review.mdで追加)。
+    この除外がないと、既に新規予約受付を停止している店舗に対して
+    render_cancellation_scheduled_message()が「新規のご予約受付も含め、機能の制限は
+    ありません」という事実と矛盾する案内を送ってしまう(制限モードでは新規予約受付は
+    既に停止済みのため)。"payment_failed"と同じく、この状態の店舗への案内文言・状態
+    遷移はdunning側(またはblocked-but-billing側)の設計に委ね、本モジュールは触れない。
     """
-    if suspension_reason == "payment_failed":
+    if suspension_reason in ("payment_failed", "payment_suspended"):
         return OUTCOME_NO_CHANGE
     if not cancel_at_period_end_before and cancel_at_period_end_after:
         return OUTCOME_CANCELLATION_SCHEDULED
@@ -386,15 +394,28 @@ def _demo() -> None:
     print("  状態:", store.suspension_reason)
     print("5) Webhook再送(冪等性):", handle_subscription_deleted(store, push))
 
-    suspended = StoreSubscriptionState(
+    grace_period = StoreSubscriptionState(
         store_id="store-6",
         owner_line_user_id="owner-line-6",
         plan_name="スタンダードプラン",
         period_end_date="2026-09-20",
         suspension_reason="payment_failed",
     )
-    print("6) 決済失敗で制限モード中の店舗への誤配信:", handle_subscription_deleted(suspended, push))
-    print("  状態:", suspended.suspension_reason)
+    print("6) 決済失敗の猶予期間中の店舗への誤配信:", handle_subscription_deleted(grace_period, push))
+    print("  状態:", grace_period.suspension_reason)
+
+    restricted = StoreSubscriptionState(
+        store_id="store-7",
+        owner_line_user_id="owner-line-7",
+        plan_name="スタンダードプラン",
+        period_end_date="2026-09-20",
+        suspension_reason="payment_suspended",
+    )
+    print(
+        "7) 制限モード中の店舗が解約予約(誤った「制限なし」案内を防ぐ):",
+        handle_subscription_updated(restricted, False, True, push),
+    )
+    print("  状態:", restricted.suspension_reason)
 
     print("送信済みログ件数:", len(push.sent))
     for _, text in push.sent:

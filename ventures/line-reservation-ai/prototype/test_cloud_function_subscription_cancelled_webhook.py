@@ -67,6 +67,14 @@ class ClassifySubscriptionUpdateTests(unittest.TestCase):
             classify_subscription_update(False, True, "payment_failed"), OUTCOME_NO_CHANGE
         )
 
+    def test_payment_suspended_store_is_out_of_scope(self):
+        # 制限モード(新規予約受付停止済み)の店舗に対して、render_cancellation_scheduled_
+        # message()の「新規のご予約受付も含め、機能の制限はありません」という事実と矛盾する
+        # 案内を送らないための除外(restricted-mode-cancellation-consistency-review.md)。
+        self.assertEqual(
+            classify_subscription_update(False, True, "payment_suspended"), OUTCOME_NO_CHANGE
+        )
+
 
 class ClassifySubscriptionDeletedTests(unittest.TestCase):
     def test_normal_store_is_cancelled(self):
@@ -187,6 +195,14 @@ class HandleSubscriptionUpdatedTests(unittest.TestCase):
         result = handle_subscription_updated(state, False, True, push)
         self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
         self.assertEqual(state.suspension_reason, "payment_failed")
+        self.assertEqual(len(push.sent), 0)
+
+    def test_payment_suspended_store_is_untouched(self):
+        state = _store(suspension_reason="payment_suspended")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, False, True, push)
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertEqual(state.suspension_reason, "payment_suspended")
         self.assertEqual(len(push.sent), 0)
 
 

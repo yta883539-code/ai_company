@@ -211,3 +211,11 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   表示を追加する反映作業は未着手。
 - 実際のStripeアカウント接続・Webhookエンドポイント公開・LINE Push Message API接続は
   オーナー承認待ち(pending-approval.md参照)。
+- ~~`classify_subscription_update()`が対象外とする`suspension_reason`が
+  `"payment_failed"`(猶予期間中)のみで、制限モード(`"payment_suspended"`)が
+  対象外条件に含まれておらず、制限モード中の店舗が解約予約をすると「新規のご予約受付も
+  含め、機能の制限はありません」という事実と矛盾する案内が送られてしまう欠落があった。~~
+  (解消済み 2026-09-14: restricted-mode-cancellation-consistency-review.md参照。
+  `classify_subscription_update()`のガード条件に`"payment_suspended"`を追加し、
+  猶予期間中と同様にこのモジュールでは触れない対象外として扱うよう修正した。テスト2件
+  追加、venture全体803件・schema検証27件いずれもパスを確認した)

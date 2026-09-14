@@ -99,8 +99,12 @@ line-reservation-aiのいずれにも前例がない。1件のみ入れ子構造
   Stripeアカウントが稼働し、制限モード中に解約予約を行う顧客が実際に発生した段階で、
   問い合わせ件数・解約取り消し率等の実測データをもとに再検証する必要がある
   (aircon-pashaフェーズ195の同種課題も未検証のまま残っている)。
-- line-reservation-aiは本フェーズ時点でも解約予約受理時点の顧客向け通知自体が制限モード
+- ~~line-reservation-aiは本フェーズ時点でも解約予約受理時点の顧客向け通知自体が制限モード
   との整合性を考慮した設計になっているか未確認であり、cross-venture parityの観点から
-  今後の確認候補として残す。
+  今後の確認候補として残す。~~(確認済み 2026-09-14: line-reservation-ai/
+  restricted-mode-cancellation-consistency-review.md参照。本レビューとは異なり文言の
+  比較検討ではなく、制限モード〈`payment_suspended`〉が`classify_subscription_update()`
+  の対象外条件に含まれておらず、事実と矛盾する案内が送られる実装上の欠落だったため
+  修正した)
 - 実LINE Push Message API・実Stripeアカウント接続はいずれも実アカウント作成
   (オーナー承認待ち)後の課題として引き続き残る。
