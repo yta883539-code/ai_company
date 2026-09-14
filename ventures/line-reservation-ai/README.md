@@ -3684,3 +3684,37 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要な設計doc記載の整合性修正のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア
   領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- フェーズ続き224(2026-09-14 02:00 UTC): course-set-pashaのrestricted-mode-cancellation-
+  message-copy-review.md(フェーズ211)が残課題としていた「line-reservation-aiの解約予約
+  案内メッセージが制限モードとの整合性を考慮した設計になっているか未確認」という
+  cross-venture parityの確認に対応した。文言レビューではなく実装上の欠落を発見し、
+  `classify_subscription_update()`が猶予期間中(`suspension_reason == "payment_failed"`)
+  のみを対象外としており、制限モード(`"payment_suspended"`、新規予約受付停止済み)を
+  対象外条件に含めていなかったため、制限モード中の店舗が解約予約をすると
+  「新規のご予約受付も含め、機能の制限はありません」という事実と矛盾する案内メッセージが
+  送られる欠落があった。ガード条件に`"payment_suspended"`を追加して修正し、
+  restricted-mode-cancellation-consistency-review.mdに経緯を記録、
+  subscription-cancellation-flow-design.md「残課題」・course-set-pasha側の残課題も
+  解消済みとして更新した。テスト2件追加、venture全体803件(801件→803件、`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証27件(`python3 schema/
+  validate_test_cases.py`、コード変更が判定ロジックのみでスキーマ自体は不変のため27件の
+  まま)いずれもパスを確認した。承認不要な設計文書作成・コード修正・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- フェーズ続き225(2026-09-14 05:00 UTC): 本README.mdの変更履歴を確認したところ、
+  フェーズ続き224(コミット`992415f`、2026-09-14 02:00 UTC、制限モード中の解約予約案内
+  メッセージの実装上の欠落を修正)は設計文書・コード・テストとも実施済みだった
+  (restricted-mode-cancellation-consistency-review.md新規作成、
+  cloud_function_subscription_cancelled_webhook.py修正、テスト2件追加、
+  subscription-cancellation-flow-design.md「残課題」への解消済み反映まで完了)にも
+  かかわらず、本README.mdの変更履歴には該当フェーズのエントリが一件も追記されていない
+  記載漏れがあった(kura-pashaフェーズ114で発見された「同一コミット内でのREADME.md
+  変更履歴追記が保証される仕組みが無い」問題と同種)。上記フェーズ続き224として本来の
+  時系列位置(フェーズ続き223の直後)へ追記し、記載漏れを解消した。実装自体に手を入れる
+  必要は無かったため、あわせてventure全体803件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証27件(`python3 schema/validate_test_cases.py`)を
+  再実行し、フェーズ続き224で追加された2件を含めいずれも変更前と同じ結果でパスすることを
+  確認した(コード変更は無いため非該当)。承認不要な変更履歴の記載漏れの訂正・回帰確認の
+  みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き
+  未走査の設計docの残課題棚卸しを優先候補とする。
