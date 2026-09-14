@@ -256,6 +256,21 @@ class NotificationLogAggregatorTest(unittest.TestCase):
         self.assertIn(["システム内部イベント", "", "1"], rows)
         self.assertIn(["システム内部イベント", "予約枠の競合(システム)", "1"], rows)
 
+    def test_format_notification_log_csv_menu_topic_uses_japanese_label(self):
+        # menu-pricing-faq-topic-decision.mdでtopic列挙値に"menu"が追加された際、
+        # FAQ_TOPIC_LABELS(escalation-notification-templates.md「topicラベル対応表」実装)への
+        # 反映が漏れており、未登録メニューFAQの内訳が生の"menu"文字列のまま出力される
+        # 記載漏れ・実装漏れがあった(2026-09-14に発見・修正)。日本語ラベル
+        # 「メニュー・料金表」が使われ、生の"menu"が出力されないことを固定する回帰テスト。
+        logs = NotificationLogAggregator()
+        logs.record("user_tanaka", {"intent": "faq", "needs_owner_check": True,
+                                     "faq_segments": [{"topic": "menu", "resolved": False}]}, T0)
+
+        csv_text = format_notification_log_csv(logs)
+        rows = [line.split(",") for line in csv_text.strip("\n").split("\n")]
+        self.assertIn(["未登録FAQ相談", "メニュー・料金表", "1"], rows)
+        self.assertNotIn(["未登録FAQ相談", "menu", "1"], rows)
+
     def test_format_notification_log_csv_escapes_feature_hint_with_comma(self):
         # feature_hintはLLMの自由記述でカンマを含みうるため、csvモジュールでの
         # クオート処理が正しく効くことを確認する(素朴なカンマ結合だと列がずれる)。

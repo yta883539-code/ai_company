@@ -1632,6 +1632,28 @@ class OwnerEscalationNotificationTests(unittest.TestCase):
         self.assertIn("未登録FAQへのお問い合わせ", owner_messages[0])
         self.assertIn("支払い方法", owner_messages[0])
 
+    def test_unresolved_menu_faq_segment_notifies_owner_with_japanese_label(self):
+        # menu-pricing-faq-topic-decision.mdでfaq_segmentsのtopicに"menu"が追加された際、
+        # FAQ_TOPIC_LABELS(escalation-notification-templates.md「topicラベル対応表」実装)への
+        # 反映が漏れており、未登録メニューFAQのオーナー通知が生の"menu"文字列のまま
+        # 表示されてしまう記載漏れ・実装漏れがあった(2026-09-14に発見・修正)。
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        def faq_call():
+            return {
+                "intent": "faq", "name": None, "menu": None, "datetime_candidate": None,
+                "confirmed": False, "needs_owner_check": True,
+                "faq_segments": [{"topic": "menu", "resolved": False}],
+            }
+
+        processor.process(_event("U3", "メニューと料金を教えてください"), faq_call, NOW)
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("未登録FAQへのお問い合わせ", owner_messages[0])
+        self.assertIn("メニュー・料金表", owner_messages[0])
+        self.assertNotIn("(menu)", owner_messages[0])
+
     def test_unregistered_menu_notifies_owner(self):
         processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
 

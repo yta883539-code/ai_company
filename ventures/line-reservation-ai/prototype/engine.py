@@ -257,6 +257,7 @@ FAQ_TOPIC_LABELS = {
     "parking": "駐車場",
     "payment": "支払い方法",
     "hours": "営業時間・定休日",
+    "menu": "メニュー・料金表",
     "other": "その他FAQ",
 }
 

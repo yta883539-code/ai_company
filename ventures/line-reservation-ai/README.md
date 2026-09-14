@@ -3761,4 +3761,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
   優先候補とする。
-- 最終更新: 2026-09-14 17:00 UTC
+- フェーズ続き228(2026-09-14 21:00 UTC): 未走査の設計docの残課題棚卸しを継続し、
+  json-schema-multi-intent-extension.mdのスキーマ例で`faq_segments[].topic`列挙値が
+  依然`"access" | "parking" | "payment" | "hours" | "other"`のままで、
+  menu-pricing-faq-topic-decision.md(フェーズ続き218〜、2026-09-12)で追加された`"menu"`が
+  反映されていない箇所を発見したのを端緒に、同じ「機能追加時に参照元ドキュメントの記載が
+  同期更新されない」パターンが波及していないか`topic`ラベルの参照元を横断的に確認したところ、
+  より実害のある欠落を発見した。escalation-notification-templates.md「複合FAQ質問
+  (faq_segments)が一部未解決の場合の通知」節の「topicラベル対応表」と、これを実装する
+  `prototype/engine.py`の`FAQ_TOPIC_LABELS`辞書(オーナー向けエスカレーション通知文面
+  `format_escalation_notification()`/`format_escalation_digest_message()`の`_escalation_type_label()`、
+  および通知ログCSV`format_notification_log_csv()`の両方が参照)のいずれにも`"menu"`の
+  日本語ラベルが追加されておらず、店舗にメニュー未登録のままメニュー・料金を尋ねられた場合
+  (`faq_segments: [{"topic": "menu", "resolved": false}]`)、オーナー通知・通知ログCSVの
+  内訳が他のtopic(「駐車場」「支払い方法」等)と異なり日本語化されず生の英字`"menu"`のまま
+  表示されてしまう実装漏れだった(単なる設計doc記載漏れに留まらず、実際にオーナーへ届く
+  通知文言に影響する点でstripe-webhook-http-entry-point-design.md(フェーズ続き227)等の
+  docstringのみの記載漏れより実害が大きい)。`FAQ_TOPIC_LABELS`に
+  `"menu": "メニュー・料金表"`を追加し、escalation-notification-templates.mdの
+  「topicラベル対応表」にも同じ対応を追記のうえ発見・修正の経緯を注記した(2026-09-14追記)。
+  json-schema-multi-intent-extension.mdのスキーマ例の`topic`列挙値表記は、同ファイル内で
+  既に「未検証・要検討事項」節がhours-other-faq-topic-resolution.md等への参照により
+  実質的に解消済みの過去の検討過程を示す例示であり、現在の正のスキーマ定義は
+  llm-system-prompt-draft.md側(`"menu"`込みで既に最新化済み)にあるため、本フェーズでは
+  変更対象としなかった。テストを2件追加した(`prototype/test_engine.py`
+  `test_format_notification_log_csv_menu_topic_uses_japanese_label`、
+  `prototype/test_cloud_function_process_event.py`
+  `test_unresolved_menu_faq_segment_notifies_owner_with_japanese_label`、いずれも修正前は
+  生の`"menu"`が出力されることを確認したうえで追加)。venture全体805件(803件→805件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`、`booking_output.schema.json`自体は無変更のため
+  27件のまま)いずれもパスを確認した。承認不要な設計doc記載漏れの訂正・コード(ラベル辞書)の
+  追記・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、
+  または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-14 21:00 UTC

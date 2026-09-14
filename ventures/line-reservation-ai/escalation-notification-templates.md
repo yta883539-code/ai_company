@@ -86,7 +86,13 @@ topicラベル対応表:
 - parking → 「駐車場」
 - payment → 「支払い方法」
 - hours → 「営業時間・定休日」
+- menu → 「メニュー・料金表」
 - other → 「その他FAQ」
+
+(2026-09-14追記: `menu`はmenu-pricing-faq-topic-decision.mdでtopic列挙値に追加された際、
+本表と`prototype/engine.py`の`FAQ_TOPIC_LABELS`辞書のいずれにも反映されておらず、`menu`が
+未登録(resolved: false)の場合のオーナー通知・通知ログCSVで日本語ラベルではなく生の
+`"menu"`という文字列がそのまま表示される記載漏れ・実装漏れがあった。両方を修正済み。)
 
 文面例(E13aを想定、駐車場が未登録で他は9aで回答済みのケース):
 ```
