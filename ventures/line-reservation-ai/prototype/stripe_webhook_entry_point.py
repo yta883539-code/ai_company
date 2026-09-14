@@ -307,12 +307,14 @@ def get_stripe_webhook_runtime_dependencies() -> dict:
     """`main()`が使う依存の既定値を組み立てる(design 8節、course-set-pasha/stripe_webhook.
     get_stripe_runtime_dependencies()と対称の構成)。
 
-    `dunning_store`/`subscription_store`/`cancellation_store`/`event_id_store`は
-    いずれも本プロセス内で1つずつ生成する`InMemory*`実装。実運用ではLINE側Cloud Function
-    (cloud_function_process_event.py・cloud_function_webhook.py)と同一Firestoreの各
-    コレクションを共有する想定だが、本プロセスでは別プロセス・別インスタンスとして
-    初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/aircon-pashaの
-    同名ファクトリと同じ既知の限界)。
+    `dunning_store`/`subscription_store`/`cancellation_store`/`store_profile_store`/
+    `event_id_store`はいずれも本プロセス内で1つずつ生成する`InMemory*`実装(`store_profile_
+    store`は`resolve_store_id_by_customer`が使う`InMemoryStoreProfileStore`インスタンスと
+    同一のものを返す、フェーズ続き220で`subscription_plan_sync`用に追加)。実運用ではLINE側
+    Cloud Function (cloud_function_process_event.py・cloud_function_webhook.py)と同一
+    Firestoreの各コレクションを共有する想定だが、本プロセスでは別プロセス・別インスタンス
+    として初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/
+    aircon-pashaの同名ファクトリと同じ既知の限界)。
 
     `push_client`・`portal_link_provider`は意図的に返り値へ含めない。実LINE Messaging
     API接続(Channel Access Token取得)・実Stripe Billing Portalセッション作成API接続は

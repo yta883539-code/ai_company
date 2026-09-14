@@ -182,6 +182,11 @@ course-set-pasha/aircon-pashaの`stripe_webhook.py`側`main(request)`と対称�
   各コレクションを共有する想定だが、本プロセスでは別プロセス・別インスタンスとして
   初期化されるため、呼び出しをまたいで状態が保持されない(course-set-pasha/aircon-pashaの
   同名ファクトリと同じ既知の限界)。
+  - フェーズ続き220(subscription-plan-sync-design.md)で`store_profile_store`
+    (`resolve_store_id_by_customer`が使うのと同一の`InMemoryStoreProfileStore`
+    インスタンス)を返り値に追加した。`customer.subscription.updated`受信時の
+    プラン同期(`sync_plan_on_subscription_event()`)が利用する。本節作成時点
+    (フェーズ続き186)の記載には反映されていなかった記載漏れのため、本フェーズで追記した。
   - `push_client`は**意図的に返り値へ含めない**(course-set-pasha/stripe_webhook.py
     `get_stripe_runtime_dependencies()`と同じ判断)。実LINE Messaging API接続
     (Channel Access Token取得、オーナー承認待ち)が済むまでは`None`のまま

@@ -3743,3 +3743,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   発生していないためpending-approval.mdへの追記なし(実際のLP公開・宛先メールアドレス確定は
   引き続き別途オーナー承認・確定待ちのまま)。次回は他venture・アイデア領域の前進、または
   引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- フェーズ続き227(2026-09-14 17:00 UTC): 未走査の設計docの残課題棚卸しの一環として
+  stripe-webhook-http-entry-point-design.md 8節を確認したところ、`get_stripe_webhook_
+  runtime_dependencies()`の返り値説明が同関数新設時(フェーズ続き186)時点のままで、
+  フェーズ続き220(subscription-plan-sync-design.md)で`customer.subscription.updated`
+  受信時のプラン同期用に追加された`store_profile_store`が記載から抜け落ちたままだった
+  記載漏れ(kura-pashaフェーズ117・aircon-pashaフェーズ217等で繰り返し見つかっている
+  「機能追加時に参照元ドキュメントの記載が同期更新されない」のと同種のパターン)を
+  発見した。同節に`store_profile_store`(`resolve_store_id_by_customer`と同一の
+  `InMemoryStoreProfileStore`インスタンスを共有する旨、フェーズ続き220由来である旨)を
+  追記した。あわせて`prototype/stripe_webhook_entry_point.py`の`get_stripe_webhook_
+  runtime_dependencies()`docstringも同じ記載漏れを抱えていたため、`store_profile_store`
+  を追記した(関数の実装自体・返り値の中身に変更は無い、docstringのみの修正)。
+  venture全体803件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)
+  を確認した。承認不要な設計doc・docstringの記載漏れ訂正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを
+  優先候補とする。
+- 最終更新: 2026-09-14 17:00 UTC
