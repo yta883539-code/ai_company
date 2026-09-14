@@ -2190,6 +2190,25 @@
 
 ## 次にやること(候補)
 
+- (新規解消・フェーズ215、2026-09-14 22:00 UTC: subscription-billing-cost-estimate.mdが
+  「一次情報未確認」の仮定値として抱えていたクレジットカード継続課金手数料「3.6%」について
+  WebSearchで調査した。PAY.JP・クラスメソッドDevelopersIO・enhanceit.jpの独立した複数の
+  決済業界解説記事が、基本のカード決済手数料3.6%に加えてStripe Billing(サブスクリプション
+  管理機能)自体の追加手数料0.7%(2024年に0.5%から引き上げ)が上乗せされ合計約4.3%になると
+  一致して記載していることを確認し、subscription-billing-cost-estimate.md・
+  unit-economics-estimate.mdの手数料仮定を3.6%から4.3%に改め、粗利率試算表(91.9〜92.8%→
+  91.2〜92.1%、キャッシュ利用時94.8〜95.1%→94.1〜94.4%)・超過課金分の手数料試算表を
+  再計算した。Stripe公式サイト(stripe.com)は本セッションの実行環境ではegress proxyにより
+  直接アクセスがブロックされており公式一次情報そのものへの到達はできなかったため、複数の
+  独立した二次情報の記載一致による確認にとどまり、契約前の最終確認は引き続き必要と明記した。
+  本venture・line-reservation-ai・aircon-pasha・kura-pashaいずれもStripe Billingでの
+  継続課金を前提としているため他ventureにも関連しうる論点だが、今回は本venture分の
+  ドキュメント更新のみを実施した(他ventureへの反映は各venture側の次回ローテーション時の
+  判断に委ねる)。コード変更は無く、回帰確認としてventure全体583件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証17件(`python3 schema/validate_
+  test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント内の
+  試算値更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし)
 - (新規解消・フェーズ214、2026-09-14 18:00 UTC: 「次にやること」冒頭のフェーズ204欄が
   「landing-page-copy-draft.mdのFAQへの前提補足…は次回以降の課題として残る」という
   記載のまま更新されておらず、実際にはフェーズ205(2026-09-11 22:00 UTC)でFAQ「複数店舗を
@@ -3033,5 +3052,28 @@
   いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント整合性修正のみで、
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-14 18:00 UTC(フェーズ214: 「次にやること」節冒頭のフェーズ204欄に
-  残っていたFAQ対応済み〈フェーズ205〉の記載漏れを訂正。コード変更は無し)
+- フェーズ215(2026-09-14 22:00 UTC): subscription-billing-cost-estimate.mdが「一次情報
+  未確認」の仮定値として複数箇所に残していたクレジットカード継続課金手数料「3.6%」を
+  WebSearchで調査した。PAY.JP・クラスメソッドDevelopersIO・enhanceit.jpの独立した複数の
+  決済業界解説記事が、基本のカード決済手数料3.6%に加えてStripe Billing(サブスクリプション
+  管理機能)自体の追加手数料0.7%(2024年に0.5%から引き上げ)が上乗せされ合計約4.3%になると
+  一致して記載していることを確認した。Stripe公式サイト(stripe.com)への直接WebFetchは
+  本セッションの実行環境ではegress proxyによりブロックされアクセスできなかったため、公式
+  一次情報そのものへの到達はできず、複数の独立した二次情報の記載一致による確認にとどまる。
+  この結果を受け、subscription-billing-cost-estimate.mdの「粗利率への影響試算」表・
+  「超過課金分の決済手数料試算」表、およびunit-economics-estimate.mdの前提・1オーナー
+  あたりの月次粗利試算表をいずれも3.6%仮定から4.3%仮定に更新し再計算した(月次粗利率:
+  キャッシュなし91.9〜92.8%→91.2〜92.1%、キャッシュ利用時94.8〜95.1%→94.1〜94.4%)。
+  超過課金分の料率が定額分と本当に同一かどうか自体は今回のWebSearchでも定額・従量の別を
+  明示した情報には到達できず、処理金額への定率上乗せという性質から同一料率を推定適用する
+  にとどめ、契約前の一次情報での最終確認課題として明記した。本venture・line-reservation-ai・
+  aircon-pasha・kura-pashaのいずれもStripe Billingでの継続課金を前提としており他venture
+  にも関連しうる論点だが、今回は本venture分のドキュメント更新のみを実施し、他ventureへの
+  反映は各ventureの次回ローテーション時の判断に委ねた。コード変更は無く、回帰確認として
+  venture全体583件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema
+  検証17件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント内の試算値更新のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-14 22:00 UTC(フェーズ215: subscription-billing-cost-estimate.md・
+  unit-economics-estimate.mdの決済手数料仮定をWebSearch調査に基づき3.6%→4.3%に更新し
+  粗利率試算を再計算。コード変更は無し)
