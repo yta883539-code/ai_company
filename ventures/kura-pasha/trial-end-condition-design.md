@@ -123,15 +123,26 @@ def is_trial_period_over(
   Webhookの署名検証・イベントディスパッチの実装(subscription-billing-data-model-design.md
   フェーズ46「未検証・残課題」、course-set-pasha/stripe-webhook-http-entry-point-design.md
   相当)は完了した(フェーズ49〜51、上記参照)。
-- `customer.subscription.deleted`(解約確定)・`invoice.payment_failed`/
-  `invoice.payment_succeeded`(決済失敗ダニング)へのStripe Webhookイベント種別対応
-  (course-set-pasha/aircon-pashaの既存設計を横展開)は未着手。対応後、`"past_due"`を
-  一律ブロックする現状の単純化(上記フェーズ52)を、ダニング固有の猶予期間つき扱いへ
-  見直す必要がある。
-- `trial_start_at`をworkshop作成時に書き込む実処理(craftsman-account-linking-design.mdの
-  workshop新規作成フロー側)は未実装。本設計は判定関数側のみをプロトタイプコード化する。
+- (解消済み 2026-09-14 19:00 UTC発見・訂正、実装自体はフェーズ54〜56時点で完了済み):
+  `customer.subscription.deleted`(解約確定)は`subscription_cancellation_notification.py`
+  (フェーズ54)、`invoice.payment_failed`/`invoice.payment_succeeded`(決済失敗ダニング)は
+  `payment_failure_notification.py`(payment-failure-dunning-design.md、フェーズ56)として
+  それぞれ設計・実装・`prototype/stripe_webhook.py`への配線が完了しており、本項目は
+  記載が古いまま残っていた記載漏れだった。あわせて`"past_due"`一律ブロックの単純化も
+  フェーズ56で`is_payment_suspended()`(決済失敗検知時刻からの猶予期間判定)による専用分岐へ
+  見直し済みであることを`prototype/usage_counter_workshop.py`のコード・コメントで確認した。
+- (解消済み、craftsman-account-linking-design.mdのworkshop新規作成フロー実装時に対応済み):
+  `trial_start_at`をworkshop作成時に書き込む実処理は`workshop_linking.py`の
+  `create_workshop_from_linking_code()`内で`workshop_store.set_trial_start_at(workshop_id,
+  now)`として実装済み。本項目も記載が古いまま残っていた記載漏れだった(README.mdフェーズ79の
+  「次にやること」棚卸しでは解消済みと記録されていたが、本設計文書側には未反映のままだった)。
 - 実Stripe接続・Checkout Session発行フロー自体は引き続きオーナー承認待ちの範囲
-  (pending-approval.md参照)。
+  (pending-approval.md参照)。これが本セクションに残る唯一の未解消項目。
 
-最終更新: 2026-09-09 00:00 UTC(フェーズ52: is_trial_period_overの生成一時停止への
-配線を実装、"past_due"は一律ブロック対象としダニング対応は今後の課題として明記)
+最終更新: 2026-09-14 19:00 UTC(フェーズ118: 本セクション「6. 今後の課題」が
+フェーズ52時点のまま更新されておらず、`invoice.payment_failed`等のWebhook対応
+〈実際はフェーズ54・56で完了〉・`trial_start_at`書き込み〈craftsman-account-linking-design.md
+実装時に完了、README.mdフェーズ79では解消済みと記録済み〉の2項目を「未着手」のまま
+記載していた記載漏れを発見・訂正した。コード変更は無く、回帰確認としてventure全体
+〈python3 prototype/run_all_tests.py〉・schema検証〈python3 schema/validate_test_cases.py〉
+いずれもパス(変更前と同じ結果)を確認した)

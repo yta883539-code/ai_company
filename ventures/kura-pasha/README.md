@@ -2469,3 +2469,25 @@ CI実行結果〈2件とも成功〉をGitHub APIで確認。コード変更は�
 オーナー制限モード通知〈フェーズ116〉の呼び出しステップを追記。あわせて
 payment-suspension-owner-notification-design.md「8. 今後の課題」の3日前リマインド
 スケジューラに関する記載誤り〈既にフェーズ112で実装済み〉を訂正。コード変更は無し)
+
+- フェーズ118(2026-09-14 19:00 UTC): trial-end-condition-design.md「6. 今後の課題」が
+  フェーズ52時点の記載のまま更新されておらず、実際にはフェーズ54(`customer.subscription.
+  deleted`受信時の解約完了案内)・フェーズ56(`invoice.payment_failed`/`payment_succeeded`
+  ダニング対応、`"past_due"`一律ブロックを`is_payment_suspended()`猶予期間判定へ見直し)で
+  既に解消済みだった2項目が「未着手」のまま残っていた記載漏れを発見・訂正した。あわせて
+  同セクションが挙げていた`trial_start_at`のworkshop作成時書き込み(`workshop_linking.py`の
+  `create_workshop_from_linking_code()`で実装済み、README.mdフェーズ79の「次にやること」
+  棚卸しでは解消済みと記録されていたが本設計文書側には未反映のままだった)についても
+  同様に記載を訂正した。本セクションに残る未解消項目は実Stripe接続・Checkout Session発行
+  フロー自体(オーナー承認待ち)のみであることを明記した。コード変更は無く、回帰確認として
+  venture全体12ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な
+  設計doc記載の欠落訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または想定顧客ヒアリング実施承認(pending-approval.md記載)を待つ間の他残課題棚卸し
+  を優先候補とする。
+
+最終更新: 2026-09-14 19:00 UTC(フェーズ118: trial-end-condition-design.md「6. 今後の
+課題」がフェーズ52時点のまま放置され、フェーズ54・56で解消済みのWebhook対応2項目と
+`trial_start_at`書き込みが「未着手」表記のまま残っていた記載漏れを発見・訂正。コード
+変更は無し)
