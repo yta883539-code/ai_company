@@ -2321,7 +2321,33 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
 `select_message_context()`統合関数への単一呼び出しに一本化。挙動・テスト件数に
 変化なしを確認。次は他venture・アイデア領域の前進を優先候補とする)
 
-- フェーズ112(2026-09-14 03:00 UTC): aircon-pasha・course-set-pasha・line-reservation-aiには
+- フェーズ112(2026-09-14 00:10 UTC): trial-end-notification-design.md 6節・
+  payment-failure-dunning-design.md 6節がそれぞれ独立に残していた「本venture側に
+  まだ存在しない日次スケジューラ本体」という同一の未着手事項に対応した。
+  daily-scheduler-design.mdを新規作成し、(B)トライアル30日到達報告・決済失敗3日前
+  リマインドの選定ロジック(`is_trial_end_report_due()`/`select_due_trial_end_
+  reports()`・`is_payment_failure_reminder_due()`/`select_due_payment_failure_
+  reminders()`、いずれも純粋関数)を`prototype/daily_scheduler.py`(新設)に実装した。
+  `WorkshopStoreProtocol`へ`get_payment_failure_reminder_sent_at`/`set_payment_
+  failure_reminder_sent_at`を新設し、`clear_payment_failure_detected_at()`実行時
+  (決済成功による復旧)にあわせて`payment_failure_reminder_sent_at`もクリアするよう
+  拡張した(aircon-pasha版と同じ理由: リマインド送信済みworkshopが復旧後に再度決済
+  失敗した際、二度とリマインドが送信されなくなることを防ぐ)。実際のCloud Function
+  本体・LINE Push送信配線・全workshop走査ロジックは、実LINE公式アカウント接続・
+  Cloud Scheduler実行環境の構築がオーナー承認待ちのため次の課題として残した(詳細は
+  daily-scheduler-design.md 6節)。新規テスト12件追加(`test_daily_scheduler.py`
+  新設)、venture全体11ファイル(`python3 prototype/run_all_tests.py`)・schema検証
+  30件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  設計文書作成・コード実装・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-14 00:10 UTC(フェーズ112: trial-end-notification-design.md 6節・
+payment-failure-dunning-design.md 6節が残していた日次スケジューラ本体の机上設計に
+着手。(B)トライアル30日到達報告・決済失敗3日前リマインドの選定ロジックを
+`prototype/daily_scheduler.py`として実装、`payment_failure_reminder_sent_at`
+フィールドを新設。実際のCloud Function配線・Push送信は引き続き次の課題)
+
+- フェーズ113(2026-09-14 03:00 UTC): aircon-pasha・course-set-pasha・line-reservation-aiには
   既にGitHub Actionsによるテスト自動実行(各venture配下のci-setup.md参照)が導入済みだったが、
   本ventureにはCIワークフロー自体が未導入だったcross-venture parityのギャップに対応した。
   `.github/workflows/kura-pasha-tests.yml`を新規作成し、`ventures/kura-pasha/`配下への変更を
@@ -2340,6 +2366,35 @@ line-reservation-ai〉には既にあるが本venture未着手だったtone-and-
   次回はコミット後のCI実行結果(status: completed / conclusion: success)の確認、または
   他venture・アイデア領域の前進を優先候補とする。
 
-最終更新: 2026-09-14 03:00 UTC(フェーズ112: GitHub ActionsによるCI自動実行を新規導入
+最終更新: 2026-09-14 03:00 UTC(フェーズ113: GitHub ActionsによるCI自動実行を新規導入
 〈discover非互換のため既存run_all_tests.pyを採用〉。他3ventureとのcross-venture parity
 ギャップを解消)
+
+- フェーズ114(2026-09-14 04:00 UTC): 他venture・アイデア領域の前進候補を探す過程で
+  本README.mdの変更履歴を精査したところ、直前2フェーズの記録に不整合があることを
+  発見した。(1) daily-scheduler-design.md・`prototype/daily_scheduler.py`・
+  `prototype/test_daily_scheduler.py`の新設(コミット`86424da`、2026-09-14 00:10 UTC、
+  trial-end-notification-design.md・payment-failure-dunning-design.md各6節にも
+  「フェーズ112で対応済み」という参照あり)は設計文書・コード・テストとも実施済み
+  だったにもかかわらず、本README.mdの変更履歴には該当フェーズのエントリが一件も
+  追記されていなかった。(2) その欠落に気付かないまま後続でCI自動実行を追加した作業
+  (コミット`b99aafe`、同日03:04 UTC)が「フェーズ111の次は112」と判断して自らを
+  フェーズ112と記録したため、日次スケジューラのフェーズ番号(本来の112)とCI自動実行の
+  フェーズ番号が重複するという整合性の欠落も生じていた。原因はいずれも同じで、
+  本ventureの変更(prototype/design doc)を扱うコミットとREADME.md変更履歴への
+  追記が同一コミット内で保証される仕組みになっていないことにある。実装自体に手を
+  入れる必要は無かったため、上記フェーズ112(daily-scheduler-design.md・コミット
+  ログの内容から再構成)を本来の時系列位置(フェーズ111の直後)へ追記し、CI自動実行の
+  記録をフェーズ112からフェーズ113へ改番することで整合性を回復した(ヘッダー行・
+  「最終更新」行の両方を修正)。あわせてventure全体11ファイル(`python3 prototype/
+  run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)を
+  再実行し、`test_daily_scheduler.py`12件・他既存テストいずれも変更前と同じ結果で
+  パスすることを確認した(コード変更は無いため非該当)。承認不要な変更履歴の記載漏れ・
+  番号重複の訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、またはフェーズ113「今後の課題」(コミット後のCI実行結果確認)を優先候補とする。
+
+最終更新: 2026-09-14 04:00 UTC(フェーズ114: 変更履歴の記載漏れ〈フェーズ112:
+日次スケジューラ〉と番号重複〈CI自動実行が誤ってフェーズ112を再利用〉を発見・訂正。
+日次スケジューラのエントリを本来の時系列位置へ追記し、CI自動実行の記録をフェーズ113へ
+改番。コード変更は無し)
