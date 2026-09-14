@@ -2398,3 +2398,20 @@ payment-failure-dunning-design.md 6節が残していた日次スケジューラ
 日次スケジューラ〉と番号重複〈CI自動実行が誤ってフェーズ112を再利用〉を発見・訂正。
 日次スケジューラのエントリを本来の時系列位置へ追記し、CI自動実行の記録をフェーズ113へ
 改番。コード変更は無し)
+
+- フェーズ115(2026-09-14 04:00 UTC): フェーズ113「今後の課題」としていた、フェーズ113
+  (コミット`b99aafe`)・フェーズ114(コミット`f6d4bc0`)それぞれのpush後にGitHub Actions
+  `.github/workflows/kura-pasha-tests.yml`が実際に実行され成功したかをGitHub API
+  (`actions_list`/`list_workflow_runs`、`resource_id=kura-pasha-tests.yml`)で確認した。
+  2件のワークフロー実行(run_number 1: head_sha `b99aafe`、run_number 2: head_sha
+  `f6d4bc0`)がいずれも`status: completed`・`conclusion: success`であることを確認し、
+  discover非互換のためrun_all_tests.pyラッパーを採用したフェーズ113の設計判断が実際の
+  CI環境でも問題なく機能していることを検証できた。コード変更は無く、ローカルでの
+  回帰確認として`python3 prototype/run_all_tests.py`(11ファイル全件パス)・`python3
+  schema/validate_test_cases.py`(30件全件パス、いずれも変更前と同じ結果)もあわせて
+  実行した。承認不要な状態確認のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+
+最終更新: 2026-09-14 04:00 UTC(フェーズ115: フェーズ113・114push後のGitHub Actions
+CI実行結果〈2件とも成功〉をGitHub APIで確認。コード変更は無し)
