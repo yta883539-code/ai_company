@@ -2491,3 +2491,28 @@ payment-suspension-owner-notification-design.md「8. 今後の課題」の3日�
 課題」がフェーズ52時点のまま放置され、フェーズ54・56で解消済みのWebhook対応2項目と
 `trial_start_at`書き込みが「未着手」表記のまま残っていた記載漏れを発見・訂正。コード
 変更は無し)
+
+- フェーズ119(2026-09-14 23:00 UTC): course-set-pashaが本日22:00 UTCの定例更新で
+  WebSearchにより確認したクレジットカード継続課金手数料の仮定値改訂(3.6%→4.3%、
+  Stripe Billing自体の追加手数料0.7%が上乗せされるとの複数の独立した二次情報での
+  記載一致を確認)は、course-set-pasha/subscription-billing-cost-estimate.md「Stripe
+  Billing手数料率の一次情報確認」節が本venture(kura-pasha)を含む全4venture共通の
+  前提(継続課金をStripe Billingで実現する設計)に影響すると明記していたにもかかわらず、
+  本venture固有のunit-economics-estimate.mdには未反映のまま3.6%仮定が残っていた
+  cross-venture parityのギャップを解消した。決済手数料の前提記述・月次粗利試算表
+  (3プラン×キャッシュ有無)・従量課金(超過分)の粗利試算表・結論・残課題を4.3%仮定で
+  再計算・更新した(粗利率はキャッシュなしで93.1〜94.1%〈改訂前93.8〜94.8%〉、キャッシュ
+  利用時で94.6〜95.0%〈改訂前95.3〜95.7%〉に低下)。あわせて比較対象のcourse-set-pasha側
+  粗利率も同venture側の改訂後数値(91.2〜94.4%)に更新し、aircon-pasha・
+  line-reservation-aiのunit-economics-estimate.mdは本フェーズ時点でまだ3.6%仮定のまま
+  未反映である旨を残課題として明記した。コード変更は無く、回帰確認としてventure全体
+  12ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な
+  ドキュメント内試算値の更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、aircon-pasha・line-reservation-ai側への同様の改訂反映、または想定顧客ヒアリング
+  実施承認(pending-approval.md記載)を待つ間の他残課題棚卸しを優先候補とする。
+
+最終更新: 2026-09-14 23:00 UTC(フェーズ119: course-set-pashaで確認済みの決済手数料
+仮定改訂〈3.6%→4.3%〉を本venture固有のunit-economics-estimate.mdに反映し、粗利率
+試算表・結論・残課題を再計算・更新した。コード変更は無し)
