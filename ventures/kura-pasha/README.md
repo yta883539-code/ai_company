@@ -2415,3 +2415,33 @@ payment-failure-dunning-design.md 6節が残していた日次スケジューラ
 
 最終更新: 2026-09-14 04:00 UTC(フェーズ115: フェーズ113・114push後のGitHub Actions
 CI実行結果〈2件とも成功〉をGitHub APIで確認。コード変更は無し)
+
+- フェーズ116(2026-09-14 10:00 UTC): payment-failure-dunning-design.md「6. 残課題」に
+  残っていた「運営者向け通知(course-set-pasha/payment-suspension-owner-notification-
+  design.md相当)は本venture側に運営者向け通知の送信先・仕組み自体がまだ無いため次の課題」
+  に対応した。course-set-pasha版の設計・blocked-but-billing-owner-notification-
+  design.md(フェーズ81、本venture既存の同種翻案)を踏まえ、payment-suspension-owner-
+  notification-design.mdを新規作成した。本venture固有の差分として、判定に必要な情報
+  (payment_failure_detected_at・猶予日数・通知済み時刻)が`WorkshopStoreProtocol`1つに
+  揃っているため、blocked-but-billingのような候補一覧専用ファイルを新設せず
+  `select_due_payment_suspension_owner_notifications()`一本で完結させた点、および
+  `clear_payment_failure_detected_at()`が新規フィールド`payment_suspension_owner_
+  notified_at`もあわせてクリアするようにしたことで(payment_failure_reminder_sent_atを
+  既に同じ関数内でクリアしている既存方針の踏襲)、course-set-pasha版のような呼び出し側
+  でのクリア個別呼び出しが不要になった点が異なる。`usage_counter_workshop.py`へ
+  `get_payment_suspension_owner_notified_at`/`set_payment_suspension_owner_notified_at`
+  (WorkshopStoreProtocol・InMemoryWorkshopStore両方)を追加し、`prototype/payment_
+  suspension_owner_notification.py`(新規)・`prototype/test_payment_suspension_owner_
+  notification.py`(新規11件)を実装した。payment-failure-dunning-design.md「6. 残課題」
+  の該当記載も解消済みとして更新した。venture全体12ファイル(`python3 prototype/
+  run_all_tests.py`、11ファイル→12ファイル)・schema検証30件(`python3 schema/
+  validate_test_cases.py`、コード変更が新規モジュール追加のみでスキーマ自体は不変のため
+  30件のまま)いずれもパスを確認した。実際のオーナーLINEユーザーID取得・LINE Push送信
+  配線、3日前リマインド専用スケジューラへの実送信配線はいずれも引き続き次の課題として
+  残る(実LINE公式アカウント接続自体がオーナー承認待ちのため)。承認不要な設計文書作成・
+  コード追加・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-09-14 10:00 UTC(フェーズ116: 決済失敗ダニングの残課題だった運営者向け
+制限モード移行通知〈payment-suspension-owner-notification-design.md〉を新規設計・実装。
+`WorkshopStoreProtocol`へ`payment_suspension_owner_notified_at`追加、新規テスト11件)

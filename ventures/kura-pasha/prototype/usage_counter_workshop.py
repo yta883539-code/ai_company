@@ -126,6 +126,14 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   workshopへの職人追加)向けに、`WorkshopStoreProtocol`へ`add_member_user_id`を追加した。
   `set_members`は初期作成時の一括設定用のため、招待コード解決時の1名追加には使えず
   新設した(既存メンバーに含まれる場合は何もしない冪等設計)。
+- フェーズ116: payment-failure-dunning-design.md「残課題」に残っていた「運営者向け通知
+  (payment-suspension-owner-notification-design.md相当)は本venture側に運営者向け通知の
+  送信先・仕組み自体がまだ無い」に対応し、`WorkshopStoreProtocol`へ
+  `get_payment_suspension_owner_notified_at`/`set_payment_suspension_owner_notified_at`を
+  追加した(命名・set一本でset/clear両方を表現する方式は`blocked_but_billing_owner_
+  notified_at`と同じ)。あわせて`clear_payment_failure_detected_at()`が本フィールドも
+  まとめてクリアするようにした(`payment_failure_reminder_sent_at`を既に同じ関数内で
+  クリアしている既存方針の踏襲、payment-suspension-owner-notification-design.md 6節)。
 """
 
 from __future__ import annotations
@@ -439,6 +447,25 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_payment_suspension_owner_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        """payment-suspension-owner-notification-design.md(フェーズ116)3節: 当該workshopが
+        決済失敗の猶予期間(PAYMENT_FAILURE_GRACE_PERIOD_DAYS)を超えて制限モードへ移行した旨を
+        オーナーへ通知済みの時刻。未通知(または既にクリア済み)の場合はNoneを返す
+        (二重通知防止用、get_blocked_but_billing_owner_notified_atと同じ考え方)。
+        """
+        ...
+
+    def set_payment_suspension_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        """送信成功時に1回だけ書き込む。クリア配線(design 6節)は`None`を渡すことで表現する
+        (set_blocked_but_billing_owner_notified_atと同じ1メソッド方式)。本フィールドは
+        `clear_payment_failure_detected_at()`実行時にもあわせてクリアされる(design 6節、
+        payment_failure_reminder_sent_atと同じ理由: 決済成功で復旧した後、再び決済に
+        失敗した際にオーナー通知が二度と飛ばなくなることを防ぐため)。
+        """
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -488,6 +515,7 @@ class InMemoryWorkshopStore:
         self._payment_failure_reminder_sent_at_by_workshop: dict[str, datetime] = {}
         self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
         self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
+        self._payment_suspension_owner_notified_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -606,6 +634,7 @@ class InMemoryWorkshopStore:
     def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
         self._payment_failure_detected_at_by_workshop.pop(workshop_id, None)
         self._payment_failure_reminder_sent_at_by_workshop.pop(workshop_id, None)
+        self._payment_suspension_owner_notified_at_by_workshop.pop(workshop_id, None)
 
     def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
         return self._payment_failure_reminder_sent_at_by_workshop.get(workshop_id)
@@ -629,6 +658,17 @@ class InMemoryWorkshopStore:
             self._blocked_but_billing_owner_notified_at_by_workshop.pop(workshop_id, None)
         else:
             self._blocked_but_billing_owner_notified_at_by_workshop[workshop_id] = notified_at
+
+    def get_payment_suspension_owner_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._payment_suspension_owner_notified_at_by_workshop.get(workshop_id)
+
+    def set_payment_suspension_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        if notified_at is None:
+            self._payment_suspension_owner_notified_at_by_workshop.pop(workshop_id, None)
+        else:
+            self._payment_suspension_owner_notified_at_by_workshop[workshop_id] = notified_at
 
 
 class InMemoryUsageCounterStore:
