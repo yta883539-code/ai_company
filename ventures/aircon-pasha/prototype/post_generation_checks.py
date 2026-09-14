@@ -60,6 +60,19 @@ SHORT_URL_DOMAIN_PATTERN = re.compile(
 # 案内と混同している疑いとして検出する。
 CHECKOUT_PLAN_NAME_KEYWORDS = ("スモールプラン", "スタンダードプラン", "繁忙期対応プラン")
 
+# 厳守事項9(2026-09-14新設、btob-management-company-report-variant-design.md対応、
+# フェーズ217)の機械チェック用。REFRIGERANT_ELECTRICAL_TOPIC_KEYWORDS/
+# PROFESSIONAL_JUDGEMENT_KEYWORDSと同じ「話題キーワード」+「判定語」の共起で検出する
+# 考え方を、原状回復の費用負担区分に転用したもの。
+LIABILITY_DETERMINATION_TOPIC_KEYWORDS = ("費用負担", "原状回復", "通常損耗", "経年劣化")
+LIABILITY_DETERMINATION_JUDGEMENT_KEYWORDS = (
+    "のご負担となります", "のご負担には該当しません", "のご負担です",
+    "に該当します", "に該当しません", "の対象です", "の対象外です",
+)
+# schema/validate_test_cases.pyのMANAGEMENT_COMPANY_BOILERPLATE_MARKERと同じマーカー
+# (recipient=management_companyのとき本文に必須のボイラープレートの判定文言部分)。
+MANAGEMENT_COMPANY_BOILERPLATE_MARKER = "費用負担区分"
+
 # character-limit-fallback-design.md(フェーズ102)準拠チェック用。LINE Messaging APIの
 # テキストメッセージ1件あたりの文字数上限(UTF-16コード単位)。依頼者へ直接転送される
 # completion_report.body・care_guide.bodyがこれを超える場合は、切り詰めずに生成全体を
@@ -108,6 +121,47 @@ def check_refrigerant_electrical_professional_judgement(instance):
             "completion_report: mentions_refrigerant_or_electrical=trueだが"
             "本文に冷媒・電気系統への言及が見つかりません(フィールド値と本文の不一致の疑い)"
         )
+
+    return errors
+
+
+def check_management_company_liability_boilerplate(instance):
+    """厳守事項9準拠チェック(2026-09-14新設、フェーズ217)。completion_report.bodyに、
+    原状回復における費用負担区分(通常損耗か否か)の判定・示唆を示す語が含まれていないかを
+    確認する。話題キーワード(「費用負担」「原状回復」等)と判定語(「のご負担となります」等)の
+    共起で検出する、check_refrigerant_electrical_professional_judgement()と同じ考え方。
+    さらにrecipient=management_companyの場合は、厳守事項9の定型ボイラープレート
+    (MANAGEMENT_COMPANY_BOILERPLATE_MARKER)がbodyに含まれていることも確認する。
+    recipient=tenantの場合はボイラープレート必須ではないためこの確認はスキップする。
+    """
+    errors = []
+    completion_report = instance.get("completion_report")
+    if completion_report is None:
+        return errors
+
+    body = completion_report.get("body", "")
+    has_topic = any(kw in body for kw in LIABILITY_DETERMINATION_TOPIC_KEYWORDS)
+    has_judgement = any(kw in body for kw in LIABILITY_DETERMINATION_JUDGEMENT_KEYWORDS)
+
+    if has_topic and has_judgement:
+        errors.append(
+            "completion_report: 原状回復における費用負担区分の判定・示唆を示す語が含まれています"
+            "(厳守事項9違反の疑い)"
+        )
+
+    liability_flag = completion_report.get("includes_liability_determination")
+    if liability_flag is True and not (has_topic and has_judgement):
+        errors.append(
+            "completion_report: includes_liability_determination=trueだが"
+            "本文に費用負担区分の判定・示唆が見つかりません(フィールド値と本文の不一致の疑い)"
+        )
+
+    if completion_report.get("recipient") == "management_company":
+        if MANAGEMENT_COMPANY_BOILERPLATE_MARKER not in body:
+            errors.append(
+                "completion_report: recipient=management_companyだが本文に厳守事項9の"
+                "定型ボイラープレート(費用負担区分の判定を行っていない旨)が含まれていません"
+            )
 
     return errors
 
@@ -389,6 +443,7 @@ def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_refrigerant_electrical_professional_judgement(instance)
+    errors += check_management_company_liability_boilerplate(instance)
     errors += check_next_recommended_date_estimate_consistency(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     errors += check_model_type_mentioned_in_text(instance)

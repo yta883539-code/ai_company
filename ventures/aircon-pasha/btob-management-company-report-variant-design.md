@@ -24,7 +24,7 @@ course-set-pasha等の既存venture群が、メモ本文中の簡単な補助情
 
 ## 管理会社・オーナー向け出力1の文面方針
 
-1. **通常損耗か否かの法的判定は行わない(新設・厳守事項8)**。「経年劣化によるもの」
+1. **通常損耗か否かの法的判定は行わない(新設・厳守事項9)**。「経年劣化によるもの」
    「入居者様のご負担には該当しません」等、原状回復ガイドライン上の費用負担区分に関する
    判断・示唆を一切含めない。これは厳守事項1(冷媒・電気系統への専門的助言をしない)と
    同じ設計思想を、法的判断の領域に拡張したものである。
@@ -55,15 +55,19 @@ course-set-pasha等の既存venture群が、メモ本文中の簡単な補助情
 
 ## 未反映の実装項目(次回以降の課題)
 
-- schema/output.schema.jsonへの反映:`completion_report`に`recipient`
-  (`tenant`/`management_company`)フィールドを追加し、`recipient=management_company`の
-  ときは`body`に上記ボイラープレートの文言が含まれることを検証する補助フィールド
-  (例:`includes_liability_determination`、厳守事項8準拠の検証用、常にfalseを期待)を
-  追加する設計を想定している(post_generation_checks.pyのmentions_refrigerant_or_electrical
-  と同じ検証パターン)。スキーマ変更・validate_test_cases.pyへのテストケース追加
-  (管理会社宛のケースを最低1件)は本フェーズでは未着手、次回以降の課題とする。
-- llm-system-prompt-draft.mdの「できること」「厳守事項」節への正式な追記(厳守事項8として
-  新設)も次回以降の課題とする。本ドキュメントはその設計のたたき台。
+- (解消済み 2026-09-14 15:00 UTC、フェーズ217: schema/output.schema.jsonの
+  `completion_report`に`recipient`(`tenant`/`management_company`、省略時デフォルト
+  tenant)・`includes_liability_determination`(厳守事項9準拠の検証用、常にfalseを期待、
+  post_generation_checks.pyのmentions_refrigerant_or_electricalと同じ検証パターン)の
+  2フィールドを追加した。validate_test_cases.pyに管理会社宛サンプル
+  (G7_management_company_recipient)・ボイラープレート欠落を検出するネガティブテスト
+  (NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE)を追加し、17件中17件パス。
+  post_generation_checks.pyにcheck_management_company_liability_boilerplate()を新設し
+  run_all_checks()に配線、テスト6件追加(491件中491件パス)。実装時に本セクション冒頭の
+  「厳守事項8」表記は既存の厳守事項8〈文体・絵文字不使用ルール〉と番号が衝突していたため
+  「厳守事項9」に訂正した。詳細はllm-system-prompt-draft.md「次の課題」フェーズ217参照)。
+- llm-system-prompt-draft.mdの「厳守事項」節への正式な追記(厳守事項9として新設)も
+  上記フェーズ217で対応済み。
 - 出力2(お手入れ案内)を管理会社宛でどう扱うか(省略/転送前提文面)は未確定のまま残る。
 - 「宛先:管理会社」等のメモ末尾表記の具体的なパース方法(表記ゆれの許容範囲)は未設計。
 

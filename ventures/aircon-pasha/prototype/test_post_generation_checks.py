@@ -22,6 +22,7 @@ from post_generation_checks import (  # noqa: E402
     LINE_TEXT_MESSAGE_CHAR_LIMIT,
     check_additional_treatment_mentioned_in_text,
     check_checkout_notice_consistency,
+    check_management_company_liability_boilerplate,
     check_message_length_within_line_limit,
     check_model_type_mentioned_in_text,
     check_next_recommended_date_estimate_consistency,
@@ -78,6 +79,74 @@ class RefrigerantElectricalProfessionalJudgementTest(unittest.TestCase):
     def test_no_completion_report_is_skipped(self):
         self.assertEqual(
             check_refrigerant_electrical_professional_judgement({"completion_report": None}), []
+        )
+
+
+class ManagementCompanyLiabilityBoilerplateTest(unittest.TestCase):
+    """厳守事項9(2026-09-14新設、フェーズ217)の機械チェック。"""
+
+    def test_judgement_keyword_near_topic_keyword_is_flagged(self):
+        instance = {
+            "completion_report": {
+                "body": "今回の汚れは経年劣化によるものであり、原状回復の対象外です。",
+                "recipient": "tenant",
+                "includes_liability_determination": False,
+            }
+        }
+        errors = check_management_company_liability_boilerplate(instance)
+        self.assertTrue(
+            any("厳守事項9違反の疑い" in e for e in errors), errors
+        )
+
+    def test_plain_work_description_without_judgement_is_not_flagged(self):
+        instance = {
+            "completion_report": {
+                "body": "フィルター・熱交換器まで分解洗浄を実施いたしました。"
+                        "本報告書は実施した分解洗浄作業の内容を記録したものであり、原状回復における"
+                        "費用負担区分(通常損耗か否か)の判定は行っておりません。",
+                "recipient": "management_company",
+                "includes_liability_determination": False,
+            }
+        }
+        errors = check_management_company_liability_boilerplate(instance)
+        self.assertEqual(errors, [])
+
+    def test_flag_true_without_body_mention_is_flagged(self):
+        instance = {
+            "completion_report": {
+                "body": "フィルター・熱交換器まで分解洗浄を実施いたしました。",
+                "recipient": "management_company",
+                "includes_liability_determination": True,
+            }
+        }
+        errors = check_management_company_liability_boilerplate(instance)
+        self.assertTrue(any("フィールド値と本文の不一致の疑い" in e for e in errors), errors)
+
+    def test_management_company_missing_boilerplate_is_flagged(self):
+        instance = {
+            "completion_report": {
+                "body": "フィルター・熱交換器まで分解洗浄を実施いたしました。",
+                "recipient": "management_company",
+                "includes_liability_determination": False,
+            }
+        }
+        errors = check_management_company_liability_boilerplate(instance)
+        self.assertTrue(any("定型ボイラープレート" in e for e in errors), errors)
+
+    def test_tenant_recipient_does_not_require_boilerplate(self):
+        instance = {
+            "completion_report": {
+                "body": "フィルター・熱交換器まで分解洗浄いたしました。",
+                "recipient": "tenant",
+                "includes_liability_determination": False,
+            }
+        }
+        errors = check_management_company_liability_boilerplate(instance)
+        self.assertEqual(errors, [])
+
+    def test_no_completion_report_is_skipped(self):
+        self.assertEqual(
+            check_management_company_liability_boilerplate({"completion_report": None}), []
         )
 
 

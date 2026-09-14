@@ -116,6 +116,19 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
    埋めて生成しない。
 8. 文体は「ですます調」を既定とし、絵文字は使用しない(依頼者への実務連絡文としての
    性質上、course-set-pashaのSNS投稿文とは異なり絵文字を含めない方針とする)。
+9. (2026-09-14新設、btob-management-company-report-variant-design.md対応)入力メモの
+   末尾に宛先の明示(例:「宛先:管理会社」「宛先:オーナー」)がある場合、出力1
+   (作業完了報告メッセージ)の宛先・用途が入居者本人ではなく賃貸管理会社・オーナーへの
+   原状回復記録・説明資料になる。この場合、通常損耗か否かという原状回復における費用負担
+   区分の法的判定・示唆は一切行わない(「経年劣化によるもの」「入居者様のご負担には
+   該当しません」等の文言は使用しない)。記述する内容自体(実施した分解洗浄の範囲・
+   洗浄前後の状態変化)は入居者向けと変えず、語尾を「〜を実施いたしました」という
+   事務的・記録的な文体に変更し、文末に固定の定型文言(ボイラープレート)
+   「本報告書は実施した分解洗浄作業の内容を記録したものであり、原状回復における
+   費用負担区分(通常損耗か否か)の判定は行っておりません。費用負担に関するご判断は
+   貴社・オーナー様にて原状回復ガイドライン等に基づきご確認ください。」を必ず付す。
+   宛先の明示が無い場合はデフォルトで入居者本人向け(従来通りの文体・ボイラープレート
+   無し)とする。
 ```
 
 ## 構造化出力の方針(2026-08-21解消済み: schema/output.schema.json作成済み。以下は執筆当時の
@@ -203,3 +216,20 @@ insufficient_input)パターンを踏襲する方向で検討していた(その
   check_checkout_notice_consistency()実装〈check_subscription_notice_consistency()と同種〉
   はフェーズ207で完了済み。本節の記載更新が漏れていたため2026-09-13 14:00 UTCに訂正した。
   実装・スキーマ自体への変更は無し。README.mdフェーズ207参照)。
+- (解消済み 2026-09-14 15:00 UTC、フェーズ217: btob-management-company-report-variant-
+  design.md(フェーズ216)「未反映の実装項目」が次回以降の課題として残していた、
+  厳守事項9(上記プロンプト草案に新設)の正式追記・schema/output.schema.jsonへの
+  `recipient`/`includes_liability_determination`フィールド追加・validate_test_cases.pyへの
+  管理会社宛サンプル追加に対応した。あわせてpost_generation_checks.pyに
+  check_management_company_liability_boilerplate()を新設し(check_refrigerant_electrical_
+  professional_judgement()と同じ「話題キーワード+判定語の共起」検出パターン)、
+  run_all_checks()に配線した。なお設計文書btob-management-company-report-variant-
+  design.md執筆時点では新設ルールを「厳守事項8」と仮称していたが、既存の厳守事項8
+  (文体・絵文字不使用ルール)と番号が衝突していたため、実装時に厳守事項9として番号を
+  訂正した(btob-management-company-report-variant-design.md側の記載も合わせて訂正済み)。
+  テスト6件追加(test_post_generation_checks.py)、venture全体491件(485件→491件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証17件
+  (15件→17件、`python3 schema/validate_test_cases.py`)いずれもパス。出力2(お手入れ
+  案内)を管理会社宛でどう扱うか・「宛先:管理会社」等のメモ表記の具体的なパース方法
+  (表記ゆれの許容範囲)は、btob-management-company-report-variant-design.md記載のとおり
+  引き続き次回以降の課題として残る。)

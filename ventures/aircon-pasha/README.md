@@ -3337,4 +3337,30 @@
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
   次回は本設計のschema/システムプロンプトへの正式反映、または他venture・アイデア領域の
   前進を優先候補とする。
-- 最終更新: 2026-09-14 13:00 UTC
+- フェーズ217(2026-09-14 15:00 UTC): フェーズ216が次回以降の課題として残していた
+  btob-management-company-report-variant-design.mdのschema/システムプロンプトへの正式
+  反映に対応した。schema/output.schema.jsonの`completion_report`に`recipient`
+  (`tenant`/`management_company`、省略時デフォルトtenant)・
+  `includes_liability_determination`(厳守事項9準拠の検証用フィールド、常にfalseを期待、
+  既存のmentions_refrigerant_or_electricalと同じ検証パターン)の2フィールドを追加した。
+  llm-system-prompt-draft.mdの厳守事項節に厳守事項9(管理会社・オーナー宛の場合の文体・
+  固定ボイラープレート)を新設した。実装の過程で、btob-management-company-report-variant-
+  design.md(フェーズ216)がこの新設ルールを「厳守事項8」と仮称していたが、既存の厳守事項8
+  (文体は「ですます調」・絵文字不使用というルール、フェーズ以前から存在)と番号が衝突して
+  いたため、厳守事項9として番号を訂正した(同設計文書側の記載も合わせて訂正)。
+  schema/validate_test_cases.pyに管理会社宛の期待JSON出力サンプル
+  (G7_management_company_recipient)、およびボイラープレート欠落(厳守事項9違反)を意図的に
+  仕込んだネガティブテスト(NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE)を追加した
+  (15件→17件、全件パス)。prototype/post_generation_checks.pyには
+  check_management_company_liability_boilerplate()を新設し(話題キーワード「費用負担」
+  「原状回復」等と判定語「のご負担となります」等の共起で検出する、既存の
+  check_refrigerant_electrical_professional_judgement()と同じ設計思想。recipient=
+  management_companyの場合のみボイラープレート必須のマーカー文字列検査も行う)、
+  run_all_checks()に配線した。test_post_generation_checks.pyにテスト6件追加
+  (485件→491件、全件パス)。出力2(お手入れ案内)を管理会社宛でどう扱うか(省略/転送前提
+  文面)、「宛先:管理会社」等のメモ末尾表記の具体的なパース方法(表記ゆれの許容範囲)は、
+  btob-management-company-report-variant-design.md記載のとおり引き続き次回以降の課題として
+  残る。承認不要な設計文書作成・スキーマ改訂・コード実装・テスト追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。
+- 最終更新: 2026-09-14 15:00 UTC

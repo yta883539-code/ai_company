@@ -22,6 +22,11 @@ import json
 import sys
 from pathlib import Path
 
+# 2026-09-14 15:00 UTC追加(btob-management-company-report-variant-design.md「3. 固定の
+# 定型文言(ボイラープレート)」対応、フェーズ217)。recipient=management_companyのとき
+# completion_report.bodyに必須の定型文言のうち、判定文言部分を抜き出したマーカー。
+MANAGEMENT_COMPANY_BOILERPLATE_MARKER = "費用負担区分"
+
 SCHEMA_PATH = Path(__file__).parent / "output.schema.json"
 
 with open(SCHEMA_PATH, encoding="utf-8") as f:
@@ -173,6 +178,22 @@ def validate_cross_field_rules(instance, path="$"):
         if m is True:
             errors.append(f"{path}.completion_report: 厳守事項1違反(冷媒・電気系統への専門的助言に言及)の疑いがあるサンプルです")
 
+        # 2026-09-14 15:00 UTC追加(btob-management-company-report-variant-design.md対応、フェーズ217)。
+        liability = completion_report.get("includes_liability_determination")
+        if liability is not True and liability is not False:
+            errors.append(f"{path}.completion_report.includes_liability_determination: booleanである必要があります(null不可)")
+        if liability is True:
+            errors.append(f"{path}.completion_report: 厳守事項9違反(原状回復の費用負担区分の判定・示唆に言及)の疑いがあるサンプルです")
+
+        recipient = completion_report.get("recipient")
+        if recipient not in ("tenant", "management_company"):
+            errors.append(f"{path}.completion_report.recipient: 'tenant'または'management_company'である必要があります(実際={recipient!r})")
+        if recipient == "management_company" and MANAGEMENT_COMPANY_BOILERPLATE_MARKER not in completion_report.get("body", ""):
+            errors.append(
+                f"{path}.completion_report: recipient=management_companyのときは厳守事項9の定型ボイラープレート"
+                "(費用負担区分の判定を行っていない旨)がbodyに含まれている必要があります"
+            )
+
     care_guide = instance.get("care_guide")
     history_rows = instance.get("history_rows")
     if status == "generated" and isinstance(history_rows, list) and len(history_rows) == 0:
@@ -203,6 +224,8 @@ TEST_CASES = {
             "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄いたしました。"
                     "カビ・ホコリの汚れは中程度でしたが、洗浄後はきれいな状態になっております。防カビコートも施工いたしました。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは月1回程度を目安に、掃除機やご自身で水洗いいただくと効果的です。"
@@ -230,6 +253,8 @@ TEST_CASES = {
             "body": "壁掛け型(お掃除機能付き)のエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
                     "汚れは軽度でした。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは2週間に1回程度の目安でお手入れください。次回の分解洗浄の時期については、"
@@ -258,6 +283,8 @@ TEST_CASES = {
             "body": "エアコンの分解洗浄を実施いたしました。フィルター・熱交換器の汚れがひどい状態でしたが、"
                     "洗浄後はきれいな状態になっております。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは月1回程度を目安にお手入れください。次回の分解洗浄は1〜2年に1回程度が一般的な目安です"
@@ -286,6 +313,8 @@ TEST_CASES = {
                     "送風ファンまで分解洗浄いたしました。リビングは汚れが中程度、寝室は軽度でした。"
                     "2台とも洗浄後はきれいな状態になっております。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは月1回程度を目安に、掃除機やご自身で水洗いいただくと効果的です。"
@@ -325,6 +354,8 @@ TEST_CASES = {
             "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄いたしました。"
                     "常時稼働に近い使用頻度とのことで、汚れは中程度でした。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは2週間に1回程度を目安にお手入れください。次回の分解洗浄の時期については、"
@@ -354,6 +385,8 @@ TEST_CASES = {
             "body": "壁掛け型2.8kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄いたしました。"
                     "ペットを飼われているご家庭とのことで、フィルターに毛の付着が多く見られ、汚れはひどい状態でした。",
             "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
         },
         "care_guide": {
             "body": "フィルターは2週間に1回程度を目安に、掃除機で毛を取り除いてからのお手入れをおすすめします。"
@@ -370,6 +403,42 @@ TEST_CASES = {
                 "dirt_condition": "ひどい状態",
                 "additional_treatment": "なし",
                 "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    # 2026-09-14 15:00 UTC追加。btob-management-company-report-variant-design.md
+    # (フェーズ217)「未反映の実装項目」に残っていた「管理会社宛のケースを最低1件」の
+    # サンプル追加に対応。文体を「〜を実施いたしました」(事務的)に変更し、厳守事項9の
+    # 定型ボイラープレートを文末に付す。
+    "G7_management_company_recipient": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器・送風ファンまで分解洗浄を実施いたしました。"
+                    "カビ・ホコリの汚れは中程度でしたが、洗浄後はきれいな状態になっております。"
+                    "本報告書は実施した分解洗浄作業の内容を記録したものであり、原状回復における"
+                    "費用負担区分(通常損耗か否か)の判定は行っておりません。費用負担に関するご判断は"
+                    "貴社・オーナー様にて原状回復ガイドライン等に基づきご確認ください。",
+            "mentions_refrigerant_or_electrical": False,
+            "recipient": "management_company",
+            "includes_liability_determination": False,
+        },
+        "care_guide": {
+            "body": "フィルターは月1回程度を目安に、掃除機やご自身で水洗いいただくと効果的です。"
+                    "次回の分解洗浄は来年同時期を目安にご検討ください。自己分解洗浄は内部の破損・感電等のリスクがあるため、"
+                    "分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": False,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-14",
+                "model_type_and_capacity": "壁掛け型2.2kW",
+                "dirt_condition": "カビ・ホコリ汚れ中程度",
+                "additional_treatment": "なし",
+                "next_recommended_date": "来年同時期",
             },
         ],
         "subscription_procedure_notice": None,
@@ -518,6 +587,37 @@ NEGATIVE_CASE_CHECKOUT_URL_MISMATCH = {
     },
 }
 
+# 2026-09-14 15:00 UTC追加。厳守事項9違反(recipient=management_companyなのに定型
+# ボイラープレートが本文に含まれていない)を意図的に仕込んだ不正フィクスチャ。
+# validate_cross_field_rulesが実際にこの違反を検出できることを確認するための
+# ネガティブテスト(NEGATIVE_CASE_CHECKOUT_URL_MISMATCHと同じ設計思想)。
+NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE = {
+    "status": "generated",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "completion_report": {
+        "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器まで分解洗浄を実施いたしました。",
+        "mentions_refrigerant_or_electrical": False,
+        "recipient": "management_company",
+        "includes_liability_determination": False,
+    },
+    "care_guide": {
+        "body": "フィルターは月1回程度を目安にお手入れください。",
+        "next_recommended_date_is_estimate": False,
+    },
+    "history_rows": [
+        {
+            "work_date": "2026-09-14",
+            "model_type_and_capacity": "壁掛け型2.2kW",
+            "dirt_condition": "軽度",
+            "additional_treatment": "なし",
+            "next_recommended_date": "来年同時期",
+        },
+    ],
+    "subscription_procedure_notice": None,
+    "checkout_notice": None,
+}
+
 
 def main():
     total = 0
@@ -546,6 +646,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG1_checkout_url_mismatch_is_detected: includes_checkout_url不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: recipient=management_companyなのに定型ボイラープレートが
+    # 本文に含まれていない(厳守事項9違反)がちゃんと検出されることを確認する
+    total += 1
+    neg2_errors = validate_against_schema(NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE, SCHEMA)
+    neg2_errors += validate_cross_field_rules(NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE)
+    if neg2_errors:
+        print("[OK] NEG2_management_company_missing_boilerplate_is_detected (想定通りエラー検出)")
+        for e in neg2_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG2_management_company_missing_boilerplate_is_detected: ボイラープレート欠落を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
