@@ -157,7 +157,10 @@ course-set-pashaで確立済みの「LINEのブロックとStripeの解約は別
   相当の文書としてunfollow-billing-faq.mdに整理した。本venture固有の「オーナーも一般顧客と
   同じ公式アカウントをフォローする」構造を踏まえ、ブロック中は予約通知等の業務通知も止まる
   旨を追加した点がaircon-pasha・course-set-pasha版との差分。LP掲載・実際の問い合わせ対応は
-  未実施のまま、文面整理のみ。詳細はunfollow-billing-faq.md参照。)
+  未実施のまま、文面整理のみ。詳細はunfollow-billing-faq.md参照。
+  さらに2026-09-14 11:00 UTC・フェーズ続き226でLP掲載〈landing-page-copy-draft.mdへの
+  FAQ4問目反映〉まで完了した。実際の問い合わせ対応〈宛先メールアドレス確定〉のみ
+  引き続き未着手のまま残る。)
 - (解消済み 2026-09-05 21:00 UTC: reminder-blocked-delivery-owner-signal-design.md新規作成。
   前日リマインド送信(`send_reminders()`)がLINEブロック・未フォローで失敗したことを表す
   `LinePushBlockedError`(`LinePushDeliveryError`の新規サブクラス)を新設し、一時的な障害と

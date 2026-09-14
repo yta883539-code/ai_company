@@ -117,9 +117,10 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
 
 ## 今後の課題
 
-- LP掲載作業(landing-page-copy-draft.mdへの反映)は本ドキュメント作成と別作業として次回以降に
-  実施する(aircon-pashaはフェーズ165で同一フェーズ内に反映まで完了させたが、本フェーズでは
-  文面整理のみに留める)。
+- (解消済み 2026-09-14 11:00 UTC・フェーズ続き226: landing-page-copy-draft.mdの
+  「よくある質問(FAQ)セクション(案)」に4問目として上記1.の文面をそのまま反映した。
+  aircon-pashaはフェーズ165で同一フェーズ内に反映まで完了させていたが、本ventureは
+  本ドキュメント作成〈フェーズ続き175〉から反映まで別フェーズに分かれた形での対応となった)
 - aircon-pashaのblocked-but-billing-detection-design.md相当の「ブロック中かつ契約継続中」
   オーナーの能動的検知の要否・設計は、本venture固有の`owner_user_id`確定タイミング
   (owner-notification-channel-design.mdのオンボーディング完了後)を踏まえた検討が必要であり、
