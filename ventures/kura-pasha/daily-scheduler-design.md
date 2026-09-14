@@ -39,6 +39,9 @@ Cloud Function G: run_daily_workshop_checks
   3) select_due_payment_failure_reminders()で決済失敗リマインド対象を抽出し、
      PAYMENT_FAILURE_REMINDER_MESSAGE(4節)を組み立ててLINE Push送信、
      payment_failure_reminder_sent_atを書き込む
+  4) send_payment_suspension_owner_notifications()(payment-suspension-owner-notification-
+     design.md、フェーズ116)を呼び出し、制限モードへ新たに移行したworkshopをオーナーへ
+     LINE Push通知する
         ↓
   LINE Push Message API(subscription_cancellation_notification.pyのLinePushClient
   Protocolをそのまま再利用する。送信手段自体は既存の他通知と変わらないため、新規
@@ -49,6 +52,15 @@ Cloud Function G: run_daily_workshop_checks
 同一関数内で連続実行する形にまとめて最小構成とした(他venture3件はそれぞれ別個の
 Cloud Function/スケジューラドキュメントとして独立させているが、本venture固有の
 低頻度特性を踏まえ、まずは1つのドキュメント・1つのモジュールで両方を賄う)。
+
+4)は本ドキュメント作成(フェーズ112)より後のフェーズ116で新設された
+`payment_suspension_owner_notification.py`が、選定ロジック(`select_due_payment_
+suspension_owner_notifications()`)と送信配線(`send_payment_suspension_owner_
+notifications()`)の両方を単独で完結させる形で既に実装済みだったため、2)3)のように
+`daily_scheduler.py`側へ選定ロジックを複製する必要はなく、Cloud Function G本体から
+そのまま呼び出す1行の追加で足りる。フェーズ116時点では本ドキュメントのCloud Function G
+構成図(2節)に4)の記載が無く、制限モード移行時のオーナー通知が日次バッチのどこで
+呼ばれるのか本ドキュメント上は未定義のままだったため、今回その欠落を埋めた。
 
 ## 3. 選定ロジック(`prototype/daily_scheduler.py`)
 
@@ -143,7 +155,8 @@ reminder-scheduler-design.mdの`payment_suspended_at is None`条件は使えな�
 
 - 2節のCloud Function本体・LINE Push送信配線・全workshop走査ロジックの実装は、
   実LINE公式アカウント接続・Cloud Scheduler実行環境の構築がオーナー承認待ちのため
-  次回以降の課題として残す(pending-approval.md参照)。
+  次回以降の課題として残す(pending-approval.md参照)。4)の
+  `send_payment_suspension_owner_notifications()`呼び出しも同じ理由で未配線。
 - JST 04:00という実行時刻は他venture3件からの暫定踏襲であり、本venture固有の
   最適な実行時刻(受注が発生しやすい時間帯を避ける等)は実運用データを見てから
   再検討する。
@@ -151,8 +164,16 @@ reminder-scheduler-design.mdの`payment_suspended_at is None`条件は使えな�
   ままであり、trial_period_days=30日についても同様(既存の暫定値をそのまま踏襲した
   だけで、本フェーズでは再検証していない)。
 
-最終更新: 2026-09-14 00:00 UTC(フェーズ112: trial-end-notification-design.md 6節・
-payment-failure-dunning-design.md 6節がそれぞれ残していた日次スケジューラ本体の
-机上設計に着手。(B)トライアル30日到達報告・決済失敗3日前リマインドの選定ロジックを
-`prototype/daily_scheduler.py`として実装、`payment_failure_reminder_sent_at`フィールドを
-新設。実際のCloud Function配線・Push送信は引き続き次の課題)
+最終更新: 2026-09-14 14:00 UTC(フェーズ117: フェーズ116で新設された
+`payment_suspension_owner_notification.py`〈制限モード移行時のオーナー通知〉を、
+2節のCloud Function G構成へ4)として組み込んだ。選定ロジック・送信配線とも当該
+モジュール側で完結済みのため`daily_scheduler.py`への複製は不要、design docの統合
+記述のみで対応。実クラウド配線は引き続き次の課題)
+
+- フェーズ112(2026-09-14 00:00 UTC): trial-end-notification-design.md 6節・
+  payment-failure-dunning-design.md 6節がそれぞれ残していた日次スケジューラ本体の
+  机上設計に着手。(B)トライアル30日到達報告・決済失敗3日前リマインドの選定ロジックを
+  `prototype/daily_scheduler.py`として実装、`payment_failure_reminder_sent_at`フィールドを
+  新設。実際のCloud Function配線・Push送信は引き続き次の課題
+- フェーズ117(2026-09-14 14:00 UTC): 上記の通り、フェーズ116のオーナー通知モジュールを
+  2節の構成図へ統合

@@ -2445,3 +2445,27 @@ CI実行結果〈2件とも成功〉をGitHub APIで確認。コード変更は�
 最終更新: 2026-09-14 10:00 UTC(フェーズ116: 決済失敗ダニングの残課題だった運営者向け
 制限モード移行通知〈payment-suspension-owner-notification-design.md〉を新規設計・実装。
 `WorkshopStoreProtocol`へ`payment_suspension_owner_notified_at`追加、新規テスト11件)
+
+- フェーズ117(2026-09-14 14:00 UTC): フェーズ116で新設した`payment_suspension_owner_
+  notification.py`(制限モード移行時のオーナー向けLINE通知)が、daily-scheduler-design.md
+  (フェーズ112)のCloud Function G構成図(2節)に一切記載されておらず、日次バッチの
+  どこで呼ばれるのか設計上未定義のまま残っていた欠落を解消した。同構成図に「4)
+  send_payment_suspension_owner_notifications()を呼び出す」ステップを追記し、
+  選定ロジック・送信配線とも当該モジュール側で完結済みのため`daily_scheduler.py`への
+  ロジック複製は不要である旨も明記した。あわせてpayment-suspension-owner-notification-
+  design.md「8. 今後の課題」に残っていた「3日前リマインド送信専用スケジューラは
+  daily-scheduler-design.mdへの統合を次回の課題とする」という記載が、実際には
+  同スケジューラ(3.2節`select_due_payment_failure_reminders()`)がフェーズ116より
+  前のフェーズ112時点で既に実装済みだった(本ドキュメントの対象である制限モード移行時の
+  オーナー通知とは別物の契約者向け3日前リマインドを混同した記載誤り)ことに気付き、
+  取り消し線付きで訂正した。コード変更は無く、venture全体12ファイル(`python3
+  prototype/run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要な設計doc記載の欠落・誤りの
+  訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または
+  引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+
+最終更新: 2026-09-14 14:00 UTC(フェーズ117: daily-scheduler-design.md 2節の構成図に
+オーナー制限モード通知〈フェーズ116〉の呼び出しステップを追記。あわせて
+payment-suspension-owner-notification-design.md「8. 今後の課題」の3日前リマインド
+スケジューラに関する記載誤り〈既にフェーズ112で実装済み〉を訂正。コード変更は無し)
