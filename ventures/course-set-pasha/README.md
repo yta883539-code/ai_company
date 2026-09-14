@@ -2983,4 +2983,18 @@
   pending-approval.mdへの追記なし。「実際の入力文が7b(iii)雑談と7b(iv)判断不能の
   どちらに分類されるか」自体の分類精度検証は、7a(iii)/(iv)と同様に引き続き実LLM接続後
   (オーナー承認待ち)の課題として残る。
-- 最終更新: 2026-09-13 22:00 UTC
+- フェーズ212(2026-09-14 07:00 UTC): mvp-flow-draft.md(本venture最初期の初回メモ)
+  「次の課題」節に、既に後続フェーズで対応済みの3項目(システムプロンプト草案の作成→
+  llm-system-prompt-draft.mdで対応済み、料金プラン・無料トライアル条件の仮決め→
+  pricing-plan.md・trial-start-anchor-decision.mdで対応済み、実在ジムのSNS投稿例観察→
+  sns-tone-research.md・sns-post-example-observation.mdで対応済み)および「会話フロー・
+  技術構成に関する方針」節の「技術構成の具体化は次回以降の課題」(→tech-stack.mdで対応済み)
+  が、いずれも未着手のまま取り残されていた記載漏れを発見・訂正した。フェーズ208・210・211
+  と同種のREADME/設計docの記載整合性修正パターンだが、今回はvphase進行ログではなく
+  mvp-flow-draft.md本体(初回メモゆえ他ドキュメントから参照されるだけで自身は更新され
+  ないまま古い記載が残っていた)が対象だった。コード変更は無く、回帰確認としてventure
+  全体583件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  17件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント整合性修正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-14 07:00 UTC
