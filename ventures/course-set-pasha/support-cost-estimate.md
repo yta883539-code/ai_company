@@ -68,6 +68,14 @@ unit-economics-estimate.mdの月次粗利試算(ライトプラン: 粗利率91.
 - 他venture(aircon-pasha・kura-pasha・line-reservation-ai)は本ventureと顧客対応特性
   (BtoB施工業者向け、低頻度受注、双方向会話ボット等)が異なるため、本試算をそのまま
   流用せず、各venture固有の特性に合わせて別途試算する必要がある(cross-venture parity
-  対応は次回以降の課題として残す)。
+  対応は次回以降の課題として残す)。→ **2026-09-15追記**: aircon-pasha(フェーズ222、
+  2026-09-15 06:00 UTC)・kura-pasha(フェーズ121、2026-09-15 07:00 UTC)・
+  line-reservation-ai(フェーズ続き230、2026-09-15 08:00 UTC)がそれぞれ本ドキュメントを
+  出発点に各venture固有のsupport-cost-estimate.mdを新規作成し、4venture全てで初回試算が
+  完了した(aircon-pasha: 月次対応コスト500〜1,250円・対応可能顧客数目安約48件、
+  kura-pasha: 単一プラン500円/複数職人プラン500〜1,250円・対応可能workshop数目安
+  約60〜120件、line-reservation-ai: 月次対応コスト1,500円・対応可能顧客数目安約40件、
+  いずれも時給3,000円の未検証仮定は共通)。cross-venture展開そのものは完了したため、
+  今後は4venture間の比較検討・実運用データ取得後の再検証が課題として残る。
 - サポート対応の外部委託・セルフサービス化(FAQ整備等)によるコスト削減余地は本フェーズでは
   検討していない。

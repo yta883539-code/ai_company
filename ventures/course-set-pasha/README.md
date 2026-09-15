@@ -3097,3 +3097,29 @@
 - 最終更新: 2026-09-15 04:00 UTC(フェーズ216: 人的サポートコスト〈オンボーディング・
   問い合わせ対応〉の初回粗試算をsupport-cost-estimate.mdとして新規作成し、unit-
   economics-estimate.mdの残課題に参照を追記。コード変更は無し)
+- フェーズ217(2026-09-15 09:00 UTC): support-cost-estimate.md(フェーズ216)「残課題」が
+  「他venture(aircon-pasha・kura-pasha・line-reservation-ai)への展開は次回以降の課題
+  として残す」という記載のまま残っていたが、実際にはフェーズ216後にaircon-pasha
+  (フェーズ222、2026-09-15 06:00 UTC)・kura-pasha(フェーズ121、2026-09-15 07:00 UTC)・
+  line-reservation-ai(フェーズ続き230、2026-09-15 08:00 UTC)が本ventureのsupport-
+  cost-estimate.mdを出発点にそれぞれ自venture固有の人的サポートコスト試算を新規作成し、
+  4venture全てで初回試算が完了済みだったと判明した記載漏れを発見・訂正した。フェーズ208・
+  210・211・212・213・214と同種の「後続venture側の対応で前提が解消されたにもかかわらず、
+  起点となった本venture側のドキュメントが未更新のまま残る」cross-venture parityの
+  記載漏れパターンである。support-cost-estimate.md「残課題」該当bulletに、他3ventureの
+  試算結果の要旨(aircon-pasha: 月次対応コスト500〜1,250円・対応可能顧客数目安約48件、
+  kura-pasha: 単一プラン500円/複数職人プラン500〜1,250円・対応可能workshop数目安約
+  60〜120件、line-reservation-ai: 月次対応コスト1,500円・対応可能顧客数目安約40件)を
+  追記し、cross-venture展開自体は完了、今後は4venture間の比較検討・実運用データ取得後の
+  再検証が課題として残る旨に更新した。unit-economics-estimate.md側の残課題記載は
+  support-cost-estimate.mdへの参照のみで誤りは無かったため変更していない。コード変更は
+  無く、回帰確認としてventure全体583件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載漏れの訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き
+  未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-15 09:00 UTC(フェーズ217: support-cost-estimate.mdの残課題に
+  残っていた「他venture展開は次回以降の課題」という記載漏れを、aircon-pasha・kura-pasha・
+  line-reservation-aiでの対応済み実績〈フェーズ222・121・続き230〉を踏まえて訂正。コード
+  変更は無し)
