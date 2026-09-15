@@ -2516,3 +2516,26 @@ payment-suspension-owner-notification-design.md「8. 今後の課題」の3日�
 最終更新: 2026-09-14 23:00 UTC(フェーズ119: course-set-pashaで確認済みの決済手数料
 仮定改訂〈3.6%→4.3%〉を本venture固有のunit-economics-estimate.mdに反映し、粗利率
 試算表・結論・残課題を再計算・更新した。コード変更は無し)
+
+- フェーズ120(2026-09-15 03:00 UTC): daily-scheduler-design.md 6節が「実LINE公式
+  アカウント接続・Cloud Scheduler実行環境の構築がオーナー承認待ち」を理由に次回以降の
+  課題としていたCloud Function G本体(送信配線)の実装に着手したところ、その理由自体が
+  一部誤りだったことが判明した。`prototype/cloud_function_webhook.py`(フェーズ62)で
+  `format_trial_end_notification_message()`が既に実装済みであり、`daily_scheduler.py`
+  冒頭コメントの「本venture側でまだ実装していないため対象外」という記載が誤りだった
+  (payment_suspension_owner_notification.py〈フェーズ116〉と同じくProtocol経由の
+  依存注入・InMemoryStub検証で実クラウド接続なしにCloud Function本体自体は実装・テスト
+  可能だった)。`prototype/daily_scheduler.py`に`send_trial_end_reports()`・
+  `send_payment_failure_reminders()`・`run_daily_workshop_checks()`(2節のCloud
+  Function G本体、3系統の送信を順に実行)を実装し、テスト8件を追加した。実際のCloud
+  Scheduler設定・実LINE公式アカウント接続のみ引き続きオーナー承認待ちとして残る。詳細は
+  daily-scheduler-design.md 6〜7節参照。venture全体12ファイル(`python3 prototype/
+  run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)いずれも
+  パスを確認した。承認不要なコード実装・テスト追加・design doc記載訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。
+
+最終更新: 2026-09-15 03:00 UTC(フェーズ120: daily-scheduler-design.md 6節の記載誤りを
+発見し、Cloud Function G本体の送信配線〈send_trial_end_reports()・
+send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テスト8件追加。
+実クラウド接続〈Cloud Scheduler・LINE公式アカウント〉のみ引き続きオーナー承認待ち)

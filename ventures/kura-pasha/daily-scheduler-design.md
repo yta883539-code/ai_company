@@ -151,12 +151,18 @@ reminder-scheduler-design.mdの`payment_suspended_at is None`条件は使えな�
   実LINE公式アカウント接続・Cloud Scheduler実行環境の構築がオーナー承認待ちのため、
   本フェーズでは選定ロジック(純粋関数)の実装・テストにとどめる。
 
-## 6. 残る課題
+## 6. 残る課題(フェーズ120追記: 1点目は解消済み。7節参照)
 
-- 2節のCloud Function本体・LINE Push送信配線・全workshop走査ロジックの実装は、
+- ~~2節のCloud Function本体・LINE Push送信配線・全workshop走査ロジックの実装は、
   実LINE公式アカウント接続・Cloud Scheduler実行環境の構築がオーナー承認待ちのため
   次回以降の課題として残す(pending-approval.md参照)。4)の
-  `send_payment_suspension_owner_notifications()`呼び出しも同じ理由で未配線。
+  `send_payment_suspension_owner_notifications()`呼び出しも同じ理由で未配線。~~ →
+  フェーズ120で判明した通り、Cloud Function本体・送信配線自体は
+  `payment_suspension_owner_notification.py`(フェーズ116)と同じくProtocol経由の
+  依存注入・InMemoryStub検証で実クラウド接続なしに実装・テスト可能であり、実際に
+  フェーズ120で`run_daily_workshop_checks()`として実装済み。オーナー承認待ちなのは
+  実LINE公式アカウント接続・Cloud Scheduler実行環境の構築(実際に外部へ公開・接続する
+  部分)のみであり、コード自体の未着手を理由にしていた本項目の記載は不正確だった。
 - JST 04:00という実行時刻は他venture3件からの暫定踏襲であり、本venture固有の
   最適な実行時刻(受注が発生しやすい時間帯を避ける等)は実運用データを見てから
   再検討する。
@@ -169,6 +175,50 @@ reminder-scheduler-design.mdの`payment_suspended_at is None`条件は使えな�
 2節のCloud Function G構成へ4)として組み込んだ。選定ロジック・送信配線とも当該
 モジュール側で完結済みのため`daily_scheduler.py`への複製は不要、design docの統合
 記述のみで対応。実クラウド配線は引き続き次の課題)
+
+## 7. 追記(フェーズ120): Cloud Function G本体(送信配線)の実装
+
+6節1点目が「実LINE公式アカウント接続・Cloud Scheduler実行環境の構築がオーナー承認待ち」を
+理由に次回以降の課題としていたが、着手しようとしたところ、`prototype/cloud_function_
+webhook.py`(フェーズ62、2026-09-09)で`format_trial_end_notification_message()`
+(経路(A)(B)共通の想定でdocstringに明記済み)が既に実装済みであり、`daily_scheduler.py`
+冒頭コメントの「本venture側でまだ実装していないため対象外」という記載自体が誤りだった
+ことが判明した(6節が理由に挙げていた「実LINE公式アカウント接続待ち」は実クラウド接続
+部分にのみ該当し、送信文言の組み立て自体は接続前でも実装可能だった)。
+
+これを受け、`payment_suspension_owner_notification.py`(フェーズ116)と同じ設計方針
+(Protocol経由の依存注入・`LinePushClient`/`WorkshopStoreProtocol`をInMemory実装で
+差し替えて実クラウド接続なしに検証する)を踏襲し、以下を実装した。
+
+- `send_trial_end_reports(now, workshop_store, push_client)`: 3.1節の抽出条件に該当する
+  workshopへ`format_trial_end_notification_message(0)`(design 4節が既に指定していた
+  通り常に生成実績0回)を送信し、送信成功時のみ`trial_end_notified_at`を書き込む。
+- `send_payment_failure_reminders(now, workshop_store, push_client)`: 3.2節の抽出条件に
+  該当するworkshopへ`PAYMENT_FAILURE_REMINDER_MESSAGE`を送信し、送信成功時のみ
+  `payment_failure_reminder_sent_at`を書き込む。
+- `run_daily_workshop_checks(now, workshop_store, push_client, owner_line_user_id)`:
+  2節のCloud Function G本体。上記2関数→`send_payment_suspension_owner_notifications()`
+  (フェーズ116、既存モジュールをそのまま呼び出す)の順に実行する(2節の順序どおり)。
+- いずれも送信失敗時(`LinePushDeliveryError`)は状態書き込みをスキップし、次回起動時に
+  自然に再試行対象として残る方式(`payment_suspension_owner_notification.py`と同じ)。
+
+`prototype/test_daily_scheduler.py`にテスト8件を追加した(状態組み立て2件・(B)トライアル
+送信配線2件・決済失敗リマインド送信配線2件・`run_daily_workshop_checks()`統合1件・
+生成実績0回の文言検証を含む)。venture全体12ファイル(`python3 prototype/run_all_tests.py`)・
+schema検証30件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+コード実装・テスト追加・design doc記載訂正のみで、外部サービスへの公開・アカウント作成・
+支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+**本フェーズで対応しなかった範囲**: 実際のCloud Scheduler設定(cron登録)・実LINE公式
+アカウント接続(チャネルアクセストークン取得)・実際のオーナーLINEユーザーID設定は、
+引き続き外部サービスへのアカウント作成・接続に該当しオーナー承認待ちのため対象外(6節
+2点目・3点目の実行時刻・閾値の再検討も同様に実運用データが必要なため未着手のまま残る)。
+
+最終更新: 2026-09-15 03:00 UTC(フェーズ120: `send_trial_end_reports()`・
+`send_payment_failure_reminders()`・`run_daily_workshop_checks()`を実装し、Cloud
+Function G本体の送信配線を完成させた。6節1点目の「コード自体が未着手」という記載の
+不正確さも訂正。実クラウド接続〈Cloud Scheduler・LINE公式アカウント〉のみ引き続き
+オーナー承認待ち)
 
 - フェーズ112(2026-09-14 00:00 UTC): trial-end-notification-design.md 6節・
   payment-failure-dunning-design.md 6節がそれぞれ残していた日次スケジューラ本体の

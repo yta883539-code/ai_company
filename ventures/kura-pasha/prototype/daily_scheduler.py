@@ -5,15 +5,19 @@ run_daily_workshop_checks」のうち、選定ロジック(どのworkshopに何�
 実行可能なコードに落とし込んだもの。
 
 位置づけ:
-- 実際のCloud Scheduler設定・LINE Push Message APIでの送信・WorkshopStoreProtocolからの
-  全workshop走査(Firestore相当の集計クエリ)はいずれもオーナー承認待ち(pending-
+- 実際のCloud Scheduler設定・実LINE公式アカウント接続はオーナー承認待ち(pending-
   approval.md参照)。本モジュールはそれとは別に、「いつ・どのworkshopに(B)トライアル
-  30日到達報告・決済失敗3日前リマインドを送るべきか」の判定ロジック(design 3節)を
-  実クラウド接続なしで検証可能にしたもの(他venture3件のtrial_end_scheduler.py・
-  payment_failure_reminder_scheduler.pyと同じ位置づけ・同じ構成)。
-- (B)トライアル30日到達報告の通知文言(trial-end-notification-design.md 3節)の
-  組み立てはusage_counter_workshop.pyのformat_trial_end_notification_message()相当を
-  本venture側でまだ実装していないため対象外とし、本モジュールは選定ロジックのみを扱う。
+  30日到達報告・決済失敗3日前リマインドを送るべきか」の判定ロジック(design 3節)、
+  および実クラウド接続なしで検証可能な送信配線(design 2節Cloud Function G本体、
+  payment_suspension_owner_notification.pyと同じ位置づけ・同じ構成)を実装したもの。
+- フェーズ122追記: 本ファイルはフェーズ112作成時点で「(B)トライアル30日到達報告の
+  通知文言の組み立てはusage_counter_workshop.pyのformat_trial_end_notification_
+  message()相当を本venture側でまだ実装していないため対象外」としていたが、実際には
+  cloud_function_webhook.py(フェーズ62、2026-09-09)で既に同名の関数
+  (`format_trial_end_notification_message(generation_count)`、経路(A)(B)共通の
+  想定でdocstringに明記済み)が実装済みであり、この記載自体が誤りだったことが判明した。
+  本フェーズで送信配線(`send_trial_end_reports()`・`send_payment_failure_reminders()`)を
+  実装し、この関数を実際に呼び出す。
 
 設計の参照元: daily-scheduler-design.md, trial-end-notification-design.md,
 payment-failure-dunning-design.md
@@ -21,10 +25,17 @@ payment-failure-dunning-design.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional, Sequence
+from typing import List, Optional, Protocol, Sequence
 
+from cloud_function_webhook import format_trial_end_notification_message
+from payment_suspension_owner_notification import (
+    OWNER_LINE_USER_ID_PLACEHOLDER,
+    SendPaymentSuspensionOwnerNotificationsResult,
+    send_payment_suspension_owner_notifications,
+)
+from subscription_cancellation_notification import LinePushClient, LinePushDeliveryError
 from usage_counter_workshop import PAYMENT_FAILURE_GRACE_PERIOD_DAYS, TRIAL_PERIOD_DAYS
 
 # payment-failure-dunning-design.md 3節: 猶予期間は7日、そのうち3日前(=検知から4日後)に
@@ -151,3 +162,177 @@ def select_due_payment_failure_reminders(
         for s in states
         if is_payment_failure_reminder_due(s, now, grace_period_days, reminder_days_before_end)
     ]
+
+
+class DailySchedulerWorkshopStoreProtocol(Protocol):
+    """design 2〜3節が参照するメソッドのみを要求する最小限のProtocol。
+    `usage_counter_workshop.WorkshopStoreProtocol`(ひいては`InMemoryWorkshopStore`)は
+    これらを既に持つため、構造的に(duck typing)本Protocolを満たす
+    (payment_suspension_owner_notification.pyと同じ方針)。
+    """
+
+    def all_workshop_ids(self):
+        ...
+
+    def get_contractor_user_id(self, workshop_id: str) -> str:
+        ...
+
+    def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def get_trial_generation_used(self, workshop_id: str) -> bool:
+        ...
+
+    def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
+        ...
+
+    def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
+        ...
+
+
+def build_trial_end_states(
+    workshop_store: DailySchedulerWorkshopStoreProtocol,
+) -> List[WorkshopTrialEndState]:
+    """design 2節1): 全workshopから3.1節が参照するフィールドを組み立てる
+    (workshop_id昇順、list_blocked_but_billing_candidates()等と同じ方針で呼び出し順の
+    非決定性を避ける)。"""
+
+    return [
+        WorkshopTrialEndState(
+            workshop_id=workshop_id,
+            trial_start_at=workshop_store.get_trial_start_at(workshop_id),
+            trial_generation_used=workshop_store.get_trial_generation_used(workshop_id),
+            trial_end_notified_at=workshop_store.get_trial_end_notified_at(workshop_id),
+        )
+        for workshop_id in sorted(workshop_store.all_workshop_ids())
+    ]
+
+
+def build_payment_failure_states(
+    workshop_store: DailySchedulerWorkshopStoreProtocol,
+) -> List[WorkshopPaymentFailureState]:
+    """design 2節1): 全workshopから3.2節が参照するフィールドを組み立てる(workshop_id昇順)。"""
+
+    return [
+        WorkshopPaymentFailureState(
+            workshop_id=workshop_id,
+            payment_failure_detected_at=workshop_store.get_payment_failure_detected_at(
+                workshop_id
+            ),
+            payment_failure_reminder_sent_at=(
+                workshop_store.get_payment_failure_reminder_sent_at(workshop_id)
+            ),
+        )
+        for workshop_id in sorted(workshop_store.all_workshop_ids())
+    ]
+
+
+@dataclass
+class SendResult:
+    """1回の抽出・送信での結果(呼び出し側のログ・監視用、
+    payment_suspension_owner_notification.SendPaymentSuspensionOwnerNotificationsResultと
+    対称)。"""
+
+    sent: list[str] = field(default_factory=list)  # workshop_id
+    failed: list[str] = field(default_factory=list)  # workshop_id(送信失敗、次回起動時に再試行)
+
+
+def send_trial_end_reports(
+    now: datetime,
+    workshop_store: DailySchedulerWorkshopStoreProtocol,
+    push_client: LinePushClient,
+    trial_period_days: int = TRIAL_PERIOD_DAYS,
+) -> SendResult:
+    """design 2節2): (B)トライアル30日到達報告の送信配線(Cloud Function G本体の一部)。
+
+    format_trial_end_notification_message(0)を使う(design 4節: (B)経路は
+    trial_generation_used=Falseのworkshopのみが対象のため、生成実績は常に0回)。送信成功時
+    のみtrial_end_notified_atを書き込み、送信失敗時は書き込まない(次回起動時に自然に
+    再試行対象として残る、payment_suspension_owner_notification.pyと同じ方式)。
+    """
+
+    result = SendResult()
+    states = build_trial_end_states(workshop_store)
+    for state in select_due_trial_end_reports(states, now, trial_period_days):
+        text = format_trial_end_notification_message(0)
+        recipient = workshop_store.get_contractor_user_id(state.workshop_id)
+        try:
+            push_client.send_message(recipient, text)
+        except LinePushDeliveryError:
+            result.failed.append(state.workshop_id)
+            continue
+        workshop_store.set_trial_end_notified_at(state.workshop_id, now)
+        result.sent.append(state.workshop_id)
+    return result
+
+
+def send_payment_failure_reminders(
+    now: datetime,
+    workshop_store: DailySchedulerWorkshopStoreProtocol,
+    push_client: LinePushClient,
+    grace_period_days: int = PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    reminder_days_before_end: int = PAYMENT_FAILURE_REMINDER_DAYS_BEFORE_END,
+) -> SendResult:
+    """design 2節3): 決済失敗3日前リマインドの送信配線(Cloud Function G本体の一部)。
+    送信成功時のみpayment_failure_reminder_sent_atを書き込む(上記と同じ方式)。
+    """
+
+    result = SendResult()
+    states = build_payment_failure_states(workshop_store)
+    for state in select_due_payment_failure_reminders(
+        states, now, grace_period_days, reminder_days_before_end
+    ):
+        recipient = workshop_store.get_contractor_user_id(state.workshop_id)
+        try:
+            push_client.send_message(recipient, PAYMENT_FAILURE_REMINDER_MESSAGE)
+        except LinePushDeliveryError:
+            result.failed.append(state.workshop_id)
+            continue
+        workshop_store.set_payment_failure_reminder_sent_at(state.workshop_id, now)
+        result.sent.append(state.workshop_id)
+    return result
+
+
+@dataclass
+class RunDailyWorkshopChecksResult:
+    """design 2節のCloud Function G 1回の起動での結果一式(3系統それぞれのSendResult相当)。"""
+
+    trial_end_reports: SendResult
+    payment_failure_reminders: SendResult
+    payment_suspension_owner_notifications: SendPaymentSuspensionOwnerNotificationsResult
+
+
+def run_daily_workshop_checks(
+    now: datetime,
+    workshop_store: DailySchedulerWorkshopStoreProtocol,
+    push_client: LinePushClient,
+    owner_line_user_id: str = OWNER_LINE_USER_ID_PLACEHOLDER,
+) -> RunDailyWorkshopChecksResult:
+    """design 2節「Cloud Function G: run_daily_workshop_checks」本体。
+
+    2)(B)トライアル30日到達報告→3)決済失敗3日前リマインド→4)制限モード移行時の
+    オーナー通知(payment_suspension_owner_notification.py、フェーズ116)の順に呼び出す
+    (design 2節の順序どおり)。4)は選定ロジック・送信配線とも当該モジュール側で完結済み
+    のため、本関数からはそのまま呼び出す1行の追加で足りる(daily-scheduler-design.md
+    フェーズ117追記のとおり)。
+    """
+
+    trial_end_result = send_trial_end_reports(now, workshop_store, push_client)
+    payment_failure_result = send_payment_failure_reminders(now, workshop_store, push_client)
+    owner_notification_result = send_payment_suspension_owner_notifications(
+        now, workshop_store, push_client, owner_line_user_id
+    )
+    return RunDailyWorkshopChecksResult(
+        trial_end_reports=trial_end_result,
+        payment_failure_reminders=payment_failure_result,
+        payment_suspension_owner_notifications=owner_notification_result,
+    )
