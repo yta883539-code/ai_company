@@ -3795,4 +3795,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   追記・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
   発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、
   または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-14 21:00 UTC
+- フェーズ続き229(2026-09-15 05:00 UTC): 未走査の設計docの残課題棚卸しを継続し、
+  blocked-but-billing-detection-design.md(フェーズ続き176)4節「未着手のまま残る課題」の
+  1点目「候補一覧を実際にオーナーへ届ける手段(代替チャネル、メール等)の設計・実装」が、
+  実際にはフェーズ続き177のblocked-but-billing-owner-email-notification-design.mdで
+  メール本文組み立て・送信対象抽出・`send_blocked_but_billing_owner_email_notifications()`
+  まで設計・実装済みであり(フェーズ続き178でフォロー再開・解約確定時のクリア配線も完了)、
+  `prototype/blocked_but_billing_owner_email_notification.py`・対応するテストファイルの
+  存在も確認した上で、同節の記載が解消後も同期更新されないまま残っていた記載漏れ
+  (フェーズ227・228と同種のパターン)だったため、該当箇所を打ち消し線化し解消済みである旨と
+  参照先を追記した。実際のメール配信基盤への接続・送信実行自体はオーナー承認待ちの範囲として
+  変更していない。コード変更は無く、回帰確認としてventure全体805件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計doc記載漏れの訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-15 05:00 UTC
