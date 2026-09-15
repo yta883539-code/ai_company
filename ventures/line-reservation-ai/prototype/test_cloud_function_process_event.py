@@ -751,6 +751,29 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertEqual(result.action, "reask")
         self.assertEqual(flow.stage("U1"), "candidates_presented")
 
+    def test_details_shaped_output_at_candidates_presented_stage_does_not_skip_selection(self):
+        """mandatory-two-step-order-enforcement-design.md「残る課題」の検証。
+        LLM出力の中身(name/menu/confirmed)が`_handle_details()`(provide_details()呼び出し)を
+        誘発しそうな形(name・menu両方非null、confirmed: true)であっても、Cloud Function側の
+        分岐は`self._flow.stage(user_id)`(candidates_presented)のみを見て`_handle_candidate_
+        selection()`へルーティングする(intent-to-flow-mapping.md「呼び出し側ステージ前提:
+        awaiting_details」)ため、`provide_details()`は呼ばれずstageもconfirmedへ飛ばないことを
+        確認する。reply_textはどの候補ラベルにも一致しない文言にし、選択未了(reask)のまま
+        candidates_presentedに留まることまで確認する。
+        """
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+
+        def llm_call():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "うーん、どうしよう"), llm_call, NOW)
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
     def test_full_flow_reaches_confirmed_with_candidate_label_in_message(self):
         processor, flow, push, _ = _new_processor()
         self._present_candidates(processor)

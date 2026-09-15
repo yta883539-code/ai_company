@@ -3832,6 +3832,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (変更前と同じ結果)を確認した。承認不要なドキュメント新規作成・記載追記のみで、外部
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-09-15 08:00 UTC(フェーズ続き230: 人的サポートコストの本venture固有
-  試算をsupport-cost-estimate.mdとして新規作成し、4venture全てでの初回試算を完了。
-  コード変更は無し)
+- フェーズ続き231(2026-09-15 13:00 UTC): mandatory-two-step-order-enforcement-design.md
+  「残る課題」に残っていた「実際のWebhook実装(`prototype/cloud_function_process_event.py`)
+  がintent-to-flow-mapping.mdの対応表通りに`provide_details()`を呼んでいるかどうかの確認」に
+  着手した。`_process_message_event()`の`intent == "new_booking"`分岐(793-799行目)が
+  `self._flow.stage(user_id)`(ConversationFlowStateMachine自身が管理するstage)のみを見て
+  `stage == "awaiting_details"`の時だけ`provide_details()`を呼ぶ`_handle_details()`へ
+  ルーティングしており、`candidates_presented`の間はLLM出力の`name`/`menu`/`confirmed`の
+  中身に関わらず必ず`_handle_candidate_selection()`へ渡ることを確認した。分岐条件が
+  LLM出力ではなくConversationFlowStateMachine自身のstageという単一の真実源を参照しているため、
+  厳守事項2(候補提示→選択→確定)の2ステップ順序はengine.py層だけでなくCloud Functions層でも
+  構造的に守られていると判断した。この保証を裏付けるテスト
+  `test_details_shaped_output_at_candidates_presented_stage_does_not_skip_selection`を
+  test_cloud_function_process_event.pyに新規追加(candidates_presented状態でLLM出力が
+  provide_details()を誘発しそうな中身〈name・menu両方非null・confirmed: true〉でも、
+  未確定の返信では`action: reask`のままcandidates_presentedに留まり`confirmed`へ進まない
+  ことを確認)。詳細はmandatory-two-step-order-enforcement-design.md「残る課題」参照。
+  venture全体806件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なコード確認・テスト追加・設計doc更新のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-15 13:00 UTC(フェーズ続き231: 上記参照)

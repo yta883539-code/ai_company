@@ -60,9 +60,28 @@ if state is None or state.stage != "awaiting_details":
 
 ## 残る課題
 
-- この確認はconversation-flow-state-machine-design.md・intent-to-flow-mapping.mdの設計通りに
+- ~~この確認はconversation-flow-state-machine-design.md・intent-to-flow-mapping.mdの設計通りに
   Cloud Functions側の実装が呼び出し順序を守っている前提に立っている。実際のWebhook実装
   (`prototype/cloud_function_process_event.py`)がこの対応表通りに`provide_details()`を
-  呼んでいるかどうかの確認は別途行っていない(次回以降の点検候補)。
+  呼んでいるかどうかの確認は別途行っていない(次回以降の点検候補)。~~
+  → 対応済み(2026-09-15、フェーズ続き231)。`prototype/cloud_function_process_event.py`の
+  `_process_message_event()`(730行台〜)を確認したところ、`intent == "new_booking"`の分岐は
+  `self._flow.stage(user_id)`(793行目、ConversationFlowStateMachine自身から読み取った値)
+  のみを見て`stage == "awaiting_details"`の時だけ`_handle_details()`(内部で`provide_details()`
+  を呼ぶ)へルーティングしており(798-799行目)、`stage == "candidates_presented"`の間は
+  LLM出力の`name`/`menu`/`confirmed`フィールドの中身に関わらず必ず`_handle_candidate_
+  selection()`へ渡ることを確認した(intent-to-flow-mapping.mdの「呼び出し側ステージ前提:
+  awaiting_details」の記載と一致)。分岐条件が(LLM出力ではなく)ConversationFlowStateMachine
+  自身が管理するstageという単一の真実源(single source of truth)を参照しているため、
+  Cloud Functions側の実装ミスで呼び出し順序がずれる余地は構造的に小さいと判断した。
+  この保証を機械的に裏付けるため、`test_cloud_function_process_event.py`に
+  `test_details_shaped_output_at_candidates_presented_stage_does_not_skip_selection`を
+  新規追加した(candidates_presented状態でLLM出力がname・menu両方非null・confirmed: true という
+  「provide_details()を誘発しそうな中身」であっても、reply_textが候補ラベルに一致しなければ
+  `action: reask`のままcandidates_presentedに留まり、`confirmed`へは進まないことを確認)。
+  venture全体806件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なコード確認・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
 - aircon-pasha・course-set-pashaは会話フロー型ではなくメモ入力→単発生成型のため、この種の
   複数ターン状態遷移の構造的保証という論点自体が存在しない(line-reservation-ai固有)。
