@@ -3487,3 +3487,26 @@
   残っていた「他venture展開は次回以降の課題」という記載漏れを、kura-pasha・
   line-reservation-aiでの対応済み実績〈フェーズ121・続き230〉とcross-venture-support-
   cost-comparison.md〈kura-pashaフェーズ123〉を踏まえて訂正。コード変更は無し)
+- フェーズ224(2026-09-15 22:00 UTC): フェーズ223が優先候補として挙げていた「サポート
+  負荷軽減策(FAQ整備等)の具体的検討」に対応し、course-set-pasha・line-reservation-aiに
+  既にある契約者向けセルフサービスFAQ(owner-operation-self-service-faq.md)の本venture版を
+  新規作成した。本ventureの構造(施工業者本人または管理会社が契約者となるBtoC/BtoB併存、
+  来店客に相当する層が存在しない点はcourse-set-pashaと同型)を踏まえ、既存設計文書
+  (pricing-plan.md・subscription-cancellation-flow-design.md・trial-end-notification-
+  design.md・limit-approaching-notification-design.md・multi-technician-shared-usage-
+  design.md・unfollow-billing-faq.md・blocked-but-billing-owner-notification-design.md・
+  llm-system-prompt-draft.md厳守事項9)を参照根拠に7項目(プラン変更・トライアル条件・
+  解約/再開・繁忙期対応プランの複数職人共有・生成回数上限超過時の従量課金・管理会社向け
+  プランとの使い分け・生成結果の精度調整)を整理した。他3ventureには無い本venture固有の
+  項目として、Q6(管理会社向けプランと個人向けプランの使い分け)を追加した。コード変更は
+  無く、回帰確認としてprototype全491件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント新規作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。本FAQへの導線実装(line-reservation-aiのowner-faq-routing-design.mdと同種の
+  コマンド方式)、および残る1venture(kura-pasha)への横展開要否の確認を次回以降の課題として
+  残す。
+- 最終更新: 2026-09-15 22:00 UTC(フェーズ224: 契約者向けセルフサービスFAQ
+  〈owner-operation-self-service-faq.md〉を新規作成し、course-set-pasha・
+  line-reservation-aiとの横展開を完了。BtoB管理会社プランとの使い分け項目〈Q6〉は
+  本venture固有。コード変更は無し)
