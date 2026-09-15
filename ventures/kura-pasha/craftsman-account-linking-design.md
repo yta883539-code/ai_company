@@ -113,23 +113,37 @@ subscription-cancellation-flow-design.mdの仮決め(契約者以外からの解
 | `pending_workshop_invites/{code}` | 招待コード | `workshop_id`・`issued_at` | 既存workshopへの職人追加までの一時トークン(24時間失効) |
 | `craftsman_workshop/{workshop_id}` | workshop_id | `contractor_user_id`・`member_user_ids`・`plan_id`・`stripe_customer_id`・`created_at` | 契約単位。単一契約もmember 1名のworkshopとして統一的に扱う |
 | `user_profile/{user_id}` | LINE user_id | `workshop_id`(既存想定フィールドに追加) | 所属workshopへの参照(1人1工房のみ) |
-| `usage_counter/{workshop_id}` | workshop_id | `month`・`count` | 月間生成回数の積算。本設計により、複数職人が共通の1つのカウンタを共有する前提が明確になった(キーをuser_idからworkshop_idへ読み替える必要があることが判明。実装未着手のため次の課題) |
+| `usage_counter/{workshop_id}` | workshop_id | `month`・`count` | 月間生成回数の積算。本設計により、複数職人が共通の1つのカウンタを共有する前提が明確になった(キーをuser_idからworkshop_idへ読み替える対応は、フェーズ26のusage-counter-workshop-key-design.mdで解消済み) |
 
 ## 未検証・残課題
 
-- `usage_counter`のキーがこれまで暗黙にuser_id前提だった可能性があり(pricing-plan.md・
+(2026-09-15 10:00 UTC追記: 本節作成〈フェーズ25〉時点では以下3項目とも未着手だったが、
+その後のフェーズでいずれも専用ドキュメントとして解消済みであるにもかかわらず本節が
+更新されないまま「次の課題」表記が取り残されていた記載漏れを発見・訂正した。)
+
+- ~~`usage_counter`のキーがこれまで暗黙にuser_id前提だった可能性があり(pricing-plan.md・
   content-generation-time-estimate.mdはキー設計まで踏み込んでいない)、本設計により
   workshop_idキーへ読み替える必要があることが判明した。schema/output.schema.json・
-  validate_test_cases.pyへの反映は未着手で次の課題とする。
-- 複数職人プランからライト/スタンダードプランへのダウングレード時の「余剰メンバーの
+  validate_test_cases.pyへの反映は未着手で次の課題とする。~~
+  → フェーズ26でusage-counter-workshop-key-design.mdを新規作成し解消済み。同ファイル
+  3節の確認結果のとおり、usage_counterはLLM構造化出力に含まれないフィールドのため
+  schema/output.schema.json・validate_test_cases.pyへの変更は不要と結論づけられている。
+  月の途中でのworkshop新規作成時の上限按分要否(フェーズ32追記)も按分不要と確定済み。
+- ~~複数職人プランからライト/スタンダードプランへのダウングレード時の「余剰メンバーの
   扱い」(subscription-cancellation-flow-design.md 108行目で既に指摘済みの残課題)は、
   本設計のworkshop構造を前提にすると「`member_user_ids`が2名以上のままダウングレード
   された場合にどうするか(超過メンバーを強制的に外すか、次回請求まで猶予するか)」という
-  形で論点が具体化した。本ファイルでは扱わず次の課題とする。
-- 契約者(contractor)の譲渡機能(契約者本人が引退・交代する場合の引き継ぎ)はMVP範囲外とし、
-  次の課題とする。
+  形で論点が具体化した。本ファイルでは扱わず次の課題とする。~~
+  → フェーズ28でdowngrade-excess-member-handling-design.mdを新規作成し解消済み。
+- ~~契約者(contractor)の譲渡機能(契約者本人が引退・交代する場合の引き継ぎ)はMVP範囲外とし、
+  次の課題とする。~~
+  → フェーズ33でcontractor-transfer-design.mdを新規作成し着手、以後
+  contractor-transfer-confirmation-detection-design.md・
+  contractor-transfer-expired-notice-design.md・
+  contractor-transfer-non-contractor-message-design.mdとして設計・実装が積み上げられ
+  MVP範囲に取り込み済み。
 - 実際のLINE公式アカウント接続・Stripe接続・招待コード発行の実装(プロトタイプコード)は
-  未着手。実接続はオーナー承認待ちの範囲(pending-approval.md参照)。
+  引き続き未着手。実接続はオーナー承認待ちの範囲(pending-approval.md参照)。
 
 ## 7. 追記(フェーズ66): workshop新規作成時の暫定plan_id
 

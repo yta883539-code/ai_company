@@ -2560,3 +2560,21 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   へのcross-venture展開(残り1件)、または他venture・アイデア領域の前進を優先候補と
   する。
 - 最終更新: 2026-09-15 07:00 UTC
+
+- フェーズ122(2026-09-15 10:00 UTC): craftsman-account-linking-design.md(フェーズ25)
+  「未検証・残課題」節が、フェーズ25作成時点の3項目(usage_counterのworkshop_idキー
+  読み替え・ダウングレード時の余剰メンバー扱い・契約者譲渡機能)をいずれも「未着手・
+  次の課題」のまま記載し続けていたが、実際にはその後のフェーズ26(usage-counter-
+  workshop-key-design.md)・フェーズ28(downgrade-excess-member-handling-design.md)・
+  フェーズ33(contractor-transfer-design.md、以後contractor-transfer-*系ドキュメントに
+  発展)でいずれも専用ドキュメントとして解消済みであり、データ構造まとめの表
+  (`usage_counter/{workshop_id}`行)にも同様の古い記載が残っていた記載漏れを発見・
+  訂正した。各項目に解消先ドキュメントへの参照を追記し、引き続き未着手のまま残るのは
+  実LINE公式アカウント接続・Stripe接続・招待コード発行の実装(オーナー承認待ち)のみで
+  あることを明記した。コード変更は無く、回帰確認としてventure全体12ファイル
+  (`python3 prototype/run_all_tests.py`)・schema検証30件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な
+  ドキュメント記載漏れ訂正・アイデア追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 10:00 UTC
