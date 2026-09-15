@@ -3077,3 +3077,23 @@
 - 最終更新: 2026-09-14 22:00 UTC(フェーズ215: subscription-billing-cost-estimate.md・
   unit-economics-estimate.mdの決済手数料仮定をWebSearch調査に基づき3.6%→4.3%に更新し
   粗利率試算を再計算。コード変更は無し)
+- フェーズ216(2026-09-15 04:00 UTC): unit-economics-estimate.md「残課題(新規)」が
+  「原価試算の範囲外(人件費)のため別途整理が必要」として未着手のまま残していた将来的な
+  人的サポートコスト(オンボーディング・問い合わせ対応)について、support-cost-
+  estimate.mdを新規作成し初回の粗い試算を行った。運営者自身が対応窓口を兼ねる前提で、
+  オンボーディング15〜30分/件・継続対応月5〜20分/件(いずれも実測データのない仮定)、
+  時給3,000円(根拠なし・未検証の仮置き)換算で1顧客あたり初月30分・2ヶ月目以降月10分
+  程度(月500〜1,500円相当)と試算した。これは現金支出コストではなく運営者の機会費用の
+  ため既存の粗利率試算自体は変更しないが、運営者1人あたりの対応可能顧客数の粗い目安
+  (約120顧客)を新たに示した。unit-economics-estimate.md「残課題(新規)」に本ドキュメント
+  への参照を追記した。他venture(aircon-pasha・kura-pasha・line-reservation-ai)は顧客
+  対応特性が異なるため本試算をそのまま流用せず、各venture固有の試算を別途行う必要がある
+  旨をsupport-cost-estimate.md「残課題」に明記した(cross-venture展開は次回以降の課題)。
+  コード変更は無く、回帰確認としてventure全体583件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント新規作成・記載追記
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-15 04:00 UTC(フェーズ216: 人的サポートコスト〈オンボーディング・
+  問い合わせ対応〉の初回粗試算をsupport-cost-estimate.mdとして新規作成し、unit-
+  economics-estimate.mdの残課題に参照を追記。コード変更は無し)
