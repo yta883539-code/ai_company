@@ -3510,3 +3510,26 @@
   〈owner-operation-self-service-faq.md〉を新規作成し、course-set-pasha・
   line-reservation-aiとの横展開を完了。BtoB管理会社プランとの使い分け項目〈Q6〉は
   本venture固有。コード変更は無し)
+- フェーズ225(2026-09-15 23:00 UTC): フェーズ224が残課題として挙げていた「本FAQへの
+  導線実装」に対応し、course-set-pasha(フェーズ219)・line-reservation-ai(フェーズ続き
+  233)・kura-pasha(フェーズ126)に続く4venture目・最後の横展開として、契約者が
+  トークルームで「FAQ」→「Q1」〜「Q7」を送信するとその場で内容を返信するコマンド方式を
+  設計・実装した(owner-faq-routing-design.md新規作成)。本ventureには来店客に相当する
+  層がおらず送信者は常に契約者本人であるため、course-set-pashaと同じくowner_user_idでの
+  絞り込みは不要とした。本venture固有としてQ7(他3ventureはQ6まで)まであり、Q6の
+  管理会社向けプランとの使い分け項目も含めて7項目をカバーする。FAQコマンド判定は
+  `_is_generation_paused()`・`_is_payment_suspended()`より先に行う設計とした(Q2・Q3の
+  内容が一時停止・制限モード中の契約者にこそ有用である点、副作用を持たないコマンドで
+  ある点は他3ventureと同じ判断根拠)。prototype/owner_faq_router.py新規実装、
+  cloud_function_webhook.pyのprocess_memo_event()冒頭(`_is_generation_paused()`判定
+  より前)への配線、テスト追加(test_owner_faq_router.py新規18件・
+  test_cloud_function_webhook.pyに6件)を行い、回帰確認としてventure全体509件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証17件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。これで4venture
+  全てにオーナー・契約者向けセルフサービスFAQのコマンド方式導線実装が完了した。承認不要な
+  ドキュメント新規作成・コード実装のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回以降は実運用データ
+  取得後の効果検証、またはオンボーディング完了メッセージ等へのFAQ周知文言の追加を候補と
+  する。
+- 最終更新: 2026-09-15 23:00 UTC(フェーズ225: 本FAQへの導線実装〈owner-faq-routing-
+  design.md、コマンド方式、Q1〜Q7〉を行い、4venture全ての横展開を完了)

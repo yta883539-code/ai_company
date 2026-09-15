@@ -45,6 +45,12 @@ from checkout_session import (  # noqa: E402
     build_start_checkout_postback_data,
     parse_start_checkout_postback_data,
 )
+from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
+    match_owner_faq_item_code,
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
 from trial_end_scheduler import format_minutes_saved_line  # noqa: E402
 from user_id_linking import (  # noqa: E402
@@ -732,6 +738,7 @@ class MemoProcessResult:
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
+    owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q7"=owner-faq-routing-design.md準拠のFAQコマンド応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -815,6 +822,11 @@ def process_memo_event(
     設計上の判断(mvp-flow-draft.md準拠):
     1. message.type != "text" のイベント(画像単体送信等)は本フローの対象外とし、
        返信を送らずhandled=Falseで返す。
+    1.5. owner-faq-routing-design.md準拠。本文が「FAQ」または「Q1」〜「Q7」に一致する
+       場合、LLM呼び出し・生成一時停止/決済失敗制限モードの判定・各種カウント増分を
+       一切行わず、FAQメニューまたは該当項目の回答を直接返信して処理を終える
+       (owner_faq_action="menu"|"Q1"〜"Q7")。本ventureには来店客に相当する層がおらず
+       送信者は常に契約者本人であるため、owner_user_idのような絞り込みは行わない。
     2. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
        (course-set-pasha/line-reservation-aiのjson-output-retry-fallback.mdの
        「同一入力で1回だけ」方針を踏襲。再生成後もエラーが残る場合は安全側に倒し、
@@ -900,6 +912,29 @@ def process_memo_event(
     memo_text = message["text"]
     user_id = event.get("source", {}).get("userId")
     profile = profile_store.get(user_id) if profile_store is not None and user_id else None
+
+    # owner-faq-routing-design.md準拠。本ventureには来店客に相当する層がおらず、
+    # メッセージ送信者は常に契約者本人であるため、owner_user_idのような絞り込み判定は
+    # 不要(course-set-pashaと同じ構造)。LLM呼び出し・各種カウント増分より前に判定し、
+    # 一致する場合はここで応答を完結させる。一時停止・制限モードの判定より先に行う
+    # (design 2節「優先順位」参照。Q2・Q3の内容がまさに一時停止・制限モード中の契約者が
+    # 知りたい内容であり、副作用を持たないコマンドのため優先させても安全)。
+    if is_owner_faq_menu_trigger(memo_text):
+        reply_sent = _reply_with_retry(reply_client, reply_token, render_owner_faq_menu_message())
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=render_owner_faq_menu_message() if reply_sent else None,
+            owner_faq_action="menu",
+        )
+    owner_faq_code = match_owner_faq_item_code(memo_text)
+    if owner_faq_code is not None:
+        answer_message = render_owner_faq_answer_message(owner_faq_code)
+        reply_sent = _reply_with_retry(reply_client, reply_token, answer_message)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=answer_message if reply_sent else None,
+            owner_faq_action=owner_faq_code,
+        )
 
     if _is_generation_paused(profile):
         reply_sent = _reply_with_retry(

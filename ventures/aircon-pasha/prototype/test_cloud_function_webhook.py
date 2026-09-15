@@ -71,6 +71,10 @@ from checkout_session import (  # noqa: E402
     START_CHECKOUT_POSTBACK_DATA,
     build_start_checkout_postback_data,
 )
+from owner_faq_router import (  # noqa: E402
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 from post_generation_checks import LINE_TEXT_MESSAGE_CHAR_LIMIT  # noqa: E402
 from stripe_webhook import handle_checkout_session_completed  # noqa: E402
 from trial_end_scheduler import TRIAL_END_BUTTON_LABEL  # noqa: E402
@@ -2325,6 +2329,86 @@ class PaymentSuspensionSchedulerToPaymentSuspendedWiringTest(unittest.TestCase):
         )
 
         self.assertFalse(result.payment_suspended)
+
+
+class ProcessMemoEventOwnerFaqCommandTest(unittest.TestCase):
+    """process_memo_event()からの「FAQ」「Q1」〜「Q7」コマンド応答の検証
+    (owner-faq-routing-design.md)。"""
+
+    def test_faq_trigger_returns_menu_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="FAQ"), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertEqual(result.reply_text, render_owner_faq_menu_message())
+
+    def test_faq_trigger_is_case_insensitive_and_ignores_surrounding_whitespace(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text=" faq "), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertEqual(result.owner_faq_action, "menu")
+
+    def test_item_code_returns_answer_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="Q6"), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.owner_faq_action, "Q6")
+        self.assertEqual(result.reply_text, render_owner_faq_answer_message("Q6"))
+
+    def test_faq_command_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="FAQ", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="スタンダード", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_unrelated_text_falls_through_to_normal_generation_flow(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"),
+            FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertIsNone(result.owner_faq_action)
+
+    def test_faq_command_takes_precedence_over_generation_paused(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+            ),
+        )
+        profile_store.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0, tzinfo=timezone.utc))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="FAQ", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertFalse(result.generation_paused)
 
 
 if __name__ == "__main__":
