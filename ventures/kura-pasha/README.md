@@ -2616,4 +2616,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   承認不要な設計doc記載漏れの訂正のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回はサポート負荷
   軽減策(FAQ整備等)の具体的検討、他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-15 14:00 UTC
+- フェーズ125(2026-09-15 23:00 UTC): フェーズ124の「サポート負荷軽減策(FAQ整備等)の
+  具体的検討」に対応した。course-set-pasha・aircon-pasha・line-reservation-aiには既に
+  ある契約者向けセルフサービスFAQ(owner-operation-self-service-faq.md)が本venture
+  には未整備だったこと(aircon-pashaフェーズ224「次のステップ候補」でも指摘済み)を
+  受け、本venture版を新規作成した。他3ventureには無い本venture固有の機能(複数職人
+  プランの共同利用・解約権限、ダウングレード時の余剰メンバー扱い、契約者(工房主)
+  譲渡)を中心にQ1〜Q8の8項目を既存設計docを参照根拠に整理した。これで4venture全ての
+  契約者向けセルフサービスFAQ初回整理が完了した。コード変更は無く、回帰確認として
+  venture全体12ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は本FAQへの導線
+  設計(line-reservation-aiのowner-faq-routing-design.md相当の横展開)、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 23:00 UTC(フェーズ125: 契約者向けセルフサービスFAQ
+  〈owner-operation-self-service-faq.md〉を新規作成し、4venture全ての横展開を完了。
+  コード変更は無し)
