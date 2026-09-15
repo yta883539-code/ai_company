@@ -3852,4 +3852,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
   承認不要なコード確認・テスト追加・設計doc更新のみで、外部サービスへの公開・アカウント
   作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-15 13:00 UTC(フェーズ続き231: 上記参照)
+- フェーズ続き232(2026-09-15 15:00 UTC): kura-pashaフェーズ123の
+  cross-venture-support-cost-comparison.md、およびkura-pashaフェーズ124の
+  「次回はサポート負荷軽減策(FAQ整備等)の具体的検討...を優先候補とする」を受け、
+  本ventureがサポート負荷軽減策の最優先候補(対応コスト絶対額最高・対応可能上限最少)
+  と示唆されていたことに対応した。店舗オーナーからの初期設定・運用相談(support-cost-
+  estimate.mdが継続対応コストの主因と推測していたもの)を自己解決できるようにする
+  owner-operation-self-service-faq.mdを新規作成した。既存の厳守事項9a系FAQ
+  (faq-response-templates.md等)が来店客向けであるのに対し、本ドキュメントは
+  店舗オーナー向けである点が異なる。メニュー変更・営業時間変更・プラン変更解約・
+  トライアル条件・エスカレーション挙動・複数スタッフ管理の6項目を、既存設計doc
+  (owner-settings-wireframe.md・pricing-plan.md・trial-end-scheduler-design.md・
+  faq-escalation-boundary.md等)を参照根拠として整理した。導線(オンボーディング完了
+  メッセージへのリンク等)は未実装で、本フェーズはFAQ本文の整理にとどめた旨を
+  「未検証の仮説」「次のステップ候補」に明記した。support-cost-estimate.mdの残課題に
+  参照を追記した。コード変更は無く、回帰確認としてventure全体806件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は本FAQへの導線設計、
+  または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 15:00 UTC(フェーズ続き232: 上記参照)
