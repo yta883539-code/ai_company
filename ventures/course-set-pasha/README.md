@@ -3140,3 +3140,29 @@
 - 最終更新: 2026-09-15 17:00 UTC(フェーズ218: line-reservation-aiのオーナー向け
   セルフサービスFAQをcross-venture展開する形で、owner-operation-self-service-faq.mdを
   新規作成。コード変更は無し)
+- フェーズ219(2026-09-15 定例更新): フェーズ218「次のステップ候補」だった本FAQへの
+  導線実装に着手した。line-reservation-ai(フェーズ続き233)・kura-pasha(フェーズ126)に
+  続く3venture目の横展開として、owner-faq-routing-design.md新規作成・
+  `prototype/owner_faq_router.py`新規実装(LLM呼び出し・LINE送信・状態参照を持たない
+  純粋関数)を行った。本venture固有の事情として来店客に相当する層が存在せず、メッセージ
+  送信者は常に契約者(ジムオーナー・セッター)本人であるため、line-reservation-ai・
+  kura-pashaにあった`owner_user_id`との一致判定は不要と判断し、`process_memo_event()`に
+  届いたテキスト全件を対象にFAQトリガー判定を行う設計とした。また、Q2(トライアル条件)・
+  Q3(解約/再開)の内容が一時停止・制限モード中の契約者にこそ有用であること、FAQコマンド
+  自体が副作用を持たないことを踏まえ、`_is_generation_paused()`・`_is_payment_suspended()`
+  の判定よりも先にFAQコマンド判定を行う設計とした(line-reservation-ai・kura-pashaには
+  無かった本venture固有の優先順位の論点、詳細はowner-faq-routing-design.md 2節参照)。
+  `cloud_function_webhook.py`の`process_memo_event()`冒頭に分岐を追加し、
+  `MemoProcessResult`に`owner_faq_action`フィールドを新設した。テストは
+  `prototype/test_owner_faq_router.py`新規作成(純粋関数の単体テスト17件)、
+  `prototype/test_cloud_function_webhook.py`に`ProcessMemoEventOwnerFaqCommandTest`
+  (6件、一時停止判定への優先の検証含む)を追加し、回帰確認としてventure全体600件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証17件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(新規追加分以外は変更前と同じ
+  結果)を確認した。実LINE公式アカウント接続前でも机上実装・テストまで完結できるため
+  外部サービスへの公開・アカウント作成等は発生しておらずpending-approval.mdへの追記は
+  なし。次回はaircon-pashaへの同種導線の横展開、または他venture・アイデア領域の前進を
+  優先候補とする。
+- 最終更新: 2026-09-15 定例更新(フェーズ219: オーナー向けセルフサービスFAQへの導線
+  〈owner-faq-routing-design.md・prototype/owner_faq_router.py〉を新規実装し、
+  line-reservation-ai・kura-pashaに続き3venture目の横展開を完了)

@@ -90,10 +90,11 @@ Stripeカスタマーポータルから契約者自身が解約手続きでき�
 
 ## 次のステップ候補
 
-- line-reservation-aiのowner-faq-routing-design.md(フェーズ続き233、トークルームで
-  「FAQ」→「Q1」〜「Q6」送信によりその場で内容を返信するコマンド方式)は、外部公開を伴わず
-  LINE公式アカウント接続前でも机上実装・テストまで完結できる設計だった。本venture向けにも
-  同種の導線実装を横展開できないか、次回以降の候補とする。
+- (対応済み・フェーズ219、2026-09-15: line-reservation-ai・kura-pashaに続き、本FAQへの
+  導線(トークルームで「FAQ」→「Q1」〜「Q6」送信によりその場で内容を返信するコマンド方式)を
+  owner-faq-routing-design.md・`prototype/owner_faq_router.py`として実装した。詳細は
+  owner-faq-routing-design.md参照)
 - 実運用データが取得でき次第、実際の問い合わせ内容とFAQ項目の一致率を検証する。
 - 他venture(aircon-pasha・kura-pasha)でも同種のオーナー向けセルフサービスFAQが未整備で
-  あれば、本ドキュメント・line-reservation-ai版の構成を横展開できないか検討する。
+  あれば、本ドキュメント・line-reservation-ai版の構成を横展開できないか検討する
+  (kura-pashaは既に対応済み、aircon-pashaは未対応)。

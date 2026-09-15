@@ -52,6 +52,12 @@ from trial_end_scheduler import (  # noqa: E402
 from application_form_submission_flow import (  # noqa: E402
     UserProfileStoreProtocol,
 )
+from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
+    match_owner_faq_item_code,
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -946,6 +952,7 @@ class MemoProcessResult:
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
+    owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q6"=owner-faq-routing-design.md準拠のFAQコマンド応答
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -1050,6 +1057,11 @@ def process_memo_event(
        返信を送らずhandled=Falseで返す。
     2. has_photoはイベント側の付随情報として受け取る(束ね方自体は残課題、
        webhook-processing-flow-design.md「残課題」参照)。
+    2.5. owner-faq-routing-design.md準拠。本文が「FAQ」または「Q1」〜「Q6」に一致する
+       場合、LLM呼び出し・生成一時停止/決済失敗制限モードの判定・月間カウント増分を
+       一切行わず、FAQメニューまたは該当項目の回答を直接返信して処理を終える
+       (owner_faq_action="menu"|"Q1"〜"Q6")。本ventureには来店客に相当する層がおらず
+       送信者は常に契約者本人であるため、owner_user_idのような絞り込みは行わない。
     3. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
        (json-output-retry-fallback.mdの「同一入力で1回だけ」方針をline-reservation-aiと
        同じ形で採用。再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す)。
@@ -1114,6 +1126,29 @@ def process_memo_event(
     memo_text = message["text"]
     has_photo = bool(event.get("hasPhoto", False))
     user_id_for_pause_check = event.get("source", {}).get("userId")
+
+    # owner-faq-routing-design.md準拠。本ventureには来店客に相当する層がおらず、
+    # メッセージ送信者は常に契約者本人であるため、owner_user_idのような絞り込み判定は
+    # 不要(line-reservation-ai・kura-pashaとの違い)。LLM呼び出し・月間カウント増分より
+    # 前に判定し、一致する場合はここで応答を完結させる。一時停止・制限モードの判定より
+    # 先に行う(design 2節「優先順位」参照。Q2・Q3の内容がまさに一時停止・制限モード中の
+    # 契約者が知りたい内容であり、副作用を持たないコマンドのため優先させても安全)。
+    if is_owner_faq_menu_trigger(memo_text):
+        reply_sent = _reply_with_retry(reply_client, reply_token, render_owner_faq_menu_message())
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=render_owner_faq_menu_message() if reply_sent else None,
+            owner_faq_action="menu",
+        )
+    owner_faq_code = match_owner_faq_item_code(memo_text)
+    if owner_faq_code is not None:
+        answer_message = render_owner_faq_answer_message(owner_faq_code)
+        reply_sent = _reply_with_retry(reply_client, reply_token, answer_message)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=answer_message if reply_sent else None,
+            owner_faq_action=owner_faq_code,
+        )
 
     if _is_generation_paused(usage_counter, user_id_for_pause_check):
         reply_sent = _reply_with_retry(reply_client, reply_token, GENERATION_PAUSED_MESSAGE)

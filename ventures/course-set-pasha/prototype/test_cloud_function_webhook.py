@@ -64,6 +64,10 @@ from user_id_linking import (  # noqa: E402
 from application_form_submission_flow import (  # noqa: E402
     InMemoryUserProfileStore,
 )
+from owner_faq_router import (  # noqa: E402
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 
 
 class FixtureLlmClient:
@@ -1048,6 +1052,76 @@ class _MustNotBeCalledLlmClient:
 
     def generate(self, memo_text, has_photo, retry_context=None):
         raise AssertionError("generation_paused中はLLM呼び出しが行われないはず")
+
+
+class ProcessMemoEventOwnerFaqCommandTest(unittest.TestCase):
+    """process_memo_event()からの「FAQ」「Q1」〜「Q6」コマンド応答の検証
+    (owner-faq-routing-design.md)。"""
+
+    def test_faq_trigger_returns_menu_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="FAQ"), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertEqual(result.reply_text, render_owner_faq_menu_message())
+
+    def test_faq_trigger_is_case_insensitive_and_ignores_surrounding_whitespace(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text=" faq "), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertEqual(result.owner_faq_action, "menu")
+
+    def test_item_code_returns_answer_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="Q3"), _MustNotBeCalledLlmClient(), reply_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertEqual(result.owner_faq_action, "Q3")
+        self.assertEqual(result.reply_text, render_owner_faq_answer_message("Q3"))
+
+    def test_faq_command_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="FAQ", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_unrelated_text_falls_through_to_normal_generation_flow(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="エリアA 黄テープ 8本新規"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertIsNone(result.owner_faq_action)
+
+    def test_faq_command_takes_precedence_over_generation_paused(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="FAQ", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertFalse(result.generation_paused)
 
 
 class ProcessMemoEventGenerationPausedTest(unittest.TestCase):
