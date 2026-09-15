@@ -108,7 +108,21 @@ course-set-pasha(約120顧客)と比べて対応可能顧客数の上限が半�
 - 管理会社向けBtoBプランのオンボーディング対応時間(30〜60分/件と仮置き)は、契約件数の
   少なさを理由に本試算のスケール限界計算には含めていない。管理会社向けプランの契約が
   実際に増えた場合は別途試算が必要。
-- 残る2venture(kura-pasha・line-reservation-ai)への横展開は、本venture・course-set-pasha
+- ~~残る2venture(kura-pasha・line-reservation-ai)への横展開は、本venture・course-set-pasha
   とも異なる顧客対応特性(kura-pashaは低頻度受注・契約者譲渡等のワークショップ特有の
   イベント対応、line-reservation-aiは双方向会話ボットのエスカレーション対応が中心)を
-  踏まえた別途試算が必要であり、次回以降の課題として残す。
+  踏まえた別途試算が必要であり、次回以降の課題として残す。~~
+  → 2026-09-15 12:00 UTC訂正: 本課題は既に解消済みだった。kura-pasha(フェーズ121、
+  2026-09-15 07:00 UTC)・line-reservation-ai(フェーズ続き230、2026-09-15 08:00 UTC)の
+  両方でsupport-cost-estimate.mdが新規作成され、4venture全てで初回試算が完了している
+  (course-set-pasha/support-cost-estimate.md「残課題」2026-09-15追記が既に列挙済み)。
+  さらにkura-pashaフェーズ123(2026-09-15 11:00 UTC)で4venture横断比較を行う
+  cross-venture-support-cost-comparison.mdが新規作成され、月次対応コストの粗利額比率
+  (4venture間で約24.5〜28%とばらつき小)・運営者1人あたり対応可能上限(course-set-pasha
+  約120顧客〜line-reservation-ai約40顧客で約3倍差)が整理され、line-reservation-aiが
+  サポート負荷軽減策(FAQ整備等)の検討を最優先すべき候補、本venture(aircon-pasha、
+  対応可能上限約48顧客)が次点の候補と暫定的に順位付けされている。本節が横展開自体を
+  「次回以降の課題」としたまま残していたのは、他venture側で対応完了後も参照元である本節が
+  同期更新されなかった記載漏れ(course-set-pashaフェーズ217・kura-pashaフェーズ122等と
+  同種のパターン)であり、実害(数値・結論の誤り)は無い。詳細はkura-pasha/cross-venture-
+  support-cost-comparison.md参照。

@@ -3467,3 +3467,23 @@
 - 最終更新: 2026-09-15 06:00 UTC(フェーズ222: course-set-pashaのsupport-cost-
   estimate.mdのcross-venture展開として、本venture固有の人的サポートコスト試算を新規
   作成。unit-economics-estimate.mdの残課題に参照を追記。コード変更は無し)
+- フェーズ223(2026-09-15 12:00 UTC): support-cost-estimate.md(フェーズ222)「残課題」が
+  「残る2venture(kura-pasha・line-reservation-ai)への横展開は次回以降の課題として残る」と
+  記載したままだったが、実際にはkura-pasha(フェーズ121、2026-09-15 07:00 UTC)・
+  line-reservation-ai(フェーズ続き230、2026-09-15 08:00 UTC)の両方で既に対応済みであり、
+  さらにkura-pashaフェーズ123(2026-09-15 11:00 UTC)で4venture横断比較を行う
+  cross-venture-support-cost-comparison.mdが新規作成済みだった記載漏れ(course-set-pasha
+  フェーズ217・kura-pashaフェーズ122等と同種のパターン)を発見・訂正した。同ドキュメントの
+  結論(line-reservation-aiがサポート負荷軽減策の検討を最優先すべき候補、本venture
+  〈対応可能上限約48顧客〉が次点の候補)への参照を追記した。数値・結論自体に誤りは
+  無かった。コード変更は無く、回帰確認としてprototype全491件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証17件(`python3 schema/validate_
+  test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント記載
+  漏れの訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。次回は本venture・他venture共通でサポート
+  負荷軽減策(FAQ整備等)の具体的検討、または他venture・アイデア領域の前進を優先候補と
+  する。
+- 最終更新: 2026-09-15 12:00 UTC(フェーズ223: support-cost-estimate.mdの残課題に
+  残っていた「他venture展開は次回以降の課題」という記載漏れを、kura-pasha・
+  line-reservation-aiでの対応済み実績〈フェーズ121・続き230〉とcross-venture-support-
+  cost-comparison.md〈kura-pashaフェーズ123〉を踏まえて訂正。コード変更は無し)
