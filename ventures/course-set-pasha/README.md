@@ -3119,7 +3119,24 @@
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または引き続き
   未走査の設計docの残課題棚卸しを優先候補とする。
-- 最終更新: 2026-09-15 09:00 UTC(フェーズ217: support-cost-estimate.mdの残課題に
-  残っていた「他venture展開は次回以降の課題」という記載漏れを、aircon-pasha・kura-pasha・
-  line-reservation-aiでの対応済み実績〈フェーズ222・121・続き230〉を踏まえて訂正。コード
-  変更は無し)
+- フェーズ218(2026-09-15 17:00 UTC): line-reservation-ai/owner-operation-self-service-faq.md
+  (フェーズ続き232)末尾「次のステップ候補」に、他venture(course-set-pasha・aircon-pasha・
+  kura-pasha)でも同種のオーナー向けセルフサービスFAQが未整備であれば横展開を検討する旨の
+  記載があり、本ventureには未整備だったため対応した。owner-operation-self-service-faq.mdを
+  新規作成し、line-reservation-aiとの構造差(本ventureには来店客に相当する層がおらず、
+  ジムオーナー・セッター自身が契約者=利用者であるため「エスカレーション挙動」項目は存在
+  しない)を明記したうえで、Q1プラン変更・Q2トライアル条件・Q3解約/再開・Q4セッター複数プラン
+  (multi-setter-shared-usage-design.md、フェーズ204)・Q5月間生成回数上限超過時の従量課金
+  (pricing-plan.md)・Q6生成結果の精度調整、の6項目を既存設計docを参照根拠に整理した。
+  本FAQへの導線実装(オンボーディング完了メッセージへのリンク等)は未着手のまま次回以降の
+  課題とし、line-reservation-aiのowner-faq-routing-design.md(フェーズ続き233、トークルーム
+  コマンド方式)を本venture向けにも横展開できないか候補として明記した。コード変更は無く、
+  回帰確認としてventure全体583件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント新規作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回はaircon-pasha・kura-pashaへの同種FAQ横展開、または本FAQへの導線実装を
+  優先候補とする。
+- 最終更新: 2026-09-15 17:00 UTC(フェーズ218: line-reservation-aiのオーナー向け
+  セルフサービスFAQをcross-venture展開する形で、owner-operation-self-service-faq.mdを
+  新規作成。コード変更は無し)
