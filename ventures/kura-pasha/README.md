@@ -2578,3 +2578,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進を優先候補とする。
 - 最終更新: 2026-09-15 10:00 UTC
+
+- フェーズ123(2026-09-15 11:00 UTC): line-reservation-aiフェーズ続き230「今後は
+  4venture間の比較検討・実運用データ取得後の再検証が次の課題」を受け、course-set-pasha
+  (フェーズ216)・aircon-pasha(フェーズ222)・kura-pasha(フェーズ121)・
+  line-reservation-ai(フェーズ続き230)の4venture分のsupport-cost-estimate.mdを横断
+  比較するcross-venture-support-cost-comparison.mdを新規作成した(kura-pashaフェーズ89の
+  cross-venture-discover-compatibility-review.mdと同じ横断レビュー形式を踏襲)。2ヶ月目
+  以降の月次対応コスト・月次粗利額に対する比率・運営者1人あたり対応可能上限を表形式で
+  整理し、(1)対応コストの粗利額比率は4venture間で約24.5〜28%とばらつきが小さいこと、
+  (2)運営者1人あたり対応可能上限はcourse-set-pasha(約120顧客)からline-reservation-ai
+  (約40顧客)まで約3倍の開きがあること、(3)line-reservation-aiが「対応コスト絶対額
+  最高」かつ「対応可能上限最少」の両方に該当する唯一のventureであり、サポート負荷軽減策
+  (FAQ整備・セルフサービス化等)を優先検討すべき最有力候補と暫定的に順位付けできること、
+  を示唆として整理した。あわせてcourse-set-pasha/support-cost-estimate.md「残課題」に
+  本ドキュメントへの参照を追記した。いずれも4venture共通の未検証仮定(時給3,000円・月
+  20時間上限)に基づく机上の比較であり、実運用データによる再検証が引き続き最優先の課題
+  である旨を明記した。コード変更は無く、回帰確認としてventure全体12ファイル(`python3
+  prototype/run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント新規作成・アイデア
+  追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回はサポート負荷軽減策(FAQ整備等)の具体的検討、
+  他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 11:00 UTC
