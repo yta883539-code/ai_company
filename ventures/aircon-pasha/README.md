@@ -3448,3 +3448,22 @@
   4.1%から4.3%に改訂し、他3venture〈course-set-pasha・kura-pasha・line-reservation-ai〉
   と統一。subscription-billing-cost-estimate.md・unit-economics-estimate.mdの試算表を
   再計算。コード変更は無し)
+- フェーズ222(2026-09-15 06:00 UTC): course-set-pasha/support-cost-estimate.md
+  (フェーズ216)が「残課題」に残していたcross-venture展開(他venture固有の顧客対応特性に
+  合わせた人的サポートコスト試算)の第一弾として、本venture固有のsupport-cost-
+  estimate.mdを新規作成した。course-set-pashaとの違い(月間利用回数が一桁多い40〜150回/月、
+  繁忙期・閑散期の季節変動、管理会社向けBtoBプランの存在)を踏まえ、問い合わせ頻度が
+  利用回数に比例して増えるという仮定のもとオンボーディング20〜35分/件・継続対応月10〜50分/
+  件と試算した。2ヶ月目以降の月次対応コストは1,250円相当(course-set-pashaの500円の
+  2倍以上)、運営者1人あたりの対応可能顧客数の目安は約48顧客(course-set-pashaの約120顧客
+  より少ない)とした。unit-economics-estimate.md「残課題(新規)」に参照・要旨を追記した。
+  現金支出コストではなく機会費用のため既存の粗利率試算自体は変更していない。コード変更は
+  無く、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (491件)・`python3 schema/validate_test_cases.py`(17件)いずれもパス(変更前と同じ結果)
+  を確認した。承認不要なドキュメント新規作成・記載追記のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回はkura-pasha・line-reservation-aiへの同種展開、または他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-15 06:00 UTC(フェーズ222: course-set-pashaのsupport-cost-
+  estimate.mdのcross-venture展開として、本venture固有の人的サポートコスト試算を新規
+  作成。unit-economics-estimate.mdの残課題に参照を追記。コード変更は無し)
