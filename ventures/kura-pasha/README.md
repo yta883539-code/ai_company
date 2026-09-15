@@ -2600,4 +2600,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。次回はサポート負荷軽減策(FAQ整備等)の具体的検討、
   他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-15 11:00 UTC
+- フェーズ124(2026-09-15 14:00 UTC): 未走査の設計docの残課題棚卸しを継続し、
+  payment-failure-dunning-design.md 6節「残課題」の記載が、フェーズ120
+  (daily-scheduler-design.md 7節)で実際には対応済みだった「3日前リマインド専用
+  スケジューラへの実送信配線」を、依然「次の課題」のまま記載し続けていた記載漏れ
+  (フェーズ113・118・119・122等と同種のパターン)を発見・訂正した。
+  `prototype/daily_scheduler.py`の`send_payment_failure_reminders()`が
+  `run_daily_workshop_checks()`(Cloud Function G本体)から呼び出されるところまで
+  実装・テスト済みであることを確認したうえで、該当箇所を打ち消し線化し、残るのは
+  実LINE公式アカウント接続・実Cloud Scheduler構築・実オーナーLINEユーザーID設定という
+  外部サービスへのアカウント作成・接続を伴う部分のみ(pending-approval.md 2026-09-15
+  03:00 UTC記載の通りオーナー承認待ち)である旨を明記した。コード変更は無く、回帰確認
+  としてventure全体12ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計doc記載漏れの訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回はサポート負荷
+  軽減策(FAQ整備等)の具体的検討、他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 14:00 UTC

@@ -160,16 +160,23 @@ Webhookで受け取り、`craftsman_workshop`の状態を更新し、契約者�
   トライアル30日到達報告(trial-end-notification-design.md 6節)と合わせた日次
   スケジューラ設計を新規作成し、`WorkshopStoreProtocol`へ`payment_failure_reminder_sent_at`
   フィールドを追加、`prototype/daily_scheduler.py`に`is_payment_failure_reminder_due()`/
-  `select_due_payment_failure_reminders()`を実装した。実際のCloud Function本体・LINE
-  Push送信配線は引き続き次の課題(daily-scheduler-design.md 6節参照)。~~運営者向け通知
+  `select_due_payment_failure_reminders()`を実装した。~~実際のCloud Function本体・LINE
+  Push送信配線は引き続き次の課題(daily-scheduler-design.md 6節参照)。~~ → フェーズ120で
+  対応済み。`send_payment_failure_reminders(now, workshop_store, push_client)`を
+  `daily_scheduler.py`に実装し、`run_daily_workshop_checks()`(Cloud Function G本体)から
+  呼び出す配線まで完了した(daily-scheduler-design.md 7節参照)。~~運営者向け通知
   (payment-suspension-owner-notification-design.md相当)は本venture側に運営者向け通知の
   送信先・仕組み自体がまだ無いため、依然次の課題として残る。~~ → フェーズ116で対応済み。
   payment-suspension-owner-notification-design.mdを新規作成し、`WorkshopStoreProtocol`へ
   `payment_suspension_owner_notified_at`フィールドを追加、`prototype/payment_suspension_
   owner_notification.py`に`select_due_payment_suspension_owner_notifications()`/
-  `send_payment_suspension_owner_notifications()`を実装した。実際のオーナーLINEユーザーID
+  `send_payment_suspension_owner_notifications()`を実装した。~~実際のオーナーLINEユーザーID
   取得・LINE Push送信配線は引き続き次の課題(同ドキュメント8節参照)。3日前リマインド専用
-  スケジューラへの実送信配線は、依然次の課題として残る。
+  スケジューラへの実送信配線は、依然次の課題として残る。~~ → 3日前リマインドの実送信配線は
+  上記の通りフェーズ120で対応済み。残るのは実LINE公式アカウント接続(チャネルアクセス
+  トークン取得)・実Cloud Scheduler構築・実オーナーLINEユーザーID設定という、外部サービスへの
+  アカウント作成・接続を伴う部分のみであり、これらはpending-approval.md(2026-09-15 03:00 UTC
+  記載)の通りオーナー承認待ちとして記録済み。
   実装した際は、4節の「猶予期間中の解消」を「リマインド送信済みか否か」で2分岐へ精緻化
   できる(他venture3件と同じ形へ揃える)。
 - 実際のWebhook受信・状態保存・LINE送信配線(実LINE公式アカウント接続)、決済代行サービス
