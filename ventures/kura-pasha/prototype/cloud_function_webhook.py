@@ -61,6 +61,12 @@ from usage_counter_workshop import (
     cancel_pending_contractor_transfer,
     select_message_context,
 )
+from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
+    match_owner_faq_item_code,
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -1239,6 +1245,40 @@ LINKING_REQUIRED_MESSAGE = (
 )
 
 
+def _maybe_handle_owner_faq_command(
+    text: Optional[str],
+    *,
+    user_id: str,
+    workshop_id: str,
+    workshop_store: "WorkshopStoreProtocol",
+    reply_client: ReplyClient,
+    reply_token: str,
+) -> Optional["MemoProcessResult"]:
+    """owner-faq-routing-design.md(フェーズ126)の「FAQ」「Q1」〜「Q8」コマンド分岐。
+
+    契約者本人(`workshop_store.get_contractor_user_id(workshop_id) == user_id`)から
+    トリガーに一致する本文を受信した場合のみ処理し、`MemoProcessResult`を返す
+    (LLM呼び出し・process_memo_event()へは進まない)。それ以外(契約者以外・
+    トリガー不一致)は`None`を返し、呼び出し元に通常フローへ進ませる。
+    """
+    if user_id != workshop_store.get_contractor_user_id(workshop_id):
+        return None
+
+    if is_owner_faq_menu_trigger(text):
+        reply_text = render_owner_faq_menu_message()
+    else:
+        code = match_owner_faq_item_code(text)
+        if code is None:
+            return None
+        reply_text = render_owner_faq_answer_message(code)
+
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent,
+        reply_text=reply_text if reply_sent else None,
+    )
+
+
 def process_message_event(
     event: dict,
     llm_call: LlmCallClient,
@@ -1261,6 +1301,9 @@ def process_message_event(
     - message.type != "text": process_memo_event()にそのまま委譲する(process_memo_event()
       自体が非テキストをhandled=Falseとして扱う既存の分岐をそのまま利用する)。
     - 連携済み(user_idかつ`user_profile_store.get_workshop_id(user_id)`が設定済み):
+      まず`_maybe_handle_owner_faq_command()`(フェーズ126、owner-faq-routing-design.md)
+      で契約者本人からの「FAQ」「Q1」〜「Q8」コマンドかどうかを判定し、一致すれば
+      LLM呼び出し・process_memo_event()へは進まずその場で返信する。不一致の場合のみ
       process_memo_event()へそのまま委譲する。
     - 未連携: 受信テキストを`create_workshop_from_linking_code()`へ渡す。連携コードとして
       解決・workshop新規作成に成功した場合のみLINKING_SUCCESS_MESSAGEを返す。解決できない
@@ -1304,16 +1347,28 @@ def process_message_event(
         )
 
     user_id = event.get("source", {}).get("userId")
-    if user_id and user_profile_store.get_workshop_id(user_id) is not None:
-        return process_memo_event(
-            event, llm_call, reply_client,
-            portal_link_provider=portal_link_provider,
-            user_profile_store=user_profile_store,
-            workshop_store=workshop_store,
-            usage_counter_store=usage_counter_store,
-            checkout_session_client=checkout_session_client,
-            now=now,
-        )
+    if user_id:
+        workshop_id = user_profile_store.get_workshop_id(user_id)
+        if workshop_id is not None:
+            faq_result = _maybe_handle_owner_faq_command(
+                message.get("text"),
+                user_id=user_id,
+                workshop_id=workshop_id,
+                workshop_store=workshop_store,
+                reply_client=reply_client,
+                reply_token=event["replyToken"],
+            )
+            if faq_result is not None:
+                return faq_result
+            return process_memo_event(
+                event, llm_call, reply_client,
+                portal_link_provider=portal_link_provider,
+                user_profile_store=user_profile_store,
+                workshop_store=workshop_store,
+                usage_counter_store=usage_counter_store,
+                checkout_session_client=checkout_session_client,
+                now=now,
+            )
 
     reply_token = event["replyToken"]
     if not user_id:

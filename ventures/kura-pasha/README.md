@@ -2633,3 +2633,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-15 23:00 UTC(フェーズ125: 契約者向けセルフサービスFAQ
   〈owner-operation-self-service-faq.md〉を新規作成し、4venture全ての横展開を完了。
   コード変更は無し)
+- フェーズ126(2026-09-15 20:00 UTC): フェーズ125「次のステップ候補」だった本FAQへの
+  導線実装に着手した。line-reservation-aiのowner-faq-routing-design.md(トークルームで
+  「FAQ」→「Q1」〜「Q8」送信によりその場で内容を返信するコマンド方式)を本venture向けに
+  横展開し、owner-faq-routing-design.md新規作成・`prototype/owner_faq_router.py`新規実装
+  (LLM呼び出し・LINE送信を持たない純粋関数)を行った。本venture固有の複数職人プラン構造
+  を踏まえ、判定対象は`workshop_store.get_contractor_user_id(workshop_id)`と一致する
+  契約者本人のみに絞り、共同利用者(メンバー)からの同一文言送信は影響を受けず従来通り
+  依頼メモとして処理される設計とした。`cloud_function_webhook.py`の
+  `process_message_event()`に`_maybe_handle_owner_faq_command()`を新設して配線した
+  (連携済み分岐で`process_memo_event()`へ委譲する前に判定)。テストは
+  `prototype/test_owner_faq_router.py`新規作成(純粋関数の単体テスト)、
+  `prototype/test_cloud_function_webhook.py`に3件追加(契約者のFAQトリガー・Q7照会・
+  契約者以外からのFAQ送信が通常の生成フローにフォールバックすること)し、回帰確認として
+  venture全体13ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(新規追加分以外は変更前と同じ
+  結果)を確認した。実LINE公式アカウント接続前でも机上実装・テストまで完結できるため
+  外部サービスへの公開・アカウント作成等は発生しておらずpending-approval.mdへの追記は
+  なし。次回はcourse-set-pasha・aircon-pashaへの同種導線の横展開、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-15 20:00 UTC(フェーズ126: 契約者向けセルフサービスFAQへの導線
+  〈owner-faq-routing-design.md・prototype/owner_faq_router.py〉を新規実装し、
+  line-reservation-aiに続き2venture目の横展開を完了)

@@ -122,10 +122,11 @@ workshop内の既存メンバーと突き合わせ、契約者からの再確認
 
 ## 次のステップ候補
 
-- line-reservation-aiのowner-faq-routing-design.md(トークルームで「FAQ」→「Q1」〜
-  「Q8」送信によりその場で内容を返信するコマンド方式)は、外部公開を伴わずLINE公式
-  アカウント接続前でも机上実装・テストまで完結できる設計だった。本venture向けにも
-  同種の導線実装を横展開できないか、次回以降の候補とする。
+- (フェーズ126で対応済み)line-reservation-aiのowner-faq-routing-design.md(トークルーム
+  で「FAQ」→「Q1」〜「Q8」送信によりその場で内容を返信するコマンド方式)を本venture向けに
+  横展開し、owner-faq-routing-design.md・`prototype/owner_faq_router.py`として実装・
+  テストまで完了した(`process_message_event()`の契約者判定に配線)。残るcourse-set-pasha
+  ・aircon-pashaへの横展開の要否は次回以降の候補とする。
 - これでcourse-set-pasha・aircon-pasha・kura-pasha・line-reservation-aiの4venture
   全てで契約者向けセルフサービスFAQの初回整理が完了した。今後は実運用データが取得
   でき次第、実際の問い合わせ内容とFAQ項目の一致率を4venture横断で検証する

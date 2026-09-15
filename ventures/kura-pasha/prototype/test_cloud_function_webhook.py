@@ -57,6 +57,7 @@ from usage_counter_workshop import (
     PendingContractorTransfer,
     UsageCheckResult,
 )
+from owner_faq_router import render_owner_faq_answer_message, render_owner_faq_menu_message
 from validate_test_cases import TEST_CASES
 from workshop_linking import (
     InMemoryLinkingCodeStore,
@@ -1548,6 +1549,65 @@ def test_process_message_event_delegates_when_user_already_linked():
     check("連携済みuser_idはLLMが呼ばれる", len(llm_call.calls) == 1)
 
 
+def test_process_message_event_contractor_faq_trigger_returns_menu_without_llm_call():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LINKED", "W_LINKED")
+    workshops.set_plan("W_LINKED", "standard")
+    workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    linking_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("FAQ", user_id="U_LINKED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("契約者のFAQトリガーはhandled=True", result.handled is True)
+    check("契約者のFAQトリガーはメニュー本文を返す", result.reply_text == render_owner_faq_menu_message())
+    check("契約者のFAQトリガーはLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_contractor_faq_item_code_returns_answer_without_llm_call():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LINKED", "W_LINKED")
+    workshops.set_plan("W_LINKED", "standard")
+    workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    linking_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("Q7", user_id="U_LINKED"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("契約者のQ7送信はhandled=True", result.handled is True)
+    check("契約者のQ7送信は回答本文を返す", result.reply_text == render_owner_faq_answer_message("Q7"))
+    check("契約者のQ7送信はLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_non_contractor_member_faq_trigger_falls_back_to_generation():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_MEMBER", "W_LINKED")
+    workshops.set_plan("W_LINKED", "multi_craftsman")
+    workshops.set_members("W_LINKED", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    linking_store = InMemoryLinkingCodeStore()
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_message_event(
+        _make_event("FAQ", user_id="U_MEMBER"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("契約者以外の「FAQ」送信は通常の生成フローに委譲される", len(llm_call.calls) == 1)
+    check("契約者以外の「FAQ」送信はFAQメニューを返さない", result.reply_text != render_owner_faq_menu_message())
+
+
 def test_process_message_event_creates_workshop_on_valid_linking_code():
     profiles, workshops, counters = _make_stores()
     linking_store = InMemoryLinkingCodeStore()
@@ -2301,6 +2361,9 @@ if __name__ == "__main__":
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()
+    test_process_message_event_contractor_faq_trigger_returns_menu_without_llm_call()
+    test_process_message_event_contractor_faq_item_code_returns_answer_without_llm_call()
+    test_process_message_event_non_contractor_member_faq_trigger_falls_back_to_generation()
     test_process_message_event_creates_workshop_on_valid_linking_code()
     test_process_message_event_replies_linking_required_on_invalid_text()
     test_process_message_event_replies_linking_required_when_user_id_missing()
