@@ -267,6 +267,72 @@ class NewBookingContradictionOwnerNotificationTests(unittest.TestCase):
         self.assertEqual(logs.system_event_counts.get("output_contradiction"), 1)
         self.assertEqual(logs.consultation_count, 0)
 
+
+class OwnerFaqCommandTests(unittest.TestCase):
+    """owner-faq-routing-design.md準拠。オーナー本人からの「FAQ」「Q1」〜「Q6」は
+    LLM呼び出し・通常の会話フローを経由せず即時返信されることを検証する。
+    """
+
+    def _unreachable_llm_call(self):
+        def call():
+            raise AssertionError("owner FAQ command must not invoke the LLM")
+
+        return call
+
+    def test_owner_faq_trigger_replies_with_menu_without_calling_llm(self):
+        processor, flow, push, logs = _new_processor(owner_user_id="U-owner")
+
+        result = processor.process(_event("U-owner", "FAQ"), self._unreachable_llm_call(), NOW)
+
+        self.assertEqual(result.action, "owner_faq_menu")
+        self.assertEqual(len(push.sent), 1)
+        self.assertEqual(push.sent[0][0], "U-owner")
+        self.assertIn("Q1", push.sent[0][1])
+        self.assertIn("Q6", push.sent[0][1])
+        self.assertIsNone(flow.stage("U-owner"))
+        self.assertEqual(logs.consultation_count, 0)
+
+    def test_owner_faq_item_code_replies_with_answer_without_calling_llm(self):
+        processor, _, push, _ = _new_processor(owner_user_id="U-owner")
+
+        result = processor.process(_event("U-owner", "q3"), self._unreachable_llm_call(), NOW)
+
+        self.assertEqual(result.action, "owner_faq_answer")
+        self.assertEqual(result.detail, "Q3")
+        self.assertTrue(push.sent[0][1].startswith("Q3."))
+
+    def test_non_owner_sending_faq_keyword_uses_normal_flow(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner")
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+                "faq_segments": None,
+            }
+
+        result = processor.process(_event("U-customer", "FAQ"), llm_call, NOW)
+
+        # faq_segments無しのfaqはオーナー転送のみ(FaqSegmentReplyTests参照)という
+        # 既存の一般顧客向け経路がそのまま維持されることを確認する(オーナー宛の
+        # ショートカットが誤って一般顧客にも適用されないことの回帰確認)。
+        self.assertEqual(result.action, "forwarded_to_owner")
+
+    def test_owner_faq_command_ignored_when_owner_user_id_not_configured(self):
+        processor, _, push, _ = _new_processor()
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+                "faq_segments": None,
+            }
+
+        result = processor.process(_event("U1", "FAQ"), llm_call, NOW)
+
+        self.assertEqual(result.action, "forwarded_to_owner")
+
+
 class PendingNewBookingContextTtlTests(unittest.TestCase):
     """pending-new-booking-context-ttl-design.md準拠。メニュー未言及の聞き返し(reask)で
     保持した`requested_date_range`が、CONVERSATION_IDLE_TIMEOUT(30分)以内の次ターンでは

@@ -89,6 +89,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from blocked_but_billing_owner_email_notification import (  # noqa: E402
     clear_blocked_but_billing_owner_notified_at,
 )
+from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
+    match_owner_faq_item_code,
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
@@ -499,6 +505,18 @@ class ConversationEventProcessor:
             return
         self._notify_owner(user_id, event, now)
 
+    def _maybe_render_owner_faq_reply(self, reply_text: str) -> Optional[tuple[str, str, str]]:
+        """owner-faq-routing-design.md準拠。reply_textが「FAQ」トリガーまたは
+        「Q1」〜「Q6」に一致すれば(送信本文, DispatchResult.action, detail)を返す。
+        一致しなければNone(呼び出し元は通常のLLM解釈フローへそのまま進める)。
+        """
+        if is_owner_faq_menu_trigger(reply_text):
+            return render_owner_faq_menu_message(), "owner_faq_menu", ""
+        code = match_owner_faq_item_code(reply_text)
+        if code is not None:
+            return render_owner_faq_answer_message(code), "owner_faq_answer", code
+        return None
+
     def _notify_owner(
         self, user_id: str, output: dict, now: datetime, reply_text: Optional[str] = None
     ) -> None:
@@ -739,6 +757,17 @@ class ConversationEventProcessor:
         hydrate/dehydrateはprocess()側の責務のため、ここではuser_idを引数で受け取る。
         """
         reply_text = event.get("message", {}).get("text", "")
+
+        # owner-faq-routing-design.md準拠。オーナー本人確定時のみ、LLM呼び出し・
+        # 会話状態参照より前に「FAQ」「Q1」〜「Q6」のコマンドを判定する。運用コマンドの
+        # ためNotificationLogAggregatorへの記録・オーナーへの転送(自分自身への転送になり
+        # 意味がない)は行わない。一致しない入力は従来通り以降の分岐にそのまま流れる。
+        if self._owner_user_id is not None and user_id == self._owner_user_id:
+            owner_faq_reply = self._maybe_render_owner_faq_reply(reply_text)
+            if owner_faq_reply is not None:
+                message, action, detail = owner_faq_reply
+                self._send(user_id, message, now)
+                return DispatchResult(action=action, detail=detail)
 
         # customer-reply-detection-design.md準拠。LLM呼び出し・intent判定より前に、
         # confirmed状態の会話へメッセージが届いた事実そのものを記録する(内容は問わない)。
