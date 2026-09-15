@@ -2539,3 +2539,24 @@ payment-suspension-owner-notification-design.md「8. 今後の課題」の3日�
 発見し、Cloud Function G本体の送信配線〈send_trial_end_reports()・
 send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テスト8件追加。
 実クラウド接続〈Cloud Scheduler・LINE公式アカウント〉のみ引き続きオーナー承認待ち)
+
+- フェーズ121(2026-09-15 07:00 UTC): aircon-pashaがフェーズ222(support-cost-
+  estimate.md)で「cross-venture展開の第一弾」として着手した人的サポートコスト
+  (オンボーディング・問い合わせ対応)試算の第二弾として、本venture固有の
+  support-cost-estimate.mdを新規作成した。course-set-pasha版と同じ時給3,000円
+  (未検証の仮置き)を採用しつつ、本venture固有の複数職人プラン(workshop共有)・
+  契約者(contractor)譲渡フローに伴う追加対応工数を織り込み、2ヶ月目以降の月次対応
+  コストを単一プラン相当500円・複数職人プラン相当500〜1,250円、運営者1人あたりの
+  対応可能workshop数の目安を約60〜120workshopと試算した。あわせてunit-economics-
+  estimate.mdの残課題1点目が「aircon-pasha・line-reservation-aiへの決済手数料4.3%
+  改訂の反映待ち」としていたが、両venture側で既にフェーズ221・フェーズ相当時点で
+  改訂済みだったにもかかわらず記載が同期更新されていなかった記載漏れを発見・訂正した。
+  現金支出コストではなく機会費用のため既存の粗利率試算自体は変更していない。コード
+  変更は無く、回帰確認としてventure全体12ファイル(`python3 prototype/
+  run_all_tests.py`)・schema検証30件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なアイデア追加・ドキュメント
+  新規作成・記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回はline-reservation-ai
+  へのcross-venture展開(残り1件)、または他venture・アイデア領域の前進を優先候補と
+  する。
+- 最終更新: 2026-09-15 07:00 UTC
