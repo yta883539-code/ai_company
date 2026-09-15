@@ -3422,5 +3422,29 @@
   サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
   approval.mdへの追記なし。次回は他venture・アイデア領域の前進、または本調査で得られない
   管理会社側の生の単価感を実ヒアリング(承認待ち)に委ねる旨の整理を優先候補とする。
-- 最終更新: 2026-09-15 00:00 UTC(フェーズ220: 管理会社向け一括契約の単価水準についてWebSearch
-  で追加調査し、隣接領域の複数台割引慣行をmarket-research.mdに記録。コード変更は無し)
+- フェーズ221(2026-09-15 02:00 UTC): kura-pashaがフェーズ119(2026-09-14 07:00 UTC)で
+  指摘していたcross-venture parityの抜け(course-set-pashaが2026-09-14 22:00 UTCの
+  フェーズ215で確認したクレジットカード継続課金手数料の改訂「基本料率3.6%+Stripe
+  Billing追加手数料0.7%〈2024年に0.5%から引き上げ〉=合計約4.3%」が、kura-pasha・
+  line-reservation-aiには順次反映済みだった一方、本venture固有のsubscription-billing-
+  cost-estimate.md・unit-economics-estimate.mdだけが2026-08-24時点の独自調査結果
+  「基本料率3.6%+Billing追加手数料0.5%=合計約4.1%」のまま未反映で残っていたギャップ)を
+  解消した。subscription-billing-cost-estimate.mdに新セクション「決済手数料4.3%への
+  改訂」を追加し、旧4.1%仮定との差異(Billing追加手数料が2024年に0.5%→0.7%へ再改定
+  されていた点)を明記したうえで、固定月額分・超過課金分の決済手数料試算表を4.3%仮定に
+  更新した(スモール約128円/スタンダード約257円/繁忙期対応約386円、超過単価は約2.6円/
+  2.2円/1.7円)。unit-economics-estimate.mdの前提・1業者あたり月次粗利試算表(粗利率
+  84.8〜87.1%→84.1〜86.4%〈キャッシュなし〉、91.6〜92.5%→90.9〜91.8%〈キャッシュ
+  利用時〉)、季節変動を織り込んだ年間シミュレーション表(年間平均粗利率86.3〜88.5%→
+  85.6〜87.8%)、course-set-pashaとの比較記述をいずれも4.3%仮定で再計算・更新した
+  (更新前の値は各節に参考として残した)。これで4venture全てで決済手数料仮定が4.3%に
+  統一された。コード変更は無く、回帰確認としてprototype全491件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証17件(`python3 schema/validate_
+  test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント内の
+  試算値更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。Stripe公式ドキュメントでの一次情報最終確認は
+  4venture共通で引き続き契約時の課題として残る。
+- 最終更新: 2026-09-15 02:00 UTC(フェーズ221: クレジットカード継続課金手数料の仮定を
+  4.1%から4.3%に改訂し、他3venture〈course-set-pasha・kura-pasha・line-reservation-ai〉
+  と統一。subscription-billing-cost-estimate.md・unit-economics-estimate.mdの試算表を
+  再計算。コード変更は無し)
