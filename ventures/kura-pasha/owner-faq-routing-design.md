@@ -82,13 +82,20 @@ schema検証30件(`python3 schema/validate_test_cases.py`)いずれもパス
 
 ## 6. 未検証の仮説・残課題
 
-- line-reservation-aiと同様、「FAQ」という単語自体を契約者が思いつかない可能性があり、
-  コマンドの存在をどう周知するかは別課題として残る(onboarding-guide.mdへの文言追加等が
-  候補だが、既存の固定文言の変更を伴うため本フェーズでは見送った)。
+- 【解消済み・2026-09-17 20:00 UTC追記】「FAQ」という単語自体を契約者が思いつかない
+  可能性がある問題は、course-set-pasha・aircon-pashaと同じ考え方で対応した。本venture
+  固有の唯一確実な初回導線である`format_follow_welcome_message()`(友だち追加時の
+  ウェルカムメッセージ)の末尾に「ご利用方法などのご質問は、トークルームで『FAQ』と
+  送信するといつでもご案内します。」の一文を追記した。既存の連携コード案内部分の文言・
+  処理は変更していない。test_cloud_function_webhook.pyに、ウェルカムメッセージ本文が
+  実際にowner_faq_router.is_owner_faq_menu_trigger()のトリガーキーワード「FAQ」と
+  一致することを検証するテストを1件追加した。
 - Q1〜Q8以外の項目(想定外の質問)が来た場合の追加ハンドリングは無く、その場合は契約者が
   今まで通り運営者へ直接問い合わせる想定のまま。
 - 実際に契約者がこのコマンドをどの程度使うか、対応コスト削減(support-cost-estimate.md・
   cross-venture-support-cost-comparison.md)にどの程度寄与するかは実運用データ
   (LINE公式アカウント接続後)が無いと検証できない。
-- これでline-reservation-aiに続き、本venture(kura-pasha)でも導線実装が完了した。
-  残るcourse-set-pasha・aircon-pashaへの横展開の要否は次回以降の候補とする。
+- これでline-reservation-ai・course-set-pashaに続き、本venture(kura-pasha)でも
+  FAQ導線の周知対応が完了した。残るline-reservation-aiへの同種対応の要否は次回以降の
+  候補とする(line-reservation-aiのcheckout-initiation-flow-design.md等、決済導線側の
+  設計は別途進行中のため、周知対応自体は未着手のまま残っている)。

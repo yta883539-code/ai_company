@@ -262,6 +262,11 @@ def format_follow_welcome_message(linking_code: str) -> str:
     course-set-pashaのformat_welcome_message()と異なり、本ventureには申込フォームが
     存在せず連携コードはこのままLINEトーク上に送り返してもらう想定(design 1節)のため、
     フォームURLの差し込みは行わない(固定テンプレート+コード埋め込みのみ)。
+
+    末尾のFAQ案内文は、owner-faq-routing-design.md 6節が残課題としていた「『FAQ』という
+    単語自体を契約者が思いつかない可能性があり、コマンドの存在をどう周知するか」への対応
+    (course-set-pashaのformat_welcome_message()と同じ考え方)。本venture固有の唯一確実な
+    初回導線であるこのウェルカムメッセージの末尾に追記した。
     """
     return (
         "鞍パシャッと 友だち追加ありがとうございます!\n\n"
@@ -270,7 +275,8 @@ def format_follow_welcome_message(linking_code: str) -> str:
         "ご利用開始には、下記の連携コードをこのままこのトークに送信してください"
         "(24時間有効・1回限り)。\n\n"
         f"連携コード: {linking_code}\n\n"
-        "コードの有効期限が切れた場合は、もう一度このトークを開くと新しいコードが届きます。"
+        "コードの有効期限が切れた場合は、もう一度このトークを開くと新しいコードが届きます。\n\n"
+        "ご利用方法などのご質問は、トークルームで「FAQ」と送信するといつでもご案内します。"
     )
 
 

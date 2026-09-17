@@ -57,7 +57,11 @@ from usage_counter_workshop import (
     PendingContractorTransfer,
     UsageCheckResult,
 )
-from owner_faq_router import render_owner_faq_answer_message, render_owner_faq_menu_message
+from owner_faq_router import (
+    is_owner_faq_menu_trigger,
+    render_owner_faq_answer_message,
+    render_owner_faq_menu_message,
+)
 from validate_test_cases import TEST_CASES
 from workshop_linking import (
     InMemoryLinkingCodeStore,
@@ -285,6 +289,15 @@ def test_format_follow_welcome_message_embeds_linking_code():
     message = format_follow_welcome_message("ABC234")
     check("連携コードが本文に含まれる", "連携コード: ABC234" in message)
     check("トークに送信するよう案内している", "このトークに送信してください" in message)
+
+
+def test_format_follow_welcome_message_mentions_faq_trigger_keyword():
+    # owner-faq-routing-design.md 6節の残課題(「FAQ」という単語自体を契約者が思いつかない
+    # 問題)への対応: ウェルカムメッセージ本文が実際にowner_faq_router側のトリガー
+    # キーワードと一致することを確認する。
+    message = format_follow_welcome_message("ABC234")
+    check("FAQトリガーキーワードと一致する", is_owner_faq_menu_trigger("FAQ"))
+    check("FAQ案内文が含まれる", "「FAQ」と送信" in message)
 
 
 def test_process_follow_event_ignores_non_follow_event():
@@ -2303,6 +2316,7 @@ if __name__ == "__main__":
     test_format_limit_approaching_notice_trial_returns_none_before_threshold()
     test_format_limit_approaching_notice_trial_guards_monthly_limit_le_one()
     test_format_follow_welcome_message_embeds_linking_code()
+    test_format_follow_welcome_message_mentions_faq_trigger_keyword()
     test_process_follow_event_ignores_non_follow_event()
     test_process_follow_event_issues_code_and_sends_welcome_message()
     test_process_follow_event_without_user_id_does_not_reply()
