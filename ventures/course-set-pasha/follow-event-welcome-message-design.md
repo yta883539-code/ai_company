@@ -127,3 +127,14 @@ linking-code-purge-trigger-design.md未解決事項への回答として、`proc
   (`portal_link_provider`のような動的なユーザーごとの出し分けは不要)。
 - ウェルカムメッセージの文面は最終的な日本語表現の推敲(オーナーレビュー)を経ていない
   下書き段階。
+- (解消済み 2026-09-17 UTC定例更新: owner-faq-routing-design.md 5節が残していた「『FAQ』
+  という単語自体を契約者が思いつかない可能性があり、コマンドの存在をどう周知するか」の
+  問題に対応した。aircon-pashaがfirst-generation-self-check-design.mdのSELF_CHECK_
+  NOTICE_TEXT末尾に追記した方式と同じ考え方で、本venture固有の唯一確実な初回導線である
+  ウェルカムメッセージ(`format_welcome_message()`)の末尾に「トークルームで『FAQ』と
+  送信すればいつでもご案内します」の一文を追記した。既存のコード発行・申込フォーム案内
+  部分の文言・処理は変更せず、post_generation_checks.pyが対象とする生成文チェックの対象
+  外(本doc冒頭の方針どおり固定テンプレート文言)である点も変わらない。
+  test_cloud_function_webhook.pyに、ウェルカムメッセージ本文が実際に
+  `owner_faq_router.is_owner_faq_menu_trigger()`のトリガーキーワード「FAQ」と一致する
+  ことを確認するテストを1件追加し、601件全体・schema検証17件いずれもパスを確認した)

@@ -65,6 +65,7 @@ from application_form_submission_flow import (  # noqa: E402
     InMemoryUserProfileStore,
 )
 from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
@@ -1865,6 +1866,14 @@ class ProcessFollowEventTest(unittest.TestCase):
         text = format_welcome_message("ABC123", form_link_provider=provider)
         self.assertIn("https://forms.gle/real-form", text)
         self.assertNotIn(APPLICATION_FORM_URL_PLACEHOLDER, text)
+
+    def test_welcome_message_mentions_faq_trigger_keyword(self):
+        # follow-event-welcome-message-design.md 残課題(FAQという単語自体を契約者が
+        # 思いつかない問題)への対応: ウェルカムメッセージ本文が実際にowner_faq_router側の
+        # トリガーキーワードと一致することを確認する。
+        text = format_welcome_message("ABC123", form_link_provider=None)
+        self.assertTrue(is_owner_faq_menu_trigger("FAQ"))
+        self.assertIn("「FAQ」と送信", text)
 
     def test_non_follow_event_is_ignored(self):
         store = InMemoryLinkingCodeStore()

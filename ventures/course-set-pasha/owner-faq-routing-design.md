@@ -80,10 +80,9 @@ line-reservation-ai・kura-pashaから踏襲するため)。
 
 ## 5. 未検証の仮説・残課題
 
-- line-reservation-ai・kura-pashaと同様、「FAQ」という単語自体を契約者が思いつかない
-  可能性があり、コマンドの存在をどう周知するかは別課題として残る(follow-event-
-  welcome-message-design.mdのウェルカムメッセージ本文への追記等が候補だが、既存の
-  固定文言の変更を伴うため本フェーズでは見送った)。
+- (解消済み 2026-09-17 UTC定例更新: follow-event-welcome-message-design.md残課題を参照。
+  「FAQ」という単語自体を契約者が思いつかない問題に対し、ウェルカムメッセージ
+  (`format_welcome_message()`)末尾へトリガーキーワードの案内文を追記した)
 - Q1〜Q6以外の想定外の質問への追加ハンドリングは無く、その場合は契約者が今まで通り
   運営者へ直接問い合わせる想定のまま。
 - 実際に契約者がこのコマンドをどの程度使うか、support-cost-estimate.mdが試算した
