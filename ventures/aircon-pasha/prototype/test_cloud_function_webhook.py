@@ -72,6 +72,7 @@ from checkout_session import (  # noqa: E402
     build_start_checkout_postback_data,
 )
 from owner_faq_router import (  # noqa: E402
+    is_owner_faq_menu_trigger,
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
@@ -681,6 +682,15 @@ class ProcessMemoEventFirstGenerationSelfCheckTest(unittest.TestCase):
         )
 
         self.assertNotIn(SELF_CHECK_NOTICE_TEXT, result.reply_text)
+
+    def test_self_check_notice_mentions_faq_keyword(self):
+        # owner-faq-routing-design.md 5節の残課題(FAQコマンドの周知)対応、フェーズ226。
+        # 全業者が生涯に一度は必ず受け取るこの初回生成時セルフチェック案内に、FAQコマンドの
+        # 案内文を追記したことを固定文言の中身として検証する(SELF_CHECK_NOTICE_TEXT自体の
+        # 文言が「FAQ」というトリガーキーワードを含んでいること、owner_faq_router.pyの
+        # _MENU_TRIGGER_KEYWORDと同じ表記であることの回帰防止)。
+        self.assertIn("FAQ", SELF_CHECK_NOTICE_TEXT)
+        self.assertTrue(is_owner_faq_menu_trigger("FAQ"))
 
 
 class ProcessMemoEventTrialEndConditionATest(unittest.TestCase):

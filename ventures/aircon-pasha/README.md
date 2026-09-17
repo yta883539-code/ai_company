@@ -3533,3 +3533,28 @@
   する。
 - 最終更新: 2026-09-15 23:00 UTC(フェーズ225: 本FAQへの導線実装〈owner-faq-routing-
   design.md、コマンド方式、Q1〜Q7〉を行い、4venture全ての横展開を完了)
+- フェーズ226(2026-09-17 09:00 UTC): フェーズ225・owner-faq-routing-design.md 5節が
+  残課題として挙げていた「『FAQ』という単語自体を契約者が思いつかない可能性があり、
+  コマンドの存在をどう周知するか」に対応した。全業者が生涯に一度は必ず受け取る
+  唯一確実な導線であるSELF_CHECK_NOTICE_TEXT(初回生成時セルフチェック案内、
+  first-generation-self-check-design.md)の末尾に「料金プランの変更・解約方法などよくある
+  ご質問は、トークルームで「FAQ」と送信するといつでもご確認いただけます。」を追記した。
+  既存の確認依頼部分の文言(分解洗浄の範囲・冷媒/電気系統の当否評価混入チェック等)は
+  一切変更しておらず、completion_report・care_guideのbody自体にも触れないため、
+  first-generation-self-check-design.md 2節の安全設計(依頼者への誤送信防止)は維持される。
+  test_cloud_function_webhook.pyに`test_self_check_notice_mentions_faq_keyword`を新規
+  追加(SELF_CHECK_NOTICE_TEXTが"FAQ"というトリガー文言を含み、それが
+  `owner_faq_router.is_owner_faq_menu_trigger()`の判定するキーワードと一致することを検証)し、
+  first-generation-self-check-design.md(6節新設)・owner-faq-routing-design.md(5節の該当
+  残課題を解消済みへ更新)にも決定内容・見送った代替案(LINE公式アカウントの「あいさつ
+  メッセージ」機能を使った友だち追加直後の周知、実LINE API接続後の検討課題として残す)を
+  記録した。回帰確認としてventure全体510件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパスを
+  確認した。承認不要なドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  他3venture(course-set-pasha・kura-pasha・line-reservation-ai)の同種セルフチェック
+  案内・初回案内文言への同じ追記の横展開、または実運用データ取得後の効果検証を優先候補と
+  する。
+- 最終更新: 2026-09-17 09:00 UTC(フェーズ226: 初回生成時セルフチェック案内
+  〈SELF_CHECK_NOTICE_TEXT〉の末尾にFAQコマンドの周知文言を追記し、owner-faq-routing-
+  design.md 5節の周知課題に対応)
