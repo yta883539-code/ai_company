@@ -3872,4 +3872,46 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要なドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回は本FAQへの導線設計、
   または他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-15 15:00 UTC(フェーズ続き232: 上記参照)
+- フェーズ続き233(2026-09-15 16:00 UTC): フェーズ続き232「次のステップ候補」だった本FAQへの
+  導線設計に着手した。オーナーがトークルームで「FAQ」→「Q1」〜「Q6」を送信すると
+  内容をその場で返信するコマンド方式を採用し(owner-faq-routing-design.md新規作成)、
+  `prototype/owner_faq_router.py`新規実装(LLM呼び出し・LINE送信を持たない純粋関数)・
+  `cloud_function_process_event.py`の`_process_message_event()`冒頭への配線を行った。
+  外部公開を伴わずLINE公式アカウント接続前でも机上実装・テストまで完結できるため、
+  当初想定より前倒しで対応した。テスト追加(`test_owner_faq_router.py`新規72件・
+  `test_cloud_function_process_event.py`に66件)を行い、回帰確認としてventure全体821件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な設計・実装・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。なお本フェーズは、本README「最終更新」
+  マーカーの追記漏れがあったため、フェーズ続き235(本エントリ)にて事後反映した。
+- フェーズ続き234(2026-09-17 21:00 UTC): フェーズ続き233・owner-faq-routing-design.md
+  5節が残課題としていた「『FAQ』という単語自体をオーナーが思いつかない可能性がある」
+  周知課題に対応した。course-set-pasha・aircon-pasha・kura-pashaの3venture(いずれも
+  follow時のウェルカムメッセージがオーナー本人だけが読むことが確定しているため、そこに
+  FAQコマンドの案内文を追記していた)とは異なり、本ventureのfollow-unfollow-event-
+  handling-design.md 2節が定める通り`FOLLOW_WELCOME_MESSAGE`はオーナー・一般顧客共用の
+  固定文言であるため、同じ周知先を使うと一般顧客に紛らわしい案内を見せてしまう固有の
+  制約がある。そのため代わりに、オーナー本人にのみ1回だけ送信されることが確定している
+  onboarding-completion-message-design.md(オンボーディング完了メッセージ)を周知先として
+  採用した。また同ドキュメント3節が定める「1メッセージ1用件」の原則との整合のため、
+  新規段落ではなく既存の結び文への1文継ぎ足しに留めた
+  (`prototype/onboarding_completion_message.py`の3トーン全ての文言を更新)。
+  `test_onboarding_completion_message.py`に、3トーン全てが"FAQ"を含み
+  `owner_faq_router.is_owner_faq_menu_trigger()`の判定と一致することを検証するテストを
+  1件追加し、venture全体822件・schema検証27件いずれもパスを確認した。承認不要な
+  ドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ続き235(2026-09-17 23:00 UTC): フェーズ続き233・234実施時に、本README
+  「最終更新」マーカーの追記が漏れたまま2回分の定例更新(bd960d6・42e5af6コミット)が
+  積み重なっていた記載漏れ(kura-pashaフェーズ127→128・aircon-pashaフェーズ225→226等
+  他ventureでも過去に発生した同種パターン)を発見し、上記フェーズ続き233・234のエントリを
+  事後反映した。コード変更は無く、回帰確認としてventure全体822件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は本FAQコマンドの
+  実運用データ取得後の効果検証、または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-17 23:00 UTC(フェーズ続き235: フェーズ続き233〈FAQコマンド方式の
+  導線実装〉・234〈オンボーディング完了メッセージへのFAQ周知文言追記〉のREADME記載漏れを
+  事後反映。コード変更は無く回帰確認のみ)
