@@ -65,10 +65,30 @@ owner-operation-self-service-faq.mdのQ1〜Q6の内容を、LINEメッセージ�
 
 ## 5. 未検証の仮説・残課題
 
-- 「FAQ」という単語自体をオーナーが思いつかない可能性があり、コマンドの存在を
-  どう周知するかは別課題として残る(オンボーディング完了メッセージ本文への
-  文言追加、フォローイベント時のウェルカムメッセージへの追記等が候補だが、
-  いずれも既存の固定文言の変更を伴うため本フェーズでは見送った)。
+- (解消 2026-09-17 21:00 UTC・定例更新: 「FAQ」という単語自体をオーナーが思いつかない
+  可能性があるという周知課題に対応した。course-set-pasha・aircon-pasha・kura-pashaの
+  3venture(それぞれフェーズ218・225・続き)は、いずれもfollow時のウェルカムメッセージが
+  「オーナー本人だけが読む」ことが確定しているため、そこにFAQコマンドの案内文を追記する
+  方式を採用していた。しかし本ventureのfollow-unfollow-event-handling-design.md 2節に
+  ある通り、`FOLLOW_WELCOME_MESSAGE`(`format_follow_welcome_message()`)は「followした
+  のがオーナーか一般顧客かをfollow時点では判別できない」という本venture固有の構造上、
+  オーナー・顧客共用の固定文言になっている。ここにFAQコマンドの案内を追記すると、
+  トリガー判定が`owner_user_id`一致者に限定されているため実害(誤動作)はないものの、
+  一般顧客に対して「送っても何も起きない案内」を見せてしまい紛らわしい。そのため
+  本venture独自の判断として、周知先には共用のfollowウェルカムメッセージではなく、
+  onboarding-completion-message-design.md(オーナー本人にのみ、1回だけ送信されることが
+  確定している)を採用した。また同ドキュメント3節が定める「1メッセージ1用件」の
+  原則との整合を保つため、新規の段落を追加するのではなく、既存の結び文
+  (「ご不明点はこのトークルームにご返信ください」相当、3トーン共通)に「よくある
+  質問は『FAQ』と送ると案内する」旨を1文だけ継ぎ足す形とし、既存の主用件(トライアル中の
+  セルフサービスアップグレード案内)を上書きしないようにした。
+  `prototype/onboarding_completion_message.py`の3トーン全てのメッセージ文言を更新し、
+  `test_onboarding_completion_message.py`に、3トーン全てが"FAQ"を含み、かつ
+  `owner_faq_router.is_owner_faq_menu_trigger("FAQ")`が真であることを検証するテストを
+  1件追加した。venture全体(python3 -m unittest discover -s prototype -p "test_*.py")・
+  schema検証(python3 schema/validate_test_cases.py)いずれもパスを確認した。
+  承認不要なドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。)
 - Q1〜Q6以外の項目(想定外の質問)が来た場合の追加ハンドリングは無く、
   その場合はオーナーが今まで通り運営者へ直接問い合わせる想定のまま。
 - 実際にオーナーがこのコマンドをどの程度使うか、対応コスト削減にどの程度

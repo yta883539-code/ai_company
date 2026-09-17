@@ -8,6 +8,7 @@ from __future__ import annotations
 import unittest
 
 from onboarding_completion_message import render_onboarding_completion_message
+from owner_faq_router import is_owner_faq_menu_trigger
 
 
 class RenderOnboardingCompletionMessageTests(unittest.TestCase):
@@ -53,6 +54,16 @@ class RenderOnboardingCompletionMessageTests(unittest.TestCase):
             text = render_onboarding_completion_message(self.URL, tone=tone)
             self.assertIn("トライアル", text)
             self.assertIn("有料プラン", text)
+
+    def test_all_tones_mention_faq_command_matching_owner_faq_router_trigger(self):
+        # owner-faq-routing-design.md 5節「『FAQ』という単語自体をオーナーが思いつかない
+        # 可能性がある」という残課題への対応。follow-unfollow-event-handling-design.mdの
+        # ウェルカムメッセージは顧客とオーナーで共用のため周知先として不適切だが、本メッセージは
+        # オーナー本人にのみ送信される(design 1節)ため周知先として採用した。
+        for tone in ("formal", "standard", "casual"):
+            text = render_onboarding_completion_message(self.URL, tone=tone)
+            self.assertIn("FAQ", text)
+            self.assertTrue(is_owner_faq_menu_trigger("FAQ"))
 
 
 if __name__ == "__main__":
