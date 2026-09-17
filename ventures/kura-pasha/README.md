@@ -2655,3 +2655,42 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-15 20:00 UTC(フェーズ126: 契約者向けセルフサービスFAQへの導線
   〈owner-faq-routing-design.md・prototype/owner_faq_router.py〉を新規実装し、
   line-reservation-aiに続き2venture目の横展開を完了)
+- フェーズ127(2026-09-17 20:00 UTC): フェーズ126・owner-faq-routing-design.md 6節が
+  残課題として挙げていた「『FAQ』という単語自体を契約者が思いつかない可能性があり、
+  コマンドの存在をどう周知するか」に対応した。course-set-pasha・aircon-pashaと同じ
+  考え方で、本venture固有の唯一確実な初回導線であるウェルカムメッセージ
+  (`format_follow_welcome_message()`)の末尾に「トークルームで『FAQ』と送信すると
+  いつでもご案内します。」の一文を追記した。既存の連携コード案内部分の文言・処理は
+  変更していない。`test_cloud_function_webhook.py`に、ウェルカムメッセージ本文が
+  実際に`owner_faq_router.is_owner_faq_menu_trigger()`のトリガーキーワード「FAQ」と
+  一致することを検証するテストを1件追加し、venture全体98件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した(このフェーズは
+  コード・設計doc更新時に本README「最終更新」マーカーの追記漏れがあったため、
+  本フェーズ128にて事後反映した)。承認不要なドキュメント更新・コード実装のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は発生しておらず
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-17 20:00 UTC(フェーズ127: ウェルカムメッセージ末尾へのFAQコマンド
+  周知文言追記により、line-reservation-ai・course-set-pashaに続き3venture目の周知対応を
+  完了)
+- フェーズ128(2026-09-17 22:00 UTC): 他3venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)には既にあるが本venture未着手だったdeployment-runbook.md自体の
+  cross-venture parityギャップに対応した。aircon-pasha/deployment-runbook.mdの構成を
+  踏襲しつつ、本venture固有の(1)課金・生成回数上限管理がworkshop単位である点
+  (tech-stack.md・subscription-billing-data-model-design.md・usage-counter-workshop-
+  key-design.md)、(2)複数職人プランの共同利用・ダウングレード時の余剰メンバー扱い
+  (craftsman-account-linking-design.md・downgrade-excess-member-handling-design.md)、
+  (3)Webhook受信用+日次スケジューラ用の2 Cloud Function構成(daily-scheduler-design.md・
+  payment-failure-dunning-design.md、line-reservation-aiのFunction Cと同種で
+  course-set-pasha・aircon-pashaの単一関数構成とは異なる)を反映した手順書を新規作成した。
+  GCPプロジェクト作成・LINE公式アカウント開設・Stripeアカウント接続はいずれも
+  アカウント作成・支払いを伴うためオーナー承認待ちの範囲であり、本フェーズは実行手順の
+  机上整理のみに留めた(いずれのステップも未実行)。コード変更は無く、回帰確認として
+  venture全体13ファイル(`python3 prototype/run_all_tests.py`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  line-reservation-aiへの同種FAQ導線周知の横展開の要否確認、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-17 22:00 UTC(フェーズ128: deployment-runbook.mdを新規作成し、
+  4venture全てでデプロイ手順書のcross-venture parityを達成。コード変更は無し)

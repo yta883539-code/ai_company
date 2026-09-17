@@ -95,7 +95,9 @@ schema検証30件(`python3 schema/validate_test_cases.py`)いずれもパス
 - 実際に契約者がこのコマンドをどの程度使うか、対応コスト削減(support-cost-estimate.md・
   cross-venture-support-cost-comparison.md)にどの程度寄与するかは実運用データ
   (LINE公式アカウント接続後)が無いと検証できない。
-- これでline-reservation-ai・course-set-pashaに続き、本venture(kura-pasha)でも
-  FAQ導線の周知対応が完了した。残るline-reservation-aiへの同種対応の要否は次回以降の
-  候補とする(line-reservation-aiのcheckout-initiation-flow-design.md等、決済導線側の
-  設計は別途進行中のため、周知対応自体は未着手のまま残っている)。
+- これでcourse-set-pasha・aircon-pashaに続き、本venture(kura-pasha)でもFAQ導線の
+  周知対応が完了した。【解消済み・2026-09-17 21:00 UTC追記】残っていたline-reservation-ai
+  も、同venture固有の制約(follow時のウェルカムメッセージがオーナー・一般顧客共用のため、
+  代わりにオーナー本人にのみ送信されるonboarding-completion-message-design.mdを周知先に
+  採用)を踏まえて対応済みとなり、これで4venture全ての周知対応が完了した
+  (line-reservation-ai/owner-faq-routing-design.md 5節参照)。
