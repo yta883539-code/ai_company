@@ -166,6 +166,13 @@ generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答�
   実LLM接続後(オーナー承認待ち)のまま残る)
 - 厳守事項7aの境界(特に(iii)雑談と(iv)判断不能の切り分け)は机上での言い回し例に基づく
   仮の線引きであり、実LLM接続後に実際の入力文でどちらに判定されるかの検証が必要
+  (2026-09-18 定例更新: aircon-pashaのG8_busy_season_grumble_not_cancellation
+  〈2026-09-18 17:00 UTC、厳守事項6a(iii)版〉と対になる、CI4・CI5とは逆方向〈利用頻度
+  低下の愚痴ではなくセッター側の多忙・繁忙を愚痴る表現〉の7a(iii)境界ケースを
+  schema/validate_test_cases.pyにCI6_busy_season_grumble_not_cancellationとして
+  具体的な入出力サンプルに固定した〈output-samples-validation.md参照〉。ただしこれも
+  スキーマレベルの整合性確認に留まり、実LLMが実際にこの区別を守れるかの検証は引き続き
+  実LLM接続後の課題として残る)
   (2026-08-15 05:00 UTC追記)。
 - (解消済み 2026-08-07 14:00 UTC: 料金プラン・無料トライアル条件の仮決めをpricing-plan.mdで実施)
 - (解消済み 2026-08-07 15:00 UTC: schema/output.schema.jsonのallOf条件分岐(if/then)が

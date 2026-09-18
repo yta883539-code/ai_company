@@ -39,8 +39,9 @@ validate_test_cases.pyへケースが追加されており、本節は2026-08-22
 | CI1_cancellation_intent_clear | cancellation_intent | フェーズ54(2026-08-15 08:00 UTC)で追加。解約意図が明確なケース。`subscription_procedure_notice`にStripeカスタマーポータルへの案内文が付与される(厳守事項7a) |
 | CI2_downgrade_intent | downgrade_intent | 解約ではなくプラン変更(ダウングレード)の意図と判定されるケース。日割り精算・ポータル案内が付与される |
 | CI3_cancellation_unclear | cancellation_unclear | 解約意図か判断できないあいまいなケース。断定せず本人へ確認を促す文言のみを返し、`includes_portal_link`はfalse |
+| CI6_busy_season_grumble_not_cancellation | generated | 2026-09-18定例更新で追加。aircon-pashaのG8と対になる7a(iii)境界ケース。CI4・CI5(利用頻度低下方向の雑談)とは逆に、セッター側の多忙・繁忙を愚痴る表現(「セット依頼が多すぎて全然追いつかない」等)が契約継続に触れない雑談の域を出ない場合、解約意図とは判定せず通常どおり3出力を生成する |
 
-## 結果
+## 結果(2026-08-22 06:00 UTC時点)
 
 ```
 合計 9 件中 9 件パス、0 件失敗
@@ -52,6 +53,15 @@ validate_test_cases.pyへケースが追加されており、本節は2026-08-22
 スキーマ単体では表現されない)についても、コード側検証(`validate_cross_field_rules`)で
 機械的にチェックできることを確認した。G4(複数エリア同時更新時の`history_rows`要素数)・
 CI1〜CI3(厳守事項7a関連の3分岐)についても同様に機械チェックでパスすることを確認済み。
+
+上記の「9件」表記は2026-08-22 06:00 UTC時点のものであり、その後もCI4〜CI6・CO1〜CO5・
+NEG1等がschema/validate_test_cases.pyへ追加され続けている(2026-09-18定例更新時点で
+実際は18件)。この一覧表・件数表記は初版更新以降追随できておらず、aircon-pashaの
+output-samples-validation.mdで発生したG7・NEG2の反映漏れ(フェーズ230で訂正)と
+同種のドキュメント追随漏れが本venture側にも存在する。全件の棚卸し・表の全面更新は
+別フェーズの課題として残し、本フェーズでは新規追加分(CI6)の反映のみに留めた。
+最新の実行結果は`python3 schema/validate_test_cases.py`を直接実行して確認すること
+(2026-09-18定例更新時点: 合計18件中18件パス)。
 
 ## 残る未検証事項
 

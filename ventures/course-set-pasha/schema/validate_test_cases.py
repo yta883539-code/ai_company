@@ -423,6 +423,45 @@ TEST_CASES = {
         "subscription_procedure_notice": None,
         "checkout_notice": None,
     },
+    # 2026-09-18 定例更新(フェーズ続き)追加。aircon-pashaのG8_busy_season_grumble_not_
+    # cancellation(2026-09-18 17:00 UTC、llm-system-prompt-draft.md「次の課題」既知の限界
+    # 6a(iii)対応)と対になる、本venture厳守事項7a(iii)版のcross-venture横展開。CI4・CI5が
+    # カバーする「利用頻度低下・満足度低下」方向の雑談(あんまり使えていない等)とは逆方向の、
+    # セッター側の多忙・繁忙を愚痴る表現(「セット依頼が多すぎて全然追いつかない」等)が
+    # 契約継続に触れない雑談の域を出ない場合も、同じ厳守事項7a(iii)の帰着ルールに従い
+    # status=generatedとして通常どおり3出力を生成し、subscription_procedure_noticeは
+    # Noneのままとするのが期待動作であることを固定する机上検証サンプル。入力メモ想定:
+    # 「今月はセット依頼が多すぎて全然追いつかない、エリアAを新着8本(黄テープ帯)に入れ替え、
+    # ダイナミックなムーブ重視」。冒頭の繁忙の愚痴は契約継続・解約のいずれにも言及しない
+    # 雑談の域を出ない表現であるため、7a(iii)としてstatus=generatedに帰着する
+    # (subscription-intent-iii-chitchat-status-mapping-review.mdの帰着ルールをそのまま適用)。
+    # 実LLMがこの区別を実際に守れるかは、他の厳守事項7a境界の検証と同様に実LLM接続後
+    # (オーナー承認待ち)の検証課題として引き続き残る。
+    "CI6_busy_season_grumble_not_cancellation": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【課題入れ替えのお知らせ】エリアAに新着課題8本追加しました。ダイナミックなムーブが特徴です。",
+            "hashtags": ["#ボルダリング", "#クライミングジム", "#新着課題"],
+            "mentions_photo": False,
+        },
+        "line_web_notice": {
+            "body": "エリアA:新着8本(黄テープ帯)を追加しました。ぜひチャレンジしてください。",
+        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアA",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 8,
+                "feature_keywords": ["ダイナミック", "ムーブ重視"],
+            },
+        ],
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
     # 2026-09-12 02:00 UTC追加(フェーズ206): 厳守事項7b(i)(ii)(iv)相当の期待出力。
     # kura-pasha/schema/validate_test_cases.pyのCO1〜CO3と同じ設計思想を踏襲。
     "CO1_checkout_intent": {
