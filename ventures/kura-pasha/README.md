@@ -2773,3 +2773,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-18 16:00 UTC(フェーズ132: owner-operation-self-service-faq.md・
   owner-faq-routing-design.mdに残っていた2件の記載漏れ〈FAQ導線実装済みの記載漏れ、
   aircon-pashaの全角入力対応完了の記載漏れ〉を訂正。コード変更は無く回帰確認のみ)
+- フェーズ133(2026-09-18 20:00 UTC定例更新): pricing-plan.md「次のステップ候補」筆頭が
+  「llm-api-cost-estimate.md相当の原価試算(本venture未実施)」としていたのを受け、
+  本venture分を新規作成しようと着手したところ、`ventures/kura-pasha/llm-api-cost-
+  estimate.md`が2026-09-06時点で既に作成済みであることを発見した(pricing-plan.mdの
+  当該記載がフェーズ106前後の作成後に更新されず古いままだった、フェーズ84/85等と同種の
+  記載漏れ)。既存のllm-api-cost-estimate.mdの内容を確認したところ、本venture固有の
+  試算(シナリオA/B、Sonnet 5・Opus 5・Haiku 4.5別、最も保守的な組み合わせでも最安の
+  従量単価150円に対し約5.7%にとどまるとの結論)・低頻度利用ゆえプロンプトキャッシュの
+  効果が限定的との留意事項まで既に網羅済みで、内容自体に不足は無いことを確認した。
+  pricing-plan.md「未検証の仮説」「次のステップ候補」の該当記載を、既に作成済みである
+  旨へ訂正した。ファイルの新規作成は行わず(誤って重複作成しかけたが、既存ファイルを
+  上書きする前に発見し原状復帰した)、コード変更も無く、回帰確認としてventure全体100件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証30件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は対象候補
+  (実在の鞍職人・馬具師)のロングリスト作成、または他venture・アイデア領域の前進を
+  優先候補とする。
+- 最終更新: 2026-09-18 20:00 UTC(フェーズ133: pricing-plan.mdが「本venture未実施」と
+  古いまま記載していたllm-api-cost-estimate.mdが実際は2026-09-06作成済みだったことを
+  発見し記載を訂正。ファイル内容自体は既に十分だったため新規作成はせず、コード変更も
+  無く回帰確認のみ)
