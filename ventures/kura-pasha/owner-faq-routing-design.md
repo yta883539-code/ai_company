@@ -121,6 +121,8 @@ schema/validate_test_cases.py`)いずれもパスした。今回のコード変�
 外部サービスへの公開・アカウント作成・支払い・送信等は発生していないため
 pending-approval.mdへの追記なし。
 
-これで残るaircon-pashaへの同種横展開のみが未対応として残る。実際に契約者が全角入力を
-行う頻度自体は実運用データ(LINE公式アカウント接続後)が無いと検証できず引き続き
-未検証のまま残る。
+【解消済み・2026-09-18 13:00 UTC追記】残っていたaircon-pashaも、同venture
+フェーズ229で同一実装の`_normalize_command_text()`横展開が完了し、これで4venture
+全ての全角入力対応が完了した(aircon-pasha/owner-faq-routing-design.md参照)。
+実際に契約者が全角入力を行う頻度自体は実運用データ(LINE公式アカウント接続後)が
+無いと検証できず引き続き未検証のまま残る。

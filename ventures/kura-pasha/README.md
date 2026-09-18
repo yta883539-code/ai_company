@@ -2755,3 +2755,21 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
   cross-venture横展開。テスト2件新規追加、venture全体100件・schema検証30件いずれも
   パス)
+- フェーズ132(2026-09-18 16:00 UTC定例更新): 2件の記載漏れ(古い記載の訂正)を解消
+  した。(1)owner-operation-self-service-faq.md「未検証の仮説」節が、フェーズ126で
+  owner-faq-routing-design.mdとして実装済みのFAQ導線(トークルームで「FAQ」送信→
+  Q1〜Q8返信)を「未設計」のままと記載していた(フェーズ125作成時点の記載が
+  フェーズ126実装後も更新されていなかった)ため、導線実装済みである旨と、真に未検証
+  なのは支援コスト削減効果の実測データである旨に訂正した。(2)owner-faq-routing-
+  design.md 7節が、全角入力(NFKC正規化)対応の横展開について「残るaircon-pashaへの
+  同種横展開のみが未対応」と記載していたが、aircon-pashaフェーズ229(2026-09-18
+  13:00 UTC)で既に対応済みであることを確認し、4venture全ての対応完了へ訂正した。
+  いずれもコード変更は無く、回帰確認としてventure全体100件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証30件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 16:00 UTC(フェーズ132: owner-operation-self-service-faq.md・
+  owner-faq-routing-design.mdに残っていた2件の記載漏れ〈FAQ導線実装済みの記載漏れ、
+  aircon-pashaの全角入力対応完了の記載漏れ〉を訂正。コード変更は無く回帰確認のみ)
