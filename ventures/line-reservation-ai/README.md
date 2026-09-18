@@ -3915,3 +3915,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-17 23:00 UTC(フェーズ続き235: フェーズ続き233〈FAQコマンド方式の
   導線実装〉・234〈オンボーディング完了メッセージへのFAQ周知文言追記〉のREADME記載漏れを
   事後反映。コード変更は無く回帰確認のみ)
+- フェーズ続き236(2026-09-18 定例更新): onboarding-guide.mdの「次のステップ候補」に
+  残っていた「『LINEで予約できます』告知文面(店頭POP・SNS告知文)の下書き生成」を、
+  本サービスの主機能(予約対応)とは別スコープの追加機能として設計した
+  (launch-announcement-draft-design.md新規作成)。kura-pashaのcross-venture-support-cost-
+  comparison.mdが本ventureをサポート負荷軽減策の最有力候補と示唆していた点に加え、
+  トライアル条件(pricing-plan.md「予約確定から14日間、または予約20件到達」)の起算が
+  始まるにはオーナーが顧客に告知する最後の一歩(onboarding-guide.mdステップ5)が必要である
+  点を動機として整理した。owner-faq-routing-design.mdと同じくオーナー起点のオンデマンド
+  コマンド方式(「告知文」と送信すると生成)を暫定案として設計し、店頭POP文言・SNS告知文
+  (ハッシュタグは一般2種+店舗名ブランドタグ、地域タグは店舗設定に地域名項目が無いため
+  今回は含めない)を組み立てる純粋関数を`prototype/launch_announcement_draft.py`に新規実装、
+  `prototype/test_launch_announcement_draft.py`に14件のテストを追加した。
+  `cloud_function_process_event.py`へのコマンド配線本体・FAQ案内文への周知文言追記は
+  design 7節の次のステップ候補として今回は着手していない。回帰確認としてventure全体834件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な設計・
+  コード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。次回はコマンド配線本体の実装、またはFAQ案内
+  文への周知文言追記を優先候補とする。
+- 最終更新: 2026-09-18 定例更新(フェーズ続き236: 開業告知文〈店頭POP・SNS告知文〉下書き
+  生成機能を新規設計〈launch-announcement-draft-design.md〉し、下書き組み立ての純粋関数
+  〈prototype/launch_announcement_draft.py〉を実装。コマンド配線本体は次のステップ候補と
+  して残る)
