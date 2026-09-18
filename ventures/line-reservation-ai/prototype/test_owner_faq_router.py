@@ -19,6 +19,13 @@ class OwnerFaqTriggerTests(unittest.TestCase):
     def test_ignores_surrounding_whitespace(self):
         self.assertTrue(is_owner_faq_menu_trigger("  FAQ  "))
 
+    def test_fullwidth_input_matches_via_nfkc_normalization(self):
+        # 携帯端末のIMEは全角モードが既定のことが多いため、全角「ＦＡＱ」も
+        # 半角"FAQ"相当として一致する必要がある(course-set-pashaフェーズ221相当)。
+        self.assertTrue(is_owner_faq_menu_trigger("ＦＡＱ"))
+        self.assertTrue(is_owner_faq_menu_trigger("ｆａｑ"))
+        self.assertTrue(is_owner_faq_menu_trigger("　ＦＡＱ　"))
+
     def test_unrelated_text_does_not_match(self):
         self.assertFalse(is_owner_faq_menu_trigger("FAQを見たい"))
         self.assertFalse(is_owner_faq_menu_trigger(""))
@@ -33,6 +40,12 @@ class OwnerFaqItemCodeMatchTests(unittest.TestCase):
 
     def test_ignores_surrounding_whitespace(self):
         self.assertEqual(match_owner_faq_item_code("  q1  "), "Q1")
+
+    def test_fullwidth_code_matches_via_nfkc_normalization(self):
+        # 全角「Ｑ１」のような入力もNFKC正規化により半角"Q1"相当として一致する
+        # (course-set-pashaフェーズ221相当)。
+        self.assertEqual(match_owner_faq_item_code("Ｑ１"), "Q1")
+        self.assertEqual(match_owner_faq_item_code("ｑ３"), "Q3")
 
     def test_unknown_code_returns_none(self):
         self.assertIsNone(match_owner_faq_item_code("Q8"))

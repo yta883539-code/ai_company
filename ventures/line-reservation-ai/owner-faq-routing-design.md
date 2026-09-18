@@ -107,6 +107,19 @@ launch-announcement-draft-design.md 6節・7節が残課題としていた「告
   (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
   ドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント作成・支払い・
   送信等は今回発生していないためpending-approval.mdへの追記なし。)
+- (解消 2026-09-18 定例更新: course-set-pashaフェーズ221が発見した「トリガー『FAQ』・
+  項目コード『Q1』〜の判定が半角英数字の入力のみを想定しており、日本語入力の携帯端末で
+  既定になりやすい全角入力(『ＦＡＱ』『Ｑ１』)では一致しない」という想定漏れを、本venture
+  分にも横展開した。`unicodedata.normalize("NFKC", text)`による正規化を`strip().upper()`の
+  前段に追加する`_normalize_command_text()`を新設し、`is_owner_faq_menu_trigger()`・
+  `match_owner_faq_item_code()`から呼び出すよう変更した(course-set-pashaと同一実装)。
+  `test_owner_faq_router.py`に全角入力(「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」「Ｑ１」
+  「ｑ３」)のテストを2件追加し、venture全体847件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、845件→847件)・schema検証27件(`python3
+  schema/validate_test_cases.py`)いずれもパスを確認した。残るkura-pasha・aircon-pashaへの
+  同種横展開は各ventureの次回ローテーション時の課題とした。コード変更は入力の正規化のみで
+  外部サービスへの公開・アカウント作成・支払い・送信等は発生していないためpending-
+  approval.mdへの追記なし。)
 - Q1〜Q7以外の項目(想定外の質問)が来た場合の追加ハンドリングは無く、
   その場合はオーナーが今まで通り運営者へ直接問い合わせる想定のまま。
 - 実際にオーナーがこのコマンドをどの程度使うか、対応コスト削減にどの程度

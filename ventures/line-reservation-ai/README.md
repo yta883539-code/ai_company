@@ -4006,3 +4006,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-18 07:00 UTC(フェーズ続き239: customer-interview-design.mdにG.設問
   〈開業告知文機能の実用性確認、18〜20〉を追加し、launch-announcement-draft-design.mdの
   次のステップ候補を解消。コード変更は無く回帰確認のみ)
+- フェーズ続き240(2026-09-18 定例更新): course-set-pashaフェーズ221が発見した
+  「オーナー向けFAQコマンドのトリガー『FAQ』・項目コード『Q1』〜の判定が半角英数字の
+  入力のみを想定しており、日本語入力の携帯端末で既定になりやすい全角入力
+  (『ＦＡＱ』『Ｑ１』)では一致しない」という想定漏れについて、course-set-pashaの
+  README・owner-faq-routing-design.mdが「line-reservation-ai・kura-pasha・
+  aircon-pashaへの横展開は各ventureの次回ローテーション時の課題」としていたのを受け、
+  本venture分の横展開を実施した。course-set-pashaと同一実装の`_normalize_command_text()`
+  (`unicodedata.normalize("NFKC", text)`を`strip().upper()`の前段に追加)を新設し、
+  `is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`から呼び出すよう変更した。
+  `prototype/test_owner_faq_router.py`に全角入力(「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」
+  「Ｑ１」「ｑ３」)のテストを2件追加し、owner-faq-routing-design.md 5節に解消記録を
+  追記した。回帰確認としてventure全体847件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、845件→847件)・schema検証27件(`python3 schema/validate_test_cases.py`)
+  いずれもパスを確認した。承認不要なコード実装・ドキュメント更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。残るkura-pasha・aircon-pashaへの同種横展開は各ventureの次回ローテーション時の
+  課題とした。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 定例更新(フェーズ続き240: オーナー向けFAQコマンドのトリガー・
+  項目コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
+  cross-venture横展開。テスト2件新規追加、venture全体847件・schema検証27件いずれもパス)
