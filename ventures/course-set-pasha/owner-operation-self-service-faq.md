@@ -95,6 +95,10 @@ Stripeカスタマーポータルから契約者自身が解約手続きでき�
   owner-faq-routing-design.md・`prototype/owner_faq_router.py`として実装した。詳細は
   owner-faq-routing-design.md参照)
 - 実運用データが取得でき次第、実際の問い合わせ内容とFAQ項目の一致率を検証する。
-- 他venture(aircon-pasha・kura-pasha)でも同種のオーナー向けセルフサービスFAQが未整備で
-  あれば、本ドキュメント・line-reservation-ai版の構成を横展開できないか検討する
-  (kura-pashaは既に対応済み、aircon-pashaは未対応)。
+- (対応済み・フェーズ222、2026-09-18: 「他venture(aircon-pasha・kura-pasha)でも同種の
+  オーナー向けセルフサービスFAQが未整備であれば横展開を検討する」としていた本項目について、
+  aircon-pashaのprototype/owner_faq_router.py・owner-faq-routing-design.mdを確認したところ、
+  2026-09-15 22:06 UTC(コミット478e088、フェーズ225)で本venture固有のQ7を含む7項目対応版が
+  既に実装済みであることを確認した。これでline-reservation-ai・kura-pasha・aircon-pasha・
+  本venture(course-set-pasha)の4venture全てでオーナー向けセルフサービスFAQコマンド方式の
+  実装が完了していることを本ドキュメント上でも確定させた)
