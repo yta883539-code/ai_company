@@ -106,10 +106,9 @@ https://line.me/R/ti/p/@example-lino
 
 ## 6. 未検証の仮説・残課題
 
-- オーナーが実際に「告知文」というコマンド名を思いつくか(owner-faq-routing-design.md
-  5節でも同種の課題があった「単語を思いつかない」問題が再発する可能性がある)。FAQコマンドの
-  案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)に「告知文」コマンドの存在を追記する形で
-  周知するのが妥当と考えられる(次のステップ候補)。
+- ~~オーナーが実際に「告知文」というコマンド名を思いつくか~~
+  → 2026-09-18 06:00 UTC、FAQコマンドの案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)に
+  Q7として「告知文」コマンドの周知文言を追加し対応済み。
 - POP・SNS告知文をオーナーが実際に使いたくなる文面か(押しつけがましくないか、店舗の
   ブランドイメージに合うか)は、customer-interview-design.mdのヒアリングでの検証が必要。
 - 地域タグ用の地域名を店舗設定に追加すべきかは、地域名を収集する項目自体が現状の
@@ -122,8 +121,8 @@ https://line.me/R/ti/p/@example-lino
 
 - ~~`_maybe_handle_launch_announcement_command()`相当のコマンド配線~~
   → 8節の通り実施済み。
-- FAQコマンド案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)への「告知文」コマンドの
-  周知文言追記(6節で指摘した「オーナーがコマンド名を思いつくか」問題への対応)。
+- ~~FAQコマンド案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)への「告知文」コマンドの
+  周知文言追記~~ → 6節の通り実施済み(Q7として追加)。
 - customer-interview-design.mdのヒアリング項目に、告知文の実用性・使いたいと思うかを
   確認する設問を追加できないか検討する。
 - friend_add_url(現状FRIEND_ADD_URL_PLACEHOLDERの差し込みのみ)を、実LINE公式

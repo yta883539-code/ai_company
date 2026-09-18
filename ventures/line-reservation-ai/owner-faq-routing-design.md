@@ -27,8 +27,8 @@ owner-operation-self-service-faq.md「次のステップ候補」で残課題と
 
 - トリガー: オーナー本人(`user_id == owner_user_id`が確定している場合のみ)が
   本文「FAQ」(大文字小文字を区別しない、前後空白は無視)を送信すると、
-  Q1〜Q6の短い見出し一覧(メニュー)を返信する。
-- 各項目の本文照会: オーナーが続けて「Q1」〜「Q6」(大文字小文字を区別しない)を
+  Q1〜Q7の短い見出し一覧(メニュー)を返信する。
+- 各項目の本文照会: オーナーが続けて「Q1」〜「Q7」(大文字小文字を区別しない)を
   送信すると、該当項目の回答本文を返信する。
 - 上記2パターンに一致しない入力は、これまで通り通常のLLM解釈・会話フロー
   (`_process_message_event`の既存分岐)にそのまま渡す。誤ってオーナー以外の
@@ -45,15 +45,19 @@ owner-operation-self-service-faq.md「次のステップ候補」で残課題と
 owner-operation-self-service-faq.mdのQ1〜Q6の内容を、LINEメッセージとして
 送信するのに適した簡潔な文面に整理し直した(内部設計ドキュメントのファイル名
 参照は運用者向けの参考情報のため、オーナー向け返信本文には含めない)。
+Q7のみ出典が異なり、owner-operation-self-service-faq.md自体には無い項目で、
+launch-announcement-draft-design.md 6節・7節が残課題としていた「告知文コマンドの
+存在をオーナーがどう知るか」への対応として2026-09-18 06:00 UTC定例更新で追加した
+(詳細は5節)。
 
 ## 4. 実装
 
 `prototype/owner_faq_router.py`に、LLM呼び出し・LINE送信を持たない純粋関数として実装した。
 
 - `is_owner_faq_menu_trigger(text) -> bool`: 「FAQ」トリガー判定。
-- `match_owner_faq_item_code(text) -> Optional[str]`: 「Q1」〜「Q6」判定、一致すれば
-  `"Q1"`〜`"Q6"`を返す。
-- `render_owner_faq_menu_message() -> str`: Q1〜Q6の見出し一覧を整形する。
+- `match_owner_faq_item_code(text) -> Optional[str]`: 「Q1」〜「Q7」判定、一致すれば
+  `"Q1"`〜`"Q7"`を返す。
+- `render_owner_faq_menu_message() -> str`: Q1〜Q7の見出し一覧を整形する。
 - `render_owner_faq_answer_message(code) -> str`: 指定コードの回答本文を整形する。
   未知のcodeは`KeyError`(呼び出し元は`match_owner_faq_item_code()`で事前に
   検証済みの値のみ渡す前提のため、フォールバックは設けない)。
@@ -89,7 +93,21 @@ owner-operation-self-service-faq.mdのQ1〜Q6の内容を、LINEメッセージ�
   schema検証(python3 schema/validate_test_cases.py)いずれもパスを確認した。
   承認不要なドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。)
-- Q1〜Q6以外の項目(想定外の質問)が来た場合の追加ハンドリングは無く、
+- (解消 2026-09-18 06:00 UTC・定例更新: launch-announcement-draft-design.md 6節・7節が
+  残課題としていた「オーナーが『告知文』というコマンド名を思いつくか」に対応した。
+  `_OWNER_FAQ_ITEMS`にQ7「お客様への『LINEで予約できます』という告知文を作りたい」を
+  追加し、「告知文」コマンドの存在と使い方を案内する回答文を設定した。
+  `_OWNER_FAQ_ORDER`にQ7を追加、`render_owner_faq_menu_message()`・
+  `match_owner_faq_item_code()`は既存実装のままQ7を自然に扱える(ハードコードされた
+  件数上限が無いため)。test_owner_faq_router.pyのテスト対象コードを
+  Q1〜Q7に拡張し、Q7の回答文が「告知文」というトリガーキーワード自体を含むことを
+  検証するテストを追加、test_cloud_function_process_event.pyのFAQメニュー表示
+  テストもQ7の存在を検証するよう更新した。回帰確認としてventure全体845件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  ドキュメント更新・コード実装のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。)
+- Q1〜Q7以外の項目(想定外の質問)が来た場合の追加ハンドリングは無く、
   その場合はオーナーが今まで通り運営者へ直接問い合わせる想定のまま。
 - 実際にオーナーがこのコマンドをどの程度使うか、対応コスト削減にどの程度
   寄与するかは実運用データ(LINE公式アカウント接続後)が無いと検証できない。

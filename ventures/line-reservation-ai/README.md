@@ -3965,3 +3965,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-18 03:00 UTC(フェーズ続き237: 開業告知文コマンド「告知文」の配線本体を
   `cloud_function_process_event.py`に実装。店舗名未登録時は案内文言を返す安全側
   フォールバックあり。テスト9件追加、venture全体844件パス)
+- フェーズ続き238(2026-09-18 06:00 UTC定例更新): フェーズ続き237・launch-announcement-
+  draft-design.md 6節・7節が次のステップ候補筆頭としていた、FAQ案内文
+  (`owner_faq_router.py` `_OWNER_FAQ_ITEMS`)への「告知文」コマンド周知文言追記を実施した。
+  Q7「お客様への『LINEで予約できます』という告知文を作りたい」を新設し、「告知文」と
+  送信すれば店頭POP・SNS告知文の下書きが生成できる旨、店舗名未登録時は「営業情報設定」
+  ページへの登録を先に案内する旨を回答文に含めた。`_OWNER_FAQ_ORDER`にQ7を追加、
+  `owner-faq-routing-design.md`(5節に解消記録・2節/3節/4節の件数表記をQ1〜Q7へ更新、
+  Q7のみowner-operation-self-service-faq.md非出典である旨を3節に明記)・
+  launch-announcement-draft-design.md(6節・7節の該当項目を解消済みへ更新)を更新した。
+  `test_owner_faq_router.py`の対象コードをQ1〜Q7に拡張し、Q7の回答文が「告知文」という
+  トリガーキーワード自体を含むことを検証するテストを追加、`test_cloud_function_process_
+  event.py`のFAQメニュー表示テストもQ7の存在を検証するよう更新した(コメント中の
+  「Q1〜Q6」表記もQ1〜Q7へ修正)。回帰確認としてventure全体845件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証27件(`python3
+  schema/validate_test_cases.py`)いずれもパスを確認した。承認不要なドキュメント更新・
+  コード実装のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。次回はcustomer-interview-design.mdの
+  ヒアリング項目に告知文の実用性を確認する設問を追加する、または他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-18 06:00 UTC(フェーズ続き238: FAQ案内文にQ7として「告知文」コマンドの
+  周知文言を追加し、launch-announcement-draft-design.mdの次のステップ候補を解消。
+  テスト2件更新・1件追加、venture全体845件パス)

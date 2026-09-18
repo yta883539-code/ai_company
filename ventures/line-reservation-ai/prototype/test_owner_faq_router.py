@@ -26,7 +26,7 @@ class OwnerFaqTriggerTests(unittest.TestCase):
 
 class OwnerFaqItemCodeMatchTests(unittest.TestCase):
     def test_matches_all_known_codes_case_insensitively(self):
-        for code in ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6"):
+        for code in ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7"):
             with self.subTest(code=code):
                 self.assertEqual(match_owner_faq_item_code(code), code)
                 self.assertEqual(match_owner_faq_item_code(code.lower()), code)
@@ -35,18 +35,18 @@ class OwnerFaqItemCodeMatchTests(unittest.TestCase):
         self.assertEqual(match_owner_faq_item_code("  q1  "), "Q1")
 
     def test_unknown_code_returns_none(self):
-        self.assertIsNone(match_owner_faq_item_code("Q7"))
+        self.assertIsNone(match_owner_faq_item_code("Q8"))
         self.assertIsNone(match_owner_faq_item_code("Q"))
         self.assertIsNone(match_owner_faq_item_code(""))
         self.assertIsNone(match_owner_faq_item_code("来週土曜カットで"))
 
 
 class OwnerFaqMenuMessageTests(unittest.TestCase):
-    def test_menu_lists_all_six_items_in_order(self):
+    def test_menu_lists_all_seven_items_in_order(self):
         message = render_owner_faq_menu_message()
-        positions = [message.index(f"Q{n}") for n in range(1, 7)]
+        positions = [message.index(f"Q{n}") for n in range(1, 8)]
         self.assertEqual(positions, sorted(positions))
-        for n in range(1, 7):
+        for n in range(1, 8):
             self.assertIn(f"Q{n}", message)
 
 
@@ -58,10 +58,14 @@ class OwnerFaqAnswerMessageTests(unittest.TestCase):
         self.assertIn("FAQ", message)
 
     def test_all_known_codes_render_without_error(self):
-        for code in ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6"):
+        for code in ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7"):
             with self.subTest(code=code):
                 message = render_owner_faq_answer_message(code)
                 self.assertTrue(message.startswith(f"{code}."))
+
+    def test_q7_mentions_launch_announcement_trigger_keyword(self):
+        message = render_owner_faq_answer_message("Q7")
+        self.assertIn("告知文", message)
 
     def test_unknown_code_raises_key_error(self):
         with self.assertRaises(KeyError):

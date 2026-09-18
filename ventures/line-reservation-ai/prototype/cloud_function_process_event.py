@@ -527,7 +527,7 @@ class ConversationEventProcessor:
 
     def _maybe_render_owner_faq_reply(self, reply_text: str) -> Optional[tuple[str, str, str]]:
         """owner-faq-routing-design.md準拠。reply_textが「FAQ」トリガーまたは
-        「Q1」〜「Q6」に一致すれば(送信本文, DispatchResult.action, detail)を返す。
+        「Q1」〜「Q7」に一致すれば(送信本文, DispatchResult.action, detail)を返す。
         一致しなければNone(呼び出し元は通常のLLM解釈フローへそのまま進める)。
         """
         if is_owner_faq_menu_trigger(reply_text):
@@ -806,7 +806,7 @@ class ConversationEventProcessor:
         reply_text = event.get("message", {}).get("text", "")
 
         # owner-faq-routing-design.md準拠。オーナー本人確定時のみ、LLM呼び出し・
-        # 会話状態参照より前に「FAQ」「Q1」〜「Q6」のコマンドを判定する。運用コマンドの
+        # 会話状態参照より前に「FAQ」「Q1」〜「Q7」のコマンドを判定する。運用コマンドの
         # ためNotificationLogAggregatorへの記録・オーナーへの転送(自分自身への転送になり
         # 意味がない)は行わない。一致しない入力は従来通り以降の分岐にそのまま流れる。
         if self._owner_user_id is not None and user_id == self._owner_user_id:

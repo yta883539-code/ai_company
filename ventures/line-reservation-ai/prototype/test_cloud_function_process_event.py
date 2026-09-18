@@ -272,7 +272,7 @@ class NewBookingContradictionOwnerNotificationTests(unittest.TestCase):
 
 
 class OwnerFaqCommandTests(unittest.TestCase):
-    """owner-faq-routing-design.md準拠。オーナー本人からの「FAQ」「Q1」〜「Q6」は
+    """owner-faq-routing-design.md準拠。オーナー本人からの「FAQ」「Q1」〜「Q7」は
     LLM呼び出し・通常の会話フローを経由せず即時返信されることを検証する。
     """
 
@@ -291,7 +291,7 @@ class OwnerFaqCommandTests(unittest.TestCase):
         self.assertEqual(len(push.sent), 1)
         self.assertEqual(push.sent[0][0], "U-owner")
         self.assertIn("Q1", push.sent[0][1])
-        self.assertIn("Q6", push.sent[0][1])
+        self.assertIn("Q7", push.sent[0][1])
         self.assertIsNone(flow.stage("U-owner"))
         self.assertEqual(logs.consultation_count, 0)
 
