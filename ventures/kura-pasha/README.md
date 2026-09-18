@@ -2694,3 +2694,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   アイデア領域の前進を優先候補とする。
 - 最終更新: 2026-09-17 22:00 UTC(フェーズ128: deployment-runbook.mdを新規作成し、
   4venture全てでデプロイ手順書のcross-venture parityを達成。コード変更は無し)
+- フェーズ129(2026-09-18 00:00 UTC): 他3venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)には既にあるが本venture未着手だった`PortalLinkProvider`
+  (Stripe Customer Portalリンク発行)の実装本体のcross-venture parityギャップに対応した。
+  `prototype/cloud_function_webhook.py`のPortalLinkProvider Protocol自体は既存だったが、
+  実装本体(`InMemoryPortalLinkProvider`スタブ以外)が無く、payment-failure-dunning-
+  design.md・subscription-cancellation-scheduled-notification-design.mdが「未実装のため
+  URLを差し込まない」前提としていた。本venture固有の事情として、`stripe_customer_id`が
+  `user_id`ではなく`craftsman_workshop/{workshop_id}`側のフィールドであるため
+  `user_id→workshop_id→stripe_customer_id`の2ホップ解決が必要な点、Billing Portalは
+  checkout-initiation-flow-design.mdのCheckout Session開始と同じ「契約者本人限定」の
+  権限モデルを適用すべき点(共同利用メンバーは対象外)が他venture3件との構造的な違いで
+  あり、portal-session-provider-design.md(新規)に設計した上で`prototype/portal_session.py`
+  に`StripePortalLinkProvider`を新規実装した。`prototype/test_portal_session.py`を新規
+  作成(17件、契約者一致/不一致・workshop未紐付け・stripe_customer_id未登録・デフォルト
+  session_creator未実装の各ケースを検証)し、payment-failure-dunning-design.md 6節の該当
+  残課題を解消済みへ更新した。実`stripe.billing_portal.Session.create()`呼び出しへの
+  差し替え・通知文言へのURL差し込み自体は、引き続き実Stripeアカウント接続(オーナー承認待ち、
+  pending-approval.md参照)後の課題として残る(portal-session-provider-design.md 5節)。
+  回帰確認としてventure全体14ファイル(`python3 prototype/run_all_tests.py`)・schema検証
+  30件(`python3 schema/validate_test_cases.py`)いずれもパス(新規追加分以外は変更前と
+  同じ結果)を確認した。承認不要なドキュメント新規作成・コード実装のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は実Stripe接続後のURL差し込み配線、または他venture・アイデア領域の前進を
+  優先候補とする。
+- 最終更新: 2026-09-18 00:00 UTC(フェーズ129: PortalLinkProviderの実装本体
+  〈portal-session-provider-design.md・prototype/portal_session.py〉を新規実装し、
+  4venture全てでBilling Portalリンク発行実装のcross-venture parityを達成)

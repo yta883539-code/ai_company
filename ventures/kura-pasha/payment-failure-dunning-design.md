@@ -182,5 +182,9 @@ Webhookで受け取り、`craftsman_workshop`の状態を更新し、契約者�
 - 実際のWebhook受信・状態保存・LINE送信配線(実LINE公式アカウント接続)、決済代行サービス
   との契約自体は引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日という値は、他venture共通で実測データの無い暫定値のまま。
-- PortalLinkProvider相当の抽象化を将来導入する場合、4節の通知文言へURLを差し込む改修が
-  必要になる(他venture3件と同じ構成に揃えられる見込み)。
+- ~~PortalLinkProvider相当の抽象化を将来導入する場合、4節の通知文言へURLを差し込む改修が
+  必要になる(他venture3件と同じ構成に揃えられる見込み)。~~ → フェーズ129で対応済み。
+  `prototype/portal_session.py`に`StripePortalLinkProvider`(portal-session-provider-
+  design.md)を実装した。ただし実Stripe接続前で`session_creator`が未実装のプレースホルダ
+  のままであるため、4節の通知文言へのURL差し込み自体は実Stripe接続後の課題として残る
+  (portal-session-provider-design.md 5節参照)。
