@@ -101,3 +101,26 @@ schema検証30件(`python3 schema/validate_test_cases.py`)いずれもパス
   代わりにオーナー本人にのみ送信されるonboarding-completion-message-design.mdを周知先に
   採用)を踏まえて対応済みとなり、これで4venture全ての周知対応が完了した
   (line-reservation-ai/owner-faq-routing-design.md 5節参照)。
+
+## 7. 全角入力への対応(フェーズ131)
+
+course-set-pashaのフェーズ221で、オーナー向けFAQコマンドのトリガー「FAQ」・項目コード
+「Q1」〜の判定が半角英数字の入力のみを想定しており、日本語入力の携帯端末で既定になり
+やすい全角入力(「ＦＡＱ」「Ｑ１」)では一致しない想定漏れが見つかった。同フェーズの
+記載で「line-reservation-ai・kura-pasha・aircon-pashaへの横展開は各ventureの次回
+ローテーション時の課題」とされていたうち、line-reservation-aiはフェーズ続き240で対応
+済みとなった。本フェーズで残る本venture(kura-pasha)分の横展開を行った。
+
+course-set-pasha・line-reservation-aiと同一実装の`_normalize_command_text()`
+(`unicodedata.normalize("NFKC", text)`を`strip().upper()`の前段に追加)を新設し、
+`is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`から呼び出すよう変更した。
+`prototype/test_owner_faq_router.py`に全角入力(「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」
+「Ｑ１」「ｑ７」)のテストを2件追加し、venture全体100件(`python3 -m unittest discover
+-s prototype -p "test_*.py"`、98件→100件)・schema検証30件(`python3
+schema/validate_test_cases.py`)いずれもパスした。今回のコード変更は入力の正規化のみで
+外部サービスへの公開・アカウント作成・支払い・送信等は発生していないため
+pending-approval.mdへの追記なし。
+
+これで残るaircon-pashaへの同種横展開のみが未対応として残る。実際に契約者が全角入力を
+行う頻度自体は実運用データ(LINE公式アカウント接続後)が無いと検証できず引き続き
+未検証のまま残る。

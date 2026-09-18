@@ -2738,6 +2738,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
   発生していないためpending-approval.mdへの追記なし。次回は実測データが得られるまでの間、
   他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-18 定例更新(フェーズ130: cross-venture-support-cost-comparison.mdに
-  FAQ自己解決導線の横展開完了状況・対応コストへの粗い示唆を追記。コード変更は無く
-  回帰確認のみ)
+- フェーズ131(2026-09-18 定例更新): course-set-pashaフェーズ221が発見した「オーナー向け
+  FAQコマンドのトリガー『FAQ』・項目コード『Q1』〜の判定が半角英数字の入力のみを想定して
+  おり、全角入力(『ＦＡＱ』『Ｑ１』)では一致しない」という想定漏れについて、
+  line-reservation-aiフェーズ続き240に続き、本venture分の横展開を実施した。
+  `_normalize_command_text()`(`unicodedata.normalize("NFKC", text)`を`strip().upper()`
+  の前段に追加)を新設し、`is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`
+  から呼び出すよう変更した。`prototype/test_owner_faq_router.py`に全角入力のテストを
+  2件追加し、owner-faq-routing-design.md 7節に記録した。回帰確認としてventure全体100件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、98件→100件)・schema検証
+  30件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要な
+  コード実装・ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。残るaircon-pashaへの
+  同種横展開は次回ローテーション時の課題とした。
+- 最終更新: 2026-09-18 定例更新(フェーズ131: オーナー向けFAQコマンドのトリガー・項目
+  コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
+  cross-venture横展開。テスト2件新規追加、venture全体100件・schema検証30件いずれも
+  パス)

@@ -36,6 +36,13 @@ class IsOwnerFaqMenuTriggerTests(unittest.TestCase):
     def test_partial_word_is_false(self):
         self.assertFalse(is_owner_faq_menu_trigger("FAQについて教えて"))
 
+    def test_fullwidth_input_matches_via_nfkc_normalization(self):
+        # 携帯端末のIMEは全角モードが既定のことが多いため、全角「ＦＡＱ」も
+        # NFKC正規化により半角"FAQ"相当として一致する必要がある。
+        self.assertTrue(is_owner_faq_menu_trigger("ＦＡＱ"))
+        self.assertTrue(is_owner_faq_menu_trigger("ｆａｑ"))
+        self.assertTrue(is_owner_faq_menu_trigger("　ＦＡＱ　"))
+
 
 class MatchOwnerFaqItemCodeTests(unittest.TestCase):
     def test_all_eight_codes_match(self):
@@ -58,6 +65,11 @@ class MatchOwnerFaqItemCodeTests(unittest.TestCase):
 
     def test_unrelated_text_is_none(self):
         self.assertIsNone(match_owner_faq_item_code("鞍の修理をお願いします"))
+
+    def test_fullwidth_code_matches_via_nfkc_normalization(self):
+        # 全角「Ｑ１」のような入力もNFKC正規化により半角"Q1"相当として一致する
+        self.assertEqual(match_owner_faq_item_code("Ｑ１"), "Q1")
+        self.assertEqual(match_owner_faq_item_code("ｑ７"), "Q7")
 
 
 class RenderOwnerFaqMenuMessageTests(unittest.TestCase):

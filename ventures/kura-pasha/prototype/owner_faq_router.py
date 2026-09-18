@@ -15,6 +15,7 @@ line-reservation-aiのprototype/owner_faq_router.py(フェーズ続き233)と同
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Optional
 
 _FAQ_MENU_TRIGGER = "faq"
@@ -79,18 +80,28 @@ _FAQ_ANSWERS = {
 }
 
 
+def _normalize_command_text(text: str) -> str:
+    """コマンド判定用にNFKC正規化してから前後空白除去・大文字化する。
+    日本語入力の携帯端末で既定になりやすい全角英数字(「ＦＡＱ」「Ｑ１」等)も
+    半角相当として一致させるため、line-reservation-ai・course-set-pashaの
+    owner_faq_router.py(フェーズ続き240・221)と同じ方式を踏襲する。"""
+    return unicodedata.normalize("NFKC", text).strip().upper()
+
+
 def is_owner_faq_menu_trigger(text: Optional[str]) -> bool:
-    """本文が「FAQ」トリガー(大文字小文字を区別しない、前後空白は無視)かどうか。"""
+    """本文が「FAQ」トリガー(大文字小文字を区別しない、前後空白は無視)かどうか。
+    NFKC正規化により全角入力(「ＦＡＱ」等)も半角相当として一致する。"""
     if text is None:
         return False
-    return text.strip().lower() == _FAQ_MENU_TRIGGER
+    return _normalize_command_text(text) == _FAQ_MENU_TRIGGER.upper()
 
 
 def match_owner_faq_item_code(text: Optional[str]) -> Optional[str]:
-    """本文が「Q1」〜「Q8」(大文字小文字を区別しない)に一致すれば正規化したコードを返す。"""
+    """本文が「Q1」〜「Q8」(大文字小文字を区別しない)に一致すれば正規化したコードを返す。
+    全角英数字(例: 「Ｑ１」)で入力された場合もNFKC正規化により一致する。"""
     if text is None:
         return None
-    normalized = text.strip().upper()
+    normalized = _normalize_command_text(text)
     if normalized in _FAQ_HEADINGS:
         return normalized
     return None
