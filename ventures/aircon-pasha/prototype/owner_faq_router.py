@@ -12,6 +12,7 @@ cloud_function_webhook.py `process_memo_event()`。
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Optional
 
 # owner-operation-self-service-faq.md Q1〜Q7を、LINEメッセージ本文として送信するのに
@@ -76,18 +77,29 @@ _OWNER_FAQ_ORDER = ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7")
 _MENU_TRIGGER_KEYWORD = "FAQ"
 
 
+def _normalize_command_text(text: str) -> str:
+    """コマンド判定用にNFKC正規化してから前後空白除去・大文字化する。
+    日本語入力の携帯端末で既定になりやすい全角英数字(「ＦＡＱ」「Ｑ１」等)も
+    半角相当として一致させるため、course-set-pasha・line-reservation-ai・
+    kura-pashaのowner_faq_router.py(フェーズ221・続き240・131)と同じ方式を踏襲する。
+    """
+    return unicodedata.normalize("NFKC", text).strip().upper()
+
+
 def is_owner_faq_menu_trigger(text: str) -> bool:
     """本文がFAQメニュー表示のトリガーキーワードと一致するか判定する。
-    大文字小文字を区別せず、前後の空白は無視する。
+    大文字小文字を区別せず、前後の空白は無視する。NFKC正規化により
+    全角入力(「ＦＡＱ」等)も半角相当として一致する。
     """
-    return text.strip().upper() == _MENU_TRIGGER_KEYWORD
+    return _normalize_command_text(text) == _MENU_TRIGGER_KEYWORD
 
 
 def match_owner_faq_item_code(text: str) -> Optional[str]:
     """本文が「Q1」〜「Q7」のいずれかと一致するか判定し、一致すれば正規化した
     コード(例: "Q1")を返す。一致しなければNone。大文字小文字は区別しない。
+    全角英数字(例: 「Ｑ１」)で入力された場合もNFKC正規化により一致する。
     """
-    normalized = text.strip().upper()
+    normalized = _normalize_command_text(text)
     if normalized in _OWNER_FAQ_ITEMS:
         return normalized
     return None

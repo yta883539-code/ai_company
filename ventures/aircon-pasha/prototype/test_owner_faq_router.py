@@ -23,6 +23,11 @@ class OwnerFaqTriggerTests(unittest.TestCase):
         self.assertFalse(is_owner_faq_menu_trigger("FAQを見たい"))
         self.assertFalse(is_owner_faq_menu_trigger(""))
 
+    def test_fullwidth_input_matches_via_nfkc_normalization(self):
+        self.assertTrue(is_owner_faq_menu_trigger("ＦＡＱ"))
+        self.assertTrue(is_owner_faq_menu_trigger("ｆａｑ"))
+        self.assertTrue(is_owner_faq_menu_trigger("　ＦＡＱ　"))
+
 
 class OwnerFaqItemCodeMatchTests(unittest.TestCase):
     def test_matches_all_known_codes_case_insensitively(self):
@@ -39,6 +44,10 @@ class OwnerFaqItemCodeMatchTests(unittest.TestCase):
         self.assertIsNone(match_owner_faq_item_code("Q"))
         self.assertIsNone(match_owner_faq_item_code(""))
         self.assertIsNone(match_owner_faq_item_code("エアコン 室外機 異音 型番不明"))
+
+    def test_fullwidth_code_matches_via_nfkc_normalization(self):
+        self.assertEqual(match_owner_faq_item_code("Ｑ１"), "Q1")
+        self.assertEqual(match_owner_faq_item_code("ｑ３"), "Q3")
 
 
 class OwnerFaqMenuMessageTests(unittest.TestCase):

@@ -102,3 +102,22 @@ owner-operation-self-service-faq.mdのQ1〜Q7の内容を、LINEメッセージ�
 - これで4venture全てにオーナー・契約者向けセルフサービスFAQのコマンド方式導線実装が
   完了した。次回以降は、実運用データが取得でき次第の効果検証、またはオンボーディング
   完了メッセージ等へのFAQ周知文言の追加を候補とする。
+
+## 6. トリガー・項目コード判定の全角入力対応(2026-09-18定例更新)
+
+`is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`は、これまで
+`text.strip().upper()`のみで判定しており、日本語入力の携帯端末で既定になりやすい
+全角英数字(「ＦＡＱ」「Ｑ１」等)で送信された場合に一致しない想定漏れがあった。
+course-set-pashaフェーズ221で最初に発見・対応し、line-reservation-aiフェーズ続き240・
+kura-pashaフェーズ131に横展開済みだったが、aircon-pashaへの横展開が最後の1件として
+残っていた(2026-09-18 12:00 UTC定例更新の時点で「次回の課題」として記録)。
+
+他3ventureと同一の`_normalize_command_text()`(`unicodedata.normalize("NFKC", text)`を
+`strip().upper()`の前段に追加)を新設し、`is_owner_faq_menu_trigger()`・
+`match_owner_faq_item_code()`から呼び出すよう変更した。`prototype/test_owner_faq_router.py`
+に全角入力(「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」「Ｑ１」「ｑ３」)のテストを2件追加し、
+venture全体513件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+511件→513件)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパスした。
+これで4venture全てにNFKC正規化によるオーナー向けFAQコマンドの全角入力対応が完了した。
+実際に契約者が全角入力を行う頻度自体は実運用データ(LINE公式アカウント接続後)が無いと
+検証できず引き続き未検証のまま残る。

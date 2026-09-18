@@ -3593,3 +3593,25 @@
   優先候補とする。
 - 最終更新: 2026-09-18 11:00 UTC(フェーズ228: owner-operation-self-service-faq.mdの
   「次のステップ候補」2件を解消済みへ訂正、4venture全てのFAQコマンド導線完了を確認)
+- フェーズ229(2026-09-18 13:00 UTC): course-set-pashaフェーズ221で発見された「オーナー
+  向けFAQコマンドのトリガー・項目コード判定(`is_owner_faq_menu_trigger()`・
+  `match_owner_faq_item_code()`)が半角英数字の入力のみを想定しており、全角入力
+  (『ＦＡＱ』『Ｑ１』)では一致しない」という想定漏れについて、line-reservation-ai
+  フェーズ続き240・kura-pashaフェーズ131に続き、本venture分(最後の1件)の横展開を
+  実施した。他3ventureと同一の`_normalize_command_text()`
+  (`unicodedata.normalize("NFKC", text)`を`strip().upper()`の前段に追加)を新設し、
+  `owner_faq_router.py`の`is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`
+  から呼び出すよう変更した。`prototype/test_owner_faq_router.py`に全角入力
+  (「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」「Ｑ１」「ｑ３」)のテストを2件追加し、
+  owner-faq-routing-design.md 6節に記録した。回帰確認としてventure全体513件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、511件→513件)・
+  schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  これで4venture全てにNFKC正規化によるFAQコマンドの全角入力対応が完了した。承認不要な
+  コード実装・ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は、4venture共通で
+  未検証のまま残っている「実運用データ取得後のFAQ項目一致率・支援コスト削減効果の検証」
+  以外で、机上完結できる改善余地(他venture分含む)の洗い出しを優先候補とする。
+- 最終更新: 2026-09-18 13:00 UTC(フェーズ229: オーナー向けFAQコマンドのトリガー・項目
+  コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
+  cross-venture横展開、4venture全ての横展開完了。テスト2件新規追加、venture全体513件・
+  schema検証17件いずれもパス)
