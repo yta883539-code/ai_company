@@ -45,8 +45,8 @@ line-reservation-aiを「月次対応コストの絶対額が最高・対応可�
   - 自動送信ではなくオーナー起点のオンデマンド生成にすることで、(a)「1メッセージ1用件」
     原則を守れる、(b)オンボーディング未完了(必須項目が揃っていない)状態での誤生成を
     自然に防げる(店舗設定が無ければ生成に必要な情報が揃わないため)、という利点がある。
-  - 配線本体(cloud_function_process_event.pyへの`_maybe_handle_launch_announcement_
-    command()`相当の追加)は本フェーズでは行わず、次のステップ候補とする(5節参照)。
+  - 配線本体(cloud_function_process_event.pyへの`_maybe_render_launch_announcement_
+    reply()`の追加)は、2026-09-18 03:00 UTC定例更新のフェーズで実施済み(8節参照)。
 
 ## 4. 生成内容の設計
 
@@ -120,8 +120,29 @@ https://line.me/R/ti/p/@example-lino
 
 ## 7. 次のステップ候補
 
-- `_maybe_handle_launch_announcement_command()`相当のコマンド配線
-  (cloud_function_process_event.pyへの追加、owner_faq_router.pyと同様の純粋関数構成)。
-- FAQコマンド案内文への「告知文」コマンドの周知文言追記。
+- ~~`_maybe_handle_launch_announcement_command()`相当のコマンド配線~~
+  → 8節の通り実施済み。
+- FAQコマンド案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)への「告知文」コマンドの
+  周知文言追記(6節で指摘した「オーナーがコマンド名を思いつくか」問題への対応)。
 - customer-interview-design.mdのヒアリング項目に、告知文の実用性・使いたいと思うかを
   確認する設問を追加できないか検討する。
+- friend_add_url(現状FRIEND_ADD_URL_PLACEHOLDERの差し込みのみ)を、実LINE公式
+  アカウント開設後にConversationEventProcessorのコンストラクタ引数として実際の
+  友だち追加URLを渡すよう接続する(pending-approval.md記載のLINE公式アカウント
+  開設承認待ちに紐づく)。
+
+## 8. 実装状況(2026-09-18 03:00 UTC定例更新)
+
+`prototype/launch_announcement_draft.py`に`is_launch_announcement_trigger()`
+(reply_textが「告知文」と完全一致するかを判定する純粋関数、前後空白は無視)と
+`FRIEND_ADD_URL_PLACEHOLDER`定数を追加した。`prototype/cloud_function_process_event.py`
+の`ConversationEventProcessor`に、owner_faq_router.pyと同じ設計思想の
+`_maybe_render_launch_announcement_reply()`を追加し、オーナー本人確定時のみ
+「FAQ」判定の直後に「告知文」判定を行うよう`_process_message_event()`へ配線した。
+コンストラクタに`friend_add_url`(未指定時はFRIEND_ADD_URL_PLACEHOLDER)を追加し、
+`store_name_provider.get_business_name()`から取得した店舗名が空文字列の場合
+(店舗設定未登録)は実際の下書き生成を行わず、5節・6節で検討した「営業情報設定を
+先に完了してください」という案内文言(`_LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_
+MESSAGE`)を返す安全側フォールバックとした。テスト9件(launch_announcement_draft
+側3件・cloud_function_process_event側6件)を追加し、venture全体844件・schema検証
+27件いずれもパスを確認した。

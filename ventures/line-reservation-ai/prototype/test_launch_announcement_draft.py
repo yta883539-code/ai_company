@@ -8,6 +8,8 @@ from __future__ import annotations
 import unittest
 
 from launch_announcement_draft import (
+    FRIEND_ADD_URL_PLACEHOLDER,
+    is_launch_announcement_trigger,
     render_launch_announcement_pop,
     render_launch_announcement_sns,
 )
@@ -79,6 +81,28 @@ class RenderLaunchAnnouncementSnsTests(unittest.TestCase):
         text = render_launch_announcement_sns(STORE_NAME, URL)
         hashtags = [word for word in text.split() if word.startswith("#")]
         self.assertEqual(len(hashtags), 3)
+
+
+class IsLaunchAnnouncementTriggerTests(unittest.TestCase):
+    def test_exact_keyword_matches(self):
+        self.assertTrue(is_launch_announcement_trigger("告知文"))
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertTrue(is_launch_announcement_trigger("  告知文  \n"))
+
+    def test_unrelated_text_does_not_match(self):
+        self.assertFalse(is_launch_announcement_trigger("告知文を作りたい"))
+        self.assertFalse(is_launch_announcement_trigger("FAQ"))
+        self.assertFalse(is_launch_announcement_trigger(""))
+
+
+class FriendAddUrlPlaceholderTests(unittest.TestCase):
+    def test_placeholder_can_be_rendered_as_is(self):
+        # design 4.1節: 実LINE公式アカウント開設前はプレースホルダのまま差し込むことを
+        # 許容する暫定仕様(FRIEND_ADD_URL_PLACEHOLDER自体は空文字列ではないため
+        # render_launch_announcement_pop/snsのValueErrorを起こさずそのまま使える)。
+        text = render_launch_announcement_pop(STORE_NAME, FRIEND_ADD_URL_PLACEHOLDER)
+        self.assertIn(FRIEND_ADD_URL_PLACEHOLDER, text)
 
 
 if __name__ == "__main__":

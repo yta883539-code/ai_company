@@ -3938,3 +3938,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   生成機能を新規設計〈launch-announcement-draft-design.md〉し、下書き組み立ての純粋関数
   〈prototype/launch_announcement_draft.py〉を実装。コマンド配線本体は次のステップ候補と
   して残る)
+- フェーズ続き237(2026-09-18 03:00 UTC定例更新): フェーズ続き236のlaunch-announcement-
+  draft-design.md 7節「次のステップ候補」筆頭だった、`cloud_function_process_event.py`
+  へのコマンド配線本体を実装した。`prototype/launch_announcement_draft.py`に
+  `is_launch_announcement_trigger()`(reply_textが「告知文」と完全一致するかを判定する
+  純粋関数、owner_faq_router.is_owner_faq_menu_trigger()と対称の設計)と
+  `FRIEND_ADD_URL_PLACEHOLDER`定数(design 4.1節、実LINE公式アカウント開設後に確定する
+  友だち追加URLのプレースホルダ。kura-pashaのOWNER_LINE_USER_ID_PLACEHOLDER等と同じ
+  プレースホルダパターン)を追加。`ConversationEventProcessor`に`_maybe_render_
+  launch_announcement_reply()`とコンストラクタ引数`friend_add_url`を追加し、オーナー
+  本人確定時のみ「FAQ」判定の直後に「告知文」判定を行うよう`_process_message_event()`へ
+  配線した。店舗名(`store_name_provider.get_business_name()`)が未登録(空文字列)の
+  場合は、design 3節が想定する「オンボーディング未完了状態での誤生成を自然に防げる」の
+  通り実際の下書き生成を行わず、「営業情報設定」ページでの登録を促す案内文言を返す安全側
+  フォールバックとした。テスト9件(`test_launch_announcement_draft.py`に3件・
+  `test_cloud_function_process_event.py`に`LaunchAnnouncementCommandTests`として6件)を
+  追加し、回帰確認としてventure全体844件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証27件(`python3 schema/validate_test_cases.py`)いずれも
+  パスを確認した。承認不要な設計・コード実装のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし
+  (friend_add_urlは実LINE公式アカウント開設後にコンストラクタ引数として実値を渡す接続が
+  次のステップ候補として残るが、この開設自体は2026-08-28 17:00 UTC記載分で既に承認待ち
+  として記録済みのため重複追記はしない)。次回はFAQ案内文(owner_faq_router.py
+  `_OWNER_FAQ_ITEMS`)への「告知文」コマンド周知文言追記、または他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-18 03:00 UTC(フェーズ続き237: 開業告知文コマンド「告知文」の配線本体を
+  `cloud_function_process_event.py`に実装。店舗名未登録時は案内文言を返す安全側
+  フォールバックあり。テスト9件追加、venture全体844件パス)

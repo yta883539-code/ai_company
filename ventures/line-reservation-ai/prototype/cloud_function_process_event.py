@@ -95,6 +95,12 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
+from launch_announcement_draft import (  # noqa: E402
+    FRIEND_ADD_URL_PLACEHOLDER,
+    is_launch_announcement_trigger,
+    render_launch_announcement_pop,
+    render_launch_announcement_sns,
+)
 from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
@@ -356,6 +362,15 @@ FOLLOW_WELCOME_MESSAGE_BODY = (
 # 店舗名が取得できない場合の冒頭文言(従来のFOLLOW_WELCOME_MESSAGE相当)。
 _FOLLOW_WELCOME_GREETING_WITHOUT_NAME = "ご登録ありがとうございます!"
 
+# launch-announcement-draft-design.md 3節準拠。店舗名(StoreNameProviderProtocol)が
+# 未登録(空文字列)の状態で「告知文」コマンドを受け取った場合の案内文言。
+# design 3節が想定する「オンボーディング未完了状態での誤生成を自然に防げる」を
+# 実現するため、実際のPOP/SNS下書き生成は行わずここで案内を返す。
+_LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_MESSAGE = (
+    "告知文の下書きを作成するには、まず「営業情報設定」ページで店舗名の登録が必要です。"
+    "登録後にもう一度「告知文」と送信してください。"
+)
+
 
 def format_follow_welcome_message(business_name: str = "") -> str:
     """follow-unfollow-event-handling-design.md 2節「店舗名差し込み版ウェルカムメッセージ」
@@ -427,6 +442,7 @@ class ConversationEventProcessor:
         store_profile: Optional[OwnerFollowStatusStoreProtocol] = None,
         conversation_state_store: Optional[ConversationStateStoreProtocol] = None,
         store_name_provider: Optional[StoreNameProviderProtocol] = None,
+        friend_add_url: Optional[str] = None,
     ) -> None:
         self._flow = flow
         self._searcher = searcher
@@ -453,6 +469,10 @@ class ConversationEventProcessor:
         # 差し込み用(未指定(None)の場合は店舗名なしの共通文言のまま、aircon-pashaの
         # form_link_providerと同じ「未接続時は安全側フォールバック」パターン)。
         self._store_name_provider = store_name_provider
+        # launch-announcement-draft-design.md 4.1節準拠。未指定(None)の場合は
+        # FRIEND_ADD_URL_PLACEHOLDER(実LINE公式アカウント開設後に確定)をそのまま
+        # 差し込む(kura-pashaのOWNER_LINE_USER_ID_PLACEHOLDER等と同じプレースホルダパターン)。
+        self._friend_add_url = friend_add_url or FRIEND_ADD_URL_PLACEHOLDER
         # 店舗FAQ情報(owner-settings-wireframe.mdの「店舗FAQ情報」入力欄に対応)。
         # 例: {"address": "○○駅から徒歩5分", "parking": {"available": True, "capacity": "3"},
         #      "payment_methods": ["現金", "クレジットカード"]}
@@ -516,6 +536,33 @@ class ConversationEventProcessor:
         if code is not None:
             return render_owner_faq_answer_message(code), "owner_faq_answer", code
         return None
+
+    def _maybe_render_launch_announcement_reply(
+        self, reply_text: str, tone: str
+    ) -> Optional[tuple[str, str, str]]:
+        """launch-announcement-draft-design.md 3節準拠。reply_textが「告知文」
+        トリガーに一致すれば(送信本文, DispatchResult.action, detail)を返す。
+        一致しなければNone(呼び出し元は通常のLLM解釈フローへそのまま進める)。
+
+        店舗名(StoreNameProviderProtocol)が未登録(空文字列)の場合は、design 3節
+        「オンボーディング未完了状態での誤生成を自然に防げる」の通り実際の下書き生成は
+        行わず_LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_MESSAGEを返す。friend_add_url
+        未設定時はFRIEND_ADD_URL_PLACEHOLDERをそのまま差し込む(design 2節「QRコード
+        画像自体の生成・添付は対象外」と同じく、プレースホルダのまま送ることを許容する
+        暫定仕様)。owner_faq_router.pyと同じくLLM呼び出し・LINE送信は持たない
+        純粋関数構成(呼び出し元の_process_message_event()がI/O(_send())を担う)。
+        """
+        if not is_launch_announcement_trigger(reply_text):
+            return None
+        business_name = ""
+        if self._store_name_provider is not None:
+            business_name = self._store_name_provider.get_business_name(self._store_id) or ""
+        if not business_name:
+            return _LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_MESSAGE, "launch_announcement_missing_store_name", ""
+        pop = render_launch_announcement_pop(business_name, self._friend_add_url, tone)
+        sns = render_launch_announcement_sns(business_name, self._friend_add_url, tone)
+        message = f"【店頭POP文言】\n\n{pop}\n\n【SNS告知文】\n\n{sns}"
+        return message, "launch_announcement", ""
 
     def _notify_owner(
         self, user_id: str, output: dict, now: datetime, reply_text: Optional[str] = None
@@ -766,6 +813,14 @@ class ConversationEventProcessor:
             owner_faq_reply = self._maybe_render_owner_faq_reply(reply_text)
             if owner_faq_reply is not None:
                 message, action, detail = owner_faq_reply
+                self._send(user_id, message, now)
+                return DispatchResult(action=action, detail=detail)
+            # launch-announcement-draft-design.md 3節・7節準拠。同じくオーナー本人確定時のみ、
+            # LLM呼び出しより前に「告知文」コマンドを判定する。運用コマンドのため
+            # NotificationLogAggregatorへの記録は行わない(owner FAQコマンドと同じ扱い)。
+            launch_announcement_reply = self._maybe_render_launch_announcement_reply(reply_text, tone)
+            if launch_announcement_reply is not None:
+                message, action, detail = launch_announcement_reply
                 self._send(user_id, message, now)
                 return DispatchResult(action=action, detail=detail)
 

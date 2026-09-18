@@ -38,6 +38,7 @@ from cloud_function_process_event import (  # noqa: E402
     resolve_menu_duration,
     resolve_store_id_from_destination,
 )
+from launch_announcement_draft import FRIEND_ADD_URL_PLACEHOLDER  # noqa: E402
 from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
@@ -96,6 +97,7 @@ def _new_processor(
     booking_slots=None,
     monthly_booking_limit=None,
     store_name_provider=None,
+    friend_add_url=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
     # システム内部イベントがNotificationLogAggregator.system_event_countsにも記録されるようにする。
@@ -131,6 +133,7 @@ def _new_processor(
         store_profile=store_profile,
         conversation_state_store=conversation_state_store,
         store_name_provider=store_name_provider,
+        friend_add_url=friend_add_url,
     )
     return processor, flow, push, logs
 
@@ -331,6 +334,111 @@ class OwnerFaqCommandTests(unittest.TestCase):
         result = processor.process(_event("U1", "FAQ"), llm_call, NOW)
 
         self.assertEqual(result.action, "forwarded_to_owner")
+
+
+class LaunchAnnouncementCommandTests(unittest.TestCase):
+    """launch-announcement-draft-design.md 3節・7節準拠。オーナー本人からの「告知文」は
+    LLM呼び出し・通常の会話フローを経由せず、POP・SNS告知文の下書きを即時返信することを
+    検証する。
+    """
+
+    def _unreachable_llm_call(self):
+        def call():
+            raise AssertionError("launch announcement command must not invoke the LLM")
+
+        return call
+
+    def test_owner_trigger_replies_with_pop_and_sns_drafts_without_calling_llm(self):
+        processor, flow, push, logs = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+            friend_add_url="https://line.me/R/ti/p/@example",
+        )
+
+        result = processor.process(
+            _event("U-owner", "告知文"), self._unreachable_llm_call(), NOW
+        )
+
+        self.assertEqual(result.action, "launch_announcement")
+        self.assertEqual(len(push.sent), 1)
+        self.assertEqual(push.sent[0][0], "U-owner")
+        sent_text = push.sent[0][1]
+        self.assertIn("〇〇美容室", sent_text)
+        self.assertIn("https://line.me/R/ti/p/@example", sent_text)
+        self.assertIn("【店頭POP文言】", sent_text)
+        self.assertIn("【SNS告知文】", sent_text)
+        self.assertIsNone(flow.stage("U-owner"))
+        self.assertEqual(logs.consultation_count, 0)
+
+    def test_owner_trigger_without_store_name_asks_to_complete_settings(self):
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider(""),
+        )
+
+        result = processor.process(
+            _event("U-owner", "告知文"), self._unreachable_llm_call(), NOW
+        )
+
+        self.assertEqual(result.action, "launch_announcement_missing_store_name")
+        self.assertIn("営業情報設定", push.sent[0][1])
+
+    def test_owner_trigger_without_store_name_provider_asks_to_complete_settings(self):
+        # store_name_provider自体が未接続(None)の場合も、空文字列の場合と同じく
+        # 案内文言に倒す(design 3節が想定する安全側フォールバック)。
+        processor, _, push, _ = _new_processor(owner_user_id="U-owner")
+
+        result = processor.process(
+            _event("U-owner", "告知文"), self._unreachable_llm_call(), NOW
+        )
+
+        self.assertEqual(result.action, "launch_announcement_missing_store_name")
+
+    def test_owner_trigger_without_friend_add_url_uses_placeholder(self):
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+        )
+
+        processor.process(_event("U-owner", "告知文"), self._unreachable_llm_call(), NOW)
+
+        self.assertIn(FRIEND_ADD_URL_PLACEHOLDER, push.sent[0][1])
+
+    def test_non_owner_sending_keyword_uses_normal_flow(self):
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+        )
+
+        def llm_call():
+            return {
+                "intent": "faq", "name": None, "menu": None,
+                "datetime_candidate": None, "confirmed": False, "needs_owner_check": False,
+                "faq_segments": None,
+            }
+
+        result = processor.process(_event("U-customer", "告知文"), llm_call, NOW)
+
+        self.assertEqual(result.action, "forwarded_to_owner")
+
+    def test_owner_faq_trigger_still_takes_precedence_check_does_not_conflict(self):
+        # 「FAQ」「告知文」は文字列が異なるため衝突しないが、同一の判定ブロック内で
+        # 両方のコマンドを順に判定していることの回帰確認(owner_faq_reply判定 →
+        # launch_announcement判定の順で、互いのコマンドを誤って奪わないことを確認する)。
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+        )
+
+        faq_result = processor.process(
+            _event("U-owner", "FAQ"), self._unreachable_llm_call(), NOW
+        )
+        announcement_result = processor.process(
+            _event("U-owner", "告知文"), self._unreachable_llm_call(), NOW
+        )
+
+        self.assertEqual(faq_result.action, "owner_faq_menu")
+        self.assertEqual(announcement_result.action, "launch_announcement")
 
 
 class PendingNewBookingContextTtlTests(unittest.TestCase):
