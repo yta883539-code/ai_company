@@ -3219,3 +3219,21 @@
 - 最終更新: 2026-09-18 定例更新(フェーズ221: オーナー向けFAQコマンドのトリガー・項目
   コード判定に全角入力対応〈NFKC正規化〉を追加。テスト4件新規追加、venture全体603件・
   schema検証17件いずれもパス)
+- フェーズ222(2026-09-18 18:00 UTC定例更新): unfollow-event-handling-design.md
+  (フェーズ84、2026-08-21作成)が「今後の課題」に「`user_profile`・`usage_counter`等の
+  長期保存期間の上限は、line-reservation-aiのdata-retention-policy.mdに相当する文書が
+  本ventureにまだ無いため未整理」と記載したまま残っていたが、実際には同日中の後続
+  フェーズ85で`data-retention-policy.md`が新規作成され、`user_profile`・
+  `usage_counter`・`pending_links`を含む3種類の永続データの保存期間・削除方針が
+  既に整理済みだったと判明した記載漏れを発見・訂正した。フェーズ217・220等、他venture・
+  過去フェーズでも繰り返し発生している「後続ドキュメントで前提が解消されたにもかかわらず
+  起点側の記載が未更新のまま残る」cross-document parityの記載漏れパターンである。
+  該当2箇所(論点3の指摘・「今後の課題」の該当bullet)に解消記録を追記した。コード変更は
+  無く、回帰確認としてventure全体603件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載漏れの訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 18:00 UTC(フェーズ222: unfollow-event-handling-design.mdに
+  残っていた「data-retention-policy.md未作成」という古い記載〈同日中の後続フェーズ85で
+  既に作成済み〉の記載漏れを訂正。コード変更は無く回帰確認のみ)

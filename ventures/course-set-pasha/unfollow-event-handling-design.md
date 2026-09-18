@@ -68,6 +68,8 @@ Stripe側の解約操作をしなければ、サブスクリプション課金�
   data-retention-policy.mdに相当する文書が本ventureにはまだ無い)。本フェーズはunfollow
   イベント受信時の**即時**処理のみを決めるものであり、長期保存の要否・上限は別途
   data-retention-policy.md相当の文書化が必要な次の課題として残す(下記参照)。
+  (解消済み 2026-08-21・フェーズ85: 本フェーズ直後に`ventures/course-set-pasha/
+  data-retention-policy.md`を新規作成し対応済み。詳細は下記「今後の課題」訂正参照)
 
 ## 決定のまとめ
 
@@ -99,7 +101,13 @@ Stripe側の解約操作をしなければ、サブスクリプション課金�
   あるいはunfollow検知をトリガーにしたオーナー向け内部通知の要否)は、本フェーズのスコープ
   外の運用設計課題として残る。実LINE接続後にunfollow発生率が実測できた段階で優先度を
   判断する。
-- `user_profile`・`usage_counter`等の長期保存期間の上限は、line-reservation-aiの
-  data-retention-policy.mdに相当する文書が本ventureにまだ無いため未整理。次の課題とする。
+- ~~`user_profile`・`usage_counter`等の長期保存期間の上限は、line-reservation-aiの
+  data-retention-policy.mdに相当する文書が本ventureにまだ無いため未整理。次の課題とする。~~
+  → (解消済み 2026-08-21・フェーズ85、2026-09-18定例更新〈フェーズ222〉で記載漏れを
+  発見・訂正: 本フェーズの直後に`data-retention-policy.md`が新規作成され、
+  `user_profile`・`usage_counter`・`pending_links`を含む3種類の永続データそれぞれの
+  保存期間・削除方針が整理済み。本ドキュメントが未更新のまま「次の課題」に残していた
+  記載漏れであり、他venture・過去フェーズでも繰り返し発生している同種のcross-document
+  parity記載漏れパターンだった)
 - 実Firestore接続後、`delete_pending_links_for_user()`の実装が複数ドキュメントの削除を
   伴う場合のバッチ削除・部分失敗時の扱いは接続後の課題として残る。
