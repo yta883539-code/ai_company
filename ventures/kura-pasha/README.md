@@ -2795,3 +2795,11 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   古いまま記載していたllm-api-cost-estimate.mdが実際は2026-09-06作成済みだったことを
   発見し記載を訂正。ファイル内容自体は既に十分だったため新規作成はせず、コード変更も
   無く回帰確認のみ)
+- 最終更新: 2026-09-18 22:00 UTC(フェーズ134: aircon-pashaのG8_busy_season_grumble_not_
+  cancellation(フェーズ230)・course-set-pashaのCI6_busy_season_grumble_not_cancellation
+  (フェーズ続き)と対になる、本venture厳守事項7a(iii)版の境界ケース(契約継続・解約の
+  いずれにも触れない、修理依頼の立て込みを愚痴る表現がstatus=generatedに帰着することを
+  固定するサンプル)をschema/validate_test_cases.pyにC4として新規追加し、cross-venture
+  横展開した。schema検証31件(30件→31件)・venture全体100件いずれもパス。承認不要な
+  ドキュメント・サンプル追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等
+  は今回発生していないためpending-approval.mdへの追記なし。)

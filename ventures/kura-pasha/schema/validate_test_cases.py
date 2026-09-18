@@ -575,6 +575,53 @@ TEST_CASES = {
         "checkout_notice": None,
         "workshop_invite_notice": None,
     },
+    # 2026-09-18 22:00 UTC定例更新追加。aircon-pashaのG8_busy_season_grumble_not_cancellation
+    # (2026-09-18 17:00 UTC、llm-system-prompt-draft.md「次の課題」既知の限界6a(iii)対応)・
+    # course-set-pashaのCI6_busy_season_grumble_not_cancellation(2026-09-18 21:00 UTC、同7a(iii)版)
+    # と対になる、本venture厳守事項7a(iii)版のcross-venture横展開。C3がカバーする「解約意図か
+    # 雑談か判断できない」ケースとは異なり、契約継続・解約のいずれにも触れず鞍作りの依頼が
+    # 立て込んでいることへの愚痴の域を出ない表現(「今月は修理依頼が立て込んでいて全然
+    # 追いつかない」等)が続いても、同じ厳守事項7a(iii)の帰着ルールに従いstatus=generatedとして
+    # 通常どおり依頼メモの出力を行い、subscription_procedure_noticeはNoneのままとするのが
+    # 期待動作であることを固定する机上検証サンプル。入力メモ想定:「今月は修理依頼が立て込んで
+    # いて全然追いつかない、区分:修理、鞍の型:ブリティッシュ、革の種類:牛革、用途:競技用、
+    # 納期:2週間」。冒頭の繁忙の愚痴は契約継続・解約のいずれにも言及しない雑談の域を出ない
+    # 表現であるため、7a(iii)としてstatus=generatedに帰着する。実LLMがこの区別を実際に
+    # 守れるかは、他の厳守事項7a境界の検証と同様に実LLM接続後(オーナー承認待ち)の検証課題
+    # として引き続き残る。
+    "C4_busy_season_grumble_not_cancellation": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": {
+            "category": "repair",
+            "saddle_type": "ブリティッシュ",
+            "leather_type": "牛革",
+            "hardware_spec": None,
+            "usage": "競技用",
+            "due_date": "2週間",
+            "remarks": None,
+            "body": "区分:修理/鞍の型:ブリティッシュ/革の種類:牛革/用途:競技用/納期:2週間",
+        },
+        "delivery_notice": {
+            "category": "repair",
+            "body": (
+                "修理が完了した鞍をお届けします。修理箇所は特に丁寧に慣らしてから通常の"
+                "使用に戻してください。雨天時は使用後に乾いた布で水分を拭き取ってください。"
+            ),
+        },
+        "care_notice": (
+            "定期的にオイル・クリームで革に保湿を与えてください。高温多湿・直射日光を避けた"
+            "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
+        ),
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
+        "workshop_invite_notice": None,
+    },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
     "M1_member_retention_selection": {
