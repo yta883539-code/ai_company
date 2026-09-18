@@ -215,7 +215,12 @@ insufficient_input)パターンを踏襲する方向で検討していた(その
 - 厳守事項6aの境界(特に(iii)雑談と(iv)判断不能の切り分け、繁忙期の施工件数の多さを
   愚痴る発言との混同防止)は机上での言い回し例に基づく設計であり、実LLM接続後に実際の
   誤検知パターンが無いか改めて検証する必要がある(course-set-pashaの厳守事項7a同様の
-  既知の限界)。
+  既知の限界)。(2026-09-18 17:00 UTC: 「今月は依頼が多すぎて全然回らない」という繁忙期の
+  愚痴を含みつつ実際の分解洗浄内容も記載されたメモについて、status=generatedとして通常
+  どおり作業完了報告を生成すべきという期待動作を、schema/validate_test_cases.pyの
+  G8_busy_season_grumble_not_cancellationとして具体的な入出力サンプルに固定した
+  〈output-samples-validation.md参照〉。ただしこれはスキーマレベルの整合性確認に
+  留まり、実LLMが実際にこの区別を守れるかの検証は引き続き実LLM接続後の課題として残る)。
 - (解消済み 2026-08-21 08:00 UTC: post_generation_checks.pyにcheck_subscription_notice_
   consistency()を実装した。course-set-pashaと同じ位置づけ(kind=cancellation_unclearの
   ときカスタマーポータル・手続き完了文言が混入していないか、kind=cancellation_intent/

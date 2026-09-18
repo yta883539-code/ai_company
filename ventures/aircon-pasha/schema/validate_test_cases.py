@@ -444,6 +444,47 @@ TEST_CASES = {
         "subscription_procedure_notice": None,
         "checkout_notice": None,
     },
+    # 2026-09-18 17:00 UTC追加。llm-system-prompt-draft.md「次の課題」が既知の限界として
+    # 残していた、厳守事項6a(iii)(契約継続には触れず、施工件数・繁閑についての雑談・愚痴の
+    # 域を出ない表現)と6a(解約意図検知)との混同防止について、具体的な入力メモ・期待出力の
+    # 組み合わせをサンプルとして固定する机上検証。入力メモ想定:
+    # 「今月は依頼が多すぎて全然回らない、壁掛け型2.5kWのエアコン、フィルター・熱交換器まで
+    # 分解洗浄した、汚れは軽度」。冒頭の繁忙期の愚痴は契約継続・解約のいずれにも言及しない
+    # 雑談の域を出ない表現であるため、status=generatedとして通常どおり作業完了報告・
+    # お手入れ案内を生成し、subscription_procedure_noticeはNoneのままとするのが期待動作。
+    # 実LLMがこの区別を実際に守れるかは、他の厳守事項6a/6b境界の検証と同様に実LLM接続後
+    # (オーナー承認待ち)の検証課題として引き続き残る。
+    "G8_busy_season_grumble_not_cancellation": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.5kWのエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
+                    "汚れは軽度でした。",
+            "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
+        },
+        "care_guide": {
+            "body": "フィルターは月1回程度を目安にお手入れください。次回の分解洗浄の時期については、"
+                    "使用状況やご家庭の環境により差がありますが、一般的な目安として1〜2年に1回程度の"
+                    "ご検討をおすすめします(今回のメモに次回推奨時期の記載が無いため、あくまで"
+                    "一般的な目安です)。自己分解洗浄は内部の破損・感電等のリスクがあるため、"
+                    "分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": True,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-18",
+                "model_type_and_capacity": "壁掛け型2.5kW",
+                "dirt_condition": "軽度",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
     "OOS1_reservation_question": {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは作業完了報告・お手入れ案内文の下書き作成支援のみを行っており、"

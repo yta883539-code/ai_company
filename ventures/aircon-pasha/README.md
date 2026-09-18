@@ -3615,3 +3615,24 @@
   コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
   cross-venture横展開、4venture全ての横展開完了。テスト2件新規追加、venture全体513件・
   schema検証17件いずれもパス)
+- フェーズ230(2026-09-18 17:00 UTC): FAQコマンド関連の4venture横展開が完了し、
+  llm-system-prompt-draft.md「次の課題」に残っていた次の候補(机上完結できる改善余地の
+  洗い出し)に対応した。(1)厳守事項6a(解約意図検知)の既知の限界として記録されていた
+  「(iii)繁忙期の施工件数の多さを愚痴る発言との混同防止」について、具体的な入力メモ
+  (「今月は依頼が多すぎて全然回らない」+実際の分解洗浄内容)と期待出力
+  (status=generated、subscription_procedure_noticeはNoneのまま)の組み合わせを
+  schema/validate_test_cases.pyにG8_busy_season_grumble_not_cancellationとして新規
+  追加した。(2)output-samples-validation.mdの一覧表・結果セクションが、フェーズ217
+  (2026-09-14 15:00 UTC)で追加されたG7_management_company_recipientとNEG2の反映漏れ
+  (schema/validate_test_cases.py側には存在するがドキュメント側の一覧表・パス件数
+  〈15件のまま〉が更新されていなかった、他venture・過去フェーズでも繰り返し発生している
+  同種の記載漏れパターン)を発見し、G7・NEG2の行と最新のパス件数(18件)を反映した。
+  schema検証18件(17件→18件、`python3 schema/validate_test_cases.py`)・venture全体513件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同じ結果)いずれも
+  パスを確認した。承認不要なドキュメント新規サンプル追加・記載漏れ訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。実LLMが繁忙期の愚痴を実際に解約意図と誤検知しないか
+  の検証は、他の6a/6b境界確認と同様に実LLM接続後(オーナー承認待ち)の課題として残る。
+- 最終更新: 2026-09-18 17:00 UTC(フェーズ230: 厳守事項6a境界〈繁忙期の愚痴と解約意図の
+  混同防止〉の具体サンプルG8を追加、output-samples-validation.mdのG7・NEG2反映漏れを
+  訂正。schema検証18件・venture全体513件いずれもパス)
