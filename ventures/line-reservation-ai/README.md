@@ -4026,3 +4026,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-18 定例更新(フェーズ続き240: オーナー向けFAQコマンドのトリガー・
   項目コード判定に全角入力対応〈NFKC正規化〉を追加。course-set-pashaフェーズ221の
   cross-venture横展開。テスト2件新規追加、venture全体847件・schema検証27件いずれもパス)
+- フェーズ続き241(2026-09-18 14:00 UTC定例更新): llm-api-cost-estimate.md(フェーズ
+  相当、2026-09-11作成)が「パシャッと系〈course-set-pasha・aircon-pasha〉と比べて
+  プロンプトキャッシュ導入の重要性が高い。実LLM接続時の実装優先事項とする」と明記して
+  いたにもかかわらず、その2ventureが持つ独立ドキュメント`prompt-caching-design.md`に
+  対応するファイルが本ventureに無いというcross-venture parityギャップに対応した
+  (kura-pashaは低頻度受注特性ゆえキャッシュ効果が薄いと試算した上での未作成であり、
+  高優先度と明記済みなのに未作成だった本venture・aircon-pasha・course-set-pashaとは
+  事情が異なる点を確認した上で、本venture分の新規作成に着手した)。本venture固有の
+  構造として、システムプロンプトが「全店舗共通部分(会話フロー・厳守事項+構造化出力
+  スキーマ)」と「店舗固有部分(営業時間・メニュー等の登録情報、llm-system-prompt-
+  draft.md 9a節)」の2層構造になっている点が他2venture(完全共通)と異なることを発見し、
+  `cache_control`を2ブレークポイント(ブロック単位、最大4まで設定可能な仕様に対し2つ
+  使用)に分けて配置する設計とした。ブレークポイント1(全店舗共通部分)は全契約店舗×
+  全ターンを合算した間隔で、ブレークポイント2(店舗固有部分)は当該1店舗のターンのみ
+  (かつ同一会話セッション内の3ターンは短時間に集中するため、candidates-expired-
+  notification-design.mdの無応答判定目安30分を踏まえミクロには効きやすい)で損益分岐点を
+  考える必要がある点を整理し、`prompt-caching-design.md`として新規作成した。
+  llm-api-cost-estimate.mdの該当箇所にも解消記録を追記した。実際のメッセージ組み立て
+  ロジック(`llm_call`クロージャ内部)自体はllm-turn-context-design.md時点でも未実装の
+  ままであり、本ドキュメントは実装時に反映する設計に留まる。コード変更は無く、回帰確認
+  としてventure全体847件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証27件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ
+  結果)を確認した。承認不要なドキュメント新規作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 14:00 UTC(フェーズ続き241: プロンプトキャッシュ実装方針
+  〈prompt-caching-design.md〉を新規作成し、2ブレークポイント〈全店舗共通部分/店舗固有
+  部分〉構成を設計。course-set-pasha・aircon-pashaに対するcross-venture parityギャップに
+  対応。コード変更は無く回帰確認のみ)
