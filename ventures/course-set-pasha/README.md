@@ -3166,3 +3166,30 @@
 - 最終更新: 2026-09-15 定例更新(フェーズ219: オーナー向けセルフサービスFAQへの導線
   〈owner-faq-routing-design.md・prototype/owner_faq_router.py〉を新規実装し、
   line-reservation-ai・kura-pashaに続き3venture目の横展開を完了)
+- フェーズ220(2026-09-17 19:00 UTC、コミットd040375にて実施済みだった内容をREADMEへ
+  事後反映): フェーズ219・owner-faq-routing-design.md 5節・follow-event-welcome-message-
+  design.md残課題が共通して残していた「『FAQ』という単語自体を契約者が思いつかない可能性が
+  あり、コマンドの存在をどう周知するか」に対応した。aircon-pashaがフェーズ226でSELF_CHECK_
+  NOTICE_TEXT末尾に追記した方式と同じ考え方で、本venture固有の唯一確実な初回導線である
+  ウェルカムメッセージ(`format_welcome_message()`)の末尾に「トークルームで『FAQ』と送信
+  すればいつでもご案内します」の一文を追記した。既存のコード発行・申込フォーム案内部分の
+  文言・処理は変更していない。`test_cloud_function_webhook.py`に、ウェルカムメッセージ
+  本文が実際に`owner_faq_router.is_owner_faq_menu_trigger()`のトリガーキーワード「FAQ」と
+  一致することを検証するテストを1件追加し、venture全体601件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証17件(`python3
+  schema/validate_test_cases.py`)いずれもパスを確認した。当時のコミット(d040375)では
+  この作業内容がowner-faq-routing-design.md・follow-event-welcome-message-design.mdには
+  反映されていたが、本README「最終更新」マーカーへの追記が漏れていた(kura-pasha
+  フェーズ127→128・aircon-pashaフェーズ225→226等、他ventureでも過去に発生した同種の
+  記載漏れパターン)。2026-09-18定例更新でこれを発見し、本フェーズ220として事後反映した。
+  あわせてowner-faq-routing-design.md 5節に残っていた「aircon-pashaへの同種導線の横展開は
+  未着手のまま残る」という古い記載(実際にはaircon-pasha・kura-pasha・line-reservation-ai
+  いずれも2026-09-17中に対応済みで、2026-09-18時点で4venture全ての周知対応が完了して
+  いる)も訂正した。コード変更は無く、回帰確認としてventure全体601件・schema検証17件
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント記載漏れの訂正のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 定例更新(フェーズ220: フェーズ219直後の2026-09-17 19:00 UTC
+  〈コミットd040375〉で実施済みだったウェルカムメッセージへのFAQ周知文言追記の
+  README記載漏れを事後反映。あわせてowner-faq-routing-design.md 5節の古い記載も訂正。
+  コード変更は無く回帰確認のみ)
