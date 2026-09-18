@@ -311,6 +311,86 @@ class ReceiveStripeWebhookSubscriptionActivatedTest(unittest.TestCase):
         self.assertEqual(stored.suspension_reason, "trial_unselected")
 
 
+class ReceiveStripeWebhookCheckoutSessionCompletedProfileLinkingTest(unittest.TestCase):
+    """checkout-initiation-flow-design.md 7節: `checkout.session.completed`受信時に
+    `store_profile_store.handle_checkout_session_completed()`が呼ばれ、
+    stripe_customer_id・plan が実際に書き込まれることを検証する(この配線が
+    抜けていたため、統合エントリポイント経由では一度も呼ばれていなかった)。"""
+
+    def _payload(self, metadata: dict | None = None) -> bytes:
+        data_object = {"client_reference_id": "store-1", "customer": "cus_1"}
+        if metadata is not None:
+            data_object["metadata"] = metadata
+        return _event_payload("evt_1", "checkout.session.completed", data_object)
+
+    def _send(self, *, store_profile_store, **kwargs):
+        payload = self._payload(kwargs.pop("metadata", None))
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+        return receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            store_profile_store=store_profile_store,
+            now=NOW,
+            **kwargs,
+        )
+
+    def test_stripe_customer_id_is_linked_even_without_subscription_store_or_push_client(self):
+        store = InMemoryStoreProfileStore()
+        result = self._send(store_profile_store=store)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_1")
+
+    def test_plan_metadata_is_written_when_known(self):
+        store = InMemoryStoreProfileStore()
+        self._send(store_profile_store=store, metadata={"plan": "スタンダードプラン"})
+        self.assertEqual(store.get_plan("store-1"), "スタンダードプラン")
+
+    def test_unknown_plan_metadata_is_not_written(self):
+        store = InMemoryStoreProfileStore()
+        self._send(store_profile_store=store, metadata={"plan": "存在しないプラン"})
+        self.assertIsNone(store.get_plan("store-1"))
+
+    def test_skipped_without_error_when_store_profile_store_omitted(self):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            now=NOW,
+        )
+        self.assertEqual(result.status_code, 200)
+
+    def test_linking_still_happens_alongside_subscription_activation(self):
+        # 通知送信(subscription_store/push_client)とprofile linkingが両立することを確認する。
+        store = InMemoryStoreProfileStore()
+        subscription_store = InMemoryStoreSubscriptionStateStore()
+        subscription_store.set_subscription_state(
+            "store-1",
+            StoreSubscriptionState(
+                store_id="store-1",
+                owner_line_user_id="owner-line-1",
+                plan_name="スタンダードプラン",
+                next_billing_date="2026-10-03",
+                suspension_reason="trial_unselected",
+            ),
+        )
+        push_client = InMemoryLinePushClient()
+        result = self._send(
+            store_profile_store=store,
+            subscription_store=subscription_store,
+            push_client=push_client,
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "activated")
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_1")
+
+
 class ReceiveStripeWebhookPaymentSucceededTest(unittest.TestCase):
     def test_handler_is_called_and_state_is_written_back(self):
         dunning_store = InMemoryStoreDunningStateStore()

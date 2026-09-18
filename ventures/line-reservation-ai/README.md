@@ -4051,7 +4051,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   結果)を確認した。承認不要なドキュメント新規作成のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
   なし。次回は他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-18 14:00 UTC(フェーズ続き241: プロンプトキャッシュ実装方針
-  〈prompt-caching-design.md〉を新規作成し、2ブレークポイント〈全店舗共通部分/店舗固有
-  部分〉構成を設計。course-set-pasha・aircon-pashaに対するcross-venture parityギャップに
-  対応。コード変更は無く回帰確認のみ)
+- フェーズ(続き242): checkout-initiation-flow-design.md「残課題」の記載
+  (Stripe Webhook受信エンドポイント本体は未実装)が、実際には
+  `prototype/stripe_webhook_entry_point.py`の`receive_stripe_webhook()`として
+  フェーズ続き183・185で既に実装済みだったことを確認する過程で、その
+  `checkout.session.completed`分岐が通知送信(`handle_subscription_activated()`)のみを
+  呼び、`store_profile_store.handle_checkout_session_completed()`
+  (stripe_customer_id・plan の永続化、checkout-initiation-flow-design.md 7節)への
+  配線が抜けている実配線漏れを発見した。この状態だと`resolve_store_id_by_customer()`が
+  以後のStripeイベント(`invoice.payment_failed`等)のstore_id解決に常に失敗する実害が
+  あったため、`store_profile_store`が渡された場合は通知送信の成否と独立に
+  `handle_checkout_session_completed()`を呼ぶよう修正した(customer.subscription.updated
+  分岐の`sync_plan_on_subscription_event()`と同じ「独立して書き込む」方針に揃えた)。
+  テスト5件追加、venture全体852件(847件→852件)・schema検証27件いずれもパスを確認した。
+  checkout-initiation-flow-design.md「残課題」の該当項目を解消済みへ訂正した。承認不要な
+  コード実装・ドキュメント訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-18 19:00 UTC(フェーズ続き242: Stripe統合Webhookエントリポイントの
+  `checkout.session.completed`分岐にstore_profile_store.handle_checkout_session_completed()
+  への配線漏れ〈stripe_customer_id・planが一度も永続化されず、以後のイベントのstore_id
+  解決が常に失敗する実害があった〉を発見・修正。テスト5件追加、venture全体852件・
+  schema検証27件いずれもパス)

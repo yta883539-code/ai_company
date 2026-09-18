@@ -45,7 +45,11 @@ from cloud_function_subscription_cancelled_webhook import (
     handle_subscription_updated,
 )
 from portal_session import PortalLinkProvider
-from store_profile_store import InMemoryStoreProfileStore, make_resolve_store_id_by_customer
+from store_profile_store import (
+    InMemoryStoreProfileStore,
+    handle_checkout_session_completed,
+    make_resolve_store_id_by_customer,
+)
 from subscription_plan_sync import PlanStoreProtocol, sync_plan_on_subscription_event
 from stripe_webhook import (
     EVENT_CHECKOUT_SESSION_COMPLETED,
@@ -199,6 +203,15 @@ def receive_stripe_webhook(
     store_id = route.store_id
 
     if route.event_type == EVENT_CHECKOUT_SESSION_COMPLETED:
+        # checkout-initiation-flow-design.md 7節: stripe_customer_id・plan の
+        # store_profile_store への書き込み(handle_checkout_session_completed())は、
+        # customer.subscription.updated分岐のsync_plan_on_subscription_event()と同じく
+        # 通知送信(subscription_store/push_client)の要否とは独立して行う。この配線が
+        # 抜けていたため、統合エントリポイント経由ではstripe_customer_idの紐付け・plan
+        # 書き込みが一度も行われず、resolve_store_id_by_customer()による以後のイベント
+        # (invoice.payment_failed等)のstore_id解決が常に失敗する配線漏れがあった。
+        if store_profile_store is not None:
+            handle_checkout_session_completed(parsed, store_profile_store)
         if subscription_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = subscription_store.get_subscription_state(store_id)

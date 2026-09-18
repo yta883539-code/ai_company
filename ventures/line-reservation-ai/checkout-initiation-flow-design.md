@@ -364,14 +364,19 @@ Cloud Function A/B・Stripe Webhook側と同一Firestoreの`stores`コレクシ�
 
 - LIFFアプリのLINE Developersコンソールでの実登録、LINE公式アカウントの開設(Basic ID
   確定)はオーナー承認待ち(pending-approval.mdに記録する)。
-- `resolve_existing_stripe_customer_id()`・`handle_checkout_session_completed()`を実際に
-  Stripe Webhook受信エンドポイント本体に配線する処理(実HTTPハンドラ・実Stripe API呼び出し)は
-  未実装。実アカウント接続後に着手する。うち署名検証部分(`verify_stripe_signature()`)は
-  実アカウント接続前でも机上実装・テスト可能だったため、stripe-webhook-signature-
-  verification-design.md(フェーズ続き158)として先行着手済み。エンドポイント本体(署名
-  検証〜イベント種別ディスパッチ〜各ハンドラ呼び出しを結ぶ層)は引き続き未着手のまま残る。
-  Checkout Session作成エンドポイント側の本体配線(9節手順1〜4・10節を結ぶ層)は12節
-  (フェーズ続き174)で実装済み。
+- (解消済み・訂正 2026-09-18 19:00 UTC): Stripe Webhook受信エンドポイント本体
+  (署名検証〜イベント種別ディスパッチ〜各ハンドラ呼び出しを結ぶ層)は
+  `prototype/stripe_webhook_entry_point.py`の`receive_stripe_webhook()`として
+  フェーズ続き183・185で既に実装済みだったが、`checkout.session.completed`分岐が
+  `handle_subscription_activated()`(通知送信)のみを呼び、`resolve_existing_
+  stripe_customer_id()`が参照する`store.set_stripe_customer_id()`本体
+  (`handle_checkout_session_completed()`)への配線が抜けたままだった。この状態では
+  `resolve_store_id_by_customer()`が以後のイベント(`invoice.payment_failed`等)で
+  常に解決失敗する実害があったため、本フェーズ(2026-09-18 19:00 UTC)で
+  `handle_checkout_session_completed()`を`store_profile_store`が渡された場合に
+  常に(通知送信の成否と独立に)呼ぶよう配線した。テスト5件追加、venture全体852件・
+  schema検証27件いずれもパスを確認した。実Stripe API呼び出し自体(下記別項目)は
+  引き続き実アカウント接続後の課題として残る。
 - IDトークン検証の実装(LINE Platform APIの`/oauth2/v2.1/verify`相当)は実LIFF登録後に着手
   (12節`_verify_id_token_not_implemented`プレースホルダを差し替える)。
 - Checkout Session作成APIへの実HTTPリクエスト送信(`build_checkout_session_params()`が
