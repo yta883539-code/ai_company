@@ -3558,3 +3558,19 @@
 - 最終更新: 2026-09-17 09:00 UTC(フェーズ226: 初回生成時セルフチェック案内
   〈SELF_CHECK_NOTICE_TEXT〉の末尾にFAQコマンドの周知文言を追記し、owner-faq-routing-
   design.md 5節の周知課題に対応)
+- フェーズ227(2026-09-18 04:00 UTC): フェーズ226・owner-faq-routing-design.md 5節が
+  「友だち追加直後〈初回生成より前〉の周知は実LINE API接続後の検討課題」として残していた
+  記載を見直した。course-set-pasha・kura-pasha・line-reservation-aiが既に自身のfollow
+  イベントウェルカムメッセージ(実LINE接続前から机上実装・テスト可能な固定テンプレート)に
+  FAQ周知文言を追記済みであり、本ventureのformat_welcome_message()も同じ性質の関数である
+  ことを確認し、同様に末尾へ「ご利用方法や料金プラン変更・解約などのご質問は、トークルームで
+  「FAQ」と送信するといつでもご案内します。」を追記した。これで友だち追加直後〜初回生成
+  完了までの間もFAQコマンドの存在を周知でき、4venture全ての横展開が完了した。
+  test_welcome_message_mentions_faq_trigger_keywordを新規追加し、回帰確認として
+  venture全体511件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証17件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なコード実装・ドキュメント更新のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-18 04:00 UTC(フェーズ227: followイベントのウェルカムメッセージ
+  〈format_welcome_message()〉末尾にFAQコマンドの周知文言を追記し、4venture全ての
+  横展開を完了)

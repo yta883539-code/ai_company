@@ -83,8 +83,17 @@ owner-operation-self-service-faq.mdのQ1〜Q7の内容を、LINEメッセージ�
 - (解消済み 2026-09-17・フェーズ226: 「FAQ」という単語自体を契約者が思いつかない可能性が
   あるという周知課題に対応し、first-generation-self-check-design.md 6節の通り、
   全業者が生涯に一度は必ず受け取るSELF_CHECK_NOTICE_TEXT(初回生成時セルフチェック案内)の
-  末尾にFAQコマンドの案内文を追記した。既存の確認依頼部分の文言は変更していない。
-  友だち追加直後〈初回生成より前〉の周知は実LINE API接続後の検討課題として残る)
+  末尾にFAQコマンドの案内文を追記した。既存の確認依頼部分の文言は変更していない)
+- (解消済み 2026-09-18定例更新: 上記が残していた「友だち追加直後〈初回生成より前〉の周知は
+  実LINE API接続後の検討課題」という記載を見直した。format_welcome_message()自体は
+  followイベント受信時の固定テンプレート文字列を組み立てるだけの関数で、実LINE API接続の
+  有無にかかわらず机上実装・テストが可能であり、他3venture(course-set-pasha・kura-pasha・
+  line-reservation-ai)も同じ理由で自身のウェルカムメッセージへ周知文言を追記済みだった
+  ことを踏まえ、本ventureのformat_welcome_message()末尾にも同種の一文
+  (「ご利用方法や料金プラン変更・解約などのご質問は、トークルームで「FAQ」と送信すると
+  いつでもご案内します。」)を追記し、これで4venture全ての横展開が完了した。
+  test_welcome_message_mentions_faq_trigger_keyword()で本文がowner_faq_router.pyの
+  トリガーキーワードと一致することを検証済み)
 - Q1〜Q7以外の想定外の質問への追加ハンドリングは無く、その場合は契約者が今まで通り
   運営者へ直接問い合わせる想定のまま。
 - 実際に契約者がこのコマンドをどの程度使うか、support-cost-estimate.mdが試算した

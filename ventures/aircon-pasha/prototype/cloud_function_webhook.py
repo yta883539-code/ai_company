@@ -215,7 +215,15 @@ def format_welcome_message(form_link_provider: Optional[ApplicationFormLinkProvi
     """design 1節のウェルカムメッセージ本文を組み立てる。本ventureはfollow時点でコードを
     発行しないため、course-set-pashaのformat_welcome_message()と異なり連携コードの差し込みは
     行わない(固定テンプレート)。form_link_providerが未接続(None)、またはURL取得自体に
-    失敗した場合はプレースホルダのまま返す(design 1節と同じ考え方)。"""
+    失敗した場合はプレースホルダのまま返す(design 1節と同じ考え方)。
+
+    末尾のFAQ周知文言はowner-faq-routing-design.md 5節の残課題(「FAQ」という単語自体を
+    契約者が思いつかない可能性がある周知課題)への対応。従来はSELF_CHECK_NOTICE_TEXT
+    (初回生成成功時)のみに案内があり、友だち追加直後〜初回生成までの間は案内が無かった。
+    他3venture(course-set-pasha・kura-pasha・line-reservation-ai)が既にfollowイベントの
+    ウェルカムメッセージ(または相当する最速の確実な導線)へ同種の一文を追記済みであり、
+    本ventureのウェルカムメッセージも実LINE API接続前から机上実装・テスト可能な固定
+    テンプレートであるため、横展開に実LINE接続は不要と判断した(2026-09-18定例更新)。"""
     form_url = APPLICATION_FORM_URL_PLACEHOLDER
     if form_link_provider is not None:
         fetched = form_link_provider.get_form_url()
@@ -229,7 +237,9 @@ def format_welcome_message(form_link_provider: Optional[ApplicationFormLinkProvi
         "お申込みフォームで発行された連携コード(6文字)をお持ちの方は、そのままこのトークに"
         "コードを送信してください。\n\n"
         "まだお申込みがお済みでない方は、下記フォームからお申込みください。\n"
-        f"{form_url}"
+        f"{form_url}\n\n"
+        "ご利用方法や料金プラン変更・解約などのご質問は、トークルームで「FAQ」と送信すると"
+        "いつでもご案内します。"
     )
 
 

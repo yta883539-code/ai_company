@@ -1261,6 +1261,15 @@ class ProcessFollowEventTest(unittest.TestCase):
         message = format_welcome_message(None)
         self.assertIn(APPLICATION_FORM_URL_PLACEHOLDER, message)
 
+    def test_welcome_message_mentions_faq_trigger_keyword(self):
+        # owner-faq-routing-design.md 5節の残課題(友だち追加直後〜初回生成前の周知)対応、
+        # 2026-09-18定例更新。course-set-pasha・kura-pasha・line-reservation-aiの
+        # ウェルカムメッセージへの周知文言追記と同じく、本文が実際にowner_faq_router.pyの
+        # トリガーキーワードと一致することを検証する(回帰防止)。
+        message = format_welcome_message(None)
+        self.assertTrue(is_owner_faq_menu_trigger("FAQ"))
+        self.assertIn("「FAQ」と送信", message)
+
     def test_refollow_of_a_linked_user_resets_is_following_to_true(self):
         # blocked-but-billing-detection-design.md(フェーズ167)。
         from datetime import datetime, timezone
