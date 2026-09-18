@@ -2721,3 +2721,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-18 00:00 UTC(フェーズ129: PortalLinkProviderの実装本体
   〈portal-session-provider-design.md・prototype/portal_session.py〉を新規実装し、
   4venture全てでBilling Portalリンク発行実装のcross-venture parityを達成)
+- フェーズ130(2026-09-18 定例更新): cross-venture-support-cost-comparison.md(フェーズ123)
+  「結論・示唆」が「次の課題」として残していたFAQ整備等のサポート負荷軽減策について、
+  2026-09-15〜18の定例更新で4venture全て(course-set-pasha・kura-pasha・aircon-pasha・
+  line-reservation-ai)へのowner-faq-routing-design.md実装が既に完了していることを確認し、
+  「FAQ自己解決導線の横展開完了と対応コストへの示唆」節を新設した。各ventureのFAQ項目数
+  (course-set-pasha 6件・aircon-pasha 7件・line-reservation-ai 7件・kura-pasha 8件)を
+  整理した上で、FAQがカバーする範囲(通常の使い方・料金プラン・解約方法の再質問)と
+  カバーしない範囲(契約者譲渡・複数職人メンバー整理等、本人確認や個別状況判断を要する
+  問い合わせ)を切り分け、「通常の使い方の再質問」区分の3〜5割程度が自己解決に置き換わる
+  と仮定しても比較表の月次対応コスト全体を大きく動かす水準ではないという粗い見立てを
+  記録した(根拠のない仮定値であることを明記)。比較表・順位付け自体は実測データが無いため
+  据え置いた。コード変更は無く、回帰確認としてventure全体98件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証30件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な
+  ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は実測データが得られるまでの間、
+  他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 定例更新(フェーズ130: cross-venture-support-cost-comparison.mdに
+  FAQ自己解決導線の横展開完了状況・対応コストへの粗い示唆を追記。コード変更は無く
+  回帰確認のみ)
