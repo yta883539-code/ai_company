@@ -93,3 +93,32 @@ line-reservation-ai・kura-pashaから踏襲するため)。
   20:00 UTC〉・line-reservation-ai〈フェーズ続き234〉でも同種の周知対応が完了したため、
   「aircon-pashaへの同種導線の横展開は未着手」という記載は古い状態のまま残っていた。
   2026-09-18時点で4venture全ての周知対応が完了している)
+
+## 6. 全角入力への対応(フェーズ221)
+
+トリガーキーワード「FAQ」・項目コード「Q1」〜「Q6」はいずれも英数字のみで構成されるが、
+`is_owner_faq_menu_trigger()`・`match_owner_faq_item_code()`は当初、半角入力のみを
+想定した`text.strip().upper()`による判定だった。日本語入力の携帯端末はIME既定が全角
+モードであることが多く、契約者が「ＦＡＱ」「Ｑ１」のように全角で入力した場合に
+トリガー・項目コードのいずれにも一致せず、既存のメモ処理フロー(LLM呼び出し)に
+そのまま進んでしまう(無関係な入力として扱われ投稿文生成が試みられてしまう)可能性が
+あった。これはowner-faq-routing-design.md初版(フェーズ219)・line-reservation-ai・
+kura-pashaのowner_faq_router.py同等実装のいずれにも無かった想定漏れであり、
+line-reservation-ai・kura-pasha・aircon-pashaのowner_faq_router.pyを確認しても
+同様に半角入力のみを前提としていることを確認した(cross-venture共通の未対応論点であり、
+本venture固有の不整合ではない)。
+
+対応として、`unicodedata.normalize("NFKC", text)`による正規化を`strip().upper()`の
+前段に追加した(`_normalize_command_text()`として共通化)。NFKC正規化は全角英数字を
+半角に変換するため、「ＦＡＱ」→「FAQ」・「Ｑ１」→「Q1」のように既存の半角判定へ
+自然に合流する。全角スペースによる前後の余白も`str.strip()`がUnicode空白として
+扱うため従来通り無視される。
+
+検討した代替案として、正規表現による全角→半角の個別変換テーブルを自前実装する方法も
+あったが、Python標準ライブラリの`unicodedata.normalize("NFKC", ...)`で十分にカバー
+できる(トリガー・コードがいずれも英数字のみのため、NFKCが仮名文字の濁点結合等まで
+広く正規化してしまう副作用も本ケースでは問題にならない)ため採用を見送った。
+
+本対応は本venture(`prototype/owner_faq_router.py`)のみに適用した。line-reservation-ai・
+kura-pasha・aircon-pashaの同等実装への横展開は、cross-venture展開パターン(フェーズ216
+〜220で繰り返し行われてきた形)に倣い各ventureの次回ローテーション時の課題として残す。

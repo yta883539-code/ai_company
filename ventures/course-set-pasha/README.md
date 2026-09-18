@@ -3193,3 +3193,29 @@
   〈コミットd040375〉で実施済みだったウェルカムメッセージへのFAQ周知文言追記の
   README記載漏れを事後反映。あわせてowner-faq-routing-design.md 5節の古い記載も訂正。
   コード変更は無く回帰確認のみ)
+- フェーズ221(2026-09-18 定例更新): オーナー向けFAQコマンド(`prototype/owner_faq_router.py`、
+  フェーズ219)のトリガー判定「FAQ」・項目コード判定「Q1」〜「Q6」が、当初は半角英数字の
+  入力のみを想定しており、日本語入力の携帯端末で既定になりやすい全角入力「ＦＡＱ」
+  「Ｑ１」では一致せず既存のメモ処理フロー(LLM呼び出し)にそのまま進んでしまう
+  未対応の入力パターンを発見した。line-reservation-ai・kura-pasha・aircon-pashaの
+  owner_faq_router.py同等実装を確認したところ、いずれも同様に半角入力のみを前提と
+  しておりcross-venture共通の想定漏れだったが、本venture固有の不整合ではないため今回は
+  本venture分のみ対応し、他3ventureへの横展開は各ventureの次回ローテーション時の課題と
+  した。`unicodedata.normalize("NFKC", text)`による正規化を`strip().upper()`の前段に
+  追加する`_normalize_command_text()`を新設し、`is_owner_faq_menu_trigger()`・
+  `match_owner_faq_item_code()`から呼び出すよう変更した。代替案として全角→半角の
+  変換テーブルを自前実装する方法も検討したが、トリガー・コードが英数字のみのため
+  標準ライブラリのNFKC正規化で十分と判断し採用を見送った。owner-faq-routing-design.md
+  に6節を新設し検討過程を記録した。`prototype/test_owner_faq_router.py`に全角入力
+  (「ＦＡＱ」「ｆａｑ」「　ＦＡＱ　」「Ｑ１」「ｑ３」)のテストを4件追加し、
+  venture全体603件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  601件→603件)・schema検証17件(`python3 schema/validate_test_cases.py`、既存17件が
+  いずれも変更後も違反しないことを確認)いずれもパスした。今回のコード変更は入力の
+  正規化のみで外部サービスへの公開・アカウント作成・支払い・送信等は発生していないため
+  pending-approval.mdへの追記なし。実際に契約者が全角入力を行う頻度自体は実運用データ
+  (LINE公式アカウント接続後)が無いと検証できず引き続き未検証のまま残る。次回は
+  line-reservation-ai・kura-pasha・aircon-pashaへの同種NFKC正規化の横展開、または
+  他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-18 定例更新(フェーズ221: オーナー向けFAQコマンドのトリガー・項目
+  コード判定に全角入力対応〈NFKC正規化〉を追加。テスト4件新規追加、venture全体603件・
+  schema検証17件いずれもパス)
