@@ -3574,3 +3574,22 @@
 - 最終更新: 2026-09-18 04:00 UTC(フェーズ227: followイベントのウェルカムメッセージ
   〈format_welcome_message()〉末尾にFAQコマンドの周知文言を追記し、4venture全ての
   横展開を完了)
+- フェーズ228(2026-09-18 11:00 UTC): owner-operation-self-service-faq.md「次のステップ
+  候補」に残っていた2件の記載が、その後の定例更新で既に解消済みだったことを確認し訂正
+  した。(1)「本venture向けにもコマンド方式のFAQ導線を横展開できないか」という記載は、
+  フェーズ225のowner-faq-routing-design.mdで実装済み(`prototype/owner_faq_router.py`・
+  `cloud_function_webhook.py`の`is_owner_faq_menu_trigger()`分岐)であることを再確認した。
+  (2)「残る1venture(kura-pasha)は同種FAQが未整備の模様、次回ファイル一覧を確認」という
+  記載も、kura-pasha/prototype/owner_faq_router.py(フェーズ126、line-reservation-aiの
+  フェーズ続き233と同設計)で既に実装済みであることをファイル確認で裏付けた。これで
+  4venture全てにオーナー向けセルフサービスFAQのコマンド方式導線実装が完了している事実を
+  ドキュメント側にも反映した。コード変更は無く、回帰確認としてventure全体511件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証17件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は、4venture共通で
+  未検証のまま残っている「実運用データ取得後のFAQ項目一致率・支援コスト削減効果の検証」
+  (実LINE API接続後の課題)以外で、机上完結できる改善余地(他venture分含む)の洗い出しを
+  優先候補とする。
+- 最終更新: 2026-09-18 11:00 UTC(フェーズ228: owner-operation-self-service-faq.mdの
+  「次のステップ候補」2件を解消済みへ訂正、4venture全てのFAQコマンド導線完了を確認)

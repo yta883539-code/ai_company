@@ -109,13 +109,12 @@ company)はメモの記載(「宛先:管理会社」等)からLLMが判定する
 
 ## 次のステップ候補
 
-- line-reservation-aiのowner-faq-routing-design.md(トークルームで「FAQ」→「Q1」〜「Q6」
-  送信によりその場で内容を返信するコマンド方式)は、外部公開を伴わずLINE公式アカウント
-  接続前でも机上実装・テストまで完結できる設計だった。本venture向けにも同種の導線実装を
-  横展開できないか、次回以降の候補とする。
+- (解消済み・フェーズ225 owner-faq-routing-design.md: line-reservation-aiと同じ
+  コマンド方式〈トークルームで「FAQ」→「Q1」〜「Q7」〉を本venture向けにも実装済み。
+  `prototype/owner_faq_router.py`・`cloud_function_webhook.py`の
+  `is_owner_faq_menu_trigger()`分岐として導線が完成している)
 - 実運用データが取得でき次第、実際の問い合わせ内容とFAQ項目の一致率を検証する。
-- 残る1venture(kura-pasha)でも同種のオーナー向けセルフサービスFAQが未整備であれば、
-  本ドキュメント・course-set-pasha版・line-reservation-ai版の構成を横展開できないか検討する
-  (kura-pashaのフェーズ121・cross-venture-support-cost-comparison.md〈フェーズ123〉は
-  人的サポートコスト試算のみで、セルフサービスFAQ自体はkura-pashaにまだ存在しない模様。
-  次回、kura-pasha側のファイル一覧を確認したうえで着手要否を判断する)。
+- (解消済み 2026-09-18確認: 残る1venture〈kura-pasha〉についても
+  `prototype/owner_faq_router.py`〈フェーズ126、line-reservation-aiのフェーズ続き233と
+  同設計〉で同種のコマンド方式セルフサービスFAQが実装済みであることを確認した。これで
+  4venture全てにオーナー向けセルフサービスFAQのコマンド方式導線実装が完了している)
