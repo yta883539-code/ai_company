@@ -123,8 +123,9 @@ https://line.me/R/ti/p/@example-lino
   → 8節の通り実施済み。
 - ~~FAQコマンド案内文(owner_faq_router.py `_OWNER_FAQ_ITEMS`)への「告知文」コマンドの
   周知文言追記~~ → 6節の通り実施済み(Q7として追加)。
-- customer-interview-design.mdのヒアリング項目に、告知文の実用性・使いたいと思うかを
-  確認する設問を追加できないか検討する。
+- ~~customer-interview-design.mdのヒアリング項目に、告知文の実用性・使いたいと思うかを
+  確認する設問を追加できないか検討する。~~
+  → 2026-09-18 07:00 UTC、G.設問(18〜20)として追加済み(customer-interview-design.md参照)。
 - friend_add_url(現状FRIEND_ADD_URL_PLACEHOLDERの差し込みのみ)を、実LINE公式
   アカウント開設後にConversationEventProcessorのコンストラクタ引数として実際の
   友だち追加URLを渡すよう接続する(pending-approval.md記載のLINE公式アカウント
