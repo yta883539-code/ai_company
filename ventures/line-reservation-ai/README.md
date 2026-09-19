@@ -4115,3 +4115,18 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   review.mdが残していた「予約LINE自体の有料性」質問のテストケース化にE21として対応。
   faq-escalation-boundary.md 4番〈店舗未登録情報〉の既存ルートで扱えることを確認し、
   同レビューの残課題を解消済みへ訂正。schema検証28件・venture全体854件いずれもパス)
+- 最終更新: 2026-09-19 09:00 UTC(フェーズ続き245: payment-gateway-fee-estimate.md
+  「残課題」が2026-09-15改訂時点で未反映のまま残していたcross-document parityの記載
+  漏れに対応した。本venture自身のsubscription-billing-cost-estimate.md(月額サブスク
+  自体のStripe Billing継続課金手数料試算)・llm-api-cost-estimate.mdの3.6%仮定・言及を
+  4.3%〈基本料率3.6%+Stripe Billing追加手数料0.7%〉に更新。一方deposit-payment-
+  research.mdの3.6%言及は、来店客からの単発デポジット決済(都度のカード決済リンクで
+  Stripe Billingを介さない)という対象の異なる手数料であり、Stripe Billing追加手数料が
+  乗らないため3.6%のままで正しいと判断し更新対象から除外した。あわせて、aircon-pashaが
+  本改訂と同日〈2026-09-15〉付で自ファイル内「決済手数料4.3%への改訂」節にて既に4.3%
+  仮定へ更新済みだったにもかかわらず「aircon-pashaは本改訂時点でも未反映」と誤って
+  記載されたまま残っていた箇所を訂正し、4venture間の仮定値統一が完了済みであることを
+  明記した。コード変更は無く、回帰確認としてprototype全854件・schema検証28件いずれも
+  パス(変更前と同じ結果)を確認した。承認不要なドキュメント記載更新・訂正のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。)

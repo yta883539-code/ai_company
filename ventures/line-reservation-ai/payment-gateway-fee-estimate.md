@@ -70,9 +70,13 @@ Session(`mode=subscription`)を決済導線として採用済みのため、本�
   実測データが取れてから試算する。
 - 為替変動・料率改定によりStripe側の手数料が変わる可能性があるため、実運用開始後は定期的な
   見直しが必要。
-- 本改訂(2026-09-15)ではpayment-gateway-fee-estimate.mdとunit-economics-estimate.mdの
-  残課題欄の主要な数値のみを4.3%仮定に更新した。subscription-billing-cost-estimate.md・
-  deposit-payment-research.md・llm-api-cost-estimate.md・README.md内の3.6%言及は本改訂
-  時点でまだ未反映であり、cross-venture parityの観点からも今後のフェーズで反映が必要な
-  残課題として残す(course-set-pasha・kura-pashaは既に反映済み、aircon-pashaは本改訂時点
-  でも未反映)。
+- (解消済み 2026-09-19 09:00 UTC: 本改訂〈2026-09-15〉時点で未反映のまま残していた
+  subscription-billing-cost-estimate.md・llm-api-cost-estimate.mdの3.6%言及を4.3%に
+  更新した。deposit-payment-research.mdの3.6%言及は対象が異なる〈本項が扱う月額サブスク
+  自体のStripe Billing継続課金ではなく、来店客からの単発デポジット決済(都度のカード決済
+  リンク)の手数料であり、Stripe Billing追加手数料0.7%が乗る継続課金ではないため、基本
+  料率3.6%のままで正しい〉ことを確認し、更新対象から除外した。README.mdの3.6%言及は
+  過去のフェーズ実施時点の記録〈日時付きの履歴ログ〉のため遡って書き換えず現状のまま
+  残す。また、aircon-pashaが本改訂と同日〈2026-09-15〉付で自ファイル内「決済手数料4.3%
+  への改訂」節にて既に4.3%仮定へ更新済み・4venture間で仮定値が統一済みであることを
+  確認し、「aircon-pashaは本改訂時点でも未反映」としていた上記の記載を訂正する。)
