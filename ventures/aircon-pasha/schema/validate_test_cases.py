@@ -702,6 +702,31 @@ NEGATIVE_CASE_MANAGEMENT_COMPANY_MISSING_BOILERPLATE = {
     "checkout_notice": None,
 }
 
+# 2026-09-19 定例更新(フェーズ233)追加。厳守事項6a(iv)違反(includes_portal_link不一致)を
+# 意図的に仕込んだ不正フィクスチャ。status=cancellation_unclear(解約意図が断定できない
+# あいまいなケース、CI3参照)はincludes_portal_link=falseが期待値(まだポータルへ誘導する
+# 段階ではないため)だが、誤ってtrueのまま出力してしまうケースを想定する。
+# validate_cross_field_rules()の`expected_link = status in ("cancellation_intent",
+# "downgrade_intent")`判定(実装は既にフェーズ91以前から存在)が実際にこの違反を検出できる
+# ことを確認するためのネガティブテスト。course-set-pasha/schema/validate_test_cases.pyの
+# NEGATIVE_CASE_PORTAL_LINK_MISMATCH(フェーズ225)・kura-pashaの同名フィクスチャと同じ
+# 設計思想を踏襲した。本venture側はNEG1(checkout_url版)・NEG2(management_company
+# ボイラープレート版)が既存のため、3件目としてNEG3に割り当てる。
+NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
+    "status": "cancellation_unclear",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "completion_report": None,
+    "care_guide": None,
+    "history_rows": None,
+    "subscription_procedure_notice": {
+        "kind": "cancellation_unclear",
+        "body": "解約(またはプラン変更)をご希望でしょうか?よろしければ改めてその旨お知らせください。",
+        "includes_portal_link": True,
+    },
+    "checkout_notice": None,
+}
+
 
 def main():
     total = 0
@@ -743,6 +768,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG2_management_company_missing_boilerplate_is_detected: ボイラープレート欠落を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: includes_portal_linkの不一致(厳守事項6a(iv)違反)がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg3_errors = validate_against_schema(NEGATIVE_CASE_PORTAL_LINK_MISMATCH, SCHEMA)
+    neg3_errors += validate_cross_field_rules(NEGATIVE_CASE_PORTAL_LINK_MISMATCH)
+    if neg3_errors:
+        print("[OK] NEG3_portal_link_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg3_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG3_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

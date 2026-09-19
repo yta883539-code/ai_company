@@ -24,7 +24,7 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。
   の整合性(is_estimate=falseならnext_recommended_dateはnull不可)は
   `validate_cross_field_rules()`で個別にチェックする。
 
-## サンプルケース(19件。2026-08-21 14:00 UTC改訂でG4・CI1〜CI3を追加、2026-09-12 03:00 UTC改訂でCO1〜CO3・NEG1を追加、2026-09-13 19:00 UTC改訂でG5・G6を追加、2026-09-14 15:00 UTC追加のG7〈本表への反映漏れを2026-09-18 17:00 UTC改訂で解消〉、2026-09-18 17:00 UTC改訂でG8・NEG2を追加、2026-09-19 01:00 UTC改訂でG9を追加)
+## サンプルケース(20件。2026-08-21 14:00 UTC改訂でG4・CI1〜CI3を追加、2026-09-12 03:00 UTC改訂でCO1〜CO3・NEG1を追加、2026-09-13 19:00 UTC改訂でG5・G6を追加、2026-09-14 15:00 UTC追加のG7〈本表への反映漏れを2026-09-18 17:00 UTC改訂で解消〉、2026-09-18 17:00 UTC改訂でG8・NEG2を追加、2026-09-19 01:00 UTC改訂でG9を追加、2026-09-19定例更新(フェーズ233)でNEG3を追加)
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
@@ -43,14 +43,15 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。
 | CO1_checkout_intent / CO2_pricing_inquiry / CO3_checkout_intent_unclear | checkout_intent / pricing_inquiry / checkout_intent_unclear | 厳守事項6b(有料プラン開始意図検知)関連ケース(2026-09-12 03:00 UTC追加) |
 | NEG1_checkout_url_mismatch_is_detected | checkout_intent | ネガティブテスト。includes_checkout_url不一致(厳守事項6b違反)が検出されることの確認用 |
 | NEG2_management_company_missing_boilerplate_is_detected | generated | ネガティブテスト。recipient=management_companyなのに厳守事項9の定型ボイラープレートが本文に含まれていない(厳守事項9違反)が検出されることの確認用(2026-09-14 15:00 UTC追加、フェーズ217。本表への反映は2026-09-18 17:00 UTC改訂で実施) |
+| NEG3_portal_link_mismatch_is_detected | cancellation_unclear | ネガティブテスト。includes_portal_link不一致(厳守事項6a(iv)違反)が検出されることの確認用。course-set-pasha(フェーズ225)・kura-pashaの同種ネガティブテストとのcross-venture parityのギャップを解消(2026-09-19定例更新、フェーズ233追加) |
 
-## 結果(2026-09-19 01:00 UTC改訂時点)
+## 結果(2026-09-19定例更新(フェーズ233)改訂時点)
 
 ```
-合計 19 件中 19 件パス、0 件失敗
+合計 20 件中 20 件パス、0 件失敗
 ```
 
-G1〜G8・OOS1・II1・CI1〜CI3・CO1〜CO3の16件が違反なくパスし、NEG1・NEG2の2件は
+G1〜G9・OOS1・II1・CI1〜CI3・CO1〜CO3の17件が違反なくパスし、NEG1・NEG2・NEG3の3件は
 意図通りエラーが検出されることを確認した(`python3 schema/validate_test_cases.py`で
 実行内容を確認できる)。以下は2026-08-09作成時点(15件)の記述。
 `next_recommended_date_is_estimate`と`history_rows[*].next_recommended_date`の整合性の
