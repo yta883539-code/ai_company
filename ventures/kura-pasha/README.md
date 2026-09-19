@@ -2862,3 +2862,17 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-19 08:00 UTC(フェーズ137: aircon-pashaフェーズ232が発見した
   未対応箇所〈workshop_linking.pyのresolve_linking_code()・resolve_invite_code()〉に
   NFKC全角入力対応を横展開。テスト2件追加〈101件→103件〉・schema検証32件いずれもパス)
+- フェーズ138(2026-09-19 12:00 UTC定例更新): mvp-flow-draft.mdの棚卸しを行い、
+  同ドキュメントの「残課題」節がフェーズ2〜4(2026-09-06)で既に解消済みの3項目
+  (llm-system-prompt-draft.mdへの落とし込み、出力の構造化JSONフォーマット設計、
+  区分ごとの出力2分岐ロジック)を未着手のまま記載し続けていたREADME記載漏れパターン
+  (course-set-pashaフェーズ208・210・211等と同種)であることを発見し、各項目に
+  解消済みフェーズ番号を追記して訂正した。判定ロジック・実装への変更は無く、回帰確認
+  としてventure全体103件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証32件いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント
+  記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生
+  していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-19 12:00 UTC(フェーズ138: mvp-flow-draft.mdの「残課題」節に
+  残っていたフェーズ2〜4解消済み3項目の記載漏れを訂正。venture全体103件・schema検証
+  32件いずれもパス、変更前と同じ結果)
