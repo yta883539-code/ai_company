@@ -480,6 +480,39 @@ README.mdの「次にやること」で残課題としていた、N3-トーン�
   違いは、E19時点では`faq_segments`のtopic列挙値自体にメニュー・料金表専用の項目が
   存在しなかった点。本ケースはその項目(`menu`)を追加した後の期待挙動を示す。
 
+### E21. 予約LINE自体の有料性についての質問(厳守事項9a対象外、
+checkout-intent-detection-parity-review.md「残る検討事項」E17候補対応、
+2026-09-19 06:00 UTC追加)
+- 入力例: 「この予約のやりとりって使うのに料金かかりますか?」(本SaaSの課金対象者は
+  店舗オーナーであり、LLM対話相手のお客様はcheckout-intent-detection-parity-review.mdの
+  整理どおり課金主体ではない。owner-settings-wireframe.mdの店舗FAQ情報入力欄にも
+  「本LINE予約サービス自体の利用料金」に対応する項目は存在しない)
+- 期待挙動: `faq_segments`のtopic列挙値(access/parking/payment/hours/menu)はいずれも
+  「店舗が提供するサービス・支払い方法」に関する項目であり、「予約の仕組み自体の
+  利用料金」を表す項目は存在しない。したがってfaq-escalation-boundary.mdの判定基準
+  4番(店舗未登録情報についての質問)に該当し、E11・E12・topic追加前のE19と同じ
+  「9aの通常回答をせず6へ」という結論になる。この質問はそもそも店舗が回答できる
+  性質の情報でもなくunimplemented_featureでもないため、`escalation_reason`は
+  付与しない(E11・E12と同じ無印のescalation)。`intent: "escalation"`、
+  `confirmed: false`、`needs_owner_check: true`。
+- 期待される自然文: `その点は担当のオーナーにおつなぎしますので、少々お待ちください。`
+  (厳守事項6の「オーナーへおつなぎします」案内文言に準拠)
+- 期待される構造化出力:
+  ```
+  {intent: "escalation", name: null, menu: null, datetime_candidate: null,
+   confirmed: false, needs_owner_check: true, faq_segments: null}
+  ```
+- 補足: checkout-intent-detection-parity-review.md「残る検討事項」が
+  「お客様が『この予約LINEって有料ですか』のように尋ねてくるケースの
+  厳守事項9a/9b/6のいずれに振り分けるべきか」の具体的テストケース化を次回以降の
+  課題として残していたものへの対応。同ファイルの整理どおり、本ventureは店舗
+  オーナー(課金対象者)とLLM対話相手(お客様)が別人であるため、有料プラン開始
+  意図検知(他venture厳守事項7b/6b)とは異なる話であり、単に「店舗が登録していない
+  情報への質問」として既存の4番ルートに落ちるだけで新しい分岐は不要と確認できた。
+  「料金」という語を含む点でE20(店舗メニューの料金)と字面が似るが、E20は
+  `faq_segments`に`topic: "menu"`が定義済みのため9a該当、本ケースは対応する
+  topicが存在しないため6番のエスカレーションになる点で区別する。
+
 ## 本テストケース設計で見つかったプロンプトの抜け漏れ(修正済み)
 - E6(雑談・スパム的入力)とE9(未実装機能への問い合わせ)は、当初
   llm-system-prompt-draft.mdの厳守事項1〜8のどれにも明確に該当していなかったが、

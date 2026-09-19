@@ -55,11 +55,15 @@ line-reservation-aiは後者の経路が既にbilling-upgrade-flow-design.md
 
 ## 残る検討事項(本レビューのスコープ外として明記)
 
-- お客様(LLM対話相手)が「この予約LINEって有料ですか?」のように尋ねてくるケースの
+- ~~お客様(LLM対話相手)が「この予約LINEって有料ですか?」のように尋ねてくるケースの
   厳守事項9a/9b/6のいずれに振り分けるべきかは、既存のfaq-escalation-boundary.mdの
   一般的な境界整理でカバーされている前提だが、conversation-samples-test-cases.mdに
   この具体的な文言のテストケースが無いため、次回以降の課題として残す
-  (E17候補: 「予約って有料ですか」のような料金体系そのものへの質問)。
+  (E17候補: 「予約って有料ですか」のような料金体系そのものへの質問)。~~
+  → 2026-09-19 06:00 UTC対応: E17は別ケース(営業時間FAQ)で既に使用済みだったため
+  E21として新規追加した。faq-escalation-boundary.mdの判定基準4番(店舗未登録情報)に
+  該当し、`intent: "escalation"`・`escalation_reason`無印という結論になることを
+  確認した(詳細はconversation-samples-test-cases.md E21参照)。
 - 本レビューの結論(横展開不要)は、aircon-pasha・course-set-pashaのREADME側の
   「line-reservation-aiへの同種横展開は次の課題として残す」という申し送りに対する回答に
   あたるため、両venture側で本ファイルへの参照リンクを追記できると尚良いが、

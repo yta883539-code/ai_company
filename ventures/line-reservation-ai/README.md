@@ -4097,3 +4097,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   reasonが解約〈customer.subscription.deleted〉後も更新されず、blocked-but-billing
   候補判定を誤らせる配線漏れを発見・修正。テスト2件追加、venture全体854件・schema検証
   27件いずれもパス)
+- フェーズ続き244(2026-09-19 06:00 UTC定例更新): checkout-intent-detection-parity-
+  review.md「残る検討事項」が次回以降の課題として残していた、お客様が「この予約LINEって
+  有料ですか」のように本SaaS自体の有料性を尋ねてくるケースの具体的テストケース化に対応した。
+  faq-escalation-boundary.mdの判定基準4番(店舗が事前登録した静的情報〈access/parking/
+  payment/hours/menu〉のいずれにも該当しない質問)に照らすと、「予約の仕組み自体の
+  利用料金」に対応するtopicは存在しないため、E11・E12・topic追加前のE19と同じ
+  `intent: "escalation"`・`escalation_reason`無印という結論になることを確認し、
+  conversation-samples-test-cases.mdにE21として新規追加、schema/validate_test_cases.py
+  にフィクスチャを追加した(元のレビューが提案していたE17は既に営業時間FAQで使用済みの
+  ため、E21として採番)。checkout-intent-detection-parity-review.mdの当該課題を解消済みへ
+  訂正した。テスト0件追加(スキーマフィクスチャのみ)、venture全体854件・schema検証28件
+  (27件→28件)いずれもパス。承認不要なドキュメント・テストフィクスチャ追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 06:00 UTC(フェーズ続き244: checkout-intent-detection-parity-
+  review.mdが残していた「予約LINE自体の有料性」質問のテストケース化にE21として対応。
+  faq-escalation-boundary.md 4番〈店舗未登録情報〉の既存ルートで扱えることを確認し、
+  同レビューの残課題を解消済みへ訂正。schema検証28件・venture全体854件いずれもパス)
