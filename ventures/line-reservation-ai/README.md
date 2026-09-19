@@ -4170,3 +4170,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「他venture横展開」次のステップ候補が、実際には作成同日中に3venture全てで対応済み
   だった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・
   schema検証28件いずれもパス)
+- フェーズ続き248(2026-09-19 19:00 UTC定例更新): conversation-samples-test-cases.mdの
+  「次のステップ候補」が、E16で発見した「同一topicが複合質問内で重複しうる」場合の
+  通知ログ集計ルール(重複を1件とするか未回答分のみカウントするかの決定)について
+  「検討する」と未着手のまま残していたのを棚卸ししたところ、実際には
+  duplicate-topic-notification-log-rule.md(2026-07-31作成)で「`resolved: false`の
+  `faq_segments`のうち(日付, userId, topic)の組でユニーク化してカウントする」方針が
+  既に検討・結論化済みであり、notification-log-classification-labels.md(56〜91行目)にも
+  「`resolved: false`のセグメントに絞った上でユニークなtopic数をカウントする」具体的な
+  集計手順として反映済みであることを確認した。本項目は個別ドキュメントでの検討・反映が
+  先行し、本ファイル側の「次のステップ候補」記載の更新のみが取り残されていた
+  cross-document parityの記載漏れだったと判断し訂正した。コード変更は無く、回帰確認として
+  venture全体854件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)
+  を確認した。承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 19:00 UTC(フェーズ続き248: conversation-samples-test-cases.mdの
+  「通知ログ集計ルール検討」次のステップ候補が、実際にはduplicate-topic-notification-
+  log-rule.md・notification-log-classification-labels.mdで既に結論化・反映済みだった
+  記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
+  いずれもパス)
