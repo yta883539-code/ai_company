@@ -3654,3 +3654,24 @@
 - 最終更新: 2026-09-19 01:00 UTC(フェーズ231: 厳守事項6b境界〈繁忙の愚痴と有料プラン
   開始意図の混同防止〉の具体サンプルG9を追加、G8〈6a版〉と対になる6b版の境界例を固定。
   schema検証19件・venture全体513件いずれもパス)
+- フェーズ232(2026-09-19 07:00 UTC): course-set-pashaフェーズ223(2026-09-19 03:00 UTC)で
+  発見・修正された「owner_faq_router.pyのFAQトリガー判定には全角入力(NFKC正規化)対応
+  済みだが、同venture内の連携コード解決関数`resolve_linking_code()`には未反映だった」と
+  いう横展開漏れが、本venture(aircon-pasha)にも同型で存在することを発見し、
+  `prototype/user_id_linking.py`の`resolve_linking_code()`に同じ対応を横展開した。
+  user-account-linking-design.md 3節記載のとおり本venture固有の連携コードもLINE友だち
+  追加後の最初のトークでスマートフォンから手入力される前提であり、IME全角入力のリスクを
+  同様に抱えるため。`unicodedata.normalize("NFKC", text)`を`strip().upper()`の前段に
+  追加し、`test_user_id_linking.py`に全角入力(「ＡＢ１２ＣＤ」「　ａｂ１２ｃｄ　」)を
+  受理するテストを2件追加した。あわせて他venture分も確認し、course-set-pashaは既に対応
+  済みだがkura-pasha/prototype/workshop_linking.pyの`resolve_linking_code()`・
+  `resolve_invite_code()`の2箇所が未対応のまま残っていること(line-reservation-aiは
+  LIFF方式のため本パターン非該当)を確認し、user-account-linking-design.md「未検証・
+  残課題」に次回以降の横展開候補として記録した。テスト2件追加、venture全体515件
+  (513件→515件)・schema検証19件いずれもパス。承認不要なコード修正・テスト追加・
+  ドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 07:00 UTC(フェーズ232: 連携コード解決関数`resolve_linking_code()`
+  に全角入力〈NFKC正規化〉対応を横展開。course-set-pashaフェーズ223の同型バグ修正を受けた
+  対応。kura-pashaに未対応の同種バグ2箇所が残っていることも確認・記録。テスト2件追加、
+  venture全体515件・schema検証19件いずれもパス)

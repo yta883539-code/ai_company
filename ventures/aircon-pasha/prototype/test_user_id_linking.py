@@ -144,6 +144,30 @@ class ResolveLinkingCodeTest(unittest.TestCase):
 
         self.assertTrue(result.ok)
 
+    def test_accepts_fullwidth_input_via_nfkc_normalization(self):
+        # course-set-pashaフェーズ223(2026-09-19 03:00 UTC)と同種: LINEトークルームでの
+        # 手入力を前提とするため、IME全角モードでの入力(例:「ＡＢ１２ＣＤ」)にも対応する。
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        self._issue(linking_store, code="AB12CD")
+
+        result = resolve_linking_code(
+            "ＡＢ１２ＣＤ", "u-1", linking_store, profile_store, _NOW
+        )
+
+        self.assertTrue(result.ok)
+
+    def test_accepts_fullwidth_lowercase_input(self):
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        self._issue(linking_store, code="AB12CD")
+
+        result = resolve_linking_code(
+            "　ａｂ１２ｃｄ　", "u-1", linking_store, profile_store, _NOW
+        )
+
+        self.assertTrue(result.ok)
+
     def test_code_is_single_use(self):
         linking_store = InMemoryLinkingCodeStore()
         profile_store = InMemoryUserProfileStore()

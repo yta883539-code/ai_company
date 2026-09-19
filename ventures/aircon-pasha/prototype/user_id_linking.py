@@ -21,6 +21,7 @@ LINE友だち追加後の最初のトークで受信し、user_idへ解決して
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, Optional, Protocol, Tuple
@@ -547,11 +548,20 @@ def resolve_linking_code(
     `customer.subscription.*`イベントの逆引き(`get_user_id_by_stripe_customer_id`)が
     以後失敗するデータ消失バグになり得た。氏名・業種・メール・連携日時(=`entry`由来の値)
     のみを再連携のたびに更新し、それ以外は既存値を引き継ぐことで解消する。
+
+    course-set-pashaフェーズ223(2026-09-19 03:00 UTC)で発見・横展開された想定漏れへの
+    対応: `unicodedata.normalize("NFKC", ...)`による全角→半角正規化を`strip().upper()`の
+    前段に適用する。design 3節が明記する通りこのコードは「LINE友だち追加後の最初のトークで
+    手入力」を前提としており、日本語入力のスマートフォンはIME既定が全角モードであることが
+    多いため、業者が連携コードを全角(例:「７Ｋ９ＸＰＱ」)で入力すると、正規化なしでは
+    フォーム送信完了時に発行された半角コードと一致せず「見つからない」エラーになって
+    しまう。コードのアルファベットは英数字のみ(`_CODE_ALPHABET`)のため、NFKC正規化で
+    仮名文字の濁点結合等が問題になることもない。
     """
     if not isinstance(text, str):
         return LinkingResolution(ok=False, error="text is not a string")
 
-    normalized_code = text.strip().upper()
+    normalized_code = unicodedata.normalize("NFKC", text).strip().upper()
     entry = linking_store.get(normalized_code)
     if entry is None:
         return LinkingResolution(

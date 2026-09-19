@@ -148,3 +148,19 @@ onboarding-guide.mdのステップ6(トライアル終了後のプラン選択)�
   guideline.md「連携コード関連文言の最終確定」節〈本フェーズ168で確認〉でトーン&マナー
   ガイドラインとの整合確認が完了し確定文言として結論済みのため、本節の記載も解消済みとして
   訂正する)
+- (解消済み 2026-09-19 07:00 UTC・フェーズ232: course-set-pashaフェーズ223(2026-09-19
+  03:00 UTC)で発見・修正された「owner_faq_router.pyのFAQトリガー判定には全角入力
+  〈NFKC正規化〉対応済みだが、同venture内の連携コード解決関数`resolve_linking_code()`には
+  未反映だった」という横展開漏れが、本venture(aircon-pasha)にも同型で存在することに
+  気付き、`prototype/user_id_linking.py`の`resolve_linking_code()`に同じ対応を横展開した。
+  本venture固有の連携コードも(3節記載のとおり)LINE友だち追加後の最初のトークで
+  スマートフォンから手入力される前提であり、IME全角入力のリスクを同様に抱えるため。
+  `unicodedata.normalize("NFKC", text)`を`strip().upper()`の前段に追加し、
+  `test_user_id_linking.py`に全角入力(「ＡＢ１２ＣＤ」「　ａｂ１２ｃｄ　」)を受理する
+  テストを2件追加した。venture全体515件(513件→515件)・schema検証19件いずれもパス。
+  なお、他venture分も確認したところ、course-set-pashaは既にフェーズ223で対応済みだが、
+  kura-pasha/prototype/workshop_linking.pyの`resolve_linking_code()`・
+  `resolve_invite_code()`の2箇所は`code.strip().upper()`のままNFKC正規化が未反映で
+  同種の想定漏れが残っていることを確認した(line-reservation-aiはLIFF経由のIDトークン
+  検証方式〈checkout-initiation-flow-design.md〉のため本パターン非該当)。kura-pasha側の
+  横展開は次回以降の課題として残す。)
