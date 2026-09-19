@@ -2823,3 +2823,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-18 23:00 UTC(フェーズ135: initial-contact-message-draft.mdの
   「次にやること」に残っていた2件の記載漏れ〈質問項目リスト作成・JGI追加確認、いずれも
   他ファイルで解消済み〉を訂正。コード変更は無く回帰確認のみ)
+- フェーズ136(2026-09-19 04:00 UTC定例更新): aircon-pashaのG9_busy_grumble_not_
+  checkout_intent(フェーズ231、2026-09-19 01:00 UTC)と対になる、本venture厳守事項
+  7b(iii)版の境界ケースをschema/validate_test_cases.pyにC5_busy_grumble_not_checkout_
+  intentとして新規追加し、cross-venture横展開した。フェーズ134で追加したC4が7a(iii)
+  (解約意図との混同防止)側を固定したのに対し、本ケースは7b(iii)側で、有料プラン
+  (複数職人プラン等)の申込・開始のいずれにも触れず「プラン」の語を含む繁忙の愚痴
+  (例:「最近注文が多くてプランのことなんて考える暇もない」)が続いても、status=
+  generatedとして通常どおり受注メモの出力を行い、checkout_noticeはNoneのままとなる
+  ことを固定した。実LLMがこの区別を実際に守れるかは、他の厳守事項7b境界の検証と同様に
+  実LLM接続後(オーナー承認待ち)の検証課題として引き続き残る。schema検証32件
+  (31件→32件)・venture全体100件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)いずれもパス。承認不要なドキュメント・サンプル追加のみで、外部サービス
+  への公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
+  への追記なし。次回はcourse-set-pasha側にも同種7b(iii)境界(checkout intent版)の
+  横展開が未着手か確認する、または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 04:00 UTC(フェーズ136: aircon-pashaのG9_busy_grumble_not_
+  checkout_intentと対になる、本venture厳守事項7b(iii)版の境界ケースをC5として新規
+  追加。schema検証32件〈31件→32件〉・venture全体100件いずれもパス。コード実装は
+  テストフィクスチャ追加のみ)

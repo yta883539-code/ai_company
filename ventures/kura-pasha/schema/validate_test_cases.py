@@ -622,6 +622,52 @@ TEST_CASES = {
         "checkout_notice": None,
         "workshop_invite_notice": None,
     },
+    # 2026-09-19 04:00 UTC定例更新追加。aircon-pashaのG9_busy_grumble_not_checkout_intent
+    # (2026-09-19 01:00 UTC、llm-system-prompt-draft.md「次の課題」既知の限界6b(iii)対応)と
+    # 対になる、本venture厳守事項7b(iii)版のcross-venture横展開。C4が7a(iii)(解約意図との
+    # 混同防止)を固定したのに対し、本ケースは7b(iii)側。CO3がカバーする「開始意図か
+    # 問い合わせか判断できない」ケースとは異なり、有料プラン(複数職人プラン等)の申込・
+    # 開始のいずれにも触れず、鞍の受注が立て込んでいることへの愚痴の域を出ない表現
+    # (「プラン」の語を含むが申込・開始意図には触れない、例:「最近注文が多くてプランの
+    # ことなんて考える暇もない」)が続いても、7b(iii)の帰着ルールに従いstatus=generated
+    # として通常どおり受注メモの出力を行い、checkout_noticeはNoneのままとするのが期待
+    # 動作であることを固定する机上検証サンプル。実LLMがこの区別を実際に守れるかは、他の
+    # 厳守事項7b境界の検証と同様に実LLM接続後(オーナー承認待ち)の検証課題として引き続き
+    # 残る。
+    "C5_busy_grumble_not_checkout_intent": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "order_summary": {
+            "category": "new",
+            "saddle_type": "ウエスタン",
+            "leather_type": "牛革",
+            "hardware_spec": "ニッケルめっき",
+            "usage": "レジャー用",
+            "due_date": "1ヶ月",
+            "remarks": None,
+            "body": "区分:新規制作/鞍の型:ウエスタン/革の種類:牛革/金具仕様:ニッケルめっき/用途:レジャー用/納期:1ヶ月",
+        },
+        "delivery_notice": {
+            "category": "new",
+            "body": (
+                "新しい鞍をお届けします。装着直後は革が体に馴染むまで時間がかかりますので、"
+                "最初は短時間の騎乗から始め、徐々に締め具合を調整してください。雨天時は"
+                "使用後に乾いた布で水分を拭き取ってください。"
+            ),
+        },
+        "care_notice": (
+            "定期的にオイル・クリームで革に保湿を与えてください。高温多湿・直射日光を避けた"
+            "場所で保管し、カビ・ひび割れを防いでください。金具部分は使用後に乾拭きしさびを防いでください。"
+        ),
+        "subscription_procedure_notice": None,
+        "member_retention_notice": None,
+        "contractor_transfer_notice": None,
+        "contractor_transfer_confirmation": None,
+        "contractor_transfer_expired_notice": None,
+        "checkout_notice": None,
+        "workshop_invite_notice": None,
+    },
     # 2026-09-07 13:02 UTC追加: member-retention-notice-design.md「2. 検知パターンの整理」1
     # (明確な指定)相当の期待出力。
     "M1_member_retention_selection": {
