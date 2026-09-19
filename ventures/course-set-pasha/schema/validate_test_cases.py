@@ -21,6 +21,12 @@ schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対�
   厳守事項7b(iii)(雑談の域を出ない表現)の帰着先を机上決定したことに伴い、CO4・CO5として
   (iii)判定時のinsufficient_input/generatedへの帰着ケースを追加した(CI4・CI5と対になる
   checkout版)。
+- 2026-09-19 定例更新、kura-pashaのC5_busy_grumble_not_checkout_intent(フェーズ136、
+  aircon-pashaのG9_busy_grumble_not_checkout_intentのcross-venture横展開)と対になる、
+  本venture厳守事項7b(iii)版の境界ケースをCI7として追加した。CI6が7a(iii)(解約意図との
+  混同防止)側の繁忙の愚痴ケースを固定したのに対し、CI7は7b(iii)(有料プラン開始意図との
+  混同防止)側で、「プラン」の語を含む繁忙の愚痴が続いても課題入れ替え内容があれば
+  generatedに帰着しcheckout_noticeはNoneのままとなることを固定する。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -438,6 +444,43 @@ TEST_CASES = {
     # 実LLMがこの区別を実際に守れるかは、他の厳守事項7a境界の検証と同様に実LLM接続後
     # (オーナー承認待ち)の検証課題として引き続き残る。
     "CI6_busy_season_grumble_not_cancellation": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【課題入れ替えのお知らせ】エリアAに新着課題8本追加しました。ダイナミックなムーブが特徴です。",
+            "hashtags": ["#ボルダリング", "#クライミングジム", "#新着課題"],
+            "mentions_photo": False,
+        },
+        "line_web_notice": {
+            "body": "エリアA:新着8本(黄テープ帯)を追加しました。ぜひチャレンジしてください。",
+        },
+        "history_rows": [
+            {
+                "revision_date": "2026-08-07",
+                "area": "エリアA",
+                "tape_color_or_grade_band": "黄テープ",
+                "count": 8,
+                "feature_keywords": ["ダイナミック", "ムーブ重視"],
+            },
+        ],
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    # 2026-09-19 定例更新追加。kura-pashaのC5_busy_grumble_not_checkout_intent
+    # (フェーズ136、2026-09-19 04:00 UTC)・aircon-pashaのG9_busy_grumble_not_checkout_
+    # intent(フェーズ231、2026-09-19 01:00 UTC)と対になる、本venture厳守事項7b(iii)版の
+    # 境界ケースのcross-venture横展開。CI6が厳守事項7a(iii)(解約意図との混同防止)側の
+    # 繁忙の愚痴ケースを固定したのに対し、本ケースは7b(iii)(有料プラン開始意図との混同
+    # 防止)側で、有料プラン(セッター複数プラン等)の申込・開始のいずれにも触れず「プラン」
+    # の語を含む繁忙の愚痴(例:「セット依頼が多すぎてプランのことなんて考える暇もない」)が
+    # 続いても、課題入れ替え内容(エリア名・本数等)が同じメモ内に含まれていれば、
+    # checkout-intent-iii-chitchat-status-mapping-review.mdの帰着ルールに従いstatus=
+    # generatedとして通常どおり3出力を生成し、checkout_noticeはNoneのままとなることを
+    # 固定する。実LLMがこの区別を実際に守れるかは、他の厳守事項7b境界の検証と同様に
+    # 実LLM接続後(オーナー承認待ち)の検証課題として引き続き残る。
+    "CI7_busy_grumble_not_checkout_intent": {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,

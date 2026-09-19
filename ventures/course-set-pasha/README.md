@@ -3265,3 +3265,24 @@
 - 最終更新: 2026-09-19 03:00 UTC(フェーズ223: 連携コード解決`resolve_linking_code()`に
   フェーズ221と同種の全角入力対応〈NFKC正規化〉を追加。テスト2件新規追加、venture全体
   605件・schema検証18件いずれもパス)
+- フェーズ224(2026-09-19 05:00 UTC定例更新): kura-pashaフェーズ136が「次回はcourse-set-
+  pasha側にも同種7b(iii)境界(checkout intent版)の横展開が未着手か確認する」と残していた
+  課題に対応した。CI6_busy_season_grumble_not_cancellation(厳守事項7a(iii)、解約意図との
+  混同防止側)には既に「セッター側の多忙・繁忙を愚痴る表現」境界ケースが存在したが、その対
+  になる厳守事項7b(iii)(有料プラン開始意図との混同防止側)には、CO4・CO5(「値段が気に
+  なる」系の一般的な雑談)とは異なる「プランの語を含む繁忙の愚痴」方向の境界ケースが未着手
+  のまま残っていたcross-venture parityのギャップだった。kura-pashaのC5_busy_grumble_not_
+  checkout_intent(フェーズ136)・aircon-pashaのG9_busy_grumble_not_checkout_intent
+  (フェーズ231)と対になる境界ケースを、CI7_busy_grumble_not_checkout_intentとして
+  schema/validate_test_cases.pyに新規追加し、checkout-intent-iii-chitchat-status-mapping-
+  review.md「残る未検証事項」・output-samples-validation.mdの一覧表と件数表記(18件→19件)
+  を更新した。判定ロジック自体(checkout-intent-iii-chitchat-status-mapping-review.mdの
+  帰着ルール)に変更は無く、既存ルールを具体的な入出力サンプルとして固定しただけである。
+  schema検証19件(18件→19件)・venture全体605件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)いずれもパス(605件は変更前と同じ結果、schema検証のみ1件
+  増加)。承認不要なドキュメント・テストフィクスチャ追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 05:00 UTC(フェーズ224: kura-pasha C5・aircon-pasha G9と対になる
+  厳守事項7b(iii)版の境界ケースをCI7として新規追加。schema検証19件〈18件→19件〉・
+  venture全体605件いずれもパス。コード実装は無くテストフィクスチャ・ドキュメント更新のみ)

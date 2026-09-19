@@ -46,3 +46,13 @@ subscription-intent-iii-chitchat-status-mapping-review.md(2026-09-13 02:00 UTC�
   微妙な違いに対する分類精度)は、7a(iii)/(iv)の切り分けと同様、引き続き実LLM接続後
   (オーナー承認待ち)の検証が必要。本ファイルはあくまで「(iii)と判定された場合の
   帰着先」という机上で決定可能な範囲にとどまる。
+
+(2026-09-19 定例更新追記): CO4・CO5は「値段が気になる」系の一般的な雑談を想定した
+帰着ケースだったが、CI6(厳守事項7a(iii)、解約意図との混同防止)が固定した「セッター側の
+多忙・繁忙を愚痴る表現」方向の境界ケースが、7b(iii)(有料プラン開始意図との混同防止)側
+には対応するものが存在しないギャップだった。kura-pashaのC5_busy_grumble_not_checkout_
+intent(フェーズ136)・aircon-pashaのG9_busy_grumble_not_checkout_intent(フェーズ231)と
+対になる、「プラン」の語を含む繁忙の愚痴が続いても課題入れ替え内容があればgeneratedに
+帰着する境界ケースをCI7_busy_grumble_not_checkout_intentとしてschema/validate_test_cases.py
+に新規追加した。判定ロジック自体(上記「検討」節)に変更は無く、既存の帰着ルールを
+具体的な入出力サンプルとして固定しただけである。

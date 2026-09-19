@@ -40,6 +40,7 @@ validate_test_cases.pyへケースが追加されており、本節は2026-08-22
 | CI2_downgrade_intent | downgrade_intent | 解約ではなくプラン変更(ダウングレード)の意図と判定されるケース。日割り精算・ポータル案内が付与される |
 | CI3_cancellation_unclear | cancellation_unclear | 解約意図か判断できないあいまいなケース。断定せず本人へ確認を促す文言のみを返し、`includes_portal_link`はfalse |
 | CI6_busy_season_grumble_not_cancellation | generated | 2026-09-18定例更新で追加。aircon-pashaのG8と対になる7a(iii)境界ケース。CI4・CI5(利用頻度低下方向の雑談)とは逆に、セッター側の多忙・繁忙を愚痴る表現(「セット依頼が多すぎて全然追いつかない」等)が契約継続に触れない雑談の域を出ない場合、解約意図とは判定せず通常どおり3出力を生成する |
+| CI7_busy_grumble_not_checkout_intent | generated | 2026-09-19定例更新で追加。kura-pashaのC5・aircon-pashaのG9と対になる7b(iii)境界ケース。CI6とは逆に、「プラン」の語を含む繁忙の愚痴(「プランのことなんて考える暇もない」等)が有料プラン開始意図に触れない雑談の域を出ない場合、checkout意図とは判定せず通常どおり3出力を生成し、checkout_noticeはNoneのままとなる |
 
 ## 結果(2026-08-22 06:00 UTC時点)
 
@@ -54,14 +55,14 @@ validate_test_cases.pyへケースが追加されており、本節は2026-08-22
 機械的にチェックできることを確認した。G4(複数エリア同時更新時の`history_rows`要素数)・
 CI1〜CI3(厳守事項7a関連の3分岐)についても同様に機械チェックでパスすることを確認済み。
 
-上記の「9件」表記は2026-08-22 06:00 UTC時点のものであり、その後もCI4〜CI6・CO1〜CO5・
-NEG1等がschema/validate_test_cases.pyへ追加され続けている(2026-09-18定例更新時点で
-実際は18件)。この一覧表・件数表記は初版更新以降追随できておらず、aircon-pashaの
+上記の「9件」表記は2026-08-22 06:00 UTC時点のものであり、その後もCI4〜CI7・CO1〜CO5・
+NEG1等がschema/validate_test_cases.pyへ追加され続けている(2026-09-19定例更新時点で
+実際は19件)。この一覧表・件数表記は初版更新以降追随できておらず、aircon-pashaの
 output-samples-validation.mdで発生したG7・NEG2の反映漏れ(フェーズ230で訂正)と
 同種のドキュメント追随漏れが本venture側にも存在する。全件の棚卸し・表の全面更新は
-別フェーズの課題として残し、本フェーズでは新規追加分(CI6)の反映のみに留めた。
+別フェーズの課題として残し、本フェーズでは新規追加分(CI7)の反映のみに留めた。
 最新の実行結果は`python3 schema/validate_test_cases.py`を直接実行して確認すること
-(2026-09-18定例更新時点: 合計18件中18件パス)。
+(2026-09-19定例更新時点: 合計19件中19件パス)。
 
 ## 残る未検証事項
 
