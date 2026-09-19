@@ -232,7 +232,13 @@ insufficient_input)パターンを踏襲する方向で検討していた(その
   改めて検証する必要がある。(解消済み 2026-09-12 09:00 UTC: post_generation_checks.pyへの
   check_checkout_notice_consistency()実装〈check_subscription_notice_consistency()と同種〉
   はフェーズ207で完了済み。本節の記載更新が漏れていたため2026-09-13 14:00 UTCに訂正した。
-  実装・スキーマ自体への変更は無し。README.mdフェーズ207参照)。
+  実装・スキーマ自体への変更は無し。README.mdフェーズ207参照)。(2026-09-19 01:00 UTC:
+  6a(iii)側はG8として既に固定済みだったが、6b(iii)(有料プラン開始意図には触れない
+  雑談・愚痴の域を出ない表現、例:「今月は忙しくてプラン変更とか考える余裕がない」)側の
+  具体例が未着手のまま残っていたため、G8と対になるschema/validate_test_cases.pyの
+  G9_busy_grumble_not_checkout_intentとして固定した〈output-samples-validation.md
+  参照〉。ただしこれもG8同様にスキーマレベルの整合性確認に留まり、実LLMが実際にこの
+  区別を守れるかの検証は引き続き実LLM接続後の課題として残る)。
 - (解消済み 2026-09-14 15:00 UTC、フェーズ217: btob-management-company-report-variant-
   design.md(フェーズ216)「未反映の実装項目」が次回以降の課題として残していた、
   厳守事項9(上記プロンプト草案に新設)の正式追記・schema/output.schema.jsonへの

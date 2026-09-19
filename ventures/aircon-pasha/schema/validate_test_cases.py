@@ -485,6 +485,49 @@ TEST_CASES = {
         "subscription_procedure_notice": None,
         "checkout_notice": None,
     },
+    # 2026-09-19 01:00 UTC追加。G8(厳守事項6a(iii)境界)と対の関係にある、厳守事項6b(iii)
+    # (有料プラン開始意図検知)側の同種境界を固定する机上検証。llm-system-prompt-draft.md
+    # 「次の課題」230節が「厳守事項6b(2026-09-12新設)の境界(特に(iii)雑談と(iv)判断不能の
+    # 切り分け)も、6aと同様に机上での言い回し例に基づく設計であり…改めて検証する必要がある」
+    # として未着手のまま残していた点に対応。入力メモ想定:「今月は忙しくてプラン変更とか
+    # 考える余裕がない、壁掛け型2.2kWのエアコン、フィルター・熱交換器まで分解洗浄した、
+    # 汚れは中程度」。「プラン変更」という語を含むが「余裕がない」と述べるのみで有料プラン
+    # 開始・変更の申し込み意図には触れない雑談の域を出ない表現であるため、厳守事項6b(iii)に
+    # よりcheckout_intent/pricing_inquiry/checkout_intent_unclearのいずれとも混同せず、
+    # status=generatedとして通常どおり作業完了報告・お手入れ案内を生成し、checkout_notice
+    # はNoneのままとするのが期待動作。実LLMがこの区別を実際に守れるかは、G8同様に実LLM接続後
+    # (オーナー承認待ち)の検証課題として引き続き残る。
+    "G9_busy_grumble_not_checkout_intent": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
+                    "汚れは中程度でした。",
+            "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
+        },
+        "care_guide": {
+            "body": "フィルターは月1回程度を目安にお手入れください。次回の分解洗浄の時期については、"
+                    "使用状況やご家庭の環境により差がありますが、一般的な目安として1〜2年に1回程度の"
+                    "ご検討をおすすめします(今回のメモに次回推奨時期の記載が無いため、あくまで"
+                    "一般的な目安です)。自己分解洗浄は内部の破損・感電等のリスクがあるため、"
+                    "分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": True,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-19",
+                "model_type_and_capacity": "壁掛け型2.2kW",
+                "dirt_condition": "中程度",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
     "OOS1_reservation_question": {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは作業完了報告・お手入れ案内文の下書き作成支援のみを行っており、"
