@@ -4190,3 +4190,19 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   log-rule.md・notification-log-classification-labels.mdで既に結論化・反映済みだった
   記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
   いずれもパス)
+- フェーズ続き249(2026-09-19 23:00 UTC定例更新): onboarding-guide.md「次のステップ候補」が、
+  launch-announcement-draft-design.mdの初回設計着手(2026-09-18)時点の記載のまま
+  「オーナーが『告知文』と送ると生成するコマンド配線本体〈cloud_function_process_event.py
+  への追加〉は…未着手のまま残る」としていたのを棚卸ししたところ、実際には同日
+  2026-09-18 03:00 UTC定例更新(launch-announcement-draft-design.md 8節)で
+  `_maybe_render_launch_announcement_reply()`として実装済みであることを
+  `prototype/cloud_function_process_event.py`で確認した。実装が先行し、本ガイド側の
+  「次のステップ候補」記載の更新のみが取り残されていたcross-document parityの記載漏れ
+  だったと判断し、解消済みへ訂正した。コード変更は無く、回帰確認としてventure全体854件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 23:00 UTC(フェーズ続き249: onboarding-guide.mdの「告知文コマンド
+  配線」次のステップ候補が、実際には2026-09-18時点で実装済みだった記載漏れを発見・訂正。
+  コード変更は無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)

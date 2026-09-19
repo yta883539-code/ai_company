@@ -86,10 +86,12 @@
 - ステップ2のLINE公式アカウント連携手順について、スクリーンショット付きの詳細な手順書を作成する
   (実際のLINE Developersコンソール画面のキャプチャが必要なため、実LINE API接続着手時
   (オーナー承認待ち)にあわせて着手するのが効率的)。
-- (着手 2026-09-18: 告知文下書き生成の初回設計をlaunch-announcement-draft-design.mdに
+- (解消済み 2026-09-18: 告知文下書き生成の初回設計をlaunch-announcement-draft-design.mdに
   まとめた。店頭POP・SNS告知文の下書きを組み立てる純粋関数〈prototype/launch_announcement_
-  draft.py〉までは実装・テストしたが、オーナーが「告知文」と送ると生成するコマンド配線本体
-  〈cloud_function_process_event.pyへの追加〉は同ドキュメント7節の次のステップ候補として
-  未着手のまま残る)
+  draft.py〉に加え、オーナーが「告知文」と送ると生成するコマンド配線本体
+  〈cloud_function_process_event.pyの`_maybe_render_launch_announcement_reply()`〉も
+  同日2026-09-18 03:00 UTC定例更新〈同ドキュメント8節〉で実装済みであることを確認した。
+  本ガイド側の「未着手のまま残る」という記載が、実装が先行したにもかかわらず
+  取り残されていたcross-document parityの記載漏れだったと判断し訂正した)
 - 本ガイドの各ステップを、想定顧客ヒアリング(customer-interview-design.md)の設問に
   「導入のどのステップで最も不安・手間を感じるか」を確認する項目として反映できないか検討する。
