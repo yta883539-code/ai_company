@@ -3237,3 +3237,31 @@
 - 最終更新: 2026-09-18 18:00 UTC(フェーズ222: unfollow-event-handling-design.mdに
   残っていた「data-retention-policy.md未作成」という古い記載〈同日中の後続フェーズ85で
   既に作成済み〉の記載漏れを訂正。コード変更は無く回帰確認のみ)
+- フェーズ223(2026-09-19 03:00 UTC定例更新): フェーズ221でowner-faq-routing-design.md
+  6節・`prototype/owner_faq_router.py`に追加した全角入力対応(NFKC正規化)が、本venture内の
+  もう一つのユーザー手入力窓口である連携コード解決(`prototype/user_id_linking.py`の
+  `resolve_linking_code()`)には反映されていなかった未対応論点を発見した。
+  line-user-id-linking-design.md 3節は連携コードのアルファベットを視認性の低い文字
+  (`0`/`O`、`1`/`I`/`L`)を除いた31種に制限した理由として明示的に「スマートフォンでの
+  手入力ミスを減らすため」と述べており、Googleフォームへの連携コード入力も日本語入力の
+  携帯端末で既定になりやすい全角IMEの影響を受けうる点でフェーズ221のFAQコマンド入力と
+  同種のリスクを抱えていたが、`resolve_linking_code()`は`code.strip().upper()`のみで
+  全角入力(例:「７Ｋ９ＸＰＱ」)には非対応のままだった。フェーズ221は「本venture固有の
+  不整合ではないため他3ventureへの横展開は各ventureの次回ローテーション時の課題」と
+  明記していたが、同一venture内の別モジュールへの横展開漏れは別種の見落としであり、
+  今回新たに発見・対応した。フェーズ221と同じ`unicodedata.normalize("NFKC", code)`による
+  正規化を`strip().upper()`の前段に追加し(専用ヘルパーへの切り出しはせず該当1箇所への
+  インライン適用にとどめた)、line-user-id-linking-design.mdに6節を新設して検討過程を
+  記録した。`prototype/test_user_id_linking.py`に全角入力(全角英数字+全角スペース、
+  全角小文字)のテストを2件追加し、venture全体605件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、603件→605件)・schema検証18件(`python3
+  schema/validate_test_cases.py`、既存18件がいずれも変更後も違反しないことを確認)
+  いずれもパスした。今回のコード変更は入力の正規化のみで外部サービスへの公開・
+  アカウント作成・支払い・送信等は発生していないためpending-approval.mdへの追記なし。
+  実際に契約者が全角入力を行う頻度自体は実運用データ(LINE公式アカウント・Googleフォーム
+  接続後)が無いと検証できず引き続き未検証のまま残る。次回はline-reservation-ai・
+  kura-pasha・aircon-pashaの同種入力窓口(あれば)への横展開、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 03:00 UTC(フェーズ223: 連携コード解決`resolve_linking_code()`に
+  フェーズ221と同種の全角入力対応〈NFKC正規化〉を追加。テスト2件新規追加、venture全体
+  605件・schema検証18件いずれもパス)

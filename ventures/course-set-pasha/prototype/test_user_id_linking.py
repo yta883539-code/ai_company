@@ -85,6 +85,22 @@ class ResolveLinkingCodeTest(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.user_id, "U1234")
 
+    def test_accepts_fullwidth_input_via_nfkc_normalization(self):
+        # owner-faq-routing-design.md 6節(フェーズ221)と同種: 日本語入力の携帯端末で
+        # 既定になりやすい全角入力(IME全角モードでの手入力)にも対応する。
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "U1234", _NOW)
+        result = resolve_linking_code("　ＡＢＣ２３４　", store, _NOW)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.user_id, "U1234")
+
+    def test_accepts_fullwidth_lowercase_input(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("XPQ789", "U5678", _NOW)
+        result = resolve_linking_code("ｘｐｑ７８９", store, _NOW)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.user_id, "U5678")
+
     def test_rejects_unknown_code(self):
         store = InMemoryLinkingCodeStore()
         result = resolve_linking_code("ZZZ999", store, _NOW)

@@ -18,6 +18,7 @@ line-user-id-linking-design.mdで設計した、LINE友だち追加(follow event
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, Optional, Protocol, Tuple
@@ -123,13 +124,21 @@ def resolve_linking_code(
 ) -> LinkingResolution:
     """design 3節: 存在確認・期限切れ判定・使い切り(one-time use)を行う。
     期限切れの場合もエントリを削除する(再利用不可のまま残さない)。
+
+    owner-faq-routing-design.md 6節(フェーズ221)と同じ理由で、`unicodedata.normalize(
+    "NFKC", ...)`による全角→半角正規化を`strip().upper()`の前段に適用する。design 3節が
+    明記する通りこのコードは「スマートフォンでの手入力」を前提としており、日本語入力の
+    携帯端末はIME既定が全角モードであることが多いため、契約者が連携コードを全角
+    (例:「７Ｋ９ＸＰＱ」)で入力すると、正規化なしでは既存の半角コードと一致せず
+    「見つからない」エラーになってしまう。コードのアルファベットは英数字のみ
+    (`_CODE_ALPHABET`)のため、NFKC正規化で仮名文字の濁点結合等が問題になることもない。
     """
     if not isinstance(code, str) or not code.strip():
         return LinkingResolution(
             ok=False, error="linking_code is missing or not a non-empty string"
         )
 
-    normalized_code = code.strip().upper()
+    normalized_code = unicodedata.normalize("NFKC", code).strip().upper()
     entry = store.get(normalized_code)
     if entry is None:
         return LinkingResolution(
