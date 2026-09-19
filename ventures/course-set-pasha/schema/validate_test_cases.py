@@ -27,6 +27,13 @@ schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対�
   混同防止)側の繁忙の愚痴ケースを固定したのに対し、CI7は7b(iii)(有料プラン開始意図との
   混同防止)側で、「プラン」の語を含む繁忙の愚痴が続いても課題入れ替え内容があれば
   generatedに帰着しcheckout_noticeはNoneのままとなることを固定する。
+- 2026-09-19 定例更新(フェーズ225): kura-pasha/schema/validate_test_cases.pyの
+  NEGATIVE_CASE_PORTAL_LINK_MISMATCH(NEG2)に相当する、`subscription_procedure_notice.
+  includes_portal_link`の不一致(厳守事項7a(iv)違反)を検出できることを確認するネガティブ
+  テストが本venture側にはNEG1(checkout_url版)しか無く未着手のまま残っていたcross-venture
+  parityのギャップを解消した。NEGATIVE_CASE_PORTAL_LINK_MISMATCHを新設し、NEG2として
+  実行するよう追加した(aircon-pasha・line-reservation-aiは本稿執筆時点で同種の
+  ネガティブテストが無く、course-set-pasha側から見ても未解消のまま残る)。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -620,6 +627,31 @@ NEGATIVE_CASE_CHECKOUT_URL_MISMATCH = {
     },
 }
 
+# 2026-09-19 定例更新(フェーズ225)追加。厳守事項7a(iv)違反(includes_portal_link不一致)を
+# 意図的に仕込んだ不正フィクスチャ。status=cancellation_unclear(解約意図が断定できない
+# あいまいなケース、CI3参照)はincludes_portal_link=falseが期待値(まだポータルへ誘導する
+# 段階ではないため)だが、誤ってtrueのまま出力してしまうケースを想定する。
+# validate_cross_field_rules()の`expected_link = status in ("cancellation_intent",
+# "downgrade_intent")`判定(実装は既にフェーズ54から存在)が実際にこの違反を検出できることを
+# 確認するためのネガティブテスト。kura-pasha/schema/validate_test_cases.pyの
+# NEGATIVE_CASE_PORTAL_LINK_MISMATCHと同じ設計思想を踏襲した(NEG1のcheckout_notice版に
+# 対応するsubscription_procedure_notice版)。
+NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
+    "status": "cancellation_unclear",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "sns_post": None,
+    "line_web_notice": None,
+    "history_rows": None,
+    "unchanged_areas": [],
+    "subscription_procedure_notice": {
+        "kind": "cancellation_unclear",
+        "body": "解約をご希望でしょうか?よろしければ改めてその旨お知らせください。",
+        "includes_portal_link": True,
+    },
+    "checkout_notice": None,
+}
+
 
 def main():
     total = 0
@@ -648,6 +680,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG1_checkout_url_mismatch_is_detected: includes_checkout_url不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: includes_portal_linkの不一致(厳守事項7a(iv)違反)がちゃんと
+    # 検出されることを確認する
+    total += 1
+    neg2_errors = validate_against_schema(NEGATIVE_CASE_PORTAL_LINK_MISMATCH, SCHEMA)
+    neg2_errors += validate_cross_field_rules(NEGATIVE_CASE_PORTAL_LINK_MISMATCH)
+    if neg2_errors:
+        print("[OK] NEG2_portal_link_mismatch_is_detected (想定通りエラー検出)")
+        for e in neg2_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG2_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")

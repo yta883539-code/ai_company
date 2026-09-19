@@ -3286,3 +3286,36 @@
 - 最終更新: 2026-09-19 05:00 UTC(フェーズ224: kura-pasha C5・aircon-pasha G9と対になる
   厳守事項7b(iii)版の境界ケースをCI7として新規追加。schema検証19件〈18件→19件〉・
   venture全体605件いずれもパス。コード実装は無くテストフィクスチャ・ドキュメント更新のみ)
+- フェーズ225(2026-09-19 10:00 UTC定例更新): 今回はコード・設計docの残課題を一通り
+  棚卸ししたが、owner_faq_router.py・user_id_linking.pyのNFKC全角入力対応は他の
+  prototype/*.py全モジュール(application_form_submission_flow.py等)を確認しても
+  固定コマンドキーワード比較を行う箇所は他に存在せず未反映漏れは無く、subscription-
+  billing-cost-estimate.md等の決済手数料4.3%改訂も本venture側は2026-09-14時点で既に
+  反映済み(line-reservation-ai・aircon-pashaが本日追随した側であり、本venture発の
+  cross-venture parityギャップは無し)であることを確認した。そこでschema/
+  validate_test_cases.pyを棚卸ししたところ、validate_cross_field_rules()が実装済みの
+  `subscription_procedure_notice.includes_portal_link`不一致検出ロジック(厳守事項
+  7a(iv)、フェーズ54から存在)について、これを実際に検証するネガティブテストが
+  NEG1(checkout_notice.includes_checkout_url不一致版)しか存在せず、対になるはずの
+  portal_link版が未着手のまま残っていたことを発見した。kura-pasha/schema/
+  validate_test_cases.pyのNEGATIVE_CASE_PORTAL_LINK_MISMATCH(NEG2)と同じ設計思想を
+  踏襲し、status=cancellation_unclear(CI3、includes_portal_link=falseが期待値)なのに
+  誤ってtrueを出力してしまうケースを想定したNEGATIVE_CASE_PORTAL_LINK_MISMATCHを新設し、
+  NEG2として実行するようschema/validate_test_cases.pyのmain()に追加した(aircon-pasha・
+  line-reservation-aiには本稿時点で同種のネガティブテストが無く、本venture発見の
+  cross-venture parityギャップとして次回以降に残る)。あわせてoutput-samples-
+  validation.mdの件数表記(19件→20件、フェーズ・日時表記も更新)を訂正した。判定ロジック
+  自体(validate_cross_field_rulesのexpected_link判定)に変更は無く、既存ロジックが
+  実際に違反を検出できることを固定するテストを追加しただけである。schema検証20件
+  (`python3 schema/validate_test_cases.py`、19件→20件、NEG2追加分もエラー検出が
+  想定通り機能することを確認)・venture全体605件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、コード変更が無いため605件のまま変化なし)いずれもパスした。
+  承認不要な設計文書棚卸し・schema/テストフィクスチャ追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回はaircon-pasha・line-reservation-aiへの同種NEG2横展開、または他venture・アイデア
+  領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 10:00 UTC(フェーズ225: subscription_procedure_notice.
+  includes_portal_link不一致検出のネガティブテストNEG2を新規追加〈kura-pashaの
+  NEGATIVE_CASE_PORTAL_LINK_MISMATCHと同型〉。schema検証20件〈19件→20件〉・venture
+  全体605件いずれもパス。コード実装(判定ロジック)は無くテストフィクスチャ・ドキュメント
+  更新のみ)
