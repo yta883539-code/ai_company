@@ -3319,3 +3319,26 @@
   NEGATIVE_CASE_PORTAL_LINK_MISMATCHと同型〉。schema検証20件〈19件→20件〉・venture
   全体605件いずれもパス。コード実装(判定ロジック)は無くテストフィクスチャ・ドキュメント
   更新のみ)
+- フェーズ226(2026-09-19 14:00 UTC定例更新): schema/validate_test_cases.pyの
+  validate_cross_field_rules()棚卸しを行い、`history_rows`空配列禁止ルール(status=
+  generatedのとき`history_rows`は1件以上必要、実装はフェーズ54から存在)を実際に検証する
+  ネガティブテストが、NEG1(checkout_notice.includes_checkout_url不一致版)・
+  NEG2(subscription_procedure_notice.includes_portal_link不一致版、フェーズ225)いずれとも
+  異なる第3のルールでありながら未着手のまま残っていたことを発見した。NEG1・NEG2と同じ
+  設計思想を踏襲し、status=generatedなのに対象エリアの課題入れ替えが実際には0件だった
+  (本来unchanged_areasで表現すべき状況)ケースをAIが誤ってhistory_rows=[]のまま出力して
+  しまう状況を想定したNEGATIVE_CASE_EMPTY_HISTORY_ROWSを新設し、NEG3としてmain()に
+  追加した。あわせてoutput-samples-validation.mdの件数表記(20件→21件、フェーズ・日時
+  表記も更新)を訂正した。判定ロジック自体(validate_cross_field_rulesの空配列チェック)に
+  変更は無く、既存ロジックが実際に違反を検出できることを固定するテストを追加しただけで
+  ある。schema検証21件(`python3 schema/validate_test_cases.py`、20件→21件、NEG3追加分も
+  エラー検出が想定通り機能することを確認)・venture全体605件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、コード変更が無いため605件のまま変化なし)いずれも
+  パスした。承認不要な設計文書棚卸し・schema/テストフィクスチャ追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回はaircon-pasha・line-reservation-ai・kura-pashaへの同種NEG3横展開(未確認)、
+  または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 14:00 UTC(フェーズ226: history_rows空配列禁止ルールを検証する
+  ネガティブテストNEG3を新規追加〈NEG1・NEG2とは異なる第3のルール〉。schema検証21件
+  〈20件→21件〉・venture全体605件いずれもパス。コード実装(判定ロジック)は無くテスト
+  フィクスチャ・ドキュメント更新のみ)

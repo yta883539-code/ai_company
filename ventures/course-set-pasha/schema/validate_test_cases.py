@@ -653,6 +653,36 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
 }
 
 
+# 2026-09-19 14:00 UTC追加(フェーズ226)。厳守事項(history_rows空配列禁止、105行目
+# 付近のvalidate_cross_field_rules内「status=generatedのとき空配列は不可」判定)違反を
+# 意図的に仕込んだ不正フィクスチャ。status=generatedなのに、対象エリアの課題入れ替えが
+# 実際には0件だった(=history_rowsに書くべき行が無い)ケースをAIが誤って
+# status=generated・history_rows=[]のまま出力してしまう状況を想定する。本来このような
+# 入力(変更が無い)はunchanged_areasで表現すべきであり、generatedかつ空配列という組み合わせ
+# 自体が不正値のはずだが、これまでNEG1(checkout_notice版)・NEG2(subscription_procedure_
+# notice版)のみが存在し、history_rows空配列チェック(フェーズ54から実装は存在)を実際に
+# 検証するネガティブテストが未着手のまま残っていたことを、schema/validate_test_cases.py
+# 棚卸し中に発見した。validate_cross_field_rules()が実際にこの違反を検出できることを
+# 確認するためのネガティブテストとして新設する。
+NEGATIVE_CASE_EMPTY_HISTORY_ROWS = {
+    "status": "generated",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "sns_post": {
+        "body": "本日は課題の入れ替えはありませんでした。",
+        "hashtags": ["#ボルダリング", "#クライミングジム"],
+        "mentions_photo": False,
+    },
+    "line_web_notice": {
+        "body": "本日の課題入れ替えはありませんでした。",
+    },
+    "history_rows": [],
+    "unchanged_areas": ["エリアA", "エリアB"],
+    "subscription_procedure_notice": None,
+    "checkout_notice": None,
+}
+
+
 def main():
     total = 0
     failed = 0
@@ -693,6 +723,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG2_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: status=generatedかつhistory_rows=[](空配列)の組み合わせが
+    # ちゃんと検出されることを確認する
+    total += 1
+    neg3_errors = validate_against_schema(NEGATIVE_CASE_EMPTY_HISTORY_ROWS, SCHEMA)
+    neg3_errors += validate_cross_field_rules(NEGATIVE_CASE_EMPTY_HISTORY_ROWS)
+    if neg3_errors:
+        print("[OK] NEG3_empty_history_rows_is_detected (想定通りエラー検出)")
+        for e in neg3_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG3_empty_history_rows_is_detected: history_rows空配列を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
