@@ -3675,3 +3675,43 @@
   に全角入力〈NFKC正規化〉対応を横展開。course-set-pashaフェーズ223の同型バグ修正を受けた
   対応。kura-pashaに未対応の同種バグ2箇所が残っていることも確認・記録。テスト2件追加、
   venture全体515件・schema検証19件いずれもパス)
+- フェーズ233(2026-09-19 11:00 UTC定例更新): course-set-pashaフェーズ225で発見・解消
+  されたcross-venture parityのギャップ(subscription_procedure_notice.includes_portal_link
+  不一致を検出するネガティブテストの欠如)が本ventureにも同型で存在することを確認し、
+  NEGATIVE_CASE_PORTAL_LINK_MISMATCHをNEG3として新規追加した(本ventureはNEG1・NEG2が
+  既存のため3件目)。output-samples-validation.mdの件数表記(19件→20件)も更新した。判定
+  ロジック自体に変更は無く、既存ロジックが違反を検出できることを固定するテストの追加のみ。
+  schema検証20件(19件→20件)・venture全体515件いずれもパス。承認不要なテストフィクスチャ
+  追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。本README.mdへの反映が漏れていたため、次フェーズの
+  棚卸し(フェーズ234)で発見・追記した。
+- 最終更新: 2026-09-19 11:00 UTC(フェーズ233: cross-venture parityのギャップ
+  〈includes_portal_link不一致検出ネガティブテストの欠如〉を解消しNEG3を新規追加。
+  schema検証20件・venture全体515件いずれもパス。本README.mdへの反映漏れをフェーズ234で
+  事後追記)
+- フェーズ234(2026-09-19 15:00 UTC定例更新): README.mdの棚卸し中にフェーズ233の記載漏れ
+  (上記)を発見・訂正した。あわせて、course-set-pashaフェーズ226がNEG3
+  (NEGATIVE_CASE_EMPTY_HISTORY_ROWS、history_rows空配列禁止ルールの検証)追加時に残した
+  「次回はaircon-pasha・line-reservation-ai・kura-pashaへの同種横展開(未確認)」を棚卸し
+  した。本venture(aircon-pasha)はcourse-set-pashaと同じ`generated_fields = [...,
+  "history_rows"]`構造・同じ「status=generatedのとき空配列は不可」判定を持つため同型の
+  ギャップが存在することを確認し、NEGATIVE_CASE_EMPTY_HISTORY_ROWSをNEG4として新規追加
+  した(本ventureはNEG1・NEG2・NEG3が既存のため4件目)。なお本venture(訪問時の分解洗浄
+  実績)にはcourse-set-pashaのunchanged_areasに相当する「変更なし」を表す代替フィールドが
+  存在しないため、フィクスチャは「1回の訪問で0台」という業務上あり得ない状態を想定した。
+  一方line-reservation-ai・kura-pashaはそもそもhistory_rows相当のフィールド・空配列禁止
+  ルールを持たないスキーマ構造であることを確認し、両venture向けの横展開は対象外と判断した
+  (line-reservation-aiはgenerated_fields相当の必須フィールドに配列型が無く、kura-pashaは
+  generated_fields = ["order_summary", "delivery_notice", "care_notice"]でリスト型の
+  フィールド自体が存在しない)。output-samples-validation.mdの件数表記(20件→21件)も
+  更新した。判定ロジック自体に変更は無く、既存ロジックが違反を検出できることを固定する
+  テストの追加のみ。schema検証21件(20件→21件)・venture全体515件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)いずれもパス(変更前と
+  同じ結果)を確認した。承認不要なテストフィクスチャ追加・ドキュメント記載訂正のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 15:00 UTC(フェーズ234: README.mdのフェーズ233記載漏れを訂正。
+  course-set-pashaフェーズ226のNEG3〈history_rows空配列禁止〉横展開検討を棚卸しし、本
+  ventureに同型のギャップがあることを確認しNEG4として新規追加。line-reservation-ai・
+  kura-pashaはスキーマ構造上そもそも対象外であることも確認・記録。schema検証21件
+  〈20件→21件〉・venture全体515件いずれもパス)

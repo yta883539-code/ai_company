@@ -727,6 +727,35 @@ NEGATIVE_CASE_PORTAL_LINK_MISMATCH = {
     "checkout_notice": None,
 }
 
+# 2026-09-19 15:00 UTC追加。course-set-pashaフェーズ226(NEGATIVE_CASE_EMPTY_HISTORY_ROWS)
+# 発見時の「次回はaircon-pasha・line-reservation-ai・kura-pashaへの同種NEG3横展開(未確認)」
+# を受けて棚卸しした結果、本venture(aircon-pasha)にも同型のhistory_rows空配列禁止チェック
+# (105行目付近のvalidate_cross_field_rules内「status=generatedのとき空配列は不可」判定、
+# フェーズ54から実装は存在)を検証するネガティブテストが未着手のまま残っていたことを発見した。
+# course-set-pashaとは異なり本venture(訪問時の分解洗浄実績)には「変更なし」を表す
+# unchanged_areas相当の代替フィールドが存在せず、1回の訪問で0台という業務上あり得ない
+# 状態がstatus=generatedのまま出力されてしまうケースを想定する。NEG1(checkout_url版)・
+# NEG2(management_companyボイラープレート版)・NEG3(portal_link版、フェーズ233)が既存の
+# ため、4件目としてNEG4に割り当てる。
+NEGATIVE_CASE_EMPTY_HISTORY_ROWS = {
+    "status": "generated",
+    "out_of_scope_message": None,
+    "missing_fields_request": None,
+    "completion_report": {
+        "body": "本日のご訪問では分解洗浄を実施しておりません。",
+        "mentions_refrigerant_or_electrical": False,
+        "recipient": "tenant",
+        "includes_liability_determination": False,
+    },
+    "care_guide": {
+        "body": "フィルターは月1回程度を目安に、掃除機やご自身で水洗いいただくと効果的です。",
+        "next_recommended_date_is_estimate": False,
+    },
+    "history_rows": [],
+    "subscription_procedure_notice": None,
+    "checkout_notice": None,
+}
+
 
 def main():
     total = 0
@@ -781,6 +810,19 @@ def main():
     else:
         failed += 1
         print("[NG] NEG3_portal_link_mismatch_is_detected: includes_portal_link不一致を検出できませんでした(バリデータの不備)")
+
+    # ネガティブテスト: status=generatedかつhistory_rows=[](空配列)の組み合わせが
+    # ちゃんと検出されることを確認する
+    total += 1
+    neg4_errors = validate_against_schema(NEGATIVE_CASE_EMPTY_HISTORY_ROWS, SCHEMA)
+    neg4_errors += validate_cross_field_rules(NEGATIVE_CASE_EMPTY_HISTORY_ROWS)
+    if neg4_errors:
+        print("[OK] NEG4_empty_history_rows_is_detected (想定通りエラー検出)")
+        for e in neg4_errors:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG4_empty_history_rows_is_detected: history_rows空配列を検出できませんでした(バリデータの不備)")
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
