@@ -37,6 +37,20 @@ resource_id: course-set-pasha-tests.yml)経由で、フェーズ29のコミッ�
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに
   追加するかを検討する。
 
+## 追記(2026-09-19 21:00 UTC、フェーズ227): 本ファイルの件数表記の棚卸し
+本ファイル「実施内容」「追記(2026-08-08 22:00 UTC)」節が、CI導入当初(フェーズ29時点)の
+テスト件数(prototype 18件・schema検証6件)のまま更新されずに残っていた記載漏れを発見した。
+`.github/workflows/course-set-pasha-tests.yml`自体は`unittest discover`・
+`validate_test_cases.py`をそのまま呼び出す構成であり新規テストファイル追加時も自動的に
+対象へ含まれるため、ワークフロー自体の修正は不要と確認した(README.mdフェーズ226時点で
+記録済みの件数と実際のローカル実行結果を突き合わせ)。実際にローカルで
+`python3 -m unittest discover -p "test_*.py" -v`(prototype/)・
+`python3 validate_test_cases.py`(schema/)を実行し、prototype全605件・schema検証21件
+いずれもパス(既存ロジック・実装への変更は無く、件数の実態確認のみ)であることを確認した。
+本ファイルの件数表記自体は上記「追記(2026-08-28 23:00 UTC)」以降の増分を追わない運用と
+し、最新件数は都度README.mdの最終更新記載を参照する方針とする(本ファイル本体を毎回
+更新する運用にはしない)。
+
 ## 追記(2026-08-28 23:00 UTC): テストファイル列挙方式の陳腐化バグを修正
 上記「実施内容」1.でCI実行対象を`test_history_export test_post_generation_checks`と
 個別ファイル名で列挙する方式を採用していたが、prototype/配下に新規テストファイルが
