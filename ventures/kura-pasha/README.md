@@ -2876,3 +2876,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-19 12:00 UTC(フェーズ138: mvp-flow-draft.mdの「残課題」節に
   残っていたフェーズ2〜4解消済み3項目の記載漏れを訂正。venture全体103件・schema検証
   32件いずれもパス、変更前と同じ結果)
+- フェーズ139(2026-09-19 16:00 UTC定例更新): unfollow-billing-faq.md(フェーズ45、
+  2026-09-08作成)の棚卸しを行い、3件の記載漏れ・事実誤りを発見・訂正した。(1)「前提の
+  整理」節が「本venture自体、Stripe Webhook受信・PortalLinkProvider相当の実装がまだ
+  無い段階であるため、検知バッチの設計はさらにその前提となるWebhook実装自体が整うまで
+  着手できない」と記載していたが、Stripe Webhook受信(stripe-webhook-checkout-completed-
+  design.md、フェーズ51、本節作成と同日中)・PortalLinkProvider相当の実装
+  (portal-session-provider-design.md・`prototype/portal_session.py`のStripe
+  PortalLinkProvider、フェーズ129)とも既に完了しており、フェーズ80・81の検知バッチ・
+  オーナー通知実装ともあわせて前提が解消済みだった(フェーズ133・135・138と同種の
+  cross-document parity記載漏れパターン)。(2)「文面の補足」節のFAQ返信テンプレート内
+  「{Stripeカスタマーポータル URL}」プレースホルダの説明が同じくPortalLinkProvider未実装・
+  Stripe Webhook未着手を理由としていたが、プレースホルダのまま残る理由は実装の有無では
+  なく実Stripeアカウント接続待ち(オーナー承認待ち、pending-approval.md参照)のみである
+  点に訂正した。(3)「今後の課題」がFAQ文面のlanding-page-copy-draft.mdへの反映について
+  「同ファイル自体が本venture未作成のため」と記載していたが、確認したところ
+  landing-page-copy-draft.mdは本ファイル作成(フェーズ45)より前のフェーズ17
+  (2026-09-07 00:00 UTC)時点で既に新規作成済みであり、本ファイル作成時点からの事実
+  誤りだったことが判明した(同ファイルのFAQセクションに本FAQ内容が未反映であること自体は
+  現在も事実のため、反映自体は引き続き未対応の課題として残した)。いずれもコード変更は
+  無く、回帰確認としてventure全体103件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`および`python3 prototype/run_all_tests.py`、14ファイルいずれもOK)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ
+  結果)を確認した。承認不要なドキュメント記載訂正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記
+  なし。次回は同ファイル「未確定事項」3点目(craftsman-account-linking-design.mdの
+  複数職人プラン共同利用者向け本人確認手段)の要確認状況の見直し、または他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 16:00 UTC(フェーズ139: unfollow-billing-faq.mdに残っていた
+  3件の記載漏れ・事実誤り〈Stripe Webhook/PortalLinkProvider未実装記載〈フェーズ51・
+  129で解消済み〉、landing-page-copy-draft.md未作成記載〈フェーズ17時点で既に作成済み〉〉
+  を訂正。コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)

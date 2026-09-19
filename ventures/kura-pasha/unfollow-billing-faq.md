@@ -34,10 +34,18 @@ LINE経由で能動的に解約手続きを案内することはできない。�
 本サービス側から能動的に「ブロック中かつ契約継続中」の契約者を検知して連絡する仕組み
 (プロアクティブな検知・通知バッチ、他venture3件のblocked-but-billing-detection-
 design.md相当)は、他ventureと同じく本ドキュメントのスコープには含めない(下記
-「今後の課題」参照)。本venture自体、Stripe Webhook受信・PortalLinkProvider相当の
-実装がまだ無い段階(prototype/usage_counter_workshop.pyはworkshopのメッセージ文脈
-選択のみを扱う)であるため、検知バッチの設計はさらにその前提となるWebhook実装自体が
-整うまで着手できない点が他venture3件との違いである。
+「今後の課題」参照。実際に検知バッチ〈フェーズ80〉・オーナー通知〈フェーズ81〉とも
+実装済み)。
+
+(2026-09-19 16:00 UTC追記・フェーズ139: 本節作成〈フェーズ45〉時点では「本venture自体、
+Stripe Webhook受信・PortalLinkProvider相当の実装がまだ無い段階であるため、検知バッチの
+設計はさらにその前提となるWebhook実装自体が整うまで着手できない点が他venture3件との
+違いである」と記載していたが、その後Stripe Webhook受信(stripe-webhook-checkout-
+completed-design.md、フェーズ51、2026-09-08 23:00 UTC、本節作成の同日中)・
+PortalLinkProvider相当の実装(portal-session-provider-design.md・
+`prototype/portal_session.py`のStripePortalLinkProvider、フェーズ129)とも完了しており、
+上記の前提は既に解消済みである。旧文はフェーズ45時点の記録として残し、本追記で現状に
+更新する。)
 
 ## 複数職人プラン固有の論点
 
@@ -101,10 +109,16 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
 - 文面はsubscription-cancellation-flow-design.md「1. 解約意図検知時の案内メッセージ」の
   要旨(現在の契約内容・請求サイクル終了日まで利用可能・日割り返金なし)を踏襲し、LINEでは
   なくメールで届ける前提に書き換えたもの。
-- 「{Stripeカスタマーポータル URL}」は、他venture3件のPortalLinkProvider相当の仕組みが
-  本venture未実装のため、現時点ではプレースホルダのままとする。Stripe Webhook実装
-  (未着手)の設計時に、LINE返信用と共通のURL生成経路をそのまま使う想定(他venture3件と
-  同一方針)であることのみ明記しておく。
+- 「{Stripeカスタマーポータル URL}」は、実際のメール送信自体が実Stripeアカウント接続
+  (オーナー承認待ち、pending-approval.md参照)後の課題として残るため、本テンプレート上は
+  引き続きプレースホルダのままとする。生成経路自体は、他venture3件と同一方針の通り
+  LINE返信用と共通の`prototype/portal_session.py`(StripePortalLinkProvider、
+  portal-session-provider-design.md、フェーズ129)をそのまま使う想定である。
+  (2026-09-19 16:00 UTC追記・フェーズ139: 本節作成〈フェーズ45〉時点では「他venture3件の
+  PortalLinkProvider相当の仕組みが本venture未実装のため」「Stripe Webhook実装(未着手)の
+  設計時に」と記載していたが、Stripe Webhook受信(フェーズ51)・PortalLinkProvider相当の
+  実装(フェーズ129)とも完了済みであり、プレースホルダのまま残る理由は実装の有無ではなく
+  実Stripeアカウント接続待ちのみである点を訂正した。)
 
 ## 未確定事項
 
@@ -130,9 +144,17 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
   → (解消済み 2026-09-11 06:00 UTC・フェーズ81: オーナー通知手段自体も
   blocked-but-billing-owner-notification-design.mdとして設計・実装した。本venture一貫の
   プレーンテキスト送信・冪等性フィールド・再フォロー/解約確定時のクリア配線まで対応済み)
-- 上記1.のFAQ文面のlanding-page-copy-draft.mdへの反映は、同ファイル自体が本venture
-  未作成のため、同ファイル新規作成時にあわせて反映する。
+- 上記1.のFAQ文面のlanding-page-copy-draft.mdへの反映はまだ行っていない。
+  (2026-09-19 16:00 UTC訂正・フェーズ139: 旧文は「同ファイル自体が本venture未作成の
+  ため、同ファイル新規作成時にあわせて反映する」としていたが、landing-page-copy-
+  draft.mdは本ファイル作成〈フェーズ45、2026-09-08〉より前のフェーズ17
+  〈2026-09-07 00:00 UTC〉時点で既に新規作成済みであり、事実誤りだった。同ファイルの
+  FAQセクションには現時点でも本FAQの内容〈ブロックしたのに課金だけ続く場合の案内〉は
+  反映されていないことを確認したため、反映自体は引き続き未対応の課題として残す。)
 - 複数職人プランの契約者本人確認の仕組み(craftsman-account-linking-design.md未着手
   部分)が固まり次第、上記「未確定事項」の3点目を再検証する。
 
-最終更新: 2026-09-08 15:00 UTC
+最終更新: 2026-09-19 16:00 UTC(フェーズ139: 「前提の整理」「文面の補足」節の
+Stripe Webhook/PortalLinkProvider未実装記載〈フェーズ51・129で解消済み〉、
+「今後の課題」のlanding-page-copy-draft.md未作成記載〈フェーズ17時点で既に作成済み、
+本ファイル作成時からの事実誤り〉を訂正)
