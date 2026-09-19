@@ -547,9 +547,26 @@ checkout-intent-detection-parity-review.md「残る検討事項」E17候補対�
   この過程で、前日リマインドのみ「対応するJSON入力が存在しないプッシュ通知」であり、
   仮押さえ直後・FAQ回答とは生成経路が異なる(スケジューラ発火 vs LLM出力起点)ことが判明。
   この2経路でトーン変換ロジックをどう共通化するかの実装設計は次の課題として残す)
-- 前日リマインドのスケジューラ発火経路と、仮押さえ直後・FAQ回答等のLLM出力起点経路とで、
+- ~~前日リマインドのスケジューラ発火経路と、仮押さえ直後・FAQ回答等のLLM出力起点経路とで、
   message-tone-variants.mdのトーン変換ロジック(語尾・絵文字・感嘆符の3点)を共通の関数として
-  実装できるか(tech-stack.mdの技術選定と合わせて)検討する
+  実装できるか(tech-stack.mdの技術選定と合わせて)検討する~~
+  → 2026-09-19 13:00 UTC棚卸しで対応済みであることを確認: `prototype/engine.py`の
+  `_render_by_tone(tone, variants)`が両経路で共通の実装として既に存在し、LLM出力起点の
+  `format_confirmation_message()`・`format_hold_message()`・`format_cancel_*_message()`・
+  `format_change_*_message()`・`format_faq_*_message()`と、スケジューラ発火起点の
+  `format_reminder_message()`・`format_reminder_resend_message()`のいずれもこの1関数を
+  経由してformal/standard/casualを出し分けている(engine.py 1714行目`_render_by_tone()`
+  定義、コメント「各メッセージ関数は3トーン分の完成文言を保持し、_render_by_tone()という
+  共通ヘルパーで…」参照)。固定語彙不変性(fixed-vocabulary-tone-check-design.md)・未知tone値の
+  standardフォールバックのテストも`FixedVocabularyInvariantAcrossTonesTest`
+  (`prototype/test_engine.py`)の`TONE_FUNCTIONS`一覧(16関数)として両経路を横断して
+  網羅済みであることを確認した。本項目提起時点(2026-08-01 18:00 UTC)ではまだ未実装
+  だったが、その後の個別フェーズ(仮押さえ直後・FAQ回答・前日リマインド等の各`format_*`
+  関数追加時)で共通ヘルパー方式が既に採用されており、本ファイル側の「次のステップ候補」
+  記載の更新のみが取り残されていたcross-document parityの記載漏れだった。コード変更は
+  無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。
 - E10〜E16を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)
 - エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどのtopicが未回答かを含める)
 - E16で発見した「同一topicが複合質問内で重複しうる」場合の通知ログ集計ルール(重複を1件とするか未回答分のみカウントするかの決定)を検討する

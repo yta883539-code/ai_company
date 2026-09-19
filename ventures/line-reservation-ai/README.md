@@ -4130,3 +4130,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   パス(変更前と同じ結果)を確認した。承認不要なドキュメント記載更新・訂正のみで、
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。)
+- フェーズ続き246(2026-09-19 13:00 UTC定例更新): conversation-samples-test-cases.md
+  「次のステップ候補」が、前日リマインドのスケジューラ発火経路と仮押さえ直後・FAQ回答等の
+  LLM出力起点経路とでトーン変換ロジックを共通の関数として実装できるか「検討する」と
+  未着手のまま残していたのを棚卸ししたところ、実際には`prototype/engine.py`の
+  `_render_by_tone(tone, variants)`が既に両経路共通のヘルパーとして実装済みで、
+  スケジューラ発火起点の`format_reminder_message()`・`format_reminder_resend_message()`と
+  LLM出力起点の`format_confirmation_message()`・`format_hold_message()`・
+  `format_cancel_*_message()`・`format_change_*_message()`・`format_faq_*_message()`の
+  いずれもこの1関数を経由していることを確認した。固定語彙不変性チェック
+  (fixed-vocabulary-tone-check-design.md、`test_engine.py`の
+  `FixedVocabularyInvariantAcrossTonesTest.TONE_FUNCTIONS`)も両経路を横断する16関数を
+  既に網羅済みであり、本項目は個別フェーズでの実装が先行し、本ファイル側の「次のステップ
+  候補」記載の更新のみが取り残されていたcross-document parityの記載漏れだったと判断し
+  訂正した。コード変更は無く、回帰確認としてventure全体854件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 13:00 UTC(フェーズ続き246: conversation-samples-test-cases.mdの
+  「トーン変換ロジックの共通関数化」次のステップ候補が、実際には`_render_by_tone()`として
+  既に実装・テスト済みだった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、
+  venture全体854件・schema検証28件いずれもパス)
