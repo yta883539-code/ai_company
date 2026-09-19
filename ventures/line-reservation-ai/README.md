@@ -4152,3 +4152,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「トーン変換ロジックの共通関数化」次のステップ候補が、実際には`_render_by_tone()`として
   既に実装・テスト済みだった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、
   venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き247(2026-09-19 18:00 UTC定例更新): owner-operation-self-service-faq.md
+  「次のステップ候補」が、本ドキュメント作成(2026-09-15 15:00 UTC)以来「他venture
+  (course-set-pasha・aircon-pasha・kura-pasha)でも同種のFAQが未整備であれば横展開を
+  検討する」と未着手のまま残していたのを棚卸ししたところ、実際には作成同日中に3venture
+  いずれも自ventureのオーナー向け設定画面・厳守事項の違いを踏まえた個別のowner-
+  operation-self-service-faq.mdを作成済みで(course-set-pasha 2026-09-15 17:00 UTC、
+  aircon-pashaフェーズ224 2026-09-15 22:00 UTC、kura-pashaフェーズ125でも4venture全て
+  横展開完了が明記済み)、実装が先行し本ファイル側の記載更新のみが取り残されていた
+  cross-document parityの記載漏れだったと判断し、解消済みへ訂正した。コード変更は無く、
+  回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載訂正のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 18:00 UTC(フェーズ続き247: owner-operation-self-service-faq.mdの
+  「他venture横展開」次のステップ候補が、実際には作成同日中に3venture全てで対応済み
+  だった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・
+  schema検証28件いずれもパス)

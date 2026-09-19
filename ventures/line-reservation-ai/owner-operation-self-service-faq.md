@@ -91,6 +91,13 @@ Q2のような曜日別営業時間の店舗への営業時間質問などで意
   リンク追記〈FAQページの外部公開が前提〉は見送り、引き続き残課題とした。)
 - 実運用データが取得でき次第、実際の問い合わせ内容とFAQ項目の一致率を検証し、
   カバーできていない頻出質問があれば項目を追加する。
-- 他venture(course-set-pasha・aircon-pasha・kura-pasha)でも同種のオーナー向け
-  セルフサービスFAQが未整備であれば、本ドキュメントの構成を横展開できないか検討する
-  (各ventureのオーナー向け設定画面の機能差を踏まえた個別整理が必要)。
+- (解消済み 2026-09-19 18:00 UTC定例更新: 他3venture〈course-set-pasha・aircon-pasha・
+  kura-pasha〉の横展開状況を棚卸ししたところ、本ドキュメント作成〈2026-09-15 15:00 UTC〉
+  より後の同日中に、course-set-pasha(2026-09-15 17:00 UTC)・aircon-pasha(フェーズ224、
+  2026-09-15 22:00 UTC)・kura-pasha(フェーズ125)がそれぞれ自ventureのオーナー向け
+  設定画面・厳守事項の違いを踏まえた個別のowner-operation-self-service-faq.mdを作成済み
+  であり(kura-pashaフェーズ125時点で4venture全ての横展開完了が明記されている)、本項目は
+  実装済みだが本ファイル側の記載更新のみが取り残されていたcross-document parityの記載漏れ
+  だったと判断し、解消済みへ訂正した。コード変更は無く、回帰確認としてventure全体854件
+  〈`python3 -m unittest discover -s prototype -p "test_*.py"`〉・schema検証28件
+  〈`python3 schema/validate_test_cases.py`〉いずれもパス(変更前と同じ結果)を確認した。)
