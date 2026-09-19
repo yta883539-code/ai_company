@@ -123,3 +123,17 @@ aircon-pasha版と同じ考え方)。
 - `owner_user_id`確定前(オンボーディング未完了)のオーナーunfollowは検知漏れとなる点は
   1節に記載した通り仕様上の割り切りとするが、実測データが取れた段階で頻度を確認する
   価値はある。
+- ~~`store_profile_store`側の`suspension_reason`(2節の除外判定`suspension_reason not
+  in ("cancelled", "trial_unselected")`が参照するフィールド)へ`"cancelled"`を書き込む
+  配線が`stripe_webhook_entry_point.py`のどのイベント分岐にも存在せず、`customer.
+  subscription.deleted`受信後も`store_profile_store.get_suspension_reason()`が`None`の
+  ままになる(=通常課金中と区別できない)ため、解約済み店舗が誤って「ブロック中かつ
+  契約継続中」候補に含まれ続ける実害があった(subscription_plan_sync.pyの docstring が
+  「suspension_reasonは本処理とは独立の別フィールド側で制御される」と前提していたが、
+  その別フィールド側への書き込み自体が本プロトタイプでは未配線だった)。~~
+  (解消済み: `EVENT_CUSTOMER_SUBSCRIPTION_DELETED`分岐に、checkout.session.completed
+  分岐の`handle_checkout_session_completed()`・customer.subscription.updated分岐の
+  `sync_plan_on_subscription_event()`と同じ「通知〈`cancellation_store`/`push_client`〉の
+  要否・成否とは独立に書き込む」方針で`store_profile_store.set_suspension_reason(store_id,
+  "cancelled")`を追加した。テスト2件追加、venture全体854件・schema検証27件いずれも
+  パスを確認した。2026-09-19追記)

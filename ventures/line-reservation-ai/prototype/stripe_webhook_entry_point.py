@@ -262,6 +262,15 @@ def receive_stripe_webhook(
     if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
         # subscription-deleted-event-routing-design.md 3節: activated用の
         # `subscription_store`とはフィールド構成が異なるため専用の`cancellation_store`を使う。
+        # blocked-but-billing-detection-design.md 3節: store_profile_store側の
+        # suspension_reasonは実運用では`cancellation_store`側と同一Firestore
+        # ドキュメントのフィールドに収束する想定だが、本プロトタイプは別インスタンスの
+        # ままのため、checkout.session.completed分岐のhandle_checkout_session_completed()・
+        # customer.subscription.updated分岐のsync_plan_on_subscription_event()と同じ
+        # 「通知の成否とは独立して書き込む」方針で、list_blocked_but_billing_candidates()が
+        # 参照するstore_profile_store.suspension_reasonにも"cancelled"を反映する。
+        if store_profile_store is not None:
+            store_profile_store.set_suspension_reason(store_id, "cancelled")
         if cancellation_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = cancellation_store.get_cancellation_state(store_id)

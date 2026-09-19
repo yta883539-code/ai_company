@@ -609,6 +609,55 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
         stored = self.cancellation_store.get_cancellation_state("store-1")
         self.assertIsNone(stored.suspension_reason)
 
+    def test_store_profile_store_suspension_reason_is_set_independently_of_notification(
+        self,
+    ):
+        """blocked-but-billing-detection-design.md 3節・2節: `store_profile_store`側の
+        `suspension_reason`は`list_blocked_but_billing_candidates()`が除外判定に使う
+        フィールド(`_EXCLUDED_SUSPENSION_REASONS`に`"cancelled"`を含む)であり、
+        checkout.session.completed分岐のhandle_checkout_session_completed()と同じ
+        「通知の成否とは独立して書き込む」方針で反映されるべきことを確認する。
+        `cancellation_store`/`push_client`を渡さない(=通知は行われない)場合でも
+        `store_profile_store`側には`"cancelled"`が書き込まれる。"""
+        store_profile_store = InMemoryStoreProfileStore()
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            store_profile_store=store_profile_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            store_profile_store.get_suspension_reason("store-1"), "cancelled"
+        )
+
+    def test_omitted_store_profile_store_skips_suspension_reason_write_without_error(
+        self,
+    ):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "cancelled")
+
 
 class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
     """customer-subscription-updated-event-routing-design.mdで追加した

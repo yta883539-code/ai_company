@@ -4072,3 +4072,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   への配線漏れ〈stripe_customer_id・planが一度も永続化されず、以後のイベントのstore_id
   解決が常に失敗する実害があった〉を発見・修正。テスト5件追加、venture全体852件・
   schema検証27件いずれもパス)
+- フェーズ続き243(2026-09-19 02:00 UTC定例更新): フェーズ続き242と同種の配線漏れ点検を
+  `EVENT_CUSTOMER_SUBSCRIPTION_DELETED`分岐に広げたところ、`store_profile_store`側の
+  `suspension_reason`(blocked-but-billing-detection-design.md 2節が定める除外判定
+  `suspension_reason not in ("cancelled", "trial_unselected")`の対象フィールド)へ
+  `"cancelled"`を書き込む配線がどのイベント分岐にも存在せず、解約(`customer.
+  subscription.deleted`)後も`store_profile_store.get_suspension_reason()`が`None`
+  (通常課金中と同じ値)のまま残ることを発見した。subscription_plan_sync.pyの
+  docstringが「予約受付の可否はsuspension_reason側で制御されるため、planを解約後も
+  クリアしなくても実害はない」と前提していたが、その参照先であるsuspension_reason自体
+  への書き込みが本プロトタイプでは未配線だったため、実際には解約済み店舗が
+  `list_blocked_but_billing_candidates()`の「ブロック中かつ契約継続中」候補判定に
+  誤って含まれ続ける実害があった。`checkout.session.completed`分岐の
+  `handle_checkout_session_completed()`・`customer.subscription.updated`分岐の
+  `sync_plan_on_subscription_event()`と同じ「通知〈`cancellation_store`/`push_client`〉の
+  要否・成否とは独立に書き込む」方針で、`store_profile_store.set_suspension_reason(
+  store_id, "cancelled")`を追加した。blocked-but-billing-detection-design.md 4節に
+  発見・解消の記録を追記した。テスト2件追加、venture全体854件(852件→854件、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証27件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なコード実装・ドキュメント訂正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 02:00 UTC(フェーズ続き243: store_profile_store側のsuspension_
+  reasonが解約〈customer.subscription.deleted〉後も更新されず、blocked-but-billing
+  候補判定を誤らせる配線漏れを発見・修正。テスト2件追加、venture全体854件・schema検証
+  27件いずれもパス)
