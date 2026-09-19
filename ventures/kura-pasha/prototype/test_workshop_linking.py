@@ -85,6 +85,22 @@ class ResolveLinkingCodeTest(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.user_id, "U1234")
 
+    def test_accepts_fullwidth_input_via_nfkc_normalization(self):
+        # course-set-pasha/aircon-pashaと同種(フェーズ232): 日本語入力の携帯端末で
+        # 既定になりやすい全角入力(IME全角モードでの手入力)にも対応する。
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "U1234", _NOW)
+        result = resolve_linking_code("　ＡＢＣ２３４　", store, _NOW)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.user_id, "U1234")
+
+    def test_accepts_fullwidth_lowercase_input(self):
+        store = InMemoryLinkingCodeStore()
+        store.save("XPQ789", "U5678", _NOW)
+        result = resolve_linking_code("ｘｐｑ７８９", store, _NOW)
+        self.assertTrue(result.ok)
+        self.assertEqual(result.user_id, "U5678")
+
     def test_rejects_unknown_code(self):
         store = InMemoryLinkingCodeStore()
         result = resolve_linking_code("ZZZ999", store, _NOW)
@@ -295,6 +311,15 @@ class ResolveInviteCodeTest(unittest.TestCase):
         store = InMemoryLinkingCodeStore()
         store.save("ABC234", "W1", _NOW)
         result = resolve_invite_code("ABC234", store, _NOW + timedelta(hours=1))
+        self.assertTrue(result.ok)
+        self.assertEqual(result.workshop_id, "W1")
+
+    def test_accepts_fullwidth_input_via_nfkc_normalization(self):
+        # resolve_linking_codeと同種(フェーズ232): 招待コードも同じ6文字英数字
+        # アルファベットをLINEトーク上で手入力する想定のため全角入力に対応する。
+        store = InMemoryLinkingCodeStore()
+        store.save("ABC234", "W1", _NOW)
+        result = resolve_invite_code("　ＡＢＣ２３４　", store, _NOW)
         self.assertTrue(result.ok)
         self.assertEqual(result.workshop_id, "W1")
 

@@ -31,6 +31,7 @@ LINE友だち追加(follow event)時に発行する連携コードでworkshop(�
 
 from __future__ import annotations
 
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -142,13 +143,21 @@ def resolve_linking_code(
 ) -> LinkingResolution:
     """design 2節: 存在確認・期限切れ判定・使い切り(one-time use)を行う。
     期限切れの場合もエントリを削除する(再利用不可のまま残さない)。
+
+    course-set-pasha/aircon-pashaのuser_id_linking.pyと同じ理由(フェーズ232で本
+    venture分の未対応を確認・記録)で、`unicodedata.normalize("NFKC", ...)`による
+    全角→半角正規化を`strip().upper()`の前段に適用する。design 2節が明記する通り
+    このコードは「スマートフォンでの手入力」を前提としており、日本語入力の携帯端末は
+    IME既定が全角モードであることが多いため、正規化なしでは全角入力が既存の半角コードと
+    一致せず「見つからない」エラーになってしまう。コードのアルファベットは英数字のみ
+    (`_CODE_ALPHABET`)のため、NFKC正規化で仮名文字の濁点結合等が問題になることもない。
     """
     if not isinstance(code, str) or not code.strip():
         return LinkingResolution(
             ok=False, error="linking_code is missing or not a non-empty string"
         )
 
-    normalized_code = code.strip().upper()
+    normalized_code = unicodedata.normalize("NFKC", code).strip().upper()
     entry = store.get(normalized_code)
     if entry is None:
         return LinkingResolution(
@@ -296,13 +305,17 @@ def resolve_invite_code(
 ) -> InviteCodeResolution:
     """design 11.2節1: 存在確認・期限切れ判定・使い切りを行う(`resolve_linking_code`と
     同じ判定ロジック、保存されている値が`user_id`ではなく`workshop_id`である点のみ差分)。
+
+    `resolve_linking_code`と同じ理由(フェーズ232)でNFKC正規化を適用する。招待コードも
+    同じ6文字英数字アルファベットをLINEトーク上で手入力する想定のため、全角入力の
+    リスクは連携コードと同一である。
     """
     if not isinstance(code, str) or not code.strip():
         return InviteCodeResolution(
             ok=False, error="invite_code is missing or not a non-empty string"
         )
 
-    normalized_code = code.strip().upper()
+    normalized_code = unicodedata.normalize("NFKC", code).strip().upper()
     entry = invite_store.get(normalized_code)
     if entry is None:
         return InviteCodeResolution(

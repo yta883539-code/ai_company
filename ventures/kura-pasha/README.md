@@ -2842,3 +2842,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   checkout_intentと対になる、本venture厳守事項7b(iii)版の境界ケースをC5として新規
   追加。schema検証32件〈31件→32件〉・venture全体100件いずれもパス。コード実装は
   テストフィクスチャ追加のみ)
+- フェーズ137(2026-09-19 08:00 UTC定例更新): 直前フェーズ(aircon-pashaフェーズ232、
+  2026-09-19 07:00 UTC)で「本venture(prototype/workshop_linking.py)にも同型で
+  未対応のまま残っている」と確認・記録されていた、連携コード・招待コードのNFKC全角
+  入力対応を本venture側で実装した。course-set-pasha/aircon-pashaのuser_id_linking.py
+  で先行実装済みのパターン(`unicodedata.normalize("NFKC", ...)`を`strip().upper()`の
+  前段に適用)を、`resolve_linking_code()`(design 2節、workshop新規作成用)・
+  `resolve_invite_code()`(design 11.2節、既存workshopへのメンバー追加用)の2箇所に
+  同様に適用した。両コードともLINEトーク上での手入力を前提とし、コードのアルファベットが
+  英数字のみ(`_CODE_ALPHABET`)である点も共通のため、正規化の妥当性は先行実装と同一の
+  理由による。テスト2件追加(全角入力を受理することを確認、それぞれ1件ずつ)、venture
+  全体101件→103件(`python3 -m unittest discover -s prototype -p "test_*.py"`
+  および`python3 prototype/run_all_tests.py`、14ファイルいずれもOK)・schema検証32件
+  いずれもパス(schema側は本修正の対象外のため件数変化なし)を確認した。承認不要な
+  コード修正・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回はline-reservation-ai
+  (LIFF方式のため今回のNFKC対応は非該当と既に確認済み)以外に本パターンの横展開漏れが
+  残っていないか、または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-19 08:00 UTC(フェーズ137: aircon-pashaフェーズ232が発見した
+  未対応箇所〈workshop_linking.pyのresolve_linking_code()・resolve_invite_code()〉に
+  NFKC全角入力対応を横展開。テスト2件追加〈101件→103件〉・schema検証32件いずれもパス)
