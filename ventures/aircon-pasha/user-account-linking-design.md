@@ -164,3 +164,11 @@ onboarding-guide.mdのステップ6(トライアル終了後のプラン選択)�
   同種の想定漏れが残っていることを確認した(line-reservation-aiはLIFF経由のIDトークン
   検証方式〈checkout-initiation-flow-design.md〉のため本パターン非該当)。kura-pasha側の
   横展開は次回以降の課題として残す。)
+- (解消済み 2026-09-19 22:00 UTC・フェーズ235: 上記(フェーズ232)で「次回以降の課題」と
+  記録していたkura-pasha側の横展開について、kura-pasha/prototype/workshop_linking.pyを
+  確認したところ、既にkura-pashaフェーズ137(2026-09-19 08:00 UTC、コミットc33adbd)で
+  `resolve_linking_code()`・`resolve_invite_code()`の両方に
+  `unicodedata.normalize("NFKC", code)`が適用済み(テスト2件追加、venture全体101件→103件・
+  schema検証32件いずれもパス)であることを確認した。本節の「次回以降の課題として残す」の
+  記載は解消済み事項が未反映のままだった記載漏れであるため、本フェーズで事後訂正する。
+  本venture(aircon-pasha)自体のコード変更は無い。)

@@ -3715,3 +3715,18 @@
   ventureに同型のギャップがあることを確認しNEG4として新規追加。line-reservation-ai・
   kura-pashaはスキーマ構造上そもそも対象外であることも確認・記録。schema検証21件
   〈20件→21件〉・venture全体515件いずれもパス)
+- フェーズ235(2026-09-19 22:00 UTC定例更新): user-account-linking-design.mdフェーズ232の
+  棚卸しを行い、「kura-pasha側の横展開は次回以降の課題として残す」と記載したまま解消状況が
+  未反映だった記載漏れを発見した。kura-pasha/prototype/workshop_linking.pyを確認したところ、
+  既にkura-pashaフェーズ137(2026-09-19 08:00 UTC、コミットc33adbd)で
+  `resolve_linking_code()`・`resolve_invite_code()`の両方に
+  `unicodedata.normalize("NFKC", code)`が横展開済み(テスト2件追加、schema検証32件いずれも
+  パス)であることを確認し、user-account-linking-design.mdに解消済みとして事後訂正した。
+  本venture(aircon-pasha)自体のコード変更は無く、回帰確認としてventure全体515件・
+  schema検証21件いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント記載
+  訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-19 22:00 UTC(フェーズ235: user-account-linking-design.mdフェーズ232の
+  「kura-pasha側の横展開は次回以降の課題」記載について、実際にはkura-pashaフェーズ137
+  〈08:00 UTC〉で解消済みだったことを確認し事後訂正。本venture自体のコード変更は無く、
+  venture全体515件・schema検証21件いずれもパス)
