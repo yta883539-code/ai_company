@@ -3442,3 +3442,22 @@
   aircon-pasha・kura-pashaへ横展開・反映完了。line-reservation-aiは従量課金非採用のため
   対象外と確認。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれも
   パス)
+- フェーズ232(2026-09-20 18:00 UTC定例更新): フェーズ229が「次回」候補としていた
+  「aircon-pasha・kura-pasha・line-reservation-aiのoutput-samples-validation.md(または
+  それに相当するドキュメント)にも同種の一覧表反映漏れが無いかの横展開確認」に着手した。
+  aircon-pasha/output-samples-validation.mdは`schema/validate_test_cases.py`の全21件
+  (G1〜G9・OOS1・II1・CI1〜CI3・CO1〜CO3・NEG1〜NEG4)を一覧表・結果節とも漏れなく反映済み
+  であることを確認した(反映漏れなし)。kura-pashaは同種の一覧表形式ドキュメント自体が
+  存在しないため対象外とした。line-reservation-aiは相当するドキュメントとして
+  schema-validation-report.mdが存在するが、同ドキュメントは2026-08-03 08:00 UTCの追記
+  (E17追加、23件)を最後に更新が止まっており、実際の`schema/validate_test_cases.py`は
+  その後E18(2026-08-04)・E19(2026-09-12)・E20(2026-09-12)・E21(2026-09-19)の4件、
+  および分岐ケースE13a/E13b・E14_faq/E14_escalationを含む計28件まで積み上がっている
+  ことをスクリプト実行(`python3 schema/validate_test_cases.py`、28件中28件パス)で確認し、
+  本ventureのフェーズ229・course-set-pashaのoutput-samples-validation.md反映漏れと同種の
+  ギャップを発見した。本venture自体のコード・ドキュメント変更は無く、回帰確認として
+  prototype全605件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント調査のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。発見したline-reservation-ai
+  側のギャップの実際の解消は、同venture自身の次回フェーズとして実施する。

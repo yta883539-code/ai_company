@@ -73,3 +73,41 @@ cd ventures/line-reservation-ai/schema
 python3 validate_test_cases.py
 ```
 外部ライブラリのインストールは不要(pure Python標準ライブラリのみ)。
+
+## 追記(2026-09-20 18:00 UTC、フェーズ続き252): 28件への反映漏れを解消
+
+course-set-pashaフェーズ232の横展開確認により、本レポートが2026-08-03 08:00 UTCの追記
+(E17追加、23件)を最後に更新が止まっており、その後`conversation-samples-test-cases.md`に
+追加されたE18(2026-08-04追加)・E19(2026-09-12 11:00 UTC追加)・E20(2026-09-12 16:00 UTC
+追加)・E21(2026-09-19 06:00 UTC追加)の4件、および`schema/validate_test_cases.py`側で
+分岐実装されているE13a/E13b・E14_faq/E14_escalationの計28件が本レポートの件数記載に
+反映されていなかった実装漏れ(course-set-pasha自身のoutput-samples-validation.mdフェーズ229
+と同種のパターン)を発見・解消した。
+
+`python3 validate_test_cases.py`を実行し、以下28件全件がスキーマ・依存関係違反なく
+パスすることを確認した。
+
+| ケースID | 概要 |
+| --- | --- |
+| N1〜N4 | 確定系。3項目(名前・メニュー・日時)が揃い`confirmed: true`になるケース(N4は常連客の顧客DB補完込み) |
+| E1〜E4 | 候補提示・保留系(`needs_owner_check: false`) |
+| E5・E6 | (2026-07-31 13:58 UTC時点の初期フィクスチャ) |
+| E7・E8 | フォーマット崩れ系(json-output-retry-fallback.mdのフォールバック合成値) |
+| E9 | (初期フィクスチャ) |
+| E10 | 支払い方法FAQ(9a)、`faq_segments`付与 |
+| E11・E12 | (初期フィクスチャ) |
+| E13a・E13b | 複合質問の分割送信(faq-response-templates.md準拠)の分岐ケース |
+| E14_faq・E14_escalation | 支払い方法FAQ(9a)とデポジット機能問い合わせ(10)の境界の分岐ケース |
+| E15 | ノーショー方針FAQとキャンセル料機能問い合わせの境界 |
+| E16 | 3項目にまたがる複合質問(`faq_segments`3要素以上) |
+| E17 | 営業時間FAQ(厳守事項9a) |
+| E18_social_remark・E18_rebooking_request | 確定後の返信における社交辞令と再訪希望の区別(厳守事項11)の分岐ケース |
+| E19 | メニュー内容・料金表への質問(topic追加前のギャップの記録、参考ケース) |
+| E20 | メニュー内容・料金表FAQ(`topic: "menu"`追加後、厳守事項9a該当) |
+| E21 | 予約LINE自体の有料性についての質問(厳守事項9a対象外) |
+
+判定ロジック・フィクスチャの中身自体への変更は無く、本レポートの件数記載・一覧の反映漏れ
+解消のみである。回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype
+-p "test_*.py"`)・schema検証28件(`python3 validate_test_cases.py`)いずれもパス(変更前と
+同じ結果)を確認した。承認不要なドキュメント記載漏れの解消のみで、外部サービスへの公開・
+アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。

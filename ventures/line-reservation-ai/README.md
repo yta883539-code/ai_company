@@ -4248,3 +4248,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「集約ロジックは実装時に検討」次のステップ候補が、実際にはescalation-consolidation-
   logic.md・`EscalationConsolidator`として既に設計・実装済みだった記載漏れを発見・訂正。
   コード変更は無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き252(2026-09-20 18:00 UTC定例更新): course-set-pashaフェーズ232の横展開
+  確認により、schema-validation-report.mdが2026-08-03 08:00 UTCの追記(E17追加、23件)を
+  最後に更新が止まっており、その後追加されたE18・E19・E20・E21の4件、および
+  `schema/validate_test_cases.py`側で分岐実装されているE13a/E13b・E14_faq/E14_escalationを
+  含む現在の全28件が本レポートの件数記載・一覧に反映されていなかった記載漏れ(course-
+  set-pasha自身のoutput-samples-validation.mdフェーズ229と同種のパターン)を発見した。
+  `python3 schema/validate_test_cases.py`(28件中28件パス)で現状を確認したうえで、
+  schema-validation-report.mdに全28件の一覧表を追記し、件数記載を最新化した。判定ロジック・
+  フィクスチャ自体への変更は無い。回帰確認としてventure全体854件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_
+  cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント記載漏れの
+  解消のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 18:00 UTC(フェーズ続き252: course-set-pashaフェーズ232が発見した
+  schema-validation-report.mdの反映漏れ〈2026-08-03時点23件のまま、実際は28件〉を解消。
+  E13a/E13b・E14_faq/E14_escalation・E17〜E21を含む全28件の一覧表を追記。コード変更は無く
+  回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
