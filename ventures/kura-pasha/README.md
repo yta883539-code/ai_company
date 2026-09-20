@@ -3104,3 +3104,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   候補だった「馬の鞍話」の運営者を再確認し、レザークラフト材料店「フェニックス」
   運営と判明。FREEWILL WORKS等と同種の参考事業者として整理し直した。コード変更は
   無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
+- フェーズ150(2026-09-20 19:00 UTC定例更新): 第144〜149弾でmarket-research.mdに
+  分散していた「ロングリスト作成の継続」の探索結果(乗馬靴修理ヒロさん・馬具職人
+  工房の格上げ・FREEWILL WORKS・馬の鞍話/フェニックス・JODHPURS・ボロライディング
+  ショップの計5件)が、本来の正式な優先順位付け記録場所であるcandidate-longlist-
+  draft.mdに統合されないまま2026-09-06 22:00 UTC(第六弾)以降更新が止まっていた
+  cross-document parityのずれを発見し、candidate-longlist-draft.md第七弾として
+  統合・反映した(優先順位自体〈1: ライディングショップ池上、2: エクウスワールド、
+  候補継続: 馬具職人工房・Apion-leather craft lab、保留: ジャパンギャロップス
+  インポーター、除外: LEVOL〉に変更は無し)。あわせてinterview-candidate-selection-
+  criteria.md「未検討事項」に残っていた3項目(初回コンタクト文面草案作成、候補数
+  拡充、ヒアリング対象目標合計の検討)が、実際にはいずれも他ドキュメントで対応済み・
+  方針確定済みだった記載漏れを発見・訂正した。市場調査の方向性としては、個人〜小規模
+  の鞍・馬具専業職人の新規発見が6フェーズ連続で得られていないため、次回以降は同種の
+  WebSearchによるロングリスト拡充よりも他venture・アイデア領域の前進を優先候補とする。
+  コード変更は無く、回帰確認としてventure全体103件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証32件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント整理・記載漏れ
+  訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生して
+  いないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 19:00 UTC(フェーズ150: market-research.mdに分散していた
+  ロングリスト探索結果をcandidate-longlist-draft.md第七弾に統合、interview-
+  candidate-selection-criteria.mdの「未検討事項」3項目の記載漏れを訂正。優先順位・
+  選定基準本体の変更は無し。コード変更は無く回帰確認のみ、venture全体103件・
+  schema検証32件いずれもパス)
