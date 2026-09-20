@@ -22,11 +22,14 @@ line-reservation-aiのschema/validate_test_cases.pyと同じ設計。
 - スキーマ単体では表現できない`status`⇔null/非nullの依存関係(厳守事項7・8に対応する
   分岐)は`validate_cross_field_rules()`で個別にチェックする。
 
-## サンプルケース(9件)
+## サンプルケース(18件、ネガティブテスト3件を含めると21件)
 
 作成当初(2026-08-07 16:00 UTC)は5件だったが、その後の厳守事項追加に伴いschema/
-validate_test_cases.pyへケースが追加されており、本節は2026-08-22 06:00 UTC時点の実装
-(全9件)に合わせて記載を更新した。
+validate_test_cases.pyへケースが追加され続け、2026-08-22 06:00 UTC時点で9件・
+2026-09-19定例更新(フェーズ226)時点で21件(TEST_CASES 18件+ネガティブテスト3件)と
+なっていた。以降しばらく一覧表・件数表記が初版更新(9件)のまま追随できていなかったが、
+本フェーズ(2026-09-20定例更新)で`schema/validate_test_cases.py`のTEST_CASES全件を
+棚卸しし、以下の表を全面更新した。
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
@@ -39,30 +42,34 @@ validate_test_cases.pyへケースが追加されており、本節は2026-08-22
 | CI1_cancellation_intent_clear | cancellation_intent | フェーズ54(2026-08-15 08:00 UTC)で追加。解約意図が明確なケース。`subscription_procedure_notice`にStripeカスタマーポータルへの案内文が付与される(厳守事項7a) |
 | CI2_downgrade_intent | downgrade_intent | 解約ではなくプラン変更(ダウングレード)の意図と判定されるケース。日割り精算・ポータル案内が付与される |
 | CI3_cancellation_unclear | cancellation_unclear | 解約意図か判断できないあいまいなケース。断定せず本人へ確認を促す文言のみを返し、`includes_portal_link`はfalse |
+| CI4_chitchat_no_course_content | insufficient_input | 2026-09-13 02:00 UTC追加。厳守事項7a(iii)(雑談の域を出ない表現)の帰着先を決定した際の期待出力。課題入れ替え内容を含まない雑談のみのメモで、エリア名・本数不明として再送を促す側に帰着するケース |
+| CI5_chitchat_with_course_content | generated | 2026-09-13 02:00 UTC追加。CI4と対になるケース。雑談の後に課題入れ替え内容(エリアA新着8本等)が続く場合は、雑談部分を無視して通常どおり3出力を生成する側に帰着する |
 | CI6_busy_season_grumble_not_cancellation | generated | 2026-09-18定例更新で追加。aircon-pashaのG8と対になる7a(iii)境界ケース。CI4・CI5(利用頻度低下方向の雑談)とは逆に、セッター側の多忙・繁忙を愚痴る表現(「セット依頼が多すぎて全然追いつかない」等)が契約継続に触れない雑談の域を出ない場合、解約意図とは判定せず通常どおり3出力を生成する |
 | CI7_busy_grumble_not_checkout_intent | generated | 2026-09-19定例更新で追加。kura-pashaのC5・aircon-pashaのG9と対になる7b(iii)境界ケース。CI6とは逆に、「プラン」の語を含む繁忙の愚痴(「プランのことなんて考える暇もない」等)が有料プラン開始意図に触れない雑談の域を出ない場合、checkout意図とは判定せず通常どおり3出力を生成し、checkout_noticeはNoneのままとなる |
+| CO1_checkout_intent | checkout_intent | 2026-09-12 02:00 UTC追加(フェーズ206)。厳守事項7b(i)相当。有料プラン開始意図が明確なケース。`checkout_notice`に案内文が付与されるが、Checkout Session URLはコード側で発行するため`includes_checkout_url`はfalse |
+| CO2_pricing_inquiry | pricing_inquiry | フェーズ206追加。厳守事項7b(ii)相当。料金プランの問い合わせに対し、3プラン(ライト/スタンダード/セッター複数)の料金を案内する |
+| CO3_checkout_intent_unclear | checkout_intent_unclear | フェーズ206追加。厳守事項7b(iv)相当。有料プラン開始意図か判断できないあいまいなケース。断定せず本人へ確認を促す文言のみを返す |
+| CO4_chitchat_no_course_content | insufficient_input | 2026-09-13 22:00 UTC追加。CI4の7b版。厳守事項7b(iii)(雑談の域を出ない表現)の帰着先決定に伴う期待出力で、課題入れ替え内容を含まない雑談のみの場合は再送を促す側に帰着する |
+| CO5_chitchat_with_course_content | generated | 2026-09-13 22:00 UTC追加。CI5の7b版。雑談の後に課題入れ替え内容が続く場合は雑談部分を無視して通常どおり3出力を生成する |
+| NEG1_checkout_url_mismatch_is_detected | checkout_intent(不正フィクスチャ) | 2026-09-12 02:00 UTC追加(フェーズ206)。厳守事項7b違反(`checkout_notice.includes_checkout_url`を誤ってtrueにしてしまう)を意図的に仕込み、`validate_cross_field_rules`が実際に検出できることを確認するネガティブテスト |
+| NEG2_portal_link_mismatch_is_detected | cancellation_unclear(不正フィクスチャ) | フェーズ225追加。厳守事項7a(iv)違反(`subscription_procedure_notice.includes_portal_link`を誤ってtrueにしてしまう)の検出確認。kura-pashaのNEGATIVE_CASE_PORTAL_LINK_MISMATCHと同型 |
+| NEG3_empty_history_rows_is_detected | generated(不正フィクスチャ) | フェーズ226追加。`history_rows`空配列禁止ルール(status=generatedのとき1件以上必要)違反の検出確認 |
 
-## 結果(2026-08-22 06:00 UTC時点)
+## 結果(2026-09-20定例更新時点)
 
 ```
-合計 9 件中 9 件パス、0 件失敗
+合計 21 件中 21 件パス、0 件失敗
 ```
 
-9件すべてが、型・必須項目・`status`に応じたnull/非null依存関係のいずれの違反もなく
-パスした。特に、schema-structured-output-compat-check.mdで懸念していた「`status`の値に
-応じてどのフィールドがnullであるべきか」というクロスフィールドの依存関係(`allOf`撤去後は
-スキーマ単体では表現されない)についても、コード側検証(`validate_cross_field_rules`)で
-機械的にチェックできることを確認した。G4(複数エリア同時更新時の`history_rows`要素数)・
-CI1〜CI3(厳守事項7a関連の3分岐)についても同様に機械チェックでパスすることを確認済み。
+21件すべて(TEST_CASES 18件+ネガティブテスト3件)が、型・必須項目・`status`に応じた
+null/非null依存関係のいずれの違反もなくパスした(ネガティブテスト3件は意図的な違反
+フィクスチャであり、`validate_cross_field_rules`がそれぞれの違反を正しく検出できることを
+「検出できた=OK」として確認している)。特に、schema-structured-output-compat-check.mdで
+懸念していた「`status`の値に応じてどのフィールドがnullであるべきか」というクロスフィールド
+の依存関係(`allOf`撤去後はスキーマ単体では表現されない)についても、コード側検証
+(`validate_cross_field_rules`)で機械的にチェックできることを確認した。
 
-上記の「9件」表記は2026-08-22 06:00 UTC時点のものであり、その後もCI4〜CI7・CO1〜CO5・
-NEG1・NEG2・NEG3等がschema/validate_test_cases.pyへ追加され続けている(2026-09-19定例
-更新〈フェーズ226〉時点で実際は21件)。この一覧表・件数表記は初版更新以降追随できておらず、
-aircon-pashaのoutput-samples-validation.mdで発生したG7・NEG2の反映漏れ(フェーズ230で
-訂正)と同種のドキュメント追随漏れが本venture側にも存在する。全件の棚卸し・表の全面更新は
-別フェーズの課題として残し、本フェーズでは新規追加分(NEG3)の反映のみに留めた。
-最新の実行結果は`python3 schema/validate_test_cases.py`を直接実行して確認すること
-(2026-09-19定例更新〈フェーズ226〉時点: 合計21件中21件パス)。
+最新の実行結果は`python3 schema/validate_test_cases.py`を直接実行して確認すること。
 
 ## 残る未検証事項
 

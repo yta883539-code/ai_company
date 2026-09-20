@@ -3385,3 +3385,23 @@
   〈NEG4として2026-09-19 15:00 UTC実装済み〉、kura-pasha・line-reservation-aiは
   history_rows相当のフィールド自体がスキーマに存在せず対象外と判断し、本項目を解消済みと
   した。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれもパス)
+- フェーズ229(2026-09-20 04:00 UTC定例更新): output-samples-validation.mdのフェーズ226
+  時点の記載が「全件の棚卸し・表の全面更新は別フェーズの課題として残し、本フェーズでは
+  新規追加分(NEG3)の反映のみに留めた」と明記して積み残していた課題(一覧表がG1〜G4・
+  OOS1・II1・CI1〜CI3・CI6・CI7の9件分しか記載しておらず、`schema/validate_test_cases.py`
+  に実在するCI4・CI5・CO1〜CO5・NEG1〜NEG3の計10件が表から欠落していた)に対応した。
+  `schema/validate_test_cases.py`のTEST_CASES(18件)+ネガティブテスト3件の計21件全件を
+  ソースから棚卸しし、各ケースのstatus・想定シナリオ(入力メモの要旨・帰着ルール・追加
+  フェーズ)を一覧表に全面反映、「結果」節の件数表記(9件→21件)も更新した。判定ロジック・
+  テストフィクスチャ自体への変更は無くドキュメントの反映漏れ解消のみである。回帰確認として
+  `python3 schema/validate_test_cases.py`(21件中21件パス)・`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(605件、変更前と同じ結果)をいずれも実行しパスを確認した。
+  承認不要なドキュメント更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回はaircon-pasha・kura-pasha・
+  line-reservation-aiのoutput-samples-validation.md(またはそれに相当するドキュメント)にも
+  同種の一覧表反映漏れが無いかの横展開確認、または他venture・アイデア領域の前進を優先候補
+  とする。
+- 最終更新: 2026-09-20 04:00 UTC(フェーズ229: output-samples-validation.mdの一覧表が
+  CI4・CI5・CO1〜CO5・NEG1〜NEG3の計10件を欠落したまま9件分しか記載していなかった反映
+  漏れを解消。schema/validate_test_cases.py全21件をソースから棚卸しし表を全面更新。コード
+  変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれもパス)
