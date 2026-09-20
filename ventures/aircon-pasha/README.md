@@ -3778,3 +3778,27 @@
 - 最終更新: 2026-09-20 08:00 UTC(フェーズ238: course-set-pashaが調査したStripe Billing
   Metersによる都度課金対応可否の結論をpricing-plan.mdの「未検証の仮説」に反映。コード変更は
   無く回帰確認のみ、venture全体515件・schema検証21件いずれもパス)
+- フェーズ239(2026-09-20 17:00 UTC定例更新): 他venture(kura-pasha・line-reservation-ai)の
+  直近前進を踏まえ、最後に前進させたのが08:00 UTCと最も手薄になっていた本ventureを今回選び、
+  未整理の「次のステップ候補」棚卸しを行った。customer-interview-design.md(フェーズ7、
+  2026-09-06作成)の「次のステップ候補」2点(選定基準の新規作成・ロングリスト作成、
+  リハーサル台本作成)が、いずれも作成当時のまま未着手として残っていたのを発見したが、
+  実際にはinterview-candidate-selection-criteria.md(フェーズ8)・candidate-longlist-draft.md
+  (第1〜59弾)・candidate-readiness-summary.md(独立系5件・フランチャイズ加盟系3件の
+  計8候補を一覧化、フェーズ106時点)・interview-rehearsal-script.md(全14問・想定13分の
+  タイムテーブルを机上検証済み)としてすべて対応済みであることを確認した。実装(調査・
+  文書作成)が先行し、本ファイル側の「次のステップ候補」記載の更新のみが取り残されていた
+  cross-document parityの記載漏れだったと判断し、解消済みへ訂正した。実際の候補への初回
+  コンタクトはpending-approval.md(2026-08-21 12:00 UTC記載)のオーナー承認待ちのままで
+  変更なし。コード変更は無く、回帰確認としてventure全体515件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証21件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-20 17:00 UTC(フェーズ239: customer-interview-design.mdの「次の
+  ステップ候補」2点〈選定基準・ロングリスト作成、リハーサル台本作成〉が、実際には
+  interview-candidate-selection-criteria.md・candidate-longlist-draft.md・
+  candidate-readiness-summary.md・interview-rehearsal-script.mdとしてすでに対応済み
+  だった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体515件・
+  schema検証21件いずれもパス)
