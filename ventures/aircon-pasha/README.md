@@ -3749,3 +3749,20 @@
   残課題「他3ventureへの同種周知文言の横展開要否」を棚卸しし、4venture全てで2026-09-18
   時点までに周知対応が完了済みであることを確認、残課題を解消済みへ訂正。コード変更は
   無くventure全体515件・schema検証21件いずれもパス)
+- フェーズ237(2026-09-20 05:00 UTC定例更新): legal-notices-draft.mdが「決済代行サービスの
+  選定は本ventureでは未着手」と記載していたが、checkout-initiation-flow-design.md(Stripe
+  Checkout Session方式)・subscription-billing-cost-estimate.md(Stripe Billing想定の手数料
+  4.3%試算)・deployment-runbook.mdの各設計・試算がいずれもStripeを前提として一貫して
+  組み立てられていることを確認し、技術設計上の決済代行事業者の選定は事実上Stripe
+  (Checkout/Billing)で確定済みであると判断して該当3箇所(前提・未確定事項/表の支払方法欄/
+  加盟店契約の前提条件の注記)を訂正した。実際にStripeアカウントを開設し加盟店契約を
+  締結する作業自体は「アカウント作成」に該当しオーナー承認待ちのまま未着手である点は
+  変更していない。コード変更は無く、回帰確認としてventure全体515件・schema検証21件
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント記載訂正のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 05:00 UTC(フェーズ237: legal-notices-draft.mdの「決済代行サービスの
+  選定は未着手」という記載を、venture内の既存設計(checkout-initiation-flow-design.md・
+  subscription-billing-cost-estimate.md・deployment-runbook.md)がいずれもStripe前提である
+  ことを根拠に訂正。技術設計上の選定はStripeで確定済み、実際のアカウント開設・契約のみ
+  オーナー承認待ちと整理。コード変更は無くventure全体515件・schema検証21件いずれもパス)
