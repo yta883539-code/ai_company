@@ -3128,3 +3128,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   candidate-selection-criteria.mdの「未検討事項」3項目の記載漏れを訂正。優先順位・
   選定基準本体の変更は無し。コード変更は無く回帰確認のみ、venture全体103件・
   schema検証32件いずれもパス)
+- フェーズ151(2026-09-20 23:00 UTC定例更新): フェーズ150の記録が「次回以降は
+  ロングリスト拡充よりも他venture・アイデア領域の前進を優先候補とする」としていた
+  ことを踏まえ、market-research.mdの追加探索ではなく、aircon-pasha/output-samples-
+  validation.md・course-set-pasha/output-samples-validation.mdに相当する文書が
+  本ventureにまだ存在していなかったcross-venture parityのギャップに着手した。
+  schema/validate_test_cases.pyの正常系23件・ネガティブ9件(計32件)を1文書に
+  まとめたoutput-samples-validation.mdを新規作成し、各ケースの想定シナリオ・
+  検証結果・残る未検証事項(実LLM接続後の検証課題であるプロンプト遵守率・
+  厳守事項7a(iii)/7b(iii)の境界誤検知防止等)を整理した。既存のllm-quality-
+  verification-plan.md・llm-quality-verification-results-template.mdとの役割分担
+  (本文書はスキーマ/cross-fieldレベルの机上検証結果、両文書は実LLM接続後の判定基準・
+  記録先)も明記した。コード変更は無く、回帰確認としてventure全体103件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認
+  した。承認不要な新規ドキュメント作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 23:00 UTC(フェーズ151: schema/validate_test_cases.pyの
+  正常系23件・ネガティブ9件を1文書にまとめたoutput-samples-validation.mdを新規
+  作成し、cross-venture parityのギャップを解消。コード変更は無く回帰確認のみ、
+  venture全体103件・schema検証32件いずれもパス)
