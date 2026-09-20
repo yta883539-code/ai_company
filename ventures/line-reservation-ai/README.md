@@ -4265,3 +4265,23 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   schema-validation-report.mdの反映漏れ〈2026-08-03時点23件のまま、実際は28件〉を解消。
   E13a/E13b・E14_faq/E14_escalation・E17〜E21を含む全28件の一覧表を追記。コード変更は無く
   回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き253(2026-09-20 22:00 UTC定例更新): 他venture(aircon-pasha 20:00 UTC、
+  course-set-pasha 21:00 UTC、kura-pasha 19:00 UTC)より前進が手薄になっていた本ventureを
+  今回選び、未整理の「未検討事項」棚卸しを継続した。interview-candidate-selection-
+  criteria.md(2026-08-03作成)の「未検討事項」に残っていた「業種ごとの候補数の妥当性
+  (承諾率が想定より低い場合の追加候補確保の目安)」を確認したところ、実際には同日作成の
+  candidate-buffer-analysis.mdで、チャネル別想定承諾率を踏まえた必要候補数試算・
+  「ほぼ全件を打診候補として保持」への修正提案・段階的に打診数を広げる「ウェーブ方式」・
+  追加候補確保のトリガー基準まで既に具体化・結論化済みであることを確認した。本ファイル
+  作成後に別ドキュメントでの検討が先行し、本ファイル側の「未検討事項」記載の更新のみが
+  取り残されていたcross-document parityの記載漏れだったと判断し、フェーズ続き247〜252と
+  同様の様式で解消済みへ訂正した。コード変更は無く、回帰確認としてventure全体854件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・
+  schema検証28件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパス
+  を確認した。承認不要なドキュメント記載漏れの解消のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 22:00 UTC(フェーズ続き253: interview-candidate-selection-
+  criteria.mdの「業種ごとの候補数の妥当性」未検討事項が、実際にはcandidate-buffer-
+  analysis.mdで既に承諾率試算・ウェーブ方式・追加候補確保基準まで結論化済みだった
+  記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
+  いずれもパス)
