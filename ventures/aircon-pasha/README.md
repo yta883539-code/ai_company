@@ -3730,3 +3730,22 @@
   「kura-pasha側の横展開は次回以降の課題」記載について、実際にはkura-pashaフェーズ137
   〈08:00 UTC〉で解消済みだったことを確認し事後訂正。本venture自体のコード変更は無く、
   venture全体515件・schema検証21件いずれもパス)
+- フェーズ236(2026-09-20 01:00 UTC定例更新): first-generation-self-check-design.md
+  フェーズ226が残していた「他3venture(course-set-pasha・kura-pasha・line-reservation-ai)
+  の同種セルフチェック案内・初回案内文言への同じ追記の要否は、各ventureの担当フェーズで
+  横展開を検討する」という残課題の棚卸しを行った。各venture側を確認したところ、
+  course-set-pasha(`format_welcome_message()`末尾、2026-09-17 19:00 UTCコミットd040375)・
+  kura-pasha(`format_follow_welcome_message()`末尾、2026-09-17 20:00 UTC)・
+  line-reservation-ai(オンボーディング完了メッセージ末尾、フェーズ続き234)のいずれも
+  既に同種の周知文言(「FAQ」と送信すると案内する旨)を追記済みであり、
+  course-set-pasha/owner-faq-routing-design.md 5節にも「2026-09-18時点で4venture全ての
+  周知対応が完了している」と記録済みであることを確認した。本venture自身もフェーズ226で
+  対応済みのため、4venture全ての周知対応は2026-09-18時点で完了していると判断し、
+  first-generation-self-check-design.mdの残課題を解消済みとして訂正した。コード変更は
+  無く、回帰確認としてventure全体515件・schema検証21件いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 01:00 UTC(フェーズ236: first-generation-self-check-design.mdの
+  残課題「他3ventureへの同種周知文言の横展開要否」を棚卸しし、4venture全てで2026-09-18
+  時点までに周知対応が完了済みであることを確認、残課題を解消済みへ訂正。コード変更は
+  無くventure全体515件・schema検証21件いずれもパス)

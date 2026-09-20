@@ -153,9 +153,22 @@ owner-faq-routing-design.md(フェーズ225)は4venture全てへのFAQコマン�
   検証)を1件追加した。回帰確認としてventure全体・schema検証いずれもパスを確認した
   (詳細はREADME.mdフェーズ226参照)。
 - **残課題**: あいさつメッセージ機能を使った、初回生成前(友だち追加直後)の周知は
-  実LINE API接続後の検討課題として残る。また、他3venture(course-set-pasha・kura-pasha・
-  line-reservation-ai)の同種セルフチェック案内・初回案内文言への同じ追記の要否は、
-  各ventureの担当フェーズで横展開を検討する。
+  実LINE API接続後の検討課題として残る。
+- (解消済み 2026-09-20 01:00 UTC定例更新: 上記「他3venture(course-set-pasha・
+  kura-pasha・line-reservation-ai)の同種セルフチェック案内・初回案内文言への同じ追記の
+  要否は、各ventureの担当フェーズで横展開を検討する」という記載が古い状態のまま残って
+  いたことを発見した。各venture側のコード・設計文書を確認したところ、course-set-pasha
+  (`format_welcome_message()`末尾、2026-09-17 19:00 UTCコミットd040375で追記済み)・
+  kura-pasha(`format_follow_welcome_message()`末尾、2026-09-17 20:00 UTCで追記済み)・
+  line-reservation-ai(オンボーディング完了メッセージ末尾、フェーズ続き234で追記済み)の
+  いずれも既に同種の周知文言(「FAQ」と送信すると案内する旨)を追記済みであり、
+  course-set-pashaのowner-faq-routing-design.md 5節にも「2026-09-18時点で4venture全ての
+  周知対応が完了している」と記録されていることを確認した。本venture(aircon-pasha)自身も
+  フェーズ226でSELF_CHECK_NOTICE_TEXTへの追記により対応済みのため、結果として4venture
+  全ての周知対応は2026-09-18時点で完了しており、追加の横展開作業は不要と判断した。コード
+  変更は無く、回帰確認としてventure全体515件・schema検証21件いずれもパス(変更前と同じ
+  結果)を確認した。承認不要なドキュメント記載訂正のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし)
 
 ## LINE Messaging API のメッセージ数・文字数上限確認(フェーズ101で解消)
 
