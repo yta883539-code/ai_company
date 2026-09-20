@@ -3405,3 +3405,26 @@
   CI4・CI5・CO1〜CO5・NEG1〜NEG3の計10件を欠落したまま9件分しか記載していなかった反映
   漏れを解消。schema/validate_test_cases.py全21件をソースから棚卸しし表を全面更新。コード
   変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれもパス)
+- フェーズ230(2026-09-20 06:00 UTC定例更新): pricing-plan.mdの「月間生成回数の上限超過時の
+  挙動(仮決め)」節が未確定事項として残していた「従量課金には決済代行サービス側での都度
+  課金・請求締め処理への対応可否確認が必要」という論点をWebSearchで調査した。Stripe
+  Billingには従量課金用の「Meters(メーター)」機能があり、課金対象イベントをMeter
+  オブジェクトとして定義し、そのMeterに紐づくmetered priceをサブスクリプションに設定した
+  上で利用の都度Meter Eventを送信すると、Stripeが請求サイクル終了時に自動集計・請求書
+  反映する仕組みが用意されていること、旧来のUsage Records APIは2025-03-31.basil以降廃止
+  されMetersベースへの移行が案内されていることを確認した。結論として、決済代行サービス
+  (Stripe Billing)側は都度課金に技術的に対応しており、本venture・aircon-pasha・
+  kura-pashaが仮決めした「月額基本料+超過分従量課金」の料金設計は実装可能であることが
+  判明し、対応可否そのものへの懸念は解消された。詳細はpricing-plan.md「決済代行サービス
+  側の都度課金対応可否確認」節、関連するoverage-price-value-validation.mdの記載更新を
+  参照。実際のMeter定義・価格設定の実装、Stripeアカウントの開設・契約はオーナー承認が
+  必要なアクションのため未着手のままであり、pending-approval.mdへの新規追記も発生して
+  いない(既存の決済代行サービス選定に関する承認待ち事項の範囲内)。コード変更は無く、
+  回帰確認としてprototype全605件・schema検証21件いずれもパス(変更前と同じ結果)を確認
+  した。次回はaircon-pasha・kura-pashaの同種「未確定事項」記載への本確認結果の横展開、
+  または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-20 06:00 UTC(フェーズ230: pricing-plan.mdの未確定事項だった決済代行
+  サービス側の都度課金対応可否をWebSearchで調査し、Stripe BillingのMetersベースの従量
+  課金機能により技術的に対応可能であることを確認。overage-price-value-validation.mdの
+  関連記載も更新。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれも
+  パス)

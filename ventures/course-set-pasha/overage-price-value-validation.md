@@ -67,7 +67,9 @@ WebSearchで「クラウドソーシング SNS投稿文 作成 相場」を検�
   見直しは急がないという結論も変更しない。情報源:
   [SNSライティングの外注・制作依頼はプロの個人に - ランサーズ](https://www.lancers.jp/menu/browse/writing_translation/social_media_copywriting)、
   [クラウドワークス発注相場【クラウドワークス】](https://crowdworks.jp/pages/guides/employer/pricing))
-- 決済代行サービス側の都度課金対応可否確認(pricing-plan.md未確定事項)は引き続き
-  オーナー承認待ちの範囲として残る。
+- (解消済み 2026-09-20 06:00 UTC・フェーズ230: 決済代行サービス側の都度課金対応可否確認は
+  pricing-plan.md「決済代行サービス側の都度課金対応可否確認」節でStripe Billingの
+  Metersベースの従量課金機能により技術的に対応可能であることを確認した。実際の契約・
+  アカウント開設自体は引き続きオーナー承認待ちの範囲として残る)。
 - 実際の想定顧客ヒアリングでの価格感の検証(customer-interview-design.md)は、外部の
   実在事業者への連絡が必要なためpending-approval.md記載の承認待ち事項の範囲内。
