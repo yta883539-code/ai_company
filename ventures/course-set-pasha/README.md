@@ -3360,3 +3360,28 @@
 - 最終更新: 2026-09-19 21:00 UTC(フェーズ227: ci-setup.mdのテスト件数表記がCI導入当初
   〈phase29〉のまま更新されていなかった記載漏れを発見・訂正。ワークフロー自体は
   discover方式のため修正不要と確認。prototype全605件・schema検証21件いずれもパス)
+- フェーズ228(2026-09-20 00:00 UTC定例更新): フェーズ226が「次回」に挙げていた
+  NEGATIVE_CASE_EMPTY_HISTORY_ROWS(NEG3、status=generatedのときhistory_rows空配列を
+  禁止するルールの検証)の他venture横展開状況(未確認)を確認した。aircon-pashaは
+  2026-09-19 15:00 UTC追加分で既に同型ルールを`NEGATIVE_CASE_EMPTY_HISTORY_ROWS`
+  (内部呼称NEG4、同venture既存のNEG1〜3に次ぐ4件目)として実装済みであることを
+  `ventures/aircon-pasha/schema/validate_test_cases.py`で確認した。一方kura-pasha・
+  line-reservation-aiの両ventureはスキーマ構造自体が異なり(kura-pashaの`status=
+  generated`時の必須フィールドは`order_summary`/`delivery_notice`/`care_notice`という
+  非null必須のオブジェクトであり空配列を取りうる`history_rows`相当のリスト型フィールドが
+  存在しない。line-reservation-aiは`faq_segments`等の配列を持つが空配列自体を禁止する
+  設計ルールが無く、そもそも`history_rows`という概念自体が存在しない)、両ventureの
+  `schema/validate_test_cases.py`のcross-field検証関数を確認してもcourse-set-pasha・
+  aircon-pashaと同型の`history_rows`関連ルールは無いことを確認した。したがって本横展開は
+  「aircon-pashaは対応済み、kura-pasha・line-reservation-aiはスキーマ非該当につき対象外」
+  として本項目を解消済みとする。判定ロジック・実装への変更は無く、回帰確認として
+  course-set-pasha自身のprototype全605件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載・cross-venture調査のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-20 00:00 UTC(フェーズ228: フェーズ226の「次回」候補だったNEG3
+  〈history_rows空配列禁止ルール〉の他venture横展開状況を確認。aircon-pashaは対応済み
+  〈NEG4として2026-09-19 15:00 UTC実装済み〉、kura-pasha・line-reservation-aiは
+  history_rows相当のフィールド自体がスキーマに存在せず対象外と判断し、本項目を解消済みと
+  した。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれもパス)
