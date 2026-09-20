@@ -155,10 +155,15 @@ A. いいえ。採寸・型紙作成・革選定・縫製・仕上げといっ�
 
 ## 次のステップ候補
 
-- legal-notices-draft.md相当の特定商取引法・プライバシーポリシー文面草案の作成
-  (本venture未着手、aircon-pasha/course-set-pashaは作成済み)。
-- 上記LPコピーに対応するワイヤーフレーム(セクション配置・画像イメージ)の作成。
+- ~~legal-notices-draft.md相当の特定商取引法・プライバシーポリシー文面草案の作成
+  (本venture未着手、aircon-pasha/course-set-pashaは作成済み)。~~
+  → フェーズ19(2026-09-07 02:00 UTC)でlegal-notices-draft.mdとして作成済み。対応済み。
+- ~~上記LPコピーに対応するワイヤーフレーム(セクション配置・画像イメージ)の作成。~~
+  → 2026-09-11 20:00 UTCでlanding-page-wireframe.mdとして作成済み(他venture同様
+  cross-venture parityのギャップに対応)。対応済み。
 - customer-interview-design.mdのヒアリング結果が得られた場合、課題提起セクションの
-  優先順位を実際の声で見直す。
+  優先順位を実際の声で見直す(customer-interview-design.mdの実施自体がオーナー承認待ち
+  〈2026-09-11 04:00 UTC記録分〉のため、引き続き未着手のまま残る)。
 
-最終更新: 2026-09-07 01:00 UTC
+最終更新: 2026-09-20 02:00 UTC(フェーズ141: 上記2点が既に対応済みであることを確認し
+記載を訂正。本ファイル自体のコピー内容に変更は無い)

@@ -2931,3 +2931,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   常に契約者への取次ぎで足りる、契約者本人確認は他venture同水準のメール一致確認で足りると
   結論。コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス。
   作業自体はコミット69eeb29で実施済みだったREADME記載漏れの事後反映)
+- フェーズ141(2026-09-20 02:00 UTC定例更新): landing-page-copy-draft.md(フェーズ17、
+  2026-09-07作成)の「次のステップ候補」を棚卸ししたところ、2点が既に対応済みのまま
+  未着手として記載され続けていたcross-document parityの記載漏れを発見・訂正した。
+  (1)「legal-notices-draft.md相当の作成」はフェーズ19(2026-09-07 02:00 UTC)で
+  legal-notices-draft.mdとして既に作成済み。(2)「LPコピーに対応するワイヤーフレームの
+  作成」も2026-09-11 20:00 UTCでlanding-page-wireframe.mdとして既に作成済み(他venture
+  同様cross-venture parityのギャップに対応する形で新規作成されていた)。3点目の
+  「customer-interview-design.mdのヒアリング結果を踏まえた課題提起セクションの見直し」は
+  ヒアリング実施自体が2026-09-11 04:00 UTC記録分のオーナー承認待ちのままのため、引き続き
+  未着手として残した。コピー文言本体の内容変更は無く、コード変更も無いため、回帰確認として
+  venture全体103件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント記載漏れの訂正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  他venture・アイデア領域の前進、または本ventureの他ドキュメントの棚卸しを優先候補とする。
+- 最終更新: 2026-09-20 02:00 UTC(フェーズ141: landing-page-copy-draft.mdの「次のステップ
+  候補」に残っていた2件〈legal-notices-draft.md作成・LPワイヤーフレーム作成〉が、実際には
+  それぞれフェーズ19・2026-09-11 20:00 UTCで作成済みだった記載漏れを発見・訂正。コード
+  変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
