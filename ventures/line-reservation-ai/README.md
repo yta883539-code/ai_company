@@ -4227,3 +4227,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   会話文言設計」の2項目が、実際にはそれぞれowner-settings-wireframe.md・pending-timeout-
   ux.mdで既に対応済みだった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture
   全体854件・schema検証28件いずれもパス)
+- フェーズ続き251(2026-09-20 14:00 UTC定例更新): 他venture(kura-pasha)の直近5フェーズ連続
+  前進を踏まえ、最後に前進させたのが07:00 UTCと最も手薄になっていた本ventureを今回選び、
+  未整理の「次のステップ候補」棚卸しを継続した。escalation-notification-templates.md
+  (2026-07-31作成)が「同一顧客からの短時間連続エスカレーションの集約ロジックは実装時に
+  検討、今回は方針のみ」と残していたのを確認したところ、実際には同日作成の
+  escalation-consolidation-logic.md(初回即時通知+5分ウィンドウで追加分をまとめ通知する
+  具体方式)で既に具体化されており、さらに`prototype/engine.py`の
+  `EscalationConsolidator`クラス・`cloud_function_process_event.py`の`_notify_owner()`
+  ヘルパー(`EscalationConsolidator.flush_due_windows()`によるウィンドウ集約分の処理)
+  として実装・テスト済みであることを確認した。本ファイル作成後に別ドキュメント・実装で
+  対応が先行し、本ファイル側の記載更新のみが取り残されていたcross-document parityの
+  記載漏れだったと判断し、フェーズ続き247〜250と同様の様式で解消済みへ訂正した。コード
+  変更は無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`、変更前と同数)・schema検証28件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なドキュメント記載訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。
+- 最終更新: 2026-09-20 14:00 UTC(フェーズ続き251: escalation-notification-templates.mdの
+  「集約ロジックは実装時に検討」次のステップ候補が、実際にはescalation-consolidation-
+  logic.md・`EscalationConsolidator`として既に設計・実装済みだった記載漏れを発見・訂正。
+  コード変更は無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
