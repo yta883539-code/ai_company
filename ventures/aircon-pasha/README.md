@@ -3802,3 +3802,27 @@
   candidate-readiness-summary.md・interview-rehearsal-script.mdとしてすでに対応済み
   だった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体515件・
   schema検証21件いずれもパス)
+- フェーズ240(2026-09-20 20:00 UTC定例更新): schema/output.schema.jsonの`status`フィールド
+  説明が「厳守事項6a(iii)・6b(iii)(雑談の域を出ない表現)はgenerated/out_of_scope/
+  insufficient_inputのいずれかに帰着させる」と記載したまま、実際にどの値に帰着するかを
+  固定するテストケースがCI1〜CI3・G8には存在しない(G8は繁忙期の愚痴という特定言い回しに
+  限定した個別具体例であり、雑談に分解洗浄内容が一切含まれない一般形は未着手のまま)ことに
+  気づいた。course-set-pashaのフェーズ209(厳守事項7a(iii)の同種ギャップをCI4・CI5として
+  解消)と同じ検討をsubscription-intent-6a-iii-chitchat-status-mapping-review.mdとして新規
+  作成し、厳守事項6a(iii)の帰着基準(分解洗浄内容を含まない雑談のみはinsufficient_input、
+  分解洗浄内容も含む雑談はgeneratedに帰着)を確定した。llm-system-prompt-draft.md厳守事項
+  6a(iii)本文・schema/output.schema.jsonの`status`説明にこの帰着基準を追記し、
+  schema/validate_test_cases.pyにCI4_chitchat_no_work_content(insufficient_input)・
+  CI5_chitchat_with_work_content(generated)を新規追加、output-samples-validation.mdの
+  一覧表・件数記載を更新した(21件→23件)。厳守事項6b(iii)側(CO4・CO5相当)の同種対応は
+  次回以降の課題として残す。回帰確認としてventure全体515件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`、コード変更が無いため変更前と同数)・schema検証23件
+  (`python3 schema/validate_test_cases.py`、21件→23件、既存ケースはいずれも新規ケース
+  追加後も違反なくパス)を確認した。承認不要な設計文書作成・schema/テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 20:00 UTC(フェーズ240: 厳守事項6a(iii)〈雑談の域を出ない表現〉の
+  status帰着先の一般形〈G8より広い、分解洗浄内容の有無だけで判定するケース〉が未確定
+  だったギャップをsubscription-intent-6a-iii-chitchat-status-mapping-review.mdとして解消。
+  CI4・CI5を追加。厳守事項6b(iii)側〈CO4・CO5相当〉は次回以降の課題。コード変更は無く
+  回帰確認のみ、venture全体515件・schema検証23件いずれもパス)

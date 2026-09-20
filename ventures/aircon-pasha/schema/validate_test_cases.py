@@ -603,6 +603,51 @@ TEST_CASES = {
         },
         "checkout_notice": None,
     },
+    # 2026-09-20 20:00 UTC追加(subscription-intent-6a-iii-chitchat-status-mapping-review.md、
+    # course-set-pashaのCI4・CI5と同じ位置づけ)。厳守事項6a(iii)(雑談の域を出ない表現)が
+    # status enumのどの値に帰着するかを、G8(繁忙期の愚痴という特定言い回し限定)より広い
+    # 一般形で固定するペア。
+    "CI4_chitchat_no_work_content": {
+        "status": "insufficient_input",
+        "out_of_scope_message": None,
+        "missing_fields_request": "分解洗浄を実施したことが読み取れる記述が見当たりません。"
+                                   "機種系統・号数、洗浄範囲(フィルター・熱交換器等)、汚れ状況を教えてください。",
+        "completion_report": None,
+        "care_guide": None,
+        "history_rows": None,
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    "CI5_chitchat_with_work_content": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "completion_report": {
+            "body": "壁掛け型2.2kWのエアコンについて、フィルター・熱交換器まで分解洗浄いたしました。"
+                    "汚れは軽度でした。",
+            "mentions_refrigerant_or_electrical": False,
+            "recipient": "tenant",
+            "includes_liability_determination": False,
+        },
+        "care_guide": {
+            "body": "フィルターは2週間に1回程度の目安でお手入れください。次回の分解洗浄の時期については、"
+                    "使用状況やご家庭の環境により差がありますが、一般的な目安として1〜2年に1回程度のご検討をおすすめします"
+                    "(今回のメモに次回推奨時期の記載が無いため、あくまで一般的な目安です)。自己分解洗浄は内部の破損・"
+                    "感電等のリスクがあるため、分解を伴う清掃は専門業者へのご依頼をおすすめします。",
+            "next_recommended_date_is_estimate": True,
+        },
+        "history_rows": [
+            {
+                "work_date": "2026-09-20",
+                "model_type_and_capacity": "壁掛け型2.2kW",
+                "dirt_condition": "軽度",
+                "additional_treatment": "なし",
+                "next_recommended_date": None,
+            },
+        ],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
     # 2026-09-12 03:00 UTC追加(厳守事項6b新設)。kura-pasha/schema/validate_test_cases.pyの
     # CO1〜CO3、course-set-pasha/schema/validate_test_cases.pyのCO1〜CO3と同じ設計思想を踏襲。
     "CO1_checkout_intent": {
