@@ -3428,3 +3428,17 @@
   課金機能により技術的に対応可能であることを確認。overage-price-value-validation.mdの
   関連記載も更新。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれも
   パス)
+- フェーズ231(2026-09-20 08:00 UTC定例更新): フェーズ230のpricing-plan.md「決済代行
+  サービス側の都度課金対応可否確認」節で「次回以降の横展開候補」としていたaircon-pasha・
+  kura-pashaへの反映を実施した。kura-pasha/pricing-plan.mdの「未確定事項」、
+  aircon-pasha/pricing-plan.mdの「未検証の仮説」にそれぞれ本venture側の調査結論への参照を
+  追記し、両venture側の記載を解消済みへ更新した。あわせてline-reservation-aiは月額固定+
+  予約件数上限方式で従量課金を採用しておらず本論点の対象外であることも確認した。本venture
+  自体のドキュメント・コード変更は「本確認結果の横展開は完了した」旨の追記1件のみで、
+  回帰確認としてprototype全605件・schema検証21件いずれもパス(変更前と同じ結果)を確認
+  した。承認不要なドキュメント記載更新のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-20 08:00 UTC(フェーズ231: フェーズ230の都度課金対応可否調査結果を
+  aircon-pasha・kura-pashaへ横展開・反映完了。line-reservation-aiは従量課金非採用のため
+  対象外と確認。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれも
+  パス)

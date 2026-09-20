@@ -2950,3 +2950,18 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   候補」に残っていた2件〈legal-notices-draft.md作成・LPワイヤーフレーム作成〉が、実際には
   それぞれフェーズ19・2026-09-11 20:00 UTCで作成済みだった記載漏れを発見・訂正。コード
   変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
+- フェーズ142(2026-09-20 08:00 UTC定例更新): course-set-pashaフェーズ230(2026-09-20
+  06:00 UTC)が「本venture・aircon-pasha・kura-pasha共通の未確定事項」として横展開候補に
+  挙げていた、決済代行サービス側の都度課金(従量課金)対応可否の調査結果を本ventureへ
+  反映した。pricing-plan.mdの「未確定事項」(従量課金には決済代行サービス側での都度課金
+  対応可否確認が必要)を、course-set-pashaが調査したStripe BillingのMeters機能(利用の
+  都度Meter Eventを送信すると請求サイクル終了時に自動集計・請求書反映する仕組み)により
+  技術的に対応可能であることを確認した結論を根拠に解消済みへ更新した。コード変更は無く、
+  回帰確認としてventure全体103件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-20 08:00 UTC(フェーズ142: course-set-pashaが調査したStripe Billing
+  Meters機能による都度課金対応可否の結論をpricing-plan.mdの「未確定事項」に反映し解消済みへ
+  更新。コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)

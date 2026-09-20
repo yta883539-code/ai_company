@@ -77,8 +77,11 @@ aircon-pasha・kura-pasha)共通の料金設計に対して、決済代行サー
   Meter定義・価格設定の具体的な実装や、Stripeアカウントの開設・契約(オーナー承認が
   必要なアクション)は本調査の範囲外であり、引き続きpending-approval.mdの管理範囲として
   残る。
-- 本確認結果はaircon-pasha・kura-pashaの同種の「未確定事項」記載にもそのまま当てはまる
-  ため、両venture側の記載への反映は次回以降の横展開候補とする。
+- (解消済み 2026-09-20 08:00 UTC定例更新: 本確認結果をaircon-pasha・kura-pashaの同種の
+  「未確定事項」「未検証の仮説」記載へ横展開・反映済み。kura-pasha/pricing-plan.mdの
+  「未確定事項」、aircon-pasha/pricing-plan.mdの「未検証の仮説」にそれぞれ本節への参照と
+  結論を追記した。line-reservation-aiは月額固定+予約件数上限方式で従量課金を採用していない
+  ため対象外であることも確認した)。
 
 ## 無料トライアル条件(仮)
 

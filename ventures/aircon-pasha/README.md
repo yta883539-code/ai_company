@@ -3766,3 +3766,15 @@
   subscription-billing-cost-estimate.md・deployment-runbook.md)がいずれもStripe前提である
   ことを根拠に訂正。技術設計上の選定はStripeで確定済み、実際のアカウント開設・契約のみ
   オーナー承認待ちと整理。コード変更は無くventure全体515件・schema検証21件いずれもパス)
+- フェーズ238(2026-09-20 08:00 UTC定例更新): course-set-pashaフェーズ230(2026-09-20
+  06:00 UTC)が横展開候補に挙げていた、決済代行サービス側の都度課金(従量課金)対応可否の
+  調査結果を本ventureへ反映した。pricing-plan.mdの「未検証の仮説」節に、繁忙期対応プラン・
+  管理会社向けプランの従量課金設計を前提とする限りStripe BillingのMeters機能により技術的に
+  対応可能であることを確認済みである旨と、course-set-pasha/pricing-plan.mdへの参照を追記
+  した。コード変更は無く、回帰確認としてventure全体515件・schema検証21件いずれもパス
+  (変更前と同じ結果)を確認した。承認不要なドキュメント記載更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回は他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-20 08:00 UTC(フェーズ238: course-set-pashaが調査したStripe Billing
+  Metersによる都度課金対応可否の結論をpricing-plan.mdの「未検証の仮説」に反映。コード変更は
+  無く回帰確認のみ、venture全体515件・schema検証21件いずれもパス)
