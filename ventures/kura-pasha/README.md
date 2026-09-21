@@ -3170,3 +3170,19 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   本venture固有の強みを整理する一方、プラン選択案内・招待手順案内の未整備という
   新規ギャップを発見。コード変更は無く回帰確認のみ、venture全体103件・schema検証
   32件いずれもパス)
+- フェーズ153(2026-09-21 04:00 UTC定例更新): フェーズ152が残課題として残した
+  「landing-page-copy-draft.mdのFAQに単一プランとworkshop共有プランの選び方の
+  案内が無い」ギャップに対応した。pricing-plan.mdのプラン比較表(想定顧客像列・
+  月間生成回数上限)を顧客向けの平易な文章に言い換え、FAQセクションに5問目
+  (「ライト・スタンダード・複数職人プラン、どれを選べばよいですか?」)として
+  追加した。あわせてsupport-cost-selfservice-reduction.md(フェーズ152)の残課題
+  該当箇所に対応済みの取り消し線を付けた。もう一方の残課題(workshopメンバー招待
+  手順の契約者向け案内)は本フェーズの範囲では未着手のまま残る。コード変更は無く、
+  回帰確認としてventure全体103件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証32件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(変更前と同じ結果)を確認した。承認不要な既存ドキュメントの追記のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 04:00 UTC(フェーズ153: landing-page-copy-draft.mdのFAQに
+  プラン選択案内〈5問目〉を追加し、フェーズ152が発見したギャップの1点を解消。
+  コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)

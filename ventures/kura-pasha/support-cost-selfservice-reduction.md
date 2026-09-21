@@ -79,10 +79,12 @@ support-cost-estimate.mdの内訳(単一プラン15〜30分、複数職人プラ
 
 ## 残課題
 
-- landing-page-copy-draft.mdのFAQに「単一プランとworkshop共有プラン、どちらを
+- ~~landing-page-copy-draft.mdのFAQに「単一プランとworkshop共有プラン、どちらを
   選べばよいか」を案内する項目が無いギャップを本フェーズで発見した。pricing-plan.md
   の比較表の対象記述を転用してFAQ項目化することが次のステップ候補になるが、本
-  ドキュメントの範囲では着手しない。
+  ドキュメントの範囲では着手しない。~~
+  → フェーズ153(2026-09-21 04:00 UTC)でlanding-page-copy-draft.mdのFAQに5問目
+  として追加済み。対応済み。
 - workshopメンバー招待手順の契約者向け平易な案内(craftsman-account-linking-
   design.mdの設計内容の顧客向け言い換え)が未整備。
 - 上記の削減率はいずれも実測データのない机上の仮定であり、実LINE公式アカウント
