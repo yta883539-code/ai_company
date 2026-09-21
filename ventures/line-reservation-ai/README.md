@@ -4413,3 +4413,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `ChangeIntentTests`〉だったことを確認。同節の陳腐化していたテスト件数記載(20件→現在
   128件等)もあわせて訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証
   28件いずれもパス)
+- フェーズ続き259(2026-09-21 23:00 UTC定例更新): 他3venture(aircon-pasha 22:00 UTC・
+  course-set-pasha 21:00 UTC・kura-pasha 20:00 UTC)より前進が手薄になっていた本ventureを
+  今回選び、support-cost-selfservice-reduction.md「残課題」・onboarding-guide.md「次の
+  ステップ候補」の双方に残っていた「ステップ2(LINE公式アカウント連携)のスクリーンショット
+  付き手順書は、実際のLINE Developersコンソール画面キャプチャが必要なため実LINE API接続
+  着手時〈オーナー承認待ち〉まで未着手」という課題について、画面キャプチャを伴わない範囲
+  (プロバイダー作成・チャネル有効化・Webhook設定・チャネルアクセストークン発行という
+  一般的な操作フローと、想定つまずきポイント3パターン〈プロバイダー/チャネルの混同・
+  応答設定OFF忘れ・チャネルアクセストークンとチャネルシークレットの取り違え〉)を先行して
+  文書化できることに気づき、line-account-connection-stepguide.mdを新規作成した。これに
+  より、実LINE API接続着手後の画面キャプチャ追加作業は「手順の骨格からの検討」ではなく
+  「文言への画像肉付け」で済むようにした。ただし本手順書提示による(a)-1削減効果自体は
+  未試算であり、画面キャプチャ・操作動画の追加も引き続き未着手のままのため、残課題は
+  解消済みではなく一部前進である旨をsupport-cost-selfservice-reduction.md・onboarding-
+  guide.mdの両方に明記した。コード変更は無く、回帰確認としてventure全体854件(`python3
+  -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証28件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なドキュメント新規作成・記載追記のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 23:00 UTC(フェーズ続き259: support-cost-selfservice-reduction.md・
+  onboarding-guide.mdの両方に残っていた「LINE公式アカウント連携手順書は画面キャプチャが
+  必要なため実LINE API接続着手まで未着手」という残課題について、画面キャプチャを伴わない
+  範囲のテキストのみの手順書(想定つまずきポイント3パターン込み)をline-account-
+  connection-stepguide.mdとして新規作成し一部前進させた。画面キャプチャ・操作動画自体は
+  引き続き実LINE API接続着手時〈オーナー承認待ち〉まで未着手。コード変更は無く回帰確認
+  のみ、venture全体854件・schema検証28件いずれもパス)
