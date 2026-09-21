@@ -96,6 +96,12 @@ payment-suspension-owner-notification-design.mdが確立した「顧客(ボル�
 - 上記の意図分類カテゴリ・優先順位・通知文言は、実LLM呼び出し・実顧客サンプルなしの
   机上設計にとどまる。実運用データに基づく分類精度の検証、`other_needs_human`への
   分類頻度(通知過多にならないか)の確認は引き続き未着手。
+- ~~意図分類プロンプトの具体的な文面(自由入力テキストを実際に5分類へ振り分ける
+  LLM呼び出し部分)は未設計。~~
+  → フェーズ237でchatbot-intent-classification-llm-prompt-draft.mdとして設計済み。
+  上記1節の判定順位をそのままプロンプト内の【判定順位】に逐語反映し、出力は
+  categoryフィールドのみの単純なJSON構造化出力とした。実LLM呼び出し・実運用検証は
+  引き続き未着手。
 - ~~`faq_intent_to_code()`マッピング層・エスカレーション通知送信ヘルパーの実装
   (`prototype/`配下へのコード追加)は次回以降の課題とする。~~
   → フェーズ236で`prototype/chatbot_intent_router.py`として実装済み(テスト14件、

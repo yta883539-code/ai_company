@@ -3551,3 +3551,26 @@
   ヘルパーをprototype/chatbot_intent_router.pyとして実装。faq_howtoは単一項目を推測せず
   メニュー全体を返す設計。テスト14件追加(605件→619件)、schema検証21件は変更なしで
   いずれもパス)
+- フェーズ237(2026-09-21 14:00 UTC定例更新): フェーズ235(chatbot-intent-
+  classification-escalation-design.md)の残課題に残っていた「自由入力テキストを実際に
+  5分類へ振り分けるLLM呼び出し自体は未実装」に着手した。
+  chatbot-intent-classification-llm-prompt-draft.mdを新規作成し、design.md 1節の分類
+  カテゴリ定義・2節のフェイルセーフ判定順位(post_generation_request最優先、FAQと
+  other_needs_humanの判別に迷えばother_needs_human側へ倒す)をそのままLLMシステム
+  プロンプトの【判定順位】として逐語反映した。出力はcategoryフィールドのみの単純な
+  JSON構造化出力とし、返答文の生成自体はフェーズ236実装済みの
+  `chatbot_intent_router.py`側の役割として分離を維持した。あわせて「複合入力(投稿文
+  生成依頼とFAQ質問が同時に含まれる場合)ではFAQ部分への回答が欠落する」という未検証の
+  誤判定パターンをリスクとして明記した。design.md 4節の該当残課題箇所に対応済みの
+  取り消し線を付けた。実装・実LLM呼び出し・実LINE接続は行わない机上のプロンプト文面
+  設計にとどめ、コード変更は無く、回帰確認としてventure全体619件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証21件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認
+  不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回は複合入力時のFAQ回答
+  欠落への運用回避の検討、実LLM検証、または他venture・アイデア領域の前進を優先候補と
+  する。
+- 最終更新: 2026-09-21 14:00 UTC(フェーズ237: チャットボット一次受付の意図分類LLM
+  システムプロンプトをchatbot-intent-classification-llm-prompt-draft.mdとして設計。
+  design.md 2節の判定順位を逐語反映、出力はcategoryフィールドのみのJSON構造化出力。
+  コード変更は無く回帰確認のみ、prototype全619件・schema検証21件いずれもパス)
