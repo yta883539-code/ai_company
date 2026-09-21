@@ -3909,3 +3909,24 @@
   棚卸しで、フォールバック設計は既に解消済みだった記載漏れを訂正し、想定顧客ヒアリングへの
   反映(customer-interview-design.md Q15新設・interview-rehearsal-script.md更新)を新規に
   実施。コード変更は無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
+- フェーズ246(2026-09-21 17:00 UTC定例更新): sns-blog-example-observation.md(フェーズ6、
+  2026-08-09作成)の「未検証事項(次回以降の課題)」に残っていた2点の記載漏れを棚卸しで
+  発見・訂正した。(1)目安の粒度分岐(1〜2年に1回/年1回/年2回)をデフォルト値として
+  どこまで採用するかは「未確定」と記載されていたが、実際には2026-09-13 19:00 UTCに
+  output-samples-validation.mdのG5_estimate_high_usage_annual・
+  G6_estimate_pet_smoking_semiannual追加時に、単純化せず3パターン全て維持する方針で
+  確定済みだった。(2)目安を使ったか否かを表す検証用フィールドの要否は「未検討」と
+  記載されていたが、実際には本ファイル作成(フェーズ6)より前のフェーズ3
+  (2026-08-09 15:00 UTC)時点で既にschema/output.schema.jsonに
+  `care_guide.next_recommended_date_is_estimate`として追加済みで、フェーズ4の
+  schema/validate_test_cases.pyでも整合性検証まで実装済みだった。いずれも実装内容自体
+  への変更は無く、本ファイルの記載を取り消し線+実際の解消経緯の追記で訂正した。コード
+  変更は無く、回帰確認としてventure全体515件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`、変更前と同数)・schema検証25件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なドキュメント記載訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 17:00 UTC(フェーズ246: sns-blog-example-observation.mdの
+  「未検証事項」2点が、実際にはより早い他フェーズ(フェーズ3・フェーズ相当2026-09-13)で
+  既に解消済みだった記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体515件・
+  schema検証25件いずれもパス)

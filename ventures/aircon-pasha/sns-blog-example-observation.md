@@ -61,13 +61,22 @@ llm-system-prompt-draft.mdの厳守事項3・4に、上記3点を反映した(�
 
 - 個人事業主・独立系業者に特化したSNS投稿頻度・作業報告文の実例は引き続き未取得
   (業界大手・情報サイトの解説記事が中心の観察に留まる)。
-- 「1〜2年に1回、年1回、年2回」という目安の粒度分岐(使用頻度・ペット・喫煙の有無)を
+- ~~「1〜2年に1回、年1回、年2回」という目安の粒度分岐(使用頻度・ペット・喫煙の有無)を
   出力2で使う場合、入力メモにその情報が無いケースが大半だと想定されるため、
   実際にどの粒度をデフォルト値として採用するか(最も無難な「1〜2年に1回」のみに
-  留めるか)はoutput-samples-validation.md相当の期待出力サンプル作成時に確定する必要がある。
-- 上記の反映が構造化出力スキーマ(schema/output.schema.json、次回以降の課題として
+  留めるか)はoutput-samples-validation.md相当の期待出力サンプル作成時に確定する必要がある。~~
+  → 2026-09-13 19:00 UTC・output-samples-validation.md(G5_estimate_high_usage_annual・
+  G6_estimate_pet_smoking_semiannual追加時)に解消済み。単純化(最も無難な「1〜2年に1回」
+  のみに簡略化)はせず、粒度分岐3パターン(1〜2年に1回/年1回/年2回)すべてを期待出力
+  サンプル・schema/validate_test_cases.pyで維持する方針が確定した。
+- ~~上記の反映が構造化出力スキーマ(schema/output.schema.json、次回以降の課題として
   README.mdに記載済み)の設計に影響するか(例: 目安のデフォルト値を使ったか否かを表す
-  検証用フィールドの要否)は未検討。
+  検証用フィールドの要否)は未検討。~~ → 本ファイル作成時点(フェーズ6)で見落としていたが、
+  実際には2フェーズ前のフェーズ3(2026-08-09 15:00 UTC、本ファイルより前)の時点で既に
+  schema/output.schema.jsonに`care_guide.next_recommended_date_is_estimate`として当該
+  検証用フィールドが追加済みであり、フェーズ4のschema/validate_test_cases.pyでも
+  history_rows[*].next_recommended_dateとの整合性検証まで実装済みだった。本フェーズ
+  (2026-09-21 17:00 UTC定例更新)でこの記載漏れ(cross-document parity)を発見・訂正した。
 
 ## 追記(2026-08-22 08:00 UTC・フェーズ100): 独立系業者のSNS投稿実例の再調査
 
