@@ -3227,3 +3227,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   1つの比較表に集約。削減率の楽観度合いの開き・kura-pasha固有の「フロー自動化」
   主軸の違いを観察として整理。コード変更は無く回帰確認のみ、venture全体103件・
   schema検証32件いずれもパス)
+- フェーズ156(2026-09-21 16:00 UTC定例更新): unit-economics-estimate.md(フェーズ121)
+  「残課題」1点目に残っていた「決済手数料4.3%〈基本手数料3.6%+Stripe Billing追加
+  手数料0.7%〉はStripe公式の一次情報での確認が未実施」に再度着手した。WebSearchで
+  「Stripe Japan 決済手数料」を検索し、PAY.JP・note.com(SaaS飯)・クラスメソッド
+  DevelopersIO・enhanceit.jpの4件の独立した二次情報で「国内発行クレジットカード
+  決済3.6%、Stripe Billing追加0.7%」の一致を再確認した。あわせてstripe.com/pricing・
+  stripe.com/billing/pricingへのWebFetchによる一次情報直接確認を試みたが、本実行
+  環境のネットワークegressポリシーでstripe.comドメイン自体がブロックされており
+  取得不能(EGRESS_BLOCKED)だった。したがって一次情報確認は本フェーズでも未達成の
+  まま残り、実装着手時に決済代行サービス選定と併せて本環境以外での確認が必要という
+  結論に変更はない。コード変更は無く、回帰確認としてventure全体103件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証32件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認
+  不要な調査・既存ドキュメントへの追記のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 16:00 UTC(フェーズ156: 決済手数料4.3%について独立した二次
+  情報4件の一致を再確認したが、stripe.com自体へのアクセスが本実行環境でブロックされ
+  ており一次情報での確認は引き続き未達成であることを確認。コード変更は無く回帰確認
+  のみ、venture全体103件・schema検証32件いずれもパス)
