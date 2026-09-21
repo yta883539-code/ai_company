@@ -56,6 +56,34 @@ def faq_intent_to_code(intent: str) -> Optional[str]:
     return _CHATBOT_INTENT_TO_FAQ_CODE.get(intent)
 
 
+# chatbot-intent-classification-llm-prompt-draft.md「想定される誤判定パターン」節:
+# 判定順位1により、投稿文生成依頼とFAQ質問(料金プラン等)が同時に含まれる複合入力は
+# post_generation_requestに判定され、FAQ部分への回答が欠落する。運用回避として、
+# 投稿文生成結果の返答文の末尾に本一言を添え、FAQ相当の質問が埋もれていた場合でも
+# 契約者自身が再度問い合わせられる導線を用意する。
+POST_GENERATION_FAQ_FOLLOWUP_HINT = (
+    "\n\n※料金プランや使い方など他にご質問がありましたら、続けてメッセージを"
+    "お送りください。"
+)
+
+
+def append_faq_followup_hint(generation_reply_text: str) -> str:
+    """post_generation_request判定時の返答文(投稿文生成結果)の末尾に、
+    chatbot-intent-classification-llm-prompt-draft.md「想定される誤判定パターン」節の
+    運用回避として一言を追加する。
+
+    判定順位1により複合入力(投稿文生成依頼+FAQ質問)がpost_generation_requestに
+    判定されFAQ部分の回答が欠落するケースを、質問を検知せず常に一言を添えることで
+    回避する(どの入力がFAQ相当を含んでいたかをこの関数側で判定することはしない。
+    判定を試みるとpost_generation_request最優先というフェイルセーフの単純さが崩れる
+    ため、常時付与する設計とした)。
+
+    呼び出し元は投稿文生成本体(実LLM接続がオーナー承認待ちのため未実装)の返答文
+    組み立て処理を想定しており、本関数自体は文字列の末尾追加のみを行う純粋関数。
+    """
+    return generation_reply_text + POST_GENERATION_FAQ_FOLLOWUP_HINT
+
+
 def render_chatbot_faq_response_message(intent: str) -> str:
     """design 1節に基づき、FAQ系3分類(`faq_pricing`/`faq_howto`/`faq_cancel_change`)に
     対する回答文言を組み立てる。回答文言自体の二重管理を避けるため、既存の

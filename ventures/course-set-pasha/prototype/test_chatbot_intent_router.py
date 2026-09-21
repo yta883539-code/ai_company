@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from chatbot_intent_router import (  # noqa: E402
     CHATBOT_INTENT_VALUES,
+    append_faq_followup_hint,
     faq_intent_to_code,
     format_chatbot_escalation_notification_message,
     render_chatbot_faq_response_message,
@@ -87,6 +88,21 @@ class RenderChatbotFaqResponseMessageTest(unittest.TestCase):
             render_chatbot_faq_response_message("post_generation_request")
         with self.assertRaises(ValueError):
             render_chatbot_faq_response_message("other_needs_human")
+
+
+class AppendFaqFollowupHintTest(unittest.TestCase):
+    def test_appends_hint_after_generation_reply_text(self) -> None:
+        result = append_faq_followup_hint("生成した投稿文本文")
+        self.assertTrue(result.startswith("生成した投稿文本文"))
+        self.assertIn("他にご質問がありましたら", result)
+
+    def test_original_text_is_unchanged_prefix(self) -> None:
+        # 複合入力(投稿文生成依頼+FAQ質問)でFAQ部分が欠落しても、本体の投稿文自体は
+        # 改変されないことを固定する回帰テスト。
+        original = "エリアA テープ色:赤 グレード帯:V2-V3 本数:12本"
+        result = append_faq_followup_hint(original)
+        self.assertTrue(result.startswith(original))
+        self.assertNotEqual(result, original)
 
 
 class FormatChatbotEscalationNotificationMessageTest(unittest.TestCase):

@@ -3574,3 +3574,26 @@
   システムプロンプトをchatbot-intent-classification-llm-prompt-draft.mdとして設計。
   design.md 2節の判定順位を逐語反映、出力はcategoryフィールドのみのJSON構造化出力。
   コード変更は無く回帰確認のみ、prototype全619件・schema検証21件いずれもパス)
+- フェーズ238(2026-09-21 18:00 UTC定例更新): フェーズ237(chatbot-intent-
+  classification-llm-prompt-draft.md)「想定される誤判定パターン」節・残課題に
+  残っていた「複合入力(投稿文生成依頼+FAQ質問が同時に含まれる場合)でFAQ部分への
+  回答が欠落する」問題への運用回避を実装した。prototype/chatbot_intent_router.pyに
+  `append_faq_followup_hint()`を追加し、post_generation_request判定時の返答文
+  末尾へ「他にご質問がありましたら、続けてメッセージをお送りください」という一言を
+  常に付加する設計とした。どの入力がFAQ相当を含んでいたかを個別判定する方式は
+  検討したが、判定順位1(post_generation_request最優先)というフェイルセーフの
+  単純さが崩れるため採用せず、常時付与する方式を採った。
+  chatbot-intent-classification-llm-prompt-draft.mdの該当残課題箇所に対応済みの
+  取り消し線を付け、本関数はまだ実際の投稿文生成結果の返答文組み立て処理(実LLM
+  接続待ちのため未実装)からは呼び出されていない旨を残課題として明記した。
+  test_chatbot_intent_router.pyにテスト2件を追加(619件→621件)、回帰確認として
+  venture全体621件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認不要なコード追加・テスト追加・ドキュメント記載更新のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
+  への追記なし。次回は実LLM検証(llm-quality-verification-plan.md準拠)、または
+  他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-21 18:00 UTC(フェーズ238: 複合入力時のFAQ回答欠落への運用回避
+  として、post_generation_request返答文末尾への一言追加をappend_faq_followup_hint()
+  として実装。判定を試みずpost_generation_request判定時に常時付与する設計。
+  テスト2件追加(619件→621件)、schema検証21件は変更なしでいずれもパス)
