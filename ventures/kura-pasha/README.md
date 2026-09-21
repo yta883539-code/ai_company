@@ -3148,3 +3148,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   正常系23件・ネガティブ9件を1文書にまとめたoutput-samples-validation.mdを新規
   作成し、cross-venture parityのギャップを解消。コード変更は無く回帰確認のみ、
   venture全体103件・schema検証32件いずれもパス)
+- フェーズ152(2026-09-21 03:00 UTC定例更新): support-cost-estimate.md(フェーズ121)
+  「残課題」に残っていた「サポート対応の外部委託・セルフサービス化によるコスト削減
+  余地は未検討」に、course-set-pashaフェーズ233の横展開として着手した。
+  support-cost-selfservice-reduction.mdを新規作成し、既存資産(owner-operation-
+  self-service-faq.mdの8問、onboarding-guide.md、landing-page-copy-draft.mdの
+  FAQ4問)を棚卸しした。本venture固有の点として、契約者譲渡はcontractor-transfer-
+  design.md等によりLINE公式アカウント上の申請〜確認〜完了/期限切れフロー自体が
+  既に自動化されている点を踏まえ、フロー自動化+FAQ(Q7)の両輪で他項目より
+  セルフサービス化効果が相対的に大きいと整理した。一方、landing-page-copy-draft.md
+  のFAQに「単一プランかworkshop共有プランか」の選び方を案内する項目が無いギャップ、
+  workshopメンバー招待手順の契約者向け平易な案内が未整備である点を新たに発見し
+  残課題とした。コード変更は無く、回帰確認としてventure全体103件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認
+  した。承認不要な新規ドキュメント作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 03:00 UTC(フェーズ152: support-cost-selfservice-
+  reduction.mdを新規作成し、course-set-pashaフェーズ233の横展開としてサポート対応
+  セルフサービス化の削減余地を検討。契約者譲渡フローの自動化+FAQの両輪という
+  本venture固有の強みを整理する一方、プラン選択案内・招待手順案内の未整備という
+  新規ギャップを発見。コード変更は無く回帰確認のみ、venture全体103件・schema検証
+  32件いずれもパス)
