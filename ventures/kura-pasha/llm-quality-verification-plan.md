@@ -28,7 +28,7 @@ llm-system-prompt-draft.mdの厳守事項1〜8・7a・7bを対象に、schema/va
 | 7 | 厳守事項7(入力不足時の再送依頼) | II1・II2で不足項目(区分/鞍の型)を具体的に指摘しているか、推測で埋めていないか | 人手のみ | II1・II2 |
 | 7a | 厳守事項7a(解約意図検知、(i)〜(iv)の境界) | 解約・ダウングレード・雑談・判断不能の4分類が`status`(cancellation_intent/downgrade_intent等)へ意図通り反映されているか、特に(iv)判断不能時に解約完了・ポータルリンクを含む文言を自己判断で返していないか | 機械チェック(`status`値の一致)+人手((iv)応答文の目視) | C1・C2・C3 |
 | 7b | 厳守事項7b(有料プラン開始意図検知、(i)〜(iv)の境界) | 開始意図・料金問い合わせ・雑談・判断不能の4分類が`status`(checkout_intent/pricing_inquiry等)へ反映され、`checkout_notice.includes_checkout_url`が常にfalseになっているか(実URLはPython側`handle_checkout_intent`に委ねる設計、7b(i)でもLLM側は自己判断でURLを含めない) | 機械チェック(`status`値+`includes_checkout_url`の一致)+人手((iv)応答文の目視) | CO1・CO2・CO3 |
-| 8 | 厳守事項8(ですます調・絵文字不使用) | 絵文字が一切含まれていないか、文体が統一されているか | 機械チェック(post_generation_checks.py相当の絵文字パターン検出、本venture未実装分は本検証時に流用可否を確認) | 全件 |
+| 8 | 厳守事項8(ですます調・絵文字不使用) | 絵文字が一切含まれていないか、文体が統一されているか | 機械チェック(prototype/post_generation_checks.pyの`check_no_emoji_anywhere()`、2026-09-21定例更新で新規実装済み。全出力本文を対象に絵文字ゼロを判定、course-set-pashaのSNS投稿文向け1〜2個許容ルールとは異なり本venture全体で不使用を求める)+人手(ですます調の文体統一は自由文であり機械チェックでの網羅確認は困難) | 全件 |
 
 上記に加え、member-retention-notice-design.md(M1・M2)・contractor-transfer-design.md系
 (CT1・CT2・CTC1〜CTC3・CTE1)は、llm-system-prompt-draft.mdの番号付き厳守事項とは別の

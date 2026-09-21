@@ -3246,3 +3246,42 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   情報4件の一致を再確認したが、stripe.com自体へのアクセスが本実行環境でブロックされ
   ており一次情報での確認は引き続き未達成であることを確認。コード変更は無く回帰確認
   のみ、venture全体103件・schema検証32件いずれもパス)
+- フェーズ157(2026-09-21 20:00 UTC定例更新): llm-quality-verification-plan.md
+  (フェーズ135)の判定基準表8行目(厳守事項8)が「post_generation_checks.py相当の
+  絵文字パターン検出、本venture未実装分は本検証時に流用可否を確認」として残していた
+  未実装項目に対応した。course-set-pasha/aircon-pashaのprototype/post_generation_
+  checks.pyはsns_post/line_web_notice等その2venture固有のスキーマに紐づく実装のため
+  単純な流用はできないと判断し、kura-pasha自身のschema/output.schema.jsonに合わせて
+  prototype/post_generation_checks.pyを新規実装した。course-set-pashaのSNS投稿文向け
+  絵文字ルール(1〜2個まで許容)とは異なり、本ventureは厳守事項8(絵文字は終始不使用)
+  に合わせ全10種の出力本文(order_summary.body〜workshop_invite_notice.body)で
+  絵文字ゼロを求めるcheck_no_emoji_anywhere()とした。あわせて、既存のvalidate_
+  cross_field_rules()がstatus値に応じたフィールドのnull/非null依存関係(構造)のみを
+  検証し本文テキストの内容自体は未検証だった間隙を埋める形で、(1)厳守事項6(会員管理
+  等への不応答)の機械チェック化(check_no_out_of_scope_topics_in_generated_output）、
+  (2)厳守事項4のcategory一致がフィールド値だけでなく本文の実際の記述(「修理」の
+  言及有無)とも整合しているかの検証(check_delivery_notice_category_text_
+  consistency、新規発見の追加チェック)、(3)厳守事項7a(iv)のポータルリンク・手続き
+  完了文言の本文整合性検証(check_subscription_notice_consistency、course-set-pasha
+  のPORTAL_KEYWORDSに本venture固有の実際の文言「リンク」を追加)、(4)(5)厳守事項
+  7b(i)・7c(i)のincludes_checkout_url/includes_invite_codeが常にfalseである設計の
+  本文側裏付け(実URL・招待コードらしき6文字トークンの不在確認、招待コードは
+  craftsman-account-linking-design.md 2節・11.1節と同じ31種アルファベットの6文字
+  仕様に合わせた正規表現とした)、をあわせて実装した。schema/validate_test_cases.pyの
+  TEST_CASES(G1・G2・OOS1・C1〜C5・M1・M2・CT1・CT2・CTC1〜CTC3・CTE1・CO1〜CO3・
+  WIR1・WIR2の21件)がいずれも新チェックに違反しないことを確認したうえで、各チェック
+  関数の意図的な違反ケース(ネガティブテスト)をあわせてtest_post_generation_checks.py
+  として新規作成した(24件)。llm-quality-verification-plan.mdの該当行も実装済みの
+  状態に更新した。新規テスト24件追加、回帰確認としてventure全体127件(`python3
+  prototype/run_all_tests.py`、103件→127件)・schema検証32件(`python3
+  schema/validate_test_cases.py`)いずれもパスを確認した。実LLM呼び出しは行っておらず
+  (APIキー取得はオーナー承認待ち、pending-approval.md参照)、機械チェック自体がLLMの
+  厳守事項違反を確実に検出できるわけではないヒューリスティックである点はcourse-set-
+  pasha/aircon-pashaの既存実装と同じ限界として残る。承認不要なコード実装・テスト
+  追加・既存ドキュメントへの記載更新のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 20:00 UTC(フェーズ157: llm-quality-verification-plan.mdが
+  未実装のまま残していたprototype/post_generation_checks.pyを本venture固有のschemaに
+  合わせて新規実装〈絵文字ゼロ・会員等キーワード不在・category本文整合性・ポータル
+  リンク整合性・checkout URL/招待コード不在の6チェック〉。新規テスト24件追加、
+  回帰確認としてventure全体127件・schema検証32件いずれもパス)
