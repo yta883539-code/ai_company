@@ -106,7 +106,11 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
      返す(3出力の生成対象からは除外する)。
    - (iii) 契約に関わらない一般的な相談・世間話の域を出ない表現 → 通常どおり作業後の
      メモの内容として扱えるか判断し、扱えない場合のみ厳守事項7(入力不足時の再送依頼)に
-     従う。
+     従う。具体的には、雑談部分以外に実際の分解洗浄内容(機種系統・号数、洗浄範囲、汚れ
+     状況等)が含まれるかどうかで判断する。含まれない場合は`insufficient_input`(厳守事項7の
+     再送依頼)、含まれる場合は雑談部分を無視して`generated`(3出力生成)に帰着させる
+     (checkout-intent-6b-iii-chitchat-status-mapping-review.md、2026-09-21 00:00 UTC確定。
+     6a(iii)・course-set-pasha厳守事項7b(iii)と同じ考え方)。
    - (iv) 開始意図か問い合わせか判断できない場合、開始手続きの案内文言は返さず、意思確認を
      促す一言のみ返す(自己判断で申込手続きを進めない)。
    厳守事項6a(iv)が「解約完了・ポータルリンクを含む文言は自己判断で返さない」としているのと
@@ -242,7 +246,13 @@ insufficient_input)パターンを踏襲する方向で検討していた(その
   具体例が未着手のまま残っていたため、G8と対になるschema/validate_test_cases.pyの
   G9_busy_grumble_not_checkout_intentとして固定した〈output-samples-validation.md
   参照〉。ただしこれもG8同様にスキーマレベルの整合性確認に留まり、実LLMが実際にこの
-  区別を守れるかの検証は引き続き実LLM接続後の課題として残る)。
+  区別を守れるかの検証は引き続き実LLM接続後の課題として残る)。(解消済み 2026-09-21
+  00:00 UTC、フェーズ241: 6a(iii)側はフェーズ240でCI4・CI5として一般形〈G8より広い、
+  分解洗浄内容の有無だけで判定するケース〉を確定したが、6b(iii)側の一般形は次回以降の
+  課題として残っていた。checkout-intent-6b-iii-chitchat-status-mapping-review.mdとして
+  6a(iii)と同じ判定構造であることを確認し、CO4・CO5をschema/validate_test_cases.pyに
+  新規追加、本節6b(iii)本文・schema/output.schema.jsonのstatus説明に帰着基準を追記した。
+  これにより6a(iii)・6b(iii)双方の一般形の帰着先確定が完了した)。
 - (解消済み 2026-09-14 15:00 UTC、フェーズ217: btob-management-company-report-variant-
   design.md(フェーズ216)「未反映の実装項目」が次回以降の課題として残していた、
   厳守事項9(上記プロンプト草案に新設)の正式追記・schema/output.schema.jsonへの

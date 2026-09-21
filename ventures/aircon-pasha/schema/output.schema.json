@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {
     "status": {
-      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項7(入力不足時の再送依頼)・厳守事項6a(解約意図検知、2026-08-21追加)・厳守事項6b(有料プラン開始意図検知、2026-09-12追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項6a(iii)・6b(iii)(雑談の域を出ない表現)は解約意図・開始意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-09-20 20:00 UTC確定(subscription-intent-6a-iii-chitchat-status-mapping-review.md、6a(iii)側のみ。6b(iii)側は次回以降の課題): 同一メモ内に分解洗浄内容が含まれなければinsufficient_input、含まれれば雑談部分を無視してgeneratedに帰着させる(course-set-pashaの厳守事項7a(iii)と同じ考え方)。",
+      "description": "厳守事項6(会員管理・予約受付・決済への不応答)・厳守事項7(入力不足時の再送依頼)・厳守事項6a(解約意図検知、2026-08-21追加)・厳守事項6b(有料プラン開始意図検知、2026-09-12追加)に対応する分岐フラグ。通常の3出力生成が行えるのはgeneratedのみ。厳守事項6a(iii)・6b(iii)(雑談の域を出ない表現)は解約意図・開始意図として扱わず、既存のgenerated/out_of_scope/insufficient_inputのいずれかに帰着させる。2026-09-20 20:00 UTC確定(subscription-intent-6a-iii-chitchat-status-mapping-review.md、6a(iii)側)・2026-09-21 00:00 UTC確定(checkout-intent-6b-iii-chitchat-status-mapping-review.md、6b(iii)側): いずれも同一メモ内に分解洗浄内容が含まれなければinsufficient_input、含まれれば雑談部分を無視してgeneratedに帰着させる(course-set-pashaの厳守事項7a(iii)・7b(iii)と同じ考え方)。",
       "type": "string",
       "enum": ["generated", "out_of_scope", "insufficient_input", "cancellation_intent", "downgrade_intent", "cancellation_unclear", "checkout_intent", "pricing_inquiry", "checkout_intent_unclear"]
     },

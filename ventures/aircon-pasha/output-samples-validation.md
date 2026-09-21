@@ -24,7 +24,7 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。
   の整合性(is_estimate=falseならnext_recommended_dateはnull不可)は
   `validate_cross_field_rules()`で個別にチェックする。
 
-## サンプルケース(23件。2026-08-21 14:00 UTC改訂でG4・CI1〜CI3を追加、2026-09-12 03:00 UTC改訂でCO1〜CO3・NEG1を追加、2026-09-13 19:00 UTC改訂でG5・G6を追加、2026-09-14 15:00 UTC追加のG7〈本表への反映漏れを2026-09-18 17:00 UTC改訂で解消〉、2026-09-18 17:00 UTC改訂でG8・NEG2を追加、2026-09-19 01:00 UTC改訂でG9を追加、2026-09-19定例更新(フェーズ233)でNEG3を追加、2026-09-19 15:00 UTC定例更新(フェーズ234)でNEG4を追加、2026-09-20 20:00 UTC定例更新(フェーズ240)でCI4・CI5を追加)
+## サンプルケース(25件。2026-08-21 14:00 UTC改訂でG4・CI1〜CI3を追加、2026-09-12 03:00 UTC改訂でCO1〜CO3・NEG1を追加、2026-09-13 19:00 UTC改訂でG5・G6を追加、2026-09-14 15:00 UTC追加のG7〈本表への反映漏れを2026-09-18 17:00 UTC改訂で解消〉、2026-09-18 17:00 UTC改訂でG8・NEG2を追加、2026-09-19 01:00 UTC改訂でG9を追加、2026-09-19定例更新(フェーズ233)でNEG3を追加、2026-09-19 15:00 UTC定例更新(フェーズ234)でNEG4を追加、2026-09-20 20:00 UTC定例更新(フェーズ240)でCI4・CI5を追加、2026-09-21 00:00 UTC定例更新(フェーズ241)でCO4・CO5を追加)
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
@@ -42,18 +42,19 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。
 | CI1_cancellation_intent_clear / CI2_downgrade_intent / CI3_cancellation_unclear | cancellation_intent / downgrade_intent / cancellation_unclear | 厳守事項6a(解約意図検知)関連ケース(フェーズ91で追加済み、本ドキュメントへの反映漏れを2026-08-21 14:00 UTC改訂で解消) |
 | CI4_chitchat_no_work_content / CI5_chitchat_with_work_content | insufficient_input / generated | 厳守事項6a(iii)(雑談の域を出ない表現)が実際にstatus enumのどの値に帰着するかを固定するペア。分解洗浄内容を含まない雑談のみのメモはinsufficient_input、雑談に加えて分解洗浄内容も含むメモは雑談部分を無視してgeneratedに帰着する。G8(繁忙期の愚痴という特定の言い回し限定)より広い一般形。course-set-pashaのCI4・CI5と対になる(subscription-intent-6a-iii-chitchat-status-mapping-review.md、2026-09-20 20:00 UTC定例更新(フェーズ240)で追加) |
 | CO1_checkout_intent / CO2_pricing_inquiry / CO3_checkout_intent_unclear | checkout_intent / pricing_inquiry / checkout_intent_unclear | 厳守事項6b(有料プラン開始意図検知)関連ケース(2026-09-12 03:00 UTC追加) |
+| CO4_chitchat_no_work_content / CO5_chitchat_with_work_content | insufficient_input / generated | 厳守事項6b(iii)(雑談の域を出ない表現)が実際にstatus enumのどの値に帰着するかを固定するペア。分解洗浄内容を含まない雑談のみのメモはinsufficient_input、雑談に加えて分解洗浄内容も含むメモは雑談部分を無視してgeneratedに帰着する。G9(「プラン変更とか考える余裕がない」という特定の言い回し限定)より広い一般形。CI4・CI5(6a(iii)版)およびcourse-set-pashaのCO4・CO5と対になる(checkout-intent-6b-iii-chitchat-status-mapping-review.md、2026-09-21 00:00 UTC定例更新(フェーズ241)で追加) |
 | NEG1_checkout_url_mismatch_is_detected | checkout_intent | ネガティブテスト。includes_checkout_url不一致(厳守事項6b違反)が検出されることの確認用 |
 | NEG2_management_company_missing_boilerplate_is_detected | generated | ネガティブテスト。recipient=management_companyなのに厳守事項9の定型ボイラープレートが本文に含まれていない(厳守事項9違反)が検出されることの確認用(2026-09-14 15:00 UTC追加、フェーズ217。本表への反映は2026-09-18 17:00 UTC改訂で実施) |
 | NEG3_portal_link_mismatch_is_detected | cancellation_unclear | ネガティブテスト。includes_portal_link不一致(厳守事項6a(iv)違反)が検出されることの確認用。course-set-pasha(フェーズ225)・kura-pashaの同種ネガティブテストとのcross-venture parityのギャップを解消(2026-09-19定例更新、フェーズ233追加) |
 | NEG4_empty_history_rows_is_detected | generated | ネガティブテスト。status=generatedかつhistory_rows=[](空配列)の組み合わせ(厳守事項違反)が検出されることの確認用。course-set-pasha(フェーズ226)がNEG3として発見・追加した際に残した「aircon-pasha・line-reservation-ai・kura-pashaへの同種横展開(未確認)」を棚卸しし、本ventureにも同型のギャップが存在することを発見・解消した(2026-09-19 15:00 UTC定例更新、フェーズ234追加) |
 
-## 結果(2026-09-20 20:00 UTC定例更新(フェーズ240)改訂時点)
+## 結果(2026-09-21 00:00 UTC定例更新(フェーズ241)改訂時点)
 
 ```
-合計 23 件中 23 件パス、0 件失敗
+合計 25 件中 25 件パス、0 件失敗
 ```
 
-G1〜G9・OOS1・II1・CI1〜CI5・CO1〜CO3の19件が違反なくパスし、NEG1・NEG2・NEG3・NEG4の
+G1〜G9・OOS1・II1・CI1〜CI5・CO1〜CO5の21件が違反なくパスし、NEG1・NEG2・NEG3・NEG4の
 4件は意図通りエラーが検出されることを確認した(`python3 schema/validate_test_cases.py`で
 実行内容を確認できる)。以下は2026-08-09作成時点(15件)の記述。
 `next_recommended_date_is_estimate`と`history_rows[*].next_recommended_date`の整合性の

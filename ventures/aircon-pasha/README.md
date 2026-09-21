@@ -3826,3 +3826,25 @@
   だったギャップをsubscription-intent-6a-iii-chitchat-status-mapping-review.mdとして解消。
   CI4・CI5を追加。厳守事項6b(iii)側〈CO4・CO5相当〉は次回以降の課題。コード変更は無く
   回帰確認のみ、venture全体515件・schema検証23件いずれもパス)
+- フェーズ241(2026-09-21 00:00 UTC定例更新): フェーズ240が「次回以降の課題」として残した
+  厳守事項6b(iii)(有料プラン開始意図には触れない雑談・愚痴の域を出ない表現)側の一般形
+  status帰着基準の確定に対応した。6a(iii)側と全く同じ判定構造(雑談部分以外に分解洗浄内容が
+  含まれなければinsufficient_input、含まれれば雑談部分を無視してgeneratedに帰着)であることを
+  確認し、course-set-pashaの7a(iii)→7b(iii)(CI4・CI5→CO4・CO5)と同じ順序を踏襲して
+  checkout-intent-6b-iii-chitchat-status-mapping-review.mdを新規作成した。
+  llm-system-prompt-draft.md厳守事項6b(iii)本文・schema/output.schema.jsonの`status`説明に
+  帰着基準を追記し(これにより「6b(iii)側は次回以降の課題」という記載を解消)、
+  schema/validate_test_cases.pyにCO4_chitchat_no_work_content(insufficient_input)・
+  CO5_chitchat_with_work_content(generated)を新規追加、output-samples-validation.mdの
+  一覧表・件数記載を更新した(23件→25件)。これにより厳守事項6a(iii)・6b(iii)双方の一般形の
+  帰着先確定が完了した。回帰確認としてventure全体515件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`、コード変更が無いため変更前と同数)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、23件→25件、既存ケースはいずれも新規ケース
+  追加後も違反なくパス)を確認した。承認不要な設計文書作成・schema/テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 00:00 UTC(フェーズ241: 厳守事項6b(iii)〈雑談の域を出ない表現〉の
+  status帰着先の一般形〈G9より広い、分解洗浄内容の有無だけで判定するケース〉が未確定
+  だったギャップをcheckout-intent-6b-iii-chitchat-status-mapping-review.mdとして解消。
+  CO4・CO5を追加。これにより6a(iii)・6b(iii)双方の一般形の帰着先確定が完了。コード変更は
+  無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
