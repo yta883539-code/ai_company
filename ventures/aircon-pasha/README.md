@@ -3869,3 +3869,23 @@
   で設計済み)に一切触れていなかった記載漏れを発見し、FAQに6問目(管理会社向けプランの
   案内)を追加して解消。コード変更は無く回帰確認のみ、venture全体515件・schema検証25件
   いずれもパス)
+- フェーズ244(2026-09-21 09:00 UTC定例更新): 他3venture(course-set-pasha・kura-pasha・
+  line-reservation-ai)は既にsupport-cost-selfservice-reduction.mdを作成済みだったが、
+  本ventureのみ未着手のまま残っていたcross-venture parityギャップを解消するため新規
+  作成した。support-cost-estimate.md(フェーズ222)の試算工数のうち、既存のFAQ・案内
+  資産(owner-operation-self-service-faq.md・onboarding-guide.md・owner-faq-routing-
+  design.mdのコマンド配信導線)でどこまでセルフサービス化できるかを整理し、継続対応
+  工数10〜50分/件→7〜35分程度(粗い試算、未検証)への圧縮余地を見積もった。あわせて、
+  owner-operation-self-service-faq.md「未検証の仮説」節に「本FAQへの導線が未設計」という
+  記載が残っていたが、同ドキュメント自身の「次のステップ候補」節では既にフェーズ225で
+  導線実装済みと記載されており内部で矛盾していた記載漏れを発見し、取り消し線で訂正した。
+  コード変更は無く、回帰確認としてventure全体515件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント新規作成・記載漏れ訂正のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 09:00 UTC(フェーズ244: 他3venture対比で本ventureのみ未着手
+  だったsupport-cost-selfservice-reduction.mdを新規作成し、既存FAQ・コマンド配信導線
+  資産の棚卸しから継続対応工数の削減余地(粗い試算)を整理。owner-operation-self-
+  service-faq.mdの内部矛盾(導線未設計との記載漏れ)も訂正。コード変更は無く回帰確認
+  のみ、venture全体515件・schema検証25件いずれもパス)
