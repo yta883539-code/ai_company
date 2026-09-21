@@ -3848,3 +3848,24 @@
   だったギャップをcheckout-intent-6b-iii-chitchat-status-mapping-review.mdとして解消。
   CO4・CO5を追加。これにより6a(iii)・6b(iii)双方の一般形の帰着先確定が完了。コード変更は
   無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
+- フェーズ242(2026-09-21 05:00 UTC定例更新): 他venture(kura-pasha・course-set-pasha・
+  line-reservation-ai)の直近前進を踏まえ、最後に前進させたのが00:00 UTCと最も手薄になって
+  いた本ventureを今回選び、landing-page-copy-draft.mdの棚卸しを行った。pricing-plan.mdの
+  「管理会社向け一括契約プラン」節・btob-management-company-report-variant-design.md
+  (フェーズ216〜218)で設計済みのBtoBチャネル(管理会社が完了報告の受け取り先として直接
+  契約する想定)が、本ドキュメントの料金・トライアル訴求セクション・FAQのいずれにも一切
+  反映されておらず、個人事業主向けの案内しか読めない読み手(管理会社)が自社向けプランの
+  存在に気づけないという記載漏れを発見した。kura-pashaフェーズ153の「プラン選択案内を
+  FAQで補う」という考え方を本venture向けに翻案し、FAQに6問目(管理会社向けプランの案内)
+  を追加して解消した。具体的な戸数・料金の内訳までは記載せず「お問い合わせください」に
+  留めたのは、pricing-plan.md側の管理会社向けプラン自体がまだ未検証の仮設計段階であるため。
+  コード変更は無く、回帰確認としてventure全体515件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント記載追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 05:00 UTC(フェーズ242: landing-page-copy-draft.mdが管理会社向け
+  一括契約プラン(pricing-plan.md・btob-management-company-report-variant-design.md
+  で設計済み)に一切触れていなかった記載漏れを発見し、FAQに6問目(管理会社向けプランの
+  案内)を追加して解消。コード変更は無く回帰確認のみ、venture全体515件・schema検証25件
+  いずれもパス)
