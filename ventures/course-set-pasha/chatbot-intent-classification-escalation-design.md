@@ -96,8 +96,18 @@ payment-suspension-owner-notification-design.mdが確立した「顧客(ボル�
 - 上記の意図分類カテゴリ・優先順位・通知文言は、実LLM呼び出し・実顧客サンプルなしの
   机上設計にとどまる。実運用データに基づく分類精度の検証、`other_needs_human`への
   分類頻度(通知過多にならないか)の確認は引き続き未着手。
-- `faq_intent_to_code()`マッピング層・エスカレーション通知送信ヘルパーの実装
-  (`prototype/`配下へのコード追加)は次回以降の課題とする。
+- ~~`faq_intent_to_code()`マッピング層・エスカレーション通知送信ヘルパーの実装
+  (`prototype/`配下へのコード追加)は次回以降の課題とする。~~
+  → フェーズ236で`prototype/chatbot_intent_router.py`として実装済み(テスト14件、
+  `test_chatbot_intent_router.py`)。`faq_intent_to_code()`はfaq_pricing→Q2・
+  faq_cancel_change→Q3の1対1マッピングのみを持ち、複数項目にまたがるfaq_howtoは
+  `render_chatbot_faq_response_message()`側でメニュー全体
+  (`render_owner_faq_menu_message()`)を返す設計とした(単一項目を推測しない)。
+  エスカレーション通知は`send_chatbot_escalation_notification()`として実装し、
+  design通り送信済みフラグを持たず都度通知する(冪等性の仕組みは無し)。なお本実装は
+  分類結果(文字列)が既に得られている前提のマッピング層のみであり、自由入力テキストを
+  実際に5分類へ振り分けるLLM呼び出し自体は引き続き未実装(1点目の課題と同じ理由で
+  対象外)。
 - 他venture(aircon-pasha・kura-pasha)への同種チャットボット一次受付検討の横展開は
   未着手。line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
   mapping.md`)が中核機能として存在するため、本ドキュメントの「FAQ一次受付」という

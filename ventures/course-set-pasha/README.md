@@ -3526,3 +3526,28 @@
   フェイルセーフ優先順位・エスカレーション通知〈運営者宛、即時・都度通知〉をchatbot-
   intent-classification-escalation-design.mdとして設計。コード変更は無く回帰確認のみ、
   prototype全605件・schema検証21件いずれもパス)
+- フェーズ236(2026-09-21 10:00 UTC定例更新): フェーズ235(chatbot-intent-classification-
+  escalation-design.md)が次回以降の課題として残していた「faq_intent_to_code()マッピング層・
+  エスカレーション通知送信ヘルパーの実装」に着手した。prototype/chatbot_intent_router.pyを
+  新規作成し、(1)faq_intent_to_code(): FAQ系分類値のうちfaq_pricing→Q2・
+  faq_cancel_change→Q3の1対1マッピングを実装(design 1節どおり、複数項目にまたがる
+  faq_howtoは対象外としNoneを返す)、(2)render_chatbot_faq_response_message(): faq_howtoは
+  単一項目を推測せずrender_owner_faq_menu_message()でメニュー全体を提示する設計とした、
+  (3)send_chatbot_escalation_notification(): design 3節の通知文言・固定送信先
+  (OWNER_LINE_USER_ID_PLACEHOLDER、payment_suspension_owner_notification.pyのものを再利用)・
+  送信済みフラグを持たない都度通知方式をそのまま実装、の3点をコード化した。実際の自由入力
+  テキストを5分類へ振り分けるLLM呼び出し自体は設計時点の方針どおり対象外のままとし、
+  分類結果(文字列)が既に得られている前提のマッピング層のみを実装した。
+  test_chatbot_intent_router.pyとしてテスト14件を新規追加し、chatbot-intent-
+  classification-escalation-design.md 4節の残課題該当箇所を解消済みへ訂正した。回帰確認
+  としてventure全体619件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  605件→619件)・schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)
+  いずれもパスを確認した。承認不要なコード追加・テスト追加・ドキュメント記載更新のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。他venture(aircon-pasha・kura-pasha)への同種チャット
+  ボット一次受付検討の横展開は引き続き未着手として残す。
+- 最終更新: 2026-09-21 10:00 UTC(フェーズ236: chatbot-intent-classification-escalation-
+  design.mdの残課題だったfaq_intent_to_code()マッピング層・エスカレーション通知送信
+  ヘルパーをprototype/chatbot_intent_router.pyとして実装。faq_howtoは単一項目を推測せず
+  メニュー全体を返す設計。テスト14件追加(605件→619件)、schema検証21件は変更なしで
+  いずれもパス)
