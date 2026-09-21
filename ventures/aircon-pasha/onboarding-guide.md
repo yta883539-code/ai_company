@@ -85,7 +85,9 @@
 - ステップ3(接続テスト)を業者が実際に自発的に行うか、省略して本番の依頼者送付を開始し
   誤った内容(冷媒・電気系統への言及混入等)に気づかないまま運用が始まるリスクがあるか
   (course-set-pashaのonboarding-settings-and-self-check-design.mdに相当するフォールバック
-  設計の要否は次のステップ候補とする)。
+  設計はfirst-generation-self-check-design.mdとして解消済み〈フェーズ245で本節の記載漏れを
+  訂正〉。ただし「省略に気づかず運用が始まるリスク」自体が実際にどの程度発生するかは、
+  実LINE API接続後の運用データでしか検証できず、その点は引き続き未検証)。
 - 事業形態(独立系/フランチャイズ加盟/複合メニュー業者)によって、月間利用回数の実態が
   pricing-plan.mdの想定(月60〜100件)からどの程度乖離するか(フランチャイズ加盟業者は
   本部から既に報告書テンプレートを提供されている場合、そもそも導入自体を検討しない
@@ -97,9 +99,13 @@
   作成する(実際のLINE Developersコンソール画面のキャプチャが必要なため、実LINE API接続着手時
   (オーナー承認待ち)にあわせて着手するのが効率的。course-set-pasha・line-reservation-aiの
   同種課題と合わせて着手できる)。
-- ステップ3(接続テスト)省略時のフォールバック設計(course-set-pashaの
-  onboarding-settings-and-self-check-design.md・first-generation-notice-implementation-design.md
-  相当)の要否・内容を検討する。
-- 本ガイドの各ステップを、想定顧客ヒアリング(customer-interview-design.md)の設問に
-  「導入のどのステップで最も不安・手間を感じるか」「トライアル期間14日と生成回数10回の
-  どちらが先に到達しそうか」を確認する項目として反映できないか検討する。
+- (解消済み・フェーズ245で発見: ステップ3(接続テスト)省略時のフォールバック設計は、
+  first-generation-self-check-design.md(2026-08-22作成、README.mdフェーズ136で
+  `cloud_function_webhook.py`への実配線・テスト5件追加まで完了済み)により既に解消
+  されていた。本節に未着手として残っていたのは、対応完了後に本ドキュメント側の記載
+  更新が漏れていたcross-document parityの記載漏れであり、実装内容自体に変更はない。)
+- (解消済み・フェーズ245: 本ガイドの各ステップを、想定顧客ヒアリング
+  (customer-interview-design.md)の設問に「導入のどのステップで最も不安・手間を感じるか」
+  「トライアル期間14日と生成回数10回のどちらが先に到達しそうか」を確認する項目として
+  反映した。customer-interview-design.md Q15として新設し、interview-rehearsal-script.mdの
+  タイムテーブル・ト書き・チェックリストも合わせて更新済み。)

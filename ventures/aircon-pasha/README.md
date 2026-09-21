@@ -3889,3 +3889,23 @@
   資産の棚卸しから継続対応工数の削減余地(粗い試算)を整理。owner-operation-self-
   service-faq.mdの内部矛盾(導線未設計との記載漏れ)も訂正。コード変更は無く回帰確認
   のみ、venture全体515件・schema検証25件いずれもパス)
+- フェーズ245(2026-09-21 13:00 UTC定例更新): onboarding-guide.md「次のステップ候補」を
+  棚卸しした結果、2点のギャップを発見・解消した。(1)「ステップ3省略時のフォールバック
+  設計」は実際にはfirst-generation-self-check-design.md(2026-08-22作成、README.md
+  フェーズ136で実配線・テスト済み)により既に解消済みだったが、onboarding-guide.md側の
+  「次のステップ候補」記載の更新が漏れていたcross-document parityの記載漏れであり、訂正
+  した(実装内容自体に変更なし)。(2)「本ガイドの各ステップを想定顧客ヒアリングの設問に
+  反映する」は未着手のままだったため、customer-interview-design.mdにQ15(オンボーディング
+  のどのステップが不安・手間か、トライアル条件〈14日間 or 生成10回〉のどちらが先に到達
+  しそうか、Q1の施工件数回答を踏まえて聞く設計)を新設して対応した(全15問→全16問)。
+  合わせてinterview-rehearsal-script.mdのタイムテーブル(全14問→全15問、目標13分→
+  13.5分)・オープニング台本・質問ごとの補足ト書き・実施前チェックリストを更新し、
+  cross-document parityを維持した。コード変更は無く、回帰確認としてventure全体515件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証
+  25件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なドキュメント記載訂正・設問追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 13:00 UTC(フェーズ245: onboarding-guide.md「次のステップ候補」の
+  棚卸しで、フォールバック設計は既に解消済みだった記載漏れを訂正し、想定顧客ヒアリングへの
+  反映(customer-interview-design.md Q15新設・interview-rehearsal-script.md更新)を新規に
+  実施。コード変更は無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
