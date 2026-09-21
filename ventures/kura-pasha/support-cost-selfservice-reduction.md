@@ -85,8 +85,10 @@ support-cost-estimate.mdの内訳(単一プラン15〜30分、複数職人プラ
   ドキュメントの範囲では着手しない。~~
   → フェーズ153(2026-09-21 04:00 UTC)でlanding-page-copy-draft.mdのFAQに5問目
   として追加済み。対応済み。
-- workshopメンバー招待手順の契約者向け平易な案内(craftsman-account-linking-
-  design.mdの設計内容の顧客向け言い換え)が未整備。
+- ~~workshopメンバー招待手順の契約者向け平易な案内(craftsman-account-linking-
+  design.mdの設計内容の顧客向け言い換え)が未整備。~~
+  → フェーズ154(2026-09-21 08:00 UTC)でowner-operation-self-service-faq.mdに
+  Q9として追加済み。対応済み。
 - 上記の削減率はいずれも実測データのない机上の仮定であり、実LINE公式アカウント
   接続・実顧客対応後の問い合わせ内容ログでの再検証が必要(support-cost-estimate.md
   と同じ制約)。特に契約者譲渡は発生頻度自体が年数件程度と低いため、効果測定には

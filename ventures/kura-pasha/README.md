@@ -3186,3 +3186,21 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-21 04:00 UTC(フェーズ153: landing-page-copy-draft.mdのFAQに
   プラン選択案内〈5問目〉を追加し、フェーズ152が発見したギャップの1点を解消。
   コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
+- フェーズ154(2026-09-21 08:00 UTC定例更新): フェーズ153が「本フェーズの範囲では
+  未着手のまま残る」としていたもう一方の残課題(workshopメンバー招待手順の契約者向け
+  平易な案内が未整備)に対応した。craftsman-account-linking-design.md 5節・11節の
+  招待コード発行〜転送〜解決フローの設計内容を顧客向けの平易な文章に言い換え、
+  owner-operation-self-service-faq.mdにQ9(「複数職人プランで仲間の職人を招待したい
+  (招待手順)」)として追加した。既存のQ4(共同利用時の解約権限)は招待後の運用
+  ルールを扱うのに対し、Q9は「職人を追加したい」と送ってから招待コードを転送し
+  相手が参加するまでの初回手順そのものを扱う点で役割を分担する。あわせて
+  support-cost-selfservice-reduction.md「残課題」の該当箇所に対応済みの取り消し線を
+  付けた。コード変更は無く、回帰確認としてventure全体103件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証32件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な既存ドキュメントへの追記のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 08:00 UTC(フェーズ154: craftsman-account-linking-design.md
+  5節・11節の招待コードフローを顧客向けに言い換え、owner-operation-self-service-
+  faq.mdにQ9として追加。support-cost-selfservice-reduction.mdの残課題1点を解消。
+  コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
