@@ -3593,7 +3593,23 @@
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
   への追記なし。次回は実LLM検証(llm-quality-verification-plan.md準拠)、または
   他venture・アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-21 18:00 UTC(フェーズ238: 複合入力時のFAQ回答欠落への運用回避
-  として、post_generation_request返答文末尾への一言追加をappend_faq_followup_hint()
-  として実装。判定を試みずpost_generation_request判定時に常時付与する設計。
-  テスト2件追加(619件→621件)、schema検証21件は変更なしでいずれもパス)
+- フェーズ239(2026-09-21 21:00 UTC): aircon-pasha/support-cost-selfservice-
+  reduction.mdが「course-set-pashaの執筆時点の前提が実装状況と食い違っていた」として
+  次回以降の課題に残していた指摘を検証した。本venture自身のsupport-cost-selfservice-
+  reduction.md(フェーズ233作成)「現行のセルフサービス関連資産の棚卸し」節が、
+  同ドキュメント作成より前(フェーズ219)に実装済みだったFAQコマンド導線
+  (owner-faq-routing-design.md、`prototype/owner_faq_router.py`、「FAQ」→「Q1」〜
+  「Q6」でプラン変更・トライアル条件・解約・複数セッター利用・月間生成回数上限・
+  生成精度向上のコツの6項目を契約者がLINE上で即座に自己解決できる)を棚卸しから
+  見落としていたことを確認・訂正した。これに伴い、継続的な問い合わせ対応の削減率試算を
+  「使い方の再質問」分の削減率半分程度→大部分(3/4程度)に上方修正し(全体では約2割弱→
+  約3割の削減)、支援可能顧客数の目安も約140〜150顧客→約170顧客程度に上方修正した。
+  コード変更は無くドキュメント訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。回帰確認として
+  venture全体621件・schema検証21件(コード変更なしのため件数据え置き)いずれもパスを
+  確認した。残る2venture(kura-pasha・line-reservation-ai)の同種見直しは次回以降の
+  課題として残す。
+- 最終更新: 2026-09-21 21:00 UTC(フェーズ239: support-cost-selfservice-reduction.mdの
+  セルフサービス資産棚卸しがFAQコマンド導線〈フェーズ219実装済み〉を見落としていた点を
+  発見・訂正し、継続対応削減率試算を上方修正。コード変更は無く回帰確認のみ、venture全体
+  621件・schema検証21件いずれもパス)
