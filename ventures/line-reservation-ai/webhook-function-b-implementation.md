@@ -35,16 +35,31 @@ webhook-function-a-implementation.mdの「未実装のまま残るもの」に�
   - `intent`が`new_booking`以外の場合、`faq`(`faq_segments`付与時)は`_handle_faq()`、
     `escalation`は`_handle_escalation()`で顧客への一次返信を送ったうえで
     `EscalationConsolidator.on_event()`へ転送する(2026-08-02 11:00 UTC追加、詳細は
-    faq-escalation-customer-reply-implementation.md参照)。それ以外(単一項目faq・
-    cancel/change等)はFlowを一切呼ばず転送のみ(下記「未実装のまま残るもの」参照)。
+    faq-escalation-customer-reply-implementation.md参照)。
+    (訂正 2026-09-21 19:00 UTC: 本項目は執筆当時「それ以外(単一項目faq・cancel/change等)は
+    Flowを一切呼ばず転送のみ」としていたが誤り。単一項目faqは同日中にsingle-item-faq-schema-
+    decision.mdの方針変更で`_handle_faq()`ルートに合流済み(下記「未実装のまま残るもの」節
+    参照)。cancel/changeも同日作成のcancel-intent-handling-design.md・change-intent-
+    handling-design.mdに基づき、`_handle_cancel()`/`_handle_change()`という専用ハンドラで
+    `ConversationFlowStateMachine.cancel_booking()`/`change_booking()`を呼び、stageに応じた
+    枠解放・オーナー通知・返信文言の出し分けまで実装済みである。本節がその後の実装反映を
+    取りこぼしたまま「転送のみ」という初期設計時点の記載で残っていたcross-document parityの
+    記載漏れであり、以後このファイルで「未実装」として再掲しない)。
 
 ## テスト(`prototype/test_cloud_function_process_event.py`)
-unittest 20件、全件パス(既存のtest_engine.py 32件・test_cloud_function_webhook.py 17件も
-引き続き全件パスを確認済み、合計69件。確定操作競合時の新しい空き枠の再提示に関する
-テストは booking-conflict-candidate-representation.md 参照)。
+(訂正 2026-09-21 19:00 UTC: 本節の「unittest 20件、合計69件」は2026-08-02執筆時点の件数の
+まま更新が止まっていた記載漏れ。現時点では`test_cloud_function_process_event.py`単体128件・
+`test_engine.py`135件・`test_cloud_function_webhook.py`19件〈いずれも
+`python3 -m unittest discover -s prototype -p "<ファイル名>"`で個別確認、venture全体では
+854件に集約〉で全件パス。以下の箇条書きは初期設計時点のテスト観点の記録として残し、cancel/
+change intentの専用ハンドラに対応する現行テスト〈`CancelIntentTests`・`ChangeIntentTests`、
+stageごとの解放・通知・返信を検証〉はcancel-intent-handling-design.md・change-intent-
+handling-design.md側の記載を参照)。
 - `resolve_menu_duration()`の登録/未登録/menu欠落
 - 曖昧な日付範囲→候補提示、未登録メニュー→検索前にエスカレーション、日付の手がかりなし→聞き直し
-- cancel intent(未実装)がFlowに触れず転送されること
+- cancel intent(訂正 2026-09-21 19:00 UTC: 執筆当時は未実装でFlowに触れず転送するのみだったが、
+  現在は`_handle_cancel()`が`ConversationFlowStateMachine.cancel_booking()`を呼び出す。
+  詳細はcancel-intent-handling-design.md・`CancelIntentTests`参照)
 - 候補選択→hold→詳細入力→confirmedまでの一連の流れ、候補ラベルがhold・confirm両方の
   案内文言に一貫して反映されること
 - 特定不能な返信での再確認、氏名/メニュー不足での聞き直し
@@ -71,6 +86,15 @@ unittest 20件、全件パス(既存のtest_engine.py 32件・test_cloud_functio
   (`_represent_candidates_after_conflict()`)。検索条件のキャッシュが無い/再検索しても
   候補が0件の場合は従来通り謝罪文言のみのフォールバックを維持。詳細は
   booking-conflict-candidate-representation.md参照)
+- (解消済み 2026-08-02〈作成同日〉、記載訂正2026-09-21 19:00 UTC: 本節にはこれまで
+  cancel/change intentが「未実装のまま残るもの」として明示的には挙げられていなかったが、
+  上記「実装したもの」節・「テスト」節では「Flowを一切呼ばず転送のみ」「cancel intent(未実装)」
+  という記載が最近まで残っていた。実際にはcancel-intent-handling-design.md・change-intent-
+  handling-design.md(いずれも本ファイルと同じ2026-08-02作成)に基づき、`_handle_cancel()`・
+  `_handle_change()`という専用ハンドラが`ConversationFlowStateMachine.cancel_booking()`・
+  `change_booking()`を呼び出し、stageごとの枠解放・オーナー通知・返信文言の出し分けまで
+  実装・テスト済み〈`CancelIntentTests`・`ChangeIntentTests`〉であることを確認した。以後
+  このファイルでcancel/changeを「未実装」として再掲しない)
 - **前日リマインド(スケジューラ発火)経路との統合**: `format_reminder_message()`は
   message-tone-variants.md/`_render_by_tone()`経由で実装済みだが、Cloud Function B自体は
   Webhookイベント起点(LLM出力起点)のみを扱う設計であり、スケジューラ発火経路の呼び出し元

@@ -4377,3 +4377,39 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   反映されていなかった欠落を発見・解消。出力形式のJSONスキーマ例・付与条件の説明文を
   新設し改訂履歴に追記。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
   いずれもパス)
+- フェーズ続き258(2026-09-21 19:00 UTC定例更新): 他venture(aircon-pasha・course-set-pasha・
+  kura-pasha、いずれも直近数時間以内に前進済み)より前進が手薄になっていた本ventureを今回
+  選び、未整理の「未実装」記載の棚卸しを継続した。webhook-function-b-implementation.md
+  (2026-08-02作成、Cloud Function Bの実装記録)の「実装したもの」節・「テスト」節に、
+  「`intent`がnew_booking以外の場合…それ以外(単一項目faq・cancel/change等)はFlowを一切
+  呼ばず転送のみ」「cancel intent(未実装)がFlowに触れず転送されること」という記載が
+  作成当初のまま残っていることを発見した。実際には同日作成のcancel-intent-handling-
+  design.md・change-intent-handling-design.mdに基づき、`prototype/cloud_function_process_
+  event.py`の`_handle_cancel()`・`_handle_change()`が`ConversationFlowStateMachine.
+  cancel_booking()`・`change_booking()`を呼び出し、stageごとの枠解放・オーナー通知・
+  返信文言の出し分けまで実装済みであり(`test_cloud_function_process_event.py`の
+  `CancelIntentTests`・`ChangeIntentTests`で検証済み)、単一項目faqも同日中に
+  single-item-faq-schema-decision.mdの方針変更で`_handle_faq()`ルートに合流済みだった
+  (この点はフェーズ相当2026-08-09に一度「未実装のまま残るもの」節では訂正済みだったが、
+  「実装したもの」節・「テスト」節本文の記載は今回まで未訂正のまま残っていた)。フェーズ
+  続き247〜257と同種のcross-document parityの記載漏れ訂正であり、判定ロジック・
+  フィクスチャ自体への変更は無い。あわせて同ファイル「テスト」節の件数記載(2026-08-02
+  執筆時点の「unittest 20件・合計69件」)も現在は`test_cloud_function_process_event.py`
+  単体128件・`test_engine.py`135件・`test_cloud_function_webhook.py`19件まで増えている
+  ことを確認し、値が更新されないまま残っていた記載漏れとして訂正した(値のみの訂正で、
+  各テストファイルの実行結果自体は今回の作業前後で変化していない)。「未実装のまま残る
+  もの」節にも同種の解消記録エントリを追加し、以後cancel/changeを「未実装」として再掲
+  しない旨を明記した。コード変更は無く、回帰確認としてventure全体854件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証28件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
+  アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-21 19:00 UTC(フェーズ続き258: webhook-function-b-implementation.mdの
+  「実装したもの」節・「テスト」節が、2026-08-02作成当初のまま「cancel/changeはFlowを
+  一切呼ばず転送のみ」「cancel intent(未実装)」と記載し続けていた記載漏れを発見・訂正。
+  実際にはcancel-intent-handling-design.md・change-intent-handling-design.md準拠の
+  `_handle_cancel()`・`_handle_change()`として実装・テスト済み〈`CancelIntentTests`・
+  `ChangeIntentTests`〉だったことを確認。同節の陳腐化していたテスト件数記載(20件→現在
+  128件等)もあわせて訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証
+  28件いずれもパス)
