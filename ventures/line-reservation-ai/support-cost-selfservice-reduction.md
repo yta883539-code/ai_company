@@ -114,3 +114,21 @@ kura-pashaの削減後水準と比べても改善幅が大きい計算になる�
 - これでcourse-set-pasha・kura-pasha・line-reservation-aiの3venture(aircon-pashaを除く)
   でセルフサービス化による削減余地の再試算が出揃った。aircon-pashaへの横展開状況の確認は
   次回以降の課題として残る。
+
+## 追記(2026-09-21 11:00 UTC定例更新): aircon-pashaへの横展開状況を確認
+
+上記の残課題であった「aircon-pashaへの横展開状況の確認」について、aircon-pashaフェーズ
+244(2026-09-21 09:00 UTC定例更新)で同venture用のsupport-cost-selfservice-reduction.md
+が新規作成済みであることを確認した。これにより4venture全てでセルフサービス化による
+削減余地の再試算が出揃ったため、本項目は解消済みとする。
+
+4venture間の削減率(継続対応、2ヶ月目以降)を並べると、aircon-pasha(中央値25分→
+17.5分、約3割)・course-set-pasha(削減率は同venture側ドキュメント参照、概ね2割弱〜
+1/3程度)・kura-pasha(同、概ね2割弱程度)に対し、本venture(line-reservation-ai)の
+試算(中央値30分→15分、約半減)が最も楽観的な仮定に依存している。この差はいずれも
+「設定変更・エスカレーション相談型の問い合わせがFAQ経由でどの程度自己解決されるか」
+という未検証の内訳比率の仮定の違いによるものであり、実LINE公式アカウント接続後の
+問い合わせログ分類によって4venture共通で再検証すべき優先課題である点を明記しておく。
+コード変更は無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s
+prototype -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)
+いずれもパス(変更前と同じ結果)を確認した。
