@@ -114,7 +114,9 @@ tech-stack.md の「次のステップ候補」で挙げていた
    needs_owner_check: boolean,
    faq_segments: [{topic: "access" | "parking" | "payment" | "hours" | "menu" | "other", resolved: boolean}] | null,
    requested_date_range: {start: string, end: string} | null,
-   time_of_day_preference: "morning" | "afternoon" | "evening" | "none"}
+   time_of_day_preference: "morning" | "afternoon" | "evening" | "none",
+   escalation_reason: "consultation" | "unimplemented_feature" (省略可),
+   feature_hint: string (省略可)}
 ```
 - `faq_segments` は、厳守事項9a(店舗登録済み静的情報: access/parking/payment/hours/menuの
   いずれかに基づく回答)に該当する`intent: "faq"`では、項目数によらず(単一項目でも)
@@ -140,6 +142,23 @@ tech-stack.md の「次のステップ候補」で挙げていた
   日時の手がかりが全く読み取れない場合は両フィールドともnull/`none`のままとし、
   断定的な日付の推測はしない(6番のエスカレーション判断とは独立に、あくまで空き枠検索の
   入力補助として抽出する)。
+- `escalation_reason`・`feature_hint`は通知ログ集計画面(owner-settings-wireframe.md)向けの
+  分類用メタデータであり、`intent: "escalation"`(`needs_owner_check: true`)の応答時のみ、
+  省略せず次のいずれかを設定する(通常応答・予約系・FAQ〈9a/9b〉では両フィールドとも省略する)。
+  - 厳守事項6(予約以外の相談・医療・料金・クレーム・未登録FAQ等)に該当する場合は
+    `escalation_reason: "consultation"`とし、`feature_hint`は付与しない。
+  - 厳守事項10(前払い・デポジット決済など現時点で未提供・未実装の機能への問い合わせ)に
+    該当する場合は`escalation_reason: "unimplemented_feature"`とし、`feature_hint`に
+    問い合わせのあった機能を短い自由記述(例:「デポジット決済」「当日キャンセル料の徴収」)で
+    併せて設定する。
+  - 支払い方法FAQ(9a、店舗登録済みなら回答可)とデポジット機能(未実装)の問い合わせ、
+    ノーショー方針の説明(FAQ寄り)とキャンセル料・違約金機能(未実装)の問い合わせのように
+    紛らわしい場合の判定基準は、conversation-samples-test-cases.mdのE14・E15を参照。
+  詳細な設計根拠はnotification-log-classification-labels.md・json-output-retry-fallback.md
+  「追記(2026-07-31 09:59 UTC時点)」節を参照(2026-09-21 15:00 UTC追記: 本ファイルの
+  出力形式説明に両フィールドが反映されておらず、実LLMに渡した場合これらを出力する根拠が
+  無いまま構造化出力スキーマ・検証コード側にのみ存在するcross-document parityの記載漏れが
+  あったため解消)。
 
 ## 構造化出力を分ける理由
 - 顧客向け自然文とバックエンド処理用データを1回のLLM呼び出しで同時取得することで、
@@ -148,6 +167,19 @@ tech-stack.md の「次のステップ候補」で挙げていた
   定義した「AI単独では確定させないケース」をバックエンド側でも機械的に判定できるようにする。
 
 ## 改訂履歴
+- 2026-09-21 15:00 UTC: notification-log-classification-labels.md・json-output-retry-
+  fallback.mdで設計済みの任意フィールド`escalation_reason`/`feature_hint`が、
+  booking_output.schema.json・schema/validate_test_cases.py・conversation-samples-
+  test-cases.md(E14・E15)には反映済みだったにもかかわらず、本ファイルの出力形式
+  説明・スキーマ例には一切反映されていなかったcross-document parityの記載漏れを
+  発見・解消した。出力形式のJSONスキーマ例に両フィールドを追記し、付与条件
+  (`intent: "escalation"`時のみ、厳守事項6なら`"consultation"`、厳守事項10なら
+  `"unimplemented_feature"`+`feature_hint`)を説明文として新設した。コード変更は無く、
+  回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、変更前と同数)・schema検証(`python3 schema/validate_test_cases.py`)
+  いずれもパスを確認した。承認不要なドキュメント記載追加のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
 - 2026-09-12 16:00 UTC: E19「補足」・フェーズ続き218が残していた「メニュー・料金表を
   9a相当の自動回答対象へ含めるかどうか」を検討し(menu-pricing-faq-topic-decision.md新規
   作成)、`faq_segments`の`topic`列挙値に`"menu"`を追加した。店舗が予約フローのために既に

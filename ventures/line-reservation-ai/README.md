@@ -4347,3 +4347,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   4venture全ての削減余地再試算が出揃った旨・削減率の楽観度合いの差異をsupport-cost-
   selfservice-reduction.mdに追記。コード変更は無く回帰確認のみ、venture全体854件・
   schema検証28件いずれもパス)
+- フェーズ続き257(2026-09-21 15:00 UTC定例更新): 他3venture(aircon-pasha 13:00 UTC・
+  course-set-pasha 14:00 UTC・kura-pasha 12:00 UTC)より前進が手薄になっていた本ventureを
+  今回選び、llm-system-prompt-draft.md(本venture唯一の「統合したLLMシステムプロンプト
+  草案」で、booking_output.schema.json自身が「本ファイルの出力形式を統合したもの」と
+  説明している中核ドキュメント)を棚卸しした結果、実質的な記載漏れを発見・解消した。
+  notification-log-classification-labels.md(フェーズ相当、2026-07-31作成)・json-output-
+  retry-fallback.md「追記(2026-07-31 09:59 UTC時点)」節で設計済みの任意フィールド
+  `escalation_reason`/`feature_hint`が、booking_output.schema.json・schema/validate_
+  test_cases.py・conversation-samples-test-cases.md(E14・E15)には反映済みだったにも
+  かかわらず、肝心のllm-system-prompt-draft.md本文(出力形式のJSONスキーマ例・説明文)には
+  一度も反映されていなかった。これは単なる記載の後追い漏れ(これまでの多くのフェーズが
+  対象としてきた「別ドキュメントで先に結論化され、参照元の記載更新のみ取り残されていた」
+  型)ではなく、実際にこのプロンプトをLLMへ投入した場合、モデルが`escalation_reason`/
+  `feature_hint`を出力すべき根拠がプロンプト側に一切存在しないまま検証コード側だけが
+  これらフィールドを期待するという、実LLM接続時に即座に問題化しうる欠落だった点で、
+  従来のパリティ訂正フェーズより実害の大きい発見だった。出力形式のJSONスキーマ例に
+  両フィールドを追記し、付与条件(`intent: "escalation"`時のみ、厳守事項6相当なら
+  `"consultation"`、厳守事項10相当なら`"unimplemented_feature"`+`feature_hint`、
+  支払い方法FAQ vs デポジット機能等の紛らわしい境界ケースはE14・E15参照)を新設の
+  説明文として明記し、改訂履歴にも追記した。コード変更は無く、回帰確認としてventure
+  全体854件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・
+  schema検証28件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認不要なドキュメント記載追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 15:00 UTC(フェーズ続き257: booking_output.schema.json自身が
+  「llm-system-prompt-draft.mdの出力形式を統合したもの」と説明しているにもかかわらず、
+  肝心の同ファイルには`escalation_reason`/`feature_hint`フィールドの出力指示が一度も
+  反映されていなかった欠落を発見・解消。出力形式のJSONスキーマ例・付与条件の説明文を
+  新設し改訂履歴に追記。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
+  いずれもパス)
