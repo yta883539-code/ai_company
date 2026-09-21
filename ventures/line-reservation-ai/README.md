@@ -4304,8 +4304,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   承認不要なドキュメント記載漏れの解消のみで、外部サービスへの公開・アカウント作成・
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。次回は他venture・
   アイデア領域の前進を優先候補とする。
-- 最終更新: 2026-09-21 02:00 UTC(フェーズ続き254: owner-operation-self-service-faq.mdの
-  「オンボーディング完了メッセージへのリンク追記は見送り、残課題」という記載が、実際には
-  2026-09-17時点で「FAQ」コマンド案内の追記という形で解消済みだったcross-document parity
-  の記載漏れを発見・訂正。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
-  いずれもパス)
+- フェーズ続き255(2026-09-21 07:00 UTC定例更新): course-set-pasha(フェーズ233)・
+  kura-pasha(フェーズ152)のみが着手済みで本ventureに横展開されていなかった
+  「サポート対応のセルフサービス化によるコスト削減余地の定量的な再試算」に着手し、
+  support-cost-selfservice-reduction.mdを新規作成した。owner-operation-self-service-
+  faq.md(Q1〜Q6)・owner-faq-routing-design.md(コマンド応答導線)・onboarding-
+  completion-message-design.md(導線案内)の既存資産を棚卸しし、support-cost-
+  estimate.mdの(a)オンボーディング30〜50分のうち「料金・トライアル説明」「ボット応答
+  挙動説明」の計15〜25分、(b)継続対応(月10〜60分)のうち「設定変更」「エスカレー
+  ション相談」型がFAQで概ね自己解決可能になると仮定し、(a)は30〜50分→15〜25分程度
+  (概ね半減)、(b)は中央値30分→15分程度(概ね半減)に圧縮できる可能性があると試算した。
+  本venture固有の(a)-3(ボット応答挙動の説明)にちょうどQ5が対応する分、course-set-
+  pasha(約1/3削減)・kura-pashaより削減率が大きい仮定になっている点は要検証と明記した。
+  コード変更は無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認不要なドキュメント新規作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回はaircon-pashaへの横展開状況確認、または他
+  venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-21 07:00 UTC(フェーズ続き255: course-set-pasha・kura-pashaのみ
+  着手済みだった「サポート対応セルフサービス化によるコスト削減余地の定量的な再試算」を
+  本ventureにも横展開し、support-cost-selfservice-reduction.mdを新規作成。既存FAQ資産
+  (Q1〜Q6・コマンド応答導線)により(a)オンボーディング30〜50分→15〜25分、(b)継続対応
+  中央値30分→15分程度に圧縮できる可能性があると試算〈概ね半減、要検証〉。コード変更は
+  無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
