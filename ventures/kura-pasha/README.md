@@ -3204,3 +3204,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   5節・11節の招待コードフローを顧客向けに言い換え、owner-operation-self-service-
   faq.mdにQ9として追加。support-cost-selfservice-reduction.mdの残課題1点を解消。
   コード変更は無く回帰確認のみ、venture全体103件・schema検証32件いずれもパス)
+- フェーズ155(2026-09-21 12:00 UTC定例更新): 4venture全て(course-set-pasha
+  フェーズ233・kura-pashaフェーズ152・aircon-pashaフェーズ244・line-reservation-ai
+  フェーズ続き255〜256)でsupport-cost-selfservice-reduction.mdの削減率試算が出揃った
+  ものの、cross-venture-support-cost-comparison.md(フェーズ123、初回サポートコスト
+  試算の横断比較)に相当する専用の比較ドキュメントがまだ無く、line-reservation-ai
+  フェーズ続き256の4venture比較コメントが自ドキュメント内の追記に留まっていた
+  cross-document parityのギャップを発見した。cross-venture-support-selfservice-
+  reduction-comparison.mdを新規作成し、4venture分の継続対応削減率(course-set-pasha
+  2割弱・kura-pasha契約者譲渡1/3程度/複数職人招待3〜4割・aircon-pasha約3割・
+  line-reservation-ai約半減)を1つの比較表に集約した。削減率の楽観度合いに約2倍の
+  開きがあること、kura-pashaのみ「フロー自体の自動化」(FAQでなく)を削減手段の
+  主軸に据えている点が他3venture(FAQ・案内文書中心)と質的に異なることを観察として
+  整理した。各venture固有の試算の前提・計算根拠自体は変更していない。コード変更は
+  無く、回帰確認としてventure全体103件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証32件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(変更前と同じ結果)を確認した。承認不要な新規ドキュメント作成のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-21 12:00 UTC(フェーズ155: cross-venture-support-selfservice-
+  reduction-comparison.mdを新規作成し、4venture分のセルフサービス化削減率試算を
+  1つの比較表に集約。削減率の楽観度合いの開き・kura-pasha固有の「フロー自動化」
+  主軸の違いを観察として整理。コード変更は無く回帰確認のみ、venture全体103件・
+  schema検証32件いずれもパス)
