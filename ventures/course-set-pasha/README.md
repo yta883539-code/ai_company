@@ -3505,3 +3505,24 @@
   構成をchatbot-first-response-feasibility.mdとして検討。LLMによる意図分類+定型回答方式を
   第一候補と結論。コード変更は無く回帰確認のみ、prototype全605件・schema検証21件いずれも
   パス)
+- フェーズ235(2026-09-21 06:00 UTC定例更新): フェーズ234(chatbot-first-response-
+  feasibility.md)が次回以降の課題として残していた2点、(1)意図分類プロンプトの具体的
+  設計、(2)FAQ非該当〈`other_needs_human`〉判定時のエスカレーション導線(運営者通知
+  方法)に着手した。chatbot-intent-classification-escalation-design.mdを新規作成し、
+  分類カテゴリ(`post_generation_request`/`faq_pricing`/`faq_howto`/`faq_cancel_change`/
+  `other_needs_human`)を定義するとともに、「投稿文生成依頼らしき内容を最優先」「FAQか
+  エスカレーションか迷った場合はエスカレーション側へ倒す」というフェイルセーフの優先順位
+  を明文化した。エスカレーション通知は、payment-suspension-owner-notification-design.md
+  が確立した`OWNER_LINE_USER_ID_PLACEHOLDER`宛の固定送信先・通知文言パターンを踏襲しつつ、
+  日次バッチ的な冪等性フラグではなくメッセージ受信時点での即時・都度通知とする設計とした。
+  実装・実LLM呼び出し・実LINE接続は行わない机上設計にとどめた。コード変更は無く、回帰
+  確認としてventure全体605件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回は
+  `faq_intent_to_code()`マッピング層・エスカレーション通知送信ヘルパーの実装、または
+  他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-21 06:00 UTC(フェーズ235: チャットボット一次受付の意図分類カテゴリ・
+  フェイルセーフ優先順位・エスカレーション通知〈運営者宛、即時・都度通知〉をchatbot-
+  intent-classification-escalation-design.mdとして設計。コード変更は無く回帰確認のみ、
+  prototype全605件・schema検証21件いずれもパス)
