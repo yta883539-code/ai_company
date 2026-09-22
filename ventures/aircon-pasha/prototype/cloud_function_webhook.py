@@ -720,6 +720,11 @@ def format_reply_text(
         return render_subscription_procedure_notice(
             instance["subscription_procedure_notice"], portal_link_provider, user_id
         )
+    if status in ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear"):
+        # checkout_notice.includes_checkout_urlは厳守事項6b(i)によりkindによらず常にfalseの
+        # ため(schema/output.schema.json参照)、subscription_procedure_noticeのような
+        # includes_portal_link分岐・URL解決は不要でbodyをそのまま返せばよい。
+        return instance["checkout_notice"]["body"]
     raise ValueError(f"unexpected status: {status!r}")
 
 

@@ -3972,7 +3972,28 @@
   schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
   ドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
   今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-09-22 02:00 UTC(フェーズ248: support-cost-selfservice-reduction.mdの
-  「残る他venture」残課題を棚卸しし、course-set-pashaは既に訂正済み〈フェーズ239〉、
-  kura-pasha・line-reservation-aiは元々食い違いが無かったことを確認して解消済みに更新。
-  コード変更は無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
+- フェーズ249(2026-09-22 06:00 UTC定例更新): course-set-pashaフェーズ241で発見・修正された
+  「厳守事項6b(有料プラン開始意図検知、2026-09-12追加)のstatus enum(checkout_intent/
+  pricing_inquiry/checkout_intent_unclear)がformat_reply_text()に配線されておらず、実際に
+  発生するとValueErrorになる」という同種バグが、同じ命名・設計を踏襲した本venture
+  (schema/output.schema.jsonのcheckout_notice、prototype/cloud_function_webhook.py)にも
+  存在していないか確認したところ、同様に未配線のまま残っていたことを発見・修正した。
+  `format_reply_text()`にstatus in ("checkout_intent", "pricing_inquiry",
+  "checkout_intent_unclear")の分岐を追加し、`checkout_notice.body`をそのまま返す実装とした
+  (`includes_checkout_url`は厳守事項6b(i)によりkindによらず常にfalseのため、
+  subscription_procedure_noticeのようなポータルURL解決処理は不要と判断)。
+  schema/validate_test_cases.pyには既にCO1〜CO3のフィクスチャが存在していたが
+  prototype側のテストからは一度も参照されていなかったため、`ProcessMemoEventCheckoutFlowTest`
+  を新設しCO1(checkout_intent)・CO2(pricing_inquiry)・CO3(checkout_intent_unclear)の
+  3ケースについてreply_textがcheckout_notice.bodyと一致することを確認するテスト、および
+  cancellation系と同様usage_counterがインクリメントされないことを確認するテストを追加した
+  (4件新規、515件→519件)。回帰確認としてventure全体519件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認不要なバグ修正・
+  テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 06:00 UTC(フェーズ249: course-set-pashaフェーズ241と同種の
+  status enum未配線バグ〈checkout_intent/pricing_inquiry/checkout_intent_unclearが
+  format_reply_text()で未処理、実際に発生するとValueError〉を本ventureでも発見・修正。
+  checkout_notice.bodyをそのまま返す分岐を追加、テスト4件新規追加〈515件→519件〉。
+  回帰確認としてventure全体519件・schema検証25件いずれもパス)
