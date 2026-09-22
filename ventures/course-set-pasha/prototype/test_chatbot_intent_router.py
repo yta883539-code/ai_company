@@ -13,10 +13,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from chatbot_intent_router import (  # noqa: E402
     CHATBOT_INTENT_VALUES,
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     append_faq_followup_hint,
     faq_intent_to_code,
     format_chatbot_escalation_notification_message,
     render_chatbot_faq_response_message,
+    route_chatbot_intent,
     send_chatbot_escalation_notification,
 )
 from owner_faq_router import (  # noqa: E402
@@ -147,6 +149,69 @@ class SendChatbotEscalationNotificationTest(unittest.TestCase):
         self.assertEqual(len(push.sent), 2)
         self.assertIn("1件目の相談", push.sent[0][1])
         self.assertIn("2件目の相談", push.sent[1][1])
+
+
+class RouteChatbotIntentTest(unittest.TestCase):
+    def test_post_generation_request_appends_hint(self) -> None:
+        result = route_chatbot_intent(
+            "post_generation_request", generation_reply_text="生成した投稿文本文"
+        )
+        self.assertEqual(result, append_faq_followup_hint("生成した投稿文本文"))
+
+    def test_post_generation_request_without_text_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            route_chatbot_intent("post_generation_request")
+
+    def test_faq_pricing_returns_faq_answer(self) -> None:
+        self.assertEqual(
+            route_chatbot_intent("faq_pricing"),
+            render_chatbot_faq_response_message("faq_pricing"),
+        )
+
+    def test_faq_howto_returns_full_menu(self) -> None:
+        self.assertEqual(
+            route_chatbot_intent("faq_howto"),
+            render_chatbot_faq_response_message("faq_howto"),
+        )
+
+    def test_faq_cancel_change_returns_faq_answer(self) -> None:
+        self.assertEqual(
+            route_chatbot_intent("faq_cancel_change"),
+            render_chatbot_faq_response_message("faq_cancel_change"),
+        )
+
+    def test_other_needs_human_notifies_owner_and_replies_to_customer(self) -> None:
+        push = InMemoryLinePushClient()
+        result = route_chatbot_intent(
+            "other_needs_human",
+            user_id="u1",
+            memo_text="なんかいつもと違う気がする",
+            push_client=push,
+        )
+
+        self.assertEqual(result, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+        self.assertEqual(push.sent[0][0], OWNER_LINE_USER_ID_PLACEHOLDER)
+        self.assertIn("なんかいつもと違う気がする", push.sent[0][1])
+
+    def test_other_needs_human_replies_to_customer_even_if_notification_fails(
+        self,
+    ) -> None:
+        # design 3節: 通知の成否にかかわらず、顧客への無応答は避ける。
+        result = route_chatbot_intent(
+            "other_needs_human",
+            user_id="u1",
+            memo_text="困っています",
+            push_client=_FailingLinePushClient(),
+        )
+        self.assertEqual(result, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+
+    def test_other_needs_human_missing_args_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            route_chatbot_intent("other_needs_human")
+
+    def test_unknown_intent_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            route_chatbot_intent("not_a_real_intent")
 
 
 if __name__ == "__main__":

@@ -3613,3 +3613,30 @@
   セルフサービス資産棚卸しがFAQコマンド導線〈フェーズ219実装済み〉を見落としていた点を
   発見・訂正し、継続対応削減率試算を上方修正。コード変更は無く回帰確認のみ、venture全体
   621件・schema検証21件いずれもパス)
+- フェーズ240(2026-09-22 01:00 UTC定例更新): chatbot-intent-classification-escalation-
+  design.md 3節「顧客への応答との関係」・4節残課題に残っていた、分類結果(intent)を
+  受け取って`faq_intent_to_code()`・`render_chatbot_faq_response_message()`・
+  `append_faq_followup_hint()`・`send_chatbot_escalation_notification()`という
+  個別検証済みの4ヘルパーを実際に振り分ける入口の関数が未実装だった点に対応した。
+  prototype/chatbot_intent_router.pyに`route_chatbot_intent()`を新規実装し、
+  `post_generation_request`(generation_reply_text必須、append_faq_followup_hint()を
+  適用)・FAQ系3分類(render_chatbot_faq_response_message()をそのまま返す)・
+  `other_needs_human`(send_chatbot_escalation_notification()で運営者へ即時通知した上で、
+  3節が定める顧客向け定型応答を返す)の分岐を実装した。3節で文言化されていなかった
+  顧客向け定型応答(「担当者が内容を確認しご連絡します」旨)を
+  `OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`として新規に文言化した。運営者への通知が
+  失敗した場合でも顧客への無応答は避ける(3節の趣旨)ため、通知の送信成否に関わらず
+  同じ定型応答を返す設計とした。いずれのヘルパーの内部ロジックも変更していない。
+  test_chatbot_intent_router.pyにテスト9件を新規追加(621件→630件)、chatbot-intent-
+  classification-escalation-design.md 4節の該当残課題箇所に対応済みの取り消し線を付けた。
+  実LLMによる意図分類自体、および本関数を実際のWebhookハンドラから呼び出す結線は
+  引き続き実LLM接続(オーナー承認待ち)後の課題として残る。回帰確認としてventure全体
+  630件(`python3 -m unittest discover -s prototype -p "test_*.py"`、621件→630件)・
+  schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認不要なコード追加・テスト追加・ドキュメント記載更新のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 01:00 UTC(フェーズ240: chatbot-intent-classification-escalation-
+  design.mdの残課題だった分類後の振り分け入口をprototype/chatbot_intent_router.pyの
+  `route_chatbot_intent()`として実装。other_needs_human時の顧客向け定型応答も新規に
+  文言化。テスト9件追加(621件→630件)、schema検証21件は変更なしでいずれもパス)

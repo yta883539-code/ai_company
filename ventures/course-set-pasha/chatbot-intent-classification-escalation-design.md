@@ -118,3 +118,15 @@ payment-suspension-owner-notification-design.mdが確立した「顧客(ボル�
   未着手。line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
   mapping.md`)が中核機能として存在するため、本ドキュメントの「FAQ一次受付」という
   論点自体が本ventureほど独立した検討課題にならない可能性がある(要確認)。
+- ~~`faq_intent_to_code()`・`render_chatbot_faq_response_message()`・
+  `append_faq_followup_hint()`・`send_chatbot_escalation_notification()`は個別に
+  実装・検証済みだが、分類結果(intent)を受け取ってこれらを振り分け、3節「顧客への
+  応答との関係」が定める`other_needs_human`時の顧客向け定型応答(「担当者が内容を
+  確認しご連絡します」旨)まで含めて1つの返信文を組み立てる入口の関数が未実装。~~
+  → フェーズ240で`prototype/chatbot_intent_router.py`に`route_chatbot_intent()`
+  として実装済み(テスト9件、`test_chatbot_intent_router.py`)。5分類それぞれを
+  既存ヘルパーへディスパッチするのみで各ヘルパーの内部ロジックは変更していない。
+  `other_needs_human`時は運営者への即時通知(送信成否に関わらず)と、3節が定める
+  顧客向け定型応答(`OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`として新規に文言化)を
+  返す。呼び出し元(実LLM接続後のWebhookハンドラ本体)からの実結線は引き続き
+  未着手。

@@ -153,6 +153,61 @@ def send_chatbot_escalation_notification(
     return True
 
 
+# design 3節「顧客への応答との関係」: other_needs_human判定時も無応答のまま放置せず、
+# 顧客自身には定型の受付応答を返す(運営者宛のCHATBOT_ESCALATION_NOTIFICATION_TEMPLATEとは
+# 別の、顧客向け文面)。
+OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT = (
+    "お問い合わせありがとうございます。担当者が内容を確認しご連絡しますので、"
+    "少々お待ちください。"
+)
+
+
+def route_chatbot_intent(
+    intent: str,
+    *,
+    generation_reply_text: Optional[str] = None,
+    user_id: Optional[str] = None,
+    memo_text: Optional[str] = None,
+    push_client: Optional[LinePushClient] = None,
+    owner_line_user_id: str = OWNER_LINE_USER_ID_PLACEHOLDER,
+) -> str:
+    """分類結果(`intent`)を受け取り、`_reply_with_retry()`等の既存の顧客への返信経路に
+    そのまま渡せる最終的な返信文を1本にまとめる、分類「後」の配線の入口。
+
+    これまで個別に検証済みだった以下3つのヘルパーを、design.mdが定める5分類それぞれの
+    扱いに沿ってディスパッチするのみで、いずれのヘルパーの内部ロジックも変更しない。
+
+    - `post_generation_request`: 投稿文生成本体(実LLM接続がオーナー承認待ちのため
+      本モジュールの対象外)が組み立てた`generation_reply_text`を必須引数として受け取り、
+      `append_faq_followup_hint()`を適用して返す。
+    - `faq_pricing`/`faq_howto`/`faq_cancel_change`: `render_chatbot_faq_response_message()`
+      をそのまま返す。
+    - `other_needs_human`: `send_chatbot_escalation_notification()`で運営者へ即時通知した
+      上で(`push_client`必須)、顧客には`OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`を返す。
+      通知の送信成否(戻り値のbool)はログ・監視目的で呼び出し元に判断を委ね、本関数は
+      通知の成否にかかわらず同じ定型応答を顧客に返す(design 3節が「無応答のまま放置
+      しない」ことを主眼としているため、通知送信の失敗を理由に顧客への応答を変えない)。
+    """
+    if intent == "post_generation_request":
+        if generation_reply_text is None:
+            raise ValueError(
+                "post_generation_requestにはgeneration_reply_textが必須です"
+            )
+        return append_faq_followup_hint(generation_reply_text)
+    if intent in _CHATBOT_INTENT_TO_FAQ_CODE or intent == "faq_howto":
+        return render_chatbot_faq_response_message(intent)
+    if intent == "other_needs_human":
+        if user_id is None or memo_text is None or push_client is None:
+            raise ValueError(
+                "other_needs_humanにはuser_id・memo_text・push_clientが必須です"
+            )
+        send_chatbot_escalation_notification(
+            user_id, memo_text, push_client, owner_line_user_id=owner_line_user_id
+        )
+        return OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT
+    raise ValueError(f"未知の分類値です: {intent!r}")
+
+
 def _demo() -> None:
     from trial_end_scheduler import InMemoryLinePushClient
 
