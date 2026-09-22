@@ -42,11 +42,18 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
      手順1で友だち追加したLINEアカウントの`user_id`がその工房の契約者(代表)として
      紐付けられる(craftsman-account-linking-design.md 2節)。この時点ではpricing-plan.mdの
      無料トライアル条件(30日間、trial-end-condition-design.md)に従い課金は発生しない。
-   - 複数職人プランを想定する場合、代表者以外の職人分のLINE友だち追加・連携コード入力を
-     追加で行うことで同一workshopに参加できる想定だが、代表者以外の職人を追加登録する
-     具体的な手順(2人目以降の連携コード発行・workshopへの合流方法)はcraftsman-
-     account-linking-design.md未確定のまま残っており、本ガイドでもその前提のまま
-     「次のステップ候補」に送る(下記参照)。
+   - 複数職人プランを想定する場合、代表者以外の職人分のLINE友だち追加・招待コード入力を
+     追加で行うことで同一workshopに参加できる(craftsman-account-linking-design.md
+     5節・11.1〜11.4節参照)。具体的には、代表者がLINEトーク上で「職人を追加したい」等の
+     意思表示をすると招待コードが発行され、代表者が追加したい職人へ転送する。追加される
+     職人が本venture用LINE公式アカウントを友だち追加したうえで招待コードを送ると、
+     手順1の新規workshop作成用コードとは別の解決ロジックにより既存workshopへ合流する
+     (`prototype/workshop_linking.py`・`cloud_function_webhook.py`として実装・テスト
+     済み。契約者を含め5名を暫定上限とする〈craftsman-account-linking-design.md
+     11.7節〉)。本項目は2026-09-22 20:00 UTC時点でonboarding-guide.md作成(フェーズ96)
+     当時は「次のステップ候補」として残っていたが、その後craftsman-account-linking-
+     design.mdのフェーズ97〜104で設計・実装とも解消済みであり、本ガイドの記載が
+     追いついていなかった(cross-document parityの記載漏れ)ため今回訂正した。
 
 3. **接続テスト・試験生成**
    代表者が、実際の受注を模した簡単なメモ(例:「テスト、区分: 新規制作、ブリティッシュ鞍、
@@ -93,9 +100,6 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
 
 ## 次のステップ候補
 
-- 手順2で触れた「代表者以外の職人を同一workshopに追加登録する具体的な手順」を
-  craftsman-account-linking-design.mdの更新として設計する(2人目以降の連携コード発行方式、
-  または代表者による招待コード発行方式のいずれを採るか)。
 - 手順1のLINE公式アカウント連携手順について、スクリーンショット付きの詳細な手順書を
   作成する(実LINE API接続着手時(オーナー承認待ち)にあわせて着手するのが効率的。
   aircon-pasha・course-set-pasha・line-reservation-aiの同種課題と合わせて着手できる)。

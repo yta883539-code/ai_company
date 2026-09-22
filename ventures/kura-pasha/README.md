@@ -3416,3 +3416,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   内容・本venture固有の設計判断であり実装漏れではないことを確認。ファイル名比較の
   false positiveリスクを記録し、今後の監査手順に対応関係表を残した。コード変更は
   無く回帰確認のみ、venture全体127件・schema検証32件いずれもパス)
+- フェーズ163(2026-09-22 20:00 UTC定例更新): onboarding-guide.md(フェーズ96作成)
+  手順2・「次のステップ候補」に残っていた「代表者以外の職人を同一workshopに追加登録する
+  具体的な手順(2人目以降の連携コード発行・workshopへの合流方法)はcraftsman-
+  account-linking-design.md未確定のまま」という記載が、実際にはその後のフェーズ97〜104
+  (craftsman-account-linking-design.md 5節・11.1〜11.4節、招待コード〈
+  pending_workshop_invites〉の発行・解決・workshop合流のロジック)で設計・実装・
+  テストとも解消済みであるにもかかわらず7日以上未反映のまま取り残されていた
+  cross-document parityの記載漏れを発見した。onboarding-guide.md手順2に、代表者による
+  招待コード発行(「職人を追加したい」の意思表示→招待コード発行→転送)、追加される
+  職人がLINE友だち追加後に招待コードを送ると既存workshopへ合流する流れ、契約者含め
+  5名の暫定上限(フェーズ102)を実装済みの内容として追記し、「次のステップ候補」から
+  当該項目を削除した。実装コード自体への変更は無く、回帰確認としてventure全体687件
+  (`python3 prototype/run_all_tests.py`、15ファイル全件)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 20:00 UTC(フェーズ163: onboarding-guide.mdの「次のステップ候補」に
+  7日以上残っていた「代表者以外の職人の追加登録手順は未確定」という記載が、実際には
+  フェーズ97〜104(招待コード方式)で解消済みだったcross-document parityの記載漏れを
+  発見・訂正。実装済みの招待コードフローを手順2に反映し、該当の次のステップ候補項目を
+  削除。コード変更は無く回帰確認のみ、venture全体687件・schema検証32件いずれもパス)
