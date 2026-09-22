@@ -104,13 +104,20 @@
     している方向性と整合するが、下書き生成サービス自体の単価水準を裏付けるものではなく、
     あくまで隣接領域からの傍証に留まる。単価水準そのものの確定には引き続き実際の管理会社・
     独立系業者へのヒアリング(オーナー承認待ち)が必要という結論は変わらない。
-  - (4)示唆への対応(2026-09-14 13:00 UTC、一部解消): 管理会社向け出力バリエーションの
-    MVP設計をbtob-management-company-report-variant-design.mdとして作成した。出力1の
-    宛先(recipient)を`tenant`/`management_company`で区別し、管理会社向けは文体を事務的な
-    ものに変更のうえ「通常損耗か否かの判定は行っていない」旨の固定ボイラープレートを
-    必ず付す方針とし、厳守事項1・2との整合も確認した。ただしschema/output.schema.json・
-    llm-system-prompt-draft.mdへの正式な反映、出力2(お手入れ案内)の管理会社宛での扱いは
-    未着手のまま次回以降の課題として残る(詳細は同ドキュメント「未反映の実装項目」参照)。
+  - (4)示唆への対応(2026-09-14 13:00 UTC作成、2026-09-22 19:00 UTC・フェーズ251で解消済みへ
+    訂正): 管理会社向け出力バリエーションのMVP設計をbtob-management-company-report-variant-
+    design.mdとして作成した。出力1の宛先(recipient)を`tenant`/`management_company`で区別し、
+    管理会社向けは文体を事務的なものに変更のうえ「通常損耗か否かの判定は行っていない」旨の
+    固定ボイラープレートを必ず付す方針とし、厳守事項1・2との整合も確認した。当初(作成時点)は
+    「schema/output.schema.json・llm-system-prompt-draft.mdへの正式な反映、出力2(お手入れ
+    案内)の管理会社宛での扱いは未着手のまま次回以降の課題として残る」と記載していたが、実際
+    にはその後同日中のフェーズ217(2026-09-14 15:00 UTC)・フェーズ218(同16:00 UTC)で
+    いずれも解消済みだった(schema/output.schema.jsonの`completion_report`への`recipient`・
+    `includes_liability_determination`追加、llm-system-prompt-draft.mdへの厳守事項9新設、
+    出力2は宛先にかかわらず入居者向けと同一内容のまま生成する方針の確定)。本ドキュメント側の
+    この箇条書きの更新のみが取り残されていたcross-document parityの記載漏れであり、本フェーズ
+    (251)で事後訂正する。詳細はbtob-management-company-report-variant-design.md「未反映の
+    実装項目」・README.mdフェーズ217・218参照。
   - 残る未検証事項: 実際に個人事業主が管理会社との提携を新規開拓した実例・成功率、
     複数戸一括契約の単価・頻度は、実際の管理会社・独立系業者へのヒアリング(オーナー
     承認待ち事項、pending-approval.md参照)なしには確認できない。

@@ -4022,3 +4022,31 @@
   反映されていない〉を本ventureでも発見・訂正。CI4・CI5/CO4・CO5の表・ケース数記載漏れも
   あわせて訂正し、llm-quality-verification-results-template.mdにCI4〜CI5・CO1〜CO5の
   記録表を追加。コード変更は無く回帰確認のみ、venture全体519件・schema検証25件いずれもパス)
+- フェーズ251(2026-09-22 15:00 UTC定例更新): market-research.md「未検証事項(次回以降の
+  課題)」(4)の記載を棚卸しした。本項目は2026-09-14 13:00 UTC(btob-management-company-
+  report-variant-design.md作成時点)の記述のまま「schema/output.schema.json・llm-system-
+  prompt-draft.mdへの正式な反映、出力2(お手入れ案内)の管理会社宛での扱いは未着手のまま
+  次回以降の課題として残る」としていたが、実際にはその同日中のフェーズ217
+  (2026-09-14 15:00 UTC)・フェーズ218(同16:00 UTC)でいずれも解消済みだったことを
+  確認した。schema/output.schema.jsonの`completion_report`に`recipient`
+  (`tenant`/`management_company`)・`includes_liability_determination`が追加済みで
+  あること、llm-system-prompt-draft.mdに厳守事項9(管理会社・オーナー宛の文体・固定
+  ボイラープレート)が新設済みであること、出力2(care_guide)は宛先にかかわらず入居者向けと
+  同一内容のまま生成する方針が確定済みで`recipient`相当のフィールド追加が不要と判断されて
+  いることをそれぞれのファイルで直接確認した。btob-management-company-report-variant-
+  design.md自身の「未反映の実装項目」節・llm-system-prompt-draft.md「次の課題」節には
+  フェーズ217・218当時から解消済みの記録が残っていたが、この論点の出所である
+  market-research.md側の該当箇条書きだけが更新されずに8日近く取り残されていた
+  cross-document parityの記載漏れであり、本フェーズで発見・事後訂正した。実装内容自体への
+  変更は無い。コード変更は無く、回帰確認としてventure全体519件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回は他venture・アイデア領域の
+  前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-22 15:00 UTC(フェーズ251: market-research.mdの未検証事項(4)が、
+  実際にはフェーズ217・218〈同2026-09-14中〉で解消済みだった「schema/output.schema.json・
+  llm-system-prompt-draft.mdへの正式な反映、出力2の管理会社宛での扱い」を「未着手のまま
+  次回以降の課題」と誤記したまま取り残されていたcross-document parityの記載漏れを発見・
+  訂正。実装内容自体への変更は無く回帰確認のみ、venture全体519件・schema検証25件いずれも
+  パス)
