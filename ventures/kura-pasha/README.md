@@ -3301,3 +3301,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   11.3節・11.4節に残っていた「member_user_ids上限数は未着手」という記載が、実際には
   11.7節〈フェーズ102〉で5名上限として決定・実装済みだった記載漏れを発見・訂正。
   コード変更は無く回帰確認のみ、venture全体127件・schema検証32件いずれもパス)
+- フェーズ159(2026-09-22 04:00 UTC定例更新): support-cost-selfservice-reduction.md
+  (フェーズ152)「残課題」に残っていた「他venture(aircon-pasha・line-reservation-ai)
+  については両ventureでの同種の検討は未着手のまま残る」という記載が、実際には
+  aircon-pashaフェーズ244(2026-09-21 09:00 UTC)・line-reservation-aiフェーズ続き
+  255〜256(同日10:00〜11:00 UTC)で両venture固有のsupport-cost-selfservice-
+  reduction.mdが既に作成済みであり、さらにフェーズ155(同日12:00 UTC)でcross-
+  venture-support-selfservice-reduction-comparison.mdとして4venture分の横断比較
+  まで完了済みだった記載漏れを発見・訂正した。本項目はフェーズ152作成時点では
+  正しかったが、その後の他venture側の前進(フェーズ152より後)に記載更新が追いついて
+  いなかったもの。コード変更は無く、回帰確認としてventure全体127件(`python3
+  -m unittest discover -s prototype -p "test_*.py"`)・schema検証32件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な既存ドキュメントの記載訂正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 04:00 UTC(フェーズ159: support-cost-selfservice-
+  reduction.mdの残課題に残っていた「aircon-pasha・line-reservation-aiは両venture
+  未着手」という記載が、実際にはフェーズ152より後の両venture側の前進(フェーズ244・
+  続き255〜256)とフェーズ155の横断比較により既に解消済みだった記載漏れを発見・
+  訂正。コード変更は無く回帰確認のみ、venture全体127件・schema検証32件いずれも
+  パス)

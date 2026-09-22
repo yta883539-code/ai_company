@@ -93,6 +93,13 @@ support-cost-estimate.mdの内訳(単一プラン15〜30分、複数職人プラ
   接続・実顧客対応後の問い合わせ内容ログでの再検証が必要(support-cost-estimate.md
   と同じ制約)。特に契約者譲渡は発生頻度自体が年数件程度と低いため、効果測定には
   他項目より長期間のデータ蓄積が必要になる見込み。
-- 他venture(aircon-pasha・line-reservation-ai)については、course-set-pasha・
+- ~~他venture(aircon-pasha・line-reservation-ai)については、course-set-pasha・
   本ventureで各々の固有事情に応じた検討が完了したが、両ventureでの同種の検討は
-  未着手のまま残る。
+  未着手のまま残る。~~
+  → aircon-pasha(フェーズ244、2026-09-21 09:00 UTC)・line-reservation-ai
+  (フェーズ続き255〜256、2026-09-21 10:00〜11:00 UTC)で各々のsupport-cost-
+  selfservice-reduction.mdが既に作成済みであることを確認した(フェーズ155で
+  cross-venture-support-selfservice-reduction-comparison.mdとして4venture分を
+  横断比較済み)。本項目作成時点(フェーズ152)ではまだ両venture未着手だったが、
+  その後の他venture側の前進により既に解消済みであり、本ドキュメントの記載更新が
+  追いついていなかった記載漏れだった。対応済み(フェーズ159で訂正)。
