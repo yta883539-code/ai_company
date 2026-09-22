@@ -562,4 +562,36 @@ validate_test_cases.py`)いずれも変更前と同じ結果でパスするこ�
 `LlmCallClient.generate()`への文脈注入経路の実装・`process_message_event()`/
 `process_memo_event()`の`select_message_context()`経由への配線を優先候補とする。
 
+## 11.11 追記(フェーズ160): format_reply_text()へのworkshop_invite_request配線漏れを発見・修正
+
+course-set-pashaフェーズ241(2026-09-22 05:00 UTC)が「schema statusにフィールドを追加した
+まま返信文組み立て関数への配線を忘れる」バグ(status=checkout_intent等が`ValueError`に
+落ちて契約者への返信が失敗する)を発見・修正した際、「他venture(kura-pasha・
+line-reservation-ai・aircon-pasha)にも同種の配線漏れが無いか横断確認することも次回以降の
+課題としたい」と申し送っていた件について、本venture分を確認した。
+
+11.5節(フェーズ100)で`status`enumへ追加した`workshop_invite_request`/
+`workshop_invite_request_unclear`の2値が、`cloud_function_webhook.py`の
+`format_reply_text()`に一度も分岐として追加されていなかった(スキーマ・LLMプロンプト・
+schema検証フィクスチャ〈WIR1・WIR2〉は11.5節で整備済みだったが、実際にLLMがこの2つの
+statusを返した場合、返信文組み立て側では`raise ValueError(f"unexpected status: {status!r}")`に
+落ちて契約者への返信が失敗する状態だった)。原因はcourse-set-pashaと同型で、11.5節時点の
+「次回候補」がmessage-context-selection-design.mdへの優先順位組み込みと`member_user_ids`
+上限数の検討に絞られており、`format_reply_text()`側の配線自体が独立したタスクとして
+どのフェーズの「次にやること」にも明記されていなかったため、実LLM未接続の現状では
+顕在化せずに見過ごされていた(course-set-pashaフェーズ241の記載と同じ経緯)。
+
+`format_reply_text()`に`if status in ("workshop_invite_request",
+"workshop_invite_request_unclear"): return instance["workshop_invite_notice"]["body"]`を
+追加して修正した。`includes_invite_code`は常にfalse(11.5節)のため、`checkout_notice`と
+同様URLプレースホルダ置換は不要でbodyをそのまま返せばよい。`test_cloud_function_webhook.py`に
+`test_process_memo_event_workshop_invite_request_returns_notice_body`・
+`test_process_memo_event_workshop_invite_request_unclear_returns_notice_body`の2件を新規
+追加した。回帰確認としてventure全体(`python3 prototype/run_all_tests.py`、15ファイル全件)・
+schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した
+(test_cloud_function_webhook.py単体はcheck()呼び出し343件、修正前比+2件)。承認不要な
+バグ修正・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+今回発生していないためpending-approval.mdへの追記なし。line-reservation-ai・
+aircon-pashaについては未確認のまま残っており、次回以降の課題とする。
+
 最終更新: 2026-09-13 07:00 UTC(フェーズ105)

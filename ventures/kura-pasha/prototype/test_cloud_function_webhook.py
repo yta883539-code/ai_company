@@ -645,6 +645,25 @@ def test_process_memo_event_checkout_intent_returns_notice_body():
     check("checkout_session_client未接続時はcheckout_urlを発行しない", result.checkout_url is None)
 
 
+# course-set-pashaフェーズ241が発見した「schema statusにフィールドを追加したまま
+# format_reply_text()への配線を忘れる」バグ(ValueErrorで契約者への返信が失敗する)が
+# 本ventureにも存在しないか横断確認したところ、workshop_invite_request/
+# workshop_invite_request_unclear(2026-09-13 01:00 UTC追加、厳守事項7c)がformat_reply_text()に
+# 一度も配線されていなかった(cloud_function_webhook.py側で修正・本テストで検知するテストも
+# 今回新規追加)。checkout_intent同様、workshop_invite_notice.bodyをそのまま返すだけで
+# includes_invite_codeは常にfalseのためURLプレースホルダ置換相当の処理は不要。
+def test_process_memo_event_workshop_invite_request_returns_notice_body():
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(_make_event("職人を追加したい"), _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client)
+    check("workshop_invite_requestはworkshop_invite_notice.bodyを返す", result.reply_text == TEST_CASES["WIR1_workshop_invite_request"]["workshop_invite_notice"]["body"])
+
+
+def test_process_memo_event_workshop_invite_request_unclear_returns_notice_body():
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(_make_event("追加できる?"), _StubLlmCall([TEST_CASES["WIR2_workshop_invite_request_unclear"]]), reply_client)
+    check("workshop_invite_request_unclearはworkshop_invite_notice.bodyを返す", result.reply_text == TEST_CASES["WIR2_workshop_invite_request_unclear"]["workshop_invite_notice"]["body"])
+
+
 # ---------------------------------------------------------------------------
 # process_memo_event() の checkout_intent 実Checkout Session発行(フェーズ72)
 #
@@ -2341,6 +2360,8 @@ if __name__ == "__main__":
     test_process_memo_event_cancellation_intent_falls_back_when_provider_missing()
     test_process_memo_event_cancellation_unclear_does_not_need_provider()
     test_process_memo_event_checkout_intent_returns_notice_body()
+    test_process_memo_event_workshop_invite_request_returns_notice_body()
+    test_process_memo_event_workshop_invite_request_unclear_returns_notice_body()
     test_process_memo_event_checkout_intent_issues_real_checkout_session_when_connected()
     test_process_memo_event_checkout_intent_requires_linking_when_unlinked_with_client_connected()
     test_process_memo_event_checkout_intent_rejects_non_contractor()

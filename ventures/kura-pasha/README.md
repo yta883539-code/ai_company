@@ -3321,3 +3321,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   続き255〜256)とフェーズ155の横断比較により既に解消済みだった記載漏れを発見・
   訂正。コード変更は無く回帰確認のみ、venture全体127件・schema検証32件いずれも
   パス)
+- フェーズ160(2026-09-22 07:00 UTC定例更新): course-set-pashaフェーズ241
+  (2026-09-22 05:00 UTC)が発見した「schema statusにフィールドを追加したまま返信文
+  組み立て関数〈format_reply_text()〉への配線を忘れる」バグ(該当status受信時に
+  `ValueError`で契約者への返信が失敗する)について、同フェーズが申し送っていた他
+  venture横断確認のうち本venture分を実施した。craftsman-account-linking-design.md
+  11.5節(フェーズ100)でschema拡張した`workshop_invite_request`/
+  `workshop_invite_request_unclear`の2statusが、`cloud_function_webhook.py`の
+  `format_reply_text()`に一度も分岐追加されないまま60フェーズ(フェーズ100〜159)
+  残っていた同型のバグを発見した。`format_reply_text()`に
+  `workshop_invite_notice.body`をそのまま返す分岐を追加して修正し、
+  `test_cloud_function_webhook.py`に`test_process_memo_event_workshop_invite_
+  request_returns_notice_body`・同`_unclear_`版の2件を新規追加した。詳細は
+  craftsman-account-linking-design.md 11.11節参照。回帰確認としてventure全体
+  (`python3 prototype/run_all_tests.py`、15ファイル全件)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(test_cloud_function_
+  webhook.py単体はcheck()呼び出し343件、修正前比+2件)を確認した。承認不要な
+  バグ修正・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。line-reservation-ai・
+  aircon-pashaについては未確認のまま残っており、次回以降の課題とする。
+- 最終更新: 2026-09-22 07:00 UTC(フェーズ160: course-set-pashaフェーズ241の
+  申し送りを受け、format_reply_text()未配線バグの横断確認〈本venture分〉を実施。
+  workshop_invite_request/workshop_invite_request_unclearの2statusが
+  フェーズ100からformat_reply_text()に配線されないまま残っていたバグを発見・修正、
+  テスト2件追加。venture全体15ファイル・schema検証32件いずれもパス。
+  line-reservation-ai・aircon-pashaは未確認のまま次回以降の課題)

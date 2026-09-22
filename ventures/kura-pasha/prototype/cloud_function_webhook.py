@@ -542,7 +542,7 @@ def format_reply_text(
     portal_link_provider: Optional[PortalLinkProvider] = None,
     user_id: Optional[str] = None,
 ) -> str:
-    """schema/output.schema.jsonの17通りのstatusを、実際の返信文へ変換する。"""
+    """schema/output.schema.jsonの19通りのstatusを、実際の返信文へ変換する。"""
     status = instance["status"]
     if status == "generated":
         return format_generated_reply(instance)
@@ -568,6 +568,8 @@ def format_reply_text(
         return instance["contractor_transfer_expired_notice"]["body"]
     if status in ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear"):
         return instance["checkout_notice"]["body"]
+    if status in ("workshop_invite_request", "workshop_invite_request_unclear"):
+        return instance["workshop_invite_notice"]["body"]
     raise ValueError(f"unexpected status: {status!r}")
 
 
