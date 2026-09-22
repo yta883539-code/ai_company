@@ -1418,6 +1418,8 @@ def dispatch_webhook_events(
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     rng: Optional[RandomChoiceSource] = None,
     profile_store: Optional[UserProfileStoreProtocol] = None,
+    intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
@@ -1436,6 +1438,11 @@ def dispatch_webhook_events(
     `profile_store`はblocked-but-billing-detection-design.md準拠(フェーズ続き)。指定時、
     follow/unfollowイベント受信のたびに`user_profile/{user_id}.is_following`を更新する。
     未指定(`None`)時は従来通り更新を行わない(既存呼び出し経路への後方互換)。
+
+    `intent_classifier`/`escalation_push_client`はchatbot-intent-router-webhook-wiring-
+    design.md準拠(フェーズ244で`process_memo_event()`本体に実装済み)。本関数はそのまま
+    `process_memo_event()`へ受け渡すのみで、未指定(`None`)時は従来通りの挙動を一切
+    変えない(process_memo_event()側の安全側フォールバックに委ねる)。
     """
     result = DispatchResult()
 
@@ -1477,6 +1484,8 @@ def dispatch_webhook_events(
                     linking_store=linking_store,
                     purge_throttle=purge_throttle,
                     profile_store=profile_store,
+                    intent_classifier=intent_classifier,
+                    escalation_push_client=escalation_push_client,
                     now=now,
                 )
             )
@@ -1520,6 +1529,8 @@ def receive_webhook(
     gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     rng: Optional[RandomChoiceSource] = None,
+    intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> WebhookReceiverResult:
     """Cloud Functionの本体エントリポイント。生のリクエストボディ(bytes)を受け取り、
@@ -1567,6 +1578,8 @@ def receive_webhook(
         gym_area_config_store=gym_area_config_store,
         purge_throttle=purge_throttle,
         rng=rng,
+        intent_classifier=intent_classifier,
+        escalation_push_client=escalation_push_client,
         now=now,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

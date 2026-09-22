@@ -144,7 +144,36 @@ Optionalで追加し、実装した。
   (変更前と同じ結果)を確認した。
 - 未解決のまま残る点(design 5節と同じ):意図分類自体(`classify()`)が例外を送出した
   場合のフォールバックは未実装。実LLM接続時に`_generate_with_api_retry()`と同様の
-  即時リトライ方針を適用するかは次回以降の課題。また`dispatch_webhook_events()`から
-  `process_memo_event()`への`intent_classifier`・`escalation_push_client`の受け渡しは
-  本フェーズの設計・実装スコープ外(design自体が`process_memo_event()`単体への結線に
-  限定していたため)であり、実LLM・実LINE Push接続時にあわせて別途結線が必要。
+  即時リトライ方針を適用するかは次回以降の課題。
+
+## 7. dispatch_webhook_events()・receive_webhook()への配線(フェーズ245で追記)
+
+フェーズ244「未解決のまま残る点」が挙げていた`dispatch_webhook_events()`から
+`process_memo_event()`への`intent_classifier`・`escalation_push_client`の受け渡しを
+今回実装した。
+
+- `dispatch_webhook_events()`・`receive_webhook()`双方に`intent_classifier`・
+  `escalation_push_client`をOptionalで追加し、message分岐の`process_memo_event()`呼び
+  出しへそのまま受け渡す配線のみを行った(design 1〜6節の分岐ロジック自体は
+  `process_memo_event()`側に閉じているため変更なし)。
+- `get_runtime_dependencies()`は引き続き空の辞書を返すため(実LINE公式アカウント・
+  実LLM接続はオーナー承認待ち)、`main()`側の挙動は今回変わらない。承認・実クレデン
+  シャル取得後は`get_runtime_dependencies()`の戻り値に`intent_classifier`・
+  `escalation_push_client`の実クライアントを追加するだけで結線が完了する設計とした。
+  同様に`receive_webhook()`の各種Optional引数と同じ既存パターンに揃えたため、
+  未指定(`None`)時は`process_memo_event()`側の安全側フォールバックにより従来通り
+  意図分類を一切行わない。
+- `test_cloud_function_webhook.py`に`DispatchWebhookEventsTest`
+  (`test_intent_classifier_and_escalation_push_client_are_passed_through`・
+  `test_without_intent_classifier_dispatch_behavior_is_unchanged`の2ケース)、
+  `ReceiveWebhookTest`(`test_intent_classifier_and_escalation_push_client_are_passed_through`
+  の1ケース)を追加し、計3ケースでdispatch層・HTTPエントリポイント層それぞれの
+  受け渡しを検証した。
+- 回帰確認としてventure全体646件(643件→646件)・schema検証21件、いずれもパス
+  (変更前と同じ結果)を確認した。
+- これにより「実LINE公式アカウント・実LLM接続後にintent_classifier・
+  escalation_push_clientをどう結線するか」という配線先の設計・実装は
+  `process_memo_event()`単体から`main()`エントリポイントまで一貫して完了した。
+  残るのは実クレデンシャル取得後の`get_runtime_dependencies()`差し替えのみで、
+  これはオーナー承認待ち(pending-approval.md参照、既存記載の範囲内で追加の
+  承認依頼は不要)。

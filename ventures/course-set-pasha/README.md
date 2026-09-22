@@ -3761,3 +3761,29 @@
   append_faq_followup_hint()結線・MemoProcessResult.chatbot_intentフィールドを
   すべて設計通り実装し、新規テスト9件追加。venture全体643件(634件→643件)・
   schema検証21件いずれもパス)
+- フェーズ245(2026-09-22 18:00 UTC定例更新): フェーズ244「次回候補」に残っていた
+  `dispatch_webhook_events()`側への`intent_classifier`・`escalation_push_client`の
+  受け渡し配線に対応した。`dispatch_webhook_events()`・`receive_webhook()`双方に
+  同2引数をOptionalで追加し、message分岐の`process_memo_event()`呼び出しへそのまま
+  受け渡すのみの薄い配線とした(分岐ロジック自体はprocess_memo_event()側に閉じたまま
+  変更なし)。`get_runtime_dependencies()`は引き続き空の辞書を返すため`main()`の実際の
+  挙動は今回変わらないが、承認・実クレデンシャル取得後は同関数の戻り値に実クライアント
+  を追加するだけで結線が完了する設計とした。chatbot-intent-router-webhook-wiring-
+  design.mdに「7. dispatch_webhook_events()・receive_webhook()への配線」節を追記し、
+  対応内容を記録した。test_cloud_function_webhook.pyに`DispatchWebhookEventsTest`2件・
+  `ReceiveWebhookTest`1件を追加し、dispatch層・HTTPエントリポイント層それぞれで
+  intent_classifier/escalation_push_clientが正しく受け渡されること、および未指定時に
+  既存挙動が変わらないことを検証した。回帰確認としてventure全体646件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`、643件→646件)・schema検証21件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なコード追加・テスト追加のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。これにより
+  intent_classifier・escalation_push_clientの配線設計・実装はprocess_memo_event()
+  単体からmain()エントリポイントまで一貫して完了し、残るのは実クレデンシャル取得後の
+  get_runtime_dependencies()差し替えのみ(既存のpending-approval.md記載の範囲内で
+  追加の承認依頼は不要)。
+- 最終更新: 2026-09-22 18:00 UTC(フェーズ245: フェーズ244の次回候補だった
+  dispatch_webhook_events()・receive_webhook()へのintent_classifier・
+  escalation_push_client受け渡し配線を実装。分岐ロジックはprocess_memo_event()側に
+  閉じたまま、薄い配線のみ追加。新規テスト3件追加。venture全体646件(643件→646件)・
+  schema検証21件いずれもパス)

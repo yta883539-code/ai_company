@@ -2444,6 +2444,53 @@ class DispatchWebhookEventsTest(unittest.TestCase):
         self.assertEqual(result.memo_results, [])
         self.assertEqual(reply_client.sent, [])
 
+    def test_intent_classifier_and_escalation_push_client_are_passed_through(self):
+        # chatbot-intent-router-webhook-wiring-design.md「実装状況」節が残していた
+        # dispatch_webhook_events()側の配線(フェーズ続き)。process_memo_event()自体の
+        # 分岐ロジックはChatbotIntentRouterWiringTestで検証済みのため、ここではdispatch層が
+        # 両引数をそのまま渡すことのみを確認する。
+        reply_client = InMemoryReplyClient()
+        push_client = InMemoryLinePushClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt",
+                "message": {"type": "text", "text": "なんかいつもと違う気がする"},
+                "source": {"userId": "U1"},
+            },
+        ]
+
+        result = dispatch_webhook_events(
+            events,
+            reply_client=reply_client,
+            llm_call=_MustNotBeCalledLlmClient(),
+            intent_classifier=_FixedIntentClassifier("other_needs_human"),
+            escalation_push_client=push_client,
+        )
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertEqual(result.memo_results[0].chatbot_intent, "other_needs_human")
+        self.assertEqual(result.memo_results[0].reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_without_intent_classifier_dispatch_behavior_is_unchanged(self):
+        # intent_classifier/escalation_push_client未指定時は既存の呼び出し経路
+        # (デフォルトNone)と挙動が変わらないこと。
+        reply_client = InMemoryReplyClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt",
+                "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                "source": {"userId": "U1"},
+            },
+        ]
+
+        result = dispatch_webhook_events(events, reply_client=reply_client, llm_call=FixtureLlmClient("G1_basic"))
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertIsNone(result.memo_results[0].chatbot_intent)
+
 
 class ReceiveWebhookTest(unittest.TestCase):
     """receive_webhook()のテスト(receive-webhook-http-entry-point-design.md参照)。"""
@@ -2509,6 +2556,36 @@ class ReceiveWebhookTest(unittest.TestCase):
         self.assertEqual(len(result.dispatch_result.memo_results), 1)
         self.assertTrue(result.dispatch_result.memo_results[0].handled)
         self.assertEqual(len(reply_client.sent), 1)
+
+    def test_intent_classifier_and_escalation_push_client_are_passed_through(self):
+        body = json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "message",
+                        "replyToken": "rt-message",
+                        "message": {"type": "text", "text": "なんかいつもと違う気がする"},
+                        "source": {"userId": "U-message"},
+                    }
+                ]
+            }
+        ).encode("utf-8")
+        reply_client = InMemoryReplyClient()
+        push_client = InMemoryLinePushClient()
+
+        result = receive_webhook(
+            body,
+            self._signed(body),
+            self.SECRET,
+            reply_client=reply_client,
+            llm_call=_MustNotBeCalledLlmClient(),
+            intent_classifier=_FixedIntentClassifier("other_needs_human"),
+            escalation_push_client=push_client,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.memo_results[0].chatbot_intent, "other_needs_human")
+        self.assertEqual(len(push_client.sent), 1)
 
 
 class _StubFlaskRequest:
