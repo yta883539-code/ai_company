@@ -1753,6 +1753,67 @@ class SubscriptionProcedureNoticeTest(unittest.TestCase):
         self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
 
 
+class CheckoutNoticeReplyTest(unittest.TestCase):
+    """status=checkout_intent/pricing_inquiry/checkout_intent_unclearの返信文組み立て検証。
+
+    フェーズ206(2026-09-12)でschema/output.schema.json・schema/validate_test_cases.pyに
+    checkout_notice(CO1〜CO3フィクスチャ)を追加したが、format_reply_text()側の分岐が
+    追加されないまま残っていたため、実際にこれらのstatusが返るとValueError(unexpected
+    status)になっていた(SubscriptionProcedureNoticeTestのcancellation系と対になる
+    テストが一つも無かった)。本クラスはその欠落を埋める。CO1〜CO3はschema/
+    validate_test_cases.pyのフィクスチャ。"""
+
+    def test_checkout_intent_returns_checkout_notice_body(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="有料プランを始めたい", user_id="u-1"),
+            FixtureLlmClient("CO1_checkout_intent"), reply_client,
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(
+            result.reply_text,
+            TEST_CASES["CO1_checkout_intent"]["checkout_notice"]["body"],
+        )
+
+    def test_pricing_inquiry_returns_checkout_notice_body(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="料金はいくらですか", user_id="u-1"),
+            FixtureLlmClient("CO2_pricing_inquiry"), reply_client,
+        )
+
+        self.assertEqual(
+            result.reply_text,
+            TEST_CASES["CO2_pricing_inquiry"]["checkout_notice"]["body"],
+        )
+
+    def test_checkout_intent_unclear_returns_checkout_notice_body(self):
+        reply_client = InMemoryReplyClient()
+        result = process_memo_event(
+            _make_event(text="始めようかな", user_id="u-1"),
+            FixtureLlmClient("CO3_checkout_intent_unclear"), reply_client,
+        )
+
+        self.assertEqual(
+            result.reply_text,
+            TEST_CASES["CO3_checkout_intent_unclear"]["checkout_notice"]["body"],
+        )
+
+    def test_checkout_intent_does_not_increment_usage_counter(self):
+        # cancellation系(test_cancellation_status_does_not_increment_usage_counter)と
+        # 同じ理由: status!="generated"のためカウント対象外。
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+        process_memo_event(
+            _make_event(text="有料プランを始めたい", user_id="u-1"),
+            FixtureLlmClient("CO1_checkout_intent"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+
 class MergeTextAndPhotoEventsTest(unittest.TestCase):
     def test_text_and_one_photo_from_same_user_are_merged(self):
         events = [_image_event("u1"), _text_event("u1", "エリアA 更新")]

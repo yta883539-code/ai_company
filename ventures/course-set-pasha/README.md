@@ -3640,3 +3640,34 @@
   design.mdの残課題だった分類後の振り分け入口をprototype/chatbot_intent_router.pyの
   `route_chatbot_intent()`として実装。other_needs_human時の顧客向け定型応答も新規に
   文言化。テスト9件追加(621件→630件)、schema検証21件は変更なしでいずれもパス)
+- フェーズ241(2026-09-22 05:00 UTC定例更新): chatbot_intent_routerをcloud_function_webhook.py
+  へ実際に結線する前提調査として、既存のstatus別返信文組み立て`format_reply_text()`を
+  棚卸ししたところ、フェーズ206(2026-09-12)でschema/output.schema.json・schema/
+  validate_test_cases.pyへ追加したcheckout_intent/pricing_inquiry/checkout_intent_unclear
+  の3status(厳守事項7b、checkout_notice)が、`format_reply_text()`の分岐に一度も
+  追加されないまま10日以上(フェーズ206〜240)残っていたバグを発見した。追加当時
+  (checkout-initiation-flow-design.md「残課題」)は実Checkout Session作成エンドポイントとの
+  配線がLIFF実登録待ちである旨は記載されていたが、それとは別に`checkout_notice.body`を
+  そのまま返信するだけの本分岐自体が漏れており、test_cloud_function_webhook.pyにも
+  CO1〜CO3フィクスチャを使った検証が一件も無かった(cancellation系の
+  `SubscriptionProcedureNoticeTest`に対応するテストクラスが存在しなかった)ため、実LLM未接続の
+  現状では顕在化せずに見過ごされていた。実際にstatus=checkout_intent等が返された場合、
+  `raise ValueError(f"unexpected status: {status!r}")`に落ちて契約者への返信が失敗する
+  状態だったため、cloud_function_webhook.pyに
+  `if status in ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear"):
+  return instance["checkout_notice"]["body"]`を追加して修正した(`includes_checkout_url`は
+  常にfalseのため、subscription_procedure_noticeと異なりURLプレースホルダ置換は不要で
+  bodyをそのまま返せばよい)。`CheckoutNoticeReplyTest`としてテスト4件を新規追加
+  (630件→634件)。回帰確認としてventure全体634件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なバグ修正・テスト追加のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。chatbot_intent_router自体のWebhookハンドラへの結線
+  (実LLM接続待ち)は引き続き次回以降の課題として残る。他venture(kura-pasha・
+  line-reservation-ai・aircon-pasha)にも同種のcheckout_notice類似フィールドと
+  返信文組み立て漏れが無いか横断確認することも次回以降の課題としたい。
+- 最終更新: 2026-09-22 05:00 UTC(フェーズ241: フェーズ206で追加されたまま
+  format_reply_text()に配線されていなかったcheckout_intent/pricing_inquiry/
+  checkout_intent_unclearの3status対応漏れ〈ValueErrorになるバグ〉を発見・修正。
+  checkout_notice.bodyをそのまま返す分岐を追加。テスト4件追加(630件→634件)、
+  schema検証21件は変更なしでいずれもパス)

@@ -918,6 +918,13 @@ def format_reply_text(
         return render_subscription_procedure_notice(
             instance["subscription_procedure_notice"], portal_link_provider, user_id
         )
+    if status in ("checkout_intent", "pricing_inquiry", "checkout_intent_unclear"):
+        # checkout-initiation-flow-design.md 3節・schema/output.schema.json
+        # checkout_notice(フェーズ206追加)。includes_checkout_urlは常にfalse
+        # (厳守事項7b(i)、実Checkout Session URLは案内しない)のため、
+        # subscription_procedure_noticeと異なりプレースホルダ置換は不要で、
+        # checkout_notice.bodyをそのまま返せばよい。
+        return instance["checkout_notice"]["body"]
     raise ValueError(f"unexpected status: {status!r}")
 
 
