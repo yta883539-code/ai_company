@@ -83,7 +83,12 @@ support-cost-comparison.md(kura-pashaフェーズ123)がline-reservation-ai(約4
   faq.md「未検証の仮説」節が指摘する通り、契約者にとって文章・FAQコマンドだけで直感的に
   理解できるかは実際の問い合わせが蓄積されるまで未検証。他3venture(BtoCのみ)より
   セルフサービス化の効果が読みにくい要因として残る。
-- 残る他venture(course-set-pasha・kura-pasha・line-reservation-ai)についても、FAQ
-  コマンド導線実装後の削減効果再試算は各ventureのsupport-cost-selfservice-reduction.md
-  時点では行われていない(本ドキュメントが指摘した「course-set-pashaの執筆時点の前提が
-  実装状況と食い違っていた」点を含め、他venture側での見直しは次回以降の課題として残す)。
+- (解消済み 2026-09-22追記、フェーズ248: 本項目が「他venture側での見直しは次回以降の
+  課題」としていた点を棚卸しした結果、course-set-pashaは本ドキュメント公開の約20時間後
+  (フェーズ239、2026-09-21 21:00 UTC)に自身のsupport-cost-selfservice-reduction.mdの
+  棚卸し漏れ(フェーズ219実装済みのFAQコマンド導線を見落としていた点)を発見・訂正済み
+  であることを確認した。kura-pasha・line-reservation-aiの同ドキュメントは、いずれも
+  本ドキュメントより後(それぞれフェーズ152・フェーズ続き255)に、FAQコマンド導線が
+  既に実装済みという条件を前提として最初から作成されており、本ドキュメントが懸念した
+  ような「執筆時点の前提の食い違い」自体が発生していなかった。したがって4venture全てで
+  FAQコマンド導線を織り込んだ削減効果試算が出揃っており、本項目に残課題は無い)。

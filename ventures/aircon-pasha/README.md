@@ -3957,3 +3957,22 @@
   発見・訂正。ステップ1〈連携コード表示の明記〉・次のステップ候補〈スクリーンショット対象の
   訂正〉も合わせて修正。実装内容自体に変更は無く回帰確認のみ、venture全体515件・
   schema検証25件いずれもパス)
+- フェーズ248(2026-09-22 02:00 UTC定例更新): support-cost-selfservice-reduction.md
+  (フェーズ244)「残課題」節が「残る他venture(course-set-pasha・kura-pasha・
+  line-reservation-ai)についてもFAQコマンド導線実装後の削減効果再試算は行われていない」
+  として次回以降の課題に残していた点を棚卸しした。確認の結果、course-set-pashaは本
+  ドキュメント公開の約20時間後(フェーズ239、2026-09-21 21:00 UTC)に自身の見落とし
+  (フェーズ219実装済みのFAQコマンド導線を棚卸しで見落としていた点)を発見・訂正済み
+  であり、kura-pasha(フェーズ152)・line-reservation-ai(フェーズ続き255)の同ドキュメント
+  はいずれも本ドキュメントより後にFAQコマンド導線実装済みの前提で最初から作成されており
+  食い違いが生じていなかったことを確認した。これにより4venture全てでFAQコマンド導線を
+  織り込んだ削減効果試算が出揃っていることを確認し、本項目の残課題を解消済みとして記録
+  した。コード変更は無く、回帰確認としてventure全体515件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 02:00 UTC(フェーズ248: support-cost-selfservice-reduction.mdの
+  「残る他venture」残課題を棚卸しし、course-set-pashaは既に訂正済み〈フェーズ239〉、
+  kura-pasha・line-reservation-aiは元々食い違いが無かったことを確認して解消済みに更新。
+  コード変更は無く回帰確認のみ、venture全体515件・schema検証25件いずれもパス)
