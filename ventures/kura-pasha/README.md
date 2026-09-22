@@ -3346,3 +3346,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   フェーズ100からformat_reply_text()に配線されないまま残っていたバグを発見・修正、
   テスト2件追加。venture全体15ファイル・schema検証32件いずれもパス。
   line-reservation-ai・aircon-pashaは未確認のまま次回以降の課題)
+- フェーズ161(2026-09-22 11:00 UTC定例更新): フェーズ160が「line-reservation-ai・
+  aircon-pashaについては未確認のまま残っており、次回以降の課題とする」としていた
+  横断確認を実施した。aircon-pasha・course-set-pashaはいずれも本venture同様
+  「LLM出力のstatus値1つを中央の`format_reply_text()`で分岐する」設計を採用しており、
+  両venture共通のschema/output.schema.json status enum(generated/out_of_scope/
+  insufficient_input/cancellation_intent/downgrade_intent/cancellation_unclear/
+  checkout_intent/pricing_inquiry/checkout_intent_unclearの9種)を実際の
+  `prototype/cloud_function_webhook.py`の`format_reply_text()`分岐と1件ずつ突き合わせた
+  結果、両venture共9種全てが分岐済みで新たな未配線は発見されなかった(course-set-pasha
+  フェーズ241・aircon-pashaフェーズ249でそれぞれ既に修正済みのため)。line-reservation-ai
+  は他3venture(本venture・course-set-pasha・aircon-pasha)と異なり、単一の中央関数で
+  status値を分岐する設計自体を採用しておらず、`engine.py`内で5種のintent
+  (new_booking/cancel/change/faq/escalation)ごとに専用の`format_*_message()`系関数
+  (`format_confirmation_message()`・`format_cancel_confirmed_message()`・
+  `format_change_started_message()`・faq_segments処理・escalation処理等)を呼び出し元が
+  直接呼び分ける構成のため、「schemaにフィールドを追加したのに中央分岐への配線を忘れる」
+  という今回発見された不具合パターンはそのままの形では当てはまらないことを確認した。
+  同種のリスクがあるとすれば5種のintentいずれかに対応する専用ハンドラ自体の未実装という
+  より粗い粒度の欠落になるはずだが、5種いずれも対応する実装(`cancel_booking()`・
+  `change_booking()`・faq_segments処理・escalation処理・通常予約確定フロー)が既に
+  揃っていることを確認し、粗い粒度の欠落も見当たらなかった。以上によりフェーズ160の
+  申し送り事項は解消済みとする。コード変更は無く、回帰確認として本venture全体
+  (`python3 prototype/run_all_tests.py`、15ファイル)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な既存コードの監査・確認のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 11:00 UTC(フェーズ161: フェーズ160が申し送った
+  line-reservation-ai・aircon-pashaの横断確認を実施。aircon-pasha・course-set-pashaは
+  status enum9種が`format_reply_text()`に漏れなく配線済みで新たな不具合は無し。
+  line-reservation-aiは中央分岐方式を採用しておらずintentごとの専用関数呼び分け方式の
+  ため同型のバグパターンはそのまま当てはまらないが、5種intent全てに対応実装済みで
+  粗い粒度の欠落も無いことを確認。コード変更は無く回帰確認のみ、venture全体15ファイル・
+  schema検証32件いずれもパス)
