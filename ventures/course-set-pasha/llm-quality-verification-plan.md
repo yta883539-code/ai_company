@@ -28,6 +28,7 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
 | 6 | 厳守事項6(出力3は表形式・history_rowsが更新エリア数と一致) | history_rowsの要素数が実際の更新エリア数と一致しているか | 機械チェック(要素数カウント) | G1(1件)・複数エリア同時更新ケース(要新規サンプル追加) |
 | 7 | 厳守事項7(会員管理・予約受付・決済への不応答) | 対象外の定型文言のみを返し、3出力を生成していないか | 機械チェック(`status=="out_of_scope"`時に3出力フィールドが全てnullであることの確認) | OOS1 |
 | 7a | 厳守事項7a(解約意図検知、(i)〜(iv)の境界) | 解約明確・プラン変更・雑談・判断不能の4分類が意図通り`status`(cancellation_intent/downgrade_intent/cancellation_unclear)へ反映されているか。特に(iii)雑談を解約意図と誤認しないか、(iv)判断不能時にポータルリンクを含めていないか(`includes_portal_link`) | 機械チェック(`status`値・`includes_portal_link`の一致)+人手((iv)応答文が断定的な案内になっていないかの目視) | CI1〜CI3 |
+| 7b | 厳守事項7b(有料プラン開始意図検知、(i)〜(iv)の境界) | 有料プラン開始意図が明確・料金問い合わせ・判断不能の3分類が意図通り`status`(checkout_intent/pricing_inquiry/checkout_intent_unclear)へ反映されているか。`includes_checkout_url`がkindによらず常にfalseか(LLMが自己判断でCheckout SessionのURLを発行・案内しない設計)、bodyに実URLらしき記述が混入していないか、(iv)判断不能時に手続き完了を前提にした文言や具体的なプラン名への言及が混入していないか | 機械チェック(`status`値・`includes_checkout_url`・URLらしき記述の有無、prototype/post_generation_checks.pyの`check_checkout_notice_consistency()`として実装済み)+人手((iv)応答文が断定的な案内になっていないかの目視) | CO1〜CO3 |
 | 8 | 厳守事項8(入力不足時の再送依頼) | 不足項目を具体的に指摘しているか、推測で埋めていないか | 人手のみ | II1 |
 | 9 | 厳守事項9(ですます調・絵文字は出力1のみ1〜2個まで) | 出力2・出力3に絵文字が含まれていないか、出力1の絵文字が2個を超えていないか、文体が統一されているか | 機械チェック(prototype/post_generation_checks.pyの`check_emoji_usage_rules()`として出力別上限つきで実装済み) | 全件 |
 
@@ -49,6 +50,8 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
   実装済み。
 - 厳守事項7a(解約意図検知)はcourse-set-pasha固有の分岐であり、aircon-pashaのプランには
   存在しない。CI1〜CI3はcourse-set-pasha向けに新規追加する検証項目。
+- 厳守事項7b(有料プラン開始意図検知)も同様にcourse-set-pasha固有の分岐であり、CO1〜CO3が
+  対応する検証項目。
 
 ## 検証手順(承認後に着手する想定)
 
@@ -75,3 +78,12 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
   同名ドキュメントと同じ考え方で、上表の検証観点(厳守事項1〜9・7a)・9ケース(G1〜G4・
   OOS1・II1・CI1〜CI3)にあわせた空の記録表を用意した。詳細はcourse-set-pasha/README.md
   該当フェーズ参照。実際の記入は実LLM接続の承認後)。
+- (解消済み 2026-09-22 09:00 UTC: 本ドキュメントは2026-08-21作成(フェーズ87)であり、
+  その後2026-09-12(フェーズ206)に新設された厳守事項7b(有料プラン開始意図検知、
+  checkout_intent/pricing_inquiry/checkout_intent_unclear)・対応するCO1〜CO3ケース
+  (schema/validate_test_cases.py、output-samples-validation.md)が上表に一度も反映されない
+  まま10日以上残っていた記載漏れを発見・訂正した。機械チェック本体(`check_checkout_notice_
+  consistency()`)はフェーズ100前後で既に実装済みだったが、本ドキュメントの検証観点表・
+  aircon-pashaとの差分節には反映されていなかった。llm-quality-verification-results-
+  template.mdにも対応する記録表が欠けていたためあわせて追加した。実際の検証(実LLM接続)は
+  引き続きオーナー承認待ちのまま未実施)。

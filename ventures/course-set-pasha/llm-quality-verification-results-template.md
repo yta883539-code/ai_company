@@ -7,11 +7,16 @@ llm-quality-verification-plan.md「残る未確定事項」1点目「『3回中1
 llm-quality-verification-results-template.md(フェーズ118)で先行して用意した「検証結果の
 記録先は着手段階で判断する」への対応と同じ考え方をcourse-set-pashaにも展開したもの。
 実際にAPIキー取得・課金の承認が下りて検証に着手する際、その場で記録様式を一から考える
-手間を無くすため、llm-quality-verification-plan.mdの検証観点表(厳守事項1〜9・7a)・
-output-samples-validation.mdの9ケース(G1〜G4・OOS1・II1・CI1〜CI3)・検証手順3(人手判定
-項目は各ケース最低3回ずつ実施)にあわせた空の記録表を先に用意しておく。本ドキュメント
+手間を無くすため、llm-quality-verification-plan.mdの検証観点表(厳守事項1〜9・7a・7b)・
+output-samples-validation.mdの12ケース(G1〜G4・OOS1・II1・CI1〜CI3・CO1〜CO3)・検証手順3
+(人手判定項目は各ケース最低3回ずつ実施)にあわせた空の記録表を先に用意しておく。本ドキュメント
 自体の作成はAPIキー取得・課金を伴わない机上作業であり、承認不要。実際の記入(表の空欄
 埋め)は実LLM接続の承認が下りて検証に着手した時点で行う。
+
+(2026-09-22 09:00 UTC追記: 作成時点(フェーズ134)では厳守事項7b・CO1〜CO3ケース
+〈2026-09-12・フェーズ206で新設〉がまだ存在せず、本ドキュメントには反映されないまま
+残っていた。llm-quality-verification-plan.mdの検証観点表の記載漏れ訂正とあわせ、
+「記録表(CO1〜CO3)」節・トークン数記録欄のCO1〜CO3行を追加した)
 
 ## 記入方法
 
@@ -83,6 +88,20 @@ output-samples-validation.mdの9ケース(G1〜G4・OOS1・II1・CI1〜CI3)・�
 | CI3 | 2回目 | | | | | |
 | CI3 | 3回目 | | | | | |
 
+## 記録表(CO1〜CO3: 厳守事項7b・9)
+
+| ケース | 試行 | 厳守事項7b(機械: status/includes_checkout_url一致・URL非混入) | 厳守事項7b(人手: (iv)応答が断定的でないか、プラン名混同がないか) | 厳守事項9(機械) | 最終判定 | メモ |
+|---|---|---|---|---|---|---|
+| CO1 | 1回目 | | | | | |
+| CO1 | 2回目 | | | | | |
+| CO1 | 3回目 | | | | | |
+| CO2 | 1回目 | | | | | |
+| CO2 | 2回目 | | | | | |
+| CO2 | 3回目 | | | | | |
+| CO3 | 1回目 | | | | | |
+| CO3 | 2回目 | | | | | |
+| CO3 | 3回目 | | | | | |
+
 ## トークン数・コスト実測記録欄
 
 | ケース | 入力トークン数 | 出力トークン数 | llm-api-cost-estimate.mdの想定シナリオに近いか |
@@ -96,6 +115,9 @@ output-samples-validation.mdの9ケース(G1〜G4・OOS1・II1・CI1〜CI3)・�
 | CI1 | | | |
 | CI2 | | | |
 | CI3 | | | |
+| CO1 | | | |
+| CO2 | | | |
+| CO3 | | | |
 
 ## 総合結果サマリ(全ケース記入後に埋める)
 
@@ -106,3 +128,5 @@ output-samples-validation.mdの9ケース(G1〜G4・OOS1・II1・CI1〜CI3)・�
 - temperature等のパラメータ調整要否の所見:
 - 厳守事項7a(解約意図検知)はcourse-set-pasha固有の分岐のため、aircon-pashaの記録結果とは
   直接比較できない点に留意する。
+- 厳守事項7b(有料プラン開始意図検知)も同様にcourse-set-pasha固有の分岐のため、aircon-pasha
+  の記録結果とは直接比較できない点に留意する。

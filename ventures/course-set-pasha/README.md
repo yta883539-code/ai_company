@@ -3671,3 +3671,27 @@
   checkout_intent_unclearの3status対応漏れ〈ValueErrorになるバグ〉を発見・修正。
   checkout_notice.bodyをそのまま返す分岐を追加。テスト4件追加(630件→634件)、
   schema検証21件は変更なしでいずれもパス)
+- フェーズ242(2026-09-22 09:00 UTC定例更新): llm-quality-verification-plan.md(フェーズ87、
+  2026-08-21作成)が、その後2026-09-12(フェーズ206)に新設された厳守事項7b(有料プラン
+  開始意図検知、checkout_intent/pricing_inquiry/checkout_intent_unclear)を検証観点表に
+  一度も反映しないまま10日以上残っていた記載漏れを発見した。機械チェック本体
+  (`prototype/post_generation_checks.py`の`check_checkout_notice_consistency()`)は既に
+  実装済みで、対応するCO1〜CO3ケースもschema/validate_test_cases.py・output-samples-
+  validation.mdには存在していたが、本ドキュメントの検証観点表・aircon-pashaとの差分節
+  だけが更新されずに取り残されていた。厳守事項7bの行(status/includes_checkout_url一致・
+  URL非混入・(iv)時の手続き完了前提文言/プラン名混同チェック)を追加し、対応するCO1〜CO3を
+  対象ケースとして明記した。あわせてllm-quality-verification-results-template.md
+  (フェーズ134作成)にも同じ理由でCO1〜CO3の記録表・トークン数記録欄の行が欠けていた
+  ことを発見し、CI1〜CI3の記録表と同形式で新設した。実際の検証(実LLM接続)は引き続き
+  オーナー承認待ちのまま未実施で、コード変更は無い。回帰確認としてventure全体634件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証21件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回はchatbot_intent_
+  router自体のWebhookハンドラへの結線(実LLM接続待ち)、または他venture・アイデア領域の
+  前進を優先候補とする。
+- 最終更新: 2026-09-22 09:00 UTC(フェーズ242: llm-quality-verification-plan.md・
+  llm-quality-verification-results-template.mdの両方に、フェーズ206で新設された厳守事項7b
+  (有料プラン開始意図検知)・CO1〜CO3ケースが一度も反映されていなかった記載漏れを発見・
+  訂正。機械チェック本体は実装済みで、ドキュメント記載の追いつきのみ。コード変更は無く
+  回帰確認のみ、venture全体634件・schema検証21件いずれもパス)
