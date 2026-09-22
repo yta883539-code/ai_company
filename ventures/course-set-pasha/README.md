@@ -3815,3 +3815,33 @@
   chatbot_intent=Noneのまま既存の生成フローへフォールスルー)を実装。design.mdに
   8節を追記。新規テスト2件追加。venture全体648件(646件→648件)・schema検証21件
   いずれもパス)
+- フェーズ247(2026-09-22 23:00 UTC定例更新): フェーズ246「次回候補」に残っていた、
+  他venture(kura-pasha・line-reservation-ai・aircon-pasha)への同種フォールバック
+  パターン(LLMによる意図分類自体がLlmApiErrorを送出した場合の未防御呼び出し)の
+  横断確認を実施した。kura-pasha・aircon-pashaの`prototype/cloud_function_webhook.py`を
+  それぞれ確認したところ、いずれもLLM呼び出し箇所は本文生成の1段のみで、既存の
+  `except LlmApiError:`によるリトライ・フォールバックが全呼び出し箇所に既に
+  掛かっており、本ventureのように「本文生成とは別に、LLMによる意図分類を独立した
+  2段目の呼び出しとして持つ」構成自体が存在しないことを確認した(両venture内で
+  `_classifier`・`classify`にマッチする関数はStripe課金状態の変化を判定する純粋な
+  決定的関数`classify_payment_recovery()`・`classify_cancel_at_period_end_change()`
+  のみで、LLM呼び出しを伴わないため本パターンの対象外)。line-reservation-aiは
+  そもそも`LlmApiError`という例外クラス自体が存在せず、`engine.py`の意図判定は
+  キーワード・状態ベースのルールエンジン(実LLM API接続は
+  pending-approval.md記載の通り未承認・未接続)であるため、同様に本パターンは
+  当てはまらない。以上により、フェーズ246で発見・修正したバグ(LLM意図分類の
+  未防御呼び出し)は本venture固有の構成(本文生成と意図分類の2段LLM呼び出し)に
+  起因するものであり、他3ventureには同型のリスクが存在しないことを確認した。
+  コード変更は無く、回帰確認として本venture全体648件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証21件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要な既存コードの監査・確認のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 他venture・アイデア領域の前進、または仮設テント設営業者向け
+  「せつえいパシャッと」(本フェーズと同時にideas.mdへ追加)のventure化検討。
+- 最終更新: 2026-09-22 23:00 UTC(フェーズ247: フェーズ246の次回候補だった、
+  意図分類のLlmApiErrorフォールバックパターンの他3venture〈kura-pasha・
+  line-reservation-ai・aircon-pasha〉への横断確認を実施。kura-pasha・aircon-pashaは
+  2段目のLLM意図分類呼び出し自体を持たず、line-reservation-aiはLLM非接続の
+  ルールベース設計のため、いずれも同型リスクは存在しないことを確認。コード変更は
+  無く回帰確認のみ、venture全体648件・schema検証21件いずれもパス)
