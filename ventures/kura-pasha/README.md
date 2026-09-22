@@ -3379,3 +3379,40 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ため同型のバグパターンはそのまま当てはまらないが、5種intent全てに対応実装済みで
   粗い粒度の欠落も無いことを確認。コード変更は無く回帰確認のみ、venture全体15ファイル・
   schema検証32件いずれもパス)
+- フェーズ162(2026-09-22 16:00 UTC定例更新): 4venture(aircon-pasha・course-set-pasha・
+  kura-pasha・line-reservation-ai)のventuresフォルダ内ファイル名を横断比較し、他3venture
+  には存在するが本venture(kura-pasha)には同名ファイルが無い候補8件
+  (checkout-session-plan-selection-design・prompt-caching-design・
+  stripe-webhook-event-dispatch-design・stripe-webhook-http-entry-point-design・
+  stripe-webhook-signature-verification-design・subscription-billing-cost-estimate・
+  trial-end-scheduler-design・trial-start-anchor-decision)を抽出し、いずれも本venture
+  固有の未着手課題(実装漏れ)ではなく、既存の別ファイルに統合済みの内容であることを
+  1件ずつ確認した。具体的には、(a)署名検証・イベント種別ディスパッチ・HTTPエントリ
+  ポイントの3ファイルは他venture(course-set-pasha・aircon-pasha)がフェーズ93〜95・
+  125〜127で個別ファイルに分けて設計したのに対し、本ventureはフェーズ51作成の
+  stripe-webhook-checkout-completed-design.mdで同じ範囲を1本化して設計しており、実装も
+  `prototype/stripe_webhook.py`の`verify_stripe_signature()`・`receive_stripe_webhook()`
+  (署名検証・イベントディスパッチ・HTTPエントリポイントを1関数に集約)として既に完了
+  している、(b)trial-start-anchor-decisionはtrial-end-condition-design.md(フェーズ47)
+  2節で本venture固有の結論(起点は「initial生成成功時」ではなく「workshop作成時」、
+  他venture2件とは異なる結論に至った理由も含む)として既に確定済み、(c)prompt-caching-
+  designはllm-api-cost-estimate.md・tech-stack.mdに、(d)trial-end-scheduler-designは
+  daily-scheduler-design.mdに、(e)checkout-session-plan-selection-designは
+  subscription-plan-sync-design.mdに、(f)subscription-billing-cost-estimateは
+  unit-economics-estimate.mdに、それぞれ相当する内容が既に存在することを確認した。
+  以上により、ファイル名の一致のみで判定するcross-venture parity監査は本venture
+  ではfalse positiveを生みやすい(本ventureは低頻度受注特性〈月次課金より一括契約に
+  近い運用〉のため他3venture〈course-set-pasha・aircon-pasha・line-reservation-ai〉と
+  ファイル構成の切り方自体が異なる)ことが判明したため、今後の同種監査ではファイル名
+  比較だけで「未着手」と即断せず、本フェーズで確認した対応関係表(上記(a)〜(f))を
+  参照した上で実際の内容を確認することとする。コード変更は無く、回帰確認として
+  venture全体127件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と
+  同じ結果)を確認した。承認不要な既存ドキュメントの棚卸し・確認のみで、外部サービス
+  への公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
+  への追記なし。
+- 最終更新: 2026-09-22 16:00 UTC(フェーズ162: 4venture間のファイル名比較で
+  本ventureに無いように見えた8件を1件ずつ確認し、いずれも別ファイルへの統合済み
+  内容・本venture固有の設計判断であり実装漏れではないことを確認。ファイル名比較の
+  false positiveリスクを記録し、今後の監査手順に対応関係表を残した。コード変更は
+  無く回帰確認のみ、venture全体127件・schema検証32件いずれもパス)
