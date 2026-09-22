@@ -69,6 +69,12 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
+from trial_end_scheduler import InMemoryLinePushClient  # noqa: E402
+from chatbot_intent_router import (  # noqa: E402
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
+    POST_GENERATION_FAQ_FOLLOWUP_HINT,
+    render_chatbot_faq_response_message,
+)
 
 
 class FixtureLlmClient:
@@ -1812,6 +1818,142 @@ class CheckoutNoticeReplyTest(unittest.TestCase):
         )
 
         self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+
+class _FixedIntentClassifier:
+    """常に固定の分類値を返すスタブ(chatbot-intent-router-webhook-wiring-design.md準拠)。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = []
+
+    def classify(self, memo_text):
+        self.calls.append(memo_text)
+        return self.intent
+
+
+class ChatbotIntentRouterWiringTest(unittest.TestCase):
+    """process_memo_event()へのintent_classifier/escalation_push_client結線の検証
+    (chatbot-intent-router-webhook-wiring-design.md、フェーズ243→244)。"""
+
+    def test_without_intent_classifier_existing_behavior_is_unchanged(self):
+        # (a) intent_classifier未指定時は既存630件超の挙動が一切変わらないこと。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="エリアA 黄テープ 8本新規"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertIsNone(result.chatbot_intent)
+        self.assertEqual(result.reply_text, format_reply_text(TEST_CASES["G1_basic"]))
+
+    def test_faq_pricing_returns_faq_answer_without_calling_llm(self):
+        # (b) FAQ 3分類それぞれでllm_callが一度も呼ばれないこと。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="料金プランを教えて"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=_FixedIntentClassifier("faq_pricing"),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.chatbot_intent, "faq_pricing")
+        self.assertEqual(result.reply_text, render_chatbot_faq_response_message("faq_pricing"))
+
+    def test_faq_howto_returns_faq_menu_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="使い方がわからない"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=_FixedIntentClassifier("faq_howto"),
+        )
+
+        self.assertEqual(result.chatbot_intent, "faq_howto")
+        self.assertEqual(result.reply_text, render_chatbot_faq_response_message("faq_howto"))
+
+    def test_faq_cancel_change_returns_faq_answer_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="解約したい"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=_FixedIntentClassifier("faq_cancel_change"),
+        )
+
+        self.assertEqual(result.chatbot_intent, "faq_cancel_change")
+        self.assertEqual(result.reply_text, render_chatbot_faq_response_message("faq_cancel_change"))
+
+    def test_faq_intent_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="料金プランを教えて", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-08",
+            intent_classifier=_FixedIntentClassifier("faq_pricing"),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_other_needs_human_notifies_owner_and_returns_customer_reply(self):
+        # (c) other_needs_humanでescalation_push_clientにメッセージが送られ、
+        # 顧客への返信が定型文になること。
+        reply_client = InMemoryReplyClient()
+        push_client = InMemoryLinePushClient()
+
+        result = process_memo_event(
+            _make_event(text="なんかいつもと違う気がする", user_id="u-1"), _MustNotBeCalledLlmClient(),
+            reply_client, intent_classifier=_FixedIntentClassifier("other_needs_human"),
+            escalation_push_client=push_client,
+        )
+
+        self.assertEqual(result.chatbot_intent, "other_needs_human")
+        self.assertEqual(result.reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_other_needs_human_without_push_client_skips_notification_safely(self):
+        # design 5節: escalation_push_client未接続時は運営者通知を送らずに
+        # OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXTのみ顧客へ返す(route_chatbot_intent()は
+        # push_client必須でValueErrorになるため呼ばない)。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="なんかいつもと違う気がする", user_id="u-1"), _MustNotBeCalledLlmClient(),
+            reply_client, intent_classifier=_FixedIntentClassifier("other_needs_human"),
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+
+    def test_post_generation_request_falls_through_and_appends_faq_followup_hint(self):
+        # (d) post_generation_requestでは既存の生成フローへフォールスルーし、
+        # append_faq_followup_hint()が末尾に適用されること。
+        reply_client = InMemoryReplyClient()
+        classifier = _FixedIntentClassifier("post_generation_request")
+
+        result = process_memo_event(
+            _make_event(text="エリアA 黄テープ 8本新規"), FixtureLlmClient("G1_basic"), reply_client,
+            intent_classifier=classifier,
+        )
+
+        self.assertEqual(result.chatbot_intent, "post_generation_request")
+        self.assertEqual(classifier.calls, ["エリアA 黄テープ 8本新規"])
+        self.assertTrue(result.reply_text.endswith(POST_GENERATION_FAQ_FOLLOWUP_HINT))
+        self.assertEqual(
+            result.reply_text,
+            format_reply_text(TEST_CASES["G1_basic"]) + POST_GENERATION_FAQ_FOLLOWUP_HINT,
+        )
+
+    def test_post_generation_request_does_not_append_hint_for_non_generated_status(self):
+        # 4節: FAQ折り返し文言はstatus=="generated"の場合のみ。out_of_scope等には付与しない。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="こんにちは"), FixtureLlmClient("OOS1_membership_question"), reply_client,
+            intent_classifier=_FixedIntentClassifier("post_generation_request"),
+        )
+
+        self.assertFalse(result.reply_text.endswith(POST_GENERATION_FAQ_FOLLOWUP_HINT))
 
 
 class MergeTextAndPhotoEventsTest(unittest.TestCase):

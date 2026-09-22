@@ -47,6 +47,7 @@ from validate_test_cases import (  # noqa: E402
 from trial_end_scheduler import (  # noqa: E402
     LIFF_URL_PLACEHOLDER,
     TRIAL_GENERATION_LIMIT,
+    LinePushClient,
     format_trial_end_notification_message,
 )
 from application_form_submission_flow import (  # noqa: E402
@@ -57,6 +58,11 @@ from owner_faq_router import (  # noqa: E402
     match_owner_faq_item_code,
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
+)
+from chatbot_intent_router import (  # noqa: E402
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
+    append_faq_followup_hint,
+    route_chatbot_intent,
 )
 
 
@@ -948,6 +954,20 @@ def validate_llm_output(instance: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# チャットボット一次受付 意図分類(chatbot-intent-router-webhook-wiring-design.md)
+# ---------------------------------------------------------------------------
+
+
+class ChatbotIntentClassifierProtocol(Protocol):
+    """自由入力テキストをCHATBOT_INTENT_VALUES(5分類)のいずれかへ分類する
+    差し替え可能なProtocol。実装は実LLM呼び出しを伴うため、承認後に実クライアントで
+    差し替える(llm_callと同じ位置づけ)。"""
+
+    def classify(self, memo_text: str) -> str:
+        ...
+
+
+# ---------------------------------------------------------------------------
 # 1メモ単位の処理結果
 # ---------------------------------------------------------------------------
 
@@ -962,6 +982,7 @@ class MemoProcessResult:
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
     owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q6"=owner-faq-routing-design.md準拠のFAQコマンド応答
+    chatbot_intent: Optional[str] = None  # intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -1057,6 +1078,8 @@ def process_memo_event(
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     profile_store: Optional[UserProfileStoreProtocol] = None,
+    intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
@@ -1071,6 +1094,18 @@ def process_memo_event(
        一切行わず、FAQメニューまたは該当項目の回答を直接返信して処理を終える
        (owner_faq_action="menu"|"Q1"〜"Q6")。本ventureには来店客に相当する層がおらず
        送信者は常に契約者本人であるため、owner_user_idのような絞り込みは行わない。
+    2.6. intent_classifierが渡された場合のみ、chatbot-intent-router-webhook-wiring-
+       design.md準拠で自由入力テキストの意図分類(CHATBOT_INTENT_VALUES)を行う。
+       分類結果が"post_generation_request"以外(FAQ 3分類・other_needs_human)の場合は
+       route_chatbot_intent()に委譲し、LLM呼び出し・月間カウント増分等は一切行わず
+       ここで処理を終える。ただしother_needs_humanでescalation_push_client未接続の
+       場合はroute_chatbot_intent()を呼ばず(push_client必須のためValueErrorになる)、
+       運営者通知を送らずにOTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXTのみ返す(design 5節、
+       無応答放置よりも通知漏れを許容する安全側フォールバック)。分類結果が
+       "post_generation_request"の場合は下の既存フローへそのままフォールスルーし、
+       生成成功時(status=="generated")の返信文組み立て直後(4節参照)に
+       append_faq_followup_hint()を適用する。intent_classifier未指定時(既存呼び出し元)
+       は本節の判定自体を一切行わず、既存の挙動を変えない。
     3. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
        (json-output-retry-fallback.mdの「同一入力で1回だけ」方針をline-reservation-aiと
        同じ形で採用。再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す)。
@@ -1178,6 +1213,26 @@ def process_memo_event(
             payment_suspended=True,
         )
 
+    chatbot_intent = None
+    if intent_classifier is not None:
+        chatbot_intent = intent_classifier.classify(memo_text)
+        if chatbot_intent != "post_generation_request":
+            if chatbot_intent == "other_needs_human" and escalation_push_client is None:
+                reply_text = OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT
+            else:
+                reply_text = route_chatbot_intent(
+                    chatbot_intent,
+                    user_id=user_id_for_pause_check,
+                    memo_text=memo_text,
+                    push_client=escalation_push_client,
+                )
+            reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+            return MemoProcessResult(
+                handled=True, reply_sent=reply_sent,
+                reply_text=reply_text if reply_sent else None,
+                chatbot_intent=chatbot_intent,
+            )
+
     try:
         instance = _generate_with_api_retry(llm_call, memo_text, has_photo)
     except LlmApiError:
@@ -1222,6 +1277,8 @@ def process_memo_event(
         portal_link_provider=portal_link_provider,
         user_id=event.get("source", {}).get("userId"),
     )
+    if chatbot_intent == "post_generation_request" and instance["status"] == "generated":
+        reply_text = append_faq_followup_hint(reply_text)
     should_mark_notice_sent = False
     notice_user_id = None
     if (
@@ -1326,7 +1383,8 @@ def process_memo_event(
 
     reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
     return MemoProcessResult(
-        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
+        chatbot_intent=chatbot_intent,
     )
 
 

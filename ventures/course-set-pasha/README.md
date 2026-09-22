@@ -3724,3 +3724,40 @@
   として設計。既存Protocolパターン踏襲、挿入位置・分岐ロジック・安全側
   フォールバックを整理。設計のみでコード変更は無く回帰確認のみ、venture全体
   634件・schema検証21件いずれもパス)
+- フェーズ244(2026-09-22 14:00 UTC定例更新): フェーズ243が設計した
+  chatbot-intent-router-webhook-wiring-design.mdに基づき、実際に
+  `prototype/cloud_function_webhook.py`の`process_memo_event()`へ`intent_classifier`
+  (`ChatbotIntentClassifierProtocol`、新規追加)・`escalation_push_client`
+  (`LinePushClient`)の2引数を実装した。設計通り「LLM呼び出し結果を検証」の直前
+  (`_generate_with_api_retry()`呼び出し直前)に意図分類の分岐を挿入し、
+  `post_generation_request`以外(FAQ 3分類・`other_needs_human`)は
+  `route_chatbot_intent()`に委譲して即座に処理を終え、`post_generation_request`は
+  既存フローへフォールスルーして`format_reply_text()`直後・
+  `status=="generated"`時のみ`append_faq_followup_hint()`を適用する結線とした。
+  設計5節が挙げていた安全側フォールバック(`escalation_push_client`未接続時に
+  `other_needs_human`が来た場合、`route_chatbot_intent()`を呼ばずに
+  `OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`を直接返す)も明示的に実装した。
+  `MemoProcessResult`に`chatbot_intent: Optional[str] = None`フィールドを追加。
+  `test_cloud_function_webhook.py`に`ChatbotIntentRouterWiringTest`として9ケース
+  (設計5節の観点(a)〜(d)をすべてカバー: intent_classifier未指定時の既存挙動不変、
+  FAQ 3分類でllm_call不呼び出し、other_needs_humanでの運営者通知と定型返信、
+  push_client未接続時の安全側フォールバック、post_generation_requestのフォール
+  スルーとFAQ折り返し文言付与、status!=generated時は付与しないこと)を新規追加した。
+  `intent_classifier`未指定時(既存呼び出し元)は本結線の判定自体を一切行わず既存
+  動作を変えない設計のため、実LLM・実LINE Push接続(オーナー承認待ち)前でも
+  コード追加自体は承認不要のまま先行して着手できた。design docに「6. 実装状況」節を
+  追記し、対応状況・未解決点(意図分類自体の例外時フォールバック未設計、
+  `dispatch_webhook_events()`からの受け渡しは本フェーズのスコープ外)を記録した。
+  回帰確認としてventure全体643件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、634件→643件)・schema検証21件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なコード追加・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: `dispatch_webhook_events()`側への
+  `intent_classifier`・`escalation_push_client`の受け渡し配線、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-22 14:00 UTC(フェーズ244: chatbot-intent-router-webhook-wiring-
+  design.mdの設計に基づき、process_memo_event()へintent_classifier・
+  escalation_push_clientを実装。分岐ロジック・安全側フォールバック・
+  append_faq_followup_hint()結線・MemoProcessResult.chatbot_intentフィールドを
+  すべて設計通り実装し、新規テスト9件追加。venture全体643件(634件→643件)・
+  schema検証21件いずれもパス)

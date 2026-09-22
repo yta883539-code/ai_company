@@ -119,3 +119,32 @@ if intent_classifier is not None:
   (d)`post_generation_request`では既存の生成フローへフォールスルーし
   `append_faq_followup_hint()`が末尾に適用されること、を検証するテストの追加)は、
   本設計に基づく次回以降の実装フェーズで行う。
+
+## 6. 実装状況(フェーズ244で追記)
+
+上記1〜5節の設計に基づき、`prototype/cloud_function_webhook.py`の
+`process_memo_event()`に`intent_classifier`・`escalation_push_client`の2引数を
+Optionalで追加し、実装した。
+
+- `ChatbotIntentClassifierProtocol`を`MemoProcessResult`定義の直前に新規追加(design 1節)。
+- 挿入位置は設計通り、決済失敗制限モード判定(9)より後・`_generate_with_api_retry()`
+  呼び出しの直前(design 2節)。
+- 分岐ロジックは設計3節の通り実装。ただし`other_needs_human`かつ
+  `escalation_push_client is None`の場合は`route_chatbot_intent()`を呼ばず(push_client
+  必須でValueErrorになるため)、`OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`を直接返す
+  分岐を明示的に実装した(design 5節の安全側フォールバックをコード化)。
+- `post_generation_request`時の`append_faq_followup_hint()`結線は設計4節の通り、
+  `format_reply_text()`呼び出し直後・`status=="generated"`の場合のみ適用。
+- `MemoProcessResult.chatbot_intent`フィールドを追加し、早期リターン分岐・最終的な
+  生成成功時の返却の両方に設定した(検証エラー等の中間フォールバック分岐には設定
+  していない。design側で明示されていた範囲外のため今回は対象外とした)。
+- `test_cloud_function_webhook.py`に`ChatbotIntentRouterWiringTest`(9ケース)を新規
+  追加し、design 5節が挙げた(a)〜(d)の観点をいずれもカバーした。
+- 回帰確認としてventure全体643件(634件→643件)・schema検証21件、いずれもパス
+  (変更前と同じ結果)を確認した。
+- 未解決のまま残る点(design 5節と同じ):意図分類自体(`classify()`)が例外を送出した
+  場合のフォールバックは未実装。実LLM接続時に`_generate_with_api_retry()`と同様の
+  即時リトライ方針を適用するかは次回以降の課題。また`dispatch_webhook_events()`から
+  `process_memo_event()`への`intent_classifier`・`escalation_push_client`の受け渡しは
+  本フェーズの設計・実装スコープ外(design自体が`process_memo_event()`単体への結線に
+  限定していたため)であり、実LLM・実LINE Push接続時にあわせて別途結線が必要。
