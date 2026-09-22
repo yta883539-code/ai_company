@@ -95,6 +95,14 @@ course-set-pashaと同じ方針を踏襲する(本venture固有の差異は無�
 - 決済代行サービス側の都度課金対応可否確認(pricing-plan.md未確定事項)が完了した段階で、
   4節の「追加料金[単価]円」の具体的な請求タイミング(即時課金か翌月合算請求か)を通知文言に
   反映する。
-- course-set-pashaと同様、Firestore導入に伴う読み書き課金は
-  subscription-billing-cost-estimate.mdの原価試算にまだ反映されていない
-  (tech-stack.md・README.md「次にやること」既知の課題として別途残っている)。
+- (解消済み 2026-09-22・フェーズ252棚卸し: 「course-set-pashaと同様、Firestore導入に伴う
+  読み書き課金はsubscription-billing-cost-estimate.mdの原価試算にまだ反映されていない」と
+  していた本項目は、本ドキュメント作成(フェーズ36、2026-08-14 23:00 UTC)の翌日
+  2026-08-15にはsubscription-billing-cost-estimate.md「Firestore読み書き課金の原価試算
+  (2026-08-15追記)」節で既に対応済みだった。同節は本ドキュメントを名指しした上で
+  course-set-pasha/subscription-billing-cost-estimate.mdの試算方法(生成1回あたり読み取り
+  1回・書き込み1回)を踏襲し、本venture固有の利用量(月40〜150回、繁忙期2〜3倍)で
+  追試算し、無料枠内に収まる見込みが高いと結論している。subscription-billing-cost-
+  estimate.md自身の「残課題」節には当時から解消記録が残っていたが、この論点の出所である
+  本ドキュメント側の記載だけが更新されずに1か月以上取り残されていたcross-document
+  parityの記載漏れであり、本フェーズで発見・事後訂正した。実装内容自体への変更は無い)。

@@ -4050,3 +4050,29 @@
   次回以降の課題」と誤記したまま取り残されていたcross-document parityの記載漏れを発見・
   訂正。実装内容自体への変更は無く回帰確認のみ、venture全体519件・schema検証25件いずれも
   パス)
+- フェーズ252(2026-09-22 19:00 UTC定例更新): フェーズ251に続き、他の設計docの「残課題」
+  「今後の課題」節を棚卸しした。limit-approaching-notification-design.md(フェーズ36、
+  2026-08-14 23:00 UTC作成)「6. 今後の課題」の末尾に「course-set-pashaと同様、Firestore
+  導入に伴う読み書き課金はsubscription-billing-cost-estimate.mdの原価試算にまだ反映されて
+  いない」という記載が残っていたが、実際には作成の翌日2026-08-15には
+  subscription-billing-cost-estimate.md「Firestore読み書き課金の原価試算
+  (2026-08-15追記)」節で既に解消済みだったことを確認した。同節は
+  limit-approaching-notification-design.mdを名指しした上でcourse-set-pasha/
+  subscription-billing-cost-estimate.mdの試算方法(生成1回あたり読み取り1回・書き込み
+  1回)を踏襲し、本venture固有の利用量(月40〜150回、繁忙期2〜3倍)で追試算し、無料枠内に
+  収まる見込みが高いと結論している。subscription-billing-cost-estimate.md自身の「残課題」
+  節には2026-08-15当時から解消記録が残っていたが、この論点の出所である
+  limit-approaching-notification-design.md側の記載だけが更新されずに1か月以上取り残されて
+  いたcross-document parityの記載漏れであり、本フェーズで発見・事後訂正した。実装内容
+  自体への変更は無い。コード変更は無く、回帰確認としてventure全体519件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回も他venture・
+  アイデア領域の前進、または引き続き未走査の設計docの残課題棚卸しを優先候補とする。
+- 最終更新: 2026-09-22 19:00 UTC(フェーズ252: limit-approaching-notification-design.mdの
+  「6. 今後の課題」のFirestore読み書き課金試算が「まだ反映されていない」という記載が、
+  実際には作成翌日の2026-08-15(subscription-billing-cost-estimate.md「Firestore読み書き
+  課金の原価試算」節)に解消済みだったまま1か月以上取り残されていたcross-document parityの
+  記載漏れを発見・訂正。実装内容自体への変更は無く回帰確認のみ、venture全体519件・
+  schema検証25件いずれもパス)
