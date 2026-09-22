@@ -3997,3 +3997,28 @@
   format_reply_text()で未処理、実際に発生するとValueError〉を本ventureでも発見・修正。
   checkout_notice.bodyをそのまま返す分岐を追加、テスト4件新規追加〈515件→519件〉。
   回帰確認としてventure全体519件・schema検証25件いずれもパス)
+- フェーズ250(2026-09-22 10:00 UTC定例更新): course-set-pashaフェーズ242(本日09:00 UTC)が
+  発見した「llm-quality-verification-plan.md(フェーズ87作成)が、後から新設された厳守事項
+  7b(有料プラン開始意図検知)・CO1〜CO3ケースを検証観点表に一度も反映していなかった記載漏れ」
+  と同種のギャップが、同じ命名・設計を踏襲した本venture(厳守事項6b・CO1〜CO3、フェーズ
+  118作成のllm-quality-verification-plan.md)にも存在していないか確認したところ、同様に
+  検証観点表(#1〜#8)に「6a」行(解約意図検知、CI1〜CI3)はあるが「6b」行(有料プラン開始
+  意図検知、CO1〜CO3)が一度も追加されていない記載漏れを発見した。加えて、その後追加された
+  CI4・CI5(6a(iii)一般形、フェーズ240)・CO4・CO5(6b(iii)一般形、フェーズ241)も表・
+  冒頭のケース数記載(「9ケース」のまま)に未反映だったため、あわせて訂正した。
+  llm-quality-verification-plan.mdに「6b」行を新設し検証観点・判定方法・対象ケースを整理、
+  冒頭の対象ケース数記載を「9ケース(G1〜G4・OOS1・II1・CI1〜CI3)」から「21ケース
+  (G1〜G9・OOS1・II1・CI1〜CI5・CO1〜CO5、2026-09-22時点)」へ訂正した。
+  llm-quality-verification-results-template.mdにも欠けていたCI4〜CI5・CO1〜CO5の記録表と、
+  トークン数記録欄への該当ケース行を追加した(G5〜G9・NEG1〜NEG4は機械チェックのみで
+  判定可能な既存項目の追加サンプルであり人手判定を要する新規区分ではないため記録表は
+  据え置いた旨を位置づけ節に明記)。コード変更は無く、回帰確認としてventure全体519件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証
+  25件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認不要なドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 10:00 UTC(フェーズ250: course-set-pashaフェーズ242と同種の
+  llm-quality-verification-plan.md記載漏れ〈厳守事項6b・CO1〜CO3が検証観点表に一度も
+  反映されていない〉を本ventureでも発見・訂正。CI4・CI5/CO4・CO5の表・ケース数記載漏れも
+  あわせて訂正し、llm-quality-verification-results-template.mdにCI4〜CI5・CO1〜CO5の
+  記録表を追加。コード変更は無く回帰確認のみ、venture全体519件・schema検証25件いずれもパス)
