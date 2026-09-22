@@ -3695,3 +3695,32 @@
   (有料プラン開始意図検知)・CO1〜CO3ケースが一度も反映されていなかった記載漏れを発見・
   訂正。機械チェック本体は実装済みで、ドキュメント記載の追いつきのみ。コード変更は無く
   回帰確認のみ、venture全体634件・schema検証21件いずれもパス)
+- フェーズ243(2026-09-22 13:00 UTC定例更新): フェーズ242が次回候補とした
+  「chatbot_intent_router自体のWebhookハンドラへの結線」について、
+  chatbot-intent-router-webhook-wiring-design.mdとして設計に着手した。
+  `process_memo_event()`が既存で徹底している「Protocolを`Optional[...] = None`で
+  受け取り、未接続時は該当ロジックを丸ごとスキップし既存呼び出し元・既存テストへの
+  影響をゼロにする」というパターンをそのまま踏襲し、新規`intent_classifier`
+  (`ChatbotIntentClassifierProtocol`)・`escalation_push_client`
+  (`LinePushClient`)の2引数を追加する設計とした。挿入位置は既存9ステップの
+  うち「LLM呼び出し結果を検証」の直前(明示FAQコマンド・生成一時停止・決済失敗
+  制限モードの各早期リターンより後、`_generate_with_api_retry()`呼び出しより前)
+  とし、`post_generation_request`分類時は既存フローへフォールスルーしつつ
+  `format_reply_text()`直後に`append_faq_followup_hint()`を適用する結線方法を
+  整理した。`escalation_push_client`未接続時に`other_needs_human`が来た場合の
+  安全側フォールバック(通知は送らず顧客への定型応答のみ返す)、意図分類自体が
+  例外を送出した場合のフォールバック未設計である旨も残課題として明記した。
+  設計のみで実装・テスト追加は次回以降とする(実LLM接続自体は引き続きオーナー
+  承認待りで変わらないが、`intent_classifier`未指定時に既存動作を一切変えない
+  設計のため、コード追加自体は承認を要さずに先行して着手できる)。コード変更は
+  無く、回帰確認としてventure全体634件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同数)・schema検証21件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを
+  確認した。承認不要な設計ドキュメント新規作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-22 13:00 UTC(フェーズ243: chatbot_intent_router.pyの
+  Webhookハンドラへの結線について、chatbot-intent-router-webhook-wiring-design.md
+  として設計。既存Protocolパターン踏襲、挿入位置・分岐ロジック・安全側
+  フォールバックを整理。設計のみでコード変更は無く回帰確認のみ、venture全体
+  634件・schema検証21件いずれもパス)
