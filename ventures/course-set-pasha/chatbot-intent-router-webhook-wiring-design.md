@@ -177,3 +177,49 @@ Optionalで追加し、実装した。
   残るのは実クレデンシャル取得後の`get_runtime_dependencies()`差し替えのみで、
   これはオーナー承認待ち(pending-approval.md参照、既存記載の範囲内で追加の
   承認依頼は不要)。
+
+## 8. 意図分類自体の失敗時のフォールバック実装(フェーズ246で追記)
+
+5節が「実装時に`_generate_with_api_retry()`と同様の即時リトライ方針を適用するか
+どうか含め、次回以降の課題とする」と残していた「意図分類自体の失敗
+(`classify()`のLlmApiError)時のフォールバック」を実装した。
+
+- `_classify_intent_with_retry()`を新設し、`_generate_with_api_retry()`と同じ
+  「即時1回のみリトライし、2回ともLlmApiErrorなら例外を伝播させない」方針を採用した。
+  ただし`_generate_with_api_retry()`が例外をそのまま呼び出し元へ伝播させる契約なのに
+  対し、本関数は2回とも失敗した場合に例外を送出せず`None`を返す点が異なる(下記参照)。
+- `process_memo_event()`の呼び出し箇所を`intent_classifier.classify(memo_text)`から
+  `_classify_intent_with_retry(intent_classifier, memo_text)`へ置き換え、戻り値が
+  `None`(=2回とも失敗)の場合はルーティング分岐(`if chatbot_intent is not None and
+  chatbot_intent != "post_generation_request"`)に入らず、`chatbot_intent`を`None`の
+  まま下の既存の生成フローへフォールスルーする設計とした。
+- 採用理由: 5節で挙げた2案(post_generation_request扱いに倒すか、
+  API_FAILURE_FALLBACK_MESSAGEを返すか)のうち前者を採用した。意図分類はあくまで
+  投稿文生成リクエストへのFAQ・エスカレーション振り分けを行う前段の最適化であり、
+  分類自体が失敗しても本来の投稿文生成(LLM呼び出し)自体は成功する可能性が高いため、
+  一律にAPI_FAILURE_FALLBACK_MESSAGEで無応答同然にするよりも、intent_classifier
+  未指定時と同じ既存の生成フローへフォールスルーする方が「無応答放置を避けることを
+  優先する」という5節・design.md 3節と一貫した安全側の選択となる。
+- `chatbot_intent`フィールドの扱い: 分類成功時はCHATBOT_INTENT_VALUESのいずれか、
+  intent_classifier未指定時・分類失敗時のいずれも`None`となり、両者は
+  `MemoProcessResult.chatbot_intent`だけでは区別できない(フィールドのdocstring
+  「intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか」という
+  既存の不変条件を壊さないための意図的な選択)。分類失敗の発生自体を運用上
+  検知したい場合は、本venture共通のログ基盤(未整備、tech-stack.md参照)の
+  整備が前提となるため、次回以降の課題として残す。
+- `test_cloud_function_webhook.py`に`_FlakyOnceIntentClassifier`・
+  `_AlwaysFailingIntentClassifier`の2スタブと、`test_intent_classification_retries_
+  once_then_succeeds`(1回目失敗・2回目成功で通常通りルーティングされること)・
+  `test_intent_classification_falls_through_to_generation_after_retry_fails`
+  (2回とも失敗した場合にchatbot_intent=Noneのまま既存の生成フローへフォールスルーし、
+  FAQ折り返し文言も付与されないこと)の2ケースを追加した(646件→648件)。
+- 回帰確認としてventure全体648件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(スキーマ側は変更前と同じ結果)を確認した。承認不要なコード追加・テスト追加
+  のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+- これにより5節が残していた2件の未解決点(escalation_push_client未接続時の
+  フォールバック、意図分類自体の失敗時のフォールバック)はいずれも設計・実装が
+  完了した。5節記載の「実運用で発生する可能性は低い」中途半端な組み合わせ
+  (intent_classifierのみ接続・escalation_push_client未接続)の扱いは既存のまま
+  変更していない。

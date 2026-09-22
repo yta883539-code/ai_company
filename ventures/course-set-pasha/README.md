@@ -3787,3 +3787,31 @@
   escalation_push_client受け渡し配線を実装。分岐ロジックはprocess_memo_event()側に
   閉じたまま、薄い配線のみ追加。新規テスト3件追加。venture全体646件(643件→646件)・
   schema検証21件いずれもパス)
+- フェーズ246(2026-09-22 22:00 UTC定例更新): chatbot-intent-router-webhook-wiring-
+  design.md 5節が「次回以降の課題」として残していた、意図分類自体(`intent_classifier.
+  classify()`)がLlmApiErrorを送出した場合のフォールバックを実装した。
+  `_generate_with_api_retry()`と同じ「即時1回のみリトライ」方針を適用する
+  `_classify_intent_with_retry()`を新設し、process_memo_event()の呼び出しを置き換えた。
+  2回ともLlmApiErrorの場合は例外を伝播させず、`chatbot_intent`を`None`のまま
+  intent_classifier未指定時と同じ既存の生成フロー(post_generation_request相当)へ
+  フォールスルーする設計とした(API_FAILURE_FALLBACK_MESSAGEで無応答同然にするより、
+  通常の投稿文生成を試みる方を安全側とする、design 3節・5節と同じ考え方)。
+  chatbot-intent-router-webhook-wiring-design.mdに「8. 意図分類自体の失敗時の
+  フォールバック実装」節を追記し、採用理由・`chatbot_intent`フィールドが分類失敗時と
+  intent_classifier未指定時を区別できない旨(既存の不変条件を壊さないための意図的な
+  選択)を記録した。test_cloud_function_webhook.pyに`_FlakyOnceIntentClassifier`・
+  `_AlwaysFailingIntentClassifier`の2スタブと新規テスト2件(リトライ成功パターン、
+  リトライ後も失敗しフォールスルーするパターン)を追加した(646件→648件)。回帰確認
+  としてventure全体648件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認不要なコード追加・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。これによりchatbot-intent-router-webhook-wiring-design.md 5節が残していた
+  未解決点はすべて設計・実装が完了した。次回候補: 他venture(kura-pasha・
+  line-reservation-ai・aircon-pasha)への同種フォールバックパターンの横断確認、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-22 22:00 UTC(フェーズ246: intent_classifier.classify()自体が
+  LlmApiErrorを送出した場合のフォールバック(即時1回リトライ後、失敗すれば
+  chatbot_intent=Noneのまま既存の生成フローへフォールスルー)を実装。design.mdに
+  8節を追記。新規テスト2件追加。venture全体648件(646件→648件)・schema検証21件
+  いずれもパス)

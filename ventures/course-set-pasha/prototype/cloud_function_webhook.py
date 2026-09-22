@@ -990,6 +990,27 @@ def _summarize_errors_for_retry(errors: list[str]) -> str:
     return "; ".join(errors[:3])
 
 
+def _classify_intent_with_retry(
+    intent_classifier: ChatbotIntentClassifierProtocol,
+    memo_text: str,
+) -> Optional[str]:
+    """intent_classifier.classify()自体の失敗(LlmApiError)に対し、_generate_with_api_retry()と
+    同じ即時1回のみのリトライ方針を適用する(chatbot-intent-router-webhook-wiring-design.md
+    5節が未設計のまま残していた「意図分類自体の失敗時のフォールバック」への対応、フェーズ246)。
+    2回ともLlmApiErrorとなった場合は例外を外へ伝播させずNoneを返し、呼び出し元は
+    intent_classifier未指定時と同じ既存の生成フロー(post_generation_request相当)へ
+    フォールスルーする(API_FAILURE_FALLBACK_MESSAGEで無応答にするより、通常の投稿文生成を
+    試みる方を安全側とする。design 5節「無応答放置を避けることを優先する」と同じ考え方)。"""
+    try:
+        return intent_classifier.classify(memo_text)
+    except LlmApiError:
+        pass
+    try:
+        return intent_classifier.classify(memo_text)
+    except LlmApiError:
+        return None
+
+
 def _generate_with_api_retry(
     llm_call: LlmCallClient,
     memo_text: str,
@@ -1105,7 +1126,11 @@ def process_memo_event(
        "post_generation_request"の場合は下の既存フローへそのままフォールスルーし、
        生成成功時(status=="generated")の返信文組み立て直後(4節参照)に
        append_faq_followup_hint()を適用する。intent_classifier未指定時(既存呼び出し元)
-       は本節の判定自体を一切行わず、既存の挙動を変えない。
+       は本節の判定自体を一切行わず、既存の挙動を変えない。intent_classifier.classify()
+       自体がLlmApiErrorを送出した場合は_classify_intent_with_retry()が即時1回のみ
+       リトライし(3節の即時リトライ方針と同じ)、2回とも失敗した場合はchatbot_intentを
+       Noneのまま下の既存フロー(post_generation_request相当)へフォールスルーする
+       (design 5節フェーズ246追記、無応答よりも通常の投稿文生成を試みる方を優先する)。
     3. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする
        (json-output-retry-fallback.mdの「同一入力で1回だけ」方針をline-reservation-aiと
        同じ形で採用。再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す)。
@@ -1215,8 +1240,8 @@ def process_memo_event(
 
     chatbot_intent = None
     if intent_classifier is not None:
-        chatbot_intent = intent_classifier.classify(memo_text)
-        if chatbot_intent != "post_generation_request":
+        chatbot_intent = _classify_intent_with_retry(intent_classifier, memo_text)
+        if chatbot_intent is not None and chatbot_intent != "post_generation_request":
             if chatbot_intent == "other_needs_human" and escalation_push_client is None:
                 reply_text = OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT
             else:

@@ -1832,6 +1832,33 @@ class _FixedIntentClassifier:
         return self.intent
 
 
+class _FlakyOnceIntentClassifier:
+    """1回目のclassify()呼び出しでLlmApiErrorを送出し、2回目(即時リトライ)は
+    固定の分類値を返すスタブ(FlakyOnceLlmClientと同じパターン)。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        if self.calls == 1:
+            raise LlmApiError("simulated timeout")
+        return self.intent
+
+
+class _AlwaysFailingIntentClassifier:
+    """常にLlmApiErrorを送出するスタブ(即時リトライしても解消しないパターンの検証用、
+    AlwaysFailingLlmClientと同じパターン)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        raise LlmApiError("simulated persistent failure")
+
+
 class ChatbotIntentRouterWiringTest(unittest.TestCase):
     """process_memo_event()へのintent_classifier/escalation_push_client結線の検証
     (chatbot-intent-router-webhook-wiring-design.md、フェーズ243→244)。"""
@@ -1953,6 +1980,39 @@ class ChatbotIntentRouterWiringTest(unittest.TestCase):
             intent_classifier=_FixedIntentClassifier("post_generation_request"),
         )
 
+        self.assertFalse(result.reply_text.endswith(POST_GENERATION_FAQ_FOLLOWUP_HINT))
+
+    def test_intent_classification_retries_once_then_succeeds(self):
+        # design 5節フェーズ246: classify()自体がLlmApiErrorを送出しても、
+        # _generate_with_api_retry()と同じ即時1回のリトライで成功すれば通常通り
+        # ルーティングされること。
+        reply_client = InMemoryReplyClient()
+        classifier = _FlakyOnceIntentClassifier("faq_pricing")
+
+        result = process_memo_event(
+            _make_event(text="料金プランを教えて"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=classifier,
+        )
+
+        self.assertEqual(classifier.calls, 2)
+        self.assertEqual(result.chatbot_intent, "faq_pricing")
+        self.assertEqual(result.reply_text, render_chatbot_faq_response_message("faq_pricing"))
+
+    def test_intent_classification_falls_through_to_generation_after_retry_fails(self):
+        # design 5節フェーズ246: classify()が即時リトライ後も2回ともLlmApiErrorの場合、
+        # chatbot_intentはNoneのままintent_classifier未指定時と同じ既存の生成フローへ
+        # フォールスルーする(API_FAILURE_FALLBACK_MESSAGEで無応答にはしない)。
+        reply_client = InMemoryReplyClient()
+        classifier = _AlwaysFailingIntentClassifier()
+
+        result = process_memo_event(
+            _make_event(text="エリアA 黄テープ 8本新規"), FixtureLlmClient("G1_basic"), reply_client,
+            intent_classifier=classifier,
+        )
+
+        self.assertEqual(classifier.calls, 2)
+        self.assertIsNone(result.chatbot_intent)
+        self.assertEqual(result.reply_text, format_reply_text(TEST_CASES["G1_basic"]))
         self.assertFalse(result.reply_text.endswith(POST_GENERATION_FAQ_FOLLOWUP_HINT))
 
 
