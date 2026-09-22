@@ -310,9 +310,11 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 - ~~招待コード解決(message event側のルーティング、2節フェーズ69の
   `process_message_event()`相当の配線)自体も本節未着手。~~ → フェーズ98で対応済み
   (11.4節参照)。
-- 複数職人プランの`member_user_ids`上限数(何名まで許容するか)はpricing-plan.md未確定
+- ~~複数職人プランの`member_user_ids`上限数(何名まで許容するか)はpricing-plan.md未確定
   (月間生成回数20回という利用量の上限のみ確定、人数上限は言及なし)。無制限のまま
-  運用してよいか要検討、次の課題とする。
+  運用してよいか要検討、次の課題とする。~~ → フェーズ102(11.7節参照)で契約者含め
+  **5名**を暫定上限として決定・`prototype/workshop_linking.py`の`MAX_MEMBER_COUNT`として
+  実装済み。pricing-plan.mdにも反映済み。
 - ~~招待コード解決に成功したメッセージへの返信文言(ウェルカムメッセージ相当)自体は
   本節未設計。~~ → フェーズ98で`INVITE_JOIN_SUCCESS_MESSAGE`として確定済み(11.4節参照)。
 
@@ -323,7 +325,8 @@ process_follow_event()`に落とし込んだ。`workshop_linking.issue_linking_c
 
 ## 11.4 追記(フェーズ98): 招待コード解決のmessage event側ルーティング配線・ウェルカムメッセージ
 
-11.3節の残課題のうち、以下2点に対応した(発行契機のLLM意図検知・人数上限は未着手のまま残す)。
+11.3節の残課題のうち、以下2点に対応した(発行契機のLLM意図検知・人数上限は本フェーズ
+時点では未着手のまま残る。人数上限は後のフェーズ102・11.7節で対応済み)。
 
 **ルーティング配線**: `process_message_event()`(2節フェーズ69で新設)に
 `invite_store: Optional[LinkingCodeStoreProtocol] = None`を追加した。未連携ユーザーが

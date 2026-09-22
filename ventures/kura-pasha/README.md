@@ -3285,3 +3285,19 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   合わせて新規実装〈絵文字ゼロ・会員等キーワード不在・category本文整合性・ポータル
   リンク整合性・checkout URL/招待コード不在の6チェック〉。新規テスト24件追加、
   回帰確認としてventure全体127件・schema検証32件いずれもパス)
+- フェーズ158(2026-09-22 00:00 UTC定例更新): craftsman-account-linking-design.md
+  11.3節「未検証・残課題」が「複数職人プランのmember_user_ids上限数は未確定、無制限の
+  まま運用してよいか要検討、次の課題とする」として残したままだった記載が、実際には
+  同ファイル11.7節(フェーズ102)で契約者含め5名を暫定上限として決定し
+  `prototype/workshop_linking.py`の`MAX_MEMBER_COUNT`として実装済み(pricing-plan.mdにも
+  反映済み)であることを発見・訂正した。あわせて11.4節(フェーズ98)の「人数上限は未着手
+  のまま残す」という記載も、11.7節が後続フェーズで対応済みである旨を明記する形に訂正
+  した。コード変更は無く、回帰確認としてventure全体127件(`python3 prototype/run_all_
+  tests.py`)・schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス
+  (変更前と同じ結果)を確認した。承認不要な既存ドキュメントの記載訂正のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-22 00:00 UTC(フェーズ158: craftsman-account-linking-design.md
+  11.3節・11.4節に残っていた「member_user_ids上限数は未着手」という記載が、実際には
+  11.7節〈フェーズ102〉で5名上限として決定・実装済みだった記載漏れを発見・訂正。
+  コード変更は無く回帰確認のみ、venture全体127件・schema検証32件いずれもパス)
