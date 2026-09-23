@@ -4177,15 +4177,31 @@
   送信等は今回発生していないためpending-approval.mdへの追記なし。次回候補: 本ドキュメント
   3節の案内文誘導方式に基づく意図分類プロンプト設計、kura-pasha側での同種検討、または
   フェーズ255「次回候補」に残る業者識別子表示方式の検討。
+- フェーズ257(2026-09-23 09:00 UTC定例更新): フェーズ256の次回候補だった、
+  chatbot-first-response-feasibility.md 3節の案内文誘導方式に基づく意図分類プロンプト
+  設計に着手し、chatbot-intent-classification-llm-prompt-draft.mdを新規作成した。
+  course-set-pashaのchatbot-intent-classification-llm-prompt-draft.md(フェーズ237)を
+  下敷きにしつつ、分類カテゴリはFAQ項目別(faq_pricing等)に細分せず、
+  completion_report_request/faq_guidance_candidate/other_needs_humanの3分類にとどめた
+  (faq_guidance_candidate判定時はLLMに回答文を生成させず「FAQ」コマンドへの案内文を
+  返すのみのため、項目別の分類粒度自体が不要と判断)。判定順位は「完了報告書生成を
+  最優先」「FAQとother_needs_humanの判別に迷えばother_needs_human」という
+  course-set-pasha方式のフェイルセーフ方針をそのまま踏襲した。コード変更は無く机上の
+  プロンプト文面設計のみのため回帰確認として本venture全体533件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証25件(`python3 schema/validate_
+  test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認不要な新規ドキュメント
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: faq_guidance_candidate判定時の案内文・
+  completion_report_request判定時の一言追加(course-set-pashaのappend_faq_followup_
+  hint()相当)の設計、other_needs_humanのエスカレーション導線設計(course-set-pashaの
+  chatbot-intent-classification-escalation-design.md 3節相当)、またはフェーズ255
+  「次回候補」に残る業者識別子表示方式の検討。
+- 最終更新: 2026-09-23 09:00 UTC(フェーズ257: chatbot-first-response-feasibility.md
+  3節の案内文誘導方式に基づく意図分類プロンプト草案chatbot-intent-classification-llm-
+  prompt-draft.mdを新規作成。course-set-pasha方式を踏襲しつつ分類は3カテゴリに単純化。
+  コード変更は無く回帰確認のみ、venture全体533件・schema検証25件いずれもパス)
 - 最終更新: 2026-09-23 08:00 UTC(フェーズ256: course-set-pashaのchatbot-first-response-
   feasibility.mdの横展開申し送りを受け、本venture向けのchatbot-first-response-
   feasibility.mdを新規作成。既存のコマンド方式FAQを活かし、意図分類はコマンドへの案内文
   誘導に絞る保守的設計を推奨。コード変更は無く回帰確認のみ、venture全体533件・
   schema検証25件いずれもパス)
-- 最終更新: 2026-09-23 06:00 UTC(フェーズ255: course-set-pasha・kura-pashaに存在し
-  本ventureに欠けていた「制限モード移行時のオーナー向け能動通知」パターンをcross-venture
-  parityの観点で発見・横展開。payment-suspension-owner-notification-design.md新規作成、
-  `payment_suspension_owner_notification.py`新設・`payment_failure.clear_payment_
-  failure_on_success()`拡張、テスト14件追加、venture全体533件・schema検証25件いずれも
-  パス。外部サービス接続はオーナー承認待ちの既存範囲に含まれるためpending-approval.mdへの
-  追記なし)
