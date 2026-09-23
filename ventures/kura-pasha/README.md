@@ -3551,3 +3551,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   draft.mdを新規作成。本venture固有6分類向けのシステムプロンプト草案、分岐順序の
   コード側担保、修理可否境界判定の判定順位2番目への独立配置を設計。コード変更は無く
   回帰確認のみ、venture全体687件・schema検証32件いずれもパス)
+- フェーズ169(2026-09-23 15:00 UTC定例更新): フェーズ167・168が進めていた意図分類の
+  設計作業とは別に、owner_faq_router.py(フェーズ126作成、契約者向け「FAQ」→
+  「Q1」〜「Q8」コマンド応答)がowner-operation-self-service-faq.mdのQ9(複数職人プラン
+  への招待手順、フェーズ154で追加)に対応しておらず、`test_owner_faq_router.py`が
+  `match_owner_faq_item_code("Q9")`をわざわざ「範囲外」としてテストしていた
+  cross-document parityの記載漏れ(実装漏れ)を発見した。owner-operation-self-service-
+  faq.mdのQ9本文を基に、`_FAQ_HEADINGS`・`_FAQ_ANSWERS`にQ9を追加し、
+  `render_owner_faq_menu_message()`・`render_owner_faq_answer_message()`が対応する
+  よう実装した(LLM呼び出し・LINE送信・通知ログ記録を行わない純粋関数という既存設計は
+  変更していない)。あわせてtest_owner_faq_router.pyの「Q1〜Q8」前提のテスト
+  (全件ループ範囲、メニュー見出し一覧、範囲外コード判定)をQ1〜Q9前提に更新し、
+  Q9の回答本文が招待コードに言及することを確認する新規テストを1件追加した。
+  回帰確認として`python3 prototype/run_all_tests.py`で15ファイル全件[OK]、
+  test_owner_faq_router.py単体では`python3 -m unittest`で18件→19件(Q9追加分1件増)が
+  いずれもパス、`python3 schema/validate_test_cases.py`は32件中32件パス(変更前と
+  同じ結果、本フェーズはowner_faq_router.py側のみの変更でLLM出力スキーマには影響しない)
+  であることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  chatbot-intent-classification-design.md「残課題」の`faq_intent_to_code()`相当の
+  マッピング層(新設の意図分類カテゴリ→本モジュールのQ番号への変換)の実装、または
+  aircon-pasha・line-reservation-ai・course-set-pasha側で同種のFAQ追加とコマンド
+  応答実装の間にずれが無いかの横断確認。
+- 最終更新: 2026-09-23 15:00 UTC(フェーズ169: owner_faq_router.pyがowner-operation-
+  self-service-faq.mdのQ9(招待手順、フェーズ154追加)に未対応だったcross-document
+  parityの記載漏れ(実装漏れ)を発見・解消。`_FAQ_HEADINGS`・`_FAQ_ANSWERS`にQ9を追加し、
+  test_owner_faq_router.pyのQ1〜Q8前提テストをQ1〜Q9に更新・新規テスト1件追加。
+  run_all_tests.py 15ファイル全件[OK]、schema検証32件いずれもパス)

@@ -4,13 +4,18 @@ owner-operation-self-service-faq.md(フェーズ125)「次のステップ候補�
 owner-faq-routing-design.md(本フェーズ新規作成)で採用したコマンド方式の実装。
 line-reservation-aiのprototype/owner_faq_router.py(フェーズ続き233)と同じ設計
 (LLM呼び出し・LINE送信・通知ログ記録のいずれも行わない純粋関数)を踏襲するが、
-本venture固有のQ1〜Q8(owner-operation-self-service-faq.md)を対象とする点が異なる。
+本venture固有のQ1〜Q9(owner-operation-self-service-faq.md)を対象とする点が異なる。
 
 呼び出し元(cloud_function_webhook.pyのprocess_message_event())は、`user_id`が
 `workshop_store.get_contractor_user_id(workshop_id)`と一致する場合のみ本モジュールの
 関数を使った分岐を評価する。共同利用者(複数職人プランのメンバー)や一般の来店客に
 相当する層は存在しない本venture固有の事情により、判定対象は契約者本人のみとなる
 (owner-faq-routing-design.md 2節参照)。
+
+フェーズ169: owner-operation-self-service-faq.mdはフェーズ154でQ9(招待手順)を
+追加済みだったが、本モジュールはフェーズ126作成時のQ1〜Q8のまま据え置かれており、
+Q9がFAQメニュー・トリガー応答のいずれにも反映されていないcross-document parityの
+記載漏れがあった。本フェーズでQ9を追加し解消した。
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ _FAQ_HEADINGS = {
     "Q6": "複数職人プランからダウングレードしたら、他の職人は使えなくなる?",
     "Q7": "工房の契約者(親方・代表)を交代したい(事業承継)",
     "Q8": "生成された受注内容整理・納品案内・お手入れ案内の内容がイメージと違う",
+    "Q9": "複数職人プランで仲間の職人を招待したい(招待手順)",
 }
 
 _FAQ_ANSWERS = {
@@ -77,6 +83,19 @@ _FAQ_ANSWERS = {
         "金具仕様・用途・納期等を具体的にお書きいただくと、生成内容の精度が上がり"
         "やすくなります。"
     ),
+    "Q9": (
+        "複数職人プラン(月額3,980円、最大5名まで)の契約者様は、トークルームで"
+        "「職人を追加したい」のように送っていただくと、AIが24時間だけ有効な招待"
+        "コードを発行してお返しします。そのコードを追加したい職人ご本人へLINEや"
+        "メール等でご自身から転送してください(運営者や本サービスが直接ご本人へ"
+        "連絡することはありません)。招待される職人様がまだ本サービスの公式"
+        "アカウントを友だち追加されていない場合は、先に友だち追加のうえ受け取った"
+        "コードをトークで送信すると、新しい工房を作らず契約者様と同じ工房に"
+        "追加されます。コードは24時間で失効する使い切りのため、期限が切れた場合は"
+        "契約者様に再度「職人を追加したい」とお送りいただき新しいコードを発行して"
+        "ください。ライト/スタンダードプラン(1人用)では招待コードは発行できず、"
+        "複数職人プランへのアップグレードが必要です(Q1もご確認ください)。"
+    ),
 }
 
 
@@ -108,7 +127,7 @@ def match_owner_faq_item_code(text: Optional[str]) -> Optional[str]:
 
 
 def render_owner_faq_menu_message() -> str:
-    """Q1〜Q8の見出し一覧を整形する。"""
+    """Q1〜Q9の見出し一覧を整形する。"""
     lines = ["よくあるご質問(番号を送信すると回答をお送りします)"]
     for code in sorted(_FAQ_HEADINGS):
         lines.append(f"{code}. {_FAQ_HEADINGS[code]}")

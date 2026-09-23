@@ -45,8 +45,8 @@ class IsOwnerFaqMenuTriggerTests(unittest.TestCase):
 
 
 class MatchOwnerFaqItemCodeTests(unittest.TestCase):
-    def test_all_eight_codes_match(self):
-        for n in range(1, 9):
+    def test_all_nine_codes_match(self):
+        for n in range(1, 10):
             with self.subTest(n=n):
                 self.assertEqual(match_owner_faq_item_code(f"Q{n}"), f"Q{n}")
 
@@ -57,7 +57,7 @@ class MatchOwnerFaqItemCodeTests(unittest.TestCase):
         self.assertEqual(match_owner_faq_item_code("  Q7  "), "Q7")
 
     def test_out_of_range_code_is_none(self):
-        self.assertIsNone(match_owner_faq_item_code("Q9"))
+        self.assertIsNone(match_owner_faq_item_code("Q10"))
         self.assertIsNone(match_owner_faq_item_code("Q0"))
 
     def test_none_is_none(self):
@@ -73,11 +73,11 @@ class MatchOwnerFaqItemCodeTests(unittest.TestCase):
 
 
 class RenderOwnerFaqMenuMessageTests(unittest.TestCase):
-    def test_contains_all_eight_headings_in_order(self):
+    def test_contains_all_nine_headings_in_order(self):
         message = render_owner_faq_menu_message()
         lines = message.split("\n")
         codes_in_order = [line.split(".", 1)[0] for line in lines[1:]]
-        self.assertEqual(codes_in_order, [f"Q{n}" for n in range(1, 9)])
+        self.assertEqual(codes_in_order, [f"Q{n}" for n in range(1, 10)])
 
 
 class RenderOwnerFaqAnswerMessageTests(unittest.TestCase):
@@ -88,13 +88,17 @@ class RenderOwnerFaqAnswerMessageTests(unittest.TestCase):
 
     def test_unknown_code_raises_key_error(self):
         with self.assertRaises(KeyError):
-            render_owner_faq_answer_message("Q9")
+            render_owner_faq_answer_message("Q10")
 
-    def test_all_eight_codes_render_without_error(self):
-        for n in range(1, 9):
+    def test_all_nine_codes_render_without_error(self):
+        for n in range(1, 10):
             with self.subTest(n=n):
                 message = render_owner_faq_answer_message(f"Q{n}")
                 self.assertIn(f"Q{n}.", message)
+
+    def test_q9_mentions_invitation_code(self):
+        message = render_owner_faq_answer_message("Q9")
+        self.assertIn("招待コード", message)
 
 
 if __name__ == "__main__":
