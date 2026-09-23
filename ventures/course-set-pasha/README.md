@@ -3877,3 +3877,35 @@
   同ドキュメントの古い「未着手」記載2件(既にフェーズ235・244〜247で解消済み)を
   発見・訂正。コード変更は無く回帰確認のみ、venture全体648件・schema検証21件
   いずれもパス)
+- フェーズ249(2026-09-23 12:00 UTC定例更新): chatbot-intent-router-webhook-wiring-
+  design.md 8節(フェーズ246)が「分類失敗の発生自体を運用上検知したい場合は、本venture
+  共通のログ基盤(未整備)の整備が前提」として次回以降の課題に残していた点に対応した。
+  tech-stack.mdを確認したところ専用ログ基盤の記載は無いが、想定コンポーネント2のGCP
+  Cloud Functionsは標準`logging`モジュールの出力を追加設定なしにCloud Loggingへ自動
+  転送するため、新規のログ基盤整備は不要と判断し、intent-classification-failure-
+  observability-design.mdとして最小構成の設計をまとめた。設計に基づき、
+  `_classify_intent_with_retry()`が即時リトライ後も2回ともLlmApiErrorとなり`None`を
+  返す直前に`logging.getLogger(__name__).warning()`でWARNINGログを1件出力する実装を
+  `prototype/cloud_function_webhook.py`に追加した。ログにはイベント種別
+  (`chatbot_intent_classification_failed`)とメモ文字数(`memo_length`)のみを含め、
+  顧客の自由入力本文自体はログに残さない設計とした(post_generation_requestへの
+  フォールスルー自体は本文を使い続けるため生成フローには影響しない)。
+  `test_cloud_function_webhook.py`に`assertLogs`を用いた検証テスト
+  (`test_intent_classification_failure_emits_warning_log`)を1件追加し、ログが1件のみ
+  出力されること・`event`/`memo_length`の値・本文が含まれないことを確認した
+  (648件→649件)。Cloud Monitoringのログベース指標・アラートポリシー作成は実際の
+  GCPプロジェクト上での設定作業でありコード変更では完結しないため、GCPプロジェクト
+  作成(既存のオーナー承認待ち事項)後の課題として設計doc 3節に申し送った。回帰確認
+  として本venture全体649件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(schema側は変更前と同じ結果)を確認した。承認不要なコード追加・テスト追加・
+  ドキュメント作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: aircon-pasha・
+  kura-pasha側での同種ログ出力の横展開検討、line-reservation-ai向けの別軸検討
+  (既存の意図判定へのFAQ系インテント追加)、またはCloud Monitoringアラート設計の
+  事前検討(実GCPプロジェクト作成前でも設計自体は可能)。
+- 最終更新: 2026-09-23 12:00 UTC(フェーズ249: 意図分類失敗時の最小構成ログ出力を設計・
+  実装。GCP Cloud Functionsの標準logging連携を利用し新規ログ基盤は不要と判断、
+  `_classify_intent_with_retry()`にWARNINGログ(イベント種別・メモ文字数のみ、本文は
+  含めない)を追加。新規テスト1件追加、venture全体649件(648件→649件)・schema検証
+  21件いずれもパス)

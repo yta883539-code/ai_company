@@ -2015,6 +2015,25 @@ class ChatbotIntentRouterWiringTest(unittest.TestCase):
         self.assertEqual(result.reply_text, format_reply_text(TEST_CASES["G1_basic"]))
         self.assertFalse(result.reply_text.endswith(POST_GENERATION_FAQ_FOLLOWUP_HINT))
 
+    def test_intent_classification_failure_emits_warning_log(self):
+        # intent-classification-failure-observability-design.md: 2回ともLlmApiErrorと
+        # なった場合、顧客への応答自体はフォールスルーで継続しつつ、運用上の検知用に
+        # WARNINGログを1件だけ出力すること。メモ本文自体はログに含めない。
+        reply_client = InMemoryReplyClient()
+        classifier = _AlwaysFailingIntentClassifier()
+
+        with self.assertLogs("cloud_function_webhook", level="WARNING") as captured:
+            process_memo_event(
+                _make_event(text="エリアA 黄テープ 8本新規"), FixtureLlmClient("G1_basic"),
+                reply_client, intent_classifier=classifier,
+            )
+
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.event, "chatbot_intent_classification_failed")
+        self.assertEqual(record.memo_length, len("エリアA 黄テープ 8本新規"))
+        self.assertNotIn("エリアA", record.getMessage())
+
 
 class MergeTextAndPhotoEventsTest(unittest.TestCase):
     def test_text_and_one_photo_from_same_user_are_merged(self):

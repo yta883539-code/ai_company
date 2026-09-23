@@ -19,6 +19,7 @@ webhook-processing-flow-design.mdで設計した、Webhook受信〜LLM呼び出�
 from __future__ import annotations
 
 import json
+import logging
 import os
 import random
 import sys
@@ -26,6 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Protocol
+
+_logger = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
@@ -1008,6 +1011,13 @@ def _classify_intent_with_retry(
     try:
         return intent_classifier.classify(memo_text)
     except LlmApiError:
+        _logger.warning(
+            "intent classification failed after retry, falling through to generation flow",
+            extra={
+                "event": "chatbot_intent_classification_failed",
+                "memo_length": len(memo_text),
+            },
+        )
         return None
 
 
