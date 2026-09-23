@@ -4076,3 +4076,19 @@
   課金の原価試算」節)に解消済みだったまま1か月以上取り残されていたcross-document parityの
   記載漏れを発見・訂正。実装内容自体への変更は無く回帰確認のみ、venture全体519件・
   schema検証25件いずれもパス)
+- フェーズ253(2026-09-23 01:00 UTC定例更新): multi-technician-shared-usage-design.md
+  (フェーズ204)「残る課題」に残っていた「複数職人を抱える小規模法人への顧客ヒアリングでの
+  需要検証、進行中のヒアリングに項目として追加できないか検討する」に対応した。
+  customer-interview-design.mdに条件付き質問16(「1つのLINEアカウントを事業所内の複数職人で
+  共有運用する」という本venture採用のMVPスコープ〈技術的な複数user_id対応は見送り〉で実務上
+  支障がないか、該当者〈対象のハウスクリーニング業者2件等〉にのみ確認する設問)を新設し、
+  全16問→全17問とした。multi-technician-shared-usage-design.md側の「残る課題」も本対応を
+  反映して更新したが、実際の候補への連絡・ヒアリング実施は引き続きpending-approval.md
+  (2026-08-21 12:00 UTC記載)のオーナー承認待ちのままで変更はなく、interview-rehearsal-
+  script.mdへの新設質問16の反映は未着手のまま次回以降の課題として残した。コード変更は
+  無く回帰確認としてventure全体519件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、変更前と同数)・schema検証25件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なドキュメント追記のみで、外部
+  サービスへの公開・アカウント作成・支払い・送信等は今回発生していないためpending-
+  approval.mdへの追記なし。次回はinterview-rehearsal-script.mdへの質問16反映、または
+  他venture・アイデア領域の前進を優先候補とする。
