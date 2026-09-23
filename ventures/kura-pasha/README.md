@@ -3578,3 +3578,35 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   parityの記載漏れ(実装漏れ)を発見・解消。`_FAQ_HEADINGS`・`_FAQ_ANSWERS`にQ9を追加し、
   test_owner_faq_router.pyのQ1〜Q8前提テストをQ1〜Q9に更新・新規テスト1件追加。
   run_all_tests.py 15ファイル全件[OK]、schema検証32件いずれもパス)
+- フェーズ170(2026-09-23 16:00 UTC定例更新): フェーズ167・168の残課題だった
+  (1) `faq_intent_to_code()`相当のマッピング層、(2) エスカレーション通知送信ヘルパー、
+  (3) memo_processing_request判定時への一言追加、の3点を実装し、
+  `prototype/chatbot_intent_router.py`を新規作成した。course-set-pashaの
+  prototype/chatbot_intent_router.py(フェーズ236)を土台に、本venture固有の6分類
+  (course-set-pashaは5分類)に合わせ、(a)`faq_cancel`→Q3・`faq_contractor_transfer_
+  overview`→Q7の1対1マッピングと、Q1/Q5/Q6にまたがる`faq_plan`・Q2/Q4/Q8/Q9にまたがる
+  `faq_howto`はメニュー全体(`render_owner_faq_menu_message()`)を返す設計、
+  (b)chatbot-intent-classification-design.md 3節の通知文言(本venture固有の「修理可否等の
+  専門的判断への言及を含む可能性があります」の一文を含む)をそのまま実装した
+  `send_chatbot_escalation_notification()`、(c)chatbot-intent-classification-llm-
+  prompt-draft.md「設計上の要点4」が課題としていた複合入力(受注メモ+FAQ質問)対策の
+  `append_faq_followup_hint()`、を実装した。送信基盤は新規追加せず、既存の
+  subscription_cancellation_notification.pyのLinePushClient/LinePushDeliveryErrorと
+  payment_suspension_owner_notification.pyのOWNER_LINE_USER_ID_PLACEHOLDERをそのまま
+  再利用した(本venture内で運営者宛送信先を複数箇所で個別定義しない方針を踏襲)。
+  実LLMによる意図分類自体(自由入力→6分類への分類)は引き続き対象外(オーナー承認待ちの
+  実LLM接続領域)で、分類結果が既に得られている前提での配線のみを実装した。
+  `test_chatbot_intent_router.py`を新規作成し29件のテストケースを追加した。回帰確認
+  として`python3 prototype/run_all_tests.py`で16ファイル全件[OK](15→16ファイル、
+  新規ファイル追加分)、`python3 schema/validate_test_cases.py`は32件中32件パス
+  (変更前と同じ結果、本フェーズはLLM出力スキーマに影響しないprototype/配下のみの
+  変更)であることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  上記3関数を実際のLINEメッセージ受信ハンドラ(`cloud_function_webhook.py`)へ配線する
+  設計(現時点では意図分類結果を受け取る前提の`route_chatbot_intent()`単体のみで、
+  webhook側からの呼び出しは未接続)、またはaircon-pasha側での同種検討の実施
+  (course-set-pashaフェーズ248・本ventureフェーズ167の申し送り事項として引き続き残る)。
+- 最終更新: 2026-09-23 16:00 UTC(フェーズ170: `prototype/chatbot_intent_router.py`を
+  新規作成し、faq_intent_to_code()マッピング層・エスカレーション通知送信ヘルパー・
+  memo_processing_request判定時への一言追加を実装。新規テスト29件追加。
+  run_all_tests.py 16ファイル全件[OK]、schema検証32件いずれもパス)
