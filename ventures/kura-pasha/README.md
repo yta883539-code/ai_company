@@ -3506,3 +3506,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   FAQ回答の役割分離、修理可否判断の境界ケースをフェイルセーフで人的対応に倒す必要性の
   2点を本venture固有の論点として整理。コード変更は無く回帰確認のみ、venture全体687件・
   schema検証32件いずれもパス)
+- フェーズ167(2026-09-23 11:00 UTC定例更新): フェーズ166の残課題だった意図分類プロンプト・
+  エスカレーション導線の具体設計に着手し、chatbot-intent-classification-design.mdを新規
+  作成した。course-set-pashaのchatbot-intent-classification-escalation-design.md
+  (フェーズ235)を土台に、本venture固有の設計として、(1)既存の解約意図検知・契約者
+  譲渡意図検知(contractor-transfer-design.md)を新設の意図分類レイヤーより常に手前で
+  実行する分岐順序を明記し、契約者譲渡の「操作」と「制度概要説明(faq_contractor_
+  transfer_overview)」の誤分類を構造的に回避する設計とした、(2)owner-operation-
+  self-service-faq.mdのQ1〜Q9を6分類(memo_processing_request/faq_plan/faq_howto/
+  faq_cancel/faq_contractor_transfer_overview/other_needs_human)に整理した、
+  (3)「修理可否の判断」の境界ケースを「特定の個体・状態への言及が含まれるか」という
+  具体的な判定基準で`other_needs_human`側へ倒すフェイルセーフ方針を明文化した、
+  (4)エスカレーション通知文言に「修理可否等の専門的判断への言及を含む可能性があります」
+  という本venture固有の補足を追加した。実装・実LLM呼び出し・実LINE接続は行っていない。
+  回帰確認としてventure全体687件(`python3 prototype/run_all_tests.py`、15ファイル
+  全件、変更前と同数)・schema検証32件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した(ドキュメント新規作成のみでコード変更は無い)。
+  承認不要なドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回候補: 意図分類
+  プロンプトの具体的な文面(LLM呼び出し部分)の設計、`prototype/`へのマッピング層・
+  エスカレーション通知ヘルパーの実装、またはaircon-pasha側での同種検討の実施。
+- 最終更新: 2026-09-23 11:00 UTC(フェーズ167: chatbot-intent-classification-design.mdを
+  新規作成。意図分類の6分類・既存フローとの分岐順序・修理可否境界ケースのフェイルセーフ・
+  エスカレーション通知文言を設計。コード変更は無く回帰確認のみ、venture全体687件・
+  schema検証32件いずれもパス)
