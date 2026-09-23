@@ -121,9 +121,20 @@ A. いいえ。LINEのブロックとご契約の解約は別のお手続きで�
   「よくある質問(FAQ)セクション(案)」に4問目として上記1.の文面をそのまま反映した。
   aircon-pashaはフェーズ165で同一フェーズ内に反映まで完了させていたが、本ventureは
   本ドキュメント作成〈フェーズ続き175〉から反映まで別フェーズに分かれた形での対応となった)
-- aircon-pashaのblocked-but-billing-detection-design.md相当の「ブロック中かつ契約継続中」
-  オーナーの能動的検知の要否・設計は、本venture固有の`owner_user_id`確定タイミング
-  (owner-notification-channel-design.mdのオンボーディング完了後)を踏まえた検討が必要であり、
-  未着手のまま次回以降の課題として残す。
+- (解消済み 2026-09-23・フェーズ続き268棚卸し: 「aircon-pashaのblocked-but-billing-
+  detection-design.md相当の『ブロック中かつ契約継続中』オーナーの能動的検知の要否・設計は
+  未着手のまま次回以降の課題として残す」としていた本項目は、実際には本ドキュメント作成
+  〈フェーズ続き175、2026-09-02〉の直後、同日中のフェーズ続き176
+  (blocked-but-billing-detection-design.md)・フェーズ続き177
+  (blocked-but-billing-owner-email-notification-design.md、本節が言及する
+  「aircon-pasha相当」の設計そのもの)で対応済みだった。実装
+  (`prototype/blocked_but_billing_owner_email_notification.py`・
+  `send_blocked_but_billing_owner_email_notifications()`)・
+  `cloud_function_process_event.py`への結線・専用テスト15件、および決済回復時のクリア処理
+  (`handle_subscription_deleted()`)までいずれも揃っていることは、直近のフェーズ続き266
+  (2026-09-23 07:00 UTC、aircon-pashaフェーズ255との横断監査)でも改めて確認済みである。
+  本節の記載だけが本ドキュメント作成当時〈フェーズ続き175〉の状態のまま3週間近く
+  取り残されていたcross-document parityの記載漏れであり、本フェーズで発見・事後訂正した。
+  実装内容自体への変更は無い)。
 - 問い合わせ対応テンプレートの宛先メールアドレス確定は、オーナー自身の連絡先確定後の課題として
   残る。

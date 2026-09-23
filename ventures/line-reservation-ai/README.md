@@ -4586,3 +4586,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   composite-index-design.mdでは既に確定済みだった索引#5〈`conversations`の`stage`+
   `archivedAt`〉が反映されていなかったcross-document parityの記載漏れを発見・訂正した。
   コード変更は無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き268(2026-09-23 17:00 UTC定例更新): unfollow-billing-faq.md「今後の課題」に
+  残っていた「aircon-pashaのblocked-but-billing-detection-design.md相当の『ブロック中かつ
+  契約継続中』オーナーの能動的検知の要否・設計は未着手のまま次回以降の課題として残す」という
+  記載を棚卸しした。実際には本ドキュメント作成〈フェーズ続き175、2026-09-02〉の直後、
+  同日中のフェーズ続き176(blocked-but-billing-detection-design.md)・フェーズ続き177
+  (blocked-but-billing-owner-email-notification-design.md、本節が言及する「aircon-pasha
+  相当」の設計そのもの)で対応済みであり、実装・結線・専用テスト15件・決済回復時のクリア
+  処理までいずれも揃っていることは直近のフェーズ続き266(aircon-pashaフェーズ255との
+  横断監査)でも改めて確認済みだった。本節の記載だけが本ドキュメント作成当時の状態のまま
+  3週間近く取り残されていたcross-document parityの記載漏れであり、発見・事後訂正した。
+  実装内容自体への変更は無く、回帰確認としてventure全体854件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証28件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  ドキュメント記載訂正のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-23 17:00 UTC(フェーズ続き268: unfollow-billing-faq.md「今後の課題」の
+  ブロック中オーナー検知に関する記載が、実際にはフェーズ続き176・177〈同2026-09-02中〉で
+  既に対応済みだったcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
+  無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
