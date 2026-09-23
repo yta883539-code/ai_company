@@ -118,9 +118,9 @@ course-set-pasha/customer-interview-design.mdの構成(目的→対象→質問�
 
 - ジャパンギャロップスインポーターについて、修理が自社職人による受注生産か単なる付帯
   サービスかを追加確認し、正式候補化するか除外するかを判断する(README.md継続課題)。
-- 上記が揃った段階で、line-reservation-aiのinterview-rehearsal-script.mdに相当する
+- ~~上記が揃った段階で、line-reservation-aiのinterview-rehearsal-script.mdに相当する
   リハーサル台本を作成し、質問数14問(条件付き設問1問含む)が想定時間に収まるか
-  机上で検証する。
+  机上で検証する。~~ → 対応済み(フェーズ165、interview-rehearsal-script.md改訂)。
 - initial-contact-message-draft.mdの「未確定事項」(謝礼の有無・送信者名表記・返信先
   連絡先)についてオーナーの方針を確認する。
 
@@ -129,3 +129,4 @@ course-set-pasha/customer-interview-design.mdの構成(目的→対象→質問�
 自分で送信する運用を実際に望むか」の2点を、それぞれ問11への追記・問13(複数職人プラン
 検討者向けの条件付き新設問)として反映した。新設問13の挿入に伴い、旧問13(E区分)を
 問14に繰り下げた(全13問→全14問)。
+追記 2026-09-23 (フェーズ165): 上記改訂をinterview-rehearsal-script.mdに反映済み。
