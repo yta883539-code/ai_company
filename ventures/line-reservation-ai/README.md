@@ -4514,3 +4514,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   影響が軽微という結論は維持。一次情報サイト(lycbiz.com)は本実行環境でegressブロック
   対象のため直接確認はできず、未解消の残課題として明記。コード変更は無く回帰確認のみ、
   venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き265(2026-09-23 03:00 UTC定例更新): 他3venture(aircon-pasha 02:00 UTC・
+  kura-pasha 00:00 UTC・course-set-pasha 23:00 UTC)より前進が手薄になっていた本ventureを
+  今回選び、candidate-longlist-draft.md「第二十弾」の申し送り(2)「余力があれば候補9
+  (to suit)・候補11(CUSTOM FIT GYM)にも同様のWebSearchスニペット補完確認を試みる」に
+  対応した。pending-approval.md承認範囲(1)に基づきWebSearchのみで再検索を実施し(実店舗への
+  連絡は一切行っていない)、候補11は恵比寿エリアの他ジムの一般紹介記事のみ、候補9は既存
+  確認済み情報(OZmall経由24時間ウェブ予約)以上の新規情報は得られなかった。両候補とも
+  WebFetch遮断下でのWebSearch深掘りは費用対効果の限界に近づいていると判断し、次の一歩は
+  新規探索よりオーナーからの回答(優先度B候補の目視確認結果、未確定事項への回答)を待つこと、
+  および待機中はcross-document parity確認に振り向けることを候補longlist-draft.mdに明記した。
+  コード変更は無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同数)・schema検証28件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  WebSearchによる既存候補の補完確認・ドキュメント更新のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-23 03:00 UTC(フェーズ続き265: candidate-longlist-draft.mdの申し送りに
+  基づき、候補9(to suit)・候補11(CUSTOM FIT GYM)へのWebSearchスニペット補完確認を実施。
+  実店舗への連絡は行わず、いずれも新規の決定的情報は得られなかった。WebSearch深掘りは費用
+  対効果の限界に近づいていると判断し、次の一歩はオーナー回答待ち・cross-document parity
+  確認へ切り替える旨を明記。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
+  いずれもパス)
