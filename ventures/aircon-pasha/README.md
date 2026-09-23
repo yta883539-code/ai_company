@@ -4159,6 +4159,29 @@
   (既存2件の記載〈2026-08-21 12:00 UTC・2026-08-23 04:00 UTC〉と重複しないことを
   事前に確認済み)。次回はdesign 8節に残した「業者識別子をuser_idではなくbusiness_name
   表示にする案の検討」、または他venture・アイデア領域の前進を優先候補とする。
+- フェーズ256(2026-09-23 08:00 UTC定例更新): course-set-pashaのchatbot-first-response-
+  feasibility.md(フェーズ234)「残課題」がフェーズ248で棚卸しした「本venture・kura-pasha
+  への横展開は各venture側の次回以降のフェーズとして申し送る」を受け、本venture向けの
+  移植可否を検討したchatbot-first-response-feasibility.mdを新規作成した。course-set-pasha
+  執筆時点とは異なり、本ventureは既にowner-faq-routing-design.md(フェーズ225)による
+  コマンド方式FAQ(「FAQ」→「Q1」〜「Q7」)が稼働済みであるため、course-set-pasha方式
+  (LLM意図分類結果をそのままFAQ回答として返す)をそのまま移植するのではなく、「コマンドを
+  知らない契約者の自然文がFAQ導線を素通りしてしまう」ギャップを補う目的に絞り、意図分類で
+  該当を検知した場合はLLMに新規回答文を生成させず「FAQ」コマンドへ誘導する案内文を返す、
+  より保守的な設計を推奨する結論とした(既存のコマンド方式回答資産の低リスク性を維持する
+  ため)。具体的なプロンプト設計・エスカレーション導線の設計は次回以降の課題として残した。
+  コード変更は無く机上検討のみのため回帰確認として本venture全体533件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な新規ドキュメント作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回候補: 本ドキュメント
+  3節の案内文誘導方式に基づく意図分類プロンプト設計、kura-pasha側での同種検討、または
+  フェーズ255「次回候補」に残る業者識別子表示方式の検討。
+- 最終更新: 2026-09-23 08:00 UTC(フェーズ256: course-set-pashaのchatbot-first-response-
+  feasibility.mdの横展開申し送りを受け、本venture向けのchatbot-first-response-
+  feasibility.mdを新規作成。既存のコマンド方式FAQを活かし、意図分類はコマンドへの案内文
+  誘導に絞る保守的設計を推奨。コード変更は無く回帰確認のみ、venture全体533件・
+  schema検証25件いずれもパス)
 - 最終更新: 2026-09-23 06:00 UTC(フェーズ255: course-set-pasha・kura-pashaに存在し
   本ventureに欠けていた「制限モード移行時のオーナー向け能動通知」パターンをcross-venture
   parityの観点で発見・横展開。payment-suspension-owner-notification-design.md新規作成、
