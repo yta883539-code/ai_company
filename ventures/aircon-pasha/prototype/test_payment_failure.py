@@ -100,6 +100,29 @@ class ClearPaymentFailureOnSuccessTest(unittest.TestCase):
         self.assertTrue(cleared)
         self.assertIsNone(store.get_payment_failure_detected_at("U1"))
 
+    def test_clears_payment_suspension_owner_notified_at_too(self):
+        # フェーズ255: payment-suspension-owner-notification-design.md 7節。クリアしないと
+        # 次回の決済失敗検知時に二度とオーナー通知が飛ばなくなるため、他の3フィールドと
+        # 同時にクリアする。
+        store = _store_with_user()
+        mark_payment_failure_detected(store, "U1", _EVENT_TIME)
+        store.set_payment_suspended_at("U1", _EVENT_TIME + timedelta(days=7))
+        store.set_payment_suspension_owner_notified_at(
+            "U1", _EVENT_TIME + timedelta(days=7)
+        )
+        cleared = clear_payment_failure_on_success(store, "U1")
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_payment_suspension_owner_notified_at("U1"))
+
+    def test_clears_when_only_owner_notified_at_is_set(self):
+        # design 2節と同じ防御的な網羅性の観点(現実には起こりにくい組み合わせだが、
+        # フィールド単位でクリア対象になることを確認する)。
+        store = _store_with_user()
+        store.set_payment_suspension_owner_notified_at("U1", _EVENT_TIME)
+        cleared = clear_payment_failure_on_success(store, "U1")
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_payment_suspension_owner_notified_at("U1"))
+
     def test_is_idempotent_when_nothing_is_set(self):
         store = _store_with_user()
         cleared = clear_payment_failure_on_success(store, "U1")

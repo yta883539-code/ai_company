@@ -213,6 +213,7 @@ class UserProfile:
     payment_failure_reminder_sent_at: Optional[datetime] = None
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
+    payment_suspension_owner_notified_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -275,6 +276,13 @@ class UserProfileStoreProtocol(Protocol):
     `set_blocked_but_billing_owner_notified_at`の値は`payment_failure_detected_at`等と
     同じく`Optional[datetime]`(フェーズ175でクリア配線に対応するため`None`も許容する
     形へ拡張、値自体の意味は変わらない)。
+
+    `get_payment_suspension_owner_notified_at`/`set_payment_suspension_owner_notified_at`
+    はフェーズ255で追加した、payment_suspension_owner_notification.pyの
+    `PaymentSuspensionOwnerNotifiedAtReader`/`Writer`(payment-suspension-owner-
+    notification-design.md)を本クラスが構造的に満たすためのメソッド。
+    `blocked_but_billing_owner_notified_at`と対称の位置づけの冪等性フラグで、未知の
+    `user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。
 
     `increment_trial_unit_count`/`get_trial_unit_count`はフェーズ192で追加した、
     `increment_trial_generation_count`と対になる分解洗浄台数の累計カウンタ用メソッド
@@ -362,6 +370,14 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_payment_suspension_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_suspension_owner_notified_at(
         self, user_id: str, notified_at: Optional[datetime]
     ) -> None:
         ...
@@ -514,6 +530,20 @@ class InMemoryUserProfileStore:
             return
         profile.blocked_but_billing_owner_notified_at = notified_at
 
+    def get_payment_suspension_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return (
+            profile.payment_suspension_owner_notified_at if profile is not None else None
+        )
+
+    def set_payment_suspension_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.payment_suspension_owner_notified_at = notified_at
+
 
 @dataclass
 class LinkingResolution:
@@ -619,6 +649,11 @@ def resolve_linking_code(
             ),
             blocked_but_billing_owner_notified_at=(
                 existing_profile.blocked_but_billing_owner_notified_at
+                if existing_profile
+                else None
+            ),
+            payment_suspension_owner_notified_at=(
+                existing_profile.payment_suspension_owner_notified_at
                 if existing_profile
                 else None
             ),

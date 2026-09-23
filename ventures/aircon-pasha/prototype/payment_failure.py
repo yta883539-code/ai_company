@@ -63,8 +63,9 @@ from cloud_function_webhook import (  # noqa: E402
 
 class PaymentFailureStoreProtocol(Protocol):
     """`user_profile/{user_id}`ドキュメントのうち`payment_failure_detected_at`・
-    `payment_suspended_at`・`payment_failure_reminder_sent_at`(フェーズ143追加)の
-    3フィールドのみを対象にした薄いインターフェース。"""
+    `payment_suspended_at`・`payment_failure_reminder_sent_at`(フェーズ143追加)・
+    `payment_suspension_owner_notified_at`(フェーズ255追加、payment-suspension-owner-
+    notification-design.md)の4フィールドを対象にした薄いインターフェース。"""
 
     def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
         ...
@@ -84,6 +85,14 @@ class PaymentFailureStoreProtocol(Protocol):
         ...
 
     def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_payment_suspension_owner_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_suspension_owner_notified_at(
         self, user_id: str, value: Optional[datetime]
     ) -> None:
         ...
@@ -110,23 +119,37 @@ def clear_payment_failure_on_success(
 ) -> bool:
     """design 4節「決済成功による復旧時」: `invoice.payment_succeeded`受信時
     (逆引き後)に呼ぶ。`payment_failure_detected_at`・`payment_suspended_at`・
-    `payment_failure_reminder_sent_at`(フェーズ143追加)の3フィールドすべてをクリア
-    する(段階を問わず通常運用へ復帰させ、次回の決済失敗検知時に再びリマインド対象と
-    なるようにする)。いずれか1つでも設定済みだった場合に`True`を返す
-    (deletion_candidate.pyのclear_deletion_candidate_on_subscription_reactivated()と
-    同じ、呼び出し側がログ確認できる冪等設計)。すべて未設定(決済失敗を検知したことが
-    一度もない通常のユーザー)の場合は何もせず`False`を返す。
+    `payment_failure_reminder_sent_at`(フェーズ143追加)・`payment_suspension_owner_
+    notified_at`(フェーズ255追加、payment-suspension-owner-notification-design.md
+    7節)の4フィールドすべてをクリアする(段階を問わず通常運用へ復帰させ、次回の決済
+    失敗検知時に再びリマインド・オーナー通知の対象となるようにする)。
+    `payment_suspension_owner_notified_at`をここでクリアしないと、同じユーザーが
+    将来再び決済に失敗して制限モードへ移行した際に過去の通知済み日時が残ったままとなり、
+    二度とオーナー通知が飛ばなくなる(design 7節参照)。いずれか1つでも設定済みだった
+    場合に`True`を返す(deletion_candidate.pyのclear_deletion_candidate_on_
+    subscription_reactivated()と同じ、呼び出し側がログ確認できる冪等設計)。すべて
+    未設定(決済失敗を検知したことが一度もない通常のユーザー)の場合は何もせず`False`を
+    返す。
     """
     was_failure_detected = store.get_payment_failure_detected_at(user_id) is not None
     was_suspended = store.get_payment_suspended_at(user_id) is not None
     was_reminder_sent = (
         store.get_payment_failure_reminder_sent_at(user_id) is not None
     )
-    if not was_failure_detected and not was_suspended and not was_reminder_sent:
+    was_owner_notified = (
+        store.get_payment_suspension_owner_notified_at(user_id) is not None
+    )
+    if (
+        not was_failure_detected
+        and not was_suspended
+        and not was_reminder_sent
+        and not was_owner_notified
+    ):
         return False
     store.set_payment_failure_detected_at(user_id, None)
     store.set_payment_suspended_at(user_id, None)
     store.set_payment_failure_reminder_sent_at(user_id, None)
+    store.set_payment_suspension_owner_notified_at(user_id, None)
     return True
 
 

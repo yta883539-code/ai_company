@@ -4119,3 +4119,50 @@
   条件付き1問」に更新。ロングリスト化済みの候補はいずれも非該当でスキップ扱いとなる点、
   該当候補は継続探索中である点を明記。コード変更は無く回帰確認のみ、venture全体519件・
   schema検証25件いずれもパス)
+- フェーズ255(2026-09-23 06:00 UTC定例更新): 他venture(course-set-pasha・kura-pasha)で
+  先行実装されている「制限モード移行時のオーナー(運営者)向け能動通知」パターンが本venture
+  には横展開されていないcross-venture parityの抜け漏れを発見した。blocked-but-billing-
+  owner-notification-design.md(フェーズ174)冒頭が「course-set-pashaのpayment-
+  suspension-owner-notification-design.mdは本venture側でも横展開可能」と既に明記していた
+  にもかかわらず、決済失敗まわりの通知一式(段階1検知・段階2リマインド・段階3制限モード
+  移行・復旧)がフェーズ139〜149で実装されたのちも、オーナー自身への能動通知だけが
+  line-reservation-aiともども取り残されていたことを確認した(blocked_but_billing_owner_
+  notification.pyという「別種のオーナー能動通知」の前例は既に存在していたため、実装
+  パターン自体は流用できる状態だった)。payment-suspension-owner-notification-design.md
+  を新規作成し、course-set-pasha版の検知条件(決済失敗検知からの経過日数を都度再計算)
+  ではなく、本venture固有の`payment_suspended_at`フィールド(フェーズ140で追加済み、
+  制限モードへの移行時点を`payment_suspension_scheduler.send_payment_suspensions()`が
+  明示的に書き込む設計)の設定有無のみで判定する、より単純な条件を採用する設計とした
+  (この設計差はpayment_recovery_notification.pyのdocstringが既に説明していた考え方を
+  踏襲したもの)。新規`prototype/payment_suspension_owner_notification.py`に
+  `select_due_payment_suspension_owner_notifications()`・
+  `build_payment_suspension_owner_notification_flex_message()`(ボタンを持たない
+  bubble形式、blocked_but_billing_owner_notification.pyと同じ構成)・
+  `send_payment_suspension_owner_notifications()`(Cloud Function H相当)を実装した。
+  `UserProfile`(user_id_linking.py)に`payment_suspension_owner_notified_at`フィールドを
+  新設し、`UserProfileStoreProtocol`/`InMemoryUserProfileStore`にget/setメソッドを
+  追加、再連携(re-link)時の既存プロフィール保持ロジックにも反映した。あわせて
+  `payment_failure.py`の`PaymentFailureStoreProtocol`・`clear_payment_failure_on_
+  success()`を拡張し、`invoice.payment_succeeded`受信時(`payment_recovery_
+  notification.handle_payment_succeeded()`経由、既存の呼び出し配線をそのまま利用)に
+  新フィールドもあわせてクリアするようにした(クリアしないと次回の決済失敗検知時に
+  二度とオーナー通知が飛ばなくなるため)。`blocked_but_billing_owner_notified_at`は
+  トリガーが異なる独立した状態のため、意図的にクリア対象へ含めなかった(design 7節に
+  理由を明記)。テスト14件追加(test_payment_suspension_owner_notification.py 12件・
+  test_payment_failure.py 2件)、venture全体533件全件パス(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前519件+新規14件)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  実際のオーナーLINEユーザーID設定・実LINE Push Message API接続・実Cloud Scheduler
+  作成はいずれも既存の「実LINE API接続はオーナー承認待ちの範囲」(README.md該当箇所、
+  フェーズ174のblocked-but-billing-owner-notification-design.mdと同じ扱い)に含まれる
+  ため新たな承認待ち事項としては扱わず、pending-approval.mdへの追記は行っていない
+  (既存2件の記載〈2026-08-21 12:00 UTC・2026-08-23 04:00 UTC〉と重複しないことを
+  事前に確認済み)。次回はdesign 8節に残した「業者識別子をuser_idではなくbusiness_name
+  表示にする案の検討」、または他venture・アイデア領域の前進を優先候補とする。
+- 最終更新: 2026-09-23 06:00 UTC(フェーズ255: course-set-pasha・kura-pashaに存在し
+  本ventureに欠けていた「制限モード移行時のオーナー向け能動通知」パターンをcross-venture
+  parityの観点で発見・横展開。payment-suspension-owner-notification-design.md新規作成、
+  `payment_suspension_owner_notification.py`新設・`payment_failure.clear_payment_
+  failure_on_success()`拡張、テスト14件追加、venture全体533件・schema検証25件いずれも
+  パス。外部サービス接続はオーナー承認待ちの既存範囲に含まれるためpending-approval.mdへの
+  追記なし)
