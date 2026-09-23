@@ -3530,3 +3530,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   新規作成。意図分類の6分類・既存フローとの分岐順序・修理可否境界ケースのフェイルセーフ・
   エスカレーション通知文言を設計。コード変更は無く回帰確認のみ、venture全体687件・
   schema検証32件いずれもパス)
+- フェーズ168(2026-09-23 14:00 UTC定例更新): フェーズ167の残課題だった意図分類プロンプトの
+  具体的な文面設計に着手し、chatbot-intent-classification-llm-prompt-draft.mdを新規作成
+  した。aircon-pashaのchatbot-intent-classification-llm-prompt-draft.md(フェーズ257)を
+  土台に、本venture固有の6分類(memo_processing_request/faq_plan/faq_howto/faq_cancel/
+  faq_contractor_transfer_overview/other_needs_human)向けのシステムプロンプト草案を
+  作成した。design.md 0節の分岐順序(解約意図検知・契約者譲渡意図検知は本プロンプトより
+  手前で実行)をプロンプト自体には含めずコード側の呼び出し順序で担保する設計、design.md
+  2節のフェイルセーフ方針(修理可否の境界判定)を判定順位の2番目(中核機能の次、FAQ4分類
+  より前)に独立配置してfaq_howtoとの誤分類リスクを構造的に下げる設計、の2点を本venture
+  固有の要点として整理した。実装・実LLM呼び出し・実LINE接続は行っていない。回帰確認として
+  venture全体687件(`python3 prototype/run_all_tests.py`、15ファイル全件、変更前と同数)・
+  schema検証32件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパス
+  を確認した(ドキュメント新規作成のみでコード変更は無い)。承認不要なドキュメント新規
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: `faq_intent_to_code()`相当のマッピング層・
+  エスカレーション通知送信ヘルパーの`prototype/`配下への実装、またはaircon-pasha側での
+  同種検討の実施。
+- 最終更新: 2026-09-23 14:00 UTC(フェーズ168: chatbot-intent-classification-llm-prompt-
+  draft.mdを新規作成。本venture固有6分類向けのシステムプロンプト草案、分岐順序の
+  コード側担保、修理可否境界判定の判定順位2番目への独立配置を設計。コード変更は無く
+  回帰確認のみ、venture全体687件・schema検証32件いずれもパス)
