@@ -3481,3 +3481,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   interview-rehearsal-script.mdに反映し、cross-document parityのずれを解消。タイムテーブル・
   Q11ト書き・新Q13ト書き・チェックリストを更新。リハーサル実施自体は未実施。コード変更は
   無く回帰確認のみ、venture全体687件・schema検証32件いずれもパス)
+- フェーズ166(2026-09-23 09:00 UTC定例更新): course-set-pashaのchatbot-first-response-
+  feasibility.md(フェーズ234)・そのフェーズ248(2026-09-23 04:00 UTC)が「aircon-pasha・
+  kura-pashaは同一アーキテクチャのため横展開可能性が高い、実移植は各venture側へ申し送り」と
+  していた申し送りに対応し、本venture(鞍パシャッと)固有のFAQ・業務特性を踏まえたチャット
+  ボット一次受付自動化の技術的検討をchatbot-first-response-feasibility.mdとして新規作成した。
+  tech-stack.mdの単方向バッチ処理構成がcourse-set-pasha・aircon-pashaと同一であることを
+  確認し、line-reservation-aiとは異なり選択肢2(LLMによる意図分類+定型回答方式)を適用
+  できる前提が揃っていることを確認した。本venture固有の論点として、(1)契約者譲渡が
+  静的FAQ(owner-operation-self-service-faq.md Q7)だけでなく専用の自動化フロー
+  (contractor-transfer-design.md等)を既に持つため、意図分類のカテゴリ設計では「制度説明」
+  と「実際の操作(専用フロー側)」を分離する必要があること、(2)「修理可否の判断」に関する
+  質問はFAQ的な表現と専門的判断(mvp-flow-draft.mdの厳守事項により不介入と定める領域)の
+  境界が曖昧になりやすく、意図分類のフェイルセーフ方針をcourse-set-pasha以上に明確化する
+  必要があること、の2点を整理した。実装・実LLM呼び出し・実LINE接続は行っていない。回帰
+  確認としてventure全体687件(`python3 prototype/run_all_tests.py`、15ファイル全件、
+  変更前と同数)・schema検証32件(`python3 schema/validate_test_cases.py`、変更前と同じ
+  結果)いずれもパスを確認した(ドキュメント新規作成のみでコード変更は無い)。承認不要な
+  ドキュメント新規作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: 意図分類プロンプト・
+  エスカレーション導線の具体設計、またはaircon-pasha側での同種検討の実施。
+- 最終更新: 2026-09-23 09:00 UTC(フェーズ166: course-set-pashaの申し送りに対応し、
+  chatbot-first-response-feasibility.mdを本venture向けに新規作成。契約者譲渡の専用フローと
+  FAQ回答の役割分離、修理可否判断の境界ケースをフェイルセーフで人的対応に倒す必要性の
+  2点を本venture固有の論点として整理。コード変更は無く回帰確認のみ、venture全体687件・
+  schema検証32件いずれもパス)
