@@ -67,12 +67,39 @@ support-cost-estimate.md・support-cost-selfservice-reduction.mdの整理を踏�
 
 ## 残課題
 
-- 意図分類プロンプトの具体的な設計(分類カテゴリの定義、誤分類時のフェイルセーフとして
-  「迷ったら人的対応に倒す」方針の明文化)は次回以降の課題とする。
-- FAQ該当と分類された場合のエスカレーション導線(人的対応が必要な場合の運営者通知方法)の
-  設計は未着手。
+- ~~意図分類プロンプトの具体的な設計(分類カテゴリの定義、誤分類時のフェイルセーフとして
+  「迷ったら人的対応に倒す」方針の明文化)は次回以降の課題とする。~~
+  → フェーズ235(chatbot-intent-classification-escalation-design.md)で設計済み。
+- ~~FAQ該当と分類された場合のエスカレーション導線(人的対応が必要な場合の運営者通知方法)の
+  設計は未着手。~~
+  → フェーズ235(chatbot-intent-classification-escalation-design.md)で設計し、
+  フェーズ244〜247(chatbot-intent-router-webhook-wiring-design.md)で
+  process_memo_event()から`dispatch_webhook_events()`・`receive_webhook()`まで
+  一貫して実装済み(意図分類自体の失敗時フォールバックも含む)。本節が更新されずに
+  古い「未着手」表記のまま残っていた記載漏れだった(フェーズ248で発見・訂正)。
 - 実際の意図分類精度は、実LLM呼び出し・実顧客からの問い合わせサンプルなしには検証できず、
-  本ドキュメントの評価はあくまで机上の技術構成比較にとどまる。
-- 他venture(aircon-pasha・kura-pasha・line-reservation-ai)への同種検討の横展開は
-  未着手。line-reservation-aiは既にLLMによる会話応答が中核機能であり一次受付自動化の
-  論点自体が本ventureと性質が異なる可能性があるため、横展開の要否含め次回以降に確認する。
+  本ドキュメントの評価はあくまで机上の技術構成比較にとどまる(実クレデンシャル取得後の
+  課題として引き続き残る)。
+- ~~他venture(aircon-pasha・kura-pasha・line-reservation-ai)への同種検討の横展開は
+  未着手。~~
+  → フェーズ248で横断確認を実施(下記「6. 他ventureへの横展開検討」参照)。
+
+## 6. 他ventureへの横展開検討(フェーズ248)
+
+aircon-pasha・kura-pashaのtech-stack.mdを確認したところ、両venture共に本venture
+(course-set-pasha)と同一の「LINE公式アカウント⇄Webhookサーバー⇄LLM(3出力生成)⇄
+返信メッセージ」という単方向バッチ処理構成であり、双方向の会話状態管理を持たない点も
+共通している。両venture向けのsupport-cost-estimate.mdにも「使い方の再質問」「料金・
+トライアル説明」等の定型問い合わせが存在することが記載されており、本ドキュメントが
+整理した一次受付自動化の対象範囲(対象にしやすい/しにくいの切り分け)・選択肢2
+(LLMによる意図分類+定型回答方式)の設計思想は、両venture固有のFAQ内容(Q1〜Q6相当の
+質問カテゴリ)を置き換えるだけでそのまま横展開できる可能性が高いと判断した。ただし、
+両venture共に既存の`owner_faq_router.py`相当のFAQコード体系・`process_memo_event()`
+相当の本文生成フローの実装状況が本ventureと同一ではないため、実際の横展開(設計の
+移植・実装)は各venture側のフェーズとして別途着手する必要がある(本フェーズでは
+着手せず、可能性の確認のみに留める)。line-reservation-aiは既にLLMによる会話応答・
+意図判定(`intent-to-flow-mapping.md`)が中核機能として存在し、双方向の会話状態管理を
+前提とする設計であるため、本ドキュメントが想定する「単方向バッチ処理への一次受付分岐
+追加」という構成自体が当てはまらず、本ventureの一次受付自動化とは別の検討軸(既存の
+意図判定にFAQ系インテントを追加する形)になると考えられる。line-reservation-ai固有の
+検討は本フェーズの範囲外とし、同venture側の次回以降の課題として申し送る。
