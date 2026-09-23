@@ -4564,3 +4564,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   実装・結線・クリア処理・専用テスト15件がいずれも既に揃っており、抜け漏れは存在しない
   ことを確認した。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
   いずれもパス)
+- フェーズ続き267(2026-09-23 13:00 UTC定例更新): candidate-longlist-draft.md第二十一弾の
+  申し送り(2)「待機中に生産的な作業として、既存mdファイル間の記述矛盾・古い情報の
+  クロスドキュメントパリティ確認を実施する」に対応し、firestore-composite-index-plan.md
+  (フェーズ続き198)とfirestore.indexes.json・reminder-scheduler-composite-index-design.md
+  (フェーズ続き199)の記載件数を突き合わせた。firestore.indexes.jsonには複合インデックスが
+  実5件(#1〜#5)定義済みで、#5(`conversations`の`stage`+`archivedAt`、collection group)は
+  フェーズ続き199で追加確定済みだったが、firestore-composite-index-plan.md冒頭の「集約した
+  複合インデックス一覧」表(このドキュメントの本来の目的である索引の集約先)には#1〜4の
+  4件しか載っておらず、#5は「残る課題」欄の解消済みメモの中にのみ言及される形で表本体への
+  反映が漏れていたcross-document parityの記載漏れを発見した。同ドキュメントの表に索引#5の
+  行を追加し、「残る課題」欄にも本件の解消を追記して、`firestore.indexes.json`(実5件)と
+  本ドキュメントの表(現5件)の記載件数を一致させた。コード・JSON自体の変更は無く
+  ドキュメントの表記統一のみのため、回帰確認としてventure全体854件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証28件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-09-23 13:00 UTC(フェーズ続き267: firestore-composite-index-plan.mdの
+  「集約した複合インデックス一覧」表に、firestore.indexes.json・reminder-scheduler-
+  composite-index-design.mdでは既に確定済みだった索引#5〈`conversations`の`stage`+
+  `archivedAt`〉が反映されていなかったcross-document parityの記載漏れを発見・訂正した。
+  コード変更は無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)

@@ -25,6 +25,7 @@ firestore-transaction-design.md・firestore-data-model.md・trial-end-scheduler-
 | 2 | `conversations`(`stores/{storeId}/conversations/{sessionId}`) | `release_idle_conversations()`/`archive_completed_conversations()`: 全店舗横断で`lastActivityAt`が閾値を超えた失効候補を検出 | `storeId` ASC, `lastActivityAt` ASC | **Collection group** | firestore-data-model.md 3節「`release_idle_conversations()`〜」 |
 | 3 | `notificationLogEntries`(`stores/{storeId}/notificationLogEntries/{autoId}`) | トライアル終了レポート(Cloud Function E)の`auto_handled_faq_count`集計: 特定1店舗内で`category == "auto_handled_faq" AND createdAt >= trialStartAt AND createdAt < trialStartAt+14days`を`count()`集約 | `category` ASC, `createdAt` ASC | Collection(呼び出し時に`storeId`が既知の1店舗クエリのため、collection groupではなく通常のサブコレクションクエリで足りる) | firestore-data-model.md 4節「トライアル期間(14日)を跨いだ集計クエリ」 |
 | 4 | `stores`(ルートコレクション) | トライアル終了レポート候補抽出: 全店舗から`trialStartAt <= (now - 14日) AND trialEndReportSentAt == null`を検出 | `trialStartAt` ASC, `trialEndReportSentAt` ASC | Collection(`stores`はルートコレクションのため通常スコープで全店舗を横断できる) | trial-end-scheduler-design.md 3節「Firestoreクエリへの変換は〜」 |
+| 5 | `conversations`(`stores/{storeId}/conversations/{sessionId}`) | Cloud Function C: 全店舗横断で前日リマインド・当日再送の候補となりうる確定予約(`stage == "confirmed" AND archivedAt == null`)を抽出 | `stage` ASC, `archivedAt` ASC | **Collection group**(#1・#2と同じく店舗ごとのサブコレクション構造を全店舗横断で読むため) | reminder-scheduler-composite-index-design.md(フェーズ続き199) |
 
 補足:
 - #1・#2は`stores/{storeId}/...`という同名サブコレクションが店舗ごとに存在する構造
@@ -67,6 +68,13 @@ firestore-transaction-design.md・firestore-data-model.md・trial-end-scheduler-
   〈フェーズ続き199〉参照。実際にFirestoreクエリ条件になるのは`stage == "confirmed"
   AND archivedAt == null`(collection group、索引#5として追加)のみで、
   `target_datetime`等はインメモリ判定のため追加インデックス不要と判明した)
+- ~~索引#5(上記解消メモ)が`firestore.indexes.json`本体には反映済み(全5件)である一方、
+  本ドキュメント冒頭の「集約した複合インデックス一覧」表自体は#1〜4の4件のみのままで、
+  #5がこの表に載っていないというcross-document parityの記載漏れがあった。~~
+  (解消済み 2026-09-23 13:00 UTC〈line-reservation-aiフェーズ続き267〉:
+  上記「集約した複合インデックス一覧」表に索引#5の行を追加し、`firestore.indexes.json`
+  (実5件)と本ドキュメントの表(現5件)の記載件数を一致させた。コード・JSON自体の変更は
+  無く、ドキュメントの表記統一のみ)
 - 本表の各インデックスが実際にFirestoreコンソールの「クエリ実行時エラーからの自動提案」と
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
 - 想定データ量でのインデックス自体のストレージ課金への影響は、firestore-traffic-cost-estimate.md
