@@ -4535,3 +4535,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   対効果の限界に近づいていると判断し、次の一歩はオーナー回答待ち・cross-document parity
   確認へ切り替える旨を明記。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
   いずれもパス)
+- フェーズ続き266(2026-09-23 07:00 UTC定例更新): フェーズ続き265の申し送り(2)「待機中は
+  cross-document parity確認に振り向ける」に対応した。aircon-pashaフェーズ255(直前の06:00
+  UTC定例更新)が「course-set-pasha・kura-pashaには既にある『制限モード移行時のオーナー
+  向け能動通知』がaircon-pashaに欠けていた」というcross-venture parityの抜け漏れを発見・
+  対応していたことを受け、本venture(line-reservation-ai)に同種の抜け漏れが無いかを
+  確認した。本venture側は該当機能をblocked-but-billing-owner-email-notification-
+  design.md(フェーズ続き178)として設計済みで、実装(`prototype/blocked_but_billing_
+  owner_email_notification.py`・`send_blocked_but_billing_owner_email_notifications()`)・
+  `cloud_function_process_event.py`への結線・専用テスト15件(`test_blocked_but_billing_
+  owner_email_notification.py`)がいずれも既に揃っていることを確認した。また通知の
+  クリア側(決済回復時)についても、`cloud_function_subscription_cancelled_webhook.py`の
+  `handle_subscription_deleted()`が同設計5節「クリア配線」に基づき
+  `blocked_but_billing_owner_notified_at`のクリアをインライン実装済み(本モジュールが
+  store_id keyed Protocolではなく1件ぶんのstateを直接扱う設計のため、通知側の共通クリア
+  関数をそのまま呼べない理由もdocstringに明記済み)であることを確認した。以上より、
+  本venture側にaircon-pashaフェーズ255と同型の抜け漏れは存在しないと判断した。コード
+  変更は無く、回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`、変更前と同数)・schema検証28件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要な監査・ドキュメント確認のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回以降も、他venture側で新たに発見・解消される
+  cross-venture parityの抜け漏れパターンを本venture側にも横展開できないか確認する運用を
+  継続する。
+- 最終更新: 2026-09-23 07:00 UTC(フェーズ続き266: aircon-pashaフェーズ255が発見した
+  「制限モード移行時のオーナー向け能動通知」の抜け漏れパターンについて、本venture側に
+  同型の欠落が無いか確認。設計(blocked-but-billing-owner-email-notification-design.md)・
+  実装・結線・クリア処理・専用テスト15件がいずれも既に揃っており、抜け漏れは存在しない
+  ことを確認した。コード変更は無く回帰確認のみ、venture全体854件・schema検証28件
+  いずれもパス)
