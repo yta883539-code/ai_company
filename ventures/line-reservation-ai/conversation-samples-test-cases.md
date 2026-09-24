@@ -568,7 +568,14 @@ checkout-intent-detection-parity-review.md「残る検討事項」E17候補対�
   "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス
   (変更前と同じ結果)を確認した。
 - E10〜E16を含めたテストケース群の実装フェーズでの自動テスト化(実LLM呼び出しでの出力検証)
-- エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどのtopicが未回答かを含める)
+- ~~エスカレーション(no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどのtopicが未回答かを含める)~~
+  → 2026-09-24 22:00 UTC棚卸しで対応済みであることを確認: escalation-notification-templates.md
+  「topicラベル対応表」・文面例(「種別: 複合質問の一部未回答」)として具体化済みで、
+  `prototype/engine.py`の`FAQ_TOPIC_LABELS`辞書・`_escalation_type_label()`
+  (未回答topicを日本語ラベルに変換し「未登録FAQへのお問い合わせ(〜)」として通知文に
+  組み込む)にも実装・反映済みだった。本項目は個別ドキュメント・実装での対応が先行し、
+  本ファイル側の「次のステップ候補」記載の更新のみが取り残されていたcross-document
+  parityの記載漏れだったと判断し訂正した。
 - ~~E16で発見した「同一topicが複合質問内で重複しうる」場合の通知ログ集計ルール(重複を1件とするか未回答分のみカウントするかの決定)を検討する~~
   → 2026-09-19 19:00 UTC棚卸しで対応済みであることを確認: duplicate-topic-notification-log-rule.md(2026-07-31)で
   「`resolved: false`の`faq_segments`のうち、(日付, userId, topic)の組でユニーク化してカウントする」方針を既に検討・結論化済みで、

@@ -4605,3 +4605,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ブロック中オーナー検知に関する記載が、実際にはフェーズ続き176・177〈同2026-09-02中〉で
   既に対応済みだったcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
   無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き269(2026-09-24 22:00 UTC定例更新): 他venture(aircon-pasha 20:00 UTC・
+  kura-pasha 20:00 UTC・course-set-pasha 21:00 UTC)より前進が手薄になっていた本ventureを
+  今回選んだ。candidate-longlist-draft.md第二十一弾の申し送り(2)「待機中に生産的な作業
+  として既存md間の記述矛盾・古い情報のクロスドキュメントパリティ確認を継続する」に対応し、
+  conversation-samples-test-cases.md「次のステップ候補」に残っていた「エスカレーション
+  (no-show-handling.mdの通知設計)発生時のオーナー通知文面の具体化(複合質問時にどの
+  topicが未回答かを含める)」という未取り消し線の項目を棚卸しした。実際には
+  escalation-notification-templates.mdの「topicラベル対応表」・文面例(「種別: 複合質問の
+  一部未回答」)として既に具体化済みで、`prototype/engine.py`の`FAQ_TOPIC_LABELS`辞書・
+  `_escalation_type_label()`(未回答topicを日本語ラベルに変換し「未登録FAQへのお問い合わせ
+  (〜)」として通知種別に組み込む実装、2026-09-14にmenuラベル追加も含めて反映済み)にも
+  実装済みであることをコードで確認した。本項目は個別ドキュメント・実装での対応が先行し、
+  本ファイル側の「次のステップ候補」記載の取り消し線更新のみが取り残されていた
+  cross-document parityの記載漏れであり、発見・事後訂正した(前後のE16由来2項目は既に
+  取り消し線済みで、本項目のみ未反映だった)。実装内容自体への変更は無く、回帰確認として
+  venture全体854件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と
+  同数)・schema検証28件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)
+  いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: candidate-
+  longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち状況の再確認、または
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-24 22:00 UTC(フェーズ続き269: conversation-samples-test-cases.mdの
+  「次のステップ候補」に残っていた「複合質問時の通知文面具体化」項目が、実際には
+  escalation-notification-templates.md・prototype/engine.pyの`FAQ_TOPIC_LABELS`で既に
+  実装済みだったcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
+  無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
