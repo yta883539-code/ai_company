@@ -3610,3 +3610,41 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   新規作成し、faq_intent_to_code()マッピング層・エスカレーション通知送信ヘルパー・
   memo_processing_request判定時への一言追加を実装。新規テスト29件追加。
   run_all_tests.py 16ファイル全件[OK]、schema検証32件いずれもパス)
+- フェーズ171(2026-09-24 定例更新): フェーズ170の「次回候補」だった
+  `chatbot_intent_router.py`3関数の`cloud_function_webhook.py`への配線設計に
+  着手し、chatbot-intent-classification-wiring-design.mdを新規作成した。配線設計
+  そのものより先に、chatbot-intent-classification-design.md(フェーズ167)0節の
+  前提(「解約意図検知(厳守事項7a)・契約者譲渡意図検知(contractor-transfer-
+  design.md 3節)は新設の意図分類より手前で実行される既存の独立ロジックである」)を
+  実装コードで検証したところ、この2つはいずれも独立した事前チェックではなく、
+  `process_generation_request()`が呼ぶ受注メモ生成LLMコール単体
+  (schema/output.schema.jsonの19-status enumの一部として出力される)の内部でのみ
+  判定されることを発見した。この結果、「解約したい」等メモらしき内容を含まない
+  解約意図表明が、新設の意図分類レイヤー配線後は`faq_cancel`(Q3の制度説明のみで
+  実ポータルURLを含まない回答)に誤誘導され、既存の解約フロー(実URL付き案内)に
+  到達できなくなるという実害を具体的に特定した。修正方針として、フェイルセーフ
+  方針2節ルール1(メモらしき内容の優先)の適用範囲を「解約・ダウングレード・
+  契約者交代の意思表示そのもの」にも拡張し、当該メッセージは`memo_processing_
+  request`側へ振り分けて既存の受注メモ生成LLMコールへ一本化させる方針を確定した。
+  この方針を前提に、新設Protocol`ChatbotIntentClassificationClient`(分類失敗時は
+  memo_processing_requestへフェイルセーフ)を導入し、`process_message_event()`の
+  `_maybe_handle_owner_faq_command()`(既存の明示コマンド判定、変更なし)の後段・
+  `process_memo_event()`委譲の前段に意図分類コールを挿入する配線案を設計した。
+  クライアント未接続時(実LLM接続がオーナー承認待ちの間)はこのステップ自体を
+  丸ごとスキップし、フェーズ170時点までと同じ挙動を維持する後方互換設計とした。
+  実装・実LLM呼び出しは行っていない、机上の設計・既存設計文書の前提検証のみ。
+  回帰確認としてventure全体16ファイル全件(`python3 prototype/run_all_tests.py`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と
+  同じ結果、ドキュメント新規作成のみでコード変更は無い)を確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: `faq_contractor_transfer_overview`
+  側の同種実害シナリオの再検証、および本フェーズの方針をchatbot-intent-
+  classification-design.md 2節・chatbot-intent-classification-llm-prompt-draft.md
+  本体へ正式反映すること。
+- 最終更新: 2026-09-24(フェーズ171: chatbot-intent-classification-wiring-design.md
+  を新規作成。配線設計に先立ち、既存の解約意図検知・契約者譲渡意図検知が独立した
+  事前チェックではなく受注メモ生成LLMコール内部の判定であることを発見し、
+  「解約したい」等が新設意図分類レイヤーで`faq_cancel`に誤誘導され実ポータルURLを
+  含む既存フローに届かなくなる実害を特定。フェイルセーフ方針の拡張と配線案を設計。
+  コード変更は無く回帰確認のみ、venture全体16ファイル全件・schema検証32件いずれも
+  パス)
