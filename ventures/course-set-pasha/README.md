@@ -3909,3 +3909,30 @@
   `_classify_intent_with_retry()`にWARNINGログ(イベント種別・メモ文字数のみ、本文は
   含めない)を追加。新規テスト1件追加、venture全体649件(648件→649件)・schema検証
   21件いずれもパス)
+- フェーズ250(2026-09-24 21:00 UTC定例更新): フェーズ249「次回候補」に残っていた
+  Cloud Monitoringアラート設計の事前検討を実施した(cloud-monitoring-alert-policy-
+  design.md新規作成)。フェーズ249で実装済みのWARNINGログ(`event=chatbot_intent_
+  classification_failed`)を対象に、ログベース指標(名前案`chatbot_intent_
+  classification_failure_count`、カウンタ型、`memo_length`はカーディナリティが高く
+  ラベルには不向きなため含めない設計)、アラートポリシー(直近60分間で合計1件以上の
+  発生で発火、意図分類失敗は既存の生成フローへのフォールスルーで顧客影響は軽微だが
+  LLM API障害の前兆を早期検知する目的でしきい値を低めに設定)、通知チャネル
+  (payment-suspension-owner-notification-design.mdのLINE Push通知とは経路が異なる
+  技術的な運用監視目的のため、既存のLINE通知導線は流用せずCloud Monitoring標準の
+  メール通知チャネルを`OWNER_ALERT_EMAIL_PLACEHOLDER`として素直に設計)を確定した。
+  Cloud Functionsのランタイム世代(1st gen/2nd gen)未確定によりログフィルタの
+  `resource.type`のみ実プロジェクト作成後の要確認事項として残した。実際のログベース
+  指標・アラートポリシーの作成はGCPプロジェクト作成後の操作でありコード変更では
+  完結しないため、設計文書の作成のみに留めた。コード変更は無く、回帰確認として本
+  venture全体649件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と
+  同じ結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし
+  (GCPプロジェクト作成自体は既存の承認待ち事項の範囲内であり新規追加は不要と判断)。
+  次回候補: aircon-pasha・kura-pasha側での同種ログ出力・アラート設計の横展開検討、
+  line-reservation-ai向けの別軸検討(既存の意図判定へのFAQ系インテント追加)、または
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-24 21:00 UTC(フェーズ250: Cloud Monitoringのログベース指標・
+  アラートポリシー・通知チャネルの設計を事前に確定(cloud-monitoring-alert-policy-
+  design.md新規作成)。実際の作成はGCPプロジェクト作成後の課題として据え置き。
+  コード変更は無く回帰確認のみ、venture全体649件・schema検証21件いずれもパス)
