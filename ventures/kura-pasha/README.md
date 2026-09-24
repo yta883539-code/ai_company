@@ -3675,3 +3675,29 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   方針を、chatbot-intent-classification-design.md・chatbot-intent-classification-
   llm-prompt-draft.md本体へ正式反映。コード変更は無く回帰確認のみ、venture全体
   16ファイル全件・schema検証32件いずれもパス)
+- フェーズ173(2026-09-24定例更新): 2点対応した。(1)フェーズ172でdesign.md 0節
+  のみ「呼び出し順序ではなく判定順位1の分類ルールで担保する」方式へ訂正されたが、
+  chatbot-intent-classification-llm-prompt-draft.mdの「位置づけ」節・「設計上の
+  要点」1が旧来の「呼び出し順序(コード側)で担保する」記述のまま取り残されて
+  いた不整合を発見し、design.mdの訂正内容に合わせて訂正した。(2)chatbot-intent-
+  classification-wiring-design.mdフェーズ171の申し送り事項(「契約者を交代したい、
+  田中さんにお願いします」のような名指しを含む具体的な譲渡依頼がfaq_contractor_
+  transfer_overviewに誤分類されないかの再検証)に着手し、contractor-transfer-
+  design.md 3節の検知語彙(「契約者を交代したい」「後継ぎに変更したい」)と
+  llm-prompt-draft.md判定順位1の例示文言を突き合わせた結果、判定順位1の例示文言
+  自体が既に名指しを含む例(「後継ぎに変更したい、田中さんにお願いします」)を
+  カバーしており、構造的リスクは現在の文言上既に回避されていると判断した(実LLMでの
+  挙動確認は残課題として継続)。design.md 4節・llm-prompt-draft.md残課題の該当項目を
+  対応済みとして更新した。コード変更は無くドキュメント訂正のみのため、回帰確認として
+  venture全体16ファイル全件(`python3 prototype/run_all_tests.py`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: aircon-pasha側での同種の前提(既存の
+  意図検知が独立した事前チェックか単一LLMコール内部の判定か)の横展開検証、
+  `faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装。
+- 最終更新: 2026-09-24(フェーズ173: chatbot-intent-classification-llm-prompt-
+  draft.mdの「位置づけ」節・「設計上の要点」1をフェーズ172のdesign.md訂正に合わせて
+  修正〈ドキュメント間の不整合を発見・修正〉。あわせてフェーズ171の申し送り事項
+  〈名指しを含む具体的な譲渡依頼の誤分類リスクの再検証〉に対応し、判定順位1の既存の
+  例示文言で構造的リスクが回避されていることを確認。コード変更は無く回帰確認のみ、
+  venture全体16ファイル全件・schema検証32件いずれもパス)

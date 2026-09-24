@@ -170,11 +170,13 @@ course-set-pashaの3節の設計(検知条件・冪等性・送信経路・顧�
   2節ルール1の分類ルール拡張で担保する方式へ変更)。
 - `faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装
   (`prototype/`配下へのコード追加)は次回以降の課題とする。
-- `faq_contractor_transfer_overview`側についても、2節ルール1拡張と同様の実害
+- ~~`faq_contractor_transfer_overview`側についても、2節ルール1拡張と同様の実害
   シナリオ(「契約者を交代したい、田中さんにお願いします」のような名指しを含む
   具体的な譲渡依頼が誤って本カテゴリに分類されるケース)がないか、
-  contractor-transfer-design.md 3節の語彙パターンと突き合わせた再検証が未着手
-  (chatbot-intent-classification-wiring-design.md フェーズ171の申し送り事項)。
+  contractor-transfer-design.md 3節の語彙パターンと突き合わせた再検証が未着手~~
+  → フェーズ173でchatbot-intent-classification-llm-prompt-draft.md側にて再検証済み
+  (同ドキュメント「設計上の要点」5参照)。判定順位1の例示文言が既に名指しを含む例を
+  カバーしており、構造的リスクは文言上回避されていると判断した。
 - aircon-pashaについても本venture・course-set-pashaと同様の横展開検討が未着手のまま
   残る(course-set-pashaフェーズ248の申し送り事項、chatbot-first-response-
   feasibility.md 6節と同じ)。あわせて、本フェーズ172の訂正(呼び出し順序ではなく

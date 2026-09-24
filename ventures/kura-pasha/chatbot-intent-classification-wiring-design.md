@@ -151,13 +151,13 @@ class ChatbotIntentClassificationClient(Protocol):
   design.md 2節・chatbot-intent-classification-llm-prompt-draft.mdへ正式に反映する。~~
   → フェーズ172で両ドキュメントへ正式反映済み(design.md 0節・1節`faq_cancel`・
   2節ルール1、llm-prompt-draft.md 判定順位1・分類カテゴリ説明をあわせて訂正)。
-- `faq_contractor_transfer_overview`側についても、2節と同様の実害シナリオ
+- ~~`faq_contractor_transfer_overview`側についても、2節と同様の実害シナリオ
   (「契約者を交代したい、田中さんにお願いします」のような、名指しを含む具体的な
   譲渡依頼が`faq_contractor_transfer_overview`に誤分類されるケース)がないか、
-  contractor-transfer-design.md 3節の語彙パターンと突き合わせた再検証が必要
-  (本フェーズは解約意図側の実害の特定を優先したため未着手。フェーズ172でも
-  design.md・llm-prompt-draft.md側に申し送り事項として明記したが、再検証自体は
-  依然未着手)。
+  contractor-transfer-design.md 3節の語彙パターンと突き合わせた再検証が必要~~
+  → フェーズ173でllm-prompt-draft.md側にて再検証済み(同ドキュメント「設計上の
+  要点」5参照)。判定順位1の例示文言が既に名指しを含む例をカバーしており、
+  構造的リスクは文言上回避されていると判断した(実LLMでの挙動確認は残課題)。
 - 4節3.の意図分類コール自体(自由入力→6分類)は引き続き実LLM接続が
   オーナー承認待ちの領域であり、本ドキュメントは配線設計にとどまる。
 
