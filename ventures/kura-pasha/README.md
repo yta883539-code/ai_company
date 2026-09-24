@@ -3648,3 +3648,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   含む既存フローに届かなくなる実害を特定。フェイルセーフ方針の拡張と配線案を設計。
   コード変更は無く回帰確認のみ、venture全体16ファイル全件・schema検証32件いずれも
   パス)
+- フェーズ172(2026-09-24 20:00 UTC定例更新): フェーズ171の次回候補だった、
+  「解約・ダウングレード・契約者交代の意思表示そのものをmemo_processing_request
+  優先の対象に含める」方針をchatbot-intent-classification-design.md・
+  chatbot-intent-classification-llm-prompt-draft.mdへ正式反映した。design.mdは
+  0節(当初の「呼び出し順序による分岐」設計を、フェーズ171で判明した実装上の制約と
+  「2節ルール1の分類ルール拡張による代替担保」への訂正として書き換え)・1節
+  (`faq_cancel`の定義に`faq_contractor_transfer_overview`と同様「制度理解目的の
+  質問のみ」の限定を追加)・2節ルール1(解約・ダウングレード・契約者交代の意思表示
+  そのものを対象に含める拡張を追記)・4節残課題を更新した。llm-prompt-draft.mdは
+  判定順位1に同趣旨の拡張を追記し、faq_cancel/faq_contractor_transfer_overviewの
+  カテゴリ説明にも同じ限定を明示した。あわせてchatbot-intent-classification-
+  wiring-design.md 6節の該当申し送りに取り消し線で対応済みの旨を追記した。
+  コード変更は無くドキュメント3件の記述訂正のみのため、回帰確認として本venture
+  全体16ファイル全件(`python3 prototype/run_all_tests.py`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を
+  確認した。承認不要なドキュメント訂正のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: `faq_contractor_transfer_overview`側の同種実害シナリオ(名指しを含む
+  具体的な譲渡依頼の誤分類)の再検証(フェーズ171・172でいずれも申し送りのみで
+  未着手)、`faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信
+  ヘルパーの実装、またはaircon-pasha側での同種の前提(既存の意図検知が独立した
+  事前チェックか単一LLMコール内部の判定か)の横展開検証。
+- 最終更新: 2026-09-24 20:00 UTC(フェーズ172: フェーズ171で確定した「解約・
+  ダウングレード・契約者交代の意思表示をmemo_processing_request優先に含める」
+  方針を、chatbot-intent-classification-design.md・chatbot-intent-classification-
+  llm-prompt-draft.md本体へ正式反映。コード変更は無く回帰確認のみ、venture全体
+  16ファイル全件・schema検証32件いずれもパス)

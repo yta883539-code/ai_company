@@ -147,15 +147,17 @@ class ChatbotIntentClassificationClient(Protocol):
 
 ## 6. 未解決・次の課題
 
-- 本ドキュメント3節の拡張ルール自体を、次フェーズで
-  chatbot-intent-classification-design.md 2節・chatbot-intent-classification-llm-
-  prompt-draft.mdへ正式に反映する(本フェーズは方針確定のみで両ドキュメント本体は
-  未更新)。
+- ~~本ドキュメント3節の拡張ルール自体を、次フェーズでchatbot-intent-classification-
+  design.md 2節・chatbot-intent-classification-llm-prompt-draft.mdへ正式に反映する。~~
+  → フェーズ172で両ドキュメントへ正式反映済み(design.md 0節・1節`faq_cancel`・
+  2節ルール1、llm-prompt-draft.md 判定順位1・分類カテゴリ説明をあわせて訂正)。
 - `faq_contractor_transfer_overview`側についても、2節と同様の実害シナリオ
   (「契約者を交代したい、田中さんにお願いします」のような、名指しを含む具体的な
   譲渡依頼が`faq_contractor_transfer_overview`に誤分類されるケース)がないか、
   contractor-transfer-design.md 3節の語彙パターンと突き合わせた再検証が必要
-  (本フェーズは解約意図側の実害の特定を優先したため未着手)。
+  (本フェーズは解約意図側の実害の特定を優先したため未着手。フェーズ172でも
+  design.md・llm-prompt-draft.md側に申し送り事項として明記したが、再検証自体は
+  依然未着手)。
 - 4節3.の意図分類コール自体(自由入力→6分類)は引き続き実LLM接続が
   オーナー承認待ちの領域であり、本ドキュメントは配線設計にとどまる。
 
@@ -166,3 +168,11 @@ class ChatbotIntentClassificationClient(Protocol):
 `python3 schema/validate_test_cases.py`(32件中32件パス)がいずれも変更前と
 同じ結果であることを確認した。承認が必要なアクション(支払い・アカウント作成・
 外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+
+追記(フェーズ172、2026-09-24 20:00 UTC): 本節1点目の「次フェーズで正式反映する」
+申し送りに対応し、chatbot-intent-classification-design.md・chatbot-intent-
+classification-llm-prompt-draft.mdへ本ドキュメント3節の拡張ルールを反映した。
+本ドキュメント自体への変更は上記の取り消し線追記のみ。回帰確認として同じ2コマンド
+(venture全体16ファイル全件・schema検証32件)を再実行し変更前と同じ結果であることを
+確認した。承認が必要なアクションは今回も発生していないためpending-approval.mdへの
+追記なし。
