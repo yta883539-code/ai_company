@@ -4205,3 +4205,28 @@
   feasibility.mdを新規作成。既存のコマンド方式FAQを活かし、意図分類はコマンドへの案内文
   誘導に絞る保守的設計を推奨。コード変更は無く回帰確認のみ、venture全体533件・
   schema検証25件いずれもパス)
+- フェーズ258(2026-09-24 20:00 UTC定例更新): フェーズ257(chatbot-intent-
+  classification-llm-prompt-draft.md)「残課題」に残っていた、`faq_guidance_candidate`
+  判定時に実際に返す案内文の具体的な文面、および`completion_report_request`判定時への
+  一言追加(course-set-pashaの`append_faq_followup_hint()`相当)の実装に着手した。
+  chatbot-intent-classification-followup-design.mdを新規作成し、
+  `prototype/chatbot_intent_router.py`に`render_faq_guidance_message()`
+  (項目別の個別回答文〈owner_faq_router.pyのQ1〜Q7〉は含めず、既存コマンド方式FAQへの
+  誘導文のみを返す)・`append_faq_followup_hint()`(完了報告返答文末尾にFAQコマンドへの
+  案内一言を常時付加し、複合入力時のFAQ案内欠落という誤判定パターンへ運用回避する、
+  course-set-pashaフェーズ238と同じ方式)を新規実装した。分類結果を実際に振り分ける
+  入口関数(course-set-pashaの`route_chatbot_intent()`相当)、`other_needs_human`判定時の
+  エスカレーション導線設計、`cloud_function_webhook.py`側との結線はいずれも次回以降の
+  課題として残した。テスト6件を新規追加(test_chatbot_intent_router.py)、回帰確認として
+  venture全体539件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  変更前533件+新規6件)・schema検証25件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要な新規コード・テスト・ドキュメント
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: `route_chatbot_intent()`相当の入口関数
+  実装、`other_needs_human`判定時のエスカレーション導線設計(payment-suspension-owner-
+  notification-design.mdの通知先・文言パターンを流用する案の検討)、またはkura-pasha側
+  での同種検討。
+- 最終更新: 2026-09-24 20:00 UTC(フェーズ258: chatbot-intent-classification-followup-
+  design.mdを新規作成し、faq_guidance_candidate判定時の案内文・completion_report_request
+  判定時の一言追加をprototype/chatbot_intent_router.pyに実装。コード変更・テスト追加あり、
+  venture全体539件・schema検証25件いずれもパス)
