@@ -4374,3 +4374,27 @@
   `BlockedButBillingBusinessNameReader`Protocol追加・`send_blocked_but_billing_owner_
   notifications()`へのbusiness_name_reader引数追加。テスト573件(568件+新規5件)・
   schema検証25件いずれもパス)
+- フェーズ264(2026-09-25 12:00 UTC定例更新): フェーズ263の申し送り「次回候補」のうち
+  `UserProfileStoreProtocol`への`get_business_name`追加に対応した(kura-pasha側の確認は
+  kura-pasha自身のフェーズ177で既に完了済みと確認、resource.type調整はcourse-set-pasha
+  フェーズ252で既に全venture横展開済みと確認、いずれも対応不要)。`user_id_linking.py`の
+  `UserProfileStoreProtocol`に`get_business_name(user_id) -> Optional[str]`を追加し、
+  `InMemoryUserProfileStore`に`UserProfile.business_name`をそのまま返す実装(未知の
+  user_idには他のgetterと同じくNoneを返す安全側方針)を追加した。これにより
+  `InMemoryUserProfileStore`インスタンス自身を`blocked_but_billing_owner_notification.py`の
+  `business_name_reader`引数へそのまま渡せることを構造的型付けで確認するテストを追加した
+  (business-name-owner-notification-display-design.md 7節参照)。新規テスト3件追加
+  (`get_business_name`が保存済みのbusiness_nameを返すこと・未知のuser_idにNoneを返す
+  こと・`BlockedButBillingBusinessNameReader`Protocolを構造的に満たすことの確認、
+  `test_user_id_linking.py`)、venture全体576件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前573件+新規3件)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。実際に
+  `cloud_function_webhook.py`(該当スケジューラのエントリポイント)から
+  `business_name_reader=store`を渡す配線自体は、Firestore接続がオーナー承認待ちの範囲で
+  あるためまだ行っていない(次回候補として残す)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-25 12:00 UTC(フェーズ264: `UserProfileStoreProtocol`に
+  `get_business_name`を追加し、`InMemoryUserProfileStore`が`BlockedButBillingBusinessNameReader`
+  Protocolを構造的に満たすことを確認。新規テスト3件、venture全体576件・schema検証25件
+  いずれもパス)

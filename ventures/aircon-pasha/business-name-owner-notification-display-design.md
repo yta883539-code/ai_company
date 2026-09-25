@@ -93,8 +93,30 @@ UserProfileから`PaymentSuspensionOwnerNotificationUserState`を組み立てる
 - テスト5件追加(`build_...`のbusiness_name設定時・None時・空文字列時の3件、
   `send_...`のbusiness_name_reader経由での反映確認・reader未指定時のフォールバック確認の
   2件)。
-- payment_suspension版と同じく、`UserProfileStoreProtocol`への`get_business_name`追加・
-  `cloud_function_webhook.py`からの実結線はまだ実装していない(Firestore接続自体が
-  オーナー承認待ちの範囲であるため)。実装時には`UserProfile.business_name`を返す
-  `get_business_name`をuser_id_linking.pyへ追加し、そのまま`business_name_reader`として
-  渡せばよい。
+- payment_suspension版と同じく、`cloud_function_webhook.py`からの実結線はまだ実装して
+  いない(Firestore接続自体がオーナー承認待ちの範囲であるため)。`UserProfileStoreProtocol`
+  への`get_business_name`追加自体はフェーズ264で対応済み(7節参照)。
+
+## 7. UserProfileStoreProtocolへのget_business_name追加(フェーズ264で実装済み)
+
+6節が残していた配線ギャップ(`UserProfileStoreProtocol`に`get_business_name`が無く、
+`InMemoryUserProfileStore`を`BlockedButBillingBusinessNameReader`としてそのまま渡せ
+なかった)に対応した。`user_id_linking.py`の`UserProfileStoreProtocol`に
+`get_business_name(self, user_id: str) -> Optional[str]`を追加し、
+`InMemoryUserProfileStore`に`UserProfile.business_name`をそのまま返す実装(未知の
+`user_id`には他のgetterと同じく`None`を返す安全側方針)を追加した。これにより
+`send_blocked_but_billing_owner_notifications(..., business_name_reader=store)`のように
+`InMemoryUserProfileStore`インスタンス自身を`business_name_reader`引数へそのまま渡せる
+ことを構造的型付け(duck typing)で確認済み(テスト
+`InMemoryUserProfileStoreBusinessNameReaderTest.
+test_satisfies_blocked_but_billing_business_name_reader_protocol`)。
+
+新規テスト3件追加(`get_business_name`が保存済みのbusiness_nameを返すこと・未知の
+user_idにNoneを返すこと・`BlockedButBillingBusinessNameReader`Protocolを構造的に
+満たすことの確認、`test_user_id_linking.py`)、venture全体576件(既存573件+新規3件)・
+schema検証25件いずれもパス。
+
+実際に`cloud_function_webhook.py`(または該当スケジューラのエントリポイント)から
+`business_name_reader=store`を渡す配線自体は、当該スケジューラ関数の呼び出し口が
+Firestore接続(オーナー承認待ちの範囲)を前提とするため、まだ行っていない。次回候補として
+残す。

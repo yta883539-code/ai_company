@@ -519,6 +519,44 @@ class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
         self.assertIsNone(store.get_current_plan_id("no-such-user"))
 
 
+class InMemoryUserProfileStoreBusinessNameReaderTest(unittest.TestCase):
+    """business-name-owner-notification-display-design.md 5節向けにフェーズ264で
+    追加した`get_business_name`の単体テスト(blocked_but_billing_owner_notification.pyの
+    `BlockedButBillingBusinessNameReader`Protocolを本クラスが構造的に満たすためのgetter)。"""
+
+    def _seed_profile(self, store, user_id="u-1", business_name="テストクリーニング"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name=business_name, business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_returns_the_saved_business_name(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1", business_name="テストクリーニング")
+
+        self.assertEqual(store.get_business_name("u-1"), "テストクリーニング")
+
+    def test_returns_none_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        self.assertIsNone(store.get_business_name("no-such-user"))
+
+    def test_satisfies_blocked_but_billing_business_name_reader_protocol(self):
+        from blocked_but_billing_owner_notification import (
+            BlockedButBillingBusinessNameReader,
+        )
+
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1", business_name="テストクリーニング")
+
+        reader: BlockedButBillingBusinessNameReader = store
+
+        self.assertEqual(reader.get_business_name("u-1"), "テストクリーニング")
+
+
 class InMemoryUserProfileStoreTrialUnitCountFieldTest(unittest.TestCase):
     """content-generation-time-estimate.md(フェーズ192)向けに追加した
     trial_unit_countの単体テスト(increment_trial_generation_countと対になる

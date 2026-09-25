@@ -287,7 +287,21 @@ class UserProfileStoreProtocol(Protocol):
     `increment_trial_unit_count`/`get_trial_unit_count`はフェーズ192で追加した、
     `increment_trial_generation_count`と対になる分解洗浄台数の累計カウンタ用メソッド
     (course-set-pashaの`increment_trial_area_count`と同じ位置づけ)。未知の`user_id`に
-    対しては他のno-opメソッドと同じ安全側方針で何もせず0を返す。"""
+    対しては他のno-opメソッドと同じ安全側方針で何もせず0を返す。
+
+    `get_business_name`はフェーズ264で追加した、business-name-owner-notification-
+    display-design.md 5節が「次回候補」として残していた配線ギャップに対応するための
+    読み取り専用メソッド。`UserProfile.business_name`は連携時から存在する必須フィールド
+    だが、`blocked_but_billing_owner_notification.py`の`BlockedButBillingBusinessNameReader`
+    Protocol(`get_business_name(user_id) -> Optional[str]`のみを要求する構造的Protocol)を
+    本クラスが満たすためのgetterがこれまで無かった。本クラスがこのメソッドを持つことで、
+    `send_blocked_but_billing_owner_notifications(..., business_name_reader=store)`のように
+    `InMemoryUserProfileStore`自身(実Firestore接続後は同名メソッドを持つ実装)を
+    そのまま`business_name_reader`として渡せるようになる(他のgetterと同じ、未知の
+    `user_id`には`None`を返す安全側方針)。実際の`cloud_function_webhook.py`側での
+    呼び出し配線はまだ行っていない(該当スケジューラ関数自体がCloud Scheduler経由の
+    実行契約でありFirestore接続がオーナー承認待ちのため、配線自体は接続後の作業として
+    design.md 5節に残す)。"""
 
     def save(self, user_id: str, profile: UserProfile) -> None:
         ...
@@ -380,6 +394,9 @@ class UserProfileStoreProtocol(Protocol):
     def set_payment_suspension_owner_notified_at(
         self, user_id: str, notified_at: Optional[datetime]
     ) -> None:
+        ...
+
+    def get_business_name(self, user_id: str) -> Optional[str]:
         ...
 
 
@@ -543,6 +560,10 @@ class InMemoryUserProfileStore:
         if profile is None:
             return
         profile.payment_suspension_owner_notified_at = notified_at
+
+    def get_business_name(self, user_id: str) -> Optional[str]:
+        profile = self._profiles.get(user_id)
+        return profile.business_name if profile is not None else None
 
 
 @dataclass
