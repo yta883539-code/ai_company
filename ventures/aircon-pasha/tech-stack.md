@@ -25,6 +25,13 @@ course-set-pashaと同じく、月間生成回数の上限管理(pricing-plan.md
    - line-reservation-aiで選定済みのGCP Cloud Functions (Python)を第一候補として流用する
      (hosting-platform-selection.mdの比較結果を踏襲)。実際のGCPプロジェクト作成・
      請求先設定は着手時にオーナー承認が必要。
+   - 採用世代はCloud Functions (1st gen)ではなく2nd gen(Cloud Run functions)に確定
+     (course-set-pashaのcloud-functions-generation-decision.md〈2026-09-25 11:00 UTC定例
+     更新〉参照。Googleが新規プロジェクトからの1st gen新規作成を停止済みで製品名も
+     「Cloud Run functions」に改称されているため、GCPプロジェクト未作成の本ventureも実際の
+     作成時点では2nd genのみが選択肢となる。本venture自身のcloud-monitoring-alert-policy-
+     design.md〈フェーズ261〉では既にこの確定を前提に`resource.type: cloud_run_revision`を
+     採用済みだったが、tech-stack.md側への反映が漏れていた)。
    - market-research.mdの月60〜100件(繁忙期はさらに増加)という利用量見積もりは、
      course-set-pashaの月8〜30回程度より一桁多いが、いずれもサーバーレスの従量課金特性と
      相性が良い低頻度・単発処理の範囲内であり、構成自体を変える必要はないと見込む。

@@ -4415,3 +4415,27 @@
 - 最終更新: 2026-09-25 14:00 UTC(フェーズ265: line-price-revision-2026-check.md新規作成。
   2026年10月LINE料金改定について本venture固有の影響評価を実施、料金プラン見直しは不要と
   判断。コード変更なし、venture全体576件・schema検証25件いずれもパス)
+- フェーズ266(2026-09-25 19:00 UTC定例更新): course-set-pashaフェーズ253「次回候補」に
+  残っていた「aircon-pasha・kura-pashaの各tech-stack.mdへの同決定(Cloud Functions採用世代を
+  2nd gen〈Cloud Run functions〉に確定)の反映」のうち、本venture分に対応した。
+  line-reservation-ai(フェーズ続き271)は既に反映済みだったが、本venture自身の
+  tech-stack.md「想定コンポーネント2」には未反映のまま残っていたことを確認した。
+  本venture自身のcloud-monitoring-alert-policy-design.md(フェーズ261)では既にこの確定を
+  前提に`resource.type: cloud_run_revision`を採用していたにもかかわらず、決定の一次情報
+  であるtech-stack.md側への反映が漏れていたcross-document parityの記載漏れでもあった。
+  course-set-pasha版tech-stack.md(フェーズ253)と同じ書きぶりで、コンポーネント2
+  「Webhook / バックエンド」の項に、採用世代確定の経緯(course-set-pashaのcloud-functions-
+  generation-decision.md参照、Googleが新規プロジェクトからの1st gen新規作成を停止済みで
+  製品名も「Cloud Run functions」に改称されているため、GCPプロジェクト未作成の本venture
+  含め実際の作成時点では2nd genのみが選択肢となる旨)を追記した。コード変更は無く
+  ドキュメント更新のみのため、回帰確認としてventure全体576件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: kura-pasha側のtech-stack.mdへの同決定の反映
+  (course-set-pashaフェーズ253「次回候補」の残り分)、または`ChatbotIntentClassificationClient`
+  実クライアント接続(実LLM接続、オーナー承認待ち)。
+- 最終更新: 2026-09-25 19:00 UTC(フェーズ266: course-set-pashaフェーズ253が残していた
+  Cloud Functions 2nd gen確定のtech-stack.mdへの反映のうち、本venture分に対応。
+  「想定コンポーネント2」に採用世代確定の経緯を追記。コード変更は無く回帰確認のみ、
+  venture全体576件・schema検証25件いずれもパス)
