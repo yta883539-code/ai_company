@@ -15,6 +15,7 @@ from cloud_function_webhook import (
     API_FAILURE_FALLBACK_MESSAGE,
     CHARACTER_LIMIT_FALLBACK_MESSAGE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
+    FIRST_GENERATION_NOTICE_MESSAGE,
     INVITE_JOIN_SUCCESS_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
@@ -589,6 +590,11 @@ def test_process_memo_event_generated_over_limit_omits_limit_notice_and_trial_en
     check("文字数超過時はcharacter_limit_exceeded=True", result.character_limit_exceeded is True)
     check("トライアル終了通知は便乗しない", result.trial_end_notification_sent is False)
     check("上限接近CTAは添付しない", result.limit_notice_cta_attached is False)
+    check("初回生成確認案内も便乗しない(フェーズ179)", result.first_generation_notice_sent is False)
+    check(
+        "workshop_store側も未送信のままフラグは立たない",
+        workshops.get_first_generation_notice_sent("W_CL1") is False,
+    )
     check("返信本文はCHARACTER_LIMIT_FALLBACK_MESSAGEそのもの", result.reply_text == CHARACTER_LIMIT_FALLBACK_MESSAGE)
 
 
@@ -994,6 +1000,129 @@ def test_process_memo_event_does_not_append_trial_end_notification_on_second_suc
         format_trial_end_notification_message(1) not in second_result.reply_text,
     )
     check("2回目もquick_replyは付与しない", reply_client.quick_replies_sent[1] is None)
+
+
+# ---------------------------------------------------------------------------
+# first-generation-self-check-notification-design.md(フェーズ178設計・フェーズ179実装)
+# ---------------------------------------------------------------------------
+
+def test_process_memo_event_appends_first_generation_notice_on_first_generated_success():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_FGN1", "W_FGN1")
+    workshops.set_plan("W_FGN1", "standard")
+    workshops.set_members("W_FGN1", "U_FGN1", ["U_FGN1"])
+
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_FGN1"),
+        _StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("workshop初回生成成功でfirst_generation_notice_sent=True", result.first_generation_notice_sent is True)
+    check(
+        "返信本文末尾に確認案内が付記される",
+        FIRST_GENERATION_NOTICE_MESSAGE in result.reply_text,
+    )
+    check(
+        "workshop_store側もTrueへ更新される",
+        workshops.get_first_generation_notice_sent("W_FGN1") is True,
+    )
+
+
+def test_process_memo_event_does_not_append_first_generation_notice_on_second_generated_success():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_FGN2", "W_FGN2")
+    workshops.set_plan("W_FGN2", "standard")
+    workshops.set_members("W_FGN2", "U_FGN2", ["U_FGN2"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"], TEST_CASES["G2_repair_with_remarks"]])
+    process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_FGN2"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    second_result = process_memo_event(
+        _make_event("修理、ベルト", user_id="U_FGN2"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=MAR,
+    )
+    check("2回目の生成成功ではfirst_generation_notice_sent=False", second_result.first_generation_notice_sent is False)
+    check(
+        "2回目の返信本文には確認案内が含まれない",
+        FIRST_GENERATION_NOTICE_MESSAGE not in second_result.reply_text,
+    )
+
+
+def test_process_memo_event_does_not_append_first_generation_notice_for_other_member_after_contractor_already_notified():
+    """workshop単位判定(3節2.): 契約者の初回生成で案内が付記された後、同じworkshopの
+    別メンバーが初めて送信しても付記されないことを確認する(ユーザー単位ではなく
+    workshop単位の判定基準であることの検証)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_FGN3_CONTRACTOR", "W_FGN3")
+    profiles.link("U_FGN3_MEMBER", "W_FGN3")
+    workshops.set_plan("W_FGN3", "multi_craftsman")
+    workshops.set_members("W_FGN3", "U_FGN3_CONTRACTOR", ["U_FGN3_CONTRACTOR", "U_FGN3_MEMBER"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"], TEST_CASES["G2_repair_with_remarks"]])
+    process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_FGN3_CONTRACTOR"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    member_result = process_memo_event(
+        _make_event("修理、ベルト", user_id="U_FGN3_MEMBER"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check(
+        "契約者の初回生成後は別メンバーの初回送信でも付記しない",
+        member_result.first_generation_notice_sent is False,
+    )
+    check(
+        "別メンバーの返信本文にも確認案内は含まれない",
+        FIRST_GENERATION_NOTICE_MESSAGE not in member_result.reply_text,
+    )
+
+
+def test_process_memo_event_first_generation_notice_still_due_after_earlier_out_of_scope_reply():
+    """status="generated"以外(out_of_scope等)の応答は「最初のstatus="generated"成功」を
+    消費しないことを確認する(3節「判定基準」)。"""
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_FGN4", "W_FGN4")
+    workshops.set_plan("W_FGN4", "standard")
+    workshops.set_members("W_FGN4", "U_FGN4", ["U_FGN4"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["OOS1_membership_question"], TEST_CASES["G1_new_basic"]])
+    first_result = process_memo_event(
+        _make_event("会員は何人まで?", user_id="U_FGN4"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("out_of_scope応答ではfirst_generation_notice_sent=False", first_result.first_generation_notice_sent is False)
+
+    second_result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_FGN4"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check(
+        "その後の最初のgenerated成功ではfirst_generation_notice_sent=True",
+        second_result.first_generation_notice_sent is True,
+    )
+    check(
+        "確認案内が付記される",
+        FIRST_GENERATION_NOTICE_MESSAGE in second_result.reply_text,
+    )
 
 
 def test_process_memo_event_wires_contractor_transfer_expired_notice_from_store():
@@ -2595,6 +2724,10 @@ if __name__ == "__main__":
     test_process_memo_event_allows_generation_within_payment_failure_grace_period()
     test_process_memo_event_appends_trial_end_notification_on_first_success()
     test_process_memo_event_does_not_append_trial_end_notification_on_second_success()
+    test_process_memo_event_appends_first_generation_notice_on_first_generated_success()
+    test_process_memo_event_does_not_append_first_generation_notice_on_second_generated_success()
+    test_process_memo_event_does_not_append_first_generation_notice_for_other_member_after_contractor_already_notified()
+    test_process_memo_event_first_generation_notice_still_due_after_earlier_out_of_scope_reply()
     test_process_memo_event_wires_contractor_transfer_expired_notice_from_store()
     test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_valid()
     test_process_memo_event_wires_contractor_transfer_confirmation_confirmed_from_store()

@@ -3828,3 +3828,55 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   design.md新規作成。「workshop単位の初回生成」を判定基準とする方針・永続化フィールド・
   確認案内文面を確定。設計のみでコード変更は無し、venture全体165件・schema検証32件
   いずれもパス)
+- フェーズ179(2026-09-25 16:00 UTC定例更新): フェーズ178のfirst-generation-self-check-
+  notification-design.mdが「次回課題」として残していた実装(`WorkshopStoreProtocol`への
+  メソッド追加・`process_memo_event()`側の配線・統合テスト)に対応した。
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`へ
+  `get_first_generation_notice_sent(workshop_id) -> bool`/
+  `set_first_generation_notice_sent(workshop_id) -> None`を追加し(命名・「未設定=False」
+  デフォルト方式は`get_trial_generation_used`と同スタイル)、`InMemoryWorkshopStore`にも
+  対応する実装(`_first_generation_notice_sent_by_workshop`辞書)を追加した。
+  `cloud_function_webhook.py`の`process_memo_event()`docstring9.として配線内容を明記し、
+  `FIRST_GENERATION_NOTICE_MESSAGE`定数(design.md 4節の文面案をそのまま採用)を新設、
+  8.の(d)`generation_request`経路で`generation_result.usage.workshop_id`を取得できた
+  場合に限り、LLM出力の最終的な`status`が`"generated"`かつ`get_first_generation_notice_
+  sent()`が`False`(そのworkshopにとって最初の`status="generated"`成功)のときのみ、
+  limit_notice・トライアル終了通知の付記(6.7.)の後・`_reply_with_retry`直前で返信本文
+  末尾へ確認案内を付記するようにした。character-limit-fallback-design.md該当時(文字数
+  上限超過で早期returnする既存分岐)には到達しないため、limit_notice・トライアル終了通知
+  と同じく自然に付記対象から除外される。`trial_end_notified_at`(`process_generation_
+  request()`内で呼び出し前に書き込む既存方式)とは異なり、本フラグは`_reply_with_retry`
+  の戻り値`reply_sent`が`True`だった場合にのみ`set_first_generation_notice_sent()`を
+  呼び出す設計とした(LINE API呼び出し自体が失敗した場合まで「案内送信済み」として記録
+  してしまわないための意図的な差、design.mdが明記していなかった実装判断)。`MemoProcess
+  Result`へ`first_generation_notice_sent`フィールドを追加した。
+  新規テストとして、`test_usage_counter_workshop.py`へストア層の単純な読み書き往復
+  テスト1件(3 check)、`test_cloud_function_webhook.py`へ統合テスト4件
+  (workshop初回generated成功時に付記される/2回目のgenerated成功では付記されない/
+  契約者の初回生成後に別メンバーが初送信しても〈workshop単位判定のため〉付記されない/
+  status="generated"以外〈out_of_scope〉は「最初の成功」を消費せずその後の最初の
+  generated成功で改めて付記される、計12 check)を追加し、既存の文字数上限超過テスト
+  (`test_process_memo_event_generated_over_limit_omits_limit_notice_and_trial_end_
+  notification`)にも本フラグが便乗しないことの確認(2 check)を追加した。
+  `python3 test_usage_counter_workshop.py`123→126(+3 check)、`python3 test_cloud_
+  function_webhook.py`343→355(+12 check)、いずれもFAIL=0。venture全体は
+  `python3 prototype/run_all_tests.py`で16ファイル全件パス(変更前と同数)、schema検証
+  (`python3 schema/validate_test_cases.py`)32件パス(変更前と同じ結果)を確認した。
+  なお`python3 -m unittest discover -s prototype -p "test_*.py"`は本フェーズ変更後も
+  165件のまま(変更前と同数)だった。これは新規テストを追加した2ファイルがいずれも
+  `check()`/PASS/FAIL方式のスクリプト形式であり、discoverが収集するのは
+  `unittest.TestCase`ベースの3ファイルのみという既知の非互換(run_all_tests.py
+  docstring記載、フェーズ88・89で発見)によるもので、テストの追加漏れではないことを
+  `run_all_tests.py`・各ファイル直接実行の両方で確認済み。
+  申込フォーム送信〜Firestore実接続(`craftsman_workshop/{workshop_id}.first_generation_
+  notice_sent`フィールドの実書き込み)は既存のオーナー承認待ち事項(GCPプロジェクト作成・
+  実Firestore接続)の範囲内のため引き続き未着手。承認不要なコード変更・テスト追加のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 実Firestore・実LINE Messaging API接続
+  (いずれもオーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 16:00 UTC(フェーズ179: first-generation-self-check-notification-
+  design.md〈フェーズ178〉の実装。`WorkshopStoreProtocol`へ`get_first_generation_notice_
+  sent`/`set_first_generation_notice_sent`追加、`process_memo_event()`へworkshop単位の
+  初回`status="generated"`成功時の確認案内付記を配線。新規テスト
+  test_usage_counter_workshop.py+3 check・test_cloud_function_webhook.py+12 check、
+  run_all_tests.py 16ファイル全件・schema検証32件いずれもパス)

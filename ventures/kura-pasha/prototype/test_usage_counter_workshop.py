@@ -157,6 +157,23 @@ def test_is_trial_period_over_true_when_generation_used_even_within_30_days():
     )
 
 
+def test_first_generation_notice_sent_defaults_to_false_then_true_after_set():
+    """first-generation-self-check-notification-design.md(フェーズ178設計・
+    フェーズ179実装): WorkshopStoreProtocolへ追加した
+    get_first_generation_notice_sent/set_first_generation_notice_sentの単純な
+    読み書き往復を確認する(process_memo_event()側の配線検証はtest_cloud_function_
+    webhook.py側で行う)。
+    """
+    _, workshops, _ = make_stores()
+    check("未設定のworkshopはFalse", workshops.get_first_generation_notice_sent("W_FGN1") is False)
+    workshops.set_first_generation_notice_sent("W_FGN1")
+    check("set後はTrue", workshops.get_first_generation_notice_sent("W_FGN1") is True)
+    check(
+        "別workshopには影響しない",
+        workshops.get_first_generation_notice_sent("W_FGN2") is False,
+    )
+
+
 def test_pending_reduction_not_yet_effective_does_nothing():
     _, workshops, _ = make_stores()
     workshops.set_members("W5", "CONTRACTOR", ["CONTRACTOR", "MEMBER2"])
@@ -1083,6 +1100,7 @@ if __name__ == "__main__":
     test_is_trial_period_over_false_within_30_days_and_unused()
     test_is_trial_period_over_true_at_exactly_30_days()
     test_is_trial_period_over_true_when_generation_used_even_within_30_days()
+    test_first_generation_notice_sent_defaults_to_false_then_true_after_set()
     test_pending_reduction_not_yet_effective_does_nothing()
     test_pending_reduction_default_rule_keeps_contractor_only()
     test_pending_reduction_specified_name_matches_contractor()

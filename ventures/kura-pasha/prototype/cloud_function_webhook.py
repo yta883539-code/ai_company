@@ -474,6 +474,16 @@ CHARACTER_LIMIT_FALLBACK_MESSAGE = (
     "メモを少し短くして再度お送りください。"
 )
 
+# first-generation-self-check-notification-design.md(フェーズ178設計)4節の文面案を
+# そのまま採用(フェーズ179実装)。workshop単位で最初のstatus="generated"成功時のみ、
+# 通常の3出力の末尾に1回だけ付記する。
+FIRST_GENERATION_NOTICE_MESSAGE = (
+    "【ご確認のお願い】これが本workshopでの最初の生成です。受注内容整理メモ・納品案内・"
+    "お手入れ案内の内容や書き味が意図通りか、この機会にご確認ください。修正したい点が"
+    "あれば申込内容の変更フォームからご連絡ください。問題がなければ今後この案内は"
+    "ありません。"
+)
+
 
 def count_utf16_code_units(text: str) -> int:
     """LINE Messaging APIの文字数上限はUTF-16コード単位でカウントされるため、
@@ -635,6 +645,7 @@ class MemoProcessResult:
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モードの応答
     trial_end_notification_sent: bool = False  # True=今回の返信にトライアル終了通知を便乗させた
+    first_generation_notice_sent: bool = False  # True=今回の返信にworkshop初回生成の確認案内を便乗させた
     limit_notice_cta_attached: bool = False  # True=トライアル中の上限接近/超過通知にCTAボタンを添付した
     checkout_url: Optional[str] = None  # 非None=handle_checkout_intentが実Checkout Sessionを発行した
     character_limit_exceeded: bool = False  # True=生成結果がLINE文字数上限を超えフォールバック応答した
@@ -1058,6 +1069,19 @@ def process_memo_event(
        `process_generation_request()`を呼び出すことはない)。`TrialPeriodOverError`・
        `PaymentSuspendedError`は(d)経路でのみ送出されうるため、`select_message_context()`
        呼び出し全体を1つのtry/exceptで囲めば従来と同じ捕捉ができる。
+    9. (フェーズ178設計・フェーズ179実装、first-generation-self-check-notification-
+       design.md) 8.の(d)経路で`generation_result.usage.workshop_id`を取得できた場合に
+       限り、LLM出力の最終的な`status`が`"generated"`、かつ`workshop_store.
+       get_first_generation_notice_sent(workshop_id)`がまだ`False`(そのworkshopに
+       とって最初の`status="generated"`成功)の場合、6.7.の付記の後(文字数上限
+       フォールバック早期return後、`_reply_with_retry`直前)に`FIRST_GENERATION_NOTICE_
+       MESSAGE`を返信本文の末尾へ付記する。送信者が代表者・追加職人のいずれであっても
+       workshop単位で1回のみ付記し、既に送信済みの場合や(a)(b)(c)の文脈注入経路
+       (8.で即座にreturnするため到達しない)、`status`が`"generated"`以外の場合は
+       付記しない。5.の`trial_end_notified_at`(呼び出し前に書き込む設計)とは異なり、
+       本フラグは`_reply_with_retry`の戻り値`reply_sent`が`True`だった場合にのみ
+       `workshop_store.set_first_generation_notice_sent()`を呼び出す(LINE API呼び出し
+       自体が失敗した場合まで「案内送信済み」として記録してしまわないための意図的な差)。
     """
     message = event.get("message", {})
     if message.get("type") != "text":
@@ -1070,6 +1094,7 @@ def process_memo_event(
     trial_end_notification_due = False
     limit_notice: Optional[str] = None
     limit_notice_is_trial = False
+    first_generation_workshop_id: Optional[str] = None
     if (
         user_profile_store is not None
         and workshop_store is not None
@@ -1139,6 +1164,7 @@ def process_memo_event(
             )
 
         generation_result = context.generation_result
+        first_generation_workshop_id = generation_result.usage.workshop_id
         trial_end_notification_due = generation_result.trial_end_notification_due
         # フェーズ74: process_generation_request()内のTrialPeriodOverError分岐
         # (subscription_status != "active"判定)と同じ式で「トライアル中か」を求め、
@@ -1225,6 +1251,24 @@ def process_memo_event(
         reply_text = f"{reply_text}\n\n{limit_notice}"
     if trial_end_notification_due:
         reply_text = f"{reply_text}\n\n{format_trial_end_notification_message(1)}"
+    # first-generation-self-check-notification-design.md(フェーズ178設計・フェーズ179
+    # 実装)3節: そのworkshopにとって最初のstatus="generated"成功時のみ、送信者が
+    # 代表者・追加職人のいずれであってもworkshop単位で1回だけ確認案内を付記する。
+    # 文字数上限超過フォールバック時(上記で既に早期returnしている)には到達しないため、
+    # limit_notice・トライアル終了通知と同じく自然に付記対象から除外される。
+    # trial_end_notified_atが呼び出し前(process_generation_request内)で書き込まれるのとは
+    # 異なり、本フラグはLINE返信の送信成功(reply_sent=True)を確認した後にのみ
+    # set_first_generation_notice_sent()を呼び出す(下記)。これはLINE API呼び出し自体が
+    # 失敗した場合に「案内は送れていないのに送信済み扱いになる」既知の制約
+    # (docstring 5.参照)を本フラグには持ち込まないための意図的な差である。
+    first_generation_notice_due = (
+        instance["status"] == "generated"
+        and workshop_store is not None
+        and first_generation_workshop_id is not None
+        and not workshop_store.get_first_generation_notice_sent(first_generation_workshop_id)
+    )
+    if first_generation_notice_due:
+        reply_text = f"{reply_text}\n\n{FIRST_GENERATION_NOTICE_MESSAGE}"
     # フェーズ75: limit_notice_is_trial(トライアル中の残り1回/上限超過通知)の場合も
     # trial_end_notification_dueと同じCTAボタン(TRIAL_END_QUICK_REPLY)を添付する
     # (design.md 7節)。両条件が同時に真になることはない(5.のトライアル終了通知は生涯
@@ -1235,10 +1279,13 @@ def process_memo_event(
         reply_client, reply_token, reply_text,
         quick_reply=TRIAL_END_QUICK_REPLY if (trial_end_notification_due or attach_limit_notice_cta) else None,
     )
+    if reply_sent and first_generation_notice_due:
+        workshop_store.set_first_generation_notice_sent(first_generation_workshop_id)
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         trial_end_notification_sent=reply_sent and trial_end_notification_due,
         limit_notice_cta_attached=reply_sent and attach_limit_notice_cta,
+        first_generation_notice_sent=reply_sent and first_generation_notice_due,
         checkout_url=checkout_url if reply_sent else None,
     )
 

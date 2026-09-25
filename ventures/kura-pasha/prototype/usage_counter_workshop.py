@@ -296,6 +296,23 @@ class WorkshopStoreProtocol(Protocol):
     def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
         ...
 
+    def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
+        """first-generation-self-check-notification-design.md(フェーズ178設計、
+        フェーズ179実装)3節: そのworkshopにとって最初のstatus="generated"成功時の
+        確認案内を、返信本文へ付記済みかどうか。未送信(または未作成)のworkshopは
+        `False`を返す(`get_trial_generation_used`等の他のonce-onlyフラグと同じ
+        「未設定=デフォルト値」方式)。
+        """
+        ...
+
+    def set_first_generation_notice_sent(self, workshop_id: str) -> None:
+        """確認案内を返信本文に付記した時点で1回だけ呼び出す。design.md 3節の通り
+        workshop単位で1回のみ付記すればよく、クリア(取り消し)操作は想定しないため、
+        `set_workshop_name`と同じくTrueへの一方向更新のみを提供する
+        (`get_payment_suspension_owner_notified_at`系のようなNoneクリア方式は不要)。
+        """
+        ...
+
     def all_workshop_ids(self) -> Iterable[str]:
         """blocked-but-billing-detection-design.md 3節の候補走査対象を列挙する
         (aircon-pashaのUserProfileStoreProtocol.all_user_ids()相当、本ventureは
@@ -511,6 +528,7 @@ class InMemoryWorkshopStore:
         self._plan_id_by_workshop: dict[str, str] = {}
         self._contractor_by_workshop: dict[str, str] = {}
         self._workshop_name_by_workshop: dict[str, str] = {}
+        self._first_generation_notice_sent_by_workshop: dict[str, bool] = {}
         self._member_user_ids_by_workshop: dict[str, list[str]] = {}
         self._display_names_by_workshop: dict[str, dict[str, str]] = {}
         self._pending_reduction_effective_at_by_workshop: dict[str, datetime] = {}
@@ -559,6 +577,12 @@ class InMemoryWorkshopStore:
 
     def get_workshop_name(self, workshop_id: str) -> Optional[str]:
         return self._workshop_name_by_workshop.get(workshop_id)
+
+    def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
+        return self._first_generation_notice_sent_by_workshop.get(workshop_id, False)
+
+    def set_first_generation_notice_sent(self, workshop_id: str) -> None:
+        self._first_generation_notice_sent_by_workshop[workshop_id] = True
 
     def all_workshop_ids(self) -> Iterable[str]:
         return list(self._contractor_by_workshop.keys())
