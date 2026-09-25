@@ -3996,3 +3996,23 @@
 - 最終更新: 2026-09-25 21:00 UTC(フェーズ253: 本venture自身のtech-stack.mdに未反映
   だったCloud Run functions〈2nd gen〉確定の記載を追記。コード変更は無く回帰確認のみ、
   venture全体649件・schema検証21件いずれもパス)
+- フェーズ254(2026-09-25 18:00 UTC定例更新): kura-pasha/line-price-revision-2026-
+  check.md(フェーズ179)・aircon-pasha/line-price-revision-2026-check.md(フェーズ265)
+  がいずれも「次回候補」として残していた「course-set-pashaへの同種確認の横展開」に
+  対応し、本venture固有の影響評価を新規作成した(line-price-revision-2026-check.md)。
+  2026年10月1日実施予定のLINE公式アカウント追加メッセージ料金改定(無料枠30,000通/月超で
+  20万通まで1通3円・20万通超2.5円の2段階体系に一本化)について、本ventureは1回の生成に
+  つき出力1〜3を1通のメッセージにまとめて返信する設計(webhook-processing-flow-design.md)
+  のため、最大想定(セッター複数プラン月30回上限の10倍規模のスパイクを仮定しても月300通)
+  でも無料枠の1%程度にとどまり、pricing-plan.mdの料金プラン設計見直しは不要と判断した。
+  一次情報(lycbiz.com)は他venture同様egressポリシーによりこの実行環境からは確認できず、
+  二次情報源のクロスチェックにとどまる点も明記した。これで4venture全てで本改定の個別影響
+  評価が完了した。コード変更は無く、回帰確認としてventure全体649件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証21件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進(本改定関連の
+  横展開候補は本フェーズで解消済み)。
+- 最終更新: 2026-09-25 18:00 UTC(フェーズ254: line-price-revision-2026-check.md新規
+  作成。2026年10月LINE料金改定について本venture固有の影響評価を実施、料金プラン見直しは
+  不要と判断。コード変更なし、venture全体649件・schema検証21件いずれもパス)
