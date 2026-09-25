@@ -286,6 +286,16 @@ class WorkshopStoreProtocol(Protocol):
     def get_contractor_user_id(self, workshop_id: str) -> str:
         ...
 
+    def get_workshop_name(self, workshop_id: str) -> Optional[str]:
+        """workshop-name-owner-notification-display-design.md: 申込フォームで職人が
+        入力する屋号(または工房名、onboarding-guide.md 2節)の読み出し。未設定の場合は
+        `None`を返す。
+        """
+        ...
+
+    def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
+        ...
+
     def all_workshop_ids(self) -> Iterable[str]:
         """blocked-but-billing-detection-design.md 3節の候補走査対象を列挙する
         (aircon-pashaのUserProfileStoreProtocol.all_user_ids()相当、本ventureは
@@ -500,6 +510,7 @@ class InMemoryWorkshopStore:
     def __init__(self) -> None:
         self._plan_id_by_workshop: dict[str, str] = {}
         self._contractor_by_workshop: dict[str, str] = {}
+        self._workshop_name_by_workshop: dict[str, str] = {}
         self._member_user_ids_by_workshop: dict[str, list[str]] = {}
         self._display_names_by_workshop: dict[str, dict[str, str]] = {}
         self._pending_reduction_effective_at_by_workshop: dict[str, datetime] = {}
@@ -542,6 +553,12 @@ class InMemoryWorkshopStore:
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
         return self._contractor_by_workshop[workshop_id]
+
+    def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
+        self._workshop_name_by_workshop[workshop_id] = workshop_name
+
+    def get_workshop_name(self, workshop_id: str) -> Optional[str]:
+        return self._workshop_name_by_workshop.get(workshop_id)
 
     def all_workshop_ids(self) -> Iterable[str]:
         return list(self._contractor_by_workshop.keys())

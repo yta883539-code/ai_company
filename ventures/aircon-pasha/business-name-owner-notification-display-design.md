@@ -67,8 +67,11 @@ UserProfileから`PaymentSuspensionOwnerNotificationUserState`を組み立てる
 
 - `blocked_but_billing_owner_notification.py`(フェーズ174)への横展開はフェーズ263で
   対応済み(6節参照)。
-- kura-pasha側の同種オーナー通知モジュールが同じ課題を抱えているかは未確認。横展開検討の
-  対象として残す。
+- kura-pasha側の同種オーナー通知モジュールが同じ課題を抱えているかは、kura-pasha側
+  フェーズ177(workshop-name-owner-notification-display-design.md)で確認・対応済み。
+  同ventureは本ventureと同じく`business_name`相当の値(屋号・工房名)を申込フォームで
+  取得済みだったため、`payment_suspension_owner_notification.py`・`blocked_but_billing_
+  owner_notification.py`の両方に同種の併記表示(表示用語は「屋号」)を実装している。
 
 ## 6. blocked_but_billing_owner_notification.pyへの横展開(フェーズ263で実装済み)
 

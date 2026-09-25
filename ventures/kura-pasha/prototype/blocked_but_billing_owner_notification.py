@@ -118,7 +118,22 @@ def clear_blocked_but_billing_owner_notified_at(
 # ---------------------------------------------------------------------------
 
 
-def build_blocked_but_billing_owner_notification_message(contractor_user_id: str) -> str:
+def _format_contractor_identifier_line(
+    contractor_user_id: str, workshop_name: Optional[str]
+) -> str:
+    """workshop-name-owner-notification-display-design.md 2節の表示形式。
+    payment_suspension_owner_notification.py版と同一の考え方(表示用語「屋号」も同じ)で、
+    workshop_nameが設定されていれば「屋号: {workshop_name}(契約者ID: {contractor_user_id})」、
+    未設定(None・空文字列)の場合は従来通り「契約者ID: {contractor_user_id}」のみを返す。
+    """
+    if workshop_name:
+        return f"屋号: {workshop_name}(契約者ID: {contractor_user_id})"
+    return f"契約者ID: {contractor_user_id}"
+
+
+def build_blocked_but_billing_owner_notification_message(
+    contractor_user_id: str, workshop_name: Optional[str] = None
+) -> str:
     """design 2節: 本venture一貫のプレーンテキスト形式(SUBSCRIPTION_CANCELLED_MESSAGE等と
     同じ、subscription_cancellation_notification.pyの文言スタイルを踏襲)でオーナー通知文を
     組み立てる。
@@ -127,7 +142,7 @@ def build_blocked_but_billing_owner_notification_message(contractor_user_id: str
         "【鞍パシャッと運営】ブロック中かつ契約継続中のお知らせ\n"
         "\n"
         "以下の契約者がLINEをブロックしていますが、Stripeでの契約(決済)は継続中です。\n"
-        f"契約者ID: {contractor_user_id}\n"
+        f"{_format_contractor_identifier_line(contractor_user_id, workshop_name)}\n"
         "\n"
         "必要に応じて契約者への個別フォロー(再フォローのお願い・解約意向の確認等)を"
         "ご検討ください。"
@@ -153,6 +168,9 @@ class BlockedButBillingContractorResolver(Protocol):
     (`usage_counter_workshop.WorkshopStoreProtocol`はこれを既に満たす)。"""
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
+        ...
+
+    def get_workshop_name(self, workshop_id: str) -> Optional[str]:
         ...
 
 
@@ -181,7 +199,10 @@ def send_blocked_but_billing_owner_notifications(
         candidate_workshop_ids, notified_at_store
     ):
         contractor_user_id = contractor_resolver.get_contractor_user_id(workshop_id)
-        text = build_blocked_but_billing_owner_notification_message(contractor_user_id)
+        workshop_name = contractor_resolver.get_workshop_name(workshop_id)
+        text = build_blocked_but_billing_owner_notification_message(
+            contractor_user_id, workshop_name
+        )
         try:
             push_client.send_message(owner_line_user_id, text)
         except LinePushDeliveryError:

@@ -44,11 +44,19 @@ class _FakeNotifiedAtStore:
 
 
 class _FakeContractorResolver:
-    def __init__(self, contractor_by_workshop: Optional[Dict[str, str]] = None) -> None:
+    def __init__(
+        self,
+        contractor_by_workshop: Optional[Dict[str, str]] = None,
+        workshop_name_by_workshop: Optional[Dict[str, str]] = None,
+    ) -> None:
         self._contractor_by_workshop = dict(contractor_by_workshop or {})
+        self._workshop_name_by_workshop = dict(workshop_name_by_workshop or {})
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
         return self._contractor_by_workshop.get(workshop_id, f"contractor-of-{workshop_id}")
+
+    def get_workshop_name(self, workshop_id: str) -> Optional[str]:
+        return self._workshop_name_by_workshop.get(workshop_id)
 
 
 class _FailingLinePushClient:
@@ -118,6 +126,20 @@ class BuildBlockedButBillingOwnerNotificationMessageTest(unittest.TestCase):
         self.assertIn("u1", text)
         self.assertIn("ブロック中かつ契約継続中", text)
 
+    def test_message_includes_workshop_name_when_set(self) -> None:
+        text = build_blocked_but_billing_owner_notification_message("u1", "工房サンプル")
+        self.assertIn("屋号: 工房サンプル(契約者ID: u1)", text)
+
+    def test_message_falls_back_to_contractor_id_when_workshop_name_is_none(self) -> None:
+        text = build_blocked_but_billing_owner_notification_message("u1", None)
+        self.assertIn("契約者ID: u1", text)
+        self.assertNotIn("屋号:", text)
+
+    def test_message_falls_back_to_contractor_id_when_workshop_name_is_empty(self) -> None:
+        text = build_blocked_but_billing_owner_notification_message("u1", "")
+        self.assertIn("契約者ID: u1", text)
+        self.assertNotIn("屋号:", text)
+
 
 class SendBlockedButBillingOwnerNotificationsTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -155,6 +177,20 @@ class SendBlockedButBillingOwnerNotificationsTest(unittest.TestCase):
         for recipient, text in push.sent:
             self.assertEqual(recipient, OWNER_LINE_USER_ID_PLACEHOLDER)
             self.assertIn("ブロック中かつ契約継続中", text)
+
+    def test_message_uses_resolver_workshop_name(self) -> None:
+        store = _FakeNotifiedAtStore()
+        push = InMemoryLinePushClient()
+        resolver = _FakeContractorResolver(
+            {"w1": "u1"}, {"w1": "鞍工房サンプル"}
+        )
+
+        send_blocked_but_billing_owner_notifications(
+            ["w1"], self.now, store, push, resolver
+        )
+
+        _recipient, text = push.sent[0]
+        self.assertIn("屋号: 鞍工房サンプル(契約者ID: u1)", text)
 
     def test_message_uses_contractor_user_id_not_workshop_id(self) -> None:
         store = _FakeNotifiedAtStore()

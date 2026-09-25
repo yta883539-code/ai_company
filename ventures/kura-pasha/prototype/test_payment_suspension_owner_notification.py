@@ -81,6 +81,20 @@ class BuildPaymentSuspensionOwnerNotificationMessageTest(unittest.TestCase):
         self.assertIn("9日", text)
         self.assertIn("制限モード移行", text)
 
+    def test_message_includes_workshop_name_when_set(self) -> None:
+        text = build_payment_suspension_owner_notification_message("u1", 9, "工房サンプル")
+        self.assertIn("屋号: 工房サンプル(契約者ID: u1)", text)
+
+    def test_message_falls_back_to_contractor_id_when_workshop_name_is_none(self) -> None:
+        text = build_payment_suspension_owner_notification_message("u1", 9, None)
+        self.assertIn("契約者ID: u1", text)
+        self.assertNotIn("屋号:", text)
+
+    def test_message_falls_back_to_contractor_id_when_workshop_name_is_empty(self) -> None:
+        text = build_payment_suspension_owner_notification_message("u1", 9, "")
+        self.assertIn("契約者ID: u1", text)
+        self.assertNotIn("屋号:", text)
+
 
 class SendPaymentSuspensionOwnerNotificationsTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -112,6 +126,17 @@ class SendPaymentSuspensionOwnerNotificationsTest(unittest.TestCase):
         recipient, text = push.sent[0]
         self.assertEqual(recipient, OWNER_LINE_USER_ID_PLACEHOLDER)
         self.assertIn("u1", text)
+
+    def test_message_uses_store_workshop_name(self) -> None:
+        store = _make_store()
+        store.set_payment_failure_detected_at("w1", datetime(2026, 9, 5, 10, 0, 0))
+        store.set_workshop_name("w1", "鞍工房サンプル")
+        push = InMemoryLinePushClient()
+
+        send_payment_suspension_owner_notifications(self.now, store, push)
+
+        _recipient, text = push.sent[0]
+        self.assertIn("屋号: 鞍工房サンプル(契約者ID: u1)", text)
 
     def test_no_candidates_sends_nothing(self) -> None:
         store = _make_store()

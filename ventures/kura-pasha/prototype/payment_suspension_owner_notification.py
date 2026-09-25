@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Protocol
+from typing import List, Optional, Protocol
 
 from subscription_cancellation_notification import LinePushClient, LinePushDeliveryError
 from usage_counter_workshop import is_payment_suspended
@@ -62,6 +62,9 @@ class PaymentSuspensionOwnerNotificationWorkshopStoreProtocol(Protocol):
         ...
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
+        ...
+
+    def get_workshop_name(self, workshop_id: str) -> Optional[str]:
         ...
 
     def get_payment_suspension_owner_notified_at(self, workshop_id: str):
@@ -93,8 +96,20 @@ def select_due_payment_suspension_owner_notifications(
     )
 
 
+def _format_contractor_identifier_line(
+    contractor_user_id: str, workshop_name: Optional[str]
+) -> str:
+    """workshop-name-owner-notification-display-design.md 2節の表示形式。
+    workshop_nameが設定されていれば「屋号: {workshop_name}(契約者ID: {contractor_user_id})」、
+    未設定(None・空文字列)の場合は従来通り「契約者ID: {contractor_user_id}」のみを返す。
+    """
+    if workshop_name:
+        return f"屋号: {workshop_name}(契約者ID: {contractor_user_id})"
+    return f"契約者ID: {contractor_user_id}"
+
+
 def build_payment_suspension_owner_notification_message(
-    contractor_user_id: str, elapsed_days: int
+    contractor_user_id: str, elapsed_days: int, workshop_name: Optional[str] = None
 ) -> str:
     """design 4節: 顧客(契約者)ごとに内容が変わる管理者向け通知文言を組み立てる。
     course-set-pasha版と同じく契約者識別子・検知からの経過日数を埋め込む。
@@ -105,7 +120,7 @@ def build_payment_suspension_owner_notification_message(
         "以下の契約者が決済失敗の猶予期間を超え、受注内容整理メモ・納品案内・お手入れ案内の"
         "生成の制限モードへ移行しました。\n"
         "\n"
-        f"契約者ID: {contractor_user_id}\n"
+        f"{_format_contractor_identifier_line(contractor_user_id, workshop_name)}\n"
         f"決済失敗検知からの経過日数: {elapsed_days}日\n"
         "\n"
         "必要に応じて契約者への個別フォロー(お支払い方法のご案内等)をご検討ください。"
@@ -138,10 +153,11 @@ def send_payment_suspension_owner_notifications(
 
     for workshop_id in select_due_payment_suspension_owner_notifications(now, workshop_store):
         contractor_user_id = workshop_store.get_contractor_user_id(workshop_id)
+        workshop_name = workshop_store.get_workshop_name(workshop_id)
         detected_at = workshop_store.get_payment_failure_detected_at(workshop_id)
         elapsed_days = (now - detected_at).days
         text = build_payment_suspension_owner_notification_message(
-            contractor_user_id, elapsed_days
+            contractor_user_id, elapsed_days, workshop_name
         )
         try:
             push_client.send_message(owner_line_user_id, text)

@@ -3781,3 +3781,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-25 08:00 UTC(フェーズ176: line-price-revision-2026-check.md
   新規作成。line-reservation-ai調査済みの2026年10月LINE料金改定について本venture
   固有の影響評価を実施、料金プラン見直しは不要と判断。コード変更なし)
+- フェーズ177(2026-09-25 10:00 UTC定例更新): payment-suspension-owner-notification-
+  design.md(フェーズ116)8節が「次回以降の検討課題」として残していた「契約者識別子として
+  contractor_user_idをそのまま通知に載せる案で暫定としたが、実運用では工房名等に変換した
+  方がオーナーにとって分かりやすい可能性がある」に対応した。aircon-pashaの同種対応
+  (フェーズ262・263、business-name-owner-notification-display-design.md)が次回候補として
+  残していた「kura-pasha側の同種オーナー通知モジュールが同じ課題を抱えているかの確認」にも
+  対応する形。onboarding-guide.md 2節で申込フォームの入力項目として「屋号(または工房名)」が
+  既に定義済みだった一方、データモデル(`usage_counter_workshop.WorkshopStoreProtocol`)には
+  この値を保持するフィールドが無かった(cross-document parityギャップ)ため、
+  workshop-name-owner-notification-display-design.mdを新規作成し、`get_workshop_name`/
+  `set_workshop_name`を追加したうえで、`payment_suspension_owner_notification.py`・
+  `blocked_but_billing_owner_notification.py`の両方に「屋号: {workshop_name}(契約者ID:
+  {contractor_user_id})」併記表示(workshop_name未設定時は従来通り契約者IDのみ)を実装した。
+  新規テスト8件追加(各モジュールのbuild_関数でworkshop_name設定時・None時・空文字列時の
+  3件+send_関数がstore/resolver経由で反映することを確認する1件、計4件×2モジュール)、
+  venture全体165件(`python3 -m unittest discover -s prototype -p "test_*.py"`、既存157件+
+  新規8件)・schema検証32件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)
+  いずれもパスを確認した。申込フォーム送信〜`set_workshop_name()`呼び出しの実結線
+  (Googleフォーム・Firestore接続)はオーナー承認待ちの範囲のため未実装(次回候補として
+  design.md 6節に記載)。承認不要なコード変更・ドキュメント作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-09-25 10:00 UTC(フェーズ177: workshop-name-owner-notification-
+  display-design.md新規作成。payment_suspension_owner_notification.py・blocked_but_
+  billing_owner_notification.pyの両方にworkshop_name〈屋号〉併記表示を実装。
+  `WorkshopStoreProtocol`へ`get_workshop_name`/`set_workshop_name`追加。新規テスト8件、
+  venture全体165件・schema検証32件いずれもパス)
