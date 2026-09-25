@@ -176,3 +176,34 @@ classification-llm-prompt-draft.mdへ本ドキュメント3節の拡張ルール
 (venture全体16ファイル全件・schema検証32件)を再実行し変更前と同じ結果であることを
 確認した。承認が必要なアクションは今回も発生していないためpending-approval.mdへの
 追記なし。
+
+追記(フェーズ174、2026-09-25 定例更新): 4節の配線設計をそのまま`prototype/
+cloud_function_webhook.py`へ実装した(aircon-pasha フェーズ260・course-set-pasha
+フェーズ244/246の`ChatbotIntentClassifierProtocol`/`_classify_intent_with_retry()`と
+同じパターンだが、本ventureは5節が定めたクラス名`ChatbotIntentClassificationClient`を
+そのまま採用)。新設`_classify_chatbot_intent_with_retry()`が
+`chatbot_intent_classifier`(新設Protocol、未接続時は既定でNone)の呼び出し失敗
+(LlmApiError)を即時1回のみリトライし、2回とも失敗した場合はNoneを返して
+`memo_processing_request`と同じ既存の生成フローへフォールスルーする。分類ステップ
+自体は`process_message_event()`の`_maybe_handle_owner_faq_command()`不一致後・
+`process_memo_event()`委譲前に挿入し(4節3.の設計通り)、FAQ系4分類・
+`other_needs_human`は`route_chatbot_intent()`委譲でその場で返信を終え、
+`memo_processing_request`(分類失敗によるNoneフォールバックを含む)の場合のみ
+`process_memo_event()`へ新設引数`apply_chatbot_followup_hint=True`を渡して委譲する。
+process_memo_event()側は本引数がTrueかつstatus=="generated"の場合のみ、返信文
+組み立て直後(checkout_intent分岐以外)に`append_faq_followup_hint()`を適用する
+(6節「4節3.」参照、本節が「8節参照」としていた存在しない節への参照は、本追記により
+process_memo_event() 2.5節docstringへの言及に解消した)。`dispatch_webhook_events()`・
+`receive_webhook()`双方にも`chatbot_intent_classifier`・`escalation_push_client`を
+後方互換の追加引数(未接続時はNone)として通す配線を行った。新規テスト12件追加
+(process_message_event()経由でのFAQ4分類・other_needs_human・memo_processing_request
+フォールスルー・分類リトライ成功/失敗の各経路を検証)。回帰確認として
+venture全体16ファイル全件(`python3 prototype/run_all_tests.py`)・schema検証32件
+(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+実LLMによる意図分類コール自体は引き続きオーナー承認待ちのため実装対象外(4節3.の
+前提通り)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。次回候補:
+`ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー承認待ち)、
+aircon-pasha/course-set-pashaが実装済みの`intent_classification_failure_
+observability_design.md`相当(分類失敗時のCloud Monitoringログベース指標・
+アラートポリシー)の本venture向け横展開検討。

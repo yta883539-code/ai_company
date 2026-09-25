@@ -3701,3 +3701,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈名指しを含む具体的な譲渡依頼の誤分類リスクの再検証〉に対応し、判定順位1の既存の
   例示文言で構造的リスクが回避されていることを確認。コード変更は無く回帰確認のみ、
   venture全体16ファイル全件・schema検証32件いずれもパス)
+- フェーズ174(2026-09-25定例更新): フェーズ173の次回候補
+  「`faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装」を
+  確認したところ、両者は既にフェーズ170で`prototype/chatbot_intent_router.py`へ実装
+  済みであり(フェーズ173の申し送り自体がcross-document parityの記載漏れ、本フェーズで
+  発見)、実際に未着手のまま残っていたのはフェーズ171
+  (chatbot-intent-classification-wiring-design.md)4節が設計した「3関数を
+  `cloud_function_webhook.py`(実際のLINEメッセージ受信ハンドラ)へ配線する」実装
+  そのものだった。この配線を実装した: 新設Protocol
+  `ChatbotIntentClassificationClient`(wiring-design.md 5節)・
+  `_classify_chatbot_intent_with_retry()`(即時1回のみリトライ、2回とも失敗時は
+  `memo_processing_request`扱いへフェイルセーフ)を追加し、`process_message_event()`の
+  `_maybe_handle_owner_faq_command()`不一致後・`process_memo_event()`委譲前に意図分類
+  ステップを挿入した(4節3.の設計通り)。FAQ系4分類・`other_needs_human`は
+  `route_chatbot_intent()`委譲でその場返信、`memo_processing_request`
+  (分類失敗によるフォールバックを含む)は新設引数`apply_chatbot_followup_hint=True`を
+  添えて`process_memo_event()`へ委譲し、同関数側でstatus=="generated"時のみ
+  `append_faq_followup_hint()`を返信文末尾に適用する。`chatbot_intent_classifier`・
+  `escalation_push_client`はいずれも`dispatch_webhook_events()`・`receive_webhook()`
+  含め後方互換の追加引数(未接続時はNone、既定動作は本フェーズ以前と不変)とした。
+  新規テスト12件追加、回帰確認としてventure全体16ファイル全件
+  (`python3 prototype/run_all_tests.py`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実LLMによる意図分類コール自体の接続は既存の
+  「実LLM API接続はオーナー承認待ちの範囲」に含まれるため新規追加は不要と判断)。
+  次回候補: `ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー
+  承認待ち)、aircon-pasha/course-set-pashaが実装済みの
+  intent-classification-failure-observability-design.md相当(分類失敗時のCloud
+  Monitoringログベース指標・アラートポリシー)の本venture向け横展開検討。
+- 最終更新: 2026-09-25 01:00 UTC(フェーズ174: chatbot-intent-classification-
+  wiring-design.md 4節が設計していた意図分類レイヤーの`cloud_function_webhook.py`
+  への配線を実装。`ChatbotIntentClassificationClient`Protocol新設・
+  `_classify_chatbot_intent_with_retry()`追加・`process_message_event()`への
+  分類ステップ挿入・`process_memo_event()`へのFAQ折り返し文言付記引数追加。
+  新規テスト12件追加、venture全体16ファイル全件・schema検証32件いずれもパス)

@@ -19,6 +19,7 @@ from cloud_function_webhook import (
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
     MEMBER_LIMIT_REACHED_MESSAGE,
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     TRIAL_END_BUTTON_LABEL,
@@ -47,6 +48,11 @@ from cloud_function_webhook import (
     count_utf16_code_units,
 )
 from checkout_session import START_CHECKOUT_POSTBACK_DATA, build_start_checkout_postback_data
+from chatbot_intent_router import (
+    MEMO_PROCESSING_FAQ_FOLLOWUP_HINT,
+    render_chatbot_faq_response_message,
+)
+from subscription_cancellation_notification import InMemoryLinePushClient
 from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
@@ -1638,6 +1644,215 @@ def test_process_message_event_non_contractor_member_faq_trigger_falls_back_to_g
     )
     check("契約者以外の「FAQ」送信は通常の生成フローに委譲される", len(llm_call.calls) == 1)
     check("契約者以外の「FAQ」送信はFAQメニューを返さない", result.reply_text != render_owner_faq_menu_message())
+
+
+# ---------------------------------------------------------------------------
+# chatbot_intent_classifier/escalation_push_clientの配線
+# (chatbot-intent-classification-wiring-design.md、_maybe_handle_owner_faq_command()の
+# 次段としてprocess_message_event()へ挿入)
+# ---------------------------------------------------------------------------
+
+class _FixedChatbotIntentClassifier:
+    """常に固定の分類値を返すスタブ。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = []
+
+    def classify(self, memo_text):
+        self.calls.append(memo_text)
+        return self.intent
+
+
+class _FlakyOnceChatbotIntentClassifier:
+    """1回目のclassify()呼び出しでLlmApiErrorを送出し、2回目(即時リトライ)は
+    固定の分類値を返すスタブ(_FlakyOnceLlmCallと同じパターン)。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        if self.calls == 1:
+            raise LlmApiError("stub failure")
+        return self.intent
+
+
+class _AlwaysFailingChatbotIntentClassifier:
+    """常にLlmApiErrorを送出するスタブ(即時リトライしても解消しないパターンの検証用)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        raise LlmApiError("stub failure")
+
+
+def _linked_contractor_event(text, *, user_id="U_LINKED"):
+    profiles, workshops, counters = _make_stores()
+    profiles.link(user_id, "W_LINKED")
+    workshops.set_plan("W_LINKED", "standard")
+    workshops.set_members("W_LINKED", user_id, [user_id])
+    workshops.set_subscription_status("W_LINKED", "active")
+    # 生涯最初の生成完了時のトライアル終了通知・上限接近通知の便乗付記
+    # (process_memo_event() 5.・6.)がFAQ折り返し文言判定のテストへ混入しないよう、
+    # 既にトライアル生成実績ありの状態にしておく(test_process_memo_event_allows_
+    # generation_when_subscription_active_despite_trial_overと同じ考え方)。
+    workshops.set_trial_generation_used("W_LINKED", True)
+    linking_store = InMemoryLinkingCodeStore()
+    return _make_event(text, user_id=user_id), profiles, workshops, counters, linking_store
+
+
+def test_process_message_event_without_chatbot_intent_classifier_behavior_is_unchanged():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("chatbot_intent_classifier未指定時はchatbot_intentがNone", result.chatbot_intent is None)
+    check("chatbot_intent_classifier未指定時は通常通りLLMが呼ばれる", len(llm_call.calls) == 1)
+
+
+def test_process_message_event_faq_cancel_returns_q3_answer_without_llm_call():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("解約するとどうなりますか")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=_FixedChatbotIntentClassifier("faq_cancel"),
+    )
+    check("faq_cancelはhandled=True", result.handled is True)
+    check("faq_cancelはchatbot_intentへ記録される", result.chatbot_intent == "faq_cancel")
+    check(
+        "faq_cancelはQ3の回答をそのまま返す",
+        result.reply_text == render_chatbot_faq_response_message("faq_cancel"),
+    )
+    check("faq_cancelはLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_faq_plan_returns_menu_without_llm_call():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("プランを変更したい")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=_FixedChatbotIntentClassifier("faq_plan"),
+    )
+    check("faq_plan(複数項目にまたがり単一コードに定まらない)はメニュー全体を返す",
+          result.reply_text == render_chatbot_faq_response_message("faq_plan"))
+    check("faq_planはLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_other_needs_human_notifies_owner_and_returns_customer_reply():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event(
+        "この鞍のひび割れ、直りますかね",
+    )
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    push_client = InMemoryLinePushClient()
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=_FixedChatbotIntentClassifier("other_needs_human"),
+        escalation_push_client=push_client,
+    )
+    check("other_needs_humanはchatbot_intentへ記録される", result.chatbot_intent == "other_needs_human")
+    check("other_needs_humanは職人向け定型応答を返す", result.reply_text == OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+    check("other_needs_humanは運営者へ1件通知する", len(push_client.sent) == 1)
+    check("other_needs_humanはLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_other_needs_human_without_push_client_skips_notification_safely():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event(
+        "この鞍のひび割れ、直りますかね",
+    )
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=_FixedChatbotIntentClassifier("other_needs_human"),
+    )
+    check(
+        "escalation_push_client未接続時は運営者通知を送らず定型応答のみ返す",
+        result.reply_text == OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
+    )
+    check("escalation_push_client未接続時もLLMは呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_memo_processing_request_falls_through_and_appends_followup_hint():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    classifier = _FixedChatbotIntentClassifier("memo_processing_request")
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=classifier,
+    )
+    check("memo_processing_requestは既存の生成フローへフォールスルーする", len(llm_call.calls) == 1)
+    check(
+        "memo_processing_requestはprocess_memo_event()委譲のためchatbot_intentはNoneのまま",
+        result.chatbot_intent is None,
+    )
+    check(
+        "memo_processing_requestは返信文末尾にFAQ折り返し文言が付記される",
+        result.reply_text.endswith(MEMO_PROCESSING_FAQ_FOLLOWUP_HINT),
+    )
+
+
+def test_process_message_event_chatbot_intent_classification_retries_once_then_succeeds():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("解約するとどうなりますか")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    classifier = _FlakyOnceChatbotIntentClassifier("faq_cancel")
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=classifier,
+    )
+    check("classify()は即時1回リトライされる", classifier.calls == 2)
+    check("リトライ成功後は通常通りルーティングされる", result.chatbot_intent == "faq_cancel")
+
+
+def test_process_message_event_chatbot_intent_classification_falls_through_to_generation_after_retry_fails():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    classifier = _AlwaysFailingChatbotIntentClassifier()
+
+    result = process_message_event(
+        event, llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        chatbot_intent_classifier=classifier,
+    )
+    check("classify()が2回とも失敗した場合は即時1回リトライで打ち切る", classifier.calls == 2)
+    check("分類失敗時は既存の生成フローへフォールスルーする", len(llm_call.calls) == 1)
+    check(
+        "分類失敗時はmemo_processing_request扱いではないためFAQ折り返し文言を付記しない",
+        not result.reply_text.endswith(MEMO_PROCESSING_FAQ_FOLLOWUP_HINT),
+    )
 
 
 def test_process_message_event_creates_workshop_on_valid_linking_code():

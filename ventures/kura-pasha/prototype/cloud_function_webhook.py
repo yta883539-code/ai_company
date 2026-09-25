@@ -29,6 +29,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import random
 import sys
@@ -46,6 +47,11 @@ from checkout_session import (
     parse_start_checkout_postback_data,
 )
 from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
+from chatbot_intent_router import (  # noqa: E402
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
+    append_faq_followup_hint,
+    route_chatbot_intent,
+)
 from payment_failure_notification import PAYMENT_SUSPENDED_NOTICE
 from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
@@ -67,6 +73,7 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
+from subscription_cancellation_notification import LinePushClient  # noqa: E402
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -79,6 +86,8 @@ from workshop_linking import (  # noqa: E402
     create_workshop_from_linking_code,
     issue_linking_code_on_follow,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def verify_line_signature(
@@ -434,6 +443,20 @@ class LlmCallClient(Protocol):
         ...
 
 
+class ChatbotIntentClassificationClient(Protocol):
+    """自由入力テキストをchatbot_intent_router.CHATBOT_INTENT_VALUES(6分類)のいずれかへ
+    分類する差し替え可能なProtocol(chatbot-intent-classification-wiring-design.md 5節、
+    aircon-pasha/course-set-pashaの同名Protocol〈`ChatbotIntentClassifierProtocol`〉と
+    同じ位置づけだが、本ventureの設計文書自体が定めたクラス名をそのまま採用する)。
+    実装は実LLM呼び出しを伴うため、承認後に実クライアントで差し替える(llm_callと同じ)。"""
+
+    def classify(self, memo_text: str) -> str:
+        """呼び出し自体が失敗した場合はLlmApiError(既存の例外を再利用)を送出する契約。
+        分類の失敗時の扱い(2回リトライ後もフェイルセーフでmemo_processing_request扱いに
+        フォールバックする)は呼び出し元の`_classify_chatbot_intent_with_retry()`が担う。"""
+        ...
+
+
 VALIDATION_FAILURE_FALLBACK_MESSAGE = (
     "内容の確認中に問題が発生しました。お手数ですが、もう一度メモを送り直してください。"
 )
@@ -618,11 +641,40 @@ class MemoProcessResult:
     contractor_transfer_expired_notice_sent: bool = False  # True=(a)期限切れ案内の文脈注入経路で返信した(フェーズ108)
     contractor_transfer_confirmation_sent: bool = False  # True=(b)契約者交代・再確認応答検知の文脈注入経路で返信した(フェーズ109)
     member_retention_notice_sent: bool = False  # True=(c)「残すメンバー」連絡検知の文脈注入経路で返信した(フェーズ110)
+    chatbot_intent: Optional[str] = None  # chatbot_intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
     """再生成プロンプトに添える検証エラーの短い概要(実LLM接続後に使用)。"""
     return "; ".join(errors[:3])
+
+
+def _classify_chatbot_intent_with_retry(
+    chatbot_intent_classifier: ChatbotIntentClassificationClient,
+    memo_text: str,
+) -> Optional[str]:
+    """chatbot_intent_classifier.classify()自体の失敗(LlmApiError)に対し、
+    _generate_with_api_retry()と同じ即時1回のみのリトライ方針を適用する
+    (chatbot-intent-classification-wiring-design.md 5節、aircon-pasha/course-set-pashaの
+    _classify_intent_with_retry()と同じ位置づけ)。2回ともLlmApiErrorとなった場合は
+    例外を外へ伝播させずNoneを返し、呼び出し元は分類未接続時と同じ既存の生成フロー
+    (memo_processing_request相当)へフォールスルーする(design 5節「分類自体が信頼
+    できない場合は安全側〈=より高機能な既存フロー〉に倒す」方針と同じ考え方)。"""
+    try:
+        return chatbot_intent_classifier.classify(memo_text)
+    except LlmApiError:
+        pass
+    try:
+        return chatbot_intent_classifier.classify(memo_text)
+    except LlmApiError:
+        _logger.warning(
+            "chatbot intent classification failed after retry, falling through to generation flow",
+            extra={
+                "event": "chatbot_intent_classification_failed",
+                "memo_length": len(memo_text),
+            },
+        )
+        return None
 
 
 def _generate_with_api_retry(
@@ -914,6 +966,7 @@ def process_memo_event(
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     checkout_session_client: Optional["CheckoutSessionClient"] = None,
     now: Optional[datetime] = None,
+    apply_chatbot_followup_hint: bool = False,
 ) -> MemoProcessResult:
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
 
@@ -922,6 +975,12 @@ def process_memo_event(
        返信を送らずhandled=Falseで返す。
     2. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする。
        再生成後もエラーが残る場合は安全側に倒し、定型の再送依頼文言を返す。
+    2.5. (chatbot-intent-classification-wiring-design.md、新設)`apply_chatbot_followup_
+       hint=True`(呼び出し元のprocess_message_event()がchatbot_intent_classifierで
+       memo_processing_requestと判定した場合のみ渡す)の場合、status=="generated"の
+       返信文組み立て直後(4節checkout_intent分岐以外)に`append_faq_followup_hint()`を
+       適用する。意図分類レイヤー未接続時(既定のFalse)は本節を一切スキップし、既存の
+       挙動を変えない。
     3. status=cancellation_intent/downgrade_intent/cancellation_unclearの場合、
        portal_link_providerが渡されていればsubscription_procedure_notice.body中の
        ポータルURLプレースホルダを実URLへ置換する。未接続時は安全側フォールバック文言を返す。
@@ -1147,6 +1206,8 @@ def process_memo_event(
             instance, portal_link_provider=portal_link_provider, user_id=user_id,
         )
         checkout_url = None
+        if apply_chatbot_followup_hint and instance["status"] == "generated":
+            reply_text = append_faq_followup_hint(reply_text)
 
     # character-limit-fallback-design.md(フェーズ83): status=generatedの3出力連結後の
     # 1本のテキストがLINE文字数上限を超える場合、limit_notice・トライアル終了通知の付記を
@@ -1299,6 +1360,8 @@ def process_message_event(
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
     invite_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional["CheckoutSessionClient"] = None,
+    chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """messageイベントの入口(dispatch_webhook_events()からの委譲先)。
@@ -1311,8 +1374,21 @@ def process_message_event(
     - 連携済み(user_idかつ`user_profile_store.get_workshop_id(user_id)`が設定済み):
       まず`_maybe_handle_owner_faq_command()`(フェーズ126、owner-faq-routing-design.md)
       で契約者本人からの「FAQ」「Q1」〜「Q8」コマンドかどうかを判定し、一致すれば
-      LLM呼び出し・process_memo_event()へは進まずその場で返信する。不一致の場合のみ
-      process_memo_event()へそのまま委譲する。
+      LLM呼び出し・process_memo_event()へは進まずその場で返信する。不一致の場合、
+      `chatbot_intent_classifier`が渡されていれば
+      chatbot-intent-classification-wiring-design.md 4節準拠で自由入力テキストの意図分類
+      (CHATBOT_INTENT_VALUES、6分類)を行う。分類結果が`memo_processing_request`以外
+      (FAQ系4分類・`other_needs_human`)の場合は`route_chatbot_intent()`に委譲し、
+      LLM呼び出し・process_memo_event()へは進まずここで処理を終える。ただし
+      `other_needs_human`で`escalation_push_client`未接続の場合は`route_chatbot_intent()`を
+      呼ばず(push_client必須のためValueErrorになる)、運営者通知を送らずに
+      `OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`のみ返す(design 3節、無応答放置よりも
+      通知漏れを許容する安全側フォールバック)。分類結果が`memo_processing_request`の場合
+      (分類失敗による`None`フォールバックを含む)、および`chatbot_intent_classifier`
+      未指定時(既存呼び出し元)は本節の判定自体を行わず、process_memo_event()へそのまま
+      委譲する。`memo_processing_request`と判定された場合のみ
+      `apply_chatbot_followup_hint=True`を渡し、生成成功時の返信文末尾に
+      `append_faq_followup_hint()`を適用させる(process_memo_event() 2.5節参照)。
     - 未連携: 受信テキストを`create_workshop_from_linking_code()`へ渡す。連携コードとして
       解決・workshop新規作成に成功した場合のみLINKING_SUCCESS_MESSAGEを返す。解決できない
       場合で、かつ`invite_store`が渡されている場合は、続けて`add_member_from_invite_code()`
@@ -1368,6 +1444,27 @@ def process_message_event(
             )
             if faq_result is not None:
                 return faq_result
+            chatbot_intent = None
+            if chatbot_intent_classifier is not None:
+                chatbot_intent = _classify_chatbot_intent_with_retry(
+                    chatbot_intent_classifier, message.get("text", ""),
+                )
+                if chatbot_intent is not None and chatbot_intent != "memo_processing_request":
+                    if chatbot_intent == "other_needs_human" and escalation_push_client is None:
+                        reply_text = OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT
+                    else:
+                        reply_text = route_chatbot_intent(
+                            chatbot_intent,
+                            user_id=user_id,
+                            memo_text=message.get("text", ""),
+                            push_client=escalation_push_client,
+                        )
+                    reply_sent = _reply_with_retry(reply_client, event["replyToken"], reply_text)
+                    return MemoProcessResult(
+                        handled=True, reply_sent=reply_sent,
+                        reply_text=reply_text if reply_sent else None,
+                        chatbot_intent=chatbot_intent,
+                    )
             return process_memo_event(
                 event, llm_call, reply_client,
                 portal_link_provider=portal_link_provider,
@@ -1376,6 +1473,7 @@ def process_message_event(
                 usage_counter_store=usage_counter_store,
                 checkout_session_client=checkout_session_client,
                 now=now,
+                apply_chatbot_followup_hint=(chatbot_intent == "memo_processing_request"),
             )
 
     reply_token = event["replyToken"]
@@ -1629,6 +1727,8 @@ def dispatch_webhook_events(
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
     invite_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
+    chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
@@ -1647,6 +1747,11 @@ def dispatch_webhook_events(
       status=checkout_intentであっても実Checkout Sessionを発行せずcheckout_notice.bodyの
       一次応答文言のみを返す後方互換動作となる(postbackとは異なりmessageイベント自体は
       その他のstatus分岐処理のためignored_types送りにはしない)。
+      `chatbot_intent_classifier`・`escalation_push_client`(chatbot-intent-classification-
+      wiring-design.md、新設)も同様に省略可能で、`chatbot_intent_classifier`未接続時は
+      process_message_event()側の意図分類ステップ自体を丸ごとスキップし、本フェーズ以前と
+      全く同じ挙動(連携済みuser_idからのFAQコマンド以外は常にprocess_memo_event()の通常
+      生成フローへ委譲)を維持する。
     - "follow"(フェーズ68で追加): 1件ずつprocess_follow_event()へ渡す。`reply_client`・
       `linking_store`のいずれかが未接続(None)の場合はmessageと同様、該当イベントを
       一切処理せず`ignored_types`に記録する(安全側フォールバック)。`user_profile_store`
@@ -1692,6 +1797,8 @@ def dispatch_webhook_events(
                     linking_store=linking_store,
                     invite_store=invite_store,
                     checkout_session_client=checkout_session_client,
+                    chatbot_intent_classifier=chatbot_intent_classifier,
+                    escalation_push_client=escalation_push_client,
                     now=now,
                 )
             )
@@ -1751,6 +1858,8 @@ def receive_webhook(
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
+    chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> WebhookReceiverResult:
@@ -1783,6 +1892,8 @@ def receive_webhook(
         usage_counter_store=usage_counter_store,
         linking_store=linking_store,
         checkout_session_client=checkout_session_client,
+        chatbot_intent_classifier=chatbot_intent_classifier,
+        escalation_push_client=escalation_push_client,
         rng=rng,
         now=now,
     )
