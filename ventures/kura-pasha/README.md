@@ -3900,3 +3900,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   Cloud Functions 2nd gen確定のtech-stack.mdへの反映のうち、本venture分に対応。
   「想定コンポーネント2」に採用世代確定の経緯を追記。コード変更は無く回帰確認のみ、
   venture全体16ファイル全件・schema検証32件いずれもパス)
+- フェーズ181(2026-09-25 22:00 UTC定例更新): legal-notices-draft.md 2.5節が「新たな
+  検討課題」として残していた、納品案内・お手入れ案内文に依頼者本人以外の第三者の氏名・
+  住所等の個人情報を職人が誤ってメモへ記載してしまうケースへの対応方針を設計した
+  (requester-personal-info-inclusion-handling-design.md新規作成)。mvp-flow-draft.mdの
+  宛先整理(出力1は職人本人の備忘用、出力2・3は依頼者への転送を前提)に基づき、リスクを
+  「依頼者本人以外の第三者情報が出力2・3経由で依頼者へ開示されること」に限定した上で、
+  正規表現等による自動マスキングは日本語人名の表記多様性・過検出(依頼者本人の宛名を
+  誤って削除する等)のリスクから不採用と判断し、プロンプト側の明示的指示(既存の
+  厳守事項1〜8・7a〜7cに続く厳守事項9案として、第三者の氏名・連絡先等を出力2・3に
+  転記せず一般化した表現に置き換える指示)+限定的な機械チェック(post_generation_
+  checks.py拡張案、あくまで補助的な網)の組み合わせを採用方針とした。legal-notices-
+  draft.md 2.5節を本設計への参照に更新した。本フェーズは方針設計のみで、
+  llm-system-prompt-draft.md・schema/output.schema.json・prototype/post_generation_
+  checks.pyへの実際の反映(厳守事項9の文面確定、対応するチェック関数・テストケース
+  追加)は次回以降の実装フェーズとする。コード変更は無く、回帰確認としてventure全体
+  16ファイル全件(`python3 prototype/run_all_tests.py`)・schema検証32件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 厳守事項9のllm-system-prompt-draft.md
+  への実際の反映、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 22:00 UTC(フェーズ181: legal-notices-draft.md 2.5節の検討課題
+  〈依頼者以外の第三者個人情報の誤記載対応〉に対応する方針を設計。自動マスキングは
+  不採用と判断し、プロンプト側の明示的指示〈厳守事項9案〉+限定的な機械チェックの
+  組み合わせを採用方針として提示。実装は次回以降。コード変更は無く回帰確認のみ、
+  venture全体16ファイル全件・schema検証32件いずれもパス)

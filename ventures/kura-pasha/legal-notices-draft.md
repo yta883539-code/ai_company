@@ -109,9 +109,12 @@ legal-notices-draft.mdで整理した「役務提供契約も通信販売の表�
   とどまるため、course-set-pashaで独自に再整理が必要とされたステルスマーケティング規制との
   関係は本ventureでも該当性が薄いと考えられる。あくまでWeb調査による一般的な傾向整理であり
   法的助言ではないため、最終的な要否判断は法律専門家への確認が必要。
-- 納品案内・お手入れ案内文に、依頼者の氏名・住所等の個人情報を職人が誤ってメモへ記載して
-  しまうケースへの対応方針(本サービス側でのマスキング要否等)は、新たな検討課題として残る
-  (aircon-pashaのpost_generation_checks.py相当の仕組みが本ventureには未実装)。
+- 納品案内・お手入れ案内文に、依頼者本人以外の第三者の氏名・住所等の個人情報を職人が
+  誤ってメモへ記載してしまうケースへの対応方針は、requester-personal-info-inclusion-
+  handling-design.md(新規作成)で方針設計済み。自動マスキングは誤検出リスクが高いため
+  不採用と判断し、プロンプト側の明示的指示(厳守事項9案)+限定的な機械チェックの組み
+  合わせを採用方針とした。実際のllm-system-prompt-draft.md・schema/output.schema.json・
+  prototype/post_generation_checks.pyへの反映は実装待ちの課題として残る。
 - 2.4節の保存期間はdata-retention-policy.mdに基づく正式な記載へ差し替え済み(フェーズ21)。
 
 ## 次のステップ候補
