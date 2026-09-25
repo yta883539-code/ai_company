@@ -4631,3 +4631,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   escalation-notification-templates.md・prototype/engine.pyの`FAQ_TOPIC_LABELS`で既に
   実装済みだったcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
   無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き270(2026-09-25 08:00 UTC定例更新): フェーズ続き269の申し送り(2)「待機中に
+  生産的な作業として既存md間の記述矛盾・古い情報のクロスドキュメントパリティ確認を継続する」
+  に対応した。interview-request-package.md「優先度B」一覧(#1 STUDIO NEW CHAPTER)の記載が、
+  candidate-longlist-draft.md第二十弾(2026-08-16 11:00 UTC)でのWebSearchスニペット補完
+  確認結果(STORES予約とみられるオンライン予約導線の利用、およびトレーナー1名が現場を
+  離れることもある旨の紹介記述を確認し「未確認」から「要オーナー確認(整合の可能性が高い)」
+  へ格上げ済み)を反映しないまま「望ましい条件は未確認」の記載に取り残されていた
+  cross-document parityの記載漏れを発見し、同行の「選定基準との整合」「出典・備考」列を
+  第二十弾の確認結果に沿って更新した。候補9・11(第二十一弾で確認済み、新規情報なしのため
+  「未確認」のまま据え置きが正しい)・候補17(既にaane hair追加が反映済みと確認済み)は
+  記載に齟齬がないことを確認し、変更していない。実装内容・テストコードへの変更は無く、
+  回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、変更前と同数)・schema検証28件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: candidate-longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち
+  状況の再確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 08:00 UTC(フェーズ続き270: interview-request-package.mdの
+  「優先度B」候補1(STUDIO NEW CHAPTER)の記載が、candidate-longlist-draft.md第二十弾の
+  確認結果〈オンライン予約導線+一人運営で現場不在ありの紹介記述〉を反映しないまま
+  取り残されていたcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
+  無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
