@@ -28,6 +28,11 @@ line-reservation-aiと異なり、予約枠・会話状態を保持する永続�
      (hosting-platform-selection.mdの比較結果を踏襲。低頻度・単発処理でサーバーレスの
      従量課金特性と相性が良い点は本ventureでも変わらない)。実際のGCPプロジェクト作成・
      請求先設定は着手時にオーナー承認が必要。
+   - 採用世代はCloud Functions (1st gen)ではなく2nd gen(Cloud Run functions)に確定
+     (2026-09-25 21:00 UTC、cloud-functions-generation-decision.md参照。Googleが新規
+     プロジェクトからの1st gen新規作成を停止済みで製品名も「Cloud Run functions」に
+     改称されているため、GCPプロジェクト未作成の本ventureも実際の作成時点では2nd genのみが
+     選択肢となる)。
 3. **LLM(3出力生成)**
    - 入力メモ(+画像有無)→ llm-system-prompt-draft.mdの厳守事項に沿って
      出力1(SNS投稿文)・出力2(LINE/Web告知文)・出力3(history_rows)をschema/output.schema.json

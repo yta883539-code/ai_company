@@ -3979,3 +3979,20 @@
   アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
   追記なし。次回候補: line-reservation-aiのtech-stack.md・hosting-platform-
   selection.mdへの2nd gen決定の反映、他venture・アイデア領域の前進。
+- フェーズ253(2026-09-25 21:00 UTC定例更新): フェーズ252で確定したcloud-functions-
+  generation-decision.mdの決定(採用世代を2nd gen〈Cloud Run functions〉に確定)が、
+  line-reservation-aiのtech-stack.mdには既に反映済み(フェーズ続き271)である一方、
+  決定の発信元である本venture自身のtech-stack.md「想定コンポーネント2」には未反映の
+  ままだったことに気づき、同じ表現で反映した(「line-reservation-aiで選定済みのGCP
+  Cloud Functions (Python)」の記載に続けて、採用世代を2nd gen〈Cloud Run functions〉に
+  確定した旨とその理由を追記)。あわせてaircon-pasha・kura-pashaの各tech-stack.mdにも
+  同種のCloud Run functions言及が存在しないことを確認し、次回候補として残した。コード
+  変更は無くドキュメント更新のみのため回帰確認として本venture全体649件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証21件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: aircon-pasha・kura-pashaの各tech-stack.md
+  への同決定の反映、他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 21:00 UTC(フェーズ253: 本venture自身のtech-stack.mdに未反映
+  だったCloud Run functions〈2nd gen〉確定の記載を追記。コード変更は無く回帰確認のみ、
+  venture全体649件・schema検証21件いずれもパス)
