@@ -4343,3 +4343,34 @@
   「業者名(ID: user_id)」併記形式に変更するbusiness-name-owner-notification-display-
   design.mdを新規作成し、payment_suspension_owner_notification.pyへ実装。テスト568件・
   schema検証25件いずれもパス)
+- フェーズ263(2026-09-25 07:00 UTC定例更新): フェーズ262「次回候補」・business-name-
+  owner-notification-display-design.md 5節に残っていた「blocked_but_billing_owner_
+  notification.pyへの同パターン横展開」に対応した。同モジュールの`build_blocked_but_
+  billing_owner_notification_flex_message(user_id: str)`は`user_id`単体を引数に取る形
+  だったため、design 5節で予告した通りdataclass化はせず`business_name: Optional[str] =
+  None`引数を追加する最小限のシグネチャ変更で対応した。新規`_format_customer_identifier_
+  line()`が、本モジュール既存の「顧客ID: {user_id}」という語(payment_suspension版の
+  「業者名/業者ID」とは表記が異なる)を踏襲し、business_name設定時「顧客名:
+  {business_name}(ID: {user_id})」・未設定時は従来通り「顧客ID: {user_id}」のみを返す。
+  `candidate_user_ids: Sequence[str]`からbusiness_nameを引けるよう新規Protocol
+  `BlockedButBillingBusinessNameReader`(`get_business_name(user_id) -> Optional[str]`)を
+  追加し、`send_blocked_but_billing_owner_notifications()`に省略可能引数`business_name_
+  reader: Optional[...] = None`として追加した(未指定時は全件`user_id`のみの表示となり
+  後方互換を維持)。business-name-owner-notification-display-design.md 6節として横展開の
+  詳細を追記し、5節の該当項目を「対応済み」に更新した。payment_suspension版と同じく、
+  `UserProfileStoreProtocol`への`get_business_name`追加・`cloud_function_webhook.py`
+  からの実結線はまだ実装していない(Firestore接続自体がオーナー承認待ちの範囲であるため)。
+  新規テスト5件追加(`build_...`のbusiness_name設定時・None時・空文字列時の3件、
+  `send_...`のbusiness_name_reader経由での反映確認・reader未指定時のフォールバック確認の
+  2件)、venture全体573件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  変更前568件+新規5件)・schema検証25件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要なコード変更・ドキュメント更新のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: kura-pasha側の同種オーナー通知モジュールが
+  同じ課題を抱えているかの確認、`UserProfileStoreProtocol`への`get_business_name`追加、
+  またはCloud Functions採用世代確定後の`resource.type`調整。
+- 最終更新: 2026-09-25 07:00 UTC(フェーズ263: blocked_but_billing_owner_notification.py
+  にもbusiness_name併記表示を横展開。`_format_customer_identifier_line()`新設・
+  `BlockedButBillingBusinessNameReader`Protocol追加・`send_blocked_but_billing_owner_
+  notifications()`へのbusiness_name_reader引数追加。テスト573件(568件+新規5件)・
+  schema検証25件いずれもパス)

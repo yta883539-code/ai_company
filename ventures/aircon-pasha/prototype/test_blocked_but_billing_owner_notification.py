@@ -111,6 +111,31 @@ class BuildBlockedButBillingOwnerNotificationFlexMessageTest(unittest.TestCase):
         contents = build_blocked_but_billing_owner_notification_flex_message("u1")
         self.assertNotIn("footer", contents)
 
+    def test_business_name_set_shows_name_and_id(self) -> None:
+        # business-name-owner-notification-display-design.md 5節への対応(フェーズ263)。
+        contents = build_blocked_but_billing_owner_notification_flex_message(
+            "u1", business_name="サンプルクリーニング商会"
+        )
+        serialized = str(contents)
+        self.assertIn("顧客名: サンプルクリーニング商会(ID: u1)", serialized)
+        self.assertNotIn("顧客ID: u1", serialized)
+
+    def test_business_name_none_falls_back_to_user_id_only(self) -> None:
+        contents = build_blocked_but_billing_owner_notification_flex_message(
+            "u1", business_name=None
+        )
+        serialized = str(contents)
+        self.assertIn("顧客ID: u1", serialized)
+        self.assertNotIn("顧客名:", serialized)
+
+    def test_business_name_empty_string_falls_back_to_user_id_only(self) -> None:
+        contents = build_blocked_but_billing_owner_notification_flex_message(
+            "u1", business_name=""
+        )
+        serialized = str(contents)
+        self.assertIn("顧客ID: u1", serialized)
+        self.assertNotIn("顧客名:", serialized)
+
 
 class SendBlockedButBillingOwnerNotificationsTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -163,6 +188,38 @@ class SendBlockedButBillingOwnerNotificationsTest(unittest.TestCase):
         self.assertEqual(result.sent, [])
         self.assertEqual(result.failed, ["u1"])
         self.assertIsNone(store.get_blocked_but_billing_owner_notified_at("u1"))
+
+    def test_business_name_reader_is_reflected_in_sent_message(self) -> None:
+        # business-name-owner-notification-display-design.md 5節への対応(フェーズ263)。
+        store = _FakeNotifiedAtStore()
+        push = InMemoryLinePushClient()
+
+        class _FakeBusinessNameReader:
+            def get_business_name(self, user_id: str) -> Optional[str]:
+                return {"u1": "サンプルクリーニング商会"}.get(user_id)
+
+        send_blocked_but_billing_owner_notifications(
+            ["u1", "u2"],
+            self.now,
+            store,
+            push,
+            business_name_reader=_FakeBusinessNameReader(),
+        )
+
+        sent_by_recipient = {str(contents): contents for _r, _a, contents in push.sent}
+        serialized_all = " ".join(sent_by_recipient.keys())
+        self.assertIn("顧客名: サンプルクリーニング商会(ID: u1)", serialized_all)
+        self.assertIn("顧客ID: u2", serialized_all)
+
+    def test_no_business_name_reader_keeps_user_id_only_display(self) -> None:
+        store = _FakeNotifiedAtStore()
+        push = InMemoryLinePushClient()
+
+        send_blocked_but_billing_owner_notifications(["u1"], self.now, store, push)
+
+        serialized = str(push.sent[0][2])
+        self.assertIn("顧客ID: u1", serialized)
+        self.assertNotIn("顧客名:", serialized)
 
     def test_partial_failure_only_marks_successful_ones(self) -> None:
         store = _FakeNotifiedAtStore()

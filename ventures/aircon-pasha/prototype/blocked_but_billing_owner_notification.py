@@ -26,8 +26,23 @@ blocked-but-billing-owner-notification-design.md(フェーズ174)で設計した
   `cloud_function_webhook.process_follow_event()`(フォロー再開)・`stripe_dispatch.
   dispatch_stripe_event()`の`customer.subscription.deleted`分岐(解約確定)の両方から
   呼ばれる(course-set-pashaのフェーズ144相当)。
+- `business_name`併記対応(フェーズ263、business-name-owner-notification-display-
+  design.md 5節「今後の課題」への対応)は、`build_blocked_but_billing_owner_notification_
+  flex_message()`に`business_name: Optional[str] = None`引数を追加し、
+  `_format_customer_identifier_line()`が business_name設定時「顧客名: {business_name}
+  (ID: {user_id})」・未設定時は従来通り「顧客ID: {user_id}」のみを組み立てる形で対応した
+  (payment_suspension_owner_notification.pyの`_format_business_identifier_line()`と
+  同じ考え方、本モジュールの既存文言「顧客ID:」を踏襲し「業者名/業者ID」ではなく
+  「顧客名/顧客ID」の表記を採用)。`send_blocked_but_billing_owner_notifications()`には
+  新規Protocol`BlockedButBillingBusinessNameReader`を受け取る省略可能引数
+  `business_name_reader: Optional[...] = None`を追加し、未指定時は全件business_name
+  未設定(従来通りの`user_id`のみの表示)として動作するため後方互換を維持する。実際の
+  Firestore配線(`UserProfileStoreProtocol`への`get_business_name`追加・
+  `cloud_function_webhook.py`からの実結線)はまだ実装されていない(payment_suspension版と
+  同じく、design 4節の通りFirestore接続自体がオーナー承認待ちの範囲であるため)。
 
-設計の参照元: blocked-but-billing-owner-notification-design.md
+設計の参照元: blocked-but-billing-owner-notification-design.md,
+business-name-owner-notification-display-design.md
 """
 
 from __future__ import annotations
@@ -64,6 +79,15 @@ class BlockedButBillingOwnerNotifiedAtWriter(Protocol):
     def set_blocked_but_billing_owner_notified_at(
         self, user_id: str, notified_at: Optional[datetime]
     ) -> None:
+        ...
+
+
+class BlockedButBillingBusinessNameReader(Protocol):
+    """business-name-owner-notification-display-design.md 5節への対応(フェーズ263)。
+    メッセージ整形時に業者(顧客)のbusiness_nameを引くための、読み出しのみを要求する
+    最小限のProtocol(他のReader Protocolと同じ考え方)。"""
+
+    def get_business_name(self, user_id: str) -> Optional[str]:
         ...
 
 
@@ -118,12 +142,29 @@ def clear_blocked_but_billing_owner_notified_at(
 # ---------------------------------------------------------------------------
 
 
-def build_blocked_but_billing_owner_notification_flex_message(user_id: str) -> dict:
+def _format_customer_identifier_line(user_id: str, business_name: Optional[str]) -> str:
+    """business-name-owner-notification-display-design.md 3節・5節「今後の課題」への
+    対応(フェーズ263): business_nameが設定されていれば「顧客名: {business_name}
+    (ID: {user_id})」形式、未設定であれば従来通り「顧客ID: {user_id}」のみを返す
+    (payment_suspension_owner_notification._format_business_identifier_line()と同じ
+    考え方だが、本モジュール既存の「顧客ID:」表記を踏襲し「業者名/業者ID」ではなく
+    「顧客名/顧客ID」の語を使う)。"""
+    if business_name:
+        return f"顧客名: {business_name}(ID: {user_id})"
+    return f"顧客ID: {user_id}"
+
+
+def build_blocked_but_billing_owner_notification_flex_message(
+    user_id: str, business_name: Optional[str] = None
+) -> dict:
     """design 2節: ボタンを持たない、テキストのみのbubble形式のFlex Messageを組み立てる。
 
     build_trial_end_notification_flex_message()(trial_end_scheduler.py)と同じ
-    `bubble`形式のうち、`footer`(ボタン)を持たない構成とした。
+    `bubble`形式のうち、`footer`(ボタン)を持たない構成とした。`business_name`は
+    フェーズ263で追加した省略可能引数(business-name-owner-notification-display-
+    design.md 5節)、未指定時は従来通り`user_id`のみを表示する。
     """
+    customer_identifier_line = _format_customer_identifier_line(user_id, business_name)
     return {
         "type": "bubble",
         "body": {
@@ -141,7 +182,7 @@ def build_blocked_but_billing_owner_notification_flex_message(user_id: str) -> d
                     "text": (
                         "以下の顧客がLINEをブロックしていますが、Stripeでの契約(決済)は"
                         "継続中です。\n"
-                        f"顧客ID: {user_id}"
+                        f"{customer_identifier_line}"
                     ),
                     "wrap": True,
                     "margin": "md",
@@ -184,6 +225,7 @@ def send_blocked_but_billing_owner_notifications(
     ),
     push_client: LinePushClient,
     owner_line_user_id: str = OWNER_LINE_USER_ID_PLACEHOLDER,
+    business_name_reader: Optional[BlockedButBillingBusinessNameReader] = None,
 ) -> SendBlockedButBillingOwnerNotificationsResult:
     """blocked-but-billing-owner-notification-design.md 3〜4節「Cloud Function G」本体。
 
@@ -195,13 +237,25 @@ def send_blocked_but_billing_owner_notifications(
     notified_at_store.set_blocked_but_billing_owner_notified_at()を対象顧客のuser_idに
     対して書き込み、送信失敗時は書き込まない(trial_end_scheduler.pyのsend_trial_end_
     notifications()と同じ「書き込み一発+次回実行時に自然に再試行対象として残る」方式)。
+
+    `business_name_reader`はフェーズ263で追加した省略可能引数(business-name-owner-
+    notification-display-design.md 5節)。指定時は`get_business_name(user_id)`の結果を
+    メッセージ整形に渡し、未指定時は全件`user_id`のみの表示(従来通り)となるため
+    後方互換を維持する。
     """
     result = SendBlockedButBillingOwnerNotificationsResult()
 
     for user_id in select_new_blocked_but_billing_candidates_for_notification(
         candidate_user_ids, notified_at_store
     ):
-        contents = build_blocked_but_billing_owner_notification_flex_message(user_id)
+        business_name = (
+            business_name_reader.get_business_name(user_id)
+            if business_name_reader is not None
+            else None
+        )
+        contents = build_blocked_but_billing_owner_notification_flex_message(
+            user_id, business_name
+        )
         try:
             push_client.send_flex_message(
                 owner_line_user_id,
@@ -236,9 +290,19 @@ def _demo() -> None:
         ) -> None:
             self.notified_at[user_id] = notified_at
 
+    class _BusinessNameStub:
+        def __init__(self) -> None:
+            # u1のみbusiness_name設定済み、u3は未設定という想定(フォールバック表示確認)。
+            self.business_names: dict[str, str] = {"u1": "サンプルクリーニング商会"}
+
+        def get_business_name(self, user_id: str) -> Optional[str]:
+            return self.business_names.get(user_id)
+
     store = _NotifiedAtStub()
     push = InMemoryLinePushClient()
-    result = send_blocked_but_billing_owner_notifications(candidate_user_ids, now, store, push)
+    result = send_blocked_but_billing_owner_notifications(
+        candidate_user_ids, now, store, push, business_name_reader=_BusinessNameStub()
+    )
     print(f"sent={result.sent}, failed={result.failed}")
     print(f"push count: {len(push.sent)}")
 

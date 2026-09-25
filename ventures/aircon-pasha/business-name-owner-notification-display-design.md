@@ -65,11 +65,33 @@ UserProfileから`PaymentSuspensionOwnerNotificationUserState`を組み立てる
 
 ## 5. 今後の課題
 
-- `blocked_but_billing_owner_notification.py`(フェーズ174)も同じ課題を抱えている
-  (「顧客ID: {user_id}」のみの表示)。本ドキュメントの設計・実装パターンをそのまま
-  横展開可能だが、同モジュールの`build_blocked_but_billing_owner_notification_flex_
-  message(user_id: str)`は`user_id`単体を引数に取る形であり、business_nameを渡すには
-  シグネチャ変更(dataclass化、または`business_name: Optional[str] = None`引数の追加)を
-  要するため、本フェーズでは対応せず次回候補として残す。
+- `blocked_but_billing_owner_notification.py`(フェーズ174)への横展開はフェーズ263で
+  対応済み(6節参照)。
 - kura-pasha側の同種オーナー通知モジュールが同じ課題を抱えているかは未確認。横展開検討の
   対象として残す。
+
+## 6. blocked_but_billing_owner_notification.pyへの横展開(フェーズ263で実装済み)
+
+5節が次回候補として残していた`blocked_but_billing_owner_notification.py`(フェーズ174)への
+横展開に対応した。同モジュールの`build_blocked_but_billing_owner_notification_flex_message
+(user_id: str)`は`user_id`単体を引数に取る形だったため、5節で予告した通り
+`business_name: Optional[str] = None`引数を追加する形(dataclass化は行わない、最小限の
+シグネチャ変更)で対応した。
+
+- 表示形式は本モジュール既存の「顧客ID: {user_id}」という語(2節「業者名/業者ID」とは
+  異なり「顧客」という語を使っている)を踏襲し、`_format_customer_identifier_line()`が
+  business_name設定時「顧客名: {business_name}(ID: {user_id})」・未設定時は従来通り
+  「顧客ID: {user_id}」のみを返す(表示形式の考え方自体は2節と同一)。
+- `candidate_user_ids: Sequence[str]`(user_id単体のリスト)からbusiness_nameを引くため、
+  新規Protocol`BlockedButBillingBusinessNameReader`(`get_business_name(user_id) ->
+  Optional[str]`)を追加し、`send_blocked_but_billing_owner_notifications()`に省略可能引数
+  `business_name_reader: Optional[BlockedButBillingBusinessNameReader] = None`として追加した
+  (未指定時は全件`user_id`のみの表示となり後方互換を維持する)。
+- テスト5件追加(`build_...`のbusiness_name設定時・None時・空文字列時の3件、
+  `send_...`のbusiness_name_reader経由での反映確認・reader未指定時のフォールバック確認の
+  2件)。
+- payment_suspension版と同じく、`UserProfileStoreProtocol`への`get_business_name`追加・
+  `cloud_function_webhook.py`からの実結線はまだ実装していない(Firestore接続自体が
+  オーナー承認待ちの範囲であるため)。実装時には`UserProfile.business_name`を返す
+  `get_business_name`をuser_id_linking.pyへ追加し、そのまま`business_name_reader`として
+  渡せばよい。
