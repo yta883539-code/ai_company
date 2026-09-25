@@ -3808,3 +3808,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   billing_owner_notification.pyの両方にworkshop_name〈屋号〉併記表示を実装。
   `WorkshopStoreProtocol`へ`get_workshop_name`/`set_workshop_name`追加。新規テスト8件、
   venture全体165件・schema検証32件いずれもパス)
+- フェーズ178(2026-09-25 15:00 UTC定例更新): onboarding-guide.md「未検証の仮説」1点目・
+  末尾「次のステップ候補」に残っていた、course-set-pasha/onboarding-settings-and-
+  self-check-design.md相当の「初回生成時セルフチェック案内」フォールバック設計の要否検討に
+  対応した。first-generation-self-check-notification-design.md(新規作成)にて、本venture
+  固有の構造(契約単位が`workshop_id`で最大5名が枠を共有)を踏まえ、判定基準を
+  「ユーザー単位の初回」ではなく「workshop単位の初回生成成功時」とする方針、
+  `craftsman_workshop/{workshop_id}`へ`first_generation_notice_sent`フィールドを永続化する
+  方針、確認案内文面案を確定した。course-set-pashaが持つ「ジム名・地域名未設定時の追加一文」
+  相当の分岐は、本ventureのworkshop_nameがLLM生成品質に影響しない(オーナー通知表示専用)
+  項目であるため不要と判断した。設計のみでコード変更は無く、回帰確認として本venture全体
+  165件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同じ結果)を確認した。
+  承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 本設計の実装
+  (`WorkshopStoreProtocol`へのメソッド追加・`process_memo_event()`側の配線・統合テスト)、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 15:00 UTC(フェーズ178: first-generation-self-check-notification-
+  design.md新規作成。「workshop単位の初回生成」を判定基準とする方針・永続化フィールド・
+  確認案内文面を確定。設計のみでコード変更は無し、venture全体165件・schema検証32件
+  いずれもパス)
