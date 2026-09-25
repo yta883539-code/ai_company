@@ -4258,3 +4258,41 @@
   (本venture既存のsend_flex_message()ベースbubble形式に合わせた設計)・入口関数
   route_chatbot_intent()をprototype/chatbot_intent_router.pyに実装。コード変更・
   テスト追加あり、venture全体553件・schema検証25件いずれもパス)
+- フェーズ260(2026-09-25 01:00 UTC定例更新): フェーズ259の次回候補だった
+  `cloud_function_webhook.py`側からの実結線に着手した(course-set-pashaフェーズ244
+  `ChatbotIntentClassifierProtocol`/`_classify_intent_with_retry()`相当を本venture向けに
+  移植)。`ChatbotIntentClassifierProtocol`(classify()のみのProtocol)、
+  `_classify_intent_with_retry()`(classify()自体のLlmApiErrorに対し即時1回のみリトライし、
+  2回とも失敗した場合はWARNINGログ〈`event=chatbot_intent_classification_failed`・
+  `memo_length`のみ、本文は含めない〉を出力してNoneを返す)を新規実装し、
+  `process_memo_event()`に`intent_classifier`・`escalation_push_client`の2引数を追加した。
+  分類結果が"faq_guidance_candidate"ならLLM呼び出しを行わず`render_faq_guidance_message()`を
+  返信、"other_needs_human"なら`escalation_push_client`接続時のみ`route_chatbot_intent()`
+  経由で運営者へ即時通知(未接続時はフェーズ259設計どおり通知を送らず定型応答のみ返す)、
+  "completion_report_request"または分類失敗(None)時は既存の完了報告書生成フローへ
+  フォールスルーし、生成成功(status=="generated")時のみ返信文末尾に
+  `append_faq_followup_hint()`を適用するよう配線した。`dispatch_webhook_events()`にも
+  同2引数を追加し、`process_message_event()`の`**memo_kwargs`経由で`process_memo_event()`まで
+  素通しされることを確認した(`intent_classifier`・`escalation_push_client`未接続時は
+  messageイベント処理の必須依存関係判定に含めず、既存の未接続時フォールバックに影響しない)。
+  course-set-pashaとの主な差異は、本ventureの3分類ではFAQ項目別コード分岐が不要な点
+  (`faq_guidance_candidate`は項目を問わず単一の案内文)と、`completion_report_request`が
+  course-set-pashaの`post_generation_request`と同じ「フォールスルーして生成後にフックする」
+  役割を担う点。テスト12件を新規追加(test_cloud_function_webhook.py、
+  `ChatbotIntentRouterWiringTest`9件・`DispatchWebhookEventsIntentClassifierWiringTest`2件、
+  既存の`_MustNotBeCalledLlmClient`等の共通スタブを再利用)、回帰確認としてventure全体565件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前553件+新規12件)・
+  schema検証25件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認不要な新規コード・テスト追加のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし
+  (実LLM分類クライアント自体の接続は既存の「実LLM API接続はオーナー承認待ちの範囲」に
+  含まれるため新規追加は不要と判断)。次回候補: kura-pasha側での同種チャットボット一次受付・
+  実結線の検討、course-set-pashaのフェーズ249・250相当(意図分類失敗時のCloud Monitoring
+  ログベース指標・アラートポリシー設計)の本venture向け横展開検討、またはフェーズ255
+  「次回候補」に残る業者識別子表示方式の検討。
+- 最終更新: 2026-09-25 01:00 UTC(フェーズ260: `ChatbotIntentClassifierProtocol`・
+  `_classify_intent_with_retry()`を新規実装し、`process_memo_event()`/
+  `dispatch_webhook_events()`に`intent_classifier`・`escalation_push_client`を配線。
+  分類結果に応じてFAQ案内即返信・運営者エスカレーション通知・完了報告書生成後のFAQ折り返し
+  文言付加のいずれかへ振り分ける。コード変更・テスト追加あり、venture全体565件・
+  schema検証25件いずれもパス)

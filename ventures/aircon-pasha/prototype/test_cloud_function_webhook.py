@@ -56,6 +56,8 @@ from cloud_function_webhook import (  # noqa: E402
     format_welcome_message,
     get_runtime_dependencies,
     main,
+    OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
+    render_faq_guidance_message,
     process_follow_event,
     process_memo_event,
     process_message_event,
@@ -2493,6 +2495,264 @@ class ProcessMemoEventOwnerFaqCommandTest(unittest.TestCase):
 
         self.assertEqual(result.owner_faq_action, "menu")
         self.assertFalse(result.generation_paused)
+
+
+class _FixedIntentClassifier:
+    """常に固定の分類値を返すスタブ(chatbot-intent-router-webhook-wiring-design.md準拠、
+    course-set-pashaの_FixedIntentClassifierと同じ位置づけ)。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = []
+
+    def classify(self, memo_text):
+        self.calls.append(memo_text)
+        return self.intent
+
+
+class _FlakyOnceIntentClassifier:
+    """1回目のclassify()呼び出しでLlmApiErrorを送出し、2回目(即時リトライ)は
+    固定の分類値を返すスタブ(FlakyOnceLlmClientと同じパターン)。"""
+
+    def __init__(self, intent):
+        self.intent = intent
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        if self.calls == 1:
+            raise LlmApiError("simulated timeout")
+        return self.intent
+
+
+class _AlwaysFailingIntentClassifier:
+    """常にLlmApiErrorを送出するスタブ(即時リトライしても解消しないパターンの検証用、
+    AlwaysFailingLlmClientと同じパターン)。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def classify(self, memo_text):
+        self.calls += 1
+        raise LlmApiError("simulated persistent failure")
+
+
+class ChatbotIntentRouterWiringTest(unittest.TestCase):
+    """process_memo_event()へのintent_classifier/escalation_push_client結線の検証
+    (chatbot-intent-router-webhook-wiring-design.md、フェーズ260。course-set-pashaの
+    ChatbotIntentRouterWiringTest・フェーズ244相当を本venture向けに移植)。"""
+
+    def test_without_intent_classifier_existing_behavior_is_unchanged(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(_make_event(), FixtureLlmClient("G1_basic"), reply_client)
+
+        self.assertIsNone(result.chatbot_intent)
+        self.assertEqual(result.reply_text, format_reply_text(TEST_CASES["G1_basic"]))
+
+    def test_faq_guidance_candidate_returns_faq_guidance_without_calling_llm(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="料金プランを教えて"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=_FixedIntentClassifier("faq_guidance_candidate"),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.chatbot_intent, "faq_guidance_candidate")
+        self.assertEqual(result.reply_text, render_faq_guidance_message())
+
+    def test_faq_guidance_candidate_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="料金プランを教えて", user_id="u-1"), _MustNotBeCalledLlmClient(),
+            reply_client, usage_counter=usage_counter, plan="スタンダード", month="2026-08",
+            intent_classifier=_FixedIntentClassifier("faq_guidance_candidate"),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_other_needs_human_notifies_owner_and_returns_customer_reply(self):
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        reply_client = InMemoryReplyClient()
+        push_client = InMemoryLinePushClient()
+
+        result = process_memo_event(
+            _make_event(text="なんかいつもと違う気がする", user_id="u-1"), _MustNotBeCalledLlmClient(),
+            reply_client, intent_classifier=_FixedIntentClassifier("other_needs_human"),
+            escalation_push_client=push_client,
+        )
+
+        self.assertEqual(result.chatbot_intent, "other_needs_human")
+        self.assertEqual(result.reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_other_needs_human_without_push_client_skips_notification_safely(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="なんかいつもと違う気がする", user_id="u-1"), _MustNotBeCalledLlmClient(),
+            reply_client, intent_classifier=_FixedIntentClassifier("other_needs_human"),
+        )
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+
+    def test_completion_report_request_falls_through_and_appends_faq_followup_hint(self):
+        reply_client = InMemoryReplyClient()
+        classifier = _FixedIntentClassifier("completion_report_request")
+
+        result = process_memo_event(
+            _make_event(text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"),
+            FixtureLlmClient("G1_basic"), reply_client, intent_classifier=classifier,
+        )
+
+        self.assertEqual(result.chatbot_intent, "completion_report_request")
+        self.assertEqual(
+            classifier.calls, ["壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"],
+        )
+        self.assertEqual(
+            result.reply_text,
+            f"{format_reply_text(TEST_CASES['G1_basic'])}\n\n他にご質問がありましたら「FAQ」とお送りください。",
+        )
+
+    def test_completion_report_request_does_not_append_hint_for_non_generated_status(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="こんにちは"), FixtureLlmClient("OOS1_reservation_question"), reply_client,
+            intent_classifier=_FixedIntentClassifier("completion_report_request"),
+        )
+
+        self.assertFalse(result.reply_text.endswith("他にご質問がありましたら「FAQ」とお送りください。"))
+
+    def test_intent_classification_retries_once_then_succeeds(self):
+        reply_client = InMemoryReplyClient()
+        classifier = _FlakyOnceIntentClassifier("faq_guidance_candidate")
+
+        result = process_memo_event(
+            _make_event(text="料金プランを教えて"), _MustNotBeCalledLlmClient(), reply_client,
+            intent_classifier=classifier,
+        )
+
+        self.assertEqual(classifier.calls, 2)
+        self.assertEqual(result.chatbot_intent, "faq_guidance_candidate")
+        self.assertEqual(result.reply_text, render_faq_guidance_message())
+
+    def test_intent_classification_falls_through_to_generation_after_retry_fails(self):
+        reply_client = InMemoryReplyClient()
+        classifier = _AlwaysFailingIntentClassifier()
+
+        result = process_memo_event(
+            _make_event(text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"),
+            FixtureLlmClient("G1_basic"), reply_client, intent_classifier=classifier,
+        )
+
+        self.assertEqual(classifier.calls, 2)
+        self.assertIsNone(result.chatbot_intent)
+        self.assertEqual(result.reply_text, format_reply_text(TEST_CASES["G1_basic"]))
+        self.assertFalse(result.reply_text.endswith("他にご質問がありましたら「FAQ」とお送りください。"))
+
+    def test_intent_classification_failure_emits_warning_log(self):
+        reply_client = InMemoryReplyClient()
+        classifier = _AlwaysFailingIntentClassifier()
+
+        with self.assertLogs("cloud_function_webhook", level="WARNING") as captured:
+            process_memo_event(
+                _make_event(text="壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"),
+                FixtureLlmClient("G1_basic"), reply_client, intent_classifier=classifier,
+            )
+
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.event, "chatbot_intent_classification_failed")
+        self.assertEqual(
+            record.memo_length, len("壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"),
+        )
+        self.assertNotIn("壁掛け型", record.getMessage())
+
+
+class DispatchWebhookEventsIntentClassifierWiringTest(unittest.TestCase):
+    """dispatch_webhook_events()からintent_classifier/escalation_push_clientが
+    process_message_event()経由でprocess_memo_event()まで素通しされることの検証
+    (フェーズ260)。"""
+
+    def test_intent_classifier_and_escalation_push_client_are_passed_through(self):
+        from datetime import datetime, timezone
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+            ),
+        )
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        push_client = InMemoryLinePushClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt-1",
+                "source": {"userId": "u-1"},
+                "message": {"type": "text", "text": "なんかいつもと違う気がする"},
+            }
+        ]
+
+        result = dispatch_webhook_events(
+            events, reply_client=reply_client, llm_call=_MustNotBeCalledLlmClient(),
+            profile_store=profile_store, linking_store=linking_store,
+            now=datetime(2026, 9, 25, 0, 0, 0, tzinfo=timezone.utc),
+            intent_classifier=_FixedIntentClassifier("other_needs_human"),
+            escalation_push_client=push_client,
+        )
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.message_results[0].reply_text, OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT)
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_without_intent_classifier_dispatch_behavior_is_unchanged(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+            ),
+        )
+        # 初回生成セルフチェック案内(first-generation-self-check-design.md)を素通りさせ、
+        # 本テストの主眼(intent_classifier未指定時の既存挙動不変)以外の差分を混入させない。
+        profile_store.set_trial_start_at("u-1", datetime(2026, 8, 1, tzinfo=timezone.utc))
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        events = [
+            {
+                "type": "message",
+                "replyToken": "rt-1",
+                "source": {"userId": "u-1"},
+                "message": {
+                    "type": "text",
+                    "text": "壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄",
+                },
+            }
+        ]
+
+        result = dispatch_webhook_events(
+            events, reply_client=reply_client, llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=profile_store, linking_store=linking_store,
+            now=datetime(2026, 9, 25, 0, 0, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.message_results[0].reply_text, format_reply_text(TEST_CASES["G1_basic"]))
 
 
 if __name__ == "__main__":
