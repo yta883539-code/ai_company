@@ -4296,3 +4296,28 @@
   分類結果に応じてFAQ案内即返信・運営者エスカレーション通知・完了報告書生成後のFAQ折り返し
   文言付加のいずれかへ振り分ける。コード変更・テスト追加あり、venture全体565件・
   schema検証25件いずれもパス)
+- フェーズ261(2026-09-25 03:00 UTC定例更新): フェーズ260の次回候補のうち、
+  course-set-pashaのフェーズ249・250相当(意図分類失敗時のCloud Monitoringログベース指標・
+  アラートポリシー設計)の本venture向け横展開検討に着手した。
+  cloud-monitoring-alert-policy-design.mdを新規作成し、フェーズ260で実装済みの
+  `_classify_intent_with_retry()`が出力するWARNINGログ(`event=chatbot_intent_
+  classification_failed`, `memo_length`)を対象に、course-set-pasha版と同名のログベース
+  指標(`chatbot_intent_classification_failure_count`)・同じしきい値のアラートポリシー
+  (直近60分で1件以上検知)を設計した。通知チャネルは本venture既存のLINE Push経路
+  (`OWNER_LINE_USER_ID_PLACEHOLDER`)とは別に、course-set-pasha版と同じくCloud Monitoring
+  標準のメール通知チャネル(`OWNER_ALERT_EMAIL_PLACEHOLDER`)をプレースホルダとして採用する
+  方針とした。あわせて、kura-pashaがフェーズ174で本ventureと同一のイベント名・フィールド
+  構成のWARNINGログを既に実装済みであることを確認し、本設計はkura-pasha側にもそのまま
+  適用可能である旨を4節に記録した。実際のログベース指標・アラートポリシーの作成は、
+  course-set-pasha版と同様にGCPプロジェクト作成後のオーナー承認範囲内の作業として実行しない。
+  コード変更は無く回帰確認のみ、venture全体565件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同じ結果)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  新規ドキュメント作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: kura-pasha側での本設計の
+  正式な横展開ドキュメント化、Cloud Functions採用世代(1st gen / 2nd gen)確定後の
+  `resource.type`調整、またはフェーズ255「次回候補」に残る業者識別子表示方式の検討。
+- 最終更新: 2026-09-25 03:00 UTC(フェーズ261: course-set-pashaのCloud Monitoringログ
+  ベース指標・アラートポリシー設計を本venture向けに横展開したcloud-monitoring-alert-
+  policy-design.mdを新規作成。コード変更は無く回帰確認のみ、venture全体565件・
+  schema検証25件いずれもパス)
