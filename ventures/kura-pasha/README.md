@@ -3764,3 +3764,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   cloud-monitoring-alert-policy-design.mdを新規作成。ログ出力自体はフェーズ174で
   実装済みのため既存構造の確認のみ。コード変更は無く回帰確認のみ、venture全体
   16ファイル全件・schema検証32件いずれもパス)
+- フェーズ176(2026-09-25 08:00 UTC定例更新): line-reservation-ai/line-price-
+  revision-2026-check.mdで調査済みの「2026年10月1日実施予定のLINE公式アカウント
+  追加メッセージ料金改定」について、本venture固有の影響評価が未作成だったため
+  web調査による再確認とcross-venture水平展開を行った。line-price-revision-2026-
+  check.md(新規作成)に、改定内容(スタンダードプラン無料枠超過分が「20万通/月まで
+  1通3円、20万通超2.5円」の2段階体系に一本化)の再確認と、pricing-plan.mdの
+  複数職人プラン上限(月20回・5名共同利用)から見た本venture固有の影響評価(想定
+  送信ボリュームは影響が生じる月5万通超の水準から3桁近く少なく、料金プラン設計の
+  見直しは不要)を記録した。一次情報(LINEヤフー for Business公式ページ)は
+  line-reservation-ai側と同じくegressポリシーによりこの実行環境からは確認できず、
+  二次情報源のクロスチェックにとどまる点も明記した。コード変更は無く、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.md
+  への追記なし。次回候補: aircon-pasha・course-set-pashaへの同種確認の横展開、または
+  `ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー承認待ち)。
+- 最終更新: 2026-09-25 08:00 UTC(フェーズ176: line-price-revision-2026-check.md
+  新規作成。line-reservation-ai調査済みの2026年10月LINE料金改定について本venture
+  固有の影響評価を実施、料金プラン見直しは不要と判断。コード変更なし)
