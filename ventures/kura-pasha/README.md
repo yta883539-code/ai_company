@@ -3880,3 +3880,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   初回`status="generated"`成功時の確認案内付記を配線。新規テスト
   test_usage_counter_workshop.py+3 check・test_cloud_function_webhook.py+12 check、
   run_all_tests.py 16ファイル全件・schema検証32件いずれもパス)
+- フェーズ180(2026-09-25 20:00 UTC定例更新): aircon-pashaフェーズ266の「次回候補」
+  として残っていた、course-set-pashaフェーズ253で確定したCloud Functions採用世代
+  (2nd gen〈Cloud Run functions〉)決定のtech-stack.mdへの反映を、本venture分として
+  実施した。本venture自身のcloud-monitoring-alert-policy-design.md(フェーズ178)では
+  既にこの確定を前提に`resource.type: cloud_run_revision`を採用していたにもかかわらず、
+  決定の一次情報であるtech-stack.md側への反映が漏れていたcross-document parityの記載
+  漏れであり、aircon-pasha・course-set-pasha版tech-stack.mdと同じ書きぶりで
+  「想定コンポーネント2」に追記した。コード変更は無くドキュメント更新のみのため、
+  回帰確認としてventure全体16ファイル全件(`python3 prototype/run_all_tests.py`、
+  変更前と同数)・schema検証32件(`python3 schema/validate_test_cases.py`、変更前と
+  同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。これで
+  aircon-pasha・course-set-pasha・kura-pashaの3venture(Cloud Functionsをホスティング
+  候補とする4venture中、Cloud Monitoringアラート設計に本決定の反映余地があった3つ)
+  全てでtech-stack.md側への反映が完了した。次回候補: 実Firestore・実LINE Messaging
+  API接続(いずれもオーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 20:00 UTC(フェーズ180: aircon-pashaフェーズ266が残していた
+  Cloud Functions 2nd gen確定のtech-stack.mdへの反映のうち、本venture分に対応。
+  「想定コンポーネント2」に採用世代確定の経緯を追記。コード変更は無く回帰確認のみ、
+  venture全体16ファイル全件・schema検証32件いずれもパス)
