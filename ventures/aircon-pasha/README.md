@@ -4230,3 +4230,31 @@
   design.mdを新規作成し、faq_guidance_candidate判定時の案内文・completion_report_request
   判定時の一言追加をprototype/chatbot_intent_router.pyに実装。コード変更・テスト追加あり、
   venture全体539件・schema検証25件いずれもパス)
+- フェーズ259(2026-09-25 00:00 UTC定例更新): フェーズ258の次回候補のうち、
+  other_needs_human判定時のエスカレーション導線(運営者への通知文言・送信経路)の設計、
+  および3分類を実際に振り分ける入口関数route_chatbot_intent()(course-set-pashaの
+  route_chatbot_intent()相当)の実装に着手した。chatbot-intent-classification-
+  escalation-design.mdを新規作成し、course-set-pasha版の検知条件(即時通知・送信済み
+  フラグなしの都度通知)・通知文言パターンを踏襲しつつ、送信インターフェースは本venture
+  既存の`LinePushClient`プロトコルが`send_message(user_id, text)`ではなく
+  `send_flex_message(user_id, alt_text, contents)`のみを要求する設計(payment_
+  suspension_owner_notification.py等)に合わせ、ボタンを持たないテキストのみのbubble
+  形式のFlex Messageを送る設計に変更した(course-set-pasha版をそのまま移植せず、本
+  venture既存の慣行を優先した点が差分)。`prototype/chatbot_intent_router.py`に
+  `CHATBOT_INTENT_VALUES`・`format_chatbot_escalation_notification_message()`・
+  `build_chatbot_escalation_notification_flex_message()`・`send_chatbot_escalation_
+  notification()`・`OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT`・`route_chatbot_intent()`を
+  新規実装した。テスト14件を新規追加(test_chatbot_intent_router.py)、回帰確認として
+  venture全体553件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  変更前539件+新規14件)・schema検証25件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認不要な新規コード・テスト・ドキュメント
+  作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: `cloud_function_webhook.py`側からの
+  実結線(実際にLLM分類結果を受け取りroute_chatbot_intent()を呼び出す配線)、
+  kura-pasha側での同種チャットボット一次受付・エスカレーション導線の検討、または
+  フェーズ255「次回候補」に残る業者識別子表示方式の検討。
+- 最終更新: 2026-09-25 00:00 UTC(フェーズ259: chatbot-intent-classification-
+  escalation-design.mdを新規作成し、other_needs_human判定時のエスカレーション導線
+  (本venture既存のsend_flex_message()ベースbubble形式に合わせた設計)・入口関数
+  route_chatbot_intent()をprototype/chatbot_intent_router.pyに実装。コード変更・
+  テスト追加あり、venture全体553件・schema検証25件いずれもパス)
