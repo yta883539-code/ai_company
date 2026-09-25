@@ -122,10 +122,12 @@ success()`の対象に含めない。両者はトリガー(決済失敗の解消
 - オーナーのLINEユーザーID(`OWNER_LINE_USER_ID_PLACEHOLDER`)の実際の取得・設定、実際の
   Cloud Scheduler作成・実LINE API接続はいずれもオーナー承認待ちの範囲(既存の記載を参照、
   新規追加なし)。
-- 業者識別子として`user_id`をそのまま通知に載せる案で暫定としたが、実運用では
+- ~~業者識別子として`user_id`をそのまま通知に載せる案で暫定としたが、実運用では
   `business_name`(UserProfile既存フィールド)を使った方がオーナーにとって分かりやすい
   可能性がある(course-set-pasha版7節と同じ課題)。本ドキュメントは`user_id`表示までを
-  設計範囲とする。
+  設計範囲とする。~~ → フェーズ262(business-name-owner-notification-display-design.md)で
+  対応済み。「業者名(ID: user_id)」併記形式を採用し、business_name未設定時のみ
+  `user_id`単体表示にフォールバックする。
 - 決済失敗検知時点(段階1)でもオーナーへ即時通知すべきかは、猶予期間中に自然回復する
   ケースまで毎回通知が飛ぶと通知過多になる可能性があり、次回以降の検討課題として残す
   (course-set-pasha版7節と同じ課題)。

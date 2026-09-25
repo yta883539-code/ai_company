@@ -51,12 +51,16 @@ class PaymentSuspensionOwnerNotificationUserState:
 
     payment_failure_detected_at・payment_suspended_at・payment_suspension_owner_
     notified_atはuser_id_linking.pyのUserProfile(フェーズ140・255で追加したフィールド)
-    をそのまま反映する。"""
+    をそのまま反映する。business_nameも同UserProfileの既存必須フィールド(user_id_
+    linking.py)をそのまま反映する想定だが、本モジュール単体でのテスト容易性のため
+    Optionalとし、未設定時はuser_idのみの表示にフォールバックする(design 8節・
+    business-name-owner-notification-display-design.md参照)。"""
 
     user_id: str
     payment_suspended_at: Optional[datetime]
     payment_failure_detected_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
+    business_name: Optional[str] = None
 
 
 def select_due_payment_suspension_owner_notifications(
@@ -100,6 +104,18 @@ def _format_elapsed_days(
     return (now - user.payment_failure_detected_at).days
 
 
+def _format_business_identifier_line(
+    user: PaymentSuspensionOwnerNotificationUserState,
+) -> str:
+    """business-name-owner-notification-display-design.md 3節: business_nameが
+    設定されていれば「業者名(ID: user_id)」形式、未設定であれば従来通り「業者ID:
+    user_id」のみを返す(オーナーが一見して業者を識別できることを優先しつつ、
+    user_idも併記して個別フォロー時の突合を可能にする)。"""
+    if user.business_name:
+        return f"業者名: {user.business_name}(ID: {user.user_id})"
+    return f"業者ID: {user.user_id}"
+
+
 def build_payment_suspension_owner_notification_flex_message(
     user: PaymentSuspensionOwnerNotificationUserState, now: datetime
 ) -> dict:
@@ -112,6 +128,7 @@ def build_payment_suspension_owner_notification_flex_message(
         if elapsed_days is not None
         else "決済失敗検知からの経過日数: 不明"
     )
+    business_identifier_line = _format_business_identifier_line(user)
     return {
         "type": "bubble",
         "body": {
@@ -129,7 +146,7 @@ def build_payment_suspension_owner_notification_flex_message(
                     "text": (
                         "以下の業者が決済失敗の猶予期間(7日)を超え、作業完了報告・"
                         "お手入れ案内生成の制限モードへ移行しました。\n"
-                        f"業者ID: {user.user_id}\n"
+                        f"{business_identifier_line}\n"
                         f"{elapsed_days_line}"
                     ),
                     "wrap": True,

@@ -4317,7 +4317,29 @@
   今回発生していないためpending-approval.mdへの追記なし。次回候補: kura-pasha側での本設計の
   正式な横展開ドキュメント化、Cloud Functions採用世代(1st gen / 2nd gen)確定後の
   `resource.type`調整、またはフェーズ255「次回候補」に残る業者識別子表示方式の検討。
-- 最終更新: 2026-09-25 03:00 UTC(フェーズ261: course-set-pashaのCloud Monitoringログ
-  ベース指標・アラートポリシー設計を本venture向けに横展開したcloud-monitoring-alert-
-  policy-design.mdを新規作成。コード変更は無く回帰確認のみ、venture全体565件・
+- フェーズ262(2026-09-25 06:00 UTC定例更新): フェーズ255「今後の課題」・フェーズ256〜261で
+  繰り返し次回候補に残していた業者識別子表示方式の検討に着手し、business-name-owner-
+  notification-display-design.mdを新規作成した。course-set-pasha版payment-suspension-
+  owner-notification-design.md 7節は同種課題を「顧客管理シートとの突合が必要でventure範囲外」
+  として見送っていたが、本ventureの`UserProfile`は`business_name`をオンボーディング必須
+  フィールドとして既に保持しており前提が異なることを確認し、実際に採用する結論とした。
+  表示形式は「業者名: {business_name}(ID: {user_id})」の併記(business_name未設定時は
+  従来通り「業者ID: {user_id}」のみにフォールバック)とし、business_nameのみへの差し替えは
+  避けた(個別フォロー時のシステム操作にはuser_idが引き続き必要なため)。
+  `payment_suspension_owner_notification.py`の`PaymentSuspensionOwnerNotificationUserState`に
+  `business_name: Optional[str] = None`を追加し、新規`_format_business_identifier_line()`を
+  `build_payment_suspension_owner_notification_flex_message()`から呼ぶ形に変更した。既存
+  呼び出し元は`business_name`省略時デフォルトNoneで従来通り動作するため後方互換。テスト3件
+  追加(business_name設定時・None時・空文字列時)。同じ課題を抱える`blocked_but_billing_
+  owner_notification.py`(フェーズ174)は関数シグネチャが異なり横展開に追加変更を要するため
+  本フェーズでは対応せず次回候補に残した。テスト568件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前565件+新規3件)・schema検証25件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認不要な
+  コード変更・ドキュメント作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: blocked_but_billing_
+  owner_notification.pyへの同パターン横展開、kura-pasha側の同種オーナー通知モジュールの
+  確認、またはCloud Functions採用世代確定後の`resource.type`調整。
+- 最終更新: 2026-09-25 06:00 UTC(フェーズ262: オーナー向け能動通知の業者識別子表示を
+  「業者名(ID: user_id)」併記形式に変更するbusiness-name-owner-notification-display-
+  design.mdを新規作成し、payment_suspension_owner_notification.pyへ実装。テスト568件・
   schema検証25件いずれもパス)

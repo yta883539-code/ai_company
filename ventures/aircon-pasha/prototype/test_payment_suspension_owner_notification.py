@@ -148,6 +148,35 @@ class BuildPaymentSuspensionOwnerNotificationFlexMessageTest(unittest.TestCase):
         contents = build_payment_suspension_owner_notification_flex_message(user, self.now)
         self.assertIn("経過日数: 不明", str(contents))
 
+    def test_business_name_present_shows_name_with_id(self) -> None:
+        user = PaymentSuspensionOwnerNotificationUserState(
+            user_id="u1", payment_suspended_at=self.now, business_name="テスト洗浄社"
+        )
+        serialized = str(
+            build_payment_suspension_owner_notification_flex_message(user, self.now)
+        )
+        self.assertIn("業者名: テスト洗浄社(ID: u1)", serialized)
+
+    def test_missing_business_name_falls_back_to_user_id_only(self) -> None:
+        user = PaymentSuspensionOwnerNotificationUserState(
+            user_id="u1", payment_suspended_at=self.now, business_name=None
+        )
+        serialized = str(
+            build_payment_suspension_owner_notification_flex_message(user, self.now)
+        )
+        self.assertIn("業者ID: u1", serialized)
+        self.assertNotIn("業者名:", serialized)
+
+    def test_empty_string_business_name_falls_back_to_user_id_only(self) -> None:
+        user = PaymentSuspensionOwnerNotificationUserState(
+            user_id="u1", payment_suspended_at=self.now, business_name=""
+        )
+        serialized = str(
+            build_payment_suspension_owner_notification_flex_message(user, self.now)
+        )
+        self.assertIn("業者ID: u1", serialized)
+        self.assertNotIn("業者名:", serialized)
+
 
 class SendPaymentSuspensionOwnerNotificationsTest(unittest.TestCase):
     def setUp(self) -> None:
