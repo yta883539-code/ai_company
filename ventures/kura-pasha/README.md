@@ -3736,3 +3736,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `_classify_chatbot_intent_with_retry()`追加・`process_message_event()`への
   分類ステップ挿入・`process_memo_event()`へのFAQ折り返し文言付記引数追加。
   新規テスト12件追加、venture全体16ファイル全件・schema検証32件いずれもパス)
+- フェーズ175(2026-09-25 04:00 UTC定例更新): フェーズ174「次回候補」・
+  course-set-pashaフェーズ249「次回候補」で申し送られていた「aircon-pasha/
+  course-set-pashaが実装済みのintent-classification-failure-observability-
+  design.md相当(分類失敗時のCloud Monitoringログベース指標・アラートポリシー)の
+  本venture向け横展開検討」に対応した。確認したところ、ログ出力自体
+  (`_classify_chatbot_intent_with_retry()`のWARNINGログ、`event`・`memo_length`の
+  2フィールド)はフェーズ174で既に実装済みで、course-set-pasha/aircon-pashaと
+  同一構造だったため新規コード変更は不要と判断した。intent-classification-
+  failure-observability-design.md(新規作成)にその前提確認を記録し、
+  cloud-monitoring-alert-policy-design.md(新規作成)でログベース指標(名前案
+  `kura_pasha_chatbot_intent_classification_failure_count`、venture間の指標名
+  衝突を避けるため接頭辞を付与)・アラートポリシー(直近60分で合計1件以上、
+  course-set-pashaと同一のしきい値)・通知チャネル(契約者向けLINE Push通知とは
+  別経路のCloud Monitoring標準メール通知`OWNER_ALERT_EMAIL_PLACEHOLDER`)を
+  確定した。実際のログベース指標・アラートポリシーの作成はGCPプロジェクト作成
+  (既存のオーナー承認待ち事項)後の課題として据え置き。コード変更は無く、回帰確認
+  として本venture全体16ファイル全件(`python3 prototype/run_all_tests.py`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と
+  同じ結果)を確認した。承認不要な設計文書作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: `ChatbotIntentClassificationClient`実クライアント接続
+  (実LLM接続、オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 04:00 UTC(フェーズ175: aircon-pasha/course-set-pasha
+  実装済みのCloud Monitoringログベース指標・アラートポリシー設計を本venture向けに
+  横展開。intent-classification-failure-observability-design.md・
+  cloud-monitoring-alert-policy-design.mdを新規作成。ログ出力自体はフェーズ174で
+  実装済みのため既存構造の確認のみ。コード変更は無く回帰確認のみ、venture全体
+  16ファイル全件・schema検証32件いずれもパス)
