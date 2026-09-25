@@ -25,10 +25,11 @@ WARNINGログ(`event=chatbot_intent_classification_failed`, `memo_length=<int>`)
   jsonPayload.event="chatbot_intent_classification_failed"
   severity="WARNING"
   ```
-  `resource.type`はCloud Functions (2nd gen)の場合`cloud_run_revision`になる可能性が
-  あるため、実デプロイ時に採用するランタイム世代に応じて調整する(hosting-platform-
-  selection.md・tech-stack.mdでは世代未確定のため、この1点のみ実プロジェクト作成後に
-  要確認として残す)。
+  `resource.type`はcloud-functions-generation-decision.md(本フェーズ確定)により
+  `cloud_run_revision`を採用する(2nd gen / Cloud Run functionsに確定。1st genは
+  Googleが新規プロジェクトでの作成を停止済みのため選択の余地がない)。`service_name`・
+  `revision_name`等の具体的なリソースラベル値は、実プロジェクト作成後(関数デプロイ後)
+  でなければ確定できないため、この点のみ引き続き要確認として残す。
 - ラベル: `memo_length`はカーディナリティが高く(メモごとに値が変わる)指標のラベルには
   不向きなため、ログベース指標のラベルには含めない。障害調査時はCloud Logging側の
   ログ本文(jsonPayload全体)を直接参照する運用とし、指標はあくまで「発生有無・頻度」の
@@ -56,8 +57,9 @@ WARNINGログ(`event=chatbot_intent_classification_failed`, `memo_length=<int>`)
 
 ## 4. スコープ外(引き続き次回以降の課題)
 
-- 上記フィルタの`resource.type`は、Cloud Functions採用世代(1st gen / 2nd gen)確定後に
-  要調整。
+- 上記フィルタの`service_name`・`revision_name`等の具体的なリソースラベル値は、
+  実プロジェクト作成後(関数デプロイ後)に要確認(世代自体はcloud-functions-generation-
+  decision.mdにて2nd genに確定済み)。
 - 意図分類の成功率・レイテンシ等、失敗以外の運用指標の収集(intent-classification-
   failure-observability-design.md 3節から継続して範囲外)。
 - aircon-pasha・kura-pasha側で同種の意図分類機能を実装する場合の本設計の横展開検討

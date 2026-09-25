@@ -33,11 +33,12 @@ classification-failure-observability-design.md 1節と同じ考え方)。
   jsonPayload.event="chatbot_intent_classification_failed"
   severity="WARNING"
   ```
-  course-set-pasha版と同じく、`resource.type`はCloud Functions (2nd gen)採用時は
-  `cloud_run_revision`になる可能性があるため、実デプロイ時に採用するランタイム世代に応じて
-  調整する(tech-stack.mdでは「line-reservation-aiで選定済みのGCP Cloud Functions (Python)を
-  第一候補として流用する」とあるのみで世代は未確定のため、この1点は実プロジェクト作成後に
-  要確認として残す)。
+  course-set-pashaのcloud-functions-generation-decision.md(2026-09-25 11:00 UTC定例更新)の
+  確定に基づき、`resource.type`は`cloud_run_revision`を採用する(2nd gen / Cloud Run
+  functionsに確定。Googleが新規プロジェクトでの1st gen新規作成を停止済みのため、本venture
+  含め未着手の全venture共通で選択の余地がない)。`service_name`・`revision_name`等の
+  具体的なリソースラベル値は実プロジェクト作成後(関数デプロイ後)でなければ確定できないため、
+  この点のみ引き続き要確認として残す。
 - ラベル: `memo_length`はメモごとに値が変わりカーディナリティが高いため、ログベース指標の
   ラベルには含めない(course-set-pasha版と同じ判断)。障害調査時はCloud Logging側の
   ログ本文(jsonPayload全体)を直接参照する運用とし、指標は「発生有無・頻度」の検知に
@@ -66,8 +67,9 @@ classification-failure-observability-design.md 1節と同じ考え方)。
 
 ## 4. スコープ外(引き続き次回以降の課題)
 
-- 上記フィルタの`resource.type`は、Cloud Functions採用世代(1st gen / 2nd gen)確定後に
-  要調整。
+- 上記フィルタの`service_name`・`revision_name`等の具体的なリソースラベル値は、
+  実プロジェクト作成後(関数デプロイ後)に要確認(世代自体はcloud-functions-generation-
+  decision.mdにて2nd genに確定済み)。
 - 意図分類の成功率・レイテンシ等、失敗以外の運用指標の収集(course-set-pasha版と同じく
   範囲外)。
 - kura-pasha側の横展開検討: kura-pashaはフェーズ174(`prototype/cloud_function_webhook.py`

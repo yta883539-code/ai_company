@@ -3959,3 +3959,23 @@
   aircon-pasha・kura-pasha向け横展開検討について、両venture側で既に完了済みで
   あることを確認し、次回候補リストから除去。コード変更は無く回帰確認のみ、
   venture全体649件・schema検証21件いずれもパス)
+- フェーズ252(2026-09-25 11:00 UTC定例更新): cloud-monitoring-alert-policy-design.md
+  4節に残っていた「Cloud Functions採用世代(1st gen / 2nd gen)確定後にresource.type
+  要調整」という保留事項をWebSearchで調査し確定した。Googleは新規プロジェクトからの
+  Cloud Functions (1st gen)新規作成を停止済み(製品名もCloud Run functionsに改称、
+  2nd genのみが新規関数の選択肢)であることを確認し、本venture・aircon-pasha・
+  kura-pasha・line-reservation-aiはいずれもGCPプロジェクト未作成(オーナー承認待ち)
+  のため、実際に作成する時点で1st genは選べない。したがって採用世代を2nd gen
+  (Cloud Run functions)に確定し、cloud-functions-generation-decision.mdを新規作成した。
+  この決定を反映し、cloud-monitoring-alert-policy-design.mdの`resource.type`要確認
+  事項を解消(`cloud_run_revision`に確定、残るのは`service_name`等の具体的ラベル値の
+  実プロジェクト作成後の確認のみ)し、同種の保留事項を抱えていたaircon-pasha・
+  kura-pasha側のcloud-monitoring-alert-policy-design.mdにも同じ決定を横展開した
+  (line-reservation-aiは同種のCloud Monitoringアラート設計自体が未着手のため対象外、
+  tech-stack.md等への反映は次回候補として残す)。コード変更は無くドキュメント作成・
+  更新のみのため回帰確認として本venture全体649件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)
+  いずれもパス(変更前と同じ結果)を確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: line-reservation-aiのtech-stack.md・hosting-platform-
+  selection.mdへの2nd gen決定の反映、他venture・アイデア領域の前進。
