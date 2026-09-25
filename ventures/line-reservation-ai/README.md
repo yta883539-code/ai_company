@@ -4653,3 +4653,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   確認結果〈オンライン予約導線+一人運営で現場不在ありの紹介記述〉を反映しないまま
   取り残されていたcross-document parityの記載漏れを発見・訂正。実装内容自体への変更は
   無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き271(2026-09-25 13:00 UTC定例更新): course-set-pashaフェーズ252「次回候補」に
+  残っていた「line-reservation-aiのtech-stack.md・hosting-platform-selection.mdへの2nd gen
+  決定の反映」に対応した。course-set-pasha側cloud-functions-generation-decision.md
+  (WebSearchでGoogleが新規プロジェクトからのCloud Functions (1st gen)新規作成を停止済み・
+  製品名もCloud Run functionsに改称済みと確認した調査結果)を踏まえ、本ventureもGCP
+  プロジェクト未作成(オーナー承認待ち)である以上、実際の作成時点では1st genが選択肢に
+  無く2nd gen(Cloud Run functions)一択になる旨を、tech-stack.md(想定コンポーネント2節)・
+  hosting-platform-selection.md(未確定・今後の課題)に追記した。本ventureはaircon-pasha・
+  kura-pasha・course-set-pashaと異なりLLM呼び出し失敗時のCloud Monitoringアラート設計
+  自体が未着手(フェーズ247確認済み、対象となるWARNINGログが無いため)のため、
+  `resource.type`(`cloud_run_revision`)等の具体的なログフィルタへの反映は、アラート
+  設計に着手するタイミングでの課題として残した。コード変更は無くドキュメント更新のみの
+  ため回帰確認としてventure全体854件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、変更前と同数)・schema検証28件(`python3 schema/validate_test_cases.py`、
+  変更前と同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: candidate-longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち
+  状況の再確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 13:00 UTC(フェーズ続き271: course-set-pashaのCloud Functions
+  2nd gen確定をtech-stack.md・hosting-platform-selection.mdに反映。実装内容への変更は
+  無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)

@@ -9,6 +9,7 @@ LINE公式アカウント(Messaging API) ⇄ Webhookサーバー ⇄ LLM(予約�
 2. **Webhook / バックエンド**
    - サーバーレス関数(例: Cloud Functions / Lambda相当)を想定。低トラフィックなので従量課金で初期コストを抑えられる。
    - 2026-08-01 21:00 UTC時点でGCP Cloud Functions (Python) + Firestoreを第一候補として選定済み(hosting-platform-selection.md参照。AWS Lambda/DynamoDB・Cloudflare Workers・Fly.io等のコンテナ常駐PaaSと比較し、prototype/engine.pyのPython資産をそのまま活かせる点と無料枠の手厚さを決め手とした)。実際のGCPプロジェクト作成・請求先設定は着手時にオーナー承認が必要。
+   - 採用世代はCloud Functions (1st gen)ではなく2nd gen(Cloud Run functions)に確定(2026-09-25 12:00 UTC、hosting-platform-selection.md末尾参照。Googleが新規プロジェクトからの1st gen新規作成を停止済みのため、GCPプロジェクト未作成の本ventureも実際の作成時点では2nd genのみが選択肢となる)。
 3. **LLM(自然文解釈)**
    - 顧客の自然文メッセージ→「希望日時・メニュー・氏名」等の構造化データに変換。
    - 空き枠候補の提示文言や、キャンセル・変更の意図分類もLLMに担わせる。

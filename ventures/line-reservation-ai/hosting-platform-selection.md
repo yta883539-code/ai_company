@@ -62,3 +62,14 @@ Workersは低コストで魅力的だがPython実行環境が発展途上のた�
   (LLM応答待ちでWebhook応答が遅延した場合の挙動)は未検討。
 - CI(GitHub Actions等)からCloud Functionsへのデプロイ自動化は、実際のGCPプロジェクト
   作成後の課題として残す。
+- 採用世代(1st gen / 2nd gen)について、course-set-pasha側のcloud-functions-generation-
+  decision.md(2026-09-25 11:00 UTC)がWebSearchで調査した結果、Googleは新規プロジェクトから
+  のCloud Functions (1st gen)新規作成を既に停止済みで、製品名も「Cloud Run functions」に
+  改称されている(2nd genのみが新規関数の選択肢)ことを確認し、GCPプロジェクト未作成の
+  aircon-pasha・kura-pasha・本ventureを含め2nd gen(Cloud Run functions)に確定する方針を
+  示している。本ventureも同じくGCPプロジェクト未作成(オーナー承認待ち)であるため、実際に
+  作成する時点では1st genは選べず、同じく2nd gen(Cloud Run functions)を採用する前提と
+  なる。ただし本ventureは(course-set-pashaと異なり)LLM呼び出し失敗時のCloud Monitoring
+  ログベース指標・アラートポリシー設計自体がまだ着手されていないため、`resource.type`
+  (`cloud_run_revision`)等の具体的なログフィルタへの反映は、アラート設計に着手する
+  タイミングでの課題として残す。
