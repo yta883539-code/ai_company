@@ -3936,3 +3936,26 @@
   アラートポリシー・通知チャネルの設計を事前に確定(cloud-monitoring-alert-policy-
   design.md新規作成)。実際の作成はGCPプロジェクト作成後の課題として据え置き。
   コード変更は無く回帰確認のみ、venture全体649件・schema検証21件いずれもパス)
+- フェーズ251(2026-09-25 05:00 UTC定例更新): フェーズ249・250「次回候補」に残っていた
+  「aircon-pasha・kura-pasha側での同種ログ出力・アラート設計の横展開検討」の進捗を
+  棚卸しした。aircon-pashaフェーズ261(2026-09-25 03:00 UTC)のcloud-monitoring-
+  alert-policy-design.mdで本ventureのフェーズ250設計がaircon-pasha向けに横展開済みで
+  あることを確認した。さらにkura-pasha側を確認したところ、既にkura-pasha自身の
+  intent-classification-failure-observability-design.md・cloud-monitoring-alert-
+  policy-design.mdの2ファイルが作成済みで、`prototype/cloud_function_webhook.py`に
+  `event: chatbot_intent_classification_failed`のWARNINGログ実装(フェーズ174関連)も
+  済んでおり、ログベース指標名`kura_pasha_chatbot_intent_classification_failure_count`
+  までaircon-pasha・course-set-pasha・line-reservation-aiの既存指標名との重複を避ける
+  形で確定済みであることを確認した。したがって本ventureが発案した横展開候補は
+  aircon-pasha・kura-pasha双方で既に完了しており、追加対応は不要と判断した。本venture
+  側のコード変更は無く、回帰確認としてventure全体649件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`、変更前と同数)・schema検証21件(`python3
+  schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: line-reservation-ai向けの別軸検討(既存の
+  意図判定へのFAQ系インテント追加)、またはCloud Monitoringアラート実設定(GCPプロジェクト
+  作成後)の着手可否確認、他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 05:00 UTC(フェーズ251: フェーズ249・250「次回候補」の
+  aircon-pasha・kura-pasha向け横展開検討について、両venture側で既に完了済みで
+  あることを確認し、次回候補リストから除去。コード変更は無く回帰確認のみ、
+  venture全体649件・schema検証21件いずれもパス)
