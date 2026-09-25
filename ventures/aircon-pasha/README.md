@@ -4398,3 +4398,20 @@
   `get_business_name`を追加し、`InMemoryUserProfileStore`が`BlockedButBillingBusinessNameReader`
   Protocolを構造的に満たすことを確認。新規テスト3件、venture全体576件・schema検証25件
   いずれもパス)
+- フェーズ265(2026-09-25 14:00 UTC定例更新): kura-pasha/line-price-revision-2026-check.md
+  (フェーズ176)・line-reservation-ai/line-price-revision-2026-check.mdが「次回候補」として
+  残していた「aircon-pasha・course-set-pashaへの同種確認の横展開」に対応し、本venture
+  固有の影響評価を新規作成した(line-price-revision-2026-check.md)。2026年10月1日実施予定の
+  LINE公式アカウント追加メッセージ料金改定(無料枠30,000通/月超で20万通まで1通3円・
+  20万通超2.5円の2段階体系に一本化)について、本venture最大想定(繁忙期対応プラン月150回×
+  最大4通/回=月600通)でも無料枠の2%程度にとどまり、料金プラン設計(pricing-plan.md)の
+  見直しは不要と判断した。一次情報(lycbiz.com)は他venture同様egressポリシーによりこの
+  実行環境からは確認できず、二次情報源のクロスチェックにとどまる点も明記した。コード変更は
+  無く、回帰確認としてventure全体576件・schema検証25件いずれもパス(変更前と同じ結果)を
+  確認した。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・
+  送信等は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  course-set-pashaへの同種確認の横展開(未対応のまま残っている)、または
+  `ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー承認待ち)。
+- 最終更新: 2026-09-25 14:00 UTC(フェーズ265: line-price-revision-2026-check.md新規作成。
+  2026年10月LINE料金改定について本venture固有の影響評価を実施、料金プラン見直しは不要と
+  判断。コード変更なし、venture全体576件・schema検証25件いずれもパス)
