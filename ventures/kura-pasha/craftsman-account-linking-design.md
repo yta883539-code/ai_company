@@ -594,4 +594,17 @@ schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパスを�
 今回発生していないためpending-approval.mdへの追記なし。line-reservation-ai・
 aircon-pashaについては未確認のまま残っており、次回以降の課題とする。
 
-最終更新: 2026-09-13 07:00 UTC(フェーズ105)
+## 11.12 追記(2026-09-25 21:00 UTC定例更新): line-reservation-ai・aircon-pashaの横断確認が完了
+
+11.11節が「未確認のまま残っており、次回以降の課題とする」としていたline-reservation-ai・
+aircon-pashaへの横断確認は、いずれも別フェーズで完了済みであることを確認した。
+aircon-pashaは2026-09-25フェーズ266(README.md参照、「status enum未配線バグ
+〈checkout_intent/pricing_inquiry/checkout_intent_unclearが…〉」)で自身の同種バグを
+発見・修正済み。line-reservation-aiはフェーズ続き272(README.md参照)で調査した結果、
+そもそも`dispatch_process_event()`の振り分けがフォールスルーで安全側デフォルト
+(`action="forwarded_to_owner"`)に落ちる設計のため、他venture発のバグクラス(未知の
+値で`raise ValueError`に落ちて返信自体が失敗する)は構造上発生し得ないことを確認した。
+これで4venture全てで本バグパターンの横断確認が完了した。
+
+最終更新: 2026-09-25 21:00 UTC(11.12節: line-reservation-ai・aircon-pashaへの横断確認が
+いずれも完了済みであることを確認。コード変更は無く確認のみ)

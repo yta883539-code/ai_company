@@ -4674,3 +4674,36 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-25 13:00 UTC(フェーズ続き271: course-set-pashaのCloud Functions
   2nd gen確定をtech-stack.md・hosting-platform-selection.mdに反映。実装内容への変更は
   無く回帰確認のみ、venture全体854件・schema検証28件いずれもパス)
+- フェーズ続き272(2026-09-25 21:00 UTC定例更新): kura-pasha/craftsman-account-linking-
+  design.md 11.11節が「line-reservation-ai・aircon-pashaについては未確認のまま残って
+  おり、次回以降の課題とする」として残していた横断確認(course-set-pashaフェーズ241で
+  発見された「schema statusにフィールドを追加したまま返信文組み立て関数への配線を
+  忘れ、未知のstatus/intentを受けると`raise ValueError`等に落ちて顧客・契約者への返信が
+  失敗する」バグパターンが本ventureにも存在しないか)のうち、本venture分に対応した
+  (aircon-pashaは2026-09-25フェーズ266で既に自身のstatus enum未配線バグを発見・修正済み
+  であることをREADME.md該当箇所で確認済み)。
+
+  本ventureはbooking_output.schema.jsonの`intent`enum(`new_booking`/`cancel`/`change`/
+  `faq`/`escalation`の5値)を`cloud_function_process_event.py`の`dispatch_process_event()`
+  相当の振り分けロジック(803行目`process()`本体、841行目`intent = output.get("intent")`
+  以降)で処理しており、他ventureの`format_reply_text()`(status enumのswitchで該当が
+  無ければ`raise ValueError`)とは設計思想が異なることを確認した。本venture側は868行目
+  `if intent != "new_booking":`のフォールスルーで、cancel/change/faq(faq_segments無し)/
+  escalation/万一の未知の値のいずれであっても`DispatchResult(action="forwarded_to_owner",
+  detail=intent or "unknown")`という安全側デフォルト(オーナーへの転送)に必ず落ちる設計に
+  なっており、他venture発の「未知の値でraiseして返信自体が失敗する」バグクラスは構造上
+  発生し得ないことを確認した(intent-to-flow-mapping.mdの対応表とも整合)。
+
+  コード変更は無く、既存ロジックの安全性確認のみ。回帰確認としてventure全体854件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema
+  検証28件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。これでkura-pasha 11.11節が残して
+  いた3venture横断確認(aircon-pasha・line-reservation-ai)がいずれも完了した。次回候補:
+  candidate-longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち状況の
+  再確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-25 21:00 UTC(フェーズ続き272: kura-pasha 11.11節が残していた
+  status/intent enum未配線バグパターンの横断確認のうち本venture分を実施。本venture側は
+  `dispatch_process_event()`のフォールスルーが安全側デフォルト〈オーナー転送〉のため
+  同種バグは構造上発生し得ないことを確認。コード変更は無く確認のみ、venture全体854件・
+  schema検証28件いずれもパス)
