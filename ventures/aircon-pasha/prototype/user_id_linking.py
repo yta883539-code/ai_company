@@ -195,7 +195,22 @@ class UserProfile:
     生成成功のたびに`len(history_rows)`分だけ加算する(course-set-pashaの
     `trial_area_count`と同じ位置づけ)。trial-end-notification-design.md 3節・6節の
     「浮いた作業時間の目安」表示(`trial_end_scheduler.estimate_trial_minutes_saved()`)の
-    算出に使う。"""
+    算出に使う。
+
+    `payment_failure_detection_notified_at`はpayment-failure-dunning-design.md 6節が
+    フェーズ146時点で書き残していた懸案(「検知時通知の送信配線が実装された際は、その
+    送信済みを示す新規フラグをOUTCOME_CONFIRMED_IN_GRACE判定に含める拡張が必要になる」)
+    への対応としてフェーズ274で追加した。`payment_failure_detected_at`は
+    `stripe_dispatch.dispatch_stripe_event()`が`push_client`未指定(後方互換経路)の
+    場合、実際には業者へ何も通知しないまま`mark_payment_failure_detected()`経由で
+    書き込まれることがあるため、「決済失敗を検知した」ことと「業者へ検知時通知が実際に
+    届いた」ことを`payment_failure_detected_at`単独では区別できない。本フィールドは
+    `payment_failure.handle_payment_failure_detected()`が検知時通知(段階1)の送信に
+    成功した場合のみ書き込む(`payment_failure_reminder_sent_at`と同じ「一度設定された
+    ら以降不変(次にクリアされるまで)」フィールド)。`payment_recovery_notification.
+    classify_payment_recovery()`は本フィールドと`payment_failure_reminder_sent_at`の
+    いずれかが設定済みであれば「猶予期間中に業者へ既に何らかの通知が届いている」と
+    判断しOUTCOME_CONFIRMED_IN_GRACEを返す。"""
 
     business_name: str
     business_type: str
@@ -211,6 +226,7 @@ class UserProfile:
     payment_failure_detected_at: Optional[datetime] = None
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
+    payment_failure_detection_notified_at: Optional[datetime] = None
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
@@ -255,6 +271,11 @@ class UserProfileStoreProtocol(Protocol):
     フェーズ143で追加した、payment_failure_reminder_scheduler.pyの
     `PaymentFailureReminderSentAtWriter`(`set_trial_end_notified_at`と同じ、送信済み
     フラグ書き込み専用の薄いProtocol)を本クラスが構造的に満たすためのメソッド。
+
+    `get_payment_failure_detection_notified_at`/`set_payment_failure_detection_
+    notified_at`はフェーズ274で追加した、payment_failure.pyの
+    `PaymentFailureStoreProtocol`拡張分を本クラスが構造的に満たすためのメソッド。
+    未知の`user_id`に対する`set_*`は他のno-opメソッドと同じ安全側方針。
 
     `get_current_plan_id`/`set_current_plan_id`はフェーズ161で追加した、
     subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが構造的に
@@ -361,6 +382,14 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_payment_failure_detection_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_detection_notified_at(
         self, user_id: str, value: Optional[datetime]
     ) -> None:
         ...
@@ -512,6 +541,20 @@ class InMemoryUserProfileStore:
             return
         profile.payment_failure_reminder_sent_at = value
 
+    def get_payment_failure_detection_notified_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return (
+            profile.payment_failure_detection_notified_at if profile is not None else None
+        )
+
+    def set_payment_failure_detection_notified_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.payment_failure_detection_notified_at = value
+
     def get_current_plan_id(self, user_id: str) -> Optional[str]:
         profile = self._profiles.get(user_id)
         return profile.current_plan_id if profile is not None else None
@@ -662,6 +705,11 @@ def resolve_linking_code(
             ),
             payment_failure_reminder_sent_at=(
                 existing_profile.payment_failure_reminder_sent_at
+                if existing_profile
+                else None
+            ),
+            payment_failure_detection_notified_at=(
+                existing_profile.payment_failure_detection_notified_at
                 if existing_profile
                 else None
             ),

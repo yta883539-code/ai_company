@@ -27,9 +27,11 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   payment-failure-state-clear-on-subscription-deleted-design.md参照。line-reservation-ai
   フェーズ続き273の横断確認で見つかった「解約確定後も旧state由来のスケジューラ判定が
   誤発火しうる」バグクラスを本ventureでも点検した結果、`payment_store`指定時に
-  `customer.subscription.deleted`受信時点で`payment_failure_detected_at`等4フィールドが
-  クリアされないまま残る欠落を発見し対応した(新規引数は追加せず既存の`payment_store`を
-  再利用)。
+  `customer.subscription.deleted`受信時点で`payment_failure_detected_at`等の
+  フィールドがクリアされないまま残る欠落を発見し対応した(新規引数は追加せず既存の
+  `payment_store`を再利用。クリア対象フィールド数はフェーズ274で4→5に増えたが、
+  `clear_payment_failure_on_success()`を再利用しているため本モジュール側の変更は
+  不要だった)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -141,8 +143,9 @@ class StripeDispatchResult:
     cancellation_rescheduled_notified_user_ids: List[str] = field(default_factory=list)
     cancellation_update_notification_failed_user_ids: List[str] = field(default_factory=list)
     # フェーズ272追加: payment_store指定時、customer.subscription.deleted受信により
-    # payment_failure_detected_at等4フィールド(payment_failure.PaymentFailureStoreProtocol
-    # 参照)をクリアした(=クリア前に何か1つでも設定済みだった)user_id
+    # payment_failure_detected_at等のフィールド(payment_failure.PaymentFailureStoreProtocol
+    # 参照、フェーズ274時点で5フィールド)をクリアした(=クリア前に何か1つでも設定済み
+    # だった)user_id
     # (payment-failure-state-clear-on-subscription-deleted-design.md参照)。
     payment_failure_cleared_on_deletion_user_ids: List[str] = field(default_factory=list)
 
@@ -231,7 +234,8 @@ def dispatch_stripe_event(
     payment-failure-state-clear-on-subscription-deleted-design.md参照): 指定時、
     `payment_failure.clear_payment_failure_on_success()`を呼び、`payment_failure_
     detected_at`・`payment_suspended_at`・`payment_failure_reminder_sent_at`・
-    `payment_suspension_owner_notified_at`の4フィールドをクリアする(`invoice.payment_
+    `payment_suspension_owner_notified_at`・`payment_failure_detection_notified_at`
+    (フェーズ274追加)の5フィールドをクリアする(`invoice.payment_
     succeeded`受信時と同じ関数を再利用、新規のクリア関数は追加しない)。契約が完全に
     終了した後もこれらのフィールドが残っていると、`payment_suspension_scheduler.py`・
     `payment_failure_reminder_scheduler.py`の`select_due_*()`が日次バッチで解約済みの
@@ -355,6 +359,9 @@ def dispatch_stripe_event(
         payment_suspended_at=payment_store.get_payment_suspended_at(user_id),
         payment_failure_reminder_sent_at=(
             payment_store.get_payment_failure_reminder_sent_at(user_id)
+        ),
+        payment_failure_detection_notified_at=(
+            payment_store.get_payment_failure_detection_notified_at(user_id)
         ),
     )
     recovery_result = handle_payment_succeeded(state, payment_store, recovery_push_client)

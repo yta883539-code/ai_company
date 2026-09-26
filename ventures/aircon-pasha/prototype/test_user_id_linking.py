@@ -473,6 +473,85 @@ class InMemoryUserProfileStorePaymentFailureReminderFieldTest(unittest.TestCase)
         self.assertIsNone(store.get_payment_failure_reminder_sent_at("no-such-user"))
 
 
+class InMemoryUserProfileStorePaymentFailureDetectionNotifiedFieldTest(unittest.TestCase):
+    """payment-failure-dunning-design.md 6節の懸案対応としてフェーズ274で追加した
+    payment_failure_detection_notified_atの単体テスト(payment_failure_reminder_sent_at
+    と対称の「一度設定されたら以降不変(次にクリアされるまで)」フィールド)。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_defaults_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_payment_failure_detection_notified_at("u-1"))
+
+    def test_set_and_get(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_payment_failure_detection_notified_at("u-1", _NOW)
+
+        self.assertEqual(store.get_payment_failure_detection_notified_at("u-1"), _NOW)
+        self.assertEqual(store.get("u-1").payment_failure_detection_notified_at, _NOW)
+
+    def test_set_none_clears_the_field(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_payment_failure_detection_notified_at("u-1", _NOW)
+
+        store.set_payment_failure_detection_notified_at("u-1", None)
+
+        self.assertIsNone(store.get_payment_failure_detection_notified_at("u-1"))
+
+    def test_setter_is_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_payment_failure_detection_notified_at("no-such-user", _NOW)
+
+        self.assertIsNone(store.get_payment_failure_detection_notified_at("no-such-user"))
+
+    def test_re_linking_an_existing_user_id_preserves_the_field(self):
+        """resolve_linking_code()の再連携が他の決済失敗系フィールドと同じく本フィールドも
+        引き継ぐことを確認する(test_re_linking_an_existing_user_id_preserves_billing_
+        fieldsと同種のカバレッジ)。"""
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        linking_store.save(
+            "AB12CD",
+            PendingLink(
+                form_submission_id="form-1", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com", issued_at=_NOW,
+            ),
+        )
+        resolve_linking_code("AB12CD", "u-1", linking_store, profile_store, _NOW)
+        profile_store.set_payment_failure_detection_notified_at("u-1", _NOW)
+
+        linking_store.save(
+            "EF34GH",
+            PendingLink(
+                form_submission_id="form-2", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com",
+                issued_at=_NOW + timedelta(hours=1),
+            ),
+        )
+        result = resolve_linking_code(
+            "EF34GH", "u-1", linking_store, profile_store, _NOW + timedelta(hours=1)
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(
+            profile_store.get_payment_failure_detection_notified_at("u-1"), _NOW
+        )
+
+
 class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
     """user-account-linking-design.md 4節向けに追加した`current_plan_id`の単体テスト
     (フェーズ161、subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが

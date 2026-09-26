@@ -45,6 +45,18 @@ payment-failure-dunning-design.md(フェーズ139)3・6節で設計した、決�
   共通化ではなく`push_client`/`recovery_push_client`を別々の引数として渡す方式を採用した
   ため、各モジュールが自分専用の`LinePushDeliveryError`を持つ既存パターンはそのまま
   維持されている(詳細はstripe_dispatch.pyのdispatch_stripe_event() docstring参照)。
+- (フェーズ274で対応) `handle_payment_failure_detected()`実装当初(フェーズ147)から
+  payment_recovery_notification.pyのdocstringに書き残されていた懸案(「検知時通知の
+  送信配線が実装された際は、その送信済みを示す新規フラグをOUTCOME_CONFIRMED_IN_GRACE
+  判定に含める拡張が必要になる」)に対応した。`stripe_dispatch.dispatch_stripe_event()`は
+  `push_client`未指定時(後方互換経路)には`mark_payment_failure_detected()`を直接呼ぶ
+  ため、`payment_failure_detected_at`が設定済みでも業者へ検知時通知が実際に届いたとは
+  限らない。この区別を可能にする専用フィールド`payment_failure_detection_notified_at`
+  (user_id_linking.py)を新設し、`handle_payment_failure_detected()`が送信成功時のみ
+  書き込むようにした。`clear_payment_failure_on_success()`もこのフィールドをあわせて
+  クリアする。`payment_recovery_notification.classify_payment_recovery()`側の判定変更・
+  テストは同フェーズでpayment_recovery_notification.py・test_payment_recovery_
+  notification.py側に加えた。
 
 設計の参照元: payment-failure-dunning-design.md 3・4・6節
 """
@@ -65,7 +77,10 @@ class PaymentFailureStoreProtocol(Protocol):
     """`user_profile/{user_id}`ドキュメントのうち`payment_failure_detected_at`・
     `payment_suspended_at`・`payment_failure_reminder_sent_at`(フェーズ143追加)・
     `payment_suspension_owner_notified_at`(フェーズ255追加、payment-suspension-owner-
-    notification-design.md)の4フィールドを対象にした薄いインターフェース。"""
+    notification-design.md)・`payment_failure_detection_notified_at`(フェーズ274追加、
+    検知時通知〈段階1〉が実際に業者へ届いたかどうかを`payment_failure_detected_at`とは
+    独立に追跡するためのフラグ。design 6節参照)の5フィールドを対象にした薄い
+    インターフェース。"""
 
     def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
         ...
@@ -97,6 +112,14 @@ class PaymentFailureStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_payment_failure_detection_notified_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_payment_failure_detection_notified_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
 
 def mark_payment_failure_detected(
     store: PaymentFailureStoreProtocol, user_id: str, event_time: datetime,
@@ -121,12 +144,16 @@ def clear_payment_failure_on_success(
     (逆引き後)に呼ぶ。`payment_failure_detected_at`・`payment_suspended_at`・
     `payment_failure_reminder_sent_at`(フェーズ143追加)・`payment_suspension_owner_
     notified_at`(フェーズ255追加、payment-suspension-owner-notification-design.md
-    7節)の4フィールドすべてをクリアする(段階を問わず通常運用へ復帰させ、次回の決済
-    失敗検知時に再びリマインド・オーナー通知の対象となるようにする)。
+    7節)・`payment_failure_detection_notified_at`(フェーズ274追加)の5フィールド
+    すべてをクリアする(段階を問わず通常運用へ復帰させ、次回の決済失敗検知時に再び
+    検知時通知・リマインド・オーナー通知の対象となるようにする)。
     `payment_suspension_owner_notified_at`をここでクリアしないと、同じユーザーが
     将来再び決済に失敗して制限モードへ移行した際に過去の通知済み日時が残ったままとなり、
-    二度とオーナー通知が飛ばなくなる(design 7節参照)。いずれか1つでも設定済みだった
-    場合に`True`を返す(deletion_candidate.pyのclear_deletion_candidate_on_
+    二度とオーナー通知が飛ばなくなる(design 7節参照)。`payment_failure_detection_
+    notified_at`も同様にクリアしないと、次回の決済失敗検知時に(検知時通知が実際には
+    再送されているにもかかわらず)過去の通知済み日時が残ったままとなり、
+    `classify_payment_recovery()`の判定に古い状態が紛れ込む。いずれか1つでも設定済み
+    だった場合に`True`を返す(deletion_candidate.pyのclear_deletion_candidate_on_
     subscription_reactivated()と同じ、呼び出し側がログ確認できる冪等設計)。すべて
     未設定(決済失敗を検知したことが一度もない通常のユーザー)の場合は何もせず`False`を
     返す。
@@ -139,17 +166,22 @@ def clear_payment_failure_on_success(
     was_owner_notified = (
         store.get_payment_suspension_owner_notified_at(user_id) is not None
     )
+    was_detection_notified = (
+        store.get_payment_failure_detection_notified_at(user_id) is not None
+    )
     if (
         not was_failure_detected
         and not was_suspended
         and not was_reminder_sent
         and not was_owner_notified
+        and not was_detection_notified
     ):
         return False
     store.set_payment_failure_detected_at(user_id, None)
     store.set_payment_suspended_at(user_id, None)
     store.set_payment_failure_reminder_sent_at(user_id, None)
     store.set_payment_suspension_owner_notified_at(user_id, None)
+    store.set_payment_failure_detection_notified_at(user_id, None)
     return True
 
 
@@ -262,7 +294,15 @@ def handle_payment_failure_detected(
     通知の送信に成功した場合のみ`mark_payment_failure_detected()`で状態を書き込む
     (handle_payment_succeeded()と対称に、送信失敗時は状態を一切変更せず
     `PaymentFailureDetectionResult(notified=False)`を返す。呼び出し側がHTTP 5xxを返して
-    Webhookリトライに委ねれば、次の再送で送信・状態書き込みが再試行される)。"""
+    Webhookリトライに委ねれば、次の再送で送信・状態書き込みが再試行される)。
+
+    送信成功時はあわせて`payment_failure_detection_notified_at`(フェーズ274追加)も
+    `event_time`で書き込む。`mark_payment_failure_detected()`単体は
+    `dispatch_stripe_event()`の`push_client`未指定時(後方互換経路)にも直接呼ばれ、
+    その場合は業者へ実際には何も通知されないため、`payment_failure_detected_at`
+    だけでは「検知した」ことと「業者へ通知が届いた」ことを区別できない。本関数を
+    経由した場合のみ後者が保証されるため、専用フィールドへ分けて記録する
+    (design 6節・classify_payment_recovery()参照)。"""
     contents = build_payment_failure_detected_flex_message()
     try:
         push_client.send_flex_message(user_id, PAYMENT_FAILURE_DETECTED_ALT_TEXT, contents)
@@ -270,4 +310,5 @@ def handle_payment_failure_detected(
         return PaymentFailureDetectionResult(notified=False)
 
     mark_payment_failure_detected(store, user_id, event_time)
+    store.set_payment_failure_detection_notified_at(user_id, event_time)
     return PaymentFailureDetectionResult(notified=True, event_time=event_time)

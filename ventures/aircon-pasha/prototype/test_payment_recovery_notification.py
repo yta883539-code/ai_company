@@ -92,6 +92,19 @@ class ClassifyPaymentRecoveryTest(unittest.TestCase):
         )
         self.assertEqual(classify_payment_recovery(state), OUTCOME_SILENT_RESET)
 
+    def test_detected_with_detection_notified_but_no_reminder_is_confirmed_in_grace(self):
+        # フェーズ274: 検知時通知(段階1)は届いたが3日前リマインド(段階2)はまだの
+        # ユーザーも、リマインド後と同じくOUTCOME_CONFIRMED_IN_GRACEとして扱う(業者へ
+        # 既に何らかの通知が届いているため、通知せず状態のみリセットするのは不適切)。
+        state = PaymentFailureReminderUserState(
+            user_id="u1",
+            payment_failure_detected_at=_EVENT_TIME - timedelta(days=2),
+            payment_failure_detection_notified_at=_EVENT_TIME - timedelta(days=2),
+        )
+        self.assertEqual(
+            classify_payment_recovery(state), OUTCOME_CONFIRMED_IN_GRACE
+        )
+
 
 class MessageBuilderTest(unittest.TestCase):
     def test_recovered_message_has_no_footer_button(self):
@@ -172,6 +185,34 @@ class HandlePaymentSucceededTest(unittest.TestCase):
         profile = store.get("U1")
         self.assertIsNone(profile.payment_failure_detected_at)
         self.assertIsNone(profile.payment_failure_reminder_sent_at)
+
+    def test_confirmed_in_grace_via_detection_notified_at_sends_and_clears_state(self):
+        # フェーズ274: 検知時通知のみ送信済み(リマインドはまだ)の決済成功でも、
+        # リマインド送信済みの場合と同じ「解消されました」通知が届き、状態がリセットされる。
+        store = _store_with_user(
+            payment_failure_detected_at=_EVENT_TIME - timedelta(days=2),
+            payment_failure_detection_notified_at=_EVENT_TIME - timedelta(days=2),
+        )
+        push = InMemoryLinePushClient()
+        state = PaymentFailureReminderUserState(
+            user_id="U1",
+            payment_failure_detected_at=_EVENT_TIME - timedelta(days=2),
+            payment_failure_detection_notified_at=_EVENT_TIME - timedelta(days=2),
+        )
+
+        result = handle_payment_succeeded(state, store, push)
+
+        self.assertEqual(result.outcome, OUTCOME_CONFIRMED_IN_GRACE)
+        self.assertTrue(result.notified)
+        self.assertTrue(result.state_reset)
+        self.assertEqual(len(push.sent), 1)
+        _user_id, _alt_text, contents = push.sent[0]
+        self.assertEqual(
+            contents["body"]["contents"][0]["text"], PAYMENT_CONFIRMED_IN_GRACE_MESSAGE
+        )
+        profile = store.get("U1")
+        self.assertIsNone(profile.payment_failure_detected_at)
+        self.assertIsNone(profile.payment_failure_detection_notified_at)
 
     def test_recovered_from_suspension_sends_and_clears_state(self):
         store = _store_with_user(

@@ -272,3 +272,19 @@ Stripe Billing Portalの一時URLを取得する差し替え可能な口)をそ�
   引き続きオーナー承認待ち(pending-approval.md参照)。
 - 猶予期間7日・リマインド1回のみという値は、line-reservation-aiと同じく実測データの
   無い暫定値のまま。
+- ~~4節末尾でフェーズ146時点の懸案として書き残していた「検知時通知の送信配線が実装
+  された際は、その送信済みを示す新規フラグをOUTCOME_CONFIRMED_IN_GRACE判定に含める
+  拡張が必要になる」(payment_recovery_notification.pyのdocstring参照)。~~ →
+  フェーズ274で対応済み。`payment_failure_detected_at`は`stripe_dispatch.
+  dispatch_stripe_event()`が`push_client`未指定(後方互換経路)の場合、実際には業者へ
+  何も通知しないまま書き込まれることがあるため、「検知した」ことと「業者へ検知時通知が
+  実際に届いた」ことを区別できる新規フィールド`payment_failure_detection_notified_at`
+  (user_id_linking.py)を追加した。`payment_failure.handle_payment_failure_detected()`が
+  送信成功時のみ書き込み、`clear_payment_failure_on_success()`もあわせてクリアする。
+  `payment_recovery_notification.classify_payment_recovery()`は本フィールドと
+  `payment_failure_reminder_sent_at`のいずれかが設定済みであればOUTCOME_CONFIRMED_IN_
+  GRACEを返すよう拡張した。テスト11件追加(test_user_id_linking.py 5件・
+  test_payment_failure.py 3件・test_payment_recovery_notification.py 2件・
+  test_stripe_dispatch.py 1件)、venture全体596件全件パス・schema検証25件パスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。

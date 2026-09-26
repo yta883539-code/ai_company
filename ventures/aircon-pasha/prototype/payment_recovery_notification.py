@@ -18,15 +18,14 @@ line-reservation-aiとの違い(移植にあたっての設計判断):
 - line-reservation-aiは猶予期間中の「検知通知」自体を送信する経路
   (cloud_function_send_dunning_notifications.py)を既に持ち、`sent_event_keys`に
   "detected"が記録されるため、それを「猶予期間中に一度でも通知済みか」の判定に使えた。
-  一方、本ventureはdesign 4節「決済失敗検知時」の通知を実際に送信する配線がまだ
-  実装されておらず(design 6節「残課題」参照、次回以降の課題のまま)、
-  `payment_failure_detected_at`が設定されていても業者はまだ何も知らされていない
-  可能性が高い。したがって本モジュールでは「猶予期間中に一度でも通知済みか」の判定を
-  `payment_failure_reminder_sent_at`の設定有無のみで行う(現時点で本venture唯一の
-  送信済みフラグのため)。これはline-reservation-aiより単純化したというより、検知時
-  通知の送信配線自体が本venture側でまだ存在しないという実装状況をそのまま反映した
-  結果であり、検知時通知の送信配線が実装された際は、その送信済みを示す新規フラグも
-  この判定に含める拡張が必要になる(下記「今後の課題」参照)。
+  本ventureも当初(フェーズ146時点)は design 4節「決済失敗検知時」の通知を実際に
+  送信する配線がまだ実装されておらず、「猶予期間中に一度でも通知済みか」の判定を
+  `payment_failure_reminder_sent_at`の設定有無のみで行っていたが、フェーズ147で
+  `payment_failure.handle_payment_failure_detected()`により検知時通知の送信配線が
+  実装されたため、フェーズ274で`payment_failure_detection_notified_at`
+  (user_id_linking.py)を新設し、`payment_failure_reminder_sent_at`と合わせて
+  いずれか一方が設定済みであれば「猶予期間中に何らかの通知が既に届いている」と
+  判定するよう`classify_payment_recovery()`を拡張した(下記「今後の課題」参照)。
 
 位置づけ:
 - 実際のWebhook受信・LINE Push Message APIでの送信・決済代行サービスとの契約はいずれも
@@ -34,17 +33,21 @@ line-reservation-aiとの違い(移植にあたっての設計判断):
   どの通知を送るべきか(あるいは送らないべきか)」の判定ロジックと、送信・状態リセットの
   配線を実クラウド接続なしで検証可能にしたもの。
 - `PaymentFailureReminderUserState`(payment_failure_reminder_scheduler.py)をそのまま
-  入力状態として再利用する(同じ3フィールド(payment_failure_detected_at・
-  payment_suspended_at・payment_failure_reminder_sent_at)を参照するだけのため、
-  新規dataclassは起こさない)。
+  入力状態として再利用する(同じフィールド(payment_failure_detected_at・
+  payment_suspended_at・payment_failure_reminder_sent_at・payment_failure_detection_
+  notified_at〈フェーズ274追加〉)を参照するだけのため、新規dataclassは起こさない)。
 - 状態リセット自体はpayment_failure.pyの`clear_payment_failure_on_success()`をそのまま
-  呼び出す(3フィールドを一括でクリアする既存の冪等ロジックを再利用し、本モジュールでは
+  呼び出す(フィールドを一括でクリアする既存の冪等ロジックを再利用し、本モジュールでは
   独自にクリア処理を書かない)。
 
 今後の課題:
-- design 4節「決済失敗検知時」の通知を実際に送信する配線(段階1)自体が本venture未実装の
+- ~~design 4節「決済失敗検知時」の通知を実際に送信する配線(段階1)自体が本venture未実装の
   ままであり、実装された場合は「送信済みか」を示す新規フラグをOUTCOME_CONFIRMED_IN_GRACE
-  判定に含める拡張が必要になる(上記説明参照)。
+  判定に含める拡張が必要になる(上記説明参照)。~~ → フェーズ147で配線自体は実装済みと
+  なり(payment_failure.handle_payment_failure_detected())、フェーズ274で本懸案の
+  新規フラグ(`payment_failure_detection_notified_at`)を追加し
+  `classify_payment_recovery()`に反映して解消した(上記「line-reservation-aiとの違い」
+  節参照)。
 - (解消済み・フェーズ148: stripe_dispatch.pyのdispatch_stripe_event()から`recovery_push_
   client`引数経由で`handle_payment_succeeded()`を呼び出す配線を実装した。実際のStripe
   Webhook `invoice.payment_succeeded`受信エンドポイント自体〈HTTPハンドラ・実LINE Push
@@ -80,18 +83,24 @@ def classify_payment_recovery(state: PaymentFailureReminderUserState) -> str:
       「生成を再開しました」と案内する(PAYMENT_RECOVERED_MESSAGE)。
     - `payment_failure_detected_at`が未設定 → そもそも決済失敗を検知したことがない
       通常の毎月課金成功。通知不要(OUTCOME_NO_DUNNING)。
-    - 上記いずれでもなく`payment_failure_reminder_sent_at`が設定済み → 猶予期間中
-      (段階2)にリマインドを受け取った後の決済成功。生成は止まっていないため「再開」とは
-      書かず「解消しました」と案内する(PAYMENT_CONFIRMED_IN_GRACE_MESSAGE)。
-    - 上記いずれでもない(検知はされているがリマインド未送信) → 本ventureにはまだ
-      当該ユーザーへ届いた通知が(現状の実装上)存在しないため、通知せず状態のみ
-      リセットする(OUTCOME_SILENT_RESET)。
+    - 上記いずれでもなく`payment_failure_reminder_sent_at`・`payment_failure_
+      detection_notified_at`(フェーズ274追加)のいずれかが設定済み → 猶予期間中
+      (段階1の検知時通知、または段階2のリマインド)に何らかの通知を既に受け取った後の
+      決済成功。生成は止まっていないため「再開」とは書かず「解消しました」と案内する
+      (PAYMENT_CONFIRMED_IN_GRACE_MESSAGE)。
+    - 上記いずれでもない(検知はされているが、検知時通知・リマインドいずれも未送信) →
+      `stripe_dispatch.dispatch_stripe_event()`が`push_client`未指定(後方互換経路)で
+      `payment_failure_detected_at`のみを書き込んだ場合等、当該ユーザーへ実際に届いた
+      通知が存在しないため、通知せず状態のみリセットする(OUTCOME_SILENT_RESET)。
     """
     if state.payment_suspended_at is not None:
         return OUTCOME_RECOVERED_FROM_SUSPENSION
     if state.payment_failure_detected_at is None:
         return OUTCOME_NO_DUNNING
-    if state.payment_failure_reminder_sent_at is not None:
+    if (
+        state.payment_failure_reminder_sent_at is not None
+        or state.payment_failure_detection_notified_at is not None
+    ):
         return OUTCOME_CONFIRMED_IN_GRACE
     return OUTCOME_SILENT_RESET
 
@@ -278,12 +287,31 @@ def _demo() -> None:
     )
     print("2) 猶予期間中(リマインド後)の決済成功:", handle_payment_succeeded(state2, store2, push))
 
-    # 3) 猶予期間中(まだ何も送信していない)の決済成功: 通知せず状態のみリセット。
+    # 3) 猶予期間中(検知は記録されたが実際には何も送信していない、push_client未指定の
+    #    後方互換経路でmark_payment_failure_detected()が直接呼ばれた場合等)の決済成功:
+    #    通知せず状態のみリセット。
     store3 = _store_with_user("u3", payment_failure_detected_at=_EVENT_TIME)
     state3 = PaymentFailureReminderUserState(
         user_id="u3", payment_failure_detected_at=_EVENT_TIME
     )
     print("3) 猶予期間中(未通知)の決済成功:", handle_payment_succeeded(state3, store3, push))
+
+    # 3') フェーズ274追加: 猶予期間中(検知時通知〈段階1〉のみ送信済み、3日前リマインドは
+    #     まだ)の決済成功: 「解消されました」の案内が届く(2)と同じ扱い)。
+    store3b = _store_with_user(
+        "u3b",
+        payment_failure_detected_at=_EVENT_TIME,
+        payment_failure_detection_notified_at=_EVENT_TIME,
+    )
+    state3b = PaymentFailureReminderUserState(
+        user_id="u3b",
+        payment_failure_detected_at=_EVENT_TIME,
+        payment_failure_detection_notified_at=_EVENT_TIME,
+    )
+    print(
+        "3') 猶予期間中(検知時通知のみ送信済み)の決済成功:",
+        handle_payment_succeeded(state3b, store3b, push),
+    )
 
     # 4) 決済失敗を検知したことがない通常の課金成功: 何もしない。
     store4 = _store_with_user("u4")

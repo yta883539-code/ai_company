@@ -573,6 +573,38 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         self.assertEqual(len(recovery_push_client.sent), 0)
         self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
 
+    def test_confirmed_in_grace_when_only_detection_notified_at_is_set(self):
+        # フェーズ274: 検知時通知(段階1)のみ送信済み(3日前リマインドはまだ)の状態でも、
+        # payment_store経由でdispatch_stripe_event()がhandle_payment_succeeded()へ
+        # payment_failure_detection_notified_atを渡すことを確認する(通知が届く=
+        # OUTCOME_SILENT_RESETではなくOUTCOME_CONFIRMED_IN_GRACEになる)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_failure_detection_notified_at(
+            _USER_ID, datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        recovery_push_client = InMemoryRecoveryPushClient()
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, [_USER_ID])
+        self.assertEqual(len(recovery_push_client.sent), 1)
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+        self.assertIsNone(
+            payment_store.get_payment_failure_detection_notified_at(_USER_ID)
+        )
+
     def test_no_dunning_when_recovery_push_client_provided_and_nothing_was_set(self):
         # フェーズ148: 決済失敗を検知したことがない通常の課金成功では通知も状態変更もしない。
         store = InMemoryProfileDeletionCandidateStore()

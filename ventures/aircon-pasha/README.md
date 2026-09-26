@@ -4619,3 +4619,33 @@
   payment-failure-state-clear-on-subscription-deleted-design.md 6節に最新状況として
   記録。コード変更は無くドキュメント更新のみ、venture全体585件・schema検証25件
   いずれもパス)
+- フェーズ274(2026-09-26 22:00 UTC定例更新): payment_recovery_notification.pyの
+  docstringにフェーズ146時点から書き残されていた懸案(「検知時通知の送信配線
+  〈フェーズ147〉が実装された際は、その送信済みを示す新規フラグをOUTCOME_CONFIRMED_
+  IN_GRACE判定に含める拡張が必要になる」)に対応した。実際に`stripe_dispatch.
+  dispatch_stripe_event()`は`push_client`未指定時(後方互換経路)には`mark_payment_
+  failure_detected()`を直接呼ぶため、`payment_failure_detected_at`が設定済みでも
+  業者へ検知時通知が実際に届いたとは限らず、「検知した」ことと「通知が届いた」ことを
+  区別できていなかった(実運用でpush_client配線後にこのギャップが放置されると、猶予
+  期間中に検知時通知だけを受け取った業者が決済を成功させても「解消されました」の
+  フォローアップが届かず、状態だけ静かにリセットされてしまうバグとなる)。新規フィールド
+  `payment_failure_detection_notified_at`(user_id_linking.py)を追加し、
+  `payment_failure.handle_payment_failure_detected()`が検知時通知の送信成功時のみ
+  書き込むようにした(`clear_payment_failure_on_success()`もあわせてクリア)。
+  `payment_recovery_notification.classify_payment_recovery()`は本フィールドと
+  `payment_failure_reminder_sent_at`のいずれかが設定済みであればOUTCOME_CONFIRMED_IN_
+  GRACEを返すよう拡張し、`stripe_dispatch.py`の`invoice.payment_succeeded`分岐にも
+  新フィールドの読み取りを配線した。テスト11件追加(test_user_id_linking.py 5件
+  〈get/set・クリア・再連携時の引き継ぎ〉・test_payment_failure.py 3件・
+  test_payment_recovery_notification.py 2件・test_stripe_dispatch.py 1件)、
+  venture全体596件全件パス(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証25件パス(`python3 schema/validate_test_cases.py`)を
+  確認した。詳細はpayment-failure-dunning-design.md 6節参照。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: `ChatbotIntentClassificationClient`実クライアント接続
+  (実LLM接続、オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 22:00 UTC(フェーズ274: payment_recovery_notification.pyが
+  フェーズ146から書き残していた懸案に対応し、新規フィールド`payment_failure_
+  detection_notified_at`を追加。検知時通知のみ送信済み〈リマインド未送信〉のユーザーが
+  決済成功した場合もOUTCOME_CONFIRMED_IN_GRACEとして正しく復旧通知が届くように修正。
+  テスト11件追加、venture全体596件・schema検証25件いずれもパス)

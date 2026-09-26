@@ -39,12 +39,15 @@ class PaymentFailureReminderUserState:
 
     payment_failure_detected_at・payment_suspended_at・payment_failure_reminder_sent_at
     はuser_id_linking.pyのUserProfile(フェーズ140・143で追加した3フィールド)をそのまま
-    反映する。"""
+    反映する。payment_failure_detection_notified_atはフェーズ274で追加した4フィールド目
+    (`select_due_payment_failure_reminders()`自体は参照しないが、本stateを共有する
+    payment_recovery_notification.classify_payment_recovery()が参照するため保持する)。"""
 
     user_id: str
     payment_failure_detected_at: Optional[datetime]
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
+    payment_failure_detection_notified_at: Optional[datetime] = None
 
 
 def select_due_payment_failure_reminders(
