@@ -4765,3 +4765,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `payment_failure_detected_at`・`sent_event_keys`・`suspension_reason`を
   `store_profile_store`の書き込みと同じく通知成否とは独立にクリア・更新するよう配線。
   テスト3件追加、venture全体866件・schema検証28件いずれもパス)
+- フェーズ続き276(2026-09-26 20:00 UTC定例更新): suspension-reason-new-booking-block-
+  design.md(フェーズ続き274)が残した棚卸し課題「`owner_faq_router.py`等、他の応答経路への
+  同種の配線が必要かどうか」を確認し、new-booking-suspension-guard-parity-review.mdを新規
+  作成した。(1)`owner_faq_router.py`はオーナー自身が制限モード中に自己解決するための経路
+  であり配線対象外が正しいと確認、(2)`_handle_candidate_selection()`/`_handle_details()`
+  (候補提示後の継続ターン)は`_start_new_booking()`時点でのsuspension_reason評価のみに
+  依存しており、候補提示後・確定前にsuspension_reasonが停止値へ変わる理論上のケースでは
+  再チェックが無いまま確定してしまうギャップを発見した。発生頻度が極めて低い理論上のケース
+  であり、修正にはchange_context相当の状態をターンをまたいで保持する設計変更が必要になる
+  ため、次回以降の課題として切り出すこととし今回はコード変更を行わない判断とした、
+  (3)`_handle_faq`/`_handle_escalation`/`_handle_cancel`はいずれも新規予約を作成しない経路
+  のため対象外で正しいことを確認した。コード変更は無く確認・文書化のみのため、venture全体
+  866件・schema検証28件のテスト結果に変化は無い。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)候補longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち
+  状況の再確認、(2)`_handle_candidate_selection`/`_handle_details`のsuspension_reason再
+  チェック追加の設計検討(優先度低)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 20:00 UTC(フェーズ続き276: suspension_reasonブロックガードの適用
+  範囲棚卸し。owner_faq_router.pyは対象外で正しいことを確認、候補提示後の継続ターンに
+  再チェックが無い理論上のギャップを発見し次回課題として記録。コード変更は無く確認・
+  文書化のみ)
