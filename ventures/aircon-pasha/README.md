@@ -4439,3 +4439,20 @@
   Cloud Functions 2nd gen確定のtech-stack.mdへの反映のうち、本venture分に対応。
   「想定コンポーネント2」に採用世代確定の経緯を追記。コード変更は無く回帰確認のみ、
   venture全体576件・schema検証25件いずれもパス)
+- フェーズ267(2026-09-26 03:00 UTC定例更新): フェーズ266「次回候補」に残っていた
+  「kura-pasha側のtech-stack.mdへの同決定の反映」を確認したところ、kura-pasha側は
+  本フェーズの直後(kura-pashaフェーズ180、2026-09-25 20:00 UTC定例更新コミット内)で
+  既に反映済みであることが判明した(kura-pasha/tech-stack.md「想定コンポーネント2」に
+  同内容の記載あり)。フェーズ266時点ではまだ着手されておらず「次回候補」として正しい
+  記載だったが、その後の解消を追跡できておらず本README側の記載が古いまま残っていた
+  (kura-pasha側でも同種の記載漏れが繰り返し発生していたのと同じ経緯)。コード変更は
+  無くドキュメント更新のみのため、回帰確認としてventure全体576件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`、変更前と同数)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: `ChatbotIntentClassificationClient`
+  実クライアント接続(実LLM接続、オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 03:00 UTC(フェーズ267: フェーズ266が残していた「kura-pasha側の
+  tech-stack.md反映」次回候補について、kura-pasha側で既に解消済み〈フェーズ180〉で
+  あることを確認し記載を更新。コード変更は無くドキュメント更新のみ、venture全体576件・
+  schema検証25件いずれもパス)
