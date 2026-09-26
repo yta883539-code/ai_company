@@ -199,6 +199,23 @@ class TrialPeriodOverError(Exception):
     """
 
 
+class SubscriptionCanceledError(Exception):
+    """`subscription_status="canceled"`(customer.subscription.deleted受信済み、
+    解約確定済み)のworkshopから生成リクエストが来た場合に送出する(フェーズ188、
+    subscription-canceled-immediate-block-design.md)。
+
+    フェーズ52時点の判定(`is_trial_period_over(...) and subscription_status != "active"`)は
+    "canceled"を"trialing"・"past_due"と同列の「未契約扱い」としてしか扱っておらず、
+    `is_trial_period_over`がFalseのまま(ローカルトライアル30日未経過かつ初回生成未使用)の
+    workshopが解約された場合、解約確定後もトライアル期間が尽きるまで生成できてしまう欠落が
+    あった。解約はトライアル進捗に関わらず即時ブロックすべきであるため、専用の分岐・例外を
+    設けた。
+
+    WorkshopNotLinkedError・TrialPeriodOverError相当の扱いとし、呼び出し側は
+    SUBSCRIPTION_CANCELED_NOTICEの文言に変換して返す想定。
+    """
+
+
 REMOVED_MEMBER_NOTICE = (
     "所属していたworkshopのプラン変更により、現在はご利用いただけません。"
     "利用を続けるには契約者様に新規のworkshopへの再招待をご依頼ください。"
@@ -215,6 +232,13 @@ PAYMENT_SUSPENDED_NOTICE = (
     "お支払い手続きが確認できないため、受注内容整理メモ・納品案内・お手入れ案内の生成を"
     "一時停止しています。\n"
     "お支払い方法をご確認いただければ、確認完了後に自動で生成を再開します。"
+)
+
+# subscription-canceled-immediate-block-design.md(フェーズ188)。
+SUBSCRIPTION_CANCELED_NOTICE = (
+    "ご契約は解約手続きが完了しているため、受注内容整理メモ・納品案内・お手入れ案内の生成を"
+    "停止しています。\n"
+    "引き続きご利用いただくには、改めてお申し込みください。"
 )
 
 
@@ -968,6 +992,11 @@ def process_generation_request(
     # (payment-failure-dunning-design.md 3節「修正するバグ」)。"past_due"の場合は
     # is_trial_period_overを経由せず、is_payment_suspended()(検知時刻から7日間の猶予)
     # のみで生成可否を判定する専用分岐に切り出す。
+    # フェーズ188: "canceled"(解約確定済み)も、フェーズ52時点ではis_trial_period_over
+    # 経由の分岐に委ねていたため、ローカルトライアル(30日/初回生成1回)が終わっていない
+    # workshopが解約された場合に生成がブロックされない欠落があった
+    # (subscription-canceled-immediate-block-design.md参照)。解約はトライアル進捗に
+    # 関わらず即時ブロックすべきため、past_dueと同様に専用分岐へ切り出す。
     subscription_status = workshop_store.get_subscription_status(workshop_id)
     if subscription_status == "past_due":
         if is_payment_suspended(workshop_id, now, workshop_store):
@@ -975,6 +1004,10 @@ def process_generation_request(
                 f"workshop_id={workshop_id!r}は決済失敗の猶予期間(7日)を超えたため"
                 "生成を一時停止します"
             )
+    elif subscription_status == "canceled":
+        raise SubscriptionCanceledError(
+            f"workshop_id={workshop_id!r}は解約確定済みのため生成を停止します"
+        )
     elif is_trial_period_over(workshop_id, now, workshop_store) and subscription_status != "active":
         raise TrialPeriodOverError(
             f"workshop_id={workshop_id!r}はトライアル終了済みかつ有償契約未確認のため"

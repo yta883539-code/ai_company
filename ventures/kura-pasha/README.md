@@ -4035,3 +4035,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   発見した`customer.subscription.deleted`受信時の`payment_failure_detected_at`クリア
   漏れを修正。course-set-pashaに同種ギャップが未対応のまま残っていることも確認
   〈次回以降の課題〉。テスト2件追加、venture全体173件・schema検証32件いずれもパス)
+- フェーズ188(2026-09-26 19:00 UTC定例更新): `process_generation_request()`の生成可否
+  判定に残っていた別系統の欠落を発見・修正した(subscription-canceled-immediate-
+  block-design.md新規作成)。フェーズ52時点の判定は`subscription_status == "canceled"`
+  (解約確定済み)を専用分岐なしに「トライアル終了判定」経由の分岐に委ねていたため、
+  workshop作成直後に有償プランへcheckoutし初回生成を一度も使わないまま即日解約した
+  場合、`is_trial_period_over()`が依然Falseとなり生成がブロックされず、ローカルトライアル
+  の残り期間(最大30日)いっぱい解約済みworkshopが生成を使い続けられてしまう理論上の
+  バグが存在した。`past_due`(フェーズ56)と同様に`canceled`を専用分岐へ切り出し、
+  新設した`SubscriptionCanceledError`でトライアル進捗に関わらず無条件にブロックする
+  よう変更した(`SUBSCRIPTION_CANCELED_NOTICE`文言も新設)。テスト2件追加
+  (`test_process_generation_request_raises_subscription_canceled_within_trial_window`・
+  `test_process_generation_request_raises_subscription_canceled_after_trial_period_over`)、
+  `test_usage_counter_workshop.py`単体PASS=129・FAIL=0(変更前127+新規2)、
+  `run_all_tests.py`でventure全16ファイルすべてOK、`schema/validate_test_cases.py`
+  32件パス(変更前と同じ結果)いずれも確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 他venture(aircon-pasha・course-set-pasha・line-reservation-ai)の
+  生成可否判定に同種の「解約という終端イベントが専用分岐を持たない既存判定に紛れて
+  扱われない」パターンが無いかの横断確認、または実Firestore・実LINE Messaging API接続
+  (オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 19:00 UTC(フェーズ188: `subscription_status == "canceled"`が
+  専用分岐を持たずローカルトライアル終了判定に委ねられていたため、解約済みworkshopが
+  最大30日間生成を使い続けられてしまう欠落を修正。`SubscriptionCanceledError`新設。
+  テスト2件追加、venture全体〈test_usage_counter_workshop.py単体〉129件・schema検証
+  32件いずれもパス)

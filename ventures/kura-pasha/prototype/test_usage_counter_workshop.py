@@ -15,6 +15,7 @@ from usage_counter_workshop import (
     InvalidSubscriptionStatusError,
     MemberRemovedError,
     PaymentSuspendedError,
+    SubscriptionCanceledError,
     TrialPeriodOverError,
     UnknownPlanError,
     WorkshopNotLinkedError,
@@ -589,6 +590,57 @@ def test_process_generation_request_raises_trial_period_over_when_not_active():
     check("ブロック時usage_counter_storeには何も書き込まれない", counters.get("W16") is None)
 
 
+def test_process_generation_request_raises_subscription_canceled_within_trial_window():
+    """フェーズ188: subscription-canceled-immediate-block-design.mdが指摘した欠落の
+    再現・解消確認。ローカルトライアル(30日・初回生成1回)がまだ終わっていない
+    (trial_start_atから30日未経過かつtrial_generation_used=False)workshopが解約
+    (subscription_status="canceled")された場合、フェーズ52時点の実装ではis_trial_
+    period_overがFalseのため生成がブロックされずに通ってしまっていた。SubscriptionCanceled
+    Errorが送出され、usage_counterへの加算に到達しないことを検証する。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U19", "W19")
+    workshops.set_plan("W19", "standard")
+    workshops.set_members("W19", "U19", ["U19"])
+    workshops.set_trial_start_at("W19", FEB)
+    workshops.set_subscription_status("W19", "canceled")
+
+    try:
+        process_generation_request("U19", FEB + timedelta(days=1), profiles, workshops, counters)
+        check(
+            "トライアル未終了でも解約済み(canceled)ならSubscriptionCanceledErrorが送出される",
+            False,
+        )
+    except SubscriptionCanceledError:
+        check(
+            "トライアル未終了でも解約済み(canceled)ならSubscriptionCanceledErrorが送出される",
+            True,
+        )
+    check(
+        "ブロック時usage_counter_storeには何も書き込まれない(canceled版)",
+        counters.get("W19") is None,
+    )
+
+
+def test_process_generation_request_raises_subscription_canceled_after_trial_period_over():
+    """解約済み(canceled)は、ローカルトライアルが既に終了している場合も引き続き
+    ブロックされることを確認する(フェーズ52時点の分岐でもTrialPeriodOverErrorとして
+    ブロックされていたケースの回帰確認。フェーズ188以降はSubscriptionCanceledErrorに
+    差し替わる)。"""
+    profiles, workshops, counters = make_stores()
+    profiles.link("U19B", "W19B")
+    workshops.set_plan("W19B", "standard")
+    workshops.set_members("W19B", "U19B", ["U19B"])
+    workshops.set_trial_start_at("W19B", FEB)
+    workshops.set_trial_generation_used("W19B", True)
+    workshops.set_subscription_status("W19B", "canceled")
+
+    try:
+        process_generation_request("U19B", MAR, profiles, workshops, counters)
+        check("トライアル終了後の解約済み(canceled)もSubscriptionCanceledErrorが送出される", False)
+    except SubscriptionCanceledError:
+        check("トライアル終了後の解約済み(canceled)もSubscriptionCanceledErrorが送出される", True)
+
+
 def test_process_generation_request_allows_generation_when_subscription_active():
     """トライアルが終了していても、subscription_statusが"active"
     (Stripe Webhook経由で更新済み)であれば生成が継続できることを検証する。"""
@@ -1126,6 +1178,8 @@ if __name__ == "__main__":
     test_process_generation_request_raises_for_member_removed_in_same_call()
     test_process_generation_request_workshop_not_linked_raises()
     test_process_generation_request_raises_trial_period_over_when_not_active()
+    test_process_generation_request_raises_subscription_canceled_within_trial_window()
+    test_process_generation_request_raises_subscription_canceled_after_trial_period_over()
     test_process_generation_request_allows_generation_when_subscription_active()
     test_process_generation_request_allows_generation_within_payment_failure_grace_period()
     test_process_generation_request_raises_payment_suspended_after_grace_period()
