@@ -74,7 +74,8 @@ completion_report.body・care_guide.bodyへの紛れ込みを検出するチェ�
 
 ## 5. 次の課題
 
-- llm-system-prompt-draft.mdへの厳守事項10本文の実際の反映
+- (解消済み 2026-09-26 06:00 UTC、フェーズ269: llm-system-prompt-draft.mdに厳守事項10
+  本文を正式追記した)
 - schema/output.schema.jsonのcompletion_reportへのthird_party_names追加
 - prototype/post_generation_checks.pyへのチェック関数実装・テスト追加
 - onboarding-guide.mdへの入力時留意事項の文言追加(kura-pashaフェーズ184と同様の対応、

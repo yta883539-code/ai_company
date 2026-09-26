@@ -4482,3 +4482,21 @@
   固有の整理〈出力1・2の両方が対象、出力3は自由記述欄が無く対象外〉の上で厳守事項10案を
   提示。本フェーズは方針設計のみ、コード変更は無くventure全体576件・schema検証25件
   いずれもパス)
+- フェーズ269(2026-09-26 06:00 UTC定例更新): third-party-personal-info-inclusion-
+  handling-design.md「次の課題」が残していた、厳守事項10本文のllm-system-prompt-
+  draft.mdへの実際の反映を行った(kura-pashaがフェーズ181→182で厳守事項9を段階的に
+  実装したのと同じ進め方の第一段階)。厳守事項9に続く新規項目として、依頼者(宛先が
+  管理会社・オーナーの場合は管理会社・オーナー)以外の第三者の氏名・連絡先等を出力1・2の
+  本文にそのまま転記しない旨、必要な文脈であれば一般化した表現に置き換える旨を追記した。
+  design.md側の「次の課題」も本項目を解消済みに更新した。コード変更は無くドキュメント
+  更新のみのため、回帰確認としてventure全体576件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前と同数)・schema検証25件(`python3 schema/validate_
+  test_cases.py`、変更前と同じ結果)いずれもパスを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: schema/output.schema.jsonのcompletion_reportへの
+  third_party_names追加(厳守事項9のorder_summary.third_party_names相当)、
+  prototype/post_generation_checks.pyへの機械チェック実装、onboarding-guide.mdへの
+  入力時留意事項の文言追加、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 06:00 UTC(フェーズ269: llm-system-prompt-draft.mdに厳守事項10
+  本文〈第三者個人情報の出力1・2への転記回避〉を正式追記。design.md「次の課題」を更新。
+  コード変更は無く回帰確認のみ、venture全体576件・schema検証25件いずれもパス)
