@@ -224,6 +224,59 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.marked_user_ids, ["user_1"])
         self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
 
+    def test_subscription_deleted_sets_subscription_canceled_at_when_usage_counter_provided(self):
+        # subscription-canceled-immediate-block-design.md(本フェーズ)対応。
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.subscription_canceled_user_ids, ["user_1"])
+        self.assertEqual(
+            usage_counter.get_subscription_canceled_at("user_1"),
+            datetime.fromtimestamp(1_700_000_000, tz=timezone.utc),
+        )
+
+    def test_subscription_deleted_sets_subscription_canceled_at_even_without_payment_failure(self):
+        # 決済失敗が一度も検知されていない(=通常に支払い続けていた)ユーザーが解約した
+        # 場合でも、subscription_canceled_atは常に書き込まれる(payment_failure_cleared_
+        # on_deletion_user_idsとは独立の判定であることの確認)。
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+        self.assertEqual(result.subscription_canceled_user_ids, ["user_1"])
+        self.assertIsNotNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+    def test_subscription_deleted_subscription_canceled_untouched_when_usage_counter_not_provided(
+        self,
+    ):
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.subscription_canceled_user_ids, [])
+
     def test_subscription_deleted_without_user_profile_store_is_backward_compatible(self):
         event = {
             "type": "customer.subscription.deleted",
@@ -315,6 +368,28 @@ class DispatchStripeEventTest(unittest.TestCase):
         )
         self.assertEqual(result.cleared_user_ids, ["user_1"])
         self.assertIsNone(self.store.get_deletion_candidate_at("user_1"))
+
+    def test_subscription_created_clears_subscription_canceled_at_when_usage_counter_provided(
+        self,
+    ):
+        # subscription-canceled-immediate-block-design.md(本フェーズ)対応。再契約時に
+        # 消去しないと、再契約後も生成が永久にブロックされたままになってしまう。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_subscription_canceled_at(
+            "user_1", datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "customer.subscription.created",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.cleared_user_ids, ["user_1"])
+        self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
 
     def test_subscription_created_is_idempotent_when_nothing_set(self):
         event = {

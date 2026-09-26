@@ -31,6 +31,7 @@ from cloud_function_webhook import (  # noqa: E402
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_PLACEHOLDER,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    SUBSCRIPTION_CANCELED_MESSAGE,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX,
     FIRST_GENERATION_NOTICE_BODY,
@@ -1414,6 +1415,98 @@ class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
 
         self.assertFalse(result.payment_suspended)
         self.assertIsNone(usage_counter.get_payment_failure_detected_at("u-1"))
+
+
+class ProcessMemoEventSubscriptionCanceledTest(unittest.TestCase):
+    """process_memo_event()からの「解約確定による生成停止」応答の検証
+    (subscription-canceled-immediate-block-design.md、kura-pashaフェーズ188の横展開)。"""
+
+    def test_canceled_when_subscription_canceled_at_set(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_subscription_canceled_at("u-1", datetime(2026, 9, 1, 0, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-09",
+            now=datetime(2026, 9, 2),
+        )
+
+        self.assertTrue(result.subscription_canceled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
+
+    def test_canceled_does_not_increment_monthly_count(self):
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_subscription_canceled_at("u-1", datetime(2026, 9, 1, 0, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-09",
+            now=datetime(2026, 9, 2),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-09"), 0)
+        self.assertEqual(usage_counter.get_trial_generation_count("u-1"), 0)
+
+    def test_not_canceled_when_flag_unset(self):
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-09",
+            now=datetime(2026, 9, 2),
+        )
+
+        self.assertFalse(result.subscription_canceled)
+
+    def test_not_canceled_when_usage_counter_is_none(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            now=datetime(2026, 9, 2),
+        )
+
+        self.assertFalse(result.subscription_canceled)
+
+    def test_recovers_after_clear(self):
+        # customer.subscription.created(再契約)受信時の想定挙動。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_subscription_canceled_at("u-1", datetime(2026, 9, 1, 0, 0, 0))
+        usage_counter.clear_subscription_canceled_at("u-1")
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-09",
+            now=datetime(2026, 9, 2),
+        )
+
+        self.assertFalse(result.subscription_canceled)
+        self.assertIsNone(usage_counter.get_subscription_canceled_at("u-1"))
+
+    def test_canceled_takes_precedence_over_payment_suspended(self):
+        # 解約確定は決済失敗の猶予期間判定より広い(kura-pashaフェーズ188と同じ考え方で、
+        # 既存の判定に紛れさせず解約を最優先で判定する)ため、両方の条件が揃っていても
+        # 解約確定応答が優先される。
+        usage_counter = InMemoryUsageCounter()
+        detected_at = datetime(2026, 8, 1, 0, 0, 0)
+        usage_counter.set_payment_failure_detected_at("u-1", detected_at)
+        usage_counter.set_subscription_canceled_at("u-1", datetime(2026, 9, 1, 0, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            usage_counter=usage_counter, plan="ライト", month="2026-09",
+            now=detected_at + timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS),
+        )
+
+        self.assertTrue(result.subscription_canceled)
+        self.assertFalse(result.payment_suspended)
+        self.assertEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
 
 
 class InMemoryUsageCounterTrialAreaCountTest(unittest.TestCase):

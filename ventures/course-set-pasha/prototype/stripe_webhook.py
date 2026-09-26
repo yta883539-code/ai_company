@@ -192,6 +192,9 @@ class StripeDispatchResult:
     # (payment_failure_detected_at/payment_failure_reminder_sent_at/
     # payment_suspension_owner_notified_at)のクリアが実際に発生したuser_id。
     payment_failure_cleared_on_deletion_user_ids: list = field(default_factory=list)
+    # subscription-canceled-immediate-block-design.md(本フェーズ)対応: usage_counter指定時、
+    # customer.subscription.deleted受信時にsubscription_canceled_atを書き込んだuser_id。
+    subscription_canceled_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -219,6 +222,18 @@ class PaymentFailureUsageCounterProtocol(Protocol):
         """payment-failure-state-clear-on-subscription-deleted-design.md
         (本フェーズで追加)。`customer.subscription.deleted`受信時に決済失敗系3
         フィールドを一括クリアするために必要。"""
+        ...
+
+    def set_subscription_canceled_at(self, user_id: str, canceled_at: datetime) -> None:
+        """subscription-canceled-immediate-block-design.md(本フェーズで追加)。
+        `customer.subscription.deleted`受信時に解約確定時刻を書き込み、
+        cloud_function_webhook._is_subscription_canceled()が以後の生成リクエストを
+        即座にブロックできるようにする。"""
+        ...
+
+    def clear_subscription_canceled_at(self, user_id: str) -> None:
+        """`customer.subscription.created`受信時(再契約)に解約フラグを消去する
+        (消去しないと再契約後も生成が永久にブロックされたままになってしまうため)。"""
         ...
 
 
@@ -279,6 +294,15 @@ def dispatch_stripe_event(
     解約完了案内済みの顧客に矛盾したリマインド・制限モード移行通知が届いてしまうため。
     aircon-pasha・kura-pashaで先行対応済みの同種バグの横展開)。未指定(`None`)の場合は
     他の任意引数と同じ「未接続時は安全側で素通り」方針とする。
+
+    `usage_counter`はsubscription-canceled-immediate-block-design.md(本フェーズ)対応も
+    兼ねる。指定時、`customer.subscription.deleted`受信時に(決済失敗検知の有無によらず)
+    常に`subscription_canceled_at`を書き込み、`cloud_function_webhook._is_subscription_
+    canceled()`が以後の生成リクエストを即座にブロックできるようにする
+    (kura-pashaフェーズ188「解約という終端イベントが専用分岐を持たない既存判定に紛れて
+    扱われない」パターンの横展開)。`customer.subscription.created`(再契約)受信時は
+    このフラグを消去する。未指定(`None`)の場合は他の任意引数と同じ「未接続時は安全側で
+    素通り」方針とする。
 
     `user_profile_store`指定時は、`customer.subscription.updated`受信時に
     subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
@@ -341,6 +365,13 @@ def dispatch_stripe_event(
             usage_counter.clear_payment_failure_reminder_sent_at(user_id)
             usage_counter.clear_payment_suspension_owner_notified_at(user_id)
             result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
+        # subscription-canceled-immediate-block-design.md(本フェーズ)対応:
+        # kura-pashaフェーズ188の横展開。決済失敗検知の有無によらず、解約確定は常に
+        # subscription_canceled_atへ書き込む(以後の生成リクエストをトライアル進捗・
+        # 決済失敗猶予期間の状態によらず即座にブロックするため)。
+        if usage_counter is not None:
+            usage_counter.set_subscription_canceled_at(user_id, event_time)
+            result.subscription_canceled_user_ids.append(user_id)
         result.marked_user_ids.append(user_id)
         # subscription-cancelled-notification-design.md(フェーズ155)3節: 状態変更は
         # 上記ですでに完了しており、通知の送信成否とは独立させる(未指定時は従来通り
@@ -356,6 +387,11 @@ def dispatch_stripe_event(
     if event_type == "customer.subscription.created":
         clear_deletion_candidate_on_subscription_reactivated(store, user_id)
         result.cleared_user_ids.append(user_id)
+        # subscription-canceled-immediate-block-design.md(本フェーズ)対応: 再契約時に
+        # subscription_canceled_atを消去しないと、再契約後も生成が永久にブロックされた
+        # ままになってしまう。
+        if usage_counter is not None:
+            usage_counter.clear_subscription_canceled_at(user_id)
         return result
 
     if event_type == "customer.subscription.updated":

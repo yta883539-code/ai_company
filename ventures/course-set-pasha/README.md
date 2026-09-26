@@ -4087,3 +4087,31 @@
 - 最終更新: 2026-09-26 17:00 UTC(フェーズ257: `invoice.payment_succeeded`後方互換パスの
   `payment_suspension_owner_notified_at`クリア漏れを修正。テスト1件追加、venture全体653件・
   schema検証21件いずれもパス)
+- フェーズ258(2026-09-26 21:00 UTC定例更新): kura-pashaフェーズ188(`subscription_status
+  == "canceled"`が専用分岐を持たずローカルのトライアル終了判定に紛れて扱われ、解約済み
+  workshopが最大30日間生成を使い続けられてしまう欠落の修正)の横展開確認として、
+  course-set-pasha側に同種の欠落が無いかを実コードで確認した。本ventureはkura-pashaのような
+  `subscription_status`列挙型ではなく個別タイムスタンプの組み合わせで生成可否を判定する設計
+  (`_is_generation_paused()`=トライアル終了通知済みかつ未アップグレード、
+  `_is_payment_suspended()`=決済失敗検知から7日超過)であり、`customer.subscription.deleted`
+  受信時にはどちらのフィールドも書き込まれていなかった。そのため、既に有料転換済み
+  (`upgraded_at`設定済み)のユーザーが解約した場合、解約後も**無期限に**生成を使い続けられて
+  しまう欠落(kura-pashaの「最大30日間」よりも広い、期間の上限が無いケース)が実際に存在する
+  ことを確認した。`UsageCounterProtocol`に`subscription_canceled_at`の3メソッド
+  (`set`/`get`/`clear`)を追加し、`_is_subscription_canceled()`判定関数と
+  `SUBSCRIPTION_CANCELED_MESSAGE`を新設。`process_memo_event()`内で既存の2判定より先に
+  (トライアル進捗・決済失敗猶予期間の状態によらず)解約確定を判定するようにした。
+  `stripe_webhook.py`の`customer.subscription.deleted`ハンドラで(決済失敗検知の有無に
+  よらず)常に`subscription_canceled_at`を書き込み、`customer.subscription.created`
+  (再契約)ハンドラでクリアするよう配線した。詳細はsubscription-canceled-immediate-
+  block-design.md参照。テスト10件追加(cloud_function_webhook側6件・stripe_webhook側4件)、
+  venture全体663件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前
+  653件+新規10件)・schema検証21件(`python3 schema/validate_test_cases.py`、変更前と
+  同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  同じ横展開確認を他venture(aircon-pasha・line-reservation-ai)にも適用する、実Stripe
+  アカウント接続(オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 21:00 UTC(フェーズ258: kura-pashaフェーズ188の横展開確認。
+  course-set-pashaでは既存の2判定(トライアル終了・決済失敗)のみでは有料転換済みユーザーの
+  解約後に無期限に生成を使い続けられてしまう欠落を発見し、`subscription_canceled_at`による
+  専用判定を追加して修正。テスト10件追加、venture全体663件・schema検証21件いずれもパス)

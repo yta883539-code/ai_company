@@ -149,6 +149,32 @@ PAYMENT_SUSPENDED_MESSAGE = (
 )
 
 
+SUBSCRIPTION_CANCELED_MESSAGE = (
+    "現在のご契約は解約手続きが完了しているため、投稿文の生成を停止しています。\n"
+    "引き続きご利用いただくには、新規のお申し込みをお願いいたします。\n"
+    f"お申し込みはこちら: {LIFF_URL_PLACEHOLDER}"
+)
+
+
+def _is_subscription_canceled(
+    usage_counter: Optional["UsageCounterProtocol"], user_id: Optional[str]
+) -> bool:
+    """subscription-canceled-immediate-block-design.md準拠の解約確定判定。
+
+    `customer.subscription.deleted`受信時にstripe_webhook.pyが書き込む
+    `subscription_canceled_at`が設定済みであれば、_is_generation_paused・
+    _is_payment_suspendedとは独立に(トライアル進捗・決済失敗猶予期間の状態によらず)
+    生成を即座にブロックする。usage_counterが本フィールドに対応していない場合
+    (未接続時・後方互換)は_is_generation_paused等と同じ安全側デフォルトとして
+    常にFalseを返す。
+    """
+    if usage_counter is None or user_id is None:
+        return False
+    if not hasattr(usage_counter, "get_subscription_canceled_at"):
+        return False
+    return usage_counter.get_subscription_canceled_at(user_id) is not None
+
+
 def render_payment_suspended_message(
     portal_link_provider: Optional["PortalLinkProvider"],
     user_id: Optional[str],
@@ -385,6 +411,23 @@ class UsageCounterProtocol(Protocol):
         制限モードへ移行した際にオーナー通知が二度と送信されなくなるため)。"""
         ...
 
+    def set_subscription_canceled_at(self, user_id: str, canceled_at: datetime) -> None:
+        """subscription-canceled-immediate-block-design.md: `customer.subscription.deleted`
+        受信時(解約確定)に書き込む。単純な上書きでよい(同一ユーザーが再契約後に再度
+        解約した場合、最新の解約確定時刻で数え直す設計。set_payment_failure_detected_atと
+        同じ考え方)。このメソッドを実装しないUsageCounterProtocol実装では解約状態の
+        記録自体がスキップされる(他のset_*系メソッドと同じhasattr()判定による後方互換の
+        考え方)。"""
+        ...
+
+    def get_subscription_canceled_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def clear_subscription_canceled_at(self, user_id: str) -> None:
+        """`customer.subscription.created`受信時(再契約)に解約フラグを消去する
+        (消去しないと再契約後も生成が永久にブロックされたままになってしまうため)。"""
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -428,6 +471,7 @@ class InMemoryUsageCounter:
         self._payment_failure_detected_at: dict[str, datetime] = {}
         self._payment_failure_reminder_sent_at: dict[str, datetime] = {}
         self._payment_suspension_owner_notified_at: dict[str, datetime] = {}
+        self._subscription_canceled_at: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -503,6 +547,15 @@ class InMemoryUsageCounter:
 
     def clear_payment_suspension_owner_notified_at(self, user_id: str) -> None:
         self._payment_suspension_owner_notified_at.pop(user_id, None)
+
+    def set_subscription_canceled_at(self, user_id: str, canceled_at: datetime) -> None:
+        self._subscription_canceled_at[user_id] = canceled_at
+
+    def get_subscription_canceled_at(self, user_id: str) -> Optional[datetime]:
+        return self._subscription_canceled_at.get(user_id)
+
+    def clear_subscription_canceled_at(self, user_id: str) -> None:
+        self._subscription_canceled_at.pop(user_id, None)
 
     def increment_and_mark_notice(
         self,
@@ -984,6 +1037,7 @@ class MemoProcessResult:
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
+    subscription_canceled: bool = False  # True=customer.subscription.deleted受信済み(解約確定)のため停止応答
     owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q6"=owner-faq-routing-design.md準拠のFAQコマンド応答
     chatbot_intent: Optional[str] = None  # intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
 
@@ -1193,6 +1247,17 @@ def process_memo_event(
        差し替える。8のトライアル未アップグレード判定(get_upgraded_atがNone前提)とは
        前提条件が排他的(本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が
        同時にTrueになることは想定しない。
+    10. usage_counterが解約確定時刻(subscription_canceled_at)に対応している場合のみ、
+       _is_subscription_canceled()で`customer.subscription.deleted`受信済みかを判定する
+       (subscription-canceled-immediate-block-design.md)。該当する場合は8・9より先に
+       (トライアル進捗・決済失敗猶予期間の状態によらず)判定し、LLM呼び出し・各種
+       カウント増分を一切行わずSUBSCRIPTION_CANCELED_MESSAGEを返信して即座に処理を終える。
+       kura-pashaフェーズ188で発見された「解約という終端イベントが専用分岐を持たず
+       既存の判定(トライアル進捗・決済失敗)に紛れて扱われ、解約後も生成を使い続けられて
+       しまう」パターンの横展開対応(本ventureは元々kura-pashaのようなsubscription_status
+       列挙型ではなく個別タイムスタンプの組み合わせで状態を表現していたため、解約確定の
+       検知自体がどの既存フィールドにも紐付いておらず、8・9より広く「無期限に生成を
+       使い続けられる」欠落だった)。
     """
     if linking_store is not None and purge_throttle is not None:
         purge_throttle.maybe_run(linking_store, now or datetime.now(timezone(timedelta(hours=9))))
@@ -1227,6 +1292,14 @@ def process_memo_event(
             handled=True, reply_sent=reply_sent,
             reply_text=answer_message if reply_sent else None,
             owner_faq_action=owner_faq_code,
+        )
+
+    if _is_subscription_canceled(usage_counter, user_id_for_pause_check):
+        reply_sent = _reply_with_retry(reply_client, reply_token, SUBSCRIPTION_CANCELED_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=SUBSCRIPTION_CANCELED_MESSAGE if reply_sent else None,
+            subscription_canceled=True,
         )
 
     if _is_generation_paused(usage_counter, user_id_for_pause_check):
