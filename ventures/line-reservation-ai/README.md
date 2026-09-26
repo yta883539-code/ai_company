@@ -4755,3 +4755,13 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `trial_unselected`/`payment_suspended`/`cancelled`でブロック、`payment_failed`・change
   経由〈旧予約解放済み〉はブロックしない。テスト7件追加、venture全体863件・schema検証28件
   いずれもパス)
+- 最終更新: 2026-09-26 16:00 UTC(フェーズ続き275: 自身のフェーズ続き273発端でaircon-pasha
+  フェーズ272・kura-pashaフェーズ187・course-set-pashaフェーズ256へ横展開したバグクラス
+  「解約確定後も決済失敗系stateが別系統のまま残る」が、本venture自身の`customer.
+  subscription.deleted`経路(`stripe_webhook_entry_point.receive_stripe_webhook()`の
+  `EVENT_CUSTOMER_SUBSCRIPTION_DELETED`分岐)にも残っていたため対応
+  〈dunning-state-clear-on-subscription-deleted-design.md新規作成〉。
+  `clear_dunning_state_on_subscription_deleted()`を新設し、`dunning_store`側の
+  `payment_failure_detected_at`・`sent_event_keys`・`suspension_reason`を
+  `store_profile_store`の書き込みと同じく通知成否とは独立にクリア・更新するよう配線。
+  テスト3件追加、venture全体866件・schema検証28件いずれもパス)

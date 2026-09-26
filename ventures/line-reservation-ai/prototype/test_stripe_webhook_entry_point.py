@@ -658,6 +658,80 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.outcome, "cancelled")
 
+    def test_dunning_state_is_cleared_independently_of_notification(self):
+        """dunning-state-clear-on-subscription-deleted-design.md: 猶予期間中に契約が終了
+        すると、`dunning_store`側の`payment_failure_detected_at`・`sent_event_keys`が
+        クリアされ`suspension_reason`が`"cancelled"`になることを確認する。
+        `store_profile_store`の書き込みと同じく`cancellation_store`/`push_client`の
+        要否とは独立して行われる(本テストは両方省略)。"""
+        dunning_store = InMemoryStoreDunningStateStore()
+        dunning_store.set_dunning_state(
+            "store-1",
+            StoreDunningState(
+                store_id="store-1",
+                owner_line_user_id="owner-line-1",
+                payment_failure_detected_at=datetime(2026, 8, 30, 9, 0),
+                config=DUNNING_CONFIG_A_7DAYS,
+                payment_page_url="https://example.com/billing",
+                suspension_reason=None,
+                sent_event_keys={"detected"},
+            ),
+        )
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            dunning_store=dunning_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        stored = dunning_store.get_dunning_state("store-1")
+        self.assertIsNone(stored.payment_failure_detected_at)
+        self.assertEqual(stored.sent_event_keys, set())
+        self.assertEqual(stored.suspension_reason, "cancelled")
+
+    def test_omitted_dunning_store_skips_clear_without_error(self):
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "cancelled")
+
+    def test_dunning_store_with_no_known_state_for_store_id_is_left_untouched(self):
+        dunning_store = InMemoryStoreDunningStateStore()
+        payload = self._payload()
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            dunning_store=dunning_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(dunning_store.get_dunning_state("store-1"))
+
 
 class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
     """customer-subscription-updated-event-routing-design.mdで追加した

@@ -65,6 +65,30 @@ from stripe_webhook import (
 )
 
 
+def clear_dunning_state_on_subscription_deleted(state: StoreDunningState) -> bool:
+    """`customer.subscription.deleted`受信時、当該店舗のdunning進行状態
+    (`payment_failure_detected_at`・`sent_event_keys`)を初期化し`suspension_reason`を
+    `"cancelled"`にする(dunning-state-clear-on-subscription-deleted-design.md)。
+
+    aircon-pasha/course-set-pasha/kura-pashaで見つかった同種バグ(解約確定後も決済失敗系の
+    stateが残ったままになり、日次バッチが既に解約済みの店舗を誤って選出してしまう)が本venture
+    自身の`EVENT_CUSTOMER_SUBSCRIPTION_DELETED`経路にも存在していたため対応する。猶予期間中
+    (`payment_suspended`等の別状態にまだ至っていない)に契約が終了した場合、`dunning_store`の
+    stateをクリアしないまま残すと、後日`cloud_function_send_dunning_notifications.py`の
+    日次バッチが解約済みの店舗をリマインド・制限モード移行の対象として再選出してしまう。
+
+    戻り値は実際に何か変更があったか(観測用、`payment_failure_detected_at`が設定済みまたは
+    `sent_event_keys`が空でなかった場合`True`)。
+    """
+    changed = state.payment_failure_detected_at is not None or bool(state.sent_event_keys)
+    state.payment_failure_detected_at = None
+    state.sent_event_keys = set()
+    if state.suspension_reason != "cancelled":
+        changed = True
+    state.suspension_reason = "cancelled"
+    return changed
+
+
 class StoreDunningStateStoreProtocol(Protocol):
     def get_dunning_state(self, store_id: str) -> Optional[StoreDunningState]: ...
 
@@ -271,6 +295,14 @@ def receive_stripe_webhook(
         # 参照するstore_profile_store.suspension_reasonにも"cancelled"を反映する。
         if store_profile_store is not None:
             store_profile_store.set_suspension_reason(store_id, "cancelled")
+        # dunning-state-clear-on-subscription-deleted-design.md: cancellation_store/
+        # push_clientの要否・通知成否とは独立して、dunning_store側のstateもクリアする
+        # (store_profile_storeのsuspension_reason書き込みと同じ「通知とは独立」方針)。
+        if dunning_store is not None:
+            dunning_state = dunning_store.get_dunning_state(store_id)
+            if dunning_state is not None:
+                clear_dunning_state_on_subscription_deleted(dunning_state)
+                dunning_store.set_dunning_state(store_id, dunning_state)
         if cancellation_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = cancellation_store.get_cancellation_state(store_id)
