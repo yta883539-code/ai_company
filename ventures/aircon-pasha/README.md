@@ -4456,3 +4456,29 @@
   tech-stack.md反映」次回候補について、kura-pasha側で既に解消済み〈フェーズ180〉で
   あることを確認し記載を更新。コード変更は無くドキュメント更新のみ、venture全体576件・
   schema検証25件いずれもパス)
+- フェーズ268(2026-09-26 05:00 UTC定例更新): kura-pasha/requester-personal-info-
+  inclusion-handling-design.md(フェーズ181〜184で厳守事項9として実装完了、依頼者以外の
+  第三者個人情報を出力2・3に転記しない対応方針)と同種の論点が本ventureで未検討のまま
+  残っていないかを棚卸しし、third-party-personal-info-inclusion-handling-design.mdを
+  新規作成した。本ventureはkura-pashaと異なり「職人本人の備忘用で依頼者へ転送されない
+  出力」が存在せず(出力1のcompletion_reportは既にrecipient〈tenant/management_company〉
+  へ転送される前提、出力2のcare_guideも依頼者本人へ転送される前提)、出力3の
+  history_rowsのみ定型フィールドのみで自由記述欄が無く対象外という、本venture固有の
+  整理を行った上で、出力1・2の両方を対象とする厳守事項10案(依頼者・管理会社以外の
+  第三者の氏名等をそのまま転記しない、recipientにより「受け手本人」の定義が変わる点を
+  明記)を提示した。本フェーズは方針設計のみで、llm-system-prompt-draft.md・
+  schema/output.schema.json・prototype/post_generation_checks.pyへの実際の反映は次回
+  以降の実装フェーズとする(kura-pashaが方針設計〈フェーズ181〉→プロンプト反映
+  〈フェーズ182〉→機械チェック実装〈フェーズ183〉→案内文言追加〈フェーズ184〉と
+  段階的に進めたのと同じ進め方を踏襲する)。コード変更は無く、回帰確認として
+  venture全体576件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  変更前と同数)・schema検証25件(`python3 schema/validate_test_cases.py`、変更前と
+  同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  厳守事項10のllm-system-prompt-draft.mdへの実際の反映、または他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-09-26 05:00 UTC(フェーズ268: third-party-personal-info-inclusion-
+  handling-design.md新規作成。kura-pashaの厳守事項9と同種の論点を棚卸しし、本venture
+  固有の整理〈出力1・2の両方が対象、出力3は自由記述欄が無く対象外〉の上で厳守事項10案を
+  提示。本フェーズは方針設計のみ、コード変更は無くventure全体576件・schema検証25件
+  いずれもパス)
