@@ -168,6 +168,62 @@ class DispatchStripeEventTest(unittest.TestCase):
             user_profile_store.get_blocked_but_billing_owner_notified_at("user_1")
         )
 
+    def test_subscription_deleted_clears_payment_failure_state_when_usage_counter_provided(self):
+        # payment-failure-state-clear-on-subscription-deleted-design.md(本フェーズ)対応。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        usage_counter.set_payment_suspension_owner_notified_at(
+            "user_1", datetime(2026, 8, 10, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, ["user_1"])
+        self.assertIsNone(usage_counter.get_payment_failure_detected_at("user_1"))
+        self.assertIsNone(usage_counter.get_payment_suspension_owner_notified_at("user_1"))
+
+    def test_subscription_deleted_payment_failure_state_untouched_when_already_unset(self):
+        usage_counter = InMemoryUsageCounter()
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+
+    def test_subscription_deleted_payment_failure_state_untouched_when_usage_counter_not_provided(
+        self,
+    ):
+        # usage_counter未指定時は従来通りクリアを行わない(後方互換)。
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event, store=self.store, resolve_user_id=_resolver({"cus_A": "user_1"})
+        )
+        self.assertEqual(result.marked_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+
     def test_subscription_deleted_without_user_profile_store_is_backward_compatible(self):
         event = {
             "type": "customer.subscription.deleted",

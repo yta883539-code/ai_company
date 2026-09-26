@@ -4040,3 +4040,29 @@
   対応の横展開棚卸しとして、third-party-personal-info-inclusion-handling-design.md
   新規作成。legal-notices-draft.mdに2.6節を追記。コード変更は無くドキュメント作成のみ、
   venture全体649件・schema検証21件いずれもパス)
+- フェーズ256(2026-09-26 14:00 UTC定例更新): kura-pashaフェーズ187が「次回以降の課題」
+  として残していた、本ventureへの`customer.subscription.deleted`受信時の決済失敗系
+  状態クリア横展開を実装した。`stripe_webhook.dispatch_stripe_event()`の
+  `customer.subscription.deleted`分岐は、削除候補化・`user_profile_store`指定時の
+  `blocked_but_billing_owner_notified_at`クリア(フェーズ144)・`push_client`指定時の
+  解約完了案内送信(フェーズ155)は行っていたが、`usage_counter`指定時に決済失敗系
+  フィールドをクリアする配線が欠落しており、猶予期間中に契約が終了した場合、解約完了
+  案内済みの顧客へ後日日次バッチ経由で矛盾したリマインド・制限モード移行通知が届いて
+  しまう理論上のバグが存在した(aircon-pashaフェーズ272・kura-pashaフェーズ187と同種)。
+  本ventureは別立ての`payment_suspended_at`を持たないため、クリア対象は
+  `payment_failure_detected_at`・`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`の3フィールドとした。新規のクリア関数は追加せず
+  既存メソッドを呼び出す形とし、`PaymentFailureUsageCounterProtocol`に
+  `clear_payment_suspension_owner_notified_at()`を追加、`StripeDispatchResult`に
+  `payment_failure_cleared_on_deletion_user_ids`フィールドを追加した。詳細はpayment-
+  failure-state-clear-on-subscription-deleted-design.md参照。テスト3件追加、venture
+  全体652件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前649件+
+  新規3件)・schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)
+  いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  design.md 4節で触れた`invoice.payment_succeeded`後方互換パスの
+  `payment_suspension_owner_notified_at`クリア漏れの調査、または他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-09-26 14:00 UTC(フェーズ256: kura-pashaフェーズ187の横展開として、
+  `customer.subscription.deleted`受信時の決済失敗系3フィールドクリア配線漏れを修正。
+  テスト3件追加、venture全体652件・schema検証21件いずれもパス)

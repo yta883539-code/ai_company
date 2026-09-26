@@ -187,6 +187,11 @@ class StripeDispatchResult:
     cancellation_scheduled_notified_user_ids: list = field(default_factory=list)
     cancellation_rescheduled_notified_user_ids: list = field(default_factory=list)
     cancellation_update_notification_failed_user_ids: list = field(default_factory=list)
+    # payment-failure-state-clear-on-subscription-deleted-design.md(本フェーズ)対応:
+    # usage_counter指定時、customer.subscription.deleted受信時に決済失敗系3フィールド
+    # (payment_failure_detected_at/payment_failure_reminder_sent_at/
+    # payment_suspension_owner_notified_at)のクリアが実際に発生したuser_id。
+    payment_failure_cleared_on_deletion_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -208,6 +213,12 @@ class PaymentFailureUsageCounterProtocol(Protocol):
         """payment-failure-reminder-scheduler-design.md 3節(フェーズ120で追加)。
         リマインド送信済みフラグも決済成功と同時に消去し、再度の決済失敗時に
         リマインドが送信されなくなる不具合を防ぐ。"""
+        ...
+
+    def clear_payment_suspension_owner_notified_at(self, user_id: str) -> None:
+        """payment-failure-state-clear-on-subscription-deleted-design.md
+        (本フェーズで追加)。`customer.subscription.deleted`受信時に決済失敗系3
+        フィールドを一括クリアするために必要。"""
         ...
 
 
@@ -258,6 +269,16 @@ def dispatch_stripe_event(
     `blocked_but_billing_owner_notified_at`もあわせてクリアする(解約確定後に再契約した
     顧客が再度「ブロック中かつ契約継続中」になった場合に通知が飛ばなくなる不具合を防ぐ)。
     未指定(`None`)の場合は他の任意引数と同じ「未接続時は安全側で素通り」方針とする。
+
+    `usage_counter`はpayment-failure-state-clear-on-subscription-deleted-design.md
+    (本フェーズ)対応も兼ねる。指定時、`customer.subscription.deleted`受信時に
+    `payment_failure_detected_at`が設定済みであれば、決済失敗系3フィールド
+    (`payment_failure_detected_at`・`payment_failure_reminder_sent_at`・
+    `payment_suspension_owner_notified_at`)をあわせてクリアする(猶予期間中に契約が
+    終了した場合、クリアしないと後日日次バッチが既に解約済みの顧客を誤って再選出し、
+    解約完了案内済みの顧客に矛盾したリマインド・制限モード移行通知が届いてしまうため。
+    aircon-pasha・kura-pashaで先行対応済みの同種バグの横展開)。未指定(`None`)の場合は
+    他の任意引数と同じ「未接続時は安全側で素通り」方針とする。
 
     `user_profile_store`指定時は、`customer.subscription.updated`受信時に
     subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
@@ -312,6 +333,14 @@ def dispatch_stripe_event(
         mark_deletion_candidate_on_subscription_deleted(store, user_id, event_time)
         if user_profile_store is not None:
             user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
+        if (
+            usage_counter is not None
+            and usage_counter.get_payment_failure_detected_at(user_id) is not None
+        ):
+            usage_counter.clear_payment_failure_detected_at(user_id)
+            usage_counter.clear_payment_failure_reminder_sent_at(user_id)
+            usage_counter.clear_payment_suspension_owner_notified_at(user_id)
+            result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
         result.marked_user_ids.append(user_id)
         # subscription-cancelled-notification-design.md(フェーズ155)3節: 状態変更は
         # 上記ですでに完了しており、通知の送信成否とは独立させる(未指定時は従来通り
