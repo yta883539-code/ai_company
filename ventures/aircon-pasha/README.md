@@ -4586,3 +4586,36 @@
   〈payment-failure-state-clear-on-subscription-deleted-design.md〉。既存の
   `clear_payment_failure_on_success()`を再利用し新規引数なし。テスト3件追加、
   venture全体585件・schema検証25件いずれもパス)
+- フェーズ273(2026-09-26 18:00 UTC定例更新): フェーズ272「次回候補」に残っていた
+  「kura-pashaに同種の『customer.subscription.deleted時の決済失敗系フィールドクリア
+  漏れ』が無いかの横断確認」に対応した。kura-pashaのプロトタイプコード
+  (`ventures/kura-pasha/prototype/stripe_webhook.py`)を確認したところ、kura-pasha
+  自身のフェーズ187(2026-09-26 13:00 UTC定例更新)が既にこの横断確認・対応を完了済み
+  であることが判明した(`handle_customer_subscription_deleted()`に`payment_failure_
+  detected_at`設定済み時のみ`workshop_store.clear_payment_failure_detected_at()`を
+  呼ぶ配線を実装済み、テスト2件追加・kura-pasha venture全体173件・schema検証32件
+  パス済み、design docstring内でaircon-pashaフェーズ272を直接参照)。フェーズ267
+  (tech-stack.md反映確認)と同型の「他venture側で既に解消済みだった」パターンであり、
+  本venture側での追加のコード変更は不要と判断した。あわせて、kura-pashaフェーズ187が
+  同時に点検したcourse-set-pasha・line-reservation-aiへの横展開状況(line-reservation-
+  aiは該当する統合ハンドラ自体が未実装のため対象外、course-set-pashaには同種ギャップが
+  当時未対応のまま残っていたとの記載)を把握したため、course-set-pasha/README.mdを
+  直接確認したところ、kura-pashaフェーズ187より後のcourse-set-pashaフェーズ256・257
+  (それぞれ2026-09-26 14:00/17:00 UTC)で既に同ギャップおよび関連する後方互換パスの
+  漏れが解消済みであることを確認した。kura-pashaフェーズ187の記述は本フェーズ時点で
+  陳腐化していたため、payment-failure-state-clear-on-subscription-deleted-design.md
+  6節に最新状況として記録した(いずれのventureも対応済みのため本venture側の追加実装
+  なし)。コード変更は無く、回帰確認
+  としてventure全体585件(`python3 -m unittest discover -s prototype -p "test_*.py"`、
+  変更前と同数)・schema検証25件(`python3 schema/validate_test_cases.py`、変更前と
+  同じ結果)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  `ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー承認待ち)、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 18:00 UTC(フェーズ273: フェーズ272が残していた「kura-pashaへの
+  横断確認」次回候補について、kura-pasha側で既に解消済み〈フェーズ187〉であり、かつ
+  kura-pashaフェーズ187が当時未対応と記載していたcourse-set-pasha側のギャップも
+  その後のcourse-set-pashaフェーズ256・257で解消済みであることを確認し、
+  payment-failure-state-clear-on-subscription-deleted-design.md 6節に最新状況として
+  記録。コード変更は無くドキュメント更新のみ、venture全体585件・schema検証25件
+  いずれもパス)

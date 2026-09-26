@@ -91,3 +91,22 @@ line-reservation-aiの元バグが「休止モード移行イベントの誤発�
 venture全体585件全件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前
 582件+新規3件)・schema検証25件(`python3 schema/validate_test_cases.py`、変更前と同じ
 結果)いずれもパスを確認した。
+
+## 6. 他venture横展開状況(フェーズ273で追記)
+
+本フェーズ(272)「次回候補」に残していた「kura-pashaに同種のギャップが無いかの横断確認」に
+ついて、kura-pasha自身のフェーズ187(2026-09-26 13:00 UTC定例更新)が既にこの横断確認・
+対応を完了していたことを確認した(kura-pasha側`stripe_webhook.handle_customer_
+subscription_deleted()`に`payment_failure_detected_at`設定済み時のみ`workshop_store.
+clear_payment_failure_detected_at()`を呼ぶ形で実装済み、テスト2件追加・kura-pasha venture
+全体173件・schema検証32件パス)。あわせてkura-pashaフェーズ187はcourse-set-pasha・
+line-reservation-aiへの横展開可否も点検しており、line-reservation-aiは該当する統合
+ハンドラ自体が未実装のため対象外、course-set-pashaには同種ギャップが当時未対応のまま
+残っている、としていた。ただし本フェーズ(273)でcourse-set-pasha/README.mdを直接
+確認したところ、kura-pashaフェーズ187より後のcourse-set-pashaフェーズ256
+(2026-09-26 14:00 UTC定例更新)で既にこのギャップ(`customer.subscription.deleted`
+受信時の決済失敗系3フィールドクリア配線漏れ)が解消済みであり、さらにフェーズ257
+(同17:00 UTC)で関連する`invoice.payment_succeeded`後方互換パスの同種漏れも解消済み
+であることを確認した。したがってkura-pashaフェーズ187の記述は本フェーズ時点で既に
+陳腐化しており、course-set-pasha側の対応は完了済み・本venture側での追加対応も不要で
+ある。
