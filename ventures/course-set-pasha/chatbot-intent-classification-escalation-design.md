@@ -114,10 +114,17 @@ payment-suspension-owner-notification-design.mdが確立した「顧客(ボル�
   分類結果(文字列)が既に得られている前提のマッピング層のみであり、自由入力テキストを
   実際に5分類へ振り分けるLLM呼び出し自体は引き続き未実装(1点目の課題と同じ理由で
   対象外)。
-- 他venture(aircon-pasha・kura-pasha)への同種チャットボット一次受付検討の横展開は
-  未着手。line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
+- ~~他venture(aircon-pasha・kura-pasha)への同種チャットボット一次受付検討の横展開は
+  未着手。~~
+  → 2026-09-26定例更新で確認: aircon-pasha(`chatbot-intent-classification-escalation-
+  design.md`、`prototype/chatbot_intent_router.py`の`send_chatbot_escalation_
+  notification()`・`route_chatbot_intent()`)、kura-pasha(`chatbot-intent-classification-
+  design.md`、`prototype/chatbot_intent_router.py`の同名2関数)いずれも既に本venture発の
+  設計・実装パターンを踏襲済みであることを確認した。横展開自体は完了済みのため次回候補
+  から除去する。line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
   mapping.md`)が中核機能として存在するため、本ドキュメントの「FAQ一次受付」という
-  論点自体が本ventureほど独立した検討課題にならない可能性がある(要確認)。
+  論点自体が本ventureほど独立した検討課題にならない可能性がある、という留保のみ
+  引き続き残す(要確認)。
 - ~~`faq_intent_to_code()`・`render_chatbot_faq_response_message()`・
   `append_faq_followup_hint()`・`send_chatbot_escalation_notification()`は個別に
   実装・検証済みだが、分類結果(intent)を受け取ってこれらを振り分け、3節「顧客への
