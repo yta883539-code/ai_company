@@ -22,6 +22,7 @@ from post_generation_checks import (  # noqa: E402
     check_delivery_notice_category_text_consistency,
     check_no_emoji_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
+    check_no_third_party_name_leak_in_customer_facing_notices,
     check_subscription_notice_consistency,
     check_workshop_invite_notice_no_code,
     run_all_checks,
@@ -208,6 +209,56 @@ class WorkshopInviteNoticeNoCodeTest(unittest.TestCase):
             }
         }
         self.assertEqual(check_workshop_invite_notice_no_code(instance), [])
+
+
+class ThirdPartyNameLeakTest(unittest.TestCase):
+    def test_name_leak_in_delivery_notice_is_flagged(self):
+        instance = {
+            "order_summary": {"third_party_names": ["田中花子"]},
+            "delivery_notice": {"body": "田中花子様の鞍と合わせてお使いください。"},
+            "care_notice": "定期的にオイルで保湿してください。",
+        }
+        errors = check_no_third_party_name_leak_in_customer_facing_notices(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("delivery_notice.body", errors[0])
+
+    def test_name_leak_in_care_notice_is_flagged(self):
+        instance = {
+            "order_summary": {"third_party_names": ["田中花子"]},
+            "delivery_notice": {"body": "納品案内です。"},
+            "care_notice": "田中花子様の分と同じお手入れをしてください。",
+        }
+        errors = check_no_third_party_name_leak_in_customer_facing_notices(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_notice", errors[0])
+
+    def test_generalized_wording_is_not_flagged(self):
+        instance = {
+            "order_summary": {"third_party_names": ["田中花子"]},
+            "delivery_notice": {"body": "所有者様の鞍と合わせてお使いください。"},
+            "care_notice": "定期的にオイルで保湿してください。",
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_empty_names_list_is_not_flagged(self):
+        instance = {
+            "order_summary": {"third_party_names": []},
+            "delivery_notice": {"body": "納品案内です。"},
+            "care_notice": "お手入れ案内です。",
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_missing_field_is_treated_as_empty(self):
+        instance = {
+            "order_summary": {},
+            "delivery_notice": {"body": "納品案内です。"},
+            "care_notice": "お手入れ案内です。",
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_no_order_summary_is_skipped(self):
+        instance = {"order_summary": None, "delivery_notice": {"body": "田中花子様"}}
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
 
 
 if __name__ == "__main__":

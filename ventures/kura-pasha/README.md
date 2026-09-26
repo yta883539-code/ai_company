@@ -3920,8 +3920,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
   pending-approval.mdへの追記なし。次回候補: 厳守事項9のllm-system-prompt-draft.md
   への実際の反映、または他venture・アイデア領域の前進。
-- 最終更新: 2026-09-25 22:00 UTC(フェーズ181: legal-notices-draft.md 2.5節の検討課題
-  〈依頼者以外の第三者個人情報の誤記載対応〉に対応する方針を設計。自動マスキングは
-  不採用と判断し、プロンプト側の明示的指示〈厳守事項9案〉+限定的な機械チェックの
-  組み合わせを採用方針として提示。実装は次回以降。コード変更は無く回帰確認のみ、
+- フェーズ182(2026-09-25 23:00 UTC定例更新): フェーズ181のrequester-personal-info-
+  inclusion-handling-design.mdが「次の課題」1点目として残していた、厳守事項9(依頼者
+  本人以外の第三者個人情報を出力2・3に転記しない)のllm-system-prompt-draft.mdへの
+  実際の反映を行った。同design.md 3節の文面案をそのまま採用し新設、文脈注入時の追加
+  指示(a)(b)(c)の前文記述も「厳守事項1〜8・7a〜7c」から「厳守事項1〜9・7a〜7c」へ
+  更新した。schema/output.schema.json・prototype/post_generation_checks.pyへの反映・
+  onboarding-guide.mdの文言追加は次の課題として残す。コード変更は無くドキュメント
+  更新のみ、venture全体16ファイル全件・schema検証32件いずれもパス。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+- フェーズ183(2026-09-26 00:00 UTC定例更新): フェーズ182が次の課題として残していた
+  2点のうち、design.md 4節の限定的な人名突き合わせ方式をschema/output.schema.json・
+  prototype/post_generation_checks.pyへ実装した。order_summaryへ`third_party_names`
+  (第三者の氏名らしき文字列のリスト、design.mdの位置づけ通りrequiredには含めない
+  補助フィールド)を追加、`check_no_third_party_name_leak_in_customer_facing_notices()`
+  を新設してdelivery_notice.body・care_noticeへの名前の紛れ込みを検出できるようにした
+  (出力1は厳守事項9の対象外のため突き合わせ先から除外)。新規テスト6件を追加、venture
+  全体16ファイル全件・schema検証32件いずれもパス(既存フィクスチャへの変更は不要)。
+  onboarding-guide.mdへの入力時留意事項の文言追加は次の課題として残す。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-09-26 00:00 UTC(フェーズ183: 厳守事項9の機械チェック補助フィールド
+  〈third_party_names〉・チェック関数を実装。新規テスト6件追加、venture全体16ファイル
+  全件・schema検証32件いずれもパス。onboarding-guide.md更新は次の課題)
   venture全体16ファイル全件・schema検証32件いずれもパス)

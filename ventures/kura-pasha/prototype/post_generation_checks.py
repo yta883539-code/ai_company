@@ -287,6 +287,45 @@ def check_workshop_invite_notice_no_code(instance):
     return errors
 
 
+def check_no_third_party_name_leak_in_customer_facing_notices(instance):
+    """厳守事項9準拠チェック(2026-09-26追加、フェーズ183、design.md 4節の限定的な
+    人名突き合わせ方式)。order_summary.third_party_names(備考欄等から抽出された、
+    依頼者本人以外の第三者を特定できる氏名らしき文字列)が、依頼者へ実際に転送される
+    出力2(delivery_notice.body)・出力3(care_notice)にそのまま出現していないかを
+    確認する。出力1(order_summary.body)は職人本人の備忘用であり厳守事項9の対象外
+    (design.md 1節の宛先整理)のため、突き合わせ先には含めない。
+
+    design.md 4節が明記する通り、人名らしき文字列の抽出自体が信頼できる技術ではない
+    ため、本チェックはあくまで『明らかな見落としを拾う補助的な網』であり、厳守事項9の
+    実効性の主体はプロンプト側の指示(厳守事項9本文)に置く。third_party_namesが
+    未設定・空の場合は検証対象なしとして扱う(requiredフィールドではないため)。
+    """
+    errors = []
+    order_summary = instance.get("order_summary")
+    if not order_summary:
+        return errors
+
+    names = order_summary.get("third_party_names") or []
+    delivery_notice = instance.get("delivery_notice")
+    delivery_body = delivery_notice.get("body", "") if delivery_notice else ""
+    care_notice = instance.get("care_notice") or ""
+
+    for name in names:
+        if not name:
+            continue
+        if name in delivery_body:
+            errors.append(
+                f"delivery_notice.body: 第三者名候補「{name}」がそのまま含まれています"
+                "(厳守事項9違反の疑い)"
+            )
+        if name in care_notice:
+            errors.append(
+                f"care_notice: 第三者名候補「{name}」がそのまま含まれています"
+                "(厳守事項9違反の疑い)"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -296,4 +335,5 @@ def run_all_checks(instance):
     errors += check_subscription_notice_consistency(instance)
     errors += check_checkout_notice_no_url(instance)
     errors += check_workshop_invite_notice_no_code(instance)
+    errors += check_no_third_party_name_leak_in_customer_facing_notices(instance)
     return errors

@@ -528,3 +528,30 @@ onboarding-guide.mdへの入力時留意事項の文言追加(design.md 5節)。
 最終更新: 2026-09-25 23:00 UTC(フェーズ182: 厳守事項9〈依頼者以外の第三者個人情報の
 取り扱い〉を実反映。(a)(b)(c)の前文記述も厳守事項1〜9に更新。schema拡張・
 post_generation_checks.py対応・onboarding-guide.md更新は次の課題)
+
+## 2026-09-26 00:00 UTC追記(フェーズ183): schema拡張・post_generation_checks.py対応
+
+フェーズ182が次の課題として残していた2点のうち、design.md 4節の限定的な人名突き合わせ
+方式(schema/output.schema.json・prototype/post_generation_checks.pyへの反映)を実装した。
+`schema/output.schema.json`の`order_summary`へ`third_party_names`(備考欄等から抽出
+された第三者の氏名らしき文字列のリスト)を追加。design.md 4節が「機械チェックの実効性の
+主体はプロンプト側の指示に置く」と位置づけている補助フィールドのため、他フィールドと
+異なりrequiredには含めず、既存フィクスチャ(schema/validate_test_cases.pyのTEST_CASES)
+への変更は不要とした。`prototype/post_generation_checks.py`へ
+`check_no_third_party_name_leak_in_customer_facing_notices()`を新設し、
+third_party_namesの各文字列がdelivery_notice.body・care_noticeにそのまま出現していない
+かを確認する(出力1のorder_summary.bodyは厳守事項9の対象外のため突き合わせ先に含めない、
+design.md 1節の宛先整理に基づく)。`run_all_checks()`へ組み込み、
+test_post_generation_checks.pyへ新規テスト6件(名前漏れ検出2件、一般化表現・空リスト・
+未設定・order_summary無しの非検出4件)を追加した。venture全体は
+`prototype/run_all_tests.py`で16ファイル全件・`schema/validate_test_cases.py`で
+schema検証32件いずれもパス。design.md 5節のonboarding-guide.mdへの入力時留意事項の
+文言追加は引き続き次の課題として残す。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+
+次の課題: onboarding-guide.mdへの入力時留意事項の文言追加(design.md 5節)。
+
+最終更新: 2026-09-26 00:00 UTC(フェーズ183: 厳守事項9の機械チェック補助フィールド
+〈third_party_names〉・チェック関数をschema/post_generation_checks.pyへ実装。新規
+テスト6件追加、venture全体16ファイル全件・schema検証32件いずれもパス。
+onboarding-guide.md更新は次の課題)
