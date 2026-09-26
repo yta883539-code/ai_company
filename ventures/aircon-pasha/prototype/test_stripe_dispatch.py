@@ -132,6 +132,63 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.blocked_but_billing_owner_notified_cleared_user_ids, [])
 
+    def test_clears_payment_failure_state_when_payment_store_provided(self):
+        # payment-failure-state-clear-on-subscription-deleted-design.md(フェーズ272、
+        # line-reservation-aiフェーズ続き273の横断確認)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 18, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_suspended_at(
+            _USER_ID, datetime(2026, 8, 25, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_failure_reminder_sent_at(
+            _USER_ID, datetime(2026, 8, 22, tzinfo=timezone.utc)
+        )
+        payment_store.set_payment_suspension_owner_notified_at(
+            _USER_ID, datetime(2026, 8, 25, tzinfo=timezone.utc)
+        )
+        created = int(datetime(2026, 8, 26, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [_USER_ID])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+        self.assertIsNone(payment_store.get_payment_suspended_at(_USER_ID))
+        self.assertIsNone(payment_store.get_payment_failure_reminder_sent_at(_USER_ID))
+        self.assertIsNone(payment_store.get_payment_suspension_owner_notified_at(_USER_ID))
+
+    def test_payment_failure_state_untouched_when_already_unset(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+
+    def test_payment_failure_state_untouched_when_payment_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {

@@ -4539,3 +4539,50 @@
   入力時留意事項〈厳守事項10〉を追記。third-party-personal-info-inclusion-handling-
   design.md「次の課題」3点すべて解消済み。コード変更なし、venture全体582件・
   schema検証25件いずれもパス)
+- フェーズ272(2026-09-26 09:00 UTC定例更新): line-reservation-aiのフェーズ続き273
+  (2026-09-26 09:00 UTC、dormant_mode_scheduler.select_due_dormant_events()に
+  `suspension_reason == "cancelled"`除外ガードを追加した対応)を受け、本venture・
+  kura-pashaへの横展開可否を点検した。本ventureは`dormant_mode`概念自体を持たない
+  (subscription_cancellation_notification.classify_cancel_at_period_end_change()の
+  既存docstringが明記するとおり`suspension_reason`相当の別立て状態も持たない)ため元の
+  ガードそのものの移植対象は無かったが、点検の過程で構造的に類似した別の欠落を発見した。
+  `stripe_dispatch.dispatch_stripe_event()`の`_SUBSCRIPTION_DELETED`
+  (`customer.subscription.deleted`)分岐は、`plan_store`指定時の`current_plan_id`
+  クリア(フェーズ161)・`blocked_but_billing_store`指定時の`blocked_but_billing_owner_
+  notified_at`クリア(フェーズ175)を行う一方、`payment_store`指定時に`payment_failure_
+  detected_at`・`payment_suspended_at`・`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`の4フィールドをクリアする配線が抜けていた。
+  猶予期間中(`payment_suspended_at`未設定)に契約が`customer.subscription.deleted`で
+  終了した場合、これら4フィールドが残ったままとなり、後日`payment_suspension_
+  scheduler.py`・`payment_failure_reminder_scheduler.py`の`select_due_*()`が日次バッチで
+  既に解約済みの顧客を誤って再選出し、`handle_subscription_cancelled()`で「ご契約が
+  終了しました」と案内済みの顧客に後日「生成を一時停止しました」等の矛盾したPush通知を
+  送ってしまう理論上のバグが存在した。line-reservation-aiの元バグ(休止モード移行の
+  誤発火)とは現れ方が異なるが、「解約確定イベントを受けても別系統の旧stateが後続の
+  スケジューラ判定に生き残る」という構造は同種と判断し対応した。新規のクリア関数は
+  追加せず、`invoice.payment_succeeded`受信時に同じ4フィールドをクリアするために既に
+  存在する`payment_failure.clear_payment_failure_on_success()`を`_SUBSCRIPTION_DELETED`
+  分岐からも呼ぶ形とし、新規引数も追加せず既存の`payment_store`引数を再利用した(未指定
+  時はこれまで通りクリアを行わない後方互換)。`StripeDispatchResult`に
+  `payment_failure_cleared_on_deletion_user_ids`フィールドを追加し、クリアが実際に
+  発生したuser_idを記録するようにした。`stripe_webhook.receive_stripe_webhook()`は
+  既に`payment_store`を`dispatch_stripe_event()`へ委譲済みのため、本フェーズの変更のみで
+  実HTTPエントリポイント経由でも即座に有効になる(追加配線は不要)。詳細はpayment-failure-
+  state-clear-on-subscription-deleted-design.md参照。テスト3件追加
+  (`test_clears_payment_failure_state_when_payment_store_provided`・
+  `test_payment_failure_state_untouched_when_already_unset`・
+  `test_payment_failure_state_untouched_when_payment_store_not_provided`、
+  test_stripe_dispatch.py)、venture全体585件全件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`、変更前582件+新規3件)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  なお、kura-pashaへの同種の横展開可否確認は本フェーズでは着手しておらず次回以降の課題
+  として残す。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: kura-pashaに同種の
+  「customer.subscription.deleted時の決済失敗系フィールドクリア漏れ」が無いかの横断
+  確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 09:00 UTC(フェーズ272: line-reservation-aiフェーズ続き273の
+  横断確認を受け、stripe_dispatch.dispatch_stripe_event()の`customer.subscription.
+  deleted`分岐に`payment_store`指定時の決済失敗系4フィールドクリア配線を追加
+  〈payment-failure-state-clear-on-subscription-deleted-design.md〉。既存の
+  `clear_payment_failure_on_success()`を再利用し新規引数なし。テスト3件追加、
+  venture全体585件・schema検証25件いずれもパス)

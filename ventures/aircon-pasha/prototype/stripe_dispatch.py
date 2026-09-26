@@ -23,6 +23,13 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   subscription-cancellation-scheduled-message-suspension-consistency-design.md参照。
   既存の`payment_store`引数を解約予約受理案内の制限モード文言整合性チェックにも
   再利用する(新規引数なし)。
+- `payment_store`の`customer.subscription.deleted`分岐への追加配線(フェーズ272):
+  payment-failure-state-clear-on-subscription-deleted-design.md参照。line-reservation-ai
+  フェーズ続き273の横断確認で見つかった「解約確定後も旧state由来のスケジューラ判定が
+  誤発火しうる」バグクラスを本ventureでも点検した結果、`payment_store`指定時に
+  `customer.subscription.deleted`受信時点で`payment_failure_detected_at`等4フィールドが
+  クリアされないまま残る欠落を発見し対応した(新規引数は追加せず既存の`payment_store`を
+  再利用)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -133,6 +140,11 @@ class StripeDispatchResult:
     cancellation_scheduled_notified_user_ids: List[str] = field(default_factory=list)
     cancellation_rescheduled_notified_user_ids: List[str] = field(default_factory=list)
     cancellation_update_notification_failed_user_ids: List[str] = field(default_factory=list)
+    # フェーズ272追加: payment_store指定時、customer.subscription.deleted受信により
+    # payment_failure_detected_at等4フィールド(payment_failure.PaymentFailureStoreProtocol
+    # 参照)をクリアした(=クリア前に何か1つでも設定済みだった)user_id
+    # (payment-failure-state-clear-on-subscription-deleted-design.md参照)。
+    payment_failure_cleared_on_deletion_user_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_stripe_event(
@@ -214,6 +226,21 @@ def dispatch_stripe_event(
     もので、新規の引数は追加していない。`payment_store`未指定(`None`)の場合は
     `_is_payment_suspended_now()`が安全側で`False`を返すため、フェーズ184時点の挙動
     (制限モード判定なし)と変わらない。
+
+    `_SUBSCRIPTION_DELETED`分岐への`payment_store`追加配線(フェーズ272、
+    payment-failure-state-clear-on-subscription-deleted-design.md参照): 指定時、
+    `payment_failure.clear_payment_failure_on_success()`を呼び、`payment_failure_
+    detected_at`・`payment_suspended_at`・`payment_failure_reminder_sent_at`・
+    `payment_suspension_owner_notified_at`の4フィールドをクリアする(`invoice.payment_
+    succeeded`受信時と同じ関数を再利用、新規のクリア関数は追加しない)。契約が完全に
+    終了した後もこれらのフィールドが残っていると、`payment_suspension_scheduler.py`・
+    `payment_failure_reminder_scheduler.py`の`select_due_*()`が日次バッチで解約済みの
+    顧客を誤って再選出し、既に`handle_subscription_cancelled()`で「ご契約が終了しました」
+    案内を送った顧客へ「生成を一時停止しました」等の矛盾したPush通知を後日送ってしまう
+    (line-reservation-aiのdormant_mode_scheduler.select_due_dormant_events()が
+    フェーズ続き273で対応した「解約済みなのに旧状態を根拠にスケジューラが誤発火する」
+    バグクラスと同種)。`payment_store`未指定(`None`)の場合はこれまで通りクリアを
+    行わない(既存呼び出し経路への後方互換措置)。
     """
     result = StripeDispatchResult()
     event_type = event.get("type")
@@ -245,6 +272,9 @@ def dispatch_stripe_event(
         if blocked_but_billing_store is not None:
             if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
                 result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
+        if payment_store is not None:
+            if clear_payment_failure_on_success(payment_store, user_id):
+                result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
         if cancellation_push_client is not None:
             notification_result = handle_subscription_cancelled(user_id, cancellation_push_client)
             if notification_result.notified:
