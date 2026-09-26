@@ -279,6 +279,32 @@ def test_deleted_clear_is_no_op_when_notified_at_was_unset():
     )
 
 
+def test_deleted_clears_payment_failure_detected_at():
+    # payment-failure-state-clear-on-subscription-deleted設計(フェーズ187、aircon-pasha
+    # フェーズ272と同種)。猶予期間中に解約が確定した場合、決済失敗系の状態を残さない。
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W9c", "cus_9c")
+    store.set_subscription_status("W9c", "active")
+    store.set_payment_failure_detected_at("W9c", datetime(2026, 9, 1, 9, 0, 0))
+    handle_customer_subscription_deleted({"customer": "cus_9c"}, store)
+    check(
+        "解約確定でpayment_failure_detected_atがクリアされる",
+        store.get_payment_failure_detected_at("W9c") is None,
+    )
+
+
+def test_deleted_clear_payment_failure_is_no_op_when_unset():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W9d", "cus_9d")
+    store.set_subscription_status("W9d", "active")
+    result = handle_customer_subscription_deleted({"customer": "cus_9d"}, store)
+    check("未検知のworkshopでもエラーにならない", result.invalid is False and result.unresolved is False)
+    check(
+        "未検知のままNoneを維持",
+        store.get_payment_failure_detected_at("W9d") is None,
+    )
+
+
 def test_deleted_sends_notification_to_contractor_when_push_client_given():
     store = InMemoryWorkshopStore()
     store.set_members("W10", contractor_user_id="contractor_10", member_user_ids=["contractor_10", "member_10"])

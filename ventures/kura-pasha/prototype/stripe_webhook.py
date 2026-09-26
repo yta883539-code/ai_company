@@ -232,6 +232,17 @@ def handle_customer_subscription_deleted(
     ブロック中かつ契約継続中というオーナー通知の前提が解消したことを表す)。
     `workshop_store`自体が`BlockedButBillingOwnerNotifiedAtStoreProtocol`を構造的に
     満たすため、追加の引数は不要。
+
+    (フェーズ187、aircon-pashaのpayment-failure-state-clear-on-subscription-deleted-
+    design.mdフェーズ272と同種のギャップの横展開)`payment_failure_detected_at`が設定済み
+    (決済失敗の猶予期間中、または制限モード移行後)のまま`customer.subscription.deleted`で
+    契約が終了した場合、クリアせずに残すとdaily_scheduler.pyの`select_due_payment_
+    failure_reminders()`等が解約済みworkshopを後日誤って再選出し、`handle_subscription_
+    cancelled()`で「ご契約が終了しました」と案内済みの契約者へ矛盾したリマインド・制限
+    モード通知を送ってしまう。`workshop_store.clear_payment_failure_detected_at()`は
+    `payment_failure_reminder_sent_at`・`payment_suspension_owner_notified_at`もまとめて
+    クリアする1メソッド方式(usage_counter_workshop.py参照)のため、設定済みの場合のみ
+    呼ぶ。
     """
     stripe_customer_id = data_object.get("customer")
     if not stripe_customer_id:
@@ -243,6 +254,8 @@ def handle_customer_subscription_deleted(
 
     workshop_store.set_subscription_status(workshop_id, "canceled")
     clear_blocked_but_billing_owner_notified_at(workshop_store, workshop_id)
+    if workshop_store.get_payment_failure_detected_at(workshop_id) is not None:
+        workshop_store.clear_payment_failure_detected_at(workshop_id)
 
     notified = False
     if push_client is not None:

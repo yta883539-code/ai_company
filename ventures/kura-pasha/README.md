@@ -4007,3 +4007,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   detection-design.mdの「次の課題」に残っていた2点が、フェーズ37・38で既に解消済み
   だったことを確認し、記載を実態に合わせて更新。コード変更は無くドキュメント更新
   のみ、venture全体16ファイル全件・schema検証32件いずれもパス)
+- フェーズ187(2026-09-26 13:00 UTC定例更新): aircon-pashaのフェーズ272
+  (payment-failure-state-clear-on-subscription-deleted-design.md、line-reservation-ai
+  フェーズ続き273の横断確認を受けた対応)が「次回候補」として残していた本ventureへの
+  横展開可否を点検し、実際に同種のギャップが存在したため対応した。
+  `stripe_webhook.handle_customer_subscription_deleted()`は`set_subscription_status`
+  成功時に`clear_blocked_but_billing_owner_notified_at()`は呼ぶ一方、
+  `payment_failure_detected_at`(猶予期間中・制限モード移行後に設定)をクリアする配線が
+  欠落しており、猶予期間中に`customer.subscription.deleted`で契約が終了した場合、
+  解約完了案内済みの契約者へ後日daily_scheduler.py経由でリマインド・制限モード移行の
+  矛盾した通知が届いてしまう理論上のバグが存在した。`workshop_store.clear_payment_
+  failure_detected_at()`(既存の3フィールド一括クリアメソッド)を設定済みの場合のみ
+  呼ぶ形で対応した。詳細はpayment-failure-state-clear-on-subscription-deleted-
+  design.md参照。あわせて他2venture(course-set-pasha・line-reservation-ai)への
+  横展開可否も点検し、course-set-pashaには同種ギャップが**未対応のまま残っている**
+  (次回以降の課題)、line-reservation-aiは該当する統合ハンドラ自体が未実装のため対象
+  外、という状況を確認した(design.md5節参照)。テスト2件追加
+  (`test_deleted_clears_payment_failure_detected_at`・
+  `test_deleted_clear_payment_failure_is_no_op_when_unset`)、venture全体173件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前171件+新規2件)・
+  schema検証32件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: course-set-pasha
+  への同種修正の実装、または実Firestore・実LINE Messaging API接続(オーナー承認待ち)、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 13:00 UTC(フェーズ187: aircon-pashaフェーズ272の横断確認により
+  発見した`customer.subscription.deleted`受信時の`payment_failure_detected_at`クリア
+  漏れを修正。course-set-pashaに同種ギャップが未対応のまま残っていることも確認
+  〈次回以降の課題〉。テスト2件追加、venture全体173件・schema検証32件いずれもパス)
