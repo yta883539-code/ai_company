@@ -78,8 +78,41 @@ venture全体652件全件(`python3 -m unittest discover -s prototype -p "test_*.
 649件+新規3件)・schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ
 結果)いずれもパスを確認した。
 
-## 6. 次回候補
+## 6. 次回候補(フェーズ257で対応済み)
 
 - 4節で触れた`invoice.payment_succeeded`後方互換パスの`payment_suspension_owner_notified_at`
   クリア漏れの調査・対応。
+
+## 7. フェーズ257追記: 4節の後方互換パスのギャップ対応
+
+4節で「次回以降の課題」としていた`invoice.payment_succeeded`受信時・`push_client`未指定の
+後方互換経路(`dispatch_stripe_event()`後半)を調査した。`push_client`指定時は
+`payment_recovery_notification.handle_payment_succeeded()`が`payment_failure_detected_at`・
+`payment_failure_reminder_sent_at`・`payment_suspension_owner_notified_at`の3フィールドを
+クリアしていたのに対し、`push_client`未指定の後方互換経路は前2フィールドしかクリアして
+いなかった。
+
+このギャップにより、制限モード移行時のオーナー通知(`payment_suspension_owner_notified_at`
+設定済み)を送った利用者が決済成功で復旧した後、再度決済失敗した場合に
+`payment_suspension_owner_notification.py`側の「既に通知済みなら再送しない」判定
+(`get_payment_suspension_owner_notified_at()`が値ありなら送らない、フェーズ121相当)が
+誤って働き、新しい制限モード移行についてオーナーへ通知が飛ばなくなる理論上のバグが
+あった。
+
+`dispatch_stripe_event()`の当該箇所に`usage_counter.clear_payment_suspension_owner_
+notified_at(user_id)`を追加し、push_client指定時と同じ3フィールドをクリアするよう揃えた。
+`PaymentFailureUsageCounterProtocol`は本設計docのフェーズ256対応時点で既に
+`clear_payment_suspension_owner_notified_at()`を宣言済みだったため、Protocol変更は不要
+だった。
+
+テスト1件追加(`test_clears_payment_suspension_owner_notified_at_when_push_client_not_
+provided`、`test_stripe_webhook.py`)。venture全体653件
+(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前652件+新規1件)・
+schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。
+
+## 8. 次回候補(更新)
+
+- 実Stripeアカウント接続(オーナー承認待ち)、または他venture・アイデア領域の前進。
 - 実Stripeアカウント接続(オーナー承認待ち)、または他venture・アイデア領域の前進。

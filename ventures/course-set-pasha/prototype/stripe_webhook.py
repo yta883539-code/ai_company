@@ -480,9 +480,16 @@ def dispatch_stripe_event(
     # あわせてクリアする(消去しないと再度の決済失敗時にリマインドが送信されなくなるため、
     # payment-failure-reminder-scheduler-design.md 3節)。push_client未指定時の
     # 後方互換経路(通知なし)としてそのまま残す。
+    # フェーズ257: `payment_suspension_owner_notified_at`もあわせてクリアする。push_client
+    # 指定時のhandle_payment_succeeded()(payment_recovery_notification.py)は3フィールド
+    # とも既にクリアしていたが、この後方互換経路だけ2フィールドしかクリアしておらず、
+    # 制限モード移行オーナー通知済みのまま決済成功で復旧した利用者が再度決済失敗した際に
+    # オーナー通知が再送されない潜在ギャップがあったため揃えた
+    # (payment-failure-state-clear-on-subscription-deleted-design.md 6節参照)。
     if usage_counter.get_payment_failure_detected_at(user_id) is not None:
         usage_counter.clear_payment_failure_detected_at(user_id)
         usage_counter.clear_payment_failure_reminder_sent_at(user_id)
+        usage_counter.clear_payment_suspension_owner_notified_at(user_id)
         result.payment_recovered_user_ids.append(user_id)
 
     return result

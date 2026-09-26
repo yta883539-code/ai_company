@@ -926,6 +926,31 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
         self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
 
+    def test_clears_payment_suspension_owner_notified_at_when_push_client_not_provided(self):
+        """フェーズ257対応。push_client未指定の後方互換経路でも
+        `payment_suspension_owner_notified_at`があわせてクリアされることを確認する
+        (push_client指定時のhandle_payment_succeeded()経路とクリア対象を揃えた)。"""
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        self.usage_counter.set_payment_suspension_owner_notified_at(
+            "user_1", datetime(2026, 9, 1, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+        self.assertIsNone(
+            self.usage_counter.get_payment_suspension_owner_notified_at("user_1")
+        )
+
     def test_idempotent_when_nothing_was_set(self):
         event = {
             "type": "invoice.payment_succeeded",

@@ -4066,3 +4066,24 @@
 - 最終更新: 2026-09-26 14:00 UTC(フェーズ256: kura-pashaフェーズ187の横展開として、
   `customer.subscription.deleted`受信時の決済失敗系3フィールドクリア配線漏れを修正。
   テスト3件追加、venture全体652件・schema検証21件いずれもパス)
+- フェーズ257(2026-09-26 17:00 UTC定例更新): フェーズ256が「次回候補」として残していた
+  `invoice.payment_succeeded`後方互換パス(`push_client`未指定時)の
+  `payment_suspension_owner_notified_at`クリア漏れを調査・対応した。`push_client`指定時は
+  `payment_recovery_notification.handle_payment_succeeded()`が決済失敗系3フィールドを
+  クリアしていたのに対し、`push_client`未指定の後方互換経路(`dispatch_stripe_event()`
+  後半)は`payment_failure_detected_at`・`payment_failure_reminder_sent_at`の2フィールド
+  しかクリアしておらず、制限モード移行オーナー通知済みの利用者が決済成功で復旧後に
+  再度決済失敗した場合、オーナーへの再通知が「既に通知済み」判定で抑止されてしまう
+  理論上のバグが存在した。`usage_counter.clear_payment_suspension_owner_notified_at()`
+  呼び出しを追加して3フィールドとも揃えた(Protocolはフェーズ256時点で宣言済みのため
+  変更不要)。詳細はpayment-failure-state-clear-on-subscription-deleted-design.md 7節参照。
+  テスト1件追加(`test_clears_payment_suspension_owner_notified_at_when_push_client_not_
+  provided`、test_stripe_webhook.py)、venture全体653件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前652件+新規1件)・
+  schema検証21件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 実Stripeアカウント
+  接続(オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 17:00 UTC(フェーズ257: `invoice.payment_succeeded`後方互換パスの
+  `payment_suspension_owner_notified_at`クリア漏れを修正。テスト1件追加、venture全体653件・
+  schema検証21件いずれもパス)
