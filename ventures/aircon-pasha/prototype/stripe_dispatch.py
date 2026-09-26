@@ -32,6 +32,18 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   `payment_store`を再利用。クリア対象フィールド数はフェーズ274で4→5に増えたが、
   `clear_payment_failure_on_success()`を再利用しているため本モジュール側の変更は
   不要だった)。
+- `payment_store`の`customer.subscription.deleted`/`.created`分岐への追加配線
+  (フェーズ275): subscription-canceled-immediate-block-design.md参照(kura-pasha
+  フェーズ188・course-set-pashaフェーズ258の横展開)。`payment_store`指定時、
+  `customer.subscription.deleted`受信のたびに(決済失敗検知の有無によらず)
+  `subscription_canceled_at`を書き込み、`customer.subscription.created`受信
+  (再契約)時にクリアする。`PaymentFailureStoreProtocol`自体は変更せず(design対象の
+  5フィールドのみを扱う既存の位置づけを保つ)、`InMemoryUserProfileStore`が実際には
+  `set_subscription_canceled_at`/`get_subscription_canceled_at`も構造的に満たす
+  (get_stripe_runtime_dependencies()参照)ことを前提に`hasattr`で存在確認してから
+  呼ぶ(未対応の`payment_store`実装〈将来的な専用スタブ等〉が渡された場合は書き込みを
+  スキップする後方互換措置、course-set-pashaの`_is_subscription_canceled()`と同じ
+  hasattr方針)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -148,6 +160,10 @@ class StripeDispatchResult:
     # だった)user_id
     # (payment-failure-state-clear-on-subscription-deleted-design.md参照)。
     payment_failure_cleared_on_deletion_user_ids: List[str] = field(default_factory=list)
+    # フェーズ275追加: payment_store指定時(かつ`set_subscription_canceled_at`対応時)、
+    # customer.subscription.deleted受信により`subscription_canceled_at`を書き込んだ
+    # user_id(subscription-canceled-immediate-block-design.md参照)。
+    subscription_canceled_user_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_stripe_event(
@@ -279,6 +295,9 @@ def dispatch_stripe_event(
         if payment_store is not None:
             if clear_payment_failure_on_success(payment_store, user_id):
                 result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
+            if hasattr(payment_store, "set_subscription_canceled_at"):
+                payment_store.set_subscription_canceled_at(user_id, event_time)
+                result.subscription_canceled_user_ids.append(user_id)
         if cancellation_push_client is not None:
             notification_result = handle_subscription_cancelled(user_id, cancellation_push_client)
             if notification_result.notified:
@@ -293,6 +312,8 @@ def dispatch_stripe_event(
         if plan_store is not None:
             if sync_current_plan_on_subscription_event(plan_store, user_id, data_object):
                 result.plan_synced_user_ids.append(user_id)
+        if payment_store is not None and hasattr(payment_store, "set_subscription_canceled_at"):
+            payment_store.set_subscription_canceled_at(user_id, None)
         return result
 
     if event_type == _SUBSCRIPTION_UPDATED:

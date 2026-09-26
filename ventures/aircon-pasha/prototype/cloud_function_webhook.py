@@ -670,6 +670,36 @@ def _is_payment_suspended(profile: Optional[UserProfile]) -> bool:
     return profile.payment_suspended_at is not None
 
 
+# ---------------------------------------------------------------------------
+# 解約確定時の生成即時ブロック(subscription-canceled-immediate-block-design.md、
+# kura-pashaフェーズ188・course-set-pashaフェーズ258の横展開)
+# ---------------------------------------------------------------------------
+
+# 本ventureは有料転換後の再解約を想定しても`upgraded_at`が不変(以降クリアされない)ため、
+# _is_generation_paused()(upgraded_at未設定が条件)・_is_payment_suspended()(決済失敗検知が
+# 前提)のいずれも、既に有料転換済みのユーザーが決済失敗を一度も経験せず解約した場合は
+# Falseのままとなり、解約確定後も無期限に生成を使い続けられてしまう欠落があった
+# (kura-pashaフェーズ188で発見された「解約確定が専用分岐を持たない」欠落と同型)。
+SUBSCRIPTION_CANCELED_MESSAGE = (
+    "現在のご契約は解約手続きが完了しているため、作業完了報告・お手入れ案内の生成を"
+    "停止しています。\n"
+    "再開をご希望の際は、いつでも新規契約と同じお手続きでお申し込みいただけます。"
+)
+
+
+def _is_subscription_canceled(profile: Optional[UserProfile]) -> bool:
+    """subscription-canceled-immediate-block-design.md準拠の解約確定判定。
+
+    `user_profile.subscription_canceled_at`(`customer.subscription.deleted`受信時に
+    stripe_dispatch.pyが書き込む、フェーズ275追加)が設定済みであれば、
+    _is_generation_paused()・_is_payment_suspended()とは独立に(トライアル進捗・決済失敗
+    猶予期間の状態によらず)生成を即座にブロックする。profileがNoneの場合は他の判定関数と
+    同じく安全側でFalseを返す。"""
+    if profile is None:
+        return False
+    return profile.subscription_canceled_at is not None
+
+
 def _is_length_limit_error(errors: list[str]) -> bool:
     """検証エラーの中にLINE文字数上限超過(character-limit-fallback-design.md)が
     含まれているかを判定する。"""
@@ -779,6 +809,7 @@ class MemoProcessResult:
     api_failure: bool = False  # True=LLM API呼び出し自体が即時リトライ後も失敗した
     generation_paused: bool = False  # True=トライアル終了・未アップグレードのため一時停止応答
     payment_suspended: bool = False  # True=決済失敗の猶予期間超過による制限モード応答
+    subscription_canceled: bool = False  # True=customer.subscription.deleted受信済み(解約確定)のため停止応答
     owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q7"=owner-faq-routing-design.md準拠のFAQコマンド応答
     chatbot_intent: Optional[str] = None  # intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
 
@@ -972,7 +1003,19 @@ def process_memo_event(
        `QuickReplyButton`リスト)を渡してLINE Messaging APIのquickReplyとして同じ返信
        メッセージに添付する(追加のPush API呼び出し・課金を発生させない、
        trial-end-notification-design.md 2節(A)の方針を踏襲)。
-    7. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_generation_paused()で
+    7. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_subscription_canceled()で
+       解約確定(`customer.subscription.deleted`受信時にstripe_dispatch.pyが書き込む
+       `subscription_canceled_at`が設定済み)かを判定する(subscription-canceled-immediate-
+       block-design.md、kura-pashaフェーズ188・course-set-pashaフェーズ258相当の横展開)。
+       該当する場合は8.・9.の判定(トライアル進捗・決済失敗猶予期間の状態)によらず最優先で
+       LLM呼び出し自体を行わずSUBSCRIPTION_CANCELED_MESSAGEを返信して即座に処理を終える
+       (月間カウント・トライアル生成回数カウント・セルフチェック案内のいずれも行わない)。
+       本ventureは`upgraded_at`が有料転換後に不変(以降クリアされない)のため、解約確定後も
+       `upgraded_at`が設定済みのままとなり8.の判定(`upgraded_at`未設定が条件)は常にFalseと
+       なる。決済失敗が一度も検知されないまま解約された場合は9.の判定も常にFalseとなるため、
+       専用分岐を設けなければ既に有料転換済みのユーザーが解約後も無期限に生成を使い続けられて
+       しまう(kura-pashaフェーズ188・course-set-pashaフェーズ258で発見された欠落と同型)。
+    8. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_generation_paused()で
        トライアル終了(条件A/Bいずれか、`trial_end_notified_at`設定済み)後かつ未アップグレード
        (`upgraded_at`未設定)かを判定する(trial-end-notification-design.md 4節「生成一時停止」、
        course-set-pashaフェーズ114相当)。該当する場合はLLM呼び出し自体を行わず
@@ -980,13 +1023,13 @@ def process_memo_event(
        生成回数カウント・セルフチェック案内のいずれも行わない)。本venture固有の対応として、
        CTAボタンは6.と同じく`_build_plan_selection_quick_reply()`のquick_replyとして
        返信に添付する。
-    8. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_payment_suspended()で
+    9. profile_storeが渡され、かつ対応するuser_profileが存在する場合、_is_payment_suspended()で
        決済失敗検知後の猶予期間超過による制限モード(`payment_suspended_at`設定済み、
-       payment-failure-dunning-design.md 3節「段階3」)かを判定する。該当する場合は7.と同様、
-       LLM呼び出し自体を行わずPAYMENT_SUSPENDED_MESSAGEを返信して即座に処理を終える。7.の
+       payment-failure-dunning-design.md 3節「段階3」)かを判定する。該当する場合は8.と同様、
+       LLM呼び出し自体を行わずPAYMENT_SUSPENDED_MESSAGEを返信して即座に処理を終える。8.の
        トライアル未アップグレード判定(`upgraded_at`未設定が前提)とは前提条件が排他的
        (本判定は既に有料転換済みのユーザーのみが対象)であるため、両者が同時にTrueになる
-       ことは想定しない。CTAボタンはプラン選択ではない(支払い方法の更新)ため、6.・7.とは
+       ことは想定しない。CTAボタンはプラン選択ではない(支払い方法の更新)ため、6.・8.とは
        異なり`_build_plan_selection_quick_reply()`は使わずUPDATE_PAYMENT_METHOD_POSTBACK_DATAの
        単一ボタンのまま(quick_reply引数の型に合わせ要素数1のリストとして渡す)。
        process_postback_event()側の実処理配線はフェーズ142で対応済み(既存の
@@ -1026,6 +1069,14 @@ def process_memo_event(
             handled=True, reply_sent=reply_sent,
             reply_text=answer_message if reply_sent else None,
             owner_faq_action=owner_faq_code,
+        )
+
+    if _is_subscription_canceled(profile):
+        reply_sent = _reply_with_retry(reply_client, reply_token, SUBSCRIPTION_CANCELED_MESSAGE)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=SUBSCRIPTION_CANCELED_MESSAGE if reply_sent else None,
+            subscription_canceled=True,
         )
 
     if _is_generation_paused(profile):

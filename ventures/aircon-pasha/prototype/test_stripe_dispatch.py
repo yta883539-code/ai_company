@@ -189,6 +189,39 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
 
+    def test_writes_subscription_canceled_at_when_payment_store_provided(self):
+        # subscription-canceled-immediate-block-design.md(フェーズ275、kura-pasha
+        # フェーズ188・course-set-pashaフェーズ258の横展開)。決済失敗が一度も検知
+        # されていない(既に有料転換済みの)ユーザーの解約確定でも書き込まれることを
+        # 確認する。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        event_created_at = datetime(2026, 8, 26, 12, 0, 0, tzinfo=timezone.utc)
+        created = int(event_created_at.timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertEqual(result.subscription_canceled_user_ids, [_USER_ID])
+        self.assertEqual(
+            payment_store.get_subscription_canceled_at(_USER_ID), event_created_at
+        )
+
+    def test_subscription_canceled_at_untouched_when_payment_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        created = int(datetime(2026, 8, 25, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+        event = {
+            "type": "customer.subscription.deleted",
+            "created": created,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.subscription_canceled_user_ids, [])
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {
@@ -240,6 +273,34 @@ class DispatchSubscriptionCreatedTest(unittest.TestCase):
             "type": "customer.subscription.created",
             "data": {"object": {"customer": _CUSTOMER}},
         }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.cleared_user_ids, [_USER_ID])
+
+    def test_clears_subscription_canceled_at_when_payment_store_provided(self):
+        # subscription-canceled-immediate-block-design.md(フェーズ275)。再契約後に
+        # 生成が永久にブロックされたままにならないよう、customer.subscription.created
+        # 受信でsubscription_canceled_atをクリアする。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_subscription_canceled_at(
+            _USER_ID, datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "customer.subscription.created",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertIsNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
+    def test_subscription_canceled_at_untouched_when_payment_store_not_provided(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.created",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        # payment_store未指定でも例外を送出せず正常終了することを確認する。
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.cleared_user_ids, [_USER_ID])
 

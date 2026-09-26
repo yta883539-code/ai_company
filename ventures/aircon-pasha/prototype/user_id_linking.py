@@ -210,7 +210,17 @@ class UserProfile:
     ら以降不変(次にクリアされるまで)」フィールド)。`payment_recovery_notification.
     classify_payment_recovery()`は本フィールドと`payment_failure_reminder_sent_at`の
     いずれかが設定済みであれば「猶予期間中に業者へ既に何らかの通知が届いている」と
-    判断しOUTCOME_CONFIRMED_IN_GRACEを返す。"""
+    判断しOUTCOME_CONFIRMED_IN_GRACEを返す。
+
+    `subscription_canceled_at`はsubscription-canceled-immediate-block-design.md
+    (kura-pashaフェーズ188・course-set-pashaフェーズ258の横展開、フェーズ275で追加)。
+    `upgraded_at`は本ventureでは有料転換後不変(以降クリアされない)ため、既に有料転換
+    済みのユーザーが決済失敗を一度も経験せず解約した場合、`_is_generation_paused()`
+    (upgraded_at未設定が条件)・`_is_payment_suspended()`(決済失敗検知が前提)のいずれも
+    Falseのままとなり、解約確定後も無期限に生成を使い続けられてしまう欠落があった。
+    `stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐が
+    (決済失敗検知の有無によらず)常に書き込み、`customer.subscription.created`分岐
+    (再契約)でクリアする。`payment_failure_detected_at`等と同じく不変フィールドではない。"""
 
     business_name: str
     business_type: str
@@ -227,6 +237,7 @@ class UserProfile:
     payment_suspended_at: Optional[datetime] = None
     payment_failure_reminder_sent_at: Optional[datetime] = None
     payment_failure_detection_notified_at: Optional[datetime] = None
+    subscription_canceled_at: Optional[datetime] = None
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
@@ -428,6 +439,14 @@ class UserProfileStoreProtocol(Protocol):
     def get_business_name(self, user_id: str) -> Optional[str]:
         ...
 
+    def get_subscription_canceled_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_subscription_canceled_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -608,6 +627,18 @@ class InMemoryUserProfileStore:
         profile = self._profiles.get(user_id)
         return profile.business_name if profile is not None else None
 
+    def get_subscription_canceled_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.subscription_canceled_at if profile is not None else None
+
+    def set_subscription_canceled_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.subscription_canceled_at = value
+
 
 @dataclass
 class LinkingResolution:
@@ -725,6 +756,9 @@ def resolve_linking_code(
                 existing_profile.payment_suspension_owner_notified_at
                 if existing_profile
                 else None
+            ),
+            subscription_canceled_at=(
+                existing_profile.subscription_canceled_at if existing_profile else None
             ),
         ),
     )

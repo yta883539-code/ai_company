@@ -4649,3 +4649,35 @@
   detection_notified_at`を追加。検知時通知のみ送信済み〈リマインド未送信〉のユーザーが
   決済成功した場合もOUTCOME_CONFIRMED_IN_GRACEとして正しく復旧通知が届くように修正。
   テスト11件追加、venture全体596件・schema検証25件いずれもパス)
+- フェーズ275(2026-09-26 23:00 UTC定例更新): kura-pashaフェーズ188・course-set-pasha
+  フェーズ258が「他venture(aircon-pasha・line-reservation-ai)への横展開確認」として
+  残していた論点(「解約確定が専用分岐を持たず既存の生成可否判定に紛れて扱われていないか」)
+  を、本venture側で実コードで確認した。aircon-pashaもcourse-set-pashaと同じく個別
+  タイムスタンプ方式(`_is_generation_paused`=トライアル終了未アップグレード、
+  `_is_payment_suspended`=決済失敗猶予期間超過)で生成可否を判定しており、
+  `customer.subscription.deleted`受信時にはどちらの判定にも使われるフィールドが
+  書き込まれていなかった。そのため、既に有料転換済み(`upgraded_at`設定済み)かつ
+  決済失敗を一度も経験していないユーザーが解約した場合、解約確定後も**無期限に**
+  生成を使い続けられてしまう欠落(course-set-pashaフェーズ258と同型)が実際に存在する
+  ことを確認した。`UserProfile`に`subscription_canceled_at`を追加(`UserProfileStore
+  Protocol`の`get`/`set`、`InMemoryUserProfileStore`実装、`resolve_linking_code()`の
+  再連携時引き継ぎも対応)、`_is_subscription_canceled(profile)`判定関数と
+  `SUBSCRIPTION_CANCELED_MESSAGE`を新設し、`process_memo_event()`内で既存の2判定より
+  先に(トライアル進捗・決済失敗猶予期間の状態によらず)解約確定を判定するようにした。
+  `stripe_dispatch.py`の`customer.subscription.deleted`分岐で(決済失敗検知の有無に
+  よらず)常に`subscription_canceled_at`を書き込み、`customer.subscription.created`
+  (再契約)分岐でクリアするよう配線した。詳細はsubscription-canceled-immediate-block-
+  design.md参照。テスト14件追加(test_cloud_function_webhook.py 5件・
+  test_stripe_dispatch.py 4件・test_user_id_linking.py 5件)、venture全体610件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前596件+新規14件)・
+  schema検証25件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: line-reservation-ai
+  への同じ横展開確認(kura-pashaフェーズ187時点で「該当する統合ハンドラ自体が未実装の
+  ため対象外」と記録されていたが実装状況次第では再点検が必要)、実Stripeアカウント接続
+  (オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 23:00 UTC(フェーズ275: kura-pashaフェーズ188・course-set-pasha
+  フェーズ258の横展開確認。aircon-pashaにも、既に有料転換済みかつ決済失敗未経験の
+  ユーザーが解約後、無期限に生成を使い続けられてしまう欠落を発見し、
+  `subscription_canceled_at`による専用判定を追加して修正。テスト14件追加、
+  venture全体610件・schema検証25件いずれもパス)

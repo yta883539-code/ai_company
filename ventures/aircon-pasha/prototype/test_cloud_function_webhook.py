@@ -35,6 +35,7 @@ from cloud_function_webhook import (  # noqa: E402
     PLAN_MONTHLY_LIMITS,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
     SELF_CHECK_NOTICE_TEXT,
+    SUBSCRIPTION_CANCELED_MESSAGE,
     TRIAL_GENERATION_LIMIT,
     UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
     UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
@@ -1117,6 +1118,128 @@ class ProcessMemoEventPaymentSuspendedTest(unittest.TestCase):
         self.assertTrue(result.generation_paused)
         self.assertFalse(result.payment_suspended)
         self.assertEqual(result.reply_text, GENERATION_PAUSED_MESSAGE)
+
+
+class ProcessMemoEventSubscriptionCanceledTest(unittest.TestCase):
+    """process_memo_event()からの「解約確定」応答の検証
+    (subscription-canceled-immediate-block-design.md、kura-pashaフェーズ188・
+    course-set-pashaフェーズ258の横展開)。"""
+
+    def test_canceled_when_subscription_canceled_at_set(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                upgraded_at=datetime(2026, 8, 5, tzinfo=timezone.utc),
+                subscription_canceled_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.subscription_canceled)
+        self.assertFalse(result.generation_paused)
+        self.assertFalse(result.payment_suspended)
+        self.assertEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
+        self.assertTrue(result.reply_sent)
+
+    def test_not_canceled_when_subscription_canceled_at_unset(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                upgraded_at=datetime(2026, 8, 5, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertFalse(result.subscription_canceled)
+        self.assertNotEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
+
+    def test_not_canceled_when_profile_store_is_none(self):
+        # profile_store未接続時は既存の挙動を維持し解約確定扱いにしない。
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertFalse(result.subscription_canceled)
+
+    def test_subscription_canceled_takes_precedence_over_generation_paused(self):
+        # 本ventureはupgraded_atが有料転換後不変(以降クリアされない)のため、解約確定後も
+        # trial_end_notified_at設定済み・upgraded_at設定済みという組み合わせ自体は
+        # 起こり得ないが、専用分岐が最優先で判定される設計を固定しておく。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_end_notified_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                subscription_canceled_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.subscription_canceled)
+        self.assertFalse(result.generation_paused)
+        self.assertEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
+
+    def test_subscription_canceled_takes_precedence_over_payment_suspended(self):
+        # 決済失敗の猶予期間超過(制限モード)中に解約が確定した場合でも、解約確定を
+        # 最優先する(design記載の「トライアル進捗・決済失敗猶予期間の状態によらず」)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                upgraded_at=datetime(2026, 8, 5, tzinfo=timezone.utc),
+                payment_suspended_at=datetime(2026, 8, 27, tzinfo=timezone.utc),
+                subscription_canceled_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.subscription_canceled)
+        self.assertFalse(result.payment_suspended)
+        self.assertEqual(result.reply_text, SUBSCRIPTION_CANCELED_MESSAGE)
 
 
 class RenderSubscriptionProcedureNoticeTest(unittest.TestCase):
