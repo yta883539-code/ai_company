@@ -4016,3 +4016,27 @@
 - 最終更新: 2026-09-25 18:00 UTC(フェーズ254: line-price-revision-2026-check.md新規
   作成。2026年10月LINE料金改定について本venture固有の影響評価を実施、料金プラン見直しは
   不要と判断。コード変更なし、venture全体649件・schema検証21件いずれもパス)
+- フェーズ255(2026-09-26 10:00 UTC定例更新): 他venture(aircon-pasha・kura-pasha)より
+  前進が手薄になっていた本ventureを今回選んだ。kura-pashaがフェーズ181〜184で実装し
+  aircon-pashaがフェーズ268〜271で横展開した、依頼者(受け手)以外の第三者の氏名等が
+  対外発信文へ誤って転記されるリスクへの対応方針を、本venture固有の入出力構造に
+  照らして棚卸しし、third-party-personal-info-inclusion-handling-design.mdを新規作成
+  した。本venture固有の整理として、出力1(SNS投稿文)・出力2(公式LINE/Web告知文)は
+  他venture(一対一の納品案内・完了報告)と異なりいずれも不特定多数または会員全体への
+  公開・一斉配信メディアである点を明記し、出力3(課題入れ替え履歴)は定型項目のみで
+  自由記述の本文欄を持たないため対象外と整理した。legal-notices-draft.md 2.1節の
+  記載を踏まえ、新規小節2.6として本論点と対応方針を追記した。本フェーズは方針設計と
+  ドキュメント更新のみで、llm-system-prompt-draft.md(厳守事項10案)・
+  schema/output.schema.json・prototype/post_generation_checks.pyへの実装は次回以降の
+  課題とする。コード変更は無く、回帰確認としてventure全体649件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証21件(`python3
+  schema/validate_test_cases.py`)いずれもパス(変更前と同数・同じ結果)を確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: 厳守事項10のllm-system-
+  prompt-draft.mdへの反映、schema/output.schema.json・post_generation_checks.pyへの
+  third_party_names相当フィールド・チェック関数追加、または他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-09-26 10:00 UTC(フェーズ255: kura-pasha・aircon-pashaの第三者個人情報
+  対応の横展開棚卸しとして、third-party-personal-info-inclusion-handling-design.md
+  新規作成。legal-notices-draft.mdに2.6節を追記。コード変更は無くドキュメント作成のみ、
+  venture全体649件・schema検証21件いずれもパス)
