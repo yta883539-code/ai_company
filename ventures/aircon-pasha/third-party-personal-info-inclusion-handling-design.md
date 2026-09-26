@@ -76,7 +76,11 @@ completion_report.body・care_guide.bodyへの紛れ込みを検出するチェ�
 
 - (解消済み 2026-09-26 06:00 UTC、フェーズ269: llm-system-prompt-draft.mdに厳守事項10
   本文を正式追記した)
-- schema/output.schema.jsonのcompletion_reportへのthird_party_names追加
-- prototype/post_generation_checks.pyへのチェック関数実装・テスト追加
+- (解消済み 2026-09-26 07:00 UTC、フェーズ270: schema/output.schema.jsonの
+  completion_reportへthird_party_names追加。post_generation_checks.pyへ
+  check_no_third_party_name_leak_in_customer_facing_notices()を新設し、
+  出力1〈completion_report.body〉・出力2〈care_guide.body〉の両方を突き合わせ対象と
+  した〈本ventureはkura-pashaと異なり出力1も受け手へ転送される前提のため、1節の整理通り
+  出力1側も対象に含めた〉。テスト6件追加、venture全体582件・schema検証25件いずれもパス)
 - onboarding-guide.mdへの入力時留意事項の文言追加(kura-pashaフェーズ184と同様の対応、
   本フェーズでは未着手)

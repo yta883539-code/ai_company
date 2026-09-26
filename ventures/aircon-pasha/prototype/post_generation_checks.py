@@ -439,6 +439,49 @@ def check_checkout_notice_consistency(instance):
     return errors
 
 
+def check_no_third_party_name_leak_in_customer_facing_notices(instance):
+    """厳守事項10準拠チェック(2026-09-26追加、フェーズ270、
+    third-party-personal-info-inclusion-handling-design.md 4節・kura-pashaの
+    check_no_third_party_name_leak_in_customer_facing_notices()と同じ、限定的な
+    人名突き合わせ方式)。completion_report.third_party_names(入力メモから抽出された、
+    受け手以外の第三者を特定できる氏名らしき文字列)が、依頼者または管理会社・オーナーへ
+    実際に転送されるcompletion_report.body・care_guide.bodyの両方にそのまま出現して
+    いないかを確認する。design.md 1節が明記する通り、本ventureはkura-pashaと異なり
+    出力1(completion_report)も受け手へ転送される前提のため、kura-pashaでは対象外だった
+    出力1側もここでは突き合わせ対象に含める(出力3のhistory_rowsは定型フィールドのみで
+    自由記述欄が無いため対象外、design.md 1節参照)。
+
+    design.md 4節が明記する通り、人名らしき文字列の抽出自体が信頼できる技術ではないため、
+    本チェックはあくまで『明らかな見落としを拾う補助的な網』であり、厳守事項10の実効性の
+    主体はプロンプト側の指示に置く。third_party_namesが未設定・空の場合は検証対象なしと
+    して扱う(requiredフィールドではないため)。
+    """
+    errors = []
+    completion_report = instance.get("completion_report")
+    if not completion_report:
+        return errors
+
+    names = completion_report.get("third_party_names") or []
+    completion_body = completion_report.get("body", "")
+    care_guide = instance.get("care_guide")
+    care_body = care_guide.get("body", "") if care_guide else ""
+
+    for name in names:
+        if not name:
+            continue
+        if name in completion_body:
+            errors.append(
+                f"completion_report.body: 第三者名候補「{name}」がそのまま含まれています"
+                "(厳守事項10違反の疑い)"
+            )
+        if name in care_body:
+            errors.append(
+                f"care_guide.body: 第三者名候補「{name}」がそのまま含まれています"
+                "(厳守事項10違反の疑い)"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -452,4 +495,5 @@ def run_all_checks(instance):
     errors += check_subscription_notice_consistency(instance)
     errors += check_checkout_notice_consistency(instance)
     errors += check_message_length_within_line_limit(instance)
+    errors += check_no_third_party_name_leak_in_customer_facing_notices(instance)
     return errors

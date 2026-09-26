@@ -28,6 +28,7 @@ from post_generation_checks import (  # noqa: E402
     check_next_recommended_date_estimate_consistency,
     check_next_recommended_date_history_care_guide_consistency,
     check_no_out_of_scope_topics_in_generated_output,
+    check_no_third_party_name_leak_in_customer_facing_notices,
     check_refrigerant_electrical_professional_judgement,
     check_subscription_notice_consistency,
     run_all_checks,
@@ -487,6 +488,65 @@ class MessageLengthWithinLineLimitTest(unittest.TestCase):
         instance = {"completion_report": {"body": body}, "care_guide": {"body": ""}}
         errors = check_message_length_within_line_limit(instance)
         self.assertEqual(len(errors), 1)  # UTF-16コード単位数では上限+1のため検出される
+
+
+class ThirdPartyNameLeakTest(unittest.TestCase):
+    """厳守事項10(third-party-personal-info-inclusion-handling-design.md 4節、
+    フェーズ270)準拠チェック。kura-pashaのThirdPartyNameLeakTestと同じ構成だが、
+    本ventureはcompletion_report(出力1)自体が受け手へ転送される前提のため、
+    completion_report.bodyへの漏れも検出対象とする点が異なる。"""
+
+    def test_name_leak_in_completion_report_is_flagged(self):
+        instance = {
+            "completion_report": {
+                "third_party_names": ["田中花子"],
+                "body": "田中花子様立会いのもと分解洗浄を実施しました。",
+            },
+            "care_guide": {"body": "フィルターは月1回を目安にお手入れください。"},
+        }
+        errors = check_no_third_party_name_leak_in_customer_facing_notices(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("completion_report.body", errors[0])
+
+    def test_name_leak_in_care_guide_is_flagged(self):
+        instance = {
+            "completion_report": {
+                "third_party_names": ["田中花子"],
+                "body": "分解洗浄を実施しました。",
+            },
+            "care_guide": {"body": "田中花子様にもお伝えください。"},
+        }
+        errors = check_no_third_party_name_leak_in_customer_facing_notices(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_guide.body", errors[0])
+
+    def test_generalized_wording_is_not_flagged(self):
+        instance = {
+            "completion_report": {
+                "third_party_names": ["田中花子"],
+                "body": "ご家族の方立会いのもと分解洗浄を実施しました。",
+            },
+            "care_guide": {"body": "フィルターは月1回を目安にお手入れください。"},
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_empty_names_list_is_not_flagged(self):
+        instance = {
+            "completion_report": {"third_party_names": [], "body": "分解洗浄を実施しました。"},
+            "care_guide": {"body": "お手入れ案内です。"},
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_missing_field_is_treated_as_empty(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄を実施しました。"},
+            "care_guide": {"body": "お手入れ案内です。"},
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+    def test_no_completion_report_is_skipped(self):
+        instance = {"completion_report": None, "care_guide": {"body": "田中花子様"}}
+        self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
 
 
 class RunAllChecksTest(unittest.TestCase):

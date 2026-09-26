@@ -4500,3 +4500,25 @@
 - 最終更新: 2026-09-26 06:00 UTC(フェーズ269: llm-system-prompt-draft.mdに厳守事項10
   本文〈第三者個人情報の出力1・2への転記回避〉を正式追記。design.md「次の課題」を更新。
   コード変更は無く回帰確認のみ、venture全体576件・schema検証25件いずれもパス)
+- フェーズ270(2026-09-26 07:00 UTC定例更新): third-party-personal-info-inclusion-
+  handling-design.md「次の課題」が残していた2点のうち、schema/output.schema.jsonへの
+  third_party_names追加とprototype/post_generation_checks.pyへの機械チェック実装を
+  行った(kura-pashaがフェーズ182→183で厳守事項9を段階的に実装したのと同じ進め方の
+  第二段階)。`completion_report`にkura-pashaのorder_summary.third_party_namesと
+  同じ位置づけの`third_party_names`(受け手以外の第三者を特定できる氏名らしき文字列の
+  リスト、requiredには含めない補助フィールド)を追加し、
+  `check_no_third_party_name_leak_in_customer_facing_notices()`を新設した。
+  design.md 1節の整理(本ventureはkura-pashaと異なり出力1〈completion_report〉自体が
+  受け手へ転送される前提)に基づき、kura-pashaでは対象外だった出力1側の本文も
+  completion_report.bodyとして突き合わせ対象に含めた点がkura-pasha版との違い
+  (出力3のhistory_rowsは定型フィールドのみで自由記述欄が無いため引き続き対象外)。
+  テスト6件追加(ThirdPartyNameLeakTest)、venture全体582件(576+6)・schema検証25件
+  いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  onboarding-guide.mdへの入力時留意事項の文言追加(kura-pashaフェーズ184と同様の
+  対応、design.md「次の課題」最後の1点)、`ChatbotIntentClassificationClient`実
+  クライアント接続(実LLM接続、オーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 07:00 UTC(フェーズ270: schema/output.schema.jsonの
+  completion_reportへthird_party_names追加、post_generation_checks.pyに
+  check_no_third_party_name_leak_in_customer_facing_notices()新設。テスト6件追加、
+  venture全体582件・schema検証25件いずれもパス)
