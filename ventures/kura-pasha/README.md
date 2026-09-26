@@ -3943,3 +3943,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈third_party_names〉・チェック関数を実装。新規テスト6件追加、venture全体16ファイル
   全件・schema検証32件いずれもパス。onboarding-guide.md更新は次の課題)
   venture全体16ファイル全件・schema検証32件いずれもパス)
+- フェーズ184(2026-09-26 01:00 UTC定例更新): requester-personal-info-inclusion-
+  handling-design.md 5節・フェーズ183が次の課題として残していたonboarding-guide.mdへの
+  入力時留意事項の文言追加を実施した。手順4(本番運用開始)に、依頼者以外の第三者
+  (他の馬主・関係者等)の氏名・連絡先等はメモへの記載を避けるか、必要な場合は
+  本人を特定できない表現(「所有者様」等)に置き換えて記載するよう案内する一言を
+  追加し(厳守事項9・requester-personal-info-inclusion-handling-design.md参照)、
+  同design.md「次の課題」・onboarding-guide.md「次のステップ候補」双方を実施済みに
+  更新した。コード変更は無くドキュメント更新のみのため、回帰確認としてventure全体
+  16ファイル全件(`python3 prototype/run_all_tests.py`)・schema検証32件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同数・同じ結果)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。これでrequester-personal-info-
+  inclusion-handling-design.mdが挙げていた3つの次の課題(プロンプト反映・機械チェック
+  実装・案内文言追加)全てが完了した。次回候補: 実Firestore・実LINE Messaging API接続
+  (いずれもオーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 01:00 UTC(フェーズ184: requester-personal-info-inclusion-
+  handling-design.mdが残していたonboarding-guide.mdへの入力時留意事項〈第三者の氏名・
+  連絡先の記載回避案内〉の文言追加を実施。同design.mdの次の課題3点が全て完了。
+  コード変更は無くドキュメント更新のみ、venture全体16ファイル全件・schema検証32件
+  いずれもパス)

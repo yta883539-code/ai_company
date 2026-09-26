@@ -105,7 +105,9 @@ aircon-pasha/prototype/post_generation_checks.pyの既存チェック群(厳守�
   facing_notices()`、新規テスト6件)。conversation-samples-test-cases.md相当の
   ネガティブケース追加(実LLM接続後の会話サンプル収集)は実LLM接続自体がオーナー
   承認待ちのため引き続き未着手。
-- onboarding-guide.mdへの入力時留意事項の文言追加(未着手、次回候補)。
+- ~~onboarding-guide.mdへの入力時留意事項の文言追加~~ → フェーズ184(2026-09-26
+  01:00 UTC)で実施済み(手順4に、第三者の氏名・連絡先等の記載を避けるか本人特定を
+  避けた表現に置き換える旨の一言案内を追加)。
 
 最終更新: 2026-09-25 22:00 UTC(新規作成。legal-notices-draft.md 2.5節の検討課題に
 対応する方針設計。自動マスキングは不採用と判断し、プロンプト側の明示的指示〈厳守事項9
