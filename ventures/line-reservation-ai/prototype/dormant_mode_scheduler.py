@@ -109,6 +109,12 @@ def select_due_dormant_events(
     renotification-design.md 4節の復旧通知が既にそちらで送信済みのため)。
     dormant_renotify_countが3(2nd/3rd/finalすべて送信済み)に達した後は、2節の
     「4回で打ち切り」方針どおり以降何も返さない。
+
+    suspension_reason == "cancelled"(subscription-cancellation-flow-design.md 2節、
+    オーナー自身の解約による契約終了)も本スケジューラの対象外とする。stripe_customer_id・
+    dormant_transitioned_atの組み合わせで大半のケースは間接的に除外されるが、解約は
+    「オーナーの明確な意思表示」であり再通知(督促)は行わない方針のため、payment_failedと
+    同様に明示的なガード条件として扱う。
     """
     due: list[DueDormantEvent] = []
     for state in states:
@@ -116,6 +122,12 @@ def select_due_dormant_events(
             continue
         if state.suspension_reason == "payment_failed":
             # 決済失敗からの猶予期間・制限モードはdunning_notification_scheduler.pyの担当。
+            continue
+        if state.suspension_reason == "cancelled":
+            # オーナー自身の解約(subscription-cancellation-flow-design.md 2節)による
+            # 意思表示であり、trial_unselected起点の督促(再通知)対象ではない。
+            # stripe_customer_id・dormant_transitioned_atの組み合わせで大半のケースは
+            # 既に除外されるが、明示的にガードして意図を明確にする。
             continue
         schedule = compute_dormant_schedule(state.trial_end_report_sent_at)
 

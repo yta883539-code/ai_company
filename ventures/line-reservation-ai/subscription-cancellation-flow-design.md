@@ -193,9 +193,18 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   案内メッセージ送信・`suspension_reason`解除)として扱うよう修正した。テスト2件追加
   (`test_cancelled_is_activated`・`test_cancelled_store_reactivation_sends_message_
   and_clears_suspension`)、venture全体760件全件・schema検証25件パスを確認した)
-- dormant_mode_scheduler.pyの`select_due_dormant_events()`に`suspension_reason ==
+- ~~dormant_mode_scheduler.pyの`select_due_dormant_events()`に`suspension_reason ==
   "cancelled"`を対象外とする条件を追加する実装は本ドキュメントでは未着手(設計のみ、
-  2節)。既存の`suspension_reason == "payment_failed"`除外条件と同じ形で追加できる見込み。
+  2節)。既存の`suspension_reason == "payment_failed"`除外条件と同じ形で追加できる見込み。~~
+  (解消済み 2026-09-26 09:00 UTC: `select_due_dormant_events()`のループ先頭に
+  `suspension_reason == "cancelled"`の明示的な除外条件を`payment_failed`と同じ形で追加した。
+  stripe_customer_id・dormant_transitioned_atの組み合わせで大半のケースは間接的に除外
+  されていたが、両方が未設定のままcancelledになる理論上のケース(Webhook到達順序次第)で
+  誤って休止モード移行イベントを発行してしまう欠落があったため、明示的なガードとして
+  実装した。テスト2件追加(`test_cancelled_reason_before_transition_is_out_of_scope`・
+  `test_cancelled_reason_after_transition_is_out_of_scope`)、venture全体856件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
+  (`python3 schema/validate_test_cases.py`)いずれもパスを確認した)
 - そもそも`suspension_reason`(なし/`trial_unselected`/`payment_failed`、今回追加した
   `cancelled`含む)を実際に「新規予約受付を停止する」という顧客向け自動応答の分岐に
   読み込ませる配線(`cloud_function_process_event.py`・`cloud_function_webhook.py`側)は、

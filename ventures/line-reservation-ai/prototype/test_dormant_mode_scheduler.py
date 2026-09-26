@@ -153,6 +153,36 @@ class SelectDueDormantEventsTests(unittest.TestCase):
         due = select_due_dormant_events([state], self.now)
         self.assertEqual(due, [])
 
+    def test_cancelled_reason_before_transition_is_out_of_scope(self):
+        # subscription-cancellation-flow-design.md 2節: 解約(cancelled)はオーナーの
+        # 明確な意思表示のため、trial_unselected起点の督促(再通知)対象に含めない。
+        # stripe_customer_id・dormant_transitioned_atが未設定のままcancelledになる
+        # (ウェブフックの到達順序次第で理論上あり得る)場合でも、誤って休止モード
+        # 移行イベントを発行しないことを確認する。
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason="cancelled",
+        )
+        due = select_due_dormant_events([state], self.now)
+        self.assertEqual(due, [])
+
+    def test_cancelled_reason_after_transition_is_out_of_scope(self):
+        # 一度休止モードへ移行(trial_unselected)→再契約→解約、という経路でも
+        # renotifyの対象に含めない。
+        transitioned_at = self.report_sent_at + timedelta(days=GRACE_PERIOD_DAYS)
+        state = DormantScheduleState(
+            store_id="s1",
+            trial_end_report_sent_at=self.report_sent_at,
+            suspension_reason="cancelled",
+            stripe_customer_id="cus_123",
+            dormant_transitioned_at=transitioned_at,
+            dormant_renotify_count=1,
+        )
+        now = transitioned_at + timedelta(days=30)
+        due = select_due_dormant_events([state], now)
+        self.assertEqual(due, [])
+
     def test_2nd_renotify_due_after_transition_plus_7_days(self):
         transitioned_at = self.report_sent_at + timedelta(days=GRACE_PERIOD_DAYS)
         state = DormantScheduleState(

@@ -4707,3 +4707,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `dispatch_process_event()`のフォールスルーが安全側デフォルト〈オーナー転送〉のため
   同種バグは構造上発生し得ないことを確認。コード変更は無く確認のみ、venture全体854件・
   schema検証28件いずれもパス)
+- フェーズ続き273(2026-09-26 09:00 UTC定例更新): 他venture(aircon-pasha・kura-pasha)より
+  前進が手薄になっていた本ventureを今回選んだ。subscription-cancellation-flow-design.md
+  「未確定事項・残課題」に未着手のまま残っていた「dormant_mode_scheduler.pyの
+  `select_due_dormant_events()`に`suspension_reason == "cancelled"`を対象外とする条件を
+  追加する」実装に対応した。既存コードはstripe_customer_id・dormant_transitioned_atの
+  組み合わせで大半のcancelledケースを間接的に除外できていたが、両方が未設定のまま
+  cancelledになる理論上のケース(Webhook到達順序次第であり得る)では、trial_unselected
+  起点の休止モード移行イベントを誤って発行してしまう欠落があった。`payment_failed`と
+  同じ形の明示的なガード条件をループ先頭に追加し、docstringにも根拠を追記した。テスト2件
+  追加(`test_cancelled_reason_before_transition_is_out_of_scope`・
+  `test_cancelled_reason_after_transition_is_out_of_scope`)、venture全体856件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前854件+新規2件)・
+  schema検証28件(`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: candidate-longlist-
+  draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち状況の再確認、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-26 09:00 UTC(フェーズ続き273: dormant_mode_scheduler.pyの
+  `select_due_dormant_events()`に`suspension_reason == "cancelled"`を対象外とする明示的
+  ガードを追加。stripe_customer_id・dormant_transitioned_atが未設定のままcancelledに
+  なる理論上のケースで誤って休止モード移行イベントが発行される欠落を解消。テスト2件追加、
+  venture全体856件・schema検証28件いずれもパス)
