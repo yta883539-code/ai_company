@@ -4522,3 +4522,20 @@
   completion_reportへthird_party_names追加、post_generation_checks.pyに
   check_no_third_party_name_leak_in_customer_facing_notices()新設。テスト6件追加、
   venture全体582件・schema検証25件いずれもパス)
+- フェーズ271(2026-09-26 08:00 UTC定例更新): third-party-personal-info-inclusion-
+  handling-design.md「次の課題」に残っていた最後の1点、onboarding-guide.mdへの入力時
+  留意事項の文言追加(kura-pashaフェーズ184と同様の対応)を行った。手順5(本番運用開始)
+  に、依頼者以外の第三者の氏名・連絡先等をメモへ記載する際の留意事項(厳守事項10参照)
+  を追記し、本ventureは出力1(completion_report)・出力2(care_guide)の両方が留意事項の
+  対象である点(kura-pashaは出力2・3が対象)を明記した。これでdesign.md「次の課題」は
+  llm-system-prompt-draft.md反映(フェーズ269)・機械チェック実装(フェーズ270)・
+  onboarding-guide.md反映(本フェーズ)の3点すべてが解消済みとなった。コード変更は無く
+  ドキュメント更新のみ、venture全体582件・schema検証25件いずれもパス(変更前と同数)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補:
+  `ChatbotIntentClassificationClient`実クライアント接続(実LLM接続、オーナー承認待ち)、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 08:00 UTC(フェーズ271: onboarding-guide.md手順5に第三者個人情報の
+  入力時留意事項〈厳守事項10〉を追記。third-party-personal-info-inclusion-handling-
+  design.md「次の課題」3点すべて解消済み。コード変更なし、venture全体582件・
+  schema検証25件いずれもパス)

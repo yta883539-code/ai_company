@@ -82,5 +82,5 @@ completion_report.body・care_guide.bodyへの紛れ込みを検出するチェ�
   出力1〈completion_report.body〉・出力2〈care_guide.body〉の両方を突き合わせ対象と
   した〈本ventureはkura-pashaと異なり出力1も受け手へ転送される前提のため、1節の整理通り
   出力1側も対象に含めた〉。テスト6件追加、venture全体582件・schema検証25件いずれもパス)
-- onboarding-guide.mdへの入力時留意事項の文言追加(kura-pashaフェーズ184と同様の対応、
-  本フェーズでは未着手)
+- (解消済み 2026-09-26 08:00 UTC、フェーズ271: onboarding-guide.md手順5に入力時留意事項
+  の文言を追加した。kura-pashaフェーズ184と同様の対応)
