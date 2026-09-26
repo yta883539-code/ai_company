@@ -4729,3 +4729,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   ガードを追加。stripe_customer_id・dormant_transitioned_atが未設定のままcancelledに
   なる理論上のケースで誤って休止モード移行イベントが発行される欠落を解消。テスト2件追加、
   venture全体856件・schema検証28件いずれもパス)
+- フェーズ続き274(2026-09-26 15:00 UTC定例更新): subscription-cancellation-flow-design.md
+  「未確定事項・残課題」に残っていた、`suspension_reason`を実際の顧客向け自動応答へ配線する
+  実装(休止モード全体に共通する既存の未着手事項)に対応した。suspension-reason-new-
+  booking-block-design.mdを新規作成し、`cloud_function_process_event.py`の
+  `_start_new_booking()`冒頭に、owner-settings-wireframe.md 4節の対応表通り
+  `trial_unselected`/`payment_suspended`/`cancelled`の3値でnew_booking intentをブロックし
+  `SUSPENDED_NEW_BOOKING_MESSAGE`を返すガード(`_is_new_booking_blocked_by_suspension()`)を
+  追加した(`payment_failed`〈猶予期間中〉は同表で「継続」のためブロックしない)。change
+  intent経由で旧予約が既に解放済み(`change_context=True`)の場合は、ブロックすると顧客が
+  旧予約・新予約のどちらも持たない状態に陥ってしまうため、例外的にsuspension_reasonに
+  関わらずブロックしない設計とした。`OwnerFollowStatusStoreProtocol`に`get_suspension_reason`
+  を追加要求するよう拡張。テスト7件追加(`SuspendedNewBookingBlockTests`、3つの停止値・
+  2つの非停止ケース・change継続ケースを検証)、venture全体863件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前856件+新規7件)・
+  schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。他venture(aircon-pasha・kura-pasha・course-set-pasha)の
+  プロセッサ側は同種の配線が未着手のまま残っているため、venture横断の残課題として残る。
+  次回候補: candidate-longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち
+  状況の再確認、他venture(aircon-pasha・kura-pasha・course-set-pasha)への同種配線の横展開、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-26 15:00 UTC(フェーズ続き274: suspension_reasonをnew_booking intentの
+  実際の顧客向け自動応答へ配線。owner-settings-wireframe.md 4節の対応表通り
+  `trial_unselected`/`payment_suspended`/`cancelled`でブロック、`payment_failed`・change
+  経由〈旧予約解放済み〉はブロックしない。テスト7件追加、venture全体863件・schema検証28件
+  いずれもパス)

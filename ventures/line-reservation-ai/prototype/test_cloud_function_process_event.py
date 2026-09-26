@@ -33,6 +33,7 @@ from cloud_function_process_event import (  # noqa: E402
     REASK_DATE_RANGE_MESSAGE,
     REASK_MENU_MESSAGE,
     REASK_NAME_MENU_MESSAGE,
+    SUSPENDED_NEW_BOOKING_MESSAGE,
     dispatch_process_event,
     handle_process_conversation_event,
     resolve_menu_duration,
@@ -223,6 +224,128 @@ class NewBookingDispatchTests(unittest.TestCase):
     # enumに存在しない架空のintent値でこの分岐を叩くテストは、schema検証のフォールバック
     # (SAFE_FALLBACK_OUTPUT、intent: "escalation"に上書きされる)を経由してしまい
     # 意図した経路を検証できないため、重複テストとして残さず削除した。
+
+
+class SuspendedNewBookingBlockTests(unittest.TestCase):
+    """suspension-reason-new-booking-block-design.md準拠。owner-settings-wireframe.md
+    「4節へのsuspension_reason分岐の反映」対応表が「新規予約受付: 停止」とする3値
+    (trial_unselected/payment_suspended/cancelled)でnew_booking intentがブロックされ、
+    「継続」とするpayment_failed(猶予期間中)・None(通常時)ではブロックされないことを検証する。
+    """
+
+    def _new_booking_llm_call(self):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+        return {
+            "intent": "new_booking", "name": None, "menu": "カット",
+            "datetime_candidate": "来週土曜の空き候補", "confirmed": False,
+            "needs_owner_check": False,
+            "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+        }
+
+    def test_trial_unselected_blocks_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        store_profile.set_suspension_reason(STORE_ID, "trial_unselected")
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "new_booking_blocked_suspended")
+        self.assertEqual(result.detail, "trial_unselected")
+        self.assertEqual(push.sent[-1][1], SUSPENDED_NEW_BOOKING_MESSAGE)
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_payment_suspended_blocks_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        store_profile.set_suspension_reason(STORE_ID, "payment_suspended")
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "new_booking_blocked_suspended")
+        self.assertEqual(result.detail, "payment_suspended")
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_cancelled_blocks_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        store_profile.set_suspension_reason(STORE_ID, "cancelled")
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "new_booking_blocked_suspended")
+        self.assertEqual(result.detail, "cancelled")
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_payment_failed_grace_period_does_not_block_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        store_profile.set_suspension_reason(STORE_ID, "payment_failed")
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+    def test_no_suspension_reason_does_not_block_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+    def test_missing_store_profile_does_not_block_new_booking(self):
+        processor, flow, push, _ = _new_processor(store_profile=None)
+
+        result = processor.process(_event("U1", "来週土曜カットで"), self._new_booking_llm_call, NOW)
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
+
+    def test_change_after_confirmed_still_re_searches_while_suspended(self):
+        """change-intent-handling-design.md準拠。change_context=True(旧予約を既に解放済み)の
+        場合はsuspension_reasonに関わらずブロックしない(ブロックすると顧客が旧予約・新予約の
+        どちらも持たない状態に陥るため)。
+        """
+        store_profile = InMemoryStoreProfileStore()
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def present_llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor.process(_event("U1", "来週土曜カットで"), present_llm_call, NOW)
+
+        def select_llm_call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), select_llm_call, NOW)
+
+        def confirm_llm_call():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "山田です、カットでお願いします"), confirm_llm_call, NOW)
+        self.assertEqual(flow.stage("U1"), "confirmed")
+
+        # 解約直後(新規予約受付停止)になった状態を想定する。
+        store_profile.set_suspension_reason(STORE_ID, "cancelled")
+
+        def change_llm_call():
+            return {
+                "intent": "change", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        result = processor.process(_event("U1", "来週土曜の別の時間に変更できますか"), change_llm_call, NOW)
+        self.assertEqual(result.action, "candidates_presented")
+        self.assertEqual(flow.stage("U1"), "candidates_presented")
 
 
 class NewBookingContradictionOwnerNotificationTests(unittest.TestCase):

@@ -206,9 +206,10 @@ class OwnerFollowStatusStoreProtocol(Protocol):
     ブロック状態(`ownerIsFollowing`)を書き込むための最小インターフェース。
     blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
     (フェーズ続き178)対応で、`blocked_but_billing_owner_notified_at`の読み書きも
-    あわせて要求するよう拡張した。`store_profile_store.StoreProfileStoreProtocol`
-    (ひいては`InMemoryStoreProfileStore`)はいずれのメソッドも既に持つため、
-    構造的に(duck typing)本Protocolを満たす。
+    あわせて要求するよう拡張した。suspension-reason-new-booking-block-design.md準拠で
+    `get_suspension_reason`もあわせて要求するよう拡張した(新規予約受付停止の判定用)。
+    `store_profile_store.StoreProfileStoreProtocol`(ひいては`InMemoryStoreProfileStore`)は
+    いずれのメソッドも既に持つため、構造的に(duck typing)本Protocolを満たす。
     """
 
     def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
@@ -220,6 +221,9 @@ class OwnerFollowStatusStoreProtocol(Protocol):
     def set_blocked_but_billing_owner_notified_at(
         self, store_id: str, value: Optional[str]
     ) -> None:
+        ...
+
+    def get_suspension_reason(self, store_id: str) -> Optional[str]:
         ...
 
 
@@ -327,13 +331,25 @@ BOOKING_CONFLICT_RETRY_MESSAGE = (
     "当店: 大変申し訳ございません、ちょうど別のお客様のご予約と重なってしまいました。"
     "改めて空いているお時間をご案内しますので、よろしければ番号でお選びください。"
 )
+# suspension-reason-new-booking-block-design.md準拠。owner-settings-wireframe.md「4節への
+# suspension_reason分岐の反映」の対応表(新規予約受付: 停止)3値と、subscription-cancellation-
+# flow-design.md 2節が追加した`cancelled`(休止モードと同じ「新規予約受付停止」扱い)。
+# `payment_failed`(猶予期間中)は同表で新規予約受付「継続」のためここには含めない。
+SUSPENSION_REASONS_BLOCKING_NEW_BOOKING = frozenset(
+    {"trial_unselected", "payment_suspended", "cancelled"}
+)
+SUSPENDED_NEW_BOOKING_MESSAGE = (
+    "当店: 大変申し訳ございません、現在新規のご予約受付を一時的に停止しております。"
+    "恐れ入りますが、ご予約に関しては店舗まで直接お問い合わせくださいますようお願いいたします。"
+)
 
 
 @dataclass
 class DispatchResult:
     action: str
     # "candidates_presented" | "held" | "confirmed" | "booking_conflict" |
-    # "reask" | "forwarded_to_owner" | "cancelled" | "escalation_replied"
+    # "reask" | "forwarded_to_owner" | "cancelled" | "escalation_replied" |
+    # "new_booking_blocked_suspended"
     detail: str = ""
 
 
@@ -888,6 +904,17 @@ class ConversationEventProcessor:
         self._notify_owner(user_id, output, now, reply_text)
         return DispatchResult(action="forwarded_to_owner", detail=f"unexpected_stage:{stage}")
 
+    def _is_new_booking_blocked_by_suspension(self) -> bool:
+        """suspension-reason-new-booking-block-design.md準拠。`store_profile`未指定
+        (None、既存呼び出し元への後方互換)の場合は常にFalse(従来通りブロックしない)。
+        """
+        if self._store_profile is None:
+            return False
+        return (
+            self._store_profile.get_suspension_reason(self._store_id)
+            in SUSPENSION_REASONS_BLOCKING_NEW_BOOKING
+        )
+
     def _start_new_booking(
         self,
         user_id: str,
@@ -897,6 +924,17 @@ class ConversationEventProcessor:
         change_context: bool = False,
         reply_text: Optional[str] = None,
     ) -> DispatchResult:
+        # suspension-reason-new-booking-block-design.md準拠。change_context=Trueの場合は
+        # ここでブロックしない: _handle_change()は本メソッド呼び出し前に既に旧予約を解放済み
+        # (change-intent-handling-design.md)であり、ここで新規検索まで止めると顧客は
+        # 旧予約・新予約のどちらも持たない状態に陥ってしまう。既存確定予約の変更は
+        # owner-settings-wireframe.md 4節の対応表が言う「新規予約受付停止」の対象外
+        # (休止モード中も「既存確定予約とリマインドは継続」)と整合させるため、
+        # change経由のみ suspension_reason に関わらず従来通り検索を続行する。
+        if not change_context and self._is_new_booking_blocked_by_suspension():
+            suspension_reason = self._store_profile.get_suspension_reason(self._store_id)
+            self._send(user_id, SUSPENDED_NEW_BOOKING_MESSAGE, now)
+            return DispatchResult(action="new_booking_blocked_suspended", detail=suspension_reason)
         output = self._merge_pending_new_booking_context(user_id, output, now)
         menu_name = output.get("menu")
         if not menu_name:

@@ -205,7 +205,7 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   `test_cancelled_reason_after_transition_is_out_of_scope`)、venture全体856件
   (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
   (`python3 schema/validate_test_cases.py`)いずれもパスを確認した)
-- そもそも`suspension_reason`(なし/`trial_unselected`/`payment_failed`、今回追加した
+- ~~そもそも`suspension_reason`(なし/`trial_unselected`/`payment_failed`、今回追加した
   `cancelled`含む)を実際に「新規予約受付を停止する」という顧客向け自動応答の分岐に
   読み込ませる配線(`cloud_function_process_event.py`・`cloud_function_webhook.py`側)は、
   本ventureのどのsuspension_reason値についても現時点で未実装であることを本フェーズの
@@ -213,7 +213,16 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   renotification-design.mdはいずれも文面・判断ロジックの設計にとどまり、実際の会話フロー
   〈new-booking intent処理〉側への配線はどの休止要因についても着手されていない)。これは
   本ドキュメント固有の欠落ではなく、休止モード全体に共通する既存の未着手事項であるため、
-  本フェーズのスコープには含めず、venture全体の残課題として別途棚卸し候補に加える。
+  本フェーズのスコープには含めず、venture全体の残課題として別途棚卸し候補に加える。~~
+  (解消済み 2026-09-26 15:00 UTC: suspension-reason-new-booking-block-design.md新規作成。
+  `cloud_function_process_event.py`の`_start_new_booking()`冒頭に、owner-settings-
+  wireframe.md 4節の対応表通り`trial_unselected`/`payment_suspended`/`cancelled`の3値で
+  new_booking intentをブロックし`SUSPENDED_NEW_BOOKING_MESSAGE`を返すガードを追加した
+  (`payment_failed`は猶予期間中のため引き続きブロックしない)。change intent経由で旧予約が
+  既に解放済み〈change_context=True〉の場合は、顧客が旧予約・新予約のどちらも持たない状態に
+  陥らないよう例外的にブロックしない設計とした。テスト7件追加、venture全体863件・
+  schema検証28件いずれもパス。他venture〈aircon-pasha・kura-pasha・course-set-pasha〉の
+  同種配線は引き続き未着手のため、venture横断の残課題としては残る)
 - owner-settings-wireframe.md「4. プラン・お支払い状況ページ」のステータス表示
   (トライアル中/スタンダードプラン/休止モードの3状態)に「解約手続き中」
   (`cancel_at_period_end=true`)・「解約済み」(`suspension_reason == "cancelled"`)の
