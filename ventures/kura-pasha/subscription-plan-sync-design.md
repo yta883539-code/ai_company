@@ -82,3 +82,11 @@ subscription_plan_sync.py(フェーズ177・208)の設計をkura-pasha固有の�
 - line-reservation-aiへの同種ギャップの横展開要否は次回以降の棚卸し候補として残す
   (line-reservation-aiはワークショップ単位ではなく店舗単位の契約構造であり、そもそも
   複数プランを持つか自体を要確認)。
+  → 解消済み。line-reservation-aiフェーズ続き220(2026-09-12 18:00 UTC)がこの棚卸しを
+  実施し、店舗単位でスタータープラン/スタンダードプラン/プロプランの3プランを持ち
+  横展開の前提が成立すること、`set_plan()`が`customer.subscription.updated`受信時には
+  一度も同期されていなかった同種ギャップを確認した上で、本ventureと同じ設計
+  (`prototype/subscription_plan_sync.py`新設、差分チェックを最初から組み込み)を移植
+  済み(line-reservation-ai/subscription-plan-sync-design.md参照)。これでaircon-pasha/
+  course-set-pasha/kura-pasha/line-reservation-ai全4ventureで本ギャップの解消が完了して
+  いる(本項目は2026-09-26 02:00 UTC定例更新でkura-pasha側の記載を実態に合わせて更新)。

@@ -3963,3 +3963,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   連絡先の記載回避案内〉の文言追加を実施。同design.mdの次の課題3点が全て完了。
   コード変更は無くドキュメント更新のみ、venture全体16ファイル全件・schema検証32件
   いずれもパス)
+- フェーズ185(2026-09-26 02:00 UTC定例更新): subscription-plan-sync-design.md
+  「6. 次の課題」が「line-reservation-aiへの同種ギャップの横展開要否は次回以降の
+  棚卸し候補として残す」と申し送っていた件を棚卸しした。line-reservation-ai/README.md
+  フェーズ続き220(2026-09-12 18:00 UTC)を確認したところ、この棚卸しは既に実施済みで、
+  同venture側も店舗単位で複数プランを持つ横展開前提が成立すること・同種ギャップ
+  (`customer.subscription.updated`受信時にplan未同期)を確認した上で本venture同様の
+  `subscription_plan_sync.py`を移植済み(line-reservation-ai/subscription-plan-sync-
+  design.md参照)であることを確認した。本venture側の次の課題欄がこの解消を反映しない
+  まま古い記載として取り残されていたcross-document parityの記載漏れであったため、
+  解消済みである旨と参照先を追記した。これでaircon-pasha/course-set-pasha/kura-pasha/
+  line-reservation-ai全4ventureで本ギャップの解消が完了していることが本venture側の
+  ドキュメントからも確認できるようになった。コード変更は無くドキュメント更新のみの
+  ため、回帰確認としてventure全体16ファイル全件(`python3 prototype/run_all_tests.py`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパス(変更前と同数・
+  同じ結果)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: 実
+  Firestore・実LINE Messaging API接続(いずれもオーナー承認待ち)、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-26 02:00 UTC(フェーズ185: subscription-plan-sync-design.mdの
+  「次の課題」に残っていたline-reservation-aiへの横展開要否確認が、line-reservation-ai
+  フェーズ続き220で既に解消済みだったことを確認し、記載を実態に合わせて更新。コード
+  変更は無くドキュメント更新のみ、venture全体16ファイル全件・schema検証32件いずれも
+  パス)
