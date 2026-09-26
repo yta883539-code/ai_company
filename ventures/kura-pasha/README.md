@@ -3986,3 +3986,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   フェーズ続き220で既に解消済みだったことを確認し、記載を実態に合わせて更新。コード
   変更は無くドキュメント更新のみ、venture全体16ファイル全件・schema検証32件いずれも
   パス)
+- フェーズ186(2026-09-26 11:00 UTC定例更新): contractor-transfer-confirmation-
+  detection-design.md「5. 未検証・残課題」が残していた2点(schema/output.schema.json・
+  validate_test_cases.pyへの新規enum値3つ・`contractor_transfer_confirmation`フィールド
+  反映、およびprototype/usage_counter_workshop.py側の`pending_contractor_transfer`
+  一時状態の読み書き実装)を棚卸しした。実際にはいずれもフェーズ37(schema反映、
+  `CTC1`〜`CTC3`の正例テストケース・`NEG5_contractor_transfer_confirmation_kind_
+  mismatch_is_detected`のネガティブテストケースを含む)・フェーズ38
+  (`start_pending_contractor_transfer`等のプロトタイプコード化)で既に対応済みで
+  あったが、同design.md5節の記載が更新されないまま「次の課題」として取り残されて
+  いた記載漏れであったため、解消済みである旨と対応フェーズを追記した。コード変更は
+  無くドキュメント更新のみのため、回帰確認としてventure全体16ファイル全件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、171件)・schema検証
+  (`python3 schema/validate_test_cases.py`、32件)いずれもパス(変更前と同数・同じ
+  結果)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: 実Firestore・
+  実LINE Messaging API接続(いずれもオーナー承認待ち)、または他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-09-26 11:00 UTC(フェーズ186: contractor-transfer-confirmation-
+  detection-design.mdの「次の課題」に残っていた2点が、フェーズ37・38で既に解消済み
+  だったことを確認し、記載を実態に合わせて更新。コード変更は無くドキュメント更新
+  のみ、venture全体16ファイル全件・schema検証32件いずれもパス)

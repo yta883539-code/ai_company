@@ -105,14 +105,20 @@ course-set-pashaの解約意図検知、および本venture既存のmember_reten
   insufficient_input等では代替せず専用の文脈注入条件・フィールドを新設した。schema/
   output.schema.json・validate_test_cases.py・prototypeへの反映は同ファイル4節の
   残課題として引き続き残る)
-- schema/output.schema.json・validate_test_cases.pyへの反映(新規enum値3つ・
-  `contractor_transfer_confirmation`フィールド追加、クロスフィールド検証、新規テスト
-  ケース・ネガティブテストケース追加)は次の課題として残す。
-- prototype/usage_counter_workshop.py側の`pending_contractor_transfer`一時状態の
-  読み書き(`WorkshopStoreProtocol`への追加、`apply_contractor_transfer`呼び出し時・
-  キャンセル時・期限切れ時の削除処理)の実装も次の課題として残す。
+- (解消済み・フェーズ37: schema/output.schema.jsonへ新規enum値3つ・
+  `contractor_transfer_confirmation`フィールドを追加した。schema/validate_test_cases.py
+  にも正例テストケース(`CTC1_contractor_transfer_confirmed`〜`CTC3_contractor_transfer_
+  reconfirm_unclear`)とクロスフィールド検証、ネガティブテストケース
+  (`NEG5_contractor_transfer_confirmation_kind_mismatch_is_detected`)を追加済み)
+- (解消済み・フェーズ38: prototype/usage_counter_workshop.py側に`pending_contractor_
+  transfer`一時状態の読み書き(`WorkshopStoreProtocol`への`get_`/`set_`/`clear_pending_
+  contractor_transfer`追加、`start_pending_contractor_transfer`・
+  `is_contractor_transfer_confirmation_context`・`cancel_pending_contractor_transfer`・
+  `check_and_expire_pending_contractor_transfer`)を実装済み)
 - `expires_at`=24時間という値は暫定であり、実運用データが無いため未検証。
 - 実際のLINE公式アカウント接続・実LLM検証は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 
-最終更新: 2026-09-08 01:00 UTC(フェーズ36)
+最終更新: 2026-09-26 UTC(フェーズ186: 上記2点が既にフェーズ37・38で解消済みだったに
+もかかわらず、5節の記載が更新されないまま「次の課題」として取り残されていた記載漏れを
+発見・訂正した。コード変更は無くドキュメント更新のみ)
