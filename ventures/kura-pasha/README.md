@@ -4094,3 +4094,40 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   scheduler.pyへ統合実装済みであることを確認。他venture2件と同名の参照ドキュメントを
   新規作成し対応関係を整理。コード変更は無く相互参照コメント追記のみ、venture全体
   171件・schema検証32件いずれもパス)
+- フェーズ190(2026-09-27 04:00 UTC定例更新): subscription-canceled-immediate-block-
+  design.mdが「次の課題」として残していた他venture3件(course-set-pasha・aircon-pasha・
+  line-reservation-ai)への横展開確認の申し送りを棚卸しした。course-set-pasha(フェーズ258)
+  ・aircon-pasha(フェーズ275)はいずれも同型の欠落(有料転換済み・決済失敗未経験のまま
+  解約したユーザーが生成を使い続けられる)を発見・修正済み、line-reservation-ai
+  (フェーズ続き278)は`suspension_reason`という単一enum方式のため同型の欠落は構造的に
+  存在しないと確認済みであることを確認し、申し送りを解消した。詳細は同ドキュメント末尾の
+  追記参照。コード変更は無く他venture側ドキュメントの確認のみ、venture全体171件・
+  schema検証32件いずれもパス。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 実Firestore・実LINE Messaging API接続
+  (いずれもオーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 04:00 UTC(フェーズ190: subscription-canceled-immediate-block-
+  design.mdの他venture3件への横展開確認が全て完了済みであることを確認し申し送りを解消。
+  コード変更なし、venture全体171件・schema検証32件いずれもパス)
+- フェーズ191(2026-09-27 08:00 UTC定例更新): course-set-pashaフェーズ259・260で発見された
+  「実Stripeアカウント接続・LIFFアプリ登録がオーナー承認待ちと設計docに繰り返し記述されて
+  いたにもかかわらずpending-approval.mdへの記録が漏れていた」という記載漏れが、本venture
+  にも同型で存在するかを監査した。checkout-initiation-flow-design.md(フェーズ50)・
+  stripe-webhook-checkout-completed-design.md(フェーズ51)を確認したところ、実Stripe
+  アカウント開設・本番APIキー/Webhook署名シークレット取得・Webhookエンドポイント登録が
+  フェーズ50〜51時点から一貫して「オーナー承認待ち」と記述されていたにもかかわらず、
+  pending-approval.mdには一度も専用エントリとして記録されていなかったことを発見した
+  (既存の2件〈2026-09-11顧客ヒアリング・2026-09-15 LINE公式アカウント開設+Cloud
+  Scheduler〉はいずれも別件で、Stripe接続を対象としていない)。pending-approval.mdへ
+  新規エントリを追記し、checkout-initiation-flow-design.mdにも監査結果の追記を行った。
+  なお本ventureはcheckout-initiation-flow-design.md 3節の設計判断によりLIFFアプリ登録
+  自体を必要としない構成(LINE Platform Webhook受信時点で検証済みの`event.source.userId`
+  をそのまま使う方式)であることも確認したため、LIFF関連の記載漏れは該当しない。コード
+  変更は無くドキュメント・承認キューの整備のみであり、venture全体171件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更なし)・schema検証
+  32件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。
+  次回候補: 実Stripeアカウント接続・実LINE Messaging API接続(いずれもオーナー承認待ち)、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 08:00 UTC(フェーズ191: course-set-pasha型の「Stripe接続オーナー
+  承認待ちのpending-approval.md記録漏れ」が本ventureにも存在することを発見し新規記録。
+  LIFF登録は本venture設計上不要と確認。コード変更なし、venture全体171件・schema検証
+  32件いずれもパス)

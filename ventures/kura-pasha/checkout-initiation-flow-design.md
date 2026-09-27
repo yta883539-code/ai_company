@@ -237,3 +237,31 @@ message event側から呼び出す配線)は、本フェーズでは対象外と
   limit-approaching-notification-design.md(フェーズ73・75)でいずれも設計・実装済みと
   なった。詳細は2節(a)の追記を参照(ただしlimit-approaching側は本venture固有のトライアル
   条件により到達不能というフェーズ76の別課題が残る)。
+
+## 7. 追記(フェーズ191): pending-approval.md記載漏れの発見・是正
+
+course-set-pashaフェーズ259・260で、実Stripeアカウント接続・LIFFアプリ登録が設計doc内で
+繰り返し「オーナー承認待ち」と記述されていたにもかかわらずpending-approval.mdへの記録が
+一度も行われていなかった記載漏れが発見・是正された。本venture(kura-pasha)についても
+同型の記載漏れが無いかを監査した。
+
+- 本ドキュメント(フェーズ50)・stripe-webhook-checkout-completed-design.md(フェーズ51)を
+  確認したところ、「`plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の
+  値確定」「実Stripeアカウント開設・本番APIキー/Webhook署名シークレット取得・Webhook
+  エンドポイント登録」がフェーズ50〜51時点から一貫して「オーナー承認待ち
+  (pending-approval.md参照)」と記述されていたが、pending-approval.md内の既存のkura-pasha
+  向け2件(2026-09-11 顧客ヒアリング・2026-09-15 LINE公式アカウント開設+Cloud Scheduler)
+  はいずれもStripe接続を対象としておらず、実際には専用エントリが一度も記録されていなかった
+  ことを確認した。本フェーズでpending-approval.mdへ新規エントリを追記した。
+- 一方、LIFFアプリ登録については本ドキュメント2節で「LINE Platform Webhook受信時点で
+  検証済みの`event.source.userId`をそのまま使えるため、LIFFアプリを新規登録せずに済む」
+  という設計判断が明記されており(course-set-pashaのLIFF経由IDトークン検証方式とは異なる
+  構成)、本venture固有の設計上LIFF登録自体が不要であることを確認した。したがって
+  course-set-pashaのようなLIFF関連の記載漏れは本ventureには該当しない。
+
+コード変更は無くドキュメント・承認キューの整備のみであり、venture全体171件
+(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更なし)・schema検証32件
+(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。
+
+最終更新: 2026-09-27 08:00 UTC(フェーズ191: 実Stripeアカウント接続のpending-approval.md
+記載漏れを発見・是正。LIFF登録は本venture設計上不要と確認)

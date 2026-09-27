@@ -82,3 +82,8 @@ venture: ventures/course-set-pasha/
 venture: ventures/course-set-pasha/
 内容: checkout-initiation-flow-design.md(フェーズ98)で設計した決済導線について、実際のLINE DevelopersコンソールでのLIFFアプリ登録(本venture用LINE公式アカウントのチャネルに紐づけて作成)を行いたい。
 理由: stripe-liff-integration-sequence-design.md(フェーズ260)でStripe/LINE LIFF結合構成の依存関係を棚卸しした結果、LIFFアプリ登録自体がcheckout-initiation-flow-design.md「残課題」1点目でフェーズ98の時点から一貫して「オーナー承認待ち」と記述されていたにもかかわらず、実際にはpending-approval.mdへの記録が一度も行われていなかった記載漏れであることが判明したため、今回新規に記録した(直近のフェーズ259で発見・是正した実Stripeアカウント接続の記載漏れと同種の是正)。course-set-pashaのLINE公式アカウント自体の開設(2026-08-18 20:00 UTC記載の申込フォーム案件内で言及)もLIFF登録の前提として未承認のまま残っている。承認が得られれば、stripe-liff-integration-sequence-design.md 5節の順序(LINE公式アカウント開設→LIFFアプリ登録→IDトークン検証実装)に沿って着手する。
+
+日時: 2026-09-27 08:00 UTC
+venture: ventures/kura-pasha/
+内容: checkout-initiation-flow-design.md(フェーズ50)・stripe-webhook-checkout-completed-design.md(フェーズ51)で設計した決済導線について、実際のStripeアカウントの開設(本人確認・銀行口座登録を含む)、本番用APIキー・Webhook署名シークレットの取得、`plan_id`→Stripe Price IDの対応表・`success_url`/`cancel_url`の実際の値確定、およびStripe側Webhookエンドポイントの登録を行いたい。
+理由: Checkout Session発行ロジック・Webhook受信/署名検証/イベントディスパッチはいずれもInMemoryStub等によるテスト(venture全体171件・schema検証32件、いずれもパス)まで完了しているが、実Stripeアカウントの開設・本番APIキー取得はいずれも外部サービス側でのアカウント作成・決済手段登録を伴う操作であり、オーナーの許可が必要なアクションに該当する。本件はフェーズ50〜51の時点から両ドキュメント内で一貫して「オーナー承認待ち」と記述され、course-set-pashaフェーズ259・260で同種の記載漏れ(実Stripeアカウント接続・LIFFアプリ登録)が発見された際にも「kura-pashaも同型のStripe連携設計を持つが、本エントリはcourse-set-pashaの記載漏れの是正に限定する」と申し送られていたが、この承認依頼自体がpending-approval.mdに一度も記録されていなかった記載漏れであったため、今回kura-pasha側の監査(フェーズ191)で新規に記録した。なお本ventureはcheckout-initiation-flow-design.md 2節の設計判断によりLINE Platform Webhook受信時点で検証済みの`event.source.userId`をそのまま使う構成のため、LIFFアプリ登録自体は不要でありLIFF関連の記載漏れは該当しない。承認が得られれば、実APIキー・Webhookシークレットの設定、Stripe Webhookエンドポイント登録、plan_id→Price ID対応表の確定から着手する。
