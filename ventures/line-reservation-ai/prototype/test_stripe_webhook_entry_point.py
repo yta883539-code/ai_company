@@ -51,6 +51,14 @@ def _event_payload(event_id: str, event_type: str, data_object: dict) -> bytes:
     ).encode("utf-8")
 
 
+def _event_payload_with_created(
+    event_id: str, event_type: str, data_object: dict, created: int
+) -> bytes:
+    return json.dumps(
+        {"id": event_id, "type": event_type, "data": {"object": data_object}, "created": created}
+    ).encode("utf-8")
+
+
 def _event_payload_with_previous(
     event_id: str, event_type: str, data_object: dict, previous_attributes: dict
 ) -> bytes:
@@ -309,6 +317,41 @@ class ReceiveStripeWebhookSubscriptionActivatedTest(unittest.TestCase):
         self.assertEqual(result.outcome, "send_failed")
         stored = self.subscription_store.get_subscription_state("store-1")
         self.assertEqual(stored.suspension_reason, "trial_unselected")
+
+    def test_stale_event_is_skipped_without_reverting_cancellation(self):
+        # フェーズ続き282が「次回候補」に残していた、route_stripe_event()から
+        # handle_subscription_activated()へのevent_time配線の検証(subscription-event-
+        # order-guard-design.md)。解約確定後に、それより前に発生していたが遅延配信された
+        # checkout.session.completedが届いても、既にcancelled済みの状態を誤って
+        # 解除してはならない。
+        state = self.subscription_store.get_subscription_state("store-1")
+        state.suspension_reason = "cancelled"
+        state.last_subscription_event_time = datetime(2026, 9, 3, 11, 0, tzinfo=timezone.utc)
+
+        payload = _event_payload_with_created(
+            "evt_1",
+            "checkout.session.completed",
+            {"client_reference_id": "store-1", "customer": "cus_1"},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            subscription_store=self.subscription_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "stale_event")
+        self.assertEqual(len(self.push_client.sent), 0)
+        stored = self.subscription_store.get_subscription_state("store-1")
+        self.assertEqual(stored.suspension_reason, "cancelled")
 
 
 class ReceiveStripeWebhookCheckoutSessionCompletedProfileLinkingTest(unittest.TestCase):
@@ -585,6 +628,41 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertIsNone(result.outcome)
         self.assertEqual(len(self.push_client.sent), 0)
+
+    def test_stale_event_is_skipped_without_reverting_reactivation(self):
+        # フェーズ続き282が「次回候補」に残していた、route_stripe_event()から
+        # handle_subscription_deleted()へのevent_time配線の検証(subscription-event-
+        # order-guard-design.md)。解約直後に即再契約した場合、それより前に発生していたが
+        # 遅延配信されたcustomer.subscription.deletedが届いても、既に有効な契約を誤って
+        # cancelledへ書き換えてはならない。
+        state = self.cancellation_store.get_cancellation_state("store-1")
+        state.suspension_reason = None
+        state.last_subscription_event_time = datetime(2026, 9, 3, 11, 0, tzinfo=timezone.utc)
+
+        payload = _event_payload_with_created(
+            "evt_1",
+            "customer.subscription.deleted",
+            {"customer": "cus_1"},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "stale_event")
+        self.assertEqual(len(self.push_client.sent), 0)
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertIsNone(stored.suspension_reason)
 
     def test_send_failure_leaves_state_unchanged(self):
         class FailingPushClient:

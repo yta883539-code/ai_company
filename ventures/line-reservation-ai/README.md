@@ -4921,3 +4921,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   pending-approval.mdへの追記なし。次回候補: route_stripe_event()から各ハンドラへの
   統合エントリポイント配線実装時にevent_timeを実際に渡す配線、またはpayment_failure_
   detected_at側の順序入れ替わり検討、あるいは他venture・アイデア領域の前進。
+- フェーズ続き283(2026-09-28 02:00 UTC定例更新): フェーズ続き282が「次回候補」として
+  残していた、`route_stripe_event()`から各ハンドラへの統合エントリポイント配線実装時に
+  `event_time`を実際に渡す配線を、`stripe_webhook_entry_point.py`側で先行して実施した
+  (`route_stripe_event()`自体はルート解決のみを担いイベントtype/store_id解決に専念する
+  設計のため、`event_time`の抽出・受け渡しは呼び出し元の`receive_stripe_webhook()`が担う)。
+  kura-pashaの`stripe_webhook._event_time_from_created()`と同じ実装の
+  `_event_time_from_created(parsed)`(トップレベルの`created`Unixタイムスタンプを
+  `datetime`へ変換、欠落・非数値時はNone)を新設し、`receive_stripe_webhook()`内で1回
+  解決した`event_time`を`handle_subscription_activated()`・`handle_subscription_deleted()`
+  双方の呼び出しへ渡すよう修正した。従来は両関数が`event_time`引数を受け取れる状態
+  (フェーズ続き282)でありながら、統合エントリポイント側の呼び出しが未対応のまま
+  常に省略値`None`を使っており、フェーズ続き282で実装したstale event guard自体が
+  実運用経路では一度も効かない配線漏れとなっていたことを確認した。回帰テストとして、
+  解約確定後に遅延配信されたcheckout.session.completedが有効化状態を誤って復元しない
+  ことを確認する`test_stale_event_is_skipped_without_reverting_cancellation`、および
+  即再契約後に遅延配信されたcustomer.subscription.deletedが有効な契約を誤って
+  cancelledへ書き換えないことを確認する
+  `test_stale_event_is_skipped_without_reverting_reactivation`を
+  test_stripe_webhook_entry_point.pyに追加した(いずれも`created`付きのStripeイベント
+  ペイロードを組み立てる`_event_payload_with_created()`ヘルパーを新設して使用)。
+  テスト2件追加、venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`
+  879件(877→879)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  payment_failure_detected_at側の順序入れ替わり検討、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 02:00 UTC(フェーズ続き283: `route_stripe_event()`呼び出し元の
+  `receive_stripe_webhook()`で`event_time`を解決し`handle_subscription_activated()`・
+  `handle_subscription_deleted()`へ実際に渡す配線を追加。フェーズ続き282のstale event
+  guardが未配線のため実運用経路では効いていなかった欠落を解消。テスト2件追加、
+  venture全体879件・schema検証28件いずれもパス)

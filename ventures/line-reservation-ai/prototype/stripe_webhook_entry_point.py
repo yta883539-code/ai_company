@@ -65,6 +65,22 @@ from stripe_webhook import (
 )
 
 
+def _event_time_from_created(parsed: dict) -> Optional[datetime]:
+    """Stripeイベント全体(トップレベル)の`created`(Unixタイムスタンプ)を`datetime`へ
+    変換する。欠落・非数値の場合はNone(ガードを判定不能として常に適用する後方互換、
+    kura-pashaの`stripe_webhook._event_time_from_created()`と同じ実装)。
+
+    フェーズ続き282で`handle_subscription_activated()`/`handle_subscription_deleted()`に
+    `event_time`引数を追加した際、本モジュール(`receive_stripe_webhook()`)側の呼び出しに
+    実際の値を渡す配線が漏れていた(次回候補として残っていたもの)ため、本関数で解決した
+    `event_time`を両呼び出しに渡す。
+    """
+    created = parsed.get("created")
+    if isinstance(created, (int, float)) and not isinstance(created, bool):
+        return datetime.fromtimestamp(created, tz=timezone.utc)
+    return None
+
+
 def clear_dunning_state_on_subscription_deleted(state: StoreDunningState) -> bool:
     """`customer.subscription.deleted`受信時、当該店舗のdunning進行状態
     (`payment_failure_detected_at`・`sent_event_keys`)を初期化し`suspension_reason`を
@@ -225,6 +241,7 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, route=route)
 
     store_id = route.store_id
+    event_time = _event_time_from_created(parsed)
 
     if route.event_type == EVENT_CHECKOUT_SESSION_COMPLETED:
         # checkout-initiation-flow-design.md 7節: stripe_customer_id・plan の
@@ -246,7 +263,9 @@ def receive_stripe_webhook(
             if portal_link_provider is not None
             else None
         )
-        result = handle_subscription_activated(state, push_client, portal_url=portal_url)
+        result = handle_subscription_activated(
+            state, push_client, portal_url=portal_url, event_time=event_time
+        )
         if result.outcome == SUBSCRIPTION_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
                 status_code=200, route=route, outcome=result.outcome
@@ -308,7 +327,7 @@ def receive_stripe_webhook(
         state = cancellation_store.get_cancellation_state(store_id)
         if state is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
-        result = handle_subscription_deleted(state, push_client)
+        result = handle_subscription_deleted(state, push_client, event_time=event_time)
         if result.outcome == CANCELLATION_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
                 status_code=200, route=route, outcome=result.outcome
