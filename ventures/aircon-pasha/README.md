@@ -4698,3 +4698,29 @@
   ともresolve_linking_code()は初回登録専用で既存プロファイルを別user_idへ引き継ぐ概念が
   無く、同型の欠落は発生し得ないと判断。コード変更なし、venture全体610件・schema検証25件
   いずれもパス)
+- フェーズ277(2026-09-27 09:00 UTC定例更新): フェーズ276「次回候補」(1)の実Stripeアカウント
+  接続について、course-set-pashaフェーズ259・260・kura-pashaフェーズ191で発見された
+  「オーナー承認待ちと設計書に明記されているにもかかわらずpending-approval.mdに記録されて
+  いない」記載漏れと同型の欠落が本venture自身にも存在するかを監査した。checkout-initiation-
+  flow-design.md(フェーズ131)3節手順5・「残課題」で実Stripe接続後の対応が繰り返し
+  「オーナー承認待ち」と記述され「pending-approval.md参照」とまで明記されていたにも
+  かかわらず、pending-approval.mdの既存aircon-pasha関連エントリ(2026-08-23 04:00 UTCの
+  Googleフォーム+GAS Webhook、2026-08-21 12:00 UTCの顧客ヒアリング連絡の2件)には実Stripe
+  アカウント接続の承認依頼が含まれておらず、記載漏れであることを確認した。同ドキュメント
+  「残課題」で併記されていた`success_url`/`cancel_url`の実際のLPドメイン確定(LP実装自体、
+  同じくオーナー承認待ち)も同様に未記録だったため、今回まとめて新規記録した。なお本venture
+  はcheckout-initiation-flow-design.md 1節の設計判断により決済ボタンをLINE Flex Message内の
+  postbackアクションとして提供する構成のため、course-set-pasha・kura-pashaと異なりLIFF
+  アプリ登録自体は不要でありLIFF関連の記載漏れは該当しないことも確認した。コード変更は無く
+  確認・pending-approval.md記録のみのため、venture全体610件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`)・schema検証25件(`python3 schema/validate_test_cases.py`)
+  いずれも変更前と同じ結果でパスすることを再実行し確認した。承認が必要なアクション自体は
+  今回新規に発生したものではなく既存の未承認事項の記載漏れ是正のため、pending-approval.md
+  への追記はこの是正分のみ。次回候補: (1)フェーズ276「次回候補」(2)の実LLM接続待ちで着手
+  不可のもの以外の未着手領域の棚卸し、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 09:00 UTC(フェーズ277: checkout-initiation-flow-design.mdで
+  「オーナー承認待ち・pending-approval.md参照」と明記されていた実Stripeアカウント接続・
+  LPドメイン確定〈LP実装〉の承認依頼が、course-set-pasha・kura-pashaで発見された記載漏れ
+  と同型のまま本venture自身では一度も記録されていなかったことを発見し、新規に記録した。
+  LIFFアプリ登録は本venture設計上不要と再確認。コード変更なし、venture全体610件・
+  schema検証25件いずれもパス)
