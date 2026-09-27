@@ -4810,3 +4810,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `_handle_details()`にsuspension_reason再チェックを追加。change経由フローは
   `_change_context_by_user`(永続化対応済み)でスキップし続ける。テスト4件追加、
   venture全体870件・schema検証28件いずれもパス)
+- フェーズ続き278(2026-09-27 01:00 UTC定例更新): aircon-pashaフェーズ275の「次回候補」に
+  沿って、kura-pashaフェーズ188系(解約確定という終端イベントが専用分岐を持たず既存の
+  トライアル終了・決済失敗判定に紛れて扱われ、有料転換済みユーザーが解約後も生成を使い
+  続けられてしまう欠落)のline-reservation-aiへの横展開確認を再実施した
+  (kura-pashaフェーズ187時点では「統合ハンドラ未実装のため対象外」だったが、以降
+  `cloud_function_subscription_cancelled_webhook.py`が実装され状況が変わったため)。
+  確認の結果、本ventureの新規予約ブロック判定は他venture(pasha系)のような複数の独立フラグ
+  の組み合わせではなく、店舗ごと単一の`suspension_reason`フィールド(排他的なenum値:
+  `None`/`payment_failed`/`payment_suspended`/`cancelled`)で一元管理されており、
+  `_start_new_booking()`・`_handle_candidate_selection()`・`_handle_details()`は
+  いずれもこの値を直接参照してブロックするためpasha系と同型の欠落が生じる余地が無いことを
+  確認した。`trial_start_at`も本ventureでは利用実績レポート送信タイミングにのみ使われ
+  予約受付判定には一切参照されていないことも確認した。詳細は
+  subscription-canceled-block-crosscheck.md参照。コード変更は無く確認・文書化のみのため、
+  venture全体870件・schema検証28件のテスト結果に変化は無い。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)候補longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー
+  回答待ち状況の再確認、(2)他venture(course-set-pasha・kura-pasha・aircon-pasha)に候補
+  提示・確定までの複数ターン継続フロー自体が存在するかの横断確認、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-09-27 01:00 UTC(フェーズ続き278: aircon-pashaフェーズ275の横展開確認。
+  line-reservation-aiは単一の`suspension_reason`フィールドで新規予約ブロックを一元管理して
+  おり、kura-pasha系venture(pasha系)が抱えていた「解約確定が専用分岐を持たず既存判定に
+  紛れる」欠落は構造的に発生し得ないことを確認。コード変更は無く確認・文書化のみ)
