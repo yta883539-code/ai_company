@@ -4834,3 +4834,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   line-reservation-aiは単一の`suspension_reason`フィールドで新規予約ブロックを一元管理して
   おり、kura-pasha系venture(pasha系)が抱えていた「解約確定が専用分岐を持たず既存判定に
   紛れる」欠落は構造的に発生し得ないことを確認。コード変更は無く確認・文書化のみ)
+- フェーズ続き279(2026-09-27 05:00 UTC定例更新): フェーズ続き277が「次回候補」(2)として
+  残していた、他venture(course-set-pasha・kura-pasha・aircon-pasha)に本ventureの
+  `_handle_candidate_selection()`/`_handle_details()`と同種の「候補提示→確定の複数ターン
+  継続フロー」自体が存在するかの横断確認を実施した。3venture共通で`prototype/`配下を
+  `candidate_selection`・`hold`・`pending_slot`・`change_context`等のキーワードでgrepし、
+  該当する関数・状態が一件も無いことを確認した。3venture共通の会話設計は、LINEの1メッセージ
+  (作業後メモ)受信のたびに`process_memo_event()`が生成可否判定→LLM生成→即時返信を単一
+  ターンで完結させる構造であり、本ventureのような「候補提示後、後続ターンでの選択・確定まで
+  状態を保持し続ける」予約特有のフローを持たない。したがって判定と確定の間に時間差が生じる
+  余地が構造的に無く、フェーズ続き277と同型の「複数ターンの途中での状態変化の見落とし」は
+  発生し得ないと判断した。詳細はcandidate-selection-multiturn-crosscheck.md参照。コード
+  変更は無く確認・文書化のみのため、venture全体870件(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)
+  いずれも変更前と同じ結果でパスを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)候補longlist-draft.md優先度B候補(9・11・1・10・17)のオーナー回答待ち
+  状況の再確認、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 05:00 UTC(フェーズ続き279: 他venture3件〈aircon-pasha・
+  course-set-pasha・kura-pasha〉に候補提示→確定の複数ターン継続フロー自体が存在するかの
+  横断確認。いずれも単一ターン完結の会話設計であり該当構造が無いことを確認。コード変更は
+  無く確認・文書化のみ)
