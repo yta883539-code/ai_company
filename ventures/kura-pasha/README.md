@@ -4171,3 +4171,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-27 19:00 UTC(フェーズ193: 招待コード発行call site欠落パターンの他
   venture3件への横断確認。いずれも該当構造なしと判断。コード変更なし、venture全体171件・
   schema検証32件いずれもパス)
+- フェーズ194(2026-09-28 00:00 UTC定例更新): aircon-pashaフェーズ280が「次回候補」として
+  残していた、`subscription_status`列挙型方式(kura-pasha・line-reservation-ai共通)における
+  Stripe Webhook配信順序入れ替わり(stale event)の影響検討・対応を行った。`checkout.
+  session.completed`(→active)・`customer.subscription.deleted`(→canceled)・`invoice.
+  payment_failed`(→past_due)・`invoice.payment_succeeded`(→active)の4ハンドラがいずれも
+  `subscription_status`を無条件に上書きしていたため、解約直後の即再契約でdeletedが遅延
+  配信されると有効な契約者を誤ってcanceledへ、決済失敗直後の即時回復でpayment_failedが
+  遅延配信されると決済済みの契約者を誤ってpast_dueへ書き換えてしまう欠落を発見した。
+  `WorkshopStoreProtocol`に`get/set_subscription_status_event_time()`を追加し、`event.
+  created`(Stripeイベントのトップレベルタイムスタンプ)による新旧比較で、stale判定時は
+  状態更新に加え付随する通知・関連フィールドのクリアもまとめてスキップするガードを
+  4ハンドラへ追加した(hasattr判定によるオプトイン・`event_time`省略時は従来通り無条件
+  適用する後方互換、course-set-pasha/aircon-pashaと同じ方針)。詳細はsubscription-
+  status-event-order-guard-design.md参照。テスト7件追加(`test_stripe_webhook.py`単体の
+  check()呼び出しは142件→159件)、venture全体は`python3 prototype/run_all_tests.py`
+  (全16ファイルOK)・schema検証32件いずれもパス。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: line-reservation-aiへの同種ガードの横展開、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-28 00:00 UTC(フェーズ194: `subscription_status`enum方式への
+  Stripe Webhook配信順序入れ替わりガードを追加。テスト7件追加、venture全体
+  `run_all_tests.py`全16ファイルOK・schema検証32件いずれもパス)

@@ -430,6 +430,22 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_subscription_status_event_time(self, workshop_id: str) -> Optional[datetime]:
+        """subscription-status-event-order-guard-design.md 3節: `subscription_status`を
+        最後に実際に反映した(いずれかのハンドラが`set_subscription_status`を呼んだ)
+        Stripeイベントの`event.created`(Unixタイムスタンプをdatetimeへ変換した値)を返す。
+        一度も反映されていないworkshopはNoneを返す。
+        """
+        ...
+
+    def set_subscription_status_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        """`set_subscription_status`と対にして呼び出す、配信順序入れ替わりガード用の
+        記録処理(design 3節)。
+        """
+        ...
+
     def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
         """subscription-billing-data-model-design.md 1節: 次回請求日・トライアル終了
         予定日の判定に使用する。未設定(未契約・イベント未受信)のworkshopはNoneを返す。
@@ -563,6 +579,7 @@ class InMemoryWorkshopStore:
         self._stripe_customer_id_by_workshop: dict[str, str] = {}
         self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
+        self._subscription_status_event_time_by_workshop: dict[str, datetime] = {}
         self._current_period_end_by_workshop: dict[str, datetime] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
         self._payment_failure_reminder_sent_at_by_workshop: dict[str, datetime] = {}
@@ -683,6 +700,14 @@ class InMemoryWorkshopStore:
                 f"unknown subscription_status: {status!r} (expected one of {SUBSCRIPTION_STATUSES})"
             )
         self._subscription_status_by_workshop[workshop_id] = status
+
+    def get_subscription_status_event_time(self, workshop_id: str) -> Optional[datetime]:
+        return self._subscription_status_event_time_by_workshop.get(workshop_id)
+
+    def set_subscription_status_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._subscription_status_event_time_by_workshop[workshop_id] = event_time
 
     def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
         return self._current_period_end_by_workshop.get(workshop_id)

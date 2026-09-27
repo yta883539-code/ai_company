@@ -136,6 +136,57 @@ class InMemoryStripeEventIdStore:
         self._processed_event_ids.add(event_id)
 
 
+# ---------------------------------------------------------------------------
+# subscription_statusの配信順序入れ替わりガード
+# (subscription-status-event-order-guard-design.md、フェーズ194)
+#
+# course-set-pasha/aircon-pashaのsubscription_canceled_at・deletion_candidate_at向け
+# stale-eventガード(course-set-pashaフェーズ261・262、aircon-pashaフェーズ280)と同じ
+# 考え方を、本venture固有の単一enumフィールド`subscription_status`向けに適用する。
+# `store`が新メソッド(get/set_subscription_status_event_time)に対応していない場合、
+# または`event_time`が`None`の場合は判定不能として常に適用する(hasattr方針・後方互換)。
+# ---------------------------------------------------------------------------
+
+def _is_stale_subscription_status_event(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    if event_time is None:
+        return False
+    getter = getattr(workshop_store, "get_subscription_status_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(workshop_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_status_event_time(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if event_time is None:
+        return
+    setter = getattr(workshop_store, "set_subscription_status_event_time", None)
+    if setter is None:
+        return
+    setter(workshop_id, event_time)
+
+
+def _event_time_from_created(event: dict) -> Optional[datetime]:
+    """Stripeイベント全体(トップレベル)の`created`(Unixタイムスタンプ)を
+    `datetime`へ変換する。欠落・非数値の場合はNone(ガードを判定不能として常に適用、
+    aircon-pashaフェーズ280の`_SUBSCRIPTION_CREATED`分岐と同じ後方互換方針)。
+    """
+    created = event.get("created")
+    if isinstance(created, (int, float)) and not isinstance(created, bool):
+        return datetime.fromtimestamp(created, tz=timezone.utc)
+    return None
+
+
 @dataclass
 class CheckoutSessionCompletedResult:
     """handle_checkout_session_completed()の戻り値(design 2節、plan_written追加は
@@ -150,6 +201,8 @@ class CheckoutSessionCompletedResult:
 def handle_checkout_session_completed(
     data_object: dict,
     workshop_store: WorkshopStoreProtocol,
+    *,
+    event_time: Optional[datetime] = None,
 ) -> CheckoutSessionCompletedResult:
     """design 2節。`checkout.session.completed`イベントの`data.object`を受け取り、
     workshop側のStripe顧客ID・subscription_statusを更新する。
@@ -178,7 +231,9 @@ def handle_checkout_session_completed(
             workshop_store.set_stripe_customer_id(workshop_id, stripe_customer_id)
             stripe_customer_id_written = True
 
-    workshop_store.set_subscription_status(workshop_id, "active")
+    if not _is_stale_subscription_status_event(workshop_store, workshop_id, event_time):
+        workshop_store.set_subscription_status(workshop_id, "active")
+        _record_subscription_status_event_time(workshop_store, workshop_id, event_time)
 
     plan_written = False
     metadata = data_object.get("metadata")
@@ -203,6 +258,7 @@ class CustomerSubscriptionDeletedResult:
     invalid: bool = False
     unresolved: bool = False
     notified: bool = False
+    stale: bool = False
 
 
 def handle_customer_subscription_deleted(
@@ -210,6 +266,7 @@ def handle_customer_subscription_deleted(
     workshop_store: WorkshopStoreProtocol,
     *,
     push_client: Optional[LinePushClient] = None,
+    event_time: Optional[datetime] = None,
 ) -> CustomerSubscriptionDeletedResult:
     """subscription-canceled-webhook-design.md 2節。`customer.subscription.deleted`
     イベントの`data.object`を受け取り、対応するworkshopの`subscription_status`を
@@ -252,7 +309,15 @@ def handle_customer_subscription_deleted(
     if workshop_id is None:
         return CustomerSubscriptionDeletedResult(unresolved=True)
 
+    if _is_stale_subscription_status_event(workshop_store, workshop_id, event_time):
+        # subscription-status-event-order-guard-design.md 3節: 既により新しいイベント
+        # (再契約のcheckout.session.completed等)で"canceled"以外へ反映済みのところへ
+        # 遅延配信された古いdeletedが届いた場合、状態更新・通知・各種クリアのいずれも
+        # 行わずスキップする(再契約済みの契約者を誤ってブロック・誤って解約通知しない)。
+        return CustomerSubscriptionDeletedResult(workshop_id=workshop_id, stale=True)
+
     workshop_store.set_subscription_status(workshop_id, "canceled")
+    _record_subscription_status_event_time(workshop_store, workshop_id, event_time)
     clear_blocked_but_billing_owner_notified_at(workshop_store, workshop_id)
     if workshop_store.get_payment_failure_detected_at(workshop_id) is not None:
         workshop_store.clear_payment_failure_detected_at(workshop_id)
@@ -353,6 +418,7 @@ class InvoicePaymentFailedResult:
     invalid: bool = False
     unresolved: bool = False
     notified: bool = False
+    stale: bool = False
 
 
 def handle_invoice_payment_failed(
@@ -361,6 +427,7 @@ def handle_invoice_payment_failed(
     *,
     push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> InvoicePaymentFailedResult:
     """payment-failure-dunning-design.md 5節。`invoice.payment_failed`イベントの
     `data.object`を受け取り、対応するworkshopの`subscription_status`を`"past_due"`へ、
@@ -381,6 +448,13 @@ def handle_invoice_payment_failed(
     if workshop_id is None:
         return InvoicePaymentFailedResult(unresolved=True)
 
+    if _is_stale_subscription_status_event(workshop_store, workshop_id, event_time):
+        # 既により新しいイベント(直後に届いたinvoice.payment_succeeded等)で
+        # subscription_statusが反映済みのところへ遅延配信された古いpayment_failedが
+        # 届いた場合、状態更新・payment_failure_detected_at設定・通知のいずれも行わず
+        # スキップする(実際には決済成功済みの契約者へ矛盾した決済失敗通知を送らない)。
+        return InvoicePaymentFailedResult(workshop_id=workshop_id, stale=True)
+
     created = data_object.get("created")
     if isinstance(created, (int, float)) and not isinstance(created, bool):
         detected_at = datetime.fromtimestamp(created, tz=timezone.utc)
@@ -388,6 +462,7 @@ def handle_invoice_payment_failed(
         detected_at = now if now is not None else datetime.now(timezone.utc)
 
     workshop_store.set_subscription_status(workshop_id, "past_due")
+    _record_subscription_status_event_time(workshop_store, workshop_id, event_time)
     workshop_store.set_payment_failure_detected_at(workshop_id, detected_at)
 
     notified = False
@@ -408,6 +483,7 @@ class InvoicePaymentSucceededResult:
     unresolved: bool = False
     outcome: str = OUTCOME_NOT_APPLICABLE
     notified: bool = False
+    stale: bool = False
 
 
 def handle_invoice_payment_succeeded(
@@ -416,6 +492,7 @@ def handle_invoice_payment_succeeded(
     *,
     push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> InvoicePaymentSucceededResult:
     """payment-failure-dunning-design.md 5節。`invoice.payment_succeeded`イベントの
     `data.object`を受け取り、対応するworkshopの`subscription_status`を`"active"`へ戻す
@@ -436,7 +513,16 @@ def handle_invoice_payment_succeeded(
     if workshop_id is None:
         return InvoicePaymentSucceededResult(unresolved=True)
 
+    if _is_stale_subscription_status_event(workshop_store, workshop_id, event_time):
+        # 既により新しいイベント(直後に届いたinvoice.payment_failed・customer.
+        # subscription.deleted等)でsubscription_statusが反映済みのところへ遅延配信
+        # された古いpayment_succeededが届いた場合、状態更新・通知・
+        # payment_failure_detected_atクリアのいずれも行わずスキップする(実際には
+        # 決済失敗中・解約済みの契約者を誤って復旧扱いしない)。
+        return InvoicePaymentSucceededResult(workshop_id=workshop_id, stale=True)
+
     workshop_store.set_subscription_status(workshop_id, "active")
+    _record_subscription_status_event_time(workshop_store, workshop_id, event_time)
 
     if push_client is not None:
         resolved_now = now if now is not None else datetime.now(timezone.utc)
@@ -534,8 +620,12 @@ def receive_stripe_webhook(
     if workshop_store is None:
         return StripeWebhookReceiverResult(status_code=400, error="missing_workshop_store")
 
+    event_time = _event_time_from_created(event)
+
     if event_type == "checkout.session.completed":
-        result = handle_checkout_session_completed(data_object, workshop_store)
+        result = handle_checkout_session_completed(
+            data_object, workshop_store, event_time=event_time
+        )
         if result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_client_reference_id")
         if check_idempotency:
@@ -556,7 +646,7 @@ def receive_stripe_webhook(
 
     if event_type == "customer.subscription.deleted":
         deleted_result = handle_customer_subscription_deleted(
-            data_object, workshop_store, push_client=push_client
+            data_object, workshop_store, push_client=push_client, event_time=event_time
         )
         if deleted_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
@@ -568,7 +658,7 @@ def receive_stripe_webhook(
 
     if event_type == "invoice.payment_failed":
         failed_result = handle_invoice_payment_failed(
-            data_object, workshop_store, push_client=push_client
+            data_object, workshop_store, push_client=push_client, event_time=event_time
         )
         if failed_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
@@ -579,7 +669,7 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, workshop_id=failed_result.workshop_id)
 
     succeeded_result = handle_invoice_payment_succeeded(
-        data_object, workshop_store, push_client=push_client
+        data_object, workshop_store, push_client=push_client, event_time=event_time
     )
     if succeeded_result.invalid:
         return StripeWebhookReceiverResult(status_code=400, error="missing_customer")

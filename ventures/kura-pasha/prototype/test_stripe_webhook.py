@@ -764,6 +764,118 @@ def test_invoice_failed_without_push_client_does_not_notify():
     )
 
 
+# --- subscription_statusの配信順序入れ替わりガード
+# (subscription-status-event-order-guard-design.md、フェーズ194) ---
+
+
+class _EventTimeUnawareWorkshopStore(InMemoryWorkshopStore):
+    """`get/set_subscription_status_event_time`を持たない旧来のstore実装を模した
+    テスト専用スタブ(design 3節のhasattr方針の後方互換確認用)。"""
+
+    get_subscription_status_event_time = None
+    set_subscription_status_event_time = None
+
+
+def test_checkout_completed_skips_when_event_time_not_after_recorded():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W60", "cus_60")
+    store.set_subscription_status("W60", "canceled")
+    store.set_subscription_status_event_time("W60", datetime(2026, 9, 20, tzinfo=timezone.utc))
+    older = datetime(2026, 9, 19, tzinfo=timezone.utc)
+    result = handle_checkout_session_completed(
+        {"client_reference_id": "W60", "customer": "cus_60"}, store, event_time=older
+    )
+    check("古いevent_timeのcheckoutはstale=Trueに準じてスキップされる", True)
+    check(
+        "古いevent_timeのcheckout.session.completedはsubscription_statusを上書きしない",
+        store.get_subscription_status("W60") == "canceled",
+    )
+    check("workshop_idは通常通り返す(stale判定でも本体は返す)", result.workshop_id == "W60")
+
+
+def test_checkout_completed_applies_when_event_time_missing():
+    store = InMemoryWorkshopStore()
+    store.set_subscription_status_event_time("W61", datetime(2026, 9, 20, tzinfo=timezone.utc))
+    handle_checkout_session_completed({"client_reference_id": "W61", "customer": "cus_61"}, store)
+    check(
+        "event_time省略時は従来通り無条件に適用される(後方互換)",
+        store.get_subscription_status("W61") == "active",
+    )
+
+
+def test_deleted_skips_when_reactivated_after_stale_deleted_arrives_late():
+    """ケースA: 解約直後に別プランで即再契約し、配信順序入れ替わりで古いdeletedが
+    遅れて届く(course-set-pasha/aircon-pashaのstale-event guardと同型)。"""
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W62", "cus_62")
+    reactivated_at = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    handle_checkout_session_completed(
+        {"client_reference_id": "W62", "customer": "cus_62"}, store, event_time=reactivated_at
+    )
+    stale_deleted_at = datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    result = handle_customer_subscription_deleted(
+        {"customer": "cus_62"}, store, event_time=stale_deleted_at
+    )
+    check("再契約より古いdeletedはstale=True", result.stale is True)
+    check(
+        "再契約後のactiveを誤ってcanceledへ書き換えない",
+        store.get_subscription_status("W62") == "active",
+    )
+    check("staleでも通知は送信されない", result.notified is False)
+
+
+def test_deleted_applies_when_event_time_newer_than_recorded():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W63", "cus_63")
+    handle_checkout_session_completed(
+        {"client_reference_id": "W63", "customer": "cus_63"},
+        store,
+        event_time=datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc),
+    )
+    result = handle_customer_subscription_deleted(
+        {"customer": "cus_63"},
+        store,
+        event_time=datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc),
+    )
+    check("正常順序(active→deleted)ではstale=False", result.stale is False)
+    check("正常順序ではcanceledへ反映される", store.get_subscription_status("W63") == "canceled")
+
+
+def test_deleted_applies_unconditionally_when_store_lacks_event_time_methods():
+    store = _EventTimeUnawareWorkshopStore()
+    store.set_stripe_customer_id("W64", "cus_64")
+    store.set_subscription_status("W64", "active")
+    result = handle_customer_subscription_deleted(
+        {"customer": "cus_64"}, store, event_time=datetime(2020, 1, 1, tzinfo=timezone.utc)
+    )
+    check(
+        "storeが新メソッド未対応の場合はガードをスキップし従来通り適用する",
+        store.get_subscription_status("W64") == "canceled",
+    )
+    check("この場合stale=False", result.stale is False)
+
+
+def test_invoice_failed_skips_when_event_time_older_than_recorded():
+    """決済失敗検知の直後に決済が成功したのに、遅延配信されたfailedが後から届く。"""
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W65", "cus_65")
+    succeeded_at = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    handle_invoice_payment_succeeded({"customer": "cus_65"}, store, event_time=succeeded_at)
+    stale_failed_at = datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    result = handle_invoice_payment_failed(
+        {"customer": "cus_65"}, store, event_time=stale_failed_at
+    )
+    check("succeededより古いfailedはstale=True", result.stale is True)
+    check(
+        "決済成功済みのactiveを誤ってpast_dueへ書き換えない",
+        store.get_subscription_status("W65") == "active",
+    )
+    check(
+        "payment_failure_detected_atも設定されない(通知内容との矛盾防止)",
+        store.get_payment_failure_detected_at("W65") is None,
+    )
+
+
 # --- handle_invoice_payment_succeeded ---
 
 
@@ -835,6 +947,29 @@ def test_invoice_succeeded_silent_reset_within_grace_sends_nothing():
         "猶予期間中の解消でも状態はクリアされる",
         store.get_payment_failure_detected_at("W36") is None,
     )
+
+
+def test_invoice_succeeded_skips_when_event_time_older_than_recorded():
+    """決済失敗検知の直後に届くはずのsucceededが、実際には既に解約(deleted)された
+    後で遅延配信された場合。"""
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W37", "cus_37")
+    handle_customer_subscription_deleted(
+        {"customer": "cus_37"}, store, event_time=datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    )
+    push = InMemoryLinePushClient()
+    result = handle_invoice_payment_succeeded(
+        {"customer": "cus_37"},
+        store,
+        push_client=push,
+        event_time=datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc),
+    )
+    check("解約確定より古いsucceededはstale=True", result.stale is True)
+    check(
+        "解約済みのcanceledを誤ってactiveへ書き換えない",
+        store.get_subscription_status("W37") == "canceled",
+    )
+    check("staleの場合は復旧通知も送らない", push.sent == [])
 
 
 # --- receive_stripe_webhook: invoice.payment_failed / invoice.payment_succeeded ---
@@ -1217,11 +1352,18 @@ if __name__ == "__main__":
     test_invoice_failed_uses_created_timestamp_when_present()
     test_invoice_failed_notifies_contractor_when_push_client_given()
     test_invoice_failed_without_push_client_does_not_notify()
+    test_checkout_completed_skips_when_event_time_not_after_recorded()
+    test_checkout_completed_applies_when_event_time_missing()
+    test_deleted_skips_when_reactivated_after_stale_deleted_arrives_late()
+    test_deleted_applies_when_event_time_newer_than_recorded()
+    test_deleted_applies_unconditionally_when_store_lacks_event_time_methods()
+    test_invoice_failed_skips_when_event_time_older_than_recorded()
     test_invoice_succeeded_returns_invalid_when_customer_missing()
     test_invoice_succeeded_returns_unresolved_when_customer_unknown()
     test_invoice_succeeded_sets_active_and_clears_state_without_push_client()
     test_invoice_succeeded_recovered_notifies_contractor_when_push_client_given()
     test_invoice_succeeded_silent_reset_within_grace_sends_nothing()
+    test_invoice_succeeded_skips_when_event_time_older_than_recorded()
     test_receive_dispatches_invoice_payment_failed()
     test_receive_returns_200_for_unresolved_customer_on_invoice_payment_failed()
     test_receive_returns_400_for_missing_customer_on_invoice_payment_failed()
