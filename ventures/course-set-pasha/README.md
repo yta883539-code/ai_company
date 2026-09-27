@@ -4183,7 +4183,26 @@
   意図的に適用していない(design 4節「残課題」参照)ため、その要否の検討、または同種の
   配信順序入れ替わりガードが必要なパターンがaircon-pasha・kura-pasha・
   line-reservation-aiにも存在するかの横断確認、あるいは他venture・アイデア領域の前進。
-- 最終更新: 2026-09-27 20:00 UTC(フェーズ261: Stripe Webhookの配信順序入れ替わりに
-  対する`subscription_canceled_at`ガードを追加。解約直後の即再契約、初回契約イベントの
-  遅延リトライの両ケースで誤反映しないことを確認。テスト3件追加、venture全体666件・
-  schema検証21件いずれもパス)
+- フェーズ262(2026-09-27 21:00 UTC): フェーズ261が「次回候補」として残した2点のうち、
+  `deletion_candidate.py`への配信順序入れ替わりガード適用の要否を検討し、実装コストが
+  小さく既存パターン(hasattr判定によるオプトイン・後方互換)をそのまま踏襲できることから
+  実装した。`ProfileDeletionCandidateStoreProtocol`に
+  `get_deletion_candidate_state_event_time()`/`set_deletion_candidate_state_event_time()`
+  を追加し、`mark_deletion_candidate_on_subscription_deleted()`/
+  `clear_deletion_candidate_on_subscription_reactivated()`が、より新しい反映済み
+  イベントより古いイベントの適用をスキップするようにした
+  (`clear_deletion_candidate_on_subscription_reactivated()`は`event_time`引数を新設、
+  省略時は従来通り無条件クリアの後方互換を維持)。詳細は
+  deletion-candidate-stale-event-guard-design.md参照。テスト4件追加(ケースA・ケースBの
+  再現、正常順序の回帰確認、event_time省略時の後方互換確認)、venture全体670件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前666件+新規4件)・
+  schema検証21件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。もう1点の「次回候補」
+  (同種ガードがaircon-pasha・kura-pasha・line-reservation-aiにも必要なパターンが
+  存在するかの横断確認)は、各venture独立のコピーであり共有モジュールではないため
+  影響範囲の精査が必要と判断し、次回以降に持ち越す。次回候補: 上記の他venture横断確認、
+  または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 21:00 UTC(フェーズ262: `deletion_candidate.py`にもStripe Webhook
+  配信順序入れ替わりガードを追加。ケースA・ケースBいずれも誤反映しないことを確認。
+  テスト4件追加、venture全体670件・schema検証21件いずれもパス)

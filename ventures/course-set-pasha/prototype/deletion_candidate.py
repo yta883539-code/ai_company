@@ -46,6 +46,7 @@ class InMemoryProfileDeletionCandidateStore:
 
     def __init__(self) -> None:
         self._values: dict[str, Optional[datetime]] = {}
+        self._state_event_times: dict[str, datetime] = {}
 
     def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
         return self._values.get(user_id)
@@ -59,30 +60,91 @@ class InMemoryProfileDeletionCandidateStore:
     def all_user_ids(self) -> Iterable[str]:
         return list(self._values.keys())
 
+    def get_deletion_candidate_state_event_time(self, user_id: str) -> Optional[datetime]:
+        """deletion-candidate-stale-event-guard-design.md 3節: `deletion_candidate_at`を
+        最後に実際に反映した(mark/clearを問わない)イベントの`event.created`を返す。
+        未反映(呼び出し自体が一度もない)ならNone。
+        """
+        return self._state_event_times.get(user_id)
+
+    def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        self._state_event_times[user_id] = value
+
+
+def _is_stale_deletion_candidate_event(
+    store: ProfileDeletionCandidateStoreProtocol, user_id: str, event_time: Optional[datetime],
+) -> bool:
+    """deletion-candidate-stale-event-guard-design.md 3節: 今回のイベントより後の時刻の
+    イベントが既に反映済みなら`True`(stale、適用をスキップすべき)を返す。
+    `event_time`が渡されない(呼び出し側が未対応)、または`store`が
+    `get_deletion_candidate_state_event_time`に対応していない場合は判定不能として常に
+    `False`を返す(従来通り適用する、既存呼び出し経路・テストとの後方互換)。
+    """
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_deletion_candidate_state_event_time", None)
+    if getter is None:
+        return False
+    recorded_event_time = getter(user_id)
+    if recorded_event_time is None:
+        return False
+    return event_time <= recorded_event_time
+
+
+def _record_deletion_candidate_state_event_time(
+    store: ProfileDeletionCandidateStoreProtocol, user_id: str, event_time: Optional[datetime],
+) -> None:
+    if event_time is None:
+        return
+    setter = getattr(store, "set_deletion_candidate_state_event_time", None)
+    if setter is None:
+        return
+    setter(user_id, event_time)
+
 
 def mark_deletion_candidate_on_subscription_deleted(
     store: ProfileDeletionCandidateStoreProtocol, user_id: str, event_time: datetime,
-) -> datetime:
+) -> Optional[datetime]:
     """design 3節: `customer.subscription.deleted`受信時に呼ぶ。
     `event_time + 365日`を`deletion_candidate_at`として書き込む(既に設定済みの場合も
     最新の解約日を基準に上書きする、design記載の「安全側」判断)。書き込んだ値を返す。
+
+    deletion-candidate-stale-event-guard-design.md 3節: `event_time`が、既に反映済みの
+    より新しいイベントの時刻以前(stale)であれば書き込みをスキップし、現在store上の値を
+    そのまま返す(解約→即再契約のケースで、遅延した古いdeletedイベントが新しいcreatedの
+    反映を上書きしてしまうのを防ぐ)。
     """
+    if _is_stale_deletion_candidate_event(store, user_id, event_time):
+        return store.get_deletion_candidate_at(user_id)
     deletion_candidate_at = event_time + _DELETION_CANDIDATE_DELAY
     store.set_deletion_candidate_at(user_id, deletion_candidate_at)
+    _record_deletion_candidate_state_event_time(store, user_id, event_time)
     return deletion_candidate_at
 
 
 def clear_deletion_candidate_on_subscription_reactivated(
-    store: ProfileDeletionCandidateStoreProtocol, user_id: str,
+    store: ProfileDeletionCandidateStoreProtocol,
+    user_id: str,
+    event_time: Optional[datetime] = None,
 ) -> bool:
     """design 3節: `customer.subscription.created`、またはstatusが`active`/`trialing`に
     戻った`updated`受信時に呼ぶ。設定済みなら削除し`True`を返す。未設定なら何もせず`False`を
     返す(冪等。design 4節のとおり初回契約時に誤って呼ばれても実害がないことを、この戻り値で
     呼び出し側がログ確認できるようにした)。
+
+    deletion-candidate-stale-event-guard-design.md 3節: `event_time`を渡した場合、既に
+    反映済みのより新しいイベントの時刻以前(stale)であれば削除をスキップし`False`を返す
+    (初回createdのリトライが、後続のdeletedより後に届き誤って削除候補を消してしまうのを
+    防ぐ)。`event_time`省略時は従来通りの無条件クリアとして扱う(既存呼び出し経路・
+    テストとの後方互換)。
     """
+    if _is_stale_deletion_candidate_event(store, user_id, event_time):
+        return False
     if store.get_deletion_candidate_at(user_id) is None:
+        _record_deletion_candidate_state_event_time(store, user_id, event_time)
         return False
     store.set_deletion_candidate_at(user_id, None)
+    _record_deletion_candidate_state_event_time(store, user_id, event_time)
     return True
 
 
