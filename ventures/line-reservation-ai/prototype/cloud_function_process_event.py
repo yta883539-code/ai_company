@@ -499,6 +499,13 @@ class ConversationEventProcessor:
         # 直近の空き枠検索に使ったLLM出力とメニュー所要時間。確定操作競合時
         # (_represent_candidates_after_conflict)に同じ条件で再検索するために保持する。
         self._search_context_by_user: dict[str, tuple[dict, int]] = {}
+        # candidate-selection-details-suspension-recheck-design.md準拠。当該候補提示が
+        # change_context=True(change経由、旧予約を既に解放済み)で始まったかどうかを
+        # _search_context_by_userと同じタイミングで記録する。_handle_candidate_selection()/
+        # _handle_details()が候補提示後・確定前のsuspension_reason再チェックをスキップして
+        # よいかどうかの判定に使う(change経由なら_start_new_booking()と同様スキップし続ける)。
+        # 未記録(キー無し)の場合はFalse扱い(=再チェックする、安全側デフォルト)。
+        self._change_context_by_user: dict[str, bool] = {}
         # menu-unmentioned-vs-unregistered-design.md準拠。新規予約開始ターンでメニューが
         # 未言及だったためREASK_MENU_MESSAGEで聞き返した際の、その時点のLLM出力(日時範囲等)。
         # stageはNoneのままのため次ターンも_start_new_booking()に落ちてくる。そこで
@@ -697,7 +704,8 @@ class ConversationEventProcessor:
         再会話等)も何もせず、`flow`側は状態なし(stage() is None)のまま新規会話として扱われる。
 
         processor-cache-persistence-design.md(フェーズ続き190)準拠。`processorCache`キーが
-        あれば`_candidates_by_user`等4つのローカルキャッシュも復元する。`stage`キーが無い
+        あれば`_candidates_by_user`等5つのローカルキャッシュも復元する(`_change_context_by_user`は
+        candidate-selection-details-suspension-recheck-design.md準拠で追加)。`stage`キーが無い
         (=`_pending_new_booking_context_by_user`のみ永続化されており`_flow._states`側の
         エントリが存在しなかった)場合は`import_state_from_persistence()`を呼ばない
         (同メソッドは`data["stage"]`必須のため)。
@@ -734,7 +742,8 @@ class ConversationEventProcessor:
         self._conversation_state_store.set(self._store_id, user_id, merged)
 
     def _export_processor_cache_for_user(self, user_id: str) -> Optional[dict]:
-        """processor-cache-persistence-design.md準拠。`_candidates_by_user`等4つの
+        """processor-cache-persistence-design.md準拠。`_candidates_by_user`等5つの
+        (`_change_context_by_user`はcandidate-selection-details-suspension-recheck-design.md準拠で追加)
         ローカルキャッシュのうち、当該user_idの分だけをplain dictへ変換する。
         いずれのキャッシュにもuser_idのエントリが無ければNoneを返す。
         """
@@ -753,6 +762,8 @@ class ConversationEventProcessor:
         if user_id in self._search_context_by_user:
             output, menu_minutes = self._search_context_by_user[user_id]
             cache["searchContext"] = {"output": output, "menuMinutes": menu_minutes}
+        if user_id in self._change_context_by_user:
+            cache["changeContext"] = self._change_context_by_user[user_id]
         if user_id in self._pending_new_booking_context_by_user:
             output, set_at = self._pending_new_booking_context_by_user[user_id]
             cache["pendingNewBookingContext"] = {"output": output, "setAt": set_at}
@@ -777,6 +788,8 @@ class ConversationEventProcessor:
                 search_context["output"],
                 search_context["menuMinutes"],
             )
+        if "changeContext" in data:
+            self._change_context_by_user[user_id] = data["changeContext"]
         if "pendingNewBookingContext" in data:
             pending = data["pendingNewBookingContext"]
             self._pending_new_booking_context_by_user[user_id] = (
@@ -915,6 +928,37 @@ class ConversationEventProcessor:
             in SUSPENSION_REASONS_BLOCKING_NEW_BOOKING
         )
 
+    def _block_in_progress_new_booking_if_suspended(
+        self, user_id: str, now: datetime
+    ) -> Optional[DispatchResult]:
+        """candidate-selection-details-suspension-recheck-design.md準拠。
+        stage: candidates_presented/awaiting_details(=候補提示後・確定前)の各ターンの先頭で
+        呼ぶ。change_context=True(change経由、旧予約を既に解放済み)で始まった候補提示は
+        _start_new_booking()と同様チェックをスキップし続ける(スキップしないと顧客が旧予約・
+        新予約のどちらも持たない状態に陥るため、change-intent-handling-design.md準拠)。
+
+        ブロックする場合は`_start_new_booking()`のブロック時と同じ文言を送り、
+        `ConversationFlowStateMachine.cancel_booking()`と同じ後始末(hold中の枠のrelease・
+        会話状態の削除)を行う。この時点のstageはcandidates_presented/awaiting_detailsの
+        いずれかでconfirmedではないため、cancel_booking()はオーナー通知を発生させない
+        (同メソッドのdocstring参照、_start_new_booking()のブロック時にオーナー通知が
+        無いことと挙動を揃えている)。
+
+        ブロックしない場合はNoneを返す(呼び出し側は通常の処理を続ける)。
+        """
+        if self._change_context_by_user.get(user_id, False):
+            return None
+        if not self._is_new_booking_blocked_by_suspension():
+            return None
+        self._flow.cancel_booking(user_id, now)
+        self._candidates_by_user.pop(user_id, None)
+        self._held_label_by_user.pop(user_id, None)
+        self._search_context_by_user.pop(user_id, None)
+        self._change_context_by_user.pop(user_id, None)
+        suspension_reason = self._store_profile.get_suspension_reason(self._store_id)
+        self._send(user_id, SUSPENDED_NEW_BOOKING_MESSAGE, now)
+        return DispatchResult(action="new_booking_blocked_suspended", detail=suspension_reason)
+
     def _start_new_booking(
         self,
         user_id: str,
@@ -976,6 +1020,11 @@ class ConversationEventProcessor:
 
         # 確定操作競合時の再検索(_represent_candidates_after_conflict)用に検索条件を保持する。
         self._search_context_by_user[user_id] = (output, menu_minutes)
+        # candidate-selection-details-suspension-recheck-design.md準拠。この候補提示が
+        # change_context=True(change経由)で始まったかどうかを記録し、以降の
+        # _handle_candidate_selection()/_handle_details()でのsuspension_reason再チェックの
+        # 要否判定に使う。
+        self._change_context_by_user[user_id] = change_context
         self._flow.present_candidates(user_id, candidates, now=now)
         self._candidates_by_user[user_id] = candidates
         self._send(user_id, format_candidates_message(candidates), now)
@@ -984,6 +1033,9 @@ class ConversationEventProcessor:
     def _handle_candidate_selection(
         self, user_id: str, reply_text: str, output: dict, now: datetime, tone: str
     ) -> DispatchResult:
+        blocked = self._block_in_progress_new_booking_if_suspended(user_id, now)
+        if blocked is not None:
+            return blocked
         candidates = self._candidates_by_user.get(user_id, [])
         select_result = self._flow.select_slot_from_reply(user_id, reply_text, now)
         if not select_result.success:
@@ -1042,6 +1094,9 @@ class ConversationEventProcessor:
         return merged
 
     def _handle_details(self, user_id: str, output: dict, now: datetime, tone: str) -> DispatchResult:
+        blocked = self._block_in_progress_new_booking_if_suspended(user_id, now)
+        if blocked is not None:
+            return blocked
         name = output.get("name")
         menu = output.get("menu") or self._carried_over_menu(user_id)
         if not name or not menu:
@@ -1213,6 +1268,7 @@ class ConversationEventProcessor:
         self._candidates_by_user.pop(user_id, None)
         self._held_label_by_user.pop(user_id, None)
         self._search_context_by_user.pop(user_id, None)
+        self._change_context_by_user.pop(user_id, None)
 
         if not result.found:
             # このエンジンの会話メモリだけでは実在の予約有無を確定できないため、安全側でオーナーに転送する
@@ -1254,6 +1310,7 @@ class ConversationEventProcessor:
         self._candidates_by_user.pop(user_id, None)
         self._held_label_by_user.pop(user_id, None)
         self._search_context_by_user.pop(user_id, None)
+        self._change_context_by_user.pop(user_id, None)
 
         if not result.found:
             # cancelの安全側フォールバックと同じ考え方(_handle_cancelのcancel_not_found参照)。

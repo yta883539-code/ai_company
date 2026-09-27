@@ -4786,3 +4786,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   範囲棚卸し。owner_faq_router.pyは対象外で正しいことを確認、候補提示後の継続ターンに
   再チェックが無い理論上のギャップを発見し次回課題として記録。コード変更は無く確認・
   文書化のみ)
+- フェーズ続き277(2026-09-27 00:00 UTC定例更新): フェーズ続き276が「次回候補」に残していた
+  `_handle_candidate_selection()`/`_handle_details()`のsuspension_reason再チェック追加を
+  設計・実装した〈candidate-selection-details-suspension-recheck-design.md新規作成〉。
+  想定より対応コストが小さいと判明したため優先度低のまま先送りにせず前倒しで対応した。
+  新しいper-user辞書`_change_context_by_user`を`_search_context_by_user`と同じタイミングで
+  設定・クリアし、`change_context=True`(change経由、旧予約を既に解放済み)の場合のみ
+  再チェックをスキップする。ブロック時は`ConversationFlowStateMachine.cancel_booking()`を
+  再利用してhold中の枠のrelease・会話状態の削除を行う(この時点のstageはconfirmedではない
+  ためオーナー通知は発生せず、`_start_new_booking()`のブロック時と挙動が揃う)。
+  processor-cache-persistence-design.md(フェーズ続き190)の`processorCache`永続化にも
+  `changeContext`フィールドを追加し、Cloud Function再起動を挟んでもchange経由フローの
+  識別状態が失われないようにした。テスト4件追加
+  (`CandidateSelectionDetailsSuspensionRecheckTests`: 新規予約フローでの候補選択時・詳細
+  確認時のブロック、change経由フローでのブロックスキップの継続、永続化の往復確認)、
+  venture全体870件(既存866件+新規4件)・schema検証28件いずれもパス。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)候補longlist-draft.md優先度B候補
+  (9・11・1・10・17)のオーナー回答待ち状況の再確認、(2)他venture(course-set-pasha・
+  kura-pasha・aircon-pasha)に候補提示・確定までの複数ターン継続フロー自体が存在するかの
+  横断確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 00:00 UTC(フェーズ続き277: `_handle_candidate_selection()`/
+  `_handle_details()`にsuspension_reason再チェックを追加。change経由フローは
+  `_change_context_by_user`(永続化対応済み)でスキップし続ける。テスト4件追加、
+  venture全体870件・schema検証28件いずれもパス)

@@ -348,6 +348,174 @@ class SuspendedNewBookingBlockTests(unittest.TestCase):
         self.assertEqual(flow.stage("U1"), "candidates_presented")
 
 
+class CandidateSelectionDetailsSuspensionRecheckTests(unittest.TestCase):
+    """candidate-selection-details-suspension-recheck-design.md準拠。
+    new-booking-suspension-guard-parity-review.md(フェーズ続き276)が発見した、候補提示後・
+    確定前にsuspension_reasonが新規予約受付停止の値へ変わった場合に再チェックが無いまま
+    確定してしまうギャップの修正を検証する。
+    """
+
+    def _saturday(self):
+        return NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+    def _present_llm_call(self, saturday):
+        def call():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        return call
+
+    def _select_llm_call(self):
+        return {
+            "intent": "new_booking", "name": None, "menu": "カット",
+            "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+        }
+
+    def _confirm_llm_call(self):
+        return {
+            "intent": "new_booking", "name": "山田", "menu": "カット",
+            "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+        }
+
+    def test_suspension_after_presentation_blocks_selection_for_fresh_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+        saturday = self._saturday()
+
+        r1 = processor.process(_event("U1", "来週土曜カットで"), self._present_llm_call(saturday), NOW)
+        self.assertEqual(r1.action, "candidates_presented")
+
+        # 候補提示後、確定前に(オーナー自身の解約等により)新規予約受付が停止された想定。
+        store_profile.set_suspension_reason(STORE_ID, "cancelled")
+
+        r2 = processor.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        self.assertEqual(r2.action, "new_booking_blocked_suspended")
+        self.assertEqual(r2.detail, "cancelled")
+        self.assertEqual(push.sent[-1][1], SUSPENDED_NEW_BOOKING_MESSAGE)
+        # 会話状態・ローカルキャッシュのいずれも後始末され、次回は新規会話として扱われる。
+        self.assertIsNone(flow.stage("U1"))
+        self.assertNotIn("U1", processor._candidates_by_user)
+        self.assertNotIn("U1", processor._search_context_by_user)
+        self.assertNotIn("U1", processor._change_context_by_user)
+
+    def test_suspension_after_selection_blocks_details_for_fresh_new_booking(self):
+        store_profile = InMemoryStoreProfileStore()
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+        saturday = self._saturday()
+
+        processor.process(_event("U1", "来週土曜カットで"), self._present_llm_call(saturday), NOW)
+        r2 = processor.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        self.assertEqual(r2.action, "held")
+        self.assertEqual(flow.stage("U1"), "awaiting_details")
+
+        # 候補選択後、氏名確定前に新規予約受付が停止された想定。
+        store_profile.set_suspension_reason(STORE_ID, "payment_suspended")
+
+        r3 = processor.process(
+            _event("U1", "山田です、カットでお願いします"), self._confirm_llm_call, NOW
+        )
+        self.assertEqual(r3.action, "new_booking_blocked_suspended")
+        self.assertEqual(r3.detail, "payment_suspended")
+        self.assertEqual(push.sent[-1][1], SUSPENDED_NEW_BOOKING_MESSAGE)
+        # 会話状態が削除され、次回は新規会話として扱われる
+        # (ConversationFlowStateMachine.cancel_booking()経由でawaiting_details中の
+        # hold()済みの枠もrelease()される。同メソッド自体の枠release()の検証は
+        # 既存のCancelIntentHandlingTests等でカバー済みのためここでは重複させない)。
+        self.assertIsNone(flow.stage("U1"))
+
+    def test_change_context_bypasses_recheck_through_confirmation_while_suspended(self):
+        """change経由(旧予約を既に解放済み)で始まった候補提示は、途中でsuspension_reasonが
+        新規予約受付停止の値になっていても、候補選択・確定までブロックされずに続けられる
+        (test_change_after_confirmed_still_re_searches_while_suspendedの延長)。
+        """
+        store_profile = InMemoryStoreProfileStore()
+        processor, flow, push, _ = _new_processor(store_profile=store_profile)
+        saturday = self._saturday()
+
+        # 1回目の予約を確定させた上で、解約(新規予約受付停止)状態にする。
+        processor.process(_event("U1", "来週土曜カットで"), self._present_llm_call(saturday), NOW)
+        processor.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        processor.process(_event("U1", "山田です、カットでお願いします"), self._confirm_llm_call, NOW)
+        self.assertEqual(flow.stage("U1"), "confirmed")
+        store_profile.set_suspension_reason(STORE_ID, "cancelled")
+
+        def change_llm_call():
+            return {
+                "intent": "change", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        r_change = processor.process(
+            _event("U1", "来週土曜の別の時間に変更できますか"), change_llm_call, NOW
+        )
+        self.assertEqual(r_change.action, "candidates_presented")
+        self.assertTrue(processor._change_context_by_user["U1"])
+
+        r_select = processor.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        self.assertEqual(r_select.action, "held")
+        self.assertEqual(flow.stage("U1"), "awaiting_details")
+
+        r_confirm = processor.process(
+            _event("U1", "山田です、カットでお願いします"), self._confirm_llm_call, NOW
+        )
+        self.assertEqual(r_confirm.action, "confirmed")
+        self.assertEqual(flow.stage("U1"), "confirmed")
+
+    def test_change_context_persists_across_fresh_processor_instances(self):
+        """processor-cache-persistence-design.mdの永続化配線に`_change_context_by_user`
+        (changeContextキー)を追加した対応の検証。change経由の候補提示後、Cloud Functionの
+        再起動を模した「全く新規のprocessor/flowインスタンス」でも、change_context=Trueが
+        正しく復元され候補選択時に再チェックでブロックされないことを確認する。
+        """
+        shared_slots = BookingSlotManager()
+        store = InMemoryConversationStateStore()
+        saturday = self._saturday()
+
+        processor1, flow1, push1, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots
+        )
+        processor1.process(_event("U1", "来週土曜カットで"), self._present_llm_call(saturday), NOW)
+        processor1.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        processor1.process(_event("U1", "山田です、カットでお願いします"), self._confirm_llm_call, NOW)
+        self.assertEqual(flow1.stage("U1"), "confirmed")
+
+        store_profile = InMemoryStoreProfileStore()
+        store_profile.set_suspension_reason(STORE_ID, "cancelled")
+
+        def change_llm_call():
+            return {
+                "intent": "change", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜の別の時間に変更したい", "confirmed": False,
+                "needs_owner_check": True,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor2, flow2, push2, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots, store_profile=store_profile
+        )
+        r_change = processor2.process(
+            _event("U1", "来週土曜の別の時間に変更できますか"), change_llm_call, NOW
+        )
+        self.assertEqual(r_change.action, "candidates_presented")
+        persisted = store.get(STORE_ID, "U1")
+        self.assertEqual(persisted["processorCache"]["changeContext"], True)
+
+        # 全く新規のprocessor/flowインスタンス(_change_context_by_userを一切共有しない)で続行。
+        processor3, flow3, push3, _ = _new_processor(
+            conversation_state_store=store, booking_slots=shared_slots, store_profile=store_profile
+        )
+        self.assertNotIn("U1", processor3._change_context_by_user)  # hydrate前はまだ空
+
+        r_select = processor3.process(_event("U1", "1番で"), self._select_llm_call, NOW)
+        self.assertEqual(r_select.action, "held")
+        self.assertEqual(flow3.stage("U1"), "awaiting_details")
+
+
 class NewBookingContradictionOwnerNotificationTests(unittest.TestCase):
     """new-booking-needs-owner-check-notification-design.md準拠。E8(自然文とJSONの矛盾)
     相当、intentがnew_bookingのままneeds_owner_check: trueだけが立つケースで、顧客向けの
