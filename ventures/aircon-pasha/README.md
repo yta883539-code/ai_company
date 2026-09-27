@@ -4724,3 +4724,61 @@
   と同型のまま本venture自身では一度も記録されていなかったことを発見し、新規に記録した。
   LIFFアプリ登録は本venture設計上不要と再確認。コード変更なし、venture全体610件・
   schema検証25件いずれもパス)
+- フェーズ278(2026-09-27 10:00 UTC定例更新): フェーズ276「次回候補」(2)「実LLM接続待ちで
+  着手不可のもの以外の未着手領域の棚卸し」に対応した。`未着手`を全文検索し設計docを
+  棚卸しした結果、data-retention-policy.md「削除候補化後の最終確認」節が、削除候補
+  (`deletion_candidate.list_deletion_candidates()`)に対する最終確認の経路(主経路:
+  LINE push、代替経路: 実メール送信〈オーナー承認待ちのため対象外〉)を方針レベルでのみ
+  整理しており、実行可能なコード・テストが一切存在しない未着手領域であることを確認した
+  (実メール送信を除く主経路〈LINE push〉自体はis_followingの読み取りのみで完結し、
+  実LLM・実外部API接続を必要としないため今回の対象として着手可能と判断した)。新規
+  `prototype/deletion_candidate_final_confirmation.py`を実装し、`user_profile.
+  is_following`(フェーズ167)に基づき経路を判定する`route_deletion_candidate_
+  confirmation()`(フォロー中はLINE_PUSH、ブロック中はMARK_UNREACHABLE)、絞り込み用の
+  `select_due_deletion_candidate_final_confirmations()`(送達成功済み〈`deletion_
+  confirmation_sent_at`設定済み〉のみ除外し、ブロック中で送信を試みなかった候補は毎回
+  再判定対象に残す設計とし、再フォロー後にLINE push経路へ自動的に切り替わる余地を残した)、
+  実送信本体`send_deletion_candidate_final_confirmations()`(送達成功時のみ`deletion_
+  confirmation_sent_at`、ブロック中は送信を試みず`deletion_confirmation_unreachable_at`
+  のみを書き込む)を設けた。`LinePushClient`/`InMemoryLinePushClient`/
+  `LinePushDeliveryError`はtrial_end_scheduler.pyの既存定義を再利用し(payment_
+  suspension_owner_notification.py等と同じ方針)、新規のFirestoreフィールド用ストアは
+  本モジュール専用の薄いProtocol(`DeletionConfirmationStateWriter`)として追加し、
+  user_id_linking.UserProfileStoreProtocol自体の変更は行わなかった。案内文言は、実際の
+  削除実行バッチ(Cloud Scheduler)がまだ存在しないことを踏まえ、具体的な削除予定日には
+  言及しない設計とした。あわせて、data-retention-policy.mdの棚卸し中に、「今後の課題」
+  節に残っていた「実Stripe Webhook受信口・prototype/への実装は引き続き未着手」
+  (フェーズ123時点の記載)という記述が、実際にはフェーズ126(同venture内、数時間後)の
+  `stripe_dispatch.dispatch_stripe_event()`実装で既に解消済みだった、stale化した記載
+  であることも発見し、あわせて是正した。テスト11件追加
+  (test_deletion_candidate_final_confirmation.py: 経路判定2件・絞り込み3件・
+  Flex Message構成1件・送信配線5件)、venture全体621件全件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`、変更前610件+新規11件)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更前と同じ結果)いずれもパスを確認した。
+  詳細はdata-retention-policy.md「削除候補化後の最終確認」節・「今後の課題」節参照。
+  承認が必要なアクション自体は今回新規に発生していない(実メール送信・実削除バッチの
+  Cloud Scheduler構築はいずれも既存記載どおり引き続きオーナー承認待ちのまま、着手も
+  していない)ため、pending-approval.mdへの追記なし。ただし棚卸しの過程で、
+  webhook-http-entry-point-design.md「実際の`channel_secret`の値はLINE公式アカウント
+  開設(アカウント作成、オーナー承認待ち)」・tech-stack.md「実際のCloud Scheduler実行
+  環境の構築...もオーナー承認待ちとして残る」という、本venture自体の稼働に必須の前提
+  (LINE公式アカウント開設・Messaging APIチャネルアクセストークン取得、および
+  trial_end_scheduler.py等の日次バッチ用Cloud Scheduler作成)が、pending-approval.mdの
+  既存aircon-pasha関連3件(2026-08-21・08-23・09-27)のいずれにも含まれておらず、
+  course-set-pasha(2026-09-11 04:00 UTC)・kura-pasha(2026-09-15 03:00 UTC)には
+  存在する同種の明示的な承認依頼エントリが本venture側には一度も記録されていない
+  可能性がある記載漏れ候補を確認した。フェーズ277までの一連の記載漏れ是正
+  (Stripe・LP・LIFF)と同型の疑いがあるが、本フェーズは実装増分を主眼としたため
+  pending-approval.mdの追記自体はオーナー確認事項として次回以降に持ち越す。次回候補:
+  (1)上記のLINE公式アカウント開設・Cloud Scheduler作成に関する承認依頼記載漏れの
+  有無を正式に確認しpending-approval.mdへ記録するかどうかの判断、(2)実LLM接続待ちで
+  着手不可のもの以外の未着手領域の棚卸しの継続(`chatbot-intent-classification-llm-
+  prompt-draft.md`「残課題」等、実LLM接続が前提のものは引き続き対象外)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-27 10:00 UTC(フェーズ278: data-retention-policy.md「削除候補化後の
+  最終確認」節が方針のみで未着手だった削除候補への最終確認ロジック〈LINE push経路〉を
+  `prototype/deletion_candidate_final_confirmation.py`として実装。`is_following`に
+  基づく経路判定・送達成否に応じた状態記録までテスト付きで完成させた。あわせて同文書の
+  stale化した「未着手」記載を是正。テスト11件追加、venture全体621件・schema検証25件
+  いずれもパス。棚卸し中に、本venture自体のLINE公式アカウント開設・Cloud Scheduler
+  作成がpending-approval.mdに未記録の可能性がある点を発見〈次回以降に正式確認〉)

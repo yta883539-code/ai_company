@@ -80,6 +80,13 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
   送達できない(2026-08-23追記・フェーズ112: follow-unfollow-event-handling-design.mdの
   とおり、ブロック中はLINEへの返信自体を行わない方針のため、この経路は使えないことが
   確定した)。
+  (実装済み 2026-09-27・フェーズ278: 上記の経路判定・送信配線をprototype/deletion_
+  candidate_final_confirmation.pyとして実装した。`user_profile.is_following`
+  (フェーズ167)を読み取り、フォロー中ならLINE push送信を試み成功時のみ
+  `deletion_confirmation_sent_at`を記録、ブロック中(またはpush送達失敗)なら
+  送信を試みずMARK_UNREACHABLE経路として`deletion_confirmation_unreachable_at`を
+  記録するのみに留める。実際の削除実行バッチがまだ存在しないため案内文言は具体的な
+  削除予定日には言及しない設計とした。テスト11件追加、詳細は本節末尾の実装ノート参照)。
 - 代替経路: 申込フォーム(onboarding-guide.mdステップ1)で収集した`email`
   (`user_profile.email`、user-account-linking-design.md 5節で確定済みのフィールド)を
   用いた最終確認。実際のメール送信には送信用サービスのアカウント作成が別途必要であり、
@@ -121,10 +128,23 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
   Googleフォーム作成(pending-approval.md記載事項、オーナー承認待ち)が完了するまでは
   `email`フィールドの実データ収集自体が発生しないため、フォーム作成後に本節の想定を
   再確認する必要がある。
-- (解消済み 2026-08-24 22:00 UTC・フェーズ123: 削除候補化トリガー(Stripe解約Webhook受信時の
-  `deletion_candidate_at`マーク付け等)をstripe-cancellation-deletion-candidate-trigger-
-  design.mdとして新規設計した。`user_profile/{user_id}`への`deletion_candidate_at`
-  フィールド追加、`mark_deletion_candidate_on_subscription_deleted()`・
+- (解消済み 2026-08-24 22:00 UTC・フェーズ123、および2026-08-25 04:00 UTC・フェーズ126:
+  削除候補化トリガー(Stripe解約Webhook受信時の`deletion_candidate_at`マーク付け等)を
+  stripe-cancellation-deletion-candidate-trigger-design.mdとして新規設計した。
+  `user_profile/{user_id}`への`deletion_candidate_at`フィールド追加、
+  `mark_deletion_candidate_on_subscription_deleted()`・
   `clear_deletion_candidate_on_subscription_reactivated()`・`list_deletion_candidates()`の
-  3関数設計まで完了。実Stripe Webhook受信口・`prototype/`への実装は引き続き未着手のまま
-  次回以降の課題として残る)
+  3関数を`prototype/deletion_candidate.py`として実装済み。当初本項目は「実Stripe
+  Webhook受信口・`prototype/`への実装は引き続き未着手」と記載していたが、フェーズ126
+  (同一venture内、本項目作成の数時間後)で`prototype/stripe_dispatch.py`の
+  `dispatch_stripe_event()`が上記3関数をそのまま呼び出す配線を既に実装済みだったため、
+  本フェーズ(フェーズ278・2026-09-27)でこの記載漏れ〈stale化した「未着手」表記〉を
+  是正した。`customer.subscription.deleted`受信時のマーク付け・`created`受信時の
+  クリアはいずれも`prototype/test_stripe_dispatch.py`のテストで検証済み)
+- (解消済み 2026-09-27・フェーズ278: 「削除候補化後の最終確認」節が方針のみ整理していた
+  最終確認の主経路(LINE push)を`prototype/deletion_candidate_final_confirmation.py`
+  として実装した。`is_following`に基づく経路判定〈フォロー中はpush試行・ブロック中は
+  MARK_UNREACHABLEで送信を試みず状態記録のみ〉・送達成否に応じた`deletion_
+  confirmation_sent_at`/`deletion_confirmation_unreachable_at`の書き分けまで完了。
+  代替経路(実メール送信)は引き続きオーナー承認待ちの範囲〈上記127行目参照〉、実際の
+  削除実行バッチも引き続き未実装のまま次回以降の課題として残る)
