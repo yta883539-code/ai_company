@@ -608,3 +608,57 @@ aircon-pashaは2026-09-25フェーズ266(README.md参照、「status enum未配�
 
 最終更新: 2026-09-25 21:00 UTC(11.12節: line-reservation-ai・aircon-pashaへの横断確認が
 いずれも完了済みであることを確認。コード変更は無く確認のみ)
+
+## 11.13 追記(フェーズ192、2026-09-27 11:00 UTC定例更新): 招待コード発行側のcall site欠落を発見・修正
+
+本節作成(フェーズ25)時点からの一連の追記(11.1〜11.4節)により、招待コードの
+発行ロジック(`issue_invite_code_for_workshop`)・解決側のmessage eventルーティング
+(`add_member_from_invite_code`のcall site)はいずれも実装済みだったが、発行契機の
+LLM意図検知(`status="workshop_invite_request"`、厳守事項7c・フェーズ99)を受け取った
+「後」に実際に`issue_invite_code_for_workshop()`を呼び出すcall site自体が
+`cloud_function_webhook.py`に一度も実装されていなかったことを発見した。これは
+`resolve_checkout_intent()`(checkout_intent検知後に実際にCheckout Sessionを発行する
+call site、フェーズ72)との非対称な抜けであり、`workshop_invite_notice.body`の一次応答
+文言(「招待コードを発行します」旨の案内)だけが返され、実際の招待コードが契約者の元に
+一度も届かない状態が続いていた。
+
+**対応**: `resolve_checkout_intent()`と同じ骨格で`resolve_workshop_invite_request()`を
+新設し、`process_memo_event()`のstatus分岐に`workshop_invite_request`(明確な意図、
+`workshop_invite_request_unclear`は対象外)かつ`invite_store`・`user_profile_store`・
+`workshop_store`の3依存が揃った場合のみ実際に招待コードを発行するelif分岐を追加した。
+`issue_invite_code_for_workshop()`が内包する`not_contractor`・`upgrade_required`
+(標準プランからの申請)・`member_limit_reached`(design 11.7節)の各エラーを、それぞれ
+専用の案内文言(`CONTRACTOR_ONLY_INVITE_NOTICE`・`UPGRADE_REQUIRED_FOR_INVITE_NOTICE`・
+`INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE`)へ変換する。3依存のいずれかが未接続の場合は
+従来通り`workshop_invite_notice.body`をそのまま返す後方互換フォールバックとした。
+
+**あわせて発見した別バグ**: 上記の調査中に、`receive_webhook()`(実HTTPエントリポイントの
+薄いラッパー)が`invite_store`引数自体を持たず、`dispatch_webhook_events()`へ渡していない
+ことも発見した。`dispatch_webhook_events()`・`process_message_event()`自体はフェーズ98
+時点で`invite_store`対応済みだったが、実際のHTTPリクエストが通る唯一の経路
+(`receive_webhook()`)からは常にNoneのまま渡っていたため、招待コード解決機能
+(workshop新規作成用の連携コードとは別の、既存workshopへのメンバー追加機能)自体が
+実運用では一度も有効化され得ない状態だった。`receive_webhook()`に`invite_store`引数を
+追加し、`dispatch_webhook_events()`へ渡すよう修正した。
+
+**修正箇所**: `cloud_function_webhook.py`(`resolve_workshop_invite_request()`新設、
+`process_memo_event()`・`process_message_event()`・`dispatch_webhook_events()`への
+`invite_store`/`rng`配線、`receive_webhook()`への`invite_store`引数追加)、
+`workshop_linking.py`(フェーズ97時点のdocstringが「発行契機の意図検知・ルーティングは
+未着手」と記していたまま更新されていなかった記載漏れを是正)。テストを
+`test_cloud_function_webhook.py`に追加(招待コード発行成功・未連携・非契約者・
+プラン不足・人数上限到達・unclear時の非発行・`receive_webhook()`経由の`invite_store`
+配線の再発防止、計7件)。回帰確認としてventure全体171件(`python3 -m unittest discover
+-s prototype -p "test_*.py"`)・schema検証32件(`python3 schema/validate_test_cases.py`)
+いずれもパスを確認した(test_cloud_function_webhook.py単体はcheck()呼び出し355件)。
+承認不要なバグ修正・テスト追加のみで、外部サービスへの公開・アカウント作成・支払い・
+送信等は今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: line-reservation-ai・course-set-pasha・aircon-pashaに`resolve_checkout_intent()`
+相当の「LLM意図検知後に実際の外部リソース発行を呼び出すcall site」が同種のパターン
+(招待コード・割引コード等、checkout以外の発行系フロー)を持つ場合、同じ非対称な抜けが
+無いかの横断確認、または他venture・アイデア領域の前進。
+
+最終更新: 2026-09-27 11:00 UTC(フェーズ192: 招待コード発行側のcall site欠落・
+receive_webhook()のinvite_store配線漏れを発見・修正。テスト7件追加、venture全体171件・
+schema検証32件いずれもパス)

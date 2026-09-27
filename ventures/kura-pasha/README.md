@@ -4131,3 +4131,29 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   承認待ちのpending-approval.md記録漏れ」が本ventureにも存在することを発見し新規記録。
   LIFF登録は本venture設計上不要と確認。コード変更なし、venture全体171件・schema検証
   32件いずれもパス)
+- フェーズ192(2026-09-27 11:00 UTC定例更新): craftsman-account-linking-design.md 11.3節が
+  「発行契機の意図検知・招待コード解決側ルーティングはいずれも別フェーズで解消済み」と
+  記していた棚卸しを深掘りしたところ、意図検知(status=workshop_invite_request)を受け
+  取った「後」に実際に`issue_invite_code_for_workshop()`を呼び出すcall site自体が
+  `cloud_function_webhook.py`に一度も実装されていなかった(`resolve_checkout_intent()`との
+  非対称な抜け)ことを発見した。これにより契約者が「職人を追加したい」と送っても、
+  一次応答文言(workshop_invite_notice.body)だけが返り実際の招待コードが一度も発行され
+  ない状態が続いていた。`resolve_checkout_intent()`と同じ骨格で`resolve_workshop_invite_
+  request()`を新設し、`process_memo_event()`のstatus分岐に組み込んだ。あわせて調査中に、
+  実HTTPエントリポイント`receive_webhook()`が`invite_store`引数自体を持たず
+  `dispatch_webhook_events()`へ渡していなかった(招待コード解決機能がフェーズ98時点の
+  実装以降、実運用経路からは一度も有効化され得ない状態だった)別バグも発見し、
+  合わせて修正した。詳細はcraftsman-account-linking-design.md 11.13節参照。テストを
+  `test_cloud_function_webhook.py`に7件追加(発行成功・未連携・非契約者・プラン不足・
+  人数上限到達・unclear時の非発行・receive_webhook()経由の配線再発防止)。回帰確認として
+  venture全体171件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証32件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した
+  (test_cloud_function_webhook.py単体はcheck()呼び出し355件、修正前比+7件)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 他venture(line-reservation-ai・
+  course-set-pasha・aircon-pasha)にresolve_checkout_intent()相当の「意図検知後に実際の
+  外部リソース発行を呼び出すcall site」を持つ発行系フロー(招待コード等)が存在する場合の
+  同種の非対称な抜けの横断確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 11:00 UTC(フェーズ192: 招待コード発行側のcall site欠落・
+  receive_webhook()のinvite_store配線漏れを発見・修正。テスト7件追加、venture全体171件・
+  schema検証32件いずれもパス)

@@ -80,10 +80,12 @@ from validate_test_cases import (  # noqa: E402
     validate_cross_field_rules,
 )
 from workshop_linking import (  # noqa: E402
+    MAX_MEMBER_COUNT,
     LinkingCodeStoreProtocol,
     RandomChoiceSource,
     add_member_from_invite_code,
     create_workshop_from_linking_code,
+    issue_invite_code_for_workshop,
     issue_linking_code_on_follow,
 )
 
@@ -976,6 +978,8 @@ def process_memo_event(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     checkout_session_client: Optional["CheckoutSessionClient"] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
+    rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
     apply_chatbot_followup_hint: bool = False,
 ) -> MemoProcessResult:
@@ -1227,6 +1231,27 @@ def process_memo_event(
         )
         reply_text = resolution.message
         checkout_url = resolution.checkout_url
+    elif (
+        instance["status"] == "workshop_invite_request"
+        and invite_store is not None
+        and user_profile_store is not None
+        and workshop_store is not None
+    ):
+        # craftsman-account-linking-design.md 5節・11節: LLMがworkshop_invite_notice.body
+        # として一次応答の文面を組み立てているが(includes_invite_codeは常にfalse、実際の
+        # コード発行はPython側に委ねる設計)、status=workshop_invite_request(明確な意図、
+        # workshop_invite_request_unclearは対象外)かつ3依存が揃っている場合は、
+        # resolve_workshop_invite_request()が組み立てる実際の案内(未連携/非契約者/
+        # プラン不足/人数上限/実招待コード)でworkshop_invite_notice.bodyを置き換える。
+        # checkout_intent分岐と同じ後方互換方針で、invite_store等が未接続の場合は従来通り
+        # workshop_invite_notice.bodyをそのまま返す。
+        resolution = resolve_workshop_invite_request(
+            user_id, invite_store, user_profile_store, workshop_store,
+            now if now is not None else datetime.now(timezone.utc),
+            rng if rng is not None else random.Random(),
+        )
+        reply_text = resolution.message
+        checkout_url = None
     else:
         reply_text = format_reply_text(
             instance, portal_link_provider=portal_link_provider, user_id=user_id,
@@ -1409,6 +1434,7 @@ def process_message_event(
     checkout_session_client: Optional["CheckoutSessionClient"] = None,
     chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
     escalation_push_client: Optional[LinePushClient] = None,
+    rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """messageイベントの入口(dispatch_webhook_events()からの委譲先)。
@@ -1474,6 +1500,8 @@ def process_message_event(
             workshop_store=workshop_store,
             usage_counter_store=usage_counter_store,
             checkout_session_client=checkout_session_client,
+            invite_store=invite_store,
+            rng=rng,
             now=now,
         )
 
@@ -1519,6 +1547,8 @@ def process_message_event(
                 workshop_store=workshop_store,
                 usage_counter_store=usage_counter_store,
                 checkout_session_client=checkout_session_client,
+                invite_store=invite_store,
+                rng=rng,
                 now=now,
                 apply_chatbot_followup_hint=(chatbot_intent == "memo_processing_request"),
             )
@@ -1703,6 +1733,92 @@ def resolve_checkout_intent(
     )
 
 
+# ---------------------------------------------------------------------------
+# resolve_workshop_invite_request()(フェーズ192)
+#
+# workshop_linking.issue_invite_code_for_workshop()(フェーズ97)は発行契機となる
+# LLM意図検知(厳守事項7c、フェーズ99)・招待コード解決側のルーティング(フェーズ98)
+# いずれも既に配線済みだったが、発行契機の意図検知(status=workshop_invite_request)を
+# 受け取った後に実際にissue_invite_code_for_workshop()を呼び出すcall site自体が
+# process_memo_event()に存在せず、常にworkshop_invite_notice.bodyの一次応答文言のみが
+# 返され続ける(実際の招待コードが職人へ届かない)というcheckout_intent分岐との非対称な
+# 抜けが残っていた。resolve_checkout_intent()と同じ骨格でこの抜けに対応する。
+# ---------------------------------------------------------------------------
+
+CONTRACTOR_ONLY_INVITE_NOTICE = (
+    "職人の追加は、契約者(工房を最初に作成した方)のみ操作できます。"
+    "お手数ですが、契約者の方から改めてお申し込みください。"
+)
+
+UPGRADE_REQUIRED_FOR_INVITE_NOTICE = (
+    "職人の追加には複数職人プランへの変更が必要です。プラン変更をご希望の場合はその旨"
+    "メッセージでお知らせください。"
+)
+
+INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE = (
+    f"工房の登録人数が上限({MAX_MEMBER_COUNT}名)に達しているため、新たに招待コードを"
+    "発行できません。人数の調整についてはご相談ください。"
+)
+
+
+def format_workshop_invite_reply_message(code: str) -> str:
+    """design 5節: 発行した招待コードを、追加したい職人へ契約者自身が転送する文面。
+    format_checkout_reply_message()と同じくプレーンテキストで組み立てる。"""
+    return (
+        "招待コードを発行しました。追加したい職人の方に下記コードをLINEで送っていただくよう"
+        "お伝えください(24時間以内に一度だけ使用できます)。\n"
+        f"{code}"
+    )
+
+
+@dataclass
+class WorkshopInviteRequestResolution:
+    """resolve_workshop_invite_request()の結果。`message`は呼び出し元がそのまま返信本文として
+    使う想定(CheckoutIntentResolutionと同じ位置づけ)。"""
+
+    message: str
+    invite_code: Optional[str] = None
+
+
+def resolve_workshop_invite_request(
+    user_id: Optional[str],
+    invite_store: LinkingCodeStoreProtocol,
+    user_profile_store: UserProfileStoreProtocol,
+    workshop_store: WorkshopStoreProtocol,
+    now: datetime,
+    rng: RandomChoiceSource,
+) -> WorkshopInviteRequestResolution:
+    """craftsman-account-linking-design.md 5節・11.1節の発行側実装。resolve_checkout_intent()と
+    同じ骨格(user_idからworkshop_idを特定→専用ロジックへ委譲→エラー種別ごとに専用の
+    案内文言へ変換)を踏襲する。
+
+    1. `user_profile_store.get_workshop_id(user_id)`でworkshopを特定する。user_id欠落・
+       未連携(workshop_id未設定)の場合はLINKING_REQUIRED_MESSAGEを返す。
+    2. `issue_invite_code_for_workshop()`(design 5節・11.1節、フェーズ97実装済み)へ委譲する。
+       同関数が発行主体チェック(`not_contractor`)・プランチェック(`upgrade_required`)・
+       人数上限チェック(`member_limit_reached`、design 11.7節)を既に内包しているため、
+       本関数はエラー種別ごとの専用案内文言への変換のみを行う。
+    3. 成功時は`format_workshop_invite_reply_message()`で返信文を組み立てる。
+    """
+    workshop_id = user_profile_store.get_workshop_id(user_id) if user_id else None
+    if workshop_id is None:
+        return WorkshopInviteRequestResolution(message=LINKING_REQUIRED_MESSAGE)
+
+    issuance = issue_invite_code_for_workshop(
+        workshop_id, user_id, workshop_store, invite_store, now, rng,
+    )
+    if issuance.ok:
+        return WorkshopInviteRequestResolution(
+            message=format_workshop_invite_reply_message(issuance.code),
+            invite_code=issuance.code,
+        )
+    if issuance.error == "not_contractor":
+        return WorkshopInviteRequestResolution(message=CONTRACTOR_ONLY_INVITE_NOTICE)
+    if issuance.error == "upgrade_required":
+        return WorkshopInviteRequestResolution(message=UPGRADE_REQUIRED_FOR_INVITE_NOTICE)
+    return WorkshopInviteRequestResolution(message=INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE)
+
+
 def process_postback_event(
     event: dict,
     checkout_session_client: CheckoutSessionClient,
@@ -1846,6 +1962,7 @@ def dispatch_webhook_events(
                     checkout_session_client=checkout_session_client,
                     chatbot_intent_classifier=chatbot_intent_classifier,
                     escalation_push_client=escalation_push_client,
+                    rng=rng,
                     now=now,
                 )
             )
@@ -1904,6 +2021,7 @@ def receive_webhook(
     workshop_store: Optional[WorkshopStoreProtocol] = None,
     usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
     linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
     chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
     escalation_push_client: Optional[LinePushClient] = None,
@@ -1917,6 +2035,12 @@ def receive_webhook(
     2. JSONとしてパースできないbodyは400(error="invalid_json")。
     3. "events"キーがlistでないbodyは400(error="missing_events")。
     4. 上記を通過したらeventsをdispatch_webhook_events()にそのまま委譲する。
+
+    フェーズ192: `invite_store`(フェーズ98でdispatch_webhook_events()・
+    process_message_event()には追加済みだった既存workshopへの追加用招待コード解決の
+    依存)が本関数の引数一覧に無く、dispatch_webhook_events()へも渡されていなかった
+    (常にNoneのまま=招待コード解決が無効化された状態でしか実HTTPエントリポイントへ
+    到達できない)記載漏れ相当のバグを発見し、本フェーズで追加した。
     """
     if not verify_line_signature(body, signature_header, channel_secret):
         return WebhookReceiverResult(status_code=401, error="invalid_signature")
@@ -1938,6 +2062,7 @@ def receive_webhook(
         workshop_store=workshop_store,
         usage_counter_store=usage_counter_store,
         linking_store=linking_store,
+        invite_store=invite_store,
         checkout_session_client=checkout_session_client,
         chatbot_intent_classifier=chatbot_intent_classifier,
         escalation_push_client=escalation_push_client,

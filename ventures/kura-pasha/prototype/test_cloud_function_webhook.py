@@ -15,11 +15,14 @@ from cloud_function_webhook import (
     API_FAILURE_FALLBACK_MESSAGE,
     CHARACTER_LIMIT_FALLBACK_MESSAGE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
+    CONTRACTOR_ONLY_INVITE_NOTICE,
     FIRST_GENERATION_NOTICE_MESSAGE,
+    INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE,
     INVITE_JOIN_SUCCESS_MESSAGE,
     LINKING_REQUIRED_MESSAGE,
     LINKING_SUCCESS_MESSAGE,
     MEMBER_LIMIT_REACHED_MESSAGE,
+    UPGRADE_REQUIRED_FOR_INVITE_NOTICE,
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
@@ -38,6 +41,7 @@ from cloud_function_webhook import (
     format_follow_welcome_message,
     format_limit_approaching_notice,
     format_trial_end_notification_message,
+    format_workshop_invite_reply_message,
     process_follow_event,
     process_memo_event,
     process_message_event,
@@ -764,6 +768,125 @@ def test_process_memo_event_pricing_inquiry_does_not_issue_checkout_session():
     )
     check("pricing_inquiryはcheckout_session_client接続時もcheckout_notice.bodyのまま", result.reply_text == TEST_CASES["CO2_pricing_inquiry"]["checkout_notice"]["body"])
     check("pricing_inquiryはCheckout Sessionを作らない", checkout_client.calls == [])
+
+
+# ---------------------------------------------------------------------------
+# process_memo_event() の workshop_invite_request 実招待コード発行(フェーズ192)
+#
+# resolve_checkout_intent()(フェーズ72)と非対称に、workshop_invite_request検知後に
+# 実際にissue_invite_code_for_workshop()を呼び出すcall site自体が本フェーズまで存在
+# しておらず、invite_store等を接続してもworkshop_invite_notice.bodyの一次応答文言しか
+# 返らなかった(実際の招待コードが発行・案内されない)バグを検証する。
+# ---------------------------------------------------------------------------
+
+def test_process_memo_event_workshop_invite_request_issues_real_invite_code_when_connected():
+    profiles, workshops, _ = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE")
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("職人を追加したい", user_id=contractor_id),
+        _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    issued_codes = invite_store.items()
+    check("招待コードがちょうど1件発行・保存される", len(issued_codes) == 1)
+    code, resolved_workshop_id, _issued_at = issued_codes[0]
+    check("保存された招待コードの解決先はworkshop_id", resolved_workshop_id == workshop_id)
+    check(
+        "3依存が揃うとworkshop_invite_notice.bodyではなく実招待コード案内を返す",
+        result.reply_text == format_workshop_invite_reply_message(code),
+    )
+
+
+def test_process_memo_event_workshop_invite_request_requires_linking_when_unlinked_with_store_connected():
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("職人を追加したい", user_id="U_UNLINKED"),
+        _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    check("未連携user_idはLINKING_REQUIRED_MESSAGEを返す", result.reply_text == LINKING_REQUIRED_MESSAGE)
+    check("未連携user_idは招待コードを発行しない", invite_store.items() == [])
+
+
+def test_process_memo_event_workshop_invite_request_rejects_non_contractor():
+    profiles, workshops, _ = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE_MEMBER")
+    workshops.set_members(workshop_id, contractor_id, [contractor_id, "U_MEMBER"])
+    profiles.link("U_MEMBER", workshop_id)
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("職人を追加したい", user_id="U_MEMBER"),
+        _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    check("契約者以外はCONTRACTOR_ONLY_INVITE_NOTICEを返す", result.reply_text == CONTRACTOR_ONLY_INVITE_NOTICE)
+    check("契約者以外は招待コードを発行しない", invite_store.items() == [])
+
+
+def test_process_memo_event_workshop_invite_request_requires_upgrade_for_standard_plan():
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_MEMO_INVITE_STANDARD")
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("職人を追加したい", user_id="U_CONTRACTOR"),
+        _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    check("standardプランはUPGRADE_REQUIRED_FOR_INVITE_NOTICEを返す", result.reply_text == UPGRADE_REQUIRED_FOR_INVITE_NOTICE)
+    check("standardプランは招待コードを発行しない", invite_store.items() == [])
+
+
+def test_process_memo_event_workshop_invite_request_rejects_when_member_limit_reached():
+    profiles, workshops, _ = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE_FULL")
+    workshops.set_members(workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3", "U_M4", "U_M5"])
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("職人を追加したい", user_id=contractor_id),
+        _StubLlmCall([TEST_CASES["WIR1_workshop_invite_request"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    check(
+        "人数上限到達時はINVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICEを返す",
+        result.reply_text == INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE,
+    )
+    check("人数上限到達時は招待コードを発行しない", invite_store.items() == [])
+
+
+def test_process_memo_event_workshop_invite_request_unclear_does_not_issue_code_when_connected():
+    profiles, workshops, _ = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE_UNCLEAR")
+    reply_client = InMemoryReplyClient()
+    invite_store = InMemoryLinkingCodeStore()
+
+    result = process_memo_event(
+        _make_event("追加できる?", user_id=contractor_id),
+        _StubLlmCall([TEST_CASES["WIR2_workshop_invite_request_unclear"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, invite_store=invite_store,
+        rng=random.Random(1),
+    )
+    check(
+        "workshop_invite_request_unclearはinvite_store接続時もworkshop_invite_notice.bodyのまま",
+        result.reply_text == TEST_CASES["WIR2_workshop_invite_request_unclear"]["workshop_invite_notice"]["body"],
+    )
+    check("workshop_invite_request_unclearは招待コードを発行しない", invite_store.items() == [])
 
 
 def test_process_memo_event_contractor_transfer_expired_notice_returns_body():
@@ -2646,6 +2769,41 @@ def test_receive_webhook_dispatches_postback_event_on_success():
     check("postbackイベントも200で処理される", result.status_code == 200)
     check("dispatch_resultにpostback_resultsが1件ある", len(result.dispatch_result.postback_results) == 1)
     check("実際に返信が送られている", len(reply_client.sent) == 1)
+
+
+def test_receive_webhook_forwards_invite_store_to_dispatch():
+    """フェーズ192で発見・修正したバグの再発防止テスト: receive_webhook()は
+    dispatch_webhook_events()・process_message_event()には既に存在した`invite_store`
+    引数自体を持たず、常にNoneのまま(招待コード解決が無効化された状態でしか実HTTP
+    エントリポイントへ到達できない)だった。実際に招待コード送信メッセージを
+    receive_webhook()経由で処理させ、workshopへの参加が完了することを確認する。"""
+    profiles, workshops, counters = _make_stores()
+    workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_RECEIVE_INVITE")
+    invite_store = InMemoryLinkingCodeStore()
+    linking_store = InMemoryLinkingCodeStore()
+    now = datetime(2026, 9, 27, 12, 0, 0)
+    issuance = issue_invite_code_for_workshop(
+        workshop_id, contractor_id, workshops, invite_store, now, random.Random(1),
+    )
+    check("招待コード発行に成功する(事前条件)", issuance.ok is True)
+
+    body = _webhook_body([_make_event(issuance.code, user_id="U_NEW_CRAFTSMAN_RECEIVE")])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    reply_client = InMemoryReplyClient()
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store, invite_store=invite_store,
+        now=now,
+    )
+    check("receive_webhook経由でも200", result.status_code == 200)
+    check(
+        "receive_webhook経由でも招待コードで対象workshopへ参加できる",
+        profiles.get_workshop_id("U_NEW_CRAFTSMAN_RECEIVE") == workshop_id,
+    )
+    check("招待コードは使い切りで消費される", invite_store.get(issuance.code) is None)
 
 
 def test_receive_webhook_with_all_dependencies_none_does_not_raise():

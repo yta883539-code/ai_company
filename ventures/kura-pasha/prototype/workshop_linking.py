@@ -22,11 +22,16 @@ LINE友だち追加(follow event)時に発行する連携コードでworkshop(�
 - フェーズ97: 5節の招待コード(`pending_workshop_invites`、既存workshopへのメンバー追加)を
   craftsman-account-linking-design.md 11節の詳細設計に沿って実装した
   (`issue_invite_code_for_workshop`・`add_member_from_invite_code`)。発行契機となる
-  「職人を追加したい」という意図のLINEメッセージ検知・message event側のルーティング
-  (2節のフェーズ69相当の配線)は11節「未検証・残課題」の通り本ファイル未着手のため
-  引き続き次の課題として残す。
+  「職人を追加したい」という意図のLINEメッセージ検知(design 11.3節→フェーズ99で
+  厳守事項7cとして解消)・招待コード解決側のmessage event側ルーティング(design 11.4節→
+  フェーズ98で解消)はいずれもその後の別フェーズで対応済み(本ファイル自体への変更は
+  伴わない)。ただし発行契機の意図検知を受け取った後に実際に`issue_invite_code_for_
+  workshop`を呼び出すcall site自体はフェーズ192まで`cloud_function_webhook.py`に
+  存在しておらず(`resolve_checkout_intent`との非対称な抜け)、フェーズ192で
+  `resolve_workshop_invite_request`として同ファイルに追加・解消した。
 
-設計の参照元: craftsman-account-linking-design.md(フェーズ25、フェーズ66追記、フェーズ97追記)
+設計の参照元: craftsman-account-linking-design.md(フェーズ25、フェーズ66追記、フェーズ97追記、
+フェーズ192追記〈11.13節、発行側call site欠落の是正はcloud_function_webhook.py側〉)
 """
 
 from __future__ import annotations
