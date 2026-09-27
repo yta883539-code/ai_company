@@ -85,3 +85,25 @@ elif is_trial_period_over(workshop_id, now, workshop_store) and subscription_sta
 - コード変更のみで、実際のFirestore・LINE公式アカウント・Stripeとの接続(いずれも
   オーナー承認待ち、pending-approval.md参照)には影響しない。承認が必要なアクションは
   今回発生していないためpending-approval.mdへの追記はなし。
+
+## 追記(フェーズ190): 他venture3件への横展開確認が完了
+
+上記「次の課題」で残していた他venture3件への横展開確認は、その後いずれも完了済みで
+あることを確認した。
+
+- course-set-pasha(フェーズ258): 同型の欠落(有料転換済み・決済失敗未経験のまま解約した
+  ユーザーが生成を使い続けられる)を発見・修正。
+- aircon-pasha(フェーズ275): 同様に同型の欠落を発見・修正(kura-pasha・course-set-pasha
+  両方の横展開確認による)。
+- line-reservation-ai(フェーズ続き278、`subscription-canceled-block-crosscheck.md`):
+  新規予約受付可否判定が`suspension_reason`という単一enum的フィールドに基づく構造であり、
+  本venture系(トライアル終了・決済失敗という複数の独立フラグの組み合わせ)とは判定方式が
+  異なるため、同型の欠落は構造的に存在しないことを確認済み。
+
+以上により、本ドキュメントが残していた「横断確認は次回以降の課題として残す」という
+申し送りは解消済みとなった。コード変更・design変更は無く、他venture側ドキュメントの
+確認のみ。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記は
+なし。
+
+最終更新: 2026-09-27 04:00 UTC(フェーズ190: 他venture3件〈aircon-pasha・course-set-pasha・
+line-reservation-ai〉への横展開確認完了を記録し、次の課題を解消)
