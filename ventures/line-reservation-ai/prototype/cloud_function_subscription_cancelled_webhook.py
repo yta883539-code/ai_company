@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -43,6 +44,9 @@ OUTCOME_NO_CHANGE = "no_change"
 OUTCOME_CANCELLED = "cancelled"
 OUTCOME_ALREADY_CANCELLED = "already_cancelled"
 OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED = "out_of_scope_payment_failed"
+# event_time指定時、記録済みのlast_subscription_event_time以前(古いか重複)だったため
+# 何もしなかった場合。
+OUTCOME_STALE_EVENT = "stale_event"
 
 # handle_*()のみが返す、送信失敗を表す分類(design 5節)。
 OUTCOME_SEND_FAILED = "send_failed"
@@ -68,6 +72,13 @@ class StoreSubscriptionState:
     呼び出し元がFirestoreから読み込んだ現在値を渡し、`handle_subscription_deleted()`が
     解約確定時にクリアする(値そのものはメール送信時刻の文字列表現だが、本モジュールは
     内容を解釈せず「設定済みかどうか」だけを見る)。
+
+    `last_subscription_event_time`(subscription-event-order-guard-design.md、
+    kura-pashaのsubscription-status-event-order-guard-design.mdの横展開)は、この店舗の
+    suspension_reasonを最後に変更したStripeイベントの`event.created`時刻。
+    `handle_subscription_deleted()`・`cloud_function_subscription_activated_webhook.
+    handle_subscription_activated()`の両方が読み書きする(同じFirestoreフィールドを
+    指す想定)。省略時(`None`)は後方互換のため新しいstale判定を一切行わない。
     """
 
     store_id: str
@@ -77,6 +88,7 @@ class StoreSubscriptionState:
     message_tone: str = "standard"
     suspension_reason: str | None = None
     blocked_but_billing_owner_notified_at: str | None = None
+    last_subscription_event_time: datetime | None = None
 
 
 @dataclass
@@ -104,6 +116,7 @@ class SubscriptionCancellationResult:
     notified: bool = False
     state_changed: bool = False
     blocked_but_billing_owner_notified_at_cleared: bool = False
+    stale: bool = False
 
 
 def classify_subscription_update(
@@ -330,13 +343,33 @@ def handle_subscription_updated(
 
 
 def handle_subscription_deleted(
-    state: StoreSubscriptionState, push_client: LinePushClient
+    state: StoreSubscriptionState,
+    push_client: LinePushClient,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionCancellationResult:
     """`customer.subscription.deleted`受信時の処理本体。
 
     引数のstateは呼び出し元でFirestoreから読み取った当該店舗の状態を想定し、
     本関数は必要な通知送信と状態の書き換えを行う(実際のFirestore書き戻しは呼び出し側)。
+
+    `event_time`(subscription-event-order-guard-design.md、kura-pashaの
+    subscription-status-event-order-guard-design.mdの横展開)は、解約直後に
+    即再契約した場合の遅延配信対策。再契約により`suspension_reason`が既に
+    解除された(Noneに戻った)後で、遅れて届いた解約完了イベントが有効な契約を
+    誤って"cancelled"へ書き換え、「ご契約が終了しました」という事実と異なる通知を
+    送ってしまう欠落を防ぐ。`state.last_subscription_event_time`以前(同時刻含む)の
+    `event_time`が渡された場合、状態更新・通知のいずれも行わずstale=Trueを返す
+    (kura-pashaと同じ「stale全体スキップ」方針: 通知だけ送ると実際の契約状態と
+    矛盾するため)。event_time省略時(`None`)は従来通りこのチェックを行わない
+    (既存呼び出し経路への後方互換措置)。
     """
+    if (
+        event_time is not None
+        and state.last_subscription_event_time is not None
+        and event_time <= state.last_subscription_event_time
+    ):
+        return SubscriptionCancellationResult(outcome=OUTCOME_STALE_EVENT, stale=True)
+
     outcome = classify_subscription_deleted(state.suspension_reason)
 
     if outcome in (OUTCOME_ALREADY_CANCELLED, OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED):
@@ -350,6 +383,8 @@ def handle_subscription_deleted(
         return SubscriptionCancellationResult(outcome=OUTCOME_SEND_FAILED)
 
     state.suspension_reason = "cancelled"
+    if event_time is not None:
+        state.last_subscription_event_time = event_time
 
     # blocked-but-billing-owner-email-notification-design.md 5節「クリア配線」
     # (フェーズ続き178)。「設定済みの場合のみクリアしTrue/Falseを返す」ロジックを、

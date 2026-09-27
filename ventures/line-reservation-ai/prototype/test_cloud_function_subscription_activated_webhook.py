@@ -8,11 +8,14 @@ from __future__ import annotations
 import unittest
 
 from cloud_function_process_event import InMemoryLinePushClient, LinePushDeliveryError
+from datetime import datetime
+
 from cloud_function_subscription_activated_webhook import (
     OUTCOME_ACTIVATED,
     OUTCOME_ALREADY_ACTIVE,
     OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED,
     OUTCOME_SEND_FAILED,
+    OUTCOME_STALE_EVENT,
     StoreSubscriptionState,
     classify_subscription_activated,
     handle_subscription_activated,
@@ -172,6 +175,54 @@ class HandleSubscriptionActivatedTests(unittest.TestCase):
         self.assertFalse(result.notified)
         self.assertFalse(result.state_reset)
         self.assertEqual(state.suspension_reason, "trial_unselected")
+
+    def test_applies_when_event_time_newer_than_recorded(self):
+        # 正常順序の回帰確認: event_time指定でも新しいイベントなら従来通り適用される。
+        state = _store(
+            suspension_reason="cancelled",
+            last_subscription_event_time=datetime(2026, 9, 20, 9, 0),
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_activated(
+            state, push, event_time=datetime(2026, 9, 20, 10, 0)
+        )
+
+        self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
+        self.assertTrue(result.notified)
+        self.assertIsNone(state.suspension_reason)
+        self.assertEqual(state.last_subscription_event_time, datetime(2026, 9, 20, 10, 0))
+
+    def test_skips_when_reactivation_event_is_stale_after_later_cancellation(self):
+        # 遅延配信ケース: 解約確定(customer.subscription.deleted、event_time 10:00)を
+        # 既に反映済みの状態に、それより前(9:00)に発生していたはずの
+        # subscription_activatedが遅れて届いても、既に確定済みの解約を誤って解除しない。
+        state = _store(
+            suspension_reason="cancelled",
+            last_subscription_event_time=datetime(2026, 9, 20, 10, 0),
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_activated(
+            state, push, event_time=datetime(2026, 9, 20, 9, 0)
+        )
+
+        self.assertEqual(result.outcome, OUTCOME_STALE_EVENT)
+        self.assertTrue(result.stale)
+        self.assertFalse(result.notified)
+        self.assertEqual(state.suspension_reason, "cancelled")
+        self.assertEqual(len(push.sent), 0)
+
+    def test_applies_unconditionally_when_event_time_omitted(self):
+        # event_time省略時(呼び出し側が未対応)は従来通り無条件適用する後方互換。
+        state = _store(
+            suspension_reason="cancelled",
+            last_subscription_event_time=datetime(2026, 9, 20, 10, 0),
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_activated(state, push)
+
+        self.assertEqual(result.outcome, OUTCOME_ACTIVATED)
+        self.assertTrue(result.notified)
+        self.assertIsNone(state.suspension_reason)
 
 
 if __name__ == "__main__":

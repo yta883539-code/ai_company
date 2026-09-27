@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -52,6 +53,9 @@ from cloud_function_process_event import (  # noqa: E402
 OUTCOME_ACTIVATED = "activated"
 OUTCOME_ALREADY_ACTIVE = "already_active"
 OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED = "out_of_scope_payment_failed"
+# event_time指定時、記録済みのlast_subscription_event_time以前(古いか重複)だったため
+# 何もしなかった場合(subscription-event-order-guard-design.md)。
+OUTCOME_STALE_EVENT = "stale_event"
 
 # handle_subscription_activated()のみが返す、送信失敗を表す分類。
 OUTCOME_SEND_FAILED = "send_failed"
@@ -79,6 +83,7 @@ class StoreSubscriptionState:
     next_billing_date: str
     message_tone: str = "standard"
     suspension_reason: str | None = None
+    last_subscription_event_time: datetime | None = None
 
 
 @dataclass
@@ -92,6 +97,7 @@ class SubscriptionActivatedResult:
     outcome: str
     notified: bool = False
     state_reset: bool = False
+    stale: bool = False
 
 
 def classify_subscription_activated(state: StoreSubscriptionState) -> str:
@@ -165,6 +171,7 @@ def handle_subscription_activated(
     state: StoreSubscriptionState,
     push_client: LinePushClient,
     portal_url: Optional[str] = None,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionActivatedResult:
     """決済代行サービスの`subscription_activated`Webhook受信時の処理本体。
 
@@ -173,7 +180,24 @@ def handle_subscription_activated(
     portal_urlは呼び出し元(`receive_stripe_webhook()`)が`PortalLinkProvider`から
     都度解決した値を渡す想定(portal-session-provider-design.md 4節、省略時は`None`で
     render側のフォールバックに委ねる)。
+
+    `event_time`(subscription-event-order-guard-design.md)は
+    `cloud_function_subscription_cancelled_webhook.handle_subscription_deleted()`と
+    対称のガード。契約が解約確定した後に、それより前に発生していた(が遅延配信された)
+    `subscription_activated`が届くと、既に"cancelled"へ書き換え済みのsuspension_reasonを
+    誤って解除し、実際には終了している契約に「ご登録ありがとうございます」の案内を
+    送ってしまう欠落を防ぐ。`state.last_subscription_event_time`以前(同時刻含む)の
+    `event_time`が渡された場合、状態更新・通知のいずれも行わずstale=Trueを返す。
+    event_time省略時(`None`)は従来通りこのチェックを行わない(既存呼び出し経路への
+    後方互換措置)。
     """
+    if (
+        event_time is not None
+        and state.last_subscription_event_time is not None
+        and event_time <= state.last_subscription_event_time
+    ):
+        return SubscriptionActivatedResult(outcome=OUTCOME_STALE_EVENT, stale=True)
+
     outcome = classify_subscription_activated(state)
 
     if outcome in (OUTCOME_ALREADY_ACTIVE, OUTCOME_OUT_OF_SCOPE_PAYMENT_FAILED):
@@ -189,6 +213,8 @@ def handle_subscription_activated(
         return SubscriptionActivatedResult(outcome=OUTCOME_SEND_FAILED)
 
     state.suspension_reason = None
+    if event_time is not None:
+        state.last_subscription_event_time = event_time
     return SubscriptionActivatedResult(outcome=outcome, notified=True, state_reset=True)
 
 

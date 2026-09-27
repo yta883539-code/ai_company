@@ -4902,3 +4902,22 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   suspension_reasonを参照しない設計が実装漏れではなく「既存確定予約・リマインドは
   解約後も継続する」という既存方針どおりの意図的な独立であることを確認。コード変更は
   無く確認・文書化のみ)
+- フェーズ続き282(2026-09-28 00:00 UTC定例更新): kura-pashaフェーズ194が「次回候補」に
+  残していた、subscription_status列挙型方式におけるStripe Webhook配信順序入れ替わりの
+  本venture(line-reservation-ai)への横展開検討を行った。本ventureはkura-pashaと異なり
+  `suspension_reason`文字列方式のため単純な横展開はできず、`handle_subscription_deleted()`
+  (解約確定)・`handle_subscription_activated()`(再契約)双方が`suspension_reason`を
+  無条件に上書きしていることに起因する2種の欠落(ケースA: 解約直後の即再契約でdeletedが
+  遅延配信されると有効な契約を誤ってcancelledへ、ケースB: その対称でactivatedが遅延配信
+  されると解約確定済みの状態を誤って解除)を発見した。両ハンドラに`event_time`引数と
+  `StoreSubscriptionState.last_subscription_event_time`を追加し、event.created基準の
+  新旧比較でstale時は状態更新・通知をまとめてスキップするガードを追加した(event_time
+  省略時・store未対応時は従来通り無条件適用する後方互換)。詳細は
+  subscription-event-order-guard-design.md(新規作成)参照。テスト7件追加
+  (test_cloud_function_subscription_cancelled_webhook.py 4件・test_cloud_function_
+  subscription_activated_webhook.py 3件)、venture全体`python3 -m unittest discover -s
+  prototype -p "test_*.py"`877件(870→877)・schema検証28件(`python3 schema/validate_
+  test_cases.py`)いずれもパス。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: route_stripe_event()から各ハンドラへの
+  統合エントリポイント配線実装時にevent_timeを実際に渡す配線、またはpayment_failure_
+  detected_at側の順序入れ替わり検討、あるいは他venture・アイデア領域の前進。
