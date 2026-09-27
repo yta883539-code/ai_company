@@ -172,3 +172,20 @@ onboarding-guide.mdのステップ6(トライアル終了後のプラン選択)�
   schema検証32件いずれもパス)であることを確認した。本節の「次回以降の課題として残す」の
   記載は解消済み事項が未反映のままだった記載漏れであるため、本フェーズで事後訂正する。
   本venture(aircon-pasha)自体のコード変更は無い。)
+- (解消済み 2026-09-27 13:00 UTC・フェーズ279: 2節で発行契機として設計した
+  `issue_linking_code_on_form_submission()`(user_id_linking.py、フェーズ113実装済み)が、
+  実際にはそれを呼び出す「GAS Webhookエントリポイント」側の処理が一度も実装されていない
+  (kura-pashaフェーズ192で発見された`resolve_checkout_intent()`/
+  `resolve_workshop_invite_request()`の非対称な抜けと同種の、発行契機はあるが実際の発行
+  呼び出しが無いパターン)ことを発見した。course-set-pashaが同種の位置づけで既に
+  `prototype/application_form_submission_flow.py`(GAS Webhookから届く想定のペイロードを
+  検証しuser_profileへ書き込むエントリポイント)を実装済みだったのに対し、本ventureには
+  対応するモジュールが存在しなかった。course-set-pasha版と同じ位置づけで
+  `prototype/application_form_submission_flow.py`を新設し、`handle_form_submission()`が
+  ペイロード(`form_submission_id`・`business_name`・`business_type`・`email`、5節の
+  `pending_links`必須フィールド)を検証した上で`issue_linking_code_on_form_submission()`へ
+  委譲するよう実装した。テストを`test_application_form_submission_flow.py`に10件新規追加。
+  venture全体631件(621件→631件)・schema検証25件いずれもパスを確認した。承認が必要な
+  アクション(実Googleフォーム作成・実GAS Webhookデプロイ・実メール送信)は今回発生していない
+  (本モジュールは実接続なしで検証可能なロジックの実装に留まる)ため、pending-approval.mdへの
+  追記なし。次回候補: 他venture・アイデア領域の前進。)

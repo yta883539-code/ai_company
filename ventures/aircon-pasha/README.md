@@ -4775,10 +4775,29 @@
   着手不可のもの以外の未着手領域の棚卸しの継続(`chatbot-intent-classification-llm-
   prompt-draft.md`「残課題」等、実LLM接続が前提のものは引き続き対象外)、(3)他venture・
   アイデア領域の前進。
-- 最終更新: 2026-09-27 10:00 UTC(フェーズ278: data-retention-policy.md「削除候補化後の
-  最終確認」節が方針のみで未着手だった削除候補への最終確認ロジック〈LINE push経路〉を
-  `prototype/deletion_candidate_final_confirmation.py`として実装。`is_following`に
-  基づく経路判定・送達成否に応じた状態記録までテスト付きで完成させた。あわせて同文書の
-  stale化した「未着手」記載を是正。テスト11件追加、venture全体621件・schema検証25件
-  いずれもパス。棚卸し中に、本venture自体のLINE公式アカウント開設・Cloud Scheduler
-  作成がpending-approval.mdに未記録の可能性がある点を発見〈次回以降に正式確認〉)
+- フェーズ279(2026-09-27 13:00 UTC定例更新): フェーズ278「次回候補」(2)の棚卸しの過程で、
+  user-account-linking-design.md 2節が発行契機として設計した
+  `issue_linking_code_on_form_submission()`(user_id_linking.py、フェーズ113実装済み)を
+  実際に呼び出す「GAS Webhookエントリポイント」側の処理が一度も実装されていなかった
+  (kura-pashaフェーズ192で発見された`resolve_checkout_intent()`/
+  `resolve_workshop_invite_request()`の非対称な抜けと同種のパターン)ことを発見した。
+  course-set-pashaが同じ位置づけで既に`prototype/application_form_submission_flow.py`を
+  実装済みだったのに対し、本ventureには対応するモジュールが存在しなかったため、
+  course-set-pasha版と同じ位置づけで新設し、`handle_form_submission()`がGAS Webhook
+  ペイロード(`form_submission_id`・`business_name`・`business_type`・`email`、design 5節の
+  `pending_links`必須フィールド)を検証した上で`issue_linking_code_on_form_submission()`へ
+  委譲するよう実装した。詳細はuser-account-linking-design.md「未検証・残課題」フェーズ279
+  参照。テストを`test_application_form_submission_flow.py`に10件新規追加、venture全体631件
+  (621件→631件、`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  25件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。承認が必要な
+  アクション(実Googleフォーム作成・実GAS Webhookデプロイ・実メール送信)は今回発生していない
+  (実接続なしで検証可能なロジックの実装に留まる)ため、pending-approval.mdへの追記なし。
+  なお、本venture自体のLINE公式アカウント開設・Cloud Scheduler作成に関する承認依頼記載漏れ
+  (フェーズ278「次回候補」(1))は、同フェーズ内で既にpending-approval.mdへ記録済み
+  (2026-09-27 10:00 UTC)であることを確認した。次回候補: 他venture(line-reservation-ai・
+  course-set-pasha)に同種の「発行契機の意図検知はあるが実際の発行呼び出しが無い」パターンが
+  残っていないかの横断確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 13:00 UTC(フェーズ279: `issue_linking_code_on_form_submission()`の
+  呼び出し元が存在しなかった配線漏れを発見し、course-set-pasha版と同じ位置づけの
+  `prototype/application_form_submission_flow.py`を新設して解消。テスト10件追加、
+  venture全体631件・schema検証25件いずれもパス)
