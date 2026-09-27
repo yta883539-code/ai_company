@@ -227,3 +227,9 @@ Function G本体の送信配線を完成させた。6節1点目の「コード�
   新設。実際のCloud Function配線・Push送信は引き続き次の課題
 - フェーズ117(2026-09-14 14:00 UTC): 上記の通り、フェーズ116のオーナー通知モジュールを
   2節の構成図へ統合
+- フェーズ189(2026-09-27 02:00 UTC): course-set-pasha/aircon-pashaが持つ
+  `payment-failure-reminder-scheduler-design.md`が本ventureに存在しないという命名上の
+  ギャップを横断確認した結果、3.2節・4節の決済失敗3日前リマインドが機能的にはその対応物
+  そのものであることを確認し、他venture2件と同じファイル名の参照ドキュメント
+  (payment-failure-reminder-scheduler-design.md)を新規作成した。新規のロジック追加・
+  design変更は無い。

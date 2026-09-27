@@ -20,7 +20,9 @@ run_daily_workshop_checks」のうち、選定ロジック(どのworkshopに何�
   実装し、この関数を実際に呼び出す。
 
 設計の参照元: daily-scheduler-design.md, trial-end-notification-design.md,
-payment-failure-dunning-design.md
+payment-failure-dunning-design.md, payment-failure-reminder-scheduler-design.md
+(フェーズ189: 本ファイルの決済失敗3日前リマインド部分と、course-set-pasha/aircon-pashaが
+持つ同名ファイルとの対応関係を整理した命名パリティ確認ドキュメント。新規のロジック追加は無い)
 """
 
 from __future__ import annotations

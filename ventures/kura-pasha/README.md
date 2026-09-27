@@ -4060,3 +4060,37 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   最大30日間生成を使い続けられてしまう欠落を修正。`SubscriptionCanceledError`新設。
   テスト2件追加、venture全体〈test_usage_counter_workshop.py単体〉129件・schema検証
   32件いずれもパス)
+- フェーズ189(2026-09-27 02:00 UTC定例更新): course-set-pasha(フェーズ120)・
+  aircon-pasha(フェーズ143)がそれぞれ持つ`payment-failure-reminder-scheduler-
+  design.md`が本ventureに存在しないという命名上のパリティギャップを横断確認した。
+  他venture2件の同ドキュメント・対応プロトタイプコード(`payment_failure_reminder_
+  scheduler.py`相当)を読み、選定ロジック・送信配線・冪等性の設計内容を確認した上で
+  本venture側を照合したところ、**機能自体はフェーズ112(選定ロジック)・フェーズ120
+  (送信配線)で既に実装済み**であり、本venture固有の事情(低頻度受注特性・着手時点で
+  LINE公式アカウント接続前の日次バッチ基盤自体が未設計だったこと、daily-scheduler-
+  design.md 1節)により、トライアル30日到達報告((B)経路)と同一ドキュメント・同一
+  モジュール(`daily-scheduler-design.md`3.2/4/5節、`prototype/daily_scheduler.py`の
+  `is_payment_failure_reminder_due()`/`select_due_payment_failure_reminders()`/
+  `send_payment_failure_reminders()`)へ統合されていたために同名ファイルが生まれて
+  いなかったことが判明した(機能欠落ではなく命名・ファイル分割粒度の違いのみ)。
+  上限側条件(既に制限モード相当まで進んでいないかの判定)は本ventureが`payment_
+  suspended_at`のような別立てフラグを持たず経過日数の都度算出方式で統一している点で
+  aircon-pashaと異なり、course-set-pashaの計算方式と同型であることも確認した。
+  他venture2件と同じファイル名の参照ドキュメント(payment-failure-reminder-
+  scheduler-design.md、新規作成)に、実装済みの対応関係を整理した対応表・今後の横断
+  棚卸しで本venture側の実装が見落とされないようにする位置づけを明記した。
+  `prototype/daily_scheduler.py`冒頭の「設計の参照元」コメント・daily-scheduler-
+  design.md末尾へ相互参照を追記した(いずれもコメント・ドキュメントのみ)。機能的な
+  ギャップが無かったため新規のプロトタイプコード・テストは追加していない。回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`171件(変更前と
+  同数)・`python3 prototype/run_all_tests.py`16ファイル全件・`python3 schema/
+  validate_test_cases.py`32件、いずれもパス(変更前と同じ結果)を確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: 実Firestore・実LINE Messaging API
+  接続(いずれもオーナー承認待ち)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 02:00 UTC(フェーズ189: course-set-pasha/aircon-pashaが持つ
+  payment-failure-reminder-scheduler-design.mdが本ventureに存在しない命名上のギャップを
+  横断確認し、機能自体はフェーズ112・120で既にdaily-scheduler-design.md/daily_
+  scheduler.pyへ統合実装済みであることを確認。他venture2件と同名の参照ドキュメントを
+  新規作成し対応関係を整理。コード変更は無く相互参照コメント追記のみ、venture全体
+  171件・schema検証32件いずれもパス)
