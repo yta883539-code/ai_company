@@ -4676,8 +4676,25 @@
   への同じ横展開確認(kura-pashaフェーズ187時点で「該当する統合ハンドラ自体が未実装の
   ため対象外」と記録されていたが実装状況次第では再点検が必要)、実Stripeアカウント接続
   (オーナー承認待ち)、または他venture・アイデア領域の前進。
-- 最終更新: 2026-09-26 23:00 UTC(フェーズ275: kura-pashaフェーズ188・course-set-pasha
-  フェーズ258の横展開確認。aircon-pashaにも、既に有料転換済みかつ決済失敗未経験の
-  ユーザーが解約後、無期限に生成を使い続けられてしまう欠落を発見し、
-  `subscription_canceled_at`による専用判定を追加して修正。テスト14件追加、
-  venture全体610件・schema検証25件いずれもパス)
+- フェーズ276(2026-09-27 06:00 UTC定例更新): 上記フェーズ275の「次回候補」のうち
+  line-reservation-aiへの横展開確認は、line-reservation-ai側のsubscription-canceled-
+  block-crosscheck.md(フェーズ続き279に先立つ確認、`suspension_reason`という単一enum
+  フィールド設計のため同型の欠落自体が存在しないと既に結論済み)で対応済みであることを
+  確認した。代わりに、フェーズ275で追加した`resolve_linking_code()`の「再連携時に
+  `subscription_canceled_at`を引き継ぐ」という対応自体が、他venture(course-set-pasha・
+  kura-pasha)にも必要な構造かを横断確認した。両venture共通で、`resolve_linking_code()`は
+  いずれも初回登録(申込フォームのuser_idひも付け、workshop新規作成)にのみ使われ、
+  「既に確定したuser_idのプロファイルを別のuser_idへ引き継ぐ再連携」という概念自体が
+  存在しないため、同型の引き継ぎ漏れは構造的に発生し得ないと判断した。詳細は
+  relinking-subscription-canceled-crosscheck.md参照。コード変更は無く確認・文書化のみ、
+  venture全体610件・schema検証25件いずれも変更前と同じ結果でパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)実Stripeアカウント接続(オーナー承認待ち)、
+  (2)候補研究は第五十九弾で打ち切り済みのため、実LLM接続待ちで着手不可のもの以外の
+  未着手領域の棚卸し、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 06:00 UTC(フェーズ276: フェーズ275「次回候補」のline-reservation-ai
+  横展開確認は既に別途対応済みと判明したため、代わりに「再連携時のsubscription_canceled_at
+  引き継ぎ」という構造自体がcourse-set-pasha・kura-pashaにも存在するかを横断確認。両venture
+  ともresolve_linking_code()は初回登録専用で既存プロファイルを別user_idへ引き継ぐ概念が
+  無く、同型の欠落は発生し得ないと判断。コード変更なし、venture全体610件・schema検証25件
+  いずれもパス)
