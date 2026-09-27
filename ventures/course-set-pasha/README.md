@@ -4115,3 +4115,24 @@
   course-set-pashaでは既存の2判定(トライアル終了・決済失敗)のみでは有料転換済みユーザーの
   解約後に無期限に生成を使い続けられてしまう欠落を発見し、`subscription_canceled_at`による
   専用判定を追加して修正。テスト10件追加、venture全体663件・schema検証21件いずれもパス)
+- フェーズ259(2026-09-27 03:00 UTC定例更新): フェーズ258が「次回候補」として残していた
+  2点のうち、1点目(同じ横展開確認をaircon-pasha・line-reservation-aiにも適用する)は
+  aircon-pashaフェーズ275・line-reservation-aiフェーズ続き278として既に他venture側で
+  実施済み(前者は同型の欠落を発見・修正、後者は構造的に欠落が存在しないことを確認)で
+  あることをコミット履歴で確認したため、本フェーズでは着手不要と判断した。2点目
+  (実Stripeアカウント接続)について、checkout-session-endpoint-design.md(フェーズ112)・
+  checkout-session-cloud-function-entry-point-design.md(フェーズ115)の時点から一貫して
+  「LIFF実登録・オーナー承認待ち」「実Stripeアカウント接続待ち」と設計doc内に記載され、
+  フェーズ256〜258の「次回候補」にも繰り返し挙がっていたにもかかわらず、実際には
+  pending-approval.mdへの記録が一度も行われていなかった記載漏れであることを確認した。
+  本フェーズでpending-approval.mdへ新規エントリ(実Stripeアカウント開設・本番APIキー/
+  Webhook署名シークレット取得・Webhookエンドポイント登録)を追記した。コード変更は無く
+  ドキュメント・承認キューの整備のみであり、venture全体663件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更なし)・schema検証21件
+  (`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。次回候補:
+  LIFFアプリ登録案件(別エントリ)と合わせたStripe/LINE結合構成の整理、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-27 03:00 UTC(フェーズ259: フェーズ258「次回候補」の棚卸し。
+  他venture横展開確認は既に実施済みと確認、実Stripeアカウント接続については承認依頼
+  自体がpending-approval.mdに記録されていなかった記載漏れを発見し新規記録。コード変更
+  なし、venture全体663件・schema検証21件いずれもパス)
