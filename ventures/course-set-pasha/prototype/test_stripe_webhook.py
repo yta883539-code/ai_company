@@ -391,6 +391,103 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.cleared_user_ids, ["user_1"])
         self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
 
+    def test_subscription_deleted_ignored_when_older_than_already_applied_created(self):
+        # subscription-event-out-of-order-guard-design.md(本フェーズ)対応、ケースAの
+        # 再現。より新しいcreated(T2)が既に反映済みの状態で、それより古いdeleted(T1)が
+        # Webhookの配信順序入れ替わりにより後から届いても、既に有効な新契約を誤って
+        # ブロックしてはならない。
+        usage_counter = InMemoryUsageCounter()
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, ["user_1"])
+        self.assertEqual(result.subscription_canceled_user_ids, [])
+        self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+    def test_subscription_created_ignored_when_older_than_already_applied_deleted(self):
+        # subscription-event-out-of-order-guard-design.md(本フェーズ)対応、ケースBの
+        # 再現。より新しいdeleted(T2)が既に反映済み(解約確定済み)の状態で、それより
+        # 古いcreated(T1、初回契約イベントのリトライ再送等)が後から届いても、既に解約
+        # 済みの利用者のブロックを誤って解除してはならない。
+        usage_counter = InMemoryUsageCounter()
+        newer_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            newer_deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertIsNotNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+        older_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            older_created_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.stale_subscription_created_user_ids, ["user_1"])
+        self.assertIsNotNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+    def test_subscription_created_without_created_field_still_applies(self):
+        # event.createdが取得できない(既存呼び出し経路と同じ形式の)createdイベントは、
+        # 順序判定不能として従来通り適用される(後方互換の回帰確認)。
+        usage_counter = InMemoryUsageCounter()
+        deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertIsNotNone(usage_counter.get_subscription_canceled_at("user_1"))
+
+        created_event_without_timestamp = {
+            "type": "customer.subscription.created",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            created_event_without_timestamp,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.stale_subscription_created_user_ids, [])
+        self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
+
     def test_subscription_created_is_idempotent_when_nothing_set(self):
         event = {
             "type": "customer.subscription.created",

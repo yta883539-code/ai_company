@@ -428,6 +428,21 @@ class UsageCounterProtocol(Protocol):
         (消去しないと再契約後も生成が永久にブロックされたままになってしまうため)。"""
         ...
 
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        """subscription-event-out-of-order-guard-design.md対応。Stripe Webhookは配信順序が
+        保証されないため、`customer.subscription.deleted`/`customer.subscription.created`の
+        うち最後に実際へ反映したイベントの発生時刻(`event.created`)を記録する。
+        stripe_webhook.pyのdispatch_stripe_event()は、新たに届いたイベントの発生時刻が
+        この記録時刻以前であればstaleな(配信順序が入れ替わった・大幅に遅延再送された)
+        イベントとみなし、subscription_canceled_atへの反映をスキップする。このメソッドを
+        実装しないUsageCounterProtocol実装では順序ガード自体がスキップされ、従来通り
+        (常に最新イベントとして扱う)の挙動になる(他のset_*系メソッドと同じhasattr()
+        判定による後方互換の考え方)。"""
+        ...
+
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -472,6 +487,7 @@ class InMemoryUsageCounter:
         self._payment_failure_reminder_sent_at: dict[str, datetime] = {}
         self._payment_suspension_owner_notified_at: dict[str, datetime] = {}
         self._subscription_canceled_at: dict[str, datetime] = {}
+        self._subscription_state_event_time: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -556,6 +572,12 @@ class InMemoryUsageCounter:
 
     def clear_subscription_canceled_at(self, user_id: str) -> None:
         self._subscription_canceled_at.pop(user_id, None)
+
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        self._subscription_state_event_time[user_id] = event_time
+
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        return self._subscription_state_event_time.get(user_id)
 
     def increment_and_mark_notice(
         self,

@@ -195,6 +195,11 @@ class StripeDispatchResult:
     # subscription-canceled-immediate-block-design.md(本フェーズ)対応: usage_counter指定時、
     # customer.subscription.deleted受信時にsubscription_canceled_atを書き込んだuser_id。
     subscription_canceled_user_ids: list = field(default_factory=list)
+    # subscription-event-out-of-order-guard-design.md(本フェーズ)対応: usage_counter指定時、
+    # 配信順序が入れ替わった(既に反映済みのより新しいイベントより古い)と判定され、
+    # subscription_canceled_atへの反映をスキップしたuser_id。
+    stale_subscription_deleted_user_ids: list = field(default_factory=list)
+    stale_subscription_created_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -235,6 +240,48 @@ class PaymentFailureUsageCounterProtocol(Protocol):
         """`customer.subscription.created`受信時(再契約)に解約フラグを消去する
         (消去しないと再契約後も生成が永久にブロックされたままになってしまうため)。"""
         ...
+
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        """subscription-event-out-of-order-guard-design.md(本フェーズ)対応。"""
+        ...
+
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+def _is_stale_subscription_state_event(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-event-out-of-order-guard-design.md準拠。Stripe Webhookは配信順序が
+    保証されないため、`customer.subscription.deleted`/`customer.subscription.created`の
+    どちらか片方が大幅に遅延・リトライ再送され、既に反映済みのより新しいイベントより後に
+    届くことがある。`usage_counter`に記録された最後に反映したイベント時刻
+    (`get_subscription_state_event_time()`)以前の`event_time`を持つイベントはstale
+    (配信順序が入れ替わった)とみなす。`event_time`がNone(呼び出し側で`event.created`が
+    取得できなかった、後方互換のテスト等)の場合は判定不能として常にFalse(staleではない)を
+    返し、従来通りイベントを適用する。"""
+    if usage_counter is None or event_time is None:
+        return False
+    if not hasattr(usage_counter, "get_subscription_state_event_time"):
+        return False
+    last_applied = usage_counter.get_subscription_state_event_time(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_state_event_time(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if usage_counter is None or event_time is None:
+        return
+    if not hasattr(usage_counter, "set_subscription_state_event_time"):
+        return
+    usage_counter.set_subscription_state_event_time(user_id, event_time)
 
 
 def dispatch_stripe_event(
@@ -304,6 +351,17 @@ def dispatch_stripe_event(
     このフラグを消去する。未指定(`None`)の場合は他の任意引数と同じ「未接続時は安全側で
     素通り」方針とする。
 
+    `usage_counter`はsubscription-event-out-of-order-guard-design.md(本フェーズ)対応も
+    兼ねる。Stripe Webhookは配信順序が保証されないため、`customer.subscription.deleted`/
+    `customer.subscription.created`のいずれかが大幅に遅延・リトライ再送され、既に反映済みの
+    より新しい方のイベントより後に届くことがある。`usage_counter`が
+    `get_subscription_state_event_time()`/`set_subscription_state_event_time()`に
+    対応している場合、各イベントの`event.created`を最後に反映した時刻と比較し、それ以前
+    (stale)であれば`subscription_canceled_at`への反映をスキップする
+    (`StripeDispatchResult.stale_subscription_deleted_user_ids`/
+    `stale_subscription_created_user_ids`に記録)。対応していない場合は従来通り常に
+    最新イベントとして扱う(後方互換)。
+
     `user_profile_store`指定時は、`customer.subscription.updated`受信時に
     subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
     (アップグレード/ダウングレード)を`user_profile_store.set_plan()`へも反映する
@@ -369,9 +427,19 @@ def dispatch_stripe_event(
         # kura-pashaフェーズ188の横展開。決済失敗検知の有無によらず、解約確定は常に
         # subscription_canceled_atへ書き込む(以後の生成リクエストをトライアル進捗・
         # 決済失敗猶予期間の状態によらず即座にブロックするため)。
+        #
+        # subscription-event-out-of-order-guard-design.md(本フェーズ)対応: ただし、
+        # 既により新しい(=同じcustomerに対する後続の)customer.subscription.created
+        # イベントが反映済みであれば、本イベントはWebhookリトライ等で遅延した古い
+        # イベントとみなし、反映をスキップする(反映すると、既に新しい契約で有効化
+        # されている利用者を誤ってブロックしてしまうため)。
         if usage_counter is not None:
-            usage_counter.set_subscription_canceled_at(user_id, event_time)
-            result.subscription_canceled_user_ids.append(user_id)
+            if _is_stale_subscription_state_event(usage_counter, user_id, event_time):
+                result.stale_subscription_deleted_user_ids.append(user_id)
+            else:
+                usage_counter.set_subscription_canceled_at(user_id, event_time)
+                _record_subscription_state_event_time(usage_counter, user_id, event_time)
+                result.subscription_canceled_user_ids.append(user_id)
         result.marked_user_ids.append(user_id)
         # subscription-cancelled-notification-design.md(フェーズ155)3節: 状態変更は
         # 上記ですでに完了しており、通知の送信成否とは独立させる(未指定時は従来通り
@@ -390,8 +458,23 @@ def dispatch_stripe_event(
         # subscription-canceled-immediate-block-design.md(本フェーズ)対応: 再契約時に
         # subscription_canceled_atを消去しないと、再契約後も生成が永久にブロックされた
         # ままになってしまう。
+        #
+        # subscription-event-out-of-order-guard-design.md(本フェーズ)対応: `event.created`が
+        # 取得できる場合は、既により新しいcustomer.subscription.deletedイベントが反映済み
+        # (=その後実際に解約されている)であれば、本イベントはWebhookリトライ等で遅延した
+        # 古いイベントとみなし、消去をスキップする(消去すると、既に解約済みの利用者の
+        # 生成ブロックを誤って解除してしまうため)。`event.created`が数値でない/存在しない
+        # 場合は判定不能として従来通り消去する(既存呼び出し経路への後方互換)。
         if usage_counter is not None:
-            usage_counter.clear_subscription_canceled_at(user_id)
+            created = event.get("created")
+            event_time = None
+            if isinstance(created, (int, float)) and not isinstance(created, bool):
+                event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+            if _is_stale_subscription_state_event(usage_counter, user_id, event_time):
+                result.stale_subscription_created_user_ids.append(user_id)
+            else:
+                usage_counter.clear_subscription_canceled_at(user_id)
+                _record_subscription_state_event_time(usage_counter, user_id, event_time)
         return result
 
     if event_type == "customer.subscription.updated":

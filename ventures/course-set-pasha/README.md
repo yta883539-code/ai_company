@@ -4154,3 +4154,36 @@
 - 最終更新: 2026-09-27 07:00 UTC(フェーズ260: Stripe/LINE LIFF結合構成の依存関係整理。
   LIFFアプリ登録がpending-approval.mdに記載漏れだったことを発見し新規記録。コード変更
   なし、venture全体663件・schema検証21件いずれもパス)
+- フェーズ261(2026-09-27 20:00 UTC定例更新): フェーズ260の「次回候補」(LINE公式
+  アカウント開設はオーナー承認待ちで着手不可)を踏まえ、他venture・アイデア領域の前進の
+  一環としてStripe Webhook周りを見直した。subscription-canceled-immediate-block-
+  design.md(フェーズ258)が追加した`subscription_canceled_at`(解約確定時に生成を即時
+  ブロックするフラグ)の`dispatch_stripe_event()`実装が、Stripe公式ドキュメントの明記する
+  「Webhookイベントは発生順に届くとは限らず、再送により大幅に遅延することもある」という
+  前提を考慮しておらず、`customer.subscription.deleted`/`customer.subscription.created`の
+  どちらのイベントも届いた時点のものを無条件に最新の真実として適用していたことを発見した。
+  この結果、(1)解約直後に別プランで即再契約した際、配信順序が入れ替わりdeletedが
+  createdより後に届くと、既に新契約で有効なユーザーを誤ってブロックしてしまう、
+  (2)初回契約イベント(created)の配信がリトライで大幅に遅延し、その間に本当に解約
+  (deleted)された場合、遅れて届いたcreatedが解約確定フラグを誤って消去し、フェーズ258
+  自身が防ごうとした「解約後も生成を無期限に使い続けられる」欠落が別経路で再発する、の
+  両方向のバグが理論上存在することを確認した。`UsageCounterProtocol`に
+  `set_subscription_state_event_time()`/`get_subscription_state_event_time()`を追加し、
+  `subscription_canceled_at`の設定・消去のどちらか最後に反映したイベントの発生時刻を
+  記録、新たに届いたイベントがそれ以前(stale)であれば反映をスキップするガードを
+  `dispatch_stripe_event()`に実装した(`event.created`が取得できない場合は判定不能として
+  従来通り適用する後方互換を維持)。詳細はsubscription-event-out-of-order-guard-
+  design.md参照。テスト3件追加(ケースA・ケースBそれぞれの再現、および`event.created`
+  なしcreatedイベントが従来通り適用されることの回帰確認)、venture全体666件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前663件+新規3件)・
+  schema検証21件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: 本ガードは
+  `deletion_candidate.py`(365日後データ削除用の削除候補化)や解約確定案内通知には
+  意図的に適用していない(design 4節「残課題」参照)ため、その要否の検討、または同種の
+  配信順序入れ替わりガードが必要なパターンがaircon-pasha・kura-pasha・
+  line-reservation-aiにも存在するかの横断確認、あるいは他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 20:00 UTC(フェーズ261: Stripe Webhookの配信順序入れ替わりに
+  対する`subscription_canceled_at`ガードを追加。解約直後の即再契約、初回契約イベントの
+  遅延リトライの両ケースで誤反映しないことを確認。テスト3件追加、venture全体666件・
+  schema検証21件いずれもパス)
