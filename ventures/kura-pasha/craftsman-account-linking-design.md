@@ -662,3 +662,39 @@ call site、フェーズ72)との非対称な抜けであり、`workshop_invite_
 最終更新: 2026-09-27 11:00 UTC(フェーズ192: 招待コード発行側のcall site欠落・
 receive_webhook()のinvite_store配線漏れを発見・修正。テスト7件追加、venture全体171件・
 schema検証32件いずれもパス)
+
+## 11.14 追記(フェーズ193、2026-09-27 19:00 UTC定例更新): 他venture3件への横断確認(該当構造なし)
+
+11.13節が「次回候補」として残していた、line-reservation-ai・course-set-pasha・aircon-pashaに
+`resolve_checkout_intent()`相当の「LLM意図検知後に実際の外部リソース発行を呼び出すcall site」が
+checkout以外の発行系フロー(招待コード等)を持つ場合の同種の非対称な抜けの横断確認を行った。
+
+- **course-set-pasha**: `issue_linking_code_on_follow()`(user_id_linking.py)は存在するが、
+  これは初回フォロー時に発行される単一利用者向けの連携コードであり、`cloud_function_webhook.py`
+  796行目で既に呼び出し済み(call site欠落なし)。kura-pashaの招待コード
+  (`issue_invite_code_for_workshop()`、契約者が既存workshopに追加の職人を招待する多人数
+  構造)に相当する「1契約に対し複数利用者を後から追加登録する」概念自体が存在しない
+  (本ventureは1ルートセッター=1LINEアカウントの単一利用者設計)ため、該当する発行系
+  call siteのバグクラス自体が生じ得ない。
+- **aircon-pasha**: `issue_linking_code_on_form_submission()`も同様に単一利用者向け連携コード
+  であり、`application_form_submission_flow.py`にフェーズ279で既にcall siteが実装済み
+  (`handle_form_submission()`から呼び出し)であることを確認した。同ventureも1業者=1LINE
+  アカウントの単一利用者設計であり、多人数招待の概念は存在しない。
+- **line-reservation-ai**: `prototype/`配下に`linking_code`・`invite`を含むモジュール自体が
+  存在せず(grep 0件)、そもそも利用者アカウント連携・招待コードという概念を持たない
+  (店舗設定はオーナー1名が直接LINE公式アカウントを操作する単一テナント設計)ため、
+  該当構造なし。
+
+以上より、招待コード(多人数追加登録)という概念自体がkura-pasha固有の事業構造(1つの
+契約に対し複数の職人アカウントを紐付けられる)に起因するものであり、他3ventureは
+いずれも1契約=1利用者の設計のため、同種の「発行契機の意図検知はあるが実際の発行call site
+が欠落する」バグパターンは構造上発生し得ないと判断した。コード変更は無く確認・文書化のみ。
+venture全体171件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+32件(`python3 schema/validate_test_cases.py`)いずれも変更前と同じ結果でパスを確認した。
+承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: 他venture・アイデア領域の前進。
+
+最終更新: 2026-09-27 19:00 UTC(フェーズ193: 「発行契機の意図検知後に実際の発行call site
+が欠落する」バグパターンの他venture3件への横断確認。いずれも多人数招待の概念自体が
+存在せず該当構造なしと判断。コード変更は無く確認・文書化のみ)

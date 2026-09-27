@@ -4157,3 +4157,17 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-27 11:00 UTC(フェーズ192: 招待コード発行側のcall site欠落・
   receive_webhook()のinvite_store配線漏れを発見・修正。テスト7件追加、venture全体171件・
   schema検証32件いずれもパス)
+- フェーズ193(2026-09-27 19:00 UTC定例更新): フェーズ192が「次回候補」として残した、
+  line-reservation-ai・course-set-pasha・aircon-pashaに`resolve_checkout_intent()`相当の
+  「LLM意図検知後に実際の外部リソース発行を呼び出すcall site」が招待コード等の発行系
+  フローで欠落していないかの横断確認を行った。course-set-pasha・aircon-pashaの連携コード
+  発行関数はいずれも単一利用者向けで既にcall site実装済み、line-reservation-aiは
+  連携コード・招待コードという概念自体を持たないことを確認し、kura-pasha固有の「1契約に
+  複数職人を招待できる」多人数構造に起因するバグパターンが他3ventureには構造上発生し得
+  ないと判断した。詳細はcraftsman-account-linking-design.md 11.14節参照。コード変更は
+  無く確認・文書化のみ、venture全体171件・schema検証32件いずれもパス。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 19:00 UTC(フェーズ193: 招待コード発行call site欠落パターンの他
+  venture3件への横断確認。いずれも該当構造なしと判断。コード変更なし、venture全体171件・
+  schema検証32件いずれもパス)
