@@ -4880,3 +4880,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-27 12:00 UTC(フェーズ続き280: 「次回候補」2点の棚卸し。優先度B候補の
   オーナー回答は引き続き無く、これ以上のWebSearch調査は費用対効果が低い段階と判断。
   cross-venture wiring確認も既存文書で結論済みと再確認。コード変更は無く確認のみ)
+- フェーズ続き281(2026-09-27 23:00 UTC定例更新): `prototype/reminder_scheduler.py`が
+  新規予約ブロック判定(`_start_new_booking()`等)・休止モード再通知
+  (`dormant_mode_scheduler.py`)・decision-failureリマインド
+  (`dunning_notification_scheduler.py`)とは異なり`suspension_reason`を一切参照しない
+  非対称な設計になっている点に気づき、記載漏れ(欠落)かどうかを確認した。
+  `subscription-cancellation-flow-design.md` 1節・`billing-upgrade-flow-design.md` 4節が
+  「新規予約受付は停止するが既存の確定済み予約と前日リマインドは継続する」方針を明記して
+  おり(`suspension_reason`の値によらず一律)、リマインドは来店客への送客対応であり店舗側の
+  支払い・解約状態とは独立して継続すべき性質であることから、`reminder_scheduler.py`が
+  `suspension_reason`を参照しないのは実装漏れではなく設計方針どおりの意図的な独立である
+  ことを確認した。詳細は
+  reminder-scheduler-suspension-independence-review.md(新規作成)参照。コード変更は無く
+  確認・文書化のみのため、venture全体870件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれも
+  変更前と同じ結果でパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  オーナーからの回答(優先度B候補の目視確認結果、または各種承認依頼への意思表示)を
+  引き続き待つほか、他venture・アイデア領域の前進を優先する。
+- 最終更新: 2026-09-27 23:00 UTC(フェーズ続き281: reminder_scheduler.pyが
+  suspension_reasonを参照しない設計が実装漏れではなく「既存確定予約・リマインドは
+  解約後も継続する」という既存方針どおりの意図的な独立であることを確認。コード変更は
+  無く確認・文書化のみ)
