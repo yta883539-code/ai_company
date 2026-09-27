@@ -4801,3 +4801,30 @@
   呼び出し元が存在しなかった配線漏れを発見し、course-set-pasha版と同じ位置づけの
   `prototype/application_form_submission_flow.py`を新設して解消。テスト10件追加、
   venture全体631件・schema検証25件いずれもパス)
+- フェーズ280(2026-09-27 22:00 UTC定例更新): course-set-pashaフェーズ262が「次回候補」と
+  して残していた、Stripe Webhook配信順序入れ替わりガード(subscription-event-out-of-order-
+  guard-design.md)が他venture(aircon-pasha・kura-pasha・line-reservation-ai)にも必要かの
+  横断確認のうち、aircon-pasha側を実施した。確認の結果、`deletion_candidate.py`の
+  `mark_deletion_candidate_on_subscription_deleted()`/`clear_deletion_candidate_on_
+  subscription_reactivated()`、および`stripe_dispatch.py`が`customer.subscription.deleted`/
+  `.created`受信のたびに書き込む`subscription_canceled_at`(フェーズ275)のいずれも、
+  course-set-pashaが修正前に持っていたのと同型の「イベント到着順を無条件に真実とする」
+  実装のままだったことを発見した。course-set-pashaフェーズ261・262と同じ考え方で、
+  `deletion_candidate.py`には`store`自身に`get_deletion_candidate_state_event_time()`/
+  `set_deletion_candidate_state_event_time()`を、`user_id_linking.py`の`UserProfile`には
+  `subscription_state_event_time`フィールド(`resolve_linking_code()`の再連携時引き継ぎにも
+  追加)をそれぞれ追加し、hasattr方針でstale判定・記録を行うよう`stripe_dispatch.py`の
+  `customer.subscription.deleted`/`.created`分岐を修正した(`_SUBSCRIPTION_CREATED`分岐は
+  従来`event.created`を読んでいなかったため読み取りを新規追加)。詳細はsubscription-event-
+  out-of-order-guard-design.md参照。テスト7件追加(`test_deletion_candidate.py`に
+  `StaleEventGuardTest`4件、`test_stripe_dispatch.py`にケースA・ケースB・後方互換確認3件)、
+  venture全体638件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前631件+
+  新規7件)・schema検証25件(`python3 schema/validate_test_cases.py`)いずれもパスを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: kura-pasha・line-reservation-aiは`subscription_
+  status`列挙型の単一フィールド方式のため本フェーズと同一の実装パターンはそのまま適用できず、
+  列挙型方式における配信順序入れ替わりの影響を別途検討する必要がある(design 5節参照)、または
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 22:00 UTC(フェーズ280: Stripe Webhook配信順序入れ替わりガードを
+  `deletion_candidate_at`・`subscription_canceled_at`の両方に追加。course-set-pashaフェーズ
+  261・262の横展開。テスト7件追加、venture全体638件・schema検証25件いずれもパス)

@@ -106,5 +106,56 @@ class ListDeletionCandidatesTest(unittest.TestCase):
         self.assertEqual(list_deletion_candidates(store, now), [])
 
 
+class StaleEventGuardTest(unittest.TestCase):
+    """subscription-event-out-of-order-guard-design.md(本フェーズ、course-set-pasha
+    フェーズ262の横展開): Stripe Webhookの配信順序入れ替わり(解約→即再契約でdeletedが
+    createdより後に届く、初回createdのリトライが後続deletedより後に届く)に対する
+    ガードの確認。"""
+
+    def test_case_a_stale_deleted_after_newer_created_does_not_mark(self):
+        # 解約(T1)→即再契約(T2>T1)で、createdが先に反映済みの状態に、遅れてT1のdeletedが届く。
+        store = InMemoryProfileDeletionCandidateStore()
+        newer_created_time = _EVENT_TIME + timedelta(days=1)
+        clear_deletion_candidate_on_subscription_reactivated(store, "U1", newer_created_time)
+        result = mark_deletion_candidate_on_subscription_deleted(store, "U1", _EVENT_TIME)
+        self.assertIsNone(result)
+        self.assertIsNone(store.get_deletion_candidate_at("U1"))
+
+    def test_case_b_stale_created_after_newer_deleted_does_not_clear(self):
+        # 初回contract(T1)のリトライが、後続の解約(T2>T1)より後に届く。
+        store = InMemoryProfileDeletionCandidateStore()
+        mark_deletion_candidate_on_subscription_deleted(store, "U1", _EVENT_TIME)
+        newer_deleted_time = _EVENT_TIME + timedelta(days=1)
+        mark_deletion_candidate_on_subscription_deleted(store, "U1", newer_deleted_time)
+        stale_created_time = _EVENT_TIME  # newer_deleted_timeより古い
+        cleared = clear_deletion_candidate_on_subscription_reactivated(
+            store, "U1", stale_created_time
+        )
+        self.assertFalse(cleared)
+        self.assertEqual(
+            store.get_deletion_candidate_at("U1"),
+            newer_deleted_time + timedelta(days=365),
+        )
+
+    def test_normal_order_deleted_then_created_still_applies(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        mark_deletion_candidate_on_subscription_deleted(store, "U1", _EVENT_TIME)
+        later = _EVENT_TIME + timedelta(days=1)
+        cleared = clear_deletion_candidate_on_subscription_reactivated(store, "U1", later)
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_deletion_candidate_at("U1"))
+
+    def test_event_time_omitted_on_clear_skips_guard_for_backward_compatibility(self):
+        # event_timeを渡さない従来通りの呼び出しは、より新しい反映済みイベントがあっても
+        # 無条件にクリアする(既存呼び出し経路・テストとの後方互換)。
+        store = InMemoryProfileDeletionCandidateStore()
+        mark_deletion_candidate_on_subscription_deleted(store, "U1", _EVENT_TIME)
+        newer_deleted_time = _EVENT_TIME + timedelta(days=1)
+        mark_deletion_candidate_on_subscription_deleted(store, "U1", newer_deleted_time)
+        cleared = clear_deletion_candidate_on_subscription_reactivated(store, "U1")
+        self.assertTrue(cleared)
+        self.assertIsNone(store.get_deletion_candidate_at("U1"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -222,6 +222,41 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.subscription_canceled_user_ids, [])
 
+    def test_stale_deleted_event_skipped_when_older_than_already_applied_created(self):
+        # subscription-event-out-of-order-guard-design.md(本フェーズ、course-set-pasha
+        # フェーズ261のケースAの横展開)。より新しいcreated(T2)が既に反映済みの状態で、
+        # それより古いdeleted(T1)がWebhookの配信順序入れ替わりにより後から届いても、
+        # 既に有効な新契約を誤ってブロックしてはならない。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertIsNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, [_USER_ID])
+        self.assertEqual(result.subscription_canceled_user_ids, [])
+        self.assertIsNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {
@@ -303,6 +338,68 @@ class DispatchSubscriptionCreatedTest(unittest.TestCase):
         # payment_store未指定でも例外を送出せず正常終了することを確認する。
         result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
         self.assertEqual(result.cleared_user_ids, [_USER_ID])
+
+    def test_stale_created_event_skipped_when_older_than_already_applied_deleted(self):
+        # subscription-event-out-of-order-guard-design.md(本フェーズ、course-set-pasha
+        # フェーズ261のケースBの横展開)。より新しいdeleted(T2)が既に反映済み(解約確定済み)
+        # の状態で、それより古いcreated(T1、初回契約イベントのリトライ再送等)が後から
+        # 届いても、既に解約済みの利用者のブロックを誤って解除してはならない。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertIsNotNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
+        older_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_created_user_ids, [_USER_ID])
+        self.assertIsNotNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
+    def test_created_without_created_field_still_applies_for_backward_compatibility(self):
+        # event.createdが取得できない(既存呼び出し経路と同じ形式の)createdイベントは、
+        # 順序判定不能として従来通り適用される(後方互換の回帰確認)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            deleted_event, store=store, resolve_user_id=_resolve_known, payment_store=payment_store,
+        )
+        self.assertIsNotNone(payment_store.get_subscription_canceled_at(_USER_ID))
+
+        created_event_without_timestamp = {
+            "type": "customer.subscription.created",
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            created_event_without_timestamp,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_created_user_ids, [])
+        self.assertIsNone(payment_store.get_subscription_canceled_at(_USER_ID))
 
     def test_syncs_current_plan_id_when_plan_store_provided_and_lookup_key_known(self):
         store = InMemoryProfileDeletionCandidateStore()

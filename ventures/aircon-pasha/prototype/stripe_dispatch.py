@@ -44,6 +44,22 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   呼ぶ(未対応の`payment_store`実装〈将来的な専用スタブ等〉が渡された場合は書き込みを
   スキップする後方互換措置、course-set-pashaの`_is_subscription_canceled()`と同じ
   hasattr方針)。
+- 配信順序入れ替わりガード(フェーズ280): subscription-event-out-of-order-guard-
+  design.md参照。course-set-pashaフェーズ261・262が発見した「Stripe Webhookは配信順序が
+  保証されないため、`customer.subscription.deleted`/`.created`のどちらかが大幅に遅延・
+  リトライ再送されると、`subscription_canceled_at`(フェーズ275追加)・`deletion_
+  candidate_at`(deletion_candidate.py)のいずれも誤って新しい状態を古いイベントで
+  上書きしてしまう」バグクラスが本ventureにも同型で存在することを確認し対応した。
+  `deletion_candidate.py`は`store`(`ProfileDeletionCandidateStoreProtocol`)自身に
+  `get_deletion_candidate_state_event_time()`/`set_deletion_candidate_state_event_
+  time()`を追加して独立に判定・記録する。`subscription_canceled_at`は`payment_store`
+  (`InMemoryUserProfileStore`)に`get_subscription_state_event_time()`/`set_
+  subscription_state_event_time()`(`UserProfile.subscription_state_event_time`
+  フィールド)を追加し、本モジュールの`_is_stale_subscription_state_event()`/`_record_
+  subscription_state_event_time()`で判定・記録する。いずれも`hasattr`で対応状況を確認
+  してから使う既存方針を踏襲し(未対応の`store`/`payment_store`が渡された場合は判定不能
+  として常に適用する後方互換)、`PaymentFailureStoreProtocol`/`ProfileDeletionCandidate
+  StoreProtocol`自体のメソッド一覧は変更していない。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -164,6 +180,49 @@ class StripeDispatchResult:
     # customer.subscription.deleted受信により`subscription_canceled_at`を書き込んだ
     # user_id(subscription-canceled-immediate-block-design.md参照)。
     subscription_canceled_user_ids: List[str] = field(default_factory=list)
+    # 本フェーズ追加: payment_store指定時(かつ`get_subscription_state_event_time`対応時)、
+    # 配信順序が入れ替わった(既に反映済みのより新しいイベントより古い)と判定され、
+    # subscription_canceled_atへの反映をスキップしたuser_id
+    # (subscription-event-out-of-order-guard-design.md参照)。
+    stale_subscription_deleted_user_ids: List[str] = field(default_factory=list)
+    stale_subscription_created_user_ids: List[str] = field(default_factory=list)
+
+
+def _is_stale_subscription_state_event(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-event-out-of-order-guard-design.md準拠(course-set-pashaフェーズ261の
+    横展開)。Stripe Webhookは配信順序が保証されないため、`customer.subscription.deleted`/
+    `customer.subscription.created`のどちらか片方が大幅に遅延・リトライ再送され、既に
+    反映済みのより新しいイベントより後に届くことがある。`payment_store`に記録された最後に
+    反映したイベント時刻(`get_subscription_state_event_time()`)以前の`event_time`を持つ
+    イベントはstale(配信順序が入れ替わった)とみなす。`event_time`がNone、または
+    `payment_store`が`get_subscription_state_event_time`に未対応の場合は判定不能として
+    常にFalse(staleではない)を返し、従来通りイベントを適用する。"""
+    if payment_store is None or event_time is None:
+        return False
+    getter = getattr(payment_store, "get_subscription_state_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_state_event_time(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if payment_store is None or event_time is None:
+        return
+    setter = getattr(payment_store, "set_subscription_state_event_time", None)
+    if setter is None:
+        return
+    setter(user_id, event_time)
 
 
 def dispatch_stripe_event(
@@ -296,8 +355,17 @@ def dispatch_stripe_event(
             if clear_payment_failure_on_success(payment_store, user_id):
                 result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
             if hasattr(payment_store, "set_subscription_canceled_at"):
-                payment_store.set_subscription_canceled_at(user_id, event_time)
-                result.subscription_canceled_user_ids.append(user_id)
+                # subscription-event-out-of-order-guard-design.md(本フェーズ)対応:
+                # 既により新しい(=同じcustomerに対する後続の)customer.subscription.created
+                # イベントが反映済みであれば、本イベントはWebhookリトライ等で遅延した古い
+                # イベントとみなし、反映をスキップする(反映すると、既に新しい契約で有効化
+                # されている利用者を誤ってブロックしてしまうため)。
+                if _is_stale_subscription_state_event(payment_store, user_id, event_time):
+                    result.stale_subscription_deleted_user_ids.append(user_id)
+                else:
+                    payment_store.set_subscription_canceled_at(user_id, event_time)
+                    _record_subscription_state_event_time(payment_store, user_id, event_time)
+                    result.subscription_canceled_user_ids.append(user_id)
         if cancellation_push_client is not None:
             notification_result = handle_subscription_cancelled(user_id, cancellation_push_client)
             if notification_result.notified:
@@ -307,13 +375,27 @@ def dispatch_stripe_event(
         return result
 
     if event_type == _SUBSCRIPTION_CREATED:
-        clear_deletion_candidate_on_subscription_reactivated(store, user_id)
+        created = event.get("created")
+        created_event_time: Optional[datetime] = None
+        if isinstance(created, (int, float)) and not isinstance(created, bool):
+            created_event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+        clear_deletion_candidate_on_subscription_reactivated(store, user_id, created_event_time)
         result.cleared_user_ids.append(user_id)
         if plan_store is not None:
             if sync_current_plan_on_subscription_event(plan_store, user_id, data_object):
                 result.plan_synced_user_ids.append(user_id)
         if payment_store is not None and hasattr(payment_store, "set_subscription_canceled_at"):
-            payment_store.set_subscription_canceled_at(user_id, None)
+            # subscription-event-out-of-order-guard-design.md(本フェーズ)対応: 既により
+            # 新しいcustomer.subscription.deletedイベントが反映済み(=その後実際に解約
+            # されている)であれば、本イベントはWebhookリトライ等で遅延した古いイベントと
+            # みなし、消去をスキップする(消去すると、既に解約済みの利用者の生成ブロックを
+            # 誤って解除してしまうため)。`event.created`が数値でない/存在しない場合は
+            # 判定不能として従来通り消去する(既存呼び出し経路への後方互換)。
+            if _is_stale_subscription_state_event(payment_store, user_id, created_event_time):
+                result.stale_subscription_created_user_ids.append(user_id)
+            else:
+                payment_store.set_subscription_canceled_at(user_id, None)
+                _record_subscription_state_event_time(payment_store, user_id, created_event_time)
         return result
 
     if event_type == _SUBSCRIPTION_UPDATED:

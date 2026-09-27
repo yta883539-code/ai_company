@@ -220,7 +220,16 @@ class UserProfile:
     Falseのままとなり、解約確定後も無期限に生成を使い続けられてしまう欠落があった。
     `stripe_dispatch.dispatch_stripe_event()`の`customer.subscription.deleted`分岐が
     (決済失敗検知の有無によらず)常に書き込み、`customer.subscription.created`分岐
-    (再契約)でクリアする。`payment_failure_detected_at`等と同じく不変フィールドではない。"""
+    (再契約)でクリアする。`payment_failure_detected_at`等と同じく不変フィールドではない。
+
+    `subscription_state_event_time`はsubscription-event-out-of-order-guard-design.md
+    (本フェーズ、course-set-pashaフェーズ261の横展開)で追加した。Stripe Webhookは配信
+    順序が保証されないため、`customer.subscription.deleted`/`customer.subscription.
+    created`のいずれかが大幅に遅延・リトライ再送され、既に反映済みのより新しい方の
+    イベントより後に届くことがある。`subscription_canceled_at`を最後に実際に反映した
+    (書き込み・消去を問わない)イベントの`event.created`を記録し、
+    `stripe_dispatch._is_stale_subscription_state_event()`がこれより古い(または同時刻の)
+    イベントの反映をスキップする判定に使う。"""
 
     business_name: str
     business_type: str
@@ -238,6 +247,7 @@ class UserProfile:
     payment_failure_reminder_sent_at: Optional[datetime] = None
     payment_failure_detection_notified_at: Optional[datetime] = None
     subscription_canceled_at: Optional[datetime] = None
+    subscription_state_event_time: Optional[datetime] = None
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
@@ -447,6 +457,13 @@ class UserProfileStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        """subscription-event-out-of-order-guard-design.md(本フェーズ)対応。"""
+        ...
+
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -639,6 +656,16 @@ class InMemoryUserProfileStore:
             return
         profile.subscription_canceled_at = value
 
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.subscription_state_event_time if profile is not None else None
+
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.subscription_state_event_time = event_time
+
 
 @dataclass
 class LinkingResolution:
@@ -759,6 +786,9 @@ def resolve_linking_code(
             ),
             subscription_canceled_at=(
                 existing_profile.subscription_canceled_at if existing_profile else None
+            ),
+            subscription_state_event_time=(
+                existing_profile.subscription_state_event_time if existing_profile else None
             ),
         ),
     )
