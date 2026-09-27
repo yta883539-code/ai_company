@@ -121,10 +121,28 @@ payment-suspension-owner-notification-design.mdが確立した「顧客(ボル�
   notification()`・`route_chatbot_intent()`)、kura-pasha(`chatbot-intent-classification-
   design.md`、`prototype/chatbot_intent_router.py`の同名2関数)いずれも既に本venture発の
   設計・実装パターンを踏襲済みであることを確認した。横展開自体は完了済みのため次回候補
-  から除去する。line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
+  から除去する。~~line-reservation-aiは既にLLMによる会話応答・意図判定(`intent-to-flow-
   mapping.md`)が中核機能として存在するため、本ドキュメントの「FAQ一次受付」という
   論点自体が本ventureほど独立した検討課題にならない可能性がある、という留保のみ
-  引き続き残す(要確認)。
+  引き続き残す(要確認)。~~
+  → 2026-09-27 18:00 UTC定例更新で確認: line-reservation-aiは本venture(chatbot_
+  intent_router.pyによる後付けのFAQ分類・エスカレーション層)とは異なり、FAQ一次受付を
+  会話フロー本体の一部として最初から統合済みであることを確認した。具体的には
+  faq-escalation-boundary.mdが厳守事項9を「9a. 店舗登録済みの静的情報(営業時間・
+  アクセス・駐車場・支払い方法・メニュー)に基づくFAQへの回答」「9b. 挨拶・雑談・
+  スパムへの定型応答」に分割済みで、9a該当時はfaq-response-templates.mdの項目別穴埋め
+  テンプレート(AIによる言い換え・推測補完を禁止)でその場回答し、店舗未登録の質問・
+  医療/料金交渉等の個別事情が絡む相談は厳守事項6経由でオーナーへエスカレーション
+  (`needs_owner_check: true`)する設計になっている。すなわち本venture側の`route_
+  chatbot_intent()`が担う「分類→定型回答 or エスカレーション通知」という役割を、
+  line-reservation-aiは専用の後付けルーターを持たず、会話応答を生成する主LLM呼び出し
+  1回の中で完結させている。したがって「FAQ一次受付」という論点自体は存在するが、
+  本ventureのような独立コンポーネント(`chatbot_intent_router.py`)としては実装されて
+  おらず、横展開の必要はない(構造が異なるため移植ではなく現状維持が適切)と判断した。
+  本件は確認・文書化のみでコード変更は無く、回帰確認としてventure全体(python3 -m
+  unittest discover -s prototype -p "test_*.py")・schema検証(python3
+  schema/validate_test_cases.py)いずれも変更前と同じ結果でパスを確認した。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
 - ~~`faq_intent_to_code()`・`render_chatbot_faq_response_message()`・
   `append_faq_followup_hint()`・`send_chatbot_escalation_notification()`は個別に
   実装・検証済みだが、分類結果(intent)を受け取ってこれらを振り分け、3節「顧客への
