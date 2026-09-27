@@ -4136,3 +4136,21 @@
   他venture横展開確認は既に実施済みと確認、実Stripeアカウント接続については承認依頼
   自体がpending-approval.mdに記録されていなかった記載漏れを発見し新規記録。コード変更
   なし、venture全体663件・schema検証21件いずれもパス)
+- フェーズ260(2026-09-27 07:00 UTC定例更新): フェーズ259が「次回候補」として残した
+  「LIFFアプリ登録案件と合わせたStripe/LINE結合構成の整理」に対応した。未着手の外部
+  サービス接続案件(LINE公式アカウント開設・LIFFアプリ登録・Googleフォーム+GAS
+  Webhook・Stripeアカウント開設・Webhookエンドポイント登録)の依存関係を棚卸しし、
+  「LINE公式アカウント開設が最初の前提」「Stripe側はLINE側と並行して進められるが
+  Webhookエンドポイント登録はCloud FunctionのデプロイURL確定後」という着手順序を
+  stripe-liff-integration-sequence-design.mdとして整理した。棚卸しの過程で、LIFFアプリ
+  登録自体がフェーズ98から一貫して「オーナー承認待ち」と設計docに記述されていたにも
+  かかわらずpending-approval.mdへの記録が一度も行われていなかった記載漏れ(フェーズ259
+  で発見した実Stripeアカウント接続の記載漏れと同種)を発見し、新規に記録した。コード
+  変更は無くドキュメント・承認キューの整備のみであり、venture全体663件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、変更なし)・schema検証
+  21件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。
+  次回候補: LINE公式アカウント開設(オーナー承認待ち、他の外部サービス接続すべての
+  前提)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-27 07:00 UTC(フェーズ260: Stripe/LINE LIFF結合構成の依存関係整理。
+  LIFFアプリ登録がpending-approval.mdに記載漏れだったことを発見し新規記録。コード変更
+  なし、venture全体663件・schema検証21件いずれもパス)
