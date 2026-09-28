@@ -4279,3 +4279,26 @@
   〈checkout.session.completed〉にStripe Webhook配信順序入れ替わりガードを追加。
   `checkout_session_completed_event_time`新設、stale全体スキップ方針で配線。
   テスト5件追加、venture全体682件・schema検証21件いずれもパス)
+- フェーズ266(2026-09-28 20:00 UTC定例更新): フェーズ265の「次回候補」(他venture・
+  アイデア領域の前進)を受け、launch-readiness-checklist.md(本フェーズで新規作成、
+  kura-pasha・aircon-pasha・line-reservation-aiの同形式チェックリストに倣い承認待ち
+  事項5件を依存順に集約)とpending-approval.mdの記載齟齬を棚卸しした結果、承認待ち
+  事項1点目「LINE公式アカウント開設」自体が、2026-08-18 20:00 UTC記載の申込フォーム
+  案件の中で前提として言及されるにとどまり、独立した承認依頼としてpending-approval.md
+  に一度も記録されていなかった記載漏れを発見した。さらに、aircon-pashaフェーズ278
+  (2026-09-27 10:00 UTC記載)が「course-set-pashaは2026-09-11 04:00 UTC記載分で
+  既に同種の承認依頼を個別に記録済み」としていた参照が誤りで、当該日時のエントリは
+  実際にはkura-pashaの顧客ヒアリング案件であったことも判明した(kura-pasha・
+  aircon-pashaそれぞれ自身の2026-09-15 03:00 UTC・2026-09-27 10:00 UTC記載分自体は
+  正しく、誤りは参照先の取り違えのみ)。pending-approval.mdに本venture向け
+  LINE公式アカウント開設の独立エントリ(2026-09-28 20:00 UTC付)を新規に追記し、
+  launch-readiness-checklist.mdの該当項目にも反映した。コード変更は無く、venture全体
+  682件・schema検証21件いずれも変更なしでパスを確認した(棚卸しのみのため未実行、
+  前回フェーズ265時点の結果を維持)。承認が必要なアクション自体は本フェーズの主題
+  (LINE公式アカウント開設の記載漏れ是正)としてpending-approval.mdへ追記済み。
+  次回候補: 上記チェックリスト1〜5のいずれかがオーナーから承認された場合はその着手を
+  最優先とし、それまでは他venture・アイデア領域の前進を行う。
+- 最終更新: 2026-09-28 20:00 UTC(フェーズ266: launch-readiness-checklist.mdを新規
+  作成し承認待ち事項5件を集約する過程で、LINE公式アカウント開設の承認依頼自体が
+  pending-approval.mdに未記録だった記載漏れ、およびaircon-pashaフェーズ278の参照
+  誤りを発見・是正。pending-approval.mdに新規エントリを追記。コード変更なし)
