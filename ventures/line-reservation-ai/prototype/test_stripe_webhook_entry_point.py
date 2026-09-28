@@ -396,6 +396,46 @@ class ReceiveStripeWebhookCheckoutSessionCompletedProfileLinkingTest(unittest.Te
         self._send(store_profile_store=store, metadata={"plan": "存在しないプラン"})
         self.assertIsNone(store.get_plan("store-1"))
 
+    def test_stale_checkout_session_completed_does_not_overwrite_newer_customer_id(self):
+        # checkout-session-completed-event-order-guard-design.md: 統合エントリポイント
+        # 経由でもevent_timeが実際に渡り、古いイベントが新しい書き込みを上書きしない
+        # ことを確認する(subscription_activated/deleted側の配線確認と同じ観点)。
+        store = InMemoryStoreProfileStore()
+
+        newer_payload = _event_payload_with_created(
+            "evt_new",
+            "checkout.session.completed",
+            {"client_reference_id": "store-1", "customer": "cus_new"},
+            int(datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        receive_stripe_webhook(
+            newer_payload,
+            _header(newer_payload, SECRET, timestamp),
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            store_profile_store=store,
+            now=NOW,
+        )
+
+        stale_payload = _event_payload_with_created(
+            "evt_old",
+            "checkout.session.completed",
+            {"client_reference_id": "store-1", "customer": "cus_old"},
+            int(datetime(2026, 9, 28, 4, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        result = receive_stripe_webhook(
+            stale_payload,
+            _header(stale_payload, SECRET, timestamp),
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            store_profile_store=store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_new")
+
     def test_skipped_without_error_when_store_profile_store_omitted(self):
         payload = self._payload()
         timestamp = int(NOW.timestamp())

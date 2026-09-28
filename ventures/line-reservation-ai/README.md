@@ -4977,3 +4977,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   invoice.payment_failed〉のStripe Webhook配信順序入れ替わりガードを新設。
   `last_payment_event_time`追加、両ハンドラに`event_created_at`引数追加、entry point配線も
   実施。テスト6件追加、venture全体885件・schema検証28件いずれもパス)
+- フェーズ続き285(2026-09-28 04:00 UTC定例更新): フェーズ続き284が「次回候補」として
+  残していた`handle_checkout_session_completed()`(store_profile_store.py)への
+  順序入れ替わりの影響を検討・対応した。同一user_idが短期間に2回以上Checkout Session
+  完了(例: 解約後に別プランで即再購入、またはStripe側の再送による大幅な遅延配信)する
+  ケースで、配信順序が入れ替わると新しいstripe_customer_id・planを古いイベントの値で
+  誤って上書きしてしまう欠落を発見した。`StoreProfileStoreProtocol`に
+  `get/set_checkout_session_completed_event_time()`(user_idキー)を追加し、記録済みの
+  `event_time`以下(同時刻含む)のイベントはstripe_customer_id・planいずれの書き込みも
+  行わず丸ごとスキップするガードを`handle_checkout_session_completed()`に実装した
+  (`event_time`省略時・記録済み時刻が未設定の場合は従来通り無条件適用する後方互換)。
+  `stripe_webhook_entry_point.py`の`receive_stripe_webhook()`が既に解決済みの
+  `event_time`を渡す配線も追加した。詳細はcheckout-session-completed-event-order-
+  guard-design.md参照。テスト6件追加(`test_store_profile_store.py`5件・
+  `test_stripe_webhook_entry_point.py`1件)、venture全体`python3 -m unittest discover
+  -s prototype -p "test_*.py"`891件(885→891)・schema検証28件(`python3 schema/
+  validate_test_cases.py`)いずれもパスを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 04:00 UTC(フェーズ続き285: `checkout.session.completed`側にも
+  Stripe Webhook配信順序入れ替わりガードを追加。`checkout_session_completed_event_time`
+  追加、entry point配線も実施。テスト6件追加、venture全体891件・schema検証28件いずれも
+  パス)

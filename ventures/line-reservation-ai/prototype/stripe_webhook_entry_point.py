@@ -252,7 +252,9 @@ def receive_stripe_webhook(
         # 書き込みが一度も行われず、resolve_store_id_by_customer()による以後のイベント
         # (invoice.payment_failed等)のstore_id解決が常に失敗する配線漏れがあった。
         if store_profile_store is not None:
-            handle_checkout_session_completed(parsed, store_profile_store)
+            handle_checkout_session_completed(
+                parsed, store_profile_store, event_time=event_time
+            )
         if subscription_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = subscription_store.get_subscription_state(store_id)

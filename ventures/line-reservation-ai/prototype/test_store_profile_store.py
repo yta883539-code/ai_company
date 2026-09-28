@@ -5,6 +5,7 @@ checkout-initiation-flow-design.md 3節の「既存customerの再利用」判定
 
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -207,6 +208,75 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertEqual(
             self.store.get_store_id_by_stripe_customer_id("cus_abc"), "Uowner123"
         )
+
+
+class HandleCheckoutSessionCompletedEventOrderGuardTest(unittest.TestCase):
+    """checkout-session-completed-event-order-guard-design.md。
+
+    subscription-event-order-guard-design.md・payment-failure-detected-at-event-order-
+    guard-design.mdと同種の、Stripe Webhook配信順序入れ替わりに対するガードの確認。
+    """
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+        self.t1 = datetime(2026, 9, 28, 4, 0, 0, tzinfo=timezone.utc)
+        self.t2 = datetime(2026, 9, 28, 5, 0, 0, tzinfo=timezone.utc)
+
+    def _event(self, customer, plan=None):
+        object_ = {"client_reference_id": "Uowner123", "customer": customer}
+        if plan is not None:
+            object_["metadata"] = {"plan": plan}
+        return {"type": "checkout.session.completed", "data": {"object": object_}}
+
+    def test_applies_unconditionally_when_event_time_omitted(self):
+        handle_checkout_session_completed(self._event("cus_new"), self.store)
+        result = handle_checkout_session_completed(self._event("cus_old"), self.store)
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_old")
+
+    def test_applies_unconditionally_when_no_recorded_event_time(self):
+        result = handle_checkout_session_completed(
+            self._event("cus_abc"), self.store, event_time=self.t1
+        )
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_abc")
+
+    def test_applies_when_event_time_newer_than_recorded(self):
+        handle_checkout_session_completed(
+            self._event("cus_old", "スタータープラン"), self.store, event_time=self.t1
+        )
+        result = handle_checkout_session_completed(
+            self._event("cus_new", "プロプラン"), self.store, event_time=self.t2
+        )
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_new")
+        self.assertEqual(self.store.get_plan("Uowner123"), "プロプラン")
+
+    def test_skips_stale_event_delivered_after_newer_event(self):
+        handle_checkout_session_completed(
+            self._event("cus_new", "プロプラン"), self.store, event_time=self.t2
+        )
+        result = handle_checkout_session_completed(
+            self._event("cus_old", "スタータープラン"), self.store, event_time=self.t1
+        )
+        self.assertFalse(result.linked)
+        self.assertTrue(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_new")
+        self.assertEqual(self.store.get_plan("Uowner123"), "プロプラン")
+
+    def test_equal_event_time_is_treated_as_stale(self):
+        handle_checkout_session_completed(
+            self._event("cus_new"), self.store, event_time=self.t1
+        )
+        result = handle_checkout_session_completed(
+            self._event("cus_old"), self.store, event_time=self.t1
+        )
+        self.assertFalse(result.linked)
+        self.assertTrue(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("Uowner123"), "cus_new")
 
 
 class EvaluateOnboardingCompletionMessageDispatchTest(unittest.TestCase):

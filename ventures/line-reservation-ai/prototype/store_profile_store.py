@@ -85,6 +85,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional, Protocol
 
@@ -169,6 +170,16 @@ class StoreProfileStoreProtocol(Protocol):
     def set_plan(self, store_id: str, plan: str) -> None:
         ...
 
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        ...
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        ...
+
     def get_menu_durations(self, store_id: str) -> dict:
         ...
 
@@ -201,6 +212,7 @@ class InMemoryStoreProfileStore:
         self._owner_emails: dict[str, str] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
         self._plans: dict[str, str] = {}
+        self._checkout_session_completed_event_time: dict[str, datetime] = {}
         self._menu_durations: dict[str, dict] = {}
         self._store_faq_info: dict[str, dict] = {}
         self._known_store_ids: set[str] = set()
@@ -303,6 +315,18 @@ class InMemoryStoreProfileStore:
             raise ValueError(f"unknown plan: {plan!r}")
         self._plans[store_id] = plan
         self._known_store_ids.add(store_id)
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        return self._checkout_session_completed_event_time.get(user_id)
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._checkout_session_completed_event_time[user_id] = event_time
 
     def get_menu_durations(self, store_id: str) -> dict:
         # conversation-event-processor-assembly-design.md準拠。未設定の店舗は空dictを
@@ -440,10 +464,14 @@ class CheckoutSessionLinkResult:
     user_id: Optional[str] = None
     stripe_customer_id: Optional[str] = None
     plan_written: bool = False
+    stale: bool = False
 
 
 def handle_checkout_session_completed(
-    event: dict, store: StoreProfileStoreProtocol
+    event: dict,
+    store: StoreProfileStoreProtocol,
+    *,
+    event_time: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(=user_id)と
     `customer`(=stripe_customer_id)を取り出し、`store`に紐付けを書き込む
@@ -458,6 +486,19 @@ def handle_checkout_session_completed(
     `store.set_plan(user_id, plan)`で書き込み、`metadata`欠落・`plan`欠落・未知の値の
     場合は何も書き込まない(安全側。古いCheckout Session実装〈metadata省略〉からの
     イベントでも紐付け自体は従来通り行える)。
+
+    `event_time`(checkout-session-completed-event-order-guard-design.md、
+    subscription-event-order-guard-design.md・payment-failure-detected-at-event-order-
+    guard-design.mdの横展開): 同一user_idが短期間に2回以上Checkout Session完了する
+    ケース(例: 一度解約後に別プランで即再購入)で、古い`checkout.session.completed`が
+    Stripe側の再送等で新しいイベントより後に遅延配信されると、新しいcustomer_id・planを
+    古い値で誤って上書きしてしまう。`store.get_checkout_session_completed_event_time()`
+    に記録済みの最新反映時刻より`event_time`が新しくない(stale)場合は、
+    stripe_customer_id・planいずれの書き込みも行わず`CheckoutSessionLinkResult(stale=True)`
+    を返す(両ケースA・Bと同じ「丸ごとスキップ」方針。customer_idだけ古いまま・planだけ
+    新しいという中途半端な状態を避けるため)。`event_time`省略時、または記録済みの
+    時刻が未設定(本ガード導入前からの既存店舗等)の場合はチェックを行わず従来通り
+    無条件適用する(後方互換)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -471,6 +512,13 @@ def handle_checkout_session_completed(
     ):
         return CheckoutSessionLinkResult(linked=False)
 
+    if event_time is not None:
+        recorded_event_time = store.get_checkout_session_completed_event_time(user_id)
+        if recorded_event_time is not None and event_time <= recorded_event_time:
+            return CheckoutSessionLinkResult(
+                linked=False, user_id=user_id, stale=True
+            )
+
     store.set_stripe_customer_id(user_id, stripe_customer_id)
 
     plan_written = False
@@ -479,6 +527,9 @@ def handle_checkout_session_completed(
     if isinstance(plan, str) and plan in PLAN_MONTHLY_BOOKING_LIMITS:
         store.set_plan(user_id, plan)
         plan_written = True
+
+    if event_time is not None:
+        store.set_checkout_session_completed_event_time(user_id, event_time)
 
     return CheckoutSessionLinkResult(
         linked=True,
