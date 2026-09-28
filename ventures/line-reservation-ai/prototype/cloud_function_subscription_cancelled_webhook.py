@@ -79,6 +79,14 @@ class StoreSubscriptionState:
     `handle_subscription_deleted()`・`cloud_function_subscription_activated_webhook.
     handle_subscription_activated()`の両方が読み書きする(同じFirestoreフィールドを
     指す想定)。省略時(`None`)は後方互換のため新しいstale判定を一切行わない。
+
+    `last_subscription_updated_event_time`(subscription-updated-event-order-guard-
+    design.md、kura-pashaフェーズ198・course-set-pashaの横展開)は、`customer.
+    subscription.updated`(cancel_at_period_end変化)を最後に適用したイベントの
+    `event.created`時刻。`customer.subscription.updated`はsuspension_reason自体を
+    変更しないため、`last_subscription_event_time`(`.deleted`/有効化用)とは独立した
+    専用フィールドとした。`handle_subscription_updated()`が読み書きする。省略時
+    (`None`)は後方互換のため新しいstale判定を一切行わない。
     """
 
     store_id: str
@@ -89,14 +97,21 @@ class StoreSubscriptionState:
     suspension_reason: str | None = None
     blocked_but_billing_owner_notified_at: str | None = None
     last_subscription_event_time: datetime | None = None
+    last_subscription_updated_event_time: datetime | None = None
 
 
 @dataclass
 class SubscriptionCancellationUpdateResult:
-    """`customer.subscription.updated`(cancel_at_period_end変化)処理の結果。"""
+    """`customer.subscription.updated`(cancel_at_period_end変化)処理の結果。
+
+    `stale`(subscription-updated-event-order-guard-design.md)は、event_time指定時に
+    記録済みの`last_subscription_updated_event_time`以前(古いか重複)だったため
+    何もしなかった場合に`True`(`SubscriptionCancellationResult.stale`と同じ意味)。
+    """
 
     outcome: str
     notified: bool = False
+    stale: bool = False
 
 
 @dataclass
@@ -310,6 +325,7 @@ def handle_subscription_updated(
     cancel_at_period_end_after: bool,
     push_client: LinePushClient,
     portal_url: Optional[str] = None,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionCancellationUpdateResult:
     """`customer.subscription.updated`(cancel_at_period_end変化)受信時の処理本体。
 
@@ -317,7 +333,29 @@ def handle_subscription_updated(
     portal_urlは呼び出し元(`receive_stripe_webhook()`)が`PortalLinkProvider`から
     都度解決した値を渡す想定(OUTCOME_CANCELLATION_SCHEDULEDの場合のみ使用、省略時は
     `None`でrender側のフォールバックに委ねる。portal-session-provider-design.md 4節)。
+
+    `event_time`(subscription-updated-event-order-guard-design.md、kura-pashaフェーズ
+    198・course-set-pashaの横展開)は、Stripeカスタマーポータル経由で短期間に複数回
+    解約予約/取り消し操作が行われた場合の遅延配信対策。`state.last_subscription_
+    updated_event_time`以前(同時刻含む)の`event_time`が渡された場合、通知送信を含む
+    処理を一切行わずstale=Trueを返す(`handle_subscription_deleted()`と同じ「stale
+    全体スキップ」方針: 遅延配信された古い`cancel_at_period_end`の値に基づく通知を
+    送ると、既に確定している新しい状態と矛盾するため)。stale判定を通過した場合は、
+    outcome(OUTCOME_NO_CHANGE・送信失敗を含む)にかかわらず`event_time`を記録する
+    (course-set-pashaの`_record_subscription_updated_event_time()`と同じ「結果に
+    かかわらず記録」方針)。event_time省略時(`None`)は従来通りこのチェック・記録の
+    いずれも行わない(既存呼び出し経路への後方互換措置)。
     """
+    if (
+        event_time is not None
+        and state.last_subscription_updated_event_time is not None
+        and event_time <= state.last_subscription_updated_event_time
+    ):
+        return SubscriptionCancellationUpdateResult(outcome=OUTCOME_STALE_EVENT, stale=True)
+
+    if event_time is not None:
+        state.last_subscription_updated_event_time = event_time
+
     outcome = classify_subscription_update(
         cancel_at_period_end_before, cancel_at_period_end_after, state.suspension_reason
     )

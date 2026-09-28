@@ -71,6 +71,23 @@ def _event_payload_with_previous(
     ).encode("utf-8")
 
 
+def _event_payload_with_created_and_previous(
+    event_id: str,
+    event_type: str,
+    data_object: dict,
+    previous_attributes: dict,
+    created: int,
+) -> bytes:
+    return json.dumps(
+        {
+            "id": event_id,
+            "type": event_type,
+            "data": {"object": data_object, "previous_attributes": previous_attributes},
+            "created": created,
+        }
+    ).encode("utf-8")
+
+
 def _resolve_by_customer(customer_id: str):
     return {"cus_1": "store-1"}.get(customer_id)
 
@@ -1222,6 +1239,89 @@ class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
         self.assertEqual(result.outcome, "send_failed")
         stored = self.cancellation_store.get_cancellation_state("store-1")
         self.assertIsNone(stored.suspension_reason)
+
+    # subscription-updated-event-order-guard-design.md準拠(kura-pashaフェーズ198・
+    # course-set-pashaの横展開)。
+
+    def test_event_time_is_recorded_when_newer_than_recorded(self):
+        payload = _event_payload_with_created_and_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {"customer": "cus_1", "cancel_at_period_end": True},
+            {"cancel_at_period_end": False},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "cancellation_scheduled")
+        self.assertEqual(len(self.push_client.sent), 1)
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertEqual(
+            stored.last_subscription_updated_event_time,
+            datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc),
+        )
+
+    def test_stale_updated_event_skips_plan_sync_and_notification(self):
+        # 遅延配信ケース: 既により新しい.updatedイベント(11:00)でplan・解約予約状態が
+        # 確定済みの店舗に対し、それより前(10:00)に発生していたはずのイベントが
+        # 遅れて届いても、plan同期・通知のいずれも行わない
+        # (subscription-updated-event-order-guard-design.md、DELETED分岐と同じ
+        # 「stale全体スキップ」方針)。
+        state = self.cancellation_store.get_cancellation_state("store-1")
+        state.last_subscription_updated_event_time = datetime(
+            2026, 9, 3, 11, 0, tzinfo=timezone.utc
+        )
+        store_profile_store = InMemoryStoreProfileStore()
+        store_profile_store.set_plan("store-1", "スタンダードプラン")
+
+        payload = _event_payload_with_created_and_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {
+                "customer": "cus_1",
+                "cancel_at_period_end": True,
+                "items": {
+                    "data": [{"price": {"lookup_key": "line_reservation_ai_pro"}}]
+                },
+            },
+            {"cancel_at_period_end": False},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            store_profile_store=store_profile_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(self.push_client.sent), 0)
+        self.assertEqual(store_profile_store.get_plan("store-1"), "スタンダードプラン")
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertIsNone(stored.suspension_reason)
+        self.assertEqual(
+            stored.last_subscription_updated_event_time,
+            datetime(2026, 9, 3, 11, 0, tzinfo=timezone.utc),
+        )
 
 
 class _StubFlaskRequest:

@@ -76,6 +76,16 @@ Firestore側に「前回のcancel_at_period_end」を別途保存・比較する
   対象store_id状態なし/送信失敗)の観点を確認する
   `ReceiveStripeWebhookSubscriptionUpdatedTest`を追加。
 
+## 追記(本チャット2026-09-28定例更新、subscription-updated-event-order-guard-design.md)
+
+3節の「`handle_subscription_updated()`はstateのいかなるフィールドも書き換えないため
+書き戻しは不要」は、配信順序入れ替わりガード用の`last_subscription_updated_event_time`
+フィールド追加に伴い更新された。同フィールドの記録(bookkeeping)のみを目的とした
+書き戻しが必要になったため、`receive_stripe_webhook()`は`handle_subscription_updated()`
+呼び出し後に`cancellation_store.set_cancellation_state()`を呼ぶようになった
+(`suspension_reason`等の業務フィールドは引き続き変更しない)。詳細は
+subscription-updated-event-order-guard-design.md参照。
+
 ## 5. 今後の課題
 
 - activated側・cancelled側の`StoreSubscriptionState`の統合要否は、引き続き

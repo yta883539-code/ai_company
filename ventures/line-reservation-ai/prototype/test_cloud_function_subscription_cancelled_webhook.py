@@ -208,6 +208,83 @@ class HandleSubscriptionUpdatedTests(unittest.TestCase):
         self.assertEqual(state.suspension_reason, "payment_suspended")
         self.assertEqual(len(push.sent), 0)
 
+    # subscription-updated-event-order-guard-design.md準拠(kura-pashaフェーズ198・
+    # course-set-pashaの横展開)。
+
+    def test_applies_and_records_event_time_when_newer_than_recorded(self):
+        state = _store(
+            last_subscription_updated_event_time=datetime(2026, 9, 20, 9, 0)
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, event_time=datetime(2026, 9, 20, 10, 0)
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        self.assertFalse(result.stale)
+        self.assertEqual(
+            state.last_subscription_updated_event_time, datetime(2026, 9, 20, 10, 0)
+        )
+
+    def test_skips_when_updated_event_is_stale(self):
+        # 遅延配信ケース: 既により新しい.updatedイベント(10:00)で確定済みの状態に対し、
+        # それより前(9:00)に発生していたはずのイベントが遅れて届いても、通知を送らず
+        # last_subscription_updated_event_timeも巻き戻さない。
+        state = _store(
+            last_subscription_updated_event_time=datetime(2026, 9, 20, 10, 0)
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, event_time=datetime(2026, 9, 20, 9, 0)
+        )
+        self.assertEqual(result.outcome, OUTCOME_STALE_EVENT)
+        self.assertTrue(result.stale)
+        self.assertFalse(result.notified)
+        self.assertEqual(len(push.sent), 0)
+        self.assertEqual(
+            state.last_subscription_updated_event_time, datetime(2026, 9, 20, 10, 0)
+        )
+
+    def test_applies_unconditionally_when_event_time_omitted(self):
+        # event_time省略時(呼び出し側が未対応)は従来通り無条件適用する後方互換。
+        state = _store(
+            last_subscription_updated_event_time=datetime(2026, 9, 20, 10, 0)
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, False, True, push)
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        self.assertEqual(
+            state.last_subscription_updated_event_time, datetime(2026, 9, 20, 10, 0)
+        )
+
+    def test_applies_unconditionally_when_store_lacks_recorded_event_time(self):
+        # last_subscription_updated_event_time未設定(本ガード導入前からの既存店舗・
+        # 初回)の場合は従来通り無条件適用する。
+        state = _store(last_subscription_updated_event_time=None)
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, event_time=datetime(2026, 9, 20, 9, 0)
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(result.notified)
+        self.assertEqual(
+            state.last_subscription_updated_event_time, datetime(2026, 9, 20, 9, 0)
+        )
+
+    def test_no_change_outcome_still_records_event_time(self):
+        # NO_CHANGE(cancel_at_period_endが変化しない.updated、支払い方法変更等)でも
+        # event_timeは記録する(course-set-pashaの「結果にかかわらず記録」方針)。
+        state = _store()
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, False, push, event_time=datetime(2026, 9, 20, 9, 0)
+        )
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertEqual(
+            state.last_subscription_updated_event_time, datetime(2026, 9, 20, 9, 0)
+        )
+
 
 class HandleSubscriptionDeletedTests(unittest.TestCase):
     def test_cancels_active_store(self):

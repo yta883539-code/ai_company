@@ -359,16 +359,33 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, route=route, outcome=result.outcome)
 
     if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_UPDATED:
-        # customer-subscription-updated-event-routing-design.md 3節:
-        # handle_subscription_updated()はstateを一切書き換えないため、書き戻しは行わない。
+        # subscription-updated-event-order-guard-design.md(本フェーズ、kura-pashaフェーズ
+        # 198・course-set-pashaの横展開): plan同期(sync_plan_on_subscription_event())は
+        # 解約予約受理/取り消し通知(handle_subscription_updated())とは独立した書き込み先
+        # (store_profile_store)を持つため、DELETED分岐(上記)と同じく`cancellation_store`
+        # 側に記録済みの`last_subscription_updated_event_time`(`.deleted`用の
+        # `last_subscription_event_time`とは独立の専用フィールド)を先に1回だけ参照し、
+        # stale(遅延配信された古いイベント)と判定する場合はplan同期にもそのstale判定を
+        # 及ぼす(「stale全体スキップ」方針への統一)。cancellation_storeまたはevent_time
+        # が無い場合は判定不能として従来通り無条件適用する(後方互換)。
         data_object = parsed.get("data", {}).get("object", {})
         previous_attributes = parsed.get("data", {}).get("previous_attributes", {})
-        # subscription-plan-sync-design.md(フェーズ続き220): プラン変更を伴わない
-        # イベント(支払い方法変更等)でも毎回届くため、解約通知(cancellation_store/
-        # push_client)の要否・成否とは独立に同期する。store_profile_store未指定時は
-        # 何もしない(安全側、他イベントの既存フォールバックと同じ方針)。
-        if store_profile_store is not None:
-            sync_plan_on_subscription_event(store_profile_store, store_id, data_object)
+        is_stale_updated_event = False
+        if cancellation_store is not None and event_time is not None:
+            existing_cancellation_state = cancellation_store.get_cancellation_state(store_id)
+            if (
+                existing_cancellation_state is not None
+                and existing_cancellation_state.last_subscription_updated_event_time is not None
+                and event_time <= existing_cancellation_state.last_subscription_updated_event_time
+            ):
+                is_stale_updated_event = True
+        if not is_stale_updated_event:
+            # subscription-plan-sync-design.md(フェーズ続き220): プラン変更を伴わない
+            # イベント(支払い方法変更等)でも毎回届くため、解約通知(cancellation_store/
+            # push_client)の要否・成否とは独立に同期する。store_profile_store未指定時は
+            # 何もしない(安全側、他イベントの既存フォールバックと同じ方針)。
+            if store_profile_store is not None:
+                sync_plan_on_subscription_event(store_profile_store, store_id, data_object)
         if cancellation_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = cancellation_store.get_cancellation_state(store_id)
@@ -389,7 +406,12 @@ def receive_stripe_webhook(
             cancel_at_period_end_after,
             push_client,
             portal_url=portal_url,
+            event_time=event_time,
         )
+        # handle_subscription_updated()が`last_subscription_updated_event_time`を
+        # 更新した場合(stale=Falseかつevent_time指定時)に備え、DELETED分岐と同じく
+        # 呼び出し後のstateを書き戻す(design 3節の記述を本フェーズで更新)。
+        cancellation_store.set_cancellation_state(store_id, state)
         if result.outcome == CANCELLATION_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
                 status_code=200, route=route, outcome=result.outcome

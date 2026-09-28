@@ -5015,3 +5015,39 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   pending-approval.mdの記載齟齬の定期棚卸しを行う。
 - 最終更新: 2026-09-28 14:00 UTC(フェーズ続き286: kura-pasha同様のlaunch-readiness-
   checklist.mdを新規作成し、承認待ち事項3件を依存順に集約。コード変更なし)
+- フェーズ続き287(2026-09-28 23:00 UTC定例更新): kura-pashaフェーズ198(2026-09-28
+  21:00 UTC、`customer.subscription.updated`の`current_period_end`・`plan_id`書き込みに
+  event_timeベースの配信順序入れ替わりガードが一度も実装されていなかった欠落の是正)が
+  「次回候補」に残していた、他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)への横断確認を行った。aircon-pasha(フェーズ286)・
+  course-set-pashaは既に横展開済みと確認できたが、本ventureには未反映のまま残って
+  いたことが判明した。フェーズ続き286時点の「フェーズ続き282〜285までのガードが
+  4venture全てに横展開され尽くした」という認識は、`customer.subscription.deleted`・
+  `checkout.session.completed`・活性化イベント向けのガードについては正しかったが、
+  `customer.subscription.updated`(cancel_at_period_end変化の通知・plan同期)は
+  別系統の未対応事項として見落とされていた。
+  `StoreSubscriptionState`(cloud_function_subscription_cancelled_webhook.py)に
+  `last_subscription_updated_event_time`を新設(`.deleted`用の
+  `last_subscription_event_time`とは独立の専用フィールド、kura-pashaと同じ理由)、
+  `handle_subscription_updated()`に`event_time`引数を追加してstale判定・記録を
+  組み込んだ。`stripe_webhook_entry_point.py`のUPDATED分岐では、DELETED分岐で
+  既に採用されている「cancellation_store側の記録済み時刻を先に1回だけ参照し、
+  plan同期(`sync_plan_on_subscription_event()`)にもそのstale判定を及ぼす」パターンを
+  横展開し、呼び出し後の状態書き戻し(`cancellation_store.set_cancellation_state()`)も
+  新設した。詳細はsubscription-updated-event-order-guard-design.md参照
+  (customer-subscription-updated-event-routing-design.md 3節の「書き戻しは不要」との
+  記述齟齬に追記で対応)。テスト9件追加(handler単体4件・entry point 2件、その他
+  既存観点の回帰確認込み)、venture全体`python3 -m unittest discover -p "test_*.py"`
+  (`prototype/`直下、900件)・schema検証`python3 schema/validate_test_cases.py`
+  (28件、変更なし)いずれもパスを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: kura-pashaフェーズ198の横断確認申し送りは本フェーズで
+  aircon-pasha・course-set-pasha・line-reservation-aiの3件とも対応済みと確認できた
+  ため完了。他venture・アイデア領域の前進、またはlaunch-readiness-checklist.md/
+  pending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-28 23:00 UTC(フェーズ続き287: `customer.subscription.updated`
+  〈cancel_at_period_end通知・plan同期〉にStripe Webhook配信順序入れ替わりガードを
+  追加。`last_subscription_updated_event_time`新設、entry point配線・状態書き戻しも
+  実施。kura-pashaフェーズ198の他venture横断確認申し送りに対応(aircon-pasha・
+  course-set-pashaは対応済みと確認、本ventureのみ未反映だった)。テスト9件追加、
+  venture全体900件・schema検証28件いずれもパス)
