@@ -4246,3 +4246,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `plan`書き込みにStripe Webhook配信順序入れ替わりガードを追加。
   `checkout_session_completed_event_time`新設、stale時はplanのみスキップする方針で配線。
   テスト6件追加、venture全体16ファイルOK・schema検証32件いずれもパス)
+- フェーズ198(2026-09-28 21:00 UTC定例更新): フェーズ197の横展開確認の過程で、
+  `stripe_webhook.py`の他イベントハンドラ(`handle_checkout_session_completed()`・
+  `handle_customer_subscription_deleted()`・`handle_invoice_payment_failed()`・
+  `handle_invoice_payment_succeeded()`)がいずれも`event_time`ベースの配信順序入れ替わり
+  ガードを持つ一方、`handle_customer_subscription_updated()`だけはevent_time引数自体を
+  持たず、`current_period_end`書き込み・`plan_id`同期
+  (`subscription_plan_sync.sync_plan_on_subscription_event()`)・解約予約受理/取り消し
+  通知のいずれも無条件で行われたまま残っていたことが判明したため是正した。
+  `WorkshopStoreProtocol`へ`get/set_subscription_updated_event_time()`を新設(
+  `subscription_status`自体は本イベントで変更されないため既存の
+  `subscription_status_event_time`とは独立した専用フィールドとした)、`stripe_webhook.py`
+  に`_is_stale_subscription_updated_event()`/`_record_subscription_updated_event_time()`
+  を追加して、`current_period_end`・`plan_id`・通知いずれも対象に含む「丸ごとスキップ」
+  方針のガードを配線した。`receive_stripe_webhook()`から`handle_customer_subscription_
+  updated()`への`event_time`受け渡し配線も新設した(従来は渡す経路自体が存在しなかった)。
+  詳細はsubscription-updated-event-order-guard-design.md参照。テスト4件追加
+  (`test_stripe_webhook.py`単体は178→182件)、venture全体`python3
+  prototype/run_all_tests.py`(16ファイルOK)・schema検証`python3
+  schema/validate_test_cases.py`(32件、変更なし)いずれもパスを確認した。他venture
+  (aircon-pasha・course-set-pasha・line-reservation-ai)の`customer.subscription.updated`
+  相当ハンドラに同種のガード欠落が残っていないかの横断確認は次回以降の棚卸し候補として
+  申し送る。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: 上記の他venture横断確認、
+  またはlaunch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-28 21:00 UTC(フェーズ198: `handle_customer_subscription_updated()`に
+  Stripe Webhook配信順序入れ替わりガードを新設。`subscription_updated_event_time`新設、
+  `current_period_end`・`plan_id`同期・解約予約通知を丸ごとスキップする方針で配線。
+  テスト4件追加、venture全体16ファイルOK・schema検証32件いずれもパス)

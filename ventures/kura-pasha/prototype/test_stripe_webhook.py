@@ -778,6 +778,8 @@ class _EventTimeUnawareWorkshopStore(InMemoryWorkshopStore):
     set_subscription_status_event_time = None
     get_checkout_session_completed_event_time = None
     set_checkout_session_completed_event_time = None
+    get_subscription_updated_event_time = None
+    set_subscription_updated_event_time = None
 
 
 def test_checkout_completed_skips_when_event_time_not_after_recorded():
@@ -973,6 +975,129 @@ def test_deleted_applies_unconditionally_when_store_lacks_event_time_methods():
     check(
         "storeが新メソッド未対応の場合はガードをスキップし従来通り適用する",
         store.get_subscription_status("W64") == "canceled",
+    )
+    check("この場合stale=False", result.stale is False)
+
+
+def test_updated_skips_when_event_time_not_after_recorded():
+    """解約予約通知等を伴わない`current_period_end`更新の後、配信順序入れ替わりで古い
+    `.updated`が遅れて届く(handle_checkout_session_completed等と同型のガード、
+    subscription-updated-event-order-guard-design.md)。"""
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W70", "cus_70")
+    newer_at = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    handle_customer_subscription_updated(
+        {
+            "data": {
+                "object": {"customer": "cus_70", "current_period_end": 1_760_000_000},
+                "previous_attributes": {},
+            }
+        },
+        store,
+        event_time=newer_at,
+    )
+    check(
+        "先行updatedでcurrent_period_endが反映される",
+        store.get_current_period_end("W70") == datetime.fromtimestamp(1_760_000_000, tz=timezone.utc),
+    )
+
+    stale_at = datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    result = handle_customer_subscription_updated(
+        {
+            "data": {
+                "object": {"customer": "cus_70", "current_period_end": 1_000_000_000},
+                "previous_attributes": {},
+            }
+        },
+        store,
+        event_time=stale_at,
+    )
+    check("先行updatedより古いupdatedはstale=True", result.stale is True)
+    check(
+        "先行updatedのcurrent_period_endを誤って古い値へ書き換えない",
+        store.get_current_period_end("W70") == datetime.fromtimestamp(1_760_000_000, tz=timezone.utc),
+    )
+
+
+def test_updated_skips_stale_plan_sync_and_notification():
+    """stale判定時はplan_id同期(subscription_plan_sync)も解約予約受理通知も行わない
+    ことを確認する(design 1節: current_period_end・plan_id・通知いずれも丸ごとスキップ)。"""
+    store = InMemoryWorkshopStore()
+    store.set_members("W71", contractor_user_id="contractor_71", member_user_ids=["contractor_71"])
+    store.set_stripe_customer_id("W71", "cus_71")
+    store.set_plan("W71", "light")
+    push = InMemoryLinePushClient()
+    newer_at = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    handle_customer_subscription_updated(
+        {"data": {"object": {"customer": "cus_71"}, "previous_attributes": {}}},
+        store,
+        event_time=newer_at,
+    )
+    stale_at = datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    stale_event = {
+        "data": {
+            "object": {
+                "customer": "cus_71",
+                "cancel_at_period_end": True,
+                "items": {"data": [{"price": {"lookup_key": "kura_pasha_standard"}}]},
+            },
+            "previous_attributes": {"cancel_at_period_end": False},
+        }
+    }
+    result = handle_customer_subscription_updated(
+        stale_event, store, push_client=push, event_time=stale_at
+    )
+    check("staleなupdatedはplan_idを書き換えない", store.get_plan_id("W71") == "light")
+    check("staleなupdatedは通知を送らない", len(push.sent) == 0)
+    check("stale=True", result.stale is True)
+
+
+def test_updated_applies_when_event_time_newer_than_recorded():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W72", "cus_72")
+    handle_customer_subscription_updated(
+        {
+            "data": {
+                "object": {"customer": "cus_72", "current_period_end": 1_000_000_000},
+                "previous_attributes": {},
+            }
+        },
+        store,
+        event_time=datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc),
+    )
+    result = handle_customer_subscription_updated(
+        {
+            "data": {
+                "object": {"customer": "cus_72", "current_period_end": 1_760_000_000},
+                "previous_attributes": {},
+            }
+        },
+        store,
+        event_time=datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc),
+    )
+    check("正常順序ではstale=False", result.stale is False)
+    check(
+        "正常順序では新しいcurrent_period_endへ反映される",
+        store.get_current_period_end("W72") == datetime.fromtimestamp(1_760_000_000, tz=timezone.utc),
+    )
+
+
+def test_updated_applies_unconditionally_when_store_lacks_event_time_methods():
+    store = _EventTimeUnawareWorkshopStore()
+    store.set_stripe_customer_id("W73", "cus_73")
+    result = handle_customer_subscription_updated(
+        {
+            "data": {
+                "object": {"customer": "cus_73", "current_period_end": 1_760_000_000},
+                "previous_attributes": {},
+            }
+        },
+        store,
+        event_time=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
+    check(
+        "storeが新メソッド未対応の場合はガードをスキップし従来通り適用する",
+        store.get_current_period_end("W73") == datetime.fromtimestamp(1_760_000_000, tz=timezone.utc),
     )
     check("この場合stale=False", result.stale is False)
 
@@ -1485,6 +1610,10 @@ if __name__ == "__main__":
     test_deleted_skips_when_reactivated_after_stale_deleted_arrives_late()
     test_deleted_applies_when_event_time_newer_than_recorded()
     test_deleted_applies_unconditionally_when_store_lacks_event_time_methods()
+    test_updated_skips_when_event_time_not_after_recorded()
+    test_updated_skips_stale_plan_sync_and_notification()
+    test_updated_applies_when_event_time_newer_than_recorded()
+    test_updated_applies_unconditionally_when_store_lacks_event_time_methods()
     test_invoice_failed_skips_when_event_time_older_than_recorded()
     test_invoice_succeeded_returns_invalid_when_customer_missing()
     test_invoice_succeeded_returns_unresolved_when_customer_unknown()

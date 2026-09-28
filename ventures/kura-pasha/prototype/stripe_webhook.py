@@ -216,6 +216,48 @@ def _record_checkout_session_completed_event_time(
     setter(workshop_id, event_time)
 
 
+# ---------------------------------------------------------------------------
+# customer.subscription.updated(current_period_end・plan_id)の配信順序入れ替わり
+# ガード(subscription-updated-event-order-guard-design.md、フェーズ198)
+#
+# handle_checkout_session_completed()・handle_customer_subscription_deleted()・
+# handle_invoice_payment_failed()・handle_invoice_payment_succeeded()はいずれも
+# event_timeベースの配信順序入れ替わりガードを持つ一方、handle_customer_subscription_
+# updated()にはevent_time引数自体が存在せず、current_period_end(set_current_period_end)・
+# plan_id(subscription_plan_sync.sync_plan_on_subscription_event())の書き込みが
+# 常に無条件で行われていたことが判明したため、他ハンドラと同じ「丸ごとスキップ」方針を
+# 適用する専用フィールドを新設する(design 1節)。
+# ---------------------------------------------------------------------------
+
+def _is_stale_subscription_updated_event(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    if event_time is None:
+        return False
+    getter = getattr(workshop_store, "get_subscription_updated_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(workshop_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_updated_event_time(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if event_time is None:
+        return
+    setter = getattr(workshop_store, "set_subscription_updated_event_time", None)
+    if setter is None:
+        return
+    setter(workshop_id, event_time)
+
+
 def _event_time_from_created(event: dict) -> Optional[datetime]:
     """Stripeイベント全体(トップレベル)の`created`(Unixタイムスタンプ)を
     `datetime`へ変換する。欠落・非数値の場合はNone(ガードを判定不能として常に適用、
@@ -392,6 +434,7 @@ class CustomerSubscriptionUpdatedResult:
     unresolved: bool = False
     outcome: str = OUTCOME_NO_CHANGE
     notified: bool = False
+    stale: bool = False
 
 
 def handle_customer_subscription_updated(
@@ -399,6 +442,7 @@ def handle_customer_subscription_updated(
     workshop_store: WorkshopStoreProtocol,
     *,
     push_client: Optional[LinePushClient] = None,
+    event_time: Optional[datetime] = None,
 ) -> CustomerSubscriptionUpdatedResult:
     """subscription-cancellation-scheduled-notification-design.md フェーズ55。
     `customer.subscription.updated`イベント全体(`data.object`と`data.previous_attributes`
@@ -416,6 +460,15 @@ def handle_customer_subscription_updated(
     同様に`plan_id`も、`subscription_plan_sync.sync_plan_on_subscription_event()`
     (フェーズ93)へ委譲し、`items.data[0].price.lookup_key`から解決できた場合のみ
     通知の要否とは独立に永続化する(Stripeカスタマーポータル経由のプラン変更を反映する)。
+
+    (フェーズ198、subscription-updated-event-order-guard-design.md)`current_period_end`・
+    `plan_id`の書き込みは`event_time`ベースの配信順序入れ替わりガードの対象で、記録済みの
+    `subscription_updated_event_time`以下(同時刻含む)の場合はいずれの書き込みも通知も
+    行わずスキップする(`stale=True`を返す)。他ハンドラの「丸ごとスキップ」方針と同じく、
+    `cancel_at_period_end`の前後比較による解約予約受理・解約取り消し通知も対象に含める
+    (遅延配信された古い`.updated`が、既により新しいイベントで確定済みの状態を誤って
+    上書き通知しないようにするため)。`event_time`省略時・store未対応・未記録時は従来通り
+    無条件適用する(他ガードと同じ後方互換)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -426,6 +479,9 @@ def handle_customer_subscription_updated(
     if workshop_id is None:
         return CustomerSubscriptionUpdatedResult(unresolved=True)
 
+    if _is_stale_subscription_updated_event(workshop_store, workshop_id, event_time):
+        return CustomerSubscriptionUpdatedResult(workshop_id=workshop_id, stale=True)
+
     raw_current_period_end = data_object.get("current_period_end")
     if isinstance(raw_current_period_end, (int, float)) and not isinstance(
         raw_current_period_end, bool
@@ -435,6 +491,7 @@ def handle_customer_subscription_updated(
         )
 
     sync_plan_on_subscription_event(workshop_store, workshop_id, data_object)
+    _record_subscription_updated_event_time(workshop_store, workshop_id, event_time)
 
     if push_client is None:
         return CustomerSubscriptionUpdatedResult(workshop_id=workshop_id)
@@ -683,7 +740,7 @@ def receive_stripe_webhook(
 
     if event_type == "customer.subscription.updated":
         updated_result = handle_customer_subscription_updated(
-            event, workshop_store, push_client=push_client
+            event, workshop_store, push_client=push_client, event_time=event_time
         )
         if updated_result.invalid:
             return StripeWebhookReceiverResult(status_code=400, error="missing_customer")
