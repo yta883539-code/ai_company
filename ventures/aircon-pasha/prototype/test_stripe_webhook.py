@@ -279,6 +279,90 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertEqual(result.error, "user_profile_not_found")
         self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_1"))
 
+    def test_stale_event_does_not_overwrite_stripe_customer_id(self):
+        """フェーズ287、checkout-session-completed-event-order-guard-design.md。
+        `stripe_customer_id`はkura-pashaと異なり「未設定時のみ書き込み」で保護されて
+        いないため、より新しいイベントで既に反映済みの後に、遅延配信された古い
+        イベントが届いても上書きしないことを確認する。"""
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        later = NOW_DT
+        earlier = datetime.fromtimestamp(NOW - 1000, tz=timezone.utc)
+        event_new = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_new"}},
+        }
+        event_old = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_old"}},
+        }
+
+        first = handle_checkout_session_completed(event_new, store, event_time=later)
+        second = handle_checkout_session_completed(event_old, store, event_time=earlier)
+
+        self.assertFalse(first.stale)
+        self.assertTrue(second.linked)
+        self.assertTrue(second.stale)
+        self.assertEqual(store.get("user_1").stripe_customer_id, "cus_new")
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_old"))
+
+    def test_same_event_time_is_treated_as_stale(self):
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_1"}},
+        }
+
+        handle_checkout_session_completed(event, store, event_time=NOW_DT)
+        repeated = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_2"}},
+        }
+        result = handle_checkout_session_completed(repeated, store, event_time=NOW_DT)
+
+        self.assertTrue(result.stale)
+        self.assertEqual(store.get("user_1").stripe_customer_id, "cus_1")
+
+    def test_event_time_omitted_applies_unconditionally(self):
+        """`event_time`省略時は既存呼び出し経路への後方互換として従来通り無条件で
+        上書きする(他ガードと同じ方針)。"""
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        store.set_checkout_session_completed_event_time("user_1", NOW_DT)
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_new"}},
+        }
+
+        result = handle_checkout_session_completed(event, store)
+
+        self.assertFalse(result.stale)
+        self.assertEqual(store.get("user_1").stripe_customer_id, "cus_new")
+
+    def test_upgraded_at_still_written_when_checkout_event_is_stale(self):
+        """`upgraded_at`はガード対象外(design docstring)のため、`stripe_customer_id`が
+        staleでスキップされても初回転換の書き込みは行われる。"""
+        store = InMemoryUserProfileStore()
+        _seed_profile(store, "user_1")
+        store.set_checkout_session_completed_event_time(
+            "user_1", NOW_DT
+        )
+        earlier = datetime.fromtimestamp(NOW - 1000, tz=timezone.utc)
+        event = {
+            "type": "checkout.session.completed",
+            "data": {"object": {"client_reference_id": "user_1", "customer": "cus_1"}},
+        }
+
+        result = handle_checkout_session_completed(
+            event, store, now=NOW_DT, event_time=earlier
+        )
+
+        self.assertTrue(result.stale)
+        self.assertTrue(result.upgraded_at_written)
+        self.assertEqual(store.get("user_1").upgraded_at, NOW_DT)
+        self.assertIsNone(store.get("user_1").stripe_customer_id)
+
 
 class MakeResolveUserIdTest(unittest.TestCase):
     def test_delegates_to_store_reverse_lookup(self):

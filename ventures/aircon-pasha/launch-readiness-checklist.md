@@ -1,4 +1,4 @@
-# aircon-pasha 公開までのチェックリスト(フェーズ284時点)
+# aircon-pasha 公開までのチェックリスト(フェーズ287時点)
 
 目的: 設計・実装・テストは完了しているが、実際の稼働にはオーナー承認が必要な外部サービス
 設定が複数残っている。オーナーがpending-approval.mdを一つずつ確認する際に迷わないよう、
@@ -14,6 +14,10 @@ kura-pasha(フェーズ196)・line-reservation-ai(フェーズ続き286)と同�
   5箇所の副作用: deletion_candidate・plan・blocked_but_billing・payment_failure・
   cancellation通知): フェーズ280〜283で対応完了。他venture(kura-pasha・
   course-set-pasha・line-reservation-ai)との横断確認も済み。
+- `checkout.session.completed`の`stripe_customer_id`書き込みについても、
+  他ventureで先行対応済みだった配信順序入れ替わりガードが未反映のまま残っていたため
+  フェーズ287で是正(checkout-session-completed-event-order-guard-design.md)。
+  テスト4件追加、venture全体650件・schema検証25件いずれもパス。
 - user-account-linking-design.md(フェーズ107): 申込フォーム送信完了時の連携コード
   発行→LINE初回メッセージでのコード送信方式、連携コードの判定・解決ロジックは机上設計
   まで完了。

@@ -177,6 +177,46 @@ def verify_stripe_signature(
     return True
 
 
+# ---------------------------------------------------------------------------
+# stripe_customer_idの配信順序入れ替わりガード
+# (checkout-session-completed-event-order-guard-design.md、フェーズ287)
+#
+# course-set-pashaフェーズ265・kura-pashaフェーズ197が対応した`checkout.session.
+# completed`の配信順序ガードのうち、本ventureは`stripe_customer_id`書き込みが
+# kura-pashaのような「未設定時のみ書き込み」では保護されておらず(design 1節参照)、
+# 受信のたびに無条件で上書きしていたため、これを対象にガードを追加する。
+# ---------------------------------------------------------------------------
+
+
+def _is_stale_checkout_session_completed_event(
+    store: UserProfileStoreProtocol,
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_checkout_session_completed_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_checkout_session_completed_event_time(
+    store: UserProfileStoreProtocol,
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if event_time is None:
+        return
+    setter = getattr(store, "set_checkout_session_completed_event_time", None)
+    if setter is None:
+        return
+    setter(user_id, event_time)
+
+
 @dataclass
 class CheckoutSessionLinkResult:
     """handle_checkout_session_completed()の結果
@@ -187,6 +227,7 @@ class CheckoutSessionLinkResult:
     stripe_customer_id: Optional[str] = None
     error: Optional[str] = None
     upgraded_at_written: bool = False
+    stale: bool = False
 
 
 def handle_checkout_session_completed(
@@ -194,6 +235,7 @@ def handle_checkout_session_completed(
     store: UserProfileStoreProtocol,
     *,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(=user_id、
     Checkout Session作成時にuser-account-linking-design.md 4節のとおり既知の値を
@@ -210,6 +252,13 @@ def handle_checkout_session_completed(
     書き込み(フェーズ135)もあわせて行う。`upgraded_at`は「有料転換時に1回だけ書き込む」
     フィールド(UserProfile docstring)のため、既に設定済みの場合は上書きしない
     (Stripeの再送・重複配信でこのイベントが複数回届いても、最初の転換日時を保持する)。
+
+    (フェーズ287、checkout-session-completed-event-order-guard-design.md)
+    `stripe_customer_id`の書き込みは`event_time`ベースの配信順序入れ替わりガードの
+    対象で、記録済みの`checkout_session_completed_event_time`以下(同時刻含む)の場合は
+    スキップし`stale=True`・`stripe_customer_id`は書き込まれないまま返す(`upgraded_at`は
+    従来通り「一度きり」判定で書き込む、ガード対象外)。`event_time`省略時・store未対応・
+    未記録時は従来通り無条件適用する(他ガードと同じ後方互換)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -229,7 +278,10 @@ def handle_checkout_session_completed(
             linked=False, user_id=user_id, error="user_profile_not_found"
         )
 
-    store.set_stripe_customer_id(user_id, stripe_customer_id)
+    stale = _is_stale_checkout_session_completed_event(store, user_id, event_time)
+    if not stale:
+        store.set_stripe_customer_id(user_id, stripe_customer_id)
+        _record_checkout_session_completed_event_time(store, user_id, event_time)
 
     upgraded_at_written = False
     if profile.upgraded_at is None:
@@ -242,6 +294,7 @@ def handle_checkout_session_completed(
         user_id=user_id,
         stripe_customer_id=stripe_customer_id,
         upgraded_at_written=upgraded_at_written,
+        stale=stale,
     )
 
 
@@ -358,9 +411,16 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, duplicate=True)
 
     if parsed.get("type") == "checkout.session.completed":
+        created = parsed.get("created")
+        checkout_event_time: Optional[datetime] = None
+        if isinstance(created, (int, float)) and not isinstance(created, bool):
+            checkout_event_time = datetime.fromtimestamp(created, tz=timezone.utc)
         checkout_link_result = (
             handle_checkout_session_completed(
-                parsed, user_profile_store, now=resolved_now
+                parsed,
+                user_profile_store,
+                now=resolved_now,
+                event_time=checkout_event_time,
             )
             if user_profile_store is not None
             else CheckoutSessionLinkResult(linked=False, error="store_not_configured")
