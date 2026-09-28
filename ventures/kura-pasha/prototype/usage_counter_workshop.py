@@ -446,6 +446,22 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_checkout_session_completed_event_time(self, workshop_id: str) -> Optional[datetime]:
+        """checkout-session-completed-plan-event-order-guard-design.md 2節: `plan`を
+        最後に実際に反映した`checkout.session.completed`イベントの`event.created`
+        (Unixタイムスタンプをdatetimeへ変換した値)を返す。一度も反映されていない
+        workshopはNoneを返す。
+        """
+        ...
+
+    def set_checkout_session_completed_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        """`set_plan`(checkout.session.completed経由の上書き)と対にして呼び出す、
+        配信順序入れ替わりガード用の記録処理(design 2節)。
+        """
+        ...
+
     def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
         """subscription-billing-data-model-design.md 1節: 次回請求日・トライアル終了
         予定日の判定に使用する。未設定(未契約・イベント未受信)のworkshopはNoneを返す。
@@ -580,6 +596,7 @@ class InMemoryWorkshopStore:
         self._workshop_id_by_stripe_customer_id: dict[str, str] = {}
         self._subscription_status_by_workshop: dict[str, str] = {}
         self._subscription_status_event_time_by_workshop: dict[str, datetime] = {}
+        self._checkout_session_completed_event_time_by_workshop: dict[str, datetime] = {}
         self._current_period_end_by_workshop: dict[str, datetime] = {}
         self._payment_failure_detected_at_by_workshop: dict[str, datetime] = {}
         self._payment_failure_reminder_sent_at_by_workshop: dict[str, datetime] = {}
@@ -708,6 +725,14 @@ class InMemoryWorkshopStore:
         self, workshop_id: str, event_time: datetime
     ) -> None:
         self._subscription_status_event_time_by_workshop[workshop_id] = event_time
+
+    def get_checkout_session_completed_event_time(self, workshop_id: str) -> Optional[datetime]:
+        return self._checkout_session_completed_event_time_by_workshop.get(workshop_id)
+
+    def set_checkout_session_completed_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._checkout_session_completed_event_time_by_workshop[workshop_id] = event_time
 
     def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
         return self._current_period_end_by_workshop.get(workshop_id)

@@ -769,11 +769,15 @@ def test_invoice_failed_without_push_client_does_not_notify():
 
 
 class _EventTimeUnawareWorkshopStore(InMemoryWorkshopStore):
-    """`get/set_subscription_status_event_time`を持たない旧来のstore実装を模した
-    テスト専用スタブ(design 3節のhasattr方針の後方互換確認用)。"""
+    """`get/set_subscription_status_event_time`・`get/set_checkout_session_completed_
+    event_time`を持たない旧来のstore実装を模したテスト専用スタブ(design 3節・
+    checkout-session-completed-plan-event-order-guard-design.md 2節、いずれもhasattr
+    方針の後方互換確認用)。"""
 
     get_subscription_status_event_time = None
     set_subscription_status_event_time = None
+    get_checkout_session_completed_event_time = None
+    set_checkout_session_completed_event_time = None
 
 
 def test_checkout_completed_skips_when_event_time_not_after_recorded():
@@ -801,6 +805,124 @@ def test_checkout_completed_applies_when_event_time_missing():
         "event_time省略時は従来通り無条件に適用される(後方互換)",
         store.get_subscription_status("W61") == "active",
     )
+
+
+# --- planの配信順序入れ替わりガード
+# (checkout-session-completed-plan-event-order-guard-design.md、フェーズ197) ---
+
+
+def test_checkout_completed_plan_applies_when_event_time_missing():
+    store = InMemoryWorkshopStore()
+    store.set_checkout_session_completed_event_time(
+        "W70", datetime(2026, 9, 20, tzinfo=timezone.utc)
+    )
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W70",
+            "customer": "cus_70",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+    )
+    check("event_time省略時はplanも従来通り無条件に適用される(後方互換)", result.plan_written)
+    check("event_time省略時のplanは実際に書き込まれる", store.get_plan_id("W70") == "standard")
+
+
+def test_checkout_completed_plan_applies_when_no_time_recorded_yet():
+    store = InMemoryWorkshopStore()
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W71",
+            "customer": "cus_71",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+        event_time=datetime(2026, 9, 20, tzinfo=timezone.utc),
+    )
+    check("記録済みevent_timeが無ければplanも無条件に適用される", result.plan_written)
+    check("記録なし時のplanは実際に書き込まれる", store.get_plan_id("W71") == "standard")
+
+
+def test_checkout_completed_plan_applies_when_event_time_newer_than_recorded():
+    store = InMemoryWorkshopStore()
+    store.set_checkout_session_completed_event_time(
+        "W72", datetime(2026, 9, 20, 9, 0, tzinfo=timezone.utc)
+    )
+    newer = datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W72",
+            "customer": "cus_72",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+        event_time=newer,
+    )
+    check("新しいevent_timeのplanは適用される", result.plan_written)
+    check("新しいevent_timeのplanは実際に書き込まれる", store.get_plan_id("W72") == "standard")
+    check(
+        "適用時はcheckout_session_completed_event_timeが更新される",
+        store.get_checkout_session_completed_event_time("W72") == newer,
+    )
+
+
+def test_checkout_completed_plan_skips_when_event_time_older_than_recorded():
+    """course-set-pashaフェーズ265と同型: 解約直後に別プランで即再契約した場合等、
+    配信順序が入れ替わって古いCheckout Session完了イベントが遅れて届いても、
+    新しいイベントで既に反映済みのplanを古い値で誤って上書きしない。"""
+    store = InMemoryWorkshopStore()
+    store.set_plan("W73", "light")
+    store.set_checkout_session_completed_event_time(
+        "W73", datetime(2026, 9, 20, tzinfo=timezone.utc)
+    )
+    older = datetime(2026, 9, 19, tzinfo=timezone.utc)
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W73",
+            "customer": "cus_73",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+        event_time=older,
+    )
+    check("古いevent_timeのplanはスキップされplan_written=False", result.plan_written is False)
+    check(
+        "古いevent_timeのcheckout.session.completedはplanを上書きしない",
+        store.get_plan_id("W73") == "light",
+    )
+
+
+def test_checkout_completed_plan_skips_when_event_time_equal_to_recorded():
+    store = InMemoryWorkshopStore()
+    store.set_plan("W74", "light")
+    same = datetime(2026, 9, 20, tzinfo=timezone.utc)
+    store.set_checkout_session_completed_event_time("W74", same)
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W74",
+            "customer": "cus_74",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+        event_time=same,
+    )
+    check("同時刻のevent_timeはstale扱いでスキップされる", result.plan_written is False)
+    check("同時刻のcheckout.session.completedはplanを上書きしない", store.get_plan_id("W74") == "light")
+
+
+def test_checkout_completed_plan_applies_unconditionally_when_store_lacks_event_time_methods():
+    store = _EventTimeUnawareWorkshopStore()
+    result = handle_checkout_session_completed(
+        {
+            "client_reference_id": "W75",
+            "customer": "cus_75",
+            "metadata": {"plan_id": "standard"},
+        },
+        store,
+        event_time=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
+    check("store未対応時はplanも従来通り無条件に適用される(後方互換)", result.plan_written)
+    check("store未対応時のplanは実際に書き込まれる", store.get_plan_id("W75") == "standard")
 
 
 def test_deleted_skips_when_reactivated_after_stale_deleted_arrives_late():
@@ -1354,6 +1476,12 @@ if __name__ == "__main__":
     test_invoice_failed_without_push_client_does_not_notify()
     test_checkout_completed_skips_when_event_time_not_after_recorded()
     test_checkout_completed_applies_when_event_time_missing()
+    test_checkout_completed_plan_applies_when_event_time_missing()
+    test_checkout_completed_plan_applies_when_no_time_recorded_yet()
+    test_checkout_completed_plan_applies_when_event_time_newer_than_recorded()
+    test_checkout_completed_plan_skips_when_event_time_older_than_recorded()
+    test_checkout_completed_plan_skips_when_event_time_equal_to_recorded()
+    test_checkout_completed_plan_applies_unconditionally_when_store_lacks_event_time_methods()
     test_deleted_skips_when_reactivated_after_stale_deleted_arrives_late()
     test_deleted_applies_when_event_time_newer_than_recorded()
     test_deleted_applies_unconditionally_when_store_lacks_event_time_methods()

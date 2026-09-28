@@ -176,6 +176,46 @@ def _record_subscription_status_event_time(
     setter(workshop_id, event_time)
 
 
+# ---------------------------------------------------------------------------
+# planの配信順序入れ替わりガード
+# (checkout-session-completed-plan-event-order-guard-design.md、フェーズ197)
+#
+# course-set-pashaフェーズ265(checkout-session-completed-event-order-guard-design.md)
+# が`stripe_customer_id`・`plan`双方を対象に横展開した「丸ごとスキップ」方式のうち、
+# 本venture固有の`stripe_customer_id`書き込みは既に`get_stripe_customer_id() is None`の
+# 一度きり書き込みで保護済みのため対象外とし、無条件上書きが残っていた`plan`のみを
+# 対象とする(design 1節)。
+# ---------------------------------------------------------------------------
+
+def _is_stale_checkout_session_completed_event(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    if event_time is None:
+        return False
+    getter = getattr(workshop_store, "get_checkout_session_completed_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(workshop_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_checkout_session_completed_event_time(
+    workshop_store: WorkshopStoreProtocol,
+    workshop_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if event_time is None:
+        return
+    setter = getattr(workshop_store, "set_checkout_session_completed_event_time", None)
+    if setter is None:
+        return
+    setter(workshop_id, event_time)
+
+
 def _event_time_from_created(event: dict) -> Optional[datetime]:
     """Stripeイベント全体(トップレベル)の`created`(Unixタイムスタンプ)を
     `datetime`へ変換する。欠落・非数値の場合はNone(ガードを判定不能として常に適用、
@@ -219,6 +259,13 @@ def handle_checkout_session_completed(
     2段階目)。`metadata`欠落・`plan_id`欠落・未知の値の場合は何も書き込まない
     (安全側。古いCheckout Session実装〈metadata省略〉からのイベントでも
     顧客ID紐付け自体は従来通り行える)。
+
+    (フェーズ197、checkout-session-completed-plan-event-order-guard-design.md)
+    `plan`の書き込みは`event_time`ベースの配信順序入れ替わりガードの対象で、記録済みの
+    `checkout_session_completed_event_time`以下(同時刻含む)の場合はスキップし
+    `plan_written=False`を返す(`stripe_customer_id`は`get_stripe_customer_id() is
+    None`の一度きり書き込みで既に保護済みのため対象外)。`event_time`省略時・store未対応・
+    未記録時は従来通り無条件適用する(他ガードと同じ後方互換)。
     """
     workshop_id = data_object.get("client_reference_id")
     if not workshop_id:
@@ -239,8 +286,10 @@ def handle_checkout_session_completed(
     metadata = data_object.get("metadata")
     plan_id = metadata.get("plan_id") if isinstance(metadata, dict) else None
     if isinstance(plan_id, str) and plan_id in VALID_PLAN_IDS:
-        workshop_store.set_plan(workshop_id, plan_id)
-        plan_written = True
+        if not _is_stale_checkout_session_completed_event(workshop_store, workshop_id, event_time):
+            workshop_store.set_plan(workshop_id, plan_id)
+            plan_written = True
+            _record_checkout_session_completed_event_time(workshop_store, workshop_id, event_time)
 
     return CheckoutSessionCompletedResult(
         workshop_id=workshop_id,

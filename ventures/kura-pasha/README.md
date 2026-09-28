@@ -4226,3 +4226,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   への追記なし。次回候補: 上記3件のいずれかがオーナーから承認された場合はその着手を
   最優先とし、それまでは他venture・アイデア領域の前進、または本チェックリストと
   pending-approval.mdの記載齟齬の定期棚卸しを行う。
+- フェーズ197(2026-09-28 16:00 UTC定例更新): course-set-pashaフェーズ265
+  (checkout-session-completed-event-order-guard-design.md、元はline-reservation-ai
+  フェーズ続き285からの横展開)が`handle_checkout_session_completed()`の
+  `stripe_customer_id`・`plan`双方にStripe Webhook配信順序入れ替わりガードを追加した
+  一方、kura-pasha自身にはこの横展開が未反映のまま残っていたことが判明したため是正した。
+  `stripe_customer_id`は既存の「未設定時のみ書き込み」方式で既に保護済みのため対象外とし、
+  無条件上書きが残っていた`plan`の書き込みのみを対象に、`WorkshopStoreProtocol`へ
+  `get/set_checkout_session_completed_event_time()`を追加、`stripe_webhook.py`に
+  `_is_stale_checkout_session_completed_event()`を新設して「丸ごとスキップ」方針の
+  ガードを配線した。詳細はcheckout-session-completed-plan-event-order-guard-design.md
+  参照。テスト6件追加(`test_stripe_webhook.py`単体は166→172件)、venture全体
+  `python3 prototype/run_all_tests.py`(16ファイルOK)・schema検証`python3
+  schema/validate_test_cases.py`(32件、変更なし)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進、または
+  本チェックリストとpending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-28 16:00 UTC(フェーズ197: `handle_checkout_session_completed()`の
+  `plan`書き込みにStripe Webhook配信順序入れ替わりガードを追加。
+  `checkout_session_completed_event_time`新設、stale時はplanのみスキップする方針で配線。
+  テスト6件追加、venture全体16ファイルOK・schema検証32件いずれもパス)
