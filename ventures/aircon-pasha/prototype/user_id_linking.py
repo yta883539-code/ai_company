@@ -250,7 +250,17 @@ class UserProfile:
     `get_user_id_by_stripe_customer_id()`で逆引きできなくなる)おそれがあるため、
     最後に実際に反映したイベントの`event.created`を記録し、`stripe_webhook.
     _is_stale_checkout_session_completed_event()`がこれより古い(または同時刻の)イベントの
-    反映をスキップする判定に使う。"""
+    反映をスキップする判定に使う。
+
+    `subscription_updated_event_time`はsubscription-updated-event-order-guard-design.md
+    (本フェーズ、course-set-pashaフェーズ267・kura-pashaフェーズ198の横展開)で追加した。
+    `customer.subscription.deleted`/`.created`用の`subscription_state_event_time`とは
+    独立した専用フィールドで、`customer.subscription.updated`同士の配信順序が入れ替わった
+    場合に、既に反映済みのより新しい`.updated`(plan同期・解約予約受理/取り消し通知・
+    reactivated状態クリア)を、遅延配信された古い`.updated`で誤って上書き・再通知して
+    しまうことを防ぐ。最後に実際に反映した`.updated`イベントの`event.created`を記録し、
+    `stripe_dispatch._is_stale_subscription_updated_event()`がこれより古い(または同時刻の)
+    イベントの反映を丸ごとスキップする判定に使う。"""
 
     business_name: str
     business_type: str
@@ -271,6 +281,7 @@ class UserProfile:
     subscription_state_event_time: Optional[datetime] = None
     payment_failure_state_event_time: Optional[datetime] = None
     checkout_session_completed_event_time: Optional[datetime] = None
+    subscription_updated_event_time: Optional[datetime] = None
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
@@ -503,6 +514,13 @@ class UserProfileStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        """subscription-updated-event-order-guard-design.md(本フェーズ)対応。"""
+        ...
+
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -727,6 +745,16 @@ class InMemoryUserProfileStore:
             return
         profile.checkout_session_completed_event_time = event_time
 
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.subscription_updated_event_time if profile is not None else None
+
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.subscription_updated_event_time = event_time
+
 
 @dataclass
 class LinkingResolution:
@@ -853,6 +881,11 @@ def resolve_linking_code(
             ),
             payment_failure_state_event_time=(
                 existing_profile.payment_failure_state_event_time
+                if existing_profile
+                else None
+            ),
+            subscription_updated_event_time=(
+                existing_profile.subscription_updated_event_time
                 if existing_profile
                 else None
             ),

@@ -74,6 +74,17 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   いずれも行わず丸ごとスキップする(course-set-pasha/kura-pashaの「stale全体スキップ」
   方針の踏襲。仮に状態だけスキップして通知だけ送ると、実際の決済状態と矛盾する通知
   〈例: 既に決済成功済みなのに「お支払いの確認をお願いします」〉を送ってしまうため)。
+- 配信順序入れ替わりガードの`customer.subscription.updated`への横展開(フェーズ286):
+  subscription-updated-event-order-guard-design.md参照(course-set-pashaフェーズ267・
+  kura-pashaフェーズ198の横展開)。フェーズ280・281は`customer.subscription.deleted`/
+  `.created`・dunning側のみを対象としており、`customer.subscription.updated`同士の
+  配信順序入れ替わり(reactivated判定・plan同期・解約予約受理/取り消し通知)は未対応の
+  まま残っていた。`payment_store`(`InMemoryUserProfileStore`)に`get_subscription_
+  updated_event_time()`/`set_subscription_updated_event_time()`(`UserProfile.
+  subscription_updated_event_time`フィールド、既存の`subscription_state_event_time`
+  とは独立)を追加し、`_is_stale_subscription_updated_event()`/`_record_subscription_
+  updated_event_time()`で判定・記録する(フェーズ280・281と同じ`hasattr`後方互換方針、
+  stale時は丸ごとスキップ)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -206,6 +217,12 @@ class StripeDispatchResult:
     # (payment-failure-event-order-guard-design.md参照)。
     stale_payment_failed_user_ids: List[str] = field(default_factory=list)
     stale_payment_succeeded_user_ids: List[str] = field(default_factory=list)
+    # 本フェーズ(286)追加: payment_store指定時(かつ`get_subscription_updated_event_time`
+    # 対応時)、配信順序が入れ替わった(既に反映済みのより新しい.updatedより古い)と判定され、
+    # customer.subscription.updatedの反映(plan同期・解約予約受理/取り消し通知・
+    # reactivated状態クリア)を丸ごとスキップしたuser_id
+    # (subscription-updated-event-order-guard-design.md参照)。
+    stale_subscription_updated_user_ids: List[str] = field(default_factory=list)
 
 
 def _is_stale_subscription_state_event(
@@ -240,6 +257,42 @@ def _record_subscription_state_event_time(
     if payment_store is None or event_time is None:
         return
     setter = getattr(payment_store, "set_subscription_state_event_time", None)
+    if setter is None:
+        return
+    setter(user_id, event_time)
+
+
+def _is_stale_subscription_updated_event(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-updated-event-order-guard-design.md準拠(本フェーズ、
+    course-set-pashaフェーズ267・kura-pashaフェーズ198の横展開)。
+    `customer.subscription.deleted`/`.created`用の`_is_stale_subscription_state_event()`
+    とは別の独立した基準線(`get_subscription_updated_event_time()`)と比較する。
+    `event_time`がNone、または`payment_store`が`get_subscription_updated_event_time`に
+    未対応の場合は判定不能として常にFalse(staleではない)を返し、従来通りイベントを
+    適用する。"""
+    if payment_store is None or event_time is None:
+        return False
+    getter = getattr(payment_store, "get_subscription_updated_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_updated_event_time(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if payment_store is None or event_time is None:
+        return
+    setter = getattr(payment_store, "set_subscription_updated_event_time", None)
     if setter is None:
         return
     setter(user_id, event_time)
@@ -481,6 +534,23 @@ def dispatch_stripe_event(
         return result
 
     if event_type == _SUBSCRIPTION_UPDATED:
+        # 配信順序入れ替わりガードのcustomer.subscription.updatedへの横展開(本フェーズ286、
+        # course-set-pashaフェーズ267・kura-pashaフェーズ198の横展開)対応:
+        # reactivated判定・plan同期・解約予約受理/取り消し通知のいずれも、既により新しい
+        # .updatedが反映済みであれば「丸ごとスキップ」する(他ハンドラの配信順序ガードと
+        # 同じ方針)。event.createdが数値でない/存在しない場合は判定不能として従来通り
+        # 無条件適用する(既存呼び出し経路への後方互換)。詳細はsubscription-updated-
+        # event-order-guard-design.md参照。
+        updated_created = event.get("created")
+        updated_event_time: Optional[datetime] = None
+        if isinstance(updated_created, (int, float)) and not isinstance(
+            updated_created, bool
+        ):
+            updated_event_time = datetime.fromtimestamp(updated_created, tz=timezone.utc)
+        if _is_stale_subscription_updated_event(payment_store, user_id, updated_event_time):
+            result.stale_subscription_updated_user_ids.append(user_id)
+            return result
+
         status = data_object.get("status")
         if status in _REACTIVATED_STATUSES:
             clear_deletion_candidate_on_subscription_reactivated(store, user_id)
@@ -507,6 +577,7 @@ def dispatch_stripe_event(
                         result.cancellation_rescheduled_notified_user_ids.append(user_id)
                 elif update_result.outcome != _OUTCOME_NO_CHANGE:
                     result.cancellation_update_notification_failed_user_ids.append(user_id)
+        _record_subscription_updated_event_time(payment_store, user_id, updated_event_time)
         return result
 
     if payment_store is None:

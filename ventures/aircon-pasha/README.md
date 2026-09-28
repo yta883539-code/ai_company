@@ -4943,3 +4943,27 @@
 - 最終更新: 2026-09-28 18:00 UTC(フェーズ285: launch-readiness-checklist.mdと
   pending-approval.mdの記載齟齬を棚卸しし、齟齬なしを確認。line-reservation-aiの
   時間削減提示機能がファイル名は異なるが実装済みであることも確認。コード変更なし)
+- フェーズ286(2026-09-28 23:00 UTC定例更新): course-set-pashaフェーズ267・kura-pasha
+  フェーズ198(2026-09-28 21:00 UTC台)が発見・是正した「`customer.subscription.updated`
+  ハンドラに配信順序入れ替わりガードが一度も実装されていなかった」欠落が、両venture共に
+  「他venture(aircon-pasha・line-reservation-ai)への横断確認」として申し送っていた点を
+  受け、aircon-pasha自身を点検したところ同型の欠落が存在することを確認・是正した。
+  `UserProfileStoreProtocol`(user_id_linking.py)に`get/set_subscription_updated_
+  event_time()`(`UserProfile.subscription_updated_event_time`フィールド、既存の
+  `subscription_state_event_time`とは独立)を新設し、`stripe_dispatch.py`に
+  `_is_stale_subscription_updated_event()`/`_record_subscription_updated_event_time()`
+  を追加、`_SUBSCRIPTION_UPDATED`分岐の先頭でstale判定を行い、staleの場合はplan同期・
+  解約予約受理/取り消し通知・reactivated状態クリアのいずれも行わず丸ごとスキップする
+  方針で配線した。詳細はsubscription-updated-event-order-guard-design.md参照。テスト
+  4件追加(`test_stripe_dispatch.py`)、venture全体`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(653件、649→653)・schema検証`python3 schema/
+  validate_test_cases.py`(25件、変更なし)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: line-reservation-aiの`customer.
+  subscription.updated`ハンドラに同種のガード欠落が残っていないかの横断確認、または
+  他venture・アイデア領域の前進、launch-readiness-checklist.mdとpending-approval.mdの
+  記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-28 23:00 UTC(フェーズ286: `customer.subscription.updated`ハンドラに
+  Stripe Webhook配信順序入れ替わりガードを新設。`subscription_updated_event_time`新設、
+  stale時はplan同期・通知・reactivated状態クリアを丸ごとスキップする方針で配線。テスト
+  4件追加、venture全体653件・schema検証25件いずれもパス)

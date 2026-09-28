@@ -668,6 +668,88 @@ class DispatchSubscriptionUpdatedTest(unittest.TestCase):
         self.assertEqual(result.plan_synced_user_ids, [_USER_ID])
         self.assertEqual(plan_store.get_current_plan_id(_USER_ID), "スタンダード")
 
+    def test_stale_updated_event_skips_plan_sync_and_reactivation(self):
+        # subscription-updated-event-order-guard-design.md(フェーズ286、
+        # course-set-pashaフェーズ267・kura-pashaフェーズ198の横展開): 既により新しい
+        # .updatedが反映済みの場合、古い.updatedはplan同期・reactivated状態クリアの
+        # いずれも行わず丸ごとスキップする。
+        store = InMemoryProfileDeletionCandidateStore()
+        store.set_deletion_candidate_at(_USER_ID, datetime(2027, 8, 25, tzinfo=timezone.utc))
+        payment_store = _profile_store_with_user()
+        payment_store.set_subscription_updated_event_time(
+            _USER_ID, datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc)
+        )
+        plan_store = payment_store
+        plan_store.set_current_plan_id(_USER_ID, "スモール")
+        stale_created = int(
+            datetime(2026, 9, 1, 11, 0, 0, tzinfo=timezone.utc).timestamp()
+        )
+        event = {
+            "type": "customer.subscription.updated",
+            "created": stale_created,
+            "data": {
+                "object": {
+                    "customer": _CUSTOMER,
+                    "status": "active",
+                    "items": {
+                        "data": [{"price": {"lookup_key": "aircon_pasha_standard"}}]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            plan_store=plan_store,
+        )
+        self.assertEqual(result.stale_subscription_updated_user_ids, [_USER_ID])
+        self.assertEqual(result.cleared_user_ids, [])
+        self.assertEqual(result.plan_synced_user_ids, [])
+        self.assertIsNotNone(store.get_deletion_candidate_at(_USER_ID))
+        self.assertEqual(plan_store.get_current_plan_id(_USER_ID), "スモール")
+
+    def test_non_stale_updated_event_applies_and_records_event_time(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_subscription_updated_event_time(
+            _USER_ID, datetime(2026, 9, 1, 11, 0, 0, tzinfo=timezone.utc)
+        )
+        newer_created = int(
+            datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        )
+        event = {
+            "type": "customer.subscription.updated",
+            "created": newer_created,
+            "data": {"object": {"customer": _CUSTOMER, "status": "active"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_updated_user_ids, [])
+        self.assertEqual(result.cleared_user_ids, [_USER_ID])
+        self.assertEqual(
+            payment_store.get_subscription_updated_event_time(_USER_ID),
+            datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc),
+        )
+
+    def test_updated_event_applies_unconditionally_when_payment_store_not_provided(self):
+        # payment_store未指定(hasattr未対応相当)の場合は判定不能として従来通り
+        # 無条件適用する(既存呼び出し経路への後方互換)。
+        store = InMemoryProfileDeletionCandidateStore()
+        event = {
+            "type": "customer.subscription.updated",
+            "created": int(datetime(2026, 9, 1, tzinfo=timezone.utc).timestamp()),
+            "data": {"object": {"customer": _CUSTOMER, "status": "active"}},
+        }
+        result = dispatch_stripe_event(event, store=store, resolve_user_id=_resolve_known)
+        self.assertEqual(result.stale_subscription_updated_user_ids, [])
+        self.assertEqual(result.cleared_user_ids, [_USER_ID])
+
 
 def _profile_store_with_user() -> InMemoryUserProfileStore:
     store = InMemoryUserProfileStore()
