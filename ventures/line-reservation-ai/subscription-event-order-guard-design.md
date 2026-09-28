@@ -84,6 +84,43 @@ venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`(877件�
 承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
 ため、pending-approval.mdへの追記なし。
 
+## 6. 追記(2026-09-28定例更新・フェーズ続き286)
+
+aircon-pashaフェーズ282・course-set-pashaフェーズ263で見つかった非対称(`customer.
+subscription.deleted`受信時、一部のstate書き込みはstale判定でガードされる一方、
+別のstate書き込み・通知は無条件に実行される)が、本venture自身の`stripe_webhook_
+entry_point.receive_stripe_webhook()`にも残っていたことが判明したため是正した。
+
+具体的には、`EVENT_CUSTOMER_SUBSCRIPTION_DELETED`分岐で`cancellation_store`側は
+`handle_subscription_deleted()`内部の`event_time <= state.last_subscription_
+event_time`判定でstale(遅延配信された古いイベント)を正しくスキップしていたが、
+`store_profile_store.set_suspension_reason(store_id, "cancelled")`と
+`clear_dunning_state_on_subscription_deleted()`(dunning_store側のクリア)は
+この判定より前に無条件で実行されていた。dunning-state-clear-on-subscription-
+deleted-design.md(フェーズ続き275)が定めた「通知の成否とは独立」という方針が、
+別軸の「イベントの新旧」判定とは独立ではない、という取り違えが原因。解約直後に
+即再契約した後、それより前に発生していたが遅延配信された`customer.subscription.
+deleted`が届くと、`cancellation_store`側は正しく無視する一方で
+`store_profile_store`側のsuspension_reasonは誤って`"cancelled"`に、dunning_store
+側の決済失敗フィールドは誤ってクリアされてしまう欠落だった。
+
+`receive_stripe_webhook()`の当該分岐冒頭で`cancellation_store.get_cancellation_
+state(store_id)`を1回読み、`last_subscription_event_time`と`event_time`を比較して
+`is_stale_deleted_event`を算出し、`store_profile_store`書き込み・`dunning_store`
+クリアの両方をこの判定でガードするよう変更した(kura-pasha/aircon-pasha/
+course-set-pashaと同じ「stale全体スキップ」方針への統一。`cancellation_store`
+またはevent_timeが無い場合は判定不能として従来通り無条件適用する後方互換)。
+
+`test_stripe_webhook_entry_point.py`の`ReceiveStripeWebhookSubscriptionDeletedTest`
+に`test_stale_event_does_not_set_store_profile_store_suspension_reason`・
+`test_stale_event_does_not_clear_dunning_state`の2件を追加。venture全体893件
+(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前891件+新規2件)・
+schema検証28件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを
+確認した。
+
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ため、pending-approval.mdへの追記なし。
+
 次回候補: `route_stripe_event()`から各ハンドラへの統合エントリポイント配線実装時に
 `event_time`を実際に渡す配線、または`payment_failure_detected_at`側の順序入れ替わり
 検討、あるいは他venture・アイデア領域の前進。

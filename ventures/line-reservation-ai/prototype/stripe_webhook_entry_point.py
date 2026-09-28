@@ -307,23 +307,44 @@ def receive_stripe_webhook(
     if route.event_type == EVENT_CUSTOMER_SUBSCRIPTION_DELETED:
         # subscription-deleted-event-routing-design.md 3節: activated用の
         # `subscription_store`とはフィールド構成が異なるため専用の`cancellation_store`を使う。
-        # blocked-but-billing-detection-design.md 3節: store_profile_store側の
-        # suspension_reasonは実運用では`cancellation_store`側と同一Firestore
-        # ドキュメントのフィールドに収束する想定だが、本プロトタイプは別インスタンスの
-        # ままのため、checkout.session.completed分岐のhandle_checkout_session_completed()・
-        # customer.subscription.updated分岐のsync_plan_on_subscription_event()と同じ
-        # 「通知の成否とは独立して書き込む」方針で、list_blocked_but_billing_candidates()が
-        # 参照するstore_profile_store.suspension_reasonにも"cancelled"を反映する。
-        if store_profile_store is not None:
-            store_profile_store.set_suspension_reason(store_id, "cancelled")
-        # dunning-state-clear-on-subscription-deleted-design.md: cancellation_store/
-        # push_clientの要否・通知成否とは独立して、dunning_store側のstateもクリアする
-        # (store_profile_storeのsuspension_reason書き込みと同じ「通知とは独立」方針)。
-        if dunning_store is not None:
-            dunning_state = dunning_store.get_dunning_state(store_id)
-            if dunning_state is not None:
-                clear_dunning_state_on_subscription_deleted(dunning_state)
-                dunning_store.set_dunning_state(store_id, dunning_state)
+        # subscription-event-order-guard-design.md 6節(2026-09-28定例更新):
+        # store_profile_store書き込み・dunning_storeクリアは、かつて「通知の成否とは
+        # 独立」という理由だけで無条件に実行していたが、それとは別の軸として
+        # `cancellation_store`側がstale(遅延配信された古いイベント)と判定する場合にまで
+        # 実行すると、有効な契約(解約直後の即再契約後に遅延した古いdeletedイベント)を
+        # 誤って"cancelled"扱いにしてしまう(aircon-pashaフェーズ282・course-set-pasha
+        # フェーズ263と同種の非対称)。そこでcancellation_store側の
+        # `last_subscription_event_time`を先に1回だけ参照し、stale判定を
+        # store_profile_store書き込み・dunning_storeクリアにも及ぼす
+        # (「stale全体スキップ」方針への統一)。cancellation_storeまたはevent_timeが
+        # 無い場合は判定不能として従来通り無条件適用する(後方互換)。
+        is_stale_deleted_event = False
+        if cancellation_store is not None and event_time is not None:
+            existing_cancellation_state = cancellation_store.get_cancellation_state(store_id)
+            if (
+                existing_cancellation_state is not None
+                and existing_cancellation_state.last_subscription_event_time is not None
+                and event_time <= existing_cancellation_state.last_subscription_event_time
+            ):
+                is_stale_deleted_event = True
+        if not is_stale_deleted_event:
+            # blocked-but-billing-detection-design.md 3節: store_profile_store側の
+            # suspension_reasonは実運用では`cancellation_store`側と同一Firestore
+            # ドキュメントのフィールドに収束する想定だが、本プロトタイプは別インスタンスの
+            # ままのため、checkout.session.completed分岐のhandle_checkout_session_completed()・
+            # customer.subscription.updated分岐のsync_plan_on_subscription_event()と同じ
+            # 「通知の成否とは独立して書き込む」方針で、list_blocked_but_billing_candidates()が
+            # 参照するstore_profile_store.suspension_reasonにも"cancelled"を反映する。
+            if store_profile_store is not None:
+                store_profile_store.set_suspension_reason(store_id, "cancelled")
+            # dunning-state-clear-on-subscription-deleted-design.md: cancellation_store/
+            # push_clientの要否・通知成否とは独立して、dunning_store側のstateもクリアする
+            # (store_profile_storeのsuspension_reason書き込みと同じ「通知とは独立」方針)。
+            if dunning_store is not None:
+                dunning_state = dunning_store.get_dunning_state(store_id)
+                if dunning_state is not None:
+                    clear_dunning_state_on_subscription_deleted(dunning_state)
+                    dunning_store.set_dunning_state(store_id, dunning_state)
         if cancellation_store is None or push_client is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
         state = cancellation_store.get_cancellation_state(store_id)

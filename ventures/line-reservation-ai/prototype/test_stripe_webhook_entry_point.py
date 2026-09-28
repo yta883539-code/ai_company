@@ -704,6 +704,89 @@ class ReceiveStripeWebhookSubscriptionDeletedTest(unittest.TestCase):
         stored = self.cancellation_store.get_cancellation_state("store-1")
         self.assertIsNone(stored.suspension_reason)
 
+    def test_stale_event_does_not_set_store_profile_store_suspension_reason(self):
+        # subscription-event-order-guard-design.md 6節(2026-09-28定例更新)。
+        # test_stale_event_is_skipped_without_reverting_reactivationと同じstaleな
+        # customer.subscription.deletedを、store_profile_storeも渡して受信した場合、
+        # cancellation_store側だけでなくstore_profile_store側のsuspension_reasonも
+        # "cancelled"へ書き換えてはならない(以前はcancellation_store側のstale判定と
+        # 無関係に無条件で書き換えていた非対称)。
+        state = self.cancellation_store.get_cancellation_state("store-1")
+        state.suspension_reason = None
+        state.last_subscription_event_time = datetime(2026, 9, 3, 11, 0, tzinfo=timezone.utc)
+        store_profile_store = InMemoryStoreProfileStore()
+
+        payload = _event_payload_with_created(
+            "evt_1",
+            "customer.subscription.deleted",
+            {"customer": "cus_1"},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            store_profile_store=store_profile_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "stale_event")
+        self.assertIsNone(store_profile_store.get_suspension_reason("store-1"))
+
+    def test_stale_event_does_not_clear_dunning_state(self):
+        # 同上、dunning_store側(payment_failure_detected_at・sent_event_keys・
+        # suspension_reason)についても同様にstale時はクリアしてはならない。
+        state = self.cancellation_store.get_cancellation_state("store-1")
+        state.suspension_reason = None
+        state.last_subscription_event_time = datetime(2026, 9, 3, 11, 0, tzinfo=timezone.utc)
+        dunning_store = InMemoryStoreDunningStateStore()
+        dunning_store.set_dunning_state(
+            "store-1",
+            StoreDunningState(
+                store_id="store-1",
+                owner_line_user_id="owner-line-1",
+                payment_failure_detected_at=datetime(2026, 8, 30, 9, 0),
+                config=DUNNING_CONFIG_A_7DAYS,
+                payment_page_url="https://example.com/billing",
+                suspension_reason=None,
+                sent_event_keys={"detected"},
+            ),
+        )
+
+        payload = _event_payload_with_created(
+            "evt_1",
+            "customer.subscription.deleted",
+            {"customer": "cus_1"},
+            int(datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc).timestamp()),
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            dunning_store=dunning_store,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.outcome, "stale_event")
+        stored = dunning_store.get_dunning_state("store-1")
+        self.assertEqual(stored.payment_failure_detected_at, datetime(2026, 8, 30, 9, 0))
+        self.assertEqual(stored.sent_event_keys, {"detected"})
+        self.assertIsNone(stored.suspension_reason)
+
     def test_send_failure_leaves_state_unchanged(self):
         class FailingPushClient:
             def send_message(self, user_id, text):
