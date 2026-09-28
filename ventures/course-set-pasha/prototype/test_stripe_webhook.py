@@ -1342,6 +1342,163 @@ class DispatchInvoicePaymentSucceededWithPushClientTest(unittest.TestCase):
         self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
 
 
+class PaymentFailureEventOrderGuardTest(unittest.TestCase):
+    """payment-failure-event-order-guard-design.md(本フェーズ)対応。aircon-pashaフェーズ
+    281と同じ2ケース(ケースA: 決済失敗→即成功、ケースB: 決済失敗確定後に遅延成功復旧)を
+    course-set-pasha側(get/set_payment_failure_state_event_time)でも確認する。"""
+
+    def setUp(self):
+        self.store = InMemoryProfileDeletionCandidateStore()
+        self.usage_counter = InMemoryUsageCounter()
+
+    def test_stale_payment_failed_event_skipped_when_older_than_already_applied_succeeded(
+        self,
+    ):
+        succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            succeeded_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(
+            self.usage_counter.get_payment_failure_state_event_time("user_1"),
+            datetime.fromtimestamp(1_700_000_100, tz=timezone.utc),
+        )
+
+        stale_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            stale_failed_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.stale_payment_failed_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertIsNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_notification_not_sent_when_payment_failed_event_is_stale(self):
+        succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            succeeded_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+
+        push_client = InMemoryLinePushClient()
+        stale_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            stale_failed_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.stale_payment_failed_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertEqual(result.payment_failure_detection_notification_failed_user_ids, [])
+        self.assertEqual(push_client.sent, [])
+
+    def test_stale_payment_succeeded_event_skipped_when_older_than_already_applied_failed(
+        self,
+    ):
+        failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            failed_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+        stale_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            stale_succeeded_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.stale_payment_succeeded_user_ids, ["user_1"])
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_recovery_notification_not_sent_when_payment_succeeded_event_is_stale(self):
+        failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            failed_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+
+        push_client = InMemoryLinePushClient()
+        stale_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_000,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            stale_succeeded_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.stale_payment_succeeded_user_ids, ["user_1"])
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(result.payment_recovery_notification_failed_user_ids, [])
+        self.assertEqual(push_client.sent, [])
+        self.assertIsNotNone(self.usage_counter.get_payment_failure_detected_at("user_1"))
+
+    def test_existing_events_without_created_are_not_treated_as_stale(self):
+        # 既存の(created省略)invoice.payment_succeededイベントはevent_timeがNoneのため、
+        # stale判定は常にFalse(後方互換)。
+        self.usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 28, tzinfo=timezone.utc)
+        )
+        event = {
+            "type": "invoice.payment_succeeded",
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=self.usage_counter,
+        )
+        self.assertEqual(result.stale_payment_succeeded_user_ids, [])
+        self.assertEqual(result.payment_recovered_user_ids, ["user_1"])
+
+
 class ReceiveStripeWebhookInvoicePaymentEventsTest(unittest.TestCase):
     """receive_stripe_webhook()がinvoice.payment_failed/succeededをusage_counterごと
     dispatch_stripe_event()へ委譲することを確認する(フェーズ119)。"""

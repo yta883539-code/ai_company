@@ -200,6 +200,13 @@ class StripeDispatchResult:
     # subscription_canceled_atへの反映をスキップしたuser_id。
     stale_subscription_deleted_user_ids: list = field(default_factory=list)
     stale_subscription_created_user_ids: list = field(default_factory=list)
+    # payment-failure-event-order-guard-design.md(本フェーズ)対応: usage_counterが
+    # get_payment_failure_state_event_time()/set_payment_failure_state_event_time()に
+    # 対応している場合、invoice.payment_failed/invoice.payment_succeededの配信順序が
+    # 入れ替わった(既に反映済みのより新しいイベントより古い)と判定され、状態変更・
+    # 通知いずれもスキップしたuser_id。
+    stale_payment_failed_user_ids: list = field(default_factory=list)
+    stale_payment_succeeded_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -248,6 +255,13 @@ class PaymentFailureUsageCounterProtocol(Protocol):
     def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
         ...
 
+    def set_payment_failure_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        """payment-failure-event-order-guard-design.md対応。"""
+        ...
+
+    def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 def _is_stale_subscription_state_event(
     usage_counter: Optional[PaymentFailureUsageCounterProtocol],
@@ -282,6 +296,38 @@ def _record_subscription_state_event_time(
     if not hasattr(usage_counter, "set_subscription_state_event_time"):
         return
     usage_counter.set_subscription_state_event_time(user_id, event_time)
+
+
+def _is_stale_payment_failure_event(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """payment-failure-event-order-guard-design.md準拠。`_is_stale_subscription_state_
+    event()`と同じ考え方だが、`invoice.payment_failed`/`invoice.payment_succeeded`
+    (dunning系)は`customer.subscription.*`とは別のイベント系列のため、独立した基準線
+    (`get_payment_failure_state_event_time()`)と比較する。`event_time`がNone
+    (`event.created`が取得できなかった場合)は判定不能として常にFalseを返す。"""
+    if usage_counter is None or event_time is None:
+        return False
+    if not hasattr(usage_counter, "get_payment_failure_state_event_time"):
+        return False
+    last_applied = usage_counter.get_payment_failure_state_event_time(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_payment_failure_event_time(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if usage_counter is None or event_time is None:
+        return
+    if not hasattr(usage_counter, "set_payment_failure_state_event_time"):
+        return
+    usage_counter.set_payment_failure_state_event_time(user_id, event_time)
 
 
 def dispatch_stripe_event(
@@ -361,6 +407,16 @@ def dispatch_stripe_event(
     (`StripeDispatchResult.stale_subscription_deleted_user_ids`/
     `stale_subscription_created_user_ids`に記録)。対応していない場合は従来通り常に
     最新イベントとして扱う(後方互換)。
+
+    `usage_counter`はpayment-failure-event-order-guard-design.md(本フェーズ)対応も
+    兼ねる。`invoice.payment_failed`/`invoice.payment_succeeded`(dunning側)も同様に
+    配信順序が保証されないため、`usage_counter`が`get_payment_failure_state_event_time()`/
+    `set_payment_failure_state_event_time()`に対応している場合、専用の基準線(subscription
+    側とは独立)と比較してstaleなイベントは状態変更・通知いずれもスキップする
+    (`StripeDispatchResult.stale_payment_failed_user_ids`/`stale_payment_succeeded_
+    user_ids`に記録。aircon-pashaフェーズ281・kura-pashaフェーズ194・line-reservation-ai
+    フェーズ続き284で先行対応済みの同種ガードの横展開)。対応していない場合は従来通り
+    常に最新イベントとして扱う(後方互換)。
 
     `user_profile_store`指定時は、`customer.subscription.updated`受信時に
     subscription-plan-change-design.md(フェーズ153)の設計に基づき、プラン変更
@@ -562,6 +618,14 @@ def dispatch_stripe_event(
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
 
+        # payment-failure-event-order-guard-design.md(本フェーズ)対応: 決済成功後に
+        # 遅延配信された古いinvoice.payment_failedが、既に解決済みのdunning状態を誤って
+        # 再開させないためのガード(aircon-pashaフェーズ281「ケースB」の横展開)。stale
+        # なら通知送信・状態書き込みのいずれも行わない。
+        if _is_stale_payment_failure_event(usage_counter, user_id, event_time):
+            result.stale_payment_failed_user_ids.append(user_id)
+            return result
+
         if push_client is not None:
             # フェーズ124: 通知の実送信・状態書き込みはhandle_payment_failure_detected()に
             # 委譲する(usage_counterはPaymentFailureUsageCounterProtocol/PaymentFailure
@@ -576,6 +640,7 @@ def dispatch_stripe_event(
             )
             if detection_result.notified:
                 result.payment_failure_detected_user_ids.append(user_id)
+                _record_payment_failure_event_time(usage_counter, user_id, event_time)
             else:
                 result.payment_failure_detection_notification_failed_user_ids.append(
                     user_id
@@ -583,10 +648,27 @@ def dispatch_stripe_event(
             return result
 
         usage_counter.set_payment_failure_detected_at(user_id, event_time)
+        _record_payment_failure_event_time(usage_counter, user_id, event_time)
         result.payment_failure_detected_user_ids.append(user_id)
         return result
 
     # invoice.payment_succeeded: design 4節「決済成功による復旧時」。
+    # payment-failure-event-order-guard-design.md(本フェーズ)対応: customer.subscription.
+    # created分岐と同じ方式(欠落・非数値ならNone、invalid_eventsにはしない)で
+    # event_timeを算出する。
+    succeeded_created = event.get("created")
+    event_time = None
+    if isinstance(succeeded_created, (int, float)) and not isinstance(
+        succeeded_created, bool
+    ):
+        event_time = datetime.fromtimestamp(succeeded_created, tz=timezone.utc)
+
+    # 決済失敗検知後に遅延配信された古いinvoice.payment_succeededが、進行中のdunning
+    # 状態を誤って解除しないためのガード(aircon-pashaフェーズ281「ケースA」の横展開)。
+    if _is_stale_payment_failure_event(usage_counter, user_id, event_time):
+        result.stale_payment_succeeded_user_ids.append(user_id)
+        return result
+
     resolved_now = now if now is not None else datetime.now(timezone.utc)
 
     if push_client is not None:
@@ -601,11 +683,16 @@ def dispatch_stripe_event(
         )
         if recovery_result.outcome == OUTCOME_SEND_FAILED:
             result.payment_recovery_notification_failed_user_ids.append(user_id)
-        elif recovery_result.state_reset:
-            # OUTCOME_RECOVERED_FROM_SUSPENSION・OUTCOME_CONFIRMED_IN_GRACE(通知あり)、
-            # OUTCOME_SILENT_RESET(通知なし)のいずれも状態はクリアされるため、
-            # push_client未指定時の既存フィールドの意味(状態がクリアされたか)を保つ。
-            result.payment_recovered_user_ids.append(user_id)
+        else:
+            if recovery_result.state_reset:
+                # OUTCOME_RECOVERED_FROM_SUSPENSION・OUTCOME_CONFIRMED_IN_GRACE(通知あり)、
+                # OUTCOME_SILENT_RESET(通知なし)のいずれも状態はクリアされるため、
+                # push_client未指定時の既存フィールドの意味(状態がクリアされたか)を保つ。
+                result.payment_recovered_user_ids.append(user_id)
+            # 送信失敗以外は、dunning状態の有無によらずevent_timeを基準線として記録する
+            # (aircon-pashaフェーズ281と同じ方針: 以降のpayment_failed/succeededの新旧
+            # 比較が常に最新のイベントを基準にできるようにするため)。
+            _record_payment_failure_event_time(usage_counter, user_id, event_time)
         return result
 
     # payment-failure-dunning-design.mdはaircon-pashaと異なり別立ての`payment_suspended_at`を
@@ -626,6 +713,7 @@ def dispatch_stripe_event(
         usage_counter.clear_payment_failure_reminder_sent_at(user_id)
         usage_counter.clear_payment_suspension_owner_notified_at(user_id)
         result.payment_recovered_user_ids.append(user_id)
+    _record_payment_failure_event_time(usage_counter, user_id, event_time)
 
     return result
 

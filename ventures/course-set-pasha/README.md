@@ -4235,3 +4235,25 @@
   line-reservation-aiへの横断確認を完了(3venture共に対応済みと確認)。course-set-pashaの
   解約確定案内通知・決済失敗フィールドクリアもstale全体スキップ方針へ統一。テスト2件追加、
   venture全体672件・schema検証21件いずれもパス)
+- フェーズ264(2026-09-28 08:00 UTC定例更新): aircon-pashaフェーズ281(payment-failure-
+  event-order-guard-design.md)の「スコープ外」節の棚卸しで、kura-pasha・
+  line-reservation-aiは同種ガード対応済みと言及される一方、course-set-pasha自身が
+  `invoice.payment_failed`/`invoice.payment_succeeded`(dunning側)の配信順序入れ替わり
+  ガードを未対応のまま残していたことが判明したため、フェーズ263と同じ「専用フィールドの
+  新旧比較」パターンを横展開した。`UsageCounterProtocol`/`PaymentFailureUsageCounter
+  Protocol`に`get/set_payment_failure_state_event_time()`を追加(`subscription_state_
+  event_time`とは独立した別系列の基準線)、`stripe_webhook.py`に`_is_stale_payment_
+  failure_event()`/`_record_payment_failure_event_time()`を新設し、`invoice.payment_
+  failed`(ケースB: 決済失敗確定後の遅延成功復旧を誤って上書きしない)・`invoice.payment_
+  succeeded`(ケースA: 決済失敗直後の遅延失敗通知が既に決済済みの状態を誤ってdunning化
+  しない、従来`event.created`を読んでいなかったため新規に算出)の両分岐にstale全体
+  スキップのガードを配線した。詳細はpayment-failure-event-order-guard-design.md参照。
+  テスト5件追加(`PaymentFailureEventOrderGuardTest`)、venture全体`python3 -m unittest
+  discover -s prototype -p "test_*.py"`677件(672→677)・schema検証21件(`python3
+  schema/validate_test_cases.py`)いずれもパスを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: 他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 08:00 UTC(フェーズ264: `invoice.payment_failed`/`invoice.
+  payment_succeeded`〈dunning側〉にStripe Webhook配信順序入れ替わりガードを追加。
+  `payment_failure_state_event_time`新設、両イベント種別にstale全体スキップ方針で配線。
+  テスト5件追加、venture全体677件・schema検証21件いずれもパス)
