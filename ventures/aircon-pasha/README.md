@@ -4921,3 +4921,25 @@
   pending-approval.mdの記載齟齬の定期棚卸しを行う。
 - 最終更新: 2026-09-28 15:00 UTC(フェーズ284: kura-pasha同様のlaunch-readiness-
   checklist.mdを新規作成し、承認待ち事項4件を依存順に集約。コード変更なし)
+- フェーズ285(2026-09-28 18:00 UTC定例更新): フェーズ284が「次回候補」として残していた
+  「本チェックリストとpending-approval.mdの記載齟齬の定期棚卸し」を実施した。
+  launch-readiness-checklist.mdの承認待ち事項4件(LINE公式アカウント開設+Cloud
+  Scheduler作成〈2026-09-27 10:00 UTC〉・Googleフォーム作成+GAS Webhook
+  〈2026-08-23 04:00 UTC〉・Stripeアカウント開設+LP公開〈2026-09-27 09:00 UTC〉・
+  顧客ヒアリング実施〈2026-08-21 12:00 UTC〉)を、pending-approval.md本体の該当4件と
+  1件ずつ突き合わせたところ、日時・内容・依存順いずれも齟齬なく一致していることを確認
+  した(新規の記載漏れ・古い情報は発見されず)。あわせて、line-reservation-aiが持つ
+  ASSUMED_MINUTES_SAVED_PER_AUTO_HANDLED_CASE(trial_end_report_scheduler.py)と、
+  本venture・course-set-pasha・kura-pashaが持つcontent-generation-time-estimate.md
+  相当の「浮いた作業時間の目安」機能とで、ファイル名・実装形は異なるが同種の概算削減
+  時間提示機能がline-reservation-ai側にも既に存在する(ASSUMED_MINUTES_SAVED_PER_
+  AUTO_HANDLED_CASE = 7.5分・trial-end報告メッセージへの配線済み)ことを確認し、
+  ファイル名の相違だけでは横展開漏れとはみなせないことを申し送りとして記録する。
+  コード変更・pending-approval.mdへの新規記載なし(確認のみ)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: 上記4件のいずれかがオーナーから承認された場合はその着手を
+  最優先とし、それまでは他venture・アイデア領域の前進、または本チェックリストと
+  pending-approval.mdの記載齟齬の定期棚卸しを継続する。
+- 最終更新: 2026-09-28 18:00 UTC(フェーズ285: launch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬を棚卸しし、齟齬なしを確認。line-reservation-aiの
+  時間削減提示機能がファイル名は異なるが実装済みであることも確認。コード変更なし)
