@@ -331,6 +331,82 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         self.assertEqual(result.cancellation_notification_failed_user_ids, [])
         self.assertEqual(len(push_client.sent), 0)
 
+    def test_stale_deleted_event_does_not_clear_current_plan_id(self):
+        # フェーズ283: subscription-event-out-of-order-guard-design.md 6節の
+        # 「stale全体スキップ」方針をplan_store側にも拡張。既により新しいcustomer.
+        # subscription.createdで有効化済みの利用者に対し、遅延到着した古いdeletedで
+        # current_plan_idを誤ってNone(未契約)へ戻してしまわないことを確認する。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_current_plan_id(_USER_ID, "スタンダード")
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            plan_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, [_USER_ID])
+        self.assertEqual(result.plan_cleared_user_ids, [])
+        self.assertEqual(payment_store.get_current_plan_id(_USER_ID), "スタンダード")
+
+    def test_stale_deleted_event_does_not_clear_blocked_but_billing_owner_notified_at(self):
+        # フェーズ283: 同上、blocked_but_billing_store側にも拡張。staleなdeletedで
+        # blocked_but_billing_owner_notified_atを誤って早期クリアしてしまわないことを
+        # 確認する(クリアされると、実際にはまだブロック中かつ契約継続中の候補として
+        # 再度通知すべき状況を見逃すおそれがある)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_blocked_but_billing_owner_notified_at(
+            _USER_ID, datetime(2026, 8, 20, tzinfo=timezone.utc)
+        )
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            blocked_but_billing_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, [_USER_ID])
+        self.assertEqual(result.blocked_but_billing_owner_notified_cleared_user_ids, [])
+        self.assertIsNotNone(
+            payment_store.get_blocked_but_billing_owner_notified_at(_USER_ID)
+        )
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {

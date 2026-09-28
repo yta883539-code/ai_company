@@ -96,3 +96,34 @@ course-set-pashaフェーズ261・262と同じ考え方を、aircon-pashaの既�
   タイムスタンプ比較という同一の実装パターンはそのまま適用できず、列挙型方式における配信順序
   入れ替わりの影響〈更新順序が入れ替わった場合に最終的な列挙値が誤る可能性〉を別途検討する
   必要がある。次回候補とする)。
+
+## 6. フェーズ283: `plan_store`/`blocked_but_billing_store`側の非対称是正
+
+フェーズ282は`customer.subscription.deleted`分岐の決済失敗フィールドクリア・解約確定案内通知を
+`is_stale_deleted_event`でガードしたが、同じ分岐内の`plan_store.clear_current_plan_on_
+subscription_deleted()`(current_plan_idをNoneへ戻す)・`blocked_but_billing_store.clear_
+blocked_but_billing_owner_notified_at()`は、`is_stale_deleted_event`算出より前に無条件で
+実行されたまま残っていた。stale(=既により新しいcustomer.subscription.createdで有効化済み)な
+deletedイベントが遅延到着した場合、この2箇所は次のような実害を持つ非対称だった。
+
+- `current_plan_id`クリア: 有効な契約者のプランIDを誤ってNone(未契約)へ戻してしまう。
+  `current_plan_id`を参照する他の機能(プラン別の生成回数上限判定など)が、実際には有効な
+  契約者を未契約として扱ってしまうおそれがある。
+- `blocked_but_billing_owner_notified_at`クリア: 「ブロック中かつ契約継続中」候補として
+  一度オーナーへ通知済みのフラグを、契約が実際には継続しているにもかかわらず解約が確定した
+  かのように誤って早期クリアしてしまう。
+
+`stripe_dispatch.py`の`customer.subscription.deleted`分岐で、`is_stale_deleted_event`の算出を
+`mark_deletion_candidate_on_subscription_deleted()`呼び出し直後(決済失敗フィールドクリア・
+`subscription_canceled_at`設定・解約確定案内通知の3箇所と共通化する位置)まで前倒しし、
+`plan_store`呼び出し・`blocked_but_billing_store`呼び出しの両方をこの判定でガードするよう
+変更した(course-set-pasha/kura-pasha/line-reservation-aiと同じ「stale全体スキップ」方針への
+統一を、本venture内の`customer.subscription.deleted`分岐が持つ副作用5箇所〈deletion_
+candidate・plan・blocked_but_billing・payment_failure・cancellation通知〉すべてに拡張)。
+`payment_store`未指定時は`_is_stale_subscription_state_event()`が判定不能として常に`False`
+(非stale)を返すため、`plan_store`/`blocked_but_billing_store`のみを指定し`payment_store`を
+指定しない既存呼び出し経路では従来通り無条件適用のままとなる(後方互換)。
+
+テスト2件追加(`test_stale_deleted_event_does_not_clear_current_plan_id`・
+`test_stale_deleted_event_does_not_clear_blocked_but_billing_owner_notified_at`)、
+venture全体646件(644→646)・schema検証25件いずれもパス。

@@ -342,6 +342,11 @@ def dispatch_stripe_event(
     notification.py参照)。未指定(`None`)の場合はこれまで通りクリアを行わない
     (既存呼び出し経路への後方互換措置)。`payment_store`/`plan_store`と同じく専用の
     InMemoryストアは新設せず、`InMemoryUserProfileStore`が構造的に満たす設計とした。
+    フェーズ283対応: `plan_store`側の`current_plan_id`クリア・本フィールドのクリアは
+    いずれも`payment_store`から算出する`is_stale_deleted_event`でガードする
+    (subscription-event-out-of-order-guard-design.md 6節、stale全体スキップ方針)。
+    `payment_store`が未指定の場合は`_is_stale_subscription_state_event()`が判定不能
+    として常に`False`(非stale)を返すため、従来通り無条件適用となる(後方互換)。
 
     `cancellation_push_client`/`portal_link_provider`はsubscription-cancellation-
     notification-design.md(フェーズ184)対応。指定時、`customer.subscription.deleted`
@@ -402,22 +407,29 @@ def dispatch_stripe_event(
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
         mark_deletion_candidate_on_subscription_deleted(store, user_id, event_time)
         result.marked_user_ids.append(user_id)
-        if plan_store is not None:
-            clear_current_plan_on_subscription_deleted(plan_store, user_id)
-            result.plan_cleared_user_ids.append(user_id)
-        if blocked_but_billing_store is not None:
-            if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
-                result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
 
         # payment-failure-event-order-guard-design.md 4節「スコープ外」で本venture自身は
         # 未対応のまま残していた非対称(course-set-pashaフェーズ263が自ventureで先に発見・
         # 是正した「stale全体スキップ」方針)を横展開する。決済失敗フィールドクリア・
         # subscription_canceled_at設定・解約確定案内通知の3箇所で共通のstale判定を
         # 先頭で1回だけ評価する(kura-pasha・line-reservation-aiが採用済みの
-        # 「stale全体スキップ」方針への統一)。
+        # 「stale全体スキップ」方針への統一)。フェーズ283: plan_store側の
+        # current_plan_idクリア・blocked_but_billing_store側のowner_notified_atクリアも
+        # 同じ非対称(フェーズ282が対応した2箇所と同種、stale判定より前に無条件実行されて
+        # いた)だったため、この判定でまとめてガードする対象に加えた。staleな場合、
+        # 既により新しいcustomer.subscription.createdで有効化済みの利用者に対して
+        # current_plan_idを誤ってNone(未契約)へ戻したり、ブロック通知クリアを誤って
+        # 早期に行ってしまうのを防ぐ。
         is_stale_deleted_event = _is_stale_subscription_state_event(
             payment_store, user_id, event_time
         )
+
+        if plan_store is not None and not is_stale_deleted_event:
+            clear_current_plan_on_subscription_deleted(plan_store, user_id)
+            result.plan_cleared_user_ids.append(user_id)
+        if blocked_but_billing_store is not None and not is_stale_deleted_event:
+            if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
+                result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
 
         if payment_store is not None:
             if not is_stale_deleted_event and clear_payment_failure_on_success(

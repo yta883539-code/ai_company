@@ -4881,3 +4881,27 @@
   決済失敗フィールドクリア・解約確定案内通知を、既存の`subscription_canceled_at`
   stale判定と共通のガードに統一。course-set-pashaフェーズ263の横展開。テスト2件追加、
   venture全体644件・schema検証25件いずれもパス)
+- フェーズ283(2026-09-28 11:00 UTC定例更新): フェーズ282が「次回候補」として残していた
+  `clear_current_plan_on_subscription_deleted()`(plan_store側)・`clear_blocked_but_
+  billing_owner_notified_at()`(blocked_but_billing_store側)へのstale全体スキップ適用を
+  対応した。両呼び出しとも`is_stale_deleted_event`算出より前に無条件で実行されており、
+  staleなdeletedイベントが遅延到着すると、既に新契約で有効な利用者の`current_plan_id`を
+  誤ってNone(未契約)へ戻したり、`blocked_but_billing_owner_notified_at`を実際にはまだ
+  契約継続中にもかかわらず誤って早期クリアしてしまう欠落があった。`stripe_dispatch.py`の
+  `customer.subscription.deleted`分岐で`is_stale_deleted_event`の算出を`mark_deletion_
+  candidate_on_subscription_deleted()`呼び出し直後まで前倒しし、`plan_store`・
+  `blocked_but_billing_store`双方の呼び出しをこの判定でガードするよう変更した(フェーズ282と
+  同じ「stale全体スキップ」方針、`payment_store`未指定時は従来通り無条件適用の後方互換を
+  維持)。詳細はsubscription-event-out-of-order-guard-design.md 6節参照。テスト2件追加
+  (`test_stale_deleted_event_does_not_clear_current_plan_id`・`test_stale_deleted_event_
+  does_not_clear_blocked_but_billing_owner_notified_at`)、venture全体`python3 -m
+  unittest discover -s prototype -p "test_*.py"`646件(644→646)・schema検証25件
+  (`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。これで`customer.subscription.deleted`分岐が持つ
+  5箇所の副作用(deletion_candidate・plan・blocked_but_billing・payment_failure・
+  cancellation通知)すべてが共通のstale判定でガードされた状態になった。次回候補:
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 11:00 UTC(フェーズ283: `customer.subscription.deleted`分岐の
+  plan_store・blocked_but_billing_storeクリアも、既存のstale判定と共通のガードに統一。
+  テスト2件追加、venture全体646件・schema検証25件いずれもパス)
