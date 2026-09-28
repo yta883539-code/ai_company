@@ -498,6 +498,47 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
         self.assertIsNotNone(usage_counter.get_payment_failure_detected_at("user_1"))
 
+    def test_stale_subscription_deleted_does_not_clear_blocked_but_billing_owner_notified_at(
+        self,
+    ):
+        # blocked-but-billing-owner-notification-design.md 4節対応漏れの是正
+        # (本フェーズ)。フェーズ263の「stale全体スキップ」方針をこの呼び出しにも
+        # 適用する。既により新しいcustomer.subscription.createdが反映済みの状態で
+        # 古いdeletedが遅延到着しても、通知済みフラグのクリアをスキップする。
+        usage_counter = InMemoryUsageCounter()
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_blocked_but_billing_owner_notified_at(
+            "user_1", datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, ["user_1"])
+        self.assertIsNotNone(
+            user_profile_store.get_blocked_but_billing_owner_notified_at("user_1")
+        )
+
     def test_subscription_created_ignored_when_older_than_already_applied_deleted(self):
         # subscription-event-out-of-order-guard-design.md(本フェーズ)対応、ケースBの
         # 再現。より新しいdeleted(T2)が既に反映済み(解約確定済み)の状態で、それより

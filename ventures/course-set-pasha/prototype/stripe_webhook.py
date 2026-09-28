@@ -523,8 +523,6 @@ def dispatch_stripe_event(
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
         mark_deletion_candidate_on_subscription_deleted(store, user_id, event_time)
-        if user_profile_store is not None:
-            user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
 
         # subscription-event-out-of-order-guard-design.md(フェーズ263)対応:
         # 本イベントがstale(既により新しいcustomer.subscription.createdが反映済み)か
@@ -535,6 +533,16 @@ def dispatch_stripe_event(
         is_stale_deleted_event = _is_stale_subscription_state_event(
             usage_counter, user_id, event_time
         )
+
+        # blocked-but-billing-owner-notification-design.md 4節(フェーズ144)対応。
+        # フェーズ263で上記のstale全体スキップ方針を導入した際、本呼び出しはstale判定の
+        # 対象から漏れたまま無条件実行され続けていた(aircon-pashaフェーズ283がplan_store・
+        # blocked_but_billing_store側の同種の非対称を発見・是正した際、本venture側の
+        # この漏れは見落としていた)。staleな遅延deletedイベントで通知済みフラグを誤って
+        # クリアすると、既に新しい契約下で継続中の「ブロック中かつ課金継続」状態に対して
+        # 二重に通知が飛んでしまうため、他の副作用と同じくガードする。
+        if user_profile_store is not None and not is_stale_deleted_event:
+            user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
 
         if (
             usage_counter is not None
