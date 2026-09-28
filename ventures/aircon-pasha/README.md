@@ -4905,3 +4905,19 @@
 - 最終更新: 2026-09-28 11:00 UTC(フェーズ283: `customer.subscription.deleted`分岐の
   plan_store・blocked_but_billing_storeクリアも、既存のstale判定と共通のガードに統一。
   テスト2件追加、venture全体646件・schema検証25件いずれもパス)
+- フェーズ284(2026-09-28 15:00 UTC定例更新): フェーズ283が「次回候補」として残していた
+  「他venture・アイデア領域の前進」を受け、コード側に残課題がなくpending-approval.md
+  記載の4件(LINE公式アカウント開設+Cloud Scheduler作成〈2026-09-27 10:00 UTC〉・
+  Googleフォーム作成+GAS Webhook〈2026-08-23 04:00 UTC〉・Stripeアカウント開設+LP公開
+  〈2026-09-27 09:00 UTC〉・顧客ヒアリング実施〈2026-08-21 12:00 UTC〉、いずれも
+  オーナー承認待ち)のみが残っていることを確認した。kura-pasha(フェーズ196)・
+  line-reservation-ai(フェーズ続き286)に倣い、launch-readiness-checklist.mdを
+  新規作成し、上記4件を依存順(LINE公式アカウント/Scheduler→Googleフォーム/GAS→
+  Stripe/LP→顧客ヒアリング)に整理した。コード変更・pending-approval.mdへの新規記載
+  はなし(いずれも記載済みの内容を集約したのみ)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 上記4件のいずれかがオーナーから承認された場合はその着手を
+  最優先とし、それまでは他venture・アイデア領域の前進、または本チェックリストと
+  pending-approval.mdの記載齟齬の定期棚卸しを行う。
+- 最終更新: 2026-09-28 15:00 UTC(フェーズ284: kura-pasha同様のlaunch-readiness-
+  checklist.mdを新規作成し、承認待ち事項4件を依存順に集約。コード変更なし)
