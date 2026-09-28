@@ -39,6 +39,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -61,18 +62,24 @@ OUTCOME_NO_DUNNING = "no_dunning"
 # handle_payment_succeeded()のみが返す、送信失敗を表す分類。
 OUTCOME_SEND_FAILED = "send_failed"
 
+# handle_payment_succeeded()のみが返す、イベント順序入れ替わりによりスキップした分類
+# (payment-failure-detected-at-event-order-guard-design.md参照)。
+OUTCOME_STALE_EVENT = "stale_event"
+
 
 @dataclass
 class PaymentSucceededResult:
     """1回の`payment_succeeded`Webhook処理の結果(呼び出し側のログ・HTTPステータス判断用)。
 
     outcomeがOUTCOME_SEND_FAILEDの場合、状態は変更されていないため呼び出し側は
-    5xxを返してWebhookのリトライに委ねる。
+    5xxを返してWebhookのリトライに委ねる。outcomeがOUTCOME_STALE_EVENTの場合も
+    同様に状態は変更されていない(遅延配信されたイベントを丸ごとスキップしたため)。
     """
 
     outcome: str
     notified: bool = False
     state_reset: bool = False
+    stale: bool = False
 
 
 def classify_payment_succeeded(state: StoreDunningState) -> str:
@@ -100,13 +107,32 @@ def _clear_dunning_state(state: StoreDunningState) -> None:
 
 
 def handle_payment_succeeded(
-    state: StoreDunningState, push_client: LinePushClient
+    state: StoreDunningState,
+    push_client: LinePushClient,
+    event_created_at: Optional[datetime] = None,
 ) -> PaymentSucceededResult:
     """決済代行サービスの`payment_succeeded`Webhook受信時の処理本体。
 
     引数のstateは呼び出し元でFirestoreから読み取った当該店舗の状態を想定し、
     本関数は必要な通知送信と状態の書き換えを行う(実際のFirestore書き戻しは呼び出し側)。
+
+    `event_created_at`(payment-failure-detected-at-event-order-guard-design.md、
+    subscription-event-order-guard-design.mdの横展開)は、Stripeイベントの`created`
+    (Webhook配信順序ではなくイベント発生順序)。`handle_payment_failed()`が検知した
+    dunning進行中の状態よりも古い(=遅延配信された)`payment_succeeded`が届いた場合に、
+    実際にはまだ解決していない決済失敗を誤って解除してしまう欠落を防ぐため、
+    `state.last_payment_event_time`以前(同時刻含む)であれば状態更新・通知のいずれも
+    行わずOUTCOME_STALE_EVENTを返す(既存2ハンドラと同じ「stale全体スキップ」方針)。
+    `event_created_at`省略時(`None`)は従来通りこのチェックを行わない(既存呼び出し
+    経路への後方互換措置)。
     """
+    if (
+        event_created_at is not None
+        and state.last_payment_event_time is not None
+        and event_created_at <= state.last_payment_event_time
+    ):
+        return PaymentSucceededResult(outcome=OUTCOME_STALE_EVENT, stale=True)
+
     outcome = classify_payment_succeeded(state)
 
     if outcome == OUTCOME_NO_DUNNING:
@@ -114,6 +140,8 @@ def handle_payment_succeeded(
 
     if outcome == OUTCOME_SILENT_RESET:
         _clear_dunning_state(state)
+        if event_created_at is not None:
+            state.last_payment_event_time = event_created_at
         return PaymentSucceededResult(outcome=outcome, state_reset=True)
 
     if outcome == OUTCOME_RECOVERED_FROM_SUSPENSION:
@@ -127,10 +155,16 @@ def handle_payment_succeeded(
         return PaymentSucceededResult(outcome=OUTCOME_SEND_FAILED)
 
     _clear_dunning_state(state)
+    if event_created_at is not None:
+        state.last_payment_event_time = event_created_at
     return PaymentSucceededResult(outcome=outcome, notified=True, state_reset=True)
 
 
-def handle_payment_failed(state: StoreDunningState, event_time: datetime) -> bool:
+def handle_payment_failed(
+    state: StoreDunningState,
+    event_time: datetime,
+    event_created_at: Optional[datetime] = None,
+) -> bool:
     """決済代行サービスの`invoice.payment_failed`Webhook受信時の処理本体
     (stripe-webhook-event-dispatch-design.md 4節)。
 
@@ -150,12 +184,29 @@ def handle_payment_failed(state: StoreDunningState, event_time: datetime) -> boo
       `trial_unselected`側の状態には触れない。
     - それ以外は`payment_failure_detected_at`にevent_timeを設定し`True`を返す(呼び出し側で
       Firestoreへ書き戻すことでdunningスケジュールが起動する)。
+
+    `event_time`(検知時刻、dunningスケジュールの起点として使う実務上の値。処理時刻`now`を
+    渡す既存の呼び出し方を変更しない)とは別に、`event_created_at`
+    (payment-failure-detected-at-event-order-guard-design.md)を追加した。こちらは
+    Stripeイベントの`created`を渡す想定の、順序判定専用の値。`handle_payment_succeeded()`が
+    既にこの失敗より新しい`event_created_at`を適用済み(=決済成功で解決済み)の場合、
+    遅延配信された古い`invoice.payment_failed`で解決済みのdunningを誤って再開させない
+    ため、`state.last_payment_event_time`以前(同時刻含む)であれば状態を変更せず`False`
+    を返す。`event_created_at`省略時は従来通りチェックしない(後方互換)。
     """
+    if (
+        event_created_at is not None
+        and state.last_payment_event_time is not None
+        and event_created_at <= state.last_payment_event_time
+    ):
+        return False
     if state.payment_failure_detected_at is not None:
         return False
     if state.suspension_reason == "trial_unselected":
         return False
     state.payment_failure_detected_at = event_time
+    if event_created_at is not None:
+        state.last_payment_event_time = event_created_at
     return True
 
 

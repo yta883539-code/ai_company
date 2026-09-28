@@ -279,7 +279,7 @@ def receive_stripe_webhook(
         state = dunning_store.get_dunning_state(store_id)
         if state is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
-        result = handle_payment_succeeded(state, push_client)
+        result = handle_payment_succeeded(state, push_client, event_created_at=event_time)
         if result.outcome == PAYMENT_OUTCOME_SEND_FAILED:
             return StripeWebhookReceiverResult(
                 status_code=200, route=route, outcome=result.outcome
@@ -295,7 +295,7 @@ def receive_stripe_webhook(
         state = dunning_store.get_dunning_state(store_id)
         if state is None:
             return StripeWebhookReceiverResult(status_code=200, route=route)
-        state_changed = handle_payment_failed(state, resolved_now)
+        state_changed = handle_payment_failed(state, resolved_now, event_created_at=event_time)
         if state_changed:
             dunning_store.set_dunning_state(store_id, state)
         return StripeWebhookReceiverResult(

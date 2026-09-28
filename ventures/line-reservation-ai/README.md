@@ -4951,3 +4951,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `handle_subscription_deleted()`へ実際に渡す配線を追加。フェーズ続き282のstale event
   guardが未配線のため実運用経路では効いていなかった欠落を解消。テスト2件追加、
   venture全体879件・schema検証28件いずれもパス)
+- フェーズ続き284(2026-09-28 03:00 UTC定例更新): フェーズ続き283が「次回候補」として
+  残していた`payment_failure_detected_at`側の順序入れ替わりを検討・対応した。
+  `handle_payment_succeeded()`(`payment_succeeded`受信)と`handle_payment_failed()`
+  (`invoice.payment_failed`受信)がいずれも配信順序を考慮せず届いた順に状態を書き換えて
+  いたため、dunning検知後に遅延配信された古い`payment_succeeded`が進行中のdunningを
+  誤って解除する(ケースB)、逆に決済成功で解決済みの後に遅延配信された古い
+  `invoice.payment_failed`が解決済みのdunningを誤って再開させる(ケースA)、という
+  サブスクリプション側と同種の欠落を発見した。`StoreDunningState`に
+  `last_payment_event_time`を新設し、両ハンドラに`event_created_at`引数(Stripeイベント
+  `created`基準)を追加して、記録済みの`last_payment_event_time`以前のイベントは状態・
+  通知いずれも変更せず丸ごとスキップするガードを実装した(`payment_failure_detected_at`
+  自体はdunningスケジュールの起点として処理時刻`now`を使う既存方針のため変更していない、
+  順序判定専用の別フィールド)。`stripe_webhook_entry_point.py`の該当2箇所の呼び出しにも
+  `event_created_at=event_time`を渡す配線をあわせて実施(呼び出し箇所が2つのみのため
+  サブスクリプション側のような2段階分割はせず1段階でまとめて対応)。詳細は
+  payment-failure-detected-at-event-order-guard-design.md(新規作成)参照。テスト6件
+  追加、venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`885件
+  (879→885)・schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補:
+  `handle_checkout_session_completed()`にも同種の順序入れ替わりの影響があるかの検討、
+  あるいは他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 03:00 UTC(フェーズ続き284: dunning側〈payment_succeeded/
+  invoice.payment_failed〉のStripe Webhook配信順序入れ替わりガードを新設。
+  `last_payment_event_time`追加、両ハンドラに`event_created_at`引数追加、entry point配線も
+  実施。テスト6件追加、venture全体885件・schema検証28件いずれもパス)

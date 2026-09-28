@@ -15,6 +15,7 @@ from cloud_function_payment_webhook import (
     OUTCOME_RECOVERED_FROM_SUSPENSION,
     OUTCOME_SEND_FAILED,
     OUTCOME_SILENT_RESET,
+    OUTCOME_STALE_EVENT,
     classify_payment_succeeded,
     handle_payment_failed,
     handle_payment_succeeded,
@@ -205,6 +206,87 @@ class HandlePaymentFailedTests(unittest.TestCase):
 
         self.assertFalse(result)
         self.assertIsNone(state.payment_failure_detected_at)
+
+
+class EventOrderGuardTests(unittest.TestCase):
+    """payment-failure-detected-at-event-order-guard-design.md。
+
+    invoice.payment_failed/payment_succeededの遅延配信・順序入れ替わりを検知する
+    last_payment_event_timeガードの回帰確認。
+    """
+
+    def test_stale_payment_succeeded_is_skipped_without_reverting_dunning(self):
+        """ケースB: dunning検知(created=T1)後に、それより前(T0)のpayment_succeededが
+        遅れて届いても、進行中のdunningを誤って解除しない。
+        """
+        push = InMemoryLinePushClient()
+        t0 = datetime(2026, 8, 20, 9, 0)
+        t1 = datetime(2026, 8, 21, 9, 0)
+        state = _store(sent_event_keys={"detected"}, last_payment_event_time=t1)
+
+        result = handle_payment_succeeded(state, push, event_created_at=t0)
+
+        self.assertEqual(result.outcome, OUTCOME_STALE_EVENT)
+        self.assertTrue(result.stale)
+        self.assertFalse(result.notified)
+        self.assertEqual(push.sent, [])
+        self.assertEqual(state.payment_failure_detected_at, DETECTED_AT)
+        self.assertEqual(state.sent_event_keys, {"detected"})
+
+    def test_fresh_payment_succeeded_applies_and_records_event_time(self):
+        push = InMemoryLinePushClient()
+        t1 = datetime(2026, 8, 21, 9, 0)
+        state = _store(suspension_reason="payment_failed", sent_event_keys={"detected", "suspended"})
+
+        result = handle_payment_succeeded(state, push, event_created_at=t1)
+
+        self.assertEqual(result.outcome, OUTCOME_RECOVERED_FROM_SUSPENSION)
+        self.assertFalse(result.stale)
+        self.assertEqual(state.last_payment_event_time, t1)
+
+    def test_payment_succeeded_applies_unconditionally_when_event_created_at_omitted(self):
+        push = InMemoryLinePushClient()
+        state = _store(suspension_reason="payment_failed", sent_event_keys={"detected", "suspended"})
+
+        result = handle_payment_succeeded(state, push)
+
+        self.assertEqual(result.outcome, OUTCOME_RECOVERED_FROM_SUSPENSION)
+        self.assertIsNone(state.last_payment_event_time)
+
+    def test_stale_payment_failed_is_skipped_without_restarting_dunning(self):
+        """ケースA: payment_succeeded(created=T1)で既に解決済みの後、それより前(T0)の
+        invoice.payment_failedが遅れて届いても、解決済みのdunningを誤って再開しない。
+        """
+        t0 = datetime(2026, 8, 20, 9, 0)
+        t1 = datetime(2026, 8, 21, 9, 0)
+        state = _store(
+            payment_failure_detected_at=None,
+            suspension_reason=None,
+            last_payment_event_time=t1,
+        )
+
+        result = handle_payment_failed(state, datetime(2026, 8, 31, 9, 0), event_created_at=t0)
+
+        self.assertFalse(result)
+        self.assertIsNone(state.payment_failure_detected_at)
+
+    def test_fresh_payment_failed_applies_and_records_event_time(self):
+        t1 = datetime(2026, 8, 21, 9, 0)
+        state = _store(payment_failure_detected_at=None, suspension_reason=None)
+
+        result = handle_payment_failed(state, t1, event_created_at=t1)
+
+        self.assertTrue(result)
+        self.assertEqual(state.last_payment_event_time, t1)
+
+    def test_payment_failed_applies_unconditionally_when_event_created_at_omitted(self):
+        state = _store(payment_failure_detected_at=None, suspension_reason=None)
+        event_time = datetime(2026, 8, 31, 9, 0)
+
+        result = handle_payment_failed(state, event_time)
+
+        self.assertTrue(result)
+        self.assertIsNone(state.last_payment_event_time)
 
 
 if __name__ == "__main__":

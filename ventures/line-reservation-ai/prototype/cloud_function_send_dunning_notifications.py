@@ -57,6 +57,12 @@ class StoreDunningState:
 
     payment_failure_detected_atがNoneの店舗は決済失敗が検知されていない(=対象外)。
     sent_event_keysは呼び出し元でFirestoreから読み取った送信済みイベントキーの集合を想定。
+
+    last_payment_event_time(payment-failure-detected-at-event-order-guard-design.md、
+    subscription-event-order-guard-design.mdの横展開)は、`invoice.payment_failed`/
+    `payment_succeeded`Webhookの遅延配信・順序入れ替わりを検知するための、Stripeイベント
+    `created`基準の最終適用時刻。payment_failure_detected_at(dunningスケジュールの起点、
+    処理時刻を使う実務上の値)とは別の、順序判定専用のフィールド。
     """
 
     store_id: str
@@ -67,6 +73,7 @@ class StoreDunningState:
     message_tone: str = "standard"
     suspension_reason: str | None = None
     sent_event_keys: set[str] = field(default_factory=set)
+    last_payment_event_time: datetime | None = None
 
 
 @dataclass
