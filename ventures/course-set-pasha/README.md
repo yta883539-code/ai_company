@@ -4302,3 +4302,25 @@
   作成し承認待ち事項5件を集約する過程で、LINE公式アカウント開設の承認依頼自体が
   pending-approval.mdに未記録だった記載漏れ、およびaircon-pashaフェーズ278の参照
   誤りを発見・是正。pending-approval.mdに新規エントリを追記。コード変更なし)
+- フェーズ267(2026-09-28 21:00 UTC台定例更新): kura-pashaフェーズ198
+  (subscription-updated-event-order-guard-design.md)が発見した「`customer.
+  subscription.updated`だけがevent_timeベースの配信順序入れ替わりガードを持たない」
+  ギャップの横断確認を、次回候補どおりcourse-set-pasha自身について行ったところ、
+  同じギャップが残っていることを確認したため是正した。`dispatch_stripe_event()`の
+  `customer.subscription.updated`分岐(プラン更新・解約予約受理/取り消し通知・
+  reactivated状態クリア)に、`PaymentFailureUsageCounterProtocol`へ新設した
+  `get/set_subscription_updated_event_time()`を基準線とする「丸ごとスキップ」方針の
+  ガードを追加した(`customer.subscription.deleted`/`created`用の既存
+  `subscription_state_event_time`とは独立した専用フィールド)。詳細は
+  subscription-updated-event-order-guard-design.md参照。テスト3件追加
+  (`DispatchStripeEventTest`)、venture全体`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(685件、682→685)・schema検証`python3 schema/
+  validate_test_cases.py`(21件、変更なし)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: aircon-pasha・line-reservation-aiの
+  `customer.subscription.updated`相当ハンドラに同種のガード欠落が残っていないかの
+  横断確認、または他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 21:00 UTC(フェーズ267: `customer.subscription.updated`の
+  プラン更新・解約予約通知・reactivated状態クリアにStripe Webhook配信順序入れ替わり
+  ガードを追加。`subscription_updated_event_time`新設、stale時は丸ごとスキップする
+  方針で配線。テスト3件追加、venture全体685件・schema検証21件いずれもパス)

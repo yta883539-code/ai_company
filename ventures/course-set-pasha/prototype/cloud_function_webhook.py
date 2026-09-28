@@ -457,6 +457,19 @@ class UsageCounterProtocol(Protocol):
     def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
         ...
 
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        """subscription-updated-event-order-guard-design.md対応(kura-pashaフェーズ198の
+        横展開)。`customer.subscription.updated`のうち最後に実際へ反映した(plan変更・
+        解約予約受理/取り消し通知いずれか)イベントの発生時刻(`event.created`)を記録する。
+        `customer.subscription.deleted`/`created`用の`subscription_state_event_time`とは
+        別イベント系列のため独立した基準線として持つ。このメソッドを実装しない
+        UsageCounterProtocol実装では順序ガード自体がスキップされ、従来通り(常に最新
+        イベントとして扱う)の挙動になる。"""
+        ...
+
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
 
 class AtomicNoticeUsageCounterProtocol(UsageCounterProtocol, Protocol):
     """usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
@@ -503,6 +516,7 @@ class InMemoryUsageCounter:
         self._subscription_canceled_at: dict[str, datetime] = {}
         self._subscription_state_event_time: dict[str, datetime] = {}
         self._payment_failure_state_event_time: dict[str, datetime] = {}
+        self._subscription_updated_event_time: dict[str, datetime] = {}
 
     def get_count(self, user_id: str, month: str) -> int:
         return self._counts.get((user_id, month), 0)
@@ -599,6 +613,12 @@ class InMemoryUsageCounter:
 
     def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
         return self._payment_failure_state_event_time.get(user_id)
+
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        self._subscription_updated_event_time[user_id] = event_time
+
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        return self._subscription_updated_event_time.get(user_id)
 
     def increment_and_mark_notice(
         self,

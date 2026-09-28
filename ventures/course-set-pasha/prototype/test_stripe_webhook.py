@@ -740,6 +740,142 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.cleared_user_ids, [])
         self.assertIsNotNone(self.store.get_deletion_candidate_at("user_1"))
 
+    def test_stale_subscription_updated_event_skips_plan_write(self):
+        # subscription-updated-event-order-guard-design.md(本フェーズ、kura-pashaフェーズ198
+        # の横展開): 既により新しい.updatedが反映済みのところへ遅延配信された古い.updated
+        # が届いた場合、plan更新はスキップされる。
+        usage_counter = InMemoryUsageCounter()
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_plan("user_1", "ライト")
+        newer_event = {
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_100,
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        dispatch_stripe_event(
+            newer_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(user_profile_store.get_plan("user_1"), "スタンダード")
+
+        stale_event = {
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_000,
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["セッター複数"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            stale_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.stale_subscription_updated_user_ids, ["user_1"])
+        self.assertEqual(result.plan_updated_user_ids, [])
+        # スタンダードのまま(古いイベントのセッター複数で上書きされていない)。
+        self.assertEqual(user_profile_store.get_plan("user_1"), "スタンダード")
+
+    def test_stale_subscription_updated_event_skips_cancellation_notification(self):
+        # 通知(解約予約受理/取り消し)もplan更新と同じく丸ごとスキップされる。
+        usage_counter = InMemoryUsageCounter()
+        push_client = InMemoryLinePushClient()
+        newer_event = {
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A", "cancel_at_period_end": True}},
+        }
+        dispatch_stripe_event(
+            newer_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            push_client=push_client,
+        )
+        push_client.sent.clear()
+
+        stale_event = {
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_000,
+            "data": {
+                "object": {"customer": "cus_A", "cancel_at_period_end": False},
+                "previous_attributes": {"cancel_at_period_end": True},
+            },
+        }
+        result = dispatch_stripe_event(
+            stale_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.stale_subscription_updated_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_rescheduled_notified_user_ids, [])
+        self.assertEqual(push_client.sent, [])
+
+    def test_subscription_updated_event_without_usage_counter_is_backward_compatible(self):
+        # usage_counter未指定時は従来通りstale判定自体を行わず、常に最新イベントとして
+        # 適用する(既存呼び出し経路への後方互換)。
+        user_profile_store = InMemoryUserProfileStore()
+        user_profile_store.set_plan("user_1", "ライト")
+        event = {
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_000,
+            "data": {
+                "object": {
+                    "customer": "cus_A",
+                    "status": "active",
+                    "items": {
+                        "data": [
+                            {
+                                "price": {
+                                    "id": PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER["スタンダード"]
+                                }
+                            }
+                        ]
+                    },
+                }
+            },
+        }
+        result = dispatch_stripe_event(
+            event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            user_profile_store=user_profile_store,
+        )
+        self.assertEqual(result.stale_subscription_updated_user_ids, [])
+        self.assertEqual(result.plan_updated_user_ids, ["user_1"])
+
     def test_subscription_updated_with_unchanged_plan_skips_write(self):
         # subscription-plan-change-design.md「残課題」の差分チェック(フェーズ続き154):
         # 解決されたプランが既存のuser_profile_store側の値と同じ場合は、set_plan()自体を

@@ -207,6 +207,12 @@ class StripeDispatchResult:
     # 通知いずれもスキップしたuser_id。
     stale_payment_failed_user_ids: list = field(default_factory=list)
     stale_payment_succeeded_user_ids: list = field(default_factory=list)
+    # subscription-updated-event-order-guard-design.md(本フェーズ、kura-pashaフェーズ198の
+    # 横展開)対応: usage_counterがget/set_subscription_updated_event_time()に対応している
+    # 場合、customer.subscription.updated同士の配信順序が入れ替わった(既に反映済みの
+    # より新しい.updatedより古い)と判定され、plan更新・解約予約受理/取り消し通知・
+    # reactivated状態クリアのいずれも丸ごとスキップしたuser_id。
+    stale_subscription_updated_user_ids: list = field(default_factory=list)
 
 
 class PaymentFailureUsageCounterProtocol(Protocol):
@@ -260,6 +266,14 @@ class PaymentFailureUsageCounterProtocol(Protocol):
         ...
 
     def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        """subscription-updated-event-order-guard-design.md対応(本フェーズ、
+        kura-pashaフェーズ198の横展開)。"""
+        ...
+
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
         ...
 
 
@@ -328,6 +342,38 @@ def _record_payment_failure_event_time(
     if not hasattr(usage_counter, "set_payment_failure_state_event_time"):
         return
     usage_counter.set_payment_failure_state_event_time(user_id, event_time)
+
+
+def _is_stale_subscription_updated_event(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-updated-event-order-guard-design.md準拠(本フェーズ、kura-pasha
+    フェーズ198の横展開)。`customer.subscription.deleted`/`created`用の
+    `_is_stale_subscription_state_event()`とは別の独立した基準線
+    (`get_subscription_updated_event_time()`)と比較する。`event_time`がNoneの場合は
+    判定不能として常にFalseを返す。"""
+    if usage_counter is None or event_time is None:
+        return False
+    if not hasattr(usage_counter, "get_subscription_updated_event_time"):
+        return False
+    last_applied = usage_counter.get_subscription_updated_event_time(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_subscription_updated_event_time(
+    usage_counter: Optional[PaymentFailureUsageCounterProtocol],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if usage_counter is None or event_time is None:
+        return
+    if not hasattr(usage_counter, "set_subscription_updated_event_time"):
+        return
+    usage_counter.set_subscription_updated_event_time(user_id, event_time)
 
 
 def dispatch_stripe_event(
@@ -446,6 +492,14 @@ def dispatch_stripe_event(
     `usage_counter`指定時は`handle_subscription_cancellation_update()`へ`usage_counter`と
     現在時刻もあわせて渡し、制限モード中かどうかを案内メッセージへ反映する
     (`subscription_cancellation_notification._is_payment_suspended_now()`参照)。
+
+    `usage_counter`はsubscription-updated-event-order-guard-design.md(本フェーズ、
+    kura-pashaフェーズ198の横展開)対応も兼ねる。`get/set_subscription_updated_event_time()`
+    に対応している場合、`customer.subscription.updated`同士の配信順序入れ替わり
+    (既に反映済みのより新しい`.updated`より古いイベントが遅延配信された場合)を検知し、
+    plan更新・解約予約受理/取り消し通知・reactivated状態クリアのいずれも丸ごとスキップする
+    (`StripeDispatchResult.stale_subscription_updated_user_ids`に記録)。未対応の場合は
+    従来通り常に最新イベントとして扱う(後方互換)。
     """
     result = StripeDispatchResult()
 
@@ -550,6 +604,19 @@ def dispatch_stripe_event(
         return result
 
     if event_type == "customer.subscription.updated":
+        # subscription-updated-event-order-guard-design.md(本フェーズ、kura-pashaフェーズ198
+        # の横展開)対応: plan更新・解約予約受理/取り消し通知・reactivated状態クリアの
+        # いずれも、既により新しい.updatedが反映済みであれば「丸ごとスキップ」する
+        # (他ハンドラの配信順序ガードと同じ方針)。event.createdが数値でない/存在しない
+        # 場合は判定不能として従来通り無条件適用する(既存呼び出し経路への後方互換)。
+        created = event.get("created")
+        event_time = None
+        if isinstance(created, (int, float)) and not isinstance(created, bool):
+            event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+        if _is_stale_subscription_updated_event(usage_counter, user_id, event_time):
+            result.stale_subscription_updated_user_ids.append(user_id)
+            return result
+
         # subscription-plan-change-design.md(フェーズ153): checkout-session-plan-
         # selection-design.md「残課題」に残っていたプラン変更(アップグレード/ダウングレード)
         # 時のplan更新経路。ステータス(active/trialing以外への遷移を含む)にかかわらず、
@@ -605,6 +672,7 @@ def dispatch_stripe_event(
         if data_object.get("status") in _REACTIVATED_STATUSES:
             clear_deletion_candidate_on_subscription_reactivated(store, user_id)
             result.cleared_user_ids.append(user_id)
+        _record_subscription_updated_event_time(usage_counter, user_id, event_time)
         return result
 
     if usage_counter is None:
