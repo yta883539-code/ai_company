@@ -4828,3 +4828,32 @@
 - 最終更新: 2026-09-27 22:00 UTC(フェーズ280: Stripe Webhook配信順序入れ替わりガードを
   `deletion_candidate_at`・`subscription_canceled_at`の両方に追加。course-set-pashaフェーズ
   261・262の横展開。テスト7件追加、venture全体638件・schema検証25件いずれもパス)
+- フェーズ281(2026-09-28 07:00 UTC定例更新): フェーズ280が「次回候補」として残していた
+  「kura-pasha・line-reservation-aiのenum/文字列方式における配信順序入れ替わり」への横展開
+  検討は、kura-pashaフェーズ194(subscription-status-event-order-guard-design.md)・
+  line-reservation-ai側(subscription-event-order-guard-design.md)でそれぞれ独自実装済み
+  であることを確認した(course-set-pashaフェーズ263の3venture横断確認と同じ結論)。代わりに、
+  フェーズ280のガードが`subscription_canceled_at`・`deletion_candidate_at`のみを対象と
+  しており、`invoice.payment_failed`/`invoice.payment_succeeded`(dunning側、
+  `payment_failure_detected_at`等)の配信順序入れ替わりが本venture自身では未対応のまま
+  残っていることを発見し(kura-pashaフェーズ194「ケースB」・line-reservation-ai側の
+  「スコープ外」記載と同種の指摘)、対応した。`UserProfile`に`payment_failure_state_
+  event_time`を追加(`UserProfileStoreProtocol`の`get`/`set`、`InMemoryUserProfileStore`
+  実装、`resolve_linking_code()`の再連携時引き継ぎも対応)、`stripe_dispatch.py`に
+  `_is_stale_payment_failure_event()`/`_record_payment_failure_event_time()`を新設し、
+  `_INVOICE_PAYMENT_FAILED`/`_INVOICE_PAYMENT_SUCCEEDED`分岐の双方にstale判定を配線した
+  (フェーズ280と同じ「stale全体スキップ」方針: staleなら状態の書き込み・通知送信のいずれも
+  行わない)。`_INVOICE_PAYMENT_SUCCEEDED`分岐はこれまで`event.created`を読んでいなかった
+  ため読み取りを新規追加した(既存の`created`未指定のテストは`event_time=None`により
+  常に非stale判定〈後方互換〉となることを既存テストの無改変での成功で確認)。詳細は
+  payment-failure-event-order-guard-design.md参照。テスト4件追加(`test_stripe_dispatch.py`
+  にケースA・push_client指定時の通知未送信確認・ケースB・recovery_push_client指定時の
+  通知未送信確認)、venture全体642件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`、変更前638件+新規4件)・schema検証25件(`python3 schema/validate_test_
+  cases.py`)いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないため、pending-approval.mdへの追記なし。次回候補:
+  他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 07:00 UTC(フェーズ281: Stripe Webhook配信順序入れ替わりガードを
+  dunning側〈`payment_failure_detected_at`等〉へ横展開。`payment_failure_state_event_time`
+  新設、`invoice.payment_failed`/`invoice.payment_succeeded`双方にstale判定を配線。
+  テスト4件追加、venture全体642件・schema検証25件いずれもパス)

@@ -631,6 +631,76 @@ class DispatchInvoicePaymentFailedTest(unittest.TestCase):
         self.assertEqual(result.payment_failure_notification_failed_user_ids, [_USER_ID])
         self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
 
+    def test_stale_payment_failed_event_skipped_when_older_than_already_applied_succeeded(
+        self,
+    ):
+        # payment-failure-event-order-guard-design.md(フェーズ281、subscription-event-
+        # out-of-order-guard-design.md〈フェーズ280〉のdunning側への横展開)。より新しい
+        # invoice.payment_succeeded(T2)が既に反映済みの状態で、それより古いinvoice.
+        # payment_failed(T1)がWebhookの配信順序入れ替わりにより後から届いても、既に
+        # 決済済みの利用者を誤って督促対象へ書き換えてはならない。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_succeeded_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        older_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_failed_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_payment_failed_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertIsNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+
+    def test_notification_not_sent_when_payment_failed_event_is_stale(self):
+        # 上記のstale判定は、push_client指定時(実送信配線)でも通知の送信自体を
+        # 行わない(状態と矛盾する通知を送らないため)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_succeeded_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        push_client = InMemoryLinePushClient()
+        older_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_failed_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            push_client=push_client,
+        )
+        self.assertEqual(result.stale_payment_failed_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_failure_detected_user_ids, [])
+        self.assertEqual(result.payment_failure_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 0)
+
 
 class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
     def test_clears_failure_and_suspended_state(self):
@@ -814,6 +884,74 @@ class DispatchInvoicePaymentSucceededTest(unittest.TestCase):
         self.assertEqual(result.payment_recovery_notification_failed_user_ids, [_USER_ID])
         self.assertIsNotNone(payment_store.get_payment_failure_detected_at(_USER_ID))
         self.assertIsNotNone(payment_store.get_payment_suspended_at(_USER_ID))
+
+    def test_stale_payment_succeeded_event_skipped_when_older_than_already_applied_failed(
+        self,
+    ):
+        # payment-failure-event-order-guard-design.md(フェーズ281)。より新しいinvoice.
+        # payment_failed(T2)が既に反映済みの状態で、それより古いinvoice.payment_succeeded
+        # (T1)がWebhookの配信順序入れ替わりにより後から届いても、既に決済失敗した利用者の
+        # 督促を誤って解除してはならない。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_failed_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        older_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_succeeded_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_payment_succeeded_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertIsNotNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+
+    def test_recovery_notification_not_sent_when_payment_succeeded_event_is_stale(self):
+        # 上記のstale判定は、recovery_push_client指定時(実送信配線)でも復旧通知の送信自体を
+        # 行わない(状態と矛盾する通知を送らないため)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        newer_failed_event = {
+            "type": "invoice.payment_failed",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_failed_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        recovery_push_client = InMemoryRecoveryPushClient()
+        older_succeeded_event = {
+            "type": "invoice.payment_succeeded",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_succeeded_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            recovery_push_client=recovery_push_client,
+        )
+        self.assertEqual(result.stale_payment_succeeded_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_recovered_user_ids, [])
+        self.assertEqual(len(recovery_push_client.sent), 0)
 
 
 class DispatchSubscriptionCancellationNotificationTest(unittest.TestCase):

@@ -60,6 +60,20 @@ stripe-webhook-event-dispatch-design.md(フェーズ126)で設計した、Stripe
   してから使う既存方針を踏襲し(未対応の`store`/`payment_store`が渡された場合は判定不能
   として常に適用する後方互換)、`PaymentFailureStoreProtocol`/`ProfileDeletionCandidate
   StoreProtocol`自体のメソッド一覧は変更していない。
+- 配信順序入れ替わりガードのdunning側への横展開(フェーズ281): payment-failure-event-
+  order-guard-design.md参照。フェーズ280は`subscription_canceled_at`・`deletion_
+  candidate_at`のみを対象としており、`invoice.payment_failed`/`invoice.payment_
+  succeeded`(dunning側、`payment_failure_detected_at`等)の配信順序入れ替わりは未検討の
+  まま残していた(kura-pashaフェーズ194・line-reservation-ai側でも同種の指摘があった)。
+  本フェーズで対応し、`payment_store`(`InMemoryUserProfileStore`)に`get_payment_
+  failure_state_event_time()`/`set_payment_failure_state_event_time()`
+  (`UserProfile.payment_failure_state_event_time`フィールド)を追加し、`_is_stale_
+  payment_failure_event()`/`_record_payment_failure_event_time()`で判定・記録する
+  (フェーズ280と同じ`hasattr`後方互換方針)。`invoice.payment_failed`・`invoice.
+  payment_succeeded`のいずれかがstaleと判定された場合は状態の書き込み・通知送信の
+  いずれも行わず丸ごとスキップする(course-set-pasha/kura-pashaの「stale全体スキップ」
+  方針の踏襲。仮に状態だけスキップして通知だけ送ると、実際の決済状態と矛盾する通知
+  〈例: 既に決済成功済みなのに「お支払いの確認をお願いします」〉を送ってしまうため)。
 
 設計の参照元: stripe-webhook-event-dispatch-design.md
 """
@@ -186,6 +200,12 @@ class StripeDispatchResult:
     # (subscription-event-out-of-order-guard-design.md参照)。
     stale_subscription_deleted_user_ids: List[str] = field(default_factory=list)
     stale_subscription_created_user_ids: List[str] = field(default_factory=list)
+    # フェーズ281追加: payment_store指定時(かつ`get_payment_failure_state_event_time`
+    # 対応時)、配信順序が入れ替わった(既に反映済みのより新しいイベントより古い)と判定され、
+    # invoice.payment_failed/invoice.payment_succeededの反映を丸ごとスキップしたuser_id
+    # (payment-failure-event-order-guard-design.md参照)。
+    stale_payment_failed_user_ids: List[str] = field(default_factory=list)
+    stale_payment_succeeded_user_ids: List[str] = field(default_factory=list)
 
 
 def _is_stale_subscription_state_event(
@@ -220,6 +240,43 @@ def _record_subscription_state_event_time(
     if payment_store is None or event_time is None:
         return
     setter = getattr(payment_store, "set_subscription_state_event_time", None)
+    if setter is None:
+        return
+    setter(user_id, event_time)
+
+
+def _is_stale_payment_failure_event(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """payment-failure-event-order-guard-design.md準拠(フェーズ281、
+    _is_stale_subscription_state_event()の横展開)。`invoice.payment_failed`/
+    `invoice.payment_succeeded`もStripe Webhookの配信順序保証の対象外であり、
+    `payment_store`に記録された最後に反映したイベント時刻
+    (`get_payment_failure_state_event_time()`)以前の`event_time`を持つイベントはstale
+    (配信順序が入れ替わった)とみなす。`event_time`がNone、または`payment_store`が
+    `get_payment_failure_state_event_time`に未対応の場合は判定不能として常にFalse
+    (staleではない)を返し、従来通りイベントを適用する。"""
+    if payment_store is None or event_time is None:
+        return False
+    getter = getattr(payment_store, "get_payment_failure_state_event_time", None)
+    if getter is None:
+        return False
+    last_applied = getter(user_id)
+    if last_applied is None:
+        return False
+    return event_time <= last_applied
+
+
+def _record_payment_failure_event_time(
+    payment_store: Optional["PaymentFailureStoreProtocol"],
+    user_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    if payment_store is None or event_time is None:
+        return
+    setter = getattr(payment_store, "set_payment_failure_state_event_time", None)
     if setter is None:
         return
     setter(user_id, event_time)
@@ -437,23 +494,45 @@ def dispatch_stripe_event(
             result.invalid_events.append(event_type)
             return result
         event_time = datetime.fromtimestamp(created, tz=timezone.utc)
+        if _is_stale_payment_failure_event(payment_store, user_id, event_time):
+            # payment-failure-event-order-guard-design.md(フェーズ281)対応: 既により新しい
+            # (=同じuser_idに対する後続の)invoice.payment_succeeded等が反映済みであれば、
+            # 本イベントはWebhookリトライ等で遅延した古いイベントとみなし、検知状態の
+            # 書き込み・通知のいずれも行わない(反映すると、既に決済済みの利用者を誤って
+            # 督促対象へ書き換えてしまうため)。
+            result.stale_payment_failed_user_ids.append(user_id)
+            return result
         if push_client is None:
             mark_payment_failure_detected(payment_store, user_id, event_time)
+            _record_payment_failure_event_time(payment_store, user_id, event_time)
             result.payment_failure_detected_user_ids.append(user_id)
             return result
         detection_result = handle_payment_failure_detected(
             payment_store, user_id, event_time, push_client
         )
         if detection_result.notified:
+            _record_payment_failure_event_time(payment_store, user_id, event_time)
             result.payment_failure_detected_user_ids.append(user_id)
         else:
             result.payment_failure_notification_failed_user_ids.append(user_id)
         return result
 
     # _INVOICE_PAYMENT_SUCCEEDED
+    succeeded_created = event.get("created")
+    succeeded_event_time: Optional[datetime] = None
+    if isinstance(succeeded_created, (int, float)) and not isinstance(succeeded_created, bool):
+        succeeded_event_time = datetime.fromtimestamp(succeeded_created, tz=timezone.utc)
+    if _is_stale_payment_failure_event(payment_store, user_id, succeeded_event_time):
+        # payment-failure-event-order-guard-design.md(フェーズ281)対応: 既により新しい
+        # invoice.payment_failed等が反映済みであれば、本イベントはWebhookリトライ等で
+        # 遅延した古いイベントとみなし、復旧状態の書き込み・通知のいずれも行わない
+        # (反映すると、既に決済失敗した利用者の督促を誤って解除してしまうため)。
+        result.stale_payment_succeeded_user_ids.append(user_id)
+        return result
     if recovery_push_client is None:
         if clear_payment_failure_on_success(payment_store, user_id):
             result.payment_recovered_user_ids.append(user_id)
+        _record_payment_failure_event_time(payment_store, user_id, succeeded_event_time)
         return result
 
     state = PaymentFailureReminderUserState(
@@ -470,6 +549,8 @@ def dispatch_stripe_event(
     recovery_result = handle_payment_succeeded(state, payment_store, recovery_push_client)
     if recovery_result.outcome == OUTCOME_SEND_FAILED:
         result.payment_recovery_notification_failed_user_ids.append(user_id)
-    elif recovery_result.state_reset:
-        result.payment_recovered_user_ids.append(user_id)
+    else:
+        _record_payment_failure_event_time(payment_store, user_id, succeeded_event_time)
+        if recovery_result.state_reset:
+            result.payment_recovered_user_ids.append(user_id)
     return result
