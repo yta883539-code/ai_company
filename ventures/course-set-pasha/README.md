@@ -4206,3 +4206,32 @@
 - 最終更新: 2026-09-27 21:00 UTC(フェーズ262: `deletion_candidate.py`にもStripe Webhook
   配信順序入れ替わりガードを追加。ケースA・ケースBいずれも誤反映しないことを確認。
   テスト4件追加、venture全体670件・schema検証21件いずれもパス)
+- フェーズ263(2026-09-28 05:00 UTC定例更新): フェーズ262が「次回候補」として残していた
+  aircon-pasha・kura-pasha・line-reservation-aiへの横断確認を実施した。確認の結果、
+  3venture全てがcourse-set-pashaフェーズ261・262とは独立に、各自の状態表現に合わせた
+  同種のStripe Webhook配信順序入れ替わりガードを既に実装済みであること(aircon-pasha
+  フェーズ280、kura-pashaフェーズ194、line-reservation-aiフェーズ続き282〜285)を確認した。
+  横断確認の過程で、kura-pasha・line-reservation-aiの両venture共に、staleと判定した
+  場合は状態更新だけでなく付随する通知・関連フィールドの変更もまとめてスキップする
+  「stale全体スキップ」方針を採用している一方、course-set-pashaのフェーズ261・262時点の
+  実装は`subscription_canceled_at`の設定・消去のみをガード対象とし、解約確定案内通知
+  (`push_client`経由)と決済失敗3フィールドクリア(`payment_failure_cleared_on_deletion_
+  user_ids`)はdeleted判定がstaleであっても従来通り無条件に実行される非対称な状態
+  だったことに気づいた(subscription-event-out-of-order-guard-design.md 4節が「実運用上
+  稀・実害軽微」として意図的に対象外としていた箇所)。既に2venture共がより安全な方針を
+  採用済みであることから、course-set-pashaもこれに合わせて統一した。`stripe_webhook.py`
+  の`customer.subscription.deleted`分岐で、stale判定を決済失敗フィールドクリア・
+  `subscription_canceled_at`設定・解約確定案内通知の3箇所共通の変数として先頭でまとめて
+  評価するよう変更し、stale時はいずれの副作用もスキップするようにした
+  (`usage_counter`未指定時は従来通り無条件適用する後方互換を維持)。詳細は
+  subscription-event-out-of-order-guard-design.md 6節参照。テスト2件追加
+  (`test_stale_subscription_deleted_sends_no_cancellation_notice`・
+  `test_stale_subscription_deleted_does_not_clear_payment_failure_state`)、venture全体
+  `python3 -m unittest discover -s prototype -p "test_*.py"`672件(670→672)・schema検証
+  21件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進。
+- 最終更新: 2026-09-28 05:00 UTC(フェーズ263: aircon-pasha・kura-pasha・
+  line-reservation-aiへの横断確認を完了(3venture共に対応済みと確認)。course-set-pashaの
+  解約確定案内通知・決済失敗フィールドクリアもstale全体スキップ方針へ統一。テスト2件追加、
+  venture全体672件・schema検証21件いずれもパス)

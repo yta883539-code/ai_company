@@ -415,8 +415,20 @@ def dispatch_stripe_event(
         mark_deletion_candidate_on_subscription_deleted(store, user_id, event_time)
         if user_profile_store is not None:
             user_profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
+
+        # subscription-event-out-of-order-guard-design.md(フェーズ263)対応:
+        # 本イベントがstale(既により新しいcustomer.subscription.createdが反映済み)か
+        # どうかを、この後続く決済失敗フィールドクリア・subscription_canceled_at設定・
+        # 解約確定案内通知の3つで共通して使う(kura-pasha・line-reservation-aiが採用した
+        # 「stale全体スキップ」方針への統一。usage_counter未指定時はstale判定自体が
+        # できないため常にFalse=従来通り適用、既存呼び出し経路への後方互換)。
+        is_stale_deleted_event = _is_stale_subscription_state_event(
+            usage_counter, user_id, event_time
+        )
+
         if (
             usage_counter is not None
+            and not is_stale_deleted_event
             and usage_counter.get_payment_failure_detected_at(user_id) is not None
         ):
             usage_counter.clear_payment_failure_detected_at(user_id)
@@ -434,7 +446,7 @@ def dispatch_stripe_event(
         # イベントとみなし、反映をスキップする(反映すると、既に新しい契約で有効化
         # されている利用者を誤ってブロックしてしまうため)。
         if usage_counter is not None:
-            if _is_stale_subscription_state_event(usage_counter, user_id, event_time):
+            if is_stale_deleted_event:
                 result.stale_subscription_deleted_user_ids.append(user_id)
             else:
                 usage_counter.set_subscription_canceled_at(user_id, event_time)
@@ -444,7 +456,11 @@ def dispatch_stripe_event(
         # subscription-cancelled-notification-design.md(フェーズ155)3節: 状態変更は
         # 上記ですでに完了しており、通知の送信成否とは独立させる(未指定時は従来通り
         # 通知を送らない、既存呼び出し経路への後方互換措置)。
-        if push_client is not None:
+        #
+        # subscription-event-out-of-order-guard-design.md(フェーズ263)対応:
+        # ただし本イベントがstaleの場合、実際には新契約で有効な利用者に「ご契約が
+        # 終了しました」という事実と異なる通知を送ってしまうため、通知も送らない。
+        if push_client is not None and not is_stale_deleted_event:
             notification_result = handle_subscription_cancelled(user_id, push_client)
             if notification_result.notified:
                 result.cancellation_notified_user_ids.append(user_id)

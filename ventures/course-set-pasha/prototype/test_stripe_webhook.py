@@ -425,6 +425,79 @@ class DispatchStripeEventTest(unittest.TestCase):
         self.assertEqual(result.subscription_canceled_user_ids, [])
         self.assertIsNone(usage_counter.get_subscription_canceled_at("user_1"))
 
+    def test_stale_subscription_deleted_sends_no_cancellation_notice(self):
+        # subscription-event-out-of-order-guard-design.md(フェーズ263)対応。
+        # test_subscription_deleted_ignored_when_older_than_already_applied_createdと
+        # 同じstale再現に加えpush_clientを指定し、既に有効な新契約の利用者に「ご契約が
+        # 終了しました」という事実と異なる通知を送ってしまわないことを確認する
+        # (kura-pasha・line-reservation-aiの「stale全体スキップ」方針への統一)。
+        usage_counter = InMemoryUsageCounter()
+        push_client = InMemoryLinePushClient()
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+            push_client=push_client,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, ["user_1"])
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 0)
+
+    def test_stale_subscription_deleted_does_not_clear_payment_failure_state(self):
+        # subscription-event-out-of-order-guard-design.md(フェーズ263)対応。
+        # 決済失敗検知中に、既により新しいcustomer.subscription.createdが反映済みの
+        # 状態で古いdeletedが遅延到着しても、payment_failure_cleared_on_deletion_
+        # user_idsによるフィールドクリアをスキップする(stale全体スキップへの統一)。
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_payment_failure_detected_at(
+            "user_1", datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": "cus_A"}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=self.store,
+            resolve_user_id=_resolver({"cus_A": "user_1"}),
+            usage_counter=usage_counter,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, ["user_1"])
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+        self.assertIsNotNone(usage_counter.get_payment_failure_detected_at("user_1"))
+
     def test_subscription_created_ignored_when_older_than_already_applied_deleted(self):
         # subscription-event-out-of-order-guard-design.md(本フェーズ)対応、ケースBの
         # 再現。より新しいdeleted(T2)が既に反映済み(解約確定済み)の状態で、それより
