@@ -4257,3 +4257,25 @@
   payment_succeeded`〈dunning側〉にStripe Webhook配信順序入れ替わりガードを追加。
   `payment_failure_state_event_time`新設、両イベント種別にstale全体スキップ方針で配線。
   テスト5件追加、venture全体677件・schema検証21件いずれもパス)
+- フェーズ265(2026-09-28 13:00 UTC定例更新): line-reservation-aiフェーズ続き285
+  (checkout-session-completed-event-order-guard-design.md)が、その元となった
+  course-set-pasha自身の`stripe_webhook.handle_checkout_session_completed()`と
+  同じ考え方として横展開した`checkout.session.completed`のStripe Webhook配信順序
+  入れ替わりガードが、course-set-pasha自身には未反映のまま残っていたことが判明したため
+  是正した。`UserProfileStoreProtocol`(application_form_submission_flow.py)に
+  `get/set_checkout_session_completed_event_time()`を追加、`handle_checkout_session_
+  completed()`に`event_time`引数を追加し記録済み時刻以下の場合はstripe_customer_id・
+  planいずれの書き込みもスキップする「丸ごとスキップ」方針で配線した(upgraded_at書き込みは
+  stale時もそのまま行う、既存値があれば上書きしない設計のため実害なし)。
+  `receive_stripe_webhook()`の`checkout.session.completed`分岐で`event.created`から
+  event_timeを算出し渡す配線も追加した。詳細はcheckout-session-completed-event-order-
+  guard-design.md参照。テスト5件追加(`HandleCheckoutSessionCompletedEventOrderGuardTest`)、
+  venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`682件
+  (677→682)・schema検証21件(`python3 schema/validate_test_cases.py`、変更なし)いずれも
+  パスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-09-28 13:00 UTC(フェーズ265: `handle_checkout_session_completed()`
+  〈checkout.session.completed〉にStripe Webhook配信順序入れ替わりガードを追加。
+  `checkout_session_completed_event_time`新設、stale全体スキップ方針で配線。
+  テスト5件追加、venture全体682件・schema検証21件いずれもパス)

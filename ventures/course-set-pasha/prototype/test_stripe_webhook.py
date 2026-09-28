@@ -1785,6 +1785,97 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertFalse(result.plan_written)
 
 
+class HandleCheckoutSessionCompletedEventOrderGuardTest(unittest.TestCase):
+    """checkout-session-completed-event-order-guard-design.md
+    (line-reservation-aiフェーズ続き285の横展開)。"""
+
+    def setUp(self):
+        self.store = InMemoryUserProfileStore()
+
+    def _event(self, customer: str = "cus_A", plan: str = "スタンダード") -> dict:
+        return {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "U1",
+                    "customer": customer,
+                    "metadata": {"plan": plan},
+                }
+            },
+        }
+
+    def test_event_time_omitted_applies_unconditionally(self):
+        first = self._event(customer="cus_OLD")
+        second = self._event(customer="cus_NEW")
+        handle_checkout_session_completed(first, self.store)
+        result = handle_checkout_session_completed(second, self.store)
+
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("U1"), "cus_NEW")
+
+    def test_no_recorded_event_time_applies_unconditionally(self):
+        # 本ガード導入前からの既存ユーザー等、記録済みevent_timeが未設定の場合は
+        # 初回のevent_time付き呼び出しでも無条件適用する。
+        t1 = datetime(2026, 9, 28, 10, 0, tzinfo=timezone.utc)
+        result = handle_checkout_session_completed(
+            self._event(), self.store, event_time=t1
+        )
+
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("U1"), t1
+        )
+
+    def test_newer_event_time_applies(self):
+        t1 = datetime(2026, 9, 28, 10, 0, tzinfo=timezone.utc)
+        t2 = datetime(2026, 9, 28, 11, 0, tzinfo=timezone.utc)
+        handle_checkout_session_completed(
+            self._event(customer="cus_OLD", plan="ライト"), self.store, event_time=t1
+        )
+        result = handle_checkout_session_completed(
+            self._event(customer="cus_NEW", plan="スタンダード"),
+            self.store,
+            event_time=t2,
+        )
+
+        self.assertTrue(result.linked)
+        self.assertFalse(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("U1"), "cus_NEW")
+        self.assertEqual(self.store.get_plan("U1"), "スタンダード")
+
+    def test_stale_event_time_skips_customer_id_and_plan_write(self):
+        t1 = datetime(2026, 9, 28, 11, 0, tzinfo=timezone.utc)
+        t0 = datetime(2026, 9, 28, 10, 0, tzinfo=timezone.utc)
+        handle_checkout_session_completed(
+            self._event(customer="cus_NEW", plan="スタンダード"),
+            self.store,
+            event_time=t1,
+        )
+        result = handle_checkout_session_completed(
+            self._event(customer="cus_OLD", plan="ライト"), self.store, event_time=t0
+        )
+
+        self.assertFalse(result.linked)
+        self.assertTrue(result.stale)
+        # 古いイベントによる上書きが発生していないことを確認する。
+        self.assertEqual(self.store.get_stripe_customer_id("U1"), "cus_NEW")
+        self.assertEqual(self.store.get_plan("U1"), "スタンダード")
+
+    def test_same_event_time_is_treated_as_stale(self):
+        t1 = datetime(2026, 9, 28, 11, 0, tzinfo=timezone.utc)
+        handle_checkout_session_completed(
+            self._event(customer="cus_NEW"), self.store, event_time=t1
+        )
+        result = handle_checkout_session_completed(
+            self._event(customer="cus_DUP"), self.store, event_time=t1
+        )
+
+        self.assertTrue(result.stale)
+        self.assertEqual(self.store.get_stripe_customer_id("U1"), "cus_NEW")
+
+
 class MakeResolveUserIdTest(unittest.TestCase):
     def test_returns_callable_backed_by_store(self):
         store = InMemoryUserProfileStore()

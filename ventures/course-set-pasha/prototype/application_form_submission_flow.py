@@ -64,6 +64,13 @@ class UserProfileStoreProtocol(Protocol):
     `dispatch_webhook_events()`から注入される単一の`plan`引数(全ユーザー一律、複数プラン
     混在時は不正確)より優先してユーザーごとの実際のプランを解決するために読み出す。
     未設定(トライアル中で未購入、またはFirestore未接続)の場合は`None`を返す。
+
+    `set_checkout_session_completed_event_time`/`get_checkout_session_completed_event_time`は
+    checkout-session-completed-event-order-guard-design.mdで追加した。
+    `stripe_webhook.handle_checkout_session_completed()`が最後に反映した
+    `checkout.session.completed`イベントの`event.created`時刻(user_idキー)を保持し、
+    同一user_idに対して配信順序が入れ替わった古いイベントでstripe_customer_id・planを
+    誤って上書きしないための基準線として使う。
     """
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
@@ -117,6 +124,16 @@ class UserProfileStoreProtocol(Protocol):
     def get_plan(self, user_id: str) -> Optional[str]:
         ...
 
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        ...
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -141,6 +158,7 @@ class InMemoryUserProfileStore:
         self._is_following: dict[str, bool] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, datetime] = {}
         self._plans: dict[str, str] = {}
+        self._checkout_session_completed_event_time: dict[str, datetime] = {}
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         self._profiles[user_id] = raw_value
@@ -204,6 +222,16 @@ class InMemoryUserProfileStore:
 
     def get_plan(self, user_id: str) -> Optional[str]:
         return self._plans.get(user_id)
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._checkout_session_completed_event_time[user_id] = event_time
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        return self._checkout_session_completed_event_time.get(user_id)
 
 
 # design 2節: 連続カンマのみ等、要素がすべて空になる入力を「実質空」とみなすための判定に使う。

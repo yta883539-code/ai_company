@@ -739,6 +739,9 @@ class CheckoutSessionLinkResult:
     stripe_customer_id: Optional[str] = None
     upgraded_at_written: bool = False
     plan_written: bool = False
+    # checkout-session-completed-event-order-guard-design.md: 配信順序が入れ替わった
+    # 古いイベントのためstripe_customer_id・plan双方の書き込みをスキップした場合True。
+    stale: bool = False
 
 
 def handle_checkout_session_completed(
@@ -747,6 +750,7 @@ def handle_checkout_session_completed(
     *,
     usage_counter: Optional[UpgradedAtWriterProtocol] = None,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(=user_id)と
     `customer`(=stripe_customer_id)を取り出し、`store`に紐付けを書き込む
@@ -768,6 +772,22 @@ def handle_checkout_session_completed(
     `plan`欠落・未知の値の場合は何も書き込まない(安全側。古いCheckout Session実装
     〈metadata省略〉からのイベントでも紐付け自体は従来通り行える)。`store`が`set_plan`を
     持たない場合(最小限のスタブを使うテスト等)は`hasattr`で検出しスキップする。
+
+    `event_time`(checkout-session-completed-event-order-guard-design.md、
+    subscription-event-out-of-order-guard-design.md・payment-failure-event-order-guard-
+    design.mdの横展開): 同一user_idが短期間に2回以上Checkout Sessionを完了させるケース
+    (例: 一度解約後に別プランで即座に再購入)で、古い`checkout.session.completed`が
+    Stripe側の再送等で新しいイベントより後に遅延配信されると、新しいcustomer_id・planを
+    古い値で誤って上書きしてしまう。`store`が`get/set_checkout_session_completed_event_
+    time()`に対応している場合、記録済みの最新反映時刻以下(同時刻含む)の`event_time`は
+    stale(配信順序が入れ替わった)とみなし、stripe_customer_id・planいずれの書き込みも
+    行わず`CheckoutSessionLinkResult(stale=True)`を返す(line-reservation-aiフェーズ続き285
+    と同じ「丸ごとスキップ」方針。customer_idだけ古いまま・planだけ新しいという中途半端な
+    状態を避けるため)。`upgraded_at`の書き込みはstale時もそのまま行う(`set_upgraded_at_
+    if_unset()`は既存値があれば上書きしない設計のため、staleなイベントで誤って有料転換前の
+    状態に戻ることはない)。`event_time`省略時、`store`が対応メソッドを持たない場合
+    (`hasattr`未対応の簡易スタブ等)、または記録済みの時刻が未設定(本ガード導入前からの
+    既存ユーザー等)の場合はチェックを行わず従来通り無条件適用する(後方互換)。
     """
     data_object = event.get("data", {}).get("object", {})
     user_id = data_object.get("client_reference_id")
@@ -781,7 +801,13 @@ def handle_checkout_session_completed(
     ):
         return CheckoutSessionLinkResult(linked=False)
 
-    store.set_stripe_customer_id(user_id, stripe_customer_id)
+    is_stale = False
+    if event_time is not None and hasattr(
+        store, "get_checkout_session_completed_event_time"
+    ):
+        recorded_event_time = store.get_checkout_session_completed_event_time(user_id)
+        if recorded_event_time is not None and event_time <= recorded_event_time:
+            is_stale = True
 
     upgraded_at_written = False
     if usage_counter is not None:
@@ -789,12 +815,27 @@ def handle_checkout_session_completed(
         usage_counter.set_upgraded_at_if_unset(user_id, resolved_now)
         upgraded_at_written = True
 
+    if is_stale:
+        return CheckoutSessionLinkResult(
+            linked=False,
+            user_id=user_id,
+            upgraded_at_written=upgraded_at_written,
+            stale=True,
+        )
+
+    store.set_stripe_customer_id(user_id, stripe_customer_id)
+
     plan_written = False
     metadata = data_object.get("metadata")
     plan = metadata.get("plan") if isinstance(metadata, dict) else None
     if isinstance(plan, str) and plan in PLAN_MONTHLY_LIMITS and hasattr(store, "set_plan"):
         store.set_plan(user_id, plan)
         plan_written = True
+
+    if event_time is not None and hasattr(
+        store, "set_checkout_session_completed_event_time"
+    ):
+        store.set_checkout_session_completed_event_time(user_id, event_time)
 
     return CheckoutSessionLinkResult(
         linked=True,
@@ -934,12 +975,20 @@ def receive_stripe_webhook(
         return StripeWebhookReceiverResult(status_code=200, duplicate=True)
 
     if parsed.get("type") == "checkout.session.completed":
+        checkout_created = parsed.get("created")
+        checkout_event_time = (
+            datetime.fromtimestamp(checkout_created, tz=timezone.utc)
+            if isinstance(checkout_created, (int, float))
+            and not isinstance(checkout_created, bool)
+            else None
+        )
         checkout_link_result = (
             handle_checkout_session_completed(
                 parsed,
                 user_profile_store,
                 usage_counter=usage_counter,
                 now=resolved_now,
+                event_time=checkout_event_time,
             )
             if user_profile_store is not None
             else CheckoutSessionLinkResult(linked=False)
