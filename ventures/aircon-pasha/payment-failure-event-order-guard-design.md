@@ -71,10 +71,21 @@ state_event_time()`と同じ実装パターン、`hasattr`による後方互換�
 
 - 本ガードは`payment_failure_detected_at`等のdunning系フィールド(`payment_failure_
   state_event_time`という単一の基準線)に対してのみ適用する。`subscription_canceled_
-  at`(フェーズ280、`subscription_state_event_time`)とは別系列のため、本フェーズでは
-  相互の順序関係(例: 解約確定イベントと決済失敗検知イベントの前後関係)は対象外
-  (既存のとおり`customer.subscription.deleted`分岐は`clear_payment_failure_on_
-  success()`を無条件に呼ぶ設計を維持)。
+  at`(フェーズ280、`subscription_state_event_time`)とは別系列のため、相互の順序関係
+  (例: 解約確定イベントと決済失敗検知イベントの前後関係)は対象外。
+  (2026-09-28 09:00 UTC追記・フェーズ282: 本節は元々「`customer.subscription.deleted`
+  分岐は`clear_payment_failure_on_success()`を無条件に呼ぶ設計を維持」と明記していたが、
+  course-set-pashaフェーズ263が自venture側で発見・是正した「stale全体スキップ」方針
+  〈`subscription_canceled_at`設定がstale判定でスキップされる場合、決済失敗フィールド
+  クリア・解約確定案内通知も連動してスキップする〉が本venture自身には未反映のまま
+  残っていたことが判明したため、本フェーズで是正した。`customer.subscription.deleted`
+  分岐内で`_is_stale_subscription_state_event()`による判定を1回評価し
+  〈`is_stale_deleted_event`〉、`clear_payment_failure_on_success()`呼び出しと
+  `handle_subscription_cancelled()`による解約確定案内通知の両方をこの判定でガードする
+  よう変更した〈`subscription_canceled_at`設定自体は従来通りガード済み〉。したがって
+  上記「対象外」の記述はもはや正確ではなく、`customer.subscription.deleted`分岐内の
+  3つの副作用〈決済失敗フィールドクリア・`subscription_canceled_at`設定・解約確定案内
+  通知〉は全て同一のstale判定を共有する。詳細はテスト節参照。)
 - `customer.subscription.updated`分岐は`payment_failure_detected_at`等を変更しない
   ため対象外。
 - kura-pasha・line-reservation-aiへの本ガードの横展開状況は、kura-pashaフェーズ194・
@@ -101,3 +112,29 @@ cases.py`)いずれもパスを確認した。
 ため、pending-approval.mdへの追記なし。
 
 次回候補: 他venture・アイデア領域の前進。
+
+## 6. 追記(2026-09-28 09:00 UTC定例更新・フェーズ282)
+
+4節「スコープ外」で発見した非対称(`customer.subscription.deleted`受信時、
+`subscription_canceled_at`設定はstale判定でガードされる一方、決済失敗フィールド
+クリア・解約確定案内通知は無条件に実行される)を是正した。`stripe_dispatch.py`の
+`customer.subscription.deleted`分岐で`is_stale_deleted_event = _is_stale_
+subscription_state_event(payment_store, user_id, event_time)`を先頭で1回だけ評価し、
+`clear_payment_failure_on_success()`呼び出し・`handle_subscription_cancelled()`
+通知の両方をこの判定でガードするよう変更した(`subscription_canceled_at`設定自体は
+既存のガードのまま)。`test_stripe_dispatch.py`に`test_stale_deleted_event_does_not_
+clear_payment_failure_state`・`test_stale_deleted_event_sends_no_cancellation_
+notice`の2件を追加(course-set-pashaフェーズ263の同種テストの横展開)、venture全体
+644件(`python3 -m unittest discover -s prototype -p "test_*.py"`、変更前642件+
+新規2件)・schema検証25件(`python3 schema/validate_test_cases.py`、変更なし)
+いずれもパスを確認した。なお`clear_current_plan_on_subscription_deleted()`
+(plan_store)・`clear_blocked_but_billing_owner_notified_at()`(blocked_but_billing_
+store)の2つの副作用は、course-set-pashaに対応する副作用自体が存在せず横展開元の
+判断基準がないため、本フェーズでは対象外のまま残す(次回候補として持ち越す)。
+
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ため、pending-approval.mdへの追記なし。
+
+次回候補: `clear_current_plan_on_subscription_deleted()`・`clear_blocked_but_billing_
+owner_notified_at()`へのstale全体スキップ適用の要否検討、または他venture・アイデア
+領域の前進。

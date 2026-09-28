@@ -257,6 +257,80 @@ class DispatchSubscriptionDeletedTest(unittest.TestCase):
         self.assertEqual(result.subscription_canceled_user_ids, [])
         self.assertIsNone(payment_store.get_subscription_canceled_at(_USER_ID))
 
+    def test_stale_deleted_event_does_not_clear_payment_failure_state(self):
+        # payment-failure-event-order-guard-design.md 4節「スコープ外」の是正
+        # (course-set-pashaフェーズ263の横展開)。決済失敗検知中に、既により新しい
+        # customer.subscription.createdが反映済みの状態で古いdeletedが遅延到着しても、
+        # payment_failure_cleared_on_deletion_user_idsによるフィールドクリアをスキップする
+        # (stale全体スキップへの統一)。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        payment_store.set_payment_failure_detected_at(
+            _USER_ID, datetime(2026, 8, 1, tzinfo=timezone.utc)
+        )
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, [_USER_ID])
+        self.assertEqual(result.payment_failure_cleared_on_deletion_user_ids, [])
+        self.assertIsNotNone(payment_store.get_payment_failure_detected_at(_USER_ID))
+
+    def test_stale_deleted_event_sends_no_cancellation_notice(self):
+        # payment-failure-event-order-guard-design.md 4節「スコープ外」の是正
+        # (course-set-pashaフェーズ263の横展開)。既に有効な新契約の利用者に「ご契約が
+        # 終了しました」という事実と異なる通知を送ってしまわないことを確認する。
+        store = InMemoryProfileDeletionCandidateStore()
+        payment_store = _profile_store_with_user()
+        push_client = InMemoryCancellationPushClient()
+        newer_created_event = {
+            "type": "customer.subscription.created",
+            "created": 1_700_000_200,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        dispatch_stripe_event(
+            newer_created_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+        )
+
+        older_deleted_event = {
+            "type": "customer.subscription.deleted",
+            "created": 1_700_000_100,
+            "data": {"object": {"customer": _CUSTOMER}},
+        }
+        result = dispatch_stripe_event(
+            older_deleted_event,
+            store=store,
+            resolve_user_id=_resolve_known,
+            payment_store=payment_store,
+            cancellation_push_client=push_client,
+        )
+        self.assertEqual(result.stale_subscription_deleted_user_ids, [_USER_ID])
+        self.assertEqual(result.cancellation_notified_user_ids, [])
+        self.assertEqual(result.cancellation_notification_failed_user_ids, [])
+        self.assertEqual(len(push_client.sent), 0)
+
     def test_invalid_event_when_created_missing(self):
         store = InMemoryProfileDeletionCandidateStore()
         event = {

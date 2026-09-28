@@ -4857,3 +4857,27 @@
   dunning側〈`payment_failure_detected_at`等〉へ横展開。`payment_failure_state_event_time`
   新設、`invoice.payment_failed`/`invoice.payment_succeeded`双方にstale判定を配線。
   テスト4件追加、venture全体642件・schema検証25件いずれもパス)
+- フェーズ282(2026-09-28 09:00 UTC定例更新): payment-failure-event-order-guard-
+  design.md 4節「スコープ外」の棚卸しで、course-set-pashaフェーズ263が自venture側で
+  発見・是正した「stale全体スキップ」方針(`customer.subscription.deleted`受信時、
+  `subscription_canceled_at`設定がstale判定でスキップされる場合、決済失敗フィールド
+  クリア・解約確定案内通知も連動してスキップする)が、本venture自身には未反映のまま
+  「無条件に呼ぶ設計を維持」と明記されて残っていたことを発見し、是正した。
+  `stripe_dispatch.py`の`customer.subscription.deleted`分岐で`_is_stale_subscription_
+  state_event()`による判定を先頭で1回だけ評価(`is_stale_deleted_event`)し、
+  `clear_payment_failure_on_success()`呼び出しと`handle_subscription_cancelled()`
+  による解約確定案内通知の両方をこの判定でガードするよう変更した(`subscription_
+  canceled_at`設定自体は既存のガードのまま)。詳細はpayment-failure-event-order-guard-
+  design.md 6節参照。テスト2件追加(`test_stale_deleted_event_does_not_clear_payment_
+  failure_state`・`test_stale_deleted_event_sends_no_cancellation_notice`)、venture
+  全体`python3 -m unittest discover -s prototype -p "test_*.py"`644件(642→644)・
+  schema検証25件(`python3 schema/validate_test_cases.py`、変更なし)いずれもパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補:
+  `clear_current_plan_on_subscription_deleted()`・`clear_blocked_but_billing_owner_
+  notified_at()`へのstale全体スキップ適用の要否検討、または他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-09-28 09:00 UTC(フェーズ282: `customer.subscription.deleted`分岐の
+  決済失敗フィールドクリア・解約確定案内通知を、既存の`subscription_canceled_at`
+  stale判定と共通のガードに統一。course-set-pashaフェーズ263の横展開。テスト2件追加、
+  venture全体644件・schema検証25件いずれもパス)

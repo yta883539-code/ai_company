@@ -408,22 +408,35 @@ def dispatch_stripe_event(
         if blocked_but_billing_store is not None:
             if clear_blocked_but_billing_owner_notified_at(blocked_but_billing_store, user_id):
                 result.blocked_but_billing_owner_notified_cleared_user_ids.append(user_id)
+
+        # payment-failure-event-order-guard-design.md 4節「スコープ外」で本venture自身は
+        # 未対応のまま残していた非対称(course-set-pashaフェーズ263が自ventureで先に発見・
+        # 是正した「stale全体スキップ」方針)を横展開する。決済失敗フィールドクリア・
+        # subscription_canceled_at設定・解約確定案内通知の3箇所で共通のstale判定を
+        # 先頭で1回だけ評価する(kura-pasha・line-reservation-aiが採用済みの
+        # 「stale全体スキップ」方針への統一)。
+        is_stale_deleted_event = _is_stale_subscription_state_event(
+            payment_store, user_id, event_time
+        )
+
         if payment_store is not None:
-            if clear_payment_failure_on_success(payment_store, user_id):
+            if not is_stale_deleted_event and clear_payment_failure_on_success(
+                payment_store, user_id
+            ):
                 result.payment_failure_cleared_on_deletion_user_ids.append(user_id)
             if hasattr(payment_store, "set_subscription_canceled_at"):
-                # subscription-event-out-of-order-guard-design.md(本フェーズ)対応:
+                # subscription-event-out-of-order-guard-design.md(フェーズ280)対応:
                 # 既により新しい(=同じcustomerに対する後続の)customer.subscription.created
                 # イベントが反映済みであれば、本イベントはWebhookリトライ等で遅延した古い
                 # イベントとみなし、反映をスキップする(反映すると、既に新しい契約で有効化
                 # されている利用者を誤ってブロックしてしまうため)。
-                if _is_stale_subscription_state_event(payment_store, user_id, event_time):
+                if is_stale_deleted_event:
                     result.stale_subscription_deleted_user_ids.append(user_id)
                 else:
                     payment_store.set_subscription_canceled_at(user_id, event_time)
                     _record_subscription_state_event_time(payment_store, user_id, event_time)
                     result.subscription_canceled_user_ids.append(user_id)
-        if cancellation_push_client is not None:
+        if cancellation_push_client is not None and not is_stale_deleted_event:
             notification_result = handle_subscription_cancelled(user_id, cancellation_push_client)
             if notification_result.notified:
                 result.cancellation_notified_user_ids.append(user_id)
