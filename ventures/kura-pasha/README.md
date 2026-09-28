@@ -4210,3 +4210,19 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-28 06:00 UTC(フェーズ195: 保留候補ジャパンギャロップスインポーター
   の自社修理有無をWebSearchで再確認したが一次情報未到達のため「保留」を維持。最終判断は
   優先順位1・2候補へのヒアリング実施時に持ち越す方針に変更。コード変更なし)
+- フェーズ196(2026-09-28 12:00 UTC定例更新): 設計・実装・テスト(コード面)は
+  Stripe Webhook配信順序入れ替わりガードの横展開(フェーズ192〜195)完了をもって
+  一巡し、他venture(aircon-pasha・course-set-pasha・line-reservation-ai)も含め
+  「次回候補: 他venture・アイデア領域の前進」の記載が並ぶ状態になっていた。本venture
+  固有の未対応事項を棚卸しした結果、コード側に残課題はなく、残りはpending-approval.md
+  記載の3件(Stripeアカウント開設〈2026-09-27 08:00 UTC〉・LINE公式アカウント開設+
+  Cloud Scheduler作成〈2026-09-15 03:00 UTC〉・顧客ヒアリング実施〈2026-09-11
+  04:00 UTC〉、いずれもオーナー承認待ち)のみであることを確認した。オーナーが
+  pending-approval.mdを確認する際に依存順・着手内容が一目でわかるよう、
+  launch-readiness-checklist.mdを新規作成し、上記3件を依存順(Stripe→LINE公式
+  アカウント/Scheduler→顧客ヒアリング)に整理した。コード変更・pending-approval.md
+  への新規記載はなし(いずれも記載済みの内容を集約したのみ)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: 上記3件のいずれかがオーナーから承認された場合はその着手を
+  最優先とし、それまでは他venture・アイデア領域の前進、または本チェックリストと
+  pending-approval.mdの記載齟齬の定期棚卸しを行う。
