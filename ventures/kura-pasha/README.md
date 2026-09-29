@@ -4291,3 +4291,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-09-29 03:00 UTC(フェーズ199: フェーズ198発の他venture横断確認
   〈`customer.subscription.updated`ガード〉が4venture全てで完了済みであることを確認し
   クローズ。README棚卸しのみでコード変更なし)
+- フェーズ200(2026-09-29 09:00 UTC定例更新): chatbot-intent-classification-design.md・
+  chatbot-intent-classification-llm-prompt-draft.mdの「残課題」節を棚卸ししたところ、
+  両ドキュメントとも実際にはフェーズ170で`prototype/chatbot_intent_router.py`として
+  実装済みの`faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信
+  ヘルパー・memo_processing_request判定時への一言追加(`append_faq_followup_hint()`)
+  を「次回以降の課題」「未着手」のまま記載が取り残していたことが判明した(フェーズ171・
+  174で`cloud_function_webhook.py`への配線まで完了済みであることもあわせて未反映
+  だった)。同様に、aircon-pashaへの横展開(実際にはフェーズ258〜260・2026-09-25で
+  `prototype/chatbot_intent_router.py`・`route_chatbot_intent()`実装まで完了済み)も
+  「未着手のまま残る」という古い記載のままだった。フェーズ173の「次回候補」でこの
+  記載漏れの兆候(`faq_intent_to_code()`実装をフェーズ170完了後も候補として再掲)が
+  一度生じ、フェーズ174のREADME側では発見・言及されていたものの、両設計ドキュメント
+  本体の「残課題」節自体は当時訂正されないまま残っていた。両ドキュメントの該当箇所を
+  取り消し線+実績(対応フェーズ・実装関数名)付きで訂正した。コード変更は無く
+  ドキュメント訂正のみのため、回帰確認としてventure全体`python3
+  prototype/run_all_tests.py`(16ファイルOK、変更なし)・schema検証`python3
+  schema/validate_test_cases.py`(32件、変更なし)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: line-reservation-aiに同種のチャットボット
+  一次受付・意図分類モジュールが存在するかの確認(存在しない場合は横展開候補として
+  検討)、他venture・アイデア領域の前進、またはlaunch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-29 09:00 UTC(フェーズ200: chatbot-intent-classification-design.md
+  4節・chatbot-intent-classification-llm-prompt-draft.md「残課題」節の記載漏れ
+  〈フェーズ170で実装済みのfaq_intent_to_code()マッピング層・エスカレーション通知
+  ヘルパー・FAQ一言追加、フェーズ258〜260で完了済みのaircon-pasha横展開が、いずれも
+  「未着手」のまま取り残されていた〉を発見・訂正。コード変更なし、テスト16ファイルOK・
+  schema検証32件いずれもパス)

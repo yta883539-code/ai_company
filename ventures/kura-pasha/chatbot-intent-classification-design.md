@@ -168,8 +168,16 @@ course-set-pashaの3節の設計(検知条件・冪等性・送信経路・顧�
   担保する設計はフェーズ171で成立しないことが判明し、フェーズ172で本ドキュメント
   0節・2節ルール1・1節`faq_cancel`の記述をあわせて訂正した(呼び出し順序ではなく
   2節ルール1の分類ルール拡張で担保する方式へ変更)。
-- `faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装
-  (`prototype/`配下へのコード追加)は次回以降の課題とする。
+- ~~`faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装
+  (`prototype/`配下へのコード追加)は次回以降の課題とする。~~ → フェーズ170で
+  `prototype/chatbot_intent_router.py`として実装済み(`faq_intent_to_code()`・
+  `send_chatbot_escalation_notification()`に加え、本節では明示していなかった
+  memo_processing_request判定時のFAQ一言追加`append_faq_followup_hint()`も同時に
+  実装した)。3関数を実際の`cloud_function_webhook.py`(LINEメッセージ受信ハンドラ)へ
+  配線する設計・実装もフェーズ171(chatbot-intent-classification-wiring-design.md)・
+  フェーズ174(配線本体)で完了している(本節はフェーズ173時点で「次回候補」として
+  誤って未着手のまま持ち越されていたcross-document parityの記載漏れを、本フェーズで
+  発見・訂正した)。
 - ~~`faq_contractor_transfer_overview`側についても、2節ルール1拡張と同様の実害
   シナリオ(「契約者を交代したい、田中さんにお願いします」のような名指しを含む
   具体的な譲渡依頼が誤って本カテゴリに分類されるケース)がないか、
@@ -177,15 +185,27 @@ course-set-pashaの3節の設計(検知条件・冪等性・送信経路・顧�
   → フェーズ173でchatbot-intent-classification-llm-prompt-draft.md側にて再検証済み
   (同ドキュメント「設計上の要点」5参照)。判定順位1の例示文言が既に名指しを含む例を
   カバーしており、構造的リスクは文言上回避されていると判断した。
-- aircon-pashaについても本venture・course-set-pashaと同様の横展開検討が未着手のまま
+- ~~aircon-pashaについても本venture・course-set-pashaと同様の横展開検討が未着手のまま
   残る(course-set-pashaフェーズ248の申し送り事項、chatbot-first-response-
-  feasibility.md 6節と同じ)。あわせて、本フェーズ172の訂正(呼び出し順序ではなく
-  分類ルールで既存フローへの誤誘導を防ぐ方針)自体もaircon-pasha・course-set-pasha
-  側で同種の前提(既存の意図検知が独立した事前チェックか、単一LLMコール内部の判定か)
-  の再確認が必要な横展開候補となる。
+  feasibility.md 6節と同じ)。~~ → aircon-pashaフェーズ258〜260(2026-09-25)で
+  `prototype/chatbot_intent_router.py`・`route_chatbot_intent()`・
+  `cloud_function_webhook.py`への実結線まで実装済みであることを確認した(本venture
+  フェーズ170・171・174、course-set-pashaフェーズ236/244/246と同種の実装が
+  4venture中3venture〈本venture・course-set-pasha・aircon-pasha〉で揃った)。
+  なお、本フェーズ172の訂正(呼び出し順序ではなく分類ルールで既存フローへの誤誘導を
+  防ぐ方針)自体がaircon-pasha・course-set-pasha側でも同種の前提(既存の意図検知が
+  独立した事前チェックか、単一LLMコール内部の判定か)に当てはまるかどうかの横展開検証は、
+  実装状況の確認とは別の観点のため、引き続き次回以降の課題として残す。
 
 実装・実LLM呼び出し・実LINE接続・実際の顧客対応は一切行っていない。
 
+最終更新: 2026-09-29 09:00 UTC(フェーズ200: 4節「残課題」のうち、
+`faq_intent_to_code()`相当のマッピング層・エスカレーション通知送信ヘルパーの実装が
+実際にはフェーズ170で完了済み(配線もフェーズ171・174で完了済み)であるにもかかわらず
+「次回以降の課題」のまま記載が取り残されていた点、およびaircon-pashaへの横展開が
+実際にはフェーズ258〜260(2026-09-25)で完了済みであるにもかかわらず「未着手」のまま
+記載が取り残されていた点を、chatbot-intent-classification-llm-prompt-draft.mdの
+同種の記載漏れとあわせて発見・訂正した。コード変更は無くドキュメント訂正のみ)
 最終更新: 2026-09-24 20:00 UTC(フェーズ172: chatbot-intent-classification-
 wiring-design.md(フェーズ171)で確定した方針を本ドキュメントへ正式反映。0節を
 「呼び出し順序による分岐」から「フェーズ171で判明した実装上の制約と、2節ルール1の

@@ -136,16 +136,30 @@ chatbot-intent-classification-design.md(フェーズ167)「残課題」が次回
 - 本プロンプトは実LLM呼び出し・実顧客サンプルなしの机上設計にとどまる。実際の分類精度
   (特に判定順位1〜2〈中核機能・修理可否境界〉の挙動、6分類という他venture〈5分類〉より
   多い選択肢数がLLMの分類精度に与える影響)は、実LLM接続後の検証が別途必要。
-- `faq_*`判定時に実際に返すFAQ回答文への変換(`faq_intent_to_code()`相当のマッピング層)
-  の実装は未着手。
-- `other_needs_human`判定時のエスカレーション通知の送信ヘルパー実装
+- ~~`faq_*`判定時に実際に返すFAQ回答文への変換(`faq_intent_to_code()`相当の
+  マッピング層)の実装は未着手。~~ → フェーズ170で`prototype/chatbot_intent_router.py`の
+  `faq_intent_to_code()`として実装済み。
+- ~~`other_needs_human`判定時のエスカレーション通知の送信ヘルパー実装
   (chatbot-intent-classification-design.md 3節の通知文言を実際に送信する
-  `prototype/`配下のコード)は未着手。
-- memo_processing_request判定時への一言追加(上記「設計上の要点」4参照)の実装は未着手。
+  `prototype/`配下のコード)は未着手。~~ → フェーズ170で`prototype/
+  chatbot_intent_router.py`の`send_chatbot_escalation_notification()`として実装済み。
+- ~~memo_processing_request判定時への一言追加(上記「設計上の要点」4参照)の実装は
+  未着手。~~ → フェーズ170で`prototype/chatbot_intent_router.py`の
+  `append_faq_followup_hint()`として実装済み。上記3関数はいずれもフェーズ171
+  (chatbot-intent-classification-wiring-design.md)・フェーズ174で
+  `cloud_function_webhook.py`(実際のLINEメッセージ受信ハンドラ)への配線も完了している
+  (本節はフェーズ173時点で「次回候補」として誤って未着手のまま持ち越されていた
+  cross-document parityの記載漏れを、chatbot-intent-classification-design.md 4節の
+  同種の記載漏れとあわせてフェーズ200で発見・訂正した)。
 - 実LLM API接続自体がオーナー承認が必要なアクション(APIキー取得・従量課金)に該当する
-  ため、実際の呼び出し配線は未着手。
-- aircon-pashaについても本venture・course-set-pashaと同様の横展開検討が未着手のまま
-  残る(course-set-pashaフェーズ248・本ventureフェーズ167の申し送り事項と同じ)。
+  ため、実際の呼び出し配線は未着手(pending-approval.md参照、既存記載の範囲内)。
+- ~~aircon-pashaについても本venture・course-set-pashaと同様の横展開検討が未着手のまま
+  残る(course-set-pashaフェーズ248・本ventureフェーズ167の申し送り事項と同じ)。~~
+  → aircon-pashaフェーズ258〜260(2026-09-25)で`prototype/chatbot_intent_router.py`・
+  `route_chatbot_intent()`・`cloud_function_webhook.py`への実結線まで実装済みである
+  ことを確認した(本venture・course-set-pasha・aircon-pashaの3venture間で横展開が
+  出そろったことを確認したのみで、line-reservation-aiに同種のモジュールが存在するかは
+  本フェーズでは未確認のため次回以降の確認候補とする)。
 - ~~`faq_contractor_transfer_overview`側について、名指しを含む具体的な譲渡依頼
   (「契約者を交代したい、田中さんにお願いします」等)が誤って本カテゴリに分類
   されないか、contractor-transfer-design.md 3節の語彙パターンとの再検証が未着手~~
@@ -155,6 +169,15 @@ chatbot-intent-classification-design.md(フェーズ167)「残課題」が次回
 
 実装・実LLM呼び出し・実LINE接続・実際の顧客対応は一切行っていない。
 
+最終更新: 2026-09-29 09:00 UTC(フェーズ200: 「残課題」のうち、`faq_intent_to_code()`
+マッピング層・エスカレーション通知送信ヘルパー・memo_processing_request判定時への
+一言追加の3件が実際にはフェーズ170で実装済み(配線もフェーズ171・174で完了済み)、
+aircon-pashaへの横展開も実際にはフェーズ258〜260(2026-09-25)で完了済みであるにも
+かかわらず、いずれも「未着手」のまま記載が取り残されていた記載漏れを、
+chatbot-intent-classification-design.md 4節の同種の記載漏れとあわせて発見・訂正した。
+コード変更は無くドキュメント訂正のみのため、回帰確認として`python3
+prototype/run_all_tests.py`・`python3 schema/validate_test_cases.py`いずれも
+変更前と同じ結果でパスすることを確認した)
 最終更新: 2026-09-24(フェーズ173: 「位置づけ」節・「設計上の要点」1を、フェーズ172で
 design.md 0節が訂正した「呼び出し順序ではなく判定順位1の分類ルールで担保する」方式に
 合わせて訂正〈フェーズ172ではdesign.md側のみ更新され本ドキュメントの当該説明文が
