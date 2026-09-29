@@ -46,3 +46,16 @@
 上記1〜3のいずれかがオーナーから承認された場合、その着手を最優先とする。承認が
 得られるまでの間は、他venture・アイデア領域の前進、または本チェックリストと
 pending-approval.mdの記載に齟齬がないかの定期的な棚卸しを行う。
+
+## 定期棚卸し記録
+
+2026-09-29 01:00 UTC: 4venture(kura-pasha・aircon-pasha・course-set-pasha・
+line-reservation-ai)すべてのlaunch-readiness-checklist.md記載の承認待ち事項の日時
+(計19件)をpending-approval.mdの「日時」「venture」欄と突き合わせたところ、全件が
+1対1で対応しており記載漏れ・日時不一致は見つからなかった(aircon-pashaフェーズ278・
+course-set-pasha 2026-09-28 20:00 UTC記載で過去に発見された記載漏れはいずれも是正済み
+であることを確認)。またkura-pasha自身のStripe Webhook配信順序入れ替わりガード
+(subscription-status-event-order-guard-design.md、フェーズ194)・line-reservation-ai
+の同種ガード(subscription-event-order-guard-design.md・payment-failure-detected-at-
+event-order-guard-design.md)・deployment-runbook.mdについても4venture間の横展開状況を
+確認し、いずれも横展開済み・記載済みで新たな欠落は見つからなかった。
