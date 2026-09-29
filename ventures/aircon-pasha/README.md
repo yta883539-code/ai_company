@@ -4967,3 +4967,26 @@
   Stripe Webhook配信順序入れ替わりガードを新設。`subscription_updated_event_time`新設、
   stale時はplan同期・通知・reactivated状態クリアを丸ごとスキップする方針で配線。テスト
   4件追加、venture全体653件・schema検証25件いずれもパス)
+- フェーズ288(2026-09-29 05:00 UTC定例更新): フェーズ286が「次回候補」として残していた
+  「launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し」を実施
+  した。launch-readiness-checklist.mdの承認待ち事項4件(LINE公式アカウント開設+Cloud
+  Scheduler作成〈2026-09-27 10:00 UTC〉・Googleフォーム作成+GAS Webhook
+  〈2026-08-23 04:00 UTC〉・Stripeアカウント開設+LP公開〈2026-09-27 09:00 UTC〉・
+  顧客ヒアリング実施〈2026-08-21 12:00 UTC〉)を、pending-approval.md本体の該当4件と
+  日時ベースで1件ずつ突き合わせたところ、いずれも一致しており齟齬は発見されなかった。
+  あわせて、checkout-session-completed-event-order-guard-design.md(フェーズ287、
+  2026-09-28 17:04 UTCコミット済み)が対応した`stripe_customer_id`配信順序ガードに
+  ついて、コミットメッセージには詳細が記録済みだった一方、本README.mdのフェーズ履歴には
+  記載が漏れていたことに気付いたため、事後に触れておく(該当コード・テスト・
+  checkout-session-completed-event-order-guard-design.mdは既に存在し、launch-
+  readiness-checklist.mdの「現状」節にも反映済みのため、コード変更は不要と判断した)。
+  再度`python3 -m unittest discover -s prototype -p "test_*.py"`(653件)・
+  `python3 schema/validate_test_cases.py`(25件)を実行し、いずれもパスすることを
+  再確認した。コード変更なし。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: 候補12
+  (東京住まいる)の連絡先(電話・メール)確認は過去複数回のWebSearchで頭打ちと判断済み
+  (candidate-readiness-summary.md参照、フォーム経由のみ利用可能)のため再着手は見送り、
+  他venture・アイデア領域の前進、またはオーナーからの承認・回答を待つ。
+- 最終更新: 2026-09-29 05:00 UTC(フェーズ288: launch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬を棚卸しし、齟齬なしを確認。フェーズ287の記載漏れに
+  言及。コード変更なし、テスト653件・schema検証25件いずれもパス)
