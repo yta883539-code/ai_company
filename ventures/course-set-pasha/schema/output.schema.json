@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "コースセットパシャッと 構造化出力スキーマ",
-  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。2026-08-07 15:00 UTC改訂: schema-structured-output-compat-check.mdの検証結果を受け、Claude APIのStructured Outputsが非対応の`allOf`+`if`/`then`を撤去し、トップレベル全プロパティを`required`化(該当しない場合は`null`を許容)する形に変更した。`status`の値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、スキーマ単体では表現せず、実装時にline-reservation-aiのvalidate_test_cases.pyと同様のコード側検証で担保する方針とした。2026-08-07 20:00 UTC改訂(フェーズ11): README.mdフェーズ10で発見した『1メモで複数エリアを同時更新する場合の履歴記録が未整備』という課題に対応し、`history_row`(単一オブジェクト)を`history_rows`(配列)に変更した。1メモ=1エリアの場合は要素数1の配列として表現し、mvp-flow-draft.mdの『1メモ=1行』前提を『1メモ=1件以上の行』に一般化した。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。2026-08-15 08:00 UTC改訂(フェーズ54): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.mdに対応し、`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。",
+  "description": "llm-system-prompt-draft.md(2026-08-07 11:00 UTC作成)の出力形式を構造化したもの。同ファイルの『構造化出力の方針(次回以降の検討事項)』を一歩進めた草案。2026-08-07 15:00 UTC改訂: schema-structured-output-compat-check.mdの検証結果を受け、Claude APIのStructured Outputsが非対応の`allOf`+`if`/`then`を撤去し、トップレベル全プロパティを`required`化(該当しない場合は`null`を許容)する形に変更した。`status`の値に応じてどのフィールドがnullであるべきかというクロスフィールドの依存関係は、スキーマ単体では表現せず、実装時にline-reservation-aiのvalidate_test_cases.pyと同様のコード側検証で担保する方針とした。2026-08-07 20:00 UTC改訂(フェーズ11): README.mdフェーズ10で発見した『1メモで複数エリアを同時更新する場合の履歴記録が未整備』という課題に対応し、`history_row`(単一オブジェクト)を`history_rows`(配列)に変更した。1メモ=1エリアの場合は要素数1の配列として表現し、mvp-flow-draft.mdの『1メモ=1行』前提を『1メモ=1件以上の行』に一般化した。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定、line-reservation-aiと同様の位置づけ)。2026-08-15 08:00 UTC改訂(フェーズ54): llm-system-prompt-draft.md厳守事項7a・subscription-cancellation-flow-design.mdに対応し、`status`のenumへ`cancellation_intent`/`downgrade_intent`/`cancellation_unclear`の3値と、これらのときのみ非nullとなる`subscription_procedure_notice`フィールドを追加した。2026-09-29改訂: llm-system-prompt-draft.md厳守事項10(third-party-personal-info-inclusion-handling-design.md 3節)対応で、`sns_post`・`line_web_notice`双方へ`third_party_names`(会員・外部関係者を特定できる氏名らしき文字列のリスト、補助フィールド)を追加した。他フィールドと異なりrequiredには含めない。",
   "type": "object",
   "required": ["status", "out_of_scope_message", "missing_fields_request", "sns_post", "line_web_notice", "history_rows", "unchanged_areas", "subscription_procedure_notice", "checkout_notice"],
   "additionalProperties": false,
@@ -33,6 +33,11 @@
         "mentions_photo": {
           "description": "厳守事項3準拠。入力に写真送付の言及がありbody中で『写真の課題』等に言及した場合はtrue。写真言及が無い入力の場合は必ずfalse(『写真がない』ことには一切触れないため、この値でLLM側の分岐結果を機械的に検証できるようにする)。",
           "type": "boolean"
+        },
+        "third_party_names": {
+          "description": "2026-09-29追加。厳守事項10(third-party-personal-info-inclusion-handling-design.md 4節)の機械チェック補助フィールド。入力メモの自由記述箇所(特徴キーワード等)から抽出された、会員個人や外部関係者を特定できる氏名・ニックネームらしき文字列のリスト。該当する記述が無い場合は空配列とする。kura-pashaの`order_summary.third_party_names`・aircon-pashaの`completion_report.third_party_names`と同じ位置づけの『明らかな見落としを拾う補助的な網』であり、requiredには含めない(未設定の既存フィクスチャはpost_generation_checks.py側で空扱いとする)。",
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },
@@ -42,7 +47,12 @@
       "additionalProperties": false,
       "required": ["body"],
       "properties": {
-        "body": { "type": "string" }
+        "body": { "type": "string" },
+        "third_party_names": {
+          "description": "2026-09-29追加。厳守事項10対応。sns_post.third_party_namesと同じ位置づけの補助フィールド(line_web_notice本文側の突き合わせ対象)。requiredには含めない。",
+          "type": "array",
+          "items": { "type": "string" }
+        }
       }
     },
     "history_rows": {

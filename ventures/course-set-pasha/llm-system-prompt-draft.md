@@ -102,6 +102,14 @@ mvp-flow-draft.mdの「次の課題」の1点目「システムプロンプト�
    不足している項目を具体的に指摘して再送を促す。不明な項目を推測で埋めて生成しない。
 9. 文体は「ですます調」を既定とし、絵文字は1〜2個程度まで(SNS投稿文のみ)。
    公式LINE/Web告知文(出力2)・履歴記録(出力3)には絵文字を使用しない。
+10. 入力メモに、会員個人や外部関係者(大会関係者・常連客等)を特定できる氏名や
+    ニックネーム等の記述が含まれている場合、出力1(SNS投稿文)・出力2(公式LINE/
+    Web告知文)の本文にはその氏名・ニックネーム等をそのまま転記しない。当該記述が
+    課題設定の背景として言及する価値がある場合でも、個人を特定しない一般化した
+    表現(「常連の会員の方」「大会出場を目指す会員」等)に置き換えて記述する。
+    出力3(課題入れ替え履歴の簡易記録)は改訂日・エリア・テープ色/グレード帯・本数・
+    特徴キーワードの定型項目のみで自由記述の本文欄を持たないため、本項の対象外と
+    する。
 ```
 
 ## 構造化出力の方針
@@ -140,6 +148,17 @@ generated/out_of_scope/insufficient_inputの3値のみ)。7a各分岐の応答�
 機械的に検証するための補助フィールド。schema/validate_test_cases.pyにCI1〜CI3として
 各分岐の期待出力サンプルを追加し、9件全件パスを確認した(机上検証のみ、実LLM出力での
 分類精度自体は未検証)。
+
+2026-09-29 04:00 UTC追記: third-party-personal-info-inclusion-handling-design.md
+3節(2026-09-26作成)の厳守事項10案を、上記システムプロンプト草案(要約版)へ実際に
+反映した(kura-pashaフェーズ182・aircon-pashaフェーズ269と同種の実装フェーズ)。
+schema/output.schema.jsonへ`sns_post.third_party_names`・`line_web_notice.
+third_party_names`(補助フィールド、requiredには含めない)を追加し、
+prototype/post_generation_checks.pyに`check_no_third_party_name_leak_in_public_
+posts()`を新設して`run_all_checks()`に配線した。テスト4件追加、venture全体
+テストいずれもパス(詳細はthird-party-personal-info-inclusion-handling-design.md
+「次の課題」参照)。onboarding-guide.mdへの入力時留意事項の文言追加は同design.md
+5節記載の通り引き続き次回以降の課題として残る。
 
 ## 未検証事項
 

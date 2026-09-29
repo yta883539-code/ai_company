@@ -24,6 +24,11 @@ LLM構造化出力(schema/output.schema.json)を受け取った後に、プロ�
   本ventureは出力1・2・3を1通のメッセージにまとめて送信するため、個々のフィールドではなく
   組み立て後の全体テキスト(cloud_function_webhook.pyのformat_generated_reply()相当)の
   長さを判定する。
+- 2026-09-29追記: 厳守事項10(third-party-personal-info-inclusion-handling-design.md、
+  会員・外部関係者の氏名混入対応)の機械チェックとして
+  check_no_third_party_name_leak_in_public_posts()を追加した。kura-pasha・aircon-pashaの
+  同種チェックと異なり、本ventureは出力1・2の両方が対象かつ抽出元(third_party_names)を
+  各出力オブジェクト配下に個別に持つため、突き合わせ先もそれぞれ自分自身の本文のみとする。
 """
 
 import re
@@ -536,6 +541,52 @@ def check_message_length_within_line_limit(instance):
     return errors
 
 
+def check_no_third_party_name_leak_in_public_posts(instance):
+    """厳守事項10準拠チェック(2026-09-29追加、third-party-personal-info-inclusion-
+    handling-design.md 4節の限定的な人名突き合わせ方式、kura-pashaの
+    check_no_third_party_name_leak_in_customer_facing_notices()と同種)。
+    sns_post.third_party_names・line_web_notice.third_party_names(入力メモの自由
+    記述箇所から抽出された、会員個人や外部関係者を特定できる氏名・ニックネームらしき
+    文字列)が、それぞれ自分自身の本文(sns_post.body・line_web_notice.body)にそのまま
+    出現していないかを確認する。
+
+    kura-pasha・aircon-pashaは対象出力が1つ(completion_report等)だったため、抽出元と
+    突き合わせ先が同じフィールド配下だったが、本ventureは出力1・2の両方が公開・一斉配信
+    メディアである(design.md 1節)ため、third_party_namesは各出力オブジェクト配下に
+    個別に持たせ、それぞれ自分自身の本文のみを突き合わせ先とする(sns_post側の抽出漏れが
+    line_web_notice側の検出に影響しない設計)。
+
+    design.md 4節が明記する通り、人名・ニックネームらしき文字列の抽出自体が信頼できる
+    技術ではないため、本チェックはあくまで『明らかな見落としを拾う補助的な網』であり、
+    厳守事項10の実効性の主体はプロンプト側の指示(厳守事項10本文)に置く。
+    third_party_namesが未設定・空の場合は検証対象なしとして扱う(requiredフィールドで
+    はないため)。
+    """
+    errors = []
+
+    sns_post = instance.get("sns_post")
+    if sns_post:
+        body = sns_post.get("body", "")
+        for name in sns_post.get("third_party_names") or []:
+            if name and name in body:
+                errors.append(
+                    f"sns_post.body: 第三者名候補「{name}」がそのまま含まれています"
+                    "(厳守事項10違反の疑い)"
+                )
+
+    line_web_notice = instance.get("line_web_notice")
+    if line_web_notice:
+        body = line_web_notice.get("body", "")
+        for name in line_web_notice.get("third_party_names") or []:
+            if name and name in body:
+                errors.append(
+                    f"line_web_notice.body: 第三者名候補「{name}」がそのまま含まれています"
+                    "(厳守事項10違反の疑い)"
+                )
+
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -548,4 +599,5 @@ def run_all_checks(instance):
     errors += check_subscription_notice_consistency(instance)
     errors += check_checkout_notice_consistency(instance)
     errors += check_message_length_within_line_limit(instance)
+    errors += check_no_third_party_name_leak_in_public_posts(instance)
     return errors

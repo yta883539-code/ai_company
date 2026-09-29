@@ -112,12 +112,19 @@ mentioned_as_new`)・厳守事項7a/7b(`check_subscription_notice_consistency`�
 
 ## 次の課題
 
-- 厳守事項10のllm-system-prompt-draft.mdへの実際の反映(次回以降)。
-- schema/output.schema.json・prototype/post_generation_checks.pyへの対応する
+- ~~厳守事項10のllm-system-prompt-draft.mdへの実際の反映~~ → 2026-09-29 04:00 UTC
+  で実施済み(システムプロンプト草案(要約版)に項番10として追記)。
+- ~~schema/output.schema.json・prototype/post_generation_checks.pyへの対応する
   フィールド(`sns_post.third_party_names`・`line_web_notice.third_party_names`)・
-  チェック関数(`check_no_third_party_name_leak_in_public_posts()`)の追加(次回以降)。
-- onboarding-guide.mdへの入力時留意事項の文言追加(次回以降、kura-pashaフェーズ184・
-  aircon-pashaフェーズ271と同様の対応)。
+  チェック関数(`check_no_third_party_name_leak_in_public_posts()`)の追加~~ →
+  2026-09-29 04:00 UTCで実施済み。third_party_namesはkura-pasha・aircon-pashaと異なり
+  出力1・2の両方(各出力オブジェクト配下に個別)に持たせ、突き合わせ先もそれぞれ自分
+  自身の本文のみとした(1節の相違点に対応)。テスト4件追加、venture全体690件・schema
+  検証21件いずれもパス。conversation-samples-test-cases.md相当のネガティブケース追加
+  (実LLM接続後の投稿サンプル収集)は実LLM接続自体がオーナー承認待ちのため引き続き未着手。
+- ~~onboarding-guide.mdへの入力時留意事項の文言追加~~ → 2026-09-29 04:00 UTCで実施済み
+  (手順5「本番公開」に、会員個人や外部関係者の氏名・ニックネーム等の記載を避けるか
+  本人特定を避けた表現に置き換える旨の一言案内を追加)。
 
 最終更新: 2026-09-26 10:00 UTC(新規作成。kura-pashaフェーズ181〜184・aircon-pasha
 フェーズ268〜271の横展開棚卸しとして、本venture固有の論点〈出力1・2がいずれも

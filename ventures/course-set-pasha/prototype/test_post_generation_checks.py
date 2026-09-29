@@ -24,6 +24,7 @@ from post_generation_checks import (  # noqa: E402
     check_mentions_photo_consistency,
     check_message_length_within_line_limit,
     check_no_out_of_scope_topics_in_generated_output,
+    check_no_third_party_name_leak_in_public_posts,
     check_subscription_notice_consistency,
     check_unchanged_areas_not_mentioned_as_new,
     check_updated_areas_mentioned_in_text,
@@ -767,6 +768,57 @@ class MessageLengthWithinLineLimitTest(unittest.TestCase):
         instance = self._base_instance(sns_body="𠮟" * 3000)
         errors = check_message_length_within_line_limit(instance)
         self.assertEqual(len(errors), 1)
+
+
+class NoThirdPartyNameLeakInPublicPostsTest(unittest.TestCase):
+    """厳守事項10(third-party-personal-info-inclusion-handling-design.md)の機械チェック。"""
+
+    def test_name_leaked_in_sns_post_body_is_flagged(self):
+        instance = {
+            "sns_post": {
+                "body": "常連のヤマダさんも絶賛の新課題が登場!",
+                "hashtags": [],
+                "mentions_photo": False,
+                "third_party_names": ["ヤマダ"],
+            },
+        }
+        errors = check_no_third_party_name_leak_in_public_posts(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sns_post.body", errors[0])
+
+    def test_name_leaked_in_line_web_notice_body_is_flagged(self):
+        instance = {
+            "line_web_notice": {
+                "body": "ヤマダさんおすすめの新課題です。",
+                "third_party_names": ["ヤマダ"],
+            },
+        }
+        errors = check_no_third_party_name_leak_in_public_posts(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("line_web_notice.body", errors[0])
+
+    def test_generalized_wording_without_name_is_allowed(self):
+        instance = {
+            "sns_post": {
+                "body": "常連の会員の方も絶賛の新課題が登場!",
+                "hashtags": [],
+                "mentions_photo": False,
+                "third_party_names": ["ヤマダ"],
+            },
+            "line_web_notice": {
+                "body": "常連の会員の方おすすめの新課題です。",
+                "third_party_names": ["ヤマダ"],
+            },
+        }
+        errors = check_no_third_party_name_leak_in_public_posts(instance)
+        self.assertEqual(errors, [])
+
+    def test_empty_or_missing_third_party_names_is_skipped(self):
+        instance = {
+            "sns_post": {"body": "新課題が登場!", "hashtags": [], "mentions_photo": False},
+            "line_web_notice": {"body": "新課題です。"},
+        }
+        self.assertEqual(check_no_third_party_name_leak_in_public_posts(instance), [])
 
 
 if __name__ == "__main__":
