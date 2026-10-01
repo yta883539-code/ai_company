@@ -45,12 +45,13 @@ kura-pasha(フェーズ196)・line-reservation-ai(フェーズ続き286)と同�
 
 3. **Stripeアカウント開設 + LP公開**(2026-09-27 09:00 UTC記載)
    本人確認・銀行口座登録、本番APIキー・Webhook署名シークレット取得、
-   `success_url`/`cancel_url`が指すLP(ランディングページ)の実装・公開、
-   Stripe側Webhookエンドポイント登録。本ventureは決済ボタンをLINE Flex Message内の
+   `success_url`/`cancel_url`が指すLP(ランディングページ)のドメイン取得・ホスティング
+   (公開)、Stripe側Webhookエンドポイント登録。本ventureは決済ボタンをLINE Flex Message内の
    postbackアクションとして提供する構成のため、course-set-pasha・kura-pashaと異なり
-   LIFFアプリ登録は不要。
+   LIFFアプリ登録は不要。LP自体のHTML/CSS実装ドラフトは`landing-page/index.html`として
+   承認不要のローカル作業(2026-10-01 22:00 UTC)で作成済み(CTAは非活性のプレースホルダー)。
    → 承認後: 実キー・Webhookシークレット設定、Webhookエンドポイント登録、
-   LPドメイン確定・LP実装・公開から着手。
+   LPドメイン確定・ホスティング・CTA接続・公開から着手。
 
 4. **顧客ヒアリングの実施**(2026-08-21 12:00 UTC記載)
    独立系候補5件・フランチャイズ加盟候補3件への初回コンタクト・ヒアリング協力依頼
