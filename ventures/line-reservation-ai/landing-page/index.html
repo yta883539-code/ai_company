@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<!--
+  予約とれる君 LP 実装ドラフト(フェーズ継続・2026-10-01 23:00 UTC)
+
+  位置づけ: landing-page-wireframe.md・landing-page-copy-draft.mdの内容を
+  そのままHTML/CSSに落とし込んだローカルの実装ドラフトです。ドメイン取得・
+  ホスティング・外部公開は一切行っておらず、このファイルはリポジトリ内に
+  静的ファイルとして置かれているのみです(README.mdの「外部サービスへの
+  公開」には該当しません)。aircon-pashaのlanding-page/index.html
+  (2026-10-01 22:00 UTC作成)と同じ位置づけ・実装方針を踏襲しています。
+
+  未実装・意図的なプレースホルダー:
+  - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには
+    接続していません(LINE公式アカウント開設・Stripeアカウント開設は
+    いずれもpending-approval.md記載分でオーナー承認待ちのため)。
+  - LINEトーク画面モックアップ画像(候補提示→確定の3コマ、および
+    店舗アイコン付きのシンプル版)は未制作のため、
+    landing-page-wireframe.mdの説明文で代替したプレースホルダー枠です。
+  - フッターの特定商取引法に基づく表記・プライバシーポリシーは
+    legal-notices-draft.mdの未確定項目があるためリンク先なし。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>予約とれる君(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #fafaf8;
+    --color-fg: #22282f;
+    --color-accent: #1f8a5c;
+    --color-accent-dark: #156242;
+    --color-card: #ffffff;
+    --color-border: #e0e3df;
+    --color-muted: #5c6670;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 40px 20px; }
+  section.alt { background: #f1f3ef; }
+  h1 { font-size: 1.6rem; margin: 0 0 12px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; }
+  .cta {
+    display: block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 14px; border-radius: 8px;
+    font-weight: bold; margin: 16px 0 6px;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+  .mockup-frame {
+    border: 1px dashed var(--color-border);
+    border-radius: 8px; padding: 16px; margin-bottom: 8px;
+    background: #fff; font-size: 0.85rem; color: var(--color-muted);
+  }
+  .mockup-frame .step { margin: 4px 0; }
+  .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
+  ul.problem-list { list-style: none; padding: 0; margin: 0; }
+  ul.problem-list li {
+    padding: 10px 0 10px 28px; border-bottom: 1px solid var(--color-border);
+    position: relative;
+  }
+  ul.problem-list li::before {
+    content: "\2610"; position: absolute; left: 0; color: var(--color-accent);
+  }
+  ol.feature-list { list-style: none; padding: 0; margin: 0; counter-reset: feat; }
+  ol.feature-list li {
+    counter-increment: feat;
+    background: var(--color-card); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 14px 14px 14px 46px; margin-bottom: 10px;
+    position: relative;
+  }
+  ol.feature-list li::before {
+    content: counter(feat); position: absolute; left: 14px; top: 14px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--color-accent); color: #fff;
+    font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+  }
+  .price-highlight { text-align: center; margin: 16px 0; }
+  .price-highlight .amount { font-size: 1.8rem; font-weight: bold; color: var(--color-accent-dark); }
+  .checklist { list-style: none; padding: 0; margin: 0 0 16px; }
+  .checklist li { padding: 6px 0 6px 26px; position: relative; }
+  .checklist li::before { content: "\2713"; position: absolute; left: 0; color: var(--color-accent); }
+  details { border-bottom: 1px solid var(--color-border); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p { margin: 10px 0 0; color: var(--color-muted); font-size: 0.9rem; }
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+  footer a { color: var(--color-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">予約とれる君</header>
+
+  <section>
+    <h1>予約対応、もうLINEに任せませんか?</h1>
+    <p class="sub">お客様はいつものLINEトークで予約。あなたは確認するだけ。</p>
+
+    <div class="mockup-frame">
+      <div class="step">お客様: 「来週の土曜の午後空いてますか?」</div>
+      <div class="step">AI: 空いている候補を提示</div>
+      <div class="step">お客様が選択 &rarr; 予約確定</div>
+    </div>
+    <p class="placeholder-note">(画像プレースホルダー:実際のLINEトーク画面モックアップは未制作)</p>
+
+    <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
+    <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>こんなことに、時間を取られていませんか?</h2>
+    <ul class="problem-list">
+      <li>施術中に予約の電話が鳴って、手が離せない</li>
+      <li>「あの日空いてますか?」への返信を、営業後にまとめて返している</li>
+      <li>うっかり同じ時間に2件受けてしまった(二重予約)</li>
+      <li>前日リマインドを送り忘れて、無断キャンセルが増えている</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>「予約とれる君」がやること</h2>
+    <ol class="feature-list">
+      <li>お客様のLINEメッセージをAIが読んで、空いている日時を自動でお答えします</li>
+      <li>日時が決まったら、仮押さえ&rarr;確定まで自動で進みます。ダブルブッキングの心配はありません</li>
+      <li>前日には自動でリマインドを送るので、送り忘れがなくなります</li>
+      <li>よくある質問(住所・駐車場・支払い方法など)にも自動でお答えします</li>
+      <li>AIだけで対応しきれない相談は、その場であなたに通知が届きます</li>
+    </ol>
+  </section>
+
+  <section class="alt">
+    <h2>新しいアプリは、いりません</h2>
+    <p class="sub">お客様は、普段お店とやり取りしているLINEのトーク画面から、そのまま予約できます。新しい会員登録もアプリのダウンロードも不要。今までと同じ感覚で、予約が完了します。</p>
+    <p class="placeholder-note">(画像プレースホルダー:店舗アイコン・トーク履歴を含むシンプル版モックアップは未制作)</p>
+  </section>
+
+  <section>
+    <h2>まずは14日間、無料でお試しください</h2>
+    <ul class="checklist">
+      <li>クレジットカードの登録は不要です</li>
+      <li>14日間、または予約20件到達のいずれか早い方まで無料でご利用いただけます</li>
+      <li>期間終了後に自動で課金されることはありません。ご利用実績をLINEでお送りしますので、続けたい場合のみプランをお選びください</li>
+    </ul>
+    <div class="price-highlight">
+      <div class="amount">月額2,980円&#12316;</div>
+      <div>(予約件数・ご利用スタッフ人数に応じたプランをご用意)</div>
+    </div>
+    <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
+    <p class="cta-note">本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>よくある質問</h2>
+    <details>
+      <summary>LINE公式アカウントを持っていなくても使えますか?</summary>
+      <p>お申し込み時に新規開設のお手伝いをします。既にお持ちの場合はそのまま連携できます。</p>
+    </details>
+    <details>
+      <summary>お客様に「AIが対応している」と気づかれませんか?</summary>
+      <p>お客様には店舗スタッフとやり取りしている自然な文面でお答えします。AIであることを前面に出す・隠すという運用は、店舗様のご判断にお任せしています。</p>
+    </details>
+    <details>
+      <summary>難しい相談やクレームにも対応してくれますか?</summary>
+      <p>予約に関するやり取り以外のご相談は、その場でオーナー様に通知が届き、ご自身で対応いただく仕組みになっています。</p>
+    </details>
+    <details>
+      <summary>LINEをブロック(友だち解除)すれば解約したことになりますか?</summary>
+      <p>いいえ。LINEのブロックとご契約の解約は別のお手続きです。ブロックのみではご請求は止まりません。また、ブロック中は予約確定・無断キャンセル確認などの通知もお客様に届かなくなりますので、店舗運営への影響が大きくご注意ください。ご契約を終了されたい場合は、LINEで「解約したい」とお送りいただくか、お申し込み時にご案内する解約手続きページから直接お手続きください。</p>
+    </details>
+  </section>
+
+  <section>
+    <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
+  </section>
+
+  <footer>
+    <p>特定商取引法に基づく表記(準備中) / プライバシーポリシー(準備中)</p>
+    <p>&copy; 予約とれる君(ドラフト・非公開)</p>
+  </footer>
+
+</div>
+</body>
+</html>
