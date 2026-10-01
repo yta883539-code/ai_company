@@ -5069,3 +5069,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-09-29 06:00 UTC(フェーズ続き288: launch-readiness-checklist.mdと
   pending-approval.mdの記載齟齬を棚卸しし、齟齬なしを確認。コード変更なし、
   テスト900件・schema検証28件いずれもパス)
+- フェーズ続き289(2026-09-29 10:00 UTC定例更新): course-set-pashaフェーズ248
+  (2026-09-23)が「本venture固有の検討は同venture側の次回以降の課題」として申し送り、
+  kura-pashaフェーズ200(2026-09-29 09:00 UTC)の「残課題」でも同種の確認が次回候補
+  として申し送られていた「本ventureに同種のチャットボット一次受付・意図分類モジュールが
+  存在するか」を確認した。intent-to-flow-mapping.mdの対応表に既に`intent: escalation`/
+  `faq`が予約フロー外の既存カテゴリとして明記されており、faq-escalation-boundary.md・
+  faq-response-templates.md・owner-faq-routing-design.md(いずれも2026-07-30作成)に
+  より、店舗登録済み静的情報に基づくFAQ回答(厳守事項9a)・雑談への定型応答
+  (厳守事項9b)・該当なし相談の運営者エスカレーション(厳守事項6)の体系が、他3venture
+  (aircon-pasha・course-set-pasha・kura-pasha)が同種レイヤーの検討を始めた
+  2026-09-23より約2ヶ月前の時点で既に確立・実装済みであったことを確認した。本venture
+  は中核の予約処理自体が1回の構造化出力LLMコールで完結する設計のため、他3ventureのように
+  メモ生成コールの手前に別の軽量意図分類コールを追加する必要がなく、当初から出力schemaの
+  intent列にfaq/escalationを含める方式を採用していた(アーキテクチャの違いに起因する
+  設計時点の差であり、追加の移植・実装作業は不要)。詳細は新規作成した
+  chatbot-first-response-architecture-comparison.mdに記録した。コード変更は無く
+  ドキュメント確認・新規作成のみのため、回帰確認として`prototype/`配下で
+  `python3 -m unittest discover -p "test_*.py"`(900件)・`python3
+  schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: interview-request-package.md記載の
+  未確定事項へのオーナー回答を待ちつつ、他venture・アイデア領域の前進を行う。
+- 最終更新: 2026-09-29 10:00 UTC(フェーズ続き289: course-set-pashaフェーズ248・
+  kura-pashaフェーズ200が申し送った「本ventureに同種のチャットボット一次受付・意図分類
+  モジュールが存在するか」の確認を実施。既に2026-07-30時点でFAQ/エスカレーション体系が
+  確立・実装済みであることを確認しクローズ。コード変更なし、テスト900件・schema検証
+  28件いずれもパス)

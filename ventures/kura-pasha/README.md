@@ -4319,3 +4319,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ヘルパー・FAQ一言追加、フェーズ258〜260で完了済みのaircon-pasha横展開が、いずれも
   「未着手」のまま取り残されていた〉を発見・訂正。コード変更なし、テスト16ファイルOK・
   schema検証32件いずれもパス)
+- フェーズ201(2026-09-29 10:00 UTC定例更新): フェーズ200が次回候補として残していた
+  「line-reservation-aiに同種のチャットボット一次受付・意図分類モジュールが存在するかの
+  確認」をline-reservation-ai側で実施してもらった結果を確認した。line-reservation-aiの
+  intent-to-flow-mapping.mdには既に`intent: escalation`/`faq`が予約フロー外の既存
+  カテゴリとして明記されており、faq-escalation-boundary.md・faq-response-templates.md
+  (いずれも2026-07-30作成)により、本venture・course-set-pasha・aircon-pashaが
+  2026-09-23以降に追加検討した「メモ生成コール手前の軽量意図分類レイヤー」とは異なる
+  方式(予約処理そのものを行う単一の構造化出力LLMコールのintent列にfaq/escalationを
+  含める方式)で、約2ヶ月前の時点から同等の機能を備えていたことが判明した。詳細は
+  line-reservation-ai/chatbot-first-response-architecture-comparison.md参照。本venture
+  側のコード変更は発生しないため横展開作業は不要と判断し、本件はクローズとする。
+  回帰確認としてventure全体`python3 prototype/run_all_tests.py`(16ファイルOK、
+  変更なし)・schema検証`python3 schema/validate_test_cases.py`(32件、変更なし)
+  いずれもパスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  他venture・アイデア領域の前進、またはlaunch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-09-29 10:00 UTC(フェーズ201: フェーズ200発の
+  line-reservation-ai横断確認〈チャットボット一次受付・意図分類モジュールの有無〉が
+  完了し、既に同等機能を備えていることを確認してクローズ。コード変更なし、
+  テスト16ファイルOK・schema検証32件いずれもパス)

@@ -83,6 +83,12 @@ support-cost-estimate.md・support-cost-selfservice-reduction.mdの整理を踏�
 - ~~他venture(aircon-pasha・kura-pasha・line-reservation-ai)への同種検討の横展開は
   未着手。~~
   → フェーズ248で横断確認を実施(下記「6. 他ventureへの横展開検討」参照)。
+  line-reservation-ai固有の検討として申し送っていた分は、2026-09-29 10:00 UTCに
+  line-reservation-ai/chatbot-first-response-architecture-comparison.mdで対応済み。
+  同venture既存のintent-to-flow-mapping.md(`intent: faq`/`escalation`)・
+  faq-escalation-boundary.md・faq-response-templates.md(いずれも2026-07-30作成)に
+  より、本ドキュメントが2026-09-23に検討を始めるより約2ヶ月前から同等のFAQ/
+  エスカレーション機能を備えていたことが判明し、追加の移植作業は不要と結論された。
 
 ## 6. 他ventureへの横展開検討(フェーズ248)
 
