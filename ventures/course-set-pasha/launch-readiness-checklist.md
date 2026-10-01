@@ -1,4 +1,4 @@
-# course-set-pasha 公開までのチェックリスト(フェーズ266時点、2026-09-28 20:00 UTC更新)
+# course-set-pasha 公開までのチェックリスト(フェーズ268時点、2026-09-29 11:00 UTC更新)
 
 目的: 設計・実装・テストは完了しているが、実際の稼働にはオーナー承認が必要な外部サービス
 設定が複数残っている。pending-approval.md中に本venture関連の記載が複数回・複数日に
@@ -10,9 +10,11 @@
 - Checkout Session発行ロジック・Stripe Webhook受信/署名検証/イベントディスパッチ・
   トライアル管理・決済失敗猶予・解約確定判定: InMemoryStubによるテスト682件・
   schema検証21件いずれもパス(2026-09-28時点)。
-- Stripe Webhook配信順序入れ替わりガード(`subscription_status`・`plan`・決済失敗
-  関連の各分岐): フェーズ263〜265で対応完了。他venture(aircon-pasha・kura-pasha・
-  line-reservation-ai)との横断確認も済み。
+- Stripe Webhook配信順序入れ替わりガード(`subscription_status`・`plan`・決済失敗・
+  `customer.subscription.updated`〈プラン更新/解約予約通知/reactivated状態クリア〉
+  関連の各分岐): フェーズ263〜265、および`customer.subscription.updated`分岐を
+  追加対応したフェーズ267まで完了。他venture(aircon-pasha・kura-pasha・
+  line-reservation-ai)との横断確認も済み(2026-09-29時点で4venture全てに横展開完了)。
 - LINEユーザー連携コード発行・解決ロジック(`prototype/user_id_linking.py`、
   友だち追加時にトークで届く6文字コード方式): 実装・テスト(11件)済み。
 - 申込フォーム提出フローの正規化・書き込みロジック
@@ -60,3 +62,18 @@
 上記1〜5のいずれかがオーナーから承認された場合、その着手を最優先とする。承認が
 得られるまでの間は、他venture・アイデア領域の前進、または本チェックリストと
 pending-approval.mdの記載に齟齬がないかの定期的な棚卸しを行う。
+
+## 定期棚卸し記録
+
+2026-09-29 11:00 UTC(フェーズ268): 上記1〜5の日時をpending-approval.mdの「日時」欄と
+突き合わせたところ、5件とも1対1で対応しており記載漏れ・日時不一致は見つからなかった
+(kura-pashaのlaunch-readiness-checklist.mdに記録済みの2026-09-29 01:00 UTC・4venture
+横断棚卸しでも同様に確認済み)。あわせて「現状」節のStripe Webhookガード説明が
+フェーズ267(`customer.subscription.updated`分岐へのガード追加)を反映していなかった
+記載漏れを発見・是正した(コード変更は不要、説明文のみの更新)。回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
+schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを確認した
+(テスト件数はフェーズ267時点の685件から690件に増えているが、これは本フェーズ以前の
+他作業によるものでありドキュメント記載漏れの是正自体にコード変更は伴わない)。承認が
+必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。

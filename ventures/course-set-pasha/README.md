@@ -4324,3 +4324,20 @@
   プラン更新・解約予約通知・reactivated状態クリアにStripe Webhook配信順序入れ替わり
   ガードを追加。`subscription_updated_event_time`新設、stale時は丸ごとスキップする
   方針で配線。テスト3件追加、venture全体685件・schema検証21件いずれもパス)
+- フェーズ268(2026-09-29 11:00 UTC定例更新): launch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬の定期棚卸しを実施した。承認待ち事項1〜5の日時を
+  pending-approval.md記載の各エントリと突き合わせたところ、5件とも1対1で対応しており
+  記載漏れ・日時不一致は見つからなかった。あわせて、チェックリストの「現状」節が
+  フェーズ267で追加した`customer.subscription.updated`分岐のStripe Webhook配信順序
+  ガードを反映しておらず、フェーズ263〜265の既存ガードの説明のみで止まっていた記載
+  漏れを発見・是正した(コード変更は不要)。回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(690件)・`python3 schema/validate_test_cases.py`
+  (21件)を再実行し、いずれもパスすることを確認した(690件のうち685→690の増分は
+  フェーズ267以降の別フェーズ〈第三者氏名漏えい防止チェックの実装〉によるものであり、
+  本フェーズ自体にコード変更は伴わない)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: 上記1〜5のいずれかがオーナーから承認された場合はその着手を最優先とし、
+  それまでは他venture・アイデア領域の前進を行う。
+- 最終更新: 2026-09-29 11:00 UTC(フェーズ268: launch-readiness-checklist.mdと
+  pending-approval.mdの記載齟齬を棚卸しし、齟齬なしを確認。チェックリスト「現状」節の
+  フェーズ267反映漏れを是正。コード変更なし、テスト690件・schema検証21件いずれもパス)
