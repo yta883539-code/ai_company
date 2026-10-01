@@ -108,6 +108,17 @@ intent()`自体は通知の成否にかかわらず同じ定型応答を契約�
   `route_chatbot_intent()`は3分類それぞれを既存ヘルパー(`render_faq_guidance_
   message()`・`append_faq_followup_hint()`・`send_chatbot_escalation_
   notification()`)へディスパッチするのみで、各ヘルパーの内部ロジックは変更していない。
-- `cloud_function_webhook.py`側からの実結線(実際にLLM分類結果を受け取り`route_chatbot_
-  intent()`を呼び出す配線)は次回以降の課題として残す。
-- kura-pasha側での同種チャットボット一次受付・エスカレーション導線の検討は未着手。
+- ~~`cloud_function_webhook.py`側からの実結線(実際にLLM分類結果を受け取り`route_chatbot_
+  intent()`を呼び出す配線)は次回以降の課題として残す。~~
+  → フェーズ260で`chatbot-intent-router-webhook-wiring-design.md`(course-set-pasha
+  フェーズ244相当を移植)に基づき実結線済み。`handle_memo_event()`に`intent_classifier`・
+  `escalation_push_client`引数を追加し、`other_needs_human`判定時は`route_chatbot_
+  intent()`経由で運営者へ即時通知する(`cloud_function_webhook.py` 1.6節docstring参照)。
+  本行は実装完了後も未更新のまま長期間残っていた記載漏れ(2026-10-01・フェーズ続き289で
+  発見・訂正)。
+- ~~kura-pasha側での同種チャットボット一次受付・エスカレーション導線の検討は未着手。~~
+  → kura-pashaも`prototype/chatbot_intent_router.py`・`chatbot-intent-classification-
+  wiring-design.md`により同様に実結線済みであることを確認した(2026-10-01訂正)。
+  course-set-pashaも同様に対応済み。line-reservation-aiはチャットボット一次受付の
+  意図分類機能自体を採用していない設計のため対象外(他ventureと会話フローの構成が
+  異なる)。
