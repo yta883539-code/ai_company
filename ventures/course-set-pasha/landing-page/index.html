@@ -18,6 +18,17 @@
   - フッターの特定商取引法に基づく表記・プライバシーポリシーは
     legal-notices-draft.mdへのリンク未実装(ファイル自体はフェーズ43で
     作成済みだが、LP側からのリンク接続はLP公開作業と合わせて未着手)。
+
+  2026-10-02 06:00 UTC追記: aircon-pashaフェーズ290(ヒーローのビフォーアフターを
+  CSSのみのモックアップに差し替え)の横展開検討を受け、本ventureにもCSSのみの
+  壁面モックアップを追加した。ただしlanding-page-wireframe.md「設計方針」(画像は
+  他ventureと役割分担し、aircon-pashaの「メモ→完了報告文のビフォーアフター」とは
+  概念を重複させず「投稿として公開される最終形」のみを見せる)を踏襲し、入力メモの
+  カードは追加していない(aircon-pashaのビフォーアフター構成をそのまま複製すると
+  既存の差別化方針と矛盾するため採用しなかった)。従来のテキストのみ・破線枠の
+  プレースホルダーを、テープ色(赤〜黄)をイメージした円形ホールドのCSSモックアップに
+  置き換え、「完成済み投稿を1枚で見せる」訴求を維持した。新規の外部依存・
+  アカウント作成は発生していない。
 -->
 <html lang="ja">
 <head>
@@ -72,10 +83,24 @@
   }
   .insta-mock .handle { font-weight: bold; font-size: 0.85rem; margin-bottom: 8px; }
   .insta-mock .photo {
-    background: #ede6db; border: 1px dashed var(--color-border);
-    border-radius: 8px; height: 140px; display: flex; align-items: center;
-    justify-content: center; color: var(--color-muted); font-size: 0.8rem; margin-bottom: 10px;
+    background: linear-gradient(135deg, #e4d8c4, #cdb896);
+    border-radius: 8px; height: 140px; margin-bottom: 10px;
+    display: flex; flex-wrap: wrap; align-content: center; justify-content: center;
+    gap: 10px; padding: 14px; position: relative; overflow: hidden;
   }
+  .insta-mock .photo::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.15) 0 2px, transparent 2px 18px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.15) 0 2px, transparent 2px 18px);
+  }
+  .insta-mock .hold {
+    width: 20px; height: 20px; border-radius: 45% 55% 50% 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
+    position: relative; z-index: 1;
+  }
+  .insta-mock .hold.red { background: #c23c2a; }
+  .insta-mock .hold.orange { background: #d97a2e; }
+  .insta-mock .hold.yellow { background: #e0b43a; }
   .insta-mock .caption { font-size: 0.85rem; }
   .insta-mock .hashtags { color: var(--color-accent-dark); font-size: 0.8rem; margin-top: 6px; }
   .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
@@ -127,11 +152,18 @@
 
     <div class="insta-mock">
       <div class="handle">@your_climbing_gym</div>
-      <div class="photo">(画像プレースホルダー:壁面写真は未制作)</div>
+      <div class="photo" aria-hidden="true">
+        <span class="hold red"></span>
+        <span class="hold red"></span>
+        <span class="hold orange"></span>
+        <span class="hold orange"></span>
+        <span class="hold yellow"></span>
+        <span class="hold yellow"></span>
+      </div>
       <div class="caption">エリアA新課題6本入りました!テープ色:赤〜黄、スラブ中心の構成です。</div>
       <div class="hashtags">#ボルダリング #課題更新 #クライミングジム</div>
     </div>
-    <p class="placeholder-note">(完成済みInstagram投稿のプレビュー例。実際の画像は未制作のためテキストのみ)</p>
+    <p class="placeholder-note">(完成済みInstagram投稿のプレビュー例。実際の壁面写真は未制作のため、テープ色〈赤〜黄〉をイメージしたCSSのみのホールドモックアップで代替)</p>
 
     <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
     <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
