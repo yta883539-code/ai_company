@@ -250,6 +250,28 @@ class InMemoryStoreNameProvider:
         return self._business_name
 
 
+class RegionNameProviderProtocol(Protocol):
+    """launch-announcement-draft-design.md 7節・9節準拠。SNS告知文の地域タグ差し込み用に、
+    `stores/{storeId}`ドキュメントの任意項目「地域名」(owner-settings-wireframe.md
+    「営業情報設定ページ」)を取得するための最小インターフェース。StoreNameProviderProtocol
+    と対称の設計(未設定・取得失敗時は空文字列を返す安全側フォールバック)。
+    """
+
+    def get_region_name(self, store_id: str) -> str:
+        """未設定・取得失敗時は空文字列を返す契約とする(地域タグなしへのフォールバック)。"""
+        ...
+
+
+class InMemoryRegionNameProvider:
+    """固定の地域名(または未設定を表す空文字列)を返す検証用スタブ。"""
+
+    def __init__(self, region_name: str = "") -> None:
+        self._region_name = region_name
+
+    def get_region_name(self, store_id: str) -> str:
+        return self._region_name
+
+
 class ConversationStateStoreProtocol(Protocol):
     """conversation-state-wiring-design.md準拠。firestore-data-model.md 3節
     `stores/{storeId}/conversations/{sessionId}`ドキュメント1件分のget/set/deleteのみを
@@ -458,6 +480,7 @@ class ConversationEventProcessor:
         store_profile: Optional[OwnerFollowStatusStoreProtocol] = None,
         conversation_state_store: Optional[ConversationStateStoreProtocol] = None,
         store_name_provider: Optional[StoreNameProviderProtocol] = None,
+        region_name_provider: Optional[RegionNameProviderProtocol] = None,
         friend_add_url: Optional[str] = None,
     ) -> None:
         self._flow = flow
@@ -485,6 +508,10 @@ class ConversationEventProcessor:
         # 差し込み用(未指定(None)の場合は店舗名なしの共通文言のまま、aircon-pashaの
         # form_link_providerと同じ「未接続時は安全側フォールバック」パターン)。
         self._store_name_provider = store_name_provider
+        # launch-announcement-draft-design.md 7節・9節準拠。SNS告知文への地域タグ差し込み用
+        # (未指定(None)の場合は地域タグなしのまま、store_name_providerと同じ「未接続時は
+        # 安全側フォールバック」パターン)。
+        self._region_name_provider = region_name_provider
         # launch-announcement-draft-design.md 4.1節準拠。未指定(None)の場合は
         # FRIEND_ADD_URL_PLACEHOLDER(実LINE公式アカウント開設後に確定)をそのまま
         # 差し込む(kura-pashaのOWNER_LINE_USER_ID_PLACEHOLDER等と同じプレースホルダパターン)。
@@ -572,8 +599,10 @@ class ConversationEventProcessor:
         行わず_LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_MESSAGEを返す。friend_add_url
         未設定時はFRIEND_ADD_URL_PLACEHOLDERをそのまま差し込む(design 2節「QRコード
         画像自体の生成・添付は対象外」と同じく、プレースホルダのまま送ることを許容する
-        暫定仕様)。owner_faq_router.pyと同じくLLM呼び出し・LINE送信は持たない
-        純粋関数構成(呼び出し元の_process_message_event()がI/O(_send())を担う)。
+        暫定仕様)。地域名(RegionNameProviderProtocol)が未接続・未設定(空文字列)の
+        場合はdesign 9節の通りSNS告知文に地域タグを含めない(design 7節準拠の配線)。
+        owner_faq_router.pyと同じくLLM呼び出し・LINE送信は持たない純粋関数構成
+        (呼び出し元の_process_message_event()がI/O(_send())を担う)。
         """
         if not is_launch_announcement_trigger(reply_text):
             return None
@@ -582,8 +611,13 @@ class ConversationEventProcessor:
             business_name = self._store_name_provider.get_business_name(self._store_id) or ""
         if not business_name:
             return _LAUNCH_ANNOUNCEMENT_MISSING_STORE_NAME_MESSAGE, "launch_announcement_missing_store_name", ""
+        region_name = ""
+        if self._region_name_provider is not None:
+            region_name = self._region_name_provider.get_region_name(self._store_id) or ""
         pop = render_launch_announcement_pop(business_name, self._friend_add_url, tone)
-        sns = render_launch_announcement_sns(business_name, self._friend_add_url, tone)
+        sns = render_launch_announcement_sns(
+            business_name, self._friend_add_url, tone, region_name=region_name
+        )
         message = f"【店頭POP文言】\n\n{pop}\n\n【SNS告知文】\n\n{sns}"
         return message, "launch_announcement", ""
 

@@ -5181,3 +5181,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   6節の残課題だった地域タグ対応を解消。owner-settings-wireframe.mdに任意項目「地域名」
   追加、render_launch_announcement_sns()に`region_name`引数を追加。テスト903件・
   schema検証28件いずれもパス)
+- フェーズ続き295(2026-10-02 20:00 UTC定例更新): フェーズ続き294が「次回候補」として
+  残していた`region_name`の実配線(RegionNameProviderProtocol相当)を実施した。
+  `prototype/cloud_function_process_event.py`に、既存の`StoreNameProviderProtocol`/
+  `InMemoryStoreNameProvider`と対称の設計で`RegionNameProviderProtocol`
+  (`get_region_name(store_id) -> str`、未設定・取得失敗時は空文字列)・
+  `InMemoryRegionNameProvider`を追加し、`ConversationEventProcessor.__init__`に
+  コンストラクタ引数`region_name_provider`(未指定時はNone)を追加した。
+  `_maybe_render_launch_announcement_reply()`が`store_name_provider`と同じタイミングで
+  `region_name_provider.get_region_name(self._store_id)`を呼び出し、
+  `render_launch_announcement_sns()`へ`region_name`として渡すよう配線した(POP文言は
+  design 2節のスコープ通り対象外のまま)。`region_name_provider`が未接続(None)・
+  空文字列(地域名未設定)のいずれの場合も従来通り地域タグなしとなる安全側フォールバック
+  であることをテストで確認した。実Firestoreクライアントへの接続(`stores/{storeId}`
+  ドキュメントの「地域名」フィールド取得)は本フェーズの対象外とし、
+  launch-announcement-draft-design.md 10節の次回候補として残した。テスト3件(地域名
+  プロバイダ経由で地域タグが付与されること・プロバイダ未接続時は従来通り地域タグなしの
+  こと・プロバイダが空文字列を返す場合も地域タグなしのこと)を追加し、`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(906件、903→906)・`python3
+  schema/validate_test_cases.py`(28件、変更なし)いずれもパスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 実Firestoreクライアント接続時に
+  `RegionNameProviderProtocol`の実装を`stores/{storeId}`ドキュメントの「地域名」
+  フィールドに接続する、または他venture・アイデア領域の前進。
+- 最終更新: 2026-10-02 20:00 UTC(フェーズ続き295: `region_name`のRegionNameProvider
+  Protocol実配線を完了。`cloud_function_process_event.py`にプロトコル・コンストラクタ
+  引数・呼び出し箇所を追加。テスト906件・schema検証28件いずれもパス)

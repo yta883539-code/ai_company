@@ -138,10 +138,10 @@ https://line.me/R/ti/p/@example-lino
   アカウント開設後にConversationEventProcessorのコンストラクタ引数として実際の
   友だち追加URLを渡すよう接続する(pending-approval.md記載のLINE公式アカウント
   開設承認待ちに紐づく)。
-- `region_name`をStoreNameProviderProtocolと同様の取得口(例:
+- ~~`region_name`をStoreNameProviderProtocolと同様の取得口(例:
   RegionNameProviderProtocol)経由で`_maybe_render_launch_announcement_reply()`に
-  接続し、オーナーが地域名を設定していれば自動的にSNS告知文へ地域タグを含める配線を行う
-  (9節参照。店舗名のget_business_name()と対称の設計を想定)。
+  接続し、オーナーが地域名を設定していれば自動的にSNS告知文へ地域タグを含める配線を行う~~
+  → 2026-10-02 20:00 UTC、10節の通り実施済み。
 
 ## 8. 実装状況(2026-09-18 03:00 UTC定例更新)
 
@@ -172,3 +172,26 @@ event.py`側への`region_name`の配線(7節参照)は本フェーズでは行�
 追加されること・スペースを含む地域名でもスペースが除去されること・空文字列では従来通り
 ハッシュタグ3件のままであること)を追加し、venture全体903件・schema検証28件いずれも
 パスを確認した。
+
+## 10. 実装状況(2026-10-02 20:00 UTC定例更新・RegionNameProviderProtocol配線)
+
+9節で残っていた`cloud_function_process_event.py`側の`region_name`配線を行った。
+`StoreNameProviderProtocol`/`InMemoryStoreNameProvider`と対称の設計で
+`RegionNameProviderProtocol`(`get_region_name(store_id) -> str`、未設定・取得失敗時は
+空文字列を返す契約)・`InMemoryRegionNameProvider`を追加し、
+`ConversationEventProcessor.__init__`にコンストラクタ引数`region_name_provider`
+(未指定時はNone、地域タグなしの従来挙動を維持)を追加した。
+`_maybe_render_launch_announcement_reply()`で`store_name_provider.get_business_name()`
+と同じ要領で`region_name_provider.get_region_name(self._store_id)`を呼び出し、
+`render_launch_announcement_sns()`へ`region_name`として渡す配線とした(POP文言は
+2節のスコープ通り対象外のまま)。`region_name_provider`が未接続(None)または空文字列
+(地域名未設定)を返す場合はいずれも従来通り地域タグなしとなる安全側フォールバックを
+テストで確認した。実データ取得口(Firestore `stores/{storeId}`ドキュメントの「地域名」
+フィールドへの実接続)は未実装で、本フェーズはプロトタイプ内のプロバイダ抽象・配線のみ
+が対象。テスト3件(地域名プロバイダ経由で地域タグが付与されること・プロバイダ未接続時は
+従来通り地域タグなしのこと・プロバイダが空文字列を返す場合も地域タグなしのこと)を追加し、
+venture全体906件・schema検証28件いずれもパスを確認した。承認が必要なアクション(支払い・
+アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+なし。次回候補: 実Firestoreクライアント接続時に`RegionNameProviderProtocol`の実装を
+`stores/{storeId}`ドキュメントの「地域名」フィールド(owner-settings-wireframe.md)に
+接続する、または他venture・アイデア領域の前進。

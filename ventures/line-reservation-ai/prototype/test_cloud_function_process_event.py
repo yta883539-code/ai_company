@@ -25,6 +25,7 @@ from cloud_function_process_event import (  # noqa: E402
     InMemoryConfirmedReplyRecorder,
     InMemoryConversationStateStore,
     InMemoryLinePushClient,
+    InMemoryRegionNameProvider,
     InMemoryStoreNameProvider,
     LINE_TEXT_MESSAGE_MAX_UTF16_UNITS,
     LinePushDeliveryError,
@@ -98,6 +99,7 @@ def _new_processor(
     booking_slots=None,
     monthly_booking_limit=None,
     store_name_provider=None,
+    region_name_provider=None,
     friend_add_url=None,
 ):
     # system-event-log-gap-fix.md準拠。logsをflowにも渡すことで、booking_conflict等の
@@ -134,6 +136,7 @@ def _new_processor(
         store_profile=store_profile,
         conversation_state_store=conversation_state_store,
         store_name_provider=store_name_provider,
+        region_name_provider=region_name_provider,
         friend_add_url=friend_add_url,
     )
     return processor, flow, push, logs
@@ -694,6 +697,43 @@ class LaunchAnnouncementCommandTests(unittest.TestCase):
         processor.process(_event("U-owner", "告知文"), self._unreachable_llm_call(), NOW)
 
         self.assertIn(FRIEND_ADD_URL_PLACEHOLDER, push.sent[0][1])
+
+    def test_owner_trigger_with_region_name_provider_includes_region_hashtag(self):
+        # launch-announcement-draft-design.md 7節・9節準拠。RegionNameProviderProtocol
+        # 経由で地域名が取得できれば、SNS告知文に地域タグが自動で含まれることを確認する。
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+            region_name_provider=InMemoryRegionNameProvider("渋谷"),
+        )
+
+        processor.process(_event("U-owner", "告知文"), self._unreachable_llm_call(), NOW)
+
+        self.assertIn("#渋谷", push.sent[0][1])
+
+    def test_owner_trigger_without_region_name_provider_omits_region_hashtag(self):
+        # region_name_provider未接続(None)の場合は従来通り地域タグなしのまま
+        # (store_name_providerと同じ安全側フォールバック)。
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+        )
+
+        processor.process(_event("U-owner", "告知文"), self._unreachable_llm_call(), NOW)
+
+        self.assertNotIn("#渋谷", push.sent[0][1])
+
+    def test_owner_trigger_with_empty_region_name_omits_region_hashtag(self):
+        # region_name_providerが空文字列を返す(地域名未設定)場合も地域タグなしのまま。
+        processor, _, push, _ = _new_processor(
+            owner_user_id="U-owner",
+            store_name_provider=InMemoryStoreNameProvider("〇〇美容室"),
+            region_name_provider=InMemoryRegionNameProvider(""),
+        )
+
+        processor.process(_event("U-owner", "告知文"), self._unreachable_llm_call(), NOW)
+
+        self.assertNotIn("#渋谷", push.sent[0][1])
 
     def test_non_owner_sending_keyword_uses_normal_flow(self):
         processor, _, push, _ = _new_processor(
