@@ -19,6 +19,10 @@
   友だち追加時にトークで届く6文字コード方式): 実装・テスト(11件)済み。
 - 申込フォーム提出フローの正規化・書き込みロジック
   (`prototype/application_form_submission_flow.py`): テスト16件済み。
+- LP実装ドラフト(`landing-page/index.html`、2026-10-02 01:00 UTC作成): aircon-pasha・
+  line-reservation-aiと同じ位置づけで、landing-page-wireframe.md・landing-page-copy-draft.md
+  の内容をHTML/CSSに落とし込んだローカル静的ファイル。ドメイン取得・ホスティング・公開は
+  未着手(CTAは非活性プレースホルダー)。
 
 ## 承認待ち事項(依存順、pending-approval.md記載の要約)
 
@@ -77,3 +81,11 @@ schema/validate_test_cases.py`(21件)を再実行し、いずれもパスする�
 他作業によるものでありドキュメント記載漏れの是正自体にコード変更は伴わない)。承認が
 必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
 pending-approval.mdへの追記なし。
+
+2026-10-02 01:00 UTC: aircon-pasha・line-reservation-aiが直近2時間でLP実装ドラフト
+(`landing-page/index.html`)を作成済みである一方、本ventureは未着手のまま残っていたことを
+確認したため、本venture分のLP実装ドラフトを新規作成した(「現状」節参照)。ドメイン取得・
+ホスティング・公開は未着手のままで、承認待ち事項1〜5の内容・件数に変更はない。回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
+schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを確認した(コード変更
+なし)。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
