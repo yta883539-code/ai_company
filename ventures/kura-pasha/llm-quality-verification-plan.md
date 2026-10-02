@@ -61,9 +61,10 @@ llm-system-prompt-draft.mdの厳守事項1〜8・7a・7bを対象に、schema/va
 ## 記録先
 
 aircon-pasha/course-set-pashaはllm-quality-verification-results-template.mdを別ファイル
-として先に用意している。本ventureは検証未着手のため、実際に着手する段階で記録量を見て
-本ファイルへの追記か別ファイル切り出しかを判断する(aircon-pashaフェーズ118と同じ判断
-基準を踏襲)。
+として先に用意している。本ventureも同日(2026-09-12 20:00 UTC)にllm-quality-
+verification-results-template.mdを別ファイルとして用意済みであり、「本ファイルへの
+追記か別ファイル切り出しかの判断」は別ファイル切り出しの方針で確定している(aircon-pasha
+フェーズ118と同じ判断基準を踏襲)。
 
 ## 残る未確定事項
 
@@ -71,7 +72,8 @@ aircon-pasha/course-set-pashaはllm-quality-verification-results-template.mdを�
   結果を見た上で緩め・厳しめのいずれに調整すべきかは実測後に見直す。
 - 同一入力での生成ばらつきの許容範囲(temperature設定等)は実LLM接続時に検討する(本
   ドキュメントの範囲外)。
-- member-retention-notice-design.md・contractor-transfer-design.md系のケース(M1・M2・
-  CT1・CT2・CTC1〜CTC3・CTE1)を本表と同じ形式(厳守事項番号・検証観点・判定方法)で
-  一覧化するかどうかは、各設計文書側の記述量が既に十分詳細なため、本文書に重複掲載せず
-  参照のみにとどめるか次回以降に判断する。
+
+(旧3点目「member-retention-notice-design.md・contractor-transfer-design.md系のケースを
+本表と同じ形式で一覧化するかどうか」は、llm-quality-verification-results-template.mdの
+「記入方法」節で、各設計文書の「判定基準」節を参照する形とし本表には対象外欄に一覧のみ
+残す運用で既に確定済みのため解消済み。)

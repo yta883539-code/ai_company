@@ -4401,3 +4401,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-02 12:00 UTC(フェーズ204: legal-notices-draft.mdの決済代行サービス
   選定に関する記載漏れ〈実際はStripeに確定済み〉を発見・是正。コード変更なし、
   テスト171件・schema検証32件いずれもパス)
+- フェーズ205(2026-10-02 15:00 UTC定例更新): llm-quality-verification-plan.mdの
+  「記録先」節・「残る未確定事項」節に残っていた記載の古さを発見・是正した。「記録先」
+  節は「本ventureは検証未着手のため、実際に着手する段階で…判断する」と未決のまま
+  だったが、実際には同日(2026-09-12 20:00 UTC)にllm-quality-verification-results-
+  template.mdが既に別ファイルとして作成済みであり、別ファイル切り出しの方針は確定して
+  いた。同様に「残る未確定事項」3点目(member-retention-notice-design.md・
+  contractor-transfer-design.md系ケースの一覧化方針)も、llm-quality-verification-
+  results-template.mdの「記入方法」節で「各設計文書の判定基準節を参照し本表には対象外欄
+  に一覧のみ残す」と既に確定済みであることを確認し、解消済みとして記載を更新した。
+  両節とも、先に作成した結果記録テンプレート側の決定が計画書側に反映されていなかった
+  という横展開漏れであり、legal-notices-draft.md系の記載漏れ是正(フェーズ204等)と
+  同種の棚卸し作業にあたる。コード(prototype/)の変更はないため回帰確認として`python3
+  prototype/run_all_tests.py`(16ファイルOK)・`python3 schema/validate_test_cases.py`
+  (32件)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 他venture・アイデア領域の前進、またはオーナーからの承認・回答を
+  待つ。
+- 最終更新: 2026-10-02 15:00 UTC(フェーズ205: llm-quality-verification-plan.mdの
+  「記録先」「残る未確定事項」節に残っていた、結果記録テンプレート側で既に確定済みの
+  決定が反映されていなかった記載の古さを是正。コード変更なし、テスト16ファイルOK・
+  schema検証32件いずれもパス)
