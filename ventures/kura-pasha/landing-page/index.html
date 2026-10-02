@@ -15,9 +15,11 @@
   - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには
     接続していません(LINE公式アカウント開設・Stripeアカウント開設は
     いずれもpending-approval.md記載分でオーナー承認待ちのため)。
-  - ビフォーアフター画像(新規制作用・修理用の2パターン)は未制作のため、
-    landing-page-wireframe.mdの説明文で代替したプレースホルダー枠です。
-    区分の切替はJSを使わずradio+labelのCSSタブで表現しています。
+  - ビフォーアフター画像(新規制作用・修理用の2パターン)は未制作だったが、
+    aircon-pasha(フェーズ290・2026-10-02 05:00 UTC)の横展開として、画像の
+    代わりにCSSのみの「聞き取りメモ(手書き風)→納品案内(整形済み文書)」
+    モックアップに差し替えた(2026-10-02 09:00 UTC)。区分の切替はJSを使わず
+    radio+labelのCSSタブで表現しています。
   - フッターの特定商取引法に基づく表記・プライバシーポリシーは
     legal-notices-draft.mdの未確定項目があるためリンク先なし。
 -->
@@ -67,12 +69,43 @@
   }
   .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
   .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
-  .mockup-frame {
-    border: 1px dashed var(--color-border);
-    border-radius: 8px; padding: 16px; margin-bottom: 8px;
-    background: #fff; font-size: 0.85rem; color: var(--color-muted);
+  .before-after {
+    display: flex; gap: 10px; align-items: center;
+    margin: 0 0 8px;
   }
-  .mockup-frame .step { margin: 4px 0; }
+  .before-after .arrow { font-size: 1.4rem; color: var(--color-accent); flex: 0 0 auto; }
+  .memo-card {
+    flex: 1; min-width: 0;
+    background: #fffef2;
+    border: 1px solid #e4dfb0;
+    border-radius: 2px;
+    padding: 12px 14px;
+    transform: rotate(-1.5deg);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.08);
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    font-size: 0.8rem;
+    color: #4a4530;
+  }
+  .memo-card .label { font-size: 0.65rem; color: #9a9260; margin-bottom: 4px; letter-spacing: 0.05em; }
+  .doc-card {
+    flex: 1; min-width: 0;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 0.78rem;
+    color: var(--color-fg);
+  }
+  .doc-card .label {
+    font-size: 0.65rem; color: var(--color-accent); margin-bottom: 4px;
+    letter-spacing: 0.05em; font-weight: bold;
+  }
+  .doc-card .line { height: 7px; background: #f1ece0; border-radius: 2px; margin-bottom: 5px; }
+  .doc-card .line:nth-child(3) { width: 92%; }
+  .doc-card .line:nth-child(4) { width: 70%; }
+  .doc-card .line:nth-child(5) { width: 85%; }
+  .doc-card .line:nth-child(6) { width: 55%; }
   .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
 
   .tabs { margin-bottom: 8px; }
@@ -149,20 +182,42 @@
       </div>
       <div class="tab-panels">
         <div class="tab-panel panel-new">
-          <div class="mockup-frame">
-            <div class="step">職人: 「ブリティッシュ鞍、牛革、競技用、納期2ヶ月」</div>
-            <div class="step">AI: 受注内容整理メモ+納品案内(なじませ方・締め具合調整・雨天注意)を生成</div>
+          <div class="before-after">
+            <div class="memo-card">
+              <div class="label">聞き取りメモ</div>
+              ブリティッシュ鞍、牛革、競技用、納期2ヶ月
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="doc-card">
+              <div class="label">納品案内(自動生成)</div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+            </div>
           </div>
         </div>
         <div class="tab-panel panel-repair">
-          <div class="mockup-frame">
-            <div class="step">職人: 「修理、鐙革の擦れ、2週間で」</div>
-            <div class="step">AI: 受注内容整理メモ+納品案内(修理箇所の説明・強度注意)を生成</div>
+          <div class="before-after">
+            <div class="memo-card">
+              <div class="label">聞き取りメモ</div>
+              修理、鐙革の擦れ、2週間で
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="doc-card">
+              <div class="label">納品案内(自動生成)</div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <p class="placeholder-note">(画像プレースホルダー:新規制作用・修理用の実際のビフォーアフターモックアップは未制作)</p>
+    <p class="placeholder-note">(実際の生成文面は聞き取りメモの内容に応じて変わります)</p>
 
     <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
     <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
