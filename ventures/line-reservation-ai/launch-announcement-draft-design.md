@@ -63,10 +63,14 @@ line-reservation-aiを「月次対応コストの絶対額が最高・対応可�
 - POP文言: 店頭掲示を想定した短め(3〜5行程度)の文面。QRコード画像を貼る余白を前提に
   「友だち追加はこちらから」という誘導文言とURLを含む。
 - SNS告知文: ハッシュタグを含む投稿文。course-set-pashaのsns-tone-research.mdが確立した
-  「(1)一般ハッシュタグ、(2)店舗名ブランドタグ、(3)地域タグ」の3分類方針を踏まえるが、
-  本ventureは地域名を店舗設定として収集していないため、当面は(1)一般ハッシュタグ
-  (例: #LINE予約 #ネット予約)・(2)店舗名ブランドタグの2種類に留め、地域タグは
-  「地域名を店舗設定に追加する」という別課題(6節)として切り出す。
+  「(1)一般ハッシュタグ、(2)店舗名ブランドタグ、(3)地域タグ」の3分類方針を踏まえる。
+  2026-10-02 18:00 UTC定例更新で、owner-settings-wireframe.mdに「地域名(任意)」欄を
+  追加したことに伴い、(3)地域タグにも対応した(6節の残課題を解消)。地域名は任意項目の
+  ため、未入力時は従来通り(1)一般ハッシュタグ・(2)店舗名ブランドタグの2種類のみで
+  生成する(地域タグが無いことを理由に生成自体をブロックしない)。地域タグの表記は
+  ブランドタグ(`_brand_hashtag()`)と同じ方式でスペースを除去して`#`を前置する
+  (例: 地域名「渋谷」→`#渋谷`)。`render_launch_announcement_sns()`の新しい任意引数
+  `region_name`(既定値は空文字列)として実装した(8節参照)。
 
 ### 4.3 トーン
 
@@ -111,8 +115,12 @@ https://line.me/R/ti/p/@example-lino
   Q7として「告知文」コマンドの周知文言を追加し対応済み。
 - POP・SNS告知文をオーナーが実際に使いたくなる文面か(押しつけがましくないか、店舗の
   ブランドイメージに合うか)は、customer-interview-design.mdのヒアリングでの検証が必要。
-- 地域タグ用の地域名を店舗設定に追加すべきかは、地域名を収集する項目自体が現状の
-  owner-settings-wireframe.mdに無いため、追加するかどうかも含めて別途要検討。
+- ~~地域タグ用の地域名を店舗設定に追加すべきか~~
+  → 2026-10-02 18:00 UTC、owner-settings-wireframe.mdに任意項目「地域名」を追加し、
+  `render_launch_announcement_sns()`の`region_name`引数(4.2節)として対応済み。
+  ただしStoreNameProviderProtocolに相当する地域名取得口(cloud_function_process_event.py側
+  の配線)はまだ無く、現状は呼び出し側が`region_name`を明示的に渡す必要がある
+  (7節「次のステップ候補」参照)。
 - QRコード画像の生成・添付は本ドキュメントの対象外(2節)としたが、テキストURLのみでは
   店頭POPとしての実用性が下がる可能性があり、実LINE API接続後にQRコード画像添付の要否を
   再検討する必要がある。
@@ -130,6 +138,10 @@ https://line.me/R/ti/p/@example-lino
   アカウント開設後にConversationEventProcessorのコンストラクタ引数として実際の
   友だち追加URLを渡すよう接続する(pending-approval.md記載のLINE公式アカウント
   開設承認待ちに紐づく)。
+- `region_name`をStoreNameProviderProtocolと同様の取得口(例:
+  RegionNameProviderProtocol)経由で`_maybe_render_launch_announcement_reply()`に
+  接続し、オーナーが地域名を設定していれば自動的にSNS告知文へ地域タグを含める配線を行う
+  (9節参照。店舗名のget_business_name()と対称の設計を想定)。
 
 ## 8. 実装状況(2026-09-18 03:00 UTC定例更新)
 
@@ -146,3 +158,17 @@ https://line.me/R/ti/p/@example-lino
 MESSAGE`)を返す安全側フォールバックとした。テスト9件(launch_announcement_draft
 側3件・cloud_function_process_event側6件)を追加し、venture全体844件・schema検証
 27件いずれもパスを確認した。
+
+## 9. 実装状況(2026-10-02 18:00 UTC定例更新・地域タグ対応)
+
+`render_launch_announcement_sns()`に任意引数`region_name`(既定値は空文字列)を追加した。
+非空の場合のみ`_brand_hashtag()`と同じ要領でスペースを除去して`#`を前置した地域タグを
+一般ハッシュタグ・ブランドタグの後ろに追加する(表示順は4.2節の分類順と同じ)。空文字列
+(未設定)の場合は従来通り地域タグを含めず、既存の`test_no_region_hashtag_is_included`
+(引数省略時)はそのままパスする。POP文言(`render_launch_announcement_pop()`)は2節の
+スコープ通りPOP用途では地域タグを扱わないため変更していない。`cloud_function_process_
+event.py`側への`region_name`の配線(7節参照)は本フェーズでは行っておらず、呼び出し側が
+明示的に渡す関数シグネチャの変更のみにとどめた。テスト3件(非空の地域名で地域タグが
+追加されること・スペースを含む地域名でもスペースが除去されること・空文字列では従来通り
+ハッシュタグ3件のままであること)を追加し、venture全体903件・schema検証28件いずれも
+パスを確認した。

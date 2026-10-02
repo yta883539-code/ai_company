@@ -89,12 +89,13 @@ LINEでいつでもサクッとできちゃいます!
 
 
 def render_launch_announcement_sns(
-    store_name: str, friend_add_url: str, tone: str = "standard"
+    store_name: str, friend_add_url: str, tone: str = "standard", region_name: str = ""
 ) -> str:
-    """SNS告知文用の下書きを組み立てる(design 4.2節)。
+    """SNS告知文用の下書きを組み立てる(design 4.2節・9節)。
 
-    ハッシュタグは(1)一般ハッシュタグ・(2)店舗名ブランドタグの2種類とし、
-    地域タグは店舗設定に地域名の項目が無いため含めない(design 4.2節・6節)。
+    ハッシュタグは(1)一般ハッシュタグ・(2)店舗名ブランドタグ・(3)地域タグ(任意)の
+    3種類。region_nameは店舗設定の任意項目(owner-settings-wireframe.md「地域名」欄)
+    に対応し、未指定(空文字列)の場合は従来通り地域タグを含めない。
     """
     if not store_name:
         raise ValueError("store_name must not be empty")
@@ -125,5 +126,8 @@ def render_launch_announcement_sns(
 {hashtags}""",
     }
     template = _render_by_tone(tone, templates)
-    hashtags = " ".join((*_GENERIC_HASHTAGS, _brand_hashtag(store_name)))
+    tags = [*_GENERIC_HASHTAGS, _brand_hashtag(store_name)]
+    if region_name:
+        tags.append(_brand_hashtag(region_name))
+    hashtags = " ".join(tags)
     return template.format(store_name=store_name, url=friend_add_url, hashtags=hashtags)

@@ -5160,3 +5160,24 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-02 16:00 UTC(フェーズ続き293: llm-quality-verification-plan.mdの
   検証手順5節に残っていた、llm-api-cost-estimate.md作成〈2026-09-11〉前の記載の古さを
   是正。コード変更なし、テスト900件・schema検証28件いずれもパス)
+- フェーズ続き294(2026-10-02 18:00 UTC定例更新): launch-announcement-draft-design.md
+  6節に残っていた未検証の残課題「地域タグ用の地域名を店舗設定に追加すべきか」を解消した。
+  owner-settings-wireframe.md「営業情報設定ページ」に任意項目「地域名」を追加し、
+  `prototype/launch_announcement_draft.py`の`render_launch_announcement_sns()`に
+  任意引数`region_name`(既定値は空文字列)を追加して、指定時のみブランドタグと同じ
+  方式(スペース除去+`#`前置)で地域タグをSNS告知文の末尾に加えるようにした(design
+  4.2節・9節)。未指定時は従来通り地域タグなしで、既存の`test_no_region_hashtag_is_
+  included`相当の挙動を維持する。POP文言(`render_launch_announcement_pop()`)は
+  design 2節のスコープ通り変更していない。`cloud_function_process_event.py`側への
+  `region_name`の配線(StoreNameProviderProtocolに相当する取得口の追加)は本フェーズの
+  対象外とし、design 7節の次のステップ候補として残した。テスト3件(地域タグの追加・
+  スペース除去・空文字列時の従来互換)を追加し、venture全体903件・schema検証28件
+  いずれもパスを確認した。4venture共通のlaunch-readiness-checklist.md記載の承認待ち
+  事項(Stripe/LINE公式アカウント/Google フォーム/Cloud Scheduler)はいずれも未承認の
+  ままのため、本フェーズは承認不要な範囲のMVP設計の前進とした。承認が必要なアクション
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: `region_name`の
+  実配線(RegionNameProviderProtocol相当)、または他venture・アイデア領域の前進。
+- 最終更新: 2026-10-02 18:00 UTC(フェーズ続き294: launch-announcement-draft-design.md
+  6節の残課題だった地域タグ対応を解消。owner-settings-wireframe.mdに任意項目「地域名」
+  追加、render_launch_announcement_sns()に`region_name`引数を追加。テスト903件・
+  schema検証28件いずれもパス)

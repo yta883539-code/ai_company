@@ -76,11 +76,27 @@ class RenderLaunchAnnouncementSnsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_launch_announcement_sns(STORE_NAME, "")
 
-    def test_no_region_hashtag_is_included(self):
-        # design 4.2節: 地域タグは店舗設定に地域名の項目が無いため含めない。
+    def test_no_region_hashtag_is_included_when_region_name_omitted(self):
+        # design 4.2節: region_name省略時(既定値は空文字列)は従来通り地域タグを含めない。
         text = render_launch_announcement_sns(STORE_NAME, URL)
         hashtags = [word for word in text.split() if word.startswith("#")]
         self.assertEqual(len(hashtags), 3)
+
+    def test_region_hashtag_is_appended_when_region_name_given(self):
+        # design 9節: region_nameを渡すと地域タグが末尾に追加される。
+        text = render_launch_announcement_sns(STORE_NAME, URL, region_name="渋谷")
+        self.assertIn("#渋谷", text)
+        hashtags = [word for word in text.split() if word.startswith("#")]
+        self.assertEqual(len(hashtags), 4)
+
+    def test_region_hashtag_strips_spaces(self):
+        text = render_launch_announcement_sns(STORE_NAME, URL, region_name="渋谷 区")
+        self.assertIn("#渋谷区", text)
+
+    def test_empty_region_name_is_same_as_omitted(self):
+        with_empty = render_launch_announcement_sns(STORE_NAME, URL, region_name="")
+        without = render_launch_announcement_sns(STORE_NAME, URL)
+        self.assertEqual(with_empty, without)
 
 
 class IsLaunchAnnouncementTriggerTests(unittest.TestCase):
