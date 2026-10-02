@@ -4381,3 +4381,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ビフォーアフターモックアップ方針〈手書き風メモ→整形済み文書〉を横展開し、
   画像制作ツール未決定の課題を解消。外部依存・アカウント作成なし。コード変更なし、
   テスト16ファイルOK・schema検証32件いずれもパス)
+- フェーズ204(2026-10-02 12:00 UTC定例更新): legal-notices-draft.mdの「前提・未確定
+  事項」節・特商法表記表(支払方法欄)・「次のステップ候補」節に残っていた「決済代行
+  サービスの選定は本venture未着手」という記載漏れを発見・是正した。実際には月額サブスク
+  課金の決済代行サービスはStripeに確定済みで、checkout-initiation-flow-design.md・
+  `prototype/checkout_session.py`・`prototype/stripe_webhook.py`として実装・テスト済み
+  (他venture共通、pending-approval.md 2026-09-27 08:00 UTC記載分で実アカウント開設のみ
+  承認待ち)。従来の記載は、line-reservation-aiのdeposit-payment-research.md(予約の
+  無断キャンセル対策用デポジット機能という本ventureには存在しない別用途の調査)を誤って
+  本venture未着手事項として参照していたことが原因と判明した。支払方法欄をStripe前提の
+  記載に更新し、「次のステップ候補」も「決済処理方式の選定」から「実アカウント開設後の
+  plan_id→Price ID対応表確定・従量課金の都度課金対応方法の具体化」に差し替えた。コード
+  (prototype/)の変更はないため回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(171件)・`python3 schema/validate_test_cases.py`(32件)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  course-set-pasha・aircon-pasha・line-reservation-aiのlegal-notices-draft.mdにも同種の
+  「決済代行サービス選定未着手」という記載漏れが残っていないか棚卸しする。
+- 最終更新: 2026-10-02 12:00 UTC(フェーズ204: legal-notices-draft.mdの決済代行サービス
+  選定に関する記載漏れ〈実際はStripeに確定済み〉を発見・是正。コード変更なし、
+  テスト171件・schema検証32件いずれもパス)
