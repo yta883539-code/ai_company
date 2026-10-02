@@ -4422,3 +4422,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   「記録先」「残る未確定事項」節に残っていた、結果記録テンプレート側で既に確定済みの
   決定が反映されていなかった記載の古さを是正。コード変更なし、テスト16ファイルOK・
   schema検証32件いずれもパス)
+- フェーズ206(2026-10-02 21:00 UTC定例更新): aircon-pashaに存在するが本ventureには
+  無かったcandidate-readiness-summary.md(ヒアリング候補の準備状況サマリ)を同形式で
+  新規作成した。candidate-longlist-draft.md第一弾〜第八弾に分散していた優先順位1
+  (ライディングショップ池上)・2(エクウスワールド)・候補継続2件(馬具職人工房・
+  Apion-leather craft lab)・保留1件(ジャパンギャロップスインポーター)・除外1件
+  (LEVOL)の判断根拠を優先順位順の一覧に整理した。優先順位1・2は連絡チャネル・
+  依頼文面(initial-contact-message-draft.mdの草案A・B)が確定済みで、オーナーの
+  初回コンタクト実施承認が下り次第着手できる状態にあることを明記した。新規のWebSearch
+  調査・実際の連絡は行っていない。コード(prototype/)の変更はないため回帰確認として
+  `python3 prototype/run_all_tests.py`(16ファイルOK、変更なし)を再実行しパスを確認
+  した(schema検証は対象外のドキュメント作業のため未実行、32件から変更なしの想定)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: 候補継続2件(馬具職人工房・
+  Apion-leather craft lab)の連絡チャネルのWebSearch確認、または他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-02 21:00 UTC(フェーズ206: aircon-pasha発のcandidate-readiness-
+  summary.md形式を横展開し、ヒアリング候補8件〈優先順位1・2、候補継続2件、保留1件、
+  除外1件〉の準備状況を一覧化。新規調査・実際の連絡なし。コード変更なし、テスト
+  16ファイルOK)
