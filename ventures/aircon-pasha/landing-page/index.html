@@ -12,10 +12,15 @@
   - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには
     接続していません(Stripeアカウント開設は2026-09-27 09:00 UTC記載分で
     オーナー承認待ちのため)。
-  - ビフォーアフター画像(入力メモ→完了報告文)は未制作のため、
-    landing-page-wireframe.mdの説明文で代替したプレースホルダー枠です。
   - フッターの特定商取引法に基づく表記・プライバシーポリシーは
     legal-notices-draft.mdの【要記入】項目が未確定のためリンク先なし。
+
+  2026-10-02 05:00 UTC追記: ヒーローのビフォーアフター(入力メモ→完了報告文)は
+  従来テキストのみのプレースホルダー枠だったが、landing-page-wireframe.md
+  「未確定・今後の課題」で挙げていた「どのツール・素材を使うか未検討」の論点に
+  対応し、Canva等の外部デザインツール(アカウント連携が発生しうる)は使わず、
+  このHTML自身のCSSのみで「手書き風メモ」→「整形済み文書」のモックアップを
+  直接組んだ(新規の外部依存・アカウント作成は発生していない)。
 -->
 <html lang="ja">
 <head>
@@ -64,13 +69,42 @@
   .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
   .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
   .before-after {
-    display: flex; gap: 8px; align-items: center;
-    border: 1px dashed var(--color-border);
-    border-radius: 8px; padding: 16px; margin-bottom: 8px;
-    background: #fff;
+    display: flex; gap: 10px; align-items: center;
+    margin: 0 0 8px;
   }
-  .before-after .col { flex: 1; font-size: 0.85rem; color: var(--color-muted); }
-  .before-after .arrow { font-size: 1.4rem; color: var(--color-accent); }
+  .before-after .arrow { font-size: 1.4rem; color: var(--color-accent); flex: 0 0 auto; }
+  .memo-card {
+    flex: 1; min-width: 0;
+    background: #fffef2;
+    border: 1px solid #e4dfb0;
+    border-radius: 2px;
+    padding: 12px 14px;
+    transform: rotate(-1.5deg);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.08);
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    font-size: 0.8rem;
+    color: #4a4530;
+  }
+  .memo-card .label { font-size: 0.65rem; color: #9a9260; margin-bottom: 4px; letter-spacing: 0.05em; }
+  .doc-card {
+    flex: 1; min-width: 0;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 0.78rem;
+    color: var(--color-fg);
+  }
+  .doc-card .label {
+    font-size: 0.65rem; color: var(--color-accent); margin-bottom: 4px;
+    letter-spacing: 0.05em; font-weight: bold;
+  }
+  .doc-card .line { height: 7px; background: #eef2ef; border-radius: 2px; margin-bottom: 5px; }
+  .doc-card .line:nth-child(3) { width: 92%; }
+  .doc-card .line:nth-child(4) { width: 70%; }
+  .doc-card .line:nth-child(5) { width: 85%; }
+  .doc-card .line:nth-child(6) { width: 55%; }
   .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
   ul.problem-list { list-style: none; padding: 0; margin: 0; }
   ul.problem-list li {
@@ -119,11 +153,22 @@
     <p class="sub">完了報告もお手入れ案内も、AIが下書きします。</p>
 
     <div class="before-after">
-      <div class="col">入力メモ例:<br>「壁掛け型、お掃除機能付き、防カビコート有」</div>
+      <div class="memo-card">
+        <div class="label">入力メモ</div>
+        壁掛け型2.2kW、お掃除機能付き、フィルター・熱交換器まで分解洗浄、
+        カビ汚れ中程度、防カビコート有
+      </div>
       <div class="arrow">&rarr;</div>
-      <div class="col">整形済み完了報告文(自動生成)</div>
+      <div class="doc-card">
+        <div class="label">完了報告メッセージ(自動生成)</div>
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+      </div>
     </div>
-    <p class="placeholder-note">(画像プレースホルダー:実際のビフォーアフター画像は未制作)</p>
+    <p class="placeholder-note">(実際の生成文面は入力メモに応じて変わります)</p>
 
     <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
     <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
