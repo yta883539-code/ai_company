@@ -89,3 +89,11 @@ pending-approval.mdへの追記なし。
 `python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを確認した(コード変更
 なし)。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+
+2026-10-02 19:00 UTC(フェーズ272): 承認待ち事項1〜5をpending-approval.mdの該当エントリと
+再度突き合わせ、記載漏れ・日時不一致なしを確認した。承認待ち事項1〜5の内容・件数に変更はない。
+あわせてlanding-page-wireframe.mdの「最終更新」表記の記載漏れ(フェーズ270の内容追記が
+未反映のまま)を発見・是正した(詳細は本venture README参照)。回帰確認として`python3
+-m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
+schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを確認した(コード変更
+なし)。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。

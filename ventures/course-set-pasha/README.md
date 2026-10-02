@@ -4394,3 +4394,25 @@
 - 最終更新: 2026-10-02 13:00 UTC(フェーズ271: legal-notices-draft.mdの決済代行サービス
   選定に関する記載漏れ〈実際はStripeに確定済み〉をkura-pashaフェーズ204の指摘を受けて
   是正。コード変更なし、テスト690件・schema検証21件いずれもパス)
+- フェーズ272(2026-10-02 19:00 UTC定例更新): launch-readiness-checklist.mdと
+  pending-approval.mdの定期棚卸し(承認待ち事項1〜5の日時・内容を再突き合わせ)を実施し、
+  記載漏れ・齟齬がないことを確認した。その過程でlanding-page-wireframe.mdを読み直した
+  ところ、フェーズ270(2026-10-02 06:00 UTC、ヒーロー画像のCSSモックアップ化)の内容が
+  追記された後も、ファイル末尾の「最終更新」表記がフェーズ269時点の「2026-10-02 01:00 UTC」
+  のまま更新されていなかった記載漏れを発見した。aircon-pasha・line-reservation-aiの
+  同ファイルは横展開時に「最終更新」を都度更新できていたが、本ventureのみ更新が漏れていた
+  ため、「2026-10-02 06:00 UTC」に是正した。なお、同種の調査でkura-pashaの
+  landing-page-wireframe.mdにも「最終更新: 2026-09-11 20:00 UTC」のまま2026-10-02時点の
+  CSSタブ化(フェーズ203)が未反映の同種の記載漏れが残っていることを確認したが、本フェーズは
+  本venture分の是正に限定し、kura-pasha側の是正はkura-pasha自身の次回定例更新に申し送る。
+  コード(prototype/)の変更はないため回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(690件)・`python3 schema/validate_test_cases.py`
+  (21件)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 承認待ち事項1〜5のいずれかがオーナーから承認された場合はその着手を
+  最優先とし、それまでは他venture・アイデア領域の前進、またはkura-pashaのlanding-page-
+  wireframe.md「最終更新」記載漏れの是正(申し送り分)を行う。
+- 最終更新: 2026-10-02 19:00 UTC(フェーズ272: launch-readiness-checklist.mdと
+  pending-approval.mdの定期棚卸しで齟齬なしを確認。landing-page-wireframe.mdの
+  「最終更新」表記がフェーズ270の内容追記後も未更新だった記載漏れを発見・是正。
+  コード変更なし、テスト690件・schema検証21件いずれもパス)
