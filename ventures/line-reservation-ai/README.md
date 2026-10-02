@@ -5112,3 +5112,20 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-01 23:00 UTC(フェーズ続き290: LP HTML/CSS実装ドラフトを
   landing-page/index.htmlとして新規作成。ローカル静的ファイルのみ、公開は未実施。
   コード変更なし、テスト900件・schema検証28件いずれもパス)
+
+- フェーズ続き291(2026-10-02 07:00 UTC定例更新): aircon-pasha(2026-10-02 05:00 UTC)・
+  course-set-pasha(2026-10-02 06:00 UTC)が横展開したCSSのみの画面モックアップ方針を
+  本ventureにも適用し、landing-page/index.htmlのヒーロー及び「新しいアプリはいりません」
+  sectionのLINEトーク画面モックアップを、テキストのみのプレースホルダー枠から吹き出し
+  (bubble)形式のCSSモックアップに差し替えた(候補提示→確定の3コマ、店舗アイコン付き
+  シンプル版の2種)。landing-page-wireframe.mdの「未確定・今後の課題」節・「実装状況」節に
+  反映した。外部デザインツール・画像素材は使わず、新規の外部依存・アカウント作成は発生して
+  いない。コード(prototype/)の変更はないため回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(900件)・`python3 schema/validate_test_cases.py`(28件)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  他venture・アイデア領域の前進、またはlaunch-readiness-checklist.mdとpending-approval.md
+  の記載齟齬の定期棚卸し。
+- 最終更新: 2026-10-02 07:00 UTC(フェーズ続き291: LINEトーク画面モックアップをCSSのみの
+  吹き出しモックアップに差し替え。外部依存・アカウント作成なし。コード変更なし、
+  テスト900件・schema検証28件いずれもパス)

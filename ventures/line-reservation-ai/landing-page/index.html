@@ -13,11 +13,18 @@
   - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには
     接続していません(LINE公式アカウント開設・Stripeアカウント開設は
     いずれもpending-approval.md記載分でオーナー承認待ちのため)。
-  - LINEトーク画面モックアップ画像(候補提示→確定の3コマ、および
-    店舗アイコン付きのシンプル版)は未制作のため、
-    landing-page-wireframe.mdの説明文で代替したプレースホルダー枠です。
   - フッターの特定商取引法に基づく表記・プライバシーポリシーは
     legal-notices-draft.mdの未確定項目があるためリンク先なし。
+
+  2026-10-02 07:00 UTC追記: ヒーロー及び「新しいアプリはいりません」section の
+  LINEトーク画面モックアップは、従来テキストのみのプレースホルダー枠だったが、
+  aircon-pasha(2026-10-02 05:00 UTC)・course-set-pasha(2026-10-02 06:00 UTC)が
+  それぞれ横展開したCSSのみのモックアップ方針(Canva等の外部デザインツール・
+  画像素材は使わず、このHTML自身のCSSのみで組む)を本ventureにも適用し、
+  landing-page-wireframe.mdで未決定だった「画像制作ツール」の論点に対応した
+  (新規の外部依存・アカウント作成は発生していない)。候補提示→確定の3コマは
+  吹き出し(bubble)形式のCSSモックアップに、店舗アイコン付きのシンプル版も
+  同様にCSSモックアップに差し替えた。
 -->
 <html lang="ja">
 <head>
@@ -65,12 +72,42 @@
   }
   .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
   .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
-  .mockup-frame {
-    border: 1px dashed var(--color-border);
-    border-radius: 8px; padding: 16px; margin-bottom: 8px;
-    background: #fff; font-size: 0.85rem; color: var(--color-muted);
+  .line-mock {
+    background: #8cabc9;
+    border-radius: 10px;
+    padding: 14px 12px 10px;
+    margin-bottom: 8px;
   }
-  .mockup-frame .step { margin: 4px 0; }
+  .line-mock .shop-header {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 10px;
+  }
+  .line-mock .shop-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--color-accent-dark);
+    color: #fff; font-size: 0.7rem; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
+  }
+  .line-mock .shop-name { color: #fff; font-size: 0.8rem; font-weight: bold; }
+  .bubble-row { display: flex; margin: 6px 0; }
+  .bubble-row.user { justify-content: flex-end; }
+  .bubble {
+    max-width: 78%;
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+  .bubble.store { background: #fff; color: var(--color-fg); border-bottom-left-radius: 3px; }
+  .bubble.user { background: #a0e75a; color: #1c3300; border-bottom-right-radius: 3px; }
+  .bubble-system {
+    text-align: center; font-size: 0.68rem; color: #2f4a3a;
+    background: rgba(255,255,255,0.65);
+    border-radius: 10px; padding: 4px 10px;
+    margin: 8px auto 2px; width: fit-content;
+  }
   .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
   ul.problem-list { list-style: none; padding: 0; margin: 0; }
   ul.problem-list li {
@@ -114,12 +151,16 @@
     <h1>予約対応、もうLINEに任せませんか?</h1>
     <p class="sub">お客様はいつものLINEトークで予約。あなたは確認するだけ。</p>
 
-    <div class="mockup-frame">
-      <div class="step">お客様: 「来週の土曜の午後空いてますか?」</div>
-      <div class="step">AI: 空いている候補を提示</div>
-      <div class="step">お客様が選択 &rarr; 予約確定</div>
+    <div class="line-mock">
+      <div class="shop-header">
+        <div class="shop-icon">店</div>
+        <div class="shop-name">予約とれる君(導入店舗)</div>
+      </div>
+      <div class="bubble-row user"><div class="bubble user">来週の土曜の午後空いてますか?</div></div>
+      <div class="bubble-row"><div class="bubble store">空いております!候補です&#12316;&#10;① 10/11(土) 14:00&#12316;&#10;② 10/11(土) 15:30&#12316;&#10;どちらになさいますか?</div></div>
+      <div class="bubble-row user"><div class="bubble user">①で!</div></div>
+      <div class="bubble-system">&#10003; 10/11(土) 14:00&#12316; で予約確定しました</div>
     </div>
-    <p class="placeholder-note">(画像プレースホルダー:実際のLINEトーク画面モックアップは未制作)</p>
 
     <a class="cta" href="#" aria-disabled="true">14日間無料で試してみる</a>
     <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
@@ -149,7 +190,14 @@
   <section class="alt">
     <h2>新しいアプリは、いりません</h2>
     <p class="sub">お客様は、普段お店とやり取りしているLINEのトーク画面から、そのまま予約できます。新しい会員登録もアプリのダウンロードも不要。今までと同じ感覚で、予約が完了します。</p>
-    <p class="placeholder-note">(画像プレースホルダー:店舗アイコン・トーク履歴を含むシンプル版モックアップは未制作)</p>
+    <div class="line-mock">
+      <div class="shop-header">
+        <div class="shop-icon">店</div>
+        <div class="shop-name">予約とれる君(導入店舗)</div>
+      </div>
+      <div class="bubble-row"><div class="bubble store">いつもありがとうございます&#12290;ご予約はこちらのトークからどうぞ&#12290;</div></div>
+      <div class="bubble-row user"><div class="bubble user">今度の金曜、夜空いてますか?</div></div>
+    </div>
   </section>
 
   <section>
