@@ -5126,6 +5126,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
   他venture・アイデア領域の前進、またはlaunch-readiness-checklist.mdとpending-approval.md
   の記載齟齬の定期棚卸し。
-- 最終更新: 2026-10-02 07:00 UTC(フェーズ続き291: LINEトーク画面モックアップをCSSのみの
-  吹き出しモックアップに差し替え。外部依存・アカウント作成なし。コード変更なし、
-  テスト900件・schema検証28件いずれもパス)
+- フェーズ続き292(2026-10-02 13:00 UTC定例更新): kura-pashaフェーズ204(2026-10-02
+  12:00 UTC)が発見・是正した「legal-notices-draft.mdに決済代行サービス選定が未着手との
+  記載が残っている」記載漏れについて、「次回候補」で指示された横展開確認を本ventureでも
+  実施した。本venture固有の問題として、支払方法欄・前提事項・1節の加盟店契約に関する
+  注記が、本サービス自体のサブスク課金(店舗オーナー→本サービス、Stripeに確定済み。
+  deposit-payment-processor-unification-design.md参照)と、deposit-payment-research.mdが
+  扱う別用途の決済経路(来店客→店舗オーナーへのデポジット徴収、こちらはStripe Connect採用
+  可否を含め未確定のまま)を混同し、後者の未確定さを前者の記載として誤って転記していた
+  ことを発見・是正した。コード(prototype/)の変更はないため回帰確認として`python3
+  -m unittest discover -s prototype -p "test_*.py"`(900件)・`python3
+  schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進、または
+  launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-10-02 13:00 UTC(フェーズ続き292: legal-notices-draft.mdがサブスク課金
+  〈Stripe確定済み〉とデポジット徴収〈別用途・未確定〉の決済経路を混同していた記載漏れを
+  kura-pashaフェーズ204の指摘を受けて是正。コード変更なし、テスト900件・schema検証28件
+  いずれもパス)

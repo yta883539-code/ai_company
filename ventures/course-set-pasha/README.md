@@ -4377,7 +4377,20 @@
   ヒーロー画像モックアップをkura-pasha・line-reservation-aiへ横展開できるか検討する
   (いずれも既にLP実装ドラフトは存在するため、各venture固有の差別化方針との整合を
   個別に確認したうえで着手する)。
-- 最終更新: 2026-10-02 06:00 UTC(フェーズ270: ヒーローのInstagram投稿プレビュー内の
-  壁面写真プレースホルダーをCSSのみのホールドモックアップに差し替え。aircon-pashaとの
-  画像コンセプトの差別化方針は維持。外部依存・アカウント作成なし。コード変更なし、
-  テスト690件・schema検証21件いずれもパス)
+- フェーズ271(2026-10-02 13:00 UTC定例更新): kura-pashaフェーズ204(2026-10-02 12:00 UTC)が
+  発見・是正した「legal-notices-draft.mdに決済代行サービス選定が未着手との記載が残っている」
+  記載漏れについて、「次回候補」で指示された横展開確認を本ventureでも実施した。本venture
+  にも同種の記載漏れが実在することを確認し(「前提・未確定事項」節・支払方法欄・1節の
+  加盟店契約に関する注記・「次のステップ候補」の計4箇所)、月額サブスク課金の決済代行
+  サービスは実際にはcheckout-initiation-flow-design.md(フェーズ98)・
+  `prototype/checkout_session.py`・`prototype/stripe_webhook.py`の通りStripeに確定済みで
+  あり、未着手なのは実Stripeアカウントの開設(2026-08-23 09:00 UTC記載でpending-approval.md
+  に承認待ちとして記録済み)のみである旨に是正した。コード(prototype/)の変更はないため
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・
+  `python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: aircon-pasha・line-reservation-aiにも同種の
+  横展開確認を行う(本フェーズと同時に実施済み)。
+- 最終更新: 2026-10-02 13:00 UTC(フェーズ271: legal-notices-draft.mdの決済代行サービス
+  選定に関する記載漏れ〈実際はStripeに確定済み〉をkura-pashaフェーズ204の指摘を受けて
+  是正。コード変更なし、テスト690件・schema検証21件いずれもパス)

@@ -5054,8 +5054,18 @@
   (course-set-pasha・kura-pasha・line-reservation-ai)のLP実装ドラフトにも
   反映漏れとして残っていないか、各venture側で個別に横断確認する。または
   launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
-- 最終更新: 2026-10-02 07:00 UTC(フェーズ291: landing-page/index.htmlの
-  FAQセクションに、landing-page-copy-draft.md側で既に追加済みだった3問
-  〈LINEブロックと解約の別手続き・複数職人の契約単位・管理会社向けプラン〉の
-  反映漏れを発見・是正。landing-page-wireframe.mdのASCIIワイヤーフレームにも
-  同3問を追記。コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ292(2026-10-02 13:00 UTC定例更新): kura-pashaフェーズ204(2026-10-02 12:00 UTC)が
+  発見・是正した「legal-notices-draft.mdに決済代行サービス選定が未着手との記載が残っている」
+  記載漏れについて、「次回候補」で指示された横展開確認を本ventureでも実施した。本venture
+  では「前提・未確定事項」節・支払方法欄・1節の加盟店契約に関する注記はフェーズ237で
+  既にStripe確定済みの記載へ是正済みだったが、「次のステップ候補」節の1行のみフェーズ237の
+  是正から取り残され、旧い「決済代行サービスの選定を行い支払方法欄を具体化する」という
+  記載のままになっていたことを発見・是正した。コード(prototype/)の変更はないため回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(653件)・`python3
+  schema/validate_test_cases.py`(25件)を再実行し、いずれもパスすることを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進。
+- 最終更新: 2026-10-02 13:00 UTC(フェーズ292: legal-notices-draft.mdの「次のステップ候補」
+  節に残っていた決済代行サービス選定に関する記載漏れ〈フェーズ237の是正から取り残され
+  ていた1行〉をkura-pashaフェーズ204の指摘を受けて是正。コード変更なし、テスト653件・
+  schema検証25件いずれもパス)
