@@ -5031,3 +5031,31 @@
   テキストプレースホルダーからCSSのみのモックアップ〈手書き風メモ→整形済み文書〉に
   差し替え、画像制作ツール未決定の課題を解消。外部依存・アカウント作成なし。
   コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ291(2026-10-02 07:00 UTC): landing-page/index.htmlとlanding-page-copy-draft.md
+  との間のクロスファイル整合性を監査したところ、FAQセクションに記載漏れを発見した。
+  landing-page-copy-draft.mdのFAQ案はフェーズ165(LINEブロックと解約の別手続き)・
+  フェーズ205(複数職人の契約単位)・フェーズ242(管理会社向けプラン案内)で順次
+  3問が追加され計6問になっていたが、landing-page-wireframe.mdのテキストワイヤー
+  フレーム・landing-page/index.html(フェーズ継続・2026-10-01 22:00 UTC作成)の
+  いずれも最初の3問(フランチャイズ加盟・写真要否・冷媒ガス/電気系統)のみを反映した
+  まま更新されておらず、追加済みの3問が初回のLP実装ドラフト化の際に反映されていなかった。
+  landing-page-copy-draft.md本文の既存の文言をそのまま転記する形で、
+  landing-page/index.htmlに`<details>`要素3件を追加し、landing-page-wireframe.mdの
+  ASCIIワイヤーフレームのFAQ節にも該当3問を追記して是正した(新規の文言作成・
+  料金プラン等の設計変更は行っていない)。あわせてlanding-page/index.html冒頭コメント・
+  landing-page-wireframe.mdの「実装状況」節に経緯を追記した。HTMLの`<details>`/`<div>`
+  タグ数が開閉一致していることをPythonでの機械的カウントにより確認した。
+  prototype/配下のコード変更はないため回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(653件)・`python3 schema/validate_test_cases.py`
+  (25件)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし(本ドラフトはドメイン未取得・非公開のローカル静的ファイルのまま)。
+  次回候補: 同種のFAQ拡充(フェーズ165・205・242相当)が他venture
+  (course-set-pasha・kura-pasha・line-reservation-ai)のLP実装ドラフトにも
+  反映漏れとして残っていないか、各venture側で個別に横断確認する。または
+  launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
+- 最終更新: 2026-10-02 07:00 UTC(フェーズ291: landing-page/index.htmlの
+  FAQセクションに、landing-page-copy-draft.md側で既に追加済みだった3問
+  〈LINEブロックと解約の別手続き・複数職人の契約単位・管理会社向けプラン〉の
+  反映漏れを発見・是正。landing-page-wireframe.mdのASCIIワイヤーフレームにも
+  同3問を追記。コード変更なし、テスト653件・schema検証25件いずれもパス)
