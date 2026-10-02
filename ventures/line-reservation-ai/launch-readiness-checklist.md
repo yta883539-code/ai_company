@@ -1,4 +1,4 @@
-# line-reservation-ai 公開までのチェックリスト(フェーズ続き286時点)
+# line-reservation-ai 公開までのチェックリスト(フェーズ続き287時点)
 
 目的: kura-pasha(launch-readiness-checklist.md)と同様、設計・実装・テストは完了している
 一方で実際の稼働にはオーナー承認が必要な外部サービス設定・実LLM呼び出しが複数残っている。
@@ -17,8 +17,10 @@
   入れ替わりガード(subscription側・dunning側・checkout.session.completed側すべて):
   フェーズ続き282〜285で対応完了。他venture(aircon-pasha・course-set-pasha・kura-pasha)
   との横断確認も済み。
-- venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`891件・
-  schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス(2026-09-28時点)。
+- venture全体`python3 -m unittest discover -s prototype -p "test_*.py"`900件・
+  schema検証28件(`python3 schema/validate_test_cases.py`)いずれもパス(2026-10-02 10:00 UTC
+  再確認時点。フェーズ続き286時点では891件だったが、その後の横展開・ガード追加分も反映され
+  9件増加している)。
 - 想定顧客ヒアリング候補選定(美容室・整体院・パーソナルジム・学習塾、候補ロングリスト
   第一弾〜第二十一弾)・連絡文面ドラフト(初回コンタクト依頼文面草案)・LP文言草案
   (landing-page-copy-draft.md)・特定商取引法表記/プライバシーポリシー草案
