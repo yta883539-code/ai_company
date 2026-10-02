@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<!--
+  鞍パシャッと LP 実装ドラフト(定例更新・2026-10-02 02:00 UTC)
+
+  位置づけ: landing-page-wireframe.md・landing-page-copy-draft.mdの内容を
+  そのままHTML/CSSに落とし込んだローカルの実装ドラフトです。ドメイン取得・
+  ホスティング・外部公開は一切行っておらず、このファイルはリポジトリ内に
+  静的ファイルとして置かれているのみです(README.mdの「外部サービスへの
+  公開」には該当しません)。aircon-pasha・course-set-pasha・
+  line-reservation-aiのlanding-page/index.html(2026-10-01作成分)と同じ
+  位置づけ・実装方針を踏襲し、本venture未着手だったcross-venture parityの
+  ギャップに対応するものです。
+
+  未実装・意図的なプレースホルダー:
+  - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには
+    接続していません(LINE公式アカウント開設・Stripeアカウント開設は
+    いずれもpending-approval.md記載分でオーナー承認待ちのため)。
+  - ビフォーアフター画像(新規制作用・修理用の2パターン)は未制作のため、
+    landing-page-wireframe.mdの説明文で代替したプレースホルダー枠です。
+    区分の切替はJSを使わずradio+labelのCSSタブで表現しています。
+  - フッターの特定商取引法に基づく表記・プライバシーポリシーは
+    legal-notices-draft.mdの未確定項目があるためリンク先なし。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鞍パシャッと(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #fafaf6;
+    --color-fg: #2a241c;
+    --color-accent: #8a5a2b;
+    --color-accent-dark: #603d1b;
+    --color-card: #ffffff;
+    --color-border: #e3dccd;
+    --color-muted: #6b6052;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 40px 20px; }
+  section.alt { background: #f3efe6; }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; }
+  .cta {
+    display: block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 14px; border-radius: 8px;
+    font-weight: bold; margin: 16px 0 6px;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+  .mockup-frame {
+    border: 1px dashed var(--color-border);
+    border-radius: 8px; padding: 16px; margin-bottom: 8px;
+    background: #fff; font-size: 0.85rem; color: var(--color-muted);
+  }
+  .mockup-frame .step { margin: 4px 0; }
+  .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
+
+  .tabs { margin-bottom: 8px; }
+  .tabs input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+  .tabs .tab-labels { display: flex; border: 1px solid var(--color-border); border-radius: 8px 8px 0 0; overflow: hidden; }
+  .tabs .tab-labels label {
+    flex: 1; text-align: center; padding: 10px; font-size: 0.85rem; font-weight: bold;
+    background: #f3efe6; color: var(--color-muted); cursor: pointer;
+  }
+  .tabs .tab-panel { display: none; }
+  #tab-new:checked ~ .tab-labels label[for="tab-new"],
+  #tab-repair:checked ~ .tab-labels label[for="tab-repair"] {
+    background: var(--color-accent); color: #fff;
+  }
+  #tab-new:checked ~ .tab-panels .panel-new,
+  #tab-repair:checked ~ .tab-panels .panel-repair { display: block; }
+  .tab-panels { border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 8px 8px; background: #fff; padding: 16px; }
+
+  ul.problem-list { list-style: none; padding: 0; margin: 0; }
+  ul.problem-list li {
+    padding: 10px 0 10px 28px; border-bottom: 1px solid var(--color-border);
+    position: relative;
+  }
+  ul.problem-list li::before {
+    content: "\2610"; position: absolute; left: 0; color: var(--color-accent);
+  }
+  ol.feature-list { list-style: none; padding: 0; margin: 0; counter-reset: feat; }
+  ol.feature-list li {
+    counter-increment: feat;
+    background: var(--color-card); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 14px 14px 14px 46px; margin-bottom: 10px;
+    position: relative;
+  }
+  ol.feature-list li::before {
+    content: counter(feat); position: absolute; left: 14px; top: 14px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--color-accent); color: #fff;
+    font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+  }
+  ol.feature-list li.boundary {
+    background: #f3efe6; border-style: dashed;
+  }
+  .price-highlight { text-align: center; margin: 16px 0; }
+  .price-highlight .amount { font-size: 1.8rem; font-weight: bold; color: var(--color-accent-dark); }
+  .checklist { list-style: none; padding: 0; margin: 0 0 16px; }
+  .checklist li { padding: 6px 0 6px 26px; position: relative; }
+  .checklist li::before { content: "\2713"; position: absolute; left: 0; color: var(--color-accent); }
+  .time-value-note {
+    font-size: 0.8rem; color: var(--color-muted); background: #f3efe6;
+    border-radius: 8px; padding: 12px; margin: 0 0 16px;
+  }
+  details { border-bottom: 1px solid var(--color-border); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p { margin: 10px 0 0; color: var(--color-muted); font-size: 0.9rem; }
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+  footer a { color: var(--color-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">鞍パシャッと</header>
+
+  <section>
+    <h1>受注のたびのあの聞き取りメモ、まとめて下書きします。</h1>
+    <p class="sub">納品案内も、お手入れ案内も、AIが下書きします。</p>
+
+    <div class="tabs">
+      <input type="radio" name="tab" id="tab-new" checked>
+      <input type="radio" name="tab" id="tab-repair">
+      <div class="tab-labels">
+        <label for="tab-new">新規制作</label>
+        <label for="tab-repair">修理</label>
+      </div>
+      <div class="tab-panels">
+        <div class="tab-panel panel-new">
+          <div class="mockup-frame">
+            <div class="step">職人: 「ブリティッシュ鞍、牛革、競技用、納期2ヶ月」</div>
+            <div class="step">AI: 受注内容整理メモ+納品案内(なじませ方・締め具合調整・雨天注意)を生成</div>
+          </div>
+        </div>
+        <div class="tab-panel panel-repair">
+          <div class="mockup-frame">
+            <div class="step">職人: 「修理、鐙革の擦れ、2週間で」</div>
+            <div class="step">AI: 受注内容整理メモ+納品案内(修理箇所の説明・強度注意)を生成</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="placeholder-note">(画像プレースホルダー:新規制作用・修理用の実際のビフォーアフターモックアップは未制作)</p>
+
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+    <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>こんなことに、時間を取られていませんか?</h2>
+    <ul class="problem-list">
+      <li>オーダーメイドの依頼を受けるたびに、型・革の種類・金具仕様・用途・納期の聞き取り内容を一から書き起こしている</li>
+      <li>修理の依頼では、破損箇所や症状の聞き取りメモが受注ごとにバラバラの書き方になっている</li>
+      <li>納品時の「装着時の注意」「お手入れ方法」の説明を、新規制作と修理とで毎回書き分けている</li>
+      <li>本来の採寸・型紙作成・革選定・縫製・仕上げに充てたい時間が、こうした事務作業に圧迫されている</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>「鞍パシャッと」がやること</h2>
+    <ol class="feature-list">
+      <li>区分(新規制作/修理)・鞍の型・革の種類・金具仕様・用途・納期をメモで送るだけ</li>
+      <li>受注内容整理メモ(職人自身の備忘・作業記録用)を自動生成します</li>
+      <li>納品案内下書きも、新規制作と修理で内容を書き分けて生成します(新規制作: なじませ方・締め具合調整・雨天注意/修理: 修理箇所の説明・強度注意)</li>
+      <li>お手入れ案内下書き(オイル・クリームでの保湿、保管環境、金具のさび防止)も同時に生成します</li>
+      <li class="boundary">採寸・型紙作成・革選定・縫製・仕上げといった専門的な制作作業、修理可否の判断には踏み込みません</li>
+    </ol>
+  </section>
+
+  <section class="alt">
+    <h2>新規制作と修理、書き分ける手間はもう要りません</h2>
+    <p class="sub">区分を選ぶだけで、納品案内の内容(なじませ方の説明か、修理箇所の説明か)を自動で書き分けます。汎用AIツールに毎回「今回は修理なので」と説明する手間もありません。</p>
+  </section>
+
+  <section>
+    <h2>まずは30日間、無料でお試しください</h2>
+    <ul class="checklist">
+      <li>クレジットカードの登録は不要です</li>
+      <li>初回の生成成功から30日間、無料でご利用いただけます</li>
+      <li>期間終了後に自動で課金されることはありません。ご利用実績をお送りしますので、続けたい場合のみプランをお選びください</li>
+    </ul>
+    <p class="time-value-note">
+      浮いた時間を時給換算すると:1回の生成で浮く事務作業時間の目安は約20分(仮置き試算)。
+      月間の上限回数まで使った場合、月額料金はライトプランで約980円/時、スタンダードプランで
+      約743円/時、複数職人プランで約597円/時の「時給換算」に相当します(実際の作業時間には
+      個人差があります)。
+    </p>
+    <div class="price-highlight">
+      <div class="amount">月額980円&#12316;</div>
+      <div>(月間生成回数に応じたプランをご用意。複数職人プランもあります)</div>
+    </div>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+    <p class="cta-note">本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>よくある質問</h2>
+    <details>
+      <summary>修理と新規制作、両方受けていますが使えますか?</summary>
+      <p>はい。メモの「区分」欄で新規制作か修理かを選んでいただくだけで、納品案内下書きの内容を自動で書き分けます。</p>
+    </details>
+    <details>
+      <summary>修理で直るか、新しく作り直すべきかも判断してもらえますか?</summary>
+      <p>いいえ。修理で対応できるかどうかの判断は専門的な判断のため、これまで通りご自身で行っていただきます。備考欄にご記入いただいた症状は、そのまま整理メモに転記します。</p>
+    </details>
+    <details>
+      <summary>受注が少ない月でも料金はかかりますか?</summary>
+      <p>生成した回数分のみが月間上限の範囲内でカウントされます。上限に満たない月でも基本料金は発生しますが、上限を超えた場合の追加料金は生成した分のみです。受注頻度の低さを踏まえ、トライアル期間は30日間とやや長めに設定しています。</p>
+    </details>
+    <details>
+      <summary>採寸や型紙作成、革の選定についてもアドバイスをもらえますか?</summary>
+      <p>いいえ。採寸・型紙作成・革選定・縫製・仕上げといった専門的な制作作業・判断は行いません。本サービスは受注内容整理・納品案内・お手入れ案内の下書き作成のみをお手伝いします。</p>
+    </details>
+    <details>
+      <summary>ライト・スタンダード・複数職人プラン、どれを選べばよいですか?</summary>
+      <p>お一人で活動していて受注件数がまだ少ない、またはまず試してみたい方はライトプラン(月3回まで)、修理・新規制作を安定的に受注している小規模工房の方はスタンダードプラン(月8回まで)がおすすめです。複数の職人が在籍する工房や乗馬クラブ専属で継続的に依頼を受けている場合は、契約者を含め5名まで共同で利用できる複数職人プラン(月20回まで)をご検討ください。月の生成回数が上限を超えても生成自体は止まらず、超過分は1回ごとの追加料金でご利用いただけます。</p>
+    </details>
+  </section>
+
+  <section>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+  </section>
+
+  <footer>
+    <p>特定商取引法に基づく表記(準備中) / プライバシーポリシー(準備中)</p>
+    <p>&copy; 鞍パシャッと(ドラフト・非公開)</p>
+  </footer>
+
+</div>
+</body>
+</html>
