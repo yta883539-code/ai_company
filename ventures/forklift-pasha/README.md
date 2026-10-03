@@ -130,3 +130,16 @@
   pending-approval.mdへの追記なし。
 - 最終更新: 2026-10-03 10:00 UTC(フェーズ10: tech-stack.mdを新規作成。入力チャネル未確定
   という本venture固有の課題を明文化)
+- フェーズ11(2026-10-03 11:00 UTC): tech-stack.mdの「コンポーネント4」が初回設計のみに
+  留めていた課金・契約単位のFirestoreデータモデルを、firestore-data-model.mdとして実
+  ファイル化した。line-reservation-ai/firestore-data-model.mdの構成方針を参考にしつつ、
+  本ventureは「1事業者=1契約」の単純構造であるため、`fleet_operator`(契約・課金)・
+  `vehicle`(車両マスタ)・`usage_counter`(月間生成回数カウンタ、kura-pashaの
+  usage-counter-workshop-key-design.mdと同型)の3コレクション構成とした。点検記録本文
+  自体は永続化せず点検担当者への返却のみに留める方針(mvp-flow-draft.md「範囲外」)を
+  Firestore設計にも反映した。実際のGCPプロジェクト作成・Firestore有効化・入力チャネルの
+  確定(tech-stack.mdの残課題)は未着手。承認不要な設計文書作成のみで、外部サービスへの
+  公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの
+  追記なし。
+- 最終更新: 2026-10-03 11:00 UTC(フェーズ11: firestore-data-model.mdを新規作成。課金・
+  契約単位のFirestoreデータモデルを3コレクション構成で実ファイル化)
