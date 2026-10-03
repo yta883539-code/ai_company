@@ -75,5 +75,14 @@
   相当の文書作成・実顧客ヒアリングは未着手。承認不要なテストスクリプト・文書作成のみで、
   外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
-- 最終更新: 2026-10-03 05:00 UTC(フェーズ6: schema/validate_test_cases.py・
-  output-samples-validation.mdの新規作成)
+- フェーズ7(2026-10-03 07:00 UTC): output-samples-validation.mdの「次回候補」2点目だった
+  llm-quality-verification-plan.mdを新規作成した。kura-pasha等の既存文書と同じ位置づけで、
+  llm-system-prompt-draft.mdの厳守事項1〜7ごとに検証観点・判定方法(機械チェック/人手)・
+  対象ケース(G1〜G4・OOS1・II1〜II3)を整理し、3回中1回でも不合格なら要改善とする基準や
+  トークン数計測手順を他venture同様に定めた。あわせて、本venture未実装だった絵文字不使用
+  (厳守事項7)の機械チェック用スクリプトが他ventureのpost_generation_checks.py相当に
+  未着手であることを明示し次の課題とした。実LLMでの動作検証・llm-quality-verification-
+  results-template.mdの切り出し・実顧客ヒアリングは未着手。承認不要な検証計画文書作成の
+  みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 07:00 UTC(フェーズ7: llm-quality-verification-plan.mdの新規作成)
