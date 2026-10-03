@@ -29,4 +29,10 @@
   status分岐方針(generated/out_of_scope/insufficient_input)を整理した。実装・実LLM検証・
   既存競合SaaSの具体的な価格比較は未着手。承認不要な調査・設計文書作成のみで、外部サービスへの
   公開・アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-10-02 23:00 UTC(フェーズ1: 市場調査・MVP入出力フォーマット草案の作成)
+- フェーズ2(2026-10-03 00:00 UTC): mvp-flow-draft.mdの次回候補に挙げたLLMシステムプロンプト
+  草案(llm-system-prompt-draft.md)を作成した。kura-pasha等の既存「パシャッと」シリーズと同型の
+  status分岐(generated/out_of_scope/insufficient_input)を踏襲しつつ、annual(特定自主検査)の
+  整形では検査業者名を必須項目とする厳守事項を新設した。実LLMでの動作検証・schema実ファイル化・
+  競合の価格比較調査は未着手。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 00:00 UTC(フェーズ2: LLMシステムプロンプト草案の作成)
