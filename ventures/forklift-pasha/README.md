@@ -105,3 +105,14 @@
 - 最終更新: 2026-10-03 08:00 UTC(フェーズ8: prototype/post_generation_checks.pyを新規
   作成し、厳守事項6・7の機械チェックを実装。prototype/test_post_generation_checks.pyも
   新規作成し、既存fixtureの回帰確認11件・schema検証11件いずれもパス)
+- フェーズ9(2026-10-03 09:00 UTC): llm-quality-verification-plan.md「記録先」節が
+  「実LLM検証着手の承認が下りた時点で切り出す」としていたllm-quality-verification-
+  results-template.mdについて、kura-pasha/aircon-pasha/course-set-pashaは承認を待たず
+  机上作業として先行して用意していることを確認し、本ventureも同じ方針に揃えて新規作成した。
+  schema/validate_test_cases.pyのG1〜G4・OOS1・II1〜II3(8正常系ケース)に対応する空の
+  記録表(厳守事項1・4・5・6・7、II1〜II3の必須項目欠落別、トークン数実測欄)を用意した。
+  表の記入自体は実LLM接続の承認後に行う。実LLMでの動作検証・実顧客ヒアリングは未着手。
+  承認不要な記録表(空テンプレート)の作成のみで、外部サービスへの公開・アカウント作成・
+  支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 09:00 UTC(フェーズ9: llm-quality-verification-results-
+  template.mdを新規作成し、8ケース分の空の記録表を用意)
