@@ -65,4 +65,15 @@
   5.5で約1.45円、キャッシュなし比約47%削減)も行った。実LLMでの動作検証・fixtureファイル
   作成・実顧客ヒアリングは未着手。承認不要な原価試算文書作成のみで、外部サービスへの公開・
   アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-10-03 04:00 UTC(フェーズ5: llm-api-cost-estimate.mdの新規作成)
+- フェーズ6(2026-10-03 05:00 UTC): フェーズ5の「次のステップ候補」だったfixtureファイル
+  (テストケース)の作成に着手した。kura-pasha等の既存「パシャッと」シリーズと同型の
+  schema/validate_test_cases.py(外部ライブラリ非依存のpure stdlib簡易バリデータ)を新規
+  作成し、正常系8件(type=daily/monthly/annualの各ケース、reminder_noticeの有無、annual
+  での検査業者名記載)+ネガティブ3件(厳守事項3違反・reminder_notice常時null違反・
+  status排他性違反の検出確認)、計11件のテストケースを用意して全件パスを確認した
+  (output-samples-validation.md)。実LLMでの動作検証・llm-quality-verification-plan.md
+  相当の文書作成・実顧客ヒアリングは未着手。承認不要なテストスクリプト・文書作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 05:00 UTC(フェーズ6: schema/validate_test_cases.py・
+  output-samples-validation.mdの新規作成)
