@@ -116,3 +116,17 @@
   支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
 - 最終更新: 2026-10-03 09:00 UTC(フェーズ9: llm-quality-verification-results-
   template.mdを新規作成し、8ケース分の空の記録表を用意)
+- フェーズ10(2026-10-03 10:00 UTC): 他venture(aircon-pasha・course-set-pasha・
+  kura-pasha・line-reservation-ai)には既にあるが本venture未着手だったtech-stack.md自体の
+  cross-venture parityギャップを解消した。kura-pasha/tech-stack.mdの構成を踏襲しつつ整理
+  した結果、本ventureのmarket-research.md・mvp-flow-draft.mdがこれまで入力チャネルを
+  LINE等に特定せず「メモ入力」とのみ記述していたことが判明し、他venture全てがLINE
+  Messaging API前提である一方で本venture顧客層(倉庫業・運送業・建設業の現場)での
+  LINE業務利用率は未検証であるという、本venture固有の未決事項を新たに明文化した
+  (tech-stack.md「未検証・残課題」)。Firestoreデータモデル(`fleet_operator`・`vehicle`・
+  `usage_counter`)の初回設計もあわせて整理したが実ファイル化は次回候補とした。実LLMでの
+  動作検証・入力チャネルの確定・実顧客ヒアリングは未着手。承認不要な設計文書作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 10:00 UTC(フェーズ10: tech-stack.mdを新規作成。入力チャネル未確定
+  という本venture固有の課題を明文化)
