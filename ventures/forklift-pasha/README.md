@@ -35,4 +35,14 @@
   整形では検査業者名を必須項目とする厳守事項を新設した。実LLMでの動作検証・schema実ファイル化・
   競合の価格比較調査は未着手。承認不要な設計文書作成のみで、外部サービスへの公開・アカウント
   作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
-- 最終更新: 2026-10-03 00:00 UTC(フェーズ2: LLMシステムプロンプト草案の作成)
+- フェーズ3(2026-10-03 01:00 UTC): llm-system-prompt-draft.mdの「次の課題」1点目として挙げた
+  schema/output.schema.jsonを実ファイル化した。kura-pashaのstatus分岐パターン
+  (generated/out_of_scope/insufficient_input)を踏襲し、inspection_record内にvehicle_id・
+  type(daily/monthly/annual)・date・items・result・inspector_name・inspector_company・body・
+  reminder_noticeを保持する構成とした。annual区分でinspector_companyが欠落している場合は
+  status=insufficient_inputとする分岐(厳守事項3)、type=dailyの場合はreminder_noticeを常に
+  nullとする分岐(mvp-flow-draft.md)をdescriptionに明記した。実LLMでの動作検証・
+  fixtureファイル(テストケース)の作成・競合の価格比較調査・pricing-plan.mdの作成は未着手。
+  承認不要なスキーマ設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 01:00 UTC(フェーズ3: schema/output.schema.jsonの実ファイル化)

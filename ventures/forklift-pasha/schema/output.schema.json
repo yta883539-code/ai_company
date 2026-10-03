@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "フォークリフトパシャっと 構造化出力スキーマ",
+  "description": "llm-system-prompt-draft.md(フェーズ2・2026-10-03 00:00 UTC作成)『構造化出力の方針』を実ファイル化した草案(フェーズ3)。他venture(kura-pasha/course-set-pasha)のstatus分岐パターン(generated/out_of_scope/insufficient_input)を踏襲しつつ、本ventureには継続課金・解約フロー・会員管理等の追加フィールドは存在しないため、kura-pashaのsubscription_procedure_notice等に相当するフィールドは設けずトップレベル4フィールド(status/out_of_scope_message/missing_fields_request/inspection_record)+reminder_noticeのみとした。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(kura-pashaと同様、statusに応じた非null制約はコード側検証(未作成)で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得はオーナー承認待ち、pending-approval.md参照)。",
+  "type": "object",
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "inspection_record"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "llm-system-prompt-draft.md厳守事項2・3・5(点検種別欠落、annualでの検査業者名欠落、著しい入力不足)に該当する場合はinsufficient_input、厳守事項6(点検記録整形・期限管理以外の要求)に該当する場合はout_of_scope、それ以外はgenerated。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(本フィールド自体は常に出力必須、値としてnullを許容)。厳守事項6の定型応答(『本サービスは点検記録の整形と実施期限の管理支援のみを行っております』趣旨の一言)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ非nullとなるフィールド。厳守事項2・3・5に基づき、不足している項目(車両番号・点検種別の欠落、annualでの検査業者名欠落等)を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "inspection_record": {
+      "description": "status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの出力1(点検記録整形)と出力2(次回実施期限リマインド)をまとめて保持する。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["vehicle_id", "type", "date", "items", "result", "inspector_name", "inspector_company", "body", "reminder_notice"],
+      "properties": {
+        "vehicle_id": {
+          "description": "車両番号(例:「2号機」)。入力メモに記載が無い場合は本フィールドをnullとし、status=insufficient_inputとして扱う(推測で埋めない)。",
+          "type": ["string", "null"]
+        },
+        "type": {
+          "description": "mvp-flow-draft.mdの点検種別3区分。daily=作業開始前点検(安衛則第151条の25)、monthly=月次自主検査(安衛則第151条の22)、annual=特定自主検査(安衛則第151条の24)。厳守事項2により、記載が無い、または3区分のいずれにも該当しない場合は推測で決定せず、statusをinsufficient_inputとする(typeはnull)。",
+          "type": ["string", "null"],
+          "enum": ["daily", "monthly", "annual", null]
+        },
+        "date": {
+          "description": "点検・検査の実施日(入力メモの記載をそのまま転記、YYYY-MM-DD形式を推奨するが入力形式をそのまま保持してもよい)。記載が無い場合はnullとし、status=insufficient_inputとして扱う。",
+          "type": ["string", "null"]
+        },
+        "items": {
+          "description": "点検項目・結果の記述(例:「ブレーキ○、警告灯○、異音なし」)。厳守事項1により、入力メモの記載をそのまま転記し、AIが独自に安全性を評価・追記した文言は含めない。",
+          "type": ["string", "null"]
+        },
+        "result": {
+          "description": "点検・検査の総合結果(例:「異常なし」「良好」)。厳守事項1により、入力メモに記載された結果をそのまま転記するのみで、AIが独自に安全性を評価・保証する記述は含めない。",
+          "type": ["string", "null"]
+        },
+        "inspector_name": {
+          "description": "点検者名(type=daily/monthlyの場合)。type=annualの場合は本フィールドではなくinspector_companyを用いる。",
+          "type": ["string", "null"]
+        },
+        "inspector_company": {
+          "description": "厳守事項3対応。type=annual(特定自主検査)の場合のみ使用する検査業者名。特定自主検査は登録検査業者等による実施が前提のため、type=annualで本フィールドが欠落している場合は区分欠落と同様に扱い、status=insufficient_inputとする(annualとしての記録整形を行わない)。type=daily/monthlyのときは必ずnull。",
+          "type": ["string", "null"]
+        },
+        "body": {
+          "description": "上記項目を整理した、点検記録簿1行分の記載事項を満たす整形済みテキスト(スプレッドシートへの貼り付け想定)。",
+          "type": "string"
+        },
+        "reminder_notice": {
+          "description": "mvp-flow-draft.mdの出力2(次回実施期限リマインド)。type=dailyは次回期限の概念が無いため常にnull。type=monthly/annualのみ、次回実施期限(前回実施日+1ヶ月/+1年)が近い(7日前以内)場合に非null(リマインド通知文の下書き)、近くない場合はnull。",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
