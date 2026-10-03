@@ -98,8 +98,22 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // で追加。MVPの最低限必須項目(onboarding-guide.md
                                      // ステップ3)の1つ。AvailabilitySearcherの
                                      // slot_interval_minutesコンストラクタ引数に対応。
-  concurrentCapacity: null           // 同上、「同時受付可能数」に対応するフィールドの欠落を
+  concurrentCapacity: null,          // 同上、「同時受付可能数」に対応するフィールドの欠落を
                                      // 同時に解消。MVPの最低限必須項目の1つ。
+  businessName: null,                // owner-settings-wireframe.md「店舗名」欄に対応
+                                     // (フィールド定義がfollow-unfollow-event-handling-
+                                     // design.md 2節策定〈StoreNameProviderProtocol〉時点から
+                                     // 本スキーマ一覧に未反映だった欠落を2026-10-03定例更新で
+                                     // 解消。文字列 | null、未設定時は空文字列扱いで店舗名なし
+                                     // 文言にフォールバック)。InMemory版は
+                                     // InMemoryStoreNameProvider。
+  regionName: null                   // owner-settings-wireframe.md「地域名(任意)」欄に対応
+                                     // (launch-announcement-draft-design.md 7節・9節、
+                                     // RegionNameProviderProtocol、フェーズ続き294で
+                                     // フィールド追加されたが本スキーマ一覧には未反映だった
+                                     // 欠落を2026-10-03定例更新で解消)。文字列 | null、
+                                     // 未設定時は空文字列扱いでSNS告知文の地域タグなしに
+                                     // フォールバック。InMemory版はInMemoryRegionNameProvider。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

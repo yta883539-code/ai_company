@@ -5207,3 +5207,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-02 20:00 UTC(フェーズ続き295: `region_name`のRegionNameProvider
   Protocol実配線を完了。`cloud_function_process_event.py`にプロトコル・コンストラクタ
   引数・呼び出し箇所を追加。テスト906件・schema検証28件いずれもパス)
+- フェーズ続き296(2026-10-03 06:00 UTC定例更新): firestore-data-model.mdの
+  `stores/{storeId}`スキーマ一覧を棚卸しし、`cloud_function_process_event.py`の
+  `StoreNameProviderProtocol`(businessName)・`RegionNameProviderProtocol`
+  (regionName、フェーズ続き294で追加)がいずれもコード・owner-settings-wireframe.mdの
+  「店舗名」「地域名(任意)」欄には存在する一方、canonicalなFirestoreスキーマ一覧
+  (firestore-data-model.md 1節)には2フィールドとも定義時点から一度も反映されて
+  いなかった欠落を発見・是正した。両フィールドとも文字列|null、未設定時は空文字列
+  扱いでフォールバックする契約をコメントで明記した。ドキュメントのみの変更のため
+  コード変更はないが、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(906件)・`python3 schema/validate_test_cases.py`(28件)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: 実Firestoreクライアント接続時にRegionNameProviderProtocol/
+  StoreNameProviderProtocolの実装を本節のスキーマへ接続する、または他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-03 06:00 UTC(フェーズ続き296: firestore-data-model.mdの
+  stores/{storeId}スキーマにbusinessName・regionNameフィールドの記載漏れを発見・
+  追加。コード変更なし、テスト906件・schema検証28件いずれもパス)
