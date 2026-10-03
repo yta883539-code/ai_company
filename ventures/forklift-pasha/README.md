@@ -86,3 +86,22 @@
   みで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
   pending-approval.mdへの追記なし。
 - 最終更新: 2026-10-03 07:00 UTC(フェーズ7: llm-quality-verification-plan.mdの新規作成)
+- フェーズ8(2026-10-03 08:00 UTC): llm-quality-verification-plan.mdが「本venture未実装」と
+  明示していた、厳守事項7(絵文字不使用)の機械チェック用スクリプトを新規作成した。
+  kura-pasha/course-set-pasha/aircon-pashaのprototype/post_generation_checks.pyと同じ
+  位置づけで、prototype/post_generation_checks.pyを新規作成し、(1)厳守事項7の絵文字
+  不使用チェック(inspection_record.body・reminder_notice・out_of_scope_message・
+  missing_fields_requestの全出力本文を対象)、(2)厳守事項6(点検記録整形・期限管理以外の
+  要求には応答しない)の機械チェックとして、status=generated時の本文に修理の実施・部品
+  調達・費用見積り等の対象外キーワードが紛れ込んでいないかの判定、の2つを実装した。
+  schema/validate_test_cases.pyのPOSITIVE_CASES(G1〜G4・OOS1・II1〜II3)を再利用した
+  回帰テストに加え、絵文字混入・対象外キーワード混入を意図的に仕込んだネガティブケースの
+  検出確認もあわせてprototype/test_post_generation_checks.pyとして新規作成した(本venture
+  初のprototype/ディレクトリ)。`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (11件、新規)・`python3 schema/validate_test_cases.py`(11件、変更なし)いずれもパスを
+  確認した。実LLMでの動作検証・llm-quality-verification-results-template.mdの切り出し・
+  実顧客ヒアリングは未着手。承認不要なスクリプト・テスト作成のみで、外部サービスへの公開・
+  アカウント作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-10-03 08:00 UTC(フェーズ8: prototype/post_generation_checks.pyを新規
+  作成し、厳守事項6・7の機械チェックを実装。prototype/test_post_generation_checks.pyも
+  新規作成し、既存fixtureの回帰確認11件・schema検証11件いずれもパス)
