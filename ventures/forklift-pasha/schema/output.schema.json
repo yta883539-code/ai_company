@@ -51,7 +51,7 @@
           "type": ["string", "null"]
         },
         "inspector_company": {
-          "description": "厳守事項3対応。type=annual(特定自主検査)の場合のみ使用する検査業者名。特定自主検査は登録検査業者等による実施が前提のため、type=annualで本フィールドが欠落している場合は区分欠落と同様に扱い、status=insufficient_inputとする(annualとしての記録整形を行わない)。type=daily/monthlyのときは必ずnull。",
+          "description": "厳守事項3対応。type=annual(特定自主検査)の場合のみ使用する検査業者名。特定自主検査は登録検査業者等による実施が前提のため、type=annualで本フィールドが欠落している場合は区分欠落と同様に扱い、status=insufficient_inputとする(annualとしての記録整形を行わない)。type=daily/monthlyのときは必ずnull。なお特定自主検査の実施基準は「定期自主検査指針」から厚生労働省告示第321号(令和8年1月1日施行)に切り替わるが、本フィールド・itemsは自由記述の転記のため新旧基準いずれの検査結果文言でも構造上受け取れ、本schemaの変更は不要(フェーズ45)。",
           "type": ["string", "null"]
         },
         "body": {
