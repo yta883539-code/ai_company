@@ -48,10 +48,26 @@ G2とG3の対比により、月次自主検査・特定自主検査の次回実�
 を確認した。G1とG2/G3/G4の対比により、type=dailyのみreminder_noticeが常にnullであるという
 mvp-flow-draft.mdのルールも併せて確認した。
 
+## フェーズ26追記(2026-10-04 02:00 UTC): 次回実施期限の年次・月次計算ロジックの実装と境界値テスト
+
+本フェーズまで、G2/G3フィクスチャの`reminder_notice`は次回実施期限を人手で計算した固定値に
+すぎず、期限算出ロジック自体は未実装だった。`prototype/due_date_logic.py`を新規実装し、
+`compute_next_due_date(inspection_type, last_date)`(monthly: +1ヶ月、annual: +1年、daily:
+Noneを返す)と`should_remind(inspection_type, last_date, today)`(期限7日前以内〈境界値を
+含む〉または期限超過でTrue、llm-system-prompt-draft.md 25行目の「期限が近い(7日前以内)」に
+対応)を用意した。`prototype/test_due_date_logic.py`(15件、全件パス)で以下の境界値を検証した。
+
+- 月末繰り上げ: 1/31+1ヶ月が存在しない日付(2/31等)になる場合にその月の末日へ丸められること
+  (非うるう年2/28・うるう年2/29の両方)。
+- うるう日: 2024-02-29(annual)+1年が非うるう年の2025年では2/28に丸められること。
+- 7日しきい値の境界: 期限7日前はリマインド対象、8日前は対象外、期限当日・超過後も対象で
+  あることをannual・monthlyの両方で確認。
+
 ## 次回候補
 
 - 実LLM(Claude API)での動作検証はAPIキー取得がオーナー承認待ちのため未着手。
 - llm-quality-verification-plan.md・llm-quality-verification-results-template.md
   相当の文書(他venture同様)はまだ未作成。
-- annual区分での検査業者名以外の必須項目(次回実施期限の年次計算の境界値ケース等)の
-  テストケース追加。
+- schema/validate_test_cases.pyのG3フィクスチャ(月次リマインド)・新規annual版リマインド
+  フィクスチャを、due_date_logic.pyのshould_remind()の計算結果と突き合わせる統合テストの
+  追加(現状はdue_date_logic.pyとvalidate_test_cases.pyが別々にテストされている)。

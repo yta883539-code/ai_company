@@ -339,3 +339,23 @@
 - 最終更新: 2026-10-04 01:00 UTC(フェーズ25: MasterCheck・iCheckup!の競合調査を追加実施。
   MasterCheckは北米向けOSHA/OHSA準拠サービスと確認、iCheckup!は実在未確認のため以後の
   市場調査から除外)
+- フェーズ26(2026-10-04 02:00 UTC定例更新): フェーズ25の次回候補(2)に従いSmartDrive
+  CheckLogの料金プランをWebSearchで追加調査したが、具体的な料金情報は検索結果に含まれず、
+  公式ページ(smartdrive.co.jp)もWebFetchで本エージェント環境のegressプロキシにより遮断
+  されていることを確認した(フェーズ20・24のgo.jpドメインに続き、商用ドメインでも遮断される
+  事例があることを新たに確認)。顧客発見・競合価格調査が引き続きツール制約で頭打ちのため、
+  方針を切り替え、ネットワークアクセスに依存しないMVP設計側の課題であるoutput-samples-
+  validation.md「次回候補」(annual区分の次回実施期限の年次計算の境界値ケース追加)に着手した。
+  `prototype/due_date_logic.py`を新規実装し、`compute_next_due_date()`(monthly:+1ヶ月、
+  annual:+1年、月末・うるう日の繰り上げ丸めに対応)・`should_remind()`(期限7日前以内〈境界値
+  含む〉または超過でリマインド対象)を用意、`prototype/test_due_date_logic.py`(15件、全件
+  パス)で月末繰り上げ・うるう日・7日しきい値境界の各ケースを検証した(詳細はoutput-samples-
+  validation.mdフェーズ26追記参照)。実在業者への接触・実LLMでの動作検証・実顧客ヒアリングは
+  未着手。承認不要な実装・調査のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)schema/validate_test_
+  cases.pyのフィクスチャとdue_date_logic.pyの計算結果を突き合わせる統合テストの追加、
+  (2)名簿PDF本文に依存しない間接チャネル探索の再検討。
+- 最終更新: 2026-10-04 02:00 UTC(フェーズ26: SmartDrive CheckLogの料金調査は公式ページが
+  egressプロキシにより遮断され継続困難と判断。ネットワーク非依存のMVP設計課題に切り替え、
+  次回実施期限の月次・年次計算ロジック〈prototype/due_date_logic.py〉を新規実装し、月末
+  繰り上げ・うるう日・7日しきい値境界を含む15件のテストで検証した)
