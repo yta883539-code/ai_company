@@ -379,3 +379,21 @@
 - 最終更新: 2026-10-04 03:00 UTC(フェーズ27: schema/validate_test_cases.pyのG2/G3/G4
   フィクスチャとdue_date_logic.pyの計算結果を突き合わせる統合テスト
   〈prototype/test_due_date_integration.py〉を新規作成。4件全件パスで食い違いなしを確認)
+- フェーズ28(2026-10-04 04:00 UTC定例更新): フェーズ27の次回候補に従い、`should_remind()`
+  (リマインド要否判定)を検証する統合テスト`prototype/test_should_remind_integration.py`
+  (9件、全件パス)を新規作成した。G2/G3/G4フィクスチャの`reminder_notice`は生成時点の
+  「今日」の情報を持たないため直接比較はできないが、フェーズ27で突き合わせ済みのnext_due_date
+  (G2: 2026-11-01・G3: 2025-12-05・G4: 2027-09-15)を起点に「今日」を明示した新規境界値ケース
+  を用意し、REMINDER_THRESHOLD_DAYS(7日)の境界(7日前True・8日前False)が月次・年次の両方
+  で正しく機能すること、期限超過後もTrueが継続すること、daily(G1)は次回期限が無いため常に
+  Falseであることを確認した(詳細はoutput-samples-validation.mdフェーズ28追記参照)。
+  `python3 prototype/test_should_remind_integration.py`(9件)・回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(11件、変化なし)・
+  `python3 prototype/test_due_date_integration.py`(4件)・`python3 schema/validate_test_cases.py`
+  (11件)をいずれも再実行しパスを確認した。実在業者への接触・実LLMでの動作検証・実顧客
+  ヒアリングは未着手。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 名簿PDF本文に依存しない
+  間接チャネル探索の再検討(フェーズ24・26から持ち越し)。
+- 最終更新: 2026-10-04 04:00 UTC(フェーズ28: `should_remind()`の境界値統合テスト
+  〈prototype/test_should_remind_integration.py〉を新規作成。7日/8日の境界・期限超過後の
+  継続・daily区分の常時Falseを9件のテストで確認)

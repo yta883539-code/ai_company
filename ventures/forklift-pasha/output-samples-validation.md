@@ -80,11 +80,33 @@ Noneを返す)と`should_remind(inspection_type, last_date, today)`(期限7日�
 `should_remind()`(リマインド要否の判定)自体はフィクスチャに「今日」の日付情報が含まれて
 いないため本テストの対象外とし、次回実施期限の値そのものの整合確認に限定した。
 
+## フェーズ28追記(2026-10-04 04:00 UTC): should_remind()の境界値統合テスト追加
+
+フェーズ27の次回候補に従い、`should_remind()`(リマインド要否判定)を検証する統合テスト
+`prototype/test_should_remind_integration.py`(9件、全件パス)を新規作成した。G2/G3/G4
+フィクスチャの`reminder_notice`はどの「今日」の日付で生成されたかの情報を持たないため、
+それらのreminder_notice有無とは直接比較せず、代わりにフェーズ27で突き合わせ済みの
+next_due_date(G2: 2026-11-01・G3: 2025-12-05・G4: 2027-09-15)を起点に、「今日」の日付を
+明示した新規境界値ケースを用意した。
+
+- G2(monthly)・G3(monthly)・G4(annual)いずれも、due-today=7日(境界)で`should_remind`が
+  True、8日でFalseになることを確認(REMINDER_THRESHOLD_DAYS=7日の境界が月次・年次の両方で
+  正しく機能することを確認)。
+- G2でdue当日・due翌日(1日超過)もTrueになることを確認(期限超過後もリマインド対象を
+  継続するフェーズ26の設計判断を再確認)。
+- G1(daily)はtoday=last_dateでも`should_remind`がFalseになることを確認(次回期限の概念が
+  無いdailyは常にリマインド対象外)。
+
+last_dateはG2/G3/G4フィクスチャと同じ値を使ったため、next_due_date算出からリマインド要否
+判定までの一連の流れを通して確認する統合テストになっている。
+`python3 prototype/test_should_remind_integration.py`(9件、全件パス)・回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(11件、変化なし)・
+`python3 prototype/test_due_date_integration.py`(4件)・`python3 schema/validate_test_cases.py`
+(11件)をいずれも再実行しパスを確認した。
+
 ## 次回候補
 
 - 実LLM(Claude API)での動作検証はAPIキー取得がオーナー承認待ちのため未着手。
 - llm-quality-verification-plan.md・llm-quality-verification-results-template.md
   相当の文書(他venture同様)はまだ未作成。
-- `should_remind()`(リマインド要否判定)を検証する統合テストを追加する場合は、フィクスチャに
-  「今日」の日付を明示する新規ケースを別途用意する必要がある(現行G2/G3/G4は生成時点=今日と
-  見なせる情報を持たないため、本フェーズでは期限値そのものの整合確認に限定した)。
+- 名簿PDF本文に依存しない間接チャネル探索の再検討(フェーズ24・26から持ち越し)。
