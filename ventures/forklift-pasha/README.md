@@ -359,3 +359,23 @@
   egressプロキシにより遮断され継続困難と判断。ネットワーク非依存のMVP設計課題に切り替え、
   次回実施期限の月次・年次計算ロジック〈prototype/due_date_logic.py〉を新規実装し、月末
   繰り上げ・うるう日・7日しきい値境界を含む15件のテストで検証した)
+- フェーズ27(2026-10-04 03:00 UTC定例更新): フェーズ26の次回候補(1)に従い、
+  `schema/validate_test_cases.py`のG2/G3/G4フィクスチャの`body`・`reminder_notice`に
+  人手計算値として埋め込まれていた次回実施期限と、`prototype/due_date_logic.py`の
+  `compute_next_due_date()`の計算結果を突き合わせる統合テスト
+  `prototype/test_due_date_integration.py`(4件)を新規作成した。G2(monthly→2026-11-01)・
+  G3(monthly→2025-12-05、reminder_notice本文中の日付文字列との一致も確認)・
+  G4(annual→2027-09-15)のいずれもフィクスチャ作成時点(フェーズ3)の人手計算と
+  due_date_logic.py実装時点(フェーズ26)の計算ロジックに食い違いがないことを確認した
+  (詳細はoutput-samples-validation.mdフェーズ27追記参照)。`should_remind()`(リマインド
+  要否判定)自体はフィクスチャに「今日」の日付情報が無いため対象外とし、次回実施期限の値の
+  整合確認に限定した。`python3 prototype/test_due_date_integration.py`(4件、全件パス)・
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(11件)・
+  `python3 prototype/test_due_date_logic.py`(15件)・`python3 schema/validate_test_cases.py`
+  (11件)をいずれも再実行しパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)`should_remind()`を検証する統合テスト追加(「今日」の日付を明示する新規フィクスチャが
+  必要)、(2)名簿PDF本文に依存しない間接チャネル探索の再検討。
+- 最終更新: 2026-10-04 03:00 UTC(フェーズ27: schema/validate_test_cases.pyのG2/G3/G4
+  フィクスチャとdue_date_logic.pyの計算結果を突き合わせる統合テスト
+  〈prototype/test_due_date_integration.py〉を新規作成。4件全件パスで食い違いなしを確認)

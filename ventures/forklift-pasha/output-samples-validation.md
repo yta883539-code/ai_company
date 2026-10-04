@@ -63,11 +63,28 @@ Noneを返す)と`should_remind(inspection_type, last_date, today)`(期限7日�
 - 7日しきい値の境界: 期限7日前はリマインド対象、8日前は対象外、期限当日・超過後も対象で
   あることをannual・monthlyの両方で確認。
 
+## フェーズ27追記(2026-10-04 03:00 UTC): フィクスチャとdue_date_logic.pyの計算結果の突き合わせ
+
+フェーズ26の「次回候補」1点目に従い、`schema/validate_test_cases.py`のG2/G3/G4フィクスチャの
+`body`・`reminder_notice`に埋め込まれていた次回実施期限(いずれもdue_date_logic.py実装前に
+人手で計算した固定値)を、`compute_next_due_date()`の計算結果と突き合わせる統合テスト
+`prototype/test_due_date_integration.py`(4件、全件パス)を新規作成した。
+
+- G2(monthly、2026-10-01実施)→`compute_next_due_date`の結果が2026-11-01と一致。
+- G3(monthly、2025-11-05実施)→結果が2025-12-05と一致し、`reminder_notice`本文中の
+  日付文字列(2025-12-05)が計算結果と一致することも確認。
+- G4(annual、2026-09-15実施)→結果が2027-09-15と一致。
+
+これにより、フィクスチャ作成(フェーズ3)時点の人手計算とdue_date_logic.py実装(フェーズ26)
+時点の計算ロジックが食い違っていないことを機械的に確認できた(今回は食い違いなし)。なお
+`should_remind()`(リマインド要否の判定)自体はフィクスチャに「今日」の日付情報が含まれて
+いないため本テストの対象外とし、次回実施期限の値そのものの整合確認に限定した。
+
 ## 次回候補
 
 - 実LLM(Claude API)での動作検証はAPIキー取得がオーナー承認待ちのため未着手。
 - llm-quality-verification-plan.md・llm-quality-verification-results-template.md
   相当の文書(他venture同様)はまだ未作成。
-- schema/validate_test_cases.pyのG3フィクスチャ(月次リマインド)・新規annual版リマインド
-  フィクスチャを、due_date_logic.pyのshould_remind()の計算結果と突き合わせる統合テストの
-  追加(現状はdue_date_logic.pyとvalidate_test_cases.pyが別々にテストされている)。
+- `should_remind()`(リマインド要否判定)を検証する統合テストを追加する場合は、フィクスチャに
+  「今日」の日付を明示する新規ケースを別途用意する必要がある(現行G2/G3/G4は生成時点=今日と
+  見なせる情報を持たないため、本フェーズでは期限値そのものの整合確認に限定した)。
