@@ -53,6 +53,15 @@ CheckLog・MasterCheckのような点検記録アプリは存在するものの�
 数百円〜数千円程度)を明確に打ち出している競合は本調査では確認できなかった。この価格帯の
 ギャップが本venture(forklift-pasha)の位置づけの仮説となる(pricing-plan.md参照)。
 
+## フェーズ25追記(2026-10-04 01:00 UTC): MasterCheckの料金・市場区分の確認
+
+channel-partner-exploration.mdフェーズ25で、MasterCheck公式ページ(mwm.ai/apps/mastercheck)を
+追加確認した。年額19.99米ドル(紙の点検簿冊子〈年間最大120米ドル相当〉との比較を訴求)で、
+カナダ・米国を中心とするOSHA/OHSA準拠前提の北米向けサービスであることが判明し、本調査の
+「海外製・日本の安衛則の法定区分に特化した設計ではない」という既存記載を裏付けた。また
+フェーズ23で候補として挙げていた「iCheckup!」はWebSearchで実在を確認できず、以後の市場
+調査では参照しないこととした(詳細はchannel-partner-exploration.md参照)。
+
 ## 次回候補
 
 - SmartDrive CheckLogの具体的な料金プラン確認(次回WebSearch候補)。
