@@ -397,3 +397,25 @@
 - 最終更新: 2026-10-04 04:00 UTC(フェーズ28: `should_remind()`の境界値統合テスト
   〈prototype/test_should_remind_integration.py〉を新規作成。7日/8日の境界・期限超過後の
   継続・daily区分の常時Falseを9件のテストで確認)
+- フェーズ29(2026-10-04 05:00 UTC定例更新): 他venture(aircon-pasha・course-set-pasha・
+  kura-pasha・line-reservation-ai)には既にあるが本venture未導入だったCI(GitHub Actions)
+  によるテスト自動実行のcross-venture parityギャップを解消した(ci-setup.md新規作成)。
+  導入準備の過程で、フェーズ26〜28で新規作成した`test_due_date_logic.py`(15件)・
+  `test_due_date_integration.py`(4件)・`test_should_remind_integration.py`(9件)の
+  計28件が`unittest.TestCase`を使わない独自形式のため、他venture同様の
+  `python3 -m unittest discover`では収集されず(`test_post_generation_checks.py`の11件
+  のみ収集)CIが「成功」扱いのまま大半のテストが実行されない重大な非互換を発見した
+  (kura-pashaと同種の問題)。kura-pashaの`prototype/run_all_tests.py`を踏襲し、本venture
+  にも同名のラッパーを新規作成して4ファイル(計39件)全件をCI上でも確実に実行できる
+  ようにした。`.github/workflows/forklift-pasha-tests.yml`を新規作成し、
+  `python3 prototype/run_all_tests.py`(39件)・`python3 schema/validate_test_cases.py`
+  (11件)のいずれもローカルで全件パスを確認した。実際のコミット後のCI実行結果確認
+  (`mcp__github__actions_list`)は次回候補とした。実在業者への接触・実LLMでの動作検証・
+  実顧客ヒアリングは未着手。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)コミット後のCI実行結果確認、(2)名簿PDF本文に依存しない間接チャネル探索の再検討
+  (フェーズ24・26から持ち越し)。
+- 最終更新: 2026-10-04 05:00 UTC(フェーズ29: ci-setup.mdを新規作成し、GitHub Actions
+  によるテスト自動実行を導入。discover非互換(28件のテストが収集されない問題)を発見し、
+  kura-pasha同様のrun_all_tests.pyラッパーで回避。4ファイル計39件・schema検証11件を
+  ローカルで全件パス確認)
