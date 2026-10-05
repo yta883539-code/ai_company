@@ -837,3 +837,20 @@
   追加調査する。
 - 最終更新: 2026-10-05 08:00 UTC(フェーズ56: kenkakyo-proposal-draft.mdに都道府県労働局
   安全衛生主務課向けの提案パスCを新規追記し、建荷協ルートと並行する候補ルートとして整理した)
+- フェーズ57(2026-10-05 09:00 UTC定例更新): フェーズ50〜56はkenkakyo-proposal-draft.md
+  (建荷協本部・地方支部向けBtoB提案)の連絡先精緻化に集中していたが、他venture
+  (aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)がいずれも既に
+  landing-page-copy-draft.mdを作成済みである一方、本ventureはエンドユーザー向けLP文言の
+  作成自体がmvp-flow-draft.md(フェーズ1)の「次回候補」以来着手されていなかったことに
+  気づき、優先度を切り替えてlanding-page-copy-draft.mdを新規作成した。mvp-flow-draft.mdの
+  3区分(daily/monthly/annual)・pricing-plan.mdの3プラン・無料トライアル条件を踏まえ、
+  ヒーロー・課題提起・機能紹介・3区分の差別化・料金・FAQの各セクションを下書きした。実LP
+  実装(HTML/CSS)・ドメイン取得・公開は今回も行っていない。建荷協本部・支部、都道府県労働局
+  への実際の問い合わせ・送信も今回は行っていない。承認が必要なアクション(団体・行政機関への
+  問い合わせ連絡・外部サービスへの公開・アカウント作成・支払い・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)本コピー草案を踏まえたlanding-page-
+  wireframe.md(セクション構成・レイアウト案)の作成、(2)優先度Cに残る11支部の電話番号・
+  公式サイトの追加確認(フェーズ54・55から持ち越し)。
+- 最終更新: 2026-10-05 09:00 UTC(フェーズ57: landing-page-copy-draft.mdを新規作成し、
+  エンドユーザー向けLPコピー草案〈ヒーロー・課題提起・機能紹介・料金・FAQ〉を下書きした。
+  実LP実装・公開・外部への問い合わせ送信は今回も未着手)
