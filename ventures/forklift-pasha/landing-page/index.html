@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと LP 実装ドラフト(フェーズ59・2026-10-05 11:00 UTC)
+
+  位置づけ: landing-page-wireframe.md・landing-page-copy-draft.mdの内容をそのままHTML/CSSに
+  落とし込んだローカルの実装ドラフトです。ドメイン取得・ホスティング・外部公開は一切行っておらず、
+  このファイルはリポジトリ内に静的ファイルとして置かれているのみです(README.mdの「外部サービス
+  への公開」には該当しません)。aircon-pasha・course-set-pasha・kura-pasha・line-reservation-aiの
+  landing-page/index.htmlと同じ位置づけ・実装方針を踏襲し、本venture未着手だったcross-venture
+  parityのギャップに対応するものです。
+
+  未実装・意図的なプレースホルダー:
+  - CTAボタンは href="#" の非活性リンクで、実際の申込・決済フローには接続していません。
+  - ビフォーアフター画像(daily/monthly/annualの3パターン)は未制作のため、kura-pashaの
+    「聞き取りメモ(手書き風)→整形済み文書」CSSモックアップと同じ方針を踏襲しつつ、本venture
+    固有のdaily/monthly/annual3区分をradio+labelのCSSタブ(JS不使用)で切り替え表示する。
+  - フッターの特定商取引法に基づく表記・プライバシーポリシーはlegal-notices-draft.mdの未確定
+    項目があるためリンク先なし。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フォークリフトパシャっと(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 40px 20px; }
+  section.alt { background: #eef1ef; }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; }
+  .cta {
+    display: block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 14px; border-radius: 8px;
+    font-weight: bold; margin: 16px 0 6px;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+  .before-after {
+    display: flex; gap: 10px; align-items: center;
+    margin: 0 0 8px;
+  }
+  .before-after .arrow { font-size: 1.4rem; color: var(--color-accent); flex: 0 0 auto; }
+  .memo-card {
+    flex: 1; min-width: 0;
+    background: #fffbf2;
+    border: 1px solid #ecd9b2;
+    border-radius: 2px;
+    padding: 12px 14px;
+    transform: rotate(-1.5deg);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.08);
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+    font-size: 0.78rem;
+    color: #4a4530;
+  }
+  .memo-card .label { font-size: 0.65rem; color: #ad9460; margin-bottom: 4px; letter-spacing: 0.05em; }
+  .doc-card {
+    flex: 1; min-width: 0;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 0.76rem;
+    color: var(--color-fg);
+  }
+  .doc-card .label {
+    font-size: 0.65rem; color: var(--color-accent-dark); margin-bottom: 4px;
+    letter-spacing: 0.05em; font-weight: bold;
+  }
+  .doc-card .line { height: 7px; background: #eef1ef; border-radius: 2px; margin-bottom: 5px; }
+  .doc-card .line:nth-child(3) { width: 92%; }
+  .doc-card .line:nth-child(4) { width: 70%; }
+  .doc-card .line:nth-child(5) { width: 85%; }
+  .doc-card .line:nth-child(6) { width: 55%; }
+  .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
+
+  .tabs { margin-bottom: 8px; }
+  .tabs input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+  .tabs .tab-labels { display: flex; border: 1px solid var(--color-border); border-radius: 8px 8px 0 0; overflow: hidden; }
+  .tabs .tab-labels label {
+    flex: 1; text-align: center; padding: 10px 4px; font-size: 0.8rem; font-weight: bold;
+    background: #eef1ef; color: var(--color-muted); cursor: pointer;
+  }
+  .tabs .tab-panel { display: none; }
+  #tab-daily:checked ~ .tab-labels label[for="tab-daily"],
+  #tab-monthly:checked ~ .tab-labels label[for="tab-monthly"],
+  #tab-annual:checked ~ .tab-labels label[for="tab-annual"] {
+    background: var(--color-accent); color: #fff;
+  }
+  #tab-daily:checked ~ .tab-panels .panel-daily,
+  #tab-monthly:checked ~ .tab-panels .panel-monthly,
+  #tab-annual:checked ~ .tab-panels .panel-annual { display: block; }
+  .tab-panels { border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 8px 8px; background: #fff; padding: 16px; }
+
+  ul.problem-list { list-style: none; padding: 0; margin: 0; }
+  ul.problem-list li {
+    padding: 10px 0 10px 28px; border-bottom: 1px solid var(--color-border);
+    position: relative;
+  }
+  ul.problem-list li::before {
+    content: "\2610"; position: absolute; left: 0; color: var(--color-accent);
+  }
+  ol.feature-list { list-style: none; padding: 0; margin: 0; counter-reset: feat; }
+  ol.feature-list li {
+    counter-increment: feat;
+    background: var(--color-card); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 14px 14px 14px 46px; margin-bottom: 10px;
+    position: relative;
+  }
+  ol.feature-list li::before {
+    content: counter(feat); position: absolute; left: 14px; top: 14px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--color-accent); color: #fff;
+    font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+  }
+  ol.feature-list li.boundary {
+    background: #eef1ef; border-style: dashed;
+  }
+  .price-highlight { text-align: center; margin: 16px 0; }
+  .price-highlight .amount { font-size: 1.8rem; font-weight: bold; color: var(--color-accent-dark); }
+  .checklist { list-style: none; padding: 0; margin: 0 0 16px; }
+  .checklist li { padding: 6px 0 6px 26px; position: relative; }
+  .checklist li::before { content: "\2713"; position: absolute; left: 0; color: var(--color-accent); }
+  details { border-bottom: 1px solid var(--color-border); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p { margin: 10px 0 0; color: var(--color-muted); font-size: 0.9rem; }
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+  footer a { color: var(--color-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">フォークリフトパシャっと</header>
+
+  <section>
+    <h1>始業前点検も、月次・年次の検査記録も。メモひとつで記録簿の形に。</h1>
+    <p class="sub">次回の検査期限も、AIが忘れずにお知らせします。</p>
+
+    <div class="tabs">
+      <input type="radio" name="tab" id="tab-daily" checked>
+      <input type="radio" name="tab" id="tab-monthly">
+      <input type="radio" name="tab" id="tab-annual">
+      <div class="tab-labels">
+        <label for="tab-daily">始業前</label>
+        <label for="tab-monthly">月次</label>
+        <label for="tab-annual">特定自主検査</label>
+      </div>
+      <div class="tab-panels">
+        <div class="tab-panel panel-daily">
+          <div class="before-after">
+            <div class="memo-card">
+              <div class="label">点検メモ</div>
+              2号車、始業前、異常なし
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="doc-card">
+              <div class="label">記録簿1行分(自動生成)</div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-panel panel-monthly">
+          <div class="before-after">
+            <div class="memo-card">
+              <div class="label">点検メモ</div>
+              3号車、月次自主検査、○月○日実施
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="doc-card">
+              <div class="label">記録簿1行分+次回期限(自動生成)</div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-panel panel-annual">
+          <div class="before-after">
+            <div class="memo-card">
+              <div class="label">点検メモ</div>
+              1号車、特定自主検査、○○検査にて実施
+            </div>
+            <div class="arrow">&rarr;</div>
+            <div class="doc-card">
+              <div class="label">記録簿1行分+次回期限(自動生成)</div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+              <div class="line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="placeholder-note">(実際の生成文面は点検メモの内容に応じて変わります。annualは検査業者名が必須項目です)</p>
+
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+    <p class="cta-note">カード登録不要 / 本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>こんなことに、時間を取られていませんか?</h2>
+    <ul class="problem-list">
+      <li>始業前点検のたびに、記録簿への書き込み(車両番号・点検項目・結果)を手書き・手入力している</li>
+      <li>月次自主検査・特定自主検査の「次はいつだったか」を台帳やカレンダーで個別に管理している</li>
+      <li>特定自主検査は検査業者名の記載も必要で、書き漏れると記録簿として不十分になる</li>
+      <li>複数台を保有していると、点検種別ごとに実施周期が異なり管理が煩雑になる</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>「フォークリフトパシャっと」がやること</h2>
+    <ol class="feature-list">
+      <li>車両番号・点検種別(始業前/月次/年次)・実施日・点検項目・結果をメモで送るだけ(年次は検査業者名も)</li>
+      <li>記録簿1行分の記載事項を満たす整形テキストを生成します(スプレッドシートへの貼り付け想定)</li>
+      <li>月次自主検査は前回実施日+1ヶ月、特定自主検査は前回実施日+1年を次回期限として算出し、期限が近づいたらリマインド通知を生成します</li>
+      <li class="boundary">点検結果の良否判断・修理要否の判断、特定自主検査の実施自体・検査標章の貼付自体には踏み込みません</li>
+    </ol>
+  </section>
+
+  <section class="alt">
+    <h2>始業前・月次・年次、周期が違う3つの記録をまとめて</h2>
+    <p class="sub">始業前点検は毎日、月次自主検査は月1回、特定自主検査は年1回。周期も記載事項も違う3つの記録を、点検種別を選ぶだけで自動的に書き分け、次回期限も種別ごとに管理します。</p>
+  </section>
+
+  <section>
+    <h2>まずは30日間、無料でお試しください</h2>
+    <ul class="checklist">
+      <li>クレジットカードの登録は不要です</li>
+      <li>初回の生成成功から30日間、無料でご利用いただけます</li>
+      <li>期間終了後に自動で課金されることはありません</li>
+    </ul>
+    <div class="price-highlight">
+      <div class="amount">月額980円&#12316;</div>
+      <div>(保有台数に応じた3プラン。超過分は1回あたり80〜100円の従量課金で、生成自体は止めません)</div>
+    </div>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+    <p class="cta-note">本ドラフトではCTAは非活性です</p>
+  </section>
+
+  <section class="alt">
+    <h2>よくある質問</h2>
+    <details>
+      <summary>点検結果が「不良」だった場合はどうなりますか?</summary>
+      <p>入力いただいた内容をそのまま記録として整形します。良否の判断や修理の要否判断は行いません。不良が見つかった場合の対応は、事業者様・検査業者様の判断で行ってください。</p>
+    </details>
+    <details>
+      <summary>特定自主検査の実施自体を代行してもらえますか?</summary>
+      <p>いいえ。特定自主検査の実施(検査標章の貼付を含む)は登録検査業者が行うものであり、本サービスは検査結果の記録整形と次回期限のリマインドのみを行います。</p>
+    </details>
+    <details>
+      <summary>複数台のフォークリフトを保有していますが、台数が増えても使えますか?</summary>
+      <p>はい。プランごとに対象台数・月間生成回数の上限が異なります(料金セクション参照)。上限を超えた場合も記録自体は止まらず、従量課金で引き続きご利用いただけます。</p>
+    </details>
+  </section>
+
+  <section>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+  </section>
+
+  <footer>
+    <p>特定商取引法に基づく表記(準備中) / プライバシーポリシー(準備中)</p>
+    <p>&copy; フォークリフトパシャっと(ドラフト・非公開)</p>
+  </footer>
+
+</div>
+</body>
+</html>
