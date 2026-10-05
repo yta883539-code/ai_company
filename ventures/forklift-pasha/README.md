@@ -854,3 +854,18 @@
 - 最終更新: 2026-10-05 09:00 UTC(フェーズ57: landing-page-copy-draft.mdを新規作成し、
   エンドユーザー向けLPコピー草案〈ヒーロー・課題提起・機能紹介・料金・FAQ〉を下書きした。
   実LP実装・公開・外部への問い合わせ送信は今回も未着手)
+- フェーズ58(2026-10-05 10:00 UTC定例更新): フェーズ57の次回候補(1)に従い、
+  landing-page-copy-draft.mdを踏まえたlanding-page-wireframe.mdを新規作成した。他venture
+  (aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)には既にあるが本venture
+  未着手だったcross-venture parityギャップを解消した。kura-pashaの構成(新規制作/修理の
+  2パターン併記)を参考にしつつ、本venture固有のdaily/monthly/annual3区分(kura-pashaより
+  1つ多い)をヒーローのビフォーアフター画像でタブ/カルーセル併記する方針とした。実HTML/CSS
+  実装・ドメイン取得・公開は今回も行っていない。建荷協本部・支部、都道府県労働局への実際の
+  問い合わせ・送信も今回は行っていない。承認が必要なアクション(団体・行政機関への問い合わせ
+  連絡・外部サービスへの公開・アカウント作成・支払い・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)kura-pashaのCSSタブ化方針を参考にした
+  daily/monthly/annual3パターンのビフォーアフターモックアップのHTML/CSS実装ドラフト作成、
+  (2)優先度Cに残る11支部の電話番号・公式サイトの追加確認(フェーズ54・55から持ち越し)。
+- 最終更新: 2026-10-05 10:00 UTC(フェーズ58: landing-page-wireframe.mdを新規作成。
+  daily/monthly/annual3区分のビフォーアフター併記を軸にしたセクション構成・画像方針を
+  整理した。実HTML/CSS実装・公開は未着手)
