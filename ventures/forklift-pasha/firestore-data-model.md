@@ -68,14 +68,15 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
 
 ## 未確定・残課題
 
-- `fleet_operator`のドキュメントIDをどう割り振るか(LINE前提ならuserId、汎用Webフォーム
-  前提ならメールアドレス等)は、tech-stack.md「未検証・残課題」の入力チャネル確定待ち。
-  本モデルは入力チャネルに依存しない抽象的なoperator_idを前提にしている。
+- `fleet_operator`のドキュメントIDの割り振り方は、tech-stack.md(フェーズ70)で入力
+  チャネルを汎用Webフォーム(LINE非依存)に暫定決定したことを受け、**メールアドレス
+  (またはフォーム入力時に発行するランダムなoperator_id)を軸とする方式を第一候補**とする
+  (LINE前提のuserId方式は採用しない)。本モデルは元々入力チャネルに依存しない抽象的な
+  operator_idを前提にしていたため、スキーマ自体の変更は不要。
 - `vehicle_id`の発行・重複チェック(同一事業者内で車両番号表記が重複した場合の扱い)は
   実装時の課題として残す。
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
   オーナー承認が必要(pending-approval.md参照)。本ファイルは机上のスキーマ整理のみ。
 
-最終更新: 2026-10-03 11:00 UTC(フェーズ11: firestore-data-model.mdを新規作成。tech-stack.md
-フェーズ10で初回設計のみだった課金・契約単位のFirestoreデータモデルを3コレクション構成
-〈fleet_operator/vehicle/usage_counter〉として実ファイル化)
+最終更新: 2026-10-05 22:00 UTC(フェーズ70: tech-stack.mdの入力チャネル暫定決定〈汎用Web
+フォーム〉を受け、operator_idの割り振り方針をメールアドレス/発行式に具体化)
