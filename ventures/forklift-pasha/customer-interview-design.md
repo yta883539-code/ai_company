@@ -92,17 +92,21 @@ line-reservation-ai)で既に用意されている構成(目的の明確化→�
 
 ## 未検証の仮説(要検証)
 
-- 質問12問が10分に収まるか(実施前にline-reservation-aiのinterview-rehearsal-script.md
-  のようなリハーサル台本での時間計測が必要。次回候補とする)。
+- 質問12問が10分に収まるか(フェーズ88でinterview-rehearsal-script.mdを新規作成し机上の
+  タイムテーブルを整理した。実際の時間計測〈社内リハーサル〉自体は引き続き未実施)。
 - 業種(倉庫業・運送業・建設業)によって、LINE業務利用率・入力チャネルの好み(質問4〜6)に
   明確な差が出るか。差が大きい場合、入力チャネルを業種別に分ける必要が出てくる可能性が
   ある。
 
 ## 次のステップ候補
 
-- interview-candidate-selection-criteria.md相当の対象選定基準の明文化・ロングリスト作成
-  (他ventureのcandidate-longlist-draft.md相当、本venture未着手)。
-- interview-rehearsal-script.md相当のリハーサル台本作成・時間計測。
+- interview-candidate-selection-criteria.md相当の対象選定基準の明文化(フェーズ13で対応
+  済み)。実在候補のロングリスト自体はcandidate-longlist-draft.mdフェーズ14〜22で
+  構造的な限界に到達し、間接チャネル(建荷協・労働局経由)への切り替えを決定したまま
+  確定していない。
+- interview-rehearsal-script.md相当のリハーサル台本作成(フェーズ88で対応済み。倉庫業の
+  一般像を想定した仮想台本。実在候補確定後の差分調整・社内リハーサルでの時間計測は
+  次回候補)。
 - 実際の候補への初回コンタクトはオーナー承認待ち(pending-approval.md参照)。
 
 最終更新: 2026-10-03 12:00 UTC(フェーズ12: customer-interview-design.mdを新規作成。

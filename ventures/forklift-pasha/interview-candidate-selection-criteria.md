@@ -81,11 +81,13 @@ customer-interview-design.md「未検証の仮説」が指摘する「業種に�
 ## 未検討事項(次のステップ候補)
 
 - 実際の依頼文面(初回コンタクト時のメッセージ)の草案作成(course-set-pashaの
-  initial-contact-message-draft.mdに相当するもの)。
+  initial-contact-message-draft.mdに相当するもの)。実在候補が未確定のため着手は候補確保後。
 - 区分ごとの候補数の妥当性(承諾率が想定より低い場合の追加候補確保の目安)。
-- 上記ロングリストが揃った段階で、line-reservation-aiのinterview-rehearsal-script.mdに
-  相当するリハーサル台本を作成し、質問数12問が想定時間(10分)に収まるか机上で検証する
-  (customer-interview-design.md「未検証の仮説」1点目)。
+- リハーサル台本(interview-rehearsal-script.md)は、本来の想定「ロングリストが揃った段階で
+  作成する」よりも先に、フェーズ88で倉庫業の一般像を想定した仮想台本として作成した
+  (candidate-longlist-draft.mdフェーズ14〜22がロングリスト確保自体で構造的な限界に
+  到達し、間接チャネルへの切り替えを決定したまま実在候補が確定していないため)。実在候補
+  確定後、kura-pasha等と同様の候補固有の差分調整を追記する。
 
 最終更新: 2026-10-03 13:00 UTC(フェーズ13: interview-candidate-selection-criteria.mdを
 新規作成。倉庫業・運送業・建設業の3区分ごとの選定基準・情報源・特記事項を整理)
