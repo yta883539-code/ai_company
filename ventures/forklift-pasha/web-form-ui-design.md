@@ -156,3 +156,31 @@ Playwrightで(1)デフォルトで「異常なし」側が表示される、(2)�
 修正した。あわせて「異常あり」項目の自由記述欄が空欄のまま見過ごされないよう動的警告を
 追加した。点検者名への同種の警告展開は、デフォルト値が常に表示される設計のため優先度が
 低いと判断し見送った)
+
+## フェーズ78追記: ブラウザ動作検証の自動テストへの組み込み
+
+フェーズ77「未検証・残課題」が次回候補としていた「実ブラウザでの動作検証の自動テストへの
+組み込み」に対応した。フェーズ77ではPlaywrightによる検証を対話的に一度実行したのみで、
+検証手順自体はスクリプトとして残していなかったため、今後daily.html等に変更を加えた際に
+同種の不具合(CSSの出し分けが要素の入れ子構造により実際には機能しない)が再発しても、
+手動でPlaywrightを起動し直さない限り検知できない状態だった。
+
+`prototype/browser_mockup_checks.js`を新規作成し、フェーズ77で確認した項目(daily.htmlの
+異常なし/異常あり出し分け・項目チェックによる自由記述欄表示・自由記述欄の動的警告、
+annual.htmlの検査業者名欄の動的警告、index.htmlのリンク構成、monthly.htmlの読み込み)を
+計11件のチェックとして再現可能な形にした。エージェント実行環境(プリインストール済み
+chromiumを`/opt/pw-browsers/chromium`から使用)・GitHub Actions CI(そのパスが存在しない
+ため`npx playwright install --with-deps chromium`でインストールした既定のブラウザを使用)の
+両方で動作するよう`fs.existsSync`でパスを判定する分岐を入れた。
+`.github/workflows/forklift-pasha-tests.yml`に`actions/setup-node@v4`・Playwright
+インストール・本スクリプト実行の3ステップを追加し、既存のPython単体テスト(39件)・
+schema検証(11件)に加えてCI上でも実ブラウザ検証が走るようにした。ローカルでの実行
+(`node prototype/browser_mockup_checks.js`)は11件全件パスを確認した。コミット後の
+CI実行結果の確認は次回候補とする(フェーズ30で確立した`mcp__github__actions_list`に
+よる確認手順を踏襲)。
+
+最終更新: 2026-10-06 07:00 UTC(フェーズ78: `prototype/browser_mockup_checks.js`を新規
+作成し、フェーズ77のPlaywright手動検証項目〈11件〉を再現可能なスクリプトとして自動化。
+`.github/workflows/forklift-pasha-tests.yml`にPlaywrightインストール・本スクリプト実行の
+ステップを追加し、CI上でも実ブラウザ検証を実行するようにした。ローカル実行は11件全件
+パスを確認。コミット後のCI実行結果確認は次回候補)

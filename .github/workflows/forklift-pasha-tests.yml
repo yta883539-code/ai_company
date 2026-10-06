@@ -26,3 +26,12 @@ jobs:
         working-directory: ventures/forklift-pasha/schema
         run: |
           python3 validate_test_cases.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright (chromium only)
+        run: npx --yes playwright@1.56.1 install --with-deps chromium
+      - name: Run browser mockup regression checks (web-form-mockup/*.html)
+        working-directory: ventures/forklift-pasha
+        run: |
+          node prototype/browser_mockup_checks.js
