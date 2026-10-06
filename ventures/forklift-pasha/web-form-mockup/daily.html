@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと 始業前点検(daily)入力画面 実装ドラフト(フェーズ72・2026-10-06 00:00 UTC)
+
+  位置づけ: web-form-ui-design.md(フェーズ71)が「未検証・残課題」として挙げた、
+  「landing-page-wireframe.md同様の図版化(実際の画面モックアップ)」に対応するもの。
+  landing-page/index.html(フェーズ59)と同じ位置づけ・実装方針を踏襲し、ドメイン取得・
+  ホスティング・外部公開・バックエンド接続は一切行っていない、リポジトリ内の静的ファイル
+  (ローカルの実装ドラフト)に留める。README.mdの「外部サービスへの公開」には該当しない。
+
+  対象: daily区分(始業前点検)のみ。web-form-ui-design.mdが「本フェーズではdaily区分のみ
+  チェックリスト化し、monthly/annualは次回候補とする」としている方針に合わせ、本モックアップも
+  daily区分に限定する(monthly/annualの画面モックアップは次回候補)。
+
+  未実装・意図的なプレースホルダー:
+  - JSは一切使用せず、CSS(radio/checkboxの:checked疑似クラスとtilde/plus結合子)のみで
+    「異常なし/異常あり」の一次選択・点検項目チェックリストの表示切替・個別項目の自由記述欄の
+    表示切替を再現している(course-set-pasha/liff-plan-selection-ui-wireframe.md等の
+    「JS不使用」方針を踏襲)。
+  - 送信ボタンは <button type="button" disabled> で、実際のフォーム送信・バックエンド接続には
+    一切つながっていない(実装・ホスティングはオーナー承認待ちの範囲、pending-approval.md参照)。
+  - 車両番号ボタン(1〜3号車)・点検者名・実施日のデフォルト値表示は、web-form-ui-design.mdの
+    想定(保有3台以下はボタン表示・点検者名/実施日はキャッシュ/本日日付を初期値表示)を
+    静的なダミー値で再現したものであり、実際のlocalStorage相当のキャッシュ機構は未実装。
+  - 点検項目(ブレーキ・警告灯・異音・油圧・タイヤ・フォーク)は market-research.md 記載の
+    一般的な点検項目を参考にした例示であり、安衛則第151条の25に基づく正式な項目一覧の
+    確定(実LLM検証・実顧客ヒアリング後)は未着手。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>始業前点検 入力(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+    --color-ok: #2f7a4f;
+    --color-warn: #b5402a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 4px 16px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .kubun {
+    margin-left: auto;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  /* --- 車両番号: ボタン方式(保有3台以下) --- */
+  .vehicle-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .vehicle-buttons input[type="radio"] {
+    display: none;
+  }
+  .vehicle-buttons label {
+    flex: 1;
+    text-align: center;
+    padding: 14px 0;
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--color-muted);
+  }
+  .vehicle-buttons input[type="radio"]:checked + label {
+    border-color: var(--color-accent);
+    color: var(--color-accent-dark);
+    background: #fdf1e2;
+  }
+  /* --- 点検者名・実施日: デフォルト値のダミー表示 --- */
+  .prefill-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .prefill-row:last-child { border-bottom: none; }
+  .prefill-row .value {
+    color: var(--color-fg);
+    font-weight: bold;
+  }
+  .prefill-row .edit-link {
+    color: var(--color-accent-dark);
+    font-size: 12px;
+    text-decoration: underline;
+  }
+  /* --- 異常なし/異常あり 一次選択 --- */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .mode-toggle input[type="radio"] {
+    display: none;
+  }
+  .mode-toggle label {
+    flex: 1;
+    text-align: center;
+    padding: 16px 0;
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .mode-toggle label.ok { color: var(--color-ok); }
+  .mode-toggle label.ng { color: var(--color-warn); }
+  #mode-ok:checked + label.ok {
+    border-color: var(--color-ok);
+    background: #eaf5ee;
+  }
+  #mode-ng:checked + label.ng {
+    border-color: var(--color-warn);
+    background: #fbece8;
+  }
+  /* 既定の説明文(どちらも未選択時) */
+  .mode-hint {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin: 8px 0 0;
+  }
+  /* --- チェックリスト本体: モードに応じて出し分け --- */
+  .checklist-section { display: none; }
+  #mode-ok:checked ~ .checklist-ok { display: block; }
+  #mode-ng:checked ~ .checklist-ng { display: block; }
+
+  .checklist-ok .item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .checklist-ok .item-row:last-child { border-bottom: none; }
+  .checklist-ok .item-row .item-name { flex: 1; }
+  .checklist-ok .item-row .tag-ok {
+    font-size: 11px;
+    color: var(--color-ok);
+    background: #eaf5ee;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .checklist-ng .item-block {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .checklist-ng .item-block:last-child { border-bottom: none; }
+  .checklist-ng .item-block label.item-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+  }
+  .checklist-ng .item-note {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 48px;
+  }
+  .checklist-ng .item-block input[type="checkbox"]:checked ~ .item-note {
+    display: block;
+  }
+  .checklist-ng .item-block input[type="checkbox"]:checked ~ .item-check-label-text {
+    color: var(--color-warn);
+  }
+
+  .submit-area {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, var(--color-bg) 70%, transparent);
+    padding: 16px 4px 8px;
+  }
+  button.submit-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-accent);
+    color: #fff;
+  }
+  button.submit-btn:disabled {
+    opacity: 0.6;
+  }
+  .submit-caption {
+    text-align: center;
+    font-size: 11px;
+    color: var(--color-muted);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ72(2026-10-06 00:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <span class="logo">フォークリフトパシャっと</span>
+    <span class="kubun">始業前点検(daily)</span>
+  </header>
+
+  <!-- 1. 車両番号(保有3台以下: ボタン表示) -->
+  <section class="card">
+    <h2>車両番号</h2>
+    <div class="vehicle-buttons">
+      <input type="radio" name="vehicle" id="vehicle-1" checked>
+      <label for="vehicle-1">1号車</label>
+      <input type="radio" name="vehicle" id="vehicle-2">
+      <label for="vehicle-2">2号車</label>
+      <input type="radio" name="vehicle" id="vehicle-3">
+      <label for="vehicle-3">3号車</label>
+    </div>
+  </section>
+
+  <!-- 2. 点検結果の一次選択 + チェックリスト -->
+  <section class="card">
+    <h2>点検結果</h2>
+    <div class="mode-toggle">
+      <input type="radio" name="mode" id="mode-ok" checked>
+      <label class="ok" for="mode-ok">異常なし</label>
+      <input type="radio" name="mode" id="mode-ng">
+      <label class="ng" for="mode-ng">異常あり</label>
+    </div>
+    <p class="mode-hint">
+      「異常なし」を選ぶと点検項目は全てチェック済みの状態で表示されます。該当しない項目は
+      個別にオフにできます。「異常あり」を選ぶと項目は全てオフの状態になり、異常があった項目を
+      オンにすると自由記述欄が表示されます。
+    </p>
+
+    <!-- 異常なし: デフォルト全チェック済み(タグ表示のみ、個別オフは本モックアップでは省略) -->
+    <div class="checklist-section checklist-ok">
+      <div class="item-row"><span class="item-name">ブレーキ</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">警告灯</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">異音・異臭</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">油圧(リフト・チルト)</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">タイヤ</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">フォーク</span><span class="tag-ok">✓ 異常なし</span></div>
+    </div>
+
+    <!-- 異常あり: デフォルト全オフ、チェックすると自由記述欄が出現 -->
+    <div class="checklist-section checklist-ng">
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">ブレーキ</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">警告灯</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">異音・異臭</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">油圧(リフト・チルト)</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">タイヤ</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">フォーク</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 点検者名・実施日(デフォルト値のダミー表示) -->
+  <section class="card">
+    <h2>点検者・実施日</h2>
+    <div class="prefill-row">
+      <span>点検者名</span>
+      <span><span class="value">山田 太郎</span> <a class="edit-link" href="#">変更</a></span>
+    </div>
+    <div class="prefill-row">
+      <span>実施日</span>
+      <span><span class="value">2026-10-06</span> <a class="edit-link" href="#">変更</a></span>
+    </div>
+  </section>
+
+  <!-- 4. 送信 -->
+  <div class="submit-area">
+    <button type="button" class="submit-btn" disabled>この内容で記録する</button>
+    <p class="submit-caption">※ ドラフトのため送信は無効化されています</p>
+  </div>
+
+</div>
+</body>
+</html>
