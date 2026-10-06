@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと Webフォーム トップページ(画面遷移リンク集) 実装ドラフト
+  (フェーズ75・2026-10-06 04:00 UTC)
+
+  位置づけ: フェーズ74でdaily/monthly/annualの3区分すべての画面モックアップ
+  (daily.html・monthly.html・annual.html)が完成したことを受け、README.mdの次回候補(2)
+  「3区分共通のトップページ(画面遷移リンク集)の実装」に対応するもの。daily.html等と同じ
+  実装方針(JS不使用・外部公開なし・バックエンド接続なし)を踏襲し、リポジトリ内の静的ファイル
+  (ローカルの実装ドラフト)に留める。README.mdの「外部サービスへの公開」には該当しない。
+
+  想定ユースケース: 実際の運用では点検者は点検種別ごとに個別URL(例: 施設ごとのdaily用
+  ブックマーク)に直接アクセスする想定だが、web-form-ui-design.mdで検討してきた3区分
+  (daily/monthly/annual)を一画面で見渡せるよう、相対パスのリンクのみで遷移できる簡易な
+  トップページを用意した。認証・車両台数に応じた動的な表示切替等は未実装(次回候補)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点検記録を選ぶ(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    padding: 12px 4px 20px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .lead {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .kubun-link {
+    display: block;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+    text-decoration: none;
+    color: var(--color-fg);
+  }
+  .kubun-link .title {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .kubun-link .freq {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 11px;
+    color: #fff;
+    background: var(--color-accent);
+    padding: 2px 8px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+  .kubun-link .desc {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .kubun-link .arrow {
+    float: right;
+    color: var(--color-accent-dark);
+    font-weight: bold;
+  }
+  footer.note {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ75(2026-10-06 04:00 UTC) / 各リンクはリポジトリ内の静的ファイルへの相対遷移のみです
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <div class="logo">フォークリフトパシャっと</div>
+    <p class="lead">記録する点検の種類を選んでください</p>
+  </header>
+
+  <a class="kubun-link" href="daily.html">
+    <span class="arrow">&gt;</span>
+    <span class="title">始業前点検</span><span class="freq">毎日</span>
+    <p class="desc">稼働前のブレーキ・警告灯・油圧等の日次チェック。車両番号を選んで記録します。</p>
+  </a>
+
+  <a class="kubun-link" href="monthly.html">
+    <span class="arrow">&gt;</span>
+    <span class="title">月次自主検査</span><span class="freq">毎月</span>
+    <p class="desc">月1回の自主検査の点検項目・結果を自由記述で記録します。</p>
+  </a>
+
+  <a class="kubun-link" href="annual.html">
+    <span class="arrow">&gt;</span>
+    <span class="title">特定自主検査</span><span class="freq">年1回</span>
+    <p class="desc">年次の特定自主検査の結果と検査業者名を記録します。</p>
+  </a>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。ドメイン取得・ホスティング・外部公開は行っていません。
+  </footer>
+
+</div>
+</body>
+</html>
