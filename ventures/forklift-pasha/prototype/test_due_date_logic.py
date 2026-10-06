@@ -119,6 +119,37 @@ def main():
         False,
     ))
 
+    # --- 未知のinspection_typeの異常系(フェーズ84追記) ---
+    # compute_next_due_dateのdocstring/raise ValueErrorの行自体は実装済みだが、
+    # これまでテストが無く未検証だった(mvp-flow-draft.md定義の3区分
+    # daily/monthly/annual以外の値が渡るのはLLM出力側の不整合時のみを想定、
+    # schema/output.schema.jsonのenum制約が一次防御)。
+    try:
+        compute_next_due_date("weekly", date(2026, 10, 3))
+        results.append(_check(
+            "compute_next_due_date: 未知のinspection_typeでValueError",
+            "ValueErrorが発生しなかった", "ValueErrorが発生する",
+        ))
+    except ValueError:
+        results.append(_check(
+            "compute_next_due_date: 未知のinspection_typeでValueError",
+            True, True,
+        ))
+
+    # should_remindも内部でcompute_next_due_dateを呼ぶため、同じ異常系が
+    # そのまま伝播する(schema側のenum違反をここで握り潰さないことの確認)。
+    try:
+        should_remind("weekly", date(2026, 10, 3), date(2026, 10, 3))
+        results.append(_check(
+            "should_remind: 未知のinspection_typeでValueError(伝播)",
+            "ValueErrorが発生しなかった", "ValueErrorが発生する",
+        ))
+    except ValueError:
+        results.append(_check(
+            "should_remind: 未知のinspection_typeでValueError(伝播)",
+            True, True,
+        ))
+
     total = len(results)
     failed = total - sum(results)
     print()

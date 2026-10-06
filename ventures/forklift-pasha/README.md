@@ -1400,3 +1400,22 @@
   この過程で再確認した告示第321号の制度改正を検査業者向け新規アイデア「とっけんパシャっと」
   としてideas.mdに追加。コード変更なし、ブラウザ検証17件・Python単体テスト39件・schema
   検証11件いずれもパス)
+- フェーズ84(2026-10-06 12:00 UTC定例更新): prototype/due_date_logic.pyの
+  compute_next_due_date()・should_remind()はmvp-flow-draft.md定義の3区分
+  (daily/monthly/annual)以外が渡された場合に`raise ValueError`する実装(フェーズ26から
+  存在)だったが、この異常系自体を検証するテストがこれまで一度も書かれていないという
+  テストカバレッジの抜けを発見した(schema/output.schema.jsonのenum制約が一次防御のため
+  実運用上発生しにくいが、LLM出力側の不整合やコード変更時の退行を検出する防御線として
+  prototype/test_due_date_logic.pyに未知のinspection_type("weekly")を渡した場合の
+  異常系テスト2件(compute_next_due_date単体・should_remindからの伝播)を追加した。
+  schema/output.schema.json・web-form-mockup/・prototype/due_date_logic.py本体の変更は
+  発生していない(テスト追加のみ)。回帰確認として`node prototype/browser_mockup_checks.js`
+  (17件)・`python3 prototype/run_all_tests.py`(41件、新規2件含む)・`python3
+  schema/validate_test_cases.py`(11件)のいずれも全件パスを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)monthly・annual区分も含めた全区分の実顧客ヒアリング(オーナー承認
+  待ち)、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-06 12:00 UTC(フェーズ84: due_date_logic.pyの未知inspection_type異常系
+  〈ValueError〉がテスト未検証だったカバレッジの抜けを発見・是正。異常系テスト2件追加。
+  コード本体の変更なし、ブラウザ検証17件・Python単体テスト41件・schema検証11件いずれも
+  パス)
