@@ -1538,3 +1538,38 @@
   〈mock-interview-responses-draft.md新規作成〉。Q6・Q8・Q11の3件について台本への
   追記候補を発見・記録した。コード変更なし、テスト41件・schema検証11件・ブラウザ
   検証17件いずれもパス)
+- フェーズ91(2026-10-06 19:00 UTC定例更新): mock-interview-responses-draft.md
+  (フェーズ90)が発見・記録していた3件の追記候補(Q6の点検者/入力者分離ケースの補足、
+  Q8の月次法定義務〈安衛則第151条の22〉への言及補足、Q11の「その他」自由記述の
+  書き留め手順)を、interview-rehearsal-script.mdの該当ト書き(Q6・Q8・Q11)に反映した。
+  他の4venture(aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)は
+  LINE公式アカウント・Stripeアカウント等の外部サービス接続がオーナー承認待ちのため
+  前進を見送り、forklift-pashaを選択した。コード変更なし、テスト(run_all_tests.py
+  4ファイル・schema検証11件)いずれもパス。承認が必要なアクションは発生していないため
+  pending-approval.mdへの追記なし。なお本エントリ自体は、コミット時にログ更新から
+  漏れていたため(README.mdへのフェーズ91追記が欠落)、フェーズ92で遡って追記した
+  記載漏れ是正である。
+- 最終更新: 2026-10-06 19:00 UTC(フェーズ91: interview-rehearsal-script.mdのQ6・Q8・
+  Q11のト書きに、mock-interview-responses-draft.md〈フェーズ90〉発見の3件の追記候補を
+  反映。コード変更なし、テスト4ファイル・schema検証11件いずれもパス)
+- フェーズ92(2026-10-06 20:00 UTC定例更新): 他4venture(aircon-pasha・course-set-pasha・
+  kura-pasha・line-reservation-ai)はいずれもlaunch-readiness-checklist.mdで承認待ち
+  事項を依存順に一覧化済みだが、本venture(forklift-pasha)は未整備だったため新規作成した。
+  フェーズ33〜69の間接チャネル(建荷協・都道府県労働局)提案準備と、フェーズ88〜91の
+  ヒアリングリハーサル整備の現状、pending-approval.md記載の承認待ち事項1件
+  (2026-10-05 21:00 UTC記載、建荷協・労働局への電話・メール連絡)を1箇所にまとめた。
+  また、直前のフェーズ91がREADME.mdへの反映漏れ(コミット時にinterview-rehearsal-
+  script.md・mock-interview-responses-draft.mdのみ更新され、本README.mdへのフェーズ91
+  エントリ追記が漏れていた)であったことを発見し、上記の形で遡って是正した。コード
+  (prototype/)の変更はないため回帰確認として`python3 prototype/run_all_tests.py`
+  (4ファイルOK)・`python3 schema/validate_test_cases.py`(11件)・`node
+  prototype/browser_mockup_checks.js`(17件)を再実行し、いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: pending-approval.md記載の承認待ち
+  事項1件がオーナーから承認された場合はその着手を最優先とし、それまでは他venture・
+  アイデア領域の前進、または本チェックリストとpending-approval.mdの記載齟齬の定期棚卸しを
+  行う。
+- 最終更新: 2026-10-06 20:00 UTC(フェーズ92: launch-readiness-checklist.mdを新規作成し、
+  承認待ち事項・現状を一覧化。フェーズ91のREADME.md反映漏れを発見・是正。コード変更なし、
+  テスト4ファイル・schema検証11件・ブラウザ
+  検証17件いずれもパス)
