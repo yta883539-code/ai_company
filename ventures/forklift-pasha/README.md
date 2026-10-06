@@ -1343,3 +1343,29 @@
   monthly区分のチェックリスト化は実施せず自由記述欄方式を維持するという暫定判断を記録した
   〈実顧客ヒアリング結果次第で覆る前提〉。コード変更なし、ブラウザ検証11件・Python単体
   テスト39件・schema検証11件いずれもパス)
+- フェーズ82(2026-10-06 10:00 UTC定例更新): フェーズ81の次回候補(1)「安衛則第151条の22
+  本文の点検項目リストをWebSearchで確認し、上記判断の根拠1を解消できるか試行する」に対応
+  した。tebiki.jp・旭フォークリフト(forklift-depo.jp)・moniplat.valqua.co.jp・hana-
+  international.com等、複数の独立した二次情報源が収束して挙げる月次自主検査の点検項目
+  (1.制動装置・クラッチ・操縦装置、2.荷役装置・油圧装置、3.ヘッドガード・バックレスト)を
+  確認し、フェーズ81が保留理由としていた項目リスト未確認の論点を実用上十分に解消したと
+  判断した(安衛則本文そのものによる一次情報源での最終確認は引き続き留保事項、詳細は
+  monthly-checklist-decision.mdフェーズ82追記参照)。これによりフェーズ81の暫定判断を
+  見直し、web-form-mockup/monthly.htmlをdaily.html(フェーズ72・77)と同型の「異常なし/
+  異常あり」一次選択+3項目チェックリスト方式(CSS:has()による出し分け、自由記述欄
+  空欄時の:placeholder-shown警告)に変更した。フェーズ77で発見された「要素の入れ子構造と
+  CSS結合子の前提の不一致」の落とし穴は、daily.htmlで確立済みの:has()方式をそのまま
+  移植することで回避した。prototype/browser_mockup_checks.jsにmonthly用の回帰チェック
+  6件(daily用と同種の初期表示・切替・警告表示・警告解消の検証)を追加した。schema/
+  output.schema.json・prototype/配下のバックエンドロジック(items欄は自由記述の転記を
+  受け取る構造)は変更していない。`node prototype/browser_mockup_checks.js`(17件、
+  新規6件含む)・`python3 prototype/run_all_tests.py`(39件)・`python3 schema/
+  validate_test_cases.py`(11件)のいずれも全件パスを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)安衛則第151条の22本文そのもの(e-gov法令検索等)による項目名の
+  一次情報源での最終確認、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-06 10:00 UTC(フェーズ82: monthly-checklist-decision.mdフェーズ81の
+  暫定判断を見直し、複数の二次情報源で収束確認した3項目でweb-form-mockup/monthly.htmlを
+  daily.html同型のチェックリスト方式〈CSS:has()による出し分け〉に変更した。
+  prototype/browser_mockup_checks.jsにmonthly用回帰チェック6件を追加。ブラウザ検証17件・
+  Python単体テスト39件・schema検証11件いずれもパス)

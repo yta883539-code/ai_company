@@ -1,28 +1,36 @@
 <!DOCTYPE html>
 <!--
-  フォークリフトパシャっと 月次自主検査(monthly)入力画面 実装ドラフト(フェーズ73・2026-10-06 01:00 UTC)
+  フォークリフトパシャっと 月次自主検査(monthly)入力画面 実装ドラフト
+  (フェーズ73・2026-10-06 01:00 UTC作成、フェーズ82・2026-10-06 10:00 UTCでチェックリスト化)
 
   位置づけ: web-form-ui-design.md(フェーズ71)「未検証・残課題」が次回候補としていた
   monthly区分の画面モックアップに対応するもの。daily.html(フェーズ72)と同じ実装方針
   (JS不使用・送信ボタン無効化・外部公開なし・リポジトリ内の静的ファイルに留める)を踏襲する。
 
-  daily.htmlとの違い: web-form-ui-design.md「monthly/annual区分の入力画面」節の方針に
-  合わせ、月次自主検査は項目数が多くチェックリスト化の是非を別途検討課題として据え置いた
-  ため、本モックアップでは点検項目・結果を自由記述欄とする(daily区分のようなトグル
-  一覧・異常なし/異常ありの一次選択ボタンは設けない)。車両番号・点検者名・実施日の
-  デフォルト値表示方式はdaily区分と共通化する。
+  フェーズ82での変更: monthly-checklist-decision.md(フェーズ81)は、安衛則第151条の22
+  本文の点検項目リストが未確認であることを理由にチェックリスト化を見送る暫定判断を記録して
+  いた。フェーズ82ではWebSearchにより、tebiki.jp・旭フォークリフト(forklift-depo.jp)・
+  moniplat.valqua.co.jp等の複数の独立した二次情報源が収束して挙げる月次自主検査(定期自主
+  検査)の項目として、(1)制動装置・クラッチ及び操縦装置の異常の有無、(2)荷役装置及び油圧
+  装置の異常の有無、(3)ヘッドガード・バックレストの異常の有無、の3項目を確認した(詳細は
+  monthly-checklist-decision.mdフェーズ82追記参照)。daily.html同様の3項目程度であれば
+  フェーズ80で明文化した設計指針(DOM構造確認・:has()優先設計・実ブラウザ検証の自動チェックへ
+  の組み込み)をそのまま適用できると判断し、daily.htmlの「異常なし/異常あり」一次選択+
+  チェックリストのCSS構造(:has()による出し分け、item-note空欄時の:placeholder-shown警告)を
+  3項目版として移植した。なお、安衛則本文(e-gov法令検索等の一次情報源)そのものによる最終
+  確認はフェーズ82でも行っておらず、将来的に一次情報源との不一致が見つかった場合は項目名の
+  修正が必要になりうる。
 
   未実装・意図的なプレースホルダー:
   - JSは一切使用せず、CSSのみで構成している(course-set-pasha/liff-plan-selection-ui-wireframe.md
-    等の「JS不使用」方針を踏襲)。
+    等の「JS不使用」方針を踏襲)。daily.htmlと同じ:has()・:placeholder-shownの手法を用いる。
   - 送信ボタンは <button type="button" disabled> で、実際のフォーム送信・バックエンド接続には
     一切つながっていない(実装・ホスティングはオーナー承認待ちの範囲、pending-approval.md参照)。
   - 車両番号ボタン(1〜3号車)・点検者名・実施日のデフォルト値表示は、daily.html同様の
     静的なダミー値で再現したものであり、実際のlocalStorage相当のキャッシュ機構は未実装。
-  - 点検項目・結果の自由記述欄のプレースホルダー文例は、market-research.md記載の一般的な
-    月次自主検査項目(特定自主検査に準じた項目)を参考にした例示であり、安衛則に基づく
-    正式な項目一覧の確定(実LLM検証・実顧客ヒアリング後)は未着手。チェックリスト化の
-    是非自体もweb-form-ui-design.mdの「次回候補」のまま、本フェーズでは判断していない。
+  - 点検項目名(制動装置・クラッチ・操縦装置/荷役装置・油圧装置/ヘッドガード・バックレスト)は
+    二次情報源による確認に基づく例示であり、安衛則本文そのものによる最終確認・実LLM検証・
+    実顧客ヒアリングは未着手。
 -->
 <html lang="ja">
 <head>
@@ -38,6 +46,8 @@
     --color-card: #ffffff;
     --color-border: #dbe3e0;
     --color-muted: #5a6563;
+    --color-ok: #2f7a4f;
+    --color-warn: #b5402a;
   }
   * { box-sizing: border-box; }
   body {
@@ -88,11 +98,6 @@
     color: var(--color-muted);
     margin: 0 0 10px;
   }
-  .card .card-hint {
-    font-size: 12px;
-    color: var(--color-muted);
-    margin: 0 0 10px;
-  }
   /* --- 車両番号: ボタン方式(保有3台以下、daily.htmlと共通方式) --- */
   .vehicle-buttons {
     display: flex;
@@ -135,17 +140,103 @@
     font-size: 12px;
     text-decoration: underline;
   }
-  /* --- 点検項目・結果: 自由記述(チェックリスト化は次回候補のまま未着手) --- */
-  textarea.freeform {
+  /* --- 異常なし/異常あり 一次選択(daily.htmlと共通方式) --- */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .mode-toggle input[type="radio"] {
+    display: none;
+  }
+  .mode-toggle label {
+    flex: 1;
+    text-align: center;
+    padding: 16px 0;
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .mode-toggle label.ok { color: var(--color-ok); }
+  .mode-toggle label.ng { color: var(--color-warn); }
+  #mode-ok:checked + label.ok {
+    border-color: var(--color-ok);
+    background: #eaf5ee;
+  }
+  #mode-ng:checked + label.ng {
+    border-color: var(--color-warn);
+    background: #fbece8;
+  }
+  .mode-hint {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin: 8px 0 0;
+  }
+  /* --- チェックリスト本体: モードに応じて出し分け(daily.htmlフェーズ77の:has()方式を踏襲) --- */
+  .checklist-section { display: none; }
+  .card:has(#mode-ok:checked) .checklist-ok { display: block; }
+  .card:has(#mode-ng:checked) .checklist-ng { display: block; }
+
+  .checklist-ok .item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .checklist-ok .item-row:last-child { border-bottom: none; }
+  .checklist-ok .item-row .item-name { flex: 1; }
+  .checklist-ok .item-row .tag-ok {
+    font-size: 11px;
+    color: var(--color-ok);
+    background: #eaf5ee;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .checklist-ng .item-block {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .checklist-ng .item-block:last-child { border-bottom: none; }
+  .checklist-ng .item-block label.item-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+  }
+  .checklist-ng .item-note {
+    display: none;
     width: 100%;
+    margin-top: 8px;
     border: 1px solid var(--color-border);
     border-radius: 6px;
-    padding: 10px;
+    padding: 8px;
     font-size: 14px;
     resize: vertical;
-    min-height: 120px;
-    font-family: inherit;
+    min-height: 48px;
   }
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note {
+    display: block;
+  }
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-check-label-text {
+    color: var(--color-warn);
+  }
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note:placeholder-shown {
+    border-color: var(--color-warn);
+    background: #fdf4f1;
+  }
+  .item-note-warn {
+    display: none;
+    font-size: 11px;
+    color: var(--color-warn);
+    margin-top: 4px;
+  }
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note:placeholder-shown ~ .item-note-warn {
+    display: block;
+  }
+
   .submit-area {
     position: sticky;
     bottom: 0;
@@ -175,7 +266,7 @@
 </head>
 <body>
 <div class="draft-banner">
-  実装ドラフト・非公開 / フェーズ73(2026-10-06 01:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+  実装ドラフト・非公開 / フェーズ73作成・フェーズ82更新(2026-10-06 10:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
 </div>
 <div class="screen">
 
@@ -197,15 +288,54 @@
     </div>
   </section>
 
-  <!-- 2. 点検項目・結果(自由記述。daily区分のようなチェックリスト化は次回候補のまま未着手) -->
+  <!-- 2. 点検結果の一次選択 + チェックリスト(フェーズ82でdaily.html方式に合わせてチェックリスト化) -->
   <section class="card">
-    <h2>点検項目・結果</h2>
-    <p class="card-hint">
-      月次自主検査で確認した項目と結果を記入してください(例:
-      「かじ取り装置・制動装置・荷役装置・油圧装置・電気系統いずれも異常なし」
-      「フォーク先端に軽微な摩耗あり、次回要観察」等)。
+    <h2>点検結果</h2>
+    <div class="mode-toggle">
+      <input type="radio" name="mode" id="mode-ok" checked>
+      <label class="ok" for="mode-ok">異常なし</label>
+      <input type="radio" name="mode" id="mode-ng">
+      <label class="ng" for="mode-ng">異常あり</label>
+    </div>
+    <p class="mode-hint">
+      「異常なし」を選ぶと点検項目は全てチェック済みの状態で表示されます。「異常あり」を選ぶと
+      項目は全てオフの状態になり、異常があった項目をオンにすると自由記述欄が表示されます。
     </p>
-    <textarea class="freeform" placeholder="点検した項目・結果をそのまま記入してください"></textarea>
+
+    <!-- 異常なし: デフォルト全チェック済み(タグ表示のみ、個別オフは本モックアップでは省略) -->
+    <div class="checklist-section checklist-ok">
+      <div class="item-row"><span class="item-name">制動装置・クラッチ・操縦装置</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">荷役装置・油圧装置</span><span class="tag-ok">✓ 異常なし</span></div>
+      <div class="item-row"><span class="item-name">ヘッドガード・バックレスト</span><span class="tag-ok">✓ 異常なし</span></div>
+    </div>
+
+    <!-- 異常あり: デフォルト全オフ、チェックすると自由記述欄が出現 -->
+    <div class="checklist-section checklist-ng">
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">制動装置・クラッチ・操縦装置</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">荷役装置・油圧装置</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
+      </div>
+      <div class="item-block">
+        <label class="item-check">
+          <input type="checkbox">
+          <span class="item-check-label-text">ヘッドガード・バックレスト</span>
+        </label>
+        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
+      </div>
+    </div>
   </section>
 
   <!-- 3. 点検者名・実施日(デフォルト値のダミー表示、daily区分と共通方式) -->

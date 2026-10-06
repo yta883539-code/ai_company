@@ -59,12 +59,33 @@ async function checkAnnual(page) {
   check('annual: 検査業者名欄に入力すると警告が消える', !(await warn.isVisible()));
 }
 
-async function checkIndexAndMonthly(page) {
+async function checkIndex(page) {
   await page.goto('file://' + path.join(MOCKUP_DIR, 'index.html'));
   check('index: daily/monthly/annualへのリンクが存在する', (await page.locator('a[href="daily.html"]').count()) > 0 && (await page.locator('a[href="monthly.html"]').count()) > 0 && (await page.locator('a[href="annual.html"]').count()) > 0);
+}
 
+// フェーズ82でdaily.html同型のチェックリスト(:has()による出し分け)をmonthly.htmlにも
+// 移植したため、daily用のcheckDaily()と同じ観点をmonthly.htmlにも適用する。
+async function checkMonthly(page) {
   await page.goto('file://' + path.join(MOCKUP_DIR, 'monthly.html'));
   check('monthly: ページが例外なく読み込める', (await page.title()).length > 0);
+
+  check('monthly: 初期表示は異常なしチェックリストのみ表示', await page.locator('.checklist-ok').isVisible() && !(await page.locator('.checklist-ng').isVisible()));
+
+  await page.locator('label[for="mode-ng"]').click();
+  check('monthly: 異常ありを選ぶとチェックリストが切り替わる', !(await page.locator('.checklist-ok').isVisible()) && await page.locator('.checklist-ng').isVisible());
+
+  const firstBlock = page.locator('.item-block').first();
+  const firstNote = firstBlock.locator('.item-note');
+  const firstWarn = firstBlock.locator('.item-note-warn');
+  check('monthly: 項目未チェックの間は自由記述欄が非表示', !(await firstNote.isVisible()));
+
+  await firstBlock.locator('label.item-check').click();
+  check('monthly: 項目チェックで自由記述欄が表示される', await firstNote.isVisible());
+  check('monthly: 自由記述欄が空のままだと警告が表示される', await firstWarn.isVisible());
+
+  await firstNote.fill('ブレーキの効きがやや甘い');
+  check('monthly: 自由記述欄に入力すると警告が消える', !(await firstWarn.isVisible()));
 }
 
 (async () => {
@@ -73,7 +94,8 @@ async function checkIndexAndMonthly(page) {
   try {
     await checkDaily(page);
     await checkAnnual(page);
-    await checkIndexAndMonthly(page);
+    await checkIndex(page);
+    await checkMonthly(page);
   } finally {
     await browser.close();
   }
