@@ -1274,3 +1274,26 @@
   `.github/workflows/forklift-pasha-tests.yml`にPlaywrightインストール・本スクリプト
   実行のステップを追加しCI上でも実ブラウザ検証を実行するようにした。ローカル実行は
   ブラウザ検証11件・Python単体テスト39件・schema検証11件いずれもパス)
+- フェーズ79(2026-10-06 07:00 UTC追加対応): フェーズ78の次回候補(1)「コミット後のCI
+  実行結果確認」に従い確認したところ、`forklift-pasha tests`ワークフローが実際には
+  `conclusion: failure`で終了していたことを発見した(run id 37427760725)。ジョブログ
+  (`mcp__github__get_job_logs`)により、「Run browser mockup regression checks」ステップが
+  `Error: Cannot find module 'playwright'`で失敗していたことを確認した。原因は、
+  `npx playwright install --with-deps chromium`がブラウザバイナリのみをダウンロードし、
+  `playwright`npmパッケージ自体を`node_modules`にインストールしないためで、本エージェント
+  実行環境ではグローバルインストール済みのパッケージが存在したためローカル実行時には問題が
+  表面化していなかった(詳細はweb-form-ui-design.mdフェーズ79追記参照)。
+  `.github/workflows/forklift-pasha-tests.yml`の該当ステップを、`ventures/forklift-pasha`を
+  working-directoryとして`npm install --no-save playwright@1.56.1`実行後に
+  `npx playwright install --with-deps chromium`を実行する2段階に修正した。Node.jsのモジュール
+  解決が祖先ディレクトリを遡って`node_modules`を探索することをリポジトリ外のscratchpad上の
+  検証で確認した上で修正した。あわせて`.gitignore`に`node_modules/`を追加した(Python用の
+  除外のみでNode.js用の除外が無かった記載漏れ)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)修正後のCI実行結果の再確認、(2)monthly区分をチェックリスト化する場合に同じ落とし穴を
+  避ける設計指針の明文化(フェーズ77から持ち越し)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-06 07:00 UTC(フェーズ79: コミット後のCI実行結果確認でフェーズ78の
+  Playwrightステップが`Cannot find module 'playwright'`で失敗していたことを発見。
+  `npm install --no-save playwright@1.56.1`を先行実行するよう`.github/workflows/
+  forklift-pasha-tests.yml`を修正し、`.gitignore`に`node_modules/`を追加した。修正後の
+  CI実行結果の再確認は次回候補)

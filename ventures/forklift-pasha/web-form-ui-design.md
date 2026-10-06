@@ -184,3 +184,37 @@ CI実行結果の確認は次回候補とする(フェーズ30で確立した`mc
 `.github/workflows/forklift-pasha-tests.yml`にPlaywrightインストール・本スクリプト実行の
 ステップを追加し、CI上でも実ブラウザ検証を実行するようにした。ローカル実行は11件全件
 パスを確認。コミット後のCI実行結果確認は次回候補)
+
+## フェーズ79追記: CI上でのPlaywright実行失敗(`Cannot find module 'playwright'`)の修正
+
+フェーズ78の次回候補(1)「コミット後のCI実行結果確認」に従い、`mcp__github__actions_list`・
+`mcp__github__get_job_logs`でコミット後のCI実行結果を確認したところ、`forklift-pasha tests`
+ワークフローが`conclusion: failure`で終了していた(run id 37427760725)。ジョブログにより、
+「Run browser mockup regression checks」ステップが`Error: Cannot find module 'playwright'`で
+即時失敗していたことが判明した。原因は、直前の「Install Playwright」ステップが
+`npx --yes playwright@1.56.1 install --with-deps chromium`のみを実行しており、これは
+ブラウザバイナリ(Chromium本体)をダウンロードするだけで、`playwright`npmパッケージ自体を
+`node_modules`にインストールするものではなかったこと。本エージェント実行環境ではグローバル
+にインストール済みの`playwright`パッケージ(`/opt/node-tools/node_modules/playwright`)が
+存在するためローカル実行(フェーズ78時点)では問題が表面化せず、依存関係が何もない新規の
+GitHub Actions runner上で初めて露見した。
+
+**修正内容**: `.github/workflows/forklift-pasha-tests.yml`の該当ステップを、
+`ventures/forklift-pasha`をworking-directoryとして`npm install --no-save playwright@1.56.1`
+(npmパッケージ自体を`node_modules`にインストール)した後に`npx playwright install
+--with-deps chromium`(ブラウザバイナリをダウンロード)を実行する2段階に変更した。
+Node.jsのモジュール解決は`require`元のファイルから祖先ディレクトリを遡って`node_modules`を
+探索するため、`ventures/forklift-pasha/node_modules`に置けば`prototype/browser_mockup_
+checks.js`からも解決できることを、scratchpad上の分離した検証ディレクトリ(リポジトリ外)で
+`npm install --no-save playwright@1.56.1`実行後に`(cd prototype && node -e "require.resolve
+('playwright')")`相当の確認により確かめた。あわせて、今回の`node_modules`生成を教訓に
+`.gitignore`に`node_modules/`を追加した(.gitignoreには元々`__pycache__/`等Python用の
+除外のみでNode.js用の除外が無かった記載漏れ)。修正後のワークフロー定義自体はローカルの
+`python3`/`node`実行環境では再現できない(GitHub Actionsのクリーンな依存関係から
+インストールする挙動が前提)ため、コミット後に再度CI実行結果を確認する。
+
+最終更新: 2026-10-06 07:00 UTC(フェーズ79: コミット後のCI実行結果確認で、フェーズ78の
+Playwrightステップが`Cannot find module 'playwright'`で失敗していたことを発見。原因は
+`npx playwright install`がnpmパッケージ自体をインストールしないことだったため、
+`npm install --no-save playwright@1.56.1`を先行実行するよう修正した。.gitignoreに
+`node_modules/`を追加。修正後のCI実行結果の再確認は次回候補)
