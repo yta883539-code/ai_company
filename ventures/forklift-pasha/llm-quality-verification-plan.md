@@ -23,7 +23,7 @@ OOS1・II1〜II3の8正常系ケースを実LLMに投入し、以下の観点ご
 | 4 | type=dailyのreminder_notice常時null(mvp-flow-draft.md) | G1(daily)で`reminder_notice`が常にnullであり、monthly/annual(G2〜G4)との出し分けが保たれているか | 機械チェック(`inspection_record.type`別のnull/非null一致) | G1〜G4 |
 | 5 | 厳守事項4(点検・検査の実施自体を代行・指示しない) | 出力文言に「点検を実施します」等、AIが点検・検査行為自体を代行するかのような記述が混入していないか | 人手のみ | G1〜G4全件 |
 | 6 | 厳守事項6(対象外要求への不応答) | OOS1で`inspection_record`/`reminder_notice`が共にnullのまま定型文言のみ返しているか | 機械チェック(`status=="out_of_scope"`時に両フィールドがnullであることの確認) | OOS1 |
-| 7 | 厳守事項7(ですます調・絵文字不使用) | 絵文字が一切含まれていないか、文体が統一されているか | 機械チェック(他venture同様のpost_generation_checks.py相当の絵文字検出、本venture未実装のため実装候補とする)+人手(ですます調の文体統一は自由文であり機械チェックでの網羅確認は困難) | 全件 |
+| 7 | 厳守事項7(ですます調・絵文字不使用) | 絵文字が一切含まれていないか、文体が統一されているか | 機械チェック(他venture同様のprototype/post_generation_checks.pyの絵文字検出。フェーズ8で実装済み)+人手(ですます調の文体統一は自由文であり機械チェックでの網羅確認は困難) | 全件 |
 
 ## 検証手順(承認後に着手する想定)
 
@@ -40,19 +40,29 @@ OOS1・II1〜II3の8正常系ケースを実LLMに投入し、以下の観点ご
 ## 記録先
 
 aircon-pasha・course-set-pasha・kura-pashaはllm-quality-verification-results-template.mdを
-別ファイルとして用意している。本ventureも同じ方針を踏襲し、実LLM検証着手の承認が下りた時点で
-llm-quality-verification-results-template.mdを別ファイルとして切り出す(先行して本文書だけを
-用意し、結果記録用テンプレートは承認が近づいた段階で作成する判断とする)。
+別ファイルとして用意している。本ventureも同じ方針を踏襲し、フェーズ9で
+llm-quality-verification-results-template.mdを別ファイルとして切り出し済み(承認を待たず
+先行して空の記録表のみ用意し、実際の記入は実LLM接続の承認が下りた時点で行う方針)。
 
 ## 残る未確定事項
 
 - 「3回中1回でも不合格なら要改善」という基準は他venture同様に暫定であり、実際の生成結果を
   見た上で緩め・厳しめのいずれに調整すべきかは実測後に見直す。
-- 厳守事項7(絵文字不使用)の機械チェックスクリプト(他ventureのpost_generation_checks.py相当)
-  は本ventureにはまだ実装されていない。承認前の机上整備として次回候補とする。
 
 ## 次の課題
 
-- 厳守事項7の機械チェック用スクリプト(prototype/post_generation_checks.py相当)の新規実装。
 - 実顧客ヒアリング(送信・連絡が必要なためオーナー許可待ち)。
 - tech-stack.md・ci-setup.md等、他venture並みの運用文書の整備(他venture対比で未着手の項目)。
+
+## 更新履歴
+
+- フェーズ87(2026-10-06 15:00 UTC定例更新): 本文書フェーズ7作成時点では未着手だった
+  厳守事項7の機械チェック(prototype/post_generation_checks.py)がフェーズ8で実装済み、
+  結果記録テンプレート(llm-quality-verification-results-template.md)もフェーズ9で
+  切り出し済みであるにもかかわらず、本文書の「検証観点」表7行目・「記録先」節・
+  「残る未確定事項」「次の課題」節がフェーズ7時点の記述のまま更新されていなかった
+  記載漏れを発見し、是正した。コード(prototype/)の変更はないため回帰確認として
+  `python3 prototype/run_all_tests.py`(41件)・`python3 schema/validate_test_cases.py`
+  (11件)・`node prototype/browser_mockup_checks.js`(17件)を再実行し、いずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
