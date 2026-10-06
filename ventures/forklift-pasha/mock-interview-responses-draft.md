@@ -39,11 +39,11 @@ customer-interview-design.mdの質問1〜12それぞれについて、(1)もっ�
 本venture固有の論点(厳守事項3・daily/monthly/annual分類粒度)に直結するため、ト書きへの
 補足候補を記録した意義が大きい。
 
-## interview-rehearsal-script.mdへの反映(次回候補)
+## interview-rehearsal-script.mdへの反映
 
 今回発見した3件の追記候補(Q6の点検者/入力者分離ケースの補足、Q8の月次法定義務への言及補足、
-Q11の「その他」自由記述の書き留め手順)は、台本の実質的な書き換えを伴うため、本フェーズでは
-発見事項の記録に留め、実際のinterview-rehearsal-script.md本文への反映は次回候補とする。
+Q11の「その他」自由記述の書き留め手順)は、フェーズ91(2026-10-06 19:00 UTC)で
+interview-rehearsal-script.mdの該当ト書き(Q6・Q8・Q11)に反映済み。
 
 ## 残るリスク(机上検証では解消できない事項)
 
@@ -56,7 +56,6 @@ Q11の「その他」自由記述の書き留め手順)は、台本の実質的�
 
 ## 次のステップ候補
 
-- 上記3件の追記候補をinterview-rehearsal-script.mdの該当ト書きに反映する。
 - 上記チェックリストに沿った社内リハーサルの実施(実施自体はオーナー内部で完結するため
   許可不要)。
 - channel-partner-exploration.md系の間接チャネル(建荷協・労働局経由)での実在候補確保が
