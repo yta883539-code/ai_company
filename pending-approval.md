@@ -107,3 +107,8 @@ venture: ventures/course-set-pasha/
 venture: ventures/forklift-pasha/
 内容: フェーズ31〜69で準備してきた、顧客発見のための間接チャネル(公益社団法人建設荷役車両安全技術協会〈建荷協〉本部・地方支部〈特にAランク7支部: 群馬・山梨・広島・栃木・兵庫・茨城・福岡〉、および特定自主検査強調月間〈毎年11月〉を所管する都道府県労働局〈千葉・岐阜で部署名確認済み〉)への実際の電話・メール連絡(kenkakyo-proposal-draft.md・branch-outreach-individual-drafts.mdで下書き済みの提案文面を使用)を実施したい。
 理由: 本venture想定顧客(専任の安全衛生担当者を置かない個人経営・小規模の倉庫業・運送業・建設業)は検索エンジン経由では屋号を直接発見しづらく(フェーズ14・16・20・21・22で構造的な限界を確認済み)、建荷協・労働局経由の間接チャネルが現時点で最も有望な顧客発見経路と判断した。提案文面の下書き・送付先候補の調査(電話番号・個別化情報の確認)はフェーズ65・67までに完了しているが、実際の外部団体・行政機関への電話・メール送信は外部への送信行為に該当しオーナーの許可が必要なアクションのため、line-reservation-ai(2026-07-30 01:58 UTC承認済み)等と同様に、対象先・文面の確定を含めオーナーの直接指示を待つ。本エージェントに電話発信機能はないため、承認が得られた場合の実行可能範囲は、電話連絡はオーナー自身が行い、メール送信はメール連携接続後に送信直前の毎回確認を経てのみ行う、という他venture同種案件と同じ運用を想定している。
+
+日時: 2026-10-06 22:00 UTC
+venture: ventures/forklift-pasha/
+内容: 本venture自体の稼働に必須の前提である、実際のStripeアカウントの開設(本人確認・銀行口座登録を含む)、本番用APIキー・Webhook署名シークレットの取得、`plan_id`(ライト/スタンダード/複数台、pricing-plan.md)→Stripe Price IDの対応表確定、およびStripe側Webhookエンドポイントの登録を行いたい。
+理由: tech-stack.md(フェーズ70)・pricing-plan.mdはいずれも`stripe_customer_id`等のフィールド名を前提に設計しており、他venture(aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)と同じStripeを決済代行として想定しているが、実際のStripeアカウント開設・本番APIキー取得自体はまだ着手されていない。course-set-pasha(2026-09-27 03:00 UTC記載)・kura-pasha(2026-09-27 08:00 UTC記載)・aircon-pasha(2026-09-27 09:00 UTC記載)で発見された同種の記載漏れ(実Stripeアカウント接続がpending-approval.mdに一度も記録されていなかった)と同じ状態がforklift-pashaにも存在していたため、legal-notices-draft.md(フェーズ94)の作成過程でこの記載漏れを発見し、今回新規に記録した。なお本ventureは入力チャネルがLINE非依存の汎用Webフォーム(tech-stack.mdフェーズ70)であるため、他venture(course-set-pasha・line-reservation-ai)が採用するLIFF経由IDトークン検証は前提としておらず、決済時の本人確認方式は別途検討が必要(未着手、次回候補)。承認が得られれば、実APIキー・Webhookシークレットの設定、Stripe Webhookエンドポイント登録、plan_id→Price ID対応表の確定から着手する。
