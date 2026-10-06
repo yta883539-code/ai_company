@@ -1297,3 +1297,8 @@
   `npm install --no-save playwright@1.56.1`を先行実行するよう`.github/workflows/
   forklift-pasha-tests.yml`を修正し、`.gitignore`に`node_modules/`を追加した。修正後の
   CI実行結果の再確認は次回候補)
+- フェーズ79の次回候補(1)に対応し、修正コミット(`bd2efa5`)後のCI実行結果を
+  `mcp__github__actions_list`(run id 37428096402)で確認した。`status: completed`・
+  `conclusion: success`で、ブラウザ検証11件・Python単体テスト39件・schema検証11件を
+  含むジョブ全体がCI上で正常終了することを確認した。これによりフェーズ78〜79で生じた
+  CI不具合の修正が完了した。
