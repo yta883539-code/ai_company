@@ -1594,3 +1594,47 @@
   承認待ち事項1の時期的緊急性〈特定自主検査強調月間11月開始まで残り約25日〉を
   追記。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件
   いずれもパス)
+- フェーズ94(2026-10-06 22:00 UTC定例更新): 他4venture(aircon-pasha・
+  course-set-pasha・kura-pasha・line-reservation-ai)対比で本venture未着手だった
+  特商法表記・プライバシーポリシー草案(legal-notices-draft.md)を新規作成した
+  (【要記入】箇所あり、実際のLP公開は別途オーナー承認が必要)。作成過程で、
+  course-set-pasha(2026-09-27 03:00 UTC記載)・kura-pasha(同08:00 UTC記載)・
+  aircon-pasha(同09:00 UTC記載)で発見された同種の記載漏れ(実Stripeアカウント
+  接続の承認依頼がpending-approval.mdに一度も記録されていなかった)と同じ状態が
+  forklift-pashaにも存在していたことを発見し、承認待ち事項2として新規に記録した
+  (pending-approval.md 2026-10-06 22:00 UTC記載)。launch-readiness-checklist.md
+  (フェーズ92)も承認待ち事項2件の一覧として更新した。コード変更なし、回帰確認
+  として`python3 prototype/run_all_tests.py`(4ファイルOK)・`python3
+  schema/validate_test_cases.py`(11件)・`node prototype/browser_mockup_checks.js`
+  (17件)を再実行し、いずれもパスすることを確認した。なお本エントリ自体は、
+  コミット時にREADME.mdへのフェーズ94追記が漏れていたため(フェーズ91と同種の
+  記載漏れ)、フェーズ95で遡って追記した記載漏れ是正である。
+- 最終更新: 2026-10-06 22:00 UTC(フェーズ94: 他venture対比で未着手だった
+  legal-notices-draft.mdを新規作成し、その過程で発見したStripeアカウント開設の
+  記載漏れをpending-approval.mdに承認待ち事項2として追加した。コード変更なし、
+  テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)
+- フェーズ95(2026-10-06 23:00 UTC定例更新): launch-readiness-checklist.md
+  (フェーズ94)「次回候補」(3)に残っていた「LIFF非依存の決済時本人確認方式の
+  検討」に着手した。course-set-pasha/stripe-customer-id-linking-design.md
+  (フェーズ97)のclient_reference_id紐付け設計を踏襲しつつ、本ventureはLINE
+  Messaging API・LIFFに依存しないWebフォームであるためLINE側の本人認証が
+  存在しない点を踏まえ、サーバー側で発行する推測不能なアクセストークンを
+  operator_idとして使う方式(payment-identity-verification-design.md新規作成)
+  を設計した。firestore-data-model.md(フェーズ70)が「メールアドレス軸/
+  ランダム発行」の両論未確定としていたoperator_idの割り振り方針を、本設計を
+  受けてランダム発行方式に確定・更新した。直前のフェーズ94がREADME.mdへの
+  反映漏れ(フェーズ91と同種)であったことも発見し、上記の形で遡って是正した。
+  コード(prototype/・web-form-mockup/)の変更は発生していないため回帰確認として
+  `python3 prototype/run_all_tests.py`(4ファイルOK)・`python3
+  schema/validate_test_cases.py`(11件)・`node prototype/browser_mockup_checks.js`
+  (17件)を再実行し、いずれも全件パスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)アクセストークン漏洩時の
+  再発行設計、(2)メールアドレス変更時の旧トークン失効の扱い、(3)承認待ち
+  事項1・2(建荷協・労働局連絡/Stripeアカウント開設)がオーナーから承認された
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-06 23:00 UTC(フェーズ95: 決済時の本人確認方式〈LIFF非依存〉を
+  payment-identity-verification-design.mdとして設計し、アクセストークン方式に
+  確定。firestore-data-model.mdのoperator_id割り振り方針も合わせて更新。フェーズ94
+  のREADME.md反映漏れも発見・是正。コード変更なし、テスト4ファイル・schema検証
+  11件・ブラウザ検証17件いずれもパス)

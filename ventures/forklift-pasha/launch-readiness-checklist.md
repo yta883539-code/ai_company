@@ -32,6 +32,10 @@ launch-readiness-checklist.mdで承認待ち事項を依存順に一覧化済み
 - 特商法表記・プライバシーポリシー草案(legal-notices-draft.md): 他venture対比で
   未着手だったcross-venture parityギャップを解消し、フェーズ94で新規作成(【要記入】
   箇所あり、実際のLP公開は別途オーナー承認が必要)。
+- 決済時の本人確認方式(payment-identity-verification-design.md): LINE非依存のため
+  LIFF経由IDトークン検証が使えない本venture固有の課題として、フェーズ95でアクセス
+  トークン方式を設計(operator_idをランダム発行方式に確定、firestore-data-model.md
+  も合わせて更新)。
 
 ## 承認待ち事項(pending-approval.md記載の要約)
 
@@ -60,7 +64,8 @@ launch-readiness-checklist.mdで承認待ち事項を依存順に一覧化済み
    記載漏れも発見・是正)。
    → 承認後: 実APIキー・Webhookシークレットの設定、plan_id→Price ID対応表の確定から
    着手する。なお本ventureはLINE非依存のWebフォームであり、LIFF経由IDトークン検証は
-   前提としないため、決済時の本人確認方式は別途検討が必要(未着手)。
+   前提としないため、決済時の本人確認方式は別途検討が必要だったが、フェーズ95で
+   payment-identity-verification-design.md(アクセストークン方式)として設計済み。
 
 本ventureは他4ventureと異なり、LINE公式アカウントの開設は入力チャネルがLINE非依存の
 汎用Webフォーム(tech-stack.mdフェーズ70暫定決定)であるため不要と見込まれる。上記2の
@@ -73,10 +78,16 @@ Stripeアカウント開設が、本venture稼働に必須の外部サービス�
 時期的な緊急性(月間開始まで残り約25日)があるため、承認判断自体を急いでいただきたい
 旨を次回のオーナー向け案内でも明示する。承認が得られるまでの間は、(1)annual区分の
 法定保存義務との整合確認(legal-notices-draft.md次回候補(1))、(2)data-retention-
-policy.mdの切り出し、(3)LIFF非依存の決済時本人確認方式の検討、または他venture・
-アイデア領域の前進を行う。
+policy.mdの切り出し、(3)payment-identity-verification-design.md(フェーズ95)の
+残課題(アクセストークン漏洩時の再発行設計・メールアドレス変更時の扱い)、または
+他venture・アイデア領域の前進を行う。
 
 最終更新: 2026-10-06 22:00 UTC(フェーズ94: 他venture対比で未着手だった
 legal-notices-draft.mdを新規作成し、その過程で発見したStripeアカウント開設の
 記載漏れを承認待ち事項2として追加した。コード変更なし、テスト4ファイル・
 schema検証11件・ブラウザ検証17件いずれもパス)
+最終更新: 2026-10-06 23:00 UTC(フェーズ95: 次回候補(3)だった決済時の本人確認方式
+〈LIFF非依存〉をpayment-identity-verification-design.mdとして設計し、アクセス
+トークン方式に確定。firestore-data-model.mdのoperator_id割り振り方針も合わせて
+更新した。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件
+いずれもパス)
