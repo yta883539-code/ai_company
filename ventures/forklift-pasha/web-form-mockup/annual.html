@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  フォークリフトパシャっと 特定自主検査(annual)入力画面 実装ドラフト(フェーズ74・2026-10-06 02:00 UTC)
+  フォークリフトパシャっと 特定自主検査(annual)入力画面 実装ドラフト(フェーズ76・2026-10-06 05:00 UTC)
 
   位置づけ: web-form-ui-design.md(フェーズ71・73)「未検証・残課題」が次回候補としていた
   annual区分の画面モックアップに対応するもの。daily.html(フェーズ72)・monthly.html
@@ -17,6 +17,15 @@
   しようとした場合の注意書きを画面上に明記する(実際の送信時バリデーションはJS不使用
   のため未実装、将来のフォーム実装時の挙動を示すラベルのみ)。
 
+  フェーズ76での変更: フェーズ75の次回候補(1)「JS不使用方針を維持したまま検査業者名欄の
+  未入力を視覚的に強調する表示(CSSのみ)の検討」に対応。これまでは常時warn-border固定表示
+  (「このドラフトでは常に未入力の状態を表示しています」との注記付き)だったが、CSS擬似クラス
+  :placeholder-shownを用いることで、JSを使わずに実際のブラウザ上での入力有無に応じて警告表示
+  が動的に切り替わるようにした(値を入力しプレースホルダーが消えると、警告枠線・注意書きも
+  連動して消える)。:placeholder-shownはCSS Selectors Level 4で標準化された疑似クラスで、
+  input/textarea要素がプレースホルダーを表示している(=値が空の)間のみ真になるため、
+  「JS不使用」の制約を破らずに動的な見た目の変化を実現できる。
+
   未実装・意図的なプレースホルダー:
   - JSは一切使用せず、CSSのみで構成している(daily.html・monthly.htmlと同じ方針)。
   - 送信ボタンは <button type="button" disabled> で、実際のフォーム送信・バックエンド接続には
@@ -24,8 +33,10 @@
   - 車両番号ボタン(1〜3号車)・点検者名・実施日のデフォルト値表示は、daily.html・
     monthly.html同様の静的なダミー値で再現したものであり、実際のlocalStorage相当の
     キャッシュ機構は未実装。
-  - 検査業者名欄は自由記述欄のダミー値(プレースホルダーのみ、入力済みの値は表示しない)
-    とし、未入力時の注意書き表示も静的なテキストであり実際の入力検証ロジックは未実装。
+  - 検査業者名欄の警告表示(枠線・注意書き)はCSSの:placeholder-shownで入力有無に連動する
+    ようになったが、schema/output.schema.jsonの厳守事項3に基づく実際の送信時バリデーション
+    (status=insufficient_inputの判定・送信自体のブロック)はバックエンド接続後の実装範囲で
+    あり本モックアップでは未実装(送信ボタン自体が常時disabled)。
   - 点検項目・結果の自由記述欄のプレースホルダー文例は、market-research.md記載の一般的な
     特定自主検査項目を参考にした例示であり、安衛則に基づく正式な項目一覧の確定(実LLM
     検証・実顧客ヒアリング後)は未着手。
@@ -138,13 +149,17 @@
     font-size: 14px;
     font-family: inherit;
   }
-  input.text-input.warn-border {
+  input.text-input:placeholder-shown {
     border-color: var(--color-warn);
+    background: #fdf4f1;
   }
   .field-warn {
     font-size: 11px;
     color: var(--color-warn);
     margin-top: 6px;
+  }
+  input.text-input:not(:placeholder-shown) ~ .field-warn {
+    display: none;
   }
   /* --- 点検者名・実施日: デフォルト値のダミー表示(daily.html/monthly.htmlと共通方式) --- */
   .prefill-row {
@@ -205,7 +220,7 @@
 </head>
 <body>
 <div class="draft-banner">
-  実装ドラフト・非公開 / フェーズ74(2026-10-06 02:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+  実装ドラフト・非公開 / フェーズ76(2026-10-06 05:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
 </div>
 <div class="screen">
 
@@ -234,8 +249,8 @@
       特定自主検査を実施した検査業者の名称を記入してください(未入力のまま記録しようとすると、
       確認のメッセージが表示される想定です)。
     </p>
-    <input type="text" class="text-input warn-border" placeholder="例: ○○検査サービス株式会社">
-    <p class="field-warn">※ このドラフトでは常に未入力の状態を表示しています(入力検証はJS未実装のため再現していません)</p>
+    <input type="text" class="text-input" placeholder="例: ○○検査サービス株式会社">
+    <p class="field-warn">※ 未入力の間、枠線と本文が警告表示になります(CSSの:placeholder-shownのみで実現。試しに文字を入力すると警告が消えます。送信時バリデーション自体は未実装)</p>
   </section>
 
   <!-- 3. 点検項目・結果(自由記述。monthly区分と同様、チェックリスト化は対象外) -->

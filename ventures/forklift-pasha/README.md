@@ -1198,3 +1198,22 @@
 - 最終更新: 2026-10-06 04:00 UTC(フェーズ75: web-form-mockup/index.htmlを新規作成し、
   daily/monthly/annual3区分への相対リンクのみで構成したトップページ〈画面遷移リンク集〉を
   JS不使用のCSSのみで実装した。コード変更なし、テスト4ファイル・schema検証11件いずれもパス)
+- フェーズ76(2026-10-06 05:00 UTC定例更新): フェーズ75の次回候補(1)「JS不使用方針を維持
+  したまま検査業者名欄の未入力を視覚的に強調する表示(CSSのみ)の検討」に対応し、
+  web-form-mockup/annual.htmlの検査業者名欄の警告表示を、常時固定表示(warn-border固定
+  クラス)からCSS擬似クラス:placeholder-shownを用いた動的表示に変更した。これにより、
+  実際にブラウザで開いて文字を入力すると(プレースホルダーが消えると)警告の枠線・注意書きが
+  自動的に消える、JSを使わない動的フィードバックが実現した(:placeholder-shownはCSS
+  Selectors Level 4で標準化された疑似クラスで、主要ブラウザで広くサポートされている)。
+  schema/output.schema.jsonの厳守事項3に基づく実際の送信時バリデーション(status=
+  insufficient_inputの判定・送信ブロック自体)は、送信ボタンが常時disabledのバックエンド
+  未接続のドラフトである以上本フェーズの対象外のままとした。コード(prototype/)の変更は
+  ないため回帰確認として`python3 prototype/run_all_tests.py`(4ファイル)・`python3
+  schema/validate_test_cases.py`(11件)を再実行し、いずれもパスすることを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)daily.html・monthly.htmlの他の必須項目
+  (点検者名等)にも同様のCSSのみの動的フィードバックを展開する余地の検討、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-06 05:00 UTC(フェーズ76: web-form-mockup/annual.htmlの検査業者名欄の
+  警告表示を、CSS:placeholder-shownを用いた動的表示〈入力すると警告が消える〉に変更した。
+  コード変更なし、テスト4ファイル・schema検証11件いずれもパス)
