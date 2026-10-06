@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと 特定自主検査(annual)入力画面 実装ドラフト(フェーズ74・2026-10-06 02:00 UTC)
+
+  位置づけ: web-form-ui-design.md(フェーズ71・73)「未検証・残課題」が次回候補としていた
+  annual区分の画面モックアップに対応するもの。daily.html(フェーズ72)・monthly.html
+  (フェーズ73)と同じ実装方針(JS不使用・送信ボタン無効化・外部公開なし・リポジトリ内の
+  静的ファイルに留める)を踏襲する。
+
+  monthly.htmlとの違い: web-form-ui-design.md「monthly/annual区分の入力画面」節の方針に
+  合わせ、annual区分はmonthly同様に点検項目・結果を自由記述欄とした上で、
+  inspector_company(検査業者名)を必須の自由記述欄として追加する。同節が「プルダウン化
+  (よく使う検査業者を事前登録)も将来的な改善候補とするが、本フェーズでは自由記述のまま
+  据え置く」としている方針どおり、本モックアップでもプルダウンではなく自由記述欄のまま
+  実装する。schema/output.schema.jsonの厳守事項3(annual区分でinspector_companyが欠落
+  している場合はstatus=insufficient_input)に対応し、検査業者名欄は未入力のまま送信
+  しようとした場合の注意書きを画面上に明記する(実際の送信時バリデーションはJS不使用
+  のため未実装、将来のフォーム実装時の挙動を示すラベルのみ)。
+
+  未実装・意図的なプレースホルダー:
+  - JSは一切使用せず、CSSのみで構成している(daily.html・monthly.htmlと同じ方針)。
+  - 送信ボタンは <button type="button" disabled> で、実際のフォーム送信・バックエンド接続には
+    一切つながっていない(実装・ホスティングはオーナー承認待ちの範囲、pending-approval.md参照)。
+  - 車両番号ボタン(1〜3号車)・点検者名・実施日のデフォルト値表示は、daily.html・
+    monthly.html同様の静的なダミー値で再現したものであり、実際のlocalStorage相当の
+    キャッシュ機構は未実装。
+  - 検査業者名欄は自由記述欄のダミー値(プレースホルダーのみ、入力済みの値は表示しない)
+    とし、未入力時の注意書き表示も静的なテキストであり実際の入力検証ロジックは未実装。
+  - 点検項目・結果の自由記述欄のプレースホルダー文例は、market-research.md記載の一般的な
+    特定自主検査項目を参考にした例示であり、安衛則に基づく正式な項目一覧の確定(実LLM
+    検証・実顧客ヒアリング後)は未着手。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特定自主検査 入力(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+    --color-warn: #b5402a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 4px 16px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .kubun {
+    margin-left: auto;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  .card .card-hint {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  .card .required {
+    color: var(--color-warn);
+    font-size: 11px;
+    font-weight: bold;
+    margin-left: 6px;
+  }
+  /* --- 車両番号: ボタン方式(保有3台以下、daily.html/monthly.htmlと共通方式) --- */
+  .vehicle-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .vehicle-buttons input[type="radio"] {
+    display: none;
+  }
+  .vehicle-buttons label {
+    flex: 1;
+    text-align: center;
+    padding: 14px 0;
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--color-muted);
+  }
+  .vehicle-buttons input[type="radio"]:checked + label {
+    border-color: var(--color-accent);
+    color: var(--color-accent-dark);
+    background: #fdf1e2;
+  }
+  /* --- 検査業者名: 必須の自由記述欄(annual区分のみ) --- */
+  input.text-input {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  input.text-input.warn-border {
+    border-color: var(--color-warn);
+  }
+  .field-warn {
+    font-size: 11px;
+    color: var(--color-warn);
+    margin-top: 6px;
+  }
+  /* --- 点検者名・実施日: デフォルト値のダミー表示(daily.html/monthly.htmlと共通方式) --- */
+  .prefill-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .prefill-row:last-child { border-bottom: none; }
+  .prefill-row .value {
+    color: var(--color-fg);
+    font-weight: bold;
+  }
+  .prefill-row .edit-link {
+    color: var(--color-accent-dark);
+    font-size: 12px;
+    text-decoration: underline;
+  }
+  /* --- 点検項目・結果: 自由記述(monthly.html同様、チェックリスト化は対象外) --- */
+  textarea.freeform {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+  }
+  .submit-area {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, var(--color-bg) 70%, transparent);
+    padding: 16px 4px 8px;
+  }
+  button.submit-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-accent);
+    color: #fff;
+  }
+  button.submit-btn:disabled {
+    opacity: 0.6;
+  }
+  .submit-caption {
+    text-align: center;
+    font-size: 11px;
+    color: var(--color-muted);
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ74(2026-10-06 02:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <span class="logo">フォークリフトパシャっと</span>
+    <span class="kubun">特定自主検査(annual)</span>
+  </header>
+
+  <!-- 1. 車両番号(保有3台以下: ボタン表示、daily/monthly区分と共通方式) -->
+  <section class="card">
+    <h2>車両番号</h2>
+    <div class="vehicle-buttons">
+      <input type="radio" name="vehicle" id="vehicle-1" checked>
+      <label for="vehicle-1">1号車</label>
+      <input type="radio" name="vehicle" id="vehicle-2">
+      <label for="vehicle-2">2号車</label>
+      <input type="radio" name="vehicle" id="vehicle-3">
+      <label for="vehicle-3">3号車</label>
+    </div>
+  </section>
+
+  <!-- 2. 検査業者名(annual区分のみの必須項目。厳守事項3: 欠落時はstatus=insufficient_input) -->
+  <section class="card">
+    <h2>検査業者名<span class="required">必須</span></h2>
+    <p class="card-hint">
+      特定自主検査を実施した検査業者の名称を記入してください(未入力のまま記録しようとすると、
+      確認のメッセージが表示される想定です)。
+    </p>
+    <input type="text" class="text-input warn-border" placeholder="例: ○○検査サービス株式会社">
+    <p class="field-warn">※ このドラフトでは常に未入力の状態を表示しています(入力検証はJS未実装のため再現していません)</p>
+  </section>
+
+  <!-- 3. 点検項目・結果(自由記述。monthly区分と同様、チェックリスト化は対象外) -->
+  <section class="card">
+    <h2>点検項目・結果</h2>
+    <p class="card-hint">
+      検査業者から報告を受けた点検項目と結果を記入してください(例:
+      「かじ取り装置・制動装置・荷役装置・油圧装置・電気系統いずれも異常なし、検査標章発行済み」
+      「マスト摩耗により部品交換を指示された」等)。
+    </p>
+    <textarea class="freeform" placeholder="検査業者からの報告内容をそのまま記入してください"></textarea>
+  </section>
+
+  <!-- 4. 点検者名・実施日(デフォルト値のダミー表示、daily/monthly区分と共通方式) -->
+  <section class="card">
+    <h2>点検者・実施日</h2>
+    <div class="prefill-row">
+      <span>点検者名</span>
+      <span><span class="value">山田 太郎</span> <a class="edit-link" href="#">変更</a></span>
+    </div>
+    <div class="prefill-row">
+      <span>実施日</span>
+      <span><span class="value">2026-10-06</span> <a class="edit-link" href="#">変更</a></span>
+    </div>
+  </section>
+
+  <!-- 5. 送信 -->
+  <div class="submit-area">
+    <button type="button" class="submit-btn" disabled>この内容で記録する</button>
+    <p class="submit-caption">※ ドラフトのため送信は無効化されています</p>
+  </div>
+
+</div>
+</body>
+</html>

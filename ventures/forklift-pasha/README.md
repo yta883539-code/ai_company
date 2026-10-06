@@ -1143,3 +1143,40 @@
   daily区分入力画面の実際の画面モックアップ〈車両ボタン・異常なし/あり出し分け・個別項目
   自由記述欄・送信ボタン無効化〉をJS不使用のCSSのみで再現した。コード変更なし、
   テスト4ファイル・schema検証11件いずれもパス)
+- フェーズ73(2026-10-06 01:00 UTC定例更新): フェーズ71・72の次回候補だったmonthly区分
+  (月次自主検査)の入力画面モックアップをweb-form-mockup/monthly.htmlとして新規作成した
+  (daily.htmlと同じ位置づけ・JS不使用・送信ボタン無効化・外部公開なし)。点検項目・結果は
+  web-form-ui-design.mdの方針どおり自由記述欄のまま実装し、チェックリスト化の是非は未判断で
+  据え置いた。web-form-ui-design.mdの「未検証・残課題」も本フェーズの成果に合わせて更新した
+  (daily・monthly図版化済み、annual区分の画面モックアップが未着手で次回候補である旨を明記)。
+  コード(prototype/)の変更はないため回帰確認として`python3 prototype/run_all_tests.py`
+  (4ファイル)・`python3 schema/validate_test_cases.py`(11件)を再実行し、いずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)annual区分の画面
+  モックアップ作成(inspector_company欄を含む)、(2)他venture・アイデア領域の前進。
+  (本エントリは次回フェーズの監査過程で、作業自体はフェーズ73として実施済みだったものの
+  README.mdへの記載がコミット時に漏れていたことが判明したため、事後的に追記した。)
+- 最終更新: 2026-10-06 01:00 UTC(フェーズ73: web-form-mockup/monthly.htmlを新規作成し、
+  月次自主検査〈monthly〉区分入力画面の実際の画面モックアップ〈車両ボタン・点検項目自由
+  記述欄・送信ボタン無効化〉をJS不使用のCSSのみで再現した。コード変更なし、テスト4ファイル・
+  schema検証11件いずれもパス)
+- フェーズ74(2026-10-06 02:00 UTC定例更新): フェーズ73の次回候補(1)「annual区分の画面
+  モックアップ作成(inspector_company欄を含む)」に着手し、web-form-mockup/annual.htmlを
+  新規作成した。daily.html・monthly.htmlと同じ実装方針(JS不使用・送信ボタン無効化・外部
+  公開なし)を踏襲しつつ、annual区分固有の必須項目である検査業者名(inspector_company)を
+  自由記述の必須欄として追加し、厳守事項3(annual区分でinspector_companyが欠落している
+  場合はstatus=insufficient_input)を踏まえた未入力時の注意書きを画面上に明記した(実際の
+  送信時バリデーションはJS不使用のため静的な表示のみで次回候補とした)。検査業者名の
+  プルダウン化はweb-form-ui-design.mdの方針どおり本フェーズでも据え置き、自由記述欄のまま
+  実装した。これによりdaily/monthly/annualの3区分すべての画面モックアップが完成したため、
+  web-form-ui-design.mdの「未検証・残課題」を更新した。コード(prototype/)の変更はないため
+  回帰確認として`python3 prototype/run_all_tests.py`(4ファイル)・`python3 schema/validate_
+  test_cases.py`(11件)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)annual区分の検査業者名欄の送信時バリデーション(JS実装)、
+  (2)3区分共通のトップページ(画面遷移リンク集)の実装、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-06 02:00 UTC(フェーズ74: web-form-mockup/annual.htmlを新規作成し、
+  特定自主検査〈annual〉区分入力画面の実際の画面モックアップ〈検査業者名必須欄・点検項目
+  自由記述欄・送信ボタン無効化〉をJS不使用のCSSのみで再現した。daily/monthly/annualの
+  3区分すべての画面モックアップが完成。コード変更なし、テスト4ファイル・schema検証11件
+  いずれもパス)
