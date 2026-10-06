@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!--
-  フォークリフトパシャっと 始業前点検(daily)入力画面 実装ドラフト(フェーズ72・2026-10-06 00:00 UTC)
+  フォークリフトパシャっと 始業前点検(daily)入力画面 実装ドラフト
+  (フェーズ72・2026-10-06 00:00 UTC作成、フェーズ77・2026-10-06 06:00 UTCで一部更新)
 
   位置づけ: web-form-ui-design.md(フェーズ71)が「未検証・残課題」として挙げた、
   「landing-page-wireframe.md同様の図版化(実際の画面モックアップ)」に対応するもの。
@@ -11,6 +12,20 @@
   対象: daily区分(始業前点検)のみ。web-form-ui-design.mdが「本フェーズではdaily区分のみ
   チェックリスト化し、monthly/annualは次回候補とする」としている方針に合わせ、本モックアップも
   daily区分に限定する(monthly/annualの画面モックアップは次回候補)。
+
+  フェーズ77での変更: フェーズ76の次回候補(1)「daily.html・monthly.htmlの他の必須項目
+  (点検者名等)にも同様のCSSのみの動的フィードバックを展開する余地の検討」に対応。
+  検討の結果、点検者名はweb-form-ui-design.md 21節「点検者名」(前回送信時の値をキャッシュし
+  デフォルト値として表示する設計)により構造的にほぼ常に値が入った状態となるため、
+  annual.htmlの検査業者名のような「未入力のまま送信されがちな項目」とは性質が異なり、
+  :placeholder-shownによる動的警告を適用する優先度は低いと判断した(本フェーズでは適用
+  見送り)。代わりに、同じ「値が空のまま見過ごされやすい必須相当の入力」という観点で
+  見ると、「異常あり」選択時の個別項目自由記述欄(item-note)の方が該当性が高いと判断した。
+  チェックボックスをオンにした(=異常ありと申告した)にもかかわらず自由記述欄が空のまま
+  送信されると、厳守事項1(点検者本人の記述をそのまま転記)に基づく記録の具体性が失われる
+  ため、annual.htmlの検査業者名欄と同じCSS:placeholder-shownの手法を用い、チェックボックス
+  オン・自由記述欄が空の間だけ枠線・注意書きが警告表示になるようにした(値を入力すると
+  警告は自動的に消える)。
 
   未実装・意図的なプレースホルダー:
   - JSは一切使用せず、CSS(radio/checkboxの:checked疑似クラスとtilde/plus結合子)のみで
@@ -170,8 +185,12 @@
   }
   /* --- チェックリスト本体: モードに応じて出し分け --- */
   .checklist-section { display: none; }
-  #mode-ok:checked ~ .checklist-ok { display: block; }
-  #mode-ng:checked ~ .checklist-ng { display: block; }
+  /* #mode-ok/#mode-ngは.mode-toggle内、.checklist-ok/ngはその外側(同じ.card内の別要素)
+     にあり親が異なるため、一般兄弟結合子(~)単体では一致しない(フェーズ77で判明)。
+     共通の祖先である.cardに対して:has()を使うことで、要素の入れ子構造によらず
+     チェック状態の変化をJS不使用のまま反映できる。 */
+  .card:has(#mode-ok:checked) .checklist-ok { display: block; }
+  .card:has(#mode-ng:checked) .checklist-ng { display: block; }
 
   .checklist-ok .item-row {
     display: flex;
@@ -212,11 +231,28 @@
     resize: vertical;
     min-height: 48px;
   }
-  .checklist-ng .item-block input[type="checkbox"]:checked ~ .item-note {
+  /* checkboxはlabel.item-checkの内側、item-noteはlabelの外側(item-blockの子)にあり
+     親が異なるため、同様に一般兄弟結合子では一致しない。item-blockに:has()を使う。 */
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note {
     display: block;
   }
-  .checklist-ng .item-block input[type="checkbox"]:checked ~ .item-check-label-text {
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-check-label-text {
     color: var(--color-warn);
+  }
+  /* フェーズ77: 「異常あり」で項目をオンにしたのに自由記述欄が空のまま見過ごされないよう、
+     annual.htmlの検査業者名欄と同じ:placeholder-shownの手法で動的に警告表示する。 */
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note:placeholder-shown {
+    border-color: var(--color-warn);
+    background: #fdf4f1;
+  }
+  .item-note-warn {
+    display: none;
+    font-size: 11px;
+    color: var(--color-warn);
+    margin-top: 4px;
+  }
+  .checklist-ng .item-block:has(input[type="checkbox"]:checked) .item-note:placeholder-shown ~ .item-note-warn {
+    display: block;
   }
 
   .submit-area {
@@ -248,7 +284,7 @@
 </head>
 <body>
 <div class="draft-banner">
-  実装ドラフト・非公開 / フェーズ72(2026-10-06 00:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+  実装ドラフト・非公開 / フェーズ72作成・フェーズ77更新(2026-10-06 06:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
 </div>
 <div class="screen">
 
@@ -303,6 +339,7 @@
           <span class="item-check-label-text">ブレーキ</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
@@ -310,6 +347,7 @@
           <span class="item-check-label-text">警告灯</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
@@ -317,6 +355,7 @@
           <span class="item-check-label-text">異音・異臭</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
@@ -324,6 +363,7 @@
           <span class="item-check-label-text">油圧(リフト・チルト)</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
@@ -331,6 +371,7 @@
           <span class="item-check-label-text">タイヤ</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
@@ -338,6 +379,7 @@
           <span class="item-check-label-text">フォーク</span>
         </label>
         <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
     </div>
   </section>
