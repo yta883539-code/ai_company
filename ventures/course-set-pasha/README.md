@@ -4438,3 +4438,28 @@
   copy-draft.md追加分〈4・5問目〉を反映していなかった記載漏れを発見・是正
   〈index.html自体は実装済みだった〉。コード変更なし、テスト690件・schema検証21件
   いずれもパス)
+- フェーズ274(2026-10-07 16:00 UTC定例更新): aircon-pashaフェーズ294(2026-10-07
+  11:00 UTC)がkura-pasha・line-reservation-aiの先行設計を横展開して作成した
+  `firestore-provider-adapter-design.md`(`LinkingCodeStoreProtocol`の実Firestore
+  接続アダプタ設計)について、本venture自身(line-user-id-linking-design.mdの連携
+  コード方式の発案元)には同名ドキュメントがまだ存在していなかった記載漏れを発見した。
+  本venture自身の`LinkingCodeStoreProtocol`(`user_id_linking.py`41〜55行目、
+  `save(code, user_id, issued_at)`でuser_idを文字列のまま直接受け取るシンプルな
+  シグネチャ)に合わせて`firestore-provider-adapter-design.md`を新規作成し、
+  `FirestorePendingLinkStore`具象クラスの設計(`pending_links/{code}`の
+  読み書き、`get()`は取得失敗・フィールド欠損時いずれも「未発見」に倒す方針、
+  `items()`は`purge_expired_links()`用の全件`stream()`)を詰めた。コード変更・
+  外部アカウント作成のいずれも行っていない。回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(690件)・`python3 schema/
+  validate_test_cases.py`(21件)を再実行し、いずれもパスすること(件数に変更なし)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 本venture自身の
+  `UserProfileStoreProtocol`(application_form_submission_flow.py・
+  checkout_session.py・portal_session.py等に個別定義され1モジュールに閉じていない)の
+  実Firestore接続アダプタ設計、または承認待ち事項1〜5がオーナーから承認された場合は
+  その着手を最優先とする。
+- 最終更新: 2026-10-07 16:00 UTC(フェーズ274: aircon-pasha・kura-pasha・
+  line-reservation-aiには存在していた`firestore-provider-adapter-design.md`
+  〈LinkingCodeStoreProtocolの実Firestore接続アダプタ設計〉が、発案元である本venture
+  自身には未作成だった記載漏れを発見・新規作成。コード変更なし、テスト690件・
+  schema検証21件いずれもパス)
