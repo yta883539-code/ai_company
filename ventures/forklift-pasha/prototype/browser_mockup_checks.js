@@ -62,6 +62,23 @@ async function checkAnnual(page) {
 async function checkIndex(page) {
   await page.goto('file://' + path.join(MOCKUP_DIR, 'index.html'));
   check('index: daily/monthly/annualへのリンクが存在する', (await page.locator('a[href="daily.html"]').count()) > 0 && (await page.locator('a[href="monthly.html"]').count()) > 0 && (await page.locator('a[href="annual.html"]').count()) > 0);
+  check('index: settingsへのリンクが存在する', (await page.locator('a[href="settings.html"]').count()) > 0);
+}
+
+// フェーズ101: settings.html(access-token-reissue-design.md 2節・6節のモックアップ化)の
+// CSSのみの確認メッセージ切替(daily.htmlの異常あり/なし切替と同じchecked+一般兄弟結合子の手法)
+// を検証する。
+async function checkSettings(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'settings.html'));
+
+  check('settings: ページが例外なく読み込める', (await page.title()).length > 0);
+  check('settings: 前回のアクセス日時が表示されている', (await page.locator('.last-accessed .value').innerText()).length > 0);
+
+  const confirm = page.locator('.reissue-confirm');
+  check('settings: 初期表示では再発行の確認メッセージが非表示', !(await confirm.isVisible()));
+
+  await page.locator('label.reissue-btn').click();
+  check('settings: 再発行ボタンを押すと確認メッセージが表示される', await confirm.isVisible());
 }
 
 // フェーズ82でdaily.html同型のチェックリスト(:has()による出し分け)をmonthly.htmlにも
@@ -96,6 +113,7 @@ async function checkMonthly(page) {
     await checkAnnual(page);
     await checkIndex(page);
     await checkMonthly(page);
+    await checkSettings(page);
   } finally {
     await browser.close();
   }

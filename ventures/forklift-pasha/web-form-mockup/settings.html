@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと 設定ページ 実装ドラフト(フェーズ101・2026-10-07 06:00 UTC)
+
+  位置づけ: access-token-reissue-design.md(フェーズ96・98・99)が設計した
+  (1)アクセスURL再発行ボタン(2節)、(2)前回アクセス日時(lastAccessedAt)の表示(6節)を、
+  daily.html・monthly.html・annual.html・index.html(フェーズ72〜75)と同じ実装方針
+  (JS不使用・外部公開なし・バックエンド接続なし)を踏襲して画面モックアップ化したもの。
+  これまでdaily/monthly/annualの3区分の点検記録画面とトップページのみが実装ドラフト化
+  されており、設定ページ(アクセストークンの扱いを本人が確認・操作する唯一の画面)は
+  未着手だった(README.mdフェーズ96〜99はいずれも設計文書〈access-token-reissue-
+  design.md〉への追記のみで、画面モックアップへの反映は次回候補として残っていた)。
+
+  表示要素と設計文書の対応:
+  - 「前回のアクセス」表示: access-token-reissue-design.md 6節「表示方法」。本モックアップ
+    では`lastAccessedAt`が設定済みのケースのダミー値("2026-10-05 07:42")を表示する。
+    `null`(初回アクセス)のケースの文言("前回のアクセス記録はありません(今回が初回
+    アクセスです)")は、本ファイル内のコメントとしてのみ残し、画面上は1パターンのみ
+    表示する(daily.html等のdisabled送信ボタンと同様、両パターンを同時に見せる必要はないと
+    判断。実装時はサーバー側で`lastAccessedAt`の値に応じてどちらかの文言を出し分ける)。
+  - 「見覚えがない場合は再発行」の案内文: 6節「表示方法」3点目に対応。
+  - 「アクセスURLを再発行する」ボタン: 2節「再発行フローの設計」1.に対応。クリックすると
+    確認メッセージ(「再発行すると現在のアクセスURLは使えなくなります」)をCSSのみで表示する
+    (checkbox+:checked疑似クラス、daily.htmlの異常あり/なし切替と同じ手法)。実際の再発行
+    処理(新トークン発行・メール送信)はJS不使用のため未実装で、確認メッセージの表示のみを
+    再現する。
+
+  未実装・意図的なプレースホルダー:
+  - アクセストークン自体の値("f3x9k2...")はダミー表示。実際の値はサーバー側でランダム
+    発行される(access-token-reissue-design.md 1節)。
+  - 「再発行する」ボタン押下後の確認メッセージ内の「送信する」ボタンも
+    <button type="button" disabled> とし、実際の送信(新トークン発行・メール送信)には
+    一切つながっていない(メール送信はメール連携接続後、送信直前の毎回オーナー確認を経て
+    のみ行う運用。pending-approval.md参照)。
+  - メールアドレス変更フォームは、access-token-reissue-design.md 2節が「変更フォームの
+    送信操作自体が同じ再発行処理を内部的に呼ぶ」としているため、本モックアップでは
+    「アクセスURLを再発行する」ボタンと同じ確認メッセージの導線で代表させ、別UIとしては
+    設けない(2節の「1つの再発行フローに統一する」方針どおり)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>設定(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+    --color-warn: #b5402a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    padding: 12px 4px 20px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .lead {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  .card .card-hint {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin: 6px 0 0;
+  }
+  /* --- アクセストークン表示 --- */
+  .token-value {
+    font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+    font-size: 15px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px;
+    word-break: break-all;
+  }
+  /* --- 前回のアクセス表示 --- */
+  .last-accessed .value {
+    font-size: 15px;
+    font-weight: bold;
+  }
+  .last-accessed .guide {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin: 8px 0 0;
+  }
+  /* --- 再発行ボタン・CSSのみの確認メッセージ切替(daily.htmlの異常あり/なし切替と同じ手法) --- */
+  .reissue-toggle {
+    display: none;
+  }
+  label.reissue-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: bold;
+    border: 2px solid var(--color-warn);
+    border-radius: 8px;
+    color: var(--color-warn);
+    text-align: center;
+    background: #fff;
+  }
+  .reissue-confirm {
+    display: none;
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fdf4f1;
+    border: 1px solid var(--color-warn);
+    font-size: 13px;
+  }
+  .reissue-toggle:checked ~ .reissue-confirm {
+    display: block;
+  }
+  .reissue-toggle:checked ~ label.reissue-btn {
+    opacity: 0.6;
+  }
+  button.confirm-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-warn);
+    color: #fff;
+  }
+  button.confirm-btn:disabled {
+    opacity: 0.6;
+  }
+  footer.note {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ101(2026-10-07 06:00 UTC) / 再発行ボタンの送信は無効化されています(バックエンド未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <div class="logo">フォークリフトパシャっと</div>
+    <p class="lead">設定</p>
+  </header>
+
+  <!-- 1. アクセストークン(アクセスURL)表示: access-token-reissue-design.md 1節 -->
+  <section class="card">
+    <h2>あなたのアクセスURL</h2>
+    <div class="token-value">https://example.com/f/f3x9k2qh7mN8pLw2</div>
+    <p class="card-hint">
+      このURLをブックマークしてご利用ください。ログインID・パスワードは発行していません。
+    </p>
+  </section>
+
+  <!-- 2. 前回のアクセス日時: access-token-reissue-design.md 6節 -->
+  <section class="card last-accessed">
+    <h2>前回のアクセス</h2>
+    <p class="value">2026-10-05 07:42</p>
+    <p class="guide">※ この日時に見覚えがない場合は、下の「アクセスURLを再発行する」をお試しください。</p>
+  </section>
+
+  <!-- 3. アクセスURL再発行: access-token-reissue-design.md 2節 -->
+  <section class="card">
+    <h2>アクセスURLの再発行</h2>
+    <p class="card-hint">
+      再発行すると新しいアクセスURLがメールで送られ、今お使いのURLは使えなくなります。
+      メールアドレスを変更したい場合もこちらから行います(新しいアドレス宛に新しいURLを
+      送ります)。
+    </p>
+    <input type="checkbox" id="reissue-toggle" class="reissue-toggle">
+    <label for="reissue-toggle" class="reissue-btn">アクセスURLを再発行する</label>
+    <div class="reissue-confirm">
+      <p>本当に再発行しますか？今お使いのアクセスURLはすぐに使えなくなります。</p>
+      <button type="button" class="confirm-btn" disabled>新しいURLをメールで受け取る</button>
+    </div>
+  </section>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。ドメイン取得・ホスティング・外部公開は行っていません。
+  </footer>
+
+</div>
+</body>
+</html>

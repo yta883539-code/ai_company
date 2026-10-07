@@ -1716,3 +1716,39 @@
 - 最終更新: 2026-10-07 04:00 UTC(フェーズ99: firestore-data-model.mdに`lastAccessedAt`
   フィールドを追加し、access-token-reissue-design.md「6.」に更新タイミング・表示方法を
   設計。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)
+- フェーズ100(2026-10-07 05:00 UTC定例更新): legal-notices-draft.md次回候補(1)(2)に着手した。
+  WebSearchで労働安全衛生規則第151条の23・第169条等によりフォークリフト特定自主検査記録の
+  3年保存義務を確認し、本サービスは記録原本を保存しない設計を維持したまま、3年保存義務は
+  利用事業者自身が負う旨を利用規約・画面表示上で明示する方針として整理した(legal-notices-
+  draft.md 2.4・2.5節)。data-retention-policy.mdを他venture同様の体裁で新規に切り出した。
+  あわせて、launch-readiness-checklist.mdの次回課題(2)「LIFF非依存の決済時本人確認方式」が
+  フェーズ95(payment-identity-verification-design.md)で既に解消済みだったにもかかわらず
+  記載が古いまま残っていた記載漏れを発見・是正した(フェーズ91・94と同種)。コード変更なし、
+  テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。なお本フェーズの内容はlegal-notices-
+  draft.md・launch-readiness-checklist.mdには記録済みだったが、本README.mdへの反映自体が
+  漏れていたため、フェーズ101として本是正を行う過程で遡って追記した。
+- 最終更新: 2026-10-07 05:00 UTC(フェーズ100: legal-notices-draft.mdの法定保存義務整理・
+  data-retention-policy.md新規作成。コード変更なし、テスト4ファイル・schema検証11件・
+  ブラウザ検証17件いずれもパス)
+- フェーズ101(2026-10-07 06:00 UTC定例更新): フェーズ99「次回候補」で画面モックアップへの
+  反映が残っていた、access-token-reissue-design.md 2節(アクセスURL再発行)・6節(前回の
+  アクセス日時表示)を、web-form-mockup/settings.htmlとして新規に画面モックアップ化した。
+  daily.html等と同じ方針(JS不使用・外部公開なし・バックエンド接続なし)を踏襲し、アクセス
+  トークン表示・前回アクセス日時の表示・再発行ボタン押下時の確認メッセージ(CSSのみの
+  checked+一般兄弟結合子による出し分け、daily.htmlの異常あり/なし切替と同じ手法)を実装した。
+  index.htmlに設定ページへのリンクを追加し、prototype/browser_mockup_checks.jsに
+  checkSettings()を追加(4件: ページ読み込み・前回アクセス日時の表示・初期状態で確認
+  メッセージ非表示・再発行ボタン押下で確認メッセージ表示)。上記のREADME.md「フェーズ100」
+  記載漏れの遡及是正もあわせて行った。回帰確認として`python3 prototype/run_all_tests.py`
+  (4ファイルOK)・`python3 schema/validate_test_cases.py`(11件)・`node prototype/
+  browser_mockup_checks.js`(21件、+4)を再実行し、いずれもパスすることを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2(建荷協・労働局連絡/
+  Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、(2)メールアドレス
+  変更フォーム自体の画面モックアップ化(現状はsettings.htmlの再発行ボタンと同じ導線で代表
+  させており、別UIとしては未設置)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 06:00 UTC(フェーズ101: access-token-reissue-design.md 2節・6節を
+  web-form-mockup/settings.htmlとして画面モックアップ化。index.htmlにリンク追加、
+  browser_mockup_checks.jsにcheckSettings()4件を追加。コード変更あり(新規モックアップ・
+  テスト追加)、テスト4ファイル・schema検証11件・ブラウザ検証21件いずれもパス)
