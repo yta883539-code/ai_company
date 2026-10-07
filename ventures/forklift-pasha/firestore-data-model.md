@@ -20,12 +20,21 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
 
 ## コレクション構成
 
-### 1. `fleet_operator/{operator_id}`
+### 1. `fleet_operator/{internal_id}`
 
-事業者(倉庫業・運送業・建設業事業者)単位の契約・課金ドキュメント。
+事業者(倉庫業・運送業・建設業事業者)単位の契約・課金ドキュメント。ドキュメントIDは
+Firestore自動生成の`internal_id`(不変、Stripe`client_reference_id`に使用。
+access-token-reissue-design.md「1. 前提の見直し」参照)。
 
 ```
 {
+  accessToken: "...",                        // サーバー側ランダム発行、アクセスURL
+                                              // (https://<ドメイン>/f/{accessToken})の
+                                              // パスパラメータ・単一フィールドクエリでの
+                                              // ドキュメント特定に使用。再発行可能
+                                              // (access-token-reissue-design.md「2. 再発行
+                                              // フローの設計」)
+  email: "...",                              // 配布先の連絡手段。識別子としては使わない
   planId: "light" | "standard" | "multi",   // pricing-plan.mdの3プラン(ライト/スタンダード/複数台)
   vehicleCount: 1,                           // 保有台数(プラン上限チェック用、台数超過時はプラン
                                               // 変更を促す導線に使う。実際のアップセル導線設計は
@@ -45,17 +54,20 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
 
 ```
 {
-  operatorId: "...",   // fleet_operator/{operator_id}への参照
+  operatorInternalId: "...",   // fleet_operator/{internal_id}への参照(旧operatorId。
+                                // access-token-reissue-design.mdのID分離に合わせて
+                                // 参照先をinternal_idに読み替え)
   vehicleLabel: "2号機" // 入力メモの車両番号表記をそのまま保持(表記ゆらぎの解決は範囲外、
                         // mvp-flow-draft.md「点検結果の良否判断・修理要否の判断はしない」と
                         // 同じく「入力をそのまま扱う」方針を識別情報にも適用)
 }
 ```
 
-### 3. `usage_counter/{operator_id}`
+### 3. `usage_counter/{internal_id}`
 
 月間生成回数の積算カウンタ。kura-pasha/usage-counter-workshop-key-design.mdと同様、プラン間で
-カウンタ参照ロジックを分岐させずoperator_idキーで一貫させる。
+カウンタ参照ロジックを分岐させず`fleet_operator`と同じ`internal_id`キーで一貫させる
+(`accessToken`は再発行で値が変わるため、カウンタのキーには使わない)。
 
 ```
 {
@@ -75,13 +87,12 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
   入力してCheckout Sessionを起票できてしまうなりすましリスクを避けるため)。LINE前提の
   userId方式は採用しない。本モデルは元々入力チャネルに依存しない抽象的なoperator_idを
   前提にしていたため、スキーマ自体の変更は不要。)
-- (2026-10-07 01:00 UTC・フェーズ96で新たに判明: access-token-reissue-design.mdにより、
-  トークン漏洩時の再発行を単純な更新操作で済ませるため、ドキュメントID(`internal_id`、
-  Firestore自動生成・不変・Stripe`client_reference_id`に使用)とユーザー配布用アクセス
-  トークン(`accessToken`フィールド、再発行可能)を分離する方針に変更する必要があると
-  判明した。すなわち本コレクションのドキュメントIDは`{operator_id}`ではなく`{internal_id}`
-  に、本文中の`operatorId`参照フィールドは`accessToken`に読み替える必要がある。実ファイルへの
-  反映は次回候補。)
+- (解消済み 2026-10-07 02:00 UTC・フェーズ97: 2026-10-07 01:00 UTC・フェーズ96で判明した
+  ドキュメントID(`internal_id`)とユーザー配布用アクセストークン(`accessToken`フィールド)の
+  分離を、本ファイルのコレクション定義に反映した。`fleet_operator`のドキュメントIDを
+  `{operator_id}`から`{internal_id}`に変更し`accessToken`・`email`フィールドを追加、
+  `vehicle`コレクションの参照フィールドを`operatorId`から`operatorInternalId`に変更、
+  `usage_counter`のキーを`{operator_id}`から`{internal_id}`に変更した。)
 - `vehicle_id`の発行・重複チェック(同一事業者内で車両番号表記が重複した場合の扱い)は
   実装時の課題として残す。
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
@@ -92,3 +103,7 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
 最終更新: 2026-10-06 23:00 UTC(フェーズ95: payment-identity-verification-design.mdの
 決済時本人確認方式の検討を受け、operator_idの割り振り方針をランダム発行〈アクセス
 トークン〉方式に確定)
+最終更新: 2026-10-07 02:00 UTC(フェーズ97: access-token-reissue-design.md〈フェーズ96〉の
+internal_id/accessToken分離を実ファイルに反映。`fleet_operator`のドキュメントIDを
+`internal_id`に変更し`accessToken`・`email`フィールドを追加、`vehicle`の参照フィールドを
+`operatorInternalId`に変更、`usage_counter`のキーを`internal_id`に変更)

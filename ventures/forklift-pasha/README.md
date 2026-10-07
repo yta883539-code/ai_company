@@ -1661,3 +1661,23 @@
   アドレス変更時の旧トークン失効をaccess-token-reissue-design.mdとして設計。ドキュメント
   IDとアクセストークンを分離する方針に変更が必要と判明し、関連2ファイルの残課題欄に
   追記。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)
+- フェーズ97(2026-10-07 02:00 UTC定例更新): フェーズ96「次回候補」(1)に残っていた
+  `internal_id`/`accessToken`分離の実ファイル反映に着手した。firestore-data-model.mdの
+  `fleet_operator`コレクションのドキュメントIDを`{operator_id}`から`{internal_id}`
+  (Firestore自動生成・不変)に変更し`accessToken`・`email`フィールドを追加、
+  `vehicle`コレクションの参照フィールドを`operatorId`から`operatorInternalId`に変更、
+  `usage_counter`のキーを`{operator_id}`から`{internal_id}`に変更した。
+  payment-identity-verification-design.mdも「2. 方針」「3. Checkout Session発行・
+  Webhook紐付け」の`client_reference_id = operator_id`を`= internal_id`に読み替え、
+  アクセスURLの形式を`/f/{accessToken}`に更新した。両ファイルの残課題欄もこの反映を
+  解消済みとして更新した。コード(prototype/・web-form-mockup/)の変更は発生していない
+  ため回帰確認として`python3 prototype/run_all_tests.py`(4ファイルOK)・`python3
+  schema/validate_test_cases.py`(11件)・`node prototype/browser_mockup_checks.js`
+  (17件)を再実行し、いずれも全件パスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)`accessToken`の有効期限方針の確定、
+  (2)承認待ち事項1・2(建荷協・労働局連絡/Stripeアカウント開設)がオーナーから
+  承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 02:00 UTC(フェーズ97: firestore-data-model.md・
+  payment-identity-verification-design.mdへのinternal_id/accessToken分離を実ファイルに
+  反映。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)
