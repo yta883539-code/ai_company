@@ -4505,3 +4505,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-07 09:00 UTC(フェーズ209: `UserProfileStoreProtocol`の実Firestore
   接続アダプタ`FirestoreUserProfileProvider`をfirestore-provider-adapter-design.mdに
   新規設計。コード変更なし、テスト16ファイル・schema検証32件いずれもパス)
+- フェーズ210(2026-10-07 14:00 UTC定例更新): course-set-pashaフェーズ273
+  (2026-10-07 10:00 UTC)が発見・是正した「landing-page-copy-draft.mdのFAQ追加分が
+  テキストワイヤーフレームに反映漏れ」という同種の記載漏れが本ventureにも残っていないか
+  横展開確認した。landing-page-copy-draft.mdフェーズ153(2026-09-21 04:00 UTC)で追加
+  された5問目「ライト・スタンダード・複数職人プラン、どれを選べばよいですか?」が、
+  landing-page-wireframe.mdのFAQセクション(テキストワイヤーフレーム図)には反映されて
+  いなかった記載漏れを発見した。landing-page/index.html自体には`<details>`要素として
+  5問目が既に実装済みであることを確認したうえで(実装側に変更は不要)、ワイヤーフレーム
+  側のテキスト図に5問目を追記し、同ファイルの「最終更新」表記も2026-10-07 14:00 UTCに
+  更新した。コード(prototype/)の変更はないため回帰確認として`python3
+  prototype/run_all_tests.py`(16ファイルOK、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認
+  された場合はその着手を最優先、(2)`WorkshopStoreProtocol`等の残り3つのProtocolの
+  実Firestore接続アダプタ設計、(3)line-reservation-aiのテキストワイヤーフレームにも
+  同種のFAQ反映漏れが残っていないかの横展開確認、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 14:00 UTC(フェーズ210: course-set-pashaフェーズ273の指摘を受け、
+  landing-page-wireframe.mdのFAQテキスト図に欠けていた5問目〈プラン選択案内〉を追記・
+  是正。index.html自体は実装済みだったため変更なし。コード変更なし、テスト16ファイル・
+  schema検証32件いずれもパス)
