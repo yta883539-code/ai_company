@@ -4481,3 +4481,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   馬具職人工房は同一屋号の別事業者〈高松市・犬用革製品メーカー〉の存在を確認し
   屋号の一般名詞性リスクを裏付け。具体的な連絡先特定には至らず、実際の連絡は
   行っていない。コード変更なし、テスト16ファイルOK)
+- フェーズ209(2026-10-07 09:00 UTC定例更新): フェーズ208の次回候補(優先順位1・2候補への
+  ヒアリング実施)はオーナー承認待ちのままのため、承認不要な範囲でline-reservation-aiが
+  フェーズ続き297で行った「実Firestore接続アダプタの先行設計」と同種の前進を本ventureにも
+  横展開した。`usage_counter_workshop.py`の4つのProtocol
+  (`UserProfileStoreProtocol`・`WorkshopStoreProtocol`・`UsageCounterStoreProtocol`・
+  `LinkingCodeStoreProtocol`)のうち、本venture側には実Firestore接続アダプタの設計が
+  一件も存在していなかったことを確認し、メソッド数が少なく対象ドキュメントも単一
+  (`user_profile/{user_id}`)の`UserProfileStoreProtocol`に限定して具象クラス
+  `FirestoreUserProfileProvider`を設計した
+  (firestore-provider-adapter-design.md新規作成)。`get_workshop_id`/`get_is_following`の
+  読み取り失敗時フォールバック(InMemoryUserProfileStoreの既定値と一致させる)・
+  `link`/`set_is_following`の`merge=True`部分更新方針を整理した。残り3つのProtocol
+  (craftsman_workshop・usage_counter・pending_workshop_invites、合計30件超のメソッド)は
+  一度に設計すると検討が発散するため対象外とし、次回候補として個別に残した。コード変更は
+  なく、回帰確認として`python3 prototype/run_all_tests.py`(16ファイルOK、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認
+  された場合はその着手を最優先、(2)`WorkshopStoreProtocol`等の残り3つのProtocolの
+  実Firestore接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 09:00 UTC(フェーズ209: `UserProfileStoreProtocol`の実Firestore
+  接続アダプタ`FirestoreUserProfileProvider`をfirestore-provider-adapter-design.mdに
+  新規設計。コード変更なし、テスト16ファイル・schema検証32件いずれもパス)
