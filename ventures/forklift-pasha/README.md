@@ -1638,3 +1638,26 @@
   確定。firestore-data-model.mdのoperator_id割り振り方針も合わせて更新。フェーズ94
   のREADME.md反映漏れも発見・是正。コード変更なし、テスト4ファイル・schema検証
   11件・ブラウザ検証17件いずれもパス)
+- フェーズ96(2026-10-07 01:00 UTC定例更新): payment-identity-verification-design.md
+  (フェーズ95)「次回候補」(1)(2)に残っていたアクセストークン漏洩時の再発行・メール
+  アドレス変更時の旧トークン失効の設計に着手した(access-token-reissue-design.md新規
+  作成)。検討の過程で、「ドキュメントID自体をアクセストークンとして使う」フェーズ95の
+  前提のままでは再発行時にドキュメントコピー+削除が必要になり実装が複雑化すると判明
+  したため、ドキュメントID(`internal_id`、Firestore自動生成・不変・Stripe
+  `client_reference_id`に使用)とユーザー配布用アクセストークン(`accessToken`フィールド、
+  再発行可能)を分離する設計変更が必要と判断した。payment-identity-verification-
+  design.md「4. 残課題」・firestore-data-model.md「未確定・残課題」双方にこの変更点を
+  追記した(実ファイルへの反映自体は次回候補として残す)。コード(prototype/・
+  web-form-mockup/)の変更は発生していないため回帰確認として`python3
+  prototype/run_all_tests.py`(4ファイルOK)・`python3 schema/validate_test_cases.py`
+  (11件)・`node prototype/browser_mockup_checks.js`(17件)を再実行し、いずれも全件
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)firestore-data-model.md・payment-identity-verification-design.mdへの
+  `internal_id`/`accessToken`分離の実ファイル反映、(2)`accessToken`の有効期限方針の
+  確定、(3)承認待ち事項1・2(建荷協・労働局連絡/Stripeアカウント開設)がオーナーから
+  承認された場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 01:00 UTC(フェーズ96: アクセストークン漏洩時の再発行・メール
+  アドレス変更時の旧トークン失効をaccess-token-reissue-design.mdとして設計。ドキュメント
+  IDとアクセストークンを分離する方針に変更が必要と判明し、関連2ファイルの残課題欄に
+  追記。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)

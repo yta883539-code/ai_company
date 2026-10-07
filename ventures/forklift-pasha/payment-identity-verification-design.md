@@ -69,8 +69,12 @@ course-set-pasha/stripe-customer-id-linking-design.md(フェーズ97)と同型�
 
 ## 4. 残課題
 
-- アクセストークン(`operator_id`)が漏洩した場合の再発行機能は未設計(実装時の課題)。
-- メールアドレス変更時の再送・旧トークン失効の扱いは未設計(実装時の課題)。
+- (解消済み 2026-10-07 01:00 UTC・フェーズ96: アクセストークンが漏洩した場合の再発行機能、
+  およびメールアドレス変更時の旧トークン失効の扱いは、access-token-reissue-design.mdで
+  設計した。ドキュメントIDとアクセストークンを分離する必要があると判明したため、本ファイル
+  「3. Checkout Session発行・Webhook紐付け」の`client_reference_id = operator_id`は
+  `client_reference_id = internal_id`〈Firestore自動生成の不変ID〉に読み替える必要がある
+  点も含め、同ファイル参照。実ファイルへの反映は次回候補。)
 - 実際のメール送信実装(アクセスURLの配布)自体はメール連携接続後の作業であり、
   本フェーズでは机上設計のみ(pending-approval.mdへの新規追記は不要。既存のメール送信
   運用方針〈接続後、送信直前確認〉の範囲内)。

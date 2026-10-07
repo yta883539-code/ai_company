@@ -75,6 +75,13 @@ firestore-data-model.mdの構成方針(店舗単位ドキュメントに課金�
   入力してCheckout Sessionを起票できてしまうなりすましリスクを避けるため)。LINE前提の
   userId方式は採用しない。本モデルは元々入力チャネルに依存しない抽象的なoperator_idを
   前提にしていたため、スキーマ自体の変更は不要。)
+- (2026-10-07 01:00 UTC・フェーズ96で新たに判明: access-token-reissue-design.mdにより、
+  トークン漏洩時の再発行を単純な更新操作で済ませるため、ドキュメントID(`internal_id`、
+  Firestore自動生成・不変・Stripe`client_reference_id`に使用)とユーザー配布用アクセス
+  トークン(`accessToken`フィールド、再発行可能)を分離する方針に変更する必要があると
+  判明した。すなわち本コレクションのドキュメントIDは`{operator_id}`ではなく`{internal_id}`
+  に、本文中の`operatorId`参照フィールドは`accessToken`に読み替える必要がある。実ファイルへの
+  反映は次回候補。)
 - `vehicle_id`の発行・重複チェック(同一事業者内で車両番号表記が重複した場合の扱い)は
   実装時の課題として残す。
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
