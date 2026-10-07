@@ -261,9 +261,104 @@ asdict`+`None`値の扱い〈Firestoreは`None`を「フィールドが存在し
 ## 6. 残課題・次回候補(5節分)
 
 - 旧`stripe_customer_id`からの付け替え時の旧インデックスエントリ削除(5.3節)。
-- 残りのグループ(trial系3フィールド・payment_failure系4フィールド・current_plan_id・
+- 残りのグループ(trial系・payment_failure系4フィールド・current_plan_id・
   is_following+all_user_ids・owner_notified_at系4種・event_time系4種)の実Firestore
   接続アダプタ設計。いずれも基盤3メソッド(5.1節)と同じ`_doc_ref(user_id)`ヘルパーの
   上に`merge=True`の部分更新として素直に実装できる見込みだが、本フェーズでは対象外。
+  (trial系は7節でフェーズ296として着手済み)
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(datetime⇄Firestore
   タイムスタンプ変換を含む)。
+
+## 7. UserProfileStoreProtocol(trial系グループ)の実Firestore接続アダプタ設計
+
+### 7.1. 背景・範囲
+
+フェーズ295の次回候補(6節)を受け、残りのグループのうち trial 系(`set_trial_start_at`・
+`set_trial_end_notified_at`・`set_upgraded_at`・`increment_trial_generation_count`・
+`increment_trial_unit_count`・`get_trial_unit_count`、計6メソッド)の実Firestore接続
+アダプタ設計に着手する。本グループを次に選んだ理由は、(1)`user_id_linking.py`1モジュール
+に閉じており他venture連携のような外部依存がない、(2)2つの`increment_*`メソッドが、
+kura-pashaフェーズ212で発見・是正された`UsageCounterStoreProtocol.check_and_increment_usage()`
+と同種の「get→ローカル変数で+1→set」という read-modify-write 構成を`InMemoryUserProfileStore`
+でも採っており(user_id_linking.py 585〜597行目)、Firestore接続時に同じ並行書き込み競合
+(加算の取り落とし)を再現しうる箇所であるため、kura-pashaフェーズ212の教訓を本venture側で
+横展開確認する意味もある、の2点による。
+
+### 7.2. 設計
+
+`set_trial_start_at`・`set_trial_end_notified_at`・`set_upgraded_at`は5節の基盤3メソッドと
+同じ`_doc_ref(user_id)`ヘルパー上の単純な`merge=True`部分更新で素直に実装できる。
+
+`increment_trial_generation_count`・`increment_trial_unit_count`は、kura-pashaフェーズ212が
+採った「`@firestore.transactional`で読み取り+計算+書き込みを1トランザクションにまとめる」
+方式ではなく、Firestoreの`Increment`センチネル(フィールド変換〈field transform〉として
+サーバー側で加算を実行する仕組み)を使う設計とする。`UsageCounterStoreProtocol.
+increment_or_reset`は「月替わりならリセットしてから+1」という条件分岐を伴うため、クライアント
+側で現在値を見て分岐する必要がありトランザクションが必須だったが、本グループの2メソッドは
+条件分岐のない単純な加算のみであり、`Increment`センチネルだけでクライアント側のread-modify-
+write無しに原子性を確保できる(真に並行書き込みを競合させずに両方の加算が失われず反映される)。
+
+```python
+from google.cloud import firestore
+
+class FirestoreUserProfileStore:
+    # (5節の基盤3メソッド+Stripe顧客IDグループに以下を追加)
+
+    def set_trial_start_at(self, user_id: str, at: datetime) -> None:
+        self._doc_ref(user_id).set({"trial_start_at": at}, merge=True)
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        self._doc_ref(user_id).set({"trial_end_notified_at": notified_at}, merge=True)
+
+    def set_upgraded_at(self, user_id: str, at: datetime) -> None:
+        self._doc_ref(user_id).set({"upgraded_at": at}, merge=True)
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        doc_ref = self._doc_ref(user_id)
+        doc_ref.set(
+            {"trial_generation_count": firestore.Increment(1)}, merge=True
+        )
+        return (doc_ref.get().to_dict() or {}).get("trial_generation_count", 0)
+
+    def increment_trial_unit_count(self, user_id: str, unit_count: int) -> int:
+        doc_ref = self._doc_ref(user_id)
+        doc_ref.set(
+            {"trial_unit_count": firestore.Increment(unit_count)}, merge=True
+        )
+        return (doc_ref.get().to_dict() or {}).get("trial_unit_count", 0)
+
+    def get_trial_unit_count(self, user_id: str) -> int:
+        profile = self.get(user_id)
+        return profile.trial_unit_count if profile is not None else 0
+```
+
+### 7.3. 検討事項
+
+- **`Increment`センチネルの原子性**: `firestore.Increment(n)`を`set(..., merge=True)`に
+  渡すと、Firestoreはサーバー側で現在値に`n`を加算するフィールド変換として書き込みを実行する
+  (クライアントは現在値を読まない)。複数のCloud Function実行が同一`user_id`に対して同時に
+  `increment_trial_generation_count`を呼んでも、両方の加算がサーバー側で順に適用され、
+  `UsageCounterStoreProtocol.check_and_increment_usage()`が実Firestore環境で起こしうると
+  フェーズ211で指摘された「加算の取り落とし」は本グループでは発生しない。
+- **書き込み直後の`get()`再読込の限界(契約上は許容)**: 両メソッドの戻り値契約
+  (「インクリメント後のカウント値を返す」)を満たすため`set()`直後に`get()`で読み直す
+  設計にしたが、他の並行呼び出しが自分の書き込みと読み直しの間に追加の加算を行った場合、
+  戻り値は「自分の呼び出し分だけを反映した値」ではなく「それより新しい(他の加算も含む)値」
+  になる可能性がある。ただし値の欠落(取り落とし)は発生せず、呼び出し元
+  (`handle_media_generation_request`等)はいずれも戻り値を上限判定の参考値として使うのみで
+  厳密な排他制御の主体ではないため許容する。厳密に「自分の加算直後の値」を保証したい場合は
+  `@firestore.transactional`内で`get`→`Increment`相当の計算→`set`を行う必要があるが、それは
+  本設計が避けたいクライアント側read-modify-write(トランザクションでラップしても毎呼び出しで
+  往復コストが増える)を再導入するため、本フェーズでは採用しない。
+- **`merge=True`の一貫性**: 5節の基盤3メソッド・Stripe顧客IDグループと同じ方針
+  (kura-pasha・line-reservation-aiのUserProfileStoreProtocol設計とも一致)。
+
+## 8. 残課題・次回候補(7節分)
+
+- 残りのグループ(payment_failure系4フィールド・current_plan_id・is_following+
+  all_user_ids・owner_notified_at系4種・event_time系4種)の実Firestore接続アダプタ設計。
+- `increment_trial_generation_count`・`increment_trial_unit_count`と同種の
+  read-modify-write構成(get→ローカル変数で+1→set)を`InMemoryUserProfileStore`以外の
+  場所(course-set-pasha・line-reservation-ai・forklift-pashaの同種カウンタ系Protocol)が
+  まだ持っていないか、横展開確認を行う。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。

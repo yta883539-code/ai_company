@@ -5127,3 +5127,32 @@
   (save/get/exists)+Stripe顧客IDグループの実Firestore接続アダプタ`FirestoreUserProfileStore`
   をfirestore-provider-adapter-design.md 5節に新規設計。コード変更なし、
   テスト653件・schema検証25件いずれもパス)
+- フェーズ296(2026-10-07 21:00 UTC定例更新): フェーズ295の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の残りのグループのうちtrial系(`set_trial_start_at`/
+  `set_trial_end_notified_at`/`set_upgraded_at`/`increment_trial_generation_count`/
+  `increment_trial_unit_count`/`get_trial_unit_count`、計6メソッド)の実Firestore接続
+  アダプタ設計を`firestore-provider-adapter-design.md`7節に新規追加した。設計の過程で、
+  `increment_trial_generation_count`・`increment_trial_unit_count`の`InMemoryUserProfileStore`
+  実装(user_id_linking.py 585〜597行目)が、kura-pashaフェーズ212で発見・是正された
+  `UsageCounterStoreProtocol.check_and_increment_usage()`と同種の「get→ローカル変数で
+  +1→set」構成であり、Firestore接続時に同じ並行書き込み競合(加算の取り落とし)を
+  再現しうることを確認した。対応方針として、kura-pashaが採った`@firestore.transactional`
+  方式(月替わりリセットという条件分岐を伴うため必要だった)ではなく、条件分岐のない単純な
+  加算のみである本グループにはFirestoreの`Increment`センチネル(フィールド変換による
+  サーバー側加算)を採用し、クライアント側read-modify-writeを完全に排除する設計とした
+  (書き込み直後の`get()`再読込には「自分の加算分だけを反映した値」を厳密には保証しない
+  限界が残るが、値の欠落は発生しないため許容する旨を7.3節に明記)。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(653件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を最優先、
+  (2)`UserProfileStoreProtocol`の残りのグループ(payment_failure系・current_plan_id・
+  is_following+all_user_ids・owner_notified_at系4種・event_time系4種)の実Firestore
+  接続アダプタ設計を継続、(3)本フェーズで確認したread-modify-write構成を他venture
+  (course-set-pasha・line-reservation-ai・forklift-pasha)の同種カウンタ系Protocolが
+  持っていないか横展開確認、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 21:00 UTC(フェーズ296: `UserProfileStoreProtocol`のtrial系
+  グループ〈6メソッド〉の実Firestore接続アダプタ設計を7節に新規追加。2つの
+  `increment_*`メソッドにFirestoreの`Increment`センチネルを採用しクライアント側
+  read-modify-writeを排除。コード変更なし、テスト653件・schema検証25件いずれもパス)
