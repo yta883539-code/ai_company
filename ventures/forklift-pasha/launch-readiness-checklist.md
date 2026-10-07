@@ -35,7 +35,9 @@ launch-readiness-checklist.mdで承認待ち事項を依存順に一覧化済み
 - 決済時の本人確認方式(payment-identity-verification-design.md): LINE非依存のため
   LIFF経由IDトークン検証が使えない本venture固有の課題として、フェーズ95でアクセス
   トークン方式を設計(operator_idをランダム発行方式に確定、firestore-data-model.md
-  も合わせて更新)。
+  も合わせて更新)。フェーズ96でドキュメントID(internal_id)とアクセストークンを分離し
+  (access-token-reissue-design.md)、フェーズ97で実ファイルに反映、フェーズ98で
+  `accessToken`の有効期限方針を無期限に確定した。
 
 ## 承認待ち事項(pending-approval.md記載の要約)
 
@@ -78,9 +80,9 @@ Stripeアカウント開設が、本venture稼働に必須の外部サービス�
 時期的な緊急性(月間開始まで残り約25日)があるため、承認判断自体を急いでいただきたい
 旨を次回のオーナー向け案内でも明示する。承認が得られるまでの間は、(1)annual区分の
 法定保存義務との整合確認(legal-notices-draft.md次回候補(1))、(2)data-retention-
-policy.mdの切り出し、(3)payment-identity-verification-design.md(フェーズ95)の
-残課題(アクセストークン漏洩時の再発行設計・メールアドレス変更時の扱い)、または
-他venture・アイデア領域の前進を行う。
+policy.mdの切り出し、(3)access-token-reissue-design.md(フェーズ98)が次回候補とした
+`lastAccessedAt`(最終アクセス日時)表示の実装検討、または他venture・アイデア領域の
+前進を行う。
 
 最終更新: 2026-10-06 22:00 UTC(フェーズ94: 他venture対比で未着手だった
 legal-notices-draft.mdを新規作成し、その過程で発見したStripeアカウント開設の
@@ -91,3 +93,8 @@ schema検証11件・ブラウザ検証17件いずれもパス)
 トークン方式に確定。firestore-data-model.mdのoperator_id割り振り方針も合わせて
 更新した。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件
 いずれもパス)
+最終更新: 2026-10-07 03:00 UTC(フェーズ98: payment-identity-verification-design.md
+〈フェーズ95〉の残課題だった`accessToken`有効期限方針を無期限に確定し、
+access-token-reissue-design.md「5.」に決定理由を記録。副作用として
+`lastAccessedAt`表示案を次回候補に追加した。コード変更なし、テスト4ファイル・
+schema検証11件・ブラウザ検証17件いずれもパス)

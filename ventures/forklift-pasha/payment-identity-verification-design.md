@@ -92,8 +92,8 @@ firestore-data-model.mdフェーズ97で実ファイル反映済み)に置き換
 - 実際のメール送信実装(アクセスURLの配布)自体はメール連携接続後の作業であり、
   本フェーズでは机上設計のみ(pending-approval.mdへの新規追記は不要。既存のメール送信
   運用方針〈接続後、送信直前確認〉の範囲内)。
-- `accessToken`の有効期限方針(無期限か、一定期間での自動失効を設けるか)は未確定
-  (access-token-reissue-design.md「4. 残課題」参照、実装時の課題として次回候補)。
+- (解消済み 2026-10-07 03:00 UTC・フェーズ98: `accessToken`の有効期限方針は、access-token-
+  reissue-design.md「5. 有効期限方針の決定」で無期限〈自動失効なし〉に確定した。)
 
 最終更新: 2026-10-06 23:00 UTC(フェーズ95: launch-readiness-checklist.md次回候補(3)
 「LIFF非依存の決済時本人確認方式の検討」に着手し、アクセストークン方式を設計。
@@ -101,3 +101,5 @@ course-set-pasha/stripe-customer-id-linking-design.mdと同型のclient_referenc
 踏襲しつつ、operator_idの軸をランダム発行方式に確定した。コード変更なし)
 最終更新: 2026-10-07 02:00 UTC(フェーズ97: access-token-reissue-design.md〈フェーズ96〉の
 internal_id/accessToken分離を本ファイル・firestore-data-model.mdに反映。コード変更なし)
+最終更新: 2026-10-07 03:00 UTC(フェーズ98: 上記「4. 残課題」の`accessToken`有効期限方針を
+無期限に確定〈詳細はaccess-token-reissue-design.md「5.」参照〉。コード変更なし)
