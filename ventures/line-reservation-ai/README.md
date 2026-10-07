@@ -5248,3 +5248,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-07 07:00 UTC(フェーズ続き297: 実Firestore接続アダプタ
   `FirestoreStoreDocumentProvider`の設計をfirestore-provider-adapter-design.mdに
   新規整理。コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き298(2026-10-07 13:00 UTC定例更新): フェーズ続き297の次回候補
+  「他venture・アイデア領域の前進」を受け、legal-notices-draft.md「次のステップ候補」
+  3点目(特商法表記・プライバシーポリシーの体裁を整えたLP掲載用ページ構成の設計)に
+  着手した。他venture(aircon-pasha・course-set-pasha・kura-pasha)のlegal-notices-
+  draft.mdを確認したところ本節に相当するページ構成設計はいずれも未着手であり、本venture
+  初の整理と確認した。legal-notices-draft.mdに3節「LP掲載用ページ構成の設計」を新設し、
+  (1)フッターから別ページへ遷移する2ページ構成(特商法表記/プライバシーポリシー)の
+  分割方針、(2)1節の表の行順をそのまま見出し順とする特商法表記ページの構成、
+  (3)2.1〜2.4節の節構成をそのまま見出しに対応させ2.5節(未検証・要確認事項)は
+  顧客向けページには掲載しないプライバシーポリシーページの構成、(4)`【要記入】`残存
+  チェック・2.5節解消確認・index.htmlフッターのリンク差し替えを含む公開前チェック
+  項目メモ、の4点を整理した。本節もページ構成の設計のみであり、実際のHTMLファイル
+  作成・LP公開は行っていない。コード変更なし(legal-notices-draft.mdのみ)、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・
+  `python3 schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)`【要記入】`が埋まった
+  段階で実際のHTMLドラフト(legal.html・privacy.html相当)を作成する(作成自体は公開
+  ではないため着手可能)、(2)実Firestore/GCPプロジェクトの承認が得られた場合は
+  firestore-provider-adapter-design.mdの設計に沿って`FirestoreStoreDocumentProvider`
+  を実装し結合する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 13:00 UTC(フェーズ続き298: legal-notices-draft.mdに3節
+  「LP掲載用ページ構成の設計」を新規作成。特商法表記・プライバシーポリシーの2ページ
+  構成・見出し順・公開前チェック項目を整理。コード変更なし、テスト906件・schema検証
+  28件いずれもパス)
