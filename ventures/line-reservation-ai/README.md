@@ -5295,3 +5295,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-07 15:00 UTC(フェーズ続き299: landing-page-wireframe.mdのFAQ節が
   copy-draft.md追加分〈4問目〉を反映していなかった記載漏れを発見・是正〈index.html自体は
   実装済みだった〉。コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き300(2026-10-07 22:00 UTC定例更新): フェーズ続き299の次回候補だった
+  「aircon-pashaのlanding-page-wireframe.mdにも同種のFAQ反映漏れが残っていないか」の
+  横展開確認を実施した。確認範囲を本venture以外の全venture(aircon-pasha・
+  course-set-pasha・kura-pasha・forklift-pasha)に広げ、各venture内の
+  landing-page-copy-draft.md(Q&A本文の`Q.`見出し数)・landing-page-wireframe.md
+  (テキストワイヤーフレームのFAQ項目数、▷マーカー数)・landing-page/index.html
+  (`<summary>`要素数)の3者のFAQ件数を突き合わせた結果、aircon-pasha
+  (6問/6問/6問、2026-10-02 07:00 UTCに本venture同種の記載漏れを是正済みと確認)・
+  course-set-pasha(5問/5問/5問)・kura-pasha(5問/5問/5問)・forklift-pasha
+  (4問/4問/4問)・line-reservation-ai自身(4問/4問/4問)のいずれも3者の件数が一致して
+  おり、新たな記載漏れは見つからなかった。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・`python3
+  schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを確認した
+  (件数に変更なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合は
+  その着手を最優先、(2)firestore-provider-adapter-design.mdの設計に沿った
+  `FirestoreStoreDocumentProvider`の実装(承認不要な範囲、実クライアント接続前の
+  コード実装自体)の検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 22:00 UTC(フェーズ続き300: aircon-pasha等の全venture横展開で
+  landing-page-copy-draft.md・landing-page-wireframe.md・landing-page/index.htmlの
+  FAQ件数一致を確認、新たな記載漏れなし。コード変更なし、テスト906件・schema検証28件
+  いずれもパス)
