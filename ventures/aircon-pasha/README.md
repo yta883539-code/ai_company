@@ -5079,3 +5079,28 @@
   (ideas.md・presentations.md)の前進を優先する。
 - 最終更新: 2026-10-02 14:00 UTC(フェーズ293: 上記の重複作業抑制方針の追加。
   コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ294(2026-10-07 11:00 UTC定例更新): フェーズ293の「承認待ち事項1〜4のいずれかが
+  承認されるまでは他venture・アイデア領域の前進を優先する」方針を見直し、line-reservation-ai
+  フェーズ続き297・kura-pashaフェーズ209が行った「承認不要な範囲での実Firestore接続アダプタの
+  先行設計」と同種の前進を本ventureにも横展開した。`prototype/user_id_linking.py`の
+  `LinkingCodeStoreProtocol`(`pending_links/{code}`、save/get/delete/itemsの4メソッド)・
+  `UserProfileStoreProtocol`(`user_profile/{user_id}`、20件超のget/setメソッド)のうち、
+  本venture側には実Firestore接続アダプタの設計が一件も存在していなかったことを確認し、
+  メソッド数が少なく1ドキュメント1エントリの単純な構造の`LinkingCodeStoreProtocol`に
+  限定して具象クラス`FirestorePendingLinkStore`を設計した
+  (firestore-provider-adapter-design.md新規作成)。`save`/`get`/`delete`はドキュメント
+  単位の読み書き、`items()`(期限切れパージ用)は`pending_links`コレクション全体の
+  `stream()`で実装する方針、`get()`の例外時は「未発見」(None)に合流させる方針(no-op系
+  の`set_*`とは非対称)、書き込みは`set()`(使い切りトークンのため部分マージ不要)で行う
+  方針を整理した。メソッド数が多い`UserProfileStoreProtocol`は一度に設計すると検討が
+  発散するため対象外とし、次回候補として個別に残した(kura-pashaフェーズ209と同じ区切り方)。
+  コード変更はなく、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+  変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその
+  着手を最優先、(2)`UserProfileStoreProtocol`の実Firestore接続アダプタ設計(関連する
+  薄いProtocol群単位で段階的に範囲を区切ることを検討)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 11:00 UTC(フェーズ294: `LinkingCodeStoreProtocol`の実Firestore
+  接続アダプタ`FirestorePendingLinkStore`をfirestore-provider-adapter-design.mdに
+  新規設計。コード変更なし、テスト653件・schema検証25件いずれもパス)
