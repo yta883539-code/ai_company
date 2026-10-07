@@ -5104,3 +5104,26 @@
 - 最終更新: 2026-10-07 11:00 UTC(フェーズ294: `LinkingCodeStoreProtocol`の実Firestore
   接続アダプタ`FirestorePendingLinkStore`をfirestore-provider-adapter-design.mdに
   新規設計。コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ295(2026-10-07 18:00 UTC定例更新): フェーズ294の次回候補(2)に着手し、
+  `UserProfileStoreProtocol`(20件超のget/setメソッド)の実Firestore接続アダプタ設計を、
+  kura-pashaフェーズ209と同じ「最小の関連グループから着手する」方針で開始した。本フェーズは
+  (1)基盤3メソッド(`save`/`get`/`exists`、他の全get/setメソッドの前提となる
+  `_doc_ref(user_id)`ヘルパーを含む)、(2)Stripe顧客IDグループ(`set_stripe_customer_id`/
+  `get_user_id_by_stripe_customer_id`/`get_stripe_customer_id`)の2グループに限定し、
+  `FirestoreUserProfileStore`を`firestore-provider-adapter-design.md`5節に新規設計した。
+  Stripe顧客IDの逆引きは`user_profile`コレクション全体へのクエリではなく専用の逆引き
+  コレクション`stripe_customer_index/{stripe_customer_id}`を`WriteBatch`で同時書き込みする
+  方式を採用し、`InMemoryUserProfileStore`が逆引き用の別辞書を持つ既存設計と対応させた。
+  残りのグループ(trial系・payment_failure系・current_plan_id・is_following+
+  all_user_ids・owner_notified_at系4種・event_time系4種)は6節に次回候補として残した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+  変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその
+  着手を最優先、(2)`UserProfileStoreProtocol`の残りのグループ(上記6種)の実Firestore
+  接続アダプタ設計を1グループずつ継続、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 18:00 UTC(フェーズ295: `UserProfileStoreProtocol`の基盤3メソッド
+  (save/get/exists)+Stripe顧客IDグループの実Firestore接続アダプタ`FirestoreUserProfileStore`
+  をfirestore-provider-adapter-design.md 5節に新規設計。コード変更なし、
+  テスト653件・schema検証25件いずれもパス)
