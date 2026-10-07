@@ -1783,3 +1783,23 @@
 - 最終更新: 2026-10-07 12:00 UTC(フェーズ103: landing-page-copy-draft.mdのFAQセクションに、
   llm-system-prompt-draft.md厳守事項6〈点検代行・修理・部品調達等の範囲外要求への不応答〉を
   反映したQ&Aを追加。landing-page/index.htmlにも同内容を反映。コード変更あり〈index.html〉)
+- フェーズ104(2026-10-07 17:00 UTC定例更新): フェーズ103の次回候補(2)「他venture・アイデア
+  領域の前進」を受け、course-set-pashaフェーズ273・kura-pashaフェーズ210・line-reservation-ai
+  フェーズ続き299が発見した「landing-page-copy-draft.mdのFAQ追加分がテキストワイヤーフレーム
+  (landing-page-wireframe.md)に反映漏れ」という同種のパターンを本venture内で横展開確認した。
+  フェーズ103でFAQに追加した4件目のQ&A(点検代行・修理・部品調達等の範囲外要求への不応答)が
+  landing-page-wireframe.mdのFAQセクション(3件のまま)に反映されていないことを発見し、
+  4件目の項目を追加した。あわせて、landing-page-copy-draft.md「次回候補」が「Q4追加を
+  index.htmlの実装にも反映」という既にフェーズ103自体で完了済みの項目を未完了のまま
+  記載し続けていた記載漏れも発見・是正した(index.htmlに該当Q&Aが実在することを確認済み)。
+  コード(prototype/)の変更はないため回帰確認として`python3 prototype/run_all_tests.py`
+  (4ファイル)・`python3 schema/validate_test_cases.py`(11件)・`node prototype/
+  browser_mockup_checks.js`(23件)を再実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2(建荷協・労働局連絡/
+  Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、(2)ヒーロー画像・
+  アイキャッチ等のビジュアル案検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 17:00 UTC(フェーズ104: landing-page-wireframe.mdのFAQセクションに
+  Q4〈点検代行・修理・部品調達等への不応答〉を追加し、landing-page-copy-draft.mdの記載漏れ
+  〈次回候補への誤記載〉も是正した。コード変更なし、テスト4ファイル・schema検証11件・
+  ブラウザ検証23件いずれもパス)
