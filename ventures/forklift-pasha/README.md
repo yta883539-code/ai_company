@@ -1764,7 +1764,22 @@
   今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2
   (建荷協・労働局連絡/Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、
   (2)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-07 08:00 UTC(フェーズ102: access-token-reissue-design.md「7.」を新規
-  追加し、settings.htmlの再発行確認メッセージ内に新しいメールアドレス(任意)の入力欄を追加。
-  browser_mockup_checks.jsに検証2件を追加。コード変更あり(モックアップ・テスト追加)、
-  テスト4ファイル・schema検証11件・ブラウザ検証23件いずれもパス)
+- フェーズ103(2026-10-07 12:00 UTC): フェーズ102「次回候補」(2)「他venture・アイデア
+  領域の前進」を受け、landing-page-copy-draft.md「未確定事項・次回候補」が持ち越していた
+  「llm-system-prompt-draft.mdの厳守事項とFAQ文言との整合性レビュー」(フェーズ57以来
+  未着手)に着手した。厳守事項1(良否・修理要否の判断をしない)・厳守事項4(実施・標章貼付
+  自体は代行しない)は既存FAQ Q1・Q2で反映済みだったが、厳守事項6(点検記録整形・期限管理
+  以外の要求〈点検代行・修理実施・部品調達・見積り等〉には一切応答しない)がFAQ未反映で
+  あることを発見し、landing-page-copy-draft.md・landing-page/index.htmlの両方にQ&Aを
+  1件追加した。あわせて、landing-page-copy-draft.mdの旧「次回候補」(1)(LPワイヤーフレーム・
+  実装着手)がフェーズ77で既に完了済みにもかかわらず同ファイルへの反映が漏れていたことも
+  発見し、遡って是正した。コード変更あり(landing-page/index.htmlへのFAQ項目追加)。
+  browser_mockup_checks.js・run_all_tests.py・validate_test_cases.pyは本フェーズの変更
+  対象外のため実行なし(index.htmlは他venture同様JS不使用の静的ドラフトで自動テスト対象外)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2(建荷協・労働局連絡/
+  Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-07 12:00 UTC(フェーズ103: landing-page-copy-draft.mdのFAQセクションに、
+  llm-system-prompt-draft.md厳守事項6〈点検代行・修理・部品調達等の範囲外要求への不応答〉を
+  反映したQ&Aを追加。landing-page/index.htmlにも同内容を反映。コード変更あり〈index.html〉)
