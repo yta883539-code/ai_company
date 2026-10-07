@@ -134,6 +134,14 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   notified_at`と同じ)。あわせて`clear_payment_failure_detected_at()`が本フィールドも
   まとめてクリアするようにした(`payment_failure_reminder_sent_at`を既に同じ関数内で
   クリアしている既存方針の踏襲、payment-suspension-owner-notification-design.md 6節)。
+- フェーズ212: firestore-usage-counter-provider-adapter-design.md(フェーズ211)3節が
+  発見した、`check_and_increment_usage()`の`get()`→Pythonローカル変数での+1計算→`set()`
+  という2メソッド呼び出し構成が実Firestore環境で持つread-modify-write競合リスクを解消
+  するため、同節(a)案に沿って`UsageCounterStoreProtocol`へ`increment_or_reset(workshop_id,
+  current_month) -> int`を追加した。`check_and_increment_usage()`を1メソッド呼び出しに
+  変更し、`InMemoryUsageCounterStore`にも素朴な実装を追加した。既存の`get`/`set`は
+  テスト側の状態検証(`counters.get(...)`によるブロック時未書き込み確認等)で引き続き
+  使うため維持する。
 """
 
 from __future__ import annotations
@@ -577,6 +585,22 @@ class UsageCounterStoreProtocol(Protocol):
     def set(self, workshop_id: str, month: str, count: int) -> None:
         ...
 
+    def increment_or_reset(self, workshop_id: str, current_month: str) -> int:
+        """firestore-usage-counter-provider-adapter-design.md 3節(a)案: 保存済みの
+        monthがcurrent_monthと一致しなければcount=0から、一致すれば現在のcountから、
+        いずれも+1した結果を単一の原子的操作で書き込み、加算後のcountを返す。
+
+        check_and_increment_usage()が従来行っていた「get()で読む→Pythonローカル変数で
+        +1を計算する→set()で書き戻す」という2メソッド呼び出し(867〜875行目、フェーズ211
+        設計時点)は、実Firestore環境では同一workshop_idへの並行呼び出しでread-modify-write
+        競合(2つのリクエストが同じcount_beforeを読み、片方の加算が失われる)を起こしうる
+        ため、本メソッドへ一本化することでその競合窓を無くす。Firestore実装は内部で
+        `@firestore.transactional`を使い読み取り→書き込みの間に他の書き込みが入らないことを
+        保証できる想定(design.md 3節)。InMemory実装はテストが同期的・単一スレッドで
+        呼ばれる前提のため素朴な実装のままでよい。
+        """
+        ...
+
 
 class InMemoryUserProfileStore:
     def __init__(self) -> None:
@@ -822,6 +846,13 @@ class InMemoryUsageCounterStore:
     def set(self, workshop_id: str, month: str, count: int) -> None:
         self._entries[workshop_id] = (month, count)
 
+    def increment_or_reset(self, workshop_id: str, current_month: str) -> int:
+        existing = self._entries.get(workshop_id)
+        count_before = existing[1] if existing is not None and existing[0] == current_month else 0
+        count_after = count_before + 1
+        self._entries[workshop_id] = (current_month, count_after)
+        return count_after
+
 
 def _current_month_key(now: datetime) -> str:
     return now.strftime("%Y-%m")
@@ -848,9 +879,15 @@ def check_and_increment_usage(
     """usage-counter-workshop-key-design.md 2節の3ステップを実行する。
 
     1. user_id→workshop_idを引く(未設定ならWorkshopNotLinkedError)。
-    2. usage_counter/{workshop_id}を読み、monthが当月でなければcount=0でリセットしてから
-       加算する(subscription-cancellation-flow-design.mdが踏襲済みのダウングレード時の
-       count維持方針とは独立に、月替わりのリセットのみここで扱う)。
+    2. usage_counter/{workshop_id}について、monthが当月でなければcount=0でリセットして
+       から加算する(subscription-cancellation-flow-design.mdが踏襲済みのダウングレード時の
+       count維持方針とは独立に、月替わりのリセットのみここで扱う)処理を、
+       `increment_or_reset()`1回の呼び出しで原子的に行う(フェーズ212:
+       firestore-usage-counter-provider-adapter-design.md 3節(a)案の採用。読み取りと
+       書き込みの間にPythonローカル変数での計算を挟む旧実装〈get→+1計算→set〉は、実
+       Firestore環境での並行リクエストによるread-modify-write競合の窓を持っていたため、
+       単一メソッド呼び出しに統合しアダプタ側〈Firestore実装はトランザクション〉に
+       原子性の保証を委ねる設計へ変更した)。
     3. plan_idをcraftsman_workshopから取得し、pricing-plan.mdの上限と突き合わせて
        上限超過(従量課金要否)を判定する。
     """
@@ -865,14 +902,7 @@ def check_and_increment_usage(
         raise UnknownPlanError(f"workshop_id={workshop_id!r}のplan_id={plan_id!r}が不明です")
 
     current_month = _current_month_key(now)
-    existing = usage_counter_store.get(workshop_id)
-    if existing is None or existing[0] != current_month:
-        count_before = 0
-    else:
-        count_before = existing[1]
-
-    count_after = count_before + 1
-    usage_counter_store.set(workshop_id, current_month, count_after)
+    count_after = usage_counter_store.increment_or_reset(workshop_id, current_month)
 
     limits = PLAN_LIMITS[plan_id]
     return UsageCheckResult(

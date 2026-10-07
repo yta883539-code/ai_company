@@ -87,6 +87,33 @@ def test_multi_craftsman_shared_counter():
     check("超過単価は150円", r21.overage_price_jpy == 150)
 
 
+def test_increment_or_reset_accumulates_within_same_month():
+    """フェーズ212: increment_or_reset()単体で、同月内は呼び出すたびに+1されることを
+    検証する(check_and_increment_usage経由のtest_multi_craftsman_shared_counterとは
+    独立に、Protocol直接呼び出しレベルで原子的メソッドの素朴な積み上げ挙動を確認する)。
+    """
+    _, _, counters = make_stores()
+    r1 = counters.increment_or_reset("W_INC1", "2026-02")
+    r2 = counters.increment_or_reset("W_INC1", "2026-02")
+    r3 = counters.increment_or_reset("W_INC1", "2026-02")
+    check("1回目はcount=1", r1 == 1)
+    check("2回目はcount=2", r2 == 2)
+    check("3回目はcount=3", r3 == 3)
+    check("get()でも同じ値が読める", counters.get("W_INC1") == ("2026-02", 3))
+
+
+def test_increment_or_reset_resets_on_month_change():
+    """月替わりでcurrent_monthが変わった場合はcount=0からリセットして+1することを
+    検証する。
+    """
+    _, _, counters = make_stores()
+    counters.increment_or_reset("W_INC2", "2026-02")
+    counters.increment_or_reset("W_INC2", "2026-02")
+    r_mar = counters.increment_or_reset("W_INC2", "2026-03")
+    check("月替わりでcount=1にリセットされる", r_mar == 1)
+    check("get()もリセット後の月・countを返す", counters.get("W_INC2") == ("2026-03", 1))
+
+
 def test_month_rollover_resets_count():
     profiles, workshops, counters = make_stores()
     profiles.link("U3", "W3")
@@ -1145,6 +1172,8 @@ def test_select_message_context_workshop_not_linked_raises():
 if __name__ == "__main__":
     test_single_craftsman_light_within_limit()
     test_multi_craftsman_shared_counter()
+    test_increment_or_reset_accumulates_within_same_month()
+    test_increment_or_reset_resets_on_month_change()
     test_month_rollover_resets_count()
     test_workshop_not_linked_raises()
     test_unknown_plan_raises()

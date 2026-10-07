@@ -85,14 +85,30 @@ Pythonレベルで両者の間に計算を挟む限り、アダプタ側だけ�
 既存テスト(test_usage_counter_workshop.py)への影響が生じるため、本フェーズでは設計の
 方向性を記録するのみとし、実際のProtocol変更・コード変更は次回候補として見送る。
 
+**フェーズ212で実装済み。** `UsageCounterStoreProtocol`へ`increment_or_reset(workshop_id,
+current_month) -> int`を追加し、`check_and_increment_usage()`を本メソッド1回の呼び出しに
+変更した(`usage_counter_workshop.py`841〜880行目付近)。`InMemoryUsageCounterStore`にも
+素朴な実装(保存済みmonthがcurrent_monthと不一致ならcount=0から、一致すれば現在のcountから
++1し、結果を書き込んで返す)を追加した。既存の`get`/`set`は、テスト側が生成リクエスト
+ブロック時に「usage_counter_storeへ何も書き込まれていないこと」を検証する用途
+(`counters.get(workshop_id) is None`)で引き続き使うため、Protocolから削除していない。
+`test_usage_counter_workshop.py`に`increment_or_reset`単体の積み上げ・月替わりリセット
+挙動を検証する2件を追加した(`test_increment_or_reset_accumulates_within_same_month`・
+`test_increment_or_reset_resets_on_month_change`)。既存テスト(16ファイル)・schema検証
+(32件)いずれも回帰なしでパスすることを確認した。
+
+上記`## 2. 設計方針`のFirestore実装例(素朴な`get`/`set`のみ)は、実際にFirestore接続を
+行う際には`increment_or_reset`を`@firestore.transactional`で実装する必要がある点を
+明記しておく(`get`/`set`はテスト向けの状態検証用途にのみ残す非原子的メソッドとし、
+生成リクエスト処理の本流では`increment_or_reset`のみを使う)。
+
 ## 4. 残課題・次回候補
 
-- 上記3節(a)案(`increment_or_reset`への統合)の具体的なシグネチャ・既存テストへの
-  影響整理、および`test_usage_counter_workshop.py`の改修方針の設計。
 - 残り2つのProtocol(`WorkshopStoreProtocol`・`LinkingCodeStoreProtocol`)の実Firestore
   接続アダプタ設計。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
-  あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
-- 本フェーズで発見した競合リスクは、他venture(line-reservation-ai・course-set-pasha・
-  aircon-pasha・forklift-pasha)の同種カウンタ系Protocol(存在する場合)にも横展開確認
-  する余地がある。
+  あり、本設計のコードは承認後の結合実装フェーズまでコミットしない(`increment_or_reset`の
+  `@firestore.transactional`実装自体もこの結合実装フェーズで行う)。
+- 本フェーズ(211)で発見した競合リスク・フェーズ212の`increment_or_reset`統合は、
+  他venture(line-reservation-ai・course-set-pasha・aircon-pasha・forklift-pasha)の
+  同種カウンタ系Protocol(存在する場合)にも横展開確認する余地がある。

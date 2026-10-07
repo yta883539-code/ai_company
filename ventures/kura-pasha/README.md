@@ -4549,3 +4549,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   接続アダプタ`FirestoreUsageCounterProvider`を新規設計。設計過程で呼び出し元のread-
   modify-write競合リスクを発見し、対応方針〈Protocolへの原子的メソッド追加〉を記録。
   コード変更なし、テスト16ファイル・schema検証32件いずれもパス)
+- フェーズ212(2026-10-07 20:00 UTC定例更新): フェーズ211の次回候補(2)に沿い、
+  `increment_or_reset`統合案を実装した。`UsageCounterStoreProtocol`へ
+  `increment_or_reset(workshop_id, current_month) -> int`(保存済みmonthが
+  current_monthと不一致ならcount=0から、一致すれば現在のcountから+1し、書き込んだ
+  countを返す単一の原子的メソッド)を追加し、`check_and_increment_usage()`を
+  `get()`→ローカル変数での+1計算→`set()`という2メソッド呼び出しから本メソッド1回の
+  呼び出しへ変更した(usage_counter_workshop.py)。`InMemoryUsageCounterStore`にも
+  素朴な実装を追加し、既存の`get`/`set`はテスト側のブロック時未書き込み検証用途で
+  引き続き使うためProtocolから削除していない。`test_usage_counter_workshop.py`へ
+  `increment_or_reset`単体の積み上げ・月替わりリセット挙動を検証するテスト2件
+  (`test_increment_or_reset_accumulates_within_same_month`・
+  `test_increment_or_reset_resets_on_month_change`)を追加した。
+  firestore-usage-counter-provider-adapter-design.md 3節・4節を実装済みの内容へ
+  更新した(Firestore実装では`increment_or_reset`を`@firestore.transactional`で
+  実装する必要がある旨を明記)。回帰確認として`python3 prototype/run_all_tests.py`
+  (16ファイルOK、test_usage_counter_workshop.pyは新規2件を含め全件パス)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング
+  実施がオーナーから承認された場合はその着手を最優先、(2)残り2つのProtocol
+  (`WorkshopStoreProtocol`・`LinkingCodeStoreProtocol`)の実Firestore接続アダプタ設計、
+  (3)本フェーズで解消した競合リスクの他venture(line-reservation-ai・course-set-pasha・
+  aircon-pasha・forklift-pasha)の同種カウンタ系Protocolへの横展開確認、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-07 20:00 UTC(フェーズ212: `UsageCounterStoreProtocol`へ原子的な
+  `increment_or_reset`を追加し、`check_and_increment_usage()`のread-modify-write競合
+  リスクを解消。`InMemoryUsageCounterStore`実装・テスト2件追加・design.md更新を含む。
+  テスト16ファイル(新規2件含む)・schema検証32件いずれもパス)
