@@ -67,7 +67,7 @@ async function checkIndex(page) {
 
 // フェーズ101: settings.html(access-token-reissue-design.md 2節・6節のモックアップ化)の
 // CSSのみの確認メッセージ切替(daily.htmlの異常あり/なし切替と同じchecked+一般兄弟結合子の手法)
-// を検証する。
+// を検証する。フェーズ102でメールアドレス変更欄(任意入力)の表示・入力可否も追加検証する。
 async function checkSettings(page) {
   await page.goto('file://' + path.join(MOCKUP_DIR, 'settings.html'));
 
@@ -79,6 +79,12 @@ async function checkSettings(page) {
 
   await page.locator('label.reissue-btn').click();
   check('settings: 再発行ボタンを押すと確認メッセージが表示される', await confirm.isVisible());
+
+  // フェーズ102: 確認メッセージ内のメールアドレス変更欄(任意)の検証。
+  const newEmailInput = page.locator('#new-email');
+  check('settings: 確認メッセージ内に新しいメールアドレス欄が表示される', await newEmailInput.isVisible());
+  await newEmailInput.fill('new-address@example.com');
+  check('settings: 新しいメールアドレス欄に入力できる', (await newEmailInput.inputValue()) === 'new-address@example.com');
 }
 
 // フェーズ82でdaily.html同型のチェックリスト(:has()による出し分け)をmonthly.htmlにも
