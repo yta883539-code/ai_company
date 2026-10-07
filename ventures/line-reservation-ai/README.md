@@ -5273,3 +5273,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「LP掲載用ページ構成の設計」を新規作成。特商法表記・プライバシーポリシーの2ページ
   構成・見出し順・公開前チェック項目を整理。コード変更なし、テスト906件・schema検証
   28件いずれもパス)
+- フェーズ続き299(2026-10-07 15:00 UTC定例更新): course-set-pashaフェーズ273
+  (2026-10-07 10:00 UTC)が発見・是正した「landing-page-wireframe.mdのFAQ節が
+  landing-page-copy-draft.mdの追加分を反映していない」記載漏れについて、同フェーズの
+  次回候補・およびkura-pashaフェーズ210(2026-10-07 14:00 UTC)による横展開是正の指示を
+  受け、本ventureでも同種の記載漏れが残っていないか確認した。landing-page/index.htmlには
+  FAQ4問(フェーズ続き175で追加された4問目「LINEをブロックすれば解約したことになるか」を
+  含む)が`<details>`要素として既に実装済みだったが、landing-page-wireframe.mdのテキスト
+  ワイヤーフレームは最初の3問のみを反映した古い状態のまま残っていたことを確認し、
+  landing-page-copy-draft.md本文の既存文言をそのまま転記する形で4問目をワイヤーフレームに
+  追記して是正した(新規の文言作成・料金プラン等の設計変更は行っていない)。同ファイルの
+  「最終更新」表記も2026-10-07 15:00 UTCに更新した。コード(prototype/)の変更はないため
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・
+  `python3 schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを確認した
+  (件数に変更なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: aircon-pashaの
+  landing-page-wireframe.mdにも同種のFAQ反映漏れが残っていないか横展開確認を行う、または
+  実Firestore/GCPプロジェクトの承認が得られた場合はfirestore-provider-adapter-design.mdの
+  設計に沿って`FirestoreStoreDocumentProvider`を実装し結合する、あるいは他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-07 15:00 UTC(フェーズ続き299: landing-page-wireframe.mdのFAQ節が
+  copy-draft.md追加分〈4問目〉を反映していなかった記載漏れを発見・是正〈index.html自体は
+  実装済みだった〉。コード変更なし、テスト906件・schema検証28件いずれもパス)
