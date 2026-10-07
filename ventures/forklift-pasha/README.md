@@ -1681,3 +1681,38 @@
 - 最終更新: 2026-10-07 02:00 UTC(フェーズ97: firestore-data-model.md・
   payment-identity-verification-design.mdへのinternal_id/accessToken分離を実ファイルに
   反映。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)
+- フェーズ98(2026-10-07 03:00 UTC定例更新): フェーズ97「次回候補」(1)の`accessToken`
+  有効期限方針を検討し、**無期限(自動失効を設けない)**に確定した。course-set-pashaの
+  短命連携コード(24時間TTL)とは性質が異なる(サブスクリプション契約期間中繰り返し使う
+  「ログインID/パスワードを発行しない」運用の代替であり、定期的な自動失効は定期的な
+  人手の再発行確認作業を生み、運用負荷を増やさない方針に反する)ことを理由とし、
+  access-token-reissue-design.md「5. 有効期限方針の決定」に判断理由を記録した。
+  副作用として、無期限である以上本人が漏洩に気づく手段がボタン操作だけに依存する点を
+  補うため、`fleet_operator`に`lastAccessedAt`(最終アクセス日時)を記録し設定ページに
+  表示する案を次回候補として残した(本フェーズでは方針の言及のみで実装は行わず)。
+  コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス。
+  承認が必要なアクションは発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`lastAccessedAt`表示案の実装検討、(2)承認待ち事項1・2(建荷協・
+  労働局連絡/Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 03:00 UTC(フェーズ98: `accessToken`有効期限方針を無期限に確定し、
+  access-token-reissue-design.md「5.」に記録。コード変更なし、テスト4ファイル・
+  schema検証11件・ブラウザ検証17件いずれもパス)
+- フェーズ99(2026-10-07 04:00 UTC定例更新): フェーズ98「次回候補」(1)の`lastAccessedAt`
+  表示案に着手した。firestore-data-model.mdの`fleet_operator`に`lastAccessedAt`
+  (Timestamp | null)フィールドを追加し、access-token-reissue-design.md「6.」として
+  更新タイミング(設定ページアクセス時のみ書き込み、点検メモ送信時は対象外)・表示方法
+  (今回のアクセスで上書きする前の値=前回アクセス時点の値を「前回のアクセス: YYYY-MM-DD
+  HH:MM」形式で表示し、見覚えがない場合は再発行ボタンへ誘導)を設計した。複数端末分の
+  履歴配列化・IPアドレス等の付加情報記録は「機能を増やさずシンプルに保つ」方針により
+  範囲外とした。コード(prototype/・web-form-mockup/)の変更は発生していないため回帰
+  確認として`python3 prototype/run_all_tests.py`(4ファイルOK)・`python3
+  schema/validate_test_cases.py`(11件)・`node prototype/browser_mockup_checks.js`
+  (17件)を再実行し、いずれも全件パスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2(建荷協・労働局連絡/
+  Stripeアカウント開設)がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-07 04:00 UTC(フェーズ99: firestore-data-model.mdに`lastAccessedAt`
+  フィールドを追加し、access-token-reissue-design.md「6.」に更新タイミング・表示方法を
+  設計。コード変更なし、テスト4ファイル・schema検証11件・ブラウザ検証17件いずれもパス)

@@ -43,8 +43,15 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   subscriptionStatus: "trialing",            // "trialing" | "active" | "past_due" | "canceled"
   trialStartAt: null,                        // Timestamp | null。pricing-plan.md「無料トライアル
                                               // 条件」の起算点(初回生成時に1回だけ設定、以降不変)
-  currentPeriodEnd: null                     // Timestamp | null。次回請求日・トライアル終了予定日
+  currentPeriodEnd: null,                    // Timestamp | null。次回請求日・トライアル終了予定日
                                               // の判定に使用
+  lastAccessedAt: null                       // Timestamp | null。アクセスURL
+                                              // (https://<ドメイン>/f/{accessToken})経由で
+                                              // 設定ページが開かれた直近の日時。本人が
+                                              // トークン漏洩等の異常なアクセスパターンに気づく
+                                              // 手がかりとして設定ページ上に表示する
+                                              // (access-token-reissue-design.md「6.」参照)。
+                                              // 初回アクセス前はnull
 }
 ```
 
@@ -97,6 +104,9 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   実装時の課題として残す。
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
   オーナー承認が必要(pending-approval.md参照)。本ファイルは机上のスキーマ整理のみ。
+- (解消済み 2026-10-07 04:00 UTC・フェーズ99: access-token-reissue-design.md〈フェーズ98〉
+  次回候補の`lastAccessedAt`フィールドを`fleet_operator`に追加した。更新タイミング・
+  設定ページでの表示方針はaccess-token-reissue-design.md「6.」参照。)
 
 最終更新: 2026-10-05 22:00 UTC(フェーズ70: tech-stack.mdの入力チャネル暫定決定〈汎用Web
 フォーム〉を受け、operator_idの割り振り方針をメールアドレス/発行式に具体化)
@@ -107,3 +117,5 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
 internal_id/accessToken分離を実ファイルに反映。`fleet_operator`のドキュメントIDを
 `internal_id`に変更し`accessToken`・`email`フィールドを追加、`vehicle`の参照フィールドを
 `operatorInternalId`に変更、`usage_counter`のキーを`internal_id`に変更)
+最終更新: 2026-10-07 04:00 UTC(フェーズ99: access-token-reissue-design.md〈フェーズ98〉
+次回候補の`lastAccessedAt`フィールドを`fleet_operator`に追加した)

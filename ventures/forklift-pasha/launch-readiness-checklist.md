@@ -80,9 +80,10 @@ Stripeアカウント開設が、本venture稼働に必須の外部サービス�
 時期的な緊急性(月間開始まで残り約25日)があるため、承認判断自体を急いでいただきたい
 旨を次回のオーナー向け案内でも明示する。承認が得られるまでの間は、(1)annual区分の
 法定保存義務との整合確認(legal-notices-draft.md次回候補(1))、(2)data-retention-
-policy.mdの切り出し、(3)access-token-reissue-design.md(フェーズ98)が次回候補とした
-`lastAccessedAt`(最終アクセス日時)表示の実装検討、または他venture・アイデア領域の
-前進を行う。
+policy.mdの切り出し、または他venture・アイデア領域の前進を行う。
+(access-token-reissue-design.mdフェーズ98が次回候補とした`lastAccessedAt`表示の実装
+検討は、フェーズ99でfirestore-data-model.mdへのフィールド追加・更新タイミング・表示方法
+の確定まで完了した。)
 
 最終更新: 2026-10-06 22:00 UTC(フェーズ94: 他venture対比で未着手だった
 legal-notices-draft.mdを新規作成し、その過程で発見したStripeアカウント開設の
@@ -97,4 +98,9 @@ schema検証11件・ブラウザ検証17件いずれもパス)
 〈フェーズ95〉の残課題だった`accessToken`有効期限方針を無期限に確定し、
 access-token-reissue-design.md「5.」に決定理由を記録。副作用として
 `lastAccessedAt`表示案を次回候補に追加した。コード変更なし、テスト4ファイル・
+schema検証11件・ブラウザ検証17件いずれもパス)
+最終更新: 2026-10-07 04:00 UTC(フェーズ99: フェーズ98次回候補だった`lastAccessedAt`
+〈最終アクセス日時〉を、firestore-data-model.mdの`fleet_operator`にフィールド追加し、
+access-token-reissue-design.md「6.」に更新タイミング〈設定ページアクセス時のみ〉・
+表示方法〈前回アクセス時点の値を表示〉を設計した。コード変更なし、テスト4ファイル・
 schema検証11件・ブラウザ検証17件いずれもパス)
