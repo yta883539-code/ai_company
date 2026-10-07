@@ -4527,3 +4527,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   landing-page-wireframe.mdのFAQテキスト図に欠けていた5問目〈プラン選択案内〉を追記・
   是正。index.html自体は実装済みだったため変更なし。コード変更なし、テスト16ファイル・
   schema検証32件いずれもパス)
+- フェーズ211(2026-10-07 19:00 UTC定例更新): フェーズ210の次回候補(2)に沿い、残り3つの
+  Protocolのうちメソッド数最少・対象ドキュメント単一の`UsageCounterStoreProtocol`
+  (`usage_counter/{workshop_id}`、`get`/`set`の2メソッド)の実Firestore接続アダプタ
+  `FirestoreUsageCounterProvider`を設計した(firestore-usage-counter-provider-adapter-
+  design.md新規作成)。設計の過程で、呼び出し元`check_and_increment_usage()`が
+  `get`→(Python上でのcount+1計算)→`set`を2回の別々のProtocol呼び出しとして実行している
+  ため、実Firestore環境では同一workshop_idへの並行リクエスト(複数職人プランでの同時利用等)
+  でread-modify-write競合が起き、加算が1件取り落とされる可能性がある未解消のリスクを発見
+  した。対応にはProtocol自体に単一の原子的メソッド(`increment_or_reset`)を追加する設計
+  変更が必要なため、本フェーズでは方向性の記録に留め、実装は次回候補とした。コード変更は
+  なく、回帰確認として`python3 prototype/run_all_tests.py`(16ファイルOK、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認
+  された場合はその着手を最優先、(2)`increment_or_reset`統合案の具体的なシグネチャ・
+  既存テストへの影響整理、(3)`WorkshopStoreProtocol`・`LinkingCodeStoreProtocol`の実
+  Firestore接続アダプタ設計、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 19:00 UTC(フェーズ211: `UsageCounterStoreProtocol`の実Firestore
+  接続アダプタ`FirestoreUsageCounterProvider`を新規設計。設計過程で呼び出し元のread-
+  modify-write競合リスクを発見し、対応方針〈Protocolへの原子的メソッド追加〉を記録。
+  コード変更なし、テスト16ファイル・schema検証32件いずれもパス)
