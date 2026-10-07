@@ -5225,3 +5225,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-03 06:00 UTC(フェーズ続き296: firestore-data-model.mdの
   stores/{storeId}スキーマにbusinessName・regionNameフィールドの記載漏れを発見・
   追加。コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き297(2026-10-07 07:00 UTC定例更新): フェーズ続き295・296の次回候補
+  だった「実Firestoreクライアント接続時にStoreNameProviderProtocol/
+  RegionNameProviderProtocolの実装を接続する」に向けて、実GCPプロジェクト・
+  Firestore接続の承認(pending-approval.md記載、外部アカウント作成・課金設定を
+  伴うため未承認)を待つ間に着手できる範囲として、具象実装クラス
+  `FirestoreStoreDocumentProvider`の設計を先行して詰めた
+  (firestore-provider-adapter-design.md新規作成)。両Protocolの取得元が同一の
+  `stores/{storeId}`ドキュメントであることを踏まえ、2クラスに分けず1クラスで
+  両Protocolを実装する方針、Firestore例外発生時もProtocol契約通り空文字列へ
+  フォールバックする方針、キャッシュ化は想定トラフィック規模では過剰設計として
+  見送る判断を整理した。コードは実際にはコミットしていない(設計ドキュメントのみ、
+  承認後の結合実装フェーズで`cloud_function_process_event.py`へ注入する想定)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(906件)・`python3 schema/validate_test_cases.py`(28件)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし
+  (実Firestoreプロジェクトの承認依頼自体は既存のpending-approval.md記載分を参照)。
+  次回候補: 実Firestore/GCPプロジェクトの承認が得られた場合は
+  firestore-provider-adapter-design.mdの設計に沿って`FirestoreStoreDocumentProvider`
+  を実装し結合する、または他venture・アイデア領域の前進。
+- 最終更新: 2026-10-07 07:00 UTC(フェーズ続き297: 実Firestore接続アダプタ
+  `FirestoreStoreDocumentProvider`の設計をfirestore-provider-adapter-design.mdに
+  新規整理。コード変更なし、テスト906件・schema検証28件いずれもパス)
