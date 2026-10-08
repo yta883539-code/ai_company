@@ -4626,3 +4626,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈pending_workshop_invites向け〉の実Firestore接続アダプタ`FirestoreWorkshopInviteStore`を
   新規設計〈invite-code-store-firestore-adapter-design.md〉。コード変更なし、
   テスト171件・schema検証32件いずれもパス)
+- フェーズ215(2026-10-08 10:00 UTC定例更新): フェーズ214の次回候補(2)
+  「`WorkshopStoreProtocol`(30件超のメソッド)の実Firestore接続アダプタ設計」に着手した。
+  着手前の確認で、`workshop_linking.resolve_linking_code()`(workshop_linking.py 196行目)が
+  引数`workshop_store`を`WorkshopStoreProtocol`型として宣言しているにもかかわらず、同関数が
+  実際に呼び出す`set_members`(233行目、新規workshop作成時の1回限りの呼び出し)が同Protocolに
+  宣言されておらず`InMemoryWorkshopStore`のみの独自実装に留まっていた設計ミスを発見し、
+  本フェーズの前提作業として`WorkshopStoreProtocol`へ`set_members`を正式に追加し是正した
+  (usage_counter_workshop.py、動作変更なし)。その上で、本venture他ventureの
+  `UserProfileStoreProtocol`設計と同じ「最小の関連グループから着手する」方針に沿い、
+  workshop新規作成時に書き込まれるフィールド群(`set_members`/`get_contractor_user_id`/
+  `set_contractor_user_id`/`get_member_user_ids`/`add_member_user_id`/
+  `get_member_display_name`/`get_plan_id`/`set_plan`/`get_workshop_name`/
+  `set_workshop_name`/`get_first_generation_notice_sent`/`set_first_generation_notice_sent`/
+  `all_workshop_ids`、計13メソッド)を「基盤グループ」として`FirestoreWorkshopStore`の設計を
+  `workshop-store-firestore-adapter-design.md`に新規作成した。`add_member_user_id`は
+  Firestoreの`ArrayUnion`センチネルにより、フェーズ212で解消した`UsageCounterStoreProtocol`
+  と同種のread-modify-write競合を最初から回避できる設計とした。コード変更は
+  `set_members`のProtocol宣言追加のみ(新規アダプタクラス自体は設計止まりで未実装)。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(171件、
+  変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りのグループ(メンバー削減系・
+  契約者引き継ぎ系・trial系・stripe_customer_id順引き逆引き系・subscription_status+
+  event_time系・payment_failure系・trial_end_notified_at・owner_notified_at系2種)の実
+  Firestore接続アダプタ設計、(3)一時的な接続エラー時の安全側フォールバック方針の本venture
+  全体を通じた統一的な整理、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-08 10:00 UTC(フェーズ215: `WorkshopStoreProtocol`に宣言漏れだった
+  `set_members`を追加是正した上で、同Protocolの「基盤グループ」(workshop新規作成時の
+  書き込みフィールド群、計13メソッド)の実Firestore接続アダプタ`FirestoreWorkshopStore`を
+  新規設計〈workshop-store-firestore-adapter-design.md〉。コード変更は`set_members`の
+  Protocol宣言追加のみ、テスト171件・schema検証32件いずれもパス)

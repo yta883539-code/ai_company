@@ -315,6 +315,26 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def set_members(
+        self,
+        workshop_id: str,
+        contractor_user_id: str,
+        member_user_ids: list[str],
+        display_names: Optional[dict[str, str]] = None,
+    ) -> None:
+        """workshop_linking.resolve_linking_code()(66〜80行目)が新規workshop作成時に
+        1回だけ呼び出す、`craftsman_workshop/{workshop_id}`ドキュメント自体の新規作成処理。
+        `contractor_user_id`はmember_user_idsに含めても含めなくてもよい(get_member_user_ids
+        は常に契約者を含む一覧を返す)。
+
+        本メソッドは以前`InMemoryWorkshopStore`のみが持つ実装詳細として扱われ
+        `WorkshopStoreProtocol`に宣言されていなかった(フェーズ215で発見・是正)。
+        `resolve_linking_code()`の`workshop_store`引数は本Protocol型として宣言されて
+        いるため、実Firestore接続アダプタ等の別実装がこのメソッドを欠いたまま本Protocolに
+        準拠しているつもりで作られるリスクがあった。
+        """
+        ...
+
     def get_contractor_user_id(self, workshop_id: str) -> str:
         ...
 
