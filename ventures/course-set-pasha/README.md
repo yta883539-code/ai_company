@@ -4463,3 +4463,30 @@
   〈LinkingCodeStoreProtocolの実Firestore接続アダプタ設計〉が、発案元である本venture
   自身には未作成だった記載漏れを発見・新規作成。コード変更なし、テスト690件・
   schema検証21件いずれもパス)
+
+- フェーズ275(2026-10-08 02:00 UTC定例更新): フェーズ274の次回候補だった
+  `UserProfileStoreProtocol`(application_form_submission_flow.py 27〜135行目、
+  14メソッド)の実Firestore接続アダプタ設計に、aircon-pashaフェーズ294・
+  kura-pashaフェーズ209と同じ「最小の関連グループから着手する」方針で着手した。
+  本venture自身は`UserProfile`データクラスを持たずフィールドごとに個別の
+  `set_*`/`get_*`が定義されている設計のため、aircon-pashaのような基盤3メソッド
+  (save/get/exists)ではなく、申込フォーム提出フロー(発案元)が直接書き込む
+  `gym_area_pairs`・`email`の2フィールドグループから着手し、
+  firestore-provider-adapter-design.md 5節に`FirestoreUserProfileStore`
+  (gym_area_pairs・emailの2フィールドのみ)を追加した。両`set_*`メソッドは
+  `user_profile/{user_id}`ドキュメントを他のフィールドグループ(stripe_customer_id・
+  is_following等)と共有するため`merge=True`の部分更新とした。残りのグループ
+  (Stripe顧客IDグループ・is_following+all_user_ids・
+  blocked_but_billing_owner_notified_at系3メソッド・plan・
+  checkout_session_completed_event_time)は次回候補として6節に残した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (690件)・`python3 schema/validate_test_cases.py`(21件)を再実行し、いずれも
+  パスすること(件数に変更なし)を確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 残りのUserProfileStoreProtocolフィールドグループ、特にStripe
+  顧客IDグループ(aircon-pashaフェーズ294の逆引き専用コレクション方式を横展開)への
+  着手、または承認待ち事項1〜5がオーナーから承認された場合はその着手を最優先とする。
+- 最終更新: 2026-10-08 02:00 UTC(フェーズ275: UserProfileStoreProtocolの
+  実Firestore接続アダプタ設計に着手。基盤2フィールド〈gym_area_pairs・email〉
+  グループをfirestore-provider-adapter-design.md 5節に追加。コード変更なし、
+  テスト690件・schema検証21件いずれもパス)
