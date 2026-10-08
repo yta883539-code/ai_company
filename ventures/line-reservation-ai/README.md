@@ -5318,3 +5318,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   landing-page-copy-draft.md・landing-page-wireframe.md・landing-page/index.htmlの
   FAQ件数一致を確認、新たな記載漏れなし。コード変更なし、テスト906件・schema検証28件
   いずれもパス)
+- フェーズ続き301(2026-10-08 04:00 UTC定例更新): フェーズ続き300の次回候補(2)を受け、
+  これまで`StoreNameProviderProtocol`/`RegionNameProviderProtocol`
+  (firestore-provider-adapter-design.md)のみ設計済みだった実Firestore接続アダプタに、
+  `StoreProfileStoreProtocol`(`stores/{storeId}`、18メソッド超)を追加した。
+  aircon-pasha(フェーズ295〜)・kura-pasha(フェーズ209〜)が広いProtocolに対して採用した
+  「最小の関連グループから段階的に着手する」方針を踏襲し、Stripeグループ3メソッド
+  (`set_stripe_customer_id`/`get_stripe_customer_id`/`get_store_id_by_stripe_customer_id`)
+  に限定して`store-profile-store-firestore-adapter-design.md`を新規作成した。設計の過程で、
+  aircon-pashaの同種設計(5節)が「旧customer_idからの付け替え時の旧インデックス削除は
+  次回候補」として見送っていたのに対し、本ventureの`InMemoryStoreProfileStore.
+  set_stripe_customer_id()`(store_profile_store.py)は既に付け替え時の旧
+  `stripe_customer_index`エントリ削除を実装済みであることを確認し、実Firestoreアダプタの
+  設計もInMemory実装と契約を合わせて付け替え時削除を含める形とした(aircon-pashaの設計を
+  単純に転用するとInMemory実装との契約差異が生じることを発見・是正)。コード変更なし
+  (設計ドキュメントのみ、Firestoreへの実コミットは承認後まで見送り)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・`python3
+  schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを確認した
+  (件数に変更なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合は
+  その着手を最優先、(2)`StoreProfileStoreProtocol`の残りグループ
+  (`is_onboarding_completion_message_sent`/`mark_onboarding_completion_message_sent`
+  のbooleanフラググループが次に着手しやすい)の設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-08 04:00 UTC(フェーズ続き301: `StoreProfileStoreProtocol`の実
+  Firestore接続アダプタ設計にStripeグループ(3メソッド)で着手、
+  store-profile-store-firestore-adapter-design.md新規作成。InMemory実装との契約差異
+  〈付け替え時の旧インデックス削除〉を発見・反映。コード変更なし、テスト906件・
+  schema検証28件いずれもパス)
