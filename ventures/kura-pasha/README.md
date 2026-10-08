@@ -4578,3 +4578,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `increment_or_reset`を追加し、`check_and_increment_usage()`のread-modify-write競合
   リスクを解消。`InMemoryUsageCounterStore`実装・テスト2件追加・design.md更新を含む。
   テスト16ファイル(新規2件含む)・schema検証32件いずれもパス)
+- フェーズ213(2026-10-08 00:00 UTC定例更新): フェーズ212の次回候補(2)「残り2つの
+  Protocol(`WorkshopStoreProtocol`・`LinkingCodeStoreProtocol`)の実Firestore接続
+  アダプタ設計」のうち、メソッド数が少なく対象ドキュメントも単一の`pending_links/{code}`
+  (follow時の新規workshop作成用連携コード、`LinkingCodeStoreProtocol`、workshop_linking.py
+  66〜80行目)を先行して設計し、`linking-code-store-firestore-adapter-design.md`を新規
+  作成した。course-set-pasha自身の`LinkingCodeStoreProtocol`向け設計(シグネチャ・
+  ドキュメント構造が完全に一致)を本venture向けに適用し、`FirestorePendingLinkStore`
+  (`save`/`get`/`delete`/`items`)の設計を詰めた。`get()`はドキュメント取得失敗・
+  フィールド欠損のいずれも`None`に倒す安全側フォールバックとし、`items()`は
+  `purge_expired_links()`用の全件`stream()`とした。対象外とした`pending_workshop_invites`
+  向け招待コードStore(craftsman-account-linking-design.md 11節、ドキュメント構造が
+  異なる別Protocol)は次回候補として残した。コード変更・外部アカウント作成のいずれも
+  行っていない。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (171件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+  オーナーから承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`(30件超の
+  メソッド)の実Firestore接続アダプタ設計、(3)`pending_workshop_invites`向け招待コード
+  Storeの実Firestore接続アダプタ設計、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-08 00:00 UTC(フェーズ213: `LinkingCodeStoreProtocol`
+  〈pending_links/{code}向け〉の実Firestore接続アダプタ`FirestorePendingLinkStore`を
+  新規設計〈linking-code-store-firestore-adapter-design.md〉。コード変更なし、
+  テスト171件・schema検証32件いずれもパス)
