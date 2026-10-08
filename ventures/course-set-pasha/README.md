@@ -4514,3 +4514,28 @@
   グループの実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md 6節に追加。
   契約整合性チェックの結果、本ventureのInMemory実装はaircon-pashaの元設計(旧インデックス
   削除なし)と一致することを確認。コード変更なし、テスト690件・schema検証21件いずれもパス)
+
+- フェーズ277(2026-10-08 12:00 UTC定例更新): フェーズ276の次回候補だった`is_following`+
+  `all_user_ids`グループの実Firestore接続アダプタ設計に着手し、firestore-provider-
+  adapter-design.md 7節に追加した。`set_is_following`/`get_is_following`は5節・6節と同じ
+  `merge=True`の単一フィールド部分更新で実装できたが、`all_user_ids()`は
+  `InMemoryUserProfileStore.all_user_ids()`(application_form_submission_flow.py
+  196〜205行目)が5つの辞書の和集合を返す設計であるのに対し、Firestoreでは`user_profile`
+  コレクション全体の`stream()`でドキュメントIDを列挙するだけで同じ集合が得られることに着目し、
+  設計を単純化した。この単純化が安全であることを、和集合から意図的に除外されている
+  `blocked_but_billing_owner_notified_at`・`checkout_session_completed_event_time`の2
+  フィールドの書き込み順序を`stripe_webhook.py`・`blocked_but_billing_owner_notification.py`
+  の呼び出し元コードを辿って確認し、いずれも必ず基盤フィールド(stripe_customer_id等)より
+  後に書き込まれるため和集合との乖離が生じないことを7.3節に記録した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・
+  `python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすること
+  (件数に変更なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: 残りの
+  UserProfileStoreProtocolフィールドグループ(`blocked_but_billing_owner_notified_at`系3
+  メソッド・`plan`・`checkout_session_completed_event_time`)、または承認待ち事項1〜5が
+  オーナーから承認された場合はその着手を最優先とする。
+- 最終更新: 2026-10-08 12:00 UTC(フェーズ277: UserProfileStoreProtocolのis_following+
+  all_user_idsグループの実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md
+  7節に追加。all_user_ids()はuser_profileコレクション全件stream()への単純化が安全であることを
+  呼び出し元コードの書き込み順序から確認。コード変更なし、テスト690件・schema検証21件いずれも
+  パス)

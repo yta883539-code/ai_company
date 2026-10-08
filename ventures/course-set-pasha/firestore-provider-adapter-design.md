@@ -290,13 +290,114 @@ class FirestoreUserProfileStore:
 - **例外方針**: 5節・4節と同じ、一時的な接続エラーも「未発見」(`None`)に倒す安全側方針を
   踏襲。
 
-## 7. 残課題・次回候補(6節分)
+## 7. UserProfileStoreProtocol(is_following + all_user_idsグループ)の実Firestore接続アダプタ設計
 
-- 残りのグループ(`is_following`+`all_user_ids`・
-  `blocked_but_billing_owner_notified_at`系3メソッド・`plan`・
+### 7.1. 背景・範囲
+
+6節の次回候補を受け、`set_is_following`/`get_is_following`/`all_user_ids`の3メソッド
+(is_following + all_user_idsグループ)の実Firestore接続アダプタ設計に着手する。
+`set_is_following`/`get_is_following`は5節・6節と同じ`merge=True`の単一フィールド部分更新で
+素直に実装できるが、`all_user_ids()`は他の2メソッドと異なり特定の`user_id`を受け取らず、
+`InMemoryUserProfileStore.all_user_ids()`(application_form_submission_flow.py 196〜205行目)が
+`_profiles`・`_emails`・`_stripe_customer_ids`・`_is_following`・`_plans`の5つの辞書のキー集合を
+和集合として返す設計になっている点を、単一ドキュメント構造のFirestoreでどう実現するかが本節の
+主眼になる。
+
+### 7.2. 設計
+
+`user_profile/{user_id}`は5節で確立した通り、`gym_area_pairs`・`email`・`stripe_customer_id`・
+`is_following`等のフィールドグループが同一ドキュメントを共有する構造である。InMemory実装が
+5つの辞書を別持ちして和集合を取っているのは、Pythonの素朴なデータ構造上の都合にすぎず、
+Firestoreでは該当フィールドのいずれかが一度でも書き込まれた`user_id`は同一の
+`user_profile/{user_id}`ドキュメントとして存在することになる。したがって`all_user_ids()`は、
+複数コレクション・複数フィールドを個別に集計し直す必要はなく、`user_profile`コレクション全体を
+`stream()`してドキュメントIDを列挙するだけで、InMemory版の和集合と同じ集合が得られる
+(7.3節で範囲の一致を確認する)。
+
+```python
+class FirestoreUserProfileStore:
+    """UserProfileStoreProtocolの実Firestore接続実装(基盤2フィールド+Stripe顧客ID
+    グループ+is_following/all_user_idsグループのみ。他グループは次回候補、8節)。
+    """
+
+    # ...set_gym_area_pairs/get_gym_area_pairs/set_email/get_email/
+    #    set_stripe_customer_id/get_stripe_customer_id/get_user_id_by_stripe_customer_idは
+    #    5節・6節のまま...
+
+    def set_is_following(self, user_id: str, is_following: bool) -> None:
+        self._doc_ref(user_id).set({"is_following": is_following}, merge=True)
+
+    def get_is_following(self, user_id: str) -> bool:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # InMemoryUserProfileStore.get_is_following()のデフォルト(True、
+            # 「未記録のuser_idはフォロー中として扱う」安全側の初期値、
+            # UserProfileStoreProtocolのdocstring参照)と揃える。
+            return True
+        if not snapshot.exists:
+            return True
+        return (snapshot.to_dict() or {}).get("is_following", True)
+
+    def all_user_ids(self) -> Iterable[str]:
+        try:
+            for snapshot in self._profiles.stream():
+                yield snapshot.id
+        except Exception:
+            # 一時的な接続エラー時は空集合を返す安全側方針(5節・6節と同じ)。
+            # all_user_ids()はblocked_but_billing_candidates.list_...()の走査対象
+            # であり、空集合を返しても「今回は対象候補なし」として扱われるだけで、
+            # 誤って既存ユーザーを巻き込む・誤通知するリスクはない。
+            return
+```
+
+### 7.3. 検討事項
+
+- **`all_user_ids()`をコレクション全件`stream()`に単純化できる根拠**: `InMemoryUserProfileStore.
+  all_user_ids()`の和集合コメント(application_form_submission_flow.py 197〜199行目)は、
+  `_blocked_but_billing_owner_notified_at`・`_checkout_session_completed_event_time`の2辞書を
+  意図的に和集合から除外している。この2フィールドが「和集合に含まれなくても欠落が起きない」
+  ことを呼び出し側のコードで確認した。
+  - `set_checkout_session_completed_event_time`は`stripe_webhook.py`
+    `link_checkout_session_to_user_id()`(902〜914行目)内で、必ず同一呼び出し内で
+    `store.set_stripe_customer_id(user_id, ...)`が先に実行された後にのみ呼ばれる
+    (staleイベント判定でreturnする分岐は`set_checkout_session_completed_event_time`の手前)。
+    このためこのフィールドが書き込まれる時点で`stripe_customer_id`も同一ドキュメントに
+    既に書き込まれており、Firestoreでは最初からdocが存在する。
+  - `set_blocked_but_billing_owner_notified_at`は`blocked_but_billing_owner_notification.py`
+    `send_blocked_but_billing_owner_notifications()`(139行目)内で、引数`candidate_user_ids`
+    (`list_blocked_but_billing_candidates()`の呼び出し結果)に含まれる`user_id`に対してのみ
+    呼ばれる。この候補者リスト自体が`all_user_ids()`の走査結果を起点に絞り込まれるため
+    (application_form_submission_flow.py 198行目のコメント)、このフィールドが書き込まれる
+    `user_id`は常に`all_user_ids()`に既出である。
+  - 結論として、Firestoreでは`user_profile`コレクションの`stream()`で得られるドキュメントID
+    集合は、InMemory版の5辞書和集合と常に一致する(前者が後者を超える`user_id`を含むケースは
+    現状のコードパス上発生しない)。`merge=True`の`set()`はドキュメントが存在しなければ新規
+    作成するため、この一致を崩さない限り今後も安全(新しいフィールドグループを追加する際は、
+    「必ず基盤フィールドのいずれかより後に書き込まれるか」をこの節と同じ方法で確認する必要が
+    ある、8節に申し送る)。
+- **`get_is_following`のデフォルト値`True`**: 5節で確立した「`get_gym_area_pairs`は`""`、
+  `get_email`は`None`」という型ごとのデフォルト値の使い分けと同様、`bool`型の本フィールドは
+  `InMemoryUserProfileStore`の`self._is_following.get(user_id, True)`と揃えて`True`固定とした
+  (UserProfileStoreProtocolのdocstring: 未記録のuser_idは「安全側」にフォロー中として扱う)。
+- **`all_user_ids()`の例外方針**: 5節・6節の個別フィールド取得メソッドは例外時にそのフィールドの
+  デフォルト値を返す方針だったが、`all_user_ids()`はイテラブルを返す集合操作のため、例外時は
+  空のイテラブルとした。呼び出し元の`list_blocked_but_billing_candidates()`は走査対象が0件でも
+  単に「今回は通知対象なし」として扱うだけで誤動作しないため、一時的なFirestore接続エラー時に
+  安全側(何もしない)に倒れる。
+- **コスト**: `user_profile`コレクション全件`stream()`は本venture想定規模(個人経営ボルダリング
+  ジム向け、顧客数は店舗ごとに限定的)では無料枠に収まる前提(4節のpending_links全件走査と
+  同じ判断)。将来的に顧客数が大きく増えた場合は、`is_following == false`のユーザーのみを
+  絞り込む複合クエリへの最適化が考えられるが、現時点では過剰設計として見送る。
+
+## 8. 残課題・次回候補(7節分)
+
+- 残りのグループ(`blocked_but_billing_owner_notified_at`系3メソッド・`plan`・
   `checkout_session_completed_event_time`)の実Firestore接続アダプタ設計。いずれも
-  5節・6節と同じ`_doc_ref(user_id)`ヘルパーの上に`merge=True`の部分更新として
-  素直に実装できる見込みだが、本フェーズでは対象外。
+  5節・6節・7節と同じ`_doc_ref(user_id)`ヘルパーの上に`merge=True`の部分更新として
+  素直に実装できる見込みだが、本フェーズでは対象外。新しいフィールドグループを追加する際は、
+  7.3節で行った「`all_user_ids()`の和集合除外フィールドとの整合確認」と同じ方法で、
+  書き込み順序の契約を確認すること。
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
