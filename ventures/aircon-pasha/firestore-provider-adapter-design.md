@@ -357,8 +357,112 @@ class FirestoreUserProfileStore:
 
 - 残りのグループ(payment_failure系4フィールド・current_plan_id・is_following+
   all_user_ids・owner_notified_at系4種・event_time系4種)の実Firestore接続アダプタ設計。
+  (payment_failure系4フィールドは9節でフェーズ297として着手済み)
 - `increment_trial_generation_count`・`increment_trial_unit_count`と同種の
   read-modify-write構成(get→ローカル変数で+1→set)を`InMemoryUserProfileStore`以外の
   場所(course-set-pasha・line-reservation-ai・forklift-pashaの同種カウンタ系Protocol)が
   まだ持っていないか、横展開確認を行う。
+
+## 9. UserProfileStoreProtocol(payment_failure系グループ)の実Firestore接続アダプタ設計
+
+### 9.1. 背景・範囲
+
+フェーズ296の次回候補(8節)を受け、残りのグループのうちpayment_failure系4フィールド
+(`payment_failure_detected_at`・`payment_suspended_at`・`payment_failure_reminder_sent_at`・
+`payment_failure_detection_notified_at`、計4フィールドの8メソッド
+get/set)の実Firestore接続アダプタ設計に着手する。本グループを次に選んだ理由は、
+(1)4フィールドとも`payment_failure.py`・`payment_failure_reminder_scheduler.py`という
+dunning関連の薄いProtocol(`PaymentFailureStoreProtocol`等)のみから参照され関心が
+まとまっている、(2)いずれも`Optional[datetime]`の単純な読み書きで、7節のtrial系と異なり
+`increment_*`のような加算を伴わずread-modify-write競合のリスク自体が存在しない、という
+2点により、残りのグループの中で最も設計が単純であるため。
+
+### 9.2. 設計
+
+4フィールドとも5節の基盤3メソッドと同じ`_doc_ref(user_id)`ヘルパー上の単純な
+`merge=True`部分更新・単純読み取りで実装できる。`set_*`系はいずれも
+`Optional[datetime]`を受け取り(`None`を渡すことでクリアする運用、
+`InMemoryUserProfileStore`の同名メソッドと同じ契約)、`get_*`系は5節で設計した
+`get()`(ドキュメント全体読み取り+`_profile_from_dict`変換)をそのまま呼び、
+対象フィールドを取り出すだけで素直に実装できる(7節の`get_trial_unit_count`と
+同じ構成)。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節に以下を追加)
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_detected_at if profile is not None else None
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_detected_at": value}, merge=True
+        )
+
+    def get_payment_suspended_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_suspended_at if profile is not None else None
+
+    def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
+        self._doc_ref(user_id).set({"payment_suspended_at": value}, merge=True)
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_reminder_sent_at if profile is not None else None
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_reminder_sent_at": value}, merge=True
+        )
+
+    def get_payment_failure_detection_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.payment_failure_detection_notified_at
+            if profile is not None
+            else None
+        )
+
+    def set_payment_failure_detection_notified_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_detection_notified_at": value}, merge=True
+        )
+```
+
+### 9.3. 検討事項
+
+- **`None`書き込みによるクリア**: `merge=True`の`set()`に`None`を渡すと、Firestoreは
+  当該フィールドを削除せず値`null`として保存する(フィールド自体は残る)。
+  `get_*`側は`_profile_from_dict`がdict内の`null`を`None`として復元する前提のため、
+  「未設定(ドキュメント作成時からフィールドが無い)」と「明示的に`None`に戻した」は
+  いずれも`get()`時に`None`として扱われ区別されない。dunning系の呼び出し元
+  (`clear_payment_failure_on_success()`等)はいずれも「`None`=未発生/解消済み」の
+  意味でのみ使っており、両者を区別する必要がないため、5節の基本方針(フィールドの
+  存在/非存在ではなく値そのもので判定する)と一致し問題ない。
+- **read-modify-write競合が存在しないことの確認**: 7節のtrial系2メソッド
+  (`increment_trial_generation_count`等)と異なり、本グループの4フィールドは
+  いずれも「現在値を見てから計算する」操作を持たず、常に呼び出し元が確定した値を
+  そのまま`set`するだけのため、Firestore接続時にkura-pashaフェーズ212・本venture
+  フェーズ296で発見されたような並行書き込み競合のリスク自体が存在しない
+  (横展開確認の対象外であることをここに明記する)。
+- **`merge=True`の一貫性**: 5節・7節と同じ方針を踏襲。
+
+## 10. 残課題・次回候補(9節分)
+
+- 残りのグループ(current_plan_id・is_following+all_user_ids・owner_notified_at系4種・
+  event_time系4種)の実Firestore接続アダプタ設計。このうちowner_notified_at系4種
+  (`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`等)は
+  本節のpayment_failure系と同じ「単純なOptional[datetime]の読み書きのみ」の構成のため、
+  次に着手しやすい候補と見込む。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節から持ち越し、
+  datetime⇄Firestoreタイムスタンプ変換を含む)は依然未着手。
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
