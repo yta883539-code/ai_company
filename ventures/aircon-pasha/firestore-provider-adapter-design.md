@@ -466,3 +466,91 @@ class FirestoreUserProfileStore:
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節から持ち越し、
   datetime⇄Firestoreタイムスタンプ変換を含む)は依然未着手。
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+
+## 11. UserProfileStoreProtocol(owner_notified_at系グループ)の実Firestore接続アダプタ設計
+
+### 11.1. 背景・範囲
+
+フェーズ297の次回候補(2)を受け、残りのグループのうちowner_notified_at系2フィールド
+(`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`、
+計2フィールドの4メソッドget/set)の実Firestore接続アダプタ設計に着手する。本グループを
+次に選んだ理由は、(1)`blocked-but-billing-owner-notification-design.md`・
+`payment-suspension-owner-notification-design.md`というオーナー通知関連の薄い設計書
+のみから参照され関心がまとまっている、(2)いずれも9節のpayment_failure系と同じ
+`Optional[datetime]`の単純な読み書きで、`increment_*`のような加算を伴わず
+read-modify-write競合のリスク自体が存在しない、という2点により、残りのグループの中で
+9節に続いて設計が単純であるため。
+
+### 11.2. 設計
+
+2フィールドとも5節の基盤3メソッドと同じ`_doc_ref(user_id)`ヘルパー上の単純な
+`merge=True`部分更新・単純読み取りで実装でき、9節のpayment_failure系4メソッドと
+完全に同型である。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節・9節に以下を追加)
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.blocked_but_billing_owner_notified_at
+            if profile is not None
+            else None
+        )
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"blocked_but_billing_owner_notified_at": notified_at}, merge=True
+        )
+
+    def get_payment_suspension_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.payment_suspension_owner_notified_at
+            if profile is not None
+            else None
+        )
+
+    def set_payment_suspension_owner_notified_at(
+        self, user_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_suspension_owner_notified_at": notified_at}, merge=True
+        )
+```
+
+`InMemoryUserProfileStore`の同名メソッド(`user_id_linking.py` 674〜694行目付近)は
+いずれも「プロファイルが存在しなければ何もしない」(`set_*`側)・「存在しなければ`None`を
+返す」(`get_*`側)という9節までと同じ契約であり、本設計もそれに対応する。
+
+### 11.3. 検討事項
+
+- **`None`書き込みによるクリア**: 9節と同じく、`merge=True`の`set()`に`None`を渡しても
+  フィールドは削除されず値`null`として保存される。呼び出し元
+  (`blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
+  等)は「`None`=未通知/再送可能」の意味でのみ使っており、「未設定」と「明示的に`None`に
+  戻した」を区別する必要がないため、9節と同じ結論で問題ない。
+- **read-modify-write競合が存在しないことの確認**: 本グループの2フィールドは
+  いずれも「現在値を見てから計算する」操作を持たず、呼び出し元が確定した値をそのまま
+  `set`するだけのため、9節と同じ理由でFirestore接続時の並行書き込み競合のリスク自体が
+  存在しない(横展開確認の対象外であることをここに明記する)。
+- **`merge=True`の一貫性**: 5節・7節・9節と同じ方針を踏襲。
+
+## 12. 残課題・次回候補(11節分)
+
+- 残りのグループ(current_plan_id・is_following+all_user_ids・event_time系4種)の
+  実Firestore接続アダプタ設計。このうちcurrent_plan_idは9節・11節と同じ
+  「単純なOptional[str]の読み書きのみ」の構成(ただし型が`datetime`ではなく`str`)で
+  あるため、次に着手しやすい候補と見込む。is_following+all_user_idsは真偽値の単純な
+  読み書き(`set_is_following`)に加え、`all_user_ids()`(全ユーザーID一覧取得)という
+  5節のLinkingCodeStoreProtocol `items()`相当の全件走査系メソッドを含むため、
+  走査方法(コレクション全体の`stream()`か専用インデックスか)の検討が必要になる点で
+  current_plan_idより設計がやや複雑になる見込み。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。

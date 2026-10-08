@@ -5177,3 +5177,25 @@
   payment_failure系グループ〈4フィールド・8メソッド〉の実Firestore接続アダプタ設計を
   9節に新規追加。read-modify-write競合リスクが存在しないことを確認。コード変更なし、
   テスト653件・schema検証25件いずれもパス)
+- フェーズ298(2026-10-08 09:00 UTC定例更新): フェーズ297の次回候補(2)を受け、
+  残りのグループのうちowner_notified_at系2フィールド
+  (`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`、
+  計4メソッドget/set)の実Firestore接続アダプタ設計を`firestore-provider-adapter-design.md`
+  11節に新規追加した。本グループは9節のpayment_failure系と同じ「現在値を見てから計算する
+  操作を持たない単純なOptional[datetime]の読み書きのみ」の構成であり、設計も9節の4メソッドと
+  完全に同型(`_doc_ref(user_id)`上の`merge=True`部分更新+`get()`経由の単純読み取り)である
+  ことを確認し、read-modify-write競合リスクが存在しないことを11.3節に明記した。コード変更
+  なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(653件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を最優先、
+  (2)`UserProfileStoreProtocol`の残りのグループ(current_plan_id・is_following+
+  all_user_ids・event_time系4種)の実Firestore接続アダプタ設計を継続(current_plan_idは
+  型がOptional[str]である点を除き9節・11節と同型のため次に着手しやすい候補、
+  is_following+all_user_idsは`all_user_ids()`という全件走査系メソッドを含み設計が
+  やや複雑になる見込み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-08 09:00 UTC(フェーズ298: `UserProfileStoreProtocol`の
+  owner_notified_at系グループ〈2フィールド・4メソッド〉の実Firestore接続アダプタ設計を
+  11節に新規追加。read-modify-write競合リスクが存在しないことを確認。コード変更なし、
+  テスト653件・schema検証25件いずれもパス)
