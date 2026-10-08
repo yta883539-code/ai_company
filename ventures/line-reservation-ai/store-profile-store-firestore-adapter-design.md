@@ -124,10 +124,56 @@ class FirestoreStoreProfileStore:
   参照)のため、本設計のコードは承認後の結合実装フェーズまでコミットしない。
 - 残りのグループ(owner_user_id・owner_is_following・suspension_reason・owner_email・
   blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)は
-  引き続き次回候補として段階的に設計する。次に着手しやすいのは
-  `is_onboarding_completion_message_sent`/`mark_onboarding_completion_message_sent`
-  (booleanフラグ1件のみで依存関係が薄い)と判断する。
-- 承認後は、`portal_session.py`・`checkout_session.py`等の呼び出し側で
-  `StoreProfileStoreProtocol`実装注入箇所に本クラスのインスタンスを渡すだけで
-  差し替えが完了する設計になっていることを、結合実装時に確認する。
+  menu_durations・store_faq_info・all_store_ids)は引き続き次回候補として段階的に設計する。
+
+## 5. onboarding_completion_messageグループ(2メソッド)
+
+`is_onboarding_completion_message_sent`/`mark_onboarding_completion_message_sent`
+(`store_profile_store.py` 129-133行目・246-252行目)を追加設計する。InMemory実装
+(208行目・246-252行目)は`_onboarding_completion_message_sent: set[str]`への
+membership判定・追加のみで、送信日時は保持しない(`is_X`はbool、`mark_X`は戻り値なし)。
+
+```python
+    def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
+        # Stripeグループ(2節)の get_stripe_customer_id 等とは異なり、接続エラーを
+        # Noneに合流させる「安全側フォールバック」(3節)をここでは踏襲しない。
+        # この判定は「初回設定完了メッセージを送ってよいか」の一回送信ゲートであり、
+        # 呼び出し元 onboarding-settings-and-self-check-design.md の
+        # maybe_send_onboarding_completion_message() 相当の処理は
+        # is_X が False → 送信 → mark_X という一方向の流れしか持たない。
+        # 接続エラーをFalse(未送信)に合流させると、一時的な接続障害のたびに
+        # 既送信店舗へ再送してしまう(二重送信)。安全側は「送信をスキップしても
+        # 事業上の損害は小さい」側であり、ここでは例外を呼び出し元に伝播させ、
+        # 送信判定自体を保留させる。
+        snapshot = self._doc_ref(user_id).get()
+        if not snapshot.exists:
+            return False
+        return bool(
+            (snapshot.to_dict() or {}).get("onboardingCompletionMessageSent", False)
+        )
+
+    def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._doc_ref(user_id).set(
+            {"onboardingCompletionMessageSent": True}, merge=True
+        )
+```
+
+- **例外方針の不統一を明文化**: 2節(Stripeグループ)・`firestore-provider-adapter-design.md`
+  3節はいずれも「接続エラーは未設定側に安全に合流させる」方針だが、これは参照系
+  (名前・IDの取得)や「無ければfalse扱いで問題ない」判定に限った方針であり、
+  本グループのように「false→副作用(送信)→true固定」という一方向ゲートに同じ方針を
+  適用すると二重送信リスクを生むことを本フェーズで発見した。例外を安全側に握り込む
+  かどうかは、判定結果が生む副作用の可逆性(送信は不可逆、参照系は可逆)で分けるべき
+  という基準を次回以降の設計にも適用する。
+- `mark_onboarding_completion_message_sent`は`merge=True`の単純フィールド更新で、
+  Stripeグループのような逆引きインデックス更新は不要(1節の方針どおり)。
+
+## 6. 次回候補
+
+- 次に着手しやすいのは`owner_is_following`(booleanフラグ1件、依存関係が薄い)と判断する。
+- 承認後は、`portal_session.py`・`checkout_session.py`・
+  `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する。
