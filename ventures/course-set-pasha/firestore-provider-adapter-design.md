@@ -199,15 +199,104 @@ class FirestoreUserProfileStore:
   `FirestoreUserProfileStore.get()`と同じ、一時的な接続エラーも「未発見」側のデフォルト値に
   倒す安全側方針を踏襲。
 
-## 6. 残課題・次回候補(5節分)
+## 6. UserProfileStoreProtocol(Stripe顧客IDグループ)の実Firestore接続アダプタ設計
 
-- 残りのグループ(Stripe顧客IDグループ・`is_following`+`all_user_ids`・
+### 6.1. 背景・範囲
+
+5節の次回候補を受け、`set_stripe_customer_id`/`get_stripe_customer_id`/
+`get_user_id_by_stripe_customer_id`の3メソッド(Stripe顧客IDグループ)の実Firestore接続
+アダプタ設計に着手する。aircon-pashaフェーズ294の5節が確立した、`stripe_customer_id`の
+逆引きを専用コレクション`stripe_customer_index/{stripe_customer_id}`への同時書き込みで
+実現する方式を横展開する。
+
+### 6.2. 設計
+
+`InMemoryUserProfileStore`(`application_form_submission_flow.py`178〜188行目)は
+`_stripe_customer_ids`(user_id→stripe_customer_id)と`_user_ids_by_stripe_customer_id`
+(逆引き)の2つの辞書を別持ちしている。本venture自身には(aircon-pashaのような)
+`UserProfile`データクラス丸ごとの`save()`が存在しないため、`get_stripe_customer_id`は
+5節の`get_email`と同様に`user_profile/{user_id}`ドキュメントの単一フィールドを直接
+読み出す形で実装する(aircon-pashaの`get_stripe_customer_id`が`self.get(user_id)`経由で
+`UserProfile`全体を取得してから`.stripe_customer_id`を参照するのとは異なる)。
+
+```python
+class FirestoreUserProfileStore:
+    """UserProfileStoreProtocolの実Firestore接続実装(基盤2フィールド+Stripe顧客ID
+    グループのみ。他グループは次回候補、7節)。
+    user_profile/{user_id}ドキュメントおよびstripe_customer_index/{stripe_customer_id}
+    逆引きドキュメントを読み書きする。
+    """
+
+    def __init__(self, firestore_client) -> None:
+        self._client = firestore_client
+        self._profiles = firestore_client.collection("user_profile")
+        self._stripe_index = firestore_client.collection("stripe_customer_index")
+
+    def _doc_ref(self, user_id: str):
+        return self._profiles.document(user_id)
+
+    # ...set_gym_area_pairs/get_gym_area_pairs/set_email/get_emailは5節のまま...
+
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        batch = self._client.batch()
+        batch.set(
+            self._doc_ref(user_id),
+            {"stripe_customer_id": stripe_customer_id},
+            merge=True,
+        )
+        batch.set(
+            self._stripe_index.document(stripe_customer_id),
+            {"user_id": user_id},
+        )
+        batch.commit()
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("stripe_customer_id")
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        try:
+            snapshot = self._stripe_index.document(stripe_customer_id).get()
+        except Exception:
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("user_id")
+```
+
+### 6.3. 検討事項
+
+- **契約整合性チェック(line-reservation-aiフェーズ続き301と同種)**: `set_stripe_customer_id`
+  実行時に旧`stripe_customer_id`からの付け替え(同一user_idが2回目の呼び出しを行うケース)が
+  起きた場合、`stripe_customer_index`側の旧エントリが削除されず残る点を確認した。
+  `InMemoryUserProfileStore.set_stripe_customer_id`(`application_form_submission_flow.py`
+  178〜180行目)自身も旧`_user_ids_by_stripe_customer_id`エントリを明示的に削除しておらず、
+  本venture自身のInMemory実装はaircon-pashaの元の設計(5.3節、旧インデックス削除を次回候補と
+  した簡潔版)と契約が一致していることを確認した。line-reservation-aiのInMemory実装
+  (`store_profile_store.py`)が旧エントリ削除を既に実装しておりaircon-pashaの元設計と
+  契約差異があったのとは異なり、本ventureでは契約差異は発生していないため、本グループの
+  Firestoreアダプタ設計はaircon-pashaの元の設計をそのまま横展開してよいと判断した
+  (旧インデックス削除は以後も次回候補のまま据え置く)。
+- **`get_stripe_customer_id`の実装方針**: 5節の検討事項で確立した「本venture自身は
+  `UserProfile`データクラスを持たないため、各`get_*`は`user_profile/{user_id}`の個別
+  フィールドを直接読む」方針をそのまま踏襲した。
+- **例外方針**: 5節・4節と同じ、一時的な接続エラーも「未発見」(`None`)に倒す安全側方針を
+  踏襲。
+
+## 7. 残課題・次回候補(6節分)
+
+- 残りのグループ(`is_following`+`all_user_ids`・
   `blocked_but_billing_owner_notified_at`系3メソッド・`plan`・
   `checkout_session_completed_event_time`)の実Firestore接続アダプタ設計。いずれも
-  本グループと同じ`_doc_ref(user_id)`ヘルパーの上に`merge=True`の部分更新として
-  素直に実装できる見込みだが、本フェーズでは対象外。Stripe顧客IDグループは
-  aircon-pashaフェーズ294の5節(逆引き専用コレクション`stripe_customer_index`方式)を
-  横展開する想定。
+  5節・6節と同じ`_doc_ref(user_id)`ヘルパーの上に`merge=True`の部分更新として
+  素直に実装できる見込みだが、本フェーズでは対象外。
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。

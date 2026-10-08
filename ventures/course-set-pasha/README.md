@@ -4486,7 +4486,31 @@
   追記なし。次回候補: 残りのUserProfileStoreProtocolフィールドグループ、特にStripe
   顧客IDグループ(aircon-pashaフェーズ294の逆引き専用コレクション方式を横展開)への
   着手、または承認待ち事項1〜5がオーナーから承認された場合はその着手を最優先とする。
-- 最終更新: 2026-10-08 02:00 UTC(フェーズ275: UserProfileStoreProtocolの
-  実Firestore接続アダプタ設計に着手。基盤2フィールド〈gym_area_pairs・email〉
-  グループをfirestore-provider-adapter-design.md 5節に追加。コード変更なし、
-  テスト690件・schema検証21件いずれもパス)
+- フェーズ276(2026-10-08 07:00 UTC定例更新): フェーズ275の次回候補だったStripe顧客ID
+  グループ(`set_stripe_customer_id`/`get_stripe_customer_id`/
+  `get_user_id_by_stripe_customer_id`)の実Firestore接続アダプタ設計に着手し、
+  aircon-pashaフェーズ294の5節(逆引き専用コレクション`stripe_customer_index`への
+  `WriteBatch`同時書き込み方式)を横展開してfirestore-provider-adapter-design.md 6節に
+  追加した。設計の過程で、line-reservation-aiフェーズ続き301が行ったのと同種の契約整合性
+  チェック(InMemory実装が旧`stripe_customer_id`からの付け替え時に旧逆引きインデックスを
+  削除しているかどうか)を実施し、本venture自身の`InMemoryUserProfileStore.
+  set_stripe_customer_id`(application_form_submission_flow.py 178〜180行目)は
+  line-reservation-aiとは異なり旧エントリを削除しておらず、aircon-pashaの元の設計
+  (5.3節、旧インデックス削除を次回候補とした簡潔版)と契約が一致していることを確認した。
+  そのためFirestoreアダプタ設計もaircon-pashaの元設計をそのまま横展開し、旧インデックス
+  削除は引き続き次回候補として残した。あわせて、本venture自身は`UserProfile`データクラスを
+  持たないため`get_stripe_customer_id`は5節の`get_email`と同様に`user_profile/{user_id}`の
+  個別フィールドを直接読む実装とした(aircon-pashaが`UserProfile`全体を取得してから
+  `.stripe_customer_id`を参照するのとは異なる)。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
+  schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすること(件数に変更なし)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+  していないためpending-approval.mdへの追記なし。次回候補: 残りのUserProfileStoreProtocol
+  フィールドグループ(`is_following`+`all_user_ids`・
+  `blocked_but_billing_owner_notified_at`系3メソッド・`plan`・
+  `checkout_session_completed_event_time`)、または承認待ち事項1〜5がオーナーから
+  承認された場合はその着手を最優先とする。
+- 最終更新: 2026-10-08 07:00 UTC(フェーズ276: UserProfileStoreProtocolのStripe顧客ID
+  グループの実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md 6節に追加。
+  契約整合性チェックの結果、本ventureのInMemory実装はaircon-pashaの元設計(旧インデックス
+  削除なし)と一致することを確認。コード変更なし、テスト690件・schema検証21件いずれもパス)
