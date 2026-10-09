@@ -5362,8 +5362,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   その着手を最優先、(2)`StoreProfileStoreProtocol`の残りグループのうち
   `owner_is_following`(booleanフラグ1件、依存関係が薄い)の設計、(3)他venture・
   アイデア領域の前進。
-- 最終更新: 2026-10-08 23:00 UTC(フェーズ続き302: `StoreProfileStoreProtocol`の
-  onboarding_completion_messageグループ〈2メソッド〉の実Firestore接続アダプタ設計を
-  5節に追加。安全側フォールバック方針が二重送信リスクを生むケースを発見し、
-  副作用の可逆性で例外方針を分ける基準を明文化。コード変更なし、テスト906件・
-  schema検証28件いずれもパス)
+- フェーズ続き303(2026-10-09 01:00 UTC定例更新): フェーズ続き302の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`owner_is_following`グループ
+  (`get_owner_is_following`/`set_owner_is_following`、2メソッド)の実Firestore接続
+  アダプタ設計を`store-profile-store-firestore-adapter-design.md`7節に追加した。
+  5節で明文化した「副作用の可逆性で例外方針を分ける」基準を適用し、本グループは
+  `blocked_but_billing_candidates.py`の候補抽出条件の一部として参照されるのみ
+  (定期バッチで再評価されるため1回の誤判定が恒久化しない)と判断し、2節
+  (Stripeグループ)・`firestore-provider-adapter-design.md` 3節と同じ「接続エラーは
+  未設定側(=InMemory実装のデフォルト`True`)に安全に合流させる」フォールバック方針を
+  適用した。コード変更なし(設計ドキュメントのみ、Firestoreへの実コミットは承認後まで
+  見送り)、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (906件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト
+  等)がオーナーから承認された場合はその着手を最優先、(2)`StoreProfileStoreProtocol`の
+  残りグループのうち`suspension_reason`(`owner_is_following`と同じ候補抽出条件グループで、
+  同様の安全側フォールバック基準が適用できる見込み)の設計、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-09 01:00 UTC(フェーズ続き303: `StoreProfileStoreProtocol`の
+  owner_is_followingグループ〈2メソッド〉の実Firestore接続アダプタ設計を7節に追加。
+  「候補抽出条件の参照のみで副作用が可逆」と判断し、安全側フォールバック方針を適用。
+  コード変更なし、テスト906件・schema検証28件いずれもパス)

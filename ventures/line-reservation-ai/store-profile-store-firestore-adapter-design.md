@@ -170,9 +170,59 @@ membership判定・追加のみで、送信日時は保持しない(`is_X`はboo
 - `mark_onboarding_completion_message_sent`は`merge=True`の単純フィールド更新で、
   Stripeグループのような逆引きインデックス更新は不要(1節の方針どおり)。
 
-## 6. 次回候補
+## 6. (旧)次回候補
 
-- 次に着手しやすいのは`owner_is_following`(booleanフラグ1件、依存関係が薄い)と判断する。
+- 7節で`owner_is_following`グループに着手した。
+
+## 7. owner_is_followingグループ(2メソッド)
+
+`get_owner_is_following`/`set_owner_is_following`(`store_profile_store.py` 141-145行目・
+265-274行目)を追加設計する。InMemory実装は`_owner_is_following: dict[str, bool]`への
+単純な読み書きで、未設定時は`True`(フォロー中)をデフォルト値として返す
+(265-269行目のコメント「安全側で『フォロー中』として扱う」)。
+
+```python
+    def get_owner_is_following(self, store_id: str) -> bool:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(True)と揃える安全側フォールバック。
+            # 本フィールドはblocked_but_billing_candidates.pyの候補抽出条件
+            # 「owner_is_followingがFalse」の判定に使われるため、接続エラーをTrueに
+            # 合流させることで、一時的な接続障害時に誤ってブロック候補として
+            # 扱われること(=未読状態のオーナーへの通知処理が走ること)を避ける。
+            # 5節で明文化した基準(副作用の可逆性で例外方針を分ける)に沿って判断すると、
+            # 本フィールドの参照は「候補抽出条件の一部」であり、候補から漏れても
+            # 次回バッチで再評価されるため可逆(5節のonboarding_completion_messageとは
+            # 逆に、安全側=未設定側に合流させてよいケース)。
+            return True
+        if not snapshot.exists:
+            return True
+        return bool((snapshot.to_dict() or {}).get("ownerIsFollowing", True))
+
+    def set_owner_is_following(self, store_id: str, is_following: bool) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._doc_ref(store_id).set(
+            {"ownerIsFollowing": bool(is_following)}, merge=True
+        )
+```
+
+- **例外方針はStripeグループ(2節)側に合流**: 5節で発見した「副作用の可逆性で例外方針を
+  分ける」基準に沿って判定すると、本グループは参照結果が候補抽出の入力にしかならず
+  (`blocked_but_billing_candidates.py`は定期バッチで再評価されるため、1回の誤判定が
+  恒久的な副作用を生まない)、2節(Stripeグループ)・`firestore-provider-adapter-design.md`
+  3節と同じ「接続エラーは未設定側に安全に合流させる」方針を踏襲してよいと判断した。
+- `set_owner_is_following`は逆引きインデックスを持たない単純フィールド更新で、
+  2節のStripeグループのような付け替え時の旧インデックス削除は不要。
+
+## 8. 次回候補
+
+- 残りのグループ(owner_user_id・suspension_reason・owner_email・
+  blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・all_store_ids)のうち、次に着手しやすいのは
+  `suspension_reason`(`owner_is_following`と同じ`blocked_but_billing_candidates.py`の
+  候補抽出条件の一部で、同様に安全側フォールバックの基準が適用できる見込み)と判断する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
