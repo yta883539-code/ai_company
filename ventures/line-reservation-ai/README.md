@@ -5420,3 +5420,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   候補抽出にのみ使われ副作用が可逆」と判断し、安全側フォールバック方針を適用。また
   フェーズ続き304〈suspension_reasonグループ、9節〉のREADME記載漏れを発見・是正。
   コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き306(2026-10-09 17:00 UTC定例更新): フェーズ続き305の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`blocked_but_billing_owner_notified_at`グループ
+  (`get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_notified_at`、
+  2メソッド)の実Firestore接続アダプタ設計を`store-profile-store-firestore-adapter-
+  design.md`13節に追加した。本グループは`blocked_but_billing_owner_email_notification.py`の
+  「まだ通知していない」判定(冪等性フラグ)に使われるため、9節(suspension_reason)・
+  11節(owner_email)とは逆方向のリスク(接続エラー時のフォールバックが二重送信リスクを
+  生む)を検討した上で、course-set-pasha9.3節・aircon-pasha11節が同種の`notified_at`系
+  フィールドで既に確立した「通知を誤って止めるより、まれに再送される方が実害が小さい」
+  という方針を横展開し、接続エラー時は`None`(未通知)へ合流させる同じ結論を採用した。
+  専用の`clear_*`メソッドを持たず`set_*(store_id, None)`でクリアを表現する設計
+  (aircon-pasha 11節と同型、course-set-pasha 9節は専用`clear_*`を持つ点が差分)で
+  あることも確認した。コード変更なし(設計ドキュメントのみ、Firestoreへの実コミットは
+  承認後まで見送り)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`(28件、
+  変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCP
+  プロジェクト等)がオーナーから承認された場合はその着手を最優先、(2)
+  `StoreProfileStoreProtocol`の残りグループのうち`plan`(`get_plan`/`set_plan`)の設計、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 17:00 UTC(フェーズ続き306: `StoreProfileStoreProtocol`の
+  blocked_but_billing_owner_notified_atグループ〈2メソッド〉の実Firestore接続アダプタ設計を
+  13節に追加。二重送信リスクを検討した上でcourse-set-pasha・aircon-pashaの既存方針を横展開し
+  「接続エラー時はNoneへ合流」を採用。コード変更なし、テスト906件・schema検証28件いずれも
+  パス)

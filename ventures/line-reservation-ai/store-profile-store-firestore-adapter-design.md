@@ -314,15 +314,85 @@ dict.get挙動)。
 - `set_owner_email`は2節(Stripeグループ)のような逆引きインデックスを持たない単純フィールド
   更新であり、付け替え時の旧インデックス削除は不要(9節のsuspension_reasonと同型)。
 
-## 12. 次回候補
+## 12. (旧)次回候補
 
-- 残りのグループ(owner_user_id・blocked_but_billing_owner_notified_at・plan・
-  checkout_session_completed_event_time・menu_durations・store_faq_info・
-  all_store_ids)のうち、次に着手しやすいのは`blocked_but_billing_owner_notified_at`
-  (本節で設計した`owner_email`と同じ`blocked_but_billing_owner_email_notification.py`が
-  参照する冪等性フラグで、既存の9節・11節の「可逆/不可逆」判定基準をそのまま適用できる
-  見込み)と判断する。
+- 13節で`blocked_but_billing_owner_notified_at`グループに着手した。
+
+## 13. blocked_but_billing_owner_notified_atグループ(2メソッド)
+
+`get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_notified_at`
+(`store_profile_store.py` 159-165行目・297-306行目)を追加設計する。本フィールドは
+`blocked_but_billing_owner_email_notification.py`の
+`select_new_blocked_but_billing_candidates_for_email_notification()`(91行目)が
+「まだ通知していない」かを判定する冪等性フラグであり、同ファイルの
+`clear_blocked_but_billing_owner_notified_at()`(143行目)は専用の`clear_*`メソッドを
+持たず`set_blocked_but_billing_owner_notified_at(store_id, None)`で表現する
+(aircon-pasha 11節と同じ設計、course-set-pasha 9節は専用`clear_*`を持つ点が差分)。
+InMemory実装は`_blocked_but_billing_owner_notified_at: dict[str, Optional[str]]`への
+単純な読み書きで、値は`datetime`ではなく`Optional[str]`(呼び出し元
+`send_blocked_but_billing_owner_email_notifications()`が`notified_at: str`引数で
+受け取った文字列をそのまま書き込む、148-157行目)である点が、同種のaircon-pasha・
+course-set-pashaの`notified_at`系フィールド(いずれも`datetime`型)との差分になる。
+
+```python
+    def get_blocked_but_billing_owner_notified_at(
+        self, store_id: str
+    ) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # 9節(suspension_reason)・11節(owner_email)と同じく接続エラーを
+            # Protocol契約上の「未設定」側(None)に合流させる安全側フォールバック。
+            # ただし本フィールドは「未通知」判定にそのまま使われるため、9節・11節とは
+            # 逆方向のリスク(通知の見送りではなく、二重送信)を受け入れる判断になる
+            # (13節の検討事項参照)。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("blockedButBillingOwnerNotifiedAt")
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._doc_ref(store_id).set(
+            {"blockedButBillingOwnerNotifiedAt": value}, merge=True
+        )
+```
+
+- **`None`書き込みによる`clear_*`表現の整合性**: InMemory版の`set_*`は未設定時の
+  キー不在と`None`明示設定を区別しないdict代入であり、`get_*`も`dict.get(store_id)`
+  (デフォルト`None`)のため、両状態の観測結果は一致する。Firestore側も`merge=True`の
+  `None`書き込みでフィールドが`null`として残るのみで削除されないが、`get_*`は`null`も
+  未設定もいずれも`None`として返すため、InMemory版の挙動と一致する
+  (11節・course-set-pasha 9.3節と同じ結論)。
+- **例外時に`None`を返すことで二重送信リスクを受け入れる判断**: `select_new_
+  blocked_but_billing_candidates_for_email_notification()`は「本フィールドが`None`」を
+  「未通知」として候補抽出条件に使う(91行目)ため、接続エラー時に`None`へフォールバック
+  すると、既に通知済みの店舗が誤って再度候補に含まれ、メールが二重送信される可能性がある。
+  これは9節(suspension_reason、新規予約ブロック可否という即時の顧客影響がある不可逆な
+  誤判定を避ける目的)・11節(owner_email、通知を誤って遅らせる方向の安全側)とは逆方向の
+  安全側判断だが、course-set-pasha 9.3節・aircon-pashaが同種の`notified_at`系フィールドで
+  既に確立した「通知を誤って止める(二度と送られなくなる)より、まれに再送される方が実害が
+  小さい」という横展開一貫した方針であり、本venture固有の事情で判断を変える理由はないため
+  同じ結論を採用する。なお実際の二重送信は、`email_sender.send()`成功後にのみ本フィールドを
+  書き込む`send_blocked_but_billing_owner_email_notifications()`側の設計(164-166行目)により、
+  接続エラーが起きた回の実行でメール送信自体が複数回成功しない限り発生しない(本フィールドの
+  読み取りエラーと書き込み側のメール送信は独立した操作のため、読み取りエラーの発生頻度が
+  即座に二重送信頻度に直結するわけではない)。
+- `set_blocked_but_billing_owner_notified_at`は2節(Stripeグループ)のような逆引き
+  インデックスを持たない単純フィールド更新であり、付け替え時の旧インデックス削除は不要
+  (9節・11節と同型)。
+
+## 14. 次回候補
+
+- 残りのグループ(owner_user_id・plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)のうち、
+  次に着手しやすいのは`plan`(`get_plan`/`set_plan`、`checkout.session.completed`受信時に
+  購入プランを記録する単純フィールドで、9節・11節・13節と同じ`_doc_ref(store_id)`の上に
+  素直に実装できる見込み)と判断する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
-  結合実装時に確認する。
+  結合実装時に確認する(ただし全グループの実装完了が前提)。
