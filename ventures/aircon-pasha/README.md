@@ -5243,3 +5243,24 @@
   `is_following`+`all_user_ids`グループの実Firestore接続アダプタ設計を15節に新規追加。
   `all_user_ids()`の列挙コスト・順序非依存を検討。コード変更なし、テスト653件・
   schema検証25件いずれもパス)
+- フェーズ301(2026-10-09 16:00 UTC定例更新): フェーズ300の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の残りグループだった`event_time`系4種
+  (`subscription_state_event_time`・`payment_failure_state_event_time`・
+  `checkout_session_completed_event_time`・`subscription_updated_event_time`、
+  各get/set計8メソッド)の実Firestore接続アダプタ設計を`firestore-provider-adapter-
+  design.md`17節に新規追加した。これで`UserProfileStoreProtocol`の全7グループの設計が
+  完了した(`_profile_to_dict`/`_profile_from_dict`ヘルパー自体の実装を除く)。
+  4フィールドはいずれもStripe Webhookの配信順序ガードの基準線としてのみ使われ、
+  `get_*`が接続エラーで`None`を返すとガードが「記録済み時刻未設定」扱いとなり無条件適用に
+  倒れる(9節で確立した「処理を止めない方向の安全側」と同方向)ことを17.3節で確認した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+  変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその
+  着手を最優先、(2)`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装、
+  (3)本designでは未対象の他Protocolの実Firestore接続アダプタ設計、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-09 16:00 UTC(フェーズ301: `UserProfileStoreProtocol`の
+  event_time系4種〈8メソッド〉の実Firestore接続アダプタ設計を17節に新規追加し、
+  全7グループの設計が完了。コード変更なし、テスト653件・schema検証25件いずれもパス)

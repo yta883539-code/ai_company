@@ -694,3 +694,100 @@ class FirestoreUserProfileStore:
   日次バッチ実行環境(Cloud Scheduler、オーナー承認待ち)が整った段階で、`all_user_ids()`
   の実際の読み取り件数・レイテンシを計測し、15.3節の「過剰設計として見送り」判断を
   再検証する。
+
+## 17. UserProfileStoreProtocol(event_time系4種)の実Firestore接続アダプタ設計
+
+### 17.1. 背景・範囲
+
+フェーズ300の次回候補(2)を受け、`UserProfileStoreProtocol`の残りグループである
+`event_time`系4種(`subscription_state_event_time`・`payment_failure_state_event_time`・
+`checkout_session_completed_event_time`・`subscription_updated_event_time`、各get/set
+計8メソッド)の実Firestore接続アダプタ設計に着手する。これで5節・7節・9節・11節・
+13節・15節・本節により`UserProfileStoreProtocol`の全グループの設計が完了する
+(`_profile_to_dict`/`_profile_from_dict`ヘルパー自体の実装を除く)。
+
+4フィールドはいずれも`stripe_dispatch.py`・`stripe_webhook.py`側の配信順序ガード
+(Stripe Webhookイベントが順不同に届いた場合、より新しい`event.created`時刻を記録済みの
+イベントより古いイベントの適用をスキップする)の基準線としてのみ使われ、`user_id_linking.py`
+716〜756行目の`InMemoryUserProfileStore`実装を見る限り、`get_*`は「プロファイルが
+存在しなければ`None`」、`set_*`は「プロファイルが存在しなければ何もしない」という、
+9節・11節・13節までと完全に同型の単純な読み書き契約である。
+
+### 17.2. 設計
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節・9節・11節・13節・15節に以下を追加)
+
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.subscription_state_event_time if profile is not None else None
+
+    def set_subscription_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        self._doc_ref(user_id).set(
+            {"subscription_state_event_time": event_time}, merge=True
+        )
+
+    def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_state_event_time if profile is not None else None
+
+    def set_payment_failure_state_event_time(self, user_id: str, event_time: datetime) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_state_event_time": event_time}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.checkout_session_completed_event_time if profile is not None else None
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"checkout_session_completed_event_time": event_time}, merge=True
+        )
+
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.subscription_updated_event_time if profile is not None else None
+
+    def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
+        self._doc_ref(user_id).set(
+            {"subscription_updated_event_time": event_time}, merge=True
+        )
+```
+
+### 17.3. 検討事項
+
+- **`set_*`のno-op契約との非対称は15節までと同じ既知の差分**: `merge=True`の`set()`は
+  存在しないドキュメントを新規作成してしまうため、`InMemoryUserProfileStore`の
+  「プロファイル不在時は何もしない」契約とは厳密には一致しない。9節・11節・13節・15節で
+  確立した既知の差分であり、呼び出し元(Stripe Webhookハンドラ群)は常に`user_id`解決
+  (`stripe_customer_id`からの逆引き等)済みの既存プロファイルのみを対象とするため実害
+  なしと判断する(横展開の結論を踏襲)。
+- **ガード自体の安全側は「無条件適用」方向であることの再確認**: 13節で検討した
+  `current_plan_id`とは異なり、本4フィールドは「`get_*`が接続エラーで`None`を返す→
+  ガードが『記録済み時刻未設定』と同じ扱いになり、順序チェックをスキップしてイベントを
+  無条件適用する」という挙動を持つ。これは9節で確立した「処理を止めない方向の安全側
+  フォールバック」の方針そのものであり、各設計ドキュメント
+  (subscription-event-out-of-order-guard-design.md等)のdocstringが元々想定する
+  挙動の範囲内に収まることを確認した。
+- **4フィールドが同型であることの確認**: いずれも「他のイベントとの比較・計算を伴わない
+  単純な値の読み書き」であり、read-modify-write競合のリスクは存在しない(13節と同じ
+  理由で横展開確認の対象外)。型はすべて`datetime`(Firestore Timestamp型としてそのまま
+  シリアライズ可能)で、`set_*`側に`Optional`型がない(常に非`None`の`event_time`を
+  渡す契約)点が9節・11節・13節の`Optional[datetime]`/`Optional[str]`とは異なるが、
+  書き込み処理自体に違いはない。
+
+## 18. 残課題・次回候補(17節分)
+
+- `UserProfileStoreProtocol`の全7グループ(基盤3メソッド+Stripe顧客IDグループ・trial系・
+  payment_failure系・owner_notified_at系・current_plan_id・is_following+all_user_ids・
+  event_time系4種)の実Firestore接続アダプタ設計が本節で完了した。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節以来、未着手のまま
+  残っている)。
+- 本designでは未対象の他Protocol(`SubscriptionDeletionCandidateStoreProtocol`等、
+  user_id_linking.py以外のモジュールで定義されるもの)の実Firestore接続アダプタ設計。
+- 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
+  机上設計とInMemory実装での回帰確認にとどまる)。
