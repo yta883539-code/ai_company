@@ -190,3 +190,103 @@ class FirestoreWorkshopStore:
    本venture全体(UserProfileStoreProtocol・LinkingCodeStoreProtocol等)を通じた統一的な
    整理。
 4. 他venture・アイデア領域の前進。
+
+## 5. WorkshopStoreProtocol(メンバー削減系グループ)の実Firestore接続アダプタ設計
+
+本節は4節2点目で次回候補として残した複数グループのうち、**メンバー削減系**
+(`get_pending_reduction_effective_at`/`set_pending_reduction_effective_at`/
+`get_specified_retention_member_name`/`set_specified_retention_member_name`/
+`apply_member_reduction`の5メソッド)に着手する。downgrade-excess-member-handling-design.md
+「3. 確定する設計」の都度チェック処理(`check_and_apply_pending_member_reduction()`、
+usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職人プランから単数プランへの
+ダウングレード確定時に、猶予期間(`pending_member_reduction_effective_at`)到達後1回だけ
+`member_user_ids`を絞り込む(`apply_member_reduction`)。
+
+`InMemoryWorkshopStore`では3フィールドをそれぞれ別の辞書
+(`_pending_reduction_effective_at_by_workshop`・`_specified_retention_name_by_workshop`、
+`member_user_ids`自体は基盤グループで既存)で保持しているが(651〜652行目)、基盤グループと
+同じ`craftsman_workshop/{workshop_id}`ドキュメントの独立フィールドとして素直に設計できる。
+
+```python
+    def set_pending_reduction_effective_at(
+        self, workshop_id: str, effective_at: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"pending_member_reduction_effective_at": effective_at}, merge=True
+        )
+
+    def get_pending_reduction_effective_at(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("pending_member_reduction_effective_at")
+
+    def set_specified_retention_member_name(self, workshop_id: str, name: str) -> None:
+        self._doc_ref(workshop_id).set(
+            {"specified_retention_member_name": name}, merge=True
+        )
+
+    def get_specified_retention_member_name(self, workshop_id: str) -> Optional[str]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("specified_retention_member_name")
+
+    def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
+        # InMemory実装(733〜735行目)はmember_user_idsの置き換えと
+        # pending_reduction_effective_atのpop(キー削除)を2行に分けて行うが、
+        # 両者は同一ドキュメントの2フィールドのため、Firestore側は単一のset(merge=True)
+        # で原子的に反映できる(課題承継=InMemoryの2行が1回のドキュメント更新として
+        # 観測される点は、呼び出し元から見た可視結果に差が出ない)。
+        self._doc_ref(workshop_id).set(
+            {
+                "member_user_ids": list(retained_user_ids),
+                "pending_member_reduction_effective_at": None,
+            },
+            merge=True,
+        )
+```
+
+### 5.1. 検討事項
+
+- **`pending_member_reduction_effective_at`のクリア方式**: `apply_member_reduction`内で
+  `None`を書き込む方式は、3節で先行設計済みの他フィールドのクリア方針とは異なり専用の
+  `clear_*`メソッドを持たない(`apply_member_reduction`という既存の書き込みメソッドに
+  「ついでにクリアする」役割が元々組み込まれている設計のため)。course-set-pasha
+  firestore-provider-adapter-design.md 9節で確立した「InMemoryのpop()とFirestoreの
+  明示的None書き込みは、get側が常に`.get(key)`(存在しないキーも`None`扱い)である限り
+  観測可能な挙動が一致する」という根拠がここでも同様に成立することを確認した。
+- **`specified_retention_member_name`が`apply_member_reduction`でクリアされない点**:
+  `InMemoryWorkshopStore.apply_member_reduction`(733〜735行目)は
+  `_specified_retention_name_by_workshop`を一切触らず、`pending_reduction_effective_at`
+  のみをpopする。これは意図的な設計(縮小実行時に指定名の履歴を保持する)か、単に
+  見落としかが実装コード・既存設計ドキュメント(downgrade-excess-member-handling-design.md・
+  member-retention-notice-design.md)のいずれからも断定できなかった。次回
+  `set_pending_reduction_effective_at`が呼ばれる(=新たなダウングレードが確定する)際に
+  `set_specified_retention_member_name`が呼ばれなければ、前回サイクルの指定名が
+  再利用されてしまう余地がInMemory実装にも既に存在する。本フェーズはFirestore接続
+  アダプタの設計がスコープであり、ビジネスロジックの仕様変更(InMemory実装の挙動修正)は
+  対象外のため、Firestore側もInMemoryと同一の挙動(クリアしない)を忠実に再現するに留め、
+  この観察事項を6節の次回候補として記録するのみとする。
+- **`member_user_ids`の書き込み競合**: `apply_member_reduction`は`add_member_user_id`
+  (基盤グループ、`ArrayUnion`採用)と異なり`member_user_ids`全体を上書きする
+  `set(merge=True)`であるため、両者が同時に実行された場合(縮小確定処理と招待コード
+  解決によるメンバー追加が競合するケース)は後勝ちで片方の更新が失われる可能性がある。
+  ただし`check_and_apply_pending_member_reduction()`は生成リクエスト受信時の都度チェック
+  (usage_counter_workshop.py 996行目コメント)であり、縮小確定時点で`member_user_ids`を
+  `[contractor_user_id]`の1名に絞り込む設計上、この競合はInMemory実装でも同様に存在する
+  既存のリスクである。本フェーズでは新規に導入される問題ではないため、WriteBatch化等の
+  対策は6節の次回候補として記録するに留める。
+
+## 6. 残課題・次回候補(5節分)
+
+1. `specified_retention_member_name`が縮小実行時にクリアされない点(5.1節2点目)の、
+   本venture全体を通じた意図確認・必要であれば仕様としての明文化(downgrade-excess-
+   member-handling-design.mdへの追記)。
+2. `member_user_ids`の上書き更新(`apply_member_reduction`)とArrayUnion追記
+   (`add_member_user_id`)が競合する余地(5.1節3点目)への対策検討。
+3. `WorkshopStoreProtocol`の残りのグループ(契約者引き継ぎ系・trial系2フィールド・
+   stripe_customer_id順引き逆引き系・subscription_status+各種event_time系・
+   payment_failure系・trial_end_notified_at・owner_notified_at系2種)の実Firestore接続
+   アダプタ設計。
+4. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+5. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(4節1点目から継続)。
+6. 他venture・アイデア領域の前進。
