@@ -216,13 +216,61 @@ membership判定・追加のみで、送信日時は保持しない(`is_X`はboo
 - `set_owner_is_following`は逆引きインデックスを持たない単純フィールド更新で、
   2節のStripeグループのような付け替え時の旧インデックス削除は不要。
 
-## 8. 次回候補
+## 8. (旧)次回候補
 
-- 残りのグループ(owner_user_id・suspension_reason・owner_email・
-  blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-  menu_durations・store_faq_info・all_store_ids)のうち、次に着手しやすいのは
-  `suspension_reason`(`owner_is_following`と同じ`blocked_but_billing_candidates.py`の
-  候補抽出条件の一部で、同様に安全側フォールバックの基準が適用できる見込み)と判断する。
+- 9節で`suspension_reason`グループに着手した。
+
+## 9. suspension_reasonグループ(2メソッド)
+
+`get_suspension_reason`/`set_suspension_reason`(`store_profile_store.py` 147-153行目・
+277-283行目)を追加設計する。InMemory実装は`_suspension_reasons: dict[str, Optional[str]]`
+への単純な読み書きで、未設定時は`None`(未停止)をデフォルト値として返す(277-278行目の
+dict.get挙動)。
+
+```python
+    def get_suspension_reason(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(None=未停止)と揃える安全側フォールバック。
+            # 本フィールドはcloud_function_process_event.pyの新規予約受付判定
+            # (suspension_reasonがNone以外なら`new_booking_blocked_suspended`で
+            # ブロック)に直接使われる。接続エラーをNoneに合流させなかった場合、
+            # 一時的な接続障害のたびに正常稼働中(未停止)の全店舗の新規予約が
+            # 誤ってブロックされてしまい、本来停止中でない店舗の顧客体験を損なう。
+            # 本判定は予約リクエストごとに毎回再評価される(5節の一方向ゲートとは
+            # 異なり可逆)ため、5節で明文化した基準(副作用の可逆性で例外方針を分ける)
+            # に沿い、7節(owner_is_following)・2節(Stripeグループ)と同じ
+            # 「接続エラーは未設定側に安全に合流させる」方針を適用してよいと判断した。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("suspensionReason")
+
+    def set_suspension_reason(self, store_id: str, suspension_reason: Optional[str]) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._doc_ref(store_id).set(
+            {"suspensionReason": suspension_reason}, merge=True
+        )
+```
+
+- **owner_is_followingグループとの違い**: 7節は「候補抽出条件の一部」という間接的な
+  参照だったが、本グループは`cloud_function_process_event.py`の予約受付可否を直接
+  左右する判定である。それでも判定自体が予約リクエストごとに再評価される(一度きりの
+  不可逆な送信ゲートではない)ため、5節の基準では「可逆」側に分類され、安全側
+  フォールバックの適用対象であることを確認した。
+- `set_suspension_reason`は逆引きインデックスを持たない単純フィールド更新で、2節の
+  Stripeグループのような付け替え時の旧インデックス削除は不要。
+
+## 10. 次回候補
+
+- 残りのグループ(owner_user_id・owner_email・blocked_but_billing_owner_notified_at・
+  plan・checkout_session_completed_event_time・menu_durations・store_faq_info・
+  all_store_ids)のうち、次に着手しやすいのは`owner_email`
+  (blocked-but-billing-owner-email-notification-design.mdのオーナー通知送信先フィールドで、
+  送信自体はオーナー承認待ちの範囲外、フィールド読み書き設計のみ机上で進められる見込み)
+  と判断する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
