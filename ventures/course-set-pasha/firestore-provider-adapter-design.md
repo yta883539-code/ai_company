@@ -485,3 +485,58 @@ class FirestoreUserProfileStore:
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 11. UserProfileStoreProtocol(planグループ)の実Firestore接続アダプタ設計
+
+### 11.1. 背景・範囲
+
+10節の次回候補を受け、`set_plan`/`get_plan`の2メソッド(planグループ)の実Firestore接続
+アダプタ設計に着手する。`application_form_submission_flow.py`121〜125行目
+(Protocol定義)・220〜224行目(InMemory実装)が対象。
+
+### 11.2. 設計
+
+`InMemoryUserProfileStore.set_plan`/`get_plan`(220〜224行目)は`_plans`辞書への
+単純な代入・`dict.get(user_id)`(デフォルト`None`)のみで、5節・6節で確立した
+`_doc_ref(user_id)`ヘルパー上の`merge=True`部分更新・単純読み取りでそのまま実装できる。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・6節・7節・9節に以下を追加)
+
+    def set_plan(self, user_id: str, plan: str) -> None:
+        self._doc_ref(user_id).set({"plan": plan}, merge=True)
+
+    def get_plan(self, user_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("plan")
+```
+
+### 11.3. 検討事項
+
+- **例外時に`None`を返す安全性(他グループとは異なる理由で安全)**: `get_plan`の呼び出し元
+  `cloud_function_webhook.py`1478〜1489行目は、`get_plan`が`None`を返した場合
+  (未記録、またはFirestore接続エラー)、バッチ呼び出し元が渡す従来の一律`plan`引数に
+  フォールバックする設計になっている(1480〜1481行目のコメント: 「未記録(トライアル中等)
+  またはprofile_store未指定の場合は、従来通り引数`plan`にフォールバックする」)。つまり
+  一時的な接続エラーで`None`を返しても、処理が完全に止まったりブロック判定に誤って
+  倒れたりすることはなく、単に「ユーザーごとの実プラン優先」が一時的に効かず従来のバッチ
+  一律プランで処理されるだけである。これは6節(Stripe顧客IDグループ、`None`は「未発見」
+  として新規扱いになる)や9節(`None`は「未通知」として再通知される可能性がある)とは
+  異なる安全性の根拠だが、いずれも「例外時は`None`を返す」という同じ実装方針が許容できる
+  ことを個別に確認できた。
+- **`merge=True`の一貫性**: 5節・6節・7節・9節と同じ方針を踏襲。
+
+## 12. 残課題・次回候補(11節分)
+
+- 残り1グループ(`checkout_session_completed_event_time`)の実Firestore接続アダプタ設計。
+  5節・6節・7節・9節・11節と同じ`_doc_ref(user_id)`ヘルパー上の`merge=True`部分更新として
+  実装できる見込みで、全グループ完了まであとこの1つのみ。
+- 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する(ただし全グループの実装完了が前提)。
