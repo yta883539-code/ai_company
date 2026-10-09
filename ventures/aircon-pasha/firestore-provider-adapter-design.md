@@ -614,3 +614,83 @@ class FirestoreUserProfileStore:
   専用インデックスか)の検討が必要になる点で、これまでのグループより設計がやや複雑になる
   見込み。
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+
+## 15. UserProfileStoreProtocol(is_following+all_user_ids)の実Firestore接続アダプタ設計
+
+### 15.1. 背景・範囲
+
+フェーズ299の次回候補(2)を受け、残りのグループのうち`is_following`+`all_user_ids`
+(2フィールド・3メソッド`get_is_following`/`set_is_following`/`all_user_ids`)の実
+Firestore接続アダプタ設計に着手する。`get_is_following`/`set_is_following`自体は
+9節・11節・13節と同型の単純な読み書きだが、`all_user_ids()`が本`UserProfileStoreProtocol`
+グループでは初めての`user_profile`コレクション全体の列挙系メソッドであるため、2節の
+`LinkingCodeStoreProtocol.items()`(`pending_links`コレクション全体の`stream()`)と
+同じ論点を踏襲しつつ設計する。
+
+### 15.2. 設計
+
+`user_id_linking.py` 661〜672行目の`InMemoryUserProfileStore.get_is_following`/
+`set_is_following`/`all_user_ids`は、`get_is_following`が未知の`user_id`に対して
+`True`(存在しないprofileを「フォロー中」扱いする安全側デフォルト、342〜344行目の
+コメント参照)を返す点を除き、9節・11節・13節までの単純な読み書き契約と同型。
+`all_user_ids()`は`self._profiles.keys()`(保持している全プロファイルの`user_id`)を
+返すのみで、本実装では`user_profile`コレクション全体の`stream()`で対応する。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節・9節・11節・13節に以下を追加)
+
+    def get_is_following(self, user_id: str) -> bool:
+        profile = self.get(user_id)
+        return profile.is_following if profile is not None else True
+
+    def set_is_following(self, user_id: str, value: bool) -> None:
+        self._doc_ref(user_id).set({"is_following": value}, merge=True)
+
+    def all_user_ids(self) -> Iterable[str]:
+        for snapshot in self._profiles.stream():
+            yield snapshot.id
+```
+
+### 15.3. 検討事項
+
+- **`get_is_following`の安全側デフォルトは`get()`経由でそのまま踏襲できる**: 5節で
+  設計した`get()`は未発見・接続エラーいずれも`None`に倒すため、`get_is_following`は
+  「`profile is None`→`True`」の1分岐を`get()`の戻り値にそのまま乗せるだけで、
+  `InMemoryUserProfileStore`と同じ安全側デフォルト(存在しないprofileを「フォロー中」
+  扱いする)を実現できる。`blocked_but_billing_candidates.py`の候補抽出が対象とするのは
+  常に連携済み(=profileが存在する)`user_id`のみ(342〜344行目のコメントの通り)のため、
+  このデフォルト値が実際に使われるケース自体は想定されていない。
+- **`set_is_following`はno-op方針を適用しない**: 9節・11節・13節までの`set_*`は
+  Firestoreの`merge=True`の`set()`が「ドキュメントが存在しなければ新規作成する」挙動を
+  持つため、厳密には`InMemoryUserProfileStore`の「存在しないprofileへの`set_*`は
+  何もしない」no-op契約と完全には一致しない(Firestore版は新規ドキュメントを作ってしまう)。
+  この非対称自体は5節で確立した`merge=True`部分更新方針に最初から内在する差分であり、
+  9節・11節・13節でも同様に踏襲してきたため本節で新たに導入される問題ではない。
+  `set_is_following`の呼び出し元(LINE Platform側のフォロー/アンフォローWebhook想定)は
+  既に連携済みのユーザーのみを対象とするため、実害は想定しない。
+- **`all_user_ids()`の走査コスト**: `blocked_but_billing_candidates.py`67行目・
+  `deletion_candidate.py`173行目のいずれも、日次バッチ想定の定期実行のたびに全ユーザーを
+  線形走査する用途であり、3節で`LinkingCodeStoreProtocol.items()`について検討した
+  論点と同じ構造を持つ。本venture想定ユーザー規模(unit-economics-estimate.md・
+  subscription-billing-cost-estimate.md想定の小規模事業者向けサービスという前提)では、
+  ユーザー総数がFirestoreの`stream()`無料枠の範囲に収まる見込みのため、`where`条件による
+  絞り込みや専用インデックスは過剰設計として見送り、コレクション全体の`stream()`を
+  採用する(3節と同じ結論)。将来的にユーザー数が増え読み取りコストが問題になった場合、
+  `blocked_but_billing_candidates.py`側の候補抽出条件(未フォロー+支払い遅延等)に
+  対応する複合インデックス+範囲クエリへの切り替えを再検討する。
+- **列挙順序への依存がないことの確認**: `all_user_ids()`の戻り値は`Iterable[str]`
+  契約であり、呼び出し元(`blocked_but_billing_candidates.py`67行目・
+  `deletion_candidate.py`173行目)はいずれも`for user_id in store.all_user_ids()`で
+  順不同に処理するのみで、`InMemoryUserProfileStore`の辞書挿入順と`stream()`の
+  返却順(ドキュメントID順やシャーディングに依存し保証されない)が異なっていても
+  正当性に影響しない。
+
+## 16. 残課題・次回候補(15節分)
+
+- 残りのグループ(event_time系4種)の実Firestore接続アダプタ設計。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+- 承認後の結合実装時に、`blocked_but_billing_candidates.py`・`deletion_candidate.py`の
+  日次バッチ実行環境(Cloud Scheduler、オーナー承認待ち)が整った段階で、`all_user_ids()`
+  の実際の読み取り件数・レイテンシを計測し、15.3節の「過剰設計として見送り」判断を
+  再検証する。

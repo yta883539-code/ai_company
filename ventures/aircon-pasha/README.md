@@ -5219,3 +5219,27 @@
   `current_plan_id`の実Firestore接続アダプタ設計を13節に新規追加。read-modify-write
   競合リスクが存在しないことを確認。コード変更なし、テスト653件・schema検証25件
   いずれもパス)
+- フェーズ300(2026-10-09 10:00 UTC定例更新): フェーズ299の次回候補(2)を受け、
+  残りのグループのうち`is_following`+`all_user_ids`(2フィールド・3メソッド
+  `get_is_following`/`set_is_following`/`all_user_ids`)の実Firestore接続アダプタ設計を
+  `firestore-provider-adapter-design.md` 15節に新規追加した。`get_is_following`/
+  `set_is_following`自体は9節・11節・13節と同型の単純な読み書きだが、`all_user_ids()`は
+  本`UserProfileStoreProtocol`グループでは初めての`user_profile`コレクション全体の
+  列挙系メソッドであるため、2節・3節で設計した`LinkingCodeStoreProtocol.items()`
+  (`pending_links`コレクション全体の`stream()`)と同じ論点(走査コスト・列挙順序への
+  非依存)を踏襲して設計した。`set_is_following`の`merge=True`書き込みが
+  `InMemoryUserProfileStore`のno-op契約と厳密には一致しない(存在しないドキュメントを
+  新規作成してしまう)点も検討したが、5節で確立した`merge=True`方針に最初から内在する
+  既知の差分であり、呼び出し元(LINE Platformのフォロー/アンフォローWebhook想定)が
+  常に連携済みユーザーのみを対象とするため実害なしと判断した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(653件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を
+  最優先、(2)`UserProfileStoreProtocol`の残りのグループ(event_time系4種)の実
+  Firestore接続アダプタ設計を継続、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 10:00 UTC(フェーズ300: `UserProfileStoreProtocol`の
+  `is_following`+`all_user_ids`グループの実Firestore接続アダプタ設計を15節に新規追加。
+  `all_user_ids()`の列挙コスト・順序非依存を検討。コード変更なし、テスト653件・
+  schema検証25件いずれもパス)
