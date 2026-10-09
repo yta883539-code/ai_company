@@ -4741,3 +4741,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   「stripe_customer_id順引き逆引き系」グループ〈3メソッド〉の実Firestore接続アダプタ設計を
   `workshop-store-firestore-adapter-design.md`11節に追加。テスト171件・schema検証32件
   いずれもパス)
+- フェーズ219(2026-10-09 20:00 UTC定例更新): フェーズ218の次回候補(2)に従い、
+  `WorkshopStoreProtocol`の残りグループのうち**subscription_status+各種event_time系**
+  (`get_subscription_status`/`set_subscription_status`・
+  `get_subscription_status_event_time`/`set_subscription_status_event_time`・
+  `get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`・
+  `get_subscription_updated_event_time`/`set_subscription_updated_event_time`・
+  `get_current_period_end`/`set_current_period_end`、5フィールド・計10メソッド、
+  usage_counter_workshop.py 454〜526行目)の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`13節に追加した。event_time系4フィールドは
+  aircon-pasha firestore-provider-adapter-design.md 17節が確立した「Stripe Webhook配信
+  順序ガード用の基準線としてのみ使う単純な読み書き」という設計方針を踏襲しつつ、
+  dataclassを介さない本venture側の構造に合わせ2節・9節・11節と同じ`self._doc_ref(
+  workshop_id).get()`からの直接参照方式を採用した。`subscription_status`は
+  event_time系と異なり`InMemoryWorkshopStore.get_subscription_status`に合わせ
+  未設定時のデフォルトを`None`ではなく`"trialing"`とし、`set_subscription_status`の
+  `InvalidSubscriptionStatusError`バリデーションをFirestore書き込み前にPython側で
+  完結させる設計とした点を13.3節に記録した。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(171件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りのグループ(payment_failure系・
+  trial_end_notified_at・owner_notified_at系2種)の実Firestore接続アダプタ設計、
+  (3)付け替え時の旧`stripe_customer_index`エントリ削除(line-reservation-aiの設計を参考に
+  改善)、(4)一時的な接続エラー時の安全側フォールバック方針の統一的整理、(5)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-09 20:00 UTC(フェーズ219: `WorkshopStoreProtocol`の
+  「subscription_status+各種event_time系」グループ〈5フィールド・10メソッド〉の実
+  Firestore接続アダプタ設計を`workshop-store-firestore-adapter-design.md`13節に追加。
+  テスト171件・schema検証32件いずれもパス)

@@ -544,3 +544,126 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
 4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
 5. 他venture・アイデア領域の前進。
+
+## 13. WorkshopStoreProtocol(subscription_status+各種event_time系グループ)の実Firestore接続アダプタ設計
+
+### 13.1. 背景・範囲
+
+本節は12節2点目で次回候補として残した複数グループのうち、**subscription_status+各種
+event_time系**に着手する。対象は`get_subscription_status`/`set_subscription_status`・
+`get_subscription_status_event_time`/`set_subscription_status_event_time`・
+`get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`・
+`get_subscription_updated_event_time`/`set_subscription_updated_event_time`・
+`get_current_period_end`/`set_current_period_end`の5フィールド・計10メソッド
+(usage_counter_workshop.py 454〜526行目)。
+
+event_time系4フィールドは、aircon-pasha firestore-provider-adapter-design.md 17節が
+`UserProfileStoreProtocol`向けに確立した「Stripe Webhookイベントの配信順序入れ替わり
+ガード用の基準線としてのみ使われる単純な読み書き」という設計方針と同じ性質を持つ
+(本venture側のガード設計も、各フィールドのdocstringが指す
+`subscription-status-event-order-guard-design.md`・
+`checkout-session-completed-plan-event-order-guard-design.md`・
+`subscription-updated-event-order-guard-design.md`という、aircon-pasha・
+course-set-pasha・line-reservation-aiと同名の設計ドキュメント群を前提としている)。
+いずれも2節の基盤グループ・9節のtrial系・11節のstripe_customer_id順引きと同じ
+`craftsman_workshop/{workshop_id}`ドキューメント内のトップレベルのスカラー値であり、
+map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)・専用逆引き
+コレクション(11節)のような特殊な操作を必要としない。
+
+### 13.2. 設計
+
+```python
+    def get_subscription_status(self, workshop_id: str) -> str:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("subscription_status", "trialing")
+
+    def set_subscription_status(self, workshop_id: str, status: str) -> None:
+        if status not in SUBSCRIPTION_STATUSES:
+            raise InvalidSubscriptionStatusError(
+                f"unknown subscription_status: {status!r} "
+                f"(expected one of {SUBSCRIPTION_STATUSES})"
+            )
+        self._doc_ref(workshop_id).set({"subscription_status": status}, merge=True)
+
+    def get_subscription_status_event_time(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("subscription_status_event_time")
+
+    def set_subscription_status_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"subscription_status_event_time": event_time}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("checkout_session_completed_event_time")
+
+    def set_checkout_session_completed_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"checkout_session_completed_event_time": event_time}, merge=True
+        )
+
+    def get_subscription_updated_event_time(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("subscription_updated_event_time")
+
+    def set_subscription_updated_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"subscription_updated_event_time": event_time}, merge=True
+        )
+
+    def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("current_period_end")
+
+    def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"current_period_end": current_period_end}, merge=True
+        )
+```
+
+### 13.3. 検討事項
+
+- **`get_subscription_status`の安全側デフォルト値**: event_time系4フィールドが
+  いずれも「未設定=未受信」を表す`None`デフォルトであるのに対し、`subscription_status`
+  だけはドキュメント・フィールド欠損時に`"trialing"`をデフォルトとする。これは
+  `InMemoryWorkshopStore.get_subscription_status`(779〜780行目)の挙動
+  (`self._subscription_status_by_workshop.get(workshop_id, "trialing")`)に合わせた
+  もので、docstring(subscription-billing-data-model-design.md 1節)が明記する通り
+  「未契約・トライアル中のworkshopは"trialing"」という業務上の初期状態を表す値であり、
+  9.1節で`trial_start_at`について検討した「データ不整合を隠蔽しない」方針とは逆に、
+  ここでは`None`ではなく明示的なデフォルト値を補うことが正しい実装である。
+- **`set_subscription_status`のバリデーションはFirestore書き込み前に完結させる**:
+  `InvalidSubscriptionStatusError`の送出は`InMemoryWorkshopStore.set_subscription_status`
+  (782〜787行目)と同じく、Firestoreへの`set()`呼び出し自体を行う前にPython側の
+  値チェックで完結させる。Firestore側のスキーマバリデーション機能(セキュリティルール等)
+  には依存しない設計とした。
+- **event_time系4フィールドはaircon-pasha 17節と同型だが取得経路が異なる**: aircon-pasha
+  17節は`UserProfileStoreProtocol`が内部で保持する`UserProfile`dataclassの属性として
+  これらのフィールドを読み書きするため`self.get(user_id)`経由の間接参照になっているが、
+  本venture(kura-pasha)の`WorkshopStoreProtocol`は2節・9節・11節同様dataclassを介さない
+  トップレベルのスカラーフィールド群であるため、`self._doc_ref(workshop_id).get()`から
+  直接`to_dict()`で読み取る9節・11節と同じ直接参照方式を踏襲した。読み書きの意味論
+  (順序ガード用の基準線としてのみ使う、呼び出し元は常にStripe Webhookハンドラ)自体は
+  aircon-pasha 17節と変わらない。
+- **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節で指摘した「一時的な接続エラー時の
+  安全側フォールバック方針」は、本節でも個別には検討せず、12節3点目・本節末の統一的整理に
+  委ねる。
+
+## 14. 残課題・次回候補(13節分)
+
+1. `WorkshopStoreProtocol`の残りのグループ(payment_failure系・trial_end_notified_at・
+   owner_notified_at系2種)の実Firestore接続アダプタ設計。
+2. 付け替え時の旧`stripe_customer_index`エントリ削除(11.1節・12節1点目、line-reservation-ai
+   の設計を参考に改善、未着手のまま継続)。
+3. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+5. 他venture・アイデア領域の前進。
