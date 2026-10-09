@@ -620,3 +620,69 @@ class FirestoreUserProfileStore:
 - 他venture・アイデア領域の前進、またはcourse-set-pasha内の別論点
   (例: `GymAreaConfigStoreProtocol`等、本designでは未対象の他Protocolの実Firestore接続
   アダプタ設計)への着手を次回候補とする。
+
+## 15. GymAreaConfigStoreProtocol(is_configured)の実Firestore接続アダプタ設計
+
+### 15.1. 背景・範囲
+
+14節の次回候補を受け、`cloud_function_webhook.py`687〜696行目で定義される
+`GymAreaConfigStoreProtocol`(読み取り専用、`is_configured(user_id) -> bool`の1メソッドのみ)
+の実Firestore接続アダプタ設計に着手する。本Protocolは`UserProfileStoreProtocol`とは別の
+クラスとして定義されているが、application-form-submission-flow-design.md 4節・残課題が
+既に「実Firestore接続後、`FirestoreUserProfileStore`が`GymAreaConfigStoreProtocol`と
+`UserProfileStoreProtocol`の両方を満たす実装になることの最終確認」を残課題として明記して
+おり、`InMemoryUserProfileStore.is_configured()`(application_form_submission_flow.py
+175〜176行目)も`GymAreaConfigStoreProtocol`互換のメソッドとして既に実装済みである
+(5節冒頭のコメント参照)。本節はその「最終確認」を実クラスの設計として行う。
+
+### 15.2. 設計
+
+`is_configured()`は5節で設計済みの`get_gym_area_pairs()`を素直に再利用するだけで実装できる。
+`GymAreaConfigStoreProtocol`は読み取り専用のためProtocol側に`set_*`は存在せず、書き込みは
+`UserProfileStoreProtocol.set_gym_area_pairs()`(申込フォーム提出フロー)の責務のままである。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・6節・7節・9節・11節・13節に以下を追加)
+
+    def is_configured(self, user_id: str) -> bool:
+        # InMemoryUserProfileStore.is_configured()(application_form_submission_flow.py
+        # 175〜176行目)と同じく、get_gym_area_pairs()の非空判定に委譲する。
+        # 専用のドキュメント読み取りを別途行わない(同一ドキュメントへの二重アクセスを避ける)。
+        return bool(self.get_gym_area_pairs(user_id))
+```
+
+これにより、`FirestoreUserProfileStore`は`UserProfileStoreProtocol`
+(`application_form_submission_flow.py`)と`GymAreaConfigStoreProtocol`
+(`cloud_function_webhook.py`)の両方を1つのクラス・1つの`user_profile/{user_id}`ドキュメント
+アクセスで満たす設計となり、application-form-submission-flow-design.md 4節が見越していた
+構成がそのまま成立することを確認した。
+
+### 15.3. 検討事項
+
+- **例外方針の継承**: `get_gym_area_pairs()`は5.3節の方針により、一時的な接続エラー時に
+  `""`(空文字列)を返す。`is_configured()`はその結果を`bool()`に通すだけなので、接続エラー時は
+  自動的に`False`(未設定)を返す。これは2節(application-form-submission-flow-design.md)の
+  「誤ったタグ付けより“タグ無し”の安全側を優先する」既存方針とも一致する方向の安全性であり、
+  13.3節で見たような方向の食い違いは発生しない。
+- **二重ドキュメント読み取りの回避**: `is_configured()`と`get_gym_area_pairs()`を呼び出し側が
+  両方呼ぶケース(例: `first_generation_notice`の確認案内文言組み立てとusage判定を同一リクエスト
+  内で両方行う場合)は、本設計のままでは`_doc_ref(user_id).get()`が2回発生しうる。現状の
+  呼び出しパターン(cloud_function_webhook.pyの各呼び出し箇所)を確認した限り同一リクエスト内で
+  両方を呼ぶ箇所は無く、現時点では個別最適化(読み取り結果のキャッシュ等)を導入する必要性は
+  無いと判断した。将来両方を同時に呼ぶ呼び出し箇所が増えた場合の最適化は次回候補として残す。
+- **`merge=True`との関係**: `is_configured()`自体は読み取り専用のため`merge=True`は関係しない
+  (5節・6節・7節・9節・11節・13節の`set_*`系との非対称性はProtocol自体の非対称性に由来する)。
+
+## 16. 残課題・次回候補(15節分)
+
+- `GymAreaConfigStoreProtocol`の実Firestore接続アダプタ設計が本節で完了し、
+  application-form-submission-flow-design.md 4節・残課題が残していた「最終確認」も解消した。
+  これにより、本venture(course-set-pasha)で把握している全Protocol
+  (`UserProfileStoreProtocol`・`GymAreaConfigStoreProtocol`)の実Firestore接続アダプタ設計が
+  完了した。
+- 残るのは、承認待ち事項(実Stripeアカウント開設・LINE公式アカウント開設・LIFFアプリ登録・
+  Googleフォーム作成等)がオーナーから承認された後の、実際のFirestore/Stripe/LINEプロジェクト
+  接続・各呼び出し側への本クラスのインスタンス注入・結合テストのみ(いずれも未承認のため
+  着手不可)。
+- 他venture・アイデア領域の前進を次回候補とする。

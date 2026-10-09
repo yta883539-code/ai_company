@@ -4588,3 +4588,24 @@
   firestore-provider-adapter-design.md 13節に追加し、全7グループの設計が完了。着手時に
   フェーズ279のREADME記載漏れを発見・是正。コード変更なし、テスト690件・schema検証21件
   いずれもパス)
+
+- フェーズ281(2026-10-09 18:00 UTC定例更新): フェーズ280の次回候補を受け、
+  `UserProfileStoreProtocol`とは別クラスの`GymAreaConfigStoreProtocol`
+  (`cloud_function_webhook.py`、読み取り専用`is_configured(user_id) -> bool`の1メソッド)の
+  実Firestore接続アダプタ設計に着手し、firestore-provider-adapter-design.md 15節に追加した。
+  `is_configured()`は5節で設計済みの`get_gym_area_pairs()`の非空判定に委譲するだけで実装でき、
+  `InMemoryUserProfileStore.is_configured()`(application_form_submission_flow.py
+  175〜176行目)と同じ構成であることを確認した。これにより`FirestoreUserProfileStore`が
+  `UserProfileStoreProtocol`と`GymAreaConfigStoreProtocol`の両方を1クラス・1ドキュメント
+  アクセスで満たすという、application-form-submission-flow-design.md 4節が見越していた構成が
+  成立することを確認し、同ドキュメント残課題の「最終確認」を解消した。これで本venture
+  (course-set-pasha)で把握している全Protocolの実Firestore接続アダプタ設計が完了した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (690件)・`python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすること
+  (件数に変更なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 18:00 UTC(フェーズ281: GymAreaConfigStoreProtocolの
+  実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md 15節に追加し、
+  本venture内の全Protocolの設計が完了。コード変更なし、テスト690件・schema検証21件
+  いずれもパス)
