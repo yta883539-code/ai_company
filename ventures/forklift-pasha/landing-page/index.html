@@ -16,6 +16,12 @@
     固有のdaily/monthly/annual3区分をradio+labelのCSSタブ(JS不使用)で切り替え表示する。
   - フッターの特定商取引法に基づく表記・プライバシーポリシーはlegal-notices-draft.mdの未確定
     項目があるためリンク先なし。
+  - ヒーロー画像(フェーズ112追加): hero-visual-license-confirmation-and-final-selection.md
+    (フェーズ110)で最終候補とした候補3(Pexels・倉庫内で操作パネルに向かう作業者)はegress
+    制約でWebFetchによる実ファイル確認・取得ができない(hero-image-overlay-placement-design.md
+    フェーズ111)ため、実ファイルの代わりに寸法・配置のみを示すプレースホルダー枠を実装した。
+    実ファイル確定後はこの枠を<img>に置き換える想定(オーナーへの実ファイル提示・確認を経てから
+    候補3/候補5を最終確定する運用)。
 -->
 <html lang="ja">
 <head>
@@ -101,6 +107,32 @@
   .doc-card .line:nth-child(5) { width: 85%; }
   .doc-card .line:nth-child(6) { width: 55%; }
   .placeholder-note { font-size: 0.75rem; color: var(--color-muted); text-align: center; margin: 0 0 20px; }
+  .hero-image-placeholder {
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    margin: 0 0 16px;
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+    background: #eef1ef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px;
+    font-size: 0.75rem;
+    color: var(--color-muted);
+  }
+  @media (min-width: 768px) {
+    .hero-image-placeholder {
+      position: relative;
+    }
+    .hero-image-placeholder .caption-overlay-zone {
+      position: absolute;
+      right: 0; bottom: 0;
+      width: 33%; height: 100%;
+      border-left: 1px dashed var(--color-border);
+    }
+  }
 
   .tabs { margin-bottom: 8px; }
   .tabs input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
@@ -162,6 +194,11 @@
   <header class="site-header">フォークリフトパシャっと</header>
 
   <section>
+    <div class="hero-image-placeholder" aria-hidden="true">
+      ヒーロー画像(候補3・Pexels/取得待ち)<br>
+      倉庫内で操作パネルに向かう作業者
+      <div class="caption-overlay-zone"></div>
+    </div>
     <h1>始業前点検も、月次・年次の検査記録も。メモひとつで記録簿の形に。</h1>
     <p class="sub">次回の検査期限も、AIが忘れずにお知らせします。</p>
 
