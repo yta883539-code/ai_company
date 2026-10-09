@@ -454,3 +454,93 @@ dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`
 3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
 4. 他venture・アイデア領域の前進。
+
+## 11. WorkshopStoreProtocol(stripe_customer_id順引き逆引き系グループ)の実Firestore接続アダプタ設計
+
+本節は10節1点目で次回候補として残した複数グループのうち、**stripe_customer_id順引き・
+逆引き系**に着手する。対象は`get_stripe_customer_id`/`set_stripe_customer_id`/
+`get_workshop_id_by_stripe_customer_id`の3メソッド(usage_counter_workshop.py 436〜452
+行目)。`get_workshop_id_by_stripe_customer_id`のdocstringが明記する通り、aircon-pasha・
+course-set-pashaの`get_user_id_by_stripe_customer_id`と同じ位置づけ(`client_reference_id`
+を持たないStripe Webhookイベントがworkshop_idを解決するための逆引き)であり、aircon-pasha
+firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏襲する。
+
+順引き(`get_stripe_customer_id`/`set_stripe_customer_id`)は2節の基盤グループと同じ
+`craftsman_workshop/{workshop_id}`ドキューメント内のトップレベルのスカラー値で素直に
+実装できる。逆引き(`get_workshop_id_by_stripe_customer_id`)は、`craftsman_workshop`
+コレクション全体への`where("stripe_customer_id", "==", ...)`クエリでも実現できるが、
+`customer.subscription.*`イベント受信のたびにクエリを発行するより、専用の逆引き
+コレクション`stripe_customer_index/{stripe_customer_id}`(値は`workshop_id`の文字列)を
+`set_stripe_customer_id`実行時に同時書き込みする方式を採用する(`InMemoryWorkshopStore`
+が`_workshop_id_by_stripe_customer_id`辞書を別持ちしている設計〈662〜663行目〉と対応
+させるため)。aircon-pasha・line-reservation-aiの両設計と同じコレクション名
+`stripe_customer_index`を用いる(本venture〈kura-pasha〉は別のFirestoreプロジェクトを
+使う想定のため、コレクション名の衝突は生じない)。
+
+```python
+    def get_stripe_customer_id(self, workshop_id: str) -> Optional[str]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("stripe_customer_id")
+
+    def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
+        batch = self._client.batch()
+        batch.set(
+            self._doc_ref(workshop_id),
+            {"stripe_customer_id": stripe_customer_id},
+            merge=True,
+        )
+        batch.set(
+            self._stripe_index.document(stripe_customer_id),
+            {"workshop_id": workshop_id},
+        )
+        batch.commit()
+
+    def get_workshop_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        snapshot = self._stripe_index.document(stripe_customer_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("workshop_id")
+```
+
+(`__init__`に`self._stripe_index = firestore_client.collection("stripe_customer_index")`
+を2節の`self._workshops`と並べて追加する想定。`set_stripe_customer_id`がバッチ書き込みを
+使うため、`self._client`〈firestoreクライアント本体への参照〉も2節の`__init__`に保持して
+おく必要がある。)
+
+### 11.1. 検討事項
+
+- **バッチ書き込みによる原子性**: aircon-pasha 5.3節と同じく、`set_stripe_customer_id`は
+  `craftsman_workshop/{workshop_id}`の`stripe_customer_id`フィールド更新と
+  `stripe_customer_index/{stripe_customer_id}`ドキュメントの新規作成を`WriteBatch`で
+  同時実行し、片方のみ書き込まれる不整合を避ける。
+- **付け替え時の旧インデックスエントリ**: aircon-pashaはこの問題を5.3節で「本venture想定
+  では発生しない契約」として次回候補に残したが、line-reservation-ai
+  stripe-customer-id-reverse-lookup-design.mdは既に旧エントリ削除まで実装した、より
+  完成度の高い設計を確立している。本venture(kura-pasha)の呼び出し元
+  (`checkout-session-completed-handling-design.md`相当の処理、新規Checkout Session完了時
+  に1回だけ呼ばれる想定)も同一`workshop_id`からの2回目の`set_stripe_customer_id`呼び出しは
+  想定していないため、本節ではaircon-pasha側の簡潔な設計(新規設定ケースのみ)を踏襲し、
+  旧インデックス削除はline-reservation-aiの設計を参考にした改善の次回候補として残す
+  (12節)。
+- **`get_stripe_customer_id`が`None`を返すケース**: `subscription-billing-data-model-design.md`
+  1節の通り、未契約(トライアル中含む)のworkshopは`stripe_customer_id`が未設定のため
+  `None`を返すのが正しい挙動であり、9.1節の`trial_start_at`と異なり「データ不整合」を
+  示す値ではない。アダプタ側で独自のデフォルト値を補う必要はない。
+- **例外方針は本節では未検討のまま**: 3節で指摘した「一時的な接続エラー時の安全側
+  フォールバック方針」は9節までと同様、本節でも個別には検討せず、12節2点目の統一的整理に
+  委ねる。
+
+## 12. 残課題・次回候補(11節分)
+
+1. 付け替え時の旧`stripe_customer_index`エントリ削除(11.1節、line-reservation-aiの設計を
+   参考に改善)。
+2. `WorkshopStoreProtocol`の残りのグループ(subscription_status+各種event_time系・
+   payment_failure系・trial_end_notified_at・owner_notified_at系2種)の実Firestore接続
+   アダプタ設計。
+3. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+5. 他venture・アイデア領域の前進。

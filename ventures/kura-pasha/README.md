@@ -4716,3 +4716,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `WorkshopStoreProtocol`に`set_trial_start_at`の宣言漏れを発見・是正。trial系2フィールド
   〈4メソッド〉の実Firestore接続アダプタ設計を`workshop-store-firestore-adapter-
   design.md`9節に追加。テスト171件・schema検証32件いずれもパス)
+- フェーズ218(2026-10-09 19:00 UTC定例更新): フェーズ217の次回候補(1)のうち
+  **stripe_customer_id順引き逆引き系**(`get_stripe_customer_id`/`set_stripe_customer_id`/
+  `get_workshop_id_by_stripe_customer_id`、計3メソッド)の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`11節に追加した。順引きは2節の基盤グループと
+  同じトップレベルのスカラー値、逆引きはaircon-pasha firestore-provider-adapter-design.md
+  5節と同じ専用逆引きコレクション`stripe_customer_index/{stripe_customer_id}`への
+  バッチ書き込み方式を踏襲した。付け替え時の旧インデックスエントリ削除は、
+  line-reservation-aiが既により完成度の高い設計(stripe-customer-id-reverse-lookup-
+  design.md)を確立済みであることを確認した上で、aircon-pasha側の簡潔な設計(新規設定
+  ケースのみ)を本venture初版としては踏襲し、改善の次回候補として残した(11.1節・12節)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (171件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+  オーナーから承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りの
+  グループ(subscription_status+各種event_time系・payment_failure系・
+  trial_end_notified_at・owner_notified_at系2種)の実Firestore接続アダプタ設計、
+  (3)付け替え時の旧インデックスエントリ削除(line-reservation-aiの設計を参考に改善)、
+  (4)一時的な接続エラー時の安全側フォールバック方針の統一的整理、(5)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-09 19:00 UTC(フェーズ218: `WorkshopStoreProtocol`の
+  「stripe_customer_id順引き逆引き系」グループ〈3メソッド〉の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`11節に追加。テスト171件・schema検証32件
+  いずれもパス)
