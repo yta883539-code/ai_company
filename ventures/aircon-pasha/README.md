@@ -5199,3 +5199,23 @@
   owner_notified_at系グループ〈2フィールド・4メソッド〉の実Firestore接続アダプタ設計を
   11節に新規追加。read-modify-write競合リスクが存在しないことを確認。コード変更なし、
   テスト653件・schema検証25件いずれもパス)
+- フェーズ299(2026-10-09 00:00 UTC定例更新): フェーズ298の次回候補(2)を受け、
+  残りのグループのうち`current_plan_id`(1フィールド・2メソッドget/set)の実Firestore
+  接続アダプタ設計を`firestore-provider-adapter-design.md` 13節に新規追加した。
+  9節・11節と同じ「現在値を見てから計算する操作を持たない単純な読み書きのみ」の構成で
+  あり、型が`Optional[datetime]`ではなく`Optional[str]`である点を除けば設計は完全に
+  同型であることを確認した。`stripe_dispatch.py`側の無駄な`set`を避ける最適化
+  (読んだ値と異なる場合のみ書き込む)が正当性に影響しないことも13.3節で確認した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
+  その着手を最優先、(2)`UserProfileStoreProtocol`の残りのグループ(is_following+
+  all_user_ids・event_time系4種)の実Firestore接続アダプタ設計を継続(is_following+
+  all_user_idsは`all_user_ids()`という全件走査系メソッドを含み設計がやや複雑になる
+  見込み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 00:00 UTC(フェーズ299: `UserProfileStoreProtocol`の
+  `current_plan_id`の実Firestore接続アダプタ設計を13節に新規追加。read-modify-write
+  競合リスクが存在しないことを確認。コード変更なし、テスト653件・schema検証25件
+  いずれもパス)

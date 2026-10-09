@@ -554,3 +554,63 @@ class FirestoreUserProfileStore:
   走査方法(コレクション全体の`stream()`か専用インデックスか)の検討が必要になる点で
   current_plan_idより設計がやや複雑になる見込み。
 - `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+
+## 13. UserProfileStoreProtocol(current_plan_id)の実Firestore接続アダプタ設計
+
+### 13.1. 背景・範囲
+
+フェーズ298の次回候補(2)を受け、残りのグループのうち`current_plan_id`
+(1フィールド・2メソッドget/set)の実Firestore接続アダプタ設計に着手する。本フィールドを
+次に選んだ理由は、9節・11節と同じ「現在値を見てから計算する操作を持たない単純な読み書き
+のみ」の構成であり、型が`Optional[datetime]`ではなく`Optional[str]`である点を除けば
+設計が完全に同型であるため、残りのグループ(is_following+all_user_ids・event_time系4種)
+より着手しやすい候補と見込んだため。
+
+### 13.2. 設計
+
+`user_id_linking.py` 651〜659行目の`InMemoryUserProfileStore.get_current_plan_id`/
+`set_current_plan_id`は、9節・11節までと同じ「プロファイルが存在しなければ`set_*`は
+何もしない・`get_*`は`None`を返す」契約であり、本設計もそれに対応する。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節・9節・11節に以下を追加)
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        profile = self.get(user_id)
+        return profile.current_plan_id if profile is not None else None
+
+    def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
+        self._doc_ref(user_id).set({"current_plan_id": plan_id}, merge=True)
+```
+
+### 13.3. 検討事項
+
+- **`None`書き込みによるクリア**: 9節・11節と同じく、`merge=True`の`set()`に`None`を
+  渡してもフィールドは削除されず値`null`として保存される。呼び出し元
+  (`subscription_plan_sync.clear_current_plan_id_on_cancellation()`等)は
+  「`None`=未契約」の意味でのみ使っており、「未設定」と「明示的に`None`に戻した」を
+  区別する必要がないため、9節・11節と同じ結論で問題ない。
+- **read-modify-write競合が存在しないことの確認**: `current_plan_id`は
+  `subscription_plan_sync.sync_plan_from_subscription_event()`が解決したプランIDを
+  そのまま`set`するだけで、現在値を見てから計算する操作を持たないため、9節・11節と同じ
+  理由でFirestore接続時の並行書き込み競合のリスク自体が存在しない(横展開確認の対象外
+  であることをここに明記する)。なお`stripe_dispatch.py`側で`get_current_plan_id`を
+  読んでから無駄な`set`を避ける最適化(フェーズ283付近)があるが、これは呼び出し回数を
+  減らす目的のみで正当性には影響しない(読んだ値と異なる値のみ書き込むため、読み取り後に
+  他プロセスが値を変えても「最後に書いた値が最終的な値になる」というlast-write-wins
+  の挙動自体は変わらない)。
+- **型の違い**: 9節・11節は`Optional[datetime]`だったが、本フィールドは
+  `Optional[str]`。Firestoreのドキュメントフィールドとしてはどちらも素直にシリアライズ
+  可能(`datetime`はFirestore Timestamp型、`str`はそのまま文字列)で、設計上の扱いに
+  差はない。
+
+## 14. 残課題・次回候補(13節分)
+
+- 残りのグループ(is_following+all_user_ids・event_time系4種)の実Firestore接続アダプタ
+  設計。is_following+all_user_idsは真偽値の単純な読み書き(`set_is_following`)に加え、
+  `all_user_ids()`(全ユーザーID一覧取得)という5節のLinkingCodeStoreProtocol
+  `items()`相当の全件走査系メソッドを含むため、走査方法(コレクション全体の`stream()`か
+  専用インデックスか)の検討が必要になる点で、これまでのグループより設計がやや複雑になる
+  見込み。
+- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
