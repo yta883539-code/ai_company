@@ -396,3 +396,70 @@ course-set-pashaの`notified_at`系フィールド(いずれも`datetime`型)と
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 15. planグループ(2メソッド)
+
+`get_plan`/`set_plan`(`store_profile_store.py` 167-171行目・308-317行目)を追加設計する。
+InMemory実装は`_plans: dict[str, str]`への単純な読み書きで、未設定時は`None`(トライアル中・
+プラン未購入)をデフォルト値として返す(308-309行目のdict.get挙動)。`set_plan`は
+`PLAN_MONTHLY_BOOKING_LIMITS`にないプラン名を拒否する(`ValueError`、314-315行目)ため、
+`get_plan`が返す値は常に`None`かこの辞書の既知キーのいずれかであるという`resolve_
+monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値の出し入れを
+そのまま委譲するだけで自動的に保たれる。
+
+```python
+    def get_plan(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(None=プラン未購入)と揃える安全側
+            # フォールバック。本フィールドはresolve_monthly_booking_limit()経由で
+            # ConversationFlowStateMachine構築時の月間予約件数上限に使われ、Noneは
+            # 「上限機能を無効にする」側に解釈される(store_profile_store.py
+            # 396-399行目のdocstring)。接続エラーの回だけ上限チェックが一時的に
+            # 効かなくなる(=トライアル中と同じ扱いになる)のは、誤って上限0相当の
+            # 挙動になり有料プラン契約中の店舗の新規予約を全てブロックしてしまう
+            # 事態より明らかに安全であり、9節(suspension_reason)・13節
+            # (blocked_but_billing_owner_notified_at)のいずれとも異なる具体的な
+            # 誤り方だが、同じ「顧客体験を損なう側より実害の小さい側に合流させる」
+            # 基準には合致する。本判定はイベント受信ごとに`build_conversation_flow_
+            # state_machine_for_store()`から毎回再構築される(102行目、
+            # conversation_event_processor_assembly.py)ため、5節の基準における
+            # 「可逆」判定にも当たる。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("plan")
+
+    def set_plan(self, store_id: str, plan: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
+            raise ValueError(f"unknown plan: {plan!r}")
+        self._doc_ref(store_id).set({"plan": plan}, merge=True)
+```
+
+- **`set_plan`の検証は接続前に完結する**: `plan not in PLAN_MONTHLY_BOOKING_LIMITS`の
+  チェックはFirestoreへの書き込み呼び出し自体より前に行われるため、InMemory版・
+  Firestore版のいずれも不正なプラン名を一度も永続化層へ渡さずに`ValueError`を送出する
+  (`subscription_plan_sync.py`115行目の`store.get_plan(store_id) != plan`比較が、
+  書き込み済みの`plan`が必ず既知キーである前提に依存できる)。
+- `set_plan`は2節のStripeグループのような逆引きインデックスを持たない単純フィールド更新
+  であり、付け替え時の旧インデックス削除は不要(9節・11節・13節と同型)。
+- フィールド名は`checkout_session.py`の`metadata={"plan": plan}`(88・112行目)・
+  `prototype/test_store_profile_store.py`の既存テストケースと同じ`"plan"`をそのまま
+  Firestoreのキー名に採用し、camelCase変換は行わない(元が単一の英単語のため9節
+  〈suspensionReason〉等のような複合語キャメルケース化は不要)。
+
+## 16. 次回候補
+
+- 残りのグループ(owner_user_id・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)のうち、
+  次に着手しやすいのは`checkout_session_completed_event_time`
+  (`get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`、
+  aircon-pashaの同名グループ〈フェーズ296〉で既に確立済みのイベント配信順序ガード設計を
+  横展開できる見込み)と判断する。
+- 承認後は、`portal_session.py`・`checkout_session.py`・
+  `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する(ただし全グループの実装完了が前提)。

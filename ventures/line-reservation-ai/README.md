@@ -5441,8 +5441,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   プロジェクト等)がオーナーから承認された場合はその着手を最優先、(2)
   `StoreProfileStoreProtocol`の残りグループのうち`plan`(`get_plan`/`set_plan`)の設計、
   (3)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-09 17:00 UTC(フェーズ続き306: `StoreProfileStoreProtocol`の
-  blocked_but_billing_owner_notified_atグループ〈2メソッド〉の実Firestore接続アダプタ設計を
-  13節に追加。二重送信リスクを検討した上でcourse-set-pasha・aircon-pashaの既存方針を横展開し
-  「接続エラー時はNoneへ合流」を採用。コード変更なし、テスト906件・schema検証28件いずれも
-  パス)
+- フェーズ続き307(2026-10-09 23:00 UTC定例更新): フェーズ続き306の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`plan`グループ(`get_plan`/`set_plan`、2メソッド)の
+  実Firestore接続アダプタ設計を`store-profile-store-firestore-adapter-design.md`15節に
+  追加した。本フィールドは`resolve_monthly_booking_limit()`(store_profile_store.py
+  389-417行目)経由で`ConversationFlowStateMachine`構築時の月間予約件数上限に使われ、
+  `get_plan`が接続エラー時に返す`None`は上限チェック機能自体を無効にする側に解釈される
+  (トライアル中と同じ扱い)。上限0相当の誤動作(有料プラン契約中の店舗の新規予約を
+  全てブロック)になるよりも明らかに安全であり、かつ本判定はイベント受信ごとに
+  毎回再構築される(conversation_event_processor_assembly.py 102行目)ため5節の基準
+  (可逆性)にも合致すると判断し、9節(suspension_reason)・11節(owner_email)・13節
+  (blocked_but_billing_owner_notified_at)と同じ「接続エラーは未設定側(None)に合流
+  させる」方針を適用した。`set_plan`の`PLAN_MONTHLY_BOOKING_LIMITS`メンバーシップ検証は
+  Firestore書き込み呼び出し自体より前に完結するため、不正なプラン名が永続化層に渡る
+  ことはない。フィールド名は既存の`metadata={"plan": plan}`と同じ`"plan"`をそのまま
+  採用した。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`(28件、
+  変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCP
+  プロジェクト等)がオーナーから承認された場合はその着手を最優先、(2)
+  `StoreProfileStoreProtocol`の残りグループのうち`checkout_session_completed_event_time`
+  (aircon-pashaの同名グループで確立済みのイベント配信順序ガード設計を横展開できる見込み)
+  の設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 23:00 UTC(フェーズ続き307: `StoreProfileStoreProtocol`の
+  planグループ〈2メソッド〉の実Firestore接続アダプタ設計を15節に追加。接続エラー時は
+  上限チェック無効化側〈None〉に合流させる方針を採用。コード変更なし、テスト906件・
+  schema検証28件いずれもパス)
