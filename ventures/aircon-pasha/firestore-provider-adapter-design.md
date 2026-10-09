@@ -791,3 +791,103 @@ class FirestoreUserProfileStore:
   user_id_linking.py以外のモジュールで定義されるもの)の実Firestore接続アダプタ設計。
 - 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
   机上設計とInMemory実装での回帰確認にとどまる)。
+
+## 19. `_profile_to_dict`/`_profile_from_dict`ヘルパーの実装設計
+
+### 19.1. 背景・範囲
+
+フェーズ301(18節)の次回候補(2)を受け、5節の`save()`/`get()`以来プレースホルダーとして
+名前のみ参照されていた`_profile_to_dict`/`_profile_from_dict`(5.2節末尾の括弧書きで
+「`dataclasses.asdict`相当+`None`値の扱い」という方針のみ予告されていた)を具体的に
+設計する。両ヘルパーが使われるのは5節の基盤3メソッド(`save`/`get`)のみで、9節以降の
+個別`set_*`/`get_*`メソッドはいずれも`merge=True`の部分書き込み・個別フィールド読み取り
+(`{"xxx_at": value}`のような1〜2キーの辞書)のため対象外であり、既存13グループ分の
+設計・コード例に変更は生じない。
+
+`UserProfile`は`prototype/user_id_linking.py` 131行目以降で定義される22フィールド
+(`business_name`・`business_type`・`email`・`linked_at`の4つは既定値なし、残り18は
+いずれも`Optional[str]`・`Optional[datetime]`・`int`・`bool`のいずれかで既定値あり)の
+フラットなdataclassで、ネストしたdataclassやlist/dict型のフィールドは持たない。
+
+### 19.2. 設計
+
+```python
+import dataclasses
+
+
+def _profile_to_dict(profile: UserProfile) -> dict:
+    # UserProfileはフラットなdataclass(ネストしたdataclass・list/dict型フィールドを
+    # 持たない)であるため、dataclasses.asdict()のディープコピーのオーバーヘッドを
+    # 避け、dataclasses.fields()でフィールド名を列挙しgetattrで直接値を取り出す
+    # (5.2節末尾で予告した「dataclasses.asdict相当」を、本dataclassの形状に合わせて
+    # 素朴なループに置き換えたもの)。datetimeフィールドはFirestoreクライアントが
+    # google.cloud.firestore.SERVER_TIMESTAMP型と同様にPythonのdatetimeを直接
+    # Timestampへシリアライズできるため変換不要。Noneのフィールド(例: 連携直後で
+    # 未設定のtrial_start_at等)もそのままdictに含める(Firestoreは「フィールドが
+    # 存在しNone」を保存できるため、9節以降の個別set_*の`merge=True`書き込みと
+    # 同じ表現)。
+    return {
+        field.name: getattr(profile, field.name)
+        for field in dataclasses.fields(profile)
+    }
+
+
+def _profile_from_dict(data: dict) -> UserProfile:
+    # UserProfile(**data)でそのまま復元する。9節以降で追加されたフィールド
+    # (trial系・payment_failure系・current_plan_id・is_following+all_user_ids・
+    # owner_notified_at系・event_time系4種、いずれもUserProfile側に既定値を持つ)に
+    # ついて、dataのdictにそのキーが欠けていてもUserProfile(**data)はdataclass
+    # 自身の既定値にフォールバックするため、`data.setdefault(...)`のような明示的な
+    # デフォルト補完処理は不要(19.3節参照)。
+    return UserProfile(**data)
+```
+
+### 19.3. 検討事項
+
+- **既存ドキュメントのフィールド欠落に対する後方互換性がUserProfile(**data)だけで
+  自動的に成立する**: `save()`は連携成立時に1回だけ呼ばれる(5.3節)ため、例えば
+  フェーズ167(`is_following`追加)より前に連携したユーザーの`user_profile`
+  ドキュメントには、当時の`_profile_to_dict`相当の処理が書き込んだキーしか存在せず
+  `is_following`キー自体が欠けている。Firestoreの`snapshot.to_dict()`はドキュメントに
+  存在するキーのみを返す(存在しないキーをNone値として補完しない)ため、
+  `_profile_from_dict`に渡る`data`にも`is_following`キーが含まれない。`UserProfile(**data)`
+  はキーワード引数に存在しないフィールドをdataclass自身の既定値(`is_following: bool
+  = True`)で埋めるため、特別なマイグレーション処理や`data.setdefault(...)`の
+  明示呼び出しなしに、9節〜17節で設計した各フィールドの追加順序とそのまま整合する
+  後方互換性が成立する。この性質は「新フィールド追加時に既存ドキュメントへの一括
+  書き込み(バックフィル)が不要」という設計上の利点であり、本venture固有の22
+  フィールドという規模の大きさに対して特に有効と判断した。
+- **フィールド名のスネークケースはFirestore側キー名と1:1**: 9節以降の個別`set_*`
+  (例: `{"stripe_customer_id": ...}`・`{"trial_start_at": ...}`)がいずれも
+  dataclassの属性名そのものをキーとして使っていることを確認済み(本designの
+  全既存コード例を参照)であり、`_profile_to_dict`が生成するキーと完全に一致する。
+  そのため、`save()`で作成したドキュメントの一部フィールドを後から個別`set_*`で
+  `merge=True`上書きしても、`_profile_from_dict`で読み戻した際にキーの不整合
+  (例: キャメルケースとスネークケースの混在)は発生しない。line-reservation-aiの
+  `store-profile-store-firestore-adapter-design.md`はフィールドごとに個別get/set
+  メソッドのみを持つ設計(camelCaseキーを採用)であり本ventureとはキー命名規則が
+  異なるが、これは5節で確立した本venture独自の命名方針(dataclass属性名をそのまま
+  使う)であり横展開確認の対象外と判断する。
+- **`dataclasses.asdict`を使わない理由**: `dataclasses.asdict()`はネストした
+  dataclass・list・dictを再帰的にディープコピーする汎用実装のため、本`UserProfile`
+  のようなフラットな22フィールドのdataclassに対しては不要なコピーコストが生じる。
+  `dataclasses.fields()`+`getattr`のループは同じ結果をより直接的に得られ、将来
+  `UserProfile`にネストしたdataclassフィールドが追加された場合はその時点で
+  `asdict`相当の再帰処理への切り替えを検討すればよい(現時点では過剰な抽象化を
+  避ける)。
+- **`save()`が書き込む初期値とInMemory版の整合性**: `resolve_linking_code()`
+  (5.3節)が`save()`に渡す`UserProfile`インスタンスは、18フィールド分の既定値
+  (`None`・`0`・`True`)がdataclass定義どおりに設定された状態であり、
+  `InMemoryUserProfileStore.save()`が辞書に格納する内容と属性単位で完全に一致する
+  ことを確認した(InMemory版・Firestore版のどちらで`get()`しても同じ`UserProfile`
+  インスタンスが得られるという5節以来の前提に矛盾しない)。
+
+## 20. 残課題・次回候補(19節分)
+
+- `_profile_to_dict`/`_profile_from_dict`の設計により、5節の基盤3メソッドを含む
+  `UserProfileStoreProtocol`全グループの実Firestore接続アダプタ設計(本designの対象
+  範囲)が完了した。
+- 本designでは未対象の他Protocol(`SubscriptionDeletionCandidateStoreProtocol`等、
+  `user_id_linking.py`以外のモジュールで定義されるもの)の実Firestore接続アダプタ設計。
+- 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
+  机上設計とInMemory実装での回帰確認にとどまる)。

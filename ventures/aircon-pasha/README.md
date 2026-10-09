@@ -5264,3 +5264,29 @@
 - 最終更新: 2026-10-09 16:00 UTC(フェーズ301: `UserProfileStoreProtocol`の
   event_time系4種〈8メソッド〉の実Firestore接続アダプタ設計を17節に新規追加し、
   全7グループの設計が完了。コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ302(2026-10-09 23:00 UTC定例更新): フェーズ301の次回候補(2)を受け、5節の
+  `save()`/`get()`以来プレースホルダーとして名前のみ参照されていた`_profile_to_dict`/
+  `_profile_from_dict`ヘルパーの具体的な設計を`firestore-provider-adapter-design.md`
+  19節に新規追加した。`UserProfile`がネストしたdataclass・list/dict型フィールドを
+  持たないフラットな22フィールド構成であることから、`dataclasses.asdict()`ではなく
+  `dataclasses.fields()`+`getattr`の素朴なループで`_profile_to_dict`を実装し、
+  `_profile_from_dict`は`UserProfile(**data)`でそのまま復元する設計とした。最大の
+  着眼点は、フェーズ167(`is_following`追加)等より前に`save()`で作成された既存
+  ドキュメントには後から追加されたフィールドのキー自体が存在しないが、Firestoreの
+  `snapshot.to_dict()`は存在するキーのみを返すため`UserProfile(**data)`がdataclass
+  自身の既定値に自動的にフォールバックし、明示的なバックフィル処理なしに9節〜17節の
+  全フィールド追加履歴と後方互換することを19.3節で確認した点である。あわせて、
+  9節以降の個別`set_*`が使うキー名(dataclass属性名そのまま)と`_profile_to_dict`が
+  生成するキー名が完全に一致することも確認し、`save()`後に個別`set_*`で部分更新した
+  ドキュメントを`_profile_from_dict`で読み戻してもキーの不整合が起きないことを
+  検証した。本節により`UserProfileStoreProtocol`(本designの対象範囲)の設計が
+  完全に完了した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
+  その着手を最優先、(2)本designでは未対象の他Protocol(`SubscriptionDeletionCandidate
+  StoreProtocol`等)の実Firestore接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 23:00 UTC(フェーズ302: `_profile_to_dict`/`_profile_from_dict`
+  ヘルパーの実装設計を19節に新規追加し、`UserProfileStoreProtocol`の設計が完全に完了。
+  コード変更なし、テスト653件・schema検証25件いずれもパス)
