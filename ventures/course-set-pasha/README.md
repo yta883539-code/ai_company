@@ -4534,8 +4534,21 @@
   UserProfileStoreProtocolフィールドグループ(`blocked_but_billing_owner_notified_at`系3
   メソッド・`plan`・`checkout_session_completed_event_time`)、または承認待ち事項1〜5が
   オーナーから承認された場合はその着手を最優先とする。
-- 最終更新: 2026-10-08 12:00 UTC(フェーズ277: UserProfileStoreProtocolのis_following+
-  all_user_idsグループの実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md
-  7節に追加。all_user_ids()はuser_profileコレクション全件stream()への単純化が安全であることを
-  呼び出し元コードの書き込み順序から確認。コード変更なし、テスト690件・schema検証21件いずれも
-  パス)
+- フェーズ278(2026-10-09 03:00 UTC定例更新): フェーズ277の次回候補だった
+  `blocked_but_billing_owner_notified_at`グループ(`set_*`/`get_*`/`clear_*`の3メソッド)の
+  実Firestore接続アダプタ設計に着手し、firestore-provider-adapter-design.md 9節に追加した。
+  本フィールドはInMemory実装では専用の`clear_*`(`dict.pop`)でキーを削除するが、Firestore側は
+  sister venture aircon-pasha(11節)と同じく`merge=True`の`set({"...": None})`で`null`書き込みに
+  よるクリアを表現する設計とした。`get_*`が`null`も未設定もいずれも`None`として返す限り、
+  InMemory版の`clear_*`(pop)と観測可能な挙動が一致することを9.3節で確認した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・
+  `python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすること(件数に
+  変更なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: 残りのグループ(`plan`・
+  `checkout_session_completed_event_time`)、または承認待ち事項1〜5がオーナーから承認された
+  場合はその着手を最優先とする。
+- 最終更新: 2026-10-09 03:00 UTC(フェーズ278: UserProfileStoreProtocolの
+  blocked_but_billing_owner_notified_atグループ〈3メソッド〉の実Firestore接続アダプタ設計を
+  firestore-provider-adapter-design.md 9節に追加。clear_*はNone書き込みで表現し、aircon-pasha
+  11節と同じ結論でInMemory版のpopと観測可能な挙動が一致することを確認。コード変更なし、
+  テスト690件・schema検証21件いずれもパス)

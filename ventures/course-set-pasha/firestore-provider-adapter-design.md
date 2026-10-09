@@ -401,3 +401,87 @@ class FirestoreUserProfileStore:
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 9. UserProfileStoreProtocol(blocked_but_billing_owner_notified_atグループ)の実Firestore接続アダプタ設計
+
+### 9.1. 背景・範囲
+
+8節の次回候補を受け、`set_blocked_but_billing_owner_notified_at`/
+`get_blocked_but_billing_owner_notified_at`/`clear_blocked_but_billing_owner_notified_at`の
+3メソッド(blocked_but_billing_owner_notified_atグループ)の実Firestore接続アダプタ設計に
+着手する。本フィールドは「ブロック中かつ契約継続中」候補としてオーナーへ通知済みかどうかの
+冪等性フラグ(blocked-but-billing-owner-notification-design.md 3節)であり、7.3節で確認した
+通り`all_user_ids()`の和集合からは意図的に除外されている。sister venture aircon-pashaは
+11節で同種のowner_notified_at系フィールドを設計済みだが、そちらは専用の`clear_*`メソッドを
+持たず`set_*(None)`でクリアを表現する設計である点が、本venture(`clear_*`という専用メソッドを
+持つ)との差分になる。
+
+### 9.2. 設計
+
+本フィールドも5節で確立した`_doc_ref(user_id)`ヘルパー上の単純な`merge=True`部分更新・
+単純読み取りで実装でき、`clear_*`は値を`None`で書き込むことで表現する
+(aircon-pasha 11節と同じ結論、9.3節で理由を確認する)。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・6節・7節に以下を追加)
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"blocked_but_billing_owner_notified_at": notified_at}, merge=True
+        )
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # 一時的な接続エラー時は「未通知」として扱う安全側方針(9.3節)。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "blocked_but_billing_owner_notified_at"
+        )
+
+    def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
+        self._doc_ref(user_id).set(
+            {"blocked_but_billing_owner_notified_at": None}, merge=True
+        )
+```
+
+`InMemoryUserProfileStore`の同名3メソッド(application_form_submission_flow.py
+207〜218行目)は、`set_*`が辞書への代入、`get_*`が`dict.get(user_id)`(デフォルト`None`)、
+`clear_*`が`dict.pop(user_id, None)`(キー自体を削除)という構成である。
+
+### 9.3. 検討事項
+
+- **`clear_*`を`None`書き込みで表現できる根拠**: InMemory版の`clear_*`はキー自体を
+  辞書から削除するが、`get_*`は`dict.get(user_id, None)`でキー不在時も`None`を返すため、
+  「キーが存在しない」状態と「値が`None`として記録されている」状態はget側の観測結果が
+  一致する。Firestore側で`merge=True`の`set({"blocked_but_billing_owner_notified_at": None})`を
+  行うとフィールドはドキュメントに`null`として残り削除はされないが、本設計の`get_*`は
+  `null`も未設定もいずれも`None`として返すため、InMemory版の`clear_*`(pop)と観測可能な
+  挙動は一致する(aircon-pasha 11.3節と同じ結論)。
+- **例外時に`None`を返す安全性**: `get_blocked_but_billing_owner_notified_at`が一時的な
+  接続エラーで`None`を返すと、呼び出し元
+  (`blocked_but_billing_owner_notification.py` 67行目、`notified_at_reader.
+  get_blocked_but_billing_owner_notified_at(user_id) is None`を抽出条件とする)は
+  「未通知」と判定し、既に通知済みのユーザーに対して通知が再送される可能性がある。これは
+  5節で確立した「安全側に倒す」方針(通知を誤って止めるより、まれに再送される方が実害が
+  小さい)と整合するため許容する。
+- **`merge=True`の一貫性**: 5節・6節・7節と同じ方針を踏襲。
+
+## 10. 残課題・次回候補(9節分)
+
+- 残りのグループ(`plan`・`checkout_session_completed_event_time`)の実Firestore接続
+  アダプタ設計。いずれも5節・6節・7節・9節と同じ`_doc_ref(user_id)`ヘルパーの上に
+  `merge=True`の部分更新として素直に実装できる見込みだが、本フェーズでは対象外。
+  `checkout_session_completed_event_time`は7.3節で確認した通り`stripe_customer_id`より
+  必ず後に書き込まれる契約があるため、設計時はそれを前提にできる。
+- 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する(ただし全グループの実装完了が前提)。
