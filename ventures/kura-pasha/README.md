@@ -4659,3 +4659,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   書き込みフィールド群、計13メソッド)の実Firestore接続アダプタ`FirestoreWorkshopStore`を
   新規設計〈workshop-store-firestore-adapter-design.md〉。コード変更は`set_members`の
   Protocol宣言追加のみ、テスト171件・schema検証32件いずれもパス)
+- フェーズ216(2026-10-09 11:00 UTC定例更新): 着手時点でworkshop-store-firestore-adapter-
+  design.mdには既に5節「メンバー削減系グループ」(`get_pending_reduction_effective_at`等
+  5メソッド)が追加済みだったが、対応するREADME記載が本フェーズ開始時点まで漏れていたこと
+  を確認した(当該節自体の設計内容は妥当で変更不要のため、本フェーズでは内容の追記・修正は
+  行わずこの事実のみ記録する)。その上で、6節3点目の次回候補のうち**契約者引き継ぎ系**に
+  着手し、`pending_contractor_transfer`フィールドの3メソッド(`get_pending_contractor_
+  transfer`/`set_pending_contractor_transfer`/`clear_pending_contractor_transfer`、
+  usage_counter_workshop.py 401〜412行目)の実Firestore接続アダプタ設計を7節に追加した
+  (`get_contractor_user_id`/`set_contractor_user_id`自体は2節基盤グループで設計済みのため
+  対象外)。`PendingContractorTransfer`dataclass(4フィールド)を、本venture初のケースと
+  なる単一map型フィールドとして`craftsman_workshop/{workshop_id}`ドキュメント内にネスト
+  保存する設計とし、独立コレクションに分離しない理由(常にworkshop_id経由でのみ参照される
+  値である点)を7.1節に記録した。クリアは5節の`apply_member_reduction`と同じNone書き込み
+  方式を踏襲。コード変更・外部アカウント作成のいずれも行っていない。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(171件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りのグループ(trial系2フィールド・
+  stripe_customer_id順引き逆引き系・subscription_status+各種event_time系・
+  payment_failure系・trial_end_notified_at・owner_notified_at系2種)の実Firestore接続
+  アダプタ設計、(3)一時的な接続エラー時の安全側フォールバック方針の統一的整理、(4)他
+  venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 11:00 UTC(フェーズ216: `WorkshopStoreProtocol`の「契約者引き継ぎ系」
+  グループ〈`pending_contractor_transfer`の3メソッド〉の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`7節に追加。コード変更なし、
+  テスト171件・schema検証32件いずれもパス)

@@ -290,3 +290,96 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
 5. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(4節1点目から継続)。
 6. 他venture・アイデア領域の前進。
+
+## 7. WorkshopStoreProtocol(契約者引き継ぎ系グループ)の実Firestore接続アダプタ設計
+
+本節は6節3点目で次回候補として残した複数グループのうち、**契約者引き継ぎ系**に着手する。
+`get_contractor_user_id`/`set_contractor_user_id`は2節(基盤グループ)で既に設計済み
+(`contractor_user_id`は`set_members`が書き込む基盤フィールドのため)であり、本節が新規に
+対象とするのは`pending_contractor_transfer`フィールドの3メソッド
+(`get_pending_contractor_transfer`/`set_pending_contractor_transfer`/
+`clear_pending_contractor_transfer`)のみである。contractor-transfer-confirmation-
+detection-design.md 1節・usage_counter_workshop.py 267〜278行目(`PendingContractorTransfer`
+dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`/`expires_at`の
+4フィールドを持つ値を、契約者からの引き継ぎ申請の確定・キャンセル・期限切れのいずれかまで
+1件だけ保持する(`InMemoryWorkshopStore`は`workshop_id`をキーとする辞書
+`_pending_contractor_transfer_by_workshop`で1workshopにつき1件のみを保持、653行目)。
+
+`InMemoryWorkshopStore`では`PendingContractorTransfer`インスタンスをそのまま辞書の値として
+保持しているが、Firestoreでは基盤グループと同じ`craftsman_workshop/{workshop_id}`ドキュメント
+内の`pending_contractor_transfer`という単一のmap型フィールドとして、4フィールドをネストした
+構造で保存する(他venture・本venture内の既存フィールドはいずれもトップレベルのスカラー値の
+みで、本venture初の「1フィールドに複数の値をまとめて保存する」ケースになる)。
+
+```python
+    def get_pending_contractor_transfer(
+        self, workshop_id: str
+    ) -> Optional[PendingContractorTransfer]:
+        snapshot = self._doc_ref(workshop_id).get()
+        data = (snapshot.to_dict() or {}).get("pending_contractor_transfer")
+        if data is None:
+            return None
+        return PendingContractorTransfer(
+            candidate_user_id=data["candidate_user_id"],
+            candidate_member_name=data["candidate_member_name"],
+            requested_at=data["requested_at"],
+            expires_at=data["expires_at"],
+        )
+
+    def set_pending_contractor_transfer(
+        self, workshop_id: str, pending: PendingContractorTransfer
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {
+                "pending_contractor_transfer": {
+                    "candidate_user_id": pending.candidate_user_id,
+                    "candidate_member_name": pending.candidate_member_name,
+                    "requested_at": pending.requested_at,
+                    "expires_at": pending.expires_at,
+                }
+            },
+            merge=True,
+        )
+
+    def clear_pending_contractor_transfer(self, workshop_id: str) -> None:
+        self._doc_ref(workshop_id).set(
+            {"pending_contractor_transfer": None}, merge=True
+        )
+```
+
+### 7.1. 検討事項
+
+- **map型フィールドとしてのネスト方式**: `pending_contractor_transfer`を独立コレクション
+  (例: `pending_contractor_transfers/{workshop_id}`)に分離する案も検討したが、1workshopに
+  つき同時に1件しか存在しない・`craftsman_workshop`ドキュメント自体を取得する既存の処理
+  (`check_and_expire_pending_contractor_transfer`等)と同じ読み取りタイミングで参照される
+  ため、2節の基盤フィールドと同じドキュメント内のmap型フィールドとする方が読み取り回数を
+  増やさずに済む。`pending_links`・`pending_workshop_invites`(2節・フェーズ213・214)が
+  独立コレクションなのは、それらが`workshop_id`ではなく発行された`code`をドキュメントID
+  とする別の参照経路を持つためであり、本フィールドのように常に`workshop_id`経由でのみ
+  参照される値とは構造的な前提が異なる。
+- **クリア方式**: `clear_pending_contractor_transfer`は5節の`apply_member_reduction`と同じ
+  `None`書き込み方式を採用する。`get_pending_contractor_transfer`が`data is None`判定で
+  `None`を返す経路と対応しており、course-set-pasha firestore-provider-adapter-design.md
+  9節で確立した「InMemoryのpop()とFirestoreの明示的None書き込みは、get側が常に欠損を
+  None扱いする限り観測可能な挙動が一致する」という根拠がここでも成立する。
+- **`requested_at`/`expires_at`の型**: Firestoreのmap型フィールド内のタイムスタンプ値も、
+  トップレベルフィールドと同様にクライアントライブラリが`datetime`として直接返す
+  (`pending_links`の`issued_at`〈2節、本ファイルとは別ドキュメント〉と同じ扱い)ため、
+  読み取り側での追加の型変換は不要と判断した。
+- **部分更新時の事故防止**: `set_pending_contractor_transfer`はmapフィールド全体を
+  `merge=True`で上書きするため、4フィールドのうち一部のみを更新するような呼び出しは
+  想定していない(実際の呼び出し元`start_pending_contractor_transfer`〈usage_counter_
+  workshop.py〉も常に新しい`PendingContractorTransfer`インスタンス全体を渡す設計であり、
+  部分更新の必要性自体が生じない)。
+
+## 8. 残課題・次回候補(7節分)
+
+1. `WorkshopStoreProtocol`の残りのグループ(trial系2フィールド・stripe_customer_id順引き
+   逆引き系・subscription_status+各種event_time系・payment_failure系・
+   trial_end_notified_at・owner_notified_at系2種)の実Firestore接続アダプタ設計。
+2. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+4. 他venture・アイデア領域の前進。
