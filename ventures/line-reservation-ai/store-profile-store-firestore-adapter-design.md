@@ -263,14 +263,65 @@ dict.get挙動)。
 - `set_suspension_reason`は逆引きインデックスを持たない単純フィールド更新で、2節の
   Stripeグループのような付け替え時の旧インデックス削除は不要。
 
-## 10. 次回候補
+## 10. (旧)次回候補
 
-- 残りのグループ(owner_user_id・owner_email・blocked_but_billing_owner_notified_at・
-  plan・checkout_session_completed_event_time・menu_durations・store_faq_info・
-  all_store_ids)のうち、次に着手しやすいのは`owner_email`
-  (blocked-but-billing-owner-email-notification-design.mdのオーナー通知送信先フィールドで、
-  送信自体はオーナー承認待ちの範囲外、フィールド読み書き設計のみ机上で進められる見込み)
-  と判断する。
+- 11節で`owner_email`グループに着手した。
+
+## 11. owner_emailグループ(2メソッド)
+
+`get_owner_email`/`set_owner_email`(`store_profile_store.py` 153-157行目・286-294行目)を
+追加設計する。InMemory実装は`_owner_emails: dict[str, str]`への単純な読み書きで、未設定時は
+`None`をデフォルト値として返す(286-287行目のdict.get挙動)。`set_owner_email`は空文字列を
+拒否する(`ValueError`、293行目)が、これはあくまで「設定する値」自体の検証であり、
+「未設定(そもそも一度も呼ばれていない)」状態とは別である。
+
+```python
+    def get_owner_email(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(None)と揃える安全側フォールバック。
+            # 本フィールドはblocked_but_billing_owner_email_notification.pyの
+            # select_new_blocked_but_billing_candidates_for_email_notification()から
+            # `and store.get_owner_email(store_id)`という真偽値判定のみに使われ、
+            # Noneを返すとその店舗は単に今回の送信対象候補から外れるだけである。
+            # 本バッチはblocked_but_billing_owner_notified_atが未設定の間は毎回
+            # 再評価される(9節の基準における「可逆」判定)ため、接続エラーの回だけ
+            # 通知が1サイクル遅れる(=未設定の店舗と同じ扱いになる)のは安全側であり、
+            # 誤って送信してしまう・誤って停止させてしまうよりはるかに望ましい。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("ownerEmail")
+
+    def set_owner_email(self, store_id: str, owner_email: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_email:
+            raise ValueError("owner_email must be a non-empty string")
+        self._doc_ref(store_id).set({"ownerEmail": owner_email}, merge=True)
+```
+
+- **「未設定」と「設定済みだが接続エラー」を区別しない設計判断**: `set_owner_email`は
+  空文字列を拒否するため、一度正しく設定された店舗の`ownerEmail`が後から空になることは
+  正常系では起こらない。しかし接続エラー時に例外を伝播させず`None`に合流させる設計上、
+  呼び出し側(`select_new_blocked_but_billing_candidates_for_email_notification`)からは
+  「本当にオーナーメールが未登録」なのか「登録済みだが今回の接続が失敗した」のかを
+  区別できなくなる。本グループは9節(suspension_reason)と異なり新規予約のブロック可否のような
+  即時の顧客影響はなく、最悪ケースでも「通知が1回遅れる」程度の影響に留まるため、
+  区別をつけない単純なフォールバックで十分と判断した。将来、通知の遅延自体を監視したい
+  要件が生じた場合は、例外発生時のみログに記録する(戻り値は変えない)方式を追加検討する。
+- `set_owner_email`は2節(Stripeグループ)のような逆引きインデックスを持たない単純フィールド
+  更新であり、付け替え時の旧インデックス削除は不要(9節のsuspension_reasonと同型)。
+
+## 12. 次回候補
+
+- 残りのグループ(owner_user_id・blocked_but_billing_owner_notified_at・plan・
+  checkout_session_completed_event_time・menu_durations・store_faq_info・
+  all_store_ids)のうち、次に着手しやすいのは`blocked_but_billing_owner_notified_at`
+  (本節で設計した`owner_email`と同じ`blocked_but_billing_owner_email_notification.py`が
+  参照する冪等性フラグで、既存の9節・11節の「可逆/不可逆」判定基準をそのまま適用できる
+  見込み)と判断する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、

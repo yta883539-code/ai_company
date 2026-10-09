@@ -5381,7 +5381,42 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   残りグループのうち`suspension_reason`(`owner_is_following`と同じ候補抽出条件グループで、
   同様の安全側フォールバック基準が適用できる見込み)の設計、(3)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-10-09 01:00 UTC(フェーズ続き303: `StoreProfileStoreProtocol`の
-  owner_is_followingグループ〈2メソッド〉の実Firestore接続アダプタ設計を7節に追加。
-  「候補抽出条件の参照のみで副作用が可逆」と判断し、安全側フォールバック方針を適用。
+- フェーズ続き304(2026-10-09 07:00 UTC定例更新、本README追記は2026-10-09 13:00 UTC定例
+  更新時点での記載漏れ是正): フェーズ続き303の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`suspension_reason`グループ
+  (`get_suspension_reason`/`set_suspension_reason`、2メソッド)の実Firestore接続アダプタ
+  設計を`store-profile-store-firestore-adapter-design.md`9節に追加した。本グループは
+  `cloud_function_process_event.py`の新規予約受付可否を直接左右する判定だが、予約リクエスト
+  ごとに再評価される(一度きりの不可逆な送信ゲートではない)ため5節の基準では「可逆」側に
+  分類し、7節(owner_is_following)・2節(Stripeグループ)と同じ「接続エラーは未設定側
+  (=None/未停止)に安全に合流させる」フォールバック方針を適用した。コード変更なし
+  (設計ドキュメントのみ)、回帰確認としてunittest 906件・schema検証28件いずれもパス
+  (件数に変更なし)。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: 残りグループのうち`owner_email`に着手。なお、本フェーズの実施自体が
+  当時のREADME更新から漏れていたことを、フェーズ続き305の着手時点の棚卸しで発見・是正した
+  (設計ファイル`store-profile-store-firestore-adapter-design.md`9節自体は2026-10-09 07:00
+  UTC時点で正しく追加されていたが、本READMEへの進捗ログ追記のみが漏れていた)。
+- フェーズ続き305(2026-10-09 13:00 UTC定例更新): 着手にあたりフェーズ続き304の記載漏れを
+  発見・是正した上で、その次回候補を受け`StoreProfileStoreProtocol`の`owner_email`グループ
+  (`get_owner_email`/`set_owner_email`、2メソッド)の実Firestore接続アダプタ設計を
+  `store-profile-store-firestore-adapter-design.md`11節に追加した。本グループは
+  `blocked_but_billing_owner_email_notification.py`の送信対象候補抽出
+  (`and store.get_owner_email(store_id)`という真偽値判定)にのみ使われ、接続エラー時に
+  `None`へ安全側フォールバックしても該当店舗が今回の送信サイクルから外れるだけで次回
+  自然に再試行されるため、9節・7節と同じ基準で「可逆」側と判断した。`set_owner_email`が
+  空文字列を拒否する検証と「未設定(一度も呼ばれていない)」状態の違いを明文化し、両者を
+  区別しない単純なフォールバックで十分である理由も記録した。コード変更なし(設計ドキュメント
+  のみ、Firestoreへの実コミットは承認後まで見送り)、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(906件、変更なし)・`python3
+  schema/validate_test_cases.py`(28件、変更なし)を再実行し、いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実
+  Firestore/GCPプロジェクト等)がオーナーから承認された場合はその着手を最優先、
+  (2)`StoreProfileStoreProtocol`の残りグループのうち`blocked_but_billing_owner_notified_at`
+  (owner_emailと同じ通知バッチが参照する冪等性フラグ)の設計、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-09 13:00 UTC(フェーズ続き305: `StoreProfileStoreProtocol`の
+  owner_emailグループ〈2メソッド〉の実Firestore接続アダプタ設計を11節に追加。「送信対象
+  候補抽出にのみ使われ副作用が可逆」と判断し、安全側フォールバック方針を適用。また
+  フェーズ続き304〈suspension_reasonグループ、9節〉のREADME記載漏れを発見・是正。
   コード変更なし、テスト906件・schema検証28件いずれもパス)
