@@ -4687,3 +4687,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   グループ〈`pending_contractor_transfer`の3メソッド〉の実Firestore接続アダプタ設計を
   `workshop-store-firestore-adapter-design.md`7節に追加。コード変更なし、
   テスト171件・schema検証32件いずれもパス)
+- フェーズ217(2026-10-09 15:00 UTC定例更新): フェーズ216の次回候補(2)に従い、
+  `WorkshopStoreProtocol`の残りグループのうち**trial系2フィールド**
+  (`trial_start_at`・`trial_generation_used`、計4メソッド)の実Firestore接続アダプタ設計に
+  着手した。着手時点で`usage_counter_workshop.py`の`WorkshopStoreProtocol`を確認したところ、
+  `InMemoryWorkshopStore.set_trial_start_at`(751行目)が実装されているにもかかわらず
+  Protocol側(414行目`get_trial_start_at`の近傍)に宣言されていないことを発見した。1節
+  1.1節で是正した`set_members`のProtocol宣言漏れと同種の不整合であるため、本フェーズの
+  前提作業としてProtocol宣言を追加して是正した上で、`workshop-store-firestore-adapter-
+  design.md`9節に4メソッドの実Firestore接続アダプタ設計(トップレベルのスカラー値、
+  2節の基盤グループと同型の単純な読み書き)を追加した。`get_trial_start_at`が`None`を
+  返すケースを、既存の`is_trial_period_over()`の安全側分岐(データ不整合時はトライアル
+  未終了扱い)を活かすため独自デフォルト値で隠蔽しない方針とした点、`set_trial_generation_
+  used`のデフォルト引数(`used: bool = True`)をProtocol適合性のためアダプタ側にも
+  引き継いだ点を9.1節に記録した。コード変更あり(usage_counter_workshop.pyのProtocol
+  宣言追加のみ、実装クラス・呼び出し元の挙動に変更なし)、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(171件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを確認
+  した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りのグループ(stripe_customer_id
+  順引き逆引き系・subscription_status+各種event_time系・payment_failure系・
+  trial_end_notified_at・owner_notified_at系2種)の実Firestore接続アダプタ設計、
+  (3)一時的な接続エラー時の安全側フォールバック方針の統一的整理、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-09 15:00 UTC(フェーズ217: `usage_counter_workshop.py`の
+  `WorkshopStoreProtocol`に`set_trial_start_at`の宣言漏れを発見・是正。trial系2フィールド
+  〈4メソッド〉の実Firestore接続アダプタ設計を`workshop-store-firestore-adapter-
+  design.md`9節に追加。テスト171件・schema検証32件いずれもパス)

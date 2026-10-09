@@ -383,3 +383,74 @@ dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`
 3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
 4. 他venture・アイデア領域の前進。
+
+## 9. WorkshopStoreProtocol(trial系グループ)の実Firestore接続アダプタ設計
+
+本節は8節1点目で次回候補として残した複数グループのうち、**trial系2フィールド**に着手する。
+
+着手にあたり、`usage_counter_workshop.py`の`WorkshopStoreProtocol`(303〜642行目)を
+確認したところ、`set_trial_start_at`が`InMemoryWorkshopStore`(751行目)には実装されて
+いるにもかかわらずProtocol側に宣言されていないことを発見した。1節1.1節で是正した
+`set_members`のProtocol宣言漏れと同種の不整合であるため、本フェーズの前提作業として
+`get_trial_start_at`(414行目)の直後にProtocol宣言を追加して是正した。
+
+対象は`trial_start_at`(datetime、workshop作成時に1回だけ設定)・`trial_generation_used`
+(bool、生涯最初の生成成功時に1回だけTrueへ更新)の2フィールド・4メソッド
+(`get_trial_start_at`/`set_trial_start_at`/`get_trial_generation_used`/
+`set_trial_generation_used`)。いずれも2節の基盤グループと同じ`craftsman_workshop/
+{workshop_id}`ドキューメント内のトップレベルのスカラー値であり、map型フィールドの
+ネスト(7節)やArrayUnion(2節`add_member_user_id`)のような特殊な操作を必要としない。
+
+```python
+    def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("trial_start_at")
+
+    def set_trial_start_at(self, workshop_id: str, trial_start_at: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"trial_start_at": trial_start_at}, merge=True
+        )
+
+    def get_trial_generation_used(self, workshop_id: str) -> bool:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("trial_generation_used", False)
+
+    def set_trial_generation_used(self, workshop_id: str, used: bool = True) -> None:
+        self._doc_ref(workshop_id).set(
+            {"trial_generation_used": used}, merge=True
+        )
+```
+
+### 9.1. 検討事項
+
+- **`get_trial_start_at`が`None`を返すケース**: `trial_start_at`は`workshop_linking.py`の
+  workshop新規作成処理(235行目)で必ず設定されるため、正常稼働時には未設定の
+  `craftsman_workshop`ドキュメントは存在しない想定である。それでも`.get()`のデフォルト
+  引数を省略し`None`を素直に返す実装とした理由は、`is_trial_period_over()`
+  (usage_counter_workshop.py 952〜953行目)が`trial_start_at is None`の場合を
+  「データ不整合・移行中」として明示的に安全側(トライアル未終了扱い)に倒す分岐を既に
+  持っており、アダプタ側で独自のデフォルト値を補って不整合を隠蔽しない方が、この既存の
+  安全側分岐を正しく機能させられるため。
+- **`set_trial_generation_used`のデフォルト引数**: `used: bool = True`という
+  Protocol側のデフォルト引数(usage_counter_workshop.py 424行目)をアダプタの
+  メソッドシグネチャにもそのまま引き継いだ。呼び出し元(1149〜1156行目の
+  `process_generation_request`)は常に`True`固定で呼び出すためデフォルト値が
+  実際に使われる経路は現状ないが、`InMemoryWorkshopStore.set_trial_generation_used`
+  (757行目)もProtocol通りのデフォルト引数を持つため、アダプタ側だけ省略すると
+  Protocol適合性(構造的部分型)が崩れてしまう。
+- **一度切りフラグとしての冪等性**: `set_trial_generation_used`はFalse→Trueへの
+  一方向の更新のみを想定する(5節の`apply_member_reduction`のようなクリア操作は
+  存在しない)。同じ値への複数回の書き込み(例えば既にTrueの状態へ再度`True`を
+  書き込む)もFirestoreの`merge=True`では単純な上書きとして安全に収束するため、
+  読み取り後の条件分岐(read-modify-write)は不要と判断した。
+
+## 10. 残課題・次回候補(9節分)
+
+1. `WorkshopStoreProtocol`の残りのグループ(stripe_customer_id順引き逆引き系・
+   subscription_status+各種event_time系・payment_failure系・trial_end_notified_at・
+   owner_notified_at系2種)の実Firestore接続アダプタ設計。
+2. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+4. 他venture・アイデア領域の前進。

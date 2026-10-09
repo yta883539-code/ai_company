@@ -415,6 +415,12 @@ class WorkshopStoreProtocol(Protocol):
         """trial-end-condition-design.md 2節: workshop作成時に1回だけ設定される起点。"""
         ...
 
+    def set_trial_start_at(self, workshop_id: str, trial_start_at: datetime) -> None:
+        """trial-end-condition-design.md 2節: workshop_linking.pyのworkshop新規作成時に
+        1回だけ呼び出される書き込み処理(フェーズ217: Protocol宣言漏れを是正)。
+        """
+        ...
+
     def get_trial_generation_used(self, workshop_id: str) -> bool:
         """trial-end-condition-design.md 3節: 生涯最初の生成成功時に1回だけTrueになる
         一度切りのフラグ(月次リセットされるusage_counterとは独立)。
