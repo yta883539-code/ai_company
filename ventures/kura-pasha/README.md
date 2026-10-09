@@ -4772,3 +4772,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   「subscription_status+各種event_time系」グループ〈5フィールド・10メソッド〉の実
   Firestore接続アダプタ設計を`workshop-store-firestore-adapter-design.md`13節に追加。
   テスト171件・schema検証32件いずれもパス)
+- フェーズ220(2026-10-09 22:00 UTC定例更新): フェーズ219の次回候補(2)に従い、
+  `WorkshopStoreProtocol`の残りグループのうち**payment_failure系**
+  (`get_payment_failure_detected_at`/`set_payment_failure_detected_at`/
+  `clear_payment_failure_detected_at`・`get_payment_failure_reminder_sent_at`/
+  `set_payment_failure_reminder_sent_at`、2フィールド・計5メソッド、
+  usage_counter_workshop.py 528〜554行目)の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`15節に追加した。aircon-pashaの同名
+  フィールドが`set_*`にOptional値を渡す1メソッド方式でクリアを表現するのに対し、
+  本ventureはdocstringが明記する通り`set_payment_failure_detected_at`/
+  `clear_payment_failure_detected_at`を2メソッドに分ける点が異なり、
+  `InMemoryWorkshopStore.clear_payment_failure_detected_at`が
+  `payment_failure_detected_at`・`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`(owner_notified_at系2種のうち未設計の
+  1フィールド)の計3フィールドを同時にクリアする仕様であることを確認し、同一ドキュメント
+  への1回の`set(merge=True)`呼び出しで3フィールドを同時に`None`書き込みする設計とした
+  (15.3節)。`payment_suspension_owner_notified_at`自体のget/set設計は次回候補の
+  owner_notified_at系2種の節に残した。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(171件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残りのグループ
+  (trial_end_notified_at・owner_notified_at系2種)の実Firestore接続アダプタ設計、
+  (3)付け替え時の旧`stripe_customer_index`エントリ削除(line-reservation-aiの設計を参考に
+  改善)、(4)一時的な接続エラー時の安全側フォールバック方針の統一的整理、(5)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-09 22:00 UTC(フェーズ220: `WorkshopStoreProtocol`の
+  「payment_failure系」グループ〈2フィールド・5メソッド〉の実Firestore接続アダプタ設計を
+  `workshop-store-firestore-adapter-design.md`15節に追加。テスト171件・schema検証32件
+  いずれもパス)

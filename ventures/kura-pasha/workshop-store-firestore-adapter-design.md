@@ -667,3 +667,97 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
 4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
 5. 他venture・アイデア領域の前進。
+
+## 15. WorkshopStoreProtocol(payment_failure系グループ)の実Firestore接続アダプタ設計
+
+### 15.1. 背景・範囲
+
+本節は14節1点目で次回候補として残した複数グループのうち、**payment_failure系**に着手する。
+対象は`get_payment_failure_detected_at`/`set_payment_failure_detected_at`/
+`clear_payment_failure_detected_at`・`get_payment_failure_reminder_sent_at`/
+`set_payment_failure_reminder_sent_at`の2フィールド・計5メソッド
+(usage_counter_workshop.py 528〜554行目)。
+
+aircon-pasha firestore-provider-adapter-design.md 394〜421行目は`UserProfileStoreProtocol`
+側の同名フィールドを「`set_*`にOptional値を渡すことでクリアも表現する1メソッド方式」で
+設計しているが、本venture(kura-pasha)の`WorkshopStoreProtocol`はdocstring(usage_counter_
+workshop.py 578〜580行目)が明記する通り、意図的に`set_payment_failure_detected_at`
+(値は必須)と`clear_payment_failure_detected_at`(引数なし)を2メソッドに分けている。
+さらに`InMemoryWorkshopStore.clear_payment_failure_detected_at`(825〜828行目)は
+`payment_failure_detected_at`だけでなく`payment_failure_reminder_sent_at`・
+`payment_suspension_owner_notified_at`(14節1点目の owner_notified_at系2種のうち未設計の
+1フィールド)の計3フィールドを同時にクリアする仕様であり、本節ではこの3フィールド
+同時クリアの挙動も含めて設計する(`payment_suspension_owner_notified_at`自体の
+get/set設計は、1個のフィールドのみ先行してここで扱うことになるため、本体のget/set設計は
+次回候補に残すowner_notified_at系2種の節に委ねる)。
+
+### 15.2. 設計
+
+```python
+    def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("payment_failure_detected_at")
+
+    def set_payment_failure_detected_at(self, workshop_id: str, detected_at: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"payment_failure_detected_at": detected_at}, merge=True
+        )
+
+    def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
+        self._doc_ref(workshop_id).set(
+            {
+                "payment_failure_detected_at": None,
+                "payment_failure_reminder_sent_at": None,
+                "payment_suspension_owner_notified_at": None,
+            },
+            merge=True,
+        )
+
+    def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("payment_failure_reminder_sent_at")
+
+    def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"payment_failure_reminder_sent_at": sent_at}, merge=True
+        )
+```
+
+### 15.3. 検討事項
+
+- **`clear_payment_failure_detected_at`は単一ドキュメントへの1回の`set(merge=True)`で
+  3フィールドを同時にクリアする**: 11節の`stripe_customer_index`のような別ドキュメントへの
+  書き込みを伴わないため、`WriteBatch`は不要で、1回の`set()`呼び出し自体がFirestore上で
+  アトミックに完結する(同一ドキュメント内の複数フィールド更新は単一の書き込み操作として
+  扱われる)。
+- **クリアは`DELETE_FIELD`センチネルではなく`None`値の書き込みで表現する**: aircon-pasha
+  394〜421行目・本venture自身の`set_blocked_but_billing_owner_notified_at`
+  (docstring578〜581行目)と同じ方針を踏襲し、フィールド自体をドキュメントから削除する
+  のではなく値を`None`にする。`get_*`側が`.get(フィールド名)`で`None`デフォルトを返す
+  実装(9節以降で踏襲している方式)と対称であり、どちらの手段でも`get_*`の観測結果は
+  同じになるため、既存設計との一貫性を優先して値`None`書き込み方式を採用した。
+- **`payment_suspension_owner_notified_at`への書き込みは本節のclear経路のみを先行設計**:
+  15.1節の通り、同フィールド自体の`get_payment_suspension_owner_notified_at`/
+  `set_payment_suspension_owner_notified_at`の設計(owner_notified_at系2種グループ)は
+  次回候補に残すが、`clear_payment_failure_detected_at`が同フィールドにも書き込む仕様
+  (InMemory実装828行目)は本節の対象(payment_failure系)に含まれるdocstring
+  (usage_counter_workshop.py 596〜599行目)上の要求であるため、ここで先行して
+  組み込んだ。次回のowner_notified_at系2種の節では、本節のclear経路との整合性
+  (両者が同じフィールド名`payment_suspension_owner_notified_at`に書き込むこと)を
+  確認する作業が残る。
+- **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節・13.3節で指摘した「一時的な
+  接続エラー時の安全側フォールバック方針」は、本節でも個別には検討せず、12節3点目・
+  14節3点目の統一的整理に委ねる。
+
+## 16. 残課題・次回候補(15節分)
+
+1. `WorkshopStoreProtocol`の残りのグループ(trial_end_notified_at・owner_notified_at系2種)
+   の実Firestore接続アダプタ設計。owner_notified_at系2種の節では15.3節で先行実装した
+   `payment_suspension_owner_notified_at`へのclear経路との整合性確認も行う。
+2. 付け替え時の旧`stripe_customer_index`エントリ削除(11.1節・12節1点目、line-reservation-ai
+   の設計を参考に改善、未着手のまま継続)。
+3. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
+4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+5. 他venture・アイデア領域の前進。
