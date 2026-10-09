@@ -540,3 +540,83 @@ class FirestoreUserProfileStore:
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 13. UserProfileStoreProtocol(checkout_session_completed_event_timeグループ)の実Firestore接続アダプタ設計
+
+### 13.1. 背景・範囲
+
+12節の次回候補を受け、`set_checkout_session_completed_event_time`/
+`get_checkout_session_completed_event_time`の2メソッド(checkout_session_completed_event_
+timeグループ)の実Firestore接続アダプタ設計に着手する。
+`application_form_submission_flow.py`127〜135行目(Protocol定義)・161行目・226〜234行目
+(InMemory実装)が対象。これで`UserProfileStoreProtocol`の全グループの実Firestore接続
+アダプタ設計が完了する(2節の基盤グループ以降、5・6・7・9・11・本節で計7グループ)。
+
+### 13.2. 設計
+
+本フィールドも5節で確立した`_doc_ref(user_id)`ヘルパー上の単純な`merge=True`部分更新・
+単純読み取りで実装できる。値は`datetime`型のまま`set()`に渡すだけでよく、Firestoreの
+Pythonクライアントが`google.cloud.firestore_v1._helpers.DatetimeWithNanoseconds`
+(`datetime`のサブクラス)への変換を内部で行うため、本アダプタ側で明示的な型変換は不要
+(9節・11節の`notified_at`/`plan`と同じく、Firestoreネイティブ型にそのまま委ねる設計を踏襲)。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・6節・7節・9節・11節に以下を追加)
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"checkout_session_completed_event_time": event_time}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # 一時的な接続エラー時は「基準時刻未記録」として扱う安全側方針(13.3節)。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "checkout_session_completed_event_time"
+        )
+```
+
+`InMemoryUserProfileStore`の同名2メソッド(application_form_submission_flow.py
+226〜234行目)は、`set_*`が辞書への代入、`get_*`が`dict.get(user_id)`(デフォルト`None`)の
+みという最も単純な構成(`clear_*`は存在しない)。
+
+### 13.3. 検討事項
+
+- **例外時に`None`を返す安全性(他グループと異なる方向の安全性)**: 本フィールドは
+  `stripe_webhook.handle_checkout_session_completed()`(823〜917行目)の配信順序ガードの
+  基準線としてのみ使われる。`get_checkout_session_completed_event_time`が一時的な接続
+  エラーで`None`を返すと、880〜886行目の判定で`recorded_event_time is None`となり
+  ガード自体が「本ガード導入前からの既存ユーザー等、記録済みの時刻が未設定」の場合と同じ
+  `is_stale = False`(常に無条件適用)に倒れる。これは9節・11節(「安全側」が通知再送や
+  バッチプランへのフォールバックという“処理を止めない”方向の安全性)とは逆に、“ガードを
+  素通りさせる”方向の安全性である。しかし864〜866行目のdocstringで元々「記録済みの時刻が
+  未設定の場合はチェックを行わず従来通り無条件適用する(後方互換)」という挙動が明示的に
+  許容されており、一時的な接続エラーもこの既存の許容範囲に収まる(配信順序が入れ替わる
+  事象自体が稀であるため、接続エラーとの重複はさらに稀であり、仮に重複しても誤って
+  古いデータで上書きする実害は、処理が完全に止まることに比べ小さいと判断する)。
+- **`DatetimeWithNanoseconds`とtz-aware `datetime`の比較**: `get_*`がFirestoreから
+  読み出す値は`DatetimeWithNanoseconds`(`datetime`のサブクラス)、885行目の比較対象
+  `event_time`は`datetime.fromtimestamp(created, tz=timezone.utc)`(stripe_webhook.py
+  524行目等)で生成されるtz-aware UTC `datetime`であり、いずれもtz-aware同士の比較
+  (`<=`)として問題なく成立する(tz-naiveとtz-awareの混在による`TypeError`は発生しない)。
+- **`merge=True`の一貫性**: 5節・6節・7節・9節・11節と同じ方針を踏襲。
+
+## 14. 残課題・次回候補(13節分)
+
+- `UserProfileStoreProtocol`の全7グループの実Firestore接続アダプタ設計が本節で完了した。
+  残るのは、承認待ち事項(2026-09-27 03:00 UTC記載の実Stripeアカウント開設等)がオーナーから
+  承認された後の、実際のFirestoreプロジェクト接続・`application_form_submission_flow.py`
+  呼び出し側への本クラスのインスタンス注入・結合テストのみ(いずれも未承認のため着手不可)。
+- 他venture・アイデア領域の前進、またはcourse-set-pasha内の別論点
+  (例: `GymAreaConfigStoreProtocol`等、本designでは未対象の他Protocolの実Firestore接続
+  アダプタ設計)への着手を次回候補とする。

@@ -4547,8 +4547,44 @@
   今回発生していないためpending-approval.mdへの追記なし。次回候補: 残りのグループ(`plan`・
   `checkout_session_completed_event_time`)、または承認待ち事項1〜5がオーナーから承認された
   場合はその着手を最優先とする。
-- 最終更新: 2026-10-09 03:00 UTC(フェーズ278: UserProfileStoreProtocolの
-  blocked_but_billing_owner_notified_atグループ〈3メソッド〉の実Firestore接続アダプタ設計を
-  firestore-provider-adapter-design.md 9節に追加。clear_*はNone書き込みで表現し、aircon-pasha
-  11節と同じ結論でInMemory版のpopと観測可能な挙動が一致することを確認。コード変更なし、
-  テスト690件・schema検証21件いずれもパス)
+- フェーズ279(2026-10-09 08:00 UTC定例更新): フェーズ278の次回候補だった`plan`グループ
+  (`set_plan`/`get_plan`の2メソッド)の実Firestore接続アダプタ設計に着手し、
+  firestore-provider-adapter-design.md 11節に追加した。5節・6節・7節・9節と同じ
+  `merge=True`の単純な部分更新・単純読み取りで実装できたが、`get_plan`が例外時に返す`None`の
+  安全性の根拠は9節(「未通知」として再通知される)とは異なり、呼び出し元
+  `cloud_function_webhook.py`1478〜1489行目が`None`時に従来の一律`plan`引数へ
+  フォールバックする設計であるためと確認した。コード変更なし、テスト690件・schema検証21件
+  いずれもパス(件数に変更なし)。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: 残り1グループ(`checkout_session_completed_
+  event_time`)。
+  ※本エントリは2026-10-09 14:00 UTC(フェーズ280)着手時点で、当時README進捗ログへの反映が
+  漏れていたことを発見したため遡って記録した(設計ファイル自体はfirestore-provider-
+  adapter-design.md 11節に当時から正しく存在する)。
+- 最終更新: 2026-10-09 08:00 UTC(フェーズ279: UserProfileStoreProtocolのplanグループ
+  〈set_plan/get_plan〉の実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md
+  11節に追加。コード変更なし、テスト690件・schema検証21件いずれもパス)
+
+- フェーズ280(2026-10-09 14:00 UTC定例更新): 着手にあたりフェーズ279のREADME記載漏れを
+  発見・是正した上で、その次回候補だった残り1グループ`checkout_session_completed_event_time`
+  (`set_*`/`get_*`の2メソッド)の実Firestore接続アダプタ設計に着手し、
+  firestore-provider-adapter-design.md 13節に追加した。これで`UserProfileStoreProtocol`の
+  全7グループの実Firestore接続アダプタ設計が完了した。本フィールドは
+  `stripe_webhook.handle_checkout_session_completed()`の配信順序ガードの基準線としてのみ
+  使われ、`get_*`が接続エラーで`None`を返すとガード自体が「記録済み時刻未設定」と同じ
+  無条件適用に倒れる点が9節・11節(処理を止めない方向の安全性)とは逆方向(ガードを素通り
+  させる方向)の安全性であることを13.3節で検討し、既存docstringが元々許容する「記録済み
+  時刻が未設定の場合は無条件適用」という挙動の範囲内に収まることを確認した。また
+  `DatetimeWithNanoseconds`(Firestore読み取り値)とtz-aware `datetime`
+  (`event_time`、Stripe `event.created`由来)がいずれもtz-aware同士の比較として問題なく
+  成立することも確認した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(690件)・`python3 schema/validate_test_cases.py`(21件)を
+  再実行し、いずれもパスすること(件数に変更なし)を確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項1〜5がオーナーから承認された場合はその着手を最優先、
+  (2)本designでは未対象の他Protocol(`GymAreaConfigStoreProtocol`等)の実Firestore接続
+  アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-09 14:00 UTC(フェーズ280: UserProfileStoreProtocolの
+  checkout_session_completed_event_timeグループ〈2メソッド〉の実Firestore接続アダプタ設計を
+  firestore-provider-adapter-design.md 13節に追加し、全7グループの設計が完了。着手時に
+  フェーズ279のREADME記載漏れを発見・是正。コード変更なし、テスト690件・schema検証21件
+  いずれもパス)
