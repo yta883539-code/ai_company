@@ -4656,3 +4656,26 @@
   `get_deletion_candidate_state_event_time`/`set_deletion_candidate_state_event_time`
   宣言漏れ〈design記載はあったが実装が反映されていなかった〉を発見・是正。
   テスト690件・schema検証21件いずれもパス)
+- フェーズ284(2026-10-10 13:00 UTC定例更新): フェーズ283の次回候補(2)を受け、
+  kura-pasha・line-reservation-aiに本venture(course-set-pasha)の
+  `ProfileDeletionCandidateStoreProtocol`に相当するクラス・ファイルが存在するかを
+  `find ventures/kura-pasha ventures/line-reservation-ai -iname "*deletion*"`および
+  各venture `prototype/`配下の`class .*Protocol`一覧(kura-pasha 22件・
+  line-reservation-ai 24件)で確認した。両venture共に`deletion_candidate`に
+  相当するファイル・Protocolクラスが1件も存在せず、ユーザー/プロフィール単位の
+  退会候補判定・削除フロー自体がまだ実装されていないことを確認した。したがって
+  フェーズ283で発見した「design記載はあるがProtocol宣言に反映されていない」という
+  種類の横展開是正は、対象の機能が存在しないため両venture共に不要と結論した
+  (「存在する場合」の前提を満たさない)。コード変更なし、文書確認のみ。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(690件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を再実行し、いずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)kura-pasha・
+  line-reservation-aiが将来的に退会候補判定・削除フロー自体を実装する際は、
+  本venture・aircon-pashaのProtocol宣言(design記載との整合)を参考実装として
+  踏襲するよう設計時に申し添える、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 13:00 UTC(フェーズ284: kura-pasha・line-reservation-aiには
+  `ProfileDeletionCandidateStoreProtocol`相当の機能自体が存在しないことを確認し、
+  フェーズ283の横展開是正候補は対象機能がないため不要と結論。テスト690件・
+  schema検証21件いずれもパス)
