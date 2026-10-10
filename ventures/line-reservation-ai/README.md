@@ -5516,8 +5516,41 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `onboarding_completion_message`(13節と同型の「一度きりの通知送信済みフラグ」
   パターンで新規パターンの検討が不要な見込み)の設計、(3)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-10-10 10:00 UTC(フェーズ続き309: `StoreProfileStoreProtocol`の
-  owner_user_idグループ〈2メソッド〉の実Firestore接続アダプタ設計を19節に追加。本
-  フィールドは決済認可チェックに直接使われ、接続エラー時にNoneへ合流させることが
-  唯一fail-closed〈決済を止める〉側の安全側になる点を確認した。コード変更なし、
+- フェーズ続き310(2026-10-10 11:00 UTC定例更新): course-set-pashaフェーズ283・
+  aircon-pashaフェーズ303・kura-pashaフェーズ222で見つかった「設計ドキュメントには
+  記載済みだがProtocolクラスへの宣言が漏れている」パターンについて、course-set-pasha
+  フェーズ283の次回候補(2)を受け、本venture(line-reservation-ai)の全Protocolクラス
+  (`prototype/`配下の23クラス、`BlockedButBillingCandidateStoreProtocol`・
+  `StoreProfileStoreProtocol`〈store_profile_store.py/portal_session.pyの2系統〉・
+  `ConversationStateStoreProtocol`・`StoreDunningStateStoreProtocol`・
+  `StoreSubscriptionStateStoreProtocol`・`StoreCancellationStateStoreProtocol`・
+  `TrialEndReportEngineState`等を含む)を対象に、各Protocolの宣言メソッド一覧と、
+  それを満たす実装クラス(`InMemory*Store`、および`ConversationFlowStateMachine`・
+  `NotificationLogAggregator`等のduck typing実装)が実際に持つ公開メソッド・属性の
+  一覧をAST解析で機械的に横断監査した。結果、他venture3件で見つかったような
+  「design記載はあるがProtocol宣言が漏れている」ケースは本venture内には1件も
+  存在しないことを確認した(23クラス全てで宣言側と実装側が完全一致)。本venture
+  には`deletion_candidate.py`相当のモジュール自体が存在せず(aircon-pasha/
+  course-set-pashaのみが持つユーザー単位の退会候補検知機能で、本ventureの
+  店舗単位モデルには該当機能が無い)、kura-pashaフェーズ222で実際に見つかった
+  `WorkshopStoreProtocol`のような宣言漏れパターンとも異なり、横展開の是正は
+  不要と結論した。なお`stripe_webhook.py`の`StripeEventIdStoreProtocol`が
+  `typing.Protocol`を継承しない素朴なクラス定義になっている点はaircon-pasha/
+  course-set-pashaの同名クラスと同一の既存設計(意図的にduck typingの契約を
+  docstringのみで表現する方針)であり、kura-pasha版(`Protocol`継承)との不一致は
+  新規の不具合ではなく既存の意図的な差異であるため、本フェーズでは変更しなかった。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの
+  実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合はその着手を
+  最優先、(2)`StoreProfileStoreProtocol`の残りグループのうち
+  `onboarding_completion_message`(13節と同型の「一度きりの通知送信済みフラグ」
+  パターンで新規パターンの検討が不要な見込み)の設計、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-10 11:00 UTC(フェーズ続き310: course-set-pasha・aircon-pasha・
+  kura-pashaで見つかった「Protocol宣言漏れ」パターンの本venture内横断監査を実施。
+  全23Protocolクラスを対象にAST解析で宣言側・実装側のメソッド一覧を機械的に比較し、
+  本venture内には同パターンの不具合が1件も存在しないことを確認。コード変更なし、
   テスト906件・schema検証28件いずれもパス)
