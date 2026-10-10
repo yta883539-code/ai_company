@@ -459,7 +459,12 @@ class WorkshopStoreProtocol(Protocol):
         ...
 
     def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
-        """Checkout Session完了時にStripe顧客IDをworkshop側へ紐付ける書き込み処理。"""
+        """Checkout Session完了時にStripe顧客IDをworkshop側へ紐付ける書き込み処理。
+        同一workshop_idに別のstripe_customer_idが再紐付けされた場合は、古い
+        stripe_customer_idの逆引きエントリを除去してから新しいエントリを書き込む
+        (workshop-store-firestore-adapter-design.md 21節、line-reservation-aiの
+        stripe-customer-id-reverse-lookup-design.mdと同じ方針)。
+        """
         ...
 
     def get_workshop_id_by_stripe_customer_id(self, stripe_customer_id: str) -> Optional[str]:
@@ -790,6 +795,15 @@ class InMemoryWorkshopStore:
         return self._stripe_customer_id_by_workshop.get(workshop_id)
 
     def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
+        previous_stripe_customer_id = self._stripe_customer_id_by_workshop.get(workshop_id)
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            # 同一workshop_idに別のstripe_customer_idが再紐付けされた場合、逆引き辞書に
+            # 古いcustomer_idのエントリが残ると別workshopへの誤解決につながるため除去する
+            # (line-reservation-ai stripe-customer-id-reverse-lookup-design.md 2節と同じ方針)。
+            self._workshop_id_by_stripe_customer_id.pop(previous_stripe_customer_id, None)
         self._stripe_customer_id_by_workshop[workshop_id] = stripe_customer_id
         self._workshop_id_by_stripe_customer_id[stripe_customer_id] = workshop_id
 

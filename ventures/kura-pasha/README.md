@@ -4890,6 +4890,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ヒアリング実施がオーナーから承認された場合はその着手を最優先、(2)4つの設計ドキュメントが
   前提とする`merge=True`の部分更新方針・安全側フォールバック方針の横断レビュー、
   (3)付け替え時の旧`stripe_customer_index`エントリ削除、(4)他venture・アイデア領域の前進。
+- フェーズ224(2026-10-10 21:00 UTC定例更新): フェーズ223の次回候補(3)「付け替え時の旧
+  `stripe_customer_index`エントリ削除」(11.1節・12節1点目から継続していた残課題、
+  line-reservation-aiの`stripe-customer-id-reverse-lookup-design.md`を参考にした改善)を
+  実装した。`InMemoryWorkshopStore.set_stripe_customer_id`(usage_counter_workshop.py)に、
+  同一`workshop_id`に別の`stripe_customer_id`が再紐付けされた場合、古い`stripe_customer_id`
+  の逆引きエントリ(`_workshop_id_by_stripe_customer_id`)を除去してから新しいエントリを
+  書き込む処理を追加し、line-reservation-aiの`InMemoryStoreProfileStore.
+  set_stripe_customer_id`と同じ方針に揃えた。通常は`resolve_existing_stripe_customer_id()`
+  相当の処理が既存customerを再利用するため再紐付け自体は起こらない想定だが、防御的対応として
+  実装し、古い`stripe_customer_id`宛のWebhookイベント(Stripe側の遅延配送等)が別workshopに
+  誤って解決されるリスクを防いだ。実Firestore接続アダプタ側(11節)も対称の対応が必要である
+  旨をworkshop-store-firestore-adapter-design.md 11.1節に追記し、21節に本フェーズの詳細・
+  22節に次回候補を記録した。`test_usage_counter_workshop.py`に新規テスト1件
+  (`test_set_stripe_customer_id_removes_stale_reverse_index_entry_on_relink`)を追加し、
+  `python3 prototype/run_all_tests.py`(16ファイル、test_usage_counter_workshop.py 72件
+  〈新規1件含む〉)・`python3 schema/validate_test_cases.py`(32件、変更なし)をいずれも
+  再実行しパスを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・
+  安全側フォールバック方針の横断レビュー、(3)一時的な接続エラー時の安全側フォールバック方針の
+  統一的整理、(4)他venture・アイデア領域の前進。
 - 最終更新: 2026-10-10 14:00 UTC(フェーズ223: `specified_retention_member_name`の縮小実行時
   クリア方針を確定し、`apply_member_reduction`実行時にクリアするよう修正。テスト1件追加、
   計136件・schema検証32件いずれもパス)
+- 最終更新: 2026-10-10 21:00 UTC(フェーズ224: `InMemoryWorkshopStore.
+  set_stripe_customer_id`に、同一workshop_idへの再紐付け時に旧stripe_customer_idの逆引き
+  エントリを除去する処理を追加〈line-reservation-aiの設計を参考に改善〉。テスト1件追加、
+  schema検証32件いずれもパス)

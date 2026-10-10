@@ -525,6 +525,11 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
   想定していないため、本節ではaircon-pasha側の簡潔な設計(新規設定ケースのみ)を踏襲し、
   旧インデックス削除はline-reservation-aiの設計を参考にした改善の次回候補として残す
   (12節)。
+  **(21節追記)**: `InMemoryWorkshopStore`側は21節で旧エントリ削除を実装済み。実
+  Firestore接続アダプタ側も対称に、`set_stripe_customer_id`実行時の`WriteBatch`に
+  旧`stripe_customer_id`が存在する場合の`self._stripe_index.document(
+  previous_stripe_customer_id).delete()`を追加する必要がある(実装自体は実Firestore接続が
+  オーナー承認待ちのため次回以降)。
 - **`get_stripe_customer_id`が`None`を返すケース**: `subscription-billing-data-model-design.md`
   1節の通り、未契約(トライアル中含む)のworkshopは`stripe_customer_id`が未設定のため
   `None`を返すのが正しい挙動であり、9.1節の`trial_start_at`と異なり「データ不整合」を
@@ -906,3 +911,46 @@ else: 代入`という共通パターンを採る。
 3. 付け替え時の旧`stripe_customer_index`エントリ削除(18節2点目から継続)。
 4. 一時的な接続エラー時の安全側フォールバック方針の統一的整理(18節3点目から継続)。
 5. 他venture・アイデア領域の前進。
+
+## 21. 付け替え時の旧`stripe_customer_id`逆引きエントリ削除(フェーズ224)
+
+11.1節「検討事項」で次回候補として残していた、同一`workshop_id`に別の
+`stripe_customer_id`が再紐付けされた場合の旧逆引きエントリ削除を実装した。
+line-reservation-aiの`stripe-customer-id-reverse-lookup-design.md` 2節・
+`store_profile_store.py`の`InMemoryStoreProfileStore.set_stripe_customer_id`と同じ方針を
+踏襲し、`InMemoryWorkshopStore.set_stripe_customer_id`(`usage_counter_workshop.py`)に、
+再紐付け検出時に古い`stripe_customer_id`の逆引きエントリ(`_workshop_id_by_stripe_customer_id`)
+を`pop`してから新しいエントリを書き込む処理を追加した。これにより、通常は
+`resolve_existing_stripe_customer_id()`相当の処理が既存customerを再利用するため起こらない
+想定だが、何らかの理由で同一workshopに別のStripe顧客IDが再設定された場合でも、古い
+`stripe_customer_id`宛のWebhookイベント(Stripe側の遅延配送等)が別のworkshopの
+`workshop_id`に誤って解決されるリスクを防ぐ。
+
+- 実Firestore接続アダプタ側(11節`get_workshop_id_by_stripe_customer_id`/
+  `set_stripe_customer_id`)についても、`WriteBatch`実行時に旧エントリの削除
+  (`self._stripe_index.document(previous_stripe_customer_id).delete()`相当)を追加する
+  必要がある旨を11.1節に追記した(実装は実Firestore接続自体がオーナー承認待ちのため
+  次回以降)。
+- `InMemoryWorkshopStore`側の実装・テストは本フェーズで完結している。
+- `WorkshopStoreProtocol.set_stripe_customer_id`のdocstringにも再紐付け時の挙動を明記した。
+
+### 21.1. 動作確認
+
+`test_usage_counter_workshop.py`に
+`test_set_stripe_customer_id_removes_stale_reverse_index_entry_on_relink`(1件: 旧
+customer_idの逆引きがNoneに戻ること、新customer_idの逆引き・順引きが正しく機能すること)を
+追加した。`python3 prototype/run_all_tests.py`(16ファイル、test_usage_counter_workshop.py
+72件〈新規1件含む〉)・`python3 schema/validate_test_cases.py`(32件、変更なし)をいずれも
+再実行しパスを確認した。
+
+- **承認待ちアクション**: 本フェーズはコード・テスト・設計文書の変更のみで、支払い・
+  アカウント作成・外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 22. 残課題・次回候補(21節分)
+
+1. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(20節1点目から継続)。
+2. 4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・安全側フォールバック方針の
+   横断レビュー(20節2点目から継続)。
+3. 一時的な接続エラー時の安全側フォールバック方針の統一的整理(20節4点目から継続)。
+4. 他venture・アイデア領域の前進。

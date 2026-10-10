@@ -511,6 +511,32 @@ def test_get_workshop_id_by_stripe_customer_id_resolves_after_set():
     )
 
 
+def test_set_stripe_customer_id_removes_stale_reverse_index_entry_on_relink():
+    """workshop-store-firestore-adapter-design.md 21節: 同一workshop_idに別の
+    stripe_customer_idが再紐付けされた場合、古いstripe_customer_id宛のイベントが
+    別workshopに誤って解決されないよう、古い逆引きエントリが除去されることを検証する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_stripe_customer_id("W13D", "cus_OLD111")
+    check(
+        "旧customer_idは紐付け直後は逆引きできる",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_OLD111") == "W13D",
+    )
+    workshops.set_stripe_customer_id("W13D", "cus_NEW222")
+    check(
+        "再紐付け後、旧customer_idの逆引きエントリは除去されNoneを返す",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_OLD111") is None,
+    )
+    check(
+        "再紐付け後、新customer_idは正しくworkshop_idを逆引きできる",
+        workshops.get_workshop_id_by_stripe_customer_id("cus_NEW222") == "W13D",
+    )
+    check(
+        "順引きも新しいstripe_customer_idに更新されている",
+        workshops.get_stripe_customer_id("W13D") == "cus_NEW222",
+    )
+
+
 def test_subscription_status_defaults_to_trialing():
     """subscription-billing-data-model-design.md 1節: 未設定のworkshopは
     "trialing"を返す(trial-end-condition-design.mdの前提と一致させる)。
@@ -1232,6 +1258,7 @@ if __name__ == "__main__":
     test_process_generation_request_trial_end_notification_not_due_when_already_notified()
     test_stripe_customer_id_defaults_to_none_and_can_be_set()
     test_get_workshop_id_by_stripe_customer_id_resolves_after_set()
+    test_set_stripe_customer_id_removes_stale_reverse_index_entry_on_relink()
     test_subscription_status_defaults_to_trialing()
     test_set_subscription_status_accepts_all_declared_values()
     test_set_subscription_status_rejects_unknown_value()
