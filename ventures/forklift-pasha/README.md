@@ -2068,3 +2068,24 @@
   無料トライアル終了判定ロジック〈生成5回到達・初回生成から30日のいずれか早い方〉を確定。
   `prototype/trial_management.py`・`InMemoryFleetOperatorStore`を新規実装。テスト14件追加、
   全48件パス。既存テスト5ファイル・schema検証11件も変更なしでパス)
+- フェーズ119(2026-10-10 18:00 UTC定例更新): フェーズ118「次回候補(2)」の通知メッセージ
+  文言設計に着手し、trial-end-notification-design.mdを新規作成した。本venture固有の事情
+  (入力チャネルが汎用WebフォームでLINE pushを使えない、tech-stack.mdフェーズ70)を踏まえ、
+  (A)生成5回到達は既存のusage-and-fleet-overage-notification-design.mdと同じ「返却テキストへの
+  追記」方式、(B)期間30日到達は`payment-identity-verification-design.md`で確定済みのメール
+  アドレス宛のメール配信(日次スケジューラから送信)に配信方法を分けて設計した。いずれか早い方
+  で1回のみ送信する`trialEndNotifiedAt`フラグの新設、両文面の草案(ですます調・絵文字不使用・
+  「何もしなければ自動課金なし」明記)を整理した。設計のみで`prototype/`のコード変更は無し
+  (`trialEndNotifiedAt`の実フィールド追加・生成一時停止ロジック・日次スケジューラ本体は次回
+  以降の課題として残す)。回帰確認として`python3 prototype/run_all_tests.py`(6ファイル、
+  変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を再実行しいずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないが、本フェーズの設計により新たに判明した「Cloud Scheduler実行環境の
+  構築・メール送信」はオーナー承認待ちの範囲のため、pending-approval.mdに新規記録した
+  (forklift-pashaの既存記録2件とは対象が異なる)。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`trialEndNotifiedAt`フィールドの実装・生成一時停止
+  ロジックの実装、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 18:00 UTC(フェーズ119: trial-end-notification-design.mdを新規作成し、
+  トライアル終了通知の配信方法〈生成回数到達は返却テキスト追記・期間到達はメール配信〉・
+  トリガー条件・メッセージ文言草案を設計。コード変更なし。Cloud Scheduler実行環境構築・
+  メール送信についてpending-approval.mdに新規記録)
