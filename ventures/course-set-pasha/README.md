@@ -4609,3 +4609,21 @@
   実Firestore接続アダプタ設計をfirestore-provider-adapter-design.md 15節に追加し、
   本venture内の全Protocolの設計が完了。コード変更なし、テスト690件・schema検証21件
   いずれもパス)
+- フェーズ282(2026-10-10 01:00 UTC定例更新): フェーズ281で全Protocol設計が完了したため、
+  次回候補(2)「他venture・アイデア領域の前進」として、フェーズ218の次回候補に残っていた
+  「本FAQへの導線実装(オンボーディング完了メッセージへのリンク等)は未着手」を解消した。
+  `prototype/cloud_function_webhook.py`の`FIRST_GENERATION_NOTICE_BODY`(契約者が最初の
+  投稿文生成時に受け取る確認案内。本ventureにはLINEの「友だち追加」直後の専用ウェルカム
+  メッセージが無く、この初回生成時確認案内が実質的な最初の案内メッセージであるため、
+  オンボーディング完了メッセージの役割を担っている)の末尾に「料金プランや解約方法などよくある
+  ご質問は、トークルームで「FAQ」と送信するとご確認いただけます」という一文を追加し、
+  owner_faq_router.pyの`_MENU_TRIGGER_KEYWORD`("FAQ")と文言を一致させた。詳細は
+  first-generation-notice-implementation-design.md「残課題」節に追記した。既存テストは
+  いずれも`assertIn`/`assertNotIn`による部分一致判定のため変更不要だった。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(690件)・`python3
+  schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすること(件数に変更なし)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認
+  された場合はその着手を最優先、(2)aircon-pasha・kura-pasha・line-reservation-aiの同等の
+  初回案内メッセージにも同種のFAQ導線が未整備であれば横展開を検討、(3)他venture・アイデア
+  領域の前進。
