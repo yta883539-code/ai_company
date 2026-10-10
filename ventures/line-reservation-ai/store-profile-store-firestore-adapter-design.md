@@ -451,7 +451,7 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
   Firestoreのキー名に採用し、camelCase変換は行わない(元が単一の英単語のため9節
   〈suspensionReason〉等のような複合語キャメルケース化は不要)。
 
-## 16. 次回候補
+## 16. (旧)次回候補
 
 - 残りのグループ(owner_user_id・checkout_session_completed_event_time・
   menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)のうち、
@@ -459,6 +459,78 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
   (`get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`、
   aircon-pashaの同名グループ〈フェーズ296〉で既に確立済みのイベント配信順序ガード設計を
   横展開できる見込み)と判断する。
+- 承認後は、`portal_session.py`・`checkout_session.py`・
+  `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 17. checkout_session_completed_event_timeグループ(2メソッド)
+
+`get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`
+(`store_profile_store.py` 173-181行目・319-329行目)を追加設計する。InMemory実装は
+`_checkout_session_completed_event_time: dict[str, datetime]`への単純な読み書きで、
+未設定時は`None`を返す。Protocol上の引数名は他グループと異なり`user_id`だが、2節で
+確認した通り本venture(line-reservation-ai)では`store_id`と同一の識別子(LINEの
+`user_id`がそのまま`stores/{storeId}`のドキュメントID)であり、`_doc_ref()`の扱いは
+15節までと変わらない。
+
+```python
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # handle_checkout_session_completed()(checkout-session-completed-event-
+            # order-guard-design.md)は本フィールドが未設定(None)の場合、配信順序
+            # ガードを行わず無条件にcheckout.session.completedイベントを適用する
+            # (後方互換パス)。接続エラーをNoneへ合流させると、まれに古いイベントの
+            # 再送が新しいstripe_customer_id・planを誤って上書きする可能性があるが、
+            # 逆に「ガードが効いてイベントを一切適用できなくなる」(=Checkout完了後も
+            # 永久にstripe_customer_idが紐付かない)方が顧客体験への実害が大きいため、
+            # 9節(suspension_reason)・15節(plan)と同じ「処理を止めない方向」の
+            # 安全側フォールバックを適用する。aircon-pasha 17節が同種の`event_time`系
+            # 4フィールドで確立した「ガード自体は無条件適用側が安全側」という結論とも
+            # 一致する。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("checkoutSessionCompletedEventTime")
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._doc_ref(user_id).set(
+            {"checkoutSessionCompletedEventTime": event_time}, merge=True
+        )
+```
+
+- **フィールド名はcamelCase化する**: 9節(`suspensionReason`)・11節(`ownerEmail`)と同じ
+  方針で、複合語である`checkout_session_completed_event_time`は`checkoutSessionCompleted
+  EventTime`に変換する。1節の既存グループが`stores/{storeId}`の既存フィールド
+  (`stripeCustomerId`等)に合わせてcamelCaseを使っている一貫性を保つ。
+- **read-modify-write競合はない**: `handle_checkout_session_completed()`
+  (store_profile_store.py 481行目以降)は1回のイベント処理内で
+  `get_checkout_session_completed_event_time`→(ガード判定)→
+  `set_stripe_customer_id`/`set_plan`→`set_checkout_session_completed_event_time`の順に
+  呼ぶが、各呼び出しは独立したAPI呼び出しであり、本グループ自体がaircon-pasha 17節の
+  event_time系4フィールドと同型の「他フィールドとの比較・計算を伴わない単純な値の
+  読み書き」であるため、13節・15節までと同じ理由で単一フィールドの競合リスク対象外と
+  判断する(stale判定自体の精度は呼び出し元のStripe Webhook配信順序に依存するが、
+  これは本アダプタの設計範囲外)。
+- `set_checkout_session_completed_event_time`は`set_plan`(15節)と同じく逆引き
+  インデックスを持たない単純フィールド更新であり、付け替え時の旧インデックス削除は
+  不要(9節・11節・13節・15節と同型)。
+
+## 18. 次回候補
+
+- 残りのグループ(owner_user_id・menu_durations・store_faq_info・
+  onboarding_completion_message・all_store_ids)のうち、次に着手しやすいのは
+  `owner_user_id`(`get_owner_user_id`/`set_owner_user_id`、9節〈suspension_reason〉・
+  11節〈owner_email〉と同じ`stores/{storeId}`上の単純フィールドで、新規パターンの
+  検討が不要な見込み)と判断する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、

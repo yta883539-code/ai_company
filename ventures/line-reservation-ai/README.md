@@ -5464,7 +5464,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `StoreProfileStoreProtocol`の残りグループのうち`checkout_session_completed_event_time`
   (aircon-pashaの同名グループで確立済みのイベント配信順序ガード設計を横展開できる見込み)
   の設計、(3)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-09 23:00 UTC(フェーズ続き307: `StoreProfileStoreProtocol`の
-  planグループ〈2メソッド〉の実Firestore接続アダプタ設計を15節に追加。接続エラー時は
-  上限チェック無効化側〈None〉に合流させる方針を採用。コード変更なし、テスト906件・
-  schema検証28件いずれもパス)
+- フェーズ続き308(2026-10-10 03:00 UTC定例更新): フェーズ続き307の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`checkout_session_completed_event_time`グループ
+  (`get_checkout_session_completed_event_time`/`set_checkout_session_completed_event_time`、
+  2メソッド)の実Firestore接続アダプタ設計を`store-profile-store-firestore-adapter-
+  design.md`17節に追加した。Protocol上の引数名が他グループと異なり`user_id`だが、
+  2節で確認済みの通り本venture内では`store_id`と同一の識別子であるため`_doc_ref()`の
+  扱いは15節までと変わらない。本フィールドは`handle_checkout_session_completed()`
+  (checkout-session-completed-event-order-guard-design.md)の配信順序ガードの基準線
+  としてのみ使われ、接続エラー時に`None`へ合流させると稀に古いイベントの再送が
+  新しいstripe_customer_id・planを上書きし得るが、逆にガードが効きすぎて
+  Checkout完了後も永久に紐付けできなくなる方が実害が大きいと判断し、9節
+  (suspension_reason)・15節(plan)と同じ「処理を止めない方向」の安全側フォールバックを
+  採用した。これはaircon-pasha 17節が同種のevent_time系4フィールドで既に確立した
+  結論とも一致する。フィールド名は既存グループの慣例に合わせ`checkoutSessionCompleted
+  EventTime`にcamelCase変換した。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(906件、変更なし)・`python3
+  schema/validate_test_cases.py`(28件、変更なし)を再実行し、いずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された
+  場合はその着手を最優先、(2)`StoreProfileStoreProtocol`の残りグループのうち
+  `owner_user_id`(9節・11節と同型の単純フィールドで新規パターンの検討が不要な見込み)
+  の設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 03:00 UTC(フェーズ続き308: `StoreProfileStoreProtocol`の
+  checkout_session_completed_event_timeグループ〈2メソッド〉の実Firestore接続アダプタ
+  設計を17節に追加。接続エラー時は配信順序ガード無効化側〈None〉に合流させる
+  「処理を止めない」方針を採用。コード変更なし、テスト906件・schema検証28件いずれも
+  パス)
