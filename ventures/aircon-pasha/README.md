@@ -5321,3 +5321,30 @@
   `UserProfile`dataclassに対応フィールドが存在せずInMemory実装が別スタブに分離している
   ずれを発見し、次回候補として記録した。コード変更なし、テスト653件・schema検証25件
   いずれもパス)
+- フェーズ304(2026-10-10 09:00 UTC定例更新): フェーズ303の次回候補(3)を受け、
+  course-set-pasha/prototype/deletion_candidate.py(フェーズ91)がaircon-pashaと
+  同種のProtocol分離を抱えているかのcross-venture parity確認を実施し、
+  firestore-provider-adapter-design.md 22節に結論を記録した。course-set-pasha側の
+  `ProfileDeletionCandidateStoreProtocol`はクラス構成・docstringともに本venture
+  (21.1節)と同型だが、`UserProfile`dataclass・`InMemoryUserProfileStore`
+  (application_form_submission_flow.py)を確認した結果、そちらも対応フィールドを
+  保持せず常に別ストア`InMemoryProfileDeletionCandidateStore`を使う設計であり、
+  フェーズ91時点から一貫して分離を選択していることを確認した。したがって21.2節で
+  発見した「design docの記載〈統合済みのはず〉と実装〈別ストアに分離〉のずれ」は
+  aircon-pasha固有の設計記載の誤りであり、course-set-pashaへの横展開是正は不要と
+  判断した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(653件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
+  その着手を最優先、(2)21.4節「コード側の是正」(`UserProfile`への
+  `deletion_candidate_at`等2フィールド追加・`InMemoryUserProfileStore`統合)の実装
+  (既存呼び出し経路`deletion_candidate.py`・`deletion_candidate_final_confirmation.py`・
+  `blocked_but_billing_candidates.py`・`stripe_webhook.py`・`subscription_plan_sync.py`・
+  `payment_failure.py`・`stripe_dispatch.py`への影響範囲の精査から着手)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 09:00 UTC(フェーズ304: course-set-pasha側の
+  `ProfileDeletionCandidateStoreProtocol`分離状況のcross-venture parity確認を実施。
+  course-set-pashaはフェーズ91時点から一貫して分離を選択しており、21.2節の「ずれ」は
+  aircon-pasha固有の設計記載の誤りと判断、横展開是正は不要と結論。コード変更なし、
+  テスト653件・schema検証25件いずれもパス)

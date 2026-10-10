@@ -988,3 +988,37 @@ class FirestoreUserProfileStore:
   抱えているかは未確認(次回候補、cross-venture parity確認)。
 - 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
   机上設計にとどまる)。
+
+## 22. cross-venture parity確認: course-set-pasha側の`ProfileDeletionCandidateStoreProtocol`分離状況(フェーズ304)
+
+21.4節の次回候補を受け、course-set-pasha/prototype/deletion_candidate.py
+(フェーズ91)を確認した。クラス定義(29〜53行目)は本venture(21.1節)と同一の
+5メソッド構成で、docstring(30〜34行目)も同様に「`user_profile/{user_id}`
+ドキュメントのうち`deletion_candidate_at`フィールドのみを対象にした薄い
+インターフェース」と明記している。相違点は、他フィールドを扱う側の参照先が
+本ventureでは`user_id_linking.UserProfileStoreProtocol`であるのに対し、
+course-set-pashaでは`application_form_submission_flow.UserProfileStoreProtocol`
+である点のみ(クラス名・モジュール構成の違いであり、設計自体は同型)。
+
+**結論**: course-set-pasha側には21.2節で発見した「ずれ」は存在しない。
+course-set-pashaの`UserProfile`dataclass・`InMemoryUserProfileStore`
+(application_form_submission_flow.py)を確認したところ、そちらも
+`deletion_candidate_at`・`deletion_candidate_state_event_time`を保持しておらず、
+`InMemoryProfileDeletionCandidateStore`を一貫して別ストアとして使う設計である。
+つまりcourse-set-pashaでは「Protocolをどのストアに割り当てるか」という設計判断が
+最初から(フェーズ91時点から)分離を選んでおり、本venture(aircon-pasha)の
+firestore-provider-adapter-design.md 18節・20節のように「統合済みのはず」という
+前提の記載が後から誤って入り込んだ形跡はない。したがって21.2節の「ずれ」は
+aircon-pasha固有の設計記載の誤り(design docが実装を正しく反映していなかったケース)
+であり、course-set-pashaへの横展開是正は不要と判断する。21.4節「コード側の是正」
+(`UserProfile`への2フィールド追加・`InMemoryUserProfileStore`統合)についても、
+course-set-pasha側に同種の設計判断を揃える必要はなく、本venture単独の判断として
+進めるかどうかを検討すればよいことを確認した。
+
+次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を
+最優先、(2)21.4節「コード側の是正」(`UserProfile`への`deletion_candidate_at`等
+2フィールド追加・`InMemoryUserProfileStore`統合)の実装(既存呼び出し経路
+`deletion_candidate.py`・`deletion_candidate_final_confirmation.py`・
+`blocked_but_billing_candidates.py`・`stripe_webhook.py`・
+`subscription_plan_sync.py`・`payment_failure.py`・`stripe_dispatch.py`への
+影響範囲の精査から着手)、(3)他venture・アイデア領域の前進。
