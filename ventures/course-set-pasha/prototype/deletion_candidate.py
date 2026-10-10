@@ -40,6 +40,15 @@ class ProfileDeletionCandidateStoreProtocol(Protocol):
         """`list_deletion_candidates()`の走査対象になる全user_idを列挙する。"""
         ...
 
+    def get_deletion_candidate_state_event_time(self, user_id: str) -> Optional[datetime]:
+        """deletion-candidate-stale-event-guard-design.md 3節: `deletion_candidate_at`を
+        最後に実際に反映した(mark/clearを問わない)イベントの`event.created`を返す。
+        未反映(呼び出し自体が一度もない)ならNone。"""
+        ...
+
+    def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        ...
+
 
 class InMemoryProfileDeletionCandidateStore:
     """実Firestore接続の代わりにdictで`deletion_candidate_at`フィールドを保持する検証用スタブ。"""

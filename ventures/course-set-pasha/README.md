@@ -4627,3 +4627,32 @@
   された場合はその着手を最優先、(2)aircon-pasha・kura-pasha・line-reservation-aiの同等の
   初回案内メッセージにも同種のFAQ導線が未整備であれば横展開を検討、(3)他venture・アイデア
   領域の前進。
+- フェーズ283(2026-10-10 06:00 UTC定例更新): フェーズ282の次回候補(3)を受け、
+  aircon-pashaがフェーズ303で発見・是正した`ProfileDeletionCandidateStoreProtocol`の
+  「Protocol宣言漏れ」(kura-pashaフェーズ217で発見された同種パターン)が、本venture
+  (course-set-pasha)の`prototype/deletion_candidate.py`にも存在するかのcross-venture
+  parity確認を実施した。`deletion-candidate-stale-event-guard-design.md`3節は
+  「`ProfileDeletionCandidateStoreProtocol`に`get_deletion_candidate_state_event_time()`/
+  `set_deletion_candidate_state_event_time()`を追加」すると明記していたにもかかわらず、
+  実際の`ProfileDeletionCandidateStoreProtocol`クラス定義には`get_deletion_candidate_at`/
+  `set_deletion_candidate_at`/`all_user_ids`の3メソッドしか宣言されておらず、
+  `InMemoryProfileDeletionCandidateStore`が実装している上記2メソッドがProtocol宣言から
+  漏れていたことを確認した(aircon-pashaの対応するProtocolには既に両メソッドが宣言済み)。
+  `_is_stale_deletion_candidate_event()`/`_record_deletion_candidate_state_event_time()`
+  は`getattr(store, "...", None)`による動的検出で両メソッドを呼んでいるため実行時の
+  動作に影響はなかったが、Protocol宣言が実装意図(design 3節)を反映していない状態だった
+  ため、`prototype/deletion_candidate.py`の`ProfileDeletionCandidateStoreProtocol`に
+  両メソッドのシグネチャをaircon-pasha版と同一の文言で追加し是正した。コード変更あり
+  (Protocol宣言の追加のみ、`InMemoryProfileDeletionCandidateStore`・各関数の実装は無変更)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(690件、
+  変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)kura-pasha・
+  line-reservation-aiの同種Protocol(存在する場合)にも同じ宣言漏れがないかの
+  cross-venture parity確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 06:00 UTC(フェーズ283: aircon-pashaフェーズ303を受けた
+  cross-venture parity確認により、`ProfileDeletionCandidateStoreProtocol`の
+  `get_deletion_candidate_state_event_time`/`set_deletion_candidate_state_event_time`
+  宣言漏れ〈design記載はあったが実装が反映されていなかった〉を発見・是正。
+  テスト690件・schema検証21件いずれもパス)
