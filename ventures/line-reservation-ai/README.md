@@ -5492,3 +5492,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   設計を17節に追加。接続エラー時は配信順序ガード無効化側〈None〉に合流させる
   「処理を止めない」方針を採用。コード変更なし、テスト906件・schema検証28件いずれも
   パス)
+- フェーズ続き309(2026-10-10 10:00 UTC定例更新): フェーズ続き308の次回候補(2)を受け、
+  `StoreProfileStoreProtocol`の`owner_user_id`グループ(`get_owner_user_id`/
+  `set_owner_user_id`、2メソッド)の実Firestore接続アダプタ設計を`store-profile-store-
+  firestore-adapter-design.md`19節に追加した。本フィールドは`verify_checkout_
+  authorization()`(checkout_session.py 186-204行目)の決済認可チェックに直接使われ、
+  `get_owner_user_id`が`None`を返す場合は`AUTHORIZATION_DENIED_OWNER_NOT_SET`として
+  認可そのものを拒否(Checkout Session作成を続行させない)する設計になっている。9節
+  (suspension_reason)・15節(plan)・17節(checkout_session_completed_event_time)では
+  「接続エラーをNoneへ合流させる=処理を止めない」方向が安全側だったのに対し、本グループ
+  は唯一「接続エラーをNoneへ合流させる=決済を止める(fail-closed)」方向が安全側になる
+  フィールドであり、InMemory実装の既定動作(未設定時None)をそのまま委譲するだけで
+  verify_checkout_authorization()が意図する安全側の挙動が自然に保たれることを確認した。
+  InMemory実装の`set_owner_user_id`が行う`_known_store_ids`への追加(store_profile_
+  store.py 263行目)は、Firestoreでは別実装になる見込みの`all_store_ids`グループの
+  管轄であり本グループの設計対象外として切り分けた。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(906件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を再実行し、いずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された
+  場合はその着手を最優先、(2)`StoreProfileStoreProtocol`の残りグループのうち
+  `onboarding_completion_message`(13節と同型の「一度きりの通知送信済みフラグ」
+  パターンで新規パターンの検討が不要な見込み)の設計、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-10 10:00 UTC(フェーズ続き309: `StoreProfileStoreProtocol`の
+  owner_user_idグループ〈2メソッド〉の実Firestore接続アダプタ設計を19節に追加。本
+  フィールドは決済認可チェックに直接使われ、接続エラー時にNoneへ合流させることが
+  唯一fail-closed〈決済を止める〉側の安全側になる点を確認した。コード変更なし、
+  テスト906件・schema検証28件いずれもパス)

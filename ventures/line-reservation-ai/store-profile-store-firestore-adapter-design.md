@@ -524,13 +524,82 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
   インデックスを持たない単純フィールド更新であり、付け替え時の旧インデックス削除は
   不要(9節・11節・13節・15節と同型)。
 
-## 18. 次回候補
+## 18. (旧)次回候補
 
 - 残りのグループ(owner_user_id・menu_durations・store_faq_info・
   onboarding_completion_message・all_store_ids)のうち、次に着手しやすいのは
   `owner_user_id`(`get_owner_user_id`/`set_owner_user_id`、9節〈suspension_reason〉・
   11節〈owner_email〉と同じ`stores/{storeId}`上の単純フィールドで、新規パターンの
   検討が不要な見込み)と判断する。
+- 承認後は、`portal_session.py`・`checkout_session.py`・
+  `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
+  実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
+  結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 19. owner_user_idグループ(2メソッド)
+
+`get_owner_user_id`/`set_owner_user_id`(`store_profile_store.py` 135-138行目・254-262行目)を
+追加設計する。InMemory実装は`_owner_user_ids: dict[str, str]`への単純な読み書きで、未設定時は
+`None`(オーナー未登録)をデフォルト値として返す(254-255行目のdict.get挙動)。
+
+```python
+    def get_owner_user_id(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(None=オーナー未登録)と揃えるが、本
+            # グループは9節(suspension_reason)・15節(plan)・17節
+            # (checkout_session_completed_event_time)とは安全側の方向が逆になる点が
+            # 特徴的である。verify_checkout_authorization()(checkout_session.py
+            # 186-199行目)は`get_owner_user_id`がNoneの場合、認可チェック自体を
+            # `AUTHORIZATION_DENIED_OWNER_NOT_SET`で拒否する(=Checkout Session作成を
+            # 続行させない)設計になっており、接続エラーをNoneへ合流させることは
+            # 「認可不明の場合は決済を止める」というfail-closedの挙動に自然に一致する。
+            # 9節等では「Noneへ合流=処理を止めない」が安全側だったのに対し、本グループは
+            # 「Noneへ合流=処理を止める」側が安全側になる、店舗プロフィールストア内で
+            # 唯一決済の認可判定に直結するフィールドであることが理由である。したがって
+            # 新たな方針判断は不要で、InMemory実装の既定動作をそのまま委譲するだけで
+            # verify_checkout_authorization()が意図する安全側の挙動が保たれる。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("ownerUserId")
+
+    def set_owner_user_id(self, store_id: str, owner_user_id: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_user_id:
+            raise ValueError("owner_user_id must be a non-empty string")
+        self._doc_ref(store_id).set({"ownerUserId": owner_user_id}, merge=True)
+```
+
+- **fail-closedが自然に成り立つ理由**: `verify_checkout_authorization()`は
+  `owner_user_id is None`と「`owner_user_id`が`requester_user_id`と不一致」のいずれも
+  同じ`authorized=False`として扱う(200-204行目)。接続エラー時に例外を伝播させず
+  `None`へ合流させても、この2つの拒否理由(`AUTHORIZATION_DENIED_OWNER_NOT_SET`)に
+  吸収されるだけで、誤って決済を許可してしまう経路は生じない。
+- **`_known_store_ids`への追加はこのグループの設計対象外**: InMemory実装の
+  `set_owner_user_id`は`self._known_store_ids.add(store_id)`も行う(263行目)が、これは
+  `all_store_ids()`(195・354-360行目)がFirestoreでは別実装(コレクション自体を走査する
+  想定)になる見込みの前提に基づくInMemory固有の付随処理であり、本グループの
+  Firestoreアダプタ設計では扱わない(残課題として「all_store_ids」グループに持ち越す)。
+- フィールド名は9節(`suspensionReason`)・11節(`ownerEmail`)・17節
+  (`checkoutSessionCompletedEventTime`)と同じ方針でcamelCase化し`ownerUserId`とした。
+- `set_owner_user_id`は逆引きインデックスを持たない単純フィールド更新であり、2節の
+  Stripeグループのような付け替え時の旧インデックス削除は不要(9節・11節・13節・15節・
+  17節と同型)。
+
+## 20. 次回候補
+
+- 残りのグループ(menu_durations・store_faq_info・onboarding_completion_message・
+  all_store_ids)のうち、次に着手しやすいのは`onboarding_completion_message`
+  (`has_completed_onboarding_message_requirements`/`mark_onboarding_completion_message_
+  sent`、13節〈blocked_but_billing_owner_notified_at〉と同じ「一度きりの通知送信済み
+  フラグ」パターンで新規パターンの検討が不要な見込み)と判断する。
+- `all_store_ids`はInMemory実装の`_known_store_ids`集合を使わず、Firestoreの
+  `stores`コレクション自体をクエリする設計になる見込みで、他グループとは異なる検討
+  (ページネーション・インデックス戦略等)が必要になるため、残りグループの中では最後に
+  着手する。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
