@@ -2040,3 +2040,31 @@
   `record_generation_and_get_usage_notice()`・`record_vehicle_and_get_overage_notice()`で
   両者を結合。テスト13件追加、全34件パス。既存テスト4ファイル・schema検証11件も変更なしで
   パス)
+- フェーズ118(2026-10-10 15:00 UTC定例更新): pricing-plan.md「無料トライアル条件(仮)」
+  (フェーズ4)が「詳細な判定ロジックは実装時に設計する」として先送りにしていた無料トライアル
+  終了判定ロジックを、trial-end-condition-design.mdとして新規作成した。他venture
+  (course-set-pasha/trial-end-condition-a-implementation-design.md、kura-pasha/
+  trial-end-condition-design.md)には既にあるが本venture未着手だったcross-venture parity
+  ギャップの解消でもある。起点(`trialStartAt`)は既存のfirestore-data-model.md設計
+  (初回生成成功時に1回だけ設定)をそのまま維持し、kura-pashaのような「workshop作成時」
+  起点への変更は本venture(daily区分=稼働日ごとの始業前点検という生成頻度が最も高い業態)
+  には不要と判断した。月次リセットされない累積カウント`trialGenerationCount`を
+  firestore-data-model.mdの`fleet_operator`に新規追加し、「生成5回到達〈course-set-pasha
+  と同じ基準〉、または初回生成から30日、いずれか早い方」の論理和として`is_trial_period_over()`
+  を設計した。`prototype/trial_management.py`を新規作成し、判定関数・
+  `FleetOperatorStoreProtocol`・`InMemoryFleetOperatorStore`・生成成功時の呼び出し側配線
+  `record_generation_for_trial()`を実装、`prototype/test_trial_management.py`(14件、新規)で
+  生成回数条件(4回目まではFalse・5回目でTrue・6回目以降もTrueのまま)・期間条件(29日後
+  False・30日後の境界値でTrue・31日後もTrue)・`trialStartAt`が2回目生成で上書きされない
+  こと・operator間の独立性を検証し、全件パスを確認した。トライアル終了後の生成一時停止・
+  通知メッセージ送信・日次スケジューラ本体はいずれも次の課題として残す(trial-end-condition-
+  design.md「6. 今後の課題」参照)。`python3 prototype/run_all_tests.py`(6ファイル、新規1件
+  含む)・`python3 schema/validate_test_cases.py`(11件、変更なし)をいずれも再実行しパスを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+  していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2がオーナーから
+  承認された場合はその着手を最優先、(2)(A)生成5回到達・(B)期間30日到達の通知メッセージ文言
+  設計(aircon-pasha/trial-end-notification-design.md相当)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 15:00 UTC(フェーズ118: trial-end-condition-design.mdを新規作成し、
+  無料トライアル終了判定ロジック〈生成5回到達・初回生成から30日のいずれか早い方〉を確定。
+  `prototype/trial_management.py`・`InMemoryFleetOperatorStore`を新規実装。テスト14件追加、
+  全48件パス。既存テスト5ファイル・schema検証11件も変更なしでパス)

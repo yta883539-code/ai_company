@@ -52,6 +52,10 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 手がかりとして設定ページ上に表示する
                                               // (access-token-reissue-design.md「6.」参照)。
                                               // 初回アクセス前はnull
+  trialGenerationCount: 0                    // 月次リセットされない累積生成回数
+                                              // (trial-end-condition-design.md「3.」参照、
+                                              // usage_counterの月間countとは別物)。無料
+                                              // トライアル終了判定「生成5回到達」に使用
 }
 ```
 
@@ -104,6 +108,9 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   重複チェック〈`(operatorInternalId, vehicleLabel)`の完全一致、トリムのみ正規化〉の設計を
   vehicle-label-duplicate-handling-design.mdとして新規作成した。あわせて`vehicleCount`
   フィールドを自己申告ではなく実績カウンタ方式に確定した。詳細は同ファイル参照。)
+- (解消済み 2026-10-10 15:00 UTC・フェーズ118: pricing-plan.mdが「実装時に設計する」と
+  先送りにしていた無料トライアル終了判定ロジックを、trial-end-condition-design.mdとして
+  新規作成した。本モデルには`trialGenerationCount`フィールドを新規追加した。)
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
   オーナー承認が必要(pending-approval.md参照)。本ファイルは机上のスキーマ整理のみ。
 - (解消済み 2026-10-07 04:00 UTC・フェーズ99: access-token-reissue-design.md〈フェーズ98〉
