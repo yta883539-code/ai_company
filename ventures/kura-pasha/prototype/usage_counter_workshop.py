@@ -384,7 +384,22 @@ class WorkshopStoreProtocol(Protocol):
     def get_member_display_name(self, workshop_id: str, user_id: str) -> Optional[str]:
         ...
 
+    def set_pending_reduction_effective_at(self, workshop_id: str, effective_at: datetime) -> None:
+        """workshop-store-firestore-adapter-design.md 5節: ダウングレード確定時に猶予期間
+        の到達予定日時を記録する書き込み処理。本メソッドは以前`InMemoryWorkshopStore`のみが
+        持つ実装詳細として扱われ`WorkshopStoreProtocol`に宣言されていなかった(フェーズ215
+        〈`set_members`〉・フェーズ217〈kura-pasha自身の別件〉と同種のProtocol宣言漏れ)。
+        """
+        ...
+
     def get_pending_reduction_effective_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def set_specified_retention_member_name(self, workshop_id: str, name: str) -> None:
+        """workshop-store-firestore-adapter-design.md 5節: member_retention_selection
+        受信時に指定された継続希望メンバー名を記録する書き込み処理(cloud_function_webhook.py
+        が`WorkshopStoreProtocol`型の引数越しに直接呼び出す)。上記set_pending_reduction_
+        effective_atと同種のProtocol宣言漏れ。"""
         ...
 
     def get_specified_retention_member_name(self, workshop_id: str) -> Optional[str]:

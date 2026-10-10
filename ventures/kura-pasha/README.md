@@ -4834,3 +4834,35 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   実Firestore接続アダプタ設計を`workshop-store-firestore-adapter-design.md`17節に追加し、
   本Protocol・本venture内全4Protocolの実Firestore接続アダプタ設計を完了。テスト171件・
   schema検証32件いずれもパス)
+- フェーズ222(2026-10-10 08:00 UTC定例更新): 他venture(course-set-pasha・aircon-pasha)
+  で繰り返し発見されてきた「設計ドキュメントは記述済みだがProtocol宣言に反映されていない」
+  パターン(course-set-pashaフェーズ283、aircon-pashaフェーズ303、本venture自身の
+  フェーズ215〈`set_members`〉・217)が本venture内の他グループにも残っていないかの
+  横断監査を実施した。各`*StoreProtocol`クラスの宣言メソッドと対応する`InMemory*Store`
+  実装クラスの実装メソッドを機械的に突き合わせたところ、`WorkshopStoreProtocol`の
+  メンバー削減系グループ(`get_pending_reduction_effective_at`/
+  `get_specified_retention_member_name`は宣言済みだが、対となる
+  `set_pending_reduction_effective_at`/`set_specified_retention_member_name`が宣言から
+  漏れていたことを発見した。`workshop-store-firestore-adapter-design.md`5節は両setterを
+  含む5メソッドを一体のグループとして設計済みで、`cloud_function_webhook.py`959行目は
+  `workshop_store: WorkshopStoreProtocol`型引数越しに`set_specified_retention_member_name`
+  を直接呼び出しており(hasattr等のガードなし)、型契約上の実際の抜け穴だったことを確認した。
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`に両メソッドの宣言を追加して是正した
+  (`InMemoryWorkshopStore`側の実装・挙動は無変更)。なお、同じ機械チェックで
+  course-set-pasha・line-reservation-aiにも候補が出たが、精査の結果いずれも既存の意図的な
+  設計(1クラスが複数Protocolを満たす多重実装〈`is_configured`等〉、テスト専用セットアップ
+  メソッド〈`set_configured`〉、継承元Protocolからの引き継ぎ〈`StoreSettingsStoreProtocol`
+  が`StoreProfileStoreProtocol`のgetter群を継承〉)であり誤検知と判断し、変更は行っていない。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(171件、変更
+  なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(2)5.1節に残る「`apply_member_reduction`が
+  `specified_retention_member_name`をクリアしない」という挙動上の疑問点(設計ドキュメントの
+  スコープ外として先送りされていた点)の仕様確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 08:00 UTC(フェーズ222: 他venture〈course-set-pasha・aircon-pasha〉
+  で発見済みの「Protocol宣言漏れ」パターンの横断監査を実施し、`WorkshopStoreProtocol`の
+  `set_pending_reduction_effective_at`/`set_specified_retention_member_name`の宣言漏れ
+  〈design記載はあったが実装が反映されていなかった〉を発見・是正。他venture分は精査の上
+  誤検知と判断し変更なし。テスト171件・schema検証32件いずれもパス)
