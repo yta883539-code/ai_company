@@ -5549,8 +5549,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `onboarding_completion_message`(13節と同型の「一度きりの通知送信済みフラグ」
   パターンで新規パターンの検討が不要な見込み)の設計、(3)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-10-10 11:00 UTC(フェーズ続き310: course-set-pasha・aircon-pasha・
-  kura-pashaで見つかった「Protocol宣言漏れ」パターンの本venture内横断監査を実施。
-  全23Protocolクラスを対象にAST解析で宣言側・実装側のメソッド一覧を機械的に比較し、
-  本venture内には同パターンの不具合が1件も存在しないことを確認。コード変更なし、
-  テスト906件・schema検証28件いずれもパス)
+- フェーズ続き311(2026-10-10 17:00 UTC定例更新): フェーズ続き309の次回候補(2)
+  「`onboarding_completion_message`グループの設計」に着手しようとしたところ、
+  `store-profile-store-firestore-adapter-design.md`5節で同グループ
+  (`is_onboarding_completion_message_sent`/`mark_onboarding_completion_message_sent`)
+  が既に設計済みであり、さらに独立ファイル
+  `store-profile-store-firestore-adapter-design-onboarding-flag.md`(2026-10-08作成)
+  でも同じ2メソッドが重複して設計されていたことを発見した。両者は、フィールド名
+  (boolean `onboardingCompletionMessageSent` vs Timestamp
+  `onboardingCompletionMessageSentAt`)・例外時の安全側方針(伝播 vs 未送信へ合流)の
+  いずれも矛盾しており、`firestore-data-model.md`1節(フェーズ続き155で確定)の正本
+  フィールド定義と一致するのは独立ファイル側のみだった。独立ファイルを正本設計として
+  確定し、5節には訂正注記、20節(次回候補)には誤りの経緯と正しい残課題
+  (`menu_durations`・`store_faq_info`・`all_store_ids`の3件)を追記、新設の21節に
+  発見内容・是正内容・推定原因(フェーズ続き306〜309のREADME「次回候補」記述が
+  検証されないまま複製・継承され続けたこと)を記録した(詳細は設計ファイル21節参照)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの
+  実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合はその着手を
+  最優先、(2)残りグループ`menu_durations`・`store_faq_info`いずれかの実Firestore
+  接続アダプタ設計、(3)他venture(course-set-pasha・aircon-pasha・kura-pasha・
+  forklift-pasha)の「次回候補」記述に同種の陳腐化(既に対応済みの項目を未着手として
+  繰り返し記載)がないかの点検、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 17:00 UTC(フェーズ続き311: `onboarding_completion_message`
+  グループが既に二重に設計済み(5節・独立ファイル)かつ互いに矛盾していたことを
+  発見し、独立ファイルを正本として確定・5節に訂正注記・20節と21節に経緯を記録。
+  コード変更なし、テスト906件・schema検証28件いずれもパス)

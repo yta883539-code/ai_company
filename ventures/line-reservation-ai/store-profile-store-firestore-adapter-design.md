@@ -160,6 +160,18 @@ membership判定・追加のみで、送信日時は保持しない(`is_X`はboo
         )
 ```
 
+> **訂正(フェーズ続き311監査、2026-10-10 17:00 UTC)**: 上記コード例のフィールド名
+> `onboardingCompletionMessageSent`(boolean)は、`firestore-data-model.md`(1節、
+> フェーズ続き155・本節より前に確定済み)が定義する正本フィールド
+> `onboardingCompletionMessageSentAt`(Timestamp | null)と一致しない。本グループの
+> 正式なFirestoreアダプタ設計は、正本フィールドに準拠し`SERVER_TIMESTAMP`・安全側
+> フォールバック(接続エラーを未送信側に合流)を採用した
+> `store-profile-store-firestore-adapter-design-onboarding-flag.md`(2026-10-08作成)
+> を正とする。本節のコード例は結合実装時には参照せず、検討過程の記録としてのみ残す。
+> 詳細は21節参照。ただし、直後の「例外方針の不統一を明文化」で述べる
+> 「副作用の可逆性で例外方針を分ける」という一般原則そのものは7節以降で継続的に
+> 参照される設計基準として引き続き有効であり、本訂正の対象外。
+
 - **例外方針の不統一を明文化**: 2節(Stripeグループ)・`firestore-provider-adapter-design.md`
   3節はいずれも「接続エラーは未設定側に安全に合流させる」方針だが、これは参照系
   (名前・IDの取得)や「無ければfalse扱いで問題ない」判定に限った方針であり、
@@ -589,18 +601,60 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
   Stripeグループのような付け替え時の旧インデックス削除は不要(9節・11節・13節・15節・
   17節と同型)。
 
-## 20. 次回候補
+## 20. 次回候補(2026-10-10フェーズ続き311時点で誤り訂正済み。21節参照)
 
-- 残りのグループ(menu_durations・store_faq_info・onboarding_completion_message・
-  all_store_ids)のうち、次に着手しやすいのは`onboarding_completion_message`
-  (`has_completed_onboarding_message_requirements`/`mark_onboarding_completion_message_
-  sent`、13節〈blocked_but_billing_owner_notified_at〉と同じ「一度きりの通知送信済み
-  フラグ」パターンで新規パターンの検討が不要な見込み)と判断する。
+- ~~残りのグループ(menu_durations・store_faq_info・onboarding_completion_message・
+  all_store_ids)のうち、次に着手しやすいのは`onboarding_completion_message`~~
+  → 誤り。`onboarding_completion_message`グループは本ファイル5節で既に設計済みであり、
+  かつ正本設計は`store-profile-store-firestore-adapter-design-onboarding-flag.md`
+  (2026-10-08作成)として独立に存在する。本節のこの記載は、5節の存在を見落としたまま
+  書かれたものであり、フェーズ続き306〜309のREADME進捗ログでも同じ誤りがそのまま
+  繰り返されていた(21節参照)。残りグループは実際には
+  **menu_durations・store_faq_info・all_store_ids の3件**。
 - `all_store_ids`はInMemory実装の`_known_store_ids`集合を使わず、Firestoreの
   `stores`コレクション自体をクエリする設計になる見込みで、他グループとは異なる検討
   (ページネーション・インデックス戦略等)が必要になるため、残りグループの中では最後に
-  着手する。
+  着手する。次に着手しやすいのは`menu_durations`または`store_faq_info`と見込む
+  (いずれも未着手のため、着手時に単純なget/set型か複合構造かを個別に確認する)。
 - 承認後は、`portal_session.py`・`checkout_session.py`・
   `onboarding-settings-and-self-check-design.md`の呼び出し側で`StoreProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。
+
+## 21. 次回候補の誤り発見・是正(フェーズ続き311監査、2026-10-10 17:00 UTC)
+
+- **発見した問題**: 本ファイル20節の「次回候補」が`onboarding_completion_message`
+  グループを繰り返し未着手として挙げていたが、実際には
+  - 本ファイル5節で`is_onboarding_completion_message_sent`/
+    `mark_onboarding_completion_message_sent`の設計が既に完了していた(Stripeグループに
+    続く2番目のグループとして早い段階で設計済み)、
+  - さらに独立したファイル`store-profile-store-firestore-adapter-design-onboarding-flag.md`
+    (2026-10-08作成)でも同じ2メソッドの設計が重複して行われていた。
+  この2つの設計は**互いに矛盾**しており、
+  - 5節: フィールド名`onboardingCompletionMessageSent`(boolean)・例外を握り潰さず
+    呼び出し元に伝播させる方針。
+  - 独立ファイル: フィールド名`onboardingCompletionMessageSentAt`(Timestamp、
+    `SERVER_TIMESTAMP`使用)・接続エラーを「未送信」に安全側で合流させる方針。
+  いずれも`firestore-data-model.md`(1節)の定義(`onboardingCompletionMessageSentAt`、
+  フェーズ続き155で確定)と照合すると、独立ファイルの設計のみがフィールド名・型とも
+  一致する。
+- **是正**: 独立ファイル(`store-profile-store-firestore-adapter-design-onboarding-flag.md`)
+  を本グループの正本設計として確定し、5節には訂正注記を追加した(5節末尾参照)。
+  コード(`prototype/store_profile_store.py`のInMemory実装)自体はどちらの設計とも
+  独立した簡略実装(真偽値のみの`set[str]`)であり、今回の訂正はFirestore接続アダプタの
+  設計文書間の矛盾の整理に限定されるため、コード変更は発生しない。
+- **根本原因の推測**: README.mdのフェーズ続き306〜309の「次回候補」記述が、
+  フェーズ続き305の時点で一度生成された文言をほぼそのまま複製・継承し続け、
+  各フェーズの着手時に候補の妥当性(既に別の形で対応済みでないか)を再検証しないまま
+  引き継がれていたことが原因と考えられる。本ventureの他の「次回候補」記述についても
+  同種の陳腐化が起きていないか、次回以降のフェーズで順次点検する価値がある。
+- **回帰確認**: ドキュメントのみの変更のためコード・テストへの影響はないが、念のため
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・
+  `python3 schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを
+  確認した(件数に変更なし)。
+- **次回候補**: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)
+  がオーナーから承認された場合はその着手を最優先、(2)残りグループ
+  `menu_durations`・`store_faq_info`のいずれかの実Firestore接続アダプタ設計、
+  (3)他venture・アイデア領域の前進、(4)他venture(course-set-pasha・aircon-pasha・
+  kura-pasha・forklift-pasha)の「次回候補」記述にも同種の陳腐化(既に対応済みの項目を
+  未着手として繰り返し記載)がないかの点検。
