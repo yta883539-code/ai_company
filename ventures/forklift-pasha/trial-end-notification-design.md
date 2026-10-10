@@ -97,7 +97,11 @@ https://<ドメイン>/f/{accessToken}
 - `trial_management.py`の`FleetOperatorStoreProtocol`・`InMemoryFleetOperatorStore`に、
   `trialEndNotifiedAt`(2節の通知送信時に1回だけ設定)フィールドの追加が必要になる想定。
   `get_trial_end_notified_at`/`set_trial_end_notified_at`の2メソッドを追加し、未設定時の
-  既定値は`None`とする(他venture同様の設計)。
+  既定値は`None`とする(他venture同様の設計)。**フェーズ120で実装済み。**
+  `should_notify_trial_end()`(2節「いずれか早い方で1回のみ送信」の判定を
+  `is_trial_period_over()`と`trialEndNotifiedAt`未設定チェックの組み合わせで行う純粋関数)
+  も合わせて実装した。テスト7件追加、全21件パス。(A)(B)経路からの実際の呼び出し配線
+  (Webフォーム処理・日次スケジューラ本体、いずれも未実装)は次回以降の課題のまま。
 - (A)経路の判定・返却テキストへの追記は、`record_generation_for_trial()`の呼び出し元
   (Webフォーム送信処理、mvp-flow-draft.md)側で、生成完了直後に`trialGenerationCount`が
   ちょうど5に達したかどうかを確認する実装が必要(usage-and-fleet-overage-notification-
@@ -122,3 +126,8 @@ https://<ドメイン>/f/{accessToken}
 最終更新: 2026-10-10 18:00 UTC(フェーズ119: トライアル終了通知の配信方法〈入力チャネルが
 汎用Webフォームのため、生成回数到達は返却テキスト追記・期間到達はメール配信に分ける〉・
 トリガー条件・メッセージ文言草案を設計。コード変更なし)
+
+追記: 2026-10-10 23:00 UTC(フェーズ120: 5節「実装への影響メモ」1点目を実装。
+`trial_management.py`に`trialEndNotifiedAt`フィールド〈get/set、初回設定後は不変〉・
+`should_notify_trial_end()`〈いずれか早い方で1回のみ送信の判定〉を追加。テスト7件追加、
+全21件パス。(A)(B)経路からの実際の呼び出し配線は次回以降の課題のまま)

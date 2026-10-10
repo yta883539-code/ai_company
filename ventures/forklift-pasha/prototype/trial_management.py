@@ -32,6 +32,14 @@ class FleetOperatorStoreProtocol:
         """1回分の生成を加算し、(加算前カウント, 加算後カウント)を返す。"""
         raise NotImplementedError
 
+    def get_trial_end_notified_at(self, internal_id: str) -> "datetime | None":
+        raise NotImplementedError
+
+    def set_trial_end_notified_at(self, internal_id: str, value: datetime) -> None:
+        """trial-end-notification-design.md 2節・5節。いずれか早い方の経路で1回だけ
+        設定し、以降は上書きしない(set_trial_start_atと同じ「初回のみ設定」方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -40,6 +48,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     def __init__(self) -> None:
         self._trial_start_at: "dict[str, datetime]" = {}
         self._trial_generation_count: "dict[str, int]" = {}
+        self._trial_end_notified_at: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -57,6 +66,14 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         after = before + 1
         self._trial_generation_count[internal_id] = after
         return before, after
+
+    def get_trial_end_notified_at(self, internal_id: str) -> "datetime | None":
+        return self._trial_end_notified_at.get(internal_id)
+
+    def set_trial_end_notified_at(self, internal_id: str, value: datetime) -> None:
+        if internal_id in self._trial_end_notified_at:
+            return
+        self._trial_end_notified_at[internal_id] = value
 
 
 def is_trial_period_over(
@@ -84,3 +101,19 @@ def record_generation_for_trial(
     """
     operator_store.set_trial_start_at(internal_id, now)
     operator_store.increment_trial_generation_count(internal_id)
+
+
+def should_notify_trial_end(
+    internal_id: str,
+    now: datetime,
+    operator_store: FleetOperatorStoreProtocol,
+) -> bool:
+    """trial-end-notification-design.md 2節「いずれか早い方で1回のみ送信」の判定。
+    is_trial_period_over()が真で、かつtrialEndNotifiedAtが未設定の場合のみTrue。
+    (A)経路(生成完了時の返却テキスト追記)・(B)経路(日次スケジューラのメール送信)の
+    いずれの呼び出し元からも、送信前にこの関数で判定した上でset_trial_end_notified_at()
+    を呼ぶ想定(実際の呼び出し配線はWebフォーム処理・日次スケジューラ共に未実装のため次回
+    以降の課題)。"""
+    if operator_store.get_trial_end_notified_at(internal_id) is not None:
+        return False
+    return is_trial_period_over(internal_id, now, operator_store)

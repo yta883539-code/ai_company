@@ -14,6 +14,7 @@ from trial_management import (
     InMemoryFleetOperatorStore,
     is_trial_period_over,
     record_generation_for_trial,
+    should_notify_trial_end,
 )
 
 
@@ -104,6 +105,59 @@ def main():
     results.append(_check(
         "別operatorのtrialStartAtはNoneのまま独立している",
         store.get_trial_start_at("op6"),
+        None,
+    ))
+
+    # --- should_notify_trial_end: トライアル中はFalse、終了時点でTrue ---
+    store = InMemoryFleetOperatorStore()
+    for _ in range(TRIAL_GENERATION_LIMIT - 1):
+        record_generation_for_trial(store, "op7", now)
+    results.append(_check(
+        "should_notify_trial_end: トライアル中(終了1回手前)はFalse",
+        should_notify_trial_end("op7", now, store),
+        False,
+    ))
+    record_generation_for_trial(store, "op7", now)
+    results.append(_check(
+        "should_notify_trial_end: 生成回数到達時点でTrue",
+        should_notify_trial_end("op7", now, store),
+        True,
+    ))
+
+    # --- trialEndNotifiedAtは初回設定後は上書きされない、以降should_notify_trial_endはFalse ---
+    store.set_trial_end_notified_at("op7", now)
+    first_notified_at = store.get_trial_end_notified_at("op7")
+    store.set_trial_end_notified_at("op7", now + timedelta(days=1))
+    results.append(_check(
+        "trialEndNotifiedAtは初回設定時刻のまま変わらない(2回目の設定で上書きされない)",
+        store.get_trial_end_notified_at("op7"),
+        first_notified_at,
+    ))
+    results.append(_check(
+        "should_notify_trial_end: 通知済み後は(B)経路の再判定でもFalse",
+        should_notify_trial_end("op7", now + timedelta(days=TRIAL_PERIOD_DAYS), store),
+        False,
+    ))
+
+    # --- (B)期間到達経路でも同様にTrue/Falseが切り替わる ---
+    store = InMemoryFleetOperatorStore()
+    record_generation_for_trial(store, "op8", now)
+    results.append(_check(
+        "should_notify_trial_end: 期間条件の29日後はFalse",
+        should_notify_trial_end("op8", now + timedelta(days=TRIAL_PERIOD_DAYS - 1), store),
+        False,
+    ))
+    results.append(_check(
+        "should_notify_trial_end: 期間条件のちょうど30日後でTrue",
+        should_notify_trial_end("op8", now + timedelta(days=TRIAL_PERIOD_DAYS), store),
+        True,
+    ))
+
+    # --- 別operatorのtrialEndNotifiedAtはNoneのまま独立している ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "別operatorのtrialEndNotifiedAtはNoneのまま独立している",
+        store.get_trial_end_notified_at("op9"),
         None,
     ))
 

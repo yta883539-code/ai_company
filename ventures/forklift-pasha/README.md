@@ -2089,3 +2089,23 @@
   トライアル終了通知の配信方法〈生成回数到達は返却テキスト追記・期間到達はメール配信〉・
   トリガー条件・メッセージ文言草案を設計。コード変更なし。Cloud Scheduler実行環境構築・
   メール送信についてpending-approval.mdに新規記録)
+- フェーズ120(2026-10-10 23:00 UTC定例更新): フェーズ119「次回候補(2)」を受け、
+  `trial-end-notification-design.md`5節「実装への影響メモ」1点目(`trialEndNotifiedAt`
+  フィールドの追加)を実装した。`prototype/trial_management.py`の
+  `FleetOperatorStoreProtocol`・`InMemoryFleetOperatorStore`に`get_trial_end_notified_at`/
+  `set_trial_end_notified_at`(初回設定後は不変、`set_trial_start_at`と同じ方針)を追加し、
+  2節「いずれか早い方で1回のみ送信」の判定を行う純粋関数`should_notify_trial_end()`
+  (`is_trial_period_over()`と`trialEndNotifiedAt`未設定チェックの組み合わせ)も実装した。
+  `test_trial_management.py`にテスト7件追加(境界値・不変性・operator間の独立性を確認)、
+  全21件パス。`python3 prototype/run_all_tests.py`(6ファイル)・
+  `python3 schema/validate_test_cases.py`(11件)もいずれも変更なしでパス。(A)生成回数到達・
+  (B)期間到達それぞれの経路からの実際の呼び出し配線(Webフォーム送信処理・日次スケジューラ
+  本体)はいずれも未実装のまま次回以降の課題として残る。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)(A)経路(生成完了時の返却テキスト追記・`trialEndNotifiedAt`設定)の呼び出し配線の実装、
+  (3)4節「生成一時停止」ロジック(`_is_generation_paused()`相当)の実装、(4)本venture向け
+  「浮いた作業時間の目安」試算ドキュメント(content-generation-time-estimate.md相当、
+  trial-end-notification-design.md 6節)の作成、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 23:00 UTC(フェーズ120: `trialEndNotifiedAt`フィールド・
+  `should_notify_trial_end()`を実装。テスト7件追加、全21件パス)
