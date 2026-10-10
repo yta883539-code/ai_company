@@ -10,8 +10,13 @@ import sys
 from overage_notifications import (
     PLAN_MONTHLY_LIMIT,
     PLAN_VEHICLE_LIMIT,
+    InMemoryUsageCounterStore,
+    InMemoryVehicleCountStore,
+    determine_usage_limit_notice,
     format_fleet_overage_notice,
     format_usage_limit_notice,
+    record_generation_and_get_usage_notice,
+    record_vehicle_and_get_overage_notice,
 )
 
 
@@ -179,6 +184,109 @@ def main():
         PLAN_VEHICLE_LIMIT,
         {"light": 1, "standard": 3, "fleet": 10},
     ))
+
+    # --- determine_usage_limit_notice: 「1回のみ通知」の前後比較判定(フェーズ117) ---
+    # ライトプラン(25回、閾値23回): 21回->22回はまだ閾値未到達。
+    results.append(_check(
+        "determine_usage_limit: light 21->22回(閾値23回未到達)は通知なし",
+        determine_usage_limit_notice(21, 22, PLAN_MONTHLY_LIMIT["light"]),
+        None,
+    ))
+    # 22回->23回で新たに閾値を跨ぐ。
+    results.append(_check(
+        "determine_usage_limit: light 22->23回(新たに閾値到達)で通知",
+        determine_usage_limit_notice(22, 23, PLAN_MONTHLY_LIMIT["light"]) is not None,
+        True,
+    ))
+    # 既に23回以上だった場合(23->24回)は再通知しない。
+    results.append(_check(
+        "determine_usage_limit: light 23->24回(既に閾値到達済み)は再通知しない",
+        determine_usage_limit_notice(23, 24, PLAN_MONTHLY_LIMIT["light"]),
+        None,
+    ))
+    # 1回で複数回分まとめて加算され閾値をまたぐ場合でも発火する。
+    results.append(_check(
+        "determine_usage_limit: light 20->23回(一度に閾値を跨ぐ)でも発火する",
+        determine_usage_limit_notice(20, 23, PLAN_MONTHLY_LIMIT["light"]) is not None,
+        True,
+    ))
+    try:
+        determine_usage_limit_notice(5, 4, PLAN_MONTHLY_LIMIT["light"])
+        results.append(_check(
+            "determine_usage_limit: before>afterでValueError(伝播)",
+            "ValueErrorが発生しなかった", "ValueErrorが発生する",
+        ))
+    except ValueError:
+        results.append(_check(
+            "determine_usage_limit: before>afterでValueError(伝播)", True, True,
+        ))
+
+    # --- InMemoryUsageCounterStore + record_generation_and_get_usage_notice ---
+    usage_store = InMemoryUsageCounterStore()
+    notices = [
+        record_generation_and_get_usage_notice(usage_store, "user-1", "2026-10", "light")
+        for _ in range(25)
+    ]
+    non_none = [n for n in notices if n is not None]
+    results.append(_check(
+        "record_generation: lightプランで25回生成しても通知は23回目の1回のみ",
+        len(non_none),
+        1,
+    ))
+    results.append(_check(
+        "record_generation: 23回目の通知文であることを確認",
+        notices[22] is not None and notices[22] == non_none[0],
+        True,
+    ))
+    results.append(_check(
+        "record_generation: increment後のusage_storeのカウントは25",
+        usage_store.get_count("user-1", "2026-10"),
+        25,
+    ))
+    # 別ユーザー・別年月は独立してカウントされる。
+    other_notice = record_generation_and_get_usage_notice(usage_store, "user-2", "2026-10", "light")
+    results.append(_check(
+        "record_generation: 別ユーザーは1回目(閾値未到達)で通知なし",
+        other_notice,
+        None,
+    ))
+    try:
+        record_generation_and_get_usage_notice(usage_store, "user-1", "2026-10", "unknown")
+        results.append(_check(
+            "record_generation: 未知のplan_idでValueError(伝播)",
+            "ValueErrorが発生しなかった", "ValueErrorが発生する",
+        ))
+    except ValueError:
+        results.append(_check(
+            "record_generation: 未知のplan_idでValueError(伝播)", True, True,
+        ))
+
+    # --- InMemoryVehicleCountStore + record_vehicle_and_get_overage_notice ---
+    vehicle_store = InMemoryVehicleCountStore()
+    vehicle_notices = [
+        record_vehicle_and_get_overage_notice(vehicle_store, "user-1", "light")
+        for _ in range(3)
+    ]
+    results.append(_check(
+        "record_vehicle: lightプラン(1台まで)で3回登録すると2回目のみ通知",
+        [n is not None for n in vehicle_notices],
+        [False, True, False],
+    ))
+    results.append(_check(
+        "record_vehicle: increment後のvehicle_storeの台数は3",
+        vehicle_store.get_vehicle_count("user-1"),
+        3,
+    ))
+    try:
+        record_vehicle_and_get_overage_notice(vehicle_store, "user-1", "light", delta=0)
+        results.append(_check(
+            "record_vehicle: delta<=0でValueError(伝播)",
+            "ValueErrorが発生しなかった", "ValueErrorが発生する",
+        ))
+    except ValueError:
+        results.append(_check(
+            "record_vehicle: delta<=0でValueError(伝播)", True, True,
+        ))
 
     total = len(results)
     failed = total - sum(results)

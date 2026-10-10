@@ -107,3 +107,104 @@ def _next_plan(plan_id: str) -> "str | None":
     if index + 1 >= len(PLAN_ORDER):
         return None
     return PLAN_ORDER[index + 1]
+
+
+def determine_usage_limit_notice(
+    count_before_increment: int, count_after_increment: int, monthly_limit: int
+) -> "str | None":
+    """format_usage_limit_notice()のdocstringが呼び出し側の責務とした「1回のみ通知」の
+    判定を実装する(フェーズ116次回候補(2))。format_fleet_overage_notice()と同型の
+    before/after判定(閾値をこの増分で新たに跨いだ場合のみ発火)に揃える。
+    """
+    if count_before_increment > count_after_increment:
+        raise ValueError(
+            "count_before_incrementはcount_after_increment以下である必要がある: "
+            f"before={count_before_increment!r} after={count_after_increment!r}"
+        )
+    threshold = _ceil_ratio(monthly_limit, USAGE_LIMIT_NOTICE_RATIO)
+    if count_before_increment >= threshold:
+        return None
+    return format_usage_limit_notice(count_after_increment, monthly_limit)
+
+
+class UsageCounterStoreProtocol:
+    """usage_counterドキュメントの読み書きを模したProtocol(design 5節)。実際のFirestore
+    接続は未実装で、本venture内ではInMemoryUsageCounterStoreのみを実装として用意する。
+    """
+
+    def get_count(self, user_id: str, year_month: str) -> int:
+        raise NotImplementedError
+
+    def increment_count(self, user_id: str, year_month: str) -> "tuple[int, int]":
+        """1回分の生成を加算し、(加算前カウント, 加算後カウント)を返す。"""
+        raise NotImplementedError
+
+
+class VehicleCountStoreProtocol:
+    """vehicleドキュメント件数の読み書きを模したProtocol(design 5節)。InMemory実装のみ。"""
+
+    def get_vehicle_count(self, user_id: str) -> int:
+        raise NotImplementedError
+
+    def increment_vehicle_count(self, user_id: str, delta: int = 1) -> "tuple[int, int]":
+        """台数登録を加算し、(加算前台数, 加算後台数)を返す。"""
+        raise NotImplementedError
+
+
+class InMemoryUsageCounterStore(UsageCounterStoreProtocol):
+    """usage_counterドキュメントを模したInMemory実装(Firestore接続は未実装のまま)。"""
+
+    def __init__(self) -> None:
+        self._counts: "dict[tuple[str, str], int]" = {}
+
+    def get_count(self, user_id: str, year_month: str) -> int:
+        return self._counts.get((user_id, year_month), 0)
+
+    def increment_count(self, user_id: str, year_month: str) -> "tuple[int, int]":
+        key = (user_id, year_month)
+        before = self._counts.get(key, 0)
+        after = before + 1
+        self._counts[key] = after
+        return before, after
+
+
+class InMemoryVehicleCountStore(VehicleCountStoreProtocol):
+    """vehicleドキュメント件数を模したInMemory実装(Firestore接続は未実装のまま)。"""
+
+    def __init__(self) -> None:
+        self._counts: "dict[str, int]" = {}
+
+    def get_vehicle_count(self, user_id: str) -> int:
+        return self._counts.get(user_id, 0)
+
+    def increment_vehicle_count(self, user_id: str, delta: int = 1) -> "tuple[int, int]":
+        if delta <= 0:
+            raise ValueError(f"deltaは正の整数である必要がある: {delta!r}")
+        before = self._counts.get(user_id, 0)
+        after = before + delta
+        self._counts[user_id] = after
+        return before, after
+
+
+def record_generation_and_get_usage_notice(
+    store: UsageCounterStoreProtocol, user_id: str, year_month: str, plan_id: str
+) -> "str | None":
+    """1回分の生成完了をusage_counterに加算し、90%閾値を新たに跨いだ場合のみ通知文を
+    返す(store.increment_count()で加算前後を取得し、determine_usage_limit_notice()に
+    委譲することで『1回のみ』を保証する)。
+    """
+    if plan_id not in PLAN_MONTHLY_LIMIT:
+        raise ValueError(f"未知のplan_id: {plan_id!r}")
+    before, after = store.increment_count(user_id, year_month)
+    return determine_usage_limit_notice(before, after, PLAN_MONTHLY_LIMIT[plan_id])
+
+
+def record_vehicle_and_get_overage_notice(
+    store: VehicleCountStoreProtocol, user_id: str, plan_id: str, delta: int = 1
+) -> "str | None":
+    """台数登録をvehicleドキュメント件数に加算し、新たにプラン上限を超えた場合のみ通知文を
+    返す(store.increment_vehicle_count()で加算前後を取得し、format_fleet_overage_notice()
+    に委譲する)。
+    """
+    before, after = store.increment_vehicle_count(user_id, delta)
+    return format_fleet_overage_notice(before, after, plan_id)

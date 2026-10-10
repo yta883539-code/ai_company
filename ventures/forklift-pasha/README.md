@@ -2013,3 +2013,30 @@
   作成し、月間生成回数上限接近通知・保有台数プラン超過時のアップセル通知を純粋関数として
   実装。`test_overage_notifications.py`〈21件、新規〉で全件パスを確認。既存テスト4ファイル・
   schema検証11件も変更なしでパス)
+- フェーズ117(2026-10-10 12:00 UTC定例更新): フェーズ116「次回候補(2)」で未着手のまま
+  残っていた、usage_counter・vehicleドキュメントの読み書きを模した呼び出し側(InMemoryStub)
+  の実装、および「1回のみ通知」の状態管理ロジックの実装に着手した。
+  `prototype/overage_notifications.py`に(1)`determine_usage_limit_notice()`
+  (閾値を今回の増分で新たに跨いだ場合のみ発火する、`format_fleet_overage_notice()`と同型の
+  before/after判定。`format_usage_limit_notice()`のdocstringが呼び出し側の責務とした
+  「1回のみ」の制御を実装)、(2)`UsageCounterStoreProtocol`・`VehicleCountStoreProtocol`と
+  それぞれのInMemory実装(`InMemoryUsageCounterStore`・`InMemoryVehicleCountStore`、
+  ユーザーID〈・年月〉単位でカウントを保持し加算前後を返す)、(3)両者を結合する
+  `record_generation_and_get_usage_notice()`・`record_vehicle_and_get_overage_notice()`を
+  追加した。`test_overage_notifications.py`に13件追加(前後比較の境界値5件、InMemoryStore経由の
+  一連の生成・台数登録シナリオ8件〈例: lightプランで25回生成しても通知は23回目の1回のみ、
+  別ユーザー・別年月は独立カウント、delta<=0でValueError等〉)し、全34件パスを確認した。
+  実際のFirestore接続自体は引き続き未着手(InMemory実装のみ、次回候補)。
+  usage-and-fleet-overage-notification-design.md「5. 実装方針」にも実装済みである旨を
+  追記した。`python3 prototype/run_all_tests.py`(5ファイル、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を再実行しいずれもパスを確認。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1・2がオーナーから承認された
+  場合はその着手を最優先、(2)実際のGCP/Firestore接続(InMemoryStubからの置き換え)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 12:00 UTC(フェーズ117: `determine_usage_limit_notice()`で「1回のみ
+  通知」の前後比較判定を実装し、`InMemoryUsageCounterStore`・`InMemoryVehicleCountStore`で
+  usage_counter・vehicleドキュメントの読み書きを模した呼び出し側を実装。
+  `record_generation_and_get_usage_notice()`・`record_vehicle_and_get_overage_notice()`で
+  両者を結合。テスト13件追加、全34件パス。既存テスト4ファイル・schema検証11件も変更なしで
+  パス)
