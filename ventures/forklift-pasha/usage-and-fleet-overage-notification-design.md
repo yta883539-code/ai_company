@@ -91,6 +91,9 @@ firestore-data-model.md(フェーズ114)で確定した`vehicleCount`の実績�
   `format_usage_limit_notice(count_after_increment, monthly_limit) -> Optional[str]`・
   `format_fleet_overage_notice(vehicle_count_before, vehicle_count_after, plan_id) ->
   Optional[str]`相当の純粋関数としての実装化は次回候補とする。
+  **(フェーズ116で`prototype/overage_notifications.py`として実装済み。2節の「1回のみ通知」の
+  制御は本関数の責務外とし、呼び出し側がusage_counterの前回値と比較して行う設計のまま。
+  実際のFirestore読み書き自体は引き続き未着手。)**
 - 実際のGCP/Firestore接続・Stripeプラン変更導線の実装はアカウント作成・外部サービス接続を
   伴うため、着手時にオーナー承認が必要(pending-approval.md参照)。本ファイルは机上の設計
   整理のみ。

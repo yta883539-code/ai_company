@@ -1990,3 +1990,26 @@
   を新規作成し、月間生成回数上限接近通知〈利用率90%方式〉・保有台数プラン超過時のアップセル
   通知〈次プラン案内/10台超は個別相談案内〉を一体設計した。コード変更なし、テスト4ファイル・
   schema検証11件いずれもパス)
+- フェーズ116(2026-10-10 07:00 UTC定例更新): フェーズ115「5. 実装方針(次回候補)」で
+  未着手のまま残っていた、`format_usage_limit_notice()`・`format_fleet_overage_notice()`の
+  純粋関数としての実装化に着手した。`prototype/overage_notifications.py`を新規作成し、
+  月間生成回数上限の90%到達判定(整数演算でのceil計算、プラン別閾値: ライト23回/
+  スタンダード63回/複数台198回)、保有台数の新規超過判定(`vehicle_count_before <=
+  planLimit < vehicle_count_after`、既に超過済みの場合は再通知しない)、次プラン案内文言
+  (最上位プラン〈複数台〉超過時は個別相談案内に分岐)をdue_date_logic.py等と同じ「pure
+  stdlib・実LLM呼び出しなし」の方針で実装した。`prototype/test_overage_notifications.py`
+  (21件、新規)で生成回数90%閾値の境界値(3プラン)・台数超過の新規発生/再通知なしの境界・
+  異常値(ValueError伝播)を検証し、全件パスを確認した。usage-and-fleet-overage-
+  notification-design.md「5. 実装方針」にも実装済みである旨を追記した。実際のFirestore
+  (usage_counter・vehicleドキュメント)の読み書き自体・「1回のみ通知」の状態管理(前回値との
+  比較)は呼び出し側の責務として引き続き未実装(次回候補)。`python3 prototype/
+  run_all_tests.py`(5ファイル、新規1件含む)・`python3 schema/validate_test_cases.py`
+  (11件)をいずれも再実行しパスを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、(2)usage_counter・
+  vehicleドキュメントの読み書きを模した呼び出し側(InMemoryStub等)の実装、および「1回のみ
+  通知」の状態管理ロジックの実装、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 07:00 UTC(フェーズ116: `prototype/overage_notifications.py`を新規
+  作成し、月間生成回数上限接近通知・保有台数プラン超過時のアップセル通知を純粋関数として
+  実装。`test_overage_notifications.py`〈21件、新規〉で全件パスを確認。既存テスト4ファイル・
+  schema検証11件も変更なしでパス)
