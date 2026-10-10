@@ -5348,3 +5348,39 @@
   course-set-pashaはフェーズ91時点から一貫して分離を選択しており、21.2節の「ずれ」は
   aircon-pasha固有の設計記載の誤りと判断、横展開是正は不要と結論。コード変更なし、
   テスト653件・schema検証25件いずれもパス)
+- フェーズ305(2026-10-10 16:00 UTC定例更新): フェーズ304の次回候補(2)を受け、
+  `UserProfile`(user_id_linking.py)へ`deletion_candidate_at`・`deletion_candidate_
+  state_event_time`の2フィールドを追加し、`UserProfileStoreProtocol`/
+  `InMemoryUserProfileStore`に対応するget/setメソッドを実装した
+  (`all_user_ids()`は既存メソッドを再利用)。`resolve_linking_code()`の再連携時引き継ぎ
+  処理にも2フィールドを追加し、他の「不変フィールドではない」系フィールドと同じ扱いに
+  揃えた。影響範囲の精査(次回候補(2)で指示された7ファイル: deletion_candidate.py・
+  deletion_candidate_final_confirmation.py・blocked_but_billing_candidates.py・
+  stripe_webhook.py・subscription_plan_sync.py・payment_failure.py・stripe_dispatch.py)
+  の結果、実際に書き換えが必要だったのは`stripe_webhook.py`の
+  `get_stripe_runtime_dependencies()`のみであることを確認した(他6ファイルは
+  `ProfileDeletionCandidateStoreProtocol`/構造的Protocolを介して`store`引数を
+  受け取るだけで、具象クラスに依存していないため無変更で動作する)。同ファクトリの
+  `"store"`キーが生成していた独立インスタンス`InMemoryProfileDeletionCandidateStore()`を
+  `user_profile_store`と同一インスタンスへ差し替え、design意図どおり同一
+  `user_profile`ドキュメント内のフィールドとして扱う構成に揃えた(`InMemoryProfileDeletion
+  CandidateStore`クラス自体はdeletion_candidate.py単体テスト群がそのまま使い続けるため
+  削除せず維持)。新規テストとしてtest_user_id_linking.pyに
+  `InMemoryUserProfileStoreDeletionCandidateFieldTest`(5件: 既定値None・set/get・
+  None設定でクリア・不明user_idでno-op・再連携時の引き継ぎ)、test_stripe_webhook.pyに
+  `GetStripeRuntimeDependenciesDeletionCandidateStoreTest`(2件: `store`と
+  `user_profile_store`が同一インスタンスであることの確認、`customer.subscription.
+  deleted`受信後に書き込まれた`deletion_candidate_at`が`user_profile_store`からも
+  同じ値で読めることの回帰確認)を追加し、計7件増加。`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(660件、+7)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
+  その着手を最優先、(2)他venture(kura-pasha・forklift-pasha・line-reservation-ai等)に
+  本フェーズと同種の「design docの記載〈統合済みのはず〉と実装〈別ストアに分離〉の
+  ずれ」が存在するかのcross-venture parity確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 16:00 UTC(フェーズ305: `UserProfile`へ`deletion_candidate_at`等
+  2フィールドを追加し`InMemoryUserProfileStore`を`ProfileDeletionCandidateStoreProtocol`
+  に統合、`get_stripe_runtime_dependencies()`の`store`を`user_profile_store`と同一
+  インスタンスへ差し替え。フェーズ303で発見した設計とのずれを解消。テスト660件
+  (+7)・schema検証25件いずれもパス)

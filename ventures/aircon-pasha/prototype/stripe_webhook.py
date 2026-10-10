@@ -77,7 +77,6 @@ from blocked_but_billing_owner_notification import (
     BlockedButBillingOwnerNotifiedAtStoreProtocol,
 )
 from cloud_function_webhook import PortalLinkProvider
-from deletion_candidate import InMemoryProfileDeletionCandidateStore
 from payment_failure import LinePushClient, PaymentFailureStoreProtocol
 from payment_recovery_notification import LinePushClient as RecoveryPushClient
 from stripe_dispatch import (
@@ -454,10 +453,17 @@ def get_stripe_runtime_dependencies() -> dict:
     (stripe-webhook-http-entry-point-design.md「残課題」で未着手のまま残っていた項目、
     course-set-pashaの`get_stripe_runtime_dependencies()`と同じ位置づけ)。
 
-    - store: `InMemoryProfileDeletionCandidateStore()`を暫定的に返す。実Firestore接続は
-      実GCPプロジェクト作成(オーナー承認待ち)後の課題として別途残る。プロセス起動ごとに
-      初期化されるため、実Cloud Functions環境では呼び出しをまたいで削除候補フラグが
-      保持されない点に注意(course-set-pashaの同名ファクトリと同じ既知の限界)。
+    - store: フェーズ305で`user_profile_store`と同一インスタンスを渡すよう変更した。
+      `deletion_candidate_at`/`deletion_candidate_state_event_time`の2フィールドを
+      `UserProfile`dataclassへ追加し`InMemoryUserProfileStore`が`ProfileDeletionCandidate
+      StoreProtocol`を構造的に(duck typing)満たすようにしたため、他のProtocol
+      (`PaymentFailureStoreProtocol`等)と同じく使い回せる(design意図どおり同一
+      `user_profile`ドキュメント内のフィールドとして扱う、フェーズ303で発見した
+      「design docの記載〈統合済みのはず〉と実装〈別ストアに分離〉のずれ」の解消)。
+      実Firestore接続は実GCPプロジェクト作成(オーナー承認待ち)後の課題として別途残る。
+      プロセス起動ごとに初期化されるため、実Cloud Functions環境では呼び出しをまたいで
+      削除候補フラグが保持されない点に注意(course-set-pashaの同名ファクトリと同じ
+      既知の限界)。
     - user_profile_store: `InMemoryUserProfileStore()`を1つ生成する。本ventureは
       `PaymentFailureStoreProtocol`を専用のInMemoryスタブとして持たず、
       `UserProfileStoreProtocol`が構造的に(duck typing)満たす設計(payment_failure.py
@@ -489,7 +495,7 @@ def get_stripe_runtime_dependencies() -> dict:
     """
     user_profile_store = InMemoryUserProfileStore()
     return {
-        "store": InMemoryProfileDeletionCandidateStore(),
+        "store": user_profile_store,
         "resolve_user_id": make_resolve_user_id(user_profile_store),
         "user_profile_store": user_profile_store,
         "payment_store": user_profile_store,

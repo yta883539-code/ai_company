@@ -260,7 +260,25 @@ class UserProfile:
     reactivated状態クリア)を、遅延配信された古い`.updated`で誤って上書き・再通知して
     しまうことを防ぐ。最後に実際に反映した`.updated`イベントの`event.created`を記録し、
     `stripe_dispatch._is_stale_subscription_updated_event()`がこれより古い(または同時刻の)
-    イベントの反映を丸ごとスキップする判定に使う。"""
+    イベントの反映を丸ごとスキップする判定に使う。
+
+    `deletion_candidate_at`/`deletion_candidate_state_event_time`はフェーズ305で追加した。
+    deletion_candidate.pyの`ProfileDeletionCandidateStoreProtocol`は本来`user_profile`
+    ドキュメントの一部フィールドのみを対象にした薄いインターフェース(design 2節)という
+    位置づけだが、フェーズ303で発見した通り、本venture固有の設計記載の誤り(`UserProfile`
+    dataclassに対応フィールドが存在せず`InMemoryUserProfileStore`も該当メソッドを
+    実装していなかった)により、実装側では`get_stripe_runtime_dependencies()`
+    (stripe_webhook.py)が`InMemoryProfileDeletionCandidateStore()`という完全に別系統の
+    dictを持つ専用ストアを生成し`user_profile_store`とは独立に渡していた。この2フィールドの
+    追加は、他のdunning/subscription系フィールドと同じく本クラスが構造的に
+    `ProfileDeletionCandidateStoreProtocol`を満たすようにするためのもので、フェーズ305で
+    `get_stripe_runtime_dependencies()`側の`store`も`user_profile_store`と同一インスタンスへ
+    差し替えた(design意図どおり同一`user_profile`ドキュメント内のフィールドとして扱う)。
+    `deletion_candidate_at`自体は不変フィールドではない(`mark_deletion_candidate_on_
+    subscription_deleted()`/`clear_deletion_candidate_on_subscription_reactivated()`に
+    よって書き換わる)。`deletion_candidate_state_event_time`も
+    `subscription_state_event_time`等と同じイベント順序ガード用の補助フィールドで、
+    値そのものに業務的な意味はない。"""
 
     business_name: str
     business_type: str
@@ -285,6 +303,8 @@ class UserProfile:
     is_following: bool = True
     blocked_but_billing_owner_notified_at: Optional[datetime] = None
     payment_suspension_owner_notified_at: Optional[datetime] = None
+    deletion_candidate_at: Optional[datetime] = None
+    deletion_candidate_state_event_time: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -521,6 +541,20 @@ class UserProfileStoreProtocol(Protocol):
     def set_subscription_updated_event_time(self, user_id: str, event_time: datetime) -> None:
         ...
 
+    def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
+        """フェーズ305: deletion_candidate.pyの`ProfileDeletionCandidateStoreProtocol`を
+        本クラスが構造的に満たすためのメソッド。"""
+        ...
+
+    def set_deletion_candidate_at(self, user_id: str, value: Optional[datetime]) -> None:
+        ...
+
+    def get_deletion_candidate_state_event_time(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        ...
+
 
 class InMemoryUserProfileStore:
     """実Firestore接続の代わりにdictで`user_profile`ドキュメントを保持する検証用スタブ。
@@ -755,6 +789,26 @@ class InMemoryUserProfileStore:
             return
         profile.subscription_updated_event_time = event_time
 
+    def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.deletion_candidate_at if profile is not None else None
+
+    def set_deletion_candidate_at(self, user_id: str, value: Optional[datetime]) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.deletion_candidate_at = value
+
+    def get_deletion_candidate_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.deletion_candidate_state_event_time if profile is not None else None
+
+    def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.deletion_candidate_state_event_time = value
+
 
 @dataclass
 class LinkingResolution:
@@ -886,6 +940,14 @@ def resolve_linking_code(
             ),
             subscription_updated_event_time=(
                 existing_profile.subscription_updated_event_time
+                if existing_profile
+                else None
+            ),
+            deletion_candidate_at=(
+                existing_profile.deletion_candidate_at if existing_profile else None
+            ),
+            deletion_candidate_state_event_time=(
+                existing_profile.deletion_candidate_state_event_time
                 if existing_profile
                 else None
             ),

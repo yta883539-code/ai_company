@@ -629,6 +629,93 @@ class InMemoryUserProfileStoreSubscriptionCanceledAtFieldTest(unittest.TestCase)
         self.assertEqual(profile_store.get_subscription_canceled_at("u-1"), _NOW)
 
 
+class InMemoryUserProfileStoreDeletionCandidateFieldTest(unittest.TestCase):
+    """フェーズ305で追加した`deletion_candidate_at`/`deletion_candidate_state_event_time`の
+    単体テスト。`InMemoryUserProfileStore`が`deletion_candidate.py`の
+    `ProfileDeletionCandidateStoreProtocol`を構造的に(duck typing)満たすことを確認する
+    (subscription_canceled_at等と同じ「不変フィールドではない」設計)。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_defaults_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_deletion_candidate_at("u-1"))
+        self.assertIsNone(store.get_deletion_candidate_state_event_time("u-1"))
+
+    def test_set_and_get(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_deletion_candidate_at("u-1", _NOW)
+        store.set_deletion_candidate_state_event_time("u-1", _NOW)
+
+        self.assertEqual(store.get_deletion_candidate_at("u-1"), _NOW)
+        self.assertEqual(store.get_deletion_candidate_state_event_time("u-1"), _NOW)
+        self.assertEqual(store.get("u-1").deletion_candidate_at, _NOW)
+
+    def test_set_none_clears_the_field(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_deletion_candidate_at("u-1", _NOW)
+
+        store.set_deletion_candidate_at("u-1", None)
+
+        self.assertIsNone(store.get_deletion_candidate_at("u-1"))
+
+    def test_setters_are_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_deletion_candidate_at("no-such-user", _NOW)
+        store.set_deletion_candidate_state_event_time("no-such-user", _NOW)
+
+        self.assertIsNone(store.get_deletion_candidate_at("no-such-user"))
+        self.assertIsNone(store.get_deletion_candidate_state_event_time("no-such-user"))
+
+    def test_re_linking_an_existing_user_id_preserves_the_field(self):
+        """再連携がdeletion_candidate_at等も引き継ぐことを確認する(引き継がないと、
+        解約から365日経過済みで削除候補化されていたuser_idが新規連携コードを送っただけで
+        削除候補フラグが消えてしまう欠落になる)。"""
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        linking_store.save(
+            "AB12CD",
+            PendingLink(
+                form_submission_id="form-1", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com", issued_at=_NOW,
+            ),
+        )
+        resolve_linking_code("AB12CD", "u-1", linking_store, profile_store, _NOW)
+        profile_store.set_deletion_candidate_at("u-1", _NOW)
+        profile_store.set_deletion_candidate_state_event_time("u-1", _NOW)
+
+        linking_store.save(
+            "EF34GH",
+            PendingLink(
+                form_submission_id="form-2", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com",
+                issued_at=_NOW + timedelta(hours=1),
+            ),
+        )
+        result = resolve_linking_code(
+            "EF34GH", "u-1", linking_store, profile_store, _NOW + timedelta(hours=1)
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(profile_store.get_deletion_candidate_at("u-1"), _NOW)
+        self.assertEqual(
+            profile_store.get_deletion_candidate_state_event_time("u-1"), _NOW
+        )
+
+
 class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
     """user-account-linking-design.md 4節向けに追加した`current_plan_id`の単体テスト
     (フェーズ161、subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが

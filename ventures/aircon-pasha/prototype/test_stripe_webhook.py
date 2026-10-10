@@ -1270,5 +1270,74 @@ class GetStripeRuntimeDependenciesResolutionTest(unittest.TestCase):
         )
 
 
+class GetStripeRuntimeDependenciesDeletionCandidateStoreTest(unittest.TestCase):
+    """フェーズ305: `store`(deletion_candidate.py向け)が`user_profile_store`と同一
+    インスタンスを指すようになったことを検証する(フェーズ303で発見した「design docの
+    記載〈統合済みのはず〉と実装〈別ストアに分離〉のずれ」の解消。plan_store/payment_store
+    と同じ構造的〈duck typing〉共有パターンに揃えた)。"""
+
+    ENV_SECRET = "demo-webhook-secret"
+
+    def _signed_header(self, body: bytes, secret: str) -> str:
+        timestamp = int(time.time())
+        return _header(body, secret, timestamp)
+
+    def test_store_key_shares_instance_with_user_profile_store(self):
+        deps = get_stripe_runtime_dependencies()
+        self.assertIs(deps["store"], deps["user_profile_store"])
+
+    def test_subscription_deleted_event_marks_deletion_candidate_visible_via_user_profile_store(
+        self,
+    ):
+        deps = get_stripe_runtime_dependencies()
+        deps["user_profile_store"].save(
+            "U1",
+            UserProfile(
+                business_name="テスト事業者",
+                business_type="独立系",
+                email="u1@example.com",
+                linked_at=NOW_DT,
+            ),
+        )
+
+        checkout_body = json.dumps(
+            {
+                "id": "evt_checkout",
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {"client_reference_id": "U1", "customer": "cus_A"}
+                },
+            }
+        ).encode("utf-8")
+        receive_stripe_webhook(
+            checkout_body,
+            self._signed_header(checkout_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+
+        subscription_body = (
+            b'{"id":"evt_sub","type":"customer.subscription.deleted",'
+            b'"created":1700000000,"data":{"object":{"customer":"cus_A"}}}'
+        )
+        subscription_result = receive_stripe_webhook(
+            subscription_body,
+            self._signed_header(subscription_body, self.ENV_SECRET),
+            self.ENV_SECRET,
+            **deps,
+        )
+
+        self.assertEqual(subscription_result.dispatch_result.marked_user_ids, ["U1"])
+        # 「別インスタンスの`store`にだけ書き込まれていて`user_profile_store`からは
+        # 見えない」という旧実装(フェーズ303で発見)の退行が無いことを確認する。
+        self.assertIsNotNone(
+            deps["user_profile_store"].get_deletion_candidate_at("U1")
+        )
+        self.assertEqual(
+            deps["store"].get_deletion_candidate_at("U1"),
+            deps["user_profile_store"].get_deletion_candidate_at("U1"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
