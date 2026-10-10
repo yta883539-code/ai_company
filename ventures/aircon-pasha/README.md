@@ -5384,3 +5384,25 @@
   に統合、`get_stripe_runtime_dependencies()`の`store`を`user_profile_store`と同一
   インスタンスへ差し替え。フェーズ303で発見した設計とのずれを解消。テスト660件
   (+7)・schema検証25件いずれもパス)
+- フェーズ306(2026-10-10 22:00 UTC定例更新): フェーズ305の次回候補(2)を受け、他venture
+  (kura-pasha・forklift-pasha・line-reservation-ai)にフェーズ303〜305で見つかった
+  「`UserProfile`相当のdeletion_candidate_at等フィールドが別ストアに分裂している」
+  パターンと同種のずれが存在するか調査した。line-reservation-aiは既にフェーズ続き310
+  (2026-10-10 11:00 UTC、本README該当箇所参照)で`deletion_candidate.py`相当の
+  モジュール自体が存在しない(店舗単位モデルのため該当機能が無い)と結論済みのため
+  再調査は行わなかった。kura-pashaは`stripe_webhook.py`のコメント(143行目)で
+  course-set-pasha/aircon-pasha型の`subscription_canceled_at`・`deletion_candidate_at`
+  分離設計ではなく、単一enumフィールド`subscription_status`で状態を表現する
+  別設計を採用していることを確認し、deletion_candidate_at等の個別フィールドを
+  複数ストアに分裂させるという本パターン自体が構造的に発生しない設計であることを
+  確認した。forklift-pashaはStripe連携用のプロトタイプコード(`stripe_webhook.py`等)
+  自体がまだ存在せず(Stripeアカウント開設が2026-10-06 22:00 UTC記載分で承認待ちの
+  ため未着手)、deletion_candidate相当の機能も存在しないため本パターンは適用対象外
+  であることを確認した。以上により、本パターンの横展開是正はaircon-pasha(フェーズ305で
+  解消済み)・course-set-pasha(フェーズ91時点から統合済みと既確認)以外では不要と
+  結論した。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(660件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
+  その着手を最優先、(2)他venture・アイデア領域の前進。
