@@ -4803,3 +4803,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   「payment_failure系」グループ〈2フィールド・5メソッド〉の実Firestore接続アダプタ設計を
   `workshop-store-firestore-adapter-design.md`15節に追加。テスト171件・schema検証32件
   いずれもパス)
+- フェーズ221(2026-10-10 02:00 UTC定例更新): フェーズ220の次回候補(2)に従い、
+  `WorkshopStoreProtocol`の残りグループ**trial_end_notified_at・owner_notified_at系2種**
+  (`get_trial_end_notified_at`/`set_trial_end_notified_at`・
+  `get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_notified_at`・
+  `get_payment_suspension_owner_notified_at`/`set_payment_suspension_owner_notified_at`、
+  3フィールド・計6メソッド、usage_counter_workshop.py 556〜601行目)の実Firestore接続
+  アダプタ設計を`workshop-store-firestore-adapter-design.md`17節に追加した。
+  `trial_end_notified_at`は`set_*`がOptionalを受けずクリア経路を持たない1方向フラグ、
+  他2フィールドは`None`書き込みでクリアを表現する1メソッド方式という違いをInMemory実装
+  (839〜862行目)通りに反映した。さらに15.1節で未確認のまま残っていた課題(本節の
+  `set_payment_suspension_owner_notified_at`と15節`clear_payment_failure_detected_at`が
+  同じフィールド名に書き込む経路の整合性)を確認し、両者とも同一ドキュメントへの
+  `set(merge=True)`による後勝ち上書きで競合しないことを17.3節に記録した。これにより
+  `WorkshopStoreProtocol`の実Firestore接続アダプタ設計が全グループ完了し、本venture内の
+  4Protocol(`UserProfileStoreProtocol`・`WorkshopStoreProtocol`・
+  `UsageCounterStoreProtocol`・`LinkingCodeStoreProtocol`)すべての設計が完了したことを
+  18節に記録した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(171件、変更なし)・`python3 schema/validate_test_cases.py`
+  (32件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)優先順位1・2候補(ライディングショップ池上・
+  エクウスワールド)へのヒアリング実施がオーナーから承認された場合はその着手を最優先、
+  (2)4つの設計ドキュメントの`merge=True`部分更新方針・安全側フォールバック方針の横断
+  レビュー、(3)付け替え時の旧`stripe_customer_index`エントリ削除(line-reservation-aiの
+  設計を参考に改善)、(4)一時的な接続エラー時の安全側フォールバック方針の統一的整理、
+  (5)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 02:00 UTC(フェーズ221: `WorkshopStoreProtocol`の
+  「trial_end_notified_at・owner_notified_at系2種」グループ〈3フィールド・6メソッド〉の
+  実Firestore接続アダプタ設計を`workshop-store-firestore-adapter-design.md`17節に追加し、
+  本Protocol・本venture内全4Protocolの実Firestore接続アダプタ設計を完了。テスト171件・
+  schema検証32件いずれもパス)

@@ -758,6 +758,103 @@ get/set設計は、1個のフィールドのみ先行してここで扱うこと
    の設計を参考に改善、未着手のまま継続)。
 3. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
    本venture全体を通じた統一的な整理。
+
+## 17. WorkshopStoreProtocol(trial_end_notified_at・owner_notified_at系2種グループ)の実Firestore接続アダプタ設計
+
+### 17.1. 背景・範囲
+
+本節は16節1点目で次回候補として残した最後のグループに着手し、`WorkshopStoreProtocol`の
+全メソッドの実Firestore接続アダプタ設計を完了させる。対象は`get_trial_end_notified_at`/
+`set_trial_end_notified_at`・`get_blocked_but_billing_owner_notified_at`/
+`set_blocked_but_billing_owner_notified_at`・`get_payment_suspension_owner_notified_at`/
+`set_payment_suspension_owner_notified_at`の3フィールド・計6メソッド
+(usage_counter_workshop.py 556〜601行目)。
+
+`trial_end_notified_at`(556〜564行目)は`set_trial_end_notified_at`の引数が
+`notified_at: datetime`(Optionalではない)であり、docstringにもクリア経路の記載がない
+一方、`blocked_but_billing_owner_notified_at`(566〜581行目)・
+`payment_suspension_owner_notified_at`(584〜601行目)はいずれも`set_*`の引数が
+`Optional[datetime]`で、`None`を渡すことでクリアを表現する1メソッド方式である点が異なる
+(docstring580行目・596行目が明記)。InMemory実装(839〜862行目)もこの違いに対応し、
+前者はクリア専用の分岐を持たず単純代入のみ、後者2つは`if notified_at is None: pop(...)
+else: 代入`という共通パターンを採る。
+
+### 17.2. 設計
+
+```python
+    def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("trial_end_notified_at")
+
+    def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
+        self._doc_ref(workshop_id).set({"trial_end_notified_at": notified_at}, merge=True)
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, workshop_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("blocked_but_billing_owner_notified_at")
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"blocked_but_billing_owner_notified_at": notified_at}, merge=True
+        )
+
+    def get_payment_suspension_owner_notified_at(
+        self, workshop_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {}).get("payment_suspension_owner_notified_at")
+
+    def set_payment_suspension_owner_notified_at(
+        self, workshop_id: str, notified_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"payment_suspension_owner_notified_at": notified_at}, merge=True
+        )
+```
+
+### 17.3. 検討事項
+
+- **`trial_end_notified_at`はクリア経路を持たない1方向のフラグとして設計する**: 他の
+  event_time系フィールドと異なり、トライアル終了通知は一度送信すれば当該workshopの
+  トライアル期間中は再送されない想定(design 2節)のため、`set_*`はOptionalを受けず
+  常に値を書き込む。将来的にトライアル再開等の運用が生じた場合は、他2フィールドと同じ
+  `Optional[datetime]`方式へ変更する必要があるが、現時点のProtocol定義(引数は
+  `datetime`のみ)に忠実に設計した。
+- **`set_payment_suspension_owner_notified_at`と15.2節`clear_payment_failure_detected_at`は
+  同じフィールド名に書き込むが競合しない**: 15.1節の課題として残っていた整合性確認を行った
+  結果、両者はいずれも同一ドキュメントの`payment_suspension_owner_notified_at`キーへの
+  `set(merge=True)`であり、書き込み先・書き込み方式(値またはNoneの直接代入)が完全に
+  一致するため、どちらの経路から呼ばれても後勝ち(last-write-wins)の単純な上書きとなり、
+  Firestore側で特別な調整は不要であることを確認した。これにより`WorkshopStoreProtocol`
+  全グループの実Firestore接続アダプタ設計が完了した。
+- **`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`は
+  同型の実装だが用途が異なるため統合しない**: 両フィールドとも「クリアはNone書き込みで
+  表現する1メソッド方式」という点で設計は同一だが、前者はdocstring567〜571行目の通り
+  `list_blocked_but_billing_candidates()`の通知済み管理、後者は決済失敗からの制限モード
+  移行通知の管理という別のユースケースを担うため、意図的にメソッドを分けたまま設計した
+  (他venture・他グループでも同型のget/set実装が目的別に複数存在する既存パターンを踏襲)。
+- **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節・13.3節・15.3節で指摘した
+  「一時的な接続エラー時の安全側フォールバック方針」は、本節でも個別には検討せず、
+  12節3点目・14節3点目・16節3点目の統一的整理に委ねる。
+
+## 18. 残課題・次回候補(17節分)
+
+1. `WorkshopStoreProtocol`の実Firestore接続アダプタ設計は本節で全グループ完了した。
+   `UserProfileStoreProtocol`(firestore-provider-adapter-design.md)・
+   `UsageCounterStoreProtocol`(firestore-usage-counter-provider-adapter-design.md)・
+   `LinkingCodeStoreProtocol`(linking-code-store-firestore-adapter-design.md・
+   invite-code-store-firestore-adapter-design.md)もそれぞれ既に設計済みのため、本venture
+   内の全4Protocolの実Firestore接続アダプタ設計がこれで完了した。次回は、承認後の結合
+   実装フェーズに備え、4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・
+   安全側フォールバック方針(3点目)に矛盾がないかの横断レビューを優先候補とする。
+2. 付け替え時の旧`stripe_customer_index`エントリ削除(11.1節・12節1点目、line-reservation-ai
+   の設計を参考に改善、未着手のまま継続)。
+3. 一時的な接続エラー時の安全側フォールバック方針(3節で未検討のまま残した点)の、
+   本venture全体を通じた統一的な整理。
 4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
 5. 他venture・アイデア領域の前進。
