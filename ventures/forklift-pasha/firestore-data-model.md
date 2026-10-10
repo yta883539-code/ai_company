@@ -100,8 +100,10 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   `{operator_id}`から`{internal_id}`に変更し`accessToken`・`email`フィールドを追加、
   `vehicle`コレクションの参照フィールドを`operatorId`から`operatorInternalId`に変更、
   `usage_counter`のキーを`{operator_id}`から`{internal_id}`に変更した。)
-- `vehicle_id`の発行・重複チェック(同一事業者内で車両番号表記が重複した場合の扱い)は
-  実装時の課題として残す。
+- (解消済み 2026-10-10 04:00 UTC・フェーズ114: `vehicle_id`の発行〈Firestore自動生成ID〉・
+  重複チェック〈`(operatorInternalId, vehicleLabel)`の完全一致、トリムのみ正規化〉の設計を
+  vehicle-label-duplicate-handling-design.mdとして新規作成した。あわせて`vehicleCount`
+  フィールドを自己申告ではなく実績カウンタ方式に確定した。詳細は同ファイル参照。)
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当するため、着手時に
   オーナー承認が必要(pending-approval.md参照)。本ファイルは机上のスキーマ整理のみ。
 - (解消済み 2026-10-07 04:00 UTC・フェーズ99: access-token-reissue-design.md〈フェーズ98〉

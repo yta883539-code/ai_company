@@ -1952,3 +1952,22 @@
   記載漏れを発見し、優先度C〈所在地のみ確認済み〉として明示的に追記した。電話番号の
   WebSearch確認は不調だった。コード変更なし、テスト4ファイル・schema検証11件いずれも
   パス)
+- フェーズ114(2026-10-10 04:00 UTC定例更新): firestore-data-model.md「未確定・残課題」に
+  「実装時の課題として残す」のまま残っていた`vehicle_id`の発行・重複チェック(同一事業者内で
+  車両番号表記が重複した場合の扱い)に着手し、vehicle-label-duplicate-handling-design.mdを
+  新規作成した。`vehicle_id`はaccess-token-reissue-design.md(フェーズ96)の`internal_id`と
+  同様にFirestore自動生成IDとし、重複判定は`(operatorInternalId, vehicleLabel)`の完全一致
+  (前後空白のトリムのみ正規化、表記ゆらぎの吸収はしない)とした。台数プラン上限を超過しても
+  mvp-flow-draft.md・pricing-plan.mdの既存方針(記録作成自体は止めない)を台数超過にも適用する
+  こととし、`fleet_operator.vehicleCount`は契約時の自己申告ではなく`vehicle`ドキュメント作成
+  時に実績ベースで加算するカウンタ方式に確定した。firestore-data-model.mdの該当項目も解消済みと
+  して更新した。コード変更なし、文書作成のみのため回帰確認として`python3 prototype/
+  run_all_tests.py`(4ファイル)・`python3 schema/validate_test_cases.py`(11件)を再実行し、
+  いずれもパスすることを確認した(変更なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、(2)複合インデックス設計
+  (firestore-composite-index-plan相当)・台数プラン超過時のアップセル通知設計(生成回数超過
+  通知と合わせた一体設計が望ましい)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 04:00 UTC(フェーズ114: vehicle-label-duplicate-handling-design.mdを
+  新規作成し、`vehicle_id`発行〈Firestore自動生成ID〉・重複判定〈完全一致〉・`vehicleCount`の
+  実績カウンタ方式を確定。コード変更なし、テスト4ファイル・schema検証11件いずれもパス)
