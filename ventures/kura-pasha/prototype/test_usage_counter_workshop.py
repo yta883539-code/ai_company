@@ -244,6 +244,10 @@ def test_pending_reduction_specified_name_matches_contractor():
     check("契約者本人を指定した場合はspecified_member_matched=True", r.specified_member_matched is True)
     check("noteは記録されない", r.note is None)
     check("結果は契約者のみ残る", r.retained_user_id == "CONTRACTOR")
+    check(
+        "縮小実行後はspecified_retention_member_nameがクリアされる",
+        workshops.get_specified_retention_member_name("W7") is None,
+    )
 
 
 def test_pending_reduction_specified_name_mismatch_notes_and_keeps_default():
@@ -274,6 +278,36 @@ def test_pending_reduction_already_single_member_clears_flag_only():
         "pending_member_reduction_effective_atはクリアされる",
         workshops.get_pending_reduction_effective_at("W9") is None,
     )
+
+
+def test_pending_reduction_does_not_reuse_stale_specified_name_across_cycles():
+    """workshop-store-firestore-adapter-design.md 6節1点目(フェーズ223で解消)の検証。
+
+    1回目の縮小サイクルで指定された継続希望メンバー名が、2回目の縮小サイクルで
+    再指定されなかった場合に誤って持ち越されないことを確認する。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members(
+        "W11",
+        "CONTRACTOR",
+        ["CONTRACTOR", "MEMBER2"],
+        display_names={"CONTRACTOR": "山田太郎"},
+    )
+    workshops.set_pending_reduction_effective_at("W11", FEB)
+    workshops.set_specified_retention_member_name("W11", "山田太郎")
+    r1 = check_and_apply_pending_member_reduction("W11", MAR, workshops)
+    check("1回目は指定名が契約者と一致しspecified_member_matched=True", r1.specified_member_matched is True)
+
+    workshops.add_member_user_id("W11", "MEMBER3")
+    may = datetime(2026, 5, 1, 9, 0, 0)
+    jun = datetime(2026, 6, 1, 9, 0, 0)
+    workshops.set_pending_reduction_effective_at("W11", may)
+    r2 = check_and_apply_pending_member_reduction("W11", jun, workshops)
+    check(
+        "2回目は指定名が再設定されていないためspecified_member_matchedはFalseに戻る",
+        r2.specified_member_matched is False,
+    )
+    check("2回目もnoteは記録されない(指定自体が無いため)", r2.note is None)
 
 
 def test_ensure_member_is_active_allows_contractor_and_current_members():

@@ -406,7 +406,11 @@ class WorkshopStoreProtocol(Protocol):
         ...
 
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
-        """member_user_idsを置き換え、pending_member_reduction_effective_atをクリアする。"""
+        """member_user_idsを置き換え、pending_member_reduction_effective_at・
+        specified_retention_member_nameをクリアする(フェーズ223:
+        workshop-store-firestore-adapter-design.md 6節1点目で次回候補とされていた
+        「縮小実行時にクリアされない」点を、サイクルごとの一度切りの入力として縮小実行時に
+        クリアする仕様に確定)。"""
         ...
 
     def set_contractor_user_id(self, workshop_id: str, user_id: str) -> None:
@@ -754,6 +758,7 @@ class InMemoryWorkshopStore:
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
         self._member_user_ids_by_workshop[workshop_id] = list(retained_user_ids)
         self._pending_reduction_effective_at_by_workshop.pop(workshop_id, None)
+        self._specified_retention_name_by_workshop.pop(workshop_id, None)
 
     def set_contractor_user_id(self, workshop_id: str, user_id: str) -> None:
         self._contractor_by_workshop[workshop_id] = user_id

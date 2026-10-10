@@ -253,9 +253,7 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
   明示的None書き込みは、get側が常に`.get(key)`(存在しないキーも`None`扱い)である限り
   観測可能な挙動が一致する」という根拠がここでも同様に成立することを確認した。
 - **`specified_retention_member_name`が`apply_member_reduction`でクリアされない点**:
-  `InMemoryWorkshopStore.apply_member_reduction`(733〜735行目)は
-  `_specified_retention_name_by_workshop`を一切触らず、`pending_reduction_effective_at`
-  のみをpopする。これは意図的な設計(縮小実行時に指定名の履歴を保持する)か、単に
+  本フェーズ時点では、これが意図的な設計(縮小実行時に指定名の履歴を保持する)か、単に
   見落としかが実装コード・既存設計ドキュメント(downgrade-excess-member-handling-design.md・
   member-retention-notice-design.md)のいずれからも断定できなかった。次回
   `set_pending_reduction_effective_at`が呼ばれる(=新たなダウングレードが確定する)際に
@@ -263,7 +261,10 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
   再利用されてしまう余地がInMemory実装にも既に存在する。本フェーズはFirestore接続
   アダプタの設計がスコープであり、ビジネスロジックの仕様変更(InMemory実装の挙動修正)は
   対象外のため、Firestore側もInMemoryと同一の挙動(クリアしない)を忠実に再現するに留め、
-  この観察事項を6節の次回候補として記録するのみとする。
+  この観察事項を6節の次回候補として記録するのみとする(**フェーズ223で解消**:
+  19節の通り「サイクル1回限りの入力」として縮小実行時にクリアする仕様に確定し、
+  `InMemoryWorkshopStore.apply_member_reduction`もその挙動に修正済み。以降、
+  Firestoreアダプタ側もこの確定仕様〈クリアする〉に追従する)。
 - **`member_user_ids`の書き込み競合**: `apply_member_reduction`は`add_member_user_id`
   (基盤グループ、`ArrayUnion`採用)と異なり`member_user_ids`全体を上書きする
   `set(merge=True)`であるため、両者が同時に実行された場合(縮小確定処理と招待コード
@@ -857,4 +858,51 @@ else: 代入`という共通パターンを採る。
    本venture全体を通じた統一的な整理。
 4. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(6節5点目から継続)。
+5. 他venture・アイデア領域の前進。
+
+## 19. `specified_retention_member_name`の縮小実行時クリア方針の確定(フェーズ223)
+
+5.1節2点目・6節1点目で「意図的な設計か見落としかが断定できない」として先送りしていた、
+`apply_member_reduction`が`specified_retention_member_name`をクリアしない点について、
+本フェーズで仕様を確定した。
+
+- **確定した仕様**: `specified_retention_member_name`は、member_retention_selection受信
+  (1回の縮小サイクルにつき高々1回)から、その縮小サイクルの`apply_member_reduction`実行
+  までの間だけ有効な「サイクル1回限りの入力」である。`apply_member_reduction`実行時に
+  `pending_member_reduction_effective_at`と同様にクリアする。
+- **根拠**: `check_and_apply_pending_member_reduction()`(usage_counter_workshop.py
+  1040〜1058行目)は、指定名を契約者の表示名と1回だけ突き合わせて`specified_member_matched`・
+  `note`を組み立てる使い切りの入力として扱っており、クリアせず残すと次回の縮小サイクル
+  (新たな`set_pending_reduction_effective_at`)で`member_retention_selection`が再送信
+  されなかった場合に、前回サイクルの指定名が誤って再利用される(過去の意思表示が現在の
+  判定に紛れ込む)データ不整合が生じる。これは5.1節で引用した「InMemoryのpop()とFirestore
+  の明示的None書き込みは観測可能な挙動が一致する」という既存の確立済み根拠とも整合する
+  (クリア方式自体は4節のクリア方針と同じ`None`書き込み)。
+- **実装**: `InMemoryWorkshopStore.apply_member_reduction`
+  (prototype/usage_counter_workshop.py)に
+  `self._specified_retention_name_by_workshop.pop(workshop_id, None)`を追加し、
+  `WorkshopStoreProtocol.apply_member_reduction`のdocstringにも仕様を明記した。
+  Firestore接続アダプタ(5節のコード例、229〜243行目)も、2節で確立した`merge=True`の
+  部分更新パターンに従い`specified_retention_member_name: None`を同じ`set()`呼び出しに
+  含めることで、この仕様をそのまま再現できる(アダプタのコード例自体の追加変更は不要、
+  本節の確定事項を5.1節の注記として反映済み)。
+- **テスト**: `test_pending_reduction_specified_name_matches_contractor`に、縮小実行後
+  `get_specified_retention_member_name`が`None`を返すことの確認を追加した。さらに
+  `test_pending_reduction_does_not_reuse_stale_specified_name_across_cycles`(新規)で、
+  1回目のサイクルで指定名が契約者と一致して消費された後、2回目のサイクル(メンバー追加→
+  再度の縮小確定)で指定名を再設定しなければ`specified_member_matched`が`False`に戻ることを
+  検証した。`python3 prototype/run_all_tests.py`(16ファイル、test_usage_counter_workshop.py
+  136件〈新規1件含む〉)・`python3 schema/validate_test_cases.py`(32件、変更なし)をいずれも
+  再実行しパスを確認した。
+- **承認待ちアクション**: 本フェーズはコード・テスト・設計文書の変更のみで、支払い・
+  アカウント作成・外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 20. 残課題・次回候補(19節分)
+
+1. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(18節4点目から継続)。
+2. 4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・安全側フォールバック方針の
+   横断レビュー(18節1点目から継続)。
+3. 付け替え時の旧`stripe_customer_index`エントリ削除(18節2点目から継続)。
+4. 一時的な接続エラー時の安全側フォールバック方針の統一的整理(18節3点目から継続)。
 5. 他venture・アイデア領域の前進。

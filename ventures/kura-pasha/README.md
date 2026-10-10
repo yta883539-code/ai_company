@@ -4866,3 +4866,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `set_pending_reduction_effective_at`/`set_specified_retention_member_name`の宣言漏れ
   〈design記載はあったが実装が反映されていなかった〉を発見・是正。他venture分は精査の上
   誤検知と判断し変更なし。テスト171件・schema検証32件いずれもパス)
+- フェーズ223(2026-10-10 14:00 UTC定例更新): フェーズ222「次回候補(2)」に残っていた、
+  `apply_member_reduction`が`specified_retention_member_name`をクリアしない点
+  (workshop-store-firestore-adapter-design.md 5.1節・6節1点目で意図的設計か見落としかを
+  断定できず先送りしていた論点)の仕様を確定した。`specified_retention_member_name`を
+  member_retention_selection受信から該当縮小サイクルの`apply_member_reduction`実行までの
+  「サイクル1回限りの入力」と位置づけ、クリアせず残すと次回の縮小サイクルで指定名が
+  再送信されなかった場合に前回サイクルの指定名が誤って再利用されるデータ不整合が生じうる
+  ことを根拠に、`apply_member_reduction`実行時に`pending_member_reduction_effective_at`と
+  同様クリアする仕様に確定した。`InMemoryWorkshopStore.apply_member_reduction`
+  (usage_counter_workshop.py)に`_specified_retention_name_by_workshop.pop(workshop_id,
+  None)`を追加し、`WorkshopStoreProtocol`のdocstringにも明記。既存テスト
+  `test_pending_reduction_specified_name_matches_contractor`にクリア確認を追加し、
+  新規`test_pending_reduction_does_not_reuse_stale_specified_name_across_cycles`
+  (1回目サイクルで指定名消費後、2回目サイクルで再指定しなければ`specified_member_matched`
+  がFalseに戻ることを検証)を追加した。workshop-store-firestore-adapter-design.mdに
+  19節(確定事項の記録)・20節(次回候補更新)を追加し、5.1節の該当箇所にも解消済みである
+  旨を追記した。`python3 prototype/run_all_tests.py`(16ファイル、test_usage_counter_
+  workshop.py 136件〈新規1件含む〉)・`python3 schema/validate_test_cases.py`(32件、
+  変更なし)をいずれも再実行しパスを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)優先順位1・2候補(ライディングショップ池上・エクウスワールド)への
+  ヒアリング実施がオーナーから承認された場合はその着手を最優先、(2)4つの設計ドキュメントが
+  前提とする`merge=True`の部分更新方針・安全側フォールバック方針の横断レビュー、
+  (3)付け替え時の旧`stripe_customer_index`エントリ削除、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 14:00 UTC(フェーズ223: `specified_retention_member_name`の縮小実行時
+  クリア方針を確定し、`apply_member_reduction`実行時にクリアするよう修正。テスト1件追加、
+  計136件・schema検証32件いずれもパス)
