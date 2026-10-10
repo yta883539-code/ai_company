@@ -5290,3 +5290,34 @@
 - 最終更新: 2026-10-09 23:00 UTC(フェーズ302: `_profile_to_dict`/`_profile_from_dict`
   ヘルパーの実装設計を19節に新規追加し、`UserProfileStoreProtocol`の設計が完全に完了。
   コード変更なし、テスト653件・schema検証25件いずれもパス)
+- フェーズ303(2026-10-10 00:00 UTC定例更新): フェーズ302の次回候補(2)を受け、本design
+  未対象の他Protocolの実Firestore接続アダプタ設計に着手した。対象クラス名を
+  `prototype/deletion_candidate.py`で確認したところ、18節・20節の記載
+  「`SubscriptionDeletionCandidateStoreProtocol`」は正式名
+  `ProfileDeletionCandidateStoreProtocol`の誤記であったことが判明し、本フェーズで
+  是正した。設計の過程で、本Protocolが対象とする`deletion_candidate_at`・
+  `deletion_candidate_state_event_time`の2フィールドが`UserProfile`dataclass
+  (`user_id_linking.py`)に存在せず、`InMemoryUserProfileStore`も該当メソッドを
+  実装していないこと(`deletion_candidate.py`は自前の別スタブ
+  `InMemoryProfileDeletionCandidateStore`を使っている)を発見した。9節・13節・15節
+  までの他の薄いProtocolとは異なりInMemory実装の段階で既に`UserProfileStoreProtocol`
+  から分離しているというずれだが、Protocol自身のdocstringが述べる設計意図(同一
+  `user_profile`ドキュメント)を優先し、`FirestoreUserProfileStore`に5メソッドを
+  追加する設計を`firestore-provider-adapter-design.md`21節として新規追加した。
+  `all_user_ids()`は15節の既存実装をそのまま再利用できることも確認した。発見した
+  ずれの解消(`UserProfile`への2フィールド追加・`InMemoryUserProfileStore`の統合)は
+  既存呼び出し経路への影響確認が先に必要と判断し、次回候補に残した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (653件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を
+  最優先、(2)`UserProfile`への`deletion_candidate_at`等2フィールド追加・
+  `InMemoryUserProfileStore`統合の実装(本フェーズで発見したずれの解消)、
+  (3)course-set-pasha側の`deletion_candidate.py`(フェーズ91)が同種のProtocol分離を
+  抱えているかのcross-venture parity確認、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-10 00:00 UTC(フェーズ303: `ProfileDeletionCandidateStoreProtocol`
+  〈旧記載の誤記を是正〉の実Firestore接続アダプタ設計を21節に新規追加。設計過程で
+  `UserProfile`dataclassに対応フィールドが存在せずInMemory実装が別スタブに分離している
+  ずれを発見し、次回候補として記録した。コード変更なし、テスト653件・schema検証25件
+  いずれもパス)

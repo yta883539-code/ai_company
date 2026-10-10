@@ -891,3 +891,100 @@ def _profile_from_dict(data: dict) -> UserProfile:
   `user_id_linking.py`以外のモジュールで定義されるもの)の実Firestore接続アダプタ設計。
 - 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
   机上設計とInMemory実装での回帰確認にとどまる)。
+
+## 21. ProfileDeletionCandidateStoreProtocol の実Firestore接続アダプタ設計
+
+### 21.1. 背景・範囲
+
+フェーズ302(20節)の次回候補(2)を受け、本design未対象の他Protocolの実Firestore接続
+アダプタ設計に着手する。着手に先立ち対象クラス名を`prototype/deletion_candidate.py`で
+確認したところ、20節の記載「`SubscriptionDeletionCandidateStoreProtocol`」は正式名
+`ProfileDeletionCandidateStoreProtocol`(29行目)の誤記であることが判明したため、
+本節では正式名で記録する。
+
+`ProfileDeletionCandidateStoreProtocol`は`get_deletion_candidate_at`/
+`set_deletion_candidate_at`/`all_user_ids`/`get_deletion_candidate_state_event_time`/
+`set_deletion_candidate_state_event_time`の5メソッドを持ち、クラス自身のdocstring
+(30〜34行目)が「`user_profile/{user_id}`ドキュメントのうち`deletion_candidate_at`
+フィールドのみを対象にした薄いインターフェース」と明記する、9節(payment_failure系)・
+13節(current_plan_id)と同種の、`UserProfileStoreProtocol`と同一ドキュメントを対象にした
+薄いProtocolである。
+
+### 21.2. 設計時に発見した前提のずれ
+
+9節(`PaymentFailureStoreProtocol`)・13節(`CurrentPlanStoreProtocol`)・15節
+(`BlockedButBillingCandidateStoreProtocol`)はいずれも、対応するフィールド
+(`payment_failure_detected_at`等)が`UserProfile`dataclass(`user_id_linking.py`
+131行目以降)に既に定義され、`InMemoryUserProfileStore`が該当する`get_*`/`set_*`を
+実装済み(=duck typingで該当Protocolを構造的に満たす)という前提のもとで、
+`FirestoreUserProfileStore`への同名メソッド追加のみを設計すればよかった。
+
+本Protocolはこの前提が成立しない。`UserProfile`dataclass(19.1節で確認した22
+フィールド)には`deletion_candidate_at`・`deletion_candidate_state_event_time`の
+いずれも存在せず、`InMemoryUserProfileStore`も該当する5メソッドを実装していない。
+`deletion_candidate.py`56〜79行目は`InMemoryUserProfileStore`とは別の専用スタブ
+`InMemoryProfileDeletionCandidateStore`(自前の`self._values`/
+`self._state_event_times`辞書を持つ)を用意しており、InMemory実装の段階では既に
+`UserProfileStoreProtocol`から独立した別ストアとして動いている。course-set-pasha/
+prototype/deletion_candidate.py(フェーズ91、12〜13行目で判定ロジックが同一と
+明記)側の対応状況は未確認(次回候補)だが、本venture単体で見る限り、Protocol自身の
+docstringが述べる「対象は`user_profile`ドキュメント」という設計意図と、実際の
+InMemory実装が別ストアに分離されている現状との間にずれがある。
+
+### 21.3. 設計方針
+
+Protocol自身の docstring の設計意図(同一`user_profile/{user_id}`ドキュメントの
+一部フィールド)を優先し、`FirestoreUserProfileStore`(5節〜19節)に5メソッドを追加
+する形で実装する。これにより実Firestore上は9節・13節・15節と同じ1ドキュメント構成を
+保てる。InMemory版が別ストアに分離している21.2節のずれは、Firestore接続アダプタの
+設計自体を妨げるものではないため、21.4節の次回候補としてコード側(`UserProfile`への
+フィールド追加・`InMemoryUserProfileStore`への5メソッド追加)の是正を別途残す。
+
+```python
+class FirestoreUserProfileStore:
+    # (5節・7節・9節・11節・13節・15節・17節に以下を追加)
+
+    def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.deletion_candidate_at if profile is not None else None
+
+    def set_deletion_candidate_at(self, user_id: str, value: Optional[datetime]) -> None:
+        self._doc_ref(user_id).set({"deletion_candidate_at": value}, merge=True)
+
+    def all_user_ids(self) -> Iterable[str]:
+        # 15節で`UserProfileStoreProtocol`向けに既に設計済みの同名メソッドをそのまま
+        # 再利用する(同じ`user_profile`コレクション全体のstream()であり、本Protocol
+        # 専用に別途実装する理由がない)。
+        for snapshot in self._profiles.stream():
+            yield snapshot.id
+
+    def get_deletion_candidate_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.deletion_candidate_state_event_time if profile is not None else None
+
+    def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        self._doc_ref(user_id).set({"deletion_candidate_state_event_time": value}, merge=True)
+```
+
+### 21.4. 検討事項・次回候補
+
+- **`all_user_ids()`は15節の実装を再利用するのみで新規設計を要しない**: 同じ
+  `user_profile`コレクション全体の`stream()`であり、`deletion_candidate.py`173行目
+  (`list_deletion_candidates()`)も15節の呼び出し元と同様に順不同の線形走査しか
+  要求しないため、15.3節の検討事項(走査コスト・列挙順序非依存)がそのまま適用できる。
+- **`get_*`の安全側方針は9節・13節と同型**: 未知の`user_id`に対しては`None`を返す
+  (profileが存在しない場合に「削除候補ではない」側に倒す、`list_deletion_candidates()`
+  が削除候補として拾わない方向の安全側デフォルト)。
+- **コード側の是正(次回候補)**: `UserProfile`dataclassに`deletion_candidate_at:
+  Optional[datetime] = None`・`deletion_candidate_state_event_time:
+  Optional[datetime] = None`の2フィールドを追加し、`InMemoryUserProfileStore`に
+  本節と対称の5メソッドを実装すれば、21.2節で発見した「docstringの設計意図とInMemory
+  実装の分離」のずれが解消し、`deletion_candidate.py`の`InMemoryProfileDeletion
+  CandidateStore`を`InMemoryUserProfileStore`に統合できる可能性がある。ただし
+  `deletion_candidate.py`・`deletion_candidate_final_confirmation.py`双方の既存の
+  呼び出し経路・既存テストへの影響範囲の確認が先に必要なため、設計のみに留め実装は
+  次フェーズ以降の候補とする。
+- course-set-pasha側の`deletion_candidate.py`(フェーズ91)が同種のProtocol分離を
+  抱えているかは未確認(次回候補、cross-venture parity確認)。
+- 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
+  机上設計にとどまる)。
