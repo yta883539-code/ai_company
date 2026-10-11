@@ -512,6 +512,8 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
         return (snapshot.to_dict() or {}).get("stripe_customer_id")
 
     def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
+        previous_stripe_customer_id = self.get_stripe_customer_id(workshop_id)
+
         batch = self._client.batch()
         batch.set(
             self._doc_ref(workshop_id),
@@ -522,6 +524,12 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
             self._stripe_index.document(stripe_customer_id),
             {"workshop_id": workshop_id},
         )
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            # InMemoryWorkshopStoreの付け替え時挙動(21節)と契約を合わせる。
+            batch.delete(self._stripe_index.document(previous_stripe_customer_id))
         batch.commit()
 
     def get_workshop_id_by_stripe_customer_id(
@@ -562,6 +570,10 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
   旧`stripe_customer_id`が存在する場合の`self._stripe_index.document(
   previous_stripe_customer_id).delete()`を追加する必要がある(実装自体は実Firestore接続が
   オーナー承認待ちのため次回以降)。
+  **(25節追記)**: line-reservation-ai store-profile-store-firestore-adapter-design.md
+  2節の`FirestoreStoreProfileStore.set_stripe_customer_id`と同じ型式(`get_stripe_customer_id`
+  で付け替え前の値を取得してから`WriteBatch`を組み立て、旧値が存在し新値と異なる場合のみ
+  旧`stripe_customer_index`ドキュメントを削除)で、本節のコード例に反映済み。
 - **`get_stripe_customer_id`が`None`を返すケース**: `subscription-billing-data-model-design.md`
   1節の通り、未契約(トライアル中含む)のworkshopは`stripe_customer_id`が未設定のため
   `None`を返すのが正しい挙動であり、9.1節の`trial_start_at`と異なり「データ不整合」を
@@ -1149,3 +1161,38 @@ line-reservation-aiの`owner_user_id`と同じ例外パターンに該当する�
 3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(22節1点目から継続)。
 4. 他venture・アイデア領域の前進。
+
+## 25. 付け替え時の旧`stripe_customer_index`エントリ削除の実Firestore接続アダプタ側対称対応(フェーズ227)
+
+24節2点目で残していた、11節`set_stripe_customer_id`の実Firestore接続アダプタ設計への
+旧逆引きエントリ削除の反映に着手した。line-reservation-ai
+store-profile-store-firestore-adapter-design.md 2節の`FirestoreStoreProfileStore.
+set_stripe_customer_id`が確立した型式(付け替え前の値を`get_stripe_customer_id`で
+取得→`WriteBatch`組み立て→旧値が存在し新値と異なる場合のみ`stripe_customer_index`の
+旧ドキュメントを`batch.delete()`)をそのまま踏襲し、11節のコード例を更新した。これにより
+`InMemoryWorkshopStore.set_stripe_customer_id`(21節で実装済み)と実Firestore接続
+アダプタ設計の契約が一致した。
+
+- **既存設計との整合性確認**: `get_stripe_customer_id`は23節の統一方針により接続エラー時に
+  `None`を返す(5節参照)。本節が追加した`previous_stripe_customer_id = self.
+  get_stripe_customer_id(workshop_id)`の呼び出しが接続エラーで`None`を返した場合、
+  `previous_stripe_customer_id is not None`の判定によって削除処理自体がスキップされる
+  (=新規設定時と同じ挙動に安全側で合流し、誤って無関係なインデックスを削除する事故は
+  発生しない)ことを確認した。この挙動はline-reservation-ai側の設計(72行目
+  `previous_stripe_customer_id = self.get_stripe_customer_id(user_id)`)と同一の性質であり、
+  本venture固有の追加検討は不要と判断した。
+- 本節は設計ドキュメントのみの変更であり、`InMemoryWorkshopStore`(実装・テスト対象)への
+  変更は発生していない(実Firestore接続アダプタ自体は実装未着手、オーナー承認待ち)。
+  `python3 prototype/run_all_tests.py`(16ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)をいずれも再実行し、パスすることを確認した。
+- **承認待ちアクション**: 本フェーズは設計文書の変更のみで、支払い・アカウント作成・
+  外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 26. 残課題・次回候補(25節分)
+
+1. 4つの設計ドキュメント(`UserProfileStoreProtocol`・`UsageCounterStoreProtocol`・
+   `LinkingCodeStoreProtocol`・本Protocol)の`merge=True`の部分更新方針・安全側フォールバック
+   方針に矛盾がないかの横断レビュー(24節1点目から継続)。
+2. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(24節3点目から継続)。
+3. 他venture・アイデア領域の前進。

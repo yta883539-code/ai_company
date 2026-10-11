@@ -4982,3 +4982,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   横断レビューし、3ドキュメントは既存設計のまま整合することを確認、`increment_or_reset`
   のみfail-open方針とFirestore実装例が未確定だったため確定・追記。設計ドキュメントのみの
   変更、テスト16ファイル・schema検証32件いずれも変更なしでパス)
+- フェーズ227(2026-10-11 18:00 UTC定例更新): フェーズ226の次回候補(2)「付け替え時の旧
+  `stripe_customer_index`エントリ削除の実Firestore接続アダプタ側対称対応」に着手した。
+  workshop-store-firestore-adapter-design.md 11節`set_stripe_customer_id`のコード例を、
+  line-reservation-ai store-profile-store-firestore-adapter-design.md 2節の
+  `FirestoreStoreProfileStore.set_stripe_customer_id`と同じ型式(付け替え前の値を
+  `get_stripe_customer_id`で取得→`WriteBatch`組み立て→旧値が存在し新値と異なる場合のみ
+  `stripe_customer_index`の旧ドキュメントを`batch.delete()`)に更新し、21節で実装済みの
+  `InMemoryWorkshopStore.set_stripe_customer_id`の付け替え時挙動と設計上の契約を一致させた
+  (25節)。あわせて、23節の統一方針により`get_stripe_customer_id`が接続エラー時に`None`を
+  返すケースでも、新たに追加した付け替え前値取得の呼び出しが削除処理を安全にスキップする
+  (無関係なインデックスを誤って削除する事故が起きない)ことを確認した。コード変更は行わず
+  設計doc更新のみのため、回帰確認として`python3 prototype/run_all_tests.py`(16ファイル、
+  変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)4つの設計ドキュメント
+  の`merge=True`の部分更新方針・安全側フォールバック方針の横断レビュー、(2)優先順位1・2候補
+  (ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認された
+  場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 18:00 UTC(フェーズ227: workshop-store-firestore-adapter-design.md
+  11節`set_stripe_customer_id`に付け替え時の旧`stripe_customer_index`エントリ削除を追加し、
+  21節のInMemory実装との契約を一致させた。設計ドキュメントのみの変更、テスト16ファイル・
+  schema検証32件いずれも変更なしでパス)
