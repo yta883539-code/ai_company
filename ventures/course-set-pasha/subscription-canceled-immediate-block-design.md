@@ -67,5 +67,8 @@ kura-pashaの`SubscriptionCanceledError`(専用の終端状態として解約を
 
 - 実Stripeアカウント接続後、`customer.subscription.deleted`の`created`タイムスタンプが
   実際にevent発生時刻と一致するかの確認(現状は机上のモックイベントのみで検証)。
-- 他venture(aircon-pasha・line-reservation-ai)についても、同じ「解約確定を専用の
-  タイムスタンプ/状態として持っているか」の確認がまだ残っている(次回候補)。
+- (解消済み 2026-10-11 06:00 UTC・フェーズ287: 他venture〈aircon-pasha・line-reservation-ai〉の
+  解約確定専用状態を確認した。aircon-pashaは`user_profile.subscription_canceled_at`(本venture
+  と同型のタイムスタンプ方式)、line-reservation-aiは`suspension_reason == "cancelled"`
+  〈`classify_subscription_deleted()`が他状態と排他的に区別する専用ロジック〉で、いずれも
+  解約確定を専用の状態として保持済みであることを確認した。是正不要。)

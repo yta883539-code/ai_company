@@ -4733,3 +4733,30 @@
   本venture全Protocolに関する既知の次回候補はこれで解消し、新たな次回候補は無い。コード変更
   〈InMemoryUserProfileStore.set_stripe_customer_id〉・テスト2件追加692件・schema検証21件
   いずれもパス)
+- フェーズ287(2026-10-11 06:00 UTC定例更新): 本venture自身に新規の次回候補が無かったため、
+  subscription-updated-event-order-guard-design.md「次回候補」(他venture〈aircon-pasha・
+  line-reservation-ai〉の`customer.subscription.updated`ハンドラに同種のガード欠落がないかの
+  横断確認)と、subscription-canceled-immediate-block-design.md 5節の残課題(他venture〈aircon-
+  pasha・line-reservation-ai〉が解約確定を専用のタイムスタンプ/状態として持っているかの確認)の
+  2件を棚卸しした。(1)`customer.subscription.updated`の配信順序ガード: aircon-pashaは
+  `stripe_dispatch.py`の`_is_stale_subscription_updated_event()`/`_record_subscription_
+  updated_event_time()`(フェーズ286で対応済み、本ventureと同じ`subscription_updated_event_time`
+  専用フィールド方式)、line-reservation-aiは`stripe_webhook_entry_point.py`の
+  `is_stale_updated_event`判定(`last_subscription_updated_event_time`専用フィールド方式)で、
+  いずれも既に実装済みであることをコード確認で突き止めた。(2)解約確定の専用状態: aircon-pashaは
+  `user_profile.subscription_canceled_at`(`customer.subscription.deleted`受信時に設定、本venture
+  と同型)、line-reservation-aiは`suspension_reason == "cancelled"`(本venture・aircon-pashaの
+  タイムスタンプ方式とは異なる設計だが、`classify_subscription_deleted()`が解約確定を他の
+  状態〈`payment_failed`等〉と排他的に区別する専用ロジックを持つ点で同等の役割を満たす)で、
+  いずれも対応済みであることを確認した。以上により、本ドキュメントが残していた2件の横展開確認は
+  いずれも対象venture側で既に解消済みと判明し、新たな是正は不要と結論した。コード変更なし、
+  調査・結論の記録のみ。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(692件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-11 06:00 UTC(フェーズ287: subscription-updated-event-order-guard-design.md・
+  subscription-canceled-immediate-block-design.mdが残していた2件の横展開確認〈aircon-pasha・
+  line-reservation-aiの配信順序ガード・解約確定専用状態〉を棚卸しし、いずれも対象venture側で
+  既に対応済みと判明。コード変更なし、テスト692件・schema検証21件いずれもパス)

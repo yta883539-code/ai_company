@@ -70,6 +70,11 @@ course-set-pasha自身の是正のみを対象とした)。
 承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため、
 pending-approval.mdへの追記なし。
 
-次回候補: 他venture(aircon-pasha・line-reservation-ai)の`customer.subscription.updated`
-ハンドラに同種のガード欠落がないかの横断確認。または他venture・アイデア領域の前進、
-launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
+(解消済み 2026-10-11 06:00 UTC・フェーズ287: 他venture(aircon-pasha・line-reservation-ai)の
+`customer.subscription.updated`ハンドラへの横断確認を実施。aircon-pashaは`stripe_dispatch.py`の
+`_is_stale_subscription_updated_event()`(フェーズ286で対応済み)、line-reservation-aiは
+`stripe_webhook_entry_point.py`の`is_stale_updated_event`判定で、いずれも本ventureと同種の
+配信順序ガードが既に実装済みであることを確認した。是正不要。)
+
+次回候補: 他venture・アイデア領域の前進、launch-readiness-checklist.mdとpending-approval.mdの
+記載齟齬の定期棚卸し。
