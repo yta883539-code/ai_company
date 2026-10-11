@@ -2255,3 +2255,30 @@
   (`stripe_webhook.py`相当、`checkout.session.completed`の受信・署名検証・今回追加した
   `set_stripe_customer_id`/`get_internal_id_by_stripe_customer_id`を用いた紐付け処理)の
   実装、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 14:00 UTC(フェーズ127: フェーズ126「次回候補(2)」であったWebhook
+  受信エントリポイントを実装した。stripe-webhook-entry-point-design.mdを新設し、
+  aircon-pasha/course-set-pashaのprototype/stripe_webhook.pyと同じ位置づけで
+  `prototype/stripe_webhook.py`を新規作成した。`verify_stripe_signature()`(同一アルゴリズム)、
+  `handle_checkout_session_completed()`(`client_reference_id`→`internal_id`・
+  `customer`→`stripe_customer_id`の紐付けを`set_stripe_customer_id()`で書き込み、
+  `metadata.plan`を`plan_id_resolution.write_plan_id_from_checkout_session_metadata()`で
+  plan_idとして記録、`upgraded_at`未設定時のみ書き込み)、`receive_stripe_webhook()`
+  (署名検証→JSONパース→`checkout.session.completed`以外は200で無視)、
+  `get_stripe_runtime_dependencies()`・`main(request)`を実装した。本ventureは
+  `customer.subscription.*`系を処理する`stripe_dispatch.py`相当がまだ無いため、スコープを
+  `checkout.session.completed`のみに限定した(design 1節)。また、aircon-pashaの
+  `handle_checkout_session_completed()`と異なり対応する`fleet_operator`の事前存在チェックは
+  行わない設計判断とした(design 3節、本ventureはWebフォームのみでLINEの`follow`イベントの
+  ような決済前の確実な存在保証が無いため)。`test_stripe_webhook.py`を新規作成しテスト22件
+  (署名検証6件、正常系紐付け7件、再送時のupgraded_at不変1件、異常系〈customer欠落・
+  internal_id欠落・未知のplan〉4件、receive_stripe_webhook経由の署名失敗・正常系・未対応
+  イベント・不正JSON4件、ランタイム依存関係ファクトリ2件)を追加、全22件パス。回帰確認として
+  `python3 prototype/run_all_tests.py`(10ファイルに増加、全パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし(実Cloud Functionsデプロイ・実Stripeアカウント
+  接続自体は既存の承認待ち事項の範囲内であり、新たな承認待ち事項ではない)。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)`customer.subscription.
+  updated`等(`plan_id_resolution.sync_plan_id_on_subscription_event()`が既に用意済みだが
+  未配線)の受信・ディスパッチの実装、(3)Webフォームのプラン選択UI自体の実装、
+  (4)他venture・アイデア領域の前進。
