@@ -114,8 +114,10 @@ https://<ドメイン>/f/{accessToken}
 
 - 本venture向けの「浮いた作業時間の目安」試算ドキュメント(content-generation-time-estimate.md
   相当)は未作成。作成後、両文面に1行追加する(aircon-pashaフェーズ192と同型の対応)。
-- 生成一時停止(4節)の実コード実装、`upgradedAt`書き込み元となるStripe決済導線設計
-  (checkout-initiation-flow-design.md相当、本venture未着手)。
+- 生成一時停止(4節)の純粋関数`is_generation_paused()`はフェーズ122で実装済み(下記追記
+  参照)。Webフォーム送信処理本体(mvp-flow-draft.md、本venture未実装)からの実際の呼び出し
+  配線、および`upgradedAt`書き込み元となるStripe決済導線設計(checkout-initiation-flow-
+  design.md相当、本venture未着手)はいずれも残課題のまま。
 - 日次スケジューラ(Cloud Scheduler)実行環境の構築・メール送信手段の確定・実際のメール送信
   は、いずれも外部サービス側のアカウント作成・課金設定・送信行為に該当するためオーナー承認
   待ちの範囲。本フェーズでpending-approval.mdに新規記録した(forklift-pashaの既存記録は
@@ -146,3 +148,18 @@ Webフォーム送信処理本体から呼び出す配線(mvp-flow-draft.mdが�
 本venture未実装)、および(B)経路(日次スケジューラ・メール送信、オーナー承認待ち)は
 次回以降の課題のまま。承認が必要なアクションは今回発生していないためpending-approval.md
 への追記なし)
+
+追記: 2026-10-11 05:00 UTC(フェーズ122: 4節「トライアル終了後(未アップグレード)の挙動」の
+一時停止判定`is_generation_paused()`を実装した。aircon-pasha/cloud_function_webhook.pyの
+`_is_generation_paused()`と同じ契約(`trialEndNotifiedAt`設定済み・`upgradedAt`未設定の
+場合のみTrue)を踏襲し、`FleetOperatorStoreProtocol`/`InMemoryFleetOperatorStore`に
+`get_upgraded_at`/`set_upgraded_at`(aircon-pashaの`set_upgraded_at()`と同じく上書き可、
+「初回のみ」の制約は設けない)を追加、固定の一時停止案内文`GENERATION_PAUSED_NOTICE`も
+定数化した。`test_trial_management.py`にテスト5件追加(未設定時はFalse・通知済みかつ
+未アップグレードでTrue・アップグレード後はFalse・アップグレードのみでもFalse・operator間の
+独立性)、全34件パス。`run_all_tests.py`(6ファイル)・`schema/validate_test_cases.py`
+(11件)もいずれも変更なしでパス。Webフォーム送信処理本体(mvp-flow-draft.md、本venture
+未実装)からこの関数を呼び出し`GENERATION_PAUSED_NOTICE`を返す分岐の実配線、および
+`upgradedAt`の書き込み元となるStripe決済導線設計(本venture未着手)はいずれも次回以降の
+課題のまま。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+していないためpending-approval.mdへの追記なし)

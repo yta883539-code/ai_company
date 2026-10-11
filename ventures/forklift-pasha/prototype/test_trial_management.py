@@ -13,6 +13,7 @@ from trial_management import (
     TRIAL_GENERATION_LIMIT,
     TRIAL_PERIOD_DAYS,
     InMemoryFleetOperatorStore,
+    is_generation_paused,
     is_trial_period_over,
     record_generation_and_get_trial_end_notice,
     record_generation_for_trial,
@@ -197,6 +198,48 @@ def main():
         "record_generation_and_get_trial_end_notice: (B)経路で通知済みなら生成回数到達時もNone",
         record_generation_and_get_trial_end_notice(store, "op11", now),
         None,
+    ))
+
+    # --- is_generation_paused: trialEndNotifiedAt未設定ならFalse(トライアル中・未終了) ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "is_generation_paused: trialEndNotifiedAt未設定ならFalse",
+        is_generation_paused("op12", store),
+        False,
+    ))
+
+    # --- is_generation_paused: trialEndNotifiedAt設定済み・upgradedAt未設定ならTrue ---
+    store.set_trial_end_notified_at("op12", now)
+    results.append(_check(
+        "is_generation_paused: 通知済みかつ未アップグレードならTrue",
+        is_generation_paused("op12", store),
+        True,
+    ))
+
+    # --- is_generation_paused: upgradedAt設定後はFalse(有料転換済み) ---
+    store.set_upgraded_at("op12", now + timedelta(days=1))
+    results.append(_check(
+        "is_generation_paused: upgradedAt設定後はFalse(有料転換済み)",
+        is_generation_paused("op12", store),
+        False,
+    ))
+
+    # --- is_generation_paused: upgradedAtのみ設定(trialEndNotifiedAt未設定)でもFalse ---
+    store = InMemoryFleetOperatorStore()
+    store.set_upgraded_at("op13", now)
+    results.append(_check(
+        "is_generation_paused: upgradedAtのみ設定(通知未送信)ならFalse",
+        is_generation_paused("op13", store),
+        False,
+    ))
+
+    # --- is_generation_paused: 別operatorは独立している ---
+    store = InMemoryFleetOperatorStore()
+    store.set_trial_end_notified_at("op14", now)
+    results.append(_check(
+        "is_generation_paused: 別operatorのupgradedAtはNoneのまま独立している",
+        is_generation_paused("op15", store),
+        False,
     ))
 
     passed = sum(1 for r in results if r)

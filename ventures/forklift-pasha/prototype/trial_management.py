@@ -40,6 +40,16 @@ class FleetOperatorStoreProtocol:
         設定し、以降は上書きしない(set_trial_start_atと同じ「初回のみ設定」方針)。"""
         raise NotImplementedError
 
+    def get_upgraded_at(self, internal_id: str) -> "datetime | None":
+        raise NotImplementedError
+
+    def set_upgraded_at(self, internal_id: str, value: datetime) -> None:
+        """trial-end-notification-design.md 4節。有料転換時に設定する(本venture未設計
+        だったStripe決済導線の完了処理からの書き込みを想定、呼び出し配線は次回以降の課題)。
+        aircon-pasha/user_id_linking.pyのset_upgraded_at()と同じく上書き可(set_trial_
+        start_at等と異なり「初回のみ」の制約は設けない)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -49,6 +59,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._trial_start_at: "dict[str, datetime]" = {}
         self._trial_generation_count: "dict[str, int]" = {}
         self._trial_end_notified_at: "dict[str, datetime]" = {}
+        self._upgraded_at: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -74,6 +85,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         if internal_id in self._trial_end_notified_at:
             return
         self._trial_end_notified_at[internal_id] = value
+
+    def get_upgraded_at(self, internal_id: str) -> "datetime | None":
+        return self._upgraded_at.get(internal_id)
+
+    def set_upgraded_at(self, internal_id: str, value: datetime) -> None:
+        self._upgraded_at[internal_id] = value
 
 
 def is_trial_period_over(
@@ -143,3 +160,26 @@ def record_generation_and_get_trial_end_notice(
         return None
     operator_store.set_trial_end_notified_at(internal_id, now)
     return TRIAL_END_RETURN_TEXT_NOTICE
+
+
+# trial-end-notification-design.md 4節「トライアル終了後(未アップグレード)の挙動」。
+GENERATION_PAUSED_NOTICE = (
+    "現在、無料トライアルが終了しているため記録の整形を一時停止しています。引き続き"
+    "ご利用いただくには、登録時にお送りしたアクセスURLからプランをお選びください。"
+)
+
+
+def is_generation_paused(
+    internal_id: str,
+    operator_store: FleetOperatorStoreProtocol,
+) -> bool:
+    """trial-end-notification-design.md 4節の一時停止判定。aircon-pasha/
+    cloud_function_webhook.pyの`_is_generation_paused()`と同じ契約: `trialEndNotifiedAt`
+    (条件A/Bいずれの経路でもrecord_generation_and_get_trial_end_notice()等が設定済み)が
+    設定済みで、かつ`upgradedAt`が未設定(有料転換前)の場合のみ一時停止対象とする。
+    Webフォーム送信処理本体(mvp-flow-draft.md)からの実際の呼び出し配線(この関数が
+    Trueを返した場合にGENERATION_PAUSED_NOTICEを返して記録整形自体をスキップする分岐)は
+    本venture未実装のため次回以降の課題のまま。"""
+    if operator_store.get_trial_end_notified_at(internal_id) is None:
+        return False
+    return operator_store.get_upgraded_at(internal_id) is None

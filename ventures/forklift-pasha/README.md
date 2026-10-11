@@ -2127,3 +2127,25 @@
   ロジック(`_is_generation_paused()`相当)の実装、(4)他venture・アイデア領域の前進。
 - 最終更新: 2026-10-11 03:00 UTC(フェーズ121: (A)経路の呼び出し配線
   `record_generation_and_get_trial_end_notice()`を実装。テスト8件追加、全29件パス)
+- フェーズ122(2026-10-11 05:00 UTC定例更新): フェーズ121「次回候補(3)」(trial-end-
+  notification-design.md 4節「生成一時停止」ロジック)に着手した。aircon-pasha/
+  cloud_function_webhook.pyの`_is_generation_paused()`(トライアル終了通知送信済み
+  かつ未アップグレードの場合のみ一時停止)と同じ契約で`trial_management.py`に
+  `is_generation_paused()`を実装し、`FleetOperatorStoreProtocol`/
+  `InMemoryFleetOperatorStore`に`get_upgraded_at`/`set_upgraded_at`(aircon-pashaの
+  `set_upgraded_at()`と同じく上書き可、`trialStartAt`等と異なり「初回のみ」の制約は
+  設けない)を新設した。固定の一時停止案内文`GENERATION_PAUSED_NOTICE`も定数化した。
+  `test_trial_management.py`にテスト5件追加(未設定時False・通知済みかつ未アップグレード
+  でTrue・アップグレード後False・アップグレードのみでもFalse・operator間の独立性)、
+  全34件パス。`python3 prototype/run_all_tests.py`(6ファイル、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)もいずれも再実行しパスを確認した。
+  Webフォーム送信処理本体(mvp-flow-draft.md、本venture未実装)からこの関数を呼び出し
+  一時停止案内文を返す分岐の実配線、および`upgradedAt`の書き込み元となるStripe決済導線
+  設計(本venture未着手)はいずれも次回以降の課題のまま。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)Webフォーム送信処理本体(mvp-flow-draft.md相当)の実装とそこへの`is_generation_
+  paused()`の組み込み、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 05:00 UTC(フェーズ122: `is_generation_paused()`を実装し、
+  `get_upgraded_at`/`set_upgraded_at`・`GENERATION_PAUSED_NOTICE`を新設。テスト5件追加、
+  全34件パス)
