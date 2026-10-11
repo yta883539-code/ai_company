@@ -5578,3 +5578,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   グループが既に二重に設計済み(5節・独立ファイル)かつ互いに矛盾していたことを
   発見し、独立ファイルを正本として確定・5節に訂正注記・20節と21節に経緯を記録。
   コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き312(2026-10-11 00:00 UTC定例更新): フェーズ続き311の次回候補(2)
+  「残りグループ`menu_durations`・`store_faq_info`いずれかの実Firestore接続アダプタ
+  設計」に着手し、`store-profile-store-firestore-adapter-design.md`22節に
+  `menu_durations`グループ(`get_menu_durations`/`set_menu_durations`、
+  store_profile_store.py 331-341行目)の設計を追加した。これまでの9・11・13・15・17・
+  19節の各グループはいずれも単一スカラー値だったのに対し、本グループは
+  `{メニュー名: 所要時間(分)}`のフラット辞書を値とする最初の複合構造グループである。
+  接続エラー時は空dictへ合流させ(InMemory実装の未設定時デフォルトと同じ)、
+  `resolve_menu_duration()`がNoneを返すことで既存の「未登録メニュー」と同じオーナー
+  転送経路に自然に合流する(新たな分岐追加は不要)ことを確認した。`set_menu_durations`は
+  個別メニューキーの差分マージではなく辞書全体の置き換え契約のため、Firestore側も
+  `"menuDurations"`フィールド単位の丸ごと上書きとした。着手時に構造を確認した結果、
+  `store_faq_info`は`parking`/`address`/`payment_methods`/`hours`/`menu`等キーごとに
+  型が異なる不均一構造(cloud_function_process_event.py 1254-1276行目)であり、
+  `menu_durations`とは異なる個別検討が必要と判断し本フェーズでは対象外とした(22節末尾)。
+  22節末尾に残課題を整理した23節(次回候補)を新設した。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(906件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を再実行し、いずれもパス
+  することを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された
+  場合はその着手を最優先、(2)残りグループ`store_faq_info`(キーごとの既定値設計から
+  着手)・`all_store_ids`(Firestoreコレクション走査のため最後に着手)の実Firestore
+  接続アダプタ設計、(3)他venture(course-set-pasha・aircon-pasha・kura-pasha・
+  forklift-pasha)の「次回候補」記述に同種の陳腐化がないかの点検(フェーズ続き311から
+  持ち越し)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 00:00 UTC(フェーズ続き312: `store-profile-store-firestore-
+  adapter-design.md`22節に`menu_durations`グループ〈初の複合構造フィールド〉の実
+  Firestore接続アダプタ設計を追加。`store_faq_info`は不均一構造のため対象外と判断し
+  23節に残課題として整理。コード変更なし、テスト906件・schema検証28件いずれもパス)

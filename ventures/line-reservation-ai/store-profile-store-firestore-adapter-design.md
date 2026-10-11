@@ -652,9 +652,81 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
   `python3 -m unittest discover -s prototype -p "test_*.py"`(906件)・
   `python3 schema/validate_test_cases.py`(28件)を再実行し、いずれもパスすることを
   確認した(件数に変更なし)。
-- **次回候補**: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)
-  がオーナーから承認された場合はその着手を最優先、(2)残りグループ
-  `menu_durations`・`store_faq_info`のいずれかの実Firestore接続アダプタ設計、
+- **次回候補(2026-10-11フェーズ続き312時点で(2)着手済み。22節参照)**: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合は
+  その着手を最優先、(2)~~残りグループ`menu_durations`・`store_faq_info`のいずれかの実
+  Firestore接続アダプタ設計~~ → 22節で`menu_durations`グループを設計済み、
   (3)他venture・アイデア領域の前進、(4)他venture(course-set-pasha・aircon-pasha・
   kura-pasha・forklift-pasha)の「次回候補」記述にも同種の陳腐化(既に対応済みの項目を
   未着手として繰り返し記載)がないかの点検。
+
+## 22. menu_durationsグループ(2メソッド)(フェーズ続き312、2026-10-11 00:00 UTC)
+
+`get_menu_durations`/`set_menu_durations`(`store_profile_store.py` 331-341行目)を追加設計
+する。これまでの9・11・13・15・17・19節のグループはいずれも単一スカラー値(文字列・真偽値・
+日時)の読み書きだったが、本グループは唯一「`{メニュー名: 所要時間(分)}`のフラットな辞書」を
+値とする最初の複合構造グループである(20節で店舗FAQグループと並べて残課題とされていたうちの
+片方)。InMemory実装は呼び出しごとに辞書全体を置き換える契約で、未設定時は空dictを返す
+(331-335行目のdict.get既定値、`conversation-event-processor-assembly-design.md`準拠で
+`ConversationEventProcessor.__init__`の`menu_durations`引数が`None`非許容のため)。
+
+```python
+    def get_menu_durations(self, store_id: str) -> dict:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # 接続エラー時はInMemory実装の未設定時デフォルト(空dict)と揃える。
+            # resolve_menu_duration()(cloud_function_process_event.py 425-438行目)は
+            # 空dict渡しでも未知メニュー時と同じNoneを返し、呼び出し元
+            # (_handle_new_booking_menu_resolution相当、1035-1040行目)はNone判定を
+            # 既存の「未登録メニュー」と同じ経路(_notify_owner()によるオーナー転送)に
+            # 合流させる。接続エラーの回だけ誤った所要時間で候補検索を進めてしまう
+            # (顧客に誤った予約時間枠を提示する)よりも、人手のオーナー対応に切り替わる
+            # 側が明らかに安全であり、9節・15節と同じ「Noneまたは空へ合流=処理を止めて
+            # 人手に回す」基準に合致するため、新たな分岐の追加は不要である。
+            return {}
+        if not snapshot.exists:
+            return {}
+        return dict((snapshot.to_dict() or {}).get("menuDurations", {}))
+
+    def set_menu_durations(self, store_id: str, menu_durations: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        # InMemory実装(337-340行目)は呼び出しごとに辞書全体を置き換える(個別キーの
+        # 差分マージではない)契約のため、Firestore側もset(merge=True)がトップレベル
+        # フィールド単位でのみ浅いマージを行う(ネストしたmapフィールドの値自体は丸ごと
+        # 置き換わる)標準挙動のまま、"menuDurations"フィールドを丸ごと置き換える形で
+        # 契約を一致させる。個別メニューキーのみを更新したい場合でも、呼び出し側が
+        # 事前に`get_menu_durations()`で現在値を読み出してから更新後の全体dictを渡す
+        # 運用とする(本メソッドの中では差分マージを行わない)。
+        self._doc_ref(store_id).set({"menuDurations": dict(menu_durations)}, merge=True)
+```
+
+- **フラット辞書のまま1フィールドに格納する**: メニュー数は店舗ごとに数件〜数十件程度
+  (`conversation-event-processor-assembly-design.md`の想定顧客規模)であり、サブ
+  コレクション化(`stores/{storeId}/menus/{menuName}`のような1メニュー1ドキュメント
+  構造)によるクエリ・ページネーションの必要性は無いと判断し、9・11・13・15・17・19節と
+  同じ単一ドキュメント内のフィールドとして設計する。
+- **フィールド名**は9節(`suspensionReason`)等と同じ方針でcamelCase化し`menuDurations`
+  とした。メニュー名自体(dictのキー)は日本語文字列のままFirestoreのmapキーとして
+  格納し、変換は行わない(Firestoreのmapキーはドット・チルダ等一部記号を除けば任意の
+  文字列を許容するため、カット・カラー等の日本語メニュー名はそのまま使える)。
+- **`store_faq_info`グループは対象外**: 20節の想定どおり着手時に構造を確認した結果、
+  `store_faq_info`は`parking`/`address`/`payment_methods`/`hours`/`menu`等キーごとに
+  型が異なる(文字列・ネストしたdict等)不均一な構造(`cloud_function_process_event.py`
+  1254-1276行目)であり、`menu_durations`のような単純なフラット辞書とは異なる個別の
+  設計検討(キーごとに異なる既定値・省略時の挙動の整理)が必要なため、本フェーズでは
+  着手せず次回候補として残す。
+
+## 23. 次回候補(フェーズ続き312時点)
+
+- (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから
+  承認された場合はその着手を最優先。
+- (2)残りグループ`store_faq_info`(キーごとに型が異なる不均一構造、22節で後回しと判断した
+  理由を踏まえてキーごとの既定値設計から着手する)・`all_store_ids`(20節のとおり
+  Firestoreの`stores`コレクション自体をクエリする設計になる見込みで最後に着手する)の
+  実Firestore接続アダプタ設計。
+- (3)他venture・アイデア領域の前進。
+- (4)他venture(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」
+  記述にも21節で見つかった同種の陳腐化(既に対応済みの項目を未着手として繰り返し記載)が
+  ないかの点検(21節から持ち越し)。
