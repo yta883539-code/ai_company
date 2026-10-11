@@ -2180,3 +2180,30 @@
   作成し、`is_generation_paused()`・`run_all_checks()`・
   `record_generation_and_get_trial_end_notice()`を束ねるWebフォーム送信処理本体
   `process_form_submission()`を実装。テスト18件追加、全パス)
+- フェーズ124(2026-10-11 10:00 UTC定例更新): フェーズ123「次回候補」(2)
+  (plan_idのfleet_operatorへの書き込み元設計)に着手した。新規ドキュメント
+  `stripe-checkout-plan-id-design.md`で、初回記録(`checkout.session.completed`の
+  `metadata.plan`、course-set-pasha/checkout-session-plan-selection-design.mdの方式を
+  日本語⇔英語変換なしで簡略化して踏襲)と、プラン変更時の同期(`customer.subscription.
+  updated`のPrice `lookup_key`、line-reservation-ai/subscription-plan-sync-design.mdの
+  方式を踏襲)の2経路を設計した。`trial_management.FleetOperatorStoreProtocol`/
+  `InMemoryFleetOperatorStore`に`get_plan_id`/`set_plan_id`を追加し、新規モジュール
+  `prototype/plan_id_resolution.py`に`write_plan_id_from_checkout_session_metadata()`・
+  `resolve_plan_id_from_subscription()`・`sync_plan_id_on_subscription_event()`
+  (差分チェック込み)を実装した。`KNOWN_PLAN_IDS`は`overage_notifications.
+  PLAN_VEHICLE_LIMIT`のキーを単一の正として同期させ、新たな不整合を生まないようにした。
+  `test_plan_id_resolution.py`を新規作成しテスト19件(既知/未知のplan・metadata欠落時の
+  安全側挙動、既知/未知のlookup_key解決、差分チェックによる書き込み省略/再書き込み、
+  operator間の独立性)を追加、全パス。`python3 prototype/run_all_tests.py`(8ファイルに
+  増加)・`python3 schema/validate_test_cases.py`(11件、変更なし)もいずれもパスすることを
+  確認した。Checkout Session作成・Webhook受信エントリポイント自体のモジュール(他venture
+  `checkout_session.py`/`stripe_webhook.py`相当)の実装、Webフォームのプラン選択UI自体は
+  いずれも本venture未着手のまま次回以降の課題として残る。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)Checkout Session作成・Webhook受信エントリポイント自体の実装(他venture
+  `checkout_session.py`/`stripe_webhook.py`相当)、(3)Webフォームのプラン選択UIの
+  モックアップ作成、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 10:00 UTC(フェーズ124: `stripe-checkout-plan-id-design.md`を新設し
+  plan_idの書き込み元〈初回・変更時の2経路〉を設計、`plan_id_resolution.py`を実装。
+  テスト19件追加、全8ファイルパス)

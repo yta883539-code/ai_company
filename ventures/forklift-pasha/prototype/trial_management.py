@@ -50,6 +50,16 @@ class FleetOperatorStoreProtocol:
         start_at等と異なり「初回のみ」の制約は設けない)。"""
         raise NotImplementedError
 
+    def get_plan_id(self, internal_id: str) -> "str | None":
+        """stripe-checkout-plan-id-design.md 2節。overage_notifications.PLAN_VEHICLE_
+        LIMIT等のキー("light"/"standard"/"fleet")と同一の値を保持する。未契約(初回
+        登録直後・トライアル中)はNone。"""
+        raise NotImplementedError
+
+    def set_plan_id(self, internal_id: str, value: str) -> None:
+        """同上。上書き可(plan変更時に何度でも書き換える、set_upgraded_atと同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -60,6 +70,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._trial_generation_count: "dict[str, int]" = {}
         self._trial_end_notified_at: "dict[str, datetime]" = {}
         self._upgraded_at: "dict[str, datetime]" = {}
+        self._plan_id: "dict[str, str]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -91,6 +102,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_upgraded_at(self, internal_id: str, value: datetime) -> None:
         self._upgraded_at[internal_id] = value
+
+    def get_plan_id(self, internal_id: str) -> "str | None":
+        return self._plan_id.get(internal_id)
+
+    def set_plan_id(self, internal_id: str, value: str) -> None:
+        self._plan_id[internal_id] = value
 
 
 def is_trial_period_over(
