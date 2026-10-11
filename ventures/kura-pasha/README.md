@@ -4919,3 +4919,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   set_stripe_customer_id`に、同一workshop_idへの再紐付け時に旧stripe_customer_idの逆引き
   エントリを除去する処理を追加〈line-reservation-aiの設計を参考に改善〉。テスト1件追加、
   schema検証32件いずれもパス)
+- フェーズ225(2026-10-11 02:00 UTC定例更新): フェーズ224の次回候補(2)「一時的な接続
+  エラー時の安全側フォールバック方針の統一的整理」(workshop-store-firestore-adapter-
+  design.md 3節・9.1節・11.1節・13.3節・15.3節・17.3節で繰り返し先送りしてきた論点)を
+  解消した。他venture(aircon-pasha・course-set-pasha・line-reservation-ai)が既に確立
+  済みの原則(`.get()`自体の例外はtry/exceptで捕捉し、各フィールドの既存の「未設定」
+  デフォルト値に合流させる〈fail-open〉。ただし値が認可・決済ゲートの判定に直接使われ、
+  デフォルト値が「拒否」を意味する場合のみ例外を伝播させる〈fail-closed〉)を本venture
+  全体に適用した。cloud_function_webhook.py 1722行目・usage_counter_workshop.py 960行目
+  の調査により、基盤グループの`get_contractor_user_id`(契約者本人確認による決済認可
+  ゲート)・`get_plan_id`(利用上限プラン決定)の2メソッドがline-reservation-aiの
+  `owner_user_id`と同型のfail-closed例外に該当することを確認し、両メソッドは例外を
+  捕捉せず伝播させる方針として確定した(コード変更なし、元々例外を捕捉していない実装の
+  まま)。それ以外の全グループ(メンバー削減系・契約者引き継ぎ系・trial系・
+  stripe_customer_id順引き逆引き系・subscription_status+event_time系・payment_failure系・
+  trial_end_notified_at・owner_notified_at系2種、計14メソッド)はfail-open方針に確定し、
+  各コード例に`try/except Exception: return <既存デフォルト値>`を追加した。
+  workshop-store-firestore-adapter-design.mdに23節(確定事項の記録)・24節(次回候補更新)
+  を追加し、3節・9.1節・11.1節・13.3節・15.3節・17.3節の該当箇所にも解消済みである旨を
+  追記した。本フェーズは設計ドキュメントのみの変更(実Firestore接続アダプタ自体は実装
+  未着手、オーナー承認待ち)のため、`InMemoryWorkshopStore`への変更は発生していない。
+  `python3 prototype/run_all_tests.py`(16ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)をいずれも再実行しパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補(ライディングショップ
+  池上・エクウスワールド)へのヒアリング実施がオーナーから承認された場合はその着手を
+  最優先、(2)4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・安全側
+  フォールバック方針(本節で確定した例外方針含む)の横断レビュー、(3)付け替え時の旧
+  `stripe_customer_index`エントリ削除の実Firestore接続アダプタ側対称対応(実装自体は
+  オーナー承認待ち)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 02:00 UTC(フェーズ225: 一時的な接続エラー時の安全側フォールバック
+  方針を本venture全体で統一的に確定〈原則fail-open、契約者・プラン判定の2メソッドのみ
+  fail-closed〉。設計ドキュメントのみの変更、テスト16ファイル・schema検証32件いずれも
+  変更なしでパス)

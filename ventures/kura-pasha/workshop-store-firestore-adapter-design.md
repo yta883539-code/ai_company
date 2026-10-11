@@ -170,7 +170,9 @@ class FirestoreWorkshopStore:
   であるため、本グループの実装もInMemoryと同じ契約を維持し、未作成ドキュメントに対しては
   例外的ケースとして扱う(`snapshot.to_dict() or {}`に対する`["key"]`アクセスが自然に
   `KeyError`を送出する)。一時的な接続エラー(`get()`自体の例外)を安全側Noneに倒すかどうかは
-  本グループでは未検討のまま残し、次回候補(4節)とする。
+  本グループでは未検討のまま残し、次回候補(4節)とする(**23節で解消**: 両メソッドとも
+  認可・利用上限判定に直接使われ、安全側のNoneに相当する値が存在しないフィールドである
+  ため、例外は捕捉せず伝播させる〈fail-closed〉ことに確定した)。
 - **`member_display_names`のフィールド命名**: InMemory実装は`_display_names_by_workshop`を
   `member_user_ids`とは別の辞書として保持しているが(630行目)、Firestoreでは同一
   ドキュメント内のネストしたmapフィールド(`member_display_names`)として格納する設計とした。
@@ -216,7 +218,11 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
         )
 
     def get_pending_reduction_effective_at(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("pending_member_reduction_effective_at")
 
     def set_specified_retention_member_name(self, workshop_id: str, name: str) -> None:
@@ -225,7 +231,11 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
         )
 
     def get_specified_retention_member_name(self, workshop_id: str) -> Optional[str]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("specified_retention_member_name")
 
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
@@ -316,7 +326,11 @@ dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`
     def get_pending_contractor_transfer(
         self, workshop_id: str
     ) -> Optional[PendingContractorTransfer]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         data = (snapshot.to_dict() or {}).get("pending_contractor_transfer")
         if data is None:
             return None
@@ -404,7 +418,13 @@ dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`
 
 ```python
     def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        # 9.1節の通り、is_trial_period_over()はNoneを「トライアル未終了」扱いに倒す
+        # 既存の安全側分岐を持つため、接続エラーをNoneへ合流させてもこの分岐と整合する。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("trial_start_at")
 
     def set_trial_start_at(self, workshop_id: str, trial_start_at: datetime) -> None:
@@ -413,7 +433,11 @@ dataclass)の通り、`candidate_user_id`/`candidate_member_name`/`requested_at`
         )
 
     def get_trial_generation_used(self, workshop_id: str) -> bool:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(False)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return False
         return (snapshot.to_dict() or {}).get("trial_generation_used", False)
 
     def set_trial_generation_used(self, workshop_id: str, used: bool = True) -> None:
@@ -480,7 +504,11 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
 
 ```python
     def get_stripe_customer_id(self, workshop_id: str) -> Optional[str]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("stripe_customer_id")
 
     def set_stripe_customer_id(self, workshop_id: str, stripe_customer_id: str) -> None:
@@ -499,7 +527,11 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
     def get_workshop_id_by_stripe_customer_id(
         self, stripe_customer_id: str
     ) -> Optional[str]:
-        snapshot = self._stripe_index.document(stripe_customer_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未発見」側(None)に安全側合流させる。
+        try:
+            snapshot = self._stripe_index.document(stripe_customer_id).get()
+        except Exception:
+            return None
         if not snapshot.exists:
             return None
         return (snapshot.to_dict() or {}).get("workshop_id")
@@ -536,7 +568,8 @@ firestore-provider-adapter-design.md 5節で確立した設計をそのまま踏
   示す値ではない。アダプタ側で独自のデフォルト値を補う必要はない。
 - **例外方針は本節では未検討のまま**: 3節で指摘した「一時的な接続エラー時の安全側
   フォールバック方針」は9節までと同様、本節でも個別には検討せず、12節2点目の統一的整理に
-  委ねる。
+  委ねる(**23節で解消**: `get_stripe_customer_id`・`get_workshop_id_by_stripe_customer_id`
+  いずれも接続エラーを「未発見」側のNoneに合流させる方針を採用)。
 
 ## 12. 残課題・次回候補(11節分)
 
@@ -580,7 +613,11 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
 
 ```python
     def get_subscription_status(self, workshop_id: str) -> str:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未契約」側("trialing")に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return "trialing"
         return (snapshot.to_dict() or {}).get("subscription_status", "trialing")
 
     def set_subscription_status(self, workshop_id: str, status: str) -> None:
@@ -592,7 +629,11 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
         self._doc_ref(workshop_id).set({"subscription_status": status}, merge=True)
 
     def get_subscription_status_event_time(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側(None)に合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("subscription_status_event_time")
 
     def set_subscription_status_event_time(
@@ -603,7 +644,11 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
         )
 
     def get_checkout_session_completed_event_time(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側(None)に合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("checkout_session_completed_event_time")
 
     def set_checkout_session_completed_event_time(
@@ -614,7 +659,11 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
         )
 
     def get_subscription_updated_event_time(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側(None)に合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("subscription_updated_event_time")
 
     def set_subscription_updated_event_time(
@@ -625,7 +674,11 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
         )
 
     def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側(None)に合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("current_period_end")
 
     def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
@@ -660,7 +713,9 @@ map型フィールドのネスト(7節)やArrayUnion(2節`add_member_user_id`)�
   aircon-pasha 17節と変わらない。
 - **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節で指摘した「一時的な接続エラー時の
   安全側フォールバック方針」は、本節でも個別には検討せず、12節3点目・本節末の統一的整理に
-  委ねる。
+  委ねる(**23節で解消**: event_time系4フィールドは配信順序ガード無効化側のNoneに、
+  `subscription_status`は未契約側の`"trialing"`に、それぞれ接続エラーを合流させる方針を
+  採用)。
 
 ## 14. 残課題・次回候補(13節分)
 
@@ -701,7 +756,11 @@ get/set設計は、1個のフィールドのみ先行してここで扱うこと
 
 ```python
     def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未検知」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("payment_failure_detected_at")
 
     def set_payment_failure_detected_at(self, workshop_id: str, detected_at: datetime) -> None:
@@ -720,7 +779,11 @@ get/set設計は、1個のフィールドのみ先行してここで扱うこと
         )
 
     def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未送信」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("payment_failure_reminder_sent_at")
 
     def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
@@ -753,7 +816,9 @@ get/set設計は、1個のフィールドのみ先行してここで扱うこと
   確認する作業が残る。
 - **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節・13.3節で指摘した「一時的な
   接続エラー時の安全側フォールバック方針」は、本節でも個別には検討せず、12節3点目・
-  14節3点目の統一的整理に委ねる。
+  14節3点目の統一的整理に委ねる(**23節で解消**: `payment_failure_detected_at`・
+  `payment_failure_reminder_sent_at`いずれも「未検知・未送信」側のNoneに接続エラーを
+  合流させる方針を採用)。
 
 ## 16. 残課題・次回候補(15節分)
 
@@ -789,7 +854,11 @@ else: 代入`という共通パターンを採る。
 
 ```python
     def get_trial_end_notified_at(self, workshop_id: str) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未送信」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("trial_end_notified_at")
 
     def set_trial_end_notified_at(self, workshop_id: str, notified_at: datetime) -> None:
@@ -798,7 +867,11 @@ else: 代入`という共通パターンを採る。
     def get_blocked_but_billing_owner_notified_at(
         self, workshop_id: str
     ) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未送信」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("blocked_but_billing_owner_notified_at")
 
     def set_blocked_but_billing_owner_notified_at(
@@ -811,7 +884,11 @@ else: 代入`という共通パターンを採る。
     def get_payment_suspension_owner_notified_at(
         self, workshop_id: str
     ) -> Optional[datetime]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未送信」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("payment_suspension_owner_notified_at")
 
     def set_payment_suspension_owner_notified_at(
@@ -845,7 +922,10 @@ else: 代入`という共通パターンを採る。
   (他venture・他グループでも同型のget/set実装が目的別に複数存在する既存パターンを踏襲)。
 - **例外方針は本節でも未検討のまま**: 3節・9.1節・11.1節・13.3節・15.3節で指摘した
   「一時的な接続エラー時の安全側フォールバック方針」は、本節でも個別には検討せず、
-  12節3点目・14節3点目・16節3点目の統一的整理に委ねる。
+  12節3点目・14節3点目・16節3点目の統一的整理に委ねる(**23節で解消**:
+  `trial_end_notified_at`・`blocked_but_billing_owner_notified_at`・
+  `payment_suspension_owner_notified_at`いずれも「未送信」側のNoneに接続エラーを
+  合流させる方針を採用)。
 
 ## 18. 残課題・次回候補(17節分)
 
@@ -953,4 +1033,119 @@ customer_idの逆引きがNoneに戻ること、新customer_idの逆引き・順
 2. 4つの設計ドキュメントが前提とする`merge=True`の部分更新方針・安全側フォールバック方針の
    横断レビュー(20節2点目から継続)。
 3. 一時的な接続エラー時の安全側フォールバック方針の統一的整理(20節4点目から継続)。
+4. 他venture・アイデア領域の前進。
+
+## 23. 一時的な接続エラー時の安全側フォールバック方針の統一的整理(フェーズ225)
+
+### 23.1. 背景
+
+3節・9.1節・11.1節・13.3節・15.3節・17.3節で繰り返し「本節では未検討のまま」として
+先送りしてきた論点(`.get()`呼び出し自体がタイムアウト・5xx・ネットワーク断等で例外を
+送出する場合、各`get_*`メソッドはその例外を安全側デフォルト値に合流させるべきか、
+それとも呼び出し元へ伝播させるべきか)を、本venture(kura-pasha)全体を通じて統一的に
+確定する。
+
+他venture(aircon-pasha firestore-provider-adapter-design.md・course-set-pasha
+firestore-provider-adapter-design.md・line-reservation-ai store-profile-store-
+firestore-adapter-design.md)は既にこの論点に対する設計パターンを確立済みであり、本節は
+その横展開として整理する。3ventureに共通する実装パターンは、
+
+```python
+def get_xxx(self, key: str) -> ...:
+    try:
+        snapshot = self._doc_ref(key).get()
+    except Exception:
+        return <既存の「未設定」デフォルト値>
+    ...
+```
+
+という、`.get()`呼び出しのみを`try/except Exception`で囲み、例外発生時は「ドキュメントが
+存在しない場合」と同じデフォルト値を返すものである(course-set-pasha
+firestore-provider-adapter-design.md 160〜170行目の`get_gym_area_pairs`等)。
+
+line-reservation-ai store-profile-store-firestore-adapter-design.md 19節(`owner_user_id`
+グループ)は唯一の例外で、この汎用パターンを適用せず、`.get()`の例外をそのまま伝播させる
+(=本フィールドを使う`verify_checkout_authorization()`の決済認可チェックが例外伝播により
+処理を止める、fail-closedの結果になる)設計を採った。理由は、他フィールドでは
+「接続エラーをNoneへ合流させる=処理を止めない」方向が安全側だったのに対し、
+`owner_user_id`は決済認可チェックが`None`を「認可拒否」と解釈する設計のため、
+「接続エラーをNoneへ合流させる」と**誤って認可を通してしまう**(fail-open)リスクが
+生じる、唯一のフィールドだったためである。
+
+### 23.2. 本ventureでの適用: 一般原則
+
+上記の原則をkura-pashaの4Protocol(`WorkshopStoreProtocol`・`UserProfileStoreProtocol`・
+`UsageCounterStoreProtocol`・`LinkingCodeStoreProtocol`)全体に適用する。
+
+- **原則**: 各`get_*`メソッドは、対応する`set_*`が未呼び出しの場合に返す既存の
+  「未設定」デフォルト値(`None`・`False`・`"trialing"`等、各節の検討事項で既に
+  定義済みの値)と同じ値を、一時的な接続エラー発生時にも返す。これにより、Firestoreの
+  一時的な障害が、本venture全体の処理フロー(LINE Reply送信・Stripe Webhook処理・
+  使用量カウント)を無条件に停止させることを防ぐ。
+- **例外**: 対象フィールドの値が認可・決済ゲートの判定に直接使われ、かつ既存の
+  「未設定」デフォルト値そのものが「拒否」側を意味する場合に限り、`.get()`の例外は
+  捕捉せず伝播させる(結果としてfail-closedになる)。本venture内でこの例外に該当する
+  フィールドは23.3節の通り`get_contractor_user_id`・`get_plan_id`の2メソッドのみ。
+
+### 23.3. 2節・3節(基盤グループ)の`get_contractor_user_id`・`get_plan_id`の確定
+
+3節で「未検討のまま残す」としていた`get_contractor_user_id`・`get_plan_id`について、
+line-reservation-aiの`owner_user_id`と同じ例外パターンに該当することを確認した。
+
+- `get_contractor_user_id`は`checkout-initiation-flow-design.md`
+  (cloud_function_webhook.py 1722行目・1405行目)で
+  `if user_id != workshop_store.get_contractor_user_id(workshop_id):
+  return CONTRACTOR_ONLY_CHECKOUT_NOTICE`という形で、Checkout Session開始の認可
+  チェック(契約者本人確認)に直接使われている。
+- `get_plan_id`は`process_generation_request()`(usage_counter_workshop.py 960行目)で
+  当該workshopの利用上限プランを決定するために使われ、誤った値(特に未判定時に緩い
+  プラン側へ倒れること)は利用上限チェックを無効化するリスクになる。
+- いずれも3節の既存方針の通り「workshop作成(`set_members`→`set_plan`)が完了済みで
+  あることを呼び出し元が前提にできる」設計であり、`.get()`自体の例外を安全側デフォルト
+  (例えば契約者チェックを素通りさせる値や、無制限扱いのplan_id)に合流させる手段が
+  そもそも存在しない(「安全側のplan_id」「安全側のcontractor_user_id」という概念自体が
+  成立しない)。
+- したがって、本2メソッドは**例外を捕捉せず伝播させる**(23.2節の例外パターン)。
+  `.get()`の例外は3節が既に述べる「未作成workshop_idに対する`KeyError`」と同じ扱いで
+  呼び出し元に伝わり、`process_memo_event()`・checkout開始フローのいずれも、この
+  未処理例外によって当該リクエストの処理が中断される(fail-closed)。これは
+  line-reservation-aiの`owner_user_id`と同じ理由(接続エラーをNoneや既定値へ逃がすと
+  認可・利用制限を誤って緩めてしまう側のフィールドである)により、安全側の結果になる。
+  コード変更は不要(2節のコード例は元々例外を捕捉していないため、本確定事項に忠実な
+  実装のまま)。
+
+### 23.4. 他グループへの適用(コード反映)
+
+5節・7節・9節・11節・13節・15節・17節の各`get_*`メソッドは23.2節の原則(例外側)に
+該当しないため、いずれも`try/except Exception: return <既存デフォルト値>`で`.get()`を
+囲む汎用パターンへ更新した(各節のコード例に反映済み)。デフォルト値は各節の検討事項が
+既に定めていた値をそのまま使用し、新たな値の選定は発生していない(例:
+`get_subscription_status`は13.3節の`"trialing"`、trial系2フィールドは9.1節の`None`/
+`False`)。
+
+これにより、`WorkshopStoreProtocol`の例外方針に関する「未検討のまま」の注記
+(3節・9.1節・11.1節・13.3節・15.3節・17.3節)はすべて解消した。
+
+### 23.5. 動作確認
+
+本節は設計ドキュメントのみの変更であり、`InMemoryWorkshopStore`(実装・テスト対象)への
+変更は発生していない(実Firestore接続アダプタ自体は実装未着手、オーナー承認待ち)。
+`python3 prototype/run_all_tests.py`(16ファイル)・`python3 schema/validate_test_cases.py`
+(32件)をいずれも再実行し、変更なしでパスすることを確認した。
+
+- **承認待ちアクション**: 本フェーズは設計文書の変更のみで、支払い・アカウント作成・
+  外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 24. 残課題・次回候補(23節分)
+
+1. `WorkshopStoreProtocol`の実Firestore接続アダプタ設計、および一時的な接続エラー時の
+   安全側フォールバック方針は、本節で全グループ完了した。次回は、承認後の結合実装フェーズに
+   備え、4つの設計ドキュメント(`UserProfileStoreProtocol`・`UsageCounterStoreProtocol`・
+   `LinkingCodeStoreProtocol`・本Protocol)の`merge=True`の部分更新方針・安全側フォールバック
+   方針(本節で確定した例外方針含む)に矛盾がないかの横断レビューを優先候補とする(22節2点目
+   から継続)。
+2. 付け替え時の旧`stripe_customer_index`エントリ削除の実Firestore接続アダプタ側対称対応
+   (11.1節、実装自体はオーナー承認待ち、未着手のまま継続)。
+3. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(22節1点目から継続)。
 4. 他venture・アイデア領域の前進。
