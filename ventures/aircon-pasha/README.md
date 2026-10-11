@@ -5453,3 +5453,38 @@
   (3)他venture・アイデア領域の前進。
 - 最終更新: 2026-10-11 13:00 UTC(フェーズ308: 上記参照)
 - 最終更新: 2026-10-11 04:00 UTC(フェーズ307: 上記参照)
+- フェーズ309(2026-10-11 19:00 UTC定例更新): フェーズ308の次回候補(2)に対応し、
+  `run_due_deletion_candidate_final_confirmations()`を実際に起動する薄いCloud
+  Functionsエントリポイントを実装した(`prototype/cloud_function_send_deletion_
+  candidate_final_confirmations.py`新規作成)。本venture自身の`cloud_function_
+  webhook.py`・line-reservation-aiの`conversation_event_processor_assembly.py`と
+  同じ「本体は依存注入でテスト可能、`main(request)`だけが実`functions_framework`
+  リクエストオブジェクトを扱う薄い配線」構成を踏襲した。`get_deletion_candidate_
+  final_confirmation_runtime_dependencies()`は、実Firestore接続・実LINE Push
+  Message API接続がいずれも実GCPプロジェクト・実LINE公式アカウント開設後でなければ
+  構築できないため(オーナー承認待ち、pending-approval.md参照)、
+  `cloud_function_webhook.get_runtime_dependencies()`と同じ考え方で検証用の
+  `InMemoryUserProfileStore`・`InMemoryLinePushClient`を返す設計とした。本関数は
+  Cloud Scheduler(月次・暫定JST 05:00、deletion-candidate-final-confirmation-
+  scheduler-design.md参照)がHTTPトリガーとして起動する想定のため、Stripe/LINE
+  Webhookと異なりリクエストのbody・署名ヘッダのいずれも参照せず、常に200を返す設計
+  とした(失敗〈failed〉が残っても次回起動時に自然に再試行される既存design方針のため、
+  5xxでのリトライ誘導は不要と判断)。`test_cloud_function_send_deletion_candidate_
+  final_confirmations.py`を新規作成しテスト5件(依存ファクトリがInMemory実装を返す
+  こと・呼び出しごとに新規インスタンスを返すこと・その出力が`run_due_deletion_
+  candidate_final_confirmations()`にそのまま渡せること、`main()`が常に200/"OK"を
+  返すこと・連続呼び出しでも例外が伝播しないこと)を追加、全5件パス。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(675件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし(実Cloud Scheduler
+  作成・実Firestore/LINE接続自体は既存の承認待ち事項の範囲内であり、新たな承認待ち
+  事項ではない)。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された
+  場合はその着手を最優先、(2)他venture(course-set-pasha・kura-pasha・
+  line-reservation-ai・forklift-pasha)に同種の「薄いCloud Functionsエントリポイント
+  未実装のスケジューラ本体」が残っていないかの横断点検、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-11 19:00 UTC(フェーズ309: `prototype/cloud_function_send_
+  deletion_candidate_final_confirmations.py`を新設し、`run_due_deletion_candidate_
+  final_confirmations()`を起動する薄いCloud Functionsエントリポイントを実装。
+  テスト5件追加、全675件パス)
