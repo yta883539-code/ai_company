@@ -5608,3 +5608,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md`22節に`menu_durations`グループ〈初の複合構造フィールド〉の実
   Firestore接続アダプタ設計を追加。`store_faq_info`は不均一構造のため対象外と判断し
   23節に残課題として整理。コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き313(2026-10-11 08:00 UTC定例更新): フェーズ続き312の次回候補(2)
+  「残りグループ`store_faq_info`の実Firestore接続アダプタ設計」に着手した。
+  `InMemoryStoreProfileStore.get_store_faq_info`/`set_store_faq_info`
+  (store_profile_store.py 343-352行目)の実装を確認した結果、23節で見込んでいた
+  「キーごとに型が異なるため個別検討が必要」という前提は誤りで、ストア層は
+  `store_faq_info`の中身(`parking`・`address`・`payment_methods`・`hours`・
+  `menu`等)を一切解釈せず丸ごと格納・返却する不透明な辞書として扱っており、
+  キーごとの解釈は読み出し側(`cloud_function_process_event.py` 1254-1276行目)
+  の責務であることが判明した。これにより22節の`menu_durations`設計(Firestore
+  フィールド丸ごと置き換え・接続エラー/未設定時は空dictへ合流)をそのまま転用する
+  形で`store-profile-store-firestore-adapter-design.md`に24節
+  (`storeFaqInfo`フィールド)を追加し、23節(2)の見立て違いだった経緯を24節末尾に
+  明記した。25節に次回候補(残るは`all_store_ids`のみ)を整理した。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (906件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCP
+  プロジェクト等)がオーナーから承認された場合はその着手を最優先、(2)残りグループ
+  `all_store_ids`の実Firestore接続アダプタ設計(これで本venture全グループの設計が
+  完了する見込み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 08:00 UTC(フェーズ続き313: `store-profile-store-firestore-
+  adapter-design.md`24節に`store_faq_info`グループの実Firestore接続アダプタ設計を
+  追加。23節の「個別検討が必要」という見立てはストア層が中身を解釈しない不透明な
+  辞書だったため誤りと判明し、22節`menu_durations`と同型の設計で足りることを確認。
+  コード変更なし、テスト906件・schema検証28件いずれもパス)

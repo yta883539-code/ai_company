@@ -730,3 +730,71 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
 - (4)他venture(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」
   記述にも21節で見つかった同種の陳腐化(既に対応済みの項目を未着手として繰り返し記載)が
   ないかの点検(21節から持ち越し)。
+
+## 24. store_faq_infoグループ(2メソッド)(フェーズ続き313、2026-10-11 08:00 UTC)
+
+`get_store_faq_info`/`set_store_faq_info`(`store_profile_store.py` 189-193行目・
+343-352行目)を追加設計する。23節(2)で「キーごとに型が異なる不均一構造のため
+個別検討が必要」と見込んでいたが、着手して`InMemoryStoreProfileStore`の実装
+(343-352行目)を確認した結果、ストア自身は`store_faq_info`の中身(`parking`が
+`{"capacity": ...}`のネストdict、`address`が文字列、`payment_methods`が
+リスト、`hours`がネストdict、`menu`がリスト等)を一切解釈せず、22節の
+`menu_durations`と同じく「丸ごと受け取った辞書をそのまま格納し、丸ごと返す」
+という不透明な(opaque)契約になっていることが分かった。キーごとの既定値・
+省略時の挙動の解釈は、読み出し側の`cloud_function_process_event.py`
+1254-1276行目(`_handle_faq`相当、各トピックごとに`.get("parking")`等で
+存在確認してから分岐)が担っており、ストア層・Firestoreアダプタ層の責務では
+ない。したがって22節で見込んだような個別検討は不要で、22節の`menu_durations`
+設計をそのまま転用できると結論した。
+
+```python
+    def get_store_faq_info(self, store_id: str) -> dict:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # 接続エラー時はInMemory実装の未設定時デフォルト(空dict)と揃える。
+            # cloud_function_process_event.py 1254-1276行目の各トピック分岐は
+            # いずれも`.get(キー)`がFalsyなら「未登録」として扱い、resolved:false
+            # (1279行目付近)でオーナー転送経路に合流させるため、22節の
+            # menu_durationsと同じ「空に合流=処理を止めて人手に回す」基準に
+            # 合致し、新たな分岐の追加は不要である。
+            return {}
+        if not snapshot.exists:
+            return {}
+        return dict((snapshot.to_dict() or {}).get("storeFaqInfo", {}))
+
+    def set_store_faq_info(self, store_id: str, store_faq_info: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        # InMemory実装(348-352行目)は呼び出しごとに辞書全体を置き換える契約
+        # (個別キーの差分マージではない)ため、22節のmenu_durationsと同じく
+        # Firestore側も"storeFaqInfo"フィールドを丸ごと置き換える形で契約を
+        # 一致させる。ネストした`parking`/`hours`等の内部dict・`payment_methods`/
+        # `menu`等の内部listはFirestoreのmap/array型がそのまま表現できるため、
+        # キーごとの型変換は不要である。
+        self._doc_ref(store_id).set({"storeFaqInfo": dict(store_faq_info)}, merge=True)
+```
+
+- **フィールド名**は9・11・13・15・17・19・22節と同じcamelCase方針で
+  `storeFaqInfo`とした。内部のキー(`parking`・`address`・`payment_methods`・
+  `hours`・`menu`等)はアプリ側の命名のままFirestoreのmapキーとして格納し、
+  変換は行わない(22節のメニュー名キーと同じ扱い)。
+- **22節の「個別検討が必要」という見立ては不要だったと訂正する**: 23節(2)の
+  時点では構造の不均一性からFirestoreアダプタ側にも個別のキー別分岐が必要と
+  見込んでいたが、実際にはストア層が中身を解釈しない不透明な辞書である以上、
+  Firestoreアダプタも中身を解釈する必要がなく、22節と全く同型の設計で足りる。
+  同種の見立て違いが21節で指摘された「README記述が検証されないまま複製・
+  継承され続ける」パターンの再発を防ぐため、本節で着手前の見立てが実装確認に
+  よって訂正された経緯を明記した。
+
+## 25. 次回候補(フェーズ続き313時点)
+
+- (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから
+  承認された場合はその着手を最優先。
+- (2)残りグループ`all_store_ids`(20節のとおりFirestoreの`stores`コレクション自体を
+  クエリする設計になる見込み)の実Firestore接続アダプタ設計。これで本ventureの
+  `StoreProfileStoreProtocol`の全グループ(Stripe顧客ID・9〜24節の各グループ)の
+  設計が完了する見込み。
+- (3)他venture・アイデア領域の前進。
+- (4)他venture(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」
+  記述にも21節で見つかった同種の陳腐化がないかの点検(21節・23節(4)から持ち越し)。
