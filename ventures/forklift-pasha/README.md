@@ -2282,3 +2282,27 @@
   updated`等(`plan_id_resolution.sync_plan_id_on_subscription_event()`が既に用意済みだが
   未配線)の受信・ディスパッチの実装、(3)Webフォームのプラン選択UI自体の実装、
   (4)他venture・アイデア領域の前進。
+- フェーズ128(2026-10-11 15:00 UTC定例更新): フェーズ127「次回候補(2)」であった
+  `customer.subscription.updated`受信時のplan_id同期を実装した。
+  stripe-subscription-updated-dispatch-design.mdを新設し、`prototype/stripe_webhook.py`に
+  `handle_customer_subscription_updated()`(`data.object.customer`から`stripe_customer_id`を
+  取り出し、`store.get_internal_id_by_stripe_customer_id()`で`internal_id`を逆引き→
+  `plan_id_resolution.sync_plan_id_on_subscription_event()`に委譲)を追加し、
+  `receive_stripe_webhook()`から`customer.subscription.updated`をディスパッチするよう配線
+  した。`customer.subscription.deleted`(解約)等は本venture未着手のため従来どおり200で
+  無視する。本venture固有の論点として、`customer.subscription.updated`は`internal_id`を
+  直接含まないため、`checkout.session.completed`受信時に書き込んだ逆引きインデックスに
+  依存して解決する設計とした(逆引き不可時は`error="unknown_customer"`として同期を
+  スキップするが、200で受理しStripe側の再送ループは避ける)。`test_stripe_webhook.py`に
+  テスト10件(正常系のplan_id同期・既存値と同一時の不変・customer欠落・未知のcustomer・
+  未知のlookup_key・receive_stripe_webhook経由のディスパッチ確認)を追加、全10件パス。
+  回帰確認として`python3 prototype/run_all_tests.py`(10ファイル、全パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)`customer.subscription.deleted`
+  (解約)受信時の処理設計、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-11 15:00 UTC(フェーズ128: `customer.subscription.updated`受信時の
+  plan_id同期を実装。`handle_customer_subscription_updated()`を新設し
+  `receive_stripe_webhook()`に配線、テスト10件追加・全件パス)

@@ -6,9 +6,11 @@
 検証ロジックと`checkout.session.completed`受信時の紐付け処理のみを切り出したモジュール
 (aircon-pasha/course-set-pashaのprototype/stripe_webhook.pyと同じ位置づけ)。
 
-本ventureは`customer.subscription.*`系イベントを処理する`stripe_dispatch.py`相当が
-まだ存在しないため、スコープは`checkout.session.completed`の受信・署名検証のみに限定する
-(design 1節参照)。それ以外のイベント種別は常に200(受理・無視)を返す。
+フェーズ127時点では`checkout.session.completed`の受信・署名検証のみに限定していたが、
+フェーズ128で`customer.subscription.updated`受信時のplan_id同期
+(`handle_customer_subscription_updated()`、stripe-subscription-updated-dispatch-
+design.md)を追加した。決済失敗検知(`payment_failure.py`相当)・解約通知等はまだ
+一切存在しないため、それ以外のイベント種別は常に200(受理・無視)を返す。
 """
 
 from __future__ import annotations
@@ -22,7 +24,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from plan_id_resolution import write_plan_id_from_checkout_session_metadata
+from plan_id_resolution import (
+    sync_plan_id_on_subscription_event,
+    write_plan_id_from_checkout_session_metadata,
+)
 from trial_management import FleetOperatorStoreProtocol, InMemoryFleetOperatorStore
 
 
@@ -146,11 +151,58 @@ def handle_checkout_session_completed(
 
 
 @dataclass
+class SubscriptionUpdatedSyncResult:
+    """handle_customer_subscription_updated()の結果
+    (stripe-subscription-updated-dispatch-design.md 2節)。"""
+
+    synced: bool
+    internal_id: Optional[str] = None
+    plan_id_written: bool = False
+    error: Optional[str] = None
+
+
+def handle_customer_subscription_updated(
+    event: dict,
+    store: FleetOperatorStoreProtocol,
+) -> SubscriptionUpdatedSyncResult:
+    """`customer.subscription.updated`イベントからplan_idの同期のみを行う
+    (stripe-subscription-updated-dispatch-design.md 2節)。
+
+    `customer`(= `stripe_customer_id`)を取り出し、
+    `store.get_internal_id_by_stripe_customer_id()`で`internal_id`を逆引きする
+    (checkout.session.completed受信時にstripe_webhook.handle_checkout_session_completed()
+    が書き込んだ逆引きインデックスに依存する)。逆引きできない場合(未知の
+    stripe_customer_id、または本venture未着手のCustomer Portal経由のプラン変更以外の
+    経路で作成されたcustomer)は`error="unknown_customer"`として同期を行わない。
+
+    plan_idの解決・差分書き込み自体は`plan_id_resolution.sync_plan_id_on_subscription_
+    event()`にそのまま委譲する(lookup_keyが未知・欠落、または既存値と同一の場合は
+    `plan_id_written=False`)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    stripe_customer_id = data_object.get("customer")
+
+    if not isinstance(stripe_customer_id, str) or not stripe_customer_id:
+        return SubscriptionUpdatedSyncResult(synced=False, error="missing_customer")
+
+    internal_id = store.get_internal_id_by_stripe_customer_id(stripe_customer_id)
+    if internal_id is None:
+        return SubscriptionUpdatedSyncResult(synced=False, error="unknown_customer")
+
+    plan_id_written = sync_plan_id_on_subscription_event(store, internal_id, data_object)
+
+    return SubscriptionUpdatedSyncResult(
+        synced=True, internal_id=internal_id, plan_id_written=plan_id_written
+    )
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """receive_stripe_webhook()の結果(design 1節)。"""
 
     status_code: int
     checkout_link_result: Optional[CheckoutSessionLinkResult] = None
+    subscription_updated_result: Optional[SubscriptionUpdatedSyncResult] = None
     error: Optional[str] = None
 
 
@@ -187,12 +239,20 @@ def receive_stripe_webhook(
     if not isinstance(parsed, dict):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_event")
 
-    if parsed.get("type") == "checkout.session.completed":
+    event_type = parsed.get("type")
+
+    if event_type == "checkout.session.completed":
         checkout_link_result = handle_checkout_session_completed(
             parsed, store, now=resolved_now
         )
         return StripeWebhookReceiverResult(
             status_code=200, checkout_link_result=checkout_link_result
+        )
+
+    if event_type == "customer.subscription.updated":
+        subscription_updated_result = handle_customer_subscription_updated(parsed, store)
+        return StripeWebhookReceiverResult(
+            status_code=200, subscription_updated_result=subscription_updated_result
         )
 
     return StripeWebhookReceiverResult(status_code=200)

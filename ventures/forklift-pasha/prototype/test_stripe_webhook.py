@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from stripe_webhook import (
     get_stripe_runtime_dependencies,
     handle_checkout_session_completed,
+    handle_customer_subscription_updated,
     receive_stripe_webhook,
     verify_stripe_signature,
 )
@@ -48,6 +49,19 @@ def _checkout_event(
                 "client_reference_id": internal_id,
                 "customer": stripe_customer_id,
                 "metadata": {"plan": plan},
+            }
+        },
+    }
+
+
+def _subscription_updated_event(stripe_customer_id="cus_123", lookup_key="forklift_pasha_fleet") -> dict:
+    return {
+        "id": "evt_sub_1",
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "customer": stripe_customer_id,
+                "items": {"data": [{"price": {"lookup_key": lookup_key}}]},
             }
         },
     }
@@ -150,6 +164,85 @@ def main():
         "未知のplanはplan_id_written=False", unknown_plan_result.plan_id_written, False
     ))
     results.append(_check("未知のplanはplan_idを書き込まない", store3.get_plan_id("internal-3"), None))
+
+    # --- handle_customer_subscription_updated: 正常系(plan_id同期) ---
+    store5 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-5", stripe_customer_id="cus_555", plan="light"),
+        store5,
+    )
+    sub_result = handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_555", lookup_key="forklift_pasha_fleet"),
+        store5,
+    )
+    results.append(_check("synced=True", sub_result.synced, True))
+    results.append(_check("internal_idが逆引きで解決される", sub_result.internal_id, "internal-5"))
+    results.append(_check("plan_id_written=True", sub_result.plan_id_written, True))
+    results.append(_check("plan_idがfleetに更新される", store5.get_plan_id("internal-5"), "fleet"))
+
+    # --- handle_customer_subscription_updated: 既存値と同一なら書き込まない ---
+    sub_result_same = handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_555", lookup_key="forklift_pasha_fleet"),
+        store5,
+    )
+    results.append(_check(
+        "既存値と同一の場合はplan_id_written=False", sub_result_same.plan_id_written, False
+    ))
+
+    # --- handle_customer_subscription_updated: customer欠落 ---
+    missing_customer_sub = handle_customer_subscription_updated(
+        {"data": {"object": {}}}, store5
+    )
+    results.append(_check(
+        "customer欠落はsynced=False", missing_customer_sub.synced, False
+    ))
+    results.append(_check(
+        "customer欠落はerror=missing_customer", missing_customer_sub.error, "missing_customer"
+    ))
+
+    # --- handle_customer_subscription_updated: 未知のstripe_customer_idは逆引き不可 ---
+    unknown_customer_sub = handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_unknown"), store5
+    )
+    results.append(_check(
+        "未知のcustomerはsynced=False", unknown_customer_sub.synced, False
+    ))
+    results.append(_check(
+        "未知のcustomerはerror=unknown_customer", unknown_customer_sub.error, "unknown_customer"
+    ))
+
+    # --- handle_customer_subscription_updated: 未知のlookup_keyはplan_idを書き込まない ---
+    unknown_lookup_sub = handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_555", lookup_key="unknown_key"),
+        store5,
+    )
+    results.append(_check(
+        "未知のlookup_keyはplan_id_written=False", unknown_lookup_sub.plan_id_written, False
+    ))
+    results.append(_check(
+        "未知のlookup_keyはplan_idを変更しない", store5.get_plan_id("internal-5"), "fleet"
+    ))
+
+    # --- receive_stripe_webhook: customer.subscription.updatedを正しくディスパッチする ---
+    store6 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-6", stripe_customer_id="cus_666", plan="light"),
+        store6,
+    )
+    sub_body = json.dumps(
+        _subscription_updated_event(stripe_customer_id="cus_666", lookup_key="forklift_pasha_standard")
+    ).encode("utf-8")
+    sub_ts = int(time.time())
+    sub_dispatch_result = receive_stripe_webhook(
+        sub_body, _sign(sub_body, sub_ts), SECRET, store=store6
+    )
+    results.append(_check("正常系は200", sub_dispatch_result.status_code, 200))
+    results.append(_check(
+        "subscription_updated_result.synced=True",
+        sub_dispatch_result.subscription_updated_result.synced,
+        True,
+    ))
+    results.append(_check("store側にも反映される", store6.get_plan_id("internal-6"), "standard"))
 
     # --- receive_stripe_webhook: 署名検証失敗 ---
     store4 = InMemoryFleetOperatorStore()
