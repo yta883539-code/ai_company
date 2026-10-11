@@ -798,3 +798,77 @@ monthly_booking_limit()`(388-417行目)側の前提は、Firestore版でも値�
 - (3)他venture・アイデア領域の前進。
 - (4)他venture(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」
   記述にも21節で見つかった同種の陳腐化がないかの点検(21節・23節(4)から持ち越し)。
+
+## 26. all_store_idsグループ(1メソッド)(フェーズ続き314、2026-10-11 17:00 UTC)
+
+### 26.1. 背景・範囲
+
+25節(2)を受け、`StoreProfileStoreProtocol`最後の残課題である`all_store_ids`
+(`store_profile_store.py` 195行目・354-359行目)の実Firestore接続アダプタ設計に着手する。
+`InMemoryStoreProfileStore.all_store_ids()`(354-359行目)は「いずれかのsetterが一度でも
+呼ばれたstore_idの集合」を昇順ソートして返す実装だが、既存の唯一の呼び出し元
+`blocked_but_billing_candidates.py`の`list_blocked_but_billing_candidates()`
+(55-69行目)は`all_store_ids()`の戻り値を`sorted(...)`の内側でさらに絞り込みながら
+自前でソートしているため、`all_store_ids()`自身が返す列挙順には依存していない
+(InMemory実装のソートは単体テストでの決定性確保が目的と見られ、契約上の要求ではない)。
+aircon-pashaの`UserProfileStoreProtocol.all_user_ids()`(firestore-provider-adapter-design.md
+15節)と全く同じ論点であり、同節の結論をそのまま転用する。
+
+### 26.2. 設計
+
+```python
+class FirestoreStoreProfileStore:
+    # (2節・9・11・13・15・17・19・22・24節に以下を追加)
+
+    def all_store_ids(self) -> Iterable[str]:
+        for snapshot in self._stores.stream():
+            yield snapshot.id
+```
+
+`self._stores`は2節で`__init__`時に`firestore_client.collection("stores")`として
+既に組み立て済みのコレクション参照をそのまま再利用する(本グループのための新規フィールドは
+不要)。
+
+### 26.3. 検討事項
+
+- **列挙順序への依存がないことの確認**: 26.1節のとおり、唯一の呼び出し元
+  `list_blocked_but_billing_candidates()`は`all_store_ids()`の結果を絞り込んだ上で
+  自前で`sorted()`しているため、`stream()`の返却順(ドキュメントID順やシャーディングに
+  依存し保証されない)がInMemory実装の昇順ソートと異なっていても正当性に影響しない
+  (aircon-pasha firestore-provider-adapter-design.md 15.3節と同じ結論)。
+- **走査コストの判断**: `list_blocked_but_billing_candidates()`はoperator-facingの
+  能動検知バッチ(日次〜手動実行想定、blocked-but-billing-detection-design.md 3節)からの
+  呼び出しのみで、本venture想定の店舗数規模(unit-economics-estimate.md想定の個人経営
+  店舗向けサービスという前提)ではコレクション全体の`stream()`がFirestore無料枠の範囲に
+  収まる見込みのため、`where`条件による絞り込みや専用インデックスは過剰設計として見送る
+  (aircon-pasha 15.3節・本ドキュメント3節と同じ結論)。
+- **既存コレクション参照の再利用で足りる**: `all_store_ids()`はStripeグループ用の
+  `_stripe_index`コレクションを参照する必要がなく、2節で既に組み立て済みの`_stores`への
+  読み取り専用アクセスのみで実装できるため、`__init__`・`_doc_ref`への変更は不要である。
+
+### 26.4. 本節で`StoreProfileStoreProtocol`の設計が完了したことの確認
+
+本節により、1節で列挙した全グループ(Stripe顧客ID・owner_user_id・owner_is_following・
+suspension_reason・owner_email・blocked_but_billing_owner_notified_at・plan・
+checkout_session_completed_event_time・menu_durations・store_faq_info・
+onboarding_completion_message・all_store_ids)の実Firestore接続アダプタ設計が揃った。
+line-reservation-aiの`StoreProfileStoreProtocol`は、aircon-pasha・course-set-pasha・
+kura-pashaが`UserProfileStoreProtocol`に対して行ってきた段階的設計と同じ粒度で全グループの
+設計を完了したことになる(いずれも設計のみで、実Firestoreプロジェクト・GCP環境自体の
+構築はオーナー承認待ちのまま、27節)。
+
+## 27. 次回候補(フェーズ続き314時点)
+
+- (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから
+  承認された場合はその着手を最優先。承認が得られれば、本ドキュメント2〜26節の設計一式
+  (`FirestoreStoreProfileStore`)をまとめて実装し、`InMemoryStoreProfileStore`からの
+  差し替え・結合テストに着手できる状態にある。
+- (2)`_profile_to_dict`/`_profile_from_dict`相当のヘルパーが本venture(line-reservation-ai)
+  では必要かどうかの確認(aircon-pasha 19節の`UserProfileStoreProtocol`は専用の
+  dataclass/値オブジェクトを介するが、本venture `StoreProfileStoreProtocol`は各グループが
+  個別フィールドの直接読み書きのみで値オブジェクトを介していないため、同種のヘルパーは
+  不要と見込まれる。次回フェーズで軽く確認する)。
+- (3)20節(4)で持ち越された、他venture(course-set-pasha・aircon-pasha・kura-pasha・
+  forklift-pasha)の「次回候補」記述に21節と同種の陳腐化(既に対応済みの項目を未着手として
+  繰り返し記載)がないかの点検。
+- (4)他venture・アイデア領域の前進。

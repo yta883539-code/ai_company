@@ -5634,3 +5634,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   追加。23節の「個別検討が必要」という見立てはストア層が中身を解釈しない不透明な
   辞書だったため誤りと判明し、22節`menu_durations`と同型の設計で足りることを確認。
   コード変更なし、テスト906件・schema検証28件いずれもパス)
+- フェーズ続き314(2026-10-11 17:00 UTC定例更新): フェーズ続き313の次回候補(2)
+  「残りグループ`all_store_ids`の実Firestore接続アダプタ設計」に着手した。唯一の
+  呼び出し元`blocked_but_billing_candidates.py`の`list_blocked_but_billing_candidates()`
+  が`all_store_ids()`の戻り値を絞り込みながら自前で`sorted()`していることを確認し、
+  `InMemoryStoreProfileStore.all_store_ids()`(354-359行目)のソートは契約上の要求
+  ではないと判断した。aircon-pashaの`UserProfileStoreProtocol.all_user_ids()`
+  (firestore-provider-adapter-design.md 15節)と全く同じ論点であり、同節の結論
+  (`stores`コレクションの`stream()`をそのまま使い、列挙順序・走査コストいずれも
+  過剰設計不要)を転用する形で`store-profile-store-firestore-adapter-design.md`に
+  26節を追加した。これにより1節で列挙した`StoreProfileStoreProtocol`の全グループ
+  (Stripe顧客ID・9〜24節の各グループ・本節の`all_store_ids`)の設計が完了したことを
+  26.4節に記録した。27節に次回候補(実装着手はオーナー承認待ち、`_profile_to_dict`
+  相当ヘルパーの要否確認、他ventureの「次回候補」陳腐化点検)を整理した。コード変更
+  なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (906件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  再実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCP
+  プロジェクト等)がオーナーから承認された場合は本ドキュメント2〜26節の設計一式の
+  実装着手を最優先、(2)`_profile_to_dict`相当ヘルパーが本venture(各グループが
+  個別フィールド直接読み書きのみ)で必要かの確認、(3)他venture(course-set-pasha・
+  aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」記述に同種の陳腐化がないかの
+  点検、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 17:00 UTC(フェーズ続き314: `store-profile-store-firestore-
+  adapter-design.md`26節に`all_store_ids`グループの実Firestore接続アダプタ設計を追加し、
+  `StoreProfileStoreProtocol`全グループの設計完了を確認。コード変更なし、テスト906件・
+  schema検証28件いずれもパス)
