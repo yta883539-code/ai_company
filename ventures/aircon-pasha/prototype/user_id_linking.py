@@ -278,7 +278,22 @@ class UserProfile:
     subscription_deleted()`/`clear_deletion_candidate_on_subscription_reactivated()`に
     よって書き換わる)。`deletion_candidate_state_event_time`も
     `subscription_state_event_time`等と同じイベント順序ガード用の補助フィールドで、
-    値そのものに業務的な意味はない。"""
+    値そのものに業務的な意味はない。
+
+    `deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`は
+    フェーズ307で追加した。deletion_candidate_final_confirmation.py(フェーズ278)は
+    「対象user_id一覧(`deletion_candidate.list_deletion_candidates()`)・`is_following`の
+    実際の読み取りはいずれも呼び出し側(Cloud Scheduler経由の月次バッチ)が行う想定」と
+    モジュールdocstringに明記したまま、その呼び出し側(store wiring)自体は長らく
+    未実装で、`UserProfile`にも対応フィールドが存在しなかった(`DeletionConfirmation
+    StateWriter`Protocolを満たす実ストアが存在しない状態)。この2フィールドの追加は、
+    他のdunning/subscription系フィールドと同じく本クラスが構造的に`Deletion
+    ConfirmationStateWriter`を満たすようにするためのもの。`deletion_confirmation_sent_at`は
+    一度設定されたら以降不変(再送しない、select_due_deletion_candidate_final_
+    confirmations()の判定に使う)。`deletion_confirmation_unreachable_at`は
+    ブロック中(`is_following=False`)で送達できなかった場合に書き込まれる補助フィールドで、
+    design記載のとおり再フォロー後も自動では送信対象から外れない(値自体に業務的な
+    不変性の意味はない、毎回の実行で上書きされ得る)。"""
 
     business_name: str
     business_type: str
@@ -305,6 +320,8 @@ class UserProfile:
     payment_suspension_owner_notified_at: Optional[datetime] = None
     deletion_candidate_at: Optional[datetime] = None
     deletion_candidate_state_event_time: Optional[datetime] = None
+    deletion_confirmation_sent_at: Optional[datetime] = None
+    deletion_confirmation_unreachable_at: Optional[datetime] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -553,6 +570,24 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
     def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
+        ...
+
+    def get_deletion_confirmation_sent_at(self, user_id: str) -> Optional[datetime]:
+        """フェーズ307: deletion_candidate_final_confirmation.pyの
+        `DeletionConfirmationStateWriter`を本クラスが構造的に満たすためのメソッド。"""
+        ...
+
+    def set_deletion_confirmation_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def set_deletion_confirmation_unreachable_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
         ...
 
 
@@ -809,6 +844,30 @@ class InMemoryUserProfileStore:
             return
         profile.deletion_candidate_state_event_time = value
 
+    def get_deletion_confirmation_sent_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.deletion_confirmation_sent_at if profile is not None else None
+
+    def set_deletion_confirmation_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.deletion_confirmation_sent_at = value
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        profile = self._profiles.get(user_id)
+        return profile.deletion_confirmation_unreachable_at if profile is not None else None
+
+    def set_deletion_confirmation_unreachable_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.deletion_confirmation_unreachable_at = value
+
 
 @dataclass
 class LinkingResolution:
@@ -948,6 +1007,16 @@ def resolve_linking_code(
             ),
             deletion_candidate_state_event_time=(
                 existing_profile.deletion_candidate_state_event_time
+                if existing_profile
+                else None
+            ),
+            deletion_confirmation_sent_at=(
+                existing_profile.deletion_confirmation_sent_at
+                if existing_profile
+                else None
+            ),
+            deletion_confirmation_unreachable_at=(
+                existing_profile.deletion_confirmation_unreachable_at
                 if existing_profile
                 else None
             ),

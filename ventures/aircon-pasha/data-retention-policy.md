@@ -87,6 +87,16 @@ line-reservation-ai・course-set-pashaの「最終確認の連絡経路」と同
   送信を試みずMARK_UNREACHABLE経路として`deletion_confirmation_unreachable_at`を
   記録するのみに留める。実際の削除実行バッチがまだ存在しないため案内文言は具体的な
   削除予定日には言及しない設計とした。テスト11件追加、詳細は本節末尾の実装ノート参照)。
+  (store wiring実装済み 2026-10-11・フェーズ307: フェーズ278時点では「対象user_id
+  一覧・is_followingの実際の読み取りは呼び出し側が行う想定」のまま、その呼び出し側
+  (`deletion_candidate.list_deletion_candidates()`の結果から状態を組み立てて送信に
+  渡す処理)自体が未実装で、`user_profile`にも対応フィールドが無かった。`UserProfile`へ
+  `deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`の2フィールドを
+  追加し、`prototype/deletion_candidate_final_confirmation.py`に
+  `run_due_deletion_candidate_final_confirmations(store, now, push_client)`を追加して
+  この配線を実装した。実Cloud Scheduler作成・実LINE Push API接続は引き続きオーナー
+  承認待ちのため、Cloud Functionとしての実配線は別途残る。詳細はaircon-pasha/
+  firestore-provider-adapter-design.md 23節参照)。
 - 代替経路: 申込フォーム(onboarding-guide.mdステップ1)で収集した`email`
   (`user_profile.email`、user-account-linking-design.md 5節で確定済みのフィールド)を
   用いた最終確認。実際のメール送信には送信用サービスのアカウント作成が別途必要であり、

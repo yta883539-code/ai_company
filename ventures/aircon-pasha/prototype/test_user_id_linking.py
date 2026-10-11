@@ -716,6 +716,94 @@ class InMemoryUserProfileStoreDeletionCandidateFieldTest(unittest.TestCase):
         )
 
 
+class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
+    """フェーズ307で追加した`deletion_confirmation_sent_at`/
+    `deletion_confirmation_unreachable_at`の単体テスト。`InMemoryUserProfileStore`が
+    `deletion_candidate_final_confirmation.py`の`DeletionConfirmationStateWriter`を
+    構造的に(duck typing)満たすことを確認する(deletion_candidate_at等と同じ
+    「不変フィールドではない」設計)。"""
+
+    def _seed_profile(self, store, user_id="u-1"):
+        store.save(
+            user_id,
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=_NOW,
+            ),
+        )
+
+    def test_defaults_to_none(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        self.assertIsNone(store.get_deletion_confirmation_sent_at("u-1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u-1"))
+
+    def test_set_and_get(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+
+        store.set_deletion_confirmation_sent_at("u-1", _NOW)
+        store.set_deletion_confirmation_unreachable_at("u-1", _NOW)
+
+        self.assertEqual(store.get_deletion_confirmation_sent_at("u-1"), _NOW)
+        self.assertEqual(store.get_deletion_confirmation_unreachable_at("u-1"), _NOW)
+        self.assertEqual(store.get("u-1").deletion_confirmation_sent_at, _NOW)
+
+    def test_set_none_clears_the_field(self):
+        store = InMemoryUserProfileStore()
+        self._seed_profile(store, "u-1")
+        store.set_deletion_confirmation_sent_at("u-1", _NOW)
+
+        store.set_deletion_confirmation_sent_at("u-1", None)
+
+        self.assertIsNone(store.get_deletion_confirmation_sent_at("u-1"))
+
+    def test_setters_are_a_noop_for_unknown_user_id(self):
+        store = InMemoryUserProfileStore()
+
+        store.set_deletion_confirmation_sent_at("no-such-user", _NOW)
+        store.set_deletion_confirmation_unreachable_at("no-such-user", _NOW)
+
+        self.assertIsNone(store.get_deletion_confirmation_sent_at("no-such-user"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("no-such-user"))
+
+    def test_re_linking_an_existing_user_id_preserves_the_field(self):
+        """再連携がdeletion_confirmation_sent_at等も引き継ぐことを確認する(引き継がないと、
+        既に最終確認を送達済みのuser_idが新規連携コードを送っただけで送達済みフラグが
+        消え、同じ確認メッセージが再送されてしまう欠落になる)。"""
+        linking_store = InMemoryLinkingCodeStore()
+        profile_store = InMemoryUserProfileStore()
+        linking_store.save(
+            "AB12CD",
+            PendingLink(
+                form_submission_id="form-1", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com", issued_at=_NOW,
+            ),
+        )
+        resolve_linking_code("AB12CD", "u-1", linking_store, profile_store, _NOW)
+        profile_store.set_deletion_confirmation_sent_at("u-1", _NOW)
+        profile_store.set_deletion_confirmation_unreachable_at("u-1", _NOW)
+
+        linking_store.save(
+            "EF34GH",
+            PendingLink(
+                form_submission_id="form-2", business_name="テストクリーニング",
+                business_type="独立系", email="owner@example.com",
+                issued_at=_NOW + timedelta(hours=1),
+            ),
+        )
+        result = resolve_linking_code(
+            "EF34GH", "u-1", linking_store, profile_store, _NOW + timedelta(hours=1)
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(profile_store.get_deletion_confirmation_sent_at("u-1"), _NOW)
+        self.assertEqual(
+            profile_store.get_deletion_confirmation_unreachable_at("u-1"), _NOW
+        )
+
+
 class InMemoryUserProfileStoreCurrentPlanIdFieldTest(unittest.TestCase):
     """user-account-linking-design.md 4節向けに追加した`current_plan_id`の単体テスト
     (フェーズ161、subscription_plan_sync.pyの`CurrentPlanStoreProtocol`を本クラスが

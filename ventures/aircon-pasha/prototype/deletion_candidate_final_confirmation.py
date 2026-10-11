@@ -27,6 +27,16 @@ data-retention-policy.md「削除候補化後の最終確認」節で方針の�
 - `LinePushClient`・`LinePushDeliveryError`はtrial_end_scheduler.pyで既に定義済みの
   ものをそのまま再利用する(payment_suspension_owner_notification.py・
   blocked_but_billing_owner_notification.pyと同じ方針、本モジュールで重複定義しない)。
+- `run_due_deletion_candidate_final_confirmations()`(フェーズ307で追加)は、上記で
+  「呼び出し側が行う想定」としていたstore wiring(`deletion_candidate.list_deletion_
+  candidates()`で削除候補user_id一覧を取得し、各user_idの`is_following`・
+  `deletion_confirmation_sent_at`を読み取ってDeletionCandidateConfirmationUserStateを
+  組み立てる処理)を実装したもの。`user_id_linking.UserProfile`に対応する
+  `deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`の2フィールドが
+  フェーズ307で追加され、`InMemoryUserProfileStore`が`DeletionConfirmationStateWriter`を
+  構造的に満たすようになったため、実Cloud Scheduler接続自体はオーナー承認待ちのままだが、
+  実行可能な1本の関数として検証できる状態になった(他スケジューラの`send_*`本体と同じ、
+  実クラウド接続なしで検証可能な構成)。
 
 設計の参照元: data-retention-policy.md「削除候補化後の最終確認」節,
 deletion_candidate.py, follow-unfollow-event-handling-design.md
@@ -39,6 +49,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Protocol, Sequence
 
+import deletion_candidate
 from trial_end_scheduler import LinePushClient, LinePushDeliveryError
 
 DELETION_CANDIDATE_FINAL_CONFIRMATION_ALT_TEXT = (
@@ -147,6 +158,65 @@ class DeletionConfirmationStateWriter(Protocol):
         self, user_id: str, value: Optional[datetime]
     ) -> None:
         ...
+
+
+class DeletionCandidateConfirmationStateReader(Protocol):
+    """フェーズ307: `build_deletion_candidate_confirmation_states()`が削除候補user_idから
+    `DeletionCandidateConfirmationUserState`を組み立てる際に読み取る2メソッドのみを要求する
+    最小限のProtocol(`DeletionConfirmationStateWriter`と対になる読み取り側)。"""
+
+    def get_is_following(self, user_id: str) -> bool:
+        ...
+
+    def get_deletion_confirmation_sent_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+def build_deletion_candidate_confirmation_states(
+    candidate_user_ids: Sequence[str],
+    store: DeletionCandidateConfirmationStateReader,
+) -> list[DeletionCandidateConfirmationUserState]:
+    """`deletion_candidate.list_deletion_candidates()`が返すuser_id一覧から、
+    `store`の`is_following`・`deletion_confirmation_sent_at`を読み取って
+    `DeletionCandidateConfirmationUserState`一覧を組み立てる(呼び出し順=入力順を維持)。"""
+    return [
+        DeletionCandidateConfirmationUserState(
+            user_id=user_id,
+            is_following=store.get_is_following(user_id),
+            deletion_confirmation_sent_at=store.get_deletion_confirmation_sent_at(user_id),
+        )
+        for user_id in candidate_user_ids
+    ]
+
+
+class DeletionCandidateFinalConfirmationStore(
+    DeletionCandidateConfirmationStateReader,
+    DeletionConfirmationStateWriter,
+    Protocol,
+):
+    """フェーズ307: `run_due_deletion_candidate_final_confirmations()`が要求する、
+    読み取り2メソッド・書き込み2メソッドを合わせた構造的Protocol。
+    `deletion_candidate.ProfileDeletionCandidateStoreProtocol`(`all_user_ids`・
+    `get_deletion_candidate_at`)は`deletion_candidate.list_deletion_candidates()`が
+    別途要求するため、ここには含めない(呼び出し元で`store`を1つ渡せば両方を
+    構造的に満たす、`InMemoryUserProfileStore`が想定する使い方)。"""
+
+
+def run_due_deletion_candidate_final_confirmations(
+    store: DeletionCandidateFinalConfirmationStore,
+    now: datetime,
+    push_client: LinePushClient,
+) -> "SendDeletionCandidateFinalConfirmationsResult":
+    """data-retention-policy.md「削除候補化後の最終確認」節が「呼び出し側(Cloud
+    Scheduler経由の月次バッチ)が行う想定」としていたstore wiringを実装したもの
+    (フェーズ307)。`deletion_candidate.list_deletion_candidates()`で削除候補user_id
+    一覧を取得し、`build_deletion_candidate_confirmation_states()`で状態を組み立てた上で
+    `send_deletion_candidate_final_confirmations()`に委譲する。実Cloud Scheduler接続・
+    実LINE Push API接続はいずれも引き続きオーナー承認待ちのため、呼び出し元での配線
+    (get_runtime_dependencies()相当への追加)は別途残す。"""
+    candidate_user_ids = deletion_candidate.list_deletion_candidates(store, now)
+    states = build_deletion_candidate_confirmation_states(candidate_user_ids, store)
+    return send_deletion_candidate_final_confirmations(states, now, store, push_client)
 
 
 @dataclass

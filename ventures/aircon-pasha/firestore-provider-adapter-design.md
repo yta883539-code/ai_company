@@ -1022,3 +1022,55 @@ course-set-pasha側に同種の設計判断を揃える必要はなく、本vent
 `blocked_but_billing_candidates.py`・`stripe_webhook.py`・
 `subscription_plan_sync.py`・`payment_failure.py`・`stripe_dispatch.py`への
 影響範囲の精査から着手)、(3)他venture・アイデア領域の前進。
+
+**フェーズ305での補足**: 上記(2)の「コード側の是正」自体はフェーズ305で実施済み
+(`UserProfile`への`deletion_candidate_at`・`deletion_candidate_state_event_time`追加、
+`InMemoryUserProfileStore`統合、`get_stripe_runtime_dependencies()`の`store`差し替え)。
+ただし影響範囲として列挙していた7ファイルのうち`deletion_candidate_final_confirmation.py`
+(フェーズ278)は、別のProtocol(`DeletionConfirmationStateWriter`、
+`deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`の2フィールド)に
+対する同種のギャップを別途抱えており、フェーズ305では対象外だった(23節参照)。
+
+## 23. `DeletionConfirmationStateWriter`の同種ギャップの解消・store wiring実装(フェーズ307)
+
+21.4節・22節で結論した「21.4節(2)はaircon-pasha単独の判断で進めればよい」を受け、
+`deletion_candidate_final_confirmation.py`(フェーズ278)を点検したところ、モジュール
+docstringが「対象user_id一覧(`deletion_candidate.list_deletion_candidates()`)・
+`is_following`の実際の読み取りはいずれも呼び出し側(Cloud Scheduler経由の月次バッチ)が
+行う想定」と明記したまま、その呼び出し側自体が実装されておらず、`send_deletion_
+candidate_final_confirmations()`が要求する`DeletionConfirmationStateWriter`
+(`set_deletion_confirmation_sent_at`/`set_deletion_confirmation_unreachable_at`)を
+満たす実ストアも存在しない(`UserProfile`に対応フィールドが無い)ことを確認した。
+21.2節で発見した`ProfileDeletionCandidateStoreProtocol`のギャップと同種の、「design/
+モジュールdocstringの想定〈統合済みのstoreを呼び出し側が組み立てる〉と実装〈その
+組み立て処理自体が存在しない〉のずれ」である。
+
+対応として以下を実装した(21.3節の設計方針と同じ、Protocol自身の想定(同一
+`user_profile`ドキュメント)を優先する判断):
+
+- `UserProfile`に`deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`
+  の2フィールドを追加し、`InMemoryUserProfileStore`に対応するget/set 4メソッドを実装
+  (`resolve_linking_code()`での再連携時引き継ぎも、既存の`deletion_candidate_at`等と
+  同じ方針で追加)。
+- `deletion_candidate_final_confirmation.py`に`build_deletion_candidate_confirmation_
+  states()`(削除候補user_id一覧から`is_following`・`deletion_confirmation_sent_at`を
+  読み取って`DeletionCandidateConfirmationUserState`を組み立てる)と
+  `run_due_deletion_candidate_final_confirmations(store, now, push_client)`
+  (`deletion_candidate.list_deletion_candidates()`→状態組み立て→既存の
+  `send_deletion_candidate_final_confirmations()`への委譲を1本にまとめたもの)を追加した。
+- テスト15件追加(`InMemoryUserProfileStore`側5件、`build_deletion_candidate_
+  confirmation_states()`1件、`run_due_deletion_candidate_final_confirmations()`
+  結合テスト4件、既存ファイルへの追加分含む)、プロトタイプ全670件(+10)・schema検証25件
+  いずれもパス。
+
+本フェーズで実装したのは「ロジック・store wiringが実行可能であること」のみで、実Cloud
+Scheduler作成・実LINE Push API接続はいずれも引き続きオーナー承認待ちのため、
+`get_stripe_runtime_dependencies()`/`get_runtime_dependencies()`への実配線
+(新規Cloud Function Hとしての追加)は行っていない(既存承認待ち事項の範囲内、
+新規の承認待ち事項ではない)。
+
+次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を
+最優先、(2)`run_due_deletion_candidate_final_confirmations()`を実際にCloud Function
+として呼び出す月次スケジューラエントリポイント(`cloud_function_webhook.py`/
+`stripe_webhook.py`とは別の、独立したCloud Scheduler想定)の設計、(3)他venture・
+アイデア領域の前進。

@@ -5406,3 +5406,26 @@
   (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
   への追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合は
   その着手を最優先、(2)他venture・アイデア領域の前進。
+- フェーズ307(2026-10-11 04:00 UTC定例更新): フェーズ306の次回候補(2)を受け本venture
+  自体の点検を行い、`deletion_candidate_final_confirmation.py`(フェーズ278)が
+  モジュールdocstring上「対象user_id一覧・is_followingの実際の読み取りは呼び出し側
+  (Cloud Scheduler経由の月次バッチ)が行う想定」としたまま、その呼び出し側(store
+  wiring)自体が未実装で、`send_deletion_candidate_final_confirmations()`が要求する
+  `DeletionConfirmationStateWriter`を満たす実ストアも存在しない(`UserProfile`に
+  対応フィールドが無い)ギャップを発見した。フェーズ303〜305で発見・解消した
+  `ProfileDeletionCandidateStoreProtocol`のギャップと同種のもの。`UserProfile`へ
+  `deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`の2フィールドを
+  追加し`InMemoryUserProfileStore`に対応するget/set 4メソッドを実装、
+  `deletion_candidate_final_confirmation.py`に`build_deletion_candidate_confirmation_
+  states()`・`run_due_deletion_candidate_final_confirmations(store, now, push_client)`を
+  追加して`deletion_candidate.list_deletion_candidates()`からの状態組み立て→送信までを
+  1本の関数として実行可能にした。詳細はfirestore-provider-adapter-design.md 23節・
+  data-retention-policy.md「削除候補化後の最終確認」節参照。テスト10件追加(prototype全
+  670件)・schema検証25件いずれもパス。実Cloud Scheduler作成・実LINE Push API接続は
+  引き続きオーナー承認待ちのため新規配線は行っていない(新規の承認待ち事項ではない)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1〜4のいずれかが
+  オーナーから承認された場合はその着手を最優先、(2)`run_due_deletion_candidate_final_
+  confirmations()`を呼び出す月次Cloud Schedulerエントリポイントの設計、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-11 04:00 UTC(フェーズ307: 上記参照)
