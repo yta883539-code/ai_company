@@ -2207,3 +2207,32 @@
 - 最終更新: 2026-10-11 10:00 UTC(フェーズ124: `stripe-checkout-plan-id-design.md`を新設し
   plan_idの書き込み元〈初回・変更時の2経路〉を設計、`plan_id_resolution.py`を実装。
   テスト19件追加、全8ファイルパス)
+- フェーズ125(2026-10-11 11:00 UTC定例更新): フェーズ124「次の課題」(Checkout Session
+  作成・Webhook受信エントリポイント自体のモジュール実装)に着手した。他venture
+  (kura-pasha/prototype/checkout_session.py等)と同型だが、本venture固有の
+  payment-identity-verification-design.md 3節の方式(`client_reference_id = internal_id`、
+  `customer_email`はStripe Checkout画面上の表示用で識別子としては使わない)を踏襲し、
+  Stripe Checkout Session作成APIに渡すパラメータを組み立てる純粋関数を新規モジュール
+  `prototype/checkout_session.py`に実装した。`build_checkout_session_params()`は
+  `plan_id_resolution.KNOWN_PLAN_IDS`を正として未知のplan_id・空のinternal_idを
+  `ValueError`で拒否し、`metadata.plan`にフェーズ124で確定した英語キーをそのまま埋め込む
+  (`plan_id_resolution.write_plan_id_from_checkout_session_metadata()`が受け取れる形)。
+  `existing_stripe_customer_id`指定時(再契約等)は`customer`パラメータを設定し
+  `customer_email`は設定しない、という分岐も設けた。`test_checkout_session.py`を新規作成し
+  テスト19件(正常系: 新規顧客・既存顧客・両方未指定・全既知プランのPrice ID解決、異常系:
+  internal_id空文字列/None・未知のplan_id)を追加、全パス。`python3
+  prototype/run_all_tests.py`(9ファイルに増加)・`python3 schema/validate_test_cases.py`
+  (11件、変更なし)もいずれもパスすることを確認した。Webhook受信エントリポイント自体
+  (`stripe_webhook.py`相当、`checkout.session.completed`等の受信・署名検証・
+  `fleet_operator`ストアへの書き込み)、Webフォームのプラン選択UI自体はいずれも本venture
+  未着手のまま次回以降の課題として残る(`FleetOperatorStoreProtocol`にも
+  `email`/`stripe_customer_id`の読み書きメソッドがまだ無く、次回実装時に追加が必要)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)`FleetOperatorStoreProtocol`への`email`/`stripe_customer_id`の
+  読み書きメソッド追加、(3)Webhook受信エントリポイント(`stripe_webhook.py`相当、
+  `checkout.session.completed`の受信・署名検証・`internal_id`↔`stripe_customer_id`紐付け)の
+  実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 11:00 UTC(フェーズ125: `prototype/checkout_session.py`を新設し
+  Stripe Checkout Session作成パラメータの組み立て関数`build_checkout_session_params()`を
+  実装。テスト19件追加、全9ファイルパス)
