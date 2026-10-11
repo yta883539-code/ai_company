@@ -102,12 +102,29 @@ class InMemoryUserProfileStoreTest(unittest.TestCase):
 
     def test_relinking_same_user_to_new_customer_id_updates_forward_lookup(self):
         # Checkoutのやり直し等で同一user_idに新しいstripe_customer_idが割り当たった場合、
-        # 新しい方からの逆引きが有効になる(古いcustomer_idの逆引きエントリの明示的な
-        # 削除は行わない。実害はない旨はstripe-customer-id-linking-design.md参照)。
+        # 新しい方からの逆引きが有効になる。
         store = InMemoryUserProfileStore()
         store.set_stripe_customer_id("U1", "cus_old")
         store.set_stripe_customer_id("U1", "cus_new")
         self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_new"), "U1")
+
+    def test_relinking_same_user_to_new_customer_id_removes_stale_reverse_lookup(self):
+        # フェーズ286: 古いcustomer_id宛のWebhookイベント(Stripe側の遅延配送等)が
+        # このuser_idに誤って解決され続けることを防ぐため、再紐付け時に古い逆引き
+        # エントリを削除する(kura-pashaフェーズ224・line-reservation-ai
+        # stripe-customer-id-reverse-lookup-design.md 2節と同じ方針)。
+        store = InMemoryUserProfileStore()
+        store.set_stripe_customer_id("U1", "cus_old")
+        store.set_stripe_customer_id("U1", "cus_new")
+        self.assertIsNone(store.get_user_id_by_stripe_customer_id("cus_old"))
+
+    def test_relinking_to_same_customer_id_is_noop_for_reverse_lookup(self):
+        # 同一customer_idでの再設定(冪等な再送等)では、順引き・逆引きとも維持される
+        # (previous == newのため削除分岐に入らない)。
+        store = InMemoryUserProfileStore()
+        store.set_stripe_customer_id("U1", "cus_A")
+        store.set_stripe_customer_id("U1", "cus_A")
+        self.assertEqual(store.get_user_id_by_stripe_customer_id("cus_A"), "U1")
 
     def test_unrecorded_user_is_following_defaults_true(self):
         # blocked-but-billing-detection-design.md: 未記録のuser_idは安全側でTrue扱い。

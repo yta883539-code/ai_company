@@ -4716,3 +4716,20 @@
   line-reservation-aiはオーナー/顧客共用ウェルカムメッセージという設計上の理由で
   あえて「FAQ」単語を案内しないことが適切と判明し対応不要と結論。コード変更なし、
   テスト690件・schema検証21件いずれもパス)
+- フェーズ286(2026-10-11 01:00 UTC定例更新): firestore-provider-adapter-design.md 6.3節が
+  次回候補として残していた、`InMemoryUserProfileStore.set_stripe_customer_id`
+  (`application_form_submission_flow.py`)における同一user_idへの別stripe_customer_id
+  再紐付け時の旧逆引きエントリ(`_user_ids_by_stripe_customer_id`)未削除を実装で解消した。
+  kura-pashaフェーズ224・line-reservation-aiの`stripe-customer-id-reverse-lookup-design.md`
+  2節と同じ方針(再紐付け検出時に旧エントリを`pop`してから新エントリを書き込む)を踏襲し、
+  旧customer_id宛のWebhookイベントが誤って本user_idに解決され続けるリスクを防いだ。
+  実Firestoreアダプタのコード例(6.2節)にも対称の`WriteBatch.delete()`を反映した
+  (詳細は同ドキュメント新設17節)。テスト2件追加(692件、+2)・schema検証21件(変更なし)
+  いずれもパス。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 01:00 UTC(フェーズ286: 同一user_idへの別stripe_customer_id再紐付け時に
+  旧逆引きエントリが残る既知の次回候補をkura-pasha/line-reservation-aiと同じ方針で解消。
+  本venture全Protocolに関する既知の次回候補はこれで解消し、新たな次回候補は無い。コード変更
+  〈InMemoryUserProfileStore.set_stripe_customer_id〉・テスト2件追加692件・schema検証21件
+  いずれもパス)

@@ -238,12 +238,21 @@ class FirestoreUserProfileStore:
     # ...set_gym_area_pairs/get_gym_area_pairs/set_email/get_emailは5節のまま...
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        # フェーズ286: 再紐付け検出のため、書き込み前に旧customer_idを読み出す
+        # (InMemoryUserProfileStore.set_stripe_customer_idの`previous_stripe_customer_id`
+        # 分岐と対称。実装自体は実Firestore接続がオーナー承認待ちのため次回以降)。
+        previous_stripe_customer_id = self.get_stripe_customer_id(user_id)
         batch = self._client.batch()
         batch.set(
             self._doc_ref(user_id),
             {"stripe_customer_id": stripe_customer_id},
             merge=True,
         )
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            batch.delete(self._stripe_index.document(previous_stripe_customer_id))
         batch.set(
             self._stripe_index.document(stripe_customer_id),
             {"user_id": user_id},
@@ -276,14 +285,14 @@ class FirestoreUserProfileStore:
 - **契約整合性チェック(line-reservation-aiフェーズ続き301と同種)**: `set_stripe_customer_id`
   実行時に旧`stripe_customer_id`からの付け替え(同一user_idが2回目の呼び出しを行うケース)が
   起きた場合、`stripe_customer_index`側の旧エントリが削除されず残る点を確認した。
-  `InMemoryUserProfileStore.set_stripe_customer_id`(`application_form_submission_flow.py`
-  178〜180行目)自身も旧`_user_ids_by_stripe_customer_id`エントリを明示的に削除しておらず、
-  本venture自身のInMemory実装はaircon-pashaの元の設計(5.3節、旧インデックス削除を次回候補と
-  した簡潔版)と契約が一致していることを確認した。line-reservation-aiのInMemory実装
-  (`store_profile_store.py`)が旧エントリ削除を既に実装しておりaircon-pashaの元設計と
-  契約差異があったのとは異なり、本ventureでは契約差異は発生していないため、本グループの
-  Firestoreアダプタ設計はaircon-pashaの元の設計をそのまま横展開してよいと判断した
-  (旧インデックス削除は以後も次回候補のまま据え置く)。
+  **(フェーズ286追記)**: `InMemoryUserProfileStore.set_stripe_customer_id`
+  (`application_form_submission_flow.py`)側はkura-pashaフェーズ224・line-reservation-aiの
+  `stripe-customer-id-reverse-lookup-design.md` 2節と同じ方針で、再紐付け検出時に旧
+  `_user_ids_by_stripe_customer_id`エントリを`pop`してから新エントリを書き込む処理を実装済み
+  (詳細はフェーズ286追記の新設21節を参照)。実Firestore接続アダプタ側も対称に、
+  `set_stripe_customer_id`実行時の`WriteBatch`に旧`stripe_customer_id`が存在する場合の
+  `self._stripe_index.document(previous_stripe_customer_id).delete()`を追加する必要がある
+  (以下のコード例に反映。実装自体は実Firestore接続がオーナー承認待ちのため次回以降)。
 - **`get_stripe_customer_id`の実装方針**: 5節の検討事項で確立した「本venture自身は
   `UserProfile`データクラスを持たないため、各`get_*`は`user_profile/{user_id}`の個別
   フィールドを直接読む」方針をそのまま踏襲した。
@@ -686,3 +695,49 @@ class FirestoreUserProfileStore:
   接続・各呼び出し側への本クラスのインスタンス注入・結合テストのみ(いずれも未承認のため
   着手不可)。
 - 他venture・アイデア領域の前進を次回候補とする。
+
+## 17. 付け替え時の旧`stripe_customer_id`逆引きエントリ削除(フェーズ286)
+
+6.3節「検討事項」で次回候補として残していた、同一`user_id`に別の`stripe_customer_id`が
+再紐付けされた場合の旧逆引きエントリ削除を実装した。kura-pashaフェーズ224・
+line-reservation-aiの`stripe-customer-id-reverse-lookup-design.md` 2節・
+`store_profile_store.py`の`InMemoryStoreProfileStore.set_stripe_customer_id`と同じ方針を
+踏襲し、`InMemoryUserProfileStore.set_stripe_customer_id`
+(`application_form_submission_flow.py`)に、再紐付け検出時に古い`stripe_customer_id`の
+逆引きエントリ(`_user_ids_by_stripe_customer_id`)を`pop`してから新しいエントリを書き込む
+処理を追加した。これにより、通常は同一user_idが決済をやり直す際も同一Stripe顧客を再利用する
+想定だが、何らかの理由で同一user_idに別のStripe顧客IDが再設定された場合でも、古い
+`stripe_customer_id`宛のWebhookイベント(Stripe側の遅延配送・リトライ等)が
+(たまたま他venture・他システムで再利用された場合に)別のuser_idに誤って解決されるリスクを
+防ぐ。
+
+- 実Firestore接続アダプタ側(6.2節`FirestoreUserProfileStore.set_stripe_customer_id`)の
+  コード例にも、`WriteBatch`実行時に旧エントリの削除
+  (`self._stripe_index.document(previous_stripe_customer_id).delete()`)を反映した
+  (実装自体は実Firestore接続がオーナー承認待ちのため次回以降)。
+- `InMemoryUserProfileStore`側の実装・テストは本フェーズで完結している。
+
+### 17.1. 動作確認
+
+`test_application_form_submission_flow.py`に
+`test_relinking_same_user_to_new_customer_id_removes_stale_reverse_lookup`(旧customer_idの
+逆引きがNoneに戻ることを確認)・
+`test_relinking_to_same_customer_id_is_noop_for_reverse_lookup`(同一customer_idでの
+再設定は削除分岐に入らず維持されることを確認)の2件を追加した。
+`python3 -m unittest discover -s prototype -p "test_*.py"`(692件、+2)・
+`python3 schema/validate_test_cases.py`(21件、変更なし)をいずれも再実行しパスを確認した。
+
+- **承認待ちアクション**: 本フェーズはコード・テスト・設計文書の変更のみで、支払い・
+  アカウント作成・外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 18. 残課題・次回候補(17節分)
+
+1. 実Firestore接続アダプタ(6節・17節のコード例含む全Protocol分)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため着手不可(16節から継続)。
+2. kura-pasha・forklift-pasha・line-reservation-aiのStripe顧客ID逆引きストアについて、
+   本フェーズと同種の「再紐付け時の旧エントリ削除」実装状況の横展開確認(kura-pashaは
+   フェーズ224で対応済み、line-reservation-aiは元々対応済みであることをaircon-pashaフェーズ
+   306で確認済み。forklift-pashaはStripe連携コード自体が未着手のため非該当〈同フェーズ306で
+   確認済み〉。本フェーズの対象であった本venture自身が最後の未対応箇所だったため、本横展開は
+   本フェーズで完結し新たな次回候補は無い)。
+3. 他venture・アイデア領域の前進。

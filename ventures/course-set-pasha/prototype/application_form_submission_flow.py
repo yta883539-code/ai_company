@@ -176,6 +176,16 @@ class InMemoryUserProfileStore:
         return bool(self._profiles.get(user_id, ""))
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        previous_stripe_customer_id = self._stripe_customer_ids.get(user_id)
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            # 同一user_idに別のstripe_customer_idが再紐付けされた場合、逆引き辞書に
+            # 古いcustomer_idのエントリが残ると別userへの誤解決につながるため除去する
+            # (kura-pashaフェーズ224・line-reservation-ai
+            # stripe-customer-id-reverse-lookup-design.md 2節と同じ方針)。
+            self._user_ids_by_stripe_customer_id.pop(previous_stripe_customer_id, None)
         self._stripe_customer_ids[user_id] = stripe_customer_id
         self._user_ids_by_stripe_customer_id[stripe_customer_id] = user_id
 
