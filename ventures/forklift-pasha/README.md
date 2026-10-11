@@ -2236,3 +2236,22 @@
 - 最終更新: 2026-10-11 11:00 UTC(フェーズ125: `prototype/checkout_session.py`を新設し
   Stripe Checkout Session作成パラメータの組み立て関数`build_checkout_session_params()`を
   実装。テスト19件追加、全9ファイルパス)
+- 最終更新: 2026-10-11 12:00 UTC(フェーズ126: フェーズ125「次回候補(2)」であった
+  `FleetOperatorStoreProtocol`への`email`/`stripe_customer_id`読み書きメソッド追加に対応した。
+  `get_email`/`set_email`(上書き可、`get_plan_id`/`set_plan_id`と同じ方針)、
+  `get_stripe_customer_id`/`set_stripe_customer_id`、および
+  aircon-pasha/user_id_linking.pyの`UserProfileStoreProtocol`と同じ役割の逆引きメソッド
+  `get_internal_id_by_stripe_customer_id`(Webhook受信時に`stripe_customer_id`のみから
+  `internal_id`を引く用途)を追加した。`InMemoryFleetOperatorStore`の実装では、
+  `set_stripe_customer_id`で同一internal_idの値を上書きした際に古い逆引きエントリを
+  解消する(aircon-pashaのInMemory実装と同じ方針)。`test_trial_management.py`に
+  テスト10件(email/stripe_customer_idの未設定時None・設定後取得・上書き・逆引き・
+  上書き時の古い逆引き解消・別operatorとの独立性)を追加、全10件パス。回帰確認として
+  `python3 prototype/run_all_tests.py`(9ファイル、計29テスト追加分含め全パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)Webhook受信エントリポイント
+  (`stripe_webhook.py`相当、`checkout.session.completed`の受信・署名検証・今回追加した
+  `set_stripe_customer_id`/`get_internal_id_by_stripe_customer_id`を用いた紐付け処理)の
+  実装、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進。

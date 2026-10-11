@@ -242,6 +242,82 @@ def main():
         False,
     ))
 
+    # --- get_email/set_email: 未設定はNone、設定後は取得できる ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "get_email: 未設定はNone",
+        store.get_email("op16"),
+        None,
+    ))
+    store.set_email("op16", "owner16@example.com")
+    results.append(_check(
+        "get_email: 設定後は取得できる",
+        store.get_email("op16"),
+        "owner16@example.com",
+    ))
+
+    # --- set_email: 上書き可(set_plan_idと同じ方針) ---
+    store.set_email("op16", "owner16-new@example.com")
+    results.append(_check(
+        "set_email: 上書き可",
+        store.get_email("op16"),
+        "owner16-new@example.com",
+    ))
+
+    # --- get_stripe_customer_id/set_stripe_customer_id: 未設定はNone、設定後は取得できる ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "get_stripe_customer_id: 未設定はNone",
+        store.get_stripe_customer_id("op17"),
+        None,
+    ))
+    store.set_stripe_customer_id("op17", "cus_op17")
+    results.append(_check(
+        "get_stripe_customer_id: 設定後は取得できる",
+        store.get_stripe_customer_id("op17"),
+        "cus_op17",
+    ))
+
+    # --- get_internal_id_by_stripe_customer_id: 逆引きできる、未知のIDはNone ---
+    results.append(_check(
+        "get_internal_id_by_stripe_customer_id: 逆引きできる",
+        store.get_internal_id_by_stripe_customer_id("cus_op17"),
+        "op17",
+    ))
+    results.append(_check(
+        "get_internal_id_by_stripe_customer_id: 未知のIDはNone",
+        store.get_internal_id_by_stripe_customer_id("cus_unknown"),
+        None,
+    ))
+
+    # --- set_stripe_customer_id: 上書き時に古い逆引きを解消する ---
+    store.set_stripe_customer_id("op17", "cus_op17_v2")
+    results.append(_check(
+        "set_stripe_customer_id: 上書き後は新IDで逆引きできる",
+        store.get_internal_id_by_stripe_customer_id("cus_op17_v2"),
+        "op17",
+    ))
+    results.append(_check(
+        "set_stripe_customer_id: 上書き後は古いIDでの逆引きが解消される",
+        store.get_internal_id_by_stripe_customer_id("cus_op17"),
+        None,
+    ))
+
+    # --- email/stripe_customer_idは別operatorと独立している ---
+    store = InMemoryFleetOperatorStore()
+    store.set_email("op18", "owner18@example.com")
+    store.set_stripe_customer_id("op18", "cus_op18")
+    results.append(_check(
+        "get_email: 別operatorはNoneのまま独立している",
+        store.get_email("op19"),
+        None,
+    ))
+    results.append(_check(
+        "get_stripe_customer_id: 別operatorはNoneのまま独立している",
+        store.get_stripe_customer_id("op19"),
+        None,
+    ))
+
     passed = sum(1 for r in results if r)
     total = len(results)
     print(f"\n{passed}/{total} passed")

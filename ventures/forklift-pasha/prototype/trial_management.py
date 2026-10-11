@@ -60,6 +60,34 @@ class FleetOperatorStoreProtocol:
         """同上。上書き可(plan変更時に何度でも書き換える、set_upgraded_atと同じ方針)。"""
         raise NotImplementedError
 
+    def get_email(self, internal_id: str) -> "str | None":
+        """フェーズ125 README「次回候補(2)」。Webフォーム送信時に取得したメール
+        アドレス(checkout-session作成時の`customer_email`等に用いる)。未設定はNone。"""
+        raise NotImplementedError
+
+    def set_email(self, internal_id: str, value: str) -> None:
+        """同上。上書き可(set_plan_idと同じく、再登録等での書き換えを許容する)。"""
+        raise NotImplementedError
+
+    def get_stripe_customer_id(self, internal_id: str) -> "str | None":
+        """aircon-pasha/user_id_linking.pyのUserProfileStoreProtocolと同じ役割。
+        Checkout Session完了時にStripeが発行するCustomer IDを保持する。未契約は
+        None。"""
+        raise NotImplementedError
+
+    def set_stripe_customer_id(self, internal_id: str, value: str) -> None:
+        """同上。上書き可。`get_internal_id_by_stripe_customer_id`の逆引きが常に
+        最新の対応関係を指すよう、実装側で古い対応を解消すること
+        (aircon-pasha/user_id_linking.pyのInMemory実装と同じ方針)。"""
+        raise NotImplementedError
+
+    def get_internal_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> "str | None":
+        """Webhook受信エントリポイント(次回候補(3)、`checkout.session.completed`等)が
+        `stripe_customer_id`のみを受け取った場合の逆引き用。未知のIDはNone。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -71,6 +99,9 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._trial_end_notified_at: "dict[str, datetime]" = {}
         self._upgraded_at: "dict[str, datetime]" = {}
         self._plan_id: "dict[str, str]" = {}
+        self._email: "dict[str, str]" = {}
+        self._stripe_customer_id: "dict[str, str]" = {}
+        self._internal_ids_by_stripe_customer_id: "dict[str, str]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -108,6 +139,27 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_plan_id(self, internal_id: str, value: str) -> None:
         self._plan_id[internal_id] = value
+
+    def get_email(self, internal_id: str) -> "str | None":
+        return self._email.get(internal_id)
+
+    def set_email(self, internal_id: str, value: str) -> None:
+        self._email[internal_id] = value
+
+    def get_stripe_customer_id(self, internal_id: str) -> "str | None":
+        return self._stripe_customer_id.get(internal_id)
+
+    def set_stripe_customer_id(self, internal_id: str, value: str) -> None:
+        old_value = self._stripe_customer_id.get(internal_id)
+        if old_value is not None:
+            self._internal_ids_by_stripe_customer_id.pop(old_value, None)
+        self._stripe_customer_id[internal_id] = value
+        self._internal_ids_by_stripe_customer_id[value] = internal_id
+
+    def get_internal_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> "str | None":
+        return self._internal_ids_by_stripe_customer_id.get(stripe_customer_id)
 
 
 def is_trial_period_over(
