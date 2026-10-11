@@ -5004,3 +5004,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   11節`set_stripe_customer_id`に付け替え時の旧`stripe_customer_index`エントリ削除を追加し、
   21節のInMemory実装との契約を一致させた。設計ドキュメントのみの変更、テスト16ファイル・
   schema検証32件いずれも変更なしでパス)
+- フェーズ228(2026-10-11 21:00 UTC定例更新): フェーズ227の次回候補(1)「4つの設計
+  ドキュメントの`merge=True`の部分更新方針・安全側フォールバック方針の横断レビュー」の
+  うち、フェーズ226で既に完了していた「接続エラー時の安全側フォールバック方針」とは別の
+  観点である`merge=True`部分更新方針について、4ドキュメント(firestore-provider-adapter-
+  design.md・firestore-usage-counter-provider-adapter-design.md・linking-code-store-
+  firestore-adapter-design.md・invite-code-store-firestore-adapter-design.md)を
+  workshop-store-firestore-adapter-design.md 2〜25節と横断的に確認した(同ファイル27節に
+  記録)。「対象ドキュメントが独立フィールドの集合か、一体不可分なフィールド組か」という
+  単一の基準でいずれも一貫しており、矛盾は見つからなかった(確認のみで設計変更は発生せず)。
+  これによりフェーズ226の次回候補1点目はフェーズ226・228の2回に分けて完了した。設計
+  ドキュメントのみの変更、テスト16ファイル・schema検証32件いずれも変更なしでパス。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)結合実装フェーズに備えた準備作業
+  (Firestoreセキュリティルール草案、テストダブル切り替え方式の設計等)、(2)優先順位1・2
+  候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施がオーナーから承認
+  された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 21:00 UTC(フェーズ228: 4つのFirestoreアダプタ設計ドキュメントの
+  `merge=True`部分更新方針を横断レビューし、矛盾なく一貫していることを確認〈確認のみ、
+  設計変更なし〉。テスト16ファイル・schema検証32件いずれも変更なしでパス)
