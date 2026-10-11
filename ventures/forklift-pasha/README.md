@@ -2337,3 +2337,25 @@
   course-set-pasha/aircon-pashaと同型の「有料転換済みユーザーが解約後も無期限に生成を
   使い続けられる」欠落がforklift-pashaにも存在することを確認し修正した。テスト22件追加・
   全件パス)
+- フェーズ130(2026-10-11 22:00 UTC定例更新): フェーズ129「次回候補(1)」であった
+  `customer.subscription.created`(再契約)受信時の`canceled_at`クリア分岐を実装した
+  (subscription-canceled-immediate-block-design.md 6節)。aircon-pashaが同時に追加して
+  いた再契約分岐と同じ考え方を、forklift-pashaの`stripe_customer_id`逆引き方式に合わせて
+  実装し、`prototype/stripe_webhook.py`に`handle_customer_subscription_created()`を新設、
+  `store.set_canceled_at(internal_id, None)`で`canceled_at`をクリアするよう
+  `receive_stripe_webhook()`から配線した。`InMemoryFleetOperatorStore.set_canceled_at()`は
+  フェーズ129時点で既に`None`渡しでのクリアに対応済みのため、`trial_management.py`側の
+  変更は不要だった。これにより、一度解約した事業者が再契約しても`is_subscription_canceled()`
+  が永久にTrueを返し続けてしまう(再契約後も無期限に生成がブロックされたままになる)別の
+  欠落を未然に防いだ。`test_stripe_webhook.py`にテスト18件追加(正常系のクリア・解約未経験
+  時の冪等なクリア・customer欠落・未知のcustomer・receive_stripe_webhook経由のディスパッチ
+  確認3件)、全18件パス。回帰確認として`python3 prototype/run_all_tests.py`(10ファイル、
+  全パス)・`python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)line-reservation-aiの解約確定専用状態の
+  横展開確認(フェーズ129の5節・130の6節から持ち越し)、(3)Webフォームのプラン選択UI自体の
+  実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 22:00 UTC(フェーズ130: `customer.subscription.created`受信時の
+  `canceled_at`クリア分岐を実装。再契約後も無期限に生成がブロックされたままになる別の
+  欠落を未然に防いだ。テスト18件追加・全件パス)

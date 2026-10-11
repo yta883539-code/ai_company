@@ -11,9 +11,12 @@
 (`handle_customer_subscription_updated()`、stripe-subscription-updated-dispatch-
 design.md)を追加し、フェーズ129で`customer.subscription.deleted`受信時の
 `canceled_at`書き込み(`handle_customer_subscription_deleted()`、
-subscription-canceled-immediate-block-design.md相当)を追加した。決済失敗検知
-(`payment_failure.py`相当)・解約完了案内の送信等はまだ一切存在しないため、それ以外の
-イベント種別は常に200(受理・無視)を返す。
+subscription-canceled-immediate-block-design.md相当)を追加した。フェーズ130で
+`customer.subscription.created`(再契約)受信時の`canceled_at`クリア
+(`handle_customer_subscription_created()`)を追加し、解約済みユーザーが再契約しても
+永久ブロックされたままになる欠落を解消した。決済失敗検知(`payment_failure.py`相当)・
+解約完了案内の送信等はまだ一切存在しないため、それ以外のイベント種別は常に200
+(受理・無視)を返す。
 """
 
 from __future__ import annotations
@@ -242,6 +245,49 @@ def handle_customer_subscription_deleted(
 
 
 @dataclass
+class SubscriptionCreatedResult:
+    """handle_customer_subscription_created()の結果
+    (subscription-canceled-immediate-block-design.md「6. 再契約時のcanceled_atクリア」
+    フェーズ130)。"""
+
+    cleared: bool
+    internal_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+def handle_customer_subscription_created(
+    event: dict,
+    store: FleetOperatorStoreProtocol,
+) -> SubscriptionCreatedResult:
+    """`customer.subscription.created`イベントから`canceled_at`のクリアのみを行う。
+
+    フェーズ129の残課題(aircon-pashaのdesign「3. 修正内容」最終段と同じ論点:
+    `customer.subscription.created`〈再契約〉受信時に`canceled_at`をクリアしないと、
+    一度解約した`internal_id`が再契約してもis_subscription_canceled()が永久にTrueを
+    返し続ける別の欠落になる)に対応する。`handle_customer_subscription_updated()`・
+    `handle_customer_subscription_deleted()`と同じく`customer`から`internal_id`を
+    逆引きする。逆引きできない場合は`error="unknown_customer"`としてクリアを行わない。
+    `canceled_at`が元々未設定(初回契約、解約を経ていない)の場合もstore.set_canceled_at()
+    をNoneで呼ぶのみでcleared=Trueを返す(冪等、kura-pasha等のset_canceled_at(None)の
+    "pop"実装と同じく無害)。plan_id・upgraded_atの同期は本関数の対象外
+    (`customer.subscription.updated`側の既存配線にそのまま委ねる)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    stripe_customer_id = data_object.get("customer")
+
+    if not isinstance(stripe_customer_id, str) or not stripe_customer_id:
+        return SubscriptionCreatedResult(cleared=False, error="missing_customer")
+
+    internal_id = store.get_internal_id_by_stripe_customer_id(stripe_customer_id)
+    if internal_id is None:
+        return SubscriptionCreatedResult(cleared=False, error="unknown_customer")
+
+    store.set_canceled_at(internal_id, None)
+
+    return SubscriptionCreatedResult(cleared=True, internal_id=internal_id)
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """receive_stripe_webhook()の結果(design 1節)。"""
 
@@ -249,6 +295,7 @@ class StripeWebhookReceiverResult:
     checkout_link_result: Optional[CheckoutSessionLinkResult] = None
     subscription_updated_result: Optional[SubscriptionUpdatedSyncResult] = None
     subscription_deleted_result: Optional[SubscriptionDeletedResult] = None
+    subscription_created_result: Optional[SubscriptionCreatedResult] = None
     error: Optional[str] = None
 
 
@@ -307,6 +354,12 @@ def receive_stripe_webhook(
         )
         return StripeWebhookReceiverResult(
             status_code=200, subscription_deleted_result=subscription_deleted_result
+        )
+
+    if event_type == "customer.subscription.created":
+        subscription_created_result = handle_customer_subscription_created(parsed, store)
+        return StripeWebhookReceiverResult(
+            status_code=200, subscription_created_result=subscription_created_result
         )
 
     return StripeWebhookReceiverResult(status_code=200)

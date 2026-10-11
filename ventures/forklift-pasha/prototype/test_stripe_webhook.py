@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from stripe_webhook import (
     get_stripe_runtime_dependencies,
     handle_checkout_session_completed,
+    handle_customer_subscription_created,
     handle_customer_subscription_deleted,
     handle_customer_subscription_updated,
     receive_stripe_webhook,
@@ -59,6 +60,14 @@ def _subscription_deleted_event(stripe_customer_id="cus_123") -> dict:
     return {
         "id": "evt_sub_del_1",
         "type": "customer.subscription.deleted",
+        "data": {"object": {"customer": stripe_customer_id}},
+    }
+
+
+def _subscription_created_event(stripe_customer_id="cus_123") -> dict:
+    return {
+        "id": "evt_sub_created_1",
+        "type": "customer.subscription.created",
         "data": {"object": {"customer": stripe_customer_id}},
     }
 
@@ -272,6 +281,97 @@ def main():
     results.append(_check("未知のcustomerはcanceled=False", unknown_customer_del.canceled, False))
     results.append(_check(
         "未知のcustomerはerror=unknown_customer", unknown_customer_del.error, "unknown_customer"
+    ))
+
+    # --- handle_customer_subscription_created: 正常系(canceled_atのクリア) ---
+    store9 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-9", stripe_customer_id="cus_999a", plan="standard"),
+        store9,
+    )
+    handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_999a"),
+        store9,
+        now=datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+    )
+    results.append(_check(
+        "前提: 解約でcanceled_atが設定されている",
+        store9.get_canceled_at("internal-9") is not None,
+        True,
+    ))
+    created_result = handle_customer_subscription_created(
+        _subscription_created_event(stripe_customer_id="cus_999a"), store9
+    )
+    results.append(_check("cleared=True", created_result.cleared, True))
+    results.append(_check("internal_idが逆引きで解決される", created_result.internal_id, "internal-9"))
+    results.append(_check(
+        "再契約でcanceled_atがクリアされる", store9.get_canceled_at("internal-9"), None
+    ))
+
+    # --- handle_customer_subscription_created: 解約を経ていない場合も冪等にcleared=True ---
+    store10 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-10", stripe_customer_id="cus_999b", plan="light"),
+        store10,
+    )
+    never_canceled_result = handle_customer_subscription_created(
+        _subscription_created_event(stripe_customer_id="cus_999b"), store10
+    )
+    results.append(_check(
+        "解約未経験でもcleared=True", never_canceled_result.cleared, True
+    ))
+    results.append(_check(
+        "canceled_atはNoneのまま", store10.get_canceled_at("internal-10"), None
+    ))
+
+    # --- handle_customer_subscription_created: customer欠落 ---
+    missing_customer_created = handle_customer_subscription_created(
+        {"data": {"object": {}}}, store9
+    )
+    results.append(_check(
+        "customer欠落はcleared=False", missing_customer_created.cleared, False
+    ))
+    results.append(_check(
+        "customer欠落はerror=missing_customer", missing_customer_created.error, "missing_customer"
+    ))
+
+    # --- handle_customer_subscription_created: 未知のstripe_customer_idは逆引き不可 ---
+    unknown_customer_created = handle_customer_subscription_created(
+        _subscription_created_event(stripe_customer_id="cus_unknown"), store9
+    )
+    results.append(_check(
+        "未知のcustomerはcleared=False", unknown_customer_created.cleared, False
+    ))
+    results.append(_check(
+        "未知のcustomerはerror=unknown_customer", unknown_customer_created.error, "unknown_customer"
+    ))
+
+    # --- receive_stripe_webhook: customer.subscription.createdを正しくディスパッチする ---
+    store11 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-11", stripe_customer_id="cus_999c", plan="light"),
+        store11,
+    )
+    handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_999c"),
+        store11,
+        now=datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+    )
+    created_body = json.dumps(
+        _subscription_created_event(stripe_customer_id="cus_999c")
+    ).encode("utf-8")
+    created_ts = int(time.time())
+    created_dispatch_result = receive_stripe_webhook(
+        created_body, _sign(created_body, created_ts), SECRET, store=store11
+    )
+    results.append(_check("正常系は200", created_dispatch_result.status_code, 200))
+    results.append(_check(
+        "subscription_created_result.cleared=True",
+        created_dispatch_result.subscription_created_result.cleared,
+        True,
+    ))
+    results.append(_check(
+        "store側にも反映される", store11.get_canceled_at("internal-11"), None
     ))
 
     # --- receive_stripe_webhook: customer.subscription.deletedを正しくディスパッチする ---
