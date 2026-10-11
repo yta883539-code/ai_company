@@ -4952,3 +4952,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   方針を本venture全体で統一的に確定〈原則fail-open、契約者・プラン判定の2メソッドのみ
   fail-closed〉。設計ドキュメントのみの変更、テスト16ファイル・schema検証32件いずれも
   変更なしでパス)
+- フェーズ226(2026-10-11 09:00 UTC定例更新): フェーズ225の次回候補(2)「4つの設計
+  ドキュメントが前提とするmerge=Trueの部分更新方針・安全側フォールバック方針の横断
+  レビュー」を実施した。firestore-provider-adapter-design.md・firestore-usage-counter-
+  provider-adapter-design.md・linking-code-store-firestore-adapter-design.md・
+  invite-code-store-firestore-adapter-design.mdの4ドキュメントを23節のfail-open/
+  fail-closed基準に照らして見直した結果、3ドキュメント(UserProfileStoreProtocol・
+  LinkingCodeStoreProtocol×2)は既存の読み取り系フォールバック設計がそのまま整合しており
+  変更不要と確認した一方、firestore-usage-counter-provider-adapter-design.mdの本流メソッド
+  `increment_or_reset`についてはFirestore実装例自体が未記載(素朴な`get`/`set`のみ)で
+  エラー時の方針が未確定であることを発見した。`increment_or_reset`は認可・決済ゲートでは
+  なく利用回数の計測目的であり、Firestore接続エラー・トランザクション競合は本venture側の
+  データ不整合ではなく一時的な基盤側の問題であることから、23節の趣旨(一時的エラーで
+  サービスを使えなくなる事故を避ける)に合致するfail-open(エラー時は当月初回利用として
+  1を返し取り漏れを許容する)と確定し、`@firestore.transactional`を用いたFirestore実装
+  サンプルを同ドキュメント5節に追加した。あわせて、書き込み系メソッド(`set`/`save`/
+  `delete`/`link`等)が例外を捕捉せず伝播させる設計は4ドキュメント共通の意図的な方針
+  (23節が対象とした「読み取り系の`.get()`」の範囲外)であることを明文化した。
+  いずれも設計ドキュメントのみの変更(実Firestore接続アダプタ自体は実装未着手、オーナー
+  承認待ち)のため、`InMemoryUsageCounterStore`等への変更は発生していない。
+  `python3 prototype/run_all_tests.py`(16ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)をいずれも再実行しパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)優先順位1・2候補(ライディングショップ
+  池上・エクウスワールド)へのヒアリング実施がオーナーから承認された場合はその着手を
+  最優先、(2)付け替え時の旧`stripe_customer_index`エントリ削除の実Firestore接続アダプタ
+  側対称対応(実装自体はオーナー承認待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 09:00 UTC(フェーズ226: 4つのFirestoreアダプタ設計ドキュメントを
+  横断レビューし、3ドキュメントは既存設計のまま整合することを確認、`increment_or_reset`
+  のみfail-open方針とFirestore実装例が未確定だったため確定・追記。設計ドキュメントのみの
+  変更、テスト16ファイル・schema検証32件いずれも変更なしでパス)

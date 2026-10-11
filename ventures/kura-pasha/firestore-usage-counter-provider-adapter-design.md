@@ -112,3 +112,112 @@ current_month) -> int`を追加し、`check_and_increment_usage()`を本メソ�
 - 本フェーズ(211)で発見した競合リスク・フェーズ212の`increment_or_reset`統合は、
   他venture(line-reservation-ai・course-set-pasha・aircon-pasha・forklift-pasha)の
   同種カウンタ系Protocol(存在する場合)にも横展開確認する余地がある。
+
+## 5. フェーズ226横断レビュー: 接続エラー時のフォールバック方針の確定
+
+workshop-store-firestore-adapter-design.md 23節(フェーズ225)で確定した本venture全体の
+統一方針(`.get()`自体の例外はtry/exceptで捕捉し既存の「未設定」デフォルト値に合流させる
+〈fail-open〉。値が認可・決済ゲートの判定に直接使われ、デフォルト値が「拒否」を意味する
+場合のみfail-closed)を、本ドキュメントを含む4つの設計ドキュメント(firestore-provider-
+adapter-design.md・本ドキュメント・linking-code-store-firestore-adapter-design.md・
+invite-code-store-firestore-adapter-design.md)に横断的に当てはめて見直した結果、本
+ドキュメントの`increment_or_reset`についてのみ方針が未確定(`## 2.`の実装例は`get`/`set`の
+素朴な実装のみで、本流の`increment_or_reset`自体のFirestore実装例・エラー時の挙動が
+示されていなかった)であることが判明した。残り3ドキュメントは以下の理由により確定済みの
+方針と矛盾しないことを確認した(変更不要)。
+
+- **firestore-provider-adapter-design.md**: `get_workshop_id`・`get_is_following`は
+  いずれも`_get_doc()`内でtry/exceptにより例外を捕捉し、`InMemoryUserProfileStore`と
+  同じ既定値(`None`・`True`)にフォールバックしている。`get_workshop_id`・
+  `get_is_following`のいずれも「契約者本人確認」や「プラン決定」のような認可・決済ゲートの
+  判定に直接使われるものではなく(workshop_id未設定は新規契約フロー未完了として別経路で
+  扱われ、is_following=Trueはフォロー解除時の請求停止判定の入力の一つに過ぎず単独で
+  決済可否を決めるものではない)、fail-open判定は23節の基準と整合する。
+- **linking-code-store-firestore-adapter-design.md / invite-code-store-firestore-
+  adapter-design.md**: `get()`はtry/exceptで例外を捕捉し「未発見」(`None`)に
+  フォールバックしており(連携・招待コードの無効化と同じ扱いになる安全側の選択)、23節の
+  fail-open方針と整合する。`save`/`delete`/`items`はいずれも例外を捕捉せず伝播させる設計
+  だが、これは書き込み系メソッド(ドキュメントへの`set`/`delete`、`WorkshopStoreProtocol`の
+  各`set_*`系も同様に例外を捕捉していない)に共通する意図的な設計であり、23節が対象とした
+  「`.get()`自体の例外」(読み取り系)の範囲外であるため矛盾ではない。書き込みが失敗した場合に
+  静かに成功したものとして処理を続けるとデータ不整合(例: 連携コードが実際には保存されていない
+  のに発行成功として案内してしまう)を招くため、書き込み系は常に例外を呼び出し元に伝播させ、
+  呼び出し元(Cloud Functions のエラーハンドリング・Webhookの再試行)に委ねる方針で一貫して
+  いることを本節で明文化する。
+
+これに対し`increment_or_reset`は、`check_and_increment_usage()`内で`within_limit`
+(従量課金要否)の判定に直接使われるが、認可・決済ゲートというよりは「今回の利用1回分を
+カウントできるか」という計測目的のメソッドであり、23節が「拒否をデフォルトに持つ認可判定」
+のみをfail-closed対象とした趣旨からは外れる。また、`get_contractor_user_id`・`get_plan_id`
+(23節でfail-closedと確定した2メソッド)がいずれも「値を取得できないこと自体が不正・
+不整合の兆候であり処理を止めるべき」ケースであるのに対し、Firestoreの接続エラー・
+トランザクション競合(最大試行回数超過)は本venture側のデータ不整合ではなく一時的な基盤側の
+問題であるため、fail-openとして扱う方が23節の趣旨(一時的エラーで職人がサービスを使えなく
+なる事故を避ける)に合致する。以上により、`increment_or_reset`の実Firestore実装は
+**fail-open(接続エラー時は当月の集計を1件分取り漏らす代わりに生成を許可する)**と確定する。
+
+```python
+class FirestoreUsageCounterProvider:
+    """UsageCounterStoreProtocolの実Firestore接続実装(フェーズ226版)。
+    usage_counter/{workshop_id}ドキュメント(month・count)を読み書きする。
+    """
+
+    def __init__(self, firestore_client) -> None:
+        self._client = firestore_client
+
+    def _doc_ref(self, workshop_id: str):
+        return self._client.collection("usage_counter").document(workshop_id)
+
+    def get(self, workshop_id: str) -> tuple[str, int] | None:
+        # テスト向けの状態検証用途にのみ残す非原子的メソッド。本流では使わない。
+        snapshot = self._doc_ref(workshop_id).get()
+        if not snapshot.exists:
+            return None
+        data = snapshot.to_dict() or {}
+        if "month" not in data or "count" not in data:
+            return None
+        return (data["month"], data["count"])
+
+    def set(self, workshop_id: str, month: str, count: int) -> None:
+        # テスト向けの状態検証用途にのみ残す非原子的メソッド。本流では使わない。
+        self._doc_ref(workshop_id).set({"month": month, "count": count})
+
+    def increment_or_reset(self, workshop_id: str, current_month: str) -> int:
+        """check_and_increment_usage()本流で使う原子的メソッド。
+
+        読み取り→月替わり判定→加算→書き込みを1つのFirestoreトランザクションに
+        閉じ込め、並行リクエストによるread-modify-write競合(3節)を防ぐ。
+        トランザクション自体が失敗した場合(接続エラー・最大試行回数超過等)は
+        fail-open方針(本節)に従い、当月初回利用として1を返す(取り漏れは許容し、
+        生成リクエストを止めない)。
+        """
+        transaction = self._client.transaction()
+
+        @firestore.transactional
+        def _run(transaction):
+            doc_ref = self._doc_ref(workshop_id)
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() if snapshot.exists else None
+            if data is None or data.get("month") != current_month:
+                count_after = 1
+            else:
+                count_after = data.get("count", 0) + 1
+            transaction.set(
+                doc_ref, {"month": current_month, "count": count_after}
+            )
+            return count_after
+
+        try:
+            return _run(transaction)
+        except Exception:
+            return 1
+```
+
+- **既存InMemory実装との整合**: `InMemoryUsageCounterStore.increment_or_reset`
+  (usage_counter_workshop.py)は例外を発生させない実装のため、本フォールバックは実
+  Firestore接続時のみ発生する経路であり、既存テストへの影響はない(コード変更なし、
+  テスト16ファイル・schema検証32件いずれも変更なしで再実行しパスを確認)。
+- **残課題**: 取り漏れが実際にどの程度発生し得るか(トランザクション競合の再試行回数・
+  タイムアウト設定次第)は結合実装フェーズでの計測が必要。取り漏れ件数が無視できない規模に
+  なった場合は、月次の従量課金確定処理(存在する場合)側でCloud Loggingのエラーログと
+  突合せる補正運用を検討する(本フェーズでは設計のみ記録し、実装は次回候補とする)。

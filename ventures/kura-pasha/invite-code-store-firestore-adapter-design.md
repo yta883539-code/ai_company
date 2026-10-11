@@ -101,6 +101,10 @@ class FirestoreWorkshopInviteStore:
 
 ## 4. 残課題・次回候補
 
+- フェーズ226横断レビュー(firestore-usage-counter-provider-adapter-design.md 5節)にて、
+  本ドキュメントの読み取り・書き込み方針もlinking-code-store-firestore-adapter-design.md
+  (フェーズ213)と同一のため、workshop-store-firestore-adapter-design.md 23節の統一
+  fail-open方針と整合することを確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
 - firestore-provider-adapter-design.md 4節の残課題のうち、`WorkshopStoreProtocol`

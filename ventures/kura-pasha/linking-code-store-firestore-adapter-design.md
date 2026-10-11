@@ -98,6 +98,10 @@ class FirestorePendingLinkStore:
 
 ## 4. 残課題・次回候補
 
+- フェーズ226横断レビュー(firestore-usage-counter-provider-adapter-design.md 5節)にて、
+  `get()`の読み取り失敗時フォールバック(None)はworkshop-store-firestore-adapter-
+  design.md 23節の統一fail-open方針と整合し、`save`/`delete`/`items`が例外を捕捉しない
+  設計も書き込み系メソッド共通の意図的な方針として確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
 - 本ドキュメントの対象外とした`pending_workshop_invites`向け招待コードStore

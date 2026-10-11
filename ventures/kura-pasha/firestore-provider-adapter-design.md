@@ -93,6 +93,10 @@ class FirestoreUserProfileProvider:
 
 ## 4. 残課題・次回候補
 
+- フェーズ226横断レビュー(firestore-usage-counter-provider-adapter-design.md 5節)にて、
+  本ドキュメントの読み取り系フォールバック(`get_workshop_id`→None・`get_is_following`→
+  True)はworkshop-store-firestore-adapter-design.md 23節の統一fail-open方針と整合する
+  ことを確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
 - 本フェーズで設計を見送った`WorkshopStoreProtocol`(craftsman_workshopドキュメント、
