@@ -2149,3 +2149,34 @@
 - 最終更新: 2026-10-11 05:00 UTC(フェーズ122: `is_generation_paused()`を実装し、
   `get_upgraded_at`/`set_upgraded_at`・`GENERATION_PAUSED_NOTICE`を新設。テスト5件追加、
   全34件パス)
+- フェーズ123(2026-10-11 07:00 UTC定例更新): フェーズ122「次回候補(2)」(Webフォーム
+  送信処理本体の実装とそこへの`is_generation_paused()`の組み込み)に着手した。新規モジュール
+  `prototype/form_submission_flow.py`を作成し、`process_form_submission()`として
+  (1)`is_generation_paused()`判定(対象ならLLM呼び出し自体を行わず
+  `GENERATION_PAUSED_NOTICE`を返す)、(2)注入された`llm_generate`スタブ関数による
+  構造化出力の取得、(3)`post_generation_checks.run_all_checks()`による厳守事項6・7の
+  機械チェック(エラー時は`status="invalid_output"`としてそのまま利用者に返さない)、
+  (4)status別の応答テキスト組み立て(`generated`時は`inspection_record.body`+
+  `reminder_notice`)、(5)`record_generation_and_get_trial_end_notice()`によるトライアル
+  生成回数の加算とトライアル終了通知文の追記、という一連の処理を1回の呼び出しで束ねた。
+  `overage_notifications.py`(月間生成回数90%通知・保有台数プラン超過通知)は、通知対象
+  となるplan_idがfleet_operatorドキュメントにいつ・どう書き込まれるか(Stripe決済導線、
+  本venture未着手)が未確定のため、本フェーズでは意図的に組み込みを見送った(次回以降の
+  課題として残す)。`test_form_submission_flow.py`を新規作成しテスト18件(通常生成・
+  reminder_notice追記・out_of_scope・insufficient_input・invalid_output・一時停止対象で
+  LLM呼び出しがスキップされること・アップグレード済みは一時停止対象外・トライアル5回目で
+  通知文が追記されその次の送信はpausedになること)を追加、全パス。
+  `python3 prototype/run_all_tests.py`(7ファイルに増加)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)もいずれもパスすることを確認した。
+  実際のWebフォーム(mvp-flow-draft.md)自体の実装・実LLM接続・Firestore接続はいずれも
+  未着手のまま次回以降の課題として残る。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)plan_idの
+  fleet_operatorへの書き込み元(Stripe決済導線設計、本venture未着手)を先に設計した上で
+  `overage_notifications.py`を`process_form_submission()`へ組み込む、(3)Webフォーム
+  (HTML/JS)自体のモックアップ作成(他venture`web-form-mockup/`相当)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-11 07:00 UTC(フェーズ123: `prototype/form_submission_flow.py`を新規
+  作成し、`is_generation_paused()`・`run_all_checks()`・
+  `record_generation_and_get_trial_end_notice()`を束ねるWebフォーム送信処理本体
+  `process_form_submission()`を実装。テスト18件追加、全パス)
