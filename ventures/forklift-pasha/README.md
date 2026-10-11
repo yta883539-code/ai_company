@@ -2303,6 +2303,37 @@
   オーナーから承認された場合はその着手を最優先、(2)`customer.subscription.deleted`
   (解約)受信時の処理設計、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・
   アイデア領域の前進。
-- 最終更新: 2026-10-11 15:00 UTC(フェーズ128: `customer.subscription.updated`受信時の
-  plan_id同期を実装。`handle_customer_subscription_updated()`を新設し
-  `receive_stripe_webhook()`に配線、テスト10件追加・全件パス)
+- フェーズ129(2026-10-11 20:00 UTC定例更新): フェーズ128「次回候補(2)」に従い、
+  `customer.subscription.deleted`(解約)受信時の処理を実装した
+  (subscription-canceled-immediate-block-design.md新規作成)。調査の過程で、
+  kura-pasha/course-set-pasha/aircon-pashaで順に発見された欠落(有料転換済み
+  〈`upgraded_at`非null〉のユーザーが解約後も既存の一時停止判定の対象にならず無期限に
+  生成を使い続けられる)が、`trial_management.is_generation_paused()`の判定条件
+  (`trial_end_notified_at`非null・`upgraded_at`未設定)から見てforklift-pasha自身にも
+  同型で存在することを確認した。修正として、`trial_management.py`に`get_canceled_at`/
+  `set_canceled_at`(`FleetOperatorStoreProtocol`・`InMemoryFleetOperatorStore`)・
+  `is_subscription_canceled()`(`canceled_at`設定済みなら`upgraded_at`の値によらず常に
+  True)を追加し、`form_submission_flow.process_form_submission()`で`is_generation_paused()`
+  より先に判定して`status="canceled"`(`CANCELED_NOTICE`)を返す分岐を追加した。
+  `stripe_webhook.py`には`handle_customer_subscription_deleted()`を新設し(`customer`から
+  `internal_id`を逆引きし、決済失敗の有無によらず常に`canceled_at`を書き込む、
+  aircon-pashaと同じ方針)、`receive_stripe_webhook()`から配線した。既存の
+  「未対応イベント種別は200で無視」テストが`customer.subscription.deleted`を例に使って
+  いたが対応済みイベントになったため`invoice.payment_failed`に差し替えた。テスト22件追加
+  (`test_trial_management.py`10件・`test_form_submission_flow.py`3件・
+  `test_stripe_webhook.py`9件)、全件パス。回帰確認として
+  `python3 prototype/run_all_tests.py`(10ファイル、全パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスする
+  ことを確認した。本venture固有の留保事項として、`customer.subscription.created`
+  (再契約)受信時の`canceled_at`クリア分岐は本venture自体が`customer.subscription.created`
+  の受信・配線を未着手のため今回は実装せず、次回候補として明示した(再契約時にクリア
+  されないと永久ブロックの別の欠落になる)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`customer.subscription.created`受信時の`canceled_at`クリア分岐の実装、
+  (2)承認待ち事項がオーナーから承認された場合はその着手を最優先、(3)Webフォームの
+  プラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 20:00 UTC(フェーズ129: `customer.subscription.deleted`受信時の
+  `canceled_at`書き込みと`status="canceled"`即時ブロック分岐を実装。kura-pasha/
+  course-set-pasha/aircon-pashaと同型の「有料転換済みユーザーが解約後も無期限に生成を
+  使い続けられる」欠落がforklift-pashaにも存在することを確認し修正した。テスト22件追加・
+  全件パス)

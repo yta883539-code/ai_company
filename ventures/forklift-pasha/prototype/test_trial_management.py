@@ -14,6 +14,7 @@ from trial_management import (
     TRIAL_PERIOD_DAYS,
     InMemoryFleetOperatorStore,
     is_generation_paused,
+    is_subscription_canceled,
     is_trial_period_over,
     record_generation_and_get_trial_end_notice,
     record_generation_for_trial,
@@ -239,6 +240,50 @@ def main():
     results.append(_check(
         "is_generation_paused: 別operatorのupgradedAtはNoneのまま独立している",
         is_generation_paused("op15", store),
+        False,
+    ))
+
+    # --- get_canceled_at/set_canceled_at: 未設定はNone、設定後は取得できる ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "get_canceled_at: 未設定はNone",
+        store.get_canceled_at("op17"),
+        None,
+    ))
+    store.set_canceled_at("op17", now)
+    results.append(_check(
+        "get_canceled_at: 設定後は取得できる",
+        store.get_canceled_at("op17"),
+        now,
+    ))
+    store.set_canceled_at("op17", None)
+    results.append(_check(
+        "set_canceled_at: Noneを渡すとクリアされる",
+        store.get_canceled_at("op17"),
+        None,
+    ))
+
+    # --- is_subscription_canceled: canceled_at未設定ならFalse ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "is_subscription_canceled: canceled_at未設定ならFalse",
+        is_subscription_canceled("op18", store),
+        False,
+    ))
+
+    # --- is_subscription_canceled: canceled_at設定済みならTrue(upgraded_atの値によらず) ---
+    store.set_upgraded_at("op18", now)
+    store.set_canceled_at("op18", now + timedelta(days=1))
+    results.append(_check(
+        "is_subscription_canceled: 有料転換済み(upgraded_at非null)でもcanceled_at設定後はTrue",
+        is_subscription_canceled("op18", store),
+        True,
+    ))
+
+    # --- is_subscription_canceled: 別operatorは独立している ---
+    results.append(_check(
+        "is_subscription_canceled: 別operatorのcanceled_atはNoneのまま独立している",
+        is_subscription_canceled("op19", store),
         False,
     ))
 

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from stripe_webhook import (
     get_stripe_runtime_dependencies,
     handle_checkout_session_completed,
+    handle_customer_subscription_deleted,
     handle_customer_subscription_updated,
     receive_stripe_webhook,
     verify_stripe_signature,
@@ -51,6 +52,14 @@ def _checkout_event(
                 "metadata": {"plan": plan},
             }
         },
+    }
+
+
+def _subscription_deleted_event(stripe_customer_id="cus_123") -> dict:
+    return {
+        "id": "evt_sub_del_1",
+        "type": "customer.subscription.deleted",
+        "data": {"object": {"customer": stripe_customer_id}},
     }
 
 
@@ -223,6 +232,69 @@ def main():
         "未知のlookup_keyはplan_idを変更しない", store5.get_plan_id("internal-5"), "fleet"
     ))
 
+    # --- handle_customer_subscription_deleted: 正常系(canceled_at書き込み) ---
+    store7 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-7", stripe_customer_id="cus_777", plan="standard"),
+        store7,
+    )
+    del_result = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_777"),
+        store7,
+        now=datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+    )
+    results.append(_check("canceled=True", del_result.canceled, True))
+    results.append(_check("internal_idが逆引きで解決される", del_result.internal_id, "internal-7"))
+    results.append(_check(
+        "canceled_atが書き込まれる",
+        store7.get_canceled_at("internal-7"),
+        datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+    ))
+
+    # --- handle_customer_subscription_deleted: upgraded_at設定済みでも解約を記録する ---
+    results.append(_check(
+        "upgraded_atが設定済みでもcanceled_atは書き込まれる(決済失敗未経験でも同様)",
+        store7.get_upgraded_at("internal-7") is not None and store7.get_canceled_at("internal-7") is not None,
+        True,
+    ))
+
+    # --- handle_customer_subscription_deleted: customer欠落 ---
+    missing_customer_del = handle_customer_subscription_deleted({"data": {"object": {}}}, store7)
+    results.append(_check("customer欠落はcanceled=False", missing_customer_del.canceled, False))
+    results.append(_check(
+        "customer欠落はerror=missing_customer", missing_customer_del.error, "missing_customer"
+    ))
+
+    # --- handle_customer_subscription_deleted: 未知のstripe_customer_idは逆引き不可 ---
+    unknown_customer_del = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_unknown"), store7
+    )
+    results.append(_check("未知のcustomerはcanceled=False", unknown_customer_del.canceled, False))
+    results.append(_check(
+        "未知のcustomerはerror=unknown_customer", unknown_customer_del.error, "unknown_customer"
+    ))
+
+    # --- receive_stripe_webhook: customer.subscription.deletedを正しくディスパッチする ---
+    store8 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-8", stripe_customer_id="cus_888", plan="light"),
+        store8,
+    )
+    del_body = json.dumps(_subscription_deleted_event(stripe_customer_id="cus_888")).encode("utf-8")
+    del_ts = int(time.time())
+    del_dispatch_result = receive_stripe_webhook(
+        del_body, _sign(del_body, del_ts), SECRET, store=store8
+    )
+    results.append(_check("正常系は200", del_dispatch_result.status_code, 200))
+    results.append(_check(
+        "subscription_deleted_result.canceled=True",
+        del_dispatch_result.subscription_deleted_result.canceled,
+        True,
+    ))
+    results.append(_check(
+        "store側にも反映される", store8.get_canceled_at("internal-8") is not None, True
+    ))
+
     # --- receive_stripe_webhook: customer.subscription.updatedを正しくディスパッチする ---
     store6 = InMemoryFleetOperatorStore()
     handle_checkout_session_completed(
@@ -264,7 +336,10 @@ def main():
     ))
 
     # --- receive_stripe_webhook: 未対応イベント種別は200で無視 ---
-    other_event_body = json.dumps({"id": "evt_2", "type": "customer.subscription.deleted"}).encode(
+    # (フェーズ129より前はこの例としてcustomer.subscription.deletedを使っていたが、
+    # handle_customer_subscription_deleted()を追加したため対応済みイベントになった。
+    # 本venture未着手のイベント種別の例としてinvoice.payment_failedに差し替える)
+    other_event_body = json.dumps({"id": "evt_2", "type": "invoice.payment_failed"}).encode(
         "utf-8"
     )
     other_ts = int(time.time())
@@ -274,6 +349,11 @@ def main():
     results.append(_check("未対応イベントは200", other_result.status_code, 200))
     results.append(_check(
         "未対応イベントはcheckout_link_result無し", other_result.checkout_link_result, None
+    ))
+    results.append(_check(
+        "未対応イベントはsubscription_deleted_result無し",
+        other_result.subscription_deleted_result,
+        None,
     ))
 
     # --- receive_stripe_webhook: 不正JSONは400 ---

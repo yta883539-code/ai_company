@@ -9,8 +9,11 @@
 フェーズ127時点では`checkout.session.completed`の受信・署名検証のみに限定していたが、
 フェーズ128で`customer.subscription.updated`受信時のplan_id同期
 (`handle_customer_subscription_updated()`、stripe-subscription-updated-dispatch-
-design.md)を追加した。決済失敗検知(`payment_failure.py`相当)・解約通知等はまだ
-一切存在しないため、それ以外のイベント種別は常に200(受理・無視)を返す。
+design.md)を追加し、フェーズ129で`customer.subscription.deleted`受信時の
+`canceled_at`書き込み(`handle_customer_subscription_deleted()`、
+subscription-canceled-immediate-block-design.md相当)を追加した。決済失敗検知
+(`payment_failure.py`相当)・解約完了案内の送信等はまだ一切存在しないため、それ以外の
+イベント種別は常に200(受理・無視)を返す。
 """
 
 from __future__ import annotations
@@ -197,12 +200,55 @@ def handle_customer_subscription_updated(
 
 
 @dataclass
+class SubscriptionDeletedResult:
+    """handle_customer_subscription_deleted()の結果
+    (subscription-canceled-immediate-block-design.md相当、フェーズ129)。"""
+
+    canceled: bool
+    internal_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+def handle_customer_subscription_deleted(
+    event: dict,
+    store: FleetOperatorStoreProtocol,
+    *,
+    now: Optional[datetime] = None,
+) -> SubscriptionDeletedResult:
+    """`customer.subscription.deleted`イベントから`canceled_at`を書き込む。
+
+    kura-pasha/course-set-pasha/aircon-pashaで発見された欠落(有料転換済み
+    〈upgraded_atが非null〉のユーザーが解約後も`is_generation_paused()`の対象に
+    ならず無期限に生成を使い続けられる)が本venture自体にも存在することを確認し、
+    同型の修正として追加した。`handle_customer_subscription_updated()`と同じく
+    `customer`から`internal_id`を逆引きする。決済失敗の有無によらず常に`canceled_at`
+    を書き込む(aircon-pashaのdesign「3. 修正内容」と同じ方針)。逆引きできない場合は
+    `error="unknown_customer"`として書き込みを行わない。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    stripe_customer_id = data_object.get("customer")
+
+    if not isinstance(stripe_customer_id, str) or not stripe_customer_id:
+        return SubscriptionDeletedResult(canceled=False, error="missing_customer")
+
+    internal_id = store.get_internal_id_by_stripe_customer_id(stripe_customer_id)
+    if internal_id is None:
+        return SubscriptionDeletedResult(canceled=False, error="unknown_customer")
+
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    store.set_canceled_at(internal_id, resolved_now)
+
+    return SubscriptionDeletedResult(canceled=True, internal_id=internal_id)
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """receive_stripe_webhook()の結果(design 1節)。"""
 
     status_code: int
     checkout_link_result: Optional[CheckoutSessionLinkResult] = None
     subscription_updated_result: Optional[SubscriptionUpdatedSyncResult] = None
+    subscription_deleted_result: Optional[SubscriptionDeletedResult] = None
     error: Optional[str] = None
 
 
@@ -253,6 +299,14 @@ def receive_stripe_webhook(
         subscription_updated_result = handle_customer_subscription_updated(parsed, store)
         return StripeWebhookReceiverResult(
             status_code=200, subscription_updated_result=subscription_updated_result
+        )
+
+    if event_type == "customer.subscription.deleted":
+        subscription_deleted_result = handle_customer_subscription_deleted(
+            parsed, store, now=resolved_now
+        )
+        return StripeWebhookReceiverResult(
+            status_code=200, subscription_deleted_result=subscription_deleted_result
         )
 
     return StripeWebhookReceiverResult(status_code=200)

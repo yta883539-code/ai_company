@@ -10,6 +10,7 @@ from datetime import datetime
 
 from form_submission_flow import process_form_submission
 from trial_management import (
+    CANCELED_NOTICE,
     GENERATION_PAUSED_NOTICE,
     TRIAL_END_RETURN_TEXT_NOTICE,
     TRIAL_GENERATION_LIMIT,
@@ -173,6 +174,31 @@ def main():
         GENERATION_PAUSED_NOTICE,
     ))
     results.append(_check("paused: llm_generateは呼ばれない", len(paused_calls), 0))
+
+    # --- 解約確定(canceled_at設定済み)は、有料転換済みでも最優先でブロックされる ---
+    store = InMemoryFleetOperatorStore()
+    store.set_upgraded_at("op6b", now)
+    store.set_canceled_at("op6b", now)
+    canceled_calls = []
+
+    def llm_generate_should_not_be_called_canceled(raw_text):
+        canceled_calls.append(raw_text)
+        return _generated_instance()
+
+    result = process_form_submission(
+        "2号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op6b",
+        now,
+        llm_generate_should_not_be_called_canceled,
+        store,
+    )
+    results.append(_check("canceled: status", result["status"], "canceled"))
+    results.append(_check(
+        "canceled: response_textはCANCELED_NOTICE",
+        result["response_text"],
+        CANCELED_NOTICE,
+    ))
+    results.append(_check("canceled: llm_generateは呼ばれない", len(canceled_calls), 0))
 
     # --- アップグレード済みの場合は一時停止対象にならない ---
     store = InMemoryFleetOperatorStore()

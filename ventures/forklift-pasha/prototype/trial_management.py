@@ -88,6 +88,16 @@ class FleetOperatorStoreProtocol:
         `stripe_customer_id`のみを受け取った場合の逆引き用。未知のIDはNone。"""
         raise NotImplementedError
 
+    def get_canceled_at(self, internal_id: str) -> "datetime | None":
+        """subscription-canceled-immediate-block-design.md相当(フェーズ129)。
+        `customer.subscription.deleted`受信時に設定する解約確定時刻。未解約はNone。"""
+        raise NotImplementedError
+
+    def set_canceled_at(self, internal_id: str, value: "datetime | None") -> None:
+        """同上。上書き可(`None`を渡すことで再契約時のクリアにも使う、
+        set_upgraded_atと同じ「上書き可」方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -102,6 +112,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._email: "dict[str, str]" = {}
         self._stripe_customer_id: "dict[str, str]" = {}
         self._internal_ids_by_stripe_customer_id: "dict[str, str]" = {}
+        self._canceled_at: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -160,6 +171,15 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self, stripe_customer_id: str
     ) -> "str | None":
         return self._internal_ids_by_stripe_customer_id.get(stripe_customer_id)
+
+    def get_canceled_at(self, internal_id: str) -> "datetime | None":
+        return self._canceled_at.get(internal_id)
+
+    def set_canceled_at(self, internal_id: str, value: "datetime | None") -> None:
+        if value is None:
+            self._canceled_at.pop(internal_id, None)
+            return
+        self._canceled_at[internal_id] = value
 
 
 def is_trial_period_over(
@@ -252,3 +272,24 @@ def is_generation_paused(
     if operator_store.get_trial_end_notified_at(internal_id) is None:
         return False
     return operator_store.get_upgraded_at(internal_id) is None
+
+
+# subscription-canceled-immediate-block-design.md相当(フェーズ129)。
+CANCELED_NOTICE = (
+    "ご契約が解約済みのため記録の整形を停止しています。再度ご利用いただくには、"
+    "登録時にお送りしたアクセスURLからプランを選び直してください。"
+)
+
+
+def is_subscription_canceled(
+    internal_id: str,
+    operator_store: FleetOperatorStoreProtocol,
+) -> bool:
+    """kura-pasha/course-set-pasha/aircon-pashaで発見された欠落
+    (`subscription_status == "canceled"`相当が専用分岐を持たず、有料転換済み
+    〈upgraded_atが非null〉のユーザーが解約後も`is_generation_paused()`の対象に
+    ならず無期限に生成を使い続けられてしまう)が本venture自体にも存在することを確認し、
+    同型の修正として追加した判定。`canceled_at`が設定済みであれば、トライアル進捗・
+    `upgraded_at`の値によらず常にTrueを返す(呼び出し側で`is_generation_paused()`より
+    先に判定する想定、design「3. 修正内容」のaircon-pasha方針と同じ優先順位)。"""
+    return operator_store.get_canceled_at(internal_id) is not None
