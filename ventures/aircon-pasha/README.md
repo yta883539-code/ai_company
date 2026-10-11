@@ -5429,3 +5429,27 @@
   confirmations()`を呼び出す月次Cloud Schedulerエントリポイントの設計、(3)他venture・
   アイデア領域の前進。
 - 最終更新: 2026-10-11 04:00 UTC(フェーズ307: 上記参照)
+- フェーズ308(2026-10-11 13:00 UTC定例更新): フェーズ307の次回候補(2)に対応し、
+  `run_due_deletion_candidate_final_confirmations()`を実際に起動するCloud Scheduler構成を
+  trial-end-scheduler-design.md・payment-failure-reminder-scheduler-design.mdと同じ型式で
+  設計した(deletion-candidate-final-confirmation-scheduler-design.md新規作成)。
+  他の日次バッチ群と異なり削除候補化自体が数ヶ月単位で発生する事象であるため月次1回
+  (暫定JST 05:00、他venture日次バッチ〈04:00台〉と重ならない時間帯)を暫定案とし、
+  `route_deletion_candidate_confirmation()`が返すLINE_PUSH/MARK_UNREACHABLEの2経路分岐を
+  Cloud Function側がそのままログ出力のみで受け取る構成とした(連絡不能候補への対応は
+  deletion_candidate_final_confirmation.pyのモジュールdocstring記載のとおり「オーナーが
+  対話セッションで個別に削除可否を判断する」運用のため、自動のオーナーLINE通知は
+  今回は設けず、必要であれば連絡不能件数が一定数を超えた場合のダイジェスト通知を
+  次回以降の課題として記載した)。コード変更は行わず設計doc新設のみのため、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(660件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実Cloud Scheduler作成自体は
+  2026-09-27 10:00 UTC記載分に本月次バッチも同種の追加ジョブとして含まれる想定であり、
+  新たな承認待ち事項ではない)。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから
+  承認された場合はその着手を最優先、(2)`prototype/cloud_function_send_deletion_
+  candidate_final_confirmations.py`相当の薄いエントリポイント(実Firestore接続の
+  `user_profile_store`・実LINE Push Clientを組み立てる依存ファクトリ関数)の実装、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 13:00 UTC(フェーズ308: 上記参照)
+- 最終更新: 2026-10-11 04:00 UTC(フェーズ307: 上記参照)
