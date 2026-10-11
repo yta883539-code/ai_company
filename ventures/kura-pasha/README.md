@@ -5023,3 +5023,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-11 21:00 UTC(フェーズ228: 4つのFirestoreアダプタ設計ドキュメントの
   `merge=True`部分更新方針を横断レビューし、矛盾なく一貫していることを確認〈確認のみ、
   設計変更なし〉。テスト16ファイル・schema検証32件いずれも変更なしでパス)
+- フェーズ229(2026-10-11 23:00 UTC定例更新): aircon-pashaフェーズ309「次回候補(2)」の
+  横断点検(他venture〈course-set-pasha・kura-pasha・line-reservation-ai・forklift-pasha〉に
+  同種の「薄いCloud Functionsエントリポイント未実装のスケジューラ本体」が残っていないか)
+  の対象として本venture自身を確認した結果、daily_scheduler.pyの`run_daily_workshop_checks()`
+  (design 2節「Cloud Function G」、フェーズ112で選定ロジック・送信配線本体は実装済み)には、
+  aircon-pashaの`cloud_function_send_deletion_candidate_final_confirmations.py`に相当する
+  薄いCloud Functionsエントリポイントが未実装のまま残っていたことが判明した(他3venture
+  〈course-set-pasha・line-reservation-ai・aircon-pasha自身〉は該当するスケジューラ本体を
+  起動するエントリポイントを既に持つ)。`cloud_function_run_daily_workshop_checks.py`を
+  新規作成し、aircon-pasha版と同じ「本体は依存注入でテスト可能、main(request)だけが実
+  functions_frameworkリクエストオブジェクトを扱う薄い配線」構成で実装した。
+  `get_daily_workshop_checks_runtime_dependencies()`は実Firestore接続・実LINE Push
+  Message API接続のいずれも実GCPプロジェクト・実LINE公式アカウント開設後でなければ構築
+  できないため(オーナー承認待ち、pending-approval.md参照)、検証用の`InMemoryWorkshopStore`・
+  `InMemoryLinePushClient`を返す設計とした。本関数はCloud Scheduler(日次・暫定JST 04:00、
+  daily-scheduler-design.md参照)がHTTPトリガーとして起動する想定のため、Stripe/LINE
+  Webhookと異なりリクエストのbody・署名ヘッダのいずれも参照せず、常に200を返す設計とした
+  (失敗〈failed〉が残っても次回起動時に自然に再試行される既存design方針のため)。
+  `test_cloud_function_run_daily_workshop_checks.py`を新規作成しテスト5件(依存ファクトリが
+  InMemory実装を返すこと・呼び出しごとに新規インスタンスを返すこと・その出力が
+  `run_daily_workshop_checks()`にそのまま渡せること、`main()`が常に200/"OK"を返すこと・
+  連続呼び出しでも例外が伝播しないこと)を追加、全5件パス。回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(17ファイル・176件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実Cloud Scheduler作成・実
+  Firestore/LINE接続自体は既存の承認待ち事項の範囲内であり、新たな承認待ち事項ではない)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)
+  forklift-pashaはトライアル終了通知自体がまだ設計段階(未実装)のため本横断点検の対象外
+  であることを確認済み、これにより本横断点検は4venture全ての確認が完了、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-11 23:00 UTC(フェーズ229: `cloud_function_run_daily_workshop_checks.py`
+  を新設し、`run_daily_workshop_checks()`を起動する薄いCloud Functionsエントリポイントを
+  実装。aircon-pashaフェーズ309の横断点検で発見した本venture固有の欠落を解消。テスト5件
+  追加、全176件パス)
