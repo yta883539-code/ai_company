@@ -117,3 +117,29 @@ def should_notify_trial_end(
     if operator_store.get_trial_end_notified_at(internal_id) is not None:
         return False
     return is_trial_period_over(internal_id, now, operator_store)
+
+
+# trial-end-notification-design.md 3節「(A) 生成回数到達時: 返却テキストへの追記文」。
+TRIAL_END_RETURN_TEXT_NOTICE = (
+    "※無料トライアルの生成回数(5回)に達しました。引き続きご利用いただくには、登録時にお送りした"
+    "アクセスURLからプランをお選びください。このまま何もしなければ自動課金は発生せず、生成のみ"
+    "一時停止となります。"
+)
+
+
+def record_generation_and_get_trial_end_notice(
+    operator_store: FleetOperatorStoreProtocol, internal_id: str, now: datetime
+) -> "str | None":
+    """(A)経路の呼び出し配線(design 5節2点目)。record_generation_for_trial()で生成を
+    記録した直後に、ちょうどトライアル終了条件に達したかをshould_notify_trial_end()で
+    判定し、達していればtrialEndNotifiedAtを設定して返却テキストへの追記文を返す
+    (overage_notifications.pyのrecord_generation_and_get_usage_notice()と同型:
+    加算と通知判定を1回のWebフォーム送信処理の中で呼び出せるようにまとめる)。
+    (B)経路(期間到達、日次スケジューラ)とは別経路のため、ここで消費した場合は
+    trialEndNotifiedAtが設定済みとなり(B)経路側では再通知されない。
+    """
+    record_generation_for_trial(operator_store, internal_id, now)
+    if not should_notify_trial_end(internal_id, now, operator_store):
+        return None
+    operator_store.set_trial_end_notified_at(internal_id, now)
+    return TRIAL_END_RETURN_TEXT_NOTICE

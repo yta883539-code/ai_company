@@ -9,10 +9,12 @@ import sys
 from datetime import datetime, timedelta
 
 from trial_management import (
+    TRIAL_END_RETURN_TEXT_NOTICE,
     TRIAL_GENERATION_LIMIT,
     TRIAL_PERIOD_DAYS,
     InMemoryFleetOperatorStore,
     is_trial_period_over,
+    record_generation_and_get_trial_end_notice,
     record_generation_for_trial,
     should_notify_trial_end,
 )
@@ -158,6 +160,42 @@ def main():
     results.append(_check(
         "別operatorのtrialEndNotifiedAtはNoneのまま独立している",
         store.get_trial_end_notified_at("op9"),
+        None,
+    ))
+
+    # --- record_generation_and_get_trial_end_notice: (A)経路の呼び出し配線 ---
+    store = InMemoryFleetOperatorStore()
+    for _ in range(TRIAL_GENERATION_LIMIT - 1):
+        results.append(_check(
+            "record_generation_and_get_trial_end_notice: 5回目未到達の間はNone",
+            record_generation_and_get_trial_end_notice(store, "op10", now),
+            None,
+        ))
+    results.append(_check(
+        "record_generation_and_get_trial_end_notice: 5回目到達時に通知文を返す",
+        record_generation_and_get_trial_end_notice(store, "op10", now),
+        TRIAL_END_RETURN_TEXT_NOTICE,
+    ))
+    results.append(_check(
+        "record_generation_and_get_trial_end_notice: 通知後はtrialEndNotifiedAtが設定される",
+        store.get_trial_end_notified_at("op10") is not None,
+        True,
+    ))
+    results.append(_check(
+        "record_generation_and_get_trial_end_notice: 通知済み後の6回目はもうNone(再通知しない)",
+        record_generation_and_get_trial_end_notice(store, "op10", now),
+        None,
+    ))
+
+    # --- record_generation_and_get_trial_end_notice: 既に(B)経路で通知済みなら(A)経路でもNone ---
+    store = InMemoryFleetOperatorStore()
+    record_generation_for_trial(store, "op11", now)
+    store.set_trial_end_notified_at("op11", now + timedelta(days=TRIAL_PERIOD_DAYS))
+    for _ in range(TRIAL_GENERATION_LIMIT - 1):
+        record_generation_and_get_trial_end_notice(store, "op11", now)
+    results.append(_check(
+        "record_generation_and_get_trial_end_notice: (B)経路で通知済みなら生成回数到達時もNone",
+        record_generation_and_get_trial_end_notice(store, "op11", now),
         None,
     ))
 

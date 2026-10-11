@@ -2107,5 +2107,23 @@
   (3)4節「生成一時停止」ロジック(`_is_generation_paused()`相当)の実装、(4)本venture向け
   「浮いた作業時間の目安」試算ドキュメント(content-generation-time-estimate.md相当、
   trial-end-notification-design.md 6節)の作成、(5)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-10 23:00 UTC(フェーズ120: `trialEndNotifiedAt`フィールド・
-  `should_notify_trial_end()`を実装。テスト7件追加、全21件パス)
+- フェーズ121(2026-10-11 03:00 UTC定例更新): フェーズ120「次回候補(2)」を受け、
+  (A)経路(生成回数到達)の呼び出し配線を実装した。`prototype/trial_management.py`に
+  3節の返却テキスト追記文を`TRIAL_END_RETURN_TEXT_NOTICE`として定数化し、
+  `record_generation_and_get_trial_end_notice()`(`record_generation_for_trial()`で
+  生成記録後に`should_notify_trial_end()`で判定し、到達時のみ`trialEndNotifiedAt`を
+  設定して追記文を返す。`overage_notifications.py`の
+  `record_generation_and_get_usage_notice()`と同型の「加算+1回のみ通知」構成)を追加した。
+  `test_trial_management.py`にテスト8件追加(5回目到達時のみ通知文・6回目以降はNone・
+  (B)経路で既に通知済みの場合は(A)経路でもNoneになることを確認)、全29件パス。
+  `python3 prototype/run_all_tests.py`(6ファイル)・`python3 schema/validate_test_cases.py`
+  (11件)もいずれも変更なしでパス。この関数を実際にWebフォーム送信処理本体から呼び出す
+  配線(mvp-flow-draft.mdが指すWebフォーム処理自体が本venture未実装)、および(B)経路
+  (日次スケジューラ・メール送信、オーナー承認待ち)は次回以降の課題のまま残る。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)Webフォーム送信処理本体(mvp-flow-draft.md相当)の実装と
+  そこへの`record_generation_and_get_trial_end_notice()`の組み込み、(3)4節「生成一時停止」
+  ロジック(`_is_generation_paused()`相当)の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-11 03:00 UTC(フェーズ121: (A)経路の呼び出し配線
+  `record_generation_and_get_trial_end_notice()`を実装。テスト8件追加、全29件パス)

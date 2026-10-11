@@ -131,3 +131,18 @@ https://<ドメイン>/f/{accessToken}
 `trial_management.py`に`trialEndNotifiedAt`フィールド〈get/set、初回設定後は不変〉・
 `should_notify_trial_end()`〈いずれか早い方で1回のみ送信の判定〉を追加。テスト7件追加、
 全21件パス。(A)(B)経路からの実際の呼び出し配線は次回以降の課題のまま)
+
+追記: 2026-10-11 03:00 UTC(フェーズ121: フェーズ120「次回候補(2)」を受け、5節2点目の
+(A)経路呼び出し配線を実装した。`trial_management.py`に3節の返却テキスト追記文を
+`TRIAL_END_RETURN_TEXT_NOTICE`として定数化し、`record_generation_and_get_trial_end_notice()`
+〈`record_generation_for_trial()`で生成を記録した直後に`should_notify_trial_end()`で判定し、
+到達していれば`trialEndNotifiedAt`を設定して追記文を返す〉を追加した
+(`overage_notifications.py`の`record_generation_and_get_usage_notice()`と同型の
+「加算+1回のみ通知判定」をまとめる設計)。`test_trial_management.py`にテスト8件追加
+(5回目到達時のみ通知文を返す・通知済み後の6回目はNone・(B)経路で既に通知済みの場合は
+(A)経路でもNoneになることを確認)、全29件パス。`run_all_tests.py`(6ファイル)・
+`schema/validate_test_cases.py`(11件)もいずれも変更なしでパス。実際にこの関数を
+Webフォーム送信処理本体から呼び出す配線(mvp-flow-draft.mdが指すWebフォーム処理自体が
+本venture未実装)、および(B)経路(日次スケジューラ・メール送信、オーナー承認待ち)は
+次回以降の課題のまま。承認が必要なアクションは今回発生していないためpending-approval.md
+への追記なし)
