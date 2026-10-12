@@ -872,3 +872,37 @@ kura-pashaが`UserProfileStoreProtocol`に対して行ってきた段階的設�
   forklift-pasha)の「次回候補」記述に21節と同種の陳腐化(既に対応済みの項目を未着手として
   繰り返し記載)がないかの点検。
 - (4)他venture・アイデア領域の前進。
+
+## 28. `_profile_to_dict`相当ヘルパーの要否確認(フェーズ続き315、2026-10-12 00:00 UTC)
+
+フェーズ続き314の次回候補(2)を受け、`_profile_to_dict`/`_profile_from_dict`相当のヘルパーが
+本venture(line-reservation-ai)で必要かを`prototype/store_profile_store.py`の
+`StoreProfileStoreProtocol`定義(114〜187行目)で確認した。
+
+- aircon-pashaの`UserProfileStoreProtocol`は、連携成立時に`save(user_id, profile:
+  UserProfile)`で`UserProfile`値オブジェクト全体を1回のドキュメント書き込みにまとめ、
+  `get(user_id) -> Optional[UserProfile]`で全フィールドを1回の読み取りから値オブジェクトへ
+  復元する(firestore-provider-adapter-design.md 5節)。この「値オブジェクト全体⇄dict」の
+  変換を担うのが`_profile_to_dict`/`_profile_from_dict`である。
+- 本venture`StoreProfileStoreProtocol`には、これに相当する`save()`/`get()`(値オブジェクト
+  全体を単位とする読み書き)が定義されていない。基盤の`get_stripe_customer_id`/
+  `set_stripe_customer_id`から26節の`all_store_ids`まで、全メソッドがフィールド単位
+  (またはmenu_durations・store_faq_infoのような1フィールド内の辞書単位)の個別読み書きのみで
+  構成されており、値オブジェクト自体が定義されていない(`InMemoryStoreProfileStore`も
+  `Dict[str, Dict[str, Any]]`のネストした素のdictで保持しており、専用dataclassを介さない)。
+- したがって、本venture固有の値オブジェクト⇄dict変換ヘルパーを新設する必要はなく、
+  27節(2)の「同種のヘルパーは不要と見込まれる」という見立ては正しいと確認できた。これにより
+  `StoreProfileStoreProtocol`全グループ(2〜26節)の実Firestore接続アダプタ設計は、本節の
+  確認をもって追加の未決事項なしで完了したとみなす。
+
+コード変更なし、確認・結論の記録のみ。回帰確認として`python3 -m unittest discover -s
+prototype -p "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`
+(28件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。
+
+次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナー
+から承認された場合は本ドキュメント2〜26節の設計一式の実装着手を最優先、(2)他venture
+(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」記述に21節と
+同種の陳腐化がないかの点検(20節(4)・27節(3)から持ち越し)、(3)他venture・アイデア領域の
+前進。

@@ -5661,3 +5661,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md`26節に`all_store_ids`グループの実Firestore接続アダプタ設計を追加し、
   `StoreProfileStoreProtocol`全グループの設計完了を確認。コード変更なし、テスト906件・
   schema検証28件いずれもパス)
+- フェーズ続き315(2026-10-12 00:00 UTC定例更新): フェーズ続き314の次回候補(2)
+  「`_profile_to_dict`相当ヘルパーが本venture(各グループが個別フィールド直接読み書き
+  のみ)で必要かの確認」に着手した。`prototype/store_profile_store.py`の
+  `StoreProfileStoreProtocol`定義(114〜187行目)を確認した結果、aircon-pashaの
+  `UserProfileStoreProtocol`が持つ`save(user_id, profile: UserProfile)`/
+  `get(user_id) -> Optional[UserProfile]`(値オブジェクト全体を1回の読み書きにまとめる
+  メソッド、`_profile_to_dict`/`_profile_from_dict`はその変換ヘルパー)に相当する
+  メソッドは本venture`StoreProfileStoreProtocol`には存在せず、基盤の
+  `get_stripe_customer_id`/`set_stripe_customer_id`から26節の`all_store_ids`まで
+  全メソッドがフィールド単位の個別読み書きのみで構成されており、専用の値オブジェクト
+  自体も定義されていない(`InMemoryStoreProfileStore`も素の`Dict[str, Dict[str, Any]]`
+  で保持)ことを確認した。これにより27節(2)の見立てどおり同種のヘルパーは不要と結論し、
+  `store-profile-store-firestore-adapter-design.md`に28節として記録した。
+  `StoreProfileStoreProtocol`全グループ(2〜26節)の実Firestore接続アダプタ設計は、
+  本節の確認をもって追加の未決事項なしで完了したとみなす。コード変更なし、確認・
+  結論の記録のみ。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(906件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・
+  実Firestore/GCPプロジェクト等)がオーナーから承認された場合は本ドキュメント2〜26節の
+  設計一式の実装着手を最優先、(2)他venture(course-set-pasha・aircon-pasha・
+  kura-pasha・forklift-pasha)の「次回候補」記述に21節と同種の陳腐化(既に対応済みの
+  項目を未着手として繰り返し記載)がないかの点検(20節(4)・27節(3)から持ち越し)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 00:00 UTC(フェーズ続き315: `_profile_to_dict`相当ヘルパーは
+  本venture`StoreProfileStoreProtocol`(全メソッドがフィールド単位の個別読み書きのみで
+  値オブジェクトを介さない)では不要と確認。`StoreProfileStoreProtocol`全グループの
+  実Firestore接続アダプタ設計が追加の未決事項なしで完了。コード変更なし、テスト906件・
+  schema検証28件いずれもパス)
