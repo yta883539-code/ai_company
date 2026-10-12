@@ -2461,3 +2461,31 @@
   行う`access_token_store.py`を新設し、`AccessUrlProvider`の具象実装
   `AccessTokenStoreUrlProvider`をCloud Functionsエントリポイントに接続した。テスト15件
   追加・全件パス)
+- フェーズ135(2026-10-12 09:00 UTC定例更新): フェーズ134「次回候補(2)」であった、
+  設定ページ(web-form-mockup/settings.html)の「アクセスURLを再発行する」ボタン・
+  「新しいメールアドレス(変更する場合のみ入力)」欄の送信操作を、`access_token_store.
+  reissue_access_token()`およびfleet_operatorのメールアドレス更新に配線する処理本体を
+  `prototype/access_url_reissue_handler.py`として机上実装した。`handle_reissue_request()`
+  は(1)新しいメールアドレスの入力があれば先に`email_store.set_email()`で確定させてから
+  (2)`reissue_access_token()`で新トークンを発行し(3)送信先アドレス・新しいアクセスURLを
+  組み立てて返す、という順序を1関数に閉じ込め、access-token-reissue-design.md 2節の
+  「1つの再発行フローに統一する」方針を実コードに反映した。新しいメールアドレス欄が
+  空欄・空白のみの場合は既存登録アドレス宛への単純な再発行として扱い(settings.html
+  フェーズ102のUI仕様どおり)、`@`を含まない等の明らかに不正な形式の場合は
+  `ReissueRequestRejected`を送出してトークン・メールアドレスのいずれも変更しない
+  (弾かれた入力で旧トークンを失効させてしまう事故を防ぐ)。settings.html自体はJS不使用の
+  モックアップのままで、「新しいURLをメールで受け取る」ボタンは引き続き`disabled`のため
+  本モジュールへの実接続(Webフォームのバックエンド実装・HTTPエンドポイント化)は未着手
+  (本venture全体の稼働に必須の前提である実Firestore接続・実ドメイン確定と同じ、オーナー
+  承認待ち事項の範囲内)。実際の新アクセスURLのメール送信自体も既存の承認待ち事項
+  (pending-approval.md 2026-10-10 18:00 UTC記載)の範囲内であり、新たな承認待ち事項では
+  ないためpending-approval.mdへの追記なし。テスト13件追加(`test_access_url_reissue_
+  handler.py`)、全13件パス。回帰確認として`python3 prototype/run_all_tests.py`
+  (13ファイルに増加、全パス)・`python3 schema/validate_test_cases.py`(11件、変更なし)を
+  実行し、いずれもパスすることを確認した。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)Webフォーム
+  バックエンド自体のHTTPエンドポイント骨格の設計(本関数をどう呼ぶか、リクエスト/レスポンス
+  形式)、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 09:00 UTC(フェーズ135: 設定ページの再発行ボタン・メールアドレス
+  変更欄の送信操作を`reissue_access_token()`・fleet_operatorのメールアドレス更新に配線する
+  `access_url_reissue_handler.py`を新設した。テスト13件追加・全件パス)
