@@ -2582,3 +2582,27 @@
   `plan-selection.html`向けチェック6件を追加〈プランカード3件・料金表示・申し込みボタン
   disabled状態・index.htmlからの遷移リンク〉し全30件パス。既存テスト〈Python13ファイル・
   schema11件〉もいずれもパス)
+- フェーズ140(2026-10-12 14:00 UTC定例更新): フェーズ138/139「次回候補(3)」だった、
+  プラン選択ページの「現在のプラン・契約状況に応じたハイライト表示」を`plan-selection-
+  current-plan-highlight-design.md`として設計した。settings.htmlと同じアクセスURL認証
+  方式(`access_token_store.get_internal_id_by_access_token()`)で解決した`internal_id`を
+  使い、`plan_id_resolution.py`の既存の`get_plan_id()`のみで現在のplan_idを取得できる
+  ことを確認し、新規のストアメソッドは不要と判断した。サーバー側テンプレート変数
+  `current_plan_id`を1つ渡すだけで、該当するプランカードに`.plan-card--current`クラスを
+  付与しボタン文言を「現在のプラン」に変える(disabledのまま維持)というルールとした。
+  アップグレード/ダウングレードの方向に応じたボタン文言の区別は、Checkout Session発行用
+  `main(request)`が未実装の現段階ではボタン文言と送信先の不整合を避けるため導入せず、
+  `main(request)`実装後の次回候補に残した。本フェーズは設計文書の新設のみでコード変更は
+  無いため、`python3 prototype/run_all_tests.py`(13ファイル・全件パス)・`python3
+  schema/validate_test_cases.py`(11件・全件パス)・`node prototype/
+  browser_mockup_checks.js`(30件・全件パス)を再実行し、いずれも変更前と同じ結果でパス
+  することを確認した。承認が必要なアクションは今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)Webフォームバックエンドのルーティング実装が確定した後のCheckout Session発行用
+  `main(request)`自体のコード実装、(3)本設計に基づく`.plan-card--current`表示切り替えの
+  実コード実装(`main(request)`確定後)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 14:00 UTC(フェーズ140: プラン選択ページの現在プランハイライト
+  表示を設計文書として新設。サーバー側テンプレート変数`current_plan_id`1つと既存の
+  `get_plan_id()`のみで実現可能と判断。コード変更は無く既存テスト〈Python13ファイル・
+  schema11件・ブラウザ検証30件〉はいずれもパス)
