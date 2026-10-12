@@ -19,6 +19,7 @@ from trial_end_scheduler import (  # noqa: E402
     TrialUserState,
     build_trial_user_states,
     format_trial_end_notification_message,
+    run_due_trial_end_notifications,
     select_due_trial_end_notifications,
     send_trial_end_notifications,
 )
@@ -376,6 +377,45 @@ class StripeWebhookUpgradedAtToTrialEndSchedulerWiringTest(unittest.TestCase):
         due = select_due_trial_end_notifications(states, now)
 
         self.assertEqual([u.user_id for u in due], ["U1"])
+
+
+class RunDueTrialEndNotificationsTest(unittest.TestCase):
+    """README.mdフェーズ289: `store.all_user_ids()`による全ユーザー列挙→
+    `build_trial_user_states()`→`send_trial_end_notifications()`のstore wiring本体
+    (`run_due_trial_end_notifications()`)を検証する。個々の絞り込み条件自体は
+    SelectDueTrialEndNotificationsTestで既にカバー済みのため、ここでは
+    「全ユーザー列挙からの配線」固有の挙動のみを確認する。"""
+
+    def test_enumerates_all_user_ids_and_sends_to_due_users_only(self) -> None:
+        from datetime import timezone
+
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        # U1: 14日経過済み(対象)。U2: 5日しか経過していない(対象外)。
+        usage_counter.set_trial_start_at_if_unset("U1", now - timedelta(days=14))
+        usage_counter.set_trial_start_at_if_unset("U2", now - timedelta(days=5))
+        push_client = InMemoryLinePushClient()
+
+        result = run_due_trial_end_notifications(usage_counter, now, push_client)
+
+        self.assertEqual(result.sent, ["U1"])
+        self.assertEqual(result.failed, [])
+        self.assertIsNotNone(usage_counter.get_trial_end_notified_at("U1"))
+        self.assertIsNone(usage_counter.get_trial_end_notified_at("U2"))
+
+    def test_no_users_registered_yields_empty_result(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0)
+        usage_counter = InMemoryUsageCounter()
+        push_client = InMemoryLinePushClient()
+
+        result = run_due_trial_end_notifications(usage_counter, now, push_client)
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.failed, [])
 
 
 if __name__ == "__main__":

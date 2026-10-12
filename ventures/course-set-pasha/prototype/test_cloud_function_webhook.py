@@ -845,6 +845,48 @@ class InMemoryUsageCounterTrialStartAtTest(unittest.TestCase):
         self.assertEqual(counter.get_trial_start_at("u-1"), first_moment)
 
 
+class InMemoryUsageCounterAllUserIdsTest(unittest.TestCase):
+    """InMemoryUsageCounter.all_user_ids()(README.mdフェーズ289)。
+    trial_end_scheduler.run_due_trial_end_notifications()等、Cloud Scheduler本体が
+    「全ユーザーを対象に絞り込み条件を適用する」ために必要とする一覧取得を検証する。"""
+
+    def test_empty_counter_returns_empty_list(self):
+        counter = InMemoryUsageCounter()
+
+        self.assertEqual(list(counter.all_user_ids()), [])
+
+    def test_increment_registers_user_id(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment("u-1", "2026-10")
+
+        self.assertEqual(list(counter.all_user_ids()), ["u-1"])
+
+    def test_set_trial_start_at_if_unset_registers_user_id(self):
+        counter = InMemoryUsageCounter()
+        moment = datetime(2026, 8, 23, 12, 0, tzinfo=timezone(timedelta(hours=9)))
+
+        counter.set_trial_start_at_if_unset("u-1", moment)
+
+        self.assertEqual(list(counter.all_user_ids()), ["u-1"])
+
+    def test_does_not_register_duplicate_entries_for_the_same_user(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment("u-1", "2026-09")
+        counter.increment("u-1", "2026-10")
+
+        self.assertEqual(list(counter.all_user_ids()), ["u-1"])
+
+    def test_registers_multiple_distinct_users(self):
+        counter = InMemoryUsageCounter()
+
+        counter.increment("u-1", "2026-10")
+        counter.increment("u-2", "2026-10")
+
+        self.assertEqual(set(counter.all_user_ids()), {"u-1", "u-2"})
+
+
 class InMemoryUsageCounterTrialEndNotifiedAtTest(unittest.TestCase):
     """InMemoryUsageCounter.set_trial_end_notified_at()・get_trial_end_notified_at()
     (trial-end-scheduler-design.md 4節、trial_end_scheduler.pyのsend_trial_end_notifications()が

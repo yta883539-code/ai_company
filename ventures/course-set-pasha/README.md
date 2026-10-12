@@ -4773,3 +4773,41 @@
 - 最終更新: 2026-10-11 16:00 UTC(フェーズ288: launch-readiness-checklist.mdの承認待ち事項
   1〜5をpending-approval.mdと再度突き合わせ、記載漏れ・日時不一致なしを確認。コード変更なし、
   テスト692件・schema検証21件いずれもパス)
+- フェーズ289(2026-10-12 01:00 UTC定例更新): フェーズ288の次回候補(2)「他venture・
+  アイデア領域の前進」を受け、aircon-pashaフェーズ309の次回候補(2)「他venture(本venture・
+  kura-pasha・line-reservation-ai・forklift-pasha)に同種の『薄いCloud Functions
+  エントリポイント未実装のスケジューラ本体』が残っていないかの横断点検」を本venture向けに
+  実施した。`payment_failure_reminder_scheduler.select_due_payment_failure_reminders()`・
+  `payment_suspension_owner_notification.select_due_payment_suspension_owner_notifications()`・
+  `trial_end_scheduler.select_due_trial_end_notifications()`の3スケジューラがいずれも
+  「渡されたusers一覧を絞り込んで送る」部分のみを提供し、(1)`usage_counter`から全ユーザー
+  一覧を取得する手段(aircon-pasha/kura-pashaの`all_user_ids()`相当)、(2)全ユーザー列挙→
+  状態組み立て→送信を1回のCloud Scheduler起動でつなぐ`run_due_*()`相当の関数、
+  (3)`functions_framework`の薄いエントリポイント、のいずれも存在しないという、他venture
+  (aircon-pasha・kura-pasha・line-reservation-ai)では既に解消済みの欠落が3つとも残っていた
+  ことを確認した。3件のうち`trial_end_scheduler.py`を今回対応し、
+  (1)`cloud_function_webhook.InMemoryUsageCounter`に`_all_user_ids`集合と
+  `all_user_ids()`を新設(`increment()`・`set_trial_start_at_if_unset()`呼び出し時に
+  登録、aircon-pashaの`InMemoryUserProfileStore.all_user_ids()`と対称)、
+  (2)`trial_end_scheduler.py`に`TrialEndNotificationsStore`Protocolと
+  `run_due_trial_end_notifications(store, now, push_client, ...)`を新設
+  (`store.all_user_ids()`→`build_trial_user_states()`→`send_trial_end_notifications()`の
+  配線)、(3)`prototype/cloud_function_send_trial_end_notifications.py`を新規作成し、
+  aircon-pashaの`cloud_function_send_deletion_candidate_final_confirmations.py`と同じ
+  「本体は依存注入でテスト可能、`main(request)`だけが実`functions_framework`リクエスト
+  オブジェクトを扱う薄い配線」構成で実装した。テスト12件追加(InMemoryUsageCounter.
+  all_user_ids()単体5件、run_due_trial_end_notifications()2件、Cloud Functionsエントリ
+  ポイント5件)、全704件パス(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス。残り2件
+  (`payment_failure_reminder_scheduler.py`・`payment_suspension_owner_notification.py`)は
+  同型の欠落のため次回候補とする。実Cloud Scheduler作成・実Firestore/LINE接続自体は
+  既存の承認待ち事項(pending-approval.md参照)の範囲内であり、新たな承認待ち事項ではない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)同型の欠落が残る`payment_failure_reminder_scheduler.py`・
+  `payment_suspension_owner_notification.py`への同種対応、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-12 01:00 UTC(フェーズ289: `trial_end_scheduler.py`に薄いCloud
+  Functionsエントリポイント〈`cloud_function_send_trial_end_notifications.py`〉と
+  `run_due_trial_end_notifications()`・`InMemoryUsageCounter.all_user_ids()`を新設。
+  テスト12件追加、全704件パス・schema検証21件パス)

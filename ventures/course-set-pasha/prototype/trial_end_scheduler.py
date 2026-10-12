@@ -326,6 +326,39 @@ def send_trial_end_notifications(
     return result
 
 
+class TrialEndNotificationsStore(
+    TrialUserStateReader, TrialEndNotifiedAtWriter, Protocol
+):
+    """`run_due_trial_end_notifications()`が要求する、読み取り4メソッド(全ユーザー列挙を
+    含む)・書き込み1メソッドを合わせた構造的Protocol
+    (aircon-pasha/deletion_candidate_final_confirmation.
+    DeletionCandidateFinalConfirmationStoreと対称)。"""
+
+    def all_user_ids(self) -> Sequence[str]:
+        ...
+
+
+def run_due_trial_end_notifications(
+    store: TrialEndNotificationsStore,
+    now: datetime,
+    push_client: LinePushClient,
+    liff_url: str = LIFF_URL_PLACEHOLDER,
+    trial_period_days: int = DEFAULT_TRIAL_PERIOD_DAYS,
+) -> SendTrialEndNotificationsResult:
+    """trial-end-scheduler-design.mdが「呼び出し側(Cloud Scheduler経由の日次バッチ)が
+    行う想定」としていた、`store.all_user_ids()`による全ユーザー列挙→
+    `build_trial_user_states()`→`send_trial_end_notifications()`のstore wiringを実装した
+    もの(aircon-pashaのdeletion_candidate_final_confirmation.run_due_deletion_candidate_
+    final_confirmations()と同じ位置づけ)。これまで本モジュールは「渡されたusers一覧を
+    絞り込んで送る」部分のみを提供し、全ユーザーをどこから取得するかの配線が存在しなかった
+    欠落を解消する。"""
+    user_ids = store.all_user_ids()
+    users = build_trial_user_states(store, user_ids)
+    return send_trial_end_notifications(
+        users, now, store, push_client, liff_url, trial_period_days
+    )
+
+
 def _demo() -> None:
     now = datetime(2026, 8, 23, 4, 0, 0)
     users = [

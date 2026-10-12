@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional, Protocol
+from typing import Iterable, Optional, Protocol
 
 _logger = logging.getLogger(__name__)
 
@@ -505,6 +505,12 @@ class InMemoryUsageCounter:
     def __init__(self) -> None:
         self._counts: dict[tuple[str, str], int] = {}
         self._notice_sent: set = set()
+        # trial-end-scheduler-design.md等のCloud Scheduler本体がFirestoreクエリ相当で
+        # 「全ユーザーのuser_id一覧」を取得する処理を検証用に代替するための集合
+        # (aircon-pasha/user_id_linking.InMemoryUserProfileStore.all_user_ids()と対称)。
+        # increment()・set_trial_start_at_if_unset()等、ユーザーが実在するとみなせる
+        # 書き込みのたびに追加する。
+        self._all_user_ids: set[str] = set()
         self._trial_start_at: dict[str, datetime] = {}
         self._upgraded_at: dict[str, datetime] = {}
         self._trial_end_notified_at: dict[str, datetime] = {}
@@ -524,6 +530,7 @@ class InMemoryUsageCounter:
     def increment(self, user_id: str, month: str) -> int:
         key = (user_id, month)
         self._counts[key] = self._counts.get(key, 0) + 1
+        self._all_user_ids.add(user_id)
         return self._counts[key]
 
     def has_sent(self, user_id: str) -> bool:
@@ -533,8 +540,15 @@ class InMemoryUsageCounter:
         self._notice_sent.add(user_id)
 
     def set_trial_start_at_if_unset(self, user_id: str, trial_start_at: datetime) -> None:
+        self._all_user_ids.add(user_id)
         if user_id not in self._trial_start_at:
             self._trial_start_at[user_id] = trial_start_at
+
+    def all_user_ids(self) -> Iterable[str]:
+        """trial_end_scheduler.run_due_trial_end_notifications()等、Cloud Scheduler本体が
+        「全ユーザーを対象に絞り込み条件を適用する」ために必要とする一覧取得
+        (aircon-pashaのuser_id_linking.InMemoryUserProfileStore.all_user_ids()と対称)。"""
+        return list(self._all_user_ids)
 
     def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
         return self._trial_start_at.get(user_id)
