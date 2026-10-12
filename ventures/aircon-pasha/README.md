@@ -5488,3 +5488,33 @@
   deletion_candidate_final_confirmations.py`を新設し、`run_due_deletion_candidate_
   final_confirmations()`を起動する薄いCloud Functionsエントリポイントを実装。
   テスト5件追加、全675件パス)
+- フェーズ310(2026-10-12 15:00 UTC定例更新): フェーズ309の次回候補(2)を受け、他4
+  venture(course-set-pasha・kura-pasha・line-reservation-ai・forklift-pasha)に
+  「スケジューラから呼ばれる`run_due_*`等の本体関数に対応する薄いCloud Functions
+  エントリポイント(`cloud_function_*.py`)が未実装のまま残っていないか」の横断点検を
+  実施した(コード変更なし、確認作業のみ)。各venture `prototype/`配下で`run_due_`
+  プレフィックスおよびスケジューラ的な命名(`run_daily_*`等)の関数定義を検索し、
+  対応する`cloud_function_*.py`の存在を照合した結果、course-set-pasha(`run_due_
+  payment_failure_reminders`→`cloud_function_send_payment_failure_reminders.py`、
+  `run_due_payment_suspension_owner_notifications`→対応ファイル、`run_due_trial_
+  end_notifications`→対応ファイル、いずれもフェーズ304等で既に是正済み)・
+  kura-pasha(`run_daily_workshop_checks`→`cloud_function_run_daily_workshop_
+  checks.py`)・forklift-pasha(`run_due_trial_end_emails`→`cloud_function_send_
+  trial_end_emails.py`、フェーズ139以前に実装済み)はいずれも薄いエントリポイントが
+  既に存在し欠落なしと確認した。line-reservation-aiは`run_due_*`という命名の関数が
+  存在せず、`cloud_function_send_dormant_notifications.py`等の各Cloud Functions
+  ファイル自身が`send_dormant_notifications()`等の本体ロジックを直接定義する構成
+  (本体とエントリポイントを分離しない設計)を採用しており、aircon-pasha等が踏襲する
+  「本体を別関数に分離し`main(request)`だけが薄い配線を担う」構成とは異なるアーキ
+  テクチャだが、いずれの通知経路にも未配線のまま取り残された本体関数は見つからず、
+  これも欠落ではないと判断した。したがってフェーズ309時点で懸念されていた「薄い
+  Cloud Functionsエントリポイント未実装のスケジューラ本体」の横展開は、aircon-pasha
+  自身(フェーズ309で是正済み)以外のventureには残っていないことを確認した。回帰
+  確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(675件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を再実行し、
+  いずれもパスすることを確認した。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1〜4のいずれかが
+  オーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 15:00 UTC(フェーズ310: 他4ventureの「薄いCloud Functions
+  エントリポイント未実装のスケジューラ本体」横断点検を実施し、いずれも欠落なしと
+  確認。コード変更なし、テスト675件・schema検証25件いずれもパス)
