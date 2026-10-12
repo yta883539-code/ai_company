@@ -2606,3 +2606,31 @@
   表示を設計文書として新設。サーバー側テンプレート変数`current_plan_id`1つと既存の
   `get_plan_id()`のみで実現可能と判断。コード変更は無く既存テスト〈Python13ファイル・
   schema11件・ブラウザ検証30件〉はいずれもパス)
+- フェーズ141(2026-10-12 17:00 UTC): フェーズ140「次回候補」(3)のうち、
+  `main(request)`実装(Webフォームバックエンドのルーティング未確定)に依存しない範囲として、
+  表示切り替えロジック自体を純粋関数として先行実装した。`web-form-mockup/
+  plan-selection.html`の各プランカードに`data-plan-id`属性("light"/"standard"/"fleet")と
+  `.plan-card--current`のCSSルール(枠線を`--color-accent`の実線2pxに)を追加し、新規
+  `prototype/plan_selection_highlight.py`の`apply_current_plan_highlight(html,
+  current_plan_id)`が、`plan_id_resolution.KNOWN_PLAN_IDS`に含まれる値のみを対象に
+  対応するカードへ`plan-card--current`クラスを付与しボタン文言を「このプランで申し込む」
+  から「現在のプラン」へ書き換える(disabledは維持)。design 4節が未知の値を安全側に
+  倒す方針だったため、`KNOWN_PLAN_IDS`外の値(None・空文字・大文字違い・前後空白違いを
+  含む)は常に無変更で返す設計とした。`main(request)`自体はまだ存在しないため、本ページは
+  現時点でも静的HTML(常にハイライト無し)のままで、関数の呼び出し配線は`main(request)`
+  実装後の次回候補に残す。新規`test_plan_selection_highlight.py`(17件、baseline文字列数
+  との差分で検証)を追加し、回帰確認として`python3 prototype/run_all_tests.py`
+  (14ファイル・全件パス)・`python3 schema/validate_test_cases.py`(11件・全件パス)・
+  `node prototype/browser_mockup_checks.js`(13件・全件パス)もいずれもパスすることを
+  確認した。承認が必要なアクション(実Stripe接続・外部公開等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)Webフォームバックエンドのルーティング実装が確定した後の`main(request)`自体の
+  コード実装、(3)`main(request)`確定後、`apply_current_plan_highlight()`の呼び出し配線
+  (アップグレード/ダウングレード方向によるボタン文言の区別は未導入のまま次回以降の課題)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 17:00 UTC(フェーズ141: プラン選択ページの現在プランハイライト
+  表示切り替えロジックを`plan_selection_highlight.py`の純粋関数として先行実装し、
+  `plan-selection.html`に`data-plan-id`属性・`.plan-card--current`CSSルールを追加。
+  `main(request)`未実装のため呼び出し配線は次回以降。新規テスト17件追加、既存テスト
+  〈Python14ファイル・schema11件・ブラウザ検証13件〉もいずれもパス)

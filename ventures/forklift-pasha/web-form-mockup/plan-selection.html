@@ -26,6 +26,15 @@
     checkout_session.PLAN_ID_TO_STRIPE_PRICE_IDの実値と整合させる。
   - 現在のプラン・契約状況に応じたハイライト表示(アップグレード/ダウングレード動線)は
     usage-and-fleet-overage-notification-design.mdのアップセル通知と合わせて次回以降の課題。
+
+  追記(フェーズ141・2026-10-12 17:00 UTC): plan-selection-current-plan-highlight-
+  design.mdに基づき、各プランカードに`data-plan-id`属性と`.plan-card--current`の
+  CSSルールを追加した。実際にdata-plan-id属性を見て`.plan-card--current`クラス・
+  ボタン文言を切り替える処理は、`main(request)`がアクセスURLからinternal_idを解決し
+  テンプレート変数`current_plan_id`を決定できるようになった後に配線する(design 1節の
+  制約は継続)。このため本ファイル自体は依然として静的HTML(常にハイライト無し表示)で
+  あり、切り替えロジック本体は`prototype/plan_selection_highlight.py`
+  (`apply_current_plan_highlight()`、design 2・3節に対応する純粋関数)に実装した。
 -->
 <html lang="ja">
 <head>
@@ -89,6 +98,9 @@
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 14px;
+  }
+  .plan-card--current {
+    border: 2px solid var(--color-accent);
   }
   .plan-card h2 {
     margin: 0;
@@ -162,7 +174,7 @@
   </p>
 
   <!-- pricing-plan.md「プラン案(仮)」ライトプラン -->
-  <section class="plan-card">
+  <section class="plan-card" data-plan-id="light">
     <h2>ライトプラン</h2>
     <p class="price">980円 <span class="unit">/ 月</span></p>
     <ul class="spec">
@@ -175,7 +187,7 @@
   </section>
 
   <!-- pricing-plan.md「プラン案(仮)」スタンダードプラン -->
-  <section class="plan-card">
+  <section class="plan-card" data-plan-id="standard">
     <h2>スタンダードプラン</h2>
     <p class="price">2,480円 <span class="unit">/ 月</span></p>
     <ul class="spec">
@@ -188,7 +200,7 @@
   </section>
 
   <!-- pricing-plan.md「プラン案(仮)」複数台プラン -->
-  <section class="plan-card">
+  <section class="plan-card" data-plan-id="fleet">
     <h2>複数台プラン</h2>
     <p class="price">4,980円 <span class="unit">/ 月</span></p>
     <ul class="spec">
