@@ -15,6 +15,7 @@ from access_token_store import (
 from access_url_reissue_handler import (
     ReissueRequestRejected,
     handle_reissue_request,
+    receive_reissue_request,
 )
 from trial_management import InMemoryFleetOperatorStore
 
@@ -142,6 +143,100 @@ def main():
         "拒否された場合メールアドレスも変更されない",
         email_store.get_email("op4"),
         "owner4@example.com",
+    ))
+
+    # --- receive_reissue_request(): 正常系(有効なaccess_token) ---
+    token_store, email_store, provider = _make_deps()
+    email_store.set_email("op5", "owner5@example.com")
+    token5 = issue_initial_access_token(token_store, "op5")
+
+    http_result = receive_reissue_request(token_store, email_store, provider, token5)
+
+    results.append(_check(
+        "正常系のstatus_codeは200",
+        http_result.status_code,
+        200,
+    ))
+    results.append(_check(
+        "正常系のresult.internal_idは解決したinternal_idと一致",
+        http_result.result.internal_id if http_result.result else None,
+        "op5",
+    ))
+    results.append(_check(
+        "正常系はerrorを持たない",
+        http_result.error,
+        None,
+    ))
+
+    # --- receive_reissue_request(): access_token欠落 ---
+    token_store, email_store, provider = _make_deps()
+    email_store.set_email("op6", "owner6@example.com")
+    issue_initial_access_token(token_store, "op6")
+
+    http_result = receive_reissue_request(token_store, email_store, provider, "")
+
+    results.append(_check(
+        "access_token欠落時のstatus_codeは400",
+        http_result.status_code,
+        400,
+    ))
+    results.append(_check(
+        "access_token欠落時のerrorはmissing_access_token",
+        http_result.error,
+        "missing_access_token",
+    ))
+    results.append(_check(
+        "access_token欠落時はhandle_reissue_request()が呼ばれずメールアドレスも変化しない",
+        email_store.get_email("op6"),
+        "owner6@example.com",
+    ))
+
+    # --- receive_reissue_request(): 無効なaccess_token ---
+    token_store, email_store, provider = _make_deps()
+
+    http_result = receive_reissue_request(
+        token_store, email_store, provider, "no-such-token"
+    )
+
+    results.append(_check(
+        "無効なaccess_tokenのstatus_codeは404",
+        http_result.status_code,
+        404,
+    ))
+    results.append(_check(
+        "無効なaccess_tokenのerrorはunknown_access_token",
+        http_result.error,
+        "unknown_access_token",
+    ))
+
+    # --- receive_reissue_request(): 不正なnew_email(トークンは再発行されない) ---
+    token_store, email_store, provider = _make_deps()
+    email_store.set_email("op7", "owner7@example.com")
+    token7 = issue_initial_access_token(token_store, "op7")
+
+    http_result = receive_reissue_request(
+        token_store, email_store, provider, token7, new_email="not-an-email"
+    )
+
+    results.append(_check(
+        "不正なnew_emailのstatus_codeは400",
+        http_result.status_code,
+        400,
+    ))
+    results.append(_check(
+        "不正なnew_emailのerrorはinvalid_email",
+        http_result.error,
+        "invalid_email",
+    ))
+    results.append(_check(
+        "不正なnew_emailの場合アクセストークンは再発行されない",
+        token_store.get_access_token("op7"),
+        token7,
+    ))
+    results.append(_check(
+        "不正なnew_emailの場合メールアドレスも変更されない",
+        email_store.get_email("op7"),
+        "owner7@example.com",
     ))
 
     ok = all(results)

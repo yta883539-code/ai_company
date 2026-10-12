@@ -21,7 +21,7 @@ access_token_store.reissue_access_token()・trial_management(fleet_operatorの
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Optional, Protocol
 
 from access_token_store import AccessTokenStoreProtocol, reissue_access_token
 
@@ -108,3 +108,42 @@ def handle_reissue_request(
         destination_email=email_store.get_email(internal_id),
         email_changed=email_changed,
     )
+
+
+@dataclass(frozen=True)
+class ReissueHttpResult:
+    status_code: int
+    result: Optional[ReissueRequestResult] = None
+    error: Optional[str] = None
+
+
+def receive_reissue_request(
+    access_token_store: AccessTokenStoreProtocol,
+    email_store: _EmailFieldStoreProtocol,
+    access_url_provider: _AccessUrlProviderProtocol,
+    access_token: "str | None",
+    new_email: "str | None" = None,
+) -> ReissueHttpResult:
+    """settings.htmlの送信操作を受け取るHTTPエントリポイントの処理本体
+    (access-url-reissue-http-entry-point-design.md 2節)。`handle_reissue_request()`との
+    違いは、本人特定の鍵が`internal_id`ではなくURLパスに含まれる`access_token`である点
+    (1節: 本venture固有のアクセストークンによる本人特定方式)。例外ベースの契約を持つ
+    `handle_reissue_request()`の戻り値を、HTTPステータスコードベースの契約に変換する
+    唯一の箇所とする(design.md 2節3.)。
+    """
+
+    if not access_token:
+        return ReissueHttpResult(status_code=400, error="missing_access_token")
+
+    internal_id = access_token_store.get_internal_id_by_access_token(access_token)
+    if internal_id is None:
+        return ReissueHttpResult(status_code=404, error="unknown_access_token")
+
+    try:
+        result = handle_reissue_request(
+            access_token_store, email_store, access_url_provider, internal_id, new_email
+        )
+    except ReissueRequestRejected:
+        return ReissueHttpResult(status_code=400, error="invalid_email")
+
+    return ReissueHttpResult(status_code=200, result=result)

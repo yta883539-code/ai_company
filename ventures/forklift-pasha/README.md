@@ -2512,3 +2512,26 @@
 - 最終更新: 2026-10-12 10:00 UTC(フェーズ136: アクセスURL再発行のHTTPエントリポイント設計を
   `access-url-reissue-http-entry-point-design.md`として新設。URLパス中の`accessToken`から
   `internal_id`を解決する認証方式を設計の中心に置いた。コード変更は無く設計文書の新設のみ)
+- フェーズ137(2026-10-12 11:00 UTC定例更新): フェーズ136「次回候補(2)」の一部であった、
+  `ReissueHttpResult`・`receive_reissue_request()`を`prototype/access_url_reissue_handler.py`
+  に追加した(`handle_reissue_request()`の直後に配置、既存の関数・クラスは変更しない、
+  access-url-reissue-http-entry-point-design.md 2節の処理順序どおり)。`access_token`が空の
+  場合は`get_internal_id_by_access_token()`を呼ばずに400(`missing_access_token`)、無効な
+  `access_token`は404(`unknown_access_token`)、`handle_reissue_request()`が送出する
+  `ReissueRequestRejected`は捕捉して400(`invalid_email`)に変換し、成功時は200で
+  `ReissueRequestResult`をそのまま`result`に格納する。`main(request)`自体(URLパスからの
+  `access_token`取り出し・`request.form.get("new_email")`の配線)は、Webフォーム側の
+  ルーティング実装(オーナー承認待ち事項の範囲内)が確定してから行う方針(design.md 4節)の
+  ため、本フェーズでは着手せず次回候補に残す。テスト12件追加
+  (`ReceiveReissueRequestTest`相当、正常系・`access_token`欠落・無効な`access_token`・
+  不正な`new_email`の4ケース)・全25件パス。回帰確認として`python3 prototype/
+  run_all_tests.py`(13ファイル・全件パス)・`python3 schema/validate_test_cases.py`
+  (11件・全件パス)を実行し、いずれもパスすることを確認した。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)Webフォーム
+  バックエンドのルーティング実装が確定した後の`main(request)`自体のコード実装、
+  (3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 11:00 UTC(フェーズ137: `ReissueHttpResult`・
+  `receive_reissue_request()`を`access_url_reissue_handler.py`に追加し、HTTPステータス
+  コードベースの契約に変換する処理本体を実装した。`main(request)`自体はWebフォーム側の
+  ルーティング確定待ちのため次回候補に残す。テスト12件追加・全25件パス)
