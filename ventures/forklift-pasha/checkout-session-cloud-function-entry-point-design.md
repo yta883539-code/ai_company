@@ -107,8 +107,11 @@ course-set-pasha/line-reservation-aiの`main()`と異なり、LIFF未登録に�
   レスポンスとして返す処理は、実Stripeアカウント接続(オーナー承認待ち、pending-
   approval.md 2026-10-06 22:00 UTC記載)後の課題として残る。
 - `plan-selection.html`側のボタン(現在`disabled`固定)から本エンドポイントへの実際の
-  fetch呼び出し配線(`access_token`をどう取得するか、URLパス`/f/{accessToken}`からの
-  抽出を含む)は次回候補とする。
+  送信配線(`access_token`をどう取得するか、URLパス`/f/{accessToken}`からの抽出を含む)は
+  次回候補とする→フェーズ143`plan-selection-submission-wiring-design.md`で設計済み
+  (結論: JSのfetch呼び出しは不要、サーバー側レンダリング+プレーンな`<a href>`、かつ
+  `main()`はJSON返却からStripe Checkout URLへのHTTPリダイレクト返却に変更する方式)。
+  実HTML・実装への反映は実Stripe接続待ちのため次回以降の課題として残る。
 - 実Cloud Functionsデプロイ・実ドメイン確定はオーナー承認待ちの範囲内(tech-stack.md
   「未検証・残課題」参照)。
 

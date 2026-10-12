@@ -2659,3 +2659,26 @@
   確定し、Checkout Session発行エンドポイント`create_checkout_session()`・`main(request)`を
   access_token機構で実装。新規テスト11件追加、既存テスト〈Python15ファイル・schema11件・
   ブラウザ検証13件〉もいずれもパス)
+- フェーズ143(2026-10-12 20:00 UTC定例更新): フェーズ142の次回候補(2)「`plan-selection.html`
+  のボタンから本エンドポイントへの実際の送信配線」に着手し、
+  `plan-selection-submission-wiring-design.md`として設計した。本venture他の画面モックアップ
+  (`daily.html`・`settings.html`等)が一貫して採る「JS不使用」方針との整合を検討した結果、
+  (1)`access_token`はページ自体が`/f/{accessToken}`配下でサーバー側動的生成される前提のため
+  ブラウザ側JSでの再抽出は不要、(2)`checkout_session.main()`を現状のJSON返却から、実Stripe
+  接続後はStripe Checkout Session URLへのHTTPリダイレクト(303)返却に変更すれば、ボタンは
+  プレーンな`<a href>`で足り`fetch()`等のJSは一切不要、という結論に至った
+  (checkout-session-cloud-function-entry-point-design.md「5. 残課題」にも反映)。実際の
+  `plan-selection.html`のマークアップ変更(`<button disabled>`→`<a href>`)・
+  `main()`のレスポンス方式変更は、実Stripeアカウント接続(オーナー承認待ち)後にまとめて
+  着手する前提のため、本フェーズではコード・HTML自体は変更していない。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(27件、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実Stripe接続前でも先行実装できる範囲(`main()`のレスポンス方式変更のテスト用モック化等)
+  の検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 20:00 UTC(フェーズ143: `plan-selection.html`の申し込みボタンの送信
+  配線を設計し、JSのfetch呼び出しは不要でサーバー側レンダリング+プレーンなリンク、かつ
+  `checkout_session.main()`はStripe Checkout URLへのHTTPリダイレクト返却に変更する方式が
+  本venture他ページの「JS不使用」方針と整合することを確認した。コード・HTML自体の変更は
+  実Stripe接続待ちのため次回以降とする)
