@@ -2714,3 +2714,35 @@
   `CheckoutSessionCreatorProtocol`・`MockCheckoutSessionCreator`を新設し、`main(request)`を
   JSON返却からStripe Checkout URLへの303リダイレクト返却に変更(実Stripe接続前の先行実装)。
   テスト1件追加、`test_checkout_session.py`は30件中30件成功、他テストは変更なしでパス)
+- フェーズ145(2026-10-12 22:00 UTC定例更新): フェーズ144の次回候補(2)「`plan-selection.html`
+  のマークアップ自体を`MockCheckoutSessionCreator`経由のリダイレクトで動作確認できる簡易
+  ローカルサーバー等での動作確認の検討」に着手した。実装前に調査したところ、
+  `get_checkout_runtime_dependencies()`は`main(request)`が呼ばれるたびに新規の空の
+  `InMemoryAccessTokenStore`・`InMemoryFleetOperatorStore`を生成する(同関数docstring記載の
+  既知の限界、「本プロセス内では呼び出しをまたいで状態が保持されない」)ため、`main()`を
+  実際にHTTP経由で叩く簡易ローカルサーバーを用意しても、事前にアクセストークンを登録する
+  手段がmain()の外から存在せず、どのaccess_tokenを渡しても常に`access_token_not_found`
+  (404)になり、フェーズ144で実装した200/303リダイレクト分岐には到達できないことが分かった。
+  この限界は実Firestore接続(オーナー承認待ちのアカウント作成を伴う)まで解消できないため、
+  本フェーズではローカルサーバーの新設は見送り、代わりに`main(request)`自体を直接呼ぶ
+  回帰テスト(`test_checkout_session.py`に`_StubRequest`・`MainEntryPointTest`相当のテスト
+  3件を追加。access_token未指定時の404とレスポンスボディ、`request.args`が空dictでも
+  例外にならないこと、有効そうなaccess_tokenを渡しても上記の限界により現状は404のまま
+  200/303応答へ到達できないことを明示)を追加した。これにより、フェーズ144で変更された
+  `main(request)`自体はこれまで一度も直接呼ばれるテストが無かった(`create_checkout_
+  session()`のみがテスト対象だった)という既存の穴を解消した。`test_checkout_session.py`は
+  34件中34件成功(30件→34件)、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(27件、変更なし)・`python3 schema/validate_test_cases.py`(11件、
+  変更なし)を再実行し、いずれもパスすることを確認した。`plan-selection.html`自体の
+  マークアップ変更・実Stripe/実Firestore接続は引き続きオーナー承認待ちのため次回以降の
+  課題として残した。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実Stripeアカウント接続・実Firestore接続)がオーナーから
+  承認された場合はその着手を最優先、(2)`main(request)`が`get_checkout_runtime_
+  dependencies()`の戻り値を外部から注入できるようにする(例: オプション引数化)ことで、
+  実Firestore接続前でも200/303応答の到達をテストできるようにする設計の検討、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 22:00 UTC(フェーズ145: `get_checkout_runtime_dependencies()`が
+  呼び出しごとに新規の空ストアを生成するためmain()経由では200/303応答に到達できないという
+  既知の限界を確認し、簡易ローカルサーバーの新設は見送った上で、`main(request)`自体を
+  直接呼ぶ回帰テスト3件を追加(34件中34件成功)。他テストは変更なしでパス)

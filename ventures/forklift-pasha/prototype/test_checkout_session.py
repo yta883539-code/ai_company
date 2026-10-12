@@ -13,8 +13,18 @@ from checkout_session import (
     MockCheckoutSessionCreator,
     build_checkout_session_params,
     create_checkout_session,
+    main as checkout_session_main,
 )
 from trial_management import InMemoryFleetOperatorStore
+
+
+class _StubRequest:
+    """main(request)のテスト用、functions_frameworkが渡すFlask Requestのうち
+    `request.args.get()`インターフェースのみを模した最小スタブ(course-set-pasha/
+    prototype/test_checkout_session.py `_StubFlaskRequest`と同系)。"""
+
+    def __init__(self, args: dict):
+        self.args = args
 
 
 def _check(label, actual, expected):
@@ -215,6 +225,38 @@ def main():
             checkout_session_creator=checkout_session_creator,
         ).status_code,
         404,
+    ))
+
+    # --- main(): Cloud Functionsエントリポイント自体の回帰確認(フェーズ144で303
+    # リダイレクト返却に変更されたが、main()自体を直接呼ぶテストはこれまで無かった) ---
+    body, status = checkout_session_main(_StubRequest({"plan": "light"}))
+    results.append(_check("main(): access_token未指定は404", status, 404))
+    results.append(_check(
+        "main(): access_token未指定時のレスポンスボディ",
+        body,
+        "access_token_not_found",
+    ))
+
+    body_empty_args, status_empty_args = checkout_session_main(_StubRequest({}))
+    results.append(_check(
+        "main(): request.argsが空dictでも例外にならずaccess_token_not_found",
+        (body_empty_args, status_empty_args),
+        ("access_token_not_found", 404),
+    ))
+
+    # get_checkout_runtime_dependencies()はmain()が呼ばれるたびに新規のInMemoryストアを
+    # 生成するため(同関数docstring記載の既知の限界)、main()越しに有効なaccess_tokenを
+    # 渡しても常に未知のトークンとして404になる。したがってmain()の200/303応答(フェーズ144で
+    # 実装したリダイレクト分岐)は、本テストファイルのように依存をmain()の外から注入できない
+    # 限り到達できない。これは不具合ではなく既存の既知の限界の帰結であることをここで明示する。
+    body_unknown, status_unknown = checkout_session_main(
+        _StubRequest({"access_token": "token-abc", "plan": "light"})
+    )
+    results.append(_check(
+        "main(): 有効そうなaccess_tokenを渡しても現状は404(本プロセス内で状態非保持のため、"
+        "200/303応答はmain()への依存注入口が無い限り到達不可)",
+        (body_unknown, status_unknown),
+        ("access_token_not_found", 404),
     ))
 
     passed = sum(1 for r in results if r)
