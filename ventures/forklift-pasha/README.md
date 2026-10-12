@@ -2390,8 +2390,20 @@
   オーナーから承認された場合はその着手を最優先、(2)(B)経路(日次/月次スケジューラ)実装時に
   `is_subscription_canceled()`を同様の最優先判定として組み込むことの明記、(3)Webフォームの
   プラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-12 05:00 UTC(フェーズ131: line-reservation-aiの解約確定専用状態との
-  横展開確認。forklift-pashaの`is_subscription_canceled()`〈`canceled_at`単一フィールド
-  参照・唯一の呼び出し元で最優先評価〉がline-reservation-aiの`suspension_reason`一元管理と
-  同じ構造的性質を持つことを確認し、pasha系venture共通の欠落は当たらないと判断した。コード
-  変更は無く確認・文書化のみ)
+- フェーズ132(2026-10-12 06:00 UTC定例更新): フェーズ131「次回候補(2)」であった、(B)経路
+  (日次/月次スケジューラ)実装時の`is_subscription_canceled()`組み込み位置の明文化を
+  trial-end-notification-design.mdに追記した。将来のスケジューラ本体実装時も、対象operator
+  ごとに`is_subscription_canceled()`を他の全判定(`is_generation_paused()`・トライアル
+  終了判定・決済失敗判定等)より先に最優先で評価し、Trueなら即時除外するという設計指針を
+  明記し、course-set-pasha・kura-pasha・aircon-pashaが抱えていた解約確定の専用分岐欠落の
+  再発を(B)経路実装時点から防ぐための事前申し送りとした。コード変更は無く設計指針の文書化
+  のみのため、`python3 prototype/run_all_tests.py`(10ファイル)・`python3 schema/
+  validate_test_cases.py`(11件)を再実行し、いずれも変更前と同じ結果でパスすることを
+  確認した。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)(B)経路の
+  スケジューラ本体ロジック自体の机上実装(Cloud Scheduler作成はオーナー承認待ちだが、
+  呼び出され側のロジック本体は机上実装可能)、(3)Webフォームのプラン選択UI自体の実装、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 06:00 UTC(フェーズ132: (B)経路〈日次/月次スケジューラ〉実装時の
+  `is_subscription_canceled()`組み込み位置〈他の全判定より最優先で評価〉を設計指針として
+  明文化した。コード変更は無く確認・文書化のみ)
