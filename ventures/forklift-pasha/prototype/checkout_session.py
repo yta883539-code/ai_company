@@ -5,13 +5,21 @@ Checkout Session作成エントリポイントのうち、Stripe Checkout Sessio
 build_checkout_session_params()と同型、payment-identity-verification-design.md 3節の
 client_reference_id = internal_id方式を踏襲)。
 
-実Stripe API呼び出し・実Webフォームのプラン選択UI自体は本venture未着手のまま次回以降の
-課題として残る。
+checkout-session-cloud-function-entry-point-design.md(フェーズ142)で、access_token
+(settings.html等と同じ`accessToken`機構)からinternal_idを解決して
+build_checkout_session_params()へ橋渡しするcreate_checkout_session()・Cloud Functions
+エントリポイントmain(request)を追加した。
+
+実Stripe API呼び出し・実Webフォームのプラン選択UI自体(main(request)への実際の配線)は
+本venture未着手のまま次回以降の課題として残る。
 """
 
+from dataclasses import dataclass
 from typing import Optional
 
+from access_token_store import AccessTokenStoreProtocol, InMemoryAccessTokenStore
 from plan_id_resolution import KNOWN_PLAN_IDS
+from trial_management import FleetOperatorStoreProtocol, InMemoryFleetOperatorStore
 
 # 実Stripeダッシュボードでの商品登録後に差し替える仮のプレースホルダ
 # (payment-identity-verification-design.md「3. Checkout Session発行・Webhook紐付け」)。
@@ -74,3 +82,72 @@ def build_checkout_session_params(
     elif email:
         params["customer_email"] = email
     return params
+
+
+@dataclass(frozen=True)
+class CheckoutSessionResult:
+    status_code: int
+    checkout_session_params: Optional[dict] = None
+    error: Optional[str] = None
+
+
+def create_checkout_session(
+    access_token: Optional[str],
+    plan_id: Optional[str],
+    *,
+    access_token_store: AccessTokenStoreProtocol,
+    operator_store: FleetOperatorStoreProtocol,
+) -> CheckoutSessionResult:
+    """checkout-session-cloud-function-entry-point-design.md 2節・3節の方式どおり、
+    LIFF IDトークンではなく既存のaccess_token機構(settings.html・access-token-reissue-
+    design.md)でinternal_idを解決し、build_checkout_session_params()へ橋渡しする。
+
+    `access_token`が空・未知の場合は、`internal_id`が実在するかどうか以上の情報を
+    返さないためstatus_code=404とする(同design 2節)。`plan_id`が既知の値
+    (plan_id_resolution.KNOWN_PLAN_IDS)でない場合はstatus_code=400とする。
+    """
+    if not access_token:
+        return CheckoutSessionResult(status_code=404, error="access_token_not_found")
+    internal_id = access_token_store.get_internal_id_by_access_token(access_token)
+    if internal_id is None:
+        return CheckoutSessionResult(status_code=404, error="access_token_not_found")
+    if plan_id not in KNOWN_PLAN_IDS:
+        return CheckoutSessionResult(status_code=400, error="unknown_plan_id")
+
+    params = build_checkout_session_params(
+        internal_id,
+        plan_id,
+        email=operator_store.get_email(internal_id),
+        existing_stripe_customer_id=operator_store.get_stripe_customer_id(internal_id),
+    )
+    return CheckoutSessionResult(status_code=200, checkout_session_params=params)
+
+
+def get_checkout_runtime_dependencies() -> dict:
+    """stripe_webhook.get_stripe_runtime_dependencies()と対称の構成。実Firestore接続後は
+    同一プロセス内で共有される実ストアに差し替える(他venture既知の限界と同様、本プロセス内
+    では呼び出しをまたいで状態が保持されない)。"""
+
+    return {
+        "access_token_store": InMemoryAccessTokenStore(),
+        "operator_store": InMemoryFleetOperatorStore(),
+    }
+
+
+def main(request):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout-session-
+    cloud-function-entry-point-design.md 4節)。`request.args.get("access_token")`で
+    アクセスURL(`https://<ドメイン>/f/{accessToken}`)経由のトークンを、
+    `request.args.get("plan")`でプラン選択ページが送るplan_idを、それぞれクエリ
+    パラメータから取り出してcreate_checkout_session()に委譲する。
+    """
+    access_token = request.args.get("access_token")
+    plan_id = request.args.get("plan")
+    result = create_checkout_session(
+        access_token,
+        plan_id,
+        **get_checkout_runtime_dependencies(),
+    )
+    if result.status_code == 200:
+        return result.checkout_session_params, 200
+    return (result.error or "error"), result.status_code

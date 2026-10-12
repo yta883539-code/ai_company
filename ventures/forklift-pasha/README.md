@@ -2634,3 +2634,28 @@
   `plan-selection.html`に`data-plan-id`属性・`.plan-card--current`CSSルールを追加。
   `main(request)`未実装のため呼び出し配線は次回以降。新規テスト17件追加、既存テスト
   〈Python14ファイル・schema11件・ブラウザ検証13件〉もいずれもパス)
+- フェーズ142(2026-10-12 19:00 UTC定例更新): フェーズ139〜141で3回先送りしていた
+  「Webフォームバックエンドのルーティング実装が確定した後」の依存を本フェーズで解消した。
+  checkout-session-cloud-function-entry-point-design.mdを新設し、(1)ルーティング方針
+  (1 Cloud Function = 1エンドポイント、共有ルーターは不要、既存の`stripe_webhook.main()`
+  等と対称)を確定、(2)Checkout Session発行の認証方式としてLIFF IDトークンではなく
+  settings.html等と同じ既存のaccess_token機構(access_token_store.py)を流用する設計、
+  を行った。設計に基づき`prototype/checkout_session.py`に
+  `create_checkout_session(access_token, plan_id, ...)`(access_tokenからinternal_idを
+  解決し、operator_storeのemail/stripe_customer_idを読んでbuild_checkout_session_params()
+  へ橋渡しする。未知・空のaccess_tokenは404、未知のplan_idは400)と
+  `get_checkout_runtime_dependencies()`・`main(request)`を新規実装した。新規テスト11件
+  (正常系・既存Stripe顧客・access_token未指定/空/未知・plan_id未知/None・トークン再発行後の
+  旧トークン失効)を追加し、既存テスト〈Python14ファイル→15ファイル・schema11件・
+  ブラウザ検証13件〉含めいずれもパスすることを確認した。
+  `plan-selection.html`側のボタン配線(`disabled`のまま)・実Stripe API呼び出し・実Cloud
+  Functionsデプロイはいずれもオーナー承認待ちの範囲内のため次回以降の課題として残した。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`plan-selection.html`のボタンから本エンドポイントへの実際のfetch呼び出し配線
+  (access_tokenをアクセスURL`/f/{accessToken}`から取得する方法の検討を含む)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 19:00 UTC(フェーズ142: Webフォームバックエンドのルーティング方針を
+  確定し、Checkout Session発行エンドポイント`create_checkout_session()`・`main(request)`を
+  access_token機構で実装。新規テスト11件追加、既存テスト〈Python15ファイル・schema11件・
+  ブラウザ検証13件〉もいずれもパス)

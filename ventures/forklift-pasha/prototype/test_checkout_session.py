@@ -7,10 +7,13 @@
 
 import sys
 
+from access_token_store import InMemoryAccessTokenStore
 from checkout_session import (
     PLAN_ID_TO_STRIPE_PRICE_ID,
     build_checkout_session_params,
+    create_checkout_session,
 )
+from trial_management import InMemoryFleetOperatorStore
 
 
 def _check(label, actual, expected):
@@ -93,6 +96,94 @@ def main():
         "未知のplan_idはValueError",
         lambda: build_checkout_session_params("internal-1", "premium"),
         ValueError,
+    ))
+
+    # --- create_checkout_session(): 正常系 ---
+    access_token_store = InMemoryAccessTokenStore()
+    operator_store = InMemoryFleetOperatorStore()
+    access_token_store.set_access_token("internal-10", "token-abc")
+    operator_store.set_email("internal-10", "owner10@example.com")
+
+    result = create_checkout_session(
+        "token-abc",
+        "standard",
+        access_token_store=access_token_store,
+        operator_store=operator_store,
+    )
+    results.append(_check("正常系: status_code=200", result.status_code, 200))
+    results.append(_check(
+        "正常系: client_reference_idはaccess_tokenから解決したinternal_id",
+        result.checkout_session_params["client_reference_id"],
+        "internal-10",
+    ))
+    results.append(_check(
+        "正常系: operator_storeのemailが反映される",
+        result.checkout_session_params.get("customer_email"),
+        "owner10@example.com",
+    ))
+
+    # --- create_checkout_session(): 既存Stripe顧客 ---
+    operator_store.set_stripe_customer_id("internal-10", "cus_existing")
+    result_existing_customer = create_checkout_session(
+        "token-abc",
+        "fleet",
+        access_token_store=access_token_store,
+        operator_store=operator_store,
+    )
+    results.append(_check(
+        "既存Stripe顧客: customerキーが設定される",
+        result_existing_customer.checkout_session_params.get("customer"),
+        "cus_existing",
+    ))
+
+    # --- create_checkout_session(): 異常系 ---
+    results.append(_check(
+        "access_token未指定は404",
+        create_checkout_session(
+            None, "standard", access_token_store=access_token_store, operator_store=operator_store
+        ).status_code,
+        404,
+    ))
+    results.append(_check(
+        "access_tokenが空文字列は404",
+        create_checkout_session(
+            "", "standard", access_token_store=access_token_store, operator_store=operator_store
+        ).status_code,
+        404,
+    ))
+    results.append(_check(
+        "未知のaccess_tokenは404",
+        create_checkout_session(
+            "token-unknown",
+            "standard",
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+        ).status_code,
+        404,
+    ))
+    results.append(_check(
+        "未知のplan_idは400",
+        create_checkout_session(
+            "token-abc", "premium", access_token_store=access_token_store, operator_store=operator_store
+        ).status_code,
+        400,
+    ))
+    results.append(_check(
+        "plan_id未指定(None)は400",
+        create_checkout_session(
+            "token-abc", None, access_token_store=access_token_store, operator_store=operator_store
+        ).status_code,
+        400,
+    ))
+    # 旧トークンでの照会は失効させる(access_token_store.set_access_tokenの既存方針)仕様を
+    # 本関数越しにも確認する: 新トークンを再発行すると旧トークンは404になる。
+    access_token_store.set_access_token("internal-10", "token-new")
+    results.append(_check(
+        "旧access_tokenは再発行後404(自然な失効)",
+        create_checkout_session(
+            "token-abc", "standard", access_token_store=access_token_store, operator_store=operator_store
+        ).status_code,
+        404,
     ))
 
     passed = sum(1 for r in results if r)
