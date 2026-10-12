@@ -21,6 +21,7 @@ from payment_failure_reminder_scheduler import (  # noqa: E402
     DEFAULT_REMINDER_DAYS_BEFORE_END,
     PaymentFailureUserState,
     render_payment_failure_reminder_message,
+    run_due_payment_failure_reminders,
     select_due_payment_failure_reminders,
     send_payment_failure_reminders,
 )
@@ -293,6 +294,50 @@ class StripeWebhookPaymentFailureDetectedToReminderSchedulerWiringTest(unittest.
         states_after = build_payment_failure_user_states(self.usage_counter, ["u1"])
         due_after = select_due_payment_failure_reminders(states_after, now)
         self.assertEqual(due_after, [])
+
+
+class RunDuePaymentFailureRemindersTest(unittest.TestCase):
+    """README.mdフェーズ290: `store.all_user_ids()`による全ユーザー列挙→
+    `build_payment_failure_user_states()`→`send_payment_failure_reminders()`のstore wiring
+    本体(`run_due_payment_failure_reminders()`)を検証する
+    (trial_end_scheduler.RunDueTrialEndNotificationsTestと対称)。個々の絞り込み条件自体は
+    SelectDuePaymentFailureRemindersTest等で既にカバー済みのため、ここでは「全ユーザー
+    列挙からの配線」固有の挙動のみを確認する。"""
+
+    def test_enumerates_all_user_ids_and_sends_to_due_users_only(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        # U1・U2とも既存の有料利用者としてincrement()済み(_all_user_idsへ登録される前提)。
+        usage_counter.increment("U1", "2026-10")
+        usage_counter.increment("U2", "2026-10")
+        # U1: 検知から5日経過(4日以上7日未満、対象)。U2: 2日しか経過していない(対象外)。
+        usage_counter.set_payment_failure_detected_at("U1", now - timedelta(days=5))
+        usage_counter.set_payment_failure_detected_at("U2", now - timedelta(days=2))
+        push_client = InMemoryLinePushClient()
+        portal_link_provider = InMemoryPortalLinkProvider()
+
+        result = run_due_payment_failure_reminders(
+            usage_counter, now, push_client, portal_link_provider
+        )
+
+        self.assertEqual(result.sent, ["U1"])
+        self.assertEqual(result.failed, [])
+        self.assertIsNotNone(usage_counter.get_payment_failure_reminder_sent_at("U1"))
+        self.assertIsNone(usage_counter.get_payment_failure_reminder_sent_at("U2"))
+
+    def test_no_users_registered_yields_empty_result(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        push_client = InMemoryLinePushClient()
+
+        result = run_due_payment_failure_reminders(usage_counter, now, push_client)
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.failed, [])
 
 
 if __name__ == "__main__":

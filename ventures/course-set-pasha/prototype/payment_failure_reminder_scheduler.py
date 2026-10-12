@@ -236,6 +236,45 @@ def send_payment_failure_reminders(
     return result
 
 
+class PaymentFailureRemindersStore(
+    PaymentFailureUserStateReader, PaymentFailureReminderSentAtWriter, Protocol
+):
+    """`run_due_payment_failure_reminders()`が要求する、読み取り2メソッド・書き込み1メソッドに
+    加え全ユーザー列挙を合わせた構造的Protocol(trial_end_scheduler.TrialEndNotificationsStoreと
+    対称。README.mdフェーズ289の次回候補(2)に対応)。"""
+
+    def all_user_ids(self) -> Sequence[str]:
+        ...
+
+
+def run_due_payment_failure_reminders(
+    store: PaymentFailureRemindersStore,
+    now: datetime,
+    push_client: LinePushClient,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    grace_period_days: int = DEFAULT_GRACE_PERIOD_DAYS,
+    reminder_days_before_end: int = DEFAULT_REMINDER_DAYS_BEFORE_END,
+) -> SendPaymentFailureRemindersResult:
+    """payment-failure-reminder-scheduler-design.mdが「呼び出し側(Cloud Scheduler経由の
+    日次バッチ)が行う想定」としていた、`store.all_user_ids()`による全ユーザー列挙→
+    `build_payment_failure_user_states()`→`send_payment_failure_reminders()`のstore wiringを
+    実装したもの(trial_end_scheduler.run_due_trial_end_notifications()と同じ位置づけ、
+    README.mdフェーズ289の次回候補(2)で残っていた2件のうち1件目)。これまで本モジュールは
+    「渡されたusers一覧を絞り込んで送る」部分のみを提供し、全ユーザーをどこから取得するかの
+    配線が存在しなかった欠落を解消する。"""
+    user_ids = store.all_user_ids()
+    users = build_payment_failure_user_states(store, user_ids)
+    return send_payment_failure_reminders(
+        users,
+        now,
+        store,
+        push_client,
+        portal_link_provider,
+        grace_period_days,
+        reminder_days_before_end,
+    )
+
+
 def _demo() -> None:
     from cloud_function_webhook import InMemoryPortalLinkProvider
     from trial_end_scheduler import InMemoryLinePushClient

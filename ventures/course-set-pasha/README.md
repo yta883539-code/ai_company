@@ -4811,3 +4811,34 @@
   Functionsエントリポイント〈`cloud_function_send_trial_end_notifications.py`〉と
   `run_due_trial_end_notifications()`・`InMemoryUsageCounter.all_user_ids()`を新設。
   テスト12件追加、全704件パス・schema検証21件パス)
+- フェーズ290(2026-10-12 02:00 UTC定例更新): フェーズ289の次回候補(2)で残っていた2件
+  (`payment_failure_reminder_scheduler.py`・`payment_suspension_owner_notification.py`)の
+  うち1件目、`payment_failure_reminder_scheduler.py`に同型の欠落を解消した。
+  `InMemoryUsageCounter.all_user_ids()`はフェーズ289で既に新設済みのため変更不要と判断し、
+  (1)`PaymentFailureRemindersStore`Protocol(`PaymentFailureUserStateReader`・
+  `PaymentFailureReminderSentAtWriter`に`all_user_ids()`を加えた構造的Protocol、
+  `TrialEndNotificationsStore`と対称)、(2)`run_due_payment_failure_reminders(store, now,
+  push_client, portal_link_provider=None, ...)`(`store.all_user_ids()`→
+  `build_payment_failure_user_states()`→`send_payment_failure_reminders()`の配線、
+  `run_due_trial_end_notifications()`と対称)、(3)
+  `prototype/cloud_function_send_payment_failure_reminders.py`を新規作成し、
+  `cloud_function_send_trial_end_notifications.py`と同じ「本体は依存注入でテスト可能、
+  `main(request)`だけが実`functions_framework`リクエストオブジェクトを扱う薄い配線」構成で
+  実装した。テスト7件追加(`run_due_payment_failure_reminders()`2件、Cloud Functions
+  エントリポイント5件)、全711件パス(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス。
+  なお調査中、`InMemoryUsageCounter.set_payment_failure_detected_at()`自体は
+  `_all_user_ids`への登録を行わない(`increment()`・`set_trial_start_at_if_unset()`のみが
+  登録する)ことを確認したが、決済失敗は既存の有料利用者(既に`increment()`経由で登録済み)
+  にのみ発生しうるため、実運用上の欠落には当たらないと判断し見送った。残り1件
+  (`payment_suspension_owner_notification.py`)は同型の欠落のため次回候補とする。
+  実Cloud Scheduler作成・実Firestore/LINE/Stripe接続自体は既存の承認待ち事項
+  (pending-approval.md参照)の範囲内であり、新たな承認待ち事項ではない。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)同型の欠落が残る`payment_suspension_owner_notification.py`への
+  同種対応、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 02:00 UTC(フェーズ290: `payment_failure_reminder_scheduler.py`に
+  薄いCloud Functionsエントリポイント〈`cloud_function_send_payment_failure_reminders.py`〉と
+  `run_due_payment_failure_reminders()`・`PaymentFailureRemindersStore`を新設。
+  テスト7件追加、全711件パス・schema検証21件パス)
