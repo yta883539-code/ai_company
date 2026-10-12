@@ -2489,3 +2489,26 @@
 - 最終更新: 2026-10-12 09:00 UTC(フェーズ135: 設定ページの再発行ボタン・メールアドレス
   変更欄の送信操作を`reissue_access_token()`・fleet_operatorのメールアドレス更新に配線する
   `access_url_reissue_handler.py`を新設した。テスト13件追加・全件パス)
+- フェーズ136(2026-10-12 10:00 UTC定例更新): フェーズ135「次回候補(2)」であった、
+  Webフォームバックエンド自体のHTTPエンドポイント骨格の設計を`access-url-reissue-http-
+  entry-point-design.md`として新設した。本venture設定ページは`https://<ドメイン>/f/
+  {accessToken}`形式のURLでのみアクセスされログインID・パスワードが存在しないため、
+  aircon-pashaのwebhook-http-entry-point-design.md(署名検証による認証)とは異なり、
+  「URLパスに含まれる`accessToken`を`access_token_store.get_internal_id_by_access_
+  token()`で`internal_id`に解決する」という本venture固有の認証方式を設計の中心に置いた。
+  `ReissueHttpResult`(dataclass)・`receive_reissue_request()`(アクセストークン欠落時は
+  400、無効トークンは404、`handle_reissue_request()`が送出する`ReissueRequestRejected`は
+  捕捉して400に変換、成功時は200)の設計方針、レスポンス本文には新アクセスURLを含めない
+  (メール送信のみで本人に伝える既存運用との整合)方針、および次回実装時のテスト観点
+  (アクセストークン欠落・無効トークン・不正メールアドレスのいずれでも
+  `handle_reissue_request()`やストアへの書き込みが発生しないことの確認を含む)を記録した。
+  本フェーズは設計文書の新設のみでコード変更は無いため、`python3 prototype/
+  run_all_tests.py`(13ファイル・全件パス)・`python3 schema/validate_test_cases.py`
+  (11件・全件パス)を再実行し、いずれも変更前と同じ結果でパスすることを確認した。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本設計に基づく
+  `ReissueHttpResult`・`receive_reissue_request()`・Cloud Functions `main(request)`自体の
+  コード実装、(3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 10:00 UTC(フェーズ136: アクセスURL再発行のHTTPエントリポイント設計を
+  `access-url-reissue-http-entry-point-design.md`として新設。URLパス中の`accessToken`から
+  `internal_id`を解決する認証方式を設計の中心に置いた。コード変更は無く設計文書の新設のみ)
