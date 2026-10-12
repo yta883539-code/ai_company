@@ -4842,3 +4842,33 @@
   薄いCloud Functionsエントリポイント〈`cloud_function_send_payment_failure_reminders.py`〉と
   `run_due_payment_failure_reminders()`・`PaymentFailureRemindersStore`を新設。
   テスト7件追加、全711件パス・schema検証21件パス)
+- フェーズ291(2026-10-12 04:00 UTC定例更新): フェーズ290の次回候補(2)で残っていた、
+  `payment_suspension_owner_notification.py`の同型の欠落(薄いCloud Functionsエントリ
+  ポイント未実装)を解消した。`InMemoryUsageCounter`は`get_payment_suspension_owner_
+  notified_at()`・`set_payment_suspension_owner_notified_at()`・`all_user_ids()`を
+  いずれも既存のまま流用可能であることを確認し、(1)`PaymentSuspensionOwnerNotificationsStore`
+  Protocol(`PaymentSuspensionCustomerStateReader`・`PaymentSuspensionOwnerNotifiedAtWriter`に
+  `all_user_ids()`を加えた構造的Protocol、`PaymentFailureRemindersStore`と対称)、(2)
+  `run_due_payment_suspension_owner_notifications(store, now, push_client,
+  owner_line_user_id=..., ...)`(`store.all_user_ids()`→`build_payment_suspension_
+  customer_states()`→`send_payment_suspension_owner_notifications()`の配線、
+  `run_due_payment_failure_reminders()`と対称)、(3)
+  `prototype/cloud_function_send_payment_suspension_owner_notifications.py`を新規作成し、
+  `cloud_function_send_payment_failure_reminders.py`と同じ「本体は依存注入でテスト可能、
+  `main(request)`だけが実`functions_framework`リクエストオブジェクトを扱う薄い配線」構成で
+  実装した。テスト7件追加(`run_due_payment_suspension_owner_notifications()`2件、Cloud
+  Functionsエントリポイント5件)、全718件パス(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス。
+  これにより、フェーズ289の次回候補(2)「他venture(本venture・aircon-pasha・kura-pasha・
+  line-reservation-ai・forklift-pasha)に同種の『薄いCloud Functionsエントリポイント未実装の
+  スケジューラ本体』が残っていないかの横断点検」で発見された本venture固有の2件は
+  いずれも解消済みとなった。実Cloud Scheduler作成・実Firestore/LINE接続自体は既存の
+  承認待ち事項(pending-approval.md参照)の範囲内であり、新たな承認待ち事項ではない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 04:00 UTC(フェーズ291: `payment_suspension_owner_notification.py`に
+  薄いCloud Functionsエントリポイント〈`cloud_function_send_payment_suspension_owner_
+  notifications.py`〉と`run_due_payment_suspension_owner_notifications()`・
+  `PaymentSuspensionOwnerNotificationsStore`を新設。テスト7件追加、全718件パス・
+  schema検証21件パス)

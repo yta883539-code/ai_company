@@ -16,6 +16,7 @@ from payment_suspension_owner_notification import (  # noqa: E402
     OWNER_LINE_USER_ID_PLACEHOLDER,
     PaymentSuspensionCustomerState,
     format_payment_suspension_owner_notification_message,
+    run_due_payment_suspension_owner_notifications,
     select_due_payment_suspension_owner_notifications,
     send_payment_suspension_owner_notifications,
 )
@@ -282,6 +283,48 @@ class StripeWebhookPaymentFailureDetectedToOwnerNotificationWiringTest(unittest.
         states_after = build_payment_suspension_customer_states(self.usage_counter, ["u1"])
         due_after = select_due_payment_suspension_owner_notifications(states_after, now)
         self.assertEqual(due_after, [])
+
+
+class RunDuePaymentSuspensionOwnerNotificationsTest(unittest.TestCase):
+    """README.mdフェーズ291: `store.all_user_ids()`による全顧客列挙→
+    `build_payment_suspension_customer_states()`→`send_payment_suspension_owner_
+    notifications()`のstore wiring本体(`run_due_payment_suspension_owner_
+    notifications()`)を検証する(payment_failure_reminder_scheduler.
+    RunDuePaymentFailureRemindersTestと対称)。個々の絞り込み条件自体は
+    SelectDuePaymentSuspensionOwnerNotificationsTest等で既にカバー済みのため、ここでは
+    「全顧客列挙からの配線」固有の挙動のみを確認する。"""
+
+    def test_enumerates_all_user_ids_and_notifies_for_due_customers_only(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        # U1・U2とも既存の有料利用者としてincrement()済み(_all_user_idsへ登録される前提)。
+        usage_counter.increment("U1", "2026-10")
+        usage_counter.increment("U2", "2026-10")
+        # U1: 検知から10日経過(7日以上、対象)。U2: 5日しか経過していない(対象外)。
+        usage_counter.set_payment_failure_detected_at("U1", now - timedelta(days=10))
+        usage_counter.set_payment_failure_detected_at("U2", now - timedelta(days=5))
+        push_client = InMemoryLinePushClient()
+
+        result = run_due_payment_suspension_owner_notifications(usage_counter, now, push_client)
+
+        self.assertEqual(result.sent, ["U1"])
+        self.assertEqual(result.failed, [])
+        self.assertIsNotNone(usage_counter.get_payment_suspension_owner_notified_at("U1"))
+        self.assertIsNone(usage_counter.get_payment_suspension_owner_notified_at("U2"))
+
+    def test_no_users_registered_yields_empty_result(self) -> None:
+        from cloud_function_webhook import InMemoryUsageCounter
+
+        now = datetime(2026, 10, 12, 0, 0, 0, tzinfo=timezone.utc)
+        usage_counter = InMemoryUsageCounter()
+        push_client = InMemoryLinePushClient()
+
+        result = run_due_payment_suspension_owner_notifications(usage_counter, now, push_client)
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.failed, [])
 
 
 if __name__ == "__main__":

@@ -218,6 +218,44 @@ def send_payment_suspension_owner_notifications(
     return result
 
 
+class PaymentSuspensionOwnerNotificationsStore(
+    PaymentSuspensionCustomerStateReader, PaymentSuspensionOwnerNotifiedAtWriter, Protocol
+):
+    """`run_due_payment_suspension_owner_notifications()`が要求する、読み取り2メソッド・
+    書き込み1メソッドに加え全顧客列挙を合わせた構造的Protocol(payment_failure_reminder_
+    scheduler.PaymentFailureRemindersStoreと対称。README.mdフェーズ289の次回候補(2)で
+    残っていた2件のうち2件目に対応)。"""
+
+    def all_user_ids(self) -> Sequence[str]:
+        ...
+
+
+def run_due_payment_suspension_owner_notifications(
+    store: PaymentSuspensionOwnerNotificationsStore,
+    now: datetime,
+    push_client: LinePushClient,
+    owner_line_user_id: str = OWNER_LINE_USER_ID_PLACEHOLDER,
+    grace_period_days: int = DEFAULT_GRACE_PERIOD_DAYS,
+) -> SendPaymentSuspensionOwnerNotificationsResult:
+    """payment-suspension-owner-notification-design.mdが「呼び出し側(Cloud Scheduler経由の
+    日次バッチ)が行う想定」としていた、`store.all_user_ids()`による全顧客列挙→
+    `build_payment_suspension_customer_states()`→`send_payment_suspension_owner_
+    notifications()`のstore wiringを実装したもの(payment_failure_reminder_scheduler.
+    run_due_payment_failure_reminders()と同じ位置づけ、README.mdフェーズ289の次回候補(2)で
+    残っていた2件のうち2件目)。これまで本モジュールは「渡されたcustomers一覧を絞り込んで
+    送る」部分のみを提供し、全顧客をどこから取得するかの配線が存在しなかった欠落を解消する。"""
+    user_ids = store.all_user_ids()
+    customers = build_payment_suspension_customer_states(store, user_ids)
+    return send_payment_suspension_owner_notifications(
+        customers,
+        now,
+        store,
+        push_client,
+        owner_line_user_id,
+        grace_period_days,
+    )
+
+
 def _demo() -> None:
     from trial_end_scheduler import InMemoryLinePushClient
 
