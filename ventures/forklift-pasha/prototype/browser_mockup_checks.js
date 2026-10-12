@@ -111,6 +111,31 @@ async function checkMonthly(page) {
   check('monthly: 自由記述欄に入力すると警告が消える', !(await firstWarn.isVisible()));
 }
 
+// フェーズ139: フェーズ138で新設したplan-selection.html(プラン選択UI)の
+// 3プラン表示・申し込みボタンのdisabled状態・index.htmlからの遷移リンクを検証する。
+// 本ページはJS不使用の静的HTML(CSSによる出し分けなし)のため、daily.html等のような
+// 状態切り替えの検証対象はなく、表示内容とボタンの無効化状態のみを確認する。
+async function checkPlanSelection(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'plan-selection.html'));
+
+  check('plan-selection: ページが例外なく読み込める', (await page.title()).length > 0);
+
+  const cards = page.locator('.plan-card');
+  check('plan-selection: プランカードが3件表示される', (await cards.count()) === 3);
+
+  check('plan-selection: ライトプランの料金が表示される', (await cards.nth(0).innerText()).includes('980円'));
+  check('plan-selection: スタンダードプランの料金が表示される', (await cards.nth(1).innerText()).includes('2,480円'));
+  check('plan-selection: 複数台プランの料金が表示される', (await cards.nth(2).innerText()).includes('4,980円'));
+
+  const buttons = page.locator('button.apply-btn');
+  check('plan-selection: 申し込むボタンが3件とも無効化されている(バックエンド未接続)', (await buttons.count()) === 3 && (await Promise.all([0, 1, 2].map(async i => buttons.nth(i).isDisabled()))).every(Boolean));
+}
+
+async function checkIndexPlanSelectionLink(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'index.html'));
+  check('index: plan-selectionへのリンクが存在する(フェーズ138)', (await page.locator('a[href="plan-selection.html"]').count()) > 0);
+}
+
 (async () => {
   const browser = await chromium.launch(LAUNCH_OPTIONS);
   const page = await browser.newPage();
@@ -120,6 +145,8 @@ async function checkMonthly(page) {
     await checkIndex(page);
     await checkMonthly(page);
     await checkSettings(page);
+    await checkPlanSelection(page);
+    await checkIndexPlanSelectionLink(page);
   } finally {
     await browser.close();
   }

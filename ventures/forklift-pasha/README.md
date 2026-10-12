@@ -2561,3 +2561,24 @@
   案内文を反映。申し込みボタンはバックエンド未接続のため無効化。index.htmlに遷移リンクを
   追加。コードへの変更はなく既存テスト〈Python13ファイル・schema11件・ブラウザ検証18件〉は
   いずれもパス)
+- フェーズ139(2026-10-12 13:00 UTC定例更新): フェーズ138「次回候補(2)」だった、
+  `prototype/browser_mockup_checks.js`への`plan-selection.html`向けチェック追加を行った。
+  `checkPlanSelection()`としてページ読み込み・プランカード3件の存在・各プランの料金
+  (980円/2,480円/4,980円)表示・申し込みボタン3件すべてがdisabled状態であること
+  (バックエンド未接続のため)を検証し、`checkIndexPlanSelectionLink()`として
+  `index.html`から`plan-selection.html`への遷移リンク(フェーズ138で追加)の存在も検証した。
+  本ページはCSSのみの出し分け(daily.html等のmode切替のような動的状態変化)を持たない
+  静的HTMLのため、表示内容とボタンの無効化状態の確認にとどめた。チェック6件追加・
+  `browser_mockup_checks.js`全30件パス。回帰確認として`python3 prototype/run_all_tests.py`
+  (13ファイル・全件パス)・`python3 schema/validate_test_cases.py`(11件・全件パス)も
+  実行し、いずれもパスすることを確認した。承認が必要なアクション(実Stripe接続・
+  Price ID発行・外部公開等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)Webフォームバックエンドのルーティング実装が確定した後のCheckout Session発行用
+  `main(request)`自体のコード実装、(3)現在のプラン・契約状況に応じたハイライト表示
+  (アップグレード/ダウングレード動線、plan-selection.htmlのコメント参照)の検討、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 13:00 UTC(フェーズ139: `browser_mockup_checks.js`に
+  `plan-selection.html`向けチェック6件を追加〈プランカード3件・料金表示・申し込みボタン
+  disabled状態・index.htmlからの遷移リンク〉し全30件パス。既存テスト〈Python13ファイル・
+  schema11件〉もいずれもパス)
