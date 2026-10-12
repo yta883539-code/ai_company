@@ -2359,3 +2359,39 @@
 - 最終更新: 2026-10-11 22:00 UTC(フェーズ130: `customer.subscription.created`受信時の
   `canceled_at`クリア分岐を実装。再契約後も無期限に生成がブロックされたままになる別の
   欠落を未然に防いだ。テスト18件追加・全件パス)
+- フェーズ131(2026-10-12 05:00 UTC定例更新): フェーズ130「次回候補(2)」であった
+  line-reservation-aiの解約確定専用状態の横展開確認を実施した。line-reservation-aiは
+  店舗ごと単一の`suspension_reason`フィールド(排他的なenum値、`None`/`payment_failed`/
+  `payment_suspended`/`cancelled`)で新規予約ブロックを一元管理しており、該当3関数
+  (`_start_new_booking()`等)がいずれもこの値を直接参照するためpasha系venture
+  (course-set-pasha・kura-pasha・aircon-pasha)が抱えていた「解約確定という終端イベントが
+  専用分岐を持たず既存のトライアル終了・決済失敗判定に紛れる」欠落が構造的に発生し得ない
+  ことが、line-reservation-ai側のフェーズ続き278(subscription-canceled-block-
+  crosscheck.md)で既に確認済みであった。forklift-pasha自身はフェーズ129で`is_
+  subscription_canceled()`(`canceled_at`フィールドのみを参照する専用判定)を追加し、
+  唯一の呼び出し元`form_submission_flow.process_form_submission()`内で`is_generation_
+  paused()`より先に最優先で判定する構成になっている(trial_management.py 284〜295行目・
+  form_submission_flow.py 70〜75行目で確認)。line-reservation-aiのような単一enumでは
+  なく専用の`canceled_at`+ガード関数という形だが、(1)判定対象が`canceled_at`という
+  単一の信頼できるフィールドのみに閉じている、(2)唯一の呼び出し元で他の判定より先に
+  最優先で評価される、という2点でline-reservation-aiの一元管理と同じ構造的性質を持ち、
+  pasha系venture(course-set-pasha・kura-pasha・aircon-pasha)が抱えていた「既存の複数
+  独立フラグの組み合わせに紛れて解約確定の終端判定が専用分岐を持たない」という欠落は
+  forklift-pashaには当たらないことを確認した。なお本venture現時点では日次/月次スケジューラ
+  本体が未実装(trial-end-notification-design.mdの(B)経路はオーナー承認待ちのCloud
+  Scheduler作成が前提のため)であり、`is_subscription_canceled()`の呼び出し元が
+  `process_form_submission()`の1箇所のみであるため、line-reservation-aiのような複数
+  呼び出し元間での判定漏れのリスクも現時点では存在しない(スケジューラ実装時に本関数を
+  同様の最優先判定として組み込む必要がある点を次回候補に残す)。コード変更は無く確認・
+  文書化のみのため、`python3 prototype/run_all_tests.py`(10ファイル・全件パス)・
+  `python3 schema/validate_test_cases.py`(11件・全件パス)いずれも変更前と同じ結果で
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)(B)経路(日次/月次スケジューラ)実装時に
+  `is_subscription_canceled()`を同様の最優先判定として組み込むことの明記、(3)Webフォームの
+  プラン選択UI自体の実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 05:00 UTC(フェーズ131: line-reservation-aiの解約確定専用状態との
+  横展開確認。forklift-pashaの`is_subscription_canceled()`〈`canceled_at`単一フィールド
+  参照・唯一の呼び出し元で最優先評価〉がline-reservation-aiの`suspension_reason`一元管理と
+  同じ構造的性質を持つことを確認し、pasha系venture共通の欠落は当たらないと判断した。コード
+  変更は無く確認・文書化のみ)
