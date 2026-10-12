@@ -12,10 +12,18 @@ build_checkout_session_params()へ橋渡しするcreate_checkout_session()・Clo
 
 実Stripe API呼び出し・実Webフォームのプラン選択UI自体(main(request)への実際の配線)は
 本venture未着手のまま次回以降の課題として残る。
+
+plan-selection-submission-wiring-design.md(フェーズ143)「4. 残課題」の1点目を受け、
+main(request)のレスポンス方式をJSON返却からStripe Checkout URLへのHTTPリダイレクト
+(303 See Other)返却に変更する部分を、実Stripe接続(オーナー承認待ち)より先行して実装した
+(フェーズ144)。`CheckoutSessionCreatorProtocol`を新設し、実Stripe接続後は
+`stripe.checkout.sessions.create(**params)`を呼ぶ実装に差し替えられる形にしつつ、
+現時点では`build_checkout_session_params()`の出力からダミーのCheckout URLを組み立てる
+`MockCheckoutSessionCreator`を既定の依存として使う。
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol
 
 from access_token_store import AccessTokenStoreProtocol, InMemoryAccessTokenStore
 from plan_id_resolution import KNOWN_PLAN_IDS
@@ -84,10 +92,40 @@ def build_checkout_session_params(
     return params
 
 
+class CheckoutSessionCreatorProtocol(Protocol):
+    def create(self, params: dict) -> "CreatedCheckoutSession": ...
+
+
+@dataclass(frozen=True)
+class CreatedCheckoutSession:
+    """`stripe.checkout.sessions.create(**params)`の戻り値(Stripeの`Session`オブジェクト)の
+    うち、本venture(リダイレクト方式)が必要とする`url`属性のみを持つ最小の値オブジェクト。"""
+
+    url: str
+
+
+class MockCheckoutSessionCreator:
+    """実Stripe接続(オーナー承認待ち)前に`main(request)`のリダイレクト方式を先行実装・
+    テストするための仮実装(plan-selection-submission-wiring-design.md「4. 残課題」1点目)。
+
+    実Stripe APIを呼ばず、`client_reference_id`(internal_id)を含むダミーURLを組み立てる
+    だけなので、課金・外部送信は一切発生しない。実Stripe接続後は、本クラスと同じ
+    `create(params) -> CreatedCheckoutSession`形式で`stripe.checkout.sessions.create(**params)`
+    を呼ぶ実装に差し替える(本クラスはその際削除せず、テスト用依存として残す想定)。
+    """
+
+    def create(self, params: dict) -> CreatedCheckoutSession:
+        internal_id = params["client_reference_id"]
+        return CreatedCheckoutSession(
+            url=f"https://checkout.stripe.com/mock-session/{internal_id}"
+        )
+
+
 @dataclass(frozen=True)
 class CheckoutSessionResult:
     status_code: int
     checkout_session_params: Optional[dict] = None
+    redirect_url: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -97,6 +135,7 @@ def create_checkout_session(
     *,
     access_token_store: AccessTokenStoreProtocol,
     operator_store: FleetOperatorStoreProtocol,
+    checkout_session_creator: CheckoutSessionCreatorProtocol,
 ) -> CheckoutSessionResult:
     """checkout-session-cloud-function-entry-point-design.md 2節・3節の方式どおり、
     LIFF IDトークンではなく既存のaccess_token機構(settings.html・access-token-reissue-
@@ -105,6 +144,10 @@ def create_checkout_session(
     `access_token`が空・未知の場合は、`internal_id`が実在するかどうか以上の情報を
     返さないためstatus_code=404とする(同design 2節)。`plan_id`が既知の値
     (plan_id_resolution.KNOWN_PLAN_IDS)でない場合はstatus_code=400とする。
+
+    正常系では`checkout_session_creator.create(params)`が返す`url`を`redirect_url`に
+    設定する(plan-selection-submission-wiring-design.md 1.2節: `main(request)`は
+    この`redirect_url`への303リダイレクトを返す)。
     """
     if not access_token:
         return CheckoutSessionResult(status_code=404, error="access_token_not_found")
@@ -120,26 +163,39 @@ def create_checkout_session(
         email=operator_store.get_email(internal_id),
         existing_stripe_customer_id=operator_store.get_stripe_customer_id(internal_id),
     )
-    return CheckoutSessionResult(status_code=200, checkout_session_params=params)
+    session = checkout_session_creator.create(params)
+    return CheckoutSessionResult(
+        status_code=200, checkout_session_params=params, redirect_url=session.url
+    )
 
 
 def get_checkout_runtime_dependencies() -> dict:
     """stripe_webhook.get_stripe_runtime_dependencies()と対称の構成。実Firestore接続後は
     同一プロセス内で共有される実ストアに差し替える(他venture既知の限界と同様、本プロセス内
-    では呼び出しをまたいで状態が保持されない)。"""
+    では呼び出しをまたいで状態が保持されない)。
+
+    `checkout_session_creator`は実Stripe接続(オーナー承認待ち)までの間、
+    `MockCheckoutSessionCreator`を使う。"""
 
     return {
         "access_token_store": InMemoryAccessTokenStore(),
         "operator_store": InMemoryFleetOperatorStore(),
+        "checkout_session_creator": MockCheckoutSessionCreator(),
     }
 
 
 def main(request):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout-session-
-    cloud-function-entry-point-design.md 4節)。`request.args.get("access_token")`で
-    アクセスURL(`https://<ドメイン>/f/{accessToken}`)経由のトークンを、
-    `request.args.get("plan")`でプラン選択ページが送るplan_idを、それぞれクエリ
-    パラメータから取り出してcreate_checkout_session()に委譲する。
+    cloud-function-entry-point-design.md 4節・plan-selection-submission-wiring-design.md
+    1.2節)。`request.args.get("access_token")`でアクセスURL
+    (`https://<ドメイン>/f/{accessToken}`)経由のトークンを、`request.args.get("plan")`で
+    プラン選択ページが送るplan_idを、それぞれクエリパラメータから取り出して
+    create_checkout_session()に委譲する。
+
+    正常系(status_code=200)では、Stripe Checkout URL(`redirect_url`)への303リダイレクト
+    (`Location`ヘッダ)を返す。`plan-selection.html`側はプレーンな`<a href>`で本エンドポイント
+    へ遷移するだけでよく、JSによるレスポンス受信・画面遷移制御は不要(plan-selection-
+    submission-wiring-design.md 1節)。
     """
     access_token = request.args.get("access_token")
     plan_id = request.args.get("plan")
@@ -149,5 +205,5 @@ def main(request):
         **get_checkout_runtime_dependencies(),
     )
     if result.status_code == 200:
-        return result.checkout_session_params, 200
+        return "", 303, {"Location": result.redirect_url}
     return (result.error or "error"), result.status_code

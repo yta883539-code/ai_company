@@ -10,6 +10,7 @@ import sys
 from access_token_store import InMemoryAccessTokenStore
 from checkout_session import (
     PLAN_ID_TO_STRIPE_PRICE_ID,
+    MockCheckoutSessionCreator,
     build_checkout_session_params,
     create_checkout_session,
 )
@@ -104,11 +105,14 @@ def main():
     access_token_store.set_access_token("internal-10", "token-abc")
     operator_store.set_email("internal-10", "owner10@example.com")
 
+    checkout_session_creator = MockCheckoutSessionCreator()
+
     result = create_checkout_session(
         "token-abc",
         "standard",
         access_token_store=access_token_store,
         operator_store=operator_store,
+        checkout_session_creator=checkout_session_creator,
     )
     results.append(_check("正常系: status_code=200", result.status_code, 200))
     results.append(_check(
@@ -121,6 +125,11 @@ def main():
         result.checkout_session_params.get("customer_email"),
         "owner10@example.com",
     ))
+    results.append(_check(
+        "正常系: redirect_urlにinternal_idを含むCheckout URLが設定される",
+        result.redirect_url,
+        "https://checkout.stripe.com/mock-session/internal-10",
+    ))
 
     # --- create_checkout_session(): 既存Stripe顧客 ---
     operator_store.set_stripe_customer_id("internal-10", "cus_existing")
@@ -129,6 +138,7 @@ def main():
         "fleet",
         access_token_store=access_token_store,
         operator_store=operator_store,
+        checkout_session_creator=checkout_session_creator,
     )
     results.append(_check(
         "既存Stripe顧客: customerキーが設定される",
@@ -140,14 +150,22 @@ def main():
     results.append(_check(
         "access_token未指定は404",
         create_checkout_session(
-            None, "standard", access_token_store=access_token_store, operator_store=operator_store
+            None,
+            "standard",
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         404,
     ))
     results.append(_check(
         "access_tokenが空文字列は404",
         create_checkout_session(
-            "", "standard", access_token_store=access_token_store, operator_store=operator_store
+            "",
+            "standard",
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         404,
     ))
@@ -158,20 +176,29 @@ def main():
             "standard",
             access_token_store=access_token_store,
             operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         404,
     ))
     results.append(_check(
         "未知のplan_idは400",
         create_checkout_session(
-            "token-abc", "premium", access_token_store=access_token_store, operator_store=operator_store
+            "token-abc",
+            "premium",
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         400,
     ))
     results.append(_check(
         "plan_id未指定(None)は400",
         create_checkout_session(
-            "token-abc", None, access_token_store=access_token_store, operator_store=operator_store
+            "token-abc",
+            None,
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         400,
     ))
@@ -181,7 +208,11 @@ def main():
     results.append(_check(
         "旧access_tokenは再発行後404(自然な失効)",
         create_checkout_session(
-            "token-abc", "standard", access_token_store=access_token_store, operator_store=operator_store
+            "token-abc",
+            "standard",
+            access_token_store=access_token_store,
+            operator_store=operator_store,
+            checkout_session_creator=checkout_session_creator,
         ).status_code,
         404,
     ))

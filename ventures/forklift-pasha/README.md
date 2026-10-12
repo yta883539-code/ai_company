@@ -2682,3 +2682,35 @@
   `checkout_session.main()`はStripe Checkout URLへのHTTPリダイレクト返却に変更する方式が
   本venture他ページの「JS不使用」方針と整合することを確認した。コード・HTML自体の変更は
   実Stripe接続待ちのため次回以降とする)
+- フェーズ144(2026-10-12 21:00 UTC定例更新): フェーズ143の次回候補(2)「実Stripe接続前でも
+  先行実装できる範囲(`main()`のレスポンス方式変更のテスト用モック化等)の検討」に着手し、
+  実装した。`checkout_session.py`に`CheckoutSessionCreatorProtocol`(`create(params) ->
+  CreatedCheckoutSession`、`url`属性のみを持つ最小の値オブジェクトを返す)を新設し、実Stripe
+  接続後は`stripe.checkout.sessions.create(**params)`を呼ぶ実装に差し替えられる形にした。
+  現時点では実Stripe API呼び出しを行わない`MockCheckoutSessionCreator`
+  (`client_reference_id`を含むダミーURL`https://checkout.stripe.com/mock-session/
+  {internal_id}`を返すのみ)を`get_checkout_runtime_dependencies()`の既定値として使う。
+  `create_checkout_session()`は新たに`checkout_session_creator`を依存として受け取り、
+  正常系で`CheckoutSessionResult.redirect_url`を設定するよう変更し、
+  `main(request)`は正常系で`result.checkout_session_params`のJSON返却ではなく
+  `("", 303, {"Location": result.redirect_url})`というHTTPリダイレクトを返すよう変更した
+  (plan-selection-submission-wiring-design.md 1.2節の結論どおり)。これにより、実Stripe
+  アカウント接続(オーナー承認待ち、pending-approval.md記載)が完了した時点では
+  `MockCheckoutSessionCreator`を実Stripe呼び出し実装に差し替えるだけでよく、`main(request)`
+  自体のレスポンス方式変更は先行して完了した。テスト1件追加(`redirect_url`に
+  `internal_id`を含むダミーURLが設定されることの確認)し、既存テスト(`create_checkout_
+  session()`呼び出し6箇所に`checkout_session_creator`引数を追加)も含め
+  `test_checkout_session.py`は30件中30件成功、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(27件→引き続き27ファイル、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。`plan-selection.html`自体のマークアップ変更(`<button disabled>`→
+  `<a href>`)・実Stripe API呼び出しは引き続きオーナー承認待ちのため次回以降の課題として
+  残した。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`plan-selection.html`のマークアップ自体を`MockCheckoutSessionCreator`経由の
+  リダイレクトで動作確認できる簡易ローカルサーバー等での動作確認の検討、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 21:00 UTC(フェーズ144: `checkout_session.py`に
+  `CheckoutSessionCreatorProtocol`・`MockCheckoutSessionCreator`を新設し、`main(request)`を
+  JSON返却からStripe Checkout URLへの303リダイレクト返却に変更(実Stripe接続前の先行実装)。
+  テスト1件追加、`test_checkout_session.py`は30件中30件成功、他テストは変更なしでパス)
