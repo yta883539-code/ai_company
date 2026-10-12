@@ -245,18 +245,52 @@ def main():
     ))
 
     # get_checkout_runtime_dependencies()はmain()が呼ばれるたびに新規のInMemoryストアを
-    # 生成するため(同関数docstring記載の既知の限界)、main()越しに有効なaccess_tokenを
-    # 渡しても常に未知のトークンとして404になる。したがってmain()の200/303応答(フェーズ144で
-    # 実装したリダイレクト分岐)は、本テストファイルのように依存をmain()の外から注入できない
-    # 限り到達できない。これは不具合ではなく既存の既知の限界の帰結であることをここで明示する。
+    # 生成するため(同関数docstring記載の既知の限界)、runtime_dependencies引数を省略した
+    # 場合は、main()越しに有効なaccess_tokenを渡しても常に未知のトークンとして404になる。
     body_unknown, status_unknown = checkout_session_main(
         _StubRequest({"access_token": "token-abc", "plan": "light"})
     )
     results.append(_check(
-        "main(): 有効そうなaccess_tokenを渡しても現状は404(本プロセス内で状態非保持のため、"
-        "200/303応答はmain()への依存注入口が無い限り到達不可)",
+        "main(): runtime_dependencies省略時は有効そうなaccess_tokenを渡しても404"
+        "(本プロセス内で状態非保持のため)",
         (body_unknown, status_unknown),
         ("access_token_not_found", 404),
+    ))
+
+    # フェーズ146: main()にruntime_dependenciesを外部から注入できるようにしたことで、
+    # 事前にaccess_token・operatorを登録済みのストアを渡せば、簡易ローカルサーバー等を
+    # 新設しなくても200/303応答(フェーズ144のリダイレクト分岐)に到達できることを確認する。
+    injected_access_token_store = InMemoryAccessTokenStore()
+    injected_access_token_store.set_access_token("internal-injected", "token-injected")
+    injected_dependencies = {
+        "access_token_store": injected_access_token_store,
+        "operator_store": InMemoryFleetOperatorStore(),
+        "checkout_session_creator": MockCheckoutSessionCreator(),
+    }
+    # main()は正常系(200/303)で`("", 303, {"Location": ...})`という3要素タプルを、
+    # エラー系(404/400)で`(エラー文字列, status_code)`という2要素タプルを返すため
+    # (フェーズ144・main()実装参照)、ここでは展開せず戻り値そのものを検証する。
+    injected_response = checkout_session_main(
+        _StubRequest({"access_token": "token-injected", "plan": "light"}),
+        runtime_dependencies=injected_dependencies,
+    )
+    results.append(_check(
+        "main(): runtime_dependencies注入時は200/303応答に到達できる(status_code)",
+        injected_response[1],
+        303,
+    ))
+    results.append(_check(
+        "main(): runtime_dependencies注入時のLocationヘッダ(ダミーCheckout URL)",
+        injected_response[2].get("Location"),
+        "https://checkout.stripe.com/mock-session/internal-injected",
+    ))
+    results.append(_check(
+        "main(): runtime_dependencies注入時、未知のaccess_tokenは引き続き404",
+        checkout_session_main(
+            _StubRequest({"access_token": "unknown-token", "plan": "light"}),
+            runtime_dependencies=injected_dependencies,
+        )[1],
+        404,
     ))
 
     passed = sum(1 for r in results if r)

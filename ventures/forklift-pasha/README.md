@@ -2746,3 +2746,31 @@
   呼び出しごとに新規の空ストアを生成するためmain()経由では200/303応答に到達できないという
   既知の限界を確認し、簡易ローカルサーバーの新設は見送った上で、`main(request)`自体を
   直接呼ぶ回帰テスト3件を追加(34件中34件成功)。他テストは変更なしでパス)
+- フェーズ146(2026-10-12 23:00 UTC定例更新): フェーズ145の次回候補(2)「`main(request)`が
+  `get_checkout_runtime_dependencies()`の戻り値を外部から注入できるようにする」に着手し、
+  実装した。`main(request, *, runtime_dependencies: Optional[dict] = None)`とし、
+  `runtime_dependencies`省略時は従来どおり`get_checkout_runtime_dependencies()`の戻り値
+  (呼び出しごとに新規の空ストア)を使うため、実Cloud Functions環境・既存呼び出し元の挙動は
+  変わらない。`runtime_dependencies`指定時はそれを`create_checkout_session()`への
+  キーワード引数一式としてそのまま使うため、事前にaccess_token・operatorを登録済みの
+  `InMemoryAccessTokenStore`等を呼び出し元(テスト)から注入できるようになった。
+  `test_checkout_session.py`に、事前に`token-injected`を登録したストアを注入して
+  `main()`から200/303応答(`Location`ヘッダがダミーCheckout URL)に到達できること、
+  同じ注入済みストアでも未知のaccess_tokenは引き続き404になることを確認するテスト3件を
+  追加した(34件→37件、37件中37件成功)。これにより、フェーズ145で「依存注入口が無い限り
+  到達不可」としていた既知の限界は、簡易ローカルサーバーの新設ではなく本引数経由の
+  依存注入によって解消した。回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(27件、変更なし)・`python3 schema/validate_test_cases.py`(11件、
+  変更なし)・`node prototype/browser_mockup_checks.js`(いずれもパス)を再実行し、
+  いずれもパスすることを確認した。`plan-selection.html`自体のマークアップ変更・実Stripe/
+  実Firestore接続は引き続きオーナー承認待ちのため次回以降の課題として残した。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Stripeアカウント接続・実Firestore接続)がオーナーから
+  承認された場合はその着手を最優先、(2)同じ依存注入パターンを他Cloud Functionエントリ
+  ポイント(`stripe_webhook.main()`・`cloud_function_send_trial_end_emails.main()`)にも
+  適用するかどうかの検討(現状は`checkout_session.main()`のみ対応)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 23:00 UTC(フェーズ146: `checkout_session.main(request,
+  *, runtime_dependencies=None)`として依存を外部から注入できるようにし、フェーズ145の
+  既知の限界(簡易ローカルサーバー経由では200/303応答に到達不可)を解消。新規テスト3件追加
+  (34件→37件、37件中37件成功)、他テストは変更なしでパス)

@@ -184,7 +184,7 @@ def get_checkout_runtime_dependencies() -> dict:
     }
 
 
-def main(request):
+def main(request, *, runtime_dependencies: Optional[dict] = None):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout-session-
     cloud-function-entry-point-design.md 4節・plan-selection-submission-wiring-design.md
     1.2節)。`request.args.get("access_token")`でアクセスURL
@@ -196,13 +196,20 @@ def main(request):
     (`Location`ヘッダ)を返す。`plan-selection.html`側はプレーンな`<a href>`で本エンドポイント
     へ遷移するだけでよく、JSによるレスポンス受信・画面遷移制御は不要(plan-selection-
     submission-wiring-design.md 1節)。
+
+    `runtime_dependencies`省略時は`get_checkout_runtime_dependencies()`の戻り値
+    (呼び出しごとに新規の空ストア)を使う。フェーズ145で判明した「簡易ローカルサーバー経由では
+    事前にaccess_tokenを登録する手段が無く200/303応答に到達できない」という限界(同
+    フェーズのテストコメント参照)に対応するため、本引数を通じて呼び出し元(テスト・簡易
+    ローカルサーバー)が事前にaccess_token・operatorを登録済みのストアを注入できるようにした。
+    実Cloud Functions環境ではキーワード引数を渡さない限り従来どおりの挙動のまま変わらない。
     """
     access_token = request.args.get("access_token")
     plan_id = request.args.get("plan")
     result = create_checkout_session(
         access_token,
         plan_id,
-        **get_checkout_runtime_dependencies(),
+        **(runtime_dependencies if runtime_dependencies is not None else get_checkout_runtime_dependencies()),
     )
     if result.status_code == 200:
         return "", 303, {"Location": result.redirect_url}
