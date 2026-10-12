@@ -31,6 +31,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from access_token_store import (  # noqa: E402
+    AccessTokenStoreUrlProvider,
+    InMemoryAccessTokenStore,
+)
 from trial_end_email_scheduler import (  # noqa: E402
     InMemoryEmailSenderClient,
     SendTrialEndEmailsResult,
@@ -39,6 +43,11 @@ from trial_end_email_scheduler import (  # noqa: E402
 from trial_management import InMemoryFleetOperatorStore  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+# 本番LPドメインは未確定(pending-approval.md記載のStripe/LPドメイン確定待ち事項の一部)。
+# 確定後はこの値を実ドメインに置き換えるだけでAccessTokenStoreUrlProviderの接続先が
+# 切り替わる(access_token_store.AccessTokenStoreUrlProvider参照)。
+_PLACEHOLDER_BASE_URL = "https://<ドメイン未確定>"
 
 
 def get_trial_end_email_runtime_dependencies() -> dict:
@@ -49,17 +58,23 @@ def get_trial_end_email_runtime_dependencies() -> dict:
     実メール送信手段の確定(送信元ドメイン・SMTP/メールAPIの選定)後でなければ構築できないため
     (オーナー承認待ち、pending-approval.md参照)、現時点では検証用のInMemory実装を返す。
 
-    なお`InMemoryFleetOperatorStore()`はこの呼び出しごとに新規生成されるため、実Cloud
-    Functions環境でも呼び出しをまたいで状態(`trial_end_notified_at`等)が保持されない
-    既知の限界が残る(course-set-pasha/get_payment_failure_reminder_runtime_dependencies()の
-    同種エントリポイントと同じ限界で、実Firestore接続後に解消される)。`access_url_provider`は
-    未実装のアクセストークンストアに依存するため、ここでは`None`(未接続)のまま渡し、
-    `render_trial_end_email_body()`側のフォールバック文言に委ねる(次回候補)。
+    なお`InMemoryFleetOperatorStore()`・`InMemoryAccessTokenStore()`はいずれもこの呼び出し
+    ごとに新規生成されるため、実Cloud Functions環境でも呼び出しをまたいで状態
+    (`trial_end_notified_at`・`accessToken`等)が保持されない既知の限界が残る
+    (course-set-pasha/get_payment_failure_reminder_runtime_dependencies()の同種エントリ
+    ポイントと同じ限界で、実Firestore接続後に解消される)。`access_url_provider`は
+    access_token_store.AccessTokenStoreUrlProvider(フェーズ134)を接続する。ただし本番LP
+    ドメインが未確定のため`_PLACEHOLDER_BASE_URL`を渡しており、この状態では
+    `InMemoryAccessTokenStore`が呼び出しごとに空になることと合わせて実質的に常に
+    `render_trial_end_email_body()`側のフォールバック文言に委ねる結果になる
+    (ドメイン確定・実Firestore接続後にそれぞれ置き換える、次回候補)。
     """
     return {
         "operator_store": InMemoryFleetOperatorStore(),
         "email_client": InMemoryEmailSenderClient(),
-        "access_url_provider": None,
+        "access_url_provider": AccessTokenStoreUrlProvider(
+            InMemoryAccessTokenStore(), _PLACEHOLDER_BASE_URL
+        ),
     }
 
 
