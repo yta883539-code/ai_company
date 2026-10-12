@@ -98,6 +98,15 @@ class FleetOperatorStoreProtocol:
         set_upgraded_atと同じ「上書き可」方針)。"""
         raise NotImplementedError
 
+    def all_internal_ids(self) -> "list[str]":
+        """trial-end-notification-design.md 5節(B)経路・フェーズ133で追加。(B)経路の日次
+        スケジューラ(trial_end_email_scheduler.py)が対象事業者を列挙するために使う。
+        payment-identity-verification-design.md 39〜44行目の通り、メールアドレスは
+        Webフォーム初回登録時に必ず入力されるため、registered済みの全事業者を指す
+        識別子として`_email`のキー集合を返す(実Firestore接続後はコレクションクエリ
+        相当になる想定)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -180,6 +189,9 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
             self._canceled_at.pop(internal_id, None)
             return
         self._canceled_at[internal_id] = value
+
+    def all_internal_ids(self) -> "list[str]":
+        return list(self._email.keys())
 
 
 def is_trial_period_over(

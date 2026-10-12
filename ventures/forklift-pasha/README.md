@@ -2407,3 +2407,27 @@
 - 最終更新: 2026-10-12 06:00 UTC(フェーズ132: (B)経路〈日次/月次スケジューラ〉実装時の
   `is_subscription_canceled()`組み込み位置〈他の全判定より最優先で評価〉を設計指針として
   明文化した。コード変更は無く確認・文書化のみ)
+- フェーズ133(2026-10-12 07:00 UTC定例更新): フェーズ132「次回候補(2)」であった(B)経路
+  (日次/月次スケジューラ)のスケジューラ本体ロジック自体を机上実装した
+  (trial-end-notification-design.md追記)。`prototype/trial_end_email_scheduler.py`を
+  新設し、`is_trial_end_email_due()`(`trialStartAt`から30日経過かつ`trialEndNotifiedAt`
+  未設定の判定。フェーズ132の設計指針どおり`is_subscription_canceled()`を他の全判定より
+  最優先で評価し解約済み事業者を即時除外)・`select_due_trial_end_emails()`・メール本文
+  組み立て`render_trial_end_email_body()`(アクセスURLは未実装のアクセストークンストアに
+  依存するため`AccessUrlProvider`で抽象化し、未接続時はサポート窓口案内にフォールバック)・
+  送信配線`send_trial_end_emails()`/`run_due_trial_end_emails()`(送信成功時のみ
+  `trial_end_notified_at`を書き込む冪等性設計)を実装した。`trial_management.py`に
+  `all_internal_ids()`(全登録事業者の列挙)を追加し、薄いCloud FunctionsエントリポイントA
+  `prototype/cloud_function_send_trial_end_emails.py`も新設した。テスト16件追加
+  (`test_trial_end_email_scheduler.py`)、全16件パス。回帰確認として`python3 prototype/
+  run_all_tests.py`(11ファイルに増加、全パス)・`python3 schema/validate_test_cases.py`
+  (11件、変更なし)を実行し、いずれもパスすることを確認した。実際のCloud Scheduler実行
+  環境の構築・実際のメール送信自体は既存の承認待ち事項(2026-10-10 18:00 UTC記載)の範囲内
+  であり、新たな承認待ち事項ではない。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)アクセストークンの発行・読み書きを行う実ストアの実装、および
+  `AccessUrlProvider`の具象実装への接続、(3)Webフォームのプラン選択UI自体の実装、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 07:00 UTC(フェーズ133: (B)経路〈期間到達によるトライアル終了メール
+  通知〉のスケジューラ本体ロジックを`trial_end_email_scheduler.py`として机上実装。
+  `is_subscription_canceled()`を最優先評価する設計指針〈フェーズ132〉をコードに反映。
+  テスト16件追加・全件パス)

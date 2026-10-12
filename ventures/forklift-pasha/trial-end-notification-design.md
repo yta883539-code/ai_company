@@ -182,3 +182,32 @@ course-set-pasha・kura-pasha・aircon-pashaが抱えていた「解約確定が
 オーナーから承認された場合はその着手を最優先、(2)(B)経路のスケジューラ本体実装自体
 (Cloud Scheduler作成はオーナー承認待ち事項のため、ロジック本体の机上実装から着手可能)、
 (3)Webフォームのプラン選択UI自体の実装、(4)他venture・アイデア領域の前進)
+
+追記: 2026-10-12 07:00 UTC(フェーズ133: フェーズ132「次回候補(2)」であった(B)経路の
+スケジューラ本体ロジック自体を机上実装した。`prototype/trial_end_email_scheduler.py`を
+新設し、`is_trial_end_email_due()`(design 1節(B)「`trialStartAt`から30日経過かつ
+`trialEndNotifiedAt`未設定」をそのままコード化。フェーズ132の設計指針どおり
+`trial_management.is_subscription_canceled()`を他の全判定より最優先で評価し、解約済み
+事業者を即時除外する)・`select_due_trial_end_emails()`・本文組み立て
+`render_trial_end_email_body()`(3節(B)の文面草案をそのまま使用。アクセスURLは
+payment-identity-verification-design.mdが定めるアクセストークンストアが本venture未実装
+のため`AccessUrlProvider`〈未接続時はNone〉で抽象化し、未接続時はサポート窓口への案内に
+フォールバックする安全側の設計とした〈次回候補〉)・送信配線`send_trial_end_emails()`/
+`run_due_trial_end_emails()`(送信成功時のみ`trial_end_notified_at`を書き込み、失敗時は
+次回起動時に自然に再試行される冪等性設計、course-set-pasha/payment_failure_reminder_
+scheduler.pyと同型)を実装した。`trial_management.py`の`FleetOperatorStoreProtocol`/
+`InMemoryFleetOperatorStore`に`all_internal_ids()`(登録済み全事業者の列挙。
+payment-identity-verification-design.mdの通りメールアドレスは初回登録時に必ず設定される
+ため`_email`のキー集合を返す)を追加した。実際のCloud Functionsエントリポイントとして
+`prototype/cloud_function_send_trial_end_emails.py`(course-set-pasha/cloud_function_
+send_payment_failure_reminders.pyと同じ「本体は依存注入でテスト可能、`main(request)`
+のみが薄い配線」構成)も新設した。`test_trial_end_email_scheduler.py`を新規作成しテスト
+16件(抽出条件6件・メッセージ整形3件・送信配線6件・store列挙1件)を追加、全16件パス。
+回帰確認として`python3 prototype/run_all_tests.py`(11ファイルに増加、全パス)・
+`python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスする
+ことを確認した。実際のCloud Scheduler実行環境の構築・実際のメール送信自体は既存の
+承認待ち事項(2026-10-10 18:00 UTC記載)の範囲内であり、新たな承認待ち事項ではない。
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)アクセス
+トークンの発行・読み書きを行う実ストア(payment-identity-verification-design.md相当)の
+実装、および`AccessUrlProvider`の具象実装への接続、(3)Webフォームのプラン選択UI自体の
+実装、(4)他venture・アイデア領域の前進)
