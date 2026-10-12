@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""deletion_candidate_final_confirmation.pyのテスト(README.mdフェーズ292)。"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from application_form_submission_flow import InMemoryUserProfileStore  # noqa: E402
+from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
+from deletion_candidate_final_confirmation import (  # noqa: E402
+    DeletionCandidateConfirmationRoute,
+    DeletionCandidateConfirmationUserState,
+    build_deletion_candidate_confirmation_states,
+    render_deletion_candidate_final_confirmation_message,
+    route_deletion_candidate_confirmation,
+    run_due_deletion_candidate_final_confirmations,
+    select_due_deletion_candidate_final_confirmations,
+    send_deletion_candidate_final_confirmations,
+)
+from trial_end_scheduler import InMemoryLinePushClient, LinePushDeliveryError
+
+NOW = datetime(2026, 10, 12, 18, 0, 0)
+
+
+class RouteDeletionCandidateConfirmationTest(unittest.TestCase):
+    def test_following_routes_to_line_push(self):
+        self.assertEqual(
+            route_deletion_candidate_confirmation(True),
+            DeletionCandidateConfirmationRoute.LINE_PUSH,
+        )
+
+    def test_blocked_routes_to_mark_unreachable(self):
+        self.assertEqual(
+            route_deletion_candidate_confirmation(False),
+            DeletionCandidateConfirmationRoute.MARK_UNREACHABLE,
+        )
+
+
+class SelectDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
+    def test_excludes_already_sent_and_keeps_input_order(self):
+        users = [
+            DeletionCandidateConfirmationUserState(user_id="u1", is_following=True),
+            DeletionCandidateConfirmationUserState(
+                user_id="u2", is_following=True, deletion_confirmation_sent_at=NOW
+            ),
+            DeletionCandidateConfirmationUserState(user_id="u3", is_following=False),
+        ]
+
+        due = select_due_deletion_candidate_final_confirmations(users)
+
+        self.assertEqual([u.user_id for u in due], ["u1", "u3"])
+
+
+class BuildDeletionCandidateConfirmationStatesTest(unittest.TestCase):
+    def test_reads_is_following_and_sent_at_from_respective_stores(self):
+        deletion_store = InMemoryProfileDeletionCandidateStore()
+        deletion_store.set_deletion_confirmation_sent_at("u2", NOW)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_is_following("u1", True)
+        profile_store.set_is_following("u2", False)
+        # u3はis_following未記録: デフォルトのTrue(安全側)を期待する。
+
+        states = build_deletion_candidate_confirmation_states(
+            ["u1", "u2", "u3"], deletion_store, profile_store
+        )
+
+        self.assertEqual(
+            states,
+            [
+                DeletionCandidateConfirmationUserState(
+                    user_id="u1", is_following=True, deletion_confirmation_sent_at=None
+                ),
+                DeletionCandidateConfirmationUserState(
+                    user_id="u2", is_following=False, deletion_confirmation_sent_at=NOW
+                ),
+                DeletionCandidateConfirmationUserState(
+                    user_id="u3", is_following=True, deletion_confirmation_sent_at=None
+                ),
+            ],
+        )
+
+
+class SendDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
+    def test_following_user_receives_push_and_sent_at_is_recorded(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryLinePushClient()
+        users = [DeletionCandidateConfirmationUserState(user_id="u1", is_following=True)]
+
+        result = send_deletion_candidate_final_confirmations(users, NOW, store, push)
+
+        self.assertEqual(result.sent, ["u1"])
+        self.assertEqual(result.marked_unreachable, [])
+        self.assertEqual(result.failed, [])
+        self.assertEqual(store.get_deletion_confirmation_sent_at("u1"), NOW)
+        self.assertEqual(
+            push.sent, [("u1", render_deletion_candidate_final_confirmation_message())]
+        )
+
+    def test_blocked_user_is_marked_unreachable_without_sending(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryLinePushClient()
+        users = [DeletionCandidateConfirmationUserState(user_id="u2", is_following=False)]
+
+        result = send_deletion_candidate_final_confirmations(users, NOW, store, push)
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.marked_unreachable, ["u2"])
+        self.assertEqual(store.get_deletion_confirmation_unreachable_at("u2"), NOW)
+        self.assertEqual(push.sent, [])
+
+    def test_push_delivery_error_is_recorded_as_failed_without_writing_sent_at(self):
+        store = InMemoryProfileDeletionCandidateStore()
+
+        class _FailingPushClient:
+            def send_message(self, user_id, text):
+                raise LinePushDeliveryError("boom")
+
+        users = [DeletionCandidateConfirmationUserState(user_id="u1", is_following=True)]
+
+        result = send_deletion_candidate_final_confirmations(
+            users, NOW, store, _FailingPushClient()
+        )
+
+        self.assertEqual(result.failed, ["u1"])
+        self.assertEqual(result.sent, [])
+        self.assertIsNone(store.get_deletion_confirmation_sent_at("u1"))
+
+    def test_already_sent_user_is_skipped_entirely(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        push = InMemoryLinePushClient()
+        users = [
+            DeletionCandidateConfirmationUserState(
+                user_id="u3", is_following=True, deletion_confirmation_sent_at=NOW
+            )
+        ]
+
+        result = send_deletion_candidate_final_confirmations(users, NOW, store, push)
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.marked_unreachable, [])
+        self.assertEqual(push.sent, [])
+
+
+class RunDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
+    def test_wires_candidate_listing_through_to_sending(self):
+        deletion_store = InMemoryProfileDeletionCandidateStore()
+        deletion_store.set_deletion_candidate_at("u1", NOW)
+        deletion_store.set_deletion_candidate_at("u2", NOW)
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_is_following("u1", True)
+        profile_store.set_is_following("u2", False)
+        push = InMemoryLinePushClient()
+
+        result = run_due_deletion_candidate_final_confirmations(
+            deletion_store, profile_store, NOW, push
+        )
+
+        self.assertEqual(result.sent, ["u1"])
+        self.assertEqual(result.marked_unreachable, ["u2"])
+        self.assertEqual(deletion_store.get_deletion_confirmation_sent_at("u1"), NOW)
+        self.assertEqual(deletion_store.get_deletion_confirmation_unreachable_at("u2"), NOW)
+
+    def test_candidates_not_yet_due_are_excluded(self):
+        deletion_store = InMemoryProfileDeletionCandidateStore()
+        future = datetime(2027, 1, 1, 0, 0, 0)
+        deletion_store.set_deletion_candidate_at("u1", future)
+        profile_store = InMemoryUserProfileStore()
+        push = InMemoryLinePushClient()
+
+        result = run_due_deletion_candidate_final_confirmations(
+            deletion_store, profile_store, NOW, push
+        )
+
+        self.assertEqual(result.sent, [])
+        self.assertEqual(result.marked_unreachable, [])
+        self.assertEqual(push.sent, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

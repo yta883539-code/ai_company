@@ -4872,3 +4872,40 @@
   notifications.py`〉と`run_due_payment_suspension_owner_notifications()`・
   `PaymentSuspensionOwnerNotificationsStore`を新設。テスト7件追加、全718件パス・
   schema検証21件パス)
+- フェーズ292(2026-10-12 18:00 UTC定例更新): data-retention-policy.md「削除候補化後の
+  最終確認」節が「主経路: LINE push、代替経路: メール送信(送信用サービスのアカウント作成が
+  必要でオーナー承認待ち)」と方針のみ整理していた、削除候補(`deletion_candidate.
+  list_deletion_candidates()`)に対する最終確認の実送信配線を実装した(aircon-pashaの
+  `deletion_candidate_final_confirmation.py`・`cloud_function_send_deletion_candidate_
+  final_confirmations.py`の横展開)。本venture固有の点として、本venture(course-set-pasha)は
+  Stripe Webhookディスパッチ上、削除候補の状態(`deletion_candidate_at`等)と`is_following`を
+  別々のstoreオブジェクト(`store`/`user_profile_store`)で扱う構成(aircon-pashaが単一の
+  `UserProfile`に統合しているのとは異なる)のため、新設した
+  `run_due_deletion_candidate_final_confirmations(deletion_store, profile_store, now,
+  push_client)`は2store構成をそのまま引数に取る適応を行った。(1)
+  `deletion_candidate.InMemoryProfileDeletionCandidateStore`に`deletion_confirmation_
+  sent_at`・`deletion_confirmation_unreachable_at`の読み書き4メソッドを追加(既存の
+  `deletion_candidate_at`等と同じ`user_profile/{user_id}`ドキュメントに属する想定のため
+  別クラスを新設せず追加)、(2)新設`deletion_candidate_final_confirmation.py`に
+  `route_deletion_candidate_confirmation()`(is_following判定)・
+  `build_deletion_candidate_confirmation_states()`(2store読み取りの組み立て)・
+  `send_deletion_candidate_final_confirmations()`(LINE pushプレーンテキスト送信、本venture
+  既存の`payment_suspension_owner_notification.py`等と同じくFlex Messageは使わない)・
+  `run_due_deletion_candidate_final_confirmations()`を実装、(3)
+  `prototype/cloud_function_send_deletion_candidate_final_confirmations.py`を新規作成し、
+  他スケジューラと同じ「本体は依存注入でテスト可能、`main(request)`だけが実
+  `functions_framework`リクエストオブジェクトを扱う薄い配線」構成で実装した。テスト15件
+  追加(`deletion_candidate_final_confirmation.py`本体10件、Cloud Functionsエントリ
+  ポイント5件)、全733件パス(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれもパス。
+  実Cloud Scheduler作成・実Firestore/LINE接続自体は既存の承認待ち事項
+  (pending-approval.md参照)の範囲内であり、新たな承認待ち事項ではない。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 18:00 UTC(フェーズ292: 削除候補化後の最終確認の実送信配線
+  〈`deletion_candidate_final_confirmation.py`・薄いCloud Functionsエントリポイント
+  〈`cloud_function_send_deletion_candidate_final_confirmations.py`〉〉を新設。本venture
+  固有の2store構成〈削除候補状態/is_following〉にあわせて`run_due_deletion_candidate_
+  final_confirmations(deletion_store, profile_store, now, push_client)`を実装。
+  テスト15件追加、全733件パス・schema検証21件パス)

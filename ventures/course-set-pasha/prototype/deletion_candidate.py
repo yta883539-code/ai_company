@@ -51,11 +51,20 @@ class ProfileDeletionCandidateStoreProtocol(Protocol):
 
 
 class InMemoryProfileDeletionCandidateStore:
-    """実Firestore接続の代わりにdictで`deletion_candidate_at`フィールドを保持する検証用スタブ。"""
+    """実Firestore接続の代わりにdictで`deletion_candidate_at`フィールドを保持する検証用スタブ。
+
+    `get/set_deletion_confirmation_sent_at`・`get/set_deletion_confirmation_unreachable_at`は
+    deletion_candidate_final_confirmation.pyが参照する、data-retention-policy.md
+    「削除候補化後の最終確認」節の送達状態フィールド(本クラスが元々保持する
+    `deletion_candidate_at`と同じ`user_profile/{user_id}`ドキュメントに属する想定のため、
+    別クラスを新設せずここに追加する)。
+    """
 
     def __init__(self) -> None:
         self._values: dict[str, Optional[datetime]] = {}
         self._state_event_times: dict[str, datetime] = {}
+        self._confirmation_sent_at: dict[str, datetime] = {}
+        self._confirmation_unreachable_at: dict[str, datetime] = {}
 
     def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
         return self._values.get(user_id)
@@ -78,6 +87,28 @@ class InMemoryProfileDeletionCandidateStore:
 
     def set_deletion_candidate_state_event_time(self, user_id: str, value: datetime) -> None:
         self._state_event_times[user_id] = value
+
+    def get_deletion_confirmation_sent_at(self, user_id: str) -> Optional[datetime]:
+        return self._confirmation_sent_at.get(user_id)
+
+    def set_deletion_confirmation_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        if value is None:
+            self._confirmation_sent_at.pop(user_id, None)
+        else:
+            self._confirmation_sent_at[user_id] = value
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        return self._confirmation_unreachable_at.get(user_id)
+
+    def set_deletion_confirmation_unreachable_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        if value is None:
+            self._confirmation_unreachable_at.pop(user_id, None)
+        else:
+            self._confirmation_unreachable_at[user_id] = value
 
 
 def _is_stale_deletion_candidate_event(
