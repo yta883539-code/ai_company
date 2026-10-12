@@ -2535,3 +2535,29 @@
   `receive_reissue_request()`を`access_url_reissue_handler.py`に追加し、HTTPステータス
   コードベースの契約に変換する処理本体を実装した。`main(request)`自体はWebフォーム側の
   ルーティング確定待ちのため次回候補に残す。テスト12件追加・全25件パス)
+- フェーズ138(2026-10-12 12:00 UTC定例更新): フェーズ137「次回候補(3)」だった
+  Webフォームのプラン選択UI自体を`web-form-mockup/plan-selection.html`として新設した。
+  daily.html・monthly.html・annual.html・settings.html(フェーズ72〜75・101・102)と同じ
+  実装方針(JS不使用・外部公開なし・バックエンド接続なし)を踏襲し、pricing-plan.mdの
+  3プラン(ライト980円/スタンダード2,480円/複数台4,980円、各々の対象台数・含まれる生成
+  回数・超過従量課金・想定顧客像)と無料トライアル案内文をそのまま反映した。各プランの
+  「このプランで申し込む」ボタンは`checkout_session.build_checkout_session_params()`
+  (フェーズ124)が受け取る`plan_id`("light"/"standard"/"fleet")に対応する3パターンを
+  用意したが、Checkout Session発行用の`main(request)`自体(フェーズ137「次回候補(2)」)が
+  未着手のため`<button type="button" disabled>`として送信を無効化した
+  (settings.htmlの「送信する」ボタンと同じ方針)。`index.html`にも本ページへの遷移リンクを
+  追加した。コード変更は`prototype/`に対しては無く、`web-form-mockup/`の静的ファイルのみ
+  のため回帰確認として`python3 prototype/run_all_tests.py`(13ファイル・全件パス)・
+  `python3 schema/validate_test_cases.py`(11件・全件パス)・`node prototype/
+  browser_mockup_checks.js`(18件・全件パス、既存チェックのみで本ページ向けの新規チェックは
+  未追加)を実行し、いずれもパスすることを確認した。承認が必要なアクション(実Stripe接続・
+  Price ID発行・外部公開等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`browser_mockup_checks.js`へのplan-selection.html向けチェック追加(3プラン表示・
+  ボタンdisabled状態の確認等)、(3)Webフォームバックエンドのルーティング実装が確定した後の
+  Checkout Session発行用`main(request)`自体のコード実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-12 12:00 UTC(フェーズ138: Webフォームのプラン選択UI
+  `web-form-mockup/plan-selection.html`を新設し、pricing-plan.mdの3プランと無料トライアル
+  案内文を反映。申し込みボタンはバックエンド未接続のため無効化。index.htmlに遷移リンクを
+  追加。コードへの変更はなく既存テスト〈Python13ファイル・schema11件・ブラウザ検証18件〉は
+  いずれもパス)

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと プラン選択ページ 実装ドラフト(フェーズ138・2026-10-12 12:00 UTC)
+
+  位置づけ: README.mdフェーズ137「次回候補」(3)「Webフォームのプラン選択UI自体の実装」に
+  対応するもの。daily.html・monthly.html・annual.html・index.html・settings.html
+  (フェーズ72〜75・101・102)と同じ実装方針(JS不使用・外部公開なし・バックエンド接続なし)を
+  踏襲し、リポジトリ内の静的ファイル(ローカルの実装ドラフト)に留める。
+
+  表示内容と設計文書の対応:
+  - 3プラン(ライト/スタンダード/複数台)の月額・対象台数・含まれる生成回数・超過従量課金・
+    想定顧客像: pricing-plan.md「プラン案(仮)」の表をそのまま反映。
+  - 無料トライアルの案内文: pricing-plan.md「無料トライアル条件(仮)」
+    (30日間またはcourse-set-pasha同程度の生成回数到達のいずれか早い方、カード登録不要)。
+  - 「このプランで申し込む」ボタン: checkout_session.build_checkout_session_params()
+    (prototype/checkout_session.py、フェーズ124)が受け取るplan_id("light"/"standard"/
+    "fleet")にそのまま対応する3パターンを用意した。実際にはWebフォームバックエンドの
+    ルーティング実装(README.mdフェーズ137「次回候補」(2)、Checkout Session発行用の
+    main(request)自体)確定後にPOST先を配線する想定であり、本モックアップでは
+    <button type="button" disabled> として送信を無効化する(settings.htmlの
+    「送信する」ボタンと同じ方針)。
+
+  未実装・意図的なプレースホルダー:
+  - 実Stripeダッシュボードでの商品登録・Price ID発行はオーナー承認待ち
+    (pricing-plan.md・payment-identity-verification-design.md参照)。承認・実接続後に
+    checkout_session.PLAN_ID_TO_STRIPE_PRICE_IDの実値と整合させる。
+  - 現在のプラン・契約状況に応じたハイライト表示(アップグレード/ダウングレード動線)は
+    usage-and-fleet-overage-notification-design.mdのアップセル通知と合わせて次回以降の課題。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プラン選択(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    padding: 12px 4px 20px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .lead {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .trial-note {
+    background: #fdf4e6;
+    border: 1px solid var(--color-accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--color-accent-dark);
+    margin-bottom: 14px;
+  }
+  .plan-card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .plan-card h2 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .plan-card .price {
+    margin: 6px 0 0;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  .plan-card .price .unit {
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--color-muted);
+  }
+  .plan-card ul.spec {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    font-size: 13px;
+  }
+  .plan-card ul.spec li {
+    padding: 3px 0;
+  }
+  .plan-card ul.spec li::before {
+    content: "・";
+    color: var(--color-accent);
+  }
+  .plan-card .persona {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+  button.apply-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid var(--color-accent-dark);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--color-accent-dark);
+  }
+  button.apply-btn:disabled {
+    opacity: 0.6;
+  }
+  footer.note {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ138(2026-10-12 12:00 UTC) / 「申し込む」ボタンの送信は無効化されています(バックエンド・Stripe未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <div class="logo">フォークリフトパシャっと</div>
+    <p class="lead">プランを選ぶ</p>
+  </header>
+
+  <p class="trial-note">
+    すべてのプランは無料トライアルからはじめられます(クレジットカード登録不要)。
+    トライアル終了時に自動課金はされません。継続する場合のみプランを選んでお申し込みください。
+  </p>
+
+  <!-- pricing-plan.md「プラン案(仮)」ライトプラン -->
+  <section class="plan-card">
+    <h2>ライトプラン</h2>
+    <p class="price">980円 <span class="unit">/ 月</span></p>
+    <ul class="spec">
+      <li>対象台数: 1台まで</li>
+      <li>含まれる生成回数: 月25回まで</li>
+      <li>超過分: 1回あたり100円</li>
+    </ul>
+    <p class="persona">フォークリフト1台を保有する個人事業主・小規模事業者向け</p>
+    <button type="button" class="apply-btn" disabled>このプランで申し込む</button>
+  </section>
+
+  <!-- pricing-plan.md「プラン案(仮)」スタンダードプラン -->
+  <section class="plan-card">
+    <h2>スタンダードプラン</h2>
+    <p class="price">2,480円 <span class="unit">/ 月</span></p>
+    <ul class="spec">
+      <li>対象台数: 3台まで</li>
+      <li>含まれる生成回数: 月70回まで</li>
+      <li>超過分: 1回あたり90円</li>
+    </ul>
+    <p class="persona">複数台のフォークリフトを保有する倉庫業・運送業・建設業の小規模事業者向け</p>
+    <button type="button" class="apply-btn" disabled>このプランで申し込む</button>
+  </section>
+
+  <!-- pricing-plan.md「プラン案(仮)」複数台プラン -->
+  <section class="plan-card">
+    <h2>複数台プラン</h2>
+    <p class="price">4,980円 <span class="unit">/ 月</span></p>
+    <ul class="spec">
+      <li>対象台数: 10台まで</li>
+      <li>含まれる生成回数: 月220回まで</li>
+      <li>超過分: 1回あたり80円</li>
+    </ul>
+    <p class="persona">10台規模の倉庫・資材置き場等を運営する事業者向け(10台超は個別相談)</p>
+    <button type="button" class="apply-btn" disabled>このプランで申し込む</button>
+  </section>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。ドメイン取得・ホスティング・外部公開・実Stripe接続は行っていません。
+  </footer>
+
+</div>
+</body>
+</html>
