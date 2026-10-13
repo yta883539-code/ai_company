@@ -5078,3 +5078,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   「未確定事項」に、候補1・候補2以外への連絡チャネルが公開情報のみでは特定できなかった
   旨の記載漏れを解消。設計ドキュメントのみの変更、テスト176件・schema検証32件いずれも
   変更なしでパス)
+- フェーズ231(2026-10-13 07:00 UTC定例更新): フェーズ228の次回候補(1)「結合実装フェーズに
+  備えた準備作業(Firestoreセキュリティルール草案、テストダブル切り替え方式の設計等)」の
+  うち、テストダブル切り替え方式(フェーズ145〜147の`runtime_dependencies`依存注入パターン)
+  は既に対応済みだったため、未着手だったFirestoreセキュリティルール草案に着手した。
+  firestore-security-rules-draft.mdを新規文書化し、本ventureのFirestoreアクセスが全て
+  Cloud Functions(Admin SDK)経由であり、クライアント(LINEミニアプリ・ブラウザ等)からの
+  直接アクセス経路が設計上存在しないことを確認した上で、対象5コレクション(craftsman_
+  workshop・stripe_customer_index・user_profile・pending_workshop_invites・
+  pending_links・usage_counter)全てを明示的にdeny-allとするルール草案、および承認後の
+  Firebase Local Emulator Suiteでの検証手順を記載した。実Firestoreプロジェクトが無いため
+  本ルール自体の実行検証は今回出来ていない(設計レビューのみ)ことを「4. 未検証・残課題」に
+  明記した。コード変更は無く、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(17ファイル・176件、変更なし)・`python3 schema/validate_test_cases.py`
+  (32件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし(実Firestoreプロジェクト作成自体は既存の承認待ち事項の範囲内であり、新たな
+  承認待ち事項ではない)。次回候補: (1)承認待ち事項(優先順位1・2候補へのヒアリング実施・
+  実Firestoreプロジェクト作成等)がオーナーから承認された場合はその着手を最優先、(2)同じ
+  deny-allルール草案パターンを他venture(aircon-pasha・course-set-pasha・line-
+  reservation-ai・forklift-pasha)にも横展開できるか個別確認、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-13 07:00 UTC(フェーズ231: firestore-security-rules-draft.mdを新規
+  文書化。本venture全コレクションをdeny-allとするFirestoreセキュリティルール草案・
+  承認後の検証手順を記載。設計ドキュメントのみの変更、テスト176件・schema検証32件いずれも
+  変更なしでパス)
