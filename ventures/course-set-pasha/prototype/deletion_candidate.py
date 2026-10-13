@@ -65,6 +65,7 @@ class InMemoryProfileDeletionCandidateStore:
         self._state_event_times: dict[str, datetime] = {}
         self._confirmation_sent_at: dict[str, datetime] = {}
         self._confirmation_unreachable_at: dict[str, datetime] = {}
+        self._confirmation_unreachable_reason: dict[str, Optional[str]] = {}
 
     def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
         return self._values.get(user_id)
@@ -109,6 +110,19 @@ class InMemoryProfileDeletionCandidateStore:
             self._confirmation_unreachable_at.pop(user_id, None)
         else:
             self._confirmation_unreachable_at[user_id] = value
+
+    def get_deletion_confirmation_unreachable_reason(self, user_id: str) -> Optional[str]:
+        """line-reservation-aiフェーズ続き320・aircon-pashaフェーズ313が発見した
+        「連絡不能の理由が未記録」という既知の限界への対応(本venture分)。"""
+        return self._confirmation_unreachable_reason.get(user_id)
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, user_id: str, value: Optional[str]
+    ) -> None:
+        if value is None:
+            self._confirmation_unreachable_reason.pop(user_id, None)
+        else:
+            self._confirmation_unreachable_reason[user_id] = value
 
 
 def _is_stale_deletion_candidate_event(

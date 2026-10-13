@@ -4937,3 +4937,33 @@
   〈`list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_
   report()`〉を横展開。既存の2store構成に新規フィールド追加は不要だった。テスト6件追加、
   全739件パス・schema検証21件パス)
+- フェーズ294(2026-10-13 14:00 UTC定例更新): aircon-pashaフェーズ313の次回候補(2)
+  「同種の理由コード横展開をcourse-set-pasha・kura-pashaにも展開」を受け着手した。
+  なお同フェーズ313の記載は「course-set-pasha・kura-pashaはいずれもpush送信失敗時に
+  即時連絡不能化する経路を持つため2種類の理由コードが必要になる見込み」としていたが、
+  実際に本venture`deletion_candidate_final_confirmation.py`の`route_deletion_candidate_
+  confirmation()`を確認した結果、aircon-pashaと同じく判定が`is_following`のみに基づき
+  (push送信失敗時は`failed`に積んで次回再試行するだけで即時には連絡不能化しない)、連絡
+  不能経路は「ブロック中」の1種類のみであることを確認した(フェーズ313の見込みは本venture
+  には当てはまらず、理由コードは1件で足りた)。`deletion_candidate.py`の
+  `InMemoryProfileDeletionCandidateStore`に`get/set_deletion_confirmation_unreachable_
+  reason()`を追加し、`deletion_candidate_final_confirmation.py`に理由コード定数
+  `UNREACHABLE_REASON_NOT_FOLLOWING`を新設、`send_deletion_candidate_final_
+  confirmations()`がMARK_UNREACHABLE時に理由コードも書き込むよう配線した。
+  `UnreachableDeletionCandidate`に`unreachable_reason`フィールド・
+  `unreachable_reason_label`プロパティ(本フィールド追加前の既存候補はNoneのまま「不明」
+  表示にフォールバックし後方互換を保つ、aircon-pasha版と同じ方針)を追加し、
+  `render_unreachable_deletion_candidates_report()`の各行に理由ラベルを追記した。
+  テスト2件追加(`ListUnreachableDeletionCandidatesTest`に`test_includes_unreachable_
+  reason_when_recorded`・`test_unreachable_reason_is_none_for_candidates_recorded_
+  before_the_field_existed`)、全741件パス(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証21件(`python3 schema/validate_test_cases.py`)いずれも
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)同種の理由コード区分を
+  kura-pashaにも横展開(kura-pashaも本venture・aircon-pashaと同じ単一経路である可能性が
+  高いが未確認)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 14:00 UTC(フェーズ294: aircon-pashaフェーズ313の次回候補を受け、
+  連絡不能の理由区分〈`UNREACHABLE_REASON_NOT_FOLLOWING`〉を追加。フェーズ313の「2種類の
+  理由コードが必要」という見込みは本ventureには当てはまらず1件で足りることを確認。
+  テスト2件追加、全741件パス・schema検証21件パス)

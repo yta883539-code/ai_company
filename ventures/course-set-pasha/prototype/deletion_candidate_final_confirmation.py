@@ -66,6 +66,19 @@ def render_deletion_candidate_final_confirmation_message() -> str:
     return DELETION_CANDIDATE_FINAL_CONFIRMATION_MESSAGE
 
 
+# deletion-candidate-unreachable-owner-review-design.mdの「次回候補」であった連絡不能の
+# 理由区分(line-reservation-aiフェーズ続き320・aircon-pashaフェーズ313の横展開)。本venture
+# も経路判定がis_followingのみに基づくため(route_deletion_candidate_confirmation()参照、
+# push送信失敗時は`failed`に積むだけで即時には連絡不能化しない、aircon-pashaと同じ)、
+# 理由コードは1種のみで足りる。
+UNREACHABLE_REASON_NOT_FOLLOWING = "not_following"
+
+_UNREACHABLE_REASON_LABELS = {
+    UNREACHABLE_REASON_NOT_FOLLOWING: "LINE公式アカウントをブロック中",
+}
+_UNREACHABLE_REASON_UNKNOWN_LABEL = "不明(本フィールド追加前に記録された候補)"
+
+
 class DeletionCandidateConfirmationRoute(Enum):
     """data-retention-policy.md「削除候補化後の最終確認」節の経路判定結果。"""
 
@@ -126,6 +139,14 @@ class DeletionConfirmationStateWriter(Protocol):
     def set_deletion_confirmation_unreachable_at(
         self, user_id: str, value: Optional[datetime]
     ) -> None:
+        ...
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, user_id: str, value: Optional[str]
+    ) -> None:
+        """line-reservation-aiフェーズ続き320・aircon-pashaフェーズ313が発見した
+        「連絡不能の理由が未記録」という既知の限界を受けて追加した書き込みメソッド。
+        本venture唯一の連絡不能経路(ブロック中)の理由コードを記録する。"""
         ...
 
 
@@ -202,6 +223,9 @@ def send_deletion_candidate_final_confirmations(
         route = route_deletion_candidate_confirmation(user.is_following)
         if route is DeletionCandidateConfirmationRoute.MARK_UNREACHABLE:
             state_store.set_deletion_confirmation_unreachable_at(user.user_id, now)
+            state_store.set_deletion_confirmation_unreachable_reason(
+                user.user_id, UNREACHABLE_REASON_NOT_FOLLOWING
+            )
             result.marked_unreachable.append(user.user_id)
             continue
 
@@ -262,18 +286,32 @@ class UnreachableDeletionCandidate:
     user_id: str
     deletion_confirmation_unreachable_at: datetime
     days_since_unreachable: int
+    unreachable_reason: Optional[str] = None
+
+    @property
+    def unreachable_reason_label(self) -> str:
+        """理由コードを対話セッション表示用の日本語ラベルに変換する。本フィールド追加前に
+        連絡不能と記録された候補はunreachable_reasonがNoneのままなので、line-reservation-ai
+        フェーズ続き320・aircon-pashaフェーズ313と同じ方針で「不明」として表示する。"""
+        if self.unreachable_reason is None:
+            return _UNREACHABLE_REASON_UNKNOWN_LABEL
+        return _UNREACHABLE_REASON_LABELS.get(self.unreachable_reason, self.unreachable_reason)
 
 
 class UnreachableDeletionCandidateReader(Protocol):
     """`list_unreachable_deletion_candidates()`が要求する最小限のProtocol。本venture側では
     `InMemoryProfileDeletionCandidateStore`(deletion_candidate.py)が既存メソッド
-    (`all_user_ids`・`get_deletion_confirmation_unreachable_at`)でそのまま構造的に満たす
+    (`all_user_ids`・`get_deletion_confirmation_unreachable_at`・
+    `get_deletion_confirmation_unreachable_reason`)でそのまま構造的に満たす
     (`is_following`等を扱う`profile_store`ではなく、`deletion_store`を渡す想定)。"""
 
     def all_user_ids(self) -> Iterable[str]:
         ...
 
     def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+    def get_deletion_confirmation_unreachable_reason(self, user_id: str) -> Optional[str]:
         ...
 
 
@@ -292,6 +330,7 @@ def list_unreachable_deletion_candidates(
             user_id=user_id,
             deletion_confirmation_unreachable_at=unreachable_at,
             days_since_unreachable=(now - unreachable_at).days,
+            unreachable_reason=store.get_deletion_confirmation_unreachable_reason(user_id),
         )
         for user_id in store.all_user_ids()
         if (unreachable_at := store.get_deletion_confirmation_unreachable_at(user_id))
@@ -318,7 +357,8 @@ def render_unreachable_deletion_candidates_report(
     for candidate in candidates:
         lines.append(
             f"- {candidate.user_id}: 連絡不能判定から{candidate.days_since_unreachable}日経過"
-            f"(判定日時: {candidate.deletion_confirmation_unreachable_at.isoformat()})"
+            f"(判定日時: {candidate.deletion_confirmation_unreachable_at.isoformat()}、"
+            f"理由: {candidate.unreachable_reason_label})"
         )
     lines.append("")
     lines.append(
