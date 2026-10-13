@@ -5781,3 +5781,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   confirmations.py`〉。firestore-data-model.mdに新規3フィールド追加。design想定の
   aircon-pasha型薄いラッパー構成ではなく本venture既存の「本体+配線2ファイル分割」構成を
   採用。テスト17件追加、全923件パス・schema検証28件パス)
+- フェーズ続き319(2026-10-13 04:00 UTC定例更新): フェーズ続き318の次回候補(2)
+  「実際の削除実行バッチ(月次、design 6節がスコープ外とした『連絡不能』フラグ付き候補の
+  オーナー対話確認フロー)の設計」に着手した。store-deletion-candidate-unreachable-
+  owner-review-design.mdを新規文書化し、(1)本機能は読み取り専用のレポート生成に限定し
+  削除実行・外部への自動送信は一切行わないこと、(2)オーナーへの提示は本リポジトリの
+  運営方式(対話セッション内での表示)に合わせること、(3)連絡不能と判定された理由
+  (owner_line_user_id未設定かLINE送信失敗か)は現行`StoreDeletionState`に永続化されて
+  いないため本レポートでは区別できない既知の限界、を整理した。設計に基づき
+  `prototype/store_deletion_candidate.py`に`UnreachableStoreDeletionCandidate`
+  データクラス・`list_unreachable_store_deletion_candidates()`(store_id昇順、連絡不能
+  判定からの経過日数を付与)・`render_unreachable_store_deletion_candidates_report()`
+  (0件時は定型文、候補がある場合は一覧+「自動削除の対象ではない」旨の注記)を実装し、
+  `StoreDeletionCandidateState`に`store_deletion_confirmation_unreachable_at`フィールド
+  (既存の選定条件には影響しない追加フィールド)を追加した。テスト4件追加、全927件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
+  (`python3 schema/validate_test_cases.py`)いずれもパスすることを確認した。本機能は
+  読み取り専用ロジックのみのため新たな承認待ち事項は発生していない(実Firestore接続自体は
+  既存の承認待ち事項の範囲内であり、新たな承認待ち事項ではない)ためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は本venture一式の実装
+  着手を最優先、(2)他venture(aircon-pasha・course-set-pasha・kura-pasha)の
+  `deletion_candidate.py`にも同種の「連絡不能オーナーレビュー用レポート」機能が欠けて
+  いないかの横断点検・展開、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 04:00 UTC(フェーズ続き319: store-deletion-candidate-unreachable-
+  owner-review-design.mdを新規文書化。`store_deletion_candidate.py`に
+  `UnreachableStoreDeletionCandidate`・`list_unreachable_store_deletion_candidates()`・
+  `render_unreachable_store_deletion_candidates_report()`を実装し、連絡不能フラグ付き
+  削除候補をオーナーが対話セッションで個別確認するための読み取り専用レポート生成機能を
+  追加。テスト4件追加、全927件パス・schema検証28件パス)

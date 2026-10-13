@@ -62,6 +62,7 @@ class StoreDeletionCandidateState:
     suspension_reason: Optional[str] = None
     stripe_customer_id: Optional[str] = None
     store_deletion_confirmation_sent_at: Optional[datetime] = None
+    store_deletion_confirmation_unreachable_at: Optional[datetime] = None
 
 
 def is_store_deletion_candidate(state: StoreDeletionCandidateState, now: datetime) -> bool:
@@ -99,3 +100,64 @@ def list_store_deletion_candidates(
     return sorted(
         state.store_id for state in states if is_store_deletion_candidate(state, now)
     )
+
+
+@dataclass(frozen=True)
+class UnreachableStoreDeletionCandidate:
+    """store-deletion-candidate-unreachable-owner-review-design.md 3節の読み取り専用
+    レポート行。オーナーが対話セッションで個別に削除可否を判断するための一覧表示にのみ
+    使う(削除実行・自動送信は一切行わない)。"""
+
+    store_id: str
+    store_deletion_confirmation_unreachable_at: datetime
+    days_since_unreachable: int
+
+
+def list_unreachable_store_deletion_candidates(
+    states: Sequence[StoreDeletionCandidateState], now: datetime
+) -> list[UnreachableStoreDeletionCandidate]:
+    """store-deletion-candidate-unreachable-owner-review-design.md 3節の選定ロジック。
+
+    data-retention-policy.mdが「連絡不能」と定める、LINE push・メール代替経路のいずれでも
+    最終確認ができなかった店舗(store_deletion_confirmation_unreachable_atが設定済み)を
+    store_id昇順で一覧化する。本関数は読み取り専用で、削除実行や通知送信は行わない。
+    """
+    candidates = [
+        UnreachableStoreDeletionCandidate(
+            store_id=state.store_id,
+            store_deletion_confirmation_unreachable_at=state.store_deletion_confirmation_unreachable_at,
+            days_since_unreachable=(
+                now - state.store_deletion_confirmation_unreachable_at
+            ).days,
+        )
+        for state in states
+        if state.store_deletion_confirmation_unreachable_at is not None
+    ]
+    return sorted(candidates, key=lambda candidate: candidate.store_id)
+
+
+def render_unreachable_store_deletion_candidates_report(
+    candidates: Sequence[UnreachableStoreDeletionCandidate],
+) -> str:
+    """store-deletion-candidate-unreachable-owner-review-design.md 4節のレポート文言。
+    オーナーとの対話セッション内で表示することを想定し(外部への自動送信は行わない)、
+    自動削除の対象ではないこと・個別判断が必要であることを明示する。
+    """
+    if not candidates:
+        return "連絡不能の削除候補店舗はありません。"
+
+    lines = [
+        f"連絡不能の削除候補店舗: {len(candidates)}件(オーナーによる個別確認が必要)",
+        "",
+    ]
+    for candidate in candidates:
+        lines.append(
+            f"- {candidate.store_id}: 連絡不能判定から{candidate.days_since_unreachable}日経過"
+            f"(判定日時: {candidate.store_deletion_confirmation_unreachable_at.isoformat()})"
+        )
+    lines.append("")
+    lines.append(
+        "本リストは自動削除の対象ではありません。オーナーが対話セッションで個別に"
+        "削除可否を判断してください(data-retention-policy.md参照)。"
+    )
+    return "\n".join(lines)

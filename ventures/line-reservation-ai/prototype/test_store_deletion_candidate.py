@@ -13,7 +13,9 @@ from store_deletion_candidate import (
     StoreDeletionCandidateState,
     is_store_deletion_candidate,
     list_store_deletion_candidates,
+    list_unreachable_store_deletion_candidates,
     render_store_deletion_final_confirmation_message,
+    render_unreachable_store_deletion_candidates_report,
 )
 
 FINAL_SENT_AT = datetime(2026, 8, 20, 10, 0)
@@ -95,6 +97,41 @@ class RenderMessageTests(unittest.TestCase):
         message = render_store_deletion_final_confirmation_message()
         self.assertIn("データ保有", message)
         self.assertNotIn("削除予定日", message)
+
+
+class ListUnreachableStoreDeletionCandidatesTests(unittest.TestCase):
+    def test_returns_only_unreachable_stores_sorted_with_days_elapsed(self):
+        unreachable_at = DUE_AT - timedelta(days=10)
+        states = [
+            _state(store_id="store-b", store_deletion_confirmation_unreachable_at=unreachable_at),
+            _state(store_id="store-a", store_deletion_confirmation_unreachable_at=unreachable_at),
+            _state(store_id="store-c", store_deletion_confirmation_unreachable_at=None),
+        ]
+        result = list_unreachable_store_deletion_candidates(states, DUE_AT)
+        self.assertEqual([c.store_id for c in result], ["store-a", "store-b"])
+        self.assertEqual(result[0].days_since_unreachable, 10)
+
+    def test_empty_when_none_unreachable(self):
+        states = [_state(store_deletion_confirmation_unreachable_at=None)]
+        self.assertEqual(list_unreachable_store_deletion_candidates(states, DUE_AT), [])
+
+
+class RenderUnreachableStoreDeletionCandidatesReportTests(unittest.TestCase):
+    def test_empty_report_when_no_candidates(self):
+        self.assertEqual(
+            render_unreachable_store_deletion_candidates_report([]),
+            "連絡不能の削除候補店舗はありません。",
+        )
+
+    def test_report_lists_store_id_and_days_elapsed_and_warns_against_auto_deletion(self):
+        candidates = list_unreachable_store_deletion_candidates(
+            [_state(store_id="store-a", store_deletion_confirmation_unreachable_at=DUE_AT - timedelta(days=5))],
+            DUE_AT,
+        )
+        report = render_unreachable_store_deletion_candidates_report(candidates)
+        self.assertIn("store-a", report)
+        self.assertIn("5日経過", report)
+        self.assertIn("自動削除の対象ではありません", report)
 
 
 if __name__ == "__main__":
