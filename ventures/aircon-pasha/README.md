@@ -5597,3 +5597,35 @@
   次回候補を受け、連絡不能の理由区分〈`UNREACHABLE_REASON_NOT_FOLLOWING`〉を追加。
   `UserProfile`に`deletion_confirmation_unreachable_reason`フィールドを追加し、
   レポート表示に理由ラベルを追記。テスト8件追加、全684件パス・schema検証25件パス)
+- フェーズ314(2026-10-13 19:00 UTC定例更新): forklift-pasha(フェーズ150)・
+  kura-pasha(フェーズ234)が確立したFirestore複合インデックス集約方針(venture全体に
+  分散している複合インデックス必要箇所を1ドキュメントに集約し、デプロイ可能な
+  `firestore.indexes.json`を先行して書き出す)を本venture向けに横展開した。
+  firestore-composite-index-plan.mdを新規文書化し、`user_profile`コレクションに必要な
+  複合インデックス4件(1: `blocked_but_billing_candidates.list_blocked_but_billing_
+  candidates()`の`is_following == False AND current_plan_id != null`、2:
+  `payment_suspension_scheduler.select_due_payment_suspensions()`の
+  `payment_suspended_at == null AND payment_failure_detected_at`範囲、3:
+  `payment_failure_reminder_scheduler.select_due_payment_failure_reminders()`の
+  `payment_suspended_at == null AND payment_failure_reminder_sent_at == null AND
+  payment_failure_detected_at`範囲、4: `trial_end_scheduler.select_due_trial_end_
+  notifications()`の`trial_end_notified_at == null AND upgraded_at == null AND
+  trial_start_at`範囲)を洗い出し、`firestore.indexes.json`を先行して書き出した。
+  `deletion_candidate.list_deletion_candidates()`(単一フィールド`deletion_candidate_at`
+  の範囲条件のみ)は単一フィールド索引で足りるため対象外、`pending_links`・
+  `usage_counter`も複合クエリが発生しないため対象外と確認した。コード変更なし、
+  文書・JSON作成のみのため既存テスト684件(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証25件(`python3 schema/validate_test_cases.py`)いずれも
+  変更なしでパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし(実
+  デプロイ自体は既存の承認待ち事項〈実GCPプロジェクト作成・Firestore有効化〉の範囲内
+  であり、新たな承認待ち事項ではない)。次回候補: (1)承認待ち事項がオーナーから承認
+  された場合はその着手を最優先、(2)#4(trial_end_scheduler.py)用のCloud Functions
+  エントリポイント(日次Cloud Scheduler配線)自体がまだ存在しない点の設計・実装、
+  (3)course-set-pashaへの同種の複合インデックス集約の横展開、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-13 19:00 UTC(フェーズ314: firestore-composite-index-plan.mdを
+  新規文書化。forklift-pasha・kura-pasha版の集約方針を横展開し、`user_profile`
+  コレクションに必要な複合インデックス4件〈blocked_but_billing・payment_suspension・
+  payment_failure_reminder・trial_end〉を洗い出し`firestore.indexes.json`を書き出した。
+  コード変更なし)

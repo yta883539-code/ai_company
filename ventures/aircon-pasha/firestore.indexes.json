@@ -1,0 +1,39 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "user_profile",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_following", "order": "ASCENDING" },
+        { "fieldPath": "current_plan_id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_profile",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "payment_suspended_at", "order": "ASCENDING" },
+        { "fieldPath": "payment_failure_detected_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_profile",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "payment_suspended_at", "order": "ASCENDING" },
+        { "fieldPath": "payment_failure_reminder_sent_at", "order": "ASCENDING" },
+        { "fieldPath": "payment_failure_detected_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_profile",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trial_end_notified_at", "order": "ASCENDING" },
+        { "fieldPath": "upgraded_at", "order": "ASCENDING" },
+        { "fieldPath": "trial_start_at", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
