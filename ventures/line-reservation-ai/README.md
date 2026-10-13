@@ -5809,3 +5809,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `render_unreachable_store_deletion_candidates_report()`を実装し、連絡不能フラグ付き
   削除候補をオーナーが対話セッションで個別確認するための読み取り専用レポート生成機能を
   追加。テスト4件追加、全927件パス・schema検証28件パス)
+- フェーズ続き320(2026-10-13 12:00 UTC定例更新): フェーズ続き319の次回候補(2)
+  「他venture(aircon-pasha・course-set-pasha・kura-pasha)の`deletion_candidate.py`にも
+  同種の『連絡不能オーナーレビュー用レポート』機能が欠けていないかの横断点検・展開」を
+  実施した結果、3venture全てに`UnreachableDeletionCandidate`・
+  `list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_report()`
+  が既に実装済みであり(forklift-pashaは削除候補機能自体が未実装のため対象外、LINE非依存の
+  汎用Webフォーム構成で店舗の「休止モード」概念自体を持たないため)、横展開すべき欠落は
+  見つからなかった(点検のみ、コード変更なし)。一方でstore-deletion-candidate-
+  unreachable-owner-review-design.md 3節が「次回候補」としていた「連絡不能と判定された
+  理由(owner_line_user_id未設定かLINE push送信失敗か)が現行`StoreDeletionState`に
+  永続化されていない」という既知の限界について、aircon-pasha/course-set-pasha/kura-pasha
+  の`deletion_candidate.py`を確認した結果、3venture共通で未解決のまま残っていたことを
+  発見したため、本ventureでこの欠落を埋める実装に着手した。`store_deletion_candidate.py`に
+  理由コード定数`UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET`・
+  `UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED`を新設し、`StoreDeletionCandidateState`・
+  `UnreachableStoreDeletionCandidate`に`unreachable_reason`フィールド(本フィールド追加前の
+  既存データはNoneのまま「不明」表示にフォールバックし後方互換を保つ)を追加、
+  `UnreachableStoreDeletionCandidate.unreachable_reason_label`プロパティで対話セッション
+  表示用の日本語ラベルに変換する仕組みを実装した。`cloud_function_send_store_deletion_
+  confirmations.py`の`send_store_deletion_confirmations()`が`owner_line_user_id`未設定時・
+  `LinePushDeliveryError`発生時それぞれに対応する理由コードを書き込むよう配線し、
+  `render_unreachable_store_deletion_candidates_report()`のレポート各行に理由ラベルを
+  追記した。テスト6件追加(`test_store_deletion_candidate.py`4件・`test_cloud_function_
+  send_store_deletion_confirmations.py`2件)、全931件パス(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`)・schema検証28件(`python3 schema/validate_test_cases.py`)
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから
+  承認された場合は本venture一式の実装着手を最優先、(2)同種の理由コード区分を
+  aircon-pasha・course-set-pasha・kura-pashaの`deletion_candidate.py`にも横展開するか
+  検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 12:00 UTC(フェーズ続き320: 他3venture横断点検の結果「連絡不能
+  レポート」機能自体の欠落は見つからなかったが、連絡不能の理由〈owner_line_user_id未設定か
+  LINE push送信失敗か〉が未記録という3venture共通の既知の限界を発見し、本ventureで
+  理由コード記録・表示機能を新規実装。テスト6件追加、全931件パス・schema検証28件パス)

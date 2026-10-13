@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 
 from store_deletion_candidate import (
     DELETION_CANDIDATE_DELAY,
+    UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED,
+    UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
     StoreDeletionCandidateState,
     is_store_deletion_candidate,
     list_store_deletion_candidates,
@@ -115,6 +117,24 @@ class ListUnreachableStoreDeletionCandidatesTests(unittest.TestCase):
         states = [_state(store_deletion_confirmation_unreachable_at=None)]
         self.assertEqual(list_unreachable_store_deletion_candidates(states, DUE_AT), [])
 
+    def test_carries_over_unreachable_reason(self):
+        states = [
+            _state(
+                store_id="store-a",
+                store_deletion_confirmation_unreachable_at=DUE_AT,
+                store_deletion_confirmation_unreachable_reason=UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
+            )
+        ]
+        result = list_unreachable_store_deletion_candidates(states, DUE_AT)
+        self.assertEqual(
+            result[0].unreachable_reason, UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET
+        )
+
+    def test_unreachable_reason_defaults_to_none_when_not_recorded(self):
+        states = [_state(store_id="store-a", store_deletion_confirmation_unreachable_at=DUE_AT)]
+        result = list_unreachable_store_deletion_candidates(states, DUE_AT)
+        self.assertIsNone(result[0].unreachable_reason)
+
 
 class RenderUnreachableStoreDeletionCandidatesReportTests(unittest.TestCase):
     def test_empty_report_when_no_candidates(self):
@@ -132,6 +152,32 @@ class RenderUnreachableStoreDeletionCandidatesReportTests(unittest.TestCase):
         self.assertIn("store-a", report)
         self.assertIn("5日経過", report)
         self.assertIn("自動削除の対象ではありません", report)
+
+    def test_report_shows_reason_label_for_each_known_reason_code(self):
+        for reason_code, expected_label in (
+            (UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET, "オーナーのLINEユーザーID未設定"),
+            (UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED, "LINE push送信失敗"),
+        ):
+            candidates = list_unreachable_store_deletion_candidates(
+                [
+                    _state(
+                        store_id="store-a",
+                        store_deletion_confirmation_unreachable_at=DUE_AT - timedelta(days=1),
+                        store_deletion_confirmation_unreachable_reason=reason_code,
+                    )
+                ],
+                DUE_AT,
+            )
+            report = render_unreachable_store_deletion_candidates_report(candidates)
+            self.assertIn(expected_label, report)
+
+    def test_report_shows_unknown_label_when_reason_not_recorded(self):
+        candidates = list_unreachable_store_deletion_candidates(
+            [_state(store_id="store-a", store_deletion_confirmation_unreachable_at=DUE_AT - timedelta(days=1))],
+            DUE_AT,
+        )
+        report = render_unreachable_store_deletion_candidates_report(candidates)
+        self.assertIn("不明(本フィールド追加前に記録された候補)", report)
 
 
 if __name__ == "__main__":

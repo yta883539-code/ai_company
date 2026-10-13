@@ -13,7 +13,11 @@ from cloud_function_send_store_deletion_confirmations import (
     StoreDeletionState,
     send_store_deletion_confirmations,
 )
-from store_deletion_candidate import DELETION_CANDIDATE_DELAY
+from store_deletion_candidate import (
+    DELETION_CANDIDATE_DELAY,
+    UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED,
+    UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
+)
 
 FINAL_SENT_AT = datetime(2026, 8, 20, 10, 0)
 DUE_AT = FINAL_SENT_AT + DELETION_CANDIDATE_DELAY
@@ -81,6 +85,10 @@ class SendStoreDeletionConfirmationsTests(unittest.TestCase):
         self.assertEqual(result.marked_unreachable, ["store-1"])
         self.assertEqual(store.store_deletion_confirmation_unreachable_at, DUE_AT)
         self.assertIsNone(store.store_deletion_confirmation_sent_at)
+        self.assertEqual(
+            store.store_deletion_confirmation_unreachable_reason,
+            UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
+        )
 
     def test_push_failure_marks_unreachable_without_retalling_history(self):
         store = _store()
@@ -89,6 +97,10 @@ class SendStoreDeletionConfirmationsTests(unittest.TestCase):
         self.assertEqual(result.sent, [])
         self.assertEqual(result.marked_unreachable, ["store-1"])
         self.assertEqual(store.store_deletion_confirmation_unreachable_at, DUE_AT)
+        self.assertEqual(
+            store.store_deletion_confirmation_unreachable_reason,
+            UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED,
+        )
 
     def test_unreachable_store_remains_candidate_for_retry_after_recovery(self):
         store = _store(owner_line_user_id=None)

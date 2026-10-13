@@ -44,6 +44,8 @@ from cloud_function_process_event import (  # noqa: E402
     LinePushDeliveryError,
 )
 from store_deletion_candidate import (  # noqa: E402
+    UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED,
+    UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
     list_store_deletion_candidates,
     render_store_deletion_final_confirmation_message,
 )
@@ -68,6 +70,7 @@ class StoreDeletionState:
     stripe_customer_id: Optional[str] = None
     store_deletion_confirmation_sent_at: Optional[datetime] = None
     store_deletion_confirmation_unreachable_at: Optional[datetime] = None
+    store_deletion_confirmation_unreachable_reason: Optional[str] = None
 
 
 @dataclass
@@ -101,6 +104,9 @@ def send_store_deletion_confirmations(
 
         if store.owner_line_user_id is None:
             store.store_deletion_confirmation_unreachable_at = now
+            store.store_deletion_confirmation_unreachable_reason = (
+                UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET
+            )
             result.marked_unreachable.append(store.store_id)
             continue
 
@@ -111,6 +117,9 @@ def send_store_deletion_confirmations(
             )
         except LinePushDeliveryError:
             store.store_deletion_confirmation_unreachable_at = now
+            store.store_deletion_confirmation_unreachable_reason = (
+                UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED
+            )
             result.marked_unreachable.append(store.store_id)
             continue
 

@@ -63,6 +63,7 @@ class StoreDeletionCandidateState:
     stripe_customer_id: Optional[str] = None
     store_deletion_confirmation_sent_at: Optional[datetime] = None
     store_deletion_confirmation_unreachable_at: Optional[datetime] = None
+    store_deletion_confirmation_unreachable_reason: Optional[str] = None
 
 
 def is_store_deletion_candidate(state: StoreDeletionCandidateState, now: datetime) -> bool:
@@ -102,6 +103,18 @@ def list_store_deletion_candidates(
     )
 
 
+# store-deletion-candidate-unreachable-owner-review-design.md 3節が「次回候補」としていた
+# 連絡不能の理由区分。send_store_deletion_confirmations()が書き込む値と一致させる。
+UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET = "owner_line_user_id_not_set"
+UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED = "line_push_delivery_failed"
+
+_UNREACHABLE_REASON_LABELS = {
+    UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET: "オーナーのLINEユーザーID未設定",
+    UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED: "LINE push送信失敗",
+}
+_UNREACHABLE_REASON_UNKNOWN_LABEL = "不明(本フィールド追加前に記録された候補)"
+
+
 @dataclass(frozen=True)
 class UnreachableStoreDeletionCandidate:
     """store-deletion-candidate-unreachable-owner-review-design.md 3節の読み取り専用
@@ -111,6 +124,16 @@ class UnreachableStoreDeletionCandidate:
     store_id: str
     store_deletion_confirmation_unreachable_at: datetime
     days_since_unreachable: int
+    unreachable_reason: Optional[str] = None
+
+    @property
+    def unreachable_reason_label(self) -> str:
+        """理由コードを対話セッション表示用の日本語ラベルに変換する。本フィールド追加前
+        (フェーズ続き319以前)に連絡不能と記録された候補はunreachable_reasonがNoneのまま
+        なので、既知の限界どおり「不明」として表示する(design 3節参照)。"""
+        if self.unreachable_reason is None:
+            return _UNREACHABLE_REASON_UNKNOWN_LABEL
+        return _UNREACHABLE_REASON_LABELS.get(self.unreachable_reason, self.unreachable_reason)
 
 
 def list_unreachable_store_deletion_candidates(
@@ -129,6 +152,7 @@ def list_unreachable_store_deletion_candidates(
             days_since_unreachable=(
                 now - state.store_deletion_confirmation_unreachable_at
             ).days,
+            unreachable_reason=state.store_deletion_confirmation_unreachable_reason,
         )
         for state in states
         if state.store_deletion_confirmation_unreachable_at is not None
@@ -153,7 +177,8 @@ def render_unreachable_store_deletion_candidates_report(
     for candidate in candidates:
         lines.append(
             f"- {candidate.store_id}: 連絡不能判定から{candidate.days_since_unreachable}日経過"
-            f"(判定日時: {candidate.store_deletion_confirmation_unreachable_at.isoformat()})"
+            f"(判定日時: {candidate.store_deletion_confirmation_unreachable_at.isoformat()}、"
+            f"理由: {candidate.unreachable_reason_label})"
         )
     lines.append("")
     lines.append(
