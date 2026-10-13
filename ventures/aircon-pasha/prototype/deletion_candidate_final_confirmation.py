@@ -270,6 +270,78 @@ def send_deletion_candidate_final_confirmations(
     return result
 
 
+@dataclass(frozen=True)
+class UnreachableDeletionCandidate:
+    """deletion-candidate-unreachable-owner-review-design.md 4節の読み取り専用レポート行。
+    オーナーが対話セッションで個別に削除可否を判断するための一覧表示にのみ使う
+    (削除実行・自動送信は一切行わない)。"""
+
+    user_id: str
+    deletion_confirmation_unreachable_at: datetime
+    days_since_unreachable: int
+
+
+class UnreachableDeletionCandidateReader(Protocol):
+    """`list_unreachable_deletion_candidates()`が要求する最小限のProtocol。
+    `InMemoryUserProfileStore`は既存メソッド(`all_user_ids`・
+    `get_deletion_confirmation_unreachable_at`)でそのまま構造的に満たす。"""
+
+    def all_user_ids(self) -> "Iterable[str]":
+        ...
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+def list_unreachable_deletion_candidates(
+    store: UnreachableDeletionCandidateReader, now: datetime,
+) -> list[UnreachableDeletionCandidate]:
+    """deletion-candidate-unreachable-owner-review-design.md 4節の選定ロジック。
+
+    `store.all_user_ids()`が返す全user_idのうち、`deletion_confirmation_unreachable_at`
+    が設定済みのものをuser_id昇順で一覧化する。本関数は読み取り専用で、削除実行や通知
+    送信は行わない。
+    """
+    candidates = [
+        UnreachableDeletionCandidate(
+            user_id=user_id,
+            deletion_confirmation_unreachable_at=unreachable_at,
+            days_since_unreachable=(now - unreachable_at).days,
+        )
+        for user_id in store.all_user_ids()
+        if (unreachable_at := store.get_deletion_confirmation_unreachable_at(user_id))
+        is not None
+    ]
+    return sorted(candidates, key=lambda candidate: candidate.user_id)
+
+
+def render_unreachable_deletion_candidates_report(
+    candidates: Sequence[UnreachableDeletionCandidate],
+) -> str:
+    """deletion-candidate-unreachable-owner-review-design.md 5節のレポート文言。
+    オーナーとの対話セッション内で表示することを想定し(外部への自動送信は行わない)、
+    自動削除の対象ではないこと・個別判断が必要であることを明示する。
+    """
+    if not candidates:
+        return "連絡不能の削除候補ユーザーはいません。"
+
+    lines = [
+        f"連絡不能の削除候補ユーザー: {len(candidates)}件(オーナーによる個別確認が必要)",
+        "",
+    ]
+    for candidate in candidates:
+        lines.append(
+            f"- {candidate.user_id}: 連絡不能判定から{candidate.days_since_unreachable}日経過"
+            f"(判定日時: {candidate.deletion_confirmation_unreachable_at.isoformat()})"
+        )
+    lines.append("")
+    lines.append(
+        "本リストは自動削除の対象ではありません。オーナーが対話セッションで個別に"
+        "削除可否を判断してください(data-retention-policy.md参照)。"
+    )
+    return "\n".join(lines)
+
+
 def _demo() -> None:
     from trial_end_scheduler import InMemoryLinePushClient
 

@@ -19,6 +19,8 @@ from deletion_candidate_final_confirmation import (  # noqa: E402
     DeletionCandidateConfirmationUserState,
     build_deletion_candidate_confirmation_states,
     build_deletion_candidate_final_confirmation_flex_message,
+    list_unreachable_deletion_candidates,
+    render_unreachable_deletion_candidates_report,
     route_deletion_candidate_confirmation,
     run_due_deletion_candidate_final_confirmations,
     select_due_deletion_candidate_final_confirmations,
@@ -290,6 +292,102 @@ class RunDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
 
         self.assertEqual(second_result.sent, [])
         self.assertEqual(len(push.sent), 1)
+
+
+class ListUnreachableDeletionCandidatesTest(unittest.TestCase):
+    """フェーズ311: list_unreachable_deletion_candidates()のテスト
+    (deletion-candidate-unreachable-owner-review-design.md 4節)。"""
+
+    def setUp(self) -> None:
+        self.now = datetime(2026, 10, 13, 4, 0, 0)
+        self.store = InMemoryUserProfileStore()
+
+    def _save(self, user_id: str, **overrides) -> None:
+        defaults = dict(
+            business_name=user_id, business_type="indiv", email=f"{user_id}@example.com",
+            linked_at=self.now,
+        )
+        defaults.update(overrides)
+        self.store.save(user_id, UserProfile(**defaults))
+
+    def test_returns_empty_list_when_no_candidate_is_unreachable(self) -> None:
+        self._save("u1", is_following=True)
+        self.assertEqual(list_unreachable_deletion_candidates(self.store, self.now), [])
+
+    def test_user_marked_unreachable_is_included_with_days_since(self) -> None:
+        unreachable_at = self.now - timedelta(days=10)
+        self._save(
+            "u1", is_following=False,
+            deletion_confirmation_unreachable_at=unreachable_at,
+        )
+
+        candidates = list_unreachable_deletion_candidates(self.store, self.now)
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].user_id, "u1")
+        self.assertEqual(
+            candidates[0].deletion_confirmation_unreachable_at, unreachable_at
+        )
+        self.assertEqual(candidates[0].days_since_unreachable, 10)
+
+    def test_results_are_sorted_by_user_id(self) -> None:
+        self._save(
+            "u2", is_following=False,
+            deletion_confirmation_unreachable_at=self.now - timedelta(days=1),
+        )
+        self._save(
+            "u1", is_following=False,
+            deletion_confirmation_unreachable_at=self.now - timedelta(days=2),
+        )
+
+        candidates = list_unreachable_deletion_candidates(self.store, self.now)
+
+        self.assertEqual([c.user_id for c in candidates], ["u1", "u2"])
+
+    def test_user_without_unreachable_flag_is_excluded_even_if_other_unreachable_exists(
+        self,
+    ) -> None:
+        self._save(
+            "u1", is_following=False,
+            deletion_confirmation_unreachable_at=self.now - timedelta(days=1),
+        )
+        self._save("u2", is_following=True)
+
+        candidates = list_unreachable_deletion_candidates(self.store, self.now)
+
+        self.assertEqual([c.user_id for c in candidates], ["u1"])
+
+
+class RenderUnreachableDeletionCandidatesReportTest(unittest.TestCase):
+    """フェーズ311: render_unreachable_deletion_candidates_report()のテスト。"""
+
+    def setUp(self) -> None:
+        self.now = datetime(2026, 10, 13, 4, 0, 0)
+
+    def test_empty_candidates_returns_no_candidate_message(self) -> None:
+        self.assertEqual(
+            render_unreachable_deletion_candidates_report([]),
+            "連絡不能の削除候補ユーザーはいません。",
+        )
+
+    def test_report_includes_count_user_id_and_disclaimer(self) -> None:
+        store = InMemoryUserProfileStore()
+        store.save(
+            "u1",
+            UserProfile(
+                business_name="u1", business_type="indiv", email="u1@example.com",
+                linked_at=self.now, is_following=False,
+                deletion_confirmation_unreachable_at=self.now - timedelta(days=5),
+            ),
+        )
+        candidates = list_unreachable_deletion_candidates(store, self.now)
+
+        report = render_unreachable_deletion_candidates_report(candidates)
+
+        self.assertIn("1件", report)
+        self.assertIn("u1", report)
+        self.assertIn("5日経過", report)
+        self.assertIn("自動削除の対象ではありません", report)
 
 
 if __name__ == "__main__":

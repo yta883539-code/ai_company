@@ -5518,3 +5518,30 @@
 - 最終更新: 2026-10-12 15:00 UTC(フェーズ310: 他4ventureの「薄いCloud Functions
   エントリポイント未実装のスケジューラ本体」横断点検を実施し、いずれも欠落なしと
   確認。コード変更なし、テスト675件・schema検証25件いずれもパス)
+- フェーズ311(2026-10-13 05:00 UTC定例更新): line-reservation-aiフェーズ続き319
+  「次回候補(2)」(aircon-pasha・course-set-pasha・kura-pashaの`deletion_candidate.py`
+  関連モジュールに「連絡不能オーナーレビュー用レポート」機能が欠けていないかの横断
+  点検・展開)を受け、本venture自身を確認した結果、フェーズ307で`deletion_confirmation_
+  unreachable_at`フィールドの記録までは実装済みだが、このフラグ付き候補をオーナーが
+  対話セッションで参照する一覧表示機能が未設計のまま残っていたことを確認した。
+  deletion-candidate-unreachable-owner-review-design.mdを新規文書化し、line-
+  reservation-ai版の設計方針(読み取り専用、自動削除・自動送信は一切行わない)を
+  踏襲しつつ、本venture固有のストア構成(`user_profile/{user_id}`を`all_user_ids()`で
+  列挙する構成)に合わせて設計した。`prototype/deletion_candidate_final_confirmation.py`
+  に`UnreachableDeletionCandidate`データクラス・`UnreachableDeletionCandidateReader`
+  Protocol・`list_unreachable_deletion_candidates()`・`render_unreachable_deletion_
+  candidates_report()`を実装した(`InMemoryUserProfileStore`は既存メソッドでそのまま
+  構造的にProtocolを満たすため、ストア側の変更は不要)。テスト6件追加、全681件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれも変更なしでパス。本機能は読み取り
+  専用ロジックのみのため新たな承認待ち事項は発生していない。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから
+  承認された場合はその着手を最優先、(2)course-set-pashaの`deletion_candidate_final_
+  confirmation.py`にも同種の機能を展開(kura-pashaは`deletion_candidate.py`相当の
+  構成自体を持たず対象外と確認済み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 05:00 UTC(フェーズ311: deletion-candidate-unreachable-
+  owner-review-design.mdを新規文書化し、`deletion_candidate_final_confirmation.py`に
+  `list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_
+  report()`を実装。line-reservation-aiフェーズ続き319と同種の「連絡不能オーナー
+  レビュー用レポート」機能を展開。テスト6件追加、全681件パス・schema検証25件パス)
