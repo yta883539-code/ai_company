@@ -29,6 +29,10 @@ from typing import Optional, Protocol
 
 from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
 from checkout_session import VALID_PLAN_IDS
+from deletion_candidate import (
+    clear_deletion_candidate_on_subscription_reactivated,
+    mark_deletion_candidate_on_subscription_deleted,
+)
 from payment_failure_notification import (
     OUTCOME_NOT_APPLICABLE,
     handle_payment_failure_detected,
@@ -323,6 +327,10 @@ def handle_checkout_session_completed(
     if not _is_stale_subscription_status_event(workshop_store, workshop_id, event_time):
         workshop_store.set_subscription_status(workshop_id, "active")
         _record_subscription_status_event_time(workshop_store, workshop_id, event_time)
+        # stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)4節:
+        # 本ventureでsubscription_statusを"active"へ書き込む唯一の箇所であるため、
+        # ここを再契約(削除候補化の取り消し)トリガーとする。
+        clear_deletion_candidate_on_subscription_reactivated(workshop_store, workshop_id)
 
     plan_written = False
     metadata = data_object.get("metadata")
@@ -412,6 +420,13 @@ def handle_customer_subscription_deleted(
     clear_blocked_but_billing_owner_notified_at(workshop_store, workshop_id)
     if workshop_store.get_payment_failure_detected_at(workshop_id) is not None:
         workshop_store.clear_payment_failure_detected_at(workshop_id)
+
+    # stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)4節:
+    # event_timeが取れない(Stripeイベントにcreatedが無い等、現実的には稀)場合は
+    # 削除候補化の起点日が定まらないため書き込みをスキップする(他の状態更新・通知は
+    # event_time有無に関わらず従来通り実行する、後方互換)。
+    if event_time is not None:
+        mark_deletion_candidate_on_subscription_deleted(workshop_store, workshop_id, event_time)
 
     notified = False
     if push_client is not None:

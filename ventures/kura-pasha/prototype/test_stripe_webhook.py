@@ -158,6 +158,21 @@ def test_handle_sets_subscription_status_active():
     check("subscription_statusがactiveへ遷移", store.get_subscription_status("W2") == "active")
 
 
+def test_handle_clears_deletion_candidate_at_on_reactivation():
+    # stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)4節:
+    # checkout.session.completedでsubscription_statusが実際にactiveへ書き込まれた場合、
+    # 既存のdeletion_candidate_atを取り消す。
+    store = InMemoryWorkshopStore()
+    store.set_deletion_candidate_at("W2b", datetime(2027, 10, 13, 0, 0, 0))
+    handle_checkout_session_completed(
+        {"client_reference_id": "W2b", "customer": "cus_2b"}, store
+    )
+    check(
+        "再契約でdeletion_candidate_atがクリアされる",
+        store.get_deletion_candidate_at("W2b") is None,
+    )
+
+
 def test_handle_does_not_overwrite_existing_stripe_customer_id():
     store = InMemoryWorkshopStore()
     store.set_stripe_customer_id("W3", "cus_original")
@@ -252,6 +267,32 @@ def test_deleted_sets_subscription_status_canceled():
     check("成功時はworkshop_idを返す", result.workshop_id == "W8")
     check("成功時はinvalid=False・unresolved=False", not result.invalid and not result.unresolved)
     check("push_client未指定時はnotified=False", result.notified is False)
+
+
+def test_deleted_marks_deletion_candidate_when_event_time_given():
+    # stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)4節。
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W8b", "cus_8b")
+    store.set_subscription_status("W8b", "active")
+    event_time = datetime(2026, 10, 13, 12, 0, 0, tzinfo=timezone.utc)
+    handle_customer_subscription_deleted(
+        {"customer": "cus_8b"}, store, event_time=event_time
+    )
+    check(
+        "deletion_candidate_atがevent_time+365日で設定される",
+        store.get_deletion_candidate_at("W8b") == event_time + timedelta(days=365),
+    )
+
+
+def test_deleted_skips_deletion_candidate_when_event_time_missing():
+    store = InMemoryWorkshopStore()
+    store.set_stripe_customer_id("W8c", "cus_8c")
+    store.set_subscription_status("W8c", "active")
+    handle_customer_subscription_deleted({"customer": "cus_8c"}, store)
+    check(
+        "event_time省略時はdeletion_candidate_atを書き込まない",
+        store.get_deletion_candidate_at("W8c") is None,
+    )
 
 
 def test_deleted_clears_blocked_but_billing_owner_notified_at():
@@ -1557,6 +1598,7 @@ if __name__ == "__main__":
     test_handle_returns_invalid_when_client_reference_id_empty()
     test_handle_writes_stripe_customer_id_when_unset()
     test_handle_sets_subscription_status_active()
+    test_handle_clears_deletion_candidate_at_on_reactivation()
     test_handle_does_not_overwrite_existing_stripe_customer_id()
     test_handle_returns_workshop_id_on_success()
     test_handle_writes_plan_from_metadata_when_known()
@@ -1565,6 +1607,8 @@ if __name__ == "__main__":
     test_deleted_returns_invalid_when_customer_missing()
     test_deleted_returns_unresolved_when_customer_unknown()
     test_deleted_sets_subscription_status_canceled()
+    test_deleted_marks_deletion_candidate_when_event_time_given()
+    test_deleted_skips_deletion_candidate_when_event_time_missing()
     test_deleted_clears_blocked_but_billing_owner_notified_at()
     test_deleted_clear_is_no_op_when_notified_at_was_unset()
     test_deleted_sends_notification_to_contractor_when_push_client_given()

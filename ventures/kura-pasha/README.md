@@ -5103,3 +5103,43 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   文書化。本venture全コレクションをdeny-allとするFirestoreセキュリティルール草案・
   承認後の検証手順を記載。設計ドキュメントのみの変更、テスト176件・schema検証32件いずれも
   変更なしでパス)
+- フェーズ232(2026-10-13 08:00 UTC定例更新): line-reservation-aiフェーズ319(2026-10-13
+  04:00 UTC)の次回候補(2)「他venture(aircon-pasha・course-set-pasha・kura-pasha)の
+  `deletion_candidate.py`にも同種機能が欠けていないかの横断点検」を受けて本venture自身を
+  確認した結果、aircon-pasha・course-set-pashaには存在するStripe解約起点の削除候補化
+  トリガー(`deletion_candidate.py`、stripe-cancellation-deletion-candidate-trigger-
+  design.mdフェーズ123・91)自体が本ventureにはまだ一切実装されていないことが判明した
+  (data-retention-policy.md「削除候補化後の最終確認」節〈フェーズ20〉は想定のみで、
+  実装が追随していなかった)。あわせて、data-retention-policy.mdが記載する永続データの
+  コレクション名`user_profile`が、実際に確定した正式名`craftsman_workshop`と異なる
+  (data-retention-policy.md自身が当時「残課題」としていた不整合)ことも発見した。
+  stripe-cancellation-deletion-candidate-trigger-design.mdを新規文書化し、本venture固有の
+  差異(取り消しトリガーは`customer.subscription.updated`ではなく`subscription_status`を
+  実際に`"active"`へ書き込む`checkout.session.completed`であること、専用のstaleガードを
+  新設せず既存の`_is_stale_subscription_status_event()`ガードに相乗りすること)を整理した
+  上で、同フェーズ内で実装まで行った。`usage_counter_workshop.py`の`WorkshopStoreProtocol`/
+  `InMemoryWorkshopStore`に`get_deletion_candidate_at`/`set_deletion_candidate_at`/
+  `clear_deletion_candidate_at`の3メソッドを追加し、新規`prototype/deletion_candidate.py`に
+  `mark_deletion_candidate_on_subscription_deleted()`・`clear_deletion_candidate_on_
+  subscription_reactivated()`・`list_deletion_candidates()`(365日後の洗い出し、読み出し
+  専用)を実装、`stripe_webhook.py`の`handle_customer_subscription_deleted()`・
+  `handle_checkout_session_completed()`それぞれの既存の状態更新分岐内から呼び出す配線を
+  追加した。`test_deletion_candidate.py`を新設(9件)、`test_stripe_webhook.py`に3件追加
+  (event_time有無での書き込み分岐・再契約時のクリアを確認)し、回帰確認として
+  `python3 test_stripe_webhook.py`(185件中185件成功)・`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(17→18ファイル、176→184件)・`python3 schema/validate_test_
+  cases.py`(32件、変更なし)を実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。日次バッチからの`list_deletion_candidates()`呼び出し
+  配線・削除候補化後の最終確認(LINE push/メール代替経路)・data-retention-policy.md本体の
+  `user_profile`表記訂正は本フェーズのスコープ外とし、設計文書5節に次回候補として残した。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)
+  `list_deletion_candidates()`を日次バッチへ配線し、aircon-pasha・course-set-pasha型の
+  削除候補化後の最終確認送信・「連絡不能」オーナーレビュー用レポート(line-reservation-ai
+  フェーズ318・319相当)を本ventureにも実装する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 08:00 UTC(フェーズ232: Stripe解約〈`customer.subscription.
+  deleted`〉起点の削除候補化トリガーが本ventureに未実装だったcross-venture parityの
+  ギャップを解消。stripe-cancellation-deletion-candidate-trigger-design.mdを新規文書化し
+  同フェーズ内で実装、`deletion_candidate.py`新設・`WorkshopStoreProtocol`に3メソッド
+  追加・`stripe_webhook.py`の2ハンドラへ配線。テスト12件追加、`test_stripe_webhook.py`は
+  185件中185件成功、`unittest discover`は176→184件、schema検証32件は変更なしでパス)

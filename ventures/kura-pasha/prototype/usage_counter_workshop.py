@@ -624,6 +624,20 @@ class WorkshopStoreProtocol(Protocol):
         """
         ...
 
+    def get_deletion_candidate_at(self, workshop_id: str) -> Optional[datetime]:
+        """stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)2節:
+        削除候補として洗い出す時刻。未設定(削除候補ではない通常状態)の場合はNoneを返す。
+        """
+        ...
+
+    def set_deletion_candidate_at(self, workshop_id: str, deletion_candidate_at: datetime) -> None:
+        """`customer.subscription.deleted`受信時(design 4節)に書き込む。"""
+        ...
+
+    def clear_deletion_candidate_at(self, workshop_id: str) -> None:
+        """`checkout.session.completed`で再契約を検知した時(design 4節)に削除する。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -695,6 +709,7 @@ class InMemoryWorkshopStore:
         self._trial_end_notified_at_by_workshop: dict[str, datetime] = {}
         self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
         self._payment_suspension_owner_notified_at_by_workshop: dict[str, datetime] = {}
+        self._deletion_candidate_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -894,6 +909,15 @@ class InMemoryWorkshopStore:
             self._payment_suspension_owner_notified_at_by_workshop.pop(workshop_id, None)
         else:
             self._payment_suspension_owner_notified_at_by_workshop[workshop_id] = notified_at
+
+    def get_deletion_candidate_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._deletion_candidate_at_by_workshop.get(workshop_id)
+
+    def set_deletion_candidate_at(self, workshop_id: str, deletion_candidate_at: datetime) -> None:
+        self._deletion_candidate_at_by_workshop[workshop_id] = deletion_candidate_at
+
+    def clear_deletion_candidate_at(self, workshop_id: str) -> None:
+        self._deletion_candidate_at_by_workshop.pop(workshop_id, None)
 
 
 class InMemoryUsageCounterStore:
