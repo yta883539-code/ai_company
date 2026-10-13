@@ -5722,3 +5722,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   aircon-pasha・kura-pasha・forklift-pasha〉の「次回候補」記述に本venture21節と同種の
   陳腐化がないかを点検し、いずれも見つからなかったことを確認。コード変更なし、テスト906件・
   schema検証28件いずれもパス)
+- フェーズ続き317(2026-10-13 02:00 UTC定例更新): フェーズ続き316の次回候補(2)
+  「他venture・アイデア領域の前進」として、course-set-pasha(フェーズ292、2026-10-12
+  18:00 UTC)がaircon-pashaの「削除候補の最終確認送信」パターンを自ventureの2store構成に
+  適応させて実装したことを受け、本ventureの同種実装状況を確認した。data-retention-
+  policy.mdは店舗レコード(`stores/{storeId}`)の削除候補化・最終確認の**方針**(休止モード
+  4通目再通知から1年反応なしで削除候補化、LINE push主経路・メール代替経路での最終確認)を
+  2026-08-03時点で既に定めていたが、`prototype/`配下を確認した結果、aircon-pasha・
+  course-set-pasha・kura-pashaの3venture(4venture中3つ)が既に実装済みの「選定ロジック・
+  最終確認送信配線」が本venture(line-reservation-ai)には未実装のまま残っていたことが
+  判明した。store-deletion-candidate-final-confirmation-design.mdを新規文書化し、(1)本
+  ventureは単一`stores/{storeId}`ドキュメント構成のためaircon-pasha型の単純な設計で足りる
+  こと、(2)起点測定に必要な新規フィールド`dormantFinalRenotifySentAt`(3通目送信済み時刻、
+  既存の`dormantRenotifyCount`カウンタだけでは測れない)・`storeDeletionConfirmationSentAt`・
+  `storeDeletionConfirmationUnreachableAt`の追加が必要なこと、(3)選定ロジック
+  `list_store_deletion_candidates()`・送信関数`send_store_deletion_confirmations()`の設計
+  (「反応」判定の代理指標、トークルーム操作は本venture現行スキーマでは追跡不可という既知の
+  限界、メール代替経路は実送信サービス接続〈オーナー承認待ち〉までモック止まりとする方針)、
+  を整理した。本フェーズは設計文書化のみでコード変更は行っていないため回帰テストの実行対象
+  はない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし(実LINE/メール送信・実Firestore接続自体は
+  既存の承認待ち事項の範囲内であり、新たな承認待ち事項ではない)。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)本文書3節のfirestore-data-
+  model.mdへの新規フィールド追加とコード実装(`store_deletion_candidate.py`等、テスト
+  追加含む)、(3)他venture・アイデア領域の前進。
