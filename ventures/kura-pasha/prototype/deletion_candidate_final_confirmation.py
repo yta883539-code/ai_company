@@ -50,6 +50,19 @@ def render_deletion_candidate_final_confirmation_message() -> str:
     return DELETION_CANDIDATE_FINAL_CONFIRMATION_MESSAGE
 
 
+# deletion-candidate-unreachable-owner-review-design.mdの「次回候補」であった連絡不能の
+# 理由区分(line-reservation-aiフェーズ続き320の横展開、aircon-pashaフェーズ313・
+# course-set-pashaフェーズ294に続き本ventureにも適用)。本ventureは経路判定が
+# is_followingのみに基づくため(モジュールdocstring参照、push送信失敗時は即時には連絡不能
+# 化しない)、理由コードは1種のみで足りる。
+UNREACHABLE_REASON_NOT_FOLLOWING = "not_following"
+
+_UNREACHABLE_REASON_LABELS = {
+    UNREACHABLE_REASON_NOT_FOLLOWING: "LINE公式アカウントをブロック中",
+}
+_UNREACHABLE_REASON_UNKNOWN_LABEL = "不明(本フィールド追加前に記録された候補)"
+
+
 class DeletionCandidateConfirmationRoute(Enum):
     """data-retention-policy.md「削除候補化後の最終確認」節の経路判定結果
     (aircon-pasha版と同一)。"""
@@ -120,6 +133,13 @@ class DeletionConfirmationWorkshopStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        """line-reservation-aiフェーズ続き320が発見した「連絡不能の理由が未記録」という
+        既知の限界を受けて追加した書き込みメソッド(aircon-pasha版と同じ)。"""
+        ...
+
 
 class DeletionConfirmationUserProfileStoreProtocol(Protocol):
     """本モジュールが要求する最小限のProtocol(user_profile_store側)。
@@ -183,6 +203,9 @@ def send_deletion_candidate_final_confirmations(
         route = route_deletion_candidate_confirmation(workshop.is_following)
         if route is DeletionCandidateConfirmationRoute.MARK_UNREACHABLE:
             workshop_store.set_deletion_confirmation_unreachable_at(workshop.workshop_id, now)
+            workshop_store.set_deletion_confirmation_unreachable_reason(
+                workshop.workshop_id, UNREACHABLE_REASON_NOT_FOLLOWING
+            )
             result.marked_unreachable.append(workshop.workshop_id)
             continue
 
@@ -229,17 +252,31 @@ class UnreachableDeletionCandidate:
     workshop_id: str
     deletion_confirmation_unreachable_at: datetime
     days_since_unreachable: int
+    unreachable_reason: Optional[str] = None
+
+    @property
+    def unreachable_reason_label(self) -> str:
+        """理由コードを対話セッション表示用の日本語ラベルに変換する。本フィールド追加前に
+        連絡不能と記録された候補はunreachable_reasonがNoneのままなので、aircon-pasha版・
+        line-reservation-aiフェーズ続き320と同じ方針で「不明」として表示する。"""
+        if self.unreachable_reason is None:
+            return _UNREACHABLE_REASON_UNKNOWN_LABEL
+        return _UNREACHABLE_REASON_LABELS.get(self.unreachable_reason, self.unreachable_reason)
 
 
 class UnreachableDeletionCandidateReader(Protocol):
     """`list_unreachable_deletion_candidates()`が要求する最小限のProtocol。
     `InMemoryWorkshopStore`は既存メソッド(`all_workshop_ids`・
-    `get_deletion_confirmation_unreachable_at`)でそのまま構造的に満たす。"""
+    `get_deletion_confirmation_unreachable_at`・
+    `get_deletion_confirmation_unreachable_reason`)でそのまま構造的に満たす。"""
 
     def all_workshop_ids(self) -> Iterable[str]:
         ...
 
     def get_deletion_confirmation_unreachable_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def get_deletion_confirmation_unreachable_reason(self, workshop_id: str) -> Optional[str]:
         ...
 
 
@@ -257,6 +294,7 @@ def list_unreachable_deletion_candidates(
             workshop_id=workshop_id,
             deletion_confirmation_unreachable_at=unreachable_at,
             days_since_unreachable=(now - unreachable_at).days,
+            unreachable_reason=store.get_deletion_confirmation_unreachable_reason(workshop_id),
         )
         for workshop_id in store.all_workshop_ids()
         if (unreachable_at := store.get_deletion_confirmation_unreachable_at(workshop_id))
@@ -282,7 +320,8 @@ def render_unreachable_deletion_candidates_report(
     for candidate in candidates:
         lines.append(
             f"- {candidate.workshop_id}: 連絡不能判定から{candidate.days_since_unreachable}日経過"
-            f"(判定日時: {candidate.deletion_confirmation_unreachable_at.isoformat()})"
+            f"(判定日時: {candidate.deletion_confirmation_unreachable_at.isoformat()}、"
+            f"理由: {candidate.unreachable_reason_label})"
         )
     lines.append("")
     lines.append(
@@ -320,6 +359,7 @@ def _demo() -> None:
         def __init__(self) -> None:
             self.sent_at: dict[str, Optional[datetime]] = {}
             self.unreachable_at: dict[str, Optional[datetime]] = {}
+            self.unreachable_reason: dict[str, Optional[str]] = {}
 
         def set_deletion_confirmation_sent_at(
             self, workshop_id: str, sent_at: Optional[datetime]
@@ -330,6 +370,11 @@ def _demo() -> None:
             self, workshop_id: str, unreachable_at: Optional[datetime]
         ) -> None:
             self.unreachable_at[workshop_id] = unreachable_at
+
+        def set_deletion_confirmation_unreachable_reason(
+            self, workshop_id: str, value: Optional[str]
+        ) -> None:
+            self.unreachable_reason[workshop_id] = value
 
     store = _WorkshopStoreStub()
     push = InMemoryLinePushClient()

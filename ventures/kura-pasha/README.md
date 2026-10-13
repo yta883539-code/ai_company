@@ -5206,3 +5206,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   オーナーから承認された場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階構成を
   実Firestore接続後に1クエリへ統合するかどうかの結合実装フェーズでの判断、(3)他venture・
   アイデア領域の前進。
+- フェーズ235(2026-10-13 18:00 UTC定例更新): line-reservation-aiフェーズ続き320が
+  発見した「連絡不能の理由(なぜ最終確認が送達できなかったか)が記録されていない」という
+  既知の限界について、aircon-pashaフェーズ313・course-set-pashaフェーズ294では既に
+  横展開済みだったが、本venture(`deletion_candidate_final_confirmation.py`)には未反映の
+  まま残っていたことを確認し、同じ理由コード記録・表示機能を実装した。(1)
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`に`set_deletion_confirmation_
+  unreachable_reason()`・`get_deletion_confirmation_unreachable_reason()`を追加し、
+  `InMemoryWorkshopStore`に対応するdict・getter/setterを実装、(2)
+  `deletion_candidate_final_confirmation.py`に理由コード定数
+  `UNREACHABLE_REASON_NOT_FOLLOWING`(本ventureは経路判定がis_followingのみに基づくため
+  aircon-pasha版と同じく1種のみ)を新設し、`send_deletion_candidate_final_confirmations()`
+  がMARK_UNREACHABLEに倒す際に書き込むよう配線、(3)`UnreachableDeletionCandidate`に
+  `unreachable_reason`フィールド(本フィールド追加前の既存データはNoneのまま「不明」表示に
+  フォールバックし後方互換を保つ)・`unreachable_reason_label`プロパティを追加し、
+  `render_unreachable_deletion_candidates_report()`の各行に理由ラベルを追記した。テスト6件
+  追加(ブロック時の理由コード書き込み2件、`list_unreachable_deletion_candidates()`の理由
+  読み取り・未設定時フォールバック2件、レポート文言への反映1件、既存アサーション更新1件)、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`は205→207件全てパス、
+  `python3 run_all_tests.py`19ファイル全てパス、`python3 schema/validate_test_cases.py`
+  32件中32件パス(いずれも変更なし)を確認した。これにより4venture
+  (aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)全てで連絡不能理由の
+  記録が揃った(forklift-pashaは削除候補機能自体が未実装のため対象外)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階構成を実Firestore接続後に
+  1クエリへ統合するかどうかの結合実装フェーズでの判断(フェーズ234の次回候補(2)が未着手の
+  まま残っている)、(3)他venture・アイデア領域の前進。

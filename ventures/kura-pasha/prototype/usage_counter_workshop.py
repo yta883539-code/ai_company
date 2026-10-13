@@ -664,6 +664,20 @@ class WorkshopStoreProtocol(Protocol):
         """送達を試みずMARK_UNREACHABLEに倒した際に書き込む。"""
         ...
 
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        """line-reservation-aiフェーズ続き320が発見した「連絡不能の理由が未記録」という
+        既知の限界を受けて追加した書き込みメソッド(aircon-pashaフェーズ313・
+        course-set-pashaフェーズ294に続き、本ventureにも横展開)。本venture唯一の
+        連絡不能経路(ブロック中)の理由コードを記録する。"""
+        ...
+
+    def get_deletion_confirmation_unreachable_reason(self, workshop_id: str) -> Optional[str]:
+        """上記`set_deletion_confirmation_unreachable_reason()`で書き込んだ理由コードの
+        読み取り(`list_unreachable_deletion_candidates()`のレポート表示用)。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -738,6 +752,7 @@ class InMemoryWorkshopStore:
         self._deletion_candidate_at_by_workshop: dict[str, datetime] = {}
         self._deletion_confirmation_sent_at_by_workshop: dict[str, datetime] = {}
         self._deletion_confirmation_unreachable_at_by_workshop: dict[str, datetime] = {}
+        self._deletion_confirmation_unreachable_reason_by_workshop: dict[str, str] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -962,6 +977,14 @@ class InMemoryWorkshopStore:
         self, workshop_id: str, unreachable_at: Optional[datetime]
     ) -> None:
         self._deletion_confirmation_unreachable_at_by_workshop[workshop_id] = unreachable_at
+
+    def get_deletion_confirmation_unreachable_reason(self, workshop_id: str) -> Optional[str]:
+        return self._deletion_confirmation_unreachable_reason_by_workshop.get(workshop_id)
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        self._deletion_confirmation_unreachable_reason_by_workshop[workshop_id] = value
 
 
 class InMemoryUsageCounterStore:

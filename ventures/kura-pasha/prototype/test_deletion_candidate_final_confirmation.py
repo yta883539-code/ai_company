@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from deletion_candidate_final_confirmation import (  # noqa: E402
     DELETION_CANDIDATE_FINAL_CONFIRMATION_MESSAGE,
+    UNREACHABLE_REASON_NOT_FOLLOWING,
     DeletionCandidateConfirmationRoute,
     DeletionCandidateConfirmationWorkshopState,
     build_deletion_candidate_confirmation_states,
@@ -41,6 +42,7 @@ class _FakeWorkshopStore:
     def __init__(self) -> None:
         self.sent_at: Dict[str, Optional[datetime]] = {}
         self.unreachable_at: Dict[str, Optional[datetime]] = {}
+        self.unreachable_reason: Dict[str, Optional[str]] = {}
 
     def set_deletion_confirmation_sent_at(
         self, workshop_id: str, sent_at: Optional[datetime]
@@ -51,6 +53,11 @@ class _FakeWorkshopStore:
         self, workshop_id: str, unreachable_at: Optional[datetime]
     ) -> None:
         self.unreachable_at[workshop_id] = unreachable_at
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        self.unreachable_reason[workshop_id] = value
 
 
 class _FailingLinePushClient:
@@ -152,6 +159,7 @@ class SendDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
         self.assertEqual(result.marked_unreachable, ["w2"])
         self.assertEqual(result.failed, [])
         self.assertEqual(store.unreachable_at["w2"], self.now)
+        self.assertEqual(store.unreachable_reason["w2"], UNREACHABLE_REASON_NOT_FOLLOWING)
         self.assertNotIn("w2", store.sent_at)
         self.assertEqual(len(push.sent), 0)
 
@@ -277,6 +285,10 @@ class RunDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):
         self.assertEqual(
             self.workshop_store.get_deletion_confirmation_unreachable_at("w2"), self.now
         )
+        self.assertEqual(
+            self.workshop_store.get_deletion_confirmation_unreachable_reason("w2"),
+            UNREACHABLE_REASON_NOT_FOLLOWING,
+        )
         self.assertEqual(len(push.sent), 0)
 
     def test_candidate_not_yet_due_is_excluded(self) -> None:
@@ -355,6 +367,36 @@ class ListUnreachableDeletionCandidatesTest(unittest.TestCase):
 
         self.assertEqual([c.workshop_id for c in candidates], ["w1"])
 
+    def test_includes_unreachable_reason_when_recorded(self) -> None:
+        self._make_workshop("w1")
+        self.store.set_deletion_confirmation_unreachable_at("w1", self.now - timedelta(days=1))
+        self.store.set_deletion_confirmation_unreachable_reason(
+            "w1", UNREACHABLE_REASON_NOT_FOLLOWING
+        )
+
+        candidates = list_unreachable_deletion_candidates(self.store, self.now)
+
+        self.assertEqual(candidates[0].unreachable_reason, UNREACHABLE_REASON_NOT_FOLLOWING)
+        self.assertEqual(
+            candidates[0].unreachable_reason_label, "LINE公式アカウントをブロック中"
+        )
+
+    def test_unreachable_reason_is_none_for_candidates_recorded_before_the_field_existed(
+        self,
+    ) -> None:
+        """本フィールド追加前に連絡不能と記録された候補はreasonがNoneのままで、
+        unreachable_reason_labelは「不明」にフォールバックする(aircon-pasha版と同じ)。"""
+        self._make_workshop("w1")
+        self.store.set_deletion_confirmation_unreachable_at("w1", self.now - timedelta(days=1))
+
+        candidates = list_unreachable_deletion_candidates(self.store, self.now)
+
+        self.assertIsNone(candidates[0].unreachable_reason)
+        self.assertEqual(
+            candidates[0].unreachable_reason_label,
+            "不明(本フィールド追加前に記録された候補)",
+        )
+
 
 class RenderUnreachableDeletionCandidatesReportTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -370,6 +412,9 @@ class RenderUnreachableDeletionCandidatesReportTest(unittest.TestCase):
         store = InMemoryWorkshopStore()
         store.set_members("w1", contractor_user_id="w1-u", member_user_ids=["w1-u"])
         store.set_deletion_confirmation_unreachable_at("w1", self.now - timedelta(days=5))
+        store.set_deletion_confirmation_unreachable_reason(
+            "w1", UNREACHABLE_REASON_NOT_FOLLOWING
+        )
         candidates = list_unreachable_deletion_candidates(store, self.now)
 
         report = render_unreachable_deletion_candidates_report(candidates)
@@ -377,6 +422,7 @@ class RenderUnreachableDeletionCandidatesReportTest(unittest.TestCase):
         self.assertIn("1件", report)
         self.assertIn("w1", report)
         self.assertIn("5日経過", report)
+        self.assertIn("LINE公式アカウントをブロック中", report)
         self.assertIn("自動削除の対象ではありません", report)
 
 
