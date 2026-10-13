@@ -28,6 +28,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -78,15 +79,25 @@ def get_trial_end_email_runtime_dependencies() -> dict:
     }
 
 
-def main(request):
+def main(request, *, runtime_dependencies: Optional[dict] = None):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定)。
 
     trial-end-notification-design.md 1節(B)の想定どおり、Cloud Scheduler(日次)がHTTP
     トリガーとして起動する。`request`はいずれのフィールドも参照しない(起動自体がトリガーで
     あり、署名検証対象のpayloadを持たない)。
+
+    `runtime_dependencies`省略時は`get_trial_end_email_runtime_dependencies()`の戻り値
+    (呼び出しごとに新規のInMemory実装)を使うため、実Cloud Functions環境・既存呼び出し元の
+    挙動は変わらない。checkout_session.main()・stripe_webhook.main()(フェーズ146)と同じ
+    依存注入パターンにより、事前にtrial_start_at・emailを登録済みのストアをテスト・簡易
+    ローカルサーバーから注入できるようにした。
     """
     now = datetime.now(timezone.utc)
-    deps = get_trial_end_email_runtime_dependencies()
+    deps = (
+        runtime_dependencies
+        if runtime_dependencies is not None
+        else get_trial_end_email_runtime_dependencies()
+    )
     result: SendTrialEndEmailsResult = run_due_trial_end_emails(now=now, **deps)
     logger.info(
         "trial_end_emails: sent=%d failed=%d skipped_no_email=%d",

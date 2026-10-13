@@ -8,6 +8,7 @@
 import hashlib
 import hmac
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -21,9 +22,33 @@ from stripe_webhook import (
     receive_stripe_webhook,
     verify_stripe_signature,
 )
+from stripe_webhook import main as stripe_webhook_main
 from trial_management import InMemoryFleetOperatorStore
 
 SECRET = "whsec_test_secret"
+
+
+class _StubHeaders:
+    """main(request)のテスト用、`request.headers.get()`インターフェースのみを模した
+    最小スタブ(checkout_session.pyテストの`_StubRequest`と同系)。"""
+
+    def __init__(self, headers: dict):
+        self._headers = headers
+
+    def get(self, key, default=None):
+        return self._headers.get(key, default)
+
+
+class _StubWebhookRequest:
+    """main(request)のテスト用、functions_frameworkが渡すFlask Requestのうち
+    `request.get_data()`・`request.headers.get()`のみを模した最小スタブ。"""
+
+    def __init__(self, body: bytes, headers: dict):
+        self._body = body
+        self.headers = _StubHeaders(headers)
+
+    def get_data(self) -> bytes:
+        return self._body
 
 
 def _check(label, actual, expected):
@@ -471,6 +496,64 @@ def main():
         "storeはFleetOperatorStoreProtocolを満たす",
         hasattr(deps["store"], "set_stripe_customer_id"),
         True,
+    ))
+
+    # --- main(): Cloud Functionsエントリポイント自体の回帰確認(checkout_session.main()の
+    # フェーズ146と同じ依存注入パターンをstripe_webhook.main()にも適用) ---
+    no_sig_body, no_sig_status = stripe_webhook_main(
+        _StubWebhookRequest(b"{}", {"Stripe-Signature": None})
+    )
+    results.append(_check(
+        "main(): 署名ヘッダ無しは401(runtime_dependencies省略時も既存挙動のまま)",
+        no_sig_status,
+        401,
+    ))
+
+    # runtime_dependencies省略時はget_stripe_runtime_dependencies()が呼び出しごとに
+    # 新規のInMemoryFleetOperatorStore()を生成するため、main()越しに正常な署名付きイベントを
+    # 送っても、本プロセス内で状態が共有される保証はない(事前紐付け済みのinternal_idを
+    # 検証したい場合はruntime_dependencies注入が必要)。ここでは「新規ストアでも
+    # checkout.session.completedの受信自体は200になる」ことを確認する。
+    main_body = json.dumps(
+        {
+            "id": "evt_main_1",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "client_reference_id": "internal-main-1",
+                    "customer": "cus_main_1",
+                }
+            },
+        }
+    ).encode("utf-8")
+    main_ts = int(time.time())
+    os.environ["STRIPE_WEBHOOK_SECRET"] = SECRET
+    main_ok_body, main_ok_status = stripe_webhook_main(
+        _StubWebhookRequest(
+            main_body, {"Stripe-Signature": _sign(main_body, main_ts)}
+        )
+    )
+    results.append(_check(
+        "main(): runtime_dependencies省略時でも署名検証に通れば200", main_ok_status, 200
+    ))
+
+    # フェーズ146で確立した依存注入パターン: 事前に紐付け済みのstoreを注入すれば、
+    # main()越しにその状態を検証できる。
+    injected_store = InMemoryFleetOperatorStore()
+    injected_response_body, injected_response_status = stripe_webhook_main(
+        _StubWebhookRequest(
+            main_body, {"Stripe-Signature": _sign(main_body, main_ts)}
+        ),
+        runtime_dependencies={"store": injected_store},
+    )
+    results.append(_check(
+        "main(): runtime_dependencies注入時も200", injected_response_status, 200
+    ))
+    results.append(_check(
+        "main(): runtime_dependencies注入時はmain()越しにstoreへ反映される"
+        "(client_reference_idがstripe_customer_idに紐付く)",
+        injected_store.get_stripe_customer_id("internal-main-1"),
+        "cus_main_1",
     ))
 
     passed = sum(1 for r in results if r)

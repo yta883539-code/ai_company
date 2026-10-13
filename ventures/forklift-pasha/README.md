@@ -2770,7 +2770,31 @@
   ポイント(`stripe_webhook.main()`・`cloud_function_send_trial_end_emails.main()`)にも
   適用するかどうかの検討(現状は`checkout_session.main()`のみ対応)、
   (3)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-12 23:00 UTC(フェーズ146: `checkout_session.main(request,
-  *, runtime_dependencies=None)`として依存を外部から注入できるようにし、フェーズ145の
-  既知の限界(簡易ローカルサーバー経由では200/303応答に到達不可)を解消。新規テスト3件追加
-  (34件→37件、37件中37件成功)、他テストは変更なしでパス)
+- フェーズ147(2026-10-13 00:00 UTC定例更新): フェーズ146の次回候補(2)に着手し、同じ
+  `runtime_dependencies`依存注入パターンを`stripe_webhook.main()`・
+  `cloud_function_send_trial_end_emails.main()`の2エントリポイントにも適用した。
+  いずれも`main(request, *, runtime_dependencies: Optional[dict] = None)`とし、省略時は
+  従来どおり各`get_*_runtime_dependencies()`の戻り値(呼び出しごとに新規のInMemory実装)を
+  使うため実Cloud Functions環境・既存呼び出し元の挙動は変わらない。
+  `test_stripe_webhook.py`に`main()`自体を直接呼ぶテストを4件追加し(署名ヘッダ無しは401、
+  runtime_dependencies省略時でも署名検証通過で200、注入時も200、注入した`store`に
+  `checkout.session.completed`受信結果が反映されることを確認)、`cloud_function_send_
+  trial_end_emails.py`は`main()`を直接呼ぶテストがこれまで一切存在しなかったため
+  `test_cloud_function_send_trial_end_emails.py`を新設した(6件: runtime_dependencies
+  省略時の200/レスポンスボディ回帰確認、注入時に期限到達済み事業者へ実際に送信される
+  ことの確認、送信先メールアドレスの一致確認、未到達事業者には送信されないことの確認)。
+  回帰確認として`python3 prototype/run_all_tests.py`(新規2ファイル追加により13→15
+  ファイル、15件中15件成功)・`python3 schema/validate_test_cases.py`(11件、変更なし)・
+  `node prototype/browser_mockup_checks.js`(いずれもパス)を再実行し、いずれもパスする
+  ことを確認した。実Stripe/実Firestore/実メール送信API接続は引き続きオーナー承認待ちの
+  ため次回以降の課題として残した。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Stripeアカウント接続・実Firestore接続・実メール送信API
+  接続)がオーナーから承認された場合はその着手を最優先、(2)本番LPドメイン未確定により
+  `AccessTokenStoreUrlProvider`が実質フォールバック文言に委ねられている
+  `cloud_function_send_trial_end_emails.get_trial_end_email_runtime_dependencies()`の
+  構成見直し(ドメイン確定後)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 00:00 UTC(フェーズ147: `stripe_webhook.main()`・
+  `cloud_function_send_trial_end_emails.main()`にもフェーズ146と同じ`runtime_dependencies`
+  依存注入パターンを適用。新規テストファイル1件新設・既存テストファイル1件に4件追加
+  (13→15ファイル、15件中15件成功)、他テストは変更なしでパス)

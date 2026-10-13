@@ -376,20 +376,28 @@ def get_stripe_runtime_dependencies() -> dict:
     return {"store": InMemoryFleetOperatorStore()}
 
 
-def main(request):
+def main(request, *, runtime_dependencies: Optional[dict] = None):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定)。
 
     実リクエストオブジェクトからのbody(`request.get_data()`)・署名ヘッダ
     (`request.headers.get("Stripe-Signature")`)取り出し配線のみを行い、
     receive_stripe_webhook()に委譲する。`webhook_secret`は環境変数
     `STRIPE_WEBHOOK_SECRET`から取得する。
+
+    `runtime_dependencies`省略時は`get_stripe_runtime_dependencies()`の戻り値
+    (呼び出しごとに新規のInMemoryストア)を使うため、実Cloud Functions環境・既存呼び出し元の
+    挙動は変わらない。checkout_session.main()(フェーズ146)と同じ依存注入パターンにより、
+    事前に紐付け済みの`store`をテスト・簡易ローカルサーバーから注入できるようにした。
     """
     body = request.get_data()
     signature_header = request.headers.get("Stripe-Signature")
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
     result = receive_stripe_webhook(
-        body, signature_header, webhook_secret, **get_stripe_runtime_dependencies()
+        body,
+        signature_header,
+        webhook_secret,
+        **(runtime_dependencies if runtime_dependencies is not None else get_stripe_runtime_dependencies()),
     )
 
     if result.status_code == 200:
