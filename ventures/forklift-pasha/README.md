@@ -2818,3 +2818,33 @@
   時期的緊急性について、WebSearchで代替月間の有無・2026年制度変更の反映状況を確認。
   代替月間なし・制度変更は反映済みと確認し、月間を逃した場合のコンティンジェンシー
   プランをcampaign-window-approval-contingency.mdとして新規文書化。コード変更なし)
+- フェーズ149(2026-10-13 02:00 UTC定例更新): フェーズ148の次回候補(3)「他venture・
+  アイデア領域の前進」を受け、vehicle-label-duplicate-handling-design.md(フェーズ114)
+  「6. 未確定・次回候補」を棚卸しした結果、同設計文書の本体(2節`vehicle_id`発行方式・
+  3節重複判定方針・4節新規メモ受信時のフロー)自体がフェーズ114では机上設計のみに留まり、
+  実コードが一切存在していなかったという欠落(5節のアップセル通知側はフェーズ115で
+  `overage_notifications.py`として実装済みだったのに対し、重複チェック本体側だけが
+  未実装のまま取り残されていた非対称)を発見した。`prototype/vehicle_registry.py`を
+  新規実装し、`VehicleStoreProtocol`/`InMemoryVehicleStore`(design 2節: Firestore自動
+  生成IDのInMemory代替)・`register_vehicle_from_inspection_memo()`(design 3節・4節:
+  `(operatorInternalId, vehicleLabel)`の完全一致〈トリムのみ正規化〉による重複チェック、
+  新規車両時のみ既存の`overage_notifications.record_vehicle_and_get_overage_notice()`に
+  delta=1で委譲して`vehicleCount`加算・プラン超過通知を行う配線)を追加した。既存車両の
+  再送時は`vehicleCount`・通知のいずれにも触れない(design 4節3.「何もしない」)ことを
+  テストで確認した。`test_vehicle_registry.py`を新設しテスト18件追加(新規車両発行・
+  同一表記再利用・前後空白トリムによる同一視・全角表記等の表記ゆらぎを意図的に別車両として
+  扱うこと・事業者間の分離・ライトプラン上限超過時の通知文内容を検証)、`python3
+  prototype/run_all_tests.py`(新規1ファイル追加により15→16ファイル、16件中16件成功)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)・`node prototype/
+  browser_mockup_checks.js`(18件、変更なし)いずれもパスすることを確認した。design.mdの
+  「6. 未確定・次回候補」に本実装の完了を追記した。本機能は読み取り専用・InMemoryロジック
+  のみのため新たな承認待ちアクションは発生していない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項1・2のいずれかがオーナーから承認された場合はその着手を
+  最優先、(2)`(operatorInternalId, vehicleLabel)`のFirestore複合インデックス設計
+  (design.md「6.」に残る唯一の未解消項目、line-reservation-ai/firestore-composite-
+  index-plan.md相当の文書化)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 02:00 UTC(フェーズ149: vehicle-label-duplicate-handling-
+  design.mdの2節〜4節〈vehicle_id発行・重複チェック・新規メモ受信時のフロー〉が設計のみで
+  未実装だった欠落を発見し、`prototype/vehicle_registry.py`として新規実装。テスト18件
+  追加、全16ファイル中16件成功・schema検証11件・ブラウザ検証18件いずれもパス)

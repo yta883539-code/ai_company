@@ -79,14 +79,27 @@ distinct車両数かが未確定だった。本フェーズで**実績カウン�
 
 - `(operatorInternalId, vehicleLabel)`の複合インデックス設計(firestore-composite-index-plan
   相当の文書化)。
-- 台数プラン超過時のアップセル通知設計(5節、pricing-plan.mdの生成回数超過通知と合わせて
-  一体設計するのが望ましい)。
+- ~~台数プラン超過時のアップセル通知設計(5節、pricing-plan.mdの生成回数超過通知と合わせて
+  一体設計するのが望ましい)。~~
+  (解消済み 2026-10-10 15:00 UTC・フェーズ115: usage-and-fleet-overage-notification-design.md
+  として2節〈生成回数上限接近通知〉・3節〈台数プラン超過通知〉を一体設計し、
+  `prototype/overage_notifications.py`に実装した。)
 - 事業者が表記ゆらぎを自ら統一したい場合のエイリアス登録UI(本フェーズでは範囲外と判断)。
 - 実際のGCPプロジェクト作成・Firestore有効化はアカウント作成に該当し、着手にはオーナー
   承認が必要(pending-approval.md参照)。本フェーズは机上のロジック設計のみ。
+- ~~本設計(2節〜4節)自体のコード実装(vehicle_idの発行・重複チェック・`vehicleCount`
+  加算への接続)がフェーズ114時点では一切行われておらず、机上設計のみのまま残っていた。~~
+  (解消済み 2026-10-13 02:00 UTC・フェーズ149: `prototype/vehicle_registry.py`として
+  `VehicleStoreProtocol`/`InMemoryVehicleStore`・
+  `register_vehicle_from_inspection_memo()`を新規実装した。詳細はREADME.mdフェーズ149参照。)
 
 最終更新: 2026-10-10 04:00 UTC(フェーズ114: firestore-data-model.mdに残っていた
 `vehicle_id`発行・重複チェックの設計課題に着手。Firestore自動生成IDの採用、
 `(operatorInternalId, vehicleLabel)`完全一致(トリムのみ正規化)による重複判定、
 台数超過時も記録生成を止めない方針、`vehicleCount`を自己申告ではなく実績カウンタとする
 確定を行った。コード変更なし、文書作成のみのため回帰テストの実行対象外)
+最終更新: 2026-10-13 02:00 UTC(フェーズ149: 本設計〈2節〜4節〉のロジック本体を
+`prototype/vehicle_registry.py`として新規実装した。`(operatorInternalId, vehicleLabel)`
+完全一致による重複チェック・Firestore自動生成ID発行〈InMemory代替〉・新規車両時のみ
+overage_notifications.record_vehicle_and_get_overage_notice()へdelta=1で委譲する配線を
+行った。テスト18件追加。)
