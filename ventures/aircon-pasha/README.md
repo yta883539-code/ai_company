@@ -5545,3 +5545,25 @@
   `list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_
   report()`を実装。line-reservation-aiフェーズ続き319と同種の「連絡不能オーナー
   レビュー用レポート」機能を展開。テスト6件追加、全681件パス・schema検証25件パス)
+- フェーズ312(2026-10-13 11:00 UTC定例更新): kura-pashaのfirestore-security-
+  rules-draft.md(フェーズ231)「次回候補」(他venture〈aircon-pasha・course-set-
+  pasha・line-reservation-ai〉への同種deny-allルール草案の横展開)を受け、本venture
+  向けにfirestore-security-rules-draft.mdを新規文書化した。本venture固有の点として、
+  `deletion_candidate`・`payment_failure`・`blocked_but_billing`等の状態をいずれも
+  単一の`user_profile`ドキュメントへ統合する設計のため、対象コレクションは
+  `user_profile`・`pending_links`・`usage_counter`の3件(kura-pashaの5件より少ない)に
+  絞られた。全コレクションへの`allow read, write: if false`によるdeny-all方針・
+  `match /{document=**}`での明示的な二重化はkura-pasha版の方針をそのまま踏襲し、
+  実Firestoreプロジェクト作成・実デプロイ自体は引き続きオーナー承認待ちの範囲
+  (pending-approval.md参照)のため行わない。コード変更なし、文書のみの追加のため
+  既存テスト681件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)いずれも変更なしで
+  パスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)course-set-pashaへの同種ルール草案の横展開(forklift-
+  pashaはクライアント直接アクセスの有無を要個別確認のまま)、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-13 11:00 UTC(フェーズ312: firestore-security-rules-draft.mdを
+  新規文書化。kura-pasha版のdeny-all方針を本venture固有の3コレクション〈user_profile・
+  pending_links・usage_counter〉に合わせて横展開。コード変更なし)
