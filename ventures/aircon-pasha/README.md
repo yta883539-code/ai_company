@@ -5567,3 +5567,33 @@
 - 最終更新: 2026-10-13 11:00 UTC(フェーズ312: firestore-security-rules-draft.mdを
   新規文書化。kura-pasha版のdeny-all方針を本venture固有の3コレクション〈user_profile・
   pending_links・usage_counter〉に合わせて横展開。コード変更なし)
+- フェーズ313(2026-10-13 13:00 UTC定例更新): line-reservation-aiフェーズ続き320
+  (store_deletion_candidate.py)の次回候補(2)「同種の理由コード区分をaircon-pasha・
+  course-set-pasha・kura-pashaの`deletion_candidate.py`にも横展開するか検討」を受け、
+  本ventureに連絡不能の理由区分を追加した。本venture固有の点として、
+  `route_deletion_candidate_confirmation()`がis_followingのみで経路判定し(push送信
+  失敗時は`failed`に積んで次回再試行するだけで即時には連絡不能化しない、
+  line-reservation-aiとの違い)、連絡不能経路は「ブロック中」の1種類のみのため、
+  理由コードは`UNREACHABLE_REASON_NOT_FOLLOWING`の1件で足りた。`UserProfile`
+  (user_id_linking.py)に`deletion_confirmation_unreachable_reason`フィールドを追加し、
+  `UserProfileStoreProtocol`/`InMemoryUserProfileStore`に対応するget/setメソッドを追加、
+  再連携時の既存フィールド引き継ぎ処理にも組み込んだ。
+  `deletion_candidate_final_confirmation.py`では`send_deletion_candidate_final_
+  confirmations()`がMARK_UNREACHABLE時に理由コードも書き込むよう配線し、
+  `UnreachableDeletionCandidate`に`unreachable_reason`フィールド・
+  `unreachable_reason_label`プロパティ(本フィールド追加前の既存候補はNoneのまま「不明」
+  表示にフォールバックし後方互換を保つ、line-reservation-ai版と同じ方針)を追加、
+  `render_unreachable_deletion_candidates_report()`の各行に理由ラベルを追記した。
+  テスト8件追加(test_deletion_candidate_final_confirmation.py 5件・
+  test_user_id_linking.py 3件)、venture全体684件全件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパスすることを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)同種の理由コード横展開をcourse-set-pasha・kura-pasha
+  (いずれもpush送信失敗時に即時連絡不能化する経路を持つため、line-reservation-ai同様
+  2種類の理由コードが必要になる見込み)にも展開、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 13:00 UTC(フェーズ313: line-reservation-aiフェーズ続き320の
+  次回候補を受け、連絡不能の理由区分〈`UNREACHABLE_REASON_NOT_FOLLOWING`〉を追加。
+  `UserProfile`に`deletion_confirmation_unreachable_reason`フィールドを追加し、
+  レポート表示に理由ラベルを追記。テスト8件追加、全684件パス・schema検証25件パス)

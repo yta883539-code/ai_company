@@ -293,7 +293,15 @@ class UserProfile:
     confirmations()の判定に使う)。`deletion_confirmation_unreachable_at`は
     ブロック中(`is_following=False`)で送達できなかった場合に書き込まれる補助フィールドで、
     design記載のとおり再フォロー後も自動では送信対象から外れない(値自体に業務的な
-    不変性の意味はない、毎回の実行で上書きされ得る)。"""
+    不変性の意味はない、毎回の実行で上書きされ得る)。
+
+    `deletion_confirmation_unreachable_reason`はline-reservation-aiフェーズ続き320が
+    発見した3venture共通の既知の限界(連絡不能の理由がブロック済みか送達失敗かが未記録)を
+    受けて追加した補助フィールド。本ventureは`route_deletion_candidate_confirmation()`が
+    is_followingのみで経路判定するため(push送信失敗時は`failed`に積んで次回再試行するだけで
+    即時には連絡不能化しない、line-reservation-aiとの違い)理由区分は「ブロック中」の1種のみ
+    で、本フィールド追加前に記録された既存の連絡不能候補はNoneのまま「不明」表示に
+    フォールバックする(後方互換)。"""
 
     business_name: str
     business_type: str
@@ -322,6 +330,7 @@ class UserProfile:
     deletion_candidate_state_event_time: Optional[datetime] = None
     deletion_confirmation_sent_at: Optional[datetime] = None
     deletion_confirmation_unreachable_at: Optional[datetime] = None
+    deletion_confirmation_unreachable_reason: Optional[str] = None
 
 
 class UserProfileStoreProtocol(Protocol):
@@ -587,6 +596,17 @@ class UserProfileStoreProtocol(Protocol):
 
     def set_deletion_confirmation_unreachable_at(
         self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_deletion_confirmation_unreachable_reason(self, user_id: str) -> Optional[str]:
+        """line-reservation-aiフェーズ続き320の横展開: deletion_candidate_final_
+        confirmation.pyの`DeletionConfirmationStateWriter`拡張を本クラスが構造的に
+        満たすためのメソッド。"""
+        ...
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, user_id: str, value: Optional[str]
     ) -> None:
         ...
 
@@ -868,6 +888,18 @@ class InMemoryUserProfileStore:
             return
         profile.deletion_confirmation_unreachable_at = value
 
+    def get_deletion_confirmation_unreachable_reason(self, user_id: str) -> Optional[str]:
+        profile = self._profiles.get(user_id)
+        return profile.deletion_confirmation_unreachable_reason if profile is not None else None
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, user_id: str, value: Optional[str]
+    ) -> None:
+        profile = self._profiles.get(user_id)
+        if profile is None:
+            return
+        profile.deletion_confirmation_unreachable_reason = value
+
 
 @dataclass
 class LinkingResolution:
@@ -1017,6 +1049,11 @@ def resolve_linking_code(
             ),
             deletion_confirmation_unreachable_at=(
                 existing_profile.deletion_confirmation_unreachable_at
+                if existing_profile
+                else None
+            ),
+            deletion_confirmation_unreachable_reason=(
+                existing_profile.deletion_confirmation_unreachable_reason
                 if existing_profile
                 else None
             ),

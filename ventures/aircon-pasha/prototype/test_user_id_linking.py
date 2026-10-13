@@ -738,6 +738,7 @@ class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
 
         self.assertIsNone(store.get_deletion_confirmation_sent_at("u-1"))
         self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u-1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_reason("u-1"))
 
     def test_set_and_get(self):
         store = InMemoryUserProfileStore()
@@ -745,9 +746,13 @@ class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
 
         store.set_deletion_confirmation_sent_at("u-1", _NOW)
         store.set_deletion_confirmation_unreachable_at("u-1", _NOW)
+        store.set_deletion_confirmation_unreachable_reason("u-1", "not_following")
 
         self.assertEqual(store.get_deletion_confirmation_sent_at("u-1"), _NOW)
         self.assertEqual(store.get_deletion_confirmation_unreachable_at("u-1"), _NOW)
+        self.assertEqual(
+            store.get_deletion_confirmation_unreachable_reason("u-1"), "not_following"
+        )
         self.assertEqual(store.get("u-1").deletion_confirmation_sent_at, _NOW)
 
     def test_set_none_clears_the_field(self):
@@ -764,9 +769,13 @@ class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
 
         store.set_deletion_confirmation_sent_at("no-such-user", _NOW)
         store.set_deletion_confirmation_unreachable_at("no-such-user", _NOW)
+        store.set_deletion_confirmation_unreachable_reason("no-such-user", "not_following")
 
         self.assertIsNone(store.get_deletion_confirmation_sent_at("no-such-user"))
         self.assertIsNone(store.get_deletion_confirmation_unreachable_at("no-such-user"))
+        self.assertIsNone(
+            store.get_deletion_confirmation_unreachable_reason("no-such-user")
+        )
 
     def test_re_linking_an_existing_user_id_preserves_the_field(self):
         """再連携がdeletion_confirmation_sent_at等も引き継ぐことを確認する(引き継がないと、
@@ -784,6 +793,7 @@ class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
         resolve_linking_code("AB12CD", "u-1", linking_store, profile_store, _NOW)
         profile_store.set_deletion_confirmation_sent_at("u-1", _NOW)
         profile_store.set_deletion_confirmation_unreachable_at("u-1", _NOW)
+        profile_store.set_deletion_confirmation_unreachable_reason("u-1", "not_following")
 
         linking_store.save(
             "EF34GH",
@@ -801,6 +811,10 @@ class InMemoryUserProfileStoreDeletionConfirmationFieldTest(unittest.TestCase):
         self.assertEqual(profile_store.get_deletion_confirmation_sent_at("u-1"), _NOW)
         self.assertEqual(
             profile_store.get_deletion_confirmation_unreachable_at("u-1"), _NOW
+        )
+        self.assertEqual(
+            profile_store.get_deletion_confirmation_unreachable_reason("u-1"),
+            "not_following",
         )
 
 
