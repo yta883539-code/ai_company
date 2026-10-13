@@ -109,3 +109,13 @@ prototype -p "test_*.py"`(692件)・`python3 schema/validate_test_cases.py`(21�
 作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
 (1)承認待ち事項1〜5がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア
 領域の前進。
+
+2026-10-13 23:00 UTC(フェーズ295): 本棚卸しの一環でapplication-form-submission-flow-
+design.mdを再読した結果、承認待ち事項2(Googleフォーム作成+GAS Webhook設定)の対象である
+GAS Webhookから実際に呼び出すCloud Functions側のHTTPエントリポイント自体が未設計のまま
+放置されていたことを発見し、application-form-submission-http-entry-point-design.mdとして
+新規設計・実装した(詳細は本venture README参照)。承認待ち事項1〜5の内容・件数に変更は
+ない(本件は承認待ち事項2の範囲内の設計・コード草案であり、新たな承認待ち事項を追加する
+ものではない)。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(756件)・`python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを
+確認した。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。

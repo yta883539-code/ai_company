@@ -4937,6 +4937,45 @@
   〈`list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_
   report()`〉を横展開。既存の2store構成に新規フィールド追加は不要だった。テスト6件追加、
   全739件パス・schema検証21件パス)
+- フェーズ295(2026-10-13 23:00 UTC定例更新): launch-readiness-checklist.mdの定期棚卸し
+  (次回候補(3))の一環でapplication-form-submission-flow-design.md(フェーズ76)を再読し、
+  同ドキュメントの「残課題」が「フォーム項目をuser_id直接入力から連携コードへ変更する」と
+  記載したままフェーズ76時点で止まっていた一方、line-user-id-linking-design.md(フェーズ77)
+  で実装済みの`user_id_linking.handle_form_submission_with_linking_code()`は既にこの変更を
+  反映済みであることを確認した(ドキュメント記載の古さのみで、ロジック自体に欠落は
+  無かった)。ただしその先の欠落として、本venture含む全Cloud Function
+  (`cloud_function_webhook.py`等)が備える「実`functions_framework`リクエストオブジェクトを
+  受け取る薄い`main(request)`配線」が申込フォーム提出経路にだけ存在せず、
+  `handle_form_submission_with_linking_code()`を実際のGAS Webhook POSTリクエストから
+  呼び出す経路自体が未設計のまま放置されていたことを発見した。
+  application-form-submission-http-entry-point-design.mdを新規文書化し、(1)GASの
+  `UrlFetchApp`にはLINE/Stripeのような標準署名方式が無いため、共有シークレット
+  (環境変数`FORM_WEBHOOK_SHARED_SECRET`とGAS側`PropertiesService`の値を`hmac.
+  compare_digest()`で定数時間比較、ヘッダ`X-Form-Webhook-Secret`)による認証方式を設計、
+  (2)`prototype/application_form_submission_http_entry.py`
+  (`receive_application_form_submission()`、認証→JSONパース→委譲の順で処理する本体)・
+  `prototype/cloud_function_application_form_submission.py`(薄い`main(request)`配線、
+  他Cloud Functionと同じ構成)を新規実装した。あわせてGAS側`onFormSubmit`トリガー関数の
+  コード草案(`gas-script-draft.md`、実行・デプロイは伴わないテキストのみ)も記録した。
+  テスト21件追加(`test_application_form_submission_http_entry.py`15件・
+  `test_cloud_function_application_form_submission.py`6件)、全756件パス(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証21件(`python3
+  schema/validate_test_cases.py`)いずれもパスすることを確認した。本機能はロジック・
+  コード草案の実装のみ(実シークレット値の生成・環境変数設定・GASへの実デプロイはいずれも
+  Googleフォーム作成+GAS Webhook設定という既存の承認待ち事項2〈pending-approval.md
+  2026-08-18 20:00 UTC記載〉の範囲内)のため、新たな承認待ち事項は発生していない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項1〜5がオーナーから承認
+  された場合はその着手を最優先、(2)同種のCloud Functions HTTPエントリポイント欠落が
+  他venture(aircon-pasha・kura-pasha・line-reservation-ai、いずれもGoogleフォーム以外の
+  申込経路のため本件がそのまま当てはまるかは未確認)にも無いかの横展開調査、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-13 23:00 UTC(フェーズ295: 申込フォーム提出フローのCloud Functions
+  HTTPエントリポイント欠落〈GAS Webhookから実際に呼び出す経路が未設計のまま放置されて
+  いた〉を発見・是正。共有シークレット認証方式を設計し、`application_form_submission_
+  http_entry.py`・`cloud_function_application_form_submission.py`を新規実装、GAS側
+  コード草案も記録。テスト21件追加、全756件パス・schema検証21件パス)
+
 - フェーズ294(2026-10-13 14:00 UTC定例更新): aircon-pashaフェーズ313の次回候補(2)
   「同種の理由コード横展開をcourse-set-pasha・kura-pashaにも展開」を受け着手した。
   なお同フェーズ313の記載は「course-set-pasha・kura-pashaはいずれもpush送信失敗時に
