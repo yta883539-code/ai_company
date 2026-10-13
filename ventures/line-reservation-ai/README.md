@@ -5844,3 +5844,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   レポート」機能自体の欠落は見つからなかったが、連絡不能の理由〈owner_line_user_id未設定か
   LINE push送信失敗か〉が未記録という3venture共通の既知の限界を発見し、本ventureで
   理由コード記録・表示機能を新規実装。テスト6件追加、全931件パス・schema検証28件パス)
+- フェーズ続き321(2026-10-13 22:00 UTC定例更新): フェーズ続き320の次回候補(2)
+  「同種の理由コード区分をaircon-pasha・course-set-pasha・kura-pashaの
+  `deletion_candidate.py`にも横展開するか検討」を確認した。aircon-pasha・
+  course-set-pasha・kura-pashaの3venture全ての`deletion_candidate_final_confirmation.py`
+  を確認した結果、3venture全てで既に`UNREACHABLE_REASON_NOT_FOLLOWING`(1種のみ)の
+  理由コード区分が実装済みであることが判明した(各ファイル内のコメントに「line-
+  reservation-aiフェーズ続き320の横展開」と明記されており、フェーズ続き320〈12:00 UTC〉
+  以降の各venture自身の定例実行で横展開が完了していた)。理由コードが本venture(2種:
+  `UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET`・
+  `UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED`)と他3venture(1種:
+  `UNREACHABLE_REASON_NOT_FOLLOWING`)とで数が異なる点についても各ventureの
+  `route_deletion_candidate_confirmation()`相当のロジックを確認し、他3venture
+  (LINE公式アカウントのブロック判定`is_following`のみで経路を分岐、メール等の代替
+  送信経路を持たない)と本venture(LINE push送信そのものの失敗〈`LinePushDeliveryError`〉
+  と`owner_line_user_id`未設定という2つの独立した連絡不能経路を持つ)のアーキテクチャの
+  違いに起因する意図的な差であり、他3venture側の実装漏れではないことを確認した。
+  これにより次回候補(2)は解消済みと結論する。コード変更なし、確認のみ。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(931件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を再実行し、いずれもパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された
+  場合は本venture一式の実装着手を最優先、(2)実際の削除実行バッチ(月次、store-
+  deletion-candidate-unreachable-owner-review-design.md 6節がスコープ外とした
+  「連絡不能」フラグ付き候補のオーナー対話確認フロー)の設計、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-13 22:00 UTC(フェーズ続き321: 他3venture〈aircon-pasha・
+  course-set-pasha・kura-pasha〉を横断点検し、連絡不能理由コード区分の横展開が
+  フェーズ続き320以降の各venture自身の定例実行で既に完了していたことを確認。理由コード
+  数の差〈本venture2種・他3venture1種〉は各ventureのアーキテクチャの違いに起因する
+  意図的な差であり実装漏れではないと結論。コード変更なし、テスト931件・schema検証28件
+  いずれも変更なしでパス)
