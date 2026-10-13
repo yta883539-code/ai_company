@@ -22,7 +22,10 @@ from cloud_function_run_daily_workshop_checks import (  # noqa: E402
 from daily_scheduler import run_daily_workshop_checks  # noqa: E402
 from payment_suspension_owner_notification import OWNER_LINE_USER_ID_PLACEHOLDER  # noqa: E402
 from subscription_cancellation_notification import InMemoryLinePushClient  # noqa: E402
-from usage_counter_workshop import InMemoryWorkshopStore  # noqa: E402
+from usage_counter_workshop import (  # noqa: E402
+    InMemoryUserProfileStore,
+    InMemoryWorkshopStore,
+)
 
 
 class _StubRequest:
@@ -35,6 +38,7 @@ class GetRuntimeDependenciesTest(unittest.TestCase):
         deps = get_daily_workshop_checks_runtime_dependencies()
 
         self.assertIsInstance(deps["workshop_store"], InMemoryWorkshopStore)
+        self.assertIsInstance(deps["user_profile_store"], InMemoryUserProfileStore)
         self.assertIsInstance(deps["push_client"], InMemoryLinePushClient)
         self.assertEqual(deps["owner_line_user_id"], OWNER_LINE_USER_ID_PLACEHOLDER)
 
@@ -56,6 +60,7 @@ class GetRuntimeDependenciesTest(unittest.TestCase):
         self.assertEqual(result.trial_end_reports.sent, [])
         self.assertEqual(result.payment_failure_reminders.sent, [])
         self.assertEqual(result.payment_suspension_owner_notifications.sent, [])
+        self.assertEqual(result.deletion_candidate_final_confirmations.sent, [])
 
 
 class MainEntryPointTest(unittest.TestCase):

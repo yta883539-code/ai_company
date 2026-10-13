@@ -5143,3 +5143,43 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   同フェーズ内で実装、`deletion_candidate.py`新設・`WorkshopStoreProtocol`に3メソッド
   追加・`stripe_webhook.py`の2ハンドラへ配線。テスト12件追加、`test_stripe_webhook.py`は
   185件中185件成功、`unittest discover`は176→184件、schema検証32件は変更なしでパス)
+- フェーズ233(2026-10-13 09:00 UTC定例更新): フェーズ232の次回候補(2)「
+  `list_deletion_candidates()`を日次バッチへ配線し、aircon-pasha・course-set-pasha型の
+  削除候補化後の最終確認送信・『連絡不能』オーナーレビュー用レポート(line-reservation-ai
+  フェーズ318・319相当)を本ventureにも実装する」に着手し、同フェーズ内で実装まで行った。
+  deletion-candidate-final-confirmation-design.mdを新規文書化し、本venture固有の差異
+  (契約単位は`craftsman_workshop/{workshop_id}`・送信対象は`contractor_user_id`1名に
+  限定、送信形式は既存通知と同じプレーンテキストでFlex Messageは使わない)を整理した。
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`/`InMemoryWorkshopStore`に
+  `get/set_deletion_confirmation_sent_at`・`get/set_deletion_confirmation_unreachable_at`
+  の4メソッドを追加し、新規`prototype/deletion_candidate_final_confirmation.py`に
+  経路判定(`route_deletion_candidate_confirmation`)・送信配線
+  (`send_deletion_candidate_final_confirmations`)・store wiring込みの結合関数
+  (`run_due_deletion_candidate_final_confirmations`)・「連絡不能」オーナーレビュー用
+  レポート(`list_unreachable_deletion_candidates`・
+  `render_unreachable_deletion_candidates_report`)を実装した。`daily_scheduler.py`の
+  `run_daily_workshop_checks()`に`user_profile_store`引数を追加し、既存3系統に続く
+  4番目の処理として本機能の送信配線を呼び出すよう配線、
+  `cloud_function_run_daily_workshop_checks.py`の`get_daily_workshop_checks_runtime_
+  dependencies()`にも`user_profile_store`(`InMemoryUserProfileStore()`)の既定値を追加
+  した。`test_deletion_candidate_final_confirmation.py`を新設(20件)、
+  `test_daily_scheduler.py`・`test_cloud_function_run_daily_workshop_checks.py`も配線
+  変更に合わせて更新し、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(18→19ファイル、184→205件)・`python3 schema/validate_test_cases.py`
+  (32件、変更なし)・`python3 prototype/run_all_tests.py`(19ファイル全てパス)を実行し、
+  いずれもパスすることを確認した。実際の削除実行バッチ(自動削除)・代替のメール経路は
+  引き続き本設計のスコープ外(line-reservation-ai・aircon-pasha同様)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実Firestore・実LINE Messaging API接続自体は既存の
+  承認待ち事項の範囲内であり、新たな承認待ち事項ではない)。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)forklift-pashaはLINE非依存の
+  Webフォーム構成のため本パターン自体の対象外であることを確認済み、他venture側は
+  aircon-pasha・course-set-pasha・line-reservation-ai・kura-pashaの4件で揃ったため
+  cross-venture parityのこの系統の横断点検は一旦完了とみなす、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-13 09:00 UTC(フェーズ233: 削除候補化後の最終確認送信・「連絡不能」
+  オーナーレビュー用レポートを新規実装。`deletion_candidate_final_confirmation.py`新設・
+  `WorkshopStoreProtocol`に4メソッド追加・`daily_scheduler.py`/`cloud_function_run_daily_
+  workshop_checks.py`へ配線。テスト21件追加〈新設ファイル20件+既存2ファイル更新〉、
+  `unittest discover`は184→205件、schema検証32件・run_all_tests.py19ファイルいずれも
+  変更なしでパス)

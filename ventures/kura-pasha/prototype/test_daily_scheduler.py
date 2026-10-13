@@ -23,6 +23,7 @@ from subscription_cancellation_notification import InMemoryLinePushClient, LineP
 from usage_counter_workshop import (
     PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
     TRIAL_PERIOD_DAYS,
+    InMemoryUserProfileStore,
     InMemoryWorkshopStore,
 )
 
@@ -296,15 +297,16 @@ def test_send_payment_failure_reminders_delivery_failure_is_not_marked_sent():
     )
 
 
-def test_run_daily_workshop_checks_wires_all_three_notification_kinds():
+def test_run_daily_workshop_checks_wires_all_four_notification_kinds():
     store = _make_store()
     store.set_trial_start_at("w1", NOW - timedelta(days=TRIAL_PERIOD_DAYS))
     store.set_payment_failure_detected_at(
         "w2", NOW - timedelta(days=PAYMENT_FAILURE_GRACE_PERIOD_DAYS + 1)
     )  # 猶予期間超過済み(制限モード移行、オーナー通知対象)
     push = InMemoryLinePushClient()
+    user_profile_store = InMemoryUserProfileStore()
 
-    result = run_daily_workshop_checks(NOW, store, push)
+    result = run_daily_workshop_checks(NOW, store, user_profile_store, push)
 
     check("(B)トライアル到達報告が送信される", result.trial_end_reports.sent == ["w1"])
     check("決済失敗リマインドは対象無し", result.payment_failure_reminders.sent == [])
@@ -313,9 +315,32 @@ def test_run_daily_workshop_checks_wires_all_three_notification_kinds():
         result.payment_suspension_owner_notifications.sent == ["w2"],
     )
     check(
+        "削除候補化後の最終確認は対象無し(いずれも解約候補化されていない)",
+        result.deletion_candidate_final_confirmations.sent == []
+        and result.deletion_candidate_final_confirmations.marked_unreachable == [],
+    )
+    check(
         "契約者向け(トライアル到達)1件+オーナー向け1件の計2件が送信される"
         "(w2は既に猶予期間超過済みのためリマインド対象外)",
         len(push.sent) == 2,
+    )
+
+
+def test_run_daily_workshop_checks_wires_deletion_candidate_final_confirmation():
+    store = _make_store()
+    store.set_deletion_candidate_at("w1", NOW - timedelta(days=1))  # 既に削除候補化済み
+    push = InMemoryLinePushClient()
+    user_profile_store = InMemoryUserProfileStore()  # 既定でis_following=True
+
+    result = run_daily_workshop_checks(NOW, store, user_profile_store, push)
+
+    check(
+        "削除候補化済みworkshopの契約者へ最終確認が送信される",
+        result.deletion_candidate_final_confirmations.sent == ["w1"],
+    )
+    check(
+        "deletion_confirmation_sent_atが書き込まれる",
+        store.get_deletion_confirmation_sent_at("w1") == NOW,
     )
 
 
@@ -338,7 +363,8 @@ if __name__ == "__main__":
     test_send_trial_end_reports_delivery_failure_is_not_marked_notified()
     test_send_payment_failure_reminders_sends_only_to_due_workshop_and_marks_sent()
     test_send_payment_failure_reminders_delivery_failure_is_not_marked_sent()
-    test_run_daily_workshop_checks_wires_all_three_notification_kinds()
+    test_run_daily_workshop_checks_wires_all_four_notification_kinds()
+    test_run_daily_workshop_checks_wires_deletion_candidate_final_confirmation()
 
     print(f"\n{PASS} passed, {FAIL} failed")
     if FAIL:

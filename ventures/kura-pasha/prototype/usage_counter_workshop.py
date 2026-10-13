@@ -638,6 +638,32 @@ class WorkshopStoreProtocol(Protocol):
         """`checkout.session.completed`で再契約を検知した時(design 4節)に削除する。"""
         ...
 
+    def get_deletion_confirmation_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        """deletion-candidate-final-confirmation-design.md(フェーズ233)2節: 削除候補化後の
+        最終確認LINE pushが送達済みの時刻。未送達の場合はNoneを返す(二重送信防止用)。
+        """
+        ...
+
+    def set_deletion_confirmation_sent_at(
+        self, workshop_id: str, sent_at: Optional[datetime]
+    ) -> None:
+        """送達成功時に書き込む。本フィールドはクリア配線を持たない
+        (deletion_candidate_atが`clear_deletion_candidate_at()`でクリアされた場合も、
+        過去に送達済みだった事実自体は履歴として残してよいため、他フィールドのような
+        None復帰のclear_*は設けない)。"""
+        ...
+
+    def get_deletion_confirmation_unreachable_at(self, workshop_id: str) -> Optional[datetime]:
+        """deletion-candidate-final-confirmation-design.md 2節・4節: LINEブロック済みで
+        最終確認が送達できなかった時刻。未設定の場合はNoneを返す。"""
+        ...
+
+    def set_deletion_confirmation_unreachable_at(
+        self, workshop_id: str, unreachable_at: Optional[datetime]
+    ) -> None:
+        """送達を試みずMARK_UNREACHABLEに倒した際に書き込む。"""
+        ...
+
 
 class UsageCounterStoreProtocol(Protocol):
     """`usage_counter/{workshop_id}`(month・count)への読み書きを表す。"""
@@ -710,6 +736,8 @@ class InMemoryWorkshopStore:
         self._blocked_but_billing_owner_notified_at_by_workshop: dict[str, datetime] = {}
         self._payment_suspension_owner_notified_at_by_workshop: dict[str, datetime] = {}
         self._deletion_candidate_at_by_workshop: dict[str, datetime] = {}
+        self._deletion_confirmation_sent_at_by_workshop: dict[str, datetime] = {}
+        self._deletion_confirmation_unreachable_at_by_workshop: dict[str, datetime] = {}
 
     def set_plan(self, workshop_id: str, plan_id: str) -> None:
         self._plan_id_by_workshop[workshop_id] = plan_id
@@ -918,6 +946,22 @@ class InMemoryWorkshopStore:
 
     def clear_deletion_candidate_at(self, workshop_id: str) -> None:
         self._deletion_candidate_at_by_workshop.pop(workshop_id, None)
+
+    def get_deletion_confirmation_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._deletion_confirmation_sent_at_by_workshop.get(workshop_id)
+
+    def set_deletion_confirmation_sent_at(
+        self, workshop_id: str, sent_at: Optional[datetime]
+    ) -> None:
+        self._deletion_confirmation_sent_at_by_workshop[workshop_id] = sent_at
+
+    def get_deletion_confirmation_unreachable_at(self, workshop_id: str) -> Optional[datetime]:
+        return self._deletion_confirmation_unreachable_at_by_workshop.get(workshop_id)
+
+    def set_deletion_confirmation_unreachable_at(
+        self, workshop_id: str, unreachable_at: Optional[datetime]
+    ) -> None:
+        self._deletion_confirmation_unreachable_at_by_workshop[workshop_id] = unreachable_at
 
 
 class InMemoryUsageCounterStore:

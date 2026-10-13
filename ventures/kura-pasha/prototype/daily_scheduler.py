@@ -32,6 +32,11 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Protocol, Sequence
 
 from cloud_function_webhook import format_trial_end_notification_message
+from deletion_candidate_final_confirmation import (
+    DeletionConfirmationUserProfileStoreProtocol,
+    SendDeletionCandidateFinalConfirmationsResult,
+    run_due_deletion_candidate_final_confirmations,
+)
 from payment_suspension_owner_notification import (
     OWNER_LINE_USER_ID_PLACEHOLDER,
     SendPaymentSuspensionOwnerNotificationsResult,
@@ -200,6 +205,22 @@ class DailySchedulerWorkshopStoreProtocol(Protocol):
     def set_payment_failure_reminder_sent_at(self, workshop_id: str, sent_at: datetime) -> None:
         ...
 
+    def get_deletion_candidate_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def get_deletion_confirmation_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+    def set_deletion_confirmation_sent_at(
+        self, workshop_id: str, sent_at: Optional[datetime]
+    ) -> None:
+        ...
+
+    def set_deletion_confirmation_unreachable_at(
+        self, workshop_id: str, unreachable_at: Optional[datetime]
+    ) -> None:
+        ...
+
 
 def build_trial_end_states(
     workshop_store: DailySchedulerWorkshopStoreProtocol,
@@ -311,21 +332,24 @@ class RunDailyWorkshopChecksResult:
     trial_end_reports: SendResult
     payment_failure_reminders: SendResult
     payment_suspension_owner_notifications: SendPaymentSuspensionOwnerNotificationsResult
+    deletion_candidate_final_confirmations: SendDeletionCandidateFinalConfirmationsResult
 
 
 def run_daily_workshop_checks(
     now: datetime,
     workshop_store: DailySchedulerWorkshopStoreProtocol,
+    user_profile_store: DeletionConfirmationUserProfileStoreProtocol,
     push_client: LinePushClient,
     owner_line_user_id: str = OWNER_LINE_USER_ID_PLACEHOLDER,
 ) -> RunDailyWorkshopChecksResult:
     """design 2節「Cloud Function G: run_daily_workshop_checks」本体。
 
     2)(B)トライアル30日到達報告→3)決済失敗3日前リマインド→4)制限モード移行時の
-    オーナー通知(payment_suspension_owner_notification.py、フェーズ116)の順に呼び出す
-    (design 2節の順序どおり)。4)は選定ロジック・送信配線とも当該モジュール側で完結済み
+    オーナー通知(payment_suspension_owner_notification.py、フェーズ116)→5)削除候補化後の
+    最終確認(deletion_candidate_final_confirmation.py、フェーズ233)の順に呼び出す
+    (design 2節の順序どおり)。4)・5)は選定ロジック・送信配線とも当該モジュール側で完結済み
     のため、本関数からはそのまま呼び出す1行の追加で足りる(daily-scheduler-design.md
-    フェーズ117追記のとおり)。
+    フェーズ117追記、deletion-candidate-final-confirmation-design.md 6節と同じ考え方)。
     """
 
     trial_end_result = send_trial_end_reports(now, workshop_store, push_client)
@@ -333,8 +357,12 @@ def run_daily_workshop_checks(
     owner_notification_result = send_payment_suspension_owner_notifications(
         now, workshop_store, push_client, owner_line_user_id
     )
+    deletion_confirmation_result = run_due_deletion_candidate_final_confirmations(
+        workshop_store, user_profile_store, now, push_client
+    )
     return RunDailyWorkshopChecksResult(
         trial_end_reports=trial_end_result,
         payment_failure_reminders=payment_failure_result,
         payment_suspension_owner_notifications=owner_notification_result,
+        deletion_candidate_final_confirmations=deletion_confirmation_result,
     )

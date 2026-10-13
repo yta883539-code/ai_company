@@ -39,7 +39,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from daily_scheduler import RunDailyWorkshopChecksResult, run_daily_workshop_checks  # noqa: E402
 from payment_suspension_owner_notification import OWNER_LINE_USER_ID_PLACEHOLDER  # noqa: E402
 from subscription_cancellation_notification import InMemoryLinePushClient  # noqa: E402
-from usage_counter_workshop import InMemoryWorkshopStore  # noqa: E402
+from usage_counter_workshop import (  # noqa: E402
+    InMemoryUserProfileStore,
+    InMemoryWorkshopStore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +56,15 @@ def get_daily_workshop_checks_runtime_dependencies() -> dict:
     GCPプロジェクト・実LINE公式アカウント開設後でなければ構築できないため(オーナー承認
     待ち、pending-approval.md参照)、現時点では検証用のInMemory実装を返す。
 
-    `InMemoryWorkshopStore()`はこの呼び出しごとに新規生成されるため、実Cloud Functions
-    環境でも呼び出しをまたいで状態(trial_end_notified_at等)が保持されない既知の限界が
-    残る(aircon-pasha側と同種の限界で、実Firestore接続後に解消される)。
+    `InMemoryWorkshopStore()`/`InMemoryUserProfileStore()`はこの呼び出しごとに新規生成
+    されるため、実Cloud Functions環境でも呼び出しをまたいで状態(trial_end_notified_at等)
+    が保持されない既知の限界が残る(aircon-pasha側と同種の限界で、実Firestore接続後に
+    解消される)。`user_profile_store`はフェーズ233(deletion_candidate_final_
+    confirmation.py)で新たに必要になった依存。
     """
     return {
         "workshop_store": InMemoryWorkshopStore(),
+        "user_profile_store": InMemoryUserProfileStore(),
         "push_client": InMemoryLinePushClient(),
         "owner_line_user_id": OWNER_LINE_USER_ID_PLACEHOLDER,
     }
@@ -77,13 +83,18 @@ def main(request):
     logger.info(
         "daily_workshop_checks: trial_end_sent=%d trial_end_failed=%d "
         "payment_failure_sent=%d payment_failure_failed=%d "
-        "owner_notifications_sent=%d owner_notifications_failed=%d",
+        "owner_notifications_sent=%d owner_notifications_failed=%d "
+        "deletion_confirmations_sent=%d deletion_confirmations_unreachable=%d "
+        "deletion_confirmations_failed=%d",
         len(result.trial_end_reports.sent),
         len(result.trial_end_reports.failed),
         len(result.payment_failure_reminders.sent),
         len(result.payment_failure_reminders.failed),
         len(result.payment_suspension_owner_notifications.sent),
         len(result.payment_suspension_owner_notifications.failed),
+        len(result.deletion_candidate_final_confirmations.sent),
+        len(result.deletion_candidate_final_confirmations.marked_unreachable),
+        len(result.deletion_candidate_final_confirmations.failed),
     )
     return "OK", 200
 
