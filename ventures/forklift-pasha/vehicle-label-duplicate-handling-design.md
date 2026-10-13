@@ -77,8 +77,11 @@ distinct車両数かが未確定だった。本フェーズで**実績カウン�
 
 ## 6. 未確定・次回候補
 
-- `(operatorInternalId, vehicleLabel)`の複合インデックス設計(firestore-composite-index-plan
-  相当の文書化)。
+- ~~`(operatorInternalId, vehicleLabel)`の複合インデックス設計(firestore-composite-index-plan
+  相当の文書化)。~~
+  (解消済み 2026-10-13 15:00 UTC・フェーズ150: firestore-composite-index-plan.mdとして
+  本venture全体〈`vehicle`・`fleet_operator`〉の複合インデックスを集約・文書化し、
+  `firestore.indexes.json`を書き出した。)
 - ~~台数プラン超過時のアップセル通知設計(5節、pricing-plan.mdの生成回数超過通知と合わせて
   一体設計するのが望ましい)。~~
   (解消済み 2026-10-10 15:00 UTC・フェーズ115: usage-and-fleet-overage-notification-design.md

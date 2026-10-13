@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "vehicle",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "operatorInternalId", "order": "ASCENDING" },
+        { "fieldPath": "vehicleLabel", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "fleet_operator",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trialStartAt", "order": "ASCENDING" },
+        { "fieldPath": "trialEndNotifiedAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

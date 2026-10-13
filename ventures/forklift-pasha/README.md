@@ -2848,3 +2848,32 @@
   design.mdの2節〜4節〈vehicle_id発行・重複チェック・新規メモ受信時のフロー〉が設計のみで
   未実装だった欠落を発見し、`prototype/vehicle_registry.py`として新規実装。テスト18件
   追加、全16ファイル中16件成功・schema検証11件・ブラウザ検証18件いずれもパス)
+- フェーズ150(2026-10-13 15:00 UTC定例更新): フェーズ149の次回候補(2)「`(operatorInternalId,
+  vehicleLabel)`のFirestore複合インデックス設計」に着手し、line-reservation-ai/
+  firestore-composite-index-plan.mdの構成方針(本venture全体で必要な複合インデックスを
+  1ドキュメントに集約)を踏襲してfirestore-composite-index-plan.mdを新規文書化した。
+  調査の結果、本venture内で複合インデックスが必要なクエリは2件確認できた: (1)`vehicle`
+  コレクションの`operatorInternalId == X AND vehicleLabel == Y`(vehicle-label-duplicate-
+  handling-design.md、フェーズ114・149)、(2)`fleet_operator`コレクションの
+  `trialStartAt <= cutoff AND trialEndNotifiedAt == null`(trial-end-notification-design.md
+  「(B)期間到達」経路の日次スケジューラ抽出条件、フェーズ119)。本ventureは双方向会話状態を
+  持たない単方向バッチ処理(tech-stack.md)であり、line-reservation-aiのような
+  `stores/{storeId}/...`型のサブコレクション構造を持たないため、両索引とも
+  **collection group**ではなく通常の`Collection`スコープで足りることを確認した
+  (line-reservation-ai側の補足との差異として明記)。あわせて、調査中にfirestore-data-
+  model.mdの`fleet_operator`フィールド一覧に`trialEndNotifiedAt`(trial-end-notification-
+  design.md・`prototype/trial_management.py`では実装済み)が未反映のまま残っていた
+  cross-document parityの記載漏れを発見し、次回候補として記録した。実際に`gcloud
+  firestore indexes composite create`相当の宣言的定義として`firestore.indexes.json`
+  (venture直下)を先行して書き出した。コード変更なし、文書・JSON作成のみ(机上設計の
+  ため既存テスト・schema検証・ブラウザ検証はいずれも対象外・変更なし)。承認が必要な
+  アクション(実GCPプロジェクト作成・Firestore有効化・インデックスの実デプロイ等)は
+  今回発生していないためpending-approval.mdへの追記なし(実デプロイ自体はpending-
+  approval.mdに既記載の実Firestore接続待ちの範囲内であり、新規の承認依頼ではない)。
+  次回候補: (1)承認待ち事項1・2のいずれかがオーナーから承認された場合はその着手を
+  最優先、(2)firestore-data-model.mdの`fleet_operator`フィールド一覧に
+  `trialEndNotifiedAt`を追記する記載漏れの解消、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 15:00 UTC(フェーズ150: vehicle-label-duplicate-handling-
+  design.md「6.」に残っていた複合インデックス設計課題に対応し、firestore-composite-
+  index-plan.mdを新規文書化〈`vehicle`・`fleet_operator`の2索引を集約、いずれも
+  Collectionスコープ〉。`firestore.indexes.json`を先行して書き出した。コード変更なし)
