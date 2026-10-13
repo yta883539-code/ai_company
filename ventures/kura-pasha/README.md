@@ -5183,3 +5183,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   workshop_checks.py`へ配線。テスト21件追加〈新設ファイル20件+既存2ファイル更新〉、
   `unittest discover`は184→205件、schema検証32件・run_all_tests.py19ファイルいずれも
   変更なしでパス)
+- フェーズ234(2026-10-13 17:00 UTC定例更新): workshop-store-firestore-adapter-design.md
+  28節に残っていた「承認後の結合実装フェーズに備えた準備作業」に着手し、
+  forklift-pasha/firestore-composite-index-plan.md(フェーズ150)が確立した方針(venture
+  全体に分散している複合インデックス必要箇所を1ドキュメントに集約し、デプロイ可能な
+  `firestore.indexes.json`を先行して書き出す)を本ventureに横展開した。
+  firestore-composite-index-plan.mdを新規文書化し、`daily_scheduler.py`・
+  `payment_suspension_owner_notification.py`・`deletion_candidate_final_confirmation.py`が
+  現状`all_workshop_ids()`の全件走査+インメモリ条件分岐で代替している3種の抽出クエリ
+  (トライアル30日到達報告・決済失敗3日前リマインド・支払い停止オーナー通知)、および
+  `deletion_candidate.list_deletion_candidates()`と`deletion_confirmation_sent_at`判定を
+  1クエリに統合する場合に備えた索引の計4件を洗い出し、`firestore.indexes.json`として
+  書き出した。あわせて、`blocked_but_billing_candidates.list_blocked_but_billing_
+  candidates()`が`craftsman_workshop`(`subscription_status`)と`user_profile`
+  (`is_following`)という2つの異なるコレクションをまたぐ条件であるため複合インデックス
+  単体では解決できず、既存のインメモリ二段構え(範囲クエリ絞り込み→個別`get()`)を
+  実Firestore接続後も維持する想定である旨を明文化した。コード変更なし、文書・JSON作成の
+  みのため回帰確認として`python3 prototype/run_all_tests.py`(19ファイル全てパス)・
+  `python3 schema/validate_test_cases.py`(32件中32件パス)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階構成を
+  実Firestore接続後に1クエリへ統合するかどうかの結合実装フェーズでの判断、(3)他venture・
+  アイデア領域の前進。
