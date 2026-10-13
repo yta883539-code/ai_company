@@ -70,9 +70,24 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // 新規追加。休止モード1通目(移行時)通知の送信済み時刻
                                      // (Timestamp | null)。dormant_mode_scheduler.py
                                      // select_due_dormant_events()の冪等性フラグ。
-  dormantRenotifyCount: 0            // 同上。休止モード2〜4通目(7/30/90日後)のうち
+  dormantRenotifyCount: 0,           // 同上。休止モード2〜4通目(7/30/90日後)のうち
                                      // 何通送信済みか(0〜3の整数)。3に達すると2節の
                                      // 「4回で打ち切り」方針どおり以降送信しない。
+  dormantFinalRenotifySentAt: null,  // store-deletion-candidate-final-confirmation-
+                                     // design.md 3節で新規追加。休止モード4通目(final、
+                                     // 90日後)を実際に送信した時刻(Timestamp | null)。
+                                     // dormantRenotifyCountが3に達した送信と同一トラン
+                                     // ザクションで設定する。店舗レコード削除候補化
+                                     // (store_deletion_candidate.py)の起点測定に使う。
+  storeDeletionConfirmationSentAt: null, // 同上。削除候補化後の最終確認(LINE push)
+                                     // 送信済み時刻(Timestamp | null)。再送を防ぐ
+                                     // 冪等性フラグ(aircon-pasha/course-set-pasha/
+                                     // kura-pashaの同名フィールドに相当)。
+  storeDeletionConfirmationUnreachableAt: null, // 同上。LINE push送信が失敗した、または
+                                     // owner_user_id未設定で連絡不能と判定された時刻
+                                     // (Timestamp | null)。自動削除には進まず、オーナー
+                                     // (本リポジトリの運営者)が対話セッションで個別に
+                                     // 削除可否を判断する運用のためのフラグ。
   bookingConfirmedCount: 0           // trial-end-scheduler-design.md 5節(フェーズ続き150)で
                                      // 新規追加。予約確定累計回数(InMemory版の
                                      // InMemoryBookingRecordStore.count_confirmed_bookings()

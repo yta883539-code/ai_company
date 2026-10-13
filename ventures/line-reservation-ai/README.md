@@ -5746,3 +5746,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   事項がオーナーから承認された場合はその着手を最優先、(2)本文書3節のfirestore-data-
   model.mdへの新規フィールド追加とコード実装(`store_deletion_candidate.py`等、テスト
   追加含む)、(3)他venture・アイデア領域の前進。
+- フェーズ続き318(2026-10-13 03:00 UTC定例更新): フェーズ続き317の次回候補(2)を受け、
+  store-deletion-candidate-final-confirmation-design.mdの4節・5節で設計した削除候補
+  選定ロジック・最終確認送信を実装した。(1)firestore-data-model.mdの`stores/{storeId}`
+  スキーマに新規3フィールド(`dormantFinalRenotifySentAt`・
+  `storeDeletionConfirmationSentAt`・`storeDeletionConfirmationUnreachableAt`、いずれも
+  design 3節で先行定義済みのとおり)を追加、(2)`prototype/store_deletion_candidate.py`に
+  `is_store_deletion_candidate()`・`list_store_deletion_candidates()`(design 4節の4条件:
+  final送信済み・365日経過・未確認・反応なし)・最終確認メッセージ文言を実装、(3)
+  `prototype/cloud_function_send_store_deletion_confirmations.py`に送信本体
+  `send_store_deletion_confirmations()`を実装した。design 5節はaircon-pasha/
+  course-set-pasha型の「本体分離+薄いmain(request)」構成を踏襲する想定だったが、
+  aircon-pashaフェーズ310の横断点検(2026-10-12 15:00 UTC)が確認したとおり本venture
+  自身のCloud Scheduler起動バッチは「本体と配線を分離しない」構成(`dormant_mode_
+  scheduler.py`本体+`cloud_function_send_dormant_notifications.py`配線の2ファイル分割)を
+  一貫して採用しているため、本フェーズではdesignの想定をaircon-pasha型からline-
+  reservation-ai自身の既存構成に合わせて実装した(本README内でこの差異を明記)。
+  owner_line_user_id未設定・LINE push送信失敗のいずれもdesign 5節の簡略化方針どおり
+  1回の判定で`storeDeletionConfirmationUnreachableAt`を記録するのみに留め、削除実行には
+  一切進めない。テスト17件追加(`test_store_deletion_candidate.py`10件、
+  `test_cloud_function_send_store_deletion_confirmations.py`7件)、全923件パス
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証28件
+  (`python3 schema/validate_test_cases.py`)いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実Cloud Scheduler作成・実Firestore/LINE接続自体は
+  既存の承認待ち事項の範囲内であり、新たな承認待ち事項ではない)。次回候補: (1)承認待ち
+  事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された
+  場合は本venture一式の実装着手を最優先、(2)実際の削除実行バッチ(月次、design 6節が
+  スコープ外とした「連絡不能」フラグ付き候補のオーナー対話確認フロー)の設計、(3)他
+  venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 03:00 UTC(フェーズ続き318: store-deletion-candidate-final-
+  confirmation-design.md 4節・5節の選定ロジック・最終確認送信を実装
+  〈`store_deletion_candidate.py`・`cloud_function_send_store_deletion_
+  confirmations.py`〉。firestore-data-model.mdに新規3フィールド追加。design想定の
+  aircon-pasha型薄いラッパー構成ではなく本venture既存の「本体+配線2ファイル分割」構成を
+  採用。テスト17件追加、全923件パス・schema検証28件パス)
