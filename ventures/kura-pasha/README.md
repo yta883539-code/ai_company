@@ -5233,3 +5233,17 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階構成を実Firestore接続後に
   1クエリへ統合するかどうかの結合実装フェーズでの判断(フェーズ234の次回候補(2)が未着手の
   まま残っている)、(3)他venture・アイデア領域の前進。
+- フェーズ236(2026-10-13 20:00 UTC定例更新): firestore-composite-index-plan.md
+  (フェーズ234)の集計対象に、フェーズ235で追加された「連絡不能」オーナーレビュー用
+  レポート(`list_unreachable_deletion_candidates()`)が含まれていなかったことに気づき、
+  索引要否を確認した。同関数は`deletion_confirmation_unreachable_at != null`という
+  単一フィールド判定のみでソート条件・他フィールドとの複合条件を持たないため、
+  Firestoreの自動単一フィールド索引で足り、追加の複合インデックスは不要であることを
+  確認した(firestore-composite-index-plan.mdに追記)。コード変更なし、文書追記のみの
+  ため回帰確認として`python3 prototype/run_all_tests.py`(19ファイル全てパス)・
+  `python3 schema/validate_test_cases.py`(32件中32件パス)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階
+  構成を実Firestore接続後に1クエリへ統合するかどうかの結合実装フェーズでの判断
+  (フェーズ234の次回候補(2)、未着手のまま残っている)、(3)他venture・アイデア領域の前進。
