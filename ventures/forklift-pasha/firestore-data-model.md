@@ -52,10 +52,17 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 手がかりとして設定ページ上に表示する
                                               // (access-token-reissue-design.md「6.」参照)。
                                               // 初回アクセス前はnull
-  trialGenerationCount: 0                    // 月次リセットされない累積生成回数
+  trialGenerationCount: 0,                   // 月次リセットされない累積生成回数
                                               // (trial-end-condition-design.md「3.」参照、
                                               // usage_counterの月間countとは別物)。無料
                                               // トライアル終了判定「生成5回到達」に使用
+  trialEndNotifiedAt: null                   // Timestamp | null。trial-end-notification-design.md
+                                              // で設計、prototype/trial_management.pyに実装済みの
+                                              // トライアル終了通知(生成5回到達、または初回生成から
+                                              // 30日経過のいずれか早い方)を送信済みかの冪等性ガード。
+                                              // 未送信はnull、送信後は送信日時を設定し以降再送しない
+                                              // (フェーズ150で本フィールドのデータモデル文書への
+                                              // 反映漏れを発見し追記。実装・既存テストへの変更なし)
 }
 ```
 
@@ -116,6 +123,11 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
 - (解消済み 2026-10-07 04:00 UTC・フェーズ99: access-token-reissue-design.md〈フェーズ98〉
   次回候補の`lastAccessedAt`フィールドを`fleet_operator`に追加した。更新タイミング・
   設定ページでの表示方針はaccess-token-reissue-design.md「6.」参照。)
+- (解消済み 2026-10-13 16:00 UTC・フェーズ151: firestore-composite-index-plan.md
+  〈フェーズ150〉の残る課題が指摘していた、trial-end-notification-design.mdで設計・
+  prototype/trial_management.pyに実装済みの`trialEndNotifiedAt`フィールドが本ファイルの
+  `fleet_operator`フィールド一覧に未反映だった欠落を解消し、追記した。実装・既存テストへの
+  変更はない、文書反映のみ。)
 
 最終更新: 2026-10-05 22:00 UTC(フェーズ70: tech-stack.mdの入力チャネル暫定決定〈汎用Web
 フォーム〉を受け、operator_idの割り振り方針をメールアドレス/発行式に具体化)

@@ -49,10 +49,11 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
 - #2について、インメモリ全件走査から索引付きクエリへの切り替えタイミング(事業者数の
   閾値等)は未確定のまま次回以降の課題とする。
-- firestore-data-model.mdのフィールド一覧(`fleet_operator`)に`trialEndNotifiedAt`が
-  未反映であることに気づいた(trial-end-notification-design.md・prototype/trial_management.py
-  では既に実装済みだが、データモデル文書側のフィールド表には追記されていなかった)。
-  本フェーズの対象外のため次回候補として残す(firestore-data-model.md自体の更新が必要)。
+- (解消済み 2026-10-13 16:00 UTC・フェーズ151: firestore-data-model.mdのフィールド一覧
+  (`fleet_operator`)に`trialEndNotifiedAt`が未反映であることに気づいた(trial-end-
+  notification-design.md・prototype/trial_management.pyでは既に実装済みだが、データ
+  モデル文書側のフィールド表には追記されていなかった)問題を、firestore-data-model.md
+  本体への追記により解消した。)
 
 最終更新: 2026-10-13 15:00 UTC(フェーズ150: vehicle-label-duplicate-handling-design.md
 〈フェーズ114〉に残っていた複合インデックス設計課題に対応し、本venture全体で必要な
