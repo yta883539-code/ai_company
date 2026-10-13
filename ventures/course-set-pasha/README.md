@@ -4909,3 +4909,31 @@
   固有の2store構成〈削除候補状態/is_following〉にあわせて`run_due_deletion_candidate_
   final_confirmations(deletion_store, profile_store, now, push_client)`を実装。
   テスト15件追加、全733件パス・schema検証21件パス)
+- フェーズ293(2026-10-13 06:00 UTC定例更新): aircon-pashaフェーズ311
+  (deletion-candidate-unreachable-owner-review-design.md)の次回候補(2)「course-set-pasha
+  の`deletion_candidate_final_confirmation.py`にも同種の機能を展開」を受け、削除候補化後の
+  最終確認が送達できなかった「連絡不能」ケース(`deletion_confirmation_unreachable_at`が
+  設定済みの状態)について、オーナーが対話セッションで一覧を参照し個別に削除可否を判断する
+  ための読み取り専用レポート生成機能をaircon-pasha版からそのまま横展開した。本venture固有の
+  点として、`deletion_store`(`InMemoryProfileDeletionCandidateStore`)が元々
+  `all_user_ids()`・`get_deletion_confirmation_unreachable_at()`の両方を既存メソッドで
+  満たしていたため(フェーズ292で既に追加済み)、`deletion_candidate_final_confirmation.py`
+  に`UnreachableDeletionCandidate`データクラス・`UnreachableDeletionCandidateReader`
+  Protocol・`list_unreachable_deletion_candidates()`・
+  `render_unreachable_deletion_candidates_report()`を追加するだけで済み、`deletion_
+  candidate.py`側の変更は不要だった(aircon-pasha・line-reservation-aiはいずれも新規フィールド
+  追加が必要だった点と異なる)。選定ロジック・レポート文言はaircon-pasha版と同一の方針を踏襲
+  (user_id昇順、0件時は定型文、末尾に「自動削除の対象ではない」旨の注記)。テスト6件追加
+  (`ListUnreachableDeletionCandidatesTest`4件・`RenderUnreachableDeletionCandidatesReportTest`
+  2件)、全739件パス(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  21件(`python3 schema/validate_test_cases.py`)いずれもパス。本機能は読み取り専用ロジックの
+  みのため新たな承認待ち事項は発生していない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)
+  承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)これで4venture
+  (aircon-pasha・course-set-pasha・line-reservation-ai)の「連絡不能オーナーレビュー用
+  レポート」横展開が完了(kura-pashaは対象外と確認済み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-13 06:00 UTC(フェーズ293: aircon-pashaフェーズ311の次回候補を受け、
+  「連絡不能」削除候補のオーナーレビュー用レポート生成機能
+  〈`list_unreachable_deletion_candidates()`・`render_unreachable_deletion_candidates_
+  report()`〉を横展開。既存の2store構成に新規フィールド追加は不要だった。テスト6件追加、
+  全739件パス・schema検証21件パス)
