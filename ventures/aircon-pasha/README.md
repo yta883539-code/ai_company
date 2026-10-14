@@ -5629,3 +5629,48 @@
   コレクションに必要な複合インデックス4件〈blocked_but_billing・payment_suspension・
   payment_failure_reminder・trial_end〉を洗い出し`firestore.indexes.json`を書き出した。
   コード変更なし)
+- フェーズ315(2026-10-14 00:00 UTC定例更新): フェーズ314の次回候補(2)「#4
+  (trial_end_scheduler.py)用のCloud Functionsエントリポイント(日次Cloud Scheduler配線)
+  自体がまだ存在しない」を受け着手した。実際にtrial_end_scheduler.py(Cloud Function E)・
+  payment_failure_reminder_scheduler.py(Cloud Function F)・payment_suspension_
+  scheduler.py(Cloud Function G)の3モジュールを確認した結果、候補の記載は`trial_end_
+  scheduler.py`のみを挙げていたが、実際には3モジュールすべてに同じ欠落(選定・送信配線
+  本体は実装済みだがCloud SchedulerからのHTTPエントリポイントが一度も実装されていない)が
+  あることを確認した。これはtrial-end-scheduler-design.md・payment-failure-reminder-
+  scheduler-design.mdがいずれも最初から想定していた「同一ジョブから続けて呼び出す」
+  構成でもあるため、kura-pasha/prototype/daily_scheduler.py +
+  cloud_function_run_daily_workshop_checks.pyと対称の構成で、新規`daily_scheduler.py`
+  (3モジュールを1回の日次起動から呼び出す結合層、`payment_failure_reminder_scheduler`・
+  `payment_suspension_scheduler`用に`build_*_states()`を新設)・
+  `cloud_function_run_daily_checks.py`(薄いHTTPエントリポイント)を実装した。結合して
+  初めて動かした際、`payment_failure_reminder_scheduler.select_due_payment_failure_
+  reminders()`が猶予期間(7日)経過後の上限チェックを持たないため、「ちょうど制限モード
+  移行対象になった(7日以上経過・まだ`payment_suspended_at`未設定)」ユーザーが
+  payment_suspension・payment_failure_reminderの双方の抽出条件に同時に合致し、
+  「制限モード移行」通知と「まもなく期限」のリマインドが同一バッチ内で二重送信されうる
+  相互作用を発見した(各モジュール単独では気づかれていなかった、初めて同じバッチで
+  組み合わせたことで判明した実行順序の要件)。3モジュールいずれの選定ロジック自体も
+  変更せず、`run_daily_checks()`内でpayment_suspensionをpayment_failure_reminderより
+  先に実行する順序とすることで(先に`payment_suspended_at`を書き込めば後続の
+  reminder側の抽出条件`payment_suspended_at is None`で自然に除外される)解消した。
+  テスト12件追加(test_daily_scheduler.py 7件・test_cloud_function_run_daily_checks.py
+  5件、境界値ユーザーが二重送信されないことを確認するテストを含む)、venture全体696件
+  全件パス(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証25件
+  (`python3 schema/validate_test_cases.py`)いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実デプロイ自体は既存の承認待ち事項〈実GCPプロジェクト
+  作成・Firestore有効化・実LINE公式アカウント開設〉の範囲内であり、新たな承認待ち事項
+  ではない)。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)既存の月次`cloud_function_send_deletion_candidate_final_confirmations.py`
+  (deletion_candidate_final_confirmation.py)を本`daily_scheduler.py`に統合するか
+  (周期が日次と異なるため本フェーズでは意図的に対象外としたが、kura-pashaのように単一
+  Cloud Functionへ統合する運用上の利点〈Cloud Scheduler無料枠節約〉もある。実インフラ
+  構築時にコスト・運用面から判断)、(3)course-set-pashaへの同種のCloud Functions
+  エントリポイント欠落横展開調査(フェーズ295次回候補(2)が未着手のまま残っている)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-14 00:00 UTC(フェーズ315: trial_end_scheduler.py・payment_failure_
+  reminder_scheduler.py・payment_suspension_scheduler.pyの3モジュールに共通して存在した
+  Cloud Functionsエントリポイント欠落を解消。daily_scheduler.py・
+  cloud_function_run_daily_checks.pyを新規実装し、結合して初めて判明した「制限モード
+  移行とリマインドの同一バッチ内二重送信」の相互作用を実行順序の工夫で解消。テスト12件
+  追加、全696件パス・schema検証25件パス)
