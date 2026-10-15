@@ -5247,3 +5247,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   事項がオーナーから承認された場合はその着手を最優先、(2)#4(削除候補最終確認)の2段階
   構成を実Firestore接続後に1クエリへ統合するかどうかの結合実装フェーズでの判断
   (フェーズ234の次回候補(2)、未着手のまま残っている)、(3)他venture・アイデア領域の前進。
+- フェーズ237(2026-10-15 00:00 UTC定例更新): forklift-pashaフェーズ151の次回候補(2)
+  「他venture内の同種ドキュメント間(README.mdと個別設計ファイル)の記載整合性について、
+  更新のたびにいずれか一方のみに記録される記載漏れが起きていないか棚卸しの余地がある」を
+  受け、本ventureに横展開して棚卸しを実施した。各設計ファイル内の「解消済み・フェーズNN」
+  形式の注記(mvp-flow-draft.md・contractor-transfer-confirmation-detection-design.md・
+  contractor-transfer-expired-notice-design.md・trial-end-condition-design.md・
+  subscription-cancellation-notification-design.md・unfollow-billing-faq.md等に出現する
+  フェーズ2・3・4・17・37・38・39・40・45・48・54・55・76・80・81・133・140の計17件)を
+  grepで抽出し、該当する全フェーズ番号がREADME.md側にも記載済みであることを確認した。
+  forklift-pashaで発見されたような「設計ファイル側にのみ記録され、README.mdへの記録が
+  一度も行われていない」記載漏れは本ventureには見つからなかった。コード変更なし、
+  棚卸し結果の記録のみのため回帰確認として`python3 prototype/run_all_tests.py`
+  (19ファイル全てパス)・`python3 schema/validate_test_cases.py`(32件中32件パス)を
+  実行し、いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)#4(削除候補最終確認)の2段階構成を実Firestore接続後に1クエリへ統合するかどうかの
+  結合実装フェーズでの判断(フェーズ234の次回候補(2)、未着手のまま残っている)、
+  (3)同種の記載整合性棚卸しを未実施の他venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai)への横展開、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-15 00:00 UTC(フェーズ237: forklift-pashaフェーズ151が提起した
+  README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開し、「解消済み・
+  フェーズNN」注記17件全てがREADME.mdに反映済みであることを確認。記載漏れは発見されず、
+  コード変更なし)
