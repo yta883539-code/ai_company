@@ -5674,3 +5674,40 @@
   cloud_function_run_daily_checks.pyを新規実装し、結合して初めて判明した「制限モード
   移行とリマインドの同一バッチ内二重送信」の相互作用を実行順序の工夫で解消。テスト12件
   追加、全696件パス・schema検証25件パス)
+- フェーズ316(2026-10-15 19:00 UTC定例更新): course-set-pashaフェーズ295の次回候補(2)
+  「同種のCloud Functions HTTPエントリポイント欠落が他venture(aircon-pasha・kura-pasha・
+  line-reservation-ai)にも無いかの横展開調査」を受け着手した。kura-pasha・
+  line-reservation-aiはいずれもGoogleフォームによる申込チャネルを持たず本件非該当だが、
+  aircon-pashaには同型の欠落がそのまま残っていることを確認した: user-account-linking-
+  design.md(フェーズ107)・application_form_submission_flow.handle_form_submission()
+  (フェーズ279実装済み、ペイロード検証→連携コード発行への委譲ロジック本体)までは
+  完了していたが、実際のGAS Webhook POSTリクエストを受け取る`main(request)`配線
+  (他の全Cloud Functionが備える構成)がこの経路にだけ存在しなかった。
+  application-form-submission-http-entry-point-design.mdを新規文書化し、course-set-pasha
+  版との向きの違い(本ventureはフォーム送信が連携コードの発行契機のため、レスポンスに
+  発行済み`linking_code`自体を含める必要がある点)を整理した上で、
+  `prototype/application_form_submission_http_entry.py`
+  (`receive_application_form_submission()`、認証→JSONパース→
+  `handle_form_submission()`への委譲→`linking_code`を含むレスポンス組み立ての順で
+  処理する本体)・`prototype/cloud_function_application_form_submission.py`
+  (薄い`main(request)`配線、他Cloud Functionと同じ構成)を新規実装した。あわせてGAS側
+  `onFormSubmit`トリガー関数のコード草案(`gas-script-draft.md`、実行・デプロイは
+  伴わないテキストのみ)も記録した。テスト19件追加(`test_application_form_submission_
+  http_entry.py`13件・`test_cloud_function_application_form_submission.py`6件)、
+  全715件パス(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証25件(`python3 schema/validate_test_cases.py`)いずれもパスすることを
+  確認した。本機能はロジック・コード草案の実装のみ(実シークレット値の生成・環境変数
+  設定・GASへの実デプロイはいずれもGoogleフォーム作成+GAS Webhook設定という既存の
+  承認待ち事項〈pending-approval.md 2026-08-23 04:00 UTC記載〉の範囲内)のため、
+  新たな承認待ち事項は発生していない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)design 7節で記録した「GAS側が受け取ったlinking_codeをどう顧客に届けるか
+  (サンクスページ表示は制約で不可、確認メール送信が現実的な候補)」の検討、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-15 19:00 UTC(フェーズ316: course-set-pashaフェーズ295の次回候補を
+  受け、申込フォーム提出フローのCloud Functions HTTPエントリポイント欠落が本venture
+  にも残っていたことを発見・是正。application-form-submission-http-entry-point-
+  design.mdを新規文書化、`application_form_submission_http_entry.py`・
+  `cloud_function_application_form_submission.py`を新規実装、GAS側コード草案も記録。
+  テスト19件追加、全715件パス・schema検証25件パス)
