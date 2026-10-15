@@ -107,6 +107,24 @@ class FleetOperatorStoreProtocol:
         相当になる想定)。"""
         raise NotImplementedError
 
+    def get_deletion_confirmation_sent_at(self, internal_id: str) -> "datetime | None":
+        """deletion-candidate-design.md(フェーズ152)。削除候補の最終確認メールを
+        送信済みの日時。未送信はNone(再送しないための冪等ガード)。"""
+        raise NotImplementedError
+
+    def set_deletion_confirmation_sent_at(self, internal_id: str, value: datetime) -> None:
+        raise NotImplementedError
+
+    def get_deletion_confirmation_unreachable_at(self, internal_id: str) -> "datetime | None":
+        """同上。最終確認メールの送達に失敗した(email未設定含む)と判定した日時。
+        未判定はNone。"""
+        raise NotImplementedError
+
+    def set_deletion_confirmation_unreachable_at(
+        self, internal_id: str, value: datetime
+    ) -> None:
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -122,6 +140,8 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._stripe_customer_id: "dict[str, str]" = {}
         self._internal_ids_by_stripe_customer_id: "dict[str, str]" = {}
         self._canceled_at: "dict[str, datetime]" = {}
+        self._deletion_confirmation_sent_at: "dict[str, datetime]" = {}
+        self._deletion_confirmation_unreachable_at: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -192,6 +212,20 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def all_internal_ids(self) -> "list[str]":
         return list(self._email.keys())
+
+    def get_deletion_confirmation_sent_at(self, internal_id: str) -> "datetime | None":
+        return self._deletion_confirmation_sent_at.get(internal_id)
+
+    def set_deletion_confirmation_sent_at(self, internal_id: str, value: datetime) -> None:
+        self._deletion_confirmation_sent_at[internal_id] = value
+
+    def get_deletion_confirmation_unreachable_at(self, internal_id: str) -> "datetime | None":
+        return self._deletion_confirmation_unreachable_at.get(internal_id)
+
+    def set_deletion_confirmation_unreachable_at(
+        self, internal_id: str, value: datetime
+    ) -> None:
+        self._deletion_confirmation_unreachable_at[internal_id] = value
 
 
 def is_trial_period_over(

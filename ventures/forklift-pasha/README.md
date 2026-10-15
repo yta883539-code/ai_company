@@ -2892,3 +2892,26 @@
 - 最終更新: 2026-10-13 21:00 UTC(フェーズ151: firestore-data-model.mdには記載済みだった
   `trialEndNotifiedAt`反映修正がREADME.mdに未記録だった記載漏れを発見し、事後的に記録。
   コード変更なし)
+- フェーズ152(2026-10-15 22:00 UTC定例更新): data-retention-policy.md(フェーズ100)
+  「今後の課題」に残っていた削除候補化トリガー・最終確認送信・連絡不能オーナーレビュー
+  機能を、他venture(aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)が
+  既に実装済みだったのに対し本ventureのみ未着手のまま残っていたことを発見し、
+  deletion-candidate-design.mdを新規文書化・`prototype/deletion_candidate.py`を新規実装
+  した。本ventureは`stripe_webhook.py`(フェーズ129・130)が既に`canceled_at`を冪等に
+  設定・クリアしているため、他venture同様の`deletion_candidate_at`別フィールドや
+  stale-event-guardは不要と判断し、`canceled_at + 365日`を都度計算する
+  `list_deletion_candidates()`のみを追加(design 2節)。`trial_management.py`の
+  `FleetOperatorStoreProtocol`/`InMemoryFleetOperatorStore`に
+  `deletion_confirmation_sent_at`/`deletion_confirmation_unreachable_at`の4メソッドを
+  追加し、`EmailSenderProtocol`を注入する`send_deletion_candidate_final_confirmations()`・
+  読み取り専用レポート`list_unreachable_deletion_candidates()`/
+  `render_unreachable_deletion_candidates_report()`を実装した。firestore-data-model.mdに
+  未反映だった`canceledAt`(フェーズ129実装済み)の記載漏れも合わせて解消し、新規2フィールド
+  (`deletionConfirmationSentAt`・`deletionConfirmationUnreachableAt`)を追記した。
+  `test_deletion_candidate.py`を新規作成しテスト16件追加、`python3 run_all_tests.py`で
+  全17ファイルパス(既存ファイルへの変更による回帰なし)を確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし(実メール送信サービス接続・削除実行バッチのCloud Scheduler化は既存の
+  承認待ち事項の範囲内)。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)他venture内の同種ドキュメント間の記載整合性棚卸しを本venture
+  にも横展開、(3)他venture・アイデア領域の前進。

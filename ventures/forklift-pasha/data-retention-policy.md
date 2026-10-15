@@ -108,6 +108,7 @@ LINEを前提としない(汎用Webフォーム、payment-identity-verification-
   legal-notices-draft.md 2.5節参照)。
 - メール送信経路の実装自体は、送信用サービスのアカウント作成(オーナー承認待ち)完了後の
   着手事項として残る。
-- 削除候補化トリガー・削除実行バッチの実装は、実Firestore接続・Stripe Webhook確定後の
-  着手事項として残る(他venture〈aircon-pasha等〉が先行実装した`deletion_candidate.py`等の
-  設計を参考にできる見込み)。
+- 削除候補の洗い出し・最終確認送信・連絡不能オーナーレビューのロジック自体は
+  deletion-candidate-design.md(フェーズ152)で実装済み。実Firestore接続・実メール送信
+  サービス接続・削除実行バッチのCloud Scheduler化は、既存の承認待ち事項の範囲内として
+  残る。

@@ -63,6 +63,18 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 未送信はnull、送信後は送信日時を設定し以降再送しない
                                               // (フェーズ150で本フィールドのデータモデル文書への
                                               // 反映漏れを発見し追記。実装・既存テストへの変更なし)
+  canceledAt: null,                          // Timestamp | null。stripe_webhook.pyの
+                                              // handle_customer_subscription_deleted()/
+                                              // handle_customer_subscription_created()が
+                                              // フェーズ129・130で設定・クリアを実装済みだったが、
+                                              // 本データモデル文書への反映が漏れていたため
+                                              // フェーズ152(deletion-candidate-design.md)で
+                                              // 追記した。実装・既存テストへの変更なし
+  deletionConfirmationSentAt: null,          // Timestamp | null。deletion-candidate-design.md
+                                              // (フェーズ152)。削除候補の最終確認メール送信済み
+                                              // かの冪等性ガード。未送信はnull
+  deletionConfirmationUnreachableAt: null    // Timestamp | null。同上。メール送達失敗(email
+                                              // 未設定含む)と判定した日時。未判定はnull
 }
 ```
 
