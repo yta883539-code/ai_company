@@ -5711,3 +5711,23 @@
   design.mdを新規文書化、`application_form_submission_http_entry.py`・
   `cloud_function_application_form_submission.py`を新規実装、GAS側コード草案も記録。
   テスト19件追加、全715件パス・schema検証25件パス)
+- フェーズ317(2026-10-15 21:00 UTC定例更新): application-form-submission-http-entry-
+  point-design.md 7節の次回候補「GAS側が受け取ったlinking_codeをどう顧客に届けるか」を
+  検討した。linking-code-delivery-method-decision.mdを新規文書化し、サンクスページ表示
+  (GAS onFormSubmitトリガーからは動的書き換え不可で技術的に不可能)・独自LP+フォーム
+  埋め込み(ホスティング等の新たな構築コストが必要で「初期投資ほぼ不要」の前提から外れる)
+  のいずれも不採用、確認メール送信(`MailApp.sendEmail()`、追加のホスティング・契約不要、
+  tone-and-manner-guideline.mdの既存確定文言が元々メール経由を想定済み)を採用する決定を
+  行った。決定に基づきgas-script-draft.mdの`onFormSubmit`草案に
+  `sendLinkingCodeConfirmationEmail()`を追記し、メール送信失敗時はログのみ残す方針
+  (Firestore側に発行済みのlinking_code自体は失われないため)とした。コード変更は
+  草案(.gs、実行環境なし)のみのため既存テストへの影響なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(715件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし(確認メールの実送信
+  自体はLINE公式アカウント開設・Googleフォーム作成+GAS Webhook設定という既存の承認待ち
+  事項〈pending-approval.md 2026-08-23 04:00 UTC記載〉の範囲内)。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合、`SERVICE_DISPLAY_NAME`・
+  `LINE_ADD_FRIEND_URL`の実値確定とメール本文最終稿化から着手、(2)他venture・
+  アイデア領域の前進。

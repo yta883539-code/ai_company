@@ -17,6 +17,10 @@
   - `ENDPOINT_URL`: デプロイ後のCloud FunctionsのHTTPS URL。
   - `SHARED_SECRET`: Cloud Functions側の環境変数`FORM_WEBHOOK_SHARED_SECRET`と
     同じ値(オーナーが生成・両方に設定)。
+  - `SERVICE_DISPLAY_NAME`: 確認メール文中に表示するサービス名・LINE公式アカウント名
+    (linking-code-delivery-method-decision.md 4節、ローンチ時に確定)。
+  - `LINE_ADD_FRIEND_URL`: LINE公式アカウントの友だち追加URL(`page.line.me/...`形式、
+    onboarding-guide.md 2節と同じくLINE公式アカウント開設後に確定)。
 - フォームの「回答を送信するたびに通知を受け取る」トリガーではなく、
   エディタの「トリガー」設定で対象フォームの「フォーム送信時」`onFormSubmit`を
   紐付ける(course-set-pashaと同じGAS Webhook方式)。
@@ -88,9 +92,46 @@ function onFormSubmit(e) {
   }
 
   // design 4節: 成功時のレスポンスに発行済みlinking_codeが入っている。
-  // design 2節の想定(サンクスページ表示・確認メール送信)は実装未着手(次回候補参照)。
+  // linking-code-delivery-method-decision.mdの決定により、確認メール送信で顧客に届ける
+  // (サンクスページ表示・独自LPはいずれも不採用)。
   var linkingCode = JSON.parse(response.getContentText()).linking_code;
   console.log("issued linking_code=" + linkingCode + " for email=" + email);
+  sendLinkingCodeConfirmationEmail(email, businessName, linkingCode);
+}
+
+/**
+ * linking-code-delivery-method-decision.md 5節の決定に基づき、発行済みlinking_codeを
+ * 確認メールで送信する。MailApp.sendEmail()が失敗しても例外を外へ伝播させず、ログのみ
+ * 残す(連携コード自体はFirestore pending_linksに発行済みのため、メール送信失敗時も
+ * オーナーがGAS実行ログを確認して手動でコードを伝える代替手段が残る)。
+ */
+function sendLinkingCodeConfirmationEmail(email, businessName, linkingCode) {
+  var props = PropertiesService.getScriptProperties();
+  var serviceName = props.getProperty("SERVICE_DISPLAY_NAME");
+  var addFriendUrlOrQr = props.getProperty("LINE_ADD_FRIEND_URL");
+
+  var subject = "【" + serviceName + "】お申込み内容の確認と連携コードのご案内";
+  var body =
+    businessName + " 様\n\n" +
+    "お申込みフォームよりご回答いただき、ありがとうございます。\n" +
+    "LINE公式アカウントとの連携のため、以下の手順をお願いいたします。\n\n" +
+    "1. LINE公式アカウント「" + serviceName + "」を友だち追加してください。\n" +
+    "   " + addFriendUrlOrQr + "\n" +
+    "2. 友だち追加後、最初のトークで下記の連携コードをそのまま送信してください。\n\n" +
+    "   連携コード: " + linkingCode + "\n\n" +
+    "連携コードは発行から24時間以内のみ有効です。時間が経過した場合は、\n" +
+    "お手数ですが再度お申込みフォームよりご回答ください。\n\n" +
+    "ご不明点がございましたら、本メールへの返信、またはLINE公式アカウントの\n" +
+    "トークにてお問い合わせください。";
+
+  try {
+    MailApp.sendEmail(email, subject, body);
+  } catch (err) {
+    console.error(
+      "linking_code confirmation email failed: email=" + email +
+      " error=" + err
+    );
+  }
 }
 ```
 
@@ -100,11 +141,10 @@ function onFormSubmit(e) {
   「屋号」を含まない文言に変えると取りこぼす)。実デプロイ時にフォーム項目の文言を
   最終確定させ、本コードのマッピング文字列もそれに合わせて確定させる必要がある
   (承認後の着手事項)。
-- design 7節で記録した通り、Googleフォーム標準の完了画面はGAS onFormSubmitトリガー
-  (送信後に非同期実行)からは動的に書き換えられない制約があるため、上記草案は
-  `linking_code`をログに残すのみに留めている。design 2節が想定する「サンクスページへの
-  表示」「確認メール送信」をどちらで実現するかは実デプロイ時に確定させる必要がある
-  (`MailApp.sendEmail()`によるメール送信が最も現実的な候補)。
+- (解消済み・フェーズ317: linking-code-delivery-method-decision.mdにて確認メール送信
+  〈`MailApp.sendEmail()`〉を採用する決定を行い、`sendLinkingCodeConfirmationEmail()`を
+  上記コード草案に追記した。`SERVICE_DISPLAY_NAME`・`LINE_ADD_FRIEND_URL`の実値は
+  ローンチ・LINE公式アカウント開設時に確定させる必要がある点が残課題として残る)。
 - 本コード自体はApps Scriptエディタに貼り付けて初めて動作確認できるため、
   本リポジトリ内では構文・ロジックの机上レビューまでに留まる(実行環境を
   持たないため自動テスト対象外。Cloud Functions側の
