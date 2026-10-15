@@ -46,7 +46,8 @@ data-retention-policy.mdの「90日後からさらに1年」を起点として�
   かつメール代替経路も利用不可(未接続、またはオンボーディング時の連絡先メール未収集)で
   連絡不能と判定された時刻。data-retention-policy.mdが定める「連絡不能フラグ」に対応する。
 
-## 4. 選定ロジックの設計(`list_store_deletion_candidates()`、次回実装候補)
+## 4. 選定ロジックの設計(`list_store_deletion_candidates()`、実装済み:
+フェーズ続き318以降`prototype/store_deletion_candidate.py`)
 
 対象: 以下をすべて満たす店舗。
 
@@ -68,7 +69,8 @@ data-retention-policy.mdの「90日後からさらに1年」を起点として�
 生じたものではないが、削除候補への「洗い出し」が最終判断ではなく人間(オーナー自身の
 運営者)による確認を経る設計(次節)である以上、実害は限定的と判断する。
 
-## 5. 最終確認送信の設計(`send_store_deletion_confirmations()`、次回実装候補)
+## 5. 最終確認送信の設計(`send_store_deletion_confirmations()`、実装済み:
+フェーズ続き318以降`prototype/cloud_function_send_store_deletion_confirmations.py`)
 
 - 主経路: `owner-notification-channel-design.md`が定めるLINE公式アカウントからの
   `owner_user_id`宛push送信とする(data-retention-policy.md既定どおり)。
@@ -103,7 +105,10 @@ data-retention-policy.mdの「90日後からさらに1年」を起点として�
 
 1. 承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから
    承認された場合は本venture既存設計一式の実装着手を最優先。
-2. 本文書3節のfirestore-data-model.mdへの新規フィールド追加(`dormantFinalRenotifySentAt`
-   等)と、4節・5節のコード実装(`store_deletion_candidate.py`・
-   `cloud_function_send_store_deletion_confirmations.py`・テスト追加)。
+2. 解消済み(フェーズ続き318・2026-10-15 23:00 UTC追記): 本文書3節のfirestore-data-
+   model.mdへの新規フィールド追加(`dormantFinalRenotifySentAt`等)と、4節・5節のコード
+   実装(`store_deletion_candidate.py`・`cloud_function_send_store_deletion_
+   confirmations.py`・テスト追加)はいずれもフェーズ続き318で完了済みだったが、本文書の
+   4節・5節見出し・本節がいずれも「次回実装候補」のまま更新されていなかった記載漏れを
+   2026-10-15 23:00 UTC(定例更新)で発見し訂正した。
 3. 他venture・アイデア領域の前進。

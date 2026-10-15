@@ -5876,3 +5876,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   数の差〈本venture2種・他3venture1種〉は各ventureのアーキテクチャの違いに起因する
   意図的な差であり実装漏れではないと結論。コード変更なし、テスト931件・schema検証28件
   いずれも変更なしでパス)
+- フェーズ続き322(2026-10-15 23:00 UTC定例更新): store-deletion-candidate-final-
+  confirmation-design.mdを再読したところ、同文書4節(`list_store_deletion_candidates()`)・
+  5節(`send_store_deletion_confirmations()`)の見出しがいずれも「次回実装候補」のまま
+  残っていたが、実際はフェーズ続き318で`prototype/store_deletion_candidate.py`・
+  `prototype/cloud_function_send_store_deletion_confirmations.py`としていずれも実装
+  済みであるという記載漏れ(他venture横断で頻発している「実装済みなのにREADME/個別
+  設計ファイルの一方に反映されていない」パターンの一種、ただし今回は個別設計ファイル
+  自身の見出しが実装後に更新されていなかったケース)を発見し、4節・5節の見出しと7節の
+  次回候補リストを訂正した。あわせて、同文書3節が定義した4フィールドのうち
+  `storeDeletionConfirmationUnreachableReason`(フェーズ続き320で`store_deletion_
+  candidate.py`に追加、`UnreachableStoreDeletionCandidate.unreachable_reason`が参照)が
+  firestore-data-model.mdに未反映のまま残っていた記載漏れも併せて発見し、同ファイルに
+  追記した(他3フィールドは既に反映済みだったため今回追記したのは本フィールドのみ)。
+  コード変更なし、ドキュメント訂正のみ。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(931件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を再実行し、いずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実
+  Firestore/GCPプロジェクト等)がオーナーから承認された場合は本venture一式の実装着手を
+  最優先、(2)削除候補(`store_deletion_confirmation_sent_at`設定済み、オーナー対話で
+  削除可と判断された場合)の実際の削除実行バッチ自体は本venture・他4venture共通で
+  いずれも未設計のまま残っているため、aircon-pasha等の既存設計方針(オーナーが対話
+  セッションで個別に指示した場合のみ実行、機械的自動削除は行わない)に合わせた設計に
+  着手するかどうかの検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-15 23:00 UTC(フェーズ続き322: store-deletion-candidate-final-
+  confirmation-design.md 4節・5節の見出しが実装済みであるにもかかわらず「次回実装候補」
+  のまま残っていた記載漏れを訂正。firestore-data-model.mdに未反映だった
+  `storeDeletionConfirmationUnreachableReason`フィールドも追記。コード変更なし、
+  テスト931件・schema検証28件いずれも変更なしでパス)

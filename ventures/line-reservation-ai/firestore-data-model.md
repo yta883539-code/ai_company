@@ -88,6 +88,14 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // (Timestamp | null)。自動削除には進まず、オーナー
                                      // (本リポジトリの運営者)が対話セッションで個別に
                                      // 削除可否を判断する運用のためのフラグ。
+  storeDeletionConfirmationUnreachableReason: null, // store-deletion-candidate-unreachable-
+                                     // owner-review-design.md 3節・フェーズ続き320で新規追加
+                                     // (文字列 | null)。連絡不能と判定された理由
+                                     // ("owner_line_user_id_not_set" | "line_push_delivery_failed")。
+                                     // 本フィールド追加前に連絡不能と記録された既存候補は
+                                     // nullのままで「不明」表示にフォールバックする
+                                     // (store_deletion_candidate.UnreachableStoreDeletionCandidate.
+                                     // unreachable_reason_label参照)。
   bookingConfirmedCount: 0           // trial-end-scheduler-design.md 5節(フェーズ続き150)で
                                      // 新規追加。予約確定累計回数(InMemory版の
                                      // InMemoryBookingRecordStore.count_confirmed_bookings()
