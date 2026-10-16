@@ -5966,3 +5966,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   受け、README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開。「解消済み・
   フェーズNN」注記2件がいずれもREADME.mdに反映済みであることを確認。記載漏れは発見されず、
   コード変更なし)
+- フェーズ続き325(2026-10-16 12:00 UTC定例更新): forklift-pashaフェーズ158の次回候補
+  「残る横展開先line-reservation-aiへの同パターン適用」を受け着手した。実Firestore承認後の
+  ランタイム依存切り替え方式(`<venture-prefix>_FIRESTORE_ENABLED`命名規則、既出4venture
+  〈kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha〉で確立済み)を本ventureに
+  横展開し、`LINE_RESERVATION_AI_FIRESTORE_ENABLED`(値`"1"`で有効、未設定時は安全側で
+  InMemoryへフォールバック)を切り替え条件とする設計をruntime-dependency-switching-design.md
+  に新設した。本ventureの3つの`get_.*_runtime_dependencies()`(`checkout_session`・
+  `conversation_event_processor_assembly`・`stripe_webhook_entry_point`)それぞれの現状
+  (いずれも「空dictが未接続を表す」パターンではなく常にInMemory実装一式を返す構成)を棚卸しし、
+  Firestoreストア部分(`InMemoryStoreProfileStore`・`InMemoryStoreSettingsStore`・
+  stripe_webhook側の5ストア)のみを切り替え対象とし、`verify_id_token`(LIFF登録待ち)・
+  `llm_call`(LLM API接続待ち)・`line_return_link`(LINE公式アカウントBasic ID確定待ち)・
+  `push_client`/`portal_link_provider`(実LINE/Stripe Billing Portal接続待ち)はそれぞれ別軸の
+  承認待ち項目のため対象外とした。本venture特有の論点として、3つのエントリポイントが別々の
+  Cloud Functionとして起動されるため同一Firestoreコレクションへの複数クライアント初期化が
+  重複しないかという接続コストの観点を新たに残課題として記録した(他venture未検討の論点)。
+  これにより`<venture-prefix>_FIRESTORE_ENABLED`命名規則の横展開は全5venture
+  (kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)で完了
+  した。コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(936件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行し、いずれも変更なしでパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)
+  がオーナーから承認された場合は本venture一式の実装着手を最優先、(2)実コード化は各venture
+  個別のFirestoreアダプタ設計(kura-pashaのworkshop-store-firestore-adapter-design.mdに相当
+  する文書)とセットで承認後の結合実装フェーズに持ち越す方針の全venture共通化の検討、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 12:00 UTC(フェーズ続き325: forklift-pashaフェーズ158の次回候補を
+  受け、`LINE_RESERVATION_AI_FIRESTORE_ENABLED`命名規則の横展開を本ventureに適用。
+  runtime-dependency-switching-design.mdを新設し3つのruntime_dependencies関数の切り替え
+  設計を文書化。これにより5venture全てへの横展開が完了。コード変更なし、全936件・
+  schema検証28件パス)
