@@ -5942,3 +5942,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   補記を追加。`store_deletion_execution.py`を新規実装〈統合レビューレポート・
   `confirmed_by_owner`必須の削除実行本体・5サブコレクションの削除順序制御〉、テスト5件
   追加、全936件パス・schema検証28件パス)
+- フェーズ続き324(2026-10-16 08:00 UTC定例更新): course-set-pashaフェーズ296の次回候補
+  (2)「同種の記載整合性棚卸しを未実施の他venture(aircon-pasha・line-reservation-ai)への
+  横展開」を受けて着手した(aircon-pashaへの横展開はaircon-pashaフェーズ318で既に完了
+  済みのため、本フェーズでは未実施だったline-reservation-ai分を行った)。本venture配下
+  163個の個別設計ファイルを対象に、「解消済み・フェーズNN」「(解消済み フェーズNN」
+  形式の注記をgrepで抽出した結果、character-limit-fallback-design.md(フェーズ続き222で
+  解消済みと注記)・subscription-deleted-event-routing-design.md(フェーズ続き211で解消済み
+  と注記)の2件が見つかった。両フェーズ番号がいずれもREADME.md本文中に該当フェーズの
+  実施記録として既に存在していることを確認し(フェーズ続き222は3644行目、フェーズ続き211は
+  3438行目)、forklift-pashaフェーズ151で発見されたような「設計ファイル側にのみ記録され、
+  README.mdへの記録が一度も行われていない」記載漏れは本ventureには見つからなかった。
+  コード変更なし、棚卸し結果の記録のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(936件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を再実行し、いずれも変更なしでパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実
+  Firestore/GCPプロジェクト等)がオーナーから承認された場合は本venture一式の実装着手を
+  最優先、(2)フェーズ続き323の次回候補(2)「削除実行オーケストレーションロジックを
+  aircon-pasha・course-set-pasha・kura-pashaへ横展開するかどうかの検討」への着手、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 08:00 UTC(フェーズ続き324: course-set-pashaフェーズ296の次回候補を
+  受け、README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開。「解消済み・
+  フェーズNN」注記2件がいずれもREADME.mdに反映済みであることを確認。記載漏れは発見されず、
+  コード変更なし)
