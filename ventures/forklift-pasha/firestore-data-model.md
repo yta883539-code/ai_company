@@ -73,8 +73,18 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   deletionConfirmationSentAt: null,          // Timestamp | null。deletion-candidate-design.md
                                               // (フェーズ152)。削除候補の最終確認メール送信済み
                                               // かの冪等性ガード。未送信はnull
-  deletionConfirmationUnreachableAt: null    // Timestamp | null。同上。メール送達失敗(email
+  deletionConfirmationUnreachableAt: null,   // Timestamp | null。同上。メール送達失敗(email
                                               // 未設定含む)と判定した日時。未判定はnull
+  upgradedAt: null                           // Timestamp | null。stripe-checkout-plan-id-design.md・
+                                              // stripe-webhook-entry-point-design.mdで設計、
+                                              // prototype/trial_management.pyに実装済み
+                                              // (get_upgraded_at/set_upgraded_at)の有料転換日時。
+                                              // 未設定(トライアル中)はnull、転換後は上書き可
+                                              // (他venture同様の方針)。is_subscription_canceled()・
+                                              // is_generation_paused()の分岐に使用
+                                              // (subscription-canceled-immediate-block-design.md
+                                              // 参照)。本フィールドが本データモデル文書に
+                                              // 未反映だった記載漏れをフェーズ154で発見・解消)
 }
 ```
 
@@ -140,6 +150,22 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   prototype/trial_management.pyに実装済みの`trialEndNotifiedAt`フィールドが本ファイルの
   `fleet_operator`フィールド一覧に未反映だった欠落を解消し、追記した。実装・既存テストへの
   変更はない、文書反映のみ。)
+- (解消済み 2026-10-16 04:00 UTC・フェーズ154: 他venture(aircon-pasha・course-set-pasha・
+  kura-pasha・line-reservation-ai)が実施済みの「README.mdと個別設計ファイル間の記載整合性
+  棚卸し」(フェーズ152・153の次回候補(2))を本ventureにも横展開し、
+  stripe-checkout-plan-id-design.md・stripe-webhook-entry-point-design.md・
+  subscription-canceled-immediate-block-design.mdで設計、prototype/trial_management.pyに
+  実装済み(`get_upgraded_at`/`set_upgraded_at`)の有料転換判定フィールド`upgradedAt`が、
+  本ファイルの`fleet_operator`フィールド一覧に未反映のまま残っていた欠落を発見・解消した。
+  実装・既存テストへの変更なし、文書反映のみ。他の既存フィールド(`accessToken`・`email`・
+  `planId`・`vehicleCount`・`stripeCustomerId`・`trialStartAt`・`currentPeriodEnd`・
+  `lastAccessedAt`・`trialGenerationCount`・`trialEndNotifiedAt`・`canceledAt`・
+  `deletionConfirmationSentAt`・`deletionConfirmationUnreachableAt`)は実装(trial_management.py・
+  stripe_webhook.py・deletion_candidate.py)との対応を確認し、追加の記載漏れは見つからなかった。
+  `subscriptionStatus`フィールドのみ、設計当初(フェーズ11)の宣言的な状態列挙のまま実装側では
+  `canceledAt`/`upgradedAt`等の個別フィールドの組み合わせ判定に置き換えられており、実装で
+  直接読み書きされていないことを確認した。これは記載漏れではなく「未使用の宣言的フィールド」
+  であるため、本フェーズでは削除せず現状維持とし、次回候補として残す。)
 
 最終更新: 2026-10-05 22:00 UTC(フェーズ70: tech-stack.mdの入力チャネル暫定決定〈汎用Web
 フォーム〉を受け、operator_idの割り振り方針をメールアドレス/発行式に具体化)
@@ -152,3 +178,5 @@ internal_id/accessToken分離を実ファイルに反映。`fleet_operator`の�
 `operatorInternalId`に変更、`usage_counter`のキーを`internal_id`に変更)
 最終更新: 2026-10-07 04:00 UTC(フェーズ99: access-token-reissue-design.md〈フェーズ98〉
 次回候補の`lastAccessedAt`フィールドを`fleet_operator`に追加した)
+最終更新: 2026-10-16 04:00 UTC(フェーズ154: 記載整合性棚卸しにより`upgradedAt`フィールドの
+未反映を発見・追記。実装・既存テストへの変更なし)

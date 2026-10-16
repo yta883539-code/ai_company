@@ -2942,3 +2942,25 @@
   実メール送信未確定時は常に送信失敗を返す安全側フォールバック`_UnconfiguredEmailSender`を
   既定依存とした。テスト7件追加、全18ファイル中18件成功・schema検証11件・ブラウザ検証8件
   いずれもパス)
+
+- フェーズ154(2026-10-16 04:00 UTC定例更新): フェーズ152・153の次回候補(2)「他venture内
+  の同種ドキュメント間の記載整合性棚卸しを本ventureにも横展開」に着手した。
+  firestore-data-model.mdの`fleet_operator`フィールド一覧と、prototype/trial_management.py・
+  stripe_webhook.py・deletion_candidate.pyの実装・各設計ファイル(stripe-checkout-plan-id-
+  design.md・stripe-webhook-entry-point-design.md・subscription-canceled-immediate-block-
+  design.md等)を1フィールドずつ照合した結果、設計・実装済み(`get_upgraded_at`/
+  `set_upgraded_at`)の有料転換判定フィールド`upgradedAt`がデータモデル文書に未反映のまま
+  残っていた欠落を発見し、firestore-data-model.mdに追記した。他の既存フィールドは実装との
+  対応を確認し、追加の記載漏れは見つからなかった。あわせて`subscriptionStatus`フィールドが
+  設計当初(フェーズ11)の宣言的な状態列挙のまま、実装側では`canceledAt`/`upgradedAt`等の
+  個別フィールドの組み合わせ判定に置き換えられ、実装で直接読み書きされていないことを確認した
+  (記載漏れではなく「未使用の宣言的フィールド」と判断し、本フェーズでは削除せず現状維持)。
+  コード変更なし(文書反映のみ)、`python3 prototype/run_all_tests.py`で全18ファイル中18件
+  成功(回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)`subscriptionStatus`フィールドを実装側の
+  個別フィールド判定方式に合わせて設計文書上も整理する(削除するか、派生値として明記するか)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 04:00 UTC(フェーズ154: firestore-data-model.mdに未反映だった
+  `upgradedAt`フィールドの記載漏れを発見・解消。`subscriptionStatus`は未使用の宣言的
+  フィールドと判断し現状維持。コード変更なし、全18ファイル中18件成功)
