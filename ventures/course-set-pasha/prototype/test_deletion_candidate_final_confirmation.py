@@ -17,6 +17,7 @@ from deletion_candidate_final_confirmation import (  # noqa: E402
     DeletionCandidateConfirmationRoute,
     DeletionCandidateConfirmationUserState,
     build_deletion_candidate_confirmation_states,
+    clear_deletion_confirmation_unreachable_at,
     list_unreachable_deletion_candidates,
     render_deletion_candidate_final_confirmation_message,
     render_unreachable_deletion_candidates_report,
@@ -42,6 +43,43 @@ class RouteDeletionCandidateConfirmationTest(unittest.TestCase):
             route_deletion_candidate_confirmation(False),
             DeletionCandidateConfirmationRoute.MARK_UNREACHABLE,
         )
+
+
+class ClearDeletionConfirmationUnreachableAtTest(unittest.TestCase):
+    """deletion-candidate-query-consolidation-decision.md「`MARK_UNREACHABLE`候補の扱い」
+    節(aircon-pashaフェーズ321の横展開)への対応、clear_deletion_confirmation_
+    unreachable_at()自体の挙動を検証する。実際の呼び出し配線(フォロー再開)側のテストは
+    test_cloud_function_webhook.pyに追加する。
+    """
+
+    def test_clears_unreachable_at_and_reason_when_set(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        store.set_deletion_confirmation_unreachable_at("u1", NOW)
+        store.set_deletion_confirmation_unreachable_reason(
+            "u1", UNREACHABLE_REASON_NOT_FOLLOWING
+        )
+
+        self.assertTrue(clear_deletion_confirmation_unreachable_at(store, "u1"))
+
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_reason("u1"))
+
+    def test_returns_false_and_no_op_when_already_unset(self):
+        store = InMemoryProfileDeletionCandidateStore()
+
+        self.assertFalse(clear_deletion_confirmation_unreachable_at(store, "u1"))
+
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+
+    def test_only_clears_the_specified_user(self):
+        store = InMemoryProfileDeletionCandidateStore()
+        store.set_deletion_confirmation_unreachable_at("u1", NOW)
+        store.set_deletion_confirmation_unreachable_at("u2", NOW)
+
+        self.assertTrue(clear_deletion_confirmation_unreachable_at(store, "u1"))
+
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+        self.assertIsNotNone(store.get_deletion_confirmation_unreachable_at("u2"))
 
 
 class SelectDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):

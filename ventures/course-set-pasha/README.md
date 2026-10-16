@@ -5092,7 +5092,31 @@
   なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
   横展開先(forklift-pasha・line-reservation-ai)への同種の棚卸しの適用、(3)他venture・
   アイデア領域の前進。
-- 最終更新: 2026-10-16 20:00 UTC(フェーズ299: kura-pashaフェーズ239の次回候補を受け、
-  同じ2段階→1段統合パターンが本ventureにも存在することを確認し、統合する方針を決定。
-  deployment-runbook.mdの「複合インデックス不要」という誤った記載を修正。コード変更なし、
-  テスト756件・schema検証21件パス)
+- フェーズ300(2026-10-16 22:00 UTC定例更新): aircon-pashaフェーズ321(`MARK_
+  UNREACHABLE`候補が統合後の単一クエリに永久に残り続ける問題の解消)の横展開(フェーズ299
+  次回候補(2))に着手した。本ventureにも同じ問題(ブロック中で最終確認が送達できなかった
+  候補が`deletion_confirmation_sent_at`を設定されないため、統合後の単一クエリに残り続ける)
+  が存在することを確認し、同じ「クリア配線」を適用して解消した。`deletion_candidate_final_
+  confirmation.py`に`clear_deletion_confirmation_unreachable_at()`を新設し、
+  `cloud_function_webhook.process_follow_event()`の再フォロー時(既存の`clear_blocked_but_
+  billing_owner_notified_at`呼び出しと並ぶ位置)に配線した。本venture固有の2store構成
+  (`deletion_candidate_final_confirmation.py`モジュールdocstring参照、削除候補状態用の
+  `deletion_store`とis_following用の`profile_store`を分離するアーキテクチャ、aircon-pasha
+  は単一storeのため引数1つで済むのに対し本ventureは2引数が必要)のため、
+  `process_follow_event()`・`dispatch_webhook_events()`の両方に新規の`deletion_store`引数
+  (未指定時は従来通りクリアを行わない安全側デフォルト)を追加した。本venture固有の実装差分
+  であり機能差はない。InMemory実装は`test_deletion_candidate_final_confirmation.py`に
+  `ClearDeletionConfirmationUnreachableAtTest`3件、`test_cloud_function_webhook.py`に
+  `test_refollow_clears_deletion_confirmation_unreachable_at`・`test_deletion_confirmation_
+  unreachable_at_untouched_when_deletion_store_not_given`の2件を追加して検証した(全761件・
+  schema検証21件パス)。本venture側にはaircon-pasha等が持つ`firestore-composite-index-
+  plan.md`・`firestore.indexes.json`がまだ存在しないため、複合インデックスの更新は対象外
+  (実Firestore接続時のインデックス設計自体が今後の課題として残る)。実Firestore接続自体は
+  引き続きオーナー承認後の結合実装フェーズに持ち越す。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  横展開先(forklift-pasha・line-reservation-ai)への同種の棚卸し・クリア配線の適用、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 22:00 UTC(フェーズ300: aircon-pashaフェーズ321の`MARK_UNREACHABLE`
+  候補クリア配線を本ventureにも横展開。本venture固有の2store構成に合わせ`deletion_store`
+  引数を新設して配線。テスト5件追加、全761件・schema検証21件パス)

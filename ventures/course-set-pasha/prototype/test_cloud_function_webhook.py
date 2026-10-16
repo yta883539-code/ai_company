@@ -65,6 +65,7 @@ from user_id_linking import (  # noqa: E402
 from application_form_submission_flow import (  # noqa: E402
     InMemoryUserProfileStore,
 )
+from deletion_candidate import InMemoryProfileDeletionCandidateStore  # noqa: E402
 from owner_faq_router import (  # noqa: E402
     is_owner_faq_menu_trigger,
     render_owner_faq_answer_message,
@@ -2410,6 +2411,60 @@ class ProcessFollowEventTest(unittest.TestCase):
 
         self.assertIsNone(
             profile_store.get_blocked_but_billing_owner_notified_at("U1234")
+        )
+
+    def test_refollow_clears_deletion_confirmation_unreachable_at(self):
+        # deletion-candidate-query-consolidation-decision.md「MARK_UNREACHABLE候補の
+        # 扱い」節(aircon-pashaフェーズ321の横展開): 本venture固有の2store構成のため
+        # profile_storeとは別にdeletion_storeを渡す必要がある。
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        profile_store = InMemoryUserProfileStore()
+        profile_store.set_is_following("U1234", False)
+        deletion_store = InMemoryProfileDeletionCandidateStore()
+        deletion_store.set_deletion_confirmation_unreachable_at(
+            "U1234", datetime(2026, 1, 1)
+        )
+        deletion_store.set_deletion_confirmation_unreachable_reason(
+            "U1234", "not_following"
+        )
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        process_follow_event(
+            event,
+            store,
+            reply_client,
+            rng=self._rng(),
+            profile_store=profile_store,
+            deletion_store=deletion_store,
+            now=datetime(2026, 1, 3),
+        )
+
+        self.assertIsNone(
+            deletion_store.get_deletion_confirmation_unreachable_at("U1234")
+        )
+        self.assertIsNone(
+            deletion_store.get_deletion_confirmation_unreachable_reason("U1234")
+        )
+
+    def test_deletion_confirmation_unreachable_at_untouched_when_deletion_store_not_given(
+        self,
+    ):
+        store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow",
+            "replyToken": "rt",
+            "source": {"userId": "U1234"},
+        }
+
+        # deletion_storeを渡さなくても例外にならず、従来通り素通りすることを確認する。
+        process_follow_event(
+            event, store, reply_client, rng=self._rng(), now=datetime(2026, 1, 3)
         )
 
     def test_is_following_untouched_when_profile_store_not_given(self):

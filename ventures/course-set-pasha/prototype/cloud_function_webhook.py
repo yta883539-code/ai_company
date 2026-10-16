@@ -56,6 +56,10 @@ from trial_end_scheduler import (  # noqa: E402
 from application_form_submission_flow import (  # noqa: E402
     UserProfileStoreProtocol,
 )
+from deletion_candidate_final_confirmation import (  # noqa: E402
+    DeletionConfirmationUnreachableAtStoreProtocol,
+    clear_deletion_confirmation_unreachable_at,
+)
 from owner_faq_router import (  # noqa: E402
     is_owner_faq_menu_trigger,
     match_owner_faq_item_code,
@@ -836,6 +840,7 @@ def process_follow_event(
     rng: Optional[RandomChoiceSource] = None,
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     profile_store: Optional[UserProfileStoreProtocol] = None,
+    deletion_store: Optional[DeletionConfirmationUnreachableAtStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> FollowProcessResult:
     """LINEの`follow`イベント1件を処理する(署名検証済みの前提、design 2節)。
@@ -853,6 +858,12 @@ def process_follow_event(
     (blocked-but-billing-owner-notification-design.md 4節。フォロー再開時にクリアしないと、
     一度通知された顧客が再度フォロー解除→再契約継続という状態に戻った場合に二度と通知が
     飛ばなくなるため)。
+
+    `deletion_store`はdeletion-candidate-query-consolidation-decision.md「`MARK_
+    UNREACHABLE`候補の扱い」節(aircon-pashaフェーズ321の横展開)準拠。渡された場合のみ、
+    同じフォロー再開タイミングで`deletion_confirmation_unreachable_at`もクリアする
+    (本venture固有の2store構成のため、`profile_store`とは別引数。未指定時は従来通り
+    クリアを行わない安全側フォールバック)。
     """
     resolved_now = now or datetime.now(timezone(timedelta(hours=9)))
 
@@ -869,6 +880,8 @@ def process_follow_event(
     if profile_store is not None:
         profile_store.set_is_following(user_id, True)
         profile_store.clear_blocked_but_billing_owner_notified_at(user_id)
+    if deletion_store is not None:
+        clear_deletion_confirmation_unreachable_at(deletion_store, user_id)
 
     resolved_rng = rng if rng is not None else random.Random()
     linking_code = issue_linking_code_on_follow(
@@ -1604,6 +1617,7 @@ def dispatch_webhook_events(
     purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
     rng: Optional[RandomChoiceSource] = None,
     profile_store: Optional[UserProfileStoreProtocol] = None,
+    deletion_store: Optional[DeletionConfirmationUnreachableAtStoreProtocol] = None,
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
     now: Optional[datetime] = None,
@@ -1629,6 +1643,11 @@ def dispatch_webhook_events(
     design.md準拠(フェーズ244で`process_memo_event()`本体に実装済み)。本関数はそのまま
     `process_memo_event()`へ受け渡すのみで、未指定(`None`)時は従来通りの挙動を一切
     変えない(process_memo_event()側の安全側フォールバックに委ねる)。
+
+    `deletion_store`はdeletion-candidate-query-consolidation-decision.md「`MARK_
+    UNREACHABLE`候補の扱い」節準拠(aircon-pashaフェーズ321の横展開)。そのまま
+    `process_follow_event()`へ受け渡すのみで、未指定(`None`)時は従来通り
+    `deletion_confirmation_unreachable_at`のクリアを行わない。
     """
     result = DispatchResult()
 
@@ -1649,6 +1668,7 @@ def dispatch_webhook_events(
                     rng=rng,
                     purge_throttle=purge_throttle,
                     profile_store=profile_store,
+                    deletion_store=deletion_store,
                     now=now,
                 )
             )

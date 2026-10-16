@@ -150,6 +150,48 @@ class DeletionConfirmationStateWriter(Protocol):
         ...
 
 
+class DeletionConfirmationUnreachableAtReader(Protocol):
+    """`clear_deletion_confirmation_unreachable_at()`が要求する最小限のProtocol
+    (aircon-pashaフェーズ321の同名Protocolと同じ考え方)。"""
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+class DeletionConfirmationUnreachableAtStoreProtocol(
+    DeletionConfirmationUnreachableAtReader, DeletionConfirmationStateWriter, Protocol
+):
+    """「クリア配線」が使う、読み書き両方を要求する合成Protocol(aircon-pashaフェーズ321と
+    同じ考え方)。本venture側では`InMemoryProfileDeletionCandidateStore`
+    (deletion_candidate.py、本venture固有の2store構成のうち削除候補側)が単独でこれを
+    満たす。"""
+
+
+def clear_deletion_confirmation_unreachable_at(
+    store: DeletionConfirmationUnreachableAtStoreProtocol, user_id: str,
+) -> bool:
+    """aircon-pashaフェーズ321(clear_deletion_confirmation_unreachable_at())の横展開
+    (次回候補(2)対応)。「フォロー再開」(`is_following`がTrueに戻る)が起きた時点で呼ぶ。
+
+    `deletion_confirmation_unreachable_at`が設定済みの場合のみクリアし(`unreachable_
+    reason`も合わせてクリアする)、変更があったかどうか(True/False)を返す。未設定
+    (そもそも連絡不能化されたことがない、または既にクリア済み)の場合は何もせず`False`を
+    返す。
+
+    本venture固有の2store構成(モジュールdocstring参照)のため、呼び出し元
+    (`cloud_function_webhook.process_follow_event()`)は`profile_store`
+    (`clear_blocked_but_billing_owner_notified_at()`用)とは別に、本関数向けの
+    `deletion_store`引数を渡す必要がある(aircon-pashaは単一storeで両方を満たすため
+    引数は1つだが、本ventureは元々2store構成を採用しているための差異であり、機能差は
+    ない)。
+    """
+    if store.get_deletion_confirmation_unreachable_at(user_id) is None:
+        return False
+    store.set_deletion_confirmation_unreachable_at(user_id, None)
+    store.set_deletion_confirmation_unreachable_reason(user_id, None)
+    return True
+
+
 class DeletionConfirmationSentAtReader(Protocol):
     """`build_deletion_candidate_confirmation_states()`が`deletion_confirmation_sent_at`を
     読み取る際に要求する最小限のProtocol(`DeletionConfirmationStateWriter`と対になる
