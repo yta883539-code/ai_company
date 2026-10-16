@@ -2989,3 +2989,40 @@
   記述が実装〈`canceledAt`基準〉と不一致だった誤りを修正。firestore-data-model.mdの
   `subscriptionStatus`フィールドにも未使用である旨のインライン注記を追加。コード変更なし、
   全18ファイル中18件成功)
+
+- フェーズ156(2026-10-16 06:00 UTC定例更新): フェーズ155の次回候補(2)「他venture
+  (aircon-pasha・course-set-pasha・kura-pasha・line-reservation-ai)にも同種の『設計文書が
+  参照する判定条件と実装の不一致』がないか棚卸しの余地があることを記録」に着手した。
+  forklift-pashaで発見された欠落は、(a)`subscriptionStatus`を列挙型として宣言しながら
+  実装側では個別タイムスタンプフィールド(`canceledAt`等)の組み合わせ判定に置き換えられ、
+  設計文書(data-retention-policy.md)側の記述だけが古いままだった、という2点の不整合
+  だった。これを他3venture(aircon-pasha・course-set-pasha・kura-pasha)のdata-retention-
+  policy.mdおよび削除候補化ロジック(`prototype/deletion_candidate.py`)と照合した結果、
+  aircon-pasha・course-set-pashaはforklift-pashaと同様に個別タイムスタンプフィールド
+  (`deletion_candidate_at`)方式だが、両venture文書とも削除候補化トリガーを
+  「Stripeカスタマーポータルで解約済み」「解約確定Webhook受信時」という実装
+  (`customer.subscription.deleted`受信時に`deletion_candidate_at`を設定)と整合する記述に
+  なっており、forklift-pashaのような不一致は見つからなかった。kura-pashaは
+  `subscription_status`を宣言的フィールドとしてではなく、`set_subscription_status()`/
+  `get_subscription_status()`経由で実際に読み書きされる実働フィールドとして実装
+  (`stripe_webhook.py`・`cloud_function_webhook.py`等)しており、forklift-pashaの
+  「宣言のみで未使用」という欠落パターン自体が構造的に発生しない設計であることを確認した。
+  line-reservation-aiは`store_deletion_candidate.py`の`is_store_deletion_candidate()`を
+  確認した結果、他4venture(forklift-pasha・aircon-pasha・course-set-pasha・kura-pasha)が
+  いずれもStripeの解約イベント(`customer.subscription.deleted`等)を起点に削除候補化する
+  設計であるのに対し、本venture唯一「休止モード最終再通知から1年の無反応・無操作」
+  (`dormant_final_renotify_sent_at`起点)かつ「`stripe_customer_id is None`(課金開始後の
+  店舗は対象外)」という有料化前の休眠店舗のみを対象とする全く異なる判定基準を採用しており、
+  `subscriptionStatus`のような宣言的フィールドへの言及自体がdata-retention-policy.md・
+  実装のいずれにも存在しないことを確認した(forklift-pashaの欠落パターンが前提とする
+  「宣言的フィールドと実装の不一致」という構造自体が本venture には当てはまらない)。
+  結論として、forklift-pashaで発見した欠落は他4ventureのいずれにも伝播しておらず、
+  追加の修正は不要と判断した。コード変更なし、文書変更なし(棚卸しのみ、他4venture合計の
+  ドキュメント参照・grep確認)、`python3 prototype/run_all_tests.py`で全18ファイル中18件成功
+  (回帰なし、確認のみ)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 06:00 UTC(フェーズ156: フェーズ155発見の欠落パターン〈設計文書と
+  実装の判定条件不一致〉が他4venture〈aircon-pasha・course-set-pasha・kura-pasha・
+  line-reservation-ai〉に伝播していないことを棚卸しで確認。コード・文書変更なし、
+  全18ファイル中18件成功)
