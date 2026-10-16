@@ -5069,3 +5069,30 @@
   モデル〈Haiku 5.5・Sonnet 5.5・Opus 5.5〉の料金に対応させて再試算。いずれも旧世代より
   低コスト。モデル選定自体はSonnet 5.5を本採用候補とする結論を維持。コード変更なし、
   テスト756件・schema検証21件パス)
+- フェーズ299(2026-10-16 20:00 UTC定例更新): kura-pashaフェーズ239の次回候補(2)
+  「InMemoryでは2段階だが実クエリでは1段に統合可能な構成が他venture(aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-ai)にも存在するかの横展開検討」を受け、
+  本ventureを棚卸しした(aircon-pashaはフェーズ320で既に自ventureへの適用を確認済み)。
+  `deletion_candidate.list_deletion_candidates()`(`deletion_candidate_at <= now`)と
+  `deletion_candidate_final_confirmation.build_deletion_candidate_confirmation_states()`
+  (`deletion_confirmation_sent_at is None`のインメモリフィルタ)がkura-pashaと全く同型の
+  2段階構成であることを確認し、同じ理由(送信済み件数の増加に比例して読み取り件数が単調
+  増加する問題)で実Firestore接続後に複合インデックス
+  (`deletion_confirmation_sent_at` ASC, `deletion_candidate_at` ASC)を使う1クエリへ統合する
+  方針を決定した(deletion-candidate-query-consolidation-decision.md新設)。棚卸しの過程で
+  deployment-runbook.mdステップ2に「line-reservation-aiのような複合インデックスを要する
+  クエリは無いため追加設定は不要」という記載が残っていることを発見し、本決定により誤りと
+  判明したため、複合インデックス1件が結合実装フェーズで必要になる旨に修正した。InMemory
+  実装・既存テストの変更は行わない方針(Protocolのシグネチャ変更が不要なため)。実コード化
+  自体は他の実Firestore接続作業と同様、オーナー承認後の結合実装フェーズに持ち越す。コード
+  変更なし、文書修正のみのため回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(756件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)
+  を実行し、いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  横展開先(forklift-pasha・line-reservation-ai)への同種の棚卸しの適用、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-16 20:00 UTC(フェーズ299: kura-pashaフェーズ239の次回候補を受け、
+  同じ2段階→1段統合パターンが本ventureにも存在することを確認し、統合する方針を決定。
+  deployment-runbook.mdの「複合インデックス不要」という誤った記載を修正。コード変更なし、
+  テスト756件・schema検証21件パス)

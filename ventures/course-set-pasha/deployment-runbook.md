@@ -46,8 +46,14 @@ webhook-processing-flow-design.md・limit-approaching-notification-design.md等)
 - limit-approaching-notification-design.md・tech-stack.md「6. 月間生成回数カウントの保存先」の
   設計通り、Native modeでFirestoreを有効化。
 - コレクションはコード側の初回書き込みで自動作成されるため、事前の手動作成は不要。
-  line-reservation-aiのような複合インデックスを要するクエリは無いため、
-  `firestore.indexes.json`の追加設定は不要(最小構成のメリット)。
+  削除候補最終確認処理(`deletion_candidate.list_deletion_candidates()`の
+  `deletion_candidate_at <= now`とフェーズ299で統合方針を決定した
+  `deletion_confirmation_sent_at == null`の等価条件)には複合インデックス1件
+  (`deletion_confirmation_sent_at` ASC, `deletion_candidate_at` ASC)が必要になる。
+  結合実装フェーズでFirestoreアダプタを実装する際に`firestore.indexes.json`へ追加する
+  (deletion-candidate-query-consolidation-decision.md参照。本ステップ記載は従来
+  「複合インデックスを要するクエリは無い」としていたが、フェーズ299の棚卸しにより誤りと
+  判明したため修正した)。
 
 ### ステップ3: シークレット管理
 - LLM APIキー・LINE Channel Secret/Channel Access Tokenは環境変数に直書きせず、
