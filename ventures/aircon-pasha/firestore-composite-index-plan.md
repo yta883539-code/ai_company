@@ -24,6 +24,7 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
 | 2 | `user_profile`(ルートコレクション) | `select_due_payment_suspensions()`(`prototype/payment_suspension_scheduler.py`): `payment_suspended_at == null AND payment_failure_detected_at <= (now - grace_period_days)`を満たすuser_idを抽出 | `payment_suspended_at` ASC, `payment_failure_detected_at` ASC | Collection | payment-failure-dunning-design.md 3節・prototype/payment_suspension_scheduler.py |
 | 3 | `user_profile`(ルートコレクション) | `select_due_payment_failure_reminders()`(`prototype/payment_failure_reminder_scheduler.py`): `payment_suspended_at == null AND payment_failure_reminder_sent_at == null AND payment_failure_detected_at <= (now - (grace_period_days - reminder_days_before_end))`を満たすuser_idを抽出 | `payment_suspended_at` ASC, `payment_failure_reminder_sent_at` ASC, `payment_failure_detected_at` ASC | Collection | payment-failure-reminder-scheduler-design.md(フェーズ143)3節・prototype/payment_failure_reminder_scheduler.py |
 | 4 | `user_profile`(ルートコレクション) | `select_due_trial_end_notifications()`(`prototype/trial_end_scheduler.py`): `trial_end_notified_at == null AND upgraded_at == null AND trial_start_at <= (now - trial_period_days)`を満たすuser_idを抽出 | `trial_end_notified_at` ASC, `upgraded_at` ASC, `trial_start_at` ASC | Collection | trial-end-scheduler-design.md・prototype/trial_end_scheduler.py |
+| 5 | `user_profile`(ルートコレクション) | 統合後の`list_deletion_candidates()`相当(`prototype/deletion_candidate.py`・`deletion_candidate_final_confirmation.py`): `deletion_confirmation_sent_at == null AND deletion_candidate_at <= now`を満たすuser_idを抽出(フェーズ320: deletion-candidate-query-consolidation-decision.md) | `deletion_confirmation_sent_at` ASC, `deletion_candidate_at` ASC | Collection | deletion-candidate-query-consolidation-decision.md(フェーズ320)・prototype/deletion_candidate.py・deletion_candidate_final_confirmation.py |
 
 補足:
 
@@ -79,6 +80,10 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
   Scheduler配線)自体がまだ存在しない点は次回候補として残す。
 - インメモリ全件走査から索引付きクエリへの切り替えタイミング(ユーザー数の閾値等)は
   forklift-pasha版と同様、未確定のまま次回以降の課題とする。
+- #5(フェーズ320で追加)は`route_deletion_candidate_confirmation()`が`MARK_UNREACHABLE`
+  判定した候補(`deletion_confirmation_sent_at`が設定されないため統合後もクエリに残り続ける)
+  の扱いが未確定のまま次回候補として残る(deletion-candidate-query-consolidation-
+  decision.md参照)。
 
 最終更新: 2026-10-13 19:00 UTC(フェーズ314: forklift-pasha・kura-pashaが確立した
 複合インデックス集約方針を本venture〈aircon-pasha〉にも横展開。`user_profile`

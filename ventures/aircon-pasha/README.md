@@ -5774,3 +5774,28 @@
   `<venture-prefix>_FIRESTORE_ENABLED`命名規則の横展開を本ventureに適用。
   runtime-dependency-switching-design.mdを新設し5つのruntime_dependencies関数の
   切り替え設計を文書化。コード変更なし)
+- フェーズ320(2026-10-16 14:00 UTC定例更新): kura-pashaフェーズ239(deletion-candidate-
+  query-consolidation-decision.md)の次回候補「同種のパターンが他venture(aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-ai)の削除候補・通知系処理にも存在する
+  かの横展開検討」を受け、本ventureに最初に横展開した。`deletion_candidate.list_deletion_
+  candidates()`(単一フィールド範囲クエリ)と`build_deletion_candidate_confirmation_
+  states()`(インメモリでの`deletion_confirmation_sent_at == null`フィルタ)の2段階構成を、
+  実Firestore接続後に複合インデックス#5(`deletion_confirmation_sent_at` ASC,
+  `deletion_candidate_at` ASC、本フェーズでfirestore-composite-index-plan.mdに追記)を使う
+  1クエリへ統合する方針を決定し、deletion-candidate-query-consolidation-decision.mdを新設
+  した。kura-pashaとの差異として、本venture固有の`route_deletion_candidate_confirmation()`
+  が`MARK_UNREACHABLE`(LINEブロック中)判定した候補は`deletion_confirmation_sent_at`が
+  設定されないため統合後も単一クエリに残り続ける点を追加の論点として記録した。InMemory実装・
+  既存テストの変更は行わない方針(Protocolのシグネチャ変更が不要なため)。実コード化自体は
+  他の実Firestore接続作業と同様、オーナー承認後の結合実装フェーズに持ち越す。コード変更なし、
+  文書追加のみのため回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(715件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)
+  を実行し、いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)への同種の統合検討の
+  適用、(3)`MARK_UNREACHABLE`候補の扱いの追加検討、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 14:00 UTC(フェーズ320: kura-pashaフェーズ239の次回候補を受け、
+  deletion_candidate_final_confirmationの2段階クエリ構成を実Firestore接続後に1クエリへ
+  統合する方針を決定〈deletion-candidate-query-consolidation-decision.md新設〉。複合
+  インデックス#5をfirestore-composite-index-plan.mdに追記。コード変更なし)
