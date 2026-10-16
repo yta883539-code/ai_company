@@ -5900,8 +5900,45 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   いずれも未設計のまま残っているため、aircon-pasha等の既存設計方針(オーナーが対話
   セッションで個別に指示した場合のみ実行、機械的自動削除は行わない)に合わせた設計に
   着手するかどうかの検討、(3)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-15 23:00 UTC(フェーズ続き322: store-deletion-candidate-final-
-  confirmation-design.md 4節・5節の見出しが実装済みであるにもかかわらず「次回実装候補」
-  のまま残っていた記載漏れを訂正。firestore-data-model.mdに未反映だった
-  `storeDeletionConfirmationUnreachableReason`フィールドも追記。コード変更なし、
-  テスト931件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き323(2026-10-16 00:00 UTC定例更新): フェーズ続き322の次回候補(2)
+  「削除候補の実際の削除実行バッチ自体は本venture・他4venture共通でいずれも未設計のまま
+  残っているため、aircon-pasha等の既存設計方針に合わせた設計に着手するかどうかの検討」を
+  受けて着手した。store-deletion-execution-design.mdを新規文書化し、(1)削除は不可逆操作
+  であること、(2)aircon-pasha・course-set-pasha・kura-pashaのいずれも同種の削除実行バッチ
+  自体を実装していないこと(grep確認)を踏まえ、自動削除バッチ(Cloud Scheduler等)は
+  一切実装せず、削除実行は本リポジトリとの対話セッションでオーナーが個別のstore_idを
+  指定して明示的に指示した場合のみ行う方針を正式決定した。これに伴い、data-retention-
+  policy.md「削除の実行方法(MVP)」節が元々想定していた「Cloud Schedulerによる日次〜週次
+  バッチ」という記述が本決定と整合しなくなったため、同節に補記を追加した。設計に基づき
+  `prototype/store_deletion_execution.py`を新規実装: (a)削除実行対象を「最終確認送信済み・
+  未応答」「連絡不能」「(参考)新規候補」の3区分で一覧化する読み取り専用の統合レポート
+  `render_deletion_execution_review_report()`(既存の`list_store_deletion_candidates()`・
+  `list_unreachable_store_deletion_candidates()`を再利用しつつ、連絡不能店舗を3区分目から
+  除外して重複表示を避ける)、(b)削除実行本体`execute_store_deletion()`
+  (`confirmed_by_owner`をキーワード専用引数とし、Trueが明示的に渡されない限り
+  `DeletionNotConfirmedError`を発生させる安全策、data-retention-policy.md「サブコレクション
+  との削除順序」節の採用方針どおり5サブコレクション〈`bookingSlots`・`conversations`・
+  `notificationLogEntries`・`notificationLogUniqueTopics`・`escalationWindows`〉を
+  この順で削除してから親ドキュメントを削除し、途中で例外が発生しても再試行可能な設計)を
+  実装した。実Firestore接続・ページング・WriteBatch実装自体は他venture同種処理と同様、
+  実Firestore接続後(オーナー承認待ち)の課題として残し、本フェーズは依存注入可能な
+  Protocol・InMemory実装によるオーケストレーションロジックの検証のみに限定した。
+  いかなるCloud Functions/Cloud Schedulerからも本関数を呼び出す配線(`main(request)`等)は
+  意図的に用意していない。`test_store_deletion_execution.py`を新規作成しテスト5件追加、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`で全936件(既存931件+新規5件)
+  パス・`python3 schema/validate_test_cases.py`で28件パス(いずれも既存分は変更なし)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし(実Firestore接続自体は既存の承認待ち
+  事項の範囲内であり、新たな承認待ち事項ではない。本フェーズの削除実行機能自体は意図的に
+  オーナー個別指示オンリーとしたため、新たに「自動削除」という承認待ち事項が生じたわけでも
+  ない)。次回候補: (1)承認待ち事項(顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)
+  がオーナーから承認された場合は本venture一式の実装着手を最優先、(2)同種の削除実行
+  オーケストレーションロジックをaircon-pasha・course-set-pasha・kura-pashaへ横展開するか
+  どうかの検討(いずれもコレクション構成が異なるため個別の設計調整が必要)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-16 00:00 UTC(フェーズ続き323: 削除候補の実際の削除実行について、
+  自動削除バッチは実装せずオーナーが対話セッションで個別指示した場合のみ実行する方針を
+  store-deletion-execution-design.mdで正式決定。data-retention-policy.mdに整合のための
+  補記を追加。`store_deletion_execution.py`を新規実装〈統合レビューレポート・
+  `confirmed_by_owner`必須の削除実行本体・5サブコレクションの削除順序制御〉、テスト5件
+  追加、全936件パス・schema検証28件パス)

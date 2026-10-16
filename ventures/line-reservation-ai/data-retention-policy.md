@@ -122,6 +122,16 @@ dormant-mode-renotification-design.mdで、休止モードの再通知を90日�
 
 ## 削除の実行方法(MVP)
 
+- (2026-10-16 store-deletion-execution-design.md策定時点で補記): 本節が当初想定していた
+  「Cloud Schedulerによる日次〜週次バッチ」という自動化方針は、削除候補選定(本節上部)・
+  最終確認送信・連絡不能レポートの設計が進んだ結果、store-deletion-candidate-unreachable-
+  owner-review-design.mdが「連絡不能ケースは自動削除には進まず、オーナーが対話セッションで
+  個別に削除可否を判断する」と明記したこととの整合性を欠くに至った。store-deletion-
+  execution-design.md(フェーズ続き323)は、削除という不可逆操作である以上、連絡不能
+  ケースに限らずすべての削除候補についてオーナーの個別対話判断を正とする結論を採った。
+  以下の「Cloud Schedulerによる日次〜週次バッチ」という記述は、その結論により採用しない
+  方針として残す(削除候補の洗い出し・最終確認送信自体は低頻度バッチ化してよいが、
+  実際の削除実行はバッチ化しない)。
 - MVPでは専用の削除バッチジョブは実装せず、idle-conversation-trigger-design.mdと同様の
   「低頻度実行で足りる」性質を踏まえ、実際のホスティング基盤(hosting-platform-selection.md)
   確定後にCloud Schedulerによる日次〜週次バッチとして実装する方針とする(実装自体は
