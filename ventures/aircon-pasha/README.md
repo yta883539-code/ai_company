@@ -5731,3 +5731,27 @@
   (1)承認待ち事項がオーナーから承認された場合、`SERVICE_DISPLAY_NAME`・
   `LINE_ADD_FRIEND_URL`の実値確定とメール本文最終稿化から着手、(2)他venture・
   アイデア領域の前進。
+- フェーズ318(2026-10-16定例更新): course-set-pashaフェーズ296の次回候補(2)「同種の
+  記載整合性棚卸しを未実施の他venture(aircon-pasha・line-reservation-ai)への横展開」を
+  受け、本ventureに横展開して棚卸しを実施した。各設計ファイル内の「解消済み・フェーズNN」
+  形式の注記をgrepで抽出した結果(follow-unfollow-event-handling-design.md・
+  gas-script-draft.md・landing-page-copy-draft.md・onboarding-guide.md(2件)・
+  owner-operation-self-service-faq.md・trial-end-notification-design.md(3件)・
+  trial-end-scheduler-design.md・user-account-linking-design.md(2件)の計12件、重複する
+  フェーズ番号を除くと24・112・113・130・131・133・135・151・225・245・271・317の12種)、
+  該当する全フェーズ番号がREADME.md側にも記載済みであることを確認した。
+  course-set-pasha・kura-pashaで実施済みの同種棚卸しと同様、forklift-pashaフェーズ151で
+  発見されたような「設計ファイル側にのみ記録され、README.mdへの記録が一度も行われて
+  いない」記載漏れは本ventureには見つからなかった。コード変更なし、棚卸し結果の記録のみ
+  のため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (715件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行し、
+  いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合、`SERVICE_DISPLAY_NAME`・
+  `LINE_ADD_FRIEND_URL`の実値確定とメール本文最終稿化から着手、(2)同種の記載整合性
+  棚卸しの最後の未実施venture(line-reservation-ai)への横展開、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-16 05:00 UTC(フェーズ318: course-set-pashaフェーズ296の次回候補を
+  受け、README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開。「解消済み・
+  フェーズNN」注記12件全てがREADME.mdに反映済みであることを確認。記載漏れは発見されず、
+  コード変更なし)
