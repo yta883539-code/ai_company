@@ -1502,6 +1502,31 @@ class ProcessFollowEventTest(unittest.TestCase):
         self.assertTrue(profile_store.get_is_following("u-1"))
         self.assertIsNone(profile_store.get_blocked_but_billing_owner_notified_at("u-1"))
 
+    def test_refollow_clears_deletion_confirmation_unreachable_at(self):
+        # deletion-candidate-query-consolidation-decision.md「残る課題」(フェーズ320)への
+        # 対応、「クリア配線」(フェーズ321)。
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+                current_plan_id="スタンダード", is_following=False,
+                deletion_confirmation_unreachable_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+                deletion_confirmation_unreachable_reason="not_following",
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        event = {"type": "follow", "replyToken": "reply-token-8", "source": {"userId": "u-1"}}
+
+        process_follow_event(event, reply_client, profile_store=profile_store)
+
+        self.assertTrue(profile_store.get_is_following("u-1"))
+        self.assertIsNone(profile_store.get_deletion_confirmation_unreachable_at("u-1"))
+        self.assertIsNone(profile_store.get_deletion_confirmation_unreachable_reason("u-1"))
+
     def test_follow_of_an_unlinked_user_does_not_touch_profile_store(self):
         # design: 未連携user_id(profile未作成)はそもそもis_followingの対象外。
         profile_store = InMemoryUserProfileStore()

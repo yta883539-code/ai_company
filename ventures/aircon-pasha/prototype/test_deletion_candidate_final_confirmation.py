@@ -21,6 +21,7 @@ from deletion_candidate_final_confirmation import (  # noqa: E402
     UnreachableDeletionCandidate,
     build_deletion_candidate_confirmation_states,
     build_deletion_candidate_final_confirmation_flex_message,
+    clear_deletion_confirmation_unreachable_at,
     list_unreachable_deletion_candidates,
     render_unreachable_deletion_candidates_report,
     route_deletion_candidate_confirmation,
@@ -36,15 +37,20 @@ class _FakeStateStore:
     """set_deletion_confirmation_sent_at()・set_deletion_confirmation_unreachable_at()
     呼び出しのみを記録するテスト用スタブ。"""
 
-    def __init__(self) -> None:
+    def __init__(self, initial_unreachable_at: Optional[Dict[str, datetime]] = None) -> None:
         self.sent_at: Dict[str, Optional[datetime]] = {}
-        self.unreachable_at: Dict[str, Optional[datetime]] = {}
+        self.unreachable_at: Dict[str, Optional[datetime]] = dict(initial_unreachable_at or {})
         self.unreachable_reason: Dict[str, Optional[str]] = {}
 
     def set_deletion_confirmation_sent_at(
         self, user_id: str, value: Optional[datetime]
     ) -> None:
         self.sent_at[user_id] = value
+
+    def get_deletion_confirmation_unreachable_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        return self.unreachable_at.get(user_id)
 
     def set_deletion_confirmation_unreachable_at(
         self, user_id: str, value: Optional[datetime]
@@ -74,6 +80,36 @@ class RouteDeletionCandidateConfirmationTest(unittest.TestCase):
             route_deletion_candidate_confirmation(is_following=False),
             DeletionCandidateConfirmationRoute.MARK_UNREACHABLE,
         )
+
+
+class ClearDeletionConfirmationUnreachableAtTest(unittest.TestCase):
+    """deletion-candidate-query-consolidation-decision.md「残る課題」(フェーズ320)への
+    対応、clear_deletion_confirmation_unreachable_at()自体の挙動を検証する(フェーズ321)。
+    実際の呼び出し配線(フォロー再開)側のテストはtest_cloud_function_webhook.pyに追加する。
+    """
+
+    def test_clears_unreachable_at_and_reason_when_set(self) -> None:
+        store = _FakeStateStore({"u1": datetime(2026, 9, 1, 18, 0, 0)})
+        store.unreachable_reason["u1"] = UNREACHABLE_REASON_NOT_FOLLOWING
+        self.assertTrue(clear_deletion_confirmation_unreachable_at(store, "u1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+        self.assertIsNone(store.unreachable_reason["u1"])
+
+    def test_returns_false_and_no_op_when_already_unset(self) -> None:
+        store = _FakeStateStore()
+        self.assertFalse(clear_deletion_confirmation_unreachable_at(store, "u1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+
+    def test_only_clears_the_specified_user(self) -> None:
+        store = _FakeStateStore(
+            {
+                "u1": datetime(2026, 9, 1, 18, 0, 0),
+                "u2": datetime(2026, 9, 1, 18, 0, 0),
+            }
+        )
+        self.assertTrue(clear_deletion_confirmation_unreachable_at(store, "u1"))
+        self.assertIsNone(store.get_deletion_confirmation_unreachable_at("u1"))
+        self.assertIsNotNone(store.get_deletion_confirmation_unreachable_at("u2"))
 
 
 class SelectDueDeletionCandidateFinalConfirmationsTest(unittest.TestCase):

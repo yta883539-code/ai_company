@@ -40,6 +40,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from blocked_but_billing_owner_notification import (  # noqa: E402
     clear_blocked_but_billing_owner_notified_at,
 )
+from deletion_candidate_final_confirmation import (  # noqa: E402
+    clear_deletion_confirmation_unreachable_at,
+)
 from chatbot_intent_router import (  # noqa: E402
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     append_faq_followup_hint,
@@ -291,6 +294,11 @@ def process_follow_event(
     あわせてクリアする(「ブロック中かつ契約継続中」候補として一度オーナーへ通知された
     後にフォローが再開された場合、次に再びブロックされたときに改めて通知できるようにする
     ため)。
+
+    同様に、deletion-candidate-query-consolidation-decision.md「残る課題」(フェーズ320)
+    への対応として`deletion_confirmation_unreachable_at`(削除候補の最終確認がブロック中で
+    送達できず連絡不能扱いになっていた場合の記録)もクリアする(フェーズ321「クリア配線」)。
+    これにより、再フォロー後は次回バッチでLINE push経路に戻って最終確認を送達できる。
     """
     if event.get("type") != "follow":
         return FollowProcessResult(handled=False, reply_sent=False)
@@ -302,6 +310,7 @@ def process_follow_event(
     if profile_store is not None and profile_store.exists(user_id):
         profile_store.set_is_following(user_id, True)
         clear_blocked_but_billing_owner_notified_at(profile_store, user_id)
+        clear_deletion_confirmation_unreachable_at(profile_store, user_id)
 
     message_text = format_welcome_message(form_link_provider)
     reply_sent = _reply_with_retry(reply_client, event["replyToken"], message_text)

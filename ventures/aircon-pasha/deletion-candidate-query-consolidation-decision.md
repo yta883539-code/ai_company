@@ -63,16 +63,66 @@ user_idは`deletion_confirmation_sent_at`が設定されないため毎回の実
   アダプタ本体の実装)は他の実Firestore接続作業と同様、オーナー承認後の結合実装フェーズに
   持ち越す。
 
+## `MARK_UNREACHABLE`候補の扱い(フェーズ321で解消)
+
+フェーズ320時点では、`MARK_UNREACHABLE`に倒れた候補(ブロック中で送達できなかった候補)が
+`deletion_confirmation_sent_at`を設定されないため、統合後の単一クエリ(#5)に永久に残り
+続ける点を未解決の課題として残していた。
+
+本フェーズでは、blocked-but-billing-owner-notification-design.md 6節「クリア配線」
+(フェーズ175、`clear_blocked_but_billing_owner_notified_at()`)と同じ考え方を適用し、
+`prototype/deletion_candidate_final_confirmation.py`に`clear_deletion_confirmation_
+unreachable_at()`を新設した。`cloud_function_webhook.process_follow_event()`の
+再フォロー時(`is_following`がTrueに戻るタイミング)に、既存の`blocked_but_billing_owner_
+notified_at`のクリアと並んで本関数を呼ぶよう配線した(`UserProfileStoreProtocol`実装は
+構造的に`DeletionConfirmationUnreachableAtStoreProtocol`〈読み書き両方〉を満たすため、
+追加のアダプタは不要)。
+
+これにより、ブロック解除(再フォロー)した候補は`deletion_confirmation_unreachable_at`・
+`deletion_confirmation_unreachable_reason`の両方がクリアされ、次回バッチで通常のLINE push
+経路に戻って最終確認を送達できる。一方、再フォローされないまま連絡不能が続く候補は
+`deletion_confirmation_unreachable_at`が設定されたままになるため、実Firestore接続後の
+単一クエリに`deletion_confirmation_unreachable_at == null`を等価条件として追加できる
+(下記「実装方針」更新、複合インデックス#5を3フィールド構成に変更)。
+
+`deletion-candidate-unreachable-owner-review-design.md`(オーナーが対話セッションで個別に
+削除可否を判断するためのレポート、`list_unreachable_deletion_candidates()`)は本変更の
+対象外で、クリアされた候補は次回レポート生成時に`deletion_confirmation_unreachable_at`が
+Noneになるため自然に一覧から外れる(オーナー側の追加対応は不要)。
+
+InMemory実装・既存テストは本変更の対象(`test_deletion_candidate_final_confirmation.py`に
+`ClearDeletionConfirmationUnreachableAtTest`3件、`test_cloud_function_webhook.py`に
+`test_refollow_clears_deletion_confirmation_unreachable_at`1件を追加)。実際の
+`cloud_function_webhook.py`・`deletion_candidate_final_confirmation.py`へのコード追加は
+本フェーズで実施済み(InMemory実装のみ、実Firestore接続は引き続きオーナー承認後)。
+
+## 実装方針(結合実装フェーズ向けメモ)(フェーズ321で更新)
+
+- Firestoreアダプタ実装時、`list_deletion_candidates()`相当の関数は`deletion_confirmation_
+  sent_at == null AND deletion_confirmation_unreachable_at == null`の2つの等価条件を含めた
+  単一クエリとして実装し直す(フェーズ320時点では`sent_at`のみの等価条件だったが、本フェーズ
+  で`unreachable_at`も条件に追加)。
+- firestore-composite-index-plan.md(フェーズ314)の複合インデックス#5を、
+  (`deletion_confirmation_sent_at` ASC, `deletion_confirmation_unreachable_at` ASC,
+  `deletion_candidate_at` ASC)の3フィールド構成に更新する(本フェーズで追記済み、下記参照)。
+- InMemory実装・既存テスト(`test_deletion_candidate.py`・`test_deletion_candidate_final_
+  confirmation.py`)の`select_due_deletion_candidate_final_confirmations()`自体は変更不要
+  (インメモリ線形走査にコスト差はなく、Protocolのシグネチャを変える必要がないため)。
+  「クリア配線」(`clear_deletion_confirmation_unreachable_at()`・
+  `process_follow_event()`への配線)のみを本フェーズで追加した。
+- 実Firestoreクエリ本体の実装(Firestoreアダプタ本体)は他の実Firestore接続作業と同様、
+  オーナー承認後の結合実装フェーズに持ち越す。
+
 ## 残る課題
 
 - 実際のFirestoreクエリ実装・複合インデックスのデプロイはGCPプロジェクト作成・Firestore
   有効化(オーナー承認待ち)後。
-- `MARK_UNREACHABLE`のまま放置された候補が統合後の単一クエリに残り続ける点(上記)の扱いは
-  次回候補として残す。
 - 同種のパターンが残る横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)の
   削除候補・通知系処理にも存在するかどうかの横展開検討は次回候補として残す。
 
-最終更新: 2026-10-16 14:00 UTC(フェーズ320: kura-pashaフェーズ239の次回候補を受け、
-deletion_candidate_final_confirmationの2段階クエリ構成を実Firestore接続後に1クエリへ統合
-する方針を決定。`MARK_UNREACHABLE`候補が残り続ける本venture固有の論点を追加で記録。
-firestore-composite-index-plan.mdに複合インデックス#5を追記。コード変更なし)
+最終更新: 2026-10-16 21:00 UTC(フェーズ321: フェーズ320の残る課題であった
+`MARK_UNREACHABLE`候補が統合後の単一クエリに永久に残り続ける問題を解消。
+`clear_deletion_confirmation_unreachable_at()`を新設し、再フォロー時のクリア配線を
+`process_follow_event()`に追加(InMemory実装・テスト4件追加)。firestore-composite-
+index-plan.mdの複合インデックス#5を3フィールド構成に更新。テスト719件・schema検証25件
+パス)

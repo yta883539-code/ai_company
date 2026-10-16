@@ -5799,3 +5799,28 @@
   deletion_candidate_final_confirmationの2段階クエリ構成を実Firestore接続後に1クエリへ
   統合する方針を決定〈deletion-candidate-query-consolidation-decision.md新設〉。複合
   インデックス#5をfirestore-composite-index-plan.mdに追記。コード変更なし)
+- フェーズ321(2026-10-16 21:00 UTC定例更新): フェーズ320の次回候補(3)「`MARK_UNREACHABLE`
+  候補の扱いの追加検討」に着手した。`MARK_UNREACHABLE`に倒れた候補(LINEブロック中で最終
+  確認が送達できなかった候補)が、統合後の単一クエリに永久に残り続ける問題を、blocked-
+  but-billing-owner-notification-design.md 6節「クリア配線」(フェーズ175)と同じ考え方で
+  解消した。`prototype/deletion_candidate_final_confirmation.py`に`clear_deletion_
+  confirmation_unreachable_at()`を新設し、`cloud_function_webhook.process_follow_event()`
+  の再フォロー時(既存の`blocked_but_billing_owner_notified_at`クリアと並ぶ位置)に配線した。
+  これにより再フォロー後は`deletion_confirmation_unreachable_at`・`unreachable_reason`が
+  クリアされ、次回バッチで通常のLINE push経路に戻れる。firestore-composite-index-plan.md
+  の複合インデックス#5を(`deletion_confirmation_sent_at` ASC, `deletion_confirmation_
+  unreachable_at` ASC, `deletion_candidate_at` ASC)の3フィールド構成に更新し、
+  firestore.indexes.jsonに追記した(フェーズ320時点ではJSON未反映だった漏れも合わせて
+  修正)。InMemory実装は`test_deletion_candidate_final_confirmation.py`に
+  `ClearDeletionConfirmationUnreachableAtTest`3件、`test_cloud_function_webhook.py`に
+  `test_refollow_clears_deletion_confirmation_unreachable_at`1件を追加して検証した
+  (新規追加分含め全719件・schema検証25件パス)。実Firestore接続自体は引き続きオーナー
+  承認後の結合実装フェーズに持ち越す。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)同種のクリア配線が
+  残る横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)の削除候補処理にも
+  必要かの横展開検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 21:00 UTC(フェーズ321: `MARK_UNREACHABLE`候補が統合後の単一クエリに
+  永久に残り続ける問題を、再フォロー時の「クリア配線」追加で解消。複合インデックス#5を
+  3フィールド構成に更新しfirestore.indexes.jsonへの反映漏れも修正。InMemory実装・テスト
+  4件追加、テスト719件・schema検証25件パス)

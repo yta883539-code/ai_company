@@ -180,6 +180,49 @@ class DeletionConfirmationStateWriter(Protocol):
         ...
 
 
+class DeletionConfirmationUnreachableAtReader(Protocol):
+    """`clear_deletion_confirmation_unreachable_at()`が要求する最小限のProtocol
+    (`BlockedButBillingOwnerNotifiedAtReader`と同じ考え方)。"""
+
+    def get_deletion_confirmation_unreachable_at(self, user_id: str) -> Optional[datetime]:
+        ...
+
+
+class DeletionConfirmationUnreachableAtStoreProtocol(
+    DeletionConfirmationUnreachableAtReader, DeletionConfirmationStateWriter, Protocol
+):
+    """「クリア配線」(フェーズ320)が使う、読み書き両方を要求する合成Protocol
+    (`BlockedButBillingOwnerNotifiedAtStoreProtocol`と同じ考え方)。"""
+
+
+def clear_deletion_confirmation_unreachable_at(
+    store: DeletionConfirmationUnreachableAtStoreProtocol, user_id: str,
+) -> bool:
+    """deletion-candidate-query-consolidation-decision.md「残る課題」(フェーズ320)への
+    対応: 「フォロー再開」(is_followingがTrueに戻る)が起きた時点で呼ぶ
+    (blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()
+    と同じ「クリア配線」の考え方)。
+
+    `deletion_confirmation_unreachable_at`が設定済みの場合のみクリアし(`unreachable_
+    reason`も合わせてクリアする)、変更があったかどうか(True/False)を返す。未設定
+    (そもそも連絡不能化されたことがない、または既にクリア済み)の場合は何もせず`False`を
+    返す。
+
+    これにより、実Firestore接続後にlist_deletion_candidates()相当のクエリへ
+    `deletion_confirmation_unreachable_at == null`条件を追加しても、ブロック解除
+    (再フォロー)した候補は本クリア配線によって再びクエリ対象(=LINE push再送対象)に
+    戻れるため、連絡不能のまま放置された候補だけを安全にクエリから除外できる(決定doc
+    「残る課題」1点目の解消)。呼び出し配線自体は本関数の対象外で、
+    `cloud_function_webhook.process_follow_event()`(フォロー再開)から呼ばれる想定
+    (clear_blocked_but_billing_owner_notified_at()と同じ呼び出し元)。
+    """
+    if store.get_deletion_confirmation_unreachable_at(user_id) is None:
+        return False
+    store.set_deletion_confirmation_unreachable_at(user_id, None)
+    store.set_deletion_confirmation_unreachable_reason(user_id, None)
+    return True
+
+
 class DeletionCandidateConfirmationStateReader(Protocol):
     """フェーズ307: `build_deletion_candidate_confirmation_states()`が削除候補user_idから
     `DeletionCandidateConfirmationUserState`を組み立てる際に読み取る2メソッドのみを要求する
