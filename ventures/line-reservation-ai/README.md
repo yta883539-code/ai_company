@@ -5998,3 +5998,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   runtime-dependency-switching-design.mdを新設し3つのruntime_dependencies関数の切り替え
   設計を文書化。これにより5venture全てへの横展開が完了。コード変更なし、全936件・
   schema検証28件パス)
+- フェーズ続き326(2026-10-16 18:00 UTC定例更新): フェーズ続き325の次回候補(2)「実コード化は
+  各venture個別のFirestoreアダプタ設計とセットで承認後の結合実装フェーズに持ち越す方針の
+  全venture共通化の検討」に着手した。5venture(kura-pasha・aircon-pasha・course-set-pasha・
+  forklift-pasha・line-reservation-ai)の既存Firestoreアダプタ設計文書を棚卸しした結果、
+  kura-pasha(workshop-store-firestore-adapter-design.md・invite-code-store-firestore-
+  adapter-design.md・linking-code-store-firestore-adapter-design.mdの3件)・forklift-pasha
+  (access-token-store-firestore-adapter-design.md・fleet-operator-store-firestore-adapter-
+  design.mdの2件)・line-reservation-ai(store-profile-store-firestore-adapter-design.md・
+  同design-onboarding-flag.mdの2件、計7件)はいずれも「設計文書のみを先行させ、実際の
+  Firestore SDK呼び出し・認証情報の読み込み等の実コード化自体は、各ventureの
+  `<venture-prefix>_FIRESTORE_ENABLED`環境変数が実GCPプロジェクト承認後に"1"へ切り替わる
+  タイミングまで着手しない」という運用方針で一致していることを確認した(aircon-pasha・
+  course-set-pashaはFirestoreアダプタ設計自体が未着手のため対象外)。これは各venture内で
+  暗黙的に踏襲されてきた運用であり、本フェーズでは新たな技術的決定を行うものではなく、
+  「設計は承認前に進める。実コード化は承認後」という方針を5venture共通のルールとして
+  明文化したものである。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(936件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
+  (顧客ヒアリングの実連絡・実Firestore/GCPプロジェクト等)がオーナーから承認された場合は
+  本venture一式の実装着手を最優先、(2)aircon-pasha・course-set-pashaのFirestoreアダプタ
+  設計着手(現時点で両ventureのみ未着手)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 18:00 UTC(フェーズ続き326: 5venture共通のFirestoreアダプタ
+  「設計は承認前、実コード化は承認後」方針を明文化。新たな技術的決定なし、コード変更なし、
+  全936件・schema検証28件パス)
