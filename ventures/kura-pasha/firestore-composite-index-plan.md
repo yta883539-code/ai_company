@@ -62,9 +62,12 @@ workshop-store-firestore-adapter-design.md 28節「次回候補」に残って�
 
 - 本表の各インデックスが実際にFirestoreコンソールの「クエリ実行時エラーからの自動提案」と
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
-- #4について、現状の2段階構成(`list_deletion_candidates()`→インメモリフィルタ)を実
-  Firestore接続後に1クエリへ統合するかどうかは、結合実装フェーズでの判断課題として残す
-  (統合せず2段階のままでも機能上は問題ないため、必須の変更ではない)。
+- (解消済み・フェーズ239): #4について、現状の2段階構成(`list_deletion_candidates()`→
+  インメモリフィルタ)を実Firestore接続後に1クエリへ統合するかどうかは、結合実装フェーズでの
+  判断課題として残していたが、フェーズ239
+  (deletion-candidate-query-consolidation-decision.md)で統合する方針を決定した
+  (読み取り件数が送信済み件数の増加に比例して単調増加する問題を解消できることを理由とする。
+  実コード化自体は結合実装フェーズに持ち越し)。
 - `blocked_but_billing_candidates`のコレクションをまたぐ条件は、将来的に`user_profile`側
   の`is_following`を`craftsman_workshop`ドキュメントへの非正規化(冗長コピー)で解決する案も
   考えられるが、フォロー状態の二重管理による不整合リスクを避けるため、本フェーズでは見送りと

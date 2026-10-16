@@ -5296,3 +5296,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   付き切り替え〉を設計し、runtime-dependency-switching-design.mdを新設。既存2つの
   `get_xxx_runtime_dependencies()`それぞれへの適用案を擬似コードでまとめた。コード
   変更なし)
+- フェーズ239(2026-10-16 13:00 UTC定例更新): フェーズ234
+  (firestore-composite-index-plan.md)の次回候補として残っていた「`deletion_candidate.
+  list_deletion_candidates()`(`deletion_candidate_at <= now`の範囲クエリ)と
+  `build_deletion_candidate_confirmation_states()`(インメモリでの
+  `deletion_confirmation_sent_at == null`フィルタ)の2段階構成を、実Firestore接続後に
+  複合インデックス#4を使う1クエリへ統合するかどうか」(フェーズ234の次回候補(2)、
+  フェーズ237・238でも未着手のまま残っていた)に着手した。`list_deletion_candidates()`の
+  呼び出し元が`run_due_deletion_candidate_final_confirmations()`の1箇所のみであることを
+  確認した上で、統合する方針を決定した(deletion-candidate-query-consolidation-decision.md
+  新設)。理由として、現状の2段階構成では`deletion_candidate_at`が解約日+365日で固定される
+  一方`deletion_confirmation_sent_at`は送信済みでも消えないため、1段目のクエリが「送信済み
+  で今後何もしなくてよい過去の解約者全件」を実運用期間に比例して読み込み続ける(読み取り件数が
+  単調増加する)問題を指摘し、複合インデックス#4による単一クエリへの統合でこれを回避できる
+  ことを記録した。firestore-composite-index-plan.mdの該当する残課題欄に
+  「解消済み・フェーズ239」を注記した。InMemory実装・既存テストの変更は行わない方針とした
+  (Protocolのシグネチャ変更が不要なため)。実コード化自体は他の実Firestore接続作業と同様、
+  オーナー承認後の結合実装フェーズに持ち越す。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(207件)・`python3 schema/
+  validate_test_cases.py`(32件中32件)を実行し、いずれも変更なしでパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)同種の「InMemoryでは2段階だが実クエリでは1段に統合可能」な構成が
+  他venture(aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)の削除候補
+  ・通知系処理にも存在するかの横展開検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 13:00 UTC(フェーズ239: フェーズ234の次回候補を受け、
+  deletion_candidate_final_confirmationの2段階クエリ構成を実Firestore接続後に1クエリへ
+  統合する方針を決定〈deletion-candidate-query-consolidation-decision.md新設〉。読み取り
+  件数が送信済み件数の増加に比例して単調増加する問題を解消できることを統合理由として記録。
+  コード変更なし)
