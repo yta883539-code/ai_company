@@ -5043,3 +5043,29 @@
 - 最終更新: 2026-10-16 10:00 UTC(フェーズ297: aircon-pashaフェーズ319の次回候補を受け、
   `COURSE_SET_PASHA_FIRESTORE_ENABLED`命名規則での切り替え設計を本ventureの8つの
   runtime_dependencies関数に適用。コード変更なし、テスト756件・schema検証21件パス)
+- フェーズ298(2026-10-16 16:00 UTC定例更新): llm-api-cost-estimate.md(2026-08-17作成、
+  Claude Haiku 4.5・Sonnet 5・Opus 5前提)が、claude-apiスキルで確認できる最新モデル表
+  (Claude Haiku 5.5・Sonnet 5.5・Opus 5.5が各ティアの後継として提供されており、いずれも
+  旧世代と同額以下の料金)を反映していない記載漏れであることに着手した。更新後の料金
+  (Haiku 5.5: $0.10/$0.50、Sonnet 5.5: $2.00/$10.00〈Sonnet 5の標準料金$3.00/$15.00より
+  安い〉、Opus 5.5: $4.00/$20.00)で、既存のシナリオA/B前提を再利用したコスト再試算を
+  追記した(例: Sonnet 5.5・シナリオBは約5.94円で旧Sonnet 5試算の約8.91円から低下)。
+  Haiku 5.5はHaiku 4.5の約1/10の料金になりコスト面の優位性が従来より大きくなったが、
+  品質(post_generation_checks.pyの厳守事項通過率)はコストと独立した論点のため、本フェーズ
+  ではモデル選定(Sonnet 5.5を本採用候補とする結論)自体は変更せず、実LLM接続後の
+  Haiku 5.5・Sonnet 5.5比較検証を次回候補に追加するにとどめた。あわせて、Sonnet 5.5は
+  Sonnet 5から`thinking: {type: "disabled"}`廃止・強制tool_choice廃止等の破壊的変更が
+  あることを確認し、本ventureの構造化出力(JSON)設計(`output_config.format`または
+  `strict: true`)であればこの変更の影響を受けないことを記録した。コード変更なし、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(756件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)いずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)実LLM接続後のHaiku 5.5・Sonnet 5.5比較検証、(3)同種のモデル
+  世代更新の記載漏れを他venture(aircon-pasha・kura-pasha・line-reservation-ai・
+  forklift-pasha)のllm-api-cost-estimate.md相当ドキュメントへ横展開確認、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-16 16:00 UTC(フェーズ298: llm-api-cost-estimate.mdをClaude 5.5世代
+  モデル〈Haiku 5.5・Sonnet 5.5・Opus 5.5〉の料金に対応させて再試算。いずれも旧世代より
+  低コスト。モデル選定自体はSonnet 5.5を本採用候補とする結論を維持。コード変更なし、
+  テスト756件・schema検証21件パス)
