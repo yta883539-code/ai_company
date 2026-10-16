@@ -5751,7 +5751,26 @@
   `LINE_ADD_FRIEND_URL`の実値確定とメール本文最終稿化から着手、(2)同種の記載整合性
   棚卸しの最後の未実施venture(line-reservation-ai)への横展開、(3)他venture・アイデア
   領域の前進。
-- 最終更新: 2026-10-16 05:00 UTC(フェーズ318: course-set-pashaフェーズ296の次回候補を
-  受け、README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開。「解消済み・
-  フェーズNN」注記12件全てがREADME.mdに反映済みであることを確認。記載漏れは発見されず、
-  コード変更なし)
+- フェーズ319(2026-10-16定例更新): kura-pashaフェーズ238(runtime-dependency-switching-
+  design.md)の次回候補(2)「`KURA_PASHA_FIRESTORE_ENABLED`という名前・値の形式を他
+  venture(aircon-pasha・course-set-pasha・line-reservation-ai・forklift-pasha)へ
+  `<venture-prefix>_FIRESTORE_ENABLED`の命名規則として横展開する」を受け、本ventureに
+  最初に適用した。runtime-dependency-switching-design.mdを新設し、本ventureに存在する5つの
+  `get_.*_runtime_dependencies()`(webhook・daily_checks・application_form_submission・
+  deletion_candidate_final_confirmation・stripe)の現状(「空dictが未接続を表す」/「常に
+  非Noneを返す」の2パターン)を棚卸しした上で、`AIRCON_PASHA_FIRESTORE_ENABLED`
+  (値`"1"`で有効、未設定時は安全側でInMemoryにフォールバック)を切り替え条件とする
+  設計を各エントリポイントへの適用案として文書化した。本ventureにはkura-pashaの
+  workshop-store-firestore-adapter-design.mdに相当するFirestoreアダプタ自体の設計文書が
+  まだ無いため、アダプタ設計・実コード化は承認後の結合実装フェーズに持ち越す旨を明記した。
+  コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(715件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行し、いずれも変更なしでパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)残る横展開先(course-set-pasha・line-reservation-ai・
+  forklift-pasha)への同種設計の適用、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 09:00 UTC(フェーズ319: kura-pashaフェーズ238の次回候補(2)を受け、
+  `<venture-prefix>_FIRESTORE_ENABLED`命名規則の横展開を本ventureに適用。
+  runtime-dependency-switching-design.mdを新設し5つのruntime_dependencies関数の
+  切り替え設計を文書化。コード変更なし)
