@@ -3074,3 +3074,24 @@
   命名規則によるランタイム依存切り替え設計を本ventureの4つの
   runtime_dependencies関数に適用。runtime-dependency-switching-design.mdを
   新設。コード変更なし、全18ファイル中18件成功)
+- フェーズ159(2026-10-16 15:00 UTC定例更新): フェーズ158の次回候補(3)
+  「`access_token_store`自体のFirestore化方式の検討」を受け着手した。
+  `AccessTokenStoreProtocol`(5メソッド、`prototype/access_token_store.py`)を
+  対象に、同一`fleet_operator/{internal_id}`ドキュメントを`FleetOperatorStoreProtocol`
+  と分担する構造を踏まえつつ、2クラスは統合せず個別にドキュメントのget/updateを
+  行う方針を決定した(時期尚早な最適化を避け、個別の依存注入のしやすさを優先)。
+  `get_internal_id_by_access_token`(逆引き)は`accessToken`への単一フィールド
+  クエリで実現でき、InMemory版が持つ逆引きインデックスの明示的な清掃処理が不要に
+  なる(Firestore版の方が単純になる)ことを確認した。
+  access-token-store-firestore-adapter-design.mdを新規作成。コード変更なし、
+  `python3 prototype/run_all_tests.py`で全18ファイル中18件成功(回帰なし)を
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)`FleetOperatorStoreProtocol`
+  自体の実Firestore接続アダプタの設計(本フェーズでは対象外のまま残した
+  `planId`・`stripeCustomerId`等)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 15:00 UTC(フェーズ159: `access_token_store`自体の
+  Firestore化方式を検討。`AccessTokenStoreProtocol`は`FleetOperatorStoreProtocol`
+  と統合せず個別にドキュメントget/updateを行う方針を決定し、
+  access-token-store-firestore-adapter-design.mdを新規作成。コード変更なし、
+  全18ファイル中18件成功)
