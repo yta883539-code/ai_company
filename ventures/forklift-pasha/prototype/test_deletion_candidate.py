@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 
 from deletion_candidate import (
     EmailSenderProtocol,
+    UNREACHABLE_REASON_NO_EMAIL,
+    UNREACHABLE_REASON_SEND_FAILED,
+    UnreachableDeletionCandidate,
     list_deletion_candidates,
     list_unreachable_deletion_candidates,
     render_deletion_candidate_final_confirmation_message,
@@ -134,9 +137,27 @@ def main():
         [c.internal_id for c in unreachable_candidates],
         ["op1"],
     ))
+    results.append(_check(
+        "メールアドレス登録済みでの送信失敗はsend_failed理由コードが記録される",
+        store.get_deletion_confirmation_unreachable_reason("op1"),
+        UNREACHABLE_REASON_SEND_FAILED,
+    ))
+    results.append(_check(
+        "メールアドレス未登録はno_email理由コードが記録される",
+        store2.get_deletion_confirmation_unreachable_reason("op2"),
+        UNREACHABLE_REASON_NO_EMAIL,
+    ))
+    results.append(_check(
+        "理由コード追加前に記録された候補はunreachable_reasonがNoneのまま不明表示にフォールバックする",
+        UnreachableDeletionCandidate(
+            internal_id="op_legacy", unreachable_at=now, days_since_unreachable=0,
+        ).unreachable_reason_label,
+        "不明(本フィールド追加前に記録された候補)",
+    ))
     report = render_unreachable_deletion_candidates_report(unreachable_candidates)
     results.append(_check("レポートに件数が含まれる", "1件" in report, True))
     results.append(_check("レポートに自動削除でない旨の注記が含まれる", "個別に削除可否を" in report, True))
+    results.append(_check("レポートに連絡不能理由が含まれる", "理由: 送信失敗" in report, True))
 
     # --- render_deletion_candidate_final_confirmation_message: 空でない文面 ---
     results.append(_check(

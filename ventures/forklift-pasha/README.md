@@ -3026,3 +3026,29 @@
   実装の判定条件不一致〉が他4venture〈aircon-pasha・course-set-pasha・kura-pasha・
   line-reservation-ai〉に伝播していないことを棚卸しで確認。コード・文書変更なし、
   全18ファイル中18件成功)
+- フェーズ157(2026-10-16 07:00 UTC定例更新): aircon-pasha・course-set-pasha・kura-pashaが
+  既に持つ削除候補「連絡不能」理由コード(`unreachable_reason`、連絡不能の原因をオーナーが
+  判断できるようにする既知の改善、aircon-pashaフェーズ313・line-reservation-aiフェーズ続き320
+  発見)が本ventureのみ未対応のまま残っていたことに着手した。本ventureは連絡経路がメール1本
+  のみのため、course-set-pasha(理由コード1種類で足りると確認済み)と同じ単純化を検討したが、
+  メール特有の「メールアドレス未登録」と「登録はあるが送信失敗」はオーナーが取るべき対応が
+  異なる(前者は別経路での本人確認依頼、後者は再送検討)ため2種類
+  (`UNREACHABLE_REASON_NO_EMAIL`/`UNREACHABLE_REASON_SEND_FAILED`)とする設計を新規採用した
+  (deletion-candidate-unreachable-reason-design.md新規作成)。`trial_management.
+  FleetOperatorStoreProtocol`/`InMemoryFleetOperatorStore`に`get/set_deletion_
+  confirmation_unreachable_reason()`を追加、`deletion_candidate.py`の
+  `send_deletion_candidate_final_confirmations()`がemail有無で理由コードを振り分けて
+  書き込むよう配線、`UnreachableDeletionCandidate`に`unreachable_reason`
+  フィールド・`unreachable_reason_label`プロパティ(本フィールド追加前の既存候補はNoneのまま
+  「不明」表示にフォールバックし後方互換を保つ、aircon-pasha等と同じ方針)を追加し、
+  `render_unreachable_deletion_candidates_report()`の各行に理由ラベルを追記した。
+  `firestore-data-model.md`に`deletionConfirmationUnreachableReason`フィールドを追記した。
+  テスト4件追加、`test_deletion_candidate.py`全20件パス・`python3 prototype/run_all_tests.py`
+  で全18ファイル中18件成功を確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-16 07:00 UTC(フェーズ157: 削除候補「連絡不能」理由コードの横展開を
+  完了。aircon-pasha・course-set-pasha・kura-pasha・forklift-pashaの4ventureすべてが
+  `unreachable_reason`相当の理由コードを持つ状態になった。テスト4件追加、全18ファイル
+  パス)

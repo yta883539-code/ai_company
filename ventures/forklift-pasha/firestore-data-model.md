@@ -80,6 +80,12 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // かの冪等性ガード。未送信はnull
   deletionConfirmationUnreachableAt: null,   // Timestamp | null。同上。メール送達失敗(email
                                               // 未設定含む)と判定した日時。未判定はnull
+  deletionConfirmationUnreachableReason: null, // string | null。deletion-candidate-
+                                              // unreachable-reason-design.md(本フェーズ)。
+                                              // "no_email"(メールアドレス未登録)/
+                                              // "send_failed"(登録はあるが送信失敗)の2値。
+                                              // 本フィールド追加前に記録された候補はnullのまま
+                                              // (不明表示にフォールバック)
   upgradedAt: null                           // Timestamp | null。stripe-checkout-plan-id-design.md・
                                               // stripe-webhook-entry-point-design.mdで設計、
                                               // prototype/trial_management.pyに実装済み

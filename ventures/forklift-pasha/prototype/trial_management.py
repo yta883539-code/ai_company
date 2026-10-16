@@ -125,6 +125,18 @@ class FleetOperatorStoreProtocol:
     ) -> None:
         raise NotImplementedError
 
+    def get_deletion_confirmation_unreachable_reason(self, internal_id: str) -> "str | None":
+        """aircon-pasha・course-set-pasha・kura-pashaが既に持つ
+        `unreachable_reason`フィールド(連絡不能の理由コード)を本venture用に追加する
+        (deletion-candidate-unreachable-reason-design.md)。未判定、または本フィールド
+        追加前に記録された候補はNone。"""
+        raise NotImplementedError
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, internal_id: str, value: "str | None"
+    ) -> None:
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -142,6 +154,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._canceled_at: "dict[str, datetime]" = {}
         self._deletion_confirmation_sent_at: "dict[str, datetime]" = {}
         self._deletion_confirmation_unreachable_at: "dict[str, datetime]" = {}
+        self._deletion_confirmation_unreachable_reason: "dict[str, str | None]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -226,6 +239,17 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self, internal_id: str, value: datetime
     ) -> None:
         self._deletion_confirmation_unreachable_at[internal_id] = value
+
+    def get_deletion_confirmation_unreachable_reason(self, internal_id: str) -> "str | None":
+        return self._deletion_confirmation_unreachable_reason.get(internal_id)
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, internal_id: str, value: "str | None"
+    ) -> None:
+        if value is None:
+            self._deletion_confirmation_unreachable_reason.pop(internal_id, None)
+        else:
+            self._deletion_confirmation_unreachable_reason[internal_id] = value
 
 
 def is_trial_period_over(

@@ -21,6 +21,21 @@ from trial_management import FleetOperatorStoreProtocol
 # design 3節: data-retention-policy.mdの保存期間ポリシー(他venture同様の暫定値)
 _DELETION_CANDIDATE_DELAY = timedelta(days=365)
 
+# deletion-candidate-unreachable-reason-design.md: 連絡不能の理由コード。本ventureは
+# 連絡経路がメール1本のみ(LINEフォロー等の複数経路分岐を持たない)ため、aircon-pasha
+# (LINEブロック由来の`not_following`1種類)と同型だが、メール固有の「未登録」と
+# 「登録はあるが送信失敗」の2種類を区別できる方が、オーナーが連絡不能リストを見て
+# 取れる対応(メールアドレスの再確認を依頼するか、再送を試すか)が変わるため1種類に
+# 単純化せず2種類とする。
+UNREACHABLE_REASON_NO_EMAIL = "no_email"
+UNREACHABLE_REASON_SEND_FAILED = "send_failed"
+
+_UNREACHABLE_REASON_LABELS = {
+    UNREACHABLE_REASON_NO_EMAIL: "メールアドレス未登録",
+    UNREACHABLE_REASON_SEND_FAILED: "送信失敗(メールアドレスは登録済み)",
+}
+_UNREACHABLE_REASON_UNKNOWN_LABEL = "不明(本フィールド追加前に記録された候補)"
+
 
 def list_deletion_candidates(
     store: FleetOperatorStoreProtocol, now: datetime,
@@ -94,6 +109,12 @@ def send_deletion_candidate_final_confirmations(
             result.sent.append(internal_id)
         else:
             store.set_deletion_confirmation_unreachable_at(internal_id, now)
+            reason = (
+                UNREACHABLE_REASON_NO_EMAIL
+                if email is None
+                else UNREACHABLE_REASON_SEND_FAILED
+            )
+            store.set_deletion_confirmation_unreachable_reason(internal_id, reason)
             result.unreachable.append(internal_id)
     return result
 
@@ -105,6 +126,17 @@ class UnreachableDeletionCandidate:
     internal_id: str
     unreachable_at: datetime
     days_since_unreachable: int
+    unreachable_reason: "str | None" = None
+
+    @property
+    def unreachable_reason_label(self) -> str:
+        """本フィールド追加前に記録された候補(`unreachable_reason`がNone)は
+        aircon-pasha等と同じく「不明」にフォールバックする(後方互換)。"""
+        if self.unreachable_reason is None:
+            return _UNREACHABLE_REASON_UNKNOWN_LABEL
+        return _UNREACHABLE_REASON_LABELS.get(
+            self.unreachable_reason, self.unreachable_reason
+        )
 
 
 def list_unreachable_deletion_candidates(
@@ -122,6 +154,9 @@ def list_unreachable_deletion_candidates(
                 internal_id=internal_id,
                 unreachable_at=unreachable_at,
                 days_since_unreachable=(now - unreachable_at).days,
+                unreachable_reason=store.get_deletion_confirmation_unreachable_reason(
+                    internal_id
+                ),
             )
         )
     return results
@@ -140,7 +175,8 @@ def render_unreachable_deletion_candidates_report(
         lines.append(
             f"- {candidate.internal_id}: "
             f"判定日時={candidate.unreachable_at.isoformat()} "
-            f"(連絡不能判定から{candidate.days_since_unreachable}日経過)"
+            f"(連絡不能判定から{candidate.days_since_unreachable}日経過、"
+            f"理由: {candidate.unreachable_reason_label})"
         )
     lines.append(
         "本リストは自動削除の対象ではなく、オーナーが対話セッションで個別に削除可否を"
