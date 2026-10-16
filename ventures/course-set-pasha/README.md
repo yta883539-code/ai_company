@@ -5025,3 +5025,21 @@
   README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開。「解消済み・
   フェーズNN」注記12件全てがREADME.mdに反映済みであることを確認。記載漏れは発見されず、
   コード変更なし)
+- フェーズ297(2026-10-16 10:00 UTC定例更新): aircon-pashaフェーズ319の次回候補「残る
+  横展開先(course-set-pasha・line-reservation-ai・forklift-pasha)」を受け、本venture
+  (course-set-pasha)に横展開した。本ventureには`get_.*_runtime_dependencies()`系の
+  関数が8つ存在すること(aircon-pashaの5つより多いのは、Stripe定期購入のライフサイクル
+  通知系がトライアル終了・支払い失敗・支払い停止オーナー通知で個別のCloud Functionに
+  分かれているため)を棚卸しし、`COURSE_SET_PASHA_FIRESTORE_ENABLED`命名規則での
+  切り替え設計をruntime-dependency-switching-design.mdに文書化した。
+  `get_runtime_dependencies()`(空dictパターン)・`get_checkout/portal_runtime_
+  dependencies()`(user_profile_storeのみ対象)・`get_stripe_runtime_dependencies()`
+  (複数必須キー)・ライフサイクル通知系5関数(対称構成のため1パターンで足りる)の
+  それぞれの適用方針を整理した。コード変更なし、テスト756件・schema検証21件いずれも
+  変更なしでパス。承認が必要なアクションは発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る横展開先(line-reservation-ai・forklift-pasha)への同種設計の適用、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 10:00 UTC(フェーズ297: aircon-pashaフェーズ319の次回候補を受け、
+  `COURSE_SET_PASHA_FIRESTORE_ENABLED`命名規則での切り替え設計を本ventureの8つの
+  runtime_dependencies関数に適用。コード変更なし、テスト756件・schema検証21件パス)
