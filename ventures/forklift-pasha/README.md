@@ -2915,3 +2915,30 @@
   承認待ち事項の範囲内)。次回候補: (1)承認待ち事項がオーナーから承認された場合は
   その着手を最優先、(2)他venture内の同種ドキュメント間の記載整合性棚卸しを本venture
   にも横展開、(3)他venture・アイデア領域の前進。
+- フェーズ153(2026-10-16 01:00 UTC定例更新): フェーズ152の次回候補(2)が承認待ちで
+  着手できないため、deletion-candidate-design.md 5節「削除実行バッチのCloud Scheduler化は
+  既存の承認待ち事項の範囲内」の中で、実デプロイより手前の「Cloud Functionsエントリポイント
+  自体のコード」がまだ存在していないという欠落を発見した(`cloud_function_send_trial_end_
+  emails.py`は既にフェーズ133で実装済みだったのに対し、`deletion_candidate.py`側は
+  フェーズ152で判定・送信ロジック本体のみ実装し、Cloud Scheduler起動用の薄い配線
+  〈`main(request)`〉が未着手のまま残っていた)。`cloud_function_send_trial_end_emails.py`と
+  同じ依存注入パターン(`runtime_dependencies`引数省略時はInMemory既定値)で
+  `prototype/cloud_function_send_deletion_confirmations.py`を新規実装し、
+  `list_deletion_candidates()`→`select_due_deletion_candidate_final_confirmations()`→
+  `send_deletion_candidate_final_confirmations()`を配線した。実メール送信手段が未確定の間は
+  常に送信失敗(`unreachable_at`設定)を返す`_UnconfiguredEmailSender`を既定の依存とし、
+  楽観的に送信成功とみなして実際には届いていないという状態を避ける安全側のフォールバックと
+  した(design.md「7.」に追記)。`test_cloud_function_send_deletion_confirmations.py`を新設し
+  テスト7件追加、`python3 prototype/run_all_tests.py`(新規1ファイル追加により17→18ファイル、
+  18件中18件成功)・`python3 schema/validate_test_cases.py`(11件、変更なし)・
+  `node prototype/browser_mockup_checks.js`(8件、変更なし)いずれもパスすることを確認した。
+  実デプロイ・実メール送信サービス接続はいずれも既存の承認待ち事項の範囲内のため新たな
+  承認待ちアクションは発生しておらず、pending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture内の同種
+  ドキュメント間の記載整合性棚卸しを本ventureにも横展開(フェーズ152次回候補(2)、未着手)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 01:00 UTC(フェーズ153: deletion_candidate.py側に欠けていたCloud
+  Functionsエントリポイント〈`cloud_function_send_deletion_confirmations.py`〉を新規実装。
+  実メール送信未確定時は常に送信失敗を返す安全側フォールバック`_UnconfiguredEmailSender`を
+  既定依存とした。テスト7件追加、全18ファイル中18件成功・schema検証11件・ブラウザ検証8件
+  いずれもパス)

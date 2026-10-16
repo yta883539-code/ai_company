@@ -68,3 +68,16 @@ data-retention-policy.md 3節: `canceled_at`から**365日**後を削除候補�
 2. 承認待ち事項(実Stripe/メール送信サービス等)がオーナーから承認された場合、実装着手を
    最優先。
 3. 他venture・アイデア領域の前進。
+
+## 7. Cloud Functionsエントリポイント(フェーズ153で追加)
+
+`cloud_function_send_trial_end_emails.py`と同じ「本体は依存注入でテスト可能、`main(request)`
+だけが実`functions_framework`リクエストを扱う薄い配線」構成で、
+`prototype/cloud_function_send_deletion_confirmations.py`を新規実装した。
+`list_deletion_candidates()` → `select_due_deletion_candidate_final_confirmations()` →
+`send_deletion_candidate_final_confirmations()`の3関数を配線し、Cloud Scheduler(日次想定)の
+HTTPトリガーから起動する想定とする。実メール送信手段が未確定の間は`_UnconfiguredEmailSender`
+(常に送信失敗=`unreachable_at`設定)を既定の依存とし、楽観的に送信成功とみなして実際には
+届いていないという状態を避ける安全側のフォールバックとした。テスト7件追加
+(`test_cloud_function_send_deletion_confirmations.py`)、`run_all_tests.py`で全18ファイル
+パスを確認。実デプロイ・実メール送信サービス接続は引き続き5節記載のとおり承認待ちの範囲。
