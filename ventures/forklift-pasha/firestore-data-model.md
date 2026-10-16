@@ -41,6 +41,11 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 次回候補)
   stripeCustomerId: null,                    // string | null。未契約(トライアル中含む)はnull
   subscriptionStatus: "trialing",            // "trialing" | "active" | "past_due" | "canceled"
+                                              // (未使用の宣言的フィールド。実装は本フィールドを
+                                              // 読み書きせず`canceledAt`/`upgradedAt`の組み合わせで
+                                              // 判定する。フェーズ154で発見、フェーズ155で
+                                              // 「未確定・残課題」から本フィールド直下への
+                                              // 注記に格上げ)
   trialStartAt: null,                        // Timestamp | null。pricing-plan.md「無料トライアル
                                               // 条件」の起算点(初回生成時に1回だけ設定、以降不変)
   currentPeriodEnd: null,                    // Timestamp | null。次回請求日・トライアル終了予定日

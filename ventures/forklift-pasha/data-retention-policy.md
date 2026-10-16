@@ -44,7 +44,7 @@ firestore-data-model.md(フェーズ11、フェーズ95〜99で`internal_id`/`ac
 
 | コレクション | 用途 | 保存期間方針 |
 |---|---|---|
-| `fleet_operator/{internal_id}` | 事業者単位の契約・課金情報(`accessToken`・`email`・`planId`・`stripeCustomerId`・`subscriptionStatus`等) | 下記「3. 保存期間ポリシー」参照 |
+| `fleet_operator/{internal_id}` | 事業者単位の契約・課金情報(`accessToken`・`email`・`planId`・`stripeCustomerId`・`canceledAt`等) | 下記「3. 保存期間ポリシー」参照 |
 | `vehicle/{vehicle_id}` | 車両マスタ(`operatorInternalId`参照・`vehicleLabel`のみの最小構成) | `fleet_operator`と運命を共にする(親ドキュメント削除時に合わせて削除) |
 | `usage_counter/{internal_id}` | 月間生成回数カウント(`month`・`count`) | `fleet_operator`と運命を共にする(aircon-pasha等の既存方針と同じ) |
 
@@ -57,8 +57,10 @@ firestore-data-model.md(フェーズ11、フェーズ95〜99で`internal_id`/`ac
 
 | 状態 | `fleet_operator`・`vehicle`・`usage_counter`の扱い |
 |---|---|
-| トライアル中・有料プラン中(`subscriptionStatus`が`trialing`/`active`/`past_due`) | 保有継続(現行どおり、変更なし) |
-| Stripeで解約済み(`subscriptionStatus`が`canceled`、`customer.subscription.deleted`受信) | 解約日から**1年**保有した後、削除候補として洗い出す |
+| トライアル中・有料プラン中(`canceledAt`が`null`) | 保有継続(現行どおり、変更なし) |
+| Stripeで解約済み(`canceledAt`が設定済み、`customer.subscription.deleted`受信) | 解約日(`canceledAt`)から**1年**保有した後、削除候補として洗い出す(`prototype/deletion_candidate.py`の`list_deletion_candidates()`が実装済み) |
+
+(フェーズ155で、本表が参照していた`subscriptionStatus`フィールドは実装(`prototype/trial_management.py`・`prototype/deletion_candidate.py`)では直接読み書きされておらず、実際の削除候補判定は`canceledAt`のみで行われている〈firestore-data-model.mdフェーズ154で判明済み〉ことを踏まえ、本表の記載を実装と一致する`canceledAt`基準に修正した。保存期間の方針自体に変更はない。)
 
 1年という値は、line-reservation-ai・course-set-pasha・aircon-pashaのdata-retention-policy.md
 が採用した保存期間と揃えた暫定値であり、実測データに基づくものではない。「解約後の問い合わせ

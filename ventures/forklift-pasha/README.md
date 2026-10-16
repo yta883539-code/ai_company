@@ -2964,3 +2964,28 @@
 - 最終更新: 2026-10-16 04:00 UTC(フェーズ154: firestore-data-model.mdに未反映だった
   `upgradedAt`フィールドの記載漏れを発見・解消。`subscriptionStatus`は未使用の宣言的
   フィールドと判断し現状維持。コード変更なし、全18ファイル中18件成功)
+
+- フェーズ155(2026-10-16 05:00 UTC定例更新): フェーズ154の次回候補(2)「`subscriptionStatus`
+  フィールドを実装側の個別フィールド判定方式に合わせて設計文書上も整理する」に着手した。
+  `subscriptionStatus`を参照する全ファイル(firestore-data-model.md・access-token-reissue-
+  design.md・trial-end-condition-design.md・data-retention-policy.md)を棚卸しした結果、
+  data-retention-policy.md「3. 保存期間ポリシー(案)」の表が、削除候補化の判定条件を
+  `subscriptionStatus`の値(`trialing`/`active`/`past_due`/`canceled`)で説明していたが、
+  実装(`prototype/deletion_candidate.py`の`list_deletion_candidates()`)は`canceledAt`
+  フィールドのみを参照しており、実際には存在しない判定ロジックが文書化されたままになっていた
+  不整合を発見した(他2ファイルは単なるフィールド列挙のみで実害なしと判断し変更せず)。
+  data-retention-policy.mdの該当表を実装と一致する`canceledAt`基準の記述に修正し、修正理由を
+  注記した。あわせてfirestore-data-model.mdの`subscriptionStatus`フィールド定義そのものにも
+  「未使用の宣言的フィールド」である旨をインライン注記として追加し(フェーズ154時点では
+  ファイル末尾の「未確定・残課題」のみに記載)、今後同種の記載漏れが再発しにくいようにした。
+  削除は見送り、現状維持のまま注記を強化する方針を継続した。コード変更なし(文書修正のみ)、
+  `python3 prototype/run_all_tests.py`で全18ファイル中18件成功(回帰なし)を確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)他venture(aircon-pasha・course-set-pasha・kura-pasha・
+  line-reservation-ai)にも同種の「設計文書が参照する判定条件と実装の不一致」がないか棚卸しの
+  余地があることを記録、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 05:00 UTC(フェーズ155: data-retention-policy.mdの削除候補化判定条件の
+  記述が実装〈`canceledAt`基準〉と不一致だった誤りを修正。firestore-data-model.mdの
+  `subscriptionStatus`フィールドにも未使用である旨のインライン注記を追加。コード変更なし、
+  全18ファイル中18件成功)
