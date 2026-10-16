@@ -3052,3 +3052,25 @@
   完了。aircon-pasha・course-set-pasha・kura-pasha・forklift-pashaの4ventureすべてが
   `unreachable_reason`相当の理由コードを持つ状態になった。テスト4件追加、全18ファイル
   パス)
+- フェーズ158(2026-10-16 11:00 UTC定例更新): course-set-pashaフェーズ297の次回候補
+  「残る横展開先(line-reservation-ai・forklift-pasha)」を受け、
+  `FORKLIFT_PASHA_FIRESTORE_ENABLED`命名規則によるランタイム依存切り替え設計を
+  本ventureの4つの`get_.*_runtime_dependencies()`関数
+  (`checkout_session.get_checkout_runtime_dependencies()`・`stripe_webhook.
+  get_stripe_runtime_dependencies()`・`cloud_function_send_deletion_confirmations.
+  get_deletion_confirmation_runtime_dependencies()`・`cloud_function_send_trial_
+  end_emails.get_trial_end_email_runtime_dependencies()`)に適用した。
+  runtime-dependency-switching-design.mdを新設し、本venture特有の論点
+  (LINE非依存・Webフォーム構成のためLIFF起因の依存が存在しないこと、
+  `access_token_store`自体のFirestore化は本フェーズの対象外とし次回候補に
+  残したこと)を記録した。コード変更なし、`python3 prototype/run_all_tests.py`
+  で全18ファイル中18件成功(回帰なし)を確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)残る横展開先line-reservation-aiへの
+  同パターン適用、(3)`access_token_store`自体のFirestore化方式の検討、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 11:00 UTC(フェーズ158: `FORKLIFT_PASHA_FIRESTORE_ENABLED`
+  命名規則によるランタイム依存切り替え設計を本ventureの4つの
+  runtime_dependencies関数に適用。runtime-dependency-switching-design.mdを
+  新設。コード変更なし、全18ファイル中18件成功)
