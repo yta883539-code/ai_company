@@ -5271,3 +5271,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   README.md/個別設計ファイル間の記載整合性棚卸しを本ventureに横展開し、「解消済み・
   フェーズNN」注記17件全てがREADME.mdに反映済みであることを確認。記載漏れは発見されず、
   コード変更なし)
+- フェーズ238(2026-10-16 03:00 UTC定例更新): フェーズ228の次回候補(2)「テストダブル
+  切り替え方式の設計」(28節、未着手のまま残っていた)に着手した。
+  `cloud_function_run_daily_workshop_checks.get_daily_workshop_checks_runtime_
+  dependencies()`(常に非NoneのInMemory実装を返す)と`cloud_function_webhook.
+  get_runtime_dependencies()`(空dictを返す)の2系統で、呼び出し先のNone許容方針が
+  異なることを確認した上で、専用フラグ`KURA_PASHA_FIRESTORE_ENABLED`(値`"1"`で
+  有効、未設定時は常にInMemoryへ安全側フォールバック)による切り替え条件を設計し、
+  両エントリポイントそれぞれへの適用案(擬似コード)をruntime-dependency-switching-
+  design.mdにまとめた。`FirestoreWorkshopStore`等の実クラス自体はworkshop-store-
+  firestore-adapter-design.md等で設計済みの擬似コードを参照するのみで、本フェーズ・
+  本.pyファイルへの実コード化はいずれも行わない(承認後の結合実装フェーズに持ち越す
+  方針を明記)。コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(207件)・`python3 schema/validate_test_
+  cases.py`(32件中32件パス)を実行し、いずれも変更なしでパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`KURA_PASHA_FIRESTORE_ENABLED`命名規則の
+  他venture(aircon-pasha・course-set-pasha・line-reservation-ai・forklift-pasha)
+  への横展開検討、(3)#4(削除候補最終確認)の2段階構成統合判断(フェーズ234の次回候補
+  (2)、未着手のまま残っている)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 03:00 UTC(フェーズ238: 実Firestore承認後のランタイム依存
+  切り替え方式〈専用フラグ`KURA_PASHA_FIRESTORE_ENABLED`による安全側フォールバック
+  付き切り替え〉を設計し、runtime-dependency-switching-design.mdを新設。既存2つの
+  `get_xxx_runtime_dependencies()`それぞれへの適用案を擬似コードでまとめた。コード
+  変更なし)
