@@ -3117,3 +3117,48 @@
   計9メソッド)の実Firestore接続アダプタ設計に着手。
   fleet-operator-store-firestore-adapter-design.mdを新規作成。コード変更なし、
   全18ファイル中18件成功)
+- フェーズ161(2026-10-16 19:00 UTC定例更新): フェーズ160の次回候補(2)
+  「`FleetOperatorStoreProtocol`の残りのグループ」のうち、トライアル終了判定グループ
+  (`trial_generation_count`+`trial_end_notified_at`の計4メソッド)に着手した。
+  `increment_trial_generation_count()`の戻り値`(before, after)`は現時点で実際に
+  消費する呼び出し元が存在しないため、書き込みは`firestore.Increment(1)`による
+  アトミック加算を正としつつ、`(before, after)`は加算前後の読み取りで近似する
+  (厳密な同期は取れないが、現在の唯一の呼び出し元が戻り値を使っていないため実害がない)
+  ことを既知の制約として明記した。`trial_end_notified_at`はフェーズ160 3.4節と同じ
+  「呼び出し順序の規約」方式(呼び出し元が`get_*()`で未設定確認後にのみ`set_*()`を呼ぶ
+  既存の呼び出し構造に委ねる)を適用した。
+  trial-generation-count-notified-at-firestore-adapter-design.mdを新規作成。
+  コード変更なし、`python3 prototype/run_all_tests.py`で全18ファイル中18件成功
+  (回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  なお本フェーズのREADME.md追記がフェーズ162実行時まで漏れていたことを
+  フェーズ162側で発見したため、本記載は遡って追加したもの(設計ファイル自体は
+  フェーズ161時点で作成済み)。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)残りのグループ(upgraded_at、canceled_at、
+  deletion_confirmation系3、all_internal_ids)の実Firestore接続アダプタ設計、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 19:00 UTC(フェーズ161: トライアル終了判定グループ
+  〈trial_generation_count+trial_end_notified_atの計4メソッド〉の実Firestore接続
+  アダプタ設計に着手。trial-generation-count-notified-at-firestore-adapter-design.md
+  を新規作成。コード変更なし、全18ファイル中18件成功)
+- フェーズ162(2026-10-16 23:00 UTC定例更新): フェーズ160/161の次回候補を受け、
+  `FleetOperatorStoreProtocol`残りのグループのうち`upgraded_at`・`canceled_at`・
+  `all_internal_ids`(計3メソッド、「解約/昇格グループ」)に着手した。`upgraded_at`は
+  上書き可の単純なフィールド更新、`canceled_at`はInMemory版の「`None`指定時にキー削除
+  (=未解約に戻す)」をFirestoreでは`DELETE_FIELD`センチネルではなく`null`書き込みで
+  再現する方針(ドキュメントスキーマの「フィールドは常に存在し値が`Timestamp`か`null`」
+  という単純化を優先)を採用した。`all_internal_ids`はkura-pasha/workshop-store-
+  firestore-adapter-design.mdの既存結論(現規模では全件スキャンで十分、ページネーションは
+  規模拡大時に再検討)を踏襲した。
+  fleet-operator-store-upgraded-canceled-firestore-adapter-design.mdを新規作成。
+  コード変更なし、`python3 prototype/run_all_tests.py`で全18ファイル中18件成功
+  (回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  `deletion_confirmation_sent_at`+`unreachable_at`+`unreachable_reason`
+  (削除候補系3メソッド)の実Firestore接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 23:00 UTC(フェーズ162: `FleetOperatorStoreProtocol`の
+  解約/昇格グループ〈upgraded_at・canceled_at・all_internal_idsの計3メソッド〉の
+  実Firestore接続アダプタ設計に着手。
+  fleet-operator-store-upgraded-canceled-firestore-adapter-design.mdを新規作成。
+  コード変更なし、全18ファイル中18件成功)
