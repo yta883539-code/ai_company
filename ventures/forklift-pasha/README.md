@@ -3095,3 +3095,25 @@
   と統合せず個別にドキュメントget/updateを行う方針を決定し、
   access-token-store-firestore-adapter-design.mdを新規作成。コード変更なし、
   全18ファイル中18件成功)
+- フェーズ160(2026-10-16 17:00 UTC定例更新): フェーズ159の次回候補(2)
+  「`FleetOperatorStoreProtocol`自体の実Firestore接続アダプタの設計」に着手した。
+  kura-pasha/workshop-store-firestore-adapter-design.mdの方針を踏襲し、
+  本venture最大のProtocol(15メソッド)を一度に設計せず、事業者の新規登録〜初回
+  利用時に書き込まれる**基盤グループ**(email・plan_id・stripe_customer_id順引き/
+  逆引き・trial_start_atの計9メソッド)に限定して設計した。
+  fleet-operator-store-firestore-adapter-design.mdを新規作成し、
+  `stripe_customer_id`逆引きは単一フィールドクエリで実現でき追加の複合インデックスは
+  不要なこと、`trial_start_at`の「初回のみ設定・以降不変」制約はFirestoreの素朴な
+  `update()`では再現できないため呼び出し順序の規約に委ねる仮決め(トランザクション化は
+  次回以降に再検討)を記録した。コード変更なし、`python3 prototype/run_all_tests.py`
+  で全18ファイル中18件成功(回帰なし)を確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`FleetOperatorStoreProtocol`の残りのグループ(trial_generation_count+
+  trial_end_notified_at、upgraded_at、canceled_at、deletion_confirmation系3、
+  all_internal_ids)の実Firestore接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-16 17:00 UTC(フェーズ160: `FleetOperatorStoreProtocol`の
+  基盤グループ(email・plan_id・stripe_customer_id順引き/逆引き・trial_start_atの
+  計9メソッド)の実Firestore接続アダプタ設計に着手。
+  fleet-operator-store-firestore-adapter-design.mdを新規作成。コード変更なし、
+  全18ファイル中18件成功)
