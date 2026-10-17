@@ -5824,3 +5824,37 @@
   永久に残り続ける問題を、再フォロー時の「クリア配線」追加で解消。複合インデックス#5を
   3フィールド構成に更新しfirestore.indexes.jsonへの反映漏れも修正。InMemory実装・テスト
   4件追加、テスト719件・schema検証25件パス)
+- フェーズ322(2026-10-17 04:00 UTC定例更新): フェーズ321の次回候補(2)「同種のクリア配線が
+  残る横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)の削除候補処理にも
+  必要かの横展開検討」の状況を確認したところ、本フェーズ着手前に3venture全てで既に対応済み
+  であることが判明した(course-set-pashaフェーズ300〈2026-10-16 22:00 UTC、`clear_
+  deletion_confirmation_unreachable_at()`新設〉、line-reservation-aiフェーズ続き327
+  〈2026-10-17 00:00 UTC、`clear_store_deletion_confirmation_unreachable_at()`新設〉、
+  forklift-pashaフェーズ163〈2026-10-17 02:00 UTC、連絡経路がメール1本のみで「ブロック→
+  再フォロー」に相当する自然復帰イベントが存在しないため、本venture固有の判断としてクリア
+  配線は適用せず連絡不能候補を恒久的に対象外とする方針を明記〉)。本フェーズでは横展開先
+  それぞれの対応状況の確認のみを行い、コード変更は加えていない。代わりに、本venture自身の
+  firestore-composite-index-plan.md(フェーズ314新設、フェーズ320・321で加筆)の「残る
+  課題」節に残っていた「#4(trial_end_scheduler.py)の実際のCloud Functionsエントリポイント
+  〈日次Cloud Scheduler配線〉自体がまだ存在しない」という記述が、実際には本ファイルの
+  初版〈フェーズ314、2026-10-15頃〉より前のフェーズ315時点で`daily_scheduler.py`への統合・
+  `cloud_function_run_daily_checks.py`としての配線が既に完了していたにもかかわらず、
+  フェーズ314新設時からそのまま誤って記載され続け、フェーズ320・321の加筆時にも見落とされ
+  ていたことに気づいた。`cloud_function_run_daily_checks.py`(`daily_scheduler.run_daily_
+  checks()`を呼び出す薄いCloud FunctionsエントリポイントでCloud Scheduler日次〈暫定JST
+  04:00〉トリガーを想定済み)・`daily_scheduler.py`(`trial_end_scheduler.send_trial_end_
+  notifications()`を呼び出す配線)の両ファイルを確認し、実際に配線済みであることを確証
+  した上で、firestore-composite-index-plan.mdの該当項目を「解消済み」の注記に修正した。
+  コード変更なし、文書修正のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(719件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行し、いずれも変更なしでパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)他の設計文書(trial-end-scheduler-design.md等)にも同種の記載漏れ・
+  陳腐化した「残る課題」記述が残っていないかの棚卸し、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 04:00 UTC(フェーズ322: course-set-pasha・forklift-pasha・
+  line-reservation-aiの3venture全てがMARK_UNREACHABLE相当のクリア配線(または本venture固有
+  の理由による対象外判断)に対応済みであることを確認。あわせてfirestore-composite-index-
+  plan.mdに残っていた「Cloud Functionsエントリポイント未着手」という陳腐化した記述(実際は
+  フェーズ315時点で配線済み)を発見し修正。コード変更なし、テスト719件・schema検証25件
+  いずれも変更なしでパス)

@@ -76,8 +76,11 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
 
 - 本表の各インデックスが実際にFirestoreコンソールの「クエリ実行時エラーからの自動提案」と
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
-- #4(trial_end_scheduler.py)の実際のCloud Functionsエントリポイント(日次Cloud
-  Scheduler配線)自体がまだ存在しない点は次回候補として残す。
+- (フェーズ322で解消済みの旨を追記: #4(trial_end_scheduler.py)の実際のCloud Functions
+  エントリポイントは、本ファイルの初版〈フェーズ314〉より前のフェーズ315で`daily_
+  scheduler.py`に統合済み・`cloud_function_run_daily_checks.py`として配線済みであり、
+  「まだ存在しない」という本項目の記述自体が当初から誤りだった。フェーズ320・321が本ファイル
+  に追記を重ねる際もこの誤りに気づかず見落とされていた。)
 - インメモリ全件走査から索引付きクエリへの切り替えタイミング(ユーザー数の閾値等)は
   forklift-pasha版と同様、未確定のまま次回以降の課題とする。
 - #5は当初(フェーズ320)`route_deletion_candidate_confirmation()`が`MARK_UNREACHABLE`
