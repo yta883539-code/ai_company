@@ -15,6 +15,15 @@
         { "fieldPath": "trialStartAt", "order": "ASCENDING" },
         { "fieldPath": "trialEndNotifiedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "fleet_operator",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deletionConfirmationSentAt", "order": "ASCENDING" },
+        { "fieldPath": "deletionConfirmationUnreachableAt", "order": "ASCENDING" },
+        { "fieldPath": "canceledAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -16,6 +16,7 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
 |---|---|---|---|---|---|
 | 1 | `vehicle`(ルートコレクション) | `register_vehicle_from_inspection_memo()`(`prototype/vehicle_registry.py`): 点検メモ受信時に`operatorInternalId == X AND vehicleLabel == Y`の完全一致(トリムのみ正規化)で既存車両を検索 | `operatorInternalId` ASC, `vehicleLabel` ASC | Collection(`vehicle`はルートコレクションで、本venture固有のサブコレクション構造〈line-reservation-aiのような`stores/{storeId}/...`〉を持たないため通常スコープで足りる) | vehicle-label-duplicate-handling-design.md(フェーズ114)2節・4節 |
 | 2 | `fleet_operator`(ルートコレクション) | 日次スケジューラ(`cloud_function_send_trial_end_emails.main()`、実体は`prototype/trial_end_email_scheduler.py`の`select_due_trial_end_emails()`): 全事業者から(B)期間到達経路の対象(`trialStartAt`から30日経過かつ`trialEndNotifiedAt`未設定)を抽出 | `trialStartAt` ASC, `trialEndNotifiedAt` ASC | Collection(`fleet_operator`もルートコレクションのため通常スコープで全事業者を横断できる) | trial-end-notification-design.md(フェーズ119)1節「(B)期間到達」・prototype/trial_end_email_scheduler.py |
+| 3 | `fleet_operator`(ルートコレクション) | 日次スケジューラ(`cloud_function_send_deletion_confirmations.main()`): 削除候補最終確認の対象(`canceledAt`から365日経過、かつ送信済み・連絡不能のいずれも未設定)を1クエリで抽出する統合版(deletion-candidate-query-consolidation-decision.md、フェーズ163) | `deletionConfirmationSentAt` ASC, `deletionConfirmationUnreachableAt` ASC, `canceledAt` ASC | Collection(`fleet_operator`もルートコレクションのため通常スコープで足りる) | deletion-candidate-query-consolidation-decision.md(フェーズ163)・prototype/deletion_candidate.py |
 
 補足:
 
@@ -35,6 +36,12 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
   望ましくなる(事業者数が少ない段階では全件取得でも機能上の問題はない)。
 - `usage_counter`コレクションは`internal_id`単一キーでのドキュメント取得のみ(複合クエリは
   発生しない、firestore-data-model.md「3. `usage_counter/{internal_id}`」)ため対象外。
+- #3は(解消済み 2026-10-17 02:00 UTC・フェーズ163)kura-pashaフェーズ239・aircon-pasha
+  フェーズ320〜321で指摘された「削除候補の2段階クエリ構成は送信済み・連絡不能件数の増加に
+  比例して1段目の読み取り件数が単調増加する」問題への対応として追加した(deletion-candidate-
+  query-consolidation-decision.md参照)。本venture固有の判断として、連絡経路がメール1本のみで
+  連絡不能からの自然復帰イベントが存在しないため、aircon-pashaのような`clear_*()`配線は
+  適用せず、連絡不能候補は単一クエリの対象から恒久的に除外される仕様とした。
 
 ## 生成した`firestore.indexes.json`
 
@@ -59,3 +66,8 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
 〈フェーズ114〉に残っていた複合インデックス設計課題に対応し、本venture全体で必要な
 複合インデックス2件〈`vehicle`・`fleet_operator`〉を集約・`firestore.indexes.json`として
 書き出した。コード変更なし、文書・JSON作成のみのため回帰テストの実行対象外)
+
+最終更新: 2026-10-17 02:00 UTC(フェーズ163: kura-pashaフェーズ240の横展開調査を受け、
+削除候補最終確認クエリの統合方針決定(deletion-candidate-query-consolidation-decision.md)
+に伴い複合インデックス#3〈`deletionConfirmationSentAt`・`deletionConfirmationUnreachableAt`・
+`canceledAt`〉を追加し、`firestore.indexes.json`に反映した。コード変更なし)

@@ -3162,3 +3162,27 @@
   実Firestore接続アダプタ設計に着手。
   fleet-operator-store-upgraded-canceled-firestore-adapter-design.mdを新規作成。
   コード変更なし、全18ファイル中18件成功)
+- フェーズ163(2026-10-17 02:00 UTC定例更新): kura-pashaフェーズ240
+  (deletion-candidate-query-consolidation-horizontal-survey.md)の次回候補(2)を受け、
+  本venture`deletion_candidate.py`の削除候補最終確認クエリ(1段目`list_deletion_
+  candidates()`+2段目`select_due_deletion_candidate_final_confirmations()`の2段階構成)を
+  実Firestore接続後に1クエリへ統合する方針を決定した。kura-pasha・aircon-pashaと同じ
+  「1段目の読み取り件数が送信済み・連絡不能件数の増加に比例して単調増加する」問題が本venture
+  にも存在することを確認した一方、本venture固有の判断として、連絡経路がメール1本のみで
+  LINEの「ブロック→再フォロー」に相当する連絡不能からの自然復帰イベントが存在しないため、
+  aircon-pashaフェーズ321の`clear_deletion_confirmation_unreachable_at()`相当のクリア配線は
+  適用せず、連絡不能候補は単一クエリの対象から恒久的に除外される仕様とすることを明記した。
+  deletion-candidate-query-consolidation-decision.mdを新規作成し、
+  firestore-composite-index-plan.mdに複合インデックス#3
+  〈`deletionConfirmationSentAt`・`deletionConfirmationUnreachableAt`・`canceledAt`〉を追加、
+  `firestore.indexes.json`にも反映した。コード変更なし、
+  `python3 prototype/run_all_tests.py`で全18ファイル中18件成功(回帰なし)を確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)残る横展開先course-set-pasha(firestore-composite-index-plan.md自体
+  の新設から必要)への同種決定docの新設、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 02:00 UTC(フェーズ163: 削除候補最終確認クエリの2段階構成を
+  実Firestore接続後に1クエリへ統合する方針を決定。連絡経路がメール1本のみで自然復帰イベントが
+  存在しないため、連絡不能候補は恒久的に対象外とする本venture固有の方針を明記。
+  deletion-candidate-query-consolidation-decision.mdを新規作成し、複合インデックス#3を追加。
+  コード変更なし、全18ファイル中18件成功)
