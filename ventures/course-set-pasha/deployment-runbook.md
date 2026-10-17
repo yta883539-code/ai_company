@@ -47,13 +47,17 @@ webhook-processing-flow-design.md・limit-approaching-notification-design.md等)
   設計通り、Native modeでFirestoreを有効化。
 - コレクションはコード側の初回書き込みで自動作成されるため、事前の手動作成は不要。
   削除候補最終確認処理(`deletion_candidate.list_deletion_candidates()`の
-  `deletion_candidate_at <= now`とフェーズ299で統合方針を決定した
-  `deletion_confirmation_sent_at == null`の等価条件)には複合インデックス1件
-  (`deletion_confirmation_sent_at` ASC, `deletion_candidate_at` ASC)が必要になる。
-  結合実装フェーズでFirestoreアダプタを実装する際に`firestore.indexes.json`へ追加する
-  (deletion-candidate-query-consolidation-decision.md参照。本ステップ記載は従来
-  「複合インデックスを要するクエリは無い」としていたが、フェーズ299の棚卸しにより誤りと
-  判明したため修正した)。
+  `deletion_candidate_at <= now`と、フェーズ299・300で統合方針を決定した
+  `deletion_confirmation_sent_at == null`・`deletion_confirmation_unreachable_at == null`
+  の2つの等価条件)には複合インデックス1件(`deletion_confirmation_sent_at` ASC,
+  `deletion_confirmation_unreachable_at` ASC, `deletion_candidate_at` ASC)が必要になる。
+  トライアル終了通知・決済失敗リマインド・支払い停止オーナー通知の各抽出クエリ(いずれも
+  `usage_counter`コレクション)に必要な複合インデックス3件を含め、本venture全体で必要な
+  複合インデックス計4件はfirestore-composite-index-plan.md(フェーズ301)に集約し、
+  `firestore.indexes.json`として書き出し済み。結合実装フェーズでFirestoreアダプタを
+  実装する際にこのJSONをデプロイする(deletion-candidate-query-consolidation-decision.md・
+  firestore-composite-index-plan.md参照。本ステップ記載は従来「複合インデックスを要する
+  クエリは無い」としていたが、フェーズ299の棚卸しにより誤りと判明したため修正した)。
 
 ### ステップ3: シークレット管理
 - LLM APIキー・LINE Channel Secret/Channel Access Tokenは環境変数に直書きせず、

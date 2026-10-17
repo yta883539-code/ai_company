@@ -5120,3 +5120,24 @@
 - 最終更新: 2026-10-16 22:00 UTC(フェーズ300: aircon-pashaフェーズ321の`MARK_UNREACHABLE`
   候補クリア配線を本ventureにも横展開。本venture固有の2store構成に合わせ`deletion_store`
   引数を新設して配線。テスト5件追加、全761件・schema検証21件パス)
+- フェーズ301(2026-10-17 03:00 UTC定例更新): kura-pashaフェーズ240・forklift-pashaフェーズ163
+  の次回候補を受け、本ventureにまだ無かった`firestore-composite-index-plan.md`・
+  `firestore.indexes.json`を新設した。本venture固有の「`user_profile`(is_following・
+  deletion_candidate_at等)と`usage_counter`(trial_start_at・payment_failure_detected_at等)
+  の2コレクション構成」であることを、既存コード(`deletion_candidate.py`27行目・
+  `cloud_function_webhook.py`305行目のdocstring)から確認した上で、トライアル終了通知・
+  決済失敗リマインド・支払い停止オーナー通知(`usage_counter`コレクション、各2フィールドの
+  複合インデックス)と、削除候補最終確認(`user_profile`コレクション、フェーズ299・300の
+  統合方針を反映した3フィールドの複合インデックス)の計4索引を集約した。あわせて
+  deployment-runbook.mdステップ2の記載をフェーズ300時点の3フィールド構成に合わせて修正した。
+  コード変更なし、`python3 -m unittest discover -s prototype -p "test_*.py"`(761件)・
+  schema検証(21件)いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)本venture固有の`UsageCounterProtocol`(`usage_counter`コレクション)の
+  実Firestore接続アダプタ設計への着手(`UserProfileStoreProtocol`は5〜18節まで進んでいるが
+  本Protocolはまだ未着手)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 03:00 UTC(フェーズ301: firestore-composite-index-plan.md・
+  firestore.indexes.jsonを新設。本venture固有の`user_profile`/`usage_counter`の2コレクション
+  構成を確認した上で複合インデックス4件を集約し、deployment-runbook.mdを更新。コード変更なし、
+  テスト761件・schema検証21件パス)

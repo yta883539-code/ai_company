@@ -1,0 +1,38 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "usage_counter",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trial_end_notified_at", "order": "ASCENDING" },
+        { "fieldPath": "trial_start_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usage_counter",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "payment_failure_reminder_sent_at", "order": "ASCENDING" },
+        { "fieldPath": "payment_failure_detected_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usage_counter",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "payment_suspension_owner_notified_at", "order": "ASCENDING" },
+        { "fieldPath": "payment_failure_detected_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "user_profile",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deletion_confirmation_sent_at", "order": "ASCENDING" },
+        { "fieldPath": "deletion_confirmation_unreachable_at", "order": "ASCENDING" },
+        { "fieldPath": "deletion_candidate_at", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
