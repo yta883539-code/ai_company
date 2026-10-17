@@ -906,3 +906,101 @@ prototype -p "test_*.py"`(906件、変更なし)・`python3 schema/validate_test
 (course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」記述に21節と
 同種の陳腐化がないかの点検(20節(4)・27節(3)から持ち越し)、(3)他venture・アイデア領域の
 前進。
+
+## 29. store_deletion_confirmation_sent_at/unreachable_at/unreachable_reasonグループ
+(6メソッド)の実Firestore接続アダプタ設計(フェーズ続き329、2026-10-17 UTC)
+
+### 29.1. 背景・26節時点の見落としの訂正
+
+26.4節(フェーズ続き314、2026-10-11)は`StoreProfileStoreProtocol`の全グループの設計が
+完了したと記録したが、これは当時のコードの状態に対して正しかっただけで、その後
+フェーズ続き327(2026-10-17、aircon-pasha/course-set-pashaの「連絡不能クリア配線」横展開)
+で`get/set_store_deletion_confirmation_unreachable_at`・
+`get/set_store_deletion_confirmation_unreachable_reason`の4メソッドが`StoreProfileStoreProtocol`
+に新規追加されたため、26.4節の「完了」は陳腐化していた(本ドキュメントに同4メソッドへの
+言及が無いことで確認済み)。
+
+さらに点検した結果、`firestore-data-model.md`(82-85行)が定義し、
+`store_deletion_candidate.StoreDeletionCandidateState`・`cloud_function_send_store_
+deletion_confirmations.StoreDeletionState`の両dataclassが「送信済みなら再送しない」
+冪等性ガード(`is_store_deletion_candidate()`)に使っていた`storeDeletionConfirmationSentAt`
+相当のフィールドには、そもそも`StoreProfileStoreProtocol`側に対応するget/setメソッドが
+一度も存在しなかったことも判明した(`unreachable_at`/`unreachable_reason`と同時に追加
+されるべきだったが、取り残されていたギャップ)。本フェーズでまず
+`get_store_deletion_confirmation_sent_at`/`set_store_deletion_confirmation_sent_at`を
+`StoreProfileStoreProtocol`/`InMemoryStoreProfileStore`に追加し(`unreachable_at`と同じ
+単純なdict実装、空`store_id`は`ValueError`)、`StoreDeletionConfirmationSentAtTest`
+(4件)を追加した上で、本節で3フィールド(計6メソッド)をまとめてFirestoreアダプタ設計する。
+
+ドキュメント構造は本ドキュメント2節以来と同じ`stores/{storeId}`単一ドキュメント
+(firestore-data-model.md)。対応フィールドは`storeDeletionConfirmationSentAt`
+(Timestamp | null)・`storeDeletionConfirmationUnreachableAt`(Timestamp | null)・
+`storeDeletionConfirmationUnreachableReason`(string | null)の3つ。forklift-pasha
+フェーズ164(deletion-confirmation-sent-unreachable-firestore-adapter-design.md)の
+`FleetOperatorStoreProtocol`向け設計と全く同じ論点構成のため、同ドキュメントの結論を
+本venture固有の事情を踏まえて転用する。
+
+### 29.2. 各メソッドの実装方針
+
+**`store_deletion_confirmation_sent_at`(2メソッド)**: `storeDeletionConfirmationSentAt`
+フィールドへの単純なget/update。唯一の書き込み元`send_store_deletion_confirmations()`
+(cloud_function_send_store_deletion_confirmations.py:126)はLINE push送達成功時にのみ
+呼ばれ、送信済みなら`is_store_deletion_candidate()`が候補から除外するため再送経路自体が
+無く、上書き制約(「既に設定済みなら上書きしない」規約)は不要(forklift-pasha 2.1節と
+同じ結論)。
+
+```python
+doc_ref = self._client.collection("stores").document(store_id)
+doc_ref.update({"storeDeletionConfirmationSentAt": value})
+```
+
+**`store_deletion_confirmation_unreachable_at`(2メソッド)**: 同様に単純なget/update。
+`sent_at`と`unreachable_at`はcloud_function_send_store_deletion_confirmations.py:105-126
+の分岐内で排他的に一方だけが設定されるため、両フィールド間の整合性を保つ特別な制御
+(トランザクション等)は不要(forklift-pasha 2.2節と同じ結論)。本venture固有の点として、
+`clear_store_deletion_confirmation_unreachable_at()`(store_deletion_candidate.py:168)
+による再フォロー時のクリア配線が既に`cloud_function_process_event.
+process_follow_event()`に配線済み(フェーズ続き327)であり、forklift-pashaのような
+「クリア経路自体が存在しないventure」とは異なる。
+
+```python
+doc_ref = self._client.collection("stores").document(store_id)
+doc_ref.update({"storeDeletionConfirmationUnreachableAt": value})
+```
+
+**`store_deletion_confirmation_unreachable_reason`(2メソッド)**: `InMemoryStoreProfileStore`
+実装はNone書き込みで単純にdict値を上書きするのみで、forklift-pasha 2.3節・kura-pasha/
+aircon-pashaの先行結論と同じ理由から`DELETE_FIELD`センチネルではなく**`null`書き込み**を
+採用する(本venture固有の相違点なし)。
+
+```python
+doc_ref = self._client.collection("stores").document(store_id)
+doc_ref.update({"storeDeletionConfirmationUnreachableReason": value})
+```
+
+### 29.3. 複合インデックスの要否
+
+フェーズ続き327で既に確認済みのとおり、`send_store_deletion_confirmations()`は呼び出し元が
+読み取った店舗一覧全体を受け取りインメモリで絞り込む設計のため、kura-pasha・aircon-pasha・
+course-set-pasha・forklift-pashaのような「2段階クエリ→1クエリ統合」の複合インデックスは
+本グループには適用対象がない(本節で新たな複合インデックスは追加しない)。
+
+### 29.4. まとめ: `StoreProfileStoreProtocol`全メソッドの設計完了(26.4節の訂正版)
+
+本節により、26.4節が「完了」と誤って確定した後にコードへ追加された本グループ
+(sent_at・unreachable_at・unreachable_reason)を含め、`StoreProfileStoreProtocol`が
+現時点で持つ全メソッドの実Firestore接続アダプタ机上設計が揃った。
+
+コード変更あり(`store_profile_store.py`: `get/set_store_deletion_confirmation_sent_at`
+2メソッド追加、`test_store_profile_store.py`: `StoreDeletionConfirmationSentAtTest`
+4件追加)。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(946件、新規4件含め全件パス)・`python3 schema/validate_test_cases.py`(28件、変更なし)
+を実行し、いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合は本ドキュメント一式の実装着手を
+最優先、(2)20節(4)・27節(3)から持ち越しの、他venture(course-set-pasha・aircon-pasha・
+kura-pasha・forklift-pasha)の「次回候補」記述の陳腐化点検(本節自身が26.4節の陳腐化を
+発見した実例であり、他venture側にも同種の見落としが無いか改めて棚卸しする価値がある)、
+(3)他venture・アイデア領域の
+前進。

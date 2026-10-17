@@ -83,6 +83,15 @@
   ための最小インターフェース。store_deletion_candidate.pyの
   `clear_store_deletion_confirmation_unreachable_at()`(再フォロー時の「クリア配線」、
   aircon-pashaフェーズ321・course-set-pashaフェーズ300の横展開)から参照される。
+- `get_store_deletion_confirmation_sent_at()`/`set_store_deletion_confirmation_sent_at()`
+  (フェーズ続き329、2026-10-17追記): firestore-data-model.md(82-85行)が定義する
+  `storeDeletionConfirmationSentAt`フィールドの読み書き。同フィールドは
+  `store_deletion_candidate.StoreDeletionCandidateState`・`cloud_function_send_store_
+  deletion_confirmations.StoreDeletionState`の両dataclassにはフィールドとして
+  既に存在し、`is_store_deletion_candidate()`の冪等性ガード(送信済みなら再送しない)
+  にも使われていたが、本ストア側の永続化メソッドが欠落していた
+  (`unreachable_at`/`unreachable_reason`は同時に追加されたのに本フィールドだけ
+  取り残されていたギャップ)ため、他2フィールドと同じ形で追加する。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
@@ -175,6 +184,16 @@ class StoreProfileStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_store_deletion_confirmation_sent_at(
+        self, store_id: str
+    ) -> Optional[datetime]:
+        ...
+
+    def set_store_deletion_confirmation_sent_at(
+        self, store_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
     def get_store_deletion_confirmation_unreachable_at(
         self, store_id: str
     ) -> Optional[datetime]:
@@ -242,6 +261,7 @@ class InMemoryStoreProfileStore:
         self._suspension_reasons: dict[str, Optional[str]] = {}
         self._owner_emails: dict[str, str] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
+        self._store_deletion_confirmation_sent_at: dict[str, Optional[datetime]] = {}
         self._store_deletion_confirmation_unreachable_at: dict[str, Optional[datetime]] = {}
         self._store_deletion_confirmation_unreachable_reason: dict[str, Optional[str]] = {}
         self._plans: dict[str, str] = {}
@@ -336,6 +356,19 @@ class InMemoryStoreProfileStore:
         if not store_id:
             raise ValueError("store_id must be a non-empty string")
         self._blocked_but_billing_owner_notified_at[store_id] = value
+        self._known_store_ids.add(store_id)
+
+    def get_store_deletion_confirmation_sent_at(
+        self, store_id: str
+    ) -> Optional[datetime]:
+        return self._store_deletion_confirmation_sent_at.get(store_id)
+
+    def set_store_deletion_confirmation_sent_at(
+        self, store_id: str, value: Optional[datetime]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._store_deletion_confirmation_sent_at[store_id] = value
         self._known_store_ids.add(store_id)
 
     def get_store_deletion_confirmation_unreachable_at(

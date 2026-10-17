@@ -426,6 +426,33 @@ class BlockedButBillingOwnerNotifiedAtTest(unittest.TestCase):
             self.store.set_blocked_but_billing_owner_notified_at("", "2026-09-03T01:00:00Z")
 
 
+class StoreDeletionConfirmationSentAtTest(unittest.TestCase):
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+
+    def test_get_returns_none_when_not_set(self):
+        self.assertIsNone(self.store.get_store_deletion_confirmation_sent_at("store123"))
+
+    def test_set_then_get_roundtrips(self):
+        now = datetime(2026, 10, 17, 0, 0)
+        self.store.set_store_deletion_confirmation_sent_at("store123", now)
+        self.assertEqual(
+            self.store.get_store_deletion_confirmation_sent_at("store123"), now
+        )
+
+    def test_set_none_clears_previous_value(self):
+        now = datetime(2026, 10, 17, 0, 0)
+        self.store.set_store_deletion_confirmation_sent_at("store123", now)
+        self.store.set_store_deletion_confirmation_sent_at("store123", None)
+        self.assertIsNone(self.store.get_store_deletion_confirmation_sent_at("store123"))
+
+    def test_raises_on_empty_store_id(self):
+        with self.assertRaises(ValueError):
+            self.store.set_store_deletion_confirmation_sent_at(
+                "", datetime(2026, 10, 17, 0, 0)
+            )
+
+
 class PlanTest(unittest.TestCase):
     """checkout-session-plan-selection-design.md(フェーズ続き181)。"""
 

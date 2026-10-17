@@ -6077,3 +6077,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   配線」は不要と結論。blocked_but_billingとunreachableの懸念の非対称性、および
   3venture共通の設計方針、本venture固有のLINE LIFF本人確認要件を根拠とした。コード
   変更なし、全942件・schema検証28件パス、回帰なし)
+- フェーズ続き329(2026-10-17 18:00 UTC定例更新): store-profile-store-firestore-adapter-
+  design.md 26.4節(フェーズ続き314)が「`StoreProfileStoreProtocol`全グループの設計完了」
+  と記録していたが、その後フェーズ続き327で同Protocolに追加された
+  `store_deletion_confirmation_unreachable_at`/`unreachable_reason`(計4メソッド)への
+  言及が同ドキュメントに一切無く、26.4節の「完了」が陳腐化していたことを発見した。
+  さらに点検した結果、`firestore-data-model.md`が定義し`store_deletion_candidate.py`・
+  `cloud_function_send_store_deletion_confirmations.py`の両dataclassが参照している
+  `store_deletion_confirmation_sent_at`には、そもそも`StoreProfileStoreProtocol`側に
+  対応するget/setメソッドが一度も存在しなかった(`unreachable_at`/`unreachable_reason`と
+  同時に追加されるべきだったが取り残されていた)ギャップも発見した。
+  `get_store_deletion_confirmation_sent_at`/`set_store_deletion_confirmation_sent_at`を
+  `StoreProfileStoreProtocol`/`InMemoryStoreProfileStore`に追加し(既存の`unreachable_at`と
+  同じ単純なdict実装)、`StoreDeletionConfirmationSentAtTest`(4件)を追加した上で、
+  forklift-pashaフェーズ164(deletion-confirmation-sent-unreachable-firestore-adapter-
+  design.md)と同じ構成で、sent_at・unreachable_at・unreachable_reasonの3フィールド
+  (計6メソッド)をまとめてFirestoreアダプタ設計した(store-profile-store-firestore-
+  adapter-design.md 29節に新設)。本venture固有の点として、
+  `clear_store_deletion_confirmation_unreachable_at()`による再フォロー時のクリア配線が
+  既に配線済み(forklift-pashaにはクリア経路自体が存在しない)であること、`send_store_
+  deletion_confirmations()`が店舗一覧全体をインメモリで絞り込む設計のため複合インデックス
+  統合は適用対象がないこと(フェーズ続き327で既確認)を明記した。コード変更あり
+  (`store_profile_store.py`・`test_store_profile_store.py`)、テスト4件追加。
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、全件パス)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行し、既存942件を含め
+  回帰がないことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)20節(4)・27節(3)から
+  持ち越しの他venture「次回候補」記述の陳腐化点検(本節自身が26.4節の陳腐化を発見した
+  実例であり、他venture側にも同種の見落としが無いか改めて棚卸しする価値がある)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 18:00 UTC(フェーズ続き329: `StoreProfileStoreProtocol`の
+  `store_deletion_confirmation_sent_at`get/setメソッド欠落を発見・追加し、sent_at・
+  unreachable_at・unreachable_reasonの3フィールド(計6メソッド)をforklift-pashaフェーズ164
+  と同じ構成でFirestoreアダプタ設計(29節に新設)。26.4節の「設計完了」記録が陳腐化していた
+  ことも発見・訂正。コード変更あり、テスト4件追加、全946件・schema検証28件パス)
