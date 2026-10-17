@@ -6055,3 +6055,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `clear_store_deletion_confirmation_unreachable_at()`を新設し`process_follow_event()`に
   配線。複合インデックス統合は本ventureには適用対象なしと結論。テスト6件追加、
   全942件・schema検証28件パス)
+- フェーズ続き328(2026-10-17 05:00 UTC定例更新): フェーズ続き327の次回候補(2)
+  「`handle_subscription_deleted()`(解約確定)側でも`store_deletion_confirmation_
+  unreachable_at`の同様のクリア配線が必要か」を検討した。結論は**不要**。
+  `blocked_but_billing_owner_notified_at`は「ブロック中なのに課金継続」という懸念を
+  示すため解約確定(課金停止)でもクリアが正しいが、`store_deletion_confirmation_
+  unreachable_at`はLINE push到達性(ブロック中か)を示すフラグであり解約確定イベントは
+  これに影響しない。aircon-pasha・course-set-pashaの`deletion_candidate.py`の
+  `clear_deletion_candidate_on_subscription_reactivated()`も同様にunreachable系
+  フィールドを参照しておらず、3venture共通でクリア配線は再フォロー経路のみに限定される
+  設計であることを確認した。また本venture特有の事情として、再契約にはLINE LIFF経由の
+  本人確認を要する構成上、LINEブロック中(unreachable_at設定済み)の店舗に新規の
+  `customer.subscription.deleted`が届く経路自体が実質的に到達不能であることも確認した。
+  詳細はstore-deletion-confirmation-unreachable-clear-wiring-design.md 7節に記録した。
+  コード変更なし、`python3 -m unittest discover -s prototype -p "test_*.py"`(942件、
+  変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも
+  パスすることを確認した。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 05:00 UTC(フェーズ続き328: 「解約確定側での連絡不能クリア
+  配線」は不要と結論。blocked_but_billingとunreachableの懸念の非対称性、および
+  3venture共通の設計方針、本venture固有のLINE LIFF本人確認要件を根拠とした。コード
+  変更なし、全942件・schema検証28件パス、回帰なし)

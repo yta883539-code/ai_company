@@ -72,3 +72,42 @@ ConversationEventProcessor.process_follow_event()`のオーナー再フォロー
    (aircon-pasha/course-set-pashaの`blocked_but_billing_owner_notified_at`クリアは
    解約確定側でも行われているため、対称性の観点で確認する価値がある)。
 3. 他venture・アイデア領域の前進。
+
+## 7. 追記(フェーズ続き328、2026-10-17 05:00 UTC定例更新): 上記6節(2)の検討結果
+
+上記6節(2)の「`handle_subscription_deleted()`側でも同様のクリア配線が必要か」を検討した
+結果、**本venture・aircon-pasha・course-set-pashaのいずれでも不要**と結論した。理由は以下の
+対称性の違いによる。
+
+- `blocked_but_billing_owner_notified_at`(「ブロックされているが決済は継続中」通知済み
+  フラグ)は、(a)オーナーの再フォロー、(b)`customer.subscription.deleted`受信による
+  解約確定、のいずれでもクリアする設計になっている(本ventureの
+  `handle_subscription_deleted()`内インライン実装、aircon-pashaフェーズ175の
+  `stripe_dispatch.py`配線を確認)。これは、このフラグが示す懸念(「ブロック中なのに
+  課金され続けている」こと)自体が、解約確定によって課金が止まった時点で解消される
+  ため、再フォローとは独立した経路でもクリアが正しい。
+- 一方`store_deletion_confirmation_unreachable_at`(削除候補最終確認の「連絡不能」
+  フラグ)が示す懸念は「LINEのpush配信が届かない(オーナーがブロック中)」という
+  reachability自体であり、解約確定(`customer.subscription.deleted`)はこの
+  reachabilityに何の影響も与えない。実際、aircon-pasha/course-set-pashaの
+  `deletion_candidate.py`を確認したところ、`clear_deletion_candidate_on_subscription_
+  reactivated()`(再契約時のクリア)は存在するが、こちらも`unreachable`系フィールドは
+  一切参照しておらず、両venture共にクリア配線は再フォロー経路のみに限定されている。
+  本venture・aircon-pasha・course-set-pashaの3venture全てで同じ設計方針であることを
+  確認した。
+- さらに、本venture固有の`is_store_deletion_candidate()`の前提条件(`dormant_
+  renotify_count == 3`かつfinal送信から365日以上経過、かつ`suspension_reason`が
+  設定済み)を踏まえると、「`store_deletion_confirmation_unreachable_at`が設定済み
+  (=LINEブロック中)の店舗に対して新たな`customer.subscription.deleted`イベントが
+  届く」という事象自体が実質的に到達不能である。再契約(Stripe Checkout)にはLINE
+  LIFF経由の本人確認が必要な構成(checkout-initiation-flow-design.md)であり、
+  LINEをブロックしたまま新規決済に至ることは想定できないため。
+
+よって本フェーズではコード変更を行わない。コード変更なし、
+`python3 -m unittest discover -s prototype -p "test_*.py"`(942件、変更なし)・
+`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し、いずれも変更なしで
+パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は本フェーズでは発生していないためpending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+(2)他venture・アイデア領域の前進。
