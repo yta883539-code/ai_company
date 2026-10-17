@@ -3236,3 +3236,36 @@
 - 最終更新: 2026-10-17 19:01 UTC(フェーズ166: aircon-pashaフェーズ323の横展開を受け、
   全件走査→索引付きクエリ切り替え閾値をN=10,000に決定。コード変更なし、全18件・
   schema検証11件パス)
+- フェーズ167(2026-10-17 21:01 UTC定例更新): line-reservation-ai・aircon-pasha・
+  course-set-pasha・kura-pashaがいずれも持つpayment-failure-dunning-design.md
+  (決済失敗検知〜猶予期間〜制限モード)に相当する文書・実装が本venture自体には
+  存在せず、有料転換後のカード決済失敗(dunning)を一切扱っていない欠落があったため、
+  payment-failure-dunning-design.mdを新規作成した。本ventureは他venture4件と異なり
+  `subscription_status`列挙値を持たないため、`payment_failure_detected_at`という
+  単一タイムスタンプの都度計算方式(既存の`is_trial_period_over`等と同じ流儀)で設計し、
+  顧客接点もLINEではなくメールであることを踏まえた文言とした。
+  `trial_management.py`の`FleetOperatorStoreProtocol`/`InMemoryFleetOperatorStore`へ
+  `get_payment_failure_detected_at`/`set_payment_failure_detected_at`を追加し、新規
+  `prototype/payment_failure.py`に`mark_payment_failure_detected()`・
+  `clear_payment_failure_on_success()`・`is_payment_suspended()`
+  (猶予期間7日、トライアル中・解約済みは常にFalse)・`classify_payment_recovery()`・
+  通知文言3種を実装した。`stripe_webhook.py`に`handle_invoice_payment_failed()`/
+  `handle_invoice_payment_succeeded()`を追加し、`receive_stripe_webhook()`に
+  `invoice.payment_failed`/`invoice.payment_succeeded`を配線した。
+  新規`test_payment_failure.py`(11件)・`test_stripe_webhook.py`への追加テストを含め、
+  `python3 prototype/run_all_tests.py`で全19ファイル中19件成功(新規ファイル追加につき
+  18→19)、`python3 schema/validate_test_cases.py`で11件中11件パスを確認した。
+  リマインド送信スケジューラ・運営者向け通知・実メール送信配線は本フェーズの対象外
+  (design 6節「残課題」)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。承認待ち事項1
+  (建荷協・都道府県労働局への対外連絡)は依然未承認で、フェーズ148で定めた判断切り替え
+  期限の目安(10/25前後)まで残り約8日である状況に変化はない。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)リマインド送信
+  スケジューラ・運営者向け通知の設計(本venture側の日次スケジューラ自体の新設から
+  必要)、(3)10/25前後になっても承認が得られない場合、launch-readiness-checklist.mdに
+  「今年度は困難」の判断切り替えを記録、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 21:01 UTC(フェーズ167: payment-failure-dunning-design.mdを
+  新規作成し、決済失敗検知〜猶予期間〜制限モードの中核3機構を実装。
+  `payment_failure_detected_at`フィールド・`prototype/payment_failure.py`・
+  `stripe_webhook.py`の2イベント配線を新設。テスト11件追加、全19ファイル・
+  schema検証11件パス)

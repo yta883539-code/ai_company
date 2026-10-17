@@ -14,9 +14,10 @@ design.md)を追加し、フェーズ129で`customer.subscription.deleted`受信
 subscription-canceled-immediate-block-design.md相当)を追加した。フェーズ130で
 `customer.subscription.created`(再契約)受信時の`canceled_at`クリア
 (`handle_customer_subscription_created()`)を追加し、解約済みユーザーが再契約しても
-永久ブロックされたままになる欠落を解消した。決済失敗検知(`payment_failure.py`相当)・
-解約完了案内の送信等はまだ一切存在しないため、それ以外のイベント種別は常に200
-(受理・無視)を返す。
+永久ブロックされたままになる欠落を解消した。フェーズ167で`invoice.payment_failed`/
+`invoice.payment_succeeded`受信時の決済失敗検知・復旧クリア(`payment_failure.py`、
+payment-failure-dunning-design.md)を追加した。解約完了案内の送信等はまだ一切存在
+しないため、それ以外のイベント種別は常に200(受理・無視)を返す。
 """
 
 from __future__ import annotations
@@ -30,6 +31,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from payment_failure import (
+    clear_payment_failure_on_success,
+    classify_payment_recovery,
+    mark_payment_failure_detected,
+)
 from plan_id_resolution import (
     sync_plan_id_on_subscription_event,
     write_plan_id_from_checkout_session_metadata,
@@ -288,6 +294,91 @@ def handle_customer_subscription_created(
 
 
 @dataclass
+class InvoicePaymentFailedResult:
+    """handle_invoice_payment_failed()の結果(payment-failure-dunning-design.md
+    5節、フェーズ167)。"""
+
+    detected: bool
+    internal_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+def handle_invoice_payment_failed(
+    event: dict,
+    store: FleetOperatorStoreProtocol,
+    *,
+    now: Optional[datetime] = None,
+) -> InvoicePaymentFailedResult:
+    """`invoice.payment_failed`イベントから`payment_failure_detected_at`を記録する
+    (payment-failure-dunning-design.md 5節)。`customer`から`internal_id`を逆引きする
+    (既存3ハンドラと同じパターン)。逆引きできない場合は`error="unknown_customer"`として
+    記録を行わない。実メール送信配線は本フェーズの対象外(design 6節「残課題」)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    stripe_customer_id = data_object.get("customer")
+
+    if not isinstance(stripe_customer_id, str) or not stripe_customer_id:
+        return InvoicePaymentFailedResult(detected=False, error="missing_customer")
+
+    internal_id = store.get_internal_id_by_stripe_customer_id(stripe_customer_id)
+    if internal_id is None:
+        return InvoicePaymentFailedResult(detected=False, error="unknown_customer")
+
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    mark_payment_failure_detected(store, internal_id, resolved_now)
+
+    return InvoicePaymentFailedResult(detected=True, internal_id=internal_id)
+
+
+@dataclass
+class InvoicePaymentSucceededResult:
+    """handle_invoice_payment_succeeded()の結果(payment-failure-dunning-design.md
+    5節、フェーズ167)。"""
+
+    cleared: bool
+    internal_id: Optional[str] = None
+    recovery_kind: Optional[str] = None
+    error: Optional[str] = None
+
+
+def handle_invoice_payment_succeeded(
+    event: dict,
+    store: FleetOperatorStoreProtocol,
+    *,
+    now: Optional[datetime] = None,
+) -> InvoicePaymentSucceededResult:
+    """`invoice.payment_succeeded`イベントから`payment_failure_detected_at`をクリアする
+    (payment-failure-dunning-design.md 5節)。`payment_failure_detected_at`が未設定
+    (通常の毎月課金成功)の場合は`cleared=False`・`recovery_kind=None`のまま何もしない。
+    設定済みの場合は`clear_payment_failure_on_success()`でクリアする前に
+    `classify_payment_recovery()`で2分岐(design 4節)を判定してから書き込む
+    (判定には消去前の`detected_at`が必要なため、クリアより先に呼ぶ順序を守る)。
+    実メール送信配線は本フェーズの対象外(design 6節「残課題」)。
+    """
+    data_object = event.get("data", {}).get("object", {})
+    stripe_customer_id = data_object.get("customer")
+
+    if not isinstance(stripe_customer_id, str) or not stripe_customer_id:
+        return InvoicePaymentSucceededResult(cleared=False, error="missing_customer")
+
+    internal_id = store.get_internal_id_by_stripe_customer_id(stripe_customer_id)
+    if internal_id is None:
+        return InvoicePaymentSucceededResult(cleared=False, error="unknown_customer")
+
+    detected_at = store.get_payment_failure_detected_at(internal_id)
+    if detected_at is None:
+        return InvoicePaymentSucceededResult(cleared=False, internal_id=internal_id)
+
+    resolved_now = now if now is not None else datetime.now(timezone.utc)
+    recovery_kind = classify_payment_recovery(detected_at, resolved_now)
+    cleared = clear_payment_failure_on_success(store, internal_id)
+
+    return InvoicePaymentSucceededResult(
+        cleared=cleared, internal_id=internal_id, recovery_kind=recovery_kind
+    )
+
+
+@dataclass
 class StripeWebhookReceiverResult:
     """receive_stripe_webhook()の結果(design 1節)。"""
 
@@ -296,6 +387,8 @@ class StripeWebhookReceiverResult:
     subscription_updated_result: Optional[SubscriptionUpdatedSyncResult] = None
     subscription_deleted_result: Optional[SubscriptionDeletedResult] = None
     subscription_created_result: Optional[SubscriptionCreatedResult] = None
+    invoice_payment_failed_result: Optional[InvoicePaymentFailedResult] = None
+    invoice_payment_succeeded_result: Optional[InvoicePaymentSucceededResult] = None
     error: Optional[str] = None
 
 
@@ -360,6 +453,23 @@ def receive_stripe_webhook(
         subscription_created_result = handle_customer_subscription_created(parsed, store)
         return StripeWebhookReceiverResult(
             status_code=200, subscription_created_result=subscription_created_result
+        )
+
+    if event_type == "invoice.payment_failed":
+        invoice_payment_failed_result = handle_invoice_payment_failed(
+            parsed, store, now=resolved_now
+        )
+        return StripeWebhookReceiverResult(
+            status_code=200, invoice_payment_failed_result=invoice_payment_failed_result
+        )
+
+    if event_type == "invoice.payment_succeeded":
+        invoice_payment_succeeded_result = handle_invoice_payment_succeeded(
+            parsed, store, now=resolved_now
+        )
+        return StripeWebhookReceiverResult(
+            status_code=200,
+            invoice_payment_succeeded_result=invoice_payment_succeeded_result,
         )
 
     return StripeWebhookReceiverResult(status_code=200)

@@ -11,7 +11,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from stripe_webhook import (
     get_stripe_runtime_dependencies,
@@ -19,6 +19,8 @@ from stripe_webhook import (
     handle_customer_subscription_created,
     handle_customer_subscription_deleted,
     handle_customer_subscription_updated,
+    handle_invoice_payment_failed,
+    handle_invoice_payment_succeeded,
     receive_stripe_webhook,
     verify_stripe_signature,
 )
@@ -93,6 +95,14 @@ def _subscription_created_event(stripe_customer_id="cus_123") -> dict:
     return {
         "id": "evt_sub_created_1",
         "type": "customer.subscription.created",
+        "data": {"object": {"customer": stripe_customer_id}},
+    }
+
+
+def _invoice_event(event_type: str, stripe_customer_id="cus_123") -> dict:
+    return {
+        "id": f"evt_{event_type}_1",
+        "type": event_type,
         "data": {"object": {"customer": stripe_customer_id}},
     }
 
@@ -397,6 +407,100 @@ def main():
     ))
     results.append(_check(
         "store側にも反映される", store11.get_canceled_at("internal-11"), None
+    ))
+
+    # --- handle_invoice_payment_failed() / handle_invoice_payment_succeeded() (フェーズ167) ---
+    store12 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-12", stripe_customer_id="cus_pf_1", plan="light"),
+        store12,
+    )
+    now12 = datetime(2026, 10, 17, tzinfo=timezone.utc)
+    failed_result = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_1"),
+        store12,
+        now=now12,
+    )
+    results.append(_check("invoice.payment_failed: detected=True", failed_result.detected, True))
+    results.append(_check(
+        "invoice.payment_failed: payment_failure_detected_atが書き込まれる",
+        store12.get_payment_failure_detected_at("internal-12"),
+        now12,
+    ))
+
+    unknown_customer_failed = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_unknown"), store12
+    )
+    results.append(_check(
+        "invoice.payment_failed: 未知のcustomerはerror=unknown_customer",
+        unknown_customer_failed.error,
+        "unknown_customer",
+    ))
+
+    succeeded_result = handle_invoice_payment_succeeded(
+        _invoice_event("invoice.payment_succeeded", stripe_customer_id="cus_pf_1"),
+        store12,
+        now=now12 + timedelta(days=1),
+    )
+    results.append(_check("invoice.payment_succeeded: cleared=True", succeeded_result.cleared, True))
+    results.append(_check(
+        "invoice.payment_succeeded: 猶予期間中(7日未満)の解消はresolved_within_grace_period",
+        succeeded_result.recovery_kind,
+        "resolved_within_grace_period",
+    ))
+    results.append(_check(
+        "invoice.payment_succeeded: payment_failure_detected_atがクリアされる",
+        store12.get_payment_failure_detected_at("internal-12"),
+        None,
+    ))
+
+    noop_succeeded_result = handle_invoice_payment_succeeded(
+        _invoice_event("invoice.payment_succeeded", stripe_customer_id="cus_pf_1"), store12
+    )
+    results.append(_check(
+        "invoice.payment_succeeded: 未検知状態での受信はcleared=False",
+        noop_succeeded_result.cleared,
+        False,
+    ))
+
+    # --- receive_stripe_webhook: invoice.payment_failed/succeededを正しくディスパッチする ---
+    store13 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-13", stripe_customer_id="cus_pf_2", plan="light"),
+        store13,
+    )
+    pf_body = json.dumps(_invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_2")).encode("utf-8")
+    pf_ts = int(time.time())
+    pf_dispatch_result = receive_stripe_webhook(
+        pf_body, _sign(pf_body, pf_ts), SECRET, store=store13
+    )
+    results.append(_check("invoice.payment_failedディスパッチは200", pf_dispatch_result.status_code, 200))
+    results.append(_check(
+        "invoice_payment_failed_result.detected=True",
+        pf_dispatch_result.invoice_payment_failed_result.detected,
+        True,
+    ))
+    results.append(_check(
+        "store側にも反映される",
+        store13.get_payment_failure_detected_at("internal-13") is not None,
+        True,
+    ))
+
+    ps_body = json.dumps(_invoice_event("invoice.payment_succeeded", stripe_customer_id="cus_pf_2")).encode("utf-8")
+    ps_ts = int(time.time())
+    ps_dispatch_result = receive_stripe_webhook(
+        ps_body, _sign(ps_body, ps_ts), SECRET, store=store13
+    )
+    results.append(_check("invoice.payment_succeededディスパッチは200", ps_dispatch_result.status_code, 200))
+    results.append(_check(
+        "invoice_payment_succeeded_result.cleared=True",
+        ps_dispatch_result.invoice_payment_succeeded_result.cleared,
+        True,
+    ))
+    results.append(_check(
+        "store側にも反映される(クリア済み)",
+        store13.get_payment_failure_detected_at("internal-13"),
+        None,
     ))
 
     # --- receive_stripe_webhook: customer.subscription.deletedを正しくディスパッチする ---
