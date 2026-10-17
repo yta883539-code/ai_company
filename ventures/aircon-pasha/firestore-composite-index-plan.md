@@ -85,7 +85,9 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
   全登録ユーザー数Nが5,000を超えた時点を検討トリガーとすることを決定した。無料枠予算
   〈読み取り50,000回/日〉の半分を日次バッチの全件走査4箇所に割り当てる保守的な配分からの
   逆算。詳細はfull-scan-to-indexed-query-threshold-decision.md参照。forklift-pasha版への
-  同種の横展開は引き続き次回候補として残る。)
+  同種の横展開は、forklift-pashaフェーズ166(2026-10-17 19:01 UTC、本フェーズ323より後)で
+  既に実施済み〈本venture固有の全件走査箇所2箇所・2N回/日からN=10,000を決定〉であることを
+  フェーズ324で確認した。)
 - #5は当初(フェーズ320)`route_deletion_candidate_confirmation()`が`MARK_UNREACHABLE`
   判定した候補(`deletion_confirmation_sent_at`が設定されないため統合後もクエリに残り続ける)
   の扱いが未確定だったが、フェーズ321で「クリア配線」(再フォロー時に`deletion_

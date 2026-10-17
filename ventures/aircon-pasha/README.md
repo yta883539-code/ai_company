@@ -5892,3 +5892,27 @@
   未確定」を、無料枠予算からの逆算でN=5,000と決定し
   full-scan-to-indexed-query-threshold-decision.mdに記録。コード変更なし、全719件・
   schema検証25件パス)
+- フェーズ324(2026-10-17 22:00 UTC定例更新): line-reservation-aiフェーズ続き329の
+  次回候補(2)「他venture(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の
+  『次回候補』記述に陳腐化がないかの点検」を受け、本venture側でも同種の点検を行った。
+  フェーズ323の次回候補(2)「forklift-pashaへの全件走査→索引付きクエリ切り替え閾値決定の
+  横展開」について、forklift-pasha/README.mdを確認した結果、forklift-pashaフェーズ166
+  (2026-10-17 19:01 UTC、本venture フェーズ323〈17:00 UTC〉より後)で既に本venture
+  フェーズ323の決定を受けて横展開が完了済み(forklift-pasha固有の全件走査箇所2箇所・
+  2N回/日からN=10,000を決定)であることを確認した。本venture側のfirestore-composite-
+  index-plan.md「残る課題」に残っていた「forklift-pasha版への同種の横展開は引き続き次回
+  候補として残る」という記述がこの完了を反映しておらず陳腐化していたため、完了済みである
+  旨を追記して是正した。他の「残る課題」「次回候補」記述(フェーズ322・323が既に棚卸し済み)
+  に新たな陳腐化は見つからなかった。コード変更なし、文書修正のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(719件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture
+  (course-set-pasha・kura-pasha・forklift-pasha)側でも同種の「次回候補」陳腐化点検を
+  行う価値がある(line-reservation-aiフェーズ続き329の次回候補(2)はaircon-pasha分の
+  本フェーズで対応したが、他3venture分は未着手)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 22:00 UTC(フェーズ324: line-reservation-aiフェーズ続き329の
+  次回候補を受け、他venture「次回候補」記述の陳腐化点検を実施。フェーズ323の次回候補(2)
+  〈forklift-pashaへの横展開〉はforklift-pashaフェーズ166で既に完了済みであることを発見し、
+  firestore-composite-index-plan.mdの該当記述を是正。コード変更なし)
