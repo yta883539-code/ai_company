@@ -5325,3 +5325,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   統合する方針を決定〈deletion-candidate-query-consolidation-decision.md新設〉。読み取り
   件数が送信済み件数の増加に比例して単調増加する問題を解消できることを統合理由として記録。
   コード変更なし)
+- フェーズ240(2026-10-17 01:00 UTC定例更新): フェーズ239「残る課題」の次回候補(2)として
+  残っていた、同種の「InMemoryでは2段階だが実クエリでは1段に統合可能」な構成が他venture
+  (aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)の削除候補・通知系
+  処理にも存在するかの横展開調査を実施した(deletion-candidate-query-consolidation-
+  horizontal-survey.md新設)。aircon-pasha(`list_deletion_candidates()`→
+  `build_deletion_candidate_confirmation_states()`)・course-set-pasha(同型構成だが
+  firestore-composite-index-plan.md自体が未着手)・forklift-pasha(`list_deletion_
+  candidates()`→`select_due_deletion_candidate_final_confirmations()`、関数名のみ異なる
+  同型構成)の3ventureには同じ2段階構成と読み取り件数単調増加の問題が存在することを確認した。
+  line-reservation-aiは`is_store_deletion_candidate()`が全条件を単一述語にまとめる設計で、
+  そもそも2段階に分かれていないため対象外であることを確認した。コード変更なし、文書追加のみ
+  のため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(207件)・
+  `python3 schema/validate_test_cases.py`(32件中32件)を実行し、いずれも変更なしでパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)course-set-pasha・forklift-pashaにもaircon-pashaの
+  決定doc相当を新設し複合インデックス設計に反映する(course-set-pashaはfirestore-composite-
+  index-plan.md自体の新設から)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 01:00 UTC(フェーズ240: フェーズ239の次回候補を受け、deletion_
+  candidate_final_confirmationの2段階クエリ構成の横展開調査を実施。aircon-pasha・
+  course-set-pasha・forklift-pashaには同型構成が存在し統合方針が適用可能、line-reservation
+  -aiは単一述語設計のため対象外であることを確認した。コード変更なし)
