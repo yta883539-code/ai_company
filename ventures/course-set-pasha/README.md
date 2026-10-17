@@ -5253,3 +5253,24 @@
   両方とも19.3節と同種のrace conditionを避けるためトランザクション化
   (increment_trial_area_countは可変のarea_countを加算)。コード変更なし、
   テスト761件・schema検証21件パス)
+- フェーズ307(2026-10-17 16:00 UTC定例更新): フェーズ306の次回候補(2)を受け、
+  `UsageCounterProtocol`の`payment_failure_detected_at`・`payment_failure_reminder_
+  sent_at`グループ(計6メソッド)の実Firestore接続アダプタ設計に着手した
+  (firestore-provider-adapter-design.md 24節)。19.2節のFirestoreUsageCounterクラスへの
+  メソッド追加として設計し、両フィールドとも読み取った現在値に基づく書き戻し計算を
+  伴わないためトランザクション不要と判断、`clear_*`は9節(aircon-pasha 11節)と同じ
+  `None`書き込みで表現する方針を踏襲した。残る`payment_suspension_owner_notified_at`
+  グループ・`subscription_canceled_at`グループ・3種の`*_event_time`(順序ガード用)は
+  次回候補に持ち越した。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(761件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  `payment_suspension_owner_notified_at`グループの実Firestore接続アダプタ設計、
+  (3)`subscription_canceled_at`グループ・3種の`*_event_time`の実Firestore接続アダプタ
+  設計、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 16:00 UTC(フェーズ307: `UsageCounterProtocol`の
+  `payment_failure_detected_at`・`payment_failure_reminder_sent_at`グループ〈計6メソッド〉
+  の実Firestore接続アダプタ設計に着手。両フィールドともトランザクション不要と判断し、
+  `clear_*`はNone書き込みで表現。コード変更なし、テスト761件・schema検証21件パス)

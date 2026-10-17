@@ -1228,3 +1228,118 @@ class FirestoreUsageCounter:
 (761件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
 いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクションは発生していないため
 pending-approval.mdへの追記なし)
+
+## 24. UsageCounterProtocol(payment_failure_detected_at・payment_failure_reminder_sent_atグループ)の実Firestore接続アダプタ設計
+
+### 24.1. 背景・範囲
+
+23.4節の次回候補(1)「`payment_failure`系・`subscription`系(計10メソッド超)」のうち、
+本節では`set_payment_failure_detected_at`/`get_payment_failure_detected_at`/
+`clear_payment_failure_detected_at`・`set_payment_failure_reminder_sent_at`/
+`get_payment_failure_reminder_sent_at`/`clear_payment_failure_reminder_sent_at`の計6メソッド
+(`cloud_function_webhook.py`366〜396行目)を対象とする。残る`payment_suspension_owner_
+notified_at`グループ・`subscription_canceled_at`グループ・3種の`*_event_time`
+(順序ガード用)は次回候補に持ち越す。6メソッドとも19.2節で確立した
+`usage_counter/{user_id}`ドキュメントへの追加フィールドとして設計し、
+`FirestoreUsageCounter`クラスへのメソッド追加とする。両フィールドは
+payment-failure-dunning-design.md 6節・payment-failure-reminder-scheduler-design.md 3節の
+通り、決済失敗(dunning)フローの猶予期間計算・リマインド送信済み判定に使う一対のフラグで、
+`invoice.payment_succeeded`による復旧時にいずれも消去される(366〜398行目docstring)。
+
+### 24.2. 設計
+
+いずれのメソッドも19.3節の`increment()`・22.3節の`set_upgraded_at_if_unset`のような
+「読み取った現在値に基づいて書き戻す」計算を伴わないため、トランザクションは不要である。
+`set_payment_failure_detected_at`は(`set_upgraded_at_if_unset`と異なり)「1回だけ」では
+なく、複数回の決済失敗検知のたびに最新の検知時刻で上書きする単純な書き込み契約
+(366〜372行目docstring)であり、`set_payment_failure_reminder_sent_at`も
+`set_trial_end_notified_at`(22節)と同じく呼び出し元(`select_due_payment_failure_
+reminders()`)側の絞り込みに依存する単純な上書きでよい。`clear_*`は9節(aircon-pasha 11節と
+同じ結論)で確認した`None`書き込みで表現する方針を踏襲する。
+
+```python
+class FirestoreUsageCounter:
+    # ...(19.2節のget_count/increment、20〜23節の各メソッドに続けて追加)
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, detected_at: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"payment_failure_detected_at": detected_at}, merge=True,
+        )
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_detected_at")
+
+    def clear_payment_failure_detected_at(self, user_id: str) -> None:
+        self._collection.document(user_id).set(
+            {"payment_failure_detected_at": None}, merge=True,
+        )
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, sent_at: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"payment_failure_reminder_sent_at": sent_at}, merge=True,
+        )
+
+    def get_payment_failure_reminder_sent_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_reminder_sent_at")
+
+    def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
+        self._collection.document(user_id).set(
+            {"payment_failure_reminder_sent_at": None}, merge=True,
+        )
+```
+
+### 24.3. 検討事項
+
+- **`set_payment_failure_detected_at`がトランザクション不要な理由**: `set_upgraded_at_
+  if_unset`(22節)は「既存値があれば書かない」冪等性のため読み取り→判定→書き込みを
+  アトミックにする必要があったが、本メソッドは複数回の検知のたびに最新の検知時刻へ
+  単純に上書きする契約(366〜372行目docstring、「古い検知時刻を残す理由がない」)のため、
+  読み取りを介さない`set(merge=True)`一発で契約を満たせる。同一user_idからの重複
+  Webhook配信(at-least-once)が同時に2回`set`を呼んでも、最終的にどちらかの`detected_at`
+  が残るだけで契約上の不整合は生じない(通常は同一イベントの`event.created`に基づく
+  ほぼ同一の時刻になる)。
+- **`clear_*`を`None`書き込みで表現できる根拠**: 9.3節と同じ理由。`InMemoryUsageCounter`
+  相当のテストダブル(test_payment_failure_reminder_scheduler.py・test_payment_recovery_
+  notification.py等)の`get_*`はキー不在・`None`値のいずれも`None`として返す前提のため、
+  Firestore側の`null`書き込みと観測可能な挙動が一致する。
+- **一対のフィールドを同一節で設計した理由**: `payment-failure-reminder-scheduler-
+  design.md`3節の通り、両フィールドは同じdunningフロー(検知→猶予期間→リマインド→
+  (復旧 or 制限モード))の中で常にペアで読み書きされ(`payment_recovery_notification.py`
+  191〜200行目の復旧処理も両方を同時にclearする)、設計上分離する理由がないため、
+  19節(get_count/increment)・22節(upgraded_at/trial_end_notified_at)と同様に
+  関連フィールドをまとめて1節で扱う方針を踏襲した。
+- **`merge=True`を使う理由**: 19〜23節と同じ理由で、同一ドキュメントの他フィールド
+  (`month`・`count`・`trial_generation_count`等)を消してしまわないようにする必要がある。
+
+### 24.4. 次回候補(24節分)
+
+1. 残る`payment_suspension_owner_notified_at`グループ(3メソッド、24節と同型の
+   「単純上書き+None clear」で設計できる見込み)の実Firestore接続アダプタ設計。
+2. `subscription_canceled_at`グループ(3メソッド)・3種の`*_event_time`(順序ガード用、
+   いずれも単純な上書き・読み取りのみで設計できる見込み)の実Firestore接続アダプタ設計。
+3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+4. 他venture・アイデア領域の前進。
+
+最終更新: 2026-10-17 16:00 UTC(フェーズ307: 23節次回候補(1)を受け、
+`UsageCounterProtocol`の`payment_failure_detected_at`・`payment_failure_reminder_sent_at`
+グループ(計6メソッド)の実Firestore接続アダプタ設計に着手。19.2節の`FirestoreUsageCounter`
+クラスへのメソッド追加として設計し、いずれも読み取り→書き戻しの計算を伴わないため
+トランザクション不要、`clear_*`は9節(aircon-pasha 11節)と同じ`None`書き込みで表現する
+方針を踏襲した。コード変更なし、文書追加のみのため回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(761件、変更なし)・
+`python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし)
