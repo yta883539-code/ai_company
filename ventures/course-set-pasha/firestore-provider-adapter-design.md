@@ -925,4 +925,92 @@ class FirestoreUsageCounter:
 3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装
    自体は、実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
 4. 他venture・アイデア領域の前進。
-4. 他venture・アイデア領域の前進。
+
+(2026-10-17 08:00 UTC定例更新で発見・修正: 本節末尾に「4. 他venture・アイデア領域の
+前進。」が重複して2行記載されていた記載漏れを1行に修正した。内容面の変更ではない。)
+
+## 21. FirstGenerationNoticeStoreProtocol単体の実Firestore接続アダプタ設計
+
+### 21.1. 背景・範囲
+
+20節の次回候補(1)を受け、`FirstGenerationNoticeStoreProtocol`(`cloud_function_
+webhook.py`672行目、`has_sent`/`mark_sent`の2メソッドのみ)単体の実Firestore接続アダプタ
+設計に着手する。本venture本番コードの実際の呼び出し経路
+(`cloud_function_webhook.py`1519〜1541行目・1580〜1581行目)では、`usage_counter`と
+`first_generation_notice_store`に同一インスタンスを渡し、かつそのインスタンスが
+`increment_and_mark_notice`に対応している場合は常に20節の単一トランザクション経路が使われ、
+本節で設計する独立クラスは呼ばれない(`notice_marked_atomically`が`True`になり、1581行目の
+`first_generation_notice_store.mark_sent(notice_user_id)`はスキップされる)。本節が対象とする
+のは、両者に別インスタンスを渡す(`usage_counter is first_generation_notice_store`が`False`、
+または`increment_and_mark_notice`未実装の)呼び出し経路で、`has_sent`は1491行目で
+`usage_counter`の種類を問わず常に呼ばれ、`mark_sent`は1580行目の`not notice_marked_
+atomically`分岐でのみ呼ばれる。実Firestoreプロジェクトへの接続自体はpending-approval.md
+記載の承認待ちのため、本フェーズもコード変更・外部アカウント作成のいずれも行わない設計文書
+止まりである。
+
+### 21.2. 設計
+
+19.2節で確立した`usage_counter/{user_id}`ドキュメントに同居する`first_generation_notice_sent`
+(bool、未設定時はフィールド自体が存在しない)フィールドを読み書きする。本節のクラスは20節の
+`FirestoreUsageCounter`とは別クラスとして定義するが、同じコレクション・同じドキュメントID
+(`user_id`)を参照する(`InMemoryFirstGenerationNoticeStore`がset(集合)で保持する「送信済み
+user_idの集合」と、ドキュメント内の1フィールドの有無は観測可能な振る舞いとして等価)。
+
+```python
+class FirestoreFirstGenerationNoticeStore:
+    """FirstGenerationNoticeStoreProtocolの実Firestore接続実装(has_sent/mark_sentのみ)。
+    19.2節のFirestoreUsageCounterと同じusage_counter/{user_id}ドキュメントの
+    first_generation_notice_sentフィールドを読み書きする、独立したcollection・documentを
+    新設しない薄いアダプタ。
+    """
+
+    def __init__(self, firestore_client) -> None:
+        self._collection = firestore_client.collection("usage_counter")
+
+    def has_sent(self, user_id: str) -> bool:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return False
+        return bool((snapshot.to_dict() or {}).get("first_generation_notice_sent", False))
+
+    def mark_sent(self, user_id: str) -> None:
+        self._collection.document(user_id).set(
+            {"first_generation_notice_sent": True}, merge=True,
+        )
+```
+
+### 21.3. 検討事項
+
+- **`merge=True`を使う理由**: 20.3節の`increment_and_mark_notice`と同じ理由で、本クラス単体の
+  `mark_sent`が`month`・`count`・`trial_start_at`等、同一ドキュメントの他フィールドを消して
+  しまわないようにする必要がある。
+- **トランザクションを使わない理由**: `mark_sent`は常に`True`への単純な上書きで、読み取った
+  現在値に依存する計算を行わない(20節の`increment`のような`count_before + 1`相当の計算が
+  無い)ため、`has_sent`(読み取り)と`mark_sent`(書き込み)の間にread-modify-write競合は
+  発生しない。`InMemoryFirstGenerationNoticeStore.mark_sent()`も同様に集合への単純な追加
+  (`self._sent.add(user_id)`相当)であり、トランザクション無しでも観測可能な振る舞いは
+  InMemory版と等価である。
+- **本クラスが実際に使われる場面**: 21.1節の通り、本venture本番コードの設計上の想定配線
+  (`usage_counter`と`first_generation_notice_store`に同一の`FirestoreUsageCounter`インスタンス
+  を渡す)では本クラスは呼ばれず、20節の`increment_and_mark_notice`に一本化される。本節は
+  「両者に別インスタンスを渡すテストコード・将来の配線変更」に備えた完全性のための設計であり、
+  `FirestoreUsageCounter`自体に`has_sent`/`mark_sent`を実装すれば本クラスを別途インスタンス化
+  する必要自体がなくなる(どちらの構成でもProtocol上は区別がつかない)。
+
+### 21.4. 次回候補(21節分)
+
+1. `set_trial_start_at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_
+   notified_at・trial_generation_count・trial_area_count・payment_failure系・
+   subscription系、計10メソッド超)の実Firestore接続アダプタ設計(19.4節(2)・20.4節(2)から
+   継続。本venture固有の`UsageCounterProtocol`関連では最後に残る大きなグループ)。
+2. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+3. 他venture・アイデア領域の前進。
+
+最終更新: 2026-10-17 09:00 UTC(フェーズ304: 20節次回候補(1)を受け、
+`FirstGenerationNoticeStoreProtocol`単体〈has_sent/mark_sent〉の実Firestore接続アダプタを
+設計。19.2節のusage_counter/{user_id}ドキュメントに同居するfirst_generation_notice_sent
+フィールドを読み書きする薄いアダプタとし、本venture本番コードの想定配線では実際には
+increment_and_mark_noticeに一本化されるため呼ばれないことを確認した。あわせて20節末尾の
+次回候補リストに残っていた記載重複〈「4. 他venture・アイデア領域の前進。」が2行〉を修正した。
+コード変更なし、設計文書のみのため回帰テストの実行対象外)

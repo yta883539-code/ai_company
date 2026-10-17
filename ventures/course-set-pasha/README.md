@@ -5183,3 +5183,29 @@
   接続アダプタ設計に着手。Firestoreではトランザクションのネストが扱えないため、委譲実装
   ではなく3フィールドの更新を展開した単一トランザクションとして設計。コード変更なし、
   テスト761件・schema検証21件パス)
+- フェーズ304(2026-10-17 09:00 UTC定例更新): フェーズ303の次回候補(2)を受け、
+  `FirstGenerationNoticeStoreProtocol`単体(`has_sent`/`mark_sent`の2メソッドのみ)の実
+  Firestore接続アダプタ設計に着手した(firestore-provider-adapter-design.md 21節)。
+  19節で確立した`usage_counter/{user_id}`ドキュメントに同居する`first_generation_
+  notice_sent`フィールドを読み書きする薄いクラスとして設計し、`mark_sent`は`count_before+1`
+  のような読み取り依存の計算を行わないため20節の`increment_and_mark_notice`と異なり
+  トランザクションは不要だが、他フィールドを消さないよう`merge=True`は必要であることを
+  明記した。あわせて、本venture本番コードの想定配線(`usage_counter`と`first_generation_
+  notice_store`に同一インスタンスを渡す)では本クラスは実際には呼ばれず常に
+  `increment_and_mark_notice`に一本化されることをcloud_function_webhook.pyの呼び出し箇所
+  (1519〜1541行目・1580〜1581行目)から確認し、本節は完全性のための設計である旨を記録した。
+  ついでに20節末尾の次回候補リストに残っていた「他venture・アイデア領域の前進。」の2行
+  重複記載を発見し1行に修正した。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(761件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)`set_trial_start_
+  at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_notified_at・trial_
+  generation_count・trial_area_count・payment_failure系・subscription系)の実Firestore
+  接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 09:00 UTC(フェーズ304: `FirstGenerationNoticeStoreProtocol`単体
+  〈has_sent/mark_sent〉の実Firestore接続アダプタ設計に着手。usage_counter/{user_id}の
+  first_generation_notice_sentフィールドを読み書きする薄いクラスとして設計し、本番コードの
+  想定配線では実際にはincrement_and_mark_noticeに一本化され呼ばれないことを確認。20節の
+  次回候補リスト重複記載も修正。コード変更なし、テスト761件・schema検証21件パス)
