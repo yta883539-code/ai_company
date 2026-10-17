@@ -81,8 +81,11 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
   scheduler.py`に統合済み・`cloud_function_run_daily_checks.py`として配線済みであり、
   「まだ存在しない」という本項目の記述自体が当初から誤りだった。フェーズ320・321が本ファイル
   に追記を重ねる際もこの誤りに気づかず見落とされていた。)
-- インメモリ全件走査から索引付きクエリへの切り替えタイミング(ユーザー数の閾値等)は
-  forklift-pasha版と同様、未確定のまま次回以降の課題とする。
+- (フェーズ323で解消済み: インメモリ全件走査から索引付きクエリへの切り替えタイミングは、
+  全登録ユーザー数Nが5,000を超えた時点を検討トリガーとすることを決定した。無料枠予算
+  〈読み取り50,000回/日〉の半分を日次バッチの全件走査4箇所に割り当てる保守的な配分からの
+  逆算。詳細はfull-scan-to-indexed-query-threshold-decision.md参照。forklift-pasha版への
+  同種の横展開は引き続き次回候補として残る。)
 - #5は当初(フェーズ320)`route_deletion_candidate_confirmation()`が`MARK_UNREACHABLE`
   判定した候補(`deletion_confirmation_sent_at`が設定されないため統合後もクエリに残り続ける)
   の扱いが未確定だったが、フェーズ321で「クリア配線」(再フォロー時に`deletion_
@@ -96,3 +99,6 @@ decision.mdのフェーズ320残課題〈MARK_UNREACHABLE候補の扱い〉解�
 〈フェーズ320時点ではJSON未反映だった〉。コード変更は`deletion_candidate_final_
 confirmation.py`・`cloud_function_webhook.py`側で実施済み〈クリア配線〉、本ファイル自体の
 変更は文書・JSON更新のみ)
+
+最終更新: 2026-10-17 17:00 UTC(フェーズ323: 「残る課題」の切り替え閾値未確定の項目を
+N=5,000で解消。詳細はfull-scan-to-indexed-query-threshold-decision.md参照)

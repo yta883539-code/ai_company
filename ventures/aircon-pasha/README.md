@@ -5858,3 +5858,37 @@
   plan.mdに残っていた「Cloud Functionsエントリポイント未着手」という陳腐化した記述(実際は
   フェーズ315時点で配線済み)を発見し修正。コード変更なし、テスト719件・schema検証25件
   いずれも変更なしでパス)
+- フェーズ323(2026-10-17 17:00 UTC定例更新): フェーズ322の次回候補(2)「他の設計文書にも
+  同種の記載漏れ・陳腐化した『残る課題』記述が残っていないかの棚卸し」に着手した。
+  「残る課題」を含む全9ファイル(multi-technician-shared-usage-design.md・
+  interview-rehearsal-script.md・blocked-but-billing-detection-design.md・
+  customer-interview-design.md・README.md・blocked-but-billing-owner-notification-
+  design.md・deletion-candidate-query-consolidation-decision.md・
+  firestore-composite-index-plan.md・landing-page-copy-draft.md)を確認した結果、
+  フェーズ322のような記載漏れ・誤記は見つからなかった(既存の「残る課題」はいずれも
+  解消済みの注記が正しく反映済み)。一方、firestore-composite-index-plan.mdの「インメモリ
+  全件走査から索引付きクエリへの切り替えタイミング(ユーザー数の閾値等)はforklift-pasha版
+  と同様、未確定のまま次回以降の課題とする」という項目は、記載漏れではなく実際に数値化
+  されていない設計判断そのものであったため、本フェーズで数値化した。`all_user_ids()`の
+  呼び出し元を洗い出した結果、日次バッチ4箇所(daily_scheduler.py内3箇所・
+  blocked_but_billing_candidates.py)が合計4N回/日(N=総登録ユーザー数)の読み取りを
+  発生させることを確認し、subscription-billing-cost-estimate.mdが既に確立したFirestore
+  Sparkプラン無料枠(読み取り50,000回/日)の前提を流用して、保守的にその半分(25,000回/日)
+  を日次バッチに割り当てる配分から逆算し、N=5,000を切り替え検討のトリガーとする決定を
+  full-scan-to-indexed-query-threshold-decision.mdに新設した。月次バッチ2箇所
+  (deletion_candidate.py・deletion_candidate_final_confirmation.py)は月間無料枠に対する
+  影響が小さいため個別の閾値は設けず、同じN=5,000到達時点で合わせて見直す方針とした。
+  forklift-pasha/firestore-composite-index-plan.mdに残る同種の「未確定」記述への横展開は、
+  対象コレクション・業者あたりの操作頻度が本venture固有のものであり数値をそのまま流用
+  できないため、次回候補として残した。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(719件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行し、いずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先、(2)forklift-pashaへの同種の閾値
+  決定の横展開、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 17:00 UTC(フェーズ323: 「残る課題」記述の棚卸しを実施(記載漏れは
+  発見されず)。firestore-composite-index-plan.mdの「全件走査→索引付きクエリ切り替え閾値
+  未確定」を、無料枠予算からの逆算でN=5,000と決定し
+  full-scan-to-indexed-query-threshold-decision.mdに記録。コード変更なし、全719件・
+  schema検証25件パス)
