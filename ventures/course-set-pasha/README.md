@@ -5274,3 +5274,25 @@
   `payment_failure_detected_at`・`payment_failure_reminder_sent_at`グループ〈計6メソッド〉
   の実Firestore接続アダプタ設計に着手。両フィールドともトランザクション不要と判断し、
   `clear_*`はNone書き込みで表現。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ308(2026-10-17 23:00 UTC定例更新): フェーズ307の次回候補(2)を受け、
+  `UsageCounterProtocol`の`payment_suspension_owner_notified_at`グループ(計3メソッド)の
+  実Firestore接続アダプタ設計に着手した(firestore-provider-adapter-design.md 25節)。
+  19.2節のFirestoreUsageCounterクラスへのメソッド追加として設計し、本フィールドは
+  `cloud_function_webhook.py`401〜406行目docstringで「単純な上書きでよい、
+  set_payment_failure_reminder_sent_atと同じ考え方」と明記されている通り、読み取った
+  現在値に基づく書き戻し計算を伴わないためトランザクション不要と判断し、`clear_*`は
+  9節・24節と同じ`None`書き込みで表現する方針を踏襲した。本フィールドは
+  `payment_failure_detected_at`/`payment_failure_reminder_sent_at`(24節)のような対になる
+  相方フィールドを持たない単独のフラグであるため、3メソッドのみで1節とした。残る
+  `subscription_canceled_at`グループ・3種の`*_event_time`(順序ガード用)は次回候補に
+  持ち越した。コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(761件、変更なし)・`python3 schema/
+  validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)`subscription_canceled_at`グループ・
+  3種の`*_event_time`の実Firestore接続アダプタ設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 23:00 UTC(フェーズ308: `UsageCounterProtocol`の
+  `payment_suspension_owner_notified_at`グループ〈計3メソッド〉の実Firestore接続アダプタ
+  設計に着手。単純上書き+None clearで設計し、対になる相方フィールドを持たないため3メソッド
+  のみで1節とした。コード変更なし、テスト761件・schema検証21件パス)

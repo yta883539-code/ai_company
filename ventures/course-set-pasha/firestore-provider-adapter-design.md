@@ -1333,6 +1333,81 @@ class FirestoreUsageCounter:
    実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
 4. 他venture・アイデア領域の前進。
 
+## 25. UsageCounterProtocol(payment_suspension_owner_notified_atグループ)の実Firestore接続アダプタ設計
+
+### 25.1. 背景・範囲
+
+24.4節の次回候補(1)を受け、`set_payment_suspension_owner_notified_at`/
+`get_payment_suspension_owner_notified_at`/`clear_payment_suspension_owner_notified_at`の
+計3メソッド(`cloud_function_webhook.py`401〜416行目)を対象とする。残る
+`subscription_canceled_at`グループ・3種の`*_event_time`(順序ガード用)は次回候補に
+持ち越す。3メソッドとも19.2節で確立した`usage_counter/{user_id}`ドキュメントへの追加
+フィールドとして設計し、`FirestoreUsageCounter`クラスへのメソッド追加とする。本フィールドは
+payment-suspension-owner-notification-design.md 3節・6節の通り、制限モード移行時の
+運営者向け通知(Cloud Function F)が送信済みかどうかを表す1個のフラグで、
+`invoice.payment_succeeded`による復旧時に消去される(cloud_function_webhook.py
+412〜416行目docstring)。
+
+### 25.2. 設計
+
+本メソッドも24節の`payment_failure_reminder_sent_at`と同じく「読み取った現在値に基づいて
+書き戻す」計算を伴わない単純な上書き契約(401〜406行目docstringで「単純な上書きでよい」
+「set_payment_failure_reminder_sent_atと同じ考え方」と明記されている)であり、絞り込み自体は
+呼び出し元の`select_due_payment_suspension_owner_notifications()`側で行うため、
+トランザクションは不要である。`clear_*`は9節・24節と同じ`None`書き込みで表現する方針を
+踏襲する。
+
+```python
+class FirestoreUsageCounter:
+    # ...(19.2節のget_count/increment、20〜24節の各メソッドに続けて追加)
+
+    def set_payment_suspension_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"payment_suspension_owner_notified_at": notified_at}, merge=True,
+        )
+
+    def get_payment_suspension_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "payment_suspension_owner_notified_at"
+        )
+
+    def clear_payment_suspension_owner_notified_at(self, user_id: str) -> None:
+        self._collection.document(user_id).set(
+            {"payment_suspension_owner_notified_at": None}, merge=True,
+        )
+```
+
+### 25.3. 検討事項
+
+- **トランザクション不要な理由**: 24.3節の`payment_failure_reminder_sent_at`と同じ理由。
+  本フィールドは複数回の重複Webhook配信が同時に`set`を呼んでも、最終的にどちらかの
+  `notified_at`が残るだけで契約上の不整合は生じない(通常は同一イベントのほぼ同一時刻に
+  なる)。なお本フィールドは`payment_failure_reminder_sent_at`と異なり同じグループの
+  相方フィールドを持たず(payment-suspension-owner-notification-design.md 3節は
+  本フィールド単体の制御で足りると設計している)、単独の1フィールド・3メソッドで1節と
+  した。
+- **`clear_*`を`None`書き込みで表現できる根拠**: 9.3節・24.3節と同じ理由。
+  `InMemoryUsageCounter`相当のテストダブル(test_payment_suspension_owner_notification.py・
+  test_payment_recovery_notification.py等)の`get_*`はキー不在・`None`値のいずれも`None`
+  として返す前提のため、Firestore側の`null`書き込みと観測可能な挙動が一致する。
+- **`merge=True`を使う理由**: 19〜24節と同じ理由で、同一ドキュメントの他フィールドを
+  消してしまわないようにする必要がある。
+
+### 25.4. 次回候補(25節分)
+
+1. `subscription_canceled_at`グループ(3メソッド)・3種の`*_event_time`(順序ガード用、
+   いずれも単純な上書き・読み取りのみで設計できる見込み)の実Firestore接続アダプタ設計。
+2. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+3. 他venture・アイデア領域の前進。
+
 最終更新: 2026-10-17 16:00 UTC(フェーズ307: 23節次回候補(1)を受け、
 `UsageCounterProtocol`の`payment_failure_detected_at`・`payment_failure_reminder_sent_at`
 グループ(計6メソッド)の実Firestore接続アダプタ設計に着手。19.2節の`FirestoreUsageCounter`
