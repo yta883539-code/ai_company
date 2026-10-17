@@ -1242,3 +1242,164 @@ adapter-design.md 5節)で既に確定した「接続エラー時の安全側フ
 2. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(26節2点目から継続)。
 3. 他venture・アイデア領域の前進。
+
+## 29. WorkshopStoreProtocol(deletion_candidate・deletion_confirmation系グループ)の実Firestore接続アダプタ設計(フェーズ244)
+
+### 29.1. 背景・範囲
+
+1節(17〜33行目)・4節2点目で列挙した「`WorkshopStoreProtocol`の残りのグループ」は
+5・7・9・11・13・15・17節で全て着手済みとなっていたが、棚卸しのためusage_counter_
+workshop.py の`WorkshopStoreProtocol`宣言(303〜679行目)を改めて全メソッド突き合わせた
+ところ、当時のグループ分け(1節29〜33行目)に含まれていなかった
+**`deletion_candidate_at`・`deletion_confirmation_sent_at`・
+`deletion_confirmation_unreachable_at`・`deletion_confirmation_unreachable_reason`**
+の4フィールド・計8メソッド(`get_deletion_candidate_at`/`set_deletion_candidate_at`/
+`clear_deletion_candidate_at`/`get_deletion_confirmation_sent_at`/
+`set_deletion_confirmation_sent_at`/`get_deletion_confirmation_unreachable_at`/
+`set_deletion_confirmation_unreachable_at`/`set_deletion_confirmation_unreachable_reason`/
+`get_deletion_confirmation_unreachable_reason`、usage_counter_workshop.py 627〜679行目)
+が、本ドキュメント・firestore-provider-adapter-design.md・linking-code-store-
+firestore-adapter-design.md・invite-code-store-firestore-adapter-design.mdのいずれにも
+実Firestore接続アダプタ設計が存在しないまま残っていたことが判明した(stripe-
+cancellation-deletion-candidate-trigger-design.md 114行目は「実Firestore接続後の範囲
+クエリ」に触れるのみで、具象アダプタのコード設計は含まない)。これらは
+stripe-cancellation-deletion-candidate-trigger-design.md(フェーズ232)・
+deletion-candidate-final-confirmation-design.md(フェーズ233)で導入されたフィールドで、
+1節執筆時点(フェーズ216前後)より後に追加されたため、当時のグループ分けの対象外に
+なっていたことが原因と考えられる。本フェーズはこの見落としを解消し、本グループの
+実Firestore接続アダプタを設計する。
+
+### 29.2. 設計
+
+`InMemoryWorkshopStore`の該当実装(usage_counter_workshop.py 956〜987行目)と
+docstring(627〜679行目)に基づき、他グループと同じ`set(merge=True)`方式で設計する。
+
+```python
+    def get_deletion_candidate_at(self, workshop_id: str) -> Optional[datetime]:
+        # 23節の統一方針: 一時的な接続エラーは「削除候補ではない」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_candidate_at")
+
+    def set_deletion_candidate_at(self, workshop_id: str, deletion_candidate_at: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_candidate_at": deletion_candidate_at}, merge=True
+        )
+
+    def clear_deletion_candidate_at(self, workshop_id: str) -> None:
+        # 15.3節と同じ方針: DELETE_FIELDではなくNone値の書き込みで表現する。
+        self._doc_ref(workshop_id).set(
+            {"deletion_candidate_at": None}, merge=True
+        )
+
+    def get_deletion_confirmation_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_sent_at")
+
+    def set_deletion_confirmation_sent_at(
+        self, workshop_id: str, sent_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_sent_at": sent_at}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_at(self, workshop_id: str) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_unreachable_at")
+
+    def set_deletion_confirmation_unreachable_at(
+        self, workshop_id: str, unreachable_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_unreachable_at": unreachable_at}, merge=True
+        )
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_unreachable_reason": value}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_reason(self, workshop_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_unreachable_reason")
+```
+
+### 29.3. 検討事項
+
+- **`clear_deletion_candidate_at`は`deletion_confirmation_*`系3フィールドを連動クリアしない**:
+  15節の`clear_payment_failure_detected_at`(3フィールド同時クリア)とは異なり、
+  `InMemoryWorkshopStore.clear_deletion_candidate_at`(962〜963行目)は
+  `deletion_candidate_at`単独のみをクリアする実装であり、`deletion_confirmation_sent_at`は
+  「過去に送達済みだった事実は履歴として残す」(usage_counter_workshop.py 650〜653行目
+  docstring)方針のため意図的にクリア対象外。本アダプタも同じ非対称性を踏襲し、
+  単一フィールドの`set(merge=True)`のみとした。
+- **`deletion_confirmation_unreachable_at`のクリアは専用の`clear_*`Protocolメソッドを
+  持たず、`set_deletion_confirmation_unreachable_at(workshop_id, None)`の直接呼び出しで
+  表現される**(`deletion_candidate_final_confirmation.py`
+  `clear_deletion_confirmation_unreachable_at()`、181〜183行目、フェーズ241で本venture
+  に追加済み)。本アダプタの`set_deletion_confirmation_unreachable_at`は値をそのまま
+  `merge=True`で書き込むだけの単純な実装のため、`None`を渡すこの呼び出し方にも変更なしで
+  対応できる。
+- **例外方針**: 23節の統一fail-open方針に揃え、4メソッドの読み取り系はいずれも接続エラー時
+  `None`に合流させる(「削除候補ではない」「未送達」「連絡不能ではない」「理由未記録」の
+  いずれも安全側)。
+- **棚卸しの経緯の記録**: 本節の着手自体が、1節執筆時点のグループ分け(フェーズ216前後)
+  より後に追加されたフィールド(フェーズ232・233)が次回候補リストに乗らなかった記述漏れの
+  発見によるものである。これにより、firestore-provider-adapter-design.md 4節・
+  linking-code-store-firestore-adapter-design.md 4節・invite-code-store-firestore-
+  adapter-design.md 4節が引き続き「`WorkshopStoreProtocol`(30件超のメソッド)は未着手」
+  と記載したままなのは、本ventureが30節で確認する通り現在は不正確な記述であるため、
+  同節で各ファイルの該当箇所を修正する。
+
+- 本節はコード変更を伴わない(`FirestoreWorkshopStore`は未接続のため、既存の
+  `InMemoryWorkshopStore`実装・テストに影響しない)。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(207件)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件)・`python3 schema/
+  validate_test_cases.py`(32件)をいずれも再実行し、変更なしでパスすることを確認した
+  (回帰なし)。
+- **承認待ちアクション**: 本フェーズは設計文書の追記のみで、支払い・アカウント作成・
+  外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 30. 記述不整合の修正: 他3ドキュメントの「`WorkshopStoreProtocol`未着手」表記の是正(フェーズ244)
+
+29節で`WorkshopStoreProtocol`の全グループ(基盤・メンバー削減系・契約者引き継ぎ系・
+trial系・stripe_customer_id順引き逆引き系・subscription_status+event_time系・
+payment_failure系・trial_end_notified_at・owner_notified_at系2種・
+deletion_candidate・deletion_confirmation系)の実Firestore接続アダプタ設計が完了した。
+これに伴い、以下3ドキュメントの「残課題・次回候補」節が依然「`WorkshopStoreProtocol`
+(30件超のメソッド)は未着手」と記載したままであったことが判明したため、各ファイルの
+該当箇所を本フェーズで修正した(コード変更なし、文書修正のみ)。
+
+- `firestore-provider-adapter-design.md` 4節3点目
+- `linking-code-store-firestore-adapter-design.md` 4節4点目
+- `invite-code-store-firestore-adapter-design.md` 4節2点目
+
+いずれも「未着手」から「本ドキュメント(workshop-store-firestore-adapter-design.md)
+5・7・9・11・13・15・17・29節で完了済み」と修正する。
+
+- **承認待ちアクション**: 本フェーズは既存設計ドキュメントの記述修正のみで、支払い・
+  アカウント作成・外部公開・送信等は発生していないためpending-approval.mdへの追記なし。
+
+## 31. 残課題・次回候補(29・30節分)
+
+1. `WorkshopStoreProtocol`の実Firestore接続アダプタ設計は本フェーズで全グループ完了した。
+   次回は、28節1点目から継続する結合実装フェーズ準備作業(Firestoreセキュリティルール
+   草案の他venture横展開〈course-set-pasha・forklift-pasha・line-reservation-ai、
+   firestore-security-rules-draft.md「未検証・残課題」参照〉、またはテストダブル切り替え
+   方式の設計)を優先候補とする。
+2. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
+   オーナーから承認された場合はその着手を最優先(28節2点目から継続)。
+3. 他venture・アイデア領域の前進。

@@ -108,7 +108,11 @@ class FirestorePendingLinkStore:
   (craftsman-account-linking-design.md 11節、既存workshopへのメンバー追加用)の実
   Firestore接続アダプタは、ドキュメント構造(`{workshop_id, issued_at}`を保存、2節の
   `pending_links`と名前空間を分離)が異なるため別ドキュメントとして個別に設計する。
+  【フェーズ244追記】invite-code-store-firestore-adapter-design.md(フェーズ214)で
+  設計完了済み。
 - firestore-provider-adapter-design.md 4節の残課題のうち、本ドキュメントで未着手の
   `WorkshopStoreProtocol`(30件超のメソッド)は引き続き次回候補とする。
+  【フェーズ244追記】workshop-store-firestore-adapter-design.md 5・7・9・11・13・
+  15・17・29節で設計完了済み。
 - 承認後は、`workshop_linking.py`の各処理関数へ`linking_code_store`として本クラスの
   インスタンスを渡すだけで差し替えが完了する設計になっていることを、結合実装時に確認する。

@@ -113,6 +113,9 @@ class FirestoreWorkshopInviteStore:
   〈フェーズ211〉・`LinkingCodeStoreProtocol`のpending_links向け〈フェーズ213〉・
   pending_workshop_invites向け〈本フェーズ〉)の設計は、`WorkshopStoreProtocol`を残し
   一通り完了した。
+  【フェーズ244追記】`WorkshopStoreProtocol`もworkshop-store-firestore-adapter-
+  design.md 5・7・9・11・13・15・17・29節で設計完了し、本venture4Protocol全ての
+  実Firestore接続アダプタ設計が完了した。
 - 承認後は、`issue_invite_code_for_workshop`・`resolve_invite_code`・
   `add_member_from_invite_code`の各呼び出し箇所へ`invite_store`として本クラスの
   インスタンスを渡すだけで差し替えが完了する設計になっていることを、結合実装時に確認する。

@@ -104,6 +104,13 @@ class FirestoreUserProfileProvider:
   `LinkingCodeStoreProtocol`(pending_workshop_invitesドキュメント)の実Firestore接続
   アダプタは、本ドキュメントと同じ方針(ドキュメント単位でアダプタクラスを分け、
   `merge=True`の部分更新・安全側フォールバックを踏襲)で今後個別に設計する。
+  【フェーズ244追記】いずれも完了済み:`UsageCounterStoreProtocol`は
+  firestore-usage-counter-provider-adapter-design.md(フェーズ211)、
+  `LinkingCodeStoreProtocol`はlinking-code-store-firestore-adapter-design.md
+  (フェーズ213)・invite-code-store-firestore-adapter-design.md(フェーズ214)、
+  `WorkshopStoreProtocol`はworkshop-store-firestore-adapter-design.md
+  5・7・9・11・13・15・17・29節(フェーズ216〜244)で、本venture4Protocol全てが
+  設計完了している。
 - 承認後は、`usage_counter_workshop.py`・`workshop_linking.py`の各処理関数へ
   `user_profile_store`として本クラスのインスタンスを渡すだけで差し替えが完了する
   設計になっていることを、結合実装時に確認する。
