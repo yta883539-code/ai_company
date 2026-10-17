@@ -5159,3 +5159,27 @@
 - 最終更新: 2026-10-17 06:00 UTC(フェーズ302: `UsageCounterProtocol`の`get_count`/
   `increment`ペアの実Firestore接続アダプタ設計に着手。`@firestore.transactional`による
   read-modify-write競合対応を設計。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ303(2026-10-17 07:00 UTC定例更新): フェーズ302の次回候補(2)を受け、
+  `AtomicNoticeUsageCounterProtocol.increment_and_mark_notice`(count増分・
+  first_generation_notice_sent更新・trial_start_at設定を単一書き込みに相乗りさせる原子的
+  メソッド)の実Firestore接続アダプタ設計に着手した(firestore-provider-adapter-design.md
+  20節)。`InMemoryUsageCounter`が内部で`increment()`・`set_trial_start_at_if_unset()`への
+  委譲で実装している点について、Firestoreでは`@firestore.transactional`のネストが扱えない
+  ため委譲ではなく3フィールド(`count`・`first_generation_notice_sent`・`trial_start_at`)の
+  更新をすべて展開した単一トランザクションとして設計し直す必要があることを明記した。
+  `trial_start_at`の「未設定時のみ」判定をトランザクション内の読み取り結果に対して行うことで
+  原子性と冪等性を両立させ、既存フィールドを消さないよう`merge=True`を使う設計とした。
+  コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(761件、変更なし)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)を実行し、いずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)`FirstGenerationNoticeStoreProtocol`単体(`has_sent`/`mark_sent`)の
+  実Firestore接続アダプタ設計、(3)`set_trial_start_at_if_unset`以降の残り全メソッド群
+  (upgraded_at・trial_end_notified_at・trial_generation_count・trial_area_count・
+  payment_failure系・subscription系)の実Firestore接続アダプタ設計、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-17 07:00 UTC(フェーズ303: `increment_and_mark_notice`の実Firestore
+  接続アダプタ設計に着手。Firestoreではトランザクションのネストが扱えないため、委譲実装
+  ではなく3フィールドの更新を展開した単一トランザクションとして設計。コード変更なし、
+  テスト761件・schema検証21件パス)

@@ -833,4 +833,96 @@ read-modify-write競合がそのまま再現する(同一user_idから短時間�
    subscription系、計10メソッド超)の実Firestore接続アダプタ設計。
 3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装
    自体は、実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+
+## 20. UsageCounterProtocol(increment_and_mark_noticeグループ)の実Firestore接続アダプタ設計
+
+### 20.1. 背景・範囲
+
+19節の次回候補(1)を受け、`AtomicNoticeUsageCounterProtocol.increment_and_mark_notice`
+(cloud_function_webhook.py 485行目)の実Firestore接続アダプタ設計に着手する。本メソッドは
+`count`増分・(`mark_notice_sent=True`の場合のみ)`first_generation_notice_sent`の更新・
+(`trial_start_at`が渡され、かつ未設定の場合のみ)`trial_start_at`の設定を単一書き込みとして
+行う契約であり(クラスdocstring「書き込みの原子性」準拠)、19.3節で指摘したread-modify-write
+競合への対応を、`count`増分だけでなく3フィールドまとめて1トランザクションに閉じ込める必要が
+ある点が本節の主眼になる。
+
+### 20.2. 設計
+
+19.2節で確立した`usage_counter/{user_id}`ドキュメント(`month`・`count`)に、
+`first_generation_notice_sent`(bool)・`trial_start_at`(Timestamp、未設定時はフィールド
+自体が存在しない)の2フィールドを追加する。`InMemoryUsageCounter.increment_and_mark_notice()`
+(641〜652行目)が内部で`self.increment()`・`self.set_trial_start_at_if_unset()`を呼び出す
+委譲実装になっているのに対し、Firestore版は19.2節の`increment()`のトランザクションを再利用
+するのではなく、3フィールドの更新をすべて同一トランザクション内に展開する(委譲すると
+`increment()`用トランザクションの中からさらに別のトランザクションを開始することになり、
+Firestoreではネストしたトランザクションが扱えないため)。
+
+```python
+class FirestoreUsageCounter:
+    # ...get_count/incrementは19.2節のまま...
+
+    def increment_and_mark_notice(
+        self,
+        user_id: str,
+        month: str,
+        mark_notice_sent: bool,
+        trial_start_at: Optional[datetime] = None,
+    ) -> int:
+        doc_ref = self._collection.document(user_id)
+
+        @firestore.transactional
+        def _increment_and_mark_notice_in_transaction(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() or {} if snapshot.exists else {}
+            count_before = data.get("count", 0) if data.get("month") == month else 0
+            count_after = count_before + 1
+            updates = {"month": month, "count": count_after}
+            if mark_notice_sent:
+                updates["first_generation_notice_sent"] = True
+            if trial_start_at is not None and "trial_start_at" not in data:
+                updates["trial_start_at"] = trial_start_at
+            transaction.set(doc_ref, updates, merge=True)
+            return count_after
+
+        transaction = self._collection._client.transaction()
+        return _increment_and_mark_notice_in_transaction(transaction)
+```
+
+### 20.3. 検討事項
+
+- **`trial_start_at`の「未設定時のみ」判定をトランザクション内に含める理由**: `set_trial_
+  start_at_if_unset()`単体の冪等性(「既に値がある場合は上書きしない」)を、19.2節の
+  `increment()`トランザクションの外で後から`set_trial_start_at_if_unset()`を別呼び出しする
+  実装にすると、2回の書き込みに割れてしまい、`first-generation-notice-implementation-
+  design.md`3節「書き込みの原子性」の要件(1回のドキュメント更新で完結させる)を満たせない。
+  本節のコード例では、`trial_start_at`の有無判定を同一トランザクション内の`snapshot`
+  読み取り結果(`data`)に対して行うことで、原子性を保ったまま冪等性も両立させた。
+- **`merge=True`を使う理由**: 19.2節の`increment()`は常に`month`・`count`の2フィールドのみを
+  書くため`transaction.set(doc_ref, {...})`(merge無し)で足りたが、本メソッドは
+  `first_generation_notice_sent`・`trial_start_at`が既にドキュメントに存在する場合に
+  それらを消してしまわないよう(`mark_notice_sent=False`かつ`trial_start_at=None`で
+  呼ばれた場合、`count`のみ更新したい)、`merge=True`を指定する必要がある。
+- **委譲実装にしなかった理由**: `InMemoryUsageCounter`は`increment()`・`set_trial_start_
+  at_if_unset()`への委譲で実装が簡潔になっているが、Firestoreの`@firestore.transactional`
+  デコレータは呼び出しのたびに新しいトランザクションを開始するため、19.2節の`increment()`を
+  そのまま呼び出すと「トランザクションの中で別のトランザクションを開始する」形になり
+  `InvalidArgument`相当のエラーになる(Firestoreクライアントライブラリの制約)。このため
+  Firestore版のみ、3フィールドの更新をすべて展開した単一トランザクションとして書き直した
+  (観測可能な振る舞いはInMemory版と等価)。
+- **戻り値**: `increment()`と同じく「インクリメント後のカウント値」を返す契約
+  (cloud_function_webhook.py 495行目)を満たす。
+
+### 20.4. 次回候補(20節分)
+
+1. 本節で扱わなかった`FirstGenerationNoticeStoreProtocol`単体(`has_sent`/`mark_sent`、
+   `increment_and_mark_notice`を経由しない呼び出し経路向け)の実Firestore接続アダプタ設計。
+   `usage_counter`と同一ドキュメントの`first_generation_notice_sent`フィールドを読み書き
+   するだけで足りる見込みだが、`increment_and_mark_notice`側(本節)との同時書き込みが
+   起きないことを呼び出し元コードで確認する必要がある。
+2. `set_trial_start_at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_
+   notified_at・trial_generation_count・trial_area_count・payment_failure系・
+   subscription系、計10メソッド超)の実Firestore接続アダプタ設計(19.4節(2)から継続)。
+3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装
+   自体は、実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+4. 他venture・アイデア領域の前進。
 4. 他venture・アイデア領域の前進。
