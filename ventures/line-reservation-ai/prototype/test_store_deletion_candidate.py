@@ -13,12 +13,14 @@ from store_deletion_candidate import (
     UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED,
     UNREACHABLE_REASON_OWNER_LINE_USER_ID_NOT_SET,
     StoreDeletionCandidateState,
+    clear_store_deletion_confirmation_unreachable_at,
     is_store_deletion_candidate,
     list_store_deletion_candidates,
     list_unreachable_store_deletion_candidates,
     render_store_deletion_final_confirmation_message,
     render_unreachable_store_deletion_candidates_report,
 )
+from store_profile_store import InMemoryStoreProfileStore
 
 FINAL_SENT_AT = datetime(2026, 8, 20, 10, 0)
 DUE_AT = FINAL_SENT_AT + DELETION_CANDIDATE_DELAY
@@ -178,6 +180,55 @@ class RenderUnreachableStoreDeletionCandidatesReportTests(unittest.TestCase):
         )
         report = render_unreachable_store_deletion_candidates_report(candidates)
         self.assertIn("不明(本フィールド追加前に記録された候補)", report)
+
+
+class ClearStoreDeletionConfirmationUnreachableAtTest(unittest.TestCase):
+    """design 5節「クリア配線」(2026-10-17追記、aircon-pashaフェーズ321・
+    course-set-pashaフェーズ300の横展開)。"""
+
+    def test_clears_when_set_and_returns_true(self):
+        store = InMemoryStoreProfileStore()
+        store.set_store_deletion_confirmation_unreachable_at("store-1", DUE_AT)
+        store.set_store_deletion_confirmation_unreachable_reason(
+            "store-1", UNREACHABLE_REASON_LINE_PUSH_DELIVERY_FAILED
+        )
+
+        changed = clear_store_deletion_confirmation_unreachable_at(store, "store-1")
+
+        self.assertTrue(changed)
+        self.assertIsNone(store.get_store_deletion_confirmation_unreachable_at("store-1"))
+        self.assertIsNone(
+            store.get_store_deletion_confirmation_unreachable_reason("store-1")
+        )
+
+    def test_returns_false_when_already_unset(self):
+        store = InMemoryStoreProfileStore()
+
+        changed = clear_store_deletion_confirmation_unreachable_at(store, "store-1")
+
+        self.assertFalse(changed)
+
+    def test_second_call_is_idempotent(self):
+        store = InMemoryStoreProfileStore()
+        store.set_store_deletion_confirmation_unreachable_at("store-1", DUE_AT)
+
+        first = clear_store_deletion_confirmation_unreachable_at(store, "store-1")
+        second = clear_store_deletion_confirmation_unreachable_at(store, "store-1")
+
+        self.assertTrue(first)
+        self.assertFalse(second)
+
+    def test_does_not_affect_other_store_ids(self):
+        store = InMemoryStoreProfileStore()
+        store.set_store_deletion_confirmation_unreachable_at("store-1", DUE_AT)
+        store.set_store_deletion_confirmation_unreachable_at("store-2", DUE_AT)
+
+        clear_store_deletion_confirmation_unreachable_at(store, "store-1")
+
+        self.assertIsNone(store.get_store_deletion_confirmation_unreachable_at("store-1"))
+        self.assertEqual(
+            store.get_store_deletion_confirmation_unreachable_at("store-2"), DUE_AT
+        )
 
 
 if __name__ == "__main__":

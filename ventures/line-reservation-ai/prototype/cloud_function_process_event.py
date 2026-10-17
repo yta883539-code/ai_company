@@ -89,6 +89,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from blocked_but_billing_owner_email_notification import (  # noqa: E402
     clear_blocked_but_billing_owner_notified_at,
 )
+from store_deletion_candidate import (  # noqa: E402
+    clear_store_deletion_confirmation_unreachable_at,
+)
 from owner_faq_router import (  # noqa: E402
     is_owner_faq_menu_trigger,
     match_owner_faq_item_code,
@@ -1393,6 +1396,13 @@ class ConversationEventProcessor:
         メールを送っている)であればあわせてクリアする。再びブロックされた場合に
         改めて通知できるようにするため。
 
+        store-deletion-candidate-final-confirmation-design.md 5節「クリア配線」
+        (2026-10-17追記、aircon-pashaフェーズ321・course-set-pashaフェーズ300の
+        横展開)準拠。同じ再フォロー時に、`store_deletion_confirmation_unreachable_at`が
+        設定済み(=削除候補の最終確認LINE push送信が失敗し「連絡不能」と記録されている)
+        であればあわせてクリアする。再びブロックされ連絡不能になった場合は次回バッチの
+        送信時に改めて記録される。
+
         follow-unfollow-event-handling-design.md 2節「店舗名差し込み版ウェルカム
         メッセージ」(2026-09-08追記)準拠。`store_name_provider`が設定されていれば
         `get_business_name(store_id)`で店舗名を取得しメッセージ冒頭に差し込む。
@@ -1409,6 +1419,7 @@ class ConversationEventProcessor:
         ):
             self._store_profile.set_owner_is_following(self._store_id, True)
             clear_blocked_but_billing_owner_notified_at(self._store_profile, self._store_id)
+            clear_store_deletion_confirmation_unreachable_at(self._store_profile, self._store_id)
         business_name = ""
         if self._store_name_provider is not None:
             business_name = self._store_name_provider.get_business_name(self._store_id) or ""

@@ -73,12 +73,23 @@
   求めた値を実際に`ConversationFlowStateMachine`(engine.py)のコンストラクタへ渡す構築
   ヘルパー。会話状態(`_states`)自体の永続化・復元方式(実Firestore接続後の課題)は
   対象外で、構築時の引数組み立てのみを切り出す。
+- `get_store_deletion_confirmation_unreachable_at()`/
+  `set_store_deletion_confirmation_unreachable_at()`・
+  `get_store_deletion_confirmation_unreachable_reason()`/
+  `set_store_deletion_confirmation_unreachable_reason()`(2026-10-17追記):
+  store-deletion-candidate-final-confirmation-design.md 5節が定義した
+  `storeDeletionConfirmationUnreachableAt`/`storeDeletionConfirmationUnreachableReason`
+  フィールドを、他のフィールドと同じ`stores/{storeId}`単一ドキュメント上で読み書きする
+  ための最小インターフェース。store_deletion_candidate.pyの
+  `clear_store_deletion_confirmation_unreachable_at()`(再フォロー時の「クリア配線」、
+  aircon-pashaフェーズ321・course-set-pashaフェーズ300の横展開)から参照される。
 
 設計の参照元: checkout-initiation-flow-design.md 3節・9節・10節・残課題、
 firestore-data-model.md 1節、onboarding-completion-message-design.md 残課題、
 stripe-webhook-event-dispatch-design.md 5節、stripe-customer-id-reverse-lookup-design.md、
 blocked-but-billing-detection-design.md 1節・3節、checkout-session-plan-selection-design.md、
-conversation-flow-construction-design.md
+conversation-flow-construction-design.md、
+store-deletion-candidate-final-confirmation-design.md 5節
 """
 
 from __future__ import annotations
@@ -164,6 +175,26 @@ class StoreProfileStoreProtocol(Protocol):
     ) -> None:
         ...
 
+    def get_store_deletion_confirmation_unreachable_at(
+        self, store_id: str
+    ) -> Optional[datetime]:
+        ...
+
+    def set_store_deletion_confirmation_unreachable_at(
+        self, store_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str
+    ) -> Optional[str]:
+        ...
+
+    def set_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        ...
+
     def get_plan(self, store_id: str) -> Optional[str]:
         ...
 
@@ -211,6 +242,8 @@ class InMemoryStoreProfileStore:
         self._suspension_reasons: dict[str, Optional[str]] = {}
         self._owner_emails: dict[str, str] = {}
         self._blocked_but_billing_owner_notified_at: dict[str, Optional[str]] = {}
+        self._store_deletion_confirmation_unreachable_at: dict[str, Optional[datetime]] = {}
+        self._store_deletion_confirmation_unreachable_reason: dict[str, Optional[str]] = {}
         self._plans: dict[str, str] = {}
         self._checkout_session_completed_event_time: dict[str, datetime] = {}
         self._menu_durations: dict[str, dict] = {}
@@ -303,6 +336,32 @@ class InMemoryStoreProfileStore:
         if not store_id:
             raise ValueError("store_id must be a non-empty string")
         self._blocked_but_billing_owner_notified_at[store_id] = value
+        self._known_store_ids.add(store_id)
+
+    def get_store_deletion_confirmation_unreachable_at(
+        self, store_id: str
+    ) -> Optional[datetime]:
+        return self._store_deletion_confirmation_unreachable_at.get(store_id)
+
+    def set_store_deletion_confirmation_unreachable_at(
+        self, store_id: str, value: Optional[datetime]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._store_deletion_confirmation_unreachable_at[store_id] = value
+        self._known_store_ids.add(store_id)
+
+    def get_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str
+    ) -> Optional[str]:
+        return self._store_deletion_confirmation_unreachable_reason.get(store_id)
+
+    def set_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._store_deletion_confirmation_unreachable_reason[store_id] = value
         self._known_store_ids.add(store_id)
 
     def get_plan(self, store_id: str) -> Optional[str]:

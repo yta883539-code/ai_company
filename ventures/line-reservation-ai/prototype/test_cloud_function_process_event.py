@@ -2670,6 +2670,43 @@ class FollowUnfollowEventTests(unittest.TestCase):
 
         self.assertFalse(store.get_owner_is_following(STORE_ID))
 
+    # store-deletion-candidate-final-confirmation-design.md 5節「クリア配線」
+    # (2026-10-17追記、aircon-pashaフェーズ321・course-set-pashaフェーズ300の横展開)準拠。
+    # オーナー本人の再フォロー時、`store_deletion_confirmation_unreachable_at`が設定済み
+    # であればあわせてクリアされることを検証する。
+
+    def test_owner_follow_event_clears_store_deletion_confirmation_unreachable_at(self):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        store.set_store_deletion_confirmation_unreachable_at(STORE_ID, NOW)
+        store.set_store_deletion_confirmation_unreachable_reason(
+            STORE_ID, "line_push_delivery_failed"
+        )
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-owner"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertIsNone(store.get_store_deletion_confirmation_unreachable_at(STORE_ID))
+        self.assertIsNone(
+            store.get_store_deletion_confirmation_unreachable_reason(STORE_ID)
+        )
+
+    def test_customer_follow_event_does_not_clear_store_deletion_confirmation_unreachable_at(
+        self,
+    ):
+        store = InMemoryStoreProfileStore()
+        store.set_owner_is_following(STORE_ID, False)
+        store.set_store_deletion_confirmation_unreachable_at(STORE_ID, NOW)
+        processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)
+
+        event = {"type": "follow", "source": {"userId": "U-customer"}}
+        dispatch_process_event(processor, event, lambda: {}, NOW)
+
+        self.assertEqual(
+            store.get_store_deletion_confirmation_unreachable_at(STORE_ID), NOW
+        )
+
     def test_owner_unfollow_event_sets_owner_is_following_false(self):
         store = InMemoryStoreProfileStore()
         processor, _, _, _ = _new_processor(owner_user_id="U-owner", store_profile=store)

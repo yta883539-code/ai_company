@@ -6024,3 +6024,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-16 18:00 UTC(フェーズ続き326: 5venture共通のFirestoreアダプタ
   「設計は承認前、実コード化は承認後」方針を明文化。新たな技術的決定なし、コード変更なし、
   全936件・schema検証28件パス)
+- フェーズ続き327(2026-10-17 00:00 UTC定例更新): aircon-pashaフェーズ321・course-set-pasha
+  フェーズ300の「`MARK_UNREACHABLE`/削除候補連絡不能のクリア配線」を本ventureに横展開
+  した。棚卸しの結果、`store_deletion_confirmation_unreachable_at`等のフィールドが
+  `store_profile_store.py`にまだ読み書きメソッドを持たず(`store_deletion_candidate.py`側は
+  独立したdataclassとしてのみ定義)、クリアする経路自体が存在しなかったギャップを発見した。
+  `StoreProfileStoreProtocol`/`InMemoryStoreProfileStore`に`get/set_store_deletion_
+  confirmation_unreachable_at()`・`get/set_store_deletion_confirmation_unreachable_
+  reason()`の4メソッドを追加し、`store_deletion_candidate.py`に`clear_store_deletion_
+  confirmation_unreachable_at()`を新設して`cloud_function_process_event.
+  ConversationEventProcessor.process_follow_event()`のオーナー再フォロー分岐
+  (`clear_blocked_but_billing_owner_notified_at()`と並ぶ位置)に配線した。本venture固有の
+  単純化点として、店舗情報が単一`stores/{storeId}`ドキュメントに集約される構成のため、
+  他venture(aircon-pasha・course-set-pasha)のような新規引数(`deletion_store`等)の追加は
+  不要で、既存の`self._store_profile`をそのまま渡せることを確認した。あわせて、複合
+  インデックスによる2段階クエリの1クエリ統合(kura-pasha・aircon-pasha・course-set-pasha
+  のパターン)は本ventureには適用対象がないことも確認した(`send_store_deletion_
+  confirmations()`は呼び出し元が読み取った店舗一覧全体を受け取りインメモリで絞り込む設計の
+  ため、そもそも2段階の絞り込みクエリ自体が存在しない)。詳細はstore-deletion-confirmation-
+  unreachable-clear-wiring-design.mdに記録した。コード変更あり(`store_profile_store.py`・
+  `store_deletion_candidate.py`・`cloud_function_process_event.py`)、テスト6件追加。
+  `python3 -m unittest discover -p "test_*.py"`(942件、全件パス)・`python3 schema/
+  validate_test_cases.py`(28件、変更なし)を実行し、既存936件を含め回帰がないことを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)`handle_subscription_deleted()`(解約確定)側でも同様のクリア配線が
+  必要かの検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 00:00 UTC(フェーズ続き327: aircon-pasha・course-set-pashaの
+  「連絡不能クリア配線」を本ventureに横展開。`store_profile_store.py`に4メソッド追加、
+  `clear_store_deletion_confirmation_unreachable_at()`を新設し`process_follow_event()`に
+  配線。複合インデックス統合は本ventureには適用対象なしと結論。テスト6件追加、
+  全942件・schema検証28件パス)

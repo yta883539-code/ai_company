@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional, Sequence
+from typing import Optional, Protocol, Sequence
 
 # 4節: 休止モード4通目(final)送信からさらに1年、無反応が続いた場合に削除候補化する。
 DELETION_CANDIDATE_DELAY = timedelta(days=365)
@@ -134,6 +134,67 @@ class UnreachableStoreDeletionCandidate:
         if self.unreachable_reason is None:
             return _UNREACHABLE_REASON_UNKNOWN_LABEL
         return _UNREACHABLE_REASON_LABELS.get(self.unreachable_reason, self.unreachable_reason)
+
+
+class StoreDeletionConfirmationUnreachableStoreProtocol(Protocol):
+    """「クリア配線」(aircon-pashaフェーズ175・フェーズ321、course-set-pashaフェーズ300の
+    横展開)が使う、`store_deletion_confirmation_unreachable_at`/
+    `store_deletion_confirmation_unreachable_reason`の読み書きのみを要求する最小限の
+    Protocol。`store_profile_store.StoreProfileStoreProtocol`
+    (ひいては`InMemoryStoreProfileStore`)はこれらのメソッドを既に持つため、構造的に
+    (duck typing)本Protocolを満たす。"""
+
+    def get_store_deletion_confirmation_unreachable_at(
+        self, store_id: str
+    ) -> Optional[datetime]:
+        ...
+
+    def set_store_deletion_confirmation_unreachable_at(
+        self, store_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def get_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str
+    ) -> Optional[str]:
+        ...
+
+    def set_store_deletion_confirmation_unreachable_reason(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        ...
+
+
+def clear_store_deletion_confirmation_unreachable_at(
+    store: StoreDeletionConfirmationUnreachableStoreProtocol, store_id: str,
+) -> bool:
+    """オーナーの再フォロー時に呼ぶ「クリア配線」(aircon-pashaフェーズ321・
+    course-set-pashaフェーズ300と同じ考え方の本venture版)。
+
+    `send_store_deletion_confirmations()`はオーナーのLINE push送信が1回失敗した時点で
+    (「直近4回の履歴を遡る」判定は行わない簡略化方針、本ファイル冒頭の位置づけ参照)
+    `store_deletion_confirmation_unreachable_at`を設定するが、これをクリアする経路が
+    従来存在しなかったため、一度ブロックされたオーナーが再フォローしても削除候補が
+    「連絡不能」のまま塩漬けになり、次回バッチでも`store_deletion_confirmation_sent_at`が
+    未設定である限り`is_store_deletion_candidate()`に再評価され続けるだけで、正常な
+    LINE push経路には二度と戻れない問題があった。本関数は、設定済みの場合のみ
+    `store_deletion_confirmation_unreachable_at`・`store_deletion_confirmation_unreachable_
+    reason`の両方をクリアし、変更があったかどうか(`True`/`False`)を返す(aircon-pasha/
+    course-set-pashaの同名関数と同じ、呼び出し側がログ確認できる冪等設計)。未設定
+    (そもそも一度も連絡不能になったことがない、または既にクリア済み)の場合は何もせず
+    `False`を返す。
+
+    呼び出し配線は`cloud_function_process_event.ConversationEventProcessor.
+    process_follow_event()`のオーナー再フォロー分岐(`clear_blocked_but_billing_owner_
+    notified_at()`と並ぶ位置)から行う。本ventureは店舗情報を単一の`stores/{storeId}`
+    ドキュメントに集約する構成(design 2節)のため、aircon-pasha・course-set-pashaと異なり
+    別引数(`deletion_store`等)を追加する必要はなく、既存の`store_profile`をそのまま渡せる。
+    """
+    if store.get_store_deletion_confirmation_unreachable_at(store_id) is None:
+        return False
+    store.set_store_deletion_confirmation_unreachable_at(store_id, None)
+    store.set_store_deletion_confirmation_unreachable_reason(store_id, None)
+    return True
 
 
 def list_unreachable_store_deletion_candidates(
