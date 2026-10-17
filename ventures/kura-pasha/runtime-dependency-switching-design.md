@@ -104,14 +104,24 @@ def get_runtime_dependencies() -> dict:
   (`.py`ファイルへの反映)自体は、実`google-cloud-firestore`ライブラリの導入・
   実Firestoreプロジェクトへの接続確認とセットで行うのが安全なため、承認後の
   結合実装フェーズに持ち越す(本フェーズはコード変更を行わない)。
-- `KURA_PASHA_FIRESTORE_ENABLED`という名前・値の形式は他venture(aircon-pasha・
-  course-set-pasha・line-reservation-ai・forklift-pasha)がまだ同種の設計を
-  持たないため、横展開する場合は`<venture-prefix>_FIRESTORE_ENABLED`の命名規則
-  として揃えられる可能性がある(次回候補として記録、他venture側の次回候補としても
-  残す)。
 - フラグが`"1"`のまま実クライアント構築(`firestore_sdk.Client()`)が例外を
   投げるケース(認証情報未設定等)のハンドリングは未設計。現時点では承認時点で
   認証情報も合わせて設定される前提のため、本フェーズでは例外処理を追加しない
   (発生したら結合実装フェーズで個別に対応する)。
 
-最終更新: 2026-10-16 (フェーズ238)
+## 5. 横展開確認(フェーズ243)
+
+フェーズ238時点では他venture(aircon-pasha・course-set-pasha・line-reservation-ai・
+forklift-pasha)がまだ同種の設計を持たないという前提で、`<venture-prefix>_
+FIRESTORE_ENABLED`命名規則への横展開を次回候補として記録していた。本フェーズで
+4venture全ての`runtime-dependency-switching-design.md`を確認した結果、いずれも
+既に本venture(kura-pasha)と同時期の2026-10-16に同種の設計を完了済みであり、
+フラグ名は`AIRCON_PASHA_FIRESTORE_ENABLED`・`COURSE_SET_PASHA_FIRESTORE_ENABLED`・
+`FORKLIFT_PASHA_FIRESTORE_ENABLED`・`LINE_RESERVATION_AI_FIRESTORE_ENABLED`と、
+いずれも`<venture-prefix(アンダースコア区切り)>_FIRESTORE_ENABLED`形式・
+値`"1"`での真偽判定という、本venture(`KURA_PASHA_FIRESTORE_ENABLED`)と完全に
+一致する命名規則・実装形式であることを確認した。したがって上記の次回候補は
+横展開不要(既に全venture間で命名規則が揃っている)として解消する。
+
+最終更新: 2026-10-17 15:00 UTC (フェーズ243: 他4venture側の同種設計との命名規則
+横展開確認。全venture一致を確認し、フェーズ238の次回候補を解消)

@@ -5400,3 +5400,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   既に完了していたforklift-pasha決定docの誤記訂正が反映されていなかった記述不整合を発見し
   修正。次回候補リストから完了済み項目を削除、フェーズ241の最終更新行の記載漏れも補った。
   コード変更なし)
+- フェーズ243(2026-10-17 15:00 UTC定例更新): runtime-dependency-switching-design.md
+  (フェーズ238)の次回候補「`KURA_PASHA_FIRESTORE_ENABLED`の命名規則を他venture
+  (aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)に横展開」
+  に着手するため4venture側の`runtime-dependency-switching-design.md`を確認したところ、
+  4venture全てが本venture同時期(2026-10-16)に同種設計を既に完了しており、フラグ名
+  (`AIRCON_PASHA_FIRESTORE_ENABLED`等)・値`"1"`判定とも本ventureと一致する命名規則で
+  揃っていることが判明した。したがって横展開作業は不要と判断し、runtime-dependency-
+  switching-design.mdに5節を追加してフェーズ238の次回候補を解消した(コード変更なし、
+  文書修正のみ)。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(207件)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件)・`python3 schema/validate_test_cases.py`(32件)をいずれも実行し、変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-17 15:00 UTC(フェーズ243: Firestore接続フラグの命名規則が全5venture
+  間で既に一致していることを確認し、フェーズ238の次回候補(横展開)を解消)
