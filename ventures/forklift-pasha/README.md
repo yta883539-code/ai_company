@@ -3186,3 +3186,25 @@
   存在しないため、連絡不能候補は恒久的に対象外とする本venture固有の方針を明記。
   deletion-candidate-query-consolidation-decision.mdを新規作成し、複合インデックス#3を追加。
   コード変更なし、全18ファイル中18件成功)
+- フェーズ164(2026-10-17 07:00 UTC定例更新): フェーズ160/162の次回候補を受け、
+  `FleetOperatorStoreProtocol`の残りグループ`deletion_confirmation_sent_at`・
+  `deletion_confirmation_unreachable_at`・`deletion_confirmation_unreachable_reason`
+  (計6メソッド、「削除候補系グループ」)の実Firestore接続アダプタ設計に着手した。
+  `sent_at`・`unreachable_at`はそれぞれ単純なフィールドupdate(両者は送達成功/失敗で
+  排他的に設定されるため特別な整合性制御は不要)、`unreachable_reason`は
+  フェーズ162の`canceled_at`と同じ理由で`null`書き込み案(`DELETE_FIELD`は使わない)を
+  採用した。フェーズ163の決定(連絡不能候補に自然復帰イベントがなくクリア経路が存在しない)
+  により、本グループに`clear_*()`相当のメソッドは不要であることを確認した。これで
+  `FleetOperatorStoreProtocol`全メソッドの机上設計(フェーズ160〜164)が完了した。
+  deletion-confirmation-sent-unreachable-firestore-adapter-design.mdを新規作成。
+  コード変更なし、`python3 prototype/run_all_tests.py`で全18ファイル中18件成功
+  (回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture
+  (course-set-pasha等、firestore-composite-index-plan.md自体の新設を含む横展開)への
+  同種設計の展開、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 07:00 UTC(フェーズ164: `FleetOperatorStoreProtocol`最後の残り
+  グループ〈`deletion_confirmation_sent_at`・`unreachable_at`・`unreachable_reason`の
+  計6メソッド〉の実Firestore接続アダプタ設計に着手し、全メソッドの机上設計を完了。
+  deletion-confirmation-sent-unreachable-firestore-adapter-design.mdを新規作成。
+  コード変更なし、全18ファイル中18件成功)
