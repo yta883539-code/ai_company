@@ -740,4 +740,97 @@ line-reservation-aiの`stripe-customer-id-reverse-lookup-design.md` 2節・
    306で確認済み。forklift-pashaはStripe連携コード自体が未着手のため非該当〈同フェーズ306で
    確認済み〉。本フェーズの対象であった本venture自身が最後の未対応箇所だったため、本横展開は
    本フェーズで完結し新たな次回候補は無い)。
-3. 他venture・アイデア領域の前進。
+3. 16節の「本venture自身で把握している全Protocolの実Firestore接続アダプタ設計が完了した」
+   という結論は誤りで、`UsageCounterProtocol`(`cloud_function_webhook.py`、
+   `UserProfileStoreProtocol`等とは別モジュールに定義)が対象から漏れていた(フェーズ301で
+   発見・README.md次回候補に記録)。19節で着手する。
+
+## 19. UsageCounterProtocol(get_count/incrementグループ)の実Firestore接続アダプタ設計
+
+### 19.1. 背景・範囲
+
+`UsageCounterProtocol`(`cloud_function_webhook.py`296行目)は`get_count`/`increment`の
+基本2メソッドに加え、`AtomicNoticeUsageCounterProtocol.increment_and_mark_notice`
+(478行目)・`set_trial_start_at_if_unset`等、既出の`UserProfileStoreProtocol`(5〜17節)
+より多くのメソッド群を持つ。本venture固有の`InMemoryUsageCounter`はこれらを複数の
+`dict`に分けて保持しているが、`AtomicNoticeUsageCounterProtocol`のクラスdocstring
+(「usage_counterとfirst_generation_notice_storeが同一ドキュメント(同一インスタンス)を
+表す場合にのみ実装される」)が示す通り、実Firestoreでは全フィールドが`usage_counter/
+{user_id}`の単一ドキュメントに同居する設計である(kura-pashaの`workshop_id`単位の
+`usage_counter/{workshop_id}`〈month・countの2フィールドのみ〉と同型だが、本venture
+では同一ドキュメントに積む付随フィールドがより多い)。本venture自身の`UserProfileStore
+Protocol`と同じ「最小の関連グループから着手する」方針(5節)に倣い、本フェーズは最も
+基本的な`get_count`/`increment`(月次カウント)ペアのみを対象とし、`increment_and_mark_
+notice`等の原子的な複合書き込みメソッドは次回候補とする。実Firestoreプロジェクトへの
+接続自体はpending-approval.md記載の承認待ちのため、本フェーズもコード変更・外部アカウント
+作成のいずれも行わない設計文書止まりである。
+
+### 19.2. ドキュメント構造
+
+`usage_counter/{user_id}`ドキュメントに`month`(文字列、`current_month_jst()`形式の
+`"YYYY-MM"`)・`count`(整数)の2フィールドを持たせる。`get_count(user_id, month)`は
+ドキュメントの`month`フィールドが引数`month`と一致する場合のみ`count`を返し、不一致
+(月が変わった)・ドキュメント未存在のいずれも`0`を返す。`InMemoryUsageCounter`が
+`(user_id, month)`をキーとする別々のエントリとして持つ挙動(新しい月は常に`0`から
+始まる)と、単一ドキュメント+`month`フィールド比較による「月が変わっていれば実質0」
+という扱いは、観測可能な振る舞いとして等価である(kura-pashaのworkshop版と同じ設計上の
+対応関係)。
+
+```python
+class FirestoreUsageCounter:
+    """UsageCounterProtocolの実Firestore接続実装(get_count/incrementの基本2メソッドのみ)。
+    usage_counter/{user_id}ドキュメントのmonth・countフィールドを読み書きする。
+    """
+
+    def __init__(self, firestore_client) -> None:
+        self._collection = firestore_client.collection("usage_counter")
+
+    def get_count(self, user_id: str, month: str) -> int:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return 0
+        data = snapshot.to_dict() or {}
+        if data.get("month") != month:
+            return 0
+        return data.get("count", 0)
+
+    def increment(self, user_id: str, month: str) -> int:
+        doc_ref = self._collection.document(user_id)
+
+        @firestore.transactional
+        def _increment_in_transaction(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() or {} if snapshot.exists else {}
+            count_before = data.get("count", 0) if data.get("month") == month else 0
+            count_after = count_before + 1
+            transaction.set(doc_ref, {"month": month, "count": count_after})
+            return count_after
+
+        transaction = self._collection._client.transaction()
+        return _increment_in_transaction(transaction)
+```
+
+### 19.3. 原子性の課題(kura-pashaフェーズ212と同種の懸念)
+
+`get_count`を先に呼び、Python側で`+1`した値を`set`で書き戻す素朴な実装では、
+kura-pashaの`usage_counter-provider-adapter-design.md`3節で指摘された
+read-modify-write競合がそのまま再現する(同一user_idから短時間に複数のメッセージが
+連投された場合、2つの生成リクエストが同じ`count_before`を読んでそれぞれ`count_before+1`
+を書き込み、1回分の利用が記録から失われる)。`increment()`の戻り値(インクリメント後の
+カウント値)は`limit-approaching-notification-design.md`のプラン別閾値判定にそのまま
+使われるため、戻り値が不正確だと閾値到達通知の送信漏れ・重複送信に直結する。本節の
+コード例では`@firestore.transactional`で読み取り→計算→書き込みを1トランザクションに
+閉じ込め、kura-pashaフェーズ212の`increment_or_reset`と同じ考え方で対応した。
+
+### 19.4. 次回候補(19節分)
+
+1. `increment_and_mark_notice`(`count`増分・`first_generation_notice_sent`更新・
+   `trial_start_at`設定を単一書き込みに相乗りさせる原子的メソッド)の実Firestore接続
+   アダプタ設計。本節の`increment()`と同じトランザクション内に`first_generation_
+   notice_sent`・`trial_start_at`フィールドへの書き込みを追加する形になる見込み。
+2. `set_trial_start_at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_
+   notified_at・trial_generation_count・trial_area_count・payment_failure系・
+   subscription系、計10メソッド超)の実Firestore接続アダプタ設計。
+3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装
+   自体は、実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+4. 他venture・アイデア領域の前進。

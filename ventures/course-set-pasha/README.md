@@ -5141,3 +5141,21 @@
   firestore.indexes.jsonを新設。本venture固有の`user_profile`/`usage_counter`の2コレクション
   構成を確認した上で複合インデックス4件を集約し、deployment-runbook.mdを更新。コード変更なし、
   テスト761件・schema検証21件パス)
+- フェーズ302(2026-10-17 06:00 UTC定例更新): フェーズ301の次回候補(2)を受け、
+  `UsageCounterProtocol`(`cloud_function_webhook.py`、`UserProfileStoreProtocol`とは
+  別モジュール定義のため16節の「全Protocol完了」宣言から漏れていた)の実Firestore接続
+  アダプタ設計に着手した。最小の`get_count`/`increment`ペアのみを対象とし、
+  `usage_counter/{user_id}`ドキュメント(month・countの2フィールド)への読み書きを設計した
+  (firestore-provider-adapter-design.md 19節)。`increment()`はkura-pashaフェーズ212と
+  同種のread-modify-write競合(閾値通知判定に使う戻り値の不正確化リスク)があるため、
+  `@firestore.transactional`で読み取り→計算→書き込みを1トランザクションに閉じ込める設計
+  とした。コード変更なし、`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (761件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`increment_and_mark_notice`等の残りメソッド群の実Firestore接続アダプタ設計、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 06:00 UTC(フェーズ302: `UsageCounterProtocol`の`get_count`/
+  `increment`ペアの実Firestore接続アダプタ設計に着手。`@firestore.transactional`による
+  read-modify-write競合対応を設計。コード変更なし、テスト761件・schema検証21件パス)
