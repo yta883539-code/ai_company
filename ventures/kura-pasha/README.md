@@ -5374,3 +5374,29 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   から承認された場合はその着手を最優先、(2)forklift-pashaの決定doc(フェーズ163)の
   「kura-pashaは連絡不能概念自体を持たない」という誤記自体の訂正、(3)他venture・
   アイデア領域の前進。
+- 最終更新: 2026-10-17 11:00 UTC(フェーズ241: フェーズ240次回候補(2)の確認過程で
+  forklift-pashaフェーズ163決定docの「kura-pashaは連絡不能概念自体を持たない」という誤記を
+  発見・訂正。本venture自身にも`clear_deletion_confirmation_unreachable_at()`を新設し
+  `process_follow_event()`に配線。テスト1件追加、355件・19ファイル・schema検証32件パス)
+- フェーズ242(2026-10-17 12:00 UTC定例更新): フェーズ241の次回候補(2)「forklift-pasha
+  の決定doc(フェーズ163)の誤記訂正」に着手しようとしたところ、git log(コミット4c9c950
+  の差分)を確認した結果、実際にはフェーズ241自身の作業の中で既にforklift-pasha側の
+  deletion-candidate-query-consolidation-decision.mdの該当箇所(「kura-pashaは連絡不能
+  概念自体を持たない」との記載)を訂正済みであったことが判明した。フェーズ241のREADME
+  記述(本文・次回候補リストの双方)がこの訂正実施を反映しておらず、既に完了していた
+  作業を未着手の次回候補として残してしまっていた記述漏れだったため、本フェーズでは
+  コード変更・新規設計は行わず、次回候補リストから該当項目を削除して記述を整合させる
+  のみとした(なおforklift-pasha側の訂正内容自体に誤りはなく、再修正の必要はない)。
+  あわせて、フェーズ241のエントリ末尾に「最終更新」行が記載されていなかった(定例の
+  記載漏れ)ため上記で補った。コード変更なし、文書修正のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(207件)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件)・
+  `python3 schema/validate_test_cases.py`(32件)をいずれも実行し、変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-17 12:00 UTC(フェーズ242: フェーズ241のREADME記述に、同フェーズ内で
+  既に完了していたforklift-pasha決定docの誤記訂正が反映されていなかった記述不整合を発見し
+  修正。次回候補リストから完了済み項目を削除、フェーズ241の最終更新行の記載漏れも補った。
+  コード変更なし)
