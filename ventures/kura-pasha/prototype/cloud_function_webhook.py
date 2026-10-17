@@ -47,6 +47,7 @@ from checkout_session import (
     parse_start_checkout_postback_data,
 )
 from blocked_but_billing_owner_notification import clear_blocked_but_billing_owner_notified_at
+from deletion_candidate_final_confirmation import clear_deletion_confirmation_unreachable_at
 from chatbot_intent_router import (  # noqa: E402
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     append_faq_followup_hint,
@@ -331,7 +332,10 @@ def process_follow_event(
        `workshop_store`も渡されている場合、この再フォロー時に
        `clear_blocked_but_billing_owner_notified_at()`を呼び、当該workshopの
        オーナー通知済みフラグをクリアする(再ブロック時に再度通知できるようにするため)。
-       `workshop_store`省略時は従来通りクリアをスキップする(後方互換)。
+       フェーズ241で`clear_deletion_confirmation_unreachable_at()`も同時に呼ぶように
+       した(削除候補最終確認がMARK_UNREACHABLEに倒れていた場合、再フォローで解消し
+       再度LINE push経路に戻れるようにするため、aircon-pasha版と同じ考え方)。
+       `workshop_store`省略時は従来通り両方のクリアをスキップする(後方互換)。
     4. 連携コードを発行し(`workshop_linking.issue_linking_code_on_follow()`、
        `rng`未指定時は`random.Random()`)、`format_follow_welcome_message()`で
        組み立てたウェルカムメッセージを返信する。
@@ -346,9 +350,9 @@ def process_follow_event(
     if profile_store is not None and profile_store.get_workshop_id(user_id) is not None:
         profile_store.set_is_following(user_id, True)
         if workshop_store is not None:
-            clear_blocked_but_billing_owner_notified_at(
-                workshop_store, profile_store.get_workshop_id(user_id)
-            )
+            resolved_workshop_id = profile_store.get_workshop_id(user_id)
+            clear_blocked_but_billing_owner_notified_at(workshop_store, resolved_workshop_id)
+            clear_deletion_confirmation_unreachable_at(workshop_store, resolved_workshop_id)
 
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     resolved_rng = rng if rng is not None else random.Random()

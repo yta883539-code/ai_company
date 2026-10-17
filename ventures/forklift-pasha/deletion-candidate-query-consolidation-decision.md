@@ -54,8 +54,15 @@ aircon-pashaフェーズ320〜321では、LINEブロック由来の`MARK_UNREACH
 ことを意図した仕様とする(自動削除・自動再送の対象から外れるだけで、
 `list_unreachable_deletion_candidates()`によるオーナー向けレポートには引き続き残り続け、
 オーナーが対話セッションでメールアドレスの再確認依頼や個別削除可否を判断する前提は変わらない)。
-これはkura-pasha(連絡不能概念自体を持たない)・aircon-pasha(再フォローで復帰可能)とは
-異なる、本venture固有の設計判断として明記する。
+これはaircon-pasha(再フォローで復帰可能)とは異なる、本venture固有の設計判断として明記する。
+
+(訂正・kura-pashaフェーズ241): 本節は当初「kura-pashaは連絡不能概念自体を持たない」と
+記載していたが、これは誤りだった。kura-pashaも`route_deletion_candidate_confirmation()`
+で`is_following=False`時に即`MARK_UNREACHABLE`に倒す、LINEブロック由来の連絡不能概念を
+aircon-pashaと同じく持つ(kura-pashaフェーズ241で`clear_deletion_confirmation_
+unreachable_at()`配線を追加済み)。本venture(forklift-pasha)固有の論点(連絡経路が
+メール1本のみで「連絡不能状態から自然に復帰するイベント」が存在しないためクリア配線を
+設ける意義がない、という上記の結論)自体に変更はない。
 
 ## 実装方針(結合実装フェーズ向けメモ)
 

@@ -5347,3 +5347,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   candidate_final_confirmationの2段階クエリ構成の横展開調査を実施。aircon-pasha・
   course-set-pasha・forklift-pashaには同型構成が存在し統合方針が適用可能、line-reservation
   -aiは単一述語設計のため対象外であることを確認した。コード変更なし)
+- フェーズ241(2026-10-17 11:00 UTC定例更新): フェーズ240次回候補(2)「course-set-pasha・
+  forklift-pashaへの決定doc横展開」は、course-set-pashaフェーズ301(03:00 UTC)・
+  forklift-pashaフェーズ163(02:00 UTC)で既に完了済みであることを確認した(いずれも
+  decision doc新設・firestore-composite-index-plan.md/firestore.indexes.json反映済み、
+  本venture側の追加作業は不要)。
+  あわせてforklift-pashaフェーズ163の決定docが「kura-pashaは連絡不能概念自体を持たない」
+  と記録していたのが誤りであることを発見した。実際には本venture
+  (`deletion_candidate_final_confirmation.route_deletion_candidate_confirmation()`)も
+  aircon-pashaと同じく`is_following=False`で即`MARK_UNREACHABLE`に倒す、LINEブロック
+  由来の連絡不能概念を持つ。この誤りが原因で、aircon-pashaフェーズ320〜321で導入された
+  「フォロー再開時に`deletion_confirmation_unreachable_at`をクリアする」配線
+  (aircon-pashaフェーズ322でcourse-set-pasha・forklift-pasha・line-reservation-aiへの
+  横展開確認は行われたが、本ventureは当時の確認対象に含まれていなかった)が本venture
+  には未着手のまま残っていたことが判明した。
+  `deletion_candidate_final_confirmation.py`に`clear_deletion_confirmation_unreachable_at()`
+  (aircon-pasha版と同じ、workshop_id起点の「クリア配線」)を新設し、
+  `cloud_function_webhook.process_follow_event()`の再フォロー処理
+  (`clear_blocked_but_billing_owner_notified_at()`と同じ箇所)に配線した。テスト1件
+  (`test_process_follow_event_of_a_linked_user_clears_deletion_confirmation_unreachable_at`)
+  を追加し、`python3 prototype/test_cloud_function_webhook.py`(355件中355件)・
+  `python3 prototype/run_all_tests.py`(19ファイル中19件)・
+  `python3 schema/validate_test_cases.py`(32件中32件)いずれもパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナー
+  から承認された場合はその着手を最優先、(2)forklift-pashaの決定doc(フェーズ163)の
+  「kura-pashaは連絡不能概念自体を持たない」という誤記自体の訂正、(3)他venture・
+  アイデア領域の前進。

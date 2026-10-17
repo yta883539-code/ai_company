@@ -420,6 +420,37 @@ def test_process_follow_event_of_a_linked_user_clears_blocked_but_billing_owner_
     )
 
 
+def test_process_follow_event_of_a_linked_user_clears_deletion_confirmation_unreachable_at():
+    # フェーズ241: aircon-pashaフェーズ320の「クリア配線」を本ventureに横展開。
+    linking_store = InMemoryLinkingCodeStore()
+    profile_store = InMemoryUserProfileStore()
+    profile_store.link("U_REFOLLOW4", "W1")
+    profile_store.set_is_following("U_REFOLLOW4", False)
+    workshop_store = InMemoryWorkshopStore()
+    workshop_store.set_members("W1", "U_REFOLLOW4", [])
+    workshop_store.set_deletion_confirmation_unreachable_at("W1", FEB)
+    workshop_store.set_deletion_confirmation_unreachable_reason("W1", "not_following")
+    reply_client = InMemoryReplyClient()
+    event = _make_follow_event(user_id="U_REFOLLOW4")
+
+    process_follow_event(
+        event,
+        linking_store,
+        reply_client,
+        profile_store=profile_store,
+        workshop_store=workshop_store,
+    )
+
+    check(
+        "再フォローでdeletion_confirmation_unreachable_atがクリアされる",
+        workshop_store.get_deletion_confirmation_unreachable_at("W1") is None,
+    )
+    check(
+        "再フォローでdeletion_confirmation_unreachable_reasonもクリアされる",
+        workshop_store.get_deletion_confirmation_unreachable_reason("W1") is None,
+    )
+
+
 def test_process_follow_event_without_workshop_store_does_not_raise():
     # workshop_store省略時は従来通りクリアをスキップする(後方互換)。
     linking_store = InMemoryLinkingCodeStore()

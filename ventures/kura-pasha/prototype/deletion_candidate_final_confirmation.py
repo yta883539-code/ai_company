@@ -141,6 +141,50 @@ class DeletionConfirmationWorkshopStoreProtocol(Protocol):
         ...
 
 
+class DeletionConfirmationUnreachableAtReader(Protocol):
+    """`clear_deletion_confirmation_unreachable_at()`が要求する最小限のProtocol
+    (`BlockedButBillingOwnerNotifiedAtReader`と同じ考え方)。"""
+
+    def get_deletion_confirmation_unreachable_at(self, workshop_id: str) -> Optional[datetime]:
+        ...
+
+
+class DeletionConfirmationUnreachableAtStoreProtocol(
+    DeletionConfirmationUnreachableAtReader, DeletionConfirmationWorkshopStoreProtocol, Protocol
+):
+    """「クリア配線」が使う、読み書き両方を要求する合成Protocol
+    (`BlockedButBillingOwnerNotifiedAtStoreProtocol`と同じ考え方)。"""
+
+
+def clear_deletion_confirmation_unreachable_at(
+    store: DeletionConfirmationUnreachableAtStoreProtocol, workshop_id: str,
+) -> bool:
+    """kura-pashaフェーズ241: aircon-pashaフェーズ320の`clear_deletion_confirmation_
+    unreachable_at()`を本venture(識別子がworkshop_id起点である点が差分)に横展開する。
+    aircon-pashaフェーズ322の横展開確認時、本ventureは「連絡不能概念自体を持たない」と
+    誤って記録されていたが、実際には`route_deletion_candidate_confirmation()`
+    (is_following=Falseで即MARK_UNREACHABLE)によりLINEブロック由来の連絡不能概念を
+    aircon-pasha同様に持つことが判明したため、本クリア配線が未着手のまま残っていた
+    (README.mdフェーズ241参照)。
+
+    「フォロー再開」(is_followingがTrueに戻る)が起きた時点で呼ぶ
+    (`blocked_but_billing_owner_notification.clear_blocked_but_billing_owner_notified_at()`
+    と同じ「クリア配線」の考え方)。`deletion_confirmation_unreachable_at`が設定済みの
+    場合のみクリアし(`unreachable_reason`も合わせてクリアする)、変更があったかどうか
+    (True/False)を返す。未設定(そもそも連絡不能化されたことがない、または既にクリア済み)
+    の場合は何もせず`False`を返す。
+
+    呼び出し配線自体は本関数の対象外で、`cloud_function_webhook.process_follow_event()`
+    (フォロー再開、workshop_id解決後)から呼ばれる想定
+    (`clear_blocked_but_billing_owner_notified_at()`と同じ呼び出し元)。
+    """
+    if store.get_deletion_confirmation_unreachable_at(workshop_id) is None:
+        return False
+    store.set_deletion_confirmation_unreachable_at(workshop_id, None)
+    store.set_deletion_confirmation_unreachable_reason(workshop_id, None)
+    return True
+
+
 class DeletionConfirmationUserProfileStoreProtocol(Protocol):
     """本モジュールが要求する最小限のProtocol(user_profile_store側)。
     `usage_counter_workshop.UserProfileStoreProtocol`/`InMemoryUserProfileStore`は
