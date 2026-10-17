@@ -54,8 +54,10 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
 
 - 本表の各インデックスが実際にFirestoreコンソールの「クエリ実行時エラーからの自動提案」と
   一致するかは、実Firestore接続後(オーナー承認待ち)の検証課題として残る。
-- #2について、インメモリ全件走査から索引付きクエリへの切り替えタイミング(事業者数の
-  閾値等)は未確定のまま次回以降の課題とする。
+- (解消済み 2026-10-17 19:00 UTC・フェーズ166: #2・#3の2つの日次全件走査について、
+  総事業者数Nが10,000を超えた時点で索引付きクエリへの切り替えを検討するトリガーとする
+  決定を、aircon-pashaフェーズ323と同じ方法論でfull-scan-to-indexed-query-threshold-
+  decision.mdに記録した。)
 - (解消済み 2026-10-13 16:00 UTC・フェーズ151: firestore-data-model.mdのフィールド一覧
   (`fleet_operator`)に`trialEndNotifiedAt`が未反映であることに気づいた(trial-end-
   notification-design.md・prototype/trial_management.pyでは既に実装済みだが、データ
@@ -71,3 +73,8 @@ firestore-composite-index-plan.mdの構成方針(本venture全体に分散して
 削除候補最終確認クエリの統合方針決定(deletion-candidate-query-consolidation-decision.md)
 に伴い複合インデックス#3〈`deletionConfirmationSentAt`・`deletionConfirmationUnreachableAt`・
 `canceledAt`〉を追加し、`firestore.indexes.json`に反映した。コード変更なし)
+
+最終更新: 2026-10-17 19:00 UTC(フェーズ166: aircon-pashaフェーズ323の次回候補(2)を受け、
+「残る課題」に残っていた全件走査→索引付きクエリ切り替え閾値を、本venture固有の全件走査
+箇所数(2箇所、2N回/日)で再計算しN=10,000に決定(full-scan-to-indexed-query-threshold-
+decision.md新設)。コード変更なし、全18ファイル・schema検証11件いずれも変更なしでパス)

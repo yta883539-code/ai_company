@@ -3217,3 +3217,22 @@
   なし、確認のみ。次回候補: (1)承認待ち事項1・2のいずれかがオーナーから承認された場合は
   その着手を最優先、(2)10/25前後になっても承認が得られない場合、launch-readiness-
   checklist.mdに「今年度は困難」の判断切り替えを記録、(3)他venture・アイデア領域の前進。
+- フェーズ166(2026-10-17 19:01 UTC定例更新): aircon-pashaフェーズ323の次回候補(2)
+  「forklift-pashaへの全件走査→索引付きクエリ切り替え閾値決定の横展開」を受け、
+  firestore-composite-index-plan.md「残る課題」に残っていた同項目を本venture固有の
+  全件走査箇所(trial_end_email_scheduler・cloud_function_send_deletion_confirmationsの
+  2箇所、2N回/日)で再計算し、N=10,000を切り替え検討のトリガーとする決定を
+  full-scan-to-indexed-query-threshold-decision.mdに新設。firestore-composite-
+  index-plan.mdの「残る課題」も解消済みとして更新した。コード変更なし、文書追加のみの
+  ため回帰確認として`python3 prototype/run_all_tests.py`(全18ファイル中18件成功)・
+  `python3 schema/validate_test_cases.py`(11件)を実行し、いずれも変更なしでパスする
+  ことを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。承認待ち事項1(建荷協・
+  都道府県労働局への対外連絡、2026-10-05 21:00 UTC記載)は依然未承認で、フェーズ148で
+  定めた「今年度は困難」判断切り替え期限の目安(10/25前後)まで残り約8日である状況に
+  変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)10/25前後になっても承認が得られない場合、launch-readiness-checklist.mdに「今年度は
+  困難」の判断切り替えを記録、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 19:01 UTC(フェーズ166: aircon-pashaフェーズ323の横展開を受け、
+  全件走査→索引付きクエリ切り替え閾値をN=10,000に決定。コード変更なし、全18件・
+  schema検証11件パス)
