@@ -5209,3 +5209,24 @@
   first_generation_notice_sentフィールドを読み書きする薄いクラスとして設計し、本番コードの
   想定配線では実際にはincrement_and_mark_noticeに一本化され呼ばれないことを確認。20節の
   次回候補リスト重複記載も修正。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ305(2026-10-17 10:00 UTC定例更新): フェーズ304の次回候補(2)を受け、
+  `UsageCounterProtocol`の`upgraded_at`・`trial_end_notified_at`グループ(計4メソッド)の
+  実Firestore接続アダプタ設計に着手した(firestore-provider-adapter-design.md 22節)。
+  19.2節で確立した`FirestoreUsageCounter`クラスへのメソッド追加として設計し、
+  `set_upgraded_at_if_unset`は`set_trial_start_at_if_unset`と同じ「1回だけ設定」契約だが
+  Stripe Webhookのat-least-once配信による重複呼び出しのrace conditionを避けるため
+  トランザクション化、`set_trial_end_notified_at`は呼び出し元側(`select_due_trial_end_
+  notifications()`)の絞り込みに依存できるため単純な上書きとした。コード変更なし、
+  文書追加のみのため回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(761件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)
+  を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`trial_generation_count`・`trial_area_count`(increment系、原子性課題への対応が
+  必要)の実Firestore接続アダプタ設計、(3)`payment_failure`系・`subscription`系(計10
+  メソッド超)の実Firestore接続アダプタ設計、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 10:00 UTC(フェーズ305: `UsageCounterProtocol`の`upgraded_at`・
+  `trial_end_notified_at`グループ〈計4メソッド〉の実Firestore接続アダプタ設計に着手。
+  19.2節のFirestoreUsageCounterクラスへのメソッド追加として設計し、set_upgraded_at_if_
+  unsetはWebhook重複配信のrace conditionを避けるためトランザクション化、set_trial_end_
+  notified_atは単純な上書きとした。コード変更なし、テスト761件・schema検証21件パス)

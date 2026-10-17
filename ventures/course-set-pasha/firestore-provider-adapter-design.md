@@ -1014,3 +1014,101 @@ class FirestoreFirstGenerationNoticeStore:
 increment_and_mark_noticeに一本化されるため呼ばれないことを確認した。あわせて20節末尾の
 次回候補リストに残っていた記載重複〈「4. 他venture・アイデア領域の前進。」が2行〉を修正した。
 コード変更なし、設計文書のみのため回帰テストの実行対象外)
+
+## 22. UsageCounterProtocol(upgraded_at・trial_end_notified_atグループ)の実Firestore接続アダプタ設計
+
+### 22.1. 背景・範囲
+
+21.4節(1)の次回候補群のうち、本節では`set_upgraded_at_if_unset`/`get_upgraded_at`・
+`set_trial_end_notified_at`/`get_trial_end_notified_at`の計4メソッドを対象とする
+(`cloud_function_webhook.py`316〜336行目)。残る`trial_generation_count`・
+`trial_area_count`・`payment_failure`系・`subscription`系は次回候補に持ち越す。
+いずれも19.2節で確立した`usage_counter/{user_id}`ドキュメントに追加フィールドを
+積む設計であり、独立したcollectionやdocumentを新設しない点は21節の
+`FirstGenerationNoticeStoreProtocol`と同じである。本節は19.2節の`FirestoreUsageCounter`
+クラス自体にメソッドを追加する形で設計する(21節とは異なり、本節の2メソッド群は
+`UsageCounterProtocol`自身のメソッドであり別Protocolではないため)。
+
+### 22.2. 設計
+
+`upgraded_at`は`set_trial_start_at_if_unset`(20節)と同じ「既に値がある場合は上書きしない」
+冪等性を持つため、読み取り→未設定判定→書き込みをトランザクションに閉じ込める。
+`trial_end_notified_at`は`select_due_trial_end_notifications()`側(呼び出し元)で既に
+`trial_end_notified_at is None`のユーザーのみに絞り込まれる(326〜332行目のdocstring)
+ため、本メソッド自体は単純な上書きでよく、トランザクションは不要である。
+
+```python
+class FirestoreUsageCounter:
+    # ...(19.2節のget_count/increment、20節のincrement_and_mark_noticeに続けて追加)
+
+    def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
+        doc_ref = self._collection.document(user_id)
+
+        @firestore.transactional
+        def _set_if_unset(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() or {} if snapshot.exists else {}
+            if "upgraded_at" in data:
+                return
+            transaction.set(doc_ref, {"upgraded_at": upgraded_at}, merge=True)
+
+        transaction = self._collection._client.transaction()
+        _set_if_unset(transaction)
+
+    def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("upgraded_at")
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        self._collection.document(user_id).set(
+            {"trial_end_notified_at": notified_at}, merge=True,
+        )
+
+    def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("trial_end_notified_at")
+```
+
+### 22.3. 検討事項
+
+- **`set_upgraded_at_if_unset`だけトランザクションを使う理由**: `set_trial_start_
+  at_if_unset`と同じ「1回だけ設定」契約だが、本節では`increment()`等の他の書き込みと
+  同一トランザクションに相乗りさせる経路が無い(20節の`increment_and_mark_notice`とは
+  異なり、`checkout.session.completed`受信時に単独で呼ばれる)。そのため`has_sent`/
+  `mark_sent`(21節、トランザクション不要)とは異なり、読み取り→判定→書き込みの間に
+  同一user_idからの重複Webhook配信(Stripeの配信保証はat-least-onceであり再送され得る)
+  が競合する可能性があり、素朴な「`get_upgraded_at`で読んでNoneなら`set`」という
+  2回の独立呼び出しでは、ごく稀に2回の重複配信が共にNoneを読んで`upgraded_at`を
+  2回とも書き込み、2回目の書き込み時刻が1回目を上書きしてしまうrace conditionが
+  起こり得る(19.3節のカウンタ競合と同種だが、トライアル開始日時という「最初の値を
+  保持し続けるべき」フィールドでの発生のため、影響は「有料転換日時がわずかに
+  ずれて記録される」という比較的軽微な不整合に留まる)。
+- **`merge=True`を使う理由**: 20・21節と同じ理由で、`month`・`count`・
+  `first_generation_notice_sent`・`trial_start_at`等、同一ドキュメントの他フィールドを
+  消してしまわないようにする必要がある。
+- **`get_upgraded_at`/`get_trial_end_notified_at`がトランザクション不要な理由**:
+  いずれも単純な読み取りのみで、読み取った値を基に計算して書き戻す処理が無いため。
+
+### 22.4. 次回候補(22節分)
+
+1. 残る`trial_generation_count`・`trial_area_count`の実Firestore接続アダプタ設計
+   (いずれも`increment_*`系で19.3節と同種の原子性課題への対応が必要)。
+2. `payment_failure`系・`subscription`系(計10メソッド超)の実Firestore接続アダプタ設計。
+3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+4. 他venture・アイデア領域の前進。
+
+最終更新: 2026-10-17 10:00 UTC(フェーズ305: 21節次回候補(1)を受け、
+`UsageCounterProtocol`の`upgraded_at`・`trial_end_notified_at`グループ(計4メソッド)の
+実Firestore接続アダプタを設計。19.2節の`FirestoreUsageCounter`クラスへのメソッド追加
+として設計し、`set_upgraded_at_if_unset`は重複Webhook配信によるrace conditionを避けるため
+トランザクション化、`set_trial_end_notified_at`は呼び出し元側の絞り込みに依存して単純な
+上書きとした。コード変更なし、文書追加のみのため回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(761件)・
+`python3 schema/validate_test_cases.py`(21件)を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。承認が必要なアクションは発生していないためpending-approval.mdへの
+追記なし)
