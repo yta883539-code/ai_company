@@ -5230,3 +5230,26 @@
   19.2節のFirestoreUsageCounterクラスへのメソッド追加として設計し、set_upgraded_at_if_
   unsetはWebhook重複配信のrace conditionを避けるためトランザクション化、set_trial_end_
   notified_atは単純な上書きとした。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ306(2026-10-17 14:00 UTC定例更新): フェーズ305の次回候補(2)を受け、
+  `UsageCounterProtocol`の`trial_generation_count`・`trial_area_count`グループ
+  (計4メソッド)の実Firestore接続アダプタ設計に着手した(firestore-provider-adapter-
+  design.md 23節)。19.2節で確立した`FirestoreUsageCounter`クラスへのメソッド追加として
+  設計し、両方とも19.3節と同種のread-modify-write競合(短時間の連投による1回分の
+  カウント消失。`trial_generation_count`は通知文言に直接使われるため影響大)を避けるため
+  トランザクション化した。`increment_trial_area_count`は他の`increment_*`系と異なり
+  固定`+1`ではなく可変の引数`area_count`を加算する点のみ設計上の差異があるが、排他制御
+  自体は同型で対応できることを確認した。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(761件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)`payment_failure`系・
+  `subscription`系(計10メソッド超)の実Firestore接続アダプタ設計、(3)トライアル再開
+  (2回目以降)時の両カウンタの扱い(リセットか累計維持か)の検討、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-17 14:00 UTC(フェーズ306: `UsageCounterProtocol`の
+  `trial_generation_count`・`trial_area_count`グループ〈計4メソッド〉の実Firestore接続
+  アダプタ設計に着手。19.2節のFirestoreUsageCounterクラスへのメソッド追加として設計し、
+  両方とも19.3節と同種のrace conditionを避けるためトランザクション化
+  (increment_trial_area_countは可変のarea_countを加算)。コード変更なし、
+  テスト761件・schema検証21件パス)

@@ -1112,3 +1112,119 @@ class FirestoreUsageCounter:
 `python3 schema/validate_test_cases.py`(21件)を実行しいずれも変更なしでパスすることを
 確認した(回帰なし)。承認が必要なアクションは発生していないためpending-approval.mdへの
 追記なし)
+
+## 23. UsageCounterProtocol(trial_generation_count・trial_area_countグループ)の実Firestore接続アダプタ設計
+
+### 23.1. 背景・範囲
+
+22.4節の次回候補(1)を受け、`increment_trial_generation_count`/`get_trial_generation_count`・
+`increment_trial_area_count`/`get_trial_area_count`の計4メソッドを対象とする
+(`cloud_function_webhook.py`338〜364行目)。両カウンタは`trial-end-notification-design.md`
+3節の通知文言(「投稿文生成: ○回」「エリア更新: ○件」)に使うトライアル期間限定の累計値で、
+月次でリセットされる`get_count`/`increment`(19節、Stripe請求・上限判定用)とは別に、
+`trial_start_at`〜通知時点の期間をまたいで月境界の影響を受けずに積み上げる契約である
+(338〜342行目docstring)。いずれも未実装でも`hasattr()`判定により後方互換的にスキップされる
+設計(フェーズ109以前の単純化式へのフォールバック)のため、本節で設計するアダプタが
+未配線の間も既存の通知処理自体は壊れない。19節と同じく`usage_counter/{user_id}`
+ドキュメントに追加フィールドを積む設計であり、19.2節の`FirestoreUsageCounter`クラスへの
+メソッド追加として設計する。実Firestoreプロジェクトへの接続自体はpending-approval.md記載の
+承認待ちのため、本フェーズもコード変更・外部アカウント作成のいずれも行わない設計文書止まりである。
+
+### 23.2. 設計
+
+両メソッドとも「インクリメント後の累計値を返す」契約(343行目・357行目)であり、19.3節で
+`increment()`に適用したread-modify-write競合対策がそのまま当てはまる。`increment_trial_
+area_count`は加算量が固定の`+1`ではなく引数`area_count`(1回の生成におけるhistory_rowsの
+要素数)であるため、トランザクション内で読み取った現在値に`area_count`を加算する形に
+する。`get_*`側は単純な読み取りのみで計算を伴わないため、19.2節の`get_count`と同じく
+トランザクション不要である。
+
+```python
+class FirestoreUsageCounter:
+    # ...(19.2節のget_count/increment、20〜22節の各メソッドに続けて追加)
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        doc_ref = self._collection.document(user_id)
+
+        @firestore.transactional
+        def _increment_in_transaction(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() or {} if snapshot.exists else {}
+            count_after = data.get("trial_generation_count", 0) + 1
+            transaction.set(
+                doc_ref, {"trial_generation_count": count_after}, merge=True,
+            )
+            return count_after
+
+        transaction = self._collection._client.transaction()
+        return _increment_in_transaction(transaction)
+
+    def get_trial_generation_count(self, user_id: str) -> int:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return 0
+        return (snapshot.to_dict() or {}).get("trial_generation_count", 0)
+
+    def increment_trial_area_count(self, user_id: str, area_count: int) -> int:
+        doc_ref = self._collection.document(user_id)
+
+        @firestore.transactional
+        def _increment_in_transaction(transaction):
+            snapshot = doc_ref.get(transaction=transaction)
+            data = snapshot.to_dict() or {} if snapshot.exists else {}
+            count_after = data.get("trial_area_count", 0) + area_count
+            transaction.set(
+                doc_ref, {"trial_area_count": count_after}, merge=True,
+            )
+            return count_after
+
+        transaction = self._collection._client.transaction()
+        return _increment_in_transaction(transaction)
+
+    def get_trial_area_count(self, user_id: str) -> int:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return 0
+        return (snapshot.to_dict() or {}).get("trial_area_count", 0)
+```
+
+### 23.3. 検討事項
+
+- **両方トランザクション化する理由**: 19.3節で指摘した「同一user_idからの短時間の連投に
+  よるread-modify-write競合」は、月次カウンタ(`count`)だけでなくこの2つの専用カウンタにも
+  同様に当てはまる。特に`increment_trial_generation_count`の戻り値は`trial_end_scheduler.py`
+  側の通知文言生成に直接使われるため(339〜342行目)、競合により1回分の生成がカウントから
+  失われると、トライアル終了通知の文言(「投稿文生成: ○回」)がオーナーに過少な実績として
+  表示されてしまう。
+- **`increment_trial_area_count`の加算量が可変である点**: 19節・20〜22節の既存メソッドは
+  いずれも固定`+1`だが、本メソッドは引数`area_count`を加算する点が異なる。トランザクション
+  内で読み取った現在値に対して加算する設計のため、固定`+1`と同じ排他制御で対応でき、
+  追加の設計上の懸念は生じない。
+- **`merge=True`を使う理由**: 19〜22節と同じ理由で、`month`・`count`・
+  `first_generation_notice_sent`・`trial_start_at`・`upgraded_at`・`trial_end_notified_at`等、
+  同一ドキュメントの他フィールドを消してしまわないようにする必要がある。
+- **両カウンタに上限や月次リセットが無い点**: `trial-end-notification-design.md`の通知は
+  トライアル終了時に1回だけ送られる想定のため、`get_count`/`increment`(19節)のような
+  月境界でのリセット判定は不要で、`usage_counter/{user_id}`ドキュメントが存在する限り
+  単調増加する。トライアル再開(2回目のトライアル)の扱いは現時点のドキュストアでは
+  想定されておらず、本節の設計対象外とする(次回候補)。
+
+### 23.4. 次回候補(23節分)
+
+1. `payment_failure`系・`subscription`系(計10メソッド超)の実Firestore接続アダプタ設計
+   (本venture固有の`UsageCounterProtocol`関連で最後に残る大きなグループ)。
+2. トライアル再開(2回目以降のトライアル)時の`trial_generation_count`・`trial_area_count`の
+   扱い(リセットすべきか、累計を維持すべきか)の検討(本節で設計対象外とした残課題)。
+3. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
+   実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
+4. 他venture・アイデア領域の前進。
+
+最終更新: 2026-10-17 14:00 UTC(フェーズ306: 22節次回候補(1)を受け、
+`UsageCounterProtocol`の`trial_generation_count`・`trial_area_count`グループ(計4メソッド)の
+実Firestore接続アダプタ設計に着手。19.2節の`FirestoreUsageCounter`クラスへのメソッド追加
+として設計し、両方とも19.3節と同種のread-modify-write競合を避けるためトランザクション化
+(`increment_trial_area_count`は固定+1ではなく可変の`area_count`を加算)。コード変更なし、
+文書追加のみのため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(761件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクションは発生していないため
+pending-approval.mdへの追記なし)
