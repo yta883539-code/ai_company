@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 本venture全体でクライアント(LINEミニアプリ・ブラウザ等)からの直接アクセスは
+    // 一切想定していない。全てCloud Functions(Admin SDK)経由のサーバーサイド処理と
+    // する設計のため、全コレクションを明示的にdeny-allとする。
+    match /craftsman_workshop/{workshopId} {
+      allow read, write: if false;
+    }
+    match /stripe_customer_index/{customerId} {
+      allow read, write: if false;
+    }
+    match /user_profile/{userId} {
+      allow read, write: if false;
+    }
+    match /pending_workshop_invites/{inviteCode} {
+      allow read, write: if false;
+    }
+    match /pending_links/{linkingCode} {
+      allow read, write: if false;
+    }
+    match /usage_counter/{workshopId} {
+      allow read, write: if false;
+    }
+    // 上記6コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
+    // との二重化だが、将来コレクションが追加された際の事故防止のため明示しておく)。
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

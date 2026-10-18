@@ -5550,3 +5550,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   実コード化。design.md 5節のfail-open方針に従いTransactionConflict有限リトライ+
   フォールバックとして実装。コード変更あり〈新規2ファイル〉、テスト214件〈新規7件〉・
   355件・schema検証32件パス)
+- フェーズ249(2026-10-18 23:00 UTC定例更新): forklift-pashaフェーズ174「次回候補(3)」
+  (他venture〈kura-pasha・course-set-pasha・aircon-pasha〉へのFirestoreエミュレータ検証の
+  横展開)を受け、本venture分として着手した。firestore-security-rules-draft.md 4節が
+  「未検証・残課題」としていたFirebase Local Emulator Suiteでの検証を、forklift-pasha
+  フェーズ174・line-reservation-aiフェーズ続き332と同じ手法(デモプロジェクトID
+  `demo-kura-pasha`指定、実GCPプロジェクト・課金設定・Firebaseログインいずれも不要)で
+  実施した。本venture配下に`firebase.json`・`firestore.rules`(firestore-security-rules-
+  draft.md 2節のルール草案をそのまま配置)・`emulator-test/run_rules_check.sh`を新設し、
+  `npx firebase-tools@13 emulators:exec --project demo-kura-pasha --only firestore`経由で、
+  対象6コレクション(`craftsman_workshop`・`stripe_customer_index`・`user_profile`・
+  `pending_workshop_invites`・`pending_links`・`usage_counter`)への未認証直接書き込み
+  6件・`craftsman_workshop`への読み取り1件・想定外トップレベルコレクションへの書き込み
+  1件(`{document=**}` catch-allの検証)、計8件が全て`403 PERMISSION_DENIED`になることを
+  確認した(firestore-security-rules-emulator-verification.md新規作成)。firestore-
+  security-rules-draft.md 4節の該当記載も解消済みに更新した。本検証は支払い・アカウント
+  作成を伴わないためオーナー承認を待たずに実施した。コード変更なし(prototype配下は無変更)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(214件、変更
+  なし)・`python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナー
+  から承認された場合はその着手を最優先、(2)forklift-pashaフェーズ174の次回候補(3)の残り
+  (course-set-pasha・aircon-pashaへの同種のFirestoreエミュレータ検証の横展開)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 23:00 UTC(フェーズ249: forklift-pashaフェーズ174の次回候補(3)を
+  受け、Firestoreセキュリティルールのエミュレータ検証〈デモプロジェクトID〉を実施。
+  firestore-security-rules-emulator-verification.md新規作成、検証8件PASS。コード変更
+  なし、214件・355件・schema検証32件パス)

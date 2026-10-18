@@ -82,9 +82,13 @@ service cloud.firestore {
 
 ## 4. 未検証・残課題
 
-- 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
-  実行して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、
-  実際にエミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
+- ~~実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
+  実行して検証することは今回出来ていない(コード上の設計レビューのみ)。~~ →
+  forklift-pashaフェーズ174・line-reservation-aiフェーズ続き332と同じ手法(デモプロジェクト
+  ID`demo-kura-pasha`指定、実GCPプロジェクト・課金設定・Firebaseログインいずれも不要)で
+  フェーズ249にて解消済み(詳細はfirestore-security-rules-emulator-verification.md参照)。
+  対象6コレクションへの書き込み6件・読み取り1件・想定外コレクションへの書き込み1件、
+  計8件がいずれも`PERMISSION_DENIED`になることを確認した。
 - 他venture(course-set-pasha・forklift-pasha・line-reservation-ai)への同型(Cloud
   Functions経由のみ、クライアント直接アクセス無し)deny-allルール草案の横展開は、
   course-set-pashaフェーズ309・forklift-pashaフェーズ172・line-reservation-aiフェーズ
