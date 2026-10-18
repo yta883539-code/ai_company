@@ -84,9 +84,12 @@ kura-pasha・course-set-pasha・forklift-pasha版と同じ方針を踏襲する�
 
 ## 4. 未検証・残課題
 
-- 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで実行
-  して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、実際に
-  エミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
+- ~~実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで実行
+  して検証することは今回出来ていない~~ → フェーズ続き332で解消済み。Firebase Local
+  Emulator SuiteはデモプロジェクトID指定のみで実GCPプロジェクト無しに起動できることを
+  確認し、未認証クライアントアクセスが全て`PERMISSION_DENIED`になることを検証した
+  (詳細はfirestore-security-rules-emulator-verification.md参照)。実デプロイ(`firebase
+  deploy --only firestore:rules`)自体は実Firestoreプロジェクト作成後のため未実施。
 - 本フェーズでkura-pashaフェーズ244「次回候補(2)」(Firestoreセキュリティルール草案の
   他venture横展開、course-set-pasha・forklift-pasha・line-reservation-aiの3件)が全件
   完了した。

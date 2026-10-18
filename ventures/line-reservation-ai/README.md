@@ -6165,3 +6165,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   forklift-pasha発の「Firestoreセキュリティルール草案の他venture横展開」の最後の1件
   〈本venture分〉を完了し、firestore-security-rules-draft.mdを新規作成。コード変更なし、
   全946件・schema検証28件パス)
+- フェーズ続き332(2026-10-18 15:00 UTC定例更新): フェーズ続き331の次回候補(2)
+  「本ルール草案のFirebase Local Emulator Suiteでの検証テスト追加(実Firestoreプロジェクト
+  作成後)」に着手する前提として記載されていた「実Firestoreプロジェクト作成(オーナー承認
+  後)」が必要という前提自体を点検したところ、Firebase Local Emulator Suiteはデモ
+  プロジェクトID(`demo-line-reservation-ai`)を指定するだけで実GCPプロジェクト・課金設定
+  ・Firebaseログインのいずれも無しに起動できることを確認した。これによりオーナー承認を
+  待たずに検証を実施可能と判断し、`firebase-tools@13`(npx経由、ローカルインストールのみ)
+  でFirestore Emulatorを起動し、`firestore.rules`(firestore-security-rules-draft.md 2節
+  のルールを配置)に対して未認証のFirestore REST APIリクエスト5件
+  (`stores/{storeId}`本体・`bookingSlots`/`conversations`サブコレクションへの書き込み、
+  想定外トップレベルコレクションへの書き込み〈`document=**`catch-all〉、`stores/{storeId}`
+  本体の読み取り)を送信し、全件`403 PERMISSION_DENIED`になることを確認した
+  (firestore-security-rules-emulator-verification.mdに詳細記録、firestore-security-rules
+  -draft.md 4節の残課題も解消済みへ更新)。本検証はローカルエミュレータに対する未認証
+  リクエストの送受信のみで、支払い・アカウント作成・外部公開・送信のいずれにも該当しない
+  ため、pending-approval.mdへの追記は不要と判断した。あわせて回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(コード変更なし、回帰なし)。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)実Firestoreプロジェクト作成後、
+  本検証で使った`firebase.json`・`firestore.rules`をそのまま`firebase deploy
+  --only firestore:rules`で適用する手順をdeployment-runbook.mdに反映、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 15:00 UTC(フェーズ続き332: Firebase Local Emulator Suiteは
+  デモプロジェクトIDのみで実GCPプロジェクト無しに起動できることを確認し、
+  firestore.rules〈deny-all〉に対する未認証アクセス5件が全てPERMISSION_DENIEDになることを
+  ローカル検証、firestore-security-rules-emulator-verification.mdを新規作成。コード変更
+  なし、全946件・schema検証28件パス)
