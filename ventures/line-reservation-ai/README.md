@@ -6112,3 +6112,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   unreachable_at・unreachable_reasonの3フィールド(計6メソッド)をforklift-pashaフェーズ164
   と同じ構成でFirestoreアダプタ設計(29節に新設)。26.4節の「設計完了」記録が陳腐化していた
   ことも発見・訂正。コード変更あり、テスト4件追加、全946件・schema検証28件パス)
+- フェーズ続き330(2026-10-18 01:00 UTC定例更新): フェーズ続き329の次回候補(2)
+  「他venture『次回候補』記述の陳腐化点検」を受け、本venture自身が過去に他venture
+  (course-set-pasha)から宿題として残されていた「次回候補」が陳腐化していないかを
+  点検した。course-set-pashaフェーズ248(chatbot-first-response-feasibility.md
+  横展開検討、2026-09-23 04:00 UTC)は、本ventureについて「会話状態管理を前提とする
+  別構成のため〈単方向バッチ処理への一次受付分岐追加〉という横展開パターンは対象外、
+  別軸で既存の意図判定へのFAQ系インテント追加を検討」と次回候補に残していた。
+  しかし本venture側を確認したところ、厳守事項9(faq-escalation-boundary.md、
+  2026-07-30 18:58 UTC)の時点で既に`intent: "faq"`による店舗登録済み静的情報
+  (営業時間・定休日・住所・アクセス・駐車場の有無・支払い方法・メニュー内容等、
+  owner-settings-wireframe.mdの入力項目)の自動回答機能を実装済みであり、その後も
+  faq-response-templates.md(項目別テンプレート)・9a/9b/6番の境界整理・faq_segments
+  (複合質問の分割処理)まで発展済みであることを確認した。つまりcourse-set-pasha側の
+  提案は、提案された時点(2026-09-23)よりも約2ヶ月前(2026-07-30)の時点で本venture側
+  では既に解消済みだったことが判明した。本venture側のドキュメントに陳腐化はなかったが、
+  course-set-pasha側のchatbot-first-response-feasibility.mdフェーズ248記載が
+  古い記載のまま残っている状態であるため、次回course-set-pasha側の定例更新時に
+  是正が必要な事項として申し送る。コード変更なし、文書点検のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)course-set-pasha
+  フェーズ248記載の陳腐化是正(次回同venture定例更新時の課題として申し送り済み)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 01:00 UTC(フェーズ続き330: course-set-pashaフェーズ248
+  〈2026-09-23〉が本venture向けに残していた「既存の意図判定へのFAQ系インテント追加」
+  という次回候補は、本venture側では厳守事項9(faq-escalation-boundary.md、
+  2026-07-30)により提案時点より約2ヶ月前に既に解消済みだったことを発見。本venture側に
+  陳腐化はなし、course-set-pasha側の記載是正が必要な事項として申し送り。コード変更なし、
+  全946件・schema検証28件パス)
