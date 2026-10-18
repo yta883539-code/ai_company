@@ -5916,3 +5916,33 @@
   次回候補を受け、他venture「次回候補」記述の陳腐化点検を実施。フェーズ323の次回候補(2)
   〈forklift-pashaへの横展開〉はforklift-pashaフェーズ166で既に完了済みであることを発見し、
   firestore-composite-index-plan.mdの該当記述を是正。コード変更なし)
+- フェーズ325(2026-10-18 11:00 UTC定例更新): forklift-pashaフェーズ173の次回候補(3)
+  「他venture(kura-pasha・course-set-pasha・aircon-pasha・line-reservation-ai)でも同種の
+  『完了宣言後の追加フィールド反映漏れ』棚卸しを行う価値がある」を受け、本venture分として
+  着手した。payment_failure.py・payment_failure_reminder_scheduler.py・
+  payment_suspension_owner_notification.pyの実装を基準に、`user_profile`ドキュメントの
+  決済失敗関連5フィールド(`payment_failure_detected_at`・`payment_suspended_at`・
+  `payment_failure_reminder_sent_at`〈フェーズ143追加〉・`payment_suspension_owner_
+  notified_at`〈フェーズ255追加〉・`payment_failure_detection_notified_at`〈フェーズ274
+  追加〉)それぞれについて、firestore-provider-adapter-design.mdにget/setメソッドが
+  設計済みかを`grep`で突き合わせたところ、5フィールド全てについて該当するget/setメソッド
+  (計10メソッド)が既に同ドキュメントに反映済みであることを確認した。本venture自身は
+  firestore-data-model.mdを独立ファイルとして持たず(他venture間との違い)、フィールド
+  定義をfirestore-provider-adapter-design.md自体に統合している設計のため、forklift-pasha
+  フェーズ173のような「データモデル文書とアダプタ設計文書の不一致」という形の反映漏れは
+  構造的に起きにくいことも併せて確認した。あわせてfirestore-security-rules-draft.mdは
+  コレクション単位のdeny-all方針(フィールド単位の記載を行わない設計)であるため、本棚卸し
+  の対象外であることも確認した。結果として本venture分の反映漏れは発見されなかった
+  (他venture〈kura-pasha・course-set-pasha・line-reservation-ai〉分は未着手、次回以降の
+  候補として残る)。コード変更なし、文書修正も発生せず、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(719件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture
+  (kura-pasha・course-set-pasha・line-reservation-ai)分の同種棚卸しの実施、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 11:00 UTC(フェーズ325: forklift-pashaフェーズ173の次回候補(3)を
+  受け、本venture分の「完了宣言後の追加フィールド反映漏れ」棚卸しを実施。決済失敗関連5
+  フィールド全てについてfirestore-provider-adapter-design.mdへの反映済みを確認し、反映漏れ
+  なし。コード変更なし、全719件・schema検証25件パス)
