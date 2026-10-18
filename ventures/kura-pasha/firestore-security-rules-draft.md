@@ -85,10 +85,11 @@ service cloud.firestore {
 - 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
   実行して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、
   実際にエミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
-- 他venture(aircon-pasha・course-set-pasha・line-reservation-ai)も同型(Cloud
-  Functions経由のみ、クライアント直接アクセス無し)の設計であるため、同じdeny-all
-  方針のルール草案を横展開できる可能性がある(次回候補として記録)。forklift-pashaは
-  `web-form-ui-design.md`によりWebフォームからの入力経路を持つが、フォーム自体は
-  Cloud Functionsのエンドポイントへ送信する設計(mvp-flow-draft.md参照)であり
-  Firestoreへのクライアント直接アクセスは無い見込みのため、横展開の対象に含められる
-  可能性がある(要個別確認)。
+- 他venture(course-set-pasha・forklift-pasha・line-reservation-ai)への同型(Cloud
+  Functions経由のみ、クライアント直接アクセス無し)deny-allルール草案の横展開は、
+  course-set-pashaフェーズ309・forklift-pashaフェーズ172・line-reservation-aiフェーズ
+  続き331でそれぞれ完了済み(2026-10-18 05:00〜07:00 UTC)であることを本フェーズ
+  (フェーズ246)で確認した。これにより本venture発の横展開候補は5venture全てで完了した
+  (aircon-pashaも別途同型ルールを保持済み)。実デプロイ(Firebase Local Emulator Suite
+  での`PERMISSION_DENIED`検証を含む)は5venture共通でオーナーのFirestoreプロジェクト
+  作成承認待ちのまま残る。

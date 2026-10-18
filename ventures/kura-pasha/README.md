@@ -5461,3 +5461,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-18 05:00 UTC(フェーズ245: フェーズ244のREADMEフェーズログ記載漏れを
   補完。course-set-pashaフェーズ309によるFirestoreセキュリティルール草案横展開1件目の完了を
   31節に反映。コード変更なし、207件・355件・schema検証32件パス)
+- フェーズ246(2026-10-18 09:00 UTC定例更新): フェーズ245「次回候補(2)」で残っていた
+  forklift-pasha・line-reservation-aiへのFirestoreセキュリティルール草案横展開について、
+  両venture側を確認した結果、forklift-pashaフェーズ172(2026-10-18 06:00 UTC)・
+  line-reservation-aiフェーズ続き331(2026-10-18 07:00 UTC、いずれも本venture フェーズ245
+  〈05:00 UTC〉より後)で既に完了済み(いずれも本ventureと同型のdeny-all方針、対象コレク
+  ション数はforklift-pasha 3件・line-reservation-ai 5件)であることを確認した。
+  firestore-security-rules-draft.md「4. 未検証・残課題」に残っていた「他ventureへの横展開は
+  未着手」という記載が陳腐化していたため、5venture全てで完了済みである旨に更新した
+  (是正内容の詳細は同ドキュメント参照)。コード変更なし、文書修正のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(207件)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件)・
+  `python3 schema/validate_test_cases.py`(32件)をいずれも実行し、変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)Firestoreセキュリティルール草案自体は
+  5venture全て完了したため、次の結合実装フェーズ準備作業(フェーズ228で挙げたテストダブル
+  切り替え方式の設計)に着手する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 09:00 UTC(フェーズ246: forklift-pasha・line-reservation-aiへの
+  Firestoreセキュリティルール草案横展開が既に完了していたことを確認し、firestore-security-
+  rules-draft.mdの陳腐化した「未着手」記載を是正。5venture全ての横展開が完了。コード変更
+  なし、207件・355件・schema検証32件パス)
