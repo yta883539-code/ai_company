@@ -3370,3 +3370,30 @@
   `run_due_payment_suspension_owner_notifications()`を追加し、`cloud_function_send_
   payment_failure_reminders.py`を新規作成。テスト8件追加、全21ファイル・schema検証11件
   パス)
+- フェーズ172(2026-10-18 06:00 UTC定例更新): kura-pashaフェーズ244(workshop-store-
+  firestore-adapter-design.md 31節)・course-set-pashaフェーズ309の次回候補「Firestore
+  セキュリティルール草案の他venture横展開(course-set-pasha・forklift-pasha・
+  line-reservation-ai)」を受け、本venture分のfirestore-security-rules-draft.mdを新規
+  作成した。kura-pasha版の「未検証・残課題」が指摘していた懸念(本ventureはWebフォーム
+  からの入力経路を持つため横展開対象に含められるか要個別確認)を`prototype/form_
+  submission_flow.py`を確認して検証した結果、フォーム送信はサーバーサイド関数
+  `process_form_submission()`呼び出しとして処理され、クライアントからFirestoreへ
+  直接読み書きする経路は無いことを確認し、他venture同様のdeny-all方針が適用できると
+  判断した。firestore-data-model.mdで確定済みの3コレクション(`fleet_operator`・
+  `vehicle`・`usage_counter`)についてルール草案を作成した。実Firestoreプロジェクトの
+  作成自体はオーナー承認待ち(pending-approval.md参照)のため、本ドキュメントは草案作成
+  のみで実デプロイは行わない。コード変更なし、文書新設のみのため回帰確認として
+  `python3 prototype/run_all_tests.py`(21ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。承認待ち事項1(建荷協・
+  都道府県労働局への対外連絡)は依然未承認で、フェーズ148で定めた判断切り替え期限の目安
+  (10/25前後)まで残り約7日である状況に変化はない。次回候補: (1)承認待ち事項がオーナー
+  から承認された場合はその着手を最優先、(2)line-reservation-aiへのFirestoreセキュリティ
+  ルール草案の横展開(kura-pashaフェーズ244の次回候補、残り1件)、(3)フェーズ171の
+  次回候補(2)(firestore-data-model.md等の2フィールド反映状況点検)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 06:00 UTC(フェーズ172: kura-pasha・course-set-pashaの次回候補を
+  受け、firestore-security-rules-draft.mdを新規作成。3コレクションのdeny-allルール草案を
+  作成し、Webフォーム経由でもクライアント直接アクセスが無いことを確認。コード変更なし、
+  全21ファイル・schema検証11件パス)
