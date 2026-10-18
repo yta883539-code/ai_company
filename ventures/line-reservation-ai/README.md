@@ -6143,3 +6143,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   2026-07-30)により提案時点より約2ヶ月前に既に解消済みだったことを発見。本venture側に
   陳腐化はなし、course-set-pasha側の記載是正が必要な事項として申し送り。コード変更なし、
   全946件・schema検証28件パス)
+- フェーズ続き331(2026-10-18 07:00 UTC定例更新): kura-pashaフェーズ244・
+  course-set-pashaフェーズ309・forklift-pashaフェーズ172の次回候補「Firestoreセキュリティ
+  ルール草案の他venture横展開」の残り1件(本venture分)に着手し、
+  firestore-security-rules-draft.mdを新規作成した。checkout-initiation-flow-design.md
+  (0〜4節)によりLIFF IDトークンはCloud Functionsエンドポイント経由でのみ検証され、
+  LIFFからFirestoreへ直接アクセスする経路が無いことを確認し、course-set-pasha版と同じ
+  deny-all方針を適用した。本ventureは他3venture(個別コレクションを複数列挙)と異なり、
+  対象5コレクションの全てが`stores/{storeId}`配下のサブコレクションに閉じているため、
+  `{subcollection=**}`の再帰ワイルドカードで1ブロックにまとめられる点を構造上の差異として
+  明記した。これによりkura-pashaフェーズ244「次回候補(2)」の3件(course-set-pasha・
+  forklift-pasha・本venture)が全件完了した。コード変更なし、
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本ルール草案の
+  Firebase Local Emulator Suiteでの検証テスト追加(実Firestoreプロジェクト作成後)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 07:00 UTC(フェーズ続き331: kura-pasha・course-set-pasha・
+  forklift-pasha発の「Firestoreセキュリティルール草案の他venture横展開」の最後の1件
+  〈本venture分〉を完了し、firestore-security-rules-draft.mdを新規作成。コード変更なし、
+  全946件・schema検証28件パス)
