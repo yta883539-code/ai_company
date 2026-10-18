@@ -96,7 +96,7 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // (subscription-canceled-immediate-block-design.md
                                               // 参照)。本フィールドが本データモデル文書に
                                               // 未反映だった記載漏れをフェーズ154で発見・解消)
-  paymentFailureDetectedAt: null             // Timestamp | null。payment-failure-dunning-design.md
+  paymentFailureDetectedAt: null,            // Timestamp | null。payment-failure-dunning-design.md
                                               // (フェーズ167)。決済失敗(invoice.payment_failed)を
                                               // 検知した直近の日時。prototype/payment_failure.pyの
                                               // mark_payment_failure_detected()/
@@ -108,6 +108,20 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 「FleetOperatorStoreProtocol全メソッド設計完了」
                                               // 確定後の追加フィールドのため、本ファイルへの反映が
                                               // 漏れていた(フェーズ168で発見・解消)
+  paymentFailureReminderSentAt: null,        // Timestamp | null。payment-failure-reminder-
+                                              // scheduler-design.md(フェーズ169)。猶予期間3日前
+                                              // (検知から4日後)の顧客向けリマインドメール送信
+                                              // 成功時刻。prototype/payment_failure_reminder_
+                                              // scheduler.pyのset_payment_failure_reminder_sent_at()
+                                              // が送信成功時のみ書き込み、clear_payment_failure_
+                                              // on_success()がnull書き込みで消去(専用clearメソッド
+                                              // は無い、他フィールドと同じ方針)。未送信はnull
+  paymentSuspensionOwnerNotifiedAt: null     // Timestamp | null。同design(フェーズ169)。制限モード
+                                              // 移行時の運営者向け通知送信成功時刻。書き込み・消去の
+                                              // 方針は上記paymentFailureReminderSentAtと同じ。
+                                              // フェーズ169でコードに追加されたがフェーズ168と同種の
+                                              // 「完了宣言後の追加フィールド反映漏れ」が生じていた
+                                              // ため、本フェーズ(173)で発見・解消)
 }
 ```
 

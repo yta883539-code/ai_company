@@ -79,4 +79,39 @@ validate_test_cases.py`(11件、変更なし)を実行し、いずれも変更�
   同種の「完了宣言後の追加フィールド反映漏れ」棚卸しを行う価値がある、(4)他venture・
   アイデア領域の前進。
 
-最終更新: 2026-10-18 00:00 UTC(フェーズ168)
+## 6. 追補(フェーズ173): `payment_failure_reminder_sent_at`・`payment_suspension_owner_notified_at`の反映漏れ
+
+フェーズ171「次回候補(2)」(フェーズ169で追加された2フィールドのアダプタ反映状況点検、
+フェーズ168と同種のギャップが無いか確認)を受けて点検した結果、payment-failure-reminder-
+scheduler-design.md(フェーズ169)で`FleetOperatorStoreProtocol`に追加された
+`get_payment_failure_reminder_sent_at`/`set_payment_failure_reminder_sent_at`・
+`get_payment_suspension_owner_notified_at`/`set_payment_suspension_owner_notified_at`
+(計4メソッド)が、本ファイル(当時フェーズ168時点の内容)・firestore-data-model.mdの
+いずれにも未反映であることが判明した(firestore-data-model.mdは本フェーズで両フィールドを
+追記済み)。
+
+実装方針は1〜3節の`paymentFailureDetectedAt`と同一(単純なget/update、専用clearメソッドは
+無く`set_*(internal_id, None)`書き込みで消去、`InMemoryFleetOperatorStore`が対応する
+`Optional[datetime]`契約を既に満たしているため実装側の変更は不要)。
+
+```python
+doc_ref = self._client.collection("fleet_operator").document(internal_id)
+doc_ref.update({
+    "paymentFailureReminderSentAt": value,       # または
+    "paymentSuspensionOwnerNotifiedAt": value,   # どちらか一方を更新する呼び出しごとに分岐
+})
+```
+
+複合インデックスの要否も3節と同じ結論(本venture側の日次スケジューラ呼び出し元は
+フェーズ171で`run_due_payment_failure_reminders()`等として実装済みだが、全件列挙は
+`store.all_internal_ids()`経由であり`paymentFailureReminderSentAt`等を条件とする横断
+クエリではないため対象外)。
+
+コード変更なし、文書修正のみ。回帰確認として`python3 prototype/run_all_tests.py`
+(全21ファイル、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を
+実行し、いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・
+アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。これにより`FleetOperatorStoreProtocol`現時点の全メソッドの実Firestore接続
+アダプタ机上設計が揃った状態を維持した(フェーズ164・168に続く3回目の訂正)。
+
+最終更新: 2026-10-18 08:00 UTC(フェーズ173)

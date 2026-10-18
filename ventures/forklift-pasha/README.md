@@ -3397,3 +3397,24 @@
   受け、firestore-security-rules-draft.mdを新規作成。3コレクションのdeny-allルール草案を
   作成し、Webフォーム経由でもクライアント直接アクセスが無いことを確認。コード変更なし、
   全21ファイル・schema検証11件パス)
+- フェーズ173(2026-10-18 08:00 UTC定例更新): フェーズ171「次回候補(2)」(フェーズ169で
+  追加された`payment_failure_reminder_sent_at`・`payment_suspension_owner_notified_at`の
+  実Firestoreアダプタ反映状況点検、フェーズ168と同種のギャップが無いか確認)に着手。
+  点検の結果、この2フィールド(計4メソッド)がfirestore-data-model.md・
+  payment-failure-detected-at-firestore-adapter-design.mdのいずれにも未反映であることを
+  発見し、両ファイルに追記・追補した(実装方針は既存の`paymentFailureDetectedAt`と同一、
+  単純なget/update・専用clearメソッドは無し)。コード変更なし、文書修正のみのため回帰確認
+  として`python3 prototype/run_all_tests.py`(全21ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県
+  労働局への対外連絡)は依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25
+  前後)まで残り約7日である状況に変化はない。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)10/25前後になっても承認が得られない場合、
+  launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、(3)他venture
+  (kura-pasha・course-set-pasha・aircon-pasha・line-reservation-ai)でも同種の「完了宣言後の
+  追加フィールド反映漏れ」棚卸しを行う価値がある(フェーズ168の次回候補(3)から持ち越し)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 08:00 UTC(フェーズ173: フェーズ169追加の2フィールド・4メソッドの
+  firestore-data-model.md・アダプタ設計への反映漏れを発見・解消。コード変更なし、
+  全21ファイル・schema検証11件パス)
