@@ -78,8 +78,9 @@ service cloud.firestore {
 
 ## 4. 未検証・残課題
 
-- 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
-  実行して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、
-  実際にエミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
-- 残るline-reservation-aiへの横展開は未着手のまま次回候補とする(kura-pashaフェーズ244
-  「次回候補(2)」の3件のうち、course-set-pasha・本ventureの2件が完了し、残り1件)。
+- ~~実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
+  実行して検証することは今回出来ていない~~ → line-reservation-aiフェーズ続き332と同じ
+  手法(デモプロジェクトID指定、実GCPプロジェクト不要)でフェーズ174にて解消した。詳細は
+  firestore-security-rules-emulator-verification.md参照(5件全てPASS)。
+- ~~残るline-reservation-aiへの横展開は未着手~~ → line-reservation-aiフェーズ続き331にて
+  同venture側で新規作成済み(kura-pashaフェーズ244「次回候補(2)」の3件が全て完了)。

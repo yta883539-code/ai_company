@@ -3418,3 +3418,32 @@
 - 最終更新: 2026-10-18 08:00 UTC(フェーズ173: フェーズ169追加の2フィールド・4メソッドの
   firestore-data-model.md・アダプタ設計への反映漏れを発見・解消。コード変更なし、
   全21ファイル・schema検証11件パス)
+- フェーズ174(2026-10-18 16:00 UTC定例更新): firestore-security-rules-draft.md 4節
+  「未検証・残課題」(実Firestoreプロジェクトが無いため本ルールをFirebase Local
+  Emulator Suiteで検証できていない)を、line-reservation-aiフェーズ続き332と同じ手法
+  (デモプロジェクトID`demo-forklift-pasha`指定、実GCPプロジェクト・課金設定・Firebase
+  ログインいずれも不要)で解消した。本venture配下に`firebase.json`・`firestore.rules`・
+  `emulator-test/run_rules_check.sh`を新設し、`firebase emulators:exec --project
+  demo-forklift-pasha --only firestore`経由で未認証クライアントアクセス5件
+  (`fleet_operator`・`vehicle`・`usage_counter`各コレクションへの書き込み、想定外
+  コレクションへの書き込み、`fleet_operator`の読み取り)が全て`403 PERMISSION_DENIED`に
+  なることを確認した(firestore-security-rules-emulator-verification.md新規作成)。
+  同ドキュメントの未検証記載を解消済みとして更新し、併せて「残るline-reservation-aiへの
+  横展開」も同venture側フェーズ続き331で既に完了済みだったため解消済みと訂正した。
+  本検証は支払い・アカウント作成を伴わないためオーナー承認を待たずに実施した。コード
+  変更なし、文書新設・修正のみのため回帰確認として`python3 prototype/run_all_tests.py`
+  (全21ファイル、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を
+  実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は依然未承認で、
+  フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約7日である状況に
+  変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(2)10/25前後になっても承認が得られない場合、launch-readiness-checklist.md
+  に「今年度は困難」の判断切り替えを記録、(3)他venture(kura-pasha・course-set-pasha・
+  aircon-pasha)への同種のFirestoreエミュレータ検証の横展開(フェーズ168の次回候補(3)
+  から持ち越しの「完了宣言後の反映漏れ」棚卸しと合わせて検討)、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-18 16:00 UTC(フェーズ174: firestore-security-rules-draft.mdの
+  未検証残課題をFirebase Local Emulator Suite〈デモプロジェクトID〉で解消。
+  firestore-security-rules-emulator-verification.md新規作成、検証5件PASS。コード変更
+  なし、全21ファイル・schema検証11件パス)
