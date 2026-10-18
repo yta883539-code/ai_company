@@ -5337,3 +5337,35 @@
   `subscription_canceled_at`グループ・3種の`*_event_time`の実Firestore接続アダプタ設計を
   完了し、同Protocol全メソッドの設計が完了。コード変更なし、テスト761件・schema検証21件
   パス)
+- フェーズ311(2026-10-18 12:00 UTC定例更新): line-reservation-aiフェーズ続き330
+  (2026-10-18 01:00 UTC)が次回候補として申し送った「course-set-pashaフェーズ248記載の
+  陳腐化是正」を受け、chatbot-first-response-feasibility.md「残課題」節(79〜91行目)を
+  改めて確認した。同節は既にフェーズ248時点で、line-reservation-aiが2026-09-29
+  10:00 UTCのchatbot-first-response-architecture-comparison.mdで検証した結果として
+  「本ドキュメントが2026-09-23に検討を始めるより約2ヶ月前から、同venture既存の
+  intent-to-flow-mapping.md・faq-escalation-boundary.md・faq-response-templates.md
+  (いずれも2026-07-30作成)により同等のFAQ/エスカレーション機能を備えていた」ことを
+  明記済みであり、line-reservation-aiフェーズ続き330が厳守事項9(faq-escalation-
+  boundary.md、2026-07-30 18:58 UTC)を根拠に辿り着いた結論(約2ヶ月前〈2026-07-30〉に
+  既に解消済み)と日付・結論ともに完全に一致することを確認した。README内の「次回候補」
+  欄に同項目が繰り返し記載されていたフェーズ249〜250時点(本ファイル3872・3905・3933・
+  3956行目)は、フェーズ248の時点ではまだ横展開「可能性の確認のみ」(実際の解消確認は
+  line-reservation-ai側の2026-09-29調査が必要)だったために残っていた記載であり、
+  2026-09-29の調査完了後はフェーズ251以降の「次回候補」から自然に外れている(除去を
+  明記したフェーズ251の記述はCloud Monitoringアラート関連の別項目のみを指しており、
+  本項目については明示的な除去ログが無かったため、line-reservation-ai側がその点を
+  「記載漏れ」と誤認したものと判断した)。したがって本ventureのドキュメントに実質的な
+  陳腐化・誤りは無く、追加の修正は不要と結論し、line-reservation-aiフェーズ続き330から
+  申し送られた本項目をクローズした。コード変更は無く、文書内容の確認のみのため回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(761件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 12:00 UTC(フェーズ311: line-reservation-aiフェーズ続き330が
+  申し送った「course-set-pashaフェーズ248記載の陳腐化是正」を調査した結果、
+  フェーズ248時点の記載〈2026-09-29調査に基づく約2ヶ月前〈2026-07-30〉解消〉と
+  line-reservation-ai側の独自調査結果が日付・結論ともに一致しており、実質的な陳腐化は
+  無いと判断。追加修正不要と結論しクローズ。コード変更なし、テスト761件・schema検証21件
+  パス)
