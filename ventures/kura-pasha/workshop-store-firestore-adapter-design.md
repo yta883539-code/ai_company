@@ -1400,6 +1400,9 @@ deletion_candidate・deletion_confirmation系)の実Firestore接続アダプタ�
    草案の他venture横展開〈course-set-pasha・forklift-pasha・line-reservation-ai、
    firestore-security-rules-draft.md「未検証・残課題」参照〉、またはテストダブル切り替え
    方式の設計)を優先候補とする。
+   【追記】course-set-pashaフェーズ309(2026-10-18 05:00 UTC)で横展開1件目
+   (course-set-pasha/firestore-security-rules-draft.md新規作成)が完了済み。残るのは
+   forklift-pasha・line-reservation-aiの2件。
 2. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(28節2点目から継続)。
 3. 他venture・アイデア領域の前進。

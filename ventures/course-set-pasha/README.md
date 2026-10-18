@@ -5296,3 +5296,27 @@
   `payment_suspension_owner_notified_at`グループ〈計3メソッド〉の実Firestore接続アダプタ
   設計に着手。単純上書き+None clearで設計し、対になる相方フィールドを持たないため3メソッド
   のみで1節とした。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ309(2026-10-18 05:00 UTC定例更新): kura-pashaフェーズ244
+  (workshop-store-firestore-adapter-design.md 31節)の次回候補「Firestoreセキュリティ
+  ルール草案の他venture横展開(course-set-pasha・forklift-pasha・line-reservation-ai)」
+  を受け、本venture分のfirestore-security-rules-draft.mdを新規作成した。
+  firestore-provider-adapter-design.md・firestore.indexes.jsonで確定済みの4コレクション
+  (`usage_counter`・`user_profile`・`stripe_customer_index`・`pending_links`、
+  kura-pashaの6コレクションと異なり`craftsman_workshop`相当の独立コレクションは持たない)
+  について、kura-pasha版と同じdeny-all方針のルール草案を作成した(本venture全体が
+  Cloud Functions経由のサーバーサイド処理のみでLIFF・申込フォーム等のクライアントから
+  Firestoreへ直接読み書きする経路を持たないことを確認済み)。実Firestoreプロジェクトの
+  作成自体はオーナー承認待ち(pending-approval.md 2026-09-27 03:00 UTC等参照)のため、
+  本ドキュメントは草案作成のみで実デプロイは行わない。コード変更なし、文書新設のみの
+  ため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (761件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`subscription_canceled_at`グループ・3種の`*_event_time`の実Firestore接続アダプタ
+  設計(フェーズ308の次回候補(2)から継続)、(3)forklift-pasha・line-reservation-aiへの
+  Firestoreセキュリティルール草案の横展開(kura-pashaフェーズ244の次回候補、残り2件)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 05:00 UTC(フェーズ309: kura-pashaフェーズ244の次回候補を受け、
+  firestore-security-rules-draft.mdを新規作成。4コレクションのdeny-allルール草案を
+  kura-pasha版と同方針で設計。コード変更なし、テスト761件・schema検証21件パス)

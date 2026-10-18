@@ -5417,3 +5417,47 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   アイデア領域の前進。
 - 最終更新: 2026-10-17 15:00 UTC(フェーズ243: Firestore接続フラグの命名規則が全5venture
   間で既に一致していることを確認し、フェーズ238の次回候補(横展開)を解消)
+- フェーズ244(2026-10-17 20:01 UTC定例更新、README記載漏れを本フェーズ〈245〉で補完):
+  1節執筆時点(フェーズ216前後)のグループ分けを棚卸しし、`deletion_candidate_at`・
+  `deletion_confirmation_sent_at`・`deletion_confirmation_unreachable_at`・
+  `deletion_confirmation_unreachable_reason`の4フィールド・計8メソッドの実Firestore
+  接続アダプタ設計が、stripe-cancellation-deletion-candidate-trigger-design.md
+  (フェーズ232)・deletion-candidate-final-confirmation-design.md(フェーズ233)で
+  導入されたフィールドにもかかわらずどの設計docにも反映されていなかった記載漏れを
+  発見し、workshop-store-firestore-adapter-design.md 29節で設計した(他グループと同じ
+  `set(merge=True)`・23節のfail-open方針を踏襲)。これにより`WorkshopStoreProtocol`
+  (30件超のメソッド)の実Firestore接続アダプタ設計が全グループ完了したため、同
+  ドキュメント30節でfirestore-provider-adapter-design.md・linking-code-store-
+  firestore-adapter-design.md・invite-code-store-firestore-adapter-design.mdに残っていた
+  「`WorkshopStoreProtocol`は未着手」という記載漏れを是正した。コード変更なし、文書
+  新設・修正のみのため回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(207件)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件)・`python3 schema/validate_test_cases.py`(32件)をいずれも実行し、変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)結合実装フェーズ
+  準備作業(Firestoreセキュリティルール草案の他venture横展開、またはテストダブル
+  切り替え方式の設計)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-17 20:01 UTC(フェーズ244: `WorkshopStoreProtocol`の
+  deletion_candidate・deletion_confirmation系グループ〈4フィールド・8メソッド〉の実
+  Firestore接続アダプタ設計漏れを発見・解消し、同Protocol全グループを完了。他3ドキュメント
+  の「未着手」記載も是正。コード変更なし、207件・355件・schema検証32件パス)
+- フェーズ245(2026-10-18 05:00 UTC定例更新): フェーズ244のREADME記載漏れ
+  (workshop-store-firestore-adapter-design.md 29・30節で完了済みだった作業のフェーズ
+  ログがREADMEに追記されていなかった)を発見・補完(上記フェーズ244エントリとして追記)。
+  あわせてフェーズ244「次回候補(1)」のFirestoreセキュリティルール草案の他venture横展開
+  について、course-set-pashaフェーズ309(2026-10-18 05:00 UTC)でcourse-set-pasha分
+  (course-set-pasha/firestore-security-rules-draft.md新規作成)が完了したことを
+  workshop-store-firestore-adapter-design.md 31節に追記した(残るforklift-pasha・
+  line-reservation-aiへの横展開は未着手のまま次回候補に持ち越す)。コード変更なし、
+  文書修正のみのため回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(207件)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件)・`python3 schema/validate_test_cases.py`(32件)をいずれも実行し、変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)forklift-pasha・
+  line-reservation-aiへのFirestoreセキュリティルール草案の横展開(残り2件)、(3)他venture
+  ・アイデア領域の前進。
+- 最終更新: 2026-10-18 05:00 UTC(フェーズ245: フェーズ244のREADMEフェーズログ記載漏れを
+  補完。course-set-pashaフェーズ309によるFirestoreセキュリティルール草案横展開1件目の完了を
+  31節に反映。コード変更なし、207件・355件・schema検証32件パス)
