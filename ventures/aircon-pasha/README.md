@@ -5968,3 +5968,28 @@
   未解消事項について追加WebSearch調査を実施し、隣接領域の「5台以上」単価区分の慣行を(5)
   として追記。pricing-plan.md自体の変更は無し。コード変更なし、全719件・schema検証25件
   パス)
+- フェーズ327(2026-10-18 22:00 UTC定例更新): フェーズ325・326の次回候補(2)として
+  持ち越していた「他venture(kura-pasha・course-set-pasha・line-reservation-ai)分の
+  『完了宣言後の追加フィールド反映漏れ』棚卸し」を実施した。発端はcourse-set-pasha
+  フェーズ313(21:00 UTC)の`increment_and_mark_notice()`(count・
+  first_generation_notice_sent・trial_start_atの3フィールド単一トランザクション結合)
+  実コード化であり、同種のパターンが他venture側に反映漏れとして残っていないかを調査
+  した。結果、kura-pashaは3フィールドがそもそも別ドキュメント(usage_counter側と
+  workshop側)に分かれており結合の論点が発生しないデータモデル差異、forklift-pashaは
+  `UsageCounterStoreProtocol`の実Firestore接続アダプタ自体が未着手で時期尚早、
+  aircon-pasha自身(フェーズ281)は月替わり条件分岐が無いためFirestoreの`Increment`
+  フィールド変換を意図的に採用した別方式、line-reservation-aiは生成回数カウンター・
+  初回生成通知フラグという機能自体が存在しない、という4パターンでいずれも反映漏れに
+  該当しないことを確認した(increment-and-mark-notice-horizontal-survey.md新規作成)。
+  コード変更なし、文書追記のみのため回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(719件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)forklift-pashaの`UsageCounterStoreProtocol`実Firestore
+  接続アダプタが将来着手される際、本調査で整理した「月替わり条件分岐の有無によるトランザ
+  クション必要性」の判断基準を参照するよう申し添える、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 22:00 UTC(フェーズ327: フェーズ325・326の次回候補(2)だった
+  他venture分の「完了宣言後の追加フィールド反映漏れ」棚卸しを実施し、4venture全てで
+  反映漏れに該当しないことを確認(increment-and-mark-notice-horizontal-survey.md新規
+  作成)。コード変更なし、全719件・schema検証25件パス)
