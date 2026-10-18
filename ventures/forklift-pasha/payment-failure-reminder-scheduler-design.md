@@ -46,7 +46,16 @@ payment-failure-dunning-design.md(フェーズ167)6節「残課題」のうち�
 
 ## 3. 残課題
 
-- 実際のCloud Scheduler設定・実メール送信接続はオーナー承認待ち
-  (pending-approval.md 2026-10-10 18:00 UTC記載の範囲に含まれる)。
 - 決済失敗解消時(`clear_payment_failure_on_success()`)に本モジュールの2フラグを
-  クリアする呼び出し配線は未実装(次回候補)。
+  クリアする呼び出し配線は、フェーズ170で実装済み(`payment_failure.py`
+  `clear_payment_failure_on_success()`参照)。
+- Cloud Function/Cloud Scheduler呼び出し元は、フェーズ171で
+  `payment_failure_reminder_scheduler.run_due_payment_failure_reminders()`/
+  `run_due_payment_suspension_owner_notifications()`(`store.all_internal_ids()`による
+  全事業者列挙込みのwrapper)、およびそれらを1回のHTTPトリガーでまとめて起動する
+  `cloud_function_send_payment_failure_reminders.py`(`cloud_function_send_trial_end_emails.py`
+  と対称の依存注入構成)として実装済み。
+- 実際のCloud Scheduler設定(日次トリガーの登録)・実メール送信接続はオーナー承認待ち
+  (pending-approval.md 2026-10-10 18:00 UTC記載の範囲に含まれる)。承認・実接続までは
+  `get_payment_failure_reminder_runtime_dependencies()`がInMemory実装を返す(本番運用は
+  未開始)。

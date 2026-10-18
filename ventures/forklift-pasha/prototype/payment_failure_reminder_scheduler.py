@@ -123,6 +123,27 @@ def send_payment_failure_reminders(
     return result
 
 
+def run_due_payment_failure_reminders(
+    store: FleetOperatorStoreProtocol,
+    now: datetime,
+    email_client: EmailSenderClient,
+    grace_period_days: int = PAYMENT_FAILURE_GRACE_PERIOD_DAYS,
+    reminder_days_before_end: int = DEFAULT_REMINDER_DAYS_BEFORE_END,
+) -> SendPaymentFailureRemindersResult:
+    """design 6節「Cloud Function/Cloud Scheduler呼び出し元」が「呼び出し側が行う想定」として
+    残していた、`store.all_internal_ids()`による全事業者列挙→`send_payment_failure_reminders()`
+    のstore wiringを実装したもの(trial_end_email_scheduler.run_due_trial_end_emails()・
+    course-set-pasha/run_due_payment_failure_reminders()と対称)。"""
+    return send_payment_failure_reminders(
+        store.all_internal_ids(),
+        now,
+        store,
+        email_client,
+        grace_period_days,
+        reminder_days_before_end,
+    )
+
+
 # ---------------------------------------------------------------------------
 # 2. 運営者向け通知 (design 2節)
 # ---------------------------------------------------------------------------
@@ -187,6 +208,24 @@ def send_payment_suspension_owner_notifications(
         store.set_payment_suspension_owner_notified_at(internal_id, now)
         result.sent.append(internal_id)
     return result
+
+
+def run_due_payment_suspension_owner_notifications(
+    store: FleetOperatorStoreProtocol,
+    now: datetime,
+    email_client: EmailSenderClient,
+    owner_email: str = OWNER_NOTIFICATION_EMAIL_PLACEHOLDER,
+) -> SendPaymentSuspensionOwnerNotificationsResult:
+    """design 6節の呼び出し元が行う想定だった、`store.all_internal_ids()`による全事業者
+    列挙→`send_payment_suspension_owner_notifications()`のstore wiringを実装したもの
+    (`run_due_payment_failure_reminders()`と対称)。"""
+    return send_payment_suspension_owner_notifications(
+        store.all_internal_ids(),
+        now,
+        store,
+        email_client,
+        owner_email,
+    )
 
 
 def _demo() -> None:

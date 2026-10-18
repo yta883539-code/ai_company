@@ -7,6 +7,8 @@ from trial_management import InMemoryFleetOperatorStore
 
 from payment_failure_reminder_scheduler import (
     OWNER_NOTIFICATION_EMAIL_PLACEHOLDER,
+    run_due_payment_failure_reminders,
+    run_due_payment_suspension_owner_notifications,
     select_due_payment_failure_reminders,
     select_due_payment_suspension_owner_notifications,
     send_payment_failure_reminders,
@@ -129,6 +131,36 @@ class TestOwnerNotification(unittest.TestCase):
         self.assertEqual(result.sent, ["fo_1"])
         self.assertEqual(store.get_payment_suspension_owner_notified_at("fo_1"), NOW)
         self.assertEqual(client.sent[0][0], OWNER_NOTIFICATION_EMAIL_PLACEHOLDER)
+
+
+class TestRunDueWrappers(unittest.TestCase):
+    """フェーズ171: store.all_internal_ids()による全事業者列挙込みのwrapper
+    (run_due_payment_failure_reminders()/run_due_payment_suspension_owner_notifications())が
+    send_*()への受け渡し前に行う列挙そのものを担うことを確認する。"""
+
+    def test_run_due_payment_failure_reminders_covers_all_internal_ids(self):
+        store = InMemoryFleetOperatorStore()
+        _upgraded_with_failure(store, "fo_1", days_ago=4)
+        _upgraded_with_failure(store, "fo_2", days_ago=1)  # 未到達
+        client = InMemoryEmailSenderClient()
+
+        result = run_due_payment_failure_reminders(store, NOW, client)
+
+        self.assertEqual(result.sent, ["fo_1"])
+        self.assertEqual(store.get_payment_failure_reminder_sent_at("fo_1"), NOW)
+        self.assertIsNone(store.get_payment_failure_reminder_sent_at("fo_2"))
+
+    def test_run_due_payment_suspension_owner_notifications_covers_all_internal_ids(self):
+        store = InMemoryFleetOperatorStore()
+        _upgraded_with_failure(store, "fo_1", days_ago=9)  # 制限モード移行済み
+        _upgraded_with_failure(store, "fo_2", days_ago=4)  # 未移行
+        client = InMemoryEmailSenderClient()
+
+        result = run_due_payment_suspension_owner_notifications(store, NOW, client)
+
+        self.assertEqual(result.sent, ["fo_1"])
+        self.assertEqual(store.get_payment_suspension_owner_notified_at("fo_1"), NOW)
+        self.assertIsNone(store.get_payment_suspension_owner_notified_at("fo_2"))
 
 
 if __name__ == "__main__":

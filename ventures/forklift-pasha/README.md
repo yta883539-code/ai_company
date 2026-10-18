@@ -3338,3 +3338,35 @@
 - 最終更新: 2026-10-18 03:00 UTC(フェーズ170: `clear_payment_failure_on_success()`に
   リマインド・運営者通知の2フラグクリアを配線。テスト2件追加、全20ファイル・schema検証11件
   パス)
+- フェーズ171(2026-10-18 04:00 UTC定例更新): フェーズ170「次回候補(2)」
+  (payment-failure-reminder-scheduler-design.mdの日次バッチ呼び出し元の設計)に着手。
+  `payment_failure_reminder_scheduler.py`に`run_due_payment_failure_reminders()`・
+  `run_due_payment_suspension_owner_notifications()`の2関数を追加し(`store.
+  all_internal_ids()`による全事業者列挙込みのwrapper、`trial_end_email_scheduler.
+  run_due_trial_end_emails()`・course-set-pasha/`run_due_payment_failure_reminders()`と
+  対称)、新規`prototype/cloud_function_send_payment_failure_reminders.py`に両関数を1回の
+  HTTPトリガーでまとめて起動するCloud Functionsエントリポイント`main()`を実装した
+  (`cloud_function_send_trial_end_emails.py`と対称の依存注入構成、`runtime_dependencies`
+  省略時はInMemory実装)。実際のCloud Scheduler設定(日次トリガーの登録)・実メール送信
+  接続自体は本フェーズの対象外で、建荷協・都道府県労働局への対外連絡と同じく承認待ち事項1
+  (pending-approval.md 2026-10-10 18:00 UTC記載)の範囲に含まれるため新たな承認待ち事項
+  としては追記しない。payment-failure-reminder-scheduler-design.md 3節「残課題」を更新し、
+  フェーズ170で実装済みだった2フラグクリア配線の記載漏れも合わせて解消した。
+  `test_payment_failure_reminder_scheduler.py`に新2関数のテスト2件、新規
+  `test_cloud_function_send_payment_failure_reminders.py`(境界値テスト6件)を追加し、
+  `python3 prototype/run_all_tests.py`で全21ファイル中21件成功(新規ファイル追加につき
+  20→21)、`python3 schema/validate_test_cases.py`で11件中11件パスを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は
+  依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約7日である
+  状況に変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(2)firestore-data-model.md・payment-failure-detected-at-firestore-adapter-
+  design.mdに今回追加した`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`2フィールドの実Firestoreアダプタ反映状況の点検
+  (フェーズ168と同種のギャップが無いか確認)、(3)10/25前後になっても承認が得られない場合、
+  launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 04:00 UTC(フェーズ171: `run_due_payment_failure_reminders()`・
+  `run_due_payment_suspension_owner_notifications()`を追加し、`cloud_function_send_
+  payment_failure_reminders.py`を新規作成。テスト8件追加、全21ファイル・schema検証11件
+  パス)
