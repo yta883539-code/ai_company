@@ -3316,3 +3316,25 @@
 - 最終更新: 2026-10-18 02:00 UTC(フェーズ169: リマインド送信スケジューラ・運営者向け
   通知を設計・実装。`payment_failure_reminder_scheduler.py`新規作成、テスト13件追加、
   全20ファイル・schema検証11件パス)
+- フェーズ170(2026-10-18 03:00 UTC定例更新): フェーズ169「次回候補(2)」(決済失敗解消時
+  `clear_payment_failure_on_success()`に`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`の2フラグをクリアする呼び出しを配線)に着手。
+  `payment_failure.py`の`clear_payment_failure_on_success()`を変更し、
+  `payment_failure_detected_at`のクリアに加えて上記2フラグも同時にクリアするよう実装した
+  (次回の決済失敗サイクルでリマインド・運営者通知が再送信できる状態に戻す)。
+  `PaymentFailureStoreProtocol`に`set_payment_failure_reminder_sent_at`・
+  `set_payment_suspension_owner_notified_at`の2メソッドを追加(`InMemoryFleetOperatorStore`
+  が既存のまま構造的に満たすため実装側の変更は不要)。`test_payment_failure.py`に
+  クリア後の2フラグがNoneになることを確認するテスト2件を追加。
+  `python3 prototype/run_all_tests.py`で全20ファイル中20件成功、`python3 schema/
+  validate_test_cases.py`で11件中11件パスを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は依然未承認で、フェーズ148で
+  定めた判断切り替え期限の目安(10/25前後)まで残り約7日である状況に変化はない。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)
+  payment-failure-reminder-scheduler-design.mdの日次バッチ呼び出し元(Cloud Function/
+  Cloud Scheduler)の設計(実際の起動は承認待ち事項1と同様、外部サービスのアカウント作成・
+  課金設定を伴うため別途承認が必要になる見込み)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 03:00 UTC(フェーズ170: `clear_payment_failure_on_success()`に
+  リマインド・運営者通知の2フラグクリアを配線。テスト2件追加、全20ファイル・schema検証11件
+  パス)

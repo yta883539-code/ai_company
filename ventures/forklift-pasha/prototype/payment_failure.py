@@ -11,8 +11,10 @@
 かつ未解約(`canceled_at`未設定)の事業者のみとし、解約済みの場合は常に
 `is_subscription_canceled()`側が優先する(design 3節)。
 
-リマインド送信スケジューラ・運営者向け通知・実メール送信配線は本モジュールの対象外
-(design 6節「残課題」)。実Stripe接続・実メール送信サービス接続は引き続きオーナー
+リマインド送信スケジューラ・運営者向け通知本体(送信判定・送信処理)は
+payment_failure_reminder_scheduler.py側の対象(design 6節「残課題」(2)、フェーズ169)。
+決済成功時の2フラグクリア配線は本モジュール`clear_payment_failure_on_success()`に
+フェーズ170で追加済み。実Stripe接続・実メール送信サービス接続は引き続きオーナー
 承認待ち(pending-approval.md参照)。
 """
 
@@ -45,6 +47,16 @@ class PaymentFailureStoreProtocol(Protocol):
     def get_canceled_at(self, internal_id: str) -> Optional[datetime]:
         ...
 
+    def set_payment_failure_reminder_sent_at(
+        self, internal_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
+    def set_payment_suspension_owner_notified_at(
+        self, internal_id: str, value: Optional[datetime]
+    ) -> None:
+        ...
+
 
 def mark_payment_failure_detected(
     store: PaymentFailureStoreProtocol, internal_id: str, event_time: datetime,
@@ -65,11 +77,17 @@ def clear_payment_failure_on_success(
     """design 4・5節「決済成功による復旧時」: `invoice.payment_succeeded`受信時
     (逆引き後)に呼ぶ。`payment_failure_detected_at`が未設定(通常の毎月課金成功)の場合は
     何もせず`False`を返す。設定済みの場合はクリアして`True`を返す(呼び出し側で
-    `classify_payment_recovery()`による文言出し分けと組み合わせる)。
+    `classify_payment_recovery()`による文言出し分けと組み合わせる)。あわせて
+    `payment_failure_reminder_sent_at`・`payment_suspension_owner_notified_at`
+    (payment-failure-reminder-scheduler-design.md、フェーズ169)も同時にクリアし、
+    次回の決済失敗サイクルでリマインド・運営者通知が再送信できる状態に戻す
+    (フェーズ169時点で未配線だった「決済失敗解消時の2フラグクリア」を本フェーズで解消)。
     """
     if store.get_payment_failure_detected_at(internal_id) is None:
         return False
     store.set_payment_failure_detected_at(internal_id, None)
+    store.set_payment_failure_reminder_sent_at(internal_id, None)
+    store.set_payment_suspension_owner_notified_at(internal_id, None)
     return True
 
 

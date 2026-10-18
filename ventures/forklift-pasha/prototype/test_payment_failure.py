@@ -93,10 +93,22 @@ def main() -> int:
     ))
 
     mark_payment_failure_detected(store5, "op-5", NOW)
+    store5.set_payment_failure_reminder_sent_at("op-5", NOW)
+    store5.set_payment_suspension_owner_notified_at("op-5", NOW)
     results.append(_check("検知済み状態のクリアはTrueを返す", clear_payment_failure_on_success(store5, "op-5"), True))
     results.append(_check(
         "クリア後はpayment_failure_detected_atがNoneになる",
         store5.get_payment_failure_detected_at("op-5"),
+        None,
+    ))
+    results.append(_check(
+        "クリア後はpayment_failure_reminder_sent_atもNoneになる(フェーズ170)",
+        store5.get_payment_failure_reminder_sent_at("op-5"),
+        None,
+    ))
+    results.append(_check(
+        "クリア後はpayment_suspension_owner_notified_atもNoneになる(フェーズ170)",
+        store5.get_payment_suspension_owner_notified_at("op-5"),
         None,
     ))
 
