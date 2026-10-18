@@ -5482,3 +5482,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   Firestoreセキュリティルール草案横展開が既に完了していたことを確認し、firestore-security-
   rules-draft.mdの陳腐化した「未着手」記載を是正。5venture全ての横展開が完了。コード変更
   なし、207件・355件・schema検証32件パス)
+- フェーズ247(2026-10-18 14:00 UTC定例更新): forklift-pashaフェーズ173の次回候補(3)
+  「他venture(kura-pasha・course-set-pasha・aircon-pasha・line-reservation-ai)でも同種の
+  『完了宣言後の追加フィールド反映漏れ』棚卸しを行う価値がある」を受け、本venture分として
+  着手した(aircon-pashaフェーズ325では同棚卸しが既に完了済み・反映漏れなしを確認済み)。
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`実装を基準に、決済失敗・通知関連の
+  フィールド群(`payment_failure_detected_at`〈get/set/clear〉・
+  `payment_failure_reminder_sent_at`〈get/set〉・`trial_end_notified_at`〈get/set〉・
+  `blocked_but_billing_owner_notified_at`〈get/set〉・`payment_suspension_owner_notified_at`
+  〈get/set〉、計5フィールド・計9メソッド)それぞれについて、
+  workshop-store-firestore-adapter-design.mdにFirestore接続アダプタの実装が設計済みかを
+  `grep`で突き合わせたところ、5フィールド全て(9メソッド全て)について該当する設計(15節・
+  17節)が既に同ドキュメントに反映済みであることを確認した。あわせて、本ventureはaircon-
+  pashaと異なり`payment_suspended_at`のような別立ての状態フラグを持たず、決済失敗検知時刻
+  (`payment_failure_detected_at`)からの経過日数を都度算出して制限モード判定を行う設計方針
+  (payment-failure-dunning-design.md 3節・daily-scheduler-design.md)であることを再確認し、
+  aircon-pasha版5フィールドのうち`payment_suspended_at`・`payment_failure_detection_
+  notified_at`に相当する独立フィールドは本ventureには存在しない(設計上意図的に無い)ことも
+  確認した。結果として本venture分の反映漏れは発見されなかった(他venture〈course-set-pasha・
+  line-reservation-ai〉分は未着手、次回以降の候補として残る)。コード変更なし、文書修正も
+  発生せず、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (207件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`(355件、変更な
+  し)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture
+  (course-set-pasha・line-reservation-ai)分の同種棚卸しの実施、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-18 14:00 UTC(フェーズ247: forklift-pashaフェーズ173の次回候補(3)を
+  受け、本venture分の「完了宣言後の追加フィールド反映漏れ」棚卸しを実施。決済失敗・通知
+  関連5フィールド全てについてworkshop-store-firestore-adapter-design.mdへの反映済みを確認
+  し、反映漏れなし。コード変更なし、207件・355件・schema検証32件パス)
