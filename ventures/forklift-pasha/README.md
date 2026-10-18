@@ -3269,3 +3269,30 @@
   `payment_failure_detected_at`フィールド・`prototype/payment_failure.py`・
   `stripe_webhook.py`の2イベント配線を新設。テスト11件追加、全19ファイル・
   schema検証11件パス)
+- フェーズ168(2026-10-18 00:00 UTC定例更新): フェーズ164「`FleetOperatorStoreProtocol`
+  全メソッドの実Firestore接続アダプタ設計が完了」の確定後、フェーズ167で同Protocolに
+  追加された`get_payment_failure_detected_at`/`set_payment_failure_detected_at`が
+  firestore-data-model.md・アダプタ設計のいずれにも未反映だった欠落を、aircon-pasha・
+  line-reservation-ai側で過去に発生した同種ギャップ(完了宣言後の追加フィールド反映漏れ)
+  を踏まえた棚卸しで発見した。firestore-data-model.mdに`paymentFailureDetectedAt`
+  フィールドを追記し、payment-failure-detected-at-firestore-adapter-design.mdを新規
+  作成して`get`/`set`2メソッドの実Firestore接続アダプタを設計した(`clear_*`専用メソッドは
+  本venture元々無く、`set`へのnull書き込みで消去を表現する既存設計のため追加検討は不要)。
+  あわせてcourse-set-pasha(`subscription_canceled_at`グループ・3種の`*_event_time`、
+  フェーズ308時点で未着手と正しく記載)・kura-pasha(`WorkshopStoreProtocol`58メソッド、
+  フェーズ244の「全グループ完了」)を点検したが、いずれも記載漏れは見つからず、本venture
+  固有のギャップであることを確認した。コード変更なし、文書新設・修正のみ。
+  `python3 prototype/run_all_tests.py`(全19ファイル、変更なし)・`python3 schema/
+  validate_test_cases.py`(11件、変更なし)を実行しいずれもパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県
+  労働局への対外連絡)は依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25
+  前後)まで残り約7日である状況に変化はない。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)リマインド送信スケジューラ・運営者向け通知の設計
+  (design 6節「残課題」)、(3)10/25前後になっても承認が得られない場合、
+  launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 00:00 UTC(フェーズ168: フェーズ164の「完了」宣言後にフェーズ167で
+  追加された`payment_failure_detected_at`の反映漏れを発見・解消。firestore-data-model.md
+  追記、payment-failure-detected-at-firestore-adapter-design.md新規作成。コード変更なし、
+  全19ファイル・schema検証11件パス)

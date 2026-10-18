@@ -86,7 +86,7 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // "send_failed"(登録はあるが送信失敗)の2値。
                                               // 本フィールド追加前に記録された候補はnullのまま
                                               // (不明表示にフォールバック)
-  upgradedAt: null                           // Timestamp | null。stripe-checkout-plan-id-design.md・
+  upgradedAt: null,                          // Timestamp | null。stripe-checkout-plan-id-design.md・
                                               // stripe-webhook-entry-point-design.mdで設計、
                                               // prototype/trial_management.pyに実装済み
                                               // (get_upgraded_at/set_upgraded_at)の有料転換日時。
@@ -96,6 +96,18 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // (subscription-canceled-immediate-block-design.md
                                               // 参照)。本フィールドが本データモデル文書に
                                               // 未反映だった記載漏れをフェーズ154で発見・解消)
+  paymentFailureDetectedAt: null             // Timestamp | null。payment-failure-dunning-design.md
+                                              // (フェーズ167)。決済失敗(invoice.payment_failed)を
+                                              // 検知した直近の日時。prototype/payment_failure.pyの
+                                              // mark_payment_failure_detected()/
+                                              // clear_payment_failure_on_success()が設定・消去
+                                              // (消去はnull書き込み、専用clearメソッドは無い)。
+                                              // 猶予期間7日(PAYMENT_FAILURE_GRACE_PERIOD_DAYS)の
+                                              // 起点、is_payment_suspended()の判定に使用。未検知は
+                                              // null。フェーズ167でコードに追加されたがフェーズ164
+                                              // 「FleetOperatorStoreProtocol全メソッド設計完了」
+                                              // 確定後の追加フィールドのため、本ファイルへの反映が
+                                              // 漏れていた(フェーズ168で発見・解消)
 }
 ```
 
@@ -177,6 +189,16 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
   `canceledAt`/`upgradedAt`等の個別フィールドの組み合わせ判定に置き換えられており、実装で
   直接読み書きされていないことを確認した。これは記載漏れではなく「未使用の宣言的フィールド」
   であるため、本フェーズでは削除せず現状維持とし、次回候補として残す。)
+- (解消済み 2026-10-18 00:00 UTC・フェーズ168: フェーズ164で「FleetOperatorStoreProtocol
+  全メソッドの実Firestore接続アダプタ設計が完了」と確定した後、フェーズ167
+  (payment-failure-dunning-design.md)で同Protocolに`get_payment_failure_detected_at`/
+  `set_payment_failure_detected_at`の2メソッドが新規追加されていたが、本ファイルの
+  `fleet_operator`フィールド一覧・フェーズ164の「完了」宣言のいずれにも反映されていな
+  かった欠落を、aircon-pasha・line-reservation-ai側で同種の「完了宣言後の追加フィールド
+  反映漏れ」が過去に発生した実例を踏まえた棚卸しで発見した。`paymentFailureDetectedAt`
+  フィールドを追記し、payment-failure-detected-at-firestore-adapter-design.mdを新規作成
+  して実Firestore接続アダプタの机上設計を行った。実装・既存テストへの変更なし、文書反映
+  のみ。)
 
 最終更新: 2026-10-05 22:00 UTC(フェーズ70: tech-stack.mdの入力チャネル暫定決定〈汎用Web
 フォーム〉を受け、operator_idの割り振り方針をメールアドレス/発行式に具体化)
@@ -191,3 +213,5 @@ internal_id/accessToken分離を実ファイルに反映。`fleet_operator`の�
 次回候補の`lastAccessedAt`フィールドを`fleet_operator`に追加した)
 最終更新: 2026-10-16 04:00 UTC(フェーズ154: 記載整合性棚卸しにより`upgradedAt`フィールドの
 未反映を発見・追記。実装・既存テストへの変更なし)
+最終更新: 2026-10-18 00:00 UTC(フェーズ168: フェーズ167で追加された
+`paymentFailureDetectedAt`フィールドの未反映を発見・追記。実装・既存テストへの変更なし)
