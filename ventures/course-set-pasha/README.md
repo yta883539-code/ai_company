@@ -5320,3 +5320,20 @@
 - 最終更新: 2026-10-18 05:00 UTC(フェーズ309: kura-pashaフェーズ244の次回候補を受け、
   firestore-security-rules-draft.mdを新規作成。4コレクションのdeny-allルール草案を
   kura-pasha版と同方針で設計。コード変更なし、テスト761件・schema検証21件パス)
+- フェーズ310(2026-10-18 10:00 UTC定例更新): フェーズ309の次回候補(2)を受け、
+  `UsageCounterProtocol`の`subscription_canceled_at`グループ(3メソッド)・3種の
+  `*_event_time`(配信順序ガード用、`clear_*`を持たない)の実Firestore接続アダプタ設計に
+  着手し、firestore-provider-adapter-design.md 26節として設計した。これにより19節
+  (2026-10-13頃着手)から続けてきた`UsageCounterProtocol`全メソッドの実Firestore接続
+  アダプタ設計が完了した(`grep -n "def "`による突き合わせで設計漏れなしを確認)。
+  コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(761件、変更なし)・`python3 schema/
+  validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)他venture側での同種のProtocol全
+  メソッド設計完了確認(横展開)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 10:00 UTC(フェーズ310: `UsageCounterProtocol`の
+  `subscription_canceled_at`グループ・3種の`*_event_time`の実Firestore接続アダプタ設計を
+  完了し、同Protocol全メソッドの設計が完了。コード変更なし、テスト761件・schema検証21件
+  パス)

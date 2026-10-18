@@ -1418,3 +1418,151 @@ class FirestoreUsageCounter:
 `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
 パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
 外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし)
+
+## 26. UsageCounterProtocol(`subscription_canceled_at`グループ・3種の`*_event_time`)の実Firestore接続アダプタ設計
+
+### 26.1. 背景・範囲
+
+25.4節の次回候補(1)を受け、`cloud_function_webhook.py`418〜475行目の残り9メソッドを
+対象とする。これで`UsageCounterProtocol`に定義された全メソッドの実Firestore接続アダプタ
+設計が完了する(19節着手から本節まで、グループ単位で順に設計してきた最後のまとまり)。
+
+- `set_subscription_canceled_at`/`get_subscription_canceled_at`/
+  `clear_subscription_canceled_at`(418〜433行目、計3メソッド):
+  `customer.subscription.deleted`受信時(解約確定)に書き込み、`customer.subscription.created`
+  受信時(再契約)に消去するフラグ。
+- `set_subscription_state_event_time`/`get_subscription_state_event_time`
+  (435〜448行目、計2メソッド、`clear_*`なし): `customer.subscription.deleted`/`created`系の
+  配信順序ガード用の基準時刻。
+- `set_payment_failure_state_event_time`/`get_payment_failure_state_event_time`
+  (450〜462行目、計2メソッド、`clear_*`なし): `invoice.payment_failed`/`succeeded`
+  (dunning系)の配信順序ガード用の基準時刻。
+- `set_subscription_updated_event_time`/`get_subscription_updated_event_time`
+  (464〜475行目、計2メソッド、`clear_*`なし): `customer.subscription.updated`の配信順序
+  ガード用の基準時刻。
+
+3種の`*_event_time`はいずれも`clear_*`を持たない(docstring上も定義されていない)。
+順序ガードは「記録済みの基準時刻以前のイベントはstaleとして無視する」という単調増加の
+比較にのみ使うため、消去する必要がなく9節・19〜25節の各フラグ(`clear_*`で復旧時に
+消去する)とは性質が異なる。
+
+### 26.2. 設計
+
+9種全てが「読み取った現在値に基づく書き戻し計算を伴わない単純な上書き」契約であり
+(`set_subscription_canceled_at`は「単純な上書きでよい」、各`*_event_time`は
+`dispatch_stripe_event()`側で比較判定してから書き込む設計)、19〜25節と同じく
+トランザクションは不要である。全て19.2節で確立した`usage_counter/{user_id}`ドキュメント
+への追加フィールドとして、`FirestoreUsageCounter`クラスへのメソッド追加とする。
+
+```python
+class FirestoreUsageCounter:
+    # ...(19.2節のget_count/increment、20〜25節の各メソッドに続けて追加)
+
+    def set_subscription_canceled_at(
+        self, user_id: str, canceled_at: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"subscription_canceled_at": canceled_at}, merge=True,
+        )
+
+    def get_subscription_canceled_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_canceled_at")
+
+    def clear_subscription_canceled_at(self, user_id: str) -> None:
+        self._collection.document(user_id).set(
+            {"subscription_canceled_at": None}, merge=True,
+        )
+
+    def set_subscription_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"subscription_state_event_time": event_time}, merge=True,
+        )
+
+    def get_subscription_state_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_state_event_time")
+
+    def set_payment_failure_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"payment_failure_state_event_time": event_time}, merge=True,
+        )
+
+    def get_payment_failure_state_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "payment_failure_state_event_time"
+        )
+
+    def set_subscription_updated_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._collection.document(user_id).set(
+            {"subscription_updated_event_time": event_time}, merge=True,
+        )
+
+    def get_subscription_updated_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "subscription_updated_event_time"
+        )
+```
+
+### 26.3. 検討事項
+
+- **3種の`*_event_time`に`clear_*`を設計しない理由**: 26.1節の通り、単調増加の比較
+  (記録済み時刻以前のイベントをstaleとみなす)にのみ使い、`subscription_canceled_at`
+  グループのような「復旧時に消去すべきフラグ」ではないため、`cloud_function_webhook.py`
+  側のProtocol定義自体に`clear_*`が存在しない。本アダプタ設計もそれに合わせて`clear_*`を
+  追加しない。
+- **`merge=True`を使う理由**: 19〜25節と同じ理由で、同一ドキュメントの他フィールドを
+  消してしまわないようにする必要がある。
+- **本節で`UsageCounterProtocol`の実Firestore接続アダプタ設計が完了したことの確認**:
+  19〜26節(get_count/increment、increment_and_mark_notice、
+  upgraded_at/trial_end_notified_at、trial_generation_count/trial_area_count、
+  payment_failure_detected_at/payment_failure_reminder_sent_at、
+  payment_suspension_owner_notified_at、subscription_canceled_at/3種の`*_event_time`)
+  で`cloud_function_webhook.py`内`UsageCounterProtocol`定義の全メソッドを対象とした
+  ことを`grep -n "def "`で突き合わせ、設計漏れがないことを確認した(`AtomicNoticeUsageCounterProtocol`
+  は19.4節の既存の留保〈同一ドキュメント構成を取らない限り対象外〉を維持)。
+
+### 26.4. 次回候補(26節分)
+
+1. 実Firestore接続アダプタ(本節・21節`FirstGenerationNoticeStoreProtocol`・
+   `UserProfileStoreProtocol`分含む全Protocol)の実装自体は、実Firestoreプロジェクト接続が
+   オーナー承認待ち(pending-approval.md 2026-09-27 03:00 UTC等参照)のため引き続き着手不可。
+   承認待ち事項がオーナーから承認された場合はその着手を最優先とする。
+2. kura-pasha・aircon-pasha・forklift-pasha・line-reservation-ai側で同種の
+   `UsageCounterProtocol`(または相当するProtocol)全メソッドの設計完了確認(26.3節と
+   同種の`grep`突き合わせ)がまだ行われていない場合は、横展開の価値がある。
+3. 他venture・アイデア領域の前進。
+
+最終更新: 2026-10-18 10:00 UTC(フェーズ310: 25節次回候補(1)を受け、
+`UsageCounterProtocol`の`subscription_canceled_at`グループ(3メソッド)・3種の
+`*_event_time`(順序ガード用、`clear_*`を持たない)の実Firestore接続アダプタ設計に着手し、
+これにより19節着手から続けてきた`UsageCounterProtocol`全メソッドの実Firestore接続アダプタ
+設計が完了した。コード変更なし、文書追加のみのため回帰確認として`python3 -m unittest
+discover -s prototype -p "test_*.py"`(761件、変更なし)・`python3 schema/
+validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし)
