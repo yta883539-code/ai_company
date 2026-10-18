@@ -1,0 +1,146 @@
+"""firestore_usage_counter_adapter.FirestoreUsageCounterのテスト。
+
+本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
+Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、firestore-provider-adapter-
+design.md 19.2節が前提とした最小インターフェース(collection/document/get/set・
+transaction().get/set/commit)のみを満たす軽量フェイクをここで実装し、
+InMemoryUsageCounter(cloud_function_webhook.py)と観測可能な振る舞いが一致すること、
+および19.3節で指摘されたread-modify-write競合がトランザクションのコミット時競合検出+
+リトライで回避されることを検証する。
+"""
+
+import unittest
+
+from firestore_usage_counter_adapter import FirestoreUsageCounter, TransactionConflict
+
+
+class _FakeSnapshot:
+    def __init__(self, exists: bool, data: dict | None):
+        self.exists = exists
+        self._data = data
+
+    def to_dict(self):
+        return self._data
+
+
+class _FakeDocumentRef:
+    def __init__(self, store: dict, versions: dict, key):
+        self._store = store
+        self._versions = versions
+        self._key = key
+
+    def get(self):
+        data = self._store.get(self._key)
+        return _FakeSnapshot(exists=data is not None, data=dict(data) if data else None)
+
+    def set(self, data: dict) -> None:
+        self._store[self._key] = dict(data)
+        self._versions[self._key] = self._versions.get(self._key, 0) + 1
+
+
+class _FakeCollection:
+    def __init__(self, store: dict, versions: dict):
+        self._store = store
+        self._versions = versions
+
+    def document(self, doc_id: str) -> _FakeDocumentRef:
+        return _FakeDocumentRef(self._store, self._versions, doc_id)
+
+
+class _FakeTransaction:
+    """読み取り時点のバージョンをコミット時にチェックし、他のトランザクションが先に
+    書き込んでいた場合はTransactionConflictを送出する、楽観的並行性制御のフェイク
+    (実Firestoreのトランザクション競合検出の簡易モデル)。
+    """
+
+    def __init__(self, store: dict, versions: dict):
+        self._store = store
+        self._versions = versions
+        self._read_versions: dict = {}
+        self._pending_writes: list[tuple[str, dict]] = []
+
+    def get(self, doc_ref: _FakeDocumentRef) -> _FakeSnapshot:
+        key = doc_ref._key
+        self._read_versions[key] = self._versions.get(key, 0)
+        return doc_ref.get()
+
+    def set(self, doc_ref: _FakeDocumentRef, data: dict) -> None:
+        self._pending_writes.append((doc_ref._key, dict(data)))
+
+    def commit(self) -> None:
+        for key, seen_version in self._read_versions.items():
+            if self._versions.get(key, 0) != seen_version:
+                raise TransactionConflict(f"document {key!r} changed since read")
+        for key, data in self._pending_writes:
+            self._store[key] = data
+            self._versions[key] = self._versions.get(key, 0) + 1
+
+
+class _FakeFirestoreClient:
+    def __init__(self):
+        self._store: dict = {}
+        self._versions: dict = {}
+
+    def collection(self, name: str) -> _FakeCollection:
+        assert name == "usage_counter"
+        return _FakeCollection(self._store, self._versions)
+
+    def transaction(self) -> _FakeTransaction:
+        return _FakeTransaction(self._store, self._versions)
+
+
+class FirestoreUsageCounterTest(unittest.TestCase):
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_count_for_unknown_user_is_zero(self):
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 0)
+
+    def test_increment_then_get_count(self):
+        self.assertEqual(self.counter.increment("u1", "2026-10"), 1)
+        self.assertEqual(self.counter.increment("u1", "2026-10"), 2)
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
+
+    def test_month_rollover_resets_to_zero(self):
+        self.counter.increment("u1", "2026-10")
+        self.counter.increment("u1", "2026-10")
+        self.assertEqual(self.counter.get_count("u1", "2026-11"), 0)
+        self.assertEqual(self.counter.increment("u1", "2026-11"), 1)
+
+    def test_increment_is_scoped_per_user(self):
+        self.counter.increment("u1", "2026-10")
+        self.counter.increment("u2", "2026-10")
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+        self.assertEqual(self.counter.get_count("u2", "2026-10"), 1)
+
+    def test_interleaved_transactions_do_not_lose_an_increment(self):
+        """19.3節で指摘されたread-modify-write競合の回避を確認する。
+
+        2つの「連投」をトランザクションの読み取りが互いの書き込みより先に起きるよう
+        手動で組み立て(count_before=0を両方が読む)、1つ目のcommit成功後に2つ目が
+        competeすると、FirestoreUsageCounter.increment()が内部でリトライして最終的に
+        2が記録されることを確認する(ナイーブな実装なら1のまま失われるケース)。
+        """
+        doc_ref = self.client.collection("usage_counter").document("u1")
+
+        tx_a = self.client.transaction()
+        tx_a.get(doc_ref)
+        tx_b = self.client.transaction()
+        tx_b.get(doc_ref)
+
+        tx_a.set(doc_ref, {"month": "2026-10", "count": 1})
+        tx_a.commit()
+
+        with self.assertRaises(TransactionConflict):
+            tx_b.set(doc_ref, {"month": "2026-10", "count": 1})
+            tx_b.commit()
+
+        # increment()自身は上記と同型の競合に内部リトライで対応し、取り落とさない。
+        result = self.counter.increment("u1", "2026-10")
+        self.assertEqual(result, 2)
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

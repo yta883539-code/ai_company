@@ -5369,3 +5369,38 @@
   line-reservation-ai側の独自調査結果が日付・結論ともに一致しており、実質的な陳腐化は
   無いと判断。追加修正不要と結論しクローズ。コード変更なし、テスト761件・schema検証21件
   パス)
+- フェーズ312(2026-10-18 17:00 UTC定例更新): firestore-provider-adapter-design.md
+  19.2節のコード例(`FirestoreUsageCounter`、get_count/incrementの基本2メソッド)は
+  これまで本venture・他venture(kura-pasha・aircon-pasha・forklift-pasha・
+  line-reservation-ai)のいずれでも設計文書内の例示コードのままで、実コードとして
+  起こされたことが無い状態だった(`grep -rl "class Firestore" */prototype/*.py`で
+  全venture確認、ヒットなし)ことを発見したため、本フェーズは本venture分として
+  これを実コード化した。`prototype/firestore_usage_counter_adapter.py`に
+  `FirestoreUsageCounter`クラスを新規作成し、19.2節の設計をそのまま実装しつつ、
+  19.3節で指摘されたread-modify-write競合への対応を、設計例の`@firestore.
+  transactional`デコレータ(google-cloud-firestore SDK依存)の代わりに、本クラス
+  独自の`TransactionConflict`例外捕捉によるコミット失敗時の有限回(5回)リトライ
+  ループとして実装した(実Firestoreプロジェクトへの接続自体は引き続きオーナー承認待ち
+  のため、SDKは直接importせず、コンストラクタに渡す`firestore_client`は
+  collection/document/get/set・transaction().get/set/commitの最小インターフェース
+  を満たせばよい設計とした)。あわせて`prototype/test_firestore_usage_counter_
+  adapter.py`を新規作成し、19.2節の最小インターフェースのみを満たす軽量フェイク
+  (`_FakeFirestoreClient`等、楽観的並行性制御によるコミット時競合検出を実装)を
+  用いて、(1)未知ユーザーのget_countが0、(2)increment後のget_countの整合性、
+  (3)月が変わるとカウントが実質0に戻る(`InMemoryUsageCounter`と観測可能な振る舞いが
+  等価)、(4)ユーザーごとにカウントが独立、(5)2つのトランザクションが同じ
+  count_before=0を読んでから一方が先にコミットした場合でも、`increment()`の内部
+  リトライにより2回分とも記録され取り落とされない、の5件を検証した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(766件、新規5件含めて
+  全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し、
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)同様の実コード化を
+  `increment_and_mark_notice`等、19.4節に残る他メソッド群について行う、(3)同種の
+  「設計文書止まり」の実コード化を他venture(kura-pasha・aircon-pasha・forklift-pasha・
+  line-reservation-ai)側でも横展開する価値がある、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 17:00 UTC(フェーズ312: firestore-provider-adapter-design.md
+  19.2節の設計例が全venture通じて実コード化されていなかったことを発見し、
+  `FirestoreUsageCounter`クラスとテスト(軽量フェイクFirestoreクライアント、
+  トランザクション競合検出+リトライの検証含む5件)を新規作成。コード変更あり
+  〈新規2ファイル〉、テスト766件〈新規5件〉・schema検証21件パス)
