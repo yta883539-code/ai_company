@@ -5513,3 +5513,40 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   受け、本venture分の「完了宣言後の追加フィールド反映漏れ」棚卸しを実施。決済失敗・通知
   関連5フィールド全てについてworkshop-store-firestore-adapter-design.mdへの反映済みを確認
   し、反映漏れなし。コード変更なし、207件・355件・schema検証32件パス)
+- フェーズ248(2026-10-18 19:00 UTC定例更新): course-set-pashaフェーズ312の次回候補(3)
+  「同種の『設計文書止まり』の実コード化を他venture(kura-pasha・aircon-pasha・
+  forklift-pasha・line-reservation-ai)側でも横展開する価値がある」を受け、本venture分として
+  着手した。firestore-usage-counter-provider-adapter-design.md 5節(フェーズ226)で
+  fail-open方針まで確定済みだった`UsageCounterStoreProtocol`
+  (`get`/`set`/`increment_or_reset`)の実Firestore接続アダプタを、`grep -rl "class
+  Firestore" */prototype/*.py`で他venture同様に未着手であることを確認した上で実コード化
+  した。`prototype/firestore_usage_counter_adapter.py`に`FirestoreUsageCounterProvider`
+  クラスを新規作成し、design.md 2節の`get`/`set`(テスト向け状態検証用の非原子的メソッド)
+  に加え、design.md 5節が本流用に指定した`increment_or_reset`を実装した。設計文書の
+  コード例は`@firestore.transactional`デコレータ(google-cloud-firestore SDK依存)を前提に
+  していたが、SDKを直接importしない既存の横展開パターン(course-set-pashaフェーズ312の
+  `FirestoreUsageCounter.increment()`)に合わせ、`TransactionConflict`捕捉による有限回
+  (5回)リトライループとして実装し、最大試行回数を超えた場合はdesign.md 5節のfail-open
+  方針どおり例外を伝播させず1を返すようにした(design.mdのコード例では`except Exception:
+  return 1`で接続エラーも一括フォールバックしていた点も踏襲し、リトライループ全体を
+  try/exceptで囲んだ)。あわせて`prototype/test_firestore_usage_counter_adapter.py`を
+  新規作成し、course-set-pashaフェーズ312と同型の軽量フェイクFirestoreクライアント
+  (`_FakeFirestoreClient`等、楽観的並行性制御によるコミット時競合検出を実装)を用いて、
+  (1)未知workshopのgetがNone、(2)set→getの往復、(3)同月内のincrement_or_resetの積み上げ、
+  (4)月替わりでのリセット、(5)workshopごとにカウントが独立、(6)2つのトランザクションが
+  同じcount_before=0を読んでから一方が先にコミットした場合でも内部リトライにより2回分とも
+  記録され取り落とされない、(7)コミットが常に競合する(最大試行回数超過)場合はfail-open
+  方針どおり1を返す、の7件を検証した。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(214件、新規7件含めて全件パス)・`python3 prototype/
+  test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/validate_test_
+  cases.py`(32件、変更なし)を実行し、いずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合
+  はその着手を最優先、(2)同様の実コード化を他venture(aircon-pasha・forklift-pasha・
+  line-reservation-aiは対象Protocol自体の有無を要確認)側でも横展開する、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 19:00 UTC(フェーズ248: course-set-pashaフェーズ312の次回候補(3)を
+  受け、UsageCounterStoreProtocolの実Firestore接続アダプタ〈get/set/increment_or_reset〉を
+  実コード化。design.md 5節のfail-open方針に従いTransactionConflict有限リトライ+
+  フォールバックとして実装。コード変更あり〈新規2ファイル〉、テスト214件〈新規7件〉・
+  355件・schema検証32件パス)
