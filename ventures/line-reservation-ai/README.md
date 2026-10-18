@@ -6193,3 +6193,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   firestore.rules〈deny-all〉に対する未認証アクセス5件が全てPERMISSION_DENIEDになることを
   ローカル検証、firestore-security-rules-emulator-verification.mdを新規作成。コード変更
   なし、全946件・schema検証28件パス)
+- フェーズ続き333(2026-10-18 18:00 UTC定例更新): フェーズ続き332の次回候補(2)
+  「実Firestoreプロジェクト作成後、本検証で使ったfirebase.json・firestore.rulesをそのまま
+  `firebase deploy --only firestore:rules`で適用する手順をdeployment-runbook.mdに反映」に
+  着手した。deployment-runbook.mdステップ2(Firestore有効化・コレクション初期設定)に、
+  venture直下に既にあるfirebase.json・firestore.rules(firestore-security-rules-draft.md
+  2節のdeny-allルールそのもの、エミュレータ検証済み)を書き換えずにそのまま
+  `firebase deploy --only firestore:rules --project <実GCPプロジェクトID>`で適用する旨を
+  追記した。あわせて、エミュレータ検証で使った`demo-line-reservation-ai`というデモ
+  プロジェクトIDを本番デプロイ時に誤って流用しないよう明記した(`firebase.json`の
+  `emulators`設定はfirebase deployの対象外のため無視される点も明記)。これにより
+  `firestore:indexes`(ステップ2既存記載)と`firestore:rules`の両方のデプロイコマンドが
+  手順書に揃った。コード変更なし(ドキュメントのみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)20節(4)・27節(3)から
+  持ち越しの他venture「次回候補」記述の陳腐化点検(フェーズ続き330で発見したcourse-set-
+  pashaフェーズ248の是正はまだ未実施)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 18:00 UTC(フェーズ続き333: deployment-runbook.mdステップ2に
+  `firebase deploy --only firestore:rules`の適用手順を追記し、エミュレータ検証用デモ
+  プロジェクトIDを本番に流用しない旨も明記。コード変更なし、全946件・schema検証28件パス)

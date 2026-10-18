@@ -37,6 +37,14 @@ engine.py)は、以下の手順に沿ってそのまま接続できる設計に�
   〈フェーズ続き198〉で集約・生成済み)を`gcloud firestore deploy --only firestore:indexes`
   で先行作成する。escalationWindows・conversationsは全店舗横断のcollection groupクエリの
   ため`queryScope: COLLECTION_GROUP`の指定が必須である点に注意(詳細は同ドキュメント参照)。
+- セキュリティルールは、venture直下に既にある`firebase.json`・`firestore.rules`
+  (firestore-security-rules-draft.md 2節のdeny-allルールそのもの。Firebase Local
+  Emulator Suiteでの未認証アクセス403検証済み、firestore-security-rules-emulator-
+  verification.md参照)を書き換えずにそのまま使い、`firebase deploy --only
+  firestore:rules --project <実GCPプロジェクトID>`で適用する(`firebase.json`の
+  `emulators`設定はデプロイ対象外のため無視され、`firestore.rules`のみが反映される)。
+  承認後に初めて実GCPプロジェクトIDが確定するため、エミュレータ検証で使った
+  `demo-line-reservation-ai`をそのまま本番に流用しないこと。
 
 ### ステップ3: シークレット管理
 - LLM APIキー・LINE Channel Secret/Channel Access Tokenは環境変数に直書きせず、
