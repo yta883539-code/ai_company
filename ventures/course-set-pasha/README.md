@@ -5404,3 +5404,32 @@
   `FirestoreUsageCounter`クラスとテスト(軽量フェイクFirestoreクライアント、
   トランザクション競合検出+リトライの検証含む5件)を新規作成。コード変更あり
   〈新規2ファイル〉、テスト766件〈新規5件〉・schema検証21件パス)
+- フェーズ313(2026-10-18 21:00 UTC定例更新): フェーズ312の次回候補(2)を受け、
+  `AtomicNoticeUsageCounterProtocol.increment_and_mark_notice`
+  (firestore-provider-adapter-design.md 20節)の実Firestore接続アダプタを
+  `firestore_usage_counter_adapter.py`に追加実装した。20.3節の指摘通り、
+  `increment()`側の`@firestore.transactional`相当のトランザクションへ委譲すると
+  入れ子トランザクションになるため、count・first_generation_notice_sent・
+  trial_start_atの3フィールド更新を1つのトランザクションに展開する独立実装とした
+  (既存フィールドを消さないよう、読み取った`data`をベースに更新する`merge=True`相当の
+  書き込み)。テストを6件新規追加し、(1)countのみ増分、(2)mark_notice_sent=Falseでは
+  フィールドを立てない、(3)mark_notice_sent=Trueで`first_generation_notice_sent`を
+  立てる、(4)`trial_start_at`が未設定時のみ設定される、(5)設定済みなら上書きしない、
+  (6)既存フィールドを後続呼び出しで消さない、(7)19節と同型のトランザクション競合時の
+  取り落とし防止、を確認した。回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(773件、新規7件含めて全件パス)・`python3 schema/validate_test_
+  cases.py`(21件、変更なし)を実行しいずれもパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)`set_trial_start_at_if_unset`以降の残り全メソッド群
+  (upgraded_at・trial_end_notified_at・trial_generation_count・trial_area_count・
+  payment_failure系・subscription系、計10メソッド超)の実Firestore接続アダプタ実コード化
+  (19.4節(2)・20.4節(2)から継続)、(3)`FirstGenerationNoticeStoreProtocol`単体
+  (increment_and_mark_noticeを経由しない呼び出し経路向け)の実Firestore接続アダプタ設計
+  (20.4節(1))、(4)同種の実コード化を他venture(kura-pasha・aircon-pasha・
+  forklift-pasha・line-reservation-ai)側でも横展開する価値がある、(5)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-18 21:00 UTC(フェーズ313: firestore-provider-adapter-design.md
+  20節の設計を実コード化。`FirestoreUsageCounter.increment_and_mark_notice()`を
+  新規実装〈count・first_generation_notice_sent・trial_start_atの3フィールドを単一
+  トランザクションで更新〉。コード変更あり、テスト773件〈新規7件〉・schema検証21件パス)

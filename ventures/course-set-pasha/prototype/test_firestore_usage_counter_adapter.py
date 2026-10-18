@@ -10,6 +10,7 @@ InMemoryUsageCounter(cloud_function_webhook.py)と観測可能な振る舞いが
 """
 
 import unittest
+from datetime import datetime
 
 from firestore_usage_counter_adapter import FirestoreUsageCounter, TransactionConflict
 
@@ -138,6 +139,88 @@ class FirestoreUsageCounterTest(unittest.TestCase):
 
         # increment()自身は上記と同型の競合に内部リトライで対応し、取り落とさない。
         result = self.counter.increment("u1", "2026-10")
+        self.assertEqual(result, 2)
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
+
+
+class FirestoreUsageCounterIncrementAndMarkNoticeTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 20節(increment_and_mark_noticeグループ)の
+    実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_increments_count_like_increment(self):
+        result = self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=False
+        )
+        self.assertEqual(result, 1)
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_mark_notice_sent_false_does_not_set_field(self):
+        self.counter.increment_and_mark_notice("u1", "2026-10", mark_notice_sent=False)
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertNotIn("first_generation_notice_sent", doc)
+
+    def test_mark_notice_sent_true_sets_field(self):
+        self.counter.increment_and_mark_notice("u1", "2026-10", mark_notice_sent=True)
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertTrue(doc["first_generation_notice_sent"])
+
+    def test_trial_start_at_is_set_when_unset(self):
+        trial_start_at = datetime(2026, 10, 18, 12, 0, 0)
+        self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=False, trial_start_at=trial_start_at
+        )
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertEqual(doc["trial_start_at"], trial_start_at)
+
+    def test_trial_start_at_is_not_overwritten_once_set(self):
+        first = datetime(2026, 10, 18, 12, 0, 0)
+        second = datetime(2026, 10, 19, 9, 0, 0)
+        self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=False, trial_start_at=first
+        )
+        self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=False, trial_start_at=second
+        )
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertEqual(doc["trial_start_at"], first)
+
+    def test_does_not_clobber_fields_set_by_a_previous_call(self):
+        """mark_notice_sent=Falseかつtrial_start_at=Noneで呼んでも、既に書き込まれている
+        first_generation_notice_sent・trial_start_atを消してしまわないことを確認する
+        (20.3節「merge=Trueを使う理由」の実コード側の等価物)。"""
+        trial_start_at = datetime(2026, 10, 18, 12, 0, 0)
+        self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=True, trial_start_at=trial_start_at
+        )
+        self.counter.increment_and_mark_notice("u1", "2026-10", mark_notice_sent=False)
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertTrue(doc["first_generation_notice_sent"])
+        self.assertEqual(doc["trial_start_at"], trial_start_at)
+        self.assertEqual(doc["count"], 2)
+
+    def test_interleaved_transactions_do_not_lose_an_increment(self):
+        """19節のincrement()版と同じ競合を、increment_and_mark_notice()側でも検証する。"""
+        doc_ref = self.client.collection("usage_counter").document("u1")
+
+        tx_a = self.client.transaction()
+        tx_a.get(doc_ref)
+        tx_b = self.client.transaction()
+        tx_b.get(doc_ref)
+
+        tx_a.set(doc_ref, {"month": "2026-10", "count": 1})
+        tx_a.commit()
+
+        with self.assertRaises(TransactionConflict):
+            tx_b.set(doc_ref, {"month": "2026-10", "count": 1})
+            tx_b.commit()
+
+        result = self.counter.increment_and_mark_notice(
+            "u1", "2026-10", mark_notice_sent=True
+        )
         self.assertEqual(result, 2)
         self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
 

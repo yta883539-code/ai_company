@@ -12,6 +12,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Optional
+
 
 class TransactionConflict(Exception):
     """トランザクションがコミット時に競合を検出した場合に送出される(実SDKでは
@@ -69,4 +72,49 @@ class FirestoreUsageCounter:
         raise TransactionConflict(
             f"increment(user_id={user_id!r}, month={month!r}) did not commit after "
             f"{self._MAX_COMMIT_ATTEMPTS} attempts"
+        )
+
+    def increment_and_mark_notice(
+        self,
+        user_id: str,
+        month: str,
+        mark_notice_sent: bool,
+        trial_start_at: Optional[datetime] = None,
+    ) -> int:
+        """firestore-provider-adapter-design.md 20.2節: count増分・
+        (mark_notice_sent=Trueの場合のみ)first_generation_notice_sentの更新・
+        (trial_start_atが渡され、かつ未設定の場合のみ)trial_start_atの設定を
+        単一トランザクション(単一書き込み)として行う。increment()のトランザクションへ
+        委譲すると入れ子トランザクションになり実SDKでは扱えないため、increment()とは
+        別に3フィールド分の更新を展開した実装とする(20.3節「委譲実装にしなかった理由」)。
+
+        既存ドキュメントの他フィールド(first_generation_notice_sent・trial_start_at)を
+        今回の呼び出しが指定していない場合でも消さないよう、トランザクション内で読んだ
+        `data`を書き込み前のベースにする(実SDKの`merge=True`相当)。インクリメント後の
+        カウント値を返す契約(AtomicNoticeUsageCounterProtocol)。
+        """
+        doc_ref = self._collection.document(user_id)
+
+        for _ in range(self._MAX_COMMIT_ATTEMPTS):
+            transaction = self._client.transaction()
+            snapshot = transaction.get(doc_ref)
+            data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+            count_before = data.get("count", 0) if data.get("month") == month else 0
+            count_after = count_before + 1
+            data["month"] = month
+            data["count"] = count_after
+            if mark_notice_sent:
+                data["first_generation_notice_sent"] = True
+            if trial_start_at is not None and "trial_start_at" not in data:
+                data["trial_start_at"] = trial_start_at
+            transaction.set(doc_ref, data)
+            try:
+                transaction.commit()
+            except TransactionConflict:
+                continue
+            return count_after
+
+        raise TransactionConflict(
+            f"increment_and_mark_notice(user_id={user_id!r}, month={month!r}) did not "
+            f"commit after {self._MAX_COMMIT_ATTEMPTS} attempts"
         )
