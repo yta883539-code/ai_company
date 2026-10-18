@@ -148,6 +148,31 @@ class FleetOperatorStoreProtocol:
         """同上。上書き可(`None`渡しでクリア、`set_canceled_at`と同じ方針)。"""
         raise NotImplementedError
 
+    def get_payment_failure_reminder_sent_at(self, internal_id: str) -> "datetime | None":
+        """payment-failure-reminder-scheduler-design.md(フェーズ169)。猶予期間中の
+        リマインドメールを送信済みの日時(1回のみ送信、冪等ガード)。未送信・決済失敗
+        解消済みはNone。"""
+        raise NotImplementedError
+
+    def set_payment_failure_reminder_sent_at(
+        self, internal_id: str, value: "datetime | None"
+    ) -> None:
+        """同上。`None`渡しでクリアする(決済失敗が解消され次の決済失敗サイクルで
+        再送信できるようにする、`set_payment_failure_detected_at`と同じ方針)。"""
+        raise NotImplementedError
+
+    def get_payment_suspension_owner_notified_at(self, internal_id: str) -> "datetime | None":
+        """同上。制限モード移行(`is_payment_suspended()`がTrueになった事業者)を
+        運営者(本AI Companyのオーナー)へ通知済みの日時。未通知・解消済みはNone。"""
+        raise NotImplementedError
+
+    def set_payment_suspension_owner_notified_at(
+        self, internal_id: str, value: "datetime | None"
+    ) -> None:
+        """同上。`None`渡しでクリアする(`set_payment_failure_reminder_sent_at`と
+        同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -167,6 +192,8 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._deletion_confirmation_unreachable_at: "dict[str, datetime]" = {}
         self._deletion_confirmation_unreachable_reason: "dict[str, str | None]" = {}
         self._payment_failure_detected_at: "dict[str, datetime]" = {}
+        self._payment_failure_reminder_sent_at: "dict[str, datetime]" = {}
+        self._payment_suspension_owner_notified_at: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -273,6 +300,28 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
             self._payment_failure_detected_at.pop(internal_id, None)
             return
         self._payment_failure_detected_at[internal_id] = value
+
+    def get_payment_failure_reminder_sent_at(self, internal_id: str) -> "datetime | None":
+        return self._payment_failure_reminder_sent_at.get(internal_id)
+
+    def set_payment_failure_reminder_sent_at(
+        self, internal_id: str, value: "datetime | None"
+    ) -> None:
+        if value is None:
+            self._payment_failure_reminder_sent_at.pop(internal_id, None)
+            return
+        self._payment_failure_reminder_sent_at[internal_id] = value
+
+    def get_payment_suspension_owner_notified_at(self, internal_id: str) -> "datetime | None":
+        return self._payment_suspension_owner_notified_at.get(internal_id)
+
+    def set_payment_suspension_owner_notified_at(
+        self, internal_id: str, value: "datetime | None"
+    ) -> None:
+        if value is None:
+            self._payment_suspension_owner_notified_at.pop(internal_id, None)
+            return
+        self._payment_suspension_owner_notified_at[internal_id] = value
 
 
 def is_trial_period_over(

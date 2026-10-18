@@ -3296,3 +3296,23 @@
   追加された`payment_failure_detected_at`の反映漏れを発見・解消。firestore-data-model.md
   追記、payment-failure-detected-at-firestore-adapter-design.md新規作成。コード変更なし、
   全19ファイル・schema検証11件パス)
+- フェーズ169(2026-10-18 02:00 UTC定例更新): フェーズ167「次回候補(2)」(リマインド
+  送信スケジューラ・運営者向け通知の設計)に着手。payment-failure-reminder-scheduler-
+  design.mdを新規作成し、(1)猶予期間3日前(検知から4日後)の顧客向けリマインドメール、
+  (2)制限モード移行時の運営者向け通知、の2点を設計・実装した。本venture固有の判断として、
+  `is_payment_suspended()`の都度計算方式をそのまま使い(他venture4件の`payment_suspended_at`
+  フラグ方式は採用せず)、送信クライアントも`trial_end_email_scheduler.EmailSenderClient`を
+  再利用(新規LINE版クラスは作らない)。`trial_management.py`に`payment_failure_reminder_
+  sent_at`・`payment_suspension_owner_notified_at`の2フィールドを追加し、新規
+  `prototype/payment_failure_reminder_scheduler.py`・テスト13件を追加。
+  `python3 prototype/run_all_tests.py`で全20ファイル中20件成功(新規ファイル追加につき
+  19→20)、`python3 schema/validate_test_cases.py`で11件中11件パスを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は
+  依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約7日である
+  状況に変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(2)決済失敗解消時(`clear_payment_failure_on_success()`)に本フェーズの2フラグを
+  クリアする呼び出し配線、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-18 02:00 UTC(フェーズ169: リマインド送信スケジューラ・運営者向け
+  通知を設計・実装。`payment_failure_reminder_scheduler.py`新規作成、テスト13件追加、
+  全20ファイル・schema検証11件パス)
