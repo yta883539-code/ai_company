@@ -168,3 +168,19 @@
   (3)対象候補のロングリスト作成(WebSearchでの実在候補調査のみ、実連絡はオーナー承認待ち)。
 - 最終更新: 2026-10-19 11:00 UTC(フェーズ9: customer-interview-design.md新規作成。
   入力チャネル・価格感覚・入力粒度の検証を軸に全12問を設計)
+- フェーズ10(2026-10-19 12:00 UTC): tech-stack.md(フェーズ7)「未検証・残課題」1点目の
+  アカウント登録なし単発決済(500円/回プラン)の実装方式を設計した
+  (one-time-checkout-no-account-design.md新規作成)。`draft_id`を主キーとするワンタイム
+  トークン方式を採用し、Stripe Checkout one-time payment mode(`mode: "payment"`)の
+  `client_reference_id`に`draft_id`を設定してFirestore `one_time_draft/{draft_id}`と
+  紐付ける設計とした。他venture(continuous課金モデル)が`account_id`+
+  `usage_counter`で月間回数を積算するのに対し、本案は「1決済=1生成」で完結するため
+  アカウント管理・利用回数カウンタの両方が不要になる点を明確化した。残課題として
+  TTL失効の実装方式・結果返却方式(リダイレクトvs.メールリンク)・返金/決済失敗時の
+  挙動を未検証のまま残した。設計文書作成のみで実際のStripeアカウント接続・GCPプロジェクト
+  作成等は発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)有人警備計画・シフト管理SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、
+  (2)対象候補のロングリスト作成(フェーズ9から持ち越し)、(3)schema/output.schema.jsonの
+  テストケース拡充(他venture同型構成の横展開検討)。
+- 最終更新: 2026-10-19 12:00 UTC(フェーズ10: one-time-checkout-no-account-design.md
+  新規作成。アカウント登録なし単発決済の実装方式〈draft_id主キー方式〉を設計)
