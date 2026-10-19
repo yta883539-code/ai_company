@@ -231,3 +231,20 @@
   customer-interview-design.mdのヒアリング対象候補への反映。
 - 最終更新: 2026-10-19 15:00 UTC(フェーズ13: schema/validate_test_cases.pyにネガティブ
   テスト3件を追加し、全11件パスを確認)
+- フェーズ14(2026-10-19 16:00 UTC): ttl-expiry-result-delivery-refund-design.md
+  (フェーズ12)「未検証・残課題」1点目の「結果ページのTTL後の扱い(閲覧可否)」を
+  設計した(result-page-ttl-access-design.md新規作成)。低頻度利用に対して実装・保守
+  コストを増やさない方針(tech-stack.mdフェーズ7)に基づき、結果ページの閲覧可否は
+  Firestore TTLポリシーによる`one_time_draft`ドキュメント削除にそのまま委ねる方式
+  (個別の閲覧制御フィールドは持たない)を採用し、ドキュメント不存在時は通常の404では
+  なく「結果の保存期間(24時間)が終了しました」という専用案内(既払い済みの場合の
+  問い合わせ導線を含む)を表示する方針を確定した。設計文書作成のみで実際のFirestore
+  TTLポリシー設定・結果ページ実装自体は発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)対象候補のロングリスト作成(フェーズ9から持ち越し)、(2)結果データの
+  再送・返金の個別問い合わせ対応フロー自体の設計(本フェーズの残課題)、(3)市場仮説
+  (market-research.md・competitor-comparison.md)を踏まえたcustomer-interview-design.md
+  のヒアリング対象候補への反映(フェーズ13から持ち越し)。
+- 最終更新: 2026-10-19 16:00 UTC(フェーズ14: result-page-ttl-access-design.md新規作成。
+  結果ページのTTL失効後の閲覧可否をFirestore TTLポリシーのドキュメント削除に委ねる
+  方式で確定)
