@@ -78,4 +78,24 @@
   への追記なし。
   次回候補: (1)schema/output.schema.jsonの作成とテストケース設計、(2)llm-api-cost-estimate.md
   相当の原価試算、(3)有人警備計画・シフト管理SaaSとの価格・機能比較調査。
-- 最終更新: 2026-10-19 05:00 UTC(フェーズ4: pricing-plan.md新規作成)
+- フェーズ5(2026-10-19 06:00 UTC): schema/output.schema.jsonを新規作成。
+  mvp-flow-draft.md(フェーズ2)「出力スキーマ方針」・llm-system-prompt-draft.md(フェーズ3)
+  「構造化出力の方針」を実ファイル化し、status(generated/out_of_scope/insufficient_input)の
+  3値分岐と、4出力(`checklist`/`staffing_plan`/`notice_board_text`/
+  `near_miss_record_template`)をstatus=generatedのときのみ非nullとするnull制約を定義した。
+  他venture同様、現時点ではサブスクリプション課金フローが未設計のため
+  subscription_procedure_notice相当のフィールドは設けていない。あわせて
+  schema/validate_test_cases.py(kura-pasha等と同方式のpure stdlib簡易バリデータ)を新規作成し、
+  generated 2件(自由入場・屋内収容ケース/全席指定・屋外待機列ケース)・out_of_scope 1件・
+  insufficient_input 1件の計4件の期待出力サンプルと、ネガティブテスト2件(厳守事項2
+  〈道路使用許可注記の有無〉の不整合検出、厳守事項6〈ヒヤリハット記録5項目固定〉の不整合検出)を
+  作成し、全6件がバリデータの想定通りの結果(OK/エラー検出)になることを確認した
+  (`python3 schema/validate_test_cases.py` で6/6件パス)。実LLMでの動作検証は未実施
+  (APIキー取得はオーナー承認待ちの範囲、pending-approval.md参照)。承認不要な設計文書・
+  検証スクリプト作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)llm-api-cost-estimate.md相当の原価試算(フェーズ4から持ち越し)、(2)有人警備
+  計画・シフト管理SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、(3)tech-stack.md相当の
+  技術構成整理(Firestore/LINE等、他venture同型構成を踏襲するかの検討)。
+- 最終更新: 2026-10-19 06:00 UTC(フェーズ5: schema/output.schema.json・
+  schema/validate_test_cases.py新規作成。テストケース6件パス)

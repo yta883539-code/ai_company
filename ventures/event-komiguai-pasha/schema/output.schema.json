@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "イベントこみぐあいパシャっと 構造化出力スキーマ(フェーズ5草案)",
+  "description": "mvp-flow-draft.md(フェーズ2)『出力スキーマ方針』・llm-system-prompt-draft.md(フェーズ3)『構造化出力の方針』を実ファイル化した初版。本ventureには現時点で会員管理・サブスクリプション課金フローが未設計(llm-system-prompt-draft.md記載の通り)のため、kura-pasha/course-set-pasha等が持つsubscription_procedure_notice相当のフィールドは設けず、generated/out_of_scope/insufficient_inputの3値のみとした。allOf+if/thenは使わずトップレベル全プロパティをrequired化し、該当しないフィールドはnullを許容する形にした(他venture同様、statusに応じた非null制約はコード側検証〈validate_test_cases.py〉で担保する方針)。机上設計のみで実LLMでの安定生成は未検証(APIキー取得・実運用はオーナー承認待ち、pending-approval.md参照)。",
+  "type": "object",
+  "required": [
+    "status",
+    "out_of_scope_message",
+    "missing_fields_request",
+    "checklist",
+    "staffing_plan",
+    "notice_board_text",
+    "near_miss_record_template"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "llm-system-prompt-draft.md厳守事項7・8に対応する分岐フラグ。通常の4出力生成が行えるのはgeneratedのみ。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ非nullとなるフィールド(本フィールド自体は常に出力必須、値としてnullを許容)。厳守事項1・7の定型応答(警備計画の最終確定・入場制限の実施判断・外部警備会社への発注契約・所轄警察署への届出代行・料金プランへの言及等には応答しない旨)。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ非nullとなるフィールド。厳守事項8に基づき、capacity・entry_exit_points・admission_typeのうち欠落している項目を具体的に指摘し再送を促す一言。不明項目を推測で埋めない代わりにここへ列挙する。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "checklist": {
+      "description": "出力1(入退場時混雑確認セルフチェックリスト)。status=generatedの場合のみ非nullとなるフィールド。mvp-flow-draft.mdの入力(capacity・entry_exit_points・admission_type)から導ける確認項目の配列。厳守事項3に基づき、capacityに対しentry_exit_pointsが著しく少ない等のボトルネックが入力から明確に読み取れる項目はhighlighted=trueとする。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "highlighted"],
+        "properties": {
+          "item": { "type": "string" },
+          "highlighted": {
+            "description": "厳守事項3準拠。入力メモの記述から機械的に導けるチェック項目の強調のみで、AIが独自に安全/危険の最終判定を下す表現は用いない(llm-system-prompt-draft.md厳守事項3参照)。",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "staffing_plan": {
+      "description": "出力2(警備員重点配置案・分散入場誘導アナウンス文案)。status=generatedの場合のみ非nullとなるフィールド。厳守事項4(admission_typeによる入場時/退場時の重点の違い)・厳守事項5(外部委託警備員と自社スタッフの役割分担)を反映する。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["focus", "body", "announcement_text"],
+      "properties": {
+        "focus": {
+          "description": "厳守事項4準拠。admission_type=指定席の場合はexit、自由入場の場合はentry、両方混在の入力の場合はbothとし、どちらがより集中するかは主催者自身の判断に委ねる旨をbody内に明示する(厳守事項4)。",
+          "type": "string",
+          "enum": ["entry", "exit", "both"]
+        },
+        "body": {
+          "description": "警備員重点配置案の本文。厳守事項5に基づき、外部委託警備員と自社スタッフが両方含まれる場合は雑踏警備にあたる業務(入退場口での流れの調整等)を外部委託警備員への配置案として記述し、自社スタッフには掲示・誘導アナウンス等の補助的役割を割り当てる。外部委託警備員が0名の場合はこの区分けを行わない。",
+          "type": "string"
+        },
+        "announcement_text": {
+          "description": "分散入場を促すアナウンス文案の下書き。",
+          "type": "string"
+        }
+      }
+    },
+    "notice_board_text": {
+      "description": "出力3(来場者向け整列・分散入場案内の掲示文案)。status=generatedの場合のみ非nullとなるフィールド。厳守事項2(outdoor_queueに応じた道路使用許可注記)を反映する。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["body", "includes_road_use_permit_note"],
+      "properties": {
+        "body": {
+          "description": "掲示文案本文。includes_road_use_permit_note=trueの場合、厳守事項2の注記文(『待機列が公道に及ぶ場合は所轄警察署への道路使用許可の要否を主催者自身で確認してください』趣旨)を含む。",
+          "type": "string"
+        },
+        "includes_road_use_permit_note": {
+          "description": "厳守事項2を機械的に検証するための補助フィールド。outdoor_queueが未入力、または『屋外・公道に及ぶ可能性あり』と読み取れる場合は必ずtrue、outdoor_queueが明確に『屋内に収まる』と入力されている場合は必ずfalse(コード側検証で担保)。",
+          "type": "boolean"
+        }
+      }
+    },
+    "near_miss_record_template": {
+      "description": "出力4(ヒヤリハット記録フォーマット例)。status=generatedの場合のみ非nullとなるフィールド。厳守事項6に基づき、発生日時・場所・状況・対応・再発防止策の5項目を持つテンプレートを生成するのみで、過去の記録データを保持・参照する機能は持たない(固定5項目、入力依存の分岐なし)。status!=generatedのときは必ずnull(コード側検証で担保)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["fields"],
+      "properties": {
+        "fields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field_name", "description"],
+            "properties": {
+              "field_name": {
+                "type": "string",
+                "enum": ["発生日時", "場所", "状況", "対応", "再発防止策"]
+              },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
