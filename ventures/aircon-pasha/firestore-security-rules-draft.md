@@ -77,11 +77,12 @@ kura-pasha版と同じ方針を踏襲する。
 
 ## 4. 未検証・残課題
 
-- 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
-  実行して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、
-  実際にエミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
-- 横展開の残りはcourse-set-pashaのみ(kura-pasha・aircon-pashaは完了)。forklift-pashaは
-  `web-form-ui-design.md`によりWebフォームからの入力経路を持つが、フォーム自体は
-  Cloud Functionsのエンドポイントへ送信する設計(mvp-flow-draft.md参照)であり
-  Firestoreへのクライアント直接アクセスは無い見込みのため、横展開の対象に含められる
-  可能性がある(要個別確認、kura-pasha版からの申し送りを継続)。
+- (解消済み)実Firestoreプロジェクトが無い状態での本ルールの検証は、Firebase Local
+  Emulator Suite(デモプロジェクトID`demo-aircon-pasha`、実GCPプロジェクト・課金設定
+  不要)を用いて完了した。詳細はfirestore-security-rules-emulator-verification.mdを
+  参照。未認証クライアントからの直接アクセス5件がいずれも`403 PERMISSION_DENIED`に
+  なることを確認済み。
+- 実Firestoreプロジェクトの作成自体(オーナー承認待ち)は未着手のまま。承認・プロジェクト
+  作成後、本番環境でも同様の検証を行うことが望ましい(firestore-security-rules-
+  emulator-verification.md 4節参照)。
+- 横展開の残りはcourse-set-pashaのみ(kura-pasha・aircon-pasha・forklift-pashaは完了)。
