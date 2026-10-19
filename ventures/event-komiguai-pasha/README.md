@@ -133,3 +133,22 @@
   テストケース追加検討。
 - 最終更新: 2026-10-19 09:00 UTC(フェーズ7: tech-stack.md新規作成。入力チャネルをWeb
   フォーム第一候補とする方針を明記)
+- フェーズ8(2026-10-19 10:00 UTC): schema/validate_test_cases.pyにフェーズ7までの
+  次回候補(3)「schema/output.schema.jsonのテストケース追加検討」に対応し、admission_type
+  混在(自由入場エリア+指定席エリア)で`staffing_plan.focus`が`both`になるケース
+  (G3_mixed_admission_type)を新規追加した。従来のG1(自由入場)・G2(全席指定)は
+  focus=entry/exitのみをカバーしており、enum3値のうち`both`の生成例・検証が欠落していた
+  ギャップを埋めた。あわせて、llm-system-prompt-draft.md厳守事項4(focus=bothの場合は
+  どちらがより集中するかを主催者自身の判断に委ねる旨をbody内に明示する)をコード側
+  検証でも担保するクロスフィールドチェックを`validate_cross_field_rules`に追加し、
+  その欠落を検出できることを確認するネガティブテスト(NEG3_both_focus_no_deferral_is_detected)
+  も追加した。`python3 schema/validate_test_cases.py`で計8件(生成3件・out_of_scope1件・
+  insufficient_input1件・ネガティブ3件)が全てパスすることを確認した。実LLMでの動作検証は
+  未実施(APIキー取得はオーナー承認待ちの範囲、pending-approval.md参照)。承認不要な検証
+  スクリプト更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)アカウント登録なし単発決済の実装方式の検討(フェーズ7から持ち越し)、
+  (2)有人警備計画・シフト管理SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、
+  (3)customer-interview-design.md相当のインタビュー設計(他venture同型構成の横展開検討)。
+- 最終更新: 2026-10-19 10:00 UTC(フェーズ8: focus=bothケースのテスト追加とクロス
+  フィールド検証強化。8/8件パス)

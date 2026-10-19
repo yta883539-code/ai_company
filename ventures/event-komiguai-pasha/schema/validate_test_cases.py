@@ -109,6 +109,15 @@ def validate_cross_field_rules(instance, path="$"):
         if staffing_plan.get("focus") not in ("entry", "exit", "both"):
             errors.append(f"{path}.staffing_plan.focus: 不正な値です(実際={staffing_plan.get('focus')!r})")
 
+        # 厳守事項4: focus=bothの場合、どちらがより集中するかは主催者自身の判断に委ねる旨を
+        # body内に明示する必要がある(機械的なキーワードチェック、完全な自然言語一致ではない)。
+        if staffing_plan.get("focus") == "both":
+            if "主催者" not in (staffing_plan.get("body") or ""):
+                errors.append(
+                    f"{path}.staffing_plan.body: focus=bothなのに主催者自身への判断委任の"
+                    "記載が見当たりません(厳守事項4)"
+                )
+
         # 厳守事項2: includes_road_use_permit_noteがtrueの場合、本文に注記趣旨の
         # キーワード(「道路使用許可」)が含まれているかを机上確認する(完全な自然言語
         # 一致ではなく簡易キーワードチェック)。
@@ -217,6 +226,37 @@ TEST_CASES = {
             ]
         },
     },
+    "G3_mixed_admission_type": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "checklist": [
+            {"item": "1階自由入場エリアと2階指定席エリアで入退場口を分離できているか", "highlighted": False},
+        ],
+        "staffing_plan": {
+            "focus": "both",
+            "body": (
+                "自由入場エリアと指定席エリアが混在するため、どちらの入退場時間帯により人が集中するかは"
+                "会場導線・開演時間帯によって異なります。最終的な重点配置の判断は主催者・警備責任者自身で"
+                "行ってください。雑踏警備にあたる入退場口での流れの調整は外部委託警備員2名の配置案とし、"
+                "自社スタッフ3名には掲示・誘導アナウンス等の補助的役割を割り当てます。"
+            ),
+            "announcement_text": "自由入場エリア・指定席エリアそれぞれの入口が分かれております。係員の案内に従ってお進みください。",
+        },
+        "notice_board_text": {
+            "body": "ご来場の皆様へ。エリアにより入場口が異なります。係員の案内に従い、整列・分散入場にご協力ください。",
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "OOS1_external_contractor_request": {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。警備会社への発注契約・所轄警察署への届出代行は主催者・警備責任者自身でご対応ください。",
@@ -260,6 +300,16 @@ NEGATIVE_CASE_NEAR_MISS_FIELDS_WRONG = {
     },
 }
 
+# ネガティブテスト: focus=bothなのに主催者自身への判断委任が本文に無いケースが
+# ちゃんと検出されることを確認する(厳守事項4違反の検出能力チェック)。
+NEGATIVE_CASE_BOTH_FOCUS_NO_DEFERRAL = {
+    **TEST_CASES["G3_mixed_admission_type"],
+    "staffing_plan": {
+        **TEST_CASES["G3_mixed_admission_type"]["staffing_plan"],
+        "body": "自由入場エリアと指定席エリアが混在するため、入場時・退場時の両方に警備員を重点配置します。",
+    },
+}
+
 
 def main():
     total = 0
@@ -297,6 +347,17 @@ def main():
     else:
         failed += 1
         print("[NG] NEG2_near_miss_fields_wrong_is_detected: 項目数不一致を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors3 = validate_against_schema(NEGATIVE_CASE_BOTH_FOCUS_NO_DEFERRAL, SCHEMA)
+    neg_errors3 += validate_cross_field_rules(NEGATIVE_CASE_BOTH_FOCUS_NO_DEFERRAL)
+    if neg_errors3:
+        print("[OK] NEG3_both_focus_no_deferral_is_detected (想定通りエラー検出)")
+        for e in neg_errors3:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG3_both_focus_no_deferral_is_detected: 判断委任記載の欠落を検出できませんでした(バリデータの不備)")
 
     print(f"\n{total - failed}/{total} 件パス")
     return 1 if failed else 0
