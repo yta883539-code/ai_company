@@ -79,15 +79,13 @@ kura-pasha版と同じ方針を踏襲する。
    影響を受けない(Admin SDKはルールをバイパスするため)ことを確認済みの前提として
    明記する。
 
-## 4. 未検証・残課題
+## 4. 未検証・残課題(解消済み)
 
 - 実Firestoreプロジェクトが無いため、本ルール自体をFirebase Local Emulator Suiteで
-  実行して検証することは今回出来ていない(コード上の設計レビューのみ)。承認後、
-  実際にエミュレータで`PERMISSION_DENIED`になることを確認する回帰テストの追加が必要。
-- 残るforklift-pasha・line-reservation-aiへの横展開はkura-pashaフェーズ244時点の
-  次回候補として未着手のまま残る。forklift-pashaは`web-form-ui-design.md`により
-  Webフォームからの入力経路を持つが、フォーム自体はCloud Functionsのエンドポイントへ
-  送信する設計(mvp-flow-draft.md参照)でFirestoreへのクライアント直接アクセスは
-  無い見込みのため、横展開の対象に含められる可能性がある(要個別確認、次回候補)。
-  line-reservation-aiはチャット/フォーム入力のみでLIFF等のミニアプリを持たない設計の
-  ため、同様にdeny-allで足りる可能性が高い(要個別確認、次回候補)。
+  実行して検証することは当初出来ていなかったが、デモプロジェクトID(`demo-course-
+  set-pasha`、実GCPプロジェクト・課金設定・Firebaseログイン不要)を用いた検証により
+  解消した。詳細はfirestore-security-rules-emulator-verification.mdを参照。
+- 残るforklift-pasha・line-reservation-aiへの横展開は、forklift-pashaフェーズ174・
+  line-reservation-aiフェーズ続き332でそれぞれ同種の検証が既に実施済み。残る
+  aircon-pashaへの横展開はkura-pashaフェーズ249「次回候補(2)」として未実施のまま
+  残る(次回候補)。

@@ -5433,3 +5433,30 @@
   20節の設計を実コード化。`FirestoreUsageCounter.increment_and_mark_notice()`を
   新規実装〈count・first_generation_notice_sent・trial_start_atの3フィールドを単一
   トランザクションで更新〉。コード変更あり、テスト773件〈新規7件〉・schema検証21件パス)
+- フェーズ314(2026-10-19 00:00 UTC定例更新): kura-pashaフェーズ249「次回候補(2)」
+  (course-set-pasha・aircon-pashaへのFirestoreエミュレータ検証の横展開)を受け、本
+  venture分として着手した。firestore-security-rules-draft.md 4節が「未検証・残課題」
+  としていたFirebase Local Emulator Suiteでの検証を、forklift-pashaフェーズ174・
+  kura-pashaフェーズ249・line-reservation-aiフェーズ続き332と同じ手法(デモプロジェクト
+  ID`demo-course-set-pasha`指定、実GCPプロジェクト・課金設定・Firebaseログインいずれも
+  不要)で実施した。本venture配下に`firebase.json`・`firestore.rules`(firestore-
+  security-rules-draft.md 2節のルール草案をそのまま配置)・`emulator-test/run_rules_
+  check.sh`を新設し、`npx firebase-tools@13 emulators:exec --project demo-course-
+  set-pasha --only firestore`経由で、対象4コレクション(`usage_counter`・
+  `user_profile`・`stripe_customer_index`・`pending_links`)への未認証直接書き込み
+  4件・`usage_counter`への読み取り1件・想定外トップレベルコレクションへの書き込み1件
+  (`{document=**}` catch-allの検証)、計6件が全て`403 PERMISSION_DENIED`になることを
+  確認した(firestore-security-rules-emulator-verification.md新規作成)。firestore-
+  security-rules-draft.md 4節の該当記載も解消済みに更新した。本検証は支払い・アカウント
+  作成を伴わないためオーナー承認を待たずに実施した。コード変更なし(prototype配下は無
+  変更)、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (773件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)kura-pashaフェーズ249「次回候補(2)」の残り(aircon-pashaへの同種のFirestore
+  エミュレータ検証の横展開)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-19 00:00 UTC(フェーズ314: kura-pashaフェーズ249の次回候補(2)を
+  受け、Firestoreセキュリティルールのエミュレータ検証〈デモプロジェクトID〉を実施。
+  firestore-security-rules-emulator-verification.md新規作成、検証6件PASS。コード変更
+  なし、773件・schema検証21件パス)
