@@ -44,4 +44,15 @@
   と同型のstatus分岐方針〈generated/out_of_scope/insufficient_input〉の整理を含む)を作成する、
   (2)llm-system-prompt-draft.mdとしてLLMシステムプロンプト草案を作成する、(3)pricing-plan.md
   の作成。
-- 最終更新: 2026-10-19 02:00 UTC(フェーズ1: venture新規作成、market-research.md新規作成)
+- フェーズ2(2026-10-19 03:00 UTC): mvp-flow-draft.mdを新規作成。入力要素(`capacity`・
+  `entry_exit_points`・`admission_type`・`staffing`・`outdoor_queue`)と出力4種(セルフ
+  チェックリスト・警備員重点配置案/誘導アナウンス文案・来場者向け掲示文案・ヒヤリハット記録
+  フォーマット例)を整理し、フェーズ1で次回候補だった「屋外待機列が生じる場合の道路使用許可
+  確認」をoutdoor_queue入力に基づく注記として出力(3)に組み込んだ。status分岐方針
+  (generated/out_of_scope/insufficient_input)は既存「パシャッと」シリーズと同型を踏襲する
+  方針を明記。実LLMでの動作検証・スキーマ実装・pricing-plan.mdの作成は未着手。承認不要な
+  設計文書作成のみで、外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)llm-system-prompt-draft.mdとしてLLMシステムプロンプト草案を作成する、
+  (2)pricing-plan.mdの作成、(3)有人警備計画・シフト管理SaaSとの価格・機能比較調査。
+- 最終更新: 2026-10-19 03:00 UTC(フェーズ2: mvp-flow-draft.md新規作成)
