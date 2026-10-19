@@ -213,3 +213,21 @@
   TTL失効後の閲覧可否の検討(本フェーズの残課題)。
 - 最終更新: 2026-10-19 14:00 UTC(フェーズ12: ttl-expiry-result-delivery-refund-design.md
   新規作成。TTL失効・結果返却・返金/決済失敗時の挙動を設計)
+- フェーズ13(2026-10-19 15:00 UTC): schema/validate_test_cases.pyのテストケースを拡充した
+  (フェーズ11の次回候補(2))。既存のポジティブ・ネガティブケース(計8件)に加え、ネガティブ
+  テストを3件追加: (1)includes_road_use_permit_note=falseなのに本文に「道路使用許可」への
+  言及が冗長に含まれるケース(厳守事項2の逆方向、既存NEG1は「true・欠落」のみを検証しており
+  cross_field_rulesのelif分岐〈false・混入〉側の検証が漏れていた)、(2)additionalProperties:
+  falseで定義されていない未定義トップレベルフィールドが混入するケース、(3)必須フィールド
+  (`status`)が欠落するケース。他venture(course-set-pasha等)のschema検証と同様、既存コード
+  (output.schema.json・validate_against_schema関数)自体の変更は行わず、テストケースの追加
+  のみで全11件(元8件+新規3件)がバリデータの想定通りの結果(OK/エラー検出)になることを
+  `python3 schema/validate_test_cases.py` で確認した。コード変更なし(output.schema.json・
+  バリデータ本体は無変更)、テストケース追加のみ。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)対象候補のロングリスト作成(フェーズ9から持ち越し)、(2)結果ページのTTL
+  失効後の閲覧可否の検討(フェーズ12の残課題)、(3)有人警備計画・シフト管理SaaSとの価格・
+  機能比較調査で確認した市場仮説(market-research.md・competitor-comparison.md)を踏まえた
+  customer-interview-design.mdのヒアリング対象候補への反映。
+- 最終更新: 2026-10-19 15:00 UTC(フェーズ13: schema/validate_test_cases.pyにネガティブ
+  テスト3件を追加し、全11件パスを確認)

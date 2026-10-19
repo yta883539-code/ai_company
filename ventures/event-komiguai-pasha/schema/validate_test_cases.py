@@ -310,6 +310,30 @@ NEGATIVE_CASE_BOTH_FOCUS_NO_DEFERRAL = {
     },
 }
 
+# ネガティブテスト(フェーズ13追加): includes_road_use_permit_note=falseなのに本文に
+# 「道路使用許可」への言及が冗長に含まれているケースが検出されることを確認する
+# (厳守事項2の逆方向、cross_field_rulesのelif分岐の検証漏れを補う)。
+NEGATIVE_CASE_ROAD_USE_NOTE_FALSE_BUT_PRESENT = {
+    **TEST_CASES["G1_free_admission_indoor"],
+    "notice_board_text": {
+        "body": "ご来場の皆様へ。待機列が公道に及ぶ場合は道路使用許可の要否をご確認ください。",
+        "includes_road_use_permit_note": False,
+    },
+}
+
+# ネガティブテスト(フェーズ13追加): additionalProperties: falseで定義されていない
+# トップレベルの未定義フィールドが混入したケースが検出されることを確認する。
+NEGATIVE_CASE_UNDEFINED_TOP_LEVEL_FIELD = {
+    **TEST_CASES["G1_free_admission_indoor"],
+    "venue_name": "テスト会場",
+}
+
+# ネガティブテスト(フェーズ13追加): 必須フィールド(status)が欠落しているケースが
+# 検出されることを確認する。
+NEGATIVE_CASE_MISSING_REQUIRED_STATUS = {
+    k: v for k, v in TEST_CASES["G1_free_admission_indoor"].items() if k != "status"
+}
+
 
 def main():
     total = 0
@@ -358,6 +382,37 @@ def main():
     else:
         failed += 1
         print("[NG] NEG3_both_focus_no_deferral_is_detected: 判断委任記載の欠落を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors4 = validate_against_schema(NEGATIVE_CASE_ROAD_USE_NOTE_FALSE_BUT_PRESENT, SCHEMA)
+    neg_errors4 += validate_cross_field_rules(NEGATIVE_CASE_ROAD_USE_NOTE_FALSE_BUT_PRESENT)
+    if neg_errors4:
+        print("[OK] NEG4_road_use_note_false_but_present_is_detected (想定通りエラー検出)")
+        for e in neg_errors4:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG4_road_use_note_false_but_present_is_detected: 冗長な注記の混入を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors5 = validate_against_schema(NEGATIVE_CASE_UNDEFINED_TOP_LEVEL_FIELD, SCHEMA)
+    if neg_errors5:
+        print("[OK] NEG5_undefined_top_level_field_is_detected (想定通りエラー検出)")
+        for e in neg_errors5:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG5_undefined_top_level_field_is_detected: 未定義フィールドの混入を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors6 = validate_against_schema(NEGATIVE_CASE_MISSING_REQUIRED_STATUS, SCHEMA)
+    if neg_errors6:
+        print("[OK] NEG6_missing_required_status_is_detected (想定通りエラー検出)")
+        for e in neg_errors6:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG6_missing_required_status_is_detected: 必須フィールド欠落を検出できませんでした(バリデータの不備)")
 
     print(f"\n{total - failed}/{total} 件パス")
     return 1 if failed else 0
