@@ -118,3 +118,18 @@
   対応するテストケースの追加検討。
 - 最終更新: 2026-10-19 07:00 UTC(フェーズ6: llm-api-cost-estimate.md新規作成。Opus 5.5・
   シナリオBでもpricing-plan.md従量単価の約4.7%にとどまることを確認)
+- フェーズ7(2026-10-19 09:00 UTC): tech-stack.mdを新規作成。他venture(aircon-pasha・
+  course-set-pasha・kura-pasha・line-reservation-ai)との技術構成parityギャップに対応した。
+  本venture固有の判断として、利用頻度が月数件程度と低く単発入力→4出力生成で完結する特性
+  (llm-api-cost-estimate.mdフェーズ6)を踏まえ、他ventureが採用するLINE公式アカウントでは
+  なく**シンプルなWebフォーム**を入力チャネルの第一候補とする方針を明記した(LINE友だち
+  登録の運用コストが低頻度利用者にとって導入障壁になるとの仮説)。GCP Cloud Run
+  functions(2nd gen)・Firestoreの基本構成は他venture同型を踏襲。アカウント登録なしの
+  単発決済(500円/回プラン)の実装方式は未検討として残した。承認不要な設計文書作成のみで、
+  外部サービスへの公開・アカウント作成・支払い・送信等は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)アカウント登録なし単発決済の実装方式の検討、(2)有人警備計画・シフト管理
+  SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、(3)schema/output.schema.jsonの
+  テストケース追加検討。
+- 最終更新: 2026-10-19 09:00 UTC(フェーズ7: tech-stack.md新規作成。入力チャネルをWeb
+  フォーム第一候補とする方針を明記)
