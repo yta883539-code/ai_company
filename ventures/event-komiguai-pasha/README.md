@@ -269,3 +269,24 @@
   自動フロー対象外の個別問い合わせ(メール未着・TTL失効後再送希望・品質不満返金希望)
   への対応フローを設計。問い合わせ受付はWebフォーム+Firestoreへの蓄積のみとし、
   実際の再送・返金実行はオーナー確認後に行う方針を確定。schema検証11件パス)
+- フェーズ16(2026-10-19 18:00 UTC): フェーズ15の次回候補(3)「`inquiry`コレクション
+  の他venture発エスカレーション系コレクション設計との命名・構造のcross-venture
+  parity確認」に着手した(cross-venture-inquiry-collection-naming-parity-review.md
+  新規作成)。他venture(aircon-pasha・kura-pasha・forklift-pasha・course-set-pasha)
+  のトップレベルコレクション命名規則(スネークケース・単数形)とは本venture側
+  (`one_time_draft`・`inquiry`)が整合していることを確認した一方、line-reservation-ai
+  の`stores/{storeId}/escalationWindows/{sessionId}`(店舗アカウント配下のサブ
+  コレクション、継続的会話チャネル前提)とは構造が異なることを確認した。この構造差は、
+  本ventureのみがアカウント登録なしの単発決済・低頻度利用・継続的会話チャネル不採用
+  (tech-stack.mdフェーズ7)という他venture全てと異なるアーキテクチャを採用していること
+  に起因する意図的な差異であり、是正を要する不整合ではないと結論し、フェーズ15の
+  残課題をクローズした。設計文書作成のみで実際のFirestoreコレクション作成等は発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)対象候補のロングリスト作成(フェーズ9から持ち越し)、(2)市場仮説を
+  踏まえたcustomer-interview-design.mdのヒアリング対象候補への反映(フェーズ13から
+  持ち越し)、(3)問い合わせフォーム自体のUI草案(他venture発のフォーム系wireframeとの
+  体裁統一検討)。
+- 最終更新: 2026-10-19 18:00 UTC(フェーズ16: `inquiry`コレクションの命名・構造に
+  ついて他venture(line-reservation-aiのescalationWindows等)とのcross-venture
+  parityを確認。命名規則は整合、構造上の差異は本venture固有のアーキテクチャ制約に
+  起因する意図的なものと結論し是正不要でクローズ)
