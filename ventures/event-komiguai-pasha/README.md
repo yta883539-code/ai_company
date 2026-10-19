@@ -97,5 +97,24 @@
   次回候補: (1)llm-api-cost-estimate.md相当の原価試算(フェーズ4から持ち越し)、(2)有人警備
   計画・シフト管理SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、(3)tech-stack.md相当の
   技術構成整理(Firestore/LINE等、他venture同型構成を踏襲するかの検討)。
-- 最終更新: 2026-10-19 06:00 UTC(フェーズ5: schema/output.schema.json・
-  schema/validate_test_cases.py新規作成。テストケース6件パス)
+- フェーズ6(2026-10-19 07:00 UTC): llm-api-cost-estimate.mdを新規作成。
+  course-set-pasha/llm-api-cost-estimate.md・aircon-pasha/llm-api-cost-estimate.mdの構成・前提を
+  踏襲し、本venture固有の入出力規模(llm-system-prompt-draft.md 9,847文字・
+  schema/output.schema.json 7,886文字・mvp-flow-draft.mdの入力メモ例)に基づき2シナリオ
+  (A: 入力2,500トークン/出力900トークン、B: 入力9,200トークン/出力1,300トークン)で試算した。
+  claude-apiスキル記載の2026年10月時点の公開料金(Claude 5.5世代、Haiku 5.5 $0.10/$0.50・
+  Sonnet 5.5 $2/$10・Opus 5.5 $4/$20、1ドル=150円換算)を用い、最も保守的な組み合わせ
+  (Opus 5.5・シナリオB・キャッシュなし、約9.42円)でもpricing-plan.mdの最安従量単価
+  (スタンダードプラン200円/件)に対し約4.7%にとどまることを確認し、Sonnet 5.5で十分な品質が
+  見込めるという他「パシャっと」シリーズと同様の結論を得た。あわせて、本venture想定顧客の
+  利用頻度(月数件程度)はcourse-set-pasha等(週2〜3回)より利用間隔が長く、プロンプト
+  キャッシュの効果が他venture以上に限定的である可能性を課題として明記した。実LLMでの動作検証・
+  count_tokensによる正確なトークン数確認は未実施(APIキー取得はオーナー承認待ちの範囲、
+  pending-approval.md参照)。承認不要な原価試算文書作成のみで、外部サービスへの公開・アカウント
+  作成・支払い・送信等は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)有人警備計画・シフト管理SaaSとの価格・機能比較調査(フェーズ2から持ち越し)、
+  (2)tech-stack.md相当の技術構成整理(Firestore/LINE等、他venture同型構成を踏襲するかの検討、
+  フェーズ5から持ち越し)、(3)schema/output.schema.jsonの`entry_exit_points`等の入力フィールドに
+  対応するテストケースの追加検討。
+- 最終更新: 2026-10-19 07:00 UTC(フェーズ6: llm-api-cost-estimate.md新規作成。Opus 5.5・
+  シナリオBでもpricing-plan.md従量単価の約4.7%にとどまることを確認)
