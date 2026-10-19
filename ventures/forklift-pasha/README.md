@@ -3447,3 +3447,30 @@
   未検証残課題をFirebase Local Emulator Suite〈デモプロジェクトID〉で解消。
   firestore-security-rules-emulator-verification.md新規作成、検証5件PASS。コード変更
   なし、全21ファイル・schema検証11件パス)
+- フェーズ175(2026-10-19 08:00 UTC定例更新): フェーズ174の次回候補(3)「他venture
+  (kura-pasha・course-set-pasha・aircon-pasha)への同種のFirestoreエミュレータ検証の
+  横展開」の現状を各venture側のREADME.mdで確認した。結果、kura-pashaはフェーズ249
+  (2026-10-18 23:00 UTC、本フェーズ174の7時間後)で対象6コレクション計8件の検証を実施・
+  PERMISSION_DENIED確認済み、course-set-pashaはフェーズ314(2026-10-19 00:00 UTC)で
+  対象4コレクション計6件の検証を実施・確認済み、aircon-pashaも
+  firestore-security-rules-emulator-verification.md・emulator-testディレクトリが既に
+  作成済み(直近の定例更新〈2026-10-19 01:00〜06:00 UTC帯〉で実施)であることを、各venture
+  配下のファイル一覧で確認した。したがって本フェーズ174時点で「未着手」としていた3venture
+  は全て着手済みの横展開を既に完了しており、本venture側で改めて横展開を主導する必要は
+  なくなった。これにより5venture全て(forklift-pasha・kura-pasha・course-set-pasha・
+  aircon-pasha・line-reservation-ai)でFirestoreセキュリティルール草案のローカルエミュレータ
+  検証が完了した状態になったことを確認し、本venture側の次回候補リストから(3)を除去する。
+  コード変更なし、文書確認のみのため回帰確認として`python3 prototype/run_all_tests.py`
+  (全21ファイル、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は依然未承認で、
+  フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約6日である状況に変化は
+  ない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)10/25前後になっても承認が得られない場合、launch-readiness-checklist.mdに「今年度は
+  困難」の判断切り替えを記録、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-19 08:00 UTC(フェーズ175: フェーズ174の次回候補(3)だった
+  kura-pasha・course-set-pasha・aircon-pashaへのFirestoreエミュレータ検証横展開が、
+  各venture側で既に完了済み〈kura-pashaフェーズ249・course-set-pashaフェーズ314・
+  aircon-pasha直近更新〉であることを確認し、次回候補リストから除去。これにより5venture
+  全てで検証完了。コード変更なし、全21ファイル・schema検証11件パス)
