@@ -199,3 +199,17 @@
 - 最終更新: 2026-10-19 13:00 UTC(フェーズ11: competitor-comparison.md新規作成。有人警備
   計画・シフト管理SaaSとの価格・機能比較調査を実施し、本ventureが既存SaaSと競合しない
   低価格帯の位置づけであることを確認)
+- フェーズ12(2026-10-19 14:00 UTC): one-time-checkout-no-account-design.md(フェーズ10)
+  「未検証・残課題」3点(TTL失効の実装方式、結果返却方式の決定、返金・決済失敗時の挙動)
+  を設計した(ttl-expiry-result-delivery-refund-design.md新規作成)。TTL失効は定期バッチ
+  ではなくFirestoreネイティブのTTLポリシーを採用、結果返却は(a)リダイレクトURL方式を
+  主経路、(b)メールリンク方式を取りこぼし防止の併用経路とするハイブリッド方式を確定、
+  決済完了後に生成処理(LLM API呼び出し)が失敗した場合は2回自動リトライ後にStripe
+  Refund APIで全額自動返金する方針を新たに整理した。実際のStripeアカウント接続・TTL
+  ポリシー設定・メール送信手段の接続はいずれもオーナー承認待ちの範囲(pending-approval.md
+  参照)であり、設計文書作成のみでは発生しないため追記なし。
+  次回候補: (1)対象候補のロングリスト作成(フェーズ9から持ち越し)、(2)schema/
+  output.schema.jsonのテストケース拡充(他venture同型構成の横展開検討)、(3)結果ページの
+  TTL失効後の閲覧可否の検討(本フェーズの残課題)。
+- 最終更新: 2026-10-19 14:00 UTC(フェーズ12: ttl-expiry-result-delivery-refund-design.md
+  新規作成。TTL失効・結果返却・返金/決済失敗時の挙動を設計)

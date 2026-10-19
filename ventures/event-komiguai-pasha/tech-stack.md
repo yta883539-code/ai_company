@@ -75,7 +75,9 @@ venture群とのLINE Messaging API運用一元化のメリットは失うが、�
 ## 未検証・残課題
 
 - アカウント登録なしの単発決済(500円/回プラン)の具体的な実装方式(Stripe Checkoutの
-  one-time payment modeとFirestore上の利用回数カウントの紐付け方)は未検討。
+  one-time payment modeとFirestore上の利用回数カウントの紐付け方)は
+  one-time-checkout-no-account-design.md(フェーズ10)・ttl-expiry-result-delivery-
+  refund-design.md(フェーズ12)で設計済み(TTL失効・結果返却・返金時の挙動を含む)。
 - 継続課金プラン(ライト/スタンダード)利用時の認証方式(メールアドレス+マジックリンク等)
   の具体的な設計はcustomer-interview-design.md相当の検証とあわせて次回以降の課題とする。
 - 実際のGCPプロジェクト作成・Stripeアカウント接続は、他ventureと同様にアカウント作成・
