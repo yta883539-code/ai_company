@@ -5490,3 +5490,35 @@
   22節(upgraded_at・trial_end_notified_atグループ)を実コード化。
   `FirestoreUsageCounter`に4メソッド追加。コード変更あり、テスト781件〈新規8件〉・
   schema検証21件パス)
+- フェーズ316(2026-10-20 14:00 UTC定例更新): フェーズ315の次回候補(2)「残る
+  `trial_generation_count`・`trial_area_count`(23節)…の実Firestore接続アダプタ
+  実コード化」を受け、firestore-provider-adapter-design.md 23.2節の設計を実コード化した。
+  `increment_trial_generation_count`・`get_trial_generation_count`・
+  `increment_trial_area_count`・`get_trial_area_count`の計4メソッドを
+  `firestore_usage_counter_adapter.py`に新規実装した。19.3節と同種のread-modify-write
+  競合対策として、既存の`increment()`と同じ「`transaction.get`→現在値に加算→
+  `transaction.set`で全フィールドを書き戻す→`commit()`失敗時は`TransactionConflict`を
+  捕捉してリトライ」というループを踏襲し、`trial_generation_count`は固定+1、
+  `trial_area_count`は引数`area_count`を加算する点のみ異なる実装とした。いずれも
+  トランザクション内で読み取った既存ドキュメントの全フィールドをベースに対象フィールドだけ
+  更新してから書き戻すことで、23.3節が指摘した「他フィールド(`count`・
+  `first_generation_notice_sent`等)を消さない」設計(design.md側の`merge=True`相当)を
+  実コード側でも満たしている。テストを10件新規追加し、(1)未知ユーザーは0、
+  (2)インクリメント後の値取得、(3)月次カウンタ(`count`)とは異なり月を越えても積み上がる
+  (23.1節の契約)、(4)user_idごとに独立、(5)既存フィールド(`count`・
+  `first_generation_notice_sent`)を消さない、(6)重複Webhook配信相当の競合でも
+  内部リトライで取り落とさない(trial_generation_count側)、(7)`trial_area_count`の
+  可変加算、(8)user_idごとに独立、(9)`trial_generation_count`と`trial_area_count`が
+  互いを消さない、を確認した。回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(791件、新規10件含めて全件パス)・`python3 schema/validate_test_
+  cases.py`(21件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)残る`payment_failure`系(24節)・
+  `payment_suspension_owner_notified_at`グループ(25節)・`subscription_canceled_at`
+  グループ・3種の`*_event_time`(26節、計10メソッド超)の実Firestore接続アダプタ
+  実コード化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 14:00 UTC(フェーズ316: firestore-provider-adapter-design.md
+  23節(trial_generation_count・trial_area_countグループ)を実コード化。
+  `FirestoreUsageCounter`に4メソッド追加。コード変更あり、テスト791件〈新規10件〉・
+  schema検証21件パス)

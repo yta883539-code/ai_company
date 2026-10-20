@@ -172,3 +172,66 @@ class FirestoreUsageCounter:
         if not snapshot.exists:
             return None
         return (snapshot.to_dict() or {}).get("trial_end_notified_at")
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        """firestore-provider-adapter-design.md 23.2節: `trial_generation_count`を+1し、
+        インクリメント後の値を返す。trial-end-notification-design.md 3節の通知文言
+        (「投稿文生成: ○回」)に使うトライアル期間限定の累計値で、19節の`count`(月次で
+        リセットされる)とは別フィールドとして扱い、月境界の影響を受けず単調増加する。
+        19.3節と同種のread-modify-write競合をincrement()と同じリトライループで避ける。
+        """
+        doc_ref = self._collection.document(user_id)
+
+        for _ in range(self._MAX_COMMIT_ATTEMPTS):
+            transaction = self._client.transaction()
+            snapshot = transaction.get(doc_ref)
+            data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+            count_after = data.get("trial_generation_count", 0) + 1
+            data["trial_generation_count"] = count_after
+            transaction.set(doc_ref, data)
+            try:
+                transaction.commit()
+            except TransactionConflict:
+                continue
+            return count_after
+
+        raise TransactionConflict(
+            f"increment_trial_generation_count(user_id={user_id!r}) did not commit "
+            f"after {self._MAX_COMMIT_ATTEMPTS} attempts"
+        )
+
+    def get_trial_generation_count(self, user_id: str) -> int:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return 0
+        return (snapshot.to_dict() or {}).get("trial_generation_count", 0)
+
+    def increment_trial_area_count(self, user_id: str, area_count: int) -> int:
+        """23.2節: `increment_trial_generation_count`と同型だが、固定+1ではなく
+        引数`area_count`(1回の生成におけるhistory_rowsの要素数)を加算する点のみ異なる。
+        """
+        doc_ref = self._collection.document(user_id)
+
+        for _ in range(self._MAX_COMMIT_ATTEMPTS):
+            transaction = self._client.transaction()
+            snapshot = transaction.get(doc_ref)
+            data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+            count_after = data.get("trial_area_count", 0) + area_count
+            data["trial_area_count"] = count_after
+            transaction.set(doc_ref, data)
+            try:
+                transaction.commit()
+            except TransactionConflict:
+                continue
+            return count_after
+
+        raise TransactionConflict(
+            f"increment_trial_area_count(user_id={user_id!r}, area_count={area_count!r}) "
+            f"did not commit after {self._MAX_COMMIT_ATTEMPTS} attempts"
+        )
+
+    def get_trial_area_count(self, user_id: str) -> int:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return 0
+        return (snapshot.to_dict() or {}).get("trial_area_count", 0)

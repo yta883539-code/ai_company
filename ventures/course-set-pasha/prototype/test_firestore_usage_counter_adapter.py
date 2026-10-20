@@ -296,5 +296,87 @@ class FirestoreUsageCounterUpgradedAtTrialEndNotifiedAtTest(unittest.TestCase):
         )
 
 
+class FirestoreUsageCounterTrialGenerationAndAreaCountTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 23節(trial_generation_count・
+    trial_area_countグループ)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_trial_generation_count_for_unknown_user_is_zero(self):
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 0)
+
+    def test_increment_trial_generation_count_then_get(self):
+        self.assertEqual(self.counter.increment_trial_generation_count("u1"), 1)
+        self.assertEqual(self.counter.increment_trial_generation_count("u1"), 2)
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 2)
+
+    def test_trial_generation_count_does_not_reset_across_months(self):
+        """19節のcount(月次リセット)とは異なり、月を越えても積み上がったままで
+        あることを確認する(23.1節「月境界の影響を受けずに積み上げる契約」)。"""
+        self.counter.increment("u1", "2026-10")
+        self.counter.increment_trial_generation_count("u1")
+        self.counter.increment_trial_generation_count("u1")
+        self.assertEqual(self.counter.get_count("u1", "2026-11"), 0)
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 2)
+
+    def test_increment_trial_generation_count_is_scoped_per_user(self):
+        self.counter.increment_trial_generation_count("u1")
+        self.counter.increment_trial_generation_count("u2")
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 1)
+        self.assertEqual(self.counter.get_trial_generation_count("u2"), 1)
+
+    def test_increment_trial_generation_count_does_not_clobber_other_fields(self):
+        self.counter.increment_and_mark_notice("u1", "2026-10", mark_notice_sent=True)
+        self.counter.increment_trial_generation_count("u1")
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+        doc = self.client.collection("usage_counter").document("u1").get().to_dict()
+        self.assertTrue(doc["first_generation_notice_sent"])
+
+    def test_increment_trial_generation_count_interleaved_transactions_do_not_lose_a_count(
+        self,
+    ):
+        """19.3節と同種のread-modify-write競合を、trial_generation_count側でも
+        内部リトライで回避できることを確認する。"""
+        doc_ref = self.client.collection("usage_counter").document("u1")
+
+        tx_a = self.client.transaction()
+        tx_a.get(doc_ref)
+        tx_b = self.client.transaction()
+        tx_b.get(doc_ref)
+
+        tx_a.set(doc_ref, {"trial_generation_count": 1})
+        tx_a.commit()
+
+        with self.assertRaises(TransactionConflict):
+            tx_b.set(doc_ref, {"trial_generation_count": 1})
+            tx_b.commit()
+
+        result = self.counter.increment_trial_generation_count("u1")
+        self.assertEqual(result, 2)
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 2)
+
+    def test_get_trial_area_count_for_unknown_user_is_zero(self):
+        self.assertEqual(self.counter.get_trial_area_count("u1"), 0)
+
+    def test_increment_trial_area_count_adds_variable_amount(self):
+        self.assertEqual(self.counter.increment_trial_area_count("u1", 3), 3)
+        self.assertEqual(self.counter.increment_trial_area_count("u1", 2), 5)
+        self.assertEqual(self.counter.get_trial_area_count("u1"), 5)
+
+    def test_increment_trial_area_count_is_scoped_per_user(self):
+        self.counter.increment_trial_area_count("u1", 3)
+        self.counter.increment_trial_area_count("u2", 1)
+        self.assertEqual(self.counter.get_trial_area_count("u1"), 3)
+        self.assertEqual(self.counter.get_trial_area_count("u2"), 1)
+
+    def test_increment_trial_area_count_does_not_clobber_trial_generation_count(self):
+        self.counter.increment_trial_generation_count("u1")
+        self.counter.increment_trial_area_count("u1", 4)
+        self.assertEqual(self.counter.get_trial_generation_count("u1"), 1)
+        self.assertEqual(self.counter.get_trial_area_count("u1"), 4)
+
+
 if __name__ == "__main__":
     unittest.main()
