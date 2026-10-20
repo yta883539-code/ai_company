@@ -143,11 +143,23 @@ def validate_cross_field_rules(instance, path="$"):
                 f"{path}.near_miss_record_template.fields: 固定5項目(厳守事項6)と一致しません"
                 f"(期待={expected_fields}, 実際={actual_fields})"
             )
+
+        # 厳守事項7(フェーズ25追加): status=generatedでもfee_inquiry_noteが非nullの場合
+        # (会場情報と料金問い合わせが混在する入力)、out_of_scope_message側のチェックと同様に
+        # 具体的な料金額(数字+「円」)を案内してしまっていないかを機械的に確認する。
+        fee_inquiry_note = instance.get("fee_inquiry_note")
+        if fee_inquiry_note is not None and re.search(r"\d+\s*円", fee_inquiry_note):
+            errors.append(
+                f"{path}.fee_inquiry_note: 具体的な料金額への言及が含まれています"
+                f"(厳守事項7、本文={fee_inquiry_note!r})"
+            )
     elif status == "out_of_scope":
         if instance.get("out_of_scope_message") is None:
             errors.append(f"{path}: status=out_of_scopeのときout_of_scope_messageは非nullである必要があります")
         if instance.get("missing_fields_request") is not None:
             errors.append(f"{path}: status=out_of_scopeのときmissing_fields_requestはnullである必要があります")
+        if instance.get("fee_inquiry_note") is not None:
+            errors.append(f"{path}: status=out_of_scopeのときfee_inquiry_noteはnullである必要があります(厳守事項7、フェーズ25)")
         for f in generated_fields:
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=out_of_scopeのとき{f}はnullである必要があります")
@@ -166,6 +178,8 @@ def validate_cross_field_rules(instance, path="$"):
             errors.append(f"{path}: status=insufficient_inputのときmissing_fields_requestは非nullである必要があります")
         if instance.get("out_of_scope_message") is not None:
             errors.append(f"{path}: status=insufficient_inputのときout_of_scope_messageはnullである必要があります")
+        if instance.get("fee_inquiry_note") is not None:
+            errors.append(f"{path}: status=insufficient_inputのときfee_inquiry_noteはnullである必要があります(厳守事項7、フェーズ25)")
         for f in generated_fields:
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=insufficient_inputのとき{f}はnullである必要があります")
@@ -209,6 +223,7 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": [
             {"item": "入場口2箇所・退場口1箇所の計3箇所がキャパシティ800人に対し十分な処理能力か", "highlighted": False},
             {"item": "開場16:30〜開演18:00の90分間に導線上の合流・ボトルネックが生じないか", "highlighted": False},
@@ -239,6 +254,7 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": [
             {"item": "入退場共用1箇所がキャパシティ300人に対し十分な処理能力か", "highlighted": True},
         ],
@@ -272,6 +288,7 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": [
             {"item": "1階自由入場エリアと2階指定席エリアで入退場口を分離できているか", "highlighted": False},
         ],
@@ -303,6 +320,7 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": [
             {"item": "予約枠ごとの来場時間帯が入退場口2箇所の処理能力に対し集中しないか", "highlighted": False},
         ],
@@ -335,6 +353,7 @@ TEST_CASES = {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。警備会社への発注契約・所轄警察署への届出代行は主催者・警備責任者自身でご対応ください。",
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": None,
         "staffing_plan": None,
         "notice_board_text": None,
@@ -347,6 +366,7 @@ TEST_CASES = {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。料金プランについてのご案内は現時点では行っておりません。入退場時混雑確認等のご相談であれば、会場キャパシティ・入退場口数等をお送りください。",
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": None,
         "staffing_plan": None,
         "notice_board_text": None,
@@ -360,6 +380,7 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
+        "fee_inquiry_note": None,
         "checklist": [
             {"item": "入退場口1箇所がキャパシティ400人に対し十分な処理能力か", "highlighted": True},
         ],
@@ -386,10 +407,52 @@ TEST_CASES = {
             ]
         },
     },
+    # 厳守事項7(フェーズ25追加): 会場情報(capacity・entry_exit_points・admission_type)が
+    # 十分に入力されており通常の4出力が生成できる一方、入力メモに料金プラン・契約に関する
+    # 問い合わせが混在しているケース。OOS2(料金問い合わせのみ)とは異なり、必須項目が
+    # 充足しているためstatus=out_of_scopeではなくgeneratedのまま4出力を生成し、
+    # fee_inquiry_noteにのみ料金への不応答を明示する(llm-system-prompt-draft.md
+    # 厳守事項7のフェーズ25追記、line-reservation-aiのfaq_segments分離設計を参考にした)。
+    # 想定入力例: 「会場キャパ800人、入場口2箇所・退場口1箇所、開場16:30/開演18:00、
+    # 自由入場(整理番号なし)、警備員は会場スタッフ4名のみ。ところで利用料金はいくらですか」。
+    "G6_generated_with_incidental_fee_mention": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "fee_inquiry_note": (
+            "本サービスは一次チェックと文書下書き生成のみを行っております。料金プランについての"
+            "ご案内は現時点では行っておりません。"
+        ),
+        "checklist": [
+            {"item": "入場口2箇所・退場口1箇所の計3箇所がキャパシティ800人に対し十分な処理能力か", "highlighted": False},
+        ],
+        "staffing_plan": {
+            "focus": "entry",
+            "body": (
+                "自由入場(整理番号なし)のため、開場直後の入場時集中に重点を置きます。会場スタッフ4名を"
+                "入場口2箇所に重点配置してください。外部委託警備員は配置されていないため、区分けは行いません。"
+            ),
+            "announcement_text": "本日は自由入場となっております。入場口が混み合う場合は係員の案内に従い、分散してお進みください。",
+        },
+        "notice_board_text": {
+            "body": "ご来場の皆様へ。入場口付近が混雑する場合がございます。係員の案内に従い、整列・分散入場にご協力ください。",
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "II1_missing_capacity_and_entry_exit": {
         "status": "insufficient_input",
         "out_of_scope_message": None,
         "missing_fields_request": "会場キャパシティ(capacity)と入退場口数(entry_exit_points)の記載が見当たりません。これらをご入力の上、再度お送りください。",
+        "fee_inquiry_note": None,
         "checklist": None,
         "staffing_plan": None,
         "notice_board_text": None,
@@ -480,6 +543,14 @@ NEGATIVE_CASE_PERSONAL_NAME_LEAKED = {
 NEGATIVE_CASE_FEE_PRICE_LEAKED = {
     **TEST_CASES["OOS2_fee_and_payment_inquiry"],
     "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。単発利用プランは500円/回でご利用いただけます。",
+}
+
+# ネガティブテスト(フェーズ25追加): G6(会場情報と料金問い合わせの混在ケース)の
+# fee_inquiry_noteが、厳守事項7に反して具体的な料金額(例:「500円/回」)を
+# 案内してしまったケースが検出されることを確認する(NEG8のgenerated側バリアント)。
+NEGATIVE_CASE_FEE_PRICE_LEAKED_IN_GENERATED = {
+    **TEST_CASES["G6_generated_with_incidental_fee_mention"],
+    "fee_inquiry_note": "本サービスは一次チェックと文書下書き生成のみを行っております。単発利用プランは500円/回でご利用いただけます。",
 }
 
 
@@ -588,6 +659,17 @@ def main():
     else:
         failed += 1
         print("[NG] NEG8_fee_price_leaked_is_detected: 具体的な料金額の案内を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors9 = validate_against_schema(NEGATIVE_CASE_FEE_PRICE_LEAKED_IN_GENERATED, SCHEMA)
+    neg_errors9 += validate_cross_field_rules(NEGATIVE_CASE_FEE_PRICE_LEAKED_IN_GENERATED)
+    if neg_errors9:
+        print("[OK] NEG9_fee_price_leaked_in_generated_is_detected (想定通りエラー検出)")
+        for e in neg_errors9:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG9_fee_price_leaked_in_generated_is_detected: fee_inquiry_note内の具体的な料金額の案内を検出できませんでした(バリデータの不備)")
 
     print(f"\n{total - failed}/{total} 件パス")
     return 1 if failed else 0

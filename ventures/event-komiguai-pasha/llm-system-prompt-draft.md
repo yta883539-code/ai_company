@@ -64,6 +64,18 @@ llm-system-prompt-draft.mdを作成する」を実施したもの。実際のAPI
    「本サービスは一次チェックと文書下書き生成のみを行っております」という趣旨の一言のみを
    返し、4つの出力の生成対象からは除外する。料金プラン自体が未確定(pricing-plan.md未着手)の
    ため、具体的な料金案内は一切行わない。
+   - 入力メモが料金・契約・支払いの問い合わせのみで占められ、`capacity`・`entry_exit_points`・
+     `admission_type`等の必須項目が入力から読み取れない場合は`status=out_of_scope`とし、
+     `out_of_scope_message`に定型応答を返す(フェーズ24実装済み、OOS2参照)。
+   - 一方、必須項目が入力に含まれており通常の4出力生成が可能な場合(会場情報と料金問い合わせが
+     同じ入力メモ内に混在する場合)は`status=generated`のまま4出力を通常通り生成し、料金・契約
+     部分にのみ応答しない旨を`fee_inquiry_note`に定型文で付記する(フェーズ25で設計・反映。
+     既存「パシャっと」シリーズでは例が無いが、line-reservation-aiの`faq_segments`(1応答内で
+     intentが項目ごとに混在する場合に専用フィールドで分離する設計)と同種の考え方を踏襲した)。
+     会場情報が十分にあるのに料金問い合わせを理由に全体をout_of_scopeへ振ってしまうと、
+     主催者が本来受け取れるはずの混雑対策情報まで受け取れなくなるため、必須項目の充足有無で
+     generated/out_of_scopeを分岐させる(insufficient_input・out_of_scopeいずれにも該当しない
+     限りgeneratedを優先する)方針とした。
 8. 入力メモが著しく不十分(`capacity`・`entry_exit_points`・`admission_type`のいずれかが
    欠落している等)で4出力の生成が困難な場合は、不足している項目を具体的に指摘して再送を
    促す。不明な項目を推測で埋めて生成しない。
@@ -92,6 +104,11 @@ course-set-pasha・kura-pasha等を参考に、mvp-flow-draft.md「出力スキ�
   `near_miss_record_template`)を生成する。
 - `notice_board_text.includes_road_use_permit_note`で厳守事項2(`outdoor_queue`に応じた
   道路使用許可注記の有無)を機械的に検証できる補助フィールドとする方針とする。
+- `fee_inquiry_note`(フェーズ25追加)は、`status=generated`の場合のみ非null化しうる任意
+  フィールドとする。会場情報が十分で4出力が生成される入力メモに、料金・契約・支払いへの
+  言及が混在していた場合にのみ定型文を設定し、それ以外(料金言及が無い場合、または
+  `status`が`out_of_scope`/`insufficient_input`の場合)は常にnullとする(厳守事項7の
+  混在ケース対応)。
 
 ## 未検証事項
 

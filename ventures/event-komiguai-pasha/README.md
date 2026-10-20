@@ -446,3 +446,30 @@
 - 最終更新: 2026-10-20 04:00 UTC(フェーズ24: schema/validate_test_cases.pyに料金言及
   混入ケース〈OOS2〉・氏名混入ケース〈G5〉とそれぞれの検出用ネガティブテスト〈NEG7・NEG8〉を
   追加。料金額の案内チェック・氏名転記チェックの2つの新規検証処理を追加し、全16件パスを確認)
+- フェーズ25(2026-10-20 05:00 UTC): フェーズ24の次回候補(3)「厳守事項7の『料金関連の記述が
+  正当な会場情報と混在する入力』の場合の分岐」の設計検討に着手した。従来のOOS2は入力メモが
+  料金・契約の問い合わせのみで占められているケースを想定していたが、`capacity`・
+  `entry_exit_points`・`admission_type`等の必須項目が入力に含まれ通常の4出力生成が可能な
+  場合に料金問い合わせが混在すると、全体をout_of_scopeへ振ってしまうと主催者が本来受け取れる
+  はずの混雑対策情報まで受け取れなくなるという問題を整理した。line-reservation-aiの
+  `faq_segments`(1応答内でintentが項目ごとに混在する場合に専用フィールドで分離する設計、
+  menu-pricing-faq-topic-decision.md等参照)と同種の考え方を踏襲し、必須項目充足時は
+  `status=generated`のまま4出力を生成し、料金への不応答のみを新設の任意フィールド
+  `fee_inquiry_note`(status=generatedの場合のみ非null化しうる)に分離する方針を採用した。
+  llm-system-prompt-draft.md厳守事項7にこの分岐を追記し、output.schema.jsonに
+  `fee_inquiry_note`フィールドを追加(既存全テストケースにfee_inquiry_note: Noneを付与)、
+  validate_test_cases.pyに新規テストケース`G6_generated_with_incidental_fee_mention`
+  (会場情報十分+料金問い合わせ混在、fee_inquiry_noteに定型文)と、そのnull制約
+  (status=out_of_scope/insufficient_inputのとき必ずnull)・料金額漏れ検出
+  (`NEG9_fee_price_leaked_in_generated_is_detected`)を追加した。llm-quality-verification-plan.md
+  の厳守事項7の行もG6追加を反映して更新した。`python3 schema/validate_test_cases.py`を実行し、
+  既存16件に新規2件(G6・NEG9)を加えた全18件がパスすることを確認した。実際の外部連絡等は
+  発生しておらず、承認が必要なアクションも発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)層2(単発屋内トークイベント・ポップアップ公演の主催者)の探索手法をさらに
+  切り替える(SNS検索・特定地域のポップアップイベント告知サイト等)か、層3への着手順を
+  再検討する、(2)mvp-flow-draft.mdの入出力をコード化したprototype(webhookまたはフォーム
+  受信処理の骨格)の作成に着手する、(3)候補1(奈良NEVER LAND)・候補2(那覇市)はヒアリング
+  実施(オーナー承認後)まで追加調査を保留。
+- 最終更新: 2026-10-20 05:00 UTC(フェーズ25: 厳守事項7に「会場情報と料金問い合わせの混在」
+  分岐を追記。output.schema.jsonに`fee_inquiry_note`フィールドを新設し、
+  validate_test_cases.pyに新規テストケースG6・ネガティブテストNEG9を追加、全18件パスを確認)

@@ -10,7 +10,8 @@
     "checklist",
     "staffing_plan",
     "notice_board_text",
-    "near_miss_record_template"
+    "near_miss_record_template",
+    "fee_inquiry_note"
   ],
   "additionalProperties": false,
   "properties": {
@@ -79,6 +80,10 @@
           "type": "boolean"
         }
       }
+    },
+    "fee_inquiry_note": {
+      "description": "厳守事項7(フェーズ25追加)の『会場情報と料金問い合わせが混在する入力』分岐に対応するフィールド。status=generatedの場合のみ非nullになりうる任意フィールド(status=generatedでも料金言及が無ければnull)。会場情報(capacity・entry_exit_points・admission_type等)が十分で通常の4出力が生成される入力メモに、料金プラン・契約・支払いに関する記述が混在していた場合、それらには応答しない旨の定型文を設定する。status=out_of_scopeの場合は定型応答がout_of_scope_message側に入るため常にnull、status=insufficient_inputの場合も常にnull(コード側検証で担保)。",
+      "type": ["string", "null"]
     },
     "near_miss_record_template": {
       "description": "出力4(ヒヤリハット記録フォーマット例)。status=generatedの場合のみ非nullとなるフィールド。厳守事項6に基づき、発生日時・場所・状況・対応・再発防止策の5項目を持つテンプレートを生成するのみで、過去の記録データを保持・参照する機能は持たない(固定5項目、入力依存の分岐なし)。status!=generatedのときは必ずnull(コード側検証で担保)。",
