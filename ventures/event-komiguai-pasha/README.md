@@ -533,3 +533,32 @@
   schema+クロスフィールド検証をまとめるvalidate_llm_output()、フォーム受信から
   LLM呼び出し〈必要時のみ〉・検証までを一本に繋げるrun_form_submission_pipeline()を
   実装。テスト11件新規追加、全件パス。既存テスト11件・schema検証18件も変更なしでパス)
+- フェーズ28(2026-10-20 11:00 UTC定例更新): フェーズ27の次回候補(1)「post_generation_checks.py
+  (厳守事項7の絵文字不使用・厳守事項6の対象外トピック混入ヒューリスティック検証)の
+  新規作成」を実施した(現行のllm-system-prompt-draft.md番号付けでは絵文字不使用は
+  厳守事項9、料金プラン・契約・支払いへの不応答は厳守事項7に対応。フェーズ27記載時の
+  番号と食い違いがあるが、フェーズ3作成後にフェーズ24・25で項目が追加され全体の番号が
+  ずれたためで、対象ルール自体はフェーズ27が指していたものと同一)。
+  prototype/post_generation_checks.pyを新規作成し、forklift-pasha/kura-pasha/
+  course-set-pasha/aircon-pashaのprototype/post_generation_checks.pyと同じ位置づけで
+  check_no_emoji_anywhere()(checklist/staffing_plan/notice_board_text/
+  near_miss_record_template/out_of_scope_message/missing_fields_request/
+  fee_inquiry_noteの全文字列を対象に、forklift-pashaと同じ文字コード範囲の
+  EMOJI_PATTERNで検出。警備・安全管理という性質上、course-set-pashaのSNS投稿文向け
+  ルール〈1〜2個まで許容〉とは異なり全体で絵文字不使用とするforklift-pasha方式を踏襲)・
+  check_no_out_of_scope_topics_in_generated_output()(status=generatedのとき、
+  checklist/staffing_plan/notice_board_text/near_miss_record_templateに
+  「料金プラン」「契約書」「お支払い」等のキーワードが紛れ込んでいないかを検出。
+  fee_inquiry_note自体は厳守事項7の定型応答としてこれらの語を含むことが前提のため
+  検証対象から除外)を実装した。prototype/test_post_generation_checks.pyに
+  テスト11件(schema/validate_test_cases.pyのTEST_CASES全件が両チェックに違反しないこと
+  の確認、意図的な絵文字混入・料金話題混入の検出確認、fee_inquiry_note自体は除外対象で
+  あることの確認等)を追加し全件パスを確認した。既存のtest_form_submission_intake.py
+  (11件)・test_mock_llm_client.py(11件)・schema/validate_test_cases.py(18件)への
+  影響はなく、変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)層2(単発屋内トークイベント・ポップアップ公演の主催者)の
+  探索手法の見直し、または層3への着手順の再検討(フェーズ21〜23・25から継続)、
+  (2)候補1(奈良NEVER LAND)・候補2(那覇市)はヒアリング実施(オーナー承認後)まで
+  追加調査を保留、(3)他venture同様、実LLM接続後にpost_generation_checksで拾いきれない
+  違反パターンの収集・ルール改善(オーナー承認・APIキー取得待ち)。
