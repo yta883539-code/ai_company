@@ -110,7 +110,11 @@ class FirestoreWorkshopStore:
         self._doc_ref(workshop_id).set({"contractor_user_id": user_id}, merge=True)
 
     def get_member_user_ids(self, workshop_id: str) -> list[str]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「メンバーなし」側([])に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return []
         return list((snapshot.to_dict() or {}).get("member_user_ids", []))
 
     def add_member_user_id(self, workshop_id: str, user_id: str) -> None:
@@ -122,7 +126,11 @@ class FirestoreWorkshopStore:
         )
 
     def get_member_display_name(self, workshop_id: str, user_id: str) -> Optional[str]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「表示名未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("member_display_names", {}).get(user_id)
 
     def get_plan_id(self, workshop_id: str) -> str:
@@ -133,14 +141,22 @@ class FirestoreWorkshopStore:
         self._doc_ref(workshop_id).set({"plan_id": plan_id}, merge=True)
 
     def get_workshop_name(self, workshop_id: str) -> Optional[str]:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
         return (snapshot.to_dict() or {}).get("workshop_name")
 
     def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
         self._doc_ref(workshop_id).set({"workshop_name": workshop_name}, merge=True)
 
     def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
-        snapshot = self._doc_ref(workshop_id).get()
+        # 23節の統一方針: 一時的な接続エラーは「未送信」側(False)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return False
         return (snapshot.to_dict() or {}).get("first_generation_notice_sent", False)
 
     def set_first_generation_notice_sent(self, workshop_id: str) -> None:
@@ -1137,6 +1153,16 @@ line-reservation-aiの`owner_user_id`と同じ例外パターンに該当する�
 
 これにより、`WorkshopStoreProtocol`の例外方針に関する「未検討のまま」の注記
 (3節・9.1節・11.1節・13.3節・15.3節・17.3節)はすべて解消した。
+
+**(フェーズ251追記)**: `prototype/firestore_workshop_adapter.py`への実コード化着手時に、
+2節(基盤グループ)の`get_member_user_ids`・`get_member_display_name`・
+`get_workshop_name`・`get_first_generation_notice_sent`の4メソッドが、本節の対象列挙
+(5・7・9・11・13・15・17節)に含まれておらず、`try/except`の汎用パターンが反映されて
+いなかった記述漏れを発見した(`get_contractor_user_id`・`get_plan_id`は23.3節で明示的に
+fail-closedと確定済みのため対象外、この2つを除く2節の残り4getterが漏れていた)。
+いずれも23.2節の一般原則(認可・決済ゲートの判定に直接使われないフィールド)に該当する
+ため、2節のコード例にも`try/except Exception: return <既存デフォルト値>`を反映し、
+実コード(firestore_workshop_adapter.py)側も同じ方針で実装した。
 
 ### 23.5. 動作確認
 

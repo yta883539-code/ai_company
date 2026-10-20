@@ -5610,3 +5610,37 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   design.md・invite-code-store-firestore-adapter-design.mdの陳腐化した「コミットしない」
   記載を是正し、`FirestorePendingLinkStore`・`FirestoreWorkshopInviteStore`を実コード化。
   コード変更あり〈新規2ファイル〉、テスト226件〈新規11件〉・355件・schema検証32件パス)
+- フェーズ251(2026-10-20 10:00 UTC定例更新): 棚卸しの結果、workshop-store-firestore-
+  adapter-design.mdの残課題リスト(31節)が挙げていた「他venture(forklift-pasha・
+  line-reservation-ai)へのFirestoreセキュリティルール草案横展開」・「テストダブル切り替え
+  方式の設計」はいずれも既に別フェーズ(course-set-pashaフェーズ309以降の横展開・
+  runtime-dependency-switching-design.mdフェーズ238/243)で完了済みの陳腐化した記載
+  だったことを確認した。そこで残る実作業である`WorkshopStoreProtocol`(design.md 2節
+  基盤グループ、`set_members`/`get_contractor_user_id`/`set_contractor_user_id`/
+  `get_member_user_ids`/`add_member_user_id`/`get_member_display_name`/`get_plan_id`/
+  `set_plan`/`get_workshop_name`/`set_workshop_name`/`get_first_generation_notice_sent`/
+  `set_first_generation_notice_sent`/`all_workshop_ids`の13メソッド)の実Firestore接続
+  アダプタを`prototype/firestore_workshop_adapter.py`として新規に実コード化した
+  (`FirestoreUsageCounterProvider`・`FirestorePendingLinkStore`等と同じ、実SDKを
+  importしない最小インターフェース方式)。実コード化の過程で、design.md 2節の
+  `get_member_user_ids`・`get_member_display_name`・`get_workshop_name`・
+  `get_first_generation_notice_sent`の4getterが、23節で確定した接続エラー時の安全側
+  フォールバック(`try/except`)の反映対象列挙から漏れていた記述漏れを発見し、design.md
+  2節・23節に是正を追記した上で実コードに正しく反映した(`get_contractor_user_id`・
+  `get_plan_id`は23.3節のfail-closed方針通り例外を伝播させるまま変更なし)。
+  `prototype/test_firestore_workshop_adapter.py`を新規作成し、基盤グループの往復・
+  `add_member_user_id`の冪等性(ArrayUnion相当の重複排除)・未作成workshop_idに対する
+  fail-closed動作・`merge=True`による複数フィールドの非破壊共存を検証するテスト14件を
+  追加した。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (240件、新規14件含めて全件パス)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、
+  いずれもパスすることを確認した(回帰なし)。これにより`WorkshopStoreProtocol`
+  (30件超)のうち実コード化が完了したのは基盤グループ(13メソッド)のみで、残り7グループ
+  (メンバー削減系・契約者引き継ぎ系・trial系・stripe_customer_id順引き逆引き系・
+  subscription_status+event_time系・payment_failure系・owner_notified_at系・
+  deletion系)は次回候補として残る。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし(既存の
+  承認待ち事項に変更なし)。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)`WorkshopStoreProtocol`の残り7グループの実コード化(design.md
+  の設計順〈5・7・9・11・13・15・17・29節〉に沿って段階的に進める)、(3)他venture・
+  アイデア領域の前進。
