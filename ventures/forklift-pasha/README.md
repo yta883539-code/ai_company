@@ -3474,3 +3474,38 @@
   各venture側で既に完了済み〈kura-pashaフェーズ249・course-set-pashaフェーズ314・
   aircon-pasha直近更新〉であることを確認し、次回候補リストから除去。これにより5venture
   全てで検証完了。コード変更なし、全21ファイル・schema検証11件パス)
+- フェーズ176(2026-10-20 13:00 UTC定例更新): event-komiguai-pashaフェーズ26
+  (mock_llm_client.py・run_form_submission_pipeline、2026-10-19 09:00 UTC)と同型の
+  モジュールが本venture未着手だった、本venture固有のparityギャップを解消した。従来、
+  schema/validate_test_cases.pyのPOSITIVE_CASES(G1〜G4・OOS1・II1〜II3)は
+  schema適合性・クロスフィールドルールの机上検証にしか使われておらず、
+  form_submission_flow.process_form_submission()のテスト(test_form_submission_flow.py)
+  は別途手書きのlambdaでllm_generateをスタブ化していたため、両者がフィクスチャを共有
+  していなかった。prototype/mock_llm_client.pyを新規作成し、POSITIVE_CASESをそのまま
+  process_form_submission()に注入できるMockLlmClient(シナリオ名指定でキャンド出力を
+  返す)と、schema適合性・クロスフィールドルール・post_generation_checks.run_all_checks
+  (厳守事項6・7の機械チェック)の3段階検証をまとめるvalidate_llm_output()を実装した。
+  event-komiguai-pashaとの差異として、本venture(process_form_submission)は
+  insufficient_input・out_of_scopeも含めて全てllm_generate経由で判定する設計
+  (event-komiguai-pashaのような別立てintake層が無い)であることを踏まえ、II系も
+  モックの対象シナリオに含めた。prototype/test_mock_llm_client.pyを新規作成し、
+  POSITIVE_CASES全8件それぞれについて、(1)validate_llm_outputがエラー0件であること、
+  (2)process_form_submission()経由の応答(status・response_text)がフィクスチャの
+  body/reminder_notice/out_of_scope_message/missing_fields_requestから期待通りに
+  組み立てられること、を1本のフローで確認するテスト42件を追加、全件パスを確認した
+  (未知シナリオ名指定時の例外送出も確認)。`python3 prototype/run_all_tests.py`
+  (全22ファイル、test_mock_llm_client.py新規分含め全パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)もいずれもパスすることを
+  確認した(既存分に回帰なし)。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は
+  依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約5日で
+  ある状況に変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその
+  着手を最優先、(2)10/25前後になっても承認が得られない場合、
+  launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、
+  (3)MockLlmClientのscenario指定方式をCANCELED_NOTICE/GENERATION_PAUSED_NOTICE分岐
+  (本フェーズでは未対象、trial_management.py側の既存テストでカバー済み)以外の
+  invalid_output(ネガティブケース)にも拡張するかの検討。
+- 最終更新: 2026-10-20 13:00 UTC(フェーズ176: prototype/mock_llm_client.pyを新規作成。
+  schema/validate_test_cases.pyのPOSITIVE_CASESをprocess_form_submission()に注入する
+  モッククライアントとvalidate_llm_output()を実装し、両フィクスチャ間のparityギャップを
+  解消。prototype/test_mock_llm_client.py新規作成、42件新規パス。全22ファイル・
+  schema検証11件も変更なしでパス)
