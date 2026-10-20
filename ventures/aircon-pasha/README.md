@@ -5993,3 +5993,29 @@
   他venture分の「完了宣言後の追加フィールド反映漏れ」棚卸しを実施し、4venture全てで
   反映漏れに該当しないことを確認(increment-and-mark-notice-horizontal-survey.md新規
   作成)。コード変更なし、全719件・schema検証25件パス)
+- フェーズ328(2026-10-19 01:00 UTC定例更新): firestore-security-rules-draft.md 4節
+  「未検証・残課題」(実Firestoreプロジェクトが無いためルール草案自体をFirebase Local
+  Emulator Suiteで検証できていない)を、forklift-pashaフェーズ174・line-reservation-ai
+  フェーズ続き332と同じ手法(デモプロジェクトID`demo-aircon-pasha`指定、実GCPプロジェクト・
+  課金設定・Firebaseログインいずれも不要)で解消した。本venture配下に`firebase.json`・
+  `firestore.rules`・`emulator-test/run_rules_check.sh`を新設し、`firebase emulators:exec
+  --project demo-aircon-pasha --only firestore`経由で未認証クライアントアクセス5件
+  (`user_profile`・`pending_links`・`usage_counter`への書き込み、想定外コレクションへの
+  書き込み、`user_profile`の読み取り)が全て`403 PERMISSION_DENIED`になることを確認した
+  (firestore-security-rules-emulator-verification.md新規作成)。本検証は支払い・
+  アカウント作成を伴わないためオーナー承認を待たずに実施した。なお本フェーズは実際には
+  2026-10-19 01:00 UTC定例更新のコミット(ideasへの「トレーニングあんぜんパシャっと」等
+  追加と合算)で既に実施・pushされていたが、本README側へのフェーズ番号としての記録が
+  漏れていたため、今回(フェーズ329着手時点)の点検で発見し、遡って記録した(forklift-
+  pashaフェーズ173・aircon-pasha自身のフェーズ278等で過去に発見された同種の「記載漏れ」
+  パターンと同じ)。コード変更なし、文書記録の遡及追記のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(719件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-19 01:00 UTC(フェーズ328: firestore-security-rules-draft.mdの
+  未検証残課題をFirebase Local Emulator Suite〈デモプロジェクトID〉で解消した作業
+  〈2026-10-19 01:00 UTC定例更新コミットで実施済み〉について、README側のフェーズ記録
+  漏れを今回発見し遡及記録。コード変更なし、全719件・schema検証25件パス)
