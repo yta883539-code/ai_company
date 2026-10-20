@@ -137,6 +137,24 @@ Firestoreのコレクション/ドキュメントとしてどう分割するか�
                                      // 欠落を2026-10-03定例更新で解消)。文字列 | null、
                                      // 未設定時は空文字列扱いでSNS告知文の地域タグなしに
                                      // フォールバック。InMemory版はInMemoryRegionNameProvider。
+  cancelAtPeriodEnd: false,          // owner-settings-wireframe.md「4節へのsuspension_reason
+                                     // 分岐の反映」に追加した「解約手続き中」ステータス表示
+                                     // (2026-10-20定例更新)に対応するフィールドの欠落を解消。
+                                     // subscription-cancellation-flow-design.md 1節の
+                                     // `customer.subscription.updated`(`cancel_at_period_end`
+                                     // が`false→true`/`true→false`)で、Webhookが同値をそのまま
+                                     // 書き込む(真偽値)。suspensionReasonとは独立したフラグで、
+                                     // trueの間もsuspensionReasonはnullのまま変更しない(3節方針)。
+  currentPeriodEnd: null             // 同上。cancelAtPeriodEndがtrueの間、ステータス表示の
+                                     // 「利用終了日: {日付}」算出に使う請求期間終了日時
+                                     // (Timestamp | null)。Stripe Webhookペイロードの
+                                     // `current_period_end`をそのまま書き込む想定
+                                     // (subscription-cancellation-flow-design.md 3節の案内
+                                     // メッセージが使う終了日と同一の値)。cancelAtPeriodEndが
+                                     // false→trueの遷移時に設定し、true→false(解約取り消し)・
+                                     // `customer.subscription.deleted`(契約実終了)のいずれでも
+                                     // nullへ戻す(以後は`suspensionReason == "cancelled"`側の
+                                     // 表示に切り替わるため不要になる)。
 }
 ```
 書き込み頻度は低く(オーナーが設定画面を更新した時、またはWebhookで決済状態が変化した時のみ)、

@@ -525,9 +525,11 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
 |---|---|---|---|
 | なし・トライアル中 | 継続 | トライアル中 | 通常 |
 | なし・決済成功中 | 継続 | スタンダードプラン(次回請求日: {日付}) | 通常 |
+| なし・`cancel_at_period_end=true`(解約手続き中、subscription-cancellation-flow-design.md 3節) | 継続 | 解約手続き中(利用終了日: {日付}まで通常利用可) | 弱い警告色(グレー等) |
 | `payment_failed`(猶予期間中、payment-failure-dunning-design.md 3節段階2) | 継続 | お支払い確認中(猶予期間、あと{残り日数}日) | 警告色(オレンジ等) |
 | `payment_suspended`(制限モード、同3節段階3) | 停止 | 新規予約受付を一時停止中(お支払い未確認) | 強い警告色(赤等) |
 | `trial_unselected`(休止モード) | 停止 | 休止モード(新規予約受付を停止しています) | 強い警告色(赤等) |
+| `cancelled`(解約済み、subscription-cancellation-flow-design.md 1節・`customer.subscription.deleted`後) | 停止 | 解約済み(新規予約受付を停止しています) | 強い警告色(赤等) |
 
 - payment-failure-dunning-design.md 3節の状態名(`payment_failed`=猶予期間・
   `payment_suspended`=制限モード)をそのまま`suspension_reason`の値として採用する。
@@ -546,6 +548,55 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
   とは別の「お支払い方法の確認・更新」導線であることが分かるよう、ボタン文言を
   [お支払い方法を確認する]に差し替える(既存のスタンダードプラン中の
   [お支払い方法の確認・変更]ボタンと同じ遷移先を再利用できる想定)。
+
+### 「解約手続き中」「解約済み」の反映(2026-10-20追記)
+
+本節(上記対応表)は当初payment-failure-dunning-design.md起因の2状態(猶予期間・制限モード)
+のみを反映していたが、subscription-cancellation-flow-design.md「未確定事項・残課題」
+(2026-09-26 15:00 UTC時点)が未着手のまま残していた、オーナー自らの解約操作に起因する
+2状態(`cancel_at_period_end=true`の解約手続き中・`suspension_reason == "cancelled"`の
+解約済み)も同じ対応表に追加する。
+
+- 「解約手続き中」は`suspension_reason`の値ではなく、`suspension_reason`がなし(決済成功中)
+  のまま`cancel_at_period_end`が`true`になる独立したフラグの組み合わせである
+  (subscription-cancellation-flow-design.md 1節の対応表どおり、解約予約の直後は
+  `suspension_reason`を変更しないため)。新規予約受付は継続するため、休止モード・制限モード
+  とは異なり赤系の警告色は使わず、「まだ利用に支障はないが解約が予約されている」ことが
+  分かる弱い警告色(グレー等)に留める。
+- 「解約済み」(`suspension_reason == "cancelled"`)は、新規予約受付を停止する点・バッジ文言の
+  形式いずれも休止モード(`trial_unselected`)と同じ扱いとする(suspension-reason-new-
+  booking-block-design.mdのガードが両値を同列に扱っている設計と対応表の表示を一致させる)。
+  原因が「オーナー自身の解約操作」であることが分かるよう、休止モードの文言
+  (トライアル未選択が原因)とは別の「解約済み」という名称のみを変える。
+- [プランを見る・登録する]ボタンは、「解約手続き中」の間はsubscription-cancellation-flow-
+  design.md 3節の案内メッセージと同じStripeカスタマーポータルURLへ遷移させ、ボタン文言を
+  [解約を取り消す]に差し替える(同ポータルの「更新を再開」操作に対応)。「解約済み」は
+  契約自体が終了しているため、休止モード・トライアル中と同じスタンダードプラン契約導線
+  ([プランを見る・登録する])に戻す(再契約を促す導線であり、解約取り消しの導線とは
+  目的が異なるため)。
+
+### ワイヤーフレーム(解約手続き中の例)
+
+```
+┌─────────────────────────────┐
+│ プラン・お支払い状況            │
+├─────────────────────────────┤
+│ 解約手続き中                   │
+│ 2026-11-14まで通常どおりご利用   │
+│ いただけます(新規のご予約受付も   │
+│ 含め、機能の制限はありません)。   │
+│ 終了日以降は新規のご予約受付を    │
+│ 停止します。                   │
+│                             │
+│ [解約を取り消す]               │
+└─────────────────────────────┘
+```
+
+- 「2026-11-14」は、新設した`currentPeriodEnd`(firestore-data-model.md「1.
+  `stores/{storeId}`」参照)をそのまま日付表示するだけで、新規の算出ロジックは不要。
+- 本文2行はsubscription-cancellation-flow-design.md 3節のLINE案内メッセージの該当箇所
+  (「ご利用は今回の請求期間の終了日まで通常通り継続します」)をそのまま流用し、
+  LINEメッセージと本画面とで文言がずれないようにする(利用実績2項目の流用方針と同じ考え方)。
 
 ### ワイヤーフレーム(猶予期間中の例)
 
@@ -578,6 +629,11 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
 - 猶予期間の残り日数表示に必要な決済失敗検知日時の新規データ項目は、
   `paymentFailureDetectedAt`としてfirestore-data-model.mdの`stores`コレクション定義に
   反映済み(2026-08-17 08:00 UTC、`suspensionReason`と併せて追加)。
+- 「解約手続き中」ステータス表示(2026-10-20追記)には、`suspension_reason`とは独立した
+  新規データ項目`cancelAtPeriodEnd`(真偽値)・`currentPeriodEnd`(Timestamp)が必要で、
+  他の3状態(猶予期間・制限モード・休止モード)と異なり`suspension_reason`の値だけでは
+  判定できない欠落があった。本フェーズでfirestore-data-model.mdの`stores`コレクション定義に
+  両フィールドを追加した(詳細は同ファイル「1. `stores/{storeId}`」参照)。
 
 ### 残課題
 
@@ -593,3 +649,9 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
   「制限モード(`payment_suspended`)」と表記しており〈3節の対応表・53〜58行目〉、追加の
   反映作業自体が不要だった。webhook-function-a-implementation.md・owner-notification-
   channel-design.mdの過去の同種の訂正に倣い、以後この項目も「未着手」として再掲しないこと)
+- (新規 2026-10-20追記) `cancelAtPeriodEnd`・`currentPeriodEnd`の実際の書き込み配線
+  (`customer.subscription.updated`Webhook受信時にStripeペイロードの`cancel_at_period_end`・
+  `current_period_end`をそのまま`stores`ドキュメントへ反映する処理)は、本節・firestore-
+  data-model.mdいずれもデータ項目の定義のみで未着手。他のWebhookハンドラ実装
+  (webhook-function-a-implementation.md等)と同様、実際のStripeアカウント接続
+  (オーナー承認待ち)後の着手となる見込み。

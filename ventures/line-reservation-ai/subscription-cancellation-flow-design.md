@@ -223,10 +223,21 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   陥らないよう例外的にブロックしない設計とした。テスト7件追加、venture全体863件・
   schema検証28件いずれもパス。他venture〈aircon-pasha・kura-pasha・course-set-pasha〉の
   同種配線は引き続き未着手のため、venture横断の残課題としては残る)
-- owner-settings-wireframe.md「4. プラン・お支払い状況ページ」のステータス表示
+- ~~owner-settings-wireframe.md「4. プラン・お支払い状況ページ」のステータス表示
   (トライアル中/スタンダードプラン/休止モードの3状態)に「解約手続き中」
   (`cancel_at_period_end=true`)・「解約済み」(`suspension_reason == "cancelled"`)の
-  表示を追加する反映作業は未着手。
+  表示を追加する反映作業は未着手。~~
+  (解消済み 2026-10-20定例更新: owner-settings-wireframe.md「4節へのsuspension_reason
+  分岐の反映」の対応表に「解約手続き中」・「解約済み」の2行を追加し、ワイヤーフレーム例・
+  ボタン文言(解約手続き中は[解約を取り消す]、解約済みは[プランを見る・登録する]に戻す)
+  まで反映した。反映の過程で、「解約手続き中」の判定には`suspension_reason`だけでは
+  表現できない新規データ項目(`cancelAtPeriodEnd`・`currentPeriodEnd`)が必要という欠落を
+  発見し、firestore-data-model.mdの`stores`コレクション定義に両フィールドを追加した
+  (実際のWebhook書き込み配線は実Stripeアカウント接続後の課題として別途残る、owner-settings-
+  wireframe.md「残課題」参照)。文書記述のみでコード変更は無く、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスを確認した。
+  承認が必要なアクションは発生していないためpending-approval.mdへの追記なし。)
 - 実際のStripeアカウント接続・Webhookエンドポイント公開・LINE Push Message API接続は
   オーナー承認待ち(pending-approval.md参照)。
 - ~~`classify_subscription_update()`が対象外とする`suspension_reason`が
