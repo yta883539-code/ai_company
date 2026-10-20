@@ -87,6 +87,17 @@ class StoreSubscriptionState:
     変更しないため、`last_subscription_event_time`(`.deleted`/有効化用)とは独立した
     専用フィールドとした。`handle_subscription_updated()`が読み書きする。省略時
     (`None`)は後方互換のため新しいstale判定を一切行わない。
+
+    `cancel_at_period_end`・`current_period_end`(2026-10-20定例更新、firestore-
+    data-model.mdの`stores.cancelAtPeriodEnd`・`stores.currentPeriodEnd`に対応)は、
+    owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」の「解約手続き中」
+    ステータス表示に必要なフィールド。`suspension_reason`とは独立したフラグで、
+    `cancel_at_period_end`がTrueの間も`suspension_reason`はNoneのまま変更しない
+    (design 3節方針)。`handle_subscription_updated()`がWebhookの値をそのまま
+    `cancel_at_period_end`へ書き込み、`current_period_end`はfalse→true遷移時にのみ
+    設定し、true→false遷移時にNoneへ戻す。`handle_subscription_deleted()`が契約終了時
+    (実際にOUTCOME_CANCELLEDへ進んだ場合のみ)両方をリセットする
+    (false/None、以後は`suspension_reason == "cancelled"`側の表示に切り替わるため不要)。
     """
 
     store_id: str
@@ -98,6 +109,8 @@ class StoreSubscriptionState:
     blocked_but_billing_owner_notified_at: str | None = None
     last_subscription_event_time: datetime | None = None
     last_subscription_updated_event_time: datetime | None = None
+    cancel_at_period_end: bool = False
+    current_period_end: datetime | None = None
 
 
 @dataclass
@@ -326,6 +339,7 @@ def handle_subscription_updated(
     push_client: LinePushClient,
     portal_url: Optional[str] = None,
     event_time: Optional[datetime] = None,
+    current_period_end_after: Optional[datetime] = None,
 ) -> SubscriptionCancellationUpdateResult:
     """`customer.subscription.updated`(cancel_at_period_end変化)受信時の処理本体。
 
@@ -345,6 +359,17 @@ def handle_subscription_updated(
     (course-set-pashaの`_record_subscription_updated_event_time()`と同じ「結果に
     かかわらず記録」方針)。event_time省略時(`None`)は従来通りこのチェック・記録の
     いずれも行わない(既存呼び出し経路への後方互換措置)。
+
+    `state.cancel_at_period_end`は、`suspension_reason`による対象外判定(payment_failed/
+    payment_suspended)とは無関係に、Webhookが伝えてきた`cancel_at_period_end_after`を
+    そのまま書き込む(owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」
+    通り、このフラグは`suspension_reason`と独立した表示項目のため)。`state.
+    current_period_end`は、実際にfalse→true/true→false遷移が起きた場合
+    (OUTCOME_CANCELLATION_SCHEDULED/OUTCOME_CANCELLATION_RESCHEDULED)にのみ更新する
+    (前者は`current_period_end_after`を設定、後者は`None`に戻す)。payment_failed/
+    payment_suspendedで対象外(常にOUTCOME_NO_CHANGE)の店舗で実際に遷移が起きていた
+    場合、current_period_endは更新されない残課題がある(次回候補、2026-10-20定例更新で
+    発見)。
     """
     if (
         event_time is not None
@@ -356,6 +381,8 @@ def handle_subscription_updated(
     if event_time is not None:
         state.last_subscription_updated_event_time = event_time
 
+    state.cancel_at_period_end = cancel_at_period_end_after
+
     outcome = classify_subscription_update(
         cancel_at_period_end_before, cancel_at_period_end_after, state.suspension_reason
     )
@@ -364,10 +391,12 @@ def handle_subscription_updated(
         return SubscriptionCancellationUpdateResult(outcome=outcome)
 
     if outcome == OUTCOME_CANCELLATION_SCHEDULED:
+        state.current_period_end = current_period_end_after
         text = render_cancellation_scheduled_message(
             state.plan_name, state.period_end_date, portal_url, state.message_tone
         )
     else:
+        state.current_period_end = None
         text = render_cancellation_rescheduled_message(
             state.plan_name, state.period_end_date, state.message_tone
         )
@@ -421,6 +450,11 @@ def handle_subscription_deleted(
         return SubscriptionCancellationResult(outcome=OUTCOME_SEND_FAILED)
 
     state.suspension_reason = "cancelled"
+    # firestore-data-model.md「currentPeriodEnd」節通り、契約終了後はcancelAtPeriodEnd/
+    # currentPeriodEndによる「解約手続き中」表示が不要になるためリセットする
+    # (2026-10-20定例更新)。
+    state.cancel_at_period_end = False
+    state.current_period_end = None
     if event_time is not None:
         state.last_subscription_event_time = event_time
 

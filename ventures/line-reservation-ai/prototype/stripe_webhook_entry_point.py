@@ -395,6 +395,9 @@ def receive_stripe_webhook(
         cancel_at_period_end_before = bool(
             previous_attributes.get("cancel_at_period_end", cancel_at_period_end_after)
         )
+        current_period_end_after = _event_time_from_created(
+            {"created": data_object.get("current_period_end")}
+        )
         portal_url = (
             portal_link_provider.get_portal_url(store_id)
             if portal_link_provider is not None
@@ -407,6 +410,7 @@ def receive_stripe_webhook(
             push_client,
             portal_url=portal_url,
             event_time=event_time,
+            current_period_end_after=current_period_end_after,
         )
         # handle_subscription_updated()が`last_subscription_updated_event_time`を
         # 更新した場合(stale=Falseかつevent_time指定時)に備え、DELETED分岐と同じく

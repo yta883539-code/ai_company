@@ -238,8 +238,6 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   `python3 -m unittest discover -s prototype -p "test_*.py"`(946件、変更なし)・
   `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスを確認した。
   承認が必要なアクションは発生していないためpending-approval.mdへの追記なし。)
-- 実際のStripeアカウント接続・Webhookエンドポイント公開・LINE Push Message API接続は
-  オーナー承認待ち(pending-approval.md参照)。
 - ~~`classify_subscription_update()`が対象外とする`suspension_reason`が
   `"payment_failed"`(猶予期間中)のみで、制限モード(`"payment_suspended"`)が
   対象外条件に含まれておらず、制限モード中の店舗が解約予約をすると「新規のご予約受付も
@@ -248,3 +246,28 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   `classify_subscription_update()`のガード条件に`"payment_suspended"`を追加し、
   猶予期間中と同様にこのモジュールでは触れない対象外として扱うよう修正した。テスト2件
   追加、venture全体803件・schema検証27件いずれもパスを確認した)
+- ~~(2026-10-20 15:00 UTC記載)`cancelAtPeriodEnd`・`currentPeriodEnd`の実際の書き込み
+  配線は「実Stripeアカウント接続後の課題」としていたが、これは誤りだった。本モジュールの
+  他のハンドラ(`handle_subscription_deleted()`等)と同じく、この配線自体はWebhook
+  ペイロードの値を読み取ってstateのフィールドへ代入するだけの「判断・整形ロジック」であり、
+  実クラウド接続は不要(本ファイル冒頭の位置づけ参照)。実クラウド接続が必要なのは
+  デプロイ・実アカウントからの実際のWebhook受信のみ。~~
+  (解消済み 2026-10-20定例更新: `StoreSubscriptionState`に`cancel_at_period_end`・
+  `current_period_end`フィールドを追加し、`handle_subscription_updated()`がWebhookの
+  `cancel_at_period_end`をそのまま書き込み、`current_period_end_after`引数を
+  false→true遷移時にのみ設定・true→false遷移時にNoneへ戻すよう実装した。
+  `handle_subscription_deleted()`も契約終了確定時(OUTCOME_CANCELLED)に両フィールドを
+  リセットするよう修正した。`stripe_webhook_entry_point.py`の`receive_stripe_webhook()`側も
+  Stripeペイロードの`current_period_end`(Unixタイムスタンプ秒)を`_event_time_from_created()`
+  と同じ変換ロジックでdatetimeへ変換し`handle_subscription_updated()`へ渡す配線を追加した。
+  残課題: `suspension_reason`が`payment_failed`/`payment_suspended`で対象外の店舗は、
+  `cancel_at_period_end`は書き込まれるが`current_period_end`は更新されない非対称が残る
+  (次回候補、影響は限定的: 両状態の間は休止モード表示が優先されるため実害は小さいと
+  見込むが要検証)。テスト10件追加(prototype 946→954件)、`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(954件)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)いずれもパスを確認した。承認が必要なアクションは発生していないため
+  pending-approval.mdへの追記なし。)
+- 実際のStripeアカウント接続・Webhookエンドポイント公開・LINE Push Message API接続は
+  オーナー承認待ち(pending-approval.md参照)。デプロイ・実アカウント接続自体が
+  オーナー承認待ちなのであって、上記の通り判断・整形ロジック自体の実装にはこの承認は
+  不要である(本ファイル冒頭の位置づけ参照)。

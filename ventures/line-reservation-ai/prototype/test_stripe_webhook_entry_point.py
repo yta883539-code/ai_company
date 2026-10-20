@@ -996,6 +996,43 @@ class ReceiveStripeWebhookSubscriptionUpdatedTest(unittest.TestCase):
         stored = self.cancellation_store.get_cancellation_state("store-1")
         self.assertIsNone(stored.suspension_reason)
 
+    def test_cancellation_scheduled_writes_cancel_at_period_end_and_current_period_end(self):
+        # customer-subscription-updated-event-routing-design.md・firestore-data-model.md
+        # 「cancelAtPeriodEnd」「currentPeriodEnd」節(2026-10-20定例更新)。Stripeの
+        # current_period_end(Unixタイムスタンプ秒)をdatetimeへ変換してstateへ書き込む
+        # 配線を確認する。
+        current_period_end_epoch = int(datetime(2026, 11, 14, tzinfo=timezone.utc).timestamp())
+        payload = _event_payload_with_previous(
+            "evt_1",
+            "customer.subscription.updated",
+            {
+                "customer": "cus_1",
+                "cancel_at_period_end": True,
+                "current_period_end": current_period_end_epoch,
+            },
+            {"cancel_at_period_end": False},
+        )
+        timestamp = int(NOW.timestamp())
+        header = _header(payload, SECRET, timestamp)
+
+        result = receive_stripe_webhook(
+            payload,
+            header,
+            SECRET,
+            resolve_store_id_by_customer=_resolve_by_customer,
+            cancellation_store=self.cancellation_store,
+            push_client=self.push_client,
+            now=NOW,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        stored = self.cancellation_store.get_cancellation_state("store-1")
+        self.assertTrue(stored.cancel_at_period_end)
+        self.assertEqual(
+            stored.current_period_end,
+            datetime(2026, 11, 14, tzinfo=timezone.utc),
+        )
+
     def test_portal_link_provider_resolves_url_into_message(self):
         # portal-session-provider-design.md 4節3.: providerが渡された場合のみ都度解決する。
         payload = _event_payload_with_previous(

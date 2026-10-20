@@ -285,6 +285,62 @@ class HandleSubscriptionUpdatedTests(unittest.TestCase):
             state.last_subscription_updated_event_time, datetime(2026, 9, 20, 9, 0)
         )
 
+    # cancelAtPeriodEnd/currentPeriodEnd(firestore-data-model.md、2026-10-20定例更新)。
+
+    def test_scheduled_sets_cancel_at_period_end_and_current_period_end(self):
+        state = _store()
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, current_period_end_after=datetime(2026, 11, 14)
+        )
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_SCHEDULED)
+        self.assertTrue(state.cancel_at_period_end)
+        self.assertEqual(state.current_period_end, datetime(2026, 11, 14))
+
+    def test_rescheduled_clears_cancel_at_period_end_and_current_period_end(self):
+        state = _store(
+            cancel_at_period_end=True, current_period_end=datetime(2026, 11, 14)
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, True, False, push)
+        self.assertEqual(result.outcome, OUTCOME_CANCELLATION_RESCHEDULED)
+        self.assertFalse(state.cancel_at_period_end)
+        self.assertIsNone(state.current_period_end)
+
+    def test_no_change_still_writes_raw_cancel_at_period_end(self):
+        # suspension_reasonによる対象外ではない通常の店舗が、変化なしの.updated
+        # (支払い方法変更等)を受け取った場合でも、cancel_at_period_endはWebhookの
+        # 値をそのまま書き込む(design方針: suspensionReasonとは独立したフラグ)。
+        state = _store(cancel_at_period_end=True, current_period_end=datetime(2026, 11, 14))
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, True, True, push)
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertTrue(state.cancel_at_period_end)
+        # current_period_endは遷移時のみ更新する方針のため、NO_CHANGEでは変化しない。
+        self.assertEqual(state.current_period_end, datetime(2026, 11, 14))
+
+    def test_payment_failed_store_cancel_at_period_end_still_written(self):
+        # payment_failedで通知・current_period_end更新は対象外だが、cancel_at_period_end
+        # 自体はsuspension_reasonと独立したフラグのため書き込む。
+        state = _store(suspension_reason="payment_failed")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, False, True, push)
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertTrue(state.cancel_at_period_end)
+        self.assertIsNone(state.current_period_end)
+
+    def test_stale_event_does_not_touch_cancel_at_period_end(self):
+        state = _store(
+            last_subscription_updated_event_time=datetime(2026, 9, 20, 10, 0),
+            cancel_at_period_end=False,
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, event_time=datetime(2026, 9, 20, 9, 0)
+        )
+        self.assertEqual(result.outcome, OUTCOME_STALE_EVENT)
+        self.assertFalse(state.cancel_at_period_end)
+
 
 class HandleSubscriptionDeletedTests(unittest.TestCase):
     def test_cancels_active_store(self):
@@ -303,6 +359,28 @@ class HandleSubscriptionDeletedTests(unittest.TestCase):
         result = handle_subscription_deleted(state, push)
         self.assertEqual(result.outcome, OUTCOME_CANCELLED)
         self.assertEqual(state.suspension_reason, "cancelled")
+
+    def test_cancellation_resets_cancel_at_period_end_and_current_period_end(self):
+        # firestore-data-model.md「currentPeriodEnd」節通り、契約終了後は
+        # cancelAtPeriodEnd/currentPeriodEndによる「解約手続き中」表示が不要になるため
+        # リセットする(2026-10-20定例更新)。
+        state = _store(
+            cancel_at_period_end=True, current_period_end=datetime(2026, 11, 14)
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_deleted(state, push)
+        self.assertEqual(result.outcome, OUTCOME_CANCELLED)
+        self.assertFalse(state.cancel_at_period_end)
+        self.assertIsNone(state.current_period_end)
+
+    def test_already_cancelled_retry_leaves_cancel_at_period_end_untouched(self):
+        # 冪等性: 既にcancelled確定後の再送では状態を書き換えないため、仮にcancel_at_
+        # period_endが取り残されていてもそのまま(本来の解消は初回cancelled確定時)。
+        state = _store(suspension_reason="cancelled", cancel_at_period_end=True)
+        push = InMemoryLinePushClient()
+        result = handle_subscription_deleted(state, push)
+        self.assertEqual(result.outcome, OUTCOME_ALREADY_CANCELLED)
+        self.assertTrue(state.cancel_at_period_end)
 
     def test_webhook_retry_is_idempotent(self):
         state = _store(suspension_reason="cancelled")

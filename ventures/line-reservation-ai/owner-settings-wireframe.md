@@ -649,9 +649,18 @@ payment-failure-dunning-design.mdで新設された「猶予期間」「制限�
   「制限モード(`payment_suspended`)」と表記しており〈3節の対応表・53〜58行目〉、追加の
   反映作業自体が不要だった。webhook-function-a-implementation.md・owner-notification-
   channel-design.mdの過去の同種の訂正に倣い、以後この項目も「未着手」として再掲しないこと)
-- (新規 2026-10-20追記) `cancelAtPeriodEnd`・`currentPeriodEnd`の実際の書き込み配線
+- ~~(新規 2026-10-20追記) `cancelAtPeriodEnd`・`currentPeriodEnd`の実際の書き込み配線
   (`customer.subscription.updated`Webhook受信時にStripeペイロードの`cancel_at_period_end`・
   `current_period_end`をそのまま`stores`ドキュメントへ反映する処理)は、本節・firestore-
   data-model.mdいずれもデータ項目の定義のみで未着手。他のWebhookハンドラ実装
   (webhook-function-a-implementation.md等)と同様、実際のStripeアカウント接続
-  (オーナー承認待ち)後の着手となる見込み。
+  (オーナー承認待ち)後の着手となる見込み。~~
+  (解消済み 2026-10-20定例更新: 上記の「実Stripeアカウント接続後」という位置づけ自体が
+  誤りだった。subscription-cancellation-flow-design.md「未確定事項・残課題」節参照。
+  実際には他のWebhookハンドラと同じく実クラウド接続なしで判断・整形ロジックのみ実装可能
+  であり、`cloud_function_subscription_cancelled_webhook.py`の`StoreSubscriptionState`に
+  `cancel_at_period_end`・`current_period_end`フィールドを追加、`handle_subscription_
+  updated()`/`handle_subscription_deleted()`・`stripe_webhook_entry_point.py`の配線を実装し
+  モック上のWebhookペイロードで検証した。実Stripeアカウント接続待ちなのは、本物のWebhook
+  配信を実際に受信するデプロイ・アカウント開設自体のみ。テスト10件追加、venture全体954件・
+  schema検証28件いずれもパスを確認した)

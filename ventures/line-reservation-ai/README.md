@@ -6234,3 +6234,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-18 20:00 UTC(フェーズ続き334: course-set-pashaフェーズ311で既に
   クローズ済みだった「フェーズ248記載の陳腐化是正」項目を、本venture側の次回候補
   リストからも除去。コード変更なし、全946件・schema検証28件パス)
+- フェーズ続き335(2026-10-20 16:00 UTC定例更新): 2026-10-20 06:00 UTC定例更新
+  (owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」に`cancelAtPeriodEnd`・
+  `currentPeriodEnd`フィールドを追加した回)で「実際のWebhook書き込み配線は実Stripe
+  アカウント接続後の課題」とされていた位置づけを見直した結果、誤りと判明。本モジュール
+  (`cloud_function_subscription_cancelled_webhook.py`)は冒頭の位置づけ通り「実クラウド
+  接続なしで検証可能な判断・整形ロジック自体」のみを実装する設計であり、他ハンドラ
+  (`handle_subscription_deleted()`等)と同じくこの配線にも実Stripeアカウント接続は不要
+  だった。`StoreSubscriptionState`に`cancel_at_period_end`・`current_period_end`
+  フィールドを追加し、`handle_subscription_updated()`がWebhookの`cancel_at_period_end`を
+  そのまま書き込み、`current_period_end_after`をfalse→true遷移時にのみ設定・
+  true→false遷移時にNoneへ戻す実装とした。`handle_subscription_deleted()`も契約終了確定
+  (OUTCOME_CANCELLED)時に両フィールドをリセットするよう修正し、`stripe_webhook_entry_
+  point.py`の`receive_stripe_webhook()`側もStripeペイロードの`current_period_end`
+  (Unixタイムスタンプ秒)を`_event_time_from_created()`と同じ変換ロジックでdatetimeへ変換
+  して渡す配線を追加した。subscription-cancellation-flow-design.md・owner-settings-
+  wireframe.mdの該当する残課題記述もあわせて訂正・解消済みにした。テスト10件追加
+  (prototype 946→954件)、`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (954件)・`python3 schema/validate_test_cases.py`(28件、変更なし)いずれもパスを確認
+  した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`suspension_reason`が`payment_failed`/
+  `payment_suspended`で対象外の店舗では`cancel_at_period_end`は書き込まれるが
+  `current_period_end`が更新されない非対称の実害有無の検証、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-20 16:00 UTC(フェーズ続き335: `cancelAtPeriodEnd`・
+  `currentPeriodEnd`の実Webhook書き込み配線を実装。「実Stripeアカウント接続後」としていた
+  従前の位置づけの誤りを訂正。全954件・schema検証28件パス)
