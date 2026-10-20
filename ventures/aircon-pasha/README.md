@@ -6019,3 +6019,27 @@
   未検証残課題をFirebase Local Emulator Suite〈デモプロジェクトID〉で解消した作業
   〈2026-10-19 01:00 UTC定例更新コミットで実施済み〉について、README側のフェーズ記録
   漏れを今回発見し遡及記録。コード変更なし、全719件・schema検証25件パス)
+- フェーズ329(2026-10-20 18:00 UTC定例更新): firestore-provider-adapter-design.md
+  5節(UserProfileStoreProtocol基盤3メソッド+Stripe顧客IDグループ)・19節
+  (`_profile_to_dict`/`_profile_from_dict`ヘルパー)の設計を実コード化した
+  (kura-pasha・course-set-pashaと同じ、実SDKをimportしない最小インターフェース方式)。
+  `prototype/firestore_user_profile_adapter.py`を新規作成し、`FirestoreUserProfileStore`
+  (`save`/`get`/`exists`/`set_stripe_customer_id`/`get_user_id_by_stripe_customer_id`/
+  `get_stripe_customer_id`)と両ヘルパーを実装した。`set_stripe_customer_id`は設計通り
+  `firestore_client.batch()`で`user_profile/{user_id}`の部分更新と
+  `stripe_customer_index/{stripe_customer_id}`逆引きドキュメント作成を同時書き込みする。
+  `prototype/test_firestore_user_profile_adapter.py`を新規作成し、保存・取得の往復、
+  未知user_idに対するNoneフォールバック、19.3節が述べたフィールド追加前の既存ドキュメント
+  (キー欠落)に対する後方互換性、Stripe顧客IDの順引き・逆引き・他フィールド非破壊・
+  user_idごとの独立性を検証するテスト10件を追加した。回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(719→729件、新規10件含めて全件パス)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)design.md残り6グループ(trial系・
+  payment_failure系・current_plan_id・is_following+all_user_ids・owner_notified_at系・
+  event_time系4種)の実コード化、(3)旧stripe_customer_idからの付け替え時の旧インデックス
+  エントリ削除(5.3節で次回候補とされていた未対応分)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 18:00 UTC(フェーズ329: firestore-provider-adapter-design.md
+  5節・19節の設計を実コード化。`prototype/firestore_user_profile_adapter.py`新規作成。
+  コード変更あり、テスト729件〈新規10件〉・schema検証25件パス)
