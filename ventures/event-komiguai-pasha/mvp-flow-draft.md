@@ -42,7 +42,10 @@ event-komiguai-pashaフェーズ20の候補探索中、東京藝術大学のギ�
   「予約枠が複数時間帯に分かれているか、入場時も混雑し得るかを主催者自身で確認してください」
   という注記を付す方針とする(既存のG3_mixed_admission_typeの扱いを転用)。
 - スキーマ(output.schema.json)・テストケース(validate_test_cases.py)への反映は
-  未実施(次回候補)。
+  フェーズ22で完了した。output.schema.jsonの`staffing_plan.focus`descriptionに
+  事前予約制の場合もbothを既定とする旨を追記し、validate_test_cases.pyに
+  `G4_advance_reservation_admission_type`(focus:both、予約枠の集中有無が一意に
+  決まらない旨の判断委任記載あり)を追加、全12件(既存11件+1件)パスを確認した。
 
 ## 出力
 

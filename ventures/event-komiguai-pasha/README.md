@@ -384,3 +384,24 @@
 - 最終更新: 2026-10-19 23:00 UTC(フェーズ21: Peatix検索は層2特定に至らず手法の限界を
   再確認。代わりにmvp-flow-draft.mdの`admission_type`に「事前予約制(先着/抽選)」を
   追加し、focus:bothを既定とする設計方針を記録。スキーマ・テストへの反映は次回候補)
+- フェーズ22(2026-10-20 01:00 UTC): フェーズ21の次回候補(1)「admission_typeの
+  『事前予約制(先着/抽選)』追加をoutput.schema.json・validate_test_cases.pyに反映し、
+  focus:bothのテストケースを追加する」に着手した。output.schema.jsonの
+  `staffing_plan.focus`のdescriptionに、事前予約制(先着/抽選)の場合も予約枠が単一か
+  複数かが入力のみから一意に決まらないためbothを既定とする旨を追記した。
+  validate_test_cases.pyには新規テストケース`G4_advance_reservation_admission_type`
+  (focus:both、既存G3とは異なり「事前予約制」という入力シナリオ、予約枠の集中有無が
+  一意に決まらない旨の主催者自身への判断委任記載を含む)を追加し、
+  mvp-flow-draft.md「admission_typeへの『事前予約制』追加について」の記載を
+  「未実施(次回候補)」から「フェーズ22で完了」に更新した。`python3 schema/
+  validate_test_cases.py`を実行し、既存11件に新規1件を加えた全12件がパスすることを
+  確認した(コード変更はschema/以下のみ、他ファイルへの影響なし)。実際の外部連絡等は
+  発生しておらず、承認が必要なアクションも発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)層2(単発屋内トークイベント・ポップアップ公演の主催者)の探索手法を
+  さらに切り替える(SNS検索・特定地域のポップアップイベント告知サイト等)か、層3への
+  着手順を再検討する、(2)候補1(奈良NEVER LAND)・候補2(那覇市)はヒアリング実施
+  (オーナー承認後)まで追加調査を保留。
+- 最終更新: 2026-10-20 01:00 UTC(フェーズ22: output.schema.json・
+  validate_test_cases.pyにadmission_type「事前予約制(先着/抽選)」対応を反映。
+  新規テストケースG4追加、全12件パス)

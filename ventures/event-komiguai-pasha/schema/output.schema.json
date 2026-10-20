@@ -50,7 +50,7 @@
       "required": ["focus", "body", "announcement_text"],
       "properties": {
         "focus": {
-          "description": "厳守事項4準拠。admission_type=指定席の場合はexit、自由入場の場合はentry、両方混在の入力の場合はbothとし、どちらがより集中するかは主催者自身の判断に委ねる旨をbody内に明示する(厳守事項4)。",
+          "description": "厳守事項4準拠。admission_type=指定席の場合はexit、自由入場の場合はentry、両方混在の入力の場合はbothとし、どちらがより集中するかは主催者自身の判断に委ねる旨をbody内に明示する(厳守事項4)。admission_type=事前予約制(先着/抽選)の場合も、予約枠が単一か複数かが入力のみから一意に決まらないためbothを既定とし、同様の判断委任を明示する(mvp-flow-draft.mdフェーズ21)。",
           "type": "string",
           "enum": ["entry", "exit", "both"]
         },

@@ -257,6 +257,38 @@ TEST_CASES = {
             ]
         },
     },
+    "G4_advance_reservation_admission_type": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "checklist": [
+            {"item": "予約枠ごとの来場時間帯が入退場口2箇所の処理能力に対し集中しないか", "highlighted": False},
+        ],
+        "staffing_plan": {
+            "focus": "both",
+            "body": (
+                "事前予約制(先着/抽選)のため、予約枠が単一か複数の時間帯に分かれているかによって"
+                "入場時・退場時のどちらがより集中するかは入力のみからは一意に決まりません。最終的な"
+                "重点配置の判断は主催者・警備責任者自身で行ってください。雑踏警備にあたる入退場口での"
+                "流れの調整は外部委託警備員2名の配置案とし、自社スタッフ2名には掲示・誘導アナウンス等の"
+                "補助的役割を割り当てます。"
+            ),
+            "announcement_text": "ご予約の時間枠に応じて順にご案内しております。係員の案内に従ってお進みください。",
+        },
+        "notice_board_text": {
+            "body": "ご来場の皆様へ。ご予約の時間枠に応じて入場をご案内しております。係員の案内に従い、整列・分散入場にご協力ください。",
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "OOS1_external_contractor_request": {
         "status": "out_of_scope",
         "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。警備会社への発注契約・所轄警察署への届出代行は主催者・警備責任者自身でご対応ください。",
