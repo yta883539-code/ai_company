@@ -5578,3 +5578,35 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   受け、Firestoreセキュリティルールのエミュレータ検証〈デモプロジェクトID〉を実施。
   firestore-security-rules-emulator-verification.md新規作成、検証8件PASS。コード変更
   なし、214件・355件・schema検証32件パス)
+- フェーズ250(2026-10-20 00:00 UTC定例更新): フェーズ248(`UsageCounterStoreProtocol`の
+  実Firestore接続アダプタの実コード化)の次回候補(2)「同様の実コード化を他venture…側でも
+  横展開する」を本venture自身の残り2Protocol分に適用した。linking-code-store-firestore-
+  adapter-design.md(フェーズ213、`pending_links`)・invite-code-store-firestore-adapter-
+  design.md(フェーズ214、`pending_workshop_invites`)はいずれも設計のみで実コードが
+  存在せず、両ドキュメントには「本設計のコードは承認後の結合実装フェーズまでコミットしない」
+  という記載が残っていたが、フェーズ248で`UsageCounterStoreProtocol`実装時に実際に採用した
+  判断(実SDK・実GCPアカウントへ接続しない純粋なPythonコードはアカウント作成・支払いを
+  伴わないため承認不要)と矛盾する陳腐化した記載であることに気づき、両ドキュメントの
+  「残課題」節に整理を追記した上で`prototype/firestore_linking_code_adapter.py`に
+  `FirestorePendingLinkStore`・`FirestoreWorkshopInviteStore`の2クラスを実コード化した。
+  `prototype/test_firestore_linking_code_adapter.py`を新規作成し、各クラスのsave/get/
+  delete/itemsの往復・フィールド欠損時のNoneフォールバック・`items()`での不整合
+  ドキュメントのスキップに加え、同名の`LinkingCodeStoreProtocol`を実装する2クラスが
+  同じcodeを使っても名前空間分離(`pending_links`対`pending_workshop_invites`)により
+  互いに影響しないことを検証するテストを含め計11件を追加した。回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(226件、新規11件含めて全件パス)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行し、いずれもパスすることを確認した
+  (回帰なし)。これにより本venture4Protocol(`WorkshopStoreProtocol`・
+  `UsageCounterStoreProtocol`・`LinkingCodeStoreProtocol`×2コレクション)のうち、実
+  コード化が済んだのは`UsageCounterStoreProtocol`・`LinkingCodeStoreProtocol`(両コレクション)
+  の3件となり、残るは最もメソッド数の多い`WorkshopStoreProtocol`(30件超)のみとなった。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(既存3件の承認待ち事項に変更なし)。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  `WorkshopStoreProtocol`の実コード化(メソッド数が多いため複数フェーズに分割する必要が
+  ある可能性が高い)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 00:00 UTC(フェーズ250: linking-code-store-firestore-adapter-
+  design.md・invite-code-store-firestore-adapter-design.mdの陳腐化した「コミットしない」
+  記載を是正し、`FirestorePendingLinkStore`・`FirestoreWorkshopInviteStore`を実コード化。
+  コード変更あり〈新規2ファイル〉、テスト226件〈新規11件〉・355件・schema検証32件パス)

@@ -116,3 +116,15 @@ class FirestorePendingLinkStore:
   15・17・29節で設計完了済み。
 - 承認後は、`workshop_linking.py`の各処理関数へ`linking_code_store`として本クラスの
   インスタンスを渡すだけで差し替えが完了する設計になっていることを、結合実装時に確認する。
+- 【フェーズ250追記】firestore-usage-counter-provider-adapter-design.mdの
+  `UsageCounterStoreProtocol`実装(フェーズ248、`firestore_usage_counter_adapter.py`)で
+  既に先行した判断と同様、本クラス(`FirestorePendingLinkStore`)自体は実SDK・実GCPアカウント
+  へ接続しない純粋なPythonコード(コンストラクタ注入された`firestore_client`が
+  最小インターフェースを満たせばテスト用フェイクでも差し替え可能)であり、account作成や
+  支払いを伴わないため、上記「承認後の結合実装フェーズまでコミットしない」は実際には
+  コード自体のコミットではなく「実Firestoreプロジェクトへの接続・実運用投入」を指すと
+  再整理した。これに伴い`prototype/firestore_linking_code_adapter.py`に実コード化し、
+  `prototype/test_firestore_linking_code_adapter.py`で軽量フェイク(collection/document/
+  get/set/delete/stream)によるテスト11件を追加した(全件パス)。承認が必要となるのは、
+  依然としてStripeアカウント等と同じ実GCP/Firestoreプロジェクトの開設・本番認証情報の
+  取得・結合実装時の実接続のみである。

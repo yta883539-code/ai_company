@@ -83,3 +83,17 @@ OK)・`python3 schema/validate_test_cases.py`(32件)を再実行し、いずれ�
 確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
 していないためpending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進、
 またはオーナーからの承認・回答を待つ。
+
+2026-10-20 00:00 UTC: 本チェックリスト「承認待ち事項」節の3件は2026-09-27 08:00 UTC
+(Stripeアカウント開設)・2026-09-15 03:00 UTC(LINE公式アカウント開設+Cloud Scheduler
+作成)・2026-09-11 04:00 UTC(顧客ヒアリングの実施)の記載からオーナー承認が得られておらず
+約3〜6週間変化がないことを確認した(内容はpending-approval.md本文と1対1で対応、齟齬なし)。
+これら3件は依然着手不可だが、承認を待つ間の前進としてフェーズ250で
+`LinkingCodeStoreProtocol`(2コレクション分)の実Firestore接続アダプタを実コード化した
+(実GCPアカウント接続を伴わない純粋なPythonコードのため承認不要、詳細はREADME.mdフェーズ
+250参照)。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(226件)・`python3 prototype/test_cloud_function_webhook.py`(355件)・`python3
+schema/validate_test_cases.py`(32件)を再実行し、いずれもパスすることを確認した。承認が
+必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。次回候補: 残る`WorkshopStoreProtocol`の実コード化、他
+venture・アイデア領域の前進、またはオーナーからの承認・回答を待つ。

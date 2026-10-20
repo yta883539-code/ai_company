@@ -119,3 +119,9 @@ class FirestoreWorkshopInviteStore:
 - 承認後は、`issue_invite_code_for_workshop`・`resolve_invite_code`・
   `add_member_from_invite_code`の各呼び出し箇所へ`invite_store`として本クラスの
   インスタンスを渡すだけで差し替えが完了する設計になっていることを、結合実装時に確認する。
+- 【フェーズ250追記】linking-code-store-firestore-adapter-design.mdフェーズ250追記と同じ
+  整理により、本クラス(`FirestoreWorkshopInviteStore`)も実SDK・実GCPアカウントへ接続しない
+  純粋なPythonコードのため実コード化した。`prototype/firestore_linking_code_adapter.py`に
+  `FirestorePendingLinkStore`と並べて実装し、`prototype/test_firestore_linking_code_adapter.py`
+  にテスト(`pending_links`と同じcodeを使っても名前空間が分離されていて互いに影響しない
+  ことの確認を含む)を追加した(全件パス)。
