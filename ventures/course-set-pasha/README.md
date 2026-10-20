@@ -5460,3 +5460,33 @@
   受け、Firestoreセキュリティルールのエミュレータ検証〈デモプロジェクトID〉を実施。
   firestore-security-rules-emulator-verification.md新規作成、検証6件PASS。コード変更
   なし、773件・schema検証21件パス)
+- フェーズ315(2026-10-20 07:00 UTC定例更新): フェーズ313の次回候補(2)「`set_trial_
+  start_at_if_unset`以降の残り全メソッド群の実Firestore接続アダプタ実コード化」を受け、
+  firestore-provider-adapter-design.md 22節(`upgraded_at`・`trial_end_notified_at`
+  グループ、計4メソッド)を対象として着手した。同節は設計検討時点では実SDKの
+  `@firestore.transactional`デコレータ構文で記述されていたため、既存の
+  `FirestoreUsageCounter`クラス(19〜20節)が採用するフェイク最小インターフェース
+  (`self._client.transaction()`が返すオブジェクトの`get`/`set`/`commit`、
+  `TransactionConflict`捕捉によるリトライループ)の作法に合わせて翻案し、
+  `set_upgraded_at_if_unset`・`get_upgraded_at`・`set_trial_end_notified_at`・
+  `get_trial_end_notified_at`を`firestore_usage_counter_adapter.py`に実コード化した。
+  `set_upgraded_at_if_unset`は22.3節の指摘通り重複Webhook配信によるrace conditionを
+  避けるためincrement()と同型のトランザクション+リトライとし、`set_trial_end_
+  notified_at`は呼び出し元側の絞り込みに依存する単純な上書き(既存フィールドを
+  消さないよう読み取った`data`をベースにマージ)とした。テストを8件新規追加し、
+  (1)未設定時はNoneを返す、(2)初回設定、(3)設定済みは上書きしない、(4)count等の
+  既存フィールドを消さない、(5)重複Webhook配信の競合でも先勝ちを保持、(6)
+  trial_end_notified_atの未設定時Noneと設定、(7)他フィールドを消さない、を確認した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (781件、新規8件含めて全件パス)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)を実行しいずれもパスすることを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先、(2)残る`trial_generation_count`・`trial_area_count`(23節)・
+  `payment_failure`系(24節)・`payment_suspension_owner_notified_at`(25節)・
+  `subscription_canceled_at`グループ・3種の`*_event_time`(26節)の実Firestore接続
+  アダプタ実コード化(計10メソッド超、持ち越し)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 07:00 UTC(フェーズ315: firestore-provider-adapter-design.md
+  22節(upgraded_at・trial_end_notified_atグループ)を実コード化。
+  `FirestoreUsageCounter`に4メソッド追加。コード変更あり、テスト781件〈新規8件〉・
+  schema検証21件パス)

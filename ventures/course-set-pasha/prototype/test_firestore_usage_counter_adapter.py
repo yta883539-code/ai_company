@@ -225,5 +225,76 @@ class FirestoreUsageCounterIncrementAndMarkNoticeTest(unittest.TestCase):
         self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
 
 
+class FirestoreUsageCounterUpgradedAtTrialEndNotifiedAtTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 22節(upgraded_at・trial_end_notified_at
+    グループ)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_upgraded_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_upgraded_at("u1"))
+
+    def test_set_upgraded_at_if_unset_sets_value(self):
+        upgraded_at = datetime(2026, 10, 19, 9, 0, 0)
+        self.counter.set_upgraded_at_if_unset("u1", upgraded_at)
+        self.assertEqual(self.counter.get_upgraded_at("u1"), upgraded_at)
+
+    def test_set_upgraded_at_if_unset_does_not_overwrite_once_set(self):
+        first = datetime(2026, 10, 19, 9, 0, 0)
+        second = datetime(2026, 10, 20, 9, 0, 0)
+        self.counter.set_upgraded_at_if_unset("u1", first)
+        self.counter.set_upgraded_at_if_unset("u1", second)
+        self.assertEqual(self.counter.get_upgraded_at("u1"), first)
+
+    def test_set_upgraded_at_if_unset_does_not_clobber_other_fields(self):
+        """22.3節「merge=Trueを使う理由」: 同一ドキュメントのcount等の既存フィールドを
+        消してしまわないことを確認する。"""
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_upgraded_at_if_unset("u1", datetime(2026, 10, 19, 9, 0, 0))
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_set_upgraded_at_if_unset_retries_on_duplicate_webhook_delivery(self):
+        """22.3節: 同一user_idからの重複Webhook配信が競合した場合でも、
+        最終的に先勝ち(最初に書き込まれた値が保持される)になることを確認する。"""
+        doc_ref = self.client.collection("usage_counter").document("u1")
+
+        tx_a = self.client.transaction()
+        tx_a.get(doc_ref)
+        tx_b = self.client.transaction()
+        tx_b.get(doc_ref)
+
+        first = datetime(2026, 10, 19, 9, 0, 0)
+        tx_a.set(doc_ref, {"upgraded_at": first})
+        tx_a.commit()
+
+        with self.assertRaises(TransactionConflict):
+            tx_b.set(doc_ref, {"upgraded_at": datetime(2026, 10, 19, 9, 0, 1)})
+            tx_b.commit()
+
+        # set_upgraded_at_if_unset()自身は内部リトライで再読み取りし、既に
+        # upgraded_atが設定済みと判定して書き込まずに終える(先勝ちを保持)。
+        self.counter.set_upgraded_at_if_unset("u1", datetime(2026, 10, 19, 9, 0, 1))
+        self.assertEqual(self.counter.get_upgraded_at("u1"), first)
+
+    def test_get_trial_end_notified_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_trial_end_notified_at("u1"))
+
+    def test_set_trial_end_notified_at_sets_value(self):
+        notified_at = datetime(2026, 10, 19, 10, 0, 0)
+        self.counter.set_trial_end_notified_at("u1", notified_at)
+        self.assertEqual(self.counter.get_trial_end_notified_at("u1"), notified_at)
+
+    def test_set_trial_end_notified_at_does_not_clobber_other_fields(self):
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_upgraded_at_if_unset("u1", datetime(2026, 10, 19, 9, 0, 0))
+        self.counter.set_trial_end_notified_at("u1", datetime(2026, 10, 19, 10, 0, 0))
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+        self.assertEqual(
+            self.counter.get_upgraded_at("u1"), datetime(2026, 10, 19, 9, 0, 0)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

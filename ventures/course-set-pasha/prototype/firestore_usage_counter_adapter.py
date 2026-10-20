@@ -118,3 +118,57 @@ class FirestoreUsageCounter:
             f"increment_and_mark_notice(user_id={user_id!r}, month={month!r}) did not "
             f"commit after {self._MAX_COMMIT_ATTEMPTS} attempts"
         )
+
+    def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
+        """firestore-provider-adapter-design.md 22.2節: `upgraded_at`が未設定の場合
+        のみ設定する(`set_trial_start_at_if_unset`と同じ「1回だけ設定」契約)。
+
+        Stripeのat-least-once配信により`checkout.session.completed`が重複配信
+        された場合、素朴な「読んでNoneなら書く」の2回の独立呼び出しでは両方がNoneを
+        読んで2回とも書き込んでしまう(22.3節)ため、increment()と同じ
+        TransactionConflict捕捉によるリトライループでこれを避ける。
+        """
+        doc_ref = self._collection.document(user_id)
+
+        for _ in range(self._MAX_COMMIT_ATTEMPTS):
+            transaction = self._client.transaction()
+            snapshot = transaction.get(doc_ref)
+            data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+            if "upgraded_at" in data:
+                return
+            data["upgraded_at"] = upgraded_at
+            transaction.set(doc_ref, data)
+            try:
+                transaction.commit()
+            except TransactionConflict:
+                continue
+            return
+
+        raise TransactionConflict(
+            f"set_upgraded_at_if_unset(user_id={user_id!r}) did not commit after "
+            f"{self._MAX_COMMIT_ATTEMPTS} attempts"
+        )
+
+    def get_upgraded_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("upgraded_at")
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        """firestore-provider-adapter-design.md 22.2節: 呼び出し元
+        (`select_due_trial_end_notifications()`)が既に`trial_end_notified_at is None`
+        のユーザーのみに絞り込むため、本メソッド自体はトランザクション不要の単純な
+        上書き(他フィールドを消さないよう既存データをベースにマージ)で良い。
+        """
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["trial_end_notified_at"] = notified_at
+        doc_ref.set(data)
+
+    def get_trial_end_notified_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("trial_end_notified_at")
