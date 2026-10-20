@@ -5681,3 +5681,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   グループ〈5メソッド〉を実コード化。design.md 5節のコード例に残っていた
   `specified_retention_member_name`クリア漏れ〈フェーズ223の仕様確定が未反映だった
   記述漏れ〉も是正。コード変更あり、テスト245件〈新規5件〉・355件・schema検証32件パス)
+- フェーズ253(2026-10-20 21:00 UTC定例更新): フェーズ252の次回候補(2)「`WorkshopStoreProtocol`
+  の残り6グループの実コード化、次は7節の契約者引き継ぎ系グループ」に着手した。
+  workshop-store-firestore-adapter-design.md 7節の設計をそのまま
+  `prototype/firestore_workshop_adapter.py`に実コード化し、`get_pending_contractor_transfer`・
+  `set_pending_contractor_transfer`・`clear_pending_contractor_transfer`の3メソッドを
+  `FirestoreWorkshopStore`に追加した。`pending_contractor_transfer`は本venture初の
+  「1フィールドに複数の値(candidate_user_id・candidate_member_name・requested_at・
+  expires_at)をまとめて保存するmap型フィールド」であり、`usage_counter_workshop.py`の
+  `PendingContractorTransfer`dataclassをそのままimportして読み書きの往復に使う設計を踏襲した。
+  クリアは5節の`apply_member_reduction`と同じNone書き込み方式を採用した。
+  `prototype/test_firestore_workshop_adapter.py`に5件のテスト(デフォルトNone、往復、
+  クリア後None、set/clear双方でplan_id等の無関係フィールドが消えないことの確認)を追加した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(250件、新規5件
+  含めて全件パス)・`python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、いずれもパスすることを
+  確認した(回帰なし)。これにより`WorkshopStoreProtocol`(30件超)のうち実コード化が完了した
+  のは基盤グループ(13メソッド)・メンバー削減系グループ(5メソッド)・契約者引き継ぎ系グループ
+  (3メソッド)の計21メソッドとなり、残り5グループ(trial系・stripe_customer_id順引き逆引き系・
+  subscription_status+event_time系・payment_failure系・owner_notified_at系2種・deletion系)は
+  次回候補として残る。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(既存の承認待ち事項に変更なし)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)
+  `WorkshopStoreProtocol`の残り5グループの実コード化(design.mdの設計順〈9・11・13・15・17・
+  29節〉に沿って段階的に進める、次は9節のtrial系グループ)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 21:00 UTC(フェーズ253: `WorkshopStoreProtocol`契約者引き継ぎ系
+  グループ〈3メソッド〉を実コード化。`prototype/firestore_workshop_adapter.py`に
+  `get_pending_contractor_transfer`・`set_pending_contractor_transfer`・
+  `clear_pending_contractor_transfer`を追加。コード変更あり、テスト250件〈新規5件〉・
+  355件・schema検証32件パス)

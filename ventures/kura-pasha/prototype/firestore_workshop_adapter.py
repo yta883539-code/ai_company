@@ -12,15 +12,20 @@ design.mdが8グループ(基盤・メンバー削減系・契約者引き継ぎ
 stripe_customer_id順引き逆引き系・subscription_status+event_time系・payment_failure系・
 owner_notified_at系・deletion系)に分けて設計したのと同じ方針で、実コード化も
 グループ単位で段階的に行う。本モジュールは design.md 2節の**基盤グループ**
-(workshop新規作成時に書き込まれるフィールド+付随フィールド)と5節の
-**メンバー削減系グループ**(`apply_member_reduction`等5メソッド)を対象とする
-(残り6グループは次回候補)。
+(workshop新規作成時に書き込まれるフィールド+付随フィールド)・5節の
+**メンバー削減系グループ**(`apply_member_reduction`等5メソッド)・7節の
+**契約者引き継ぎ系グループ**(`pending_contractor_transfer`map型フィールドの3メソッド)
+を対象とする(残り5グループ〈trial系・stripe_customer_id順引き逆引き系・
+subscription_status+event_time系・payment_failure系・owner_notified_at系・deletion系〉は
+次回候補)。
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Iterable, Optional
+
+from usage_counter_workshop import PendingContractorTransfer
 
 
 class ArrayUnion:
@@ -35,8 +40,8 @@ class ArrayUnion:
 
 
 class FirestoreWorkshopStore:
-    """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ。
-    design.md 7・9・11・13・15・17・29節の残りグループは次回候補)。
+    """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ+
+    契約者引き継ぎ系グループ。design.md 9・11・13・15・17・29節の残りグループは次回候補)。
     craftsman_workshop/{workshop_id}ドキュメントを読み書きする。
     """
 
@@ -178,4 +183,49 @@ class FirestoreWorkshopStore:
                 "specified_retention_member_name": None,
             },
             merge=True,
+        )
+
+    def get_pending_contractor_transfer(
+        self, workshop_id: str
+    ) -> Optional[PendingContractorTransfer]:
+        # design.md 7節・23節の統一方針: 一時的な接続エラーは「未設定」側(None)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        data = (snapshot.to_dict() or {}).get("pending_contractor_transfer")
+        if data is None:
+            return None
+        return PendingContractorTransfer(
+            candidate_user_id=data["candidate_user_id"],
+            candidate_member_name=data["candidate_member_name"],
+            requested_at=data["requested_at"],
+            expires_at=data["expires_at"],
+        )
+
+    def set_pending_contractor_transfer(
+        self, workshop_id: str, pending: PendingContractorTransfer
+    ) -> None:
+        # design.md 7節の検討事項: mapフィールド全体を常に丸ごと書き込む(部分更新は
+        # 呼び出し元usage_counter_workshop.start_pending_contractor_transfer()が
+        # 常に新しいPendingContractorTransferインスタンス全体を渡すため想定しない)。
+        self._doc_ref(workshop_id).set(
+            {
+                "pending_contractor_transfer": {
+                    "candidate_user_id": pending.candidate_user_id,
+                    "candidate_member_name": pending.candidate_member_name,
+                    "requested_at": pending.requested_at,
+                    "expires_at": pending.expires_at,
+                }
+            },
+            merge=True,
+        )
+
+    def clear_pending_contractor_transfer(self, workshop_id: str) -> None:
+        # design.md 7節: apply_member_reductionと同じNone書き込み方式(5.1節で確立済みの
+        # 「InMemoryのpop()とFirestoreの明示的None書き込みは、get側が常に欠損をNone扱い
+        # する限り観測可能な挙動が一致する」という根拠がここでも成立する)。
+        self._doc_ref(workshop_id).set(
+            {"pending_contractor_transfer": None}, merge=True
         )

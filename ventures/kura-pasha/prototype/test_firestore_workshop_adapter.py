@@ -12,6 +12,7 @@ import unittest
 from datetime import datetime, timezone
 
 from firestore_workshop_adapter import ArrayUnion, FirestoreWorkshopStore
+from usage_counter_workshop import PendingContractorTransfer
 
 
 class _FakeSnapshot:
@@ -192,6 +193,69 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.store.set_members("w1", "U_owner", ["U_member1"])
         self.store.set_plan("w1", "standard")
         self.store.apply_member_reduction("w1", ["U_owner"])
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
+    # --- design.md 7節: 契約者引き継ぎ系グループ(pending_contractor_transfer) ---
+
+    def test_pending_contractor_transfer_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_pending_contractor_transfer("w1"))
+
+    def test_pending_contractor_transfer_roundtrip(self):
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        pending = PendingContractorTransfer(
+            candidate_user_id="U_member1",
+            candidate_member_name="弟子次郎",
+            requested_at=datetime(2026, 10, 20, 21, 0, tzinfo=timezone.utc),
+            expires_at=datetime(2026, 10, 27, 21, 0, tzinfo=timezone.utc),
+        )
+        self.store.set_pending_contractor_transfer("w1", pending)
+
+        result = self.store.get_pending_contractor_transfer("w1")
+        self.assertEqual(result, pending)
+
+    def test_clear_pending_contractor_transfer_resets_to_none(self):
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        self.store.set_pending_contractor_transfer(
+            "w1",
+            PendingContractorTransfer(
+                candidate_user_id="U_member1",
+                candidate_member_name="弟子次郎",
+                requested_at=datetime(2026, 10, 20, 21, 0, tzinfo=timezone.utc),
+                expires_at=datetime(2026, 10, 27, 21, 0, tzinfo=timezone.utc),
+            ),
+        )
+        self.store.clear_pending_contractor_transfer("w1")
+        self.assertIsNone(self.store.get_pending_contractor_transfer("w1"))
+
+    def test_set_pending_contractor_transfer_does_not_clobber_unrelated_fields(self):
+        # merge=True方針(design.md 2節・27節)の確認: plan_id等の無関係フィールドは消えない。
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        self.store.set_plan("w1", "standard")
+        self.store.set_pending_contractor_transfer(
+            "w1",
+            PendingContractorTransfer(
+                candidate_user_id="U_member1",
+                candidate_member_name="弟子次郎",
+                requested_at=datetime(2026, 10, 20, 21, 0, tzinfo=timezone.utc),
+                expires_at=datetime(2026, 10, 27, 21, 0, tzinfo=timezone.utc),
+            ),
+        )
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
+    def test_clear_pending_contractor_transfer_does_not_clobber_unrelated_fields(self):
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        self.store.set_plan("w1", "standard")
+        self.store.set_pending_contractor_transfer(
+            "w1",
+            PendingContractorTransfer(
+                candidate_user_id="U_member1",
+                candidate_member_name="弟子次郎",
+                requested_at=datetime(2026, 10, 20, 21, 0, tzinfo=timezone.utc),
+                expires_at=datetime(2026, 10, 27, 21, 0, tzinfo=timezone.utc),
+            ),
+        )
+        self.store.clear_pending_contractor_transfer("w1")
         self.assertEqual(self.store.get_plan_id("w1"), "standard")
 
 
