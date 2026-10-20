@@ -448,6 +448,44 @@ TEST_CASES = {
             ]
         },
     },
+    "G7_exit_focus_staggered_block_announcement": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "fee_inquiry_note": None,
+        "checklist": [
+            {"item": "退場口3箇所がキャパシティ1,200人の全席指定会場の終演直後一斉退場に対し十分な処理能力か", "highlighted": False},
+        ],
+        "staffing_plan": {
+            "focus": "exit",
+            "body": (
+                "全席指定のため、終演直後の一斉退場時の集中に重点を置きます。退場口が3箇所に分かれブロック分け"
+                "自体が可能な会場のため、ブロック・エリア別に時間差を設けて段階的に退場を案内する分散退場を"
+                "選択肢の一つとして提示します。雑踏警備にあたる退場口での流れの調整は外部委託警備員4名の"
+                "配置案とし、自社スタッフ2名には分散退場のアナウンス・誘導等の補助的役割を割り当てます。"
+            ),
+            "announcement_text": (
+                "終演後は係員の案内に従い、お座席のブロックごとに時間差でご退場いただきます。ご自身のブロックの"
+                "ご案内があるまで、しばらくお座席でお待ちください。"
+            ),
+        },
+        "notice_board_text": {
+            "body": (
+                "ご来場の皆様へ。終演後はブロック・エリア別に時間差を設けて段階的にご退場いただきます"
+                "(分散退場)。係員の案内に従い、ご自身のブロックの順番までお待ちください。"
+            ),
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "II1_missing_capacity_and_entry_exit": {
         "status": "insufficient_input",
         "out_of_scope_message": None,

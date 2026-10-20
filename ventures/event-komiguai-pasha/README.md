@@ -585,7 +585,21 @@
   (オーナー承認後)まで追加調査を保留、(2)厳守事項4に追記した「分散退場」知見を踏まえた
   出力サンプル(output-samples-validation.md相当、本venture未着手)の作成、(3)他venture・
   アイデア領域の前進。
-- 最終更新: 2026-10-20 12:00 UTC(フェーズ29: 層2をPeatix経由で再探索・層3を初回探索したが
-  いずれも実名候補特定には至らず、候補探索の主軸を層1〈候補2件〉へ切り替え。副次的に得た
-  「分散退場」知見をllm-system-prompt-draft.md厳守事項4に反映。コード変更なし、全文書
-  変更のみのため回帰確認としてprototype全3ファイル・schema検証18件を実行しパスを確認)
+- フェーズ30(2026-10-20 17:00 UTC定例更新): フェーズ29の次回候補(2)「厳守事項4に追記した
+  『分散退場』知見を踏まえた出力サンプル(output-samples-validation.md相当、本venture未着手)
+  の作成」に対応し、output-samples-validation.mdを新規作成した。既存18件(schema/validate_
+  test_cases.py)を1表にまとめたうえで、分散退場知見を実際に反映したサンプルG7_exit_focus_
+  staggered_block_announcement(退場口3箇所でブロック分けが物理的に成立する全席指定会場、
+  出力2〈staffing_plan.body・announcement_text〉・出力3〈notice_board_text.body〉のいずれにも
+  「分散退場」を言及)を追加し、19件に更新した。テストケース追加のみでschema/output.schema.json
+  自体の変更はなし。回帰確認として`python3 schema/validate_test_cases.py`(19件、既存18件は
+  変更なしでパス・新規G7もパス)・`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (33件、変更なし)を実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)層1候補1(奈良NEVER LAND)・候補2(那覇市)はヒアリング実施(オーナー承認後)
+  まで追加調査を保留、(2)退場口数とブロック数の対応関係の確定(output-samples-validation.md
+  「残る未検証事項」参照)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 17:00 UTC(フェーズ30: output-samples-validation.mdを新規作成し、
+  分散退場知見を反映したサンプルG7を追加〈18件→19件〉。コード変更はテストケース追加のみ、
+  schema/output.schema.json変更なし。prototype全3ファイル〈33件〉・schema検証〈19件〉いずれも
+  パスを確認)
