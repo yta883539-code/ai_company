@@ -17,6 +17,7 @@ schema/output.schema.json(フェーズ5作成)に対する期待JSON出力サン
 """
 
 import json
+import re
 from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).parent / "output.schema.json"
@@ -150,6 +151,16 @@ def validate_cross_field_rules(instance, path="$"):
         for f in generated_fields:
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=out_of_scopeのとき{f}はnullである必要があります")
+
+        # 厳守事項7(フェーズ24追加): 料金プラン・契約・支払い関連の問い合わせがout_of_scopeに
+        # 振られた場合でも、out_of_scope_message自体が具体的な料金額(数字+「円」)を案内して
+        # しまっていないかを機械的に確認する(「具体的な料金案内は一切行わない」の違反検出)。
+        out_of_scope_message = instance.get("out_of_scope_message") or ""
+        if re.search(r"\d+\s*円", out_of_scope_message):
+            errors.append(
+                f"{path}.out_of_scope_message: 具体的な料金額への言及が含まれています"
+                f"(厳守事項7、本文={out_of_scope_message!r})"
+            )
     elif status == "insufficient_input":
         if instance.get("missing_fields_request") is None:
             errors.append(f"{path}: status=insufficient_inputのときmissing_fields_requestは非nullである必要があります")
@@ -158,6 +169,37 @@ def validate_cross_field_rules(instance, path="$"):
         for f in generated_fields:
             if instance.get(f) is not None:
                 errors.append(f"{path}: status=insufficient_inputのとき{f}はnullである必要があります")
+
+    return errors
+
+
+def check_personal_name_leakage(instance, forbidden_terms, path="$"):
+    """厳守事項10(フェーズ24追加): 入力メモに含まれていた氏名・ニックネーム等が、
+    出力のどこかの文字列フィールドにそのまま転記されていないかを再帰的に確認する。
+    forbidden_termsは、そのテストケースが想定する入力に含まれていた(が出力には
+    転記されてはならない)氏名・ニックネーム等の文字列リスト。near_miss_record_templateは
+    固定5項目(厳守事項6)で自由記述の本文欄を持たないため、本チェックの対象から除外する
+    (llm-system-prompt-draft.md厳守事項10の記載通り)。"""
+    errors = []
+
+    def walk(value, p):
+        if isinstance(value, str):
+            for term in forbidden_terms:
+                if term in value:
+                    errors.append(
+                        f"{p}: 個人を特定できる記述『{term}』がそのまま転記されています(厳守事項10)"
+                    )
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                walk(v, f"{p}.{k}")
+        elif isinstance(value, list):
+            for i, v in enumerate(value):
+                walk(v, f"{p}[{i}]")
+
+    for key, value in instance.items():
+        if key == "near_miss_record_template":
+            continue
+        walk(value, f"{path}.{key}")
 
     return errors
 
@@ -298,6 +340,52 @@ TEST_CASES = {
         "notice_board_text": None,
         "near_miss_record_template": None,
     },
+    # 厳守事項7(フェーズ24追加): 入力メモが料金プラン・契約・支払いに関する問い合わせのみで
+    # 占められている場合、具体的な料金案内は一切行わず一言のみを返す(llm-quality-verification-plan.md
+    # フェーズ23「新規追加が必要」とした料金言及混入ケースに対応)。
+    "OOS2_fee_and_payment_inquiry": {
+        "status": "out_of_scope",
+        "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。料金プランについてのご案内は現時点では行っておりません。入退場時混雑確認等のご相談であれば、会場キャパシティ・入退場口数等をお送りください。",
+        "missing_fields_request": None,
+        "checklist": None,
+        "staffing_plan": None,
+        "notice_board_text": None,
+        "near_miss_record_template": None,
+    },
+    # 厳守事項10(フェーズ24追加): 入力メモ(staffingの記述)に委託警備員の氏名が含まれていても、
+    # 出力では個人を特定しない一般化した表現(「委託警備員」)に置き換える
+    # (llm-quality-verification-plan.mdフェーズ23「新規追加が必要」とした氏名混入ケースに対応)。
+    # 想定入力例: 「警備員は外部委託の田中さん1名と自社スタッフ2名です」。
+    "G5_staffing_memo_with_personal_name_generalized": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "checklist": [
+            {"item": "入退場口1箇所がキャパシティ400人に対し十分な処理能力か", "highlighted": True},
+        ],
+        "staffing_plan": {
+            "focus": "entry",
+            "body": (
+                "自由入場(整理番号なし)のため、開場直後の入場時集中に重点を置きます。雑踏警備にあたる"
+                "入退場口での流れの調整は委託警備員1名の配置案とし、自社スタッフ2名には掲示・誘導"
+                "アナウンス等の補助的役割を割り当てます。"
+            ),
+            "announcement_text": "本日は自由入場となっております。入場口が混み合う場合は係員の案内に従い、分散してお進みください。",
+        },
+        "notice_board_text": {
+            "body": "ご来場の皆様へ。入場口付近が混雑する場合がございます。係員の案内に従い、整列・分散入場にご協力ください。",
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "II1_missing_capacity_and_entry_exit": {
         "status": "insufficient_input",
         "out_of_scope_message": None,
@@ -366,6 +454,34 @@ NEGATIVE_CASE_MISSING_REQUIRED_STATUS = {
     k: v for k, v in TEST_CASES["G1_free_admission_indoor"].items() if k != "status"
 }
 
+# フェーズ24追加: テストケースごとに、入力メモに含まれていた(が出力に転記されては
+# ならない)氏名・ニックネーム等のリスト(厳守事項10、check_personal_name_leakage参照)。
+PERSONAL_NAME_LEAKAGE_FORBIDDEN_TERMS = {
+    "G5_staffing_memo_with_personal_name_generalized": ["田中"],
+}
+
+# ネガティブテスト(フェーズ24追加): G5の想定入力に含まれる委託警備員の氏名「田中さん」が
+# 一般化されずそのまま出力に転記されてしまったケースが検出されることを確認する
+# (厳守事項10違反の検出能力チェック)。
+NEGATIVE_CASE_PERSONAL_NAME_LEAKED = {
+    **TEST_CASES["G5_staffing_memo_with_personal_name_generalized"],
+    "staffing_plan": {
+        **TEST_CASES["G5_staffing_memo_with_personal_name_generalized"]["staffing_plan"],
+        "body": (
+            "自由入場(整理番号なし)のため、開場直後の入場時集中に重点を置きます。雑踏警備にあたる"
+            "入退場口での流れの調整は委託警備員の田中さん1名の配置案とし、自社スタッフ2名には掲示・"
+            "誘導アナウンス等の補助的役割を割り当てます。"
+        ),
+    },
+}
+
+# ネガティブテスト(フェーズ24追加): OOS2の料金問い合わせ応答が、厳守事項7に反して
+# 具体的な料金額(例:「500円/回」)を案内してしまったケースが検出されることを確認する。
+NEGATIVE_CASE_FEE_PRICE_LEAKED = {
+    **TEST_CASES["OOS2_fee_and_payment_inquiry"],
+    "out_of_scope_message": "本サービスは一次チェックと文書下書き生成のみを行っております。単発利用プランは500円/回でご利用いただけます。",
+}
+
 
 def main():
     total = 0
@@ -374,6 +490,10 @@ def main():
         total += 1
         errors = validate_against_schema(instance, SCHEMA)
         errors += validate_cross_field_rules(instance)
+        if case_id in PERSONAL_NAME_LEAKAGE_FORBIDDEN_TERMS:
+            errors += check_personal_name_leakage(
+                instance, PERSONAL_NAME_LEAKAGE_FORBIDDEN_TERMS[case_id]
+            )
         if errors:
             failed += 1
             print(f"[NG] {case_id}")
@@ -445,6 +565,29 @@ def main():
     else:
         failed += 1
         print("[NG] NEG6_missing_required_status_is_detected: 必須フィールド欠落を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors7 = validate_against_schema(NEGATIVE_CASE_PERSONAL_NAME_LEAKED, SCHEMA)
+    neg_errors7 += validate_cross_field_rules(NEGATIVE_CASE_PERSONAL_NAME_LEAKED)
+    neg_errors7 += check_personal_name_leakage(NEGATIVE_CASE_PERSONAL_NAME_LEAKED, ["田中"])
+    if neg_errors7:
+        print("[OK] NEG7_personal_name_leaked_is_detected (想定通りエラー検出)")
+        for e in neg_errors7:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG7_personal_name_leaked_is_detected: 氏名の転記を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors8 = validate_against_schema(NEGATIVE_CASE_FEE_PRICE_LEAKED, SCHEMA)
+    neg_errors8 += validate_cross_field_rules(NEGATIVE_CASE_FEE_PRICE_LEAKED)
+    if neg_errors8:
+        print("[OK] NEG8_fee_price_leaked_is_detected (想定通りエラー検出)")
+        for e in neg_errors8:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG8_fee_price_leaked_is_detected: 具体的な料金額の案内を検出できませんでした(バリデータの不備)")
 
     print(f"\n{total - failed}/{total} 件パス")
     return 1 if failed else 0

@@ -420,3 +420,29 @@
 - 最終更新: 2026-10-20 02:00 UTC(フェーズ23: llm-quality-verification-plan.md新規作成。
   厳守事項10件の検証観点を整理し、本venture固有の未確定事項〈料金/氏名混入ケース未作成、
   prototype未着手〉を明記)
+- フェーズ24(2026-10-20 04:00 UTC): フェーズ23の次回候補(1)「料金言及混入ケース・氏名
+  混入ケースをschema/validate_test_cases.pyに追加する」に対応した。(a)厳守事項7(料金・契約
+  関連への不応答)に対応するOOS2_fee_and_payment_inquiryを新規追加し、validate_cross_field_rules
+  のout_of_scope分岐に「out_of_scope_messageが具体的な料金額(数字+『円』)を案内していないか」
+  を機械チェックする処理を追加した。(b)厳守事項10(個人名の非転記・一般化)に対応する
+  G5_staffing_memo_with_personal_name_generalized(委託警備員の氏名が入力に含まれる想定の
+  staffing memoケース)を新規追加し、出力の全文字列フィールド(near_miss_record_templateの
+  固定5項目欄を除く)を再帰的に走査して入力由来の氏名が転記されていないかを確認する
+  check_personal_name_leakage関数を新設した。検出能力を確認するネガティブテストを2件追加
+  (NEG7: 氏名「田中」がそのまま転記されたケース、NEG8: 具体的な料金額「500円/回」が
+  案内されたケース)。`python3 schema/validate_test_cases.py`で既存14件(生成5件・out_of_scope
+  2件・insufficient_input1件・ネガティブ6件の計14件、G5・OOS2・NEG7・NEG8の4件追加後は
+  16件)が全てパスすることを確認した。他コード(output.schema.json)の変更は行っていない。
+  実LLMでの動作検証は未実施(APIキー取得はオーナー承認待ちの範囲、pending-approval.md参照)。
+  承認不要な検証スクリプト更新のみで、外部サービスへの公開・アカウント作成・支払い・送信等は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)mvp-flow-draft.mdの入出力をコード化したprototype(webhookまたはフォーム受信
+  処理の骨格)の作成に着手する(llm-quality-verification-plan.md次回候補(2)から継続)、
+  (2)層2(単発屋内イベント主催者)の探索手法の再検討、または層3への着手順の見直し
+  (フェーズ21〜23から継続する課題)、(3)厳守事項7の「料金関連の記述が正当な会場情報と
+  混在する入力」の場合の分岐(現状はOOS2のように料金のみの入力を想定しており、会場情報と
+  料金問い合わせが混在する入力の扱いはmvp-flow-draft.md・schema側で未整理のまま残っている)
+  の設計検討。
+- 最終更新: 2026-10-20 04:00 UTC(フェーズ24: schema/validate_test_cases.pyに料金言及
+  混入ケース〈OOS2〉・氏名混入ケース〈G5〉とそれぞれの検出用ネガティブテスト〈NEG7・NEG8〉を
+  追加。料金額の案内チェック・氏名転記チェックの2つの新規検証処理を追加し、全16件パスを確認)
