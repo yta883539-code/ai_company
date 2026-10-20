@@ -9,6 +9,7 @@ InMemoryWorkshopStore(usage_counter_workshop.py)の基盤グループと観測�
 """
 
 import unittest
+from datetime import datetime, timezone
 
 from firestore_workshop_adapter import ArrayUnion, FirestoreWorkshopStore
 
@@ -156,6 +157,42 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.assertEqual(self.store.get_workshop_name("w1"), "鍛治屋 寅吉")
         self.assertTrue(self.store.get_first_generation_notice_sent("w1"))
         self.assertEqual(self.store.get_member_user_ids("w1"), ["U_owner", "U_member1"])
+
+    def test_pending_reduction_effective_at_roundtrip_and_default_none(self):
+        self.assertIsNone(self.store.get_pending_reduction_effective_at("w1"))
+        effective_at = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.store.set_pending_reduction_effective_at("w1", effective_at)
+        self.assertEqual(self.store.get_pending_reduction_effective_at("w1"), effective_at)
+
+    def test_specified_retention_member_name_roundtrip_and_default_none(self):
+        self.assertIsNone(self.store.get_specified_retention_member_name("w1"))
+        self.store.set_specified_retention_member_name("w1", "U_member1")
+        self.assertEqual(self.store.get_specified_retention_member_name("w1"), "U_member1")
+
+    def test_apply_member_reduction_replaces_member_ids(self):
+        self.store.set_members("w1", "U_owner", ["U_member1", "U_member2"])
+        self.store.apply_member_reduction("w1", ["U_owner"])
+        self.assertEqual(self.store.get_member_user_ids("w1"), ["U_owner"])
+
+    def test_apply_member_reduction_clears_pending_effective_at_and_retention_name(self):
+        # フェーズ223(design.md 19節)の確定仕様: サイクル1回限りの入力として両方クリアする。
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        self.store.set_pending_reduction_effective_at(
+            "w1", datetime(2026, 11, 1, tzinfo=timezone.utc)
+        )
+        self.store.set_specified_retention_member_name("w1", "U_member1")
+
+        self.store.apply_member_reduction("w1", ["U_owner"])
+
+        self.assertIsNone(self.store.get_pending_reduction_effective_at("w1"))
+        self.assertIsNone(self.store.get_specified_retention_member_name("w1"))
+
+    def test_apply_member_reduction_does_not_clobber_unrelated_fields(self):
+        # merge=True方針(design.md 2節・27節)の確認: plan_id等の無関係フィールドは消えない。
+        self.store.set_members("w1", "U_owner", ["U_member1"])
+        self.store.set_plan("w1", "standard")
+        self.store.apply_member_reduction("w1", ["U_owner"])
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
 
 
 if __name__ == "__main__":

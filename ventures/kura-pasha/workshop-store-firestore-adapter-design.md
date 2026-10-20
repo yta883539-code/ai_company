@@ -255,15 +255,21 @@ usage_counter_workshop.py 988〜1040行目)が利用する一群で、複数職�
         return (snapshot.to_dict() or {}).get("specified_retention_member_name")
 
     def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
-        # InMemory実装(733〜735行目)はmember_user_idsの置き換えと
-        # pending_reduction_effective_atのpop(キー削除)を2行に分けて行うが、
-        # 両者は同一ドキュメントの2フィールドのため、Firestore側は単一のset(merge=True)
-        # で原子的に反映できる(課題承継=InMemoryの2行が1回のドキュメント更新として
-        # 観測される点は、呼び出し元から見た可視結果に差が出ない)。
+        # フェーズ223(19節)の確定仕様: member_user_idsの置き換えに加え、
+        # pending_member_reduction_effective_at・specified_retention_member_nameの
+        # 両方をクリアする(サイクル1回限りの入力のため)。InMemory実装
+        # (usage_counter_workshop.py 821〜824行目)は3行に分けて行うが(member_user_ids
+        # 置き換え+2フィールドのpop)、いずれも同一ドキュメントの3フィールドのため、
+        # Firestore側は単一のset(merge=True)で原子的に反映できる(InMemoryの複数行が
+        # 1回のドキュメント更新として観測される点は、呼び出し元から見た可視結果に差が
+        # 出ない)。本コード例はフェーズ252で実コード化時に、specified_retention_member_
+        # nameのクリアが未反映だった記述漏れを修正済み(実コードは
+        # prototype/firestore_workshop_adapter.pyを参照)。
         self._doc_ref(workshop_id).set(
             {
                 "member_user_ids": list(retained_user_ids),
                 "pending_member_reduction_effective_at": None,
+                "specified_retention_member_name": None,
             },
             merge=True,
         )

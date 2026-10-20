@@ -1,18 +1,20 @@
-"""workshop-store-firestore-adapter-design.md 2節(基盤グループ)の設計を実コードに落としたもの。
-firestore_usage_counter_adapter.py(フェーズ248)・firestore_linking_code_adapter.py
-(フェーズ250)と同型の方針を踏襲し、google-cloud-firestore SDKを直接importしない
-(`firestore_client`に`collection(name).document(id)`で取得したドキュメント参照が
-`get()`(`.exists`・`.to_dict()`を持つSnapshotを返す)・`set(data, merge=...)`・
-`update(data)`を持ち、`collection(name).stream()`がSnapshot列を返す、という最小
-インターフェースを満たせば実SDKでもテスト用フェイクでも差し替え可能)。
+"""workshop-store-firestore-adapter-design.md 2節(基盤グループ)・5節(メンバー削減系
+グループ)の設計を実コードに落としたもの。firestore_usage_counter_adapter.py
+(フェーズ248)・firestore_linking_code_adapter.py(フェーズ250)と同型の方針を踏襲し、
+google-cloud-firestore SDKを直接importしない(`firestore_client`に
+`collection(name).document(id)`で取得したドキュメント参照が`get()`(`.exists`・
+`.to_dict()`を持つSnapshotを返す)・`set(data, merge=...)`・`update(data)`を持ち、
+`collection(name).stream()`がSnapshot列を返す、という最小インターフェースを満たせば
+実SDKでもテスト用フェイクでも差し替え可能)。
 
 `WorkshopStoreProtocol`は30件超のメソッドを持つ本venture最大のProtocolであり、
 design.mdが8グループ(基盤・メンバー削減系・契約者引き継ぎ系・trial系・
 stripe_customer_id順引き逆引き系・subscription_status+event_time系・payment_failure系・
 owner_notified_at系・deletion系)に分けて設計したのと同じ方針で、実コード化も
 グループ単位で段階的に行う。本モジュールは design.md 2節の**基盤グループ**
-(workshop新規作成時に書き込まれるフィールド+付随フィールド)のみを対象とする
-(残りのグループは次回候補)。
+(workshop新規作成時に書き込まれるフィールド+付随フィールド)と5節の
+**メンバー削減系グループ**(`apply_member_reduction`等5メソッド)を対象とする
+(残り6グループは次回候補)。
 """
 
 from __future__ import annotations
@@ -33,9 +35,9 @@ class ArrayUnion:
 
 
 class FirestoreWorkshopStore:
-    """WorkshopStoreProtocolの実Firestore接続実装(基盤グループのみ。design.md 5・7・9・
-    11・13・15・17・29節の残りグループは次回候補)。craftsman_workshop/{workshop_id}
-    ドキュメントを読み書きする。
+    """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ。
+    design.md 7・9・11・13・15・17・29節の残りグループは次回候補)。
+    craftsman_workshop/{workshop_id}ドキュメントを読み書きする。
     """
 
     def __init__(self, firestore_client) -> None:
@@ -133,3 +135,47 @@ class FirestoreWorkshopStore:
 
     def all_workshop_ids(self) -> Iterable[str]:
         return [doc.id for doc in self._workshops.stream()]
+
+    def set_pending_reduction_effective_at(
+        self, workshop_id: str, effective_at: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"pending_member_reduction_effective_at": effective_at}, merge=True
+        )
+
+    def get_pending_reduction_effective_at(self, workshop_id: str) -> Optional[datetime]:
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("pending_member_reduction_effective_at")
+
+    def set_specified_retention_member_name(self, workshop_id: str, name: str) -> None:
+        self._doc_ref(workshop_id).set(
+            {"specified_retention_member_name": name}, merge=True
+        )
+
+    def get_specified_retention_member_name(self, workshop_id: str) -> Optional[str]:
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("specified_retention_member_name")
+
+    def apply_member_reduction(self, workshop_id: str, retained_user_ids: list[str]) -> None:
+        # フェーズ223(design.md 19節)の確定仕様: member_user_idsの置き換えに加え、
+        # pending_member_reduction_effective_at・specified_retention_member_nameの
+        # 両方をクリアする(サイクル1回限りの入力のため)。InMemory実装(usage_counter_
+        # workshop.py 821〜824行目)が2フィールドのpop(キー削除)を行うのに対し、
+        # Firestore側はNone書き込みで揃える(get側が常に.get(key)でNoneフォールバック
+        # する限り観測可能な挙動は一致する、5.1節で確立済みの根拠)。
+        self._doc_ref(workshop_id).set(
+            {
+                "member_user_ids": list(retained_user_ids),
+                "pending_member_reduction_effective_at": None,
+                "specified_retention_member_name": None,
+            },
+            merge=True,
+        )

@@ -5644,3 +5644,40 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   その着手を最優先、(2)`WorkshopStoreProtocol`の残り7グループの実コード化(design.md
   の設計順〈5・7・9・11・13・15・17・29節〉に沿って段階的に進める)、(3)他venture・
   アイデア領域の前進。
+- 最終更新: 2026-10-20 10:00 UTC(フェーズ251: `WorkshopStoreProtocol`基盤グループ
+  〈13メソッド〉を`prototype/firestore_workshop_adapter.py`に実コード化。design.md
+  2節・23節の記述漏れ〈4getterの接続エラー時フォールバック未反映〉も是正。コード変更
+  あり〈新規2ファイル〉、テスト240件〈新規14件〉・355件・schema検証32件パス)
+- フェーズ252(2026-10-20 19:00 UTC定例更新): フェーズ251の次回候補(2)を受け、
+  design.mdの設計順で基盤グループの次にあたる5節(メンバー削減系グループ、
+  `set_pending_reduction_effective_at`/`get_pending_reduction_effective_at`/
+  `set_specified_retention_member_name`/`get_specified_retention_member_name`/
+  `apply_member_reduction`の5メソッド)の実Firestore接続アダプタを
+  `prototype/firestore_workshop_adapter.py`に追加実コード化した。実コード化の過程で、
+  design.md 5節のコード例が`apply_member_reduction`時に`pending_member_reduction_
+  effective_at`のみをクリアし`specified_retention_member_name`をクリアしない旧版の
+  まま残っていたこと(フェーズ223〈19節〉で両方クリアする仕様に確定済みだが、5節の
+  コード例自体は未更新だった記述漏れ)を発見し、design.md 5節のコード例・コメントを
+  現行仕様〈両フィールドともNoneを書き込む〉に是正した上で、実コードは現行仕様
+  (InMemoryWorkshopStore.apply_member_reduction、usage_counter_workshop.py
+  821〜824行目)に合わせて実装した。`prototype/test_firestore_workshop_adapter.py`に
+  テスト5件(pending_reduction_effective_atの往復・デフォルトNone、specified_retention_
+  member_nameの往復・デフォルトNone、apply_member_reductionによるmember_user_ids
+  置き換え、両フィールドのクリア、plan_id等無関係フィールドの非破壊確認)を追加した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(245件、
+  新規5件含めて全件パス)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、
+  いずれもパスすることを確認した(回帰なし)。これにより`WorkshopStoreProtocol`
+  (30件超)のうち実コード化が完了したのは基盤グループ(13メソッド)・メンバー削減系
+  グループ(5メソッド)の計18メソッドとなり、残り6グループ(契約者引き継ぎ系・trial系・
+  stripe_customer_id順引き逆引き系・subscription_status+event_time系・payment_failure系・
+  owner_notified_at系2種・deletion系)は次回候補として残る。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし(既存の承認待ち事項に変更なし)。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残り6グループの実
+  コード化(design.mdの設計順〈7・9・11・13・15・17・29節〉に沿って段階的に進める、
+  次は7節の契約者引き継ぎ系グループ)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 19:00 UTC(フェーズ252: `WorkshopStoreProtocol`メンバー削減系
+  グループ〈5メソッド〉を実コード化。design.md 5節のコード例に残っていた
+  `specified_retention_member_name`クリア漏れ〈フェーズ223の仕様確定が未反映だった
+  記述漏れ〉も是正。コード変更あり、テスト245件〈新規5件〉・355件・schema検証32件パス)
