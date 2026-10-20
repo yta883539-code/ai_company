@@ -3554,3 +3554,51 @@
   process_form_submission()はrun_all_checks()のみでschema/cross-field検証を呼ばないため
   3件とも素通り(invalid_outputにならない)することを確認し、新たな発見なしと判断して
   拡張を見送り。コード変更なし、全22ファイル・schema検証11件とも変更なしでパス)
+- フェーズ178(2026-10-20 23:00 UTC定例更新): フェーズ177の次回候補(3)「process_form_
+  submission()のLLM出力検証をrun_all_checks()のみから、validate_against_schema()・
+  validate_cross_field_rules()も含めた形に拡張すべきかの検討」に対応した。
+  course-set-pasha/aircon-pasha/kura-pashaのcloud_function_webhook.pyを確認したところ、
+  いずれも本番パイプライン内に`validate_llm_output()`(schema適合性→クロスフィールド
+  ルール→厳守事項の機械チェックの3段階検証、スキーマ不適合時は以降をスキップ)を持ち、
+  本venture(process_form_submission()がrun_all_checks()のみを呼ぶ)だけがこの構成から
+  外れていたことを確認した。これは単なる設計上の揺らぎではなく、本venture固有の
+  mock_llm_client.py(フェーズ176)側にのみ同名のvalidate_llm_output()が存在し本番
+  パイプラインには統合されていなかった、という本venture固有のparityギャップである
+  ため、他venture共通のアーキテクチャへ合わせて統合することにした。
+  form_submission_flow.pyにsys.path経由でschema/validate_test_cases.py
+  (SCHEMA・validate_against_schema・validate_cross_field_rules)を取り込み、
+  validate_llm_output()を本モジュール側に実装、process_form_submission()の
+  `check_errors = run_all_checks(instance)`を`check_errors = validate_llm_output(instance)`
+  に置き換えた。mock_llm_client.py側の同名関数は重複を避けるため削除し、
+  form_submission_flow.validate_llm_outputを再エクスポートする形に変更した(呼び出し元の
+  test_mock_llm_client.pyのインポート文は変更不要)。
+  この統合により、test_form_submission_flow.pyの既存テスト「reminder_notice追記」
+  (type=monthly想定)が実際には落ちることを発見した。原因は`_generated_instance()`
+  ヘルパーが`type`引数を持たず`"type": "daily"`を常にハードコードしていたため、
+  実際にはtype=dailyのままreminder_noticeを非nullにした不整合フィクスチャを
+  「monthlyのテスト」と誤認したまま実行していたこと(厳守事項「type=dailyは
+  reminder_noticeを常にnullとする」(mvp-flow-draft.md)への違反を、従来のrun_all_checks()
+  単独の検証では検出できていなかった)。`_generated_instance()`に`type`引数を追加し、
+  当該テストケースの呼び出しに`type="monthly"`を明示することでフィクスチャの不整合を
+  是正した(本番コード・schema・他テストケースの変更は不要)。
+  `python3 prototype/run_all_tests.py`(全22ファイル、test_form_submission_flow.py
+  21件・test_mock_llm_client.py 42件を含めいずれもパス)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を実行し、修正後は全件パスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県
+  労働局への対外連絡)は依然未承認で、フェーズ148で定めた判断切り替え期限の目安
+  (10/25前後)まで残り約5日である状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)10/25前後になっても承認が得られない場合、launch-readiness-checklist.mdに
+  「今年度は困難」の判断切り替えを記録、(3)他venture(aircon-pasha・course-set-pasha・
+  kura-pasha)側でも同種の「テストフィクスチャがハードコードされたフィールド値を持つため
+  schema/cross-field検証を統合しても一部の意図(type別等)が実際には検証されていない」
+  ギャップが残っていないか横断確認する、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 23:00 UTC(フェーズ178: process_form_submission()の検証経路を
+  run_all_checks()単独からvalidate_llm_output()〈schema適合性→クロスフィールド
+  ルール→厳守事項機械チェックの3段階〉に統合し、他venture〈course-set-pasha・
+  aircon-pasha・kura-pasha〉とのアーキテクチャparityを確保。統合の過程で
+  test_form_submission_flow.pyの既存フィクスチャの不整合〈type=dailyのまま
+  reminder_notice非nullの意図せぬ組み合わせ〉を発見・是正。mock_llm_client.py側の
+  重複定義は削除しform_submission_flow.pyから再エクスポート。全22ファイル・
+  schema検証11件いずれもパスを確認)

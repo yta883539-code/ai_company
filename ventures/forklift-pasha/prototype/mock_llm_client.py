@@ -21,6 +21,11 @@ POSITIVE_CASESをそのままprocess_form_submission()に注入できるキャ�
   insufficient_input・out_of_scopeも含めて全てllm_generate経由で判定する設計
   (event-komiguai-pashaのような別立てintake層は無い)ため、II系もモックの対象
   シナリオに含める。
+- validate_llm_output()(schema適合性・クロスフィールドルール・厳守事項6/7の
+  機械チェックをまとめた3段階検証)は、フェーズ176作成時点では本モジュールにのみ
+  存在し、process_form_submission()本体はrun_all_checks()単独しか呼んでいなかった
+  (フェーズ177で発見したparityギャップ)。フェーズ178でform_submission_flow.py側に
+  本体を統合したため、本モジュールはそちらから再エクスポートするのみとした。
 """
 
 from __future__ import annotations
@@ -32,13 +37,8 @@ from typing import Protocol
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
-from post_generation_checks import run_all_checks  # noqa: E402
-from validate_test_cases import (  # noqa: E402
-    POSITIVE_CASES,
-    SCHEMA,
-    validate_against_schema,
-    validate_cross_field_rules,
-)
+from form_submission_flow import validate_llm_output  # noqa: E402,F401
+from validate_test_cases import POSITIVE_CASES  # noqa: E402
 
 
 class MockLlmResponseNotFoundError(KeyError):
@@ -82,16 +82,5 @@ class MockLlmClient:
         return _llm_generate
 
 
-def validate_llm_output(instance: dict) -> list[str]:
-    """schema適合性・クロスフィールドルール・厳守事項6/7の機械チェック
-    (post_generation_checks.run_all_checks)の3段階検証をまとめて行う
-    (event-komiguai-pashaのcloud_function_webhook.py内validate_llm_outputと同じ
-    位置づけ)。"""
-    errors = validate_against_schema(instance, SCHEMA)
-    if errors:
-        # スキーマ自体に適合しない場合、以降のチェックはstatus等の前提が崩れている
-        # ため実行しない(他venture共通の考え方)。
-        return errors
-    errors += validate_cross_field_rules(instance)
-    errors += run_all_checks(instance)
-    return errors
+# validate_llm_output()はフェーズ178でform_submission_flow.pyの本番検証経路へ統合した
+# ため、本モジュールでは再定義せずそちらから再エクスポートする(重複ロジックの解消)。

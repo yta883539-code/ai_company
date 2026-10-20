@@ -17,11 +17,15 @@ post_generation_checks.run_all_checks()という既存の個別モジュール�
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Callable
 
-from post_generation_checks import run_all_checks
-from trial_management import (
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
+
+from post_generation_checks import run_all_checks  # noqa: E402
+from trial_management import (  # noqa: E402
     CANCELED_NOTICE,
     FleetOperatorStoreProtocol,
     GENERATION_PAUSED_NOTICE,
@@ -29,8 +33,31 @@ from trial_management import (
     is_subscription_canceled,
     record_generation_and_get_trial_end_notice,
 )
+from validate_test_cases import (  # noqa: E402
+    SCHEMA,
+    validate_against_schema,
+    validate_cross_field_rules,
+)
 
 LlmGenerateFn = Callable[[str], dict]
+
+
+def validate_llm_output(instance: dict) -> list[str]:
+    """schema適合性・クロスフィールドルール・厳守事項6/7の機械チェック
+    (post_generation_checks.run_all_checks)の3段階検証をまとめて行う
+    (course-set-pasha/aircon-pasha/kura-pashaのcloud_function_webhook.py内
+    validate_llm_outputと同じ位置づけ。フェーズ178でprocess_form_submission()
+    本体の検証経路をrun_all_checks()単独からこの3段階検証へ統合し、従来
+    mock_llm_client.pyにのみ存在した同名関数と本venture本番パイプラインとの
+    parityギャップ〈フェーズ177で発見・次回候補化〉を解消した)。"""
+    errors = validate_against_schema(instance, SCHEMA)
+    if errors:
+        # スキーマ自体に適合しない場合、以降のチェックはstatus等の前提が崩れている
+        # ため実行しない(course-set-pasha等と同じ考え方)。
+        return errors
+    errors += validate_cross_field_rules(instance)
+    errors += run_all_checks(instance)
+    return errors
 
 
 def process_form_submission(
@@ -54,9 +81,10 @@ def process_form_submission(
        分岐」)。
     3. llm_generate(raw_text)でschema/output.schema.json準拠の構造化出力(instance)を
        得る(実LLM未接続のためスタブ注入)。
-    4. run_all_checks(instance)で厳守事項6・7の機械チェックを行う。エラーがあれば
-       status="invalid_output"としてそのまま利用者には返さない(他venture未確立の
-       フォールバック方針と同じ、一次検証のみを本フェーズの範囲とする)。
+    4. validate_llm_output(instance)でschema適合性・クロスフィールドルール・厳守事項
+       6・7の機械チェックをまとめて行う(フェーズ178、従来はrun_all_checks()単独
+       だったものを3段階検証に拡張)。エラーがあればstatus="invalid_output"として
+       そのまま利用者には返さない。
     5. instanceのstatusに応じて応答テキストを組み立てる。status="generated"の場合のみ、
        record_generation_and_get_trial_end_notice()でトライアル生成回数を加算し、
        ちょうど終了条件に達した場合は返却テキスト末尾に通知文を追記する。
@@ -83,7 +111,7 @@ def process_form_submission(
 
     instance = llm_generate(raw_text)
 
-    check_errors = run_all_checks(instance)
+    check_errors = validate_llm_output(instance)
     if check_errors:
         return {
             "status": "invalid_output",

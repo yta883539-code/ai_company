@@ -26,14 +26,14 @@ def _check(label, actual, expected):
     return False
 
 
-def _generated_instance(body="2号機、始業前点検、ブレーキ○、異音なし", reminder_notice=None):
+def _generated_instance(body="2号機、始業前点検、ブレーキ○、異音なし", reminder_notice=None, type="daily"):
     return {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
         "inspection_record": {
             "vehicle_id": "2号機",
-            "type": "daily",
+            "type": type,
             "date": "2026-10-11",
             "items": "ブレーキ○、異音なし",
             "result": "異常なし",
@@ -82,6 +82,7 @@ def main():
         lambda raw_text: _generated_instance(
             body="1号機、月次自主検査、油圧系統・荷台に異常なし",
             reminder_notice="次回の月次自主検査期限は2026-11-11です。",
+            type="monthly",
         ),
         store,
     )
