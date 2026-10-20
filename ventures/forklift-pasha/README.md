@@ -3509,3 +3509,48 @@
   モッククライアントとvalidate_llm_output()を実装し、両フィクスチャ間のparityギャップを
   解消。prototype/test_mock_llm_client.py新規作成、42件新規パス。全22ファイル・
   schema検証11件も変更なしでパス)
+- フェーズ177(2026-10-20 15:00 UTC定例更新): フェーズ176の次回候補(3)「MockLlmClientの
+  scenario指定方式をCANCELED_NOTICE/GENERATION_PAUSED_NOTICE分岐以外のinvalid_output
+  (ネガティブケース)にも拡張するか」を検討した。schema/validate_test_cases.pyの3件の
+  ネガティブケース(NEGATIVE_CASE_ANNUAL_MISSING_COMPANY・NEGATIVE_CASE_DAILY_WITH_
+  REMINDER・NEGATIVE_CASE_OOS_WITH_RECORD)を実際にMockLlmClient経由で
+  process_form_submission()に流して挙動を確認したところ、3件いずれもstatus=
+  "invalid_output"にはならず、"generated"または"out_of_scope"としてcheck_errors=[]で
+  素通りすることを確認した(例: annual検査業者名欠落ケースは"2026-09-15 2号機
+  特定自主検査 異常なし"を本文として生成成立、daily+reminder_notice混在ケースも
+  reminder_noticeを追記した本文で生成成立)。原因はform_submission_flow.
+  process_form_submission()がLLM出力の検証にrun_all_checks()(厳守事項6・7の絵文字・
+  対象外キーワードのヒューリスティックチェックのみ)しか使っておらず、validate_test_
+  cases.pyのvalidate_against_schema()・validate_cross_field_rules()(型・enum・
+  status/type別null依存関係)を一切呼んでいないためである(同関数のdocstring手順4に
+  「他venture未確立のフォールバック方針と同じ、一次検証のみを本フェーズの範囲とする」と
+  明記済みの、他venture共通の既知・意図的なスコープ限定)。したがって、この3件を
+  そのままMockLlmClientのscenario対象に追加しても、invalid_outputパスは一切exercise
+  されず、「schema違反データが機械チェックをすり抜けて素通りする」という既に文書化
+  済みの既知の挙動を再確認するだけに終わる(新たな発見は得られない)。invalid_output
+  パスを意味のある形でテストするには、run_all_checks()が実際に検出できる違反
+  (生成本文への絵文字混入・修理/部品調達等の対象外キーワード混入)を持つ新規フィクス
+  チャを別途用意する必要があるが、これは現時点のvalidate_test_cases.pyには存在せず、
+  新設は本フェーズの一増分の範囲を超えるため見送る。よって本候補はコード拡張を行わず
+  「現時点では見送り、理由をログに残す」と判断した。process_form_submission()側の
+  検証範囲自体を拡張する(run_all_checksにschema/cross-field検証も統合する)という
+  選択肢もあり得るが、これは他venture共通で意図的に採用している設計方針を本venture
+  単独で変更することになり、架構レベルの変更のため別途検討事項として次回候補に残す。
+  コード変更なし(検証のみ)、回帰確認として`python3 prototype/run_all_tests.py`
+  (全22ファイル、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は
+  依然未承認で、フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約5日で
+  ある状況に変化はない。次回候補: (1)承認待ち事項がオーナーから承認された場合はその
+  着手を最優先、(2)10/25前後になっても承認が得られない場合、launch-readiness-
+  checklist.mdに「今年度は困難」の判断切り替えを記録、(3)process_form_submission()の
+  LLM出力検証をrun_all_checks()のみから、validate_against_schema()・
+  validate_cross_field_rules()も含めた形に拡張すべきかの検討(本フェーズで見送った
+  architecture-level論点、他venture横展開も視野に入れる場合は各venture側の同種関数も
+  要確認)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 15:00 UTC(フェーズ177: MockLlmClientのscenario方式を既存の
+  schemaネガティブケース3件に拡張するかを検討。実際に流して検証した結果、
+  process_form_submission()はrun_all_checks()のみでschema/cross-field検証を呼ばないため
+  3件とも素通り(invalid_outputにならない)することを確認し、新たな発見なしと判断して
+  拡張を見送り。コード変更なし、全22ファイル・schema検証11件とも変更なしでパス)
