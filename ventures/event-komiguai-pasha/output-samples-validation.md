@@ -1,4 +1,4 @@
-# 期待JSON出力サンプルの机上検証(2026-10-20 17:00 UTC)
+# 期待JSON出力サンプルの机上検証(2026-10-20 17:00 UTC作成、20:00 UTCフェーズ31で更新)
 
 ## 位置づけ
 
@@ -7,7 +7,10 @@ README.md「次回候補」(フェーズ29)「厳守事項4に追記した『分
 aircon-pasha/output-samples-validation.md・course-set-pasha・kura-pasha等の同名ドキュメントと
 同じ位置づけで、schema/validate_test_cases.py(フェーズ5作成、既に18件保持)の内容を1箇所に
 まとめ、かつ分散退場知見(llm-system-prompt-draft.md厳守事項4、フェーズ29追加)を反映した
-サンプルG7を新規追加した。
+サンプルG7を新規追加した。フェーズ31(2026-10-20 20:00 UTC)では、フェーズ30「残る未検証
+事項」で未確定だった「退場口数とブロック数の対応関係」を確定し(llm-system-prompt-draft.md
+厳守事項4に追記: 退場口2〜4箇所はブロック数と1対1対応、5箇所以上はブロック数を4に上限設定)、
+この上限ルールを反映したサンプルG8を新規追加した。
 
 ## 検証方法
 
@@ -20,7 +23,7 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。外部ライブ�
 禁止(厳守事項7)、入力に含まれる個人名の転記禁止(厳守事項10)は`validate_cross_field_rules()`・
 `check_personal_name_leakage()`で個別にチェックする。
 
-## サンプルケース(19件。2026-10-20 17:00 UTC定例更新でG7を新規追加)
+## サンプルケース(20件。2026-10-20 17:00 UTC定例更新でG7、20:00 UTCフェーズ31でG8を新規追加)
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
@@ -33,6 +36,7 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。外部ライブ�
 | G5_staffing_memo_with_personal_name_generalized | generated | 入力メモに氏名(「田中」)が含まれるが、出力のどこにも転記せず一般化して記述するケース(厳守事項10) |
 | G6_generated_with_incidental_fee_mention | generated | 会場情報(capacity・entry_exit_points等)は十分で通常の4出力が生成されるが、料金プランへの言及も混在するケース。fee_inquiry_noteに定型応答(具体的な料金額への言及なし) |
 | G7_exit_focus_staggered_block_announcement | generated | 全席指定・退場口3箇所でブロック分けが物理的に成立する会場のケース。llm-system-prompt-draft.md厳守事項4(フェーズ29追加)の「ブロック・エリア別に時間差を設けて段階的に退場を案内する(分散退場)」を出力2(staffing_plan.body・announcement_text)・出力3(notice_board_text.body)の双方で言及する(2026-10-20 17:00 UTC追加) |
+| G8_exit_focus_capped_block_count | generated | 全席指定・キャパシティ3,000人・退場口6箇所のケース。退場口数(6)のままブロック化せず、厳守事項4(フェーズ31追記)の上限ルールに基づき隣接する退場口を組にして4ブロックに集約した分散退場案を出力2・出力3で言及する(2026-10-20 20:00 UTC追加) |
 | II1_missing_capacity_and_entry_exit | insufficient_input | capacity・entry_exit_pointsがいずれも未入力で再送を促すケース(厳守事項8) |
 | NEG1_road_use_note_missing_is_detected | generated | ネガティブテスト。includes_road_use_permit_note=trueなのに本文に「道路使用許可」への言及がない不整合(厳守事項2違反)が検出されることの確認用 |
 | NEG2_near_miss_fields_wrong_is_detected | generated | ネガティブテスト。near_miss_record_template.fieldsが固定5項目(厳守事項6)と一致しない(2項目のみ)不整合が検出されることの確認用 |
@@ -44,33 +48,38 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。外部ライブ�
 | NEG8_fee_price_leaked_is_detected | out_of_scope | ネガティブテスト。out_of_scope_messageに具体的な料金額(「500円/回」)への言及が含まれている(厳守事項7違反)が検出されることの確認用 |
 | NEG9_fee_price_leaked_in_generated_is_detected | generated | ネガティブテスト。fee_inquiry_noteに具体的な料金額(「500円/回」)への言及が含まれている(厳守事項7違反)が検出されることの確認用 |
 
-## 結果(2026-10-20 17:00 UTC定例更新時点)
+## 結果(2026-10-20 20:00 UTCフェーズ31時点)
 
 ```
-19/19 件パス
+20/20 件パス
 ```
 
-G1〜G7・OOS1〜OOS2・II1の10件が違反なくパスし、NEG1〜NEG9の9件は意図通りエラーが検出される
+G1〜G8・OOS1〜OOS2・II1の11件が違反なくパスし、NEG1〜NEG9の9件は意図通りエラーが検出される
 ことを確認した(`python3 schema/validate_test_cases.py`で実行内容を確認できる)。回帰確認として
 `python3 -m unittest discover -s prototype -p "test_*.py"`(33件)も変更なしでパスすることを
 確認した。
 
-G7(今回追加)は、llm-system-prompt-draft.md厳守事項4が「ブロック・エリア別に時間差を設けて
-段階的に退場を案内する(分散退場)」を提示してよいとする条件(`entry_exit_points`の数・配置が
-1箇所のみ等でブロック分け自体が物理的に成立しない入力でないこと)を満たす入力(退場口3箇所)を
-想定し、出力2(staffing_plan.body・announcement_text)・出力3(notice_board_text.body)の
-いずれにも「分散退場」のキーワードを含めた。これにより、分散退場知見が実際にstatus=generated
-の出力3箇所すべてに反映できる形でスキーマ・既存のクロスフィールドチェックと矛盾しないことを
-机上確認した。
+G7(フェーズ30追加)は、llm-system-prompt-draft.md厳守事項4が「ブロック・エリア別に時間差を
+設けて段階的に退場を案内する(分散退場)」を提示してよいとする条件(`entry_exit_points`の数・
+配置が1箇所のみ等でブロック分け自体が物理的に成立しない入力でないこと)を満たす入力(退場口
+3箇所)を想定し、出力2(staffing_plan.body・announcement_text)・出力3(notice_board_text.body)
+のいずれにも「分散退場」のキーワードを含めた。
+
+G8(フェーズ31追加)は、フェーズ30「残る未検証事項」で未確定だった「退場口数とブロック数の
+対応関係」を確定したうえで作成した。厳守事項4に追記した上限ルール(退場口2〜4箇所はブロック数
+と1対1対応、5箇所以上はブロック数を4に上限設定)に基づき、退場口6箇所の入力に対して出力2・
+出力3のいずれも「4ブロックに集約した分散退場」を言及する内容とした。これにより、分散退場知見が
+退場口数の大小にかかわらずstatus=generatedの出力3箇所すべてに矛盾なく反映できる形を机上確認
+した。
 
 ## 残る未検証事項
 
-- 上記はあくまで机上検証であり、実際にLLMがこの形式(特に分散退場への言及を含むG7)で安定して
-  構造化出力を生成できるかは未確認(実LLM呼び出しはAPIキー取得・課金がオーナー承認待ちのため、
-  他venture同様に実装フェーズ・API接続時の検証に持ち越し)。
-- G7は「退場口3箇所」という具体例のみを固定している。退場口が2箇所の場合にブロック分けを
-  2分割とするか、あるいは退場口数とブロック数の対応関係自体をどう決めるかは
-  llm-system-prompt-draft.md厳守事項4未確定のまま残る(次回以降、他venture・アイデア領域の
-  前進を優先しつつ、優先度が上がった時点で検討する)。
-- 層2・層3の候補探索(候補1〜14)は依然として実名候補の特定に至っていないため、G7が想定する
+- 上記はあくまで机上検証であり、実際にLLMがこの形式(特に分散退場への言及を含むG7・G8)で安定
+  して構造化出力を生成できるかは未確認(実LLM呼び出しはAPIキー取得・課金がオーナー承認待ちの
+  ため、他venture同様に実装フェーズ・API接続時の検証に持ち越し)。
+- G8の「5箇所以上は4ブロックに上限設定」という具体的な上限値(4)は、会場の収容人数・退場口の
+  配置(隣接か分散か)を考慮せず机上で仮決めしたものであり、実在候補(層1候補1・候補2等)との
+  接点確立後、実際の会場構造に照らした妥当性の再検証が必要(llm-system-prompt-draft.md厳守事項4
+  フェーズ31追記分参照)。
+- 層2・層3の候補探索(候補1〜14)は依然として実名候補の特定に至っていないため、G7・G8が想定する
   ような大規模・複数退場口会場の実在候補との紐付けは引き続き未着手。
