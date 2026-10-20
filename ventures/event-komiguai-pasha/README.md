@@ -473,3 +473,31 @@
 - 最終更新: 2026-10-20 05:00 UTC(フェーズ25: 厳守事項7に「会場情報と料金問い合わせの混在」
   分岐を追記。output.schema.jsonに`fee_inquiry_note`フィールドを新設し、
   validate_test_cases.pyに新規テストケースG6・ネガティブテストNEG9を追加、全18件パスを確認)
+- フェーズ26(2026-10-20 07:00 UTC定例更新): フェーズ25の次回候補(2)「mvp-flow-draft.md
+  の入出力をコード化したprototype(webhookまたはフォーム受信処理の骨格)の作成に着手する」
+  を実施した。prototype/form_submission_intake.pyを新規作成し、Webフォーム送信ペイロード
+  (dict)をEventMemoInputへ正規化する`parse_form_payload()`、厳守事項8の必須3項目
+  (`capacity`・`entry_exit_points`・`admission_type`)の欠落判定を行う
+  `find_missing_required_fields()`、欠落時にLLMを呼ばずその場でstatus=insufficient_input
+  応答を構成する`build_insufficient_input_response()`、充足時にLLMへ渡すリクエスト
+  ペイロードを組み立てる`build_llm_request_payload()`、およびこれらを束ねる受信処理
+  エントリーポイント`handle_form_submission()`を実装した。tech-stack.md(フェーズ7)の
+  通り本ventureは会話状態マシンを持たない単方向バッチ処理のため、line-reservation-ai等の
+  ような複数イベントディスパッチ構造ではなく、1回のフォーム送信を受けて
+  insufficient_input応答とLLMリクエストペイロードのいずれかに振るだけの単純な骨格とした
+  (実LLM呼び出し自体はAPIキー取得後の別モジュールに委ねる、pending-approval.md参照は
+  不要な範囲)。test_form_submission_intake.pyに11件のテスト(空白入力の未入力扱い、
+  欠落項目の列挙順、insufficient_input応答の4出力null確認、充足時のペイロード構成等)を
+  追加し全件パスを確認した。既存のschema/validate_test_cases.py(18件)への影響はなく、
+  変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)層2(単発屋内トークイベント・ポップアップ公演の主催者)の探索手法の見直し、
+  または層3への着手順の再検討(フェーズ21〜23・25から継続)、(2)fee_inquiry_note・
+  out_of_scope等LLM側の構造化出力そのものをスタブ化したモッククライアントを用意し、
+  handle_form_submission()が返すLLMリクエストペイロードから4出力の机上検証まで一本の
+  フローとして繋げる、(3)候補1(奈良NEVER LAND)・候補2(那覇市)はヒアリング実施
+  (オーナー承認後)まで追加調査を保留。
+- 最終更新: 2026-10-20 07:00 UTC(フェーズ26: prototype/form_submission_intake.pyを
+  新規作成し、フォーム受信→必須項目チェック→insufficient_input応答またはLLMリクエスト
+  ペイロード組み立て、という受信処理の骨格を実装。テスト11件新規追加、全件パス。既存
+  schema検証18件も変更なしでパス)
