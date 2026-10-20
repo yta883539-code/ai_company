@@ -501,3 +501,35 @@
   新規作成し、フォーム受信→必須項目チェック→insufficient_input応答またはLLMリクエスト
   ペイロード組み立て、という受信処理の骨格を実装。テスト11件新規追加、全件パス。既存
   schema検証18件も変更なしでパス)
+- フェーズ27(2026-10-20 09:00 UTC定例更新): フェーズ26の次回候補(2)「fee_inquiry_note・
+  out_of_scope等LLM側の構造化出力そのものをスタブ化したモッククライアントを用意し、
+  handle_form_submission()が返すLLMリクエストペイロードから4出力の机上検証まで一本の
+  フローとして繋げる」を実施した。prototype/mock_llm_client.pyを新規作成し、
+  schema/validate_test_cases.pyのTEST_CASES(insufficient_input系を除くgenerated/
+  out_of_scope系)をキャンド出力として返すMockLlmClient、schema適合性・クロス
+  フィールドルールの2段階検証をまとめるvalidate_llm_output()、および
+  form_submission_intake.handle_form_submission()の結果がinsufficient_input応答で
+  完結する場合はLLMを呼ばず、必須項目充足時のみモッククライアントを呼び出して
+  検証まで行うrun_form_submission_pipeline()を実装した。aircon-pasha/course-set-pasha/
+  kura-pashaのcloud_function_webhook.py内LlmCallClient Protocol・validate_llm_output
+  と同じ設計思想を踏襲しつつ、本venture固有の「insufficient_input系はLLM呼び出し前に
+  intake層で完結する」構造(フェーズ26)に合わせ、insufficient_input系シナリオは
+  モックのシナリオ台帳から除外した。test_mock_llm_client.pyに11件のテスト(キャンド
+  出力の浅いコピー確認、未知シナリオ指定時のエラー、insufficient_input入力時に
+  LLMが一度も呼ばれないことの確認、厳守事項2違反〈道路使用許可注記欠落〉を意図的に
+  混入させた場合にvalidate_llm_outputが検出することの確認等)を追加し全件パスを
+  確認した。既存のtest_form_submission_intake.py(11件)・schema/validate_test_cases.py
+  (18件)への影響はなく、変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。なお本venture未着手のpost_generation_checks.py
+  (絵文字・対象外トピック混入のヒューリスティック検証、他venture共通パターン)は
+  本フェーズの範囲外として次回以降の課題に残す。次回候補: (1)post_generation_checks.py
+  (厳守事項7の絵文字不使用・厳守事項6の対象外トピック混入ヒューリスティック検証)の
+  新規作成、(2)層2(単発屋内トークイベント・ポップアップ公演の主催者)の探索手法の
+  見直み、または層3への着手順の再検討(フェーズ21〜23・25から継続)、(3)候補1
+  (奈良NEVER LAND)・候補2(那覇市)はヒアリング実施(オーナー承認後)まで追加調査を保留。
+- 最終更新: 2026-10-20 09:00 UTC(フェーズ27: prototype/mock_llm_client.pyを新規作成。
+  schema/validate_test_cases.pyのTEST_CASESをキャンド出力とするMockLlmClient、
+  schema+クロスフィールド検証をまとめるvalidate_llm_output()、フォーム受信から
+  LLM呼び出し〈必要時のみ〉・検証までを一本に繋げるrun_form_submission_pipeline()を
+  実装。テスト11件新規追加、全件パス。既存テスト11件・schema検証18件も変更なしでパス)
