@@ -405,3 +405,18 @@
 - 最終更新: 2026-10-20 01:00 UTC(フェーズ22: output.schema.json・
   validate_test_cases.pyにadmission_type「事前予約制(先着/抽選)」対応を反映。
   新規テストケースG4追加、全12件パス)
+- フェーズ23(2026-10-20 02:00 UTC): 層2の候補探索がフェーズ19〜21で手法上の限界に
+  達し、ヒアリング実施自体もオーナー承認待ちで止まっている間に前進できる机上作業として、
+  llm-quality-verification-plan.mdを新規作成した。他venture(aircon-pasha等)が用意して
+  いた実LLM接続後の検証計画と同様の構成で、llm-system-prompt-draft.md(フェーズ3)の
+  厳守事項10件それぞれについて検証観点・判定方法(機械チェック/人手)・対象ケースを整理し、
+  本venture固有の未確定事項(料金言及混入ケース・氏名混入ケースのテストケース文面が未作成、
+  mvp-flow-draft.mdの入出力をコード化したprototype自体がまだ存在しないため検証着手には
+  コード化が別途必要)を明記した。ドキュメント作成のみでAPIキー取得・課金は発生しておらず、
+  承認が必要なアクションも発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)料金言及混入ケース・氏名混入ケースをschema/validate_test_cases.pyに追加する、
+  (2)mvp-flow-draft.mdの入出力をコード化したprototypeの作成に着手する、(3)層2の探索手法の
+  再検討、または層3への着手順の見直し。
+- 最終更新: 2026-10-20 02:00 UTC(フェーズ23: llm-quality-verification-plan.md新規作成。
+  厳守事項10件の検証観点を整理し、本venture固有の未確定事項〈料金/氏名混入ケース未作成、
+  prototype未着手〉を明記)
