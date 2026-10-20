@@ -378,5 +378,76 @@ class FirestoreUsageCounterTrialGenerationAndAreaCountTest(unittest.TestCase):
         self.assertEqual(self.counter.get_trial_area_count("u1"), 4)
 
 
+class FirestoreUsageCounterPaymentFailureTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 24節(payment_failure_detected_at・
+    payment_failure_reminder_sent_atグループ)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_payment_failure_detected_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_payment_failure_detected_at("u1"))
+
+    def test_set_then_get_payment_failure_detected_at(self):
+        detected_at = datetime(2026, 10, 20, 9, 0, 0)
+        self.counter.set_payment_failure_detected_at("u1", detected_at)
+        self.assertEqual(self.counter.get_payment_failure_detected_at("u1"), detected_at)
+
+    def test_set_payment_failure_detected_at_overwrites_with_latest(self):
+        """24.3節: 複数回の検知のたびに最新の検知時刻で上書きする契約
+        (set_upgraded_at_if_unsetとは異なり「1回だけ」ではない)。"""
+        first = datetime(2026, 10, 20, 9, 0, 0)
+        second = datetime(2026, 10, 20, 15, 0, 0)
+        self.counter.set_payment_failure_detected_at("u1", first)
+        self.counter.set_payment_failure_detected_at("u1", second)
+        self.assertEqual(self.counter.get_payment_failure_detected_at("u1"), second)
+
+    def test_clear_payment_failure_detected_at_sets_none(self):
+        self.counter.set_payment_failure_detected_at(
+            "u1", datetime(2026, 10, 20, 9, 0, 0)
+        )
+        self.counter.clear_payment_failure_detected_at("u1")
+        self.assertIsNone(self.counter.get_payment_failure_detected_at("u1"))
+
+    def test_get_payment_failure_reminder_sent_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_payment_failure_reminder_sent_at("u1"))
+
+    def test_set_then_get_payment_failure_reminder_sent_at(self):
+        sent_at = datetime(2026, 10, 20, 10, 0, 0)
+        self.counter.set_payment_failure_reminder_sent_at("u1", sent_at)
+        self.assertEqual(self.counter.get_payment_failure_reminder_sent_at("u1"), sent_at)
+
+    def test_clear_payment_failure_reminder_sent_at_sets_none(self):
+        self.counter.set_payment_failure_reminder_sent_at(
+            "u1", datetime(2026, 10, 20, 10, 0, 0)
+        )
+        self.counter.clear_payment_failure_reminder_sent_at("u1")
+        self.assertIsNone(self.counter.get_payment_failure_reminder_sent_at("u1"))
+
+    def test_recovery_clears_both_fields_without_clobbering_other_fields(self):
+        """payment_recovery_notification.py相当の復旧処理が両フィールドを同時に
+        clearしても、count等の既存フィールドを消さないことを確認する
+        (24.3節「一対のフィールドを同一節で設計した理由」)。"""
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_payment_failure_detected_at(
+            "u1", datetime(2026, 10, 20, 9, 0, 0)
+        )
+        self.counter.set_payment_failure_reminder_sent_at(
+            "u1", datetime(2026, 10, 20, 10, 0, 0)
+        )
+        self.counter.clear_payment_failure_detected_at("u1")
+        self.counter.clear_payment_failure_reminder_sent_at("u1")
+        self.assertIsNone(self.counter.get_payment_failure_detected_at("u1"))
+        self.assertIsNone(self.counter.get_payment_failure_reminder_sent_at("u1"))
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_payment_failure_fields_are_scoped_per_user(self):
+        self.counter.set_payment_failure_detected_at(
+            "u1", datetime(2026, 10, 20, 9, 0, 0)
+        )
+        self.assertIsNone(self.counter.get_payment_failure_detected_at("u2"))
+
+
 if __name__ == "__main__":
     unittest.main()

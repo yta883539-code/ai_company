@@ -235,3 +235,56 @@ class FirestoreUsageCounter:
         if not snapshot.exists:
             return 0
         return (snapshot.to_dict() or {}).get("trial_area_count", 0)
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, detected_at: datetime
+    ) -> None:
+        """firestore-provider-adapter-design.md 24.2節: 検知のたびに最新の検知時刻へ
+        単純に上書きする契約(古い検知時刻を残す理由がない)のため、トランザクション
+        不要。既存データをベースにマージして他フィールドを消さない(24.3節
+        「merge=Trueを使う理由」、本モジュール内では`set_trial_end_notified_at`と
+        同じ「読んでから全フィールドを書き戻す」方式で表現する)。
+        """
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_failure_detected_at"] = detected_at
+        doc_ref.set(data)
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_detected_at")
+
+    def clear_payment_failure_detected_at(self, user_id: str) -> None:
+        """9.3節(aircon-pasha 11節と同じ結論)の通り、`None`書き込みでclearを表現する。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_failure_detected_at"] = None
+        doc_ref.set(data)
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, sent_at: datetime
+    ) -> None:
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_failure_reminder_sent_at"] = sent_at
+        doc_ref.set(data)
+
+    def get_payment_failure_reminder_sent_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_reminder_sent_at")
+
+    def clear_payment_failure_reminder_sent_at(self, user_id: str) -> None:
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_failure_reminder_sent_at"] = None
+        doc_ref.set(data)

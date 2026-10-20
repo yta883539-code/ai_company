@@ -5522,3 +5522,27 @@
   23節(trial_generation_count・trial_area_countグループ)を実コード化。
   `FirestoreUsageCounter`に4メソッド追加。コード変更あり、テスト791件〈新規10件〉・
   schema検証21件パス)
+- フェーズ317(2026-10-20 22:00 UTC定例更新): フェーズ316の次回候補(2)を受け、
+  firestore-provider-adapter-design.md 24節(payment_failure_detected_at・
+  payment_failure_reminder_sent_atグループ)を実コード化した。
+  `set_payment_failure_detected_at`/`get_payment_failure_detected_at`/
+  `clear_payment_failure_detected_at`・`set_payment_failure_reminder_sent_at`/
+  `get_payment_failure_reminder_sent_at`/`clear_payment_failure_reminder_sent_at`の
+  計6メソッドを`firestore_usage_counter_adapter.py`に新規実装した。24.2節の設計は
+  `set(merge=True)`一発を想定していたが、本モジュール内の既存メソッド(例:
+  `set_trial_end_notified_at`)が前提とする最小インターフェース(フェイクの
+  `document.set(data)`はmerge引数を取らない)と揃えるため、「読んでから全フィールドを
+  ベースに書き戻す」既存パターンで同じ契約(他フィールドを消さない)を満たす実装とした。
+  `clear_*`は9節・22節と同じ`None`書き込みで表現した。テストを9件新規追加し、
+  (1)未知ユーザーはNone、(2)設定後の取得、(3)複数回検知時は最新の検知時刻へ上書き
+  (24.3節の契約、set_upgraded_at_if_unsetの「1回だけ」とは異なる)、(4)(5)clear後は
+  None、(6)未知ユーザーのreminder_sent_atはNone、(7)復旧処理相当で両フィールドを
+  同時clearしてもcount等の既存フィールドを消さない、(8)user_idごとに独立、を確認した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(800件、
+  新規9件含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を
+  実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`payment_suspension_owner_notified_at`グループ(25節)・
+  `subscription_canceled_at`グループ・3種の`*_event_time`(26節、計10メソッド超)の
+  実Firestore接続アダプタ実コード化、(3)他venture・アイデア領域の前進。
