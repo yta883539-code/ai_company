@@ -54,10 +54,12 @@ class _FakeDocumentRef:
             else:
                 existing[key] = value
 
+    def delete(self) -> None:
+        self._store.pop(self._doc_id, None)
+
 
 class _FakeCollection:
-    def __init__(self, expected_name: str, name: str, store: dict):
-        assert name == expected_name
+    def __init__(self, store: dict):
         self._store = store
 
     def document(self, doc_id: str) -> _FakeDocumentRef:
@@ -70,12 +72,42 @@ class _FakeCollection:
         ]
 
 
+class _FakeBatch:
+    """design.md 11節`set_stripe_customer_id`のWriteBatch呼び出しを模す最小実装
+    (aircon-pasha test_firestore_user_profile_adapter.py `_FakeBatch`と同型、
+    `delete`呼び出し〈design.md 11.1節・25節の旧インデックス削除〉への対応を追加)。
+    """
+
+    def __init__(self):
+        self._writes: list[tuple] = []
+
+    def set(self, doc_ref: _FakeDocumentRef, data: dict, merge: bool = False) -> None:
+        self._writes.append(("set", doc_ref, data, merge))
+
+    def delete(self, doc_ref: _FakeDocumentRef) -> None:
+        self._writes.append(("delete", doc_ref, None, None))
+
+    def commit(self) -> None:
+        for kind, doc_ref, data, merge in self._writes:
+            if kind == "set":
+                doc_ref.set(data, merge=merge)
+            else:
+                doc_ref.delete()
+        self._writes = []
+
+
 class _FakeFirestoreClient:
     def __init__(self):
-        self._store: dict = {}
+        self._collections: dict[str, dict] = {
+            "craftsman_workshop": {},
+            "stripe_customer_index": {},
+        }
 
     def collection(self, name: str) -> _FakeCollection:
-        return _FakeCollection("craftsman_workshop", name, self._store)
+        return _FakeCollection(self._collections[name])
+
+    def batch(self) -> _FakeBatch:
+        return _FakeBatch()
 
 
 class FirestoreWorkshopStoreTest(unittest.TestCase):
@@ -300,6 +332,57 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.assertEqual(
             self.store.get_trial_start_at("w1"),
             datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc),
+        )
+
+    # --- design.md 11節: stripe_customer_id順引き逆引き系グループ ---
+
+    def test_get_stripe_customer_id_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_stripe_customer_id("w1"))
+
+    def test_set_stripe_customer_id_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_stripe_customer_id("w1", "cus_abc")
+        self.assertEqual(self.store.get_stripe_customer_id("w1"), "cus_abc")
+
+    def test_set_stripe_customer_id_enables_reverse_lookup(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_stripe_customer_id("w1", "cus_abc")
+        self.assertEqual(
+            self.store.get_workshop_id_by_stripe_customer_id("cus_abc"), "w1"
+        )
+
+    def test_get_workshop_id_by_stripe_customer_id_unknown_is_none(self):
+        self.assertIsNone(self.store.get_workshop_id_by_stripe_customer_id("cus_unknown"))
+
+    def test_set_stripe_customer_id_does_not_clobber_unrelated_fields(self):
+        # merge=True方針(design.md 2節・27節)の確認: plan_id等の無関係フィールドは消えない。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_stripe_customer_id("w1", "cus_abc")
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
+    def test_set_stripe_customer_id_reassignment_removes_old_reverse_index(self):
+        # design.md 11.1節(21節・25節追記): 付け替え時はInMemoryWorkshopStoreの挙動
+        # (design.md 21節)と対称に、旧stripe_customer_idの逆引きエントリを削除する。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_stripe_customer_id("w1", "cus_old")
+        self.store.set_stripe_customer_id("w1", "cus_new")
+
+        self.assertIsNone(self.store.get_workshop_id_by_stripe_customer_id("cus_old"))
+        self.assertEqual(
+            self.store.get_workshop_id_by_stripe_customer_id("cus_new"), "w1"
+        )
+        self.assertEqual(self.store.get_stripe_customer_id("w1"), "cus_new")
+
+    def test_set_stripe_customer_id_same_value_again_keeps_reverse_index(self):
+        # 同一値での再設定(冪等呼び出し)では旧エントリ削除分岐に入らないことを確認する。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_stripe_customer_id("w1", "cus_abc")
+        self.store.set_stripe_customer_id("w1", "cus_abc")
+
+        self.assertEqual(
+            self.store.get_workshop_id_by_stripe_customer_id("cus_abc"), "w1"
         )
 
 

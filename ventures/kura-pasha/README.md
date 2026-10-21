@@ -5737,3 +5737,42 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残り4グループの実
   コード化(design.mdの設計順〈11・13・15・17・29節〉に沿って段階的に進める、次は
   11節のstripe_customer_id順引き逆引き系グループ)、(3)他venture・アイデア領域の前進。
+- フェーズ255(2026-10-21 09:00 UTC定例更新): フェーズ254の次回候補(2)「次は11節の
+  stripe_customer_id順引き逆引き系グループ」に着手した。workshop-store-firestore-
+  adapter-design.md 11節(25節追記を含めて確定済みのコード例)をそのまま
+  `prototype/firestore_workshop_adapter.py`に実コード化し、`get_stripe_customer_id`・
+  `set_stripe_customer_id`・`get_workshop_id_by_stripe_customer_id`の3メソッドを
+  `FirestoreWorkshopStore`に追加した。順引きは基盤グループと同じ
+  `craftsman_workshop/{workshop_id}`ドキュメントのトップレベルスカラー値、逆引きは
+  専用コレクション`stripe_customer_index/{stripe_customer_id}`への同時書き込みで実現する
+  設計(aircon-pasha firestore-provider-adapter-design.md 5節と同型)をそのまま踏襲し、
+  `__init__`に`self._client`(WriteBatch発行用)・`self._stripe_index`を追加した。
+  `set_stripe_customer_id`は付け替え時(旧`stripe_customer_id`が存在し新値と異なる場合)に
+  `WriteBatch`内で旧`stripe_customer_index`ドキュメントも削除する(design.md 21節・25節の
+  `InMemoryWorkshopStore`側の挙動と対称)。`prototype/test_firestore_workshop_adapter.py`の
+  フェイクFirestoreクライアントを、単一コレクション名の決め打ちから複数コレクション
+  (`craftsman_workshop`・`stripe_customer_index`)対応に拡張し、`_FakeBatch`
+  (`set`/`delete`/`commit`、aircon-pasha test_firestore_user_profile_adapter.pyの
+  `_FakeBatch`に`delete`対応を加えた拡張版)を新規追加した。テスト7件を追加
+  (default None・roundtrip・逆引き・逆引き未知値はNone・無関係フィールド非破壊・
+  付け替え時の旧インデックス削除・同一値再設定時は旧インデックスを消さないこと)。回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(264件、新規7件含めて
+  全件パス)・`python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、いずれもパスすることを
+  確認した(回帰なし)。これにより`WorkshopStoreProtocol`(30件超)のうち実コード化が
+  完了したのは基盤グループ(13メソッド)・メンバー削減系グループ(5メソッド)・契約者
+  引き継ぎ系グループ(3メソッド)・trial系グループ(4メソッド)・stripe_customer_id順引き
+  逆引き系グループ(3メソッド)の計28メソッドとなり、残り3グループ
+  (subscription_status+各種event_time系・payment_failure系・trial_end_notified_at・
+  owner_notified_at系2種・deletion系)は次回候補として残る。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし(既存の承認待ち事項に変更なし)。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残り3グループの実
+  コード化(design.mdの設計順〈13・15・17・29節〉に沿って段階的に進める、次は13節の
+  subscription_status+各種event_time系グループ)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-21 09:00 UTC(フェーズ255: `WorkshopStoreProtocol`
+  stripe_customer_id順引き逆引き系グループ〈3メソッド〉を実コード化。
+  `prototype/firestore_workshop_adapter.py`に`get_stripe_customer_id`・
+  `set_stripe_customer_id`〈付け替え時の旧逆引きインデックス削除込み〉・
+  `get_workshop_id_by_stripe_customer_id`を追加。テスト7件追加、全264件・
+  test_cloud_function_webhook.py 355件・schema検証32件パス)
