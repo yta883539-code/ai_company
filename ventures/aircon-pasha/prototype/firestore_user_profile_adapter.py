@@ -1,25 +1,47 @@
 """firestore-provider-adapter-design.md 5節(基盤3メソッド+Stripe顧客IDグループ)・
-19節(`_profile_to_dict`/`_profile_from_dict`ヘルパー)の設計を実コードに落としたもの。
-kura-pashaのfirestore_workshop_adapter.py・course-set-pashaのfirestore_usage_counter_
-adapter.pyと同型の方針を踏襲し、google-cloud-firestore SDKを直接importしない
-(`firestore_client`に`collection(name).document(id)`で取得したドキュメント参照が
-`get()`(`.exists`・`.to_dict()`を持つSnapshotを返す)・`set(data, merge=...)`を持ち、
-`firestore_client.batch()`が`set(doc_ref, data, merge=...)`・`commit()`を持つ、という
-最小インターフェースを満たせば実SDKでもテスト用フェイクでも差し替え可能)。
+7節(trial系グループ)・19節(`_profile_to_dict`/`_profile_from_dict`ヘルパー)の設計を
+実コードに落としたもの。kura-pashaのfirestore_workshop_adapter.py・course-set-pashaの
+firestore_usage_counter_adapter.pyと同型の方針を踏襲し、google-cloud-firestore SDKを
+直接importしない(`firestore_client`に`collection(name).document(id)`で取得した
+ドキュメント参照が`get()`(`.exists`・`.to_dict()`を持つSnapshotを返す)・
+`set(data, merge=...)`を持ち、`firestore_client.batch()`が`set(doc_ref, data, merge=...)`・
+`commit()`を持つ、という最小インターフェースを満たせば実SDKでもテスト用フェイクでも
+差し替え可能)。
 
 `UserProfileStoreProtocol`は design.md が5・7・9・11・13・15・17節の7グループに分けて
 設計した本venture最大のProtocolであり、実コード化もグループ単位で段階的に行う。本モジュールは
-design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグループ**のみを対象とする
-(残り6グループ〈trial系・payment_failure系・current_plan_id・is_following+all_user_ids・
-owner_notified_at系・event_time系4種〉は次回候補)。
+design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグループ**・7節の
+**trial系グループ**(`set_trial_start_at`/`set_trial_end_notified_at`/`set_upgraded_at`/
+`increment_trial_generation_count`/`increment_trial_unit_count`/`get_trial_unit_count`)
+を対象とする(残り5グループ〈payment_failure系・current_plan_id・is_following+
+all_user_ids・owner_notified_at系・event_time系4種〉は次回候補)。
+
+design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
+本モジュールは実SDK非依存方針を維持するため、同じ「サーバー側フィールド変換として加算する」
+意味論のみを表す本モジュール独自の`Increment`センチネルを定義し、フェイク・実SDKアダプタの
+いずれからも同じインターフェース(`set({"field": Increment(n)}, merge=True)`)で扱える
+ようにしている(実SDK接続時はこの`Increment`を`google.cloud.firestore.Increment`に
+読み替えるだけで済む)。
 """
 
 from __future__ import annotations
 
 import dataclasses
+from datetime import datetime
 from typing import Optional
 
 from user_id_linking import UserProfile
+
+
+class Increment:
+    """design.md 7.2節の`firestore.Increment`相当の最小センチネル。実SDKを直接
+    importしない本モジュールの方針を保つため、「現在値への加算」という意味論だけを
+    運ぶ軽量な値オブジェクトとして定義する(実際の加算処理はFirestoreクライアント側
+    〈実SDKまたはテスト用フェイク〉がこのセンチネルを見て行う)。
+    """
+
+    def __init__(self, value: int) -> None:
+        self.value = value
 
 
 def _profile_to_dict(profile: UserProfile) -> dict:
@@ -105,3 +127,26 @@ class FirestoreUserProfileStore:
         if profile is None:
             return None
         return profile.stripe_customer_id
+
+    def set_trial_start_at(self, user_id: str, at: datetime) -> None:
+        self._doc_ref(user_id).set({"trial_start_at": at}, merge=True)
+
+    def set_trial_end_notified_at(self, user_id: str, notified_at: datetime) -> None:
+        self._doc_ref(user_id).set({"trial_end_notified_at": notified_at}, merge=True)
+
+    def set_upgraded_at(self, user_id: str, at: datetime) -> None:
+        self._doc_ref(user_id).set({"upgraded_at": at}, merge=True)
+
+    def increment_trial_generation_count(self, user_id: str) -> int:
+        doc_ref = self._doc_ref(user_id)
+        doc_ref.set({"trial_generation_count": Increment(1)}, merge=True)
+        return (doc_ref.get().to_dict() or {}).get("trial_generation_count", 0)
+
+    def increment_trial_unit_count(self, user_id: str, unit_count: int) -> int:
+        doc_ref = self._doc_ref(user_id)
+        doc_ref.set({"trial_unit_count": Increment(unit_count)}, merge=True)
+        return (doc_ref.get().to_dict() or {}).get("trial_unit_count", 0)
+
+    def get_trial_unit_count(self, user_id: str) -> int:
+        profile = self.get(user_id)
+        return profile.trial_unit_count if profile is not None else 0

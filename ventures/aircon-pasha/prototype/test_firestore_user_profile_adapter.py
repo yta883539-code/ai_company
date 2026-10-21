@@ -12,7 +12,7 @@ InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客I
 import unittest
 from datetime import datetime, timezone
 
-from firestore_user_profile_adapter import FirestoreUserProfileStore
+from firestore_user_profile_adapter import FirestoreUserProfileStore, Increment
 from user_id_linking import UserProfile
 
 
@@ -35,10 +35,19 @@ class _FakeDocumentRef:
         return _FakeSnapshot(exists=data is not None, data=dict(data) if data else None)
 
     def set(self, data: dict, merge: bool = False) -> None:
+        # design.md 7.2節のIncrementセンチネル: 実Firestoreのフィールド変換と同じく
+        # 「現在値+value」をサーバー側(ここではフェイク内)で計算してから書き込む。
+        resolved = {}
+        current = self._store.get(self._doc_id, {}) if merge else {}
+        for key, value in data.items():
+            if isinstance(value, Increment):
+                resolved[key] = current.get(key, 0) + value.value
+            else:
+                resolved[key] = value
         if merge and self._doc_id in self._store:
-            self._store[self._doc_id].update(data)
+            self._store[self._doc_id].update(resolved)
         else:
-            self._store[self._doc_id] = dict(data)
+            self._store[self._doc_id] = dict(resolved)
 
 
 class _FakeCollection:
@@ -152,6 +161,66 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_stripe_customer_id("U2", "cus_2")
         self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_1"), "U1")
         self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_2"), "U2")
+
+    def test_set_trial_start_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 20, tzinfo=timezone.utc)
+        self.store.set_trial_start_at("U1", at)
+        self.assertEqual(self.store.get("U1").trial_start_at, at)
+
+    def test_set_trial_end_notified_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        notified_at = datetime(2026, 10, 21, tzinfo=timezone.utc)
+        self.store.set_trial_end_notified_at("U1", notified_at)
+        self.assertEqual(self.store.get("U1").trial_end_notified_at, notified_at)
+
+    def test_set_upgraded_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 22, tzinfo=timezone.utc)
+        self.store.set_upgraded_at("U1", at)
+        self.assertEqual(self.store.get("U1").upgraded_at, at)
+
+    def test_increment_trial_generation_count_from_unset_returns_one(self):
+        self.store.save("U1", _make_profile())
+        self.assertEqual(self.store.increment_trial_generation_count("U1"), 1)
+
+    def test_increment_trial_generation_count_accumulates_across_calls(self):
+        self.store.save("U1", _make_profile())
+        self.store.increment_trial_generation_count("U1")
+        self.store.increment_trial_generation_count("U1")
+        self.assertEqual(self.store.increment_trial_generation_count("U1"), 3)
+        self.assertEqual(self.store.get("U1").trial_generation_count, 3)
+
+    def test_increment_trial_unit_count_accumulates_given_amounts(self):
+        self.store.save("U1", _make_profile())
+        self.store.increment_trial_unit_count("U1", 2)
+        self.assertEqual(self.store.increment_trial_unit_count("U1", 3), 5)
+        self.assertEqual(self.store.get("U1").trial_unit_count, 5)
+
+    def test_get_trial_unit_count_for_unknown_user_returns_zero(self):
+        self.assertEqual(self.store.get_trial_unit_count("U_unknown"), 0)
+
+    def test_get_trial_unit_count_after_increment(self):
+        self.store.save("U1", _make_profile())
+        self.store.increment_trial_unit_count("U1", 4)
+        self.assertEqual(self.store.get_trial_unit_count("U1"), 4)
+
+    def test_trial_group_increments_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        self.store.increment_trial_generation_count("U1")
+        self.store.increment_trial_generation_count("U1")
+        self.store.increment_trial_generation_count("U2")
+        self.assertEqual(self.store.get("U1").trial_generation_count, 2)
+        self.assertEqual(self.store.get("U2").trial_generation_count, 1)
+
+    def test_set_trial_fields_do_not_clobber_other_fields(self):
+        profile = _make_profile(current_plan_id="plan_basic")
+        self.store.save("U1", profile)
+        self.store.set_trial_start_at("U1", datetime(2026, 10, 20, tzinfo=timezone.utc))
+        got = self.store.get("U1")
+        self.assertEqual(got.current_plan_id, "plan_basic")
+        self.assertEqual(got.trial_start_at, datetime(2026, 10, 20, tzinfo=timezone.utc))
 
 
 if __name__ == "__main__":

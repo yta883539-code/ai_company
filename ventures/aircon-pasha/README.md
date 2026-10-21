@@ -6043,3 +6043,26 @@
 - 最終更新: 2026-10-20 18:00 UTC(フェーズ329: firestore-provider-adapter-design.md
   5節・19節の設計を実コード化。`prototype/firestore_user_profile_adapter.py`新規作成。
   コード変更あり、テスト729件〈新規10件〉・schema検証25件パス)
+- フェーズ330(2026-10-21 01:00 UTC定例更新): フェーズ329の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 7節(trial系グループ: `set_trial_start_at`/
+  `set_trial_end_notified_at`/`set_upgraded_at`/`increment_trial_generation_count`/
+  `increment_trial_unit_count`/`get_trial_unit_count`、計6メソッド)を実コード化した。
+  design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にして
+  いたが、本venture共通の「実SDK非依存方針」を保つため、同じ「サーバー側フィールド
+  変換として加算する」意味論のみを運ぶ本モジュール独自の`Increment`センチネルクラスを
+  新設し、`firestore_user_profile_adapter.py`に追加した(実SDK接続時はこのセンチネルを
+  `google.cloud.firestore.Increment`に読み替えるだけで済む設計)。
+  `test_firestore_user_profile_adapter.py`の`_FakeDocumentRef.set()`も、このセンチネルを
+  検出して現在値に加算してから書き込むよう拡張した。テスト10件追加
+  (729→739件、trial系3つの`set_*`の往復・2つの`increment_*`の単発/複数回呼び出しでの
+  累積・ユーザー間の独立性・他フィールド非破壊を検証)、既存の基盤3メソッド+Stripe顧客ID
+  グループのテストと合わせて全件パス。schema検証25件も変更なしでパスを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)design.md残り5グループ(payment_failure系4フィールド・
+  current_plan_id・is_following+all_user_ids・owner_notified_at系4種・event_time系4種)の
+  実コード化、(3)旧stripe_customer_idからの付け替え時の旧インデックスエントリ削除
+  (5.3節で次回候補とされていた未対応分)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-21 01:00 UTC(フェーズ330: firestore-provider-adapter-design.md
+  7節(trial系グループ、6メソッド)を実コード化。実SDK非依存の`Increment`センチネルを
+  新設。コード変更あり、テスト739件〈新規10件〉・schema検証25件パス)
