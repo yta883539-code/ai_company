@@ -6261,3 +6261,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-20 16:00 UTC(フェーズ続き335: `cancelAtPeriodEnd`・
   `currentPeriodEnd`の実Webhook書き込み配線を実装。「実Stripeアカウント接続後」としていた
   従前の位置づけの誤りを訂正。全954件・schema検証28件パス)
+- フェーズ続き336(2026-10-20 23:00 UTC定例更新): フェーズ続き335の次回候補(2)
+  「`suspension_reason`が`payment_failed`/`payment_suspended`で対象外の店舗で
+  `cancel_at_period_end`は書き込まれるが`current_period_end`が更新されない非対称の実害
+  有無の検証」に着手した。owner-settings-wireframe.md 4節の対応表を確認した結果、実害
+  ありと判明: 猶予期間中/制限モード中にオーナーがStripeカスタマーポータルで解約予約し、
+  その後決済が回復して`suspension_reason`がNoneに戻ると、同表の「解約手続き中」行
+  (`suspension_reason`なし・`cancel_at_period_end=true`)が表示対象になるが、
+  `current_period_end`が未更新のため利用終了日が欠落/陳腐化した状態で表示されてしまう。
+  `cloud_function_subscription_cancelled_webhook.handle_subscription_updated()`を、
+  `current_period_end`も`cancel_at_period_end`と同じく`classify_subscription_update()`の
+  outcome(通知可否の判定)に連動させず、`cancel_at_period_end_before/after`の遷移だけを
+  見て更新するよう修正(outcomeによる分岐はメッセージ送信の有無のみに限定)。payment_failed/
+  payment_suspended店舗での順方向・逆方向の遷移それぞれに対するテスト2件を追加
+  (prototype 954→956件)。subscription-cancellation-flow-design.mdの該当する残課題記述も
+  解消済みに更新した。`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (956件)・`python3 schema/validate_test_cases.py`(28件、変更なし)いずれもパスを確認
+  した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 23:00 UTC(フェーズ続き336: `current_period_end`の更新を
+  `cancel_at_period_end`と同じ遷移ベースに揃え、payment_failed/payment_suspended店舗での
+  非対称バグ〈解約手続き中表示時の利用終了日欠落〉を解消。テスト2件追加、全956件・
+  schema検証28件パス)

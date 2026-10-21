@@ -267,6 +267,19 @@ after, push_client) -> SubscriptionCancellationUpdateResult`・
   -s prototype -p "test_*.py"`(954件)・`python3 schema/validate_test_cases.py`
   (28件、変更なし)いずれもパスを確認した。承認が必要なアクションは発生していないため
   pending-approval.mdへの追記なし。)
+  (解消済み 2026-10-20定例更新フェーズ続き336: 上記「影響は限定的」の見込みを検証した
+  結果、実害があると判明した。payment_failed/payment_suspended中にオーナーが
+  Stripeカスタマーポータルで解約予約し、その後決済が回復して`suspension_reason`が
+  Noneへ戻ると、owner-settings-wireframe.md 4節の対応表の「解約手続き中」行
+  (`suspension_reason`なし・`cancel_at_period_end=true`)が表示対象になる。この時点で
+  `current_period_end`が更新されていなければ利用終了日が欠落/陳腐化した状態で表示されて
+  しまう。`handle_subscription_updated()`を、`current_period_end`も`cancel_at_period_end`
+  と同じく`classify_subscription_update()`のoutcome(通知可否の判定)に連動させず、
+  `cancel_at_period_end_before/after`の遷移だけを見て更新するよう修正した。テスト2件
+  追加(954→956件)、`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (956件)・`python3 schema/validate_test_cases.py`(28件、変更なし)いずれもパスを
+  確認した。承認が必要なアクションは発生していないためpending-approval.mdへの追記
+  なし。)
 - 実際のStripeアカウント接続・Webhookエンドポイント公開・LINE Push Message API接続は
   オーナー承認待ち(pending-approval.md参照)。デプロイ・実アカウント接続自体が
   オーナー承認待ちなのであって、上記の通り判断・整形ロジック自体の実装にはこの承認は

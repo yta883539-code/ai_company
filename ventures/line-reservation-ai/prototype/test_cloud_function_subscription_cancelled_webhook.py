@@ -320,13 +320,42 @@ class HandleSubscriptionUpdatedTests(unittest.TestCase):
         self.assertEqual(state.current_period_end, datetime(2026, 11, 14))
 
     def test_payment_failed_store_cancel_at_period_end_still_written(self):
-        # payment_failedで通知・current_period_end更新は対象外だが、cancel_at_period_end
-        # 自体はsuspension_reasonと独立したフラグのため書き込む。
+        # payment_failedで通知は対象外(OUTCOME_NO_CHANGE)だが、cancel_at_period_end・
+        # current_period_endはいずれもsuspension_reasonと独立したフラグのため、遷移が
+        # 起きていれば書き込む(フェーズ続き336で修正。修正前はcurrent_period_endだけ
+        # 更新されない非対称バグがあった)。
         state = _store(suspension_reason="payment_failed")
         push = InMemoryLinePushClient()
-        result = handle_subscription_updated(state, False, True, push)
+        result = handle_subscription_updated(
+            state, False, True, push, current_period_end_after=datetime(2026, 11, 14)
+        )
         self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
         self.assertTrue(state.cancel_at_period_end)
+        self.assertEqual(state.current_period_end, datetime(2026, 11, 14))
+
+    def test_payment_suspended_store_current_period_end_still_written(self):
+        # payment_suspended(制限モード)も同様にcurrent_period_endが遷移で更新される。
+        state = _store(suspension_reason="payment_suspended")
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(
+            state, False, True, push, current_period_end_after=datetime(2026, 11, 14)
+        )
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertTrue(state.cancel_at_period_end)
+        self.assertEqual(state.current_period_end, datetime(2026, 11, 14))
+
+    def test_payment_failed_store_current_period_end_cleared_on_reverse_transition(self):
+        # payment_failed店舗でtrue→false(解約取り消し)が起きた場合も、
+        # current_period_endはNoneへ戻す(cancel_at_period_endと同じ扱い)。
+        state = _store(
+            suspension_reason="payment_failed",
+            cancel_at_period_end=True,
+            current_period_end=datetime(2026, 11, 14),
+        )
+        push = InMemoryLinePushClient()
+        result = handle_subscription_updated(state, True, False, push)
+        self.assertEqual(result.outcome, OUTCOME_NO_CHANGE)
+        self.assertFalse(state.cancel_at_period_end)
         self.assertIsNone(state.current_period_end)
 
     def test_stale_event_does_not_touch_cancel_at_period_end(self):

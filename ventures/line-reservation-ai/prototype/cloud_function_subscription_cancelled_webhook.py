@@ -364,12 +364,20 @@ def handle_subscription_updated(
     payment_suspended)とは無関係に、Webhookが伝えてきた`cancel_at_period_end_after`を
     そのまま書き込む(owner-settings-wireframe.md「4節へのsuspension_reason分岐の反映」
     通り、このフラグは`suspension_reason`と独立した表示項目のため)。`state.
-    current_period_end`は、実際にfalse→true/true→false遷移が起きた場合
-    (OUTCOME_CANCELLATION_SCHEDULED/OUTCOME_CANCELLATION_RESCHEDULED)にのみ更新する
-    (前者は`current_period_end_after`を設定、後者は`None`に戻す)。payment_failed/
-    payment_suspendedで対象外(常にOUTCOME_NO_CHANGE)の店舗で実際に遷移が起きていた
-    場合、current_period_endは更新されない残課題がある(次回候補、2026-10-20定例更新で
-    発見)。
+    current_period_end`も同じ理由で、`cancel_at_period_end_before/after`の遷移
+    (false→true/true→false)だけを見て更新する(前者は`current_period_end_after`を設定、
+    後者は`None`に戻す)。`classify_subscription_update()`が返すoutcome
+    (通知の送信可否・payment_failed/payment_suspendedの除外判定)には連動させない。
+
+    (訂正 2026-10-20定例更新フェーズ続き336: 当初はcurrent_period_endの更新をoutcome
+    (OUTCOME_CANCELLATION_SCHEDULED/RESCHEDULED)に連動させていたため、payment_failed/
+    payment_suspendedで対象外(常にOUTCOME_NO_CHANGE)の店舗では実際に遷移が起きていても
+    current_period_endが更新されない非対称バグがあった。猶予期間中/制限モード中に
+    オーナーがStripeカスタマーポータルで解約予約した後、決済が回復して
+    suspension_reasonがNoneに戻ると、owner-settings-wireframe.md 4節の表の「解約手続き中」
+    行(`cancel_at_period_end=true`かつ`suspension_reason`なし)が表示対象になる一方、
+    current_period_endが更新されていないため利用終了日が欠落/陳腐化した状態で表示される
+    実害があった。cancel_at_period_endと同じく遷移そのものだけを見る実装に修正し解消した。)
     """
     if (
         event_time is not None
@@ -382,6 +390,10 @@ def handle_subscription_updated(
         state.last_subscription_updated_event_time = event_time
 
     state.cancel_at_period_end = cancel_at_period_end_after
+    if not cancel_at_period_end_before and cancel_at_period_end_after:
+        state.current_period_end = current_period_end_after
+    elif cancel_at_period_end_before and not cancel_at_period_end_after:
+        state.current_period_end = None
 
     outcome = classify_subscription_update(
         cancel_at_period_end_before, cancel_at_period_end_after, state.suspension_reason
@@ -391,12 +403,10 @@ def handle_subscription_updated(
         return SubscriptionCancellationUpdateResult(outcome=outcome)
 
     if outcome == OUTCOME_CANCELLATION_SCHEDULED:
-        state.current_period_end = current_period_end_after
         text = render_cancellation_scheduled_message(
             state.plan_name, state.period_end_date, portal_url, state.message_tone
         )
     else:
-        state.current_period_end = None
         text = render_cancellation_rescheduled_message(
             state.plan_name, state.period_end_date, state.message_tone
         )
