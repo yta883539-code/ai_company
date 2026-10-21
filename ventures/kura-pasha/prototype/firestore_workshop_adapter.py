@@ -15,7 +15,8 @@ owner_notified_at系・deletion系)に分けて設計したのと同じ方針で
 (workshop新規作成時に書き込まれるフィールド+付随フィールド)・5節の
 **メンバー削減系グループ**(`apply_member_reduction`等5メソッド)・7節の
 **契約者引き継ぎ系グループ**(`pending_contractor_transfer`map型フィールドの3メソッド)
-を対象とする(残り5グループ〈trial系・stripe_customer_id順引き逆引き系・
+・9節の**trial系グループ**(`trial_start_at`・`trial_generation_used`の2フィールド
+4メソッド)を対象とする(残り4グループ〈stripe_customer_id順引き逆引き系・
 subscription_status+event_time系・payment_failure系・owner_notified_at系・deletion系〉は
 次回候補)。
 """
@@ -41,7 +42,8 @@ class ArrayUnion:
 
 class FirestoreWorkshopStore:
     """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ+
-    契約者引き継ぎ系グループ。design.md 9・11・13・15・17・29節の残りグループは次回候補)。
+    契約者引き継ぎ系グループ+trial系グループ。design.md 11・13・15・17・29節の残り
+    グループは次回候補)。
     craftsman_workshop/{workshop_id}ドキュメントを読み書きする。
     """
 
@@ -228,4 +230,33 @@ class FirestoreWorkshopStore:
         # する限り観測可能な挙動が一致する」という根拠がここでも成立する)。
         self._doc_ref(workshop_id).set(
             {"pending_contractor_transfer": None}, merge=True
+        )
+
+    def get_trial_start_at(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 9節・23節の統一方針: 一時的な接続エラーは「未設定」側(None)に
+        # 安全側合流させる(is_trial_period_over()がNoneを「トライアル未終了」扱いに
+        # 倒す既存の安全側分岐と整合する)。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("trial_start_at")
+
+    def set_trial_start_at(self, workshop_id: str, trial_start_at: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"trial_start_at": trial_start_at}, merge=True
+        )
+
+    def get_trial_generation_used(self, workshop_id: str) -> bool:
+        # design.md 9節・23節の統一方針: 一時的な接続エラーは「未設定」側(False)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return False
+        return (snapshot.to_dict() or {}).get("trial_generation_used", False)
+
+    def set_trial_generation_used(self, workshop_id: str, used: bool = True) -> None:
+        self._doc_ref(workshop_id).set(
+            {"trial_generation_used": used}, merge=True
         )

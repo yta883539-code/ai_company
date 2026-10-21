@@ -5710,3 +5710,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `get_pending_contractor_transfer`・`set_pending_contractor_transfer`・
   `clear_pending_contractor_transfer`を追加。コード変更あり、テスト250件〈新規5件〉・
   355件・schema検証32件パス)
+- フェーズ254(2026-10-21 03:00 UTC定例更新): フェーズ253の次回候補(2)「次は9節の
+  trial系グループ」に着手した。workshop-store-firestore-adapter-design.md 9節の設計を
+  そのまま`prototype/firestore_workshop_adapter.py`に実コード化し、`get_trial_start_at`・
+  `set_trial_start_at`・`get_trial_generation_used`・`set_trial_generation_used`の
+  4メソッドを`FirestoreWorkshopStore`に追加した。対象の2フィールド
+  (`trial_start_at`・`trial_generation_used`)はいずれも基盤グループ(2節)と同じ
+  `craftsman_workshop/{workshop_id}`ドキューメント内のトップレベルスカラー値であり、
+  map型フィールド(7節)やArrayUnion(2節)のような特殊操作を必要としないため、
+  実装は基盤グループの既存パターン(23節の統一方針に沿い、`get_trial_start_at`は
+  接続エラーをNone、`get_trial_generation_used`はFalseへ安全側合流)をそのまま
+  踏襲した。`prototype/test_firestore_workshop_adapter.py`に7件のテスト
+  (両フィールドのデフォルト値・往復、`set_trial_generation_used`の明示的引数指定、
+  plan_id等の無関係フィールドが消えないこと、2フィールドが互いに独立して更新できること)
+  を追加した。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (257件、新規7件含めて全件パス)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行し、
+  いずれもパスすることを確認した(回帰なし)。これにより`WorkshopStoreProtocol`
+  (30件超)のうち実コード化が完了したのは基盤グループ(13メソッド)・メンバー削減系
+  グループ(5メソッド)・契約者引き継ぎ系グループ(3メソッド)・trial系グループ
+  (4メソッド)の計25メソッドとなり、残り4グループ(stripe_customer_id順引き逆引き系・
+  subscription_status+event_time系・payment_failure系・trial_end_notified_at・
+  owner_notified_at系2種・deletion系)は次回候補として残る。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし(既存の承認待ち事項に変更なし)。次回候補: (1)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先、(2)`WorkshopStoreProtocol`の残り4グループの実
+  コード化(design.mdの設計順〈11・13・15・17・29節〉に沿って段階的に進める、次は
+  11節のstripe_customer_id順引き逆引き系グループ)、(3)他venture・アイデア領域の前進。

@@ -258,6 +258,50 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.store.clear_pending_contractor_transfer("w1")
         self.assertEqual(self.store.get_plan_id("w1"), "standard")
 
+    # --- design.md 9節: trial系グループ(trial_start_at・trial_generation_used) ---
+
+    def test_get_trial_start_at_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_trial_start_at("w1"))
+
+    def test_trial_start_at_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        trial_start_at = datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc)
+        self.store.set_trial_start_at("w1", trial_start_at)
+        self.assertEqual(self.store.get_trial_start_at("w1"), trial_start_at)
+
+    def test_get_trial_generation_used_default_false(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertFalse(self.store.get_trial_generation_used("w1"))
+
+    def test_trial_generation_used_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_trial_generation_used("w1")
+        self.assertTrue(self.store.get_trial_generation_used("w1"))
+
+    def test_set_trial_generation_used_explicit_value(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_trial_generation_used("w1", used=True)
+        self.assertTrue(self.store.get_trial_generation_used("w1"))
+
+    def test_trial_fields_do_not_clobber_unrelated_fields(self):
+        # merge=True方針(design.md 2節・27節)の確認: plan_id等の無関係フィールドは消えない。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_trial_start_at("w1", datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc))
+        self.store.set_trial_generation_used("w1")
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
+    def test_trial_start_at_and_generation_used_are_independent(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_trial_start_at("w1", datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc))
+        self.assertFalse(self.store.get_trial_generation_used("w1"))
+        self.store.set_trial_generation_used("w1")
+        self.assertEqual(
+            self.store.get_trial_start_at("w1"),
+            datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
