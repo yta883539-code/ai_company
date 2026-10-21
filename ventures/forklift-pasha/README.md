@@ -3602,3 +3602,35 @@
   reminder_notice非nullの意図せぬ組み合わせ〉を発見・是正。mock_llm_client.py側の
   重複定義は削除しform_submission_flow.pyから再エクスポート。全22ファイル・
   schema検証11件いずれもパスを確認)
+- フェーズ179(2026-10-21 06:00 UTC定例更新): フェーズ178の次回候補(3)「他venture
+  (aircon-pasha・course-set-pasha・kura-pasha)側でも同種の『テストフィクスチャが
+  ハードコードされたフィールド値を持つためschema/cross-field検証を統合しても一部の
+  意図(type別等)が実際には検証されていない』ギャップが残っていないか横断確認する」
+  に対応した。3venture全てのprototype/test_cloud_function_webhook.pyを確認したところ、
+  いずれもLLM出力フィクスチャを`dict(TEST_CASES[case_id])`または`copy.deepcopy(
+  TEST_CASES[case_id])`の形でschema/validate_test_cases.py側の実フィクスチャから直接
+  取得しており(FixtureLlmClient・RetryThenFixLlmClient・_StubLlmCall等いずれも同型)、
+  本venture(フェーズ178で是正)のtest_form_submission_flow.py `_generated_instance()`
+  のような「型・ステータス別の必須フィールド構成を手書きで再現する独自ビルダー関数」は
+  3venture側には存在しないことを確認した(`grep -rn "^def _generated\|^def _build_instance
+  \|^def _make_instance" ventures/*/prototype/*.py`で該当は本venture
+  のみであることも確認済み)。したがって、フィクスチャ自体がcase_idごとに正しい
+  type/status別フィールド構成を保持したまま検証に渡るため、本venture側で発生した
+  「ハードコードされた判別フィールドがテスト意図と食い違う」という構造的ギャップは
+  3venture側には存在しない。本候補は「横断確認した結果、対象ギャップなし」として
+  完了とする。コード変更なし(確認のみ)、回帰確認として`python3
+  prototype/run_all_tests.py`(全22ファイル、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。承認待ち
+  事項1(建荷協・都道府県労働局への対外連絡)は依然未承認で、フェーズ148で定めた
+  判断切り替え期限の目安(10/25前後)まで残り約4日である状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)10/25前後になっても承認が得られない場合、launch-readiness-checklist.mdに
+  「今年度は困難」の判断切り替えを記録、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-21 06:00 UTC(フェーズ179: フェーズ178の次回候補だった
+  aircon-pasha・course-set-pasha・kura-pashaへの横断確認〈テストフィクスチャの
+  ハードコードによる検証漏れが残っていないか〉を実施。3venture全てLLM出力フィクスチャ
+  をTEST_CASESから直接取得する構成であり、本venture固有だった独自ビルダー関数型の
+  ギャップは存在しないことを確認。コード変更なし、全22ファイル・schema検証11件とも
+  変更なしでパス)
