@@ -5546,3 +5546,33 @@
   (2)残る`payment_suspension_owner_notified_at`グループ(25節)・
   `subscription_canceled_at`グループ・3種の`*_event_time`(26節、計10メソッド超)の
   実Firestore接続アダプタ実コード化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-20 22:00 UTC(フェーズ317: firestore-provider-adapter-design.md
+  24節(payment_failure_detected_at・payment_failure_reminder_sent_atグループ)を
+  実コード化。`FirestoreUsageCounter`に6メソッド追加。コード変更あり、テスト800件
+  〈新規9件〉・schema検証21件パス)
+- フェーズ318(2026-10-21 05:00 UTC定例更新): フェーズ317の次回候補(2)を受け、
+  firestore-provider-adapter-design.md 25節(`payment_suspension_owner_notified_at`
+  グループ)を実コード化した。`set_payment_suspension_owner_notified_at`/
+  `get_payment_suspension_owner_notified_at`/`clear_payment_suspension_owner_
+  notified_at`の計3メソッドを`firestore_usage_counter_adapter.py`に新規実装した。
+  25.2節の設計コード例は`set(data, merge=True)`一発を想定していたが、24節と同じ
+  理由(フェイクの`document.set(data)`がmerge引数を取らない)で、24節の各メソッドと
+  揃えて「読んでから全フィールドをベースに書き戻す」既存パターンで同じ契約(他
+  フィールドを消さない)を満たす実装とした。`clear_*`は9節・24節と同じ`None`書き込み
+  で表現した。テストを6件新規追加し、(1)未知ユーザーはNone、(2)設定後の取得、
+  (3)複数回通知時は最新の通知時刻へ上書き(25.3節の契約、payment_failure_reminder_
+  sent_atと同様に重複Webhook配信を想定)、(4)clear後はNone、(5)復旧処理(invoice.
+  payment_succeeded)相当でclearしてもpayment_failure_detected_at・count等の
+  既存フィールドを消さない、(6)user_idごとに独立、を確認した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(806件、新規6件含めて
+  全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`subscription_canceled_at`グループ・3種の`*_event_time`(26節、設計はフェーズ
+  310時点で完了済みだが実コード化は未着手)の実Firestore接続アダプタ実コード化、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-21 05:00 UTC(フェーズ318: firestore-provider-adapter-design.md
+  25節(payment_suspension_owner_notified_atグループ)を実コード化。
+  `FirestoreUsageCounter`に3メソッド追加。コード変更あり、テスト806件〈新規6件〉・
+  schema検証21件パス)

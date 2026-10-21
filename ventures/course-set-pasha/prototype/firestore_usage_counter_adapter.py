@@ -288,3 +288,35 @@ class FirestoreUsageCounter:
         data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
         data["payment_failure_reminder_sent_at"] = None
         doc_ref.set(data)
+
+    def set_payment_suspension_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        """firestore-provider-adapter-design.md 25.2節: payment_failure_reminder_sent_at
+        と同じ単純な上書き契約(cloud_function_webhook.py 401〜406行目docstring)の
+        ため、トランザクション不要。フェイクのdocument.set(data)がmerge引数を取らない
+        ため、24節の各メソッドと同じ「読んでから全フィールドを書き戻す」方式で表現する。
+        """
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_suspension_owner_notified_at"] = notified_at
+        doc_ref.set(data)
+
+    def get_payment_suspension_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "payment_suspension_owner_notified_at"
+        )
+
+    def clear_payment_suspension_owner_notified_at(self, user_id: str) -> None:
+        """25.3節(9節・24節と同じ):`None`書き込みでclearを表現する。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_suspension_owner_notified_at"] = None
+        doc_ref.set(data)

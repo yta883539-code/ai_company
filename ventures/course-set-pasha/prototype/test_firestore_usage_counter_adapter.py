@@ -449,5 +449,75 @@ class FirestoreUsageCounterPaymentFailureTest(unittest.TestCase):
         self.assertIsNone(self.counter.get_payment_failure_detected_at("u2"))
 
 
+class FirestoreUsageCounterPaymentSuspensionOwnerNotificationTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 25節(payment_suspension_owner_notified_at
+    グループ)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_payment_suspension_owner_notified_at_for_unknown_user_is_none(self):
+        self.assertIsNone(
+            self.counter.get_payment_suspension_owner_notified_at("u1")
+        )
+
+    def test_set_then_get_payment_suspension_owner_notified_at(self):
+        notified_at = datetime(2026, 10, 21, 9, 0, 0)
+        self.counter.set_payment_suspension_owner_notified_at("u1", notified_at)
+        self.assertEqual(
+            self.counter.get_payment_suspension_owner_notified_at("u1"),
+            notified_at,
+        )
+
+    def test_set_payment_suspension_owner_notified_at_overwrites_with_latest(self):
+        """25.3節: payment_failure_reminder_sent_atと同じく、重複Webhook配信等で
+        複数回呼ばれても最終的にどちらかの値が残ればよい単純な上書き契約。"""
+        first = datetime(2026, 10, 21, 9, 0, 0)
+        second = datetime(2026, 10, 21, 9, 0, 1)
+        self.counter.set_payment_suspension_owner_notified_at("u1", first)
+        self.counter.set_payment_suspension_owner_notified_at("u1", second)
+        self.assertEqual(
+            self.counter.get_payment_suspension_owner_notified_at("u1"), second
+        )
+
+    def test_clear_payment_suspension_owner_notified_at_sets_none(self):
+        self.counter.set_payment_suspension_owner_notified_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.counter.clear_payment_suspension_owner_notified_at("u1")
+        self.assertIsNone(
+            self.counter.get_payment_suspension_owner_notified_at("u1")
+        )
+
+    def test_recovery_clears_field_without_clobbering_other_fields(self):
+        """invoice.payment_succeededによる復旧時にclearしても、count等の既存
+        フィールドを消さないことを確認する(25.1節)。"""
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_payment_failure_detected_at(
+            "u1", datetime(2026, 10, 21, 8, 0, 0)
+        )
+        self.counter.set_payment_suspension_owner_notified_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.counter.clear_payment_suspension_owner_notified_at("u1")
+        self.assertIsNone(
+            self.counter.get_payment_suspension_owner_notified_at("u1")
+        )
+        self.assertEqual(
+            self.counter.get_payment_failure_detected_at("u1"),
+            datetime(2026, 10, 21, 8, 0, 0),
+        )
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_payment_suspension_owner_notified_at_is_scoped_per_user(self):
+        self.counter.set_payment_suspension_owner_notified_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.assertIsNone(
+            self.counter.get_payment_suspension_owner_notified_at("u2")
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
