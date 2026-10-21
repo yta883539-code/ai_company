@@ -519,5 +519,119 @@ class FirestoreUsageCounterPaymentSuspensionOwnerNotificationTest(unittest.TestC
         )
 
 
+class FirestoreUsageCounterSubscriptionCanceledAtTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 26節(subscription_canceled_atグループ・
+    3種の*_event_time)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_subscription_canceled_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_subscription_canceled_at("u1"))
+
+    def test_set_then_get_subscription_canceled_at(self):
+        canceled_at = datetime(2026, 10, 21, 9, 0, 0)
+        self.counter.set_subscription_canceled_at("u1", canceled_at)
+        self.assertEqual(
+            self.counter.get_subscription_canceled_at("u1"), canceled_at
+        )
+
+    def test_set_subscription_canceled_at_overwrites_with_latest(self):
+        """26.2節: 再契約後に再度解約した場合、最新の解約確定時刻で上書きする
+        単純な上書き契約。"""
+        first = datetime(2026, 10, 21, 9, 0, 0)
+        second = datetime(2026, 11, 5, 9, 0, 0)
+        self.counter.set_subscription_canceled_at("u1", first)
+        self.counter.set_subscription_canceled_at("u1", second)
+        self.assertEqual(
+            self.counter.get_subscription_canceled_at("u1"), second
+        )
+
+    def test_clear_subscription_canceled_at_sets_none(self):
+        self.counter.set_subscription_canceled_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.counter.clear_subscription_canceled_at("u1")
+        self.assertIsNone(self.counter.get_subscription_canceled_at("u1"))
+
+    def test_reactivation_clears_field_without_clobbering_other_fields(self):
+        """customer.subscription.created(再契約)によるclearでも、count等の既存
+        フィールドを消さないことを確認する(26.1節)。"""
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_payment_suspension_owner_notified_at(
+            "u1", datetime(2026, 10, 21, 8, 0, 0)
+        )
+        self.counter.set_subscription_canceled_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.counter.clear_subscription_canceled_at("u1")
+        self.assertIsNone(self.counter.get_subscription_canceled_at("u1"))
+        self.assertEqual(
+            self.counter.get_payment_suspension_owner_notified_at("u1"),
+            datetime(2026, 10, 21, 8, 0, 0),
+        )
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_subscription_canceled_at_is_scoped_per_user(self):
+        self.counter.set_subscription_canceled_at(
+            "u1", datetime(2026, 10, 21, 9, 0, 0)
+        )
+        self.assertIsNone(self.counter.get_subscription_canceled_at("u2"))
+
+    def test_subscription_state_event_time_set_then_get(self):
+        event_time = datetime(2026, 10, 21, 9, 0, 0)
+        self.counter.set_subscription_state_event_time("u1", event_time)
+        self.assertEqual(
+            self.counter.get_subscription_state_event_time("u1"), event_time
+        )
+
+    def test_subscription_state_event_time_for_unknown_user_is_none(self):
+        self.assertIsNone(
+            self.counter.get_subscription_state_event_time("u1")
+        )
+
+    def test_payment_failure_state_event_time_set_then_get(self):
+        event_time = datetime(2026, 10, 21, 9, 0, 0)
+        self.counter.set_payment_failure_state_event_time("u1", event_time)
+        self.assertEqual(
+            self.counter.get_payment_failure_state_event_time("u1"),
+            event_time,
+        )
+
+    def test_subscription_updated_event_time_set_then_get(self):
+        event_time = datetime(2026, 10, 21, 9, 0, 0)
+        self.counter.set_subscription_updated_event_time("u1", event_time)
+        self.assertEqual(
+            self.counter.get_subscription_updated_event_time("u1"),
+            event_time,
+        )
+
+    def test_three_event_time_fields_are_independent(self):
+        """26.1節: 3種の*_event_timeは別イベント系列のため独立した基準線を持つ
+        (いずれも同一ドキュメント内の別フィールド)。"""
+        self.counter.set_subscription_state_event_time(
+            "u1", datetime(2026, 10, 1, 0, 0, 0)
+        )
+        self.counter.set_payment_failure_state_event_time(
+            "u1", datetime(2026, 10, 2, 0, 0, 0)
+        )
+        self.counter.set_subscription_updated_event_time(
+            "u1", datetime(2026, 10, 3, 0, 0, 0)
+        )
+        self.assertEqual(
+            self.counter.get_subscription_state_event_time("u1"),
+            datetime(2026, 10, 1, 0, 0, 0),
+        )
+        self.assertEqual(
+            self.counter.get_payment_failure_state_event_time("u1"),
+            datetime(2026, 10, 2, 0, 0, 0),
+        )
+        self.assertEqual(
+            self.counter.get_subscription_updated_event_time("u1"),
+            datetime(2026, 10, 3, 0, 0, 0),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

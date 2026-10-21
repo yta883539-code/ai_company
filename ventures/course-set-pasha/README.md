@@ -5576,3 +5576,39 @@
   25節(payment_suspension_owner_notified_atグループ)を実コード化。
   `FirestoreUsageCounter`に3メソッド追加。コード変更あり、テスト806件〈新規6件〉・
   schema検証21件パス)
+- フェーズ319(2026-10-21 10:00 UTC定例更新): フェーズ318の次回候補(2)を受け、
+  firestore-provider-adapter-design.md 26節(`subscription_canceled_at`グループ・
+  3種の`*_event_time`)を実コード化した。`set_subscription_canceled_at`/
+  `get_subscription_canceled_at`/`clear_subscription_canceled_at`(計3メソッド)・
+  `set_subscription_state_event_time`/`get_subscription_state_event_time`・
+  `set_payment_failure_state_event_time`/`get_payment_failure_state_event_time`・
+  `set_subscription_updated_event_time`/`get_subscription_updated_event_time`
+  (いずれも`clear_*`なし、計6メソッド)の計9メソッドを`firestore_usage_counter_
+  adapter.py`に新規実装した。26.2節の設計コード例は`set(data, merge=True)`一発を
+  想定していたが、24・25節と同じ理由(フェイクの`document.set(data)`がmerge引数を
+  取らない)で、既存パターンと揃えて「読んでから全フィールドをベースに書き戻す」
+  方式で同じ契約(他フィールドを消さない)を満たす実装とした。`clear_subscription_
+  canceled_at`は9・24・25節と同じ`None`書き込みで表現し、3種の`*_event_time`は
+  26.1節・26.3節の通り(stale判定はdispatch_stripe_event()側の責務で単調増加の
+  比較にのみ使うため)Protocol定義自体に`clear_*`が存在せず、本アダプタも追加して
+  いない。テストを11件新規追加し、`subscription_canceled_at`について(1)未知
+  ユーザーはNone、(2)設定後の取得、(3)再契約後の再解約時は最新時刻へ上書き、
+  (4)clear後はNone、(5)再契約によるclearでもcount・payment_suspension_owner_
+  notified_at等の既存フィールドを消さない、(6)user_idごとに独立、を確認し、
+  3種の`*_event_time`について(7)(8)(9)それぞれset→getの一致、(10)未知ユーザーは
+  None、(11)3種が同一ドキュメント内で互いに独立したフィールドであることを確認した。
+  これにより19〜26節で`cloud_function_webhook.py`内`UsageCounterProtocol`定義の
+  全メソッド(26.3節で設計完了を確認済み)の実コード化が完了した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(817件、新規11件含めて
+  全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実Firestoreプロジェクト接続自体は引き続きオーナー承認待ちのため着手不可だが、
+  `UsageCounterProtocol`以外の残Protocol(`FirstGenerationNoticeStoreProtocol`・
+  `UserProfileStoreProtocol`等)の実コード化状況の棚卸し、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-21 10:00 UTC(フェーズ319: firestore-provider-adapter-design.md
+  26節(subscription_canceled_atグループ・3種の*_event_time、計9メソッド)を実コード化。
+  これにより`UsageCounterProtocol`全メソッドの実コード化が完了。コード変更あり、
+  テスト817件〈新規11件〉・schema検証21件パス)

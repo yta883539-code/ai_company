@@ -320,3 +320,93 @@ class FirestoreUsageCounter:
         data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
         data["payment_suspension_owner_notified_at"] = None
         doc_ref.set(data)
+
+    def set_subscription_canceled_at(
+        self, user_id: str, canceled_at: datetime
+    ) -> None:
+        """firestore-provider-adapter-design.md 26.2節: `customer.subscription.deleted`
+        受信時(解約確定)の単純な上書き契約(24・25節と同じ考え方)のため、トランザクション
+        不要。「読んでから全フィールドを書き戻す」方式で他フィールドを消さない。
+        """
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["subscription_canceled_at"] = canceled_at
+        doc_ref.set(data)
+
+    def get_subscription_canceled_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_canceled_at")
+
+    def clear_subscription_canceled_at(self, user_id: str) -> None:
+        """`customer.subscription.created`受信時(再契約)に解約フラグを消去する
+        (9節・24節・25節と同じ`None`書き込みでclearを表現する)。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["subscription_canceled_at"] = None
+        doc_ref.set(data)
+
+    def set_subscription_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        """26.1節: `customer.subscription.deleted`/`created`系の配信順序ガード用の
+        基準時刻。stale判定の比較はdispatch_stripe_event()側の責務であり、本メソッドは
+        単純な上書きでよい(`clear_*`はProtocolに存在しない、26.3節)。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["subscription_state_event_time"] = event_time
+        doc_ref.set(data)
+
+    def get_subscription_state_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_state_event_time")
+
+    def set_payment_failure_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        """26.1節: `invoice.payment_failed`/`succeeded`(dunning系)の配信順序ガード用の
+        基準時刻。`subscription_state_event_time`とは別イベント系列のため独立して持つ。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["payment_failure_state_event_time"] = event_time
+        doc_ref.set(data)
+
+    def get_payment_failure_state_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "payment_failure_state_event_time"
+        )
+
+    def set_subscription_updated_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        """26.1節: `customer.subscription.updated`の配信順序ガード用の基準時刻。
+        `subscription_state_event_time`とは別イベント系列のため独立して持つ。"""
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["subscription_updated_event_time"] = event_time
+        doc_ref.set(data)
+
+    def get_subscription_updated_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "subscription_updated_event_time"
+        )
