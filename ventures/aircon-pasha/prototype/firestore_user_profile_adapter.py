@@ -12,8 +12,10 @@ firestore_usage_counter_adapter.pyと同型の方針を踏襲し、google-cloud-
 設計した本venture最大のProtocolであり、実コード化もグループ単位で段階的に行う。本モジュールは
 design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグループ**・7節の
 **trial系グループ**(`set_trial_start_at`/`set_trial_end_notified_at`/`set_upgraded_at`/
-`increment_trial_generation_count`/`increment_trial_unit_count`/`get_trial_unit_count`)
-を対象とする(残り5グループ〈payment_failure系・current_plan_id・is_following+
+`increment_trial_generation_count`/`increment_trial_unit_count`/`get_trial_unit_count`)・
+9節の**payment_failure系グループ**(`payment_failure_detected_at`・`payment_suspended_at`・
+`payment_failure_reminder_sent_at`・`payment_failure_detection_notified_at`の
+get/set計8メソッド)を対象とする(残り4グループ〈current_plan_id・is_following+
 all_user_ids・owner_notified_at系・event_time系4種〉は次回候補)。
 
 design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
@@ -63,7 +65,8 @@ def _profile_from_dict(data: dict) -> UserProfile:
 
 class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤3メソッド+Stripe顧客ID
-    グループのみ。design.md 7・9・11・13・15・17節の残りグループは次回候補、6節)。
+    グループ・trial系グループ・payment_failure系グループ。design.md 11・13・15・17節の
+    残りグループは次回候補)。
     user_profile/{user_id}ドキュメントおよびstripe_customer_index/{stripe_customer_id}
     逆引きドキュメントを読み書きする。
     """
@@ -150,3 +153,49 @@ class FirestoreUserProfileStore:
     def get_trial_unit_count(self, user_id: str) -> int:
         profile = self.get(user_id)
         return profile.trial_unit_count if profile is not None else 0
+
+    def get_payment_failure_detected_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_detected_at if profile is not None else None
+
+    def set_payment_failure_detected_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_detected_at": value}, merge=True
+        )
+
+    def get_payment_suspended_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_suspended_at if profile is not None else None
+
+    def set_payment_suspended_at(self, user_id: str, value: Optional[datetime]) -> None:
+        self._doc_ref(user_id).set({"payment_suspended_at": value}, merge=True)
+
+    def get_payment_failure_reminder_sent_at(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_reminder_sent_at if profile is not None else None
+
+    def set_payment_failure_reminder_sent_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_reminder_sent_at": value}, merge=True
+        )
+
+    def get_payment_failure_detection_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.payment_failure_detection_notified_at
+            if profile is not None
+            else None
+        )
+
+    def set_payment_failure_detection_notified_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_detection_notified_at": value}, merge=True
+        )

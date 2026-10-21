@@ -6066,3 +6066,27 @@
 - 最終更新: 2026-10-21 01:00 UTC(フェーズ330: firestore-provider-adapter-design.md
   7節(trial系グループ、6メソッド)を実コード化。実SDK非依存の`Increment`センチネルを
   新設。コード変更あり、テスト739件〈新規10件〉・schema検証25件パス)
+- フェーズ331(2026-10-21 08:00 UTC定例更新): フェーズ330の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 9節(payment_failure系グループ:
+  `payment_failure_detected_at`・`payment_suspended_at`・`payment_failure_reminder_sent_at`・
+  `payment_failure_detection_notified_at`の4フィールド、計8メソッドget/set)を実コード化
+  した。本グループは7節のtrial系と異なり`increment_*`のような加算を伴わず、常に呼び出し元が
+  確定した値をそのまま書き込むだけのため、design.md 9.3節が明記する通りread-modify-write
+  競合のリスク自体が存在しない(横展開確認の対象外)。実装は5節の基盤3メソッドと同じ
+  `_doc_ref(user_id).set({...}, merge=True)`部分更新・`get()`経由の単純読み取りで、
+  `firestore_user_profile_adapter.py`に8メソッドをそのまま追加した。
+  `test_firestore_user_profile_adapter.py`に、4フィールドそれぞれの往復、`None`書き込み
+  によるクリア(dunning系呼び出し元の「`None`=未発生/解消済み」という既存契約の確認)、
+  未知user_idに対する`None`フォールバック、他フィールド非破壊、user_idごとの独立性を
+  検証するテスト8件を追加した。回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(739→747件、新規8件含めて全件パス)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)design.md残り4グループ(current_plan_id・is_following+
+  all_user_ids・owner_notified_at系4種・event_time系4種)の実コード化、(3)旧
+  stripe_customer_idからの付け替え時の旧インデックスエントリ削除(5.3節で次回候補とされて
+  いた未対応分)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-21 08:00 UTC(フェーズ331: firestore-provider-adapter-design.md
+  9節(payment_failure系グループ、4フィールド8メソッド)を実コード化。
+  コード変更あり、テスト747件〈新規8件〉・schema検証25件パス)

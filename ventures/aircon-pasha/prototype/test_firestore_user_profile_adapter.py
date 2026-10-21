@@ -1,12 +1,12 @@
 """firestore_user_profile_adapter.FirestoreUserProfileStore(基盤3メソッド+Stripe顧客ID
-グループ)のテスト。
+グループ・trial系グループ・payment_failure系グループ)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、firestore-provider-adapter-
 design.md 5節が前提とした最小インターフェース(collection/document/get/set・
 firestore_client.batch()のset/commit)のみを満たす軽量フェイクをここで実装し、
-InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客IDグループと
-観測可能な振る舞いが一致することを検証する。
+InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客IDグループ・
+trial系グループ・payment_failure系グループと観測可能な振る舞いが一致することを検証する。
 """
 
 import unittest
@@ -221,6 +221,66 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         got = self.store.get("U1")
         self.assertEqual(got.current_plan_id, "plan_basic")
         self.assertEqual(got.trial_start_at, datetime(2026, 10, 20, tzinfo=timezone.utc))
+
+    def test_set_payment_failure_detected_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 21, 1, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detected_at("U1", at)
+        self.assertEqual(self.store.get_payment_failure_detected_at("U1"), at)
+
+    def test_set_payment_suspended_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 21, 2, tzinfo=timezone.utc)
+        self.store.set_payment_suspended_at("U1", at)
+        self.assertEqual(self.store.get_payment_suspended_at("U1"), at)
+
+    def test_set_payment_failure_reminder_sent_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 21, 3, tzinfo=timezone.utc)
+        self.store.set_payment_failure_reminder_sent_at("U1", at)
+        self.assertEqual(self.store.get_payment_failure_reminder_sent_at("U1"), at)
+
+    def test_set_payment_failure_detection_notified_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 21, 4, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detection_notified_at("U1", at)
+        self.assertEqual(self.store.get_payment_failure_detection_notified_at("U1"), at)
+
+    def test_set_payment_failure_fields_to_none_clears_them(self):
+        # design.md 9.3節: dunning系の呼び出し元は「None=未発生/解消済み」の意味でのみ
+        # 使うため、一度設定した値をNoneに戻せることを検証する。
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 21, 5, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detected_at("U1", at)
+        self.store.set_payment_suspended_at("U1", at)
+        self.store.set_payment_failure_detected_at("U1", None)
+        self.store.set_payment_suspended_at("U1", None)
+        self.assertIsNone(self.store.get_payment_failure_detected_at("U1"))
+        self.assertIsNone(self.store.get_payment_suspended_at("U1"))
+
+    def test_get_payment_failure_fields_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_payment_failure_detected_at("U_unknown"))
+        self.assertIsNone(self.store.get_payment_suspended_at("U_unknown"))
+        self.assertIsNone(self.store.get_payment_failure_reminder_sent_at("U_unknown"))
+        self.assertIsNone(
+            self.store.get_payment_failure_detection_notified_at("U_unknown")
+        )
+
+    def test_set_payment_failure_fields_do_not_clobber_other_fields(self):
+        profile = _make_profile(current_plan_id="plan_basic")
+        self.store.save("U1", profile)
+        at = datetime(2026, 10, 21, 6, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detected_at("U1", at)
+        got = self.store.get("U1")
+        self.assertEqual(got.current_plan_id, "plan_basic")
+        self.assertEqual(got.payment_failure_detected_at, at)
+
+    def test_payment_failure_fields_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        at = datetime(2026, 10, 21, 7, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detected_at("U1", at)
+        self.assertIsNone(self.store.get_payment_failure_detected_at("U2"))
 
 
 if __name__ == "__main__":
