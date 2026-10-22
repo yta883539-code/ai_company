@@ -89,14 +89,25 @@ class FirestoreStoreProfileStore:
   踏襲するが、2節のコメントに記載した通り「安全側」の方向はフラグの性質によって
   逆転しうる(本フラグは「未送信」側を安全側とする)点を明記した。
 
-## 4. 残課題・次回候補
+## 4. 残課題・次回候補(2026-10-22 22:00 UTC訂正)
 
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はオーナー承認待ち
   (pending-approval.md参照)のため、本設計のコードは承認後の結合実装フェーズまで
   コミットしない(前節と同じ方針)。
-- 残りのグループ(owner_user_id・owner_is_following・suspension_reason・owner_email・
-  blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-  menu_durations・store_faq_info・all_store_ids)は引き続き次回候補。次に着手しやすいのは
-  `owner_is_following`(boolean 1件、`get_owner_is_following`/`set_owner_is_following`)と
-  判断する(suspension_reason・owner_emailはOptional[str]でNone許容のためnull消去の
-  扱いを別途検討する必要があり、より単純なboolean 2件を先に片付ける)。
+- 〔訂正〕本節は元々「残りのグループ(owner_user_id・owner_is_following・
+  suspension_reason・owner_email・blocked_but_billing_owner_notified_at・plan・
+  checkout_session_completed_event_time・menu_durations・store_faq_info・
+  all_store_ids)は引き続き次回候補、次に着手しやすいのは`owner_is_following`」と
+  記載していたが、フェーズ続き337(2026-10-22 18:00 UTC)の点検で、挙げた10グループは
+  全て`store-profile-store-firestore-adapter-design.md`側で個別の節として既に設計済み
+  (owner_is_following→7節、suspension_reason→9節、owner_email→11節、
+  blocked_but_billing_owner_notified_at→13節、plan→15節、
+  checkout_session_completed_event_time→17節、owner_user_id→19節、
+  menu_durations→22節、store_faq_info→24節、all_store_ids→26節)であり、同文書29.4節
+  で`StoreProfileStoreProtocol`全メソッドの設計完了が確認済みであることが判明した。
+  したがって本節が挙げていた「残りのグループ」は実際には存在せず、本ファイル(2メソッド:
+  `is_onboarding_completion_message_sent`/`mark_onboarding_completion_message_sent`)を
+  含めて`StoreProfileStoreProtocol`の設計フェーズは完了している。次回候補は
+  (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手(本ファイル・29節までの全設計の結合実装)を最優先、(2)他venture・
+  アイデア領域の前進、の2点のみとする。

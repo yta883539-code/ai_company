@@ -6321,3 +6321,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   store-profile-store-firestore-adapter-design-onboarding-flag.mdに取り残されて
   いた陳腐化〈`owner_is_following`は既に設計済み〉を発見。コード変更なし、
   全956件・schema検証28件パス)
+- フェーズ続き338(2026-10-22 22:00 UTC定例更新): フェーズ続き337の次回候補(2)
+  「store-profile-store-firestore-adapter-design-onboarding-flag.md 4節の陳腐化した
+  次回候補記述(`owner_is_following`)を実際に訂正する」に対応した。同ファイル4節は
+  元々「残りのグループ(owner_user_id・owner_is_following・suspension_reason・
+  owner_email・blocked_but_billing_owner_notified_at・plan・
+  checkout_session_completed_event_time・menu_durations・store_faq_info・
+  all_store_ids)は引き続き次回候補、次に着手しやすいのは`owner_is_following`」と
+  記載していたが、store-profile-store-firestore-adapter-design.mdを全節(1〜29節)
+  照合したところ、挙げられた10グループは全て同文書側の個別の節として既に設計済み
+  (owner_is_following→7節、suspension_reason→9節、owner_email→11節、
+  blocked_but_billing_owner_notified_at→13節、plan→15節、
+  checkout_session_completed_event_time→17節、owner_user_id→19節、
+  menu_durations→22節、store_faq_info→24節、all_store_ids→26節)であり、同文書29.4節
+  時点で`StoreProfileStoreProtocol`全メソッドの設計完了が既に宣言されていたことを
+  再確認した。これにより4節の「残りのグループ」記述はフェーズ続き337時点の指摘通り
+  完全に陳腐化していたと確定し、同節を訂正して「`StoreProfileStoreProtocol`の設計
+  フェーズは完了済み、次回候補は(1)承認後の結合実装着手、(2)他venture・アイデア
+  領域の前進の2点のみ」という実態に合わせた。設計文書のみの訂正でコード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (956件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手
+  (本venture全設計の結合実装)を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-22 22:00 UTC(フェーズ続き338: store-profile-store-firestore-
+  adapter-design-onboarding-flag.md 4節の陳腐化した次回候補記述を訂正し、
+  `StoreProfileStoreProtocol`設計フェーズの完了を明文化。コード変更なし、
+  全956件・schema検証28件パス)
