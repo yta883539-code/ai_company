@@ -6284,3 +6284,40 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `cancel_at_period_end`と同じ遷移ベースに揃え、payment_failed/payment_suspended店舗での
   非対称バグ〈解約手続き中表示時の利用終了日欠落〉を解消。テスト2件追加、全956件・
   schema検証28件パス)
+- フェーズ続き337(2026-10-22 18:00 UTC定例更新): store-profile-store-firestore-
+  adapter-design.md 29.4節が「`StoreProfileStoreProtocol`全メソッドの設計完了」とした
+  際の次回候補(2)「他venture(course-set-pasha・aircon-pasha・kura-pasha・
+  forklift-pasha)の『次回候補』記述に21節と同種の陳腐化がないかの点検」に着手した。
+  まず、store-profile-store-firestore-adapter-design-onboarding-flag.md 4節が
+  「次に着手しやすいのは`owner_is_following`」と記載していた点自体が、実際には
+  同じ本venture内のstore-profile-store-firestore-adapter-design.md 7節で
+  `owner_is_following`グループが既にフェーズ続き301以前に設計済みであり、かつ
+  29.4節時点で全グループの設計が完了済みという、本venture自身の中にあった陳腐化
+  (後続フェーズでの進捗が先行する文書の次回候補記述に反映されず取り残されていた
+  記載漏れ)であったことを発見した。該当箇所は既に設計完了済みの節であり追加の
+  設計作業は不要なため、本フェーズでは当該記載が陳腐化している旨をここに記録するに
+  留める(ファイル自体の訂正は次回候補とする)。続けて他venture側を点検し、
+  aircon-pashaフェーズ331記載の次回候補(2)「design.md残り4グループ
+  〈current_plan_id・is_following+all_user_ids・owner_notified_at系4種・
+  event_time系4種〉の実コード化」、kura-pashaフェーズ255記載の次回候補(2)
+  「`WorkshopStoreProtocol`の残り3グループ(次は13節のsubscription_status+
+  各種event_time系グループ)の実コード化」について、それぞれの`prototype/`配下の
+  実装状況(aircon-pasha: `firestore_user_profile_adapter.py`、kura-pasha:
+  `firestore_workshop_adapter.py`)を確認した結果、いずれも記載通り未着手のままで
+  あり陳腐化は見当たらなかった。course-set-pashaフェーズ319記載の次回候補(2)は
+  棚卸し作業そのものであり、forklift-pashaの次回候補(2)は「10/25前後」という
+  未到来の期日条件付きのため、いずれも現時点で陳腐化の判定対象外とした。コード
+  変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(956件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれも変更なしでパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認
+  された場合はその着手を最優先、(2)本フェーズで発見したstore-profile-store-
+  firestore-adapter-design-onboarding-flag.md 4節の陳腐化した次回候補記述
+  (`owner_is_following`)を実際に訂正する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-22 18:00 UTC(フェーズ続き337: 他venture〈course-set-pasha・
+  aircon-pasha・kura-pasha・forklift-pasha〉の次回候補記述の陳腐化点検を実施し、
+  aircon-pasha・kura-pasha分は陳腐化なしを確認。あわせて本venture自身の
+  store-profile-store-firestore-adapter-design-onboarding-flag.mdに取り残されて
+  いた陳腐化〈`owner_is_following`は既に設計済み〉を発見。コード変更なし、
+  全956件・schema検証28件パス)
