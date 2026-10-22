@@ -5816,3 +5816,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `get/set_subscription_updated_event_time`・`get/set_current_period_end`を追加。
   コード変更あり、テスト273件〈新規9件〉・test_cloud_function_webhook.py 355件・
   schema検証32件パス)
+- フェーズ257(2026-10-22 23:00 UTC定例更新): design.md 16節1点目の前段として残っていた
+  15節(payment_failure系グループ、`get/set_payment_failure_detected_at`・
+  `clear_payment_failure_detected_at`・`get/set_payment_failure_reminder_sent_at`の
+  計5メソッド)を実コード化した。`clear_payment_failure_detected_at`は15.1節の設計通り、
+  `payment_failure_detected_at`・`payment_failure_reminder_sent_at`・
+  `payment_suspension_owner_notified_at`(未設計のフィールドだが同clear経路にのみ
+  先行して書き込む)の3フィールドを単一の`set(merge=True)`で同時にクリアする。
+  テストを6件新規追加し、(1)(2)両フィールドのset→get往復・未知workshopでのNone、
+  (3)clearが3フィールド同時にクリアすること、(4)clearが`plan_id`・
+  `subscription_status`等の無関係フィールドを消さないこと、(5)workshop_idごとに
+  独立していること、を確認した。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(279件、新規6件含めて全件パス)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。これにより`WorkshopStoreProtocol`のうち実コード化が完了したのは
+  基盤・メンバー削減系・契約者引き継ぎ系・trial系・stripe_customer_id順引き逆引き系・
+  subscription_status+各種event_time系・payment_failure系の計7グループ(43メソッド)
+  となり、残りはtrial_end_notified_at・owner_notified_at系2種グループ(design.md 17節で
+  設計済み・実コード化は未着手)・deletion系(29節で実コード化済みのため実質完了)のみ。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし(既存の承認待ち事項に変更なし)。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)design.md 17節
+  (trial_end_notified_at・owner_notified_at系2種グループ)の実コード化、特に15.3節で
+  先行実装した`payment_suspension_owner_notified_at`のclear経路との整合性確認、
+  (3)他venture・アイデア領域の前進。

@@ -20,8 +20,10 @@ owner_notified_at系・deletion系)に分けて設計したのと同じ方針で
 `set_stripe_customer_id`・`get_workshop_id_by_stripe_customer_id`の3メソッド)・
 13節の**subscription_status+各種event_time系グループ**(`subscription_status`・
 `subscription_status_event_time`・`checkout_session_completed_event_time`・
-`subscription_updated_event_time`・`current_period_end`の5フィールド10メソッド)を対象とする
-(残り2グループ〈payment_failure系・owner_notified_at系・deletion系〉は次回候補)。
+`subscription_updated_event_time`・`current_period_end`の5フィールド10メソッド)・
+15節の**payment_failure系グループ**(`payment_failure_detected_at`・
+`payment_failure_reminder_sent_at`の2フィールド5メソッド)を対象とする
+(残り2グループ〈trial_end_notified_at・owner_notified_at系2種・deletion系〉は次回候補)。
 """
 
 from __future__ import annotations
@@ -50,8 +52,8 @@ class ArrayUnion:
 class FirestoreWorkshopStore:
     """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ+
     契約者引き継ぎ系グループ+trial系グループ+stripe_customer_id順引き逆引き系グループ+
-    subscription_status+各種event_time系グループ。design.md 15・17・29節の残りグループは
-    次回候補)。
+    subscription_status+各種event_time系グループ+payment_failure系グループ。
+    design.md 17・29節の残りグループは次回候補)。
     craftsman_workshop/{workshop_id}ドキュメントを読み書きする
     (stripe_customer_id逆引きはstripe_customer_index/{stripe_customer_id}
     ドキュメントを併用する、design.md 11節)。
@@ -399,4 +401,52 @@ class FirestoreWorkshopStore:
     def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
         self._doc_ref(workshop_id).set(
             {"current_period_end": current_period_end}, merge=True
+        )
+
+    # --- design.md 15節: payment_failure系グループ ---
+
+    def get_payment_failure_detected_at(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 15.3節・23節の統一方針: 一時的な接続エラーは「未検知」側(None)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_detected_at")
+
+    def set_payment_failure_detected_at(
+        self, workshop_id: str, detected_at: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"payment_failure_detected_at": detected_at}, merge=True
+        )
+
+    def clear_payment_failure_detected_at(self, workshop_id: str) -> None:
+        # design.md 15.1節: InMemory実装と同じ契約で、payment_failure_detected_at・
+        # payment_failure_reminder_sent_at・payment_suspension_owner_notified_atの
+        # 3フィールドを同時にクリアする(単一ドキュメントへの1回のset(merge=True)で
+        # アトミックに完結する)。
+        self._doc_ref(workshop_id).set(
+            {
+                "payment_failure_detected_at": None,
+                "payment_failure_reminder_sent_at": None,
+                "payment_suspension_owner_notified_at": None,
+            },
+            merge=True,
+        )
+
+    def get_payment_failure_reminder_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 15.3節・23節の統一方針: 一時的な接続エラーは「未送信」側(None)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("payment_failure_reminder_sent_at")
+
+    def set_payment_failure_reminder_sent_at(
+        self, workshop_id: str, sent_at: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"payment_failure_reminder_sent_at": sent_at}, merge=True
         )

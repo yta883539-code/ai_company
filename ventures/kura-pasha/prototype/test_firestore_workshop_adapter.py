@@ -474,6 +474,73 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
             datetime(2026, 11, 21, 10, 0, tzinfo=timezone.utc),
         )
 
+    def test_payment_failure_detected_at_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_payment_failure_detected_at("w1"))
+        detected_at = datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+        self.store.set_payment_failure_detected_at("w1", detected_at)
+        self.assertEqual(self.store.get_payment_failure_detected_at("w1"), detected_at)
+
+    def test_payment_failure_detected_at_for_unknown_workshop_is_none(self):
+        self.assertIsNone(self.store.get_payment_failure_detected_at("unknown"))
+
+    def test_payment_failure_reminder_sent_at_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_payment_failure_reminder_sent_at("w1"))
+        sent_at = datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
+        self.store.set_payment_failure_reminder_sent_at("w1", sent_at)
+        self.assertEqual(self.store.get_payment_failure_reminder_sent_at("w1"), sent_at)
+
+    def test_clear_payment_failure_detected_at_clears_three_fields(self):
+        # design.md 15.1節・15.2節: InMemory実装と同じ契約で、payment_failure_detected_at
+        # だけでなくpayment_failure_reminder_sent_at・payment_suspension_owner_notified_at
+        # も同時にクリアする。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_payment_failure_detected_at(
+            "w1", datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+        )
+        self.store.set_payment_failure_reminder_sent_at(
+            "w1", datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
+        )
+        self.store._doc_ref("w1").set(
+            {
+                "payment_suspension_owner_notified_at": datetime(
+                    2026, 10, 24, 9, 0, tzinfo=timezone.utc
+                )
+            },
+            merge=True,
+        )
+
+        self.store.clear_payment_failure_detected_at("w1")
+
+        self.assertIsNone(self.store.get_payment_failure_detected_at("w1"))
+        self.assertIsNone(self.store.get_payment_failure_reminder_sent_at("w1"))
+        snapshot = self.store._doc_ref("w1").get()
+        self.assertIsNone(
+            (snapshot.to_dict() or {}).get("payment_suspension_owner_notified_at")
+        )
+
+    def test_clear_payment_failure_detected_at_does_not_clobber_other_fields(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_subscription_status("w1", "past_due")
+        self.store.set_payment_failure_detected_at(
+            "w1", datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+        )
+
+        self.store.clear_payment_failure_detected_at("w1")
+
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+        self.assertEqual(self.store.get_subscription_status("w1"), "past_due")
+
+    def test_payment_failure_fields_are_independent_per_workshop(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_members("w2", "U_owner2", [])
+        self.store.set_payment_failure_detected_at(
+            "w1", datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+        )
+        self.assertIsNone(self.store.get_payment_failure_detected_at("w2"))
+
 
 if __name__ == "__main__":
     unittest.main()
