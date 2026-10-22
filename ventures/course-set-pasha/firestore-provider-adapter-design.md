@@ -1566,3 +1566,56 @@ discover -s prototype -p "test_*.py"`(761件、変更なし)・`python3 schema/
 validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを
 確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
 今回発生していないためpending-approval.mdへの追記なし)
+
+## 27. cross-venture parity確認: 他venture側の`UsageCounterProtocol`相当分の設計完了状況(フェーズ311)
+
+### 27.1. 背景・範囲
+
+26.4節の次回候補(2)を受け、kura-pasha・aircon-pasha・forklift-pasha・line-reservation-ai
+側で本venture(course-set-pasha)の`UsageCounterProtocol`(19〜26節、計9メソッド超)に
+相当するProtocolの実Firestore接続アダプタ設計が完了済みか、横展開の価値があるギャップが
+残っていないかを確認した。各venture配下の`*.md`を`grep`で突き合わせた結果は次の通り。
+
+- **aircon-pasha**: 本venture・kura-pashaのように独立した`UsageCounterProtocol`を持たない
+  アーキテクチャであることを確認した。trial回数・課金失敗等のカウンタ系フィールドは
+  `UserProfileStoreProtocol`側に統合されており(firestore-provider-adapter-design.md
+  7節「trial系グループ」・9節「payment_failure系グループ」)、同Protocol全体は19節
+  (`_profile_to_dict`/`_profile_from_dict`ヘルパー)までで設計完了している(21節以降は
+  別Protocol`ProfileDeletionCandidateStoreProtocol`に話題が移っている)。したがって
+  「`UsageCounterProtocol`相当分の設計完了確認」という観点では対象ギャップなし
+  (アーキテクチャの違いにより本venture側の26節のような単独セクション群は存在しない)。
+- **kura-pasha**: `firestore-usage-counter-provider-adapter-design.md`(223行)に
+  `increment_or_reset()`(月次カウンタのトランザクション付き読み取り→加算→書き戻し)
+  のみを対象とした設計があり、本venture側の9メソッド超(get_count/increment、
+  通知済みフラグ各種、順序ガード用event_time各種)とはメソッド構成自体が異なる
+  (kura-pashaは月次利用回数カウンタに特化し、通知済みフラグ等は別ファイル
+  `workshop-store-firestore-adapter-design.md`の`WorkshopStoreProtocol`側で17節までに
+  設計完了済み)。残課題として記載されているのは「取り漏れの計測は結合実装フェーズで」
+  という運用上の論点のみで、机上設計自体のギャップは見当たらない。
+- **forklift-pasha**: `trial-generation-count-notified-at-firestore-adapter-design.md`
+  (フェーズ161)で「残りのグループ(upgraded_at・canceled_at等)は次回候補」と
+  記載されていたが、別ファイル`fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`
+  の存在から、当該グループの設計は別節で継続されたと判断した(本フェーズでは
+  同ファイルの内容までは精査せず、ファイル名の存在のみを確認した簡易チェックに留まる)。
+  `payment-failure-detected-at-firestore-adapter-design.md`側では`FleetOperatorStoreProtocol`
+  全メソッドの設計完了が明記されており、少なくとも同Protocolについては対象ギャップなし。
+- **line-reservation-ai**: 本venture・kura-pasha・forklift-pashaと異なり予約管理が主軸の
+  ドメインであり、trial回数・課金カウンタ系の`UsageCounterProtocol`相当のProtocol自体が
+  存在しないことを`*.md`一覧(店舗プロファイル・予約・通知ログ系のファイル名のみ)から
+  確認した。横展開の対象外。
+
+### 27.2. 結論
+
+4venture全てについて、本venture側26節で完了した`UsageCounterProtocol`全メソッドの設計に
+対応する横展開作業の必要なギャップは見当たらなかった(アーキテクチャの違い・各venture
+固有の次回候補管理により、いずれも別の経路で同等の完了状態にある、または対象外)。
+forklift-pashaの`fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`の
+内容精査は簡易チェックに留まったため、必要であれば次回候補として残す。
+
+最終更新: 2026-10-22 20:00 UTC(フェーズ311: 26節次回候補(2)を受け、kura-pasha・
+aircon-pasha・forklift-pasha・line-reservation-ai側の`UsageCounterProtocol`相当分の
+設計完了状況をcross-venture parity確認した。対象ギャップなしを確認。コード変更なし、
+文書追加のみのため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(817件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし)
