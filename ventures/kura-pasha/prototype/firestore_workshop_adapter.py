@@ -17,9 +17,11 @@ owner_notified_at系・deletion系)に分けて設計したのと同じ方針で
 **契約者引き継ぎ系グループ**(`pending_contractor_transfer`map型フィールドの3メソッド)
 ・9節の**trial系グループ**(`trial_start_at`・`trial_generation_used`の2フィールド
 4メソッド)・11節の**stripe_customer_id順引き逆引き系グループ**(`get_stripe_customer_id`・
-`set_stripe_customer_id`・`get_workshop_id_by_stripe_customer_id`の3メソッド)を対象とする
-(残り3グループ〈subscription_status+event_time系・payment_failure系・owner_notified_at系・
-deletion系〉は次回候補)。
+`set_stripe_customer_id`・`get_workshop_id_by_stripe_customer_id`の3メソッド)・
+13節の**subscription_status+各種event_time系グループ**(`subscription_status`・
+`subscription_status_event_time`・`checkout_session_completed_event_time`・
+`subscription_updated_event_time`・`current_period_end`の5フィールド10メソッド)を対象とする
+(残り2グループ〈payment_failure系・owner_notified_at系・deletion系〉は次回候補)。
 """
 
 from __future__ import annotations
@@ -27,7 +29,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, Optional
 
-from usage_counter_workshop import PendingContractorTransfer
+from usage_counter_workshop import (
+    SUBSCRIPTION_STATUSES,
+    InvalidSubscriptionStatusError,
+    PendingContractorTransfer,
+)
 
 
 class ArrayUnion:
@@ -43,8 +49,9 @@ class ArrayUnion:
 
 class FirestoreWorkshopStore:
     """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ+
-    契約者引き継ぎ系グループ+trial系グループ+stripe_customer_id順引き逆引き系グループ。
-    design.md 13・15・17・29節の残りグループは次回候補)。
+    契約者引き継ぎ系グループ+trial系グループ+stripe_customer_id順引き逆引き系グループ+
+    subscription_status+各種event_time系グループ。design.md 15・17・29節の残りグループは
+    次回候補)。
     craftsman_workshop/{workshop_id}ドキュメントを読み書きする
     (stripe_customer_id逆引きはstripe_customer_index/{stripe_customer_id}
     ドキュメントを併用する、design.md 11節)。
@@ -310,3 +317,86 @@ class FirestoreWorkshopStore:
         if not snapshot.exists:
             return None
         return (snapshot.to_dict() or {}).get("workshop_id")
+
+    # --- design.md 13節: subscription_status+各種event_time系グループ ---
+
+    def get_subscription_status(self, workshop_id: str) -> str:
+        # design.md 13.3節・23節の統一方針: 一時的な接続エラーは「未契約」側
+        # ("trialing")に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return "trialing"
+        return (snapshot.to_dict() or {}).get("subscription_status", "trialing")
+
+    def set_subscription_status(self, workshop_id: str, status: str) -> None:
+        if status not in SUBSCRIPTION_STATUSES:
+            raise InvalidSubscriptionStatusError(
+                f"unknown subscription_status: {status!r} "
+                f"(expected one of {SUBSCRIPTION_STATUSES})"
+            )
+        self._doc_ref(workshop_id).set({"subscription_status": status}, merge=True)
+
+    def get_subscription_status_event_time(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 13節・23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_status_event_time")
+
+    def set_subscription_status_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"subscription_status_event_time": event_time}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(
+        self, workshop_id: str
+    ) -> Optional[datetime]:
+        # design.md 13節・23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("checkout_session_completed_event_time")
+
+    def set_checkout_session_completed_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"checkout_session_completed_event_time": event_time}, merge=True
+        )
+
+    def get_subscription_updated_event_time(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 13節・23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("subscription_updated_event_time")
+
+    def set_subscription_updated_event_time(
+        self, workshop_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"subscription_updated_event_time": event_time}, merge=True
+        )
+
+    def get_current_period_end(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 13節・23節の統一方針: 一時的な接続エラーは配信順序ガード無効化側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("current_period_end")
+
+    def set_current_period_end(self, workshop_id: str, current_period_end: datetime) -> None:
+        self._doc_ref(workshop_id).set(
+            {"current_period_end": current_period_end}, merge=True
+        )

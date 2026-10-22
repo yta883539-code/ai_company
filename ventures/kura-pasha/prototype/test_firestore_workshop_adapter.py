@@ -12,7 +12,7 @@ import unittest
 from datetime import datetime, timezone
 
 from firestore_workshop_adapter import ArrayUnion, FirestoreWorkshopStore
-from usage_counter_workshop import PendingContractorTransfer
+from usage_counter_workshop import InvalidSubscriptionStatusError, PendingContractorTransfer
 
 
 class _FakeSnapshot:
@@ -383,6 +383,95 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
 
         self.assertEqual(
             self.store.get_workshop_id_by_stripe_customer_id("cus_abc"), "w1"
+        )
+
+    # --- design.md 13節: subscription_status+各種event_time系グループ ---
+
+    def test_get_subscription_status_default_trialing(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertEqual(self.store.get_subscription_status("w1"), "trialing")
+
+    def test_get_subscription_status_for_unknown_workshop_is_trialing(self):
+        self.assertEqual(self.store.get_subscription_status("unknown"), "trialing")
+
+    def test_set_subscription_status_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_subscription_status("w1", "active")
+        self.assertEqual(self.store.get_subscription_status("w1"), "active")
+
+    def test_set_subscription_status_rejects_unknown_status(self):
+        self.store.set_members("w1", "U_owner", [])
+        with self.assertRaises(InvalidSubscriptionStatusError):
+            self.store.set_subscription_status("w1", "not_a_real_status")
+        # バリデーション失敗時はFirestoreへの書き込み自体が行われず、既定値のまま。
+        self.assertEqual(self.store.get_subscription_status("w1"), "trialing")
+
+    def test_subscription_status_event_time_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_subscription_status_event_time("w1"))
+        event_time = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+        self.store.set_subscription_status_event_time("w1", event_time)
+        self.assertEqual(self.store.get_subscription_status_event_time("w1"), event_time)
+
+    def test_checkout_session_completed_event_time_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_checkout_session_completed_event_time("w1"))
+        event_time = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+        self.store.set_checkout_session_completed_event_time("w1", event_time)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("w1"), event_time
+        )
+
+    def test_subscription_updated_event_time_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_subscription_updated_event_time("w1"))
+        event_time = datetime(2026, 10, 21, 13, 0, tzinfo=timezone.utc)
+        self.store.set_subscription_updated_event_time("w1", event_time)
+        self.assertEqual(self.store.get_subscription_updated_event_time("w1"), event_time)
+
+    def test_current_period_end_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_current_period_end("w1"))
+        current_period_end = datetime(2026, 11, 21, 13, 0, tzinfo=timezone.utc)
+        self.store.set_current_period_end("w1", current_period_end)
+        self.assertEqual(self.store.get_current_period_end("w1"), current_period_end)
+
+    def test_subscription_status_group_fields_are_independent_and_do_not_clobber(self):
+        # merge=True方針(design.md 2節・27節)の確認: 5フィールドが互いの値を消さず
+        # 共存し、plan_id等の無関係フィールドも消えないこと。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_subscription_status("w1", "past_due")
+        self.store.set_subscription_status_event_time(
+            "w1", datetime(2026, 10, 21, 10, 0, tzinfo=timezone.utc)
+        )
+        self.store.set_checkout_session_completed_event_time(
+            "w1", datetime(2026, 10, 21, 11, 0, tzinfo=timezone.utc)
+        )
+        self.store.set_subscription_updated_event_time(
+            "w1", datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+        )
+        self.store.set_current_period_end(
+            "w1", datetime(2026, 11, 21, 10, 0, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+        self.assertEqual(self.store.get_subscription_status("w1"), "past_due")
+        self.assertEqual(
+            self.store.get_subscription_status_event_time("w1"),
+            datetime(2026, 10, 21, 10, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("w1"),
+            datetime(2026, 10, 21, 11, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            self.store.get_subscription_updated_event_time("w1"),
+            datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual(
+            self.store.get_current_period_end("w1"),
+            datetime(2026, 11, 21, 10, 0, tzinfo=timezone.utc),
         )
 
 

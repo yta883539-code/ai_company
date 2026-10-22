@@ -5776,3 +5776,43 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `set_stripe_customer_id`〈付け替え時の旧逆引きインデックス削除込み〉・
   `get_workshop_id_by_stripe_customer_id`を追加。テスト7件追加、全264件・
   test_cloud_function_webhook.py 355件・schema検証32件パス)
+- フェーズ256(2026-10-22 19:00 UTC定例更新): フェーズ255の次回候補(2)「次は13節の
+  subscription_status+各種event_time系グループ」に着手した。
+  workshop-store-firestore-adapter-design.md 13節の設計(設計自体は確定済みだが実
+  コード化は未着手だった節)をそのまま`prototype/firestore_workshop_adapter.py`に
+  実コード化し、`get_subscription_status`・`set_subscription_status`・
+  `get_subscription_status_event_time`・`set_subscription_status_event_time`・
+  `get_checkout_session_completed_event_time`・`set_checkout_session_completed_event_time`・
+  `get_subscription_updated_event_time`・`set_subscription_updated_event_time`・
+  `get_current_period_end`・`set_current_period_end`の10メソッドを
+  `FirestoreWorkshopStore`に追加した。`usage_counter_workshop`から
+  `SUBSCRIPTION_STATUSES`・`InvalidSubscriptionStatusError`をimportし、
+  `set_subscription_status`は13.3節の方針通りFirestoreへの書き込み前にPython側で
+  バリデーションを完結させる。`subscription_status`は未設定時"trialing"にデフォルト
+  合流させ、残り4つのevent_time系フィールドは配信順序ガード無効化側のNoneにデフォルト
+  合流させる(13.3節・23節の統一方針をそのまま踏襲)。`prototype/
+  test_firestore_workshop_adapter.py`に9件のテスト(subscription_statusのデフォルト値・
+  往復・不正値拒否時に書き込みが行われないこと、event_time系4フィールドそれぞれの往復・
+  デフォルトNone、5フィールドが互いおよびplan_id等の無関係フィールドを消さずに共存できる
+  こと)を追加した。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(273件、新規9件含めて全件パス)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行し、いずれもパスすることを
+  確認した(回帰なし)。これにより`WorkshopStoreProtocol`(30件超)のうち実コード化が
+  完了したのは基盤グループ(13メソッド)・メンバー削減系グループ(5メソッド)・契約者
+  引き継ぎ系グループ(3メソッド)・trial系グループ(4メソッド)・stripe_customer_id
+  順引き逆引き系グループ(3メソッド)・subscription_status+各種event_time系グループ
+  (10メソッド)の計38メソッドとなり、残り2グループ(payment_failure系・
+  trial_end_notified_at・owner_notified_at系2種)は次回候補として残る(deletion系は
+  29節で既に実コード化済み)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし(既存の承認待ち事項に
+  変更なし)。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)design.md 15節(payment_failure系グループ)の実コード化、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-22 19:00 UTC(フェーズ256: `WorkshopStoreProtocol`
+  subscription_status+各種event_time系グループ〈10メソッド〉を実コード化。
+  `prototype/firestore_workshop_adapter.py`に`get/set_subscription_status`・
+  `get/set_subscription_status_event_time`・`get/set_checkout_session_completed_event_time`・
+  `get/set_subscription_updated_event_time`・`get/set_current_period_end`を追加。
+  コード変更あり、テスト273件〈新規9件〉・test_cloud_function_webhook.py 355件・
+  schema検証32件パス)
