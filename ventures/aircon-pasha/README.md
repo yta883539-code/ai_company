@@ -6141,3 +6141,28 @@
 - 最終更新: 2026-10-23 14:00 UTC(フェーズ333: firestore-provider-adapter-design.md
   11節(owner_notified_at系グループ、2フィールド4メソッド)を実コード化。
   コード変更あり、テスト761件〈新規9件〉・schema検証25件パス)
+- フェーズ334(2026-10-23 15:00 UTC定例更新): フェーズ333の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 15節(is_following+all_user_idsグループ:
+  `get_is_following`/`set_is_following`/`all_user_ids`の2フィールド・計3メソッド)を
+  実コード化した。`get_is_following`は`get()`の`None`フォールバックに「未発見→
+  フォロー中扱い(`True`)」の1分岐を乗せるのみ、`set_is_following`は9・11・13節までと
+  同型の単純な`merge=True`書き込み。`all_user_ids()`は15.2節の設計通り
+  `user_profile`コレクションの`stream()`全走査を採用し、15.3節が指摘した「過剰設計の
+  見送り」判断(本venture想定規模ではFirestore無料枠の範囲に収まるため`where`絞り込みや
+  専用インデックスは不要)をそのまま踏襲した。実装は`firestore_user_profile_adapter.py`に
+  3メソッドを追加するのみで、`_FakeCollection`に`stream()`を持たないテスト用フェイクには
+  `test_firestore_user_profile_adapter.py`側で`stream()`(`_FakeSnapshot`に`id`属性を
+  追加)を実装して対応した。テストは、`is_following`の往復(True→False→True)・
+  未知user_idに対する`True`フォールバック・他フィールド非破壊・user_idごとの独立性・
+  `all_user_ids()`の全件列挙(複数user_id・0件双方)の計8件を追加した。回帰確認として
+  `python3 -m unittest discover -p "test_*.py"`(761→769件、新規8件含めて全件パス)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)design.md最後の残りグループ
+  (event_time系4種、17節で設計済みのため実コード化に着手可能)、(3)旧
+  stripe_customer_idからの付け替え時の旧インデックスエントリ削除(5.3節で次回候補と
+  されていた未対応分)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 15:00 UTC(フェーズ334: firestore-provider-adapter-design.md
+  15節(is_following+all_user_idsグループ、2フィールド3メソッド)を実コード化。
+  コード変更あり、テスト769件〈新規8件〉・schema検証25件パス)

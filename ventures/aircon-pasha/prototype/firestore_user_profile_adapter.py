@@ -17,8 +17,9 @@ design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグルー�
 `payment_failure_reminder_sent_at`・`payment_failure_detection_notified_at`の
 get/set計8メソッド)・11節の**owner_notified_at系グループ**
 (`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`の
-get/set計4メソッド)・13節の**current_plan_idグループ**(1フィールド・get/set計2メソッド)
-を対象とする(残り2グループ〈is_following+all_user_ids・event_time系4種〉は次回候補)。
+get/set計4メソッド)・13節の**current_plan_idグループ**(1フィールド・get/set計2メソッド)・
+15節の**is_following+all_user_idsグループ**(2フィールド・計3メソッド)
+を対象とする(残り1グループ〈event_time系4種〉は次回候補)。
 
 design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
 本モジュールは実SDK非依存方針を維持するため、同じ「サーバー側フィールド変換として加算する」
@@ -32,7 +33,7 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import datetime
-from typing import Optional
+from typing import Iterable, Optional
 
 from user_id_linking import UserProfile
 
@@ -67,7 +68,8 @@ def _profile_from_dict(data: dict) -> UserProfile:
 
 class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤3メソッド+Stripe顧客ID
-    グループ・trial系グループ・payment_failure系グループ。design.md 11・13・15・17節の
+    グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
+    current_plan_idグループ・is_following+all_user_idsグループ。design.md 17節の
     残りグループは次回候補)。
     user_profile/{user_id}ドキュメントおよびstripe_customer_index/{stripe_customer_id}
     逆引きドキュメントを読み書きする。
@@ -242,3 +244,14 @@ class FirestoreUserProfileStore:
         self._doc_ref(user_id).set(
             {"payment_suspension_owner_notified_at": notified_at}, merge=True
         )
+
+    def get_is_following(self, user_id: str) -> bool:
+        profile = self.get(user_id)
+        return profile.is_following if profile is not None else True
+
+    def set_is_following(self, user_id: str, value: bool) -> None:
+        self._doc_ref(user_id).set({"is_following": value}, merge=True)
+
+    def all_user_ids(self) -> Iterable[str]:
+        for snapshot in self._profiles.stream():
+            yield snapshot.id

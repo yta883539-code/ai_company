@@ -1,14 +1,15 @@
 """firestore_user_profile_adapter.FirestoreUserProfileStore(基盤3メソッド+Stripe顧客ID
 グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
-current_plan_idグループ)のテスト。
+current_plan_idグループ・is_following+all_user_idsグループ)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、firestore-provider-adapter-
 design.md 5節が前提とした最小インターフェース(collection/document/get/set・
-firestore_client.batch()のset/commit)のみを満たす軽量フェイクをここで実装し、
-InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客IDグループ・
-trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
-current_plan_idグループと観測可能な振る舞いが一致することを検証する。
+collection.stream()・firestore_client.batch()のset/commit)のみを満たす軽量フェイクを
+ここで実装し、InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客ID
+グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
+current_plan_idグループ・is_following+all_user_idsグループと観測可能な振る舞いが
+一致することを検証する。
 """
 
 import unittest
@@ -19,9 +20,10 @@ from user_id_linking import UserProfile
 
 
 class _FakeSnapshot:
-    def __init__(self, exists: bool, data: dict | None):
+    def __init__(self, exists: bool, data: dict | None, doc_id: str | None = None):
         self.exists = exists
         self._data = data
+        self.id = doc_id
 
     def to_dict(self):
         return self._data
@@ -58,6 +60,12 @@ class _FakeCollection:
 
     def document(self, doc_id: str) -> _FakeDocumentRef:
         return _FakeDocumentRef(self._store, doc_id)
+
+    def stream(self):
+        # design.md 15.2節: all_user_ids()が列挙順序に依存しないことを前提とするため、
+        # 挿入順そのままで良い(実Firestoreのstream()順序を保証しない点を踏襲)。
+        for doc_id, data in self._store.items():
+            yield _FakeSnapshot(exists=True, data=dict(data), doc_id=doc_id)
 
 
 class _FakeBatch:
@@ -397,6 +405,45 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.assertIsNone(
             self.store.get_payment_suspension_owner_notified_at("U2")
         )
+
+    def test_get_is_following_defaults_true_after_save(self):
+        self.store.save("U1", _make_profile())
+        self.assertTrue(self.store.get_is_following("U1"))
+
+    def test_set_is_following_false_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        self.store.set_is_following("U1", False)
+        self.assertFalse(self.store.get_is_following("U1"))
+
+    def test_set_is_following_true_after_false_round_trips(self):
+        self.store.save("U1", _make_profile(is_following=False))
+        self.store.set_is_following("U1", True)
+        self.assertTrue(self.store.get_is_following("U1"))
+
+    def test_get_is_following_for_unknown_user_defaults_true(self):
+        # design.md 15.3節: 未発見profileへの安全側デフォルト(フォロー中扱い)。
+        self.assertTrue(self.store.get_is_following("U_unknown"))
+
+    def test_set_is_following_does_not_clobber_other_fields(self):
+        self.store.save("U1", _make_profile(current_plan_id="plan_basic"))
+        self.store.set_is_following("U1", False)
+        got = self.store.get("U1")
+        self.assertFalse(got.is_following)
+        self.assertEqual(got.current_plan_id, "plan_basic")
+
+    def test_is_following_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        self.store.set_is_following("U1", False)
+        self.assertTrue(self.store.get_is_following("U2"))
+
+    def test_all_user_ids_returns_all_saved_profiles(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        self.assertEqual(set(self.store.all_user_ids()), {"U1", "U2"})
+
+    def test_all_user_ids_empty_when_no_profiles_saved(self):
+        self.assertEqual(list(self.store.all_user_ids()), [])
 
 
 if __name__ == "__main__":
