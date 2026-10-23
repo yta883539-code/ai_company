@@ -24,6 +24,7 @@ README.mdフェーズ26の次回候補(2)「fee_inquiry_note・out_of_scope等LL
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 from typing import Optional, Protocol
@@ -32,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from form_submission_intake import handle_form_submission  # noqa: E402
+from post_generation_checks import run_all_checks  # noqa: E402
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     TEST_CASES,
@@ -75,21 +77,26 @@ class MockLlmClient:
                 f"未知のシナリオ名です: {scenario!r}(MOCK_LLM_SCENARIOSのキーから指定してください)"
             )
         # TEST_CASESの辞書そのものへの参照を返すと呼び出し元の変更が台帳側に漏れるため、
-        # 1階層コピーして返す(浅いコピーで十分、各フィールドは再代入のみ想定)。
-        return dict(MOCK_LLM_SCENARIOS[scenario])
+        # 深いコピーを返す(当初は1階層コピーのみだったが、checklist・staffing_plan等
+        # ネストしたdict/listの要素を呼び出し元が直接書き換える〈再代入ではなく`+=`等で
+        # 変更する〉検証コードを書いた場合にTEST_CASES/MOCK_LLM_SCENARIOS台帳自体が
+        # 汚染され、他のテストに影響することを本venture側の検証コード作成時に確認した
+        # ため、deepcopyに変更した)。
+        return copy.deepcopy(MOCK_LLM_SCENARIOS[scenario])
 
 
 def validate_llm_output(instance: dict) -> list[str]:
-    """schema適合性・クロスフィールドルールの2段階検証をまとめて行う
+    """schema適合性・クロスフィールドルール・post_generation_checks.pyのヒューリスティック
+    検証(絵文字不使用・対象外トピック混入)の3段階検証をまとめて行う
     (aircon-pasha/course-set-pasha/kura-pashaのcloud_function_webhook.py内
-    validate_llm_outputと同じ位置づけ。本venture未着手のpost_generation_checks.py
-    〈絵文字・対象外トピックのヒューリスティック検証〉は次回以降の課題とする)。"""
+    validate_llm_outputと同じ位置づけ)。"""
     errors = validate_against_schema(instance, SCHEMA)
     if errors:
-        # スキーマ自体に適合しない場合、cross-fieldチェックはstatus等の前提が崩れている
-        # ため実行しない(他venture共通の考え方)。
+        # スキーマ自体に適合しない場合、cross-field・ヒューリスティックチェックはstatus等の
+        # 前提が崩れているため実行しない(他venture共通の考え方)。
         return errors
     errors += validate_cross_field_rules(instance)
+    errors += run_all_checks(instance)
     return errors
 
 

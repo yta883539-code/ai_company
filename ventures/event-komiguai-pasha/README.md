@@ -881,3 +881,35 @@
   踏まえた複数収容人数併記ケースのテストケースG9・検出能力確認用ネガティブテストNEG10を
   schema/validate_test_cases.pyに追加。コード変更あり、schema検証22件〈新規2件〉・
   prototype試験33件〈変更なし〉いずれもパス)
+- フェーズ44(2026-10-23 23:00 UTC定例更新): llm-quality-verification-plan.md(フェーズ23)の
+  次回候補を棚卸ししたところ、記載当時は未着手だった「料金/氏名混入ケースの追加」(フェーズ
+  24〜25で対応済み)・「mvp-flow-draft.mdのコード化」(フェーズ26〜28でprototype/
+  form_submission_intake.py・post_generation_checks.py・mock_llm_client.py作成済み)は
+  いずれも既に対応済みのまま放置され、ドキュメント側が更新されていなかったことが判明した。
+  棚卸しの過程で、prototype/mock_llm_client.pyの`validate_llm_output()`がschema適合性・
+  クロスフィールド検証の2段階のみを行い、既に存在するpost_generation_checks.
+  run_all_checks()(厳守事項9の絵文字不使用・厳守事項7の対象外トピック混入のヒューリス
+  ティック検証)を呼び出していない結線漏れを発見したため、本フェーズでmock_llm_client.pyを
+  修正しvalidate_llm_output()に統合した(3段階検証に拡張)。この統合確認テストの作成中に、
+  MockLlmClient.generate()が返す複製が1階層のみの浅いコピーだったため、ネストした
+  dict/list(staffing_plan・checklist等)の要素を直接書き換える検証コードを書くと
+  TEST_CASES/MOCK_LLM_SCENARIOS台帳自体が汚染され他のテストに影響する不具合も実際に
+  再現・発見したため、`copy.deepcopy()`に変更して解消した。これにより、本ventureの実LLM
+  接続前の机上検証パイプライン(intake→LLM呼び出し〈モック〉→schema/クロスフィールド/
+  ヒューリスティックの3段階検証)が一本に繋がった。llm-quality-verification-plan.mdに
+  フェーズ44追記として棚卸し結果・残る未確定事項・次回候補を更新した。コード変更あり
+  (prototype/mock_llm_client.py修正、prototype/test_mock_llm_client.pyへテスト2件追加)。
+  回帰確認として`python3 schema/validate_test_cases.py`(22件、変更なし)・`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(33→35件、新規2件含めて全件パス)を実行し
+  いずれもパスすることを確認した。実LLM呼び出し・承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)実LLM呼び出しはオーナー承認後、mock_llm_client.pyのLlmCallClient差し替えで
+  実クライアントに接続しllm-quality-verification-plan.md検証手順3に着手する(承認待ち)、
+  (2)候補1(奈良NEVER LAND)への実発信はオーナー承認後、interview-rehearsal-script.mdの
+  台本に沿って実施する(承認待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 23:00 UTC(フェーズ44: llm-quality-verification-plan.mdの次回候補を
+  棚卸しし、既に対応済みだった2項目のドキュメント更新漏れを是正。棚卸しの過程で
+  mock_llm_client.pyのvalidate_llm_output()がpost_generation_checks.run_all_checks()を
+  呼び出していない結線漏れを発見・修正し3段階検証に統合、併せてMockLlmClient.generate()の
+  浅いコピーによる台帳汚染の不具合も発見・deepcopy化で解消。schema検証22件〈変更なし〉・
+  prototype試験35件〈新規2件〉いずれもパス)

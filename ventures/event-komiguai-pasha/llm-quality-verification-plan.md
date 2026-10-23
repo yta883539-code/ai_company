@@ -66,3 +66,55 @@ mvp-flow-draft.mdの入力4要素(`capacity`・`entry_exit_points`・`admission_
 最終更新: 2026-10-20 02:00 UTC(フェーズ23: llm-quality-verification-plan.md新規作成。厳守事項
 10件の検証観点・判定方法・対象ケースを整理し、本venture固有の未確定事項〈料金/氏名混入ケース
 未作成、prototype未着手〉を明記)
+
+## フェーズ44追記(2026-10-23 23:00 UTC定例更新): 棚卸しと残る未確定事項の更新
+
+フェーズ23時点で「次回候補」としていた項目のうち、以下2点はその後のフェーズで既に対応済み
+であることを確認したため、ここで棚卸しする。
+
+- 検証手順2「料金言及混入ケース・氏名混入ケースの追加」: フェーズ24〜25で対応済み
+  (schema/validate_test_cases.pyに`G5_staffing_memo_with_personal_name_generalized`・
+  `G6_generated_with_incidental_fee_mention`、検出確認用ネガティブテスト
+  `NEGATIVE_CASE_PERSONAL_NAME_LEAKED`・`NEGATIVE_CASE_FEE_PRICE_LEAKED`等を追加済み)。
+- 検証手順1「mvp-flow-draft.mdの入出力をコード化したprototype」: フェーズ26〜28で対応済み
+  (prototype/form_submission_intake.py・post_generation_checks.py・mock_llm_client.pyが
+  いずれも存在し、ユニットテスト33件〈本フェーズで2件追加し35件〉でパス)。
+
+この棚卸しの過程で、mock_llm_client.pyの`validate_llm_output()`がschema適合性・
+クロスフィールド検証の2段階のみを行い、post_generation_checks.run_all_checks()
+(厳守事項9の絵文字不使用・厳守事項7の対象外トピック混入のヒューリスティック検証)を
+呼び出していない(コード化は完了していたが結線されていない)という抜け漏れを発見した。
+本フェーズでmock_llm_client.pyを修正し、`validate_llm_output()`に
+`post_generation_checks.run_all_checks()`を追加して3段階検証に統合した。この過程で、
+`MockLlmClient.generate()`が返す複製が1階層のみの浅いコピーだったため、検証用コードが
+ネストしたdict/list(`staffing_plan`・`checklist`等)の要素を`+=`等で直接書き換えると
+`TEST_CASES`/`MOCK_LLM_SCENARIOS`台帳そのものが汚染され、他のテスト(schema/
+validate_test_cases.pyのフィクスチャ検証等)に影響する不具合も合わせて発見したため、
+`copy.deepcopy()`に変更して解消した(テスト追加時に実際にこの汚染を再現・確認した上で
+修正)。schema検証22件・prototype試験35件(新規2件追加)いずれもパスすることを確認した。
+実LLM呼び出し・承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズ
+では発生していないためpending-approval.mdへの追記なし。
+
+これにより、本ventureの実LLM接続前の机上検証パイプライン(intake→LLM呼び出し〈モック〉→
+schema/クロスフィールド/ヒューリスティックの3段階検証)は一本に繋がった状態になった。
+
+## 残る未確定事項(フェーズ44時点で更新)
+
+- 検証手順3「3回中1回でも不合格なら要改善」の基準は依然暫定であり、実LLM接続後の実測を
+  踏まえて見直す必要がある(他venture同様の留保、未解消)。
+- 本モック検証パイプラインはキャンド出力(TEST_CASES)を機械チェックに通す机上検証に留まり、
+  実際のLLMが毎回この品質基準を満たす生成を行えるかどうかは実API接続後でなければ確認
+  できない(他venture共通の限界、プロンプトやモデルの挙動次第で未知の違反パターンが
+  見つかる可能性がある)。
+- 人手判定項目(厳守事項1・3・5・10の一部)は機械チェックでは代替できず、実LLM接続後も
+  人手レビューの体制が別途必要。
+
+## 次回候補(フェーズ44時点で更新)
+
+1. 実LLM呼び出し(APIキー取得・課金)はオーナー承認待ちのため、承認後に
+   llm-system-prompt-draft.mdのシステムプロンプトをmock_llm_client.pyの
+   `LlmCallClient`差し替えで実クライアントに接続し、検証手順3(各ケース3回ずつ生成・
+   機械/人手判定)に着手する。
+2. 層1候補1(奈良NEVER LAND)への実発信はオーナー承認後、interview-rehearsal-script.md
+   の台本に沿って実施する(未着手、承認待ち)。
+3. 他venture・アイデア領域の前進。

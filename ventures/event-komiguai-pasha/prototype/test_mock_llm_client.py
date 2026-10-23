@@ -72,6 +72,35 @@ class ValidateLlmOutputTest(unittest.TestCase):
         errors = validate_llm_output(output)
         self.assertTrue(any("道路使用許可" in e for e in errors))
 
+    def test_detects_emoji_via_post_generation_checks(self):
+        # schema/クロスフィールド検証だけでは拾えない、本文テキストへの絵文字混入
+        # (厳守事項9違反)をpost_generation_checks.run_all_checks経由で検出できることを
+        # 確認する(validate_llm_outputへの統合確認)。MockLlmClient.generateが返すのは
+        # 浅いコピーのため、ネストした辞書は再代入(新しい辞書への差し替え)で変更し、
+        # TEST_CASES台帳側のネストした辞書を直接書き換えないようにする。
+        client = MockLlmClient()
+        output = client.generate({}, scenario="G1_free_admission_indoor")
+        output["staffing_plan"] = {
+            **output["staffing_plan"],
+            "announcement_text": output["staffing_plan"]["announcement_text"] + "🙂",
+        }
+        errors = validate_llm_output(output)
+        self.assertTrue(any("絵文字" in e for e in errors))
+
+    def test_detects_out_of_scope_topic_via_post_generation_checks(self):
+        # 厳守事項7違反(checklist本文への料金プラン言及の紛れ込み)を
+        # post_generation_checks.run_all_checks経由で検出できることを確認する。上記と同じ
+        # 理由で、checklistは新しいリスト・新しい要素辞書への差し替えで変更する。
+        client = MockLlmClient()
+        output = client.generate({}, scenario="G1_free_admission_indoor")
+        first_item = output["checklist"][0]
+        output["checklist"] = [
+            {**first_item, "item": first_item["item"] + "なお月額の料金プランは別途ご確認ください。"},
+            *output["checklist"][1:],
+        ]
+        errors = validate_llm_output(output)
+        self.assertTrue(any("料金プラン" in e for e in errors))
+
 
 class RunFormSubmissionPipelineTest(unittest.TestCase):
     def test_insufficient_input_short_circuits_without_calling_llm(self):
