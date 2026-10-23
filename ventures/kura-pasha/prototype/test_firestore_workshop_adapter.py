@@ -541,6 +541,75 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         )
         self.assertIsNone(self.store.get_payment_failure_detected_at("w2"))
 
+    def test_trial_end_notified_at_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_trial_end_notified_at("w1"))
+        notified_at = datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
+        self.store.set_trial_end_notified_at("w1", notified_at)
+        self.assertEqual(self.store.get_trial_end_notified_at("w1"), notified_at)
+
+    def test_trial_end_notified_at_for_unknown_workshop_is_none(self):
+        self.assertIsNone(self.store.get_trial_end_notified_at("unknown"))
+
+    def test_blocked_but_billing_owner_notified_at_roundtrip_and_clear(self):
+        # design.md 17.3節: set_*の引数はOptional[datetime]で、Noneを渡すことで
+        # クリアを表現する1メソッド方式(trial_end_notified_atとは異なる)。
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_blocked_but_billing_owner_notified_at("w1"))
+        notified_at = datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
+        self.store.set_blocked_but_billing_owner_notified_at("w1", notified_at)
+        self.assertEqual(
+            self.store.get_blocked_but_billing_owner_notified_at("w1"), notified_at
+        )
+        self.store.set_blocked_but_billing_owner_notified_at("w1", None)
+        self.assertIsNone(self.store.get_blocked_but_billing_owner_notified_at("w1"))
+
+    def test_payment_suspension_owner_notified_at_roundtrip_and_clear(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_payment_suspension_owner_notified_at("w1"))
+        notified_at = datetime(2026, 10, 23, 10, 0, tzinfo=timezone.utc)
+        self.store.set_payment_suspension_owner_notified_at("w1", notified_at)
+        self.assertEqual(
+            self.store.get_payment_suspension_owner_notified_at("w1"), notified_at
+        )
+        self.store.set_payment_suspension_owner_notified_at("w1", None)
+        self.assertIsNone(self.store.get_payment_suspension_owner_notified_at("w1"))
+
+    def test_clear_payment_failure_detected_at_and_set_payment_suspension_owner_notified_at_last_write_wins(
+        self,
+    ):
+        # design.md 17.3節: clear_payment_failure_detected_at(15.2節)と
+        # set_payment_suspension_owner_notified_at(本グループ)は同じフィールド名に
+        # 書き込むが、書き込み先・書き込み方式が完全に一致するため、後から呼ばれた方が
+        # 単純に上書きする(last-write-wins)ことを確認する。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_payment_failure_detected_at(
+            "w1", datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+        )
+        self.store.clear_payment_failure_detected_at("w1")
+        self.assertIsNone(self.store.get_payment_suspension_owner_notified_at("w1"))
+
+        notified_at = datetime(2026, 10, 23, 11, 0, tzinfo=timezone.utc)
+        self.store.set_payment_suspension_owner_notified_at("w1", notified_at)
+        self.assertEqual(
+            self.store.get_payment_suspension_owner_notified_at("w1"), notified_at
+        )
+
+    def test_owner_notified_at_fields_do_not_clobber_other_fields(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_trial_end_notified_at(
+            "w1", datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
+        )
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "w1", datetime(2026, 10, 23, 9, 30, tzinfo=timezone.utc)
+        )
+        self.store.set_payment_suspension_owner_notified_at(
+            "w1", datetime(2026, 10, 23, 10, 0, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
 
 if __name__ == "__main__":
     unittest.main()

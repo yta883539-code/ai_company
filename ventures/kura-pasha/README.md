@@ -5841,3 +5841,47 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   (trial_end_notified_at・owner_notified_at系2種グループ)の実コード化、特に15.3節で
   先行実装した`payment_suspension_owner_notified_at`のclear経路との整合性確認、
   (3)他venture・アイデア領域の前進。
+- フェーズ258(2026-10-23 01:00 UTC定例更新): フェーズ257の次回候補(2)に対応し、
+  design.md 17節(trial_end_notified_at・owner_notified_at系2種グループ、
+  `get/set_trial_end_notified_at`・`get/set_blocked_but_billing_owner_notified_at`・
+  `get/set_payment_suspension_owner_notified_at`の3フィールド計6メソッド)を
+  firestore_workshop_adapter.pyに実コード化した。17.3節の設計通り、
+  `trial_end_notified_at`は`set_*`の引数がOptionalでないクリア経路を持たない
+  1方向フラグとして実装し、`blocked_but_billing_owner_notified_at`・
+  `payment_suspension_owner_notified_at`はいずれも`set_*`に`None`を渡すことで
+  クリアを表現する1メソッド方式として実装した(InMemoryWorkshopStoreの対応する
+  実装〈usage_counter_workshop.py〉と同じ契約)。あわせて17.3節で課題として残って
+  いた「`set_payment_suspension_owner_notified_at`と15節`clear_payment_failure_
+  detected_at`の整合性確認」を実コードレベルでも検証し、両者が同一ドキュメントの
+  同じフィールドキーへの`set(merge=True)`であり書き込み方式も完全に一致するため、
+  どちらの経路から呼ばれても単純な上書き(last-write-wins)になりFirestore側の
+  特別な調整が不要であることをテストで確認した。これにより`WorkshopStoreProtocol`の
+  全8グループ(基盤・メンバー削減系・契約者引き継ぎ系・trial系・
+  stripe_customer_id順引き逆引き系・subscription_status+各種event_time系・
+  payment_failure系・trial_end_notified_at/owner_notified_at系2種、deletion系は
+  29節で実コード化済み)の実コード化が完了した。テストを6件新規追加し、
+  (1)(2)trial_end_notified_atのset→get往復・未知workshopでのNone、
+  (3)blocked_but_billing_owner_notified_atのset→get往復・Noneクリア、
+  (4)payment_suspension_owner_notified_atのset→get往復・Noneクリア、
+  (5)clear_payment_failure_detected_atとset_payment_suspension_owner_notified_atの
+  last-write-wins確認、(6)3フィールドいずれの書き込みも`plan_id`等の無関係フィールドを
+  消さないこと、を確認した。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(279→285件、新規6件含めて全件パス)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。実際のFirestoreプロジェクト接続・課金設定等は発生しておらず、
+  テストは全て軽量フェイク(`_FakeFirestoreClient`)経由であり、承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし(既存の承認待ち事項に変更なし)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`WorkshopStoreProtocol`の実コード化完了を受け、`UserProfileStoreProtocol`
+  (firestore-provider-adapter-design.md)・`UsageCounterStoreProtocol`
+  (firestore-usage-counter-provider-adapter-design.md)・`LinkingCodeStoreProtocol`
+  (linking-code-store-firestore-adapter-design.md・invite-code-store-firestore-
+  adapter-design.md)を含む本venture全4Protocolの実コード化状況の棚卸し
+  (design.md 18節1点目で予告していた横断レビュー)、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-23 01:00 UTC(フェーズ258: design.md 17節
+  〈trial_end_notified_at・owner_notified_at系2種グループ〉を実コード化。これにより
+  `WorkshopStoreProtocol`全グループの実コード化が完了。コード変更あり、
+  テスト285件〈新規6件〉・webhook355件・schema検証32件パス)
