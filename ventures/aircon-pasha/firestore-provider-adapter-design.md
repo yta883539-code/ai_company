@@ -249,12 +249,13 @@ asdict`+`None`値の扱い〈Firestoreは`None`を「フィールドが存在し
   後続グループのフィールド単位`set_*`はすべて`merge=True`(kura-pasha・line-reservation-ai
   のUserProfileStoreProtocol設計と同じ方針)。
 - **Stripe逆引きインデックスの整合性**: `set_stripe_customer_id`は`WriteBatch`で
-  2ドキュメントを同時書き込みするため、Firestoreのバッチ書き込みが原子的である前提で
-  不整合(片方のみ反映)は発生しない。旧`stripe_customer_id`からの付け替え
+  2〜3ドキュメントを同時書き込み/削除するため、Firestoreのバッチ書き込みが原子的である
+  前提で不整合(一部のみ反映)は発生しない。旧`stripe_customer_id`からの付け替え
   (同一`user_id`が2回目の`set_stripe_customer_id`を呼ぶケース)は本venture想定では
-  発生しない契約(`InMemoryUserProfileStore.set_stripe_customer_id`が旧エントリを
-  明示的に削除している理由と同じだが、実装を簡潔にするため本グループでは旧インデックス
-  エントリの削除は次回候補とし、まず新規設定ケースのみを設計した)。
+  発生しない契約だが、`InMemoryUserProfileStore.set_stripe_customer_id`が旧エントリを
+  明示的に削除しているのと同じく、フェーズ336で実装時に旧インデックスエントリの削除
+  (新IDが旧IDと異なる場合のみ、同一バッチで`delete`)を追加した。これにより実装・設計が
+  `InMemoryUserProfileStore`と完全に一致した。
 - **`get()`の例外方針**: 4節で設計した`LinkingCodeStoreProtocol.get()`と同じ、
   一時的な接続エラーも「未発見」(`None`)に倒す安全側方針を踏襲。
 

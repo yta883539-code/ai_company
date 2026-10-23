@@ -6193,3 +6193,25 @@
   17節(event_time系4種グループ、4フィールド8メソッド)を実コード化。これにより
   `UserProfileStoreProtocol`全7グループの実コード化が完了。コード変更あり、
   テスト779件〈新規10件〉・schema検証25件パス)
+- フェーズ336(2026-10-23 22:00 UTC定例更新): フェーズ335の次回候補(2)に対応し、
+  5.3節で次回候補として残っていた「旧`stripe_customer_id`からの付け替え時の旧
+  インデックスエントリ削除」を`FirestoreUserProfileStore.set_stripe_customer_id`
+  (`firestore_user_profile_adapter.py`)に実装した。`InMemoryUserProfileStore.
+  set_stripe_customer_id`(`user_id_linking.py`614行目付近)と同じ方針で、新ID書き込み
+  前に`get_stripe_customer_id`で現在の`stripe_customer_id`を読み、新IDと異なる場合のみ
+  `stripe_customer_index/{旧ID}`ドキュメントを同一バッチで`delete`する(新ID==旧IDの
+  再設定は旧実装通りno-op)。これに伴いテスト用フェイク(`_FakeBatch`・
+  `_FakeDocumentRef`)に`delete`操作を追加し、本物のFirestore `WriteBatch.delete()`と
+  同じ粒度でのバッチ削除を模倣した。テストは、付け替え後に旧インデックスが引けなくなり
+  新インデックスのみが引けることの確認・同一IDへの再設定がno-opであることの確認・
+  複数user_id間で付け替えが互いに影響しないことの確認、計3件を追加した。回帰確認として
+  `python3 -m unittest discover -p "test_*.py"`(779→782件、新規3件含めて全件パス)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(2)`UserProfileStoreProtocol`実コード化
+  完了を受け、本venture内の他Protocol(`ProfileDeletionCandidateStoreProtocol`等)の
+  実コード化状況の棚卸し、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 22:00 UTC(フェーズ336: 旧stripe_customer_idからの付け替え時の
+  旧インデックスエントリ削除を実コード化。コード変更あり、テスト782件〈新規3件〉・
+  schema検証25件パス)

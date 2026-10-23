@@ -54,6 +54,9 @@ class _FakeDocumentRef:
         else:
             self._store[self._doc_id] = dict(resolved)
 
+    def delete(self) -> None:
+        self._store.pop(self._doc_id, None)
+
 
 class _FakeCollection:
     def __init__(self, store: dict):
@@ -74,11 +77,17 @@ class _FakeBatch:
         self._writes: list[tuple] = []
 
     def set(self, doc_ref: _FakeDocumentRef, data: dict, merge: bool = False) -> None:
-        self._writes.append((doc_ref, data, merge))
+        self._writes.append(("set", doc_ref, data, merge))
+
+    def delete(self, doc_ref: _FakeDocumentRef) -> None:
+        self._writes.append(("delete", doc_ref, None, None))
 
     def commit(self) -> None:
-        for doc_ref, data, merge in self._writes:
-            doc_ref.set(data, merge=merge)
+        for op, doc_ref, data, merge in self._writes:
+            if op == "set":
+                doc_ref.set(data, merge=merge)
+            else:
+                doc_ref.delete()
         self._writes = []
 
 
@@ -164,6 +173,29 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         got = self.store.get("U1")
         self.assertEqual(got.current_plan_id, "plan_basic")
         self.assertEqual(got.stripe_customer_id, "cus_123")
+
+    def test_set_stripe_customer_id_reassignment_deletes_old_index_entry(self):
+        self.store.save("U1", _make_profile())
+        self.store.set_stripe_customer_id("U1", "cus_old")
+        self.store.set_stripe_customer_id("U1", "cus_new")
+        self.assertIsNone(self.store.get_user_id_by_stripe_customer_id("cus_old"))
+        self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_new"), "U1")
+        self.assertEqual(self.store.get_stripe_customer_id("U1"), "cus_new")
+
+    def test_set_stripe_customer_id_same_value_is_noop_for_index(self):
+        self.store.save("U1", _make_profile())
+        self.store.set_stripe_customer_id("U1", "cus_123")
+        self.store.set_stripe_customer_id("U1", "cus_123")
+        self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_123"), "U1")
+
+    def test_set_stripe_customer_id_reassignment_does_not_affect_other_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(email="u2@example.com"))
+        self.store.set_stripe_customer_id("U1", "cus_1")
+        self.store.set_stripe_customer_id("U2", "cus_2")
+        self.store.set_stripe_customer_id("U1", "cus_1_new")
+        self.assertEqual(self.store.get_user_id_by_stripe_customer_id("cus_2"), "U2")
+        self.assertIsNone(self.store.get_user_id_by_stripe_customer_id("cus_1"))
 
     def test_set_stripe_customer_id_independent_per_user(self):
         self.store.save("U1", _make_profile())

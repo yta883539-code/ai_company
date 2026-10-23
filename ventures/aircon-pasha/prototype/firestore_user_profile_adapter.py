@@ -5,8 +5,8 @@ firestore_usage_counter_adapter.pyと同型の方針を踏襲し、google-cloud-
 直接importしない(`firestore_client`に`collection(name).document(id)`で取得した
 ドキュメント参照が`get()`(`.exists`・`.to_dict()`を持つSnapshotを返す)・
 `set(data, merge=...)`を持ち、`firestore_client.batch()`が`set(doc_ref, data, merge=...)`・
-`commit()`を持つ、という最小インターフェースを満たせば実SDKでもテスト用フェイクでも
-差し替え可能)。
+`delete(doc_ref)`・`commit()`を持つ、という最小インターフェースを満たせば実SDKでも
+テスト用フェイクでも差し替え可能)。
 
 `UserProfileStoreProtocol`は design.md が5・7・9・11・13・15・17節の7グループに分けて
 設計した本venture最大のProtocolであり、実コード化もグループ単位で段階的に行う。本モジュールは
@@ -110,12 +110,24 @@ class FirestoreUserProfileStore:
             return False
 
     def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        # design.md 5.3節で次回候補として残っていた、旧stripe_customer_idからの
+        # 付け替え時の旧インデックスエントリ削除。InMemoryUserProfileStore.
+        # set_stripe_customer_id(user_id_linking.py)と同じく、新インデックス書き込みの
+        # 前に現在のプロファイルから旧stripe_customer_idを読み、新IDと異なる場合のみ
+        # 旧インデックスドキュメントを同一バッチでdeleteする(新ID==旧IDの再設定を
+        # no-opにするための分岐)。
+        old_stripe_customer_id = self.get_stripe_customer_id(user_id)
         batch = self._client.batch()
         batch.set(
             self._doc_ref(user_id),
             {"stripe_customer_id": stripe_customer_id},
             merge=True,
         )
+        if (
+            old_stripe_customer_id is not None
+            and old_stripe_customer_id != stripe_customer_id
+        ):
+            batch.delete(self._stripe_index.document(old_stripe_customer_id))
         batch.set(
             self._stripe_index.document(stripe_customer_id),
             {"user_id": user_id},
