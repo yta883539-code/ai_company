@@ -5885,3 +5885,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈trial_end_notified_at・owner_notified_at系2種グループ〉を実コード化。これにより
   `WorkshopStoreProtocol`全グループの実コード化が完了。コード変更あり、
   テスト285件〈新規6件〉・webhook355件・schema検証32件パス)
+- フェーズ259(2026-10-23 02:00 UTC定例更新): フェーズ258の次回候補(2)に対応し、
+  本venture全4Protocol(`WorkshopStoreProtocol`・`UsageCounterStoreProtocol`・
+  `LinkingCodeStoreProtocol`・`UserProfileStoreProtocol`)の実Firestore接続アダプタの
+  実コード化状況を棚卸しした。結果、`UserProfileStoreProtocol`
+  (firestore-provider-adapter-design.md)のみが未コード化のまま残っていたことが
+  判明した。原因は、同ドキュメント4節の「本設計のコードは承認後の結合実装フェーズまで
+  コミットしない」という記述を、他3Protocolの実コード化時に踏襲されていた区別
+  (実GCPプロジェクトへの**接続**自体は承認待りだが、`google-cloud-firestore`
+  SDKを直接importせず軽量フェイククライアントでテストするコード自体は承認不要)を
+  適用せずに字面通り解釈していたため。本フェーズでこの区別を明文化し、
+  `prototype/firestore_user_profile_adapter.py`(`FirestoreUserProfileProvider`、
+  `get_workshop_id`・`link`・`get_is_following`・`set_is_following`の4メソッド)・
+  `prototype/test_firestore_user_profile_adapter.py`(新規10件、set→get往復・
+  未知user_idでのデフォルト値・2フィールドの独立性・ユーザー間の独立性・接続エラー時の
+  fail-openを検証)を追加し、firestore-provider-adapter-design.md 4節に棚卸しの経緯を
+  追記した。これにより本venture全4Protocolの実コード化が完了した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(285→295件、新規10件
+  含めて全件パス)・`python3 prototype/test_cloud_function_webhook.py`(355件、
+  変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。実際のFirestoreプロジェクト接続・
+  GCPアカウント開設等は発生しておらず、テストは全て軽量フェイク経由であり、承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(既存の承認待ち事項に変更なし)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)本venture4Protocol全ての実コード化完了を受け、結合実装フェーズ準備作業
+  (Firestoreセキュリティルール草案の他venture横展開〈残るforklift-pasha・
+  line-reservation-aiの2件〉、またはテストダブル切り替え方式の設計、
+  firestore-security-rules-draft.mdの本venture分の`user_profile`コレクション分の
+  見直し)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 02:00 UTC(フェーズ259: `UserProfileStoreProtocol`の
+  実Firestore接続アダプタ〈`FirestoreUserProfileProvider`〉を実コード化。これにより
+  本venture4Protocol全ての実コード化が完了。コード変更あり、テスト295件〈新規10件〉・
+  webhook355件・schema検証32件パス)

@@ -114,3 +114,16 @@ class FirestoreUserProfileProvider:
 - 承認後は、`usage_counter_workshop.py`・`workshop_linking.py`の各処理関数へ
   `user_profile_store`として本クラスのインスタンスを渡すだけで差し替えが完了する
   設計になっていることを、結合実装時に確認する。
+- 【フェーズ259追記・横断棚卸しの結果】本節冒頭の「本設計のコードは承認後の結合実装
+  フェーズまでコミットしない」という記述は、実Firestoreプロジェクトへの**接続**
+  (GCPアカウント・課金設定)自体が承認待ちという意味であり、`google-cloud-firestore`
+  SDKを直接importせず軽量フェイククライアントでテストする限りではコード自体の
+  コミットに承認は不要である。この区別は`WorkshopStoreProtocol`(フェーズ216〜258)・
+  `UsageCounterStoreProtocol`(フェーズ226・248)・`LinkingCodeStoreProtocol`
+  (フェーズ250)の実コード化で既に踏襲されていたが、本`UserProfileStoreProtocol`のみ
+  当初の記述のままコード化が見送られていたことが棚卸しで判明した。本フェーズで
+  `prototype/firestore_user_profile_adapter.py`(`FirestoreUserProfileProvider`)・
+  `prototype/test_firestore_user_profile_adapter.py`を追加し、他3Protocolと同じ
+  方針(フェイククライアント経由のテスト、実GCP接続は結合実装フェーズまで行わない)
+  で実コード化した。これにより本venture4Protocol全ての実コード化が完了した
+  (コード変更あり、テスト10件新規追加・295件全件パス)。
