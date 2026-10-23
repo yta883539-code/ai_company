@@ -3651,3 +3651,39 @@
   〈10/25前後〉まで残り約2日であることを確認し、コンティンジェンシープランに
   変更不要であることを確認。回帰確認として全22ファイル・schema検証11件を実行し
   変更なしでパス)
+- フェーズ181(2026-10-23 18:00 UTC定例更新): フェーズ180の次回候補(3)「他venture・
+  アイデア領域の前進」に対応し、fleet-operator-store-firestore-adapter-design.md
+  (フェーズ160)3節の**基盤グループ**(email・plan_id・stripe_customer_id〈順引き+
+  逆引き〉・trial_start_atの4フィールド、計9メソッド)を実コード化した。aircon-pasha
+  のfirestore_user_profile_adapter.pyと同型の方針(google-cloud-firestore SDKを
+  直接importせず、collection/document/get/setの最小インターフェースのみに依存)で
+  `prototype/firestore_fleet_operator_adapter.py`を新規作成し、`FirestoreFleetOperator
+  Store`クラスとして9メソッドを実装した(本ventureにとって初めてのFirestoreアダプタ
+  実コード化)。`get_internal_id_by_stripe_customer_id`はdesign.md 3.3節の方針通り
+  `stripeCustomerId`フィールドへの単一フィールドクエリ(`where().limit(1).stream()`)
+  で実現し、`set_stripe_customer_id`はdesign.md 3.2節の判断(Firestoreはライブクエリの
+  ため旧IDでの逆引きは上書き後自動的に0件になる)により旧エントリの明示的な削除処理を
+  持たない。`set_trial_start_at`はdesign.md 3.4節(a)の仮決め方針(呼び出し側がget_
+  trial_start_at()で既存値の有無を確認してから呼ぶ規約に委ね、アダプタ自身は常に
+  書き込む)のまま実装した。`prototype/test_firestore_fleet_operator_adapter.py`を
+  新規作成し、collection/document/get/set・where().limit().stream()のみを満たす
+  軽量フェイクFirestoreクライアントを実装した上で、各フィールドの往復・未設定時の
+  None/上書き挙動・internal_idごとの独立性・stripe_customer_id逆引きの正引き/逆引き
+  整合性を検証するテスト14件を追加した。回帰確認として`python3 prototype/
+  run_all_tests.py`(22→23ファイル、新規test_firestore_fleet_operator_adapter.py
+  含めて全件パス)・`python3 schema/validate_test_cases.py`(11件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は依然未承認のまま、
+  フェーズ148で定めた判断切り替え期限の目安(10/25前後)まで残り約1〜2日である状況に
+  変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)design.md 4節に残る次のグループ(trial_generation_count+trial_end_notified_at
+  グループ)の実コード化、(3)10/25を過ぎても承認が得られない場合、
+  launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 18:00 UTC(フェーズ181: fleet-operator-store-firestore-
+  adapter-design.md 3節の基盤グループ〈email・plan_id・stripe_customer_id・
+  trial_start_at、4フィールド9メソッド〉を本venture初のFirestoreアダプタとして
+  実コード化。コード変更あり、prototype全23ファイル〈新規14件含む〉・schema検証
+  11件いずれもパス)
