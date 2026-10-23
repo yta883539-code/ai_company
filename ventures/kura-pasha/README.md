@@ -5918,3 +5918,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   実Firestore接続アダプタ〈`FirestoreUserProfileProvider`〉を実コード化。これにより
   本venture4Protocol全ての実コード化が完了。コード変更あり、テスト295件〈新規10件〉・
   webhook355件・schema検証32件パス)
+- フェーズ260(2026-10-23 06:00 UTC定例更新): フェーズ259の次回候補(2)が「Firestore
+  セキュリティルール草案の他venture横展開(残るforklift-pasha・line-reservation-aiの
+  2件)」を未完了として挙げていた点を、本venture自身のfirestore-security-rules-draft.md
+  4節と照合したところ、実際には既にフェーズ246時点で「course-set-pashaフェーズ309・
+  forklift-pashaフェーズ172・line-reservation-aiフェーズ続き331でそれぞれ完了済み
+  (2026-10-18 05:00〜07:00 UTC)」と記録済みであり、フェーズ259時点の次回候補(2)の
+  当該記載は陳腐化(過去に完了済みの作業を未完了として再掲していた)していたことが
+  判明した。forklift-pasha/firestore-security-rules-draft.md冒頭(「course-set-pasha
+  は完了済み、本フェーズは残り2件のうち1件目」)・forklift-pasha/firestore-security-
+  rules-emulator-verification.md(deny-all検証済み)、line-reservation-ai/firestore-
+  security-rules-draft.md冒頭(「course-set-pasha・forklift-pashaは完了済み、本フェーズで
+  残り3件のうち最後の1件が完了する」)・line-reservation-ai/firestore-security-rules-
+  emulator-verification.md(946件・schema検証28件変更なしでパス確認済み)を直接確認し、
+  両venture共に本venture(kura-pasha)と同型のdeny-allルール草案・Firebase Local
+  Emulator Suiteでの`PERMISSION_DENIED`検証まで完了済みであることを再確認した。本フェーズ
+  でfirestore-security-rules-draft.md4節の記載(こちらは正しい)はそのまま維持し、README.md
+  側の次回候補のみを是正する。コード変更なし(確認・ドキュメント訂正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを確認した(回帰
+  なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし(既存の承認待ち事項に変更なし)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本venture
+  4Protocol全ての実コード化完了・Firestoreセキュリティルール5venture横展開完了を受けた
+  残る結合実装準備作業として、テストダブル切り替え方式(軽量フェイククライアント↔実
+  Firestore Admin SDKクライアントの切り替え手順)の設計に着手する、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-23 06:00 UTC(フェーズ260: フェーズ259の次回候補(2)が挙げていた
+  「Firestoreセキュリティルール草案の他venture横展開、残るforklift-pasha・
+  line-reservation-aiの2件」という記載が、実際には両venture共にフェーズ172・続き331
+  (2026-10-18)で完了済みであり陳腐化していたことを、firestore-security-rules-draft.md
+  4節および両venture側のドキュメントで確認し是正した。コード変更なし、テスト295件・
+  webhook355件・schema検証32件いずれも変更なしでパス)
