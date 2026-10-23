@@ -832,3 +832,29 @@
   実績をWebSearchで再確認したが一次情報による確証には至らず、層3のWebSearchでの深追いは
   限界と判断。次回は層1・層2の補足調査やmvp-flow-draft.md/schema側の未了課題へ着手順を
   切り替える方針に変更)
+- フェーズ42(2026-10-23 13:00 UTC定例更新): フェーズ41の次回候補(1)「mvp-flow-draft.md/
+  schema側の未了課題(次回候補の棚卸し)に着手順を切り替える」に対応した。mvp-flow-draft.md
+  (フェーズ2)・llm-system-prompt-draft.md(フェーズ3)・pricing-plan.md(フェーズ4)・
+  competitor-comparison.md(フェーズ11)・llm-quality-verification-plan.md(フェーズ23)の
+  各「次回候補」を棚卸ししたところ、大半は既に後続フェーズで対応済みだったが、
+  interview-rehearsal-script.md(フェーズ37)「確認ポイント」に残されていた「候補1
+  〈奈良NEVER LAND〉の収容人数が情報源により230人/250人で食い違う場合、mvp-flow-draft.mdの
+  `capacity`入力値をどちらで記録するかの判断基準を別途整理する必要がある」という未確定事項が
+  未着手のまま残っていたことが判明した。mvp-flow-draft.mdに「capacityの定義方針」節を新規
+  追加し、(1)`capacity`は主催者の入力値をそのまま採用し本サービス側で数値の正誤を補正しない
+  こと、(2)入力メモに複数の収容人数が併記されている場合は`insufficient_input`とせず出力1に
+  参考値併記の注記を付す方針とすること、を机上整理した。スキーマ(output.schema.json)・
+  validate_test_cases.pyへの反映(複数収容人数併記ケースのテストケース追加)は本フェーズでは
+  行わず次回候補として残した(ドキュメント整理のみ、コード変更なし。
+  `python3 schema/validate_test_cases.py`(20件)・`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(33件)はいずれも無変更でパスすることを確認した)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)mvp-flow-draft.md「capacityの定義方針」を踏まえた複数収容人数併記ケースの
+  テストケース追加(schema/output.schema.json・validate_test_cases.py)、(2)候補2(那覇市・
+  中山一朗氏)の屋号特定はオーナーの電話連絡承認が得られるまで探索頻度をさらに下げる、
+  (3)候補1への実発信はオーナー承認後、interview-rehearsal-script.mdの台本に沿って実施する。
+- 最終更新: 2026-10-23 13:00 UTC(フェーズ42: mvp-flow-draft.md/schema側の次回候補を棚卸しし、
+  interview-rehearsal-script.mdに残っていた`capacity`数値食い違い時の判断基準未整理を発見。
+  mvp-flow-draft.mdに定義方針〈主催者入力値をそのまま採用、複数併記時は参考値注記〉を新規
+  追加。コード変更・実連絡・実発信はいずれも行っていない)
