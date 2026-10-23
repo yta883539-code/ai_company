@@ -109,6 +109,9 @@ current_month) -> int`を追加し、`check_and_increment_usage()`を本メソ�
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない(`increment_or_reset`の
   `@firestore.transactional`実装自体もこの結合実装フェーズで行う)。
+  【フェーズ261追記】上記「pending-approval.md記載」は、本venture固有の独立した
+  エントリが実際には一度も記録されていなかった記載漏れであったことが判明(2026-10-23
+  19:00 UTCに新規記録・是正済み、詳細はfirestore-provider-adapter-design.md 4節参照)。
 - 本フェーズ(211)で発見した競合リスク・フェーズ212の`increment_or_reset`統合は、
   他venture(line-reservation-ai・course-set-pasha・aircon-pasha・forklift-pasha)の
   同種カウンタ系Protocol(存在する場合)にも横展開確認する余地がある。

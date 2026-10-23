@@ -5951,3 +5951,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   (2026-10-18)で完了済みであり陳腐化していたことを、firestore-security-rules-draft.md
   4節および両venture側のドキュメントで確認し是正した。コード変更なし、テスト295件・
   webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ261(2026-10-23 19:00 UTC定例更新): 直前のline-reservation-aiフェーズ続き339
+  (実GCPプロジェクト・Firestoreデータベース作成の承認依頼がpending-approval.mdに一度も
+  独立記録されていなかった記載漏れを発見)が「他venture(aircon-pasha・course-set-pasha・
+  kura-pasha等)についても各venture側で同様の棚卸しが必要」と申し送っていた対応として、
+  本venture側を棚卸しした。firestore-provider-adapter-design.md(100〜101行目)・
+  firestore-usage-counter-provider-adapter-design.md(109〜110行目)・
+  linking-code-store-firestore-adapter-design.md(105〜106行目)・
+  invite-code-store-firestore-adapter-design.md(108〜109行目)の4文書全てが「実Firestore
+  プロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ち」と記述して
+  いたにもかかわらず、pending-approval.md全体を確認した結果、本venture固有の独立した
+  エントリは実際には一度も記録されていなかったことを確認した(既存のkura-pasha関連3件は
+  顧客ヒアリング〈2026-09-11〉・LINE公式アカウント+Cloud Scheduler〈2026-09-15〉・
+  Stripeアカウント〈2026-09-27 08:00〉のみで、いずれもFirestoreデータベース作成を
+  対象としていない)。pending-approval.mdに新規エントリ(2026-10-23 19:00 UTC)を記録し、
+  上記4文書それぞれに是正済みである旨を追記した。コード変更なし(記載漏れの発見・記録・
+  是正のみ)、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (295件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`(355件、
+  変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクションは今回新規にpending-approval.md
+  へ記録した(上記)。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(2)aircon-pasha・course-set-pasha・forklift-pashaについても同種の記載漏れ
+  (実GCPプロジェクト・Firestoreデータベース作成の承認依頼の記録有無)がないかの棚卸し、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 19:00 UTC(フェーズ261: 実GCPプロジェクト・Firestoreデータベース
+  作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
+  記載漏れを発見し、新規に記録・4設計文書に是正を追記。コード変更なし、テスト295件・
+  webhook355件・schema検証32件いずれも変更なしでパス)

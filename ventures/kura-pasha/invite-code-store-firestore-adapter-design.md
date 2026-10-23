@@ -107,6 +107,9 @@ class FirestoreWorkshopInviteStore:
   fail-open方針と整合することを確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
+  【フェーズ261追記】上記「pending-approval.md記載」は、本venture固有の独立した
+  エントリが実際には一度も記録されていなかった記載漏れであったことが判明(2026-10-23
+  19:00 UTCに新規記録・是正済み、詳細はfirestore-provider-adapter-design.md 4節参照)。
 - firestore-provider-adapter-design.md 4節の残課題のうち、`WorkshopStoreProtocol`
   (craftsman_workshopドキュメント、30件超のメソッド)は未着手で引き続き次回候補とする。
   これにより、本venture自身が残していた個別Protocol(`UsageCounterStoreProtocol`

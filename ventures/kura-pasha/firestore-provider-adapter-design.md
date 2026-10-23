@@ -99,6 +99,11 @@ class FirestoreUserProfileProvider:
   ことを確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
+  【フェーズ261追記】上記「pending-approval.md記載」という記述は、実際には本venture
+  固有の独立したエントリがpending-approval.mdに一度も記録されていなかった記載漏れ
+  であったことが本フェーズの棚卸しで判明した(line-reservation-aiフェーズ続き339で
+  発見された同種の記載漏れと同じパターン)。2026-10-23 19:00 UTCに新規エントリを
+  記録し是正済み。
 - 本フェーズで設計を見送った`WorkshopStoreProtocol`(craftsman_workshopドキュメント、
   30件超のメソッド)・`UsageCounterStoreProtocol`(usage_counterドキュメント)・
   `LinkingCodeStoreProtocol`(pending_workshop_invitesドキュメント)の実Firestore接続

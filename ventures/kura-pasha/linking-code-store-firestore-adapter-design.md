@@ -104,6 +104,9 @@ class FirestorePendingLinkStore:
   設計も書き込み系メソッド共通の意図的な方針として確認済み(変更不要)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
+  【フェーズ261追記】上記「pending-approval.md記載」は、本venture固有の独立した
+  エントリが実際には一度も記録されていなかった記載漏れであったことが判明(2026-10-23
+  19:00 UTCに新規記録・是正済み、詳細はfirestore-provider-adapter-design.md 4節参照)。
 - 本ドキュメントの対象外とした`pending_workshop_invites`向け招待コードStore
   (craftsman-account-linking-design.md 11節、既存workshopへのメンバー追加用)の実
   Firestore接続アダプタは、ドキュメント構造(`{workshop_id, issued_at}`を保存、2節の
