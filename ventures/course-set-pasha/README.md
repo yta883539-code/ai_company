@@ -5633,3 +5633,42 @@
   `UsageCounterProtocol`以外の残Protocol(`FirstGenerationNoticeStoreProtocol`・
   `UserProfileStoreProtocol`等)の実コード化状況の棚卸し、(3)他venture・アイデア
   領域の前進)
+- フェーズ322(2026-10-23 20:00 UTC定例更新): フェーズ321の次回候補(2)を受け、
+  `UsageCounterProtocol`以外の残Protocol(firestore-provider-adapter-design.md
+  5〜16節・21節で設計済みの`UserProfileStoreProtocol`6グループ・
+  `GymAreaConfigStoreProtocol`・`FirstGenerationNoticeStoreProtocol`)の
+  実コード化状況を棚卸しした。`prototype/`内で`firestore`を参照するモジュールは
+  `firestore_usage_counter_adapter.py`(および対応テスト)のみであることを
+  `grep -rl firestore prototype/*.py`で確認し、`UsageCounterProtocol`
+  (19・20・22〜28節、フェーズ319で完了)以外の8節分はいずれも設計のみで実アダプタ
+  コードが0件という棚卸し結果を得た。単なる棚卸しに留めず、最も基盤的な5節
+  (`UserProfileStoreProtocol`のgym_area_pairs・emailグループ、申込フォーム提出フロー
+  が直接書き込む2フィールド)を実コード化した。`prototype/firestore_user_profile_
+  adapter.py`に`FirestoreUserProfileStore`(`set_gym_area_pairs`/`get_gym_area_pairs`/
+  `set_email`/`get_email`の4メソッド)を新規実装した。5.2節の設計コード例は
+  `set(data, merge=True)`一発を想定していたが、19節以降で確立した理由(フェイクの
+  `document.set(data)`がmerge引数を取らない)により、既存パターン(24〜28節)と揃えて
+  「読んでから全フィールドをベースに書き戻す」方式で同じ契約(`user_profile/{user_id}`
+  を共有する他グループのフィールドを消さない)を満たす実装とした。テストを8件新規
+  作成し(`test_firestore_user_profile_adapter.py`)、(1)未知ユーザーの
+  `get_gym_area_pairs`は`""`、(2)未知ユーザーの`get_email`は`None`
+  (5.3節が設計した2メソッド間の型・デフォルト値の非対称性をそのまま確認)、(3)
+  set→getの一致、(4)emailのset→getの一致、(5)再提出時は`gym_area_pairs`が全体
+  上書きされる(3節の契約)、(6)`email`の書き込みが`gym_area_pairs`を消さない、(7)
+  (merge安全性の直接検証)別グループが先に書き込んだ`stripe_customer_id`を
+  `gym_area_pairs`の書き込みが消さない、(8)`user_id`ごとに独立、を確認した。回帰
+  確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(825件、
+  新規8件含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を
+  実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`UserProfileStoreProtocol`5グループ(Stripe顧客IDグループ・is_following+
+  all_user_ids・blocked_but_billing_owner_notified_at系・plan・checkout_session_
+  completed_event_time、6節・7節・9節・11節・13節)および`GymAreaConfigStoreProtocol`
+  (15節)・`FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-23 20:00 UTC(フェーズ322: `UsageCounterProtocol`以外の残Protocol
+  〈8節分〉の実コード化状況を棚卸しし、全節未着手であることを確認。その上で最も基盤的な
+  5節(`UserProfileStoreProtocol`のgym_area_pairs・emailグループ)を実コード化。
+  `FirestoreUserProfileStore`を新規実装。コード変更あり、テスト825件〈新規8件〉・
+  schema検証21件パス)
