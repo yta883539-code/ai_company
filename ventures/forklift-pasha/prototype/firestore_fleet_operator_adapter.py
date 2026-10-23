@@ -9,13 +9,20 @@ firestore_user_profile_adapter.py・kura-pashaのfirestore_workshop_adapter.py�
 
 `FleetOperatorStoreProtocol`(prototype/trial_management.py)は本venture最大のProtocolで
 15メソッドを持つが、design.md「一度に全メソッドを設計すると検討事項が発散するため、関連性の
-高い最小グループから着手する」方針により、本モジュールは基盤グループのみを対象とする。
-残りのグループ(trial_generation_count+trial_end_notified_at、upgraded_at、canceled_at、
-deletion_confirmation系3、all_internal_ids)は design.md 4節の次回候補として残っている。
+高い最小グループから着手する」方針により、本モジュールは基盤グループ+トライアル終了判定
+グループ(trial-generation-count-notified-at-firestore-adapter-design.md、フェーズ161)を
+対象とする。残りのグループ(upgraded_at、canceled_at、deletion_confirmation系3、
+all_internal_ids)は design.md 4節の次回候補として残っている。
 
 design.md 3.2節の判断により、`set_stripe_customer_id`はFirestore版では旧IDの逆引き
 エントリを明示的に削除する処理を持たない(`stripeCustomerId`フィールドが新IDで上書きされた
 瞬間に旧IDでの単一フィールドクエリは自動的に0件になるため)。
+
+trial-generation-count-notified-at-firestore-adapter-design.md 2節のコード例は実SDKの
+`google.cloud.firestore.Increment`を前提にしているが、本モジュールは実SDK非依存方針を
+維持するため、aircon-pashaのfirestore_user_profile_adapter.Incrementと同型の
+センチネルをここでも定義する(「現在値への加算」という意味論だけを運ぶ軽量な値オブジェクト。
+実SDK接続時はこのIncrementを`google.cloud.firestore.Increment`に読み替えるだけで済む)。
 """
 
 from __future__ import annotations
@@ -24,10 +31,22 @@ from datetime import datetime
 from typing import Optional
 
 
+class Increment:
+    """design.md 2節の`firestore.Increment`相当の最小センチネル。実SDKを直接
+    importしない本モジュールの方針を保つため、「現在値への加算」という意味論だけを
+    運ぶ軽量な値オブジェクトとして定義する(実際の加算処理はFirestoreクライアント側
+    〈実SDKまたはテスト用フェイク〉がこのセンチネルを見て行う)。
+    """
+
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
 class FirestoreFleetOperatorStore:
     """FleetOperatorStoreProtocolの実Firestore接続実装(基盤グループ: email・plan_id・
-    stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッドのみ。
-    design.md 4節に残る他グループは本クラスには未実装)。
+    stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッド+
+    トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの
+    2フィールド、計4メソッド。design.md 4節に残る他グループは本クラスには未実装)。
     fleet_operator/{internal_id}ドキュメントを読み書きする(firestore-data-model.md
     「1. fleet_operator/{internal_id}」)。
     """
@@ -87,3 +106,30 @@ class FirestoreFleetOperatorStore:
         # 確認してから呼ぶ)に委ねる方針を本フェーズで仮決めした(トランザクション導入は
         # 時期尚早な最適化と判断、4節に再検討の前提を残す)。本アダプタ自身は常に書き込む。
         self._doc_ref(internal_id).set({"trialStartAt": value}, merge=True)
+
+    def get_trial_generation_count(self, internal_id: str) -> int:
+        return self._get_field(internal_id, "trialGenerationCount") or 0
+
+    def increment_trial_generation_count(self, internal_id: str) -> "tuple[int, int]":
+        # design.md 2.1節: サーバー側アトミック加算(Increment)を正としつつ、戻り値
+        # (before, after)は加算前後の素朴な読み取りで近似する(唯一の呼び出し元
+        # record_generation_for_trial()〈trial_management.py:279〉は戻り値を破棄して
+        # いるため、2回の読み取りの間に他の呼び出しが割り込むことによる不整合が実害を
+        # 生むパスは現時点で存在しない)。
+        before = self.get_trial_generation_count(internal_id)
+        self._doc_ref(internal_id).set(
+            {"trialGenerationCount": Increment(1)}, merge=True
+        )
+        after = self.get_trial_generation_count(internal_id)
+        return before, after
+
+    def get_trial_end_notified_at(self, internal_id: str) -> "datetime | None":
+        return self._get_field(internal_id, "trialEndNotifiedAt")
+
+    def set_trial_end_notified_at(self, internal_id: str, value: datetime) -> None:
+        # design.md 3節: trial_start_atと同じ「呼び出し順序の規約」方式(a)。呼び出し元
+        # should_notify_trial_end()→record_generation_and_get_trial_end_notice()は
+        # get_trial_end_notified_at()で未設定を確認した直後にのみ本メソッドを呼ぶ構造の
+        # ため、本アダプタ自身は常に書き込む(上書き防止はトランザクションではなく
+        # 呼び出し順序の規約に委ねる)。
+        self._doc_ref(internal_id).set({"trialEndNotifiedAt": value}, merge=True)

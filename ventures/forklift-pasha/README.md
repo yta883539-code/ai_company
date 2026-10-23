@@ -3687,3 +3687,39 @@
   trial_start_at、4フィールド9メソッド〉を本venture初のFirestoreアダプタとして
   実コード化。コード変更あり、prototype全23ファイル〈新規14件含む〉・schema検証
   11件いずれもパス)
+- フェーズ182(2026-10-23 21:00 UTC定例更新): フェーズ181の次回候補(2)「design.md
+  4節に残る次のグループ(trial_generation_count+trial_end_notified_atグループ)の
+  実コード化」に対応した。trial-generation-count-notified-at-firestore-adapter-
+  design.md(フェーズ161)2節・3節の設計通り、`FirestoreFleetOperatorStore`に
+  `get_trial_generation_count`/`increment_trial_generation_count`/
+  `get_trial_end_notified_at`/`set_trial_end_notified_at`の4メソッドを追加実装した。
+  `increment_trial_generation_count`はdesign.md 2節の判断(読み取り→加算→素朴な
+  updateではLost Updateが起こり得るため、サーバー側アトミック加算を正とする)に
+  従い、aircon-pashaのfirestore_user_profile_adapter.Incrementと同型の
+  センチネルクラス(google-cloud-firestore SDKの`firestore.Increment`を直接
+  importしないための軽量な値オブジェクト)を本モジュールにも新規定義し、`set({...:
+  Increment(1)}, merge=True)`で加算した。戻り値`(before, after)`はdesign.md 2.1節の
+  判断通り、アトミック書き込みの前後に素朴な読み取りを挟んで近似する実装とした(唯一の
+  呼び出し元`record_generation_for_trial()`が戻り値を使わないため実害なし、という
+  design.mdの既知の制約を維持)。`set_trial_end_notified_at`はdesign.md 3節の判断
+  (trial_start_atと同じ「呼び出し順序の規約」方式(a)、二重送信防止は呼び出し元の
+  呼び出し順序に委ねる)のまま実装した。`test_firestore_fleet_operator_adapter.py`に、
+  フェイクFirestoreクライアントの`set()`へIncrementセンチネルの加算処理
+  (aircon-pashaのテスト用フェイクと同型)を追加した上で、新規4メソッドのテスト9件
+  (未設定時のデフォルト値・加算の蓄積・internal_idごとの独立性・他フィールドとの
+  非干渉を含む)を追加した。回帰確認として`python3 prototype/run_all_tests.py`
+  (23ファイル、変更なしで全件パス)・`python3 schema/validate_test_cases.py`
+  (11件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県労働局への対外
+  連絡)は依然未承認のまま、フェーズ148で定めた判断切り替え期限の目安(10/25前後)
+  まで残り1日程度である状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)design.md 4節に残る次のグループ(upgraded_at・canceled_at)の実コード化、
+  (3)10/25を過ぎても承認が得られない場合、launch-readiness-checklist.mdに
+  「今年度は困難」の判断切り替えを記録、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 21:00 UTC(フェーズ182: trial-generation-count-notified-
+  at-firestore-adapter-design.mdのトライアル終了判定グループ〈trial_generation_
+  count・trial_end_notified_at、2フィールド4メソッド〉を実コード化。Increment
+  センチネルを新規定義し、サーバー側アトミック加算で実装。コード変更あり、
+  prototype全23ファイル〈テスト9件追加〉・schema検証11件いずれもパス)
