@@ -1618,4 +1618,35 @@ aircon-pasha・forklift-pasha・line-reservation-ai側の`UsageCounterProtocol`�
 文書追加のみのため回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
 (817件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
 いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+
+## 28. forklift-pasha `fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`の精査(フェーズ312)
+
+### 28.1. 背景
+
+27.2節で簡易チェック(ファイル名の存在確認のみ)に留まっていた、forklift-pashaの
+`fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`(フェーズ162、
+`upgraded_at`・`canceled_at`・`all_internal_ids`の計3メソッド「解約/昇格グループ」を
+対象)の内容を実際に読み、本venture側26節の`UsageCounterProtocol`相当分との間に
+横展開すべきギャップが残っていないかを精査した。
+
+### 28.2. 精査結果
+
+同ファイルは2.1〜2.3節で3メソッドそれぞれの実装方針(`upgraded_at`は単純なget/update、
+`canceled_at`は`None`書き込みで「キー削除=未解約扱いに戻す」というInMemory版の契約を
+再現、`all_internal_ids`は全件スキャンでkura-pashaの`all_workshop_ids()`相当と同じ
+結論を踏襲)まで具体的なコード例付きで設計済みであり、3節「未検証・残課題」でも
+残りの`deletion_confirmation_sent_at`+`unreachable_at`+`unreachable_reason`グループ
+(削除候補処理、本節の対象外として既に切り出し済み)が次回候補として明記されている。
+したがって、27.2節で簡易チェックに留まっていた部分を含め、forklift-pasha側に
+`UsageCounterProtocol`相当分の設計漏れ・横展開すべきギャップは見当たらないことを
+確認した。27.2節の「必要であれば次回候補として残す」としていた保留事項は、本節の
+精査により解消したと判断する。
+
+最終更新: 2026-10-23 10:00 UTC(フェーズ312: 27.2節で簡易チェックに留まっていた
+forklift-pashaの`fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`
+の内容を実際に読み精査し、横展開すべきギャップが見当たらないことを確認。27.2節の
+保留事項を解消した。コード変更なし、文書追加のみのため回帰確認として`python3 -m
+unittest discover -s prototype -p "test_*.py"`(817件、変更なし)・`python3 schema/
+validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。承認が必要なアクション(支払い・
 アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし)

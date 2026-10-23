@@ -5612,3 +5612,24 @@
   26節(subscription_canceled_atグループ・3種の*_event_time、計9メソッド)を実コード化。
   これにより`UsageCounterProtocol`全メソッドの実コード化が完了。コード変更あり、
   テスト817件〈新規11件〉・schema検証21件パス)
+- フェーズ320(2026-10-22 20:00 UTC定例更新、firestore-provider-adapter-design.md
+  27節): 26節次回候補(2)を受け、kura-pasha・aircon-pasha・forklift-pasha・
+  line-reservation-ai側の`UsageCounterProtocol`相当分の設計完了状況をcross-venture
+  parity確認した。対象ギャップなしを確認。forklift-pashaの
+  `fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`の内容精査は
+  簡易チェックに留まったため次回候補として残した。コード変更なし、テスト817件・
+  schema検証21件いずれも変更なしでパス。
+- 最終更新: 2026-10-23 10:00 UTC(フェーズ321: firestore-provider-adapter-design.md
+  28節。フェーズ320で簡易チェックに留まっていたforklift-pashaの
+  `fleet-operator-store-upgraded-canceled-firestore-adapter-design.md`の内容を実際に
+  読み精査し、`upgraded_at`・`canceled_at`・`all_internal_ids`グループの設計が
+  コード例付きで完了済みで横展開すべきギャップが見当たらないことを確認、フェーズ320の
+  保留事項を解消した。コード変更なし、文書追加のみのため回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(817件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)
+  `UsageCounterProtocol`以外の残Protocol(`FirstGenerationNoticeStoreProtocol`・
+  `UserProfileStoreProtocol`等)の実コード化状況の棚卸し、(3)他venture・アイデア
+  領域の前進)
