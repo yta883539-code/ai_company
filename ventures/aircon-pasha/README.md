@@ -6090,3 +6090,28 @@
 - 最終更新: 2026-10-21 08:00 UTC(フェーズ331: firestore-provider-adapter-design.md
   9節(payment_failure系グループ、4フィールド8メソッド)を実コード化。
   コード変更あり、テスト747件〈新規8件〉・schema検証25件パス)
+- フェーズ332(2026-10-23 00:00 UTC定例更新): フェーズ331の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 13節(current_plan_idグループ: 1フィールド・
+  get/set計2メソッド)を実コード化した。本フィールドは9節のpayment_failure系と同じ
+  「現在値を見てから計算する操作を持たない単純な読み書きのみ」の構成であり、型が
+  `Optional[datetime]`ではなく`Optional[str]`である点を除けば設計が完全に同型のため、
+  13.3節が明記する通りread-modify-write競合のリスク自体が存在しない(横展開確認の
+  対象外)。実装は`firestore_user_profile_adapter.py`に`get_current_plan_id`/
+  `set_current_plan_id`の2メソッドをそのまま追加した。`test_firestore_user_profile_adapter.py`
+  に、設定・取得の往復、`None`書き込みによるクリア(`subscription_plan_sync.
+  clear_current_plan_id_on_cancellation()`呼び出し元の「`None`=未契約」という既存契約の
+  確認)、未知user_idに対する`None`フォールバック、他フィールド非破壊、user_idごとの
+  独立性を検証するテスト5件を追加した。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(747→752件、新規5件含めて全件パス)・`python3
+  schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)design.md
+  残り2グループ(is_following+all_user_ids・owner_notified_at系4種)の実コード化
+  (このうちowner_notified_at系は11節で設計済みのためis_following+all_user_idsより
+  着手しやすい候補と見込む)、(3)旧stripe_customer_idからの付け替え時の旧インデックス
+  エントリ削除(5.3節で次回候補とされていた未対応分)、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-23 00:00 UTC(フェーズ332: firestore-provider-adapter-design.md
+  13節(current_plan_idグループ、1フィールド2メソッド)を実コード化。
+  コード変更あり、テスト752件〈新規5件〉・schema検証25件パス)

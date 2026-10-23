@@ -15,8 +15,9 @@ design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグルー�
 `increment_trial_generation_count`/`increment_trial_unit_count`/`get_trial_unit_count`)・
 9節の**payment_failure系グループ**(`payment_failure_detected_at`・`payment_suspended_at`・
 `payment_failure_reminder_sent_at`・`payment_failure_detection_notified_at`の
-get/set計8メソッド)を対象とする(残り4グループ〈current_plan_id・is_following+
-all_user_ids・owner_notified_at系・event_time系4種〉は次回候補)。
+get/set計8メソッド)・13節の**current_plan_idグループ**(1フィールド・get/set計2メソッド)
+を対象とする(残り3グループ〈is_following+all_user_ids・owner_notified_at系・
+event_time系4種〉は次回候補)。
 
 design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
 本モジュールは実SDK非依存方針を維持するため、同じ「サーバー側フィールド変換として加算する」
@@ -199,3 +200,10 @@ class FirestoreUserProfileStore:
         self._doc_ref(user_id).set(
             {"payment_failure_detection_notified_at": value}, merge=True
         )
+
+    def get_current_plan_id(self, user_id: str) -> Optional[str]:
+        profile = self.get(user_id)
+        return profile.current_plan_id if profile is not None else None
+
+    def set_current_plan_id(self, user_id: str, plan_id: Optional[str]) -> None:
+        self._doc_ref(user_id).set({"current_plan_id": plan_id}, merge=True)

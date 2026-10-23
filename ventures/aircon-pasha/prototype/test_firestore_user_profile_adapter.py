@@ -282,6 +282,36 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_payment_failure_detected_at("U1", at)
         self.assertIsNone(self.store.get_payment_failure_detected_at("U2"))
 
+    def test_set_current_plan_id_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        self.store.set_current_plan_id("U1", "plan_standard")
+        self.assertEqual(self.store.get_current_plan_id("U1"), "plan_standard")
+
+    def test_set_current_plan_id_to_none_clears_it(self):
+        # design.md 13.3節: subscription_plan_sync.clear_current_plan_id_on_cancellation()
+        # は「None=未契約」の意味でのみ使うため、一度設定した値をNoneに戻せることを検証する。
+        self.store.save("U1", _make_profile(current_plan_id="plan_standard"))
+        self.store.set_current_plan_id("U1", None)
+        self.assertIsNone(self.store.get_current_plan_id("U1"))
+
+    def test_get_current_plan_id_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_current_plan_id("U_unknown"))
+
+    def test_set_current_plan_id_does_not_clobber_other_fields(self):
+        at = datetime(2026, 10, 21, 8, tzinfo=timezone.utc)
+        profile = _make_profile(payment_failure_detected_at=at)
+        self.store.save("U1", profile)
+        self.store.set_current_plan_id("U1", "plan_basic")
+        got = self.store.get("U1")
+        self.assertEqual(got.payment_failure_detected_at, at)
+        self.assertEqual(got.current_plan_id, "plan_basic")
+
+    def test_current_plan_id_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        self.store.set_current_plan_id("U1", "plan_standard")
+        self.assertIsNone(self.store.get_current_plan_id("U2"))
+
 
 if __name__ == "__main__":
     unittest.main()
