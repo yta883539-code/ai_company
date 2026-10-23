@@ -1,6 +1,7 @@
 """firestore_user_profile_adapter.FirestoreUserProfileStore(基盤3メソッド+Stripe顧客ID
 グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
-current_plan_idグループ・is_following+all_user_idsグループ)のテスト。
+current_plan_idグループ・is_following+all_user_idsグループ・event_time系4種グループ)の
+テスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、firestore-provider-adapter-
@@ -444,6 +445,63 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
 
     def test_all_user_ids_empty_when_no_profiles_saved(self):
         self.assertEqual(list(self.store.all_user_ids()), [])
+
+    def test_subscription_state_event_time_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_subscription_state_event_time("U1", at)
+        self.assertEqual(self.store.get_subscription_state_event_time("U1"), at)
+
+    def test_get_subscription_state_event_time_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_subscription_state_event_time("U_unknown"))
+
+    def test_payment_failure_state_event_time_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_payment_failure_state_event_time("U1", at)
+        self.assertEqual(self.store.get_payment_failure_state_event_time("U1"), at)
+
+    def test_get_payment_failure_state_event_time_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_payment_failure_state_event_time("U_unknown"))
+
+    def test_checkout_session_completed_event_time_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_checkout_session_completed_event_time("U1", at)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("U1"), at
+        )
+
+    def test_get_checkout_session_completed_event_time_for_unknown_user_returns_none(
+        self,
+    ):
+        self.assertIsNone(
+            self.store.get_checkout_session_completed_event_time("U_unknown")
+        )
+
+    def test_subscription_updated_event_time_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_subscription_updated_event_time("U1", at)
+        self.assertEqual(self.store.get_subscription_updated_event_time("U1"), at)
+
+    def test_get_subscription_updated_event_time_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_subscription_updated_event_time("U_unknown"))
+
+    def test_event_time_fields_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_subscription_state_event_time("U1", at)
+        self.assertIsNone(self.store.get_subscription_state_event_time("U2"))
+
+    def test_set_subscription_state_event_time_does_not_clobber_other_fields(self):
+        self.store.save("U1", _make_profile(current_plan_id="plan_basic"))
+        at = datetime(2026, 10, 23, 16, tzinfo=timezone.utc)
+        self.store.set_subscription_state_event_time("U1", at)
+        got = self.store.get("U1")
+        self.assertEqual(got.subscription_state_event_time, at)
+        self.assertEqual(got.current_plan_id, "plan_basic")
 
 
 if __name__ == "__main__":

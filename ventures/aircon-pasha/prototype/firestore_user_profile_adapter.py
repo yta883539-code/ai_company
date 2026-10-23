@@ -18,8 +18,12 @@ design.md 5節の**基盤3メソッド(save/get/exists)+Stripe顧客IDグルー�
 get/set計8メソッド)・11節の**owner_notified_at系グループ**
 (`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`の
 get/set計4メソッド)・13節の**current_plan_idグループ**(1フィールド・get/set計2メソッド)・
-15節の**is_following+all_user_idsグループ**(2フィールド・計3メソッド)
-を対象とする(残り1グループ〈event_time系4種〉は次回候補)。
+15節の**is_following+all_user_idsグループ**(2フィールド・計3メソッド)・
+17節の**event_time系4種グループ**(`subscription_state_event_time`・
+`payment_failure_state_event_time`・`checkout_session_completed_event_time`・
+`subscription_updated_event_time`、各get/set計8メソッド)
+を対象とする。これにより design.md が5・7・9・11・13・15・17節の7グループに分けて
+設計した`UserProfileStoreProtocol`の全グループの実コード化が完了した。
 
 design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
 本モジュールは実SDK非依存方針を維持するため、同じ「サーバー側フィールド変換として加算する」
@@ -69,8 +73,8 @@ def _profile_from_dict(data: dict) -> UserProfile:
 class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤3メソッド+Stripe顧客ID
     グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
-    current_plan_idグループ・is_following+all_user_idsグループ。design.md 17節の
-    残りグループは次回候補)。
+    current_plan_idグループ・is_following+all_user_idsグループ・event_time系4種グループ。
+    design.md 5・7・9・11・13・15・17節の全グループを実コード化済み)。
     user_profile/{user_id}ドキュメントおよびstripe_customer_index/{stripe_customer_id}
     逆引きドキュメントを読み書きする。
     """
@@ -255,3 +259,53 @@ class FirestoreUserProfileStore:
     def all_user_ids(self) -> Iterable[str]:
         for snapshot in self._profiles.stream():
             yield snapshot.id
+
+    def get_subscription_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.subscription_state_event_time if profile is not None else None
+
+    def set_subscription_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"subscription_state_event_time": event_time}, merge=True
+        )
+
+    def get_payment_failure_state_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.payment_failure_state_event_time if profile is not None else None
+
+    def set_payment_failure_state_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"payment_failure_state_event_time": event_time}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.checkout_session_completed_event_time
+            if profile is not None
+            else None
+        )
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"checkout_session_completed_event_time": event_time}, merge=True
+        )
+
+    def get_subscription_updated_event_time(self, user_id: str) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return profile.subscription_updated_event_time if profile is not None else None
+
+    def set_subscription_updated_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"subscription_updated_event_time": event_time}, merge=True
+        )

@@ -6166,3 +6166,30 @@
 - 最終更新: 2026-10-23 15:00 UTC(フェーズ334: firestore-provider-adapter-design.md
   15節(is_following+all_user_idsグループ、2フィールド3メソッド)を実コード化。
   コード変更あり、テスト769件〈新規8件〉・schema検証25件パス)
+- フェーズ335(2026-10-23 16:00 UTC定例更新): フェーズ334の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 17節(event_time系4種グループ:
+  `subscription_state_event_time`・`payment_failure_state_event_time`・
+  `checkout_session_completed_event_time`・`subscription_updated_event_time`、
+  各get/set計8メソッド)を実コード化した。これにより design.md が5・7・9・11・13・15・
+  17節の7グループに分けて設計した`UserProfileStoreProtocol`の全グループの実コード化が
+  完了した(`_profile_to_dict`/`_profile_from_dict`ヘルパー自体は19節で別途設計・実装済み)。
+  4フィールドはいずれも9・11・13節までと同型の単純な`merge=True`書き込み・`get()`の
+  `None`フォールバックであり、17.3節が確認した「`set_*`のno-op契約との非対称は既知の差分
+  (呼び出し元は常にuser_id解決済みの既存プロファイルのみを対象とするため実害なし)」の
+  判断をそのまま踏襲した。実装は`firestore_user_profile_adapter.py`に8メソッドを追加する
+  のみ(新規フェイクの追加実装は不要、既存の`_FakeDocumentRef`/`_FakeCollection`で足りる)。
+  テストは、4フィールドそれぞれの往復・未知user_idに対する`None`フォールバックの計8件に
+  加え、user_idごとの独立性・他フィールド非破壊の計2件、合計10件を追加した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(769→779件、新規10件含めて
+  全件パス)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)旧
+  stripe_customer_idからの付け替え時の旧インデックスエントリ削除(5.3節で次回候補と
+  されていた未対応分)、(3)`UserProfileStoreProtocol`実コード化完了を受け、本venture
+  内の他Protocol(`ProfileDeletionCandidateStoreProtocol`等)の実コード化状況の棚卸し、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 16:00 UTC(フェーズ335: firestore-provider-adapter-design.md
+  17節(event_time系4種グループ、4フィールド8メソッド)を実コード化。これにより
+  `UserProfileStoreProtocol`全7グループの実コード化が完了。コード変更あり、
+  テスト779件〈新規10件〉・schema検証25件パス)
