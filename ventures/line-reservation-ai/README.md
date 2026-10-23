@@ -6349,3 +6349,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design-onboarding-flag.md 4節の陳腐化した次回候補記述を訂正し、
   `StoreProfileStoreProtocol`設計フェーズの完了を明文化。コード変更なし、
   全956件・schema検証28件パス)
+- フェーズ続き339(2026-10-23 12:00 UTC定例更新): フェーズ続き338の次回候補(1)
+  「承認待ち事項がオーナーから承認された場合はその着手を最優先」を踏まえ、本venture
+  の各設計文書(firestore-provider-adapter-design.md・store-profile-store-
+  firestore-adapter-design.md・store-profile-store-firestore-adapter-design-
+  onboarding-flag.md等)が一貫して「実Firestoreプロジェクト・GCPアカウントの開設は
+  オーナー承認待ち」と記述してきた前提自体が、実際にpending-approval.mdへ記録され
+  ているかを棚卸しした。リポジトリ全体のpending-approval.mdを"Firestore"で検索した
+  結果0件であり、本ventureのLINE公式アカウント開設(2026-08-28 17:00 UTC記載)・
+  Cloud Scheduler作成等は個別に記録済みであるのに対し、実Firestoreプロジェクト・
+  GCPアカウントの開設自体はこれまで一度も独立したエントリとして記録されていなかった
+  記載漏れであることが判明した(aircon-pashaフェーズ278〈2026-09-27 10:00 UTC〉・
+  course-set-pasha〈2026-09-27 03:00 UTC〉等で発見されたStripeアカウント接続の
+  記載漏れ是正と同種の棚卸し)。今回新規にpending-approval.mdへ記録した(詳細は
+  pending-approval.md参照)。設計文書・コードの変更はなく記録漏れの是正のみのため、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (956件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した。次回候補: (1)承認待ち事項
+  (実Firestoreプロジェクト・GCPアカウントの開設、LINE公式アカウント開設等)が
+  オーナーから承認された場合はその着手(本venture全設計の結合実装)を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 12:00 UTC(フェーズ続き339: 実Firestoreプロジェクト・GCP
+  アカウントの開設がpending-approval.mdに一度も記録されていなかった記載漏れを発見し、
+  新規に記録。コード変更なし、全956件・schema検証28件パス)
