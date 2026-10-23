@@ -858,3 +858,26 @@
   interview-rehearsal-script.mdに残っていた`capacity`数値食い違い時の判断基準未整理を発見。
   mvp-flow-draft.mdに定義方針〈主催者入力値をそのまま採用、複数併記時は参考値注記〉を新規
   追加。コード変更・実連絡・実発信はいずれも行っていない)
+- フェーズ43(2026-10-23 17:00 UTC定例更新): フェーズ42の次回候補(1)「capacityの定義方針を
+  踏まえた複数収容人数併記ケースのテストケース追加」に対応した。schema/validate_test_cases.py
+  に新規テストケース`G9_capacity_multiple_values_reference_note`(想定入力例:「会場キャパ
+  〈消防法上の定員300人、直近の実績動員260人〉、入退場共用1箇所、全席指定、警備員は外部委託
+  2名+自社2名」)を追加し、checklistの冒頭項目が(1)比率算出に用いた数値〈消防法上の定員
+  300人〉を明示し、(2)他の数値〈実績動員260人〉を参考値として併記する旨を機械的に確認する
+  `check_capacity_multiple_values_reference_note`関数を実装した。検出能力確認用のネガティブ
+  テスト`NEGATIVE_CASE_CAPACITY_MULTIPLE_VALUES_NO_REFERENCE_NOTE`(参考値併記の記載を欠いた
+  checklistが検出されることを確認)も`NEG10`として追加した。mvp-flow-draft.md「次回候補」4点目
+  を対応済みに更新した。コード変更あり(validate_test_cases.pyへのテストケース・チェック関数
+  追加のみ、output.schema.json自体の変更は不要と判断。既存5フィールド構成のまま、checklist
+  本文のキーワードチェックで机上の方針を検証できるため)。回帰確認として`python3 schema/
+  validate_test_cases.py`(21→22件、新規G9・NEG10含めて全件パス)・`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(33件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡等)がオーナーから承認
+  された場合はその着手を最優先、(2)候補2(那覇市・中山一朗氏)の屋号特定はオーナーの電話
+  連絡承認が得られるまで探索頻度をさらに下げる、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 17:00 UTC(フェーズ43: mvp-flow-draft.md「capacityの定義方針」を
+  踏まえた複数収容人数併記ケースのテストケースG9・検出能力確認用ネガティブテストNEG10を
+  schema/validate_test_cases.pyに追加。コード変更あり、schema検証22件〈新規2件〉・
+  prototype試験33件〈変更なし〉いずれもパス)

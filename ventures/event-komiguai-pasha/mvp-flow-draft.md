@@ -108,4 +108,9 @@ interview-rehearsal-script.md(フェーズ37)「確認ポイント」で、層1�
    (フェーズ4で対応済み)
 3. 既存の有人警備計画・シフト管理SaaSとの具体的な価格・機能比較調査。(フェーズ11で対応済み)
 4. 上記「capacityの定義方針」を踏まえた複数収容人数併記ケースのテストケース追加
-   (schema/validate_test_cases.py、フェーズ42時点で未着手)。
+   (schema/validate_test_cases.py、フェーズ43で対応済み。`G9_capacity_multiple_values_
+   reference_note`を追加し、checklist冒頭項目が比率算出に用いた数値を明示し他の数値を
+   参考値として併記する旨を機械的に確認する`check_capacity_multiple_values_reference_note`
+   チェックを実装、検出能力確認用のネガティブテスト`NEG10`も追加した)。
+5. 候補1(奈良NEVER LAND)への実発信はオーナー承認後、interview-rehearsal-script.mdの
+   台本に沿って実施する(未着手、承認待ち)。

@@ -218,6 +218,25 @@ def check_personal_name_leakage(instance, forbidden_terms, path="$"):
     return errors
 
 
+def check_capacity_multiple_values_reference_note(instance, path="$"):
+    """mvp-flow-draft.md「capacityの定義方針」(フェーズ42)の机上チェックをコード化したもの。
+    入力メモに複数の収容人数が異なる名目で併記されている場合、checklistの冒頭項目で
+    (1)比率算出に用いた数値を明示し、(2)他の数値も参考値として併記する旨が読み取れるかを
+    機械的に確認する(簡易キーワードチェック、完全な自然言語一致ではない)。"""
+    errors = []
+    checklist = instance.get("checklist") or []
+    if not checklist:
+        errors.append(f"{path}.checklist: 複数収容人数併記ケースなのにchecklistが空です")
+        return errors
+    first_item = checklist[0].get("item") or ""
+    if "参考" not in first_item:
+        errors.append(
+            f"{path}.checklist[0].item: 複数の収容人数が併記された入力なのに、他の数値を"
+            "参考値として扱う旨の記載が見当たりません(mvp-flow-draft.md「capacityの定義方針」)"
+        )
+    return errors
+
+
 TEST_CASES = {
     "G1_free_admission_indoor": {
         "status": "generated",
@@ -526,6 +545,48 @@ TEST_CASES = {
             ]
         },
     },
+    # mvp-flow-draft.md「capacityの定義方針」(フェーズ42)に対応するテストケース。
+    # 想定入力例: 「会場キャパ(消防法上の定員300人、直近の実績動員260人)、入退場共用1箇所、
+    # 全席指定、警備員は外部委託2名+自社2名」。複数の数値が異なる名目で併記されているため
+    # insufficient_inputとはせず、checklist冒頭項目で比率算出に用いた数値(消防法上の定員300人)
+    # を明示し、他の数値(実績動員260人)を参考値として併記する。
+    "G9_capacity_multiple_values_reference_note": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "fee_inquiry_note": None,
+        "checklist": [
+            {
+                "item": (
+                    "入退場共用1箇所がキャパシティ(消防法上の定員300人を基準に算出、"
+                    "直近の実績動員260人は参考値)に対し十分な処理能力か"
+                ),
+                "highlighted": True,
+            },
+        ],
+        "staffing_plan": {
+            "focus": "exit",
+            "body": (
+                "全席指定のため、終演直後の一斉退場時の集中に重点を置きます。雑踏警備にあたる"
+                "入退場口での流れの調整は外部委託警備員2名の配置案とし、自社スタッフ2名には"
+                "掲示・誘導アナウンス等の補助的役割を割り当てます。"
+            ),
+            "announcement_text": "終演後は係員の案内に従い、順にご退場ください。",
+        },
+        "notice_board_text": {
+            "body": "ご来場の皆様へ。入場口が混み合う場合がございます。係員の案内に従い、整列・分散入場にご協力ください。",
+            "includes_road_use_permit_note": False,
+        },
+        "near_miss_record_template": {
+            "fields": [
+                {"field_name": "発生日時", "description": "発生した日時を記載"},
+                {"field_name": "場所", "description": "発生した場所(入場口付近等)を記載"},
+                {"field_name": "状況", "description": "発生した状況を記載"},
+                {"field_name": "対応", "description": "その場で取った対応を記載"},
+                {"field_name": "再発防止策", "description": "今後の再発防止策を記載"},
+            ]
+        },
+    },
     "II1_missing_capacity_and_entry_exit": {
         "status": "insufficient_input",
         "out_of_scope_message": None,
@@ -601,6 +662,12 @@ PERSONAL_NAME_LEAKAGE_FORBIDDEN_TERMS = {
     "G5_staffing_memo_with_personal_name_generalized": ["田中"],
 }
 
+# フェーズ43追加: 入力メモに複数の収容人数が異なる名目で併記されているテストケースのID。
+# check_capacity_multiple_values_reference_note参照(mvp-flow-draft.md「capacityの定義方針」)。
+CAPACITY_MULTIPLE_VALUES_CASES = {
+    "G9_capacity_multiple_values_reference_note": True,
+}
+
 # ネガティブテスト(フェーズ24追加): G5の想定入力に含まれる委託警備員の氏名「田中さん」が
 # 一般化されずそのまま出力に転記されてしまったケースが検出されることを確認する
 # (厳守事項10違反の検出能力チェック)。
@@ -631,6 +698,19 @@ NEGATIVE_CASE_FEE_PRICE_LEAKED_IN_GENERATED = {
     "fee_inquiry_note": "本サービスは一次チェックと文書下書き生成のみを行っております。単発利用プランは500円/回でご利用いただけます。",
 }
 
+# ネガティブテスト(フェーズ43追加): G9(複数収容人数併記ケース)のchecklist冒頭項目が、
+# 比率算出に用いた数値を明示するのみで他の数値を参考値として併記する旨を欠いている
+# ケースが検出されることを確認する(mvp-flow-draft.md「capacityの定義方針」違反の検出能力チェック)。
+NEGATIVE_CASE_CAPACITY_MULTIPLE_VALUES_NO_REFERENCE_NOTE = {
+    **TEST_CASES["G9_capacity_multiple_values_reference_note"],
+    "checklist": [
+        {
+            "item": "入退場共用1箇所がキャパシティ300人に対し十分な処理能力か",
+            "highlighted": True,
+        },
+    ],
+}
+
 
 def main():
     total = 0
@@ -643,6 +723,8 @@ def main():
             errors += check_personal_name_leakage(
                 instance, PERSONAL_NAME_LEAKAGE_FORBIDDEN_TERMS[case_id]
             )
+        if case_id in CAPACITY_MULTIPLE_VALUES_CASES:
+            errors += check_capacity_multiple_values_reference_note(instance)
         if errors:
             failed += 1
             print(f"[NG] {case_id}")
@@ -748,6 +830,18 @@ def main():
     else:
         failed += 1
         print("[NG] NEG9_fee_price_leaked_in_generated_is_detected: fee_inquiry_note内の具体的な料金額の案内を検出できませんでした(バリデータの不備)")
+
+    total += 1
+    neg_errors10 = validate_against_schema(NEGATIVE_CASE_CAPACITY_MULTIPLE_VALUES_NO_REFERENCE_NOTE, SCHEMA)
+    neg_errors10 += validate_cross_field_rules(NEGATIVE_CASE_CAPACITY_MULTIPLE_VALUES_NO_REFERENCE_NOTE)
+    neg_errors10 += check_capacity_multiple_values_reference_note(NEGATIVE_CASE_CAPACITY_MULTIPLE_VALUES_NO_REFERENCE_NOTE)
+    if neg_errors10:
+        print("[OK] NEG10_capacity_multiple_values_no_reference_note_is_detected (想定通りエラー検出)")
+        for e in neg_errors10:
+            print(f"      - {e}")
+    else:
+        failed += 1
+        print("[NG] NEG10_capacity_multiple_values_no_reference_note_is_detected: 参考値併記の欠落を検出できませんでした(バリデータの不備)")
 
     print(f"\n{total - failed}/{total} 件パス")
     return 1 if failed else 0
