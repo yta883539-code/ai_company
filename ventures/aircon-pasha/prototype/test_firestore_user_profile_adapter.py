@@ -1,12 +1,14 @@
 """firestore_user_profile_adapter.FirestoreUserProfileStore(基盤3メソッド+Stripe顧客ID
-グループ・trial系グループ・payment_failure系グループ)のテスト。
+グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
+current_plan_idグループ)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、firestore-provider-adapter-
 design.md 5節が前提とした最小インターフェース(collection/document/get/set・
 firestore_client.batch()のset/commit)のみを満たす軽量フェイクをここで実装し、
 InMemoryUserProfileStore(user_id_linking.py)の基盤3メソッド+Stripe顧客IDグループ・
-trial系グループ・payment_failure系グループと観測可能な振る舞いが一致することを検証する。
+trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
+current_plan_idグループと観測可能な振る舞いが一致することを検証する。
 """
 
 import unittest
@@ -311,6 +313,90 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.save("U2", _make_profile(business_name="別店舗"))
         self.store.set_current_plan_id("U1", "plan_standard")
         self.assertIsNone(self.store.get_current_plan_id("U2"))
+
+    def test_set_blocked_but_billing_owner_notified_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 7, tzinfo=timezone.utc)
+        self.store.set_blocked_but_billing_owner_notified_at("U1", at)
+        self.assertEqual(
+            self.store.get_blocked_but_billing_owner_notified_at("U1"), at
+        )
+
+    def test_set_blocked_but_billing_owner_notified_at_to_none_clears_it(self):
+        # design.md 11.3節: blocked_but_billing_owner_notification.
+        # clear_blocked_but_billing_owner_notified_at()は「None=未通知/再送可能」の
+        # 意味でのみ使うため、一度設定した値をNoneに戻せることを検証する。
+        at = datetime(2026, 10, 23, 7, tzinfo=timezone.utc)
+        self.store.save(
+            "U1", _make_profile(blocked_but_billing_owner_notified_at=at)
+        )
+        self.store.set_blocked_but_billing_owner_notified_at("U1", None)
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("U1")
+        )
+
+    def test_get_blocked_but_billing_owner_notified_at_for_unknown_user_returns_none(
+        self,
+    ):
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("U_unknown")
+        )
+
+    def test_set_blocked_but_billing_owner_notified_at_does_not_clobber_other_fields(
+        self,
+    ):
+        self.store.save("U1", _make_profile(current_plan_id="plan_basic"))
+        at = datetime(2026, 10, 23, 7, tzinfo=timezone.utc)
+        self.store.set_blocked_but_billing_owner_notified_at("U1", at)
+        got = self.store.get("U1")
+        self.assertEqual(got.current_plan_id, "plan_basic")
+        self.assertEqual(got.blocked_but_billing_owner_notified_at, at)
+
+    def test_blocked_but_billing_owner_notified_at_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        at = datetime(2026, 10, 23, 7, tzinfo=timezone.utc)
+        self.store.set_blocked_but_billing_owner_notified_at("U1", at)
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("U2")
+        )
+
+    def test_set_payment_suspension_owner_notified_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 23, 8, tzinfo=timezone.utc)
+        self.store.set_payment_suspension_owner_notified_at("U1", at)
+        self.assertEqual(
+            self.store.get_payment_suspension_owner_notified_at("U1"), at
+        )
+
+    def test_set_payment_suspension_owner_notified_at_to_none_clears_it(self):
+        # design.md 11.3節: payment_failure.clear_payment_suspension_owner_notified_at()
+        # 相当の呼び出し元が「None=未通知/再送可能」の意味でのみ使うため、一度設定した
+        # 値をNoneに戻せることを検証する。
+        at = datetime(2026, 10, 23, 8, tzinfo=timezone.utc)
+        self.store.save(
+            "U1", _make_profile(payment_suspension_owner_notified_at=at)
+        )
+        self.store.set_payment_suspension_owner_notified_at("U1", None)
+        self.assertIsNone(
+            self.store.get_payment_suspension_owner_notified_at("U1")
+        )
+
+    def test_get_payment_suspension_owner_notified_at_for_unknown_user_returns_none(
+        self,
+    ):
+        self.assertIsNone(
+            self.store.get_payment_suspension_owner_notified_at("U_unknown")
+        )
+
+    def test_payment_suspension_owner_notified_at_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        at = datetime(2026, 10, 23, 8, tzinfo=timezone.utc)
+        self.store.set_payment_suspension_owner_notified_at("U1", at)
+        self.assertIsNone(
+            self.store.get_payment_suspension_owner_notified_at("U2")
+        )
 
 
 if __name__ == "__main__":

@@ -6115,3 +6115,29 @@
 - 最終更新: 2026-10-23 00:00 UTC(フェーズ332: firestore-provider-adapter-design.md
   13節(current_plan_idグループ、1フィールド2メソッド)を実コード化。
   コード変更あり、テスト752件〈新規5件〉・schema検証25件パス)
+- フェーズ333(2026-10-23 14:00 UTC定例更新): フェーズ332の次回候補(2)に対応し、
+  firestore-provider-adapter-design.md 11節(owner_notified_at系グループ:
+  `blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`の
+  2フィールド、計4メソッドget/set)を実コード化した。本グループは9節のpayment_failure系・
+  13節のcurrent_plan_idと同じ「現在値を見てから計算する操作を持たない単純な読み書きのみ」の
+  構成であり、11.3節が明記する通りread-modify-write競合のリスク自体が存在しない
+  (横展開確認の対象外)。実装は`firestore_user_profile_adapter.py`に4メソッドをそのまま
+  追加した。`test_firestore_user_profile_adapter.py`に、2フィールドそれぞれの往復、
+  `None`書き込みによるクリア(`blocked_but_billing_owner_notification.
+  clear_blocked_but_billing_owner_notified_at()`・`payment_failure.py`の
+  `payment_suspension_owner_notified_at`クリア呼び出し元の「`None`=未通知/再送可能」
+  という既存契約の確認)、未知user_idに対する`None`フォールバック、他フィールド非破壊
+  (blocked_but_billing側のみ)、user_idごとの独立性を検証するテスト9件を追加した。
+  回帰確認として`python3 -m unittest discover -p "test_*.py"`(752→761件、新規9件含めて
+  全件パス)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)design.md残り1
+  グループ(is_following+all_user_ids)の実コード化(真偽値の単純な読み書きに加え、
+  `all_user_ids()`という全件走査系メソッドを含むため走査方法の検討が必要、
+  event_time系4種は既に17節で設計済みのため並行して着手可能)、(3)旧
+  stripe_customer_idからの付け替え時の旧インデックスエントリ削除(5.3節で次回候補と
+  されていた未対応分)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-23 14:00 UTC(フェーズ333: firestore-provider-adapter-design.md
+  11節(owner_notified_at系グループ、2フィールド4メソッド)を実コード化。
+  コード変更あり、テスト761件〈新規9件〉・schema検証25件パス)
