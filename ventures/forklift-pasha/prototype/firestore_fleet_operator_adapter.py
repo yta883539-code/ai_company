@@ -23,6 +23,12 @@ trial-generation-count-notified-at-firestore-adapter-design.md 2節のコード�
 維持するため、aircon-pashaのfirestore_user_profile_adapter.Incrementと同型の
 センチネルをここでも定義する(「現在値への加算」という意味論だけを運ぶ軽量な値オブジェクト。
 実SDK接続時はこのIncrementを`google.cloud.firestore.Increment`に読み替えるだけで済む)。
+
+fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ162、解約/昇格
+グループ)の設計に基づき、`upgraded_at`・`canceled_at`・`all_internal_ids`の計3メソッドも
+本モジュールに実コード化する。`canceled_at`はdesign.md 2.2節の判断により`DELETE_FIELD`
+センチネルではなく`null`書き込み案を採用する(フィールド自体は常に存在し、値が
+`Timestamp`か`null`かのいずれかという単純化されたスキーマを保つため)。
 """
 
 from __future__ import annotations
@@ -46,8 +52,9 @@ class FirestoreFleetOperatorStore:
     """FleetOperatorStoreProtocolの実Firestore接続実装(基盤グループ: email・plan_id・
     stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッド+
     トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの
-    2フィールド、計4メソッド。design.md 4節に残る他グループは本クラスには未実装)。
-    fleet_operator/{internal_id}ドキュメントを読み書きする(firestore-data-model.md
+    2フィールド、計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・
+    all_internal_idsの計3メソッド。design.md 4節に残る削除候補系3メソッドは本クラスには
+    未実装)。fleet_operator/{internal_id}ドキュメントを読み書きする(firestore-data-model.md
     「1. fleet_operator/{internal_id}」)。
     """
 
@@ -133,3 +140,27 @@ class FirestoreFleetOperatorStore:
         # ため、本アダプタ自身は常に書き込む(上書き防止はトランザクションではなく
         # 呼び出し順序の規約に委ねる)。
         self._doc_ref(internal_id).set({"trialEndNotifiedAt": value}, merge=True)
+
+    def get_upgraded_at(self, internal_id: str) -> "datetime | None":
+        return self._get_field(internal_id, "upgradedAt")
+
+    def set_upgraded_at(self, internal_id: str, value: datetime) -> None:
+        # design.md 2.1節: 上書き可(プラン変更のたびに何度でも書き換えてよい)。
+        # trial_start_atのような「初回のみ」制約を持たないため、排他制御は不要。
+        self._doc_ref(internal_id).set({"upgradedAt": value}, merge=True)
+
+    def get_canceled_at(self, internal_id: str) -> "datetime | None":
+        return self._get_field(internal_id, "canceledAt")
+
+    def set_canceled_at(self, internal_id: str, value: "datetime | None") -> None:
+        # design.md 2.2節: DELETE_FIELDセンチネルではなくnull書き込み案を採用する。
+        # フィールドは常に存在し、値がTimestampかnullかのいずれかという単純化された
+        # スキーマを保つ(get_canceled_atは未設定・null書き込み済みのいずれも区別せず
+        # Noneとして返すため、呼び出し側の振る舞いはInMemory版のキー削除方式と一致する)。
+        self._doc_ref(internal_id).set({"canceledAt": value}, merge=True)
+
+    def all_internal_ids(self) -> "list[str]":
+        # design.md 2.3節: コレクション全件スキャン(現在の想定事業者数規模では十分、
+        # ページネーションは規模拡大時に再検討、kura-pasha/workshop-store-firestore-
+        # adapter-design.mdのall_workshop_ids()相当と同じ結論を踏襲)。
+        return [doc.id for doc in self._operators.stream()]

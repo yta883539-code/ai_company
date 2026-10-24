@@ -77,3 +77,13 @@ return [doc.id for doc in self._client.collection("fleet_operator").stream()]
   持ち越す(本フェーズはコード変更を行わない机上設計のみ)。
 
 最終更新: 2026-10-16 23:00 UTC(フェーズ162)
+
+## フェーズ183追記(2026-10-24 00:00 UTC定例更新): 実コード化完了
+
+本設計(2節)に基づき、`prototype/firestore_fleet_operator_adapter.py`の
+`FirestoreFleetOperatorStore`に`get_upgraded_at`/`set_upgraded_at`・
+`get_canceled_at`/`set_canceled_at`・`all_internal_ids`の計5メソッドを実コード化した
+(README.mdフェーズ183参照)。2.2節で決定した`canceled_at`の`null`書き込み案も
+そのまま実装した。テスト10件追加・schema検証11件いずれもパス。3節に残る削除候補系
+3メソッド(`deletion_confirmation_sent_at`+`unreachable_at`+`unreachable_reason`)は
+次回候補として残る。

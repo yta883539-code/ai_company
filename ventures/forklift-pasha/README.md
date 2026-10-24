@@ -3723,3 +3723,30 @@
   count・trial_end_notified_at、2フィールド4メソッド〉を実コード化。Increment
   センチネルを新規定義し、サーバー側アトミック加算で実装。コード変更あり、
   prototype全23ファイル〈テスト9件追加〉・schema検証11件いずれもパス)
+- フェーズ183(2026-10-24 00:00 UTC定例更新): フェーズ182の次回候補(2)「design.md
+  4節に残る次のグループ(upgraded_at・canceled_at)の実コード化」に対応した。
+  fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ162)
+  2節の設計通り、`FirestoreFleetOperatorStore`に`get_upgraded_at`/`set_upgraded_at`
+  (単純なget/update、排他制御不要)・`get_canceled_at`/`set_canceled_at`(design.md
+  2.2節の判断通り`DELETE_FIELD`センチネルではなく`null`書き込み案を採用)・
+  `all_internal_ids`(コレクション全件スキャン、kura-pashaの`all_workshop_ids()`相当
+  と同じ結論を踏襲)の計5メソッドを追加実装した。テスト用フェイクFirestoreクライアント
+  (`_FakeCollection`)に`stream()`(全件走査用)を追加した上で、新規5メソッドのテスト
+  10件(未設定時のデフォルト値・上書き可能性・null書き込みによるクリア・他フィールド
+  との非干渉・`all_internal_ids`の集合一致を含む)を追加した。回帰確認として
+  `python3 prototype/run_all_tests.py`(23ファイル、テスト10件追加で全件パス)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれもパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。承認待ち
+  事項1(建荷協・都道府県労働局への対外連絡)は依然未承認のまま、フェーズ148で
+  定めた判断切り替え期限の目安(10/25前後)まで残り1日を切った状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)design.md 4節に残る最後のグループ(deletion_confirmation_sent_at・
+  unreachable_at・unreachable_reasonの削除候補系3メソッド)の実コード化、
+  (3)10/25を過ぎても承認が得られない場合、launch-readiness-checklist.mdに
+  「今年度は困難」の判断切り替えを記録、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 00:00 UTC(フェーズ183: fleet-operator-store-upgraded-
+  canceled-firestore-adapter-design.mdの解約/昇格グループ〈upgraded_at・
+  canceled_at・all_internal_ids、計5メソッド〉を実コード化。canceled_atは
+  DELETE_FIELDではなくnull書き込み案を採用。コード変更あり、prototype全23
+  ファイル〈テスト10件追加〉・schema検証11件いずれもパス)

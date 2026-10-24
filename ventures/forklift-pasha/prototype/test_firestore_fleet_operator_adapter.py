@@ -1,15 +1,17 @@
 """firestore_fleet_operator_adapter.FirestoreFleetOperatorStore(基盤グループ: email・
 plan_id・stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッド+
 トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの2フィールド、
-計4メソッド)のテスト。
+計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・all_internal_idsの計3メソッド)
+のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、fleet-operator-store-firestore-
 adapter-design.md 3節・trial-generation-count-notified-at-firestore-adapter-design.md
-2〜3節が前提とした最小インターフェース(collection/document/get/set、
-collection.where(...).limit(...).stream()、Incrementセンチネル)のみを満たす軽量フェイクを
-ここで実装し、InMemoryFleetOperatorStore(trial_management.py)の基盤グループ+トライアル
-終了判定グループと観測可能な振る舞いが一致することを検証する。
+2〜3節・fleet-operator-store-upgraded-canceled-firestore-adapter-design.md 2節が前提とした
+最小インターフェース(collection/document/get/set、collection.where(...).limit(...).stream()、
+collection.stream()、Incrementセンチネル)のみを満たす軽量フェイクをここで実装し、
+InMemoryFleetOperatorStore(trial_management.py)の基盤グループ+トライアル終了判定グループ+
+解約/昇格グループと観測可能な振る舞いが一致することを検証する。
 """
 
 import unittest
@@ -85,6 +87,13 @@ class _FakeCollection:
     def where(self, field: str, op: str, value) -> _FakeQuery:
         assert op == "=="
         return _FakeQuery(self._store, field, value)
+
+    def stream(self):
+        # all_internal_ids()用のコレクション全件スキャン(design.md 2.3節)。
+        return iter(
+            _FakeSnapshot(exists=True, data=dict(data), doc_id=doc_id)
+            for doc_id, data in self._store.items()
+        )
 
 
 class _FakeFirestoreClient:
@@ -220,6 +229,55 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
         self.store.set_trial_end_notified_at("F1", at)
         self.assertEqual(self.store.get_trial_generation_count("F1"), 1)
         self.assertEqual(self.store.get_trial_end_notified_at("F1"), at)
+
+    def test_get_upgraded_at_unset_returns_none(self):
+        self.assertIsNone(self.store.get_upgraded_at("F1"))
+
+    def test_upgraded_at_round_trip(self):
+        at = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_upgraded_at("F1", at)
+        self.assertEqual(self.store.get_upgraded_at("F1"), at)
+
+    def test_upgraded_at_overwrites(self):
+        # design.md 2.1節: プラン変更のたびに何度でも書き換えてよい(排他制御なし)。
+        first = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        second = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.store.set_upgraded_at("F1", first)
+        self.store.set_upgraded_at("F1", second)
+        self.assertEqual(self.store.get_upgraded_at("F1"), second)
+
+    def test_get_canceled_at_unset_returns_none(self):
+        self.assertIsNone(self.store.get_canceled_at("F1"))
+
+    def test_canceled_at_round_trip(self):
+        at = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_canceled_at("F1", at)
+        self.assertEqual(self.store.get_canceled_at("F1"), at)
+
+    def test_set_canceled_at_none_clears_to_none(self):
+        # design.md 2.2節: null書き込み案。InMemory版のキー削除方式と観測可能な
+        # 振る舞い(get側はNoneを返す)が一致することを検証する。
+        at = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_canceled_at("F1", at)
+        self.store.set_canceled_at("F1", None)
+        self.assertIsNone(self.store.get_canceled_at("F1"))
+
+    def test_canceled_at_does_not_clobber_upgraded_at(self):
+        upgraded = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        canceled = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.store.set_upgraded_at("F1", upgraded)
+        self.store.set_canceled_at("F1", canceled)
+        self.assertEqual(self.store.get_upgraded_at("F1"), upgraded)
+        self.assertEqual(self.store.get_canceled_at("F1"), canceled)
+
+    def test_all_internal_ids_empty_store_returns_empty_list(self):
+        self.assertEqual(self.store.all_internal_ids(), [])
+
+    def test_all_internal_ids_returns_all_known_ids(self):
+        self.store.set_email("F1", "a@example.com")
+        self.store.set_plan_id("F2", "standard")
+        self.store.set_canceled_at("F3", datetime(2026, 10, 24, tzinfo=timezone.utc))
+        self.assertEqual(set(self.store.all_internal_ids()), {"F1", "F2", "F3"})
 
 
 if __name__ == "__main__":
