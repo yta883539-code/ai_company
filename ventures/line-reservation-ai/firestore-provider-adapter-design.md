@@ -70,10 +70,16 @@ class FirestoreStoreDocumentProvider:
 
 ## 4. 残課題・次回候補
 
+- 本クラス自体はkura-pasha(firestore_workshop_adapter.py等)・course-set-pasha・
+  aircon-pasha(firestore_user_profile_adapter.py等)と同型の方針(google-cloud-firestore
+  SDKを直接importせず、`collection(name).document(id).get()`のみを要求する最小
+  インターフェースに依存する設計)に揃えて`prototype/firestore_store_document_provider.py`
+  として実コード化した(フェーズ続き340)。実Firestoreクライアントへは接続せず、
+  テストはcollection/document/getのみを満たす軽量フェイクで検証している
+  (`test_firestore_store_document_provider.py`、8件追加・prototype全964件パス)。
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md
-  (2026-08-28 17:00 UTC記載のCloud Scheduler/LINE公式アカウント開設の承認依頼と
-  同種、外部サービス側のアカウント作成・課金設定を伴う)の承認待ちであり、
-  本設計のコードは承認後の結合実装フェーズまでコミットしない。
+  (2026-10-23 12:00 UTC記載分、フェーズ続き339で新規記録)の承認待ちであり、
+  残るのは外部サービス側のアカウント作成・課金設定のみ。
 - 承認後は、`cloud_function_process_event.py`の`store_name_provider`・
   `region_name_provider`注入箇所に本クラスのインスタンスを渡すだけで差し替えが
   完了する設計になっていることを、結合実装時に確認する。
