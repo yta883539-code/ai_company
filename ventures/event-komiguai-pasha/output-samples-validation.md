@@ -23,7 +23,8 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。外部ライブ�
 禁止(厳守事項7)、入力に含まれる個人名の転記禁止(厳守事項10)は`validate_cross_field_rules()`・
 `check_personal_name_leakage()`で個別にチェックする。
 
-## サンプルケース(20件。2026-10-20 17:00 UTC定例更新でG7、20:00 UTCフェーズ31でG8を新規追加)
+## サンプルケース(22件。2026-10-20 17:00 UTC定例更新でG7、20:00 UTCフェーズ31でG8、
+2026-10-23 17:00 UTCフェーズ43でG9・NEG10を新規追加)
 
 | ケースID | status | 想定シナリオ |
 |---|---|---|
@@ -47,17 +48,19 @@ course-set-pasha/schema/validate_test_cases.pyと同じ設計。外部ライブ�
 | NEG7_personal_name_leaked_is_detected | generated | ネガティブテスト。入力に含まれていた氏名(「田中」)が出力本文にそのまま転記されている(厳守事項10違反)が検出されることの確認用 |
 | NEG8_fee_price_leaked_is_detected | out_of_scope | ネガティブテスト。out_of_scope_messageに具体的な料金額(「500円/回」)への言及が含まれている(厳守事項7違反)が検出されることの確認用 |
 | NEG9_fee_price_leaked_in_generated_is_detected | generated | ネガティブテスト。fee_inquiry_noteに具体的な料金額(「500円/回」)への言及が含まれている(厳守事項7違反)が検出されることの確認用 |
+| G9_capacity_multiple_values_reference_note | generated | mvp-flow-draft.md「capacityの定義方針」(フェーズ42)に対応。会場キャパシティが複数の名目(消防法上の定員300人・直近の実績動員260人)で併記された入力のケース。insufficient_inputとせず、checklist冒頭項目で比率算出に用いた数値(300人)を明示し、他の数値(260人)を参考値として併記する(2026-10-23 17:00 UTCフェーズ43追加) |
+| NEG10_capacity_multiple_values_no_reference_note_is_detected | generated | ネガティブテスト。G9と同じ複数収容人数併記の入力なのに、checklist冒頭項目に参考値併記の記載が見当たらない不整合(mvp-flow-draft.md「capacityの定義方針」違反)が検出されることの確認用(2026-10-23 17:00 UTCフェーズ43追加) |
 
-## 結果(2026-10-20 20:00 UTCフェーズ31時点)
+## 結果(2026-10-23 17:00 UTCフェーズ43時点)
 
 ```
-20/20 件パス
+22/22 件パス
 ```
 
-G1〜G8・OOS1〜OOS2・II1の11件が違反なくパスし、NEG1〜NEG9の9件は意図通りエラーが検出される
+G1〜G9・OOS1〜OOS2・II1の12件が違反なくパスし、NEG1〜NEG10の10件は意図通りエラーが検出される
 ことを確認した(`python3 schema/validate_test_cases.py`で実行内容を確認できる)。回帰確認として
-`python3 -m unittest discover -s prototype -p "test_*.py"`(33件)も変更なしでパスすることを
-確認した。
+`python3 -m unittest discover -s prototype -p "test_*.py"`(フェーズ44時点で35件)も変更なしで
+パスすることを確認した。
 
 G7(フェーズ30追加)は、llm-system-prompt-draft.md厳守事項4が「ブロック・エリア別に時間差を
 設けて段階的に退場を案内する(分散退場)」を提示してよいとする条件(`entry_exit_points`の数・
