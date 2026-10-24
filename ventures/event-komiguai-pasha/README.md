@@ -1002,3 +1002,24 @@
   作成。kura-pashaフェーズ262の横展開として、LINE非依存・Webフォーム採用を本venture固有の
   差分として明記し、全6venture共通の対応方針の横展開を完了。コード変更なし、schema検証
   22件・prototype試験35件いずれも変更なしでパス)
+- フェーズ49(2026-10-24 23:00 UTC定例更新): フェーズ48の次回候補(3)「Webフォーム
+  ホスティングサービスの具体的な選定(tech-stack.mdフェーズ7の残課題)」に対応した。
+  web-form-hosting-selection.md新規作成。Cloud Run(2nd gen)の同一サービス内でフォーム
+  配信(GET)とフォーム送信処理(POST)を統合する方式を第一候補として選定し、Firebase
+  Hosting・Cloud Storage静的ホスティング+Cloud CDNの2案は追加のGCPプロダクト依存・構成
+  要素が増えるため採用しないと判断した。この選定により、vendor-breach-key-rotation-
+  runbook.md(フェーズ48)が明記した本venture保有キー3種(Stripe・LLM API・GCPサービス
+  アカウント鍵)に変更がないことを確認し、同runbookの依存先一覧の更新は不要と判断した。
+  コード変更なし、回帰確認として`python3 schema/validate_test_cases.py`(22件、変更なし)・
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(35件、変更なし)を実行し
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡、実LLM接続)がオーナーから
+  承認された場合はその着手を最優先、(2)候補2(那覇市・中山一朗氏)の屋号特定はオーナーの電話
+  連絡承認が得られるまで探索頻度をさらに下げる、(3)独自ドメイン運用かCloud Runデフォルト
+  URLのままとするかの検討(実サービス公開時に再検討、web-form-hosting-selection.md 4節)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 23:00 UTC(フェーズ49: web-form-hosting-selection.md新規作成。
+  Cloud Run 2nd gen同一サービスでのフォーム配信・処理統合を選定し、追加のGCPプロダクト
+  依存を増やさない方針とした。コード変更なし、schema検証22件・prototype試験35件いずれも
+  変更なしでパス)
