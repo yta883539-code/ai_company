@@ -6215,3 +6215,27 @@
 - 最終更新: 2026-10-23 22:00 UTC(フェーズ336: 旧stripe_customer_idからの付け替え時の
   旧インデックスエントリ削除を実コード化。コード変更あり、テスト782件〈新規3件〉・
   schema検証25件パス)
+- フェーズ337(2026-10-24 02:00 UTC定例更新): kura-pashaフェーズ261(2026-10-23 19:00 UTC)の
+  申し送り「aircon-pasha・course-set-pasha・forklift-pashaについても同種の記載漏れがないか
+  未確認」を受け、本venture側を棚卸しした。firestore-provider-adapter-design.md
+  (111〜115行目「4. 残課題・次回候補」)が「実Firestoreプロジェクト・GCPアカウントの開設
+  自体はオーナー承認待ち(pending-approval.md参照)」と一貫して記述し、
+  `UserProfileStoreProtocol`全7グループの実コード化(フェーズ336で完了)までテスト・schema
+  検証を積み上げてきたが、pending-approval.md全体を確認した結果、この前提となる承認依頼自体が
+  一度も独立したエントリとして記録されていなかった記載漏れであることを確認した(既存の
+  aircon-pasha関連4件は顧客ヒアリング連絡・Googleフォーム連携・Stripe/LP関連・LINE公式
+  アカウント開設+Cloud Scheduler作成のみで、いずれもFirestoreデータベース作成を対象として
+  いない)。pending-approval.mdに新規エントリ(2026-10-24 02:00 UTC)を記録し、
+  firestore-provider-adapter-design.md 4節に是正済みである旨を追記した。コード変更なし
+  (記載漏れの発見・記録・是正のみ)、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(782件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクションは今回新規にpending-approval.mdへ記録した(上記)。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)course-set-pasha・forklift-pashaについても同種の記載漏れ(実GCPプロジェクト・
+  Firestoreデータベース作成の承認依頼の記録有無)がないかの棚卸し、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-24 02:00 UTC(フェーズ337: 実GCPプロジェクト・Firestoreデータベース
+  作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
+  記載漏れを発見し、新規に記録・firestore-provider-adapter-design.mdに是正を追記。コード
+  変更なし、テスト782件・schema検証25件いずれも変更なしでパス)

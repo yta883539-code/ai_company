@@ -112,7 +112,9 @@ class FirestorePendingLinkStore:
 
 - 実Firestoreプロジェクト・GCPアカウントの開設自体は外部サービス側のアカウント作成・
   課金設定を伴うため、オーナー承認待ち(pending-approval.md参照)。本設計のコードは
-  承認後の結合実装フェーズまでコミットしない。
+  承認後の結合実装フェーズまでコミットしない。この承認依頼自体がpending-approval.mdに
+  一度も独立したエントリとして記録されていなかった記載漏れが2026-10-24 02:00 UTCの
+  棚卸しで発見され、同時刻付で新規に記録・是正済み。
 - `UserProfileStoreProtocol`(`user_profile/{user_id}`、20件超のget/setメソッド)の
   実Firestore接続アダプタ設計は本フェーズの対象外とし、次回候補として残していたが、
   フェーズ295で基盤3メソッド(`save`/`get`/`exists`)+Stripe顧客ID逆引きグループに
