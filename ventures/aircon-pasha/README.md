@@ -6264,3 +6264,21 @@
   向けFirestoreアダプタ〈deletion_candidate_at・deletion_candidate_state_event_timeの
   2フィールド、4メソッド〉を実コード化。コード変更あり、テスト789件〈新規7件〉・
   schema検証25件パス)
+- フェーズ339(2026-10-24 15:00 UTC定例更新): フェーズ338の次回候補(2)
+  「course-set-pasha側の`deletion_candidate.py`(フェーズ91)が同種のProtocol分離を
+  抱えているかのcross-venture parity確認」に着手しようとしたところ、同じ確認作業が
+  firestore-provider-adapter-design.md 22節(フェーズ304)で既に実施済みであり、
+  course-set-pashaはフェーズ91時点から一貫して別ストアに分離する設計を選んでおり
+  横展開是正は不要、という結論まで出ていたことが判明した。フェーズ338執筆時に22節の
+  既存結論が参照されず同じ項目が再度次回候補として書かれてしまった陳腐化した記載漏れ
+  であり、design.md 24節に発見・是正を追記し、次回候補リストから当該項目を除去した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)design.md 23節
+  次回候補(2)「`run_due_deletion_candidate_final_confirmations()`の月次スケジューラ
+  エントリポイント設計」、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 15:00 UTC(フェーズ339: フェーズ338次回候補(2)が22節〈フェーズ304〉
+  で既に解消済みだった陳腐化記載であることを発見・是正。コード変更なし、全789件・
+  schema検証25件パス)
