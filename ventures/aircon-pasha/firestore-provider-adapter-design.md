@@ -992,6 +992,35 @@ class FirestoreUserProfileStore:
 - 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では
   机上設計にとどまる)。
 
+### 21.5. 実コード化(フェーズ338、2026-10-24 11:00 UTC定例更新)
+
+21.4節「コード側の是正(次回候補)」で保留していた`UserProfile`dataclassへの2フィールド
+追加・`InMemoryUserProfileStore`への5メソッド実装は、本design節とは独立に
+フェーズ305・307で既に行われていたことを本フェーズで確認した(`user_id_linking.py`
+329〜330行目に`deletion_candidate_at`・`deletion_candidate_state_event_time`が既存、
+570〜581行目に`InMemoryUserProfileStore`側の対応する4メソッドが既存)。したがって
+21.2節が指摘した「docstringの設計意図とInMemory実装の分離」のずれは既に解消済みで
+あり、`InMemoryProfileDeletionCandidateStore`の`InMemoryUserProfileStore`への統合
+可否についても本フェーズでは変更を加えない(呼び出し経路・既存テストへの影響範囲の
+確認は依然未着手の次回候補)。
+
+本フェーズでは、21.3節のコード例通り`FirestoreUserProfileStore`
+(`firestore_user_profile_adapter.py`)に`get_deletion_candidate_at`・
+`set_deletion_candidate_at`・`get_deletion_candidate_state_event_time`・
+`set_deletion_candidate_state_event_time`の4メソッドを追加した(`all_user_ids`は
+21.4節の通り15節の既存実装を再利用し追加実装不要)。
+`test_firestore_user_profile_adapter.py`に、`deletion_candidate_at`の往復・
+`None`書き込みによるクリア・未知user_idに対する`None`フォールバック・他フィールド
+非破壊・user_idごとの独立性、`deletion_candidate_state_event_time`の往復・未知
+user_idに対する`None`フォールバックの計7件を追加した。回帰確認として
+`python3 -m unittest discover -p "test_*.py"`(782→789件、新規7件含めて全件パス)・
+`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスする
+ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。次回候補:
+(1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)course-set-pasha側の
+`deletion_candidate.py`(フェーズ91)が同種のProtocol分離を抱えているかのcross-venture
+parity確認(21.4節で未着手のまま残っていた候補)、(3)他venture・アイデア領域の前進。
+
 ## 22. cross-venture parity確認: course-set-pasha側の`ProfileDeletionCandidateStoreProtocol`分離状況(フェーズ304)
 
 21.4節の次回候補を受け、course-set-pasha/prototype/deletion_candidate.py

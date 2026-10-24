@@ -6239,3 +6239,28 @@
   作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
   記載漏れを発見し、新規に記録・firestore-provider-adapter-design.mdに是正を追記。コード
   変更なし、テスト782件・schema検証25件いずれも変更なしでパス)
+- フェーズ338(2026-10-24 11:00 UTC定例更新): フェーズ335・336の次回候補(3)
+  「`UserProfileStoreProtocol`実コード化完了を受け、本venture内の他Protocol
+  (`ProfileDeletionCandidateStoreProtocol`等)の実コード化状況の棚卸し」に対応した。
+  firestore-provider-adapter-design.md 21節が既に設計済みだった
+  `ProfileDeletionCandidateStoreProtocol`向けFirestoreアダプタ(`deletion_candidate_at`・
+  `deletion_candidate_state_event_time`の2フィールド、get/set計4メソッド)が
+  `firestore_user_profile_adapter.py`に未実装のまま残っていたことを確認し、21.3節の
+  コード例通り実コード化した(`all_user_ids`は15節の既存実装を再利用するため追加実装
+  不要)。棚卸しの過程で、21.4節が「次フェーズ以降の候補」としていた`UserProfile`
+  dataclass・`InMemoryUserProfileStore`側の対応は、本design節とは独立にフェーズ305・307で
+  既に完了済みであったこと(ドキュメント更新漏れ)も発見し、design.md 21.5節に是正を
+  追記した。`test_firestore_user_profile_adapter.py`に、`deletion_candidate_at`の
+  往復・`None`クリア・未知user_idフォールバック・他フィールド非破壊・user_id独立性、
+  `deletion_candidate_state_event_time`の往復・未知user_idフォールバックの計7件を
+  追加した。回帰確認として`python3 -m unittest discover -p "test_*.py"`
+  (782→789件、新規7件含めて全件パス)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)course-set-pasha側の
+  `deletion_candidate.py`(フェーズ91)が同種のProtocol分離を抱えているかのcross-venture
+  parity確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 11:00 UTC(フェーズ338: `ProfileDeletionCandidateStoreProtocol`
+  向けFirestoreアダプタ〈deletion_candidate_at・deletion_candidate_state_event_timeの
+  2フィールド、4メソッド〉を実コード化。コード変更あり、テスト789件〈新規7件〉・
+  schema検証25件パス)

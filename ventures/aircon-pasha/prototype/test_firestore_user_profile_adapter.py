@@ -535,6 +535,54 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.assertEqual(got.subscription_state_event_time, at)
         self.assertEqual(got.current_plan_id, "plan_basic")
 
+    def test_set_deletion_candidate_at_then_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 24, 11, tzinfo=timezone.utc)
+        self.store.set_deletion_candidate_at("U1", at)
+        self.assertEqual(self.store.get_deletion_candidate_at("U1"), at)
+
+    def test_set_deletion_candidate_at_to_none_clears_it(self):
+        # design.md 21.4節: clear_deletion_candidate_on_subscription_reactivated()は
+        # 「None=削除候補ではない」の意味でのみ使うため、一度設定した値をNoneに戻せる
+        # ことを検証する(13節のcurrent_plan_idと同型)。
+        at = datetime(2026, 10, 24, 11, tzinfo=timezone.utc)
+        self.store.save("U1", _make_profile(deletion_candidate_at=at))
+        self.store.set_deletion_candidate_at("U1", None)
+        self.assertIsNone(self.store.get_deletion_candidate_at("U1"))
+
+    def test_get_deletion_candidate_at_for_unknown_user_returns_none(self):
+        self.assertIsNone(self.store.get_deletion_candidate_at("U_unknown"))
+
+    def test_set_deletion_candidate_at_does_not_clobber_other_fields(self):
+        self.store.save("U1", _make_profile(current_plan_id="plan_basic"))
+        at = datetime(2026, 10, 24, 11, tzinfo=timezone.utc)
+        self.store.set_deletion_candidate_at("U1", at)
+        got = self.store.get("U1")
+        self.assertEqual(got.current_plan_id, "plan_basic")
+        self.assertEqual(got.deletion_candidate_at, at)
+
+    def test_deletion_candidate_state_event_time_round_trips(self):
+        self.store.save("U1", _make_profile())
+        at = datetime(2026, 10, 24, 11, tzinfo=timezone.utc)
+        self.store.set_deletion_candidate_state_event_time("U1", at)
+        self.assertEqual(
+            self.store.get_deletion_candidate_state_event_time("U1"), at
+        )
+
+    def test_get_deletion_candidate_state_event_time_for_unknown_user_returns_none(
+        self,
+    ):
+        self.assertIsNone(
+            self.store.get_deletion_candidate_state_event_time("U_unknown")
+        )
+
+    def test_deletion_candidate_fields_independent_per_user(self):
+        self.store.save("U1", _make_profile())
+        self.store.save("U2", _make_profile(business_name="別店舗"))
+        at = datetime(2026, 10, 24, 11, tzinfo=timezone.utc)
+        self.store.set_deletion_candidate_at("U1", at)
+        self.assertIsNone(self.store.get_deletion_candidate_at("U2"))
+
 
 if __name__ == "__main__":
     unittest.main()

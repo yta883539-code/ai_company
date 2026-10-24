@@ -21,9 +21,14 @@ get/set計4メソッド)・13節の**current_plan_idグループ**(1フィール
 15節の**is_following+all_user_idsグループ**(2フィールド・計3メソッド)・
 17節の**event_time系4種グループ**(`subscription_state_event_time`・
 `payment_failure_state_event_time`・`checkout_session_completed_event_time`・
-`subscription_updated_event_time`、各get/set計8メソッド)
-を対象とする。これにより design.md が5・7・9・11・13・15・17節の7グループに分けて
-設計した`UserProfileStoreProtocol`の全グループの実コード化が完了した。
+`subscription_updated_event_time`、各get/set計8メソッド)・21節の
+**deletion_candidateグループ**(`deletion_candidate_at`・
+`deletion_candidate_state_event_time`の2フィールド、get/set計4メソッド。
+`all_user_ids`は15節の実装をそのまま再利用するため追加実装不要)
+を対象とする。design.md が5・7・9・11・13・15・17節の7グループに分けて設計した
+`UserProfileStoreProtocol`本体の全グループの実コード化は完了済みで、21節は
+`ProfileDeletionCandidateStoreProtocol`(同一`user_profile`ドキュメントを対象にする
+別Protocol)向けの追加グループにあたる。
 
 design.md 7.2節のコード例は実SDKの`google.cloud.firestore.Increment`を前提にしているが、
 本モジュールは実SDK非依存方針を維持するため、同じ「サーバー側フィールド変換として加算する」
@@ -74,7 +79,8 @@ class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤3メソッド+Stripe顧客ID
     グループ・trial系グループ・payment_failure系グループ・owner_notified_at系グループ・
     current_plan_idグループ・is_following+all_user_idsグループ・event_time系4種グループ。
-    design.md 5・7・9・11・13・15・17節の全グループを実コード化済み)。
+    design.md 5・7・9・11・13・15・17節の全グループを実コード化済み)に加え、21節の
+    deletion_candidateグループ(ProfileDeletionCandidateStoreProtocol向け)も実コード化済み。
     user_profile/{user_id}ドキュメントおよびstripe_customer_index/{stripe_customer_id}
     逆引きドキュメントを読み書きする。
     """
@@ -320,4 +326,32 @@ class FirestoreUserProfileStore:
     ) -> None:
         self._doc_ref(user_id).set(
             {"subscription_updated_event_time": event_time}, merge=True
+        )
+
+    def get_deletion_candidate_at(self, user_id: str) -> Optional[datetime]:
+        # design.md 21.3節・21.4節: 未知のuser_idはNone(削除候補ではない側の安全側
+        # デフォルト、9・13節のget_*と同型)。
+        profile = self.get(user_id)
+        return profile.deletion_candidate_at if profile is not None else None
+
+    def set_deletion_candidate_at(
+        self, user_id: str, value: Optional[datetime]
+    ) -> None:
+        self._doc_ref(user_id).set({"deletion_candidate_at": value}, merge=True)
+
+    def get_deletion_candidate_state_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        profile = self.get(user_id)
+        return (
+            profile.deletion_candidate_state_event_time
+            if profile is not None
+            else None
+        )
+
+    def set_deletion_candidate_state_event_time(
+        self, user_id: str, value: datetime
+    ) -> None:
+        self._doc_ref(user_id).set(
+            {"deletion_candidate_state_event_time": value}, merge=True
         )
