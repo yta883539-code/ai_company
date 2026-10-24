@@ -5800,3 +5800,27 @@
   〈`set_plan`/`get_plan`の2メソッド、設計11節〉を実コード化。既存スタイル(読んでから
   全フィールドをベースに書き戻す方式)で実装。テスト5件追加(845→850件)・schema検証
   21件〈変更なし〉いずれもパス)
+- フェーズ328(2026-10-24 14:00 UTC定例更新): フェーズ327の次回候補(2)を受け、残る
+  `UserProfileStoreProtocol`最後の1グループ(`checkout_session_completed_event_time`、
+  設計13節)を実コード化した。`prototype/firestore_user_profile_adapter.py`の
+  `FirestoreUserProfileStore`に`set_checkout_session_completed_event_time`/
+  `get_checkout_session_completed_event_time`の2メソッドを、5節・6節・7節・9節・11節と
+  同じ既存実装スタイル(読んでから全フィールドをベースに書き戻す方式)で追加した。これで
+  `UserProfileStoreProtocol`全7グループ(基盤2フィールド・Stripe顧客IDグループ・
+  is_following+all_user_idsグループ・blocked_but_billing_owner_notified_atグループ・
+  planグループ・checkout_session_completed_event_timeグループ)の実コード化が完了した。
+  テストを5件新規追加し、(1)未知ユーザーの`get_*`は`None`、(2)set→getの一致、
+  (3)再送信時に完全に上書きされること、(4)本グループの書き込みが`plan`等の既存フィールドを
+  消さないこと、(5)本グループのみを書き込んだユーザーも`all_user_ids()`の和集合に現れること、
+  を確認した。firestore-provider-adapter-design.md 14節にも実コード化完了を反映して追記した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (850→855件、新規5件含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手(実Firestore
+  プロジェクト接続・結合テスト)を最優先、(2)`GymAreaConfigStoreProtocol`(15節)・
+  `FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 14:00 UTC(フェーズ328: `UserProfileStoreProtocol`
+  checkout_session_completed_event_timeグループ〈2メソッド、設計13節〉を実コード化。
+  これで同Protocol全7グループの実コード化が完了。テスト5件追加(850→855件)・schema検証
+  21件〈変更なし〉いずれもパス)

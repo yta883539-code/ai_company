@@ -260,6 +260,50 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_gym_area_pairs("u2", "shinjuku:east")
         self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
 
+    def test_get_checkout_session_completed_event_time_for_unknown_user_is_none(self):
+        self.assertIsNone(
+            self.store.get_checkout_session_completed_event_time("u1")
+        )
+
+    def test_set_then_get_checkout_session_completed_event_time(self):
+        event_time = datetime(2026, 10, 24, 14, 0, 0)
+        self.store.set_checkout_session_completed_event_time("u1", event_time)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("u1"), event_time
+        )
+
+    def test_resubmission_overwrites_checkout_session_completed_event_time(self):
+        self.store.set_checkout_session_completed_event_time(
+            "u1", datetime(2026, 10, 24, 10, 0, 0)
+        )
+        self.store.set_checkout_session_completed_event_time(
+            "u1", datetime(2026, 10, 24, 14, 0, 0)
+        )
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("u1"),
+            datetime(2026, 10, 24, 14, 0, 0),
+        )
+
+    def test_set_checkout_session_completed_event_time_does_not_erase_plan(self):
+        self.store.set_plan("u1", "premium")
+        self.store.set_checkout_session_completed_event_time(
+            "u1", datetime(2026, 10, 24, 14, 0, 0)
+        )
+        self.assertEqual(self.store.get_plan("u1"), "premium")
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("u1"),
+            datetime(2026, 10, 24, 14, 0, 0),
+        )
+
+    def test_all_user_ids_includes_user_with_only_checkout_session_completed_event_time(
+        self,
+    ):
+        self.store.set_checkout_session_completed_event_time(
+            "u1", datetime(2026, 10, 24, 14, 0, 0)
+        )
+        self.store.set_gym_area_pairs("u2", "shinjuku:east")
+        self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
+
 
 if __name__ == "__main__":
     unittest.main()

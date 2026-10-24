@@ -22,10 +22,10 @@ class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤2フィールド:
     gym_area_pairs・emailグループ、Stripe顧客IDグループ〈フェーズ323、設計6節〉、
     is_following+all_user_idsグループ〈フェーズ324、設計7節〉、および
-    blocked_but_billing_owner_notified_atグループ〈フェーズ325、設計9節〉、および
-    planグループ〈フェーズ327、設計11節〉。
-    残りのグループ〈checkout_session_completed_event_time〉は次回候補、
-    設計12節参照)。
+    blocked_but_billing_owner_notified_atグループ〈フェーズ325、設計9節〉、
+    planグループ〈フェーズ327、設計11節〉、および
+    checkout_session_completed_event_timeグループ〈フェーズ328、設計13節〉。
+    これで`UserProfileStoreProtocol`の全グループの実Firestore接続アダプタ実装が完了する)。
     user_profile/{user_id}ドキュメント、およびstripe_customer_id逆引き用の
     stripe_customer_index/{stripe_customer_id}ドキュメントを読み書きする。
     """
@@ -144,6 +144,25 @@ class FirestoreUserProfileStore:
         if not snapshot.exists:
             return None
         return (snapshot.to_dict() or {}).get("plan")
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["checkout_session_completed_event_time"] = event_time
+        doc_ref.set(data)
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "checkout_session_completed_event_time"
+        )
 
     def all_user_ids(self) -> Iterable[str]:
         # 設計7.2節・7.3節: user_profileコレクション全件のドキュメントID集合は、

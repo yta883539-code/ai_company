@@ -636,6 +636,12 @@ class FirestoreUserProfileStore:
   残るのは、承認待ち事項(2026-09-27 03:00 UTC記載の実Stripeアカウント開設等)がオーナーから
   承認された後の、実際のFirestoreプロジェクト接続・`application_form_submission_flow.py`
   呼び出し側への本クラスのインスタンス注入・結合テストのみ(いずれも未承認のため着手不可)。
+- 本グループ(`checkout_session_completed_event_time`: `set_checkout_session_completed_
+  event_time`/`get_checkout_session_completed_event_time`)も`prototype/firestore_user_
+  profile_adapter.py`の`FirestoreUserProfileStore`に実コード化した(フェーズ328)。
+  5節・6節・7節・9節・11節と同じ既存実装スタイルで実装し、テスト5件追加(850→855件)・
+  schema検証21件〈変更なし〉いずれもパス。これで`UserProfileStoreProtocol`全7グループの
+  実コード化が完了した。
 - 他venture・アイデア領域の前進、またはcourse-set-pasha内の別論点
   (例: `GymAreaConfigStoreProtocol`等、本designでは未対象の他Protocolの実Firestore接続
   アダプタ設計)への着手を次回候補とする。
