@@ -6372,3 +6372,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-23 12:00 UTC(フェーズ続き339: 実Firestoreプロジェクト・GCP
   アカウントの開設がpending-approval.mdに一度も記録されていなかった記載漏れを発見し、
   新規に記録。コード変更なし、全956件・schema検証28件パス)
+- フェーズ続き340(2026-10-24 03:00 UTC定例更新): firestore-provider-adapter-design.md
+  (フェーズ続き296の次回候補)で机上設計のみだった`StoreNameProviderProtocol`・
+  `RegionNameProviderProtocol`のFirestoreアダプタを、kura-pasha・course-set-pasha・
+  aircon-pashaの既存Firestoreアダプタと同型の方針(SDK非依存の最小インターフェース)で
+  `FirestoreStoreDocumentProvider`として`prototype/firestore_store_document_provider.py`
+  に実コード化した。テスト8件追加(956→964件)・schema検証28件〈変更なし〉いずれもパス。
+  設計文書側の「残課題」記述も実コード化完了を反映して更新した。承認が必要なアクションは
+  発生していないためpending-approval.mdへの追記なし。なお本エントリは、該当コミット
+  (82e363e)で設計文書は更新されたがREADME.mdへの反映が漏れていたため、フェーズ続き341で
+  遡って記録した。
+- 最終更新: 2026-10-24 03:00 UTC(フェーズ続き340: `FirestoreStoreDocumentProvider`を
+  実コード化。テスト8件追加(956→964件)・schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き341(2026-10-24 17:00 UTC定例更新): kura-pashaフェーズ262「次回候補(1)」
+  (Studio株式会社の不正アクセス事案を踏まえた`vendor-breach-key-rotation-runbook.md`の
+  他venture横展開)を受け、本venture固有版を新規作成した。LINE Messaging API・Stripe・
+  LLM API・GCP(Cloud Run functions・Firestore)という本venture固有の外部連携キー・
+  シークレット一覧と、検知→一次切断(予防的失効)→再配線→不正利用痕跡確認→個人情報保護法
+  対応との並走、という5段階の緊急ローテーション手順ドラフトを整理した(LINEチャネルの
+  IDトークン検証用公開鍵の扱いなど本venture固有の論点を追加)。あわせて、フェーズ続き340の
+  README.md反映漏れを発見・是正した。実アカウント開設自体は引き続きオーナー承認待ち
+  (pending-approval.md参照)のため、コード変更・実際のキー発行/失効は行っていない。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(964件、
+  変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先(aircon-pasha・course-set-pasha・forklift-pasha・
+  event-komiguai-pasha)は他venture側の次回候補として残る、(2)承認待ち事項がオーナーから
+  承認された場合はその着手(本venture全設計の結合実装)を最優先、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-24 17:00 UTC(フェーズ続き341: kura-pashaフェーズ262の横展開として
+  vendor-breach-key-rotation-runbook.mdを新規作成。あわせてフェーズ続き340のREADME.md
+  反映漏れを是正。コード変更なし、全964件・schema検証28件いずれも変更なしでパス)
