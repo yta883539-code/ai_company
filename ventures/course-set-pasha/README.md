@@ -5757,3 +5757,19 @@
   `UserProfileStoreProtocol`2グループ(plan・checkout_session_completed_event_time、
   11節・13節)および`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
   (21節)の実コード化、(3)他venture・アイデア領域の前進。
+- フェーズ326(2026-10-24 09:00 UTC定例更新): kura-pashaフェーズ261(2026-10-23 19:00 UTC)の
+  申し送り(「course-set-pasha・forklift-pashaについても同種の記載漏れがないかは未確認」、
+  forklift-pasha側は2026-10-24 07:00 UTCに是正済み)を受け、本venture側を棚卸しした。
+  firestore-provider-adapter-design.md(18〜22行目「1. 背景」・98〜99行目「4. 残課題・
+  次回候補」)が「実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md
+  記載の承認待ち」と一貫して記述していたが、実際にはこの承認依頼自体がpending-approval.md
+  に一度も独立したエントリとして記録されていなかった記載漏れであることが判明したため、
+  新規に記録し(2026-10-24 09:00 UTC)、firestore-provider-adapter-design.mdにも是正の
+  追記を行った。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(845件、変更なし)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は本件自体がpending-approval.mdへの記録対象
+  であり、記録済み。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(2)残る`UserProfileStoreProtocol`2グループ(plan・checkout_session_completed_
+  event_time、11節・13節)および`GymAreaConfigStoreProtocol`(15節)・
+  `FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・アイデア領域の前進。

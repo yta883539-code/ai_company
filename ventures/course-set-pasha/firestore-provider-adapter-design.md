@@ -97,6 +97,11 @@ class FirestorePendingLinkStore:
 
 - 実Firestoreプロジェクト・GCPアカウントの開設自体はpending-approval.md記載の承認待ちで
   あり、本設計のコードは承認後の結合実装フェーズまでコミットしない。
+  【フェーズ326追記】上記「pending-approval.md記載」という記述は、実際には本venture
+  固有の独立したエントリがpending-approval.mdに一度も記録されていなかった記載漏れ
+  であったことが本フェーズの棚卸しで判明した(line-reservation-aiフェーズ続き339・
+  kura-pashaフェーズ261・aircon-pashaフェーズ337・forklift-pashaフェーズで発見された
+  同種の記載漏れと同じパターン)。2026-10-24 09:00 UTCに新規エントリを記録し是正済み。
 - 承認後は、`user_id_linking.py`・`cloud_function_webhook.py`呼び出し側の
   `LinkingCodeStoreProtocol`実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが
   完了する設計になっていることを、結合実装時に確認する。
