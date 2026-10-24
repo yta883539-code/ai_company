@@ -7,8 +7,9 @@ vehicle-label-duplicate-handling-design.md(フェーズ114)「6. 未確定・次
 (firestore-composite-index-plan相当の文書化)」に着手する。line-reservation-ai/
 firestore-composite-index-plan.mdの構成方針(本venture全体に分散している複合インデックス
 必要箇所を1ドキュメントに集約し、実際にデプロイ可能な`firestore.indexes.json`を先行して
-書き出す)を踏襲する。GCPプロジェクト作成・Firestore有効化自体はオーナー承認待ちのため、
-本フェーズではJSONの中身を確定するだけの机上作業に留まる。
+書き出す)を踏襲する。GCPプロジェクト作成・Firestore有効化自体はpending-approval.md記載の
+承認待ち(2026-10-24 07:00 UTC、フェーズ185で新規記録)のため、本フェーズではJSONの中身を
+確定するだけの机上作業に留まる。
 
 ## 集約した複合インデックス一覧
 

@@ -99,7 +99,12 @@ return [doc.id for doc in self._client.collection("fleet_operator").stream()]
 InMemoryFleetOperatorStoreのキー削除方式と観測可能な振る舞いが一致することをテストで確認
 した。テスト10件追加(30→40件)・schema検証11件〈変更なし〉いずれもパス。これで
 `FleetOperatorStoreProtocol`の15メソッド全てがFirestore接続実装を持つに至った(実
-`google-cloud-firestore`ライブラリへの切り替えは、承認待ち事項1〈実GCPプロジェクト作成〉の
-承認後に持ち越し)。
+`google-cloud-firestore`ライブラリへの切り替えは、pending-approval.md記載の実GCPプロジェクト
+作成・Firestoreデータベース新規作成の承認依頼(2026-10-24 07:00 UTC、フェーズ185で新規記録。
+従来「承認待ち事項1」と呼んでいたものは2026-10-05 21:00 UTC記載の建荷協・労働局連絡を指し、
+本件とは別の未記録事項だった)の承認後に持ち越し)。
 
-最終更新: 2026-10-24 04:00 UTC(フェーズ184)
+最終更新: 2026-10-24 07:00 UTC(フェーズ185: 本節末尾の「承認待ち事項1〈実GCPプロジェクト
+作成〉」という参照が、実際には建荷協・労働局連絡(承認待ち事項1)とは別の、一度も独立記録
+されていなかった承認依頼を指していたことが判明したため、pending-approval.mdへの新規記録に
+合わせて参照先を是正した)

@@ -3776,3 +3776,33 @@
   実コード化。unreachable_reasonはcanceled_atと同じnull書き込み案を採用。これで
   FleetOperatorStoreProtocol全15メソッドがFirestore実装を持つに至った。コード変更あり、
   prototype全23ファイル〈テスト10件追加〉・schema検証11件いずれもパス)
+- フェーズ185(2026-10-24 07:00 UTC定例更新): kura-pashaフェーズ261(2026-10-23 19:00 UTC)の
+  申し送り「aircon-pasha・course-set-pasha・forklift-pashaについても実GCPプロジェクト・
+  Firestoreデータベース作成の承認依頼がpending-approval.mdに記録されているか棚卸しが
+  必要」(aircon-pashaフェーズ337、2026-10-24 02:00 UTCで既に対応済み)を受け、forklift-pasha
+  側を棚卸しした。firestore-composite-index-plan.md(10〜11行目)・fleet-operator-store-
+  upgraded-canceled-firestore-adapter-design.md(102行目)・trial-end-condition-design.md
+  (108行目)・web-form-ui-design.md(93行目)が「GCPプロジェクト作成・Firestore有効化は
+  オーナー承認待ち」と記述し、さらにREADME.md側の複数フェーズ(フェーズ183・184等)が
+  これを「承認待ち事項1〈実GCPプロジェクト作成〉」と呼んでいたが、実際の「承認待ち事項1」
+  (2026-10-05 21:00 UTC記載)は建荷協・都道府県労働局への対外連絡を指すものであり、
+  実GCPプロジェクト・Firestoreデータベース作成という別個のアクションの承認依頼は
+  pending-approval.mdに一度も独立記録されていなかった記載漏れであることを確認した。
+  pending-approval.mdに新規エントリ(2026-10-24 07:00 UTC)を記録し、fleet-operator-store-
+  upgraded-canceled-firestore-adapter-design.md・firestore-composite-index-plan.mdの
+  当該箇所に是正を追記した(trial-end-condition-design.md・web-form-ui-design.mdの表現は
+  「オーナー承認待ち」という一般的な言及に留まり「承認待ち事項1」との誤った紐付けを含まない
+  ため、本フェーズでは追記を見送った)。コード変更なし(記載漏れの発見・記録・是正のみ)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(全23ファイル、
+  変更なし)・schema検証11件(変更なし)を実行しいずれもパスすることを確認した(回帰なし)。
+  承認が必要なアクションは今回新規にpending-approval.mdへ記録した(上記)。承認待ち事項1
+  (建荷協・都道府県労働局への対外連絡)は依然未承認のまま、フェーズ148で定めた判断切り替え
+  期限の目安(10/25前後)まで残り1日を切った状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)course-
+  set-pashaについても同種の記載漏れがないかの棚卸し、(3)10/25を過ぎても建荷協・労働局連絡の
+  承認が得られない場合、launch-readiness-checklist.mdに「今年度は困難」の判断切り替えを記録、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 07:00 UTC(フェーズ185: 実GCPプロジェクト・Firestoreデータベース
+  作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
+  記載漏れを発見し、新規に記録・2設計文書に是正を追記。コード変更なし、テスト・schema検証
+  いずれも変更なし)
