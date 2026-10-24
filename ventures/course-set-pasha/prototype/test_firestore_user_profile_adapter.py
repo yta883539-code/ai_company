@@ -15,9 +15,10 @@ from firestore_user_profile_adapter import FirestoreUserProfileStore
 
 
 class _FakeSnapshot:
-    def __init__(self, exists: bool, data: dict | None):
+    def __init__(self, exists: bool, data: dict | None, doc_id: str | None = None):
         self.exists = exists
         self._data = data
+        self.id = doc_id
 
     def to_dict(self):
         return self._data
@@ -30,7 +31,9 @@ class _FakeDocumentRef:
 
     def get(self):
         data = self._store.get(self._key)
-        return _FakeSnapshot(exists=data is not None, data=dict(data) if data else None)
+        return _FakeSnapshot(
+            exists=data is not None, data=dict(data) if data else None, doc_id=self._key
+        )
 
     def set(self, data: dict) -> None:
         self._store[self._key] = dict(data)
@@ -45,6 +48,10 @@ class _FakeCollection:
 
     def document(self, doc_id: str) -> _FakeDocumentRef:
         return _FakeDocumentRef(self._store, doc_id)
+
+    def stream(self):
+        for doc_id, data in self._store.items():
+            yield _FakeSnapshot(exists=True, data=dict(data), doc_id=doc_id)
 
 
 class _FakeFirestoreClient:
@@ -142,6 +149,36 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.assertEqual(
             self.store.get_user_id_by_stripe_customer_id("cus_abc123"), "u1"
         )
+
+    def test_get_is_following_for_unknown_user_defaults_to_true(self):
+        self.assertTrue(self.store.get_is_following("u1"))
+
+    def test_set_then_get_is_following(self):
+        self.store.set_is_following("u1", False)
+        self.assertFalse(self.store.get_is_following("u1"))
+
+    def test_set_is_following_does_not_erase_gym_area_pairs(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_is_following("u1", False)
+        self.assertEqual(self.store.get_gym_area_pairs("u1"), "shinjuku:east")
+        self.assertFalse(self.store.get_is_following("u1"))
+
+    def test_all_user_ids_for_empty_store_is_empty(self):
+        self.assertEqual(list(self.store.all_user_ids()), [])
+
+    def test_all_user_ids_returns_union_across_field_groups(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_email("u2", "other@example.com")
+        self.store.set_stripe_customer_id("u3", "cus_abc123")
+        self.store.set_is_following("u4", False)
+        self.assertEqual(
+            sorted(self.store.all_user_ids()), ["u1", "u2", "u3", "u4"]
+        )
+
+    def test_all_user_ids_does_not_duplicate_user_with_multiple_fields(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_email("u1", "owner@example.com")
+        self.assertEqual(list(self.store.all_user_ids()), ["u1"])
 
 
 if __name__ == "__main__":

@@ -5702,3 +5702,33 @@
   completed_event_time、7節・9節・11節・13節)および`GymAreaConfigStoreProtocol`
   (15節)・`FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・
   アイデア領域の前進。
+- フェーズ324(2026-10-24 06:00 UTC定例更新): フェーズ323の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の次グループである7節(is_following+all_user_idsグループ:
+  `set_is_following`/`get_is_following`/`all_user_ids`の3メソッド)を実コード化した。
+  `prototype/firestore_user_profile_adapter.py`の`FirestoreUserProfileStore`に当該
+  3メソッドを追加した。`set_is_following`/`get_is_following`は5節・6節と同じ既存実装
+  スタイル(読んでから全フィールドをベースに書き戻す方式)で実装し、`all_user_ids`は
+  設計7.2節・7.3節が確認した通り`user_profile`コレクション全件を`stream()`してドキュメント
+  IDを列挙するだけでInMemory版の5辞書和集合と同じ集合になることを根拠に、単純な
+  ジェネレータとして実装した。設計7.2節のコード例は接続エラー時にデフォルト値・空集合を
+  返す`try/except`を想定していたが、本venture側の既存実装(5節・6節の`get_gym_area_pairs`
+  等)が一貫して`try/except`を持たないスタイルを採っているため、既存スタイルと揃えて
+  例外処理を追加しない実装とした(設計ドキュメントとの意図的な差分であり、次回以降に
+  同種の既存実装スタイルとの差分が見つかった場合も同じ判断基準〈既存ファイル内の
+  確立済みスタイルを優先〉で揃えること)。テストを6件新規追加し、(1)未知ユーザーの
+  `get_is_following`は`True`(安全側デフォルト)、(2)set→getの一致、(3)
+  `set_is_following`書き込みが`gym_area_pairs`等の既存フィールドを消さないこと、(4)
+  空ストアの`all_user_ids`は空集合、(5)`gym_area_pairs`・`email`・`stripe_customer_id`・
+  `is_following`のいずれか1つでも書き込まれたuser_idは全て`all_user_ids`に現れること
+  (複数フィールドグループからの和集合であることの確認)、(6)同一user_idが複数フィールド
+  グループに書き込まれても重複しないこと、を確認した。テスト用フェイク
+  (`test_firestore_user_profile_adapter.py`の`_FakeCollection`)にも`stream()`メソッドと
+  `_FakeSnapshot.id`属性を追加した。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(838件、新規6件含めて全件パス)・`python3 schema/validate_
+  test_cases.py`(21件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)残る`UserProfileStoreProtocol`3グループ(blocked_but_
+  billing_owner_notified_at系・plan・checkout_session_completed_event_time、9節・11節・
+  13節)および`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
+  (21節)の実コード化、(3)他venture・アイデア領域の前進。
