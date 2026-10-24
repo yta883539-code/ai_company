@@ -14,15 +14,17 @@ get()/set(data)を持つドキュメント参照を返す)を前提にする。
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Iterable, Optional
 
 
 class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤2フィールド:
     gym_area_pairs・emailグループ、Stripe顧客IDグループ〈フェーズ323、設計6節〉、
-    およびis_following+all_user_idsグループ〈フェーズ324、設計7節〉。
-    残りのグループ〈blocked_but_billing_owner_notified_at系・plan・
-    checkout_session_completed_event_time〉は次回候補、設計8節参照)。
+    is_following+all_user_idsグループ〈フェーズ324、設計7節〉、および
+    blocked_but_billing_owner_notified_atグループ〈フェーズ325、設計9節〉。
+    残りのグループ〈plan・checkout_session_completed_event_time〉は次回候補、
+    設計10節参照)。
     user_profile/{user_id}ドキュメント、およびstripe_customer_id逆引き用の
     stripe_customer_index/{stripe_customer_id}ドキュメントを読み書きする。
     """
@@ -100,6 +102,34 @@ class FirestoreUserProfileStore:
         if not snapshot.exists:
             return True
         return (snapshot.to_dict() or {}).get("is_following", True)
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, user_id: str, notified_at: datetime
+    ) -> None:
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["blocked_but_billing_owner_notified_at"] = notified_at
+        doc_ref.set(data)
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get(
+            "blocked_but_billing_owner_notified_at"
+        )
+
+    def clear_blocked_but_billing_owner_notified_at(self, user_id: str) -> None:
+        # 設計9.3節: InMemory版はキー自体をpopするが、get側はキー不在・null値いずれも
+        # Noneとして返すため、nullとして書き込んでも観測可能な挙動は一致する。
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["blocked_but_billing_owner_notified_at"] = None
+        doc_ref.set(data)
 
     def all_user_ids(self) -> Iterable[str]:
         # 設計7.2節・7.3節: user_profileコレクション全件のドキュメントID集合は、

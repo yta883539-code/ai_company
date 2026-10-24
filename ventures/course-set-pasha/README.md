@@ -5732,3 +5732,28 @@
   billing_owner_notified_at系・plan・checkout_session_completed_event_time、9節・11節・
   13節)および`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
   (21節)の実コード化、(3)他venture・アイデア領域の前進。
+- フェーズ325(2026-10-24 07:00 UTC定例更新): フェーズ324の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の次グループである9節(blocked_but_billing_owner_notified_at
+  グループ: `set_blocked_but_billing_owner_notified_at`/
+  `get_blocked_but_billing_owner_notified_at`/
+  `clear_blocked_but_billing_owner_notified_at`の3メソッド)を実コード化した。
+  `prototype/firestore_user_profile_adapter.py`の`FirestoreUserProfileStore`に当該
+  3メソッドを追加した。`set_*`/`get_*`は5節・6節・7節と同じ既存実装スタイル(読んでから
+  全フィールドをベースに書き戻す方式、try/exceptを持たない)で実装し、`clear_*`は設計9.2節・
+  9.3節の通り`None`を書き込むことで表現した(InMemory版の`pop`とget側の観測結果が一致する
+  ことを9.3節で確認済み)。設計9.2節のコード例は接続エラー時に`None`を返す`try/except`を
+  想定していたが、フェーズ324までに確立した「既存ファイル内の確立済みスタイルを優先する」
+  判断基準に揃え、本フェーズでも例外処理を追加しない実装とした。テストを7件新規追加し、
+  (1)未知ユーザーの`get_*`は`None`、(2)set→getの一致、(3)`clear_*`後は`None`に戻ること、
+  (4)未知ユーザーへの`clear_*`はエラーにならずno-op相当であること、(5)
+  `set_blocked_but_billing_owner_notified_at`書き込みが`gym_area_pairs`等の既存フィールドを
+  消さないこと、(6)`clear_*`後も`email`等の既存フィールドが残ること、(7)本グループのみを
+  書き込んだユーザーも`all_user_ids()`の和集合に現れること、を確認した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(845件、新規7件
+  含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  `UserProfileStoreProtocol`2グループ(plan・checkout_session_completed_event_time、
+  11節・13節)および`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
+  (21節)の実コード化、(3)他venture・アイデア領域の前進。

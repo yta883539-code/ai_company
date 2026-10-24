@@ -10,6 +10,7 @@ stripe_customer_index側の旧エントリが削除されること(6.3節)を検
 """
 
 import unittest
+from datetime import datetime
 
 from firestore_user_profile_adapter import FirestoreUserProfileStore
 
@@ -179,6 +180,62 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_gym_area_pairs("u1", "shinjuku:east")
         self.store.set_email("u1", "owner@example.com")
         self.assertEqual(list(self.store.all_user_ids()), ["u1"])
+
+    def test_get_blocked_but_billing_owner_notified_at_for_unknown_user_is_none(self):
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("u1")
+        )
+
+    def test_set_then_get_blocked_but_billing_owner_notified_at(self):
+        notified_at = datetime(2026, 10, 24, 7, 0, 0)
+        self.store.set_blocked_but_billing_owner_notified_at("u1", notified_at)
+        self.assertEqual(
+            self.store.get_blocked_but_billing_owner_notified_at("u1"), notified_at
+        )
+
+    def test_clear_blocked_but_billing_owner_notified_at_resets_to_none(self):
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "u1", datetime(2026, 10, 24, 7, 0, 0)
+        )
+        self.store.clear_blocked_but_billing_owner_notified_at("u1")
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("u1")
+        )
+
+    def test_clear_blocked_but_billing_owner_notified_at_for_unknown_user_is_noop(self):
+        self.store.clear_blocked_but_billing_owner_notified_at("u1")
+        self.assertIsNone(
+            self.store.get_blocked_but_billing_owner_notified_at("u1")
+        )
+
+    def test_set_blocked_but_billing_owner_notified_at_does_not_erase_gym_area_pairs(
+        self,
+    ):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "u1", datetime(2026, 10, 24, 7, 0, 0)
+        )
+        self.assertEqual(self.store.get_gym_area_pairs("u1"), "shinjuku:east")
+
+    def test_clear_blocked_but_billing_owner_notified_at_does_not_erase_email(self):
+        self.store.set_email("u1", "owner@example.com")
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "u1", datetime(2026, 10, 24, 7, 0, 0)
+        )
+        self.store.clear_blocked_but_billing_owner_notified_at("u1")
+        self.assertEqual(self.store.get_email("u1"), "owner@example.com")
+
+    def test_all_user_ids_includes_user_with_only_blocked_notified_at(self):
+        # all_user_ids()はuser_profileコレクション全体をstream()するため、
+        # blocked_but_billing_owner_notified_atのみを書き込んだユーザーのドキュメントも
+        # 存在する以上、他フィールドグループと同様に和集合に現れる(設計7.3節が想定する
+        # 「実運用では必ず他グループの後に書き込まれる」という前提とは別に、本メソッド単体の
+        # 書き込みが和集合を壊さないことを確認する)。
+        self.store.set_blocked_but_billing_owner_notified_at(
+            "u1", datetime(2026, 10, 24, 7, 0, 0)
+        )
+        self.store.set_gym_area_pairs("u2", "shinjuku:east")
+        self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
 
 
 if __name__ == "__main__":
