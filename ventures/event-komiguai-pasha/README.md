@@ -979,3 +979,26 @@
   導線文言を実際のWebフォーム方式に合わせて修正。多言語対応は対象顧客・設計方針を踏まえ
   現時点では非対応と判断し明文化。コード変更なし、schema検証22件・prototype試験35件
   いずれも変更なしでパス)
+- フェーズ48(2026-10-24 22:00 UTC定例更新): フェーズ47の次回候補(3)「他venture・アイデア
+  領域の前進」に対応した。kura-pashaフェーズ262が新規設計した外部ベンダー侵害時キー緊急
+  ローテーション手順(vendor-breach-key-rotation-runbook.md)が、aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-aiには既に横展開済みだったのに対し
+  本ventureのみ未着手だったギャップに対応し、新規作成した。他venture一覧表との差分として、
+  本ventureはLINE公式アカウントを採用せずWebフォームを入力チャネルとする
+  (tech-stack.mdフェーズ7)ため、LINEチャネルアクセストークン等を保有しない点を明記した
+  (保有キーはStripe・LLM API・GCPサービスアカウント鍵の3種)。これにより全6venture
+  (aircon-pasha・course-set-pasha・event-komiguai-pasha・forklift-pasha・kura-pasha・
+  line-reservation-ai)への横展開が完了した。コード変更なし、回帰確認として`python3
+  schema/validate_test_cases.py`(22件、変更なし)・`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(35件、変更なし)を実行しいずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡、実LLM接続)がオーナーから
+  承認された場合はその着手を最優先、(2)候補2(那覇市・中山一朗氏)の屋号特定はオーナーの電話
+  連絡承認が得られるまで探索頻度をさらに下げる、(3)Webフォームホスティングサービスの具体的な
+  選定(tech-stack.mdフェーズ7の残課題)が決まった時点でvendor-breach-key-rotation-
+  runbook.mdの依存先一覧を更新する、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 22:00 UTC(フェーズ48: vendor-breach-key-rotation-runbook.md新規
+  作成。kura-pashaフェーズ262の横展開として、LINE非依存・Webフォーム採用を本venture固有の
+  差分として明記し、全6venture共通の対応方針の横展開を完了。コード変更なし、schema検証
+  22件・prototype試験35件いずれも変更なしでパス)
