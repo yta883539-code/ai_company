@@ -5672,3 +5672,33 @@
   5節(`UserProfileStoreProtocol`のgym_area_pairs・emailグループ)を実コード化。
   `FirestoreUserProfileStore`を新規実装。コード変更あり、テスト825件〈新規8件〉・
   schema検証21件パス)
+- フェーズ323(2026-10-24 01:00 UTC定例更新): フェーズ322の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の次グループである6節(Stripe顧客IDグループ:
+  `set_stripe_customer_id`/`get_stripe_customer_id`/`get_user_id_by_stripe_customer_id`
+  の3メソッド)を実コード化した。`prototype/firestore_user_profile_adapter.py`の
+  `FirestoreUserProfileStore`に当該3メソッドを追加し、`stripe_customer_index`
+  コレクションへの逆引きドキュメント書き込みを新規実装した。6.3節の検討事項通り、
+  `set_stripe_customer_id`実行時に旧`stripe_customer_id`を読み出し、付け替え(再紐付け)
+  が起きた場合は`stripe_customer_index`側の旧エントリを削除してから新エントリを
+  書き込む処理(`InMemoryUserProfileStore.set_stripe_customer_id`、フェーズ286追記の
+  21節と対称)を実装した。設計6.2節のコード例は`WriteBatch`による一括コミットを
+  想定していたが、本venture側の既存実装(5節の`FirestoreUserProfileStore`自体、
+  および`firestore_usage_counter_adapter.py`)が一貫してバッチを使わない個別
+  読み書き方式を採っているため、既存スタイルと揃えて`doc_ref.set()`・
+  `self._stripe_index.document(...).set()`/`.delete()`の個別呼び出しで同じ契約
+  (旧エントリの削除漏れがないこと)を満たす実装とした。テストを7件新規追加し、
+  (1)未知ユーザーの`get_stripe_customer_id`は`None`、(2)未知`stripe_customer_id`の
+  `get_user_id_by_stripe_customer_id`も`None`、(3)set→getの一致、(4)set時に逆引き
+  エントリが作られること、(5)再紐付け時に旧エントリが削除され新エントリのみ有効に
+  なること、(6)Stripe顧客ID書き込みが`gym_area_pairs`等の既存フィールドを消さない
+  こと(5節とのmerge安全性)、(7)同一`stripe_customer_id`を2回書き込んでも冪等である
+  こと、を確認した。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(832件、新規7件含めて全件パス)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先、(2)残る`UserProfileStoreProtocol`4グループ(is_following+
+  all_user_ids・blocked_but_billing_owner_notified_at系・plan・checkout_session_
+  completed_event_time、7節・9節・11節・13節)および`GymAreaConfigStoreProtocol`
+  (15節)・`FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・
+  アイデア領域の前進。

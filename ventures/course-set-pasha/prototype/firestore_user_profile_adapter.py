@@ -19,14 +19,16 @@ from typing import Optional
 
 class FirestoreUserProfileStore:
     """UserProfileStoreProtocolの実Firestore接続実装(基盤2フィールド:
-    gym_area_pairs・emailグループのみ。残りのグループ〈Stripe顧客IDグループ・
-    is_following+all_user_ids・blocked_but_billing_owner_notified_at系・plan・
-    checkout_session_completed_event_time〉は次回候補、設計5節末尾参照)。
-    user_profile/{user_id}ドキュメントを読み書きする。
+    gym_area_pairs・emailグループ、およびStripe顧客IDグループ〈フェーズ323、設計6節〉。
+    残りのグループ〈is_following+all_user_ids・blocked_but_billing_owner_notified_at系・
+    plan・checkout_session_completed_event_time〉は次回候補、設計6節末尾参照)。
+    user_profile/{user_id}ドキュメント、およびstripe_customer_id逆引き用の
+    stripe_customer_index/{stripe_customer_id}ドキュメントを読み書きする。
     """
 
     def __init__(self, firestore_client) -> None:
         self._collection = firestore_client.collection("user_profile")
+        self._stripe_index = firestore_client.collection("stripe_customer_index")
 
     def set_gym_area_pairs(self, user_id: str, raw_value: str) -> None:
         doc_ref = self._collection.document(user_id)
@@ -53,3 +55,34 @@ class FirestoreUserProfileStore:
         if not snapshot.exists:
             return None
         return (snapshot.to_dict() or {}).get("email")
+
+    def set_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> None:
+        # フェーズ286(aircon-pashaフェーズ294の方式を横展開、設計6.3節)と同じ
+        # 再紐付け検出: 書き込み前に旧stripe_customer_idを読み出し、変化があれば
+        # stripe_customer_index側の旧エントリを削除してから新エントリを書き込む。
+        previous_stripe_customer_id = self.get_stripe_customer_id(user_id)
+        doc_ref = self._collection.document(user_id)
+        snapshot = doc_ref.get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["stripe_customer_id"] = stripe_customer_id
+        doc_ref.set(data)
+        if (
+            previous_stripe_customer_id is not None
+            and previous_stripe_customer_id != stripe_customer_id
+        ):
+            self._stripe_index.document(previous_stripe_customer_id).delete()
+        self._stripe_index.document(stripe_customer_id).set({"user_id": user_id})
+
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("stripe_customer_id")
+
+    def get_user_id_by_stripe_customer_id(
+        self, stripe_customer_id: str
+    ) -> Optional[str]:
+        snapshot = self._stripe_index.document(stripe_customer_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("user_id")

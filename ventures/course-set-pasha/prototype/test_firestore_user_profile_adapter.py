@@ -2,10 +2,11 @@
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。firestore-provider-adapter-design.md
-5.2節が前提とした最小インターフェース(collection/document/get/set)のみを満たす軽量
-フェイクをここで実装し、InMemoryUserProfileStore(application_form_submission_flow.py)
-と観測可能な振る舞いが一致すること、および同一ドキュメントを共有する他フィールド
-グループを消さないこと(5.3節のmerge安全性)を検証する。
+5.2節・6.2節が前提とした最小インターフェース(collection/document/get/set/delete)のみを
+満たす軽量フェイクをここで実装し、InMemoryUserProfileStore(application_form_submission_
+flow.py)と観測可能な振る舞いが一致すること、同一ドキュメントを共有する他フィールド
+グループを消さないこと(5.3節のmerge安全性)、およびStripe顧客IDの再紐付け時に
+stripe_customer_index側の旧エントリが削除されること(6.3節)を検証する。
 """
 
 import unittest
@@ -34,6 +35,9 @@ class _FakeDocumentRef:
     def set(self, data: dict) -> None:
         self._store[self._key] = dict(data)
 
+    def delete(self) -> None:
+        self._store.pop(self._key, None)
+
 
 class _FakeCollection:
     def __init__(self, store: dict):
@@ -45,11 +49,14 @@ class _FakeCollection:
 
 class _FakeFirestoreClient:
     def __init__(self):
-        self._store: dict = {}
+        self._user_profile_store: dict = {}
+        self._stripe_index_store: dict = {}
 
     def collection(self, name: str) -> _FakeCollection:
-        assert name == "user_profile"
-        return _FakeCollection(self._store)
+        if name == "user_profile":
+            return _FakeCollection(self._user_profile_store)
+        assert name == "stripe_customer_index"
+        return _FakeCollection(self._stripe_index_store)
 
 
 class FirestoreUserProfileStoreTest(unittest.TestCase):
@@ -98,6 +105,43 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_email("u2", "other@example.com")
         self.assertEqual(self.store.get_gym_area_pairs("u2"), "")
         self.assertIsNone(self.store.get_email("u1"))
+
+    def test_get_stripe_customer_id_for_unknown_user_is_none(self):
+        self.assertIsNone(self.store.get_stripe_customer_id("u1"))
+
+    def test_get_user_id_by_stripe_customer_id_for_unknown_customer_is_none(self):
+        self.assertIsNone(self.store.get_user_id_by_stripe_customer_id("cus_unknown"))
+
+    def test_set_then_get_stripe_customer_id(self):
+        self.store.set_stripe_customer_id("u1", "cus_abc123")
+        self.assertEqual(self.store.get_stripe_customer_id("u1"), "cus_abc123")
+
+    def test_set_stripe_customer_id_populates_reverse_lookup(self):
+        self.store.set_stripe_customer_id("u1", "cus_abc123")
+        self.assertEqual(
+            self.store.get_user_id_by_stripe_customer_id("cus_abc123"), "u1"
+        )
+
+    def test_rebinding_stripe_customer_id_removes_previous_reverse_lookup_entry(self):
+        self.store.set_stripe_customer_id("u1", "cus_old")
+        self.store.set_stripe_customer_id("u1", "cus_new")
+        self.assertIsNone(self.store.get_user_id_by_stripe_customer_id("cus_old"))
+        self.assertEqual(
+            self.store.get_user_id_by_stripe_customer_id("cus_new"), "u1"
+        )
+        self.assertEqual(self.store.get_stripe_customer_id("u1"), "cus_new")
+
+    def test_set_stripe_customer_id_does_not_erase_gym_area_pairs(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_stripe_customer_id("u1", "cus_abc123")
+        self.assertEqual(self.store.get_gym_area_pairs("u1"), "shinjuku:east")
+
+    def test_setting_same_stripe_customer_id_twice_is_idempotent(self):
+        self.store.set_stripe_customer_id("u1", "cus_abc123")
+        self.store.set_stripe_customer_id("u1", "cus_abc123")
+        self.assertEqual(
+            self.store.get_user_id_by_stripe_customer_id("cus_abc123"), "u1"
+        )
 
 
 if __name__ == "__main__":
