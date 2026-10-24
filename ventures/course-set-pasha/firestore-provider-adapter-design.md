@@ -548,9 +548,14 @@ class FirestoreUserProfileStore:
 
 ## 12. 残課題・次回候補(11節分)
 
+- 本グループ(`plan`: `set_plan`/`get_plan`)は`prototype/firestore_user_profile_adapter.py`
+  の`FirestoreUserProfileStore`に実コード化した(フェーズ327)。5節・6節・7節・9節と同じ
+  既存実装スタイル(読んでから全フィールドをベースに書き戻す方式、クラスdocstring9行目の
+  理由により`merge=True`一発ではない)で実装し、テスト5件追加(845→850件)・schema検証
+  21件〈変更なし〉いずれもパス。
 - 残り1グループ(`checkout_session_completed_event_time`)の実Firestore接続アダプタ設計。
-  5節・6節・7節・9節・11節と同じ`_doc_ref(user_id)`ヘルパー上の`merge=True`部分更新として
-  実装できる見込みで、全グループ完了まであとこの1つのみ。
+  5節・6節・7節・9節・11節と同じ既存実装スタイル上の部分更新として実装できる見込みで、
+  全グループ完了まであとこの1つのみ。
 - 承認後は、`application_form_submission_flow.py`呼び出し側の`UserProfileStoreProtocol`
   実装注入箇所に本クラスのインスタンスを渡すだけで差し替えが完了する設計になっていることを、
   結合実装時に確認する(ただし全グループの実装完了が前提)。

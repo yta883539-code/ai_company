@@ -237,6 +237,29 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_gym_area_pairs("u2", "shinjuku:east")
         self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
 
+    def test_get_plan_for_unknown_user_is_none(self):
+        self.assertIsNone(self.store.get_plan("u1"))
+
+    def test_set_then_get_plan(self):
+        self.store.set_plan("u1", "premium")
+        self.assertEqual(self.store.get_plan("u1"), "premium")
+
+    def test_resubmission_overwrites_plan_entirely(self):
+        self.store.set_plan("u1", "trial")
+        self.store.set_plan("u1", "premium")
+        self.assertEqual(self.store.get_plan("u1"), "premium")
+
+    def test_set_plan_does_not_erase_gym_area_pairs(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.store.set_plan("u1", "premium")
+        self.assertEqual(self.store.get_gym_area_pairs("u1"), "shinjuku:east")
+        self.assertEqual(self.store.get_plan("u1"), "premium")
+
+    def test_all_user_ids_includes_user_with_only_plan(self):
+        self.store.set_plan("u1", "premium")
+        self.store.set_gym_area_pairs("u2", "shinjuku:east")
+        self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
+
 
 if __name__ == "__main__":
     unittest.main()

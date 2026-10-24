@@ -5773,3 +5773,30 @@
   最優先、(2)残る`UserProfileStoreProtocol`2グループ(plan・checkout_session_completed_
   event_time、11節・13節)および`GymAreaConfigStoreProtocol`(15節)・
   `FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)他venture・アイデア領域の前進。
+- フェーズ327(2026-10-24 12:00 UTC定例更新): フェーズ326の次回候補(2)を受け、
+  `UserProfileStoreProtocol`の残り2グループのうち設計11節(planグループ:
+  `set_plan`/`get_plan`の2メソッド)を実コード化した。`prototype/
+  firestore_user_profile_adapter.py`の`FirestoreUserProfileStore`に当該2メソッドを
+  追加した。設計11.2節のコード例は`set({...}, merge=True)`一発を想定していたが、本
+  アダプタのクラスdocstring(9行目)が既に明記している通りフェイクの`document.set(data)`
+  がmerge引数を取らないため、5節・6節・7節・9節と同じ既存実装スタイル(読んでから全
+  フィールドをベースに書き戻す方式、try/exceptを持たない)で実装した。設計11.3節が
+  検討した「例外時に`None`を返す安全性」(呼び出し元`cloud_function_webhook.py`が`None`
+  時に従来の一律`plan`引数へフォールバックする設計)は、本実装がそもそも例外を握り込まない
+  既存スタイルのため直接の懸念にはならないが、Firestore接続エラー自体は`get()`呼び出しで
+  例外として伝播する点は他グループと同一であることを確認した。テストを5件新規追加し、
+  (1)未知ユーザーの`get_plan`は`None`、(2)set→getの一致、(3)再送信時に`plan`が完全に
+  上書きされること、(4)`set_plan`書き込みが`gym_area_pairs`等の既存フィールドを消さない
+  こと、(5)本グループのみを書き込んだユーザーも`all_user_ids()`の和集合に現れること、を
+  確認した。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (845→850件、新規5件含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`UserProfileStoreProtocol`1グループ(checkout_session_completed_event_time、
+  13節)および`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
+  (21節)の実コード化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 12:00 UTC(フェーズ327: `UserProfileStoreProtocol`planグループ
+  〈`set_plan`/`get_plan`の2メソッド、設計11節〉を実コード化。既存スタイル(読んでから
+  全フィールドをベースに書き戻す方式)で実装。テスト5件追加(845→850件)・schema検証
+  21件〈変更なし〉いずれもパス)
