@@ -3832,3 +3832,25 @@
   design.md〈フェーズ159〉の机上設計のみだった`AccessTokenStoreProtocol`のFirestore
   アダプタを実コード化。`prototype/firestore_access_token_store.py`新規実装、テスト12件
   追加〈23→24ファイル〉・schema検証11件〈変更なし〉いずれもパス)
+- フェーズ187(2026-10-24 21:00 UTC定例更新): kura-pashaフェーズ262(2026-10-24 10:00 UTC)の
+  横展開として、外部ベンダー(Studio株式会社の2026年10月不正アクセス事案を契機)が侵害を
+  受け自社APIキー・シークレットが漏えい対象に含まれた場合の緊急ローテーション手順を
+  vendor-breach-key-rotation-runbook.mdとして新規作成した。本venture固有のキー依存一覧
+  (Stripeシークレットキー/Webhook署名シークレット・LLM APIキー・GCPサービスアカウント鍵・
+  Webフォームホスティング先トークン〈未確定〉)を整理し、他venture(aircon-pasha・
+  course-set-pasha・kura-pasha・line-reservation-ai)と異なり本ventureはLINE Messaging API
+  への依存が無い(tech-stack.mdの暫定決定でLINE非依存の汎用Webフォームを採用)点を本venture
+  固有の差分として明記した。実アカウント開設自体は引き続きオーナー承認待ち(pending-
+  approval.md参照)のため、コード変更・実際のキー発行/失効は行っていない。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(93件、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を実行しいずれもパスすることを確認した。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。承認待ち
+  事項1(建荷協・都道府県労働局への対外連絡)は依然未承認のまま、フェーズ148で定めた判断
+  切り替え期限の目安(10/25前後)が迫っている状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)10/25を
+  過ぎても承認が得られない場合、launch-readiness-checklist.mdに「今年度は困難」の判断
+  切り替えを記録、(3)Webフォームホスティング先が確定した場合、本runbookの該当行を更新、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 21:00 UTC(フェーズ187: kura-pashaフェーズ262の横展開として外部
+  ベンダー侵害時キー緊急ローテーション手順runbookを新規作成〈LINE非依存を本venture固有の
+  差分として明記〉。コード変更なし、テスト93件・schema検証11件いずれも変更なしでパス)
