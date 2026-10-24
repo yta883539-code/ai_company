@@ -5978,3 +5978,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
   記載漏れを発見し、新規に記録・4設計文書に是正を追記。コード変更なし、テスト295件・
   webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ262(2026-10-24 10:00 UTC定例更新): フェーズ261の次回候補(3)「他venture・
+  アイデア領域の前進」に対応した。ideas.md本日分で新規追加したアイデア(Studio株式会社の
+  2026年10月不正アクセス事案〈個人情報に加え外部連携APIキー・復号鍵も漏えい対象〉を根拠と
+  する「APIキーろうえいパシャっと」)の調査過程で、本venture自身もLINE Messaging API・
+  Stripe・LLM API・GCP(Firestore)という複数の外部サービスのAPIキー・シークレットに
+  依存していることを確認したため、外部ベンダー側が不正アクセスを受けキーが漏えい対象に
+  含まれた場合の緊急ローテーション手順を先行して設計する
+  vendor-breach-key-rotation-runbook.mdを新規作成した。本venture固有の依存先キー一覧
+  (LINEチャネルアクセストークン/シークレット・Stripeシークレットキー/Webhook署名
+  シークレット・LLM APIキー・GCPサービスアカウント鍵)と、検知→一次切断(予防的失効)→
+  再配線→不正利用痕跡確認→個人情報保護法対応との並走、という5段階の緊急対応手順ドラフトを
+  整理した。実アカウント開設自体は引き続きオーナー承認待ち(pending-approval.md参照)の
+  ため、コード変更・実際のキー発行/失効は行っていない。回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(295件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。次回候補: (1)他venture(aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-ai・event-komiguai-pasha)への同種
+  ランブックの横展開、(2)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 10:00 UTC(フェーズ262: Studio社の不正アクセス事案を踏まえ、
+  外部ベンダー侵害時の自社APIキー緊急ローテーション手順をvendor-breach-key-rotation-
+  runbook.mdとして新規設計。コード変更なし、テスト295件・webhook355件・schema検証32件
+  いずれも変更なしでパス)
