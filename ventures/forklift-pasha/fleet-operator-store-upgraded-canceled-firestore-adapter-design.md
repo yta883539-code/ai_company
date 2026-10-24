@@ -87,3 +87,19 @@ return [doc.id for doc in self._client.collection("fleet_operator").stream()]
 そのまま実装した。テスト10件追加・schema検証11件いずれもパス。3節に残る削除候補系
 3メソッド(`deletion_confirmation_sent_at`+`unreachable_at`+`unreachable_reason`)は
 次回候補として残る。
+
+## フェーズ184追記(2026-10-24 04:00 UTC定例更新): 削除候補系3メソッドも実コード化完了
+
+3節に残っていた削除候補系3メソッド(`deletion_confirmation_sent_at`・`unreachable_at`・
+`unreachable_reason`)を`FirestoreFleetOperatorStore`に実コード化した。`sent_at`・
+`unreachable_at`はtrial_start_at・trial_end_notified_atと同じ「呼び出し順序の規約」方式
+(呼び出し元が未送信・未判定を確認した直後にのみ呼ぶ構造のため、本アダプタ自身は常に
+書き込む)。`unreachable_reason`(`deletionConfirmationUnreachableReason`、string | null)
+は2.2節の`canceled_at`と同じ理由で`DELETE_FIELD`センチネルではなく`null`書き込み案を採用し、
+InMemoryFleetOperatorStoreのキー削除方式と観測可能な振る舞いが一致することをテストで確認
+した。テスト10件追加(30→40件)・schema検証11件〈変更なし〉いずれもパス。これで
+`FleetOperatorStoreProtocol`の15メソッド全てがFirestore接続実装を持つに至った(実
+`google-cloud-firestore`ライブラリへの切り替えは、承認待ち事項1〈実GCPプロジェクト作成〉の
+承認後に持ち越し)。
+
+最終更新: 2026-10-24 04:00 UTC(フェーズ184)

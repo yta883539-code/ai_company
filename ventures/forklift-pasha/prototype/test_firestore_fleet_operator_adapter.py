@@ -1,8 +1,9 @@
 """firestore_fleet_operator_adapter.FirestoreFleetOperatorStore(基盤グループ: email・
 plan_id・stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッド+
 トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの2フィールド、
-計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・all_internal_idsの計3メソッド)
-のテスト。
+計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・all_internal_idsの計3メソッド+
+削除候補グループ: deletion_confirmation_sent_at・unreachable_at・unreachable_reasonの
+計3メソッド)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、fleet-operator-store-firestore-
@@ -278,6 +279,57 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
         self.store.set_plan_id("F2", "standard")
         self.store.set_canceled_at("F3", datetime(2026, 10, 24, tzinfo=timezone.utc))
         self.assertEqual(set(self.store.all_internal_ids()), {"F1", "F2", "F3"})
+
+    def test_get_deletion_confirmation_sent_at_unset_returns_none(self):
+        self.assertIsNone(self.store.get_deletion_confirmation_sent_at("F1"))
+
+    def test_deletion_confirmation_sent_at_round_trip(self):
+        at = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_sent_at("F1", at)
+        self.assertEqual(self.store.get_deletion_confirmation_sent_at("F1"), at)
+
+    def test_get_deletion_confirmation_unreachable_at_unset_returns_none(self):
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_at("F1"))
+
+    def test_deletion_confirmation_unreachable_at_round_trip(self):
+        at = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_unreachable_at("F1", at)
+        self.assertEqual(self.store.get_deletion_confirmation_unreachable_at("F1"), at)
+
+    def test_sent_at_and_unreachable_at_do_not_clobber_each_other(self):
+        sent = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        unreachable = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_sent_at("F1", sent)
+        self.store.set_deletion_confirmation_unreachable_at("F1", unreachable)
+        self.assertEqual(self.store.get_deletion_confirmation_sent_at("F1"), sent)
+        self.assertEqual(
+            self.store.get_deletion_confirmation_unreachable_at("F1"), unreachable
+        )
+
+    def test_get_deletion_confirmation_unreachable_reason_unset_returns_none(self):
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_reason("F1"))
+
+    def test_deletion_confirmation_unreachable_reason_round_trip(self):
+        self.store.set_deletion_confirmation_unreachable_reason("F1", "email_bounced")
+        self.assertEqual(
+            self.store.get_deletion_confirmation_unreachable_reason("F1"), "email_bounced"
+        )
+
+    def test_set_deletion_confirmation_unreachable_reason_none_clears_to_none(self):
+        # design.md 2.2節のcanceled_atと同じnull書き込み案。InMemory版のキー削除方式と
+        # 観測可能な振る舞い(get側はNoneを返す)が一致することを検証する。
+        self.store.set_deletion_confirmation_unreachable_reason("F1", "email_bounced")
+        self.store.set_deletion_confirmation_unreachable_reason("F1", None)
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_reason("F1"))
+
+    def test_deletion_confirmation_unreachable_reason_does_not_clobber_sent_at(self):
+        sent = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_sent_at("F1", sent)
+        self.store.set_deletion_confirmation_unreachable_reason("F1", "email_bounced")
+        self.assertEqual(self.store.get_deletion_confirmation_sent_at("F1"), sent)
+        self.assertEqual(
+            self.store.get_deletion_confirmation_unreachable_reason("F1"), "email_bounced"
+        )
 
 
 if __name__ == "__main__":

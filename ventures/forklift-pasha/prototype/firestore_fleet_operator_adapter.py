@@ -29,6 +29,14 @@ fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ1
 本モジュールに実コード化する。`canceled_at`はdesign.md 2.2節の判断により`DELETE_FIELD`
 センチネルではなく`null`書き込み案を採用する(フィールド自体は常に存在し、値が
 `Timestamp`か`null`かのいずれかという単純化されたスキーマを保つため)。
+
+フェーズ184: design.md 3節に残っていた削除候補系3メソッド(`deletion_confirmation_sent_at`・
+`unreachable_at`・`unreachable_reason`)も本モジュールに実コード化する。`sent_at`・
+`unreachable_at`はInMemoryFleetOperatorStore(trial_management.py)と同じ「常に上書き」方針
+(呼び出し元は冪等ガードとしてget側を先に確認する規約に委ねる、trial_start_atと同じ考え方)。
+`unreachable_reason`はdeletionConfirmationUnreachableReasonフィールドがstring | nullの
+単純化されたスキーマ(firestore-data-model.md)のため、`canceled_at`と同じ`null`書き込み案
+(DELETE_FIELDセンチネルは使わない)を踏襲する。
 """
 
 from __future__ import annotations
@@ -53,9 +61,9 @@ class FirestoreFleetOperatorStore:
     stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィールド、計9メソッド+
     トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの
     2フィールド、計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・
-    all_internal_idsの計3メソッド。design.md 4節に残る削除候補系3メソッドは本クラスには
-    未実装)。fleet_operator/{internal_id}ドキュメントを読み書きする(firestore-data-model.md
-    「1. fleet_operator/{internal_id}」)。
+    all_internal_idsの計3メソッド+削除候補グループ: deletion_confirmation_sent_at・
+    unreachable_at・unreachable_reasonの計3メソッド)。fleet_operator/{internal_id}
+    ドキュメントを読み書きする(firestore-data-model.md「1. fleet_operator/{internal_id}」)。
     """
 
     def __init__(self, firestore_client) -> None:
@@ -164,3 +172,41 @@ class FirestoreFleetOperatorStore:
         # ページネーションは規模拡大時に再検討、kura-pasha/workshop-store-firestore-
         # adapter-design.mdのall_workshop_ids()相当と同じ結論を踏襲)。
         return [doc.id for doc in self._operators.stream()]
+
+    def get_deletion_confirmation_sent_at(self, internal_id: str) -> "datetime | None":
+        return self._get_field(internal_id, "deletionConfirmationSentAt")
+
+    def set_deletion_confirmation_sent_at(self, internal_id: str, value: datetime) -> None:
+        # trial_start_at・trial_end_notified_atと同じ「呼び出し順序の規約」方式。
+        # 呼び出し元は未送信を確認した直後にのみ本メソッドを呼ぶため、本アダプタ自身は
+        # 常に書き込む(上書き防止はトランザクションではなく呼び出し順序の規約に委ねる)。
+        self._doc_ref(internal_id).set(
+            {"deletionConfirmationSentAt": value}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_at(self, internal_id: str) -> "datetime | None":
+        return self._get_field(internal_id, "deletionConfirmationUnreachableAt")
+
+    def set_deletion_confirmation_unreachable_at(
+        self, internal_id: str, value: datetime
+    ) -> None:
+        # 同上。sent_atとunreachable_atは排他的に設定される(README.mdフェーズ注記)ため
+        # 特別な整合性制御は不要。
+        self._doc_ref(internal_id).set(
+            {"deletionConfirmationUnreachableAt": value}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_reason(
+        self, internal_id: str
+    ) -> "str | None":
+        return self._get_field(internal_id, "deletionConfirmationUnreachableReason")
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, internal_id: str, value: "str | None"
+    ) -> None:
+        # canceled_at(design.md 2.2節)と同じnull書き込み案を踏襲する。フィールドは
+        # 常に存在し、値がstringかnullかのいずれかという単純化されたスキーマを保つ
+        # (get側は未設定・null書き込み済みのいずれも区別せずNoneとして返す)。
+        self._doc_ref(internal_id).set(
+            {"deletionConfirmationUnreachableReason": value}, merge=True
+        )

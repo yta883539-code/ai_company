@@ -3750,3 +3750,29 @@
   canceled_at・all_internal_ids、計5メソッド〉を実コード化。canceled_atは
   DELETE_FIELDではなくnull書き込み案を採用。コード変更あり、prototype全23
   ファイル〈テスト10件追加〉・schema検証11件いずれもパス)
+- フェーズ184(2026-10-24 04:00 UTC定例更新): フェーズ183の次回候補(2)「design.md 3節に
+  残る最後のグループ(deletion_confirmation_sent_at・unreachable_at・unreachable_reasonの
+  削除候補系3メソッド)の実コード化」に対応した。fleet-operator-store-upgraded-canceled-
+  firestore-adapter-design.mdにフェーズ184追記として実装方針(sent_at・unreachable_atは
+  trial_start_atと同じ「呼び出し順序の規約」方式、unreachable_reasonはcanceled_atと同じ
+  null書き込み案)を記録した上で、`prototype/firestore_fleet_operator_adapter.py`の
+  `FirestoreFleetOperatorStore`に`get_deletion_confirmation_sent_at`/
+  `set_deletion_confirmation_sent_at`・`get_deletion_confirmation_unreachable_at`/
+  `set_deletion_confirmation_unreachable_at`・`get_deletion_confirmation_unreachable_reason`/
+  `set_deletion_confirmation_unreachable_reason`の計6メソッドを実コード化した。これにより
+  `FleetOperatorStoreProtocol`の15メソッド全てがFirestore接続実装を持つに至った。テスト10件
+  追加(30→40件、unreachable_reasonのnull書き込みによるクリア・他フィールドとの非干渉を含む)・
+  schema検証11件〈変更なし〉いずれもパス。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。承認待ち事項1
+  (建荷協・都道府県労働局への対外連絡)は依然未承認のまま、フェーズ148で定めた判断切り替え
+  期限の目安(10/25前後)まで残り1日を切った状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)実
+  `google-cloud-firestore`ライブラリへの切り替え・`FORKLIFT_PASHA_FIRESTORE_ENABLED`
+  フラグの結線は承認待ち事項1の承認後(実GCPプロジェクト作成が前提)に持ち越し、
+  (3)10/25を過ぎても承認が得られない場合、launch-readiness-checklist.mdに「今年度は
+  困難」の判断切り替えを記録、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 04:00 UTC(フェーズ184: design.md 3節に残っていた削除候補系
+  3メソッド〈deletion_confirmation_sent_at・unreachable_at・unreachable_reason〉を
+  実コード化。unreachable_reasonはcanceled_atと同じnull書き込み案を採用。これで
+  FleetOperatorStoreProtocol全15メソッドがFirestore実装を持つに至った。コード変更あり、
+  prototype全23ファイル〈テスト10件追加〉・schema検証11件いずれもパス)
