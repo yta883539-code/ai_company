@@ -5824,3 +5824,26 @@
   checkout_session_completed_event_timeグループ〈2メソッド、設計13節〉を実コード化。
   これで同Protocol全7グループの実コード化が完了。テスト5件追加(850→855件)・schema検証
   21件〈変更なし〉いずれもパス)
+- フェーズ329(2026-10-24 19:00 UTC定例更新): フェーズ328の次回候補(3)「他venture・
+  アイデア領域の前進」に対応した。kura-pashaフェーズ262(2026-10-24 10:00 UTC)が
+  Studio株式会社の不正アクセス事案(外部連携APIキー・復号鍵も漏えい対象)を踏まえて
+  先行設計した「外部ベンダー侵害時の自社キー緊急ローテーション手順」の横展開先として
+  申し送っていた本venture分に対応し、vendor-breach-key-rotation-runbook.mdを新規作成した。
+  本venture固有の依存先キー一覧(LINEチャネルアクセストークン/シークレット・LINE
+  Developers側LIFFアプリID〈checkout-initiation-flow-design.mdフェーズ98で採用したIDトークン
+  検証方式に依存、aircon-pasha・forklift-pashaとは異なりLIFF依存である点を明記〉・Stripe
+  シークレットキー/Webhook署名シークレット・LLM APIキー・GCPサービスアカウント鍵)と、
+  検知→一次切断(LIFFアプリの予防的失効を含む)→再配線→不正利用痕跡確認→個人情報保護法
+  対応との並走、という5段階の緊急対応手順ドラフトを整理した。実アカウント開設自体は
+  引き続きオーナー承認待ち(pending-approval.md参照)のため、コード変更・実際のキー発行/
+  失効は行っていない。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(855件、変更なし)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`
+  (21節)の実コード化、(3)残る横展開対象(aircon-pasha・forklift-pasha・
+  event-komiguai-pasha)への同種ランブック整理。
+- 最終更新: 2026-10-24 19:00 UTC(フェーズ329: kura-pashaフェーズ262の横展開として
+  外部ベンダー侵害時キー緊急ローテーション手順runbookを新規作成〈LIFFアプリID依存を
+  明記〉。コード変更なし、テスト855件・schema検証21件いずれも変更なしでパス)
