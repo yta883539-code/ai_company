@@ -81,11 +81,21 @@ Firestore版はライブクエリのため、`accessToken`フィールドが新�
 - 同時再発行(同一`internal_id`に対し`reissue_access_token`が極短時間内に2回呼ばれる
   競合)はFirestoreの単純な`update()`では後勝ちになるだけで、InMemory版と同じく
   明示的な排他制御は設けない(他venture共通の「必要になった時点で検討する」方針を踏襲)。
-- `FleetOperatorStoreProtocol`自体の実Firestore接続アダプタはまだ存在しない
-  (`fleet_operator`コレクションの`planId`・`stripeCustomerId`等の残りのフィールド群)。
-  次回候補として残す。
+- ~~`FleetOperatorStoreProtocol`自体の実Firestore接続アダプタはまだ存在しない~~
+  → フェーズ180〜184(`prototype/firestore_fleet_operator_adapter.py`)で全15メソッド
+  の実コード化が完了済み(本フェーズ時点の記述は陳腐化していたため、フェーズ186で追記)。
 - 実`google-cloud-firestore`ライブラリの導入・`FORKLIFT_PASHA_FIRESTORE_ENABLED`
   フラグによる実コード化(runtime-dependency-switching-design.md 2節)は、承認後の
   結合実装フェーズに持ち越す(本フェーズはコード変更を行わない机上設計のみ)。
 
-最終更新: 2026-10-16 15:00 UTC(フェーズ159)
+最終更新: 2026-10-24 16:00 UTC(フェーズ186: 本ドキュメントの設計をそのまま実コードに
+落とし、`prototype/firestore_access_token_store.py`(`FirestoreAccessTokenStore`、
+`get_access_token`/`set_access_token`・`get_internal_id_by_access_token`・
+`get_last_accessed_at`/`set_last_accessed_at`の計5メソッド)を新規実装した。
+`firestore_fleet_operator_adapter.FirestoreFleetOperatorStore`と同じ軽量フェイク
+Firestoreクライアントを用いたテスト〈test_firestore_access_token_store.py〉12件を
+追加し、InMemoryAccessTokenStoreと観測可能な振る舞いが一致することを検証した。
+あわせて上記「FleetOperatorStoreProtocol自体の実Firestore接続アダプタはまだ存在しない」
+という陳腐化していた記述を是正した。コード変更あり、prototype全24ファイル
+(テスト12件追加、23→24ファイル)・schema検証11件〈変更なし〉いずれもパス。承認が
+必要なアクションは今回発生していないためpending-approval.mdへの追記なし。)

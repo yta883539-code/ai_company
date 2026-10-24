@@ -3806,3 +3806,29 @@
   作成の承認依頼が本venture固有のエントリとしてpending-approval.mdに記録されていなかった
   記載漏れを発見し、新規に記録・2設計文書に是正を追記。コード変更なし、テスト・schema検証
   いずれも変更なし)
+- フェーズ186(2026-10-24 16:00 UTC定例更新): フェーズ185次回候補(4)「他venture・
+  アイデア領域の前進」に対応し、access-token-store-firestore-adapter-design.md
+  (フェーズ159)で机上設計のみだった`AccessTokenStoreProtocol`のFirestoreアダプタを
+  実コード化した。`prototype/firestore_access_token_store.py`に`FirestoreAccessTokenStore`
+  (`get_access_token`/`set_access_token`・`get_internal_id_by_access_token`・
+  `get_last_accessed_at`/`set_last_accessed_at`の計5メソッド)を新規実装し、
+  `firestore_fleet_operator_adapter.FirestoreFleetOperatorStore`と同じ軽量フェイク
+  Firestoreクライアントを用いたテスト〈test_firestore_access_token_store.py〉12件を
+  追加、InMemoryAccessTokenStoreと観測可能な振る舞いが一致することを検証した。あわせて
+  同設計doc「3. 未検証・残課題」にあった「FleetOperatorStoreProtocol自体の実Firestore
+  接続アダプタはまだ存在しない」という陳腐化記載(フェーズ184で既に解消済み)を是正した。
+  コード変更あり、prototype全24ファイル(テスト12件追加、23→24ファイル)・schema検証
+  11件〈変更なし〉いずれもパス。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。承認待ち事項1(建荷協・都道府県労働局への対外連絡)は
+  依然未承認のまま、フェーズ148で定めた判断切り替え期限の目安(10/25前後)が迫っている
+  状況に変化はない。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)10/25を
+  過ぎても承認が得られない場合、launch-readiness-checklist.mdに「今年度は困難」の判断
+  切り替えを記録、(3)残るFirestoreアダプタ未実装のProtocol
+  (`deletion-confirmation-sent-unreachable-firestore-adapter-design.md`は
+  `FleetOperatorStoreProtocol`側で既に実装済みのため対象外、他に未実装のProtocolが
+  あるかの棚卸しを含む)の実コード化、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 16:00 UTC(フェーズ186: access-token-store-firestore-adapter-
+  design.md〈フェーズ159〉の机上設計のみだった`AccessTokenStoreProtocol`のFirestore
+  アダプタを実コード化。`prototype/firestore_access_token_store.py`新規実装、テスト12件
+  追加〈23→24ファイル〉・schema検証11件〈変更なし〉いずれもパス)
