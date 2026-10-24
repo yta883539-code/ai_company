@@ -6282,3 +6282,27 @@
 - 最終更新: 2026-10-24 15:00 UTC(フェーズ339: フェーズ338次回候補(2)が22節〈フェーズ304〉
   で既に解消済みだった陳腐化記載であることを発見・是正。コード変更なし、全789件・
   schema検証25件パス)
+- フェーズ340(2026-10-24 20:00 UTC定例更新): kura-pashaフェーズ262(2026-10-24 10:00 UTC)が
+  申し送っていた「外部ベンダー侵害時キー緊急ローテーション手順runbookの他venture横展開
+  (aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai・
+  event-komiguai-pashaの5件)」のうち、course-set-pashaフェーズ329・line-reservation-ai
+  フェーズ続き341に続く3件目として、本venture側にvendor-breach-key-rotation-runbook.mdを
+  新規作成した。本venture固有の依存先キー一覧(LINEチャネルアクセストークン/シークレット・
+  Stripeシークレットキー/Webhook署名シークレット・LLM APIキー・GCPサービスアカウント鍵)を
+  tech-stack.mdコンポーネント1〜5から整理し、kura-pashaと同じ5段階の緊急対応手順(検知→
+  一次切断→再配線→不正利用痕跡確認→個人情報保護法対応との並走)を踏襲した。本venture固有の
+  論点として、checkout-initiation-flow-design.md 1節の設計判断(決済ボタンをLINE Flex
+  Message内のpostbackアクションとして提供)により、course-set-pasha・kura-pashaと異なり
+  LIFFアプリを使用せずLIFFアプリIDに紐づくシークレットは対象外であることを明記した。実アカウント
+  開設自体は引き続きオーナー承認待ち(pending-approval.md参照)のため、コード変更・実際の
+  キー発行/失効は行っていない。回帰確認として`python3 -m unittest discover -p "test_*.py"`
+  (789件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行し
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし(既存の
+  承認待ち事項に変更なし)。次回候補: (1)承認待ち事項がオーナーから承認された場合はその
+  着手を最優先、(2)design.md 23節次回候補(2)「`run_due_deletion_candidate_final_
+  confirmations()`の月次スケジューラエントリポイント設計」、(3)残る横展開先(forklift-pasha・
+  event-komiguai-pasha)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-24 20:00 UTC(フェーズ340: kura-pashaフェーズ262の横展開として外部
+  ベンダー侵害時キー緊急ローテーション手順runbookを新規作成〈LIFFアプリID非依存を本venture
+  固有の論点として明記〉。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
