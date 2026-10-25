@@ -6306,3 +6306,29 @@
 - 最終更新: 2026-10-24 20:00 UTC(フェーズ340: kura-pashaフェーズ262の横展開として外部
   ベンダー侵害時キー緊急ローテーション手順runbookを新規作成〈LIFFアプリID非依存を本venture
   固有の論点として明記〉。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ341(2026-10-25 02:00 UTC定例更新): フェーズ340の次回候補(2)「design.md 23節
+  次回候補(2)`run_due_deletion_candidate_final_confirmations()`の月次スケジューラ
+  エントリポイント設計」に着手しようとしたところ、設計(deletion-candidate-final-
+  confirmation-scheduler-design.md、フェーズ308、2026-10-11)・実コードの薄いエントリ
+  ポイント(`prototype/cloud_function_send_deletion_candidate_final_confirmations.py`の
+  `get_deletion_candidate_final_confirmation_runtime_dependencies()`・`main(request)`)
+  のいずれも既に実装済みであることが判明した。`prototype/daily_scheduler.py`冒頭
+  docstringが「既存のdeletion_candidate_final_confirmation.pyはフェーズ308で別個の
+  月次Cloud Scheduler・cloud_function_send_deletion_candidate_final_confirmations.py
+  として既に実装・デプロイ設計済み」と明記していたにもかかわらず、firestore-provider-
+  adapter-design.md 23節(フェーズ307)・24節(フェーズ339)のいずれもこの事実を参照せず、
+  同じ項目を次回候補として再掲し続けていた陳腐化記載だった。同design.md 25節に発見・
+  是正を追記した。`prototype/cloud_function_send_deletion_candidate_final_
+  confirmations.py`を実行(`_demo()`、`body='OK', status_code=200`)・個別テスト5件
+  実行でいずれも既に実装・テスト済みであることを直接確認した。コード変更なし(確認・
+  ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。次回候補:
+  (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)同種の「次回候補の
+  陳腐化」が他venture側にも残っていないかの棚卸し、(3)残る横展開先(forklift-pasha・
+  event-komiguai-pasha)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 02:00 UTC(フェーズ341: フェーズ340次回候補(2)が、フェーズ308で
+  既に設計・実装済みだった月次スケジューラエントリポイントを未着手として再掲していた
+  陳腐化記載であることを発見し是正。コード変更なし、全789件・schema検証25件いずれも
+  変更なしでパス)

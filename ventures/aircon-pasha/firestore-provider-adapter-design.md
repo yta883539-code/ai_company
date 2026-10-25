@@ -1135,3 +1135,33 @@ parity確認」を挙げていた。本フェーズでこれに着手しよう�
 次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
 (2)23節次回候補(2)「`run_due_deletion_candidate_final_confirmations()`の月次
 スケジューラエントリポイント設計」、(3)他venture・アイデア領域の前進。
+
+## 25. 23節次回候補(2)の陳腐化の発見・是正(フェーズ341)
+
+フェーズ340の次回候補(2)としてそのまま引き継がれていた23節次回候補(2)
+「`run_due_deletion_candidate_final_confirmations()`の月次スケジューラエントリ
+ポイント設計」を本フェーズで着手しようとしたところ、設計自体は
+deletion-candidate-final-confirmation-scheduler-design.md(フェーズ308、2026-10-11)
+で既に完了しており、かつ実コードの薄いエントリポイント`prototype/cloud_function_
+send_deletion_candidate_final_confirmations.py`(`get_deletion_candidate_final_
+confirmation_runtime_dependencies()`・`main(request)`)も既に実装済みであることが
+判明した(`prototype/daily_scheduler.py`冒頭docstring34〜36行目で「既存のdeletion_
+candidate_final_confirmation.py(フェーズ308で別個の月次Cloud Scheduler・
+cloud_function_send_deletion_candidate_final_confirmations.pyとして既に実装・
+デプロイ設計済み)は対象外とする」と明記されていたにもかかわらず、23節(フェーズ307)・
+24節(フェーズ339)のいずれもこの実装済みの事実を参照せず、次回候補として再掲し続けて
+いた陳腐化記載)。
+
+対応として`prototype/cloud_function_send_deletion_candidate_final_confirmations.py`
+を実行(`_demo()`、`body='OK', status_code=200`を確認)、
+`test_cloud_function_send_deletion_candidate_final_confirmations.py`(5件、いずれも
+パス)を個別実行し、既に実装済み・テスト済みであることを直接確認した。コード変更なし
+(確認のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+"test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`(25件、
+変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+(2)23節次回候補リスト自体の陳腐化(本節で解消済みの項目を参照している可能性)を
+他venture側でも同種のチェックがないか棚卸し、(3)他venture・アイデア領域の前進。
