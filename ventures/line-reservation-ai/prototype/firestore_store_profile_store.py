@@ -8,8 +8,9 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 フェイクでも差し替え可能)。
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
-上記3グループ・9節(suspension_reasonグループ)の計4グループ(9メソッド)のみ。
-他グループ(owner_email・blocked_but_billing_owner_notified_at・plan・
+上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)の
+計5グループ(11メソッド)のみ。
+他グループ(blocked_but_billing_owner_notified_at・plan・
 checkout_session_completed_event_time・menu_durations・store_faq_info・
 onboarding_completion_message・all_store_ids・store_deletion_confirmation関連)は
 設計(design.md各節)は完了済みだが実コード化は次回候補のまま残る。
@@ -139,4 +140,24 @@ class FirestoreStoreProfileStore:
             raise ValueError("store_id must be a non-empty string")
         self._doc_ref(store_id).set(
             {"suspensionReason": suspension_reason}, merge=True
+        )
+
+    def get_owner_email(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # design.md 11節: 未設定/接続エラーを区別せずNoneに合流させる安全側方針。
+            # 呼び出し側(blocked_but_billing_owner_email_notification.py)は真偽値
+            # 判定のみに使うため、接続エラーの回は通知対象から外れるだけで済む。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("ownerEmail")
+
+    def set_owner_email(self, store_id: str, owner_email: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_email:
+            raise ValueError("owner_email must be a non-empty string")
+        self._doc_ref(store_id).set({"ownerEmail": owner_email}, merge=True
         )

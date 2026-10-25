@@ -132,10 +132,13 @@ class FirestoreStoreProfileStore:
   として実コード化した(テスト16件追加、`test_firestore_store_profile_store.py`)。
   続いてフェーズ続き343で、19節が既に設計していた`get_owner_user_id`/
   `set_owner_user_id`(owner_user_idグループ、2メソッド)を同ファイルへ追加実コード化
-  した(19節のコード例をそのまま転記、テスト6件追加)。
-- 残りのグループ(suspension_reason・owner_email・
-  blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)は
+  した(19節のコード例をそのまま転記、テスト6件追加)。フェーズ続き344で9節
+  (suspension_reasonグループ、2メソッド)を追加実コード化した(テスト6件追加)。
+  フェーズ続き345で11節(owner_emailグループ、2メソッド)を追加実コード化した
+  (11節のコード例をそのまま転記、テスト6件追加、992→998件)。
+- 残りのグループ(blocked_but_billing_owner_notified_at・plan・
+  checkout_session_completed_event_time・menu_durations・store_faq_info・
+  onboarding_completion_message・all_store_ids)は
   設計(各節)は完了済みだが実コード化は次回候補として残る。
 
 ## 5. onboarding_completion_messageグループ(2メソッド)

@@ -6473,3 +6473,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md 9節が設計済みだった`FirestoreStoreProfileStore`の
   suspension_reasonグループ(2メソッド)を実コード化。テスト6件追加(986→992件)・
   schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き345(2026-10-25 15:00 UTC定例更新): フェーズ続き344の次回候補(1)
+  「残るグループ(owner_email等8グループ)の実コード化」に着手し、
+  store-profile-store-firestore-adapter-design.md 11節が既に設計済みだった
+  `get_owner_email`/`set_owner_email`(owner_emailグループ、2メソッド)を
+  `prototype/firestore_store_profile_store.py`へ追加実コード化した(11節のコード例を
+  そのまま転記)。11節が明記していた通り、本フィールドは
+  `select_new_blocked_but_billing_candidates_for_email_notification()`の真偽値判定
+  のみに使われ接続エラー時の影響が「通知が1サイクル遅れる」程度に留まるため、
+  7節・9節・19節と同じ「未設定/接続エラーをNoneに合流させる」方針をそのまま適用し、
+  新たな方針判断は不要だった。`test_firestore_store_profile_store.py`にテスト6件
+  追加(未設定時None・set/get往復・他フィールド保持・空store_id拒否・空owner_email
+  拒否・接続エラー時のフォールバックを含む)。design.md 4節の実装状況メモも更新した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (992→998件)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し
+  いずれもパスすることを確認した。実Firestoreクライアントへの接続やアカウント作成は
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残るグループ(blocked_but_billing_owner_notified_at等7グループ)の
+  実コード化、(2)承認待ち事項がオーナーから承認された場合はその着手(本venture全設計の
+  結合実装)を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 15:00 UTC(フェーズ続き345: store-profile-store-firestore-
+  adapter-design.md 11節が設計済みだった`FirestoreStoreProfileStore`の
+  owner_emailグループ(2メソッド)を実コード化。テスト6件追加(992→998件)・
+  schema検証28件〈変更なし〉いずれもパス)
