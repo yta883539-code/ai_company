@@ -3929,3 +3929,27 @@
   のAランク7支部個別下書きすべてについて月間言及パラグラフを「強調月間を含む通年の
   課題」という訴求に差し替え完了。各支部の個別化情報・留意点は変更なし。コード変更なし、
   テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ191(2026-10-25 19:00 UTC定例更新): kura-pashaフェーズ263・aircon-pasha
+  フェーズ343・course-set-pashaフェーズ333で確立された「実Firestoreクライアント構築
+  失敗時はログ出力の上で例外を再raiseする(InMemoryへの自動フォールバック禁止)」方針の
+  横展開として、本venture固有の4エントリポイント(`get_checkout_runtime_
+  dependencies()`・`get_stripe_runtime_dependencies()`・`get_deletion_confirmation_
+  runtime_dependencies()`・`get_trial_end_email_runtime_dependencies()`)向けに
+  runtime-dependency-switching-design.md 5節を新規設計した。擬似コード・呼び出し元別
+  (Webhook/定期スケジューラ/チェックアウト起点)の例外伝播後の挙動を整理し、本venture
+  未作成のcloud-monitoring-alert-policy-design.md相当のアラート設計への横展開を次回
+  候補として明記した。残る横展開先はline-reservation-aiのみとなった。コード変更なし
+  (設計文書追記のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(93件、変更なし)・`python3 schema/validate_test_cases.py`(11件、
+  変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、
+  (2)本方針の残る横展開先line-reservation-aiへの適用、(3)本venture未作成の
+  cloud-monitoring-alert-policy-design.md相当のアラート設計、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-25 19:00 UTC(フェーズ191: runtime-dependency-switching-design.md
+  5節として、フラグON時の実クライアント構築失敗時はInMemoryへ自動フォールバックせず
+  ログ出力の上で例外を再raiseする方針を新規設計(kura-pasha・aircon-pasha・
+  course-set-pashaの横展開)。残る横展開先はline-reservation-aiのみ。コード変更なし、
+  テスト93件・schema検証11件いずれも変更なしでパス)

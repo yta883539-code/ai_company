@@ -94,4 +94,92 @@ pending-approval.md参照)のため、本フラグはFirestoreストア
 - フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは
   未設計(他3venture共通の理由により本フェーズでは対応しない)。
 
-最終更新: 2026-10-16 (フェーズ158)
+## 5. 実クライアント構築失敗時の例外処理方針(フェーズ191)
+
+4節の残課題のうち、`_firestore_enabled()`が真であるにもかかわらず
+`firestore_sdk.Client()`(または各Firestoreアダプタの初期化)が例外を投げる
+ケース(認証情報未設定・サービスアカウント権限不足・一時的なネットワーク障害等)の
+ハンドリング方針を、kura-pashaフェーズ263(同ファイル6節)・aircon-pashaフェーズ343
+(同ファイル5節)・course-set-pashaフェーズ333(同ファイル5節)の横展開として、
+本venture固有の4エントリポイント(`get_checkout_runtime_dependencies()`・
+`get_stripe_runtime_dependencies()`・`get_deletion_confirmation_runtime_
+dependencies()`・`get_trial_end_email_runtime_dependencies()`)向けに設計する。
+
+### 5.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+未設定時(フラグが`"1"`でない)は2節のとおりInMemory実装へ安全側フォールバックする
+既定だが、フラグが明示的に`"1"`に設定された状態で実クライアント構築が失敗した場合に
+InMemory実装へ自動的に切り替えることはしない。理由は既出3venture(kura-pasha・
+aircon-pasha・course-set-pasha)と同じく以下の2点。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、
+  この状態での構築失敗は「実Firestoreへの接続が必要な場面で接続できていない」という
+  設定・権限上の不具合を意味する。これをInMemoryへ自動フォールバックすると、
+  `operator_store`・`store`への書き込みが実際には永続化されずに処理自体は正常終了
+  したように見えるため、不具合の発覚が遅れ、顧客データの消失・重複処理を招くリスクが
+  ある。
+- 残る横展開先であるline-reservation-ai側の同ファイル4節にも同一の残課題があり
+  (本フェーズ着手前に確認済み)、5venture全体で「フラグON時は失敗を隠さず表面化
+  させる」という一貫した方針を揃える必要がある。
+
+### 5.2. 実装方針(擬似コード)
+
+```python
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+
+def _firestore_enabled() -> bool:
+    return os.environ.get("FORKLIFT_PASHA_FIRESTORE_ENABLED") == "1"
+
+
+def get_checkout_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {
+            "operator_store": InMemoryFleetOperatorStore(),
+            "access_token_store": InMemoryAccessTokenStore(),
+            "checkout_session_creator": MockCheckoutSessionCreator(),
+        }
+    try:
+        client = firestore_sdk.Client()
+        return {
+            "operator_store": FirestoreFleetOperatorStore(client),
+            "access_token_store": InMemoryAccessTokenStore(),
+            "checkout_session_creator": MockCheckoutSessionCreator(),
+        }
+    except Exception:
+        logger.exception(
+            "FORKLIFT_PASHA_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+```
+
+`get_stripe_runtime_dependencies()`・`get_deletion_confirmation_runtime_
+dependencies()`・`get_trial_end_email_runtime_dependencies()`の残り3関数も同様に、
+try/exceptでログを出した上で例外を再raiseする形を取る(3.2・3.3節の擬似コードに
+同じtry/except構造を追加するのみで、`access_token_store`・`email_sender`・
+`email_client`・`access_url_provider`等Firestore対象外の依存先はそのまま維持する)。
+
+### 5.3. 例外伝播後の挙動(呼び出し元別)
+
+- Webhookエントリポイント(`get_stripe_runtime_dependencies()`経由、HTTPトリガー):
+  例外が実行環境まで伝播すると5xxレスポンスを返す。Stripe側の自動再送に委ねる
+  (他venture共通の整理と同じ)。
+- 日次/定期スケジューラ(`get_deletion_confirmation_runtime_dependencies()`・
+  `get_trial_end_email_runtime_dependencies()`経由): Cloud Loggingへのエラー記録に
+  留まる。アラート設計は本venture未作成のcloud-monitoring-alert-policy-design.md
+  相当文書(aircon-pasha・course-set-pasha・kura-pashaには既存)への横展開を次回候補
+  とする。
+- `get_checkout_runtime_dependencies()`(LP/フォーム経由のチェックアウト起点):
+  例外発生時はチェックアウト自体を失敗させ、申込者にはエラー表示(実装は承認後の
+  結合実装フェーズで確定)とする想定。
+
+他venture(aircon-pasha・course-set-pasha・kura-pasha)側の同ファイルで確立された
+方針と同型であるため、本フェーズでは設計のみとし実コード化は行わない(承認後の
+結合実装フェーズに持ち越す、4節の既存整理と同じ)。
+
+最終更新: 2026-10-25 19:00 UTC(フェーズ191)
