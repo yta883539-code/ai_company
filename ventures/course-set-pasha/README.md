@@ -5940,3 +5940,28 @@
   古い記載であることを発見・是正。`UserProfileStoreProtocol`も含め本venture全Protocolの
   実コード化が完了済みであることを確定。コード変更なし、テスト863件・schema検証21件
   いずれも変更なしでパス)
+- フェーズ333(2026-10-25 18:00 UTC定例更新): kura-pashaフェーズ263
+  (runtime-dependency-switching-design.md 6節)・aircon-pashaフェーズ343(同5節)の
+  次回候補「残る2venture(course-set-pasha・forklift-pasha・line-reservation-ai)側の
+  同ファイル4節への横展開」を受け、本venture(course-set-pasha)に適用した。
+  runtime-dependency-switching-design.md 5節として新規追記し、`_firestore_enabled()`が
+  真であるにもかかわらず実Firestoreクライアント構築(`firestore_sdk.Client()`・各
+  Firestoreアダプタの初期化)が失敗するケースについて、ログ出力の上で例外を再raiseする
+  (InMemoryへの自動フォールバックは禁止)という既出2venture共通の方針を本venture固有の
+  8エントリポイント(webhook・checkout・portal・Stripe webhook・申込フォーム・ライフ
+  サイクル通知系5つ)向けに具体化した。本venture固有の補足として、checkout側・portal側が
+  別プロセスでFirestoreコレクションを共有する構成(3.2節)であるため、片方だけが
+  InMemoryへ自動フォールバックするとstripe_customer_id引き継ぎの既知の限界(1節)が
+  「解消されたはず」の後で静かに再発するリスクを明記した。コード変更なし(設計文書追記
+  のみ)、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を
+  実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)本方針の残る横展開先(forklift-pasha・line-reservation-ai)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 18:00 UTC(フェーズ333: runtime-dependency-switching-design.md
+  5節として、kura-pasha・aircon-pasha共通の「ログ+re-raise、InMemory自動フォールバック
+  禁止」方針を本venture固有の8エントリポイント向けに具体化。コード変更なし、テスト863件・
+  schema検証21件いずれも変更なしでパス)

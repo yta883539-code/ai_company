@@ -111,7 +111,109 @@ Firestore以外のキーはそのまま)を適用する想定。5関数とも対
   記録する。forklift-pashaはLINE非依存・Webフォーム構成のため、Firestore
   接続自体の有無も含めて個別に確認が必要(aircon-pashaフェーズ319の指摘を
   引き続き踏襲)。
-- フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは
-  未設計(aircon-pashaフェーズ319と同じ理由で本フェーズでは対応しない)。
+- フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは、
+  5節のとおり対応した。
 
-最終更新: 2026-10-16 (フェーズ297)
+## 5. 実クライアント構築失敗時の例外処理方針(フェーズ333)
+
+kura-pashaフェーズ263(runtime-dependency-switching-design.md 6節)・
+aircon-pashaフェーズ343(同5節)の次回候補「残る2venture
+(course-set-pasha・forklift-pasha・line-reservation-ai)側の同ファイル4節への
+横展開」を受け、本venture(course-set-pasha)に適用する。4節の残課題のうち、
+`_firestore_enabled()`が真であるにもかかわらず各`get_.*_runtime_dependencies()`内の
+実クライアント構築(`firestore_sdk.Client()`・各Firestoreアダプタの初期化)が
+例外を投げるケース(認証情報未設定・サービスアカウント権限不足・一時的な
+ネットワーク障害等)のハンドリング方針を設計する。
+
+### 5.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+未設定時(フラグが`"1"`でない)は1節のとおりInMemory実装へ安全側フォールバックする
+既定だが、フラグが明示的に`"1"`に設定された状態で実クライアント構築が失敗した場合に
+InMemory実装へ自動的に切り替えることはしない。理由はkura-pashaフェーズ263・
+aircon-pashaフェーズ343と同一であり、本venture固有の事情を補足すると以下の2点となる。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、この
+  状態での構築失敗は「実Firestoreへの接続が必要な場面で接続できていない」という
+  設定・権限上の不具合を意味する。InMemoryへ自動フォールバックすると、checkout・
+  portal・Stripe webhook・申込フォーム・各ライフサイクル通知Cloud Functionのいずれも
+  「成功した」ように見えながら実際には永続化されない事態となり、顧客データの消失・
+  本venture固有のリスク(3.2節記載のとおりcheckout側・portal側が別プロセスで
+  Firestoreコレクションを共有する構成であるため、片方だけがInMemoryへフォール
+  バックするとstripe_customer_id引き継ぎが静かに壊れ、1節記載の既知の限界が
+  「解消されたはず」の後で再発する)を招くリスクがある。
+- kura-pasha・aircon-pasha側で確認済みの通り、本venture(course-set-pasha)の同
+  ファイル4節も同一の残課題を抱えており、残る2venture(forklift-pasha・
+  line-reservation-ai)への今後の横展開に向けて「フラグON時は失敗を隠さず表面化
+  させる」という一貫した方針を揃えておく必要がある。
+
+### 5.2. 実装方針(擬似コード)
+
+3.2節の`get_checkout_runtime_dependencies()`を例に、try/exceptでログを出した上で
+例外を再raiseする形を取る(呼び出し先のNone許容方針自体は変更しない)。
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_checkout_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {
+            "user_profile_store": InMemoryUserProfileStore(),
+            "verify_id_token": _stub_verify_id_token,
+        }
+    try:
+        from google.cloud import firestore as firestore_sdk
+        client = firestore_sdk.Client()
+        return {
+            "user_profile_store": FirestoreUserProfileStore(client),
+            "verify_id_token": _stub_verify_id_token,  # LIFF実登録は別軸
+        }
+    except Exception:
+        logger.exception(
+            "COURSE_SET_PASHA_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+```
+
+`get_runtime_dependencies()`(webhook)・`get_portal_runtime_dependencies()`・
+`get_stripe_runtime_dependencies()`・ライフサイクル通知系5関数も同様に、
+Firestore関連キーの構築のみをtry/exceptで囲み例外を再raiseする(Firestore以外の
+キーの構築はそのまま)。
+
+### 5.3. 例外伝播後の挙動(呼び出し元別)
+
+- Webhookエントリポイント(`cloud_function_webhook.py`・`stripe_webhook.py`、
+  いずれもHTTPトリガー): 例外がCloud Functions実行環境まで伝播すると5xx
+  レスポンスを返す。送信元(LINE/Stripe)側の再送(リトライ)に委ねる前提と
+  整合する(aircon-pashaフェーズ343 5.3節と同型)。
+- checkout・portalエントリポイント(`checkout_session.py`・`portal_session.py`、
+  いずれもHTTPトリガー想定): 例外伝播によりハンドラ内で捕捉せず終了し、Cloud
+  Functions実行環境が5xxを返す。LIFFアプリ側(実登録後)はエラー表示・再試行案内
+  とする想定(設計変更は不要、LIFF側実装はオーナー承認後)。
+- 申込フォームエントリポイント(`cloud_function_application_form_submission.py`、
+  HTTPトリガー): aircon-pashaフェーズ343 5.3節と同様に5xxとして表面化する。
+- ライフサイクル通知系5つ(`cloud_function_send_deletion_candidate_final_
+  confirmations.py`・`cloud_function_send_trial_end_notifications.py`・
+  `cloud_function_send_payment_failure_reminders.py`・`cloud_function_send_
+  payment_suspension_owner_notifications.py`、いずれもCloud Scheduler経由):
+  例外伝播によりCloud Functions実行がエラー終了し、Cloud Loggingにエラーログが
+  記録される。本ventureにはcloud-monitoring-alert-policy-design.md(kura-pasha
+  フェーズ264で確認済みの通り本ventureにも既に存在)があるため、アラート設計
+  自体の横展開は不要で、既存のログベース指標・アラートポリシーに本例外のログも
+  含まれる想定(具体的な指標名の追加は結合実装フェーズに持ち越す)。
+
+### 5.4. 未検証・残課題
+
+- 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は
+  3節同様、実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに
+  持ち越す。
+- 残る2venture(forklift-pasha・line-reservation-ai)側の同ファイル4節への横展開は、
+  本フェーズでは着手せず次回候補として残す。
+
+最終更新: 2026-10-25 18:00 UTC (フェーズ333: kura-pashaフェーズ263・aircon-pasha
+フェーズ343「ログ+re-raise、InMemory自動フォールバック禁止」方針の横展開として、
+本venture固有の8エントリポイント向けに5節を新規設計。コード変更なし、テスト863件・
+schema検証21件いずれも変更なしでパス)
