@@ -1595,6 +1595,21 @@ validate_test_cases.py`(21件、変更なし)を実行しいずれも変更な�
 確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
 今回発生していないためpending-approval.mdへの追記なし)
 
+## 26.5. 実コード化完了確認(フェーズ332)
+
+フェーズ331のREADME.md次回候補が「`upgraded_at`・`trial_end_notified_at`・
+`trial_generation_count`・`trial_area_count`・`payment_failure`系・`subscription`系
+の実Firestore接続アダプタ設計」をまだ必要な作業として挙げていたが、
+`prototype/firestore_usage_counter_adapter.py`を`grep -n "def "`で直接確認した結果、
+本節(19〜26節)で設計した全メソッド(計24メソッド超)が既に実コード化済みであることを
+確認した(22.4節・23.4節・24.4節・25.4節・26.4節の各「次回候補」はいずれも設計完了時点
+〈フェーズ305〜310〉のものであり、その後の実コード化進捗が反映されていなかった)。
+同様に`prototype/firestore_user_profile_adapter.py`も`UserProfileStoreProtocol`
+(5〜16節)の全メソッドが実コード化済みであることを確認した。本venture3 Protocol全ての
+実コード化(テスト用フェイクFirestoreクライアントに対する実装)は完了しており、残るのは
+実際のGCP Firestoreプロジェクトへの接続自体(pending-approval.md 2026-09-27 03:00 UTC、
+オーナー承認待ち)のみである。
+
 ## 27. cross-venture parity確認: 他venture側の`UsageCounterProtocol`相当分の設計完了状況(フェーズ311)
 
 ### 27.1. 背景・範囲

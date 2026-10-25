@@ -5902,3 +5902,41 @@
   〈has_sent/mark_sent〉を`prototype/firestore_usage_counter_adapter.py`の
   `FirestoreFirstGenerationNoticeStore`クラスとして実コード化。テスト5件追加
   (858→863件)、schema検証21件変更なしでいずれもパス)
+- フェーズ332(2026-10-25 13:00 UTC定例更新): フェーズ331の次回候補(2)「`set_trial_
+  start_at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_notified_at・
+  trial_generation_count・trial_area_count・payment_failure系・subscription系、計10
+  メソッド超)の実Firestore接続アダプタ設計」に着手しようとしたところ、実際には
+  `prototype/firestore_usage_counter_adapter.py`を`grep -n "def "`で直接確認した結果、
+  この6グループすべて(`set_upgraded_at_if_unset`/`get_upgraded_at`・
+  `set_trial_end_notified_at`/`get_trial_end_notified_at`・
+  `increment_trial_generation_count`/`get_trial_generation_count`・
+  `increment_trial_area_count`/`get_trial_area_count`・`payment_failure_detected_at`系
+  3メソッド・`payment_failure_reminder_sent_at`系3メソッド・
+  `payment_suspension_owner_notified_at`系3メソッド・`subscription_canceled_at`系3
+  メソッド・3種の`*_event_time`系、計24メソッド)が既に実コード化済みであり、フェーズ331
+  時点の次回候補記載が古い状態を指していた(設計自体は firestore-provider-adapter-
+  design.md 22〜26節でフェーズ305〜310にかけて完了済みであり、その後の実コード化作業の
+  進捗がフェーズ331の次回候補欄に反映されていなかった)ことを発見した。これにより
+  `UsageCounterProtocol`・`FirstGenerationNoticeStoreProtocol`に加え、同じ`grep`手法で
+  `prototype/firestore_user_profile_adapter.py`も確認したところ`UserProfileStoreProtocol`
+  (5〜16節、`set_gym_area_pairs`から`all_user_ids`まで計17メソッド)も既に全メソッド
+  実コード化済みであることを確認した。すなわち本venture全3 Protocol(`UserProfileStore
+  Protocol`・`UsageCounterProtocol`・`FirstGenerationNoticeStoreProtocol`)の実コード化
+  (テスト用フェイクFirestoreクライアントに対する実装)は全メソッドで完了しており、残るのは
+  実際のGCP Firestoreプロジェクトへの接続自体(pending-approval.md 2026-09-27 03:00 UTC
+  で記録済み、オーナー承認待ちのため引き続き着手不可)のみであることが確定した。コード変更
+  なし(ドキュメント訂正のみ)。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)全Protocol実コード化完了を踏まえ、kura-pasha・aircon-pasha・
+  forklift-pasha・line-reservation-ai側で同種Protocol全メソッドの実コード化(設計だけで
+  なく実コードの存在)が完了しているかの横断grep確認(本フェーズと同じ手法)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-25 13:00 UTC(フェーズ332: フェーズ331次回候補が指していた
+  `UsageCounterProtocol`残りメソッド群の実コード化は、grep確認により既に完了済みだった
+  古い記載であることを発見・是正。`UserProfileStoreProtocol`も含め本venture全Protocolの
+  実コード化が完了済みであることを確定。コード変更なし、テスト863件・schema検証21件
+  いずれも変更なしでパス)
