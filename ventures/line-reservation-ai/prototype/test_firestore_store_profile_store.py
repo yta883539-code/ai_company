@@ -344,5 +344,72 @@ class FirestoreStoreProfileStoreOwnerEmailGroupTest(unittest.TestCase):
         self.assertIsNone(store.get_owner_email("store-1"))
 
 
+class FirestoreStoreProfileStoreBlockedButBillingOwnerNotifiedAtGroupTest(
+    unittest.TestCase
+):
+    def test_get_blocked_but_billing_owner_notified_at_returns_none_when_document_missing(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertIsNone(
+            store.get_blocked_but_billing_owner_notified_at("store-1")
+        )
+
+    def test_set_then_get_blocked_but_billing_owner_notified_at_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_blocked_but_billing_owner_notified_at(
+            "store-1", "2026-10-25T10:00:00Z"
+        )
+
+        self.assertEqual(
+            store.get_blocked_but_billing_owner_notified_at("store-1"),
+            "2026-10-25T10:00:00Z",
+        )
+
+    def test_set_blocked_but_billing_owner_notified_at_can_clear_back_to_none(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_blocked_but_billing_owner_notified_at(
+            "store-1", "2026-10-25T10:00:00Z"
+        )
+
+        store.set_blocked_but_billing_owner_notified_at("store-1", None)
+
+        self.assertIsNone(
+            store.get_blocked_but_billing_owner_notified_at("store-1")
+        )
+
+    def test_set_blocked_but_billing_owner_notified_at_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_blocked_but_billing_owner_notified_at(
+            "store-1", "2026-10-25T10:00:00Z"
+        )
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_blocked_but_billing_owner_notified_at_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_blocked_but_billing_owner_notified_at(
+                "", "2026-10-25T10:00:00Z"
+            )
+
+    def test_get_blocked_but_billing_owner_notified_at_falls_back_to_none_on_client_exception(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertIsNone(
+            store.get_blocked_but_billing_owner_notified_at("store-1")
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

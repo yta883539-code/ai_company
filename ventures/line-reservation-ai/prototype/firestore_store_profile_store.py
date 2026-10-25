@@ -8,12 +8,12 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 フェイクでも差し替え可能)。
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
-上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)の
-計5グループ(11メソッド)のみ。
-他グループ(blocked_but_billing_owner_notified_at・plan・
-checkout_session_completed_event_time・menu_durations・store_faq_info・
-onboarding_completion_message・all_store_ids・store_deletion_confirmation関連)は
-設計(design.md各節)は完了済みだが実コード化は次回候補のまま残る。
+上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
+13節(blocked_but_billing_owner_notified_atグループ)の計6グループ(13メソッド)のみ。
+他グループ(plan・checkout_session_completed_event_time・menu_durations・
+store_faq_info・onboarding_completion_message・all_store_ids・
+store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
+次回候補のまま残る。
 """
 
 from __future__ import annotations
@@ -160,4 +160,29 @@ class FirestoreStoreProfileStore:
         if not owner_email:
             raise ValueError("owner_email must be a non-empty string")
         self._doc_ref(store_id).set({"ownerEmail": owner_email}, merge=True
+        )
+
+    def get_blocked_but_billing_owner_notified_at(
+        self, store_id: str
+    ) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # design.md 13節: 9節(suspension_reason)・11節(owner_email)と同じく
+            # 接続エラーをProtocol契約上の「未設定」側(None)に合流させる安全側
+            # フォールバック。ただし本フィールドは「未通知」判定にそのまま使われるため、
+            # 9節・11節とは逆方向のリスク(通知の見送りではなく、二重送信)を受け入れる
+            # 判断になる(13節の検討事項参照)。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("blockedButBillingOwnerNotifiedAt")
+
+    def set_blocked_but_billing_owner_notified_at(
+        self, store_id: str, value: Optional[str]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._doc_ref(store_id).set(
+            {"blockedButBillingOwnerNotifiedAt": value}, merge=True
         )

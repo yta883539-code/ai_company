@@ -136,9 +136,10 @@ class FirestoreStoreProfileStore:
   (suspension_reasonグループ、2メソッド)を追加実コード化した(テスト6件追加)。
   フェーズ続き345で11節(owner_emailグループ、2メソッド)を追加実コード化した
   (11節のコード例をそのまま転記、テスト6件追加、992→998件)。
-- 残りのグループ(blocked_but_billing_owner_notified_at・plan・
-  checkout_session_completed_event_time・menu_durations・store_faq_info・
-  onboarding_completion_message・all_store_ids)は
+  フェーズ続き346で13節(blocked_but_billing_owner_notified_atグループ、2メソッド)を
+  追加実コード化した(13節のコード例をそのまま転記、テスト6件追加、998→1004件)。
+- 残りのグループ(plan・checkout_session_completed_event_time・menu_durations・
+  store_faq_info・onboarding_completion_message・all_store_ids)は
   設計(各節)は完了済みだが実コード化は次回候補として残る。
 
 ## 5. onboarding_completion_messageグループ(2メソッド)

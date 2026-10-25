@@ -6497,3 +6497,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md 11節が設計済みだった`FirestoreStoreProfileStore`の
   owner_emailグループ(2メソッド)を実コード化。テスト6件追加(992→998件)・
   schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き346(2026-10-25 21:00 UTC定例更新): フェーズ続き345の次回候補(1)
+  「残るグループ(blocked_but_billing_owner_notified_at等7グループ)の実コード化」に
+  着手し、store-profile-store-firestore-adapter-design.md 13節が既に設計済みだった
+  `get_blocked_but_billing_owner_notified_at`/`set_blocked_but_billing_owner_
+  notified_at`(blocked_but_billing_owner_notified_atグループ、2メソッド)を
+  `prototype/firestore_store_profile_store.py`へ追加実コード化した(13節のコード例を
+  そのまま転記)。13節が明記していた通り、本フィールドは接続エラー時に`None`
+  (「未通知」側)へフォールバックすると二重送信リスクを受け入れる方向の判断になる点が
+  7節・9節・11節・19節(いずれも接続エラーを安全側に合流させるが二重送信とは逆方向の
+  リスク)と異なるが、course-set-pasha 9.3節・aircon-pashaが確立済みの「通知を誤って
+  止めるより、まれに再送される方が実害が小さい」という横展開一貫した方針のため、本
+  venture固有の事情で判断を変える理由はなく13節の結論をそのまま採用した。
+  `test_firestore_store_profile_store.py`に`FirestoreStoreProfileStoreBlockedButBilling
+  OwnerNotifiedAtGroupTest`としてテスト6件追加(未設定時None・set/get往復・
+  Noneによるclear・他フィールド保持・空store_id拒否・接続エラー時のフォールバックを
+  含む)。design.md 4節の実装状況メモも更新した。回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(998→1004件)・`python3 schema/validate_
+  test_cases.py`(28件、変更なし)を実行しいずれもパスすることを確認した。実Firestore
+  クライアントへの接続やアカウント作成は行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)残るグループ(plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids、
+  計6グループ)の実コード化、(2)承認待ち事項がオーナーから承認された場合はその着手
+  (本venture全設計の結合実装)を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 21:00 UTC(フェーズ続き346: store-profile-store-firestore-
+  adapter-design.md 13節が設計済みだった`FirestoreStoreProfileStore`の
+  blocked_but_billing_owner_notified_atグループ(2メソッド)を実コード化。
+  テスト6件追加(998→1004件)・schema検証28件〈変更なし〉いずれもパス)
