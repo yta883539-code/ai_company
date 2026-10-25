@@ -5871,3 +5871,34 @@
 - 最終更新: 2026-10-25 01:00 UTC(フェーズ330: `GymAreaConfigStoreProtocol.is_configured()`
   を`prototype/firestore_user_profile_adapter.py`に実コード化(get_gym_area_pairs()への
   委譲)。テスト3件追加(855→858件)、schema検証21件変更なしでいずれもパス)
+- フェーズ331(2026-10-25 07:00 UTC定例更新): フェーズ330の次回候補(2)「残る
+  `FirstGenerationNoticeStoreProtocol`(21節)の実コード化」に着手した。
+  firestore-provider-adapter-design.md 21.2節の設計通り、`prototype/firestore_usage_
+  counter_adapter.py`に`FirestoreFirstGenerationNoticeStore`クラス(`has_sent`/
+  `mark_sent`の2メソッドのみ)を新規実装した。同ファイル内の既存`FirestoreUsageCounter`
+  とは別クラスとしつつ、同じ`usage_counter/{user_id}`ドキュメントの
+  `first_generation_notice_sent`フィールドを読み書きする薄いアダプタとし、21.1節の通り
+  本venture本番コードの想定配線(`usage_counter`と`first_generation_notice_store`に
+  同一インスタンスを渡す)では実際には`increment_and_mark_notice`に一本化され本クラスは
+  呼ばれないことを踏まえつつ、両者に別インスタンスを渡す呼び出し経路・テストコードに備えた
+  完全性のための実コード化として位置づけた。設計コード例は`set(..., merge=True)`を使う
+  記述だったが、本モジュールの他メソッド群(24〜26節)と同じく、テスト用フェイク
+  `_FakeDocumentRef.set()`がmerge引数を取らないため「読んでから全フィールドを書き戻す」
+  方式に実装を合わせた(観測可能な振る舞いは設計と等価)。テスト5件を追加(unknown user→
+  False、mark_sent後→True、他user_idへの非影響、`FirestoreUsageCounter`側が書き込んだ
+  count等の既存フィールドを消さないこと、mark_sentの冪等性)。
+  firestore-provider-adapter-design.md 21.4節に実コード化済みである旨を追記した。回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(858→863件、新規5件
+  含めて全件パス)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`set_trial_start_at_if_unset`以降の残り全メソッド群(upgraded_at・trial_end_
+  notified_at・trial_generation_count・trial_area_count・payment_failure系・
+  subscription系、計10メソッド超)の実Firestore接続アダプタ設計(19.4節(2)・20.4節(2)・
+  21.4節(1)から継続)、(3)残る横展開対象(aircon-pasha・forklift-pasha・
+  event-komiguai-pasha)への同種ランブック整理、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 07:00 UTC(フェーズ331: `FirstGenerationNoticeStoreProtocol`
+  〈has_sent/mark_sent〉を`prototype/firestore_usage_counter_adapter.py`の
+  `FirestoreFirstGenerationNoticeStore`クラスとして実コード化。テスト5件追加
+  (858→863件)、schema検証21件変更なしでいずれもパス)

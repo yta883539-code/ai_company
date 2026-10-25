@@ -12,7 +12,11 @@ InMemoryUsageCounter(cloud_function_webhook.py)と観測可能な振る舞いが
 import unittest
 from datetime import datetime
 
-from firestore_usage_counter_adapter import FirestoreUsageCounter, TransactionConflict
+from firestore_usage_counter_adapter import (
+    FirestoreFirstGenerationNoticeStore,
+    FirestoreUsageCounter,
+    TransactionConflict,
+)
 
 
 class _FakeSnapshot:
@@ -631,6 +635,41 @@ class FirestoreUsageCounterSubscriptionCanceledAtTest(unittest.TestCase):
             self.counter.get_subscription_updated_event_time("u1"),
             datetime(2026, 10, 3, 0, 0, 0),
         )
+
+
+class FirestoreFirstGenerationNoticeStoreTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 21節(FirstGenerationNoticeStoreProtocol
+    単体)の実Firestore接続アダプタのテスト。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.store = FirestoreFirstGenerationNoticeStore(self.client)
+
+    def test_has_sent_for_unknown_user_is_false(self):
+        self.assertFalse(self.store.has_sent("u1"))
+
+    def test_mark_sent_then_has_sent_is_true(self):
+        self.store.mark_sent("u1")
+        self.assertTrue(self.store.has_sent("u1"))
+
+    def test_has_sent_is_scoped_per_user(self):
+        self.store.mark_sent("u1")
+        self.assertFalse(self.store.has_sent("u2"))
+
+    def test_mark_sent_does_not_clobber_usage_counter_fields(self):
+        """21.3節「merge=Trueを使う理由」: 本クラスのmark_sentが同一ドキュメント上の
+        count等、FirestoreUsageCounter側が書き込んだ既存フィールドを消さないことを
+        確認する。"""
+        counter = FirestoreUsageCounter(self.client)
+        counter.increment("u1", "2026-10")
+        self.store.mark_sent("u1")
+        self.assertTrue(self.store.has_sent("u1"))
+        self.assertEqual(counter.get_count("u1", "2026-10"), 1)
+
+    def test_mark_sent_is_idempotent(self):
+        self.store.mark_sent("u1")
+        self.store.mark_sent("u1")
+        self.assertTrue(self.store.has_sent("u1"))
 
 
 if __name__ == "__main__":

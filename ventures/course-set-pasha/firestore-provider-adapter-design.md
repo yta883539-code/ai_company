@@ -1026,6 +1026,14 @@ class FirestoreFirstGenerationNoticeStore:
 2. 実Firestore接続アダプタ(本節・UserProfileStoreProtocol分含む全Protocol)の実装自体は、
    実Firestoreプロジェクト接続がオーナー承認待ちのため引き続き着手不可。
 3. 他venture・アイデア領域の前進。
+4. 【フェーズ331で実コード化】本節の設計コード例を`prototype/firestore_usage_counter_
+   adapter.py`の`FirestoreFirstGenerationNoticeStore`クラスとして実装し、テスト5件
+   (unknown user→False、mark_sent後→True、他user_idへの非影響、FirestoreUsageCounter側が
+   書き込んだcount等の既存フィールドを消さないこと、mark_sentの冪等性)を追加した。設計コード例
+   (21.2節)は`set(..., merge=True)`を使う記述だったが、本モジュールの他メソッド群(24節・25節・
+   26節)と同じく、本モジュールのテスト用フェイク`_FakeDocumentRef.set()`がmerge引数を取らない
+   ため「読んでから全フィールドを書き戻す」方式に実装を合わせた(観測可能な振る舞いは21.2節の
+   設計と等価)。実Firestore接続自体は引き続き承認待ちのため、テストはフェイクアダプタ経由。
 
 最終更新: 2026-10-17 09:00 UTC(フェーズ304: 20節次回候補(1)を受け、
 `FirstGenerationNoticeStoreProtocol`単体〈has_sent/mark_sent〉の実Firestore接続アダプタを

@@ -410,3 +410,30 @@ class FirestoreUsageCounter:
         return (snapshot.to_dict() or {}).get(
             "subscription_updated_event_time"
         )
+
+
+class FirestoreFirstGenerationNoticeStore:
+    """FirstGenerationNoticeStoreProtocolの実Firestore接続実装(has_sent/mark_sentのみ)。
+
+    firestore-provider-adapter-design.md 21.2節: FirestoreUsageCounterと同じ
+    usage_counter/{user_id}ドキュメントのfirst_generation_notice_sentフィールドを
+    読み書きする、独立したcollection・documentを新設しない薄いアダプタ。本venture
+    本番コードの想定配線ではusage_counter側のincrement_and_mark_noticeに一本化され
+    本クラスは呼ばれない(21.1節・21.3節)が、両者に別インスタンスを渡す呼び出し経路・
+    テストコードに備えて設計通りに実コード化する。
+    """
+
+    def __init__(self, firestore_client) -> None:
+        self._collection = firestore_client.collection("usage_counter")
+
+    def has_sent(self, user_id: str) -> bool:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return False
+        return bool((snapshot.to_dict() or {}).get("first_generation_notice_sent", False))
+
+    def mark_sent(self, user_id: str) -> None:
+        snapshot = self._collection.document(user_id).get()
+        data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+        data["first_generation_notice_sent"] = True
+        self._collection.document(user_id).set(data)
