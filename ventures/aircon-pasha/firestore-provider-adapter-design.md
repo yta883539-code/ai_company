@@ -1165,3 +1165,29 @@ pending-approval.mdへの追記なし。
 次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
 (2)23節次回候補リスト自体の陳腐化(本節で解消済みの項目を参照している可能性)を
 他venture側でも同種のチェックがないか棚卸し、(3)他venture・アイデア領域の前進。
+
+## 26. 25節次回候補(3)「残る横展開先(forklift-pasha・event-komiguai-pasha)」の
+    陳腐化の発見・是正(フェーズ342)
+
+25節次回候補(3)は「外部ベンダー侵害時キー緊急ローテーション手順runbookの残る横展開先
+(forklift-pasha・event-komiguai-pasha)」への対応を次回候補として挙げていたが、実際に
+`ventures/`配下を確認したところ、forklift-pasha(フェーズ187、2026-10-24 04:00 UTC)・
+event-komiguai-pasha(フェーズ48、2026-10-24 22:00 UTC)のいずれも既に
+`vendor-breach-key-rotation-runbook.md`を作成済みであり、event-komiguai-pasha側の
+README.mdフェーズ48自体が「これにより全6venture(aircon-pasha・course-set-pasha・
+event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)への横展開が
+完了した」と明記していたことを確認した。すなわち25節(フェーズ341時点)の時点で既に
+全venture展開完了済みだった事実が反映されず、「残る横展開先」という表現のまま次回候補に
+再掲され続けていた陳腐化記載だった。本venture自身を含む6venture全ての
+`ventures/<slug>/vendor-breach-key-rotation-runbook.md`の存在を`ls`コマンドで直接確認
+し、本節に是正を記録した。コード変更なし(確認・ドキュメント是正のみ)、回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(789件、変更なし)・
+`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+(2)25節次回候補(2)「23節次回候補リスト自体の陳腐化棚卸し」は他venture側の「次回候補」
+記載が横展開完了後も「残る展開先」等の表現のまま残っていないか、本フェーズで発見した
+パターン(完了済みの横展開を「残る展開先」と書き続ける陳腐化)を他venture側のREADME.mdでも
+同様に確認する、(3)他venture・アイデア領域の前進。

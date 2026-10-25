@@ -6332,3 +6332,22 @@
   既に設計・実装済みだった月次スケジューラエントリポイントを未着手として再掲していた
   陳腐化記載であることを発見し是正。コード変更なし、全789件・schema検証25件いずれも
   変更なしでパス)
+- フェーズ342(2026-10-25 09:00 UTC定例更新): フェーズ341の次回候補(3)「残る横展開先
+  (forklift-pasha・event-komiguai-pasha)」が陳腐化記載であることを発見した。
+  `ls`コマンドで全6venture配下を直接確認したところ、forklift-pasha(フェーズ187)・
+  event-komiguai-pasha(フェーズ48)のいずれも`vendor-breach-key-rotation-runbook.md`を
+  既に作成済みであり、event-komiguai-pasha側README.mdフェーズ48自体が「全6venture横展開
+  完了」と明記済みだったにもかかわらず、本venture側のフェーズ341(25節)には反映されず
+  「残る横展開先」のまま次回候補に再掲され続けていた。firestore-provider-adapter-
+  design.md 26節に発見・是正を記録した(詳細は同節参照)。コード変更なし(確認・ドキュメント
+  是正のみ)、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (789件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)本フェーズで発見した「横展開完了後も次回候補に残り続ける」パターンが他venture側の
+  README.mdにも残っていないかの棚卸し、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 09:00 UTC(フェーズ342: フェーズ341次回候補(3)「残る横展開先
+  (forklift-pasha・event-komiguai-pasha)」が、両venture側で既に完了済みだった横展開を
+  未完了として再掲していた陳腐化記載であることを発見し是正。コード変更なし、全789件・
+  schema検証25件いずれも変更なしでパス)
