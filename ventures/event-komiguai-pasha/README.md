@@ -1068,3 +1068,22 @@
 - 最終更新: 2026-10-25 01:00 UTC(フェーズ51: one-time-checkout-no-account-design.md・
   pricing-plan.mdの「未検証・残課題」節の記載漏れ2件を発見・是正。コード変更なし、
   schema検証22件・prototype試験35件いずれも変更なしでパス)
+- フェーズ52(2026-10-25 16:00 UTC定例更新): cross-venture-inquiry-collection-naming-
+  parity-review.md(フェーズ16)の次回候補(3)に対応し、inquiry-form-ui-draft.mdを新規
+  作成。結果ページ下部リンク(`draft_id`をURLクエリで事前入力・hidden化)と完了メール内
+  リンク(`draft_id`なし、下4桁のみ手入力。全桁記載はTTL内アクセスキー漏えいに直結するため
+  不採用)という2つの入口で異なる`draft_id`事前入力方式を設計し、category(4区分)選択に
+  応じてdetail欄のラベルを切り替える方式はforklift-pashaのweb-form-ui-design.md
+  (フェーズ71)のパターンを踏襲した。一方、本venture問い合わせは低頻度・1回限りの入力の
+  ため、同フェーズのlocalStorageによる前回値キャッシュ等の高頻度最適化は採用しなかった。
+  コード変更なし、回帰確認として`python3 schema/validate_test_cases.py`(22件、変更なし)・
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(35件、変更なし)を実行し
+  いずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`draft_id`下4桁の衝突可能性の確認(ID生成方式確定後)、(2)承認待ち事項
+  (候補1〈奈良NEVER LAND〉への電話連絡等)がオーナーから承認された場合はその着手を
+  最優先、(3)対象候補のロングリスト作成(フェーズ9から持ち越し)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-25 16:00 UTC(フェーズ52: inquiry-form-ui-draft.md新規作成。問い合わせ
+  フォームの入口別`draft_id`事前入力方式・category選択に応じたdetail欄ラベル切り替えを
+  設計。コード変更なし、schema検証22件・prototype試験35件いずれも変更なしでパス)
