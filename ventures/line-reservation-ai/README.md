@@ -6404,3 +6404,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-24 17:00 UTC(フェーズ続き341: kura-pashaフェーズ262の横展開として
   vendor-breach-key-rotation-runbook.mdを新規作成。あわせてフェーズ続き340のREADME.md
   反映漏れを是正。コード変更なし、全964件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き342(2026-10-25 03:00 UTC定例更新): store-profile-store-firestore-
+  adapter-design.md 4節の「本設計のコードは承認後の結合実装フェーズまでコミットしない」
+  という記載が、本venture自身のフェーズ続き340(`FirestoreStoreDocumentProvider`)や
+  他venture各Firestoreアダプタが既に「実GCP接続なしの最小インターフェース実装」として
+  コード化済みという前例と矛盾する陳腐化記載であることを発見し訂正(4節)。この訂正に
+  基づき、`StoreProfileStoreProtocol`のStripeグループ(2節、3メソッド)・
+  owner_is_followingグループ(7節、2メソッド)を`prototype/firestore_store_profile_store.py`
+  として実コード化した(google-cloud-firestore SDK非依存、`test_firestore_store_profile_store.py`
+  にテスト16件追加)。残りのグループ(owner_user_id・suspension_reason・owner_email・
+  blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)は
+  設計済みだが実コード化は次回候補のまま残る。実Firestoreプロジェクト・GCPアカウントの
+  実際の開設・接続自体は引き続きオーナー承認待ち(pending-approval.md参照)のため、
+  実クライアントへの接続やアカウント作成は行っていない。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(964→980件)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残るグループ(owner_user_id等10グループ)の実コード化、(2)承認待ち事項が
+  オーナーから承認された場合はその着手(本venture全設計の結合実装)を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 03:00 UTC(フェーズ続き342: store-profile-store-firestore-adapter-
+  design.md 4節の陳腐化記載を訂正し、`FirestoreStoreProfileStore`(Stripeグループ・
+  owner_is_followingグループ、5メソッド)を実コード化。テスト16件追加(964→980件)・
+  schema検証28件〈変更なし〉いずれもパス)

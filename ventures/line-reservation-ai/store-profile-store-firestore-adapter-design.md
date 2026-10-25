@@ -118,13 +118,22 @@ class FirestoreStoreProfileStore:
 - **依存ライブラリ**: `google-cloud-firestore`を想定し、`firestore_client`を
   コンストラクタ注入する(既存設計と同じくクライアントの具体型には依存しない)。
 
-## 4. 残課題・次回候補
+## 4. 残課題・次回候補(2026-10-25 03:00 UTCフェーズ続き342で訂正)
 
-- 実Firestoreプロジェクト・GCPアカウントの開設自体はオーナー承認待ち(pending-approval.md
-  参照)のため、本設計のコードは承認後の結合実装フェーズまでコミットしない。
-- 残りのグループ(owner_user_id・owner_is_following・suspension_reason・owner_email・
+- 〔訂正〕本節は元々「本設計のコードは承認後の結合実装フェーズまでコミットしない」と
+  記載していたが、本venture自身のfirestore-provider-adapter-design.md(フェーズ続き340、
+  `FirestoreStoreDocumentProvider`)や、kura-pasha・course-set-pasha・aircon-pasha・
+  forklift-pashaの各Firestoreアダプタが、実GCP接続なしの最小インターフェース(duck
+  typing)実装として既にコード化済みであることを踏まえると、本クラスも同じ方針で
+  コード化してよい(実Firestoreプロジェクト・GCPアカウントの開設待ちは、実クライアント
+  を注入する結合実装の段階でのみ関係し、Protocol準拠コード自体の作成を妨げない)。
+  この訂正に基づき、フェーズ続き342でStripeグループ(本節、3メソッド)・
+  owner_is_followingグループ(7節、2メソッド)を`prototype/firestore_store_profile_store.py`
+  として実コード化した(テスト16件追加、`test_firestore_store_profile_store.py`)。
+- 残りのグループ(owner_user_id・suspension_reason・owner_email・
   blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-  menu_durations・store_faq_info・all_store_ids)は引き続き次回候補として段階的に設計する。
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)は
+  設計(各節)は完了済みだが実コード化は次回候補として残る。
 
 ## 5. onboarding_completion_messageグループ(2メソッド)
 
