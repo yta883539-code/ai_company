@@ -55,15 +55,17 @@ tech-stack.md(フェーズ7)「未検証・残課題」1点目、「アカウン
 
 ## 4. 未検証・残課題
 
-- `one_time_draft`のTTL失効(24時間想定)の具体的な実装方式(Firestore TTLポリシー
-  vs. 定期バッチでの削除)は未検討。
-- 決済完了後の結果返却方式((a)リダイレクト先URL方式 vs. (b)メールリンク方式)のどちらを
-  採用するかは未決定。(a)は決済完了直後に画面遷移が切れた場合(ブラウザを閉じる等)の再
-  アクセス手段がない点が弱み、(b)はメール送信が発生するため実装時に送信手段の選定が必要
-  (いずれも実装・公開自体はオーナー承認待ちの範囲)。
-- 返金・決済失敗時(カード拒否等)の挙動は未検討。継続課金モデルのキャンセル系設計
-  (stripe-cancellation-deletion-candidate-trigger-design.md等)に相当する単発決済版の整理が
-  必要。
+- ~~`one_time_draft`のTTL失効(24時間想定)の具体的な実装方式~~: ttl-expiry-result-
+  delivery-refund-design.md(フェーズ12)1節で解消済み。Firestore TTLポリシーを採用し
+  `expires_at`フィールドを設計、Webhook側の防御的チェックも整理した(フェーズ51でこの
+  残課題欄の記載漏れを是正)。
+- ~~決済完了後の結果返却方式~~: ttl-expiry-result-delivery-refund-design.md(フェーズ12)
+  2節で解消済み。(a)リダイレクトURL方式を主経路、(b)メールリンク方式を併用経路とする
+  ハイブリッド方式を採用した(フェーズ51でこの残課題欄の記載漏れを是正)。
+- ~~返金・決済失敗時(カード拒否等)の挙動~~: ttl-expiry-result-delivery-refund-design.md
+  (フェーズ12)3節で解消済み。決済自体の失敗はStripe標準フロー内で完結、決済完了後の
+  生成失敗は2回リトライ後にStripe Refund APIで全額自動返金する方針を確定した(フェーズ51
+  でこの残課題欄の記載漏れを是正)。
 - 実際のStripeアカウント接続・Webhookエンドポイント登録・GCPプロジェクト作成はアカウント
   作成・支払いが発生するためオーナー承認待ちの範囲(pending-approval.md参照)。今回は実装
   方式の机上設計のみに留める。
@@ -71,3 +73,6 @@ tech-stack.md(フェーズ7)「未検証・残課題」1点目、「アカウン
 最終更新: 2026-10-19 12:00 UTC(フェーズ10: one-time-checkout-no-account-design.md新規作成。
 `draft_id`を主キーとするワンタイムトークン方式でStripe Checkout one-time payment modeと
 Firestoreを紐付ける設計をまとめた)
+追記: 2026-10-25 01:00 UTC(フェーズ51: 本節の残課題棚卸し。TTL失効実装方式・結果返却方式・
+返金/決済失敗時の挙動の3点はいずれもttl-expiry-result-delivery-refund-design.md〈フェーズ12〉
+で既に解消済みだったにもかかわらず本節への反映が漏れていた記載漏れを是正した)
