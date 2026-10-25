@@ -125,3 +125,91 @@ FIRESTORE_ENABLED`命名規則への横展開を次回候補として記録し�
 
 最終更新: 2026-10-17 15:00 UTC (フェーズ243: 他4venture側の同種設計との命名規則
 横展開確認。全venture一致を確認し、フェーズ238の次回候補を解消)
+
+## 6. 実クライアント構築失敗時の例外処理方針(フェーズ263)
+
+4節の残課題のうち、`_firestore_enabled()`が真であるにもかかわらず
+`firestore_sdk.Client()`(または各Firestoreアダプタの初期化)が例外を投げる
+ケース(認証情報未設定・サービスアカウント権限不足・一時的なネットワーク障害等)の
+ハンドリング方針を設計する。
+
+### 6.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+未設定時(フラグが`"1"`でない)は1節のとおりInMemory実装へ安全側フォールバックする
+既定だが、フラグが明示的に`"1"`に設定された状態で実クライアント構築が失敗した場合に
+InMemory実装へ自動的に切り替えることはしない。理由は以下の2点。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、
+  この状態での構築失敗は「実Firestoreへの接続が必要な場面で接続できていない」という
+  設定・権限上の不具合を意味する。これをInMemoryへ自動フォールバックすると、
+  書き込みが実際には永続化されずに処理自体は正常終了したように見える
+  (`daily_scheduler.run_daily_workshop_checks()`やwebhookディスパッチが「成功した」
+  ログを出してしまう)ため、不具合の発覚が遅れ、顧客データの消失・重複処理
+  (webhookイベント冪等性チェックがInMemory上のみで行われ再起動ごとにリセットされる等、
+  stripe-event-idempotency-design.md前提との不整合)を招くリスクがある。
+- 他venture(aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)の
+  同ファイル4節も同一の残課題を抱えており(本フェーズ着手前に確認済み)、将来の横展開時に
+  「フラグON時は失敗を隠さず表面化させる」という一貫した方針を揃えておく必要がある。
+
+### 6.2. 実装方針(擬似コード)
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {}
+    try:
+        client = firestore_sdk.Client()
+        return {
+            "user_profile_store": FirestoreUserProfileProvider(client),
+            "workshop_store": FirestoreWorkshopStore(client),
+            "usage_counter_store": FirestoreUsageCounterProvider(client),
+            "linking_store": FirestoreLinkingCodeStore(client),
+            "invite_store": FirestoreInviteCodeStore(client),
+        }
+    except Exception:
+        logger.exception(
+            "KURA_PASHA_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+```
+
+`get_daily_workshop_checks_runtime_dependencies()`側も同様に、
+try/exceptでログを出した上で例外を再raiseする形を取る(3.1節の擬似コードに
+同じtry/except構造を追加するのみで、呼び出し先のNone許容方針自体は変更しない)。
+
+### 6.3. 例外伝播後の挙動(呼び出し元別)
+
+- Webhookエントリポイント(`cloud_function_webhook.py`、HTTPトリガー): 例外が
+  Cloud Functions実行環境まで伝播すると5xxレスポンスを返す。stripe-webhook-
+  http-entry-point-design.md・line側のWebhook仕様はいずれも5xx応答時に送信元
+  (Stripe/LINE)側の再送(リトライ)に委ねる前提を既に持っており、本方針と整合する。
+- 日次スケジューラ(`cloud_function_run_daily_workshop_checks.py`、Cloud
+  Scheduler経由): 例外伝播によりCloud Functions実行がエラー終了し、Cloud
+  Loggingにエラーログが記録される。実行自体の自動リトライ設定・エラー通知
+  (アラートポリシー)の具体的な構成は、本venture未作成のcloud-monitoring-
+  alert-policy-design.md相当の文書(aircon-pasha・course-set-pashaには既に
+  存在、本ventureは次回候補として横展開を検討)に委ねる。
+
+### 6.4. 未検証・残課題
+
+- 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は
+  3節同様、実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに
+  持ち越す。
+- 本venture未作成のcloud-monitoring-alert-policy-design.md相当のアラート設計
+  (aircon-pasha・course-set-pashaには既存)の横展開は、本フェーズでは着手せず
+  次回候補として残す。
+- 他4venture(aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)
+  側の同ファイル4節にも同種の残課題が存在することを確認済みのため、本方針(ログ+
+  re-raise、InMemory自動フォールバック禁止)の横展開は今後の各venture着手回に
+  持ち越す。
+
+最終更新: 2026-10-25 06:00 UTC (フェーズ263: フラグON時の実クライアント構築失敗時は
+InMemoryへ自動フォールバックせずログ出力の上で例外を再raiseする方針を新規設計。
+コード変更なし。他4venture側にも同種の残課題があることを確認、横展開は次回以降に
+持ち越し)

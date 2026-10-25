@@ -6003,3 +6003,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   外部ベンダー侵害時の自社APIキー緊急ローテーション手順をvendor-breach-key-rotation-
   runbook.mdとして新規設計。コード変更なし、テスト295件・webhook355件・schema検証32件
   いずれも変更なしでパス)
+- フェーズ263(2026-10-25 06:00 UTC定例更新): フェーズ260の次回候補(2)「テストダブル
+  切り替え方式の設計」を引き継いだruntime-dependency-switching-design.md 4節の残課題
+  「フラグ`KURA_PASHA_FIRESTORE_ENABLED`が`"1"`のまま実クライアント構築
+  (`firestore_sdk.Client()`)が例外を投げるケースのハンドリングは未設計」に対応した
+  (同ファイル6節として新規追記)。フラグON時の構築失敗をInMemory実装へ自動フォール
+  バックすると、永続化されていない状態のまま処理が「成功」したように見え、顧客データ
+  消失やwebhookイベント冪等性チェックの前提(stripe-event-idempotency-design.md)との
+  不整合を招くリスクがあると判断し、ログ出力の上で例外を再raiseする(自動フォール
+  バックしない)方針を採用した。あわせてWebhookエントリポイント(5xx応答→Stripe/LINE側
+  の再送に委ねる)・日次スケジューラ(Cloud Loggingへのエラー記録、アラート設計は
+  本venture未作成のcloud-monitoring-alert-policy-design.md相当文書〈aircon-pasha・
+  course-set-pashaには既存〉への横展開を次回候補として明記)という呼び出し元別の
+  例外伝播後の挙動を整理した。他4venture(aircon-pasha・course-set-pasha・
+  forklift-pasha・line-reservation-ai)側の同ファイル4節にも同種の残課題が存在する
+  ことを確認したが、本フェーズでは横展開は行わず本venture分のみに留めた。コード変更
+  なし(設計文書追記のみ)、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(295件、変更なし)・`python3 prototype/test_cloud_function_
+  webhook.py`(355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、
+  変更なし)を実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本方針
+  (ログ+re-raise、InMemory自動フォールバック禁止)の他4venture側への横展開、
+  (3)本venture未作成のcloud-monitoring-alert-policy-design.md相当のアラート設計、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 06:00 UTC(フェーズ263: runtime-dependency-switching-design.md
+  6節として、フラグON時の実クライアント構築失敗時はInMemoryへ自動フォールバックせず
+  ログ出力の上で例外を再raiseする方針を新規設計。他4venture側にも同種の残課題がある
+  ことを確認、横展開は次回以降に持ち越し。コード変更なし、テスト295件・webhook355件・
+  schema検証32件いずれも変更なしでパス)
