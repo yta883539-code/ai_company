@@ -76,3 +76,8 @@ Firestoreを紐付ける設計をまとめた)
 追記: 2026-10-25 01:00 UTC(フェーズ51: 本節の残課題棚卸し。TTL失効実装方式・結果返却方式・
 返金/決済失敗時の挙動の3点はいずれもttl-expiry-result-delivery-refund-design.md〈フェーズ12〉
 で既に解消済みだったにもかかわらず本節への反映が漏れていた記載漏れを是正した)
+追記: 2026-10-25 20:00 UTC(フェーズ53: 2節「入力内容のハッシュ値またはUUID」のまま
+未確定だった`draft_id`生成方式をUUID4に確定した。理由・末尾4文字の衝突確率試算・
+衝突時の照合手順はdraft-id-last4-collision-design.md参照。あわせて`one_time_draft/
+{draft_id}`に`customer_email`フィールドを追加保存する方針を確定した〈Webhook受信時の
+決済完了メール送信用の値をそのまま書き込む。既存のWebhook処理自体の変更は不要〉)

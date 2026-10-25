@@ -1087,3 +1087,26 @@
 - 最終更新: 2026-10-25 16:00 UTC(フェーズ52: inquiry-form-ui-draft.md新規作成。問い合わせ
   フォームの入口別`draft_id`事前入力方式・category選択に応じたdetail欄ラベル切り替えを
   設計。コード変更なし、schema検証22件・prototype試験35件いずれも変更なしでパス)
+- フェーズ53(2026-10-25 20:00 UTC定例更新): inquiry-form-ui-draft.md(フェーズ52)6節・
+  one-time-checkout-no-account-design.md(フェーズ10)2節の残課題だった`draft_id`生成
+  方式(「ハッシュ値またはUUID」の未確定状態)をUUID4に確定し、draft-id-last4-collision-
+  design.mdを新規作成した。UUID4文字列の末尾4文字はversion/variantの固定ビットを含まない
+  完全ランダムな16進4文字(16^4=65,536通り)であることを確認した上で、誕生日問題の近似式で
+  衝突確率を試算(24時間以内の`draft_id`発行件数n=10で約0.07%、n=100で約7.56%)。
+  本venture立ち上げ初期の想定発生件数(一桁〜十数件/日)では実務上無視できる水準だが、
+  末尾4文字だけを一意キーとしない設計として、`one_time_draft/{draft_id}`に
+  `customer_email`フィールドを追加保存し、オーナー側の検索手順を「末尾4文字で絞り込み→
+  複数件ヒット時はinquiryフォームの`customer_email`と一致するものを採用」という二段階
+  照合に確定した。コード変更なし(設計文書のみ)、回帰確認としてschema/
+  validate_test_cases.py(22件、変更なし)・prototype配下のunittest(35件、変更なし)を
+  実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)対象候補のロングリスト作成(フェーズ9から持ち越し)、(2)市場仮説を踏まえた
+  customer-interview-design.mdのヒアリング対象候補への反映(フェーズ13から持ち越し)、
+  (3)`customer_email`正規化等の実装時詳細設計、(4)承認待ち事項(候補1〈奈良NEVER LAND〉
+  への電話連絡等)がオーナーから承認された場合はその着手を最優先、(5)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-25 20:00 UTC(フェーズ53: `draft_id`生成方式をUUID4に確定、末尾4文字の
+  衝突確率を試算(n=100で約7.6%)。衝突時は`customer_email`照合で一意性を確保する
+  二段階照合方式をdraft-id-last4-collision-design.mdとして新規設計。コード変更なし、
+  schema検証22件・prototype試験35件いずれも変更なしでパス)
