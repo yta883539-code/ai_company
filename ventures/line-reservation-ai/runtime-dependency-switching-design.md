@@ -105,6 +105,99 @@ Billing Portal接続の承認を待つ)。
 - フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは
   未設計(他4venture共通の理由により本フェーズでは対応しない)。
 
-最終更新: 2026-10-16 12:00 UTC(フェーズ続き325: forklift-pashaフェーズ158の
-次回候補を受け、`LINE_RESERVATION_AI_FIRESTORE_ENABLED`命名規則の切り替え
-設計を本ventureの3つのruntime_dependencies関数に適用。コード変更なし)
+## 5. 実クライアント構築失敗時の例外処理方針(フェーズ続き347)
+
+kura-pashaフェーズ263(runtime-dependency-switching-design.md 6節)の次回候補(3)
+「ログ+re-raise、InMemory自動フォールバック禁止方針の他4venture側への横展開」を受け、
+aircon-pasha(フェーズ343)・course-set-pasha(フェーズ333)・forklift-pasha(フェーズ191)
+に続き、残っていた本venture(line-reservation-ai)に最後に適用する。4節の残課題のうち、
+`_firestore_enabled()`が真であるにもかかわらず各`get_.*_runtime_dependencies()`内の
+実クライアント構築(`firestore_sdk.Client()`・各Firestoreアダプタの初期化)が例外を
+投げるケースのハンドリング方針を設計する。これで5venture全てへの横展開が完了する。
+
+### 5.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+理由は他4venture(kura-pashaフェーズ263・aircon-pashaフェーズ343等)と同一であり、
+本venture固有の事情を補足すると以下の2点となる。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、この状態
+  での構築失敗は「実Firestoreへの接続が必要な場面で接続できていない」という設定・権限
+  上の不具合を意味する。InMemoryへ自動フォールバックすると、`conversation_event_
+  processor_assembly`側の予約枠状態(`store`)が永続化されないまま「成功した」ように
+  見え、二重予約防止(double-booking-prevention.md)の前提が崩れるリスクがある。
+  `stripe_webhook_entry_point`側も同様に、dunning_store・subscription_store等5ストアが
+  InMemoryへ自動フォールバックするとstripe-event-idempotency-design.md前提(冪等性
+  チェックがInMemory上のみで行われ再起動ごとにリセットされる)との不整合を招く。
+- 本venture(line-reservation-ai)が5venture中で最後の横展開対象であり、本フェーズを
+  もって`<venture-prefix>_FIRESTORE_ENABLED`命名規則・ログ+re-raise方針のいずれも
+  全venture共通の一貫した設計になる。
+
+### 5.2. 実装方針(擬似コード)
+
+3.1節の`get_checkout_runtime_dependencies()`を例に、Firestore関連キー(`store`)の
+構築のみをtry/exceptで囲み、ログを出した上で例外を再raiseする(`verify_id_token`・
+`line_return_link`は元々Firestore非依存のため対象外)。
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_checkout_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {
+            "store": InMemoryStoreProfileStore(),
+            "verify_id_token": _verify_id_token_not_implemented,
+            "line_return_link": build_line_return_link(DEFAULT_LINE_BASIC_ID),
+        }
+    try:
+        from google.cloud import firestore as firestore_sdk
+        client = firestore_sdk.Client()
+        store = FirestoreStoreProfileStore(client)
+    except Exception:
+        logger.exception(
+            "LINE_RESERVATION_AI_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+    return {
+        "store": store,
+        "verify_id_token": _verify_id_token_not_implemented,
+        "line_return_link": build_line_return_link(DEFAULT_LINE_BASIC_ID),
+    }
+```
+
+`get_process_conversation_event_runtime_dependencies()`(`store`のみ対象、`push_client`・
+`llm_call`は対象外)・`get_stripe_webhook_runtime_dependencies()`(5ストア全てが対象、
+`push_client`・`portal_link_provider`は元々`None`のため対象外)も同様に、Firestore
+関連キーの構築のみをtry/exceptで囲み例外を再raiseする。
+
+### 5.3. 例外伝播後の挙動(呼び出し元別)
+
+- `checkout_session`(Stripe Checkout開始用HTTPエントリポイント、checkout-initiation-
+  flow-design.md): 例外伝播によりCloud Functions実行環境が5xxを返す。利用者(LIFF
+  アプリ側)は決済開始操作の失敗として再試行する想定で、新たな設計変更は不要。
+- `conversation_event_processor_assembly`(LINE Messaging API Webhook受信、HTTP
+  トリガー): webhook-async-processing-design.mdの非同期処理方針上、5xx応答はLINE
+  Platform側の再送に委ねられる前提と整合する(他venture側webhookと同型)。
+- `stripe_webhook_entry_point`(Stripe Webhook、HTTPトリガー): stripe-webhook-http-
+  entry-point-design.mdは5xx応答時にStripe側の再送(リトライ)に委ねる前提を既に
+  持っており、本方針と整合する。
+
+### 5.4. 未検証・残課題
+
+- 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は
+  実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに持ち越す。
+- 本venture固有のcloud-monitoring-alert-policy-design.md相当の文書は未作成であり
+  (aircon-pasha・course-set-pashaには存在、kura-pashaフェーズ264で確認済み)、本例外の
+  ログをアラート対象に含めるかどうかは当該文書の新規作成とセットで検討する次回候補と
+  する。
+- これで5venture(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha・
+  line-reservation-ai)全てへの「ログ+re-raise、InMemory自動フォールバック禁止」方針の
+  横展開が完了した。
+
+最終更新: 2026-10-25 22:00 UTC(フェーズ続き347: kura-pashaフェーズ263の横展開として、
+本venture固有の3エントリポイント〈checkout_session・conversation_event_processor_
+assembly・stripe_webhook_entry_point〉向けに5節を新規設計。これで5venture全てへの
+横展開が完了。コード変更なし、回帰確認は本venture側README.md参照)

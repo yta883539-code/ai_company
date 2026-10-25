@@ -6526,3 +6526,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md 13節が設計済みだった`FirestoreStoreProfileStore`の
   blocked_but_billing_owner_notified_atグループ(2メソッド)を実コード化。
   テスト6件追加(998→1004件)・schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き347(2026-10-25 22:00 UTC定例更新): kura-pashaフェーズ263
+  (runtime-dependency-switching-design.md 6節)の次回候補(3)「ログ+re-raise、
+  InMemory自動フォールバック禁止方針の他4venture側への横展開」を受け、
+  aircon-pasha(フェーズ343)・course-set-pasha(フェーズ333)・forklift-pasha
+  (フェーズ191)に続き、残っていた本venture(line-reservation-ai)に最後に適用した。
+  本venture固有の3エントリポイント(`checkout_session`・`conversation_event_
+  processor_assembly`・`stripe_webhook_entry_point`)それぞれについて、フラグON時の
+  実Firestoreクライアント構築失敗はログ出力の上で例外を再raiseする方針(InMemoryへの
+  自動フォールバック禁止)をruntime-dependency-switching-design.md 5節として新規設計
+  した。呼び出し元別の例外伝播後の挙動(いずれもHTTPトリガーのため5xx→送信元
+  〈LIFF/LINE Platform/Stripe〉側の再送に委ねる)も整理し、本venture固有の
+  cloud-monitoring-alert-policy-design.md相当の文書が未作成である点を残課題として
+  明記した。これで5venture(kura-pasha・aircon-pasha・course-set-pasha・
+  forklift-pasha・line-reservation-ai)全てへの本方針の横展開が完了した。実アカウント
+  開設・実Firestoreクライアントへの接続はいずれも引き続きオーナー承認待ち
+  (pending-approval.md参照)のため、コード変更・実際のキー発行/失効は行っていない。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (1004件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)残るグループ(plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids、
+  計6グループ)の実コード化、(2)本venture固有のcloud-monitoring-alert-policy-design.md
+  相当の文書の新規作成(本フェーズの残課題)、(3)承認待ち事項がオーナーから承認された
+  場合はその着手(本venture全設計の結合実装)を最優先、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-25 22:00 UTC(フェーズ続き347: runtime-dependency-switching-
+  design.md 5節を新規作成。フラグON時の実クライアント構築失敗時はログ+re-raiseする
+  方針を3エントリポイント向けに設計し、5venture全てへの横展開を完了。コード変更なし、
+  テスト1004件・schema検証28件いずれも変更なしでパス)
