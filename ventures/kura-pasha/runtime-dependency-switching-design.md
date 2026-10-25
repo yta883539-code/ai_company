@@ -192,24 +192,25 @@ try/exceptでログを出した上で例外を再raiseする形を取る(3.1節�
 - 日次スケジューラ(`cloud_function_run_daily_workshop_checks.py`、Cloud
   Scheduler経由): 例外伝播によりCloud Functions実行がエラー終了し、Cloud
   Loggingにエラーログが記録される。実行自体の自動リトライ設定・エラー通知
-  (アラートポリシー)の具体的な構成は、本venture未作成のcloud-monitoring-
-  alert-policy-design.md相当の文書(aircon-pasha・course-set-pashaには既に
-  存在、本ventureは次回候補として横展開を検討)に委ねる。
+  (アラートポリシー)の具体的な構成は、cloud-monitoring-alert-policy-design.md
+  4節(フェーズ265で新規追加)の`kura_pasha_firestore_runtime_dependency_
+  construction_failure_count`指標・アラートポリシーに委ねる。
 
 ### 6.4. 未検証・残課題
 
 - 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は
   3節同様、実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに
   持ち越す。
-- 本venture未作成のcloud-monitoring-alert-policy-design.md相当のアラート設計
-  (aircon-pasha・course-set-pashaには既存)の横展開は、本フェーズでは着手せず
-  次回候補として残す。
+- cloud-monitoring-alert-policy-design.md 4節(フェーズ265)で新規設計した
+  ログベース指標・アラートポリシーは、ログ出力側(6.2節疑似コード)への
+  `event`フィールド構造化反映(`logger.exception`への`extra`付与)とセットで、
+  3節同様実`google-cloud-firestore`導入とあわせた結合実装フェーズに持ち越す。
 - 他4venture(aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)
-  側の同ファイル4節にも同種の残課題が存在することを確認済みのため、本方針(ログ+
-  re-raise、InMemory自動フォールバック禁止)の横展開は今後の各venture着手回に
-  持ち越す。
+  側は本フェーズ(263)着手前に既に横展開済みであることを確認済み(フェーズ263
+  時点の確認通り)。
 
-最終更新: 2026-10-25 06:00 UTC (フェーズ263: フラグON時の実クライアント構築失敗時は
-InMemoryへ自動フォールバックせずログ出力の上で例外を再raiseする方針を新規設計。
-コード変更なし。他4venture側にも同種の残課題があることを確認、横展開は次回以降に
-持ち越し)
+最終更新: 2026-10-25 23:00 UTC (フェーズ265: 6.3節が参照していた「本venture未作成の
+cloud-monitoring-alert-policy-design.md相当の文書」という記載が、実際には既に
+作成済みの同ファイルが意図分類失敗専用でFirestoreランタイム依存構築失敗を
+カバーしていなかったことによる記載不整合だったと判明。同ファイル4節に新規の
+ログベース指標・アラートポリシーが追加されたことを受け参照先を更新)

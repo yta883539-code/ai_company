@@ -6059,3 +6059,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   という記載が陳腐化(ファイルは約2日前に作成済み)していたことを発見・是正。3節の
   スコープ外事項に変更不要であることを確認。コード変更なし、テスト295件・webhook355件・
   schema検証32件いずれも変更なしでパス)
+- フェーズ265(2026-10-25 23:00 UTC定例更新): フェーズ263次回候補(3)「本venture未作成の
+  cloud-monitoring-alert-policy-design.md相当のアラート設計」を再確認した。フェーズ264で
+  「ファイルは既に作成済み」と確認済みだったが、本フェーズでファイルの実内容(1節・2節)を
+  精査した結果、既存の1節・2節はフェーズ174由来の意図分類失敗(`chatbot_intent_
+  classification_failed`)専用のアラートであり、runtime-dependency-switching-design.md
+  6節(フェーズ263)がre-raise方針の通知先として参照していたFirestoreランタイム依存構築
+  失敗(認証情報未設定・権限不足等)の検知アラートは実際には未定義のままだったことを
+  発見した。すなわち「ファイルは作成済み」(フェーズ264の確認)という事実と「6.3節が
+  求めるアラートは未定義」という事実は両立しており、フェーズ264は前者のみを確認し
+  後者を見落としていた。cloud-monitoring-alert-policy-design.md 4節として、新規ログ
+  ベース指標`kura_pasha_firestore_runtime_dependency_construction_failure_count`
+  (フィルタ`jsonPayload.event="firestore_runtime_dependency_construction_failed"`,
+  `severity="ERROR"`、意図分類失敗〈WARNING〉と重大度・検知対象を区別)・アラート
+  ポリシー(直近60分で1件以上、既存の2節と同一のメール通知チャネルを共用)・スコープ外
+  事項(ログ出力側へのevent構造化フィールド反映は結合実装フェーズに持ち越し、Webhook
+  エントリポイント側への同種可視化は横展開候補として明記)を新規設計した。あわせて
+  runtime-dependency-switching-design.md 6.3節・6.4節の「本venture未作成」という
+  参照を、新設した4節への参照に更新した。コード変更なし(設計文書の追記・参照更新のみ)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (295件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を
+  実行しいずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)4節のログ出力側(`event`構造化フィールド)への実装反映を結合実装フェーズで
+  3節既存項目と合わせて行う、(3)Webhookエントリポイント側への同種可視化(4.3節で
+  明記した横展開候補)、(4)フェーズ264次回候補(3)「他venture側README.mdの同種の
+  『未作成』陳腐化記載の棚卸し」、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 23:00 UTC(フェーズ265: cloud-monitoring-alert-policy-design.md
+  4節として、Firestoreランタイム依存構築失敗〈フェーズ263のre-raise方針が対象〉を
+  検知する新規ログベース指標・アラートポリシーを設計。既存1節・2節は意図分類失敗専用
+  でこの事象をカバーしていなかったことを発見し解消。runtime-dependency-switching-
+  design.md 6.3節・6.4節の参照も更新。コード変更なし、テスト295件・webhook355件・
+  schema検証32件いずれも変更なしでパス)

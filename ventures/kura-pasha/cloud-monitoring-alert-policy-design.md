@@ -71,3 +71,63 @@ aircon-pasha側の同種設計を本venture向けに横展開する。実際のG
 - line-reservation-ai向けの検討(会話状態管理を前提とする別構成のため、本設計を
   そのまま横展開できるかは別途course-set-pasha側の記載の通り同venture固有の課題として
   残る、本ドキュメントの範囲外)。
+
+## 4. Firestoreランタイム依存構築失敗アラート(フェーズ265)
+
+runtime-dependency-switching-design.md 6節(フェーズ263)で決定した「フラグ
+`KURA_PASHA_FIRESTORE_ENABLED`が`"1"`のまま実クライアント構築が失敗した場合は
+InMemoryへ自動フォールバックせずログ出力の上で例外を再raiseする」方針について、
+6.3節は「日次スケジューラ側のエラー通知(アラートポリシー)の具体的な構成は、本
+venture未作成のcloud-monitoring-alert-policy-design.md相当の文書に委ねる」と
+記載していたが、本ファイル自体は既にフェーズ174由来の意図分類失敗アラート
+(1節・2節)として作成済みであり、この記載は不正確だった。実際には1節・2節は
+意図分類失敗(`chatbot_intent_classification_failed`)専用であり、Firestore
+ランタイム依存構築失敗(6節のre-raise方針が対象とする事象)を検知する指標・
+アラートはまだ定義されていなかった。両者は検知対象(LLM API起因かGCP認証・
+権限起因か)が異なるため、1節・2節を転用せず新規に以下を定義する。
+
+### 4.1. ログベース指標
+
+- 名前(案): `kura_pasha_firestore_runtime_dependency_construction_failure_count`
+- フィルタ:
+  ```
+  resource.type="cloud_run_revision"
+  jsonPayload.event="firestore_runtime_dependency_construction_failed"
+  severity="ERROR"
+  ```
+  ログ出力側(runtime-dependency-switching-design.md 6.2節の`logger.exception(...)`)は
+  現状メッセージ文字列のみで`event`キーを持たないため、結合実装フェーズで
+  `logger.exception(..., extra={"json_fields": {"event": "firestore_runtime_dependency_construction_failed"}})`
+  相当の構造化ログに揃える必要がある(本フェーズでは設計のみ、`.py`実装は
+  未反映。6.2節の疑似コードへの反映は次回候補)。
+- severityを意図分類失敗(WARNING)と区別しERRORとする理由: 6.1節の通り、本事象は
+  「設定・権限上の不具合」であり顧客影響(処理失敗・5xx応答)を伴うため、意図分類
+  失敗(フォールスルーにより顧客影響が軽微)より重大度が高い。
+
+### 4.2. アラートポリシー
+
+- 条件: 上記指標が「直近60分間で合計1件以上」で発火(1節・2節と同一のローリング
+  ウィンドウ・しきい値)。6.1節の通りフラグON時の構築失敗は即時表面化させる方針
+  のため、しきい値を緩める理由がない。
+- 通知チャネル: 2節と同じCloud Monitoring標準メール通知チャネル
+  (`OWNER_ALERT_EMAIL_PLACEHOLDER`)を共用する(運営者自身向けの技術監視目的で
+  宛先・経路が1節・2節と同一のため、チャネル自体を分ける必要はない。ポリシー自体は
+  指標が異なるため1節・2節のポリシーとは別個に作成する)。
+
+### 4.3. スコープ外(引き続き次回以降の課題)
+
+- 4.1節のログ出力側(`.py`実装)への`event`フィールド構造化反映は、3節既存項目
+  と同様に実`google-cloud-firestore`導入・結合実装フェーズに持ち越す。
+- Webhookエントリポイント側(`cloud_function_webhook.py`)で同一事象が発生した
+  場合、6.3節の通り5xx応答によりStripe/LINE側の再送に委ねる既存フローと整合する
+  ため機能面の対応は不要だが、運営者への可視化目的で同一の`event`名・指標を
+  Webhook側ログにも適用する(フィルタの`resource.type`/`service_name`は関数ごとに
+  異なるため、実プロジェクト作成後に3節同様サービス単位でラベル値を確認する)。
+- 実際のログベース指標・アラートポリシーの作成自体は、3節同様GCPプロジェクト
+  作成後にオーナー承認の範囲内で実施する。
+
+最終更新: 2026-10-25 23:00 UTC (フェーズ265: runtime-dependency-switching-design.md
+6.3節が参照していた「本venture未作成」というアラート文書の記載は、実際には既に
+作成済みの本ファイルが意図分類失敗専用でFirestoreランタイム依存構築失敗を
+カバーしていなかったことによる記載不整合だったと判明。4節として新規にログベース
+指標・アラートポリシーを設計し解消した)
