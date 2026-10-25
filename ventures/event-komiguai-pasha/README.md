@@ -1023,3 +1023,28 @@
   Cloud Run 2nd gen同一サービスでのフォーム配信・処理統合を選定し、追加のGCPプロダクト
   依存を増やさない方針とした。コード変更なし、schema検証22件・prototype試験35件いずれも
   変更なしでパス)
+- フェーズ50(2026-10-25 00:00 UTC定例更新): フェーズ49の次回候補(3)「独自ドメイン運用か
+  Cloud RunデフォルトURLのままとするかの検討(実サービス公開時に再検討、web-form-hosting-
+  selection.md 4節)」に着手した(custom-domain-vs-default-url-decision.md新規作成)。
+  独自ドメイン採用案(信頼性・覚えやすさ向上 vs 年次コスト・DNS設定・vendor-breach-key-
+  rotation-runbook.mdへの依存先追加)とCloud RunデフォルトURL案(追加費用・保有キー増加なし
+  vs URLの印象・基盤移行時の再配布コスト)を比較し、tech-stack.md(フェーズ7)の低頻度利用に
+  対して運用コスト・保有キー数を増やさない方針と、現時点で利用実績がなく独自ドメインの効果が
+  未検証であることを理由に、初回ローンチ時点はCloud RunデフォルトURLを採用する暫定方針を
+  決定した。独自ドメイン再検討のトリガー(利用件数・売上が一定規模に達した場合、または
+  ヒアリングでURLの印象が導入障壁との声が確認された場合)を明記し、one-time-checkout-
+  no-account-design.md・result-page-ttl-access-design.md・vendor-breach-key-rotation-
+  runbook.mdへの影響がないことを確認した。実際のドメイン取得・DNS設定・GCPプロジェクト
+  作成自体は発生しておらず、承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  も発生していないためpending-approval.mdへの追記なし。回帰確認として`python3
+  schema/validate_test_cases.py`(22件、変更なし)・`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(35件、変更なし)を実行しいずれもパスすることを確認した。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡、実LLM接続)がオーナーから
+  承認された場合はその着手を最優先、(2)候補2(那覇市・中山一朗氏)の屋号特定はオーナーの電話
+  連絡承認が得られるまで探索頻度をさらに下げる、(3)独自ドメイン再検討トリガー(本フェーズ4節
+  (a))の「一定規模」の定量化は実際の利用件数データが蓄積された段階で検討、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-25 00:00 UTC(フェーズ50: custom-domain-vs-default-url-decision.md
+  新規作成。初回ローンチ時点はCloud RunデフォルトURLを採用する暫定方針を決定し、独自ドメイン
+  再検討のトリガー条件を整理。コード変更なし、schema検証22件・prototype試験35件いずれも
+  変更なしでパス)
