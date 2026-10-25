@@ -304,6 +304,17 @@ class FirestoreUserProfileStoreTest(unittest.TestCase):
         self.store.set_gym_area_pairs("u2", "shinjuku:east")
         self.assertEqual(sorted(self.store.all_user_ids()), ["u1", "u2"])
 
+    def test_is_configured_for_unknown_user_is_false(self):
+        self.assertFalse(self.store.is_configured("u1"))
+
+    def test_is_configured_true_after_set_gym_area_pairs(self):
+        self.store.set_gym_area_pairs("u1", "shinjuku:east")
+        self.assertTrue(self.store.is_configured("u1"))
+
+    def test_is_configured_false_when_only_other_fields_set(self):
+        self.store.set_email("u1", "owner@example.com")
+        self.assertFalse(self.store.is_configured("u1"))
+
 
 if __name__ == "__main__":
     unittest.main()

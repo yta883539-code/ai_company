@@ -26,6 +26,8 @@ class FirestoreUserProfileStore:
     planグループ〈フェーズ327、設計11節〉、および
     checkout_session_completed_event_timeグループ〈フェーズ328、設計13節〉。
     これで`UserProfileStoreProtocol`の全グループの実Firestore接続アダプタ実装が完了する)。
+    加えて`GymAreaConfigStoreProtocol.is_configured()`〈フェーズ330、設計15節〉も
+    get_gym_area_pairs()への委譲として同一クラスで満たす。
     user_profile/{user_id}ドキュメント、およびstripe_customer_id逆引き用の
     stripe_customer_index/{stripe_customer_id}ドキュメントを読み書きする。
     """
@@ -46,6 +48,11 @@ class FirestoreUserProfileStore:
         if not snapshot.exists:
             return ""
         return (snapshot.to_dict() or {}).get("gym_area_pairs", "")
+
+    def is_configured(self, user_id: str) -> bool:
+        # 設計15.2節: 専用のドキュメント読み取りを別途行わず、get_gym_area_pairs()の
+        # 非空判定に委譲する(GymAreaConfigStoreProtocol互換)。
+        return bool(self.get_gym_area_pairs(user_id))
 
     def set_email(self, user_id: str, email: str) -> None:
         doc_ref = self._collection.document(user_id)

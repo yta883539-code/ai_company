@@ -5847,3 +5847,27 @@
 - 最終更新: 2026-10-24 19:00 UTC(フェーズ329: kura-pashaフェーズ262の横展開として
   外部ベンダー侵害時キー緊急ローテーション手順runbookを新規作成〈LIFFアプリID依存を
   明記〉。コード変更なし、テスト855件・schema検証21件いずれも変更なしでパス)
+- フェーズ330(2026-10-25 01:00 UTC定例更新): フェーズ329の次回候補(2)「残る
+  `GymAreaConfigStoreProtocol`(15節)・`FirstGenerationNoticeStoreProtocol`(21節)の
+  実コード化」に着手した。まず`GymAreaConfigStoreProtocol`(15節、読み取り専用の
+  `is_configured(user_id) -> bool`1メソッドのみ)を実コード化した。設計15.2節の方針通り、
+  専用のドキュメント読み取りを別途行わず既存の`get_gym_area_pairs()`への委譲とすることで、
+  `prototype/firestore_user_profile_adapter.py`の`FirestoreUserProfileStore`クラスに
+  `is_configured()`を追加した(同一クラス・同一`user_profile/{user_id}`ドキュメントで
+  `UserProfileStoreProtocol`と`GymAreaConfigStoreProtocol`の両方を満たす設計がそのまま
+  成立することを実コードでも確認)。テスト3件を追加(unknown userは`False`、
+  `set_gym_area_pairs()`後は`True`、`gym_area_pairs`以外のフィールドのみ設定時は
+  `False`のままであることを検証)。firestore-provider-adapter-design.md 16節に
+  実コード化済みである旨を追記した。残る`FirstGenerationNoticeStoreProtocol`(21節)の
+  実コード化は次回候補とする。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(855→858件、新規3件含めて全件パス)・`python3 schema/
+  validate_test_cases.py`(21件、変更なし)を実行しいずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)残る`FirstGenerationNoticeStoreProtocol`(21節)の実コード化、(3)残る横展開対象
+  (aircon-pasha・forklift-pasha・event-komiguai-pasha)への同種ランブック整理、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 01:00 UTC(フェーズ330: `GymAreaConfigStoreProtocol.is_configured()`
+  を`prototype/firestore_user_profile_adapter.py`に実コード化(get_gym_area_pairs()への
+  委譲)。テスト3件追加(855→858件)、schema検証21件変更なしでいずれもパス)

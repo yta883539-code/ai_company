@@ -711,6 +711,10 @@ class FirestoreUserProfileStore:
   接続・各呼び出し側への本クラスのインスタンス注入・結合テストのみ(いずれも未承認のため
   着手不可)。
 - 他venture・アイデア領域の前進を次回候補とする。
+- 【フェーズ330で実コード化】本節の設計コード例を`prototype/firestore_user_profile_
+  adapter.py`の`FirestoreUserProfileStore.is_configured()`として実装し、テスト3件
+  (unknown user→False、gym_area_pairs設定後→True、他フィールドのみ設定時→False)を
+  追加した。実Firestore接続自体は引き続き承認待ちのため、テストはフェイクアダプタ経由。
 
 ## 17. 付け替え時の旧`stripe_customer_id`逆引きエントリ削除(フェーズ286)
 
