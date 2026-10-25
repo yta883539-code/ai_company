@@ -6351,3 +6351,28 @@
   (forklift-pasha・event-komiguai-pasha)」が、両venture側で既に完了済みだった横展開を
   未完了として再掲していた陳腐化記載であることを発見し是正。コード変更なし、全789件・
   schema検証25件いずれも変更なしでパス)
+- フェーズ343(2026-10-25 14:00 UTC定例更新): kura-pashaフェーズ263(runtime-dependency-
+  switching-design.md 6節)の次回候補(3)「ログ+re-raise、InMemory自動フォールバック
+  禁止方針の他4venture側への横展開」を受け、本venture(aircon-pasha)に最初に適用した。
+  4節の残課題「フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは
+  未設計」に対応し、本venture固有の5エントリポイント(`cloud_function_webhook.py`・
+  `stripe_webhook.py`・`cloud_function_application_form_submission.py`・
+  `cloud_function_run_daily_checks.py`・`cloud_function_send_deletion_candidate_final_
+  confirmations.py`)それぞれについて、フラグON時の実クライアント構築失敗はログ出力の
+  上で例外を再raiseする方針(InMemoryへの自動フォールバック禁止)を5節として新規設計した。
+  呼び出し元別の例外伝播後の挙動(Webhook系は5xx→送信元再送、申込フォームは5xx、
+  日次/月次スケジューラはCloud Loggingへのエラー記録)も整理し、本venture既存の
+  cloud-monitoring-alert-policy-design.mdとの関係(アラート設計自体の横展開は不要)も
+  確認した。実アカウント開設自体は引き続きオーナー承認待ち(pending-approval.md参照)の
+  ため、コード変更・実際のキー発行/失効は行っていない。回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(789件、変更なし)・`python3
+  schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)残る
+  2venture(course-set-pasha・forklift-pasha・line-reservation-ai)側への本方針の横展開、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 14:00 UTC(フェーズ343: kura-pashaフェーズ263の横展開として、
+  本venture固有の5エントリポイント向けにフラグON時の実クライアント構築失敗時はログ+
+  re-raiseする方針を新規設計。コード変更なし、全789件・schema検証25件いずれも変更なしで
+  パス)

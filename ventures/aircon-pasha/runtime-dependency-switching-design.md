@@ -112,4 +112,102 @@ workshop-store-firestore-adapter-design.mdに相当するFirestoreアダプタ�
 - フラグが`"1"`のまま実クライアント構築が例外を投げるケースのハンドリングは
   未設計(kura-pashaフェーズ238と同じ理由で本フェーズでは対応しない)。
 
-最終更新: 2026-10-16 (フェーズ319)
+## 5. 実クライアント構築失敗時の例外処理方針(フェーズ343)
+
+kura-pashaフェーズ263(runtime-dependency-switching-design.md 6節)の次回候補(3)
+「本方針(ログ+re-raise、InMemory自動フォールバック禁止)の他4venture側への横展開」を
+受け、本venture(aircon-pasha)に最初に適用する。4節の残課題のうち、
+`_firestore_enabled()`が真であるにもかかわらず各`get_.*_runtime_dependencies()`内の
+実クライアント構築(`firestore_sdk.Client()`・各Firestoreアダプタの初期化)が例外を
+投げるケース(認証情報未設定・サービスアカウント権限不足・一時的なネットワーク障害等)の
+ハンドリング方針を設計する。
+
+### 5.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+未設定時(フラグが`"1"`でない)は1節のとおりInMemory実装へ安全側フォールバックする
+既定だが、フラグが明示的に`"1"`に設定された状態で実クライアント構築が失敗した場合に
+InMemory実装へ自動的に切り替えることはしない。理由はkura-pashaフェーズ263と同一であり、
+本venture固有の事情を補足すると以下の2点となる。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、この状態
+  での構築失敗は「実Firestoreへの接続が必要な場面で接続できていない」という設定・権限
+  上の不具合を意味する。InMemoryへ自動フォールバックすると、`cloud_function_run_daily_
+  checks.py`の日次チェック・`stripe_webhook.py`のStripeイベント処理・`cloud_function_
+  send_deletion_candidate_final_confirmations.py`の月次確認通知のいずれも「成功した」
+  ように見えながら実際には永続化されない事態となり、顧客データの消失・stripe-event-
+  idempotency-design.md前提(冪等性チェックがInMemory上のみで行われ再起動ごとにリセット
+  される)との不整合を招くリスクがある。
+- kura-pasha側で確認済みの通り、本venture(aircon-pasha)の同ファイル4節も同一の残課題を
+  抱えており、残る2venture(course-set-pasha・forklift-pasha・line-reservation-ai)への
+  今後の横展開に向けて「フラグON時は失敗を隠さず表面化させる」という一貫した方針を
+  揃えておく必要がある。
+
+### 5.2. 実装方針(擬似コード)
+
+3.2節の`get_daily_checks_runtime_dependencies()`を例に、try/exceptでログを出した上で
+例外を再raiseする形を取る(呼び出し先のNone許容方針自体は変更しない)。
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_daily_checks_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {
+            "profile_store": InMemoryUserProfileStore(),
+            "push_client": InMemoryLinePushClient(),
+        }
+    try:
+        from google.cloud import firestore as firestore_sdk
+        client = firestore_sdk.Client()
+        return {
+            "profile_store": FirestoreUserProfileStore(client),
+            "push_client": InMemoryLinePushClient(),  # LINE接続は別軸
+        }
+    except Exception:
+        logger.exception(
+            "AIRCON_PASHA_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+```
+
+`get_runtime_dependencies()`(webhook)・`get_application_form_submission_runtime_
+dependencies()`・`get_deletion_candidate_final_confirmation_runtime_dependencies()`・
+`get_stripe_runtime_dependencies()`の残り4関数も同様に、Firestore関連キーの構築のみを
+try/exceptで囲み例外を再raiseする(LINE・Stripe等Firestore以外のキーの構築はそのまま)。
+
+### 5.3. 例外伝播後の挙動(呼び出し元別)
+
+- Webhookエントリポイント(`cloud_function_webhook.py`・`stripe_webhook.py`、いずれも
+  HTTPトリガー): 例外がCloud Functions実行環境まで伝播すると5xxレスポンスを返す。
+  webhook-http-entry-point-design.md・stripe-webhook-http-entry-point-design.mdは
+  いずれも5xx応答時に送信元(LINE/Stripe)側の再送(リトライ)に委ねる前提を既に持って
+  おり、本方針と整合する。
+- 申込フォームエントリポイント(`cloud_function_application_form_submission.py`、HTTP
+  トリガー): 例外伝播により`main(request)`がハンドラ内で捕捉せず終了し、Cloud Functions
+  実行環境が5xxを返す(application-form-submission-http-entry-point-design.md 3節の
+  400/401は`handle_form_submission()`が返す業務エラーであり、依存構築失敗はこれとは別に
+  5xxとして表面化する)。GAS側は5xx応答時にエラーとして記録する想定とし、設計変更は
+  不要(GAS側の実装はオーナー承認後)。
+- 日次スケジューラ(`cloud_function_run_daily_checks.py`)・月次スケジューラ
+  (`cloud_function_send_deletion_candidate_final_confirmations.py`、いずれもCloud
+  Scheduler経由): 例外伝播によりCloud Functions実行がエラー終了し、Cloud Loggingに
+  エラーログが記録される。本ventureにはcloud-monitoring-alert-policy-design.md(kura-
+  pashaフェーズ264で確認済みの通り本venture・course-set-pashaには既に存在)があるため、
+  アラート設計自体の横展開は不要で、既存のログベース指標・アラートポリシーに本例外の
+  ログも含まれる想定(具体的な指標名の追加は結合実装フェーズに持ち越す)。
+
+### 5.4. 未検証・残課題
+
+- 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は3節同様、
+  実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに持ち越す。
+- 残る2venture(course-set-pasha・forklift-pasha・line-reservation-ai)側の同ファイル
+  4節への横展開は、本フェーズでは着手せず次回候補として残す。
+
+最終更新: 2026-10-25 14:00 UTC (フェーズ343: kura-pashaフェーズ263「ログ+re-raise、
+InMemory自動フォールバック禁止」方針の横展開として、本venture固有の5エントリポイント
+〈webhook・Stripe webhook・申込フォーム・日次/月次スケジューラ〉向けに5節を新規設計。
+コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
