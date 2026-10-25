@@ -218,5 +218,46 @@ class FirestoreStoreProfileStoreOwnerIsFollowingGroupTest(unittest.TestCase):
         self.assertTrue(store.get_owner_is_following("store-1"))
 
 
+class FirestoreStoreProfileStoreOwnerUserIdGroupTest(unittest.TestCase):
+    def test_get_owner_user_id_returns_none_when_document_missing(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertIsNone(store.get_owner_user_id("store-1"))
+
+    def test_set_then_get_owner_user_id_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_owner_user_id("store-1", "U_owner_abc")
+
+        self.assertEqual(store.get_owner_user_id("store-1"), "U_owner_abc")
+
+    def test_set_owner_user_id_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_owner_user_id("store-1", "U_owner_abc")
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_owner_user_id_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_owner_user_id("", "U_owner_abc")
+
+    def test_set_owner_user_id_rejects_empty_owner_user_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_owner_user_id("store-1", "")
+
+    def test_get_owner_user_id_falls_back_to_none_on_client_exception(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertIsNone(store.get_owner_user_id("store-1"))
+
+
 if __name__ == "__main__":
     unittest.main()

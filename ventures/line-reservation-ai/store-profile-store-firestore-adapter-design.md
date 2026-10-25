@@ -130,7 +130,10 @@ class FirestoreStoreProfileStore:
   この訂正に基づき、フェーズ続き342でStripeグループ(本節、3メソッド)・
   owner_is_followingグループ(7節、2メソッド)を`prototype/firestore_store_profile_store.py`
   として実コード化した(テスト16件追加、`test_firestore_store_profile_store.py`)。
-- 残りのグループ(owner_user_id・suspension_reason・owner_email・
+  続いてフェーズ続き343で、19節が既に設計していた`get_owner_user_id`/
+  `set_owner_user_id`(owner_user_idグループ、2メソッド)を同ファイルへ追加実コード化
+  した(19節のコード例をそのまま転記、テスト6件追加)。
+- 残りのグループ(suspension_reason・owner_email・
   blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
   menu_durations・store_faq_info・onboarding_completion_message・all_store_ids)は
   設計(各節)は完了済みだが実コード化は次回候補として残る。

@@ -1,5 +1,6 @@
 """store-profile-store-firestore-adapter-design.md 2節(Stripeグループ)・
-7節(owner_is_followingグループ)の設計を実コードに落としたもの。
+7節(owner_is_followingグループ)・19節(owner_user_idグループ)の設計を実コードに
+落としたもの。
 firestore_store_document_provider.py(フェーズ続き340)・kura-pasha/course-set-pasha/
 aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-cloud-firestore SDKを
 直接importしない(`firestore_client`が`collection(name).document(id)`・`batch()`
@@ -7,11 +8,11 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 フェイクでも差し替え可能)。
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
-上記2グループ(5メソッド)のみ。他グループ(owner_user_id・suspension_reason・
-owner_email・blocked_but_billing_owner_notified_at・plan・
-checkout_session_completed_event_time・menu_durations・store_faq_info・
-onboarding_completion_message・all_store_ids)は設計(design.md各節)は完了済みだが
-実コード化は次回候補のまま残る。
+上記3グループ(7メソッド)のみ。他グループ(suspension_reason・owner_email・
+blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
+menu_durations・store_faq_info・onboarding_completion_message・all_store_ids・
+store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
+次回候補のまま残る。
 """
 
 from __future__ import annotations
@@ -99,3 +100,21 @@ class FirestoreStoreProfileStore:
         self._doc_ref(store_id).set(
             {"ownerIsFollowing": bool(is_following)}, merge=True
         )
+
+    def get_owner_user_id(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # get_stripe_customer_id等と同じ安全側方針(firestore-provider-adapter-
+            # design.md 3節): 接続エラーも「未設定」(None)に合流させる。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("ownerUserId")
+
+    def set_owner_user_id(self, store_id: str, owner_user_id: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if not owner_user_id:
+            raise ValueError("owner_user_id must be a non-empty string")
+        self._doc_ref(store_id).set({"ownerUserId": owner_user_id}, merge=True)
