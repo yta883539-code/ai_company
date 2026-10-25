@@ -6449,3 +6449,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   adapter-design.md 19節が設計済みだった`FirestoreStoreProfileStore`の
   owner_user_idグループ(2メソッド)を実コード化。テスト6件追加(980→986件)・
   schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き344(2026-10-25 08:00 UTC定例更新): フェーズ続き343の次回候補(1)
+  「残るグループ(suspension_reason等9グループ)の実コード化」に着手し、
+  store-profile-store-firestore-adapter-design.md 9節が既に設計済みだった
+  `get_suspension_reason`/`set_suspension_reason`(suspension_reasonグループ、
+  2メソッド)を`prototype/firestore_store_profile_store.py`へ追加実コード化した
+  (9節のコード例をそのまま転記)。9節が明記していた通り、本フィールドは
+  `cloud_function_process_event.py`の新規予約受付判定に直接使われるが予約リクエスト
+  ごとに再評価される可逆な判定であるため、7節(owner_is_following)・19節
+  (owner_user_id)と同じ「接続エラーは未設定側(None=未停止)に安全に合流させる」
+  方針をそのまま適用し、新たな方針判断は不要だった。
+  `test_firestore_store_profile_store.py`にテスト6件追加(停止理由の設定・解除の
+  往復、他フィールド保持、空store_id拒否、接続エラー時のフォールバックを含む)。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (986→992件)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し
+  いずれもパスすることを確認した。実Firestoreクライアントへの接続やアカウント作成は
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残るグループ(owner_email等8グループ)の実コード化、
+  (2)承認待ち事項がオーナーから承認された場合はその着手(本venture全設計の結合実装)を
+  最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-25 08:00 UTC(フェーズ続き344: store-profile-store-firestore-
+  adapter-design.md 9節が設計済みだった`FirestoreStoreProfileStore`の
+  suspension_reasonグループ(2メソッド)を実コード化。テスト6件追加(986→992件)・
+  schema検証28件〈変更なし〉いずれもパス)

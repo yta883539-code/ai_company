@@ -259,5 +259,49 @@ class FirestoreStoreProfileStoreOwnerUserIdGroupTest(unittest.TestCase):
         self.assertIsNone(store.get_owner_user_id("store-1"))
 
 
+class FirestoreStoreProfileStoreSuspensionReasonGroupTest(unittest.TestCase):
+    def test_get_suspension_reason_returns_none_when_document_missing(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertIsNone(store.get_suspension_reason("store-1"))
+
+    def test_set_then_get_suspension_reason_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_suspension_reason("store-1", "payment_failed")
+
+        self.assertEqual(store.get_suspension_reason("store-1"), "payment_failed")
+
+    def test_set_suspension_reason_can_clear_back_to_none(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_suspension_reason("store-1", "payment_failed")
+
+        store.set_suspension_reason("store-1", None)
+
+        self.assertIsNone(store.get_suspension_reason("store-1"))
+
+    def test_set_suspension_reason_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_suspension_reason("store-1", "payment_failed")
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_suspension_reason_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_suspension_reason("", "payment_failed")
+
+    def test_get_suspension_reason_falls_back_to_none_on_client_exception(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertIsNone(store.get_suspension_reason("store-1"))
+
+
 if __name__ == "__main__":
     unittest.main()

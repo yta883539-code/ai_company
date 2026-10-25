@@ -8,11 +8,11 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 フェイクでも差し替え可能)。
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
-上記3グループ(7メソッド)のみ。他グループ(suspension_reason・owner_email・
-blocked_but_billing_owner_notified_at・plan・checkout_session_completed_event_time・
-menu_durations・store_faq_info・onboarding_completion_message・all_store_ids・
-store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
-次回候補のまま残る。
+上記3グループ・9節(suspension_reasonグループ)の計4グループ(9メソッド)のみ。
+他グループ(owner_email・blocked_but_billing_owner_notified_at・plan・
+checkout_session_completed_event_time・menu_durations・store_faq_info・
+onboarding_completion_message・all_store_ids・store_deletion_confirmation関連)は
+設計(design.md各節)は完了済みだが実コード化は次回候補のまま残る。
 """
 
 from __future__ import annotations
@@ -118,3 +118,25 @@ class FirestoreStoreProfileStore:
         if not owner_user_id:
             raise ValueError("owner_user_id must be a non-empty string")
         self._doc_ref(store_id).set({"ownerUserId": owner_user_id}, merge=True)
+
+    def get_suspension_reason(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # InMemory実装の未設定時デフォルト(None=未停止)と揃える安全側フォールバック
+            # (design.md 9節: 本フィールドはcloud_function_process_event.pyの新規予約
+            # 受付判定に直接使われるが、予約リクエストごとに再評価される可逆な判定の
+            # ため、7節・19節と同じ方針を適用する)。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("suspensionReason")
+
+    def set_suspension_reason(
+        self, store_id: str, suspension_reason: Optional[str]
+    ) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        self._doc_ref(store_id).set(
+            {"suspensionReason": suspension_reason}, merge=True
+        )
