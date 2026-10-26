@@ -89,3 +89,10 @@ Firestoreランタイム依存構築失敗アラート設計(同ファイル4節
 アラートのみを対象とした。これでkura-pasha・aircon-pasha・course-set-pasha・
 forklift-pashaの4venture全てにFirestoreランタイム依存構築失敗アラート設計が
 揃った。残る横展開先はline-reservation-aiのみ。)
+
+追記(フェーズ193・2026-10-26 09:00 UTC): line-reservation-ai側がフェーズ続き348
+(2026-10-26 04:00 UTC)で自ventureのcloud-monitoring-alert-policy-design.mdを
+新規作成済みであることを確認した。したがって上記「残る横展開先はline-reservation-ai
+のみ」は解消済みであり、本設計(Firestoreランタイム依存構築失敗アラート)は
+kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-aiの
+5venture全てに揃った。詳細はREADME.mdフェーズ193を参照。
