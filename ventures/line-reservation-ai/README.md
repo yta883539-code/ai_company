@@ -6557,3 +6557,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   design.md 5節を新規作成。フラグON時の実クライアント構築失敗時はログ+re-raiseする
   方針を3エントリポイント向けに設計し、5venture全てへの横展開を完了。コード変更なし、
   テスト1004件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き348(2026-10-26 04:00 UTC定例更新): フェーズ続き347・
+  runtime-dependency-switching-design.md 5.4節の残課題だった「本venture固有の
+  cloud-monitoring-alert-policy-design.md相当の文書は未作成」を解消し、新規作成した。
+  kura-pasha(フェーズ265)・aircon-pasha・course-set-pasha側の既存設計を横展開する
+  方針だったが、本ventureは単一の意図分類失敗イベントではなく、`checkout_session`・
+  `conversation_event_processor_assembly`・`stripe_webhook_entry_point`という3つの
+  別Cloud Functionでそれぞれ発生し得るFirestoreランタイム依存構築失敗
+  (`firestore_runtime_dependency_construction_failed`、ERROR)が唯一の構造化ログ
+  対象イベントである点が他4venture(単一Webhook関数内の意図分類失敗、WARNING)と
+  構造的に異なることを確認した。このため、ログベース指標は1つに統一しつつ発生元を
+  `entry_point`ラベル(カーディナリティ3固定)で区別する設計とし、アラートポリシー
+  自体は`entry_point`でグループ化せず発生自体をまず検知する方針(しきい値「直近60分
+  で1件以上」、kura-pasha同様)とした。通知チャネルはCloud Monitoring標準メール
+  (`OWNER_ALERT_EMAIL_PLACEHOLDER`)を他4venture共通方針のまま採用。実際のGCP
+  プロジェクト上での指標・アラートポリシー作成、ログ出力側への`event`/`entry_point`
+  フィールドの構造化反映(`.py`実装)はいずれも結合実装フェーズに持ち越し、本フェーズ
+  はコード変更を行っていない。回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(1004件、変更なし)・`python3 schema/validate_test_
+  cases.py`(28件、変更なし)を実行しいずれも変更なしでパスすることを確認した。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)構造化出力(JSON)のフォーマット崩れ・リトライ失敗側に本venture独自の
+  意図分類失敗相当のログ・指標・アラートを新設するかどうかの検討(他4venture側の
+  仕組みに相当するものが本venture側に存在しないため新規検討が必要)、(2)残る
+  Firestoreアダプタ実コード化グループ(plan・checkout_session_completed_event_time・
+  menu_durations・store_faq_info・onboarding_completion_message・all_store_ids、
+  計6グループ)、(3)承認待ち事項がオーナーから承認された場合はその着手(本venture全
+  設計の結合実装)を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 04:00 UTC(フェーズ続き348: 本venture固有のcloud-monitoring-
+  alert-policy-design.mdを新規作成。3エントリポイント共通のFirestoreランタイム依存
+  構築失敗イベントをentry_pointラベルで区別する設計とした。コード変更なし、テスト
+  1004件・schema検証28件いずれも変更なしでパス)
