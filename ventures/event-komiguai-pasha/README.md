@@ -1375,3 +1375,25 @@
   switching-design.mdに5節を追加し、実クライアント構築失敗時の例外処理方針を
   本venture向けに新規設計。コード変更なし、schema検証22件・prototype試験50件
   いずれも変更なしでパス)
+- フェーズ65(2026-10-26 23:00 UTC定例更新): フェーズ64次回候補(1)「自動再送が
+  効かないエントリポイントのエラー表示・再試行導線の設計(web-form-ui-design.md
+  相当文書の新規作成)」に対応した。本venture固有のエンドユーザー直接呼び出し
+  HTTPSトリガー3関数(`get_result_page`・`submit_inquiry`・`submit_event_form`)
+  について、読み取りのみ/新規書き込みのみ/ドラフト作成+Stripe Checkout Session
+  発行の2段階処理という性質の違いに応じた再試行導線をweb-form-ui-design.md
+  として新規設計した。特に`submit_event_form`はドラフト作成後にCheckout Session
+  発行で失敗すると`awaiting_payment`状態の孤立ドラフトが残る恐れがあるため、
+  クライアント側で発行する`idempotency_key`により再送時の重複作成を防ぐ方式を
+  提案し、`submit_inquiry`にも同方式を横展開した。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・
+  `python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも
+  変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)`idempotency_key`の重複検知ロジックのFirestoreクエリ設計(複合
+  インデックスの要否含む)、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)
+  がオーナーから承認された場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 23:00 UTC(フェーズ65: 詳細は上記。web-form-ui-design.md
+  を新規作成し、自動再送が効かない3関数のエラー表示・再試行導線とidempotency_key
+  方式を設計。コード変更なし、schema検証22件・prototype試験50件いずれも変更
+  なしでパス)
