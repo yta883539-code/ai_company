@@ -94,9 +94,6 @@ inquiry-handling-design.mdフェーズ15・1節の類型1〜2で必要)の両方
   ventureにはまだ無い、`one_time_draft`・`inquiry`の2コレクション分が必要)と
   セットで行うのが安全なため、承認後の結合実装フェーズに持ち越す(本フェーズは
   コード変更を行わない)。
-- 実クライアント構築失敗時の例外処理方針(kura-pasha・aircon-pasha・
-  course-set-pasha・forklift-pashaの各ファイル5節で確立済みの「ログ+re-raise、
-  InMemory自動フォールバック禁止」方針)の本venture側への横展開は次回候補とする。
 - cloud-monitoring-alert-policy-design.md(フェーズ62)1節で先取りして定義した
   ログベース指標名(`event_komiguai_pasha_firestore_runtime_dependency_
   construction_failure_count`)・フィルタ条件は、本節で確定した4関数
@@ -108,9 +105,100 @@ inquiry-handling-design.mdフェーズ15・1節の類型1〜2で必要)の両方
   アカウント作成・支払いが発生するためオーナー承認待ちの範囲(pending-approval.md
   参照)。今回は関数境界・切り替え設計の机上整理のみに留める。
 
-最終更新: 2026-10-26 21:00 UTC(フェーズ63: runtime-dependency-switching-design.md
-新規作成。本venture固有の4つのCloud Run functions境界〈submit_event_form・
-handle_stripe_webhook・get_result_page・submit_inquiry〉を初めて明示的に確定し、
-既出4venture共通の`<venture-prefix>_FIRESTORE_ENABLED`命名規則・切り替え設計を
-横展開した。あわせてcloud-monitoring-alert-policy-design.mdフェーズ62が残していた
-「対象関数の最終的な個数」の残課題を解消した)
+## 5. 実クライアント構築失敗時の例外処理方針(フェーズ64)
+
+4節の残課題のうち、`_firestore_enabled()`が真であるにもかかわらず実
+Firestoreクライアント構築(`InMemoryOneTimeDraftStore`・`InMemoryInquiryStore`
+相当のFirestoreアダプタ初期化)が例外を投げるケース(認証情報未設定・
+サービスアカウント権限不足・一時的なネットワーク障害等)のハンドリング方針を、
+kura-pasha・aircon-pasha・course-set-pasha・forklift-pashaの各ファイル6節
+(kura-pashaはフェーズ263)で確立済みの方針を横展開して設計する。
+
+### 5.1. 方針: 例外は握り潰さずそのまま伝播させる(InMemoryへの自動フォールバック禁止)
+
+未設定時(フラグが`"1"`でない)は2節のとおりInMemory実装へ安全側フォールバックする
+既定だが、フラグが明示的に`"1"`に設定された状態で実クライアント構築が失敗した場合に
+InMemory実装へ自動的に切り替えることはしない。理由は既出4venture側と同じ2点に加え、
+本venture固有の事情として以下を補足する。
+
+- フラグ`"1"`はオーナー承認後の結合実装フェーズで意図的に設定される値であり、
+  この状態での構築失敗は設定・権限上の不具合を意味する。これをInMemoryへ自動
+  フォールバックすると、`submit_event_form`・`submit_inquiry`の書き込みが実際には
+  永続化されずに処理自体は成功したように見えてしまう。
+- 本venture固有の事情として、`handle_stripe_webhook`が`one_time_draft`を`paid`に
+  更新する処理はアカウント登録なし単発決済モデル(one-time-checkout-no-account-
+  design.mdフェーズ10)の唯一の決済完了記録経路であり、ここでInMememoryへ無言で
+  フォールバックすると決済は完了しているのに結果ページ(`get_result_page`)が
+  いつまでも`awaiting_payment`のままになる、または再実行時に二重のLLM生成・
+  二重のメール送信(ttl-expiry-result-delivery-refund-design.mdフェーズ12の
+  リトライ処理との不整合)を招くリスクが既出4venture以上に大きい(本venture以外は
+  アカウント単位のストアのため、再接続後に状態を手動で復旧させる余地が相対的に
+  大きいのに対し、本ventureは`draft_id`単位の使い切りレコードのため復旧の猶予が
+  短い)。
+
+### 5.2. 実装方針(擬似コード)
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+def get_submit_event_form_runtime_dependencies() -> dict:
+    if not _firestore_enabled():
+        return {}
+    try:
+        client = firestore_sdk.Client()
+        return {"draft_store": FirestoreOneTimeDraftStore(client)}
+    except Exception:
+        logger.exception(
+            "EVENT_KOMIGUAI_PASHA_FIRESTORE_ENABLED=1 but Firestore client "
+            "construction failed; re-raising instead of falling back "
+            "to InMemory to avoid silently losing persistence."
+        )
+        raise
+```
+
+他3関数(`handle_stripe_webhook`・`get_result_page`・`submit_inquiry`)側の
+`get_.*_runtime_dependencies()`も、3節で確定した対象ストア(`draft_store`・
+`inquiry_store`)の組み合わせに応じて同じtry/except構造を適用する。
+
+### 5.3. 例外伝播後の挙動(呼び出し元別)
+
+- `handle_stripe_webhook`(Stripe Webhook、HTTPSトリガー): 例外が伝播すると
+  5xxレスポンスを返し、Stripe側の再送(リトライ)に委ねる。既出4venture側の
+  Stripe webhookエントリポイントと同じ整理。
+- `submit_event_form`・`submit_inquiry`・`get_result_page`(いずれもエンド
+  ユーザーのブラウザから直接呼ばれるHTTPSトリガー): Stripe・LINEのような
+  送信元側の自動再送機構を持たないため、例外伝播時は5xxがそのままブラウザに
+  返り、申込者・問い合わせ者が自力で再試行する前提になる(既出4venture側は
+  全エントリポイントがStripe/LINEのwebhookのため本節のような「自動再送が
+  効かないエントリポイントがある」という整理は本venture固有の論点)。この
+  差異がフロントエンド側のエラーメッセージ・再試行導線の設計に影響するかは
+  次回候補とする(web-form-ui-design.md相当の文書が本ventureにまだ無いため、
+  本フェーズでは影響範囲の指摘に留める)。
+
+### 5.4. 未検証・残課題
+
+- 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は
+  4節同様、実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに
+  持ち越す。
+- 5.3節で指摘した「自動再送が効かないエントリポイントでのエラー表示・再試行導線」の
+  設計(web-form-ui-design.md相当文書の新規作成を含む)は次回候補とする。
+
+最終更新: 2026-10-26 22:00 UTC(フェーズ64: フェーズ63次回候補(1)「実クライアント
+構築失敗時の例外処理方針の本venture側への横展開」に対応し、既出4venture
+(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha)の各ファイル6節で
+確立済みの「ログ+re-raise、InMemory自動フォールバック禁止」方針を5節として
+新規設計した。本venture固有の`handle_stripe_webhook`(アカウント登録なし単発
+決済モデルの唯一の決済完了記録経路)という事情、および`submit_event_form`・
+`submit_inquiry`・`get_result_page`がStripe/LINEのような自動再送機構を持たない
+エンドユーザー直接呼び出しのHTTPSトリガーである点を既出4venture側との差異として
+整理した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+prototype -p "test_*.py"`(50件、変更なし)・`python3
+schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしで
+パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。次回候補: (1)自動再送が効かないエントリポイントのエラー表示・再試行
+導線の設計(web-form-ui-design.md相当文書の新規作成)、(2)承認待ち事項(候補1
+〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手、(3)他
+venture・アイデア領域の前進)

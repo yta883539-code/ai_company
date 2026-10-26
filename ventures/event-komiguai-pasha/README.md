@@ -1349,3 +1349,29 @@
 - 最終更新: 2026-10-26 21:00 UTC(フェーズ63: 詳細は上記。runtime-dependency-
   switching-design.mdを新規作成し、本venture固有の4つのCloud Run functions境界を
   確定。コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ64(2026-10-26 22:00 UTC定例更新): フェーズ63次回候補(1)「実クライアント
+  構築失敗時の例外処理方針(ログ+re-raise方式)の本venture側への横展開」に対応した。
+  既出4venture(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha)の各
+  ファイル6節(kura-pashaはフェーズ263)で確立済みの「ログ+re-raise、InMemory
+  自動フォールバック禁止」方針を、runtime-dependency-switching-design.mdに5節
+  として新規設計した。本venture固有の事情として、(1)`handle_stripe_webhook`が
+  `one_time_draft`を`paid`に更新する処理はアカウント登録なし単発決済モデル
+  (one-time-checkout-no-account-design.mdフェーズ10)の唯一の決済完了記録経路
+  であり、構築失敗の無言フォールバックは他4venture以上に復旧猶予の短いリスクを
+  招くこと、(2)`submit_event_form`・`submit_inquiry`・`get_result_page`は
+  Stripe/LINEのような送信元側の自動再送機構を持たないエンドユーザー直接呼び出しの
+  HTTPSトリガーであり、例外伝播時は5xxがそのままブラウザに返る(既出4venture側は
+  全エントリポイントがStripe/LINEのwebhookのため本論点を持たない)、という既出
+  4ventureとの差異を整理した。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(50件、変更なし)・`python3
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)自動再送が効かないエントリポイントのエラー表示・再試行導線の設計
+  (web-form-ui-design.md相当文書の新規作成)、(2)承認待ち事項(候補1〈奈良NEVER
+  LAND〉への連絡等)がオーナーから承認された場合はその着手、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-26 22:00 UTC(フェーズ64: 詳細は上記。runtime-dependency-
+  switching-design.mdに5節を追加し、実クライアント構築失敗時の例外処理方針を
+  本venture向けに新規設計。コード変更なし、schema検証22件・prototype試験50件
+  いずれも変更なしでパス)
