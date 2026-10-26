@@ -1297,7 +1297,30 @@
   レビューの具体的ロジックを、他venture(aircon-pasha等)のdeletion-candidate-design.md
   相当の設計から横展開できるか検討、(3)層2・層3の候補確定調査の再着手(投資対効果が
   見込める新たな探索手法が見つかった場合)、(4)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-26 17:00 UTC(フェーズ61: inquiry-handling-design.mdに`resolvedAt`
-  フィールドを正式追記し、data-retention-policy.mdが前提としていたフィールド名との
-  不一致を解消。コード変更なし、schema検証22件・prototype試験50件いずれも変更なしで
-  パス)
+- フェーズ62(2026-10-26 19:00 UTC定例更新): aircon-pashaフェーズ346の全6venture横断
+  棚卸しで指摘された「event-komiguai-pashaのみ、他5venture(aircon-pasha・
+  course-set-pasha・forklift-pasha・kura-pasha・line-reservation-ai)が備える
+  Firestoreランタイム依存構築失敗アラート設計(cloud-monitoring-alert-policy-
+  design.md相当)自体を持たない真の横展開漏れ」に対応した。forklift-pashaフェーズ192
+  の設計(chatbot非依存・Webフォーム単発構成という本ventureと同条件)を横展開し、
+  cloud-monitoring-alert-policy-design.mdを新規作成。ただし本ventureには前提となる
+  runtime-dependency-switching-design.md相当文書(実Firestore接続/モック接続の
+  フラグ切り替え設計、Cloud Run functionsの関数境界確定)自体がまだ存在しないことを
+  確認し、本フェーズでは指標命名規則(`event_komiguai_pasha_firestore_runtime_
+  dependency_construction_failure_count`)・アラート条件(直近60分で1件以上)の
+  設計方針を先取りして整理するに留め、同文書自体の新規作成を次回候補として明示した。
+  これにより6venture全てに本アラート設計(または設計着手)が揃った。コード変更なし
+  (設計文書の新規作成のみ)、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`
+  (22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)本venture固有のruntime-dependency-switching-design.md相当文書(実
+  Firestore接続/モック接続のフラグ切り替え設計、Cloud Run functionsの関数境界確定)
+  の新規作成、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナーから
+  承認された場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 19:00 UTC(フェーズ62: aircon-pashaフェーズ346が指摘した
+  cross-venture gapに対応し、cloud-monitoring-alert-policy-design.mdを新規作成。
+  前提のruntime-dependency-switching-design.md相当文書は本venture未着手のため次回
+  候補として明示。コード変更なし、schema検証22件・prototype試験50件いずれも変更
+  なしでパス)
