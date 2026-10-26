@@ -12,11 +12,17 @@ aircon-pasha側の同種設計を本venture向けに横展開する。実際のG
 
 - 種別: カウンタ型(該当ログ1件ごとに1カウント)。
 - 名前(案): `kura_pasha_chatbot_intent_classification_failure_count`
-  (aircon-pasha・course-set-pasha・line-reservation-aiの既存指標名を確認したところ、
-  いずれも`chatbot_intent_classification_failure_count`という同一名を使っており、
+  (aircon-pasha・course-set-pashaの既存指標名を確認したところ、いずれも
+  `chatbot_intent_classification_failure_count`という同一名を使っており、
   venture名を含めない場合は将来同一GCPプロジェクト配下で複数venture分を運用する際に
   指標名が衝突する可能性がある。他venture側の既存指標名を今から変更する必要は無いが、
-  本venture分は新規作成のため、衝突を避けるため`kura_pasha_`接頭辞を付与する方針とした)。
+  本venture分は新規作成のため、衝突を避けるため`kura_pasha_`接頭辞を付与する方針とした。
+  なお、line-reservation-aiは当初ここで同一指標名を使っていると記載していたが、
+  course-set-pashaフェーズ334(2026-10-26 11:00 UTC)の棚卸しにより、line-reservation-ai
+  には`chatbot_intent_classification_failed`に相当する意図分類の仕組み自体が存在せず
+  〈line-reservation-ai/cloud-monitoring-alert-policy-design.md 15〜17行目参照〉、
+  同名指標を使っているという記載は事実と異なる誤記であったことが判明したため、
+  本比較対象から除外し本行で訂正した)。
 - フィルタ(Logging クエリ言語):
   ```
   resource.type="cloud_function"

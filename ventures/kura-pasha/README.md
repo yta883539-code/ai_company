@@ -6120,3 +6120,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   いないため両エントリポイントを単一指標で検知できることを明らかにし、Webhook専用の
   第2指標は不要と結論。コード変更なし、テスト295件・webhook355件・schema検証32件
   いずれも変更なしでパス)
+- フェーズ267(2026-10-26 12:00 UTC定例更新): course-set-pashaフェーズ334
+  (2026-10-26 11:00 UTC)が発見・申し送った、本venture側cloud-monitoring-alert-
+  policy-design.md 1節(ログベース指標名の節)の記載誤りを是正した。同節は
+  「aircon-pasha・course-set-pasha・line-reservation-aiの既存指標名を確認したところ、
+  いずれも`chatbot_intent_classification_failure_count`という同一名を使っており」と
+  記述していたが、line-reservation-ai/cloud-monitoring-alert-policy-design.md
+  (1節・11節)を実際に確認した結果、同ventureには`chatbot_intent_classification_
+  failed`に相当する意図分類の仕組み自体が存在せず(構造化出力のフォーマット崩れ
+  リトライ・フォールバックのみでログ出力設計は未着手)、同名指標を使っているという
+  記載が事実と異なる誤記であったことを確認した。比較対象をaircon-pasha・
+  course-set-pashaの2venture(実際に同一指標名`chatbot_intent_classification_
+  failure_count`を使用済み)に訂正し、line-reservation-aiについては誤記の経緯と
+  実際の状態への参照を追記した。コード変更なし(設計文書の訂正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化フィールド)への実装
+  反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、(3)フェーズ264
+  次回候補(3)「他venture側README.mdの同種の『未作成』陳腐化記載の棚卸し」、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 12:00 UTC(フェーズ267: cloud-monitoring-alert-policy-design.md
+  1節のline-reservation-aiに関する記載誤り〈未実装の指標を実装済みと誤記、
+  course-set-pashaフェーズ334で発見〉を是正し、比較対象をaircon-pasha・
+  course-set-pashaの2venture〈実際に同一指標名使用済み〉に訂正。コード変更なし、
+  テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
