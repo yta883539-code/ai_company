@@ -1324,3 +1324,28 @@
   前提のruntime-dependency-switching-design.md相当文書は本venture未着手のため次回
   候補として明示。コード変更なし、schema検証22件・prototype試験50件いずれも変更
   なしでパス)
+- フェーズ63(2026-10-26 21:00 UTC定例更新): フェーズ62次回候補(1)「本venture固有の
+  runtime-dependency-switching-design.md相当文書の新規作成」に対応した。本venture
+  固有のCloud Run functions境界(`submit_event_form`・`handle_stripe_webhook`・
+  `get_result_page`・`submit_inquiry`の4関数)を本フェーズで初めて明示的に確定し、
+  既出4venture(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha)共通の
+  `<venture-prefix>_FIRESTORE_ENABLED`命名規則(本venture側は
+  `EVENT_KOMIGUAI_PASHA_FIRESTORE_ENABLED`)・未設定時InMemoryフォールバック方式を
+  横展開し、runtime-dependency-switching-design.mdを新規作成した。対象Firestore
+  ストアは他4venture共通の`organizer_account`/`operator_store`相当ではなく、本
+  venture固有の`one_time_draft`・`inquiry`の2コレクション(data-retention-policy.md
+  フェーズ60)である。あわせてcloud-monitoring-alert-policy-design.md(フェーズ62)
+  3節が残課題としていた「対象関数の最終個数」の未確定を、本節で確定した4関数により
+  解消した。実クライアント構築失敗時の例外処理方針(他4venture確立済みの「ログ+
+  re-raise、InMemory自動フォールバック禁止」方針)の横展開は次回候補として残した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`
+  (22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)実クライアント構築失敗時の例外処理方針(ログ+re-raise方式)の本
+  venture側への横展開、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナー
+  から承認された場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 21:00 UTC(フェーズ63: 詳細は上記。runtime-dependency-
+  switching-design.mdを新規作成し、本venture固有の4つのCloud Run functions境界を
+  確定。コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)

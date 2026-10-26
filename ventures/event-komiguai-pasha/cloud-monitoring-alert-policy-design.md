@@ -74,18 +74,25 @@ kura-pasha・line-reservation-ai)がいずれも備える「Firestoreランタ�
 
 ## 3. スコープ外(引き続き次回以降の課題)
 
-- 本venture固有のruntime-dependency-switching-design.md相当文書(実Firestore接続と
+- ~~本venture固有のruntime-dependency-switching-design.md相当文書(実Firestore接続と
   モック接続のフラグ切り替え設計、関数境界の確定)自体がまだ存在しないため、本節の
   指標・アラート設計を実装に反映する前提条件として、同文書の新規作成を次回候補と
-  する。
+  する。~~: runtime-dependency-switching-design.md(フェーズ63)で解消済み。本venture
+  固有の4つのCloud Run functions(`submit_event_form`・`handle_stripe_webhook`・
+  `get_result_page`・`submit_inquiry`)を関数境界として確定した。
 - 1節のログ出力側(`.py`実装)への`event`フィールド構造化反映は、実
   `google-cloud-firestore`導入・本venture用Firestoreアダプタ設計とセットの結合実装
   フェーズに持ち越す。
-- `resource.type`のリソースラベル値(`service_name`等)・対象関数の最終個数は、
-  実プロジェクト作成後に関数境界を確定した上で確定する。
+- ~~`resource.type`のリソースラベル値(`service_name`等)・対象関数の最終個数は、
+  実プロジェクト作成後に関数境界を確定した上で確定する。~~: 対象関数の個数(4関数)は
+  runtime-dependency-switching-design.md(フェーズ63)1節で確定済み。`service_name`
+  の具体的な値自体は実GCPプロジェクト作成後に確定する点のみ残る。
 - 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`
   および`gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト
   作成後にオーナー承認の範囲内で実施する。
+
+追記: 2026-10-26 21:00 UTC(フェーズ63: runtime-dependency-switching-design.md新規
+作成により、本節の前提条件だった関数境界・対象関数個数の未確定を解消したことを反映)
 
 最終更新: 2026-10-26 19:00 UTC(フェーズ62: aircon-pashaフェーズ346が指摘した
 「event-komiguai-pashaのみ同種の設計パターン自体を持たない真の横展開漏れ」に対応し、
