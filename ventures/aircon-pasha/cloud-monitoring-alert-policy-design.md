@@ -159,3 +159,42 @@ forklift-pashaフェーズ192の「kura-pasha・aircon-pasha・course-set-pasha�
 4venture全てに揃った」という記載が、本venture・course-set-pashaの2venture分について
 時点では不正確だったことを確認した。コード変更なし、全789件・schema検証25件いずれも
 変更なしでパス)
+
+## 6. 5.3節「course-set-pasha側は未対応」の陳腐化の発見・是正、横展開範囲の全venture棚卸し(フェーズ346)
+
+5.3節は「course-set-pasha側の同種アラート設計は未対応のまま残っている」と記載していたが、
+本フェーズでcourse-set-pasha側を直接確認したところ、course-set-pashaフェーズ335
+(2026-10-26 14:00 UTC、本venture〈フェーズ344〉・forklift-pashaフェーズ192の両方を参照先
+として)既に`cloud-monitoring-alert-policy-design.md`5節として同種のFirestoreランタイム
+依存構築失敗アラートを新規設計済みであることが判明した。すなわち5.3節は4時間前の時点で
+解消済みの残課題を未対応のまま参照し続けていた陳腐化記載だった。
+
+あわせて、全6venture配下の`cloud-monitoring-alert-policy-design.md`を`grep`で横断確認した
+結果、kura-pasha・aircon-pasha(本venture)・course-set-pasha・forklift-pasha・
+line-reservation-aiの5ventureはいずれも当該Firestoreランタイム依存構築失敗アラートの
+設計(ログベース指標+アラートポリシー)を保持済みだが、event-komiguai-pashaには
+`cloud-monitoring-alert-policy-design.md`自体が存在せず、`runtime-dependency-switching-
+design.md`相当のフラグ切替設計も見当たらないことを確認した。tech-stack.md(コンポーネント4)
+でevent-komiguai-pashaもFirestore(課金・利用回数のデータストア)に依存していることは
+明記されているため、これは他5ventureとの横展開漏れという「真の未対応」であり、本節5.3節が
+扱ってきた「記載の陳腐化(既に対応済みを未対応と書き続ける)」とは異なる種類の課題である。
+本venture側では対応範囲外のため着手せず、event-komiguai-pasha側の次回候補として記録する
+(本venture側からの一方的な実装は、event-komiguai-pasha側のアーキテクチャ・Firestore依存
+構造の前提確認を経ていないため避ける)。
+
+コード変更なし(確認・ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover
+-s prototype -p "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本フェーズで
+発見したevent-komiguai-pasha側の横展開漏れ(cloud-monitoring-alert-policy-design.md・
+runtime-dependency-switching-design.md相当の設計が未作成)への対応はevent-komiguai-pasha
+側の次回候補として残す、(3)他venture・アイデア領域の前進。
+
+最終更新: 2026-10-26 18:00 UTC (フェーズ346: 5.3節「course-set-pasha側は未対応」が、
+course-set-pashaフェーズ335で既に解消済みだった残課題を参照し続けていた陳腐化記載である
+ことを発見し是正。あわせて全6venture横断棚卸しにより、event-komiguai-pashaのみが本設計
+パターン自体を持たない「真の横展開漏れ」であることを新たに発見し、同venture側の次回候補
+として記録した。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)

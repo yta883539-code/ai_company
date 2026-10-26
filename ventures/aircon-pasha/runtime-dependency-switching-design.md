@@ -221,3 +221,34 @@ try/exceptで囲み例外を再raiseする(LINE・Stripe等Firestore以外のキ
 是正。cloud-monitoring-alert-policy-design.md 5節として本venture固有のFirestore
 ランタイム依存構築失敗アラートを新規設計した(詳細は同ファイル参照)。コード変更なし、
 全789件・schema検証25件いずれも変更なしでパス)
+
+## 6. 5.4節「残る2venture...への横展開」の陳腐化の発見・是正(フェーズ346)
+
+5.4節は「残る2venture(course-set-pasha・forklift-pasha・line-reservation-ai)側への
+横展開」を次回候補としていたが、本フェーズでcourse-set-pasha側の`runtime-dependency-
+switching-design.md`を直接確認したところ、既に5.1節「例外は握り潰さずそのまま伝播させる
+(InMemoryへの自動フォールバック禁止)」を保持しており(同ファイル217行目でフェーズ343の
+横展開として明記)、かつ同ファイル自身が「これで5venture(kura-pasha・aircon-pasha・
+course-set-pasha・forklift-pasha・line-reservation-ai)全てへの横展開が完了した」と
+記載済み(line-reservation-ai側`runtime-dependency-switching-design.md`5.4節、
+2026-10-25 22:00 UTC、フェーズ続き347)であることを確認した。すなわち5.4節のcourse-set-
+pasha分の記載は、本フェーズ時点で既に4時間以上前に解消済みだった残課題を未対応のまま
+参照し続けていた陳腐化記載だった。本ファイルの範囲では「ログ+re-raise、InMemory自動
+フォールバック禁止」方針の横展開は5venture全てで完了済みであることを確認する(本venture
+固有のcloud-monitoring-alert-policy-design.md側の横展開状況は6節〈同ファイル参照〉で
+別途棚卸し済み)。
+
+コード変更なし(確認・ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover
+-s prototype -p "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)他venture・
+アイデア領域の前進。
+
+最終更新: 2026-10-26 18:00 UTC (フェーズ346: 5.4節「残る2venture...への横展開」が、
+course-set-pasha側で既にフェーズ343で対応済みだった残課題を未対応のまま参照し続けていた
+陳腐化記載であることを発見し是正。「ログ+re-raise、InMemory自動フォールバック禁止」方針は
+5venture全てで横展開完了済みであることを確認した。コード変更なし、全789件・schema検証
+25件いずれも変更なしでパス)

@@ -6376,3 +6376,43 @@
   本venture固有の5エントリポイント向けにフラグON時の実クライアント構築失敗時はログ+
   re-raiseする方針を新規設計。コード変更なし、全789件・schema検証25件いずれも変更なしで
   パス)
+- フェーズ344(2026-10-26 06:00 UTC定例更新、本節は本来この時点で追記されるべきだったが
+  README.md側への反映が漏れていたため、フェーズ346で遅れて追記): kura-pashaフェーズ265の
+  指摘(検知対象がLLM API起因の意図分類失敗かGCP認証・権限起因のFirestoreランタイム依存
+  構築失敗かで別指標が必要)を受け、runtime-dependency-switching-design.md 5.3節が「既存の
+  ログベース指標・アラートポリシーに本例外のログも含まれる想定」としていた記載の不正確さを
+  是正し、cloud-monitoring-alert-policy-design.md 5節として本venture固有のFirestore
+  ランタイム依存構築失敗アラート(ログベース指標+アラートポリシー、対象エントリポイント
+  5つを1指標に集約)を新規設計した。あわせてforklift-pashaフェーズ192の「kura-pasha・
+  aircon-pasha・course-set-pasha・forklift-pashaの4venture全てに揃った」という記載が、
+  本venture・course-set-pashaの2venture分について当時不正確だったことを確認した。コード
+  変更なし、全789件・schema検証25件いずれも変更なしでパス。承認が必要なアクションは今回
+  発生していないためpending-approval.mdへの追記なし。
+- 最終更新: 2026-10-26 06:00 UTC(フェーズ344: 詳細は上記。コード変更なし、全789件・
+  schema検証25件いずれも変更なしでパス)
+- フェーズ346(2026-10-26 18:00 UTC定例更新): フェーズ344完了時点でのREADME.md未反映を
+  発見し、上記エントリとして遅れて追記した(本フェーズ自身の発見)。あわせて
+  cloud-monitoring-alert-policy-design.md 5.3節「course-set-pasha側は未対応」が、
+  course-set-pashaフェーズ335(2026-10-26 14:00 UTC)で既に解消済みだった残課題を未対応の
+  まま参照し続けていた陳腐化記載であることを発見し、同ファイル6節に是正を記録した。
+  runtime-dependency-switching-design.md 5.4節「残る2venture...への横展開」についても
+  同様に、course-set-pasha側がフェーズ343で既に対応済みだった残課題を未対応のまま参照し
+  続けていた陳腐化記載であることを発見し、同ファイル6節に是正を記録した(「ログ+re-raise、
+  InMemory自動フォールバック禁止」方針は5venture全てで横展開完了済みであることを確認)。
+  さらに全6venture横断棚卸しにより、event-komiguai-pashaのみがcloud-monitoring-alert-
+  policy-design.md・runtime-dependency-switching-design.md相当の設計パターン自体を持たない
+  「真の横展開漏れ」であることを新たに発見した(同ventureもtech-stack.mdでFirestore依存を
+  明記しているため)。本venture側からの一方的な実装は避け、event-komiguai-pasha側の次回
+  候補として記録するに留めた。コード変更なし、回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)event-komiguai-pasha側のcloud-monitoring-alert-policy-design.md・runtime-
+  dependency-switching-design.md相当の設計の新規作成(本venture側の対応範囲外、
+  event-komiguai-pasha側の次回候補として申し送り)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 18:00 UTC(フェーズ346: 詳細は上記。README.mdのフェーズ344反映漏れ
+  を是正、cloud-monitoring-alert-policy-design.md・runtime-dependency-switching-
+  design.mdの陳腐化記載2件を是正、event-komiguai-pasha側の真の横展開漏れを新たに発見して
+  申し送り。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
