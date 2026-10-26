@@ -59,12 +59,21 @@ p≈1-e^(-n(n-1)/(2N))(N=65,536)で試算すると、
   問い合わせ本文(`category`・`detail`)と結果ページの生成内容をオーナーが目視で
   照合する手動対応に委ねる(本venture低頻度運用の前提上、これ以上の自動化は
   コストに見合わないと判断)。
+- 【フェーズ58追記】上記の二段階照合をオーナーが実際にどの画面・手段で行うかは
+  admin-search-ui-necessity-design.md(フェーズ57)で確定済み。専用の管理画面は
+  新設せず、GCPコンソールのFirestoreデータビューア(標準機能)を使い、
+  `one_time_draft/{draft_id}`に新設する検索専用フィールド`draft_id_last4`
+  (末尾4文字の複製値)を等価フィルタして絞り込み、複数件ヒット時は同コンソールで
+  `customer_email`の等価条件を追加するか目視で見比べる、という具体的な操作手順に
+  確定した。
 
 ## 5. 更新箇所
 
 - one-time-checkout-no-account-design.md 2節: 「入力内容のハッシュ値またはUUID」の
   記載をUUID4に確定する旨、本ファイル参照の形で反映(本節末尾の追記として記録)。
 - inquiry-form-ui-draft.md 6節: 末尾4文字衝突可能性の残課題を解消済みとして取消線化。
+- ~~one-time-checkout-no-account-design.mdの`one_time_draft`ドキュメント構造に
+  `draft_id_last4`フィールドを追加する。~~ → フェーズ58で対応済み(2節参照)。
 
 ## 6. 未検証・残課題
 
@@ -74,13 +83,17 @@ p≈1-e^(-n(n-1)/(2N))(N=65,536)で試算すると、
 - UUID4生成自体(実装言語の標準UUID4関数の利用)はコード実装時の課題として残す。
 - Firestoreへの実接続・GCPプロジェクト作成はオーナー承認待ちの範囲(pending-
   approval.md参照)。今回は机上設計のみに留める。
+- ~~`draft_id_last4`フィールド追加に伴うschema/output.schema.jsonへの影響有無~~ →
+  フェーズ58で確認済み。同スキーマはLLM構造化出力(status・checklist等4出力)のみを
+  対象とし、Firestore内部の`one_time_draft`ドキュメント構造とは独立しているため、
+  影響なし(変更不要)と確認した。
 
 次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡等)がオーナーから
 承認された場合はその着手を最優先、(2)対象候補のロングリスト作成(フェーズ9から
 持ち越し)、(3)市場仮説を踏まえたcustomer-interview-design.mdのヒアリング対象候補への
-反映(フェーズ13から持ち越し)、(4)`customer_email`正規化等の実装時詳細設計、
-(5)他venture・アイデア領域の前進。
+反映(フェーズ13から持ち越し)、(4)他venture・アイデア領域の前進。
 
-最終更新: 2026-10-25 20:00 UTC(フェーズ53: `draft_id`生成方式をUUID4に確定、末尾4文字の
-衝突確率を試算(24時間以内100件発行で約7.6%)、衝突時は`customer_email`照合で一意性を
-確保する二段階照合方式を設計)
+最終更新: 2026-10-26 07:00 UTC(フェーズ58: admin-search-ui-necessity-design.md
+〈フェーズ57〉で確定したオーナー側検索手順〈`draft_id_last4`等価フィルタ〉を4節へ
+反映、one-time-checkout-no-account-design.mdのドキュメント構造にも同フィールドを
+追加、schema/output.schema.jsonへの影響なしを確認し6節の残課題を解消)

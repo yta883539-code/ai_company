@@ -21,10 +21,14 @@ tech-stack.md(フェーズ7)「未検証・残課題」1点目、「アカウン
 1. 主催者がWebフォーム(tech-stack.mdフェーズ7想定)で5入力要素
    (`capacity`・`entry_exit_points`・`admission_type`・`staffing`・`outdoor_queue`)を
    入力し「生成する(500円)」ボタンを押す。
-2. バックエンド(Cloud Run functions)が、入力内容のハッシュ値またはUUIDを`draft_id`として
-   発行し、Firestore `one_time_draft/{draft_id}`に入力内容をステータス`awaiting_payment`
+2. バックエンド(Cloud Run functions)が、入力内容のハッシュ値またはUUID(draft-id-last4-
+   collision-design.md〈フェーズ53〉でUUID4に確定済み)を`draft_id`として発行し、
+   Firestore `one_time_draft/{draft_id}`に入力内容をステータス`awaiting_payment`
    として一時保存する(TTL想定: 24時間、未決済のまま期限切れとなったレコードは生成不可とし
    そのまま失効させる。自動削除処理の設計はFirestore TTLポリシーの活用を次回検討課題とする)。
+   同時に、オーナーの問い合わせ対応用検索フィールド`draft_id_last4`(`draft_id`の末尾4文字
+   をそのまま複製した文字列値、admin-search-ui-necessity-design.md〈フェーズ57〉で確定)
+   も同タイミングで導出・保存する。
 3. バックエンドがStripe Checkout Session(`mode: "payment"`、`amount: 500`、
    `currency: "jpy"`)を作成する。`client_reference_id`に`draft_id`を設定し、入力フォームと
    決済・生成処理を紐付ける(アカウントではなく「下書き」を主キーとする点が継続課金モデルと

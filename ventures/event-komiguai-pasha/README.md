@@ -1208,3 +1208,26 @@
   新規開発不要と結論し、GCPコンソールのFirestoreデータビューア+検索専用フィールド
   `draft_id_last4`の追加で足りる方式を確定。admin-search-ui-necessity-design.md新規作成。
   コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ58(2026-10-26 07:00 UTC定例更新): フェーズ57の次回候補(1)「draft-id-last4-
+  collision-design.md4節・one-time-checkout-no-account-design.mdのドキュメント構造記載に
+  `draft_id_last4`フィールド追加を反映する」、(2)「schema/output.schema.jsonへの影響有無の
+  確認」の2点に対応した。draft-id-last4-collision-design.md4節へ、オーナー側の二段階照合を
+  GCPコンソールのFirestoreデータビューア+`draft_id_last4`等価フィルタで行う具体的な操作
+  手順として反映し、5節の更新箇所チェックリストを取消線化した。one-time-checkout-no-
+  account-design.md2節の`one_time_draft`書き込み処理の記述に、`draft_id_last4`フィールドを
+  同タイミングで導出・保存する旨を追記した。schema/output.schema.jsonを確認した結果、
+  同スキーマはLLM構造化出力(status・checklist等4出力)のみを対象としFirestore内部の
+  ドキュメント構造とは独立しているため、`draft_id_last4`追加による影響はないと確認し、
+  draft-id-last4-collision-design.md6節・admin-search-ui-necessity-design.md7節それぞれの
+  残課題を解消した。コード変更なし(設計文書の整合反映のみ)、回帰確認としてschema/
+  validate_test_cases.py(22件、変更なし)・prototype配下のunittest(50件、変更なし)を
+  実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡等)がオーナーから
+  承認された場合はその着手を最優先、(2)対象候補のロングリスト作成(フェーズ9から
+  持ち越し)、(3)市場仮説を踏まえたcustomer-interview-design.mdのヒアリング対象候補への
+  反映(フェーズ13から持ち越し)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 07:00 UTC(フェーズ58: `draft_id_last4`フィールド追加をdraft-id-
+  last4-collision-design.md4節・one-time-checkout-no-account-design.md2節の両ドキュメントへ
+  反映し、schema/output.schema.jsonへの影響なしを確認。コード変更なし、schema検証22件・
+  prototype試験50件いずれも変更なしでパス)
