@@ -1253,3 +1253,28 @@
   customer-interview-design.mdの「対象候補の現状」節に反映し、同ドキュメントの陳腐化した
   次回候補〈完了済み項目含む〉を是正。コード変更なし、schema検証22件・prototype試験50件
   いずれも変更なしでパス)
+- フェーズ60(2026-10-26 16:00 UTC定例更新): 他venture側README.md(forklift-pasha・
+  kura-pasha等)が繰り返し次回候補に挙げていた「他venture側README.mdの同種の『未作成』
+  陳腐化記載の棚卸し」に関連し、まず本venture自身を棚卸しした結果、他venture5件
+  (aircon-pasha・course-set-pasha・kura-pasha・forklift-pasha・line-reservation-ai)が
+  いずれも切り出し済みのdata-retention-policy.mdが、本ventureには未作成のまま残って
+  いたことを発見した。本venture固有の前提(アカウント登録なし単発決済モデル、one-time-
+  checkout-no-account-design.mdフェーズ10)を踏まえ、data-retention-policy.md(フェーズ60)
+  を新規作成した。`one_time_draft`は既存設計(result-page-ttl-access-design.mdフェーズ14)
+  どおりFirestore TTLで24時間後に自動削除される一方、これまで保存期間が未検討のまま
+  残っていた`inquiry`コレクション(問い合わせ・返金対応記録)について、他venture共通の
+  「対応完了から1年保有」という考え方を踏襲した方針を本フェーズで新規に定めた。コード
+  変更なし(設計文書の新規作成のみ)、回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`
+  (22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認
+  された場合はその着手を最優先、(2)data-retention-policy.md「今後の課題」記載の
+  inquiry-handling-design.mdの`resolvedAt`相当フィールドの実在照合、(3)層2・層3の候補
+  確定調査の再着手(投資対効果が見込める新たな探索手法が見つかった場合)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-26 16:00 UTC(フェーズ60: 他venture5件に揃っていたdata-retention-
+  policy.mdが本ventureにのみ未作成だったことを発見し新規作成。`inquiry`コレクションの
+  保存期間〈対応完了から1年〉を新規に方針決定。コード変更なし、schema検証22件・
+  prototype試験50件いずれも変更なしでパス)
