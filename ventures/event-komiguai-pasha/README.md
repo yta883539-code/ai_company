@@ -1182,3 +1182,29 @@
 - 最終更新: 2026-10-26 03:00 UTC(フェーズ56: `customer_email`照合ロジック〈NFKC正規化・
   前後空白除去・小文字化〉を確定し、prototype/customer_email_matching.pyとして実装。
   unittest 14件追加、既存schema検証22件・既存prototype試験35件は変更なしでパス)
+- フェーズ57(2026-10-26 05:00 UTC定例更新): フェーズ56の次回候補(4)「オーナー向け検索UI
+  (末尾4文字検索・`customer_email`一致確認をどこで行うか)の要否検討」に対応し、
+  admin-search-ui-necessity-design.mdを新規作成した。tech-stack.md(フェーズ7)の
+  「低頻度利用に常時稼働コンポーネントを増やさない」方針に基づき、専用の管理画面を新規
+  開発せず、GCPコンソールのFirestoreデータビューア(標準機能、追加実装不要)をオーナーの
+  検索手段として採用する方針を確定した。Firestoreコンソールの等価フィルタではドキュメント
+  ID(`draft_id`)の末尾4文字一致検索ができないため、`one_time_draft/{draft_id}`に検索専用
+  フィールド`draft_id_last4`(末尾4文字の複製値)を新設し、等価フィルタで絞り込めるようにする
+  設計とした。複数件ヒット時の`customer_email`照合も同コンソールの追加フィルタまたは目視比較
+  で足りる規模と判断した。将来、未失効`one_time_draft`が常時数十〜百件規模に達した場合は
+  専用検索ツールの新設を再検討する旨を残課題として明記した。draft-id-last4-collision-
+  design.md4節・one-time-checkout-no-account-design.mdのドキュメント構造への反映は次回候補と
+  した。コード変更なし(設計文書のみ)、回帰確認としてschema/validate_test_cases.py(22件、
+  変更なし)・prototype配下のunittest(50件、変更なし)を実行しいずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)draft-id-last4-collision-design.md4節・one-time-checkout-no-account-design.md
+  のドキュメント構造記載に`draft_id_last4`フィールド追加を反映する、(2)`draft_id_last4`
+  フィールド追加がschema/output.schema.jsonに影響するか(LLM出力ではなくFirestore内部
+  フィールドのため影響なしと見込むが未確認)の確認、(3)承認待ち事項(候補1〈奈良
+  NEVER LAND〉への電話連絡等)がオーナーから承認された場合はその着手を最優先、
+  (4)対象候補のロングリスト作成(フェーズ9から持ち越し)、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 05:00 UTC(フェーズ57: オーナー向け検索UIは低頻度運用の規模では
+  新規開発不要と結論し、GCPコンソールのFirestoreデータビューア+検索専用フィールド
+  `draft_id_last4`の追加で足りる方式を確定。admin-search-ui-necessity-design.md新規作成。
+  コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
