@@ -6620,3 +6620,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   design.md 5節を新規作成。構造化出力〈JSON〉フォールバック発生の検知を、日次
   しきい値〈count > 5〉のアラートポリシーとして設計した。コード変更なし、テスト
   1004件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き350(2026-10-26 15:00 UTC定例更新): フェーズ続き349の次回候補(2)
+  「cloud-monitoring-alert-policy-design.md 4節に残した『日次6件以上のしきい値は
+  実LLM運用データが無い現時点では仮置き』の検証方針の具体化」に対応した。同
+  ドキュメント6節として、(A)本番稼働開始から4週間経過時点、または(B)本アラートが
+  2回以上連続発火した時点のいずれか早い方を再検証のトリガーとし、再検証時は
+  Cloud Loggingの`json_structured_output_fallback`イベントを`failure_category`別に
+  日次集計した上で、p90を基準に安全マージンを加えた値を新しいしきい値候補として
+  機械的に算出する手順を新規設計した。初回リリース時点では実測データが無いため
+  暫定値(1日5件超)自体は変更せず、「いつ・どう見直すか」という手順のみを先に
+  確定する方針とした(数値の恣意的な前倒し変更は行わない)。コード変更なし、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (1004件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(plan・checkout_session_
+  completed_event_time・menu_durations・store_faq_info・onboarding_completion_
+  message・all_store_ids、計6グループ)の実装、および6節で確定した再検証トリガー
+  (4週間経過または連続発火)に基づくしきい値再算出は、いずれも実Firestore/本番
+  LLM API接続後に着手するため承認待ち事項の範囲内、(2)承認待ち事項がオーナーから
+  承認された場合はその着手(本venture全設計の結合実装)を最優先、(3)他venture
+  (course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha)の「次回候補」記述に
+  過去発見したような陳腐化がないかの点検、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 15:00 UTC(フェーズ続き350: cloud-monitoring-alert-policy-
+  design.md 6節を新規作成。5.3節しきい値〈日次6件以上〉の再検証方針〈トリガー
+  条件・p90ベースの機械的な算出手順〉を設計した。コード変更なし、テスト1004件・
+  schema検証28件いずれも変更なしでパス)
