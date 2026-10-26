@@ -1159,3 +1159,26 @@
   情報に基づかない誤合成と判断して棄却。別記事〈entry-1681818〉で中山一朗氏が独立に「店長」と
   紹介されていることを確認し個人経営の確証が得られない可能性を補強、候補探索の優先度を候補1
   〈奈良NEVER LAND〉へ一本化。実連絡・実発信は一切行っていない)
+- フェーズ56(2026-10-26 03:00 UTC定例更新): draft-id-last4-collision-design.md(フェーズ53)
+  6節の次回候補(4)「`customer_email`正規化等の実装時詳細設計」に対応し、customer-email-
+  normalization-design.mdを新規作成した。決済経路(Stripe Checkout入力)と問い合わせ経路
+  (問い合わせフォーム手入力)の2回の入力で生じ得る表記揺れを吸収するため、NFKC正規化
+  (全角英数字・全角`＠`等の半角化)→前後空白除去→小文字化、の順で正規化する方針を確定した。
+  Gmailのドット無視・`+`エイリアス等プロバイダ固有の揺れはプロバイダ判定を要し本venture
+  規模では過剰設計と判断し対象外とした。prototype/customer_email_matching.pyとして
+  `normalize_customer_email`・`customer_emails_match`を実装し、prototype/
+  test_customer_email_matching.py(14件、全角/半角混在・大文字小文字・前後空白・空文字列等の
+  観点)を新規追加した。draft-id-last4-collision-design.md6節の該当項目を取消線化した。
+  コード追加はprototype配下の正規化ユーティリティのみ(実LLM・実Firestore接続なし)、
+  回帰確認としてprototype配下のunittest(既存35件+新規14件=50件)・schema/
+  validate_test_cases.py(22件、変更なし)を実行しいずれもパスすることを確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への電話連絡等)がオーナーから承認された
+  場合はその着手を最優先、(2)対象候補のロングリスト作成(フェーズ9から持ち越し)、
+  (3)市場仮説を踏まえたcustomer-interview-design.mdのヒアリング対象候補への反映(フェーズ13
+  から持ち越し)、(4)オーナー向け検索UI(末尾4文字検索・`customer_email`一致確認をどこで
+  行うか)の要否検討、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 03:00 UTC(フェーズ56: `customer_email`照合ロジック〈NFKC正規化・
+  前後空白除去・小文字化〉を確定し、prototype/customer_email_matching.pyとして実装。
+  unittest 14件追加、既存schema検証22件・既存prototype試験35件は変更なしでパス)
