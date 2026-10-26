@@ -5965,3 +5965,34 @@
   5節として、kura-pasha・aircon-pasha共通の「ログ+re-raise、InMemory自動フォールバック
   禁止」方針を本venture固有の8エントリポイント向けに具体化。コード変更なし、テスト863件・
   schema検証21件いずれも変更なしでパス)
+- フェーズ334(2026-10-26 11:00 UTC定例更新): フェーズ333の次回候補(2)「本方針の
+  残る横展開先(forklift-pasha・line-reservation-ai)」は本venture側の作業範囲外
+  (他venture側ファイルへの追記)のため対象外とし、代わりにcloud-monitoring-alert-
+  policy-design.md 4節が「スコープ外・次回以降の課題」として残していた「aircon-pasha・
+  kura-pasha側で同種の意図分類機能を実装する場合の本設計の横展開検討」の棚卸しを行った。
+  `grep`でaircon-pasha(フェーズ261、2026-09-25)・kura-pashaの両`cloud-monitoring-
+  alert-policy-design.md`を確認した結果、両venture側で既に`chatbot_intent_
+  classification_failure_count`系の指標・アラートポリシー設計が完了済みであることを
+  確認し、本venture側ファイルの該当bullet を「解消」に更新した。棚卸しの過程で、
+  kura-pasha側ファイル(15〜19行目)が「aircon-pasha・course-set-pasha・
+  line-reservation-aiの既存指標名を確認したところ、いずれも同一名を使っており」と
+  記述している一方、line-reservation-ai自身の同名ファイル(15〜17行目・100〜101行目)
+  は「本ventureにはそれに相当する意図分類の仕組みがなく...新設するかどうかは未検討」と
+  明記しており、line-reservation-aiが同名指標を既に使っているとするkura-pasha側の記述が
+  事実と異なることを発見した。この是正はkura-pasha側ファイルの修正であり本venture側の
+  作業範囲外のため、コード・他venture側ファイルへの変更は行わず、次回以降のkura-pasha側
+  棚卸し候補として申し送るのみとした。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3
+  schema/validate_test_cases.py`(21件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)kura-pasha側cloud-monitoring-alert-policy-design.md 15〜19行目の
+  line-reservation-aiに関する記述の是正(本フェーズで発見、kura-pasha側の作業)、
+  (3)本方針(runtime-dependency-switching-design.md 5節)の残る横展開先
+  (forklift-pasha・line-reservation-ai)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 11:00 UTC(フェーズ334: cloud-monitoring-alert-policy-design.md
+  4節の「aircon-pasha・kura-pasha側への横展開検討」を棚卸しし、両venture側で既に対応
+  済みであることを確認して「解消」に更新。棚卸し中にkura-pasha側ファイルのline-
+  reservation-aiに関する記述誤り(未実装の指標を実装済みと誤記)を発見し、次回候補として
+  申し送り。コード変更なし、テスト863件・schema検証21件いずれも変更なしでパス)

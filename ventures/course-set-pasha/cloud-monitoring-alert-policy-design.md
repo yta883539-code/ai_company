@@ -62,8 +62,20 @@ WARNINGログ(`event=chatbot_intent_classification_failed`, `memo_length=<int>`)
   decision.mdにて2nd genに確定済み)。
 - 意図分類の成功率・レイテンシ等、失敗以外の運用指標の収集(intent-classification-
   failure-observability-design.md 3節から継続して範囲外)。
-- aircon-pasha・kura-pasha側で同種の意図分類機能を実装する場合の本設計の横展開検討
-  (同上、各venture側の課題として据え置き)。
+- [解消(フェーズ334)] aircon-pasha・kura-pasha側で同種の意図分類機能を実装する場合の
+  本設計の横展開検討は、aircon-pashaフェーズ261(2026-09-25)・kura-pasha(本venture名
+  `cloud-monitoring-alert-policy-design.md`新規作成)でそれぞれ対応済みであることを
+  フェーズ334の棚卸しで確認した(`grep`でaircon-pasha・kura-pasha両ファイル内に
+  `chatbot_intent_classification_failure_count`系の指標名定義が存在することを確認)。
+  なお、棚卸しの過程でkura-pasha側ファイル(15〜19行目)が「aircon-pasha・course-
+  set-pasha・line-reservation-aiの既存指標名を確認したところ、いずれも同一名を使って
+  おり」と記述しているが、line-reservation-ai自身の`cloud-monitoring-alert-policy-
+  design.md`(15〜17行目・100〜101行目)は「本ventureにはそれに相当する意図分類の
+  仕組みがなく...新設するかどうかは未検討」と明記しており、line-reservation-aiが
+  同名指標を既に使っているという記述は事実と異なることも確認した。この点の是正は
+  kura-pasha側ファイルの修正であり本venture側の作業範囲外のため、次回以降の
+  kura-pasha側棚卸し候補として申し送る(本フェーズでは本venture側ファイルの修正
+  のみに限定)。
 - 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`
   および`gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後に
   オーナー承認の範囲内で実施する。
