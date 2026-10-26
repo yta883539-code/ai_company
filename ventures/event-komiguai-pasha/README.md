@@ -1278,3 +1278,26 @@
   policy.mdが本ventureにのみ未作成だったことを発見し新規作成。`inquiry`コレクションの
   保存期間〈対応完了から1年〉を新規に方針決定。コード変更なし、schema検証22件・
   prototype試験50件いずれも変更なしでパス)
+- フェーズ61(2026-10-26 17:00 UTC定例更新): フェーズ60のdata-retention-policy.md
+  「今後の課題」で申し送られていた照合(本文書3節が削除候補化の起点として前提とした
+  `inquiry.resolvedAt`相当のフィールドが、inquiry-handling-design.md〈フェーズ15〉の
+  フィールド一覧に実際に含まれているか)に対応した。照合の結果、同文書のフィールド
+  一覧(`draft_id`・`customer_email`・`category`・`detail`・`status`・`created_at`)
+  には`resolvedAt`相当のフィールドが実際には存在しておらず、暫定名称のまま参照だけが
+  先行していたギャップを発見した。inquiry-handling-design.mdに`resolvedAt`
+  (`status`が`resolved`に遷移した日時、未対応中は未設定)を正式フィールドとして
+  追記し、data-retention-policy.md「今後の課題」の該当項目を解消済みに更新した。
+  コード変更なし(設計文書の更新のみ)、回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`
+  (22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認
+  された場合はその着手を最優先、(2)削除候補の洗い出し・最終確認送信・連絡不能オーナー
+  レビューの具体的ロジックを、他venture(aircon-pasha等)のdeletion-candidate-design.md
+  相当の設計から横展開できるか検討、(3)層2・層3の候補確定調査の再着手(投資対効果が
+  見込める新たな探索手法が見つかった場合)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 17:00 UTC(フェーズ61: inquiry-handling-design.mdに`resolvedAt`
+  フィールドを正式追記し、data-retention-policy.mdが前提としていたフィールド名との
+  不一致を解消。コード変更なし、schema検証22件・prototype試験50件いずれも変更なしで
+  パス)

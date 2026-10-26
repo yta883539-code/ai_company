@@ -70,8 +70,11 @@ forklift-pasha)のdata-retention-policy.mdが揃って採用した保存期間�
 
 ## 今後の課題
 
-- inquiry-handling-design.mdのフィールド設計に、本文書が前提とした`resolvedAt`相当の
-  フィールドが実際に含まれているかの照合(次回候補)。
+- ~~inquiry-handling-design.mdのフィールド設計に、本文書が前提とした`resolvedAt`相当の
+  フィールドが実際に含まれているかの照合~~ → フェーズ61で照合した結果、
+  inquiry-handling-design.mdのフィールド一覧には`resolvedAt`が含まれていなかったため、
+  同文書に`resolvedAt`(`status`が`resolved`に遷移した日時)を正式フィールドとして
+  追記し、本文書3節が前提とする削除候補化の起点との整合を確保した(解消)。
 - 削除候補の洗い出し・最終確認送信・連絡不能オーナーレビューの具体的ロジックは、他venture
   (aircon-pasha等)のdeletion-candidate-design.md相当の設計をそのまま横展開できるか次回
   検討する。

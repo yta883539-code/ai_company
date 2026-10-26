@@ -33,7 +33,10 @@ tech-stack.md(フェーズ7)の方針(LINE公式アカウント不採用、月�
 
 - フォーム送信内容は`inquiry/{inquiry_id}`(Firestore)に保存する。フィールドは
   `draft_id`・`customer_email`・`category`(上記4区分)・`detail`(自由記述)・
-  `status`(`received`/`resolved`)・`created_at`。
+  `status`(`received`/`resolved`)・`created_at`・`resolvedAt`(`status`が`resolved`に
+  遷移した日時。未対応中は未設定。data-retention-policy.mdフェーズ60が`inquiry`の
+  保存期間の起点として前提とした暫定フィールド名をそのまま正式なフィールド設計として
+  採用し、フェーズ61で追記)。
 - 他venture(line-reservation-aiのエスカレーション系設計等)と異なり、本ventureは
   双方向チャットボットを持たないため、受付時点でのAIによる自動一次回答(自動返信)は
   行わず、受付内容をそのままオーナー確認待ちのキューとして蓄積するだけに留める
@@ -73,7 +76,14 @@ tech-stack.md(フェーズ7)の方針(LINE公式アカウント不採用、月�
 - 実際のメール送信手段接続・Stripe返金API接続はいずれもアカウント作成・外部サービス
   接続を伴うためオーナー承認待ちの範囲(pending-approval.md参照)。
 
-最終更新: 2026-10-19 17:00 UTC(フェーズ15: 自動フロー対象外の個別問い合わせ
+最終更新: 2026-10-26 17:00 UTC(フェーズ61: data-retention-policy.md(フェーズ60)の
+「今後の課題」で申し送られた照合に対応し、`inquiry`のフィールド一覧に`resolvedAt`
+(`status`が`resolved`に遷移した日時)を正式フィールドとして追記。コード変更なし
+(設計文書の更新のみ))
+
+---
+
+最終更新(旧): 2026-10-19 17:00 UTC(フェーズ15: 自動フロー対象外の個別問い合わせ
 (メール未着・TTL失効後再送希望・品質不満返金希望)への対応フローを設計。
 inquiry-handling-design.md新規作成。問い合わせ受付はWebフォーム+Firestoreへの
 蓄積のみとし、実際の再送・返金実行はオーナー確認後に行う方針を確定)
