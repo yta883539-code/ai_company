@@ -3953,3 +3953,33 @@
   ログ出力の上で例外を再raiseする方針を新規設計(kura-pasha・aircon-pasha・
   course-set-pashaの横展開)。残る横展開先はline-reservation-aiのみ。コード変更なし、
   テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ192(2026-10-26 01:00 UTC定例更新): フェーズ191の次回候補(3)に対応し、
+  cloud-monitoring-alert-policy-design.mdを本venture向けに新規作成した。
+  kura-pashaフェーズ265(同ファイル4節、Firestoreランタイム依存構築失敗アラート)の
+  設計を横展開し、ログベース指標名`forklift_pasha_firestore_runtime_dependency_
+  construction_failure_count`・フィルタ(`event=firestore_runtime_dependency_
+  construction_failed`,severity=ERROR)・直近60分1件以上での発火・Cloud Monitoring
+  標準メール通知チャネル(`OWNER_ALERT_EMAIL_PLACEHOLDER`)を確定した。本ventureには
+  aircon-pasha・course-set-pasha・kura-pashaが備えるchatbot意図分類失敗系の既存
+  アラートが無いため(1節の現状棚卸しの通りLINE非依存・Webフォーム+メール通知構成で
+  chatbot自体が無い)、Firestore構築失敗アラートのみを対象とし、対象4関数
+  (`get_checkout_runtime_dependencies()`等)はいずれも検知対象が同一のため1指標に
+  集約する方針とした(kura-pashaが2指標に分けた理由とは異なる本venture固有の判断)。
+  これでkura-pasha・aircon-pasha・course-set-pasha・forklift-pashaの4venture全てに
+  本アラート設計が揃い、残る横展開先はline-reservation-aiのみとなった。コード変更
+  なし(設計文書新規作成のみ)、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(93件、変更なし)・`python3 schema/validate_test_cases.py`
+  (11件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、
+  (2)本方針の残る横展開先line-reservation-aiへの適用、(3)cloud-monitoring-alert-
+  policy-design.md 1節のログ出力側`event`フィールド構造化反映(実`.py`実装への反映)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 01:00 UTC(フェーズ192: runtime-dependency-switching-design.md
+  5.3節の次回候補に対応し、cloud-monitoring-alert-policy-design.mdを新規作成。
+  Firestoreランタイム依存構築失敗を検知するログベース指標・アラートポリシーを
+  kura-pashaフェーズ265の横展開として確定〈4関数は1指標に集約〉。これでkura-pasha・
+  aircon-pasha・course-set-pasha・forklift-pashaの4venture全てに本アラート設計が
+  揃った。残る横展開先はline-reservation-aiのみ。コード変更なし、テスト93件・
+  schema検証11件いずれも変更なしでパス)
