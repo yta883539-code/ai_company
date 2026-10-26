@@ -6589,3 +6589,34 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   alert-policy-design.mdを新規作成。3エントリポイント共通のFirestoreランタイム依存
   構築失敗イベントをentry_pointラベルで区別する設計とした。コード変更なし、テスト
   1004件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き349(2026-10-26 13:00 UTC定例更新): フェーズ続き348・cloud-monitoring-
+  alert-policy-design.md 4節の次回候補(1)だった「構造化出力(JSON)のフォーマット
+  崩れ・リトライ失敗側に本venture独自の意図分類失敗相当のログ・指標・アラートを
+  新設するかどうか」を検討し、同ドキュメント5節として新規設計した。1節・2節の
+  Firestoreランタイム依存構築失敗(発生自体が異常、ベースラインゼロ)とは異なり、
+  json-output-retry-fallback.mdが扱う構造化出力のフォーマット崩れはLLM応答の確率的な
+  ゆらぎで平常運用でも一定頻度発生しうる事象であるため、他4venture・1節/2節と同じ
+  「60分・1件以上」のしきい値をそのまま転用せず、同ドキュメントの「ログ・監視」節が
+  既に設計済みだった日次しきい値(暫定1日5件)をCloud Monitoringアラートポリシー
+  (24時間ローリングウィンドウ、`count > 5`)にそのまま落とし込む設計とした。ログ
+  ベース指標(`line_reservation_ai_json_output_fallback_count`)には、json-output-
+  retry-fallback.mdが既に定義していた崩れ方の4分類(構文エラー/キー不足・余分/値
+  想定外/自然文とJSONの矛盾)を`failure_category`ラベル(4値固定・低カーディナリティ)
+  として反映した。json-output-retry-fallback.md側にも追記し、両ドキュメントの
+  整合を取った。実際のログ出力(`.py`実装)・GCPプロジェクト上での指標・アラート
+  ポリシー作成はいずれも実行していない(結合実装フェーズ・オーナー承認後に持ち越し)。
+  コード変更はなく、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(1004件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれも変更なしでパスすることを確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(plan・checkout_session_
+  completed_event_time・menu_durations・store_faq_info・onboarding_completion_
+  message・all_store_ids、計6グループ)、(2)cloud-monitoring-alert-policy-design.md
+  4節に残した「日次6件以上のしきい値は実LLM運用データが無い現時点では仮置き」の
+  検証方針の具体化、(3)承認待ち事項がオーナーから承認された場合はその着手(本
+  venture全設計の結合実装)を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-26 13:00 UTC(フェーズ続き349: cloud-monitoring-alert-policy-
+  design.md 5節を新規作成。構造化出力〈JSON〉フォールバック発生の検知を、日次
+  しきい値〈count > 5〉のアラートポリシーとして設計した。コード変更なし、テスト
+  1004件・schema検証28件いずれも変更なしでパス)
