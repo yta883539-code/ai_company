@@ -5996,3 +5996,27 @@
   済みであることを確認して「解消」に更新。棚卸し中にkura-pasha側ファイルのline-
   reservation-aiに関する記述誤り(未実装の指標を実装済みと誤記)を発見し、次回候補として
   申し送り。コード変更なし、テスト863件・schema検証21件いずれも変更なしでパス)
+- フェーズ335(2026-10-26 14:00 UTC定例更新): aircon-pashaフェーズ344
+  (2026-10-26 06:00 UTC)が「forklift-pashaフェーズ192の『kura-pasha・aircon-pasha・
+  course-set-pasha・forklift-pashaの4venture全てに揃った』という記載は、本venture
+  (course-set-pasha)分について不正確だった」と指摘していた件を確認した。実際に本venture
+  側のcloud-monitoring-alert-policy-design.mdを確認したところ、1〜4節(意図分類失敗
+  アラート)のみが存在し、Firestoreランタイム依存構築失敗アラート(kura-pashaフェーズ
+  265・aircon-pashaフェーズ344・forklift-pashaフェーズ192と同型)は未定義であることを
+  確認し、aircon-pasha側の指摘が正確であったことを裏付けた。runtime-dependency-
+  switching-design.md 5節(フェーズ333)で既に確定済みの「ログ+re-raise、InMemory自動
+  フォールバック禁止」方針を検知するためのログベース指標(`course_set_pasha_firestore_
+  runtime_dependency_construction_failure_count`)・アラートポリシーを5節として新規
+  設計し、ギャップを解消した。これにより5venture(kura-pasha・aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-ai)全てにFirestoreランタイム
+  依存構築失敗アラート設計が揃った。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3 schema/validate_
+  test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化反映
+  (実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、(3)kura-pasha側
+  cloud-monitoring-alert-policy-design.md 15〜19行目のline-reservation-aiに関する記述誤り
+  の是正(フェーズ334で発見、kura-pasha側の作業として申し送り継続)、(4)他venture・
+  アイデア領域の前進。
