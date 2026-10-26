@@ -6088,9 +6088,35 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   3節既存項目と合わせて行う、(3)Webhookエントリポイント側への同種可視化(4.3節で
   明記した横展開候補)、(4)フェーズ264次回候補(3)「他venture側README.mdの同種の
   『未作成』陳腐化記載の棚卸し」、(5)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-25 23:00 UTC(フェーズ265: cloud-monitoring-alert-policy-design.md
-  4節として、Firestoreランタイム依存構築失敗〈フェーズ263のre-raise方針が対象〉を
-  検知する新規ログベース指標・アラートポリシーを設計。既存1節・2節は意図分類失敗専用
-  でこの事象をカバーしていなかったことを発見し解消。runtime-dependency-switching-
-  design.md 6.3節・6.4節の参照も更新。コード変更なし、テスト295件・webhook355件・
-  schema検証32件いずれも変更なしでパス)
+- フェーズ266(2026-10-26 10:00 UTC定例更新): フェーズ265の次回候補(3)「Webhook
+  エントリポイント側への同種可視化(4.3節で明記した横展開候補)」に対応した。
+  runtime-dependency-switching-design.md 3.2節・6.2節を再確認した結果、6.2節で
+  示されている`try`/`except`付き疑似コードの関数シグネチャが`get_runtime_
+  dependencies()`(3.2節の通りWebhookエントリポイント`cloud_function_webhook.py`
+  側の関数)であり、4.1節が「現状メッセージ文字列のみでeventキーを持たない」と
+  指摘していたコードは実はWebhook側を指していたことを発見した。また4.1節のログ
+  ベース指標フィルタが`resource.labels.service_name`による絞り込みを含まない設計
+  のため、日次スケジューラ側にも同じ構造化ログ(同一`event`名)を結合実装フェーズで
+  反映すれば、Webhook・日次スケジューラ両方の構築失敗を単一の指標・アラートポリシー
+  (4.1節・4.2節)で検知でき、Webhook専用の第2指標を新規作成する必要はないことが
+  判明した。cloud-monitoring-alert-policy-design.md 4.4節として新規に整理し、
+  4.3節の該当残課題(Webhook側可視化)を解消。残る未確定事項は実デプロイ後の
+  `service_name`実値確認(障害調査時の絞り込み用、アラート発火要件ではない)
+  のみとして明記した。コード変更なし(設計文書の追記のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)4節のログ出力側(`event`構造化フィールド)への実装反映を結合実装フェーズで
+  3節既存項目と合わせて行う(本フェーズの発見により日次スケジューラ・Webhook
+  両方が対象であることが明確化)、(3)フェーズ264次回候補(3)「他venture側
+  README.mdの同種の『未作成』陳腐化記載の棚卸し」、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-26 10:00 UTC(フェーズ266: cloud-monitoring-alert-policy-design.md
+  4.4節として、Webhookエントリポイント側への同種可視化を検討し、6.2節の疑似コードが
+  実はWebhook側の関数であったこと、4.1節の指標フィルタがservice_nameで絞り込まれて
+  いないため両エントリポイントを単一指標で検知できることを明らかにし、Webhook専用の
+  第2指標は不要と結論。コード変更なし、テスト295件・webhook355件・schema検証32件
+  いずれも変更なしでパス)
