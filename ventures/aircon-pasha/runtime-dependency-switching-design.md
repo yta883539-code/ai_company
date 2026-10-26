@@ -195,19 +195,29 @@ try/exceptで囲み例外を再raiseする(LINE・Stripe等Firestore以外のキ
 - 日次スケジューラ(`cloud_function_run_daily_checks.py`)・月次スケジューラ
   (`cloud_function_send_deletion_candidate_final_confirmations.py`、いずれもCloud
   Scheduler経由): 例外伝播によりCloud Functions実行がエラー終了し、Cloud Loggingに
-  エラーログが記録される。本ventureにはcloud-monitoring-alert-policy-design.md(kura-
-  pashaフェーズ264で確認済みの通り本venture・course-set-pashaには既に存在)があるため、
-  アラート設計自体の横展開は不要で、既存のログベース指標・アラートポリシーに本例外の
-  ログも含まれる想定(具体的な指標名の追加は結合実装フェーズに持ち越す)。
+  エラーログが記録される。本venture既存のcloud-monitoring-alert-policy-design.md(kura-
+  pashaフェーズ264で確認済みの通り本venture・course-set-pashaには既に存在)は意図分類
+  失敗(`chatbot_intent_classification_failed`)専用の指標・アラートのみを定義しており、
+  本例外(Firestoreランタイム依存構築失敗)を検知する指標・アラートは別途必要であることが
+  kura-pashaフェーズ265(同ファイル4節参照)で判明した。本フェーズ343記載時点の「既存の
+  ログベース指標・アラートポリシーに本例外のログも含まれる想定」という記載は、検知対象
+  (LLM API起因かGCP認証・権限起因か)が異なる別指標であることを見落としていた不正確な
+  記載であり、フェーズ344(cloud-monitoring-alert-policy-design.md 5節)で是正した。
 
 ### 5.4. 未検証・残課題
 
 - 本フェーズはログ・re-raiseという方針の決定のみで、`.py`ファイルへの実装反映は3節同様、
   実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに持ち越す。
 - 残る2venture(course-set-pasha・forklift-pasha・line-reservation-ai)側の同ファイル
-  4節への横展開は、本フェーズでは着手せず次回候補として残す。
+  4節への横展開は、本フェーズでは着手せず次回候補として残す(フェーズ344で実際に確認した
+  ところ、forklift-pashaはフェーズ192で対応済み、line-reservation-aiはフェーズ続き348で
+  対応済みだが、course-set-pashaは本フェーズ344時点でまだ未対応であることが判明した。
+  forklift-pashaフェーズ192の「kura-pasha・aircon-pasha・course-set-pasha・forklift-
+  pashaの4venture全てに揃った」という記載は、本venture(aircon-pashaフェーズ344で是正)・
+  course-set-pashaの2venture分について不正確だったことになる)。
 
-最終更新: 2026-10-25 14:00 UTC (フェーズ343: kura-pashaフェーズ263「ログ+re-raise、
-InMemory自動フォールバック禁止」方針の横展開として、本venture固有の5エントリポイント
-〈webhook・Stripe webhook・申込フォーム・日次/月次スケジューラ〉向けに5節を新規設計。
-コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+最終更新: 2026-10-26 06:00 UTC (フェーズ344: 5.3節が「既存のアラート設計に含まれる想定」
+としていた記載を、kura-pashaフェーズ265の指摘〈検知対象が異なる別指標が必要〉に基づき
+是正。cloud-monitoring-alert-policy-design.md 5節として本venture固有のFirestore
+ランタイム依存構築失敗アラートを新規設計した(詳細は同ファイル参照)。コード変更なし、
+全789件・schema検証25件いずれも変更なしでパス)

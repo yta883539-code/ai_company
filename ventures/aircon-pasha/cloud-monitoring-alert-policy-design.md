@@ -80,3 +80,82 @@ classification-failure-observability-design.md 1節と同じ考え方)。
 - 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`および
   `gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後にオーナー
   承認の範囲内で実施する。
+
+## 5. Firestoreランタイム依存構築失敗アラート(フェーズ344)
+
+runtime-dependency-switching-design.md 5節(フェーズ343)で決定した「フラグ
+`AIRCON_PASHA_FIRESTORE_ENABLED`が`"1"`のまま実クライアント構築が失敗した場合はInMemoryへ
+自動フォールバックせずログ出力の上で例外を再raiseする」方針について、5.3節は当初「本
+venture既存のcloud-monitoring-alert-policy-design.md(本ファイル)に本例外のログも含まれる
+想定」と記載していたが、これはkura-pashaフェーズ265が指摘した通り不正確だった。1節・2節は
+意図分類失敗(`chatbot_intent_classification_failed`)専用であり、Firestoreランタイム依存
+構築失敗(5節のre-raise方針が対象とする事象)は検知対象(LLM API起因かGCP認証・権限起因か)
+が異なるため、1節・2節を転用せず、kura-pashaフェーズ265・forklift-pashaフェーズ192と同型の
+設計を本venture向けに横展開し、以下を新規に定義する(5.3節は本フェーズで是正済み、
+runtime-dependency-switching-design.md 5.3節・5.4節参照)。
+
+### 5.1. ログベース指標
+
+- 名前(案): `aircon_pasha_firestore_runtime_dependency_construction_failure_count`
+  (kura-pasha・forklift-pashaの命名規則`<venture-prefix>_firestore_runtime_dependency_
+  construction_failure_count`を踏襲)。
+- フィルタ:
+  ```
+  resource.type="cloud_run_revision"
+  jsonPayload.event="firestore_runtime_dependency_construction_failed"
+  severity="ERROR"
+  ```
+  `resource.type`は本ファイル2節と同じく2nd gen / Cloud Run functionsを採用する(cloud-
+  functions-generation-decision.md確定事項、本venture含め未着手の全venture共通で選択の
+  余地がない)。`service_name`・`revision_name`等の具体的なリソースラベル値は実プロジェクト
+  作成後(5エントリポイントのデプロイ後)でなければ確定できないため、2節と同様引き続き
+  要確認として残す。
+  ログ出力側(runtime-dependency-switching-design.md 5.2節の擬似コード内`logger.exception
+  (...)`)は現状メッセージ文字列のみで`event`キーを持たないため、結合実装フェーズで
+  `logger.exception(..., extra={"json_fields": {"event": "firestore_runtime_dependency_
+  construction_failed"}})`相当の構造化ログに揃える必要がある(本フェーズは設計のみ、`.py`
+  実装への反映は次回候補)。
+- severityを意図分類失敗(WARNING)と区別しERRORとする理由: kura-pashaフェーズ265と同一。
+  本事象は「フラグON時に実Firestore接続が必要な場面で接続できていない」という設定・権限
+  上の不具合であり、5.1節(runtime-dependency-switching-design.md)の整理の通り顧客影響
+  (チェックアウト失敗・5xx応答・日次/月次処理の未実行)を伴うため、顧客影響が軽微な
+  意図分類失敗より重大度が高い。
+
+### 5.2. アラートポリシー
+
+- 条件: 上記指標が「直近60分間で合計1件以上」で発火(1節・2節と同一のローリングウィンドウ・
+  しきい値)。フラグON時の構築失敗は即時表面化させる方針(runtime-dependency-switching-
+  design.md 5.1節)のため、しきい値を緩める理由がない。
+- 通知チャネル: 2節と同じCloud Monitoring標準メール通知チャネル(`OWNER_ALERT_EMAIL_
+  PLACEHOLDER`)を共用する(運営者自身向けの技術監視目的で宛先・経路が1節・2節と同一の
+  ため、チャネル自体を分ける必要はない。ポリシー自体は指標が異なるため1節・2節のポリシー
+  とは別個に作成する)。
+- 対象エントリポイントが5つ(`get_runtime_dependencies()`〈webhook〉・
+  `get_stripe_runtime_dependencies()`・`get_application_form_submission_runtime_
+  dependencies()`・`get_daily_checks_runtime_dependencies()`・`get_deletion_candidate_
+  final_confirmation_runtime_dependencies()`)あるが、forklift-pashaフェーズ192と同じ理由
+  (いずれも検知対象が同一〈Firestoreランタイム依存構築失敗〉)により、関数ごとに個別の
+  指標・ポリシーを分ける必要はなく1指標に集約する。
+
+### 5.3. スコープ外(引き続き次回以降の課題)
+
+- 5.1節のログ出力側(`.py`実装)への`event`フィールド構造化反映は、3節既存項目と同様に
+  実`google-cloud-firestore`導入・結合実装フェーズに持ち越す。
+- `resource.type`のリソースラベル値(`service_name`等)は、実プロジェクト作成後に5関数
+  それぞれのデプロイ単位を確認して確定する。
+- course-set-pasha側の同種アラート設計は未対応のまま残っている(本フェーズで確認、
+  forklift-pashaフェーズ192の「4venture全てに揃った」という記載はcourse-set-pasha分に
+  ついて不正確だった)。本ファイルの範囲外として、course-set-pasha側の次回以降の課題として
+  残す。
+- 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`および
+  `gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後にオーナー
+  承認の範囲内で実施する。
+
+最終更新: 2026-10-26 06:00 UTC (フェーズ344: kura-pashaフェーズ265の指摘〈検知対象の異なる
+Firestoreランタイム依存構築失敗アラートは意図分類失敗用の既存指標とは別に必要〉を受け、
+5.3節が「既存指標に含まれる想定」としていた記載の不正確さを是正し、forklift-pashaフェーズ
+192と同型の専用ログベース指標・アラートポリシーを5節として新規設計した。あわせて
+forklift-pashaフェーズ192の「kura-pasha・aircon-pasha・course-set-pasha・forklift-pashaの
+4venture全てに揃った」という記載が、本venture・course-set-pashaの2venture分について
+時点では不正確だったことを確認した。コード変更なし、全789件・schema検証25件いずれも
+変更なしでパス)
