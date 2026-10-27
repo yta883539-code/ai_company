@@ -6469,3 +6469,26 @@
 - 最終更新: 2026-10-27 09:00 UTC(フェーズ348: 詳細は上記。
   stripe-webhook-runtime-dependency-failure-response-design.mdを新規作成。
   コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ349(2026-10-27 20:00 UTC定例更新): フェーズ348の次回候補(2)「残り
+  2エントリポイント(`get_daily_checks_runtime_dependencies()`・`get_deletion_candidate_
+  final_confirmation_runtime_dependencies()`)の同種ギャップ確認」に対応した。確認の結果、
+  フェーズ347・348のギャップ(呼び出し元がレスポンス本文を業務的に解釈するGAS/Stripeを
+  前提とした`main()`側レスポンス設計の欠落)はこの2エントリポイントには転用できないと
+  判断した(呼び出し元のCloud Schedulerはレスポンス本文を一切解釈しないため)。一方で、
+  Cloud Scheduler自体のジョブ内`retry_config`(未設定のまま)という別種の論点を新たに
+  発見し、1回の起動失敗時の次回再試行までの待機期間が日次バッチ(最大約24時間、既存の
+  冪等な抽出条件により実質無害)と月次バッチ(最大約1ヶ月、data-retention-policy.mdの
+  削除猶予期間の実効性に関わる可能性)で大きく異なる点を整理した。
+  daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.mdとして新規設計した。コード変更なし〈設計文書新規作成のみ〉、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(789件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)月次バッチ用`retry_config`を設計するかどうかの検討、(3)Cloud Schedulerの
+  `retry_config`未決定が他venture共通の欠落かどうかの横断確認(各venture側への申し送り)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 20:00 UTC(フェーズ349: 詳細は上記。
+  daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.mdを新規作成。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
