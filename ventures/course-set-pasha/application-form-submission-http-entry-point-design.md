@@ -91,3 +91,9 @@
 - 承認待ち事項1〜5(launch-readiness-checklist.md参照)がオーナーから承認された場合、
   実シークレット値の環境変数設定・GASへの貼り付けから着手する。
 - 他venture・アイデア領域の前進。
+- [フェーズ338で対応済み] 本節が定義していなかった「依存構築
+  (`get_application_form_submission_runtime_dependencies()`)自体が失敗した場合の`main()`
+  側レスポンス」は、firestore-runtime-dependency-failure-form-submission-response-
+  design.mdとして新規設計済み(既存401/400と同じ`{"ok", "error"}`のJSON形状で503を返し、
+  GAS側スクリプトでの指数バックオフリトライを対応方針とした。aircon-pashaフェーズ347が
+  次回候補として残した横展開確認への対応)。
