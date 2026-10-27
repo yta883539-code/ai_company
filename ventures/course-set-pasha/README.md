@@ -6020,3 +6020,20 @@
   cloud-monitoring-alert-policy-design.md 15〜19行目のline-reservation-aiに関する記述誤り
   の是正(フェーズ334で発見、kura-pasha側の作業として申し送り継続)、(4)他venture・
   アイデア領域の前進。
+- フェーズ336(2026-10-27 06:00 UTC定例更新): フェーズ335の次回候補(3)を棚卸しした。
+  kura-pasha/cloud-monitoring-alert-policy-design.md 1節を確認したところ、
+  kura-pashaフェーズ267(2026-10-26 12:05 UTC、本venture側フェーズ335の14:06 UTCより
+  前)で既に「line-reservation-aiが同一指標名を使用済み」という誤記が是正され、比較対象が
+  aircon-pasha・course-set-pashaの2ventureに訂正済みであることを確認した。つまり次回候補(3)
+  は、フェーズ335作成時点で既に解消済みだった事項を未解消として申し送ってしまっていた
+  陳腐化記載であったと判明したため、本行で解消済みに訂正する(kura-pasha側ファイルへの
+  直接書き込みは越権のため行わず、本venture側の記載のみ是正)。コード変更なし、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化反映
+  (実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、(3)本方針
+  (runtime-dependency-switching-design.md 5節)の残る横展開先の確認、(4)他venture・
+  アイデア領域の前進。
