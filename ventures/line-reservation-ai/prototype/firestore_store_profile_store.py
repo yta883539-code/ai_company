@@ -9,8 +9,8 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
-13節(blocked_but_billing_owner_notified_atグループ)の計6グループ(13メソッド)のみ。
-他グループ(plan・checkout_session_completed_event_time・menu_durations・
+13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)の計7グループ
+(15メソッド)のみ。他グループ(checkout_session_completed_event_time・menu_durations・
 store_faq_info・onboarding_completion_message・all_store_ids・
 store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
 次回候補のまま残る。
@@ -19,6 +19,8 @@ store_deletion_confirmation関連)は設計(design.md各節)は完了済みだ�
 from __future__ import annotations
 
 from typing import Optional
+
+from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
 
 
 class FirestoreStoreProfileStore:
@@ -186,3 +188,24 @@ class FirestoreStoreProfileStore:
         self._doc_ref(store_id).set(
             {"blockedButBillingOwnerNotifiedAt": value}, merge=True
         )
+
+    def get_plan(self, store_id: str) -> Optional[str]:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # design.md 15節: InMemory実装の未設定時デフォルト(None=プラン未購入)と
+            # 揃える安全側フォールバック。接続エラーの回だけ月間予約件数上限チェックが
+            # 一時的に効かなくなる(トライアル中と同じ扱い)側に合流させる方が、誤って
+            # 上限0相当の挙動になり有料プラン契約中の店舗の新規予約を全てブロックして
+            # しまう事態より明らかに安全であり、9節・11節・13節と同じ基準に合致する。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("plan")
+
+    def set_plan(self, store_id: str, plan: str) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
+            raise ValueError(f"unknown plan: {plan!r}")
+        self._doc_ref(store_id).set({"plan": plan}, merge=True)

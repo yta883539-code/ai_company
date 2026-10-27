@@ -6647,3 +6647,37 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   design.md 6節を新規作成。5.3節しきい値〈日次6件以上〉の再検証方針〈トリガー
   条件・p90ベースの機械的な算出手順〉を設計した。コード変更なし、テスト1004件・
   schema検証28件いずれも変更なしでパス)
+- フェーズ続き351(2026-10-27 04:00 UTC定例更新): フェーズ続き350の次回候補(1)
+  「残るFirestoreアダプタ実コード化グループの実装は実Firestore/本番LLM API接続後に
+  着手するため承認待ち事項の範囲内」という記載が、store-profile-store-firestore-
+  adapter-design.md 4節がフェーズ続き342で既に訂正していた方針(実GCP接続なしの
+  最小インターフェース〈duck typing〉実装としてのコード化はオーナー承認を待たずに
+  進めてよく、承認待ちは実クライアントを注入する結合実装の段階でのみ関係する)と
+  矛盾する陳腐化記載であることを発見し是正した。この是正に基づき、design.md 15節が
+  既に設計済みだった`get_plan`/`set_plan`(planグループ、2メソッド)を
+  `prototype/firestore_store_profile_store.py`へ追加実コード化した(15節のコード例を
+  そのまま転記)。接続エラー時は9節・11節・13節と同じく「未設定」側(None、プラン
+  未購入扱い)にフォールバックする方針を採用し、`set_plan`は`PLAN_MONTHLY_BOOKING_
+  LIMITS`にない未知のプラン名をFirestoreへの書き込み呼び出し自体より前に`ValueError`
+  で拒否する(接続先の状態に関わらず検証が完結する)ことをテストで確認した。
+  `test_firestore_store_profile_store.py`に`FirestoreStoreProfileStorePlanGroupTest`
+  としてテスト7件追加(未設定時None・set/get往復・他フィールド保持・空store_id拒否・
+  未知プラン名拒否〈2パターン、接続先に関わらず拒否されることを含む〉・接続エラー時の
+  フォールバックを含む)。design.md 4節の実装状況メモも更新した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(1004→1011件)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスする
+  ことを確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(checkout_session_completed_
+  event_time・menu_durations・store_faq_info・onboarding_completion_message・
+  all_store_ids、計5グループ)の実コード化(いずれも実Firestore接続を待たずに着手
+  可能)、(2)cloud-monitoring-alert-policy-design.md 6節で確定した再検証トリガー
+  (4週間経過または連続発火)に基づくしきい値再算出は実LLM運用データが必要なため
+  承認待ち事項の範囲内、(3)承認待ち事項がオーナーから承認された場合はその着手
+  (本venture全設計の結合実装)を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 04:00 UTC(フェーズ続き351: フェーズ続き350の次回候補(1)の
+  記載が、design.md 4節がフェーズ続き342で確定済みの方針と矛盾する陳腐化記載で
+  あったことを是正し、design.md 15節が設計済みだった`FirestoreStoreProfileStore`の
+  planグループ(2メソッド)を実コード化した。テスト7件追加(1004→1011件)・schema
+  検証28件〈変更なし〉いずれもパス)

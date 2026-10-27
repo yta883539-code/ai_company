@@ -11,6 +11,7 @@ InMemoryStoreProfileStore(store_profile_store.py)と観測可能な振る舞い�
 import unittest
 
 from firestore_store_profile_store import FirestoreStoreProfileStore
+from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
 
 
 class _FakeSnapshot:
@@ -409,6 +410,56 @@ class FirestoreStoreProfileStoreBlockedButBillingOwnerNotifiedAtGroupTest(
         self.assertIsNone(
             store.get_blocked_but_billing_owner_notified_at("store-1")
         )
+
+
+class FirestoreStoreProfileStorePlanGroupTest(unittest.TestCase):
+    def test_get_plan_returns_none_when_document_missing(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertIsNone(store.get_plan("store-1"))
+
+    def test_set_then_get_plan_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        plan = next(iter(PLAN_MONTHLY_BOOKING_LIMITS))
+
+        store.set_plan("store-1", plan)
+
+        self.assertEqual(store.get_plan("store-1"), plan)
+
+    def test_set_plan_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+        plan = next(iter(PLAN_MONTHLY_BOOKING_LIMITS))
+
+        store.set_plan("store-1", plan)
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_plan_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+        plan = next(iter(PLAN_MONTHLY_BOOKING_LIMITS))
+
+        with self.assertRaises(ValueError):
+            store.set_plan("", plan)
+
+    def test_set_plan_rejects_unknown_plan_name(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_plan("store-1", "存在しないプラン")
+
+    def test_set_plan_rejects_unknown_plan_without_touching_client(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_plan("store-1", "存在しないプラン")
+
+    def test_get_plan_falls_back_to_none_on_client_exception(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertIsNone(store.get_plan("store-1"))
 
 
 if __name__ == "__main__":
