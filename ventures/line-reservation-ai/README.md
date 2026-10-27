@@ -6735,7 +6735,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   completed_event_time・store_faq_info・onboarding_completion_message、計3
   グループ)の実コード化、(2)承認待ち事項(本venture全設計の結合実装)がオーナーから
   承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-27 11:00 UTC(フェーズ続き353: 詳細は上記。
-  store-profile-store-firestore-adapter-design.md 30節で設計済みだった
-  `menu_durations`グループを実コード化。テスト7件追加(1015→1022件)・schema
+- フェーズ続き354(2026-10-27 15:00 UTC定例更新): フェーズ続き353次回候補(1)
+  「残るFirestoreアダプタ実コード化グループ(checkout_session_completed_event_time・
+  store_faq_info・onboarding_completion_message、計3グループ)の実コード化」に対応し、
+  このうち24節で設計済みだった`store_faq_info`グループ(`get_store_faq_info`/
+  `set_store_faq_info`)を実コード化した(store-profile-store-firestore-adapter-
+  design.md 31節)。24節のコード例をそのまま採用し、`storeFaqInfo`フィールドへ
+  空dict既定・丸ごと置き換え契約で読み書きする。`FirestoreStoreProfileStore`が
+  実装するグループは10グループ(20メソッド)になった。テストは`parking`(ネストdict)・
+  `payment_methods`(リスト)等キーごとに型が異なる不均一構造の往復一致を含め6件を
+  新規追加した。コード変更あり(`firestore_store_profile_store.py`・`test_
+  firestore_store_profile_store.py`)。回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(1022→1029件、新規6件含め全件パス)・`python3
+  schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスすることを
+  確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(checkout_session_
+  completed_event_time・onboarding_completion_message、計2グループ)の実コード化、
+  (2)承認待ち事項(本venture全設計の結合実装)がオーナーから承認された場合はその着手を
+  最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 15:00 UTC(フェーズ続き354: 詳細は上記。
+  store-profile-store-firestore-adapter-design.md 31節で設計済みだった
+  `store_faq_info`グループを実コード化。テスト6件追加(1022→1029件)・schema
   検証28件〈変更なし〉いずれもパス)

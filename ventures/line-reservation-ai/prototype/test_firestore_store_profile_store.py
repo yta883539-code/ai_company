@@ -561,5 +561,63 @@ class FirestoreStoreProfileStoreMenuDurationsGroupTest(unittest.TestCase):
         self.assertEqual(store.get_menu_durations("store-1"), {})
 
 
+class FirestoreStoreProfileStoreStoreFaqInfoGroupTest(unittest.TestCase):
+    def test_get_store_faq_info_returns_empty_dict_when_document_missing(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertEqual(store.get_store_faq_info("store-1"), {})
+
+    def test_get_store_faq_info_returns_empty_dict_when_field_unset(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"plan": "standard"})
+        store = FirestoreStoreProfileStore(client)
+
+        self.assertEqual(store.get_store_faq_info("store-1"), {})
+
+    def test_set_then_get_store_faq_info_round_trips_nested_structure(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        faq_info = {
+            "parking": {"capacity": 3},
+            "address": "東京都渋谷区1-2-3",
+            "payment_methods": ["cash", "credit_card"],
+            "hours": {"mon": "10:00-19:00"},
+            "menu": ["カット", "カラー"],
+        }
+
+        store.set_store_faq_info("store-1", faq_info)
+
+        self.assertEqual(store.get_store_faq_info("store-1"), faq_info)
+
+    def test_set_store_faq_info_replaces_whole_dict_not_merge(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_store_faq_info("store-1", {"parking": {"capacity": 3}, "address": "A"})
+
+        store.set_store_faq_info("store-1", {"address": "B"})
+
+        self.assertEqual(store.get_store_faq_info("store-1"), {"address": "B"})
+
+    def test_set_store_faq_info_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_store_faq_info("store-1", {"address": "A"})
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_store_faq_info_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_store_faq_info("", {"address": "A"})
+
+    def test_get_store_faq_info_falls_back_to_empty_dict_on_client_exception(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertEqual(store.get_store_faq_info("store-1"), {})
+
+
 if __name__ == "__main__":
     unittest.main()

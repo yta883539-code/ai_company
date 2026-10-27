@@ -1055,3 +1055,26 @@ kura-pasha・forklift-pasha)の「次回候補」記述の陳腐化点検(本節
 event_time・store_faq_info・onboarding_completion_message、計3グループ)の実コード化
 (いずれも実Firestore接続を待たずに着手可能)、(2)承認待ち事項がオーナーから承認された
 場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+
+## 31. store_faq_infoグループの実コード化(フェーズ続き354、2026-10-27 15:00 UTC)
+
+24節で設計済みの`get_store_faq_info`/`set_store_faq_info`をそのまま実コード化した
+(`firestore_store_profile_store.py`)。24節のコード例と完全に一致させ、
+`storeFaqInfo`フィールドへ空dict既定・丸ごと置き換え契約で読み書きする。これで
+`FirestoreStoreProfileStore`が実装するグループは10グループ(20メソッド)になった。
+
+テストは24節の想定どおり、`parking`(ネストdict)・`address`(文字列)・
+`payment_methods`(リスト)・`hours`(ネストdict)・`menu`(リスト)という
+キーごとに型が異なる不均一構造をまとめて1つのdictとして往復一致させるケースを含め
+6件を新規追加した。コード変更あり(`firestore_store_profile_store.py`・
+`test_firestore_store_profile_store.py`)。回帰確認として`python3 -m unittest
+discover -s prototype -p "test_*.py"`(1022→1029件、新規6件含め全件パス)・
+`python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパス
+することを確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ためpending-approval.mdへの追記なし。
+
+次回候補: (1)残るFirestoreアダプタ実コード化グループ(checkout_session_completed_
+event_time・onboarding_completion_message、計2グループ)の実コード化(いずれも実
+Firestore接続を待たずに着手可能)、(2)承認待ち事項がオーナーから承認された場合は
+その着手を最優先、(3)他venture・アイデア領域の前進。

@@ -10,10 +10,11 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
 13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)・
-26節(all_store_idsグループ)・22節(menu_durationsグループ)の計9グループ
-(18メソッド)。他グループ(checkout_session_completed_event_time・store_faq_info・
-onboarding_completion_message・store_deletion_confirmation関連)は設計
-(design.md各節)は完了済みだが実コード化は次回候補のまま残る。
+26節(all_store_idsグループ)・22節(menu_durationsグループ)・24節
+(store_faq_infoグループ)の計10グループ(20メソッド)。他グループ
+(checkout_session_completed_event_time・onboarding_completion_message・
+store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
+次回候補のまま残る。
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
 
 class FirestoreStoreProfileStore:
     """StoreProfileStoreProtocolの実Firestore接続実装(モジュールdocstring記載の
-    8グループのみ)。
+    10グループのみ)。
     stores/{storeId}ドキュメントおよびstripe_customer_index/{stripeCustomerId}
     逆引きドキュメントを読み書きする。
     """
@@ -238,3 +239,26 @@ class FirestoreStoreProfileStore:
         # ため、"menuDurations"フィールドを丸ごと置き換える(個別キーの差分マージは
         # 行わない)。
         self._doc_ref(store_id).set({"menuDurations": dict(menu_durations)}, merge=True)
+
+    def get_store_faq_info(self, store_id: str) -> dict:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # design.md 24節: 接続エラー時はInMemory実装の未設定時デフォルト(空dict)
+            # と揃える。cloud_function_process_event.py側の各トピック分岐は
+            # `.get(キー)`がFalsyなら「未登録」として扱い、22節のmenu_durationsと
+            # 同じ「空へ合流=処理を止めて人手に回す」基準に合致する。
+            return {}
+        if not snapshot.exists:
+            return {}
+        return dict((snapshot.to_dict() or {}).get("storeFaqInfo", {}))
+
+    def set_store_faq_info(self, store_id: str, store_faq_info: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        # design.md 24節: InMemory実装は呼び出しごとに辞書全体を置き換える契約の
+        # ため、"storeFaqInfo"フィールドを丸ごと置き換える(個別キーの差分マージは
+        # 行わない)。内部のネストdict(parking・hours等)・list(payment_methods・
+        # menu等)はFirestoreのmap/array型がそのまま表現できるため、キーごとの型
+        # 変換は不要。
+        self._doc_ref(store_id).set({"storeFaqInfo": dict(store_faq_info)}, merge=True)
