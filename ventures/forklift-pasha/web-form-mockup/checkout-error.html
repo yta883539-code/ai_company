@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと チェックアウト一時エラーページ 実装ドラフト
+  (フェーズ195・2026-10-27)
+
+  位置づけ: checkout-runtime-dependency-failure-applicant-message-design.md
+  (フェーズ194)3節のテキスト案と、error-page-css-commonality-design.md
+  (フェーズ195)で確定したCSS共通化方針(外部CSSファイルは切り出さず、
+  plan-selection.html等と同じ:rootトークンの値のみを共通化する)に基づく
+  静的HTMLドラフト。plan-selection.html(フェーズ138)と同じ実装方針
+  (JS不使用・外部公開なし・バックエンド接続なし)を踏襲し、
+  リポジトリ内の静的ファイル(ローカルの実装ドラフト)に留める。
+
+  実コード化時は、本ファイルの<style>ブロック・本文テキストをそのまま
+  checkout_session.main(request)内のAPPLICANT_FACING_ERROR_HTML定数へ
+  移植する想定(実Firestore導入とセットの結合実装フェーズに持ち越し)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お申し込み手続きエラー(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    padding: 12px 4px 20px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--color-accent-dark);
+  }
+  .error-card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 18px 16px;
+    margin-bottom: 14px;
+  }
+  .error-card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: var(--color-accent-dark);
+  }
+  .error-card p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .error-card .contact {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--color-border);
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+  a.back-link {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid var(--color-accent-dark);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--color-accent-dark);
+    text-align: center;
+    text-decoration: none;
+  }
+  footer.note {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ195(2026-10-27) / 503応答時に申込者が目にする画面案(バックエンド・Stripe未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <div class="logo">フォークリフトパシャっと</div>
+  </header>
+
+  <section class="error-card">
+    <h2>お申し込み手続きを完了できませんでした</h2>
+    <p>
+      現在、システムの一時的な不具合によりお申し込み手続きを完了できませんでした。
+    </p>
+    <p>
+      お手数ですが、少し時間をおいてから、もう一度プラン選択ページの
+      「このプランで申し込む」ボタンを押し直してください。
+    </p>
+    <div class="contact">
+      このメッセージが繰り返し表示される場合は、下記の問い合わせ先までご連絡ください。
+      その際、表示されていたプラン名と、おおよその発生時刻を伝えていただけますと
+      確認がスムーズです。<br>
+      問い合わせ先: [OWNER_SUPPORT_CONTACT_PLACEHOLDER]
+    </div>
+  </section>
+
+  <a class="back-link" href="plan-selection.html">プラン選択ページに戻る</a>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。ドメイン取得・ホスティング・外部公開・実Stripe接続は行っていません。
+  </footer>
+
+</div>
+</body>
+</html>

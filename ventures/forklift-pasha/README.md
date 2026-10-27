@@ -4038,3 +4038,35 @@
   `get_checkout_runtime_dependencies()`自体の例外伝播方針は変更せず、`main()`側の
   catchのみで対応し、アラート発火への影響がないことを確認。コード変更なし、
   テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ195(2026-10-27 08:00 UTC定例更新): フェーズ194次回候補(3)「エラーページの
+  CSS共通化方針の検討」に対応した。error-page-css-commonality-design.mdを新規作成し、
+  `web-form-mockup`配下の既存5ページ(index.html・daily.html・monthly.html・
+  annual.html・plan-selection.html・settings.html)がいずれも外部スタイルシートを
+  持たず`:root`トークン(7変数)を各ページの`<style>`ブロックへインライン記述する
+  方針を一貫して踏襲していることを確認した上で、申込者向けエラーページについても
+  新規の外部共有CSSファイルは切り出さず、`:root`トークンの値のみを既存ページと
+  共通化する方針を確定した(ビルド工程・静的ファイル配信経路を持たない本venture
+  現段階で外部CSSファイルを導入すると、HTML側とCSS側の内容同期という新たな課題を
+  生むのみと判断)。この方針に基づき、checkout-runtime-dependency-failure-
+  applicant-message-design.md(フェーズ194)3節のテキスト案を実際のレイアウトへ
+  起こした`web-form-mockup/checkout-error.html`を新規作成し(plan-selection.htmlの
+  `disabled`ボタンとは異なり、申込者自身がやり直せることを示すため有効な
+  `<a href="plan-selection.html">`リンクを設置)、checkout-runtime-dependency-
+  failure-applicant-message-design.md 4節の該当する残課題をフェーズ195で確定済みに
+  更新した。コード変更なし(設計文書・静的HTMLドラフトの新規作成のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(93件、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、
+  (2)本HTML文面・`main()`のtry/except追加の実`.py`実装への反映(実Firestore導入と
+  セットの結合実装フェーズに持ち越し)、(3)他venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・kura-pasha・line-reservation-ai)が同種のエラー画面を今後
+  設計する際、本フェーズのCSS共通化方針(外部ファイル非切り出し・トークン値のみ共通化)
+  が横展開候補になりうる点を申し送る(各venture側の判断に委ね、本venture側からの
+  直接書き込みは行わない)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 08:00 UTC(フェーズ195: エラーページのCSS共通化方針を確定。
+  外部共有CSSファイルは新設せず、`:root`トークンの値のみ既存ページと共通化する方針を
+  error-page-css-commonality-design.mdとして新規作成し、`web-form-mockup/
+  checkout-error.html`をモックアップドラフトとして新規作成した。コード変更なし、
+  テスト93件・schema検証11件いずれも変更なしでパス)

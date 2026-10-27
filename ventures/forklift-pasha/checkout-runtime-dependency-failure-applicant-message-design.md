@@ -98,9 +98,9 @@ def main(request):
   (pending-approval.md記載のStripeアカウント開設等)と合わせてオーナー自身が
   今後決定する。
 - HTMLの見た目(CSS)を`web-form-mockup`配下の既存ページ(`plan-selection.html`等)
-  とどこまで共通化するか(共通のエラーページテンプレートとして切り出すか、本
-  エンドポイント専用の最小限のインラインスタイルで済ませるか)は、実装時に検討する
-  次回候補として残す。
+  とどこまで共通化するかは、error-page-css-commonality-design.md(フェーズ195)で
+  方針を確定した(外部共有CSSファイルは新設せず、`:root`トークンの値のみ既存ページと
+  共通化し、`web-form-mockup/checkout-error.html`としてモックアップドラフトを作成)。
 - `get_stripe_runtime_dependencies()`・`get_deletion_confirmation_runtime_
   dependencies()`・`get_trial_end_email_runtime_dependencies()`の3エントリポイントは
   いずれも人間が直接レスポンスを目にする呼び出し元ではない(Stripe自動再送/Cloud
