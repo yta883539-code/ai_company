@@ -6676,8 +6676,41 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   (4週間経過または連続発火)に基づくしきい値再算出は実LLM運用データが必要なため
   承認待ち事項の範囲内、(3)承認待ち事項がオーナーから承認された場合はその着手
   (本venture全設計の結合実装)を最優先、(4)他venture・アイデア領域の前進。
-- 最終更新: 2026-10-27 04:00 UTC(フェーズ続き351: フェーズ続き350の次回候補(1)の
-  記載が、design.md 4節がフェーズ続き342で確定済みの方針と矛盾する陳腐化記載で
-  あったことを是正し、design.md 15節が設計済みだった`FirestoreStoreProfileStore`の
-  planグループ(2メソッド)を実コード化した。テスト7件追加(1004→1011件)・schema
+- フェーズ(続き352): フェーズ続き351の次回候補(1)で挙げた残る5グループ
+  (checkout_session_completed_event_time・menu_durations・store_faq_info・
+  onboarding_completion_message・all_store_ids)のうち、
+  store-profile-store-firestore-adapter-design.md 26節が設計済みだった
+  `all_store_ids`(1メソッド)を`FirestoreStoreProfileStore`に実コード化した
+  (`self._stores.stream()`でstoresコレクション全体のドキュメントIDを列挙するのみ、
+  26.3節の結論どおり`__init__`・`_doc_ref`の変更は不要、新規フィールドも追加なし)。
+  唯一の呼び出し元`list_blocked_but_billing_candidates()`は結果を絞り込んだ上で
+  自前で`sorted()`するため列挙順(stream()はドキュメントID順を保証しない)に依存
+  しないことを26.1節で確認済みであることを踏まえ、テストでも列挙順は検証せず
+  集合一致のみを確認する方針とした。`test_firestore_store_profile_store.py`に
+  フェイクFirestoreクライアントの`_FakeCollection.stream()`(dict挿入順で
+  `_FakeDocumentSnapshot(id, data)`を返す簡易実装)を追加し、
+  `FirestoreStoreProfileStoreAllStoreIdsGroupTest`としてテスト4件
+  (storeゼロ件時は空・複数store_idの集合一致・setter経由で作成されたstore_idも
+  反映・`stripe_customer_index`側コレクションのエントリは含まれないことの確認)を
+  新規追加した。モジュールdocstring・クラスdocstringの「本ファイルが実装するのは
+  Stripeグループ・owner_is_followingグループのみ」という記述が実際には7グループ
+  実装済みで既に陳腐化していたため、本フェーズで「8グループ(16メソッド)」に
+  まとめて是正した。コード変更あり(`firestore_store_profile_store.py`:
+  `all_store_ids`1メソッド追加、`test_firestore_store_profile_store.py`:
+  `_FakeCollection.stream()`・`_FakeDocumentSnapshot`追加、テスト4件追加)。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (1011→1015件、新規4件含め全件パス)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれもパスすることを確認した。実Firestoreクライアントへの
+  接続やアカウント作成は行っていない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(checkout_session_completed_
+  event_time・menu_durations・store_faq_info・onboarding_completion_message、計4グループ)
+  の実コード化(いずれも実Firestore接続を待たずに着手可能)、(2)cloud-monitoring-
+  alert-policy-design.md 6節で確定した再検証トリガー(4週間経過または連続発火)に
+  基づくしきい値再算出は実LLM運用データが必要なため承認待ち事項の範囲内、
+  (3)承認待ち事項がオーナーから承認された場合はその着手(本venture全設計の結合実装)
+  を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 10:00 UTC(フェーズ続き352: 詳細は上記。
+  store-profile-store-firestore-adapter-design.md 26節が設計済みだった
+  `all_store_ids`グループを実コード化。テスト4件追加(1011→1015件)・schema
   検証28件〈変更なし〉いずれもパス)

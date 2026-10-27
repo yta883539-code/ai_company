@@ -9,23 +9,23 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
-13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)の計7グループ
-(15メソッド)のみ。他グループ(checkout_session_completed_event_time・menu_durations・
-store_faq_info・onboarding_completion_message・all_store_ids・
-store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
-次回候補のまま残る。
+13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)・
+26節(all_store_idsグループ)の計8グループ(16メソッド)。他グループ
+(checkout_session_completed_event_time・menu_durations・store_faq_info・
+onboarding_completion_message・store_deletion_confirmation関連)は設計
+(design.md各節)は完了済みだが実コード化は次回候補のまま残る。
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Iterable, Optional
 
 from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
 
 
 class FirestoreStoreProfileStore:
-    """StoreProfileStoreProtocolの実Firestore接続実装(Stripeグループ・
-    owner_is_followingグループのみ)。
+    """StoreProfileStoreProtocolの実Firestore接続実装(モジュールdocstring記載の
+    8グループのみ)。
     stores/{storeId}ドキュメントおよびstripe_customer_index/{stripeCustomerId}
     逆引きドキュメントを読み書きする。
     """
@@ -209,3 +209,10 @@ class FirestoreStoreProfileStore:
         if plan not in PLAN_MONTHLY_BOOKING_LIMITS:
             raise ValueError(f"unknown plan: {plan!r}")
         self._doc_ref(store_id).set({"plan": plan}, merge=True)
+
+    def all_store_ids(self) -> Iterable[str]:
+        # design.md 26節: 唯一の呼び出し元list_blocked_but_billing_candidates()が
+        # 結果を絞り込んだ上で自前でsorted()するため、stream()の返却順序
+        # (ドキュメントID順保証なし)に依存しない。
+        for snapshot in self._stores.stream():
+            yield snapshot.id

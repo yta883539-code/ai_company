@@ -42,12 +42,28 @@ class _FakeDocumentRef:
         self._store.pop(self._doc_id, None)
 
 
+class _FakeDocumentSnapshot:
+    def __init__(self, doc_id: str, data: dict):
+        self.id = doc_id
+        self._data = data
+
+    def to_dict(self):
+        return dict(self._data)
+
+
 class _FakeCollection:
     def __init__(self, store: dict):
         self._store = store
 
     def document(self, doc_id: str) -> _FakeDocumentRef:
         return _FakeDocumentRef(self._store, doc_id)
+
+    def stream(self):
+        # 26節: 実Firestoreのstream()はドキュメントID順を保証しないため、
+        # フェイクでもテストで列挙順に依存しないことを確認しやすいよう
+        # dict挿入順のまま返す(昇順ソート等はしない)。
+        for doc_id, data in self._store.items():
+            yield _FakeDocumentSnapshot(doc_id, data)
 
 
 class _FakeBatch:
@@ -460,6 +476,37 @@ class FirestoreStoreProfileStorePlanGroupTest(unittest.TestCase):
         store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
 
         self.assertIsNone(store.get_plan("store-1"))
+
+
+class FirestoreStoreProfileStoreAllStoreIdsGroupTest(unittest.TestCase):
+    def test_all_store_ids_returns_empty_when_no_stores(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertEqual(list(store.all_store_ids()), [])
+
+    def test_all_store_ids_returns_every_seeded_store_id(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"plan": "standard"})
+        client.seed_store("store-2", {"plan": "basic"})
+        store = FirestoreStoreProfileStore(client)
+
+        self.assertEqual(set(store.all_store_ids()), {"store-1", "store-2"})
+
+    def test_all_store_ids_reflects_stores_created_via_setters(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_owner_is_following("store-3", True)
+
+        self.assertEqual(list(store.all_store_ids()), ["store-3"])
+
+    def test_all_store_ids_does_not_include_stripe_customer_index_entries(self):
+        # stripe_customer_index/{stripeCustomerId}は逆引き専用の別コレクションであり、
+        # 「stores」コレクションのみを走査するall_store_ids()には含まれない。
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_stripe_customer_id("store-1", "cus_abc")
+
+        self.assertEqual(list(store.all_store_ids()), ["store-1"])
 
 
 if __name__ == "__main__":

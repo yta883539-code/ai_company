@@ -140,8 +140,10 @@ class FirestoreStoreProfileStore:
   追加実コード化した(13節のコード例をそのまま転記、テスト6件追加、998→1004件)。
   フェーズ続き351で15節(planグループ、2メソッド)を追加実コード化した(15節のコード
   例をそのまま転記、テスト7件追加、1004→1011件)。
+  フェーズ続き352で26節(all_store_idsグループ、1メソッド)を追加実コード化した
+  (26.2節のコード例をそのまま転記、テスト4件追加、1011→1015件)。
 - 残りのグループ(checkout_session_completed_event_time・menu_durations・
-  store_faq_info・onboarding_completion_message・all_store_ids)は
+  store_faq_info・onboarding_completion_message)は
   設計(各節)は完了済みだが実コード化は次回候補として残る。いずれも本節が訂正した
   通り、実Firestoreプロジェクト・GCPアカウントの開設(オーナー承認待ち)を待たずに
   実コード化できる(承認待ちは実クライアントを注入する結合実装の段階でのみ関係する)。
