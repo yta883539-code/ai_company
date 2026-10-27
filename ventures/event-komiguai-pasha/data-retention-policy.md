@@ -68,6 +68,29 @@ forklift-pasha)のdata-retention-policy.mdが揃って採用した保存期間�
   特定・削除できれば足りる想定で、専用の自動化機能(セルフサービス削除画面等)はスコープ外と
   する(他venture同様)。
 
+## 6. `idempotency_key_index`側ドキュメント削除の組み込みチェックリスト(フェーズ69新規)
+
+idempotency-key-write-conflict-control-design.md(フェーズ67)・同5節(フェーズ68)で確定した
+`idempotency_key_index`コレクションは、`inquiry`側のドキュメントには`expireAt`を設定しない
+(TTLポリシーによる自動削除の対象外)方針としたため、`inquiry`本体が4節の削除候補化フローで
+削除される際に、対応する`idempotency_key_index`側ドキュメントの削除が実装から漏れると、
+参照先を失った索引ドキュメントがFirestore上に残り続ける("inquiry"自体は消えても索引だけが
+永続する不整合)。`one_time_draft`側は`expireAt`をTTL対象に含めている(フェーズ68)ため本課題は
+生じない。
+
+将来、`inquiry`側削除候補化フローを実コード化する際は、以下を実装チェックリストとして必ず
+確認する。
+
+- [ ] 削除対象として洗い出した`inquiry/{inquiry_id}`を削除する処理と同一トランザクション
+  (または同一バッチ)内で、`idempotency_key_index`から当該`inquiry_id`に対応するドキュメント
+  (`idempotency_key`をドキュメントIDとして逆引きが必要、またはクエリで`inquiry_id`フィールド
+  一致を検索)も削除する。
+- [ ] 上記の逆引きに使うフィールド(`inquiry_id`等)がidempotency-key-write-conflict-control-
+  design.mdの`idempotency_key_index`ドキュメント構造に実際に含まれているかを実装直前に再確認
+  する(本チェックリスト作成時点では文書上のフィールド一覧の再照合までは行っていない)。
+- [ ] 削除漏れがあった場合の検知手段(定期的な整合性チェックバッチ等)の要否は、実装時点の
+  件数規模を見て判断する(本フェーズでは要否の結論までは出さない)。
+
 ## 今後の課題
 
 - ~~inquiry-handling-design.mdのフィールド設計に、本文書が前提とした`resolvedAt`相当の
