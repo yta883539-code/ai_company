@@ -97,3 +97,23 @@ schema/validate_test_cases.py`(32件)を再実行し、いずれもパスする�
 必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
 pending-approval.mdへの追記なし。次回候補: 残る`WorkshopStoreProtocol`の実コード化、他
 venture・アイデア領域の前進、またはオーナーからの承認・回答を待つ。
+
+2026-10-27 09:00 UTC(フェーズ269): 上記2026-10-20 00:00 UTCの次回候補「残る
+`WorkshopStoreProtocol`の実コード化」が陳腐化記載であることを発見した。
+firestore-provider-adapter-design.md 4節のフェーズ244追記により、本venture4Protocol
+(`WorkshopStoreProtocol`・`UsageCounterStoreProtocol`・`LinkingCodeStoreProtocol`・
+`UserProfileStoreProtocol`)全ての実コード化はフェーズ258までに完了済みであることを
+確認した(`prototype/firestore_workshop_adapter.py`・`prototype/
+test_firestore_workshop_adapter.py`が既に存在し、他3Protocolのアダプタと同じ方針
+〈フェイククライアント経由のテスト、実GCP接続は結合実装フェーズまで行わない〉で
+実装されている)。したがって本チェックリストの次回候補はこの時点で既に解消済みで
+あり、残る着手可能な新規作業は無い。コード変更なし(棚卸し確認のみ)、回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・
+`python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを
+確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+は今回発生していないためpending-approval.mdへの追記なし。次回候補: 「承認待ち事項」
+節の3件(Stripeアカウント開設・LINE公式アカウント開設+Cloud Scheduler作成・顧客
+ヒアリングの実施)がオーナーから承認された場合はその着手を最優先、またはREADME.md
+フェーズ268次回候補(2)「4節のログ出力側(`event`構造化フィールド)への実装反映」
+(結合実装フェーズ待ち)、他venture・アイデア領域の前進。
