@@ -6789,3 +6789,40 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   store-profile-store-firestore-adapter-design.md 17節で設計済みだった
   `checkout_session_completed_event_time`グループを実コード化。テスト7件追加
   (1029→1036件)・schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き356(2026-10-27 17:00 UTC定例更新): フェーズ続き355次回候補(1)
+  「残るFirestoreアダプタ実コード化グループ(onboarding_completion_message、5節で
+  設計済み)の実コード化」に対応し、`is_onboarding_completion_message_sent`/
+  `mark_onboarding_completion_message_sent`を実コード化した
+  (`firestore_store_profile_store.py`)。着手の過程で、5節(訂正版は
+  design-onboarding-flag.md 2節)のコード例が書き込み値として直接参照する
+  `firestore.SERVER_TIMESTAMP`(`google.cloud.firestore.SERVER_TIMESTAMP`)が、
+  本ファイルの冒頭docstringが一貫して掲げる「google-cloud-firestore SDKを直接
+  importしない」方針と矛盾し、かつ本番環境でも同パッケージが未インストールのまま
+  (実Firestoreプロジェクト自体がオーナー承認待ちのため)であることを発見した
+  (store-profile-store-firestore-adapter-design.md 33節に是正記録)。このまま
+  実装すると承認前の現時点で`python3 -m unittest discover`がモジュールimport時点の
+  `ModuleNotFoundError`で全件失敗する致命的な回帰を招くため、`collection`/
+  `document`/`get`/`set`/`batch`と同じ水準の規約として`firestore_client`に
+  `SERVER_TIMESTAMP`センチネル属性を追加で要求する方式に是正し、本ファイルは
+  `self._client.SERVER_TIMESTAMP`をそのまま書き込み値として使うのみとした
+  (実SDK側のサーバー時刻への解決ロジック自体は結合実装フェーズの対象外)。
+  これで`FirestoreStoreProfileStore`が実装するグループは12グループ(24メソッド)
+  となり、29.4節で設計完了が確認済みの`StoreProfileStoreProtocol`全メソッドが
+  実コード化済みの状態に達した。テストは未設定時False・フィールド未設定時False・
+  mark→is往復(True)・二重mark後もTrue(冪等性)・他フィールド非破壊・空`user_id`
+  拒否・接続エラー時False合流の7件を新規追加した(`_FakeFirestoreClient`に
+  `SERVER_TIMESTAMP`センチネル属性を追加)。コード変更あり
+  (`firestore_store_profile_store.py`・`test_firestore_store_profile_store.py`)。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (1036→1043件、新規7件含め全件パス)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれもパスすることを確認した。実Firestoreクライアントへの
+  接続やアカウント作成は行っていない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設、および
+  合成ルート側で`SERVER_TIMESTAMP`属性を公開する実クライアントラッパーの実装を含む
+  結合実装)がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-27 17:00 UTC(フェーズ続き356: 詳細は上記。
+  onboarding_completion_messageグループ〈design.md 5節/design-onboarding-flag.md
+  2節〉を実コード化し、`StoreProfileStoreProtocol`全メソッドの実コード化が完了。
+  テスト7件追加(1036→1043件)・schema検証28件〈変更なし〉いずれもパス)

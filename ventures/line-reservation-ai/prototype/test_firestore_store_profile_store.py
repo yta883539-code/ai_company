@@ -89,6 +89,12 @@ class _FakeBatch:
 
 
 class _FakeFirestoreClient:
+    # 33節: 実SDKの google.cloud.firestore.SERVER_TIMESTAMP の代わりに、
+    # 本フェイクでは識別可能な任意のセンチネルオブジェクトを公開する。
+    # フェイクの set()/get() はこれを他の値と同じくそのまま素通りで保存・返却する
+    # だけで、実SDK側のサーバー時刻への解決ロジックは結合実装フェーズの対象外。
+    SERVER_TIMESTAMP = object()
+
     def __init__(self):
         self._collections: dict[str, dict] = {}
 
@@ -697,6 +703,65 @@ class FirestoreStoreProfileStoreCheckoutSessionCompletedEventTimeGroupTest(
         self.assertIsNone(
             store.get_checkout_session_completed_event_time("store-1")
         )
+
+
+class FirestoreStoreProfileStoreOnboardingCompletionMessageGroupTest(
+    unittest.TestCase
+):
+    def test_is_onboarding_completion_message_sent_returns_false_when_document_missing(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertFalse(store.is_onboarding_completion_message_sent("store-1"))
+
+    def test_is_onboarding_completion_message_sent_returns_false_when_field_unset(
+        self,
+    ):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"plan": "standard"})
+        store = FirestoreStoreProfileStore(client)
+
+        self.assertFalse(store.is_onboarding_completion_message_sent("store-1"))
+
+    def test_mark_then_is_onboarding_completion_message_sent_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+
+        store.mark_onboarding_completion_message_sent("store-1")
+
+        self.assertTrue(store.is_onboarding_completion_message_sent("store-1"))
+
+    def test_mark_onboarding_completion_message_sent_is_idempotent(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.mark_onboarding_completion_message_sent("store-1")
+
+        store.mark_onboarding_completion_message_sent("store-1")
+
+        self.assertTrue(store.is_onboarding_completion_message_sent("store-1"))
+
+    def test_mark_onboarding_completion_message_sent_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.mark_onboarding_completion_message_sent("store-1")
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_mark_onboarding_completion_message_sent_rejects_empty_user_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.mark_onboarding_completion_message_sent("")
+
+    def test_is_onboarding_completion_message_sent_falls_back_to_false_on_client_exception(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertFalse(store.is_onboarding_completion_message_sent("store-1"))
 
 
 if __name__ == "__main__":

@@ -1102,3 +1102,72 @@ discover -s prototype -p "test_*.py"`(1029→1036件、新規7件含め全件パ
 次回候補: (1)残るFirestoreアダプタ実コード化グループ(onboarding_completion_message、
 5節で設計済み)の実コード化、(2)承認待ち事項(本venture全設計の結合実装)がオーナーから
 承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+
+## 33. onboarding_completion_messageグループの実コード化時に発見した`SERVER_TIMESTAMP`依存の矛盾と是正(フェーズ続き356、2026-10-27 17:00 UTC)
+
+5節(訂正版は`store-profile-store-firestore-adapter-design-onboarding-flag.md`
+2節)の設計コード例は`mark_onboarding_completion_message_sent`の書き込み値として
+`firestore.SERVER_TIMESTAMP`(`google.cloud.firestore.SERVER_TIMESTAMP`)を直接
+参照しているが、これは本ファイル(`firestore_store_profile_store.py`)の冒頭
+docstringが一貫して掲げてきた方針「google-cloud-firestore SDKを直接importしない
+(`firestore_client`が`collection`/`document`/`get`/`set`/`batch`を提供すれば、
+実SDKでもテスト用フェイクでも差し替え可能)」と矛盾する。実際に本番環境でも
+`google-cloud-firestore`パッケージは未インストールであることを確認した(実
+Firestoreプロジェクト自体がpending-approval.md記載の承認待ちのため、SDKの導入自体
+行っていない)。このまま`from google.cloud import firestore`を本ファイル先頭に
+追加すると、承認前の現時点で`python3 -m unittest discover -s prototype`が
+モジュールimport時点の`ModuleNotFoundError`で全件失敗する致命的な回帰を招く。
+
+**是正**: `collection`/`document`/`get`/`set`/`batch`と同じ水準の規約として、
+`firestore_client`に`SERVER_TIMESTAMP`属性を追加で要求する(ダックタイピング対象に
+含める)。本ファイルは`self._client.SERVER_TIMESTAMP`をそのまま書き込み値として
+使うのみで、サーバー側タイムスタンプの具体的な実体(実SDKの場合は
+`google.cloud.firestore.SERVER_TIMESTAMP`センチネル、テスト用フェイクの場合は
+任意の識別可能なセンチネルオブジェクト)には関与しない。承認後の結合実装フェーズで
+実`google.cloud.firestore.Client`をラップする合成ルート側のアダプタ
+(`firestore_store_document_provider.py`想定箇所)が、`collection`/`document`等の
+委譲に加えて`SERVER_TIMESTAMP = google.cloud.firestore.SERVER_TIMESTAMP`を公開する
+薄いラッパーとして実装される前提とする。この追加属性はネットワーク接続・認証情報を
+一切要しない無害な定数の公開に過ぎないため、「実Firestoreプロジェクト・GCP
+アカウントの開設(課金設定を伴う)自体はオーナー承認待ち」という既存の切り分け方針
+(4節)に影響しない。
+
+```python
+    def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # design-onboarding-flag.md 2節: 接続エラーは「未送信」側に合流させる
+            # (本フラグは送信するか否かの判定にのみ使われ、金銭処理の重複実行防止
+            # ではないため、取りこぼしなく機会を確保する側を安全側とする)。
+            return False
+        if not snapshot.exists:
+            return False
+        return (
+            (snapshot.to_dict() or {}).get("onboardingCompletionMessageSentAt")
+            is not None
+        )
+
+    def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._doc_ref(user_id).set(
+            {"onboardingCompletionMessageSentAt": self._client.SERVER_TIMESTAMP},
+            merge=True,
+        )
+```
+
+テストは7件追加: 未設定時False・フィールド未設定時False・mark→is往復(True)・
+二重mark後もTrue(冪等性)・他フィールド非破壊・空`user_id`拒否・接続エラー時False
+合流。フェイク側`_FakeFirestoreClient`に`SERVER_TIMESTAMP`属性(任意のセンチネル
+オブジェクト)を追加し、フェイクの`set()`はこれを他の値と同じく素通りで保存する
+(実SDKのサーバー側解決は結合実装フェーズの対象外)。
+
+これで`StoreProfileStoreProtocol`の設計(29.4節で完了確認済みの全メソッド)の
+うち、実コード化も完了したグループは12グループ(24メソッド)となり、設計済み
+メソッド全てが実コード化済みの状態に達した。
+
+次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設、および
+合成ルート側で`SERVER_TIMESTAMP`属性を公開する実クライアントラッパーの実装を含む
+結合実装)がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア
+領域の前進。

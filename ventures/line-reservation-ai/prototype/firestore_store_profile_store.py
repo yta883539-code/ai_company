@@ -4,18 +4,20 @@
 firestore_store_document_provider.py(フェーズ続き340)・kura-pasha/course-set-pasha/
 aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-cloud-firestore SDKを
 直接importしない(`firestore_client`が`collection(name).document(id)`・`batch()`
-(`.set()`/`.delete()`/`.commit()`を持つWriteBatch)を提供すれば、実SDKでもテスト用
-フェイクでも差し替え可能)。
+(`.set()`/`.delete()`/`.commit()`を持つWriteBatch)、および`SERVER_TIMESTAMP`
+センチネル属性(33節で追加、onboarding_completion_messageグループのみが使用)を
+提供すれば、実SDKでもテスト用フェイクでも差し替え可能)。
 
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
 13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)・
 26節(all_store_idsグループ)・22節(menu_durationsグループ)・24節
 (store_faq_infoグループ)・17節(checkout_session_completed_event_timeグループ、
-フェーズ続き355で追加)の計11グループ(22メソッド)。残る1グループ
-(onboarding_completion_message)は設計(design.md 5節)は完了済みだが実コード化は
-次回候補のまま残る(store_deletion_confirmation関連は26.4節時点では別Protocol
-〈29節で追設計〉扱いのため本docstringの対象外)。
+フェーズ続き355で追加)・5節/design-onboarding-flag.md2節(onboarding_completion_message
+グループ、フェーズ続き356で追加)の計12グループ(24メソッド)。29.4節で設計完了が
+確認済みの`StoreProfileStoreProtocol`全メソッドが実コード化済みの状態に達している
+(store_deletion_confirmation関連は26.4節時点では別Protocol〈29節で追設計〉扱いの
+ため本docstringの対象外)。
 """
 
 from __future__ import annotations
@@ -292,4 +294,27 @@ class FirestoreStoreProfileStore:
             raise ValueError("user_id must be a non-empty string")
         self._doc_ref(user_id).set(
             {"checkoutSessionCompletedEventTime": event_time}, merge=True
+        )
+
+    def is_onboarding_completion_message_sent(self, user_id: str) -> bool:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # design-onboarding-flag.md 2節・design.md 33節: 接続エラーは「未送信」側
+            # に合流させる。本フラグは送信するか否かの判定にのみ使われ、金銭処理の
+            # 重複実行防止ではないため、取りこぼしなく機会を確保する側を安全側とする。
+            return False
+        if not snapshot.exists:
+            return False
+        return (
+            (snapshot.to_dict() or {}).get("onboardingCompletionMessageSentAt")
+            is not None
+        )
+
+    def mark_onboarding_completion_message_sent(self, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._doc_ref(user_id).set(
+            {"onboardingCompletionMessageSentAt": self._client.SERVER_TIMESTAMP},
+            merge=True,
         )
