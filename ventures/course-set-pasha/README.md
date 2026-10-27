@@ -6037,3 +6037,28 @@
   (実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、(3)本方針
   (runtime-dependency-switching-design.md 5節)の残る横展開先の確認、(4)他venture・
   アイデア領域の前進。
+- フェーズ337(2026-10-27 12:00 UTC定例更新): フェーズ336の次回候補(3)「本方針
+  (runtime-dependency-switching-design.md 5節)の残る横展開先の確認」を棚卸しした。
+  line-reservation-ai/runtime-dependency-switching-design.md(フェーズ続き347、
+  2026-10-25 22:00 UTC)を確認したところ、同venture側で本venture固有の3エントリ
+  ポイント(checkout_session・conversation_event_processor_assembly・stripe_
+  webhook_entry_point)向けに5節が既に新規設計され、「これで5venture(kura-pasha・
+  aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)全てへの
+  『ログ+re-raise、InMemory自動フォールバック禁止』方針の横展開が完了した」と明記
+  されていることを確認した。forklift-pasha側(フェーズ191、同ファイル5節)も確認し、
+  同様に横展開済みであることを確認した。したがって次回候補(3)は本フェーズ時点で
+  既に全venture完了済みであり、本venture側からの追加対応は不要と結論し、残課題から
+  クローズする。他venture側ファイルへの変更は行っていない(確認のみ)。コード変更
+  なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された
+  場合はその着手を最優先、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化
+  反映(実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し、残る唯一
+  の机上対応可能な残課題)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 12:00 UTC(フェーズ337: runtime-dependency-switching-design.md
+  5節の横展開先確認を棚卸しし、line-reservation-ai・forklift-pasha双方で既に完了
+  済みであることを確認してクローズ。コード変更なし、テスト863件・schema検証21件
+  いずれも変更なしでパス)
