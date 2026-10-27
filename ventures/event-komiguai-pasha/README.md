@@ -1419,3 +1419,26 @@
   detection-firestore-query-design.mdを新規作成し、`idempotency_key`重複検知の2クエリを
   設計、複合インデックス不要と判断。コード変更なし、schema検証22件・prototype試験50件
   いずれも変更なしでパス)
+- フェーズ67(2026-10-27 01:00 UTC定例更新): フェーズ66次回候補(1)「書き込み時の競合
+  制御方式(決定的`draft_id`導出 vs. クエリ結果への依存)の確定」に対応した。決定的
+  `draft_id`導出案は、`draft_id`がTTL内の結果アクセスキーを兼ねる(draft-id-last4-
+  collision-design.mdフェーズ53が確定した安全性要件、`/result/{draft_id}`として顧客に
+  直接URLで渡される)ため、クライアント生成の`idempotencyKey`から導出すると推測可能性が
+  引き下げられる恐れがあり不採用と判断した。代わりに`idempotencyKey`をドキュメントIDと
+  する専用インデックスコレクション`idempotency_key_index`を新設し、Firestoreの
+  「存在しない場合のみ作成」操作とトランザクションの原子性により同時2リクエストの衝突を
+  検知する方式を、idempotency-key-write-conflict-control-design.mdとして新規設計した。
+  `draft_id`/`inquiry_id`自体はこれまでの方針(UUID4ランダム生成)を変更しない。インデックス
+  ドキュメントのTTL方針(`one_time_draft`側24時間 vs. `inquiry`側永続、1コレクション内での
+  共存方法)は未確定のため次回候補とした。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・`python3
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`idempotency_key_index`ドキュメントのTTL方針(`one_time_draft`側24時間 vs.
+  `inquiry`側永続の共存方法)の確定、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 01:00 UTC(フェーズ67: 詳細は上記。idempotency-key-write-
+  conflict-control-design.mdを新規作成し、`idempotency_key_index`専用コレクションによる
+  原子的衝突検知方式を確定、決定的draft_id導出案は安全性要件により不採用。コード変更なし、
+  schema検証22件・prototype試験50件いずれも変更なしでパス)
