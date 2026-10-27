@@ -6759,3 +6759,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   store-profile-store-firestore-adapter-design.md 31節で設計済みだった
   `store_faq_info`グループを実コード化。テスト6件追加(1022→1029件)・schema
   検証28件〈変更なし〉いずれもパス)
+- フェーズ続き355(2026-10-27 16:00 UTC定例更新): フェーズ続き354次回候補(1)
+  「残るFirestoreアダプタ実コード化グループ(checkout_session_completed_event_time・
+  onboarding_completion_message、計2グループ)の実コード化」のうち、
+  store-profile-store-firestore-adapter-design.md 17節で設計済みだった
+  `checkout_session_completed_event_time`グループ(`get_checkout_session_completed_
+  event_time`/`set_checkout_session_completed_event_time`)を実コード化した
+  (`firestore_store_profile_store.py`)。17節のコード例をそのまま採用し、
+  `checkoutSessionCompletedEventTime`フィールドへ単純な読み書きを行う。接続エラー・
+  未設定時はいずれもNoneへ合流させ、handle_checkout_session_completed()
+  (checkout-session-completed-event-order-guard-design.md)の配信順序ガードが
+  「本フィールド未設定」側の後方互換パス(無条件適用)に自然に合流する17節の安全側
+  方針をそのまま踏襲した。これで`FirestoreStoreProfileStore`が実装するグループは
+  11グループ(22メソッド)になった。モジュールdocstringも実装済み11グループ・
+  残課題1グループ(onboarding_completion_message)に更新した。テストは
+  `test_firestore_store_profile_store.py`に7件新規追加(未設定時None・フィールド
+  未設定時None・set→get往復一致・上書き・他フィールド非破壊・空user_id拒否・
+  接続エラー時None合流)。コード変更あり(`firestore_store_profile_store.py`・
+  `test_firestore_store_profile_store.py`)。回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(1029→1036件、新規7件含め全件パス)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパス
+  することを確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)残るFirestoreアダプタ実コード化グループ(onboarding_completion_message、
+  design.md 5節で設計済み)の実コード化、(2)承認待ち事項(本venture全設計の結合実装)が
+  オーナーから承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 16:00 UTC(フェーズ続き355: 詳細は上記。
+  store-profile-store-firestore-adapter-design.md 17節で設計済みだった
+  `checkout_session_completed_event_time`グループを実コード化。テスト7件追加
+  (1029→1036件)・schema検証28件〈変更なし〉いずれもパス)

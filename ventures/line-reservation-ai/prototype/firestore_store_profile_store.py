@@ -11,14 +11,16 @@ StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイル�
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
 13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)・
 26節(all_store_idsグループ)・22節(menu_durationsグループ)・24節
-(store_faq_infoグループ)の計10グループ(20メソッド)。他グループ
-(checkout_session_completed_event_time・onboarding_completion_message・
-store_deletion_confirmation関連)は設計(design.md各節)は完了済みだが実コード化は
-次回候補のまま残る。
+(store_faq_infoグループ)・17節(checkout_session_completed_event_timeグループ、
+フェーズ続き355で追加)の計11グループ(22メソッド)。残る1グループ
+(onboarding_completion_message)は設計(design.md 5節)は完了済みだが実コード化は
+次回候補のまま残る(store_deletion_confirmation関連は26.4節時点では別Protocol
+〈29節で追設計〉扱いのため本docstringの対象外)。
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Iterable, Optional
 
 from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
@@ -262,3 +264,32 @@ class FirestoreStoreProfileStore:
         # menu等)はFirestoreのmap/array型がそのまま表現できるため、キーごとの型
         # 変換は不要。
         self._doc_ref(store_id).set({"storeFaqInfo": dict(store_faq_info)}, merge=True)
+
+    def get_checkout_session_completed_event_time(
+        self, user_id: str
+    ) -> Optional[datetime]:
+        try:
+            snapshot = self._doc_ref(user_id).get()
+        except Exception:
+            # design.md 17節: handle_checkout_session_completed()
+            # (checkout-session-completed-event-order-guard-design.md)は本フィールドが
+            # 未設定(None)の場合、配信順序ガードを行わず無条件にcheckout.session.completed
+            # イベントを適用する(後方互換パス)。接続エラーをNoneへ合流させると、まれに
+            # 古いイベントの再送が新しいstripe_customer_id・planを誤って上書きする可能性が
+            # あるが、逆に「ガードが効いてイベントを一切適用できなくなる」(=Checkout完了後も
+            # 永久にstripe_customer_idが紐付かない)方が顧客体験への実害が大きいため、
+            # 9節(suspension_reason)・15節(plan)と同じ「処理を止めない方向」の安全側
+            # フォールバックを適用する。
+            return None
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("checkoutSessionCompletedEventTime")
+
+    def set_checkout_session_completed_event_time(
+        self, user_id: str, event_time: datetime
+    ) -> None:
+        if not user_id:
+            raise ValueError("user_id must be a non-empty string")
+        self._doc_ref(user_id).set(
+            {"checkoutSessionCompletedEventTime": event_time}, merge=True
+        )

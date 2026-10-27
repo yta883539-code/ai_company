@@ -1078,3 +1078,27 @@ discover -s prototype -p "test_*.py"`(1022→1029件、新規6件含め全件パ
 event_time・onboarding_completion_message、計2グループ)の実コード化(いずれも実
 Firestore接続を待たずに着手可能)、(2)承認待ち事項がオーナーから承認された場合は
 その着手を最優先、(3)他venture・アイデア領域の前進。
+
+## 32. checkout_session_completed_event_timeグループの実コード化(フェーズ続き355、2026-10-27 16:00 UTC)
+
+17節で設計済みの`get_checkout_session_completed_event_time`/
+`set_checkout_session_completed_event_time`をそのまま実コード化した
+(`firestore_store_profile_store.py`)。17節のコード例と完全に一致させ、
+`checkoutSessionCompletedEventTime`フィールドへ単純な読み書きを行う。接続エラー・
+未設定時はいずれもNoneへ合流させる17節の安全側方針(配信順序ガードの後方互換パス
+〈無条件適用〉に自然に合流させる)をそのまま踏襲した。これで
+`FirestoreStoreProfileStore`が実装するグループは11グループ(22メソッド)になった。
+
+テストは17節の想定どおり、未設定時None・set→get往復一致・上書き・他フィールド
+(`stripeCustomerId`)非破壊・空`user_id`拒否・接続エラー時None合流の7件を新規追加
+した。コード変更あり(`firestore_store_profile_store.py`・
+`test_firestore_store_profile_store.py`)。回帰確認として`python3 -m unittest
+discover -s prototype -p "test_*.py"`(1029→1036件、新規7件含め全件パス)・
+`python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパス
+することを確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ためpending-approval.mdへの追記なし。
+
+次回候補: (1)残るFirestoreアダプタ実コード化グループ(onboarding_completion_message、
+5節で設計済み)の実コード化、(2)承認待ち事項(本venture全設計の結合実装)がオーナーから
+承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。

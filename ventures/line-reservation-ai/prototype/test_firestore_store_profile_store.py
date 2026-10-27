@@ -9,6 +9,7 @@ InMemoryStoreProfileStore(store_profile_store.py)と観測可能な振る舞い�
 """
 
 import unittest
+from datetime import datetime
 
 from firestore_store_profile_store import FirestoreStoreProfileStore
 from store_profile_store import PLAN_MONTHLY_BOOKING_LIMITS
@@ -617,6 +618,85 @@ class FirestoreStoreProfileStoreStoreFaqInfoGroupTest(unittest.TestCase):
         store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
 
         self.assertEqual(store.get_store_faq_info("store-1"), {})
+
+
+class FirestoreStoreProfileStoreCheckoutSessionCompletedEventTimeGroupTest(
+    unittest.TestCase
+):
+    def test_get_checkout_session_completed_event_time_returns_none_when_document_missing(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertIsNone(
+            store.get_checkout_session_completed_event_time("store-1")
+        )
+
+    def test_get_checkout_session_completed_event_time_returns_none_when_field_unset(
+        self,
+    ):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"plan": "standard"})
+        store = FirestoreStoreProfileStore(client)
+
+        self.assertIsNone(
+            store.get_checkout_session_completed_event_time("store-1")
+        )
+
+    def test_set_then_get_checkout_session_completed_event_time_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        event_time = datetime(2026, 10, 27, 16, 0, 0)
+
+        store.set_checkout_session_completed_event_time("store-1", event_time)
+
+        self.assertEqual(
+            store.get_checkout_session_completed_event_time("store-1"), event_time
+        )
+
+    def test_set_checkout_session_completed_event_time_overwrites_previous_value(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_checkout_session_completed_event_time(
+            "store-1", datetime(2026, 10, 1, 0, 0, 0)
+        )
+
+        store.set_checkout_session_completed_event_time(
+            "store-1", datetime(2026, 10, 27, 16, 0, 0)
+        )
+
+        self.assertEqual(
+            store.get_checkout_session_completed_event_time("store-1"),
+            datetime(2026, 10, 27, 16, 0, 0),
+        )
+
+    def test_set_checkout_session_completed_event_time_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_checkout_session_completed_event_time(
+            "store-1", datetime(2026, 10, 27, 16, 0, 0)
+        )
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_checkout_session_completed_event_time_rejects_empty_user_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_checkout_session_completed_event_time(
+                "", datetime(2026, 10, 27, 16, 0, 0)
+            )
+
+    def test_get_checkout_session_completed_event_time_falls_back_to_none_on_client_exception(
+        self,
+    ):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertIsNone(
+            store.get_checkout_session_completed_event_time("store-1")
+        )
 
 
 if __name__ == "__main__":
