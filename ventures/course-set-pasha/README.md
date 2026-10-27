@@ -6062,3 +6062,36 @@
   5節の横展開先確認を棚卸しし、line-reservation-ai・forklift-pasha双方で既に完了
   済みであることを確認してクローズ。コード変更なし、テスト863件・schema検証21件
   いずれも変更なしでパス)
+- フェーズ338(2026-10-27 14:00 UTC定例更新、本節は本来この時点で追記されるべき
+  だったが、README.md側への反映が漏れていたためフェーズ339で遅れて追記): aircon-
+  pashaフェーズ347が次回候補として残した「course-set-pasha側にも同種の欠落(依存
+  構築失敗時のmain()側レスポンス未設計)が無いかの確認」に対応し、application-
+  form-submission-http-entry-point-design.mdが`get_application_form_submission_
+  runtime_dependencies()`自体の失敗時レスポンスを未定義のままにしていた同種の欠落を
+  確認した。firestore-runtime-dependency-failure-form-submission-response-design.md
+  として新規設計し(既存401/400と同じ`{"ok", "error"}`の2キーJSON形状で503を返す
+  方針、GAS側`UrlFetchApp.fetch()`に自動リトライが無いことを踏まえた指数バックオフ
+  リトライを対応方針とした)、同ファイル6節に対応済みの注記を追記した。コード変更
+  なし(設計文書のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された
+  場合、本設計の`.py`実装への反映・GAS側リトライループのgas-script-draft.mdへの
+  追記から着手、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化反映(実
+  `google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、(3)他venture・
+  アイデア領域の前進。
+- フェーズ339(2026-10-27 18:00 UTC定例更新): フェーズ338完了時点でのREADME.md
+  未反映を発見し、上記エントリとして遅れて追記した(本フェーズ自身の発見)。他の
+  ファイルへの変更は行っていない。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3
+  schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された
+  場合はその着手を最優先、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化
+  反映(実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 18:00 UTC(フェーズ339: フェーズ338のREADME.md反映漏れを
+  是正。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)
