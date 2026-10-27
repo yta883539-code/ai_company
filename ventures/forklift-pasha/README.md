@@ -4070,3 +4070,21 @@
   error-page-css-commonality-design.mdとして新規作成し、`web-form-mockup/
   checkout-error.html`をモックアップドラフトとして新規作成した。コード変更なし、
   テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ196(2026-10-27 22:00 UTC定例更新): runtime-dependency-switching-design.md
+  5.3節が「本venture未作成のcloud-monitoring-alert-policy-design.md相当文書への
+  横展開を次回候補とする」と記載していたが、同ファイルは既にフェーズ192
+  (2026-10-26 01:00 UTC)で新規作成済みであり、4エントリポイント全てを対象とする
+  Firestoreランタイム依存構築失敗アラートが既に揃っていることを確認した
+  (陳腐化記載の棚卸し・是正)。runtime-dependency-switching-design.mdに追記として
+  解消済みであることを明記した。コード変更なし(棚卸し確認・記載是正のみ)、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(93件、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)本HTML文面・`main()`のtry/except追加の実`.py`実装への反映(実Firestore導入と
+  セットの結合実装フェーズに持ち越し)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 22:00 UTC(フェーズ196: 詳細は上記。runtime-dependency-
+  switching-design.md 5.3節の陳腐化記載〈cloud-monitoring-alert-policy-design.md
+  未作成という前提〉を是正。コード変更なし、テスト93件・schema検証11件いずれも
+  変更なしでパス)

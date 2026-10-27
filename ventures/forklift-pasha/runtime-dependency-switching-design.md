@@ -173,7 +173,9 @@ try/exceptでログを出した上で例外を再raiseする形を取る(3.2・3
   `get_trial_end_email_runtime_dependencies()`経由): Cloud Loggingへのエラー記録に
   留まる。アラート設計は本venture未作成のcloud-monitoring-alert-policy-design.md
   相当文書(aircon-pasha・course-set-pasha・kura-pashaには既存)への横展開を次回候補
-  とする。
+  とする。(フェーズ196で解消済み。本venture向けcloud-monitoring-alert-policy-
+  design.mdはフェーズ192で新規作成され、4エントリポイント全てを対象とする
+  Firestoreランタイム依存構築失敗アラート〈1節〉が既に揃っている。下記注記参照)
 - `get_checkout_runtime_dependencies()`(LP/フォーム経由のチェックアウト起点):
   例外発生時はチェックアウト自体を失敗させ、申込者にはエラー表示(実装は承認後の
   結合実装フェーズで確定)とする想定。
@@ -183,3 +185,18 @@ try/exceptでログを出した上で例外を再raiseする形を取る(3.2・3
 結合実装フェーズに持ち越す、4節の既存整理と同じ)。
 
 最終更新: 2026-10-25 19:00 UTC(フェーズ191)
+
+追記(フェーズ196・2026-10-27 22:00 UTC): 5.3節が「本venture未作成の
+cloud-monitoring-alert-policy-design.md相当文書への横展開を次回候補とする」と
+記載していたが、同ファイルは既にフェーズ192(2026-10-26 01:00 UTC)で新規作成
+済みであり、4エントリポイント(`get_checkout_runtime_dependencies()`・
+`get_stripe_runtime_dependencies()`・`get_deletion_confirmation_runtime_
+dependencies()`・`get_trial_end_email_runtime_dependencies()`)全てを対象とする
+Firestoreランタイム依存構築失敗アラート(同ファイル1〜2節)が既に揃っている
+ことを確認した(陳腐化記載の是正)。5.3節の記載自体は経緯の記録として残し、
+本追記で解消済みであることを明記するのみとする。コード変更なし(棚卸し確認・
+記載是正のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+"test_*.py"`(93件、変更なし)・`python3 schema/validate_test_cases.py`
+(11件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+していないためpending-approval.mdへの追記なし。
