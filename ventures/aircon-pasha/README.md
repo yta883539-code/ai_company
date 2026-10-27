@@ -6416,3 +6416,29 @@
   を是正、cloud-monitoring-alert-policy-design.md・runtime-dependency-switching-
   design.mdの陳腐化記載2件を是正、event-komiguai-pasha側の真の横展開漏れを新たに発見して
   申し送り。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ347(2026-10-27 07:00 UTC定例更新): application-form-submission-http-entry-
+  point-design.md 4節が200/401/400の3パターンのみを定義し、依存構築
+  (`get_application_form_submission_runtime_dependencies()`)自体が失敗した場合の
+  `main()`側レスポンスが未設計のまま残っていたことを発見し、
+  firestore-runtime-dependency-failure-form-submission-response-design.mdとして新規
+  設計した。forklift-pashaフェーズ194(申込者が`<a href>`を直接クリックする経路のため
+  人間向けHTML案内文が必要だった事例)とは前提が異なり、本venture申込フォーム経路の
+  呼び出し元はGAS(`UrlFetchApp.fetch()`)のサーバー間リクエストであるため、人間向け
+  HTML案内文は不要と判断し、既存401/400と同じJSON形状(`{"ok", "linking_code",
+  "error"}`)で503を返す方針とした。一方で401/400(申込者側の入力・認証起因)とは異なり
+  503は申込者本人に落ち度のない失敗である点を踏まえ、GASの`UrlFetchApp.fetch()`に
+  自動リトライ機構が無いことを確認した上で、GAS側スクリプト内での指数バックオフ
+  リトライ(最大3回、`Utilities.sleep()`)を対応方針として設計した(Cloud Function側に
+  新たなリトライ・通知ロジックは追加しない)。コード変更なし〈設計文書新規作成のみ〉、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(789件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(pending-approval.md 2026-08-23 04:00 UTC記載)がオーナーから
+  承認された場合、本設計の`.py`実装への反映・GAS側リトライループの
+  gas-script-draft.mdへの追記から着手、(2)course-set-pasha側にも同種の欠落(依存構築
+  失敗時の`main()`側レスポンス未設計)が無いかの確認(本venture側の対応範囲外、
+  course-set-pasha側の次回候補として申し送り)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 07:00 UTC(フェーズ347: 詳細は上記。
+  firestore-runtime-dependency-failure-form-submission-response-design.mdを新規作成。
+  コード変更なし、全789件・schema検証25件いずれも変更なしでパス)

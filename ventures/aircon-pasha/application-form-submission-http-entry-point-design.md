@@ -121,3 +121,8 @@
   制約があるため、確認メール送信〈design 2節〉を主経路とするか、Googleフォームを
   埋め込んだ独自LPに切り替えるかの検討。実デプロイ時の課題として残す)。
 - 他venture・アイデア領域の前進。
+- [フェーズ347で対応済み] 本節が定義していなかった「依存構築
+  (`get_application_form_submission_runtime_dependencies()`)自体が失敗した場合の`main()`
+  側レスポンス」は、firestore-runtime-dependency-failure-form-submission-response-
+  design.mdとして新規設計済み(既存401/400と同じJSON形状で503を返し、GAS側スクリプトでの
+  指数バックオフリトライを対応方針とした)。
