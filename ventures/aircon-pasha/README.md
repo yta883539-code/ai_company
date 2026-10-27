@@ -6492,3 +6492,28 @@
 - 最終更新: 2026-10-27 20:00 UTC(フェーズ349: 詳細は上記。
   daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
   design.mdを新規作成。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ350(2026-10-27 23:00 UTC定例更新): フェーズ349の次回候補(2)「月次バッチ用
+  `retry_config`を設計するかどうかの検討」に対応した。deletion-candidate-final-
+  confirmation-scheduler-design.mdに4節を新規作成し、月次バッチ
+  (`send_deletion_candidate_final_confirmations`)は1回の起動失敗で次回再試行が最大
+  約1ヶ月後になり、data-retention-policy.mdが定める削除実行までの猶予期間の実効性が
+  下がる実害があるため`retry_config`を設定する方針を確定した。具体的な値として
+  `retry_count: 5`・指数バックオフ(`min_backoff_duration: 300s`〜`max_backoff_
+  duration: 3600s`、`max_doublings: 3`)を暫定値とし、5回失敗時は既存のcloud-
+  monitoring-alert-policy-design.md 5節のアラートに委ねオーナーが手動実行する運用を
+  整理した。日次バッチ側は実害が無いため`retry_config`未設定のまま維持する方針を
+  フェーズ349から変更していない(3節として明記)。設計文書作成のみでコード変更は
+  行っていない、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)`deployment-runbook.md`等、実デプロイ手順書への`retry_config`パラメータの反映
+  (実Cloud Scheduler構築とセットの結合実装フェーズに持ち越し)、(3)Cloud Schedulerの
+  `retry_config`未決定が他venture共通の欠落かどうかの横断確認(フェーズ349から持ち越し、
+  各venture側への申し送り)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 23:00 UTC(フェーズ350: 詳細は上記。deletion-candidate-final-
+  confirmation-scheduler-design.mdに4節を新規作成し、月次バッチの`retry_config`
+  (retry_count: 5、指数バックオフ5分〜1時間)を確定。日次バッチは未設定を維持。
+  コード変更なし、全789件・schema検証25件いずれも変更なしでパス)

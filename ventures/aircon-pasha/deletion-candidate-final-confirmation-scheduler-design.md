@@ -67,7 +67,61 @@ payment_failure_reminder_scheduler)が「ユーザー数が増えてもジョブ
   月次実行で自動的にLINE_PUSH経路へ切り替わり再試行される(deletion_candidate_
   final_confirmation.pyのコメントに明記済みの意図的挙動)。
 
-## 4. 今後の課題
+## 4. `retry_config`(ジョブ自体のリトライ設定、フェーズ350追記)
+
+daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+design.md(フェーズ349)4節の次回候補(1)「`send_deletion_candidate_final_
+confirmations`用の`retry_config`を設計するかどうかの検討」に対応する。
+
+### 4.1. 設定する方針とする
+
+日次バッチ(`run_daily_checks`)は1回失敗しても翌日の起動(最大約24時間後)で
+自然に再試行されるため`retry_config`不要と結論済み(フェーズ349 2.1節)だが、
+本月次バッチは1回失敗すると次の定期起動が最大約1ヶ月後になり、1節のとおり
+データの不整合(二重送信・取り逃し)自体は生じないものの、data-retention-
+policy.mdが定める削除実行までの猶予期間のうち、利用者が異議を申し立てられる
+実質的な期間が1ヶ月近く失われる可能性がある(フェーズ349 2.2節)。この実害
+(猶予期間の実効性低下)は日次バッチには無く月次バッチ固有であるため、
+`retry_config`を設定する価値があると判断する。
+
+### 4.2. 具体的な値
+
+Cloud Schedulerの`retry_config`パラメータ(`retry_count`・`min_backoff_duration`・
+`max_backoff_duration`・`max_doublings`)について、以下を暫定値とする。
+
+- `retry_count: 5`: 1節の構成はFirestore読み書き・LINE Push API呼び出しのみで、
+  5xx応答は一過性のインフラ障害(Firestore/LINE側の一時的な不調、Cloud Function
+  のコールドスタート失敗等)が主因と想定されるため、他venture共通の「GAS側
+  リトライ(フェーズ347、最大3回)」よりやや多めの5回とし、一過性障害からの
+  自己回復の見込みを上げる。
+- `min_backoff_duration: 300s`(5分)・`max_backoff_duration: 3600s`(1時間)・
+  `max_doublings: 3`: 5回の再試行が指数バックオフ(5分→10分→20分→40分→最大
+  1時間)で概ね半日以内に収まるよう設定する。月次バッチは「同日中に数回まで
+  再試行する」(フェーズ349 3節で示した方針)を満たす値とする。
+- 5回の再試行がすべて失敗した場合は、runtime-dependency-switching-design.md
+  5.3節・cloud-monitoring-alert-policy-design.md 5節の既存のアラート発火に
+  委ね、オーナーが対話セッションで次回の月次起動を待たずに手動実行する
+  (`run_due_deletion_candidate_final_confirmations()`は抽出条件が冪等なため、
+  手動実行しても二重送信は生じない)運用とする。
+
+### 4.3. 日次バッチへの転用は見送る
+
+フェーズ349 2.1節の結論(日次バッチは翌日起動で自然解消するため`retry_config`
+不要)は本フェーズでも変更しない。日次バッチに同様の`retry_config`を設定しても
+実害(猶予期間の実効性低下のような具体的な不利益)が無いため、不要な複雑さを
+増やさない方針を維持する。
+
+### 4.4. 残課題
+
+- `deployment-runbook.md`等、実デプロイ手順書への`retry_config`パラメータの
+  反映は、実際のCloud Scheduler構築(オーナー承認待ち)とセットの作業として
+  次回以降に残す。
+- 他venture(kura-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)の
+  Cloud Schedulerジョブにも同種の「月次/低頻度バッチほどretry_config設定の
+  価値が高い」という考え方が当てはまるかの横断確認は、フェーズ349 4節の次回
+  候補(2)のとおり本venture側からは申し送るに留め、直接着手しない。
+
+## 5. 今後の課題
 
 - `prototype/cloud_function_send_deletion_candidate_final_confirmations.py`相当の
   薄いエントリポイント(Cloud Scheduler HTTPトリガーを受け、実Firestore接続の
