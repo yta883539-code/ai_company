@@ -4011,3 +4011,30 @@
   cloud-monitoring-alert-policy-design.mdの記載を是正。これで5venture全てに
   Firestoreランタイム依存構築失敗アラート設計が揃った。コード変更なし、
   テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ194(2026-10-27 05:00 UTC定例更新): cloud-monitoring-alert-policy-design.md
+  3節「スコープ外」が「本ファイルの範囲外(承認後の結合実装フェーズでの別途検討)」
+  としていた、チェックアウト起点(`get_checkout_runtime_dependencies()`)での
+  Firestoreランタイム依存構築失敗時の申込者向けエラー表示文面設計に対応し、
+  checkout-runtime-dependency-failure-applicant-message-design.mdを新規作成した。
+  Webhook(Stripe発、自動再送あり)・定期スケジューラ(Cloud Loggingのみ)とは異なり、
+  チェックアウト起点は申込者本人がブラウザで直接レスポンスを目にする呼び出し元である
+  ことに着目し、`get_checkout_runtime_dependencies()`自体の例外伝播方針(5.1節、
+  ログ出力の上で再raise)は変更せず、`checkout_session.main()`側でのみ例外をcatchして
+  503+再試行案内文(「もう一度ボタンを押し直してください」等、技術的原因は非開示)を
+  返す方式を設計した。`main()`側でのcatch追加が1節のログベース指標・アラート発火に
+  影響しないこと(ログ出力は`get_checkout_runtime_dependencies()`内部で例外発生時に
+  既に完了しているため)を確認した。実`.py`実装への反映は実Firestore導入とセットの
+  結合実装フェーズに持ち越し(本フェーズは設計のみ)。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(93件、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれもパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1・2がオーナーから承認された場合はその着手を最優先、
+  (2)本HTML文面・`main()`のtry/except追加の実`.py`実装への反映(実Firestore導入と
+  セットの結合実装フェーズに持ち越し)、(3)エラーページのCSS共通化方針の検討、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 05:00 UTC(フェーズ194: チェックアウト起点でのFirestore
+  ランタイム依存構築失敗時の申込者向けエラー表示(503+再試行案内文)を新規設計。
+  `get_checkout_runtime_dependencies()`自体の例外伝播方針は変更せず、`main()`側の
+  catchのみで対応し、アラート発火への影響がないことを確認。コード変更なし、
+  テスト93件・schema検証11件いずれも変更なしでパス)
