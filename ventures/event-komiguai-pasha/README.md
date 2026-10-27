@@ -1486,3 +1486,26 @@
 - 最終更新: 2026-10-27 03:00 UTC(フェーズ69: 詳細は上記。data-retention-policy.mdに
   6節を新規作成し、`idempotency_key_index`側ドキュメント削除の実装時チェックリストを
   整理。コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ70(2026-10-27 13:00 UTC定例更新): idempotency-key-duplicate-detection-
+  firestore-query-design.md(フェーズ66)5節・6節で保留していた「書き込み時の競合制御方式
+  (決定的`draft_id`導出 vs. クエリ結果への依存)」を確定した。`draft_id`はresult-page-
+  ttl-access-design.mdが前提とする「推測不能なランダムトークン」を兼ねるため、クライアント
+  生成の`idempotencyKey`から決定的に導出する方式は`draft_id`の予測可能性をクライアント入力
+  に委ねてしまい不採用とし、「クエリで既存ドキュメントの有無を確認→存在しなければサーバー
+  側でUUID4の`draft_id`を発行」というベストエフォート方式を採用した。この方式でも稀に生じ
+  得る重複(同一`idempotencyKey`での完全同時リクエスト)は、本venture規模(1日一桁〜十数件)
+  では発生確率が極めて低く、生じても決済(Stripe Checkout Session)は別管理のため二重請求に
+  はつながらず、`one_time_draft`側はTTLで自動解消、`inquiry`側も低頻度運用でオーナーが目視
+  で気づける範囲と判断し、実害は限定的であることを整理した(同文書7節として新規作成)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。
+  次回候補: (1)実コード化フェーズに入った際に本方式(クエリ→存在しなければ作成)を実際に
+  適用すること、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認
+  された場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 13:00 UTC(フェーズ70: 詳細は上記。idempotency-key-duplicate-
+  detection-firestore-query-design.mdに7節を新規作成し、書き込み側競合制御方式を
+  「クエリ結果への依存」に確定。コード変更なし、schema検証22件・prototype試験50件
+  いずれも変更なしでパス)
