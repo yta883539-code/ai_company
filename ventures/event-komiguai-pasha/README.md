@@ -1397,3 +1397,25 @@
   を新規作成し、自動再送が効かない3関数のエラー表示・再試行導線とidempotency_key
   方式を設計。コード変更なし、schema検証22件・prototype試験50件いずれも変更
   なしでパス)
+- フェーズ66(2026-10-27 00:00 UTC定例更新): フェーズ65次回候補(1)「`idempotency_key`
+  の重複検知ロジックのFirestoreクエリ設計(複合インデックスの要否含む)」に対応した。
+  `one_time_draft`・`inquiry`それぞれへの`WHERE idempotencyKey == X`クエリ(いずれも
+  単一フィールド等価条件)を設計し、複合インデックスは不要と判断した。`one_time_draft`側は
+  既存のTTLポリシー(24時間、result-page-ttl-access-design.md)が重複検知の有効期間を
+  追加実装なしに境界付けることを確認し、web-form-ui-design.md 5節の残課題(TTLとの
+  期間整合)を解消した。`inquiry`側はdata-retention-policy.mdの保存期間方針によりTTLに
+  委ねられないため、保存期間中恒久的な重複検知になる点を整理し、idempotency-key-
+  duplicate-detection-firestore-query-design.mdとして新規作成した。書き込み時の競合制御
+  方式(決定的`draft_id`導出か、クエリ結果への依存か)は未確定のため次回候補とした。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)書き込み時の競合制御方式(決定的`draft_id`導出 vs. クエリ結果への依存)の
+  確定、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された
+  場合はその着手、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 00:00 UTC(フェーズ66: 詳細は上記。idempotency-key-duplicate-
+  detection-firestore-query-design.mdを新規作成し、`idempotency_key`重複検知の2クエリを
+  設計、複合インデックス不要と判断。コード変更なし、schema検証22件・prototype試験50件
+  いずれも変更なしでパス)
