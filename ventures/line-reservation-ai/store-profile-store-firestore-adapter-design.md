@@ -1026,3 +1026,32 @@ kura-pasha・forklift-pasha)の「次回候補」記述の陳腐化点検(本節
 発見した実例であり、他venture側にも同種の見落としが無いか改めて棚卸しする価値がある)、
 (3)他venture・アイデア領域の
 前進。
+
+## 30. menu_durationsグループの実コード化(フェーズ続き353、2026-10-27 11:00 UTC)
+
+22節で設計済みだった`get_menu_durations`/`set_menu_durations`(`menuDurations`フィールド、
+空dict既定・丸ごと置き換え契約)を`firestore_store_profile_store.py`へそのまま実コード化
+した。22節のコード例をそのまま採用し、設計との差異はない。`FirestoreStoreProfileStore`が
+実装するグループはこれで9グループ(18メソッド)となった。
+
+テストは`FirestoreStoreProfileStoreAllStoreIdsGroupTest`等の既存グループと同型の
+`FirestoreStoreProfileStoreMenuDurationsGroupTest`を新規追加し、(1)ドキュメント未存在時は
+空dict、(2)フィールド未設定時も空dict、(3)set→getの往復一致(日本語メニュー名「カット」
+「カラー」をキーに含む)、(4)set呼び出しごとに辞書全体が置き換わる(個別キーの差分マージ
+ではない)こと、(5)他フィールド(`stripeCustomerId`)を保持すること、(6)空store_idを
+拒否すること、(7)クライアント例外時も空dictへ安全側フォールバックすること、の7件を
+検証した。
+
+コード変更あり(`firestore_store_profile_store.py`: `get_menu_durations`/
+`set_menu_durations`2メソッド追加、`test_firestore_store_profile_store.py`:
+`FirestoreStoreProfileStoreMenuDurationsGroupTest`7件追加)。回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(1015→1022件、新規7件含め
+全件パス)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し、いずれも
+パスすることを確認した。実Firestoreクライアントへの接続やアカウント作成は行っていない。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ためpending-approval.mdへの追記なし。
+
+次回候補: (1)残るFirestoreアダプタ実コード化グループ(checkout_session_completed_
+event_time・store_faq_info・onboarding_completion_message、計3グループ)の実コード化
+(いずれも実Firestore接続を待たずに着手可能)、(2)承認待ち事項がオーナーから承認された
+場合はその着手を最優先、(3)他venture・アイデア領域の前進。

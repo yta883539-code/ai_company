@@ -509,5 +509,57 @@ class FirestoreStoreProfileStoreAllStoreIdsGroupTest(unittest.TestCase):
         self.assertEqual(list(store.all_store_ids()), ["store-1"])
 
 
+class FirestoreStoreProfileStoreMenuDurationsGroupTest(unittest.TestCase):
+    def test_get_menu_durations_returns_empty_dict_when_document_missing(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        self.assertEqual(store.get_menu_durations("store-1"), {})
+
+    def test_get_menu_durations_returns_empty_dict_when_field_unset(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"plan": "standard"})
+        store = FirestoreStoreProfileStore(client)
+
+        self.assertEqual(store.get_menu_durations("store-1"), {})
+
+    def test_set_then_get_menu_durations_round_trips(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        durations = {"カット": 30, "カラー": 90}
+
+        store.set_menu_durations("store-1", durations)
+
+        self.assertEqual(store.get_menu_durations("store-1"), durations)
+
+    def test_set_menu_durations_replaces_whole_dict_not_merge(self):
+        client = _FakeFirestoreClient()
+        store = FirestoreStoreProfileStore(client)
+        store.set_menu_durations("store-1", {"カット": 30, "カラー": 90})
+
+        store.set_menu_durations("store-1", {"パーマ": 120})
+
+        self.assertEqual(store.get_menu_durations("store-1"), {"パーマ": 120})
+
+    def test_set_menu_durations_preserves_other_fields(self):
+        client = _FakeFirestoreClient()
+        client.seed_store("store-1", {"stripeCustomerId": "cus_abc"})
+        store = FirestoreStoreProfileStore(client)
+
+        store.set_menu_durations("store-1", {"カット": 30})
+
+        self.assertEqual(store.get_stripe_customer_id("store-1"), "cus_abc")
+
+    def test_set_menu_durations_rejects_empty_store_id(self):
+        store = FirestoreStoreProfileStore(_FakeFirestoreClient())
+
+        with self.assertRaises(ValueError):
+            store.set_menu_durations("", {"カット": 30})
+
+    def test_get_menu_durations_falls_back_to_empty_dict_on_client_exception(self):
+        store = FirestoreStoreProfileStore(_RaisingFirestoreClient())
+
+        self.assertEqual(store.get_menu_durations("store-1"), {})
+
+
 if __name__ == "__main__":
     unittest.main()

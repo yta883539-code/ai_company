@@ -10,8 +10,8 @@ aircon-pashaの各Firestoreアダプタと同型の方針を踏襲し、google-c
 StoreProfileStoreProtocol全体(store_profile_store.py)のうち本ファイルが実装するのは
 上記3グループ・9節(suspension_reasonグループ)・11節(owner_emailグループ)・
 13節(blocked_but_billing_owner_notified_atグループ)・15節(planグループ)・
-26節(all_store_idsグループ)の計8グループ(16メソッド)。他グループ
-(checkout_session_completed_event_time・menu_durations・store_faq_info・
+26節(all_store_idsグループ)・22節(menu_durationsグループ)の計9グループ
+(18メソッド)。他グループ(checkout_session_completed_event_time・store_faq_info・
 onboarding_completion_message・store_deletion_confirmation関連)は設計
 (design.md各節)は完了済みだが実コード化は次回候補のまま残る。
 """
@@ -216,3 +216,25 @@ class FirestoreStoreProfileStore:
         # (ドキュメントID順保証なし)に依存しない。
         for snapshot in self._stores.stream():
             yield snapshot.id
+
+    def get_menu_durations(self, store_id: str) -> dict:
+        try:
+            snapshot = self._doc_ref(store_id).get()
+        except Exception:
+            # design.md 22節: 接続エラー時はInMemory実装の未設定時デフォルト(空dict)
+            # と揃える。resolve_menu_duration()は空dict渡しでも未知メニュー時と同じ
+            # Noneを返し、呼び出し元はNone判定を既存の「未登録メニュー」と同じ経路
+            # (オーナー転送)に合流させるため、9節・15節と同じ「空へ合流=処理を止めて
+            # 人手に回す」基準に合致する。
+            return {}
+        if not snapshot.exists:
+            return {}
+        return dict((snapshot.to_dict() or {}).get("menuDurations", {}))
+
+    def set_menu_durations(self, store_id: str, menu_durations: dict) -> None:
+        if not store_id:
+            raise ValueError("store_id must be a non-empty string")
+        # design.md 22節: InMemory実装は呼び出しごとに辞書全体を置き換える契約の
+        # ため、"menuDurations"フィールドを丸ごと置き換える(個別キーの差分マージは
+        # 行わない)。
+        self._doc_ref(store_id).set({"menuDurations": dict(menu_durations)}, merge=True)
