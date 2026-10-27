@@ -111,3 +111,9 @@ course-set-pasha版と同じ形にした。
   薄い配線を追加し解消した。詳細はREADME.mdフェーズ149参照。
 - `webhook_secret`の実際の値の取得・保管方法(Secret Manager等)は実Stripeアカウント接続
   (オーナー承認待ち)後の課題として残る。
+- **(2026-10-27追記・フェーズ348で解消)** 本節は200/401/400の3パターンのみを定義しており、
+  `get_stripe_runtime_dependencies()`自体の構築が失敗した場合の`main()`側レスポンスが未設計
+  のまま残っていた(application-form-submission-http-entry-point-design.md 4節が抱えていた
+  のと同種のギャップ、フェーズ347で発見・解消済み)。呼び出し元がStripe自身であり標準の自動
+  再送機構を備える点を踏まえ、stripe-webhook-runtime-dependency-failure-response-
+  design.mdとして、既存401/400と同じプレーン文字列形式で503を返す方針を新規設計した。

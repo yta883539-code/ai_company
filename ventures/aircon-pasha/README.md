@@ -6442,3 +6442,30 @@
 - 最終更新: 2026-10-27 07:00 UTC(フェーズ347: 詳細は上記。
   firestore-runtime-dependency-failure-form-submission-response-design.mdを新規作成。
   コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ348(2026-10-27 09:00 UTC定例更新): cloud-monitoring-alert-policy-design.md
+  5.2節(フェーズ344)が列挙する5エントリポイントのうち、フェーズ347は
+  application-form-submission-http-entry-point-design.md向けの「Firestoreランタイム
+  依存構築失敗時のmain()側レスポンス」ギャップのみを解消していたが、同venture内の対称な
+  欠落として、stripe-webhook-http-entry-point-design.md(4節)も200/401/400の3パターンのみ
+  定義で同種のギャップを抱えていたことを発見し、
+  stripe-webhook-runtime-dependency-failure-response-design.mdとして新規設計した。
+  呼び出し元がGAS(自動リトライなし)だったフェーズ347とは異なり、呼び出し元がStripe自身で
+  標準の自動再送機構を備えるため、venture側での追加リトライ設計は不要と判断し、既存401/400
+  と同じプレーン文字列形式(JSON dict形ではない)で503を返す方針とした。
+  stripe-webhook-http-entry-point-design.md「残課題」にも本設計への参照を追記した。
+  残り2エントリポイント(`get_daily_checks_runtime_dependencies()`・
+  `get_deletion_candidate_final_confirmation_runtime_dependencies()`)の同種確認、および
+  他venture側のStripe Webhookエントリポイントの同種確認は次回候補として残す
+  (`get_runtime_dependencies()`〈LINE webhook〉は常に空dictを返し何も構築しないため対象外)。
+  コード変更なし〈設計文書新規作成のみ〉、回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)cloud-monitoring-alert-policy-design.md 5.2節の残り2エントリポイント
+  (daily_checks・deletion_candidate_final_confirmation)の同種ギャップ確認、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-27 09:00 UTC(フェーズ348: 詳細は上記。
+  stripe-webhook-runtime-dependency-failure-response-design.mdを新規作成。
+  コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
