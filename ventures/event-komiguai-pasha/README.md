@@ -1442,3 +1442,28 @@
   conflict-control-design.mdを新規作成し、`idempotency_key_index`専用コレクションによる
   原子的衝突検知方式を確定、決定的draft_id導出案は安全性要件により不採用。コード変更なし、
   schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ68(2026-10-27 02:00 UTC定例更新): フェーズ67次回候補(1)「`idempotency_key_index`
+  ドキュメントのTTL方針(`one_time_draft`側24時間 vs. `inquiry`側永続の共存方法)の確定」に
+  対応した。Firestoreのドキュメント有効期限(TTL)ポリシーは、指定したフィールドにタイム
+  スタンプ値が設定されているドキュメントのみを自動削除対象とし、フィールド自体が存在しない
+  ドキュメントは対象外になる仕組みであることを確認し、`idempotency_key_index`に任意フィールド
+  `expireAt`を追加する設計とした。`collection == "one_time_draft"`のドキュメントには本体と
+  同じ24時間後の`expireAt`を設定し、`collection == "inquiry"`のドキュメントには`expireAt`
+  自体を設定しないことで、Firestoreの単一TTLポリシー設定(対象フィールドを`expireAt`に
+  指定する1回のみ)のまま1コレクション内に2つの異なる保存期間方針を共存させられることを
+  idempotency-key-write-conflict-control-design.md 5節として整理した。`inquiry`側の
+  インデックスドキュメント削除は、data-retention-policy.md 4節が定める本体ドキュメントの
+  削除候補化フロー(オーナー承認後の個別対応、未実装)と同じバッチ処理で行う申し送りとした。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。
+  次回候補: (1)`inquiry`側削除候補化フロー実装時に`idempotency_key_index`側ドキュメント
+  削除の組み込み漏れが無いようチェックリスト化すること、(2)承認待ち事項(候補1〈奈良NEVER
+  LAND〉への連絡等)がオーナーから承認された場合はその着手、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-10-27 02:00 UTC(フェーズ68: 詳細は上記。idempotency-key-write-
+  conflict-control-design.mdに5節を追加し、`idempotency_key_index`の`expireAt`任意
+  フィールドによるTTL方針の共存設計を確定。コード変更なし、schema検証22件・prototype
+  試験50件いずれも変更なしでパス)

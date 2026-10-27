@@ -60,21 +60,56 @@ access-design.md、`/result/{draft_id}`として顧客に直接URLで渡され�
 フェーズ66 2節の結論(複合インデックス不要)に変更はない。`firestore.indexes.json`への
 追記は本フェーズでも不要と判断する。
 
-## 5. 未検証・残課題
+## 5. `idempotency_key_index`ドキュメントのTTL方針(フェーズ68で確定)
 
-- `idempotency_key_index`ドキュメントのTTL方針は未確定。`one_time_draft`側は24時間TTL
-  (フェーズ66 3節)に合わせてインデックス側も24時間TTLとするのが自然だが、`inquiry`側は
-  永続保存(フェーズ66 4節)のため、1コレクションに2つの異なるTTL方針を共存させる設計
-  (`collection`フィールドでTTLポリシーを分岐できるか)の確認が次回候補として残る。
+1節の残課題だった「`one_time_draft`側24時間TTL vs. `inquiry`側永続保存という2つの異なる
+TTL方針を1コレクション(`idempotency_key_index`)内で共存させられるか」を確定する。
+
+- Firestoreのドキュメント有効期限(TTL)ポリシーは、コレクション(またはコレクション
+  グループ)に対して「どのフィールド名をTTL対象とするか」を1つ指定する仕組みであり、
+  指定したフィールドにタイムスタンプ値が設定されているドキュメントのみが、その値を
+  過ぎた時点で自動削除の対象になる。同じフィールド名であっても、そのフィールド自体が
+  存在しない(未設定の)ドキュメントはTTL削除の対象にならない(result-page-ttl-access-
+  design.mdフェーズ14が前提とする`one_time_draft`側のTTL運用と同じ仕組み)。
+- この挙動を利用し、`idempotency_key_index`ドキュメントに`expireAt`(タイムスタンプ、
+  任意フィールド)を追加する。
+  - `collection == "one_time_draft"`のドキュメント: `expireAt`に`createdAt + 24時間`を
+    設定する。`one_time_draft`本体ドキュメント自身の24時間TTL(result-page-ttl-access-
+    design.mdフェーズ14)と同じ期限にすることで、本体が自動削除されるタイミングと
+    インデックスドキュメントの自動削除タイミングを一致させ、本体が既に削除された後も
+    インデックスだけが残存して「存在しないはずのキーが重複と誤検知される」状態を防ぐ。
+  - `collection == "inquiry"`のドキュメント: `expireAt`を設定しない(フィールド自体を
+    書き込まない)。`inquiry`本体はdata-retention-policy.md 3節により24時間TTLを採用
+    せず、対応完了後1年保有してからオーナーが削除候補として個別に洗い出す運用(自動
+    削除ではない)であるため、インデックス側も自動削除の対象外とし、本体ドキュメントの
+    削除(オーナー承認後の個別対応)と同時に、同じトランザクション・バッチ処理で
+    `idempotency_key_index`側の対応ドキュメントも削除する運用とする(新たな自動化
+    機能は追加しない、data-retention-policy.md 4節の既存方針を踏襲)。
+- Firestoreの単一TTLポリシー設定(`idempotency_key_index`コレクションに対して
+  TTL対象フィールドを`expireAt`に指定する、の1回の設定のみ)で、`collection`フィールドの
+  値ごとに異なる保存期間を共存させられるため、複数のTTLポリシーやコレクション分割は
+  不要と判断する。
+
+## 6. 未検証・残課題
+
+- 実Firestore接続後、TTLポリシーの対象フィールドを`expireAt`に指定する設定作業
+  (Google Cloud Console/`gcloud firestore fields ttls update`相当のコマンド)、
+  および`expireAt`を持たないドキュメントがTTL削除の対象にならないことの実環境での
+  確認は、他venture同様、GCPプロジェクト作成(オーナー承認待ち)後の検証課題として残る。
+- `inquiry`本体ドキュメントの削除候補化フロー(data-retention-policy.md 4節、未実装)
+  自体の実装時に、同一トランザクション・バッチで`idempotency_key_index`側ドキュメントも
+  削除する処理を組み込み漏れしないよう、結合実装フェーズでのチェックリスト化が望ましい点を
+  申し送る。
 - 実Firestore接続後、トランザクション内での「存在しない場合のみ作成」操作の実装方法
   (Python SDKでの具体的なAPI呼び出し)の確認は、他venture同様、GCPプロジェクト作成
   (オーナー承認待ち)後の検証課題として残る。
 
-最終更新: 2026-10-27 01:00 UTC(フェーズ67: idempotency-key-duplicate-detection-
-firestore-query-design.mdフェーズ66の残課題に対応し、`idempotency_key_index`専用
-コレクションによる原子的衝突検知方式を確定。決定的`draft_id`導出案は結果アクセスキーの
-安全性要件(フェーズ53)を損なうため不採用とした。コード変更なし、回帰確認として
-`python3 -m unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・
-`python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしで
-パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
-外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。)
+最終更新: 2026-10-27 02:00 UTC(フェーズ68: 1節の残課題だった`idempotency_key_index`
+ドキュメントのTTL方針を確定。`expireAt`(任意フィールド)を追加し、`one_time_draft`側は
+本体と同じ24時間後の値を設定、`inquiry`側はフィールド自体を設定しないことで、Firestoreの
+単一TTLポリシー設定のまま1コレクション内に2つの異なる保存期間方針を共存させられることを
+整理した。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+"test_*.py"`(50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、変更なし)
+を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+への追記なし。)
