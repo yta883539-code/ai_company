@@ -6200,3 +6200,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-27 09:00 UTC(フェーズ269: 詳細は上記。
   launch-readiness-checklist.mdの陳腐化記載を是正。コード変更なし、
   テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ270(2026-10-28 00:00 UTC定例更新): aircon-pashaフェーズ350
+  (deletion-candidate-final-confirmation-scheduler-design.md 4.4節)からの申し送り
+  「他venture4件のCloud Schedulerジョブに`retry_config`設定の価値が当てはまるか」を
+  受け、本venture側を横断確認した。本ventureのCloud Schedulerジョブ(`run_daily_
+  workshop_checks`)は日次実行のみで、aircon-pashaが`retry_config`に価値ありと判断
+  した月次/低頻度バッチに相当するジョブが存在しないため、aircon-pasha自身の判断基準
+  (フェーズ349 2.1節)を適用すると対応不要と結論した。daily-scheduler-design.md 8節に
+  記録。design変更・コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(295件、変更なし)・`python3 prototype/
+  test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(Stripeアカウント開設・LINE公式アカウント開設+Cloud
+  Scheduler作成・顧客ヒアリングの実施)がオーナーから承認された場合はその着手を
+  最優先、(2)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化フィールド)への
+  実装反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-28 00:00 UTC(フェーズ270: 詳細は上記。daily-scheduler-design.md
+  8節に`retry_config`横断確認結果〈該当ジョブなし、対応不要〉を記録。コード変更なし、
+  テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)

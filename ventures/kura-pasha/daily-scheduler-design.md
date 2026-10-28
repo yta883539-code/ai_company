@@ -233,3 +233,35 @@ Function G本体の送信配線を完成させた。6節1点目の「コード�
   そのものであることを確認し、他venture2件と同じファイル名の参照ドキュメント
   (payment-failure-reminder-scheduler-design.md)を新規作成した。新規のロジック追加・
   design変更は無い。
+
+## 8. 追記(フェーズ270): `retry_config`横断確認(aircon-pashaフェーズ350からの申し送り対応)
+
+aircon-pasha/deletion-candidate-final-confirmation-scheduler-design.md 4.4節
+(フェーズ350)が残した「他venture(kura-pasha・course-set-pasha・forklift-pasha・
+line-reservation-ai)のCloud Schedulerジョブにも同種の『月次/低頻度バッチほど
+`retry_config`設定の価値が高い』という考え方が当てはまるかの横断確認」を受け、
+本venture側を確認した。
+
+aircon-pasha側の判断基準(フェーズ349 2.1節・2.2節)は、「日次バッチは1回失敗しても
+翌日の起動(最大約24時間後)で自然に再試行されるため`retry_config`不要。月次/低頻度
+バッチは1回失敗すると次の定期起動まで長期間空き、data-retention-policy.md等が定める
+猶予期間の実効性が実質的に失われるため`retry_config`に価値がある」というものだった。
+
+本venture(`run_daily_workshop_checks`、2節)は(B)トライアル30日到達報告・決済失敗
+3日前リマインド・制限モード移行時のオーナー通知のいずれも日次1回実行のみで、月次/
+低頻度バッチに相当するCloud Schedulerジョブは存在しない(aircon-pashaの月次削除
+候補最終確認バッチのような対応物は本ventureに無い)。したがって、aircon-pasha自身の
+判断基準をそのまま適用すると、本ventureのCloud Scheduler設定に`retry_config`を追加
+する価値は無く、aircon-pasha 4.3節の「日次バッチへの転用は見送る」という結論と同じ
+整理になる。
+
+本フェーズはこの横断確認の結果(「該当ジョブなし、対応不要」)を記録するに留め、
+design変更・コード変更は行わない。実際のCloud Scheduler設定自体は引き続き実LINE
+公式アカウント接続・Cloud Scheduler実行環境の構築とセットでオーナー承認待ち
+(pending-approval.md参照)。course-set-pasha・forklift-pasha・line-reservation-aiに
+ついても同種の横断確認が未実施のため、次回以降の棚卸し対象として申し送る。
+
+最終更新: 2026-10-28 00:00 UTC(フェーズ270: aircon-pashaフェーズ350からの申し送りを
+受け、本ventureのCloud Schedulerジョブ(日次のみ)には`retry_config`に相当する
+低頻度バッチが存在しないことを確認。design変更・コード変更なし、全295件・webhook355件・
+schema検証32件いずれも変更なしでパス)
