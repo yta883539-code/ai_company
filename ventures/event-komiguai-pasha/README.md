@@ -1576,3 +1576,27 @@
   retry_config横断確認の結論〈対応不要、将来実装時はaircon-pasha確定値を採用〉を追記し、
   6venture全ての横断確認が完了。コード変更なし、schema検証22件・prototype試験50件いずれも
   変更なしでパス)
+- フェーズ74(2026-10-28 06:00 UTC定例更新): line-reservation-ai(2026-10-23 12:00 UTC)・
+  kura-pasha(2026-10-23 19:00 UTC)・aircon-pasha(2026-10-24 02:00 UTC)・forklift-pasha
+  (2026-10-24 07:00 UTC)・course-set-pasha(2026-10-24 09:00 UTC)の5venture全てで発見・
+  是正されてきた「実Firestoreプロジェクト・GCPアカウントの開設の承認依頼がpending-approval.md
+  に一度も独立記録されていない」という記載漏れについて、本venture側では一度も棚卸しが
+  行われていなかったことに気づき、今回確認した。本ventureもtech-stack.md(フェーズ7)で
+  他venture同型のGCP Cloud Run functions(2nd gen)+ Firestore構成を採用し、`one_time_draft`
+  (フェーズ10・12・14)・`inquiry`(フェーズ15)・`idempotency_key_index`(フェーズ66〜68)の
+  3コレクションの設計を積み上げてきたにもかかわらず、この前提となるGCPプロジェクト・
+  Firestoreデータベース自体の作成承認が独立エントリとして記録されていなかったことを確認し、
+  pending-approval.mdに新規記録した(既出の2026-10-21 03:00 UTC記載分は候補1への初回
+  コンタクト依頼のみを対象とし、本件とは別の未記録事項)。これにより6venture全ての
+  同種記載漏れの棚卸し・是正が完了した。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・`python3
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション自体はpending-approval.mdへの記録に留め、
+  実際のGCPプロジェクト作成・Firestoreデータベース作成は一切実施していない。
+  次回候補: (1)承認待ち事項(本フェーズのGCP/Firestore作成、候補1〈奈良NEVER LAND〉への
+  連絡等)がオーナーから承認された場合はその着手を最優先、(2)フェーズ71の代替手段(a)〜(c)の
+  いずれかが進んだ段階で候補1側の情報を更新すること、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 06:00 UTC(フェーズ74: 詳細は上記。実GCPプロジェクト・Firestore
+  データベース作成の承認依頼がpending-approval.mdに未記録だった記載漏れを発見し新規記録。
+  これで6venture全ての同種棚卸しが完了。コード変更なし、schema検証22件・prototype試験50件
+  いずれも変更なしでパス)
