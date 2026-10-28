@@ -6095,3 +6095,32 @@
   (3)他venture・アイデア領域の前進。
 - 最終更新: 2026-10-27 18:00 UTC(フェーズ339: フェーズ338のREADME.md反映漏れを
   是正。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)
+- フェーズ340(2026-10-28 03:00 UTC定例更新): line-reservation-aiフェーズ続き357
+  (2026-10-28 02:00 UTC)からの申し送り「course-set-pasha・forklift-pasha側での
+  同種のretry_config横断確認」(申し送り元: aircon-pashaフェーズ349〜350)に対応した。
+  本ventureのCloud Schedulerジョブを棚卸しした結果、`trial_end_scheduler`・
+  `payment_failure_reminder_scheduler`はいずれも日次1回で自然に再試行される冪等設計
+  のため対応不要(kura-pasha・line-reservation-aiと同じ結論)だが、
+  data-retention-policy.md「削除の実行方法(MVP)」節が定める削除候補の最終確認〜
+  削除実行の月次バッチは、aircon-pashaのdeletion-candidate-final-confirmation-
+  scheduler-design.mdと同種・同頻度のジョブであり`retry_config`の設定価値がある
+  と判断した。aircon-pashaの確定値(`retry_count: 5`、指数バックオフ300秒〜3600秒、
+  `max_doublings: 3`)をそのまま採用する方針を
+  stripe-cancellation-deletion-candidate-trigger-design.md 5節として新規追記した。
+  本バッチ自体の実装(Cloud Scheduler構築)は実Firestore/実Stripe接続後の課題として
+  既に保留中のため、本フェーズは設計文書の追記のみでコード変更は行っていない。
+  forklift-pasha側への同種確認は本venture側からは申し送るに留め、直接の書き込みは
+  行っていない。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト接続)がオーナーから承認された
+  場合はその着手を最優先、(2)5.1節のログ出力側`.py`実装への`event`フィールド構造化
+  反映(実`google-cloud-firestore`導入とセットの結合実装フェーズに持ち越し)、
+  (3)forklift-pasha側でのretry_config横断確認の着手状況の確認(未着手なら申し送り
+  を維持)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 03:00 UTC(フェーズ340: 詳細は上記。削除候補最終確認〜削除
+  実行の月次バッチにretry_config設定の価値があると判断し、aircon-pashaの確定値を
+  採用する方針をstripe-cancellation-deletion-candidate-trigger-design.md 5節に
+  新規追記。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)

@@ -99,3 +99,38 @@ def list_deletion_candidates(
   および削除候補化後の最終確認(LINE push / 代替連絡経路)への引き渡しは、
   data-retention-policy.md「削除候補化後の最終確認」節の設計をそのまま使う想定だが、
   実際の呼び出し配線は実Firestore/実Stripe接続後の課題として残す。
+
+## 5. Cloud Scheduler `retry_config`方針(月次バッチ、フェーズ340)
+
+line-reservation-aiフェーズ続き357(2026-10-28 02:00 UTC)からの申し送り
+「course-set-pasha・forklift-pasha側での同種のretry_config横断確認」(申し送り元:
+aircon-pashaフェーズ349〜350、deletion-candidate-final-confirmation-scheduler-design.md
+2.1節・2.2節・4節)に対応する。
+
+aircon-pashaが確立した判断基準(フェーズ349 2.1節・2.2節)は「1回の起動失敗で次回
+再試行が月単位で遅れ、data-retention-policy.mdが定める猶予期間の実効性が下がる実害が
+生じる低頻度(月次等)バッチ」には`retry_config`を設定し、日次・15分間隔等の高頻度
+ジョブ(次回起動が自然に再試行として拾われる)には設定不要、というものである。これを
+本venture側に適用する。
+
+本ventureのCloud Schedulerジョブを棚卸しした結果:
+
+| ジョブ | 頻度 | 判定 |
+|---|---|---|
+| `trial_end_scheduler`(trial-end-scheduler-design.md) | 日次1回 | 失敗しても翌日の実行で自然に再試行される冪等設計のため対応不要(kura-pasha・line-reservation-aiと同じ結論)。 |
+| `payment_failure_reminder_scheduler`(payment-failure-reminder-scheduler-design.md) | 日次1回 | 同上、対応不要。 |
+| 削除候補化後の最終確認〜削除実行バッチ(`list_deletion_candidates()`、本ファイル3節) | **月次程度**(data-retention-policy.md「削除の実行方法(MVP)」節) | aircon-pashaのdeletion-candidate-final-confirmation-scheduler-design.mdが扱う「削除候補の最終確認」バッチと同種・同頻度のジョブであり、1回の起動失敗で次回再試行が最大約1ヶ月後になる点も同じ。**`retry_config`の設定価値がある**と判断する。 |
+
+本venture側は唯一、aircon-pashaと同種の低頻度バッチを持つことが判明したため、
+aircon-pashaの確定値(deletion-candidate-final-confirmation-scheduler-design.md 4節)を
+そのまま採用する方針とする: `retry_count: 5`、指数バックオフ
+(`min_backoff_duration: 300s`〜`max_backoff_duration: 3600s`、`max_doublings: 3`)。
+5回失敗時はオーナーへのアラート通知(cloud-monitoring-alert-policy-design.md相当、
+本venture側は未作成のため今後の課題とする)に委ね、手動実行を促す運用とする。
+
+本バッチ自体の実装(Cloud Scheduler構築・`list_deletion_candidates()`の呼び出し配線)は
+実Firestore/実Stripe接続後の課題として既に3節・4節で保留されているため、本節は
+その実装時に反映すべき`retry_config`パラメータを先行して確定したものであり、
+現時点でコード変更やCloud Scheduler自体の作成(オーナー承認が必要なアクション)は
+一切行っていない。forklift-pasha側への同種確認は本venture側からは申し送るに留め、
+直接の書き込みは行わない。
