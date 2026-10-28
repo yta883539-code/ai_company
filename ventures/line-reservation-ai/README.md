@@ -6826,3 +6826,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   onboarding_completion_messageグループ〈design.md 5節/design-onboarding-flag.md
   2節〉を実コード化し、`StoreProfileStoreProtocol`全メソッドの実コード化が完了。
   テスト7件追加(1036→1043件)・schema検証28件〈変更なし〉いずれもパス)
+- フェーズ続き357(2026-10-28 02:00 UTC定例更新): aircon-pashaフェーズ350
+  (deletion-candidate-final-confirmation-scheduler-design.md 4.4節)からの申し送り
+  「他venture(kura-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)の
+  Cloud Schedulerジョブにも`retry_config`設定の価値が当てはまるか」を受け、本venture側を
+  横断確認した(kura-pashaはフェーズ270で既に対応不要と結論済み。course-set-pasha・
+  forklift-pashaは未対応のため本venture側からは申し送りを維持)。本ventureのCloud
+  Schedulerジョブを棚卸しした結果、reminder-scheduler-design.md(15分間隔)・
+  escalation-digest-flush-trigger-design.md(1分間隔)・trial-end-scheduler-design.md
+  (日次1回)のいずれも、aircon-pashaが`retry_config`に価値ありと判断した基準
+  (フェーズ349 2.1節・2.2節: 1回の失敗で次回起動が月単位で遅れ、猶予期間の実効性が
+  下がる実害が生じる低頻度バッチ)に当てはまる低頻度(月次・週次)ジョブが存在しない
+  ことを確認した。いずれも次回起動(最長でも翌日)で自然に再試行対象として拾われる
+  冪等設計のため、aircon-pasha自身の判断基準を適用するとkura-pashaと同様「対応不要」
+  と結論する。reminder-scheduler-design.md 8節(新設)に横断確認結果を記録した。
+  design変更・コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(1043件、変更なし)・`python3 schema/
+  validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等)が
+  オーナーから承認された場合はその着手を最優先、(2)course-set-pasha・forklift-pasha
+  側での同種のretry_config横断確認の着手(本venture側からは申し送るに留め、直接
+  書き込みは行わない)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 02:00 UTC(フェーズ続き357: 詳細は上記。aircon-pashaからの
+  申し送りを受け、本ventureのCloud Schedulerジョブ(15分間隔・1分間隔・日次)には
+  低頻度バッチが存在しないため`retry_config`設定は対応不要と結論。
+  reminder-scheduler-design.md 8節に記録。コード変更なし、テスト1043件・
+  schema検証28件いずれも変更なしでパス)

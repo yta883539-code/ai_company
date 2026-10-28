@@ -108,3 +108,33 @@ Cloud Function C: send_reminders
   (解消済み 2026-08-04 05:00 UTC: cloud-scheduler-invocation-cost-estimate.md参照。
   Function Cの呼び出しは店舗数に依存せず月2,880回程度で無料枠200万回の0.15%程度、
   起動間隔の選定は課金額でなくリマインド遅延許容度を基準にしてよいと結論)
+
+## 8. 追記(フェーズ続き357): `retry_config`横断確認(aircon-pashaフェーズ350からの申し送り対応)
+
+aircon-pashaのdeletion-candidate-final-confirmation-scheduler-design.md 4.4節が
+申し送った「他venture(kura-pasha・course-set-pasha・forklift-pasha・
+line-reservation-ai)のCloud Schedulerジョブにも、月次/低頻度バッチほど
+`retry_config`設定の価値が高いという考え方が当てはまるか」の横断確認に対応する。
+
+aircon-pashaの判断基準(フェーズ349 2.1節・2.2節)は、1回の起動失敗が次回の
+自然な再試行までの遅延を実害(data-retention-policy.mdが定める猶予期間の実効性
+低下等)に変えてしまう低頻度(月次等)バッチにのみ`retry_config`を設定する価値が
+あり、翌日・翌起動で自然に再試行対象として拾われる高頻度バッチには不要、という
+ものである。
+
+本ventureのCloud Schedulerジョブを棚卸しした結果は以下の通り。
+
+- 本ファイルの選定ロジック(リマインド送信、15分間隔): 未送信分は次回起動
+  (最大15分後)で自然に再試行対象として拾われる冪等設計(上記「冪等性の設計」節)。
+- escalation-digest-flush-trigger-design.md(エスカレーション窓フラッシュ、1分間隔):
+  同様に次回起動(最大1分後)で自然に再試行される設計。
+- trial-end-scheduler-design.md(トライアル期間到達判定、日次1回): aircon-pashaの
+  日次バッチ(フェーズ349 2.1節で`retry_config`不要と結論済み)と同じ構成。
+
+いずれも、1回の失敗が月単位の遅延に変わる低頻度バッチが存在しないため、
+aircon-pasha自身の判断基準を適用すると、kura-pasha(フェーズ270)と同様に
+本venture側も`retry_config`の追加設定は対応不要と結論する。
+
+残課題: course-set-pasha・forklift-pashaはまだ本横断確認に対応していない
+(2026-10-28 02:00 UTC時点)。本venture側からは申し送るに留め、直接書き込みは
+行わない。
