@@ -84,3 +84,15 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   次回候補: (1)決済方法(都度課金とサブスクの併用設計、LINE LIFF経由かWeb単体か)の技術的な
   検証、(2)venue-master-draft.mdの各会場のアクセス情報精査(WebSearchでの裏取り)、(3)会場名
   表記揺れの名寄せ方法の検討。
+- フェーズ5(2026-10-28 12:00 UTC): payment-method-design.mdとして、次回候補(1)の決済方法を
+  技術的に検証した。(a)都度プラン/月額フリーパスの併用はStripe Checkout Sessionの
+  `mode=payment`/`mode=subscription`をプラン選択結果に応じて分岐生成すれば技術的な障害は
+  ないとの仮説を得た、(b)決済の入り口は既存6venture(いずれもLINE公式アカウント経由)とは
+  異なり、B2C・一度限りの利用行動という特性を踏まえてWeb単体(LINE非依存)を基本方針とする
+  判断を記録した。この判断により、本ventureのtech-stack.mdは他6ventureのLIFF前提設計とは
+  異なる技術スタック選定が必要になる。実LLM呼び出し・Stripe等決済代行サービスとの実接続・
+  実際のアカウント開設は一切行っていない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)tech-stack.mdの新規作成(Web単体構成を前提とした技術スタック選定)、
+  (2)venue-master-draft.mdの各会場のアクセス情報精査(WebSearchでの裏取り)、(3)会場名
+  表記揺れの名寄せ方法の検討、(4)都度プラン⇔月額フリーパスのプラン変更時の扱いの検討。
