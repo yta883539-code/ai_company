@@ -53,6 +53,18 @@ forklift-pasha)のdata-retention-policy.mdが揃って採用した保存期間�
 - 他venture同様、実際の削除実行には送信用メールサービスのアカウント作成(オーナー承認待ち)
   および実Firestore接続が前提となるため、MVPでは専用の削除バッチジョブは実装せず、方針決定に
   とどめる。
+- (フェーズ73追記)他venture(aircon-pasha・course-set-pasha・forklift-pasha)側から
+  「月次・低頻度バッチのCloud Scheduler `retry_config`(1回の起動失敗時の再試行間隔)が
+  削除猶予期間の実効性に影響しうる」という横断的な申し送りがあったため、本ventureについても
+  確認した。本venture(event-komiguai-pasha)の削除候補化〜削除実行バッチは、上記のとおり
+  MVP時点では専用バッチジョブ自体が未実装(方針決定のみ、実Cloud Scheduler化はオーナー承認後の
+  結合実装フェーズに持ち越し)であるため、現時点で`retry_config`を設定する対象ジョブが存在
+  しない。line-reservation-ai(フェーズ続き357)・kura-pasha(フェーズ270)が「低頻度バッチが
+  無く対応不要」と結論付けたのと同様に、本ventureも「対応不要」と判断する。ただし本venture固有の
+  留意点として、将来Cloud Scheduler化する際はaircon-pashaが確定した値
+  (`retry_count: 5`、指数バックオフ`min_backoff_duration: 300s`〜`max_backoff_duration: 3600s`、
+  `max_doublings: 3`)をそのまま採用する方針を本節にあらかじめ記録しておく(実装時に再検討の
+  手間を省く目的、deletion-candidate-final-confirmation-scheduler-design.md 4節と同一値)。
 - `customer_email`宛に削除予告を送る経路(他venture同様の「連絡不能なら削除保留」運用)は、
   本venture固有の二段階照合(draft-id-last4-collision-design.md)で使う`customer_email`
   正規化ロジック(customer-email-normalization-design.md フェーズ56)をそのまま再利用できる。

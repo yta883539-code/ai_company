@@ -1556,3 +1556,23 @@
   2件でも新情報なしに終わり、フェーズ55の「深掘り非効率」判断を再確認。フェーズ71次回候補(2)
   の陳腐化記載を是正し、候補1への一本化方針を明確化。コード変更なし、schema検証22件・
   prototype試験50件いずれも変更なしでパス)
+- フェーズ73(2026-10-28 05:00 UTC定例更新): aircon-pashaフェーズ349・350で発見された
+  「月次・低頻度バッチのCloud Scheduler `retry_config`未決定」論点について、course-set-
+  pashaフェーズ340・forklift-pashaフェーズ197からの横断確認の申し送りに対応し、本venture側
+  でも確認した。本ventureの削除候補化〜削除実行バッチはMVP時点で専用のCloud Schedulerジョブ
+  自体が未実装(方針決定のみ、実装はオーナー承認後の結合実装フェーズに持ち越し)であるため、
+  line-reservation-ai・kura-pashaと同様に現時点では対応不要と結論した。将来実装する際は
+  aircon-pasha確定値(`retry_count: 5`、指数バックオフ300秒〜3600秒)をそのまま採用する方針を
+  data-retention-policy.md 4節に追記し、これで6venture全てのretry_config横断確認が完了した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)候補探索は
+  フェーズ55・72の方針どおり候補1(奈良NEVER LAND)に一本化し、候補2の屋号特定を目的とした
+  追加WebSearchは行わない、(3)フェーズ71の代替手段(a)〜(c)のいずれかが進んだ段階で候補1側の
+  情報を更新すること、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 05:00 UTC(フェーズ73: 詳細は上記。data-retention-policy.md 4節に
+  retry_config横断確認の結論〈対応不要、将来実装時はaircon-pasha確定値を採用〉を追記し、
+  6venture全ての横断確認が完了。コード変更なし、schema検証22件・prototype試験50件いずれも
+  変更なしでパス)
