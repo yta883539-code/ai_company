@@ -41,6 +41,16 @@
    使い、電話での実連絡・メールフォーム送信文面の最終確定はオーナー自身が行うか、
    Gmail連携接続後に送信直前の毎回確認を経てのみ行う。
 
+4. **実GCPプロジェクトの作成・Firestoreデータベースの新規作成**
+   (2026-10-23 19:00 UTC記載)
+   本番用の`WorkshopStoreProtocol`・`UsageCounterStoreProtocol`・
+   `LinkingCodeStoreProtocol`・`UserProfileStoreProtocol`の4Protocol全ての実
+   Firestoreアダプタ(フェーズ258までに実コード化完了済み)のデプロイ先となる、
+   GCPプロジェクトの課金設定を含む作成、およびFirestoreデータベースの新規作成。
+   → 承認後: 実GCPプロジェクトの作成、Firestoreデータベースの新規作成、
+   `runtime-dependency-switching-design.md`で設計済みの`KURA_PASHA_FIRESTORE_ENABLED`
+   フラグ切り替えロジックの実コード化・結合実装から着手する。
+
 ## 次回候補
 
 上記1〜3のいずれかがオーナーから承認された場合、その着手を最優先とする。承認が
@@ -117,3 +127,24 @@ schema/validate_test_cases.py`(32件、変更なし)を再実行し、いずれ�
 ヒアリングの実施)がオーナーから承認された場合はその着手を最優先、またはREADME.md
 フェーズ268次回候補(2)「4節のログ出力側(`event`構造化フィールド)への実装反映」
 (結合実装フェーズ待ち)、他venture・アイデア領域の前進。
+
+2026-10-28 07:00 UTC(フェーズ271): 本チェックリスト「承認待ち事項」節とpending-
+approval.md本文の突き合わせ棚卸しを実施した。pending-approval.mdには本venture宛の
+エントリが2026-10-23 19:00 UTC(実GCPプロジェクト作成・Firestoreデータベース新規
+作成)を含め4件記録されているのに対し、本チェックリストの「承認待ち事項」節には
+1〜3(Stripeアカウント開設・LINE公式アカウント開設+Cloud Scheduler作成・顧客
+ヒアリングの実施)の3件しか反映されておらず、2026-10-23 19:00 UTC記載分が本チェック
+リストへの反映漏れになっていたことを発見した。pending-approval.md側は正しく記録
+済み(line-reservation-ai・aircon-pasha・forklift-pasha・course-set-pasha・
+event-komiguai-pashaの5venture側の棚卸しで同種の記載漏れが是正されてきた経緯の
+記録先そのものであり、欠落していたのはそれを要約する本チェックリスト側だった)
+ため、実行済みアクションは一切ない。新規に項目4として追記し是正した。コード変更
+なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+(295件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`
+(355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を
+再実行し、いずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+approval.mdへの追記なし。次回候補: 「承認待ち事項」節の4件のいずれかがオーナーから
+承認された場合はその着手を最優先、またはREADME.mdフェーズ266次回候補(2)「4節の
+ログ出力側(`event`構造化フィールド)への実装反映」(結合実装フェーズ待ち)、他
+venture・アイデア領域の前進。

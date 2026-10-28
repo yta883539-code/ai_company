@@ -6221,3 +6221,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-28 00:00 UTC(フェーズ270: 詳細は上記。daily-scheduler-design.md
   8節に`retry_config`横断確認結果〈該当ジョブなし、対応不要〉を記録。コード変更なし、
   テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ271(2026-10-28 07:00 UTC定例更新): launch-readiness-checklist.mdの
+  「承認待ち事項」節とpending-approval.md本文を突き合わせる棚卸しを実施した。
+  pending-approval.mdには本venture宛のエントリが2026-10-23 19:00 UTC(実GCP
+  プロジェクト作成・Firestoreデータベース新規作成)を含め4件記録されているのに対し、
+  本チェックリスト側には1〜3(Stripeアカウント開設・LINE公式アカウント開設+Cloud
+  Scheduler作成・顧客ヒアリングの実施)の3件しか反映されておらず、2026-10-23
+  19:00 UTC記載分(他5venture側で発見・是正された「実Firestoreプロジェクト・GCP
+  アカウント開設の承認依頼が記録されていない」記載漏れの、本venture自身の対応分)が
+  本チェックリストへの反映漏れになっていたことを発見した。pending-approval.md側は
+  正しく記録済みであり、実行済みアクションは一切ない。launch-readiness-checklist.md
+  に項目4として新規追記し是正した。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから
+  承認された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合
+  実装フェーズ待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 07:00 UTC(フェーズ271: 詳細は上記。launch-readiness-
+  checklist.mdの承認待ち事項節にFirestore/GCP作成〈2026-10-23 19:00 UTC記載〉の
+  反映漏れを発見し是正。コード変更なし、テスト295件・webhook355件・schema検証32件
+  いずれも変更なしでパス)
