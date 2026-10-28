@@ -57,3 +57,18 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   次回候補: (1)入力フォーマット・出力3種(遠征プラン下書き・タイムテーブル草案・費用見積り)
   の構造化出力スキーマ(JSON)の草案作成、(2)料金プラン仮説の検討、(3)venue-master-draft.md
   の各会場のアクセス情報精査(WebSearchでの裏取り)。
+- フェーズ3(2026-10-28 10:00 UTC): schema/output.schema.jsonとして、構造化出力スキーマ(JSON)の
+  初期草案を作成した(次回候補(1)に対応)。course-set-pashaのoutput.schema.jsonと同様、statusの
+  値(generated/out_of_scope/insufficient_input)に応じた分岐方針を採用し、出力4種(itinerary_draft・
+  day_timetable・cost_estimate・hashigo_check)をstatus=generatedのときのみ非nullとした。
+  itinerary_draft.venue_matchedはvenue-master-draft.mdの会場マスタとの名寄せ結果を示すフラグとし、
+  現段階では完全一致のみtrueとする暫定方針とした(表記揺れの名寄せロジックは未実装、README.md
+  既出の検討課題のまま)。day_timetable・hashigo_checkは開場時間・グッズ列の実際の情報が
+  venue-master-draft.mdに未収録のため、入力情報のみに基づく一般的な目安に留める設計とした。
+  JSON構文のみpython3のjson.loadで検証済み(パース成功)。実LLMでの安定生成・Claude APIの
+  Structured Outputs対応状況(course-set-pashaのschema-structured-output-compat-check.md相当の
+  検証)は未確認、実装・API接続はオーナー承認後に行う想定。コード・外部サービス接続は一切
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)料金プラン仮説の検討(当選1件あたり1回課金か、月額か)、(2)venue-master-draft.md
+  の各会場のアクセス情報精査(WebSearchでの裏取り)、(3)会場名表記揺れの名寄せ方法の検討。

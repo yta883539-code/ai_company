@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "おしえんパシャっと 構造化出力スキーマ(草案)",
+  "description": "README.mdフェーズ2の次回候補(1)に対応した初期草案。course-set-pashaのoutput.schema.jsonと同様に、statusの値に応じてどのフィールドが非nullとなるかの分岐方針を持つ形とし、クロスフィールドの依存関係自体はコード側検証(line-reservation-aiのvalidate_test_cases.py相当)で担保する前提とする。机上設計のみで実LLMでの安定生成は未検証(実装フェーズ・オーナー承認後のAPI接続時に確認予定)。",
+  "type": "object",
+  "required": ["status", "out_of_scope_message", "missing_fields_request", "itinerary_draft", "day_timetable", "cost_estimate", "hashigo_check"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "description": "本サービスの対応範囲(README.md『実際の交通機関・宿泊施設の予約・決済自体は本人が行う』『会員管理・予約受付・決済は当面扱わない』)に対応する分岐フラグ。通常の4出力生成が行えるのはgeneratedのみ。",
+      "type": "string",
+      "enum": ["generated", "out_of_scope", "insufficient_input"]
+    },
+    "out_of_scope_message": {
+      "description": "status=out_of_scopeの場合のみ非nullとなる。実際の予約・決済代行、具体的な空席・空室の在庫確認等、README.mdが明示的に『行わない』としている範囲の依頼を受けた場合の定型応答。他「パシャっと」系ventureの同種フィールドと同じ位置づけ。status!=out_of_scopeのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "missing_fields_request": {
+      "description": "status=insufficient_inputの場合のみ非nullとなる。会場・日時・枚数・予算感等、出力生成に最低限必要な項目が不足している場合に、不明項目を推測で埋めず再送を促す一言。status!=insufficient_inputのときは必ずnull(コード側検証で担保)。",
+      "type": ["string", "null"]
+    },
+    "itinerary_draft": {
+      "description": "出力1。status=generatedの場合のみ非nullとなる。会場最寄り駅からの交通手段・宿泊候補エリアの当たりをつけた遠征プラン下書き(README.md出力(1))。venue-master-draft.mdの会場マスタに名前が見つかった場合はそれを参照し、見つからない場合はvenue_matched=falseとして一般的な調べ方の案内に留める(具体的な空席・空室確認や実際の予約は行わない)。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["venue_name_input", "venue_matched", "nearest_station_note", "lodging_area_candidates", "transport_note"],
+      "properties": {
+        "venue_name_input": { "type": "string" },
+        "venue_matched": {
+          "description": "venue-master-draft.mdの会場マスタと名寄せできたかどうか。会場名の表記揺れ(略称・旧名称等)の名寄せロジックは未実装のため、現段階では完全一致のみをtrueとする暫定方針(README.md『次回以降の検討課題』参照)。",
+          "type": "boolean"
+        },
+        "nearest_station_note": {
+          "description": "venue_matched=trueのときは会場マスタの最寄り駅・徒歩目安を記載。falseのときは『会場名を確認できなかったため一般的な調べ方を案内する』趣旨の一言とする。",
+          "type": "string"
+        },
+        "lodging_area_candidates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "transport_note": { "type": "string" }
+      }
+    },
+    "day_timetable": {
+      "description": "出力2。status=generatedの場合のみ非nullとなる。開場時間・グッズ列を踏まえた当日タイムテーブル草案(README.md出力(2))。開場時間・グッズ列の実際の集合場所等はvenue-master-draft.mdに未収録のため、現段階では入力された情報のみに基づく一般的な目安に留める。",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["time_label", "action"],
+        "properties": {
+          "time_label": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      }
+    },
+    "cost_estimate": {
+      "description": "出力3。status=generatedの場合のみ非nullとなる。交通・宿泊・物販予算の内訳見積り(README.md出力(3))。いずれも『当たり』の概算であり実在の料金確認・予約は行わない旨をnoteに明記する。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["transport_yen", "lodging_yen", "goods_yen", "note"],
+      "properties": {
+        "transport_yen": { "type": ["integer", "null"] },
+        "lodging_yen": { "type": ["integer", "null"] },
+        "goods_yen": { "type": ["integer", "null"] },
+        "note": { "type": "string" }
+      }
+    },
+    "hashigo_check": {
+      "description": "出力4。status=generatedの場合のみ非nullとなる。複数公演「ハシゴ」移動時の無理チェック(README.md出力(4))。入力に複数公演の言及が無い場合はapplicable=falseとし、他フィールドはnullとする。",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["applicable", "risk_level", "note"],
+      "properties": {
+        "applicable": { "type": "boolean" },
+        "risk_level": {
+          "type": ["string", "null"],
+          "enum": ["low", "medium", "high", null]
+        },
+        "note": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
