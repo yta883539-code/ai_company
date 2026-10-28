@@ -4088,3 +4088,26 @@
   switching-design.md 5.3節の陳腐化記載〈cloud-monitoring-alert-policy-design.md
   未作成という前提〉を是正。コード変更なし、テスト93件・schema検証11件いずれも
   変更なしでパス)
+- フェーズ197(2026-10-28 04:00 UTC定例更新): aircon-pashaフェーズ350・course-set-pasha
+  フェーズ340からの申し送り「他venture側でのCloud Scheduler `retry_config`横断確認」に
+  対応した。data-retention-policy.md 5節が定める削除候補最終確認〜削除実行の月次バッチは、
+  aircon-pasha・course-set-pashaが`retry_config`に価値ありと判断した基準(月次等の低頻度
+  バッチで1回の失敗が次回再試行を約1ヶ月遅らせる実害)にそのまま当てはまるため、aircon-pasha
+  の確定値(`retry_count: 5`、指数バックオフ300秒〜3600秒、`max_doublings: 3`)を採用する
+  方針をdata-retention-policy.md 5節に新規追記した。payment_failure_reminder_scheduler・
+  trial_end_email_schedulerはいずれも日次実行のみで該当しないため対応不要(kura-pasha・
+  line-reservation-aiと同じ結論)。本バッチ自体の実装(Cloud Scheduler構築)は実Firestore/
+  実Stripe接続後の課題として既に保留中のため、本フェーズは設計文書の追記のみでコード変更は
+  行っていない。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (93件、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・Stripeアカウント開設等)がオーナー
+  から承認された場合はその着手を最優先、(2)本フェーズで確定した`retry_config`の
+  deployment-runbook.md等の実デプロイ手順書への反映(実Cloud Scheduler構築とセットの
+  結合実装フェーズに持ち越し)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-28 04:00 UTC(フェーズ197: 詳細は上記。data-retention-policy.md 5節に
+  削除候補最終確認〜削除実行の月次バッチの`retry_config`(retry_count: 5、指数バックオフ
+  5分〜1時間)を新規追記し、aircon-pasha発の横断確認申し送りに対応。日次バッチは対応不要。
+  コード変更なし、テスト93件・schema検証11件いずれも変更なしでパス)

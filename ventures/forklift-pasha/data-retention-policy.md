@@ -93,6 +93,20 @@ LINEを前提としない(汎用Webフォーム、payment-identity-verification-
 - `fleet_operator/{internal_id}`・`vehicle/{vehicle_id}`(`operatorInternalId`参照)・
   `usage_counter/{internal_id}`はいずれも`internal_id`を手がかりに特定できるため、削除時は
   3ドキュメント(`vehicle`は該当事業者の台数分)をまとめて対象にできる。
+- aircon-pashaフェーズ350(deletion-candidate-final-confirmation-scheduler-design.md 4節)
+  からの申し送り「他venture4件のCloud Schedulerジョブに`retry_config`設定の価値が当てはまる
+  か」を受けて横断確認した結果、上記の削除候補最終確認〜削除実行の月次バッチは、aircon-pasha・
+  course-set-pashaが`retry_config`に価値ありと判断した基準(1回の起動失敗で次回再試行が
+  最大約1ヶ月後になり、本節冒頭の削除候補最終確認〜削除実行の実効性が下がる)にそのまま
+  当てはまる。したがって本バッチにも、aircon-pashaの確定値(フェーズ350)をそのまま採用し、
+  `retry_count: 5`・指数バックオフ(`min_backoff_duration: 300s`〜`max_backoff_duration:
+  3600s`、`max_doublings: 3`)を方針として確定する。5回失敗時はcloud-monitoring-alert-
+  policy-design.mdのアラートに委ねオーナーが手動実行する運用とし、他venture群と揃える。
+  なお本バッチ自体の実装は上記のとおりCloud Scheduler構築(実Firestore/実Stripe接続後)を
+  待つ段階であり、`retry_config`の設定も当該結合実装フェーズで反映する(本フェーズは方針
+  確定のみ)。payment_failure_reminder_scheduler・trial_end_email_schedulerはいずれも日次
+  実行のみで、aircon-pashaが価値ありと判断した低頻度バッチに該当しないため対応不要
+  (kura-pasha・line-reservation-aiと同じ結論)。
 
 ## 6. 顧客からの開示・削除依頼への対応(方針のみ)
 
