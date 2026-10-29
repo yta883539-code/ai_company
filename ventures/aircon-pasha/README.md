@@ -6517,3 +6517,28 @@
   confirmation-scheduler-design.mdに4節を新規作成し、月次バッチの`retry_config`
   (retry_count: 5、指数バックオフ5分〜1時間)を確定。日次バッチは未設定を維持。
   コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ351(2026-10-29 22:00 UTC定例更新): フェーズ350の次回候補(3)「Cloud Scheduler
+  の`retry_config`未決定が他venture共通の欠落かどうかの横断確認」の完了状況を棚卸しした。
+  本venture発の申し送りを受け、course-set-pasha(フェーズ340)・forklift-pasha
+  (フェーズ197)・kura-pasha(フェーズ271)・line-reservation-ai(フェーズ続き357)・
+  event-komiguai-pasha(フェーズ73)の5venture全てが、各venture固有の月次・低頻度バッチ
+  への対応方針(本venture確定値である`retry_count: 5`・指数バックオフ`300s`〜`3600s`の
+  採用、または該当バッチが存在せず対応不要との結論)を既に自ventureのREADME.md・設計文書に
+  記録済みであることを確認した(event-komiguai-pashaフェーズ73時点で「6venture全ての
+  横断確認が完了」と明記されている)。本venture自身が確認対象に含まれるのは論理的に不要
+  (申し送りの発信元であり、確定値はフェーズ350で既に本venture側に反映済み)であるため、
+  本棚卸しをもって次回候補(3)を完了として扱う。次回候補(2)「deployment-runbook.md等、
+  実デプロイ手順書への`retry_config`パラメータの反映」は、実Cloud Scheduler構築とセットの
+  結合実装フェーズに持ち越す方針(フェーズ350時点の判断)を変更していないため、依然未着手
+  のまま残す。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-29 22:00 UTC(フェーズ351: 詳細は上記。フェーズ350の次回候補(3)
+  「retry_config他venture横断確認」が5venture全てで完了済みであることを棚卸し確認し完了
+  扱いとした。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
