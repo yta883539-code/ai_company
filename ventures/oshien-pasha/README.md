@@ -109,3 +109,20 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   次回候補: (1)月額フリーパス利用者の識別方法の検討(会員登録なし方針との整合)、
   (2)venue-master-draft.mdの各会場のアクセス情報精査(WebSearchでの裏取り)、(3)会場名
   表記揺れの名寄せ方法の検討、(4)都度プラン⇔月額フリーパスのプラン変更時の扱いの検討。
+- フェーズ7(2026-10-29 18:00 UTC): monthly-pass-identity-design.mdとして、次回候補(1)の
+  月額フリーパス利用者の識別方法を検討した。forklift-pashaのaccess-token-reissue-design.md
+  が確立した「ログインID/パスワードを発行せず推測不能なアクセストークンを配布・保持する」
+  パターンを応用し、Stripe Checkout完了時にFirestore `monthly_pass/{internal_id}`を作成して
+  `accessToken`を発行する方針を採った。本venture固有の差分として、(a)決済直後の`return_url`
+  遷移先画面でアクセスURLをその場で表示することで初回配布をメール送信に依存させずに済む点、
+  (b)サブスクリプション状態(`subscriptionStatus`)とトークンのライフサイクルを分離し、
+  解約後に再契約した利用者が同じアクセスURLを使い続けられる点、を新たな設計判断として記録
+  した。クロスデバイス時のアクセスURL再送(メールアドレス入力→Stripe顧客検索→トークン
+  再発行→送信)はforklift-pashaと同型のフローとした。実LLM呼び出し・Stripe等決済代行サービス
+  との実接続、実際のFirestore・GCPプロジェクト作成・メール送信実装は一切行っていない。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していない
+  ためpending-approval.mdへの新規追記は不要(既存の承認待ち事項の範囲内で扱う)。
+  次回候補: (1)生成回数カウント(course-set-pashaの`UsageCounterProtocol`相当)の
+  `monthly_pass/{internal_id}`配下での具体的な設計、(2)venue-master-draft.mdの各会場の
+  アクセス情報精査(WebSearchでの裏取り)、(3)会場名表記揺れの名寄せ方法の検討、(4)都度プラン
+  ⇔月額フリーパスのプラン変更時の課金面(残存クレジット等)の扱いの検討。
