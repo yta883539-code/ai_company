@@ -48,16 +48,19 @@
       "operational_status": "active"
     },
     {
-      "canonical_name": "さいたまスーパーアリーナ",
-      "aliases": [],
+      "canonical_name": "GMOアリーナさいたま",
+      "aliases": [
+        "さいたまスーパーアリーナ",
+        "GMO ARENA saitama"
+      ],
       "region": "東京圏",
       "nearest_station": "JR/埼玉新都市交通 さいたま新都心駅",
       "walk_minutes_note": "徒歩3分前後",
-      "naming_rights": false,
-      "last_verified_date": "2026-10-28",
-      "naming_rights_review_due": null,
-      "verification_note": null,
-      "operational_status": "active"
+      "naming_rights": true,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": "2032-03-31",
+      "verification_note": "フェーズ22で発見。さいたまスーパーアリーナは大規模改修工事のため2026年1月13日から休館中(メインアリーナ・スタジアム・コミュニティアリーナが利用不可)で、リニューアルオープンは令和9年(2027年)4月予定。あわせて埼玉県・株式会社さいたまアリーナがGMOインターネットグループとネーミングライツ契約を締結し(2026年3月30日発表)、施設の愛称は令和8年4月1日〜令和14年3月31日(2026年4月1日〜2032年3月31日、6年間)の期間「GMOアリーナさいたま」(GMO ARENA saitama)となる。休館期間中(2026年度)も契約上は本名称が適用されている。既存来場者には旧名称『さいたまスーパーアリーナ』の認知が強く残るため、本venueではcanonical_nameを現行の公式愛称に更新し、旧名称をaliasesに追加した。出典: 埼玉県公式発表(news2026033001)・GMOインターネットグループ公式発表・Impress Watch記事。",
+      "operational_status": "closed"
     },
     {
       "canonical_name": "有明アリーナ",
