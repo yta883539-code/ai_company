@@ -42,9 +42,9 @@
       "nearest_station": "JR 原宿駅、地下鉄 代々木公園駅",
       "walk_minutes_note": "徒歩5〜10分",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "国立施設であり命名権契約は確認されていない。",
+      "verification_note": "国立施設であり命名権契約は確認されていない。フェーズ24(2026-10-30 16:59 UTC)でWebSearchにより2026年の改修・休館予定の有無を再確認したが、該当情報は見つからなかった(検索結果は2017〜2021年頃の過去の改修記録が中心)。2021年8月2日付で国指定重要文化財(建造物)に指定されたことも確認しており、文化財指定により今後の大規模改修は制約を受ける可能性がある点を留意事項として記録する。operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -69,9 +69,9 @@
       "nearest_station": "りんかい線 国際展示場駅、ゆりかもめ 有明駅",
       "walk_minutes_note": "徒歩8分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "東京2020大会向け整備の公共施設であり命名権契約は確認されていない。",
+      "verification_note": "東京2020大会向け整備の公共施設であり命名権契約は確認されていない。フェーズ24(2026-10-30 16:59 UTC)でWebSearchにより2026年の休館・改修情報の有無を再確認したが、検索結果は東京2020大会後の改修・令和4年(2022年)8月の再開業に関する過去情報のみで、2026年時点の休館・改修情報は見つからなかった。operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -93,9 +93,9 @@
       "nearest_station": "JR 海浜幕張駅",
       "walk_minutes_note": "徒歩15分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": null,
+      "verification_note": "フェーズ24(2026-10-30 16:59 UTC)でWebSearchにより稼働状況を再確認した。2026年の休館・改修情報は見つからなかった一方、GMOアリーナさいたま(旧さいたまスーパーアリーナ、本ファイル内の別レコード、2026年1月13日から休館中)の代替として、同会場を例年利用してきた大型イベント「Animelo Summer Live」が2026年は幕張メッセで7月開催と発表されていることを確認した(さいたまアリーナの休館を補う会場としての実例)。operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
