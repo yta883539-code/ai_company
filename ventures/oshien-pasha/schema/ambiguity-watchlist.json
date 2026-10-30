@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "description": "venue-name-normalization-design.mdの「混同注意リスト」(段階的マッチング手順3〈エイリアス辞書一致〉と手順4〈部分一致フォールバック〉の間に挟む想定)を実ファイル化したもの。フェーズ16(2026-10-30 05:00 UTC)で設計、フェーズ17(本回)で実データ化。venue-master.jsonとは独立管理とする(混同相手が未登録の会場〈名古屋市総合体育館のように、まだvenue-master.jsonに独立エントリを持たない施設〉の場合に参照が壊れるため)。コード実装・外部サービス接続は一切行っていない。",
+    "match_behavior": "入力文字列がentries[].ambiguous_input_patternのいずれかを含む(部分一致)場合、正式名称・エイリアス完全一致を試す前の段階でこのリストを照合する想定。一致時はvenue_matched=falseのまま、noteの留保付き案内を出力に反映する(候補会場を断定しない)。"
+  },
+  "entries": [
+    {
+      "ambiguous_input_pattern": "Kアリーナ",
+      "candidate_venues": [
+        {
+          "name": "Kアリーナ横浜",
+          "registered_in_venue_master": true,
+          "description": "横浜市西区の音楽アリーナ(venue-master.json収録済み)。"
+        },
+        {
+          "name": "横浜アリーナ",
+          "registered_in_venue_master": false,
+          "description": "Kアリーナ横浜とは別施設(横浜市港北区)。名称の類似から誤記・混同が生じやすい。"
+        }
+      ],
+      "note": "「Kアリーナ横浜」と「横浜アリーナ」は別施設です。チケット・当選メールの正式な会場名をご確認ください。"
+    },
+    {
+      "ambiguous_input_pattern": "日本ガイシ",
+      "candidate_venues": [
+        {
+          "name": "日本ガイシホール",
+          "registered_in_venue_master": true,
+          "description": "愛知県体育館(愛知県名古屋市)。命名権契約あり(venue-master.json収録済み、naming_rights=true)。"
+        },
+        {
+          "name": "名古屋市総合体育館(NGKスポーツプラザ)",
+          "registered_in_venue_master": false,
+          "description": "別施設。2026年4月1日付で愛称が『NGKスポーツプラザ』に変更。venue-master.jsonには現時点で独立エントリを持たない(来場イベントの会場候補としての裏取り未実施のため)。"
+        }
+      ],
+      "note": "「日本ガイシホール」と「名古屋市総合体育館(NGKスポーツプラザ)」は別施設です。チケット・当選メールの正式な会場名をご確認ください。"
+    }
+  ]
+}
