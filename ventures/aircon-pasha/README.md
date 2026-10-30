@@ -6542,3 +6542,33 @@
 - 最終更新: 2026-10-29 22:00 UTC(フェーズ351: 詳細は上記。フェーズ350の次回候補(3)
   「retry_config他venture横断確認」が5venture全てで完了済みであることを棚卸し確認し完了
   扱いとした。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ352(2026-10-30 18:00 UTC定例更新): deployment-runbook.md「ステップ6: 結合テスト」
+  に残っていた「ステップ5で洗い出したLINEメッセージ通数消費の実測値を、フリープラン上限と
+  突き合わせて有償プランへの切替要否を判断する」という未解決の論点、およびline-price-
+  revision-2026-check.md「本ventureの利用量見積もり」が前提としていた「生成完了報告の
+  返信も配信通数としてカウントされる」という仮定を検証した。WebSearch経由でLINE公式ヘルプ
+  (lycbiz.com)の二次情報を確認した結果、Messaging APIのReply API(応答メッセージ)は
+  Push・Multicast・Broadcast・Narrowcast APIによる「メッセージ配信」とは別扱いで、課金・
+  無料メッセージ通数カウントのいずれも対象外であることが分かった。
+  prototype/cloud_function_webhook.pyを確認し、completion_report/care_guide/history_row・
+  上限接近通知・プラン変更案内・決済関連の返信が全て`reply_client.reply()`
+  (`_reply_with_retry()`経由、reply_token使用)のみで送信されていること、本venture内で
+  Push API呼び出しが存在するのは削除候補最終確認の月次バッチ
+  (`test_following_user_routes_to_line_push`)のみであることを確認した。
+  この結果、本venture最大の利用量ドライバー(生成完了報告の返信、月8〜600通規模)は
+  通数カウント自体の対象外であり、line-price-revision-2026-check.mdの「2026年10月の料金
+  改定は影響しない」という結論はそのままに、根拠をより強いものに訂正した
+  (line-price-revision-2026-check.md追記)。一次情報(lycbiz.com公式ページ)への直接
+  アクセスは本エージェントの実行環境ではegressポリシーにより依然不可のため、二次情報源の
+  クロスチェックにとどまる留保は解消していない。設計文書更新のみでコード変更は行っていない、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(789件、変更
+  なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更
+  なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)本訂正(応答メッセージは通数カウント対象外)のcourse-set-pasha・kura-pasha・
+  line-reservation-aiへの横展開(各venture側でPush API呼び出しの有無を個別確認する必要
+  がある)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 18:00 UTC(フェーズ352: 詳細は上記。line-price-revision-2026-
+  check.mdに追記し、生成完了報告の返信がLINE Reply APIのみで送信され通数カウント対象外
+  であることを確認・訂正。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
