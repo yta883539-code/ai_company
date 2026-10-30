@@ -6245,3 +6245,22 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   checklist.mdの承認待ち事項節にFirestore/GCP作成〈2026-10-23 19:00 UTC記載〉の
   反映漏れを発見し是正。コード変更なし、テスト295件・webhook355件・schema検証32件
   いずれも変更なしでパス)
+- フェーズ272(2026-10-30 12:00 UTC定例更新): unfollow-billing-faq.md(フェーズ45)
+  「今後の課題」節に長期間未対応のまま残っていた「LP掲載用FAQ文面(LINEブロックと
+  解約は別手続きである旨)がlanding-page-copy-draft.mdに反映されていない」ギャップに
+  対応した。同ファイルのFAQセクションに、unfollow-billing-faq.md 1.の文面をそのまま
+  6問目として転記し、両ファイルの「未対応の課題」記載を解消済みへ更新した。文面の
+  新規作成・変更は行わず既存文面の転記のみ。コード変更なし、回帰確認として`python3
+  -m unittest discover -s prototype -p "test_*.py"`(295件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)を再実行し、いずれもパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等、本LP
+  コピー自体の実際の公開を含む)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから
+  承認された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合
+  実装フェーズ待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 12:00 UTC(フェーズ272: 詳細は上記。landing-page-copy-
+  draft.md・unfollow-billing-faq.mdの長期未対応ギャップを解消。コード変更なし、
+  テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
