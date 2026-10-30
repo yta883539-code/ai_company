@@ -226,3 +226,23 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   (4)`naming_rights_review_due`が過去日付になった場合の実運用での扱い(実利用データ観察後)。
 - 最終更新: 2026-10-30 01:00 UTC(フェーズ13: エディオンアリーナ大阪の命名権契約再延長
   〈2023年9月1日〜2028年8月31日〉をWebSearchで裏取りし、未確認だった留保事項を解消)
+- フェーズ14(2026-10-30 03:00 UTC定例更新): フェーズ13の次回候補(3)「`last_verified_date`・
+  `naming_rights_review_due`フィールドのschema/output.schema.json側への反映方法の検討」に
+  対応し、venue-match-confidence-and-staleness-design.mdを新規作成した。フェーズ9で将来候補と
+  した`match_confidence`enum(現行の`venue_matched`booleanの拡張)を、`exact`/`alias_fresh`/
+  `alias_stale`/`partial_unconfirmed`/`unmatched`の5値として具体化し、特に`alias_stale`
+  (エイリアス一致だが`naming_rights_review_due`が過去日付)の場合は「命名権契約の更新・終了に
+  より名称が変わっている可能性がある」旨の留保文を必ず付す方針を設計した。フェーズ9と同じ
+  理由(enum判定基準、特に日付境界判定を実LLMが安定して守れるか未検証であり、かつ会場マスタ
+  JSON自体が実ファイル化されていない)により、`schema/output.schema.json`本体の編集は今回も
+  見送り、次の実装フェーズ(オーナー承認後)向けの設計メモとして記録した。コード実装・外部
+  サービス接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は不要(既存の
+  承認待ち事項の範囲内で扱う)。
+  次回候補: (1)会場マスタJSON(フェーズ12設計)の実ファイル化と、エディオンアリーナ大阪以外の
+  主要会場(東京ドーム・さいたまスーパーアリーナ等)の`naming_rights_review_due`裏取り、
+  (2)都度プラン⇔月額フリーパスの短期間内連続切替時の初回割引の再検討(実利用データ観察後)、
+  (3)異常検知(bot的利用)の閾値・対応方針の検討(実利用データ観察後)。
+- 最終更新: 2026-10-30 03:00 UTC(フェーズ14: `match_confidence`enum〈exact/alias_fresh/
+  alias_stale/partial_unconfirmed/unmatched〉を設計し、エイリアス陳腐化時の留保文言方針を
+  venue-match-confidence-and-staleness-design.mdに記録)
