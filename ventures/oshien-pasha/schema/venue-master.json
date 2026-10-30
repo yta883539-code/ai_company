@@ -83,7 +83,7 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ15で裏取り。『K』はケン・コーポレーションによるKアリーナプロジェクトの開発名称であり、企業の命名権(ネーミングライツ)契約ではないことをWebSearchで確認した(命名権スポンサーは存在しない)。別施設の横浜アリーナ(新横浜)と混同しやすいため、venue-name-normalization-design.mdの『別施設との混同』パターンの対象として要注意。",
+      "verification_note": "フェーズ15で裏取り。『K』はケン・コーポレーションによるKアリーナプロジェクトの開発名称であり、企業の命名権(ネーミングライツ)契約ではないことをWebSearchで確認した(命名権スポンサーは存在しない)。別施設の横浜アリーナ(新横浜)と混同しやすいため、venue-name-normalization-design.mdの『別施設との混同』パターンの対象として要注意。 フェーズ25: 老朽化・建て替え・休館の有無をWebSearchで再確認した(2023年7月31日竣工・9月29日開業のため施設自体は新しく、2026年時点では老朽化を理由とした建て替え・休館の話題は見つからなかった)。2026年6月22日発表の英音楽業界誌『IQ Magazine』Arena Stars 2026選出、2026年上半期Pollstarアリーナランキング(集計期間2025年11月13日〜2026年5月13日)観客動員数世界1位等、好調な運営状況を示す報道のみを確認し、operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -105,9 +105,9 @@
       "nearest_station": "りんかい線 国際展示場駅",
       "walk_minutes_note": "徒歩3分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": null,
+      "verification_note": "フェーズ25: 休館・改修予定の有無をWebSearchで確認した。イープラス掲載の2026年12月1日開催分の公演受付情報から通常営業が確認でき、2026年の休館・改修情報は見つからなかった。operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -131,9 +131,9 @@
       "nearest_station": "JR 大阪城公園駅",
       "walk_minutes_note": "徒歩3分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": null,
+      "verification_note": "フェーズ25: 休館・改修予定の有無をWebSearchで確認した。大阪市の公開資料に稼働率がほぼ限界との記述があるが作成時期が古い可能性があり、2026年の休館・改修予定を示す最新情報は見つからなかった。座席表サイトでは2026年10月3日開催分含め通常の公演予定が複数確認でき、operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -143,9 +143,9 @@
       "nearest_station": "南海/地下鉄 なんば駅",
       "walk_minutes_note": "徒歩10分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": null,
+      "verification_note": "フェーズ25: 休館・改修予定の有無をWebSearchで確認した。Songkick掲載の今後のコンサート予定([Alexandros]、Public Image Ltd (PiL)等)から通常営業が確認でき、2026年の休館・改修情報は見つからなかった。operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
