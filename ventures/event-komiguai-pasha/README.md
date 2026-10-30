@@ -1622,3 +1622,27 @@
 - 最終更新: 2026-10-30 07:00 UTC(フェーズ75: 詳細は上記。legal-notices-draft.mdを新規
   作成し、他5ventureとのcross-venture parityギャップを解消。コード変更なし、
   schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ76(2026-10-30 21:00 UTC定例更新): フェーズ75次回候補(2)「legal-notices-draft.md
+  とweb-form-ui-design.mdを合わせたLP掲載用ページ構成の設計」に対応する過程で、他5venture
+  (aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha・line-reservation-ai)には
+  いずれも存在するlanding-page-copy-draft.md・landing-page-wireframe.md・landing-page/
+  index.htmlの3点セットが、本ventureには一つも存在していなかった追加のcross-venture parity
+  ギャップを発見した。今回はこのうちlanding-page-copy-draft.mdを新規作成し、
+  market-research.md(消費者安全調査委員会の経過報告・規制整理)・mvp-flow-draft.md(5入力
+  要素・4出力)・pricing-plan.md(単発利用/ライト/スタンダードの3プラン)・
+  legal-notices-draft.md(フェーズ75)を踏まえたヒーロー・課題提起・機能紹介・差別化・
+  料金・FAQの各セクション文言を草案した。本venture固有の「入退場時混雑確認」という安全管理上
+  の不安をヒーローセクションの主語に置き、`outdoor_queue`に応じた道路使用許可注記・
+  capacityの定義方針(フェーズ42)をFAQに反映した点が他ventureとの差異。実際のLP実装・公開は
+  行わず文言の草案のみ(本文書の作成自体は「公開」に該当しない)。コード変更なし、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・
+  `python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)landing-page-wireframe.mdの作成(他venture同様のテキストベースワイヤー
+  フレーム)、(2)landing-page/index.html(非公開の試作HTML)の作成、(3)承認待ち事項(実GCP/
+  Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を
+  最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 21:00 UTC(フェーズ76: 詳細は上記。landing-page-copy-draft.mdを新規
+  作成し、他5ventureとのcross-venture parityギャップ〈LP関連3点セット未着手〉の一部を解消。
+  コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
