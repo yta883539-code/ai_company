@@ -44,6 +44,7 @@ function onFormSubmit(e) {
   var gymAreaPairsRaw = "";
   var email = "";
   var linkingCode = "";
+  var unmatchedTitles = [];
   for (var title in answers) {
     if (title.indexOf("ジム名") !== -1) {
       gymAreaPairsRaw = answers[title];
@@ -51,7 +52,18 @@ function onFormSubmit(e) {
       email = answers[title];
     } else if (title.indexOf("連携コード") !== -1) {
       linkingCode = answers[title];
+    } else {
+      // いずれのキーワードにも一致しない設問。質問文の文言変更が原因である可能性が
+      // 高いため、取りこぼしに気付けるようログに残す(残課題参照、本体の動作は
+      // 変えない)。
+      unmatchedTitles.push(title);
     }
+  }
+  if (unmatchedTitles.length > 0) {
+    console.warn(
+      "onFormSubmit: unmatched question title(s), check wording: " +
+      unmatchedTitles.join(", ")
+    );
   }
 
   var props = PropertiesService.getScriptProperties();
@@ -114,7 +126,12 @@ function onFormSubmit(e) {
 - 質問文の部分一致によるマッピングは、フォーム編集時の文言変更に弱い(質問文を
   「ジム名」を含まない文言に変えると取りこぼす)。実デプロイ時にフォーム項目の文言を
   最終確定させ、本コードのマッピング文字列もそれに合わせて確定させる必要がある
-  (承認後の着手事項)。
+  (承認後の着手事項)。前倒しで対応できる範囲として、いずれのキーワードにも一致
+  しない設問があった場合に`console.warn()`で質問文をログへ出力する検知コードを
+  `onFormSubmit`に追記済み(フェーズ342)。これにより実デプロイ後にフォーム側の
+  文言が変更された場合も、Apps Script実行ログ上で取りこぼしに気付ける。ただし
+  検知のみであり、マッピング文字列自体の自動修正は行わない(取りこぼした場合は
+  手動でマッピング文字列を更新する運用を想定)。
 - GAS実行の失敗(401/400等)をオーナーへ能動的に通知する経路(例:
   失敗時にオーナー宛メール送信、`MailApp.sendEmail()`)は本草案では未実装。
   件数が少ない前提(低頻度のB2B申込)であれば定期的なログ確認で足りると判断し、
