@@ -3,7 +3,8 @@
     "description": "venue-master-draft.md(フェーズ2)の一次ドラフトを、venue-master-data-structure-design.md(フェーズ12)の構造案に沿ってJSON化した内部参照データ。フェーズ15(2026-10-30 04:00 UTC定例更新)で実ファイル化した。schema/output.schema.json(ユーザー向け出力スキーマ)とは別物であり、本ファイルはitinerary_draft.venue_matched判定ロジックが実装時に参照する想定の静的アセット(tech-stack.md記載のCloud Run同梱方針)。コード実装・外部サービス接続は一切行っていない。",
     "field_notes": {
       "naming_rights_review_due": "naming_rights=trueの会場のうち、契約満了日・次回更新予定が実際にWebSearchで裏取りできたものにのみ日付を設定する。未確認の場合はnullとし、verification_noteに理由を記す(推測日付を記入しない方針、フェーズ15で追加したルール)。",
-      "verification_note": "naming_rights_review_dueが未確認(null)の場合の理由、または別施設との混同リスク等、名寄せ・運用上の注意点を記録する任意フィールド(フェーズ15で追加)。"
+      "verification_note": "naming_rights_review_dueが未確認(null)の場合の理由、または別施設との混同リスク等、名寄せ・運用上の注意点を記録する任意フィールド(フェーズ15で追加)。",
+      "operational_status": "フェーズ20(2026-10-30 13:00 UTC)で追加。会場が現在もイベント会場として稼働しているかを示す(active/closed/uncertain)。老朽化による建て替え・後継施設への移行等で既存会場が稼働を終えているケースをWebSearchで発見したため追加した。デフォルトはactiveとし、closed/uncertainの場合はverification_noteに根拠・後継施設情報を記す。"
     }
   },
   "venues": [
@@ -16,7 +17,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "日本武道館",
@@ -27,18 +29,23 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "国立代々木競技場",
-      "aliases": ["代々木第一体育館", "代々木第二体育館"],
+      "aliases": [
+        "代々木第一体育館",
+        "代々木第二体育館"
+      ],
       "region": "東京圏",
       "nearest_station": "JR 原宿駅、地下鉄 代々木公園駅",
       "walk_minutes_note": "徒歩5〜10分",
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": "国立施設であり命名権契約は確認されていない。"
+      "verification_note": "国立施設であり命名権契約は確認されていない。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "さいたまスーパーアリーナ",
@@ -49,7 +56,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "有明アリーナ",
@@ -60,7 +68,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": "東京2020大会向け整備の公共施設であり命名権契約は確認されていない。"
+      "verification_note": "東京2020大会向け整備の公共施設であり命名権契約は確認されていない。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "Kアリーナ横浜",
@@ -71,7 +80,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ15で裏取り。『K』はケン・コーポレーションによるKアリーナプロジェクトの開発名称であり、企業の命名権(ネーミングライツ)契約ではないことをWebSearchで確認した(命名権スポンサーは存在しない)。別施設の横浜アリーナ(新横浜)と混同しやすいため、venue-name-normalization-design.mdの『別施設との混同』パターンの対象として要注意。"
+      "verification_note": "フェーズ15で裏取り。『K』はケン・コーポレーションによるKアリーナプロジェクトの開発名称であり、企業の命名権(ネーミングライツ)契約ではないことをWebSearchで確認した(命名権スポンサーは存在しない)。別施設の横浜アリーナ(新横浜)と混同しやすいため、venue-name-normalization-design.mdの『別施設との混同』パターンの対象として要注意。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "幕張メッセ",
@@ -82,7 +92,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "東京ガーデンシアター",
@@ -93,18 +104,22 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "京セラドーム大阪",
-      "aliases": ["大阪ドーム"],
+      "aliases": [
+        "大阪ドーム"
+      ],
       "region": "大阪・関西圏",
       "nearest_station": "地下鉄/JR 大阪ドーム前千代崎駅",
       "walk_minutes_note": "徒歩2分前後",
       "naming_rights": true,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ15で裏取り。旧名称『大阪ドーム』から2006年に京セラが命名権を取得し現名称になったことは確認できたが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった(オリックス・バファローズ公式またはオリックス不動産〈大阪シティドーム〉の公式発表の直接確認が必要)。naming_rights_review_dueは未確定のためnullとし、次回以降に裏取りを継続する。"
+      "verification_note": "フェーズ15で裏取り。旧名称『大阪ドーム』から2006年に京セラが命名権を取得し現名称になったことは確認できたが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった(オリックス・バファローズ公式またはオリックス不動産〈大阪シティドーム〉の公式発表の直接確認が必要)。naming_rights_review_dueは未確定のためnullとし、次回以降に裏取りを継続する。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "大阪城ホール",
@@ -115,7 +130,8 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "なんばHatch",
@@ -126,51 +142,81 @@
       "naming_rights": false,
       "last_verified_date": "2026-10-28",
       "naming_rights_review_due": null,
-      "verification_note": null
+      "verification_note": null,
+      "operational_status": "active"
     },
     {
       "canonical_name": "エディオンアリーナ大阪",
-      "aliases": ["大阪府立体育会館"],
+      "aliases": [
+        "大阪府立体育会館"
+      ],
       "region": "大阪・関西圏",
       "nearest_station": "地下鉄 日本橋駅",
       "walk_minutes_note": "徒歩2分前後",
       "naming_rights": true,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": "2028-08-31",
-      "verification_note": "フェーズ13で裏取り済み。2023年4月21日付でエディオンが大阪府との契約を2023年9月1日〜2028年8月31日(年額2,100万円・税別)でさらに5年間再延長したことをエディオン公式ニュースリリース等で確認した。"
+      "verification_note": "フェーズ13で裏取り済み。2023年4月21日付でエディオンが大阪府との契約を2023年9月1日〜2028年8月31日(年額2,100万円・税別)でさらに5年間再延長したことをエディオン公式ニュースリリース等で確認した。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "バンテリンドーム ナゴヤ",
-      "aliases": ["ナゴヤドーム"],
+      "aliases": [
+        "ナゴヤドーム"
+      ],
       "region": "名古屋圏",
       "nearest_station": "地下鉄 ナゴヤドーム前矢田駅",
       "walk_minutes_note": "徒歩3分前後",
       "naming_rights": true,
       "last_verified_date": "2026-10-29",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ10で2021年の改称(ナゴヤドーム→バンテリンドーム ナゴヤ)・2026年時点での継続使用は確認済みだが、現行契約の満了日・次回更新予定は未確認。venue-master-data-structure-design.md(フェーズ12)の構造例ではこのレコードの`naming_rights_review_due`に仮の例示値『2027-10-29』を記載していたが、これは設計ドキュメント内の説明用ダミー値であり実際の契約情報ではないため、本ファイルでは採用せずnullとした(推測日付を記入しない方針、フェーズ15で追加したルール)。"
+      "verification_note": "フェーズ10で2021年の改称(ナゴヤドーム→バンテリンドーム ナゴヤ)・2026年時点での継続使用は確認済みだが、現行契約の満了日・次回更新予定は未確認。venue-master-data-structure-design.md(フェーズ12)の構造例ではこのレコードの`naming_rights_review_due`に仮の例示値『2027-10-29』を記載していたが、これは設計ドキュメント内の説明用ダミー値であり実際の契約情報ではないため、本ファイルでは採用せずnullとした(推測日付を記入しない方針、フェーズ15で追加したルール)。",
+      "operational_status": "active"
     },
     {
       "canonical_name": "愛知県体育館",
-      "aliases": ["ドルフィンズアリーナ"],
+      "aliases": [
+        "ドルフィンズアリーナ"
+      ],
       "region": "名古屋圏",
       "nearest_station": "地下鉄 市役所駅・名城公園駅",
       "walk_minutes_note": "徒歩15分前後",
       "naming_rights": false,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ18で是正。フェーズ15時点では本レコードを『日本ガイシホール(愛知県体育館の命名権付き愛称)』として記録していたが誤りであった。日本ガイシ(NGK)が命名権を保有するのは名古屋市南区にある別施設『名古屋市総合体育館』内のホールの愛称『日本ガイシホール』であり、名古屋城二の丸跡(中区)にある県立施設『愛知県体育館』はこれとは無関係の施設で、現在の通称は『ドルフィンズアリーナ』であることをWebSearchで確認した。『ドルフィンズアリーナ』が企業の命名権(ネーミングライツ)契約による愛称か、契約を伴わない通称かはWebSearchでは確認できなかったため、naming_rightsはfalseとせず確証が得られるまで保留する(推測で命名権ありと記入しない方針)。次回以降、県公式発表での裏取りが必要。なお愛知県体育館は『IGアリーナ』(2025年7月開業の愛知県新体育館)の旧来施設にあたる後継関係にあり、これも将来の混同リスク候補として記録する。"
+      "verification_note": "フェーズ18で是正。フェーズ15時点では本レコードを『日本ガイシホール(愛知県体育館の命名権付き愛称)』として記録していたが誤りであった。日本ガイシ(NGK)が命名権を保有するのは名古屋市南区にある別施設『名古屋市総合体育館』内のホールの愛称『日本ガイシホール』であり、名古屋城二の丸跡(中区)にある県立施設『愛知県体育館』はこれとは無関係の施設で、現在の通称は『ドルフィンズアリーナ』であることをWebSearchで確認した。『ドルフィンズアリーナ』が企業の命名権(ネーミングライツ)契約による愛称か、契約を伴わない通称かはWebSearchでは確認できなかったため、naming_rightsはfalseとせず確証が得られるまで保留する(推測で命名権ありと記入しない方針)。次回以降、県公式発表での裏取りが必要。なお愛知県体育館は『IGアリーナ』(2025年7月開業の愛知県新体育館)の旧来施設にあたる後継関係にあり、これも将来の混同リスク候補として記録する。 フェーズ20(2026-10-30 13:00 UTC)でWebSearch追加調査した結果、本施設(ドルフィンズアリーナ)は老朽化により2025年7月開業の後継施設『IGアリーナ』(愛知国際アリーナ、名古屋市北区名城公園内)に機能移転したことを複数の報道で確認した。プロスポーツ興行としては2025年6月29日の新日本プロレス大会が最後の開催だったとの記述があり、本施設は現在イベント会場として稼働していない可能性が高いためoperational_statusをclosedとした。ただし施設の正式な閉館日・解体/転用計画の一次情報(愛知県公式発表)は今回のWebSearchでは確認できておらず、次回以降の継続裏取り課題として残す。名古屋圏での大規模アイドル・声優・eスポーツ公演は今後IGアリーナが代替会場になる可能性が高いため、IGアリーナを新規会場レコードとして追加した。",
+      "operational_status": "closed"
     },
     {
       "canonical_name": "名古屋市総合体育館",
-      "aliases": ["日本ガイシスポーツプラザ", "日本ガイシホール", "NGKスポーツプラザ", "クロコくんホール"],
+      "aliases": [
+        "日本ガイシスポーツプラザ",
+        "日本ガイシホール",
+        "NGKスポーツプラザ",
+        "クロコくんホール"
+      ],
       "region": "名古屋圏",
       "nearest_station": "JR東海道本線 笠寺駅",
       "walk_minutes_note": "徒歩3分前後(名鉄名古屋本線 本笠寺駅からは徒歩15分前後、名鉄築港線 大江駅からは約1km)",
       "naming_rights": true,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ18で新規追加(名古屋市公表資料・日本ガイシ公表資料でWebSearch裏取り)。名古屋市南区東又兵ヱ町に所在。2007年に日本ガイシ株式会社とネーミングライツ契約(年額1億3,200万円)を締結し『日本ガイシスポーツプラザ』、館内ホール(旧称レインボーホール)は『日本ガイシホール』の愛称で呼ばれてきたが、同社が2026年4月1日付でNGK株式会社へ商号変更するため、施設全体は『NGKスポーツプラザ』、館内ホールは『クロコくんホール』に改称予定。2026年のアジア競技大会向け改修のため2024年4月から休館していたが、2026年2月1日に再開館予定。フェーズ19(2026-10-30 10:00 UTC)で最寄り駅をWebSearch裏取りし、チケット関連サイト複数件が『日本ガイシホール』の最寄り駅をJR笠寺駅(徒歩約3分)と案内していることを確認して追記した。ただし当該WebSearch結果自体は『日本ガイシホール』表記のみに基づくもので『名古屋市総合体育館』が同一施設であることまでは当該検索単独では再確認できておらず、本レコードの別名一致(フェーズ18で名古屋市・日本ガイシ公式資料により確認済み)に基づいて適用した。愛知県体育館(別施設、通称ドルフィンズアリーナ)とは異なる施設であり、いずれも『日本ガイシ』関連の名称を帯びていた時期があるため、ambiguity-watchlist.jsonで混同注意リストとして管理する。"
+      "verification_note": "フェーズ18で新規追加(名古屋市公表資料・日本ガイシ公表資料でWebSearch裏取り)。名古屋市南区東又兵ヱ町に所在。2007年に日本ガイシ株式会社とネーミングライツ契約(年額1億3,200万円)を締結し『日本ガイシスポーツプラザ』、館内ホール(旧称レインボーホール)は『日本ガイシホール』の愛称で呼ばれてきたが、同社が2026年4月1日付でNGK株式会社へ商号変更するため、施設全体は『NGKスポーツプラザ』、館内ホールは『クロコくんホール』に改称予定。2026年のアジア競技大会向け改修のため2024年4月から休館していたが、2026年2月1日に再開館予定。フェーズ19(2026-10-30 10:00 UTC)で最寄り駅をWebSearch裏取りし、チケット関連サイト複数件が『日本ガイシホール』の最寄り駅をJR笠寺駅(徒歩約3分)と案内していることを確認して追記した。ただし当該WebSearch結果自体は『日本ガイシホール』表記のみに基づくもので『名古屋市総合体育館』が同一施設であることまでは当該検索単独では再確認できておらず、本レコードの別名一致(フェーズ18で名古屋市・日本ガイシ公式資料により確認済み)に基づいて適用した。愛知県体育館(別施設、通称ドルフィンズアリーナ)とは異なる施設であり、いずれも『日本ガイシ』関連の名称を帯びていた時期があるため、ambiguity-watchlist.jsonで混同注意リストとして管理する。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "IGアリーナ",
+      "aliases": [
+        "愛知国際アリーナ"
+      ],
+      "region": "名古屋圏",
+      "nearest_station": "地下鉄名城線 名城公園駅",
+      "walk_minutes_note": "徒歩すぐ(公式案内)。鶴舞線 浄心駅からは徒歩18〜20分(情報により差異あり)、名鉄瀬戸線 東大手駅からは徒歩16分の代替ルートもある。",
+      "naming_rights": true,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ20(2026-10-30 13:00 UTC)で新規追加。老朽化した愛知県体育館(ドルフィンズアリーナ、本ファイル内の別レコード、operational_status=closedに変更済み)の後継施設として2025年7月13日グランドオープン(こけら落としは大相撲名古屋場所)。所在地は名古屋市北区名城公園内(名古屋市北区名城1丁目2-22)。最大収容1.7万人。ネーミングライツはIGグループが取得(条例上の正式名称は『愛知国際アリーナ』)。運営はBリーグ『名古屋ダイヤモンドドルフィンズ』のホームアリーナとしても使用される。naming_rights_review_dueは契約満了日が今回のWebSearchでは確認できなかったためnull(推測日付を記入しない既存ルールを踏襲)。",
+      "operational_status": "active"
     }
   ]
 }
