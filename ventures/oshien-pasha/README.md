@@ -402,3 +402,26 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   後継施設IGアリーナ〈2025年7月開業〉に機能移転し現在稼働していない可能性が高いことを発見。
   schema/venue-master.jsonに`operational_status`フィールドを新設し、愛知県体育館をclosedに、
   IGアリーナを新規会場としてactiveで追加)
+- フェーズ21(2026-10-30 14:00 UTC定例更新): フェーズ20の次回候補(1)「`operational_status`を
+  schema/output.schema.json側の判定ロジック(venue_matched/match_confidence)にどう反映するか
+  の設計」に対応し、venue-operational-status-output-reflection-design.mdを新規作成した。
+  `match_confidence`(名寄せの確信度)と`operational_status`(稼働状況)は独立した軸であり
+  単一enumに混在させるべきではないと整理した上で、`itinerary_draft`に新フィールド
+  `venue_operational_status_note`(string|null)を追加する案を机上設計した(`operational_status`
+  が`active`または会場マスタに該当なしの場合はnull、`closed`の場合は後継施設名を含む注意文、
+  `uncertain`の場合は後継施設名を含まない弱い注意文を生成する方針)。venue-match-confidence-
+  and-staleness-design.md(フェーズ13)が`match_confidence`のenum拡張を「実LLMでの安定生成が
+  未検証」との理由でスキーマ本体の変更を見送った判断を踏襲し、本フェーズでも
+  schema/output.schema.json本体の編集は見送り、設計メモとして位置づけた(会場マスタ上で
+  operational_statusが付与済みの会場が現時点で1件〈愛知県体育館〉のみであることも早計な
+  スキーマ確定を避ける理由として追記)。コード実装・スキーマ本体の変更・外部サービス接続は
+  一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は本
+  フェーズでは発生していないためpending-approval.mdへの新規追記は不要。
+  次回候補: (1)他の既存会場(東京ドーム・さいたまスーパーアリーナ等)についても同様の
+  「老朽化・用途変更による稼働停止リスク」の有無を定期的に再確認する運用方針の検討、
+  (2)愛知県体育館の正式な閉館日・今後の用途(解体/転用)の継続裏取り(愛知県公式発表等)、
+  (3)京セラドーム大阪の命名権契約満了日・更新年の継続裏取り、(4)`match_confidence`拡張・
+  `venue_operational_status_note`追加をセットにしたテストケース仕様の具体化(実API接続後)。
+- 最終更新: 2026-10-30 14:00 UTC(フェーズ21: 詳細は上記。venue-operational-status-output-
+  reflection-design.mdを新規作成し、operational_statusの出力スキーマ側への反映方針〈新フィールド
+  `venue_operational_status_note`案、スキーマ本体編集は見送り〉を設計)
