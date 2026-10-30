@@ -6124,3 +6124,31 @@
   実行の月次バッチにretry_config設定の価値があると判断し、aircon-pashaの確定値を
   採用する方針をstripe-cancellation-deletion-candidate-trigger-design.md 5節に
   新規追記。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)
+- フェーズ341(2026-10-30 01:00 UTC定例更新): フェーズ338(firestore-runtime-
+  dependency-failure-form-submission-response-design.md)が残課題6節で「GAS側
+  リトライループの`gas-script-draft.md`への追記は、実Firestore導入・Googleフォーム+
+  GAS Webhook自体の結合実装フェーズ(承認後)とセットで着手する」としていた点を
+  見直した。本リトライループはApps Scriptの**コードテキスト草案**(本リポジトリ内で
+  実行・デプロイを一切伴わない)への追記であり、実Firestore接続や実Googleフォーム
+  作成とは独立して机上で前倒し可能と判断し、`gas-script-draft.md`の`onFormSubmit`
+  コード草案に503(Firestoreランタイム依存構築失敗)専用のリトライループ
+  (最大3回、`Utilities.sleep()`による指数バックオフ1秒→2秒→4秒)を追記した。
+  401(シークレット不一致)・400(入力検証エラー)はリトライしても結果が変わらない
+  ため明示的にリトライ対象から除外し、503のみを対象とする条件分岐とした。
+  firestore-runtime-dependency-failure-form-submission-response-design.md 6節にも
+  前倒し実施済みであることを追記した。コード変更なし(GASテキスト草案・設計文書の
+  更新のみ、`prototype/`配下の`.py`には変更なし)、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3
+  schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし
+  (実Googleフォーム作成・GASデプロイ自体は既存の承認待ち事項の範囲内で変更なし)。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・Googleフォーム+GAS Webhook
+  自体の承認)がオーナーから承認された場合はその着手を最優先、(2)5.1節のログ出力側
+  `.py`実装への`event`フィールド構造化反映(実`google-cloud-firestore`導入とセットの
+  結合実装フェーズに持ち越し)、(3)質問文の部分一致マッピングが脆弱な点(gas-script-
+  draft.md残課題1点目)の実デプロイ時最終確定、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 01:00 UTC(フェーズ341: 詳細は上記。gas-script-draft.mdの
+  `onFormSubmit`コード草案に503専用の最大3回・指数バックオフリトライループを追記し、
+  firestore-runtime-dependency-failure-form-submission-response-design.md 6節の
+  残課題を前倒し解消。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)

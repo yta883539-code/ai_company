@@ -73,15 +73,37 @@ function onFormSubmit(e) {
     muteHttpExceptions: true,
   };
 
-  var response = UrlFetchApp.fetch(endpointUrl, options);
-  var statusCode = response.getResponseCode();
+  // firestore-runtime-dependency-failure-form-submission-response-design.md 5節の
+  // 方針: 503(Firestoreランタイム依存構築失敗)は申込者の入力・送信自体には起因しない
+  // 一時的な不具合であり、401(シークレット不一致)・400(入力検証エラー、再入力しても
+  // 同じ結果になりうる)とは異なりUrlFetchApp.fetch()を変えずに再送すれば成功する可能性が
+  // あるため、503のみ最大3回・指数バックオフ(1秒→2秒→4秒、Utilities.sleep())で
+  // リトライする。401/400はリトライしても結果が変わらないためリトライ対象から除外する。
+  var maxRetries = 3;
+  var backoffMs = [1000, 2000, 4000];
+  var statusCode;
+  var responseBody;
+  for (var attempt = 0; attempt < maxRetries; attempt++) {
+    var response = UrlFetchApp.fetch(endpointUrl, options);
+    statusCode = response.getResponseCode();
+    responseBody = response.getContentText();
+    if (statusCode !== 503) {
+      // 200(成功)・401/400(リトライしても結果が変わらない)はこの時点でループを抜ける。
+      break;
+    }
+    if (attempt < maxRetries - 1) {
+      Utilities.sleep(backoffMs[attempt]);
+    }
+  }
+
   if (statusCode !== 200) {
     // design 3節の通りフォーム回答者への追加エラー表示は行わず、ログのみ残す。
     // オーナーがGAS実行ログ(実行数、表示: 拡張機能 > Apps Script > 実行数)を
-    // 手動確認して個別対応する運用(MVPの割り切り)。
+    // 手動確認して個別対応する運用(MVPの割り切り)。503は最大3回リトライしても
+    // 解消しなかった場合にここに到達する。
     console.error(
       "application form submission failed: status=" + statusCode +
-      " body=" + response.getContentText()
+      " body=" + responseBody
     );
   }
 }
