@@ -1,0 +1,165 @@
+{
+  "_meta": {
+    "description": "venue-master-draft.md(フェーズ2)の一次ドラフトを、venue-master-data-structure-design.md(フェーズ12)の構造案に沿ってJSON化した内部参照データ。フェーズ15(2026-10-30 04:00 UTC定例更新)で実ファイル化した。schema/output.schema.json(ユーザー向け出力スキーマ)とは別物であり、本ファイルはitinerary_draft.venue_matched判定ロジックが実装時に参照する想定の静的アセット(tech-stack.md記載のCloud Run同梱方針)。コード実装・外部サービス接続は一切行っていない。",
+    "field_notes": {
+      "naming_rights_review_due": "naming_rights=trueの会場のうち、契約満了日・次回更新予定が実際にWebSearchで裏取りできたものにのみ日付を設定する。未確認の場合はnullとし、verification_noteに理由を記す(推測日付を記入しない方針、フェーズ15で追加したルール)。",
+      "verification_note": "naming_rights_review_dueが未確認(null)の場合の理由、または別施設との混同リスク等、名寄せ・運用上の注意点を記録する任意フィールド(フェーズ15で追加)。"
+    }
+  },
+  "venues": [
+    {
+      "canonical_name": "東京ドーム",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "JR/地下鉄 水道橋駅、後楽園駅",
+      "walk_minutes_note": "徒歩5分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "日本武道館",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "地下鉄 九段下駅",
+      "walk_minutes_note": "徒歩5分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "国立代々木競技場",
+      "aliases": ["代々木第一体育館", "代々木第二体育館"],
+      "region": "東京圏",
+      "nearest_station": "JR 原宿駅、地下鉄 代々木公園駅",
+      "walk_minutes_note": "徒歩5〜10分",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": "国立施設であり命名権契約は確認されていない。"
+    },
+    {
+      "canonical_name": "さいたまスーパーアリーナ",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "JR/埼玉新都市交通 さいたま新都心駅",
+      "walk_minutes_note": "徒歩3分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "有明アリーナ",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "りんかい線 国際展示場駅、ゆりかもめ 有明駅",
+      "walk_minutes_note": "徒歩8分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": "東京2020大会向け整備の公共施設であり命名権契約は確認されていない。"
+    },
+    {
+      "canonical_name": "Kアリーナ横浜",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "JR/東急 新高島駅、みなとみらい駅",
+      "walk_minutes_note": "徒歩5分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ15で裏取り。『K』はケン・コーポレーションによるKアリーナプロジェクトの開発名称であり、企業の命名権(ネーミングライツ)契約ではないことをWebSearchで確認した(命名権スポンサーは存在しない)。別施設の横浜アリーナ(新横浜)と混同しやすいため、venue-name-normalization-design.mdの『別施設との混同』パターンの対象として要注意。"
+    },
+    {
+      "canonical_name": "幕張メッセ",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "JR 海浜幕張駅",
+      "walk_minutes_note": "徒歩15分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "東京ガーデンシアター",
+      "aliases": [],
+      "region": "東京圏",
+      "nearest_station": "りんかい線 国際展示場駅",
+      "walk_minutes_note": "徒歩3分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "京セラドーム大阪",
+      "aliases": ["大阪ドーム"],
+      "region": "大阪・関西圏",
+      "nearest_station": "地下鉄/JR 大阪ドーム前千代崎駅",
+      "walk_minutes_note": "徒歩2分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ15で裏取り。旧名称『大阪ドーム』から2006年に京セラが命名権を取得し現名称になったことは確認できたが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった(オリックス・バファローズ公式またはオリックス不動産〈大阪シティドーム〉の公式発表の直接確認が必要)。naming_rights_review_dueは未確定のためnullとし、次回以降に裏取りを継続する。"
+    },
+    {
+      "canonical_name": "大阪城ホール",
+      "aliases": [],
+      "region": "大阪・関西圏",
+      "nearest_station": "JR 大阪城公園駅",
+      "walk_minutes_note": "徒歩3分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "なんばHatch",
+      "aliases": [],
+      "region": "大阪・関西圏",
+      "nearest_station": "南海/地下鉄 なんば駅",
+      "walk_minutes_note": "徒歩10分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-10-28",
+      "naming_rights_review_due": null,
+      "verification_note": null
+    },
+    {
+      "canonical_name": "エディオンアリーナ大阪",
+      "aliases": ["大阪府立体育会館"],
+      "region": "大阪・関西圏",
+      "nearest_station": "地下鉄 日本橋駅",
+      "walk_minutes_note": "徒歩2分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": "2028-08-31",
+      "verification_note": "フェーズ13で裏取り済み。2023年4月21日付でエディオンが大阪府との契約を2023年9月1日〜2028年8月31日(年額2,100万円・税別)でさらに5年間再延長したことをエディオン公式ニュースリリース等で確認した。"
+    },
+    {
+      "canonical_name": "バンテリンドーム ナゴヤ",
+      "aliases": ["ナゴヤドーム"],
+      "region": "名古屋圏",
+      "nearest_station": "地下鉄 ナゴヤドーム前矢田駅",
+      "walk_minutes_note": "徒歩3分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-10-29",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ10で2021年の改称(ナゴヤドーム→バンテリンドーム ナゴヤ)・2026年時点での継続使用は確認済みだが、現行契約の満了日・次回更新予定は未確認。venue-master-data-structure-design.md(フェーズ12)の構造例ではこのレコードの`naming_rights_review_due`に仮の例示値『2027-10-29』を記載していたが、これは設計ドキュメント内の説明用ダミー値であり実際の契約情報ではないため、本ファイルでは採用せずnullとした(推測日付を記入しない方針、フェーズ15で追加したルール)。"
+    },
+    {
+      "canonical_name": "日本ガイシホール",
+      "aliases": ["愛知県体育館"],
+      "region": "名古屋圏",
+      "nearest_station": "地下鉄 市役所駅・名城公園駅",
+      "walk_minutes_note": "徒歩15分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-10-30",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ15で裏取り。日本ガイシ(NGK)が愛知県体育館の命名権を保有していることは一般に知られているが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった。加えて、日本ガイシは別施設の名古屋市総合体育館の命名権も保有しており、2026年4月1日付で愛称を『名古屋市総合体育館 日本ガイシアリーナ』相当から『NGKスポーツプラザ』へ変更することが日本ガイシの発表で確認できた。両施設(愛知県施設の『日本ガイシホール』と名古屋市施設の『NGKスポーツプラザ』)はいずれも日本ガイシ関連の名称を持ち、かつ同じ名古屋市内にあるため、ファンが入力した会場名が略称・通称で与えられた場合に取り違える新たな混同リスクがあることを本フェーズで新たに発見した。venue-name-normalization-design.mdの『別施設との混同』パターンの追加候補として次回以降の名寄せ設計に反映する必要がある。"
+    }
+  ]
+}
