@@ -4111,3 +4111,24 @@
   削除候補最終確認〜削除実行の月次バッチの`retry_config`(retry_count: 5、指数バックオフ
   5分〜1時間)を新規追記し、aircon-pasha発の横断確認申し送りに対応。日次バッチは対応不要。
   コード変更なし、テスト93件・schema検証11件いずれも変更なしでパス)
+- フェーズ198(2026-10-30 08:00 UTC定例更新): kura-pashaフェーズ271が自venture側で発見した
+  「launch-readiness-checklist.mdの承認待ち事項節とpending-approval.md本文の突き合わせ漏れ」
+  と同種の棚卸しを本venture側でも実施した。pending-approval.mdには本venture宛のエントリが
+  4件(2026-10-05 21:00 UTC〈建荷協・都道府県労働局への対外連絡〉・2026-10-06 22:00 UTC
+  〈Stripeアカウント開設〉・2026-10-10 18:00 UTC〈トライアル終了通知用Cloud Scheduler作成・
+  メール送信〉・2026-10-24 07:00 UTC〈実GCPプロジェクト・Firestoreデータベース新規作成〉)
+  記録されているのに対し、launch-readiness-checklist.mdの「承認待ち事項」節には最初の2件
+  (建荷協・労働局/Stripe)しか反映されておらず、後続の2件(Cloud Scheduler・メール送信/
+  GCP・Firestore作成)が反映漏れになっていたことを発見した。pending-approval.md側は正しく
+  記録済みであり、実行済みアクションは一切ない。launch-readiness-checklist.mdに項目3・4
+  として新規追記し是正した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(93件、変更なし)・`python3 schema/validate_test_cases.py`
+  (11件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜4のいずれかがオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 08:00 UTC(フェーズ198: 詳細は上記。launch-readiness-checklist.mdの
+  承認待ち事項節にCloud Scheduler作成・メール送信〈2026-10-10 18:00 UTC記載〉・実GCP/
+  Firestore作成〈2026-10-24 07:00 UTC記載〉の反映漏れを発見し是正。コード変更なし、
+  テスト93件・schema検証11件いずれも変更なしでパス)

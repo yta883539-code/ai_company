@@ -75,18 +75,41 @@ launch-readiness-checklist.mdで承認待ち事項を依存順に一覧化済み
    前提としないため、決済時の本人確認方式は別途検討が必要だったが、フェーズ95で
    payment-identity-verification-design.md(アクセストークン方式)として設計済み。
 
+3. **トライアル終了通知用Cloud Schedulerの作成・メール送信**(2026-10-10 18:00 UTC記載)
+   trial-end-notification-design.md(フェーズ119)で設計したトライアル終了通知
+   (無料トライアルの生成回数5回到達、または初回生成から30日経過のいずれか早い方で
+   1回送信)の(B)期間到達経路に必要な日次バッチ用Cloud Scheduler(GCPプロジェクトの
+   課金設定を伴う)の作成、および対象事業者のメールアドレス宛への実際のメール送信
+   (送信手段・送信元ドメインの確定を含む)。
+   → 承認後: Cloud Schedulerのデプロイ(日次1回の対象者抽出バッチ)、メール送信手段
+   (SMTP/メールAPI)の選定から着手する。メール送信はGmail等の連携接続後、送信直前に
+   毎回オーナーの確認を得てからのみ行う(line-reservation-ai等の既承認案件と同じ運用)。
+
+4. **実GCPプロジェクトの作成・Firestoreデータベースの新規作成**(2026-10-24 07:00 UTC記載)
+   本venture稼働に必須の実際のGCPプロジェクトの作成(課金設定を含む)、および
+   Firestoreデータベースの新規作成(本番用の`FleetOperatorStoreProtocol`
+   〈全15メソッド、フェーズ184時点で実コード化完了〉・`AccessTokenStoreProtocol`等、
+   firestore-composite-index-plan.md・fleet-operator-store-upgraded-canceled-
+   firestore-adapter-design.md等で設計済みの各Firestoreアダプタの実コレクション・
+   ドキュメント構造のデプロイ先)。本venture側の実コード化自体はフェーズ184までに
+   完了済みで、残るのは外部サービス側の作成・課金設定のみ。
+   → 承認後: 実GCPプロジェクトの作成、Firestoreデータベースの新規作成、
+   `google-cloud-firestore`ライブラリへの切り替え・`FORKLIFT_PASHA_FIRESTORE_ENABLED`
+   フラグの結線、`firestore.indexes.json`の実デプロイから着手する。
+
 本ventureは他4ventureと異なり、LINE公式アカウントの開設は入力チャネルがLINE非依存の
-汎用Webフォーム(tech-stack.mdフェーズ70暫定決定)であるため不要と見込まれる。上記2の
-Stripeアカウント開設が、本venture稼働に必須の外部サービス契約としては現時点で唯一の
-記載済み事項である。
+汎用Webフォーム(tech-stack.mdフェーズ70暫定決定)であるため不要と見込まれる。
+pending-approval.md記載の本venture宛エントリは上記4件で、他venture側の棚卸しで
+度々発見されてきた「記載漏れ」は本チェックリスト自体の反映漏れ(上記3・4が未反映)
+として存在していたが、本フェーズでこれを是正した。
 
 ## 次回候補
 
-上記1・2のいずれかがオーナーから承認された場合、その着手を最優先とする。上記1は
-時期的な緊急性(月間開始まで残り約25日)があるため、承認判断自体を急いでいただきたい
-旨を次回のオーナー向け案内でも明示する。承認が得られるまでの間は、(1)annual区分の
-法定保存義務との整合確認(legal-notices-draft.md次回候補(1))、(2)data-retention-
-policy.mdの切り出し、または他venture・アイデア領域の前進を行う。
+上記1〜4のいずれかがオーナーから承認された場合、その着手を最優先とする。上記1は
+時期的な緊急性があったが、フェーズ188時点で今年度(2026年)の「特定自主検査強調月間」
+(11月)に合わせた紹介機会での活用は実質的に困難と判断済み(campaign-window-approval-
+contingency.md参照、承認待ち事項自体は取り下げない)。承認が得られるまでの間は、
+他venture・アイデア領域の前進を行う。
 (access-token-reissue-design.mdフェーズ98が次回候補とした`lastAccessedAt`表示の実装
 検討は、フェーズ99でfirestore-data-model.mdへのフィールド追加・更新タイミング・表示方法
 の確定まで完了した。)
@@ -153,3 +176,15 @@ campaign-window-approval-contingency.md 1.が示す通年提案(「強調月間�
 (Stripeアカウント開設)は本判断の対象外で引き続き未承認のまま。コード変更なし、
 確認・文書記録のみ。承認が必要なアクションは今回発生していないためpending-
 approval.mdへの追記なし)
+最終更新: 2026-10-30 08:00 UTC(フェーズ198: kura-pashaフェーズ271が自venture側で発見
+した「launch-readiness-checklist.mdの承認待ち事項節とpending-approval.md本文の
+突き合わせ漏れ」と同種の棚卸しを本venture側でも実施した結果、本チェックリストが
+pending-approval.md記載の本venture宛4件のうち2件(2026-10-10 18:00 UTC記載のトライアル
+終了通知用Cloud Scheduler作成・メール送信、2026-10-24 07:00 UTC記載の実GCPプロジェクト・
+Firestoreデータベース新規作成)を反映していなかったことを発見した。pending-approval.md
+側は正しく記録済みであり、実行済みアクションは一切ない。上記承認待ち事項節に項目3・4として
+新規追記し是正した。コード変更なし、回帰確認として`python3 -m unittest discover -s
+prototype -p "test_*.py"`(93件、変更なし)・`python3 schema/validate_test_cases.py`
+(11件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし)
