@@ -528,6 +528,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   (3)venue-name-normalization-design.mdの段階的マッチング手順に「休館中だが愛称は契約上適用済み」
   というさいたまスーパーアリーナ特有のパターンを反映する設計、(4)`match_confidence`拡張・
   `venue_operational_status_note`追加をセットにしたテストケース仕様の具体化(実API接続後)。
-- 最終更新: 2026-10-30 19:00 UTC(フェーズ25: Kアリーナ横浜・大阪城ホール・なんばHatch・
-  東京ガーデンシアターの4会場の稼働停止リスクを確認し、いずれもactiveを維持。各施設の最新の
-  公演予定・運営状況をverification_noteに追記)
+- フェーズ26(2026-10-30 22:00 UTC定例更新): フェーズ22・25の次回候補(2)「段階的マッチング
+  手順に『休館中だが愛称は契約上適用済み』というさいたまスーパーアリーナ特有のパターンを
+  反映する設計」に対応し、venue-name-normalization-design.mdに新規セクションを追加した。
+  論点1として、既存のclosed時テンプレ文言(venue-operational-status-output-reflection-design.md
+  フェーズ20設計)は愛知県体育館→IGアリーナのような「後継施設への恒久的機能移転」を前提と
+  しており、GMOアリーナさいたまのような「改修工事による一時休館(2027年4月再開予定、施設は
+  存続)」にそのまま適用すると誤解を招くことを指摘し、`closed_permanent`/`closed_temporary`の
+  細分類案を記録した。論点2として、改称直後で旧名称の認知度が当面高い会場向けに、エイリアス
+  辞書の各エントリへ`recognition_priority`(`high`/`normal`)注釈を追加し、一致判定ロジックには
+  影響させず出力文面(正式名称と入力名称の併記要否)にのみ反映する設計案を記録した。両論点を
+  組み合わせた案内文イメージも記載した。いずれも設計メモに留め、schema/venue-master.json・
+  schema/output.schema.jsonの編集は行っていない(理由はvenue-operational-status-output-
+  reflection-design.mdと同じく実LLMでの安定生成検証が未済のため)。コード実装・外部サービス
+  接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  本フェーズでは発生していないためpending-approval.mdへの新規追記は不要。
+  次回候補: (1)`recognition_priority`の`high`→`normal`切り替えタイミングの具体的な判定方法の
+  検討、(2)一定期間を空けた16会場の定期再確認サイクルへの移行方針の具体化(フェーズ25の
+  次回候補(1)を引き継ぐ)、(3)京セラドーム大阪の命名権契約満了日の確認手段の検討(WebSearch
+  以外、フェーズ25の次回候補(2)を引き継ぐ)、(4)`match_confidence`拡張・
+  `venue_operational_status_note`追加・`closed_permanent`/`closed_temporary`細分類・
+  `recognition_priority`注釈を全てセットにしたテストケース仕様の具体化(実API接続後)。
+- 最終更新: 2026-10-30 22:00 UTC(フェーズ26: venue-name-normalization-design.mdに
+  「休館中だが愛称は契約上適用済み」パターン〈GMOアリーナさいたま特有〉への対応として、
+  closed_permanent/closed_temporary細分類案とrecognition_priority注釈案の2論点を追加)
