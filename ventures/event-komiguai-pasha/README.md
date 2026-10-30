@@ -1600,3 +1600,25 @@
   データベース作成の承認依頼がpending-approval.mdに未記録だった記載漏れを発見し新規記録。
   これで6venture全ての同種棚卸しが完了。コード変更なし、schema検証22件・prototype試験50件
   いずれも変更なしでパス)
+- フェーズ75(2026-10-30 07:00 UTC定例更新): 他venture(aircon-pasha・course-set-pasha・
+  forklift-pasha・kura-pasha・line-reservation-ai)はいずれもlegal-notices-draft.md
+  (特定商取引法に基づく表記・プライバシーポリシー文面草案)を作成済みだが、本ventureには
+  同種の文書が未作成のまま残っていたcross-venture parityギャップを発見し、legal-notices-
+  draft.mdを新規作成した。他venture版との最大の違いは、本venture固有の単発利用プラン
+  (アカウント登録なし・500円/回、one-time-checkout-no-account-design.mdフェーズ10)の
+  特商法表記(支払時期・提供時期・返品不可の扱い)、および`one_time_draft`の24時間TTL・
+  `inquiry`の1年保有というdata-retention-policy.md(フェーズ60〜69)の保存期間方針の反映。
+  単発利用の「生成後キャンセル不可」表示がクーリング・オフ制度との関係で妥当かという、
+  月額サブスクのみの他ventureでは論点化していなかった本venture固有の新規論点を2.5節に
+  追加した。コード変更なし(設計文書の新規作成のみ)、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(50件、変更なし)・`python3 schema/
+  validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)本フェーズのlegal-notices-draft.mdと
+  web-form-ui-design.mdを合わせたLP掲載用ページ構成の設計(公開自体は引き続き承認待ち)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 07:00 UTC(フェーズ75: 詳細は上記。legal-notices-draft.mdを新規
+  作成し、他5ventureとのcross-venture parityギャップを解消。コード変更なし、
+  schema検証22件・prototype試験50件いずれも変更なしでパス)
