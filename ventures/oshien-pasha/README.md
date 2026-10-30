@@ -189,5 +189,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   次回候補: (1)エディオンアリーナ大阪の2023年9月以降の命名権契約状況の再確認、(2)異常検知の
   閾値・対応方針の検討(実利用データ観察後)、(3)`last_verified_date`フィールドの会場マスタ
   データ構造への反映方法、(4)短期間内の連続プラン切替時の初回割引の再検討(実利用データ観察後)。
-- 最終更新: 2026-10-29 23:00 UTC(フェーズ11: plan-change-billing-design.md新規作成。都度プラン
-  ⇔月額フリーパスのプラン変更時の課金面の扱いを検討し、追加のクレジット管理構造は不要と結論)
+- フェーズ12(2026-10-30 00:00 UTC定例更新): 次回候補(4)の「`last_verified_date`フィールドを
+  含めたschema/output.schema.json側(内部的な会場マスタデータ構造)への反映方法の検討」に対応し、
+  venue-master-data-structure-design.mdを新規作成した。まず`schema/output.schema.json`(LLMの
+  ユーザー向け出力スキーマ)と、venue-master-draft.mdが持つ内部参照データ(会場マスタ)とは
+  別物であることを整理した上で、後者をJSON化する際の構造案(`canonical_name`・`aliases`・
+  `naming_rights`・`last_verified_date`・`naming_rights_review_due`等をレコード単位で持つ)を
+  設計した。venue-alias-verification-and-naming-rights-risk.mdが指摘した命名権契約会場の
+  陳腐化リスクに対応し、命名権契約のある会場のみ`naming_rights_review_due`(年1回の再裏取り
+  期日)を設定し、命名権のない会場は不要な再裏取り運用負荷を避けるためnullとする設計判断を
+  記録した。実際のJSONファイル生成・Cloud Runへのアセット同梱・結合実装は実装着手時
+  (オーナー承認後)の課題として残した。コード実装・外部サービス接続は一切行っていない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは
+  発生していないためpending-approval.mdへの新規追記は不要(既存の承認待ち事項の範囲内で
+  扱う)。
+  次回候補: (1)エディオンアリーナ大阪の2023年9月以降の命名権契約状況の再確認、(2)異常検知の
+  閾値・対応方針の検討(実利用データ観察後)、(3)短期間内の連続プラン切替時の初回割引の
+  再検討(実利用データ観察後)、(4)`naming_rights_review_due`が過去日付になった場合の実運用
+  での扱い(実利用データ観察後)。
+- 最終更新: 2026-10-30 00:00 UTC(フェーズ12: venue-master-data-structure-design.md新規作成。
+  会場マスタの内部データ構造に`last_verified_date`・`naming_rights_review_due`等を持たせる
+  設計案を整理)
