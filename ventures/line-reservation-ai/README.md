@@ -6854,3 +6854,21 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   低頻度バッチが存在しないため`retry_config`設定は対応不要と結論。
   reminder-scheduler-design.md 8節に記録。コード変更なし、テスト1043件・
   schema検証28件いずれも変更なしでパス)
+- フェーズ続き358(2026-10-30 11:00 UTC定例更新): フェーズ続き357で申し送った次回候補(2)
+  「course-set-pasha・forklift-pasha側でのretry_config横断確認の着手」について、
+  aircon-pashaフェーズ351(2026-10-29 22:00 UTC)がcourse-set-pasha・forklift-pasha・
+  kura-pasha・line-reservation-ai・event-komiguai-pashaの5venture全てで対応済み
+  (低頻度バッチ非該当、対応不要)であることを棚卸し確認済みであると判明したため、
+  本venture側の申し送り事項は解消済みとして完了扱いとした。本venture自身の
+  reminder-scheduler-design.md 8節の記録内容に変更はない。コード変更なし、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(1043件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を再実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  2026-10-23 12:00 UTC記載)がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-30 11:00 UTC(フェーズ続き358: 詳細は上記。フェーズ続き357の
+  申し送り事項〈course-set-pasha・forklift-pasha側のretry_config横断確認〉が
+  aircon-pashaフェーズ351で既に完了済みであることを確認し完了扱いとした。コード変更
+  なし、テスト1043件・schema検証28件いずれも変更なしでパス)
