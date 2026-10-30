@@ -552,3 +552,22 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-30 22:00 UTC(フェーズ26: venue-name-normalization-design.mdに
   「休館中だが愛称は契約上適用済み」パターン〈GMOアリーナさいたま特有〉への対応として、
   closed_permanent/closed_temporary細分類案とrecognition_priority注釈案の2論点を追加)
+- フェーズ27(2026-10-30 23:00 UTC定例更新): フェーズ26の次回候補(1)
+  「`recognition_priority`の`high`→`normal`切り替えタイミングの具体的な判定方法の検討」に
+  対応し、venue-name-normalization-design.mdに新規セクションを追加した。日付計算による
+  完全自動切り替えは、旧名称の実際の入力比率を観察できるデータ(`generation_log`への入力名称
+  生テキスト記録)が現時点で未実装のため採用を見送り、代わりにフェーズ25の次回候補(1)
+  「16会場の定期再確認サイクルへの移行」と統合し、サイクルの都度WebSearchで旧名称の言及傾向を
+  簡易確認した上で定性判断により`high`/`normal`を見直す運用とした。これにより2つの残課題
+  (recognition_priorityの切り替えタイミング、定期再確認サイクルへの移行方針)を1つの運用に
+  まとめ、新たなスキーマフィールドの追加なしに対応できることを確認した。schema/venue-
+  master.json・schema/output.schema.jsonの編集は行っていない。コード実装・外部サービス接続は
+  一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  本フェーズでは発生していないためpending-approval.mdへの新規追記は不要。
+  次回候補: (1)京セラドーム大阪の命名権契約満了日の確認手段の検討(WebSearch以外、フェーズ25
+  の次回候補(2)を引き継ぐ)、(2)`match_confidence`拡張・`venue_operational_status_note`追加・
+  `closed_permanent`/`closed_temporary`細分類・`recognition_priority`注釈を全てセットにした
+  テストケース仕様の具体化(実API接続後)、(3)`generation_log`への入力名称生テキスト記録を
+  将来追加する場合のスキーマ・プライバシー面の検討(定性判断から定量判断へ移行する際の前提)。
+- 最終更新: 2026-10-30 23:00 UTC(フェーズ27: recognition_priorityの切り替えタイミング判定
+  方法を、自動日付計算ではなく16会場の定期再確認サイクルに統合した定性判断として確定した)
