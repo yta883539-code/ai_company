@@ -27,9 +27,9 @@
       "nearest_station": "地下鉄 九段下駅",
       "walk_minutes_note": "徒歩5分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-28",
+      "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": null,
+      "verification_note": "フェーズ23(2026-10-30 16:00 UTC)でWebSearchにより老朽化・建て替え計画の有無を再確認したが、東京・九段下の日本武道館自体に関する老朽化・建て替え・休館の情報は見つからず(検索結果は浜松市武道館・徳島県・兵庫県立武道館等、別の地方自治体施設の武道館に関するものだった)、operational_statusはactiveを維持した。",
       "operational_status": "active"
     },
     {
@@ -121,7 +121,7 @@
       "naming_rights": true,
       "last_verified_date": "2026-10-30",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ15で裏取り。旧名称『大阪ドーム』から2006年に京セラが命名権を取得し現名称になったことは確認できたが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった(オリックス・バファローズ公式またはオリックス不動産〈大阪シティドーム〉の公式発表の直接確認が必要)。naming_rights_review_dueは未確定のためnullとし、次回以降に裏取りを継続する。",
+      "verification_note": "フェーズ15で裏取り。旧名称『大阪ドーム』から2006年に京セラが命名権を取得し現名称になったことは確認できたが、現行契約の満了日・直近の更新年はWebSearchでは確認できなかった(オリックス・バファローズ公式またはオリックス不動産〈大阪シティドーム〉の公式発表の直接確認が必要)。naming_rights_review_dueは未確定のためnullとし、次回以降に裏取りを継続する。フェーズ23(2026-10-30 16:00 UTC)で改めてWebSearchを試みたが、2006年の命名権取得(当初5年契約、その後複数回更新されたとの記述のみ)以上の最新の契約満了日・更新年は今回も確認できず、依然未確定(大阪シティドーム株式会社の公式発表・プレスリリースの直接確認が必要)。",
       "operational_status": "active"
     },
     {
