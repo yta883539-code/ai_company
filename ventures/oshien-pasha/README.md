@@ -650,3 +650,32 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   他5ventureとのcross-venture parityギャップ〈LP関連3点セット〉のうち2点目を解消した。
   本venture固有の「当落発表→短時間」の切迫感、1入力メモ→4種の出力という構成をワイヤー
   フレームに反映した)
+- フェーズ32(2026-10-31 07:00 UTC定例更新): フェーズ31の次回候補(1)「landing-page/
+  index.htmlの新規作成(非公開試作HTML、LP関連3点セットの最後の1点)」に対応し、
+  venture初のlanding-page/index.htmlを新規作成した。kura-pasha・aircon-pasha等の既存
+  index.html(モバイル1カラム・detailsタグによるアコーディオンFAQ・CTAはaria-disabled="true"の
+  非活性リンク)の実装方針をそのまま踏襲しつつ、landing-page-wireframe.md(フェーズ31)が
+  指定した本venture固有の2点、(a)ヒーローセクションの「当選メモ1件→4種の出力カード」分岐を
+  画像の代わりにCSSのみの矢印分岐モックアップで表現、(b)機能紹介セクションの⑤(ハシゴ無理
+  チェック)を注意喚起トーンの枠、⑥(実際の予約・決済代行には踏み込まない旨)を区別枠で
+  視覚的に分離、をそれぞれ実装した。配色は他ventureと重複しないピンク系(アイドル・声優
+  オタ活のイメージ)を新規に選定した。これにより他6venture(aircon-pasha・course-set-
+  pasha・event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)との
+  cross-venture parityギャップ(LP関連3点セット)が全て解消した。CTAボタンは実Stripe接続・
+  実GCP/Firestore作成がオーナー承認待ちのため href="#" の非活性リンクのまま、フッターの
+  特定商取引法表記・プライバシーポリシーもlegal-notices-draft.mdの未確定項目があるため
+  リンク先なしとした。ドメイン取得・ホスティング・外部公開は一切行っていない(リポジトリ内の
+  静的ファイルとして配置したのみ)。コード以外の外部サービス接続は一切行っていない。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していない
+  ためpending-approval.mdへの新規追記は不要(既存の承認待ち事項〈実Stripe・実GCP/Firestore
+  作成等〉の範囲内で扱う)。
+  次回候補: (1)月額フリーパスの無料トライアル有無の確定(pricing-plan.md・
+  legal-notices-draft.mdフェーズ29の残課題、確定後に本index.html・LP草案双方の料金
+  セクションへ反映)、(2)京セラドーム大阪の命名権契約満了日の確認手段の検討(WebSearch
+  以外、フェーズ25以来の引き継ぎ課題)、(3)`match_confidence`拡張・
+  `venue_operational_status_note`追加・`closed_permanent`/`closed_temporary`細分類・
+  `recognition_priority`注釈を全てセットにしたテストケース仕様の具体化(実API接続後)、
+  (4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 07:00 UTC(フェーズ32: landing-page/index.htmlを新規作成。
+  LP関連3点セット〈コピー草案・ワイヤーフレーム・実装ドラフト〉が完成し、他6ventureとの
+  cross-venture parityギャップを全て解消した。CTAは非活性リンク、外部公開は未実施)

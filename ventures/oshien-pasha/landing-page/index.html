@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<!--
+  おしえんパシャっと LP 実装ドラフト(定例更新・2026-10-31 07:00 UTC)
+
+  位置づけ: landing-page-wireframe.md(フェーズ31)・landing-page-copy-draft.md
+  (フェーズ30)の内容をそのままHTML/CSSに落とし込んだローカルの実装ドラフトです。
+  ドメイン取得・ホスティング・外部公開は一切行っておらず、このファイルはリポジトリ内に
+  静的ファイルとして置かれているのみです(README.mdの「外部サービスへの公開」には
+  該当しません)。aircon-pasha・kura-pasha・course-set-pasha・line-reservation-aiの
+  landing-page/index.htmlと同じ位置づけ・実装方針を踏襲し、本venture未着手だった
+  cross-venture parityの最後のギャップ(LP関連3点セットの3点目)に対応するものです。
+
+  未実装・意図的なプレースホルダー:
+  - CTAボタンは href="#" の非活性リンク(aria-disabled="true")で、実際の申込・決済
+    フローには接続していません(実Stripeアカウント開設・実GCP/Firestore作成は
+    いずれもpending-approval.md記載分でオーナー承認待ちのため)。
+  - ヒーローの「1入力→4出力」分岐画像(landing-page-wireframe.mdの画像案1)は未制作
+    画像素材の代わりにCSSのみの矢印分岐モックアップで表現した。
+  - 機能紹介セクション⑤(ハシゴ無理チェック)は注意喚起トーンの吹き出し、⑥(やらない
+    こと)は区別枠で視覚的に分離し、wireframe記載の方針をそのまま反映した。
+  - 月額フリーパスの無料トライアル有無は未確定(legal-notices-draft.mdフェーズ29の
+    残課題)のため、料金セクションでは都度プランの「初回1回無料」のみを明記した。
+  - フッターの特定商取引法に基づく表記・プライバシーポリシーはlegal-notices-draft.md
+    の未確定項目(【要記入】)があるためリンク先なし。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おしえんパシャっと(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #fff8fb;
+    --color-fg: #2c2430;
+    --color-accent: #c0397b;
+    --color-accent-dark: #8c2a5b;
+    --color-card: #ffffff;
+    --color-border: #f0d6e4;
+    --color-muted: #6e6270;
+    --color-caution-bg: #fff3e0;
+    --color-caution-border: #f2c48b;
+    --color-exclude-bg: #f3f1f6;
+    --color-exclude-border: #cfc6d8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 40px 20px; }
+  section.alt { background: #fbeef4; }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; }
+  .cta {
+    display: block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 14px; border-radius: 8px;
+    font-weight: bold; margin: 16px 0 6px;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+
+  .hero-icon { font-size: 1.6rem; margin: 0 0 4px; }
+
+  .flow-mock {
+    display: flex; align-items: center; gap: 8px;
+    margin: 20px 0 8px; flex-wrap: wrap;
+  }
+  .flow-mock .memo-card {
+    flex: 1 1 150px; min-width: 0;
+    background: #fffef2;
+    border: 1px solid #e4dfb0;
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 0.8rem; color: var(--color-muted);
+  }
+  .flow-mock .arrow { font-size: 1.4rem; color: var(--color-accent); flex: 0 0 auto; }
+  .output-cards {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    flex: 1 1 180px;
+  }
+  .output-cards .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px; padding: 8px;
+    font-size: 0.72rem; text-align: center;
+  }
+
+  ul.checklist { list-style: none; padding: 0; margin: 0; }
+  ul.checklist li {
+    padding: 8px 0 8px 28px;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+  }
+  ul.checklist li:last-child { border-bottom: none; }
+  ul.checklist li::before {
+    content: "□"; position: absolute; left: 0; top: 8px;
+    color: var(--color-accent);
+  }
+
+  .feature { margin: 0 0 16px; padding: 14px; border-radius: 8px; background: var(--color-card); border: 1px solid var(--color-border); }
+  .feature .num { color: var(--color-accent); font-weight: bold; margin-right: 4px; }
+  .feature.caution { background: var(--color-caution-bg); border-color: var(--color-caution-border); }
+  .feature.caution .num { color: #b5690a; }
+  .feature.exclude { background: var(--color-exclude-bg); border-color: var(--color-exclude-border); }
+  .feature.exclude .num { color: var(--color-muted); }
+
+  ul.diff-list { padding-left: 20px; margin: 0; }
+  ul.diff-list li { margin-bottom: 10px; }
+
+  .price-check { list-style: none; padding: 0; margin: 0 0 16px; }
+  .price-check li { padding: 4px 0 4px 24px; position: relative; font-size: 0.9rem; }
+  .price-check li::before { content: "✓"; position: absolute; left: 0; color: var(--color-accent); font-weight: bold; }
+  .plan-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.9rem; }
+  .plan-table th, .plan-table td { border: 1px solid var(--color-border); padding: 10px; text-align: left; }
+  .plan-table th { background: #fbeef4; }
+
+  details { border-bottom: 1px solid var(--color-border); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p { margin: 10px 0 0; color: var(--color-muted); font-size: 0.9rem; }
+
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+  footer a { color: var(--color-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">おしえんパシャっと</header>
+
+  <section>
+    <div class="hero-icon">🕐📅</div>
+    <h1>当落結果が出たその日に、遠征の見通しを立てませんか?</h1>
+    <p class="sub">交通・宿泊の当たり、当日タイムテーブル、費用の内訳まで、AIが下書きします。</p>
+
+    <div class="flow-mock">
+      <div class="memo-card">○○公演<br>△△ホール<br>11/30 昼・夜2公演当選</div>
+      <div class="arrow">→</div>
+      <div class="output-cards">
+        <div class="card">①遠征プラン下書き</div>
+        <div class="card">②当日タイムテーブル草案</div>
+        <div class="card">③費用内訳見積り</div>
+        <div class="card">④ハシゴ無理チェック</div>
+      </div>
+    </div>
+
+    <a class="cta" href="#" aria-disabled="true">初回1回、無料で試してみる</a>
+    <p class="cta-note">カード登録不要</p>
+  </section>
+
+  <section class="alt">
+    <h2>当落発表のたびに、こんな悩みはありませんか?</h2>
+    <ul class="checklist">
+      <li>当選は嬉しいけれど、交通手段と宿泊先の当たりをつける時間がない(発表から出発までが短い)</li>
+      <li>開場時間・グッズ列の並び方を踏まえたタイムテーブルを、毎回一から考え直している</li>
+      <li>交通・宿泊・物販の予算を大まかにしか把握できておらず、気づいたら使いすぎている</li>
+      <li>同じ週末に複数公演へ「ハシゴ」したいが、移動時間的に本当に無理がないか不安</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>「おしえんパシャっと」がやること</h2>
+
+    <div class="feature"><span class="num">①</span>会場・日時・枚数、予算感、現地でのグッズ購入希望、前後の予定をメモで送るだけ</div>
+    <div class="feature"><span class="num">②</span>遠征プラン下書き(交通手段・宿泊候補エリアの当たり)を自動生成します</div>
+    <div class="feature"><span class="num">③</span>当日タイムテーブル草案(開場時間・グッズ列を踏まえたもの)を自動生成します</div>
+    <div class="feature"><span class="num">④</span>遠征費用の内訳見積り(交通・宿泊・物販予算)を自動生成します</div>
+    <div class="feature caution"><span class="num">⑤</span>複数公演「ハシゴ」時の移動無理チェックも、あわせて自動生成します(会場間の移動時間に無理がある場合は、断定せず注意を促す注記を付けます)</div>
+    <div class="feature exclude"><span class="num">⑥</span>実際の交通機関・宿泊施設の空席・空室確認、予約・決済代行には踏み込みません</div>
+  </section>
+
+  <section class="alt">
+    <h2>旅行代理店でも、一般的な旅程アプリでもありません</h2>
+    <ul class="diff-list">
+      <li>旅行代理店のパッケージツアーは出発までの準備期間が前提で、当落発表から数日〜数週間しかない遠征には不向きです</li>
+      <li>一般的な旅程作成アプリは交通・宿泊の検索機能が中心で、遠征特有のグッズ列・ハシゴの移動無理チェックには対応していません</li>
+      <li>「おしえんパシャっと」は、当落発表後の短い入力だけで遠征特有の悩みに絞って下書きする、個人のファンのための軽量な計画支援ツールです</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>まずは初回1回、無料で試してみませんか?</h2>
+    <ul class="price-check">
+      <li>クレジットカードの登録は不要</li>
+      <li>初回の当選情報入力1回に限り、出力4種を無料で生成します</li>
+    </ul>
+    <table class="plan-table">
+      <tr><th>プラン</th><th>料金</th><th>想定する方</th></tr>
+      <tr><td>都度プラン</td><td>1回480円</td><td>年数回程度しか現場参加しない方</td></tr>
+      <tr><td>月額フリーパス</td><td>月980円</td><td>月2回以上現場参加・ハシゴを繰り返す方</td></tr>
+    </table>
+    <a class="cta" href="#" aria-disabled="true">初回1回、無料で試してみる</a>
+  </section>
+
+  <section class="alt">
+    <h2>よくある質問</h2>
+    <details>
+      <summary>生成された遠征プランのとおりに予約すれば大丈夫ですか?</summary>
+      <p>いいえ。生成されるのはあくまで下書きです。実際の交通機関・宿泊施設の空席・空室の確認や予約・決済は、お客様ご自身で行ってください。</p>
+    </details>
+    <details>
+      <summary>入力した会場名の表記が正式名称と違う場合はどうなりますか?</summary>
+      <p>可能な範囲で名寄せを行いますが、略称・旧名称・表記揺れによっては一致しない場合があります。一致しなかった場合は、入力いただいた情報のみに基づく一般的な目安としてご案内します。</p>
+    </details>
+    <details>
+      <summary>会場が休館中・稼働していない場合はどうなりますか?</summary>
+      <p>会場マスタ上で休館・稼働停止等の情報を確認できている場合は、その旨の注記を出力に付けます。ただし全ての会場の最新状況を保証するものではないため、最終的な会場の開催有無はお客様ご自身でご確認ください。</p>
+    </details>
+    <details>
+      <summary>月額フリーパスは当月中にいつ解約しても大丈夫ですか?</summary>
+      <p>解約は期間終了時点での解約となり、既にお支払い済みの当月分は契約期間満了まで生成回数無制限でご利用いただけます。</p>
+    </details>
+  </section>
+
+  <section>
+    <a class="cta" href="#" aria-disabled="true">初回1回、無料で試してみる</a>
+  </section>
+
+  <footer>
+    <a href="#">特定商取引法に基づく表記</a> ・ <a href="#">プライバシーポリシー</a><br>
+    © おしえんパシャっと
+  </footer>
+
+</div>
+</body>
+</html>
