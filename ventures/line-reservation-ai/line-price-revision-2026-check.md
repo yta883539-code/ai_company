@@ -91,3 +91,15 @@ README.md / pricing-plan.md / line-api-pricing.md の「次にやること」で
   影響が出る「月20万通」の水準から2桁以上少なく、pricing-plan.mdの料金プラン設計・
   「LINE利用料は店舗負担」という前提を見直す必要はない。改定は実施済みのため、今後の
   再確認は「次回の改定アナウンスが出た場合」のみで良く、本件自体はこれで調査を完了とする。
+
+## 2026-10-31時点の追記: Reply/Push課金差分の横展開確認(aircon-pasha発)
+
+aircon-pasha(フェーズ352)が発見し、kura-pasha・course-set-pashaに横展開済みの
+「Reply API(応答メッセージ)は無料メッセージ通数にカウントされない」という訂正について、
+本venture側でも横展開の要否を確認した(README.mdフェーズ続き360参照)。本ventureは
+webhook-async-processing-design.mdの設計判断により会話応答を全件push API方式に統一して
+おり、Reply APIの経路自体を持たない。このReply/Push課金差分自体は本ファイルより前の
+2026-08-02時点でline-api-pricing.md「応答メッセージとプッシュメッセージのカウント差分」
+節に一次情報として記録済みであり、push API化により課金対象通数が増える可能性も当時から
+保守的な見積もりに織り込まれている。よって本ventureは今回の横展開確認の対象外であり、
+追加の見積もり見直しは不要と判断した。

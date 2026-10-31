@@ -6894,3 +6894,36 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-10-31 06:00 UTC(フェーズ続き359: 詳細は上記。deposit-payment-processor-
   unification-design.mdの「残る課題」だったStripe Connect個人事業主KYC要件をWebSearchで調査し
   解消。design変更のみ、コード変更なし、テスト1043件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き360(2026-10-31 16:00 UTC定例更新): aircon-pasha/line-price-revision-2026-
+  check.md(フェーズ352)が発見し、kura-pasha(フェーズ273)・course-set-pasha(フェーズ343)に
+  横展開済みの「LINE Reply API(応答メッセージ)は課金・無料メッセージ通数カウントの対象外」
+  という訂正について、本venture(line-reservation-ai)側でも横展開の要否を個別確認した。
+  他venture(aircon-pasha・course-set-pasha・kura-pasha)は会話応答をReply API中心で送信して
+  いたためこの訂正が直接の見積もり改善につながったが、本ventureは
+  webhook-async-processing-design.md(2026-08-02時点で設計済み)の設計判断により、
+  Webhook応答遅延対策(LLM呼び出し待ちでreplyTokenが失効するリスクの回避)を理由に会話応答を
+  **全件push API方式に統一**しており、`replyToken`/`ReplyClient`を使う経路がprototype/配下に
+  一つも存在しないことをgrep調査で確認した(他venture群とは逆に、本venture固有の設計上
+  Reply APIを意図的に採用していない)。さらに、line-api-pricing.md
+  「応答メッセージとプッシュメッセージのカウント差分」節(2026-08-02 web調査で追記済み)に
+  このReply/Push課金差分自体が既に一次情報確認済みで記録されており、「push API化によって
+  課金対象通数に変わる」リスクも当時のうちに評価済み(1店舗あたり月70〜100件程度の送信規模は
+  作成時点から課金対象通数として保守的に見積もられていたため数値見直し不要)であることを
+  確認した。したがって、今回の横展開確認は「本ventureは当該訂正の対象外であり、2026-08-02時点
+  で既により厳密な評価(reply/push両方の課金区分を踏まえた保守的な見積もり)が完了している」
+  という結論で完了とする。line-price-revision-2026-check.mdへの追記は、本ventureの主要な
+  利用量評価が同ファイルではなくline-api-pricing.mdに集約されているため、今回は後者への
+  参照追記に留めた。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(1043件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  2026-10-23 12:00 UTC記載)がオーナーから承認された場合はその着手を最優先、
+  (2)将来reply/push併用のハイブリッド化(webhook-async-processing-design.md「既存設計への
+  影響」節で既出の選択肢)を採用する場合の無料枠圧縮余地の再評価、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-10-31 16:00 UTC(フェーズ続き360: 詳細は上記。aircon-pasha発のReply/Push
+  API課金差分の横展開確認を実施し、本ventureは全件push API方式を採用しているため当該訂正の
+  対象外であり、2026-08-02時点で既により保守的な評価が完了済みであることを確認。コード変更
+  なし、テスト1043件・schema検証28件いずれも変更なしでパス)
