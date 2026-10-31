@@ -806,3 +806,23 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 17:00 UTC(フェーズ38: 本venture初のprototype/コード
   〈usage_counter.py・test_usage_counter.py〉を新規作成し、`UsageCounterStoreProtocol`の
   `InMemoryUsageCounterStore`実装・6テストケース〈14アサーション、全件PASS〉を整備した)
+- フェーズ39(2026-10-31 18:00 UTC定例更新): フェーズ38の次回候補(2)「fan_passドキュメント
+  自体のストア(`FanPassStoreProtocol`相当)のプロトタイプコード化」に対応し、
+  fan-pass-store-protocol-design.mdで`FanPassStoreProtocol`(create・get_by_access_token・
+  get_by_stripe_subscription_id・update_subscription_status・reissue_access_token)を確定し、
+  prototype/fan_pass_store.py・test_fan_pass_store.pyとしてコード化した。firestore-data-
+  model.md 1.1節のうちcurrentPeriodEnd・カウンタ2フィールド(usage_counter.py側の責務)を
+  除く5フィールド(accessToken・email・stripeCustomerId・stripeSubscriptionId・
+  subscriptionStatus)を対象とした。internal_idの発行はFirestore自動生成IDの代替として
+  uuid4().hexを用いた。6テストケース(13アサーション)を作成し、`python3 test_fan_pass_store.py`
+  で全件PASSを確認した(`PASS=13 FAIL=0`)。コード実装はインメモリのみに留め、外部サービス・
+  実Firestore・実Stripeへの接続は一切行っていない。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は
+  不要(既存の承認待ち事項〈GCPプロジェクト・Firestoreデータベース作成〉の範囲内で扱う)。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)fan_pass_store.pyの`create`のStripe Webhook重複配信時の
+  冪等性対応の検討(fan-pass-store-protocol-design.md 3節の残課題)、(3)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 18:00 UTC(フェーズ39: fan-pass-store-protocol-design.mdで
+  `FanPassStoreProtocol`を確定し、prototype/fan_pass_store.py・test_fan_pass_store.pyとして
+  コード化〈6テストケース、13アサーション、全件PASS〉した)
