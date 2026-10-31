@@ -629,7 +629,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   legal-notices-draft.mdフェーズ29の残課題)、(3)京セラドーム大阪の命名権契約満了日の確認
   手段の検討(WebSearch以外、フェーズ25以来の引き継ぎ課題)、(4)承認待ち事項がオーナーから
   承認された場合はその着手を最優先。
-- 最終更新: 2026-10-31 03:00 UTC(フェーズ30: venture初のlanding-page-copy-draft.mdを新規
-  作成。都度プラン「初回1回無料」をCTA・料金セクションに反映し、月額フリーパスの無料トライアル
-  未確定という残課題は過大な約束をしない形で扱った。他6ventureとのcross-venture parityギャップ
-  の一部を解消した)
+- フェーズ31(2026-10-31 05:00 UTC定例更新): フェーズ30の次回候補(1)「landing-page-
+  wireframe.mdの新規作成(他5venture同様のテキストベースワイヤーフレーム)」に対応し、
+  venture初のlanding-page-wireframe.mdを新規作成した。landing-page-copy-draft.mdの
+  セクション順(ファーストビュー→課題提起→解決策・機能紹介→差別化→料金・トライアル→FAQ)
+  をそのまま画面構成とし、本venture固有の「当落発表→短時間で遠征計画」という切迫感、
+  1入力(当選情報メモ)→4出力(遠征プラン下書き・タイムテーブル草案・費用見積り・ハシゴ
+  無理チェック)という対応関係を、event-komiguai-pashaと同系統の「メモ1件→出力カード
+  複数分岐」の画像イメージで表現した。これにより他5venture(aircon-pasha・course-set-
+  pasha・event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)との
+  cross-venture parityギャップが一つ解消した。実装(HTML/CSS)は行わずテキストベースの
+  ワイヤーフレームに留めた。コード変更なし。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)landing-page/index.htmlの新規作成(非公開試作HTML、LP関連3点セットの
+  最後の1点)、(2)月額フリーパスの無料トライアル有無の確定(pricing-plan.md・
+  legal-notices-draft.mdフェーズ29の残課題)、(3)京セラドーム大阪の命名権契約満了日の確認
+  手段の検討(WebSearch以外、フェーズ25以来の引き継ぎ課題)、(4)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 05:00 UTC(フェーズ31: landing-page-wireframe.mdを新規作成。
+  他5ventureとのcross-venture parityギャップ〈LP関連3点セット〉のうち2点目を解消した。
+  本venture固有の「当落発表→短時間」の切迫感、1入力メモ→4種の出力という構成をワイヤー
+  フレームに反映した)
