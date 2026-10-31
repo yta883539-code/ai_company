@@ -6572,3 +6572,25 @@
 - 最終更新: 2026-10-30 18:00 UTC(フェーズ352: 詳細は上記。line-price-revision-2026-
   check.mdに追記し、生成完了報告の返信がLINE Reply APIのみで送信され通数カウント対象外
   であることを確認・訂正。コード変更なし、全789件・schema検証25件いずれも変更なしでパス)
+- フェーズ353(2026-10-31 20:00 UTC定例更新): フェーズ352の次回候補(2)「応答メッセージは
+  通数カウント対象外」訂正のcourse-set-pasha・kura-pasha・line-reservation-aiへの横展開
+  の完了状況を棚卸しした。各venture側のREADME.mdを確認し、course-set-pasha(フェーズ343)・
+  kura-pasha(フェーズ273)は本venture同様にReply API中心設計であり訂正を自身のline-
+  price-revision-2026-check.mdに反映済みであること、line-reservation-ai(フェーズ続き360)
+  は設計上Push API方式に全件統一しているため訂正の対象外であり2026-08-02時点で既により
+  厳密な評価が完了済み(line-api-pricing.mdに集約)であることを確認した。3venture全てで
+  対応完了のため次回候補(2)を完了として扱い、line-price-revision-2026-check.mdの
+  「次のステップ候補」から当該項目を除去した(同ファイル追記参照)。設計文書の棚卸し確認
+  のみでコード変更は行っていない、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(789件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-31 20:00 UTC(フェーズ353: 詳細は上記。line-price-revision-2026-
+  check.mdへの横展開がcourse-set-pasha・kura-pasha・line-reservation-aiの3venture全てで
+  完了済みであることを棚卸し確認。コード変更なし、全789件・schema検証25件いずれも変更
+  なしでパス)

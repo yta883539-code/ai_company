@@ -82,9 +82,27 @@ course-set-pashaへの同種確認の横展開」に対応し、本venture固有
 
 ## 次のステップ候補
 
-- 上記の「応答メッセージは通数カウント対象外」という訂正について、course-set-pasha・
-  kura-pasha・line-reservation-aiの各line-price-revision-2026-check.mdへの横展開
-  (各venture側でPush API呼び出しの有無を個別確認する必要がある、新規の次回候補)。
-- course-set-pashaへの同種確認の横展開(本ファイルと同じ検討が未実施のまま残っている)。
 - 実LINE公式アカウント開設の直前に一次情報での最終確認(オーナー承認待ちのため現時点では
   着手しない)。
+
+## 追記(2026-10-31 20:00 UTC、aircon-pashaフェーズ353): 横展開完了の棚卸し確認
+
+- 上記「次のステップ候補」に残っていた「course-set-pasha・kura-pasha・line-reservation-ai
+  への横展開」の完了状況を棚卸しした。各venture側のREADME.mdを確認した結果、
+  course-set-pasha(フェーズ343、2026-10-31 10:00 UTC)・kura-pasha(フェーズ273、
+  2026-10-31 08:00 UTC)の2ventureは本venture(aircon-pasha)と同様にWebhook受信→
+  Reply API中心の即時応答設計であり、応答メッセージが通数カウント対象外である旨を各自の
+  line-price-revision-2026-check.mdに追記済みであることを確認した。
+- line-reservation-ai(フェーズ続き360、2026-10-31 16:00 UTC)は確認の結果、本venture群とは
+  逆に設計上Push API方式に全件統一しており(`replyToken`/`ReplyClient`使用箇所が
+  prototype/配下に存在しないことをgrep調査で確認済み)、今回の訂正の対象外であること、
+  かつ2026-08-02時点でより厳密な評価(reply/push両方の課金区分を踏まえた保守的な見積もり)
+  が既に完了していることを確認済みである(line-api-pricing.mdに集約)。
+- したがって「course-set-pasha・kura-pasha・line-reservation-aiへの横展開」は3venture全てで
+  対応完了(2ventureは訂正を反映、1venture は設計上対象外であることを確認済み)であることを
+  本棚卸しで確認し、上記「次のステップ候補」から当該項目を除去した(次回候補(2)完了)。
+  本ファイル・コードへの変更は棚卸し確認のみでコード変更は行っていない。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(789件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
