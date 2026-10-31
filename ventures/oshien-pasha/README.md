@@ -569,5 +569,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   `closed_permanent`/`closed_temporary`細分類・`recognition_priority`注釈を全てセットにした
   テストケース仕様の具体化(実API接続後)、(3)`generation_log`への入力名称生テキスト記録を
   将来追加する場合のスキーマ・プライバシー面の検討(定性判断から定量判断へ移行する際の前提)。
-- 最終更新: 2026-10-30 23:00 UTC(フェーズ27: recognition_priorityの切り替えタイミング判定
-  方法を、自動日付計算ではなく16会場の定期再確認サイクルに統合した定性判断として確定した)
+- フェーズ28(2026-10-31 01:00 UTC定例更新): フェーズ27の次回候補(3)「`generation_log`への
+  入力名称生テキスト記録を将来追加する場合のスキーマ・プライバシー面の検討」に対応し、
+  venue-alias-input-text-logging-design.mdを新規作成した。利用者の入力全文ではなく名寄せ処理が
+  会場名らしき部分文字列と判定した箇所のみを対象とするデータ最小化方針を採用し、マッチ成功時
+  (`exact`/`alias`)は記録せず`unmatched`/`partial_fallback`時のみ`unmatchedVenueNameToken`
+  (上限文字数付き)を記録するスキーマ案を整理した。検討の過程で、line-reservation-aiには存在する
+  data-retention-policy.md・legal-notices-draft.md相当のドキュメントがoshien-pashaにはまだ
+  整備されていないことが判明し、本記録項目の実装の前提条件・venture全体の残課題として明記した。
+  schema/venue-master.json・schema/output.schema.jsonの編集、Firestore実装への反映はいずれも
+  行っていない(設計検討のみ)。コード実装・外部サービスへの接続は一切行っていない。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していないため
+  pending-approval.mdへの新規追記は不要(既存の承認待ち事項〈Firestore/GCPアカウント開設等〉の
+  範囲内で扱う)。
+  次回候補: (1)京セラドーム大阪の命名権契約満了日の確認手段の検討(WebSearch以外、フェーズ25
+  の次回候補(2)を引き継ぐ)、(2)data-retention-policy.md・legal-notices-draft.md相当のドキュメント
+  のoshien-pasha向け新規作成(フェーズ28で判明した前提条件の解消)、(3)`match_confidence`拡張・
+  `venue_operational_status_note`追加・`closed_permanent`/`closed_temporary`細分類・
+  `recognition_priority`注釈を全てセットにしたテストケース仕様の具体化(実API接続後)。
+- 最終更新: 2026-10-31 01:00 UTC(フェーズ28: 詳細は上記。generation_logへの入力名称生テキスト
+  記録の将来追加に向けたスキーマ案・プライバシー面のリスク・残課題〈保存期間・削除方針の未整備〉を
+  整理した。設計のみでスキーマファイル・実装への反映は行っていない)
