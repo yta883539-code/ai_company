@@ -41,6 +41,24 @@ def test_create_and_lookup() -> None:
     check("get_by_stripe_subscription_id returns same doc", by_sub.internal_id == internal_id)
 
 
+def test_create_is_idempotent_on_duplicate_webhook_delivery() -> None:
+    store = InMemoryFanPassStore()
+    internal_id_1, access_token_1 = store.create(
+        email="fan@example.com", stripe_customer_id="cus_5", stripe_subscription_id="sub_5"
+    )
+
+    internal_id_2, access_token_2 = store.create(
+        email="fan@example.com", stripe_customer_id="cus_5", stripe_subscription_id="sub_5"
+    )
+
+    check("duplicate create returns same internal_id", internal_id_1 == internal_id_2)
+    check("duplicate create returns same access_token", access_token_1 == access_token_2)
+    check(
+        "no second document is registered for the same subscription_id",
+        store.get_by_stripe_subscription_id("sub_5").internal_id == internal_id_1,
+    )
+
+
 def test_get_by_unknown_token_or_subscription_returns_none() -> None:
     store = InMemoryFanPassStore()
     check("unknown access_token returns None", store.get_by_access_token("nope") is None)
@@ -111,6 +129,7 @@ def test_unknown_internal_id_operations_raise() -> None:
 
 if __name__ == "__main__":
     test_create_and_lookup()
+    test_create_is_idempotent_on_duplicate_webhook_delivery()
     test_get_by_unknown_token_or_subscription_returns_none()
     test_update_subscription_status()
     test_update_subscription_status_rejects_invalid_value()

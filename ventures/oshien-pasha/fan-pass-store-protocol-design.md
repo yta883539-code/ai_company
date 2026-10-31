@@ -65,9 +65,8 @@ class FanPassStoreProtocol(Protocol):
 
 ## 3. 未確定・残課題
 
-- `create`の`stripe_customer_id`/`stripe_subscription_id`が既存ドキュメントと重複する場合の
-  挙動(Webhookの重複配信対策、冪等性)は未検討。prototypeコードでの単純実装では未対応とし、
-  次回以降の課題とする。
+- ~~`create`の`stripe_customer_id`/`stripe_subscription_id`が既存ドキュメントと重複する場合の
+  挙動(Webhookの重複配信対策、冪等性)は未検討。~~ → フェーズ40で対応済み(下記4節)。
 - `email`を使った検索(`find_by_email`)はクロスデバイス再発行フローの入口として必要になる
   可能性があるが、`monthly-pass-identity-design.md`3節が「識別子そのものには使わない」と
   明記しているため、本フェーズでは優先度を下げてメソッド化を見送った。
@@ -75,6 +74,23 @@ class FanPassStoreProtocol(Protocol):
   アクションに該当するため(pending-approval.md既存の承認待ち事項の範囲内)、本フェーズでは
   行わない。
 
-最終更新: 2026-10-31 18:00 UTC(フェーズ39: FanPassStoreProtocolのメソッド構成
-〈create・get_by_access_token・get_by_stripe_subscription_id・update_subscription_status・
-reissue_access_token〉を確定)
+## 4. create()の冪等性(フェーズ40)
+
+`stripe_subscription_id`をdedupキーとし、既に同一`stripe_subscription_id`で登録済みの
+ドキュメントが存在する場合は新規発行を行わず、既存の`(internal_id, accessToken)`を
+そのまま返す。Stripe Webhookの`customer.subscription.created`相当イベントが重複配信
+された場合でも、同一サブスクリプションに対して複数の`fan_pass`ドキュメント・複数の
+`accessToken`が発行されてしまう不整合を防ぐ。
+
+`stripe_customer_id`単体(同一顧客が解約後に新規サブスクリプションで再加入した場合等)は
+dedup対象としない。この場合`stripe_subscription_id`が新しい値になるため、意図的に
+新規ドキュメントとして扱う(再加入時に新しい`accessToken`を発行する想定、
+fan-pass-canceled-access-block-design.mdの再加入フローと整合)。
+
+実コード化はprototype/fan_pass_store.pyの`create()`冒頭で
+`_internal_id_by_subscription_id`を先に引く形で行った
+(test_fan_pass_store.pyに`test_create_is_idempotent_on_duplicate_webhook_delivery`を追加、
+3アサーション追加・全16件PASS)。
+
+最終更新: 2026-10-31 19:00 UTC(フェーズ40: `create`のWebhook重複配信時の冪等性を
+stripe_subscription_idキーで実装、3節の残課題を解消)

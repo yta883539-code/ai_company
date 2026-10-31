@@ -14,6 +14,9 @@ reissue_access_token)を実行可能なコードに落とし込んだもの。
   (前者は未着手、後者2つはusage_counter.py側の責務)。
 - internal_idの発行はFirestoreの自動生成IDを想定するため、本インメモリ実装では
   uuid4の16進数文字列で代替する。
+- `create`はStripe Webhookの重複配信(fan-pass-store-protocol-design.md 3節の残課題)に
+  対応し、同一stripe_subscription_idで再度呼ばれた場合は新規発行せず既存の
+  (internal_id, accessToken)を返す(フェーズ40)。
 """
 
 from __future__ import annotations
@@ -62,6 +65,11 @@ class InMemoryFanPassStore:
         stripe_customer_id: str,
         stripe_subscription_id: str,
     ) -> tuple[str, str]:
+        existing_internal_id = self._internal_id_by_subscription_id.get(stripe_subscription_id)
+        if existing_internal_id is not None:
+            existing = self._by_internal_id[existing_internal_id]
+            return existing.internal_id, existing.access_token
+
         internal_id = uuid.uuid4().hex
         access_token = uuid.uuid4().hex
 

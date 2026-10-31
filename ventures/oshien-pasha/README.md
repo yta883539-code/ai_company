@@ -826,3 +826,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 18:00 UTC(フェーズ39: fan-pass-store-protocol-design.mdで
   `FanPassStoreProtocol`を確定し、prototype/fan_pass_store.py・test_fan_pass_store.pyとして
   コード化〈6テストケース、13アサーション、全件PASS〉した)
+- フェーズ40(2026-10-31 19:00 UTC定例更新): フェーズ39の次回候補(2)「fan_pass_store.pyの
+  `create`のStripe Webhook重複配信時の冪等性対応の検討(fan-pass-store-protocol-design.md
+  3節の残課題)」に対応し、`stripe_subscription_id`をdedupキーとする冪等性をprototype/
+  fan_pass_store.pyの`create()`に実装した。同一`stripe_subscription_id`で`create`が
+  再度呼ばれた場合、新規ドキュメント・新規accessTokenを発行せず既存の
+  `(internal_id, accessToken)`をそのまま返す。`stripe_customer_id`単体の重複(解約後の
+  再加入等で`stripe_subscription_id`が新しい値になるケース)は意図的にdedup対象外とし、
+  新規ドキュメントとして扱う方針をfan-pass-store-protocol-design.md 4節に明記した。
+  test_fan_pass_store.pyに`test_create_is_idempotent_on_duplicate_webhook_delivery`
+  (3アサーション)を追加し、`python3 test_fan_pass_store.py`で全16件PASSを確認した
+  (`PASS=16 FAIL=0`)。`python3 test_usage_counter.py`(14件、変更なし)も再実行し
+  パスを確認した。コード実装はインメモリのみに留め、外部サービス・実Firestore・実Stripeへの
+  接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  本フェーズでは発生していないためpending-approval.mdへの新規追記は不要(既存の承認待ち
+  事項〈GCPプロジェクト・Firestoreデータベース作成〉の範囲内で扱う)。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)`email`を使った検索(`find_by_email`)の必要性再検討、
+  (3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 19:00 UTC(フェーズ40: `create`にStripe Webhook重複配信時の
+  冪等性〈stripe_subscription_idキー〉を実装し、fan-pass-store-protocol-design.md 3節の
+  残課題を解消。テスト3件追加、全16件PASS)
