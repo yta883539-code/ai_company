@@ -847,3 +847,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 19:00 UTC(フェーズ40: `create`にStripe Webhook重複配信時の
   冪等性〈stripe_subscription_idキー〉を実装し、fan-pass-store-protocol-design.md 3節の
   残課題を解消。テスト3件追加、全16件PASS)
+- フェーズ41(2026-10-31 21:00 UTC定例更新): フェーズ40の次回候補(2)「`email`を使った検索
+  (`find_by_email`)の必要性再検討」に対応し、email-lookup-necessity-review.mdを新規作成した。
+  クロスデバイス再発行フロー(monthly-pass-identity-design.md 3節)が「Stripe顧客検索
+  (`customers.list(email=...)`)」から「`fan_pass`ドキュメント更新」へ接続する具体的な経路を
+  同文書が明記していなかった空白を補完し、(a)Firestore側に`email`検索メソッドを追加する案と
+  (b)Stripe側でサブスクリプション検索(`subscriptions.list(customer=...)`)まで行い
+  `stripeSubscriptionId`を得て既存の`get_by_stripe_subscription_id`で特定する案を比較した。
+  (b)はmonthly-pass-identity-design.mdの「`email`は識別子そのものには使わない」方針と整合し、
+  `FanPassStoreProtocol`(fan-pass-store-protocol-design.md 2節)への変更も不要なため(b)を
+  正式な接続方法として確定し、`find_by_email`はメソッド化不要と結論した。
+  fan-pass-store-protocol-design.md 3節の該当記述を取り消し線で更新し、結論への参照を追記した。
+  (b)は「同一Stripe顧客が有効なサブスクリプションを複数持たない」という単一プラン前提に
+  依拠しており、将来複数プラン化する場合の再検討課題として明記した。コード実装・外部サービス
+  への接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は不要(既存の
+  承認待ち事項の範囲内で扱う)。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)再発行フロー((b)案)のAPIエンドポイント設計・実コード化、
+  (3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 21:00 UTC(フェーズ41: `find_by_email`の必要性を再検討し、再発行フローは
+  Stripe API側の顧客検索→サブスクリプション検索経路で完結させる方針を確定、Firestore側への
+  メソッド追加は不要と結論した)

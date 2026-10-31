@@ -67,9 +67,13 @@ class FanPassStoreProtocol(Protocol):
 
 - ~~`create`の`stripe_customer_id`/`stripe_subscription_id`が既存ドキュメントと重複する場合の
   挙動(Webhookの重複配信対策、冪等性)は未検討。~~ → フェーズ40で対応済み(下記4節)。
-- `email`を使った検索(`find_by_email`)はクロスデバイス再発行フローの入口として必要になる
+- ~~`email`を使った検索(`find_by_email`)はクロスデバイス再発行フローの入口として必要になる
   可能性があるが、`monthly-pass-identity-design.md`3節が「識別子そのものには使わない」と
-  明記しているため、本フェーズでは優先度を下げてメソッド化を見送った。
+  明記しているため、本フェーズでは優先度を下げてメソッド化を見送った。~~ → フェーズ41で
+  再検討済み(email-lookup-necessity-review.md)。再発行フローはStripe API側の顧客検索
+  (`customers.list(email=...)`)→サブスクリプション検索(`subscriptions.list(customer=...)`)
+  経路で`stripeSubscriptionId`を得て、既存の`get_by_stripe_subscription_id`で`fan_pass`
+  ドキュメントを特定する方針を確定した。Firestore側への`find_by_email`追加は不要と結論。
 - 実Firestoreアダプタの作成、実Stripe/GCPプロジェクトの開設はいずれもオーナー承認が必要な
   アクションに該当するため(pending-approval.md既存の承認待ち事項の範囲内)、本フェーズでは
   行わない。
@@ -94,3 +98,6 @@ fan-pass-canceled-access-block-design.mdの再加入フローと整合)。
 
 最終更新: 2026-10-31 19:00 UTC(フェーズ40: `create`のWebhook重複配信時の冪等性を
 stripe_subscription_idキーで実装、3節の残課題を解消)
+
+追記(フェーズ41、2026-10-31 21:00 UTC): 3節の`find_by_email`要否を再検討し、Firestore側への
+メソッド追加は不要と結論した。詳細はemail-lookup-necessity-review.md参照。
