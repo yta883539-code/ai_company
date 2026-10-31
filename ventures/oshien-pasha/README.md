@@ -679,3 +679,23 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 07:00 UTC(フェーズ32: landing-page/index.htmlを新規作成。
   LP関連3点セット〈コピー草案・ワイヤーフレーム・実装ドラフト〉が完成し、他6ventureとの
   cross-venture parityギャップを全て解消した。CTAは非活性リンク、外部公開は未実施)
+- フェーズ33(2026-10-31 09:00 UTC定例更新): フェーズ29・32の次回候補(1)「月額フリーパスの
+  無料トライアル有無の確定(pricing-plan.md未確定事項、legal-notices-draft.md2.5節の残課題)」
+  に対応し、monthly-pass-trial-decision.mdを新規作成して方針を確定した。都度プランの「初回
+  1回無料」と月額フリーパスの出力内容が同一であること、月額フリーパスは生成回数無制限が
+  プラン特性のためトライアル期間中のLLM API従量課金コストが読めないことを理由に、月額
+  フリーパスには無料トライアルを設けず(申込時点から課金開始)、「試す」導線は都度プラン
+  の初回無料に一本化する方針とした。pricing-plan.md「無料トライアル条件」節・
+  legal-notices-draft.md1節「支払時期」欄・2.5節・3.3節をこの確定方針に合わせて更新した。
+  コード実装・外部サービス接続・実Stripeアカウントの開設は一切行っていない。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していないため
+  pending-approval.mdへの新規追記は不要。
+  次回候補: (1)決済方法(都度課金とサブスクの併用設計、LINE LIFF経由かWeb単体か)の技術的な
+  検証(pricing-plan.md未検証事項)、(2)京セラドーム大阪の命名権契約満了日の確認手段の検討
+  (WebSearch以外、フェーズ25以来の引き継ぎ課題)、(3)`match_confidence`拡張・
+  `venue_operational_status_note`追加・`closed_permanent`/`closed_temporary`細分類・
+  `recognition_priority`注釈を全てセットにしたテストケース仕様の具体化(実API接続後)、
+  (4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 09:00 UTC(フェーズ33: monthly-pass-trial-decision.mdを新規作成し、
+  月額フリーパスは無料トライアルを設けない〈申込時点から課金開始〉方針に確定した。
+  pricing-plan.md・legal-notices-draft.mdへ反映した)
