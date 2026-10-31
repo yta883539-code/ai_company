@@ -717,3 +717,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 11:00 UTC(フェーズ34: 詳細は上記。monthly-pass-user-identification-
   design.mdを新規作成し、都度プラン/月額フリーパスそれぞれの利用者識別方式を既存venture
   パターンの流用で整理した)
+- フェーズ35(2026-10-31 13:00 UTC定例更新): フェーズ34の次回候補(1)「解約後のaccessToken
+  アクセス時のブロック分岐の詳細設計(aircon-pashaのsubscription-canceled-immediate-
+  block-design.md参照)」に対応し、fan-pass-canceled-access-block-design.mdを新規作成した。
+  aircon-pashaが確立した「専用フィールド(`subscriptionStatus`)による判定を他の判定より
+  最優先で行う」設計をそのまま踏襲しつつ、本venture固有の差異として、aircon-pasha等が
+  「LINEメッセージへの停止応答」で分岐するのに対し本ventureはWeb単体の`/m/{accessToken}`
+  URLへのGETアクセス時に「ページの表示内容」(通常入力フォーム vs 解約済み案内+再加入
+  導線ページ)を切り替える設計とした。monthly-pass-identity-design.md(フェーズ7)が確立した
+  「再加入時も同一accessTokenを使い続けられる」方針に沿い、`customer.subscription.created`
+  受信時に同一トークンのまま`subscriptionStatus`を`active`復帰させる分岐も設計した。
+  この過程で、本venture内の既存文書間でコレクション名表記が「monthly_pass」(フェーズ7・8)
+  と「fan_pass」(フェーズ34次回候補(2))に揺れていることに気づき、次回のコレクション定義
+  作成時に一本化が必要な指摘として記録した。コード実装(本ventureはprototypeコード自体が
+  未着手)・外部サービス接続は一切行っていない。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規
+  追記は不要。
+  次回候補: (1)`fan_pass/{internal_id}`(名称一本化含む)コレクション定義の新規作成
+  (`accessToken`・`stripeCustomerId`・`subscriptionStatus`・`currentPeriodEnd`等、
+  firestore-data-model.md相当)、(2)生成回数カウンタ設計(tech-stack.mdコンポーネント7)、
+  (3)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の検討
+  (README.md既出の残課題)、(4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 13:00 UTC(フェーズ35: fan-pass-canceled-access-block-design.mdを
+  新規作成し、解約後のaccessTokenアクセス時のページ表示分岐〈通常フォーム vs 解約済み案内
+  +再加入導線〉を設計。aircon-pashaの専用フィールド最優先判定パターンを踏襲し、コレクション
+  名表記の揺れ〈monthly_pass/fan_pass〉を次回一本化すべき課題として記録)
