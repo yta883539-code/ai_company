@@ -1646,3 +1646,22 @@
 - 最終更新: 2026-10-30 21:00 UTC(フェーズ76: 詳細は上記。landing-page-copy-draft.mdを新規
   作成し、他5ventureとのcross-venture parityギャップ〈LP関連3点セット未着手〉の一部を解消。
   コード変更なし、schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ77(2026-10-31 04:00 UTC定例更新): フェーズ76次回候補(1)「landing-page-wireframe.md
+  の作成」に対応した(landing-page-wireframe.md新規作成)。他5venture(aircon-pasha・
+  course-set-pasha・forklift-pasha・kura-pasha・line-reservation-ai)との残りのcross-venture
+  parityギャップ(LP関連3点セットのうち2点目)を解消した。landing-page-copy-draft.md
+  (フェーズ76)のセクション順をそのまま画面の縦の並びとし、本venture固有の2点を視覚化した:
+  (1)5入力要素→4出力という他venture(概ね1入力カテゴリ→1〜2出力)より入出力数が多い構成を、
+  ヒーロー画像でメモ1件→出力カード4分岐として表現、(2)`outdoor_queue`に応じた道路使用許可
+  確認の注記(厳守事項、断定は避ける)を機能紹介セクション内で警告色バッジにより「見落とされ
+  ない」よう強調。実装(HTML/CSS)は行わずテキストベースのワイヤーフレームに留めた。コード
+  変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (50件、変更なし)・`python3 schema/validate_test_cases.py`(22件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)landing-page/index.html(非公開の試作HTML、LP関連3点セットの最後の1点)の
+  作成、(2)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー
+  から承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-31 04:00 UTC(フェーズ77: landing-page-wireframe.md新規作成。他5venture
+  とのcross-venture parityギャップ〈LP関連3点セット〉のうち2点目を解消。コード変更なし、
+  schema検証22件・prototype試験50件いずれも変更なしでパス)
