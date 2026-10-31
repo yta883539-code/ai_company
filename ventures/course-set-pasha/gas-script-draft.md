@@ -121,6 +121,57 @@ function onFormSubmit(e) {
 }
 ```
 
+## GAS実行失敗時のオーナー通知設計(検討、フェーズ344)
+
+フェーズ342の残課題だった「GAS実行の失敗(401/400等)をオーナーへ能動的に通知する経路」を
+検討した。これまでMVPでは定期的なログ確認で足りると判断し見送っていたが、オーナーが
+Apps Script実行ログを自発的に確認し忘れるリスク(低頻度のB2B申込ほど「確認を忘れる」
+動機が強まる)を踏まえ、`onFormSubmit`内の既存リトライ・エラーログ処理(`console.error()`)
+に次のメール通知処理を追加する設計とした。
+
+- 送信先は`SHARED_SECRET`等と同様にスクリプト プロパティに`OWNER_NOTIFICATION_EMAIL`を
+  新設し、ハードコードしない。
+- フォーム送信は低頻度(B2B申込)である一方、Cloud Functions側の障害(503が続く等)が
+  起きた場合は短時間に複数件のフォーム送信が重なって失敗が連続する可能性があり、1件ごとに
+  メールを送ると同一障害でオーナーに同内容のメールが連続して届く(通知疲れでかえって見落と
+  されるリスク)。このため、スクリプト プロパティに直前のメール送信時刻
+  (`LAST_FAILURE_NOTIFICATION_AT`)を記録し、前回送信から30分未満であれば送信を
+  スキップしてログのみ残す、という簡易クールダウンを設ける方針とした(件数が少ない前提の
+  MVPであるため、より高度なレート制限基盤〈Cloud Tasks等〉の導入は過剰と判断し見送る)。
+- メール本文には`statusCode`・`responseBody`(エラー内容)・送信時刻のみを含め、
+  申込者の個人情報(メールアドレス・ジム名等の`answers`)は含めない(third-party-personal-
+  info-inclusion-handling-design.mdの既存方針〈個人情報の転記を避ける〉を踏襲)。
+
+```javascript
+  if (statusCode !== 200) {
+    console.error(
+      "application form submission failed: status=" + statusCode +
+      " body=" + responseBody
+    );
+    var ownerEmail = props.getProperty("OWNER_NOTIFICATION_EMAIL");
+    var lastNotifiedAt = props.getProperty("LAST_FAILURE_NOTIFICATION_AT");
+    var cooldownMs = 30 * 60 * 1000;
+    var now = new Date().getTime();
+    if (ownerEmail && (!lastNotifiedAt || now - Number(lastNotifiedAt) > cooldownMs)) {
+      MailApp.sendEmail(
+        ownerEmail,
+        "[course-set-pasha] 申込フォームWebhook送信失敗",
+        "申込フォームからCloud Functionsへの送信が失敗しました。\n" +
+        "status=" + statusCode + "\nbody=" + responseBody + "\n" +
+        "時刻=" + new Date().toISOString() + "\n" +
+        "詳細はApps Script実行ログ(拡張機能 > Apps Script > 実行数)を確認してください。"
+      );
+      props.setProperty("LAST_FAILURE_NOTIFICATION_AT", String(now));
+    }
+  }
+```
+
+本コードはGoogleフォーム・GASプロジェクト自体のデプロイ(pending-approval.md承認待ち
+事項2)に含まれるテキスト草案であり、本フェーズでは設計・コード草案の追記のみで実行・
+デプロイは一切行っていない。承認が必要なアクション(メール送信を含む)は本フェーズでは
+新たに発生していない(既存の承認待ち事項2の範囲内で扱う)ためpending-approval.mdへの
+新規追記は不要。
+
 ## 残課題
 
 - 質問文の部分一致によるマッピングは、フォーム編集時の文言変更に弱い(質問文を
@@ -132,10 +183,11 @@ function onFormSubmit(e) {
   文言が変更された場合も、Apps Script実行ログ上で取りこぼしに気付ける。ただし
   検知のみであり、マッピング文字列自体の自動修正は行わない(取りこぼした場合は
   手動でマッピング文字列を更新する運用を想定)。
-- GAS実行の失敗(401/400等)をオーナーへ能動的に通知する経路(例:
-  失敗時にオーナー宛メール送信、`MailApp.sendEmail()`)は本草案では未実装。
-  件数が少ない前提(低頻度のB2B申込)であれば定期的なログ確認で足りると判断し、
-  MVPでは見送った。申込件数が増えた場合は再検討する(次回候補)。
+- GAS実行の失敗(401/400等)をオーナーへ能動的に通知する経路は、上記「GAS実行失敗時の
+  オーナー通知設計」節で`MailApp.sendEmail()`によるテキスト草案(30分クールダウン付き)
+  まで設計した(フェーズ344)。ただし本コードの貼り付け・`OWNER_NOTIFICATION_EMAIL`
+  スクリプト プロパティの設定自体は、他のGASコード同様Googleフォーム・GASプロジェクトの
+  デプロイ(承認待ち事項2)が承認されて初めて着手できる。
 - 本コード自体はApps Scriptエディタに貼り付けて初めて動作確認できるため、
   本リポジトリ内では構文・ロジックの机上レビューまでに留まる(実行環境を
   持たないため自動テスト対象外。Cloud Functions側の
