@@ -699,3 +699,21 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 09:00 UTC(フェーズ33: monthly-pass-trial-decision.mdを新規作成し、
   月額フリーパスは無料トライアルを設けない〈申込時点から課金開始〉方針に確定した。
   pricing-plan.md・legal-notices-draft.mdへ反映した)
+- フェーズ34(2026-10-31 11:00 UTC定例更新): tech-stack.md「想定コンポーネント6」の残課題
+  だった「月額フリーパス利用者の識別方法の検討」に対応し、monthly-pass-user-identification-
+  design.mdを新規作成した。都度プランはevent-komiguai-pashaの「一度限りアクセスURL(TTL
+  付き)」方式、月額フリーパスはforklift-pashaの「accessToken方式(internal_idとトークンの
+  分離・単一フィールドクエリ・無期限・漏洩時はメール再発行)」方式をそれぞれ流用する方針で
+  整理した。本venture固有の差分(複数デバイス利用の案内文、解約後のaccessTokenアクセス時の
+  ブロック分岐)も残課題として明記した。コード実装・外部サービスへの接続・実Stripe/GCP/
+  Firestoreの開設は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は不要。
+  次回候補: (1)解約後のaccessTokenアクセス時のブロック分岐の詳細設計(aircon-pashaの
+  subscription-canceled-immediate-block-design.md参照)、(2)`fan_pass/{internal_id}`
+  コレクション定義の新規作成(firestore-data-model.md相当)、(3)生成回数カウンタ設計
+  (tech-stack.mdコンポーネント7)、(4)venue-master-draft.mdの各会場アクセス情報精査・
+  会場名表記揺れの名寄せ方法の検討(README.md既出の残課題)、(5)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 11:00 UTC(フェーズ34: 詳細は上記。monthly-pass-user-identification-
+  design.mdを新規作成し、都度プラン/月額フリーパスそれぞれの利用者識別方式を既存venture
+  パターンの流用で整理した)
