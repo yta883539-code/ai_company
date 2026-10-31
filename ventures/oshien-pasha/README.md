@@ -742,3 +742,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   新規作成し、解約後のaccessTokenアクセス時のページ表示分岐〈通常フォーム vs 解約済み案内
   +再加入導線〉を設計。aircon-pashaの専用フィールド最優先判定パターンを踏襲し、コレクション
   名表記の揺れ〈monthly_pass/fan_pass〉を次回一本化すべき課題として記録)
+- フェーズ36(2026-10-31 14:00 UTC定例更新): フェーズ35の次回候補(1)「`fan_pass/{internal_id}`
+  (名称一本化含む)コレクション定義の新規作成」に対応し、firestore-data-model.mdを新規作成した。
+  monthly-pass-identity-design.md(フェーズ7)・generation-count-design.md(フェーズ8)・
+  fan-pass-canceled-access-block-design.md(フェーズ35)の3文書に分散していたフィールド
+  (`accessToken`・`email`・`stripeCustomerId`・`stripeSubscriptionId`・`subscriptionStatus`・
+  `currentPeriodEnd`等)・サブコレクション(`generation_log`)・カウンタフィールド
+  (`currentMonthGenerationCount`・`generationCountMonth`)を`fan_pass/{internal_id}`コレクション
+  定義として統合し、フェーズ35が指摘したコレクション名表記揺れ(`monthly_pass`/`fan_pass`)を
+  `fan_pass`に一本化した。forklift-pasha/line-reservation-aiのfirestore-data-model.md構成方針
+  (フィールド一覧+コメント形式)を踏襲した。コード実装・外部サービス接続・実Firestore/GCP
+  プロジェクトの開設は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は不要
+  (既存の承認待ち事項〈GCPプロジェクト・Firestoreデータベース作成〉の範囲内で扱う)。
+  次回候補: (1)生成回数カウンタ設計の次段階(tech-stack.mdコンポーネント7、異常検知の具体的な
+  閾値・対応方針の検討は実利用データ観察後まで保留のため、本件は`UsageCounterStoreProtocol`
+  相当のインターフェース設計を候補とする)、(2)venue-master-draft.mdの各会場アクセス情報精査・
+  会場名表記揺れの名寄せ方法の検討(README.md既出の残課題)、(3)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 14:00 UTC(フェーズ36: firestore-data-model.mdを新規作成し、
+  `fan_pass/{internal_id}`コレクション定義にフィールド・サブコレクション設計を統合。
+  コレクション名表記揺れ〈monthly_pass/fan_pass〉を`fan_pass`に一本化)
