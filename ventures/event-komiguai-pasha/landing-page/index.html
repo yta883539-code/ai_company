@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<!--
+  イベントこみぐあいパシャっと LP 実装ドラフト(定例更新・2026-10-31 12:00 UTC)
+
+  位置づけ: landing-page-wireframe.md(フェーズ77)・landing-page-copy-draft.md
+  (フェーズ76)の内容をそのままHTML/CSSに落とし込んだローカルの実装ドラフトです。
+  ドメイン取得・ホスティング・外部公開は一切行っておらず、このファイルはリポジトリ内に
+  静的ファイルとして置かれているのみです(README.mdの「外部サービスへの公開」には
+  該当しません)。aircon-pasha・kura-pasha・course-set-pasha・line-reservation-ai・
+  oshien-pashaのlanding-page/index.htmlと同じ位置づけ・実装方針を踏襲し、本venture
+  未着手だったcross-venture parityの最後のギャップ(LP関連3点セットの3点目)に
+  対応するものです(landing-page-wireframe.mdフェーズ77の次のステップ候補(1))。
+
+  未実装・意図的なプレースホルダー:
+  - CTAボタンは href="#" の非活性リンク(aria-disabled="true")で、実際の申込・決済
+    フローには接続していません(実Stripeアカウント開設・実GCP/Firestore作成は
+    いずれもpending-approval.md記載分でオーナー承認待ちのため)。
+  - ヒーローの「1入力→4出力」分岐画像(landing-page-wireframe.mdの画像案)は未制作
+    画像素材の代わりにCSSのみの矢印分岐モックアップで表現した。
+  - 機能紹介セクション③(警備員重点配置案・誘導アナウンス文案)は道路使用許可確認の
+    注記を警告色バッジで強調し、⑥(やらないこと)は区別枠で視覚的に分離し、
+    wireframe記載の方針をそのまま反映した。
+  - 単発利用(都度課金)と月額プラン(ライト/スタンダード)が併存する本venture固有の
+    料金構成はpricing-plan.mdをそのまま反映した。
+  - フッターの特定商取引法に基づく表記・プライバシーポリシーはlegal-notices-draft.md
+    (フェーズ75)の未確定項目があるためリンク先なし。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イベントこみぐあいパシャっと(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #f4f8fb;
+    --color-fg: #212e36;
+    --color-accent: #1d6fa5;
+    --color-accent-dark: #164f78;
+    --color-card: #ffffff;
+    --color-border: #d6e4ee;
+    --color-muted: #5b6b74;
+    --color-caution-bg: #fff3e0;
+    --color-caution-border: #f2c48b;
+    --color-exclude-bg: #eef1f3;
+    --color-exclude-border: #c7d1d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 40px 20px; }
+  section.alt { background: #e8f0f6; }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; }
+  h2 { font-size: 1.3rem; margin: 0 0 20px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; }
+  .cta {
+    display: block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 14px; border-radius: 8px;
+    font-weight: bold; margin: 16px 0 6px;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta-note { text-align: center; font-size: 0.8rem; color: var(--color-muted); margin: 0 0 8px; }
+
+  .flow-mock {
+    display: flex; align-items: center; gap: 8px;
+    margin: 20px 0 8px; flex-wrap: wrap;
+  }
+  .flow-mock .memo-card {
+    flex: 1 1 150px; min-width: 0;
+    background: #fbfdf2;
+    border: 1px solid #e4dfb0;
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 0.8rem; color: var(--color-muted);
+  }
+  .flow-mock .arrow { font-size: 1.4rem; color: var(--color-accent); flex: 0 0 auto; }
+  .output-cards {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    flex: 1 1 180px;
+  }
+  .output-cards .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px; padding: 8px;
+    font-size: 0.72rem; text-align: center;
+  }
+
+  ul.checklist { list-style: none; padding: 0; margin: 0; }
+  ul.checklist li {
+    padding: 8px 0 8px 28px;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+  }
+  ul.checklist li:last-child { border-bottom: none; }
+  ul.checklist li::before {
+    content: "□"; position: absolute; left: 0; top: 8px;
+    color: var(--color-accent);
+  }
+
+  .feature { margin: 0 0 16px; padding: 14px; border-radius: 8px; background: var(--color-card); border: 1px solid var(--color-border); }
+  .feature .num { color: var(--color-accent); font-weight: bold; margin-right: 4px; }
+  .feature.caution { background: var(--color-caution-bg); border-color: var(--color-caution-border); }
+  .feature.caution .num { color: #b5690a; }
+  .feature.caution .badge {
+    display: inline-block; margin-top: 8px;
+    background: #f2c48b; color: #5a3a0a;
+    font-size: 0.72rem; font-weight: bold;
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .feature.exclude { background: var(--color-exclude-bg); border-color: var(--color-exclude-border); }
+  .feature.exclude .num { color: var(--color-muted); }
+
+  ul.diff-list { padding-left: 20px; margin: 0; }
+  ul.diff-list li { margin-bottom: 10px; }
+
+  .price-check { list-style: none; padding: 0; margin: 0 0 16px; }
+  .price-check li { padding: 4px 0 4px 24px; position: relative; font-size: 0.9rem; }
+  .price-check li::before { content: "✓"; position: absolute; left: 0; color: var(--color-accent); font-weight: bold; }
+  .plan-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 0.9rem; }
+  .plan-table th, .plan-table td { border: 1px solid var(--color-border); padding: 10px; text-align: left; }
+  .plan-table th { background: #e8f0f6; }
+
+  details { border-bottom: 1px solid var(--color-border); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: bold; }
+  details p { margin: 10px 0 0; color: var(--color-muted); font-size: 0.9rem; }
+
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+  footer a { color: var(--color-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">イベントこみぐあいパシャっと</header>
+
+  <section>
+    <h1>会場キャパと入退場口数、そのメモだけで大丈夫ですか?</h1>
+    <p class="sub">混雑確認チェックリストも、警備員配置案も、AIが下書きします。</p>
+
+    <div class="flow-mock">
+      <div class="memo-card">キャパ300人<br>入口2・出口1<br>開場30分前から列ができそう</div>
+      <div class="arrow">→</div>
+      <div class="output-cards">
+        <div class="card">①セルフチェックリスト</div>
+        <div class="card">②警備員重点配置案/誘導アナウンス文案</div>
+        <div class="card">③来場者向け掲示文案</div>
+        <div class="card">④ヒヤリハット記録フォーマット</div>
+      </div>
+    </div>
+
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+    <p class="cta-note">カード登録不要</p>
+  </section>
+
+  <section class="alt">
+    <h2>こんなことに、不安を感じていませんか?</h2>
+    <ul class="checklist">
+      <li>会場キャパ・入場口数に対して、開場直後の入場が集中しないか毎回自分の経験と感覚だけで判断している</li>
+      <li>警備員の人数は確保できているが、どの時間帯・どのエリアに重点配置すべきかの根拠を持てていない</li>
+      <li>入場待機列が屋外・公道に及ぶ可能性があるかどうか、道路使用許可の要否を確認し忘れそうで不安</li>
+      <li>ヒヤリハット(将棋倒しの未然事例等)が起きても、記録のフォーマットが決まっておらずその場の対応で終わってしまう</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>「イベントこみぐあいパシャっと」がやること</h2>
+
+    <div class="feature"><span class="num">①</span>会場キャパ・入場口数・入場方式・警備人数・待機列が屋外に及ぶ可能性をメモで送るだけ</div>
+    <div class="feature"><span class="num">②</span>入退場時混雑確認セルフチェックリストを自動生成します</div>
+    <div class="feature caution">
+      <span class="num">③</span>警備員重点配置案・分散入場誘導アナウンス文案を自動生成します
+      <div><span class="badge">待機列が屋外・公道に及ぶ場合は道路使用許可の要否確認を促す注記を必ず付けます</span></div>
+    </div>
+    <div class="feature"><span class="num">④</span>来場者向け整列・分散入場案内の掲示文案を自動生成します</div>
+    <div class="feature"><span class="num">⑤</span>ヒヤリハット記録フォーマット例も、あわせて自動生成します</div>
+    <div class="feature exclude"><span class="num">⑥</span>警備計画の最終確定・入場制限の実施判断、外部警備会社への発注・道路使用許可の申請代行には踏み込みません</div>
+  </section>
+
+  <section class="alt">
+    <h2>警備会社向けの大規模システムではありません</h2>
+    <ul class="diff-list">
+      <li>有人警備計画・シフト管理SaaSは警備会社・大規模イベント主催者向けの業務システムで、専任の安全担当者がいない小規模ライブハウス・屋内イベント主催者には価格・機能の両面で合いません</li>
+      <li>監視カメラ映像・人流センサーによるリアルタイムAI予測プラットフォームは、数万人規模の野外イベント向けの高額なシステムです</li>
+      <li>「イベントこみぐあいパシャっと」は、チャット/フォームへの簡単なメモ入力だけで一次案を下書きする、数百〜数千人規模の屋内イベント主催者のための低価格なセルフチェックツールです</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>まずは30日間、無料で試してみませんか?</h2>
+    <ul class="price-check">
+      <li>クレジットカードの登録は不要</li>
+      <li>初回生成から30日間、または生成3回到達のいずれか早い方まで無料でご利用いただけます</li>
+      <li>トライアル終了時に自動課金されることはありません</li>
+    </ul>
+    <table class="plan-table">
+      <tr><th>プラン</th><th>料金</th><th>想定する方</th></tr>
+      <tr><td>単発利用</td><td>1回500円</td><td>年数回程度しか主催しない方</td></tr>
+      <tr><td>ライトプラン</td><td>月780円(月3件まで)</td><td>月に数件開催される方</td></tr>
+      <tr><td>スタンダードプラン</td><td>月1,980円(月10件まで)</td><td>月に複数件開催される方</td></tr>
+    </table>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+  </section>
+
+  <section class="alt">
+    <h2>よくある質問</h2>
+    <details>
+      <summary>警備計画はこのサービスだけで完成しますか?</summary>
+      <p>いいえ。生成されるのはあくまで一次案(下書き)です。警備計画の最終確定・入場制限の実施判断は、主催者様・警備責任者様ご自身で行ってください。</p>
+    </details>
+    <details>
+      <summary>外部の警備会社への発注や、警察署への届出も代わりにやってもらえますか?</summary>
+      <p>いいえ。外部警備会社への発注契約、所轄警察署への道路使用許可申請・届出代行は行いません。入場待機列が屋外・公道に及ぶ可能性がある場合は、その旨の確認を促す注記を出力に付けますが、実際の申請はご自身で行っていただく必要があります。</p>
+    </details>
+    <details>
+      <summary>入力した会場キャパシティの数値が合っているか確認してもらえますか?</summary>
+      <p>いいえ。入力いただいた数値をそのまま一次案の生成に用います。消防法上の定員・座席表上の数値等、複数の数値の正しさの確認はご自身の責任で行ってください(複数の数値を併記して入力いただいた場合は、どの数値を基準に使ったかを出力内に明示します)。</p>
+    </details>
+    <details>
+      <summary>単発利用とサブスクプラン、どちらを選べばいいですか?</summary>
+      <p>年数回程度しか屋内イベントを主催されない場合は単発利用(500円/回)、月に複数件開催される場合はライト/スタンダードプランがお得です。まずは無料トライアルでお試しください。</p>
+    </details>
+  </section>
+
+  <section>
+    <a class="cta" href="#" aria-disabled="true">30日間無料で試してみる</a>
+  </section>
+
+  <footer>
+    <a href="#">特定商取引法に基づく表記</a> ・ <a href="#">プライバシーポリシー</a><br>
+    © イベントこみぐあいパシャっと
+  </footer>
+
+</div>
+</body>
+</html>

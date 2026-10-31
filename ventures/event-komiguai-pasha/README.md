@@ -1665,3 +1665,31 @@
 - 最終更新: 2026-10-31 04:00 UTC(フェーズ77: landing-page-wireframe.md新規作成。他5venture
   とのcross-venture parityギャップ〈LP関連3点セット〉のうち2点目を解消。コード変更なし、
   schema検証22件・prototype試験50件いずれも変更なしでパス)
+- フェーズ78(2026-10-31 12:00 UTC定例更新): フェーズ77の次回候補(1)「landing-page/index.html
+  (非公開の試作HTML、LP関連3点セットの最後の1点)の作成」に対応した
+  (landing-page/index.html新規作成)。landing-page-wireframe.md(フェーズ77)・
+  landing-page-copy-draft.md(フェーズ76)の内容をそのままHTML/CSSに落とし込み、他5venture
+  (aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha・line-reservation-ai)・
+  oshien-pashaと同じ位置づけ(ドメイン取得・ホスティング・外部公開は行わないローカルの
+  実装ドラフト、CTAボタンはaria-disabled="true"の非活性リンク)で実装し、本ventureの
+  LP関連3点セット(copy-draft・wireframe・index.html)を完成させ、cross-venture parity
+  ギャップを解消した。本venture固有の視覚表現として、機能紹介③(警備員重点配置案・
+  誘導アナウンス文案)に`outdoor_queue`に応じた道路使用許可確認の注記をオレンジ系の
+  警告バッジで強調し、⑥(警備計画の最終確定等への不介入)を区別枠で分離した
+  (landing-page-wireframe.mdの画像・ビジュアル方針表どおり)。単発利用(500円/回)・
+  ライトプラン(月780円)・スタンダードプラン(月1,980円)の3プラン併記と、30日間または
+  生成3回到達いずれか早い方までの無料トライアル条件(pricing-plan.md)も反映した。
+  コード変更は本HTMLファイルのみ(Python側のprototype/schemaには変更なし)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(50件、変更なし)・
+  `python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし(ドメイン取得・
+  ホスティング・実際の公開は従来通り未着手かつオーナー承認待ち)。
+  次回候補: (1)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)層2(単発屋内トークイベント・ポップ
+  アップ公演の主催者)の探索手法の見直し、または層3への着手順の再検討(フェーズ21〜23・25
+  から継続する課題)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-31 12:00 UTC(フェーズ78: landing-page/index.html新規作成。本venture
+  のLP関連3点セット〈copy-draft・wireframe・index.html〉を完成させ、他5venture・
+  oshien-pashaとのcross-venture parityギャップを解消。コード変更は本HTMLファイルのみ、
+  schema検証22件・prototype試験50件いずれも変更なしでパス)
