@@ -590,3 +590,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 01:00 UTC(フェーズ28: 詳細は上記。generation_logへの入力名称生テキスト
   記録の将来追加に向けたスキーマ案・プライバシー面のリスク・残課題〈保存期間・削除方針の未整備〉を
   整理した。設計のみでスキーマファイル・実装への反映は行っていない)
+- フェーズ29(2026-10-31 02:00 UTC定例更新): フェーズ28の次回候補(2)「data-retention-policy.md・
+  legal-notices-draft.md相当のドキュメントのoshien-pasha向け新規作成」に対応し、venture初の
+  data-retention-policy.md・legal-notices-draft.mdを新規作成した。line-reservation-aiの両文書の
+  構成・考え方を踏襲しつつ、本venture固有の前提(会員登録なし、都度プランは永続レコードを持たない
+  設計〈monthly-pass-identity-design.mdフェーズ7〉、Web単体・LINE非依存)に合わせて、保存期間
+  (都度プラン=原則保存しない/月額フリーパス契約情報=契約終了後1年/生成回数ログ=6か月)と
+  特商法表記・プライバシーポリシー草案(【要記入】項目含む)を整理した。削除は自動実行せず
+  運営者の個別確認を経る運用方針もline-reservation-aiから踏襲した。いずれも草案・設計の整理のみで、
+  schema/output.schema.json・schema/venue-master.jsonの編集、実LP公開、実Stripe/Firestore接続は
+  行っていない。コード実装・外部サービス接続は一切行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの
+  新規追記は不要。
+  次回候補: (1)京セラドーム大阪の命名権契約満了日の確認手段の検討(WebSearch以外、フェーズ25の
+  次回候補(2)を引き継ぐ)、(2)`match_confidence`拡張・`venue_operational_status_note`追加・
+  `closed_permanent`/`closed_temporary`細分類・`recognition_priority`注釈を全てセットにした
+  テストケース仕様の具体化(実API接続後)、(3)月額フリーパスの無料トライアル有無の確定
+  (pricing-plan.md未確定事項、legal-notices-draft.md2.5節で判明した残課題)、(4)ランディング
+  ページ本体(landing-page-copy-draft.md相当)の新規作成(本venture未着手のまま)。
+- 最終更新: 2026-10-31 02:00 UTC(フェーズ29: venture初のdata-retention-policy.md・
+  legal-notices-draft.mdを新規作成。都度プラン=永続レコードなし/月額フリーパス=契約終了後1年・
+  生成回数ログ6か月という保存期間案と、特商法表記・プライバシーポリシー草案を整理した)
