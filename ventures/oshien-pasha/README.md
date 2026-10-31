@@ -763,3 +763,23 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 14:00 UTC(フェーズ36: firestore-data-model.mdを新規作成し、
   `fan_pass/{internal_id}`コレクション定義にフィールド・サブコレクション設計を統合。
   コレクション名表記揺れ〈monthly_pass/fan_pass〉を`fan_pass`に一本化)
+- フェーズ37(2026-10-31 15:00 UTC定例更新): フェーズ36の次回候補(1)「生成回数カウンタ
+  設計の次段階(`UsageCounterStoreProtocol`相当のインターフェース設計)」に対応し、
+  usage-counter-store-protocol-design.mdを新規作成した。kura-pasha/course-set-pashaの
+  `UsageCounterProtocol`の記法に倣いつつ、本venture固有の「異常検知用ログ」という目的
+  (generation-count-design.md、フェーズ8)に合わせ、`currentMonthGenerationCount`加算と
+  `generation_log`追記を単一メソッド`record_generation`で原子的に行う契約とし、参照用に
+  `get_current_month_count`を加えた2メソッド構成を確定させた。本venture自身は`prototype`
+  ディレクトリが未着手のため、検証用実装(`InMemoryUsageCounterStore`相当)・実Firestore
+  接続アダプタの作成は見送り、インターフェース定義の確定のみに留めた。コード実装・外部
+  サービス接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は不要
+  (既存の承認待ち事項〈GCPプロジェクト・Firestoreデータベース作成〉の範囲内で扱う)。
+  次回候補: (1)`prototype`ディレクトリの新規作成(`InMemoryUsageCounterStore`相当の検証用
+  実装、他venture同様のユニットテスト整備)、(2)venue-master-draft.mdの各会場アクセス情報
+  精査・会場名表記揺れの名寄せ方法の検討(README.md既出の残課題)、(3)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 15:00 UTC(フェーズ37: usage-counter-store-protocol-design.mdを
+  新規作成し、`UsageCounterStoreProtocol`相当のインターフェース〈record_generation・
+  get_current_month_countの2メソッド〉を設計。カウンタ加算とログ追記を単一メソッドで原子的
+  に行う契約とした。prototypeディレクトリ自体の新規作成は次回以降の課題として残した)
