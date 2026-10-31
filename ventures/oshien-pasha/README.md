@@ -869,3 +869,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 21:00 UTC(フェーズ41: `find_by_email`の必要性を再検討し、再発行フローは
   Stripe API側の顧客検索→サブスクリプション検索経路で完結させる方針を確定、Firestore側への
   メソッド追加は不要と結論した)
+- フェーズ42(2026-10-31 22:00 UTC定例更新): フェーズ41の次回候補(2)「再発行フロー((b)案)の
+  APIエンドポイント設計・実コード化」に対応し、access-url-resend-api-design.mdを新規作成した。
+  monthly-pass-identity-design.md 3節「アクセスURLを再送する」ページの処理本体として
+  `handle_resend_request()`・`StripeSubscriptionLookupProtocol`を設計した。forklift-pashaの
+  再発行(`accessToken`付きURLからの操作)との最大の差分は、本ventureはアクセスURLを
+  失った利用者向けの入口であるため`accessToken`を前提にできず、入力された`email`を
+  起点にStripe側で本人(有効なサブスクリプション)を特定する点、および「メールアドレスの
+  登録有無」をHTTPレスポンスで区別するとユーザー列挙のリスクがあるため、見つかる・見つからない
+  いずれの場合も同一レスポンスを返す設計とした点である。prototype/
+  access_url_resend_handler.pyとしてコード化し(`InMemoryStripeSubscriptionLookup`含む)、
+  test_access_url_resend_handler.pyに4テストケースを作成、`python3
+  test_access_url_resend_handler.py`で全件PASSを確認した(`PASS=4 FAIL=0`)。既存の
+  test_fan_pass_store.py(16件)・test_usage_counter.py(14件)もいずれも変更なしで
+  再実行しパスを確認した。コード実装はインメモリのみに留め、外部サービス・実Firestore・
+  実Stripeへの接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの新規追記は
+  不要(既存の承認待ち事項の範囲内で扱う)。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)HTTPエントリポイント(`receive_resend_request()`相当)の
+  設計・実コード化(access-url-resend-api-design.md 5節の残課題)、(3)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 22:00 UTC(フェーズ42: アクセスURL再送フローの処理本体
+  `handle_resend_request()`を設計・コード化し、access-url-resend-api-design.mdとして
+  まとめた。テスト4件追加、全件PASS)
