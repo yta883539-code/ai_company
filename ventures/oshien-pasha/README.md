@@ -611,3 +611,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 02:00 UTC(フェーズ29: venture初のdata-retention-policy.md・
   legal-notices-draft.mdを新規作成。都度プラン=永続レコードなし/月額フリーパス=契約終了後1年・
   生成回数ログ6か月という保存期間案と、特商法表記・プライバシーポリシー草案を整理した)
+- フェーズ30(2026-10-31 03:00 UTC定例更新): フェーズ29の次回候補(4)「ランディングページ本体
+  (landing-page-copy-draft.md相当)の新規作成(本venture未着手のまま)」に対応し、venture初の
+  landing-page-copy-draft.mdを新規作成した。event-komiguai-pashaのLP構成(ファーストビュー→
+  課題提起→解決策・機能紹介→差別化→料金・トライアル→FAQ)を流用し、pricing-plan.md
+  (都度480円/月額980円・初回1回無料)・legal-notices-draft.md(フェーズ29、月額フリーパスの
+  無料トライアル有無は未確定)の内容を反映した。月額フリーパス側に独自のトライアル条件が
+  あるとは記載せず、都度プランの「初回1回無料」のみをCTA・料金セクションに明記することで、
+  未確定事項について過大な約束をしないテキストに留めた。schema/output.schema.jsonの出力4種
+  (itinerary_draft・day_timetable・cost_estimate・hashigo_check)をそのまま機能紹介の項番に
+  対応させ、会場の名寄せ不一致・休館時の留保方針(venue-name-normalization-design.md等)は
+  FAQセクションに反映した。コード実装・外部サービス接続・LP公開は一切行っていない。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していない
+  ためpending-approval.mdへの新規追記は不要。
+  次回候補: (1)landing-page-wireframe.mdの新規作成(他5venture同様のテキストベース
+  ワイヤーフレーム)、(2)月額フリーパスの無料トライアル有無の確定(pricing-plan.md・
+  legal-notices-draft.mdフェーズ29の残課題)、(3)京セラドーム大阪の命名権契約満了日の確認
+  手段の検討(WebSearch以外、フェーズ25以来の引き継ぎ課題)、(4)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先。
+- 最終更新: 2026-10-31 03:00 UTC(フェーズ30: venture初のlanding-page-copy-draft.mdを新規
+  作成。都度プラン「初回1回無料」をCTA・料金セクションに反映し、月額フリーパスの無料トライアル
+  未確定という残課題は過大な約束をしない形で扱った。他6ventureとのcross-venture parityギャップ
+  の一部を解消した)
