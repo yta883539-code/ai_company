@@ -6872,3 +6872,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   申し送り事項〈course-set-pasha・forklift-pasha側のretry_config横断確認〉が
   aircon-pashaフェーズ351で既に完了済みであることを確認し完了扱いとした。コード変更
   なし、テスト1043件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き359(2026-10-31 06:00 UTC定例更新): deposit-payment-processor-unification-design.md
+  「残る課題」に残っていた「店舗オーナーが個人事業主である場合のStripe Connect KYC要件
+  (本人確認書類の種類等)の詳細は未調査」をWebSearchで調査し解消した。Stripeの本人確認・
+  日本向けスタートガイドの案内によれば、個人の本人確認書類としてパスポート・運転免許証・
+  在留カード・マイナンバーカード・特定在留カード・住民票等が挙げられ、書類は鮮明・フルカラー・
+  有効期限内かつStripeアカウント登録情報と一致している必要があることを確認した(国別の正確な
+  最新リストはStripe公式の「Acceptable verification documents by country」ページで都度確認が
+  必要な点を明記)。いずれも店舗オーナー本人がStripeの画面上で行う手続きであり、本サービス側で
+  新たに実装すべき機能はオンボーディング案内文面に限られるとの整理を同ドキュメントに追記した。
+  design変更のみ(同ドキュメントの「残る課題」節を更新)、コード変更なし。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(1043件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を再実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし(実際のStripe Connect
+  加盟店契約・オンボーディング自体は従来通り未着手)。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  2026-10-23 12:00 UTC記載)がオーナーから承認された場合はその着手を最優先、
+  (2)Stripe Connect採用がデポジット機能のMVP入りと合わせて決定された場合、店舗オーナー向け
+  オンボーディング案内文面(本人確認書類の準備案内)の具体化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-10-31 06:00 UTC(フェーズ続き359: 詳細は上記。deposit-payment-processor-
+  unification-design.mdの「残る課題」だったStripe Connect個人事業主KYC要件をWebSearchで調査し
+  解消。design変更のみ、コード変更なし、テスト1043件・schema検証28件いずれも変更なしでパス)

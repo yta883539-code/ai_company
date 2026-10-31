@@ -55,5 +55,19 @@ komoju等のうち、Stripeへの一本化が可能かを検討する。
 - Stripe Connectの加盟店契約・店舗オーナーへのオンボーディング案内は、実際のStripeアカウント
   接続・契約行為であり、オーナー承認が必要なアクションに該当するため、デポジット機能自体を
   MVPに含める判断が下された後の課題として残る。
-- 店舗オーナーが個人事業主である場合のStripe Connect KYC要件(本人確認書類の種類等)の詳細は
-  未調査のまま残る。
+- (解消 2026-10-31 06:00 UTC: 店舗オーナーが個人事業主である場合のStripe Connect KYC要件を
+  WebSearchで調査した。Stripeの「本人確認と自宅住所確認のための書類」案内によれば、Stripeが
+  本人情報を自動確認できない場合、政府発行の写真付き本人確認書類の提出(鮮明・フルカラー・
+  有効期限内であること)が求められ、審査には最大24時間程度かかる。日本向けのスタートガイドでは
+  個人の本人確認書類としてパスポート・運転免許証・在留カード・マイナンバーカード・特定在留カード・
+  住民票が挙げられており、運転免許証・在留カード等は表裏両面の写真提出が必要とする情報もある
+  (出典は本人確認書類の種類まで明示する一次情報ではなく、国別の正確な最新リストはStripeの
+  「Acceptable verification documents by country」ページ〈日本選択時〉で都度確認する必要がある
+  点に留意)。本人確認に加え、Stripe Connectアカウントに関連付けられた個人情報(氏名・生年月日・
+  住所等)と提出書類の情報が一致している必要がある点も確認した。いずれも店舗オーナー本人が
+  Stripeの画面上で行う手続きであり、本サービス側で新たに実装すべき機能はオンボーディング案内
+  文面(どの書類をどう準備すればよいかの案内)に限られる。具体的な案内文面の作成自体は
+  Stripe Connect採用がデポジット機能のMVP入りと合わせて決定された後の課題として残す。
+  出典: [本人確認と自宅住所確認のための書類](https://support.stripe.com/questions/documents-for-identity-and-home-address-verification?locale=ja-JP)、
+  [Getting Started with Stripe: A Guide for Users in Japan](https://support.stripe.com/questions/getting-started-with-stripe-a-guide-for-users-in-japan)、
+  [Acceptable verification documents by country](https://docs.stripe.com/acceptable-verification-documents))
