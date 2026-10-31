@@ -6264,3 +6264,36 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-10-30 12:00 UTC(フェーズ272: 詳細は上記。landing-page-copy-
   draft.md・unfollow-billing-faq.mdの長期未対応ギャップを解消。コード変更なし、
   テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ273(2026-10-31定例更新): aircon-pasha/line-price-revision-2026-check.md
+  追記(2026-10-30 UTC定例更新)が「次のステップ候補」として残していたcross-venture
+  横展開(course-set-pasha・kura-pasha・line-reservation-aiの各ventureでPush API
+  呼び出しの有無を個別確認する)に対応し、本venture(kura-pasha)側line-price-
+  revision-2026-check.mdに追記した。prototype/cloud_function_webhook.pyを確認し、
+  生成完了報告・トライアル終了通知・上限接近通知等の返信はいずれもReply API
+  (`_reply_with_retry()`)のみで送信され、フェーズ64実装コメント(1030行目)にも
+  「追加のPush API呼び出し・課金を発生させない方針」と明記されていることを確認した
+  (aircon-pasha・line-reservation-aiと同じ訂正が本ventureにも適用できることを
+  確認)。加えて、本venture固有の特徴として、subscription_cancellation_notification・
+  payment_failure_notification・payment_suspension_owner_notification・
+  blocked_but_billing_owner_notification・deletion_candidate_final_confirmation・
+  chatbot_intent_routerのエスカレーション通知という6件のPush API経路が存在する
+  ことを洗い出した上で、いずれも日次/月次/低頻度バッチまたは例外的エスカレーション
+  に限られ、本venture固有の「低頻度受注特性」(daily-scheduler-design.md 1節)を
+  踏まえると無料枠(30,000通/月)に対し無視できる規模と判断した。既存の影響評価
+  結論(料金プラン設計の前提を見直す必要なし)自体に変更はないが、根拠が強化された。
+  design変更・コード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(295件、変更なし)・`python3 prototype/
+  test_cloud_function_webhook.py`(355件、変更なし)・`python3 schema/
+  validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから
+  承認された場合はその着手を最優先、(2)course-set-pashaへの同種確認の横展開
+  (aircon-pasha側次回候補にも同一内容が残るため、着手前に重複対応を避けること)、
+  (3)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化フィールド)への
+  実装反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-10-31 UTC(フェーズ273: 詳細は上記。line-price-revision-2026-
+  check.mdに「応答メッセージは通数カウント対象外」の確認とPush経路6件の洗い出しを
+  追記。コード変更なし、テスト295件・webhook355件・schema検証32件いずれも変更
+  なしでパス)

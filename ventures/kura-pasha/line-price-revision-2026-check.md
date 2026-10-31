@@ -43,3 +43,43 @@ line-reservation-ai/line-price-revision-2026-check.md(2026-07-30初版・2026-09
 - 次回候補: aircon-pasha・course-set-pashaについても同種の個別確認ファイルが未作成であれば
   同じ観点で横展開する(いずれも想定送信ボリュームは月数百通規模以下と見込まれ、結論が
   変わる可能性は低いと予想されるが、未確認のため次回以降のタスクとして残す)。
+
+## 追記(フェーズ273定例更新): aircon-pasha訂正の本venture側横展開 — 「応答メッセージは通数カウント対象外」の確認とPush経路の洗い出し
+
+- aircon-pasha/line-price-revision-2026-check.md 追記(2026-10-30 UTC定例更新)が「次の
+  ステップ候補」として残していた、course-set-pasha・kura-pasha・line-reservation-aiの
+  各ventureでのPush API呼び出し有無の個別確認に対応し、本venture側で確認した。
+- prototype/cloud_function_webhook.pyを確認した結果、職人からのメモ送信(process_memo_event
+  経路)に対する生成完了報告・トライアル終了通知・上限接近通知・プラン変更案内・決済関連の
+  返信は、いずれも`reply_token`を使った`_reply_with_retry()`(Reply API)のみで送信されて
+  いる。フェーズ64の実装コメント(cloud_function_webhook.py 1030行目)には「追加のPush API
+  呼び出し・課金を発生させない方針」と明記されており、トライアル終了通知・上限接近通知も
+  生成完了報告と同じ返信メッセージの末尾に付記する設計であることを確認した。したがって、
+  本venture最大の利用量ドライバーである生成完了報告関連の返信は、aircon-pasha・
+  line-reservation-aiと同様、**通数カウント自体の対象外**である。
+- 一方、本venture固有の特徴として、aircon-pasha(Push経路は削除候補最終確認の月次バッチ
+  1件のみ)より多くのPush API経路が存在することを確認した。洗い出した結果は次の6経路:
+  1. subscription_cancellation_notification.py: 契約者へのサブスク解約通知
+  2. payment_failure_notification.py: 決済失敗リマインド・決済回復通知(契約者宛、
+     daily_scheduler.py経由で日次バッチから呼び出し)
+  3. payment_suspension_owner_notification.py: 決済停止状態のオーナー向け通知(日次バッチ)
+  4. blocked_but_billing_owner_notification.py: ブロック中だが課金継続中の契約者について
+     のオーナー向け通知(日次バッチ)
+  5. deletion_candidate_final_confirmation.py: 退会候補の最終確認通知(連絡可能〈フォロー
+     中〉契約者宛、月次/低頻度バッチ、LINE_PUSHルート)
+  6. chatbot_intent_router.py: チャットボット意図分類が`other_needs_human`と判定した場合の
+     オーナー宛即時エスカレーション通知(1メッセージにつき1通知)
+- これら6経路はいずれも生成1回ごとに発生するものではなく、(a)日次バッチ(1日1回、該当者
+  のみ)、(b)月次/低頻度バッチ、(c)職人からの個別メッセージ受信時の例外的エスカレーション
+  (通常フローではない)のいずれかに限られる。daily-scheduler-design.md 1節が記録する
+  本venture固有の「低頻度受注特性」(鞍・馬具職人という業態自体の受注頻度が低い)、および
+  pricing-plan.mdの複数職人プラン上限(月20回・最大5名共同利用)を踏まえると、これら6経路を
+  合算してもスタンダードプラン無料枠(30,000通/月)に対して無視できる規模にとどまると判断
+  する。
+- 結論: 本venture(kura-pasha)についても、本ファイル既存の「影響評価」(月数十〜100通程度、
+  改定対象の月5万通超の水準から3桁近く少ない)は、実際にはさらに保守的な見積もりだった
+  ことが判明した(生成完了報告自体は通数カウント対象外のため、実際に通数を消費するのは
+  上記Push経路6件のみ、かつそのいずれも低頻度)。既存結論(料金プラン設計の前提を見直す
+  必要はない)に変更はないが、根拠が強化された。
+- 次回候補: course-set-pashaへの同種確認の横展開(aircon-pasha側次回候補にも同一内容が
+  残っているため、着手前にcourse-set-pasha側の最新状況を確認し重複対応を避けること)。
