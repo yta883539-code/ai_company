@@ -58,9 +58,56 @@ revision-2026-check.md(フェーズ265)側でも同じ「course-set-pashaへの�
 - セッター複数プランの月30回上限はsns-tone-research.mdの調査ベースの仮置きであり、実運用
   データで想定を大幅に上回る利用が生じた場合は本ファイルの見積もりも再検証が必要。
 
-## 次のステップ候補
+## 次のステップ候補(旧版、以下の追記により(1)は解消済み)
 
 - これで4venture(aircon-pasha・kura-pasha・course-set-pasha・line-reservation-ai)すべてで
   本改定の個別影響評価が完了した。追加の横展開候補は残っていない。
+- 実LINE公式アカウント開設の直前に一次情報での最終確認(オーナー承認待ちのため現時点では
+  着手しない)。
+
+## 追記(フェーズ343、応答メッセージの通数カウント対象外の確認・本venture横展開)
+
+aircon-pasha/line-price-revision-2026-check.md(フェーズ352)が発見し、kura-pasha
+(フェーズ273)に横展開済みの訂正「LINE Messaging APIのReply API(応答メッセージ)は
+Push・Multicast・Broadcast・Narrowcast APIによる『メッセージ配信』とは別扱いで、課金・
+無料メッセージ通数カウントのいずれも対象外」について、本venture(course-set-pasha)側でも
+Push API呼び出しの有無を個別確認した。
+
+- `prototype/cloud_function_webhook.py`を確認した結果、生成完了報告(SNS投稿文・LINE/Web
+  告知文・履歴行をまとめた1通)・owner_faq応答・サブスク解約案内・生成一時停止案内・決済
+  停止案内・チャットボット応答・APIエラー時フォールバック等、ユーザーからのWebhookイベント
+  に対する返信はすべて`_reply_with_retry()`(`reply_client.reply()`、reply_token使用)のみで
+  送信されており、Reply API以外の経路は存在しないことを確認した。上記「本venture
+  (course-set-pasha)の利用量見積もり」節の月30〜300通という見積もりの最大構成要素
+  (生成完了報告の返信)は、したがって通数カウント自体の対象外であることが分かった。
+- 一方、本venture固有のPush API呼び出し経路として、以下9箇所(8ファイル)を洗い出した
+  (いずれも`push_client.send_message()`、kura-pashaの6経路洗い出しと対称の作業):
+  1. `subscription_cancellation_notification.py`(2箇所): サブスク解約確定時のユーザー
+     向け通知(Stripeイベント契機、ユーザーごとに生涯高々数回)。
+  2. `payment_recovery_notification.py`(2箇所): 決済失敗からの復旧時のユーザー向け通知
+     (Stripeイベント契機、低頻度)。
+  3. `payment_failure_reminder_scheduler.py`: 決済失敗リマインド(日次バッチ、対象は
+     決済失敗中のユーザーのみ)。
+  4. `trial_end_scheduler.py`: トライアル終了通知(日次バッチ、対象は当日トライアル
+     終了ユーザーのみ)。
+  5. `payment_suspension_owner_notification.py`: 決済停止時の運営者向け通知(低頻度
+     イベント契機)。
+  6. `blocked_but_billing_owner_notification.py`: 利用制限中だが決済は継続している
+     異常検知時の運営者向け通知(低頻度イベント契機)。
+  7. `deletion_candidate_final_confirmation.py`: 削除候補最終確認(月次バッチ)。
+  8. `chatbot_intent_router.py`: チャットボットで`other_needs_human`と判定された場合の
+     運営者向けエスカレーション通知(例外的・低頻度)。
+- いずれも日次/月次バッチまたは低頻度の個別イベント通知に限られ、本venture全体で最大
+  想定しても月間で無料枠(30,000通/月)に対し無視できる規模と判断する(kura-pashaの6経路
+  評価と同様の結論)。既存の影響評価結論(料金プラン設計の前提を見直す必要なし)自体に
+  変更はないが、根拠が強化された。
+- 一次情報(lycbiz.com等)への直接アクセスが本エージェントの実行環境ではegressポリシーに
+  より依然不可である留保は、Reply/Push API種別の区別についても解消していない(二次情報源
+  のクロスチェックにとどまる)。
+
+### 更新後の次のステップ候補
+
+- line-reservation-aiへの同種確認の横展開(aircon-pasha側次回候補・kura-pasha側次回候補に
+  同一内容が残っているため、着手前に他venture側での重複対応を避けること)。
 - 実LINE公式アカウント開設の直前に一次情報での最終確認(オーナー承認待ちのため現時点では
   着手しない)。
