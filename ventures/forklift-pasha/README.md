@@ -4154,3 +4154,36 @@
   WebSearchで再確認したが未解消。別団体〈建設業労働災害防止協会福岡県支部等〉の第三の所在地
   候補を参考情報として記録。コード変更なし、テスト24ファイル・schema検証11件いずれも変更
   なしでパス)
+- フェーズ200(2026-11-01 08:00 UTC定例更新): aircon-pasha(フェーズ103)・course-set-pasha
+  (フェーズ203)・kura-pasha(フェーズ86)・line-reservation-aiはいずれも既にtone-and-
+  manner-guideline.mdを持つが、本ventureには相当するドキュメントがまだ無かった
+  (oshien-pashaフェーズ48が発見したmarket-research.md欠落と同種のcross-venture parity
+  ギャップ)ことを発見し、新規作成して解消した。`prototype/*.py`内の全メッセージ定数
+  (`payment_failure.py`・`payment_failure_reminder_scheduler.py`・
+  `trial_end_email_scheduler.py`・`overage_notifications.py`)を全数確認し、(1)絵文字は
+  一切使用されていないこと、(2)件名の見出し記法は全角「【】」で統一されており
+  course-set-pasha・kura-pashaが発見したような半角表記ゆれは存在しないこと、を確認した
+  (いずれも是正不要)。さらに、kura-pashaのtone-and-manner-guideline.mdが「決済関連の
+  通知は謝罪表現を含めない」と記述する一方、kura-pasha自身の決済復旧通知
+  (`PAYMENT_RECOVERED_MESSAGE`)には「ご不便をおかけしました。」という謝意が実際には
+  含まれており方針記述と実装が厳密には一致していない点を発見した。本venture側の同種の
+  既存文言(`PAYMENT_RECOVERED_EMAIL_NOTICE`)もこれを踏襲しているため、謝罪の要否を
+  「決済失敗の原因」ではなく「生成機能が実際に一時停止していた期間が生じたか」で判断する
+  方針として精緻化し、tone-and-manner-guideline.mdに記録した(kura-pasha側の記述を直接
+  書き換えることはせず、本venture固有の判断として記録するのみに留めた)。コード変更なし、
+  回帰確認として`python3 prototype/run_all_tests.py`(24ファイル、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)`ACCESS_URL_UNAVAILABLE_FALLBACK`の謝罪表現の要否再検討(本フェーズでは
+  `AccessUrlProvider`具象実装確定前のため判断を保留、tone-and-manner-guideline.md
+  「残る課題」参照)、(3)福岡県支部の所在地確定(低優先度のまま持ち越し)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-01 08:00 UTC(フェーズ200: 詳細は上記。tone-and-manner-guideline.md
+  を新規作成しcross-venture parityギャップを解消。既存文言は絵文字不使用・全角【】見出し
+  ともに是正不要と確認。kura-pasha側の謝罪表現方針記述と実装の不一致を発見し、本venture側の
+  方針として精緻化。コード変更なし、テスト24ファイル・schema検証11件いずれも変更
+  なしでパス)
+  なしでパス)
