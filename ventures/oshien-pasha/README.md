@@ -917,3 +917,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 00:00 UTC(フェーズ43: アクセスURL再送フローのHTTPエントリポイント
   `receive_resend_request()`を設計し、prototype/access_url_resend_handler.pyにコード化
   した。テスト4件追加、全8件PASS)
+- フェーズ44(2026-11-01 02:00 UTC定例更新): フェーズ43の次回候補(3)「本venture用Cloud
+  Monitoringアラート設定の整備」に対応し、cloud-monitoring-alert-policy-design.mdを新規
+  作成した。他6venture共通の「Firestoreランタイム依存構築失敗」アラートは本ventureに
+  runtime-dependency-switching-design.md相当文書が無く対象外のため、代わりに
+  access_url_resend_handler.py(フェーズ42・43)が意図的に捕捉せず上位へ伝播させる
+  `MultipleActiveSubscriptionsError`(単一プラン前提の崩れ)・
+  `FanPassNotFoundForSubscriptionError`(Webhook処理の不整合)の2例外をログベース指標
+  ・アラートポリシーの対象とした。未捕捉例外はCloud Functionsランタイムの標準ログ出力で
+  `severity=ERROR`として記録されるため、`textPayload`のクラス名一致でフィルタする方式
+  (他venture側の`jsonPayload.event`構造化ログ方式とは異なる、将来の構造化ログ化は3節の
+  課題として申し送り)とした。コード変更なし、回帰確認として`test_fan_pass_store.py`
+  (16件)・`test_usage_counter.py`(14件)・`test_access_url_resend_handler.py`(8件)を
+  再実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は本フェーズでは発生していないため
+  pending-approval.mdへの新規追記は不要。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)Cloud Functionsの実エントリポイント`main(request)`配線
+  (access-url-resend-http-entry-point-design.md 5節の残課題、Webフォーム側バックエンド実装
+  確定後)、(3)月額フリーパス利用者の識別方法の検討(tech-stack.md 6節の未解決課題)、
+  (4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 02:00 UTC(フェーズ44: 詳細は上記。cloud-monitoring-alert-policy-
+  design.mdを新規作成し、`MultipleActiveSubscriptionsError`・
+  `FanPassNotFoundForSubscriptionError`の2例外を対象としたログベース指標・アラート
+  ポリシーを設計した。コード変更なし、テスト38件いずれも変更なしでパス)
