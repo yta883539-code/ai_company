@@ -89,6 +89,9 @@ monthly-pass-identity-design.md(フェーズ7)が確立した「解約後に再�
   (README.md既出の残課題、未着手のまま持ち越し)。
 - 複数デバイス利用の案内文・本フェーズの解約済み案内文のlegal-notices-draft.md・
   landing-page-copy-draft.mdへの反映(フェーズ34次回候補(1)相当分も含む)。
+  → フェーズ45(2026-11-01 04:00 UTC)でlanding-page-copy-draft.mdのFAQに2問
+  (複数デバイス利用・解約後のアクセスURL挙動)を追加し対応済み。legal-notices-draft.md
+  (プライバシーポリシー2.1節)への反映は未着手のまま残課題とする。
 - 承認待ち事項がオーナーから承認された場合はその着手を最優先。
 
 実LLM呼び出し・Stripe等決済代行サービスとの実接続、実際のGCPプロジェクト・Firestore

@@ -941,3 +941,26 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   design.mdを新規作成し、`MultipleActiveSubscriptionsError`・
   `FanPassNotFoundForSubscriptionError`の2例外を対象としたログベース指標・アラート
   ポリシーを設計した。コード変更なし、テスト38件いずれも変更なしでパス)
+- フェーズ45(2026-11-01 04:00 UTC定例更新): fan-pass-canceled-access-block-design.md
+  (フェーズ37)が残課題として挙げていた「複数デバイス利用の案内文・解約済み案内文の
+  legal-notices-draft.md・landing-page-copy-draft.mdへの反映」に対応した。
+  landing-page-copy-draft.mdのFAQセクションに、(1)月額フリーパスのアクセスURLは
+  ブックマークすればどの端末からでも利用できる旨、(2)解約後は同じアクセスURLで
+  再加入案内ページが表示され生成機能は利用できない旨、の2問を追加した。文言は
+  monthly-pass-user-identification-design.md(フェーズ34)の「複数デバイス利用の想定」節、
+  およびfan-pass-canceled-access-block-design.mdの判定ロジック節をもとに、顧客向けの
+  やさしい表現へ書き直した。legal-notices-draft.md(プライバシーポリシー2.1節)への
+  同内容反映は今回は対応せず残課題として明記した。コード変更なし、回帰確認として
+  `python3 test_usage_counter.py`(PASS=14 FAIL=0)・`python3 test_fan_pass_store.py`
+  (PASS=16 FAIL=0)・`python3 -m unittest test_access_url_resend_handler`(8件)を実行し
+  いずれも変更なしでパスすることを確認した(合計38件、回帰なし)。承認が必要なアクション
+  (支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)legal-notices-draft.mdプライバシーポリシー2.1節への複数デバイス利用・
+  解約後ブロックの補足反映、(2)venue-master-draft.mdの各会場アクセス情報精査・会場名
+  表記揺れの名寄せ方法の検討(README.md既出の残課題)、(3)Cloud Functionsの実エントリ
+  ポイント`main(request)`配線(Webフォーム側バックエンド実装確定後)、(4)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 04:00 UTC(フェーズ45: 詳細は上記。landing-page-copy-draft.mdの
+  FAQに複数デバイス利用・解約後アクセスURL挙動の2問を追加。コード変更なし、テスト38件
+  変更なしでパス)
