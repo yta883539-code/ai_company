@@ -58,15 +58,19 @@ deletion-candidate-query-consolidation-decision.md(フェーズ239)「残る課�
   アダプタ本体)はいずれも他の実Firestore接続作業と同様、オーナー承認後の結合実装フェーズに
   持ち越す。
 
-## 次回候補
+## 次回候補(2026-11-01時点の棚卸し、以下の追記により(2)は解消済み)
 
 1. 承認待ち事項がオーナーから承認された場合はその着手を最優先。
-2. course-set-pasha・forklift-pashaにも、aircon-pashaのdeletion-candidate-query-
+2. ~~course-set-pasha・forklift-pashaにも、aircon-pashaのdeletion-candidate-query-
    consolidation-decision.md相当の決定docを新設し、複合インデックス設計(course-set-pashaは
-   firestore-composite-index-plan.md自体の新設から)に反映する。
+   firestore-composite-index-plan.md自体の新設から)に反映する。~~ →
+   forklift-pashaフェーズ163(2026-10-17 02:00 UTC、deletion-candidate-query-consolidation-
+   decision.md新設)、course-set-pashaフェーズ299〜301(2026-10-16 22:00 UTC決定doc新設・
+   同17 03:00 UTC firestore-composite-index-plan.md新設)でいずれも対応済みであることを
+   本venture側で確認した(解消済み)。
 3. 他venture・アイデア領域の前進。
 
-最終更新: 2026-10-17 01:00 UTC(フェーズ240: フェーズ239「残る課題」の横展開調査を実施。
-aircon-pasha・course-set-pasha・forklift-pashaには同じ2段階クエリ構成が存在し統合方針が
-適用可能であること、line-reservation-aiは既に単一述語設計のため対象外であることを確認した。
-コード変更なし)
+最終更新: 2026-11-01 12:00 UTC(フェーズ274: 2026-11-01定例棚卸しにより、フェーズ240
+「次回候補」(2)のcourse-set-pasha・forklift-pashaへの横展開が両venture側で既に完了済み
+(forklift-pashaフェーズ163・course-set-pashaフェーズ299〜301)であることを確認し、本
+ドキュメントの「次回候補」節を現状に合わせて更新した。コード変更なし、設計変更なし)
