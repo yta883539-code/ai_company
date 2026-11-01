@@ -6230,3 +6230,32 @@
 - 最終更新: 2026-10-31 23:00 UTC(フェーズ344: 詳細は上記。gas-script-draft.mdに
   GAS実行失敗時のオーナー通知〈MailApp.sendEmail()、30分クールダウン付き〉のテキスト
   草案を追記。コード変更なし、全863件・schema検証21件いずれも変更なしでパス)
+- フェーズ345(2026-11-01 14:00 UTC定例更新): forklift-pashaフェーズ200が発見した
+  「tone-and-manner-guideline.mdの謝罪表現方針記述と実装の不一致」(kura-pashaの
+  `PAYMENT_RECOVERED_MESSAGE`相当文言が、方針上「決済関連の通知は謝罪表現を含めない」
+  としながら実際には謝意を含んでいた事例)の横展開確認を本venture側でも実施した。
+  `prototype/payment_recovery_notification.py`を確認したところ、本ventureの
+  `PAYMENT_RECOVERED_MESSAGE`(猶予期間明けの一時停止状態から実際に復旧した場合の通知)
+  にも同様に「ご不便をおかけしました。」という軽い謝意が含まれており、tone-and-manner-
+  guideline.mdの当初記述(「決済関連の通知は謝罪表現を含めない」という一律の表現)は
+  不正確であったことを確認した。一方、forklift-pashaが整理した精緻化基準(謝罪の要否を
+  決済失敗の原因ではなく、生成機能が実際に一時停止していた期間が生じたか否かで判断する)
+  を本venture固有の実装に当てはめると、生成が実際には止まっていなかった猶予期間中の
+  通知(`PAYMENT_CONFIRMED_IN_GRACE_MESSAGE`)は謝罪を含まず、実際に止まっていた
+  期間を経て復旧した通知(`PAYMENT_RECOVERED_MESSAGE`)のみ謝罪を含むという既存の
+  分岐設計が、まさにこの精緻化基準どおりであることを確認した。よって実装の変更は不要
+  と判断し、tone-and-manner-guideline.md「謝罪表現の使いどころ」節の記述のみを
+  精緻化基準に合わせて訂正した。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3
+  schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)同種の謝罪表現方針記述と実装の不一致がaircon-pasha・event-komiguai-pasha・
+  oshien-pasha・line-reservation-ai側にも残っていないかの横展開確認(未着手)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-01 14:00 UTC(フェーズ345: 詳細は上記。tone-and-manner-
+  guideline.mdの謝罪表現方針記述を、forklift-pashaフェーズ200の精緻化基準に合わせて
+  訂正。本venture自身の実装〈PAYMENT_RECOVERED_MESSAGE/PAYMENT_CONFIRMED_IN_GRACE_
+  MESSAGEの分岐〉は既に精緻化基準どおりであることを確認し、コード変更なし。テスト
+  863件・schema検証21件いずれも変更なしでパス)
