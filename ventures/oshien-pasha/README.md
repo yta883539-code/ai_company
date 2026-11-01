@@ -1071,3 +1071,21 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 11:00 UTC(フェーズ51: 詳細は上記。llm-quality-verification-plan.md
   を新規作成し、他6ventureとのcross-venture parityギャップを解消。コード変更なし、テスト
   38件変更なしでパス)
+- フェーズ52(2026-11-01 15:00 UTC定例更新): llm-quality-verification-plan.md「検証手順」
+  次回候補(1)に対応し、input-output-sample-mapping.mdを新規作成した。他venture
+  (line-reservation-aiのconversation-samples-test-cases.md、course-set-pashaの
+  output-samples-validation.md)に相当する、本venture向けの入力メモサンプル8件(正常系4件
+  N1〜N4、崩れ系4件E1〜E4)と期待status・分岐根拠の対応表を初めて整理した。作成過程で
+  設計ギャップを3件発見した: (1)複数会場「ハシゴ」ケース(N3)でitinerary_draft・
+  day_timetableが会場ごとに複数必要になる可能性があり現行スキーマ(単一オブジェクト)の
+  改訂要否が未確定、(2)「グッズ列に並ぶか否か」を受け取る入力フィールドが現行の入力
+  フォーマットに存在しない(N4)、(3)出力3種のいずれにも該当しない入力金額(チケット代等)
+  の取り扱いが未定義(E4)。いずれも本ドキュメントでは対応方針を決定せず次回候補として
+  記録した。コード変更なし(Markdownのみ)、既存prototype配下のテスト38件
+  (fan_pass_store 16件・usage_counter 14件・access_url_resend_handler 8件)は変更なしで
+  再実行しパス。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)上記で発見した設計ギャップ3件(複数会場対応・グッズ列入力フィールド・
+  チケット代の取り扱い)への対応方針の検討、(2)llm-quality-verification-plan.md次回候補(2)
+  のJSON Schemaバリデータ(validate_test_cases.py相当)の新規実装、(3)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先。
