@@ -109,15 +109,18 @@ course-set-pasha・kura-pasha・aircon-pasha・line-reservation-aiのようなLI
 
 - `ACCESS_URL_UNAVAILABLE_FALLBACK`(トライアル終了メール内、アクセスURL取得
   失敗時のフォールバック)は「お手数ですが」という軽い依頼表現のみで謝罪語を
-  含まない。これは事業者側の事情に起因しない本venture側のURL発行基盤未接続
-  (開発都中)が原因のフォールバックであり、他venture(course-set-pasha等)の
-  「API失敗フォールバックには軽い謝意を1回添える」方針との整合性を厳密に
-  言えば再検討の余地があるが、本venture未実装(次回候補)の`AccessUrlProvider`
-  具象実装が確定してから、実際に顧客が目にする頻度(常用か例外時のみか)を
-  踏まえて判断する方が精度が高いため、設計確定前の本フェーズでは変更を保留
-  する。
-- `access_url_reissue_handler.py`(アクセスURL再発行)は本フェーズ時点で
-  settings.htmlからの実際の配線前(オーナー承認待ちの範囲)のため、顧客向け
-  メール文言自体がまだ存在しない。配線時に本ガイドラインの方針(ですます調・
-  絵文字不使用・全角【】見出し・謝罪は実害発生時のみ)に従って新設文言を作成
-  する必要がある(次回候補)。
+  含まない。保留理由としていた`AccessUrlProvider`具象実装は
+  `access_token_store.AccessTokenStoreUrlProvider`として既に確定済みであり、
+  トークン未発行(`internal_id`に対応するfleet_operatorがまだ存在しない等)の
+  例外時のみ発生する経路であることを確認した。通常運用では毎回成功する経路の
+  例外フォールバックであり、事業者側の過失でもないため、他venture
+  (course-set-pasha等)の方針と同じ「軽い依頼表現のみ・謝罪語なし」で妥当と
+  判断し、変更不要とする(課題解消)。
+- `access_url_reissue_handler.py`(アクセスURL再発行)に、本ガイドラインの
+  方針(ですます調・絵文字不使用・全角【】見出し・謝罪は実害発生時のみ)に
+  従った確認メール文言`EMAIL_SUBJECT`/`render_reissue_email_body()`を新設した
+  (課題解消)。本人の意図した操作(再発行ボタン押下)の結果通知であるため
+  謝罪語は含めず、URL取得失敗時のみ`NEW_ACCESS_URL_UNAVAILABLE_FALLBACK`に
+  差し替える(トライアル終了メールと同じ安全側フォールバック方針)。settings.html
+  からの実際の配線自体はオーナー承認待ち(pending-approval.md記載済み)のため
+  未着手のまま。

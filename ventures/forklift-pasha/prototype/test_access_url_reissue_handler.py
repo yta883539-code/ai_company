@@ -13,9 +13,12 @@ from access_token_store import (
     issue_initial_access_token,
 )
 from access_url_reissue_handler import (
+    NEW_ACCESS_URL_UNAVAILABLE_FALLBACK,
     ReissueRequestRejected,
+    ReissueRequestResult,
     handle_reissue_request,
     receive_reissue_request,
+    render_reissue_email_body,
 )
 from trial_management import InMemoryFleetOperatorStore
 
@@ -237,6 +240,61 @@ def main():
         "不正なnew_emailの場合メールアドレスも変更されない",
         email_store.get_email("op7"),
         "owner7@example.com",
+    ))
+
+    # --- render_reissue_email_body(): メールアドレス変更なし・URL取得成功 ---
+    body_no_change = render_reissue_email_body(
+        ReissueRequestResult(
+            internal_id="op8",
+            new_access_url="https://example.com/f/tok_new",
+            destination_email="owner8@example.com",
+            email_changed=False,
+        )
+    )
+    results.append(_check(
+        "メールアドレス変更なしの本文にURLが含まれる",
+        "https://example.com/f/tok_new" in body_no_change,
+        True,
+    ))
+    results.append(_check(
+        "メールアドレス変更なしの本文に変更通知文を含まない",
+        "送信先メールアドレスを変更しました" in body_no_change,
+        False,
+    ))
+    results.append(_check(
+        "本文に謝罪語を含まない(意図した操作の結果通知のため)",
+        "申し訳" in body_no_change or "ご迷惑" in body_no_change,
+        False,
+    ))
+
+    # --- render_reissue_email_body(): メールアドレス変更あり ---
+    body_changed = render_reissue_email_body(
+        ReissueRequestResult(
+            internal_id="op9",
+            new_access_url="https://example.com/f/tok_new2",
+            destination_email="new-owner9@example.com",
+            email_changed=True,
+        )
+    )
+    results.append(_check(
+        "メールアドレス変更ありの本文に変更通知文を含む",
+        "送信先メールアドレスを変更しました" in body_changed,
+        True,
+    ))
+
+    # --- render_reissue_email_body(): URL取得失敗時はフォールバック文言に差し替え ---
+    body_no_url = render_reissue_email_body(
+        ReissueRequestResult(
+            internal_id="op10",
+            new_access_url=None,
+            destination_email="owner10@example.com",
+            email_changed=False,
+        )
+    )
+    results.append(_check(
+        "URL取得失敗時はフォールバック文言に差し替わる",
+        NEW_ACCESS_URL_UNAVAILABLE_FALLBACK in body_no_url,
+        True,
     ))
 
     ok = all(results)

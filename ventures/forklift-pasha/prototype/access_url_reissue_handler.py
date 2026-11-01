@@ -110,6 +110,45 @@ def handle_reissue_request(
     )
 
 
+# ---------------------------------------------------------------------------
+# メッセージ整形 (tone-and-manner-guideline.md「残る課題」対応)
+# ---------------------------------------------------------------------------
+
+EMAIL_SUBJECT = "【フォークリフトパシャっと】アクセスURL再発行のお知らせ"
+
+NEW_ACCESS_URL_UNAVAILABLE_FALLBACK = (
+    "▼ 新しいアクセスURL\n"
+    "お手数ですが、サポート窓口へアクセスURLの再発行をご依頼ください。"
+)
+
+
+def render_reissue_email_body(result: ReissueRequestResult) -> str:
+    """`handle_reissue_request()`の結果から、送信先(`result.destination_email`)に
+    送る確認メールの本文を組み立てる。tone-and-manner-guideline.mdの方針
+    (ですます調・絵文字不使用・全角【】見出し・謝罪は実害発生時のみ)に従い、
+    本人の意図した操作(再発行ボタン押下)の結果通知であるため謝罪語は含めない
+    (trial_end_email_scheduler.render_trial_end_email_body()と同じ、URL取得失敗時のみ
+    `NEW_ACCESS_URL_UNAVAILABLE_FALLBACK`に差し替える安全側のフォールバック方針)。"""
+
+    url_section = (
+        f"▼ 新しいアクセスURL\n{result.new_access_url}"
+        if result.new_access_url
+        else NEW_ACCESS_URL_UNAVAILABLE_FALLBACK
+    )
+    email_changed_notice = (
+        "送信先メールアドレスを変更しました。今後のお知らせも新しいアドレス宛にお送りします。\n\n"
+        if result.email_changed
+        else ""
+    )
+    return (
+        "フォークリフトパシャっとのアクセスURLを再発行しました。\n"
+        "以前のURLは今後ご利用いただけませんので、お手数ですが新しいURLへの登録をお願いします。\n"
+        "\n"
+        f"{email_changed_notice}"
+        f"{url_section}"
+    )
+
+
 @dataclass(frozen=True)
 class ReissueHttpResult:
     status_code: int
