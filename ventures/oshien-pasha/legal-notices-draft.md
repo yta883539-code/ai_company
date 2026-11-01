@@ -60,6 +60,12 @@ Web単体構成(payment-method-design.mdフェーズ5)であるため、以下�
 - 会員登録・ログインは行わないため、氏名・パスワード等の会員情報は取得しない。月額フリーパス
   利用者の識別はメールアドレス起点で発行する`accessToken`(推測不能なランダム文字列)による
   (monthly-pass-identity-design.mdフェーズ7)。
+- `accessToken`はデバイスを問わず同一URLでアクセス可能であり、自宅PC・外出先のスマートフォン等
+  複数の端末から同じURLをご利用いただける(monthly-pass-user-identification-design.md
+  フェーズ34「複数デバイス利用の想定」節)。解約(`subscriptionStatus`が`canceled`)後は同じ
+  URLへアクセスした場合、生成機能への導線を閉じ再加入案内ページを表示する
+  (fan-pass-canceled-access-block-design.mdフェーズ35)。この2点は新たな情報取得を伴う変更
+  ではなく、既発行の`accessToken`がどの範囲でどう機能するかについての補足である。
 
 ### 2.2 利用目的
 

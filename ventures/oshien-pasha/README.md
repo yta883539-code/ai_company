@@ -964,3 +964,20 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 04:00 UTC(フェーズ45: 詳細は上記。landing-page-copy-draft.mdの
   FAQに複数デバイス利用・解約後アクセスURL挙動の2問を追加。コード変更なし、テスト38件
   変更なしでパス)
+- フェーズ46(2026-11-01 05:00 UTC定例更新): フェーズ45の次回候補(1)
+  「legal-notices-draft.mdプライバシーポリシー2.1節への複数デバイス利用・解約後ブロックの
+  補足反映」に対応した。2.1節(取得する情報)に新規1項目を追加し、`accessToken`がデバイスを
+  問わず同一URLでアクセス可能であること(monthly-pass-user-identification-design.md
+  フェーズ34)、および解約後は同URLで再加入案内ページに切り替わること
+  (fan-pass-canceled-access-block-design.mdフェーズ35)を明記した。新たな情報取得を伴う
+  変更ではない旨も付記した。コード変更なし、回帰確認として`python3 test_usage_counter.py`
+  (PASS=14 FAIL=0)・`python3 test_fan_pass_store.py`(PASS=16 FAIL=0)・
+  `python3 -m unittest test_access_url_resend_handler`(8件、OK)を実行しいずれも変更なしで
+  パスすることを確認した(合計38件、回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)Cloud Functionsの実エントリポイント`main(request)`配線
+  (Webフォーム側バックエンド実装確定後)、(3)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先。
+- 最終更新: 2026-11-01 05:00 UTC(フェーズ46: 詳細は上記。legal-notices-draft.md 2.1節に
+  複数デバイス利用・解約後ブロックの補足を追加。コード変更なし、テスト38件変更なしでパス)
