@@ -89,6 +89,41 @@ def handle_resend_request(
     )
 
 
+@dataclass(frozen=True)
+class ResendHttpResult:
+    status_code: int
+    error: Optional[str] = None
+
+
+def receive_resend_request(
+    fan_pass_store: _FanPassLookupAndReissueProtocol,
+    stripe_lookup: StripeSubscriptionLookupProtocol,
+    email: Optional[str],
+    *,
+    new_access_token_factory: Callable[[], str],
+) -> ResendHttpResult:
+    """「アクセスURLを再送する」フォームの送信操作を受け取るHTTPエントリポイントの処理本体
+    (access-url-resend-http-entry-point-design.md 2節)。`handle_resend_request()`との
+    違いは、本人特定の鍵が存在しない公開エンドポイントであるため、`found`の真偽にかかわらず
+    常に同一レスポンス(`"OK", 200`)を返す点(enumeration対策、design.md 1節・4節)。
+    `MultipleActiveSubscriptionsError`・`FanPassNotFoundForSubscriptionError`は運用上の
+    アラート対象であり利用者の入力ミスではないため、本関数では捕捉しない(design.md 3節)。
+    """
+
+    stripped_email = (email or "").strip()
+    if not stripped_email:
+        return ResendHttpResult(status_code=400, error="missing_email")
+
+    handle_resend_request(
+        fan_pass_store,
+        stripe_lookup,
+        stripped_email,
+        new_access_token_factory=new_access_token_factory,
+    )
+
+    return ResendHttpResult(status_code=200)
+
+
 class InMemoryStripeSubscriptionLookup:
     """StripeSubscriptionLookupProtocolの検証用インメモリ実装。
     `email -> stripe_subscription_id`(単一)または`email -> [stripe_subscription_id, ...]`

@@ -13,7 +13,9 @@ from access_url_resend_handler import (
     FanPassNotFoundForSubscriptionError,
     InMemoryStripeSubscriptionLookup,
     MultipleActiveSubscriptionsError,
+    ResendHttpResult,
     handle_resend_request,
+    receive_resend_request,
 )
 from fan_pass_store import InMemoryFanPassStore
 
@@ -103,8 +105,74 @@ class HandleResendRequestTest(unittest.TestCase):
             )
 
 
+class ReceiveResendRequestTest(unittest.TestCase):
+    def test_missing_email_returns_400_without_calling_handle_resend_request(self) -> None:
+        store = InMemoryFanPassStore()
+        lookup = InMemoryStripeSubscriptionLookup()
+
+        for missing in (None, "", "   "):
+            result = receive_resend_request(
+                store, lookup, missing, new_access_token_factory=_next_token
+            )
+            self.assertEqual(result.status_code, 400)
+            self.assertEqual(result.error, "missing_email")
+
+    def test_unknown_email_returns_200_same_as_known_email(self) -> None:
+        store = InMemoryFanPassStore()
+        lookup = InMemoryStripeSubscriptionLookup()
+        store.create(
+            email="known2@example.com",
+            stripe_customer_id="cus_4",
+            stripe_subscription_id="sub_4",
+        )
+        lookup.register("known2@example.com", "sub_4")
+
+        unknown_result = receive_resend_request(
+            store, lookup, "unknown2@example.com", new_access_token_factory=_next_token
+        )
+        known_result = receive_resend_request(
+            store, lookup, "known2@example.com", new_access_token_factory=_next_token
+        )
+
+        # enumeration対策: 登録有無にかかわらず同一レスポンス(status_code=200・errorなし)。
+        self.assertEqual(unknown_result, ResendHttpResult(status_code=200))
+        self.assertEqual(known_result, ResendHttpResult(status_code=200))
+
+    def test_multiple_active_subscriptions_propagates_uncaught(self) -> None:
+        store = InMemoryFanPassStore()
+        lookup = InMemoryStripeSubscriptionLookup()
+        store.create(
+            email="dup2@example.com",
+            stripe_customer_id="cus_5",
+            stripe_subscription_id="sub_5a",
+        )
+        lookup.register("dup2@example.com", "sub_5a")
+        lookup.register("dup2@example.com", "sub_5b")
+
+        with self.assertRaises(MultipleActiveSubscriptionsError):
+            receive_resend_request(
+                store, lookup, "dup2@example.com", new_access_token_factory=_next_token
+            )
+
+    def test_fan_pass_not_found_for_subscription_propagates_uncaught(self) -> None:
+        store = InMemoryFanPassStore()
+        lookup = InMemoryStripeSubscriptionLookup()
+        lookup.register("orphan2@example.com", "sub_orphan2")
+
+        with self.assertRaises(FanPassNotFoundForSubscriptionError):
+            receive_resend_request(
+                store, lookup, "orphan2@example.com", new_access_token_factory=_next_token
+            )
+
+
 def _run() -> None:
-    suite = unittest.TestLoader().loadTestsFromTestCase(HandleResendRequestTest)
+    loader = unittest.TestLoader()
+    suite = unittest.TestSuite(
+        [
+            loader.loadTestsFromTestCase(HandleResendRequestTest),
+            loader.loadTestsFromTestCase(ReceiveResendRequestTest),
+        ]
+    )
     result = unittest.TextTestRunner(verbosity=0).run(suite)
     total = result.testsRun
     failed = len(result.failures) + len(result.errors)

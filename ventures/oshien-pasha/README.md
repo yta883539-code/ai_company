@@ -893,3 +893,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-10-31 22:00 UTC(フェーズ42: アクセスURL再送フローの処理本体
   `handle_resend_request()`を設計・コード化し、access-url-resend-api-design.mdとして
   まとめた。テスト4件追加、全件PASS)
+- フェーズ43(2026-11-01 00:00 UTC定例更新): フェーズ42の次回候補(2)「HTTPエントリ
+  ポイント(`receive_resend_request()`相当)の設計・実コード化」に対応し、access-url-
+  resend-http-entry-point-design.mdを新規作成した。forklift-pashaの`receive_reissue_
+  request()`(フェーズ136)との最大の差分は、本ventureは`email`入力起点のためenumeration
+  対策上404分岐を設けられず、`found`の真偽にかかわらず常に`"OK", 200`を返す設計とした点、
+  および運用上のアラート対象である`MultipleActiveSubscriptionsError`・
+  `FanPassNotFoundForSubscriptionError`は利用者の入力ミスではないため本関数では捕捉せず
+  上位(Cloud Functionsランタイム)に伝播させる設計とした点である。prototype/
+  access_url_resend_handler.pyに`ResendHttpResult`・`receive_resend_request()`を追加し、
+  test_access_url_resend_handler.pyにテスト4件を追加(`ReceiveResendRequestTest`、既存の
+  `HandleResendRequestTest`4件と合わせて全8件PASS)。既存のtest_fan_pass_store.py(16件)・
+  test_usage_counter.py(14件)もいずれも変更なしで再実行しパスを確認した(回帰なし)。
+  コード実装はインメモリのみに留め、外部サービス・実Firestore・実Stripeへの接続は一切
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は本
+  フェーズでは発生していないためpending-approval.mdへの新規追記は不要(既存の承認待ち
+  事項の範囲内で扱う)。
+  次回候補: (1)venue-master-draft.mdの各会場アクセス情報精査・会場名表記揺れの名寄せ方法の
+  検討(README.md既出の残課題)、(2)Cloud Functionsの実エントリポイント`main(request)`配線
+  (access-url-resend-http-entry-point-design.md 5節の残課題、Webフォーム側バックエンド実装
+  確定後)、(3)本venture用Cloud Monitoringアラート設定の整備(同design.md 3節・5節の残課題)、
+  (4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 00:00 UTC(フェーズ43: アクセスURL再送フローのHTTPエントリポイント
+  `receive_resend_request()`を設計し、prototype/access_url_resend_handler.pyにコード化
+  した。テスト4件追加、全8件PASS)
