@@ -1025,3 +1025,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 07:00 UTC(フェーズ48: 詳細は上記。market-research.mdを新規作成し、
   他6ventureとのcross-venture parityギャップを解消。コード変更なし、テスト38件変更なしで
   パス)
+- フェーズ50(2026-11-01 09:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)はいずれも
+  llm-system-prompt-draft.mdを作成済みだが、本ventureには同種の文書が未作成のまま残っていた
+  cross-venture parityギャップを発見し、llm-system-prompt-draft.mdを新規作成した。
+  README.md「概要」節の入出力定義・schema/output.schema.jsonのstatus分岐(generated/
+  out_of_scope/insufficient_input)・venue-master-draft.mdの会場マスタ運用方針(完全一致
+  のみvenue_matched=true)を基に、出力1〜4(遠征プラン下書き・当日タイムテーブル草案・
+  費用見積り・ハシゴ移動チェック)それぞれの生成ルールを整理した。本venture未着手の別の
+  残課題として、llm-quality-verification-plan.md相当の検証計画文書が他venture同様未作成
+  であることも判明したため、次回候補に記録した。コード変更なし、回帰確認として
+  `python3 prototype/test_usage_counter.py`(PASS=14 FAIL=0)・`python3 prototype/
+  test_fan_pass_store.py`(PASS=16 FAIL=0)・`python3 -m unittest
+  prototype.test_access_url_resend_handler`(8件、OK)を実行しいずれも変更なしでパスすることを
+  確認した(合計38件、回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)llm-quality-verification-plan.md相当の検証計画文書の新規作成(他venture
+  同様未着手)、(2)Cloud Functionsの実エントリポイント`main(request)`配線(Webフォーム側
+  バックエンド実装確定後)、(3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 09:00 UTC(フェーズ50: 詳細は上記。llm-system-prompt-draft.mdを
+  新規作成し、他6ventureとのcross-venture parityギャップを解消。コード変更なし、テスト
+  38件変更なしでパス)
