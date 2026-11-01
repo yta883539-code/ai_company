@@ -15,7 +15,8 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 対象顧客: アイドル・声優・2.5次元舞台・eスポーツ観戦等の遠征(現地参加)を行う個人のファン層で、
   旅行代理店を使わず自力で遠征計画を立てている人(B2C)。
 - 入力: 当選公演の会場・日時・枚数、予算感、現地でのグッズ購入希望(発売形式・個数上限等)、
-  前後の予定(有給消化の可否等)。
+  グッズ列に並ぶかどうかの意向(任意。`goods_line_intention`: join/skip/未記載の3値、
+  goods-line-participation-input-field-design.md参照)、前後の予定(有給消化の可否等)。
 - 出力: (1)遠征プラン下書き(交通手段・宿泊候補エリアの当たり。実際の予約は本人が行う)、
   (2)当日タイムテーブル草案(開場時間・グッズ列を踏まえたもの)、(3)遠征費用(交通・宿泊・
   物販予算)の内訳見積り、(4)複数公演「ハシゴ」時の移動無理チェック。
@@ -1110,3 +1111,20 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 16:00 UTC(フェーズ53: 詳細は上記。goods-line-participation-
   input-field-design.mdを新規作成し、グッズ列入力フィールドの設計ギャップを解消。
   コード変更なし、テスト38件変更なしでパス)
+- フェーズ54(2026-11-01 17:00 UTC定例更新): フェーズ53の次回候補(1)に対応し、
+  goods-line-participation-input-field-design.md「3. スキーマへの影響」で決定した
+  `goods_line_intention`の入力フィールド追加・3値分岐ルールを、本README.md「概要」節の
+  入力定義(「グッズ列に並ぶかどうかの意向(任意)」を追加)、およびllm-system-prompt-draft.md
+  「厳守事項」(新規4a項として、join明記時のみグッズ列目安到着行を追加・skip明記時は省略・
+  未記載時は両論併記に留める旨を明文化)にそれぞれ反映した。schema/output.schema.jsonは
+  フェーズ53の判断どおり構造変更なし。コード変更なし(Markdownのみ)、既存prototype配下の
+  テスト38件(fan_pass_store 16件・usage_counter 14件・access_url_resend_handler 8件)は
+  変更なしで再実行しパス。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)input-output-sample-mapping.md N4ケースの期待出力確定(本方針反映後の
+  day_timetable記述例の具体化)、(2)残る設計ギャップ(複数会場「ハシゴ」対応・チケット代
+  等の取り扱い)への対応方針の検討、(3)承認待ち事項がオーナーから承認された場合はその
+  着手を最優先。
+- 最終更新: 2026-11-01 17:00 UTC(フェーズ54: 詳細は上記。goods_line_intentionの3値分岐
+  ルールをREADME.md「概要」節・llm-system-prompt-draft.mdに反映。コード変更なし、
+  テスト38件変更なしでパス)

@@ -47,6 +47,13 @@ fan-pass-store-protocol-design.md等で設計済みのデータ永続化部分)�
    (low/medium/high)で示す。単一公演のみの入力では`applicable: false`とし、
    `risk_level`・`note`は`null`とする。実際の乗換検索・交通状況の確認は行わず、
    会場間の一般的な移動時間の目安のみに基づく参考情報である旨を明示する。
+4a. 出力2(day_timetable)のグッズ列関連の記述は、入力の`goods_line_intention`に従って
+   分岐する(goods-line-participation-input-field-design.md参照)。`join`(並ぶ)が
+   明記された場合のみ、開場時刻より前に到着することを検討する一般論としての「グッズ列
+   目安到着」の行を1件追加する(具体的な待ち時間分数の提示や実際の行列状況の保証は行わない)。
+   `skip`(並ばない)が明記された場合は、グッズ列関連の行を省略し開場時刻基準の入場目安の
+   みを示す。未記載の場合は不足項目として扱わず(任意情報のため`insufficient_input`の対象
+   外)、並ぶ場合は早めの到着を検討する旨の両論併記の一言に留める。
 5. 入力項目(会場・日時・枚数・予算感等)のうち出力生成に最低限必要な項目が不足している
    場合、`status: "insufficient_input"`とし、不明項目を推測で埋めずに再送を促す一言を
    `missing_fields_request`に設定する。4出力フィールドはすべて`null`とする
