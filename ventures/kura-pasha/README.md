@@ -6297,3 +6297,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   check.mdに「応答メッセージは通数カウント対象外」の確認とPush経路6件の洗い出しを
   追記。コード変更なし、テスト295件・webhook355件・schema検証32件いずれも変更
   なしでパス)
+- フェーズ274(2026-11-01 22:00 UTC定例更新): aircon-pasha・course-set-pasha・
+  line-reservation-aiはいずれも独立したprompt-caching-design.mdを持つが、本venture
+  にはまだ無かった(aircon-pashaフェーズ200がkura-pasha自身の謝罪表現方針について
+  指摘したものと同種のcross-venture parityギャップ)ことを発見し、新規作成して
+  解消した。llm-api-cost-estimate.md(2026-09-06作成)が既に整理していた
+  「キャッシュ適用で約55%削減、ただし本venture固有の低頻度利用特性ゆえに効果が
+  限定的な可能性が高い」という結論を前提に、他venture同様`cache_control`の具体的な
+  配置方法(systemブロック末尾に1ブレークポイント、依頼メモは対象外)を整理した。
+  さらに契約職人数別の月間生成回数合計・平均リクエスト間隔を試算し、1時間TTLが
+  有効になる帯(5〜60分間隔)への到達にはaircon-pasha(約8〜96業者)より一桁多い
+  約90〜900職人規模が必要になる計算になることを示し、market-research.mdの市場規模
+  推測を踏まえるとこの規模への到達可能性は低く、キャッシュ非適用を前提とした既存の
+  粗利計算(llm-api-cost-estimate.md結論)を維持するのが妥当と結論した。実装自体は
+  キャッシュがミスヒットしても通常料金で処理されるだけで実害が無いことも確認した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(295件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから
+  承認された場合はその着手を最優先、(2)course-set-pashaへの同種確認の横展開
+  (aircon-pasha側次回候補にも同一内容が残るため、着手前に重複対応を避けること)、
+  (3)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化フィールド)への
+  実装反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-01 22:00 UTC(フェーズ274: 詳細は上記。prompt-caching-design.md
+  を新規作成しcross-venture parityギャップを解消。本venture固有の低頻度利用特性を
+  踏まえ1時間TTLでも効果は限定的と結論、既存の粗利計算を維持。コード変更なし、
+  テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
