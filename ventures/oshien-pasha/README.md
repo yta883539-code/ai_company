@@ -1003,3 +1003,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   契約状況をWebSearchで再調査し、一次情報未到達ながら2026年時点でも名称が現役使用されている
   ことを確認、canonical_nameは変更せず次回定期再確認サイクルへ持ち越し。コード変更なし、
   テスト38件変更なしでパス)
+- フェーズ48(2026-11-01 07:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)はいずれも
+  market-research.mdを作成済みだが、本ventureには同種の文書が未作成のまま残っていた
+  cross-venture parityギャップを発見し、market-research.mdを新規作成した。WebSearchで
+  「推し活」市場全体の規模(調査により約3.9兆円〜4.1兆円、推し活人口約1,940万人、いずれも
+  2026年調査)、グッズ列は多くの会場で開演数時間前から会場外で行われ大規模会場では開場
+  までに購入できない場合もあること、個人ファンが早割切符の都合で最寄り駅ではなく手前の駅で
+  乗り換えるなど現実的な代替ルートを自力で組んでいる実例、を調査し、出力1(遠征プラン
+  下書き)・出力2(当日タイムテーブル草案)が実際のペインポイントに対応していることの
+  裏付けを確認した。遠征費用単体の市場データ・グッズ列の定量的な待ち時間データは確認できず
+  未検証事項として残した。コード変更なし、回帰確認として`python3 prototype/
+  test_usage_counter.py`(PASS=14 FAIL=0)・`python3 prototype/test_fan_pass_store.py`
+  (PASS=16 FAIL=0)・`python3 -m unittest prototype.test_access_url_resend_handler`
+  (8件、OK)を実行しいずれも変更なしでパスすることを確認した(合計38件、回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)Cloud Functionsの実エントリポイント`main(request)`配線(Webフォーム側
+  バックエンド実装確定後)、(2)月額フリーパス利用者の識別方法の検討(tech-stack.md 6節の
+  未解決課題)、(3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 07:00 UTC(フェーズ48: 詳細は上記。market-research.mdを新規作成し、
+  他6ventureとのcross-venture parityギャップを解消。コード変更なし、テスト38件変更なしで
+  パス)
