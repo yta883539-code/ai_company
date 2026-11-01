@@ -1128,3 +1128,22 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 17:00 UTC(フェーズ54: 詳細は上記。goods_line_intentionの3値分岐
   ルールをREADME.md「概要」節・llm-system-prompt-draft.mdに反映。コード変更なし、
   テスト38件変更なしでパス)
+- フェーズ55(2026-11-01 23:00 UTC定例更新): フェーズ54の次回候補(1)に対応し、
+  input-output-sample-mapping.mdのN4ケース(グッズ列に並ばない想定の入力)の期待出力を、
+  goods-line-participation-input-field-design.md・llm-system-prompt-draft.md厳守事項4a
+  で確定した`goods_line_intention`の3値分岐ルールに基づき具体化した。`skip`明記時は
+  day_timetableからグッズ列関連の行を省略し開場時刻基準の入場目安のみとする例を記載し、
+  参考として`join`明記時・未記載時それぞれの分岐も併記した。これによりフェーズ52で発見した
+  設計ギャップ3件のうちN4分は解消済みとして表中に明記し、残る設計ギャップはN3(複数会場
+  「ハシゴ」対応)・E4(チケット代等の取り扱い)の2件のみとなった。コード変更なし
+  (Markdownのみ)、既存prototype配下のテスト38件(fan_pass_store 16件・usage_counter
+  14件・access_url_resend_handler 8件)は変更なしで再実行しパス。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)残る設計ギャップ(複数会場「ハシゴ」対応・チケット代等の取り扱い)への対応
+  方針の検討、(2)JSON Schemaバリデータ(validate_test_cases.py相当、
+  llm-quality-verification-plan.md次回候補(2))の新規実装、(3)承認待ち事項がオーナーから
+  承認された場合はその着手を最優先。
+- 最終更新: 2026-11-01 23:00 UTC(フェーズ55: 詳細は上記。input-output-sample-mapping.md
+  N4ケースの期待出力をgoods_line_intentionの3値分岐ルールに基づき具体化し確定。
+  コード変更なし、テスト38件変更なしでパス)
