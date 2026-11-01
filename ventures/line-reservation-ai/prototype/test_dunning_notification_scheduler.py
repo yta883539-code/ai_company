@@ -116,6 +116,16 @@ class RenderDunningMessageTests(unittest.TestCase):
         self.assertIn("お支払いを確認しました", text)
         self.assertNotIn("再開", text)
 
+    def test_in_grace_apology_is_not_stronger_than_actual_outage_recovery(self):
+        # 予約受付が一度も止まっていない猶予期間中の謝罪は、実際に止まっていた場合の
+        # 謝罪(render_recovery_message)より強い表現(「誠に申し訳ございませんでした」)に
+        # ならないようにする(course-set-pashaフェーズ346で発見した不一致への対応)。
+        for tone in ("formal", "standard", "casual"):
+            self.assertNotIn(
+                "誠に申し訳ございませんでした",
+                render_payment_confirmed_in_grace_message(tone=tone),
+            )
+
 
 class ToneVariantTests(unittest.TestCase):
     """message-tone-variants.md準拠のトーン出し分け(formal/standard/casual)の検証。"""
