@@ -1089,3 +1089,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   チケット代の取り扱い)への対応方針の検討、(2)llm-quality-verification-plan.md次回候補(2)
   のJSON Schemaバリデータ(validate_test_cases.py相当)の新規実装、(3)承認待ち事項が
   オーナーから承認された場合はその着手を最優先。
+- フェーズ53(2026-11-01 16:00 UTC定例更新): フェーズ52で発見した設計ギャップ3件のうち
+  (2)「グッズ列に並ぶか否か」入力フィールド未定義に対応し、
+  goods-line-participation-input-field-design.mdを新規作成した。入力メモに新フィールド
+  `goods_line_intention`(join/skip/未記載の3値)を追加し、`join`明記時のみday_timetableに
+  グッズ列並び目安到着の行を追加、`skip`明記時は当該行を省略、未記載時は両論併記の一言に
+  留める方針を決定した(具体的な待ち時間分数の提示や実際の行列状況保証は行わない)。
+  schema/output.schema.jsonのday_timetable配列は既存の自由記述構造(time_label/action)で
+  対応可能なため構造変更は不要と判断し、入力側のみの変更とした。README.md「概要」節・
+  llm-system-prompt-draft.mdへの反映、input-output-sample-mapping.md N4ケースの期待出力
+  確定は次回候補とし本ドキュメントでは未着手。残る設計ギャップ(1)複数会場「ハシゴ」対応・
+  (3)チケット代等の取り扱いは今回の対象外。コード変更なし(Markdownのみ)、既存prototype
+  配下のテスト38件(fan_pass_store 16件・usage_counter 14件・access_url_resend_handler
+  8件)は変更なしで再実行しパス。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)本方針のREADME.md「概要」節・llm-system-prompt-draft.mdへの反映、
+  (2)input-output-sample-mapping.md N4ケースの期待出力確定、(3)残る設計ギャップ(複数会場
+  対応・チケット代の取り扱い)への対応方針の検討、(4)承認待ち事項がオーナーから承認された
+  場合はその着手を最優先。
+- 最終更新: 2026-11-01 16:00 UTC(フェーズ53: 詳細は上記。goods-line-participation-
+  input-field-design.mdを新規作成し、グッズ列入力フィールドの設計ギャップを解消。
+  コード変更なし、テスト38件変更なしでパス)
