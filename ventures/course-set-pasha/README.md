@@ -6254,8 +6254,29 @@
   (2)同種の謝罪表現方針記述と実装の不一致がaircon-pasha・event-komiguai-pasha・
   oshien-pasha・line-reservation-ai側にも残っていないかの横展開確認(未着手)、
   (3)他venture・アイデア領域の前進。
-- 最終更新: 2026-11-01 14:00 UTC(フェーズ345: 詳細は上記。tone-and-manner-
-  guideline.mdの謝罪表現方針記述を、forklift-pashaフェーズ200の精緻化基準に合わせて
-  訂正。本venture自身の実装〈PAYMENT_RECOVERED_MESSAGE/PAYMENT_CONFIRMED_IN_GRACE_
-  MESSAGEの分岐〉は既に精緻化基準どおりであることを確認し、コード変更なし。テスト
-  863件・schema検証21件いずれも変更なしでパス)
+- フェーズ346(2026-11-01 19:00 UTC定例更新): フェーズ345の次回候補(2)に対応し、
+  aircon-pasha・event-komiguai-pasha・oshien-pasha・line-reservation-aiの4venture
+  について謝罪表現方針記述と実装の不一致の横展開確認を実施した
+  (apology-tone-horizontal-check-result.md新規作成)。aircon-pashaは両文言とも
+  謝罪語を含まず(本venture基準よりさらに厳格)是正不要、event-komiguai-pashaは
+  サブスク決済失敗→制限モード→復旧という本検証対象の構造自体を持たないため対象外、
+  oshien-pashaはtone-and-manner-guideline.md自体が未作成で方針記述と実装の不一致を
+  検出できる状態になく別種のギャップとして申し送りのみ、line-reservation-aiは
+  `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`(予約受付が止まっていない猶予期間中の決済確認
+  文言)に「お手数をおかけし、誠に申し訳ございませんでした」等の謝罪語が残っている
+  不一致を発見したが、決済の手間自体への軽い謝意である可能性もあり本venture側からの
+  一方的な修正は行わず、line-reservation-ai自身の次回フェーズでの判断に委ねることとして
+  申し送り事項として記録した。本venture自身のコード・設計文書の変更は発生していない。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)いずれもパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)line-reservation-ai自身の今後のフェーズでの`_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`
+  謝罪語要否の判断・是正(申し送り済み、本venture側では未着手のまま)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-01 19:00 UTC(フェーズ346: 詳細は上記。aircon-pasha・
+  event-komiguai-pasha・oshien-pasha・line-reservation-aiへの謝罪表現方針横展開確認を
+  実施し、line-reservation-aiに不一致を発見して申し送り、他3ventureは是正不要/対象外と
+  判断。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
