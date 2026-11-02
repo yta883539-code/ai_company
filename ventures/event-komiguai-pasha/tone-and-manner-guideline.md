@@ -119,7 +119,19 @@ one-time-checkout-no-account-design.md(フェーズ10)が前提とする通り�
 - 承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから
   承認された場合はその着手を最優先、他venture・アイデア領域の前進。
 
-最終更新: 2026-11-02 06:00 UTC(フェーズ83: inquiry-handling-design.md(フェーズ83、
+最終更新: 2026-11-02 11:00 UTC(フェーズ84: operational-message-templates-draft.md(フェーズ81)
+C-1・C-2の文例、およびprototype/operational_message_templates.pyの
+`inquiry_reply_resend_before_ttl`・`inquiry_reply_resend_after_ttl`が、フェーズ83で
+inquiry-handling-design.md 3-1節に確定した方針3適用済みの固定文言と一字一句一致していない
+cross-phase不整合を発見し、3-1節の文言に統一して解消。機械チェック(絵文字・見出し記号)は
+テンプレート文字列を汎用的に走査する実装のため文言変更の影響を受けず、既存テスト55件・
+schema検証22件いずれも変更なしでパス(回帰なし)。コード変更1ファイル(文字列定数2件の
+更新のみ、ロジック変更なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし)
+
+---
+
+最終更新(旧): 2026-11-02 06:00 UTC(フェーズ83: inquiry-handling-design.md(フェーズ83、
 3-1節新規追加)に対応し、問い合わせ返信下書き3類型の「謝罪度合い」を用途別文言一覧表に
 反映し、「未検証の仮説」・「次のステップ候補」を更新。コード変更なし(設計文書の更新のみ))
 

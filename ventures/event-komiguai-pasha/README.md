@@ -1799,3 +1799,41 @@ inquiry-handling-design.mdに追記、(2)承認待ち事項(実GCP/Firestore作�
   をLLM生成物系・運用メッセージ系の両方に新規追加し、フェーズ81の次回候補(1)を解消。
   コード変更は既存ファイルへの関数・テストケース追加のみ、既存テスト51件・schema検証22件
   いずれも変更なしでパス)
+
+フェーズ83(2026-11-02 06:00 UTC定例更新): フェーズ82の次回候補(1)に対応し、
+inquiry-handling-design.mdに3-1節を新規追加した。問い合わせ返信下書き3類型(メール未着・
+TTL失効前再送/TTL失効後再送/品質不満返金)それぞれの固定文言・謝罪度合いを
+tone-and-manner-guideline.md方針3(主催者側の過失有無による謝罪表現の区別)に沿って確定
+(類型1: 謝罪語なし、類型2: 率直な事実提示+謝罪は控えめ、類型3: 顧客向け文言なし)。
+tone-and-manner-guideline.mdの用途別文言一覧表・未検証の仮説・次のステップ候補を更新。
+コード変更なし(設計文書の更新のみ)、既存テスト55件・schema検証22件いずれも変更なしで
+パス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)問い合わせフォーム自体の実装後、類型1・2の固定文言が機械チェック対象に
+正しく組み込まれるかを検証、(2)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉
+への連絡等)がオーナーから承認された場合はその着手を最優先、他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 06:00 UTC(フェーズ83: 詳細は上記。inquiry-handling-design.md 3-1節
+  新規追加により問い合わせ返信3類型の固定文言・謝罪度合いを確定。コード変更なし、既存
+  テスト55件・schema検証22件いずれも変更なしでパス。※本エントリは次フェーズ84で記録漏れが
+  発覚し追記したもの)
+
+フェーズ84(2026-11-02 11:00 UTC定例更新): operational-message-templates-draft.md
+(フェーズ81確定)のC-1・C-2文例、およびprototype/operational_message_templates.pyの
+`inquiry_reply_resend_before_ttl`・`inquiry_reply_resend_after_ttl`定数が、フェーズ83で
+inquiry-handling-design.md 3-1節に確定した方針3適用済みの固定文言と一字一句一致していない
+cross-phase不整合を発見した。フェーズ81時点ではまだ方針3(謝罪度合いの区別)が確定して
+いなかったため、文言自体の方向性は大きくは外れていなかったが、フェーズ83で正式確定した
+文言と差異があったため、3-1節の文言にoperational-message-templates-draft.md・
+operational_message_templates.pyの両方を統一した。test_operational_message_templates.py
+はテンプレート文字列を`TEMPLATES`辞書経由で汎用的に走査する実装のため、文言変更による
+テストコード自体の修正は不要だった。tone-and-manner-guideline.mdに本フェーズの記録を
+追記。コード変更1ファイル(文字列定数2件の更新のみ、ロジック変更なし)、既存テスト55件・
+schema検証22件いずれも変更なしでパス(回帰なし)。承認が必要なアクション(支払い・
+アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)問い合わせフォーム自体の実装後、類型1・2の固定文言が機械チェック対象に
+正しく組み込まれるかを検証、(2)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉
+への連絡等)がオーナーから承認された場合はその着手を最優先、他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 11:00 UTC(フェーズ84: 詳細は上記。operational-message-templates-
+  draft.md・operational_message_templates.pyのC-1・C-2文言をinquiry-handling-design.md
+  3-1節確定文言に統一し、フェーズ81-83間のcross-phase不整合を解消。コード変更は文字列定数
+  2件の更新のみ、既存テスト55件・schema検証22件いずれも変更なしでパス)
