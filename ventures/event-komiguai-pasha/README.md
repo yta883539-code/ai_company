@@ -1837,3 +1837,36 @@ schema検証22件いずれも変更なしでパス(回帰なし)。承認が必�
   draft.md・operational_message_templates.pyのC-1・C-2文言をinquiry-handling-design.md
   3-1節確定文言に統一し、フェーズ81-83間のcross-phase不整合を解消。コード変更は文字列定数
   2件の更新のみ、既存テスト55件・schema検証22件いずれも変更なしでパス)
+
+フェーズ85(2026-11-02 13:00 UTC定例更新): フェーズ84の次回候補(1)「問い合わせフォーム
+自体の実装後、類型1・2の固定文言が機械チェック対象に正しく組み込まれるかを検証」に向け、
+フォーム画面・Firestore書き込み自体(inquiry-handling-design.md 4節の残課題、未着手のまま)
+より先に、inquiry-handling-design.md 3-1節で確定した問い合わせ3類型の判定ロジックを
+prototype/inquiry_intake.pyとして新規実装した。`InquiryRecord`(draft_id・category・detail)
+と呼び出し側のFirestore照会結果(`draft_exists`)を受け取り、(1)メール未着・再送希望でTTL
+失効前(draft_exists=True)ならoperational_message_templates.TEMPLATES
+`inquiry_reply_resend_before_ttl`にresult_page_urlを差し込んだ返信文、(2)TTL失効後
+(draft_exists=False)なら`inquiry_reply_resend_after_ttl`をそのまま返信文として返し(都度の
+AI生成に委ねる範囲は3-1節どおり無し)、(3)返金希望は顧客向け返信文を生成せず、問い合わせ内容
+と(渡された場合のみ)生成結果を並記したオーナー判断用の要約を返す、という設計文書どおりの
+分岐を実装した。あわせて、inquiry-handling-design.mdが類型を定義していない「その他」区分
+(2節の4区分のうち3-1節の3類型に対応付けられていない1件)について、本モジュールでは自動返信
+を行わずオーナーの手動確認を要求する安全側の扱いを採用し、この扱い自体をinquiry-handling-
+design.mdへ反映することを次回候補として明記した(設計文書が決めていたことの実装ではなく、
+本フェーズでの実装判断であることをコード内コメントに明示)。test_inquiry_intake.pyに8件の
+テスト(類型1のURL差し込み・result_page_url必須チェック、類型2の固定文言、類型3の生成結果
+並記あり/なし、「その他」の手動確認扱い、未知区分での例外)を新規追加し、`python3 -m unittest
+discover -p "test_*.py"`で既存55件+新規8件=63件、`python3 schema/validate_test_cases.py`
+22件(変更なし)がいずれもパスすることを確認した(回帰なし)。実LLM呼び出し・実Firestore
+接続・実メール送信は行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)「その他」区分の手動確認方針をinquiry-handling-design.md 3-1節(または新設の
+3-2節)へ反映する、(2)問い合わせWebフォーム1画面・Firestore `inquiry`コレクションへの
+書き込み自体の実装(inquiry-handling-design.md 4節の残課題)、(3)承認待ち事項(実GCP/
+Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を
+最優先、他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 13:00 UTC(フェーズ85: prototype/inquiry_intake.pyを新規作成し、
+inquiry-handling-design.md 3-1節の問い合わせ3類型判定ロジック(類型1・2は固定文言、類型3は
+顧客向け返信文なしでオーナー要約のみ)を実装。「その他」区分は手動確認要求の安全側扱いを採用
+(設計文書未定義のため次回候補として反映予定)。テスト8件新規追加、既存55件・schema検証22件
+いずれも変更なしでパス)
