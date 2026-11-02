@@ -6963,3 +6963,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
   2026-10-23 12:00 UTC記載)がオーナーから承認された場合はその着手を最優先、(2)他venture・
   アイデア領域の前進。
+- フェーズ続き363(2026-11-01 20:00 UTC定例更新): course-set-pashaフェーズ346
+  (apology-tone-horizontal-check-result.md)で申し送られた不一致に対応し、
+  grace-period-apology-intensity-fix.mdを新規作成(当該フェーズのコード変更・テスト追加は
+  実施済みだったが、本README側への記録が漏れていたため本フェーズで追記)。
+  `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`(予約受付は止まっていないが決済確認の手間が
+  発生した場合の通知)のformal文言が`_MESSAGE_RECOVERED`(実際に予約受付が止まっていた
+  場合の復旧通知)と同強度の「誠に申し訳ございませんでした」を使っていた点について、
+  謝罪自体は残しつつ(tone-and-manner-guideline.md方針3)強度を実害の大小で差別化する
+  方針を採用し、formal文言を「お手数をおかけいたしました」に軽量化(standard/casualは
+  元から軽い表現のため変更なし)。`test_in_grace_apology_is_not_stronger_than_actual_
+  outage_recovery`を新規追加し、3トーンいずれも猶予期間中メッセージの謝罪が実際の復旧
+  メッセージの謝罪より強くならないことを固定した。コード変更1件・テスト1件追加、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(1044件、新規1件含め
+  全てパス)・`python3 schema/validate_test_cases.py`(28件、変更なしでパス)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  2026-10-23 12:00 UTC記載)がオーナーから承認された場合はその着手を最優先、(2)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-01 20:00 UTC(フェーズ続き363: 詳細は上記。
+  `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`のformal謝罪文言を軽量化し、猶予期間中の謝罪が
+  実際の復旧通知の謝罪より強くならないことをテストで固定。コード変更1件・テスト1件追加、
+  1044件・schema検証28件いずれもパス)

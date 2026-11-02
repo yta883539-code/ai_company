@@ -6280,3 +6280,19 @@
   event-komiguai-pasha・oshien-pasha・line-reservation-aiへの謝罪表現方針横展開確認を
   実施し、line-reservation-aiに不一致を発見して申し送り、他3ventureは是正不要/対象外と
   判断。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
+- フェーズ347(2026-11-01 20:00 UTC定例更新): フェーズ346次回候補(2)の棚卸しを実施した。
+  line-reservation-ai側を確認したところ、申し送り済みの`_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`
+  謝罪語要否の判断・是正は同venture側で既に対応済み(フェーズ続き363、
+  grace-period-apology-intensity-fix.md)であり、formal文言を実害の小さい場面向けに
+  軽量化のうえテストで固定されていることを確認した。よって本venture側の次回候補(2)は
+  完了として扱い、次回候補から除去する。本venture自身のコード・設計文書の変更は
+  発生していない。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-01 20:00 UTC(フェーズ347: 詳細は上記。line-reservation-aiが
+  `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`謝罪語是正を既に完了済みであることを確認し、
+  次回候補から除去。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
