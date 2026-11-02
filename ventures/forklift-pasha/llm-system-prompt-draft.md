@@ -73,6 +73,15 @@ course-set-pasha・kura-pasha等の既存「パシャッと」シリーズのout
 
 ## 次の課題
 
-- schema/output.schema.jsonの実ファイル化。
-- 既存の点検記録SaaS・アプリとの具体的な価格・機能比較調査(market-research.mdの残課題)。
-- pricing-plan.md(料金プラン仮決め)の作成。
+- ~~schema/output.schema.jsonの実ファイル化。~~ → `schema/output.schema.json`として
+  既に作成済み(`schema/validate_test_cases.py`で11件検証済み)。本フェーズ(202)で
+  棚卸しし解消済みと確認。
+- ~~既存の点検記録SaaS・アプリとの具体的な価格・機能比較調査(market-research.mdの
+  残課題)。~~ → market-research.md「競合調査(フェーズ4・WebSearch)」節で既に実施済み
+  (基本料金25,000円〜/月の業務システム型競合、年額19.99米ドルの個人向けアプリ等を調査)。
+  本フェーズ(202)で棚卸しし解消済みと確認。
+- ~~pricing-plan.md(料金プラン仮決め)の作成。~~ → pricing-plan.mdとして既に作成済み。
+  本フェーズ(202)で棚卸しし解消済みと確認。
+
+(本節はフェーズ2作成時点の記載のまま更新されずに残っていた陳腐化記載であり、フェーズ4
+以降で実際には全て解消済みだった。フェーズ202で棚卸しし是正した。)
