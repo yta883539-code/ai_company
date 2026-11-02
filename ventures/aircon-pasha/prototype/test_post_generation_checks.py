@@ -27,6 +27,7 @@ from post_generation_checks import (  # noqa: E402
     check_model_type_mentioned_in_text,
     check_next_recommended_date_estimate_consistency,
     check_next_recommended_date_history_care_guide_consistency,
+    check_no_emoji_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
     check_no_third_party_name_leak_in_customer_facing_notices,
     check_refrigerant_electrical_professional_judgement,
@@ -547,6 +548,39 @@ class ThirdPartyNameLeakTest(unittest.TestCase):
     def test_no_completion_report_is_skipped(self):
         instance = {"completion_report": None, "care_guide": {"body": "田中花子様"}}
         self.assertEqual(check_no_third_party_name_leak_in_customer_facing_notices(instance), [])
+
+
+class NoEmojiAnywhereTest(unittest.TestCase):
+    def test_emoji_in_completion_report_body_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄が完了しました😊ありがとうございました。"},
+            "care_guide": {"body": "フィルターは月1回程度お手入れください。"},
+        }
+        errors = check_no_emoji_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("completion_report.body", errors[0])
+
+    def test_emoji_in_care_guide_body_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄が完了しました。"},
+            "care_guide": {"body": "フィルターは月1回程度お手入れください✨。"},
+        }
+        errors = check_no_emoji_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_guide.body", errors[0])
+
+    def test_emoji_in_out_of_scope_message_is_flagged(self):
+        instance = {"out_of_scope_message": "恐れ入りますが、そのご質問にはお答えできません🙏。"}
+        errors = check_no_emoji_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_no_emoji_passes(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄が完了しました。"},
+            "care_guide": {"body": "フィルターは月1回程度お手入れください。"},
+        }
+        self.assertEqual(check_no_emoji_anywhere(instance), [])
 
 
 class RunAllChecksTest(unittest.TestCase):

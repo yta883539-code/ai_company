@@ -6616,3 +6616,29 @@
 - 最終更新: 2026-11-01 13:00 UTC(フェーズ354: 詳細は上記。market-research.mdに管理会社
   チャネルへの迂回参入経路2パターンの傍証を追記。コード変更なし、全789件・schema検証25件
   いずれも変更なしでパス)
+- フェーズ355(2026-11-02 06:00 UTC定例更新): kura-pasha・forklift-pasha・
+  event-komiguai-pashaのprototype/post_generation_checks.pyには既に実装済みの
+  check_no_emoji_anywhere()(絵文字不使用の機械チェック)が、本venture(aircon-pasha)
+  には未実装のまま残っていたcross-venture parityギャップを発見・解消した。
+  tone-and-manner-guideline.md方針2・3(厳守事項8、依頼者向け・業者向け文面は
+  「ですます調・絵文字不使用」を厳格に維持する)はこれまで方針の記述のみで機械的に
+  保証されていなかった。prototype/post_generation_checks.pyにEMOJI_PATTERN
+  (他3venture共通の文字コード範囲)・_collect_all_body_texts()(out_of_scope_message・
+  missing_fields_request・completion_report.body・care_guide.body・
+  subscription_procedure_notice.body・checkout_notice.bodyの6フィールドを対象、
+  statusによらず全体を対象とする点もforklift-pasha等と同方針)・check_no_emoji_anywhere()
+  を新規実装し、run_all_checks()に追加した。prototype/test_post_generation_checks.pyに
+  NoEmojiAnywhereTestを新規追加(完了報告・お手入れ案内・対象外応答それぞれへの絵文字混入
+  検出、絵文字なしでのパスの計4ケース)。コード変更は新規関数・テスト追加のみで既存関数の
+  変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (既存789件+新規4件=793件、全件パス)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)同種のcheck_no_emoji_anywhere()未実装ギャップがoshien-pasha・line-reservation-aiに
+  も残っていないかの横展開確認(本フェーズではaircon-pasha単体の解消に限定したため未着手)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 06:00 UTC(フェーズ355: 詳細は上記。check_no_emoji_anywhere()を
+  新規実装しcross-venture parityギャップを解消。テスト4件追加〈793件〉・schema検証25件
+  いずれもパス)

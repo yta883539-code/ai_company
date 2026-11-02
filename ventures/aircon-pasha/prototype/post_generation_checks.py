@@ -83,6 +83,24 @@ LINE_TEXT_MESSAGE_CHAR_LIMIT = 5000
 # (LENGTH_LIMIT_FALLBACK_MESSAGE)を選択するためのエラーメッセージ接頭辞。
 LENGTH_LIMIT_ERROR_PREFIX = "LINE_LENGTH_LIMIT_EXCEEDED"
 
+# 厳守事項8(依頼者向け・業者向け文面は「ですます調・絵文字不使用」を厳格に維持する、
+# tone-and-manner-guideline.md方針2・3)の機械チェック用。これまで方針の記述のみに
+# 留まっていたためフェーズ355で新規実装する。kura-pasha/forklift-pasha/
+# event-komiguai-pashaのEMOJI_PATTERNと同じ文字コード範囲を踏襲する(顔文字・記号・
+# ピクトグラム等が集中する主要ブロックを対象としたヒューリスティック)。
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # 各種絵文字・記号(顔・乗り物・アクティビティ等)
+    "☀-➿"  # その他の記号・装飾記号(☀☕✨➿等)
+    "⬀-⯿"  # 矢印・星等の追加記号(⭐⬛等)
+    "\U0001F100-\U0001F1E5"  # 囲み英数字補助のうち地域指示記号と重複しない範囲(🅰🅱🅾🆚等)
+    "\U0001F1E6-\U0001F1FF"  # 地域指示記号(組み合わせで国旗絵文字になる)
+    "\U0001F200-\U0001F2FF"  # 囲みCJK文字・月間補助記号(🈚🈵🈲等)
+    "️"  # 異体字セレクタ(絵文字表示指定)
+    "‍"  # ゼロ幅接合子(複合絵文字)
+    "]"
+)
+
 
 def _utf16_code_unit_length(text: str) -> int:
     """UTF-16コード単位数を返す。Pythonのlen(str)はUnicodeコードポイント数を返すため、
@@ -482,6 +500,63 @@ def check_no_third_party_name_leak_in_customer_facing_notices(instance):
     return errors
 
 
+def _collect_all_body_texts(instance):
+    """厳守事項8(絵文字は終始不使用)の対象となる、全出力本文テキストを
+    [(フィールド名, テキスト), ...]の形で集める。statusによらず対象を広く取る
+    (kura-pasha/forklift-pasha/event-komiguai-pashaの同名関数と同じ方針)。"""
+    texts = []
+
+    out_of_scope_message = instance.get("out_of_scope_message")
+    if out_of_scope_message:
+        texts.append(("out_of_scope_message", out_of_scope_message))
+
+    missing_fields_request = instance.get("missing_fields_request")
+    if missing_fields_request:
+        texts.append(("missing_fields_request", missing_fields_request))
+
+    completion_report = instance.get("completion_report")
+    if completion_report:
+        body = completion_report.get("body")
+        if body:
+            texts.append(("completion_report.body", body))
+
+    care_guide = instance.get("care_guide")
+    if care_guide:
+        body = care_guide.get("body")
+        if body:
+            texts.append(("care_guide.body", body))
+
+    subscription_procedure_notice = instance.get("subscription_procedure_notice")
+    if subscription_procedure_notice:
+        body = subscription_procedure_notice.get("body")
+        if body:
+            texts.append(("subscription_procedure_notice.body", body))
+
+    checkout_notice = instance.get("checkout_notice")
+    if checkout_notice:
+        body = checkout_notice.get("body")
+        if body:
+            texts.append(("checkout_notice.body", body))
+
+    return texts
+
+
+def check_no_emoji_anywhere(instance):
+    """厳守事項8準拠チェック(tone-and-manner-guideline.md方針2・3)。依頼者向け・
+    業者向けの全出力本文で絵文字ゼロを求める(course-set-pashaのSNS投稿文向けルール
+    〈1〜2個まで許容〉とは異なり、kura-pasha/forklift-pasha/event-komiguai-pashaと
+    同じ「全体で絵文字不使用」方針)。
+    """
+    errors = []
+    for field_name, text in _collect_all_body_texts(instance):
+        if EMOJI_PATTERN.search(text):
+            errors.append(
+                f"{field_name}: 絵文字が含まれています"
+                "(厳守事項8違反の疑い、本venture全体で絵文字不使用)"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -496,4 +571,5 @@ def run_all_checks(instance):
     errors += check_checkout_notice_consistency(instance)
     errors += check_message_length_within_line_limit(instance)
     errors += check_no_third_party_name_leak_in_customer_facing_notices(instance)
+    errors += check_no_emoji_anywhere(instance)
     return errors
