@@ -1190,3 +1190,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-02 04:00 UTC(フェーズ57: 詳細は上記。E4の設計ギャップを解消し
   llm-system-prompt-draft.md厳守事項3a・validate_test_cases.pyのE4フィクスチャを追加。
   既存テスト38件は変更なしでパス、新規1件を加え合計46件)
+- フェーズ58(2026-11-02 05:00 UTC定例更新): フェーズ57の次回候補(1)「残る設計ギャップ
+  (複数会場『ハシゴ』対応)への対応方針の検討」に対応し、multi-venue-hashigo-schema-design.md
+  を新規作成した。N3(京セラドーム大阪→大阪城ホールの連日2会場ケース)が炙り出した
+  「`itinerary_draft`・`day_timetable`が単一オブジェクトのままで複数会場を表現できない」
+  という構造的な限界に対し、両フィールドを会場単位オブジェクトの配列へ改訂する方針を決定した。
+  単一会場時も`hashigo_check.applicable`の真偽に関わらず常に配列(長さ1または複数)とすることで、
+  出力の型自体は固定しつつ内容で単一/複数を表現する設計とした(line-reservation-aiの
+  json-schema-multi-intent-extension.md等が採用した既存方針との整合を確認)。`cost_estimate`・
+  `hashigo_check`は配列化せず単一オブジェクトのまま(前者はトリップ単位の合算見積りという
+  入力粒度の実情、後者はトリップ全体の無理チェックという性質上)とする判断も記録した。
+  input-output-sample-mapping.mdのN3行・「設計ギャップ」「残る未確定事項」節を「方針決定済み、
+  実装は次回以降」に更新した。schema/output.schema.json本体・validate_test_cases.pyの実装
+  反映(既存7フィクスチャの配列形式への書き換え、N3新規フィクスチャ追加)は、設計決定と
+  同一フェーズで行うと既存フィクスチャの書き換えが雑になるリスクがあるため、意図的に次回以降へ
+  分離した。コード実装・外部サービス接続は一切行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの
+  新規追記は不要。
+  次回候補: (1)schema/output.schema.jsonの`itinerary_draft`・`day_timetable`を配列型に改訂し、
+  validate_test_cases.pyの既存7フィクスチャを配列長1形式に書き換え、N3(配列長2)の新規
+  フィクスチャを追加する、(2)llm-system-prompt-draft.mdに配列長と`hashigo_check.applicable`の
+  整合を厳守事項として追記する、(3)venue-master-draft.mdの会場マスタ件数拡充(現状の収録範囲の
+  確認)。
+- 最終更新: 2026-11-02 05:00 UTC(フェーズ58: multi-venue-hashigo-schema-design.md新規作成。
+  N3の設計ギャップに対し`itinerary_draft`・`day_timetable`を会場単位オブジェクトの配列に
+  改訂する方針を決定。実装反映〈スキーマ本体・テストフィクスチャ書き換え〉は次回以降に分離)

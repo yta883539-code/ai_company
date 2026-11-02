@@ -23,8 +23,10 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 ## 本対応表で明らかになった設計ギャップ(次回候補)
 
 - N3: 複数会場(ハシゴ)ケースで`itinerary_draft`・`day_timetable`が会場ごとに複数必要になるのか、
-  現行スキーマ(単一オブジェクト)のままで足りるのかは未確定。schema/output.schema.jsonの
-  改訂が必要になる可能性がある(次回候補として記録)。
+  現行スキーマ(単一オブジェクト)のままで足りるのかという論点は、
+  multi-venue-hashigo-schema-design.md(README.mdフェーズ58)で**方針決定済み**(両フィールドを
+  会場単位オブジェクトの配列に改訂し、単一会場時も常に配列長1とする)。schema/output.schema.json・
+  validate_test_cases.pyへの実装反映は次回以降の課題として残る。
 - N4: 解消済み。「グッズ列に並ぶか否か」は`goods_line_intention`(join/skip/未記載)として
   入力フォーマット・README.md「入力」節・llm-system-prompt-draft.md厳守事項4aに追加され、
   上表の期待出力(join/skip/未記載それぞれのday_timetable分岐)も確定した
@@ -38,8 +40,9 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 - 本対応表はいずれも机上のサンプルであり、実LLM APIへの投入・構造化出力の実際の安定性は
   未検証(llm-quality-verification-plan.md「検証手順」2〜4節、オーナー承認後のAPI接続時に
   実施予定)。
-- N3で発見した設計ギャップ(複数会場対応)への対応方針は本ドキュメントでは決定せず、
-  次回以降の検討課題として残す(N4・E4は解消済み)。
+- N3で発見した設計ギャップ(複数会場対応)への対応方針はmulti-venue-hashigo-schema-design.md
+  (README.mdフェーズ58)で決定済み(N4・E4も解消済み)。スキーマ本体・テストコードへの
+  実装反映のみ次回以降の課題として残る。
 - JSON Schemaバリデータ(validate_test_cases.py相当、llm-quality-verification-plan.md
   次回候補(2))は実装済み(README.mdフェーズ56、`validate_test_cases.py`)。N1・N2・
   N4(join/skip)・E1・E2・E3・E4の期待出力を機械検証し8件パス(フェーズ57でE4を追加)。
