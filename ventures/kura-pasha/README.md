@@ -6327,3 +6327,25 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   を新規作成しcross-venture parityギャップを解消。本venture固有の低頻度利用特性を
   踏まえ1時間TTLでも効果は限定的と結論、既存の粗利計算を維持。コード変更なし、
   テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ275(2026-11-02 08:00 UTC定例更新): フェーズ273・274の次回候補(2)
+  「course-set-pashaへの同種確認の横展開」の棚卸しを実施した。course-set-pasha側を
+  確認したところ、ventures/course-set-pasha/line-price-revision-2026-check.mdが
+  既に新規作成済みであり(冒頭に「kura-pasha/line-price-revision-2026-check.md
+  (フェーズ179)・aircon-pasha/line-price-revision-2026-check.md(フェーズ265)が
+  次回候補として残していたcourse-set-pashaへの横展開に対応する」旨の記載があり、
+  本venture分も含めて両方をそのファイル1つで解消済みと明記されている)、本venture側で
+  改めて対応する必要はないことを確認した。よって次回候補(2)は完了として扱い、
+  次回候補から除去する。本venture自身のコード・設計文書の変更は発生していない。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (295件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから
+  承認された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合
+  実装フェーズ待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 08:00 UTC(フェーズ275: 詳細は上記。「course-set-pashaへの
+  同種確認の横展開」はcourse-set-pasha側で既に解消済みと確認し、次回候補から除去。
+  コード変更なし、テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
