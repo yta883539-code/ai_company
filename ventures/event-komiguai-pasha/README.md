@@ -1909,3 +1909,37 @@ Firestore `inquiry`コレクションへの書き込み自体の実装(inquiry-h
 - 最終更新: 2026-11-02 18:00 UTC(フェーズ87: ci-setup.md・GitHub Actionsワークフロー
 新規作成でcross-venture parityのギャップ(CI未導入)を解消。コード変更なし、既存テスト
 63件・schema検証22件いずれも変更なしでパス)
+
+フェーズ88(2026-11-02 19:00 UTC定例更新): フェーズ87次回候補(1)(2)に対応した。
+(1) push済みのコミット(560988c、18:00 UTC)に対するevent-komiguai-pasha testsワークフロー
+の実行結果をGitHub Actions APIで確認し、conclusion="success"(グリーン)であることを
+確認した。(2) inquiry-handling-design.md 4節の残課題「問い合わせWebフォーム1画面・
+Firestore `inquiry`コレクションへの書き込み自体の実装」に対応し、
+prototype/inquiry_form_intake.pyを新規作成した。form_submission_intake.py(フェーズ2)と
+同じ位置づけで、Webフォーム送信の生ペイロード(draft_id・customer_email・category・detail)
+を検証し、欠落時は固定の案内文(missing_fields)を返し、充足時はinquiry-handling-design.md
+2節のフィールド定義に沿った`inquiry/{inquiry_id}`ドキュメント(status="received"、
+resolvedAtは未設定)を組み立てる。categoryはprototype/inquiry_intake.py(フェーズ85)の
+INQUIRY_CATEGORIESと同一の4区分に限定し、未知の値は拒否する。実際のFirestore
+`inquiry`コレクションへのadd()・実Cloud Run functionsへのデプロイは行わず(実GCP/
+Firestore作成はpending-approval.md記載分でオーナー承認待ちのため)、本モジュール自体は
+実クラウド接続なしで検証可能な「ペイロード→ドキュメント」変換のみを担う。あわせて
+landing-page/inquiry.html(フォーム画面ドラフト、送信ボタンは無効化・未接続)を新規作成し、
+inquiry-handling-design.md 2節の入力項目をそのまま画面に反映した。
+inquiry-handling-design.md 4節を更新し、本項目を部分解消として取消線で記録した
+(実Firestore書き込み・実エンドポイント結線はなお残課題)。テストは
+test_inquiry_form_intake.pyに12件新規追加し(既存63件+新規12件=75件)、
+`python3 -m unittest discover -s prototype -p "test_*.py"`(75件)・`python3
+schema/validate_test_cases.py`(22件、変更なし)いずれもパスすることを確認した
+(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)実GCP/Firestore作成がオーナーから承認された場合、本フェーズで作成した
+inquiry_form_intake.pyのbuild_inquiry_document()をCloud Run functionsのHTTPSトリガー・
+実Firestore `inquiry`コレクションへのadd()に結線する、(2)landing-page/inquiry.htmlの
+draft_idクエリパラメータからの自動入力実装(現状は常に空欄)、(3)承認待ち事項(実GCP/
+Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその
+着手を最優先、他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 19:00 UTC(フェーズ88: 詳細は上記。prototype/inquiry_form_intake.py・
+landing-page/inquiry.html新規作成でinquiry-handling-design.md 4節の残課題を部分解消。
+テスト12件新規追加(63件→75件)・schema検証22件変更なし、いずれもパス。push後CI
+(event-komiguai-pasha tests)もグリーンであることを確認済み)

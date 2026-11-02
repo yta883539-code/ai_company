@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<!--
+  イベントこみぐあいパシャっと 問い合わせフォーム 実装ドラフト(定例更新・2026-11-02 19:00 UTC)
+
+  位置づけ: inquiry-handling-design.md(フェーズ15・2節・4節)が定めた「結果ページ下部・
+  完了メール本文に常設する問い合わせ用の簡易Webフォーム」の画面実装ドラフトです。
+  フェーズ87次回候補(2)「問い合わせWebフォーム1画面・Firestore `inquiry`コレクションへの
+  書き込み自体の実装」のうち、画面(フォーム1画面)側に対応するものであり、
+  prototype/inquiry_form_intake.py(本フェーズ新規)の入力検証ロジックに対応する入力項目
+  (draft_id・customer_email・category・detail)をそのまま反映しています。
+
+  未実装・意図的なプレースホルダー:
+  - 送信ボタンはtype="button"かつ無効化(disabled)で、実際の送信処理には接続していません。
+    実Cloud Run functions・実Firestore `inquiry`コレクションの作成はいずれもpending-
+    approval.md記載分でオーナー承認待ちのため、本画面はinquiry-handling-design.md 2節の
+    入力項目を画面上に配置したモックアップの位置づけです(landing-page/index.html(フェーズ77)
+    と同じ「ドメイン取得・ホスティング・外部公開は行わない、リポジトリ内の静的ファイルに
+    過ぎない」という位置づけを踏襲)。
+  - draft_idはクエリパラメータ(例: inquiry.html?draft_id=xxxx)からの自動入力を想定するが、
+    本ドラフトでは実装せず、常に空欄のテキスト入力として配置する(結線はコード実装時の課題)。
+  - categoryの4選択肢はinquiry-handling-design.md 2節・prototype/inquiry_intake.py
+    (フェーズ85)のINQUIRY_CATEGORIESとそのまま一致させている(表記を変える場合は
+    両方を同時に更新する必要がある)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お問い合わせ(ドラフト・非公開)| イベントこみぐあいパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f4f8fb;
+    --color-fg: #212e36;
+    --color-accent: #1d6fa5;
+    --color-accent-dark: #164f78;
+    --color-card: #ffffff;
+    --color-border: #d6e4ee;
+    --color-muted: #5b6b74;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  section { padding: 32px 20px 40px; }
+  h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  p.sub { color: var(--color-muted); margin: 0 0 24px; font-size: 0.9rem; }
+
+  form { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-weight: bold; font-size: 0.85rem; margin-bottom: 6px; }
+  label .required { color: #b5690a; font-size: 0.75rem; margin-left: 4px; }
+  input[type="text"], input[type="email"], select, textarea {
+    width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 6px;
+    font-size: 0.9rem; font-family: inherit; background: #fff; color: var(--color-fg);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  .hint { font-size: 0.75rem; color: var(--color-muted); margin-top: 4px; }
+
+  .submit {
+    display: block; width: 100%; text-align: center;
+    background: var(--color-accent); color: #fff; border: none;
+    padding: 14px; border-radius: 8px; font-weight: bold; font-size: 0.95rem;
+    margin-top: 20px; cursor: default; opacity: 0.6;
+  }
+  .submit-note { text-align: center; font-size: 0.78rem; color: var(--color-muted); margin: 8px 0 0; }
+
+  footer { padding: 24px 20px 40px; font-size: 0.75rem; color: var(--color-muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">イベントこみぐあいパシャっと</header>
+
+  <section>
+    <h1>お問い合わせ</h1>
+    <p class="sub">メールが届かない場合の再送希望、結果への不満による返金希望など、
+    こちらのフォームからご連絡ください。内容を確認のうえ、担当者よりご連絡いたします。</p>
+
+    <form>
+      <div class="field">
+        <label for="draft_id">お申込み時の受付番号(draft_id)<span class="required">必須</span></label>
+        <input type="text" id="draft_id" name="draft_id" placeholder="完了メールまたは結果ページに記載の番号">
+        <p class="hint">結果ページURLまたは完了メールに記載されています。</p>
+      </div>
+
+      <div class="field">
+        <label for="customer_email">ご連絡先メールアドレス<span class="required">必須</span></label>
+        <input type="email" id="customer_email" name="customer_email" placeholder="example@example.com">
+      </div>
+
+      <div class="field">
+        <label for="category">お問い合わせ区分<span class="required">必須</span></label>
+        <select id="category" name="category">
+          <option value="">選択してください</option>
+          <option value="メール未着">メール未着(結果ページのメールが届かない)</option>
+          <option value="再送希望">再送希望(結果ページの再送を希望する)</option>
+          <option value="返金希望">返金希望(生成結果の内容にご不満がある)</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="detail">詳細(任意)</label>
+        <textarea id="detail" name="detail" placeholder="状況を具体的にご記入ください"></textarea>
+      </div>
+
+      <button type="button" class="submit" disabled>送信する</button>
+      <p class="submit-note">本ドラフトは画面レイアウトのみで、送信機能は未接続です。</p>
+    </form>
+  </section>
+
+  <footer>
+    © イベントこみぐあいパシャっと
+  </footer>
+
+</div>
+</body>
+</html>

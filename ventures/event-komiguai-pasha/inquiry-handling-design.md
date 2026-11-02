@@ -130,12 +130,24 @@ tone-and-manner-guideline.md「次のステップ候補」(フェーズ82)で申
 - `inquiry`コレクションの既存Firestoreコレクション(`one_time_draft`)との命名・構造の
   cross-venture parity(他venture発のエスカレーション系コレクション設計との命名統一)は
   次回以降の確認課題とする。
-- 問い合わせフォーム自体の実装(Webフォーム1画面追加)・Firestoreへの書き込みは
-  コード実装時の課題として残し、現時点では受付方式・対応フローの机上設計のみ。
+- ~~問い合わせフォーム自体の実装(Webフォーム1画面追加)・Firestoreへの書き込みは
+  コード実装時の課題として残し、現時点では受付方式・対応フローの机上設計のみ。~~
+  → フェーズ88でprototype/inquiry_form_intake.py(入力検証・`inquiry/{inquiry_id}`
+  ドキュメント組み立て)・landing-page/inquiry.html(フォーム画面ドラフト)として
+  一部解消。ただし実Firestoreへの実際の書き込み(add())・実Cloud Run functionsへの
+  デプロイ・フォーム画面からのエンドポイント結線は、実GCP/Firestore作成(pending-
+  approval.md記載、オーナー承認待ち)後の課題としてなお残る。
 - 実際のメール送信手段接続・Stripe返金API接続はいずれもアカウント作成・外部サービス
   接続を伴うためオーナー承認待ちの範囲(pending-approval.md参照)。
 
-最終更新: 2026-11-02 14:00 UTC(フェーズ86: prototype/inquiry_intake.py(フェーズ85)が
+最終更新: 2026-11-02 19:00 UTC(フェーズ88: フェーズ87次回候補(2)に対応し、
+prototype/inquiry_form_intake.py(Webフォーム送信の入力検証・`inquiry`ドキュメント
+組み立て)・landing-page/inquiry.html(フォーム画面ドラフト、送信ボタンは未接続)を
+新規作成。実Firestore書き込み・実エンドポイント結線はなお残課題として4節に明記。
+コード変更: 新規モジュール1件・新規テスト12件追加(既存63件+新規12件=75件)、
+schema検証22件は変更なし。いずれもパス(回帰なし))
+
+最終更新(旧): 2026-11-02 14:00 UTC(フェーズ86: prototype/inquiry_intake.py(フェーズ85)が
 先行実装した「その他」区分の手動確認方針〈固定文言での自動返信を行わず、オーナー判断用の
 要約のみを生成〉を3-2節として設計文書に反映。新たな設計判断は行わず実装内容の文書化のみ。
 コード変更なし(設計文書の更新のみ))
