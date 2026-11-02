@@ -1241,3 +1241,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   の方針決定〈フェーズ58〉を実装に反映し、`itinerary_draft`・`day_timetable`を会場単位
   オブジェクトの配列に改訂。validate_test_cases.pyにN3フィクスチャを追加し9件中9件パス
   〈回帰なし〉)
+- フェーズ60(2026-11-02 12:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)がいずれも作成済み
+  のtone-and-manner-guideline.mdが本ventureに未作成のまま残っていたcross-venture parity
+  ギャップ(course-set-pashaフェーズ346で既に申し送り済み)を解消し、新規作成した。
+  本venture固有の前提(LINE非依存のWeb+メール構成、入力者本人が直接出力を読む単一読み手
+  構造、出力が構造化JSONで自由文は一部フィールドのみ)を整理したうえで、既存設計文書
+  (llm-system-prompt-draft.md・landing-page-copy-draft.md・venue-name-normalization-
+  design.md・venue-operational-status-output-reflection-design.md・access-url-resend-api-
+  design.md等)に散在していた「ですます調・絵文字不使用・断定しない」方針を集約し、方針間の
+  矛盾が無いことを確認した。合わせてllm-system-prompt-draft.mdに厳守事項8(ですます調・
+  絵文字不使用)を新設し、他venture(course-set-pasha厳守事項9等)と同様にトーン方針を
+  明文化した(自由文メッセージがprototype側にまだ実装されていないため既存コード・テストへの
+  影響はない)。`python3 validate_test_cases.py`(9件中9件パス、変更なし)・
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(8件、変更なし)いずれも
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)自由文メッセージ(`out_of_scope_message`等)をprototype側にコード化する際の絵文字
+  不使用機械チェック(他venture相当)の追加、(3)venue-master-draft.mdの会場マスタ件数拡充
+  (フェーズ59次回候補(2)、未着手)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 12:00 UTC(フェーズ60: 詳細は上記。tone-and-manner-guideline.mdを
+  新規作成しcross-venture parityギャップを解消。llm-system-prompt-draft.mdに厳守事項8
+  〈ですます調・絵文字不使用〉を新設。コード変更なし、テスト8件・schema検証9件いずれも
+  変更なしでパス〈回帰なし〉)
