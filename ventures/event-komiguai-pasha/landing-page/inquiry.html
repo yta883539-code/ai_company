@@ -16,8 +16,10 @@
     入力項目を画面上に配置したモックアップの位置づけです(landing-page/index.html(フェーズ77)
     と同じ「ドメイン取得・ホスティング・外部公開は行わない、リポジトリ内の静的ファイルに
     過ぎない」という位置づけを踏襲)。
-  - draft_idはクエリパラメータ(例: inquiry.html?draft_id=xxxx)からの自動入力を想定するが、
-    本ドラフトでは実装せず、常に空欄のテキスト入力として配置する(結線はコード実装時の課題)。
+  - draft_idはクエリパラメータ(例: inquiry.html?draft_id=xxxx)からの自動入力を実装済み
+    (フェーズ89・本ドラフト末尾のインラインscript)。パラメータが存在しない場合は従来通り
+    常に空欄のテキスト入力として配置する。自動入力後も手入力による上書きは可能にしている
+    (結果ページ・メールのURLが古い・一部文字が欠落している等のケースへの配慮)。
   - categoryの4選択肢はinquiry-handling-design.md 2節・prototype/inquiry_intake.py
     (フェーズ85)のINQUIRY_CATEGORIESとそのまま一致させている(表記を変える場合は
     両方を同時に更新する必要がある)。
@@ -129,5 +131,17 @@
   </footer>
 
 </div>
+<script>
+  // フェーズ89: draft_idクエリパラメータ(例: inquiry.html?draft_id=xxxx)からの自動入力。
+  // 結果ページ・完了メールのリンクに付与される想定だが、パラメータが無い場合は
+  // 従来通り空欄のまま(手入力)とする。自動入力後も手入力で上書き可能。
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var draftId = params.get("draft_id");
+    if (draftId) {
+      document.getElementById("draft_id").value = draftId;
+    }
+  })();
+</script>
 </body>
 </html>

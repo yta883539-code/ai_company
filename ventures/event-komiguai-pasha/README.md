@@ -1943,3 +1943,27 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 landing-page/inquiry.html新規作成でinquiry-handling-design.md 4節の残課題を部分解消。
 テスト12件新規追加(63件→75件)・schema検証22件変更なし、いずれもパス。push後CI
 (event-komiguai-pasha tests)もグリーンであることを確認済み)
+
+フェーズ89(2026-11-02 23:00 UTC定例更新): フェーズ88次回候補(2)「landing-page/inquiry.html
+のdraft_idクエリパラメータからの自動入力実装(現状は常に空欄)」に対応した。
+inquiry.html末尾にインラインscriptを追加し、URLSearchParamsで`draft_id`クエリパラメータ
+(例: inquiry.html?draft_id=xxxx)を読み取ってdraft_id入力欄に自動入力する処理を実装した。
+パラメータが存在しない場合は従来通り空欄のままとし、自動入力後も手入力による上書きは
+可能な設計のままとした(結果ページ・完了メールのリンクが古い、一部文字が欠落している等の
+ケースへの配慮)。ドラフト内のコメント(送信ボタンは引き続きtype="button"かつdisabledで
+未接続、実Cloud Run functions・実Firestoreへの結線は実GCP/Firestore作成〈オーナー承認待ち〉
+後の課題として変更なし)も実装状況に合わせて更新した。JSのみの静的フロントエンド変更で
+Python側のロジック・既存テストケースには影響しないため、`python3 -m unittest discover -s
+prototype -p "test_*.py"`(75件、変更なし)・`python3 schema/validate_test_cases.py`
+(22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+次回候補: (1)実GCP/Firestore作成がオーナーから承認された場合、本venture・他フェーズで
+作成したbuild_inquiry_document()をCloud Run functionsのHTTPSトリガー・実Firestore
+`inquiry`コレクションへのadd()に結線する(あわせてinquiry.htmlの送信ボタンの有効化・実
+エンドポイントへの結線も行う)、(2)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER
+LAND〉への連絡等)がオーナーから承認された場合はその着手を最優先、(3)他venture・
+アイデア領域の前進。
+- 最終更新: 2026-11-02 23:00 UTC(フェーズ89: 詳細は上記。landing-page/inquiry.htmlに
+draft_idクエリパラメータ自動入力のインラインscriptを追加。コード変更なし〈静的HTML/JSのみ〉、
+既存テスト75件・schema検証22件いずれも変更なしでパス〈回帰なし〉)
