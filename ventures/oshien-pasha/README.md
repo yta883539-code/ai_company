@@ -1302,3 +1302,22 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-02 17:30 UTC(フェーズ62: 詳細は上記。venue-master-draft.mdに中国・
   四国圏〈広島・高松〉、沖縄圏〈沖縄アリーナ〉の主要会場を追加。コード変更なし、テスト8件・
   schema検証9件いずれも変更なしでパス〈回帰なし〉)
+- フェーズ63(2026-11-02 19:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)には既に存在する
+  GitHub Actionsによるテスト自動実行(cross-venture parityギャップ)が本ventureに未導入
+  だった点を解消し、ci-setup.md・.github/workflows/oshien-pasha-tests.ymlを新規作成した。
+  他venture(event-komiguai-pasha等)はschema検証スクリプトを`schema/validate_test_cases.py`
+  に配置しているが、本ventureでは`validate_test_cases.py`がventure直下に配置されている
+  構成の違いを確認し、ワークフローの`working-directory`をそれに合わせて設定した。コード
+  変更なし、既存テスト8件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証9件(`python3 validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。
+  実際のGitHub Actions上での実行結果(グリーン確認)はこのコミットのpush後に別途確認が
+  必要である旨をci-setup.mdに明記した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)自由文メッセージ(`out_of_scope_message`等)をprototype側にコード化する際の絵文字
+  不使用機械チェック(他venture相当)の追加、(3)四国圏(松山)の会場マスタ拡充・沖縄圏の
+  バス停留所名の確認、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 19:00 UTC(フェーズ63: 詳細は上記。cross-venture parityギャップ
+  〈GitHub Actions未導入〉を解消し、ci-setup.md・.github/workflows/oshien-pasha-tests.ymlを
+  新規作成。コード変更なし、テスト8件・schema検証9件いずれも変更なしでパス〈回帰なし〉)
