@@ -1771,3 +1771,31 @@
   (operational_message_templates.py・test_operational_message_templates.py)を新規追加。
   見出し記号不使用の機械チェック化は次回候補。コード変更は新規ファイル2点の追加のみ、
   既存テスト50件・schema検証22件は変更なしでパス)
+
+フェーズ82(2026-11-02 03:00 UTC定例更新): フェーズ81の次回候補(1)に対応し、見出し記法
+【】不使用(tone-and-manner-guideline.md方針4)の機械チェック化を実装した。
+`prototype/post_generation_checks.py`に`HEADING_BRACKET_PATTERN`・
+`check_no_heading_brackets_anywhere()`を新設し、LLM生成物系7フィールド(4出力+定型応答
+3種)を対象に`run_all_checks()`経由で見出し記号不使用を機械的に保証するようにした
+(check_no_emoji_anywhereと同じ対象範囲・同じ「statusによらず全体で不使用」方針)。
+運用メッセージ系5テンプレートについても、`test_operational_message_templates.py`に
+同パターンを再利用した`TestOperationalMessageTemplatesNoHeadingBrackets`を追加し、
+従来「目視確認のみ」だった見出し記号チェックを機械化した(既存の絵文字機械チェックと
+同じ位置づけ)。tone-and-manner-guideline.mdの「用途別文言一覧」表・「既存文言の整合確認」
+節・「次のステップ候補」を更新し、解消済み項目を除去した。テストは
+`test_post_generation_checks.py`に新規3ケース(checklist/out_of_scope_messageへの
+【】混入検出・混入なしの非検出)、`test_operational_message_templates.py`に新規1ケース
+(5テンプレート全件のsubTest検証)を追加し、`python3 -m unittest discover -p "test_*.py"`
+(既存51件+新規4件=55件、既存51件は変更なし)・`python3 schema/validate_test_cases.py`
+(22件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+次回候補: (1)問い合わせ返信下書きの3類型それぞれについて謝罪表現の区別に沿った文例を
+inquiry-handling-design.mdに追記、(2)承認待ち事項(実GCP/Firestore作成、候補1
+〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を最優先、他venture・
+アイデア領域の前進。
+- 最終更新: 2026-11-02 03:00 UTC(フェーズ82: 詳細は上記。見出し記法【】不使用の機械チェック
+  (check_no_heading_brackets_anywhere・TestOperationalMessageTemplatesNoHeadingBrackets)
+  をLLM生成物系・運用メッセージ系の両方に新規追加し、フェーズ81の次回候補(1)を解消。
+  コード変更は既存ファイルへの関数・テストケース追加のみ、既存テスト51件・schema検証22件
+  いずれも変更なしでパス)

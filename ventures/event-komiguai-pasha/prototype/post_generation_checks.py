@@ -48,6 +48,13 @@ OUT_OF_SCOPE_TOPIC_KEYWORDS = (
     "料金プラン", "契約書", "ご契約", "お支払い", "振込先", "請求書", "月額", "年会費",
 )
 
+# tone-and-manner-guideline.md方針4(見出し記法【】は主催者へ送る文言には使用しない)の
+# 機械チェック用。legal-notices-draft.mdの「【要記入】」(社内ドラフト用プレースホルダー)・
+# initial-contact-message-draft.mdの件名(ヒアリング候補者向け、主催者宛ではない)は
+# 主催者向け送信文言ではないため本チェックの対象外(_collect_main_output_texts・
+# operational_message_templates.TEMPLATESのいずれにも含まれない)。
+HEADING_BRACKET_PATTERN = re.compile("[【】]")
+
 
 def _collect_main_output_texts(instance):
     """厳守事項9(絵文字は終始不使用)の対象となる、4出力+定型応答系の全テキストを
@@ -103,6 +110,21 @@ def check_no_emoji_anywhere(instance):
     return errors
 
 
+def check_no_heading_brackets_anywhere(instance):
+    """tone-and-manner-guideline.md方針4準拠チェック。主催者向け送信文言(4出力・
+    定型応答3種)に見出し記法【】が使われていないかを、statusによらず全出力本文で確認する
+    (check_no_emoji_anywhereと同じ対象範囲・同じ「全体で不使用」方針)。
+    """
+    errors = []
+    for field_name, text in _collect_main_output_texts(instance):
+        if HEADING_BRACKET_PATTERN.search(text):
+            errors.append(
+                f"{field_name}: 見出し記法【】が含まれています"
+                "(tone-and-manner-guideline.md方針4違反の疑い、主催者向け送信文言では不使用)"
+            )
+    return errors
+
+
 def check_no_out_of_scope_topics_in_generated_output(instance):
     """厳守事項7準拠チェック。status=generatedのとき、checklist・staffing_plan・
     notice_board_text・near_miss_record_templateに料金プラン・契約・支払いに関する
@@ -135,5 +157,6 @@ def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_no_emoji_anywhere(instance)
+    errors += check_no_heading_brackets_anywhere(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     return errors

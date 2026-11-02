@@ -19,6 +19,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
     check_no_emoji_anywhere,
+    check_no_heading_brackets_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
     run_all_checks,
 )
@@ -100,6 +101,42 @@ class NoEmojiAnywhereTest(unittest.TestCase):
             },
         }
         errors = check_no_emoji_anywhere(instance)
+        self.assertEqual(errors, [])
+
+
+class NoHeadingBracketsAnywhereTest(unittest.TestCase):
+    def test_heading_brackets_in_checklist_item_is_flagged(self):
+        instance = {
+            "checklist": [
+                {"item": "【重要】入場口2箇所がキャパシティに対し十分な処理能力か", "highlighted": False},
+            ],
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("checklist[0].item", errors[0])
+
+    def test_heading_brackets_in_out_of_scope_message_is_flagged(self):
+        instance = {
+            "out_of_scope_message": "【ご案内】本サービスは一次チェックと文書下書き生成のみを行っております。",
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_no_heading_brackets_is_not_flagged(self):
+        instance = {
+            "checklist": [{"item": "入退場口の処理能力を確認", "highlighted": False}],
+            "staffing_plan": {
+                "focus": "entry",
+                "body": "開場直後の入場時集中に重点を置きます。",
+                "announcement_text": "分散してお進みください。",
+            },
+            "notice_board_text": {
+                "body": "整列にご協力ください。",
+                "includes_road_use_permit_note": False,
+            },
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
         self.assertEqual(errors, [])
 
 

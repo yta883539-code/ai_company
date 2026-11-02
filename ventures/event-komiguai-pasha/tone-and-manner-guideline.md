@@ -68,15 +68,15 @@ one-time-checkout-no-account-design.md(フェーズ10)が前提とする通り�
 
 ## 用途別文言一覧(既存文言の集約・確認)
 
-| 用途 | 系統 | 出典 | 絵文字機械チェック | 見出し使用 | 謝罪度合い |
+| 用途 | 系統 | 出典 | 絵文字機械チェック | 見出し記号【】機械チェック | 謝罪度合い |
 |---|---|---|---|---|---|
-| 4出力(checklist等) | LLM生成物系 | llm-system-prompt-draft.md | 有(check_no_emoji_anywhere) | なし | なし(事務的注記のみ、厳守事項1明示) |
-| out_of_scope_message | LLM生成物系 | 厳守事項7/schema OOS1・OOS2 | 有 | なし | なし |
-| fee_inquiry_note | LLM生成物系 | 厳守事項7/schema G6 | 有 | なし | なし |
-| missing_fields_request | LLM生成物系 | 厳守事項8/schema II1 | 有 | なし | なし(再送依頼のみ) |
-| 結果ページ「保存期間終了」案内 | 運用メッセージ系 | result-page-ttl-access-design.mdフェーズ14・47 | 無(目視のみ) | なし | 「お手数ですが」 |
-| 問い合わせ返信下書き(再送/再生成・返金提示) | 運用メッセージ系 | inquiry-handling-design.mdフェーズ15・61 | 無(目視のみ) | なし | 要定型化(次回候補) |
-| 生成失敗時の全額返金案内メール | 運用メッセージ系 | ttl-expiry-result-delivery-refund-design.mdフェーズ12 | 無(目視のみ) | なし | 率直な事実提示+謝罪は控えめ |
+| 4出力(checklist等) | LLM生成物系 | llm-system-prompt-draft.md | 有(check_no_emoji_anywhere) | 有(check_no_heading_brackets_anywhere、フェーズ82) | なし(事務的注記のみ、厳守事項1明示) |
+| out_of_scope_message | LLM生成物系 | 厳守事項7/schema OOS1・OOS2 | 有 | 有 | なし |
+| fee_inquiry_note | LLM生成物系 | 厳守事項7/schema G6 | 有 | 有 | なし |
+| missing_fields_request | LLM生成物系 | 厳守事項8/schema II1 | 有 | 有 | なし(再送依頼のみ) |
+| 結果ページ「保存期間終了」案内 | 運用メッセージ系 | result-page-ttl-access-design.mdフェーズ14・47 | 有(test_operational_message_templates.py、フェーズ82) | 有(同上) | 「お手数ですが」 |
+| 問い合わせ返信下書き(再送/再生成・返金提示) | 運用メッセージ系 | inquiry-handling-design.mdフェーズ15・61 | 有(同上) | 有(同上) | 要定型化(次回候補) |
+| 生成失敗時の全額返金案内メール | 運用メッセージ系 | ttl-expiry-result-delivery-refund-design.mdフェーズ12 | 有(同上) | 有(同上) | 率直な事実提示+謝罪は控えめ |
 
 ## 既存文言の整合確認
 
@@ -89,18 +89,17 @@ one-time-checkout-no-account-design.md(フェーズ10)が前提とする通り�
   確認した結果、方針3・4と矛盾しないことを確認した。
 - 運用メッセージ系3件(結果ページ案内・問い合わせ返信下書き・返金案内メール)は、設計文書内の
   地の文を確認した結果、いずれも絵文字不使用・見出し記号不使用で方針2・4と矛盾しないことを
-  目視で確認した。ただしこれらはschema/output.schema.jsonの対象外であり
-  `check_no_emoji_anywhere()`等の機械チェックが及ばないため、本ガイドライン新設時点では
-  「目視確認のみ」であることを明示的な既知の限界として残す(下記「未検証の仮説」参照)。
+  目視で確認した。フェーズ81でこれらをoperational_message_templates.TEMPLATESとして定数化
+  した後、フェーズ82で`post_generation_checks.py`の`EMOJI_PATTERN`・
+  `HEADING_BRACKET_PATTERN`を再利用する`test_operational_message_templates.py`の機械チェック
+  (`TestOperationalMessageTemplatesNoEmoji`・`TestOperationalMessageTemplatesNoHeadingBrackets`)
+  を追加し、「目視確認のみ」の限界を解消した。あわせてLLM生成物系7フィールドについても、
+  従来は絵文字のみ機械チェック対象だった`post_generation_checks.py`に
+  `check_no_heading_brackets_anywhere()`(フェーズ82新設)を追加し、`run_all_checks()`
+  経由で見出し記号【】不使用も機械的に保証されるようにした。
 
 ## 未検証の仮説(要検証)
 
-- 運用メッセージ系3件(結果ページ案内・問い合わせ返信下書き・返金案内メール)は、
-  schema/output.schema.jsonの対象外であるため、LLM生成物系と同様の機械的な絵文字検査・
-  トーン検査の仕組みを持たない。実装時にこれらの文言を定数化し、LLM生成物系と同じ
-  `EMOJI_PATTERN`相当のチェックを(別の軽量スクリプトとしてでも)適用するかどうかは、
-  本venture固有の「低頻度利用に対して常時稼働コンポーネント・実装コストを増やさない」
-  設計方針(tech-stack.mdフェーズ7)とのバランスで要検討の未検証事項として残す。
 - 問い合わせ返信下書き(inquiry-handling-design.mdフェーズ15・61)は、3類型(メール未着・
   TTL失効後再送希望・品質不満返金希望)それぞれでAIが都度文面を生成する設計であり、
   out_of_scope_message等のような固定の定型文を持たない。そのため「謝罪度合い」等のトーンが
@@ -113,7 +112,6 @@ one-time-checkout-no-account-design.md(フェーズ10)が前提とする通り�
 
 ## 次のステップ候補
 
-- 上記「未検証の仮説」1点目(運用メッセージ系への機械チェック適用)の設計検討。
 - 問い合わせ返信下書きの3類型それぞれについて、本ガイドラインの方針3(謝罪表現の区別)に
   沿った文例を`inquiry-handling-design.md`に追記し、都度のAI生成に委ねる範囲と固定文言と
   すべき範囲を切り分ける。
