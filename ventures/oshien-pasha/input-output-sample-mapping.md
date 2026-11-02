@@ -41,4 +41,6 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 - N3・N4で発見した設計ギャップ(複数会場対応・グッズ列入力フィールド)への対応方針は
   本ドキュメントでは決定せず、次回以降の検討課題として残す。
 - JSON Schemaバリデータ(validate_test_cases.py相当、llm-quality-verification-plan.md
-  次回候補(2))は本ドキュメントでは未着手。
+  次回候補(2))は実装済み(README.mdフェーズ56、`validate_test_cases.py`)。N1・N2・
+  N4(join/skip)・E1・E2・E3の期待出力を機械検証し7件パス。N3・E4は本ドキュメント記載の
+  設計ギャップが未解消のため対象外のまま残る。

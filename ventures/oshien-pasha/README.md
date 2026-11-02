@@ -1147,3 +1147,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-01 23:00 UTC(フェーズ55: 詳細は上記。input-output-sample-mapping.md
   N4ケースの期待出力をgoods_line_intentionの3値分岐ルールに基づき具体化し確定。
   コード変更なし、テスト38件変更なしでパス)
+- フェーズ56(2026-11-02 02:00 UTC定例更新): フェーズ55の次回候補(2)に対応し、
+  validate_test_cases.py(line-reservation-aiのvalidate_test_cases.py相当)を新規実装
+  した。input-output-sample-mapping.mdのN1・N2・E1・E2・E3の期待出力をそのまま構造化
+  フィクスチャとして書き起こし、schema/output.schema.jsonに対する型・必須フィールド・
+  enum・additionalPropertiesの検証に加え、statusの値に応じた各フィールドのnull制約
+  (「status=generatedの場合のみ非nullとなる」等、schema内description記述)をクロス
+  フィールドルールとして機械チェックするようにした。N4についてはgoods_line_intention
+  (join/skip)の2分岐それぞれの期待day_timetableをN4_skip・N4_joinとして追加し、
+  「グッズ列」関連行の有無が入力フィールド(goods_line_intention)の値と整合しているかを
+  個別ロジックで検証する構成とした(goods_line_intention自体は出力スキーマに存在しない
+  入力側フィールドのため、テストケースのメタデータとしてのみ保持しschema検証対象からは
+  除外)。N3(複数会場「ハシゴ」対応)・E4(チケット代等の取り扱い)は
+  input-output-sample-mapping.md記載の通り期待出力の構造自体が未確定のため、本スクリプト
+  のTEST_CASESには含めず次回候補として残した。新規実装したvalidate_test_cases.pyを実行し
+  7件全てパスを確認。既存prototype配下のテスト38件(fan_pass_store 16件・usage_counter
+  14件・access_url_resend_handler 8件)も変更なしで再実行しパス(合計45件、回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)残る設計ギャップ(複数会場「ハシゴ」対応・チケット代等の取り扱い)への対応
+  方針の検討、(2)venue-master-draft.mdの会場マスタ件数拡充(現状の収録範囲の確認)、
+  (3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-02 02:00 UTC(フェーズ56: 詳細は上記。validate_test_cases.pyを新規
+  実装し、input-output-sample-mapping.mdのN1・N2・N4(join/skip)・E1・E2・E3計7件の
+  期待出力をstatus分岐のnull制約込みで機械検証。コード変更は新規ファイル追加のみ、
+  既存テスト38件は変更なしでパス、新規7件を加え合計45件)
