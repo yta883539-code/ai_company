@@ -6642,3 +6642,33 @@
 - 最終更新: 2026-11-02 06:00 UTC(フェーズ355: 詳細は上記。check_no_emoji_anywhere()を
   新規実装しcross-venture parityギャップを解消。テスト4件追加〈793件〉・schema検証25件
   いずれもパス)
+- フェーズ356(2026-11-02 21:00 UTC定例更新): フェーズ355次回候補(2)に対応し、
+  check_no_emoji_anywhere()未実装ギャップがoshien-pasha・line-reservation-aiにも残って
+  いないかの横展開確認を実施した。oshien-pashaは`prototype/`配下を確認したところ
+  `access_url_resend_handler.py`・`fan_pass_store.py`・`usage_counter.py`のみで、
+  `out_of_scope_message`等の自由文出力フィールド自体がまだprototype側にコード化されて
+  いない(本venture自身のREADME次回候補(2)に「自由文メッセージをprototype側にコード化
+  する際の絵文字不使用機械チェックの追加」として既に記録済み)ため、現時点では
+  check_no_emoji_anywhere()相当のチェックを追加する対象コードが存在せず「未解消ギャップ」
+  ではなく「該当フィールド未実装のため時期尚早」と判断した。line-reservation-aiは
+  `prototype/`に`post_generation_checks.py`相当のファイル自体が存在せず(`engine.py`・
+  `cloud_function_process_event.py`にEMOJI_PATTERN類の絵文字ゼロチェックはない)、確認した
+  ところ本ventureはSNS投稿文生成型の他venture群とは異なりLINE会話ボット型で、casualトーンの
+  確認・仮押さえメッセージに`emoji_allowed`引数と`consume_casual_emoji_allowance()`
+  (message-tone-variants.md「絵文字頻度上限」準拠)により絵文字を意図的かつ頻度制限付きで
+  使用する設計であることを確認した。したがって他4venture(aircon-pasha・course-set-pasha・
+  kura-pasha・forklift-pasha・event-komiguai-pasha)の「全体で絵文字不使用」方針とは
+  前提が異なり、本件はcross-venture parityギャップではなく意図的な設計差分であると結論した。
+  以上により、本venture発の横展開確認はいずれも「ギャップなし(対象外/時期尚早)」として
+  完了とする。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(793件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更
+  なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 21:00 UTC(フェーズ356: 詳細は上記。check_no_emoji_anywhere()の
+  横展開確認をoshien-pasha・line-reservation-aiに実施し、いずれもギャップなし〈時期尚早/
+  意図的設計差分〉と結論。コード変更なし、全793件・schema検証25件いずれも変更なしでパス)
