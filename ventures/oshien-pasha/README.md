@@ -1215,3 +1215,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-02 05:00 UTC(フェーズ58: multi-venue-hashigo-schema-design.md新規作成。
   N3の設計ギャップに対し`itinerary_draft`・`day_timetable`を会場単位オブジェクトの配列に
   改訂する方針を決定。実装反映〈スキーマ本体・テストフィクスチャ書き換え〉は次回以降に分離)
+- フェーズ59(2026-11-02 09:00 UTC定例更新): フェーズ58の次回候補(1)(2)に対応し、
+  multi-venue-hashigo-schema-design.mdの方針決定を実装に反映した。schema/output.schema.json
+  の`itinerary_draft`・`day_timetable`を単一オブジェクトから会場単位オブジェクトの配列
+  (`type: ["array", "null"]`)に改訂し、`day_timetable`の各要素は`venue_name_input`と
+  会場別の`timetable`(従来の`time_label`/`action`配列)を持つ構造とした。
+  validate_test_cases.pyの既存7フィクスチャ(N1・N2・N4 join/skip・E1・E2・E3・E4)を
+  配列長1形式に書き換え、N3(京セラドーム大阪→大阪城ホール、配列長2、
+  `hashigo_check.applicable: true`)を新規フィクスチャとして追加した。`validate_goods_line_rule()`
+  も`day_timetable`配列内の各会場の`timetable`を走査する形に修正した。llm-system-prompt-draft.md
+  に厳守事項4bを新設し、出力配列の要素数は入力で言及された会場数と一致させ、
+  `itinerary_draft`・`day_timetable`は同じ会場・同じ順序で揃え、配列要素数と
+  `hashigo_check.applicable`の真偽を整合させる旨を明記した。input-output-sample-mapping.mdの
+  N3行・「設計ギャップ」「残る未確定事項」節を「解消済み」に更新した。
+  `python3 validate_test_cases.py`を実行し9件中9件パス(既存8件は変更なしで継続パス、
+  N3を新規追加)、`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (本venture側の既存8件、schema変更と無関係のためいずれも変更なしでパス)を確認した
+  (回帰なし)。コード実装は本venture内のみに留まり、外部サービス接続・実LLM API呼び出しは
+  一切行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)venue-master-draft.mdの会場マスタ件数拡充(現状の収録範囲の確認)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 09:00 UTC(フェーズ59: 詳細は上記。multi-venue-hashigo-schema-design.md
+  の方針決定〈フェーズ58〉を実装に反映し、`itinerary_draft`・`day_timetable`を会場単位
+  オブジェクトの配列に改訂。validate_test_cases.pyにN3フィクスチャを追加し9件中9件パス
+  〈回帰なし〉)

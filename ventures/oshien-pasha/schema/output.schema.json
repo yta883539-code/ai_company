@@ -20,37 +20,51 @@
       "type": ["string", "null"]
     },
     "itinerary_draft": {
-      "description": "出力1。status=generatedの場合のみ非nullとなる。会場最寄り駅からの交通手段・宿泊候補エリアの当たりをつけた遠征プラン下書き(README.md出力(1))。venue-master-draft.mdの会場マスタに名前が見つかった場合はそれを参照し、見つからない場合はvenue_matched=falseとして一般的な調べ方の案内に留める(具体的な空席・空室確認や実際の予約は行わない)。",
-      "type": ["object", "null"],
-      "additionalProperties": false,
-      "required": ["venue_name_input", "venue_matched", "nearest_station_note", "lodging_area_candidates", "transport_note"],
-      "properties": {
-        "venue_name_input": { "type": "string" },
-        "venue_matched": {
-          "description": "venue-master-draft.mdの会場マスタと名寄せできたかどうか。会場名の表記揺れ(略称・旧名称等)の名寄せロジックは未実装のため、現段階では完全一致のみをtrueとする暫定方針(README.md『次回以降の検討課題』参照)。",
-          "type": "boolean"
-        },
-        "nearest_station_note": {
-          "description": "venue_matched=trueのときは会場マスタの最寄り駅・徒歩目安を記載。falseのときは『会場名を確認できなかったため一般的な調べ方を案内する』趣旨の一言とする。",
-          "type": "string"
-        },
-        "lodging_area_candidates": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "transport_note": { "type": "string" }
-      }
-    },
-    "day_timetable": {
-      "description": "出力2。status=generatedの場合のみ非nullとなる。開場時間・グッズ列を踏まえた当日タイムテーブル草案(README.md出力(2))。開場時間・グッズ列の実際の集合場所等はvenue-master-draft.mdに未収録のため、現段階では入力された情報のみに基づく一般的な目安に留める。",
+      "description": "出力1。status=generatedの場合のみ非nullとなる。会場最寄り駅からの交通手段・宿泊候補エリアの当たりをつけた遠征プラン下書き(README.md出力(1))。会場単位オブジェクトの配列とし、単一会場の入力でも常に配列長1とする(multi-venue-hashigo-schema-design.md参照、『単一/複数で型が変わる』ことによるLLM出力の不安定化を避ける)。配列の要素数はhashigo_check.applicableの真偽・入力で言及された会場数と一致させる(llm-system-prompt-draft.md厳守事項4b)。venue-master-draft.mdの会場マスタに名前が見つかった場合はそれを参照し、見つからない場合はvenue_matched=falseとして一般的な調べ方の案内に留める(具体的な空席・空室確認や実際の予約は行わない)。",
       "type": ["array", "null"],
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["time_label", "action"],
+        "required": ["venue_name_input", "venue_matched", "nearest_station_note", "lodging_area_candidates", "transport_note"],
         "properties": {
-          "time_label": { "type": "string" },
-          "action": { "type": "string" }
+          "venue_name_input": { "type": "string" },
+          "venue_matched": {
+            "description": "venue-master-draft.mdの会場マスタと名寄せできたかどうか。会場名の表記揺れ(略称・旧名称等)の名寄せロジックは未実装のため、現段階では完全一致のみをtrueとする暫定方針(README.md『次回以降の検討課題』参照)。",
+            "type": "boolean"
+          },
+          "nearest_station_note": {
+            "description": "venue_matched=trueのときは会場マスタの最寄り駅・徒歩目安を記載。falseのときは『会場名を確認できなかったため一般的な調べ方を案内する』趣旨の一言とする。",
+            "type": "string"
+          },
+          "lodging_area_candidates": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "transport_note": { "type": "string" }
+        }
+      }
+    },
+    "day_timetable": {
+      "description": "出力2。status=generatedの場合のみ非nullとなる。開場時間・グッズ列を踏まえた当日タイムテーブル草案(README.md出力(2))。itinerary_draftと同様に会場単位オブジェクトの配列とし、単一会場の入力でも常に配列長1とする(multi-venue-hashigo-schema-design.md参照)。配列の要素数・順序はitinerary_draftと対応させる(同じvenue_name_input・同じ順序)。開場時間・グッズ列の実際の集合場所等はvenue-master-draft.mdに未収録のため、現段階では入力された情報のみに基づく一般的な目安に留める。",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["venue_name_input", "timetable"],
+        "properties": {
+          "venue_name_input": { "type": "string" },
+          "timetable": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["time_label", "action"],
+              "properties": {
+                "time_label": { "type": "string" },
+                "action": { "type": "string" }
+              }
+            }
+          }
         }
       }
     },

@@ -13,7 +13,7 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 |---|---|---|---|
 | N1 | 「東京ドーム、12/20昼公演、2枚当選。予算は交通込みで3万円くらい。物販は缶バッジ1種類欲しい。」 | generated | venue-master-draft.mdに「東京ドーム」が完全一致で存在 → `venue_matched: true`、`nearest_station_note`は水道橋駅/後楽園駅・徒歩5分前後を参照。単一公演のため`hashigo_check.applicable: false`。 |
 | N2 | 「○○市民会館、来月の公演1枚。予算未定。」 | generated | venue-master-draft.mdに「○○市民会館」は未収録(主要会場マスタ対象外の地方ホール)→ `venue_matched: false`、`nearest_station_note`は一般的な調べ方の案内文言(具体的な駅名を推測で補わない)。予算未定のため`cost_estimate`の該当フィールドはnull、`note`に概算不可である旨を明記。 |
-| N3 | 「京セラドーム大阪の昼公演(1枚)と、翌日の大阪城ホール公演(1枚)に参加予定。移動時間が心配。」 | generated | 2会場・連日参加の言及があるため`hashigo_check.applicable: true`。両会場ともvenue-master-draft.mdに完全一致で存在するため`venue_matched: true`を2件分生成する想定(itinerary_draftが会場単位でどう複数化されるかは現行スキーマでは単一会場前提のため、次回候補として要検討。本ケースは複数会場対応の設計ギャップを炙り出す目的で採用)。 |
+| N3 | 「京セラドーム大阪の昼公演(1枚)と、翌日の大阪城ホール公演(1枚)に参加予定。移動時間が心配。」 | generated | 2会場・連日参加の言及があるため`hashigo_check.applicable: true`。両会場ともvenue-master-draft.mdに完全一致で存在するため`venue_matched: true`の要素を`itinerary_draft`・`day_timetable`それぞれ配列長2で生成する(multi-venue-hashigo-schema-design.mdで決定した会場単位オブジェクトの配列方式に対応。validate_test_cases.pyにフィクスチャ追加済み、9件中9件パス)。 |
 | N4 | 「有明アリーナ、当日券ではなく当選済みチケット1枚。グッズ列は並ばない予定(`goods_line_intention: skip`)。」 | generated | goods-line-participation-input-field-design.md・llm-system-prompt-draft.md厳守事項4aの`skip`分岐により、`day_timetable`はグッズ列関連の行を省略し開場時刻基準の入場目安のみを示す(例: 「開場30分前目安で会場入り」のみの行で、「グッズ列目安到着」の行は追加しない)。参考として、`goods_line_intention`が`join`明記の場合は開場時刻より前到着検討の「グッズ列目安到着」行を1件追加、未記載の場合は早めの到着検討を促す両論併記の一言に留める(具体的な待ち時間分数・行列保証はいずれの分岐でも行わない)。 |
 | E1(崩れ系) | 「ライブ行きたいんだけどどうしたらいい?」 | insufficient_input | 会場・日時・枚数等の必須項目が一切無い → 4出力フィールド全てnull、`missing_fields_request`は不明項目(会場名・日時・枚数等)を具体的に名指しして再送を促す文言である必要がある(推測で埋めない)。 |
 | E2(崩れ系) | 「東京ドーム、当日の座席、まだ空いてますか?」 | out_of_scope | 空席確認の依頼 → README.mdが明示的に対応しないとする範囲(具体的な空席・空室の在庫確認)に該当 → `out_of_scope_message`のみ非null、4出力フィールドはnull。 |
@@ -22,11 +22,12 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 
 ## 本対応表で明らかになった設計ギャップ(次回候補)
 
-- N3: 複数会場(ハシゴ)ケースで`itinerary_draft`・`day_timetable`が会場ごとに複数必要になるのか、
-  現行スキーマ(単一オブジェクト)のままで足りるのかという論点は、
-  multi-venue-hashigo-schema-design.md(README.mdフェーズ58)で**方針決定済み**(両フィールドを
-  会場単位オブジェクトの配列に改訂し、単一会場時も常に配列長1とする)。schema/output.schema.json・
-  validate_test_cases.pyへの実装反映は次回以降の課題として残る。
+- N3: 解消済み。複数会場(ハシゴ)ケースで`itinerary_draft`・`day_timetable`が会場ごとに
+  複数必要になる論点は、multi-venue-hashigo-schema-design.md(README.mdフェーズ58)で
+  方針決定(両フィールドを会場単位オブジェクトの配列に改訂し、単一会場時も常に配列長1とする)
+  のうえ、schema/output.schema.jsonの改訂・validate_test_cases.pyへのN3フィクスチャ追加
+  (配列長2)・既存7フィクスチャの配列長1形式への書き換え・llm-system-prompt-draft.md
+  厳守事項4b(配列要素数の整合ルール)追記まで実装反映済み(README.mdフェーズ59)。
 - N4: 解消済み。「グッズ列に並ぶか否か」は`goods_line_intention`(join/skip/未記載)として
   入力フォーマット・README.md「入力」節・llm-system-prompt-draft.md厳守事項4aに追加され、
   上表の期待出力(join/skip/未記載それぞれのday_timetable分岐)も確定した
@@ -40,10 +41,10 @@ output-samples-validation.md)に相当する、本venture向けの入力メモ�
 - 本対応表はいずれも机上のサンプルであり、実LLM APIへの投入・構造化出力の実際の安定性は
   未検証(llm-quality-verification-plan.md「検証手順」2〜4節、オーナー承認後のAPI接続時に
   実施予定)。
-- N3で発見した設計ギャップ(複数会場対応)への対応方針はmulti-venue-hashigo-schema-design.md
-  (README.mdフェーズ58)で決定済み(N4・E4も解消済み)。スキーマ本体・テストコードへの
-  実装反映のみ次回以降の課題として残る。
+- N3で発見した設計ギャップ(複数会場対応)はmulti-venue-hashigo-schema-design.md
+  (README.mdフェーズ58)の方針決定・README.mdフェーズ59の実装反映により解消済み
+  (N4・E4も解消済み)。
 - JSON Schemaバリデータ(validate_test_cases.py相当、llm-quality-verification-plan.md
-  次回候補(2))は実装済み(README.mdフェーズ56、`validate_test_cases.py`)。N1・N2・
-  N4(join/skip)・E1・E2・E3・E4の期待出力を機械検証し8件パス(フェーズ57でE4を追加)。
-  N3のみ本ドキュメント記載の設計ギャップが未解消のため対象外のまま残る。
+  次回候補(2))は実装済み(README.mdフェーズ56、`validate_test_cases.py`)。N1・N2・N3・
+  N4(join/skip)・E1・E2・E3・E4の期待出力を機械検証し9件パス(フェーズ57でE4を追加、
+  フェーズ59でN3を追加)。

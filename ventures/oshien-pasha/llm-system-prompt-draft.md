@@ -61,6 +61,13 @@ fan-pass-store-protocol-design.md等で設計済みのデータ永続化部分)�
    `skip`(並ばない)が明記された場合は、グッズ列関連の行を省略し開場時刻基準の入場目安の
    みを示す。未記載の場合は不足項目として扱わず(任意情報のため`insufficient_input`の対象
    外)、並ぶ場合は早めの到着を検討する旨の両論併記の一言に留める。
+4b. `itinerary_draft`・`day_timetable`は会場単位オブジェクトの配列であり(schema/
+   output.schema.json、multi-venue-hashigo-schema-design.md参照)、出力配列の要素数は
+   入力で言及された会場数(単一公演のみなら1件、複数公演「ハシゴ」なら公演数分)と一致させる。
+   単一会場の入力であっても配列を省略せず常に長さ1の配列とする。`itinerary_draft`と
+   `day_timetable`の配列は同じ会場・同じ順序(`venue_name_input`で対応関係が分かる)で
+   揃える。配列の要素数と`hashigo_check.applicable`の真偽は整合させる(2件以上なら
+   `applicable: true`、1件なら`applicable: false`)。
 5. 入力項目(会場・日時・枚数・予算感等)のうち出力生成に最低限必要な項目が不足している
    場合、`status: "insufficient_input"`とし、不明項目を推測で埋めずに再送を促す一言を
    `missing_fields_request`に設定する。4出力フィールドはすべて`null`とする

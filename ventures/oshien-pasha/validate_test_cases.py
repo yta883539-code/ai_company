@@ -11,10 +11,13 @@ schema/output.schema.json に対して机上検証するスクリプト
   矛盾がないか(フィールド抜け・enum値の誤字・statusごとのnull制約違反など)を機械的に
   チェックする、実装フェーズ着手の第一歩。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
-- N3(複数会場「ハシゴ」対応)は、input-output-sample-mapping.md「本対応表で明らかになった
-  設計ギャップ」節に記載の通り期待出力の構造自体が未確定のため、本スクリプトのTEST_CASES
-  には含めない(次回候補として残す)。E4(チケット代等の取り扱い)はllm-system-prompt-draft.md
-  厳守事項3a(新設)により方針が確定したため、フェーズ57でTEST_CASESに追加した。
+- N3(複数会場「ハシゴ」対応)は、multi-venue-hashigo-schema-design.md(README.md
+  フェーズ58)で`itinerary_draft`・`day_timetable`を会場単位オブジェクトの配列に
+  改訂する方針が確定したことを受け、本フェーズでschema/output.schema.json改訂と
+  合わせてTEST_CASESに追加した(配列長2)。既存7フィクスチャ(N1・N2・N4 join/skip・
+  E1・E2・E3・E4)はいずれも配列長1形式に書き換えた。E4(チケット代等の取り扱い)は
+  llm-system-prompt-draft.md厳守事項3a(新設)により方針が確定したため、フェーズ57で
+  TEST_CASESに追加した。
 
 実行方法: python3 validate_test_cases.py
 """
@@ -126,11 +129,16 @@ def validate_goods_line_rule(case_id, instance, goods_line_intention):
     """goods-line-participation-input-field-design.md・llm-system-prompt-draft.md厳守事項4a
     のgoods_line_intention(join/skip/未記載)3値分岐がday_timetableに反映されているかを確認する。
     goods_line_intention自体は入力側フィールドであり出力スキーマには含まれないため、
-    テストケースのメタデータとして別途保持し、day_timetableの内容(time_label)から
-    「グッズ列」関連の行の有無を機械的にチェックする。"""
+    テストケースのメタデータとして別途保持し、day_timetable配列内の各会場のtimetable行
+    (time_label/action)から「グッズ列」関連の行の有無を機械的にチェックする
+    (day_timetableは会場単位オブジェクトの配列、multi-venue-hashigo-schema-design.md参照)。"""
     errors = []
     day_timetable = instance.get("day_timetable") or []
-    has_goods_line_row = any("グッズ列" in (row.get("time_label", "") + row.get("action", "")) for row in day_timetable)
+    has_goods_line_row = any(
+        "グッズ列" in (row.get("time_label", "") + row.get("action", ""))
+        for venue_entry in day_timetable
+        for row in venue_entry.get("timetable", [])
+    )
 
     if goods_line_intention == "skip" and has_goods_line_row:
         errors.append(
@@ -157,16 +165,23 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
-        "itinerary_draft": {
-            "venue_name_input": "東京ドーム",
-            "venue_matched": True,
-            "nearest_station_note": "水道橋駅・後楽園駅から徒歩5分前後",
-            "lodging_area_candidates": ["水道橋駅周辺", "後楽園駅周辺"],
-            "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
-        },
+        "itinerary_draft": [
+            {
+                "venue_name_input": "東京ドーム",
+                "venue_matched": True,
+                "nearest_station_note": "水道橋駅・後楽園駅から徒歩5分前後",
+                "lodging_area_candidates": ["水道橋駅周辺", "後楽園駅周辺"],
+                "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+        ],
         "day_timetable": [
-            {"time_label": "開場目安", "action": "開場時刻を確認し会場入り"},
-            {"time_label": "グッズ列目安到着", "action": "缶バッジ購入希望のため開場前の到着を検討"},
+            {
+                "venue_name_input": "東京ドーム",
+                "timetable": [
+                    {"time_label": "開場目安", "action": "開場時刻を確認し会場入り"},
+                    {"time_label": "グッズ列目安到着", "action": "缶バッジ購入希望のため開場前の到着を検討"},
+                ],
+            },
         ],
         "cost_estimate": {
             "transport_yen": 2000,
@@ -180,15 +195,22 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
-        "itinerary_draft": {
-            "venue_name_input": "○○市民会館",
-            "venue_matched": False,
-            "nearest_station_note": "会場名を確認できなかったため、公式サイト・地図アプリでの最寄り駅確認を案内",
-            "lodging_area_candidates": [],
-            "transport_note": "最寄り駅が未確認のため、公式サイト等でアクセス方法を確認してください",
-        },
+        "itinerary_draft": [
+            {
+                "venue_name_input": "○○市民会館",
+                "venue_matched": False,
+                "nearest_station_note": "会場名を確認できなかったため、公式サイト・地図アプリでの最寄り駅確認を案内",
+                "lodging_area_candidates": [],
+                "transport_note": "最寄り駅が未確認のため、公式サイト等でアクセス方法を確認してください",
+            },
+        ],
         "day_timetable": [
-            {"time_label": "開場目安", "action": "開場時刻を公式サイトで確認し会場入り"},
+            {
+                "venue_name_input": "○○市民会館",
+                "timetable": [
+                    {"time_label": "開場目安", "action": "開場時刻を公式サイトで確認し会場入り"},
+                ],
+            },
         ],
         "cost_estimate": {
             "transport_yen": None,
@@ -198,19 +220,72 @@ TEST_CASES = {
         },
         "hashigo_check": {"applicable": False, "risk_level": None, "note": None},
     },
+    "N3": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "itinerary_draft": [
+            {
+                "venue_name_input": "京セラドーム大阪",
+                "venue_matched": True,
+                "nearest_station_note": "JRおおさか東線・地下鉄ドーム前千代崎駅から徒歩2分前後",
+                "lodging_area_candidates": ["難波・心斎橋エリア"],
+                "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+            {
+                "venue_name_input": "大阪城ホール",
+                "venue_matched": True,
+                "nearest_station_note": "JR大阪城公園駅から徒歩約3分",
+                "lodging_area_candidates": ["難波・心斎橋エリア"],
+                "transport_note": "前日と同エリアに宿泊する場合、最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+        ],
+        "day_timetable": [
+            {
+                "venue_name_input": "京セラドーム大阪",
+                "timetable": [
+                    {"time_label": "開場目安(1日目)", "action": "昼公演のため開場時刻を確認し会場入り"},
+                ],
+            },
+            {
+                "venue_name_input": "大阪城ホール",
+                "timetable": [
+                    {"time_label": "開場目安(2日目)", "action": "前日の移動・宿泊を踏まえ開場時刻を確認し会場入り"},
+                ],
+            },
+        ],
+        "cost_estimate": {
+            "transport_yen": 4000,
+            "lodging_yen": 8000,
+            "goods_yen": None,
+            "note": "2会場間の移動費(京セラドーム大阪⇔大阪城ホール)・1泊分の宿泊費を含む目安。連日参加のため複数区間の移動費が交通費に含まれる。",
+        },
+        "hashigo_check": {
+            "applicable": True,
+            "risk_level": "low",
+            "note": "連日・別会場のため移動自体に無理は小さいが、1日目公演終了から2日目開場までの移動・宿泊の時間配分は本人側での確認を推奨する一般的な目安。",
+        },
+    },
     "N4_skip": {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
-        "itinerary_draft": {
-            "venue_name_input": "有明アリーナ",
-            "venue_matched": True,
-            "nearest_station_note": "りんかい線国際展示場駅・ゆりかもめ有明駅から徒歩圏",
-            "lodging_area_candidates": ["有明・豊洲エリア"],
-            "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
-        },
+        "itinerary_draft": [
+            {
+                "venue_name_input": "有明アリーナ",
+                "venue_matched": True,
+                "nearest_station_note": "りんかい線国際展示場駅・ゆりかもめ有明駅から徒歩圏",
+                "lodging_area_candidates": ["有明・豊洲エリア"],
+                "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+        ],
         "day_timetable": [
-            {"time_label": "開場30分前目安", "action": "会場入り"},
+            {
+                "venue_name_input": "有明アリーナ",
+                "timetable": [
+                    {"time_label": "開場30分前目安", "action": "会場入り"},
+                ],
+            },
         ],
         "cost_estimate": {
             "transport_yen": 1500,
@@ -225,16 +300,23 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
-        "itinerary_draft": {
-            "venue_name_input": "有明アリーナ",
-            "venue_matched": True,
-            "nearest_station_note": "りんかい線国際展示場駅・ゆりかもめ有明駅から徒歩圏",
-            "lodging_area_candidates": ["有明・豊洲エリア"],
-            "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
-        },
+        "itinerary_draft": [
+            {
+                "venue_name_input": "有明アリーナ",
+                "venue_matched": True,
+                "nearest_station_note": "りんかい線国際展示場駅・ゆりかもめ有明駅から徒歩圏",
+                "lodging_area_candidates": ["有明・豊洲エリア"],
+                "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+        ],
         "day_timetable": [
-            {"time_label": "グッズ列目安到着", "action": "開場時刻より前到着を検討"},
-            {"time_label": "開場30分前目安", "action": "会場入り"},
+            {
+                "venue_name_input": "有明アリーナ",
+                "timetable": [
+                    {"time_label": "グッズ列目安到着", "action": "開場時刻より前到着を検討"},
+                    {"time_label": "開場30分前目安", "action": "会場入り"},
+                ],
+            },
         ],
         "cost_estimate": {
             "transport_yen": 1500,
@@ -276,15 +358,22 @@ TEST_CASES = {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
-        "itinerary_draft": {
-            "venue_name_input": "東京ドーム",
-            "venue_matched": True,
-            "nearest_station_note": "水道橋駅・後楽園駅から徒歩5分前後",
-            "lodging_area_candidates": ["水道橋駅周辺", "後楽園駅周辺"],
-            "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
-        },
+        "itinerary_draft": [
+            {
+                "venue_name_input": "東京ドーム",
+                "venue_matched": True,
+                "nearest_station_note": "水道橋駅・後楽園駅から徒歩5分前後",
+                "lodging_area_candidates": ["水道橋駅周辺", "後楽園駅周辺"],
+                "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+            },
+        ],
         "day_timetable": [
-            {"time_label": "開場目安", "action": "開場時刻を確認し会場入り"},
+            {
+                "venue_name_input": "東京ドーム",
+                "timetable": [
+                    {"time_label": "開場目安", "action": "開場時刻を確認し会場入り"},
+                ],
+            },
         ],
         "cost_estimate": {
             "transport_yen": None,
@@ -320,8 +409,6 @@ def main():
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
-    print("(N3のみ期待出力の構造自体が未確定のため対象外。"
-          "input-output-sample-mapping.md「本対応表で明らかになった設計ギャップ」参照)")
     return 1 if failed else 0
 
 
