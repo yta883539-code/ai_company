@@ -11,10 +11,10 @@ schema/output.schema.json に対して机上検証するスクリプト
   矛盾がないか(フィールド抜け・enum値の誤字・statusごとのnull制約違反など)を機械的に
   チェックする、実装フェーズ着手の第一歩。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
-- N3(複数会場「ハシゴ」対応)・E4(チケット代等の取り扱い)は
-  input-output-sample-mapping.md「本対応表で明らかになった設計ギャップ」節に記載の通り
-  期待出力の構造自体が未確定のため、本スクリプトのTEST_CASESには含めない
-  (次回候補として残す)。
+- N3(複数会場「ハシゴ」対応)は、input-output-sample-mapping.md「本対応表で明らかになった
+  設計ギャップ」節に記載の通り期待出力の構造自体が未確定のため、本スクリプトのTEST_CASES
+  には含めない(次回候補として残す)。E4(チケット代等の取り扱い)はllm-system-prompt-draft.md
+  厳守事項3a(新設)により方針が確定したため、フェーズ57でTEST_CASESに追加した。
 
 実行方法: python3 validate_test_cases.py
 """
@@ -272,6 +272,28 @@ TEST_CASES = {
         "cost_estimate": None,
         "hashigo_check": None,
     },
+    "E4": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "itinerary_draft": {
+            "venue_name_input": "東京ドーム",
+            "venue_matched": True,
+            "nearest_station_note": "水道橋駅・後楽園駅から徒歩5分前後",
+            "lodging_area_candidates": ["水道橋駅周辺", "後楽園駅周辺"],
+            "transport_note": "最寄り駅までの交通手段・乗換を確認のうえ移動してください(実際の経路確認は本人が行う)",
+        },
+        "day_timetable": [
+            {"time_label": "開場目安", "action": "開場時刻を確認し会場入り"},
+        ],
+        "cost_estimate": {
+            "transport_yen": None,
+            "lodging_yen": None,
+            "goods_yen": None,
+            "note": "チケット代(5万円)は本見積りの対象外(交通・宿泊・物販のみ)のため、各金額には反映していません。交通・宿泊・物販それぞれの予算感の言及が無いため全てnull。",
+        },
+        "hashigo_check": {"applicable": False, "risk_level": None, "note": None},
+    },
 }
 
 
@@ -298,7 +320,7 @@ def main():
 
     print()
     print(f"合計 {total} 件中 {total - failed} 件パス、{failed} 件失敗")
-    print("(N3・E4は期待出力の構造自体が未確定のため対象外。"
+    print("(N3のみ期待出力の構造自体が未確定のため対象外。"
           "input-output-sample-mapping.md「本対応表で明らかになった設計ギャップ」参照)")
     return 1 if failed else 0
 

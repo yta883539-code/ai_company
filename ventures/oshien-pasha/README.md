@@ -1172,3 +1172,21 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   実装し、input-output-sample-mapping.mdのN1・N2・N4(join/skip)・E1・E2・E3計7件の
   期待出力をstatus分岐のnull制約込みで機械検証。コード変更は新規ファイル追加のみ、
   既存テスト38件は変更なしでパス、新規7件を加え合計45件)
+- フェーズ57(2026-11-02 04:00 UTC定例更新): フェーズ56の次回候補(1)に対応し、残る
+  設計ギャップ2件のうちE4(チケット代等、出力3種のいずれにも該当しない入力金額の取り扱い)
+  を解消した。llm-system-prompt-draft.mdに厳守事項3a(新設)として、`cost_estimate`の
+  対象はtransport_yen/lodging_yen/goods_yenの3種のみであり、該当しない金額(チケット代等)
+  は各フィールドに混入させず`note`に対象外である旨を参考情報として明記する方針を追記した。
+  input-output-sample-mapping.mdのE4行・「設計ギャップ」節・「残る未確定事項」節を解消済みに
+  更新し、validate_test_cases.pyにE4の期待出力フィクスチャを追加した(新規実装・新規追加は
+  これらのみ、既存N1・N2・N4・E1・E2・E3のフィクスチャは変更なし)。validate_test_cases.py
+  を実行し8件全てパスを確認。既存prototype配下のテスト38件も変更なしで再実行しパス
+  (合計46件、回帰なし)。N3(複数会場「ハシゴ」対応)のみ設計ギャップが未解消のまま残る。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)残る設計ギャップ(複数会場「ハシゴ」対応)への対応方針の検討(schema/
+  output.schema.jsonの改訂可否を含む)、(2)venue-master-draft.mdの会場マスタ件数拡充
+  (現状の収録範囲の確認)、(3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-02 04:00 UTC(フェーズ57: 詳細は上記。E4の設計ギャップを解消し
+  llm-system-prompt-draft.md厳守事項3a・validate_test_cases.pyのE4フィクスチャを追加。
+  既存テスト38件は変更なしでパス、新規1件を加え合計46件)
