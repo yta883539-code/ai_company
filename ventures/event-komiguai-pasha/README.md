@@ -1888,3 +1888,24 @@ inquiry-handling-design.mdに3-2節を新規追加した。prototype/inquiry_int
 - 最終更新: 2026-11-02 14:00 UTC(フェーズ86: inquiry-handling-design.md 3-2節新規追加。
 prototype/inquiry_intake.pyが先行実装した「その他」区分の手動確認方針を設計文書に反映。
 コード変更なし、既存テスト63件・schema検証22件いずれも変更なしでパス)
+
+フェーズ87(2026-11-02 18:00 UTC定例更新): 他5venture(aircon-pasha・course-set-pasha・
+forklift-pasha・kura-pasha・line-reservation-ai)には既に存在するが本ventureには未導入
+だったGitHub Actionsによるテスト自動実行(cross-venture parityのギャップ)を解消し、
+ci-setup.md・`.github/workflows/event-komiguai-pasha-tests.yml`を新規作成した。
+本venture配下のprototype/test_*.pyは全てunittest.TestCaseベースのため、kura-pashaで
+採用された独自ラッパー(run_all_tests.py)方式ではなく、line-reservation-ai・aircon-pasha
+等と同じ`python3 -m unittest discover -p "test_*.py" -v`方式をそのまま採用した。
+コード変更なし(リポジトリ設定・ドキュメント追加のみ)、回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(63件、変更なし)・
+`python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパス
+することを確認した(回帰なし)。実際のGitHub Actions上での実行結果(グリーンの確認)は
+push後に次回以降確認する。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)push後のCI実行結果(グリーン)の確認、(2)問い合わせWebフォーム1画面・
+Firestore `inquiry`コレクションへの書き込み自体の実装(inquiry-handling-design.md 4節の
+残課題)、(3)承認待ち事項(実GCP/Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)が
+オーナーから承認された場合はその着手を最優先、他venture・アイデア領域の前進。
+- 最終更新: 2026-11-02 18:00 UTC(フェーズ87: ci-setup.md・GitHub Actionsワークフロー
+新規作成でcross-venture parityのギャップ(CI未導入)を解消。コード変更なし、既存テスト
+63件・schema検証22件いずれも変更なしでパス)
