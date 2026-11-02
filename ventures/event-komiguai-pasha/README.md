@@ -1743,3 +1743,31 @@
   不要な単一宛先構造である点と、LLM生成物系〈機械チェック有〉・運用メッセージ系〈機械チェック
   無〉という2系統の文言の整合確認・未解消ギャップを記録。コード変更なし、schema検証22件・
   prototype試験50件いずれも変更なしでパス)
+- フェーズ81(2026-11-02 00:00 UTC定例更新): フェーズ80の次回候補(1)に対応し、
+  operational-message-templates-draft.mdを新規作成。result-page-ttl-access-design.md・
+  inquiry-handling-design.md・ttl-expiry-result-delivery-refund-designが文章でのみ記述
+  していた運用メッセージ系(完了メール・保存期間終了案内・問い合わせ返信下書き2類型・
+  生成失敗時の全額返金案内メール)を初めて具体的な文例として確定した(品質不満返金希望の
+  内部要約〈C-3〉は主催者への送信文面ではないため対象外)。あわせて
+  prototype/operational_message_templates.py(文例を`TEMPLATES`辞書として定数化)・
+  prototype/test_operational_message_templates.py(既存post_generation_checks.py の
+  EMOJI_PATTERNを再利用し、5文例いずれも絵文字不使用であることを検証するテスト)を新規
+  作成した。見出し記号(【】)不使用の機械チェック化は本venture・他venture共通で未実装の
+  横断課題のため、本フェーズの対象範囲(絵文字チェックの横展開)には含めず次回候補に残した。
+  コード変更はテンプレート定数化+チェックテストの新規追加のみで、既存ロジック
+  (post_generation_checks.py・schema検証)への変更はなし。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(既存50件+新規1件
+  〈subTestで5テンプレート検証〉=51件、既存50件は変更なし)・
+  `python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれもパスすることを
+  確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)見出し記号(【】)不使用の機械チェック化(本venture・他venture共通の横断
+  課題)、(2)問い合わせ返信下書きの3類型それぞれについて謝罪表現の区別に沿った文例を
+  inquiry-handling-design.mdに追記、(3)承認待ち事項(実GCP/Firestore作成、候補1
+  〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を最優先、他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-02 00:00 UTC(フェーズ81: operational-message-templates-draft.md新規
+  作成。運用メッセージ系5文例を初めて具体的な文字列として確定し、絵文字不使用の機械チェック
+  (operational_message_templates.py・test_operational_message_templates.py)を新規追加。
+  見出し記号不使用の機械チェック化は次回候補。コード変更は新規ファイル2点の追加のみ、
+  既存テスト50件・schema検証22件は変更なしでパス)
