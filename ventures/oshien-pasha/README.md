@@ -1354,3 +1354,34 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-02 23:00 UTC(フェーズ65: 詳細は上記。venue-master-draft.mdにひめぎん
   ホールの最寄り駅〈伊予鉄道南町駅〉を追加。コード変更なし、テスト8件・schema検証9件
   いずれも変更なしでパス〈回帰なし〉)
+- フェーズ66(2026-11-03 03:00 UTC定例更新): フェーズ65次回候補(2)に対応し、
+  prototype/post_generation_checks.pyを新規作成した。tone-and-manner-guideline.md
+  基本方針1(全出力フィールドでですます調・絵文字不使用を既定とする、他venture
+  (course-set-pasha厳守事項9等)がSNS投稿文のみに許容する絵文字1〜2個の例外は本venture
+  には無し)の機械チェックとして、check_no_emoji_anywhere()を実装した。他venture
+  (course-set-pasha等)が個別フィールドを指名する方式と異なり、本ventureは絵文字許容の
+  例外フィールドが一切存在しないため、instance全体を再帰的に走査して全文字列値を対象と
+  する汎用実装とした(フィールド追加時の追従漏れを防ぐ狙い)。これまで本チェックの新設は
+  tone-and-manner-guideline.md「発見した不整合・ギャップ」節で「適用対象(自由文メッセージ)
+  がprototype側のPython定数としてまだ存在しない」ことを理由に見送っていたが、
+  validate_test_cases.pyのTEST_CASES(机上フィクスチャ)自体がLLM構造化出力インスタンスと
+  同じ形を持つため、Python定数の有無に関わらずインスタンス単位のチェックとして適用できる
+  と判断し着手した(実LLM接続後は実際の生成結果instanceにそのまま適用する想定)。
+  prototype/test_post_generation_checks.pyを新規作成し、(a)既存9フィクスチャ(N1・N2・N3・
+  N4_skip・N4_join・E1・E2・E3・E4)がいずれも違反ゼロで通ること、(b)out_of_scope_message・
+  itinerary_draft配下のnearest_station_note・lodging_area_candidates(配列)・
+  day_timetable配下のaction・既存フィクスチャ(N1)を複製して1フィールドのみ絵文字を
+  混入させたケース等、複数の経路で絵文字混入が検出されることを確認した(新規テスト9件)。
+  `python3 -m unittest discover -s prototype -p "test_*.py" -v`で既存8件+新規9件=計17件
+  全件パス、`python3 validate_test_cases.py`で9/9件パスを確認済み(回帰なし)。
+  ci-setup.mdのワークフロー(.github/workflows/oshien-pasha-tests.yml)は`test_*.py`を
+  discoverする設定のため、新規テストファイルは変更なしでそのまま拾われる。実LLM・外部
+  サービスへの接続は一切行っていない。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)ci-setup.md「今後の課題」・tone-and-manner-guideline.md「発見した不整合・ギャップ」
+  節の本フェーズ対応反映の記述整備、(3)他地方圏(北陸・甲信越等、未収録圏)の会場マスタ
+  拡充、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 03:00 UTC(フェーズ66: 詳細は上記。prototype/post_generation_checks.py・
+  test_post_generation_checks.pyを新規作成し絵文字不使用機械チェックを追加。テスト8件→17件
+  〈新規9件〉・schema検証9件いずれもパス〈回帰なし〉)

@@ -33,8 +33,8 @@ line-reservation-aiでは既にGitHub Actionsによるテスト自動実行(各v
   確認に委ねる)。
 
 ## 今後の課題
-- 自由文メッセージ(`out_of_scope_message`等)をprototype側にコード化する際は、他venture
-  相当の絵文字不使用機械チェックをテストに追加し、本ワークフローでそのまま拾われるように
-  する(フェーズ62次回候補(2)より)。
+- (対応済み・フェーズ66)絵文字不使用機械チェックはprototype/post_generation_checks.py・
+  test_post_generation_checks.pyとして新規作成済み。`test_*.py`をdiscoverする本ワークフロー
+  の設定変更なしでそのまま拾われている(unittest discoverのテスト件数は8件→17件に増加)。
 - 実LLM/実GCP(Cloud Run functions・Firestore)接続がオーナー承認後に実現した際、結合テスト・
   デプロイをこのワークフローに追加するかを検討する。

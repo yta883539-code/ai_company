@@ -89,12 +89,15 @@ kura-pasha・line-reservation-ai)はいずれもtone-and-manner-guideline.mdを�
   両方が重なって生じたギャップである。本フェーズでllm-system-prompt-draft.mdに厳守事項8
   (ですます調・絵文字不使用)を新設し、本ガイドラインと整合させた(実装コードへの影響なし、
   自由文メッセージがまだprototype側に存在しないため既存テストへの影響もない)。
-- 絵文字使用の機械チェック(course-set-pasha・aircon-pasha・kura-pasha・forklift-pasha・
-  event-komiguai-pashaが実装済みの`check_no_emoji_anywhere()`相当)は、本ventureの出力が
-  構造化JSONで自由文メッセージの実装(prototype側のPython定数)がまだ存在しないため、
-  適用対象となるコードが無い。将来、`out_of_scope_message`等の自由文を定数としてコード化
-  する際に、他venture同様のpost_generation_checks.py相当の機械チェックを追加することを
-  次回以降の検討課題とする(本フェーズでは新設しない)。
+- (対応済み・フェーズ66)絵文字使用の機械チェック(course-set-pasha・aircon-pasha・
+  kura-pasha・forklift-pasha・event-komiguai-pashaが実装済みの`check_no_emoji_anywhere()`
+  相当)は、prototype/post_generation_checks.pyとして新規作成済み。本ventureは自由文
+  メッセージのprototype側Python定数がまだ存在しないが、validate_test_cases.pyのTEST_CASES
+  (机上フィクスチャ)自体がLLM構造化出力インスタンスと同じ形を持つため、Python定数の
+  有無に関わらずインスタンス単位のチェックとして適用した(実LLM接続後は実際の生成結果
+  instanceにそのまま適用する想定)。他venture(個別フィールド指名方式)と異なり、本venture
+  は絵文字許容の例外フィールドが一切存在しないため、instance全体を再帰的に走査する
+  汎用実装とした。
 
 ## 残る課題
 
