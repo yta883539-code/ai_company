@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと 特定自主検査(annual)送信完了・結果表示画面 実装ドラフト
+  (フェーズ205・2026-11-03)
+
+  位置づけ: data-retention-policy.md「今後の課題」・legal-notices-draft.md 2.5節が
+  次回課題として残していた「annual区分の出力画面への法定保存義務注意文言の反映」に
+  対応するもの。annual.html(フェーズ74、入力画面)には対応する送信完了後の画面
+  モックアップがまだ存在しておらず(web-form-ui-design.md「画面遷移・ナビゲーション」節は
+  「送信完了後は整形済みテキストをその場で画面表示する」という挙動の記述に留まっていた)、
+  本フェーズで新規に図版化する。daily.html・monthly.html・annual.html(いずれも入力画面)と
+  同じ実装方針(JS不使用・外部公開なし・バックエンド接続なし、:rootトークンの値は
+  annual.htmlと共通)を踏襲する。
+
+  annual.html(入力画面)との違い: 本画面はdaily/monthly区分では表示されない、annual区分
+  専用の法定保存義務注意カード(labor-notice-card)を追加している。これは
+  schema/output.schema.jsonの`inspection_type`が"annual"の場合にのみ表示する想定
+  (legal-notices-draft.md 2.5節「本注意事項はannual区分に限定して表示する想定」に対応)。
+  daily/monthly区分の送信完了画面は、この注意カードを含まない別モックアップとして
+  必要になった時点で個別に作成する(本フェーズはannual区分の画面に限定する)。
+
+  未実装・意図的なプレースホルダー:
+  - JSは一切使用せず、CSSのみで構成している(他のweb-form-mockup/*.htmlと同じ方針)。
+  - 「コピーする」ボタンは <button type="button" disabled> で、実際のクリップボードAPI
+    (navigator.clipboard.writeText()相当)には一切つながっていない(JS実装はバックエンド
+    接続後の実装範囲、pending-approval.md参照)。
+  - 整形済みテキスト(inspection_record.body)・リマインド文(reminder_notice)の内容は、
+    market-research.mdの一般的な特定自主検査項目を参考にしたダミー例文であり、実LLM出力
+    ではない。
+  - 車両番号・検査業者名・実施日は、annual.html(入力画面)の静的ダミー値と同じ値を
+    往復させた想定で固定表示している(実際の値受け渡しはバックエンド接続後の実装範囲)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特定自主検査 送信完了(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+    --color-warn: #b5402a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 4px 16px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .kubun {
+    margin-left: auto;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  .done-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+    margin-bottom: 14px;
+  }
+  .done-banner .mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 14px;
+  }
+  .body-text {
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.7;
+    background: #fafbfa;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  button.copy-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: bold;
+    border: 2px solid var(--color-accent-dark);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--color-accent-dark);
+  }
+  button.copy-btn:disabled {
+    opacity: 0.6;
+  }
+  .reminder-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-fg);
+    background: #fdf1e2;
+    border: 1px solid var(--color-accent);
+    border-radius: 6px;
+    padding: 10px;
+  }
+  /* --- annual区分専用: 法定保存義務注意カード(legal-notices-draft.md 2.5節) --- */
+  .labor-notice-card {
+    background: #fdf4f1;
+    border: 2px solid var(--color-warn);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .labor-notice-card h2 {
+    font-size: 14px;
+    color: var(--color-warn);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .labor-notice-card p {
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0 0 8px;
+  }
+  .labor-notice-card p:last-child { margin-bottom: 0; }
+  .labor-notice-card .save-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .labor-notice-card .save-actions button {
+    flex: 1;
+    padding: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid var(--color-warn);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-warn);
+  }
+  .labor-notice-card .save-actions button:disabled {
+    opacity: 0.6;
+  }
+  .prefill-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .prefill-row:last-child { border-bottom: none; }
+  .prefill-row .value {
+    color: var(--color-fg);
+    font-weight: bold;
+  }
+  a.back-link {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-accent);
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+  }
+  footer.note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ205(2026-11-03) / 送信完了後にその場で表示する想定の画面(バックエンド未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <span class="logo">フォークリフトパシャっと</span>
+    <span class="kubun">特定自主検査(annual)</span>
+  </header>
+
+  <div class="done-banner">
+    <span class="mark">✓</span>
+    <span>記録を作成しました</span>
+  </div>
+
+  <!-- annual区分専用: 法定保存義務の注意カード(legal-notices-draft.md 2.5節、
+       data-retention-policy.md「annual区分の出力画面・利用規約への具体的な注意文言の
+       反映」に対応) -->
+  <section class="labor-notice-card">
+    <h2>⚠ この記録は保存されません・ご自身での保存が必要です</h2>
+    <p>
+      特定自主検査の記録は、労働安全衛生規則により検査を実施した事業者様ご自身が
+      <strong>3年間保存</strong>する義務があります。
+    </p>
+    <p>
+      本サービスは整形したテキストをこの画面に一度表示するのみで、サーバー側には
+      保存しません。下記の本文は、画面のコピーまたはダウンロードにより、必ずお客様
+      ご自身の端末・台帳等で保存してください。
+    </p>
+    <div class="save-actions">
+      <button type="button" disabled>画面をコピー</button>
+      <button type="button" disabled>テキストをダウンロード</button>
+    </div>
+  </section>
+
+  <!-- 整形済みテキスト(inspection_record.body、ダミー例文) -->
+  <section class="card">
+    <h2>記録内容</h2>
+    <div class="prefill-row">
+      <span>車両番号</span>
+      <span class="value">1号車</span>
+    </div>
+    <div class="prefill-row">
+      <span>検査業者名</span>
+      <span class="value">○○検査サービス株式会社</span>
+    </div>
+    <div class="prefill-row">
+      <span>実施日</span>
+      <span class="value">2026-10-06</span>
+    </div>
+    <p class="card-hint" style="font-size:12px;color:var(--color-muted);margin:10px 0 6px;">
+      以下は入力内容を整形した記録本文です(ダミー例文)。
+    </p>
+    <div class="body-text">【特定自主検査記録】
+車両番号: 1号車
+検査業者名: ○○検査サービス株式会社
+実施日: 2026-10-06
+検査結果: かじ取り装置・制動装置・荷役装置・油圧装置・電気系統いずれも異常なし、検査標章発行済み
+点検者: 山田 太郎</div>
+    <button type="button" class="copy-btn" disabled>この内容をコピーする</button>
+  </section>
+
+  <!-- リマインド文(reminder_notice、non-nullの場合のみ表示。ダミー例文) -->
+  <section class="card">
+    <h2>次回のお知らせ</h2>
+    <div class="reminder-text">
+      次回の特定自主検査は、今回の実施日から概ね1年後が目安です。検査業者様への
+      依頼時期の検討にお役立てください。
+    </div>
+  </section>
+
+  <a class="back-link" href="annual.html">特定自主検査の入力に戻る</a>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。実際のバックエンド接続・LLM生成・
+    コピー/ダウンロード機能の実装は未着手です。
+  </footer>
+
+</div>
+</body>
+</html>

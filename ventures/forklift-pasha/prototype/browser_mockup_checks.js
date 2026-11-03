@@ -136,6 +136,27 @@ async function checkIndexPlanSelectionLink(page) {
   check('index: plan-selectionへのリンクが存在する(フェーズ138)', (await page.locator('a[href="plan-selection.html"]').count()) > 0);
 }
 
+// フェーズ205: annual-result.html(annual区分の送信完了・結果表示画面)の新規追加に伴う
+// 静的内容の確認。plan-selection.htmlと同様にJS不使用の静的HTML(CSSによる出し分けなし)
+// のため、annual区分専用の法定保存義務注意カード(labor-notice-card)・記録本文・
+// 戻るリンクが表示されることのみを確認する。
+async function checkAnnualResult(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'annual-result.html'));
+
+  check('annual-result: ページが例外なく読み込める', (await page.title()).length > 0);
+
+  const noticeCard = page.locator('.labor-notice-card');
+  check('annual-result: annual区分専用の法定保存義務注意カードが表示される', await noticeCard.isVisible());
+  check('annual-result: 注意カードに3年間保存の文言が含まれる', (await noticeCard.innerText()).includes('3年間保存'));
+
+  check('annual-result: 記録本文(整形済みテキスト)が表示される', await page.locator('.body-text').isVisible());
+
+  const copyBtn = page.locator('button.copy-btn');
+  check('annual-result: コピーボタンが無効化されている(バックエンド未接続)', await copyBtn.isDisabled());
+
+  check('annual-result: annual.htmlへの戻るリンクが存在する', (await page.locator('a[href="annual.html"]').count()) > 0);
+}
+
 (async () => {
   const browser = await chromium.launch(LAUNCH_OPTIONS);
   const page = await browser.newPage();
@@ -147,6 +168,7 @@ async function checkIndexPlanSelectionLink(page) {
     await checkSettings(page);
     await checkPlanSelection(page);
     await checkIndexPlanSelectionLink(page);
+    await checkAnnualResult(page);
   } finally {
     await browser.close();
   }

@@ -4293,3 +4293,36 @@ forklift-pasha単体の解消に限定したため未着手)、(3)他venture・�
 - 最終更新: 2026-11-03 12:00 UTC(フェーズ204: 詳細は上記。check_no_heading_brackets_
   anywhere()を新規実装しcross-venture parityギャップを解消。テスト6件追加〈99件〉・
   schema検証11件いずれも変更なしでパス)
+
+フェーズ205(2026-11-03 21:00 UTC定例更新): data-retention-policy.md「今後の課題」・
+legal-notices-draft.md 2.5節が次回課題として残していた「annual区分の出力画面への
+法定保存義務注意文言の反映」に着手した。annual.html(フェーズ74、入力画面)には対応する
+送信完了後の画面モックアップがまだ存在しておらず、web-form-ui-design.md「画面遷移・
+ナビゲーション」節もこれまで挙動の記述に留まっていたため、web-form-mockup/
+annual-result.htmlを新規に図版化した。annual区分専用の法定保存義務注意カード
+(`.labor-notice-card`)で「3年間保存の法定義務を利用者自身が負うこと」「本サービスは
+サーバー側に保存しないこと」「コピー・ダウンロードでの保存が必要なこと」を明記し
+(legal-notices-draft.md 2.5節の文言をそのまま反映)、daily/monthly区分には同種の
+法令上の保存義務の明記がないため本カードはannual-result.html限定とした。整形済み
+テキスト(inspection_record.body)・リマインド文(reminder_notice)はダミー例文で静的
+表示し、「コピーする」ボタンは他モックアップと同じくJS不使用・常時disabledとした。
+フェーズ80「指針3」(CSSのみの出し分けを新規実装した際は実ブラウザ検証を自動チェックに
+含める)を踏襲し、plan-selection.html(フェーズ139)と同様の静的内容確認チェックを
+`prototype/browser_mockup_checks.js`に`checkAnnualResult()`として新規追加した(法定
+保存義務注意カードの表示・「3年間保存」文言の含有・記録本文の表示・コピーボタンの
+無効化・annual.htmlへの戻るリンクの5件)。data-retention-policy.md・legal-notices-
+draft.md双方の次回課題欄を解消済みとして更新した。コード変更はweb-form-mockup/
+annual-result.html(新規)・prototype/browser_mockup_checks.js(`checkAnnualResult()`
+追加のみ)、回帰確認として`node prototype/browser_mockup_checks.js`(既存32件+
+新規5件=37件、全件パス)・`python3 prototype/run_all_tests.py`(24ファイル)・`python3
+schema/validate_test_cases.py`(11件)を実行し、既存チェックはいずれも変更なしでパス
+することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+(2)daily/monthly区分の送信完了画面モックアップ(法定保存義務注意カードは不要、整形済み
+テキストの表示のみ)の図版化、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 21:00 UTC(フェーズ205: 詳細は上記。web-form-mockup/
+  annual-result.htmlを新規作成し、annual区分専用の法定保存義務注意カードを反映。
+  browser_mockup_checks.jsにcheckAnnualResult()を追加〈37件〉、Python単体テスト
+  24ファイル・schema検証11件いずれも変更なしでパス)

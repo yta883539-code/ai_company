@@ -73,6 +73,10 @@ daily区分と異なり月1回・年1回の低頻度入力のため、入力負�
 - 送信完了後は、整形済みテキスト(inspection_record.body)をその場で画面表示し、
   点検者がコピーしてスプレッドシートに貼り付けられるようにする(mvp-flow-draft.md
   出力1の想定用途に対応)。reminder_notice非nullの場合は同画面に併記する。
+  (annual区分の送信完了画面は、フェーズ205でweb-form-mockup/annual-result.htmlとして
+  図版化した。annual区分のみ、法定保存義務注意カード〈data-retention-policy.md・
+  legal-notices-draft.md 2.5節〉を追加で表示する。daily/monthly区分の送信完了画面は
+  未図版化のまま残る。)
 
 ## 未検証・残課題
 
@@ -265,3 +269,43 @@ pending-approval.mdへの追記なし。次回候補: (1)monthly区分を実際�
 将来チェックリスト化する場合の設計指針」を明文化した。DOM構造確認・`:has()`優先設計・
 実ブラウザ検証の自動チェックへの組み込みの3指針を整理。実装自体は未着手。コード変更なし、
 ブラウザ検証11件・Python単体テスト39件・schema検証11件いずれもパス)
+
+## フェーズ205追記: annual区分の送信完了画面(法定保存義務注意文言)を新規に図版化
+
+data-retention-policy.md「今後の課題」・legal-notices-draft.md 2.5節が次回課題として
+残していた「annual区分の出力画面への法定保存義務注意文言の反映」に対応した。annual.html
+(フェーズ74、入力画面)には対応する送信完了後の画面モックアップがまだ存在しておらず、
+本節「画面遷移・ナビゲーション」もこれまで挙動の記述(整形済みテキストをその場で画面表示)
+に留まっていたため、web-form-mockup/annual-result.htmlを新規作成した。
+
+- annual区分専用の法定保存義務注意カード(`.labor-notice-card`、警告色の枠線)で、
+  「3年間保存の法定義務を利用者自身が負うこと」「本サービスはサーバー側に保存しないこと」
+  「コピー・ダウンロードでの保存が必要なこと」を明記した(legal-notices-draft.md 2.5節の
+  文言をそのまま反映)。daily/monthly区分には同種の法令上の保存義務の明記がないため、
+  本カードはannual-result.html限定とし、daily/monthly区分の送信完了画面(未図版化)には
+  含めない設計とする。
+- 整形済みテキスト(inspection_record.body)・リマインド文(reminder_notice)はダミー例文で
+  静的表示し、「コピーする」ボタンは他モックアップ(annual.html等)と同じくJS不使用・
+  常時disabledとした(実クリップボードAPI実装はバックエンド接続後の範囲)。
+- フェーズ80「指針3」(CSSのみの出し分けを新規実装した際は実ブラウザ検証を自動チェックに
+  含める)を踏襲し、本画面はCSSのみの状態切り替えを持たない静的HTMLだが、
+  plan-selection.html(フェーズ139)と同様に静的内容の確認チェックを
+  `prototype/browser_mockup_checks.js`に`checkAnnualResult()`として新規追加した
+  (法定保存義務注意カードの表示・「3年間保存」文言の含有・記録本文の表示・コピーボタンの
+  無効化・annual.htmlへの戻るリンクの5件)。
+
+コード変更はweb-form-mockup/annual-result.html(新規)・prototype/browser_mockup_checks.js
+(`checkAnnualResult()`追加のみ、既存関数の変更なし)。回帰確認として`node prototype/
+browser_mockup_checks.js`(既存32件+新規5件=37件、全件パス)・`python3 prototype/
+run_all_tests.py`(24ファイル)・`python3 schema/validate_test_cases.py`(11件)を実行し、
+既存チェックはいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud
+Scheduler・メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を
+最優先、(2)daily/monthly区分の送信完了画面モックアップ(法定保存義務注意カードは不要、
+整形済みテキストの表示のみ)の図版化、(3)他venture・アイデア領域の前進。
+
+最終更新: 2026-11-03 21:00 UTC(フェーズ205: 詳細は上記。web-form-mockup/annual-result.html
+を新規作成し、annual区分専用の法定保存義務注意カードを反映。browser_mockup_checks.jsに
+checkAnnualResult()を追加〈37件〉、Python単体テスト24ファイル・schema検証11件いずれも
+変更なしでパス)

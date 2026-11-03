@@ -120,8 +120,10 @@ LINEを前提としない(汎用Webフォーム、payment-identity-verification-
 
 ## 今後の課題
 
-- annual区分の出力画面・利用規約への具体的な注意文言の反映(web-form-ui-design.mdの次回課題、
-  legal-notices-draft.md 2.5節参照)。
+- (解消済み 2026-11-03 21:00 UTC・フェーズ205: annual区分の出力画面への具体的な注意文言の
+  反映について、web-form-mockup/annual-result.htmlを新規に図版化し、法定保存義務注意カード
+  〈labor-notice-card〉として反映した。legal-notices-draft.md 2.5節参照。利用規約側への反映は
+  legal-notices-draft.md本文の記述をそのまま用いる想定で、別途の文言確定作業は不要と判断した。)
 - メール送信経路の実装自体は、送信用サービスのアカウント作成(オーナー承認待ち)完了後の
   着手事項として残る。
 - 削除候補の洗い出し・最終確認送信・連絡不能オーナーレビューのロジック自体は
