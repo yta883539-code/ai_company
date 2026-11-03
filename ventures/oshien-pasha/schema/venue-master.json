@@ -244,6 +244,46 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ69: venue-master-draft.md(フェーズ67で追加済み)との同期ギャップを解消するためschema/venue-master.jsonに新規追加した。最寄り駅は新横浜駅(JR横浜線・東海道新幹線、横浜市営地下鉄ブルーライン)。既収録のKアリーナ横浜(新高島駅・みなとみらい駅圏)、およびぴあアリーナMM(みなとみらい駅・桜木町駅圏)とは名称が似ているが立地・最寄り駅が異なる別施設であるため、ambiguity-watchlist.jsonで取り違え注意対象としている。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "石川県立音楽堂",
+      "aliases": [],
+      "region": "北陸・甲信越圏",
+      "nearest_station": "JR金沢駅 兼六園口(東口)",
+      "walk_minutes_note": "徒歩1分前後(駅と直結との記載もあり)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。WebSearchで複数の情報源がJR金沢駅東口(兼六園口)から徒歩1分、または駅東口と直結という記載で一致していることを確認した一次情報。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "朱鷺メッセ(新潟コンベンションセンター)",
+      "aliases": [
+        "新潟コンベンションセンター"
+      ],
+      "region": "北陸・甲信越圏",
+      "nearest_station": "JR新潟駅 万代口(バス利用が一般的、バスターミナル17番乗り場「朱鷺メッセ・佐渡汽船線」で約16分)",
+      "walk_minutes_note": "徒歩の場合は20〜25分前後(情報源により差あり)、バス利用時はバス停から徒歩すぐ",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。徒歩所要時間は新潟観光協会・eplus(20分)とWalkerplus(25分、2021年4月時点の情報と明記)で差があるため、現時点では範囲表記のままとし確定値は置いていない。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "長野ビッグハット",
+      "aliases": [
+        "ビッグハット"
+      ],
+      "region": "北陸・甲信越圏",
+      "nearest_station": "長野駅(バス利用が一般的。善光寺口からアルピコ交通21番・長電バス14番、東口から長電バス15番)",
+      "walk_minutes_note": "「ビッグハット前」下車徒歩1分前後/「水野美術館」下車徒歩3分前後(徒歩の場合は駅から30分前後)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。駅からの直接徒歩は口コミベースで約30分とされ現実的でないため、バス停(「ビッグハット前」または「水野美術館」)経由を代表例とした。バス乗り場番号は情報源により差があるため要再確認として残す。",
+      "operational_status": "active"
     }
   ]
 }
