@@ -14,8 +14,8 @@
         },
         {
           "name": "横浜アリーナ",
-          "registered_in_venue_master": false,
-          "description": "Kアリーナ横浜とは別施設(横浜市港北区)。名称の類似から誤記・混同が生じやすい。"
+          "registered_in_venue_master": true,
+          "description": "Kアリーナ横浜とは別施設(横浜市港北区・新横浜駅)。名称の類似から誤記・混同が生じやすい(フェーズ69でvenue-master.jsonに登録)。"
         }
       ],
       "note": "「Kアリーナ横浜」と「横浜アリーナ」は別施設です。チケット・当選メールの正式な会場名をご確認ください。"
@@ -35,6 +35,27 @@
         }
       ],
       "note": "「日本ガイシホール」は愛知県体育館の愛称ではなく、別施設である名古屋市総合体育館内ホールの愛称です(2026年4月1日以降は『クロコくんホール』)。チケット・当選メールの正式な会場名をご確認ください。"
+    },
+    {
+      "ambiguous_input_pattern": "アリーナMM",
+      "candidate_venues": [
+        {
+          "name": "ぴあアリーナMM",
+          "registered_in_venue_master": true,
+          "description": "横浜市中区みなとみらいの多目的アリーナ(フェーズ68でvenue-master.json収録)。最寄りはみなとみらい駅徒歩6〜7分。"
+        },
+        {
+          "name": "Kアリーナ横浜",
+          "registered_in_venue_master": true,
+          "description": "同じみなとみらい・新高島駅圏に位置する別施設(venue-master.json収録済み)。"
+        },
+        {
+          "name": "横浜アリーナ",
+          "registered_in_venue_master": true,
+          "description": "新横浜駅圏の別施設(フェーズ69でvenue-master.jsonに登録)。"
+        }
+      ],
+      "note": "「ぴあアリーナMM」「Kアリーナ横浜」「横浜アリーナ」はいずれも横浜市内の別施設です。チケット・当選メールの正式な会場名をご確認ください。"
     }
   ]
 }
