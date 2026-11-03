@@ -6315,3 +6315,26 @@
 - 最終更新: 2026-11-03 01:00 UTC(フェーズ348: 詳細は上記。launch-readiness-checklist.mdに
   承認待ち事項6〈GCPプロジェクト作成+Firestoreデータベース新規作成〉の記載漏れを発見・
   是正。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
+- フェーズ349(2026-11-03 10:00 UTC定例更新): runtime-dependency-switching-design.md
+  5.4節が次回候補として残していた「残る2venture(forklift-pasha・line-reservation-ai)
+  側の同ファイル4節への横展開」について、両venture自身のruntime-dependency-switching-
+  design.mdを確認した。forklift-pashaは本venture側フェーズ333と同日(2026-10-25、同
+  ファイル5節)に、line-reservation-aiは同日22:00 UTC(フェーズ続き347、同ファイル5節)
+  にそれぞれ「ログ+re-raise、InMemory自動フォールバック禁止」方針を自venture固有の
+  エントリポイント向けに既に設計済みであり、line-reservation-ai側の記録に「これで
+  5venture(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha・
+  line-reservation-ai)全てへの...横展開が完了した」との明記があることを確認した。
+  よって本venture側が次回候補として保持していた本項目は完了として扱い、
+  runtime-dependency-switching-design.md側に追記のうえ次回候補から除去した。
+  本venture自身の設計・コードの変更は発生していない(他venture側の既存記録の確認のみ)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(863件、変更なし)・`python3 schema/validate_test_cases.py`
+  (21件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 10:00 UTC(フェーズ349: 詳細は上記。runtime-dependency-switching-
+  design.md 5.4節の残課題「残る2venture」がforklift-pasha・line-reservation-ai自身により
+  既に解消済みであることを確認し、次回候補から除去。コード変更なし。テスト863件・
+  schema検証21件いずれも変更なしでパス)

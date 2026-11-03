@@ -211,9 +211,29 @@ Firestore関連キーの構築のみをtry/exceptで囲み例外を再raiseす�
   3節同様、実`google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに
   持ち越す。
 - 残る2venture(forklift-pasha・line-reservation-ai)側の同ファイル4節への横展開は、
-  本フェーズでは着手せず次回候補として残す。
+  本フェーズでは着手せず次回候補として残す。(フェーズ349で完了確認済み。下記追記参照)
+
+## 追記(2026-11-03 10:00 UTC・フェーズ349): 残課題「残る2venture」は既に解消済みであることを確認
+
+上記5.4節が次回候補として残していた「forklift-pasha・line-reservation-ai側の同ファイル
+4節への横展開」を、両venture自身のruntime-dependency-switching-design.mdで確認した。
+forklift-pashaは本フェーズ333と同日(2026-10-25、同ファイル5節)で、line-reservation-ai
+は本フェーズ333より後の同日22:00 UTC(フェーズ続き347、同ファイル5節)でそれぞれ
+既に「ログ+re-raise、InMemory自動フォールバック禁止」方針を自venture固有のエントリ
+ポイント向けに設計済みであり、line-reservation-ai側の記録には「これで5venture
+(kura-pasha・aircon-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)
+全てへの...横展開が完了した」との明記がある。よって本venture側が次回候補として
+保持していた本項目は完了として扱い、次回候補から除去する。本venture自身の
+設計・コードの変更は発生していない(他venture側の既存記録の確認のみ)。回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・
+`python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしで
+パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
 
 最終更新: 2026-10-25 18:00 UTC (フェーズ333: kura-pashaフェーズ263・aircon-pasha
 フェーズ343「ログ+re-raise、InMemory自動フォールバック禁止」方針の横展開として、
 本venture固有の8エントリポイント向けに5節を新規設計。コード変更なし、テスト863件・
 schema検証21件いずれも変更なしでパス)
+最終更新: 2026-11-03 10:00 UTC (フェーズ349: 詳細は上記。残課題「残る2venture」が
+forklift-pasha・line-reservation-ai自身により既に解消済みであることを確認し、次回
+候補から除去。コード変更なし、テスト863件・schema検証21件いずれも変更なしでパス)
