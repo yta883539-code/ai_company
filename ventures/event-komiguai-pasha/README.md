@@ -1967,3 +1967,27 @@ LAND〉への連絡等)がオーナーから承認された場合はその着手
 - 最終更新: 2026-11-02 23:00 UTC(フェーズ89: 詳細は上記。landing-page/inquiry.htmlに
 draft_idクエリパラメータ自動入力のインラインscriptを追加。コード変更なし〈静的HTML/JSのみ〉、
 既存テスト75件・schema検証22件いずれも変更なしでパス〈回帰なし〉)
+
+フェーズ90(2026-11-03 08:00 UTC定例更新): フェーズ89次回候補(1)(2)は実GCP/Firestore
+作成・実発信がオーナー承認待ちのため着手不可。代わりに候補(3)「他venture・アイデア領域の
+前進」として、本venture自身に残っていた未解消ギャップに対応した。output-samples-validation.md
+フェーズ31で厳守事項4(分散退場のブロック数は退場口数に1対1対応、5箇所以上は4に上限)の
+机上確認用にG7・G8テストケースを作成した際、対応する機械チェック(post_generation_checks.py)
+が実装されないまま残っていたことを発見し、check_dispersed_exit_block_count_consistency()を
+新規実装した。staffing_plan.body・staffing_plan.announcement_text・notice_board_text.bodyの
+3箇所で「◯ブロック」「◯つのブロック」のブロック数言及が食い違っていないかを検証する
+(G7のように退場口数止まりで具体的なブロック数を明示しない場合、分散退場自体を提示しない
+場合は対象外として何もしない設計とし、「退場口が3箇所」のような退場口数の言及を誤ってブロック
+数として検出しないよう数字の直後に「ブロック」が続くことを要件とした)。test_post_generation_
+checks.pyに食い違い検出・対象外ケース(退場口数言及の誤検出防止含む)の計4件を新規追加し、
+既存テスト75件→79件(新規4件)・schema検証22件(変更なし)いずれもパスすることを確認した
+(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+いないためpending-approval.mdへの追記なし。
+次回候補: (1)実GCP/Firestore作成がオーナーから承認された場合、build_inquiry_document()の
+Cloud Run functions結線・inquiry.html送信ボタンの有効化に着手する、(2)承認待ち事項(実GCP/
+Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を
+最優先、(3)他venture・アイデア領域の前進、または本ventureの他の未検証ルール(厳守事項1〜10)
+の機械チェック網羅状況を再点検する。
+- 最終更新: 2026-11-03 08:00 UTC(フェーズ90: 詳細は上記。post_generation_checks.pyに
+check_dispersed_exit_block_count_consistency()を新規実装、test_post_generation_checks.pyに
+テスト4件新規追加〈75件→79件〉・schema検証22件変更なし、いずれもパス〈回帰なし〉)

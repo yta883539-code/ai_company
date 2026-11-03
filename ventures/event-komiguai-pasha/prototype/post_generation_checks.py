@@ -6,7 +6,11 @@ prototype/post_generation_checks.pyと同じ位置づけ(schema/validate_test_ca
 validate_cross_field_rulesが担う「status値に応じたnull/非null依存関係」の検証だけでは
 拾えない、本文テキストの内容自体が厳守事項を守っているかのヒューリスティック検証)。
 README.md(フェーズ27)が次回候補として挙げていた絵文字不使用(厳守事項9)・対象外トピック
-混入(厳守事項7)の機械チェックを、本ファイル(フェーズ28)で実装する。
+混入(厳守事項7)の機械チェックを、本ファイル(フェーズ28)で実装する。フェーズ90で、
+厳守事項4(分散退場のブロック数ルール)についてstaffing_plan・notice_board_text間の
+ブロック数言及の食い違いを検出するcheck_dispersed_exit_block_count_consistency()を追加した
+(G7/G8テストケース作成〈output-samples-validation.mdフェーズ31〉時点では対応する機械
+チェックが未実装のまま残っていたギャップ)。
 
 本venture固有の差分として、kura-pasha/course-set-pashaのような継続課金・解約フロー関連の
 追加フィールドは存在せず(llm-system-prompt-draft.md記載の通り会員管理・サブスクリプション
@@ -153,10 +157,57 @@ def check_no_out_of_scope_topics_in_generated_output(instance):
     return errors
 
 
+# 厳守事項4(分散退場のブロック数は退場口数に1対1対応、5箇所以上は4に上限)の機械チェック用。
+# 「4ブロック」「4つのブロック」のように数字が直接ブロックを修飾する表現のみを対象とし、
+# 「退場口が3箇所に分かれ」のような退場口数そのものの言及(ブロック数の確定後の説明文脈)は
+# 対象としない(数字の直後に「ブロック」が続くことを要件とすることで誤検出を避ける)。
+BLOCK_COUNT_PATTERN = re.compile(r"(\d+)\s*(?:つ)?(?:の)?ブロック")
+
+
+def check_dispersed_exit_block_count_consistency(instance):
+    """厳守事項4準拠チェック。分散退場(ブロック・エリア別の時間差退場)を提示する場合、
+    staffing_plan.body・staffing_plan.announcement_text・notice_board_text.bodyの
+    3箇所でブロック数の言及が食い違っていないかを確認する(output-samples-validation.md
+    フェーズ31のG7/G8想定ケースに基づく)。いずれの箇所にも具体的なブロック数の言及が
+    ない場合(分散退場自体を提示しない、またはG7のように退場口数止まりで具体的な
+    ブロック数を明示しない場合)は対象外として何もしない。
+    """
+    errors = []
+    fields = []
+
+    staffing_plan = instance.get("staffing_plan")
+    if staffing_plan:
+        for field in ("body", "announcement_text"):
+            value = staffing_plan.get(field)
+            if value:
+                fields.append((f"staffing_plan.{field}", value))
+
+    notice_board_text = instance.get("notice_board_text")
+    if notice_board_text:
+        value = notice_board_text.get("body")
+        if value:
+            fields.append(("notice_board_text.body", value))
+
+    mentions = []
+    for field_name, text in fields:
+        for match in BLOCK_COUNT_PATTERN.finditer(text):
+            mentions.append((field_name, match.group(1)))
+
+    distinct_counts = {count for _, count in mentions}
+    if len(distinct_counts) > 1:
+        detail = "、".join(f"{field_name}: {count}" for field_name, count in mentions)
+        errors.append(
+            "分散退場のブロック数の言及が箇所ごとに食い違っています"
+            f"(厳守事項4違反の疑い、{detail})"
+        )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_no_emoji_anywhere(instance)
     errors += check_no_heading_brackets_anywhere(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
+    errors += check_dispersed_exit_block_count_consistency(instance)
     return errors

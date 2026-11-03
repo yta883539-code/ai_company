@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
+    check_dispersed_exit_block_count_consistency,
     check_no_emoji_anywhere,
     check_no_heading_brackets_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
@@ -191,6 +192,70 @@ class NoOutOfScopeTopicsTest(unittest.TestCase):
             },
         }
         errors = check_no_out_of_scope_topics_in_generated_output(instance)
+        self.assertEqual(errors, [])
+
+
+class DispersedExitBlockCountConsistencyTest(unittest.TestCase):
+    """厳守事項4(分散退場のブロック数ルール)準拠チェック。G7/G8フィクスチャは既に
+    FixtureCasesTestでrun_all_checks経由の無違反を確認済みのため、ここでは本チェック
+    固有の食い違い検出・対象外ケースのみを確認する。"""
+
+    def test_mismatched_block_counts_across_fields_is_flagged(self):
+        instance = {
+            "staffing_plan": {
+                "focus": "exit",
+                "body": "隣接する退場口を組にして4ブロックにまとめ、分散退場を提示します。",
+                "announcement_text": "終演後は3つのブロックに分かれて時間差でご退場いただきます。",
+            },
+            "notice_board_text": {
+                "body": "終演後は4つのブロックに分かれて段階的にご退場いただきます。",
+                "includes_road_use_permit_note": False,
+            },
+        }
+        errors = check_dispersed_exit_block_count_consistency(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("staffing_plan.announcement_text: 3", errors[0])
+
+    def test_consistent_block_counts_across_fields_is_not_flagged(self):
+        instance = {
+            "staffing_plan": {
+                "focus": "exit",
+                "body": "隣接する退場口を組にして4ブロックにまとめ、分散退場を提示します。",
+                "announcement_text": "終演後は4つのブロックに分かれて時間差でご退場いただきます。",
+            },
+            "notice_board_text": {
+                "body": "終演後は4つのブロックに分かれて段階的にご退場いただきます。",
+                "includes_road_use_permit_note": False,
+            },
+        }
+        errors = check_dispersed_exit_block_count_consistency(instance)
+        self.assertEqual(errors, [])
+
+    def test_exit_point_count_mention_without_block_suffix_is_not_matched(self):
+        # 「退場口が3箇所」はブロック数ではなく退場口数の言及(G7と同型)のため対象外。
+        instance = {
+            "staffing_plan": {
+                "focus": "exit",
+                "body": "退場口が3箇所に分かれブロック分け自体が可能な会場のため、分散退場を提示します。",
+                "announcement_text": "お座席のブロックごとに時間差でご退場いただきます。",
+            },
+            "notice_board_text": {
+                "body": "ブロック・エリア別に時間差を設けて段階的にご退場いただきます。",
+                "includes_road_use_permit_note": False,
+            },
+        }
+        errors = check_dispersed_exit_block_count_consistency(instance)
+        self.assertEqual(errors, [])
+
+    def test_no_dispersed_exit_mention_is_not_flagged(self):
+        instance = {
+            "staffing_plan": {
+                "focus": "entry",
+                "body": "開場直後の入場時集中に重点を置きます。",
+                "announcement_text": "分散してお進みください。",
+            },
+        }
+        errors = check_dispersed_exit_block_count_consistency(instance)
         self.assertEqual(errors, [])
 
 
