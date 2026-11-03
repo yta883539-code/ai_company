@@ -71,6 +71,14 @@ INVITE_CODE_LOOKALIKE_PATTERN = re.compile(
     rf"(?<![A-Za-z0-9])[{_INVITE_CODE_ALPHABET}]{{6}}(?![A-Za-z0-9])"
 )
 
+# aircon-pasha/forklift-pasha/event-komiguai-pashaのHEADING_BRACKET_PATTERNと同じ定義。
+# tone-and-manner-guideline.md方針2で確認した通り、format_generated_reply()が出力1〜3を
+# 【受注内容整理メモ】等の見出しで連結するのは本venture側の組み立て処理であり、
+# order_summary.body/delivery_notice.body/care_notice等(_collect_all_body_texts対象、
+# すなわちLLM構造化出力そのもの)はいずれも見出し記法を持たない設計(「残る課題」参照)
+# であるため、この既存の意図的な見出し付与と衝突しない。
+HEADING_BRACKET_PATTERN = re.compile("[【】]")
+
 
 def _collect_all_body_texts(instance):
     """厳守事項8(絵文字は終始不使用)の対象となる、全出力本文テキストを
@@ -116,6 +124,22 @@ def check_no_emoji_anywhere(instance):
         if EMOJI_PATTERN.search(text):
             errors.append(
                 f"{field_name}: 絵文字が含まれています(厳守事項8違反の疑い、本venture全体で絵文字不使用)"
+            )
+    return errors
+
+
+def check_no_heading_brackets_anywhere(instance):
+    """tone-and-manner-guideline.md方針2準拠チェック。_collect_all_body_texts対象の
+    全出力本文に見出し記法【】が使われていないかを、statusによらず全体で確認する
+    (check_no_emoji_anywhereと同じ対象範囲、aircon-pasha/forklift-pasha/
+    event-komiguai-pashaの同名関数と同じ設計思想)。
+    """
+    errors = []
+    for field_name, text in _collect_all_body_texts(instance):
+        if HEADING_BRACKET_PATTERN.search(text):
+            errors.append(
+                f"{field_name}: 見出し記法【】が含まれています"
+                "(tone-and-manner-guideline.md方針2違反の疑い、本venture全体で不使用)"
             )
     return errors
 
@@ -330,6 +354,7 @@ def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_no_emoji_anywhere(instance)
+    errors += check_no_heading_brackets_anywhere(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     errors += check_delivery_notice_category_text_consistency(instance)
     errors += check_subscription_notice_consistency(instance)

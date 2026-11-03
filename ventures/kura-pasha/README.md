@@ -6400,3 +6400,49 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-03 14:00 UTC(フェーズ277: 詳細は上記。market-research.mdに
   検索キーワード変更での追加探索〈新規候補発見なし、手法の限界を確認〉を追記。
   コード変更なし、テスト295件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ278(2026-11-03定例更新): aircon-pashaフェーズ357の次回候補(2)「同種の
+  check_no_heading_brackets_anywhere()未実装ギャップがkura-pasha・forklift-pasha・
+  course-set-pashaにも残っていないかの横展開確認」のうち、forklift-pashaは別フェーズで
+  既に対応済みのため、本venture(kura-pasha)とcourse-set-pashaの2件を確認した。
+  本venture: tone-and-manner-guideline.md方針2「残る課題」で「出力1〜3はそもそも見出し
+  行を持たない設計」と明記済みであり、`cloud_function_webhook.format_generated_reply()`が
+  `order_summary.body`・`delivery_notice.body`・`care_notice`を連結する際に付与する
+  「【受注内容整理メモ】」等の見出しは本venture側のラッピング処理であって、LLM構造化出力
+  (_collect_all_body_texts対象)自体には含まれないことを確認した(aircon-pashaの
+  「【ご確認のお願い】」がcompletion_report等のフィールド外でハードコードされているのと
+  同じ構造)。したがって未実装ギャップであると判断し、
+  prototype/post_generation_checks.pyにHEADING_BRACKET_PATTERN・
+  check_no_heading_brackets_anywhere()を新規実装してrun_all_checks()に追加した。
+  prototype/test_post_generation_checks.pyにNoHeadingBracketsAnywhereTestを新規追加
+  (受注内容整理メモ・お手入れ案内・申し込み案内それぞれへの【】混入検出、【】なしでの
+  パス・フィールド欠落時のスキップの計5ケース)。
+  course-set-pasha: 横展開の可否を判断するため、本venture同様に_collect_all_body_texts
+  相当のチェックを実装しようとしたところ、schema/validate_test_cases.pyの既存フィクスチャ
+  `CO5_chitchat_with_course_content`のsns_post.bodyが「【課題入れ替えのお知らせ】」という
+  見出しを本文自体に含んでいることが判明した(実装後の全テスト実行で検出)。
+  course-set-pasha/tone-and-manner-guideline.mdの「用途別文言一覧」で出力1(SNS投稿文)の
+  見出し欄が「(本文そのもの)」と記載されているのは、本venture・aircon-pashaのように
+  「出力に見出しが一切無い」ことを意味するのではなく、SNS投稿文という媒体の性質上、
+  本文の一部として【】見出しを含めること自体が許容される意図的な設計差分であると結論した
+  (実際のSNS告知文でよく使われる強調見出しの表現であり、aircon-pasha等の業務連絡文書とは
+  前提が異なる)。したがってcourse-set-pashaについては「cross-venture parityギャップ」
+  ではなく「意図的な設計差分」と判断し、実装した変更は`git checkout`で元に戻し、
+  本venture(kura-pasha)のみの解消に限定した。コード変更は本venture側の新規関数・
+  テスト追加のみで既存関数の変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(既存295件+新規5件=300件、全件パス)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれもパスすることを確認した
+  (回帰なし)。course-set-pasha側はコード変更なし(実装後に取消)のため同venture側の
+  テストは変更前と同じ863件・schema検証21件がそのままパスすることのみ確認した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(3)ロングリスト拡充手法の方針転換(フェーズ277で示した(a)優先度
+  引き下げまたは(b)業界団体ページ起点のWebFetch調査への切り替え)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-03定例更新(フェーズ278: 詳細は上記。check_no_heading_brackets_
+  anywhere()を新規実装しcross-venture parityギャップを解消。course-set-pashaは意図的な
+  設計差分と判断し変更なし。テスト5件追加〈300件〉・webhook355件・schema検証32件
+  いずれもパス)

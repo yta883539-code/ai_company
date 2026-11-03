@@ -21,6 +21,7 @@ from post_generation_checks import (  # noqa: E402
     check_checkout_notice_no_url,
     check_delivery_notice_category_text_consistency,
     check_no_emoji_anywhere,
+    check_no_heading_brackets_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
     check_no_third_party_name_leak_in_customer_facing_notices,
     check_subscription_notice_consistency,
@@ -71,6 +72,39 @@ class NoEmojiAnywhereTest(unittest.TestCase):
     def test_absent_fields_are_skipped(self):
         instance = {"order_summary": None, "care_notice": None}
         self.assertEqual(check_no_emoji_anywhere(instance), [])
+
+
+class NoHeadingBracketsAnywhereTest(unittest.TestCase):
+    def test_heading_brackets_in_order_summary_body_is_flagged(self):
+        instance = {"order_summary": {"body": "【受注内容整理メモ】区分:新規制作"}}
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("order_summary.body", errors[0])
+
+    def test_heading_brackets_in_care_notice_is_flagged(self):
+        instance = {"care_notice": "【お手入れ案内】定期的にオイルで保湿してください"}
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_notice", errors[0])
+
+    def test_heading_brackets_in_checkout_notice_body_is_flagged(self):
+        instance = {
+            "checkout_notice": {"body": "【お申し込みのご案内】", "kind": "checkout_intent"}
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("checkout_notice.body", errors[0])
+
+    def test_no_heading_brackets_is_not_flagged(self):
+        instance = {
+            "order_summary": {"body": "区分:新規制作/鞍の型:ブリティッシュ"},
+            "care_notice": "定期的にオイル・クリームで革に保湿を与えてください。",
+        }
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
+
+    def test_absent_fields_are_skipped(self):
+        instance = {"order_summary": None, "care_notice": None}
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
 
 
 class OutOfScopeTopicsTest(unittest.TestCase):
