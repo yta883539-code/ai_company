@@ -1,4 +1,4 @@
-# line-reservation-ai 公開までのチェックリスト(フェーズ続き287時点)
+# line-reservation-ai 公開までのチェックリスト(フェーズ続き287時点、2026-11-03 02:00 UTC棚卸し更新)
 
 目的: kura-pasha(launch-readiness-checklist.md)と同様、設計・実装・テストは完了している
 一方で実際の稼働にはオーナー承認が必要な外部サービス設定・実LLM呼び出しが複数残っている。
@@ -53,8 +53,35 @@
    → オーナー回答後: 文面案を使い電話・LINEでの実連絡はオーナー自身が行うか、
    Gmail連携接続後に送信直前の毎回確認を経てメール送信を行う。
 
+4. **GCPプロジェクト作成 + Firestoreデータベース新規作成**(2026-10-23 12:00 UTC記載、
+   フェーズ続き339で記録。firestore-provider-adapter-design.md・
+   store-profile-store-firestore-adapter-design.md等が設計済みの
+   `StoreProfileStoreProtocol`・`WorkshopStoreProtocol`等の実デプロイ先)
+   実GCPプロジェクトの作成(課金設定を含む)、Firestoreデータベースの新規作成。
+   → 承認後: 実GCPプロジェクトの作成、Firestoreデータベースの新規作成、各Protocol
+   アダプタ(firestore-provider-adapter-design.md等で設計済みの全節)の実コード化・
+   結合実装から着手する。
+
 ## 次回候補
 
-上記1〜3のいずれかがオーナーから承認・回答された場合、その着手を最優先とする。それまでの
+上記1〜4のいずれかがオーナーから承認・回答された場合、その着手を最優先とする。それまでの
 間は、他venture・アイデア領域の前進、または本チェックリストとpending-approval.mdの記載に
 齟齬がないかの定期的な棚卸しを行う。
+
+## 定期棚卸し記録
+
+2026-11-03 02:00 UTC(フェーズ続き364): course-set-pashaフェーズ348(2026-11-03 01:00 UTC)が
+同venture側のlaunch-readiness-checklist.mdとpending-approval.mdの記載齟齬(2026-10-24 09:00
+UTC記載のGCPプロジェクト作成+Firestoreデータベース新規作成が承認待ち事項リストに反映されず
+漏れていた)を発見・是正したことを受け、本venture(line-reservation-ai)側でも同種の棚卸しを
+実施した。pending-approval.mdを本venture名で再検索した結果、2026-10-23 12:00 UTC記載の
+「GCPプロジェクト作成+Firestoreデータベース新規作成」(フェーズ続き339で記録済み)が、本
+チェックリストの承認待ち事項1〜3のリストに反映されないまま漏れていたことを発見した。承認
+待ち事項4として追加し是正した(内容は上記、firestore-provider-adapter-design.md等が設計済みの
+各Protocolアダプタの実デプロイ先)。コード変更なし、回帰確認として`python3 -m unittest
+discover -s prototype -p "test_*.py"`(1044件、変更なし)・`python3
+schema/validate_test_cases.py`(28件、変更なし)を実行しいずれもパスすることを確認した
+(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+していないためpending-approval.mdへの追記なし(既存エントリの反映漏れの是正のみ)。
+次回候補: (1)承認待ち事項1〜4がオーナーから承認・回答された場合はその着手を最優先、
+(2)他venture・アイデア領域の前進。
