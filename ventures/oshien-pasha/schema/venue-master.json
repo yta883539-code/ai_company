@@ -284,6 +284,210 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。駅からの直接徒歩は口コミベースで約30分とされ現実的でないため、バス停(「ビッグハット前」または「水野美術館」)経由を代表例とした。バス乗り場番号は情報源により差があるため要再確認として残す。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "みずほPayPayドーム福岡",
+      "aliases": [
+        "福岡ドーム",
+        "ヤフオクドーム",
+        "福岡Yahoo!JAPANドーム"
+      ],
+      "region": "福岡・九州圏",
+      "nearest_station": "地下鉄 唐人町駅、西鉄バス 福岡ドーム・ヤフオクドーム前",
+      "walk_minutes_note": "徒歩12分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでvenue-master-draft.mdの福岡・九州圏セクション(前フェーズまでに追加済み)をschema側に反映した(draft.md⇔JSON間のparity gapの是正)。旧称「福岡ドーム」「福岡Yahoo!JAPANドーム」「ヤフオクドーム」からの改称履歴はaliasesで把握しているが、現行ネーミングライツ契約の満了日はWebSearchでの裏取りを行っていないためnull(推測日付を記入しない既存ルールを踏襲)。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "マリンメッセ福岡",
+      "aliases": [],
+      "region": "福岡・九州圏",
+      "nearest_station": "西鉄バス マリンメッセ福岡・福岡国際センター前",
+      "walk_minutes_note": "バス停直結",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した(詳細な現地裏取りは未実施)。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "福岡国際センター",
+      "aliases": [],
+      "region": "福岡・九州圏",
+      "nearest_station": "西鉄バス マリンメッセ福岡・福岡国際センター前(マリンメッセ福岡に隣接)",
+      "walk_minutes_note": "バス停直結",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。マリンメッセ福岡に隣接する別施設であり、名称の取り違えに注意。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "ESCON FIELD HOKKAIDO(北海道ボールパーク)",
+      "aliases": [
+        "北海道ボールパークFビレッジ"
+      ],
+      "region": "北海道圏",
+      "nearest_station": "JR 北海道ボールパークFビレッジ駅",
+      "walk_minutes_note": "徒歩3分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「ES CON」はナイス・コーポレーション系列の命名権と見られるが、契約満了日はWebSearchでの裏取りを行っていないためnull(推測日付を記入しない既存ルールを踏襲)。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "真駒内セキスイハイムアイスアリーナ",
+      "aliases": [],
+      "region": "北海道圏",
+      "nearest_station": "地下鉄 真駒内駅",
+      "walk_minutes_note": "徒歩5分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「セキスイハイム」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "楽天生命パーク宮城",
+      "aliases": [
+        "Koboパーク宮城",
+        "宮城球場"
+      ],
+      "region": "宮城・東北圏",
+      "nearest_station": "仙台市地下鉄東西線 宮城野通駅",
+      "walk_minutes_note": "徒歩6分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「楽天生命」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。旧称(Koboパーク宮城等)の改称履歴はaliasesで把握。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "セキスイハイムスーパーアリーナ(カメイアリーナ仙台)",
+      "aliases": [
+        "カメイアリーナ仙台"
+      ],
+      "region": "宮城・東北圏",
+      "nearest_station": "JR 利府駅",
+      "walk_minutes_note": "徒歩10分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": "2027-03-31",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加し、WebSearchで契約状況を追加裏取りした。宮城県公表資料(2025年4月1日付)によれば施設全体の愛称「セキスイハイムスーパーアリーナ」はセキスイハイム東北株式会社との契約で令和6年4月1日〜令和9年3月31日(2024-04-01〜2027-03-31)が有効期間であることを確認できたため、naming_rights_review_dueに設定した。一方、別名として扱っている「カメイアリーナ仙台」(館内の個別ホール等の愛称とみられる)はカメイ株式会社との契約が令和4年7月〜令和7年7月(2022-07〜2025-07)とする仙台市資料(2024年3月付)があり、2026年11月時点で更新・再契約されているか未確認。両者は同一施設内の異なる対象(施設全体/館内ホール)を指す可能性があり、次回以降に施設公式サイトでの裏取りが必要。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "Mazda Zoom-Zoom スタジアム広島",
+      "aliases": [
+        "広島市民球場",
+        "マツダスタジアム"
+      ],
+      "region": "中国・四国圏",
+      "nearest_station": "JR 広島駅(南口)",
+      "walk_minutes_note": "徒歩10分前後",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「Mazda」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "広島グリーンアリーナ",
+      "aliases": [],
+      "region": "中国・四国圏",
+      "nearest_station": "広島電鉄 市役所前駅",
+      "walk_minutes_note": "徒歩5分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "レグザムホール(香川県立武道館)",
+      "aliases": [
+        "香川県立武道館"
+      ],
+      "region": "中国・四国圏",
+      "nearest_station": "JR/ことでん 高松駅からバス・タクシー利用が一般的",
+      "walk_minutes_note": "最寄り駅から徒歩圏外(バス利用前提)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「レグザム」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "坊っちゃんスタジアム(愛媛県総合運動公園野球場)",
+      "aliases": [
+        "愛媛県総合運動公園野球場"
+      ],
+      "region": "中国・四国圏",
+      "nearest_station": "JR予讃線 市坪駅",
+      "walk_minutes_note": "徒歩1〜5分前後(情報源により差あり)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「坊っちゃん」は夏目漱石の小説由来の愛称であり企業の命名権ではないためnaming_rights=falseとした。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "ひめぎんホール(愛媛県県民文化会館)",
+      "aliases": [
+        "愛媛県県民文化会館"
+      ],
+      "region": "中国・四国圏",
+      "nearest_station": "伊予鉄道 南町駅(市駅線)",
+      "walk_minutes_note": "徒歩2分前後(直線距離約118m)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「ひめぎん」(愛媛銀行)の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "沖縄アリーナ",
+      "aliases": [],
+      "region": "沖縄圏",
+      "nearest_station": "鉄道(ゆいレール)は宜野湾市まで到達しておらず、路線バス利用が一般的。那覇空港から高速バス「沖縄南」停留所、那覇バスターミナルから路線バス「沖縄市運動公園前」停留所",
+      "walk_minutes_note": "「沖縄南」下車徒歩7分前後/「沖縄市運動公園前」下車徒歩5分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "エコパアリーナ(小笠山総合運動公園)",
+      "aliases": [],
+      "region": "中部圏",
+      "nearest_station": "JR愛野駅 南口",
+      "walk_minutes_note": "徒歩15分前後(ほぼ一本道だが坂道・階段あり)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ71: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。「エコパ」(ECOPA)は静岡県立小笠山総合運動公園の愛称であり企業の命名権ではないためnaming_rights=falseとした。愛野駅は通常時の停車本数が少なめとの情報もあり、イベント時は臨時列車・増発便が設定される場合がある点を申し送る。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "YCC県民文化ホール(旧称: コラニー文化ホール、山梨県立県民文化ホール)",
+      "aliases": [
+        "コラニー文化ホール",
+        "山梨県立県民文化ホール",
+        "山梨県民文化ホール"
+      ],
+      "region": "中部圏",
+      "nearest_station": "JR甲府駅 南口",
+      "walk_minutes_note": "徒歩20分前後(バス利用の場合は南口バスターミナル1番乗り場から約5〜10分、タクシーも同程度)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-03",
+      "naming_rights_review_due": "2029-03-31",
+      "verification_note": "フェーズ71: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。山梨県公式情報により、ネーミングライツスポンサーは株式会社ワイ・シー・シー(甲府市)、契約額1,000万円、使用期間2024-04-01から5年間(2029-03-31満了)であることを確認し、naming_rights_review_dueに設定した。旧称「コラニー文化ホール」からの改称履歴はaliasesで把握。",
+      "operational_status": "active"
     }
   ]
 }
