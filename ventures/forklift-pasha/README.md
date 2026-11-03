@@ -4262,3 +4262,34 @@ schema/validate_test_cases.py`(11件)を実行しいずれも変更なしでパ�
   別クエリで再試行したが進展なし、低優先度・非ブロッキングのため次回候補から除外し
   新しい手がかりが出るまで再試行しない方針に変更。コード変更なし、テスト24ファイル・
   schema検証11件いずれも変更なしでパス)
+
+フェーズ204(2026-11-03 12:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+前進。aircon-pasha(フェーズ357)・event-komiguai-pashaには実装済みのcheck_no_heading_
+brackets_anywhere()(見出し記法【】不使用の機械チェック)が本ventureに未実装のまま
+残っていたcross-venture parityギャップを発見した。tone-and-manner-guideline.md基本
+方針1「生成物本体(inspection_record.body・reminder_notice)は見出し不要」・用途別
+文言一覧(見出し=なし)を確認した結果、全角「【】」は事業者向け・運営者向けメール
+通知の件名(PAYMENT_FAILURE_DETECTED_EMAIL_NOTICE等、schema/output.schema.jsonの出力
+フィールドではなく別途ハードコードされる文言)でのみ意図的に使用されており、
+_collect_all_body_texts対象の4フィールド(inspection_record.body・reminder_notice・
+out_of_scope_message・missing_fields_request)への使用は想定されていないことを確認した
+上で、他ventureと衝突しない正味のギャップ(他ventureのような「意図的差分で対象外」
+ではなく実装漏れ)と判断し、prototype/post_generation_checks.pyにHEADING_BRACKET_
+PATTERN・check_no_heading_brackets_anywhere()を新規実装してrun_all_checks()に追加した。
+prototype/test_post_generation_checks.pyにNoHeadingBracketsAnywhereTestを新規追加
+(inspection_record.body・reminder_notice・out_of_scope_message・missing_fields_request
+への【】混入検出4ケース、【】なしでのパス、全フィールドnull時のスキップの計6ケース)。
+コード変更は新規関数・テスト追加のみで既存関数の変更なし、回帰確認として`python3
+prototype/run_all_tests.py`(24ファイル、全件パス)・`python3 schema/validate_test_
+cases.py`(11件、変更なし)・`python3 -m unittest discover -s prototype -p
+"test_*.py"`(既存93件+新規6件=99件、全件パス)を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+(2)同種のcheck_no_heading_brackets_anywhere()未実装ギャップがcourse-set-pasha・
+kura-pasha・line-reservation-aiにも残っていないかの横展開確認(本フェーズでは
+forklift-pasha単体の解消に限定したため未着手)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 12:00 UTC(フェーズ204: 詳細は上記。check_no_heading_brackets_
+  anywhere()を新規実装しcross-venture parityギャップを解消。テスト6件追加〈99件〉・
+  schema検証11件いずれも変更なしでパス)

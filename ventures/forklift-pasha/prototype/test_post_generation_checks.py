@@ -19,6 +19,7 @@ from validate_test_cases import POSITIVE_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
     check_no_emoji_anywhere,
+    check_no_heading_brackets_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
     run_all_checks,
 )
@@ -87,6 +88,59 @@ class NoEmojiAnywhereTest(unittest.TestCase):
     def test_absent_fields_are_skipped(self):
         instance = {"inspection_record": None, "out_of_scope_message": None, "missing_fields_request": None}
         self.assertEqual(check_no_emoji_anywhere(instance), [])
+
+
+class NoHeadingBracketsAnywhereTest(unittest.TestCase):
+    def test_brackets_in_inspection_record_body_is_flagged(self):
+        instance = {
+            "inspection_record": {
+                "body": "【始業前点検】2026-10-03 2号機 山田太郎 異常なし",
+                "reminder_notice": None,
+            }
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("inspection_record.body", errors[0])
+
+    def test_brackets_in_reminder_notice_is_flagged(self):
+        instance = {
+            "inspection_record": {
+                "body": "2025-11-05 2号機 月次自主検査 異常なし",
+                "reminder_notice": "【次回実施期限のお知らせ】近づいています。",
+            }
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("inspection_record.reminder_notice", errors[0])
+
+    def test_brackets_in_out_of_scope_message_is_flagged(self):
+        instance = {
+            "out_of_scope_message": "【ご案内】本サービスは点検記録の整形と実施期限の管理支援のみを行っております。",
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_brackets_in_missing_fields_request_is_flagged(self):
+        instance = {
+            "missing_fields_request": "【確認】車両番号が読み取れませんでした。",
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("missing_fields_request", errors[0])
+
+    def test_no_brackets_is_not_flagged(self):
+        instance = {
+            "inspection_record": {
+                "body": "2026-10-03 2号機 始業前点検 山田太郎 異常なし",
+                "reminder_notice": "次回実施期限が近づいています。",
+            }
+        }
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
+
+    def test_absent_fields_are_skipped(self):
+        instance = {"inspection_record": None, "out_of_scope_message": None, "missing_fields_request": None}
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
 
 
 class OutOfScopeTopicsTest(unittest.TestCase):

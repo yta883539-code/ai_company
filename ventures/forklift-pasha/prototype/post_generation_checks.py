@@ -36,6 +36,15 @@ EMOJI_PATTERN = re.compile(
     "]"
 )
 
+# tone-and-manner-guideline.md基本方針1(生成物本体は見出し不要)の機械チェック用。
+# aircon-pasha/event-komiguai-pashaのHEADING_BRACKET_PATTERNと同じ定義。全角「【】」は
+# 事業者向け・運営者向けメール通知の件名(PAYMENT_FAILURE_DETECTED_EMAIL_NOTICE等)でのみ
+# 意図的に使用されており、これらは本schema/output.schema.jsonの出力フィールドではなく
+# 別途ハードコードされるメール件名・本文であるため、_collect_all_body_texts対象
+# (inspection_record.body・reminder_notice・out_of_scope_message・missing_fields_request)
+# には現れない前提である。
+HEADING_BRACKET_PATTERN = re.compile("[【】]")
+
 # 厳守事項6(点検記録整形・期限管理以外の要求には一切応答しない)の機械チェック用。
 # status=generatedの出力本文に、修理の実施・部品調達・費用見積り等、対象外の話題への
 # 言及が紛れ込んでいないかをヒューリスティックに判定する。
@@ -83,6 +92,22 @@ def check_no_emoji_anywhere(instance):
     return errors
 
 
+def check_no_heading_brackets_anywhere(instance):
+    """tone-and-manner-guideline.md基本方針1準拠チェック。生成物本体
+    (_collect_all_body_texts対象)に見出し記法【】が使われていないかを、statusによらず
+    全体で確認する(check_no_emoji_anywhereと同じ対象範囲・同じ「全体で不使用」方針、
+    aircon-pasha/event-komiguai-pashaの同名関数と同じ設計思想)。
+    """
+    errors = []
+    for field_name, text in _collect_all_body_texts(instance):
+        if HEADING_BRACKET_PATTERN.search(text):
+            errors.append(
+                f"{field_name}: 見出し記法【】が含まれています"
+                "(tone-and-manner-guideline.md基本方針1違反の疑い、生成物本体は見出し不要)"
+            )
+    return errors
+
+
 def check_no_out_of_scope_topics_in_generated_output(instance):
     """厳守事項6準拠チェック。status=generatedのとき、inspection_record.body・
     reminder_noticeに修理の実施・部品調達・費用見積り等、点検記録整形・期限管理以外の
@@ -115,5 +140,6 @@ def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_no_emoji_anywhere(instance)
+    errors += check_no_heading_brackets_anywhere(instance)
     errors += check_no_out_of_scope_topics_in_generated_output(instance)
     return errors
