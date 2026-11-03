@@ -1484,3 +1484,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-03 18:00 UTC(フェーズ71: 詳細は上記。中部圏〈エコパアリーナ・YCC県民文化
   ホール〉を新規追加。schema/venue-master.jsonで5圏13会場分の大きなparity gapを発見・解消
   〈計15会場追加〉。既存テスト17件・schema検証9件いずれも変更なしでパス)
+- フェーズ72(2026-11-03 23:00 UTC定例更新): フェーズ71次回候補(1)「draft.md⇔
+  schema/venue-master.jsonの同期を担保する仕組み(差分チェックスクリプトの追加等)を、
+  今回発見した大規模parity gapの再発防止策として改めて優先検討する」に対応し、
+  schema/check_venue_master_parity.pyを新規作成した。draft.mdのMarkdownテーブルから
+  会場名を抽出し、venue-master.jsonのcanonical_name・aliasesの表記バリアントと完全一致
+  (正規化後)で突き合わせて差分を検出する読み取り専用スクリプトで、意図的な表記ゆれの
+  自動吸収は行わない方針とした(過検出気味に倒すことで本物の欠落を見逃さない設計、
+  venue-name-normalization-design.mdの既存方針を踏襲)。初回実行で実際に名古屋圏の
+  venue-master-draft.mdの記載が古いまま(フェーズ18の是正・フェーズ20で追加した
+  後継施設IGアリーナがいずれも未反映)であることを検出し、draft.md側を
+  venue-master.jsonの記載に合わせて「バンテリンドーム ナゴヤ」「愛知県体育館(通称:
+  ドルフィンズアリーナ)」「名古屋市総合体育館(愛称: 日本ガイシホール)」「IGアリーナ
+  (愛知国際アリーナ)」の4行に是正した(JSON側の変更なし)。是正後は
+  `python3 -I schema/check_venue_master_parity.py`で36件/36件差分なし(終了コード0)を
+  確認した。既存テスト17件・schema検証9件いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)check_venue_master_parity.pyを既存テストスイート・CIへ組み込み、将来の
+  追記時に自動実行させる運用の検討、(2)中部圏の残り(静岡県内の他会場、長野県内の他会場等)
+  の拡充、(3)会場名の表記揺れ(略称・旧名称)の名寄せ方法の検討、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-03 23:00 UTC(フェーズ72: 詳細は上記。schema/check_venue_master_parity.py
+  新規作成し、draft.md⇔venue-master.jsonの表記差分を機械的に検出できるようにした。初回
+  実行で名古屋圏の記載漏れ〈愛知県体育館/名古屋市総合体育館の分離・IGアリーナ追加が
+  draft.md未反映〉を実際に検出・是正し、差分ゼロを確認。既存テスト17件・schema検証9件
+  いずれも変更なしでパス)
