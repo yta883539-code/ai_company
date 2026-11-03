@@ -1991,3 +1991,28 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-03 08:00 UTC(フェーズ90: 詳細は上記。post_generation_checks.pyに
 check_dispersed_exit_block_count_consistency()を新規実装、test_post_generation_checks.pyに
 テスト4件新規追加〈75件→79件〉・schema検証22件変更なし、いずれもパス〈回帰なし〉)
+
+フェーズ91(2026-11-03 16:00 UTC定例更新): フェーズ90次回候補(3)「本ventureの他の未検証ルール
+(厳守事項1〜10)の機械チェック網羅状況を再点検する」に対応した。llm-quality-verification-plan.md
+(フェーズ23作成)の検証観点表を厳守事項1〜10全件について現状の実装(post_generation_checks.py・
+schema/validate_test_cases.py)と突き合わせたところ、厳守事項1・3・5は依然として机上検証(入力
+文脈に依存する判断のため出力のみからの機械チェックが設計上困難)として人手判定のままとする方針に
+変更なしと確認した一方、厳守事項10の行が「人手のみ」と記載されたままフェーズ24で実装済みの
+check_personal_name_leakage()(氏名のそのまま転記を検出する機械チェック)を反映していない
+cross-file parityギャップを発見した。該当行を「機械チェック(フェーズ24実装済み)+人手(一般化
+表現の自然さ)」に訂正し、合わせて同ドキュメント手順2の「料金言及混入ケース・氏名混入ケースの
+新規追加が必要」という記載も、両ケース(OOS2・G5)がフェーズ24・25で追加済みのため既に完了して
+いる旨に訂正した。本件は過去の他venture事例(oshien-pashaのdraft.md⇔schema同期ギャップ等)と
+同種の、ドキュメントが実装に追従していなかったケースである。コード変更なし(Markdownドキュメント
+のみの訂正)、既存テスト79件・schema検証22件いずれも変更なしでパス(回帰なし)。承認が必要な
+アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+への追記なし。
+次回候補: (1)実GCP/Firestore作成がオーナーから承認された場合、build_inquiry_document()の
+Cloud Run functions結線・inquiry.html送信ボタンの有効化に着手する、(2)承認待ち事項(実GCP/
+Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を
+最優先、(3)llm-quality-verification-plan.md冒頭の「既存12件〈G1〜G4・OOS系・II系・ネガティブ
+3件〉」という件数記載も現状(TEST_CASES17件・ネガティブケース10件、本フェーズ確認)と既に
+ずれているため、次回以降に件数を実態に合わせて訂正する、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 16:00 UTC(フェーズ91: 詳細は上記。llm-quality-verification-plan.mdの
+厳守事項10行・手順2が未反映だったフェーズ24・25の実装を反映して訂正。コード変更なし、
+既存テスト79件・schema検証22件いずれも変更なしでパス)
