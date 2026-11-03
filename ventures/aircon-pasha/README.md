@@ -6701,3 +6701,29 @@
 - 最終更新: 2026-11-03定例更新(フェーズ357: 詳細は上記。check_no_heading_brackets_anywhere()
   を新規実装しcross-venture parityギャップを解消。テスト4件追加〈797件〉・schema検証25件
   いずれもパス)
+- フェーズ358(2026-11-03 18:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ357次回候補(2)「check_no_heading_brackets_anywhere()未実装ギャップが
+  kura-pasha・forklift-pasha・course-set-pashaにも残っていないかの横展開確認」に対応した。
+  (a)kura-pasha: 本日15:00 UTC定例更新(フェーズ278)でHEADING_BRACKET_PATTERN・
+  check_no_heading_brackets_anywhere()を新規実装済み(テスト5件追加、300件)であることを
+  README.mdで確認した。(b)course-set-pasha: 同フェーズ278で実装を試みた結果、既存フィクス
+  チャCO5でsns_post.body自体に意図的な【】見出しが含まれる設計差分であることが判明し、実装
+  は見送られ意図的差分として記録済みであることを確認した。(c)forklift-pasha: README.mdフェー
+  ズ204(本日12:00 UTC以前、aircon-pashaフェーズ357より先行)で既にHEADING_BRACKET_PATTERN・
+  check_no_heading_brackets_anywhere()が実装済み(テスト6件追加、93→99件)であり、
+  prototype/post_generation_checks.py・test_post_generation_checks.py(NoHeadingBrackets
+  AnywhereTestクラス)にコードが存在することを直接確認した。以上により、本件の横展開確認は
+  対象5venture(aircon-pasha・event-komiguai-pasha・kura-pasha・forklift-pasha・
+  course-set-pasha)すべてで完了(4件実装済み・1件は意図的差分として記録済み)しており、
+  未解消ギャップは残っていないと結論した。コード変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(797件、変更なし)・`python3
+  schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 18:00 UTC(フェーズ358: 詳細は上記。check_no_heading_brackets_anywhere()
+  横展開確認を完了し、対象5venture全てで解消済み〈実装済みまたは意図的差分〉と結論。
+  コード変更なし、全797件・schema検証25件いずれも変更なしでパス)
