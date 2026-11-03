@@ -6338,3 +6338,23 @@
   design.md 5.4節の残課題「残る2venture」がforklift-pasha・line-reservation-ai自身により
   既に解消済みであることを確認し、次回候補から除去。コード変更なし。テスト863件・
   schema検証21件いずれも変更なしでパス)
+- フェーズ350(2026-11-03 20:00 UTC定例更新): フェーズ349次回候補(2)「他venture・アイデア
+  領域の前進」、およびinterview-candidate-selection-criteria.md選定プロセス ステップ3・
+  candidate-longlist-draft.md「次回以降の一歩」が共通して残していた「line-reservation-aiの
+  interview-request-package.mdに相当するパッケージを作成する」に対応し、
+  interview-request-package.mdを新規作成した。candidate-longlist-draft.md第一弾〜第八弾
+  (2026-09-29)で確定した候補1(FRICTION FREAKS)・予備候補2〜4(AT WALL・Speedy・
+  Rockmania)の優先順位と、initial-contact-message-draft.mdの文面草案を1つのオーナー提示用
+  パッケージに統合し、依頼順序の案・未確定事項・推奨案(謝礼なし等、line-reservation-aiと
+  同種の非金銭的提案)をまとめた。本ドキュメントは既存ファイルの内容の編集・統合のみで、
+  新たなWebSearch調査・実在店舗への実際の連絡は一切行っていない。コード変更なし、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・
+  `python3 schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし(本パッケージ自体は
+  オーナー提示用ドラフトであり、連絡の実施はオーナーの直接指示後にのみ行う)。
+  次回候補: (1)承認待ち事項1〜6、または本パッケージ・候補1への連絡可否がオーナーから
+  承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 20:00 UTC(フェーズ350: 詳細は上記。interview-request-package.mdを
+  新規作成し、候補1(FRICTION FREAKS)への依頼を軸にしたオーナー提示用パッケージを整備。
+  コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
