@@ -28,6 +28,7 @@ from post_generation_checks import (  # noqa: E402
     check_next_recommended_date_estimate_consistency,
     check_next_recommended_date_history_care_guide_consistency,
     check_no_emoji_anywhere,
+    check_no_heading_brackets_anywhere,
     check_no_out_of_scope_topics_in_generated_output,
     check_no_third_party_name_leak_in_customer_facing_notices,
     check_refrigerant_electrical_professional_judgement,
@@ -581,6 +582,39 @@ class NoEmojiAnywhereTest(unittest.TestCase):
             "care_guide": {"body": "フィルターは月1回程度お手入れください。"},
         }
         self.assertEqual(check_no_emoji_anywhere(instance), [])
+
+
+class NoHeadingBracketsAnywhereTest(unittest.TestCase):
+    def test_heading_brackets_in_completion_report_body_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "【作業報告】分解洗浄が完了しました。"},
+            "care_guide": {"body": "フィルターは月1回程度お手入れください。"},
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("completion_report.body", errors[0])
+
+    def test_heading_brackets_in_care_guide_body_is_flagged(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄が完了しました。"},
+            "care_guide": {"body": "【お手入れ案内】フィルターは月1回程度お手入れください。"},
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("care_guide.body", errors[0])
+
+    def test_heading_brackets_in_out_of_scope_message_is_flagged(self):
+        instance = {"out_of_scope_message": "【ご案内】そのご質問にはお答えできません。"}
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_no_heading_brackets_passes(self):
+        instance = {
+            "completion_report": {"body": "分解洗浄が完了しました。"},
+            "care_guide": {"body": "フィルターは月1回程度お手入れください。"},
+        }
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
 
 
 class RunAllChecksTest(unittest.TestCase):

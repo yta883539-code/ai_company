@@ -101,6 +101,14 @@ EMOJI_PATTERN = re.compile(
     "]"
 )
 
+# event-komiguai-pashaのHEADING_BRACKET_PATTERNと同じ定義。tone-and-manner-guideline.md
+# 方針4により、依頼者向け・業者向けの主要6出力(_collect_all_body_texts対象)はいずれも
+# 「用途別文言一覧」で見出し使用「なし」と整理済みのため、【】は現れない前提である。
+# 【ご確認のお願い】(first-generation-self-check-design.md)は本schema/output.schema.json
+# の出力フィールドではなく別途ハードコードされる業者向け文言であり、_collect_all_body_texts
+# の対象に含まれないため本チェックと衝突しない。
+HEADING_BRACKET_PATTERN = re.compile("[【】]")
+
 
 def _utf16_code_unit_length(text: str) -> int:
     """UTF-16コード単位数を返す。Pythonのlen(str)はUnicodeコードポイント数を返すため、
@@ -557,6 +565,22 @@ def check_no_emoji_anywhere(instance):
     return errors
 
 
+def check_no_heading_brackets_anywhere(instance):
+    """tone-and-manner-guideline.md方針4準拠チェック。依頼者向け・業者向けの主要6出力
+    (_collect_all_body_texts対象)に見出し記法【】が使われていないかを、statusによらず
+    全体で確認する(check_no_emoji_anywhereと同じ対象範囲・同じ「全体で不使用」方針、
+    event-komiguai-pashaの同名関数と同じ設計思想)。
+    """
+    errors = []
+    for field_name, text in _collect_all_body_texts(instance):
+        if HEADING_BRACKET_PATTERN.search(text):
+            errors.append(
+                f"{field_name}: 見出し記法【】が含まれています"
+                "(tone-and-manner-guideline.md方針4違反の疑い、本venture全体で不使用)"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
@@ -572,4 +596,5 @@ def run_all_checks(instance):
     errors += check_message_length_within_line_limit(instance)
     errors += check_no_third_party_name_leak_in_customer_facing_notices(instance)
     errors += check_no_emoji_anywhere(instance)
+    errors += check_no_heading_brackets_anywhere(instance)
     return errors

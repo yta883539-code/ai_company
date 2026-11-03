@@ -6672,3 +6672,32 @@
 - 最終更新: 2026-11-02 21:00 UTC(フェーズ356: 詳細は上記。check_no_emoji_anywhere()の
   横展開確認をoshien-pasha・line-reservation-aiに実施し、いずれもギャップなし〈時期尚早/
   意図的設計差分〉と結論。コード変更なし、全793件・schema検証25件いずれも変更なしでパス)
+- フェーズ357(2026-11-03定例更新): 他venture(event-komiguai-pasha)の
+  prototype/post_generation_checks.pyには実装済みのcheck_no_heading_brackets_anywhere()
+  (見出し記法【】不使用の機械チェック)が、本venture(aircon-pasha)には未実装のまま残って
+  いたcross-venture parityギャップを発見・解消した。tone-and-manner-guideline.md方針4
+  (業者向け文言のうち【ご確認のお願い】等の特定の注記にのみ【】見出しを用い、それ自体が
+  独立した返信として完結する文言には見出しを付けない)・「用途別文言一覧」を確認したところ、
+  本schema/output.schema.jsonの出力フィールド(_collect_all_body_texts対象の6フィールド:
+  out_of_scope_message・missing_fields_request・completion_report.body・care_guide.body・
+  subscription_procedure_notice.body・checkout_notice.body)はいずれも見出し使用「なし」と
+  整理済みであり、方針4で唯一【】を使う「【ご確認のお願い】」(first-generation-self-check-
+  design.md)はこのLLM構造化出力の対象フィールドではなく別途ハードコードされる業者向け文言
+  であることを確認した。したがって「全6フィールドで【】不使用」というチェックを追加しても
+  既存の意図的な設計(【ご確認のお願い】)と衝突しないことを確認した上で、
+  prototype/post_generation_checks.pyにHEADING_BRACKET_PATTERN・
+  check_no_heading_brackets_anywhere()を新規実装し、run_all_checks()に追加した。
+  prototype/test_post_generation_checks.pyにNoHeadingBracketsAnywhereTestを新規追加
+  (完了報告・お手入れ案内・対象外応答それぞれへの【】混入検出、【】なしでのパスの計4ケース)。
+  コード変更は新規関数・テスト追加のみで既存関数の変更なし、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(既存793件+新規4件=797件、全件パス)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)同種のcheck_no_heading_brackets_anywhere()未実装ギャップがkura-pasha・forklift-pasha・
+  course-set-pashaにも残っていないかの横展開確認(本フェーズではaircon-pasha単体の解消に
+  限定したため未着手)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03定例更新(フェーズ357: 詳細は上記。check_no_heading_brackets_anywhere()
+  を新規実装しcross-venture parityギャップを解消。テスト4件追加〈797件〉・schema検証25件
+  いずれもパス)
