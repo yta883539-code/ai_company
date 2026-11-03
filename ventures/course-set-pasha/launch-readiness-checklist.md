@@ -61,6 +61,13 @@
    での実連絡はオーナー自身が行う、メール送信はGmail連携接続後に送信直前の毎回
    確認を経てのみ行う。
 
+6. **GCPプロジェクト作成 + Firestoreデータベース新規作成**(2026-10-24 09:00 UTC記載。
+   firestore-provider-adapter-design.mdが設計済みの`LinkingCodeStoreProtocol`・
+   `UserProfileStoreProtocol`等の実デプロイ先)
+   実GCPプロジェクトの作成(課金設定を含む)、Firestoreデータベースの新規作成。
+   → 承認後: 実GCPプロジェクトの作成、Firestoreデータベースの新規作成、各Protocol
+   アダプタの実コード化・結合実装から着手。
+
 ## 次回候補
 
 上記1〜5のいずれかがオーナーから承認された場合、その着手を最優先とする。承認が
@@ -119,3 +126,17 @@ GAS Webhookから実際に呼び出すCloud Functions側のHTTPエントリポ�
 ものではない)。回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
 (756件)・`python3 schema/validate_test_cases.py`(21件)を再実行し、いずれもパスすることを
 確認した。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+
+2026-11-03 01:00 UTC(フェーズ348): 本棚卸しの一環でpending-approval.md全体を本venture名
+(course-set-pasha)で再検索した結果、2026-10-24 09:00 UTC記載の「GCPプロジェクト作成+
+Firestoreデータベース新規作成」(line-reservation-ai・kura-pasha・aircon-pasha・
+forklift-pashaで発見された同種の記載漏れの棚卸しを受けて同日中に本venture側で記録済み)が、
+承認待ち事項1〜5のリストに反映されないまま本チェックリストから漏れていたことを発見した。
+承認待ち事項6として追加し是正した(内容は「現状」節参照、firestore-provider-adapter-design.md
+が設計済みの各Protocolアダプタの実デプロイ先)。コード変更なし、回帰確認として`python3 -m
+unittest discover -s prototype -p "test_*.py"`(863件、変更なし)・`python3
+schema/validate_test_cases.py`(21件、変更なし)を実行しいずれもパスすることを確認した
+(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生
+していないためpending-approval.mdへの追記なし(既存エントリの反映漏れの是正のみ)。
+次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、(2)他venture・
+アイデア領域の前進。

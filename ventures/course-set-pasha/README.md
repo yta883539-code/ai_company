@@ -6296,3 +6296,22 @@
 - 最終更新: 2026-11-01 20:00 UTC(フェーズ347: 詳細は上記。line-reservation-aiが
   `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`謝罪語是正を既に完了済みであることを確認し、
   次回候補から除去。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
+- フェーズ348(2026-11-03 01:00 UTC定例更新): subscription-updated-event-order-guard-design.md
+  が次回候補として残した「launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の
+  定期棚卸し」に対応し、launch-readiness-checklist.mdの承認待ち事項1〜5をpending-approval.md
+  全体(本venture名での再検索)と突き合わせた。2026-10-24 09:00 UTC記載の「GCPプロジェクト
+  作成+Firestoreデータベース新規作成」(line-reservation-ai・kura-pasha・aircon-pasha・
+  forklift-pashaで発見された同種の記載漏れの棚卸しを受けて同日中に記録済み)が、承認待ち
+  事項リストに反映されないまま同チェックリストから漏れていたことを発見し、承認待ち事項6
+  として追加・是正した。本venture自身のコード・設計文書(firestore-provider-adapter-design.md
+  等)の変更は発生していない(既存設計への追記ではなくチェックリスト側の反映漏れの是正)。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (863件、変更なし)・`python3 schema/validate_test_cases.py`(21件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし
+  (既存エントリの反映漏れの是正のみ)。
+  次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 01:00 UTC(フェーズ348: 詳細は上記。launch-readiness-checklist.mdに
+  承認待ち事項6〈GCPプロジェクト作成+Firestoreデータベース新規作成〉の記載漏れを発見・
+  是正。コード変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
