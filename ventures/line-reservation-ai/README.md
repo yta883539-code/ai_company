@@ -7030,3 +7030,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   「未検証・要検討事項」の厳守事項10保留文言のトーン未確認を解消(tone-and-manner-
   guideline.mdとの突き合わせにより修正不要と結論)。コード変更なし、テスト1044件・
   schema検証28件いずれも変更なしでパス)
+
+- フェーズ続き366(2026-11-03 21:00 UTC定例更新): forklift-pashaフェーズ204の次回候補(2)
+  「check_no_heading_brackets_anywhere()(見出し記法【】不使用の機械チェック)未実装ギャップが
+  course-set-pasha・kura-pasha・line-reservation-aiにも残っていないかの横展開確認」のうち、
+  未着手だった本venture分を実施した。本venture(prototype/)には同チェック関数自体が存在せず
+  (grep調査で確認)、かつtone-and-manner-guideline.mdには他ventureのような「生成物本体は
+  見出し不要」という方針が存在しない。むしろ本venture固有の設計として、サービス名を示す
+  【予約とれる君】という接頭辞が、サブスク登録完了・解約受付・休止モード移行・休止継続・
+  再開等の各通知メッセージ(cloud_function_subscription_activated_webhook.py・
+  cloud_function_subscription_cancelled_webhook.py・dormant_mode_scheduler.py等、formal/
+  standard/casual全トーン)で一貫して使用されていること、および前日リマインドメッセージの
+  【リマインド】接頭辞もtone-and-manner-guideline.md本文に明記済みであることをgrep調査で
+  確認した。これはcourse-set-pasha(フェーズ348前後で確認済み、sns_post.body自体に意図的な
+  【】見出しが含まれる設計差分)と同種の「意図的差分」であり、本ventureの場合は対象範囲が
+  更に広く(サービスブランド表示として全通知文言に浸透)、実装漏れではなく一貫したブランド
+  表示方針であると判断した。したがって本ventureについても
+  check_no_heading_brackets_anywhere()は導入しない方針とする(導入すると既存の正規の
+  ブランド表示・リマインド表示を誤検知する)。これにより、forklift-pashaフェーズ204が
+  残した横展開確認は4venture(kura-pasha・course-set-pasha・forklift-pasha・
+  line-reservation-ai)すべてで完了したことになる。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(1044件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  launch-readiness-checklist.md記載の1〜4)がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03 21:00 UTC(フェーズ続き366: 詳細は上記。forklift-pashaフェーズ204の
+  横展開確認(check_no_heading_brackets_anywhere()未実装ギャップ)のうち本venture分を実施し、
+  【予約とれる君】ブランド表示・【リマインド】表示という意図的差分であり対象外と結論。
+  これで4venture全ての横展開確認が完了。コード変更なし、テスト1044件・schema検証28件
+  いずれも変更なしでパス)
