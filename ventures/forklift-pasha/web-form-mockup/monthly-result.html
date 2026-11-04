@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!--
+  フォークリフトパシャっと 月次自主検査(monthly)送信完了・結果表示画面 実装ドラフト
+  (フェーズ206・2026-11-03)
+
+  位置づけ: annual-result.html(フェーズ205)の次回候補(2)「daily/monthly区分の送信完了
+  画面モックアップ(法定保存義務注意カードは不要、整形済みテキストの表示のみ)の図版化」に
+  対応するもの。daily-result.html(本フェーズ、同時作成)と同じ実装方針を踏襲しつつ、
+  monthly区分固有の論点として以下を反映する。
+
+  daily-result.htmlとの違い:
+  - annual区分に限定される法定保存義務注意カード(labor-notice-card)はmonthly区分にも
+    表示しない(legal-notices-draft.md 2.5節に同じ)。
+  - schema/validate_test_cases.pyのCASE_G2_MONTHLY_NO_REMINDER・
+    CASE_G3_MONTHLY_WITH_REMINDERが示す通り、type=monthlyのときreminder_notice
+    (次回のお知らせ)はnull・非nullいずれもあり得る(daily区分と異なり常にnullではない)
+    ため、annual-result.htmlと同じ「次回のお知らせ」セクションをreminder_noticeが
+    非nullの場合の表示例として設ける(CASE_G3_MONTHLY_WITH_REMINDERのダミー例文を使用)。
+  - 記録内容の項目欄はdaily-result.htmlと同じ「点検者名」を表示する(annual区分の
+    「検査業者名」ではない)。
+
+  未実装・意図的なプレースホルダー: daily-result.html・annual-result.htmlと同様、
+  JS不使用・コピーボタンは<button type="button" disabled>・記録内容本文は
+  schema/validate_test_cases.pyのCASE_G3_MONTHLY_WITH_REMINDERを参考にしたダミー
+  例文であり実LLM出力ではない。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>月次自主検査 送信完了(ドラフト・非公開) - フォークリフトパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f5f7f6;
+    --color-fg: #22282a;
+    --color-accent: #e08a1e;
+    --color-accent-dark: #a8620f;
+    --color-card: #ffffff;
+    --color-border: #dbe3e0;
+    --color-muted: #5a6563;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .draft-banner {
+    background: #3a3f3d;
+    color: #fff;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .screen {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  header.app-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 4px 16px;
+  }
+  header.app-bar .logo {
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  header.app-bar .kubun {
+    margin-left: auto;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 14px;
+    color: var(--color-muted);
+    margin: 0 0 10px;
+  }
+  .done-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+    margin-bottom: 14px;
+  }
+  .done-banner .mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 14px;
+  }
+  .body-text {
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.7;
+    background: #fafbfa;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  button.copy-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: bold;
+    border: 2px solid var(--color-accent-dark);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--color-accent-dark);
+  }
+  button.copy-btn:disabled {
+    opacity: 0.6;
+  }
+  .prefill-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .prefill-row:last-child { border-bottom: none; }
+  .prefill-row .value {
+    color: var(--color-fg);
+    font-weight: bold;
+  }
+  .reminder-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-fg);
+    background: #fdf1e2;
+    border: 1px solid var(--color-accent);
+    border-radius: 6px;
+    padding: 10px;
+  }
+  a.back-link {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-accent);
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+  }
+  footer.note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--color-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="draft-banner">
+  実装ドラフト・非公開 / フェーズ206(2026-11-03) / 送信完了後にその場で表示する想定の画面(バックエンド未接続)
+</div>
+<div class="screen">
+
+  <header class="app-bar">
+    <span class="logo">フォークリフトパシャっと</span>
+    <span class="kubun">月次自主検査(monthly)</span>
+  </header>
+
+  <div class="done-banner">
+    <span class="mark">✓</span>
+    <span>記録を作成しました</span>
+  </div>
+
+  <!-- 整形済みテキスト(inspection_record.body、ダミー例文。
+       schema/validate_test_cases.pyのCASE_G3_MONTHLY_WITH_REMINDERを参考) -->
+  <section class="card">
+    <h2>記録内容</h2>
+    <div class="prefill-row">
+      <span>車両番号</span>
+      <span class="value">2号機</span>
+    </div>
+    <div class="prefill-row">
+      <span>点検者名</span>
+      <span class="value">山田 太郎</span>
+    </div>
+    <div class="prefill-row">
+      <span>実施日</span>
+      <span class="value">2025-11-05</span>
+    </div>
+    <p class="card-hint" style="font-size:12px;color:var(--color-muted);margin:10px 0 6px;">
+      以下は入力内容を整形した記録本文です(ダミー例文)。
+    </p>
+    <div class="body-text">2025-11-05 2号機 月次自主検査 山田太郎 油圧系統○、フォーク変形なし 異常なし</div>
+    <button type="button" class="copy-btn" disabled>この内容をコピーする</button>
+  </section>
+
+  <!-- リマインド文(reminder_notice、non-nullの場合の表示例。ダミー例文) -->
+  <section class="card">
+    <h2>次回のお知らせ</h2>
+    <div class="reminder-text">
+      2号機の月次自主検査の次回実施期限(2025-12-05)が近づいています。
+    </div>
+  </section>
+
+  <a class="back-link" href="monthly.html">月次自主検査の入力に戻る</a>
+
+  <footer class="note">
+    ※ 本ページはMVP設計検討用のドラフトです。実際のバックエンド接続・LLM生成・
+    コピー/ダウンロード機能の実装は未着手です。
+  </footer>
+
+</div>
+</body>
+</html>

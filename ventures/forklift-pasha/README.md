@@ -4326,3 +4326,36 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   annual-result.htmlを新規作成し、annual区分専用の法定保存義務注意カードを反映。
   browser_mockup_checks.jsにcheckAnnualResult()を追加〈37件〉、Python単体テスト
   24ファイル・schema検証11件いずれも変更なしでパス)
+- フェーズ206(2026-11-03定例更新): フェーズ205次回候補(2)「daily/monthly区分の送信完了
+  画面モックアップ(法定保存義務注意カードは不要、整形済みテキストの表示のみ)の図版化」に
+  対応し、web-form-mockup/daily-result.html・monthly-result.htmlを新規作成した。
+  いずれもannual-result.htmlと同じ実装方針(JS不使用・:rootトークン共通)を踏襲しつつ、
+  (1)annual区分専用の法定保存義務注意カード(labor-notice-card)はいずれにも含めない、
+  (2)schema/validate_test_cases.pyのCASE_G1_DAILY・CASE_G2/G3_MONTHLYが示す
+  「type=dailyのときreminder_noticeは常にnull(mvp-flow-draft.md)」という制約を反映し、
+  daily-result.htmlには「次回のお知らせ」セクション自体を設けず、monthly-result.htmlには
+  reminder_notice非nullの表示例(CASE_G3_MONTHLY_WITH_REMINDERのダミー文言)として設けた、
+  (3)記録内容の項目欄はannual区分の「検査業者名」ではなくdaily/monthly入力画面と同じ
+  「点検者名」を表示する、という3点をコメントで明記した。
+  prototype/browser_mockup_checks.jsにcheckDailyResult()・checkMonthlyResult()を新規追加し、
+  法定保存義務注意カードの非表示・daily区分での次回のお知らせセクションの非存在・monthly
+  区分での表示・コピーボタンの無効化・各入力画面への戻るリンクを検証した(既存37件+新規
+  10件=47件、全件パス)。data-retention-policy.md・legal-notices-draft.mdはいずれもannual
+  区分専用の注意文言のみを対象としており、daily/monthly区分向けの追記は不要であることを
+  確認した(変更なし)。コード変更はweb-form-mockup/daily-result.html・monthly-result.html
+  (いずれも新規)・prototype/browser_mockup_checks.js(関数追加のみ)、回帰確認として
+  `node prototype/browser_mockup_checks.js`(47件、全件パス)・`python3
+  prototype/run_all_tests.py`(24ファイル)・`python3 schema/validate_test_cases.py`(11件)を
+  実行し、既存チェックはいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)index.html等からdaily-result.html・monthly-result.html・annual-result.htmlへの
+  直接リンクは意図的に設けていない(送信完了後にその場で遷移する想定のため)が、この設計
+  判断自体をweb-form-ui-design.mdの「画面遷移・ナビゲーション」節に明記するドキュメント
+  整備、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-03定例更新(フェーズ206: 詳細は上記。web-form-mockup/
+  daily-result.html・monthly-result.htmlを新規作成し、daily/monthly区分の送信完了画面を
+  図版化。browser_mockup_checks.jsにcheckDailyResult()・checkMonthlyResult()を追加
+  〈47件〉、Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)

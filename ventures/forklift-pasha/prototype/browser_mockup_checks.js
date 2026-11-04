@@ -157,6 +157,47 @@ async function checkAnnualResult(page) {
   check('annual-result: annual.htmlへの戻るリンクが存在する', (await page.locator('a[href="annual.html"]').count()) > 0);
 }
 
+// フェーズ206: daily-result.html(daily区分の送信完了・結果表示画面)の新規追加に伴う
+// 静的内容の確認。annual区分と異なり法定保存義務注意カード(labor-notice-card)は
+// 表示されないこと、reminder_notice(次回のお知らせ)セクション自体が存在しないこと
+// (mvp-flow-draft.md「type=dailyのときreminder_noticeは常にnull」に対応)を確認する。
+async function checkDailyResult(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'daily-result.html'));
+
+  check('daily-result: ページが例外なく読み込める', (await page.title()).length > 0);
+
+  check('daily-result: annual区分専用の法定保存義務注意カードが表示されない', (await page.locator('.labor-notice-card').count()) === 0);
+  check('daily-result: 次回のお知らせセクションが存在しない(dailyはreminder_notice常にnull)', (await page.locator('.reminder-text').count()) === 0);
+
+  check('daily-result: 記録本文(整形済みテキスト)が表示される', await page.locator('.body-text').isVisible());
+
+  const copyBtn = page.locator('button.copy-btn');
+  check('daily-result: コピーボタンが無効化されている(バックエンド未接続)', await copyBtn.isDisabled());
+
+  check('daily-result: daily.htmlへの戻るリンクが存在する', (await page.locator('a[href="daily.html"]').count()) > 0);
+}
+
+// フェーズ206: monthly-result.html(monthly区分の送信完了・結果表示画面)の新規追加に伴う
+// 静的内容の確認。daily区分と異なりreminder_noticeが非nullの場合の表示例として
+// 次回のお知らせセクションを持つが、annual区分専用の法定保存義務注意カードは
+// 表示されないことを確認する。
+async function checkMonthlyResult(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'monthly-result.html'));
+
+  check('monthly-result: ページが例外なく読み込める', (await page.title()).length > 0);
+
+  check('monthly-result: annual区分専用の法定保存義務注意カードが表示されない', (await page.locator('.labor-notice-card').count()) === 0);
+
+  const reminder = page.locator('.reminder-text');
+  check('monthly-result: 次回のお知らせ(reminder_notice非nullの表示例)が表示される', await reminder.isVisible());
+  check('monthly-result: 記録本文(整形済みテキスト)が表示される', await page.locator('.body-text').isVisible());
+
+  const copyBtn = page.locator('button.copy-btn');
+  check('monthly-result: コピーボタンが無効化されている(バックエンド未接続)', await copyBtn.isDisabled());
+
+  check('monthly-result: monthly.htmlへの戻るリンクが存在する', (await page.locator('a[href="monthly.html"]').count()) > 0);
+}
+
 (async () => {
   const browser = await chromium.launch(LAUNCH_OPTIONS);
   const page = await browser.newPage();
@@ -169,6 +210,8 @@ async function checkAnnualResult(page) {
     await checkPlanSelection(page);
     await checkIndexPlanSelectionLink(page);
     await checkAnnualResult(page);
+    await checkDailyResult(page);
+    await checkMonthlyResult(page);
   } finally {
     await browser.close();
   }
