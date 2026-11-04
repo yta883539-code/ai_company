@@ -7062,3 +7062,27 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   【予約とれる君】ブランド表示・【リマインド】表示という意図的差分であり対象外と結論。
   これで4venture全ての横展開確認が完了。コード変更なし、テスト1044件・schema検証28件
   いずれも変更なしでパス)
+- フェーズ続き367(2026-11-04 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-03 21:00 UTC)を前進。prototype-engine-design.mdの「次の課題」欄に
+  2026-07-31時点のまま3か月以上残っていた2件の記載漏れを発見・是正した。(1)「ウィンドウ
+  開始時刻固定」方式をescalation-consolidation-logic.md側にも明記する必要がある、という
+  項目は、escalation-consolidation-logic.mdの「追記(2026-07-31 17:58 UTC)」節で既に
+  本ファイルと同日付で反映済みだったにもかかわらず、本ファイルの「次の課題」欄のみ
+  未解消のまま放置されていた。(2)`flush_due_windows`の呼び出しタイミングをtech-stack.md
+  で具体化する必要がある、という項目は、escalation-consolidation-logic.mdの
+  「未検討・要検討事項」節(2026-09-08追記)で、tech-stack.mdではなく
+  escalation-digest-flush-trigger-design.mdとして別ドキュメント化された形で既に解消
+  済みだった(idle-conversation-trigger-design.mdと同じ「Webhook便乗方式」を採用、
+  `maybe_run_escalation_flush()`、間引き間隔1分)。両項目とも解消済みとして取消線付きで
+  更新し、解消先ドキュメントへの参照を明記した。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(1044件、変更なし)・
+  `python3 schema/validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Firestoreプロジェクト・GCPアカウントの開設等、
+  launch-readiness-checklist.md記載の1〜4)がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 20:00 UTC(フェーズ続き367: 詳細は上記。prototype-engine-design.mdの
+  「次の課題」欄に3か月以上残っていた2件の記載漏れ(他ドキュメントで既に解消済みだったにも
+  かかわらず未反映)を発見・是正。コード変更なし、テスト1044件・schema検証28件いずれも
+  変更なしでパス)

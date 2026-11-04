@@ -41,7 +41,18 @@ schema/validate_test_cases.py で「期待JSON出力同士の構造的整合性�
 設計md通りの挙動になることを確認済み。
 
 ## 次の課題
-- 上記1で決めた「ウィンドウ開始時刻固定」方式は今回のコード化で新たに確定させた実装判断のため、
-  escalation-consolidation-logic.md側にも明記して整合を取る必要がある(次回以降で反映)。
-- `flush_due_windows`の呼び出しタイミング(スケジューリング方式)をtech-stack.mdで具体化する必要がある。
+- ~~上記1で決めた「ウィンドウ開始時刻固定」方式は今回のコード化で新たに確定させた実装判断のため、
+  escalation-consolidation-logic.md側にも明記して整合を取る必要がある(次回以降で反映)。~~ →
+  解消済み(2026-11-04追記、フェーズ続き367で発見)。escalation-consolidation-logic.md
+  「追記(2026-07-31 17:58 UTC): 実装(prototype/engine.py)で確定した詳細」節に、本ファイルと
+  同日(2026-07-31)付で既に反映されていたことを確認した。本「次の課題」欄のみが未反映のまま
+  3か月以上残っていた記載漏れだった。
+- ~~`flush_due_windows`の呼び出しタイミング(スケジューリング方式)をtech-stack.mdで具体化する
+  必要がある。~~ → 解消済み(2026-11-04追記、フェーズ続き367で発見)。escalation-consolidation-
+  logic.md「未検討・要検討事項」節(2026-09-08追記)で、tech-stack.mdではなく
+  escalation-digest-flush-trigger-design.mdとして別ドキュメント化する形で具体化されていた
+  (idle-conversation-trigger-design.mdと同じ「Webhook便乗方式」、
+  `ConversationEventProcessor.maybe_run_escalation_flush()`、間引き間隔1分。実Cloud Scheduler
+  接続時は`flush_escalation_windows()`を直接呼び出すだけで移行可能)。tech-stack.md側への
+  個別追記は不要と判断し、本欄を解消済みに更新した。
 - 実LLM呼び出し関数の注入・自動テスト化はオーナー承認後(pending-approval.md参照)。
