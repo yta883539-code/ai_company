@@ -4386,3 +4386,26 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   「画面遷移・ナビゲーション」節に、送信完了画面への直接リンクを設けない設計判断を明記し、
   daily/monthly区分図版化済みの記載漏れも是正。コード変更なし、browser_mockup_checks.js
   47件・Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)
+- フェーズ208(2026-11-04定例更新): フェーズ207次回候補(2)「checkout-error.html・
+  settings.html・plan-selection.htmlについても同様の画面遷移・ナビゲーション方針(直接
+  リンクの有無)がweb-form-ui-design.mdに明記済みか」の棚卸しを行った。web-form-mockup/
+  index.html・checkout-error.htmlのリンクをgrep調査した結果、(1)settings.html・
+  plan-selection.htmlはindex.htmlから直接リンクされているが、これらは送信完了画面と異なり
+  設定変更・プラン変更のたびに再訪問する常設ページであるため既存方針と矛盾しないこと、
+  (2)checkout-error.htmlへの直接リンクはindex.html・各入力画面のいずれにも存在せず
+  決済フロー側からのリダイレクト到達のみを想定し、画面内のリンクもplan-selection.htmlへの
+  一方向の「戻るリンク」のみで既存の送信完了画面と同じ方針に沿っていること、を確認した。
+  web-form-ui-design.mdの「画面遷移・ナビゲーション」節に棚卸し結果を追記し、3画面とも
+  コード(HTML)側の変更は不要と判断した。本フェーズはドキュメント整備のみでコード変更
+  なし、回帰確認として`node prototype/browser_mockup_checks.js`(47件、変更なし)・
+  `python3 prototype/run_all_tests.py`(24ファイル、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04定例更新(フェーズ208: 詳細は上記。checkout-error.html・
+  settings.html・plan-selection.htmlの画面遷移・ナビゲーション方針の棚卸しを完了し、
+  web-form-ui-design.mdに追記。コード変更なし、browser_mockup_checks.js 47件・
+  Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)
