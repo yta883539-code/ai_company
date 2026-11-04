@@ -4359,3 +4359,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   daily-result.html・monthly-result.htmlを新規作成し、daily/monthly区分の送信完了画面を
   図版化。browser_mockup_checks.jsにcheckDailyResult()・checkMonthlyResult()を追加
   〈47件〉、Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)
+- フェーズ207(2026-11-04定例更新): フェーズ206次回候補(2)「index.html等から
+  daily-result.html・monthly-result.html・annual-result.htmlへの直接リンクを意図的に
+  設けていない設計判断を、web-form-ui-design.mdの「画面遷移・ナビゲーション」節に明記する
+  ドキュメント整備」に対応した。web-form-mockup/index.htmlのリンク(daily.html・
+  monthly.html・annual.html・settings.html・plan-selection.htmlの5件のみ)を実際に
+  grep調査し、各*-result.htmlへの直接リンクが存在しないことを確認した上で、
+  web-form-ui-design.mdの該当節に(1)送信完了画面は「フォーム送信という動作の結果として
+  その場で遷移する」画面であり、ブックマーク等の再訪問起点として扱わない設計意図、
+  (2)各送信完了画面の「戻るリンク」は対応する入力画面への一方向遷移のみを提供し、
+  完了画面同士の相互リンクやトップページからの直接リンクは設けない方針、を追記した。
+  あわせて、フェーズ205時点で「daily/monthly区分の送信完了画面は未図版化のまま残る」と
+  記載されたまま更新されていなかった記載漏れ(フェーズ206で両方を図版化済み)も本節内で
+  是正した。本フェーズはドキュメント整備のみでコード変更なし、回帰確認として`node
+  prototype/browser_mockup_checks.js`(47件、変更なし)・`python3
+  prototype/run_all_tests.py`(24ファイル、変更なし)・`python3
+  schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)checkout-error.html・settings.html・plan-selection.htmlについても同様の画面遷移・
+  ナビゲーション方針(直接リンクの有無)がweb-form-ui-design.mdに明記済みか未確認のため、
+  次回棚卸しする、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04定例更新(フェーズ207: 詳細は上記。web-form-ui-design.mdの
+  「画面遷移・ナビゲーション」節に、送信完了画面への直接リンクを設けない設計判断を明記し、
+  daily/monthly区分図版化済みの記載漏れも是正。コード変更なし、browser_mockup_checks.js
+  47件・Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)

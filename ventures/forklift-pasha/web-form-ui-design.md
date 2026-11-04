@@ -75,8 +75,18 @@ daily区分と異なり月1回・年1回の低頻度入力のため、入力負�
   出力1の想定用途に対応)。reminder_notice非nullの場合は同画面に併記する。
   (annual区分の送信完了画面は、フェーズ205でweb-form-mockup/annual-result.htmlとして
   図版化した。annual区分のみ、法定保存義務注意カード〈data-retention-policy.md・
-  legal-notices-draft.md 2.5節〉を追加で表示する。daily/monthly区分の送信完了画面は
-  未図版化のまま残る。)
+  legal-notices-draft.md 2.5節〉を追加で表示する。daily/monthly区分の送信完了画面も
+  フェーズ206でweb-form-mockup/daily-result.html・monthly-result.htmlとして図版化し、
+  3区分すべての送信完了画面モックアップが完成した。)
+- トップページ(index.html)・各入力画面(daily.html/monthly.html/annual.html)から
+  各区分の送信完了画面(daily-result.html/monthly-result.html/annual-result.html)への
+  直接リンクは意図的に設けていない。送信完了画面はフォーム送信という動作の結果として
+  その場で遷移する想定の画面であり、ブックマークや再訪問の起点となる独立ページとしては
+  扱わない(整形済みテキストは一度コピーしてスプレッドシートに貼り付けるための一時的な
+  表示であり、再度同じ記録を見返す導線はスプレッドシート側に委ねる設計のため)。
+  各送信完了画面モックアップ内の「戻るリンク」は対応する入力画面(daily.html等)への
+  一方向の遷移のみを提供し、送信完了画面同士の相互リンクや、トップページから送信完了
+  画面への直接リンクは設けない(フェーズ207でこの設計判断を文書化)。
 
 ## 未検証・残課題
 
