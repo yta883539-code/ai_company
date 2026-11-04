@@ -1729,6 +1729,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   後処理に結線する設計(実装はオーナー承認・実LLM接続後)、(2)venue-master-draft.mdの各会場の
   アクセス情報精査の継続(京セラドーム大阪のネーミングライツ契約満了日確認を含む)、(3)他
   venture・アイデア領域の前進。
-- 最終更新: 2026-11-04 12:00 UTC(フェーズ80: 詳細は上記。ambiguity-watchlist.jsonの
-  `_meta.match_behavior`記述を実装・description記述と整合する内容に訂正。既存回帰
+- フェーズ81(2026-11-04 13:00 UTC定例更新): フェーズ79/80次回候補(1)に対応した。LLM構造化
+  出力(output.schema.jsonのitinerary_draft配列)を受け取った後にvenue_matcher.match_venue()
+  の判定結果でvenue_matched・nearest_station_noteを上書きする後処理`apply_venue_match_
+  postprocessing()`を設計し、`prototype/itinerary_draft_postprocessor.py`に初めて実コード化
+  した(詳細はvenue-matcher-llm-postprocessing-integration-design.md参照)。LLMの会場認識は
+  学習時点の知識に基づく自己申告でしかなく、命名権改称・休館等venue-master.json側にのみある
+  最新情報を反映できないため、判定は常にvenue_matcher.py側を優先する方針とした。
+  operational_status_note(休館中等)はschema未拡張のためnearest_station_noteの末尾に文として
+  追記する形にした。LLM自己申告とmatcher判定が食い違った場合はconflictsリスト(出力本体には
+  混入しない別戻り値)に記録する設計とし、ログ出力先の結線は次回以降の課題として残した。
+  `prototype/test_itinerary_draft_postprocessor.py`を新規作成し、東京ドームの完全一致上書き・
+  LLM自己申告との食い違い検出・休館中の愛知県体育館でのoperational_status_note追記・
+  混同注意リストエントリ・複数会場の独立処理の6ケース(20アサーション)を検証、PASS=20
+  FAIL=0を確認した。回帰確認として`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`(22件、変更なし)・`python3 -I validate_test_cases.py`(9件、変更なし)・
+  `python3 -I schema/check_venue_master_parity.py`(36件/36件差分なし)・`python3 prototype/
+  test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)conflictsのログ出力先(Cloud Monitoring等)の結線設計、(2)venue-master-
+  draft.mdの各会場のアクセス情報精査の継続(京セラドーム大阪のネーミングライツ契約満了日確認
+  を含む)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 13:00 UTC(フェーズ81: 詳細は上記。venue_matcher.pyをLLM構造化出力の
+  後処理に適用する`apply_venue_match_postprocessing()`を設計し、prototype/itinerary_draft_
+  postprocessor.pyに初めて実コード化。新規テスト20アサーション追加、既存回帰
   〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
