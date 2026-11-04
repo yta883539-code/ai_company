@@ -17,7 +17,9 @@ LLM API呼び出しはこれまで通りオーナー承認待ちのまま未実�
 
 mvp-flow-draft.mdの入力4要素(`capacity`・`entry_exit_points`・`admission_type`・`staffing`・
 `outdoor_queue`)の組み合わせから、以下のケース群を想定する(schema/validate_test_cases.pyの
-既存12件〈G1〜G4・OOS系・II系・ネガティブ3件〉をベースに、実LLM投入用に入力メモ文面化する)。
+TEST_CASES12件〈G1〜G9・OOS1〜2・II1〉+NEGATIVE_CASE系10件(フェーズ91確認。本文書作成〈フェーズ23〉時点の
+「G1〜G4・OOS系・II系・ネガティブ3件」という記載は、その後のフェーズ(G5〜G9・ネガティブケース追加)で
+実態とずれていたため訂正)をベースに、実LLM投入用に入力メモ文面化する)。
 
 | # | 厳守事項 | 検証観点 | 判定方法 | 対象ケース |
 |---|---|---|---|---|
