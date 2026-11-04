@@ -1708,3 +1708,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-04 10:00 UTC(フェーズ79: 詳細は上記。venue-name-normalization-
   design.mdの段階的マッチング設計を`prototype/venue_matcher.py`として初めて実コード化し、
   テスト〈21アサーション〉を新規追加。既存回帰〈22件・9件・36件〉いずれも変更なしでパス)
+- フェーズ80(2026-11-04 12:00 UTC定例更新): フェーズ79次回候補(2)「match_behaviorの記述
+  不正確箇所(ambiguity-watchlist.json `_meta`との食い違い)の訂正」に対応した。`_meta.
+  match_behavior`は「正式名称・エイリアス完全一致(手順2・3)を試す前の段階で混同注意リストを
+  照合する」という記述になっていたが、フェーズ79で実コード化した`prototype/venue_matcher.py`
+  の実装順序(手順2→3→3.5〈混同注意リスト〉→4)および`_meta.description`の記述(手順3と
+  手順4の間に挟む)とは逆方向(手順2・3より前)になっており矛盾していたため、実装・
+  descriptionに揃えて「手順2・3〈完全一致〉を試した後、手順4〈部分一致フォールバック〉を
+  試す前の段階で照合する(手順3.5)」に訂正し、どのフェーズ・どのファイルで実コード化した
+  かの参照(フェーズ79、2026-11-04 10:00 UTC、prototype/venue_matcher.py)を追記した。
+  `python3 -I -c "import json; json.load(...)"`でJSON構文を検証済み。回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・
+  `python3 -I validate_test_cases.py`(9件、変更なし)・`python3 -I schema/
+  check_venue_master_parity.py`(36件/36件差分なし)・`python3 prototype/
+  test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし。test_venue_matcher.pyは既存の「22件」カウントには含まれない独立実行の
+  ため`-I`なしで実行、フェーズ79と同様)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・LLM呼び出し結果の
+  後処理に結線する設計(実装はオーナー承認・実LLM接続後)、(2)venue-master-draft.mdの各会場の
+  アクセス情報精査の継続(京セラドーム大阪のネーミングライツ契約満了日確認を含む)、(3)他
+  venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 12:00 UTC(フェーズ80: 詳細は上記。ambiguity-watchlist.jsonの
+  `_meta.match_behavior`記述を実装・description記述と整合する内容に訂正。既存回帰
+  〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)

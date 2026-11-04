@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "venue-name-normalization-design.mdの「混同注意リスト」(段階的マッチング手順3〈エイリアス辞書一致〉と手順4〈部分一致フォールバック〉の間に挟む想定)を実ファイル化したもの。フェーズ16(2026-10-30 05:00 UTC)で設計、フェーズ17(本回)で実データ化。venue-master.jsonとは独立管理とする(混同相手が未登録の会場〈名古屋市総合体育館のように、まだvenue-master.jsonに独立エントリを持たない施設〉の場合に参照が壊れるため)。コード実装・外部サービス接続は一切行っていない。",
-    "match_behavior": "入力文字列がentries[].ambiguous_input_patternのいずれかを含む(部分一致)場合、正式名称・エイリアス完全一致を試す前の段階でこのリストを照合する想定。一致時はvenue_matched=falseのまま、noteの留保付き案内を出力に反映する(候補会場を断定しない)。"
+    "match_behavior": "入力文字列がentries[].ambiguous_input_patternのいずれかを含む(部分一致)場合、正式名称完全一致・エイリアス完全一致(手順2・3)を試した後、部分一致フォールバック(手順4)を試す前の段階でこのリストを照合する(手順3.5。prototype/venue_matcher.py フェーズ79実装、2026-11-04 10:00 UTC)。一致時はvenue_matched=falseのまま、noteの留保付き案内を出力に反映する(候補会場を断定しない)。"
   },
   "entries": [
     {
