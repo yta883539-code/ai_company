@@ -61,17 +61,24 @@ def apply_venue_match_postprocessing(itinerary_draft, venue_master, ambiguity_wa
 
 conflictsはLLMの会場認識が実際の会場マスタとどの程度ずれているかを観測するための計測値であり、
 利用者への応答には使わない。将来、conflictsの発生率が高い場合はvenue-name-normalization-
-design.mdのプロンプト設計(会場マスタを一部プロンプトに含めるか等)の見直し材料とする想定だが、
-実LLM接続前の現段階では計測基盤(Cloud Monitoringカスタムメトリクス等)の整備自体が未着手の
-ため、本フェーズではconflictsを戻り値として保持するところまでに留める(ログ出力先の結線は
-次回以降の課題、cloud-monitoring-alert-policy-design.mdの既存設計と合わせて検討する)。
+design.mdのプロンプト設計(会場マスタを一部プロンプトに含めるか等)の見直し材料とする想定である。
+
+フェーズ82(cloud-monitoring-alert-policy-design.md 5節)で、conflicts検出時に
+`logger.warning(..., extra={"json_fields": {"event": "venue_match_conflict", ...}})`を
+呼び出す構造化ログ出力を`apply_venue_match_postprocessing()`に追加した(ログ出力先の結線が
+完了、以下4節参照)。実際にCloud Loggingへ届けるハンドラ設定・Cloud Monitoring側のログベース
+指標作成自体は実Cloud Functionsデプロイ後の課題として残る。
 
 ## 4. 残課題
 
 - Cloud Functionsの実エントリポイント(LLM API呼び出し自体の実装、`apply_venue_match_
   postprocessing()`をどのタイミングで呼ぶか等のリクエストハンドラ配線)は、実LLM接続・
   実際のAPIキー取得(オーナー承認が必要なアクション)後に行う。
-- conflictsのログ出力先(Cloud Monitoring等)の結線は未設計のまま次回以降の課題として残す。
+- conflictsの構造化ログ呼び出し自体はフェーズ82で追加済みだが、実Cloud Functions環境での
+  ロガーハンドラ設定(google-cloud-logging等の構造化ログハンドラ導入)・Cloud Monitoring側の
+  ログベース指標・アラートポリシーの実作成(`gcloud logging metrics create`等)は、GCP
+  プロジェクト作成後にオーナー承認の範囲内で実施する(cloud-monitoring-alert-policy-design.md
+  5節参照)。
 - `day_timetable`・`cost_estimate`・`hashigo_check`は会場マスタの突き合わせ対象外
   (venue_matched/nearest_station_noteを持たない)ため、本後処理の対象外のままとする。
 
@@ -80,6 +87,11 @@ design.mdのプロンプト設計(会場マスタを一部プロンプトに含�
 いない)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は本フェーズでは
 発生していないためpending-approval.mdへの新規追記は不要(既存の承認待ち事項の範囲内で扱う)。
 
-最終更新: 2026-11-04 13:00 UTC(フェーズ81: venue_matcher.pyをLLM構造化出力の後処理に適用する
+最終更新: 2026-11-04 16:00 UTC(フェーズ82: conflicts検出時の構造化ログ出力〈`json_fields.
+event="venue_match_conflict"`〉をapply_venue_match_postprocessing()に追加し、ログ出力先の
+結線を完了。cloud-monitoring-alert-policy-design.md 5節に対応するログベース指標・アラート
+ポリシー設計を追加。詳細はフェーズ81の履歴として以下に残す。
+
+フェーズ81: venue_matcher.pyをLLM構造化出力の後処理に適用する
 `apply_venue_match_postprocessing()`を設計し、prototype/itinerary_draft_postprocessor.pyに
 コード化した)

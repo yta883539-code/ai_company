@@ -96,8 +96,88 @@ Cloud Loggingに記録される(forklift-pasha・kura-pasha等の既存設計と
   `gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後にオーナー
   承認の範囲内で実施する。
 
-最終更新: 2026-11-01 02:00 UTC (フェーズ44: 新規作成。フェーズ43の次回候補(3)に対応し、
-`access_url_resend_handler.py`が意図的に上位へ伝播させる`MultipleActiveSubscriptionsError`・
-`FanPassNotFoundForSubscriptionError`の2例外を対象としたログベース指標・アラートポリシーを
-設計した。本venture用のFirestoreランタイム依存構築失敗アラートは、runtime-dependency-
-switching-design.md相当文書が未作成のため対象外とした。コード変更なし、設計文書のみ。)
+## 5. venue_matcher.py後処理のconflicts検知(フェーズ82追加)
+
+venue-matcher-llm-postprocessing-integration-design.md(フェーズ81)3節・4節で「次回以降の
+課題」としていた、`apply_venue_match_postprocessing()`が検出するconflicts(LLM自己申告の
+venue_matchedとvenue_matcher.pyの判定が食い違うケース)のログ出力先の結線に対応する。
+
+1節・2節の2例外とは異なり、conflictsは「異常系ではなく観測対象の計測値」(3節参照)という
+位置づけのため、本節は1節・2節とは別の指標として設計する。
+
+### 5.1 ログ出力(実コード化済み)
+
+`prototype/itinerary_draft_postprocessor.py`(フェーズ82)で、conflicts検出ごとに以下の
+構造化ログを出力するよう実装した。
+
+```python
+logger.warning(
+    "venue_match_conflict: %s",
+    conflict,
+    extra={"json_fields": {"event": "venue_match_conflict", **conflict}},
+)
+```
+
+`json_fields`には`event`に加えconflictの4フィールド(`venue_name_input`・
+`llm_claimed_matched`・`matcher_matched`・`match_confidence`)がそのまま展開される。1節の
+2例外(未捕捉例外がランタイムへ伝播し、Cloud Functionsの標準ログとして`textPayload`に
+記録される方式)とは異なり、本件はアプリケーションコード側で`logging`モジュールを明示的に
+呼び出す設計であるため、Cloud Logging向け構造化ログハンドラ(`google-cloud-logging`の
+`StructuredLogHandler`等)を導入すれば`jsonPayload`に展開される想定(他venture側の
+`runtime-dependency-switching-design.md`の`logger.exception(..., extra={"json_fields":
+...})`方式と同じ)。ハンドラ自体の導入・設定は5.3節のとおり実デプロイ時の課題として残す。
+
+### 5.2 ログベース指標(Log-based Metric)
+
+- 指標3: `oshien_pasha_venue_match_conflict_count`
+  - フィルタ:
+    ```
+    resource.type="cloud_run_revision"
+    severity="WARNING"
+    jsonPayload.event="venue_match_conflict"
+    ```
+  - 種別: カウンタ型(該当ログ1件ごとに1カウント)。
+
+### 5.3 アラートポリシー(1節・2節との違い)
+
+1節・2節の2例外は「単一プラン前提の崩れ」「Webhook処理の不整合」という即時対応が必要な
+不整合状態を示すため「60分で1件以上」の即時アラートとしたが、conflictsはLLMが学習時点の
+知識で会場名を自己申告する以上、venue-master.jsonの更新(命名権改称・休館等)直後は
+一定数発生することが想定内であり、1件発生ごとにアラートを鳴らす設計は適切ではない
+(venue-matcher-llm-postprocessing-integration-design.md 1節参照)。
+
+- 条件: 「直近24時間でのべ10件以上」発生した場合に発火するしきい値アラート(`count >= 10`、
+  ローリングウィンドウ24時間、集計は`sum`)。単発の表記揺れ的な食い違いではなく、
+  venue-master.jsonの更新漏れやプロンプト設計そのものの見直しが必要な規模の継続的なずれを
+  検知する目的のため、1節・2節より緩いしきい値・長いウィンドウとする。
+- 発火時の対応想定: 発火した場合、ログの`venue_name_input`の内訳を確認し、(a)特定の会場に
+  集中していればvenue-master.json側の更新漏れ(命名権改称・休館等)の可能性、(b)多数の
+  会場に分散していればvenue-name-normalization-design.mdのプロンプト設計(会場マスタの一部を
+  プロンプトに含めるか等)自体の見直し材料とする(3節の想定を踏襲)。
+- 通知チャネル: 1節・2節と同じCloud Monitoring標準のメール通知チャネル
+  (`OWNER_ALERT_EMAIL_PLACEHOLDER`)を用いる。
+
+### 5.4 スコープ外
+
+- Cloud Logging向け構造化ログハンドラの実導入・設定、ログベース指標・アラートポリシーの
+  実作成(`gcloud logging metrics create`等)は、4節と同様GCPプロジェクト作成後にオーナー
+  承認の範囲内で実施する。
+- `apply_venue_match_postprocessing()`を実際にいつ呼ぶか(Cloud Functionsエントリポイントへの
+  結線)自体は、実LLM接続後の課題(venue-matcher-llm-postprocessing-integration-design.md
+  4節)のまま変わらない。
+
+最終更新: 2026-11-04 16:00 UTC (フェーズ82: venue-matcher-llm-postprocessing-integration-
+design.mdフェーズ81の次回候補(1)に対応し、conflicts検知の構造化ログ出力〈`json_fields.
+event="venue_match_conflict"`〉をprototype/itinerary_draft_postprocessor.pyに追加、対応する
+ログベース指標・アラートポリシー〈5節〉を設計した。1節・2節の即時アラート方針とは異なり、
+24時間10件以上という緩いしきい値を採用した理由を明記。新規テスト5アサーション追加〈構造化
+ログ出力の検証2件・ログ出力なしケースの検証〉、既存回帰〈22件・9件・36件・21アサーション・
+20アサーション〉含め全て変更なしでパス。承認が必要なアクションは今回発生していないため
+pending-approval.mdへの追記なし。)
+
+最終更新(フェーズ44の記録): 2026-11-01 02:00 UTC (フェーズ44: 新規作成。フェーズ43の次回
+候補(3)に対応し、`access_url_resend_handler.py`が意図的に上位へ伝播させる
+`MultipleActiveSubscriptionsError`・`FanPassNotFoundForSubscriptionError`の2例外を対象とした
+ログベース指標・アラートポリシーを設計した。本venture用のFirestoreランタイム依存構築失敗
+アラートは、runtime-dependency-switching-design.md相当文書が未作成のため対象外とした。
+コード変更なし、設計文書のみ。)

@@ -1755,3 +1755,32 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   後処理に適用する`apply_venue_match_postprocessing()`を設計し、prototype/itinerary_draft_
   postprocessor.pyに初めて実コード化。新規テスト20アサーション追加、既存回帰
   〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
+- フェーズ82(2026-11-04 16:00 UTC定例更新): フェーズ81次回候補(1)「conflictsのログ出力先
+  (Cloud Monitoring等)の結線設計」に対応した。`prototype/itinerary_draft_postprocessor.py`の
+  `apply_venue_match_postprocessing()`に、conflicts検出時の構造化ログ出力(`logger.warning(
+  ..., extra={"json_fields": {"event": "venue_match_conflict", ...}})`)を追加し、1節・2節の
+  未捕捉例外ログ(`textPayload`方式)とは別の`jsonPayload.event`方式での検知を可能にした。
+  cloud-monitoring-alert-policy-design.md 5節に、対応するログベース指標
+  `oshien_pasha_venue_match_conflict_count`とアラートポリシーを新規追加した。conflictsは
+  LLMの会場名自己申告がvenue-master.json更新直後等に一定数食い違うことが想定内であるため、
+  1節・2節(60分・1件以上で即時発火)より緩い「24時間でのべ10件以上」のしきい値を採用した
+  理由を明記した。venue-matcher-llm-postprocessing-integration-design.md 3節・4節の「次回
+  以降の課題」としていたログ出力先の結線が完了した旨を反映した。
+  `prototype/test_itinerary_draft_postprocessor.py`に構造化ログ出力の検証(json_fields.event・
+  venue_name_input・matcher_matchedの内容確認)とログ出力なしケースの検証を追加し新規5
+  アサーション追加(PASS=25 FAIL=0)、既存回帰として`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`(22件、変更なし)・`python3 -I validate_test_cases.py`(9件、
+  変更なし)・`python3 -I schema/check_venue_master_parity.py`(36件/36件差分なし)・
+  `python3 prototype/test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも
+  変更なしでパスすることを確認した(回帰なし)。実Cloud Loggingハンドラ設定・ログベース
+  指標・アラートポリシーの実作成(`gcloud logging metrics create`等)はGCPプロジェクト作成後
+  の課題として残した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・実LLM呼び出し結果に
+  結線する実装(実装はオーナー承認・実LLM接続後)、(2)venue-master-draft.mdの各会場のアクセス
+  情報精査の継続(京セラドーム大阪のネーミングライツ契約満了日確認を含む)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-04 16:00 UTC(フェーズ82: 詳細は上記。conflicts検出時の構造化ログ出力を
+  apply_venue_match_postprocessing()に追加し、対応するCloud Monitoringログベース指標・
+  アラートポリシーを設計。新規テスト5アサーション追加、既存回帰
+  〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)

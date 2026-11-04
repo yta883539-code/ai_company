@@ -6,9 +6,21 @@ venue_matcher.match_venue()の判定結果でvenue_matched・nearest_station_not
 出典付きで管理されているため、判定はvenue_matcher.py側を常に優先する(設計doc 1節)。
 
 実LLM呼び出し・Cloud Functionsへの実配線は行わない(オーナー承認が必要な範囲)。
+
+フェーズ82(cloud-monitoring-alert-policy-design.md 5節)でconflicts検知を構造化ログに
+結線した。本venture・他venture既存のCloud Functions未捕捉例外ログと同じ
+`extra={"json_fields": {"event": "..."}}`方式に揃え、Cloud Monitoring側のログベース指標
+`jsonPayload.event="venue_match_conflict"`でフィルタできるようにする。実際のロガー設定
+(ハンドラ・フォーマッタ、Cloud Logging向け構造化ログハンドラの導入)は実Cloud Functions
+デプロイ時に行う前提で、本フェーズでは`logging.getLogger(__name__)`への呼び出し追加のみ
+行う(外部サービスへの接続は一切行っていない)。
 """
 
+import logging
+
 from venue_matcher import match_venue
+
+logger = logging.getLogger(__name__)
 
 
 def apply_venue_match_postprocessing(itinerary_draft, venue_master, ambiguity_watchlist=None):
@@ -36,13 +48,17 @@ def apply_venue_match_postprocessing(itinerary_draft, venue_master, ambiguity_wa
             note = f"{note} {match['operational_status_note']}"
 
         if item.get("venue_matched") != match["venue_matched"]:
-            conflicts.append(
-                {
-                    "venue_name_input": item["venue_name_input"],
-                    "llm_claimed_matched": item.get("venue_matched"),
-                    "matcher_matched": match["venue_matched"],
-                    "match_confidence": match["match_confidence"],
-                }
+            conflict = {
+                "venue_name_input": item["venue_name_input"],
+                "llm_claimed_matched": item.get("venue_matched"),
+                "matcher_matched": match["venue_matched"],
+                "match_confidence": match["match_confidence"],
+            }
+            conflicts.append(conflict)
+            logger.warning(
+                "venue_match_conflict: %s",
+                conflict,
+                extra={"json_fields": {"event": "venue_match_conflict", **conflict}},
             )
 
         new_item = dict(item)

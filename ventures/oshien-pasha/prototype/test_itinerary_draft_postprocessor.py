@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from itinerary_draft_postprocessor import apply_venue_match_postprocessing
@@ -171,6 +172,82 @@ def test_multiple_venues_processed_independently() -> None:
     )
 
 
+def test_conflict_emits_structured_warning_log() -> None:
+    master = _load_master()
+    draft = [
+        {
+            "venue_name_input": "東京ドーム",
+            "venue_matched": False,
+            "nearest_station_note": "ダミー",
+            "lodging_area_candidates": [],
+            "transport_note": "",
+        }
+    ]
+    logger = logging.getLogger("itinerary_draft_postprocessor")
+    records: list[logging.LogRecord] = []
+
+    class _CollectingHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _CollectingHandler()
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    try:
+        apply_venue_match_postprocessing(draft, master)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+    check("conflict log: exactly one warning emitted", len(records) == 1)
+    if records:
+        fields = getattr(records[0], "json_fields", {})
+        check(
+            "conflict log: json_fields.event is venue_match_conflict",
+            fields.get("event") == "venue_match_conflict",
+        )
+        check(
+            "conflict log: json_fields carries venue_name_input",
+            fields.get("venue_name_input") == "東京ドーム",
+        )
+        check(
+            "conflict log: json_fields carries matcher_matched=True",
+            fields.get("matcher_matched") is True,
+        )
+
+
+def test_no_conflict_emits_no_log() -> None:
+    master = _load_master()
+    draft = [
+        {
+            "venue_name_input": "東京ドーム",
+            "venue_matched": True,
+            "nearest_station_note": "ダミー",
+            "lodging_area_candidates": [],
+            "transport_note": "",
+        }
+    ]
+    logger = logging.getLogger("itinerary_draft_postprocessor")
+    records: list[logging.LogRecord] = []
+
+    class _CollectingHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _CollectingHandler()
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.WARNING)
+    try:
+        apply_venue_match_postprocessing(draft, master)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+    check("no conflict: no warning emitted", len(records) == 0)
+
+
 def main() -> int:
     test_none_itinerary_draft_passthrough()
     test_exact_match_overwrites_llm_false_claim()
@@ -178,6 +255,8 @@ def main() -> int:
     test_closed_venue_appends_operational_status_note()
     test_ambiguity_watchlist_entry_produces_no_conflict_when_llm_agrees()
     test_multiple_venues_processed_independently()
+    test_conflict_emits_structured_warning_log()
+    test_no_conflict_emits_no_log()
     print(f"PASS={PASS} FAIL={FAIL}")
     return 0 if FAIL == 0 else 1
 
