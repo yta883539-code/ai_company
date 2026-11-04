@@ -2036,3 +2036,23 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-04 01:00 UTC(フェーズ92: llm-quality-verification-plan.mdの件数記載
   〈既存12件→TEST_CASES12件+NEGATIVE_CASE系10件〉をコード実態に合わせて訂正。コード変更
   なし、既存テスト79件・schema検証22件いずれも変更なしでパス)
+- フェーズ93(2026-11-04 19:00 UTC定例更新): aircon-pasha・course-set-pasha・kura-pasha・
+  line-reservation-aiはいずれもunit-economics-estimate.md(決済手数料+Firestore原価+
+  LLM API原価を統合した最終粗利率試算)を作成済みだが、本ventureのみ未作成で、
+  pricing-plan.md・llm-api-cost-estimate.mdの2ファイルに試算が分かれたままになっていた
+  横展開ギャップを発見・解消した。unit-economics-estimate.mdを新規作成し、本venture固有の
+  都度決済(one-time-checkout-no-account-design.md)を踏まえ、継続課金venture群の決済手数料
+  仮定4.3%とは別に一回払いの手数料仮定3.6%(一次情報未確認、要検証)を設定した上で、
+  単発利用(500円)・プラン従量分(250円/200円)・月額プラン実質単価(260円/198円)それぞれの
+  粗利率(94.0〜95.9%)を試算した。コード変更なし(Markdownドキュメント新規作成のみ)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(79件、変更なし)・
+  `python3 schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)決済手数料3.6%仮定のStripe公式料金ページでの一次情報確認、(2)層2(単発屋内
+  トークイベント・ポップアップ公演の主催者)の探索手法の再検討(フェーズ19〜21から継続する
+  残課題)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 19:00 UTC(フェーズ93: unit-economics-estimate.md新規作成。決済手数料
+  〈都度払い3.6%仮定〉+Firestore原価+LLM API原価を統合し、単発利用・プラン従量分・月額
+  プラン実質単価の粗利率94.0〜95.9%を試算。コード変更なし、既存テスト79件・schema検証22件
+  いずれも変更なしでパス)
