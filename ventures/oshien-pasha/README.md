@@ -1662,3 +1662,49 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-04 09:00 UTC(フェーズ78: 詳細は上記。京セラドーム大阪のネーミング
   ライツ契約満了日確認のため大阪市建設局のPDF資料を候補ソースとして新たに発見したが、本
   環境のネットワーク制限により内容を確認できず未確定のまま。verification_noteに記録)
+- フェーズ79(2026-11-04 10:00 UTC定例更新): フェーズ78次回候補(2)「会場名表記揺れの名寄せ
+  方法の検討の継続」に対応し、venue-name-normalization-design.md(フェーズ16/17/22/25)で
+  机上設計のみに留まっていた段階的マッチング(1.正規化→2.正式名称完全一致→3.エイリアス
+  完全一致→3.5.混同注意リスト〈ambiguity-watchlist.json〉照合→4.部分一致フォールバック→
+  5.非該当)を`prototype/venue_matcher.py`として初めて実コード化した。実装時に設計文書の
+  記述上の曖昧さを1件発見・解消した: venue-name-normalization-design.mdの手順4の例示
+  「ナゴヤドーム前」(駅名寄りの入力)は、文中の説明文「入力文字列が正式名称またはエイリ
+  アスの部分文字列として含まれるか」をそのまま実装すると逆方向(入力が候補の部分文字列か)
+  になってしまい例示と矛盾するため、例示に合わせて「候補(正式名称・エイリアス)が入力の
+  部分文字列として含まれるか」の方向で実装した。混同注意リストの照合順序についても、
+  ambiguity-watchlist.json `_meta.description`(手順3〈エイリアス完全一致〉と手順4〈部分
+  一致〉の間に挟む)と`match_behavior`(完全一致を試す前に照合する)の記述に軽い食い違いが
+  あったが、「Kアリーナ」「日本ガイシ」等のambiguous_input_patternがいずれも既存エイリアス
+  辞書には登録されていない(意図的に未登録、venue-name-normalization-design.md既出)ため、
+  手順3実行後に手順3.5を置く`_meta`どおりの順序で実装しても実質的な挙動の差は生じないことを
+  確認した上で、`_meta`の順序を採用した(match_behaviorの記述が不正確である点は本フェーズの
+  コメントで申し送るに留め、ドキュメント本体の訂正は次回以降とする)。`operational_status`
+  (フェーズ20で追加済みのデータ)についても、venue-operational-status-output-reflection-
+  design.md(3節)が設計していた`venue_operational_status_note`生成ロジック(closed/
+  uncertain時の定型注意文、active時はnull)を内部フィールド`operational_status_note`として
+  同じモジュール内に実装した(同design.mdが明記するとおりschema/output.schema.json本体の
+  改訂〈match_confidence等のenum拡張〉は実LLM安定生成未検証のため見送り、今回もスキーマ
+  本体・llm-system-prompt-draft.mdの変更は行っていない。戻り値の`match_confidence`・
+  `operational_status_note`はあくまで将来のスキーマ拡張に備えた内部情報)。
+  `prototype/test_venue_matcher.py`を新規作成し、schema/venue-master.json・schema/
+  ambiguity-watchlist.jsonの実データを直接読み込む形で8ケース(正式名称完全一致、全角
+  スペース混在入力の正規化、エイリアス完全一致、混同注意リスト優先〈「日本ガイシ」単独
+  入力が部分一致フォールバックより先に混同注意として処理されることを確認〉、部分一致
+  フォールバックの留保付きnote、非該当、closed会場のoperational_status_note、active会場
+  でのoperational_status_note=None)を検証し、他prototypeテスト(test_fan_pass_store.py等)
+  と同じ素朴なassertベース形式で全21アサーションパスを確認した(`python3
+  prototype/test_venue_matcher.py`、PASS=21 FAIL=0。既存のunittest discover対象〈TestCase
+  形式〉には該当しないため、既存の「22件」カウントには含まれない)。回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・
+  `python3 -I validate_test_cases.py`(9件、変更なし)・`python3 -I schema/
+  check_venue_master_parity.py`(36件/36件差分なし)を実行しいずれも変更なしでパスすること
+  を確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・LLM呼び出し結果の
+  後処理に結線する設計(実装はオーナー承認・実LLM接続後)、(2)match_behaviorの記述不正確
+  箇所(ambiguity-watchlist.json `_meta`との食い違い)の訂正、(3)venue-master-draft.mdの
+  各会場のアクセス情報精査の継続(京セラドーム大阪のネーミングライツ契約満了日確認を含む)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 10:00 UTC(フェーズ79: 詳細は上記。venue-name-normalization-
+  design.mdの段階的マッチング設計を`prototype/venue_matcher.py`として初めて実コード化し、
+  テスト〈21アサーション〉を新規追加。既存回帰〈22件・9件・36件〉いずれも変更なしでパス)
