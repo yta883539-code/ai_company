@@ -6763,3 +6763,36 @@
   missing_fields_request・subscription_procedure_notice.body・checkout_notice.bodyの
   4件に拡張しcross-field parityギャップを解消。テスト5件追加〈802件〉・schema検証25件
   いずれもパス)
+- フェーズ360(2026-11-04 23:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ359の「次回候補(2)」(check_message_length_within_line_limit()対象フィールド
+  不足ギャップの他venture横展開確認)に着手する前に、フェーズ359自体の実装を読み直したところ、
+  拡張したチェック関数自体ではなく呼び出し元cloud_function_webhook.pyの`validate_llm_output()`
+  が`if instance.get("status") == "generated"`のときのみ`run_all_checks(instance)`を呼ぶ
+  従来のガードのままだったことに気づいた。out_of_scope_message等の4フィールドはいずれも
+  status!="generated"のときのみ非nullとなる設計(mutually exclusive)であるため、
+  このガードが残っている限り拡張した4フィールドのチェックは実行条件(status=="generated"
+  かつ当該フィールドが非null)が両立せず、一度も実行されないdead codeになっていた。
+  実際にstatus=out_of_scopeでout_of_scope_messageを6,000文字(上限超過)にしたインスタンスを
+  `validate_llm_output()`に通して検証エラー0件であることを再現確認した上で、
+  `run_all_checks(instance)`の呼び出しをstatus分岐の外に移し無条件実行に変更した
+  (run_all_checks内の他の検定済みチェックはいずれも対象セクションがNoneの場合を安全に
+  スキップする設計であることをコードで確認済みのため、非generatedステータスで新たな例外は
+  発生しない)。character-limit-fallback-design.md「残課題」に本件を追記し、同じ再現手順を
+  固定する回帰テスト`test_out_of_scope_message_over_line_limit_is_detected`を追加した。
+  修正後は同インスタンスで`LENGTH_LIMIT_EXCEEDED`エラーが検出されることを確認した。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (既存802件+新規1件=803件、全件パス)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)同種の「チェック関数自体は拡張したが呼び出し元のstatus分岐ガードが更新されずdead
+  codeになる」パターンが他venture(course-set-pasha・kura-pasha等)のstatus分岐構造にも
+  潜んでいないかの横展開確認(今回はaircon-pasha単体の発見・解消に限定したため未着手)、
+  (3)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 23:00 UTC(フェーズ360: 詳細は上記。
+  validate_llm_output()のrun_all_checks呼び出しをstatus=="generated"限定から無条件実行に
+  変更し、フェーズ359で拡張した4フィールドのチェックが実行されないdead codeだった不具合を
+  解消。回帰テスト1件追加〈803件〉・schema検証25件いずれもパス)

@@ -2309,6 +2309,22 @@ class ValidateLlmOutputTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             format_reply_text({"status": "unexpected_status"})
 
+    def test_out_of_scope_message_over_line_limit_is_detected(self):
+        """フェーズ360の回帰テスト。フェーズ359でcheck_message_length_within_line_limit()を
+        out_of_scope_message等の4フィールドにも拡張したが、validate_llm_output()側が
+        run_all_checksの呼び出しをstatus=="generated"限定のままにしていたため、
+        status=out_of_scope等では拡張したチェックが一度も実行されないdead codeになっていた
+        (character-limit-fallback-design.md参照)。本テストはこの回帰を防ぐ。"""
+        instance = dict(TEST_CASES["OOS1_reservation_question"])
+        instance["out_of_scope_message"] = "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)
+
+        errors = validate_llm_output(instance)
+
+        self.assertTrue(
+            any("out_of_scope_message" in e and "LINE_LENGTH_LIMIT_EXCEEDED" in e for e in errors),
+            errors,
+        )
+
 
 class VerifyLineSignatureTest(unittest.TestCase):
     """verify_line_signature()のテスト(webhook-http-entry-point-design.md 1節、フェーズ115)。"""

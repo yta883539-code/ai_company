@@ -799,8 +799,15 @@ def validate_llm_output(instance: dict) -> list[str]:
         return errors
 
     errors += validate_cross_field_rules(instance)
-    if instance.get("status") == "generated":
-        errors += run_all_checks(instance)
+    # フェーズ359でcheck_message_length_within_line_limit()をstatus=generated以外の
+    # 4フィールド(out_of_scope_message等)にも拡張したが、ここが依然status=="generated"
+    # 限定のままだったため、当の4フィールドはrun_all_checksが呼ばれる状況
+    # (=status=="generated")では常にnull(mutually exclusive)であり、拡張したチェックが
+    # 実質的に一度も実行されないdead codeになっていた(フェーズ360で発見・是正)。
+    # run_all_checks内の他チェックはいずれもNoneのセクションを安全にスキップする設計
+    # (post_generation_checks.py各関数の`if section is None: return errors`相当)なため、
+    # 無条件呼び出しに変更しても非generatedステータスで不正な例外は発生しない。
+    errors += run_all_checks(instance)
     return errors
 
 

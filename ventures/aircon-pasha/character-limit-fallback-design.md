@@ -108,3 +108,19 @@ Python の `len(str)` はUnicodeコードポイント数を返すため、その
   検出時は既存の仕組みのまま`LENGTH_LIMIT_FALLBACK_MESSAGE`に差し替わる(コード変更なし
   で既存のcloud_function_webhook.py側の分岐をそのまま再利用できることを確認済み)。テスト5件
   追加(802件)・schema検証25件いずれも変更なしでパス)。
+- (解消済み 2026-11-04 23:00 UTC・フェーズ360: フェーズ359で`check_message_length_within_
+  line_limit()`自体は4フィールドに拡張したが、呼び出し元のcloud_function_webhook.py
+  `validate_llm_output()`が`if instance.get("status") == "generated": errors +=
+  run_all_checks(instance)`という従来のガードのままだったため、この4フィールド
+  (out_of_scope_message・missing_fields_request・subscription_procedure_notice.body・
+  checkout_notice.body)はstatus!="generated"のときのみ非nullになる設計上、実際には
+  run_all_checksが一度も呼ばれない状態(=拡張したチェック自体がdead code)になっていた
+  ことを発見した。実際にstatus=out_of_scopeでout_of_scope_messageを6,000文字(上限超過)
+  にしたインスタンスをvalidate_llm_output()へ通すと検証エラーが0件になることを再現確認
+  した上で、`validate_llm_output()`の`run_all_checks(instance)`呼び出しを
+  status分岐の外へ移し無条件実行に変更した(run_all_checks内の他チェックはいずれも
+  対象セクションがNoneの場合を安全にスキップする設計のため、非generatedステータスで
+  新たな例外は発生しないことを確認済み)。回帰テストとして
+  `test_out_of_scope_message_over_line_limit_is_detected`を追加し、同じ再現手順で
+  検証エラーが検出されることを確認した。既存テスト802件+新規1件=803件・schema検証
+  25件いずれもパス(回帰なし)。
