@@ -1611,3 +1611,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   CIワークフローに追加し、draft.md⇔venue-master.jsonのparity gapをコミット時に自動検知
   できるようにした。コード変更は.github/workflows/oshien-pasha-tests.ymlのみ、既存テスト
   22件・schema検証9件いずれも変更なしでパス)
+- フェーズ77(2026-11-04 08:00 UTC定例更新): フェーズ74・75と同種のcross-file parityギャップを
+  発見・是正した。フェーズ73〜76の「次回候補」欄が繰り返し「(3)都度プラン⇔月額フリーパスの
+  プラン変更時の扱いの検討(pricing-plan.md既出の残課題)」と、未解決であるかのように記載して
+  いたが、実際にはplan-change-billing-design.md(フェーズ11、2026-10-29 23:00 UTC)で既に
+  一次結論(都度プランは役務提供完了により残存が発生せず、月額フリーパスは「期間終了時解約」
+  方式で既払い分がそのまま消化されるため、残存クレジットの別途管理構造は不要)が出ており、
+  venue-master-data-structure-design.mdの次回候補(フェーズ47時点)ではこの一次結論が正しく
+  反映され「短期間内の連続プラン切替時の初回割引のみが未決」と正確に記載されていた一方、
+  tech-stack.mdの「次のステップ候補」とREADME.mdの直近フェーズの「次回候補」欄では一次結論
+  前の古い表現がそのまま使い回され続けていたcross-file parityギャップであることをgrep調査
+  (`grep -rn "残存クレジット\|都度プラン⇔月額"`)で確認した。tech-stack.mdの該当箇所を、
+  plan-change-billing-design.mdの一次結論内容と、残る未決事項(短期間内連続切替時の初回割引の
+  み)を明記する記述に訂正した。コード変更なし、回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・
+  `python3 -I validate_test_cases.py`(9件、変更なし)・
+  `python3 -I schema/check_venue_master_parity.py`(36件/36件差分なし)を実行しいずれも
+  変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue-master-draft.mdの各会場のアクセス情報精査の継続、(2)会場名表記揺れの
+  名寄せ方法の検討、(3)短期間内の連続プラン切替時の初回割引の再検討(実利用データ観察後、
+  plan-change-billing-design.md 5節既出の残課題)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 08:00 UTC(フェーズ77: 詳細は上記。tech-stack.md・README.mdの直近
+  フェーズで使い回されていた「都度プラン⇔月額フリーパスのプラン変更時の扱い」に関する
+  一次結論前の古い記載〈フェーズ11で既に解決済み〉を訂正。コード変更なし、既存テスト22件・
+  schema検証9件・venue parity検証いずれも変更なしでパス)
