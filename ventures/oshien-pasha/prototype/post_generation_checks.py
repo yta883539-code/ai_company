@@ -73,8 +73,34 @@ def check_no_emoji_anywhere(instance):
     return errors
 
 
+HEADING_BRACKET_PATTERN = re.compile("[【】]")
+
+
+def check_no_heading_brackets_anywhere(instance):
+    """aircon-pasha・event-komiguai-pasha・kura-pasha・forklift-pashaのpost_generation_
+    checks.pyに実装済みのcheck_no_heading_brackets_anywhere()相当(cross-venture parity)。
+    tone-and-manner-guideline.md・llm-system-prompt-draft.mdを確認したところ、本venture
+    (oshien-pasha)の出力文言・schema/output.schema.jsonのいずれにも【】見出し記法を意図的に
+    使う設計上の例外は存在しない(他venture(aircon-pasha)の【ご確認のお願い】のような、LLM
+    構造化出力の対象フィールド外でハードコードされる特定文言も本ventureには存在しない)ことを
+    確認した。したがってcheck_no_emoji_anywhere()と同じ全文字列再帰走査方式で、インスタンス
+    内の全文字列フィールドに【または】が1個でも含まれていないかを確認する(個別フィールドの
+    除外は設けない)。"""
+    errors = []
+    for path, text in _iter_string_leaves(instance):
+        matches = HEADING_BRACKET_PATTERN.findall(text)
+        if matches:
+            errors.append(
+                f"{path}: 見出し記法【】が{len(matches)}個含まれています"
+                f"(tone-and-manner-guideline.md準拠チェック、本ventureは【】見出し使用に"
+                f"例外なし): {text!r}"
+            )
+    return errors
+
+
 def run_all_checks(instance):
     """後処理チェックをまとめて実行し、エラーメッセージのリストを返す。"""
     errors = []
     errors += check_no_emoji_anywhere(instance)
+    errors += check_no_heading_brackets_anywhere(instance)
     return errors

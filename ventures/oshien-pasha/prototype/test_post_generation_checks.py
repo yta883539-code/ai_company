@@ -18,6 +18,7 @@ from validate_test_cases import TEST_CASES  # noqa: E402
 
 from post_generation_checks import (  # noqa: E402
     check_no_emoji_anywhere,
+    check_no_heading_brackets_anywhere,
     run_all_checks,
 )
 
@@ -98,6 +99,50 @@ class CheckNoEmojiAnywhereTest(unittest.TestCase):
             "hashigo_check": {"applicable": False, "risk_level": None, "note": None},
         }
         self.assertEqual(check_no_emoji_anywhere(instance), [])
+
+
+class CheckNoHeadingBracketsAnywhereTest(unittest.TestCase):
+    def test_out_of_scope_message_with_heading_brackets_is_flagged(self):
+        instance = {
+            "status": "out_of_scope",
+            "out_of_scope_message": "【ご確認ください】実際の予約・決済代行は行っておりません。",
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_nested_itinerary_draft_field_with_heading_brackets_is_flagged(self):
+        instance = {
+            "itinerary_draft": [
+                {
+                    "venue_name_input": "東京ドーム",
+                    "nearest_station_note": "【注意】水道橋駅から徒歩5分前後。",
+                }
+            ]
+        }
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("itinerary_draft[0].nearest_station_note", errors[0])
+
+    def test_multiple_brackets_in_single_field_are_counted(self):
+        instance = {"missing_fields_request": "【必須】会場名をお知らせください【任意】日程も"}
+        errors = check_no_heading_brackets_anywhere(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("4個", errors[0])
+
+    def test_text_without_heading_brackets_is_not_flagged(self):
+        instance = {
+            "out_of_scope_message": "本サービスは遠征プランの下書き生成支援のみを行っております。",
+            "cost_estimate": {"note": "予算総額の目安内訳です。"},
+        }
+        self.assertEqual(check_no_heading_brackets_anywhere(instance), [])
+
+    def test_all_fixture_cases_pass_heading_brackets_check(self):
+        for case_id, raw_instance in TEST_CASES.items():
+            instance = {k: v for k, v in raw_instance.items() if not k.startswith("_")}
+            with self.subTest(case=case_id):
+                errors = check_no_heading_brackets_anywhere(instance)
+                self.assertEqual(errors, [], f"{case_id}: {errors}")
 
 
 class SingleFixtureMutationTest(unittest.TestCase):

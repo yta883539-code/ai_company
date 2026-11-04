@@ -1563,3 +1563,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   と比較表が、フェーズ7・34・35・39等で既に解消済みの内容を「未解決」のまま反映していな
   かったcross-file parityギャップを訂正。コード変更なし、既存テスト17件・schema検証9件
   いずれも変更なしでパス)
+- フェーズ75(2026-11-04 05:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (aircon-pasha)ではなく、より長く放置されていた本ventureのcross-venture parityギャップに
+  対応した。aircon-pashaフェーズ357・358等で解消済みのcheck_no_heading_brackets_anywhere()
+  (見出し記法【】不使用の機械チェック)が、対象5venture(aircon-pasha・event-komiguai-pasha・
+  kura-pasha・forklift-pasha・course-set-pasha)の横展開確認では本venture(oshien-pasha)が
+  対象に含まれておらず、実際にprototype/post_generation_checks.pyに未実装のまま残っていた
+  ことをgrep調査で発見した(line-reservation-aiは別スレッドのフェーズ続き366で導入対象外と
+  結論済みだが、本ventureはそのいずれにも含まれていなかった)。tone-and-manner-guideline.md・
+  llm-system-prompt-draft.md・validate_test_cases.pyのTEST_CASES・schema/output.schema.json
+  を確認し、本ventureの出力文言に【】見出し記法を意図的に用いる設計上の例外(他venture
+  (aircon-pasha)の【ご確認のお願い】のようなハードコード文言)が存在しないことを確認した
+  上で、既存のcheck_no_emoji_anywhere()と同じ全文字列再帰走査方式(`_iter_string_leaves()`)
+  を再利用してHEADING_BRACKET_PATTERN・check_no_heading_brackets_anywhere()を新規実装し、
+  run_all_checks()に追加した。prototype/test_post_generation_checks.pyにCheckNoHeading
+  BracketsAnywhereTestクラスを新規追加(【】混入検出4ケース+既存TEST_CASES全件が本チェックに
+  違反しないことの確認1ケース=5ケース)。既存関数の変更は行わず新規追加のみ、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(既存17件+新規5件=22件、全件
+  パス)・`python3 validate_test_cases.py`(9件、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue-master-draft.mdの各会場のアクセス情報精査の継続、(2)会場名表記揺れの
+  名寄せ方法の検討、(3)都度プラン⇔月額フリーパスのプラン変更時の扱いの検討(pricing-plan.md
+  既出の残課題)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 05:00 UTC(フェーズ75: 詳細は上記。check_no_heading_brackets_anywhere()
+  を新規実装し、本ventureが対象5venture横展開確認から漏れていたcross-venture parityギャップ
+  を解消。テスト5件追加〈22件〉・schema検証9件いずれもパス)
