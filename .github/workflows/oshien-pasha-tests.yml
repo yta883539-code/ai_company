@@ -26,3 +26,7 @@ jobs:
         working-directory: ventures/oshien-pasha
         run: |
           python3 validate_test_cases.py
+      - name: Check venue-master-draft.md / venue-master.json parity
+        working-directory: ventures/oshien-pasha
+        run: |
+          python3 schema/check_venue_master_parity.py

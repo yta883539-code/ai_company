@@ -1589,3 +1589,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-04 05:00 UTC(フェーズ75: 詳細は上記。check_no_heading_brackets_anywhere()
   を新規実装し、本ventureが対象5venture横展開確認から漏れていたcross-venture parityギャップ
   を解消。テスト5件追加〈22件〉・schema検証9件いずれもパス)
+- フェーズ76(2026-11-04 06:00 UTC定例更新): フェーズ72次回候補(1)
+  「check_venue_master_parity.pyを既存テストスイート・CIへ組み込み、将来の追記時に自動実行
+  させる運用の検討」に対応した。本スクリプトはこれまで手動実行のみに依存しており、
+  venue-master-draft.md・schema/venue-master.jsonのいずれか一方だけを更新してコミットして
+  しまっても機械的に検知されないリスクが残っていた(フェーズ71・75で発見された過去の
+  parity gapはいずれも事後の手動grep調査で発覚したもの)。
+  `.github/workflows/oshien-pasha-tests.yml`に`python3 schema/check_venue_master_parity.py`を
+  実行するステップを追加し、既存のunittestスイート・output.schema.json検証と同じワーク
+  フロー内で、`ventures/oshien-pasha/**`への変更ごとに自動実行されるようにした(ワーク
+  フロー自体のトリガー条件・他venture分のジョブには変更なし)。ローカルで同スクリプトを
+  実行し、36件/36件で差分なし(終了コード0)を確認した上で追加した。既存テスト22件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証9件
+  (`python3 -I validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)venue-master-draft.mdの各会場のアクセス情報精査の継続、(2)会場名表記揺れの
+  名寄せ方法の検討、(3)実際のGitHub Actions上での本ステップの実行結果(グリーンの確認)を
+  次回以降に確認、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 06:00 UTC(フェーズ76: 詳細は上記。check_venue_master_parity.pyを
+  CIワークフローに追加し、draft.md⇔venue-master.jsonのparity gapをコミット時に自動検知
+  できるようにした。コード変更は.github/workflows/oshien-pasha-tests.ymlのみ、既存テスト
+  22件・schema検証9件いずれも変更なしでパス)
