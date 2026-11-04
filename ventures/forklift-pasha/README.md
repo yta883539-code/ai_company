@@ -4409,3 +4409,28 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   settings.html・plan-selection.htmlの画面遷移・ナビゲーション方針の棚卸しを完了し、
   web-form-ui-design.mdに追記。コード変更なし、browser_mockup_checks.js 47件・
   Python単体テスト24ファイル・schema検証11件いずれも変更なしでパス)
+
+- フェーズ209(2026-11-04定例更新): runtime-dependency-switching-design.md(フェーズ158)
+  4節「未検証・残課題」の最後の項目「フラグが`"1"`のまま実クライアント構築が例外を
+  投げるケースのハンドリングは未設計(他3venture共通の理由により本フェーズでは対応
+  しない)」が、同ファイル5節(フェーズ191)で実際には既に設計・結論済み(例外は握り
+  潰さずそのまま伝播させる方針)であるにもかかわらず「未設計」のまま更新されずに残って
+  いたcross-section parityギャップを発見・是正した。4節の該当項目に「本フェーズ(158)
+  時点では未設計だったが、5節(フェーズ191)で設計済み。最新の結論は5節を参照」と追記
+  した。あわせて、web-form-mockup配下の全10ページの`:root`CSSトークン(7変数)の値が
+  全ページで一致していること、`--color-warn`・`--color-ok`等のページ固有追加トークンが
+  error-page-css-commonality-design.md(フェーズ195)の方針通り必要なページのみに限定
+  使用されていることを確認する棚卸しを行い、追加の不整合は見つからなかった。本フェーズは
+  ドキュメント訂正のみでコード変更なし、回帰確認として`node prototype/browser_mockup_checks.js`
+  (47件、変更なし)・`python3 prototype/run_all_tests.py`(24ファイル、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04定例更新(フェーズ209: 詳細は上記。runtime-dependency-switching-
+  design.md 4節の記載漏れ(5節で既に解決済みの項目が未解決のまま残っていた)を是正し、
+  web-form-mockup全10ページのCSSトークン一貫性を棚卸し。コード変更なし、
+  browser_mockup_checks.js 47件・Python単体テスト24ファイル・schema検証11件いずれも
+  変更なしでパス)
