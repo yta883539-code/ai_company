@@ -1535,3 +1535,31 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-04 02:00 UTC(フェーズ73: 詳細は上記。vendor-breach-key-rotation-
   runbook.mdを新規作成し、全7venture横展開を完了。既存テスト17件・schema検証9件いずれも
   変更なしでパス)
+- フェーズ74(2026-11-04 04:00 UTC定例更新): フェーズ73次回候補(1)「月額フリーパス利用者の
+  識別方法の検討(tech-stack.mdコンポーネント6、会員登録なしという方針との整合)」に着手した
+  ところ、この課題はtech-stack.md作成直後のフェーズ7(monthly-pass-identity-design.md)・
+  フェーズ34(monthly-pass-user-identification-design.md)で既に設計が確定し、フェーズ35
+  (fan-pass-canceled-access-block-design.md)・フェーズ39(fan-pass-store-protocol-
+  design.md、prototype/fan_pass_store.py・prototype/usage_counter.pyとしてコード化済み)・
+  access-url-resend-api-design.md/access-url-resend-http-entry-point-design.md
+  (prototype/access_url_resend_handler.py)で再発行・解約時遮断まで実装済みであることが
+  判明した。tech-stack.md(フェーズ番号を持たない「初回メモ」のまま一度も更新されていな
+  かった)がこれらの後続フェーズの成果を反映せず「未解決の検討課題」のまま放置されていた
+  cross-file parityギャップであったため、本フェーズではコンポーネント6・7の記述を実際の
+  確定方式(`accessToken`方式、`fan_pass/{internal_id}`)を指す内容に訂正し、比較表の
+  「利用者識別」列の「未確定(次回検討課題)」という誤った記載も訂正し、「次のステップ候補」
+  から本項目を除去した。なお作業中、tech-stack.mdの記述を信じて同じ検討を独自に行い
+  monthly-pass-user-identification-design.mdへの上書きを一度試みたが、既存ファイルの
+  内容(フェーズ34時点のより詳細な設計)を破壊する誤りであったため直後に`git checkout`で
+  復元し、tech-stack.mdの訂正のみに作業を絞り直した。コード変更なし、回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(17件、変更なし)・
+  `python3 -I validate_test_cases.py`(9件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue-master-draft.mdの各会場のアクセス情報精査の継続、(2)会場名表記揺れの
+  名寄せ方法の検討、(3)都度プラン⇔月額フリーパスのプラン変更時の扱いの検討(pricing-plan.md
+  既出の残課題)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 04:00 UTC(フェーズ74: 詳細は上記。tech-stack.mdのコンポーネント6・7
+  と比較表が、フェーズ7・34・35・39等で既に解消済みの内容を「未解決」のまま反映していな
+  かったcross-file parityギャップを訂正。コード変更なし、既存テスト17件・schema検証9件
+  いずれも変更なしでパス)

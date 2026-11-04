@@ -46,27 +46,36 @@ tech-stack.md・web-form-hosting-selection.mdの選定結果を第一候補と�
    - 都度プランは決済完了後その場で4出力を生成・表示するワンショット処理で足りるため、
      event-komiguai-pashaのone-time-checkout-no-account-design.md(決済→結果ページ発行→
      TTL付きアクセス)の考え方を流用できる。
-6. **月額フリーパス利用者の識別(新規の検討課題)**
+6. **月額フリーパス利用者の識別(解消済み。monthly-pass-identity-design.md〈フェーズ7〉・
+   monthly-pass-user-identification-design.md〈フェーズ34〉・fan-pass-store-protocol-
+   design.md〈フェーズ39〉参照。本項目は本メモ作成後に解決されたが反映が漏れていた)**
    - 都度プラン・event-komiguai-pashaはいずれも「1回の決済=1回の利用」で完結し、利用者を
      横断的に識別する必要がない。一方、月額フリーパス(当月内の生成回数無制限)は「同一
      利用者が今月すでに決済済みか」を次回以降の利用時に判定する必要があり、本venture独自の
      要件となる。
    - LINEアカウント前提の他6ventureはLINEユーザーIDを識別子として利用できるが、本venture
-     はLINE非依存のためこの手法は使えない。Web単体でアカウント登録なしに利用者を識別する
-     方法(Stripe Customer Portalのマジックリンク、メールアドレス+ワンタイムリンク等)の
-     選定は、会員管理を持たないという本venture方針(README.md)と矛盾しない範囲で次回以降
-     検討する必要がある未解決の課題として残す。
-7. **月額フリーパスの生成回数カウント**
-   - 上記6の識別方法が決まった後、course-set-pashaのusage_counter(`UsageCounterProtocol`、
-     `get_count`/`increment`)と同様の軽量データストア(Firestore想定)が必要になる見込み
-     だが、識別方法が未確定のため本フェーズでは設計を保留する。
+     はLINE非依存のためこの手法は使えない。forklift-pashaのaccess-token-reissue-design.md
+     (フェーズ96)が確立した「ログインID/パスワードを発行せず、推測不能なアクセストークン
+     〈`accessToken`〉を配布・保持する」パターンを本venture向けに適用し、Stripe Checkout
+     Session(`mode=subscription`)完了時にFirestore `fan_pass/{internal_id}`
+     ドキュメントを作成してアクセスURL(`/m/{accessToken}`)を決済完了直後の画面に表示する
+     方式を採用済みである。アクセスURLを失った場合の再発行は、メールアドレス入力による
+     Stripe顧客検索経由の再発行フロー(access-url-resend-api-design.md)、解約後のアクセス
+     遮断はfan-pass-canceled-access-block-design.mdでそれぞれ設計済み。インメモリ実装
+     (`FanPassStoreProtocol`)はprototype/fan_pass_store.py・prototype/
+     access_url_resend_handler.pyとして既にコード化されている。
+7. **月額フリーパスの生成回数カウント(解消済み)**
+   - 上記6の識別方法(`stripe_customer_id`ではなく`internal_id`/`accessToken`を主キーとする
+     `fan_pass`ドキュメント)に基づき、course-set-pashaのusage_counter
+     (`UsageCounterProtocol`、`get_count`/`increment`)と同様の軽量データストアを
+     prototype/usage_counter.pyとして実装済み。
 
 ## 他6ventureとの構成上の違い(まとめ)
 
 | 観点 | 他6venture(B2B) | 本venture(B2C) |
 |---|---|---|
 | 入力チャネル | LINE公式アカウント(LIFF) | Webフォーム単体 |
-| 利用者識別 | LINEユーザーID | 未確定(次回検討課題) |
+| 利用者識別 | LINEユーザーID | `accessToken`(`fan_pass/{internal_id}`、monthly-pass-identity-design.md等参照) |
 | 決済モード | サブスクのみ(`mode=subscription`) | 都度(`mode=payment`)/月額(`mode=subscription`)の2分岐 |
 | 永続データストア | Firestore(予約枠・会話状態等) | 当面不要(都度プランのみなら)。月額フリーパス導入時は軽量カウンタのみ検討 |
 
@@ -81,7 +90,6 @@ tech-stack.md・web-form-hosting-selection.mdの選定結果を第一候補と�
 
 ## 次のステップ候補
 
-- 月額フリーパス利用者の識別方法の検討(コンポーネント6、会員登録なしという方針との整合)。
 - venue-master-draft.mdの各会場のアクセス情報精査(WebSearchでの裏取り、README.md既出の
   残課題)。
 - 会場名表記揺れの名寄せ方法の検討(README.md既出の残課題)。
