@@ -1510,3 +1510,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   実行で名古屋圏の記載漏れ〈愛知県体育館/名古屋市総合体育館の分離・IGアリーナ追加が
   draft.md未反映〉を実際に検出・是正し、差分ゼロを確認。既存テスト17件・schema検証9件
   いずれも変更なしでパス)
+- フェーズ73(2026-11-04 02:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)がいずれも保有する
+  `vendor-breach-key-rotation-runbook.md`(外部ベンダー侵害時キー緊急ローテーション手順)が
+  本ventureにのみ存在しないことを発見した。aircon-pashaフェーズ342(firestore-provider-
+  adapter-design.md 26節)の「完了済みの横展開を『残る展開先』と書き続ける陳腐化」の知見を
+  踏まえてventures/配下を直接`ls`で確認したところ、kura-pashaフェーズ262の横展開は本venture
+  創設(フェーズ1)より前に全5venture(当時)で完了していたため、本venture自体が横展開漏れ
+  ではなく「横展開完了後に新設されたvantureのため対象に含まれなかった」ギャップであることを
+  確認した。vendor-breach-key-rotation-runbook.mdを本venture向けに新規作成し、本venture固有
+  の論点(payment-method-design.mdで確定したLINE Messaging API非依存〈Web単体〉方針により
+  LINE関連シークレットが対象外であること、都度プラン〈mode=payment〉・月額フリーパス
+  〈mode=subscription〉の2モードで同一のStripeシークレットキー・Webhook署名シークレットを
+  共有するためローテーション手順に分岐が生じないこと)を明記した。これにより全7venture
+  (aircon-pasha・course-set-pasha・event-komiguai-pasha・forklift-pasha・kura-pasha・
+  line-reservation-ai・oshien-pasha)で本ランブックの整備が完了した。コード変更なし、
+  回帰確認として`python3 -I -m unittest discover -s prototype -p "test_*.py"`(17件、
+  変更なし)・`python3 -I validate_test_cases.py`(9件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)月額フリーパス利用者の識別方法の検討(tech-stack.mdコンポーネント6、
+  会員登録なしという方針との整合、既出の残課題)、(2)venue-master-draft.mdの各会場の
+  アクセス情報精査の継続、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 02:00 UTC(フェーズ73: 詳細は上記。vendor-breach-key-rotation-
+  runbook.mdを新規作成し、全7venture横展開を完了。既存テスト17件・schema検証9件いずれも
+  変更なしでパス)
