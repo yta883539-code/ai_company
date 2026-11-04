@@ -6727,3 +6727,39 @@
 - 最終更新: 2026-11-03 18:00 UTC(フェーズ358: 詳細は上記。check_no_heading_brackets_anywhere()
   横展開確認を完了し、対象5venture全てで解消済み〈実装済みまたは意図的差分〉と結論。
   コード変更なし、全797件・schema検証25件いずれも変更なしでパス)
+- フェーズ359(2026-11-04 15:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。character-limit-fallback-design.md(フェーズ102〜105、`check_message_length_
+  within_line_limit()`)を読み直したところ、作成当時はcompletion_report.body・
+  care_guide.bodyの2フィールドのみが対象だったが、その後フェーズ54(厳守事項6a)・
+  厳守事項6bで追加されたout_of_scope_message・missing_fields_request・
+  subscription_procedure_notice.body・checkout_notice.bodyの4フィールドは、
+  cloud_function_webhook.pyのformat_reply_text()により業者向け1通として同じ
+  reply_client.reply()経由で送信される設計であるにもかかわらず本チェックの対象に
+  追加されないまま残っていたcross-field parityギャップであることを発見した。うち
+  out_of_scope_message・missing_fields_requestはschema/output.schema.json上もmaxLength
+  制約のない自由記述のLLM出力であり、上限超過時にチェックが素通りすると
+  reply_client.reply()自体がLINE API側のエラーで失敗し業者への応答が一切届かなくなる
+  リスクが未検証のまま残っていた。prototype/post_generation_checks.pyの
+  `check_message_length_within_line_limit()`を改修し、上記4フィールドも対象に追加した
+  (検出時はcloud_function_webhook.py側の既存の分岐をそのまま再利用でき、
+  LENGTH_LIMIT_FALLBACK_MESSAGEに差し替わる。この分岐自体のコード変更は不要)。
+  character-limit-fallback-design.md「残課題」に本改修を追記した。
+  prototype/test_post_generation_checks.pyに新規テスト5件(4フィールドそれぞれの
+  上限超過検出1件+いずれも上限内でフラグなしの確認1件)を追加。
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (既存797件+新規5件=802件、全件パス)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれもパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)同種のcheck_message_length_within_line_limit()対象フィールド不足ギャップが
+  course-set-pasha・kura-pasha等の他venture側にも残っていないかの横展開確認
+  (本フェーズではaircon-pasha単体の解消に限定したため未着手)、
+  (3)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-04 15:00 UTC(フェーズ359: 詳細は上記。
+  check_message_length_within_line_limit()の対象フィールドをout_of_scope_message・
+  missing_fields_request・subscription_procedure_notice.body・checkout_notice.bodyの
+  4件に拡張しcross-field parityギャップを解消。テスト5件追加〈802件〉・schema検証25件
+  いずれもパス)

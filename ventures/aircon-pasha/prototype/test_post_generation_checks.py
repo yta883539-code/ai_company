@@ -491,6 +491,43 @@ class MessageLengthWithinLineLimitTest(unittest.TestCase):
         errors = check_message_length_within_line_limit(instance)
         self.assertEqual(len(errors), 1)  # UTF-16コード単位数では上限+1のため検出される
 
+    def test_out_of_scope_message_over_limit_is_flagged(self):
+        # フェーズ359: out_of_scope_messageもformat_reply_text()経由でreply_client.reply()
+        # へそのまま渡される1通のため、本チェックの対象に追加した。
+        instance = {"out_of_scope_message": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)}
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("out_of_scope_message", errors[0])
+
+    def test_missing_fields_request_over_limit_is_flagged(self):
+        instance = {"missing_fields_request": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)}
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("missing_fields_request", errors[0])
+
+    def test_subscription_procedure_notice_body_over_limit_is_flagged(self):
+        instance = {
+            "subscription_procedure_notice": {"body": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)}
+        }
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("subscription_procedure_notice.body", errors[0])
+
+    def test_checkout_notice_body_over_limit_is_flagged(self):
+        instance = {"checkout_notice": {"body": "あ" * (LINE_TEXT_MESSAGE_CHAR_LIMIT + 1)}}
+        errors = check_message_length_within_line_limit(instance)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("checkout_notice.body", errors[0])
+
+    def test_four_new_fields_within_limit_are_not_flagged(self):
+        instance = {
+            "out_of_scope_message": "ご依頼内容からは判断できませんでした。",
+            "missing_fields_request": "作業日が分かりませんでした。",
+            "subscription_procedure_notice": {"body": "解約方法のご案内です。"},
+            "checkout_notice": {"body": "プランのご案内です。"},
+        }
+        self.assertEqual(check_message_length_within_line_limit(instance), [])
+
 
 class ThirdPartyNameLeakTest(unittest.TestCase):
     """厳守事項10(third-party-personal-info-inclusion-handling-design.md 4節、

@@ -338,22 +338,51 @@ def check_next_recommended_date_history_care_guide_consistency(instance):
 
 
 def check_message_length_within_line_limit(instance):
-    """character-limit-fallback-design.md準拠チェック。依頼者へ直接転送される
-    completion_report.body・care_guide.bodyが、LINE Messaging APIのテキストメッセージ
-    上限(LINE_TEXT_MESSAGE_CHAR_LIMIT、UTF-16コード単位)を超えていないかを確認する。
+    """character-limit-fallback-design.md準拠チェック。完全性のため、statusによらず
+    format_reply_text()(cloud_function_webhook.py)がreply_client.reply()へそのまま渡す
+    1通分のテキストが、LINE Messaging APIのテキストメッセージ上限
+    (LINE_TEXT_MESSAGE_CHAR_LIMIT、UTF-16コード単位)を超えていないかを確認する。
     超過が検出された場合、エラーメッセージはLENGTH_LIMIT_ERROR_PREFIXで始まる
     (呼び出し元のcloud_function_webhook.pyが他の検証エラーと区別し、専用の
     フォールバック文言を選択するための目印)。
+
+    2026-11-04改訂(フェーズ359): 当初はcompletion_report.body・care_guide.body
+    (依頼者へ直接転送され「誤送信事故」に直結する2フィールド)のみが対象だったが、
+    out_of_scope_message・missing_fields_request・subscription_procedure_notice.body・
+    checkout_notice.bodyの4フィールドも、format_reply_text()により業者向けの1通として
+    同じreply_client.reply()経由で送信される(character-limit-fallback-design.md
+    作成当時は未着手だったstatus分岐がフェーズ54・6a・6bで後から追加され、この4フィールドは
+    チェック対象に含まれていなかった)。うちout_of_scope_message・missing_fields_request
+    はschema/output.schema.json上でもmaxLength制約のない自由記述のLLM出力であり、上限超過
+    時に`reply_client.reply()`自体がLINE API側のエラーで失敗し業者への応答が一切届かなく
+    なるリスクが未検証のまま残っていたため、一貫性のため他2フィールドも含め本チェックの
+    対象に加えた。completion_report.body・care_guide.bodyと異なり、この4フィールドは
+    依頼者への誤送信事故リスクそのものではない(業者本人向けの1通であり、拾われた場合は
+    既存のLENGTH_LIMIT_FALLBACK_MESSAGEが代わりに送信される、character-limit-fallback-
+    design.md「残課題」参照)。
     """
     errors = []
-    for field_name, section_key in (
-        ("completion_report.body", "completion_report"),
-        ("care_guide.body", "care_guide"),
+    for field_name, section_key, body_key in (
+        ("completion_report.body", "completion_report", "body"),
+        ("care_guide.body", "care_guide", "body"),
+        ("subscription_procedure_notice.body", "subscription_procedure_notice", "body"),
+        ("checkout_notice.body", "checkout_notice", "body"),
     ):
         section = instance.get(section_key)
         if not section:
             continue
-        body = section.get("body", "")
+        body = section.get(body_key, "")
+        length = _utf16_code_unit_length(body)
+        if length > LINE_TEXT_MESSAGE_CHAR_LIMIT:
+            errors.append(
+                f"{LENGTH_LIMIT_ERROR_PREFIX}: {field_name}がLINE文字数上限"
+                f"({LINE_TEXT_MESSAGE_CHAR_LIMIT}文字、UTF-16コード単位)を超えています"
+                f"({length}文字)"
+            )
+    for field_name in ("out_of_scope_message", "missing_fields_request"):
+        body = instance.get(field_name)
+        if not body:
+            continue
         length = _utf16_code_unit_length(body)
         if length > LINE_TEXT_MESSAGE_CHAR_LIMIT:
             errors.append(

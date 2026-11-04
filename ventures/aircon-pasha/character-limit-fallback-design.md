@@ -92,3 +92,19 @@ Python の `len(str)` はUnicodeコードポイント数を返すため、その
   テスト13件追加(サロゲートペア文字によるUTF-16コード単位カウントの境界値テストを含む)、
   プロトタイプ全体75件・schema検証9件いずれもパス。実LLM接続後の実運用での動作確認自体は
   引き続き未実施のまま残る)。
+- (解消済み 2026-11-04 15:00 UTC・フェーズ359: 本ファイル作成時点(フェーズ102)では
+  completion_report.body・care_guide.bodyの2フィールドのみを対象としていたが、フェーズ54
+  (厳守事項6a)・フェーズ(厳守事項6b)で後から追加されたout_of_scope_message・
+  missing_fields_request・subscription_procedure_notice.body・checkout_notice.bodyの
+  4フィールドも、cloud_function_webhook.pyのformat_reply_text()により業者向け1通として
+  同じreply_client.reply()経由で送信される設計であるにもかかわらず、本チェックの対象に
+  追加されないまま残っていたcross-field parityギャップとして発見・解消した。この4フィールド
+  は依頼者への誤送信事故リスクという本ファイル冒頭の懸念そのものではないが(業者本人向けの
+  1通であるため「切り詰めは行わない」方針の根拠である誤送信事故リスクは直接当てはまらない)、
+  うちout_of_scope_message・missing_fields_requestはschema/output.schema.json上もmaxLength
+  制約のない自由記述のLLM出力であり、上限超過時に放置すればreply_client.reply()自体がLINE
+  API側のエラーで失敗し業者への応答が一切届かなくなるリスクが未検証のまま残っていた。
+  一貫性のため4フィールド全てを`check_message_length_within_line_limit()`の対象に追加し、
+  検出時は既存の仕組みのまま`LENGTH_LIMIT_FALLBACK_MESSAGE`に差し替わる(コード変更なし
+  で既存のcloud_function_webhook.py側の分岐をそのまま再利用できることを確認済み)。テスト5件
+  追加(802件)・schema検証25件いずれも変更なしでパス)。
