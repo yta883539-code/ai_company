@@ -1828,3 +1828,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   2025年12月31日で初回契約期間が満了済みと判明したが、2026年時点でも名称は継続使用されており
   更新の公式発表は未確認のまま。コード変更なし、既存回帰〈22件・9件・36件〉いずれも変更なしで
   パス)
+- フェーズ85(2026-11-05 06:00 UTC定例更新): フェーズ84次回候補(2)「バンテリンドーム ナゴヤ
+  以外の会場のアクセス情報精査の継続(契約更新有無が未確定な会場の洗い出しを含む)」に対応し、
+  schema/venue-master.jsonを棚卸しして「naming_rights: trueだがnaming_rights_review_dueが
+  nullのまま」の会場群を洗い出した上で、みずほPayPayドーム福岡(旧福岡ドーム)の命名権契約を
+  WebSearchで調査した。2024年4月25日付でみずほFG・PayPay・福岡ソフトバンクホークスの3社連名
+  契約により「福岡PayPayドーム」から現名称に改称されたこと(プロ野球1軍本拠地では国内初の
+  連名ネーミングライツ契約)、先行するPayPay単独の命名権契約は2020年開始だったことを複数の
+  報道(data-max.co.jp・advertimes.com等)で確認したが、現行の連名契約自体の契約期間・満了日は
+  いずれの報道でも明示されておらず、依然未確定のまま(推測日付を記入しない既存方針〈フェーズ15〉
+  を踏襲し、naming_rights_review_dueはnullのまま維持)。schema/venue-master.jsonの該当レコードの
+  verification_note・last_verified_dateを更新した(python3 -I json.loadで構文検証済み)。コード
+  変更なし、回帰確認として`python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、
+  変更なし)・`python3 -I validate_test_cases.py`(9件、変更なし)・`python3 -I schema/
+  check_venue_master_parity.py`(36件/36件差分なし)・`python3 prototype/test_venue_matcher.py`
+  (21アサーション、変更なし)をいずれも実行しパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・実LLM呼び出し結果に
+  結線する実装(実装はオーナー承認・実LLM接続後)、(2)みずほPayPayドーム福岡以外にもnaming_
+  rights_review_dueがnullのまま残る会場(エスコンフィールドHOKKAIDO・Mazda Zoom-Zoomスタジアム
+  広島等)のアクセス情報精査の継続、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05 06:00 UTC(フェーズ85: 詳細は上記。みずほPayPayドーム福岡の命名権契約の
+  経緯〈2024年4月25日付3社連名契約への改称〉をWebSearchで裏取りしたが、契約期間・満了日自体は
+  依然未確定。コード変更なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしで
+  パス)

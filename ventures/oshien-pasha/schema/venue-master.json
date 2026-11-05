@@ -296,9 +296,9 @@
       "nearest_station": "地下鉄 唐人町駅、西鉄バス 福岡ドーム・ヤフオクドーム前",
       "walk_minutes_note": "徒歩12分前後",
       "naming_rights": true,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-05",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでvenue-master-draft.mdの福岡・九州圏セクション(前フェーズまでに追加済み)をschema側に反映した(draft.md⇔JSON間のparity gapの是正)。旧称「福岡ドーム」「福岡Yahoo!JAPANドーム」「ヤフオクドーム」からの改称履歴はaliasesで把握しているが、現行ネーミングライツ契約の満了日はWebSearchでの裏取りを行っていないためnull(推測日付を記入しない既存ルールを踏襲)。",
+      "verification_note": "本フェーズでvenue-master-draft.mdの福岡・九州圏セクション(前フェーズまでに追加済み)をschema側に反映した(draft.md⇔JSON間のparity gapの是正)。旧称「福岡ドーム」「福岡Yahoo!JAPANドーム」「ヤフオクドーム」からの改称履歴はaliasesで把握しているが、現行ネーミングライツ契約の満了日はWebSearchでの裏取りを行っていないためnull(推測日付を記入しない既存ルールを踏襲)。 フェーズ85(2026-11-05 06:00 UTC)でWebSearchにより契約の経緯を追加裏取りした。2024年4月25日付でみずほFG・PayPay・福岡ソフトバンクホークスの3社連名契約により「福岡PayPayドーム」から現名称に改称されたこと(プロ野球1軍本拠地では国内初の連名ネーミングライツ契約)、先行するPayPay単独契約は2020年開始だったことを複数の報道(data-max.co.jp、advertimes.com等)で確認したが、現行の連名契約自体の契約期間・満了日はいずれの報道でも明示されておらず、依然未確定のまま(推測日付を記入しない方針を踏襲)。次回以降、福岡ソフトバンクホークスまたはみずほFG・PayPay各社の公式プレスリリース(2024年4月25日付)の直接確認を次の手段とする。",
       "operational_status": "active"
     },
     {
