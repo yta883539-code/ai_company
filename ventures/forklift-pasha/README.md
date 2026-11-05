@@ -4462,3 +4462,42 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   estimate.mdを新規作成し、(A)(B)両経路の通知文言に「浮いた作業時間の目安」の1行を追加。
   新規テスト4件追加〈Python単体テスト24ファイル→変更なし、合計100件〉、schema検証11件
   いずれも変更なしでパス)
+- フェーズ211(2026-11-05定例更新): フェーズ210「次回候補(2)」であった「アクセストークンの
+  発行・読み書きを行う実ストアの実装、および`AccessUrlProvider`の具象実装への接続」を
+  着手しようとしたところ、いずれもフェーズ134(2026-10-12)で既に実装・接続済み
+  (`prototype/access_token_store.py`の`AccessTokenStoreProtocol`/
+  `InMemoryAccessTokenStore`/`AccessTokenStoreUrlProvider`、および
+  `cloud_function_send_trial_end_emails.get_trial_end_email_runtime_dependencies()`での
+  接続)であることを確認した。フェーズ206以降「次回候補」に古い記載が残っていたcross-phase
+  parityギャップであり、本フェーズでは着手せず読み替えのみ行う。あわせてフェーズ136が設計した
+  HTTPエントリポイント`main(request)`自体(`access_url_reissue_handler.py`への追加)は、
+  設計書(access-url-reissue-http-entry-point-design.md 4節)がリクエストの具体的な取り出し方
+  (`request.path`解析かクエリパラメータか)の決定をWebフォームのルーティング実装(承認待ち
+  事項)確定後に委ねたままであることを再確認し、他venture(oshien-pasha/
+  access_url_resend_handler.py)も同様に`receive_resend_request()`止まりで`main(request)`を
+  まだ持たないcross-venture parityを確認したため、本フェーズでは先回りしてリクエスト解析方式を
+  決定しない(設計判断を越える実装を避ける)。
+  本フェーズ中の棚卸しで別のcross-phase parityギャップも発見した。フェーズ206の次回候補
+  記載・最終更新行は`prototype/browser_mockup_checks.js`のチェック件数を「既存37件+新規
+  10件=47件」としていたが、`git show <フェーズ205コミット>`時点の実際のcheck()呼び出し数は
+  37件で正しい一方、`git show <フェーズ206コミット>`時点の実際のcheck()呼び出し数は49件
+  (37+12)であり、フェーズ206のコミットメッセージ・README記載の「47件」はフェーズ206自身の
+  時点から誤っていたことを確認した(`node prototype/browser_mockup_checks.js`の実行結果
+  [OK]行数49件、`grep -c "^\s*check("`の静的カウント49件のいずれでも一致)。この誤った
+  「47件」がフェーズ207〜210まで4フェーズにわたり訂正されずコピーされ続けていた。過去の
+  各フェーズ本文は訂正せず、本行以降は正しい値(49件)を記載する。コード変更はなし
+  (ドキュメント確認・是正のみ)。回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(100件、変更なし)・`python3 schema/validate_test_cases.py`(11件、
+  変更なし)・`python3 prototype/run_all_tests.py`(24ファイル、変更なし)・`node
+  prototype/browser_mockup_checks.js`(49件、全件パス)を実行し、いずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)Webフォームのプラン選択UI自体の実装(フェーズ134「次回候補(3)」からも未着手のまま
+  残っている)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05定例更新(フェーズ211: 詳細は上記。フェーズ210「次回候補(2)」は
+  フェーズ134で既に解決済みと確認(着手せず読み替えのみ)。browser_mockup_checks.jsの
+  チェック件数記載がフェーズ206時点から「47件」と誤っていた(実際は49件)ことを発見・是正。
+  コード変更なし、Python単体テスト100件・schema検証11件・run_all_tests 24ファイル・
+  browser_mockup_checks.js 49件いずれもパス)
