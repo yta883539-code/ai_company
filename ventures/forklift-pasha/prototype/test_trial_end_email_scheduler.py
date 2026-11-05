@@ -23,7 +23,11 @@ from trial_end_email_scheduler import (  # noqa: E402
     select_due_trial_end_emails,
     send_trial_end_emails,
 )
-from trial_management import TRIAL_PERIOD_DAYS, InMemoryFleetOperatorStore  # noqa: E402
+from trial_management import (  # noqa: E402
+    TRIAL_PERIOD_DAYS,
+    InMemoryFleetOperatorStore,
+    format_minutes_saved_line,
+)
 
 
 class _FailingEmailSenderClient:
@@ -93,6 +97,10 @@ class RenderTrialEndEmailBodyTest(unittest.TestCase):
         body = render_trial_end_email_body(3, "fo_1", _StaticAccessUrlProvider("https://example.com/f/tok123"))
         self.assertIn("これまでの点検記録整形実績: 3回", body)
         self.assertIn("https://example.com/f/tok123", body)
+
+    def test_includes_minutes_saved_line(self) -> None:
+        body = render_trial_end_email_body(3, "fo_1", _StaticAccessUrlProvider("https://example.com/f/tok123"))
+        self.assertIn(format_minutes_saved_line(3), body)
 
     def test_falls_back_when_provider_is_none(self) -> None:
         body = render_trial_end_email_body(0, "fo_1", None)

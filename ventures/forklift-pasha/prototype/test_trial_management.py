@@ -9,10 +9,13 @@ import sys
 from datetime import datetime, timedelta
 
 from trial_management import (
+    BASE_MINUTES_PER_GENERATION,
     TRIAL_END_RETURN_TEXT_NOTICE,
     TRIAL_GENERATION_LIMIT,
     TRIAL_PERIOD_DAYS,
     InMemoryFleetOperatorStore,
+    estimate_trial_minutes_saved,
+    format_minutes_saved_line,
     is_generation_paused,
     is_subscription_canceled,
     is_trial_period_over,
@@ -174,9 +177,9 @@ def main():
             None,
         ))
     results.append(_check(
-        "record_generation_and_get_trial_end_notice: 5回目到達時に通知文を返す",
+        "record_generation_and_get_trial_end_notice: 5回目到達時に通知文を返す(浮いた作業時間の目安を含む)",
         record_generation_and_get_trial_end_notice(store, "op10", now),
-        TRIAL_END_RETURN_TEXT_NOTICE,
+        f"{TRIAL_END_RETURN_TEXT_NOTICE}\n{format_minutes_saved_line(TRIAL_GENERATION_LIMIT)}",
     ))
     results.append(_check(
         "record_generation_and_get_trial_end_notice: 通知後はtrialEndNotifiedAtが設定される",
@@ -361,6 +364,23 @@ def main():
         "get_stripe_customer_id: 別operatorはNoneのまま独立している",
         store.get_stripe_customer_id("op19"),
         None,
+    ))
+
+    # --- estimate_trial_minutes_saved / format_minutes_saved_line (フェーズ210) ---
+    results.append(_check(
+        "estimate_trial_minutes_saved: 0回は0分",
+        estimate_trial_minutes_saved(0),
+        0,
+    ))
+    results.append(_check(
+        "estimate_trial_minutes_saved: 5回はBASE_MINUTES_PER_GENERATION×5分",
+        estimate_trial_minutes_saved(5),
+        BASE_MINUTES_PER_GENERATION * 5,
+    ))
+    results.append(_check(
+        "format_minutes_saved_line: 分数と前提の仮定文言を両方含む",
+        format_minutes_saved_line(5) == f"浮いた作業時間の目安: 約{15}分(1回の点検記録整形につき平均3分と仮定)",
+        True,
     ))
 
     passed = sum(1 for r in results if r)

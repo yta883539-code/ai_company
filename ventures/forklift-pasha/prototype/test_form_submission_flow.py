@@ -15,6 +15,7 @@ from trial_management import (
     TRIAL_END_RETURN_TEXT_NOTICE,
     TRIAL_GENERATION_LIMIT,
     InMemoryFleetOperatorStore,
+    format_minutes_saved_line,
 )
 
 
@@ -233,9 +234,10 @@ def main():
         store,
     )
     results.append(_check(
-        f"トライアル{TRIAL_GENERATION_LIMIT}回目: 通知文が末尾に追記される",
+        f"トライアル{TRIAL_GENERATION_LIMIT}回目: 通知文(浮いた作業時間の目安を含む)が末尾に追記される",
         result["response_text"],
-        "2号機、始業前点検、ブレーキ○、異音なし\n" + TRIAL_END_RETURN_TEXT_NOTICE,
+        "2号機、始業前点検、ブレーキ○、異音なし\n" + TRIAL_END_RETURN_TEXT_NOTICE
+        + "\n" + format_minutes_saved_line(TRIAL_GENERATION_LIMIT),
     ))
     # 次回(6回目)は既に一時停止対象になっているため、以降はpausedになる
     result = process_form_submission(

@@ -36,6 +36,7 @@ from typing import Optional, Protocol, Sequence
 from trial_management import (
     TRIAL_PERIOD_DAYS,
     FleetOperatorStoreProtocol,
+    format_minutes_saved_line,
     is_subscription_canceled,
 )
 
@@ -133,6 +134,7 @@ def render_trial_end_email_body(
         "本日で無料トライアル期間(30日間)が終了しました。\n"
         "\n"
         f"これまでの点検記録整形実績: {generation_count}回\n"
+        f"{format_minutes_saved_line(generation_count)}\n"
         "\n"
         "引き続きご利用いただく場合は、以下のアクセスURLからプランをお選びください。\n"
         "このまま何もしなければ自動課金は発生せず、生成のみ一時停止となります。\n"

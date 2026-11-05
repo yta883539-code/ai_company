@@ -367,6 +367,30 @@ def should_notify_trial_end(
     return is_trial_period_over(internal_id, now, operator_store)
 
 
+# content-generation-time-estimate.md(フェーズ210)で確定した「浮いた作業時間の目安」。
+# 点検種別(daily/monthly/annual)ごとの試算を、trialGenerationCountが種別を区別しないことを
+# 踏まえて加重平均し単一の代表値に統合した(daily稼働日想定での加重平均≒2.63分を3分に丸め)。
+BASE_MINUTES_PER_GENERATION = 3
+
+
+def estimate_trial_minutes_saved(generation_count: int) -> int:
+    """content-generation-time-estimate.md「採用値・実装への反映」。1回あたり
+    BASE_MINUTES_PER_GENERATION分の削減効果があると仮定し、生成回数分を単純に積算する
+    (aircon-pasha/trial_end_scheduler.estimate_trial_minutes_saved()と同じ位置づけだが、
+    本ventureは「台数」ではなく「生成回数」のみで積算する点が異なる)。"""
+    return BASE_MINUTES_PER_GENERATION * generation_count
+
+
+def format_minutes_saved_line(generation_count: int) -> str:
+    """aircon-pasha/trial_end_scheduler.format_minutes_saved_line()と同型。(A)(B)両経路の
+    通知文言に共通で追加する1行を組み立てる。"""
+    minutes = estimate_trial_minutes_saved(generation_count)
+    return (
+        f"浮いた作業時間の目安: 約{minutes}分"
+        f"(1回の点検記録整形につき平均{BASE_MINUTES_PER_GENERATION}分と仮定)"
+    )
+
+
 # trial-end-notification-design.md 3節「(A) 生成回数到達時: 返却テキストへの追記文」。
 TRIAL_END_RETURN_TEXT_NOTICE = (
     "※無料トライアルの生成回数(5回)に達しました。引き続きご利用いただくには、登録時にお送りした"
@@ -385,12 +409,15 @@ def record_generation_and_get_trial_end_notice(
     加算と通知判定を1回のWebフォーム送信処理の中で呼び出せるようにまとめる)。
     (B)経路(期間到達、日次スケジューラ)とは別経路のため、ここで消費した場合は
     trialEndNotifiedAtが設定済みとなり(B)経路側では再通知されない。
+    フェーズ210: content-generation-time-estimate.mdの「浮いた作業時間の目安」1行を
+    末尾に追加した(到達時点の生成回数はTRIAL_GENERATION_LIMITと一致する)。
     """
     record_generation_for_trial(operator_store, internal_id, now)
     if not should_notify_trial_end(internal_id, now, operator_store):
         return None
     operator_store.set_trial_end_notified_at(internal_id, now)
-    return TRIAL_END_RETURN_TEXT_NOTICE
+    generation_count = operator_store.get_trial_generation_count(internal_id)
+    return f"{TRIAL_END_RETURN_TEXT_NOTICE}\n{format_minutes_saved_line(generation_count)}"
 
 
 # trial-end-notification-design.md 4節「トライアル終了後(未アップグレード)の挙動」。

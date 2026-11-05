@@ -4434,3 +4434,31 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   web-form-mockup全10ページのCSSトークン一貫性を棚卸し。コード変更なし、
   browser_mockup_checks.js 47件・Python単体テスト24ファイル・schema検証11件いずれも
   変更なしでパス)
+- フェーズ210(2026-11-05定例更新): trial-end-notification-design.md(フェーズ119)6節
+  「今後の課題」1点目に残っていた、本venture向け「浮いた作業時間の目安」試算ドキュメント
+  (content-generation-time-estimate.md相当)の未作成ギャップに対応した。aircon-pasha・
+  kura-pasha・course-set-pashaには既に存在するが本ventureのみ未着手だったcross-venture
+  parityギャップでもある。本ventureの出力構造(台数配列を持たず、点検種別daily/monthly/
+  annualで分岐)に合わせて区分別の所要時間を試算し、trialGenerationCountが種別を区別
+  しないことを踏まえて加重平均(稼働日想定で月20回のdailyが支配的)で単一の代表値
+  (3分/回)に統合した。`prototype/trial_management.py`に
+  `BASE_MINUTES_PER_GENERATION`・`estimate_trial_minutes_saved()`・
+  `format_minutes_saved_line()`を新規実装し、(A)経路(生成回数到達、返却テキスト追記)・
+  (B)経路(期間到達、メール本文)の両方の通知文言末尾に「浮いた作業時間の目安」の1行を
+  追加した(aircon-pashaフェーズ192と同型の対応)。`test_trial_management.py`に新規
+  テスト3件、`test_trial_end_email_scheduler.py`に新規テスト1件を追加し、既存の統合
+  テスト`test_form_submission_flow.py`の期待値も新文言に合わせて更新した。回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(100件、変更なし)・
+  `python3 schema/validate_test_cases.py`(11件、変更なし)・`python3
+  prototype/run_all_tests.py`(24ファイル全パス、変更なし)を実行しいずれもパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)アクセストークンの発行・読み書きを行う実ストア(payment-identity-verification-
+  design.md相当)の実装、および`AccessUrlProvider`の具象実装への接続、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-05定例更新(フェーズ210: 詳細は上記。content-generation-time-
+  estimate.mdを新規作成し、(A)(B)両経路の通知文言に「浮いた作業時間の目安」の1行を追加。
+  新規テスト4件追加〈Python単体テスト24ファイル→変更なし、合計100件〉、schema検証11件
+  いずれも変更なしでパス)

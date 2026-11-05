@@ -112,8 +112,10 @@ https://<ドメイン>/f/{accessToken}
 
 ## 6. 今後の課題
 
-- 本venture向けの「浮いた作業時間の目安」試算ドキュメント(content-generation-time-estimate.md
-  相当)は未作成。作成後、両文面に1行追加する(aircon-pashaフェーズ192と同型の対応)。
+- ~~本venture向けの「浮いた作業時間の目安」試算ドキュメント(content-generation-time-
+  estimate.md相当)は未作成。作成後、両文面に1行追加する(aircon-pashaフェーズ192と同型の
+  対応)。~~ → フェーズ210でcontent-generation-time-estimate.mdを新規作成し解消済み
+  (下記追記参照)。
 - 生成一時停止(4節)の純粋関数`is_generation_paused()`はフェーズ122で実装済み(下記追記
   参照)。Webフォーム送信処理本体(mvp-flow-draft.md、本venture未実装)からの実際の呼び出し
   配線、および`upgradedAt`書き込み元となるStripe決済導線設計(checkout-initiation-flow-
@@ -207,6 +209,27 @@ send_payment_failure_reminders.pyと同じ「本体は依存注入でテスト�
 `python3 schema/validate_test_cases.py`(11件、変更なし)を実行し、いずれもパスする
 ことを確認した。実際のCloud Scheduler実行環境の構築・実際のメール送信自体は既存の
 承認待ち事項(2026-10-10 18:00 UTC記載)の範囲内であり、新たな承認待ち事項ではない。
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)アクセス
+トークンの発行・読み書きを行う実ストア(payment-identity-verification-design.md相当)の
+実装、および`AccessUrlProvider`の具象実装への接続、(3)Webフォームのプラン選択UI自体の
+実装、(4)他venture・アイデア領域の前進)
+
+追記: 2026-11-05 03:00 UTC(フェーズ210: 6節1点目「本venture向けの『浮いた作業時間の目安』
+試算ドキュメントは未作成」の積み残しを解消した。content-generation-time-estimate.mdを新規
+作成し、本ventureの出力構造(台数配列ではなく点検種別daily/monthly/annualで分岐)に合わせた
+区分別試算を行った上で、trialGenerationCountが種別を区別しないことを踏まえ加重平均で単一の
+代表値(3分/回)に統合した。`trial_management.py`に`BASE_MINUTES_PER_GENERATION`・
+`estimate_trial_minutes_saved()`・`format_minutes_saved_line()`を実装し、(A)経路
+(`record_generation_and_get_trial_end_notice()`)・(B)経路
+(`trial_end_email_scheduler.render_trial_end_email_body()`)の両方の通知文言末尾に
+「浮いた作業時間の目安」の1行を追加した(aircon-pashaフェーズ192と同型の対応)。
+`test_trial_management.py`に新規テスト3件、`test_trial_end_email_scheduler.py`に新規
+テスト1件を追加し、既存の統合テスト(`test_form_submission_flow.py`)の期待値も新しい
+文言に合わせて更新した。回帰確認として`python3 -m unittest discover -s prototype -p
+"test_*.py"`(100件、変更なし)・`python3 schema/validate_test_cases.py`(11件、変更
+なし)・`python3 prototype/run_all_tests.py`(24ファイル全パス)を実行しいずれもパスする
+ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。
 次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)アクセス
 トークンの発行・読み書きを行う実ストア(payment-identity-verification-design.md相当)の
 実装、および`AccessUrlProvider`の具象実装への接続、(3)Webフォームのプラン選択UI自体の
