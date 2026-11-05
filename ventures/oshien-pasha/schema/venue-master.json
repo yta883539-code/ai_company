@@ -334,9 +334,9 @@
       "nearest_station": "JR 北海道ボールパークFビレッジ駅",
       "walk_minutes_note": "徒歩3分前後",
       "naming_rights": true,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-05",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「ES CON」はナイス・コーポレーション系列の命名権と見られるが、契約満了日はWebSearchでの裏取りを行っていないためnull(推測日付を記入しない既存ルールを踏襲)。",
+      "verification_note": "フェーズ86(2026-11-05 23:00 UTC)でWebSearchにより裏取りした結果、命名権契約の相手「日本エスコン株式会社」は中部電力グループの連結子会社(中部電力が議決権51.3%を保有、2021年4月子会社化)であり、前フェーズまでの記載「ナイス・コーポレーション系列」は誤りと判明したため訂正した。契約締結は2020年1月29日発表・年間命名権料は国内最高額(日産スタジアムの年間4.7億円を上回る水準、北海道新聞報道では年5億円前後)まで確認できたが、契約期間・満了日は日本エスコン・北海道日本ハムファイターズいずれの公式発表でもWebSearchでは確認できず依然未確定(推測日付を記入しない既存ルール〈フェーズ15〉を踏襲し、naming_rights_review_dueはnullのまま維持)。",
       "operational_status": "active"
     },
     {

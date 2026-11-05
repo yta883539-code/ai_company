@@ -1853,3 +1853,33 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   経緯〈2024年4月25日付3社連名契約への改称〉をWebSearchで裏取りしたが、契約期間・満了日自体は
   依然未確定。コード変更なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしで
   パス)
+- フェーズ86(2026-11-05 23:00 UTC定例更新): フェーズ85次回候補(2)「みずほPayPayドーム福岡
+  以外にもnaming_rights_review_dueがnullのまま残る会場(エスコンフィールドHOKKAIDO・Mazda
+  Zoom-Zoomスタジアム広島等)のアクセス情報精査の継続」に対応し、ESCON FIELD HOKKAIDO(北海道
+  ボールパーク)の命名権契約をWebSearchで調査した。前フェーズ(フェーズ18相当の新規追加時)の
+  verification_noteに「『ES CON』はナイス・コーポレーション系列の命名権と見られる」という記載が
+  あったが、WebSearchおよび東証適時開示資料(jpx.co.jp)により、契約相手の「日本エスコン株式会社」
+  (証券コード8892)は実際には中部電力グループの連結子会社(中部電力が議決権51.3%を保有、2021年
+  4月に持分法適用会社から子会社化)であり、ナイス・コーポレーションとは無関係であることが判明
+  したため、誤った親会社系列の記載を訂正した(他venture・アイデア領域への影響はなし、本件は
+  oshien-pasha単独のverification_note記載ミス)。契約締結は2020年1月29日発表・年間命名権料は
+  当時国内最高額(日産スタジアムの年間4.7億円を上回る水準)であることは複数報道で確認できたが、
+  契約期間・満了日自体は日本エスコン・北海道日本ハムファイターズいずれの公式発表でもWebSearch
+  では確認できず依然未確定(推測日付を記入しない既存方針〈フェーズ15〉を踏襲し、
+  naming_rights_review_dueはnullのまま維持)。schema/venue-master.jsonの該当レコードの
+  verification_note・last_verified_dateを更新した(`python3 -I -c "import json;
+  json.load(open('schema/venue-master.json'))"`で構文検証済み)。コード変更なし、回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・`python3 -I
+  validate_test_cases.py`(9件、変更なし)・`python3 -I schema/check_venue_master_parity.py`
+  (36件/36件差分なし)・`python3 prototype/test_venue_matcher.py`(21アサーション、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・実LLM呼び出し結果に
+  結線する実装(実装はオーナー承認・実LLM接続後)、(2)Mazda Zoom-Zoomスタジアム広島・真駒内
+  セキスイハイムアイスアリーナ・楽天生命パーク宮城・レグザムホール・ひめぎんホール等、naming_
+  rights_review_dueがnullのまま残る他会場のアクセス情報精査の継続(他venture由来の誤記載が
+  ないかの確認を兼ねる)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05 23:00 UTC(フェーズ86: 詳細は上記。ESCON FIELD HOKKAIDOの命名権契約相手
+  「日本エスコン株式会社」の親会社系列の誤記載〈誤: ナイス・コーポレーション系列、正: 中部電力
+  グループ〉を訂正。契約期間・満了日自体は依然未確定。コード変更なし、既存回帰〈22件・9件・
+  36件・21アサーション〉いずれも変更なしでパス)
