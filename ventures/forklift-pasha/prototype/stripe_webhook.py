@@ -171,11 +171,60 @@ class SubscriptionUpdatedSyncResult:
     internal_id: Optional[str] = None
     plan_id_written: bool = False
     error: Optional[str] = None
+    stale: bool = False
+
+
+def _event_time_from_created(event: dict) -> Optional[datetime]:
+    """イベント全体のトップレベル`created`(Unixタイムスタンプ)を`datetime`へ変換する
+    (subscription-updated-event-order-guard-design.md、kura-pashaフェーズ194の
+    `_event_time_from_created()`と同一の変換ルール)。欠落・非数値の場合は`None`
+    (判定不能として常に適用、後方互換)。"""
+    created = event.get("created")
+    if not isinstance(created, (int, float)):
+        return None
+    return datetime.fromtimestamp(created, tz=timezone.utc)
+
+
+def _is_stale_subscription_updated_event(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-updated-event-order-guard-design.md(kura-pashaフェーズ198・
+    course-set-pasha/line-reservation-aiの横展開、本venture分)。`event_time`が
+    `None`、または`store`が新メソッド未対応、または記録済みevent_timeが未設定の場合は
+    「判定不能」として`False`(常に適用、既存事業者への後方互換)。今回のevent_timeが
+    記録済みのevent_time「以下」であれば`True`(stale、同時刻は既に処理済みとして
+    再適用しない)。"""
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_subscription_updated_event_time", None)
+    if getter is None:
+        return False
+    recorded = getter(internal_id)
+    if recorded is None:
+        return False
+    return event_time <= recorded
+
+
+def _record_subscription_updated_event_time(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    """同上。`event_time`が`None`、または`store`が新メソッド未対応の場合は何もしない。"""
+    if event_time is None:
+        return
+    setter = getattr(store, "set_subscription_updated_event_time", None)
+    if setter is None:
+        return
+    setter(internal_id, event_time)
 
 
 def handle_customer_subscription_updated(
     event: dict,
     store: FleetOperatorStoreProtocol,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionUpdatedSyncResult:
     """`customer.subscription.updated`イベントからplan_idの同期のみを行う
     (stripe-subscription-updated-dispatch-design.md 2節)。
@@ -186,6 +235,16 @@ def handle_customer_subscription_updated(
     が書き込んだ逆引きインデックスに依存する)。逆引きできない場合(未知の
     stripe_customer_id、または本venture未着手のCustomer Portal経由のプラン変更以外の
     経路で作成されたcustomer)は`error="unknown_customer"`として同期を行わない。
+
+    `event_time`(subscription-updated-event-order-guard-design.md、kura-pashaフェーズ
+    198・course-set-pasha/line-reservation-aiの横展開として本フェーズで追加)は、Stripe
+    カスタマーポータル経由で短期間に複数回プラン変更が行われた場合の遅延配信対策。
+    記録済みのevent_time「以下」のevent_timeが渡された場合、plan_id同期を一切行わず
+    `stale=True`を返す(他venture同様「stale全体スキップ」方針)。stale判定を通過した
+    場合はplan_id同期の成否にかかわらずevent_timeを記録する(course-set-pashaの
+    `_record_subscription_updated_event_time()`と同じ「結果にかかわらず記録」方針)。
+    `event_time`省略時(`None`)は従来通りこのチェック・記録のいずれも行わない
+    (既存呼び出し経路への後方互換措置)。
 
     plan_idの解決・差分書き込み自体は`plan_id_resolution.sync_plan_id_on_subscription_
     event()`にそのまま委譲する(lookup_keyが未知・欠落、または既存値と同一の場合は
@@ -201,7 +260,13 @@ def handle_customer_subscription_updated(
     if internal_id is None:
         return SubscriptionUpdatedSyncResult(synced=False, error="unknown_customer")
 
+    if _is_stale_subscription_updated_event(store, internal_id, event_time):
+        return SubscriptionUpdatedSyncResult(
+            synced=False, internal_id=internal_id, error="stale_event", stale=True
+        )
+
     plan_id_written = sync_plan_id_on_subscription_event(store, internal_id, data_object)
+    _record_subscription_updated_event_time(store, internal_id, event_time)
 
     return SubscriptionUpdatedSyncResult(
         synced=True, internal_id=internal_id, plan_id_written=plan_id_written
@@ -436,7 +501,9 @@ def receive_stripe_webhook(
         )
 
     if event_type == "customer.subscription.updated":
-        subscription_updated_result = handle_customer_subscription_updated(parsed, store)
+        subscription_updated_result = handle_customer_subscription_updated(
+            parsed, store, event_time=_event_time_from_created(parsed)
+        )
         return StripeWebhookReceiverResult(
             status_code=200, subscription_updated_result=subscription_updated_result
         )

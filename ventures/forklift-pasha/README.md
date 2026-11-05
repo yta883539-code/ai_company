@@ -4501,3 +4501,29 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   チェック件数記載がフェーズ206時点から「47件」と誤っていた(実際は49件)ことを発見・是正。
   コード変更なし、Python単体テスト100件・schema検証11件・run_all_tests 24ファイル・
   browser_mockup_checks.js 49件いずれもパス)
+- フェーズ212(2026-11-05 21:00 UTC定例更新): 本フェーズは、本日の定例更新で7venture中
+  最も更新が止まっていたkura-pashaが自身の「次回候補」(subscription-updated-event-order-
+  guard-design.md、kura-pashaフェーズ198)として行った横断棚卸しにより発見された、本
+  venture側の欠落への対応。course-set-pasha・line-reservation-ai・aircon-pashaはいずれも
+  `customer.subscription.updated`受信時のevent_timeベースの配信順序入れ替わりガードを既に
+  実装済みだったが、本ventureの`stripe_webhook.handle_customer_subscription_updated()`
+  (フェーズ128)にはこのガードが一度も実装されておらず、Stripeカスタマーポータル経由で
+  短期間に複数回プラン変更が行われた場合に遅延配信された古いイベントでplan_idを誤って
+  上書きしてしまう欠落があることが判明したため、新規にsubscription-updated-event-order-
+  guard-design.mdとして設計・是正した。`FleetOperatorStoreProtocol`に
+  `get/set_subscription_updated_event_time()`を追加し、`handle_customer_subscription_
+  updated()`に`event_time`引数(省略時は従来通り無条件適用、後方互換)を追加して
+  `receive_stripe_webhook()`から配線した。新規テスト9件(`test_stripe_webhook.py`のcheck()
+  呼び出し86件→95件)、venture全体`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(100件、変更なし)・`python3 prototype/run_all_tests.py`(24ファイル全パス、
+  変更なし)・schema検証11件・`node prototype/browser_mockup_checks.js`(49件、変更なし)
+  いずれもパスを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(建荷協・労働局連絡/Stripeアカウント開設/Cloud Scheduler・
+  メール送信/実GCP・Firestore作成)がオーナーから承認された場合はその着手を最優先、
+  (2)`checkout.session.completed`等、本venture内の他イベントハンドラへの同種ガードの
+  横展開(design doc「4. スコープ外」参照)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05 21:00 UTC(フェーズ212: 詳細は上記。kura-pashaの横断棚卸しで発見
+  された`customer.subscription.updated`の配信順序入れ替わりガード欠落をsubscription-
+  updated-event-order-guard-design.mdとして設計・是正。新規テスト9件、既存テスト・schema
+  検証・browser_mockup_checksいずれも変更なしでパス)

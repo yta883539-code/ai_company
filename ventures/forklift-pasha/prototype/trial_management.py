@@ -173,6 +173,18 @@ class FleetOperatorStoreProtocol:
         同じ方針)。"""
         raise NotImplementedError
 
+    def get_subscription_updated_event_time(self, internal_id: str) -> "datetime | None":
+        """subscription-updated-event-order-guard-design.md(kura-pashaフェーズ198の
+        横展開、本ventureはフェーズ212で追加)。`customer.subscription.updated`受信時の
+        plan_id同期を最後に実際に反映したイベントの`event.created`。未設定はNone
+        (ガード導入前からの既存事業者、またはstore未対応時は判定不能=常に適用)。"""
+        raise NotImplementedError
+
+    def set_subscription_updated_event_time(self, internal_id: str, value: datetime) -> None:
+        """同上。上書き可(event_time降順の配信は理論上ないが、最新の反映時刻を常に
+        保持する方針はkura-pasha/course-set-pashaと同じ)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -194,6 +206,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._payment_failure_detected_at: "dict[str, datetime]" = {}
         self._payment_failure_reminder_sent_at: "dict[str, datetime]" = {}
         self._payment_suspension_owner_notified_at: "dict[str, datetime]" = {}
+        self._subscription_updated_event_time: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -322,6 +335,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
             self._payment_suspension_owner_notified_at.pop(internal_id, None)
             return
         self._payment_suspension_owner_notified_at[internal_id] = value
+
+    def get_subscription_updated_event_time(self, internal_id: str) -> "datetime | None":
+        return self._subscription_updated_event_time.get(internal_id)
+
+    def set_subscription_updated_event_time(self, internal_id: str, value: datetime) -> None:
+        self._subscription_updated_event_time[internal_id] = value
 
 
 def is_trial_period_over(

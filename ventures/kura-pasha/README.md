@@ -6523,3 +6523,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-05 04:00 UTC(フェーズ281: 詳細は上記。候補継続2件の連絡チャネル
   表記ゆれ再検索を実施したが新規情報なし、本手法は次回候補から除外する方針に転換。
   コード変更なし、テスト300件・webhook355件・schema検証32件いずれも変更なしでパス)
+- フェーズ282(2026-11-05 21:00 UTC定例更新): フェーズ281次回候補(3)「オーナー承認待ちの
+  実連絡そのものを除く範囲(他の設計文書のcross-document parity確認等)での前進」に対応
+  した。subscription-updated-event-order-guard-design.md(フェーズ198)「次回候補」が
+  申し送っていた「他venture(aircon-pasha・course-set-pasha・line-reservation-ai)の
+  `customer.subscription.updated`ハンドラに同種のガード欠落がないかの横断確認」を実施
+  した結果、course-set-pasha(`_is_stale_subscription_updated_event`実装済み)・
+  aircon-pasha(`stripe_dispatch.py`フェーズ286で横展開済み)・line-reservation-ai
+  (`handle_subscription_updated()`にevent_time比較実装済み)はいずれも既に是正済み
+  であることを確認した一方、forklift-pashaの`handle_customer_subscription_updated()`
+  (フェーズ128、plan_id同期専用)には同種のevent_timeベースの配信順序入れ替わりガードが
+  一度も実装されていないことを新たに発見した。本件はkura-pasha自身のコード変更を伴わない
+  棚卸し結果であるため、発見した欠落の是正自体はforklift-pasha側
+  (subscription-updated-event-order-guard-design.md、同venture側フェーズ212)で行った
+  (詳細は同ventureのREADME・design doc参照)。本venture側のコード変更はなし、回帰確認
+  として`python3 -m unittest discover -s prototype -p "test_*.py"`(300件、変更なし)・
+  `python3 prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(3)event-komiguai-pasha・oshien-pashaの`customer.subscription.updated`
+  相当ハンドラに同種のガード欠落がないかの横断確認(forklift-pasha側design doc「4.
+  スコープ外」の申し送りを受けて)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05 21:00 UTC(フェーズ282: 詳細は上記。subscription-updated-event-
+  order-guard-design.mdの横断棚卸しを実施し、course-set-pasha・aircon-pasha・
+  line-reservation-aiは是正済みを確認、forklift-pashaに同種の欠落を発見し同venture側で
+  是正。本venture側のコード変更なし、テスト300件・webhook355件・schema検証32件いずれも
+  変更なしでパス)

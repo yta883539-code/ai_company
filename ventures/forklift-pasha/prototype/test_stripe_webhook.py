@@ -107,8 +107,10 @@ def _invoice_event(event_type: str, stripe_customer_id="cus_123") -> dict:
     }
 
 
-def _subscription_updated_event(stripe_customer_id="cus_123", lookup_key="forklift_pasha_fleet") -> dict:
-    return {
+def _subscription_updated_event(
+    stripe_customer_id="cus_123", lookup_key="forklift_pasha_fleet", created=None
+) -> dict:
+    event = {
         "id": "evt_sub_1",
         "type": "customer.subscription.updated",
         "data": {
@@ -118,6 +120,9 @@ def _subscription_updated_event(stripe_customer_id="cus_123", lookup_key="forkli
             }
         },
     }
+    if created is not None:
+        event["created"] = created
+    return event
 
 
 def main():
@@ -274,6 +279,78 @@ def main():
     ))
     results.append(_check(
         "未知のlookup_keyはplan_idを変更しない", store5.get_plan_id("internal-5"), "fleet"
+    ))
+
+    # --- handle_customer_subscription_updated: 配信順序入れ替わりガード
+    # (subscription-updated-event-order-guard-design.md、フェーズ212) ---
+    store6 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-6", stripe_customer_id="cus_666", plan="light"),
+        store6,
+    )
+    applied_first = handle_customer_subscription_updated(
+        _subscription_updated_event(
+            stripe_customer_id="cus_666", lookup_key="forklift_pasha_fleet", created=2_000_000,
+        ),
+        store6,
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("正常順序ではstale=False", applied_first.stale, False))
+    results.append(_check("正常順序ではplan_idが反映される", store6.get_plan_id("internal-6"), "fleet"))
+
+    stale_result = handle_customer_subscription_updated(
+        _subscription_updated_event(
+            stripe_customer_id="cus_666", lookup_key="forklift_pasha_light", created=1_000_000,
+        ),
+        store6,
+        event_time=datetime.fromtimestamp(1_000_000, tz=timezone.utc),
+    )
+    results.append(_check("遅延配信された古いイベントはstale=True", stale_result.stale, True))
+    results.append(_check("stale=Trueはsynced=False", stale_result.synced, False))
+    results.append(_check(
+        "stale時はplan_idを書き換えない", store6.get_plan_id("internal-6"), "fleet"
+    ))
+
+    same_time_result = handle_customer_subscription_updated(
+        _subscription_updated_event(
+            stripe_customer_id="cus_666", lookup_key="forklift_pasha_light", created=2_000_000,
+        ),
+        store6,
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("同時刻は既に処理済みとしてstale=True", same_time_result.stale, True))
+
+    newer_result = handle_customer_subscription_updated(
+        _subscription_updated_event(
+            stripe_customer_id="cus_666", lookup_key="forklift_pasha_light", created=3_000_000,
+        ),
+        store6,
+        event_time=datetime.fromtimestamp(3_000_000, tz=timezone.utc),
+    )
+    results.append(_check("より新しいevent_timeは適用される", newer_result.stale, False))
+    results.append(_check(
+        "より新しいevent_timeでplan_idが更新される", store6.get_plan_id("internal-6"), "light"
+    ))
+
+    # --- handle_customer_subscription_updated: event_time省略時は従来通り無条件適用 ---
+    store6b = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-6b", stripe_customer_id="cus_666b", plan="light"),
+        store6b,
+    )
+    handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_666b", lookup_key="forklift_pasha_fleet"),
+        store6b,
+        event_time=None,
+    )
+    no_event_time_result = handle_customer_subscription_updated(
+        _subscription_updated_event(stripe_customer_id="cus_666b", lookup_key="forklift_pasha_light"),
+        store6b,
+        event_time=None,
+    )
+    results.append(_check("event_time省略時はstale判定しない", no_event_time_result.stale, False))
+    results.append(_check(
+        "event_time省略時は無条件適用される", store6b.get_plan_id("internal-6b"), "light"
     ))
 
     # --- handle_customer_subscription_deleted: 正常系(canceled_at書き込み) ---
