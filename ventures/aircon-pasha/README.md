@@ -6796,3 +6796,34 @@
   validate_llm_output()のrun_all_checks呼び出しをstatus=="generated"限定から無条件実行に
   変更し、フェーズ359で拡張した4フィールドのチェックが実行されないdead codeだった不具合を
   解消。回帰テスト1件追加〈803件〉・schema検証25件いずれもパス)
+- フェーズ361(2026-11-05 18:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ360の「次回候補(2)」(同種の「チェック関数自体は拡張したが呼び出し元の
+  status分岐ガードが更新されずdead codeになる」パターンが他venture〈course-set-pasha・
+  kura-pasha等〉のstatus分岐構造にも潜んでいないかの横展開確認)に着手した。まず
+  course-set-pashaの`cloud_function_webhook.py`を確認したところ、直近の別フェーズ(同venture
+  フェーズ353、本venture視点では確認時点で既に対応済み)で`validate_llm_output()`内の
+  `run_all_checks(instance)`呼び出しが既に無条件実行へ是正され、本フェーズ360の発見を参照する
+  コメントも付与済みであることを確認した(本venture側での追加対応は不要)。続けて残る4
+  venture(kura-pasha・forklift-pasha・event-komiguai-pasha・line-reservation-ai)を点検した
+  結果、kura-pashaは後処理ヒューリスティック(post_generation_checks相当)自体が存在せず
+  対象外、forklift-pasha・event-komiguai-pashaはいずれも`validate_llm_output()`
+  (前者は`form_submission_flow.py`、後者は`mock_llm_client.py`)が`run_all_checks(instance)`を
+  既に無条件実行しておりstatus分岐ガードによるdead code化は発生していないことを確認した
+  (いずれも`check_message_length_within_line_limit()`相当の「複数フィールドへの後からの
+  対象拡張」も行われておらず、本venture〈aircon-pasha〉固有の経緯で生じた不具合パターン
+  であったと判断する)。line-reservation-aiは`validate_llm_output`/`run_all_checks`に相当する
+  関数自体が存在しない(フェーズ310で確認済みの通り、本体とエントリポイントを分離しない
+  別アーキテクチャ)ため対象外。以上によりフェーズ360の次回候補(2)は全venture分の横展開
+  確認が完了し、本venture以外に追加の是正が必要な箇所は見つからなかった。コード変更は
+  行っておらず(確認作業のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を
+  再実行しいずれもパスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)実LLM接続後の処理時間実測を待って確定するCloud Functions同時実行数・タイムアウトの
+  具体値決定(deployment-runbook.mdステップ4、承認・実接続待ちのため現時点では着手不可)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-05 18:00 UTC(フェーズ361: フェーズ360の次回候補(2)「status分岐ガード
+  更新漏れによるdead code」パターンの他venture横展開確認を完了。course-set-pashaは既に
+  是正済み、kura-pasha・forklift-pasha・event-komiguai-pasha・line-reservation-aiはいずれも
+  対象外または既に問題なしと確認。コード変更なし、テスト803件・schema検証25件いずれもパス)
