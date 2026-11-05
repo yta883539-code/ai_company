@@ -6399,3 +6399,39 @@
 - 最終更新: 2026-11-05 01:00 UTC(フェーズ352: 詳細は上記。interview-rehearsal-script.mdに
   候補2向けQ2・Q5〜Q7・Q11の差分要否棚卸しを追記(4問に差分必要、7問は不要と判断)。コード
   変更なし。テスト863件・schema検証21件いずれも変更なしでパス)
+- フェーズ353(2026-11-05 07:00 UTC定例更新): aircon-pashaフェーズ360の次回候補(2)
+  「同種の『チェック関数自体は拡張したが呼び出し元のstatus分岐ガードが更新されずdead
+  codeになる』パターンが他venture(course-set-pasha・kura-pasha等)のstatus分岐構造にも
+  潜んでいないかの横展開確認」のうち本venture分を実施し、実際に同種の不具合を発見・是正した。
+  `cloud_function_webhook.py`の`validate_llm_output()`が`if instance.get("status") ==
+  "generated": errors += run_all_checks(instance)`という分岐のままだったため、`post_
+  generation_checks.py`の`check_subscription_notice_consistency()`・`check_checkout_
+  notice_consistency()`(対象フィールドsubscription_procedure_notice・checkout_notice
+  はいずれもstatus!="generated"のときのみ非null、mutually exclusive)の実行条件
+  (status=="generated"かつ当該フィールドが非null)が両立せず、一度も実行されないdead
+  codeになっていたことに気づいた。実際にstatus=cancellation_unclearの`subscription_
+  procedure_notice.body`へカスタマーポータル言及・手続き完了前提の文言を混入させた
+  インスタンス、およびstatus=checkout_intent_unclearの`checkout_notice.body`へ具体的な
+  プラン名・手続き完了前提の文言を混入させたインスタンスをそれぞれ`validate_llm_output()`
+  に通して、いずれも検証エラー0件であることを再現確認した上で、`run_all_checks(instance)`
+  の呼び出しをstatus分岐の外に移し無条件実行に変更した(run_all_checks内の他の既存チェック
+  はいずれも対象フィールドがNoneの場合を安全にスキップする設計であることをコードで確認済み
+  のため、非generatedステータスで新たな例外・誤検知は発生しない)。character-limit-
+  fallback-design.md「残課題」に本件を追記し、同じ再現手順を固定する回帰テスト3件
+  (`ValidateLlmOutputNonGeneratedChecksTest`)を`test_cloud_function_webhook.py`に追加
+  した。修正後は同インスタンスでそれぞれ想定エラーが検出されること、既存フィクスチャ
+  (CI3・CO1・CO2・CO3)が変更なしでパスし続けることを確認した。回帰確認として`python3 -I
+  -m unittest discover -s prototype -p "test_*.py"`(既存863件+新規3件=866件、全件パス)・
+  `python3 -I schema/validate_test_cases.py`(21件、変更なし)を実行しいずれもパスする
+  ことを確認した(回帰なし)。kura-pasha側の同種パターンの横展開確認は未着手のまま残る。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜6、または本パッケージ・候補1・候補2への連絡可否がオーナーから
+  承認された場合はその着手を最優先、(2)kura-pashaについても同種の「呼び出し元のstatus
+  分岐ガードが更新されずdead codeになる」パターンの横展開確認(本フェーズでは
+  course-set-pasha単体の確認・是正に限定したため未着手)、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-05 07:00 UTC(フェーズ353: 詳細は上記。validate_llm_output()の
+  run_all_checks呼び出しをstatus=="generated"限定から無条件実行に変更し、check_
+  subscription_notice_consistency()・check_checkout_notice_consistency()が実行されない
+  dead codeだった不具合を解消。回帰テスト3件追加〈866件〉・schema検証21件いずれもパス)

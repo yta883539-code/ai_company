@@ -80,3 +80,10 @@ UTF-16コード単位数を算出する実装とする。
   post_generation_checks.pyに実装し、cloud_function_webhook.pyに`LENGTH_LIMIT_FALLBACK_MESSAGE`
   分岐を配線した。テスト8件追加、venture全体431件全件パスを確認済み。詳細はREADME.mdフェーズ
   138参照)
+- (別件・解消済み・本日時: aircon-pashaフェーズ360で発見された同種の不具合が本venture側の
+  `validate_llm_output()`にも存在することが判明し是正した。`run_all_checks(instance)`の
+  呼び出しが`status=="generated"`限定のままだったため、`check_subscription_notice_
+  consistency()`・`check_checkout_notice_consistency()`(対象フィールドsubscription_
+  procedure_notice・checkout_noticeはいずれもstatus!="generated"のときのみ非null)が
+  一度も実行されないdead codeになっていた。呼び出しをstatus分岐の外に移し無条件実行に
+  変更し、回帰テスト3件を追加した。詳細はREADME.md本日時フェーズ参照)

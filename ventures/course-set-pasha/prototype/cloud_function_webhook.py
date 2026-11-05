@@ -1095,8 +1095,13 @@ def validate_llm_output(instance: dict) -> list[str]:
         return errors
 
     errors += validate_cross_field_rules(instance)
-    if instance.get("status") == "generated":
-        errors += run_all_checks(instance)
+    # フェーズ360(aircon-pasha)で発見された同種の不具合: run_all_checks()をstatus=="generated"
+    # 限定で呼ぶと、check_subscription_notice_consistency()・check_checkout_notice_consistency()
+    # (いずれもstatus!="generated"のときのみ非nullとなるsubscription_procedure_notice・
+    # checkout_noticeが対象、mutually exclusive)が実行条件を一度も満たせずdead codeになる。
+    # run_all_checks内の各チェックは対象フィールドがNoneの場合を安全にスキップする設計の
+    # ため、無条件実行に変更する。
+    errors += run_all_checks(instance)
     return errors
 
 

@@ -8,6 +8,7 @@ schema/validate_test_cases.pyのTEST_CASES(G1〜G4・OOS1・II1)を返すスタ�
 """
 
 import base64
+import copy
 import hashlib
 import hmac
 import json
@@ -2939,6 +2940,56 @@ class MainEntryPointTest(unittest.TestCase):
         result = receive_webhook(body, self._signed(body), self.SECRET, **deps)
 
         self.assertEqual(result.status_code, 200)
+
+
+class ValidateLlmOutputNonGeneratedChecksTest(unittest.TestCase):
+    """aircon-pashaフェーズ360で発見された同種の不具合の回帰テスト。
+
+    validate_llm_output()はrun_all_checks(instance)の呼び出しがstatus=="generated"の
+    場合のみに限定されていたため、post_generation_checks.pyのcheck_subscription_notice_
+    consistency()・check_checkout_notice_consistency()(対象フィールドsubscription_
+    procedure_notice・checkout_noticeはいずれもstatus!="generated"のときのみ非null、
+    mutually exclusive)の実行条件(status=="generated"かつ当該フィールドが非null)が
+    両立せず、一度も実行されないdead codeになっていた。本クラスは、この2チェックが
+    実際に機能することを固定する。
+    """
+
+    def test_cancellation_unclear_portal_mention_is_detected(self):
+        instance = copy.deepcopy(TEST_CASES["CI3_cancellation_unclear"])
+        instance["subscription_procedure_notice"]["body"] += (
+            "カスタマーポータルより手続きを完了してください。"
+        )
+
+        errors = validate_llm_output(instance)
+
+        self.assertTrue(
+            any("カスタマーポータル" in e for e in errors),
+            f"errors={errors!r}",
+        )
+
+    def test_checkout_intent_unclear_completion_wording_is_detected(self):
+        instance = copy.deepcopy(TEST_CASES["CO3_checkout_intent_unclear"])
+        instance["checkout_notice"]["body"] += (
+            "ライトプランは月額980円で手続きが完了します。"
+        )
+
+        errors = validate_llm_output(instance)
+
+        self.assertTrue(
+            any("具体的なプラン名" in e for e in errors),
+            f"errors={errors!r}",
+        )
+
+    def test_unmodified_fixtures_still_pass(self):
+        for case_id in (
+            "CI3_cancellation_unclear",
+            "CO1_checkout_intent",
+            "CO2_pricing_inquiry",
+            "CO3_checkout_intent_unclear",
+        ):
+            with self.subTest(case_id=case_id):
+                instance = copy.deepcopy(TEST_CASES[case_id])
+                self.assertEqual(validate_llm_output(instance), [])
 
 
 if __name__ == "__main__":
