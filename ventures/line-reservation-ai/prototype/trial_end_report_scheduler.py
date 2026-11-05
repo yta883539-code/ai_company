@@ -21,6 +21,9 @@ from dataclasses import dataclass
 
 # 1節: 「目安対応時間の根拠値は今後の課題として残す」とされていた仮定値。
 # 出典なしの一般的な仮定(1件あたり約7〜8分の手作業を代替)の中間値を採用。
+# billing-upgrade-flow-design.md追記(2026-11-05 05:00 UTC)でWebSearchによる複数の
+# 二次情報源との比較検証済み(電話予約対応は通話のみで3〜5分、データ入力等まで含めると
+# 4.5〜14分という推計の範囲内であり妥当と判断、値は変更なし)。
 # 実測データが得られ次第、この定数の見直しをunit-economics-estimate.mdの前例に倣い検討する。
 ASSUMED_MINUTES_SAVED_PER_AUTO_HANDLED_CASE = 7.5
 
