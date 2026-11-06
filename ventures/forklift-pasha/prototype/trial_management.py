@@ -185,6 +185,18 @@ class FleetOperatorStoreProtocol:
         保持する方針はkura-pasha/course-set-pashaと同じ)。"""
         raise NotImplementedError
 
+    def get_checkout_session_completed_event_time(self, internal_id: str) -> "datetime | None":
+        """checkout-session-completed-event-order-guard-design.md(aircon-pashaフェーズ287・
+        kura-pashaの横展開、本ventureはフェーズ213で追加)。`checkout.session.completed`
+        受信時の`stripe_customer_id`書き込みを最後に実際に反映したイベントの
+        `event.created`。未設定はNone(ガード導入前からの既存事業者、またはstore未対応時は
+        判定不能=常に適用)。"""
+        raise NotImplementedError
+
+    def set_checkout_session_completed_event_time(self, internal_id: str, value: datetime) -> None:
+        """同上。上書き可(get/set_subscription_updated_event_timeと同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -207,6 +219,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._payment_failure_reminder_sent_at: "dict[str, datetime]" = {}
         self._payment_suspension_owner_notified_at: "dict[str, datetime]" = {}
         self._subscription_updated_event_time: "dict[str, datetime]" = {}
+        self._checkout_session_completed_event_time: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -341,6 +354,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_subscription_updated_event_time(self, internal_id: str, value: datetime) -> None:
         self._subscription_updated_event_time[internal_id] = value
+
+    def get_checkout_session_completed_event_time(self, internal_id: str) -> "datetime | None":
+        return self._checkout_session_completed_event_time.get(internal_id)
+
+    def set_checkout_session_completed_event_time(self, internal_id: str, value: datetime) -> None:
+        self._checkout_session_completed_event_time[internal_id] = value
 
 
 def is_trial_period_over(

@@ -102,6 +102,41 @@ def verify_stripe_signature(
     return True
 
 
+def _is_stale_checkout_session_completed_event(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """checkout-session-completed-event-order-guard-design.md(aircon-pashaフェーズ287・
+    kura-pashaの横展開、本ventureはフェーズ213で追加)。`event_time`が`None`、または
+    `store`が新メソッド未対応、または記録済みevent_timeが未設定の場合は「判定不能」として
+    `False`(常に適用、既存事業者への後方互換)。今回のevent_timeが記録済みのevent_time
+    「以下」であれば`True`(stale、同時刻は既に処理済みとして再適用しない)。"""
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_checkout_session_completed_event_time", None)
+    if getter is None:
+        return False
+    recorded = getter(internal_id)
+    if recorded is None:
+        return False
+    return event_time <= recorded
+
+
+def _record_checkout_session_completed_event_time(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    """同上。`event_time`が`None`、または`store`が新メソッド未対応の場合は何もしない。"""
+    if event_time is None:
+        return
+    setter = getattr(store, "set_checkout_session_completed_event_time", None)
+    if setter is None:
+        return
+    setter(internal_id, event_time)
+
+
 @dataclass
 class CheckoutSessionLinkResult:
     """handle_checkout_session_completed()の結果(design 3節)。"""
@@ -112,6 +147,7 @@ class CheckoutSessionLinkResult:
     error: Optional[str] = None
     plan_id_written: bool = False
     upgraded_at_written: bool = False
+    stale: bool = False
 
 
 def handle_checkout_session_completed(
@@ -119,6 +155,7 @@ def handle_checkout_session_completed(
     store: FleetOperatorStoreProtocol,
     *,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> CheckoutSessionLinkResult:
     """`checkout.session.completed`イベントから`client_reference_id`(= `internal_id`、
     checkout_session.build_checkout_session_params()が設定した値)・`customer`
@@ -128,6 +165,13 @@ def handle_checkout_session_completed(
     aircon-pashaと異なり、対応する`fleet_operator`の事前存在チェックは行わない
     (design 3節「本venture固有の設計判断」参照)。`internal_id`・`stripe_customer_id`の
     いずれかが欠落・非文字列・空文字列の場合のみ異常系として書き込みを行わない。
+
+    (フェーズ213、checkout-session-completed-event-order-guard-design.md)
+    `stripe_customer_id`の書き込みは`event_time`ベースの配信順序入れ替わりガードの対象で、
+    記録済みの`checkout_session_completed_event_time`以下(同時刻含む)の場合はスキップし
+    `stale=True`を返す(`plan_id`・`upgraded_at`は従来通りガード対象外、`upgraded_at`は
+    「一度きり」判定を維持)。`event_time`省略時・store未対応・未記録時は従来通り無条件
+    適用する(他ガードと同じ後方互換)。
     """
     data_object = event.get("data", {}).get("object", {})
     internal_id = data_object.get("client_reference_id")
@@ -141,7 +185,10 @@ def handle_checkout_session_completed(
     ):
         return CheckoutSessionLinkResult(linked=False, error="missing_fields")
 
-    store.set_stripe_customer_id(internal_id, stripe_customer_id)
+    stale = _is_stale_checkout_session_completed_event(store, internal_id, event_time)
+    if not stale:
+        store.set_stripe_customer_id(internal_id, stripe_customer_id)
+        _record_checkout_session_completed_event_time(store, internal_id, event_time)
 
     plan_id_written = write_plan_id_from_checkout_session_metadata(
         store, internal_id, data_object.get("metadata", {})
@@ -159,6 +206,7 @@ def handle_checkout_session_completed(
         stripe_customer_id=stripe_customer_id,
         plan_id_written=plan_id_written,
         upgraded_at_written=upgraded_at_written,
+        stale=stale,
     )
 
 
@@ -494,7 +542,7 @@ def receive_stripe_webhook(
 
     if event_type == "checkout.session.completed":
         checkout_link_result = handle_checkout_session_completed(
-            parsed, store, now=resolved_now
+            parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
         return StripeWebhookReceiverResult(
             status_code=200, checkout_link_result=checkout_link_result

@@ -4527,3 +4527,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   された`customer.subscription.updated`の配信順序入れ替わりガード欠落をsubscription-
   updated-event-order-guard-design.mdとして設計・是正。新規テスト9件、既存テスト・schema
   検証・browser_mockup_checksいずれも変更なしでパス)
+- フェーズ213(2026-11-06 03:00 UTC定例更新): フェーズ212「次回候補(2)」の
+  `checkout.session.completed`等、本venture内の他イベントハンドラへの同種ガードの横展開に
+  対応した。横断棚卸しの結果、aircon-pashaフェーズ287・kura-pashaが`checkout.session.
+  completed`受信時の`stripe_customer_id`書き込みに同種のevent_timeベースガードを既に
+  横展開済みであることを確認したが、本ventureの`stripe_webhook.handle_checkout_session_
+  completed()`(フェーズ127)にはこのガードが一度も実装されておらず、複数のCheckout
+  Sessionが短期間に作成され配信順序が入れ替わった場合に遅延配信された古いイベントで
+  `stripe_customer_id`を誤って上書きしてしまう欠落があることが判明したため、新規に
+  checkout-session-completed-event-order-guard-design.mdとして設計・是正した。
+  `FleetOperatorStoreProtocol`に`get/set_checkout_session_completed_event_time()`を追加し、
+  `handle_checkout_session_completed()`に`event_time`引数(省略時は従来通り無条件適用、
+  後方互換)を追加して`receive_stripe_webhook()`から既存の`_event_time_from_created()`
+  (フェーズ212で追加済みの汎用ヘルパー)を配線した(`plan_id`・`upgraded_at`書き込みは
+  本ガードの対象外、従来の挙動を維持)。新規テスト4件(`test_stripe_webhook.py`のcheck()
+  呼び出し100件→104件)、venture全体`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(100件、変更なし)・`python3 prototype/run_all_tests.py`(24ファイル全パス、
+  変更なし)・schema検証11件・`node prototype/browser_mockup_checks.js`(49件、変更なし)
+  いずれもパスを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`customer.subscription.deleted`・`customer.subscription.created`への同種
+  ガードの横展開(解約直後の再契約シナリオで優先度が高いと判断)、(2)
+  event-komiguai-pasha・oshien-pashaの同種ガード有無の確認、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-06 03:00 UTC(フェーズ213: 詳細は上記。aircon-pasha・kura-pashaの
+  横展開として`checkout.session.completed`の`stripe_customer_id`書き込みに配信順序
+  入れ替わりガードをcheckout-session-completed-event-order-guard-design.mdとして設計・
+  是正。新規テスト4件、既存テスト・schema検証いずれも変更なしでパス)

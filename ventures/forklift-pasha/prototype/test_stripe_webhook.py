@@ -68,9 +68,9 @@ def _sign(payload: bytes, timestamp: int, secret: str = SECRET) -> str:
 
 
 def _checkout_event(
-    internal_id="internal-1", stripe_customer_id="cus_123", plan="standard"
+    internal_id="internal-1", stripe_customer_id="cus_123", plan="standard", created=None
 ) -> dict:
-    return {
+    event = {
         "id": "evt_1",
         "type": "checkout.session.completed",
         "data": {
@@ -81,6 +81,9 @@ def _checkout_event(
             }
         },
     }
+    if created is not None:
+        event["created"] = created
+    return event
 
 
 def _subscription_deleted_event(stripe_customer_id="cus_123") -> dict:
@@ -222,6 +225,79 @@ def main():
         "未知のplanはplan_id_written=False", unknown_plan_result.plan_id_written, False
     ))
     results.append(_check("未知のplanはplan_idを書き込まない", store3.get_plan_id("internal-3"), None))
+
+    # --- handle_checkout_session_completed: 配信順序入れ替わりガード
+    # (checkout-session-completed-event-order-guard-design.md、フェーズ213) ---
+    store4 = InMemoryFleetOperatorStore()
+    applied_first_checkout = handle_checkout_session_completed(
+        _checkout_event(
+            internal_id="internal-4", stripe_customer_id="cus_444", plan="light", created=2_000_000,
+        ),
+        store4,
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("正常順序ではstale=False", applied_first_checkout.stale, False))
+    results.append(_check(
+        "正常順序ではstripe_customer_idが書き込まれる",
+        store4.get_stripe_customer_id("internal-4"),
+        "cus_444",
+    ))
+
+    stale_checkout = handle_checkout_session_completed(
+        _checkout_event(
+            internal_id="internal-4", stripe_customer_id="cus_old", plan="light", created=1_000_000,
+        ),
+        store4,
+        event_time=datetime.fromtimestamp(1_000_000, tz=timezone.utc),
+    )
+    results.append(_check("遅延配信された古いイベントはstale=True", stale_checkout.stale, True))
+    results.append(_check(
+        "stale時はstripe_customer_idを書き換えない",
+        store4.get_stripe_customer_id("internal-4"),
+        "cus_444",
+    ))
+
+    same_time_checkout = handle_checkout_session_completed(
+        _checkout_event(
+            internal_id="internal-4", stripe_customer_id="cus_old", plan="light", created=2_000_000,
+        ),
+        store4,
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("同時刻は既に処理済みとしてstale=True", same_time_checkout.stale, True))
+
+    newer_checkout = handle_checkout_session_completed(
+        _checkout_event(
+            internal_id="internal-4", stripe_customer_id="cus_new", plan="light", created=3_000_000,
+        ),
+        store4,
+        event_time=datetime.fromtimestamp(3_000_000, tz=timezone.utc),
+    )
+    results.append(_check("より新しいevent_timeは適用される", newer_checkout.stale, False))
+    results.append(_check(
+        "より新しいevent_timeでstripe_customer_idが更新される",
+        store4.get_stripe_customer_id("internal-4"),
+        "cus_new",
+    ))
+
+    # --- handle_checkout_session_completed: event_time省略時は従来通り無条件適用 ---
+    store4b = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-4b", stripe_customer_id="cus_444b", plan="light"),
+        store4b,
+        event_time=None,
+    )
+    no_event_time_checkout = handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-4b", stripe_customer_id="cus_444b_new", plan="light"),
+        store4b,
+        event_time=None,
+    )
+    results.append(_check("event_time省略時はstale判定しない", no_event_time_checkout.stale, False))
+    results.append(_check(
+        "event_time省略時は無条件適用される",
+        store4b.get_stripe_customer_id("internal-4b"),
+        "cus_444b_new",
+    ))
 
     # --- handle_customer_subscription_updated: 正常系(plan_id同期) ---
     store5 = InMemoryFleetOperatorStore()
