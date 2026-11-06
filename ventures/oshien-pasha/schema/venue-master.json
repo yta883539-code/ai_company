@@ -341,14 +341,16 @@
     },
     {
       "canonical_name": "真駒内セキスイハイムアイスアリーナ",
-      "aliases": [],
+      "aliases": [
+        "真駒内屋内競技場"
+      ],
       "region": "北海道圏",
       "nearest_station": "地下鉄 真駒内駅",
       "walk_minutes_note": "徒歩5分前後",
       "naming_rights": true,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-06",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「セキスイハイム」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「セキスイハイム」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。 フェーズ89(2026-11-06 11:00 UTC)でWebSearchにより追加裏取りした結果、北海道セキスイハイムが2007年4月1日付で命名権を取得し、旧称『真駒内屋内競技場(1972年〜2007年)』から改称したことを確認した(英語版Wikipedia系記事・日本語紹介記事)。旧称をaliasesに追加した。また、ticketjam.jp掲載の紹介記事では施設の正式名称を『道立真駒内公園屋内競技場』としており、運営主体が札幌市ではなく北海道(道)である可能性が示唆されたため、所有者の記載自体がある他レコードとの整合性確認を将来課題としてambiguity-watchlist.jsonへの追記候補として申し送る。契約の年数・契約金額・更新条件・満了日はいずれの検索結果にも含まれておらず依然未確定のため、naming_rights_review_dueは推測日付を記入しない既存ルール(フェーズ15)を踏襲してnullのまま維持する。次回以降、北海道または施設運営団体(北海道スポーツ協会)の公式発表の直接確認を次の手段とする。",
       "operational_status": "active"
     },
     {
