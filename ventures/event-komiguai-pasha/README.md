@@ -2126,3 +2126,26 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   Stripe公式ページ一次情報確認を再試行したが本環境のネットワーク制限により2回目も失敗した
   ため、恒常的制約と判断し低頻度扱いに格下げ。コード変更なし、既存テスト79件・schema検証
   22件いずれも変更なしでパス)
+- フェーズ97(2026-11-06 03:00 UTC定例更新): aircon-pasha・course-set-pasha・forklift-pasha・
+  kura-pasha・line-reservation-aiはいずれもfirestore-security-rules-draft.mdを作成済みだが、
+  本ventureのみ未作成のまま残っていたcross-venture parityギャップを発見・解消した。
+  firestore-security-rules-draft.mdを新規作成し、one-time-checkout-no-account-design.md・
+  inquiry-handling-design.md・idempotency-key-write-conflict-control-design.md(フェーズ
+  67・68)で確定済みの3コレクション(`one_time_draft`・`inquiry`・`idempotency_key_index`)
+  に対し、Cloud Run functions(Admin SDK経由)のみがアクセスし、クライアントからの直接
+  アクセスは設計上存在しない(tech-stack.mdフェーズ7)という他venture同型の前提に基づく
+  deny-allルール草案を整理した。実Firestoreプロジェクトの作成・Emulator Suiteでの検証は
+  オーナー承認待ちの範囲として次回候補に残した。これにより横展開の残りはoshien-pashaのみと
+  なった。コード変更なし(Markdownドキュメント新規作成のみ)、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(79件、変更なし)・`python3
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)実Firestoreプロジェクト作成がオーナーから承認された場合、Firebase Local
+  Emulator Suiteでのdeny-allルール検証(aircon-pashaのfirestore-security-rules-emulator-
+  verification.mdと同種)に着手する、(2)承認待ち事項(候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 03:00 UTC(フェーズ97: firestore-security-rules-draft.mdを新規作成。
+  3コレクション〈`one_time_draft`・`inquiry`・`idempotency_key_index`〉に対するdeny-all
+  ルール草案を整理し、横展開ギャップを解消。コード変更なし、既存テスト79件・schema検証
+  22件いずれも変更なしでパス)
