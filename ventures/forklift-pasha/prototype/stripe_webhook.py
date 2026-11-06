@@ -18,6 +18,14 @@ subscription-canceled-immediate-block-design.md相当)を追加した。フェ�
 `invoice.payment_succeeded`受信時の決済失敗検知・復旧クリア(`payment_failure.py`、
 payment-failure-dunning-design.md)を追加した。解約完了案内の送信等はまだ一切存在
 しないため、それ以外のイベント種別は常に200(受理・無視)を返す。
+
+フェーズ215で`event_id_store`(stripe-event-idempotency-design.md、kura-pashaの
+横断棚卸しで発見)を追加した。Stripeは同一イベントを複数回配信することがある
+(at least once配信)が、本venture唯一の非べき等な副作用である
+`handle_invoice_payment_failed()`の`payment_failure_detected_at`上書きは、従来
+`receive_stripe_webhook()`に重複排除の仕組みが一切なく、同一の`invoice.payment_failed`
+が再配信されるたびに猶予期間の起算点が後ろへずれ続ける欠落があった(aircon-pasha
+フェーズ177・kura-pashaフェーズ77と同型)。
 """
 
 from __future__ import annotations
@@ -41,6 +49,33 @@ from plan_id_resolution import (
     write_plan_id_from_checkout_session_metadata,
 )
 from trial_management import FleetOperatorStoreProtocol, InMemoryFleetOperatorStore
+
+
+class StripeEventIdStoreProtocol:
+    """stripe-event-idempotency-design.md 2節: `event.id`単位の処理済み記録を保持する
+    ストアのインターフェース(aircon-pasha/kura-pashaと同一設計)。`internal_id`単位の
+    `FleetOperatorStoreProtocol`とはキーの性質が異なるため独立させた。"""
+
+    def has_processed(self, event_id: str) -> bool:
+        raise NotImplementedError
+
+    def mark_processed(self, event_id: str) -> None:
+        raise NotImplementedError
+
+
+class InMemoryStripeEventIdStore:
+    """design 3節: 検証用のインメモリ実装。プロセス起動ごとに初期化されるため、実Cloud
+    Functions環境では呼び出しをまたいで保持されない(他venture・既存の各種InMemoryストアと
+    同じ既知の限界)。"""
+
+    def __init__(self) -> None:
+        self._processed_event_ids: set = set()
+
+    def has_processed(self, event_id: str) -> bool:
+        return event_id in self._processed_event_ids
+
+    def mark_processed(self, event_id: str) -> None:
+        self._processed_event_ids.add(event_id)
 
 
 def verify_stripe_signature(
@@ -574,6 +609,9 @@ class StripeWebhookReceiverResult:
     invoice_payment_failed_result: Optional[InvoicePaymentFailedResult] = None
     invoice_payment_succeeded_result: Optional[InvoicePaymentSucceededResult] = None
     error: Optional[str] = None
+    # フェーズ215追加: event_id_store指定時、`event.id`が処理済みのためハンドラを
+    # 呼び出さずに200を返した場合True(aircon-pasha/kura-pashaと同一フィールド名)。
+    duplicate: bool = False
 
 
 def receive_stripe_webhook(
@@ -582,6 +620,7 @@ def receive_stripe_webhook(
     webhook_secret: str,
     *,
     store: FleetOperatorStoreProtocol,
+    event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント。生のリクエストボディ(bytes)を受け取り、
@@ -594,6 +633,15 @@ def receive_stripe_webhook(
     - イベント種別が`checkout.session.completed`の場合のみ
       `handle_checkout_session_completed()`へ振り分ける。それ以外のイベント種別は
       Stripe側の再送ループを避けるため200(受理・無視)として扱う。
+
+    `event_id_store`(stripe-event-idempotency-design.md、フェーズ215追加、
+    aircon-pashaフェーズ177・kura-pashaフェーズ77と同一設計)は指定時、パース済み
+    イベントの`id`が既に処理済みであればいずれのハンドラも呼び出さず、
+    `duplicate=True`とともに200を返す(副作用ゼロ)。`id`が欠落・非文字列の場合は
+    チェックをスキップし従来通り処理する(安全側)。省略時(`None`)はべき等性チェックを
+    一切行わない(既存呼び出し経路への後方互換措置)。本venture未着手のイベント種別
+    (いずれのハンドラも呼ばれない分岐)は処理済み記録を行わない(aircon-pashaと同じ
+    「ハンドラ呼び出し後にのみmark_processed()する」方針)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -609,12 +657,19 @@ def receive_stripe_webhook(
     if not isinstance(parsed, dict):
         return StripeWebhookReceiverResult(status_code=400, error="invalid_event")
 
+    event_id = parsed.get("id")
+    check_idempotency = event_id_store is not None and isinstance(event_id, str)
+    if check_idempotency and event_id_store.has_processed(event_id):
+        return StripeWebhookReceiverResult(status_code=200, duplicate=True)
+
     event_type = parsed.get("type")
 
     if event_type == "checkout.session.completed":
         checkout_link_result = handle_checkout_session_completed(
             parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, checkout_link_result=checkout_link_result
         )
@@ -623,6 +678,8 @@ def receive_stripe_webhook(
         subscription_updated_result = handle_customer_subscription_updated(
             parsed, store, event_time=_event_time_from_created(parsed)
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, subscription_updated_result=subscription_updated_result
         )
@@ -631,6 +688,8 @@ def receive_stripe_webhook(
         subscription_deleted_result = handle_customer_subscription_deleted(
             parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, subscription_deleted_result=subscription_deleted_result
         )
@@ -639,6 +698,8 @@ def receive_stripe_webhook(
         subscription_created_result = handle_customer_subscription_created(
             parsed, store, event_time=_event_time_from_created(parsed)
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, subscription_created_result=subscription_created_result
         )
@@ -647,6 +708,8 @@ def receive_stripe_webhook(
         invoice_payment_failed_result = handle_invoice_payment_failed(
             parsed, store, now=resolved_now
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200, invoice_payment_failed_result=invoice_payment_failed_result
         )
@@ -655,6 +718,8 @@ def receive_stripe_webhook(
         invoice_payment_succeeded_result = handle_invoice_payment_succeeded(
             parsed, store, now=resolved_now
         )
+        if check_idempotency:
+            event_id_store.mark_processed(event_id)
         return StripeWebhookReceiverResult(
             status_code=200,
             invoice_payment_succeeded_result=invoice_payment_succeeded_result,
@@ -670,8 +735,12 @@ def get_stripe_runtime_dependencies() -> dict:
     `store`: `InMemoryFleetOperatorStore()`を1つ生成する。プロセス起動ごとに初期化
     されるため、実Cloud Functions環境では呼び出しをまたいで紐付け・plan_id・
     upgraded_atが保持されない(他ventureと同じ既知の限界、実Firestore接続後に解消)。
+
+    `event_id_store`(フェーズ215追加): `InMemoryStripeEventIdStore()`を`store`とは
+    独立に1つ生成する(stripe-event-idempotency-design.md 2節、`event_id`と
+    `internal_id`はキーの性質が異なるため使い回さない、aircon-pashaと同じ理由)。
     """
-    return {"store": InMemoryFleetOperatorStore()}
+    return {"store": InMemoryFleetOperatorStore(), "event_id_store": InMemoryStripeEventIdStore()}
 
 
 def main(request, *, runtime_dependencies: Optional[dict] = None):

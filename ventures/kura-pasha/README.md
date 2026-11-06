@@ -6585,3 +6585,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   Webhook未実装のため先行メモのみ記録〈同venture側フェーズ88〉。これにより全7venture
   の棚卸しが完了。本venture側のコード変更なし、テスト300件・webhook355件・schema検証
   32件いずれも変更なしでパス)
+- フェーズ284(2026-11-06定例更新): フェーズ283次回候補(3)「`customer.subscription.
+  updated`ガードの横断棚卸しは完了したため、他の共通設計パターン(例: 冪等性キー・
+  重複配信耐性)について同様の横断棚卸しが有用か検討する」に対応した。本venture自身の
+  `stripe-event-idempotency-design.md`(フェーズ77、`event.id`単位の重複配信対策)が
+  他venture側でどこまで横展開されているかを棚卸しした結果、aircon-pasha(フェーズ177、
+  本設計の元ネタ)・course-set-pasha・line-reservation-aiの3ventureはいずれも同種の
+  `StripeEventIdStoreProtocol`/`InMemoryStripeEventIdStore`を実装済みであることを確認
+  した一方、forklift-pashaの`stripe_webhook.py`は`checkout.session.completed`以下6
+  イベント種別すべてにハンドラを実装済みにもかかわらず同種の重複配信対策が一度も実装
+  されていない欠落を新たに発見した。特に`handle_invoice_payment_failed()`は受信するたびに
+  `payment_failure_detected_at`を無条件上書きする設計のため、Stripeのat-least-once配信
+  による単純な再配信でも猶予期間の起算点が後ろへずれ続ける実害があることを確認した。
+  event-komiguai-pashaは`handle_stripe_webhook`自体が結合実装待ち(`prototype/`未着手)の
+  ため対象外、oshien-pashaはStripe Webhookエントリポイント自体が未実装(フェーズ283で
+  確認済み)のため対象外と判断した。本件は本venture自身のコード変更を伴わない棚卸し結果
+  であるため、発見した欠落の是正自体はforklift-pasha側(stripe-event-idempotency-
+  design.md、同venture側フェーズ215)で行った(詳細は同ventureのREADME・design doc
+  参照)。本venture側のコード変更なし、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(300件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(3)`event.id`単位の重複配信対策の横断棚卸しも完了したため、
+  他の共通設計パターン(例: 署名検証のタイムスタンプ許容範囲`tolerance_seconds`の
+  各venture間の値の揃い)について同様の横断棚卸しが有用か検討する、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-06定例更新(フェーズ284: 詳細は上記。`event.id`単位の重複配信対策の
+  横断棚卸しを実施し、aircon-pasha・course-set-pasha・line-reservation-aiは是正済みを
+  確認、forklift-pashaに同種の欠落を発見し同venture側フェーズ215で是正。event-komiguai
+  -pasha・oshien-pashaは対象外。本venture側のコード変更なし、テスト300件・webhook355件
+  ・schema検証32件いずれも変更なしでパス)

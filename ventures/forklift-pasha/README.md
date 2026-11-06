@@ -4576,3 +4576,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   deleted`・`customer.subscription.created`に両イベント共有のevent_timeキーによる配信
   順序入れ替わりガードをsubscription-lifecycle-event-order-guard-design.mdとして設計・
   是正。新規テスト11件、既存テスト・schema検証いずれも変更なしでパス)
+- フェーズ215(2026-11-06定例更新): kura-pashaフェーズ283「次回候補(3)」(他の共通設計
+  パターン〈例: 冪等性キー・重複配信耐性〉について横断棚卸しが有用か検討する)に対応した
+  横断棚卸しにより、aircon-pasha・course-set-pasha・kura-pasha・line-reservation-aiの
+  4ventureがいずれも`event.id`単位の重複配信対策(`stripe-event-idempotency-design.md`、
+  `StripeEventIdStoreProtocol`・`InMemoryStripeEventIdStore`)を設計・実装済みである一方、
+  本venture(forklift-pasha)の`stripe_webhook.py`は6イベント種別すべてにハンドラを実装
+  済みにもかかわらず同種の重複配信対策が一度も実装されていない欠落を発見した。特に
+  `handle_invoice_payment_failed()`(フェーズ167)は受信するたびに
+  `payment_failure_detected_at`を無条件上書きする設計のため、Stripeのat-least-once
+  配信による単純な再配信でも猶予期間の起算点が後ろへずれ続けてしまう実害があることを
+  確認し、stripe-event-idempotency-design.mdとして設計・是正した。
+  `receive_stripe_webhook()`に`event_id_store`引数(省略時は従来通り無条件適用、
+  後方互換)を追加し、6イベント種別すべてのハンドラ呼び出しに一括配線した
+  (aircon-pashaフェーズ177・kura-pashaフェーズ77と同一設計)。
+  `get_stripe_runtime_dependencies()`に`InMemoryStripeEventIdStore()`を`store`とは
+  独立したインスタンスとして追加した。新規テスト13件(`test_stripe_webhook.py`の
+  check()呼び出し115件→128件)、既存テスト100件・run_all_tests 24ファイル・schema検証
+  11件・browser_mockup_checks.js 49件いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)実Firestore接続後の`processed_stripe_events`コレクション実装(実Stripe/
+  実GCPプロジェクト接続後、オーナー承認待ち)、(2)event-komiguai-pasha(結合実装待ち)・
+  oshien-pasha(Webhook未実装)への横展開は各venture側で実装着手時に検討、(3)フェーズ214
+  次回候補(1)「`invoice.payment_failed`・`invoice.payment_succeeded`へのevent_timeベース
+  配信順序ガードの横展開の要否検討」(本フェーズのevent_id_storeとは別軸の課題、引き続き
+  未着手)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06定例更新(フェーズ215: 詳細は上記。`event.id`単位の重複配信対策
+  〈event_id_store〉の欠落を横断棚卸しで発見し、stripe-event-idempotency-design.mdとして
+  設計・是正。新規テスト13件、既存テスト・schema検証いずれも変更なしでパス)

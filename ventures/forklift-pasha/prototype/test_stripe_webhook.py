@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from stripe_webhook import (
+    InMemoryStripeEventIdStore,
     get_stripe_runtime_dependencies,
     handle_checkout_session_completed,
     handle_customer_subscription_created,
@@ -841,6 +842,112 @@ def main():
     )
     results.append(_check("不正JSONは400", invalid_result.status_code, 400))
 
+    # --- receive_stripe_webhook: event_id_store(stripe-event-idempotency-design.md、
+    # フェーズ215、kura-pashaの横断棚卸しで発見)。本venture唯一の非べき等な副作用である
+    # invoice.payment_failedのpayment_failure_detected_at上書きが、再配信のたびに
+    # 猶予期間の起算点をずらしてしまう欠落を、event_id_store指定で防げることを確認する ---
+    store14 = InMemoryFleetOperatorStore()
+    event_id_store14 = InMemoryStripeEventIdStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-14", stripe_customer_id="cus_pf_dup", plan="light"),
+        store14,
+    )
+    pf_dup_body = json.dumps(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_dup")
+    ).encode("utf-8")
+    pf_dup_ts1 = int(time.time())
+    pf_dup_now1 = datetime.fromtimestamp(pf_dup_ts1, tz=timezone.utc)
+    first_pf_result = receive_stripe_webhook(
+        pf_dup_body,
+        _sign(pf_dup_body, pf_dup_ts1),
+        SECRET,
+        store=store14,
+        event_id_store=event_id_store14,
+        now=pf_dup_now1,
+    )
+    results.append(_check(
+        "初回のinvoice.payment_failedはduplicate=False", first_pf_result.duplicate, False
+    ))
+    first_detected_at = store14.get_payment_failure_detected_at("internal-14")
+    results.append(_check(
+        "初回でpayment_failure_detected_atが書き込まれる", first_detected_at, pf_dup_now1
+    ))
+
+    pf_dup_ts2 = pf_dup_ts1 + 86400
+    pf_dup_now2 = datetime.fromtimestamp(pf_dup_ts2, tz=timezone.utc)
+    second_pf_result = receive_stripe_webhook(
+        pf_dup_body,
+        _sign(pf_dup_body, pf_dup_ts2),
+        SECRET,
+        store=store14,
+        event_id_store=event_id_store14,
+        now=pf_dup_now2,
+    )
+    results.append(_check(
+        "同一event.idの再配信はduplicate=True", second_pf_result.duplicate, True
+    ))
+    results.append(_check(
+        "再配信はinvoice_payment_failed_resultを持たない(ハンドラ未呼び出し)",
+        second_pf_result.invoice_payment_failed_result,
+        None,
+    ))
+    results.append(_check(
+        "再配信でpayment_failure_detected_atが上書きされない(猶予期間の起算点が後ろへ"
+        "ずれない)",
+        store14.get_payment_failure_detected_at("internal-14"),
+        first_detected_at,
+    ))
+
+    # --- receive_stripe_webhook: event_id_store省略時は従来通り重複排除しない(後方互換) ---
+    store15 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-15", stripe_customer_id="cus_pf_nodup", plan="light"),
+        store15,
+    )
+    pf_nodup_body = json.dumps(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_nodup")
+    ).encode("utf-8")
+    pf_nodup_ts1 = int(time.time())
+    pf_nodup_now1 = datetime.fromtimestamp(pf_nodup_ts1, tz=timezone.utc)
+    receive_stripe_webhook(
+        pf_nodup_body, _sign(pf_nodup_body, pf_nodup_ts1), SECRET, store=store15,
+        now=pf_nodup_now1,
+    )
+    pf_nodup_ts2 = pf_nodup_ts1 + 86400
+    pf_nodup_now2 = datetime.fromtimestamp(pf_nodup_ts2, tz=timezone.utc)
+    no_dedup_result = receive_stripe_webhook(
+        pf_nodup_body, _sign(pf_nodup_body, pf_nodup_ts2), SECRET, store=store15,
+        now=pf_nodup_now2,
+    )
+    results.append(_check(
+        "event_id_store省略時はduplicate=False(後方互換)", no_dedup_result.duplicate, False
+    ))
+    results.append(_check(
+        "event_id_store省略時は再配信でpayment_failure_detected_atが上書きされる"
+        "(既存挙動のまま)",
+        store15.get_payment_failure_detected_at("internal-15"),
+        pf_nodup_now2,
+    ))
+
+    # --- InMemoryStripeEventIdStore 単体 ---
+    bare_event_id_store = InMemoryStripeEventIdStore()
+    results.append(_check(
+        "未処理のevent_idはhas_processed=False",
+        bare_event_id_store.has_processed("evt_bare_1"),
+        False,
+    ))
+    bare_event_id_store.mark_processed("evt_bare_1")
+    results.append(_check(
+        "mark_processed後はhas_processed=True",
+        bare_event_id_store.has_processed("evt_bare_1"),
+        True,
+    ))
+    results.append(_check(
+        "他のevent_idには影響しない",
+        bare_event_id_store.has_processed("evt_bare_2"),
+        False,
+    ))
+
     # --- get_stripe_runtime_dependencies ---
     deps = get_stripe_runtime_dependencies()
     results.append(_check("storeキーが存在する", "store" in deps, True))
@@ -848,6 +955,21 @@ def main():
         "storeはFleetOperatorStoreProtocolを満たす",
         hasattr(deps["store"], "set_stripe_customer_id"),
         True,
+    ))
+    results.append(_check(
+        "event_id_storeキーが存在する(フェーズ215)", "event_id_store" in deps, True
+    ))
+    results.append(_check(
+        "event_id_storeはInMemoryStripeEventIdStore",
+        isinstance(deps["event_id_store"], InMemoryStripeEventIdStore),
+        True,
+    ))
+    other_deps = get_stripe_runtime_dependencies()
+    deps["event_id_store"].mark_processed("evt_shared_check")
+    results.append(_check(
+        "event_id_storeは呼び出しごとに独立した新規インスタンス",
+        other_deps["event_id_store"].has_processed("evt_shared_check"),
+        False,
     ))
 
     # --- main(): Cloud Functionsエントリポイント自体の回帰確認(checkout_session.main()の
