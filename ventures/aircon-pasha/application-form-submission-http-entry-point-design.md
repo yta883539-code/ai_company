@@ -116,10 +116,14 @@
 
 - 承認待ち事項(launch-readiness-checklist.md相当、pending-approval.md参照)がオーナーから
   承認された場合、実シークレット値の環境変数設定・GASへの貼り付けから着手する。
-- GAS側が受け取った`linking_code`をサンクスページにどう表示するか(Googleフォーム標準の
-  完了画面はGAS onFormSubmitトリガー〈送信後に非同期実行〉からは動的に書き換えられない
-  制約があるため、確認メール送信〈design 2節〉を主経路とするか、Googleフォームを
-  埋め込んだ独自LPに切り替えるかの検討。実デプロイ時の課題として残す)。
+- [フェーズ317で対応済み] GAS側が受け取った`linking_code`をサンクスページにどう表示するか
+  (Googleフォーム標準の完了画面はGAS onFormSubmitトリガー〈送信後に非同期実行〉からは
+  動的に書き換えられない制約があるため、確認メール送信〈design 2節〉を主経路とするか、
+  Googleフォームを埋め込んだ独自LPに切り替えるかの検討)は、
+  linking-code-delivery-method-decision.mdとして新規設計済み。(A)サンクスページ表示は
+  技術的に実現不可能、(C)独自LP+フォーム埋め込みはホスティング等の追加コストが見合わないと
+  判断し、(B)確認メール送信方式(`MailApp.sendEmail()`によるGAS標準実装)を採用する決定を
+  下した。
 - 他venture・アイデア領域の前進。
 - [フェーズ347で対応済み] 本節が定義していなかった「依存構築
   (`get_application_form_submission_runtime_dependencies()`)自体が失敗した場合の`main()`

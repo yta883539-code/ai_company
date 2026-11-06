@@ -6874,3 +6874,31 @@
 - 最終更新: 2026-11-06 08:00 UTC(フェーズ363: 詳細は上記。他6venture分の「次回候補」
   陳腐化棚卸しを実施し追加の是正対象なしを確認。stale-next-candidate-cross-venture-
   survey.mdを新規作成。コード変更なし、テスト803件・schema検証25件いずれもパス)
+- フェーズ364(2026-11-06 19:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ363の次回候補(2)「各venture内の個別design.mdファイル末尾の『次回候補』
+  記載についての同種棚卸し(README.md本体ではなく個別ファイル単位)」に着手した。本venture
+  (aircon-pasha)内で「次回候補」を含むdesign系ファイル28件のうち、まず
+  application-form-submission-http-entry-point-design.md 7節を確認したところ、同節の
+  次回候補(2)「GAS側が受け取ったlinking_codeをサンクスページにどう表示するか」は、
+  同節自身が参照する後続ドキュメントlinking-code-delivery-method-decision.md
+  (フェーズ317、作成日2026-10-15)で既に「(B)確認メール送信方式を採用」という決定が
+  下され解決済みであるにもかかわらず、7節側には解決済みを示す注記が一度も付与されておらず
+  未対応のまま書き続けられていた陳腐化記載であることを発見した(同じ7節内の別項目には
+  既に「[フェーズ347で対応済み]」の注記慣行があり、本件のみ注記が漏れていた)。
+  application-form-submission-http-entry-point-design.md 7節に
+  「[フェーズ317で対応済み]」の注記と解決内容の要約を追記して是正した。残り27件の
+  個別design.mdファイルの棚卸しは未完了のため次回以降に持ち越す。コード変更なし
+  (ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)
+  を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り27件の個別design.mdファイル(次回候補を含む
+  ファイル一覧はvendor-breach-key-rotation-runbook.md・payment-failure-event-order-
+  guard-design.md等、本フェーズのgrep結果を参照)の棚卸しの継続、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-06 19:00 UTC(フェーズ364: 詳細は上記。
+  application-form-submission-http-entry-point-design.md 7節の陳腐化した「次回候補」
+  〈linking-code-delivery-method-decision.mdで既に解決済みだったGAS側連携コード届け方の
+  検討〉を発見・是正。コード変更なし、テスト803件・schema検証25件いずれもパス)
