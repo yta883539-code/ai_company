@@ -1883,3 +1883,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   「日本エスコン株式会社」の親会社系列の誤記載〈誤: ナイス・コーポレーション系列、正: 中部電力
   グループ〉を訂正。契約期間・満了日自体は依然未確定。コード変更なし、既存回帰〈22件・9件・
   36件・21アサーション〉いずれも変更なしでパス)
+- フェーズ87(2026-11-06 04:00 UTC定例更新): フェーズ86次回候補(2)「Mazda Zoom-Zoomスタジアム
+  広島・真駒内セキスイハイムアイスアリーナ・楽天生命パーク宮城・レグザムホール・ひめぎんホール等、
+  naming_rights_review_dueがnullのまま残る他会場のアクセス情報精査の継続」に対応し、Mazda
+  Zoom-Zoomスタジアム広島(広島市民球場)の命名権契約をWebSearchで調査した。広島市公式発表
+  (city.hiroshima.lg.jp)により、マツダ株式会社との命名権契約は2019年4月1日〜2024年3月31日の
+  5年間契約が2024年3月末に満了し、2024年4月1日〜2029年3月31日の5年間(年額2億2,000万円、
+  前回と同額)で更新されていることを確認した。これは本venture内で初めて契約満了日自体を
+  公式発表ベースで確定できたケースであり(京セラドーム大阪・バンテリンドーム ナゴヤ・みずほ
+  PayPayドーム福岡・ESCON FIELD HOKKAIDOはいずれも契約期間未確定のままnull維持)、
+  schema/venue-master.jsonの該当レコードのnaming_rights_review_dueを"2029-03-31"に設定し、
+  verification_note・last_verified_dateを更新した(`python3 -I -c "import json;
+  json.load(open('schema/venue-master.json'))"`で構文検証済み)。コード変更なし、回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・`python3 -I
+  validate_test_cases.py`(9件、変更なし)・`python3 -I schema/check_venue_master_parity.py`
+  (36件/36件差分なし)・`python3 prototype/test_venue_matcher.py`(21アサーション、変更なし)を
+  実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・実LLM呼び出し結果に
+  結線する実装(実装はオーナー承認・実LLM接続後)、(2)真駒内セキスイハイムアイスアリーナ・
+  楽天生命パーク宮城・レグザムホール・ひめぎんホール等、naming_rights_review_dueがnullのまま
+  残る他会場のアクセス情報精査の継続、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 04:00 UTC(フェーズ87: 詳細は上記。Mazda Zoom-Zoomスタジアム広島の命名権
+  契約が2024年4月1日〜2029年3月31日〈5年間〉で更新されていることを広島市公式発表で確認し、
+  naming_rights_review_dueを2029-03-31に設定〈本venture初の契約満了日確定ケース〉。コード変更
+  なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)

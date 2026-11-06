@@ -390,9 +390,9 @@
       "nearest_station": "JR 広島駅(南口)",
       "walk_minutes_note": "徒歩10分前後",
       "naming_rights": true,
-      "last_verified_date": "2026-11-03",
-      "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「Mazda」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "last_verified_date": "2026-11-06",
+      "naming_rights_review_due": "2029-03-31",
+      "verification_note": "フェーズ87(2026-11-06 04:00 UTC)でWebSearchにより裏取り。広島市公式発表(city.hiroshima.lg.jp)により、マツダ株式会社との命名権契約は2024年4月1日から2029年3月31日までの5年間(年額2億2,000万円)で更新されていることを確認した(前回契約は2019年4月1日〜2024年3月31日)。naming_rights_review_dueを2029-03-31に設定した。",
       "operational_status": "active"
     },
     {
