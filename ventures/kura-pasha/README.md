@@ -6620,3 +6620,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   確認、forklift-pashaに同種の欠落を発見し同venture側フェーズ215で是正。event-komiguai
   -pasha・oshien-pashaは対象外。本venture側のコード変更なし、テスト300件・webhook355件
   ・schema検証32件いずれも変更なしでパス)
+- フェーズ285(2026-11-06 20:00 UTC台定例更新): フェーズ284次回候補(3)「署名検証の
+  タイムスタンプ許容範囲`tolerance_seconds`の各venture間の値の揃いについて同様の
+  横断棚卸しが有用か検討する」に対応した。Stripe Webhook署名検証を実装済みの5venture
+  (aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha自身・line-reservation-ai)
+  の`prototype/stripe_webhook.py`を横断確認した結果、全venture共通でStripe公式推奨値
+  (5分=300秒)をデフォルト値として採用しており、値のズレ・欠落は見つからなかった
+  (stripe-webhook-tolerance-seconds-cross-venture-survey.md新規作成)。
+  event-komiguai-pashaはWebhook結合実装待ち、oshien-pashaはWebhookエントリポイント
+  自体が未実装のためいずれも対象外(フェーズ283で確認済みの状態と同じ)。本venture側の
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(300件、変更なし)・`python3 prototype/test_cloud_function_webhook.py`
+  (355件、変更なし)・`python3 schema/validate_test_cases.py`(32件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(3)他の共通設計パターン(例: Webhookエンドポイントのレスポンス
+  タイムアウト設定、Idempotency-Keyヘッダのクライアント側送信有無)について同様の
+  横断棚卸しが有用か検討する、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 20:00 UTC台定例更新(フェーズ285: 詳細は上記。`tolerance_seconds`
+  の横断棚卸しを実施し、Webhook実装済み5venture全て300秒で一致していることを確認、
+  是正対象なし。本venture側のコード変更なし、テスト300件・webhook355件・schema検証
+  32件いずれも変更なしでパス)
