@@ -441,17 +441,17 @@
       "operational_status": "active"
     },
     {
-      "canonical_name": "ひめぎんホール(愛媛県県民文化会館)",
+      "canonical_name": "愛媛県県民文化会館",
       "aliases": [
-        "愛媛県県民文化会館"
+        "ひめぎんホール"
       ],
       "region": "中国・四国圏",
       "nearest_station": "伊予鉄道 南町駅(市駅線)",
       "walk_minutes_note": "徒歩2分前後(直線距離約118m)",
-      "naming_rights": true,
-      "last_verified_date": "2026-11-03",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-06",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「ひめぎん」(愛媛銀行)の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。",
+      "verification_note": "フェーズ93でWebSearch裏取り。愛媛銀行の命名権契約(2008年11月1日開始、愛称「ひめぎんホール」)は2019年3月31日付で廃止され、同年4月から施設の改修に合わせ正式名称「愛媛県県民文化会館」の単独表記に戻っている(日本経済新聞記事、Eventernote施設情報で確認)。このためcanonical_nameを正式名称に変更し、旧愛称「ひめぎんホール」はファンの入力揺れを拾うためaliasesに残した上でnaming_rightsをfalse・naming_rights_review_dueをnullに更新した。なお契約期間については「5年契約」(2008-2013)と報じる情報源と「約10年間」(2008-2019)と報じる日経記事の間で記述に食い違いがあり(5年契約が一度更新され2019年に廃止された可能性があるが未確認)、年額も3500万円/5000万円で情報源間に差異があるため、この点はいずれも参考情報としては採用せず、現在ネーミングライツが存在しない(naming_rights=false)という結論のみを採用した。本環境のネットワーク制限により愛媛県公式サイト(pref.ehime.jp)への直接アクセス〈WebFetch〉で一次確認はできていない点に留意。",
       "operational_status": "active"
     },
     {
