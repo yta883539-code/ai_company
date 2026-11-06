@@ -6827,3 +6827,23 @@
   更新漏れによるdead code」パターンの他venture横展開確認を完了。course-set-pashaは既に
   是正済み、kura-pasha・forklift-pasha・event-komiguai-pasha・line-reservation-aiはいずれも
   対象外または既に問題なしと確認。コード変更なし、テスト803件・schema検証25件いずれもパス)
+- フェーズ362(2026-11-06 01:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。payment-failure-event-order-guard-design.md末尾の「次回候補」(`clear_current_
+  plan_on_subscription_deleted()`・`clear_blocked_but_billing_owner_notified_at()`への
+  stale全体スキップ適用の要否検討)を確認したところ、同日の次の定例更新であるフェーズ283
+  (2026-09-28 11:00 UTC、詳細はsubscription-event-out-of-order-guard-design.md 6節)で
+  既に対応済みであり、同ファイルの「次回候補」が約2ヶ月分更新されないまま解消済みの課題を
+  未対応と書き続けていた陳腐化記載だったことが判明した(cloud-monitoring-alert-policy-
+  design.md 6節・フェーズ346と同種のパターン)。同ファイルに追記して是正した。コード変更
+  なし(確認・ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)他ventureの設計ドキュメント末尾にも同種の陳腐化した
+  「次回候補」(解消済みなのに未対応と書き続けている記載)が残っていないかの棚卸し、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 01:00 UTC(フェーズ362: 詳細は上記。payment-failure-event-order-
+  guard-design.mdの陳腐化した「次回候補」〈約2ヶ月前に解消済みの課題を未対応と記載し続けて
+  いた〉を発見・是正。コード変更なし、テスト803件・schema検証25件いずれもパス)

@@ -138,3 +138,17 @@ store)の2つの副作用は、course-set-pashaに対応する副作用自体が
 次回候補: `clear_current_plan_on_subscription_deleted()`・`clear_blocked_but_billing_
 owner_notified_at()`へのstale全体スキップ適用の要否検討、または他venture・アイデア
 領域の前進。
+
+(2026-11-06 01:00 UTC追記・フェーズ362: 上記次回候補は、本フェーズでREADME.md・
+subscription-event-out-of-order-guard-design.md 6節を確認したところ、同日の次の
+定例更新であるフェーズ283で既に対応済み(`stripe_dispatch.py`の`customer.subscription.
+deleted`分岐で`is_stale_deleted_event`の算出を前倒しし、`plan_store`・
+`blocked_but_billing_store`双方の呼び出しもこの判定でガードする変更、テスト2件追加・
+venture全体646件パス)であることが判明した。本ファイルの「次回候補」が約2ヶ月分
+更新されないまま解消済みの課題を未対応と書き続けていた陳腐化記載であり、cloud-
+monitoring-alert-policy-design.md 6節(フェーズ346)と同種のパターンである。コード
+変更なし(確認・ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover
+-s prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_
+cases.py`(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+ためpending-approval.mdへの追記なし。次回候補: 他venture・アイデア領域の前進。)
