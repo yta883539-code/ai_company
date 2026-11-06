@@ -6847,3 +6847,30 @@
 - 最終更新: 2026-11-06 01:00 UTC(フェーズ362: 詳細は上記。payment-failure-event-order-
   guard-design.mdの陳腐化した「次回候補」〈約2ヶ月前に解消済みの課題を未対応と記載し続けて
   いた〉を発見・是正。コード変更なし、テスト803件・schema検証25件いずれもパス)
+- フェーズ363(2026-11-06 08:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ362の次回候補(2)「他ventureの設計ドキュメント末尾にも同種の陳腐化した
+  『次回候補』(解消済みなのに未対応と書き続けている記載)が残っていないかの棚卸し」に
+  対応した。aircon-pasha以外の6venture(course-set-pasha・kura-pasha・forklift-pasha・
+  oshien-pasha・event-komiguai-pasha・line-reservation-ai)それぞれのREADME.md末尾の
+  直近フェーズの「次回候補」節を確認したところ、いずれも既に解消済みの課題を未対応のまま
+  書き続けている陳腐化記載は見つからなかった(各venture、直近フェーズの次回候補は新規課題
+  または継続方針の記載であり、フェーズ362のaircon-pasha自身の事例とは異なり、各venture
+  本体のREADME.mdでは毎フェーズ末尾の「次回候補」が都度上書き・更新される運用が徹底されて
+  いるため構造的に陳腐化しにくいと判断した)。確認結果の詳細は
+  stale-next-candidate-cross-venture-survey.mdとして新規作成した。今回発見した知見として、
+  README.md本体ではなく個別のdesign.mdファイル末尾に残された「次回候補」記載(フェーズ362の
+  payment-failure-event-order-guard-design.mdのように、README.mdから都度上書きされない
+  形で残っているもの)には同様の陳腐化リスクが構造的に残るため、今後各venture内の個別
+  design.mdファイル末尾の「次回候補」記載についても同様の棚卸しを行う価値があることを
+  次回候補として残した。コード変更なし(確認・ドキュメント作成のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)各venture内の個別design.mdファイル末尾の「次回候補」
+  記載についての同種棚卸し(README.md本体ではなく個別ファイル単位)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-06 08:00 UTC(フェーズ363: 詳細は上記。他6venture分の「次回候補」
+  陳腐化棚卸しを実施し追加の是正対象なしを確認。stale-next-candidate-cross-venture-
+  survey.mdを新規作成。コード変更なし、テスト803件・schema検証25件いずれもパス)
