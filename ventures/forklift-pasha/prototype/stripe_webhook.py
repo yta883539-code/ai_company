@@ -321,6 +321,45 @@ def handle_customer_subscription_updated(
     )
 
 
+def _is_stale_subscription_lifecycle_event(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """subscription-lifecycle-event-order-guard-design.md(フェーズ214、フェーズ213
+    次回候補(1))。`customer.subscription.deleted`と`customer.subscription.created`は
+    どちらも`canceled_at`を書き換えるため、同一の`subscription_lifecycle_event_time`を
+    共有キーとして判定する(解約直後の再契約で配信順序が入れ替わり、古い`deleted`が
+    新しい`created`より後に届いた場合でも、再契約を表す新しい方のevent_timeが既に
+    記録されていればこの古い`deleted`をstaleとして無視できるようにするため)。
+    `event_time`が`None`、または`store`が新メソッド未対応、または記録済みevent_timeが
+    未設定の場合は「判定不能」として`False`(常に適用、既存事業者への後方互換)。
+    今回のevent_timeが記録済みのevent_time「以下」であればTrue(stale)。"""
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_subscription_lifecycle_event_time", None)
+    if getter is None:
+        return False
+    recorded = getter(internal_id)
+    if recorded is None:
+        return False
+    return event_time <= recorded
+
+
+def _record_subscription_lifecycle_event_time(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    """同上。`event_time`が`None`、または`store`が新メソッド未対応の場合は何もしない。"""
+    if event_time is None:
+        return
+    setter = getattr(store, "set_subscription_lifecycle_event_time", None)
+    if setter is None:
+        return
+    setter(internal_id, event_time)
+
+
 @dataclass
 class SubscriptionDeletedResult:
     """handle_customer_subscription_deleted()の結果
@@ -329,6 +368,7 @@ class SubscriptionDeletedResult:
     canceled: bool
     internal_id: Optional[str] = None
     error: Optional[str] = None
+    stale: bool = False
 
 
 def handle_customer_subscription_deleted(
@@ -336,6 +376,7 @@ def handle_customer_subscription_deleted(
     store: FleetOperatorStoreProtocol,
     *,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionDeletedResult:
     """`customer.subscription.deleted`イベントから`canceled_at`を書き込む。
 
@@ -346,6 +387,14 @@ def handle_customer_subscription_deleted(
     `customer`から`internal_id`を逆引きする。決済失敗の有無によらず常に`canceled_at`
     を書き込む(aircon-pashaのdesign「3. 修正内容」と同じ方針)。逆引きできない場合は
     `error="unknown_customer"`として書き込みを行わない。
+
+    `event_time`(subscription-lifecycle-event-order-guard-design.md、フェーズ214で
+    追加)は、解約直後に即再契約した場合の配信順序入れ替わり対策。古い`deleted`が
+    `created`より後に遅延配信された場合、記録済みのevent_time「以下」であれば
+    `canceled_at`の書き込みを一切行わず`stale=True`を返す(他venture同様
+    「stale全体スキップ」方針)。stale判定を通過した場合は書き込みの成否にかかわらず
+    event_timeを記録する。`event_time`省略時(`None`)は従来通りこのチェック・記録の
+    いずれも行わない(既存呼び出し経路への後方互換措置)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -357,8 +406,14 @@ def handle_customer_subscription_deleted(
     if internal_id is None:
         return SubscriptionDeletedResult(canceled=False, error="unknown_customer")
 
+    if _is_stale_subscription_lifecycle_event(store, internal_id, event_time):
+        return SubscriptionDeletedResult(
+            canceled=False, internal_id=internal_id, error="stale_event", stale=True
+        )
+
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     store.set_canceled_at(internal_id, resolved_now)
+    _record_subscription_lifecycle_event_time(store, internal_id, event_time)
 
     return SubscriptionDeletedResult(canceled=True, internal_id=internal_id)
 
@@ -372,11 +427,14 @@ class SubscriptionCreatedResult:
     cleared: bool
     internal_id: Optional[str] = None
     error: Optional[str] = None
+    stale: bool = False
 
 
 def handle_customer_subscription_created(
     event: dict,
     store: FleetOperatorStoreProtocol,
+    *,
+    event_time: Optional[datetime] = None,
 ) -> SubscriptionCreatedResult:
     """`customer.subscription.created`イベントから`canceled_at`のクリアのみを行う。
 
@@ -390,6 +448,13 @@ def handle_customer_subscription_created(
     をNoneで呼ぶのみでcleared=Trueを返す(冪等、kura-pasha等のset_canceled_at(None)の
     "pop"実装と同じく無害)。plan_id・upgraded_atの同期は本関数の対象外
     (`customer.subscription.updated`側の既存配線にそのまま委ねる)。
+
+    `event_time`(subscription-lifecycle-event-order-guard-design.md、フェーズ214で
+    追加)は`handle_customer_subscription_deleted()`と同一の`subscription_lifecycle_
+    event_time`キーを共有する。記録済みのevent_time「以下」であれば`canceled_at`の
+    クリアを行わず`stale=True`を返す。これにより、再契約〈`created`〉を処理した後に
+    その契約より前の解約〈`deleted`〉が遅延配信されても誤って`canceled_at`を再設定
+    させない(本関数側のガードはその逆方向、`created`自体が古い場合の保護)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -401,7 +466,13 @@ def handle_customer_subscription_created(
     if internal_id is None:
         return SubscriptionCreatedResult(cleared=False, error="unknown_customer")
 
+    if _is_stale_subscription_lifecycle_event(store, internal_id, event_time):
+        return SubscriptionCreatedResult(
+            cleared=False, internal_id=internal_id, error="stale_event", stale=True
+        )
+
     store.set_canceled_at(internal_id, None)
+    _record_subscription_lifecycle_event_time(store, internal_id, event_time)
 
     return SubscriptionCreatedResult(cleared=True, internal_id=internal_id)
 
@@ -558,14 +629,16 @@ def receive_stripe_webhook(
 
     if event_type == "customer.subscription.deleted":
         subscription_deleted_result = handle_customer_subscription_deleted(
-            parsed, store, now=resolved_now
+            parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
         return StripeWebhookReceiverResult(
             status_code=200, subscription_deleted_result=subscription_deleted_result
         )
 
     if event_type == "customer.subscription.created":
-        subscription_created_result = handle_customer_subscription_created(parsed, store)
+        subscription_created_result = handle_customer_subscription_created(
+            parsed, store, event_time=_event_time_from_created(parsed)
+        )
         return StripeWebhookReceiverResult(
             status_code=200, subscription_created_result=subscription_created_result
         )

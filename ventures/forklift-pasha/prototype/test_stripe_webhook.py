@@ -86,20 +86,26 @@ def _checkout_event(
     return event
 
 
-def _subscription_deleted_event(stripe_customer_id="cus_123") -> dict:
-    return {
+def _subscription_deleted_event(stripe_customer_id="cus_123", created=None) -> dict:
+    event = {
         "id": "evt_sub_del_1",
         "type": "customer.subscription.deleted",
         "data": {"object": {"customer": stripe_customer_id}},
     }
+    if created is not None:
+        event["created"] = created
+    return event
 
 
-def _subscription_created_event(stripe_customer_id="cus_123") -> dict:
-    return {
+def _subscription_created_event(stripe_customer_id="cus_123", created=None) -> dict:
+    event = {
         "id": "evt_sub_created_1",
         "type": "customer.subscription.created",
         "data": {"object": {"customer": stripe_customer_id}},
     }
+    if created is not None:
+        event["created"] = created
+    return event
 
 
 def _invoice_event(event_type: str, stripe_customer_id="cus_123") -> dict:
@@ -532,6 +538,95 @@ def main():
     ))
     results.append(_check(
         "未知のcustomerはerror=unknown_customer", unknown_customer_created.error, "unknown_customer"
+    ))
+
+    # --- handle_customer_subscription_deleted/created: 配信順序入れ替わりガード
+    # (subscription-lifecycle-event-order-guard-design.md、フェーズ214、フェーズ213
+    # 次回候補(1)) ---
+    store13 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-13", stripe_customer_id="cus_lc_1", plan="light"),
+        store13,
+    )
+    applied_first_del = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_lc_1", created=2_000_000),
+        store13,
+        now=datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("正常順序ではstale=False(deleted)", applied_first_del.stale, False))
+    results.append(_check(
+        "正常順序ではcanceled_atが書き込まれる", store13.get_canceled_at("internal-13") is not None, True
+    ))
+
+    stale_del = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_lc_1", created=1_000_000),
+        store13,
+        now=datetime(2026, 10, 11, 21, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(1_000_000, tz=timezone.utc),
+    )
+    results.append(_check("遅延配信された古いdeletedはstale=True", stale_del.stale, True))
+    results.append(_check("stale=Trueはcanceled=False", stale_del.canceled, False))
+
+    same_time_del = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_lc_1", created=2_000_000),
+        store13,
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("同時刻は既に処理済みとしてstale=True(deleted)", same_time_del.stale, True))
+
+    newer_created_clears = handle_customer_subscription_created(
+        _subscription_created_event(stripe_customer_id="cus_lc_1", created=3_000_000),
+        store13,
+        event_time=datetime.fromtimestamp(3_000_000, tz=timezone.utc),
+    )
+    results.append(_check("より新しいevent_timeのcreatedは適用される", newer_created_clears.stale, False))
+    results.append(_check(
+        "より新しいcreatedでcanceled_atがクリアされる", store13.get_canceled_at("internal-13"), None
+    ))
+
+    # --- 解約直後の再契約での配信順序入れ替わり(本ガードの主目的のシナリオ):
+    # 新しいcreated(再契約)を先に処理した後、古いdeleted(直前の解約)が遅延配信されても
+    # canceled_atを誤って再設定しない ---
+    stale_del_after_newer_created = handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_lc_1", created=2_500_000),
+        store13,
+        now=datetime(2026, 10, 11, 22, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(2_500_000, tz=timezone.utc),
+    )
+    results.append(_check(
+        "再契約後に遅延配信された直前のdeletedはstale=True",
+        stale_del_after_newer_created.stale,
+        True,
+    ))
+    results.append(_check(
+        "再契約後の遅延deletedでcanceled_atが再設定されない",
+        store13.get_canceled_at("internal-13"),
+        None,
+    ))
+
+    # --- handle_customer_subscription_created: event_time省略時は従来通り無条件適用 ---
+    store13b = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-13b", stripe_customer_id="cus_lc_1b", plan="light"),
+        store13b,
+    )
+    handle_customer_subscription_deleted(
+        _subscription_deleted_event(stripe_customer_id="cus_lc_1b"),
+        store13b,
+        now=datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+        event_time=None,
+    )
+    no_event_time_created = handle_customer_subscription_created(
+        _subscription_created_event(stripe_customer_id="cus_lc_1b"), store13b, event_time=None
+    )
+    results.append(_check(
+        "event_time省略時はstale判定しない(created)", no_event_time_created.stale, False
+    ))
+    results.append(_check(
+        "event_time省略時は無条件でcanceled_atがクリアされる",
+        store13b.get_canceled_at("internal-13b"),
+        None,
     ))
 
     # --- receive_stripe_webhook: customer.subscription.createdを正しくディスパッチする ---

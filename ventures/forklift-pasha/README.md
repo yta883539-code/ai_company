@@ -4550,7 +4550,29 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   ガードの横展開(解約直後の再契約シナリオで優先度が高いと判断)、(2)
   event-komiguai-pasha・oshien-pashaの同種ガード有無の確認、(3)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-11-06 03:00 UTC(フェーズ213: 詳細は上記。aircon-pasha・kura-pashaの
-  横展開として`checkout.session.completed`の`stripe_customer_id`書き込みに配信順序
-  入れ替わりガードをcheckout-session-completed-event-order-guard-design.mdとして設計・
-  是正。新規テスト4件、既存テスト・schema検証いずれも変更なしでパス)
+- フェーズ214(2026-11-06 10:00 UTC定例更新): フェーズ213「次回候補(1)」の
+  `customer.subscription.deleted`・`customer.subscription.created`への同種ガードの
+  横展開に対応した。両イベントはどちらも`canceled_at`を書き換える対になるイベントのため、
+  `customer.subscription.updated`・`checkout.session.completed`とは異なり両イベント種別で
+  1つのevent_timeキー(`subscription_lifecycle_event_time`)を共有する設計とし、
+  subscription-lifecycle-event-order-guard-design.mdとして設計・是正した。解約直後に
+  同じ事業者がすぐ再契約する運用で配信順序が入れ替わり、再契約〈`created`〉の後に直前の
+  解約〈`deleted`〉が遅延配信されるケースでも、再契約後に有料の再契約ユーザーが誤って
+  解約済み扱いされ`is_generation_paused()`の対象になってしまう欠落を防ぐガードである
+  (フェーズ213次回候補(1)の優先度判断通り)。`FleetOperatorStoreProtocol`に
+  `get/set_subscription_lifecycle_event_time()`を追加し、`handle_customer_subscription_
+  deleted()`・`handle_customer_subscription_created()`の両方に`event_time`引数(省略時は
+  従来通り無条件適用、後方互換)を追加して`receive_stripe_webhook()`から
+  `_event_time_from_created()`を配線した。新規テスト11件(`test_stripe_webhook.py`の
+  check()呼び出し104件→115件)、既存テスト100件・run_all_tests 24ファイル・schema検証
+  11件・browser_mockup_checks.js 49件いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)`invoice.payment_failed`・`invoice.payment_succeeded`への同種ガードの
+  横展開の要否検討(canceled_atとは独立したフィールドのため同一キー共有の必要性は低いと
+  見込まれるが未検討)、(2)event-komiguai-pasha・oshien-pashaの同種ガード有無の確認、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 10:00 UTC(フェーズ214: 詳細は上記。`customer.subscription.
+  deleted`・`customer.subscription.created`に両イベント共有のevent_timeキーによる配信
+  順序入れ替わりガードをsubscription-lifecycle-event-order-guard-design.mdとして設計・
+  是正。新規テスト11件、既存テスト・schema検証いずれも変更なしでパス)

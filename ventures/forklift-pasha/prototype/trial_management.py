@@ -197,6 +197,20 @@ class FleetOperatorStoreProtocol:
         """同上。上書き可(get/set_subscription_updated_event_timeと同じ方針)。"""
         raise NotImplementedError
 
+    def get_subscription_lifecycle_event_time(self, internal_id: str) -> "datetime | None":
+        """subscription-lifecycle-event-order-guard-design.md(フェーズ214)。
+        `customer.subscription.deleted`・`customer.subscription.created`のうち
+        `canceled_at`を最後に実際に反映したイベントの`event.created`。両イベント種別で
+        共有する1つのキーに記録する(解約直後に再契約した場合、配信順序が入れ替わって
+        古い`deleted`が新しい`created`より後に届くと、本来は再契約済みのはずの
+        `canceled_at`が誤って再設定されてしまう欠落を防ぐため)。未設定はNone
+        (ガード導入前からの既存事業者、またはstore未対応時は判定不能=常に適用)。"""
+        raise NotImplementedError
+
+    def set_subscription_lifecycle_event_time(self, internal_id: str, value: datetime) -> None:
+        """同上。上書き可(get/set_subscription_updated_event_timeと同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -220,6 +234,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._payment_suspension_owner_notified_at: "dict[str, datetime]" = {}
         self._subscription_updated_event_time: "dict[str, datetime]" = {}
         self._checkout_session_completed_event_time: "dict[str, datetime]" = {}
+        self._subscription_lifecycle_event_time: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -360,6 +375,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_checkout_session_completed_event_time(self, internal_id: str, value: datetime) -> None:
         self._checkout_session_completed_event_time[internal_id] = value
+
+    def get_subscription_lifecycle_event_time(self, internal_id: str) -> "datetime | None":
+        return self._subscription_lifecycle_event_time.get(internal_id)
+
+    def set_subscription_lifecycle_event_time(self, internal_id: str, value: datetime) -> None:
+        self._subscription_lifecycle_event_time[internal_id] = value
 
 
 def is_trial_period_over(
