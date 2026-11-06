@@ -211,6 +211,20 @@ class FleetOperatorStoreProtocol:
         """同上。上書き可(get/set_subscription_updated_event_timeと同じ方針)。"""
         raise NotImplementedError
 
+    def get_payment_failure_event_time(self, internal_id: str) -> "datetime | None":
+        """payment-failure-event-order-guard-design.md(フェーズ216、フェーズ214・215
+        次回候補で引き続き未着手だった論点に対応)。`invoice.payment_failed`・
+        `invoice.payment_succeeded`のうち`payment_failure_detected_at`を最後に実際に
+        反映したイベントの`event.created`。`subscription_lifecycle_event_time`とは
+        別系列のイベント(dunning系)のため独立したキーに記録する(course-set-pashaの
+        `payment_failure_state_event_time`と同一設計)。未設定はNone(ガード導入前からの
+        既存事業者、またはstore未対応時は判定不能=常に適用)。"""
+        raise NotImplementedError
+
+    def set_payment_failure_event_time(self, internal_id: str, value: datetime) -> None:
+        """同上。上書き可(get/set_subscription_lifecycle_event_timeと同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -235,6 +249,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._subscription_updated_event_time: "dict[str, datetime]" = {}
         self._checkout_session_completed_event_time: "dict[str, datetime]" = {}
         self._subscription_lifecycle_event_time: "dict[str, datetime]" = {}
+        self._payment_failure_event_time: "dict[str, datetime]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -381,6 +396,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_subscription_lifecycle_event_time(self, internal_id: str, value: datetime) -> None:
         self._subscription_lifecycle_event_time[internal_id] = value
+
+    def get_payment_failure_event_time(self, internal_id: str) -> "datetime | None":
+        return self._payment_failure_event_time.get(internal_id)
+
+    def set_payment_failure_event_time(self, internal_id: str, value: datetime) -> None:
+        self._payment_failure_event_time[internal_id] = value
 
 
 def is_trial_period_over(

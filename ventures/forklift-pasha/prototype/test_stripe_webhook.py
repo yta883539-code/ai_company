@@ -109,12 +109,15 @@ def _subscription_created_event(stripe_customer_id="cus_123", created=None) -> d
     return event
 
 
-def _invoice_event(event_type: str, stripe_customer_id="cus_123") -> dict:
-    return {
+def _invoice_event(event_type: str, stripe_customer_id="cus_123", created=None) -> dict:
+    event = {
         "id": f"evt_{event_type}_1",
         "type": event_type,
         "data": {"object": {"customer": stripe_customer_id}},
     }
+    if created is not None:
+        event["created"] = created
+    return event
 
 
 def _subscription_updated_event(
@@ -710,6 +713,91 @@ def main():
         "invoice.payment_succeeded: 未検知状態での受信はcleared=False",
         noop_succeeded_result.cleared,
         False,
+    ))
+
+    # --- handle_invoice_payment_failed/succeeded: 配信順序入れ替わりガード
+    # (payment-failure-event-order-guard-design.md、フェーズ216、フェーズ214次回候補(1)・
+    # フェーズ215次回候補(3)) ---
+    store14 = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-14", stripe_customer_id="cus_pf_order", plan="light"),
+        store14,
+    )
+    applied_first_failed = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_order", created=2_000_000),
+        store14,
+        now=datetime(2026, 11, 6, 20, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(2_000_000, tz=timezone.utc),
+    )
+    results.append(_check("正常順序ではstale=False(failed)", applied_first_failed.stale, False))
+    results.append(_check(
+        "正常順序ではpayment_failure_detected_atが書き込まれる",
+        store14.get_payment_failure_detected_at("internal-14") is not None,
+        True,
+    ))
+
+    stale_failed = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_order", created=1_000_000),
+        store14,
+        now=datetime(2026, 11, 6, 21, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(1_000_000, tz=timezone.utc),
+    )
+    results.append(_check("遅延配信された古いfailedはstale=True", stale_failed.stale, True))
+    results.append(_check("stale=Trueはdetected=False", stale_failed.detected, False))
+
+    # 決済成功(新しいevent_time)で復旧した後に、その成功より前の古いfailedが遅延配信
+    # されても、復旧済みのdunning状態を誤って再開させない。
+    newer_succeeded_recovers = handle_invoice_payment_succeeded(
+        _invoice_event("invoice.payment_succeeded", stripe_customer_id="cus_pf_order", created=3_000_000),
+        store14,
+        now=datetime(2026, 11, 6, 22, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(3_000_000, tz=timezone.utc),
+    )
+    results.append(_check(
+        "より新しいevent_timeのsucceededは適用される", newer_succeeded_recovers.stale, False
+    ))
+    results.append(_check(
+        "より新しいsucceededでpayment_failure_detected_atがクリアされる",
+        store14.get_payment_failure_detected_at("internal-14"),
+        None,
+    ))
+
+    stale_failed_after_newer_succeeded = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_order", created=2_500_000),
+        store14,
+        now=datetime(2026, 11, 6, 23, 0, tzinfo=timezone.utc),
+        event_time=datetime.fromtimestamp(2_500_000, tz=timezone.utc),
+    )
+    results.append(_check(
+        "決済成功後に遅延配信された直前のfailedはstale=True",
+        stale_failed_after_newer_succeeded.stale,
+        True,
+    ))
+    results.append(_check(
+        "決済成功後の遅延failedでpayment_failure_detected_atが再設定されない",
+        store14.get_payment_failure_detected_at("internal-14"),
+        None,
+    ))
+
+    # --- handle_invoice_payment_failed/succeeded: event_time省略時は従来通り無条件適用 ---
+    store14b = InMemoryFleetOperatorStore()
+    handle_checkout_session_completed(
+        _checkout_event(internal_id="internal-14b", stripe_customer_id="cus_pf_order_b", plan="light"),
+        store14b,
+    )
+    no_event_time_failed = handle_invoice_payment_failed(
+        _invoice_event("invoice.payment_failed", stripe_customer_id="cus_pf_order_b"),
+        store14b,
+        now=datetime(2026, 11, 6, 20, 0, tzinfo=timezone.utc),
+        event_time=None,
+    )
+    results.append(_check(
+        "event_time省略時はstale判定しない(failed)", no_event_time_failed.stale, False
+    ))
+    results.append(_check(
+        "event_time省略時は無条件でpayment_failure_detected_atが書き込まれる",
+        store14b.get_payment_failure_detected_at("internal-14b") is not None,
+        True,
     ))
 
     # --- receive_stripe_webhook: invoice.payment_failed/succeededを正しくディスパッチする ---

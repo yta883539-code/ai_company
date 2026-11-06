@@ -26,6 +26,12 @@ payment-failure-dunning-design.md)を追加した。解約完了案内の送信�
 `receive_stripe_webhook()`に重複排除の仕組みが一切なく、同一の`invoice.payment_failed`
 が再配信されるたびに猶予期間の起算点が後ろへずれ続ける欠落があった(aircon-pasha
 フェーズ177・kura-pashaフェーズ77と同型)。
+
+フェーズ216で`invoice.payment_failed`/`invoice.payment_succeeded`間の配信順序入れ替わり
+ガード(payment-failure-event-order-guard-design.md、course-set-pashaの横展開)を追加した。
+`event_id_store`は同一`event.id`の再配信を防ぐが、異なる`event.id`を持つ2イベント間の
+配信順序の入れ替わり(決済成功後に古い決済失敗が遅延配信される等)には無力であり、本ガード
+が別途必要だった。
 """
 
 from __future__ import annotations
@@ -512,6 +518,45 @@ def handle_customer_subscription_created(
     return SubscriptionCreatedResult(cleared=True, internal_id=internal_id)
 
 
+def _is_stale_payment_failure_event(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> bool:
+    """payment-failure-event-order-guard-design.md(フェーズ216、フェーズ214次回候補(1)・
+    フェーズ215次回候補(3)で引き続き未着手だった論点に対応)。`_is_stale_subscription_
+    lifecycle_event()`と同じ考え方だが、`invoice.payment_failed`・`invoice.payment_
+    succeeded`(dunning系)は`customer.subscription.*`とは別のイベント系列のため、独立
+    した基準線(`get_payment_failure_event_time()`)と比較する(course-set-pashaの
+    `_is_stale_payment_failure_event()`と同一設計)。`event_time`が`None`、または`store`が
+    新メソッド未対応、または記録済みevent_timeが未設定の場合は「判定不能」として`False`
+    (常に適用、既存事業者への後方互換)。今回のevent_timeが記録済みのevent_time「以下」
+    であればTrue(stale)。"""
+    if event_time is None:
+        return False
+    getter = getattr(store, "get_payment_failure_event_time", None)
+    if getter is None:
+        return False
+    recorded = getter(internal_id)
+    if recorded is None:
+        return False
+    return event_time <= recorded
+
+
+def _record_payment_failure_event_time(
+    store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    event_time: Optional[datetime],
+) -> None:
+    """同上。`event_time`が`None`、または`store`が新メソッド未対応の場合は何もしない。"""
+    if event_time is None:
+        return
+    setter = getattr(store, "set_payment_failure_event_time", None)
+    if setter is None:
+        return
+    setter(internal_id, event_time)
+
+
 @dataclass
 class InvoicePaymentFailedResult:
     """handle_invoice_payment_failed()の結果(payment-failure-dunning-design.md
@@ -520,6 +565,7 @@ class InvoicePaymentFailedResult:
     detected: bool
     internal_id: Optional[str] = None
     error: Optional[str] = None
+    stale: bool = False
 
 
 def handle_invoice_payment_failed(
@@ -527,11 +573,20 @@ def handle_invoice_payment_failed(
     store: FleetOperatorStoreProtocol,
     *,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> InvoicePaymentFailedResult:
     """`invoice.payment_failed`イベントから`payment_failure_detected_at`を記録する
     (payment-failure-dunning-design.md 5節)。`customer`から`internal_id`を逆引きする
     (既存3ハンドラと同じパターン)。逆引きできない場合は`error="unknown_customer"`として
     記録を行わない。実メール送信配線は本フェーズの対象外(design 6節「残課題」)。
+
+    `event_time`(payment-failure-event-order-guard-design.md、フェーズ216で追加)は、
+    決済成功後に遅延配信された古い`invoice.payment_failed`が、既に解決済みのdunning状態を
+    誤って再開させないためのガード。記録済みのevent_time「以下」であれば
+    `payment_failure_detected_at`の書き込みを一切行わず`stale=True`を返す
+    (`customer.subscription.*`系と同じ「stale全体スキップ」方針)。stale判定を通過した
+    場合は書き込み後にevent_timeを記録する。`event_time`省略時(`None`)は従来通りこの
+    チェック・記録のいずれも行わない(既存呼び出し経路への後方互換措置)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -543,8 +598,14 @@ def handle_invoice_payment_failed(
     if internal_id is None:
         return InvoicePaymentFailedResult(detected=False, error="unknown_customer")
 
+    if _is_stale_payment_failure_event(store, internal_id, event_time):
+        return InvoicePaymentFailedResult(
+            detected=False, internal_id=internal_id, error="stale_event", stale=True
+        )
+
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     mark_payment_failure_detected(store, internal_id, resolved_now)
+    _record_payment_failure_event_time(store, internal_id, event_time)
 
     return InvoicePaymentFailedResult(detected=True, internal_id=internal_id)
 
@@ -558,6 +619,7 @@ class InvoicePaymentSucceededResult:
     internal_id: Optional[str] = None
     recovery_kind: Optional[str] = None
     error: Optional[str] = None
+    stale: bool = False
 
 
 def handle_invoice_payment_succeeded(
@@ -565,6 +627,7 @@ def handle_invoice_payment_succeeded(
     store: FleetOperatorStoreProtocol,
     *,
     now: Optional[datetime] = None,
+    event_time: Optional[datetime] = None,
 ) -> InvoicePaymentSucceededResult:
     """`invoice.payment_succeeded`イベントから`payment_failure_detected_at`をクリアする
     (payment-failure-dunning-design.md 5節)。`payment_failure_detected_at`が未設定
@@ -573,6 +636,14 @@ def handle_invoice_payment_succeeded(
     `classify_payment_recovery()`で2分岐(design 4節)を判定してから書き込む
     (判定には消去前の`detected_at`が必要なため、クリアより先に呼ぶ順序を守る)。
     実メール送信配線は本フェーズの対象外(design 6節「残課題」)。
+
+    `event_time`(payment-failure-event-order-guard-design.md、フェーズ216で追加)は
+    `handle_invoice_payment_failed()`と同一の`payment_failure_event_time`キーを共有する。
+    決済失敗検知後に遅延配信された古い`invoice.payment_succeeded`が、進行中のdunning状態を
+    誤って解除しないためのガード。記録済みのevent_time「以下」であればクリアを行わず
+    `stale=True`を返す。stale判定はdetected_atの有無チェックより先に行う
+    (`payment_failure_detected_at`が既にクリアされていても、古いイベント自体の適用は
+    一貫して拒否するため)。
     """
     data_object = event.get("data", {}).get("object", {})
     stripe_customer_id = data_object.get("customer")
@@ -584,13 +655,20 @@ def handle_invoice_payment_succeeded(
     if internal_id is None:
         return InvoicePaymentSucceededResult(cleared=False, error="unknown_customer")
 
+    if _is_stale_payment_failure_event(store, internal_id, event_time):
+        return InvoicePaymentSucceededResult(
+            cleared=False, internal_id=internal_id, error="stale_event", stale=True
+        )
+
     detected_at = store.get_payment_failure_detected_at(internal_id)
     if detected_at is None:
+        _record_payment_failure_event_time(store, internal_id, event_time)
         return InvoicePaymentSucceededResult(cleared=False, internal_id=internal_id)
 
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     recovery_kind = classify_payment_recovery(detected_at, resolved_now)
     cleared = clear_payment_failure_on_success(store, internal_id)
+    _record_payment_failure_event_time(store, internal_id, event_time)
 
     return InvoicePaymentSucceededResult(
         cleared=cleared, internal_id=internal_id, recovery_kind=recovery_kind
@@ -706,7 +784,7 @@ def receive_stripe_webhook(
 
     if event_type == "invoice.payment_failed":
         invoice_payment_failed_result = handle_invoice_payment_failed(
-            parsed, store, now=resolved_now
+            parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
         if check_idempotency:
             event_id_store.mark_processed(event_id)
@@ -716,7 +794,7 @@ def receive_stripe_webhook(
 
     if event_type == "invoice.payment_succeeded":
         invoice_payment_succeeded_result = handle_invoice_payment_succeeded(
-            parsed, store, now=resolved_now
+            parsed, store, now=resolved_now, event_time=_event_time_from_created(parsed)
         )
         if check_idempotency:
             event_id_store.mark_processed(event_id)

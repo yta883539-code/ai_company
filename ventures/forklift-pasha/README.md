@@ -4605,3 +4605,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-06定例更新(フェーズ215: 詳細は上記。`event.id`単位の重複配信対策
   〈event_id_store〉の欠落を横断棚卸しで発見し、stripe-event-idempotency-design.mdとして
   設計・是正。新規テスト13件、既存テスト・schema検証いずれも変更なしでパス)
+- フェーズ216(2026-11-06 20:00 UTC定例更新): フェーズ214次回候補(1)・フェーズ215
+  次回候補(3)として引き続き未着手だった「`invoice.payment_failed`・`invoice.payment_
+  succeeded`へのevent_timeベース配信順序ガードの横展開の要否検討」に対応した。
+  course-set-pashaの`_is_stale_payment_failure_event()`(`payment_failure_state_
+  event_time`)を横断確認した結果、本venture側の`handle_invoice_payment_failed()`
+  (フェーズ167)・`handle_invoice_payment_succeeded()`(同フェーズ)はいずれも
+  `payment_failure_detected_at`の書き込み/クリアを無条件に行っており、
+  `customer.subscription.*`系が既に備えるevent_timeベースのガードが未実装だった欠落を
+  発見した。決済成功後に遅延配信された古い`invoice.payment_failed`が復旧済みのdunning
+  状態を誤って再開させてしまうケース(aircon-pashaフェーズ281「ケースA」相当)等を
+  防ぐため、`customer.subscription.deleted`/`created`と同じ考え方で両イベント種別が
+  共有する`payment_failure_event_time`キーを新設し、payment-failure-event-order-guard-
+  design.mdとして設計・是正した(フェーズ215で追加した`event_id_store`による同一
+  `event.id`の重複排除とは別軸の課題であり、異なる`event.id`を持つ2イベント間の配信順序
+  入れ替わりを独立して防ぐ)。`FleetOperatorStoreProtocol`に`get/set_payment_failure_
+  event_time()`を追加し、両ハンドラに`event_time`引数(省略時は従来通り無条件適用、
+  後方互換)を追加して`receive_stripe_webhook()`から配線した。新規テスト10件
+  (`test_stripe_webhook.py`のcheck()呼び出し128件→138件)、既存テスト100件・
+  run_all_tests 24ファイル・schema検証11件・browser_mockup_checks.js 49件いずれも
+  変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)実Firestore接続後の`payment_failure_event_time`フィールドの永続化実装
+  (実Stripe/実GCPプロジェクト接続後、オーナー承認待ち)、(2)event-komiguai-pasha
+  (結合実装待ち)・oshien-pasha(Webhook未実装)への横展開は各venture側で実装着手時に
+  検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06定例更新(フェーズ216: 詳細は上記。`invoice.payment_failed`・
+  `invoice.payment_succeeded`への配信順序入れ替わりガード〈payment_failure_event_time〉
+  の欠落をcourse-set-pashaとの横断確認で発見し、payment-failure-event-order-guard-
+  design.mdとして設計・是正。新規テスト10件、既存テスト・schema検証・browser_mockup_
+  checksいずれも変更なしでパス)
