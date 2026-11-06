@@ -354,8 +354,10 @@
       "operational_status": "active"
     },
     {
-      "canonical_name": "楽天生命パーク宮城",
+      "canonical_name": "楽天モバイル 最強パーク宮城",
       "aliases": [
+        "楽天生命パーク宮城",
+        "楽天モバイルパーク宮城",
         "Koboパーク宮城",
         "宮城球場"
       ],
@@ -363,9 +365,9 @@
       "nearest_station": "仙台市地下鉄東西線 宮城野通駅",
       "walk_minutes_note": "徒歩6分前後",
       "naming_rights": true,
-      "last_verified_date": "2026-11-03",
-      "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。「楽天生命」の命名権契約満了日はWebSearchでの裏取りを行っていないためnull。旧称(Koboパーク宮城等)の改称履歴はaliasesで把握。",
+      "last_verified_date": "2026-11-06",
+      "naming_rights_review_due": "2028-12-31",
+      "verification_note": "フェーズ90: WebSearchで命名権契約の変遷を裏取りした。2023年1月から「楽天モバイルパーク宮城」(2023-01-01〜2025-12-31、3年契約)に改称し、2026年1月1日からは新たな3年契約(2026-01-01〜2028-12-31)により「楽天モバイル 最強パーク宮城」へ再改称していることを確認した。本フェーズ実行日(2026-11-06)時点の現行名称に合わせてcanonical_nameを更新し、旧称(楽天生命パーク宮城・楽天モバイルパーク宮城・Koboパーク宮城・宮城球場)はaliasesに保持した。naming_rights_review_dueは現行契約の満了日(2028-12-31、WebSearchで確認済みの契約期間)を設定した。",
       "operational_status": "active"
     },
     {
