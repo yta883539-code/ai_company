@@ -73,6 +73,7 @@ class TrialEndReportCandidate:
     trial_end_report_sent_at: Optional[datetime]
     booking_count: int
     auto_handled_inquiry_count: int
+    unique_customer_count: int
     owner_line_user_id: str
     report_sent_writer: TrialEndReportSentAtWriter
     message_tone: str = "standard"
@@ -106,6 +107,9 @@ class TrialEndReportBookingCountReader(Protocol):
     store_idで引く)。"""
 
     def count_confirmed_bookings(self, store_id: str) -> int:
+        ...
+
+    def count_unique_customers(self, store_id: str) -> int:
         ...
 
 
@@ -158,6 +162,7 @@ def build_trial_end_report_candidates(
                 trial_end_report_sent_at=store.engine.get_trial_end_report_sent_at(),
                 booking_count=store.booking_store.count_confirmed_bookings(store.store_id),
                 auto_handled_inquiry_count=store.log_aggregator.auto_handled_faq_count,
+                unique_customer_count=store.booking_store.count_unique_customers(store.store_id),
                 owner_line_user_id=store.owner_line_user_id,
                 report_sent_writer=store.engine,
                 message_tone=store.message_tone,
@@ -211,6 +216,7 @@ def send_trial_end_reports(
         summary = TrialUsageSummary(
             booking_count=candidate.booking_count,
             auto_handled_inquiry_count=candidate.auto_handled_inquiry_count,
+            unique_customer_count=candidate.unique_customer_count,
         )
         payment_page_url = build_liff_checkout_link(
             candidate.store_id, liff_id=liff_id
@@ -248,6 +254,7 @@ def _demo() -> None:
         trial_end_report_sent_at=None,
         booking_count=6,
         auto_handled_inquiry_count=4,
+        unique_customer_count=5,
         owner_line_user_id="U-owner-a",
         report_sent_writer=writer_a,
         message_tone="casual",
@@ -261,6 +268,7 @@ def _demo() -> None:
         trial_end_report_sent_at=None,
         booking_count=2,
         auto_handled_inquiry_count=1,
+        unique_customer_count=2,
         owner_line_user_id="U-owner-b",
         report_sent_writer=writer_b,
     )

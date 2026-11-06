@@ -37,12 +37,20 @@ class TrialUsageSummary:
 
     booking_count: int
     auto_handled_inquiry_count: int
+    unique_customer_count: int
 
     def __post_init__(self) -> None:
         if self.booking_count < 0:
             raise ValueError("booking_count must not be negative")
         if self.auto_handled_inquiry_count < 0:
             raise ValueError("auto_handled_inquiry_count must not be negative")
+        if self.unique_customer_count < 0:
+            raise ValueError("unique_customer_count must not be negative")
+        if self.unique_customer_count > self.booking_count:
+            # 1人が複数回予約することはあっても、booking_count(のべ予約件数)を超える
+            # 人数が存在することはない(booking-record-store-design.mdのcustomer_records()
+            # 前提どおり、1予約は必ず1人の顧客に紐づく)。
+            raise ValueError("unique_customer_count must not exceed booking_count")
 
     @property
     def estimated_hours_saved(self) -> float:
@@ -67,6 +75,7 @@ _MESSAGE_TRIAL_END_REPORT = {
 14日間の無料トライアルが終了いたしました。この間の利用実績は以下の通りでございます。
 
 ・処理した予約件数: {予約件数}件
+・ご利用いただいたお客様数: {お客様数}名
 ・自動対応できたお問い合わせ: {自動対応件数}件
 ・概算の削減対応時間: 約{削減時間}時間
 
@@ -82,6 +91,7 @@ _MESSAGE_TRIAL_END_REPORT = {
 14日間の無料トライアルが終了しました。この間の利用実績は以下の通りです。
 
 ・処理した予約件数: {予約件数}件
+・ご利用いただいたお客様数: {お客様数}名
 ・自動対応できたお問い合わせ: {自動対応件数}件
 ・概算の削減対応時間: 約{削減時間}時間
 
@@ -97,6 +107,7 @@ _MESSAGE_TRIAL_END_REPORT = {
 14日間の無料トライアルが終了しました!この間の利用実績はこちらです。
 
 ・処理した予約件数: {予約件数}件
+・ご利用いただいたお客様数: {お客様数}名
 ・自動対応できたお問い合わせ: {自動対応件数}件
 ・概算の削減対応時間: 約{削減時間}時間
 
@@ -122,6 +133,7 @@ def render_trial_end_report_message(
     hours_text = str(int(hours)) if hours == int(hours) else str(hours)
     return template.format(
         予約件数=summary.booking_count,
+        お客様数=summary.unique_customer_count,
         自動対応件数=summary.auto_handled_inquiry_count,
         削減時間=hours_text,
         決済ページURL=payment_page_url,

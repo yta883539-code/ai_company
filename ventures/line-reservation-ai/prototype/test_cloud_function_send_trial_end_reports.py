@@ -54,6 +54,7 @@ def _candidate(writer: _StubWriter, **overrides) -> TrialEndReportCandidate:
         trial_end_report_sent_at=None,
         booking_count=6,
         auto_handled_inquiry_count=4,
+        unique_customer_count=5,
         owner_line_user_id="U-owner-1",
         report_sent_writer=writer,
     )
@@ -274,7 +275,9 @@ class BookingCountWiringTests(unittest.TestCase):
         push = InMemoryLinePushClient()
         # 呼び出し元(Cloud Function E)が行う想定の配線: 集計済みの値をそのまま渡す
         candidate = _candidate(
-            writer, booking_count=record_store.count_confirmed_bookings(STORE_ID)
+            writer,
+            booking_count=record_store.count_confirmed_bookings(STORE_ID),
+            unique_customer_count=record_store.count_unique_customers(STORE_ID),
         )
         result = send_trial_end_reports([candidate], NOW, push)
 

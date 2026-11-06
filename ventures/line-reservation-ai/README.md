@@ -7151,3 +7151,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   だった候補10〈Atelier Queen〉へのWebSearchスニペット補完を試みたが新規情報は得られず、
   優先度B候補5件全てでWebSearch深掘りを打ち止めと判断。コード変更なし、テスト1044件・
   schema検証28件いずれも変更なしでパス)
+- フェーズ続き371(2026-11-06 16:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-06 06:00 UTC)を前進。フェーズ続き370で候補探索が一通り打ち止めと
+  判断されたため、次回候補(2)「他venture・アイデア領域の前進、または各種md間のcross-document
+  parity確認」に対応した。launch-readiness-checklist.md承認待ち事項1〜4とpending-approval.md
+  記載を突き合わせ、記載齟齬がないことを確認した上で、billing-upgrade-flow-design.md 1節が
+  「未検証の仮説」として残していた「利用実績レポートの3項目が十分か、追加すべき指標(例: 対応
+  した顧客数のユニーク数)があるか」という未着手の検討事項に対応した。booking-record-store-
+  design.mdの`customer_records(customer_name)`が顧客名単位でレコードを持つことから、重複
+  排除後の人数を算出できると判断し、`InMemoryBookingRecordStore.count_unique_customers
+  (store_id)`(engine.py、新規)・`TrialUsageSummary.unique_customer_count`(trial_end_report_
+  scheduler.py、新規フィールド、booking_countを超える値をガード)・`TrialEndReportCandidate.
+  unique_customer_count`(cloud_function_send_trial_end_reports.py)を実装し、利用実績レポート
+  文言(formal/standard/casual全3トーン)に「・ご利用いただいたお客様数: {お客様数}名」を追加
+  した。新規のFirestoreフィールドは不要(既存の予約レコードから導出可能なため)、
+  billing-upgrade-flow-design.md「未検証の仮説」節に解消済みとして追記。テスト4件追加
+  (engine.py側2件・trial_end_report_scheduler.py側は既存テストの更新)、line-reservation-ai
+  配下`python3 -m unittest discover -s prototype -p "test_*.py"`1044件→1048件・
+  `python3 schema/validate_test_cases.py`28件いずれもパスを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)他venture・アイデア領域の前進、または各種md間の
+  cross-document parity確認を継続する。
+- 最終更新: 2026-11-06 16:00 UTC(フェーズ続き371: 詳細は上記。利用実績レポートに「ご利用
+  いただいたお客様数」を4項目目として追加、billing-upgrade-flow-design.mdの未検証の仮説を
+  1件解消。テスト1044件→1048件・schema検証28件いずれもパス)

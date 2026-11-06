@@ -48,6 +48,7 @@ standardトーン文言例:
 14日間の無料トライアルが終了しました。この間の利用実績は以下の通りです。
 
 ・処理した予約件数: 32件
+・ご利用いただいたお客様数: 20名
 ・自動対応できたお問い合わせ: 18件
 ・概算の削減対応時間: 約4時間
 
@@ -60,9 +61,10 @@ standardトーン文言例:
 ご不明点はこのトークルームにご返信ください。
 ```
 
-- 「利用実績」の3項目は notification-log-classification-labels.md / booking-record-store-design.md
-  で既に集計可能な値(確定予約件数、9a/10エスカレーション以外で自動完結した件数、
-  1予約あたりの目安対応時間×件数)を流用する。目安対応時間の根拠値は今後の課題として残す
+- 「利用実績」の4項目は notification-log-classification-labels.md / booking-record-store-design.md
+  で既に集計可能な値(確定予約件数、お客様数のユニーク件数〈2026-11-06追記、下記「未検証の
+  仮説」参照〉、9a/10エスカレーション以外で自動完結した件数、1予約あたりの目安対応時間×件数)
+  を流用する。目安対応時間の根拠値は今後の課題として残す
   (現状は「1件あたり約7〜8分の手作業を代替」という一般的な仮定値を置いている)。
 - casualトーンは絵文字許容(message-tone-variants.md準拠)、formalトーンは「ご登録」→
   「ご契約手続き」など敬語をやや強める程度の差分とし、内容構成は3トーン共通とする。
@@ -137,9 +139,26 @@ trial-to-paid-billing-flow-consistency-check.mdでは「継続利用を希望す
   https://developers.line.biz/en/docs/liff/differences-between-liff-browser-and-external-browser/ ,
   https://developers.line.biz/en/docs/line-mini-app/develop/external-browser/ ,
   https://github.com/stripe/stripe-react-native/issues/1381)
-- 「利用実績レポート」の3項目がオーナーの継続判断材料として十分か、追加すべき指標
-  (例: 対応した顧客数のユニーク数)があるか。
 - 休止モードの再通知頻度が督促として煩わしく感じられないか。
+- (解消済み 2026-11-06 06:00 UTC: 「利用実績レポートの3項目が十分か、追加すべき指標
+  (例: 対応した顧客数のユニーク数)があるか」について検討した。booking-record-store-design.md
+  の`customer_records(customer_name)`が顧客名単位でレコードを持つことから、
+  `InMemoryBookingRecordStore.count_unique_customers(store_id)`(新規)として重複排除後の
+  人数を算出可能と判明した。のべ予約件数(booking_count)はリピート利用があるほど人数より
+  大きくなるため、「何人のお客様に利用されたか」という別の軸の指標として4項目目に追加する
+  判断を下した(リピート利用の多い店舗ほど、のべ件数だけでは実際の顧客基盤の広さが伝わらない
+  ため)。`TrialUsageSummary`に`unique_customer_count`フィールドを追加し(`booking_count`を
+  超える値はビジネスルール上あり得ないため`__post_init__`でガード)、1〜3節および
+  dormant-mode-renotification-design.mdには影響しないことを確認した上で
+  `render_trial_end_report_message()`の全3トーンのテンプレートに「・ご利用いただいた
+  お客様数: {お客様数}名」を追加。新規のFirestoreフィールドは不要(既存の予約レコードから
+  導出可能な値のため)。`TrialEndReportCandidate`・`build_trial_end_report_candidates()`
+  (cloud_function_send_trial_end_reports.py)にも配線し、テスト4件追加(engine.py側2件・
+  trial_end_report_scheduler.py側のテストを既存から更新)、line-reservation-ai配下の
+  `python3 -m unittest discover -s prototype -p "test_*.py"`1044件→1048件・
+  `python3 schema/validate_test_cases.py`28件いずれもパスを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。)
 
 ## 次のステップ候補
 

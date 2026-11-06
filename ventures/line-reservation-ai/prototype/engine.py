@@ -566,6 +566,18 @@ class InMemoryBookingRecordStore:
         (来店履歴として引き続き参照できるようにするため)。"""
         return [r.to_customer_record() for r in self._records if r.customer_name == customer_name]
 
+    def count_unique_customers(self, store_id: str) -> int:
+        """billing-upgrade-flow-design.md 1節の利用実績レポートに追加した4項目目
+        (ご利用いただいたお客様数)用。customer_name単位の重複を除いた人数を返すことで、
+        booking_count(のべ予約件数、リピート利用があれば人数より大きくなる)とは異なる
+        「何人のお客様に利用されたか」という指標を示す。トライアル終了時に1店舗につき
+        1回程度しか呼ばれない想定のため、count_confirmed_bookings()のような都度呼び出し向け
+        カウンタ最適化(フェーズ続き150の決定)は行わず、都度のスキャンで十分と判断した。
+        キャンセル・変更済みのレコードもcustomer_records()と同様に含める(来店実績として
+        数えてよいお客様のため)。
+        """
+        return len({r.customer_name for r in self._records if r.store_id == store_id})
+
     def record_cancelled(self, store_id: str, slot_key: tuple, status: str) -> None:
         """cancel_booking()/change_booking()がconfirmed状態の予約枠を解放した際に呼ぶ。
         店舗・slot_keyが一致するレコードのstatusをCANCELLED_STATUS/CHANGED_STATUSへ更新する

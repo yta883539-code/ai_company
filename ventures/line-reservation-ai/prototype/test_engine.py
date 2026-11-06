@@ -1628,6 +1628,33 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         self.assertEqual(store.count_confirmed_bookings("shop_1"), 1)
         self.assertEqual(store.list_booking_entries("shop_1", date(2026, 8, 1), date(2026, 8, 31)), [])
 
+    def test_count_unique_customers_counts_distinct_names_per_store(self):
+        # billing-upgrade-flow-design.md 1節の利用実績レポート4項目目(ご利用いただいた
+        # お客様数)用。同じお客様の複数回予約は1人として数える。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-17", "11:00"), "田中", "カラー")  # リピート
+        self._confirm(flow, "user_b", ("shop_1", "2026-08-10", "16:00"), "佐藤", "カラー")
+        self._confirm(flow, "user_c", ("shop_2", "2026-08-10", "12:00"), "山本", "カット")  # 別店舗
+
+        self.assertEqual(store.count_unique_customers("shop_1"), 2)
+        self.assertEqual(store.count_unique_customers("shop_2"), 1)
+        self.assertEqual(store.count_unique_customers("shop_3"), 0)
+        # のべ件数(count_confirmed_bookings)はリピート分も数えるため、人数以上になる。
+        self.assertEqual(store.count_confirmed_bookings("shop_1"), 3)
+
+    def test_count_unique_customers_keeps_counting_cancelled_records(self):
+        # count_confirmed_bookings()と同じく、利用実績の指標のためキャンセル済みレコードの
+        # お客様も引き続き「利用いただいたお客様」として数える。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        key = ("shop_1", "2026-08-10", "11:00")
+        self._confirm(flow, "user_a", key, "田中", "カット")
+        flow.cancel_booking("user_a", T0 + timedelta(minutes=5))
+
+        self.assertEqual(store.count_unique_customers("shop_1"), 1)
+
     def test_cancel_booking_after_confirmed_updates_record_store_status(self):
         # booking-record-store-design.md「次の課題」だった、cancel_booking()と連動した
         # 記録更新(削除はせずCANCELLED_STATUSへ更新)を確認する。
