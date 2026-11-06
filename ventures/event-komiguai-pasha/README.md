@@ -2149,3 +2149,32 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   3コレクション〈`one_time_draft`・`inquiry`・`idempotency_key_index`〉に対するdeny-all
   ルール草案を整理し、横展開ギャップを解消。コード変更なし、既存テスト79件・schema検証
   22件いずれも変更なしでパス)
+- フェーズ98(2026-11-06 18:00 UTC定例更新): フェーズ97次回候補(1)「実GCP/Firestore作成が
+  オーナーから承認された場合、Firebase Local Emulator Suiteでのdeny-allルール検証に着手する」
+  に対応した。aircon-pashaのfirestore-security-rules-emulator-verification.md(forklift-pasha
+  フェーズ174と同じ手法)を確認したところ、実GCPプロジェクトの作成・課金設定・Firebase
+  ログインのいずれも不要なデモプロジェクトID方式で検証できることが判明したため、オーナー
+  承認を待たずに着手した。firebase.json・firestore.rules(firestore-security-rules-draft.md
+  2節のルール草案をそのまま配置)・emulator-test/run_rules_check.shを新設し、`npx
+  firebase-tools emulators:exec --project demo-event-komiguai-pasha --only firestore`で
+  Firestore Local Emulatorを起動、未認証クライアント(REST API)からの直接アクセス6件
+  (`one_time_draft`書き込み・`inquiry`書き込み・`idempotency_key_index`書き込み〈`expireAt`
+  あり/なしの両パターン〉・想定外コレクションへのcatch-all書き込み・`one_time_draft`読み取り)
+  が全て`403 PERMISSION_DENIED`になることを確認した(firestore-security-rules-emulator-
+  verification.md新規作成)。firestore-security-rules-draft.md 4節が本venture固有の残課題
+  として挙げていた「`idempotency_key_index`の`expireAt`有無両パターンでの検証」もチェック
+  3・4として個別に対応した。コード変更なし(設定ファイル・検証スクリプト・Markdown
+  ドキュメントの新規作成のみ、prototype配下は無変更)、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(79件、変更なし)・`python3
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実GCPプロジェクト作成自体は既に
+  2026-10-28 06:00 UTC記載で承認待ち登録済み、本検証はそれとは独立したローカルのみの作業)。
+  次回候補: (1)実GCPプロジェクト作成がオーナーから承認された場合、本番Firestore環境でも
+  同様の検証(または同一スクリプトの再実行)を行う、(2)承認待ち事項(候補1〈奈良NEVER
+  LAND〉への連絡等)がオーナーから承認された場合はその着手を最優先、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-06 18:00 UTC(フェーズ98: firestore-security-rules-emulator-
+  verification.mdを新規作成。デモプロジェクトID方式でFirebase Local Emulator Suite検証を
+  実施し、6件のdeny-allチェック(`idempotency_key_index`の`expireAt`有無両パターン含む)が
+  全てPASS。コード変更なし、既存テスト79件・schema検証22件いずれも変更なしでパス)
