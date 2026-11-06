@@ -6553,3 +6553,35 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   line-reservation-aiは是正済みを確認、forklift-pashaに同種の欠落を発見し同venture側で
   是正。本venture側のコード変更なし、テスト300件・webhook355件・schema検証32件いずれも
   変更なしでパス)
+- フェーズ283(2026-11-06 05:00 UTC定例更新): フェーズ282次回候補(3)「event-komiguai-pasha・
+  oshien-pashaの`customer.subscription.updated`相当ハンドラに同種のガード欠落がないかの
+  横断確認」に対応した。event-komiguai-pashaは`one-time-checkout-no-account-design.md`の
+  設計通り単発決済(`mode=payment`)のみでサブスクリプション概念自体を持たないため対象外
+  (ガード欠落自体が発生しない)であることを確認した。oshien-pashaは
+  `FanPassStore.update_subscription_status()`自体にevent_timeベースのガードがない一方、
+  これを呼び出すStripe Webhookエントリポイント自体がまだ未実装(都度プラン主軸の決済フロー
+  設計が先行中)であるため、他5venture(aircon-pasha・course-set-pasha・line-reservation-ai・
+  kura-pasha・forklift-pasha)のような「既存ハンドラの欠落是正」は現時点では対象外と判断
+  した一方、将来のWebhook実装時に同じ欠落を生まないための先行メモを同venture側フェーズ88
+  として記録した(詳細は同ventureのREADME・
+  subscription-updated-event-order-guard-preemptive-note.md参照)。これにより
+  `customer.subscription.updated`配信順序入れ替わりガードの横断棚卸しは全7venture完了
+  した(aircon-pasha・course-set-pasha・line-reservation-ai・kura-pasha自身・
+  forklift-pashaは是正済み、event-komiguai-pashaは対象外、oshien-pashaは未実装のため
+  先行メモのみ)。本venture側のコード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(300件、変更なし)・`python3
+  prototype/test_cloud_function_webhook.py`(355件、変更なし)・`python3
+  schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしでパスする
+  ことを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(2)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(3)`customer.subscription.updated`ガードの横断棚卸しは完了したため、
+  他の共通設計パターン(例: 冪等性キー・重複配信耐性)について同様の横断棚卸しが有用か
+  検討する、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 05:00 UTC(フェーズ283: 詳細は上記。event-komiguai-pasha・
+  oshien-pashaへの横断確認を実施し、event-komiguai-pashaは対象外、oshien-pashaは
+  Webhook未実装のため先行メモのみ記録〈同venture側フェーズ88〉。これにより全7venture
+  の棚卸しが完了。本venture側のコード変更なし、テスト300件・webhook355件・schema検証
+  32件いずれも変更なしでパス)

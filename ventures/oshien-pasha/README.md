@@ -1908,3 +1908,31 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   契約が2024年4月1日〜2029年3月31日〈5年間〉で更新されていることを広島市公式発表で確認し、
   naming_rights_review_dueを2029-03-31に設定〈本venture初の契約満了日確定ケース〉。コード変更
   なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
+- フェーズ88(2026-11-06 05:00 UTC定例更新): kura-pashaフェーズ282(他venture横断の
+  `customer.subscription.updated`配信順序入れ替わりガード棚卸し)の次回候補(3)「本venture・
+  event-komiguai-pashaへの同種ガード欠落の横断確認」に対応した。本venture側を確認した結果、
+  Stripeサブスクリプション状態を更新する`FanPassStore.update_subscription_status()`
+  (`prototype/fan_pass_store.py`)自体にevent_timeベースのガードが存在しない一方、
+  Stripe Webhookを受信してこのメソッドを呼び出すエントリポイント自体がまだ未実装
+  (都度プラン主軸の決済フロー設計が先行し、月額フリーパスのWebhook受信フロー設計は
+  今後の課題として残っている)であるため、他5venture(aircon-pasha・course-set-pasha・
+  line-reservation-ai・kura-pasha・forklift-pasha)のような「ガード欠落の是正」は現時点
+  では対象外と判断した。将来Webhookエントリポイントを実装する際に同じ欠落を新たに生まない
+  よう、採用すべきガードパターン(event_time比較によるスキップ処理)を
+  subscription-updated-event-order-guard-preemptive-note.mdとして先行メモ化した。
+  コード変更なし、回帰確認として`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`(22件、変更なし)・`python3 -I validate_test_cases.py`(9件、変更なし)・
+  `python3 -I schema/check_venue_master_parity.py`(36件/36件差分なし)・`python3
+  prototype/test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)venue_matcher.pyをCloud Functionsの実エントリポイント・実LLM呼び出し結果に
+  結線する実装(実装はオーナー承認・実LLM接続後)、(2)真駒内セキスイハイムアイスアリーナ・
+  楽天生命パーク宮城・レグザムホール・ひめぎんホール等、naming_rights_review_dueがnullの
+  まま残る他会場のアクセス情報精査の継続、(3)月額フリーパスのStripe Webhook受信フロー自体の
+  設計着手(着手時にsubscription-updated-event-order-guard-preemptive-note.mdのガード
+  パターンを反映)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 05:00 UTC(フェーズ88: 詳細は上記。kura-pasha発の横断棚卸しに対応し、
+  本venture側はStripe Webhookエントリポイント自体が未実装のため現時点のガード欠落修正は
+  対象外と判断、将来実装時の先行メモを作成。コード変更なし、既存回帰〈22件・9件・36件・
+  21アサーション〉いずれも変更なしでパス)
