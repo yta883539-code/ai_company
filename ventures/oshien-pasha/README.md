@@ -1995,3 +1995,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   最強パーク宮城への改称をWebSearchで裏取りし、canonical_name更新・旧称4件をaliasesへ
   集約・naming_rights_review_dueに確認済み満了日〈2028-12-31〉を設定。コード変更なし、
   既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
+- フェーズ91(2026-11-06 13:00 UTC定例更新): event-komiguai-pashaフェーズ97
+  (firestore-security-rules-draft.md新規作成)が指摘した「横展開の残りはoshien-pashaのみ」
+  に対応し、本venture未作成のまま残っていたfirestore-security-rules-draft.mdを新規作成した。
+  firestore-data-model.md(フェーズ36)で確定済みの`fan_pass/{internal_id}`コレクション+
+  `generation_log`サブコレクションに対し、Cloud Run functions(Admin SDK経由)のみがアクセス
+  し、クライアントからの直接アクセスは設計上存在しないという他venture同型の前提に基づく
+  deny-allルール草案を整理した。これにより横展開はaircon-pasha・course-set-pasha・
+  forklift-pasha・kura-pasha・line-reservation-ai・event-komiguai-pasha・oshien-pashaの
+  全7venture完了となった。実Firestoreプロジェクトの作成・Emulator Suiteでの検証はオーナー
+  承認待ちの範囲として次回候補に残した。コード変更なし(Markdownドキュメント新規作成のみ)、
+  回帰確認として`python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、
+  変更なし)・`python3 -I validate_test_cases.py`(9件、変更なし)・`python3 -I
+  schema/check_venue_master_parity.py`(36件/36件差分なし)・`python3
+  prototype/test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)実Firestoreプロジェクト作成がオーナーから承認された場合、Firebase Local
+  Emulator Suiteでのdeny-allルール検証(aircon-pashaのfirestore-security-rules-emulator-
+  verification.mdと同種)に着手する、(2)`firestore.indexes.json`の新規整理、(3)レグザム
+  ホール・ひめぎんホールの残り2件のアクセス情報・命名権契約精査の継続、(4)venue_matcher.py
+  をCloud Functionsの実エントリポイント・実LLM呼び出し結果に結線する実装(実装はオーナー
+  承認・実LLM接続後)、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-06 13:00 UTC(フェーズ91: 詳細は上記。firestore-security-rules-draft.md
+  を新規作成し、`fan_pass`コレクション+`generation_log`サブコレクションへのdeny-allルール
+  草案を整理。全7venture横展開完了。コード変更なし、既存回帰〈22件・9件・36件・21
+  アサーション〉いずれも変更なしでパス)
