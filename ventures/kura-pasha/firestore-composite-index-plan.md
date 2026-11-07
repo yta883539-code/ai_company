@@ -27,14 +27,18 @@ workshop-store-firestore-adapter-design.md 28節「次回候補」に残って�
 補足:
 
 - 本venture(`craftsman_workshop`・`stripe_customer_index`・`user_profile`・
-  `pending_workshop_invites`・`pending_links`・`usage_counter`の6コレクション、
-  firestore-security-rules-draft.md 2節参照)はいずれもルートコレクション構成のため、
+  `pending_workshop_invites`・`pending_links`・`usage_counter`・
+  `line_webhook_event_ids`〈フェーズ288で追加、firestore.rules参照〉の7コレクション)は
+  いずれもルートコレクション構成のため、
   forklift-pashaの補足と同じ理由により、上記4索引とも`queryScope`は`COLLECTION`のまま
   (`COLLECTION_GROUP`への変更は不要)。
 - `deletion_candidate.list_deletion_candidates()`自体が使う`deletion_candidate_at <= now`
   という単一フィールドの範囲クエリは、Firestoreが単一フィールドに自動で索引を作成するため
   複合インデックスの対象外(forklift-pashaの`usage_counter`と同じ理由)。本ドキュメント#4は、
-  これとは別に「`deletion_confirmation_sent_at`との組み合わせで1クエリに統合する場合」に
+  `line_webhook_event_ids`(line-webhook-event-id-store-firestore-adapter-design.md、
+  フェーズ288)も`has_processed()`/`mark_processed()`いずれもドキュメントID
+  (`webhook_event_id`)単位の直接アクセスのみで範囲クエリ・ソートを伴わないため、同じ理由で
+  複合インデックスの対象外。本ドキュメント#4は、これとは別に「`deletion_confirmation_sent_at`との組み合わせで1クエリに統合する場合」に
   必要となる索引として記録している。
 - `blocked_but_billing_candidates.list_blocked_but_billing_candidates()`
   (`subscription_status != "canceled" AND contractor_user_idの`is_following`が`false`)は、

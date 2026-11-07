@@ -6708,3 +6708,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-07 13:00 UTC定例更新(フェーズ287: 詳細は上記。`webhookEventId`
   処理済み記録のTTL設計〈7日〉を解消し、InMemoryストアに失効判定を実装。新規テスト5件
   追加、既存テストいずれも変更なしでパス)
+- フェーズ288(2026-11-07 20:00 UTC定例更新): フェーズ287次回候補(4)「他venture・
+  アイデア領域の前進」の一環として、line-webhook-event-id-idempotency-design.md 4-1節が
+  次回候補として残していた「実Firestoreアダプタ(`expires_at`フィールド+Firestore
+  ネイティブTTLポリシー)」を、line-webhook-event-id-store-firestore-adapter-design.mdとして
+  新規設計した。linking-code-store-firestore-adapter-design.md(フェーズ213・250)と同じ
+  理由(実SDK・実GCPアカウントへ接続しない純粋なPythonコードのため結合実装フェーズを待たずに
+  実装可能)により、`prototype/firestore_line_webhook_event_id_adapter.py`に
+  `FirestoreLineWebhookEventIdStore`(`has_processed`/`mark_processed`)を実コード化した。
+  `InMemoryLineWebhookEventIdStore`と異なり、TTL超過時の能動的な失効判定は実装せず
+  (`has_processed()`はドキュメントの`exists`をそのまま返す)、`expires_at`フィールドを
+  Firestoreネイティブの「TTLポリシー」機能の対象に設定することで自動削除をFirestore側に
+  委譲する設計とした(design.md 2節、実削除までのタイムラグは安全側にしか作用しないため
+  許容)。新規コレクション`line_webhook_event_ids`の追加に伴い、`firestore.rules`に
+  deny-allルールを追加(6→7コレクション)、firestore-composite-index-plan.mdの
+  コレクション数記載・複合インデックス対象外である旨の注記も合わせて更新した。
+  新規テスト7件追加(`test_firestore_line_webhook_event_id_adapter.py`新規作成)、
+  `python3 prototype/run_all_tests.py`(24ファイル全件OK)・`python3
+  schema/validate_test_cases.py`(32件)いずれもパスを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実Firestoreプロジェクト・GCPアカウント開設自体は
+  2026-10-23 19:00 UTC記載分で既に承認待ちとして記録済みのため重複記録せず)。
+  次回候補: (1)aircon-pasha・course-set-pashaへのwebhookEventIdべき等性対策(TTL設計・
+  Firestoreアダプタ含む)の横展開(それぞれが「7venture中最も更新が止まっていたventure」
+  として選ばれた回に対応)、(2)承認待ち事項がオーナーから承認された場合はその着手を
+  最優先、(3)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化フィールド)への
+  実装反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-07 20:00 UTC定例更新(フェーズ288: 詳細は上記。`webhookEventId`
+  処理済みStoreの実Firestoreアダプタ〈`FirestoreLineWebhookEventIdStore`〉を新規設計・
+  実装し、`firestore.rules`・firestore-composite-index-plan.mdを7コレクション構成に
+  更新。新規テスト7件追加、既存テストいずれも変更なしでパス)

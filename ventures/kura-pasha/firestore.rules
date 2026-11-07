@@ -22,7 +22,10 @@ service cloud.firestore {
     match /usage_counter/{workshopId} {
       allow read, write: if false;
     }
-    // 上記6コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
+    match /line_webhook_event_ids/{webhookEventId} {
+      allow read, write: if false;
+    }
+    // 上記7コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
     // との二重化だが、将来コレクションが追加された際の事故防止のため明示しておく)。
     match /{document=**} {
       allow read, write: if false;
