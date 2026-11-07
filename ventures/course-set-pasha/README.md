@@ -6588,3 +6588,26 @@
   interview-rehearsal-script.md側の実作業〈フェーズ357・358〉より2フェーズ分遅れていた
   cross-document parity不整合を発見・是正。コード変更なし。テスト866件・schema検証21件
   いずれも変更なしでパス)
+- フェーズ360(2026-11-07 16:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新はフェーズ359、2026-11-07 09:00 UTC)を前進。mvp-flow-draft.md・厳守事項4が
+  「入れ替え=新規課題が追加される」ことを暗黙の前提にしており、改修・ホールドクリーニング等で
+  エリアの課題を撤去するのみで新規セットの予定が無い告知を想定していないという未検証の
+  設計ギャップを発見した(removal-only-notice-edge-case-review.md参照)。既存の
+  `insufficient_input`(入力不足)・`unchanged_areas`(変更なしエリア)のいずれにも当てはまらない
+  第三の類型として、厳守事項4・5・6に「撤去・休止のみの告知」の扱い(冒頭要約・見どころ紹介の
+  省略、理由・次回見通しへの差し替え、history_rows.countを`0`とする規約等)を追記した。
+  新規status値・schemaフィールドの追加は不要と判断し(`generated`の範囲内で対応可能なため)、
+  schema/output.schema.jsonの変更は行っていない。本フェーズは机上設計・ドキュメント追記のみで
+  あり、実LLM呼び出し・schema/validate_test_cases.pyへのテストケース追加は次回以降の課題として
+  残す。回帰確認として`python3 -I -m unittest discover -s prototype -p "test_*.py"`(866件、
+  変更なし)・`python3 -I schema/validate_test_cases.py`(21件、変更なし)を実行しいずれも
+  パスすることを確認した(コード・schema変更を伴わないため回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)removal-only-notice-edge-case-review.mdの未検証事項(実在ジムでの撤去告知の
+  実例確認)、(2)本エッジケースに対応するconversation-samples-test-cases.md相当の机上テスト
+  ケースをschema/validate_test_cases.pyへ追加する設計、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 16:00 UTC(フェーズ360: 詳細は上記。removal-only-notice-edge-case-
+  review.mdを新規作成し、「撤去・休止のみの告知」エッジケースに対応する厳守事項4・5・6の
+  追記をllm-system-prompt-draft.mdに反映。コード・schema変更なし。テスト866件・schema検証
+  21件いずれも変更なしでパス)
