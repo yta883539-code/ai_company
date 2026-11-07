@@ -6681,3 +6681,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   一度も実装されていなかったギャップを発見。本venture側に`webhookEventId`ベースの
   重複排除を実装、新規テスト7件追加、既存テストいずれも変更なしでパス。aircon-pasha・
   course-set-pashaへの横展開は次回以降の課題として残す)
+- フェーズ287(2026-11-07 13:00 UTC定例更新): フェーズ286次回候補(4)
+  「`webhookEventId`処理済み記録のTTL設計(design doc4節)」に対応した。
+  line-webhook-event-id-idempotency-design.md 4節で残課題としていたTTL設計を解消し、
+  `DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS`(7日=604800秒、LINE側に公式な再送期間の
+  明記がないため安全マージンを見た暫定値)を新規定義した。`InMemoryLineWebhookEventIdStore`
+  の内部表現を`set`から`webhook_event_id→processed_at`の辞書へ変更し、`has_processed()`
+  がTTL超過時は「Firestore側でTTLポリシーにより削除済みの状態」と同じ未処理扱いに戻す
+  (遅延GC付き)設計とした。実Firestoreアダプタでは`expires_at`フィールド+Firestore
+  ネイティブTTLポリシーで同等の挙動を実現する想定(event-komiguai-pashaの
+  `one_time_draft`TTL運用と同じパターン)で、design doc 4-1節に詳細を追記した。
+  `has_processed()`・`mark_processed()`双方にテスト用`now`引数(省略時は現在時刻)を
+  追加(stripe_webhook.pyの`now`注入パターンを踏襲)。data-retention-policy.mdが扱う
+  個人情報(user_profile等)の保有期間とは対象が異なる技術的な保持期間であるため、
+  両文書の整合確認は不要と判断した。新規テスト5件追加(test_cloud_function_webhook.py、
+  371件→376件)、既存テスト(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`300件、`python3 schema/validate_test_cases.py`32件)はいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)aircon-pasha・course-set-pashaへのwebhookEventIdべき等性対策(TTL設計
+  含む)の横展開(それぞれが「7venture中最も更新が止まっていたventure」として選ばれた
+  回に対応)、(2)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認
+  された場合はその着手を最優先、(3)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 13:00 UTC定例更新(フェーズ287: 詳細は上記。`webhookEventId`
+  処理済み記録のTTL設計〈7日〉を解消し、InMemoryストアに失効判定を実装。新規テスト5件
+  追加、既存テストいずれも変更なしでパス)

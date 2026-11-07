@@ -117,9 +117,17 @@ Stripe側の`event.id`対策(stripe-event-idempotency-design.md)と異なり、�
 - **InMemory実装の限界**: 実Cloud Functions環境では呼び出しをまたいで状態が保持されない
   (Stripe版と同じ既知の限界)。実装時(オーナー承認後)はFirestoreアダプタへの差し替えが
   必要(`firestore-provider-adapter-design.md`相当のパターンを流用できる見込み)。
-- **TTL設計**: `webhookEventId`の処理済み記録を無期限に保持し続けるとFirestore容量が
+- ~~**TTL設計**: `webhookEventId`の処理済み記録を無期限に保持し続けるとFirestore容量が
   肥大化するため、一定期間(LINE側の再送が発生しうる現実的な期間、例えば数日〜1週間)で
-  失効させるTTL設計が必要(data-retention-policy.mdとの整合も含め次回以降の課題)。
+  失効させるTTL設計が必要(data-retention-policy.mdとの整合も含め次回以降の課題)。~~
+  → **フェーズ287で解消**(詳細は4-1節)。`DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS`
+  (7日=604800秒)を採用し、`InMemoryLineWebhookEventIdStore`に`processed_at`ベースの
+  失効判定を実装した。実Firestoreアダプタでは`expires_at`フィールド+Firestoreネイティブ
+  TTLポリシーで同等の挙動を実現する想定(event-komiguai-pasha
+  `ttl-expiry-result-delivery-refund-design.md`と同じパターン)。なお
+  data-retention-policy.mdが扱う「個人情報(user_profile等)の保有期間」とは別軸
+  (配信の揺らぎを吸収するための技術的な保持期間)であり、両文書の対象は重複しないため
+  整合確認の必要はないと判断した。
 - **根本対策の要否**: 本フェーズの対策は「重複実行を防ぐ」対症療法であり、
   「2秒タイムアウトに収まるよう処理自体を非同期化する」(line-reservation-aiの
   Cloud Tasksエンキューパターンへの移行)という根本対策とは別物。後者は3venture共通の
@@ -135,6 +143,47 @@ Stripe側の`event.id`対策(stripe-event-idempotency-design.md)と異なり、�
   仮にオフのままであれば2秒タイムアウト自体は発生しても再送による重複処理は起きないが、
   「オフであることを前提に対策を省略する」のはリスクが高い(将来の設定変更・LINE側の
   仕様変更に対して脆弱)と判断し、オフの場合でも無害(副作用ゼロ)な本対策を先行実装した。
+
+## 4-1. TTL設計(フェーズ287、4節「TTL設計」の解消)
+
+- **保持期間**: `DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS = 7日(604800秒)`を採用する。
+  LINE公式はWebhook再送の最大試行回数・期間を明記していない(Hookdeckの解説記事も
+  「公式には明記されていない」としている、1節参照)ため、Stripeのtolerance_seconds
+  (300秒、公式推奨値)のような根拠値は存在しない。再送が実際に発生しうる現実的な期間
+  (数時間〜数日程度と推測)に対して十分な安全マージンを確保しつつ、無期限保持による
+  Firestore容量の肥大化を避けるバランス値として7日を採用した(設計時点では実運用データが
+  ないため暫定値、実装後の実測次第で見直しうる)。
+- **実装方式(本インメモリ実装)**: `InMemoryLineWebhookEventIdStore`は`webhook_event_id`
+  ごとに`processed_at`(mark_processed時刻)を保持する辞書へ変更した
+  (従来の`set`から`Dict[str, datetime]`へ)。`has_processed()`は、該当IDが存在し、かつ
+  `now - processed_at <= ttl_seconds`の場合のみ`True`を返す。TTLを超えている場合は
+  「Firestore側でTTLポリシーにより当該ドキュメントが既に削除された後の状態」と同じ
+  (ドキュメント不在=未処理)とみなして`False`を返し、該当エントリをメモリからも削除する
+  (遅延GC)。`has_processed()`・`mark_processed()`双方にテスト用の`now`キーワード専用
+  引数(省略時は`datetime.now(timezone.utc)`)を追加した(stripe_webhook.pyの
+  `handle_checkout_session_completed(now=...)`と同じ時刻注入パターン)。
+- **実Firestoreアダプタでの実現方法(設計のみ、実装は次回以降)**: 各処理済み記録を
+  `line_webhook_event_processed/{webhook_event_id}`ドキュメントとして保存し、
+  `expires_at`フィールド(= `mark_processed`時刻 + 7日)を持たせた上で、Firestore
+  ネイティブの「TTLポリシー」機能(`expires_at`フィールドを対象に設定)で自動削除する
+  (event-komiguai-pashaの`one_time_draft`TTL運用、ttl-expiry-result-delivery-refund-
+  design.md 1節と同じパターンをそのまま流用する)。Firestoreの実際のTTL削除には
+  数時間程度のタイムラグが生じうるが、再送が来た時点で記録さえ残っていれば重複は防げる
+  ため、削除タイミングの遅れが安全性(重複実行の見逃し)に影響することはない。
+  `has_processed()`はドキュメントの存在確認のみで足り、インメモリ版のような
+  アプリケーション側での`expires_at`判定ロジックは本来不要になる(Firestore側が
+  削除済みなら単に「ドキュメントが見つからない」状態になるため)が、インメモリ版では
+  Firestoreの自動削除を模すために判定ロジックを持たせている。
+- **data-retention-policy.mdとの関係**: 同文書が扱うのは`user_profile`・
+  `usage_counter`という「職人本人に関する個人情報」の保有期間(解約起点で1年)であり、
+  本件(`webhookEventId`という配信制御用の技術的なメタデータ、個人を特定しうる情報を
+  含まない)とは対象が異なる。両者は独立した保持期間ポリシーとして扱って問題ないと判断し、
+  整合確認は不要とした。
+- **新規テスト**: `test_cloud_function_webhook.py`に5件追加(371件→376件)。
+  TTL内は処理済み扱い、TTL超過で未処理扱いに戻る、失効後は再度mark_processed可能、
+  デフォルトTTL値の確認、dispatch_webhook_events経由でもTTL失効が反映される結合確認、
+  の5点を検証した。既存テスト(unittest discover 300件・schema検証32件)は変更なしで
+  パスし、回帰がないことを確認した。
 
 ## 参考(WebSearch)
 

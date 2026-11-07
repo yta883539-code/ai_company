@@ -34,9 +34,9 @@ import os
 import random
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Protocol, Tuple
+from typing import Dict, List, Optional, Protocol, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
@@ -1883,28 +1883,73 @@ def process_postback_event(
 
 class LineWebhookEventIdStoreProtocol(Protocol):
     """`webhookEventId`単位の処理済み記録を保持するストアのインターフェース
-    (line-webhook-event-id-idempotency-design.md 2節)。"""
+    (line-webhook-event-id-idempotency-design.md 2節)。`now`はテスト用の時刻注入
+    (フェーズ287、4節「TTL設計」)で、省略時は実装側が現在時刻を用いる。"""
 
-    def has_processed(self, webhook_event_id: str) -> bool:
+    def has_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> bool:
         ...
 
-    def mark_processed(self, webhook_event_id: str) -> None:
+    def mark_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> None:
         ...
+
+
+#: `webhookEventId`処理済み記録のデフォルト保持期間(フェーズ287、
+#: line-webhook-event-id-idempotency-design.md 4節「TTL設計」を解消)。LINE公式は
+#: 再送の最大回数・期間を明記していないため、Stripe推奨のtolerance_seconds(300秒)の
+#: ような公式根拠値は存在しない。Firestoreの無期限保持によるコレクション肥大化と、
+#: 保持期間を短くしすぎて再送による重複実行を見逃すリスクの両方を踏まえ、本venture・
+#: aircon-pasha・course-set-pashaいずれも低頻度決済ではなく日常的な利用を想定する
+#: チャットボットである点を考慮し、他venture群のdata-retention-policy.md(個人情報の
+#: 保有期間、1年)とは別軸の「配信の揺らぎを吸収するための技術的な保持期間」として、
+#: 安全側に寄せた7日間(604800秒)を採用する。
+DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 class InMemoryLineWebhookEventIdStore:
     """検証用のインメモリ実装。プロセス起動ごとに初期化されるため、実Cloud Functions環境
     では呼び出しをまたいで保持されない(StripeEventIdStoreと同じ既知の限界。実装時は
-    Firestoreアダプタへの差し替えが必要、README.md次回候補参照)。"""
+    Firestoreアダプタへの差し替えが必要、README.md次回候補参照)。
 
-    def __init__(self) -> None:
-        self._processed_ids: set = set()
+    フェーズ287: 実装時(Firestoreアダプタ)は各ドキュメントに`expires_at`フィールドを
+    持たせ、Firestoreのネイティブ「TTLポリシー」機能で自動失効させる設計とする
+    (event-komiguai-pashaのone_time_draft `expires_at`運用、ttl-expiry-result-delivery-
+    refund-design.mdと同じパターン)。本インメモリ実装では`processed_at`を保持し、
+    `has_processed()`呼び出し時点で`ttl_seconds`を超えていれば「処理済み記録は既に
+    Firestore側で失効済み(ドキュメントが存在しない)」のと同じ状態として扱い、`False`を
+    返す(=再送が来れば通常通り処理される)。Firestoreの実際のTTL削除は即時ではなく
+    数時間程度のタイムラグが生じうるが、再送が来た時点で記録さえ残っていれば重複は防げる
+    ため、このタイムラグが安全性に影響することはない(event-komiguai-pasha
+    ttl-expiry-result-delivery-refund-design.md 1節と同じ考え方)。"""
 
-    def has_processed(self, webhook_event_id: str) -> bool:
-        return webhook_event_id in self._processed_ids
+    def __init__(
+        self, *, ttl_seconds: int = DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS
+    ) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._processed_at: Dict[str, datetime] = {}
 
-    def mark_processed(self, webhook_event_id: str) -> None:
-        self._processed_ids.add(webhook_event_id)
+    def has_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> bool:
+        processed_at = self._processed_at.get(webhook_event_id)
+        if processed_at is None:
+            return False
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        if resolved_now - processed_at > timedelta(seconds=self._ttl_seconds):
+            # 失効済み: Firestore側でTTL削除された後の状態(ドキュメント不在)を模する。
+            del self._processed_at[webhook_event_id]
+            return False
+        return True
+
+    def mark_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> None:
+        self._processed_at[webhook_event_id] = (
+            now if now is not None else datetime.now(timezone.utc)
+        )
 
 
 @dataclass

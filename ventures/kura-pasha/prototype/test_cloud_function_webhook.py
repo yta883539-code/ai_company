@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import random
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import copy
 
@@ -16,6 +16,7 @@ from cloud_function_webhook import (
     CHARACTER_LIMIT_FALLBACK_MESSAGE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
     CONTRACTOR_ONLY_INVITE_NOTICE,
+    DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS,
     FIRST_GENERATION_NOTICE_MESSAGE,
     INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE,
     INVITE_JOIN_SUCCESS_MESSAGE,
@@ -2855,6 +2856,72 @@ def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch():
     )
 
 
+# ---------------------------------------------------------------------------
+# InMemoryLineWebhookEventIdStoreのTTL(フェーズ287、
+# line-webhook-event-id-idempotency-design.md 4節「TTL設計」を解消)
+# ---------------------------------------------------------------------------
+
+_TTL_MAR = datetime(2026, 3, 1, tzinfo=timezone.utc)
+
+
+def test_line_webhook_event_id_store_has_processed_true_within_ttl():
+    store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+    store.mark_processed("wh_evt_ttl_1", now=_TTL_MAR)
+    check(
+        "TTL(7日)以内なら処理済みのまま",
+        store.has_processed("wh_evt_ttl_1", now=_TTL_MAR + timedelta(days=6)) is True,
+    )
+
+
+def test_line_webhook_event_id_store_has_processed_false_after_ttl_expired():
+    store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+    store.mark_processed("wh_evt_ttl_2", now=_TTL_MAR)
+    check(
+        "TTL(7日)を過ぎるとFirestore側で失効済みの状態と同じく未処理扱いに戻る",
+        store.has_processed("wh_evt_ttl_2", now=_TTL_MAR + timedelta(days=8)) is False,
+    )
+
+
+def test_line_webhook_event_id_store_expired_entry_can_be_reprocessed():
+    # TTL失効後は再度mark_processedできる(再送がその時点で来ても通常通り処理される)。
+    store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+    store.mark_processed("wh_evt_ttl_3", now=_TTL_MAR)
+    store.has_processed("wh_evt_ttl_3", now=_TTL_MAR + timedelta(days=8))
+    store.mark_processed("wh_evt_ttl_3", now=_TTL_MAR + timedelta(days=8))
+    check(
+        "失効後の再処理が新たなprocessed_atで記録される",
+        store.has_processed("wh_evt_ttl_3", now=_TTL_MAR + timedelta(days=8, hours=1)) is True,
+    )
+
+
+def test_line_webhook_event_id_store_default_ttl_is_seven_days():
+    check(
+        "デフォルトTTLは7日(604800秒)",
+        DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS == 7 * 24 * 60 * 60,
+    )
+
+
+def test_dispatch_webhook_events_treats_ttl_expired_webhook_event_id_as_new():
+    # dispatch_webhook_events経由でも、TTL失効済みのwebhookEventIdは重複とみなされず
+    # 通常通り処理される(店側ロジックはhas_processedの戻り値のみに依存しているため、
+    # ストア側のTTL実装がそのまま反映されることの結合確認)。
+    store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+    store.mark_processed("wh_evt_ttl_dispatch", now=_TTL_MAR)
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_ttl_dispatch"
+    reply_client = InMemoryReplyClient()
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        webhook_event_id_store=store,
+    )
+    check(
+        "TTL失効後は重複とみなされず処理される",
+        result.duplicate_webhook_event_ids == [] and len(result.message_results) == 1,
+    )
+
+
 _TEST_CHANNEL_SECRET = "test-channel-secret"
 
 
@@ -3100,6 +3167,11 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_skips_dedup_when_webhook_event_id_missing()
     test_dispatch_webhook_events_dedup_applies_to_unfollow_event_too()
     test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch()
+    test_line_webhook_event_id_store_has_processed_true_within_ttl()
+    test_line_webhook_event_id_store_has_processed_false_after_ttl_expired()
+    test_line_webhook_event_id_store_expired_entry_can_be_reprocessed()
+    test_line_webhook_event_id_store_default_ttl_is_seven_days()
+    test_dispatch_webhook_events_treats_ttl_expired_webhook_event_id_as_new()
     test_receive_webhook_rejects_invalid_signature()
     test_receive_webhook_rejects_missing_signature_header()
     test_receive_webhook_rejects_invalid_json()
