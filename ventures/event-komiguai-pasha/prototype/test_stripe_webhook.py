@@ -10,6 +10,11 @@ import json
 import unittest
 from datetime import datetime, timedelta, timezone
 
+from generation_retry_and_refund import (
+    GenerationError,
+    InMemoryEmailSender,
+    InMemoryRefundClient,
+)
 from stripe_webhook import (
     InMemoryOneTimeDraftStore,
     InMemoryStripeEventIdStore,
@@ -290,6 +295,97 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
             body, header, SECRET, draft_store=self.draft_store, now=self.now
         )
         self.assertEqual(second.checkout_result.outcome, "already_processed")
+
+    def test_generation_wiring_is_skipped_without_the_three_callbacks(self):
+        # design フェーズ100「次回候補(2)」: generate_fn等を渡さない既存の呼び出し側
+        # (フェーズ99までのテスト含む)は、挙動が変わらずgeneration_outcome=Noneのまま
+        # であることの後方互換確認。
+        body = self._body(_checkout_event())
+        header = _sign(body, int(self.now.timestamp()))
+        result = receive_stripe_webhook(
+            body, header, SECRET, draft_store=self.draft_store, now=self.now
+        )
+        self.assertEqual(result.checkout_result.outcome, "proceed_to_generation")
+        self.assertIsNone(result.generation_outcome)
+        self.assertEqual(self.draft_store.get("draft_abc").status, "awaiting_payment")
+
+    def test_generation_wiring_succeeds_and_updates_draft_status(self):
+        body = self._body(_checkout_event())
+        header = _sign(body, int(self.now.timestamp()))
+
+        def generate_fn(draft_id):
+            self.assertEqual(draft_id, "draft_abc")
+            return {"status": "generated", "checklist": ["ok"]}
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            draft_store=self.draft_store,
+            now=self.now,
+            generate_fn=generate_fn,
+            refund_client=InMemoryRefundClient(),
+            email_sender=InMemoryEmailSender(),
+        )
+        self.assertEqual(result.checkout_result.outcome, "proceed_to_generation")
+        self.assertIsNotNone(result.generation_outcome)
+        self.assertEqual(result.generation_outcome.outcome, "generated")
+        self.assertEqual(self.draft_store.get("draft_abc").status, "generated")
+
+    def test_generation_wiring_refunds_after_exhausting_retries(self):
+        body = self._body(_checkout_event())
+        header = _sign(body, int(self.now.timestamp()))
+
+        def always_failing_generate_fn(draft_id):
+            raise GenerationError("LLM API一時障害(机上テスト用)")
+
+        refund_client = InMemoryRefundClient()
+        email_sender = InMemoryEmailSender()
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            draft_store=self.draft_store,
+            now=self.now,
+            generate_fn=always_failing_generate_fn,
+            refund_client=refund_client,
+            email_sender=email_sender,
+        )
+        self.assertEqual(result.generation_outcome.outcome, "refunded")
+        self.assertEqual(result.generation_outcome.attempts, 3)
+        self.assertEqual(self.draft_store.get("draft_abc").status, "refunded")
+        self.assertEqual(refund_client.calls, ["pi_abc"])
+        self.assertEqual(len(email_sender.sent), 1)
+        self.assertEqual(email_sender.sent[0]["to"], "organizer@example.com")
+
+    def test_generation_wiring_is_not_invoked_for_non_proceed_outcomes(self):
+        # already_processed(2回目以降の配信)の場合はgenerate_fn等が渡されていても
+        # 生成処理を再実行しない(design 2-2節の冪等性ガードを本モジュールが上書きしない
+        # ことの確認)。
+        self.draft_store.get("draft_abc").status = "generated"
+        body = self._body(_checkout_event())
+        header = _sign(body, int(self.now.timestamp()))
+
+        calls = []
+
+        def generate_fn(draft_id):
+            calls.append(draft_id)
+            return {"status": "generated"}
+
+        result = receive_stripe_webhook(
+            body,
+            header,
+            SECRET,
+            draft_store=self.draft_store,
+            now=self.now,
+            generate_fn=generate_fn,
+            refund_client=InMemoryRefundClient(),
+            email_sender=InMemoryEmailSender(),
+        )
+        self.assertEqual(result.checkout_result.outcome, "already_processed")
+        self.assertIsNone(result.generation_outcome)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

@@ -2246,3 +2246,42 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   generation_retry_and_refund.py`新規作成で決済完了後の生成リトライ・自動返金フロー
   〈design 3-2節〉を実装。`payment_intent_id`取得処理も追加。新規テスト10件〈97件→
   107件〉、schema検証22件いずれも変更なしでパス)
+- フェーズ101(2026-11-07 17:00 UTC定例更新): フェーズ100の次回候補(2)
+  「`process_generation_after_payment()`自体をCloud Functionエントリポイント
+  (`receive_stripe_webhook()`のoutcome="proceed_to_generation"分岐)に実際に結線する
+  設計・実装」に対応した。`stripe_webhook.receive_stripe_webhook()`に`generate_fn`・
+  `refund_client`・`email_sender`・`retry_url`の4つの省略可能引数を追加し、
+  `handle_checkout_session_completed()`の結果がoutcome="proceed_to_generation"で、かつ
+  3つのコールバック(`generate_fn`・`refund_client`・`email_sender`)全てが渡された場合
+  のみ`generation_retry_and_refund.process_generation_after_payment()`を同期的に呼び出し、
+  結果を新設の`StripeWebhookReceiverResult.generation_outcome`フィールドに格納する設計
+  とした。3つのうち1つでも欠ける場合は結線せず`generation_outcome=None`のまま返す仕様とし、
+  フェーズ99までの既存呼び出し側(コールバック未指定)との後方互換を保った(生成処理を
+  非同期キュー等に委ねたい将来の呼び出し側を排除しないための意図的な設計判断)。あわせて、
+  `already_processed`等outcome≠"proceed_to_generation"の場合はコールバックが渡されていても
+  生成処理を再実行しないことを確認するテストを追加し、design 2-2節の冪等性ガードを本結線が
+  上書きしないことを保証した。新規テスト4件(`test_stripe_webhook.py`: コールバック省略時の
+  後方互換確認・生成成功時のdraft状態更新確認・リトライ尽き返金フロー確認・冪等性ガード
+  確認)を追加し、既存107件と合わせ全111件がパスすることを確認した(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)。schema検証22件も変更なしでパス。コード変更は
+  `prototype/stripe_webhook.py`(関数シグネチャ・戻り値フィールド追加のみ、既存の
+  署名検証・冪等性チェック・3段ガードのロジックは無変更)と`prototype/
+  test_stripe_webhook.py`のみで、`generation_retry_and_refund.py`自体は無変更。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実際のStripe Refund API・実メール送信手段・実LLM
+  生成関数の接続は従来どおりオーナー承認待ちの範囲のまま、本フェーズは机上の結線ロジックの
+  コード化〈インメモリスタブでの検証〉に留まる)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)実際のCloud Functionエントリポイント
+  実装時にgenerate_fnをどう構成するか(mock_llm_client.run_form_submission_pipeline()相当を
+  呼ぶには元のフォーム入力〈capacity・entry_exit_points等〉がdraft_id単位で必要だが、
+  現状の`OneTimeDraft`/`OneTimeDraftStoreProtocol`は決済確認後に必要な情報〈checkout_
+  session_id・customer_email・payment_intent_id〉しか保持しておらず、元のフォーム入力を
+  draft作成時にどこへ・どう保存し生成時に取り出すかが未設計のまま残っている、本フェーズで
+  新たに発見したギャップ)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 17:00 UTC(フェーズ101: `stripe_webhook.receive_stripe_webhook()`に
+  `generate_fn`・`refund_client`・`email_sender`・`retry_url`を追加し、outcome=
+  "proceed_to_generation"時に`process_generation_after_payment()`へ結線。3コールバック
+  未指定時は既存呼び出し側と後方互換。新規テスト4件〈107件→111件〉、schema検証22件いずれも
+  変更なしでパス。次回候補として「draft_id単位での元フォーム入力の保存・取り出し方式が
+  未設計」という新規ギャップを発見)

@@ -23,6 +23,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from generation_retry_and_refund import (
+    EmailSenderProtocol,
+    GenerationFn,
+    GenerationOutcome,
+    RefundClientProtocol,
+    process_generation_after_payment,
+)
+
 
 class StripeEventIdStoreProtocol:
     """stripe-event-idempotency-design.md 2節: `event.id`単位の処理済み記録を保持する
@@ -296,6 +304,11 @@ class StripeWebhookReceiverResult:
     error: Optional[str] = None
     duplicate: bool = False
     ignored_type: Optional[str] = None
+    # outcome="proceed_to_generation"かつgenerate_fn等が呼び出し側から渡された場合のみ
+    # 設定される(generation_retry_and_refund.process_generation_after_payment()の結果)。
+    # generate_fn省略時(フェーズ99までの既存呼び出し側)やoutcomeがproceed_to_generation
+    # 以外の場合はNoneのまま(後方互換、design フェーズ100「次回候補(2)」参照)。
+    generation_outcome: Optional[GenerationOutcome] = None
 
 
 def receive_stripe_webhook(
@@ -306,6 +319,10 @@ def receive_stripe_webhook(
     draft_store: OneTimeDraftStoreProtocol,
     event_id_store: Optional[StripeEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
+    generate_fn: Optional[GenerationFn] = None,
+    refund_client: Optional[RefundClientProtocol] = None,
+    email_sender: Optional[EmailSenderProtocol] = None,
+    retry_url: str = "",
 ) -> StripeWebhookReceiverResult:
     """Cloud Functionの本体エントリポイント(Stripe版、単発決済モデル)。
 
@@ -319,6 +336,14 @@ def receive_stripe_webhook(
     - イベント種別が`checkout.session.completed`の場合のみ`handle_checkout_session_
       completed()`へ振り分ける。それ以外の種別は本venture固有のディスパッチ対象が
       無いため`ignored_type`として200を返す(Stripe側の再送ループを避けるため常に200)。
+    - `handle_checkout_session_completed()`がoutcome="proceed_to_generation"を
+      返し、かつ`generate_fn`・`refund_client`・`email_sender`の3つ全てが
+      呼び出し側から渡されている場合のみ、`generation_retry_and_refund.
+      process_generation_after_payment()`へ結線し、生成リトライ・失敗時の自動返金まで
+      同期的に実行する(design フェーズ100「次回候補(2)」)。3つのうち1つでも欠けている
+      場合は結線せず`generation_outcome=None`のまま返す(フェーズ99までの既存呼び出し側・
+      生成処理を非同期キュー等に委ねたい将来の呼び出し側との後方互換を優先するための
+      意図的な分岐、3つの一部だけを渡すことを禁止するものではない機能フラグ的な設計)。
     """
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     if not verify_stripe_signature(
@@ -353,7 +378,28 @@ def receive_stripe_webhook(
     )
     if check_idempotency:
         event_id_store.mark_processed(event_id)
-    return StripeWebhookReceiverResult(status_code=200, checkout_result=checkout_result)
+
+    generation_outcome: Optional[GenerationOutcome] = None
+    if (
+        checkout_result.outcome == "proceed_to_generation"
+        and generate_fn is not None
+        and refund_client is not None
+        and email_sender is not None
+    ):
+        generation_outcome = process_generation_after_payment(
+            checkout_result,
+            generate_fn,
+            draft_store,
+            refund_client,
+            email_sender,
+            retry_url=retry_url,
+        )
+
+    return StripeWebhookReceiverResult(
+        status_code=200,
+        checkout_result=checkout_result,
+        generation_outcome=generation_outcome,
+    )
 
 
 def _demo() -> None:
