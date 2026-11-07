@@ -6902,3 +6902,28 @@
   application-form-submission-http-entry-point-design.md 7節の陳腐化した「次回候補」
   〈linking-code-delivery-method-decision.mdで既に解決済みだったGAS側連携コード届け方の
   検討〉を発見・是正。コード変更なし、テスト803件・schema検証25件いずれもパス)
+- フェーズ365(2026-11-07 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ364の次回候補(2)「残り27件の個別design.mdファイルの棚卸しの継続」に
+  対応し、cloud-monitoring-alert-policy-design.md 5.3節の次回候補(2)を確認した。
+  同節はフェーズ346(2026-10-26 18:00 UTC)の時点で「event-komiguai-pashaのみ本設計
+  パターン自体を持たない真の横展開漏れ」として記録されたものだったが、event-komiguai-pasha
+  側README.mdを確認したところ、同venture側フェーズ62(2026-10-26 21:00 UTC)で
+  cloud-monitoring-alert-policy-design.mdを新規作成、続くフェーズ63(同日)で前提となる
+  runtime-dependency-switching-design.mdも新規作成しており、記録のわずか3時間後には
+  横展開漏れ自体が解消済みだったことが判明した。約1ヶ月半にわたり解消済みの課題を未対応と
+  書き続けていた陳腐化記載であったため、同節に[フェーズ365で対応済み]の注記と解決内容の
+  要約を追記して是正した。他2件(business-name-owner-notification-display-design.md・
+  daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.md)の次回候補も確認したが、いずれも未解決の継続課題であり陳腐化記載ではないことを
+  確認した(是正不要)。コード変更なし(ドキュメント是正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り24件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 03:00 UTC(フェーズ365: 詳細は上記。cloud-monitoring-alert-policy-
+  design.md 5.3節の陳腐化した「次回候補」〈event-komiguai-pasha側の横展開漏れは同venture
+  フェーズ62-63で既に解消済み〉を発見・是正。他2件は未解決の継続課題と確認。コード変更なし、
+  テスト803件・schema検証25件いずれもパス)

@@ -188,10 +188,11 @@ design.md`相当のフラグ切替設計も見当たらないことを確認し�
 アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
 pending-approval.mdへの追記なし。
 
-次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)本フェーズで
-発見したevent-komiguai-pasha側の横展開漏れ(cloud-monitoring-alert-policy-design.md・
-runtime-dependency-switching-design.md相当の設計が未作成)への対応はevent-komiguai-pasha
-側の次回候補として残す、(3)他venture・アイデア領域の前進。
+次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、(2)[フェーズ365で
+対応済み: event-komiguai-pasha側の横展開漏れは同venture側フェーズ62(cloud-monitoring-
+alert-policy-design.md新規作成)・フェーズ63(runtime-dependency-switching-design.md新規
+作成)で既に解消済み。本節は約1ヶ月半、解消済みの課題を未対応として書き続けていた陳腐化記載
+だった]、(3)他venture・アイデア領域の前進。
 
 最終更新: 2026-10-26 18:00 UTC (フェーズ346: 5.3節「course-set-pasha側は未対応」が、
 course-set-pashaフェーズ335で既に解消済みだった残課題を参照し続けていた陳腐化記載である
