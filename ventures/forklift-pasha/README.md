@@ -4635,3 +4635,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   の欠落をcourse-set-pashaとの横断確認で発見し、payment-failure-event-order-guard-
   design.mdとして設計・是正。新規テスト10件、既存テスト・schema検証・browser_mockup_
   checksいずれも変更なしでパス)
+- フェーズ217(2026-11-07 04:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ216次回候補(2)「event-komiguai-pasha(結合実装待ち)・oshien-pasha
+  (Webhook未実装)への横展開は各venture側で実装着手時に検討」について現状を横断確認した
+  ところ、event-komiguai-pashaが本venture側フェーズ216(2026-11-06 20:00 UTC)の後、
+  同venture側フェーズ99(2026-11-07 01:00 UTC)でStripe Webhook受信口(`prototype/
+  stripe_webhook.py`)と`event_id_store`によるイベントID単位の冪等性対策(stripe-
+  event-idempotency-design.md)を新規実装済みであることを確認した(フェーズ216記載時点
+  〈20:00 UTC〉では未実装だったため記載時は正確だったが、1時間後に他venture側の進捗で
+  陳腐化した記載)。したがって「event-komiguai-pasha(結合実装待ち)」は解消済みであり、
+  横展開は不要と判断する(同venture固有事情により`event.id`単位の`event_id_store`のみ
+  実装・本ventureのphase216で新設した`payment_failure_event_time`〈配信順序入れ替わり
+  ガード〉は同ventureが扱う`checkout.session.completed`1種類のみの単発決済モデルには
+  対象イベントが存在しないため、横展開の余地自体がないことも確認した)。oshien-pashaは
+  tech-stack.mdでStripe Checkout導入方針(payment-method-design.md)を明記しているものの
+  prototype配下にWebhook関連ファイルが依然として存在せず、「Webhook未実装」は現時点でも
+  継続して正確な記載であることを確認した。本フェーズはこの横断確認のみで、本venture側の
+  コード変更・設計文書の新規作成はなし(確認結果は本エントリに記録)。既存テスト138件
+  (test_stripe_webhook.py含む)・run_all_tests 24ファイル・schema検証11件・
+  browser_mockup_checks.js 49件いずれも変更なしでパス(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)実Firestore接続後の`event_id_store`・`payment_failure_event_time`
+  フィールドの永続化実装(実Stripe/実GCPプロジェクト接続後、オーナー承認待ち)、
+  (2)oshien-pashaがWebhook実装に着手した際、event_id_store方式の横展開要否を
+  改めて確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07定例更新(フェーズ217: 詳細は上記。フェーズ216次回候補(2)の
+  event-komiguai-pasha「結合実装待ち」が同venture側フェーズ99で解消済みであることを
+  横断確認で発見・記載を更新。oshien-pashaの「Webhook未実装」は継続して正確と確認。
+  本venture側のコード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも
+  変更なしでパス)
