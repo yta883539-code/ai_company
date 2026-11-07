@@ -17,6 +17,13 @@ reissue_access_token)を実行可能なコードに落とし込んだもの。
 - `create`はStripe Webhookの重複配信(fan-pass-store-protocol-design.md 3節の残課題)に
   対応し、同一stripe_subscription_idで再度呼ばれた場合は新規発行せず既存の
   (internal_id, accessToken)を返す(フェーズ40)。
+- `update_subscription_status()`の`event_time`引数(フェーズ96)は、
+  subscription-updated-event-order-guard-preemptive-note.md(フェーズ88)が先行メモとして
+  残していたガードパターンを実コード化したもの。`subscription_status_updated_at`
+  (Stripeの`event.created`〈Unixエポック秒〉をそのまま保持)より新しくないevent_timeでの
+  呼び出しは、配信順序が入れ替わった古いイベントとみなし更新をスキップする。
+  `event_time`省略時(None)は常に適用する(呼び出し元がevent_timeを持たない既存経路との
+  後方互換)。
 """
 
 from __future__ import annotations
@@ -45,6 +52,7 @@ class FanPass:
     stripe_customer_id: str
     stripe_subscription_id: str
     subscription_status: str
+    subscription_status_updated_at: int | None = None
 
 
 _VALID_STATUSES = {"active", "canceled"}
@@ -98,13 +106,26 @@ class InMemoryFanPassStore:
             return None
         return self._by_internal_id.get(internal_id)
 
-    def update_subscription_status(self, internal_id: str, status: str) -> None:
+    def update_subscription_status(
+        self, internal_id: str, status: str, *, event_time: int | None = None
+    ) -> None:
         if status not in _VALID_STATUSES:
             raise InvalidSubscriptionStatusError(
                 f"status must be one of {sorted(_VALID_STATUSES)}, got {status!r}"
             )
         fan_pass = self._require(internal_id)
-        self._by_internal_id[internal_id] = replace(fan_pass, subscription_status=status)
+        last_applied = fan_pass.subscription_status_updated_at
+        if event_time is not None and last_applied is not None and event_time <= last_applied:
+            # 配信順序入れ替わりガード(subscription-updated-event-order-guard-
+            # preemptive-note.md フェーズ88): 既に適用済みのイベントより古い(または同時刻の)
+            # イベントによる上書きをスキップする。
+            return
+        next_updated_at = event_time if event_time is not None else last_applied
+        self._by_internal_id[internal_id] = replace(
+            fan_pass,
+            subscription_status=status,
+            subscription_status_updated_at=next_updated_at,
+        )
 
     def reissue_access_token(self, internal_id: str, *, new_access_token: str) -> None:
         fan_pass = self._require(internal_id)

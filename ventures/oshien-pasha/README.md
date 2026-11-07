@@ -2147,3 +2147,32 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   design.mdを新規作成し、月額フリーパスのStripe Webhook受信フロー〈署名検証・4イベント
   種別のディスパッチ・決済完了直後のポーリング方針・ステータスマッピング〉を設計。
   コード変更なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
+- フェーズ96(2026-11-07 21:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ95次回候補(2)「`fan_pass_store.py`の`update_subscription_status()`への
+  `event_time`引数追加とfirestore-data-model.mdへの`subscription_status_updated_at`
+  フィールド反映」に対応した。`FanPass`に`subscription_status_updated_at: int | None`
+  フィールドを追加し、`update_subscription_status()`にキーワード専用引数`event_time`
+  (省略可、デフォルトNone)を追加した。`event_time`が既存の`subscription_status_updated_at`
+  以下(同時刻含む)の場合は配信順序が入れ替わった古いイベントとみなし更新をスキップし、
+  それ以外(初回・Noneの場合含む)は無条件に適用した上で`subscription_status_updated_at`を
+  更新する、subscription-updated-event-order-guard-preemptive-note.md(フェーズ88)の
+  3節のパターンをそのまま実コード化した。`event_time`省略時は常に適用する後方互換を維持し、
+  既存呼び出し元(`update_subscription_status(internal_id, status)`のみの呼び出し)への
+  影響はない。firestore-data-model.md 1.1節に`subscriptionStatusUpdatedAt`フィールド
+  (number|null)を追記した。新規テスト5件追加(test_fan_pass_store.py 16件→21件、
+  prototype全体でもPASS増加)、既存テスト(`python3 -I -m unittest discover -s prototype
+  -p "test_*.py"`22件・`python3 -I validate_test_cases.py`9件・`python3 -I
+  schema/check_venue_master_parity.py`36件/36件・`python3 prototype/test_venue_matcher.py`
+  21アサーション・prototype配下の素朴テストスクリプト全6本〈test_access_url_resend_
+  handler.py 8件・test_itinerary_draft_postprocessor.py 25件・test_post_generation_
+  checks.py・test_usage_counter.py 14件・test_venue_matcher.py 21件〉)いずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)stripe-webhook-entry-point-design.mdの設計に基づく
+  `prototype/stripe_webhook.py`の新規実装(本フェーズで用意した`event_time`引数を実際に
+  配線する)、(2)暫定ステータスマッピング(`past_due`即時`canceled`扱い)の妥当性の
+  再検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 21:00 UTC(フェーズ96: 詳細は上記。`fan_pass_store.py`の
+  `update_subscription_status()`に`event_time`引数(配信順序入れ替わりガード)を追加し、
+  firestore-data-model.mdに`subscriptionStatusUpdatedAt`フィールドを反映。新規テスト5件
+  追加、既存回帰いずれも変更なしでパス)

@@ -87,6 +87,51 @@ def test_update_subscription_status() -> None:
     )
 
 
+def test_update_subscription_status_with_event_time_guard() -> None:
+    store = InMemoryFanPassStore()
+    internal_id, access_token = store.create(
+        email="fan@example.com", stripe_customer_id="cus_6", stripe_subscription_id="sub_6"
+    )
+
+    store.update_subscription_status(internal_id, "canceled", event_time=200)
+    check(
+        "first event_time-bearing update applies unconditionally",
+        store.get_by_access_token(access_token).subscription_status == "canceled",
+    )
+
+    store.update_subscription_status(internal_id, "active", event_time=100)
+    check(
+        "stale (older) event_time is skipped, status unchanged",
+        store.get_by_access_token(access_token).subscription_status == "canceled",
+    )
+
+    store.update_subscription_status(internal_id, "active", event_time=200)
+    check(
+        "event_time equal to last applied is also treated as stale",
+        store.get_by_access_token(access_token).subscription_status == "canceled",
+    )
+
+    store.update_subscription_status(internal_id, "active", event_time=300)
+    check(
+        "newer event_time applies",
+        store.get_by_access_token(access_token).subscription_status == "active",
+    )
+
+
+def test_update_subscription_status_without_event_time_always_applies() -> None:
+    store = InMemoryFanPassStore()
+    internal_id, access_token = store.create(
+        email="fan@example.com", stripe_customer_id="cus_7", stripe_subscription_id="sub_7"
+    )
+
+    store.update_subscription_status(internal_id, "canceled", event_time=500)
+    store.update_subscription_status(internal_id, "active")
+    check(
+        "omitting event_time applies unconditionally even after an event_time-bearing update",
+        store.get_by_access_token(access_token).subscription_status == "active",
+    )
+
+
 def test_update_subscription_status_rejects_invalid_value() -> None:
     store = InMemoryFanPassStore()
     internal_id, _ = store.create(
@@ -132,6 +177,8 @@ if __name__ == "__main__":
     test_create_is_idempotent_on_duplicate_webhook_delivery()
     test_get_by_unknown_token_or_subscription_returns_none()
     test_update_subscription_status()
+    test_update_subscription_status_with_event_time_guard()
+    test_update_subscription_status_without_event_time_always_applies()
     test_update_subscription_status_rejects_invalid_value()
     test_reissue_access_token_invalidates_old_token()
     test_unknown_internal_id_operations_raise()

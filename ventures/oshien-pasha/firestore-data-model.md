@@ -51,6 +51,13 @@ fan-pass-canceled-access-block-design.md「5. フィールド名の揺れに関�
                                     // aircon-pashaの判定パターンを踏襲)。トークンの
                                     // ライフサイクルとは分離し、解約後も`accessToken`自体は
                                     // 失効させない(monthly-pass-identity-design.md 4節)
+  subscriptionStatusUpdatedAt: null, // number(Unixエポック秒) | null。直近で`subscriptionStatus`
+                                    // に反映済みのStripeイベントの`event.created`値
+                                    // (subscription-updated-event-order-guard-preemptive-
+                                    // note.md フェーズ88、fan_pass_store.pyフェーズ96で
+                                    // 実コード化)。Webhookの配信順序入れ替わりガード専用の
+                                    // 補助フィールドで、未設定(null)は「イベント時刻未適用」
+                                    // を意味し次回更新は無条件に適用される
   currentPeriodEnd: null,          // Timestamp | null。次回請求日の参考情報(本venture
                                     // は期間終了時解約〈cancel_at_period_end〉方式を
                                     // 採らず即時解約のため、課金可否の判定には使わず
