@@ -122,7 +122,7 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // フェーズ169でコードに追加されたがフェーズ168と同種の
                                               // 「完了宣言後の追加フィールド反映漏れ」が生じていた
                                               // ため、本フェーズ(173)で発見・解消)
-  paymentFailureEventTime: null              // Timestamp | null。payment-failure-event-order-
+  paymentFailureEventTime: null,             // Timestamp | null。payment-failure-event-order-
                                               // guard-design.md(フェーズ216)。`invoice.payment_
                                               // failed`/`invoice.payment_succeeded`のうち
                                               // paymentFailureDetectedAtを最後に実際に反映した
@@ -131,6 +131,27 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // フェーズ218で実コード化(design.md5節は「実Firestore
                                               // 接続後」待ちとしていたが、本アダプタが実SDK非依存の
                                               // ため承認待ちではなかったことをフェーズ218で発見)。
+                                              // 未設定はnull、上書き可
+  subscriptionUpdatedEventTime: null,        // Timestamp | null。subscription-updated-event-
+                                              // order-guard-design.md(フェーズ212)。`customer.
+                                              // subscription.updated`受信時のplanId同期を
+                                              // 最後に実際に反映したイベントのevent.created。
+                                              // prototype/trial_management.pyに実装済みだったが
+                                              // 本ファイルへの反映が漏れていたフェーズ219で発見・
+                                              // 解消(firestore_fleet_operator_adapter.pyにも
+                                              // 同フェーズで実コード化)。未設定はnull、上書き可
+  checkoutSessionCompletedEventTime: null,   // Timestamp | null。checkout-session-completed-
+                                              // event-order-guard-design.md(フェーズ213)。
+                                              // `checkout.session.completed`受信時の
+                                              // stripeCustomerId書き込みを最後に実際に反映した
+                                              // イベントのevent.created。同上の理由でフェーズ219
+                                              // で反映漏れを発見・解消。未設定はnull、上書き可
+  subscriptionLifecycleEventTime: null       // Timestamp | null。subscription-lifecycle-event-
+                                              // order-guard-design.md(フェーズ214)。`customer.
+                                              // subscription.deleted`・`customer.subscription.
+                                              // created`が共有するキー(canceledAtを最後に
+                                              // 実際に反映したイベントのevent.created)。同上の
+                                              // 理由でフェーズ219で反映漏れを発見・解消。
                                               // 未設定はnull、上書き可
 }
 ```

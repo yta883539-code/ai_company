@@ -44,6 +44,13 @@ fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ1
 実クラウド接続を要さずに実装できることを発見した(`subscription_updated_event_time`・
 `checkout_session_completed_event_time`・`subscription_lifecycle_event_time`の3フィールドは
 本モジュール未対応のまま残っており、横展開の要否は次回候補とする)。
+
+フェーズ219: フェーズ218次回候補(1)に対応し、`subscription_updated_event_time`・
+`checkout_session_completed_event_time`・`subscription_lifecycle_event_time`の3フィールドも
+同じダックタイピング方針で本モジュールに実コード化する。あわせて、この3フィールドが
+firestore-data-model.mdに一度も記載されていなかった(`paymentFailureEventTime`のみ記載済み)
+欠落も発見・是正した。3フィールドいずれも`payment_failure_event_time`と同じ「上書き可」方針
+(trial_management.py各docstring参照)。
 """
 
 from __future__ import annotations
@@ -69,8 +76,10 @@ class FirestoreFleetOperatorStore:
     トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの
     2フィールド、計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・
     all_internal_idsの計3メソッド+削除候補グループ: deletion_confirmation_sent_at・
-    unreachable_at・unreachable_reasonの計3メソッド+決済失敗イベント順序グループ:
-    payment_failure_event_time(フェーズ218)の計2メソッド)。fleet_operator/{internal_id}
+    unreachable_at・unreachable_reasonの計3メソッド+イベント配信順序ガードグループ:
+    payment_failure_event_time(フェーズ218)・subscription_updated_event_time・
+    checkout_session_completed_event_time・subscription_lifecycle_event_time
+    (フェーズ219)の計8メソッド)。fleet_operator/{internal_id}
     ドキュメントを読み書きする(firestore-data-model.md「1. fleet_operator/{internal_id}」)。
     """
 
@@ -233,4 +242,44 @@ class FirestoreFleetOperatorStore:
         # のみ呼ぶため、本アダプタ自身は常に書き込む。
         self._doc_ref(internal_id).set(
             {"paymentFailureEventTime": value}, merge=True
+        )
+
+    def get_subscription_updated_event_time(self, internal_id: str) -> "datetime | None":
+        # subscription-updated-event-order-guard-design.md(フェーズ212)。フェーズ219で
+        # 本モジュール冒頭の方針(実SDK非依存)に基づき実コード化(payment_failure_
+        # event_timeと同じダックタイピングのみに依存)。
+        return self._get_field(internal_id, "subscriptionUpdatedEventTime")
+
+    def set_subscription_updated_event_time(self, internal_id: str, value: datetime) -> None:
+        # design.md: 上書き可(呼び出し元がstale判定後にのみ呼ぶため、本アダプタ自身は
+        # 常に書き込む)。
+        self._doc_ref(internal_id).set(
+            {"subscriptionUpdatedEventTime": value}, merge=True
+        )
+
+    def get_checkout_session_completed_event_time(self, internal_id: str) -> "datetime | None":
+        # checkout-session-completed-event-order-guard-design.md(フェーズ213)。フェーズ219で
+        # 実コード化。
+        return self._get_field(internal_id, "checkoutSessionCompletedEventTime")
+
+    def set_checkout_session_completed_event_time(
+        self, internal_id: str, value: datetime
+    ) -> None:
+        # design.md: 上書き可。
+        self._doc_ref(internal_id).set(
+            {"checkoutSessionCompletedEventTime": value}, merge=True
+        )
+
+    def get_subscription_lifecycle_event_time(self, internal_id: str) -> "datetime | None":
+        # subscription-lifecycle-event-order-guard-design.md(フェーズ214)。`customer.
+        # subscription.deleted`・`customer.subscription.created`が共有するキー。
+        # フェーズ219で実コード化。
+        return self._get_field(internal_id, "subscriptionLifecycleEventTime")
+
+    def set_subscription_lifecycle_event_time(
+        self, internal_id: str, value: datetime
+    ) -> None:
+        # design.md: 上書き可。
+        self._doc_ref(internal_id).set(
+            {"subscriptionLifecycleEventTime": value}, merge=True
         )

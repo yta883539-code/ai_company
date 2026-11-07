@@ -3,8 +3,9 @@ plan_id・stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィ
 トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの2フィールド、
 計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・all_internal_idsの計3メソッド+
 削除候補グループ: deletion_confirmation_sent_at・unreachable_at・unreachable_reasonの
-計3メソッド+決済失敗イベント順序グループ: payment_failure_event_time(フェーズ218)の
-計2メソッド)のテスト。
+計3メソッド+イベント配信順序ガードグループ: payment_failure_event_time(フェーズ218)・
+subscription_updated_event_time・checkout_session_completed_event_time・
+subscription_lifecycle_event_time(フェーズ219)の計8メソッド)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、fleet-operator-store-firestore-
@@ -354,6 +355,71 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
         self.store.set_payment_failure_event_time("F1", event_time)
         self.assertEqual(self.store.get_canceled_at("F1"), canceled)
         self.assertEqual(self.store.get_payment_failure_event_time("F1"), event_time)
+
+    def test_get_subscription_updated_event_time_unset_returns_none(self):
+        self.assertIsNone(self.store.get_subscription_updated_event_time("F1"))
+
+    def test_subscription_updated_event_time_round_trip(self):
+        at = datetime(2026, 11, 7, tzinfo=timezone.utc)
+        self.store.set_subscription_updated_event_time("F1", at)
+        self.assertEqual(self.store.get_subscription_updated_event_time("F1"), at)
+
+    def test_subscription_updated_event_time_overwrite(self):
+        first = datetime(2026, 11, 7, 10, 0, tzinfo=timezone.utc)
+        second = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
+        self.store.set_subscription_updated_event_time("F1", first)
+        self.store.set_subscription_updated_event_time("F1", second)
+        self.assertEqual(self.store.get_subscription_updated_event_time("F1"), second)
+
+    def test_get_checkout_session_completed_event_time_unset_returns_none(self):
+        self.assertIsNone(self.store.get_checkout_session_completed_event_time("F1"))
+
+    def test_checkout_session_completed_event_time_round_trip(self):
+        at = datetime(2026, 11, 7, tzinfo=timezone.utc)
+        self.store.set_checkout_session_completed_event_time("F1", at)
+        self.assertEqual(self.store.get_checkout_session_completed_event_time("F1"), at)
+
+    def test_checkout_session_completed_event_time_overwrite(self):
+        first = datetime(2026, 11, 7, 10, 0, tzinfo=timezone.utc)
+        second = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
+        self.store.set_checkout_session_completed_event_time("F1", first)
+        self.store.set_checkout_session_completed_event_time("F1", second)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("F1"), second
+        )
+
+    def test_get_subscription_lifecycle_event_time_unset_returns_none(self):
+        self.assertIsNone(self.store.get_subscription_lifecycle_event_time("F1"))
+
+    def test_subscription_lifecycle_event_time_round_trip(self):
+        at = datetime(2026, 11, 7, tzinfo=timezone.utc)
+        self.store.set_subscription_lifecycle_event_time("F1", at)
+        self.assertEqual(self.store.get_subscription_lifecycle_event_time("F1"), at)
+
+    def test_subscription_lifecycle_event_time_overwrite(self):
+        first = datetime(2026, 11, 7, 10, 0, tzinfo=timezone.utc)
+        second = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
+        self.store.set_subscription_lifecycle_event_time("F1", first)
+        self.store.set_subscription_lifecycle_event_time("F1", second)
+        self.assertEqual(
+            self.store.get_subscription_lifecycle_event_time("F1"), second
+        )
+
+    def test_three_event_time_fields_independent_of_each_other_and_payment_failure(self):
+        su = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        cc = datetime(2026, 11, 2, tzinfo=timezone.utc)
+        sl = datetime(2026, 11, 3, tzinfo=timezone.utc)
+        pf = datetime(2026, 11, 4, tzinfo=timezone.utc)
+        self.store.set_subscription_updated_event_time("F1", su)
+        self.store.set_checkout_session_completed_event_time("F1", cc)
+        self.store.set_subscription_lifecycle_event_time("F1", sl)
+        self.store.set_payment_failure_event_time("F1", pf)
+        self.assertEqual(self.store.get_subscription_updated_event_time("F1"), su)
+        self.assertEqual(
+            self.store.get_checkout_session_completed_event_time("F1"), cc
+        )
+        self.assertEqual(self.store.get_subscription_lifecycle_event_time("F1"), sl)
+        self.assertEqual(self.store.get_payment_failure_event_time("F1"), pf)
 
 
 if __name__ == "__main__":
