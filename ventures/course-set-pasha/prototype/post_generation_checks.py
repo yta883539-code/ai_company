@@ -282,6 +282,13 @@ def check_history_row_counts_mentioned_in_text(instance):
     countが同じ値の別エリアが複数ある場合や、本数以外の文脈で偶然同じ数字が登場する
     場合(例:日付の一部)は誤って一致と判定しうるヒューリスティックであり、既存の
     キーワード近傍探索と同じ限界を持つ。
+
+    count=0は、removal-only-notice-edge-case-review.md(2026-11-07 16:00 UTC)が
+    決定した「新規課題ゼロ・撤去/休止のみ」の第三類型専用の値であり、countがnullの
+    場合(本数を抽出できなかった)とは異なり「新規本数が実在しないことが明確」である
+    ことを表す。このケースの本文(sns_post.body・line_web_notice.body)は厳守事項4の
+    対応方針どおり冒頭要約・本数の明示を意図的に省略する設計のため、本文に「0」という
+    数字が登場しないのは期待どおりの挙動であり、不一致として検出すべきではない。
     """
     errors = []
     history_rows = instance.get("history_rows") or []
@@ -299,7 +306,7 @@ def check_history_row_counts_mentioned_in_text(instance):
 
     for row in history_rows:
         count = row.get("count")
-        if count is None:
+        if count is None or count == 0:
             continue
         area = row.get("area") or "(エリア名不明)"
         if str(count) not in combined:

@@ -34,6 +34,14 @@ schema/output.schema.json(2026-08-15 08:00 UTC改訂版・フェーズ54)に対�
   parityのギャップを解消した。NEGATIVE_CASE_PORTAL_LINK_MISMATCHを新設し、NEG2として
   実行するよう追加した(aircon-pasha・line-reservation-aiは本稿執筆時点で同種の
   ネガティブテストが無く、course-set-pasha側から見ても未解消のまま残る)。
+- 2026-11-07 定例更新(フェーズ361): removal-only-notice-edge-case-review.md(フェーズ360、
+  2026-11-07 16:00 UTC)で机上決定した「新規課題ゼロ・撤去/休止のみ」の第三類型
+  (insufficient_inputでもunchanged_areasでもない、エリアの状態変化自体を告知すべき
+  ケース)の期待出力をG5として追加した。入力メモ想定「Aエリアの課題をすべて撤去しました。
+  壁面の張り替え工事のため、次回更新は未定です。」に対し、同docの対応方針1〜4
+  (冒頭要約・見どころ紹介の省略、来店訴求文言の差し替え、新規追加を示唆するハッシュタグの
+  除外、tape_color_or_grade_band="(撤去のみ)"・count=0・feature_keywordsへの理由反映)を
+  固定する。
 - 外部ライブラリ(jsonschema等)には依存しない(pure stdlibのみ)。
 
 実行方法: python3 validate_test_cases.py
@@ -312,6 +320,42 @@ TEST_CASES = {
                 "tape_color_or_grade_band": "緑テープ",
                 "count": 3,
                 "feature_keywords": ["バランス系"],
+            },
+        ],
+        "unchanged_areas": [],
+        "subscription_procedure_notice": None,
+        "checkout_notice": None,
+    },
+    # 2026-11-07 定例更新(フェーズ361)追加。removal-only-notice-edge-case-review.md
+    # (フェーズ360、2026-11-07 16:00 UTC)が発見・方針決定した「新規課題の情報が無く、
+    # 撤去・休止・メンテナンス等の語でエリアの課題が無くなる/減ることのみが書かれている」
+    # 第三類型の期待出力。入力メモ想定:「Aエリアの課題をすべて撤去しました。壁面の張り替え
+    # 工事のため、次回更新は未定です。」。insufficient_input(情報不足)ではなく、既存の
+    # generatedの範囲内で、厳守事項4の冒頭要約・見どころ紹介を省略し、来店訴求文言を
+    # 「次回更新を楽しみにお待ちください」等の実態に即した表現へ差し替える。ハッシュタグは
+    # 「#新着課題」等の新規追加を示唆するものを含めない。history_rowsは
+    # tape_color_or_grade_bandに新規色・グレード帯が存在しないことを示す「(撤去のみ)」を、
+    # countには本数が実在しない(0本)ことを表す0(抽出不可を示すnullとは区別)を、
+    # feature_keywordsには入力メモから読み取れる理由・状態語を格納する。
+    "G5_removal_only_notice": {
+        "status": "generated",
+        "out_of_scope_message": None,
+        "missing_fields_request": None,
+        "sns_post": {
+            "body": "【お知らせ】エリアAの課題をすべて撤去しました。壁面の張り替え工事のため、次回更新は未定です。次回更新を楽しみにお待ちください。",
+            "hashtags": ["#ボルダリング", "#クライミングジム"],
+            "mentions_photo": False,
+        },
+        "line_web_notice": {
+            "body": "エリアA:課題をすべて撤去しました。理由:壁面の張り替え工事。次回更新:未定です。",
+        },
+        "history_rows": [
+            {
+                "revision_date": None,
+                "area": "エリアA",
+                "tape_color_or_grade_band": "(撤去のみ)",
+                "count": 0,
+                "feature_keywords": ["撤去", "壁面張り替え"],
             },
         ],
         "unchanged_areas": [],

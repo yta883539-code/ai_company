@@ -6611,3 +6611,27 @@
   review.mdを新規作成し、「撤去・休止のみの告知」エッジケースに対応する厳守事項4・5・6の
   追記をllm-system-prompt-draft.mdに反映。コード・schema変更なし。テスト866件・schema検証
   21件いずれも変更なしでパス)
+- フェーズ361(2026-11-07 定例更新): フェーズ360の次回候補(2)だった「撤去・休止のみの
+  告知」エッジケースの机上テストケースをschema/validate_test_cases.pyへ追加する作業に
+  着手し、G5_removal_only_notice(入力メモ想定「Aエリアの課題をすべて撤去しました。壁面の
+  張り替え工事のため、次回更新は未定です。」)を新設した(schema検証21件→22件)。追加した
+  ところprototype側の回帰テストで2件失敗し、check_history_row_counts_mentioned_in_text()
+  (prototype/post_generation_checks.py)が「history_rows[].countが非null(0を含む)なら
+  本文に数字として登場するはず」という前提のまま実装されており、count=0(新規本数ゼロ、
+  removal-only-notice-edge-case-review.md対応方針4で新設した「新規追加なし」を表す値)の
+  ケースを考慮していなかった未検出のバグを発見した。本フェーズで同関数のcountチェックを
+  `count is None or count == 0`のとき判定をスキップするよう修正し(count=0は意図的に本文へ
+  数字を出さない設計のため、不一致として検出すべきでない)、docstringにも理由を追記した。
+  回帰確認として`python3 -I -m unittest discover -s prototype -p "test_*.py"`(866件、全件
+  パス)・`python3 -I schema/validate_test_cases.py`(22件、全件パス)を実行し、修正後は
+  G5を含め全件パスすることを確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項、または候補1・候補2への連絡可否がオーナーから承認された場合は
+  その着手を最優先、(2)removal-only-notice-edge-case-review.mdの未検証事項(実在ジムでの
+  撤去告知の実例確認)、(3)count=0の設計(null=抽出不可、0=実在する値としてのゼロ、という
+  使い分け)が他venture(line-reservation-ai等)のスキーマ設計方針と整合するかの横展開検討、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 定例更新(フェーズ361: 詳細は上記。schema/validate_test_cases.pyに
+  G5_removal_only_noticeを追加、prototype/post_generation_checks.pyの
+  check_history_row_counts_mentioned_in_text()のcount=0未考慮バグを修正。テスト866件
+  (全件パス)・schema検証22件(全件パス))
