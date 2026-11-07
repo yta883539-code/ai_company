@@ -37,6 +37,13 @@ fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ1
 `unreachable_reason`はdeletionConfirmationUnreachableReasonフィールドがstring | nullの
 単純化されたスキーマ(firestore-data-model.md)のため、`canceled_at`と同じ`null`書き込み案
 (DELETE_FIELDセンチネルは使わない)を踏襲する。
+
+フェーズ218: payment-failure-event-order-guard-design.md(フェーズ216)5節が「実Firestore
+接続後」待ちとしていた`payment_failure_event_time`を本モジュールに実コード化する。本モジュール
+冒頭の方針(実SDK非依存、ダックタイピングのみに依存)により、他の15メソッド同様オーナー承認・
+実クラウド接続を要さずに実装できることを発見した(`subscription_updated_event_time`・
+`checkout_session_completed_event_time`・`subscription_lifecycle_event_time`の3フィールドは
+本モジュール未対応のまま残っており、横展開の要否は次回候補とする)。
 """
 
 from __future__ import annotations
@@ -62,7 +69,8 @@ class FirestoreFleetOperatorStore:
     トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの
     2フィールド、計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・
     all_internal_idsの計3メソッド+削除候補グループ: deletion_confirmation_sent_at・
-    unreachable_at・unreachable_reasonの計3メソッド)。fleet_operator/{internal_id}
+    unreachable_at・unreachable_reasonの計3メソッド+決済失敗イベント順序グループ:
+    payment_failure_event_time(フェーズ218)の計2メソッド)。fleet_operator/{internal_id}
     ドキュメントを読み書きする(firestore-data-model.md「1. fleet_operator/{internal_id}」)。
     """
 
@@ -209,4 +217,20 @@ class FirestoreFleetOperatorStore:
         # (get側は未設定・null書き込み済みのいずれも区別せずNoneとして返す)。
         self._doc_ref(internal_id).set(
             {"deletionConfirmationUnreachableReason": value}, merge=True
+        )
+
+    def get_payment_failure_event_time(self, internal_id: str) -> "datetime | None":
+        # payment-failure-event-order-guard-design.md(フェーズ216)。従来5節「残課題」は
+        # 「実Firestore接続後」を前提としていたが、本アダプタ自身がgoogle-cloud-firestore
+        # SDKを直接importしない設計(モジュール冒頭docstring参照、client.collection(name).
+        # document(id).get()/.set()のダックタイピングのみに依存)のため、既存15メソッド同様
+        # 実クラウド接続なしに実コード化できる(フェーズ218で発見・是正)。
+        return self._get_field(internal_id, "paymentFailureEventTime")
+
+    def set_payment_failure_event_time(self, internal_id: str, value: datetime) -> None:
+        # design.md: upgraded_at・subscription_lifecycle_event_timeと同じ「上書き可」方針。
+        # 呼び出し元(stripe_webhook._record_payment_failure_event_time())がstale判定後に
+        # のみ呼ぶため、本アダプタ自身は常に書き込む。
+        self._doc_ref(internal_id).set(
+            {"paymentFailureEventTime": value}, merge=True
         )

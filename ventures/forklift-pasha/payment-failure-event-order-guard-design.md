@@ -81,8 +81,15 @@ event_time省略時の後方互換(無条件適用)を確認した。既存テ�
 
 ## 5. 残課題・次回候補
 
-- 実Firestore接続後の`payment_failure_event_time`フィールドの永続化実装(実Stripe/実GCP
-  プロジェクト接続後、オーナー承認待ち)。
+- ~~実Firestore接続後の`payment_failure_event_time`フィールドの永続化実装(実Stripe/実GCP
+  プロジェクト接続後、オーナー承認待ち)。~~ → フェーズ218で解消。本アダプタ
+  (`prototype/firestore_fleet_operator_adapter.py`)はgoogle-cloud-firestore SDKを直接
+  importしないダックタイピング設計のため、他の15メソッド同様オーナー承認・実クラウド
+  接続を要さずに実装できることが判明し、`get/set_payment_failure_event_time()`を実装
+  (firestore-data-model.mdにも`paymentFailureEventTime`として追記)。
+- `subscription_updated_event_time`・`checkout_session_completed_event_time`・
+  `subscription_lifecycle_event_time`の3フィールドも同様に本アダプタ未対応のまま残って
+  いることをフェーズ218で発見した。横展開の要否・優先度は次回候補とする。
 - event-komiguai-pasha(結合実装待ち)・oshien-pasha(Webhook未実装)への横展開は各
   venture側で実装着手時に検討。
 - 他venture・アイデア領域の前進。

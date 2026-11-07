@@ -116,12 +116,22 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // が送信成功時のみ書き込み、clear_payment_failure_
                                               // on_success()がnull書き込みで消去(専用clearメソッド
                                               // は無い、他フィールドと同じ方針)。未送信はnull
-  paymentSuspensionOwnerNotifiedAt: null     // Timestamp | null。同design(フェーズ169)。制限モード
+  paymentSuspensionOwnerNotifiedAt: null,    // Timestamp | null。同design(フェーズ169)。制限モード
                                               // 移行時の運営者向け通知送信成功時刻。書き込み・消去の
                                               // 方針は上記paymentFailureReminderSentAtと同じ。
                                               // フェーズ169でコードに追加されたがフェーズ168と同種の
                                               // 「完了宣言後の追加フィールド反映漏れ」が生じていた
                                               // ため、本フェーズ(173)で発見・解消)
+  paymentFailureEventTime: null              // Timestamp | null。payment-failure-event-order-
+                                              // guard-design.md(フェーズ216)。`invoice.payment_
+                                              // failed`/`invoice.payment_succeeded`のうち
+                                              // paymentFailureDetectedAtを最後に実際に反映した
+                                              // イベントのevent.created(配信順序入れ替わりガード)。
+                                              // prototype/firestore_fleet_operator_adapter.pyに
+                                              // フェーズ218で実コード化(design.md5節は「実Firestore
+                                              // 接続後」待ちとしていたが、本アダプタが実SDK非依存の
+                                              // ため承認待ちではなかったことをフェーズ218で発見)。
+                                              // 未設定はnull、上書き可
 }
 ```
 

@@ -3,7 +3,8 @@ plan_id・stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィ
 トライアル終了判定グループ: trial_generation_count・trial_end_notified_atの2フィールド、
 計4メソッド+解約/昇格グループ: upgraded_at・canceled_at・all_internal_idsの計3メソッド+
 削除候補グループ: deletion_confirmation_sent_at・unreachable_at・unreachable_reasonの
-計3メソッド)のテスト。
+計3メソッド+決済失敗イベント順序グループ: payment_failure_event_time(フェーズ218)の
+計2メソッド)のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、fleet-operator-store-firestore-
@@ -330,6 +331,29 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
         self.assertEqual(
             self.store.get_deletion_confirmation_unreachable_reason("F1"), "email_bounced"
         )
+
+    def test_get_payment_failure_event_time_unset_returns_none(self):
+        self.assertIsNone(self.store.get_payment_failure_event_time("F1"))
+
+    def test_payment_failure_event_time_round_trip(self):
+        at = datetime(2026, 11, 7, tzinfo=timezone.utc)
+        self.store.set_payment_failure_event_time("F1", at)
+        self.assertEqual(self.store.get_payment_failure_event_time("F1"), at)
+
+    def test_payment_failure_event_time_overwrite(self):
+        first = datetime(2026, 11, 7, 10, 0, tzinfo=timezone.utc)
+        second = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
+        self.store.set_payment_failure_event_time("F1", first)
+        self.store.set_payment_failure_event_time("F1", second)
+        self.assertEqual(self.store.get_payment_failure_event_time("F1"), second)
+
+    def test_payment_failure_event_time_does_not_clobber_canceled_at(self):
+        canceled = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        event_time = datetime(2026, 11, 7, tzinfo=timezone.utc)
+        self.store.set_canceled_at("F1", canceled)
+        self.store.set_payment_failure_event_time("F1", event_time)
+        self.assertEqual(self.store.get_canceled_at("F1"), canceled)
+        self.assertEqual(self.store.get_payment_failure_event_time("F1"), event_time)
 
 
 if __name__ == "__main__":

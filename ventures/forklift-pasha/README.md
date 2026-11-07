@@ -4665,3 +4665,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   横断確認で発見・記載を更新。oshien-pashaの「Webhook未実装」は継続して正確と確認。
   本venture側のコード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも
   変更なしでパス)
+- フェーズ218(2026-11-07 12:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ216・217の次回候補(1)「実Firestore接続後の`payment_failure_event_time`
+  フィールドの永続化実装(オーナー承認待ち)」を検証したところ、`prototype/firestore_
+  fleet_operator_adapter.py`がgoogle-cloud-firestore SDKを直接importしないダック
+  タイピング設計(`client.collection(name).document(id).get()/.set()`のみに依存)の
+  ため、既に実コード化済みの他15メソッド(email・plan_id・trial関連・canceled_at・
+  upgraded_at・deletion_confirmation系等)同様、実Stripe/実GCPプロジェクト接続や
+  オーナー承認を要さずに実装可能であることを発見した(「実Firestore接続待ち」という
+  記載自体が、本アダプタの既存方針を踏まえていなかった誤った留保だった)。
+  `get_payment_failure_event_time()`・`set_payment_failure_event_time()`を実装し
+  (`paymentFailureEventTime`フィールド、upgraded_at・subscription_lifecycle_event_time
+  と同じ上書き可方針)、firestore-data-model.mdに同フィールドを追記、payment-failure-
+  event-order-guard-design.md 5節の該当項目を解消済みに更新した。あわせて
+  `subscription_updated_event_time`・`checkout_session_completed_event_time`・
+  `subscription_lifecycle_event_time`の3フィールドも本アダプタに未実装のまま残って
+  いることを発見し、次回候補に追加した。新規テスト4件追加(test_firestore_fleet_
+  operator_adapter.py 40件→44件、prototype全体100件→104件)、既存テスト100件・
+  schema検証11件・browser_mockup_checks.js 49件いずれも変更なしでパス(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)`subscription_updated_event_time`・`checkout_session_completed_
+  event_time`・`subscription_lifecycle_event_time`の3フィールドも同様にFirestore
+  アダプタへ実コード化する(同じダックタイピング方針で承認待ち不要と見込まれる)、
+  (2)oshien-pashaがWebhook実装に着手した際、event_id_store方式の横展開要否を
+  改めて確認、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07定例更新(フェーズ218: 詳細は上記。`payment_failure_event_time`
+  フィールドをFirestoreアダプタに実コード化し、「オーナー承認待ち」という従来の留保が
+  誤りだったことを発見・是正。新規テスト4件追加、既存テスト・schema検証・
+  browser_mockup_checksいずれも変更なしでパス)
