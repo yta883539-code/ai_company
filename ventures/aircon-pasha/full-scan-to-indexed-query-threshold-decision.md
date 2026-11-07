@@ -74,5 +74,15 @@ subscription-billing-cost-estimate.md(85〜103行目)が既に確立した前提
 - forklift-pasha/firestore-composite-index-plan.md 57〜58行目に残る同種の「未確定」
   記述への本決定と同じ方法論の横展開(forklift-pasha固有の全件走査箇所数・業者あたり
   操作頻度での再計算が必要なため、数値をそのまま流用することはできない)。
+  [フェーズ366で対応済み] forklift-pasha側を確認したところ、同venture
+  firestore-composite-index-plan.md「残る課題」節に「(解消済み 2026-10-17 19:00
+  UTC・フェーズ166: #2・#3の2つの日次全件走査について、総事業者数Nが10,000を
+  超えた時点で索引付きクエリへの切り替えを検討するトリガーとする決定を、
+  aircon-pashaフェーズ323と同じ方法論でfull-scan-to-indexed-query-threshold-
+  decision.mdに記録した。)」と明記されており、forklift-pasha固有の数値
+  (N=10,000)で既に再計算・横展開済みであることを確認した。本項目は未対応では
+  なく解消済みであり、上記「次回候補」欄に残っていたのは陳腐化記載だった
+  (stale-next-candidate-cross-venture-survey.mdが棚卸し対象とする個別
+  design.mdファイル単位の陳腐化パターンの一例)。
 - 承認待ち事項(実Firestore/GCPプロジェクト等)がオーナーから承認された場合は、
   N=5,000到達前でも実測データに基づく再検証を優先する。

@@ -6927,3 +6927,26 @@
   design.md 5.3節の陳腐化した「次回候補」〈event-komiguai-pasha側の横展開漏れは同venture
   フェーズ62-63で既に解消済み〉を発見・是正。他2件は未解決の継続課題と確認。コード変更なし、
   テスト803件・schema検証25件いずれもパス)
+- フェーズ366(2026-11-07 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ365の次回候補(2)「残り24件の個別design.mdファイルの棚卸しの継続」に
+  対応し、full-scan-to-indexed-query-threshold-decision.md 4節の次回候補(2)「forklift-
+  pasha/firestore-composite-index-plan.md 57〜58行目に残る同種の『未確定』記述への
+  本決定と同じ方法論の横展開」を確認した。forklift-pasha側のfirestore-composite-index-
+  plan.md「残る課題」節を確認したところ、同venture自身のフェーズ166(2026-10-17 19:00
+  UTC、本venture側フェーズ323より後)で「総事業者数Nが10,000を超えた時点で索引付きクエリ
+  への切り替えを検討するトリガーとする」という、本decisionと同じ方法論によるforklift-
+  pasha固有の数値での横展開が既に完了していたことが判明した。本venture側の次回候補欄には
+  この事実が一度も反映されず、約3週間(forklift-pasha側解消からの経過)にわたり未対応と
+  書き続けていた陳腐化記載だったため、4節に[フェーズ366で対応済み]の注記と解決内容の
+  要約を追記して是正した。コード変更なし(ドキュメント是正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り23件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 11:00 UTC(フェーズ366: 詳細は上記。full-scan-to-indexed-query-
+  threshold-decision.md 4節の陳腐化した「次回候補」〈forklift-pasha横展開は同venture
+  フェーズ166で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
+  いずれもパス)
