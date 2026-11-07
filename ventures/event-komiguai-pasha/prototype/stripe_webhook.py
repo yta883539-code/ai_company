@@ -59,10 +59,14 @@ class OneTimeDraft:
 
     draft_id: str
     status: str  # "awaiting_payment" | "generated" | "out_of_scope" |
-    #  "insufficient_input" | "generation_failed" | "expired_after_payment"
+    #  "insufficient_input" | "generation_failed" | "refunded" | "expired_after_payment"
     expires_at: Optional[datetime] = None
     checkout_session_id: Optional[str] = None
     customer_email: Optional[str] = None
+    payment_intent_id: Optional[str] = None
+    # ttl-expiry-result-delivery-refund-design.mdフェーズ12 3-2節のStripe Refund API
+    # (`refunds.create`)の対象キー。checkout_session_idとは別物(Refund APIは
+    # payment_intentを対象にする)のため、独立したフィールドとして保持する。
 
 
 class OneTimeDraftStoreProtocol:
@@ -72,11 +76,23 @@ class OneTimeDraftStoreProtocol:
         raise NotImplementedError
 
     def mark_payment_confirmed(
-        self, draft_id: str, *, checkout_session_id: str, customer_email: Optional[str]
+        self,
+        draft_id: str,
+        *,
+        checkout_session_id: str,
+        customer_email: Optional[str],
+        payment_intent_id: Optional[str] = None,
     ) -> None:
         raise NotImplementedError
 
     def mark_expired_after_payment(self, draft_id: str) -> None:
+        raise NotImplementedError
+
+    def mark_generation_result(self, draft_id: str, *, status: str) -> None:
+        """generation_retry_and_refund.pyが、生成成功時(status=LLM出力のstatus)・
+        2回のリトライを尽くしても失敗した場合(status="generation_failed")・返金完了後
+        (status="refunded")のいずれでもドラフトのステータスを更新するために使う、
+        汎用のステータス書き込み口。"""
         raise NotImplementedError
 
 
@@ -93,19 +109,31 @@ class InMemoryOneTimeDraftStore:
         return self._drafts.get(draft_id)
 
     def mark_payment_confirmed(
-        self, draft_id: str, *, checkout_session_id: str, customer_email: Optional[str]
+        self,
+        draft_id: str,
+        *,
+        checkout_session_id: str,
+        customer_email: Optional[str],
+        payment_intent_id: Optional[str] = None,
     ) -> None:
         draft = self._drafts.get(draft_id)
         if draft is None:
             return
         draft.checkout_session_id = checkout_session_id
         draft.customer_email = customer_email
+        draft.payment_intent_id = payment_intent_id
 
     def mark_expired_after_payment(self, draft_id: str) -> None:
         draft = self._drafts.get(draft_id)
         if draft is None:
             return
         draft.status = "expired_after_payment"
+
+    def mark_generation_result(self, draft_id: str, *, status: str) -> None:
+        draft = self._drafts.get(draft_id)
+        if draft is None:
+            return
+        draft.status = status
 
 
 def verify_stripe_signature(
@@ -178,6 +206,7 @@ class CheckoutCompletionResult:
     outcome: str = "missing_fields"
     customer_email: Optional[str] = None
     checkout_session_id: Optional[str] = None
+    payment_intent_id: Optional[str] = None
 
 
 def handle_checkout_session_completed(
@@ -228,22 +257,33 @@ def handle_checkout_session_completed(
     checkout_session_id = data_object.get("id")
     customer_details = data_object.get("customer_details") or {}
     customer_email = customer_details.get("email") or data_object.get("customer_email")
+    # `payment_intent`はmode="payment"のCheckout Session完了イベントに含まれる文字列ID。
+    # ttl-expiry-result-delivery-refund-design.mdフェーズ12 3-2節の返金フローが対象にする
+    # キーのため、checkout_session_idとは別に取り出しておく(本関数は返金自体は行わない、
+    # 呼び出し側〈generation_retry_and_refund.py〉の責務)。
+    payment_intent = data_object.get("payment_intent")
+
+    resolved_checkout_session_id = (
+        checkout_session_id if isinstance(checkout_session_id, str) else None
+    )
+    resolved_customer_email = (
+        customer_email if isinstance(customer_email, str) else None
+    )
+    resolved_payment_intent_id = payment_intent if isinstance(payment_intent, str) else None
 
     store.mark_payment_confirmed(
         draft_id,
-        checkout_session_id=checkout_session_id
-        if isinstance(checkout_session_id, str)
-        else None,
-        customer_email=customer_email if isinstance(customer_email, str) else None,
+        checkout_session_id=resolved_checkout_session_id,
+        customer_email=resolved_customer_email,
+        payment_intent_id=resolved_payment_intent_id,
     )
 
     return CheckoutCompletionResult(
         draft_id=draft_id,
         outcome="proceed_to_generation",
-        customer_email=customer_email if isinstance(customer_email, str) else None,
-        checkout_session_id=checkout_session_id
-        if isinstance(checkout_session_id, str)
-        else None,
+        customer_email=resolved_customer_email,
+        checkout_session_id=resolved_checkout_session_id,
+        payment_intent_id=resolved_payment_intent_id,
     )
 
 

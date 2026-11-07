@@ -84,6 +84,7 @@ def _checkout_event(
     draft_id="draft_abc",
     checkout_session_id="cs_abc",
     email="organizer@example.com",
+    payment_intent_id="pi_abc",
 ):
     return {
         "id": event_id,
@@ -93,6 +94,7 @@ def _checkout_event(
                 "client_reference_id": draft_id,
                 "id": checkout_session_id,
                 "customer_details": {"email": email},
+                "payment_intent": payment_intent_id,
             }
         },
     }
@@ -130,9 +132,29 @@ class HandleCheckoutSessionCompletedTest(unittest.TestCase):
         self.assertEqual(result.outcome, "proceed_to_generation")
         self.assertEqual(result.customer_email, "organizer@example.com")
         self.assertEqual(result.checkout_session_id, "cs_abc")
+        self.assertEqual(result.payment_intent_id, "pi_abc")
         stored = self.store.get("draft_abc")
         self.assertEqual(stored.checkout_session_id, "cs_abc")
         self.assertEqual(stored.customer_email, "organizer@example.com")
+        self.assertEqual(stored.payment_intent_id, "pi_abc")
+
+    def test_missing_payment_intent_is_stored_as_none(self):
+        """design上はmode="payment"のCheckout Session完了イベントには常にpayment_intent
+        が含まれる想定だが、欠落時にKeyError等で落ちず安全にNoneへフォールバックすることを
+        確認する(generation_retry_and_refund.py側の防御的分岐と対になるテスト)。"""
+        self.store.seed(
+            OneTimeDraft(
+                draft_id="draft_abc",
+                status="awaiting_payment",
+                expires_at=self.now + timedelta(hours=12),
+            )
+        )
+        event = _checkout_event(payment_intent_id=None)
+        del event["data"]["object"]["payment_intent"]
+        result = handle_checkout_session_completed(event, self.store, now=self.now)
+        self.assertEqual(result.outcome, "proceed_to_generation")
+        self.assertIsNone(result.payment_intent_id)
+        self.assertIsNone(self.store.get("draft_abc").payment_intent_id)
 
     def test_already_processed_draft_does_not_reprocess(self):
         self.store.seed(

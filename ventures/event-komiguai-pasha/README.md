@@ -2206,3 +2206,43 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-07 01:00 UTC(フェーズ99: 本venture唯一欠けていたStripe Webhook受信口
   〈署名検証・冪等性チェック〉の設計ドキュメント2件・`prototype/stripe_webhook.py`を新規
   作成。新規テスト18件追加〈79件→97件〉、既存テスト・schema検証22件いずれも変更なしでパス)
+- フェーズ100(2026-11-07 10:00 UTC定例更新): フェーズ99の次回候補(2)「返金フロー
+  (ttl-expiry-result-delivery-refund-design.mdフェーズ12 3-2節)の自動トリガー実装」に
+  着手した。`stripe_webhook.handle_checkout_session_completed()`がoutcome=
+  "proceed_to_generation"を返すところまでは実装済みだったが、そこから実際の生成呼び出し・
+  リトライ・失敗時の全額自動返金・通知メール送信までを一本につなぐ処理が欠けていたギャップを
+  埋めた。`prototype/generation_retry_and_refund.py`を新規作成し、
+  `process_generation_after_payment()`として(1)生成関数(`GenerationFn`、
+  mock_llm_client.run_form_submission_pipeline()相当を想定した抽象化)を最大3回
+  (初回+リトライ2回、design 3-2節1.)まで試行、(2)成功時は
+  `draft_store.mark_generation_result()`でLLM出力のstatus(generated/out_of_scope/
+  insufficient_input)をそのまま書き込み、(3)3回とも失敗した場合はまず
+  "generation_failed"に更新した上でStripe Refund API相当(`RefundClientProtocol`)を
+  呼び出し全額返金、成功すれば"refunded"に更新しoperational_message_templates.py
+  (フェーズ81)の`generation_failed_refund_email`テンプレートで通知メールを送信する
+  フローを実装した。あわせて、Refund APIの対象キーである`payment_intent`
+  (checkout_session_idとは別物)が従来`stripe_webhook.py`側で未取得だったことを発見し、
+  `OneTimeDraft.payment_intent_id`・`CheckoutCompletionResult.payment_intent_id`
+  フィールドと`mark_payment_confirmed()`・`handle_checkout_session_completed()`への
+  取得処理を追加した(既存呼び出し側との後方互換のためキーワード引数にデフォルト値を
+  設定、既存テストへの影響なし)。`OneTimeDraftStoreProtocol`に
+  `mark_generation_result(draft_id, status)`を新設し、返金自体がStripe側エラー
+  (design 5節残課題の返金可能期間超過等)で失敗する場合・`payment_intent_id`や
+  `customer_email`が想定外に欠落している場合もクラッシュせず`outcome="refund_failed"`・
+  警告メッセージとして呼び出し側に状況を返す防御的分岐を実装した。新規テスト10件
+  (`test_generation_retry_and_refund.py`9件・`test_stripe_webhook.py`へのpayment_intent
+  抽出テスト1件)を追加し、既存97件と合わせ全107件がパスすることを確認した
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)。schema検証22件も
+  変更なしでパス。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実Stripe Refund API・実メール
+  送信手段の接続自体は従来どおりオーナー承認待ちの範囲のまま、本フェーズは机上設計の
+  コード化〈インメモリスタブでの検証〉に留まる)。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md相当、実GCPプロジェクト作成・
+  候補1〈奈良NEVER LAND〉への連絡等)がオーナーから承認された場合はその着手を最優先、
+  (2)`process_generation_after_payment()`自体をCloud Functionエントリポイント
+  (`receive_stripe_webhook()`のoutcome="proceed_to_generation"分岐)に実際に結線する
+  設計・実装、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 10:00 UTC(フェーズ100: 詳細は上記。`prototype/
+  generation_retry_and_refund.py`新規作成で決済完了後の生成リトライ・自動返金フロー
+  〈design 3-2節〉を実装。`payment_intent_id`取得処理も追加。新規テスト10件〈97件→
+  107件〉、schema検証22件いずれも変更なしでパス)
