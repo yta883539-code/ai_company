@@ -71,3 +71,9 @@ kura-pasha自身・forklift-pasha)の`customer.subscription.updated`相当ハン
 本venture側のStripe Webhook実装状況を確認。Webhookエントリポイント自体が未実装のため
 現時点でのガード欠落修正は対象外と判断し、将来実装時に採用すべきガードパターンを
 先行メモとして記録)
+
+追記(フェーズ95、2026-11-07 14:00 UTC): stripe-webhook-entry-point-design.mdにて、
+本メモが前提としていたStripe Webhookエントリポイント自体の設計に着手した。本メモ3節の
+ガードパターン(`subscriptionStatusUpdatedAt`フィールド+`event_time`引数)は同設計4節に
+そのまま引き継がれている。`update_subscription_status()`への実際のシグネチャ変更は
+同設計の残課題(2)として次回以降に残る。

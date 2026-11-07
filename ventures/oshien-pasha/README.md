@@ -2116,3 +2116,34 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   したが、2017年4月以降の現行契約満了日は依然未確定のままverification_noteに追記。
   canonical_name・naming_rights値自体の変更なし。コード変更なし、既存回帰〈22件・9件・36件・
   21アサーション〉いずれも変更なしでパス)
+- フェーズ95(2026-11-07 14:00 UTC定例更新): フェーズ94次回候補(2)「月額フリーパスの
+  Stripe Webhook受信フロー自体の設計着手」に対応し、stripe-webhook-entry-point-design.md
+  を新規作成した。署名検証(他venture同一アルゴリズム)、本venture固有の4イベント種別
+  (`checkout.session.completed`〈mode=subscriptionのみ〉・`customer.subscription.
+  deleted`・`customer.subscription.created`・`customer.subscription.updated`)の
+  ディスパッチ設計を整理した。設計の過程で2点の新規の論点を発見した。(1)monthly-pass-
+  identity-design.md(フェーズ7)が前提とする「決済完了後のreturn_url遷移時点で結果画面に
+  アクセスURLを表示する」設計が、Webhookの非同期配信との順序を保証していない欠落であり、
+  結果ページ側での短時間ポーリング(Stripe APIでSessionからsubscription idを取得→
+  `get_by_stripe_subscription_id()`で再試行)で対応する方針とした。(2)既存の
+  `_VALID_STATUSES = {"active", "canceled"}`(フェーズ39)が`past_due`等の中間状態を
+  表現できないため、安全側に倒して`active`/`trialing`以外は全て`canceled`扱いとする
+  暫定マッピングを採用した(実運用データが無い時点の仮説として残課題に明記)。
+  subscription-updated-event-order-guard-preemptive-note.md(フェーズ88)のガード
+  パターン(`event_time`引数)を本設計4節に引き継いだ。本フェーズは設計ドキュメントの
+  新規作成のみで、`fan_pass_store.py`等の既存コードへの変更は行っていない。回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(22件、変更なし)・
+  `python3 -I validate_test_cases.py`(9件、変更なし)・`python3 -I
+  schema/check_venue_master_parity.py`(36件/36件差分なし)・`python3
+  prototype/test_venue_matcher.py`(21アサーション、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)stripe-webhook-entry-point-design.mdの設計に基づく
+  `prototype/stripe_webhook.py`の新規実装、(2)`fan_pass_store.py`の
+  `update_subscription_status()`への`event_time`引数追加とfirestore-data-model.mdへの
+  `subscription_status_updated_at`フィールド反映、(3)暫定ステータスマッピング(`past_due`
+  即時`canceled`扱い)の妥当性の再検討、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 14:00 UTC(フェーズ95: 詳細は上記。stripe-webhook-entry-point-
+  design.mdを新規作成し、月額フリーパスのStripe Webhook受信フロー〈署名検証・4イベント
+  種別のディスパッチ・決済完了直後のポーリング方針・ステータスマッピング〉を設計。
+  コード変更なし、既存回帰〈22件・9件・36件・21アサーション〉いずれも変更なしでパス)
