@@ -6950,3 +6950,27 @@
   threshold-decision.md 4節の陳腐化した「次回候補」〈forklift-pasha横展開は同venture
   フェーズ166で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
   いずれもパス)
+- フェーズ367(2026-11-07 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ366の次回候補(2)「残り23件の個別design.mdファイルの棚卸しの継続」に
+  対応し、deletion-candidate-unreachable-owner-review-design.md 7節の次回候補(2)
+  「course-set-pashaのdeletion_candidate_final_confirmation.pyにも同種の機能(連絡不能
+  削除候補のオーナー向け読み取り専用レポート)を展開」を確認した。course-set-pasha側
+  README.mdを確認したところ、同venture側フェーズ293(2026-10-13 06:00 UTC、本項目が
+  本venture側フェーズ311で記録されたわずか数時間後)で`UnreachableDeletionCandidate`
+  データクラス・`list_unreachable_deletion_candidates()`・
+  `render_unreachable_deletion_candidates_report()`が実装済み(テスト6件追加)で、同
+  フェーズの記載に「4venture(aircon-pasha・course-set-pasha・line-reservation-ai)の
+  横展開が完了」ともあることを確認した。約1ヶ月弱にわたり解消済みの課題を未対応のまま
+  書き続けていた陳腐化記載だったため、同7節に[フェーズ367で対応済み]の注記と解決内容の
+  要約を追記して是正した。コード変更なし(ドキュメント是正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り22件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 18:00 UTC(フェーズ367: 詳細は上記。deletion-candidate-unreachable-
+  owner-review-design.md 7節の陳腐化した「次回候補」〈course-set-pashaへの横展開は同venture
+  フェーズ293で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
+  いずれもパス)

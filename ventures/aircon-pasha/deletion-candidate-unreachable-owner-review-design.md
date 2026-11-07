@@ -71,8 +71,13 @@ candidates()`等の判定条件には影響しない追加のため、既存ロ�
 ## 7. 次回候補
 
 1. 承認待ち事項がオーナーから承認された場合は本venture既存設計一式の実装着手を最優先。
-2. course-set-pashaの`deletion_candidate_final_confirmation.py`にも同種の機能が欠けて
-   いることを確認済みのため、次回以降の定例更新での展開対象とする(kura-pashaは
-   `deletion_candidate.py`相当の構成自体を持たず対象外、別途ワークショップ向けの保存
-   期間ポリシーで管理されていることを確認済み)。
+2. [フェーズ367で対応済み] course-set-pashaの`deletion_candidate_final_confirmation.py`
+   にも同種の機能が欠けていることを確認済みのため、次回以降の定例更新での展開対象とする
+   (kura-pashaは`deletion_candidate.py`相当の構成自体を持たず対象外、別途ワークショップ
+   向けの保存期間ポリシーで管理されていることを確認済み)。→ course-set-pasha側フェーズ293
+   (2026-10-13 06:00 UTC、本項目の記録からわずか数時間後)で既に`UnreachableDeletionCandidate`
+   データクラス・`list_unreachable_deletion_candidates()`・
+   `render_unreachable_deletion_candidates_report()`が実装・テスト6件追加済みであることを
+   確認した(course-set-pasha README.mdフェーズ293に「4venture…横展開が完了」との記載あり)。
+   約1ヶ月弱にわたり解消済みの課題を未対応と書き続けていた陳腐化記載だった。
 3. 他venture・アイデア領域の前進。
