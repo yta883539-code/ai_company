@@ -45,4 +45,7 @@ README.mdの「次にやること」で挙げていた「会話フロー本体�
   行う。詳細は`ConversationFlowStateMachine`docstringおよびengine.pyデモの佐藤さんシナリオ参照)
 - 実LLM呼び出しでの動作確認はオーナー承認後(pending-approval.md参照)。
 - タイムアウト`HOLD_TIMEOUT = 5分`固定値の実測データによる見直しは、実運用開始後の課題として
-  引き続き残る。
+  引き続き残る(2026-11-07 22:00 UTC: double-booking-prevention.mdの「未検証の仮説」にて
+  WebSearchで業界の保留タイムアウト実例(5〜15分、10分前後が中間値)を調査し、本venture固有の
+  「氏名確認のみ」という短い処理範囲を踏まえれば5分は過小ではないと判断、値は変更せず維持した。
+  詳細は同ファイル参照)。

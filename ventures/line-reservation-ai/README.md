@@ -7244,3 +7244,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-07 15:00 UTC(フェーズ続き374: 詳細は上記。owner-settings-wireframe.md
   「4. プラン・お支払い状況ページ」の利用実績表示をLINEメッセージ側の現行4項目に揃えて是正。
   コード変更なし、テスト1048件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き375(2026-11-07 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-07 15:00 UTC)を前進。承認待ち事項(launch-readiness-checklist.md記載の
+  1〜4)はオーナー未回答のため引き続き着手不可のため、2点対応した。(1) pending-timeout-ux.md
+  「2. 一定時間(例: 3分)返信がない場合の催促メッセージ」の文例が、2026-11-01 18:00 UTC
+  (フェーズ続き362)で「あと少しで」→「残り2分ほどで」に修正済みと記載されているにも
+  かかわらず、元の文例ブロック自体には古い「あと少しで」の文言が取り残されたままだった
+  同一ファイル内のparity記載漏れを発見し、文例ブロックを現行の「残り2分ほどで」に是正、
+  修正経緯への参照も追記した(実装コード側はこの文言をまだ定数化していないため影響コードなし)。
+  (2) double-booking-prevention.mdの「未検証の仮説」に残っていた「保留タイムアウト
+  (HOLD_TIMEOUT = 5分)の適切な長さ」について、WebSearchで予約・チケット系サービスの実例
+  (Appointedd 7分・Starboard Suite 10分・Bookwhen 15分・Turntable Tickets 8分・Oracle Opera
+  Cloud可変)を調査し、業界では概ね5〜15分、10分前後が中間値というレンジを確認した
+  (出典はベンダー公式記事であり一次統計ではない点、本venture固有の「氏名確認のみ」という
+  短い処理範囲とは厳密には一致しない点に留意、event-komiguai-pashaフェーズ94と同様の限界)。
+  本venture固有の処理範囲(氏名確認のみ、数十秒〜1分見込み)を踏まえ、現行の5分はレンジ下限と
+  ほぼ一致し過小とは言えないと判断、`HOLD_TIMEOUT`の値は変更せず維持した(booking-slot-
+  manager-design.mdにも参照を追記)。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(1048件、変更なし)・`python3 schema/
+  validate_test_cases.py`(28件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)他venture・アイデア領域の前進、または各種md間の
+  cross-document parity確認を継続する。
+- 最終更新: 2026-11-07 22:00 UTC(フェーズ続き375: 詳細は上記。pending-timeout-ux.mdの
+  催促文言parity記載漏れを是正、double-booking-prevention.mdのHOLD_TIMEOUT 5分仮説に
+  WebSearch調査結果を補強し値は維持。コード変更なし、テスト1048件・schema検証28件
+  いずれも変更なしでパス)
