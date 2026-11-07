@@ -1870,6 +1870,42 @@ def process_postback_event(
 # reply_client・user_profile_store・workshop_store・checkout_session_clientのいずれかが
 # 未接続の場合はignored_typesに記録して素通りする安全側フォールバック)。
 # ---------------------------------------------------------------------------
+# webhookEventIdべき等性チェック(フェーズ286、
+# line-webhook-event-id-idempotency-design.md)
+#
+# stripe_webhook.pyのStripeEventIdStoreProtocol(フェーズ77)と同じ発想を、LINE
+# Messaging API Webhookの各イベントオブジェクトが持つ`webhookEventId`(LINE公式ドキュメント
+# が重複検知用に明記しているフィールド、再送時も同一値を維持する)へ翻案する。Stripe版との
+# 違いは、本ストアがevent種別(message/follow/unfollow/postback)を問わず全イベントを
+# 対象にする点(個別ハンドラごとのべき等性のばらつきを後から調べるより、エントリポイント層
+# で一括して弾く方が安全かつシンプルという、Stripe版2節と同じ理由による)。
+# ---------------------------------------------------------------------------
+
+class LineWebhookEventIdStoreProtocol(Protocol):
+    """`webhookEventId`単位の処理済み記録を保持するストアのインターフェース
+    (line-webhook-event-id-idempotency-design.md 2節)。"""
+
+    def has_processed(self, webhook_event_id: str) -> bool:
+        ...
+
+    def mark_processed(self, webhook_event_id: str) -> None:
+        ...
+
+
+class InMemoryLineWebhookEventIdStore:
+    """検証用のインメモリ実装。プロセス起動ごとに初期化されるため、実Cloud Functions環境
+    では呼び出しをまたいで保持されない(StripeEventIdStoreと同じ既知の限界。実装時は
+    Firestoreアダプタへの差し替えが必要、README.md次回候補参照)。"""
+
+    def __init__(self) -> None:
+        self._processed_ids: set = set()
+
+    def has_processed(self, webhook_event_id: str) -> bool:
+        return webhook_event_id in self._processed_ids
+
+    def mark_processed(self, webhook_event_id: str) -> None:
+        self._processed_ids.add(webhook_event_id)
+
 
 @dataclass
 class DispatchResult:
@@ -1880,6 +1916,7 @@ class DispatchResult:
     unfollow_results: List[UnfollowProcessResult] = field(default_factory=list)
     postback_results: List[PostbackEventResult] = field(default_factory=list)
     ignored_types: List[str] = field(default_factory=list)
+    duplicate_webhook_event_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_webhook_events(
@@ -1898,8 +1935,22 @@ def dispatch_webhook_events(
     escalation_push_client: Optional[LinePushClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を`event["type"]`ごとに振り分ける。
+
+    `webhook_event_id_store`(フェーズ286、省略時はNoneで従来通りべき等性チェックなし、
+    既存呼び出し経路への後方互換措置): 各eventの`webhookEventId`が既に処理済みなら、
+    種別を問わずハンドラを一切呼び出さず`duplicate_webhook_event_ids`に記録して次のevent
+    へ進む。LINE Platformはbotサーバーからの応答が2秒以内に返らないと`request_timeout`
+    扱いとなり、Webhook再送(チャネル側で有効化されている場合)により同一`webhookEventId`
+    のeventが再度届きうる(LINE公式ドキュメント、line-webhook-event-id-idempotency-
+    design.md 1節参照)。本venture・aircon-pasha・course-set-pashaはいずれもLLM呼び出しを
+    含む同期処理を1 Cloud Function内で行う設計のため、この2秒を日常的に超過している
+    可能性が高い。`webhookEventId`が欠落している、または文字列でない場合はStripe版の
+    `event.id`欠落時と同じ理由でチェックをスキップし従来通り処理する(安全側に倒す)。
+    記録(`mark_processed`)はハンドラ呼び出し「後」に行う(Stripe版2節と同じ理由:
+    ハンドラ内で例外が飛んだ場合に未処理のまま処理済み扱いになる事故を避けるため)。
 
     - "message": 1件ずつprocess_message_event()(フェーズ69)へ渡す。`llm_call`・
       `reply_client`のいずれかが未接続(None)の場合は該当イベントを一切処理せず素通りする。
@@ -1948,6 +1999,14 @@ def dispatch_webhook_events(
 
     for event in events:
         event_type = event.get("type")
+        webhook_event_id = event.get("webhookEventId")
+        if (
+            webhook_event_id_store is not None
+            and isinstance(webhook_event_id, str)
+            and webhook_event_id_store.has_processed(webhook_event_id)
+        ):
+            result.duplicate_webhook_event_ids.append(webhook_event_id)
+            continue
         if event_type == "message":
             if not message_ok:
                 result.ignored_types.append(event_type)
@@ -1970,6 +2029,8 @@ def dispatch_webhook_events(
                     now=now,
                 )
             )
+            if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+                webhook_event_id_store.mark_processed(webhook_event_id)
         elif event_type == "follow":
             if not follow_ok:
                 result.ignored_types.append(event_type)
@@ -1985,10 +2046,14 @@ def dispatch_webhook_events(
                     workshop_store=workshop_store,
                 )
             )
+            if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+                webhook_event_id_store.mark_processed(webhook_event_id)
         elif event_type == "unfollow":
             result.unfollow_results.append(
                 process_unfollow_event(event, profile_store=user_profile_store)
             )
+            if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+                webhook_event_id_store.mark_processed(webhook_event_id)
         elif event_type == "postback":
             if not postback_ok:
                 result.ignored_types.append(event_type)
@@ -1998,6 +2063,8 @@ def dispatch_webhook_events(
                     event, checkout_session_client, reply_client, user_profile_store, workshop_store,
                 )
             )
+            if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+                webhook_event_id_store.mark_processed(webhook_event_id)
         else:
             result.ignored_types.append(event_type or "unknown")
 
@@ -2031,6 +2098,7 @@ def receive_webhook(
     escalation_push_client: Optional[LinePushClient] = None,
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)をdispatch_webhook_events()まで橋渡しする
     薄いエントリポイント(aircon-pashaのwebhook-http-entry-point-design.md 2節と同じ設計)。
@@ -2045,6 +2113,10 @@ def receive_webhook(
     依存)が本関数の引数一覧に無く、dispatch_webhook_events()へも渡されていなかった
     (常にNoneのまま=招待コード解決が無効化された状態でしか実HTTPエントリポイントへ
     到達できない)記載漏れ相当のバグを発見し、本フェーズで追加した。
+
+    フェーズ286: `webhook_event_id_store`(省略時None、後方互換)を追加し
+    dispatch_webhook_events()へそのまま橋渡しする(line-webhook-event-id-idempotency-
+    design.md参照)。
     """
     if not verify_line_signature(body, signature_header, channel_secret):
         return WebhookReceiverResult(status_code=401, error="invalid_signature")
@@ -2072,6 +2144,7 @@ def receive_webhook(
         escalation_push_client=escalation_push_client,
         rng=rng,
         now=now,
+        webhook_event_id_store=webhook_event_id_store,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 

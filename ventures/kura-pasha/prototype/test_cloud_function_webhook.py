@@ -31,6 +31,7 @@ from cloud_function_webhook import (
     TRIAL_PERIOD_OVER_NOTICE,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     InMemoryCheckoutSessionClient,
+    InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     LlmApiError,
@@ -2730,6 +2731,130 @@ def test_dispatch_webhook_events_skips_postback_when_reply_client_missing():
     check("reply_client未接続時はignored_typesに記録される", result.ignored_types == ["postback"])
 
 
+# ---------------------------------------------------------------------------
+# webhookEventIdべき等性チェック(フェーズ286、line-webhook-event-id-idempotency-design.md)
+# ---------------------------------------------------------------------------
+
+def test_dispatch_webhook_events_skips_already_processed_webhook_event_id():
+    store = InMemoryLineWebhookEventIdStore()
+    store.mark_processed("wh_evt_1")
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_1"
+    reply_client = InMemoryReplyClient()
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        webhook_event_id_store=store,
+    )
+    check("処理済みwebhookEventIdのeventはmessage_resultsに記録されない", result.message_results == [])
+    check("duplicate_webhook_event_idsに記録される", result.duplicate_webhook_event_ids == ["wh_evt_1"])
+    check("返信も送られない(副作用ゼロ)", reply_client.sent == [])
+
+
+def test_dispatch_webhook_events_marks_webhook_event_id_processed_after_handling():
+    store = InMemoryLineWebhookEventIdStore()
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_2"
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        webhook_event_id_store=store,
+    )
+    check("1回目はmessage_resultsに記録される", len(result.message_results) == 1)
+    check("1回目の処理後、ストアに処理済みとして記録される", store.has_processed("wh_evt_2") is True)
+
+
+def test_dispatch_webhook_events_second_delivery_of_same_webhook_event_id_is_noop():
+    # LINE Webhook再送シナリオの再現: 同一webhookEventIdのeventが2回のdispatch呼び出し
+    # (=2回のHTTPリクエスト)にまたがって届いても、2回目はLLM呼び出し・返信のいずれも
+    # 行われないことを確認する(ストアはプロセス内で永続する想定のためInMemory実装でも
+    # 同一テスト内では再現できる)。
+    store = InMemoryLineWebhookEventIdStore()
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_3"
+    reply_client = InMemoryReplyClient()
+    dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        webhook_event_id_store=store,
+    )
+    result_2 = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        webhook_event_id_store=store,
+    )
+    check("2回目はmessage_resultsが空", result_2.message_results == [])
+    check("2回目はduplicate_webhook_event_idsに記録される", result_2.duplicate_webhook_event_ids == ["wh_evt_3"])
+    check("返信は1回目の1件のみ(2回目は送られない)", len(reply_client.sent) == 1)
+
+
+def test_dispatch_webhook_events_without_webhook_event_id_store_processes_every_time():
+    # webhook_event_id_store未指定(デフォルトNone)時は、既存呼び出し経路への後方互換として
+    # 従来通りべき等性チェックなしで毎回処理する。
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_4"
+    reply_client = InMemoryReplyClient()
+    for _ in range(2):
+        dispatch_webhook_events(
+            [event],
+            llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"], TEST_CASES["G1_new_basic"]]),
+            reply_client=reply_client,
+        )
+    check("store未指定時は2回とも返信が送られる", len(reply_client.sent) == 2)
+
+
+def test_dispatch_webhook_events_skips_dedup_when_webhook_event_id_missing():
+    # webhookEventId欠落(またはstr以外)の場合はStripe版と同じ理由でチェックをスキップし、
+    # 従来通り処理する(安全側に倒す)。
+    store = InMemoryLineWebhookEventIdStore()
+    event = _make_event("新規、ブリティッシュ、牛革")
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        webhook_event_id_store=store,
+    )
+    check("webhookEventId欠落時も通常通り処理される", len(result.message_results) == 1)
+    check("duplicate_webhook_event_idsには記録されない", result.duplicate_webhook_event_ids == [])
+
+
+def test_dispatch_webhook_events_dedup_applies_to_unfollow_event_too():
+    # unfollowは依存関係を問わず常に処理される種別だが、webhookEventIdべき等性チェックは
+    # 種別を問わず一律に効く(設計1節)ことを確認する。
+    store = InMemoryLineWebhookEventIdStore()
+    store.mark_processed("wh_evt_unfollow")
+    event = {"type": "unfollow", "source": {"userId": "U_DEDUP"}, "webhookEventId": "wh_evt_unfollow"}
+    result = dispatch_webhook_events([event], webhook_event_id_store=store)
+    check("処理済みunfollowイベントはunfollow_resultsに記録されない", result.unfollow_results == [])
+    check("duplicate_webhook_event_idsに記録される", result.duplicate_webhook_event_ids == ["wh_evt_unfollow"])
+
+
+def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch():
+    store = InMemoryLineWebhookEventIdStore()
+    store.mark_processed("wh_evt_receive")
+    event = _make_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh_evt_receive"
+    body = _webhook_body([event])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    reply_client = InMemoryReplyClient()
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        webhook_event_id_store=store,
+    )
+    check("receive_webhook経由でも200が返る(重複排除は200応答に影響しない)", result.status_code == 200)
+    check("重複のため返信は送られない", reply_client.sent == [])
+    check(
+        "dispatch_resultのduplicate_webhook_event_idsに記録される",
+        result.dispatch_result.duplicate_webhook_event_ids == ["wh_evt_receive"],
+    )
+
+
 _TEST_CHANNEL_SECRET = "test-channel-secret"
 
 
@@ -2968,6 +3093,13 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_skips_postback_when_user_profile_store_missing()
     test_dispatch_webhook_events_skips_postback_when_workshop_store_missing()
     test_dispatch_webhook_events_skips_postback_when_reply_client_missing()
+    test_dispatch_webhook_events_skips_already_processed_webhook_event_id()
+    test_dispatch_webhook_events_marks_webhook_event_id_processed_after_handling()
+    test_dispatch_webhook_events_second_delivery_of_same_webhook_event_id_is_noop()
+    test_dispatch_webhook_events_without_webhook_event_id_store_processes_every_time()
+    test_dispatch_webhook_events_skips_dedup_when_webhook_event_id_missing()
+    test_dispatch_webhook_events_dedup_applies_to_unfollow_event_too()
+    test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch()
     test_receive_webhook_rejects_invalid_signature()
     test_receive_webhook_rejects_missing_signature_header()
     test_receive_webhook_rejects_invalid_json()

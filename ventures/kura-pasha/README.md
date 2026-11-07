@@ -6645,3 +6645,39 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   の横断棚卸しを実施し、Webhook実装済み5venture全て300秒で一致していることを確認、
   是正対象なし。本venture側のコード変更なし、テスト300件・webhook355件・schema検証
   32件いずれも変更なしでパス)
+- フェーズ286(2026-11-07 05:00 UTC定例更新): フェーズ285次回候補(3)「他の共通設計
+  パターン(例: Webhookエンドポイントのレスポンスタイムアウト設定、Idempotency-Key
+  ヘッダのクライアント側送信有無)について同様の横断棚卸しが有用か検討する」に対応した。
+  WebSearchでLINE Messaging API公式ドキュメントを確認した結果、LINE Platformはbot
+  サーバーからの応答が**2秒以内**に返らないと`request_timeout`として扱い、チャネル側で
+  Webhook再送が有効化されていれば同一`webhookEventId`のイベントが再送されうることを
+  確認した。本venture・aircon-pasha・course-set-pashaの3ventureはいずれも「Webhook
+  受信→LLM呼び出し→返信」を1 Cloud Function内で同期処理する設計であり、通常数秒以上
+  かかるLLM呼び出しを含む限りこの2秒を日常的に超過している可能性が高いにもかかわらず、
+  Stripe側では既に横展開済みの`event.id`べき等性対策(stripe-event-idempotency-
+  design.md)に相当するものがLINE Webhook受信側には一度も実装されていないという、
+  3venture共通の未発見ギャップを特定した(course-set-pasha側deployment-runbook.mdが
+  「応答時間がLINE Webhookのタイムアウト内に収まる想定」としていた前提は誤りだった
+  ことになる)。本venture自身についてline-webhook-event-id-idempotency-design.mdとして
+  設計し、`prototype/cloud_function_webhook.py`に`LineWebhookEventIdStoreProtocol`・
+  `InMemoryLineWebhookEventIdStore`を実装、`dispatch_webhook_events()`・
+  `receive_webhook()`に`webhook_event_id_store`引数(省略時None、後方互換)を追加して
+  種別を問わず一律に重複排除する設計とした。新規テスト7件追加(test_cloud_function_
+  webhook.py、check()呼び出し数355件→371件)、既存テスト300件・webhook(旧)355件・
+  schema検証32件いずれも変更なしでパス(回帰なし)。aircon-pasha・course-set-pashaへの
+  横展開は本フェーズのスコープ外とし(本venture側のみ是正)、design doc 4節に次回以降の
+  課題として明記した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)aircon-pasha・course-set-pashaへのwebhookEventIdべき等性対策の横展開
+  (それぞれが「7venture中最も更新が止まっていたventure」として選ばれた回に対応)、
+  (2)承認待ち事項(「承認待ち事項」節の4件のいずれか)がオーナーから承認された場合は
+  その着手を最優先、(3)フェーズ266次回候補(2)「4節のログ出力側(`event`構造化
+  フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装フェーズ待ち)、
+  (4)`webhookEventId`処理済み記録のTTL設計(design doc4節)、(5)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-07 05:00 UTC定例更新(フェーズ286: 詳細は上記。LINE Messaging API
+  の2秒タイムアウト・再送仕様をWebSearchで確認し、本venture・aircon-pasha・
+  course-set-pashaの3venture共通でLINE Webhook側にイベント単位のべき等性対策が
+  一度も実装されていなかったギャップを発見。本venture側に`webhookEventId`ベースの
+  重複排除を実装、新規テスト7件追加、既存テストいずれも変更なしでパス。aircon-pasha・
+  course-set-pashaへの横展開は次回以降の課題として残す)
