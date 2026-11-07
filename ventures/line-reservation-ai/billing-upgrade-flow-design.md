@@ -140,6 +140,11 @@ trial-to-paid-billing-flow-consistency-check.mdでは「継続利用を希望す
   https://developers.line.biz/en/docs/line-mini-app/develop/external-browser/ ,
   https://github.com/stripe/stripe-react-native/issues/1381)
 - 休止モードの再通知頻度が督促として煩わしく感じられないか。
+  (一部補強 2026-11-07 00:00 UTC: dormant-mode-renotification-design.md「未検証の仮説」節に
+  WebSearchによる同業種dunning通知のベストプラクティス調査結果を追記した。業界の目安〈14日で
+  3〜4通〉と比較し本ventureの設計〈移行時/7日/30日/90日・上限4通〉は通知密度が低く保守的である
+  ことの傍証が得られたが、頻度の最適解・オーナーの実際の反応は業界側も未検証であり、本仮説
+  自体の解消には至らない。詳細・出典は同ドキュメント参照)
 - (解消済み 2026-11-06 06:00 UTC: 「利用実績レポートの3項目が十分か、追加すべき指標
   (例: 対応した顧客数のユニーク数)があるか」について検討した。booking-record-store-design.md
   の`customer_records(customer_name)`が顧客名単位でレコードを持つことから、
