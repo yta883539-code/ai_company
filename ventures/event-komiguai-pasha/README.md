@@ -2178,3 +2178,31 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   verification.mdを新規作成。デモプロジェクトID方式でFirebase Local Emulator Suite検証を
   実施し、6件のdeny-allチェック(`idempotency_key_index`の`expireAt`有無両パターン含む)が
   全てPASS。コード変更なし、既存テスト79件・schema検証22件いずれも変更なしでパス)
+- フェーズ99(2026-11-07 01:00 UTC定例更新): フェーズ98次回候補(1)・(2)はいずれもオーナー
+  承認待ち(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡)のため着手せず、
+  次回候補(3)「他venture・アイデア領域の前進」として本venture内の別の未着手課題に対応した。
+  one-time-checkout-no-account-design.md(フェーズ10)5節が「stripe-webhook-signature-
+  verification-design.md相当の署名検証・stripe-event-idempotency-design.md相当の冪等性
+  チェックを他venture同様に適用する前提」と、実在しないファイル名を前提に書いたまま
+  フェーズ51・53の棚卸しでも見過ごされていた記載(本venture唯一、他6venture全てに存在する
+  Stripe Webhook受信口の設計ドキュメント・プロトタイプ実装が本ventureにだけ欠けていた
+  ギャップ)を発見し、是正した。stripe-webhook-signature-verification-design.md・stripe-
+  event-idempotency-design.mdを新規作成し(aircon-pashaフェーズ125・177の汎用アルゴリズムを
+  踏襲しつつ、本venture固有の単発決済モデル〈`checkout.session.completed`単一イベント・
+  `one_time_draft`ステータス遷移による天然の冪等性ガード・TTL失効ドラフトへの防御的
+  チェックの3層防御〉向けに設計を整理)、`prototype/stripe_webhook.py`に
+  `verify_stripe_signature()`・`handle_checkout_session_completed()`・
+  `receive_stripe_webhook()`を実装した。新規テスト18件(`test_stripe_webhook.py`新設、
+  署名検証7ケース・checkout.session.completed処理5ケース・受信エントリポイント6ケース)、
+  既存テスト79件(`python3 -m unittest discover -s prototype -p "test_*.py"`、79件→97件)・
+  schema検証22件(`python3 schema/validate_test_cases.py`)いずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(webhook_secret等の実際の値の取得・
+  実Stripeアカウント接続は従来どおりオーナー承認待ちの範囲のまま、本フェーズは机上設計・
+  プロトタイプ実装のみ)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)返金フロー(ttl-expiry-result-delivery-
+  refund-design.mdフェーズ12 3-2節)の自動トリガー実装、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-07 01:00 UTC(フェーズ99: 本venture唯一欠けていたStripe Webhook受信口
+  〈署名検証・冪等性チェック〉の設計ドキュメント2件・`prototype/stripe_webhook.py`を新規
+  作成。新規テスト18件追加〈79件→97件〉、既存テスト・schema検証22件いずれも変更なしでパス)
