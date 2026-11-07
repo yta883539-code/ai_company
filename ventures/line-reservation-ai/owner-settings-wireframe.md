@@ -409,7 +409,9 @@ dormant-mode-renotification-design.md(休止モード移行・再通知)を設�
 │                             │
 │ ここまでの利用実績              │
 │  ・処理した予約件数: 12件        │
+│  ・ご利用いただいたお客様数: 9名   │
 │  ・自動対応できたお問い合わせ: 7件  │
+│  ・概算の削減対応時間: 約2時間     │
 │                             │
 │ [プランを見る・登録する]          │
 └─────────────────────────────┘
@@ -420,9 +422,16 @@ dormant-mode-renotification-design.md(休止モード移行・再通知)を設�
   発生しない(トライアル中はpricing-plan.mdの2条件のうち早い方の残り、スタンダードプランは
   決済代行サービスWebhookの`current_period_end`相当、休止モードはdormant-mode-renotification-
   design.mdの移行タイミング)。
-- 利用実績の2項目はbilling-upgrade-flow-design.mdの「1. 利用実績レポート」で使う値
-  (notification-log-classification-labels.md / booking-record-store-design.md集計値)を
-  そのまま流用し、LINEメッセージと本画面とで数値の算出方法がずれないようにする。
+- 利用実績の4項目はbilling-upgrade-flow-design.mdの「1. 利用実績レポート」で使う値
+  (`TrialUsageSummary`/`render_trial_end_report_message()`、trial-end-scheduler-design.md・
+  notification-log-classification-labels.md / booking-record-store-design.md集計値)を
+  そのまま流用し、LINEメッセージと本画面とで数値の算出方法がずれないようにする
+  (2026-11-07追記: 当初ここに2項目〈処理した予約件数・自動対応できたお問い合わせ〉のみ
+  記載されていたが、フェーズ続き371でLINEメッセージ側に「ご利用いただいたお客様数」が
+  3項目目として追加された後も本画面側が未反映のまま残っており、「概算の削減対応時間」
+  〈TrialUsageSummary.estimated_hours_savedの仮定値、実測データなしのMVP暫定表示〉も
+  当初から本画面に未反映だったことに気づいたため、LINEメッセージ側の現行4項目に揃えて
+  是正した)。
 - 休止モード中は「新規のご予約受付を停止しています」という状態バッジを追加表示し、
   [プランを見る・登録する]ボタンの遷移先(決済ページURL)はトライアル中・休止モードいずれも
   共通のものを使う(billing-upgrade-flow-design.md「2. 決済ページへの遷移方式」のLIFF/外部
