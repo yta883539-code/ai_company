@@ -6763,3 +6763,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-08 03:00 UTC定例更新(フェーズ289: 詳細は上記。workshop-store-
   firestore-adapter-design.md 31節の陳腐化記載〈Firestoreセキュリティルール横展開の
   未完了件数〉を発見・是正。コード変更なし、既存テストいずれも変更なしでパス)
+- フェーズ290(2026-11-08 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。stripe-event-idempotency-design.md(フェーズ77)5節「残課題」に残っていた
+  「実Firestore接続(`processed_stripe_events`コレクション実装)は実Stripe/実GCP
+  プロジェクト接続後の課題として残る」という記載が、line-webhook-event-id-store-
+  firestore-adapter-design.md(フェーズ288)で確立した「本ventureのFirestoreアダプタは
+  実GCP接続なしに机上実装できる」という方針に照らすと陳腐化していたことを発見した。
+  stripe-event-id-store-firestore-adapter-design.mdを新規作成し、
+  `prototype/firestore_stripe_event_id_adapter.py`に`FirestoreStripeEventIdStore`
+  (`has_processed`/`mark_processed`)を実コード化した(TTLは`line_webhook_event_ids`と異なり
+  本フェーズの対象外のまま、design 2節参照)。新規コレクション`processed_stripe_events`の
+  追加に伴い、`firestore.rules`にdeny-allルールを追加(7→8コレクション)、
+  firestore-composite-index-plan.mdのコレクション数記載・複合インデックス対象外である旨の
+  注記も合わせて更新した。stripe-event-idempotency-design.md 5節自体も実装済みである旨に
+  更新した。新規テスト6件追加(`test_firestore_stripe_event_id_adapter.py`新規作成、
+  24ファイル→25ファイル)、既存テスト(`python3 prototype/run_all_tests.py` 25ファイル
+  全件OK・`python3 schema/validate_test_cases.py` 32件)いずれも変更なしでパス(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(実Firestoreプロジェクト・GCPアカウント開設自体は
+  2026-10-23 19:00 UTC記載分で既に承認待ちとして記録済みのため重複記録せず)。
+  次回候補: (1)aircon-pasha・course-set-pasha・forklift-pasha・event-komiguai-pashaへの
+  Stripe event.idべき等性Firestoreアダプタ(本フェーズと同型)の横展開(それぞれが
+  「7venture中最も更新が止まっていたventure」として選ばれた回に対応)、(2)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(3)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 11:00 UTC定例更新(フェーズ290: 詳細は上記。Stripe event.id
+  べき等性Storeの実Firestoreアダプタ〈`FirestoreStripeEventIdStore`〉を新規設計・実装し、
+  `firestore.rules`・firestore-composite-index-plan.mdを8コレクション構成に更新。
+  新規テスト6件追加、既存テストいずれも変更なしでパス)

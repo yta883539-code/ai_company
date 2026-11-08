@@ -136,8 +136,11 @@ Functions環境では呼び出しをまたいで保持されない(実Firestore�
 
 ## 5. 残課題
 
-- 実Firestore接続(3節の`processed_stripe_events`コレクション実装)は、実Stripe/実GCP
-  プロジェクト接続後(オーナー承認待ち)の課題として残る。
+- 実Firestore接続(3節の`processed_stripe_events`コレクション実装)は、
+  stripe-event-id-store-firestore-adapter-design.mdとして設計し、
+  `prototype/firestore_stripe_event_id_adapter.py`に`FirestoreStripeEventIdStore`として
+  実コード化済み(2026-11-08 11:00 UTC追記)。実`receive_stripe_webhook()`への注入自体は、
+  実Stripe/実GCPプロジェクト接続後(オーナー承認待ち)の結合実装フェーズで行う。
 - `get_stripe_runtime_dependencies()`相当の依存関係組み立てファクトリ(他venture既存)は
   本venture側にまだ存在しない(HTTPエントリポイント〈Cloud Functionsへのデプロイ〉自体が
   オーナー承認待ちのため未着手)。実装時は`InMemoryStripeEventIdStore()`を

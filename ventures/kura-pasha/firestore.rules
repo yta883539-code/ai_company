@@ -25,7 +25,10 @@ service cloud.firestore {
     match /line_webhook_event_ids/{webhookEventId} {
       allow read, write: if false;
     }
-    // 上記7コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
+    match /processed_stripe_events/{eventId} {
+      allow read, write: if false;
+    }
+    // 上記8コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
     // との二重化だが、将来コレクションが追加された際の事故防止のため明示しておく)。
     match /{document=**} {
       allow read, write: if false;
