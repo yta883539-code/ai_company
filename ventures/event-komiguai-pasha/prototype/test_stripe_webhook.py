@@ -388,5 +388,54 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
         self.assertEqual(calls, [])
 
 
+class CreateDraftTest(unittest.TestCase):
+    """draft-creation-and-event-memo-storage-design.md(フェーズ102)。Checkout Session
+    作成前にevent_memoを保存するcreate_draft()の机上テスト。"""
+
+    def setUp(self) -> None:
+        self.store = InMemoryOneTimeDraftStore()
+        self.memo = {
+            "capacity": "300人",
+            "entry_exit_points": "入場口1・退場口1(共用)",
+            "admission_type": "自由入場",
+        }
+
+    def test_create_draft_sets_awaiting_payment_and_event_memo_by_default(self) -> None:
+        self.store.create_draft("draft_new", event_memo=self.memo)
+        draft = self.store.get("draft_new")
+        self.assertIsNotNone(draft)
+        self.assertEqual(draft.status, "awaiting_payment")
+        self.assertEqual(draft.event_memo, self.memo)
+        self.assertIsNone(draft.checkout_session_id)
+
+    def test_create_draft_honors_explicit_expires_at_and_status(self) -> None:
+        expires_at = datetime(2026, 11, 8, 0, 0, tzinfo=timezone.utc)
+        self.store.create_draft(
+            "draft_custom", event_memo=self.memo, expires_at=expires_at, status="awaiting_payment"
+        )
+        draft = self.store.get("draft_custom")
+        self.assertEqual(draft.expires_at, expires_at)
+
+    def test_created_draft_can_proceed_through_checkout_completion(self) -> None:
+        # create_draft()で作成したドラフトが、既存のhandle_checkout_session_completed()
+        # フロー(フェーズ99)と変わらず結合できることを確認する回帰テスト。
+        self.store.create_draft("draft_flow", event_memo=self.memo)
+        event = {
+            "data": {
+                "object": {
+                    "client_reference_id": "draft_flow",
+                    "id": "cs_flow",
+                    "customer_details": {"email": "organizer@example.com"},
+                    "payment_intent": "pi_flow",
+                }
+            }
+        }
+        result = handle_checkout_session_completed(event, self.store)
+        self.assertEqual(result.outcome, "proceed_to_generation")
+        draft = self.store.get("draft_flow")
+        self.assertEqual(draft.event_memo, self.memo)
+        self.assertEqual(draft.checkout_session_id, "cs_flow")
+
+
 if __name__ == "__main__":
     unittest.main()

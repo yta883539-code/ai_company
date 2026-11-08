@@ -2285,3 +2285,42 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   未指定時は既存呼び出し側と後方互換。新規テスト4件〈107件→111件〉、schema検証22件いずれも
   変更なしでパス。次回候補として「draft_id単位での元フォーム入力の保存・取り出し方式が
   未設計」という新規ギャップを発見)
+- フェーズ102(2026-11-08 00:00 UTC定例更新): フェーズ101で発見したギャップ「実際の
+  Cloud Functionエントリポイント実装時にgenerate_fnをどう構成するか(mock_llm_client.
+  run_form_submission_pipeline()相当を呼ぶには元のフォーム入力〈capacity・
+  entry_exit_points等〉がdraft_id単位で必要だが、OneTimeDraft/OneTimeDraftStoreProtocolは
+  決済確認後に必要な情報しか保持しておらず、元のフォーム入力をdraft作成時にどこへ・どう
+  保存し生成時に取り出すかが未設計のまま残っていた)」に対応した
+  (draft-creation-and-event-memo-storage-design.md新規作成)。Checkout Session作成前に
+  Webフォームの生ペイロード(5要素)を`one_time_draft/{draft_id}`へ保存する方式を設計し、
+  `stripe_webhook.py`の`OneTimeDraft`に`event_memo`フィールド、
+  `OneTimeDraftStoreProtocol`/`InMemoryOneTimeDraftStore`に`create_draft()`を追加した
+  (既存の`seed()`はテスト用の直接投入経路として維持、両立させた)。あわせて
+  `prototype/draft_generation_fn.py`を新規作成し、`build_generation_fn(draft_store,
+  llm_client, scenario_for_draft)`として、draft_idからevent_memoを取り出し→
+  `form_submission_intake.handle_form_submission()`で再評価→LLM呼び出し→
+  `mock_llm_client.validate_llm_output()`で検証、までを`generation_retry_and_refund.
+  GenerationFn`契約(`(draft_id) -> dict`)に適合する形で結線した。event_memo欠落時は
+  新設の`DraftEventMemoMissingError`(`GenerationError`のサブクラス)を送出し、検証エラー時も
+  `GenerationError`としてリトライ・返金フローに委ねる(generation_retry_and_refund.pyが
+  既に明記していた「検証エラーも生成失敗として同列に扱う」方針どおり)。新規テスト10件
+  (`test_draft_generation_fn.py`7件・`test_stripe_webhook.py`の`CreateDraftTest`3件)を
+  追加し、既存111件と合わせ全121件がパスすることを確認した(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)。
+  schema検証22件も変更なしでパス。コード変更は`stripe_webhook.py`(フィールド・メソッド
+  追加のみ、既存の署名検証・冪等性チェック・3段ガードのロジックは無変更)と新規2
+  ファイルのみ。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実際のFirestore接続・実LLM
+  接続は従来どおりオーナー承認待ちの範囲のまま、本フェーズは机上設計のコード化
+  〈インメモリスタブでの検証〉に留まる)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)`scenario_for_draft`は実LLM接続後に
+  不要になる前提のモック専用引数であり、実LLM接続時の`build_generation_fn()`シグネチャ
+  見直し(design「残課題」参照)、(3)Checkout Session作成エンドポイント自体(`draft_id`
+  採番から`create_draft()`呼び出し、Stripe Checkout Session作成までを結ぶCloud Function
+  エントリポイント)のコード化(本フェーズで未着手と判明)。
+- 最終更新: 2026-11-08 00:00 UTC(フェーズ102: `draft-creation-and-event-memo-storage-
+  design.md`新規作成。`OneTimeDraft.event_memo`・`create_draft()`を追加し、
+  `draft_generation_fn.build_generation_fn()`でdraft_id単位のevent_memo取り出し→
+  再intake→LLM呼び出し→検証、までをGenerationFn契約に適合する形で結線。新規テスト
+  〈111件→121件〉、schema検証22件いずれも変更なしでパス)

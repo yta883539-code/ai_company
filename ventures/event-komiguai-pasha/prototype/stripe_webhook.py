@@ -75,10 +75,30 @@ class OneTimeDraft:
     # ttl-expiry-result-delivery-refund-design.mdフェーズ12 3-2節のStripe Refund API
     # (`refunds.create`)の対象キー。checkout_session_idとは別物(Refund APIは
     # payment_intentを対象にする)のため、独立したフィールドとして保持する。
+    event_memo: Optional[dict] = None
+    # draft-creation-and-event-memo-storage-design.md(フェーズ102)。Webフォーム送信時に
+    # 主催者が入力した5要素の生dict(form_submission_intake.EventMemoInputのraw_payload
+    # 相当)。Checkout Session作成前のcreate_draft()呼び出し時点で保存し、決済完了後の
+    # generate_fn(draft_id)がLLMへ渡す入力を取り出すために参照する(draft_generation_fn.py
+    # 参照)。
 
 
 class OneTimeDraftStoreProtocol:
     """`one_time_draft`コレクションへのアクセスを抽象化するインターフェース。"""
+
+    def create_draft(
+        self,
+        draft_id: str,
+        *,
+        event_memo: dict,
+        expires_at: Optional[datetime] = None,
+        status: str = "awaiting_payment",
+    ) -> None:
+        """draft-creation-and-event-memo-storage-design.md(フェーズ102)。Webフォーム
+        送信でform_submission_intake.handle_form_submission()がLLMリクエストペイロードを
+        返した(必須項目充足・insufficient_input応答ではない)場合に、Checkout Session
+        作成(`client_reference_id=draft_id`)の直前に1回だけ呼ばれる想定。"""
+        raise NotImplementedError
 
     def get(self, draft_id: str) -> Optional[OneTimeDraft]:
         raise NotImplementedError
@@ -112,6 +132,21 @@ class InMemoryOneTimeDraftStore:
 
     def seed(self, draft: OneTimeDraft) -> None:
         self._drafts[draft.draft_id] = draft
+
+    def create_draft(
+        self,
+        draft_id: str,
+        *,
+        event_memo: dict,
+        expires_at: Optional[datetime] = None,
+        status: str = "awaiting_payment",
+    ) -> None:
+        self._drafts[draft_id] = OneTimeDraft(
+            draft_id=draft_id,
+            status=status,
+            expires_at=expires_at,
+            event_memo=event_memo,
+        )
 
     def get(self, draft_id: str) -> Optional[OneTimeDraft]:
         return self._drafts.get(draft_id)
