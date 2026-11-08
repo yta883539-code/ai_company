@@ -7041,3 +7041,28 @@
   design.md 10・12・14・16・18節の陳腐化した「_profile_to_dict/_profile_from_dictヘルパー
   未着手」記載〈19・20節で設計完了・実コード化済み〉を発見・是正。コード変更なし、
   テスト803件・schema検証25件いずれもパス)
+- フェーズ371(2026-11-08 23:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ370の次回候補(2)「残り19件の個別design.mdファイルの棚卸しの継続」に
+  対応し、subscription-event-out-of-order-guard-design.md(フェーズ280)を棚卸しした。同
+  design 5節「残課題」が「kura-pasha・line-reservation-aiへの同種ガード(`subscription_
+  status`列挙型方式における配信順序入れ替わり対応)の要否確認はcourse-set-pashaフェーズ
+  262から引き続き未着手」と記載し続けていたが、kura-pasha側の`subscription-status-
+  event-order-guard-design.md`(フェーズ194)で既に対応済み、line-reservation-ai側の
+  `subscription-event-order-guard-design.md`でも同venture独自の`suspension_reason`方式
+  における対称の欠落として発見・対応済みであることを、両venture側の当該design.mdファイルを
+  直接確認して確認した(いずれも本venture側の記載より先に解消されていた陳腐化)。また本
+  venture(aircon-pasha)自身には該当するenum/文字列ベースの`subscription_status`相当
+  フィールドが存在しない(`stripe_dispatch.py`は専用タイムスタンプフィールド比較方式のみ)
+  ことを`grep`で確認し、本venture側で追加対応すべき横展開作業は残っていないと判断した旨を
+  追記して是正した。コード変更なし(ドキュメント是正のみ)、回帰確認として`python3 -m
+  unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/
+  validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り18件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 16:00 UTC(フェーズ370: 詳細は上記。firestore-composite-index-
+  plan.mdの陳腐化記載(索引#4用のCloud Functionsエントリポイント・user_ids組み立て元が
+  未着手との記載)が実際にはフェーズ315-316で解消済みだったことを発見・是正。コード変更
+  なし、テスト803件・schema検証25件いずれもパス)

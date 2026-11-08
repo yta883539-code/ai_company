@@ -90,12 +90,20 @@ course-set-pashaフェーズ261・262と同じ考え方を、aircon-pashaの既�
   (course-set-pashaフェーズ261・262と同じスコープ。`updated`イベントはstatus遷移の検出が
   主目的で、`deleted`/`created`ほど配信順序入れ替わりの実害〈永続的な誤ブロック・誤解除〉が
   大きくないと判断されたため、本フェーズもcourse-set-pashaの既存スコープを踏襲した)。
-- kura-pasha・line-reservation-aiへの同種ガードの要否確認はcourse-set-pashaフェーズ262から
+- ~~kura-pasha・line-reservation-aiへの同種ガードの要否確認はcourse-set-pashaフェーズ262から
   引き続き未着手(line-reservation-aiは`subscription_status`列挙型の単一フィールド方式〈フェーズ
   続き278確認済み〉、kura-pashaも`subscription_status`列挙型方式〈フェーズ190確認〉のため、
   タイムスタンプ比較という同一の実装パターンはそのまま適用できず、列挙型方式における配信順序
   入れ替わりの影響〈更新順序が入れ替わった場合に最終的な列挙値が誤る可能性〉を別途検討する
-  必要がある。次回候補とする)。
+  必要がある。次回候補とする)。~~
+  [フェーズ371で対応済み] kura-pashaが`subscription-status-event-order-guard-design.md`
+  (フェーズ194)で`subscription_status`列挙型方式における配信順序入れ替わりガードを実装済み、
+  line-reservation-aiも`subscription-event-order-guard-design.md`で`suspension_reason`方式
+  (本venture独自アーキテクチャ)における対称の欠落を発見し対応済みであることを、両venture側の
+  当該design.mdファイルを直接確認して確認した。本venture(aircon-pasha)自身には該当する
+  enum/文字列ベースの`subscription_status`相当フィールドは存在しない(`stripe_dispatch.py`は
+  `subscription_canceled_at`等専用フィールドのタイムスタンプ比較方式のみを用いる)ため、本venture
+  側で追加対応すべき横展開作業は残っていないと判断する。
 
 ## 6. フェーズ283: `plan_store`/`blocked_but_billing_store`側の非対称是正
 
