@@ -104,6 +104,18 @@ event_time=...)`へ戻す。ただし本イベントは「新規契約」にも�
   安全側に倒す判断。都度利用中心でLTVが低いB2C想定のため、督促より即時停止を優先する)。
   この判断は仮説であり、実運用データが無い時点での保守的な初期値である旨を残課題に残す。
 
+**(2026-11-08 追記・フェーズ99で見直し)** 上記の暫定マッピングを再検討した結果、
+`past_due`を他の3状態と同じ扱いにしていたのは設計上の誤りと判断し、以下に変更した。
+詳細はsubscription-updated-past-due-grace-period-reconsideration.md参照。
+
+- Stripeステータスが`active`・`trialing`・`past_due`: `fan_pass.subscriptionStatus = "active"`
+  (`past_due`はStripe Billingのスマートリトライが進行中の状態であり、カード会社側の
+  再試行で自動的に`active`へ復帰する可能性が高いため、リトライが尽きる前にアクセスを
+  止める必要はない)。
+- Stripeステータスが`unpaid`・`canceled`・`incomplete_expired`: 
+  `fan_pass.subscriptionStatus = "canceled"`(いずれもStripe側のリトライが尽きた後、
+  または決済自体が成立しなかった状態)。
+
 ## 4. `update_subscription_status()`のevent_time拡張(設計のみ、コード変更は次回)
 
 subscription-updated-event-order-guard-preemptive-note.md(フェーズ88)3節が示した
@@ -134,9 +146,12 @@ event_idストアを**必須とはしない**(他venture完了済みの横展開
 2. `fan_pass_store.py`の`update_subscription_status()`への`event_time`引数追加(4節)と
    `firestore-data-model.md`の`fan_pass`スキーマへの`subscription_status_updated_at`
    フィールド追記、既存テストへの影響確認。
-3. 3-5の暫定ステータスマッピング(`past_due`等を即`canceled`扱いにする判断)の妥当性の
+3. ~~3-5の暫定ステータスマッピング(`past_due`等を即`canceled`扱いにする判断)の妥当性の
    再検討。猶予期間を設ける設計に変更する場合は、aircon-pasha等の`_is_payment_suspended`
-   相当の仕組みの要否も合わせて検討する。
+   相当の仕組みの要否も合わせて検討する。~~ → フェーズ99で対応済み。
+   subscription-updated-past-due-grace-period-reconsideration.md参照。aircon-pasha同等の
+   専用スケジューラ・タイムスタンプフィールドは新設せず、`past_due`のみ`active`扱いに
+   変更する(Stripe自身のスマートリトライ期間を猶予期間として利用する)軽量な修正とした。
 4. 3-2のポーリング設計(結果ページ表示エンドポイント)の実装は、本Webhook設計とは別の
    HTTPエントリポイント(フロントエンド向けAPI)として次回以降に着手する。
 5. 実Stripeアカウント・Webhookエンドポイント登録・実Cloud Functionsデプロイ・実Firestore

@@ -2230,3 +2230,32 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   (フロントエンド向けAPI、design.md次回候補4)の実装、(3)実Stripeアカウント・実GCP
   プロジェクト・実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため
   引き続き着手不可、(4)他venture・アイデア領域の前進。
+- フェーズ99(2026-11-08 12:00 UTC定例更新): フェーズ98次回候補(1)「design.md次回候補2
+  暫定ステータスマッピング(`past_due`即`canceled`扱い)の妥当性の再検討」に対応した。
+  新規`subscription-updated-past-due-grace-period-reconsideration.md`として検証した結果、
+  `customer.subscription.updated`が実際に影響するのは本venture唯一の継続課金対象である
+  月額フリーパス契約者(pricing-plan.md「月2回以上現場参加する頻度の高いファン」)に
+  限られ、旧設計がマッピングの根拠とした「都度利用中心でLTVが低いB2C想定」という前提が
+  この対象者には当てはまらない設計上の誤りだったことを発見した。aircon-pasha等の
+  決済失敗ドキュメント(猶予期間を設ける前提)との比較検討のうえ、`_is_payment_suspended`
+  相当の専用スケジューラ・通知配線は本venture規模ではオーバーエンジニアリングと判断し
+  見送り、Stripe Billingのスマートリトライ(最大2週間、line-reservation-aiで確認済みの
+  一次情報)自体を猶予期間として利用する軽量な修正に留めた。具体的には
+  `prototype/stripe_webhook.py`の`_ACTIVE_STRIPE_STATUSES`に`"past_due"`を追加し
+  (`past_due`を`canceled`ではなく`active`扱いに変更)、`unpaid`・`canceled`・
+  `incomplete_expired`は引き続き即時`canceled`のままとした。stripe-webhook-entry-point-
+  design.md 3-5節・6節を追記・更新した。`test_stripe_webhook.py`の
+  `test_subscription_updated_maps_status()`を更新し(既存の`past_due maps to canceled`
+  アサーションを`past_due stays active`に変更)、旧設計では検証されていなかった`unpaid`・
+  `incomplete_expired`の実動作確認アサーション2件を新規追加した。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`27件・
+  `validate_test_cases.py`9件・`schema/check_venue_master_parity.py`36件/36件)いずれも
+  変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)`resolve_checkout_result()`を呼び出す側のHTTPエントリポイント
+  (フロントエンド向けAPI、design.md次回候補4)の実装、(2)実運用開始後に`past_due`が
+  Stripe側のリトライ上限(2週間)を超えて長期化するケースが確認された場合の専用フィールド・
+  通知配線導入の再検討(subscription-updated-past-due-grace-period-reconsideration.md
+  6節)、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。

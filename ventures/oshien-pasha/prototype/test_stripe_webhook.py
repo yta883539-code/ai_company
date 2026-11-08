@@ -146,8 +146,8 @@ def test_subscription_updated_maps_status() -> None:
     }
     dispatch_stripe_event(past_due_event, store)
     check(
-        "past_due maps to canceled",
-        store.get_by_stripe_subscription_id("sub_5").subscription_status == "canceled",
+        "past_due stays active (Stripeのスマートリトライ期間中とみなす、フェーズ99見直し)",
+        store.get_by_stripe_subscription_id("sub_5").subscription_status == "active",
     )
 
     trialing_event = {
@@ -159,6 +159,28 @@ def test_subscription_updated_maps_status() -> None:
     check(
         "trialing maps to active",
         store.get_by_stripe_subscription_id("sub_5").subscription_status == "active",
+    )
+
+    unpaid_event = {
+        "type": "customer.subscription.updated",
+        "created": 1700000550,
+        "data": {"object": {"id": "sub_5", "status": "unpaid"}},
+    }
+    dispatch_stripe_event(unpaid_event, store)
+    check(
+        "unpaid (リトライ尽き) maps to canceled",
+        store.get_by_stripe_subscription_id("sub_5").subscription_status == "canceled",
+    )
+
+    incomplete_expired_event = {
+        "type": "customer.subscription.updated",
+        "created": 1700000560,
+        "data": {"object": {"id": "sub_5", "status": "incomplete_expired"}},
+    }
+    dispatch_stripe_event(incomplete_expired_event, store)
+    check(
+        "incomplete_expired maps to canceled",
+        store.get_by_stripe_subscription_id("sub_5").subscription_status == "canceled",
     )
 
 

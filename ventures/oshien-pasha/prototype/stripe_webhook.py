@@ -20,8 +20,9 @@ design 4節の`event_time`引数(配信順序入れ替わりガード)はフェ�
 側に実装済みのため、本モジュールは`event["created"](Unixエポック秒)をそのまま
 `event_time`としてdispatchする(他venture同様の`event.created`採用、design 3-5節)。
 
-design 3-5節の暫定ステータスマッピング(`active`・`trialing`→`active`、それ以外→
-`canceled`)を`_map_stripe_status_to_fan_pass_status()`として実コード化した。
+design 3-5節のステータスマッピング(フェーズ99で見直し: `active`・`trialing`・`past_due`→
+`active`、`unpaid`・`canceled`・`incomplete_expired`→`canceled`)を
+`_map_stripe_status_to_fan_pass_status()`として実コード化した。
 """
 
 from __future__ import annotations
@@ -86,11 +87,20 @@ def verify_stripe_signature(
     return True
 
 
-# design 3-5節: Stripeサブスクリプションステータスの暫定2値マッピング。
-# `active`・`trialing`のみ"active"、それ以外(`past_due`・`unpaid`・`canceled`・
-# `incomplete_expired`等)は猶予期間を設けず即座に"canceled"扱いとする(安全側の判断、
-# 実運用データが無い時点の仮説として残課題に残す)。
-_ACTIVE_STRIPE_STATUSES = {"active", "trialing"}
+# design 3-5節(フェーズ99見直し): Stripeサブスクリプションステータスの2値マッピング。
+# `past_due`はStripe Billingのスマートリトライ(最大2週間、line-reservation-aiの
+# payment-failure-dunning-design.mdで確認済みの一次情報)がまだ進行中の状態であり、
+# カード会社側の再試行で自動的に"active"へ戻る可能性が高い。これを即座に"canceled"扱いに
+# していた旧マッピングは、aircon-pasha等の決済失敗ドキュメント(猶予期間を設ける前提)を
+# 踏まえて再検討した結果、月額フリーパス利用者(本ventureで唯一の継続課金対象、
+# pricing-plan.md「月2回以上現場参加する頻度の高いファン」)に対してはStripe側の
+# リトライが尽きる前に不要なアクセス遮断を行ってしまう設計上の誤りと判断した。
+# "unpaid"(リトライ尽き)・"canceled"(解約)・"incomplete_expired"(初回決済失敗で確定しな
+# かった)の3状態のみを"canceled"とし、"past_due"はStripeのリトライ期間中として"active"を
+# 維持する(aircon-pasha同等の専用スケジューラ・タイムスタンプフィールドを新設せず、
+# Stripe自身のリトライ機構をそのまま猶予期間として利用する軽量な設計。残課題の詳細は
+# subscription-updated-past-due-grace-period-reconsideration.md参照)。
+_ACTIVE_STRIPE_STATUSES = {"active", "trialing", "past_due"}
 
 
 def _map_stripe_status_to_fan_pass_status(stripe_status: str) -> str:
