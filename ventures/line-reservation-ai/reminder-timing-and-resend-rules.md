@@ -59,6 +59,30 @@ tone-and-manner-guideline.md で「前日リマインドの送信タイミング
 
 - 「返信の有無」を既読の代理指標として使うことの妥当性(スタンプだけ返す顧客と、読んだが
   返信しない顧客を区別できない点は限界として残る)。
+  (一部補強 2026-11-08 20:00 UTC: WebSearchでLINEの既読仕様と、SMS/テキストリマインドにおける
+  開封・返信トラッキングの実態を調査した。LINE公式ヘルプ上、既読は「トークルームを開いた時」
+  にのみ付与され、通知プレビューの一覧表示だけでは付かない仕様であることを確認した
+  (出典: sansaibooks.co.jp記事)。一方、SMS/テキストリマインド領域の一次情報としては、
+  読了確認(read receipt)自体が標準化された信頼できる信号として扱われておらず
+  (Microsoft Exchangeの読了確認機能に関する文書でも「読了確認は開封を保証するものでは
+  ない」と明記)、業界では読了トラッキングよりも「返信を求める」双方向確認(two-way
+  confirmation)の方が広く採用されていることが分かった(Curogram、Dialog Health等)。
+  ただしCurogram・Dialog Healthの確認率向上効果はいずれもベンダー自社データに基づくもので
+  第三者検証はなく、唯一の学術的近似データ(DNP博士論文の予備調査)では返信確認率39%の一方で
+  来院率改善はわずか2%、GSAの実証研究では統制群との間に統計的有意差は見られなかったと報告
+  されており、「返信確認が既読より優れている」ことを示す決定的な証拠は見つからなかった。
+  つまり、本venture(LINE)が「返信の有無」のみを代理指標とする設計は、LINE公式の「既読」
+  自体も開封保証ではなく心理的要因等で付かない場合がある以上、既読を直接の代理指標として
+  使う場合と比べて本質的に劣るとは言えず、業界が読了トラッキングより返信ベースの双方向確認を
+  好む傾向とも整合する。他方、「返信確認が来店率を有意に改善する」というポジティブな仮説
+  自体も学術的には裏付けが弱いため、この仮説は「既読よりは妥当」という限定的な補強が得られた
+  のみで、完全な解消には至らない。値・設計は変更しない。
+  出典: https://old.sansaibooks.co.jp/articles/line%E6%97%A2%E8%AA%AD%E3%81%AB%E3%81%AA%E3%82%89%E3%81%AA%E3%81%84 ,
+  https://learn.microsoft.com/en-us/previous-versions/exchange-server/exchangeserver-149/dd919060(v=exchsrvcs.149) ,
+  https://curogram.com/blog/best-practices/appointment-management/two-way-appointment-confirmation ,
+  https://www.dialoghealth.com/post/how-to-handle-patient-no-shows ,
+  https://uknowledge.uky.edu/dnp_etds/82 ,
+  https://oes.gsa.gov/assets/abstracts/2313-abstract.pdf)
 - 再送を1回・当日朝のみに絞ることが、来店率向上とうっとうしさ回避のバランスとして適切か。
   (一部補強 2026-11-08 13:00 UTC: WebSearchで予約リマインドの再送・多段送信に関する業界記事
   (Schedly、Calvient、Curogram、appointmentreminder.com、Sequenzy等)を横断調査した。複数の
