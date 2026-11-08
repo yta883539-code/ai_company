@@ -60,6 +60,26 @@ tone-and-manner-guideline.md で「前日リマインドの送信タイミング
 - 「返信の有無」を既読の代理指標として使うことの妥当性(スタンプだけ返す顧客と、読んだが
   返信しない顧客を区別できない点は限界として残る)。
 - 再送を1回・当日朝のみに絞ることが、来店率向上とうっとうしさ回避のバランスとして適切か。
+  (一部補強 2026-11-08 13:00 UTC: WebSearchで予約リマインドの再送・多段送信に関する業界記事
+  (Schedly、Calvient、Curogram、appointmentreminder.com、Sequenzy等)を横断調査した。複数の
+  出典が「2〜3回のタッチ(例: 数日前+前日+当日朝/数時間前)」を推奨し、appointmentreminder.com
+  は4回以上は離脱(オプトアウト)増加に対して効果が薄いと報告している一方、これらはいずれも
+  「返信の有無にかかわらず固定スケジュールで送る」設計を前提にした件数であり、本venture
+  (前日リマインド1回+未読〈返信なし〉時のみ当日朝に1回、最大2回)とは前提が異なる点に注意
+  が必要(返信があれば2回目は送らない点で、本ventureの設計は固定3回方式より送信総数が
+  少なくなる)。もう一方でCurogramは「件数そのものより自店のコンファーム率データで最適化
+  すべき」とも指摘しており、一律の正解は業界側でも確立していない。本venture固有の文脈
+  (美容室・サロン等の個人店、tone-and-manner-guideline.mdの「催促を重ねない」方針、
+  pending-timeout-ux.mdの「催促は1回のみ」方針との整合)を踏まえると、現行の「最大2回・
+  返信があれば打ち切り」は業界の推奨レンジ(2〜3回)の下限に位置し、かつオプトアウト増加の
+  リスクが指摘される4回以上からは十分離れているため、過小とは言えず妥当な設計と判断し、
+  値は変更せず維持する。ただし「返信なし=読んでいない」という代理指標自体の限界(直上の
+  仮説)が解消されない限り、この判断の前提そのものが完全には検証できない点は残る。
+  出典: https://schedly.io/automated-appointment-reminders-to-cut-no-shows/ ,
+  https://calvient.com/resources/blog/reducing-no-shows ,
+  https://curogram.com/blog/appointment-reminder-timing-healthcare-analytics ,
+  https://appointmentreminder.com/guides/best-time-to-send ,
+  https://www.sequenzy.com/templates/appointment-reminder-email-templates)
 - リマインド送信時刻のデフォルト値(営業終了1時間前・上限20:00)が実際の店舗運用に合っているか。
   (一部補強 2026-11-08 06:00 UTC: WebSearchで美容室・サロン向けSMS/メッセージ型リマインドの
   送信タイミングに関する業界記事(Apptoto、appointmentreminder.com、Salonkee、SendHub等)を
