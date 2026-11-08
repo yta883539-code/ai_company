@@ -6974,3 +6974,25 @@
   owner-review-design.md 7節の陳腐化した「次回候補」〈course-set-pashaへの横展開は同venture
   フェーズ293で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
   いずれもパス)
+- フェーズ368(2026-11-08 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ367の次回候補(2)「残り22件の個別design.mdファイルの棚卸しの継続」に
+  対応し、vendor-breach-key-rotation-runbook.md 4節の次回候補「残る横展開先はforklift-
+  pasha・event-komiguai-pashaの2件」を確認した。両venture側の同名ファイルを確認した
+  ところ、forklift-pasha側は最終更新2026-10-24 21:00 UTC・event-komiguai-pasha側は
+  同22:00 UTCの記載でそれぞれ横展開完了済み(event-komiguai-pasha側は「6venture全てへの
+  展開を完了した」と明記)であることが判明した。本項目が本ファイルに記録された直後
+  (本venture側フェーズの同日20:00 UTCからわずか1〜2時間後)には両venture側で解消済み
+  だったにもかかわらず、約2週間にわたり未対応のまま書き続けていた陳腐化記載だった
+  ため、同4節に[フェーズ368で対応済み]の注記と解決内容の要約を追記して是正した。
+  コード変更なし(ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover
+  -s prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り21件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 01:00 UTC(フェーズ368: 詳細は上記。vendor-breach-key-rotation-
+  runbook.md 4節の陳腐化した「次回候補」〈forklift-pasha・event-komiguai-pashaへの横展開は
+  両venture側で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
+  いずれもパス)
