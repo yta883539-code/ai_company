@@ -73,6 +73,35 @@ tech-stack.md(フェーズ7)「未検証・残課題」1点目、「アカウン
 - 実際のStripeアカウント接続・Webhookエンドポイント登録・GCPプロジェクト作成はアカウント
   作成・支払いが発生するためオーナー承認待ちの範囲(pending-approval.md参照)。今回は実装
   方式の机上設計のみに留める。
+- ~~Checkout Session作成エンドポイント自体(draft_id採番から`create_draft()`呼び出し、
+  Stripe Checkout Session作成までを結ぶCloud Functionエントリポイント)のコード化~~:
+  フェーズ103でprototype/checkout_session_creation.pyとして実コード化(5節参照)。
+
+## 5. Checkout Session作成エントリポイントの実コード化(フェーズ103)
+
+- `prototype/checkout_session_creation.py`を新規作成し、
+  `create_checkout_session_for_event_memo(raw_payload, draft_store, checkout_client,
+  ...)`として2節手順1〜3を1本の関数に結線した。
+  - 手順1: `form_submission_intake.handle_form_submission(raw_payload)`を呼び、
+    `status=insufficient_input`応答が返る場合はdraft・Checkout Sessionいずれも作成せず
+    その場で返す(必須項目充足後にのみ決済を発生させる方針を維持)。
+  - 手順2: UUID4(`draft_id_factory`引数、既定は`uuid.uuid4()`)でdraft_idを発行し、
+    TTL(既定24時間、`ttl_hours`引数で変更可)から`expires_at`を算出した上で
+    `OneTimeDraftStoreProtocol.create_draft()`(stripe_webhook.pyフェーズ102)を呼び、
+    生ペイロードをそのまま`event_memo`として保存する。
+  - 手順3: `StripeCheckoutSessionClientProtocol.create_session()`(新設、実Stripe SDK
+    呼び出しへの薄いラッパーインターフェース)を`amount=500, currency="jpy",
+    client_reference_id=draft_id`で呼ぶ。`customer_email`は呼び出し時に渡さず、
+    Stripe Checkoutページ標準のメール入力欄で収集する想定とした(Webhook側
+    〈stripe_webhook.py〉が`checkout.session.completed`イベントから取得する前提は
+    変更なし)。
+- あわせて、draft-id-last4-collision-design.md(フェーズ53・58)4節で設計済みのまま
+  未実装だった`draft_id_last4`(draft_idの末尾4文字を複製したオーナー検索専用フィールド)
+  を`stripe_webhook.OneTimeDraft`・`InMemoryOneTimeDraftStore.create_draft()`に追加し、
+  draft作成時に自動導出するようにした(本フェーズで新たに発見した実装漏れ)。
+- 新規テスト5件(`test_checkout_session_creation.py`新規作成)を追加し、既存121件と
+  合わせ全126件がパスすることを確認した(`python3 -m unittest discover -s prototype
+  -p "test_*.py"`)。schema検証22件も変更なしでパス。
 
 最終更新: 2026-10-19 12:00 UTC(フェーズ10: one-time-checkout-no-account-design.md新規作成。
 `draft_id`を主キーとするワンタイムトークン方式でStripe Checkout one-time payment modeと

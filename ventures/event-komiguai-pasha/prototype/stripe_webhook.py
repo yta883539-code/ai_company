@@ -81,6 +81,10 @@ class OneTimeDraft:
     # 相当)。Checkout Session作成前のcreate_draft()呼び出し時点で保存し、決済完了後の
     # generate_fn(draft_id)がLLMへ渡す入力を取り出すために参照する(draft_generation_fn.py
     # 参照)。
+    draft_id_last4: Optional[str] = None
+    # draft-id-last4-collision-design.md(フェーズ53・58)4節。draft_idの末尾4文字を
+    # そのまま複製したオーナー検索専用フィールド。一意キーではなく絞り込みのヒントに
+    # 過ぎない(衝突時はcustomer_emailとの二段階照合、design 4節参照)。
 
 
 class OneTimeDraftStoreProtocol:
@@ -146,6 +150,7 @@ class InMemoryOneTimeDraftStore:
             status=status,
             expires_at=expires_at,
             event_memo=event_memo,
+            draft_id_last4=draft_id[-4:] if draft_id else None,
         )
 
     def get(self, draft_id: str) -> Optional[OneTimeDraft]:

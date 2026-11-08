@@ -2324,3 +2324,33 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   `draft_generation_fn.build_generation_fn()`でdraft_id単位のevent_memo取り出し→
   再intake→LLM呼び出し→検証、までをGenerationFn契約に適合する形で結線。新規テスト
   〈111件→121件〉、schema検証22件いずれも変更なしでパス)
+- フェーズ103(2026-11-08 08:00 UTC定例更新): フェーズ102の次回候補(3)「Checkout
+  Session作成エンドポイント自体(draft_id採番から`create_draft()`呼び出し、Stripe
+  Checkout Session作成までを結ぶCloud Functionエントリポイント)のコード化」に対応した。
+  `prototype/checkout_session_creation.py`を新規作成し、
+  `create_checkout_session_for_event_memo()`として、(1)`form_submission_intake.
+  handle_form_submission()`で必須項目充足を確認(欠落時はdraft・Checkout Sessionいずれも
+  作成せずinsufficient_input応答をその場で返す)、(2)UUID4でdraft_idを発行しTTL
+  (既定24時間)から`expires_at`を算出して`create_draft()`を呼ぶ、(3)新設の
+  `StripeCheckoutSessionClientProtocol.create_session()`を`amount=500, currency="jpy",
+  client_reference_id=draft_id`で呼ぶ、という one-time-checkout-no-account-design.md
+  2節手順1〜3を1本の関数として結線した(詳細は同design.md 5節)。あわせて、
+  draft-id-last4-collision-design.md(フェーズ53・58)4節で設計済みのまま未実装だった
+  `draft_id_last4`フィールドを`stripe_webhook.OneTimeDraft`・
+  `InMemoryOneTimeDraftStore.create_draft()`に追加し、draft作成時に自動導出するように
+  した(本フェーズで新たに発見した実装漏れ)。新規テスト5件(`test_checkout_session_
+  creation.py`新規作成)を追加し、既存121件と合わせ全126件がパスすることを確認した
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)。schema検証22件も
+  変更なしでパス。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実Stripe SDK呼び出し・実
+  Checkout Sessionの作成自体は従来どおりオーナー承認待ちの範囲のまま、本フェーズは
+  机上設計のコード化〈スタブでの検証〉に留まる)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)実際のCloud Functionエントリポイント
+  実装時に`StripeCheckoutSessionClientProtocol`の実Stripe SDK実装(`stripe.checkout.
+  Session.create()`相当)をどう構成するか(実Stripeアカウント接続後の課題として残す)、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 08:00 UTC(フェーズ103: `prototype/checkout_session_creation.py`
+  新規作成。`create_checkout_session_for_event_memo()`でdraft_id採番→`create_draft()`→
+  Stripe Checkout Session作成までを結線し、`draft_id_last4`フィールドの実装漏れも
+  是正。新規テスト〈121件→126件〉、schema検証22件いずれも変更なしでパス)
