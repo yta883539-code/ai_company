@@ -82,6 +82,44 @@ def resolve_checkout_result(
     return CheckoutResultPageResult(status="pending", poll_attempts_used=max_attempts)
 
 
+@dataclass(frozen=True)
+class CheckoutResultHttpResult:
+    status_code: int
+    result: Optional[CheckoutResultPageResult] = None
+    error: Optional[str] = None
+
+
+def receive_checkout_result_request(
+    stripe_lookup: StripeCheckoutSessionLookupProtocol,
+    fan_pass_store: _FanPassLookupProtocol,
+    checkout_session_id: Optional[str],
+    *,
+    sleep: Callable[[float], None] = lambda _seconds: None,
+    max_attempts: int = MAX_POLL_ATTEMPTS,
+    interval_seconds: float = POLL_INTERVAL_SECONDS,
+) -> CheckoutResultHttpResult:
+    """checkout-result-http-entry-point-design.md(フェーズ100)2節の処理順序どおりに
+    実行する。`resolve_checkout_result()`の例外(`CheckoutSessionNotFoundError`)を
+    404へ変換する、本venture唯一のエントリポイントである。"""
+
+    if checkout_session_id is None or not checkout_session_id.strip():
+        return CheckoutResultHttpResult(status_code=400, error="missing_checkout_session_id")
+
+    try:
+        result = resolve_checkout_result(
+            stripe_lookup,
+            fan_pass_store,
+            checkout_session_id,
+            sleep=sleep,
+            max_attempts=max_attempts,
+            interval_seconds=interval_seconds,
+        )
+    except CheckoutSessionNotFoundError:
+        return CheckoutResultHttpResult(status_code=404, error="unknown_checkout_session_id")
+
+    return CheckoutResultHttpResult(status_code=200, result=result)
+
+
 class InMemoryStripeCheckoutSessionLookup:
     """StripeCheckoutSessionLookupProtocolの検証用インメモリ実装。
     `checkout_session_id -> stripe_subscription_id`の対応表を保持し、

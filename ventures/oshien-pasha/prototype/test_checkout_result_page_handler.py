@@ -4,6 +4,7 @@ import unittest
 from checkout_result_page_handler import (
     CheckoutSessionNotFoundError,
     InMemoryStripeCheckoutSessionLookup,
+    receive_checkout_result_request,
     resolve_checkout_result,
 )
 from fan_pass_store import InMemoryFanPassStore
@@ -98,6 +99,54 @@ class ResolveCheckoutResultTests(unittest.TestCase):
         self.assertEqual(result.status, "pending")
         self.assertEqual(result.poll_attempts_used, 2)
         self.assertEqual(sleep_calls, [0.5])
+
+
+class ReceiveCheckoutResultRequestTests(unittest.TestCase):
+    def test_missing_checkout_session_id_returns_400(self) -> None:
+        lookup = InMemoryStripeCheckoutSessionLookup()
+        store = InMemoryFanPassStore()
+
+        for value in (None, "", "   "):
+            result = receive_checkout_result_request(lookup, store, value)
+            self.assertEqual(result.status_code, 400)
+            self.assertEqual(result.error, "missing_checkout_session_id")
+            self.assertIsNone(result.result)
+
+    def test_unknown_checkout_session_id_returns_404(self) -> None:
+        lookup = InMemoryStripeCheckoutSessionLookup()
+        store = InMemoryFanPassStore()
+
+        result = receive_checkout_result_request(lookup, store, "cs_missing")
+
+        self.assertEqual(result.status_code, 404)
+        self.assertEqual(result.error, "unknown_checkout_session_id")
+        self.assertIsNone(result.result)
+
+    def test_ready_returns_200_with_access_token_in_result(self) -> None:
+        lookup = InMemoryStripeCheckoutSessionLookup()
+        lookup.register("cs_ready", "sub_ready")
+        store, access_token = _build_store_with_fan_pass("sub_ready")
+
+        result = receive_checkout_result_request(lookup, store, "cs_ready")
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.error)
+        self.assertEqual(result.result.status, "ready")
+        self.assertEqual(result.result.access_token, access_token)
+
+    def test_pending_returns_200_with_pending_status(self) -> None:
+        lookup = InMemoryStripeCheckoutSessionLookup()
+        lookup.register("cs_pending", "sub_pending")
+        store = InMemoryFanPassStore()
+
+        result = receive_checkout_result_request(
+            lookup, store, "cs_pending", sleep=lambda _s: None
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNone(result.error)
+        self.assertEqual(result.result.status, "pending")
+        self.assertIsNone(result.result.access_token)
 
 
 if __name__ == "__main__":

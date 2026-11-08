@@ -2259,3 +2259,36 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   通知配線導入の再検討(subscription-updated-past-due-grace-period-reconsideration.md
   6節)、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
   (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
+- フェーズ100(2026-11-08 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ99次回候補(1)「`resolve_checkout_result()`を呼び出す側のHTTPエントリ
+  ポイント(フロントエンド向けAPI、design.md次回候補4)の実装」に対応した。新規
+  `checkout-result-http-entry-point-design.md`として設計し、`checkout_session_id`は
+  Stripeが発行する高エントロピーなID(`cs_...`)であり`return_url`経由でのみ本人に渡る
+  ためenumeration対策の対象外と判断し(access-url-resend-http-entry-point-design.md
+  フェーズ43の`email`方式とは異なり)、レスポンス本文に`access_token`を含めてよいと
+  した上で、forklift-pashaの`receive_reissue_request()`(アクセス-url-reissue-http-
+  entry-point-design.md フェーズ136)と同型の「空入力→400」「例外→404」「成功→200」の
+  3段構成を採用した。`prototype/checkout_result_page_handler.py`に`receive_checkout_
+  result_request()`を実装し、`checkout_session_id`が空の場合は`resolve_checkout_
+  result()`を呼ばず`status_code=400`(`missing_checkout_session_id`)、
+  `CheckoutSessionNotFoundError`捕捉時は`status_code=404`
+  (`unknown_checkout_session_id`)、成功時(`status`が`ready`/`pending`いずれでも)は
+  `status_code=200`で`CheckoutResultPageResult`をそのまま`result`に格納する設計とした。
+  新規テスト4件を追加(`test_checkout_result_page_handler.py` 5件→9件、空入力3パターン・
+  未知のcheckout_session_id・成功時のready/pending各ケースを検証)、既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`27件→31件・`python3 -I
+  validate_test_cases.py`9件・`python3 -I schema/check_venue_master_parity.py`
+  36件/36件)いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)Cloud Functionsの実エントリポイント`main(request)`
+  (`request.args.get("checkout_session_id")`からの値取り出し配線)の実装は結果ページの
+  フロントエンド実装(オーナー承認待ち事項)確定後に着手、(2)`access_token`をレスポンス
+  本文に含めたままクライアント側でどう保持するか(Cookie・localStorage等)の
+  data-retention-policy.mdの観点からの再検討、(3)実Stripeアカウント・実GCPプロジェクト・
+  実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 19:00 UTC(フェーズ100: 詳細は上記。`checkout-result-http-entry-
+  point-design.md`を新規作成し、決済結果ポーリングのHTTPエントリポイント
+  `receive_checkout_result_request()`を設計・実装。新規テスト4件追加、既存回帰
+  いずれも変更なしでパス)
