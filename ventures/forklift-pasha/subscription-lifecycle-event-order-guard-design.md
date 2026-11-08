@@ -85,9 +85,19 @@ event()`等と同一の変換・判定ルール)。
   `subscription_updated_event_time`・`checkout_session_completed_event_time`と同時に
   `subscription_lifecycle_event_time`も実コード化した〈`get/set_subscription_lifecycle_
   event_time()`〉。詳細はfirestore-data-model.md・README.mdフェーズ219参照。)
-- event-komiguai-pasha・oshien-pasha(いずれもStripe決済導線自体が設計途上、oshien-pashaは
-  stripe-webhook-entry-point-design.mdの机上設計のみでprototype未着手)の同種ガード有無の
-  確認は2026-11-08 02:00 UTC時点でも未実施のまま(次回以降の棚卸し候補)。
+- (解消済み 2026-11-08 10:00 UTC・フェーズ221: oshien-pasha側を確認したところ、
+  `prototype/stripe_webhook.py`は`customer.subscription.deleted`・
+  `customer.subscription.created`・`customer.subscription.updated`をいずれも
+  `fan_pass_store.update_subscription_status(internal_id, status, event_time=event_time)`
+  経由でディスパッチしており、`update_subscription_status()`自体がフェーズ88
+  〈subscription-updated-event-order-guard-preemptive-note.md〉時点で
+  `event_time <= 直前の適用済みevent_time`ならスキップする配信順序入れ替わりガードを
+  既に備えていた。本ファイル作成時点(フェーズ214)の「oshien-pashaはStripe決済導線が
+  設計途上で未着手」という前提が陳腐化していたと判明し是正した。一方event-komiguai-pasha
+  は`prototype/stripe_webhook.py`が`checkout.session.completed`のみを処理し
+  `customer.subscription.*`のディスパッチ自体が未実装のため、本ガードの横展開要否確認は
+  同venture側でサブスクリプションライフサイクル処理に着手した時点まで持ち越しとする
+  〈次回以降の棚卸し候補として継続〉。)
 
 ## 5. テスト
 

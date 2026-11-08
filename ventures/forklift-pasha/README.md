@@ -4746,3 +4746,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   order-guard-design.mdの「4. スコープ外」2項目が、フェーズ216・219で既に解消済みだった
   陳腐化記載であることを発見・是正。コード変更なし、既存テスト・schema検証・
   browser_mockup_checksいずれも変更なしでパス)
+- フェーズ221(2026-11-08 10:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ220次回候補(2)「event-komiguai-pasha・oshien-pashaにおける
+  `customer.subscription.*`系配信順序ガードの横展開要否確認」に対応した。oshien-pasha
+  側の`prototype/stripe_webhook.py`・`fan_pass_store.py`を直接確認したところ、
+  `customer.subscription.deleted`・`created`・`updated`はいずれも
+  `update_subscription_status(internal_id, status, event_time=event_time)`経由で
+  ディスパッチされ、`update_subscription_status()`自体がフェーズ88〈subscription-
+  updated-event-order-guard-preemptive-note.md〉時点で配信順序入れ替わりガード
+  (`event_time <= 直前の適用済みevent_time`ならスキップ)を既に備えていたことを発見した。
+  本venture側のsubscription-lifecycle-event-order-guard-design.md「4. スコープ外」に
+  残っていた「oshien-pashaはStripe決済導線が設計途上で未着手」という前提は陳腐化記載
+  だったため是正した。一方event-komiguai-pashaは`stripe_webhook.py`が
+  `checkout.session.completed`のみを処理し`customer.subscription.*`のディスパッチ自体が
+  未実装のため、同venture側の確認は着手時点まで持ち越しとした。コード変更なし、既存テスト
+  (unittest discover 114件・run_all_tests 24ファイル・schema検証11件・
+  browser_mockup_checks.js 49件)いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)oshien-pashaがWebhook実装(checkout.session.completed相当)に着手した際、
+  event_id_store方式の横展開要否を改めて確認(継続)、(2)event-komiguai-pashaが
+  `customer.subscription.*`ディスパッチに着手した際、配信順序ガードの横展開要否を確認
+  (継続)、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認(オーナー承認待ち、
+  本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08定例更新(フェーズ221: 詳細は上記。subscription-lifecycle-event-
+  order-guard-design.mdの「4. スコープ外」に残っていたoshien-pasha側の陳腐化記載
+  (Stripe決済導線が設計途上で未着手)を発見・是正(実際は配信順序ガードまで実装済み)。
+  コード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも変更なしでパス)
