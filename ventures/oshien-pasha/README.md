@@ -2176,3 +2176,37 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   `update_subscription_status()`に`event_time`引数(配信順序入れ替わりガード)を追加し、
   firestore-data-model.mdに`subscriptionStatusUpdatedAt`フィールドを反映。新規テスト5件
   追加、既存回帰いずれも変更なしでパス)
+- フェーズ97(2026-11-08 04:00 UTC定例更新): フェーズ96次回候補(1)「stripe-webhook-
+  entry-point-design.mdの設計に基づく`prototype/stripe_webhook.py`の新規実装」に対応した。
+  design 2節の`verify_stripe_signature()`(他venture完全同一アルゴリズム)、design 3節の
+  4イベント種別ディスパッチ(`checkout.session.completed`〈mode=subscriptionのみ、
+  mode=paymentは`ignored_mode`として無視〉・`customer.subscription.deleted`〈canceled
+  へ遷移〉・`customer.subscription.created`〈既存ドキュメントが見つかる場合のみ再加入として
+  activeへ戻し、見つからない新規契約相当は`ignored_new_contract`として何もしない〉・
+  `customer.subscription.updated`〈design 3-5節の暫定2値マッピング
+  `_map_stripe_status_to_fan_pass_status()`: active/trialingのみactive、それ以外は
+  canceled〉)を実コード化し、`dispatch_stripe_event()`・`receive_stripe_webhook()`として
+  `prototype/stripe_webhook.py`を新規作成した。`event["created"]`(Unixエポック秒)を
+  フェーズ96で実装済みの`event_time`引数へそのまま渡し、配信順序入れ替わりガードが
+  実エントリポイント経由でも機能するようにした。該当するfan_passドキュメントが見つからない
+  場合(`fan_pass_not_found`)はdesign 3-3節の方針通り異常系として処理をスキップし200扱いの
+  まま返す安全策とした。新規テストファイル`test_stripe_webhook.py`を作成し23アサーション
+  (署名検証の正常系・異常系4件、4イベント種別それぞれの正常系・境界ケース、エンドツー
+  エンドの`receive_stripe_webhook()`検証を含む)を追加、全てPASSを確認した。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`22件・`python3 -I
+  validate_test_cases.py`9件・`python3 -I schema/check_venue_master_parity.py`36件/36件・
+  prototype配下の素朴テストスクリプト全6本〈test_access_url_resend_handler.py 8件・
+  test_itinerary_draft_postprocessor.py 25件・test_post_generation_checks.py・
+  test_usage_counter.py 14件・test_venue_matcher.py 21件・test_fan_pass_store.py 21件〉)
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)design 3-2節のポーリング設計(決済完了直後の結果ページ表示エンドポイント)
+  の実装、(2)design 3-5節の暫定ステータスマッピング(`past_due`等を即`canceled`扱いにする
+  判断)の妥当性の再検討、(3)design 6節5項: 実Stripeアカウント・実Cloud Functionsデプロイ・
+  実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 04:00 UTC(フェーズ97: 詳細は上記。stripe-webhook-entry-point-
+  design.mdの設計に基づき`prototype/stripe_webhook.py`を新規実装〈署名検証・4イベント
+  種別ディスパッチ・event_timeガード配線〉。新規テスト23アサーション追加、既存回帰
+  いずれも変更なしでパス)
