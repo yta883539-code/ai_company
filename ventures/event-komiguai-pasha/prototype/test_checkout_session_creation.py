@@ -8,7 +8,9 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from checkout_session_creation import (
+    STRIPE_PRODUCT_NAME_JA,
     CheckoutSessionResult,
+    build_stripe_checkout_session_params,
     create_checkout_session_for_event_memo,
 )
 from stripe_webhook import InMemoryOneTimeDraftStore
@@ -173,6 +175,48 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
         self.assertEqual(len(result.draft_id), 36)
         self.assertEqual(result.draft_id.count("-"), 4)
         self.assertEqual(result.draft_id_last4, result.draft_id[-4:])
+
+
+class BuildStripeCheckoutSessionParamsTest(unittest.TestCase):
+    def test_builds_payment_mode_params_with_inline_price_data(self):
+        params = build_stripe_checkout_session_params(
+            amount=500,
+            currency="jpy",
+            client_reference_id="11111111-1111-4111-8111-111111111111",
+            success_url="https://example.run.app/result/11111111-1111-4111-8111-111111111111",
+            cancel_url="https://example.run.app/",
+        )
+
+        self.assertEqual(params["mode"], "payment")
+        self.assertEqual(
+            params["client_reference_id"],
+            "11111111-1111-4111-8111-111111111111",
+        )
+        self.assertEqual(
+            params["success_url"],
+            "https://example.run.app/result/11111111-1111-4111-8111-111111111111",
+        )
+        self.assertEqual(params["cancel_url"], "https://example.run.app/")
+        # 事前作成済みPrice IDは使わず、price_dataインラインで金額・商品名を指定する
+        # 方式(stripe-checkout-session-params-design.md)。
+        self.assertNotIn("price", params["line_items"][0])
+        price_data = params["line_items"][0]["price_data"]
+        self.assertEqual(price_data["currency"], "jpy")
+        self.assertEqual(price_data["unit_amount"], 500)
+        self.assertEqual(price_data["product_data"]["name"], STRIPE_PRODUCT_NAME_JA)
+        self.assertEqual(params["line_items"][0]["quantity"], 1)
+
+    def test_does_not_include_customer_email(self):
+        # checkout-session-success-cancel-url-design.md(フェーズ104)の方針どおり、
+        # customer_emailはStripe Checkoutページ標準の入力欄に委ね、paramsには含めない。
+        params = build_stripe_checkout_session_params(
+            amount=500,
+            currency="jpy",
+            client_reference_id="draft-1",
+            success_url="https://example.run.app/result/draft-1",
+            cancel_url="https://example.run.app/",
+        )
+        self.assertNotIn("customer_email", params)
 
 
 if __name__ == "__main__":

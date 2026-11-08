@@ -2385,3 +2385,30 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   確定し、`checkout_session_creation.py`に`base_url`引数・
   `StripeCheckoutSessionClientProtocol`の`success_url`/`cancel_url`を追加。既存テスト
   126件・schema検証22件いずれも変更なしでパス)
+- フェーズ105(2026-11-08 22:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ104の次回候補(2)「`StripeCheckoutSessionClientProtocol`の実Stripe SDK
+  実装(`stripe.checkout.Session.create(**params)`相当)の検討」に着手した
+  (stripe-checkout-session-params-design.md新規作成)。aircon-pasha等が採用する
+  サブスクリプション向けの事前作成済みPrice ID参照方式(`build_checkout_session_params()`、
+  `PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER`)に対し、本ventureは単発決済(`mode="payment"`)
+  かつ単一金額(500円/回)のため、Price IDを事前作成せず`price_data`でStripe側に金額・
+  商品名をインライン指定する方式を採用する設計判断を記録した。`checkout_session_creation.py`
+  に純粋関数`build_stripe_checkout_session_params()`(`mode="payment"`・`client_reference_id`・
+  `success_url`/`cancel_url`・`price_data`インラインのline_itemsを組み立てる)を新規実装し、
+  `StripeCheckoutSessionClientProtocol.create_session()`のdocstringに実クライアント実装時の
+  利用方法を追記した。他venture(aircon-pasha・course-set-pasha・kura-pasha)同様、実
+  `stripe`パッケージの`import`・実Stripeアカウント接続自体(オーナー承認待ちの範囲、
+  pending-approval.md参照)は見送り、Protocol定義とparams組み立ての純粋関数実装までに
+  留めた。新規テスト2件(`price_data`インライン指定の確認、`customer_email`を含めないことの
+  確認)を追加し、既存126件と合わせ全128件がパスすることを確認した(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)。schema検証22件も変更なしでパス(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)層2(単発屋内トークイベント・ポップアップ
+  公演の主催者)の探索手法の見直し、または層3への着手順の再検討(フェーズ21〜23・25から
+  継続する長期課題)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 22:00 UTC(フェーズ105: stripe-checkout-session-params-design.md
+  新規作成。単発決済向けに`price_data`インライン指定方式を採用する設計判断を記録し、
+  `checkout_session_creation.py`に`build_stripe_checkout_session_params()`を新規実装。
+  新規テスト2件追加、全128件・schema検証22件いずれもパス)

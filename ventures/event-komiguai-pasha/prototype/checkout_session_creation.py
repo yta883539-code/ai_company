@@ -40,6 +40,47 @@ DEFAULT_AMOUNT_JPY = 500
 DEFAULT_CURRENCY = "jpy"
 # ttl-expiry-result-delivery-refund-design.md(フェーズ12)1節: 未決済ドラフトのTTL想定。
 DEFAULT_TTL_HOURS = 24
+# stripe-checkout-session-params-design.md(フェーズ105): Checkout決済ページ・レシートに
+# 表示される商品名(price_dataインライン指定、固定のPrice IDは使わない)。
+STRIPE_PRODUCT_NAME_JA = "イベントこみぐあいパシャっと 一次チェック(1回)"
+
+
+def build_stripe_checkout_session_params(
+    *,
+    amount: int,
+    currency: str,
+    client_reference_id: str,
+    success_url: str,
+    cancel_url: str,
+) -> dict:
+    """実`stripe.checkout.Session.create(**params)`呼び出しにそのまま渡すparams dictを
+    組み立てる(stripe-checkout-session-params-design.md参照)。
+
+    aircon-pasha等のサブスクリプション(`mode="subscription"`、事前作成済みPrice ID参照)
+    とは異なり、本ventureは単発決済(`mode="payment"`)かつ単一金額のため、Price IDを
+    事前作成せず`price_data`で金額・商品名をインライン指定する方式を採用する。
+    `StripeCheckoutSessionClientProtocol.create_session()`の実クライアント実装
+    (実Stripeアカウント接続後、オーナー承認待ちの範囲)がこの関数の返り値を使う想定で、
+    本関数自体は`stripe`パッケージに依存しない純粋関数。
+    """
+    return {
+        "mode": "payment",
+        "client_reference_id": client_reference_id,
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "line_items": [
+            {
+                "price_data": {
+                    "currency": currency,
+                    "unit_amount": amount,
+                    "product_data": {
+                        "name": STRIPE_PRODUCT_NAME_JA,
+                    },
+                },
+                "quantity": 1,
+            }
+        ],
+    }
 
 
 @dataclass(frozen=True)
@@ -70,7 +111,10 @@ class StripeCheckoutSessionClientProtocol:
         result-delivery-refund-design.md 2節の`customer_email`必須化は、Checkout
         ページでの収集を前提にしたWebhook側〈`stripe_webhook.py`〉の処理を指す)。
         `success_url`/`cancel_url`の構築方式はcheckout-session-success-cancel-url-
-        design.md(フェーズ104)参照。"""
+        design.md(フェーズ104)参照。実クライアント実装は本メソッドの引数から
+        `build_stripe_checkout_session_params()`(stripe-checkout-session-params-
+        design.md、フェーズ105)でparams dictを組み立て、
+        `stripe.checkout.Session.create(**params)`に渡す想定。"""
         raise NotImplementedError
 
 
