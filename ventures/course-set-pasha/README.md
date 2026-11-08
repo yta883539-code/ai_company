@@ -6682,3 +6682,33 @@
   review.mdの未検証事項にWebSearch再調査結果(東京ドームシティのホールド替え告知例)を
   追記、「次回未定」パターンの直接実例は未発見のため未検証のまま維持。コード・schema
   変更なし。テスト866件・schema検証22件いずれも変更なしでパス)
+- フェーズ364(2026-11-08 21:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。kura-pashaのstripe-event-id-store-firestore-adapter-design.md(フェーズ290)
+  次回候補「aircon-pasha・course-set-pasha・forklift-pasha・event-komiguai-pashaへの
+  Stripe event.idべき等性Firestoreアダプタの横展開」に対応した。
+  stripe-event-idempotency-design.md(フェーズ151)5節が「実Firestore接続は実Stripe/実
+  GCPプロジェクト接続後(オーナー承認待ち)の課題」としていた記載は、kura-pashaフェーズ290
+  が確立した「アダプタの机上実装と結合実装フェーズは区別できる」という方針に照らすと
+  陳腐化していたため是正した。新規`stripe-event-id-store-firestore-adapter-design.md`
+  としてkura-pasha版と同型の設計を記録し、`prototype/firestore_stripe_event_id_
+  adapter.py`に`FirestoreStripeEventIdStore`(`has_processed`/`mark_processed`、
+  読み取り失敗時は安全側で`False`にフォールバック)を実コード化した。新規コレクション
+  `processed_stripe_events`の追加に伴い、`firestore.rules`にdeny-allルールを追加
+  (4→5コレクション)、firestore-composite-index-plan.mdのコレクション数記載・複合
+  インデックス対象外である旨の注記も合わせて更新した。TTL付き自動削除は見送り(kura-pasha
+  フェーズ続き291がWebSearchで裏取りした「Stripeイベントの再送は通常72時間前後で収まる」
+  という前提を踏襲、一次情報での確認は本セッションでも未達のまま)。新規テスト6件追加
+  (`test_firestore_stripe_event_id_adapter.py`新規作成、prototype全体866件→872件)、
+  既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`872件・
+  `python3 -I schema/validate_test_cases.py`22件)いずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし(実Firestoreプロジェクト・GCP
+  アカウント開設自体は既に承認待ちとして記録済みのため重複記録せず)。
+  次回候補: (1)aircon-pasha・forklift-pasha・event-komiguai-pashaへの同型Firestoreアダプタ
+  横展開(それぞれが「7venture中最も更新が止まっていたventure」として選ばれた回に対応)、
+  (2)承認待ち事項、または「実在ジムでの撤去告知の実例確認」への着手が承認された場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 21:00 UTC(フェーズ364: 詳細は上記。kura-pasha版を横展開し、
+  Stripe event.idべき等性Storeの実Firestoreアダプタ〈`FirestoreStripeEventIdStore`〉を
+  新規設計・実装。`firestore.rules`を5コレクション構成に更新。新規テスト6件追加、既存
+  テストいずれも変更なしでパス)

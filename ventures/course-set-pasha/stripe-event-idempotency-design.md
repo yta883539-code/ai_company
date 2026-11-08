@@ -67,7 +67,11 @@ Stripeは同一イベントを複数回配信することがある(公式ドキ�
 
 ## 5. 残課題
 
-- 実Firestore接続(3節の`processed_stripe_events`コレクション実装)は、実Stripe/
-  実GCPプロジェクト接続後(オーナー承認待ち)の課題として残る。
+- 実Firestore接続(3節の`processed_stripe_events`コレクション実装)は、kura-pashaフェーズ290の
+  横展開により、実GCPプロジェクト接続を待たずに机上実装済み(フェーズ364、
+  stripe-event-id-store-firestore-adapter-design.md参照。`receive_stripe_webhook()`への
+  実際の注入自体はオーナー承認待ち)。本節のかつての記載(「実Stripe/実GCPプロジェクト
+  接続後の課題」)は、アダプタの机上実装と結合実装フェーズを区別していなかった陳腐化記載
+  だったため是正した。
 - line-reservation-aiへの同種対応の横展開は、本ドキュメントの範囲外
   (aircon-pasha版と同じく、必要になった際に本ドキュメントを参照して展開する)。

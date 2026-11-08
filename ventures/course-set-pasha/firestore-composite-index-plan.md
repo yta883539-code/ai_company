@@ -55,10 +55,13 @@ composite-index-plan.md(フェーズ234)が確立した方針(venture全体に�
 
 補足:
 
-- 本venture(`user_profile`・`usage_counter`・`stripe_customer_index`・`pending_links`の
-  4コレクション、firestore-provider-adapter-design.md参照)はいずれもルートコレクション構成の
-  ため、forklift-pasha・kura-pashaの補足と同じ理由により、上記4索引とも`queryScope`は
-  `COLLECTION`のまま(`COLLECTION_GROUP`への変更は不要)。
+- 本venture(`user_profile`・`usage_counter`・`stripe_customer_index`・`pending_links`・
+  `processed_stripe_events`〈フェーズ364、stripe-event-id-store-firestore-adapter-
+  design.md参照〉の5コレクション)はいずれもルートコレクション構成のため、
+  forklift-pasha・kura-pashaの補足と同じ理由により、上記4索引とも`queryScope`は
+  `COLLECTION`のまま(`COLLECTION_GROUP`への変更は不要)。`processed_stripe_events`は
+  ドキュメントID単位の直接アクセスのみで範囲クエリ・ソートを伴わないため、本表の対象外
+  (kura-pasha版と同じ理由)。
 - #4の`deletion_candidate_at <= now`という単一フィールドの範囲クエリ自体は、Firestoreが
   単一フィールドに自動で索引を作成するため複合インデックスの対象外(kura-pashaの補足と同じ
   理由)。本表#4は、これとは別に「他2フィールドの等価条件と組み合わせて1クエリに統合する場合」
