@@ -2354,3 +2354,34 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   新規作成。`create_checkout_session_for_event_memo()`でdraft_id採番→`create_draft()`→
   Stripe Checkout Session作成までを結線し、`draft_id_last4`フィールドの実装漏れも
   是正。新規テスト〈121件→126件〉、schema検証22件いずれも変更なしでパス)
+- フェーズ104(2026-11-08 15:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ103の次回候補(2)「実Stripe SDK実装構成の検討」に着手する前段として、
+  one-time-checkout-no-account-design.md(フェーズ10)2節手順3が未設計のまま残していた
+  Checkout Sessionの`success_url`/`cancel_url`構築方式を新規設計した
+  (checkout-session-success-cancel-url-design.md新規作成)。success_urlは
+  `{base_url}/result/{draft_id}`(result-page-ttl-access-design.mdフェーズ14の結果ページ
+  URLそのもの、クエリパラメータ付与なし)、cancel_urlは`{base_url}/`(入力ページトップ、
+  `draft_id`は付与せず再入力させる、本venture「次回利用時は新規draft_id再発行」方針
+  〈design 3節〉どおり)に確定。`checkout_session_creation.py`の
+  `create_checkout_session_for_event_memo()`に`base_url`引数を追加し、
+  `StripeCheckoutSessionClientProtocol.create_session()`のシグネチャに
+  `success_url`・`cancel_url`を追加、呼び出し箇所を更新した。既存テスト
+  (`test_checkout_session_creation.py`の5テストすべて)を新シグネチャに追従させ、
+  success_url/cancel_urlの構築結果を検証するアサーションを追加した(テスト件数126件は
+  変更なし、既存ケースへのアサーション追加のみ)。`python3 -m unittest discover -s
+  prototype -p "test_*.py"`で全126件、schema検証22件もいずれも変更なしでパス
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし(実際の`base_url`値は
+  GCPプロジェクト作成・Cloud Runデプロイ後〈オーナー承認待ち〉にしか確定しないが、
+  本設計は`base_url`を呼び出し側引数として受け取るため値未確定の現時点でもコード化は
+  可能)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)`StripeCheckoutSessionClientProtocol`
+  の実Stripe SDK実装(`stripe.checkout.Session.create(**params)`相当、本フェーズで
+  success_url/cancel_urlの組み立て方式が確定したため着手可能)、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-08 15:00 UTC(フェーズ104: checkout-session-success-cancel-url-
+  design.md新規作成。success_urlを`/result/{draft_id}`、cancel_urlを入力ページトップに
+  確定し、`checkout_session_creation.py`に`base_url`引数・
+  `StripeCheckoutSessionClientProtocol`の`success_url`/`cancel_url`を追加。既存テスト
+  126件・schema検証22件いずれも変更なしでパス)

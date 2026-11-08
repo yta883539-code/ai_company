@@ -56,13 +56,21 @@ class StripeCheckoutSessionClientProtocol:
     オーナー承認待ちの範囲のため、本モジュールからは呼び出し方式のみを規定する)。"""
 
     def create_session(
-        self, *, amount: int, currency: str, client_reference_id: str
+        self,
+        *,
+        amount: int,
+        currency: str,
+        client_reference_id: str,
+        success_url: str,
+        cancel_url: str,
     ) -> CheckoutSessionResult:
         """one-time-checkout-no-account-design.md 2節手順3: `mode="payment"`の
         Checkout Sessionを作成する。`customer_email`は呼び出し時に渡さず、Stripe
         Checkoutページ自体の標準のメールアドレス入力欄で収集する想定(ttl-expiry-
         result-delivery-refund-design.md 2節の`customer_email`必須化は、Checkout
-        ページでの収集を前提にしたWebhook側〈`stripe_webhook.py`〉の処理を指す)。"""
+        ページでの収集を前提にしたWebhook側〈`stripe_webhook.py`〉の処理を指す)。
+        `success_url`/`cancel_url`の構築方式はcheckout-session-success-cancel-url-
+        design.md(フェーズ104)参照。"""
         raise NotImplementedError
 
 
@@ -87,6 +95,7 @@ def create_checkout_session_for_event_memo(
     raw_payload: dict,
     draft_store,
     checkout_client: StripeCheckoutSessionClientProtocol,
+    base_url: str,
     *,
     now: Optional[datetime] = None,
     ttl_hours: int = DEFAULT_TTL_HOURS,
@@ -101,6 +110,8 @@ def create_checkout_session_for_event_memo(
 
     tech-stack.md(フェーズ7)が想定するCloud Run functionsのHTTPSトリガーから、
     Webフォームの生POSTボディ(dict化済み)を`raw_payload`としてそのまま渡される想定。
+    `base_url`(末尾スラッシュなし)はsuccess_url/cancel_url構築用
+    (checkout-session-success-cancel-url-design.md フェーズ104参照)。
     """
 
     intake_result = handle_form_submission(raw_payload)
@@ -126,6 +137,8 @@ def create_checkout_session_for_event_memo(
         amount=amount,
         currency=currency,
         client_reference_id=draft_id,
+        success_url=f"{base_url}/result/{draft_id}",
+        cancel_url=f"{base_url}/",
     )
 
     return CheckoutSessionCreationResult(

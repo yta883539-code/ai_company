@@ -22,12 +22,16 @@ class StubCheckoutSessionClient:
         self.checkout_url = checkout_url
         self.calls = []
 
-    def create_session(self, *, amount, currency, client_reference_id):
+    def create_session(
+        self, *, amount, currency, client_reference_id, success_url, cancel_url
+    ):
         self.calls.append(
             {
                 "amount": amount,
                 "currency": currency,
                 "client_reference_id": client_reference_id,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
             }
         )
         return CheckoutSessionResult(session_id=self.session_id, checkout_url=self.checkout_url)
@@ -63,6 +67,7 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
             INSUFFICIENT_PAYLOAD,
             self.draft_store,
             self.checkout_client,
+            "https://example.run.app",
             now=self.fixed_now,
             draft_id_factory=self._draft_id_factory,
         )
@@ -83,6 +88,7 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
             VALID_PAYLOAD,
             self.draft_store,
             self.checkout_client,
+            "https://example.run.app",
             now=self.fixed_now,
             draft_id_factory=self._draft_id_factory,
         )
@@ -108,12 +114,18 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
         self.assertEqual(call["amount"], 500)
         self.assertEqual(call["currency"], "jpy")
         self.assertEqual(call["client_reference_id"], result.draft_id)
+        self.assertEqual(
+            call["success_url"],
+            f"https://example.run.app/result/{result.draft_id}",
+        )
+        self.assertEqual(call["cancel_url"], "https://example.run.app/")
 
     def test_custom_ttl_hours_changes_expires_at(self):
         result = create_checkout_session_for_event_memo(
             VALID_PAYLOAD,
             self.draft_store,
             self.checkout_client,
+            "https://example.run.app",
             now=self.fixed_now,
             ttl_hours=1,
             draft_id_factory=self._draft_id_factory,
@@ -141,6 +153,7 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
             VALID_PAYLOAD,
             OrderTrackingDraftStore(),
             OrderTrackingCheckoutClient(),
+            "https://example.run.app",
             now=self.fixed_now,
             draft_id_factory=self._draft_id_factory,
         )
@@ -152,6 +165,7 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
             VALID_PAYLOAD,
             self.draft_store,
             self.checkout_client,
+            "https://example.run.app",
             now=self.fixed_now,
         )
         # UUID4文字列表現(36文字、ハイフン4個)であることのみ確認する(厳密な
