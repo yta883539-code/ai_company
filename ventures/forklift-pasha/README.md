@@ -4720,3 +4720,29 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   event_time`の3フィールドをFirestoreアダプタに実コード化し、firestore-data-model.md
   への記載漏れも発見・是正。新規テスト10件追加、既存テスト・schema検証・
   browser_mockup_checksいずれも変更なしでパス)
+- フェーズ220(2026-11-08 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ219次回候補(1)「oshien-pashaがWebhook実装に着手した際、event_id_store
+  方式の横展開要否を改めて確認」を検証したところ、oshien-pashaは
+  stripe-webhook-entry-point-design.mdの机上設計のみでprototype未着手のままであり、まだ
+  確認時期ではないことを確認した(次回以降も継続して棚卸し対象とする)。かわりに
+  subscription-lifecycle-event-order-guard-design.md(フェーズ214)「4. スコープ外」の
+  2項目を棚卸しし、(1)`invoice.payment_failed`/`invoice.payment_succeeded`の配信順序
+  ガードが「未実装」と記載されたままだったが実際にはフェーズ216で
+  payment-failure-event-order-guard-design.mdとして既に設計・実装済みだったこと、
+  (2)`firestore_fleet_operator_adapter.py`での`subscription_lifecycle_event_time`が
+  「未実装」と記載されたままだったが実際にはフェーズ219で既に実コード化済みだったこと、
+  という2件の陳腐化記載(フェーズ216・219完了後に本ファイルへの反映漏れ)を発見・是正した。
+  コード変更なし、既存テスト(unittest discover 114件・run_all_tests 24ファイル・schema
+  検証11件・browser_mockup_checks.js 49件)いずれも変更なしでパス(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)oshien-pashaがWebhook実装に着手した際、event_id_store方式の横展開要否を
+  改めて確認(継続)、(2)event-komiguai-pasha・oshien-pashaにおける`customer.subscription.*`
+  系配信順序ガードの横展開要否確認(subscription-lifecycle-event-order-guard-design.md
+  「4. スコープ外」の残り1項目)、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド
+  結合確認(オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-08定例更新(フェーズ220: 詳細は上記。subscription-lifecycle-event-
+  order-guard-design.mdの「4. スコープ外」2項目が、フェーズ216・219で既に解消済みだった
+  陳腐化記載であることを発見・是正。コード変更なし、既存テスト・schema検証・
+  browser_mockup_checksいずれも変更なしでパス)

@@ -77,14 +77,17 @@ event()`等と同一の変換・判定ルール)。
 
 ## 4. スコープ外
 
-- `invoice.payment_failed`・`invoice.payment_succeeded`には同種のevent_timeベースの
-  ガードは本venture内に一度も実装されていない(次回以降の棚卸し候補)。
-- `firestore_fleet_operator_adapter.py`(フェーズ123〜)は`subscription_updated_event_
-  time`・`checkout_session_completed_event_time`と同様、`subscription_lifecycle_event_
-  time`も未実装のまま(実Firestore接続化は本venture全体の既知の残課題、design docの
-  「対象とする」範囲に含まれていない)。
-- event-komiguai-pasha・oshien-pasha(いずれもStripe決済導線自体が設計途上)の同種ガード
-  有無の確認は未実施。
+- (解消済み 2026-11-06 20:00 UTC・フェーズ216: `invoice.payment_failed`・
+  `invoice.payment_succeeded`間の配信順序入れ替わりガードを
+  payment-failure-event-order-guard-design.mdとして設計・実装した。`payment_failure_
+  event_time`キーを両イベントで共有する方式。詳細は同ファイル参照。)
+- (解消済み 2026-11-07 19:00 UTC・フェーズ219: `firestore_fleet_operator_adapter.py`に
+  `subscription_updated_event_time`・`checkout_session_completed_event_time`と同時に
+  `subscription_lifecycle_event_time`も実コード化した〈`get/set_subscription_lifecycle_
+  event_time()`〉。詳細はfirestore-data-model.md・README.mdフェーズ219参照。)
+- event-komiguai-pasha・oshien-pasha(いずれもStripe決済導線自体が設計途上、oshien-pashaは
+  stripe-webhook-entry-point-design.mdの机上設計のみでprototype未着手)の同種ガード有無の
+  確認は2026-11-08 02:00 UTC時点でも未実施のまま(次回以降の棚卸し候補)。
 
 ## 5. テスト
 
