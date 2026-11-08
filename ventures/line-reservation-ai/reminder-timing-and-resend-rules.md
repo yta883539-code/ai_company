@@ -61,6 +61,20 @@ tone-and-manner-guideline.md で「前日リマインドの送信タイミング
   返信しない顧客を区別できない点は限界として残る)。
 - 再送を1回・当日朝のみに絞ることが、来店率向上とうっとうしさ回避のバランスとして適切か。
 - リマインド送信時刻のデフォルト値(営業終了1時間前・上限20:00)が実際の店舗運用に合っているか。
+  (一部補強 2026-11-08 06:00 UTC: WebSearchで美容室・サロン向けSMS/メッセージ型リマインドの
+  送信タイミングに関する業界記事(Apptoto、appointmentreminder.com、Salonkee、SendHub等)を
+  横断調査した。送信時刻は情報源間で一致せず、18:00が最適とする出典(ベンダー自社データに
+  基づくもので第三者検証なし)がある一方、9:45前後を推すツールもあり、複数の出典が
+  「現地時間9:00〜20:00の範囲に収める」ことには一致していた。本ドキュメントの現行デフォルト
+  (営業終了1時間前・上限20:00)はこの9:00〜20:00という業界レンジの上限とほぼ一致しており、
+  過大・過小とは言えないため値は変更しない。ただし「18:00が最適」という具体的な時刻の
+  優劣については出典がベンダー自社データに留まり一次統計ではないため、仮説自体の解消には
+  至らない。double-booking-prevention.mdのHOLD_TIMEOUT調査(フェーズ続き375)と同様、
+  他venture・他ドメインのベストプラクティスは参考情報の域を出ない点に留意。
+  出典: https://www.apptoto.com/best-practices/the-appointment-reminder-text-guide-20-templates ,
+  https://appointmentreminder.com/guides/best-time-to-send ,
+  https://salonkee.com/pro/en/blog-post/sms-appointment-reminders-reduce-no-shows/ ,
+  https://www.sendhub.com/?p=17898)
 
 ## 次のステップ候補
 

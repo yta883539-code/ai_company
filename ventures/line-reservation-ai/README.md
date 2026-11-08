@@ -7272,3 +7272,26 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   催促文言parity記載漏れを是正、double-booking-prevention.mdのHOLD_TIMEOUT 5分仮説に
   WebSearch調査結果を補強し値は維持。コード変更なし、テスト1048件・schema検証28件
   いずれも変更なしでパス)
+- フェーズ続き376(2026-11-08 06:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-07 22:00 UTC)を前進。reminder-timing-and-resend-rules.md「未検証の
+  仮説」節に残っていた3件のうち未着手だった「リマインド送信時刻のデフォルト値(営業終了
+  1時間前・上限20:00)が実際の店舗運用に合っているか」について、double-booking-prevention.md
+  のHOLD_TIMEOUT調査(フェーズ続き375)と同様の手法でWebSearchによる美容室・サロン向け
+  リマインド送信タイミングの業界調査を行った。Apptoto・appointmentreminder.com・Salonkee・
+  SendHub等を横断した結果、具体的な最適時刻は出典間で一致しなかった(18:00を推す出典は
+  ベンダー自社データに基づくもので第三者検証なし)一方、複数の出典が「現地時間9:00〜20:00の
+  範囲に収める」ことには一致しており、本ventureの現行デフォルト(上限20:00)はこのレンジの
+  上限とほぼ一致し過大・過小とは言えないと判断、値は変更せず維持した(仮説自体の解消には
+  至らないため「一部補強」の扱い)。reminder-timing-and-resend-rules.mdに調査結果・出典を
+  追記。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(1048件、変更なし)・`python3 schema/validate_test_cases.py`(28件、
+  変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)reminder-timing-and-resend-rules.mdの残り2件の
+  未検証の仮説(「返信の有無」を既読代理指標とする妥当性、再送1回・当日朝のみの妥当性)の
+  検討、または他venture・アイデア領域の前進、各種md間のcross-document parity確認を継続する。
+- 最終更新: 2026-11-08 06:00 UTC(フェーズ続き376: 詳細は上記。reminder-timing-and-resend-
+  rules.mdのリマインド送信時刻デフォルト値の未検証の仮説にWebSearch調査結果を補強し値は
+  維持。コード変更なし、テスト1048件・schema検証28件いずれも変更なしでパス)
