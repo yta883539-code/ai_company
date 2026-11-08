@@ -2210,3 +2210,23 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   design.mdの設計に基づき`prototype/stripe_webhook.py`を新規実装〈署名検証・4イベント
   種別ディスパッチ・event_timeガード配線〉。新規テスト23アサーション追加、既存回帰
   いずれも変更なしでパス)
+- フェーズ98(2026-11-08 05:00 UTC定例更新): フェーズ97次回候補(1)「design 3-2節の
+  ポーリング設計(決済完了直後の結果ページ表示エンドポイント)の実装」に対応した。
+  `prototype/checkout_result_page_handler.py`を新規作成し、`resolve_checkout_result()`
+  として(a)Stripe Checkout SessionからのStripe Subscription ID取得(Protocol経由、本フェーズは
+  インメモリ偽実装のみ)、(b)`fan_pass_store.get_by_stripe_subscription_id()`への最大5回・
+  1秒間隔(いずれも引数で上書き可能)のポーリング再試行、を実コード化した。見つかれば
+  `status="ready"`と`access_token`を、5回とも見つからなければ`status="pending"`を返す。
+  Checkout Session自体がStripe側に無い場合(URL改ざん・期限切れ等)は`CheckoutSessionNotFoundError`
+  を送出し即時エラーとして扱う(design.md 3-2節の「ポーリング対象外」区分どおり)。
+  `test_checkout_result_page_handler.py`を新規作成し5アサーション(即時成功・ポーリング
+  途中到達・最大試行到達時のpending・Session未検出・カスタム試行回数/間隔)を追加、全て
+  PASSを確認した。既存テスト(prototype配下test_*.py全7本・`validate_test_cases.py`
+  9件・`schema/check_venue_master_parity.py`36件/36件)いずれも変更なしでパスすることを
+  確認した(回帰なし)。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)design.md次回候補2「暫定ステータスマッピング(`past_due`即`canceled`扱い)の
+  妥当性の再検討」、(2)`resolve_checkout_result()`を呼び出す側のHTTPエントリポイント
+  (フロントエンド向けAPI、design.md次回候補4)の実装、(3)実Stripeアカウント・実GCP
+  プロジェクト・実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため
+  引き続き着手不可、(4)他venture・アイデア領域の前進。
