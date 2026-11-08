@@ -6635,3 +6635,29 @@
   G5_removal_only_noticeを追加、prototype/post_generation_checks.pyの
   check_history_row_counts_mentioned_in_text()のcount=0未考慮バグを修正。テスト866件
   (全件パス)・schema検証22件(全件パス))
+- フェーズ362(2026-11-08 07:00 UTC定例更新): フェーズ361の次回候補(3)だった、
+  `history_rows[].count`の「null=抽出不可/0=意図的な実在のゼロ」という使い分け設計が
+  他venture(line-reservation-ai等)の類似スキーマ設計方針と整合するか、同種の見落としが
+  他ventureにも存在しないかを横展開検討した(count-null-vs-zero-cross-venture-review.md
+  新規作成)。6venture(aircon-pasha・forklift-pasha・event-komiguai-pasha・kura-pasha・
+  oshien-pasha・line-reservation-ai)全てのschema・post_generation_checks.pyを確認した
+  結果、「null許容の整数型フィールドの値が本文中に数字として登場することを機械的に要求する」
+  という本venture同型の組み合わせ自体がどのventureにも存在せず、同種のバグは発見されな
+  かった。oshien-pashaのcost_estimate配下(transport_yen等)は型こそ同じ`["integer",
+  "null"]`だが本文言及を要求するチェック関数がなく、event-komiguai-pashaの
+  check_dispersed_exit_block_count_consistency()は本文中の言及どうしの突き合わせであり
+  schemaの値そのものを前提にしないため、いずれも対象外と判断した。結論として、フェーズ361の
+  バグはcourse-set-pasha固有の設計(本数という「新規追加ゼロ」が意味を持つ値)に起因する
+  一過性の見落としであり、他ventureへの追加対応は不要と判断した。本フェーズはコード・schema
+  変更を伴わない机上レビューのみ。回帰確認として`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`(866件、変更なし)・`python3 -I schema/
+  validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項、または候補1・候補2への連絡可否がオーナーから承認された場合は
+  その着手を最優先、(2)removal-only-notice-edge-case-review.mdの未検証事項(実在ジムでの
+  撤去告知の実例確認)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 07:00 UTC(フェーズ362: 詳細は上記。count-null-vs-zero-cross-
+  venture-review.mdを新規作成し、フェーズ361のcount=0バグが他6venture共通の構造的課題では
+  ないことを確認・是正不要と結論。コード・schema変更なし。テスト866件・schema検証22件
+  いずれも変更なしでパス)
