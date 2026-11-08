@@ -6792,3 +6792,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   べき等性Storeの実Firestoreアダプタ〈`FirestoreStripeEventIdStore`〉を新規設計・実装し、
   `firestore.rules`・firestore-composite-index-plan.mdを8コレクション構成に更新。
   新規テスト6件追加、既存テストいずれも変更なしでパス)
+- フェーズ続き291(2026-11-08 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。stripe-event-id-store-firestore-adapter-design.md 2節がTTL見送りの根拠として
+  挙げていた「Stripeイベントの再送は通常数日以内に収まる(Stripe公式ドキュメント)」という
+  前提をWebSearchで裏取りした。本セッションのネットワーク制限により`docs.stripe.com`への
+  直接アクセス(WebFetch)はできなかったが、WebSearch経由で複数の独立した技術系解説記事
+  (Webhook再送実装を扱う開発者向けガイド等)を確認したところ、いずれもStripeの再送
+  スケジュールを「即時→5分→30分→1時間→2時間→4時間→8時間→16時間→24時間→48時間→
+  72時間(最大11回)」前後の指数バックオフと一致して説明しており、「数日以内(目安72時間)」
+  という既存の前提と整合することを確認した。一次情報での確認が未達である旨を注記として
+  残し、TTL見送りの判断自体は変更していない(一部補強、解消済みとはしない。dunning通知
+  頻度の裏取り〈フェーズ372のcross-venture survey〉と同種の確認作業)。コード変更なし、
+  既存テスト(`python3 prototype/run_all_tests.py` 25ファイル全件OK・`python3
+  schema/validate_test_cases.py` 32件)いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)aircon-pasha・course-set-pasha・forklift-pasha・event-komiguai-pashaへの
+  Stripe event.idべき等性Firestoreアダプタ(フェーズ290と同型)の横展開(それぞれが
+  「7venture中最も更新が止まっていたventure」として選ばれた回に対応)、(2)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(3)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 18:00 UTC定例更新(フェーズ続き291: 詳細は上記。
+  stripe-event-id-store-firestore-adapter-design.md 2節のTTL見送り前提をWebSearchで裏取り
+  し補強。コード変更なし、既存テストいずれも変更なしでパス)
