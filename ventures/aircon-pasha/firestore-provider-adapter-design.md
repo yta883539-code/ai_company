@@ -466,9 +466,12 @@ class FirestoreUserProfileStore:
   (`blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`等)は
   本節のpayment_failure系と同じ「単純なOptional[datetime]の読み書きのみ」の構成のため、
   次に着手しやすい候補と見込む。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節から持ち越し、
-  datetime⇄Firestoreタイムスタンプ変換を含む)は依然未着手。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+- ~~`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節から持ち越し、
+  datetime⇄Firestoreタイムスタンプ変換を含む)は依然未着手。~~ →
+  **フェーズ369で対応済み**(本箇条書きが同一内容で重複記載〈編集時の取り残し〉に
+  なっていたことも含め是正。19節で設計・`prototype/firestore_user_profile_adapter.py`
+  61-75行目〈`_profile_to_dict`/`_profile_from_dict`〉として実コード化済み。詳細は
+  19節・20節参照)。
 
 ## 11. UserProfileStoreProtocol(owner_notified_at系グループ)の実Firestore接続アダプタ設計
 
@@ -556,7 +559,8 @@ class FirestoreUserProfileStore:
   5節のLinkingCodeStoreProtocol `items()`相当の全件走査系メソッドを含むため、
   走査方法(コレクション全体の`stream()`か専用インデックスか)の検討が必要になる点で
   current_plan_idより設計がやや複雑になる見込み。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+- ~~`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。~~
+  → **フェーズ369で対応済み**(19節・20節参照)。
 
 ## 13. UserProfileStoreProtocol(current_plan_id)の実Firestore接続アダプタ設計
 
@@ -616,7 +620,8 @@ class FirestoreUserProfileStore:
   `items()`相当の全件走査系メソッドを含むため、走査方法(コレクション全体の`stream()`か
   専用インデックスか)の検討が必要になる点で、これまでのグループより設計がやや複雑になる
   見込み。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+- ~~`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。~~
+  → **フェーズ369で対応済み**(19節・20節参照)。
 
 ## 15. UserProfileStoreProtocol(is_following+all_user_ids)の実Firestore接続アダプタ設計
 
@@ -692,7 +697,8 @@ class FirestoreUserProfileStore:
 ## 16. 残課題・次回候補(15節分)
 
 - 残りのグループ(event_time系4種)の実Firestore接続アダプタ設計。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。
+- ~~`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節と共通、未着手)。~~
+  → **フェーズ369で対応済み**(19節・20節参照)。
 - 承認後の結合実装時に、`blocked_but_billing_candidates.py`・`deletion_candidate.py`の
   日次バッチ実行環境(Cloud Scheduler、オーナー承認待ち)が整った段階で、`all_user_ids()`
   の実際の読み取り件数・レイテンシを計測し、15.3節の「過剰設計として見送り」判断を
@@ -788,8 +794,8 @@ class FirestoreUserProfileStore:
 - `UserProfileStoreProtocol`の全7グループ(基盤3メソッド+Stripe顧客IDグループ・trial系・
   payment_failure系・owner_notified_at系・current_plan_id・is_following+all_user_ids・
   event_time系4種)の実Firestore接続アダプタ設計が本節で完了した。
-- `_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節以来、未着手のまま
-  残っている)。
+- ~~`_profile_to_dict`/`_profile_from_dict`ヘルパーの具体的な実装(5節以来、未着手のまま
+  残っている)。~~ → **フェーズ369で対応済み**(19節・20節参照)。
 - 本designでは未対象の他Protocol(`SubscriptionDeletionCandidateStoreProtocol`等、
   user_id_linking.py以外のモジュールで定義されるもの)の実Firestore接続アダプタ設計。
 - 承認が得られ次第、実GCPプロジェクト・Firestoreインスタンスでの結合テスト(現時点では

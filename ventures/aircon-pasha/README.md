@@ -6992,6 +6992,26 @@
   次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
   された場合はその着手を最優先、(2)残り21件の個別design.mdファイルの棚卸しの継続、
   (3)他venture・アイデア領域の前進。
+- フェーズ369(2026-11-08 09:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ368の次回候補(2)「残り21件の個別design.mdファイルの棚卸しの継続」に
+  対応し、firestore-provider-adapter-design.mdを棚卸しした。同design 10・12・14・16・18節
+  (9・11・13・15・17節それぞれの「残課題・次回候補」)が共通して「`_profile_to_dict`/
+  `_profile_from_dict`ヘルパーの具体的な実装は未着手」と記載し続けていたが、同design
+  19節で既にこのヘルパーの設計が完了し、20節で「5節の基盤3メソッドを含む
+  `UserProfileStoreProtocol`全グループの実Firestore接続アダプタ設計が完了した」と
+  明記されている上、`prototype/firestore_user_profile_adapter.py` 61-75行目に
+  `_profile_to_dict`/`_profile_from_dict`として実コード化済み(docstringにも「全
+  グループの実コード化は完了済み」と明記)であることを確認した。10節は同一内容の
+  箇条書きが2行連続で重複記載されている編集時の取り残しでもあった。5件(10・12・14・
+  16・18節)いずれにも[フェーズ369で対応済み]の取り消し線+解決内容の要約を追記して
+  是正し、10節の重複行は統合した。コード変更なし(ドキュメント是正のみ)、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(803件、変更なし)・
+  `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り20件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
 - 最終更新: 2026-11-08 01:00 UTC(フェーズ368: 詳細は上記。vendor-breach-key-rotation-
   runbook.md 4節の陳腐化した「次回候補」〈forklift-pasha・event-komiguai-pashaへの横展開は
   両venture側で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
