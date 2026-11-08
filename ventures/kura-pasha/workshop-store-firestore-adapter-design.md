@@ -1435,6 +1435,14 @@ deletion_candidate・deletion_confirmation系)の実Firestore接続アダプタ�
    【追記】course-set-pashaフェーズ309(2026-10-18 05:00 UTC)で横展開1件目
    (course-set-pasha/firestore-security-rules-draft.md新規作成)が完了済み。残るのは
    forklift-pasha・line-reservation-aiの2件。
+   【さらに追記・フェーズ289で是正】本節執筆(フェーズ244)時点では未完了だった
+   forklift-pasha・line-reservation-aiの2件も、firestore-security-rules-draft.md
+   4節(フェーズ246)の確認時点で既にそれぞれフェーズ172・続き331で完了済みだったことが
+   判明している。したがって本venture発のdeny-allルール横展開は5venture全てで完了済み
+   (aircon-pashaも別途同型ルールを保持済み)であり、本節の「残るのは2件」という記載は
+   フェーズ246以降陳腐化していた。実デプロイ(Firebase Local Emulator Suiteでの
+   `PERMISSION_DENIED`検証含む)のみ5venture共通でオーナーのFirestoreプロジェクト
+   作成承認待ちのまま残る。
 2. 優先順位1・2候補(ライディングショップ池上・エクウスワールド)へのヒアリング実施が
    オーナーから承認された場合はその着手を最優先(28節2点目から継続)。
 3. 他venture・アイデア領域の前進。

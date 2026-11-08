@@ -6739,3 +6739,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   処理済みStoreの実Firestoreアダプタ〈`FirestoreLineWebhookEventIdStore`〉を新規設計・
   実装し、`firestore.rules`・firestore-composite-index-plan.mdを7コレクション構成に
   更新。新規テスト7件追加、既存テストいずれも変更なしでパス)
+- フェーズ289(2026-11-08 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。workshop-store-firestore-adapter-design.md 31節1点目「Firestoreセキュリティ
+  ルール草案の他venture横展開は残るのはforklift-pasha・line-reservation-aiの2件」という
+  記載(フェーズ244時点)を棚卸ししたところ、firestore-security-rules-draft.md 4節
+  (フェーズ246)で両venture側がそれぞれフェーズ172・続き331で既に横展開完了済みで
+  あることが確認されていたにもかかわらず、31節側には反映されていなかった陳腐化記載
+  であることを発見した。forklift-pasha/firestore.rules・line-reservation-ai/
+  firestore.rulesの実ファイルを直接確認し、両方とも既にdeny-allルール(Cloud Functions
+  経由のみ・クライアント直接アクセス無し)を保持済みであることも二重に確認した上で、
+  31節に是正の追記を行った(本venture発のdeny-allルール横展開は5venture全てで完了済み、
+  実デプロイ〈Firebase Local Emulator Suite検証含む〉のみオーナー承認待ち)。コード変更
+  なし、既存テスト(`python3 prototype/run_all_tests.py` 24ファイル全件OK・`python3
+  schema/validate_test_cases.py` 32件)いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)aircon-pasha・course-set-pashaへのwebhookEventIdべき等性対策(TTL設計・
+  Firestoreアダプタ含む)の横展開(それぞれが「7venture中最も更新が止まっていたventure」
+  として選ばれた回に対応、フェーズ288より継続)、(2)承認待ち事項がオーナーから承認
+  された場合はその着手を最優先、(3)フェーズ266次回候補(2)「4節のログ出力側
+  (`event`構造化フィールド)への実装反映を結合実装フェーズで行う」(引き続き結合実装
+  フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 03:00 UTC定例更新(フェーズ289: 詳細は上記。workshop-store-
+  firestore-adapter-design.md 31節の陳腐化記載〈Firestoreセキュリティルール横展開の
+  未完了件数〉を発見・是正。コード変更なし、既存テストいずれも変更なしでパス)
