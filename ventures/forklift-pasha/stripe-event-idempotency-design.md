@@ -83,3 +83,45 @@ Functions環境では呼び出しをまたいで保持されない(他venture・
   プロジェクト接続後(オーナー承認待ち)の課題として残る。
 - event-komiguai-pasha(結合実装待ち)・oshien-pasha(Webhook未実装)は、各venture側で
   実装着手時に本ドキュメントを参照して横展開する。
+
+## 6. 横展開の棚卸し(フェーズ222、2026-11-08 17:00 UTC)
+
+oshien-pashaがフェーズ97〜99(2026-11-08 04:00〜12:00 UTC)で`prototype/stripe_webhook.py`
+を実コード化し、本ドキュメント1節で「Webhookエントリポイント自体が未実装のため対象外」と
+していた前提条件が変わったため、本ventureのパターン(本ファイル)を横展開すべきか改めて
+確認した。
+
+- 対象4イベント種別(`checkout.session.completed`・`customer.subscription.deleted`・
+  `customer.subscription.created`・`customer.subscription.updated`)のハンドラを
+  `ventures/oshien-pasha/prototype/stripe_webhook.py`・`fan_pass_store.py`で直接確認した。
+  - `_handle_checkout_session_completed()`が呼ぶ`FanPassStore.create()`は、
+    `fan_pass_store.py`のdocstring(フェーズ40)が明記する通り、同一
+    `stripe_subscription_id`で再度呼ばれた場合は新規発行せず既存の
+    `(internal_id, access_token)`を返す設計であり、**`create()`自身が既にStripeの
+    重複配信に対応したべき等関数**になっている。
+  - 残り3ハンドラ(`customer.subscription.*`)が呼ぶ`update_subscription_status()`は、
+    同じ値を再度書き込むだけで実害が無い(べき等)上、`event_time`引数による配信順序
+    入れ替わりガード(フェーズ88・96、本venture2節と同型のevent_timeベースガード)も
+    既に備えている。
+  - 本venture・kura-pasha・aircon-pashaでevent_id_store導入の決め手となった「通知送信の
+    重複」という実害は、oshien-pasha側には存在しない(design記載の通りWeb単体・会員登録
+    なしでLINE Push等の通知送信を一切行わない構成のため)。
+  - `invoice.payment_failed`/`invoice.payment_succeeded`(本ventureでevent_id_storeが
+    実際に防いでいる「猶予期間起算点のずれ」という実害の発生源)はoshien-pasha側では
+    未実装(2節参照の`subscription-updated-past-due-grace-period-reconsideration.md`も
+    Stripe自身のスマートリトライに委ねる設計であり、本venture同様の専用タイムスタンプ
+    フィールドは新設していない)。
+- 以上により、oshien-pashaの現行4ハンドラはいずれも実害の無いべき等な設計であることを
+  確認し、**現時点でevent_id_storeの横展開は不要**と判断した。1節の「対象外」判断は
+  当時「Webhook未実装」を理由としていたが、実装後の今も結論(対象外)自体は変わらない
+  (理由のみ「未実装」から「実装済みだがいずれもべき等」に更新)。
+- 継続監視条件: oshien-pashaが将来`invoice.payment_failed`等の非べき等なハンドラ(通知
+  送信・タイムスタンプ上書きを伴うもの)を追加した場合は、本ventureフェーズ215と同じ
+  実害が生じうるため、その時点で本ドキュメントを再度参照して横展開要否を確認する
+  (次回候補として持ち越す)。
+
+コード変更なし(本ventureの既存実装はフェーズ215時点から変更不要と判明したため)。
+既存テスト(unittest discover 114件・run_all_tests.py 24ファイル・schema検証11件・
+browser_mockup_checks.js 49件)いずれも変更なしでパス(回帰なし)。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。

@@ -4773,3 +4773,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   order-guard-design.mdの「4. スコープ外」に残っていたoshien-pasha側の陳腐化記載
   (Stripe決済導線が設計途上で未着手)を発見・是正(実際は配信順序ガードまで実装済み)。
   コード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも変更なしでパス)
+- フェーズ222(2026-11-08 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ221次回候補(1)「oshien-pashaがWebhook実装(checkout.session.completed
+  相当)に着手した際、event_id_store方式の横展開要否を改めて確認」に対応した。
+  oshien-pashaがフェーズ97〜99で`prototype/stripe_webhook.py`を実コード化済みだったため、
+  stripe-event-idempotency-design.md(フェーズ215)を参照して横展開要否を検証した。
+  oshien-pasha側を直接確認したところ、`checkout.session.completed`が呼ぶ
+  `FanPassStore.create()`は同一`stripe_subscription_id`の再呼び出しに対し新規発行せず
+  既存の`(internal_id, access_token)`を返すべき等関数であり、`customer.subscription.*`
+  3種は`update_subscription_status()`の同値上書き(無害)+event_time配信順序ガード
+  (フェーズ88・96)を既に備え、かつ通知送信自体を一切行わない(LINE Push等なし)構成の
+  ため、本venture・kura-pasha・aircon-pashaでevent_id_store導入の決め手となった実害
+  (重複通知・猶予期間起算点のずれ)がいずれも生じないことを確認した。結論として
+  **現時点でevent_id_storeの横展開は不要**と判断し、stripe-event-idempotency-design.md
+  に「6. 横展開の棚卸し」節を追加して理由を記録した(oshien-pasha側のファイルは変更せず、
+  将来`invoice.payment_failed`等の非べき等なハンドラを追加した時点で再確認する継続監視
+  条件として持ち越した)。コード変更なし、既存テスト(unittest discover 114件・
+  run_all_tests 24ファイル・schema検証11件・browser_mockup_checks.js 49件)いずれも
+  変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)event-komiguai-pashaが`customer.subscription.*`ディスパッチに着手した際、
+  配信順序ガード・event_id_store双方の横展開要否を確認(継続)、(2)oshien-pashaが将来
+  `invoice.payment_failed`等の非べき等なハンドラを追加した場合、event_id_storeの横展開
+  要否を再確認(継続監視)、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合
+  確認(オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア領域
+  の前進。
+- 最終更新: 2026-11-08定例更新(フェーズ222: 詳細は上記。oshien-pashaの実装済みWebhookを
+  確認し、現行4ハンドラはいずれもべき等でevent_id_store横展開が不要であることを判断。
+  stripe-event-idempotency-design.mdに棚卸し結果を追記。コード変更なし、既存テスト・
+  schema検証・browser_mockup_checksいずれも変更なしでパス)
