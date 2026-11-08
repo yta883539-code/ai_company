@@ -38,11 +38,20 @@ line-reservation-ai〈複数コレクション、サブコレクション構造�
   索引の有無に関わらずパスする。実Firestore接続後、`FirestoreUserProfileStore`
   (firestore-provider-adapter-design.md)側にクエリベースの実装を追加する際に本索引が
   必要になる想定。
-- #4(trial_end_scheduler.py)は本venture内に専用のCloud Functionsエントリポイント
+- ~~#4(trial_end_scheduler.py)は本venture内に専用のCloud Functionsエントリポイント
   (`cloud_function_send_deletion_candidate_final_confirmations.py`相当の薄い配線)が
   まだ存在せず、`build_trial_user_states(store, user_ids)`が受け取る`user_ids`の
   組み立て元(=本来この索引を使うはずのクエリ発行元)自体が未着手のまま残っている
-  (次回候補(2))。本フェーズでは将来の配線を見据えた索引の事前設計のみを行う。
+  (次回候補(2))。本フェーズでは将来の配線を見据えた索引の事前設計のみを行う。~~
+  → フェーズ315(2026-11-06 13:00 UTC)で`prototype/daily_scheduler.py`
+  (`build_trial_user_states(profile_store, sorted(profile_store.all_user_ids()))`
+  という`user_ids`組み立て)、フェーズ316で薄いCloud Functionsエントリポイント
+  `prototype/cloud_function_run_daily_checks.py`(Cloud Scheduler日次起動想定)が
+  それぞれ実装済みであることを確認した(trial_end_scheduler.py自体のクエリ発行元が
+  `all_user_ids()`による線形走査〈上記補足と同じ既知の限界〉である点は変わらないが、
+  本節が指していた「専用エントリポイント・組み立て元の未着手」自体は解消済み)。
+  本フェーズ(フェーズ370)作成当初から約2日間、解消済みの課題を未着手のまま書き
+  続けていた陳腐化記載だったため是正した。コード変更なし(ドキュメント是正のみ)。
 - #1〜#3はいずれも`current_plan_id != null`・`payment_failure_detected_at <= X`のような
   不等号条件を含むが、Firestoreの複合インデックス定義上は等号・不等号を区別せず
   フィールド順序のみを指定する形式であるため、forklift-pasha/kura-pasha版の表記方式

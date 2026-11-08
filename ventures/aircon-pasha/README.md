@@ -7016,3 +7016,28 @@
   runbook.md 4節の陳腐化した「次回候補」〈forklift-pasha・event-komiguai-pashaへの横展開は
   両venture側で既に完了済み〉を発見・是正。コード変更なし、テスト803件・schema検証25件
   いずれもパス)
+- フェーズ370(2026-11-08 16:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ369の次回候補(2)「残り20件の個別design.mdファイルの棚卸しの継続」に
+  対応し、firestore-composite-index-plan.md(フェーズ314)を棚卸しした。同design「集約した
+  複合インデックス一覧」直後の補足箇条書きが、索引#4(trial_end_scheduler.py用)について
+  「本venture内に専用のCloud Functionsエントリポイントがまだ存在せず、`build_trial_
+  user_states()`が受け取る`user_ids`の組み立て元自体が未着手のまま残っている(次回候補
+  (2))」と記載し続けていたが、実際にはフェーズ314作成の約2日後(2026-11-06 13:00 UTC)の
+  フェーズ315で`prototype/daily_scheduler.py`がその組み立て(`sorted(profile_store.
+  all_user_ids())`経由)を実装し、続くフェーズ316で薄いCloud Functionsエントリポイント
+  `prototype/cloud_function_run_daily_checks.py`(Cloud Scheduler日次起動を想定)も実装
+  済みであることを確認した(いずれもコード自体はフェーズ369以前から存在していたが、
+  firestore-composite-index-plan.md側の該当箇条書きが更新されないまま約2日間「未着手」
+  と書き続けていた記載漏れだった)。該当箇条書きに取り消し線+解決内容の要約を追記して
+  是正した。コード変更なし(ドキュメント是正のみ)、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/validate_
+  test_cases.py`(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)残り19件の個別design.mdファイルの棚卸しの継続、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 09:00 UTC(フェーズ369: 詳細は上記。firestore-provider-adapter-
+  design.md 10・12・14・16・18節の陳腐化した「_profile_to_dict/_profile_from_dictヘルパー
+  未着手」記載〈19・20節で設計完了・実コード化済み〉を発見・是正。コード変更なし、
+  テスト803件・schema検証25件いずれもパス)
