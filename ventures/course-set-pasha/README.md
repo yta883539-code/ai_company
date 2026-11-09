@@ -6753,3 +6753,30 @@
   case-review.mdの未検証事項について3回目のWebSearchを実施し新たな実例は発見できず、
   WebSearchでの確認を打ち切る方針に変更。コード・schema変更なし。テスト872件・schema
   検証22件いずれも変更なしでパス)
+- フェーズ367(2026-11-09 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ366の次回候補(1)「event-komiguai-pasha・forklift-pashaにも同様の
+  INDEX.md整理を展開」について確認したところ、全7venture配下に既にINDEX.mdが存在する
+  (oshien-pashaフェーズ105で全件整備完了済み、2026-11-09 18:00 UTCコミット時点)ことを
+  確認し、本次回候補は既に解消済みであることが判明した(記載の更新漏れ、是正不要・
+  追記のみ)。あわせて本venture自身のINDEX.md(フェーズ365作成)についても、配下の
+  `*.md`ファイル(README.md・INDEX.md自身を除く124件)を`find`で網羅的に突き合わせた
+  結果、索引から漏れているファイルは無いことを確認した(ドリフトなし)。
+  runtime-dependency-switching-design.md 5.4節の「`.py`ファイルへの実装反映は実
+  `google-cloud-firestore`ライブラリ導入とセットで行う結合実装フェーズに持ち越す」
+  という既存方針を確認し、GCPプロジェクト未承認の現時点では妥当な先送りであり着手
+  不要と判断した。landing-page-copy-draft.md「次のステップ候補」のワイヤーフレーム
+  作成も既にlanding-page-wireframe.mdとして完了済み(記載漏れなし)であることを確認
+  した。本venture自身に新たに着手可能な未着手事項は本フェーズでは発見できなかった
+  (残る次回候補はいずれもオーナー承認待ち、または他venture自身の次回フェーズに
+  委ねた申し送り事項)。コード・schema変更なし。回帰確認として`python3 -I -m
+  unittest discover -s prototype -p "test_*.py"`(872件、変更なし)・`python3 -I
+  schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパス
+  することを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、実GCP/
+  Firestore/Stripeアカウント作成の承認可否)がオーナーから得られた場合はその着手を
+  最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 19:00 UTC(フェーズ367: 詳細は上記。次回候補(1)のINDEX.md
+  横展開は全venture既に完了済みであることを確認、本venture自身のINDEX.mdドリフトも
+  無しを確認。新たな未着手事項は発見できず、コード変更なし。テスト872件・schema
+  検証22件いずれも変更なしでパス)
