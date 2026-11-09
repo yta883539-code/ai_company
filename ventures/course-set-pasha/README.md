@@ -6712,3 +6712,20 @@
   Stripe event.idべき等性Storeの実Firestoreアダプタ〈`FirestoreStripeEventIdStore`〉を
   新規設計・実装。`firestore.rules`を5コレクション構成に更新。新規テスト6件追加、既存
   テストいずれも変更なしでパス)
+- フェーズ365(2026-11-09 05:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。kura-pashaフェーズ続き292(2026-11-09 01:00 UTC)が「他venture(aircon-pasha・
+  course-set-pasha・event-komiguai-pasha等)にも同様のINDEX.md整理を順次展開」と
+  申し送っていた対応として、本venture配下の約140件のMarkdown設計文書をテーマ別
+  (事業・市場/LLM・チャットボット・生成品質/課金・Stripe・サブスク状態管理/LINE連携・
+  申込フォーム/インフラ・運用/顧客向け文面・法務)に索引化したINDEX.mdを新規作成した。
+  内容の要約・ステータス追跡は行わず一覧整理のみ。コード変更なし、既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"` 872件・
+  `python3 -I schema/validate_test_cases.py` 22件)いずれも変更なしでパス(回帰なし)。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)event-komiguai-pasha・forklift-pashaにも同様のINDEX.md整理を展開
+  (それぞれが「7venture中最も更新が止まっていたventure」として選ばれた回に対応)、
+  (2)承認待ち事項、または「実在ジムでの撤去告知の実例確認」への着手が承認された場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 05:00 UTC(フェーズ365: 詳細は上記。配下約140件のMarkdown設計
+  文書をテーマ別に索引化したINDEX.mdを新規作成。コード変更なし、既存テスト872件・
+  schema検証22件いずれも変更なしでパス)
