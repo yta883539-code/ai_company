@@ -2311,3 +2311,24 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-09 02:00 UTC(フェーズ101: 詳細は上記。`access-token-client-storage-
   design.md`を新規作成し、決済結果ページの`access_token`保持方式をsessionStorage採用・
   Cookie/localStorage非採用として決定。コード変更なし、既存テストいずれも変更なしでパス)
+- フェーズ102(2026-11-09 04:00 UTC定例更新): フェーズ101次回候補(1)「次画面(生成物表示
+  ページ)自体の設計」に対応した。新規`result-display-page-generation-request-design.md`
+  として、次画面の役割(入力フォーム提示→生成リクエスト送信→4出力表示)を確定し、
+  checkout-result-http-entry-point-design.mdのレスポンスだけでは不足するため新規
+  エンドポイント`receive_generation_request()`(空入力→400、access_token不明→404、
+  解約済み→403、成功→200の4段構成)を設計した。設計の過程で、現状のFanPassStoreProtocol
+  (`create()`が`stripe_subscription_id`必須)が月額フリーパス専用の形になっており、
+  都度プラン(mode=payment)側のaccess_token永続化・1回使用後の失効設計が
+  monthly-pass-identity-design.md(フェーズ7)以来未解決のまま残っていることを明記した
+  (次回候補として記録、今回は月額フリーパスのみを正とする暫定実装に留めた)。コード変更
+  なし、既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`31件)
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記
+  なし。
+  次回候補: (1)都度プラン用access_tokenの永続化・1回使用後の失効設計、(2)入力フォーム
+  自体のUI/UX設計、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー
+  承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-09 04:00 UTC(フェーズ102: 詳細は上記。次画面の役割・新規エンドポイント
+  `receive_generation_request()`を設計し、都度プラン側のaccess_token設計が未解決のまま
+  残っていることを明記)
