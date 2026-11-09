@@ -2412,3 +2412,35 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   新規作成。単発決済向けに`price_data`インライン指定方式を採用する設計判断を記録し、
   `checkout_session_creation.py`に`build_stripe_checkout_session_params()`を新規実装。
   新規テスト2件追加、全128件・schema検証22件いずれもパス)
+- フェーズ106(2026-11-09 06:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。idempotency-key-write-conflict-control-design.md(フェーズ67・68)で設計を確定
+  済みのまま未着手だった`idempotency_key_index`コレクションのコード化に着手した。
+  `prototype/idempotency_key_index_store.py`を新規作成し、`IdempotencyKeyIndexStoreProtocol`・
+  design 3節の「存在しなければ作成、存在すれば失敗」を1メソッドに結線した
+  `reserve_or_get()`・検証用の`InMemoryIdempotencyKeyIndexStore`を実装した。続けて
+  kura-pasha/firestore_stripe_event_id_adapter.py等と同型の方針(実google-cloud-firestore
+  SDKを直接importせず、`collection(name).document(id).create(data)`/`get()`の最小
+  インターフェースのみに依存)で`prototype/firestore_idempotency_key_index_adapter.py`
+  (`FirestoreIdempotencyKeyIndexStore`)を新規作成した。design 3節が前提とする
+  `ALREADY_EXISTS`例外を実SDKを使わずに区別できないため、`create()`失敗時はネットワーク
+  エラー等も区別せず既存ドキュメントの読み取りにフォールバックする設計とし、実Firestore
+  接続後(オーナー承認待ち)に`google.api_core.exceptions.AlreadyExists`を明示的に区別する
+  詳細化が必要な残課題であることをモジュールdocstringに明記した。新規テスト9件
+  (`test_idempotency_key_index_store.py`5件・`test_firestore_idempotency_key_index_adapter.py`
+  4件)を追加し、既存128件と合わせ全137件がパスすることを確認した(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)。schema検証22件も変更なしでパス(回帰なし)。
+  form_submission_intake.py・inquiry_form_intake.pyへの実際の結線(`handle_form_submission()`等
+  からの呼び出し)は本フェーズでは行っていない(次回候補参照)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)`idempotency_key_index_store.
+  reserve_or_get()`をform_submission_intake.handle_form_submission()・inquiry_form_intake.
+  相当の入口処理に結線し、`one_time_draft`/`inquiry`それぞれの新規作成直前に呼ぶ実装へ
+  統合する(本フェーズでは独立モジュールの実装・テストのみに留めた)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-09 06:00 UTC(フェーズ106: `prototype/idempotency_key_index_store.py`・
+  `prototype/firestore_idempotency_key_index_adapter.py`を新規作成。design(フェーズ67・68)の
+  `idempotency_key_index`原子的衝突検知方式をコード化(InMemory実装・Firestoreアダプタの
+  両方)。新規テスト9件追加、全137件・schema検証22件いずれもパス。既存の入口処理への結線は
+  次回候補として残す)
