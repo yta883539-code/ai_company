@@ -6830,3 +6830,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   次回候補: (1)他venture(aircon-pasha・course-set-pasha・event-komiguai-pasha等)にも
   同様のINDEX.md整理を順次展開、(2)承認待ち事項がオーナーから承認された場合はその着手を
   最優先、(3)フェーズ291次回候補の横展開、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 01:00 UTC定例更新(フェーズ続き292: 詳細は上記。
+  INDEX.mdを新規作成し全文書をテーマ別に索引化。コード変更なし、既存テストいずれも
+  変更なしでパス)
+- フェーズ続き293(2026-11-09 12:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ292次回候補(1)「他ventureへのINDEX.md整理の順次展開」に対応し、line-
+  reservation-ai(フェーズ続き380、aircon-pasha分)・forklift-pasha(フェーズ224)・
+  course-set-pasha(フェーズ365)側で既に対応済みであることを確認した上で、未整備のまま
+  残っていたevent-komiguai-pasha・oshien-pashaの2件のうち、配下ファイル数の多い
+  event-komiguai-pasha(42件のMarkdown設計文書)を優先し、同venture配下にINDEX.md
+  を新規作成した(事業・市場/LLM・出力品質/申込フォーム・UI・LP/決済・Stripe/冪等性・
+  重複衝突制御/ドラフト生成・結果配信・TTL/顧客対応・文面・法務・横断レビュー/インフラ・
+  運用の8テーマに分類、全42件のMarkdown文書を一覧との差分比較〈comm〉で網羅を確認)。
+  残るoshien-pashaは次回候補として持ち越し。kura-pasha自身のコード変更なし、
+  event-komiguai-pasha側の既存テスト(`python3 -m unittest discover -s prototype -p
+  "test_*.py"` 137件・`schema/validate_test_cases.py` 22件)いずれも変更なしでパス
+  (回帰なし)。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)oshien-pashaへの同様のINDEX.md整理、(2)承認待ち事項がオーナーから承認
+  された場合はその着手を最優先、(3)フェーズ291次回候補(4節のログ出力側実装、結合実装
+  フェーズ待ち)、(4)他venture・アイデア領域の前進。
