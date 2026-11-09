@@ -2474,3 +2474,28 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   `idempotency_key`での再送時はdraftを再作成せず既存draft_idを再利用する一方、Checkout
   Session自体は毎回新規発行して二重決済を避ける設計とした。新規テスト3件追加、全140件・
   schema検証22件いずれもパス(回帰なし)。`inquiry`側の同型結線は次回候補として残す)
+- フェーズ108(2026-11-09 23:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ107次回候補(2)に対応し、`inquiry_form_intake.py`の
+  `handle_inquiry_form_submission()`に、フェーズ107の`one_time_draft`側と同型の
+  `idempotency_key_index_store.reserve_or_get()`結線を`collection="inquiry"`で追加した。
+  `inquiry_id`(ドキュメントID、UUID4デフォルト)を新規に導入し、同一`idempotency_key`での
+  再送時は既存`inquiry_id`を返し`document=None`とすることで、呼び出し側が2度目の
+  Firestore `add()`を行わないようにした(ドキュメント内の`draft_id`フィールド〈問い合わせ
+  対象の受付番号〉とは別物であることに注意)。`idempotency_store`のcreated_at引数
+  (datetime型)はドキュメント本体の`created_at`文字列引数とは独立させ、呼び出し側が
+  `now`を省略した場合は`datetime.now(timezone.utc)`を用いる設計とした。新規テスト4件
+  (idempotency_store省略時の後方互換動作・新規reserve確認・既存inquiry_id再利用時に
+  document=Noneとなること・idempotency_key未送信時の後方互換動作)を追加し、既存140件と
+  合わせ全144件がパスすることを確認した(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)。schema検証22件も変更なしでパス(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)Cloud Run functionsの実HTTPSトリガー
+  (問い合わせフォーム側)から`handle_inquiry_form_submission()`を実際に呼び出し、
+  戻り値の`document`が`None`でない場合のみFirestore `inquiry`コレクションへadd()する
+  結線を追加する(現時点ではモジュール単体の骨格のみ)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 23:00 UTC(フェーズ108: `inquiry_form_intake.handle_inquiry_form_
+  submission()`に`idempotency_key_index_store.reserve_or_get()`を`collection="inquiry"`で
+  結線し、`inquiry_id`発行・重複再送時の`document=None`化を実装。新規テスト4件追加、
+  全144件・schema検証22件いずれもパス(回帰なし)。実HTTPSトリガーへの結線は次回候補として残す)

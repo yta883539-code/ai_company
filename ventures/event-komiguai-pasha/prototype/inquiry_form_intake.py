@@ -28,8 +28,10 @@ prototype/inquiry_intake.py(フェーズ85)、prototype/form_submission_intake.p
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Callable, Optional
 
 from inquiry_intake import INQUIRY_CATEGORIES
 
@@ -123,15 +125,43 @@ def build_inquiry_document(form: InquiryFormInput, created_at: str) -> dict:
     }
 
 
-def handle_inquiry_form_submission(raw_payload: dict, created_at: str) -> dict:
+def _default_inquiry_id_factory() -> str:
+    # checkout_session_creation._default_draft_id_factory(フェーズ53)と同じUUID4方式。
+    # inquiry_idは`inquiry/{inquiry_id}`のドキュメントIDであり、ドキュメント内の
+    # `draft_id`フィールド(問い合わせ対象の受付番号)とは別物。
+    return str(uuid.uuid4())
+
+
+def handle_inquiry_form_submission(
+    raw_payload: dict,
+    created_at: str,
+    *,
+    idempotency_store=None,
+    now: Optional[datetime] = None,
+    inquiry_id_factory: Callable[[], str] = _default_inquiry_id_factory,
+) -> dict:
     """Webフォーム送信の受信処理エントリーポイント(骨格)。
-    form_submission_intake.handle_form_submissionと対になる、問い合わせフォーム側の入口。
+    form_submission_intake.handle_form_submission・checkout_session_creation.
+    create_checkout_session_for_event_memo(フェーズ107)と対になる、問い合わせフォーム側の入口。
+
+    `idempotency_store`(idempotency_key_index_store.IdempotencyKeyIndexStoreProtocol相当、
+    省略可)を渡した場合、`raw_payload["idempotency_key"]`をキーに`collection="inquiry"`で
+    `reserve_or_get()`を呼ぶ(フェーズ107の`one_time_draft`側と同型の衝突検知)。同一
+    `idempotency_key`での再送(二重クリック・ネットワーク再試行等)が検知された場合は
+    既存の`inquiry_id`を返し、`document`はNoneとする(=呼び出し側はFirestoreへの
+    add()を行わない。先行リクエストが既に同内容で書き込み済みのため)。`idempotency_store`
+    省略時・`idempotency_key`未送信時は従来どおり常に新規`inquiry_id`を発行する(後方互換)。
+    `now`はidempotency_key_index側の`created_at`(datetime型、design.md 3節)用の受付時刻で、
+    ドキュメント本体の`created_at`(呼び出し側がフォーマット済みの文字列で渡す引数、既存どおり)
+    とは別物(フェーズ107のcheckout_session_creation.resolved_nowと同じ役割分担)。
+    `idempotency_store`利用時に省略した場合は`datetime.now(timezone.utc)`を用いる。
 
     戻り値は次のいずれか:
     - 欠落項目がある場合: {"status": "missing_fields", "message": <案内文>}
       (この場合、呼び出し側はFirestoreへの書き込みを行わない)
-    - 欠落なしの場合: {"status": "accepted", "document": <build_inquiry_documentの戻り値>}
-      (呼び出し側がこのdocumentを実際に`inquiry`コレクションへadd()する想定。
+    - 欠落なしの場合: {"status": "accepted", "inquiry_id": <str>,
+      "document": <build_inquiry_documentの戻り値> または None(重複検知時)}
+      (呼び出し側はdocumentがNoneでない場合のみ、`inquiry/{inquiry_id}`へadd()する想定。
       本モジュール自体はFirestore接続を行わない)
     """
 
@@ -139,4 +169,24 @@ def handle_inquiry_form_submission(raw_payload: dict, created_at: str) -> dict:
     missing = find_missing_required_fields(form)
     if missing:
         return {"status": "missing_fields", "message": build_missing_fields_message(missing)}
-    return {"status": "accepted", "document": build_inquiry_document(form, created_at)}
+
+    candidate_inquiry_id = inquiry_id_factory()
+    idempotency_key = raw_payload.get("idempotency_key")
+    inquiry_id = candidate_inquiry_id
+    if idempotency_store is not None and idempotency_key:
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        inquiry_id = idempotency_store.reserve_or_get(
+            idempotency_key,
+            collection="inquiry",
+            document_id=candidate_inquiry_id,
+            created_at=resolved_now,
+        )
+
+    if inquiry_id != candidate_inquiry_id:
+        # 既存のidempotency_keyが既にinquiry_idを確保済み(フェーズ107の
+        # draft_id != candidate_draft_idと同型)。先行リクエストが同内容で書き込み済み
+        # のはずなので、今回はドキュメントを再構築せずdocument=Noneを返す。
+        return {"status": "accepted", "inquiry_id": inquiry_id, "document": None}
+
+    document = build_inquiry_document(form, created_at)
+    return {"status": "accepted", "inquiry_id": inquiry_id, "document": document}

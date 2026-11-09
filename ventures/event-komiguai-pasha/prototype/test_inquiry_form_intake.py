@@ -5,7 +5,9 @@ python3 -m unittest discover -s ventures/event-komiguai-pasha/prototype -p "test
 """
 
 import unittest
+from datetime import datetime, timezone
 
+from idempotency_key_index_store import InMemoryIdempotencyKeyIndexStore
 from inquiry_form_intake import (
     InquiryFormInput,
     build_inquiry_document,
@@ -124,6 +126,101 @@ class HandleInquiryFormSubmissionTest(unittest.TestCase):
         self.assertEqual(result["status"], "accepted")
         self.assertEqual(result["document"]["status"], "received")
         self.assertEqual(result["document"]["category"], "返金希望")
+        self.assertTrue(result["inquiry_id"])
+
+    def test_accepted_without_idempotency_store_always_issues_new_inquiry_id(self):
+        # idempotency_store省略時は後方互換動作(フェーズ107のone_time_draft側と同型)。
+        ids = iter(["inquiry-id-1", "inquiry-id-2"])
+        payload = {
+            "draft_id": "abc123",
+            "customer_email": "a@example.com",
+            "category": "再送希望",
+        }
+        first = handle_inquiry_form_submission(
+            payload, created_at="2026-11-02T20:00:00Z", inquiry_id_factory=lambda: next(ids)
+        )
+        second = handle_inquiry_form_submission(
+            payload, created_at="2026-11-02T20:00:00Z", inquiry_id_factory=lambda: next(ids)
+        )
+        self.assertEqual(first["inquiry_id"], "inquiry-id-1")
+        self.assertEqual(second["inquiry_id"], "inquiry-id-2")
+        self.assertIsNotNone(first["document"])
+        self.assertIsNotNone(second["document"])
+
+
+class HandleInquiryFormSubmissionIdempotencyTest(unittest.TestCase):
+    """フェーズ107(checkout_session_creation)と同型の衝突検知をinquiry側に結線したことの確認。"""
+
+    def setUp(self):
+        self.idempotency_store = InMemoryIdempotencyKeyIndexStore()
+        self.fixed_now = datetime(2026, 11, 9, 23, 0, 0, tzinfo=timezone.utc)
+        self.payload = {
+            "draft_id": "abc123",
+            "customer_email": "a@example.com",
+            "category": "再送希望",
+            "idempotency_key": "idem-inquiry-1",
+        }
+
+    def test_reserves_new_inquiry_id_when_first_seen(self):
+        result = handle_inquiry_form_submission(
+            self.payload,
+            created_at="2026-11-09T23:00:00Z",
+            idempotency_store=self.idempotency_store,
+            now=self.fixed_now,
+            inquiry_id_factory=lambda: "inquiry-id-1",
+        )
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(result["inquiry_id"], "inquiry-id-1")
+        self.assertIsNotNone(result["document"])
+
+    def test_reuses_existing_inquiry_id_without_document_on_resubmission(self):
+        first = handle_inquiry_form_submission(
+            self.payload,
+            created_at="2026-11-09T23:00:00Z",
+            idempotency_store=self.idempotency_store,
+            now=self.fixed_now,
+            inquiry_id_factory=lambda: "inquiry-id-1",
+        )
+
+        # 2回目の送信(同一idempotency_key、二重クリック・再試行を想定)。
+        # inquiry_id_factory()が別の値を返しても、既存のinquiry_idが優先されること。
+        second = handle_inquiry_form_submission(
+            self.payload,
+            created_at="2026-11-09T23:05:00Z",
+            idempotency_store=self.idempotency_store,
+            now=self.fixed_now,
+            inquiry_id_factory=lambda: "inquiry-id-2",
+        )
+
+        self.assertEqual(second["status"], "accepted")
+        self.assertEqual(second["inquiry_id"], first["inquiry_id"])
+        # document=Noneとなり、呼び出し側は2回目のadd()を行わないこと
+        # (先行リクエストが既に同内容で書き込み済みのため)。
+        self.assertIsNone(second["document"])
+
+    def test_missing_idempotency_key_always_issues_new_inquiry_id(self):
+        payload_without_key = {
+            "draft_id": "abc123",
+            "customer_email": "a@example.com",
+            "category": "再送希望",
+        }
+        ids = iter(["inquiry-id-1", "inquiry-id-2"])
+        first = handle_inquiry_form_submission(
+            payload_without_key,
+            created_at="2026-11-09T23:00:00Z",
+            idempotency_store=self.idempotency_store,
+            now=self.fixed_now,
+            inquiry_id_factory=lambda: next(ids),
+        )
+        second = handle_inquiry_form_submission(
+            payload_without_key,
+            created_at="2026-11-09T23:05:00Z",
+            idempotency_store=self.idempotency_store,
+            now=self.fixed_now,
+            inquiry_id_factory=lambda: next(ids),
+        )
+        self.assertEqual(first["inquiry_id"], "inquiry-id-1")
+        self.assertEqual(second["inquiry_id"], "inquiry-id-2")
 
 
 if __name__ == "__main__":
