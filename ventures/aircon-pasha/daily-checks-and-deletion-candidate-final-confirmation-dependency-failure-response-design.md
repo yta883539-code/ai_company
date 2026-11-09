@@ -85,9 +85,13 @@ confirmation-scheduler-design.md 3節の冪等性設計(`deletion_confirmation_s
 
 ## 4. 残課題(次回候補)
 
-1. `send_deletion_candidate_final_confirmations`用の`retry_config`(具体的な
+1. ~~`send_deletion_candidate_final_confirmations`用の`retry_config`(具体的な
    `retry_count`・バックオフ値)を設計するかどうかの検討、および設計する場合の
-   deletion-candidate-final-confirmation-scheduler-design.mdへの反映。
+   deletion-candidate-final-confirmation-scheduler-design.mdへの反映。~~
+   (フェーズ373是正: フェーズ350でdeletion-candidate-final-confirmation-scheduler-
+   design.md 4節に反映済み〈設定する方針、`retry_count: 5`・指数バックオフ
+   `min_backoff_duration: 300s`/`max_backoff_duration: 3600s`/`max_doublings: 3`〉
+   であることを確認した。本項目は解消済みの陳腐化記載だった。)
 2. 本2節で確認した「Cloud Schedulerの`retry_config`が全venture共通で未決定」という
    事項が、他venture(kura-pasha・course-set-pasha・forklift-pasha・line-reservation-ai)
    のCloud Schedulerジョブにも共通する欠落かどうかの横断確認(本venture側からの
@@ -103,3 +107,12 @@ confirmation-scheduler-design.md 3節の冪等性設計(`deletion_confirmation_s
 `python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
 パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
 外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。)
+
+最終更新: 2026-11-09 17:00 UTC(フェーズ373: 7venture中最も更新が止まっていた本venture
+を前進。フェーズ372の次回候補(2)に対応し、本ファイル4節「残課題」1項目が、実際には
+フェーズ350でdeletion-candidate-final-confirmation-scheduler-design.md 4節に具体的な
+`retry_config`値として反映済みであり陳腐化記載だったことを発見・是正(取り消し線+
+解決内容の要約を追記)。コード変更なし(ドキュメント是正のみ)、回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`・`python3 schema/
+validate_test_cases.py`を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。)

@@ -7093,3 +7093,22 @@
   order-guard-design.mdの陳腐化記載(kura-pasha・line-reservation-aiへの横展開要否確認が
   未着手との記載)が両venture側で既に対応済みだったことを発見・是正。コード変更なし、
   テスト803件・schema検証25件いずれもパス)
+- フェーズ373(2026-11-09 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ372の次回候補(2)に対応し、未棚卸しの残り1件`daily-checks-and-
+  deletion-candidate-final-confirmation-dependency-failure-response-design.md`を棚卸し
+  した。同ファイル4節「残課題」1項目(`send_deletion_candidate_final_confirmations`用
+  `retry_config`の設計検討)が、実際にはフェーズ350でdeletion-candidate-final-
+  confirmation-scheduler-design.md 4節に具体的な値(`retry_count: 5`・指数バックオフ
+  300s〜3600s・`max_doublings: 3`)として既に反映済みであり、解消済みの陳腐化記載
+  だったことを発見した。これでREADME.mdに一度も言及されていなかった未棚卸しファイルは
+  0件となった(フェーズ372で洗い出した2件のうち残り1件を本フェーズで解消)。該当箇条書き
+  に取り消し線+解決内容の要約を追記して是正した。コード変更なし(ドキュメント是正のみ)、
+  回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`(803件、
+  変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも
+  変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)本フェーズで未棚卸しファイルが0件になったため、
+  次回は個別design.mdファイル間の横断的な整合性(cross-reference)の再確認、または
+  他venture・アイデア領域の前進。
