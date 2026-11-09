@@ -2388,3 +2388,34 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-09 09:00 UTC(フェーズ103: 詳細は上記。discover非互換により回帰確認
   から漏れていた5ファイルを発見し、prototype/run_all_tests.pyを新規作成して8ファイル
   全件を回帰確認対象に復帰。現時点で実回帰なし)
+- フェーズ105(2026-11-09 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ104次回候補(1)「`prototype/one_time_pass_store.py`の新規実コード化
+  (`fan_pass_store.py`と同型のインメモリ実装・テスト)」に対応した。
+  one-time-plan-access-token-design.md 2節の`one_time_pass/{internal_id}`
+  (accessToken・stripeCheckoutSessionId・consumedAt・createdAt・expiresAt)をそのまま
+  `InMemoryOneTimePassStore`として実コード化し、`create()`は`fan_pass_store.py`フェーズ40の
+  方式を踏襲して同一`stripe_checkout_session_id`での重複Webhook配信時は新規発行せず既存の
+  (internal_id, access_token)を返す(その際`created_at`は初回呼び出し時の値を保持し、
+  2回目以降の呼び出しの値は無視する設計とした)。`expires_at`は`created_at`+24時間
+  (design.md 2節)で算出。1回使用後の失効フラグは`mark_consumed()`として実装し、design.md
+  4節が述べる「生成成功後にのみ消費済みにする」順序を呼び出し元(`receive_generation_
+  request()`、次回候補)が守れるよう、ストア側でも既に消費済みのドキュメントへの再度の
+  `mark_consumed()`呼び出しを`AlreadyConsumedError`で拒否する二重のガードを追加した
+  (design.mdには無かった、実コード化の過程で追加したガード)。403/404のステータスコード
+  振り分け自体(design.md 4節の2・3番目の分岐)は`CombinedPassLookupProtocol`側
+  (次回候補、design.md 5節)の責務として本モジュールには含めていない。新規
+  `test_one_time_pass_store.py`(6関数・14アサーション)を追加し、
+  `python3 prototype/run_all_tests.py`で9 files run, 9 passed, 0 failedを確認、
+  `python3 validate_test_cases.py`9件・`python3 schema/check_venue_master_parity.py`
+  36件/36件いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)`CombinedPassLookupProtocol`・`PassLookupResult`の実コード化と、既存
+  `checkout_result_page_handler.py`・`test_checkout_result_page_handler.py`への組み込み
+  (design.md 3節。`one_time_pass_store.py`は本フェーズで用意できたため着手可能になった)、
+  (2)入力フォーム自体のUI/UX設計、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore
+  接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-09 18:00 UTC(フェーズ105: 詳細は上記。`prototype/one_time_pass_store.py`
+  ・`test_one_time_pass_store.py`を新規作成し、都度プラン用access_tokenストアを実コード化。
+  9 files run, 9 passed, 0 failed〈run_all_tests.py〉)
