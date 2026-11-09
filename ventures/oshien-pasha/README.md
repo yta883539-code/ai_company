@@ -2288,7 +2288,26 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   data-retention-policy.mdの観点からの再検討、(3)実Stripeアカウント・実GCPプロジェクト・
   実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、
   (4)他venture・アイデア領域の前進。
-- 最終更新: 2026-11-08 19:00 UTC(フェーズ100: 詳細は上記。`checkout-result-http-entry-
-  point-design.md`を新規作成し、決済結果ポーリングのHTTPエントリポイント
-  `receive_checkout_result_request()`を設計・実装。新規テスト4件追加、既存回帰
-  いずれも変更なしでパス)
+- フェーズ101(2026-11-09 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ100次回候補(2)「`access_token`をレスポンス本文に含めたままクライアント
+  側でどう保持するか、data-retention-policy.mdの観点からの再検討」に対応した。新規
+  `access-token-client-storage-design.md`として検討し、Cookie(自動送信対象を増やし
+  CSRF・属性欠落チェックの検討範囲が広がる)・localStorage(端末共有利用時に前利用者の
+  `access_token`が残り続けるリスク、data-retention-policy.mdのサーバー側1年保持とは無関係
+  にクライアント側で無期限保持する理由がない)のいずれも採用せず、タブを閉じれば消える
+  sessionStorageのみを採用する方針を決定した。結果ページ→次画面遷移の間だけ値を保持する
+  擬似フロー(`sessionStorage.setItem`/`getItem`)を整理したが、次画面自体(生成物表示
+  ページ)は未設計のため実コード化は行っていない。コード変更なし、既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`31件・`python3 -I
+  validate_test_cases.py`9件・`python3 -I schema/check_venue_master_parity.py`
+  36件/36件)いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)次画面(生成物表示ページ)自体の設計(`sessionStorage`から取り出した
+  `access_token`で何を取得するか、既存レスポンスで足りるか別エンドポイントが必要かを含む)、
+  (2)結果ページ・次画面のフロントエンド実装(HTML/JS、実デプロイはオーナー承認待ち)、
+  (3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 02:00 UTC(フェーズ101: 詳細は上記。`access-token-client-storage-
+  design.md`を新規作成し、決済結果ページの`access_token`保持方式をsessionStorage採用・
+  Cookie/localStorage非採用として決定。コード変更なし、既存テストいずれも変更なしでパス)
