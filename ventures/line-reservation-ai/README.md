@@ -7349,3 +7349,25 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-08 20:00 UTC(フェーズ続き378: 詳細は上記。reminder-timing-and-resend-
   rules.mdの最後の未検証の仮説(返信有無を既読代理指標とする妥当性)にWebSearch調査結果を
   補強し値は維持。コード変更なし、テスト1048件・schema検証28件いずれも変更なしでパス)
+- フェーズ続き379(2026-11-09 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-08 20:00 UTC)を前進。次回候補(1)の承認待ち事項1〜4はオーナー未回答の
+  ため引き続き着手不可、次回候補(2)のreminder-timing-and-resend-rules.md仮説3件もフェーズ
+  続き378までにいずれも一部補強済みで打ち止めのため、次回候補(3)「各種md間のcross-document
+  parity確認」に対応した。kura-pashaフェーズ続き292(2026-11-08 01:00 UTC、Markdown設計文書
+  90件超に対するテーマ別INDEX.md新規作成)と同種の課題が本ventureにも存在する(配下の
+  Markdown設計文書が150件超に達し、ファイル名だけでは全体像を把握しにくくテーマ重複確認の
+  コストが増大している一方、本ventureにはkura-pasha同種のINDEX.mdが未作成だった)ことを
+  発見したため、事業・市場/顧客ヒアリング・LP・法務/会話フロー・LLM/予約・空き枠/キャンセル・
+  変更/課金・Stripe/Firestore・データモデル/店舗・オーナー設定/通知・リマインド・エスカレー
+  ション・FAQ/ウェブフック・監視/実装・テストの11カテゴリに分類したINDEX.mdを新規作成した。
+  コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p "test_*.py"`
+  (1048件、変更なし)・`python3 schema/validate_test_cases.py`(28件、変更なし)を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)他venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・oshien-pasha)側にも同種のINDEX.md未整備がないかの
+  確認、または他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-09 03:00 UTC(フェーズ続き379: 詳細は上記。配下150件超のMarkdown設計
+  文書をテーマ別に分類したINDEX.mdを新規作成。コード変更なし、テスト1048件・schema検証
+  28件いずれも変更なしでパス)
