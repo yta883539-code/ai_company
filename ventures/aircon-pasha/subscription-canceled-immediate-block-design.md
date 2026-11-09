@@ -85,7 +85,13 @@ aircon-pashaの「`profile_store`が保持する`UserProfile`を直接読む」�
 
 - 実Stripeアカウント接続後、`customer.subscription.deleted`の`created`タイムスタンプが
   実際にevent発生時刻と一致するかの確認(現状は机上のモックイベントのみで検証)。
-- line-reservation-aiについても、同じ「解約確定を専用のタイムスタンプ/状態として
+- ~~line-reservation-aiについても、同じ「解約確定を専用のタイムスタンプ/状態として
   持っているか」の確認がまだ残っている(次回候補。kura-pashaフェーズ187時点では
   「該当する統合ハンドラ自体が未実装のため対象外」と記録されていたが、その後の実装
-  状況次第では再点検が必要)。
+  状況次第では再点検が必要)。~~
+  [フェーズ372で対応済み] line-reservation-ai側で既にこの横展開確認が実施済みだった
+  (`line-reservation-ai/subscription-canceled-block-crosscheck.md`)。同venture側の
+  予約ブロック判定は`suspension_reason`という単一のenum的フィールドで排他的に管理されて
+  おり、pasha系venture群が抱えていた「解約確定が専用分岐を持たず既存判定に紛れて扱われる」
+  という構造自体が存在しないため、同型の欠落は発生し得ないと結論づけられている。本項目は
+  解消済みであり、本venture側で追加対応すべき横展開作業は残っていない。

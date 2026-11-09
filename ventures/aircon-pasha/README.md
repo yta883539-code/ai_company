@@ -7066,3 +7066,30 @@
   plan.mdの陳腐化記載(索引#4用のCloud Functionsエントリポイント・user_ids組み立て元が
   未着手との記載)が実際にはフェーズ315-316で解消済みだったことを発見・是正。コード変更
   なし、テスト803件・schema検証25件いずれもパス)
+- フェーズ372(2026-11-09 08:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ371の次回候補(2)「残り18件の個別design.mdファイルの棚卸しの継続」に
+  対応し、README.md本文に一度も言及されていなかった未棚卸しファイルをgrepで洗い出し
+  (`daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.md`・`subscription-canceled-immediate-block-design.md`の2件)、うち
+  `subscription-canceled-immediate-block-design.md`(フェーズ275)を棚卸しした。同design
+  5節「残課題」が「line-reservation-aiについても、同じ『解約確定を専用のタイムスタンプ/
+  状態として持っているか』の確認がまだ残っている」と記載し続けていたが、
+  line-reservation-ai側に既に`subscription-canceled-block-crosscheck.md`が存在し、
+  同venture側の予約ブロック判定が`suspension_reason`という単一のenum的フィールドで
+  排他的に管理されているため、pasha系venture群が抱えていた「解約確定が専用分岐を持たず
+  既存判定に紛れて扱われる」という構造自体が存在せず同型の欠落は発生し得ないと既に
+  結論づけられていたことを、当該ファイルを直接確認して確認した(本venture側の記載より
+  先に解消されていた陳腐化)。該当箇条書きに取り消し線+解決内容の要約を追記して是正した。
+  コード変更なし(ドキュメント是正のみ)、回帰確認として`python3 -m unittest discover -s
+  prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`
+  (25件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件)がオーナーから承認
+  された場合はその着手を最優先、(2)未棚卸しの残り1件
+  (`daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.md`)の棚卸し、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-08 23:00 UTC(フェーズ371: 詳細は上記。subscription-event-out-of-
+  order-guard-design.mdの陳腐化記載(kura-pasha・line-reservation-aiへの横展開要否確認が
+  未着手との記載)が両venture側で既に対応済みだったことを発見・是正。コード変更なし、
+  テスト803件・schema検証25件いずれもパス)
