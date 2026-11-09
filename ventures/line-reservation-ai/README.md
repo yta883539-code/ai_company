@@ -7371,3 +7371,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-09 03:00 UTC(フェーズ続き379: 詳細は上記。配下150件超のMarkdown設計
   文書をテーマ別に分類したINDEX.mdを新規作成。コード変更なし、テスト1048件・schema検証
   28件いずれも変更なしでパス)
+- フェーズ続き380(2026-11-09 10:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-09 03:00 UTC)を前進。次回候補(1)の承認待ち事項1〜4はオーナー未回答
+  のため引き続き着手不可のため、次回候補(2)「他venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・oshien-pasha)側にも同種のINDEX.md未整備がないかの
+  確認」に対応した。確認した結果、course-set-pasha・forklift-pasha・kura-pashaには既に
+  INDEX.mdが存在する一方、aircon-pasha(101件)・event-komiguai-pasha(46件)・
+  oshien-pasha(45件)の3ventureは未整備だった。このうち最もファイル数が多く優先度が高い
+  aircon-pashaについて、本venture・kura-pasha・course-set-pasha・forklift-pashaの既存
+  INDEX.mdと同様のテーマ別分類(事業・市場/顧客ヒアリング・LP・法務/チャットボット・
+  会話フロー・LLM/申請フォーム・連携/課金・Stripe/Firestore・インフラ/退会・解約・削除候補/
+  通知・レポート・FAQ/横断レビュー/実装・テストの9カテゴリ)でINDEX.mdを新規作成し、
+  全101件のmdファイル(README.md・INDEX.md自身を除く)がいずれか1カテゴリに重複なく
+  含まれることをdiffで検証した。残るevent-komiguai-pasha・oshien-pashaのINDEX.md整備は
+  今回の作業範囲(1回の実行でやりすぎない方針)を超えるため次回候補として持ち越す。
+  本venture側のコード変更なし、回帰確認として`python3 -m unittest discover -s prototype
+  -p "test_*.py"`(1048件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)event-komiguai-pasha・oshien-pashaのINDEX.md未整備
+  への対応、(3)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-09 10:00 UTC(フェーズ続き380: 詳細は上記。他venture6件のINDEX.md整備
+  状況を確認しaircon-pasha・event-komiguai-pasha・oshien-pashaの3件が未整備と判明、優先度の
+  高いaircon-pashaにINDEX.mdを新規作成。本venture側のコード変更なし、テスト1048件・
+  schema検証28件いずれも変更なしでパス)
