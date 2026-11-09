@@ -21,7 +21,9 @@ approval.md参照)のため、本ドキュメントは承認後すぐに適用�
 - 対象コレクションは、workshop-store-firestore-adapter-design.md・firestore-provider-
   adapter-design.md・invite-code-store-firestore-adapter-design.md・linking-code-
   store-firestore-adapter-design.md・firestore-usage-counter-provider-adapter-
-  design.mdで確定済みの以下5コレクション。
+  design.md・line-webhook-event-id-store-firestore-adapter-design.md・
+  stripe-event-id-store-firestore-adapter-design.mdで確定済みの以下8コレクション
+  (フェーズ続き294で6→8に更新、4節参照)。
 
 | コレクション名 | 用途 | 設計doc |
 |---|---|---|
@@ -31,6 +33,8 @@ approval.md参照)のため、本ドキュメントは承認後すぐに適用�
 | `pending_workshop_invites` | 招待コード(invite_code)の保留状態 | invite-code-store-firestore-adapter-design.md |
 | `pending_links` | 連携コード(linking_code)の保留状態 | linking-code-store-firestore-adapter-design.md |
 | `usage_counter` | 工房ごとの月次利用回数カウンタ | firestore-usage-counter-provider-adapter-design.md |
+| `line_webhook_event_ids` | LINE Webhookイベントのべき等性(重複配信排除) | line-webhook-event-id-store-firestore-adapter-design.md |
+| `processed_stripe_events` | Stripe Webhookイベントのべき等性(重複配信排除) | stripe-event-id-store-firestore-adapter-design.md |
 
 ## 2. ルール草案
 
@@ -59,7 +63,13 @@ service cloud.firestore {
     match /usage_counter/{workshopId} {
       allow read, write: if false;
     }
-    // 上記5コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
+    match /line_webhook_event_ids/{webhookEventId} {
+      allow read, write: if false;
+    }
+    match /processed_stripe_events/{eventId} {
+      allow read, write: if false;
+    }
+    // 上記8コレクション以外への想定外のアクセスも明示的に拒否する(デフォルトdeny
     // との二重化だが、将来コレクションが追加された際の事故防止のため明示しておく)。
     match /{document=**} {
       allow read, write: if false;
@@ -97,3 +107,15 @@ service cloud.firestore {
   (aircon-pashaも別途同型ルールを保持済み)。実デプロイ(Firebase Local Emulator Suite
   での`PERMISSION_DENIED`検証を含む)は5venture共通でオーナーのFirestoreプロジェクト
   作成承認待ちのまま残る。
+- フェーズ続き294で発見・是正: 1節の対象コレクション一覧・2節のルール草案が、
+  line-webhook-event-id-store-firestore-adapter-design.md(フェーズ288)・
+  stripe-event-id-store-firestore-adapter-design.md(フェーズ290)で`firestore.rules`
+  (実ファイル)に追加された`line_webhook_event_ids`・`processed_stripe_events`の
+  2コレクション分を反映しないまま6コレクションの記載で据え置かれていた(両フェーズが
+  `firestore.rules`自体は更新したものの、本「草案」ドキュメントへの反映漏れがあった
+  陳腐化)。実ファイルの現状(8コレクション、本文書のとおり)に合わせて1節・2節を
+  更新した。なお、3節の未検証項目で参照しているfirestore-security-rules-
+  emulator-verification.md(フェーズ249)の`PERMISSION_DENIED`検証自体は当時の
+  6コレクション構成のまま(フェーズ249は本ファイルの2コレクション追加より前)であり、
+  新規2コレクション分の検証は未実施のまま残る(実Firestoreプロジェクト作成承認待ちの
+  優先度に鑑み、本フェーズでは草案ドキュメントの記載是正に留め、再検証は次回候補とする)。

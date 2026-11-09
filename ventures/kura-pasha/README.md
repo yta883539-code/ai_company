@@ -6850,3 +6850,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   次回候補: (1)oshien-pashaへの同様のINDEX.md整理、(2)承認待ち事項がオーナーから承認
   された場合はその着手を最優先、(3)フェーズ291次回候補(4節のログ出力側実装、結合実装
   フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- フェーズ続き294(2026-11-09 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ293次回候補(1)「oshien-pashaへの同様のINDEX.md整理」が、line-
+  reservation-aiフェーズ続き381(2026-11-09 15:00 UTC)で既に対応済み(これで7venture
+  全件のINDEX.md整備が完了)であることを確認した上で、本venture自身の設計文書棚卸しに
+  着手した。firestore-security-rules-draft.md(フェーズ228・245)の1節「対象コレクション」
+  一覧・2節のルール草案が、line-webhook-event-id-store-firestore-adapter-design.md
+  (フェーズ288)・stripe-event-id-store-firestore-adapter-design.md(フェーズ290)で
+  実ファイル`firestore.rules`に追加された`line_webhook_event_ids`・
+  `processed_stripe_events`の2コレクション分を反映しないまま、6コレクションの記載で
+  据え置かれていた陳腐化(両フェーズが`firestore.rules`自体は更新したが、本「草案」
+  ドキュメントへの反映漏れがあった)を発見した。実ファイルの現状(8コレクション)に
+  合わせて1節の一覧表・2節のルール草案を更新し、4節に是正の経緯と、3節が参照する
+  firestore-security-rules-emulator-verification.md(フェーズ249、6コレクション時点の
+  検証)が新規2コレクション分の`PERMISSION_DENIED`検証を未実施のまま残っている旨を
+  注記した(再検証は次回候補とし、本フェーズでは草案ドキュメントの記載是正に留めた)。
+  コード変更なし(ドキュメント是正のみ)、回帰確認として`python3 prototype/
+  run_all_tests.py`(25ファイル全件OK)・`python3 schema/validate_test_cases.py`
+  (32件)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)firestore-security-rules-emulator-verification.mdの新規2コレクション
+  (`line_webhook_event_ids`・`processed_stripe_events`)分の`PERMISSION_DENIED`検証
+  追加(Firebase Local Emulator Suite、実GCPプロジェクト不要)、(2)承認待ち事項が
+  オーナーから承認された場合はその着手を最優先、(3)フェーズ291次回候補(4節のログ出力側
+  実装、結合実装フェーズ待ち)、(4)他venture・アイデア領域の前進。
