@@ -2332,3 +2332,36 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-09 04:00 UTC(フェーズ102: 詳細は上記。次画面の役割・新規エンドポイント
   `receive_generation_request()`を設計し、都度プラン側のaccess_token設計が未解決のまま
   残っていることを明記)
+- フェーズ103(2026-11-09 09:00 UTC定例更新): 7venture中、本ventureは直近複数フェーズで
+  他venture(kura-pasha等)より更新間隔が短かったが、回帰確認の実効性という見過ごせない
+  問題を発見したため本フェーズで対応した。cross-venture-discover-compatibility-review.md
+  (kura-pashaフェーズ89時点の横展開確認、line-reservation-ai・aircon-pasha・
+  course-set-pashaの3ventureのみ対象)が、本venture作成以前に作成されたため本ventureが
+  確認対象から漏れていたことに気づき、`python3 -m unittest discover -s prototype -p
+  "test_*.py"`と`grep -c "TestCase" prototype/test_*.py`を実行したところ、prototype/配下
+  のtest_*.py 8ファイル中5ファイル(test_fan_pass_store.py・
+  test_itinerary_draft_postprocessor.py・test_stripe_webhook.py・test_usage_counter.py・
+  test_venue_matcher.py、いずれもcheck()/PASS/FAIL形式)がunittest.TestCaseを使わないため
+  discoverに収集されず(discoverは残り3ファイル・31件のみ収集)、既存の「回帰確認」が
+  discover 31件のみに依存していることを確認した。README該当箇所を遡って確認したところ、
+  フェーズ79〜80では`test_venue_matcher.py`を個別に追加実行し discover非対象である旨を
+  明記していたが、フェーズ100前後以降はその個別実行が回帰確認の記述から抜け落ちており、
+  仮に上記5ファイルが検証しているモジュール(fan_pass_store.py・
+  itinerary_draft_postprocessor.py・stripe_webhook.py・usage_counter.py・venue_matcher.py)
+  に後続フェーズで回帰が混入しても、discoverベースの「31件、変更なし」という記述だけでは
+  検出できない状態になっていたと判断した。forklift-pasha・kura-pashaが同種の
+  discover非互換に対して導入済みの`prototype/run_all_tests.py`(各test_*.pyを個別プロセスで
+  実行し終了コードで合否判定するラッパー)を本ventureにも新規作成し、8ファイル全件
+  (31+21+25+25+14+21 = 現時点で全アサーションOK)が実行されることを確認した
+  (`python3 prototype/run_all_tests.py`で8 files run, 8 passed, 0 failed)。今後の
+  回帰確認は本ラッパーの実行結果を基準とする。現時点で実際の回帰(FAIL)は発生していない
+  ことも併せて確認した。コード変更はrun_all_tests.py新規作成のみ(対象モジュール自体の
+  変更なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)都度プラン用access_tokenの永続化・1回使用後の失効設計(フェーズ102から
+  持ち越し)、(2)入力フォーム自体のUI/UX設計、(3)実Stripeアカウント・実GCPプロジェクト・
+  実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 09:00 UTC(フェーズ103: 詳細は上記。discover非互換により回帰確認
+  から漏れていた5ファイルを発見し、prototype/run_all_tests.pyを新規作成して8ファイル
+  全件を回帰確認対象に復帰。現時点で実回帰なし)

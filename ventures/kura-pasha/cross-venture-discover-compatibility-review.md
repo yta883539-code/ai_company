@@ -43,3 +43,16 @@ line-reservation-ai・aircon-pasha・course-set-pashaの3ventureはいずれも
 discover非互換はkura-pasha固有の問題であり、フェーズ89の`run_all_tests.py`新設で
 既に解消済みである。line-reservation-ai・aircon-pasha・course-set-pashaへの横展開は
 不要と結論する。フェーズ89の「次の課題」はこれで解消済みとする。
+
+## 追記(2026-11-09 09:00 UTC、oshien-pashaフェーズ103による発見)
+
+本レビューはフェーズ89時点(2026年9月頃)で存在した4venture
+(line-reservation-ai・aircon-pasha・course-set-pasha・kura-pasha)のみを対象としており、
+その後新設されたforklift-pasha・event-komiguai-pasha・oshien-pashaは確認対象に含まれて
+いなかった。oshien-pashaフェーズ103で確認したところ、forklift-pashaは別途自力で同種の
+discover非互換を発見し`prototype/run_all_tests.py`を導入済み(本文書の確認対象外だった)、
+event-komiguai-pashaは全test_*.pyがTestCase形式でdiscover非互換なし、oshien-pashaは
+discover非互換が未対応のまま回帰確認から5ファイルが漏れていたため、oshien-pasha
+フェーズ103で`run_all_tests.py`を新設し対応した。「discover非互換はkura-pasha固有の問題」
+という上記結論は、本レビュー作成時点に存在した4venture限定の結論であり、venture新設時には
+改めて本チェックを行う必要がある旨をここに記録する。
