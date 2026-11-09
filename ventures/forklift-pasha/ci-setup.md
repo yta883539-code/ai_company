@@ -48,11 +48,17 @@ aircon-pasha・course-set-pasha・line-reservation-aiのワークフローはい
 - `python3 schema/validate_test_cases.py`を実行し11件全件パスを確認。
 
 ## 今後の課題
-- 実際のコミット後、他venture同様`mcp__github__actions_list`でCI実行結果
-  (status: completed / conclusion: success)を確認する。
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに追加するかを
   検討する。
 - 本venture側の`run_all_tests.py`は`HERE.glob("test_*.py")`で`prototype/`配下の
   test_*.pyを動的に収集する実装のため、今後test_*.pyファイルが追加されてもワークフロー側の
   更新は不要(発生しない、kura-pasha同様)。
-- 名簿PDF本文に依存しない間接チャネル探索の再検討(フェーズ24・26から持ち越し、未着手)。
+
+### フェーズ223時点の補足(2026-11-09定例更新)
+
+上記からは以下2点を陳腐化記載として削除した。
+- 「実際のコミット後、他venture同様actions_listでCI実行結果を確認する」: フェーズ30で
+  既に確認済み(`conclusion: success`〈39件+11件全件パス〉)。
+- 「名簿PDF本文に依存しない間接チャネル探索の再検討(フェーズ24・26から持ち越し)」:
+  channel-partner-exploration.mdフェーズ31で建荷協を発見し解消済み(詳細は
+  output-samples-validation.mdの同時点の補足を参照)。

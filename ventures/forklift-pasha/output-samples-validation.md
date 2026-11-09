@@ -107,6 +107,17 @@ last_dateはG2/G3/G4フィクスチャと同じ値を使ったため、next_due_
 ## 次回候補
 
 - 実LLM(Claude API)での動作検証はAPIキー取得がオーナー承認待ちのため未着手。
-- llm-quality-verification-plan.md・llm-quality-verification-results-template.md
-  相当の文書(他venture同様)はまだ未作成。
-- 名簿PDF本文に依存しない間接チャネル探索の再検討(フェーズ24・26から持ち越し)。
+
+### フェーズ223時点の補足(2026-11-09定例更新)
+
+上記「次回候補」の残り2点は、本ドキュメントの更新が止まっていた間(フェーズ28以降)に
+既に解消済みの陳腐化記載だったため削除した。
+- 「llm-quality-verification-plan.md・llm-quality-verification-results-template.md相当の
+  文書はまだ未作成」: llm-quality-verification-plan.mdはフェーズ7で、
+  llm-quality-verification-results-template.mdはフェーズ9で既に新規作成済み
+  (いずれも本フェーズ28より前)。
+- 「名簿PDF本文に依存しない間接チャネル探索の再検討(フェーズ24・26から持ち越し)」:
+  channel-partner-exploration.mdフェーズ31で建荷協(公益社団法人建設荷役車両安全技術協会)を
+  発見し解消済み。以降フェーズ32〜49で支部候補の絞り込みまで完了し、
+  kenkakyo-proposal-draft.md・branch-outreach-individual-drafts.mdとして提案文面まで
+  下書き済み(現状はpending-approval.md記載の対外連絡承認待ち)。
