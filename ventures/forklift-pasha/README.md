@@ -4842,3 +4842,34 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-09定例更新(フェーズ224: 詳細は上記。INDEX.md新規作成。
   コード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも変更なしで
   パス)
+
+- フェーズ225(2026-11-09 13:00 UTC定例更新): フェーズ224次回候補(3)「他ventureの
+  INDEX.mdとの横断比較で本ventureに固有の運営課題がないかの確認」に対応した。
+  kura-pasha/INDEX.md・course-set-pasha/INDEX.mdと本venture側INDEX.mdを比較した結果、
+  「申込から実際に点検記録の整形・リマインド生成が始まるまでの導入フロー整理
+  (onboarding-guide.md)」が両venture(およびaircon-pasha・line-reservation-ai)には
+  既に存在するが、本ventureには未着手のまま残っていたcross-venture parityギャップ
+  であることを発見した。kura-pasha/onboarding-guide.mdの構成を踏襲し、本venture固有の
+  (1)LINE友だち追加ではなくメールアドレス入力+アクセストークン方式を導入起点とする点
+  (payment-identity-verification-design.md・access-token-reissue-design.md準拠)、
+  (2)`vehicle_id`は事前登録なしで点検メモ送信時に自動発行される点(vehicle-label-
+  duplicate-handling-design.md準拠)、(3)daily/monthly/annualの3区分で入力頻度・
+  画面が大きく異なる点(web-form-ui-design.md準拠)を反映したonboarding-guide.mdを
+  新規作成し、INDEX.mdの「事業・市場・候補者開拓」節に追記した。検討の過程で、本venture
+  にはkura-pasha/first-generation-self-check-notification-design.md相当の「初回生成
+  成功時の確認案内」設計が存在しないことも発見し、onboarding-guide.mdの「未検証の仮説」・
+  「次のステップ候補」に記録した(設計自体は次回以降の課題として持ち越し)。コード変更
+  なし、既存テスト(`prototype/run_all_tests.py`24ファイル全件パス・`schema/
+  validate_test_cases.py`11件・`browser_mockup_checks.js`)いずれも変更なしでパス
+  (回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)onboarding-guide.md「次のステップ候補」にある初回daily入力成功時の確認
+  案内(kura-pasha/first-generation-self-check-notification-design.md相当)の本venture
+  向け設計、(2)メールアドレス入力画面(web-form-mockup/に図版化ページが未存在)の
+  モックアップ作成、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認
+  (オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-09定例更新(フェーズ225: 詳細は上記。kura-pasha・course-set-pasha
+  との横断比較でonboarding-guide.md未着手のcross-venture parityギャップを発見し新規
+  作成。初回生成確認案内の設計欠落も発見し次回候補へ記録。コード変更なし、既存テスト・
+  schema検証・browser_mockup_checksいずれも変更なしでパス)
