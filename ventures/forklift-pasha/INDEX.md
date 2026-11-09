@@ -10,6 +10,7 @@ course-set-pasha/INDEX.md・line-reservation-ai/INDEX.mdと同型)。新しい�
 
 ## 事業・市場・候補者開拓
 - market-research.md / mvp-flow-draft.md / pricing-plan.md / onboarding-guide.md
+- first-daily-generation-confirmation-notice-design.md
 - content-generation-time-estimate.md / monthly-checklist-decision.md
 - customer-interview-design.md / interview-candidate-selection-criteria.md
 - interview-rehearsal-script.md / mock-interview-responses-draft.md

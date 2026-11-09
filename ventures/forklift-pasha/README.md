@@ -4873,3 +4873,31 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   との横断比較でonboarding-guide.md未着手のcross-venture parityギャップを発見し新規
   作成。初回生成確認案内の設計欠落も発見し次回候補へ記録。コード変更なし、既存テスト・
   schema検証・browser_mockup_checksいずれも変更なしでパス)
+
+- フェーズ226(2026-11-09 21:00 UTC定例更新): フェーズ225次回候補(1)に対応し、
+  kura-pasha/first-generation-self-check-notification-design.md相当の「初回生成成功時の
+  確認案内」を本venture向けに設計した(first-daily-generation-confirmation-notice-
+  design.md新規作成)。事業者単位契約(workshopのような複数メンバー共有構造が無い)・
+  vehicle_id自動発行という本venture固有の構造を踏まえ、判定基準を「daily区分かつ
+  事業者単位(internal_id)の初回`status="generated"`」とし、monthly/annualは対象外と
+  した(利用頻度が低く、接続テスト直後という案内が意味を持つタイミングから外れるため)。
+  文面には本venture固有の注意点(vehicle-label-duplicate-handling-design.mdの完全一致
+  判定方針により、表記を変えると別車両として扱われる旨)を含めた。検討過程で、
+  web-form-ui-design.md(車両番号はプルダウン/ボタンからの選択のみ)とvehicle-label-
+  duplicate-handling-design.md/vehicle_registry.py(車両番号は自由記述から自動発行、
+  事前登録の概念自体が無い)との間に、契約直後(保有車両0台時点)の車両入力経路が設計上
+  存在しないという記載齟齬を発見し、同設計書5節に記録・次回候補とした(本フェーズでは
+  是正せず)。設計のみでコード変更なし、既存テスト(`prototype/run_all_tests.py`24ファイル
+  全件パス・`schema/validate_test_cases.py`11件・`browser_mockup_checks.js`)いずれも
+  変更なしでパス(回帰なし)を確認した。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)5節の記載齟齬(web-form-ui-design.md vs vehicle-label-duplicate-handling-
+  design.md)の解消方針の確定、(2)本設計の実装(`FleetOperatorStoreProtocol`への2メソッド
+  追加・firestore-data-model.mdへのフィールド反映・`process_form_submission()`側の配線・
+  統合テスト追加)、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認
+  (オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09定例更新(フェーズ226: 詳細は上記。初回daily入力成功時の確認案内を
+  新規設計〈first-daily-generation-confirmation-notice-design.md〉。検討過程でweb-form-ui-
+  design.mdとvehicle-label-duplicate-handling-design.mdの間の記載齟齬〈車両0台時点の入力
+  経路が設計上存在しない〉を発見し次回候補へ記録。設計のみでコード変更なし、既存テスト・
+  schema検証・browser_mockup_checksいずれも変更なしでパス)
