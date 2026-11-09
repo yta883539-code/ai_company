@@ -4827,3 +4827,18 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   ci-setup.mdに残っていた解消済み項目の陳腐化記載(計3件、フェーズ7・9・30・31で既に
   解消済み)を発見・是正。コード変更なし、既存テスト・schema検証・browser_mockup_checks
   いずれも変更なしでパス)
+
+- フェーズ224(2026-11-09 07:00 UTC定例更新): 本venture配下のMarkdown設計文書が
+  70件超に達し新規ファイル名だけでは全体像を把握しにくくなっていたため、
+  kura-pasha/INDEX.md・course-set-pasha/INDEX.md・line-reservation-ai/INDEX.md
+  と同型のINDEX.md(テーマ別文書索引)を新規作成した。内容の要約・ステータス追跡は
+  行わず、ファイル一覧の整理のみを目的とする。コード変更なし、既存テスト・schema検証・
+  browser_mockup_checksいずれも変更なしでパス(回帰なし)を確認した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認
+  (オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(2)他venture・アイデア領域の
+  前進、(3)他ventureのINDEX.mdとの横断比較で本ventureに固有の運営課題がないかの確認。
+- 最終更新: 2026-11-09定例更新(フェーズ224: 詳細は上記。INDEX.md新規作成。
+  コード変更なし、既存テスト・schema検証・browser_mockup_checksいずれも変更なしで
+  パス)
