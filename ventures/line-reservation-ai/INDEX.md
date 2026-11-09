@@ -72,7 +72,7 @@
 - billing-upgrade-flow-design.md
 - blocked-but-billing-detection-design.md / blocked-but-billing-owner-email-notification-design.md
 - trial-end-scheduler-design.md / trial-to-paid-billing-flow-consistency-check.md / trial-start-anchor-decision.md
-- portal-session-provider-design.md / unfollow-billing-faq.md / unfollow-event-handling-design.md
+- portal-session-provider-design.md / unfollow-billing-faq.md / follow-unfollow-event-handling-design.md
 
 ## Firestore・データモデル・インフラ基盤
 - firestore-data-model.md / firestore-provider-adapter-design.md
