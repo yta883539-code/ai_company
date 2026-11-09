@@ -13,6 +13,7 @@ from checkout_session_creation import (
     build_stripe_checkout_session_params,
     create_checkout_session_for_event_memo,
 )
+from idempotency_key_index_store import InMemoryIdempotencyKeyIndexStore
 from stripe_webhook import InMemoryOneTimeDraftStore
 
 
@@ -161,6 +162,88 @@ class CreateCheckoutSessionForEventMemoTest(unittest.TestCase):
         )
 
         self.assertEqual(call_order, ["create_draft", "create_session"])
+
+    def test_idempotency_key_reserves_new_draft_when_first_seen(self):
+        idempotency_store = InMemoryIdempotencyKeyIndexStore()
+        payload = dict(VALID_PAYLOAD, idempotency_key="idem-key-1")
+
+        result = create_checkout_session_for_event_memo(
+            payload,
+            self.draft_store,
+            self.checkout_client,
+            "https://example.run.app",
+            now=self.fixed_now,
+            draft_id_factory=self._draft_id_factory,
+            idempotency_store=idempotency_store,
+        )
+
+        self.assertEqual(result.outcome, "checkout_session_created")
+        self.assertEqual(result.draft_id, "11111111-1111-4111-8111-111111111111")
+        draft = self.draft_store.get(result.draft_id)
+        self.assertIsNotNone(draft)
+        self.assertEqual(len(self.draft_store._drafts), 1)
+
+    def test_idempotency_key_reuses_existing_draft_without_recreating(self):
+        idempotency_store = InMemoryIdempotencyKeyIndexStore()
+        payload = dict(VALID_PAYLOAD, idempotency_key="idem-key-1")
+
+        first = create_checkout_session_for_event_memo(
+            payload,
+            self.draft_store,
+            self.checkout_client,
+            "https://example.run.app",
+            now=self.fixed_now,
+            draft_id_factory=self._draft_id_factory,
+            idempotency_store=idempotency_store,
+        )
+
+        # 2回目の送信(同一idempotency_key、二重クリック・再試行を想定)。
+        # draft_id_factory()が別のUUIDを返しても、既存のdraft_idが優先されること。
+        second_draft_ids = iter(["22222222-2222-4222-8222-222222222222"])
+        result = create_checkout_session_for_event_memo(
+            payload,
+            self.draft_store,
+            self.checkout_client,
+            "https://example.run.app",
+            now=self.fixed_now,
+            draft_id_factory=lambda: next(second_draft_ids),
+            idempotency_store=idempotency_store,
+        )
+
+        self.assertEqual(result.outcome, "checkout_session_created")
+        # 新規draft_idは発行されず、1回目と同じdraft_idが再利用されること。
+        self.assertEqual(result.draft_id, first.draft_id)
+        # create_draft()は1回目のみ呼ばれ、draftは1件のみ存在すること(重複作成されない)。
+        self.assertEqual(len(self.draft_store._drafts), 1)
+        # Checkout Session作成は2回とも発生し、いずれもclient_reference_id=既存draft_id
+        # であること(design フェーズ70 7.2節: Checkout Session自体はidempotency_keyに
+        # 紐づかず、二重決済にはつながらない)。
+        self.assertEqual(len(self.checkout_client.calls), 2)
+        self.assertEqual(self.checkout_client.calls[1]["client_reference_id"], first.draft_id)
+
+    def test_missing_idempotency_key_falls_back_to_always_creating_new_draft(self):
+        # idempotency_storeを渡しても、payloadにidempotency_keyが無ければ従来どおり
+        # 常に新規draftを作成する(後方互換)。
+        idempotency_store = InMemoryIdempotencyKeyIndexStore()
+        draft_ids = iter(
+            [
+                "11111111-1111-4111-8111-111111111111",
+                "22222222-2222-4222-8222-222222222222",
+            ]
+        )
+
+        for _ in range(2):
+            create_checkout_session_for_event_memo(
+                VALID_PAYLOAD,
+                self.draft_store,
+                self.checkout_client,
+                "https://example.run.app",
+                now=self.fixed_now,
+                draft_id_factory=lambda: next(draft_ids),
+                idempotency_store=idempotency_store,
+            )
+
+        self.assertEqual(len(self.draft_store._drafts), 2)
 
     def test_default_draft_id_factory_produces_uuid4_like_value(self):
         result = create_checkout_session_for_event_memo(

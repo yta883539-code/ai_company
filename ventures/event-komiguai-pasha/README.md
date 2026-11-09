@@ -2444,3 +2444,33 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   `idempotency_key_index`原子的衝突検知方式をコード化(InMemory実装・Firestoreアダプタの
   両方)。新規テスト9件追加、全137件・schema検証22件いずれもパス。既存の入口処理への結線は
   次回候補として残す)
+- フェーズ107(2026-11-09 16:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ106次回候補(2)に対応し、`idempotency_key_index_store.reserve_or_get()`を
+  実際の入口処理(`checkout_session_creation.create_checkout_session_for_event_memo()`、
+  Webフォーム送信を受けてdraft作成→Checkout Session発行までを結ぶ唯一のエントリポイント)に
+  結線した。`raw_payload["idempotency_key"]`(web-form-ui-design.md 3節でクライアント側が
+  送信ボタン押下時に生成する値)を使い、新規`draft_id`候補を発行した上で`reserve_or_get()`を
+  呼び、既存のidempotency_keyが既にdraft_idを確保済みの場合は`draft_store.create_draft()`を
+  スキップして既存draft_idを再利用する(idempotency-key-duplicate-detection-firestore-
+  query-design.mdフェーズ70 7.2節のとおり、Checkout Session自体はidempotency_keyに紐づか
+  ないため、既存draft_idに対して新規Checkout Sessionを発行しても二重決済にはつながらない)。
+  `idempotency_store`は省略可能な引数とし、未指定またはpayloadに`idempotency_key`が無い
+  場合は従来どおり常に新規draftを作成する後方互換動作を維持した(`inquiry_form_intake.py`
+  相当の問い合わせ側入口は、現時点で`idempotency_key`を受け取るエントリポイント関数自体が
+  未実装〈フォーム送信の生ペイロードを直接返すのみ〉であることをフェーズ107で確認したため、
+  本フェーズでは`one_time_draft`側のみを対象とし、`inquiry`側の結線は次回候補として残す)。
+  新規テスト3件(新規reserve確認・既存draft再利用時にcreate_draft()が2度目は呼ばれないこと・
+  idempotency_key未送信時の後方互換動作)を追加し、既存137件と合わせ全140件がパスすること
+  を確認した(`python3 -m unittest discover -s prototype -p "test_*.py"`)。schema検証22件も
+  変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)`inquiry_form_intake.py`側に本フェーズと
+  同型の入口エントリポイント関数(`submit_inquiry`相当、現時点で未実装)を新規作成し、
+  `idempotency_key_index_store.reserve_or_get()`を`collection="inquiry"`で結線する、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 16:00 UTC(フェーズ107: `idempotency_key_index_store.reserve_or_get()`を
+  `checkout_session_creation.create_checkout_session_for_event_memo()`に結線。同一
+  `idempotency_key`での再送時はdraftを再作成せず既存draft_idを再利用する一方、Checkout
+  Session自体は毎回新規発行して二重決済を避ける設計とした。新規テスト3件追加、全140件・
+  schema検証22件いずれもパス(回帰なし)。`inquiry`側の同型結線は次回候補として残す)

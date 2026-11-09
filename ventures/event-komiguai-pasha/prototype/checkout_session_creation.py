@@ -146,6 +146,7 @@ def create_checkout_session_for_event_memo(
     amount: int = DEFAULT_AMOUNT_JPY,
     currency: str = DEFAULT_CURRENCY,
     draft_id_factory: Callable[[], str] = _default_draft_id_factory,
+    idempotency_store=None,
 ) -> CheckoutSessionCreationResult:
     """Webフォーム送信の生ペイロードを受け取り、(a)必須項目欠落ならinsufficient_input
     応答をその場で返す(draft・Checkout Sessionいずれも作成しない)、(b)充足していれば
@@ -156,6 +157,17 @@ def create_checkout_session_for_event_memo(
     Webフォームの生POSTボディ(dict化済み)を`raw_payload`としてそのまま渡される想定。
     `base_url`(末尾スラッシュなし)はsuccess_url/cancel_url構築用
     (checkout-session-success-cancel-url-design.md フェーズ104参照)。
+
+    `idempotency_store`(idempotency_key_index_store.IdempotencyKeyIndexStoreProtocol
+    相当、省略可)を渡した場合、`raw_payload["idempotency_key"]`(web-form-ui-design.md
+    3節でクライアント側が送信ボタン押下時に生成する値)をキーに`reserve_or_get()`を呼ぶ
+    (idempotency-key-write-conflict-control-design.mdフェーズ67の原子的衝突検知方式)。
+    同一`idempotency_key`での再送(二重クリック・ネットワーク再試行等)が検知された場合は
+    `one_time_draft`の新規作成をスキップし、既存`draft_id`に対してCheckout Sessionのみを
+    新規作成して返す(idempotency-key-duplicate-detection-firestore-query-design.mdフェーズ70
+    7.2節のとおり、Checkout Session自体はidempotency_keyに紐づかないため二重決済には
+    つながらない)。`idempotency_store`省略時・`idempotency_key`未送信時は従来どおり常に
+    新規draftを作成する(後方互換)。
     """
 
     intake_result = handle_form_submission(raw_payload)
@@ -167,15 +179,30 @@ def create_checkout_session_for_event_memo(
             insufficient_input_response=intake_result,
         )
 
-    draft_id = draft_id_factory()
+    candidate_draft_id = draft_id_factory()
     resolved_now = now if now is not None else datetime.now(timezone.utc)
     expires_at = resolved_now + timedelta(hours=ttl_hours)
 
-    draft_store.create_draft(
-        draft_id,
-        event_memo=raw_payload,
-        expires_at=expires_at,
-    )
+    idempotency_key = raw_payload.get("idempotency_key")
+    draft_id = candidate_draft_id
+    if idempotency_store is not None and idempotency_key:
+        draft_id = idempotency_store.reserve_or_get(
+            idempotency_key,
+            collection="one_time_draft",
+            document_id=candidate_draft_id,
+            created_at=resolved_now,
+            expire_at=expires_at,
+        )
+
+    if draft_id == candidate_draft_id:
+        draft_store.create_draft(
+            draft_id,
+            event_memo=raw_payload,
+            expires_at=expires_at,
+        )
+    # draft_id != candidate_draft_id: 既存のidempotency_keyが既にdraft_idを確保済み
+    # (フェーズ67 3節手順4)。create_draft()は呼ばず、既存draftに対してCheckout Session
+    # のみを新規発行する。
 
     session = checkout_client.create_session(
         amount=amount,
