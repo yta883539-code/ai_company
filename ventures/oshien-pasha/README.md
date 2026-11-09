@@ -2332,6 +2332,29 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-09 04:00 UTC(フェーズ102: 詳細は上記。次画面の役割・新規エンドポイント
   `receive_generation_request()`を設計し、都度プラン側のaccess_token設計が未解決のまま
   残っていることを明記)
+- フェーズ104(2026-11-09 14:00 UTC定例更新): フェーズ102次回候補(1)「都度プラン用
+  access_tokenの永続化・1回使用後の失効設計」に対応した。新規
+  `one-time-plan-access-token-design.md`として、firestore-data-model.md 0節(フェーズ36)
+  の「都度プランはコレクションを持たない」という決定が、フェーズ100・102で確定した
+  access_token方式の共通エントリポイント設計より前のものであり前提が崩れていることを
+  明記した上で、`fan_pass`とは独立した`one_time_pass/{internal_id}`コレクション
+  (`accessToken`・`stripeCheckoutSessionId`・`consumedAt`・`expiresAt`〈24時間〉)を新設する
+  方針、`checkout_result_page_handler.py`のルックアップをCheckout Sessionの`mode`で
+  分岐する`CombinedPassLookupProtocol`に差し替える方針、`receive_generation_request()`が
+  生成成功後に`consumedAt`を書き込み以降のリクエストを403(`already_consumed`)で弾く
+  順序(生成成功確認後にのみ消費済みにする)を確定した。都度プラン・初回無料体験(決済
+  なし)の経路設計および期限切れ時の返金方針は次回以降の課題として明記した。コード変更
+  なし(設計のみ)、既存テスト(`python3 prototype/run_all_tests.py`8 files run, 8 passed)
+  は回帰なしで変更不要であることを確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`prototype/one_time_pass_store.py`の新規実コード化(`fan_pass_store.py`
+  と同型のインメモリ実装・テスト)、(2)`CombinedPassLookupProtocol`の実コード化と既存
+  `checkout_result_page_handler.py`への組み込み、(3)入力フォーム自体のUI/UX設計、
+  (4)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-09 14:00 UTC(フェーズ104: 詳細は上記。都度プラン用`one_time_pass`
+  コレクション・`consumedAt`による1回使用後の失効設計・ルックアップ一本化方針を新規
+  `one-time-plan-access-token-design.md`として確定。コード変更なし)
 - フェーズ103(2026-11-09 09:00 UTC定例更新): 7venture中、本ventureは直近複数フェーズで
   他venture(kura-pasha等)より更新間隔が短かったが、回帰確認の実効性という見過ごせない
   問題を発見したため本フェーズで対応した。cross-venture-discover-compatibility-review.md
