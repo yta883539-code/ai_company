@@ -2461,3 +2461,30 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   新規追加し、都度プラン・月額フリーパス両対応のルックアップ一本化を実コード化。既存の
   月額フリーパス専用エントリポイントは無変更。9 files run, 9 passed, 0 failed
   〈run_all_tests.py〉)
+- フェーズ107(2026-11-10 08:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ106次回候補(1)「`receive_generation_request()`を都度プラン対応させ、
+  design.md 4節の`consumed_at`/`expires_at`に基づく403(`already_consumed`)・404
+  (`unknown_access_token`、期限切れと未登録を区別しない)分岐を実装する」に対応した。
+  調査の結果、`receive_generation_request()`自体がresult-display-page-generation-
+  request-design.md(フェーズ102)時点では設計のみでプロトタイプに未着手だった(次回候補の
+  前提が実際にはまだ存在していなかった)ことを確認し、新規`prototype/generation_request_
+  handler.py`として、同design 2節の基本形(月額フリーパスのみ)とone-time-plan-access-
+  token-design.md 4節(都度プランの403/404分岐)を統合して実コード化した。access_tokenを
+  `fan_pass_store`→`one_time_pass_store`の順で問い合わせ、最初に見つかったストアの種別で
+  分岐する方式を採用(`CombinedPassLookupProtocol`はCheckout Sessionのmodeを前提にしており
+  access_tokenのみを受け取る本関数には使えないため)。design.md 4節が明記する優先順位
+  (`expiresAt`超過は`consumedAt`の状態によらず404を返し、403より優先される)をテストで
+  明示的に固定した(`test_expired_and_consumed_one_time_pass_returns_404_not_403`)。
+  都度プランは月次生成カウント(generation-count-design.md 2節)の対象外のため
+  `generation_log.record()`は呼び出さない設計とした。新規テスト9件追加、全10ファイル・
+  `validate_test_cases.py`9件・`schema/check_venue_master_parity.py`36件/36件いずれも
+  パス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)結果ページ側のHTTPハンドラーを実際に`receive_checkout_result_request_
+  combined()`へ切り替える移行手順の検討(既存の月額フリーパス専用呼び出し元がどこにあるか
+  棚卸しが必要、フェーズ106次回候補(2)から持ち越し)、(2)入力フォーム自体のUI/UX設計、
+  (3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 08:00 UTC(フェーズ107: 詳細は上記。`prototype/generation_request_
+  handler.py`を新規作成し、`receive_generation_request()`を月額フリーパス・都度プラン
+  両対応で実コード化。10 files run, 10 passed, 0 failed〈run_all_tests.py〉)
