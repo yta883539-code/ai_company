@@ -2488,3 +2488,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-10 08:00 UTC(フェーズ107: 詳細は上記。`prototype/generation_request_
   handler.py`を新規作成し、`receive_generation_request()`を月額フリーパス・都度プラン
   両対応で実コード化。10 files run, 10 passed, 0 failed〈run_all_tests.py〉)
+- フェーズ108(2026-11-10 16:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ107次回候補(1)「結果ページ側のHTTPハンドラーを実際に
+  `receive_checkout_result_request_combined()`へ切り替える移行手順の検討(既存の月額
+  フリーパス専用呼び出し元がどこにあるか棚卸しが必要)」に対応した。`prototype/`配下を
+  棚卸しした結果、`receive_checkout_result_request()`(月額フリーパス専用)の呼び出し元は
+  自身の回帰テストのみで、本番相当の呼び出し元は存在しないことを確認した(`main(request)`
+  自体がフロントエンド未確定を理由に未着手のため)。新規
+  checkout-result-combined-migration-decision.mdを作成し、将来`main(request)`を配線する
+  際はcombined版のみを直接使う方針(段階的切り替えは不要)を決定した。既存の月額フリーパス
+  専用関数(`receive_checkout_result_request()`・`resolve_checkout_result()`)は削除せず
+  回帰テストの仕様書として保持し、docstringに新規呼び出し元では使わない旨を追記した。
+  checkout-result-http-entry-point-design.md 4節・INDEX.mdへ反映。コード変更はdocstring
+  追記のみ(ロジック変更なし)、既存テスト(10ファイル・validate_test_cases.py 9件・
+  schema/check_venue_master_parity.py 36件/36件)いずれも変更なしでパス(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)入力フォーム自体のUI/UX設計(フェーズ106次回候補(2)から持ち越し)、
+  (2)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 16:00 UTC(フェーズ108: 詳細は上記。
+  checkout-result-combined-migration-decision.mdを新規作成し、combined版への移行方針を
+  決定。10 files run, 10 passed, 0 failed〈run_all_tests.py〉)

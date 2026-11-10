@@ -31,6 +31,7 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 
 ## 課金・プラン(都度/月額/推し活パス)
 - checkout-result-http-entry-point-design.md / stripe-webhook-entry-point-design.md
+- checkout-result-combined-migration-decision.md
 - payment-method-design.md / plan-change-billing-design.md
 - monthly-pass-identity-design.md / monthly-pass-trial-decision.md
 - monthly-pass-user-identification-design.md / one-time-plan-access-token-design.md

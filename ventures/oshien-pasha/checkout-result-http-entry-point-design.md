@@ -75,6 +75,11 @@ def receive_checkout_result_request(
 
 ## 4. 残課題
 
+- (フェーズ108追記)都度プラン対応版(`receive_checkout_result_request_combined()`、
+  フェーズ106)への移行方針はcheckout-result-combined-migration-decision.mdで決定済み。
+  本番側の呼び出し元は現時点で存在しないため、将来`main(request)`を配線する際はcombined版
+  のみを直接使う(本関数を経由する実装は行わない)。
+
 - 実Stripe API呼び出し(`StripeCheckoutSessionLookupProtocol`の実装)・実Cloud
   Functionsデプロイ・実スリープ(本番では`time.sleep()`またはクライアント側の再ポーリング
   に置き換える判断自体)はいずれもオーナー承認が必要なアクション(既存の承認待ち事項の範囲内)

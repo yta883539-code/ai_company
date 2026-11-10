@@ -183,7 +183,12 @@ def receive_checkout_result_request(
 ) -> CheckoutResultHttpResult:
     """checkout-result-http-entry-point-design.md(フェーズ100)2節の処理順序どおりに
     実行する。`resolve_checkout_result()`の例外(`CheckoutSessionNotFoundError`)を
-    404へ変換する、本venture唯一のエントリポイントである。"""
+    404へ変換する。
+
+    月額フリーパス専用(都度プラン非対応)。checkout-result-combined-migration-decision.md
+    (フェーズ108)の決定により、本番側の新規エントリポイント配線(`main(request)`)では
+    `receive_checkout_result_request_combined()`のみを使う。本関数は既存回帰テストの
+    仕様書としての価値のため保持するが、新規の呼び出し元からは使わないこと。"""
 
     if checkout_session_id is None or not checkout_session_id.strip():
         return CheckoutResultHttpResult(status_code=400, error="missing_checkout_session_id")
