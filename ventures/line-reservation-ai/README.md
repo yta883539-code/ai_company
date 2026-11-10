@@ -7474,3 +7474,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-10 06:00 UTC(フェーズ続き383: 詳細は上記。6venture+本venture自身の
   INDEX.md陳腐化棚卸しを完了し、全件差分0件を確認。コード変更なし、テスト1048件・
   schema検証28件いずれも変更なしでパス)
+- フェーズ続き384(2026-11-10 12:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-10 06:00 UTC)を前進。次回候補(1)の承認待ち事項1〜4はオーナー未回答
+  のため引き続き着手不可、次回候補(2)(ideas.md/presentations.mdの肥大化方針)もオーナー判断待ちで
+  本エージェントの判断だけでは着手できないため、他の陳腐化記載の棚卸しを実施した。
+  conversation-samples-test-cases.mdのE16(2026-07-31 11:58 UTC追加)「検証観点」に残っていた
+  「同一topicの重複要素を1件とカウントするか未回答分のみカウントするかの集計ルールを別途詰める
+  必要がある(未着手)」という記載が、E16追加と同日(2026-07-31)に作成された
+  duplicate-topic-notification-log-rule.md(`resolved: false`のセグメントのみに絞り
+  (日付, userId, topic)の組でユニーク化してカウントする方式を結論化)によって既に解消済みの
+  陳腐化記載であることを発見した。E16では`payment`topicの2要素のうち`resolved: true`
+  (カード)側はこの集計ルールにより対象外となるため、重複カウント自体の論点が発生しないことを
+  確認し、その旨をconversation-samples-test-cases.mdのE16検証観点に追記・是正した
+  (kura-pashaフェーズ続き294・本venture側フェーズ続き382と同種の既存記載陳腐化棚卸し)。
+  設計・値の変更はなく記載の是正のみ。コード変更なし、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(1048件、変更なし)・`python3 schema/validate_test_cases.py`
+  (28件、変更なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・
+  回答された場合はその着手を最優先、(2)ideas.md/presentations.mdの肥大化方針についてもオーナー
+  判断待ちのため、本venture配下の他の設計文書(subscription-billing-cost-estimate.md・
+  suspension-reason-new-booking-block-design.md等、grep上「未着手」「残課題」の記載が残る
+  ファイルが複数存在する)について、今回と同様に陳腐化(既に別文書で解消済みの記載)の棚卸しを
+  継続する。
+- 最終更新: 2026-11-10 12:00 UTC(フェーズ続き384: 詳細は上記。conversation-samples-test-cases.md
+  のE16検証観点に残っていた陳腐化記載〈集計ルール未着手〉を発見し、duplicate-topic-notification-
+  log-rule.mdで既に解消済みであることを確認して是正。コード変更なし、テスト1048件・
+  schema検証28件いずれも変更なしでパス)
