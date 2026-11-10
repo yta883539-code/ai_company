@@ -118,6 +118,23 @@ class StripeCheckoutSessionClientProtocol:
         raise NotImplementedError
 
 
+class InMemoryCheckoutSessionClient(StripeCheckoutSessionClientProtocol):
+    """submit-event-form-http-entry-point-design.md(フェーズ110)3節: 実Stripeアカウント
+    接続(オーナー承認待ち)前の`main(request)`配線が使う検証用の既定実装。呼び出しごとに
+    一意だが決定的でないセッションIDを返すのみで、実Stripe APIは呼び出さない。
+    テスト専用のStubCheckoutSessionClient(test_checkout_session_creation.py、呼び出し
+    記録を保持する)とは別物で、本番配線側のデフォルト値としてのみ使う。"""
+
+    def create_session(
+        self, *, amount, currency, client_reference_id, success_url, cancel_url
+    ) -> CheckoutSessionResult:
+        session_id = f"cs_inmemory_{uuid.uuid4()}"
+        return CheckoutSessionResult(
+            session_id=session_id,
+            checkout_url=f"https://checkout.stripe.invalid/{session_id}",
+        )
+
+
 @dataclass(frozen=True)
 class CheckoutSessionCreationResult:
     """`create_checkout_session_for_event_memo()`の戻り値。`outcome`で2経路を区別する。"""

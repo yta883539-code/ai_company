@@ -38,6 +38,7 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 
 ## Cloud Run functions HTTPエントリポイント
 - inquiry-form-http-entry-point-design.md
+- submit-event-form-http-entry-point-design.md
 
 ## ドラフト生成・結果配信・TTL
 - draft-creation-and-event-memo-storage-design.md

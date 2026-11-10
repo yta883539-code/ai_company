@@ -2525,3 +2525,28 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   配線(`inquiry_form_http_entry.py`・`inquiry_collection_store.py`・
   `cloud_function_submit_inquiry.py`)を新規実装。新規テスト9件追加、全153件・schema検証22件
   いずれもパス(回帰なし)。残り3関数の同種配線は次回候補として残す)
+- フェーズ110(2026-11-10 13:00 UTC定例更新): フェーズ109次回候補(2)に対応し、
+  `submit_event_form`Cloud Run functionの実HTTPSトリガー配線を実コード化した。
+  `submit-event-form-http-entry-point-design.md`を新規作成し、既存の業務ロジック
+  (`checkout_session_creation.create_checkout_session_for_event_memo()`、フェーズ67〜105)
+  をそのまま再利用しつつ、`prototype/checkout_session_http_entry.py`
+  (`receive_event_form_submission()`、JSONパース→`create_checkout_session_for_event_memo()`
+  への委譲→`outcome`別のHTTPレスポンス整形)、`prototype/cloud_function_submit_event_form.py`
+  (`functions_framework`想定の薄い`main(request)`配線)を新規作成した。あわせて
+  `checkout_session_creation.py`に`InMemoryCheckoutSessionClient`(実Stripe接続前の
+  検証用既定実装、`submit_inquiry`側のInMemoryストアと同じ位置づけ)を追加した。
+  `outcome="insufficient_input"`は主催者の入力不備を示す正常系の分岐として200で返す設計
+  とした(`submit_inquiry`側のmissing_fields応答が400である理由とは異なる点をdesign 2節に
+  明記)。新規テスト9件(`test_checkout_session_http_entry.py`6件・
+  `test_cloud_function_submit_event_form.py`3件)を追加し、既存153件と合わせ全162件が
+  パスすることを確認した(`python3 -m unittest discover -s prototype -p "test_*.py"`)。
+  schema検証22件も変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)残り2関数(`handle_stripe_webhook`・
+  `get_result_page`)についても本フェーズ・フェーズ109と同型の`main(request)`薄配線を
+  設計・実装する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 13:00 UTC(フェーズ110: `submit_event_form`Cloud Run functionの実
+  HTTPSトリガー配線(`checkout_session_http_entry.py`・`cloud_function_submit_event_form.py`・
+  `checkout_session_creation.InMemoryCheckoutSessionClient`)を新規実装。新規テスト9件追加、
+  全162件・schema検証22件いずれもパス(回帰なし)。残り2関数の同種配線は次回候補として残す)
