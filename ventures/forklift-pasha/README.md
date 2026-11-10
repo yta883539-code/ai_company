@@ -4926,3 +4926,29 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-10定例更新(フェーズ227: 詳細は上記。5節の記載齟齬を解消方向(a)
   〈自由記述枠併設〉に確定し、web-form-ui-design.md・first-daily-generation-confirmation-
   notice-design.md両方に反映。コード変更なし、既存テスト・schema検証いずれも変更なしでパス)
+
+- フェーズ228(2026-11-10 11:00 UTC定例更新): フェーズ227次回候補(1)
+  「web-form-mockup/配下のHTML/CSSモックアップに「車両を追加」自由記述枠を反映」に対応した。
+  daily.htmlの車両番号カードに、既存のボタン選択(1〜3号車)と同じCSS-only方式(radioの
+  :checked疑似クラス)で「+ 車両を追加(新しい表記で入力)」の選択肢を追加し、選択すると
+  自由記述の入力欄が表示されるようにした。契約直後(保有車両0台)の状態も併せて静的
+  モックアップ化するため、daily-empty.htmlを新規作成した(車両番号ボタンが1件も無く、
+  自由記述欄のみが常時表示される画面)。いずれもvehicle-label-duplicate-handling-design.md・
+  `prototype/vehicle_registry.py`が確定済みの自由発行方式(`(operatorInternalId,
+  vehicleLabel)`完全一致判定)と整合し、新規実装は不要。`prototype/browser_mockup_checks.js`
+  に「車両を追加」選択時の自由記述欄表示切替・daily-empty.htmlの表示内容を検証するチェックを
+  追加し(新規8件)、既存チェックと合わせて全件パスを確認した。`prototype/run_all_tests.py`
+  24ファイル全件・`schema/validate_test_cases.py`11件もいずれも変更なしでパス(回帰なし)。
+  テキスト入力からのレコード送信・vehicle_idの自動発行処理のバックエンド配線は未実装
+  (実装はFleetOperatorStoreProtocol配線等とあわせて次回候補)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)本設計(first-daily-generation-confirmation-notice-design.md)・「車両を追加」
+  自由記述枠の実装(`FleetOperatorStoreProtocol`への2メソッド追加・firestore-data-model.md
+  へのフィールド反映・`process_form_submission()`側の配線・統合テスト追加)、(2)monthly/
+  annual区分の画面にも契約直後(保有車両0台)バリアントが必要かの確認(現状はdaily区分のみ
+  高頻度入力のため優先した)、(3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認
+  (オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10定例更新(フェーズ228: 詳細は上記。daily.htmlに「車両を追加」自由
+  記述枠を追加し、daily-empty.htmlを新規作成。browser_mockup_checks.jsに新規チェック8件を
+  追加していずれもパス、既存テスト・schema検証も変更なしでパス)

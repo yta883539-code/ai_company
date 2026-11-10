@@ -46,6 +46,26 @@ async function checkDaily(page) {
 
   await page.locator('label[for="vehicle-2"]').click();
   check('daily: 車両番号ボタンの選択状態が切り替わる', await page.locator('#vehicle-2').isChecked());
+
+  // フェーズ228: 「車両を追加」自由記述枠(web-form-ui-design.md 5節・フェーズ227)の検証。
+  const vehicleAddInput = page.locator('.vehicle-add-input');
+  check('daily: 「車両を追加」未選択の間は自由記述欄が非表示', !(await vehicleAddInput.isVisible()));
+  await page.locator('label[for="vehicle-new"]').click();
+  check('daily: 「車両を追加」を選ぶと自由記述欄が表示される', await vehicleAddInput.isVisible());
+  await vehicleAddInput.fill('倉庫2F用');
+  check('daily: 自由記述欄に車両の表記を入力できる', (await vehicleAddInput.inputValue()) === '倉庫2F用');
+}
+
+async function checkDailyEmpty(page) {
+  await page.goto('file://' + path.join(MOCKUP_DIR, 'daily-empty.html'));
+
+  check('daily-empty: ページが例外なく読み込める', (await page.title()).length > 0);
+  check('daily-empty: 車両番号ボタンが存在しない(保有0台)', (await page.locator('.vehicle-buttons').count()) === 0);
+  check('daily-empty: 車両の自由記述欄が常時表示されている', await page.locator('.vehicle-add-input').isVisible());
+
+  const input = page.locator('.vehicle-add-input');
+  await input.fill('1号車');
+  check('daily-empty: 自由記述欄に車両の表記を入力できる', (await input.inputValue()) === '1号車');
 }
 
 async function checkAnnual(page) {
@@ -203,6 +223,7 @@ async function checkMonthlyResult(page) {
   const page = await browser.newPage();
   try {
     await checkDaily(page);
+    await checkDailyEmpty(page);
     await checkAnnual(page);
     await checkIndex(page);
     await checkMonthly(page);

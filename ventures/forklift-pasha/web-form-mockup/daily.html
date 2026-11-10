@@ -27,6 +27,15 @@
   オン・自由記述欄が空の間だけ枠線・注意書きが警告表示になるようにした(値を入力すると
   警告は自動的に消える)。
 
+  フェーズ228での変更: web-form-ui-design.md フェーズ227追記(5節の記載齟齬の解消方向(a)
+  〈自由記述枠併設〉に確定)に対応し、車両番号の選択肢に「車両を追加(新しい表記で入力)」
+  という自由記述の追加枠を常設した(次回候補(1))。既存のボタン選択と同じCSS-only方式
+  (radioの:checked疑似クラス)で、「車両を追加」を選ぶとテキスト入力欄が表示される。
+  契約直後(保有車両0台)の状態を併せて再現するため、daily-empty.htmlを新規作成し、
+  既存車両の選択肢が1件も無く自由記述枠のみが表示される画面も静的モックアップ化した
+  (vehicle-label-duplicate-handling-design.md・prototype/vehicle_registry.pyの自由発行
+  方式と整合。実際のテキスト入力からのレコード送信・vehicle_idの自動発行処理は未実装)。
+
   未実装・意図的なプレースホルダー:
   - JSは一切使用せず、CSS(radio/checkboxの:checked疑似クラスとtilde/plus結合子)のみで
     「異常なし/異常あり」の一次選択・点検項目チェックリストの表示切替・個別項目の自由記述欄の
@@ -129,6 +138,34 @@
     border-color: var(--color-accent);
     color: var(--color-accent-dark);
     background: #fdf1e2;
+  }
+  /* --- 車両番号: 「車両を追加」自由記述枠(フェーズ228) --- */
+  .vehicle-add-row { margin-top: 8px; }
+  .vehicle-add-row input[type="radio"] { display: none; }
+  .vehicle-add-row > label {
+    display: block;
+    text-align: center;
+    padding: 10px 0;
+    border: 2px dashed var(--color-border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .vehicle-add-row input[type="radio"]:checked + label {
+    border-color: var(--color-accent);
+    color: var(--color-accent-dark);
+  }
+  .vehicle-add-input {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+  }
+  .vehicle-add-row:has(input[type="radio"]:checked) .vehicle-add-input {
+    display: block;
   }
   /* --- 点検者名・実施日: デフォルト値のダミー表示 --- */
   .prefill-row {
@@ -284,7 +321,7 @@
 </head>
 <body>
 <div class="draft-banner">
-  実装ドラフト・非公開 / フェーズ72作成・フェーズ77更新(2026-10-06 06:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
+  実装ドラフト・非公開 / フェーズ72作成・フェーズ228更新(2026-11-10 11:00 UTC) / 送信ボタンは無効化されています(バックエンド未接続)
 </div>
 <div class="screen">
 
@@ -303,6 +340,11 @@
       <label for="vehicle-2">2号車</label>
       <input type="radio" name="vehicle" id="vehicle-3">
       <label for="vehicle-3">3号車</label>
+    </div>
+    <div class="vehicle-add-row">
+      <input type="radio" name="vehicle" id="vehicle-new">
+      <label for="vehicle-new">+ 車両を追加(新しい表記で入力)</label>
+      <input type="text" class="vehicle-add-input" placeholder="例: 4号車、倉庫2F用、新車両 など">
     </div>
   </section>
 
