@@ -51,6 +51,12 @@ fleet-operator-store-upgraded-canceled-firestore-adapter-design.md(フェーズ1
 firestore-data-model.mdに一度も記載されていなかった(`paymentFailureEventTime`のみ記載済み)
 欠落も発見・是正した。3フィールドいずれも`payment_failure_event_time`と同じ「上書き可」方針
 (trial_management.py各docstring参照)。
+
+フェーズ229: first-daily-generation-confirmation-notice-design.md(フェーズ226)3節の
+`first_daily_generation_notice_sent`(1フィールド、計2メソッド)を本モジュールに実コード化する。
+`set_trial_end_notified_at`等と同じ「呼び出し順序の規約」方式(呼び出し元
+`get_first_daily_generation_notice_if_due()`〈trial_management.py〉が未送信を確認した
+直後にのみ呼ぶ)を踏襲する。
 """
 
 from __future__ import annotations
@@ -282,4 +288,18 @@ class FirestoreFleetOperatorStore:
         # design.md: 上書き可。
         self._doc_ref(internal_id).set(
             {"subscriptionLifecycleEventTime": value}, merge=True
+        )
+
+    def get_first_daily_generation_notice_sent(self, internal_id: str) -> bool:
+        # first-daily-generation-confirmation-notice-design.md(フェーズ226設計、
+        # フェーズ229実装)。本モジュール冒頭の方針(実SDK非依存、ダックタイピングのみに
+        # 依存)により、他メソッド同様オーナー承認・実クラウド接続を要さずに実装できる。
+        return bool(self._get_field(internal_id, "firstDailyGenerationNoticeSent"))
+
+    def set_first_daily_generation_notice_sent(self, internal_id: str) -> None:
+        # trial_start_at・trial_end_notified_atと同じ「呼び出し順序の規約」方式。
+        # 呼び出し元get_first_daily_generation_notice_if_due()が未送信を確認した直後に
+        # のみ本メソッドを呼ぶため、本アダプタ自身は常に書き込む。
+        self._doc_ref(internal_id).set(
+            {"firstDailyGenerationNoticeSent": True}, merge=True
         )

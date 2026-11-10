@@ -128,9 +128,35 @@ tone-and-manner-guideline.mdの方針(ですます調・絵文字不使用、実
   まだ反映されていない(机上設計のみ)。モックアップへの反映は次回候補とする。
 - monthly/annual区分についても同種の確認案内が必要かどうかは、daily区分での運用実績
   (オーナー承認待ちの実メール送信・実Stripe/実GCP接続後)を見てから判断する。
-- 実装自体(`FleetOperatorStoreProtocol`への2メソッド追加、firestore-data-model.mdへの
-  フィールド反映、`process_form_submission()`側の配線、統合テスト追加)は本フェーズでは
-  行わず、次フェーズ以降の課題とする。
+- 【フェーズ229で実装】`FleetOperatorStoreProtocol`への2メソッド追加
+  (`get_first_daily_generation_notice_sent`/`set_first_daily_generation_notice_sent`、
+  trial_management.py)、`InMemoryFleetOperatorStore`・`FirestoreFleetOperatorStore`
+  両実装への実装、firestore-data-model.mdへの`firstDailyGenerationNoticeSent`フィールド
+  反映、`process_form_submission()`側の配線(trial_management.get_first_daily_generation_
+  notice_if_due()を新設し、status="generated"確定後・トライアル終了通知より先に呼び出す)、
+  統合テスト追加(test_form_submission_flow.py・test_mock_llm_client.py・
+  test_firestore_fleet_operator_adapter.py)をいずれも完了した。
+
+## 7. 実装メモ(フェーズ229)
+
+- `instance.get("type")`ではなく`record.get("type")`(`inspection_record`内のフィールド)を
+  参照する必要がある点に注意(実装時に一度取り違えて既存テストが失敗したため記録する)。
+- 判定・既読化は`get_first_daily_generation_notice_if_due()`(trial_management.py)が
+  1回でまとめて行う(`record_generation_and_get_trial_end_notice()`と同じ構造)。
+  呼び出し元は戻り値がNoneでなければ`response_text`へ追記するだけでよい。
+- 既読化(`set_first_daily_generation_notice_sent`)はトランザクション等ではなく
+  「呼び出し順序の規約」(未送信確認直後にのみ呼ぶ)に委ねる方針とした(`trial_start_at`等
+  既存フィールドと同じ、fleet-operator-store-firestore-adapter-design.mdの既定方針を踏襲)。
+
+最終更新: 2026-11-10 20:00 UTC(フェーズ229: 6節に残っていた実装課題を完了した。
+`FleetOperatorStoreProtocol`への2メソッド追加(trial_management.py)、
+`InMemoryFleetOperatorStore`・`FirestoreFleetOperatorStore`両実装、firestore-data-model.md
+へのフィールド反映、`process_form_submission()`側の配線(trial_management.
+get_first_daily_generation_notice_if_due()を新設)、統合テスト追加(新規4件+既存2件の
+期待値更新)。既存テスト(`prototype/run_all_tests.py`24ファイル全件・
+`schema/validate_test_cases.py`11件)いずれもパス(回帰なし、既存2件は本フェーズの挙動
+変更に合わせて期待値を更新した上でパス)。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。)
 
 最終更新: 2026-11-09 21:00 UTC(フェーズ226: 新規作成。onboarding-guide.mdが次のステップ
 候補としていたkura-pasha相当のセルフチェック案内を本venture向けに検討。事業者単位契約・

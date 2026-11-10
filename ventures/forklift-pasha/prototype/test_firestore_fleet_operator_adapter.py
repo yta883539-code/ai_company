@@ -405,6 +405,20 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
             self.store.get_subscription_lifecycle_event_time("F1"), second
         )
 
+    def test_get_first_daily_generation_notice_sent_unset_returns_false(self):
+        self.assertFalse(self.store.get_first_daily_generation_notice_sent("F1"))
+
+    def test_set_first_daily_generation_notice_sent_round_trip(self):
+        self.store.set_first_daily_generation_notice_sent("F1")
+        self.assertTrue(self.store.get_first_daily_generation_notice_sent("F1"))
+
+    def test_first_daily_generation_notice_sent_does_not_clobber_canceled_at(self):
+        canceled = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        self.store.set_canceled_at("F1", canceled)
+        self.store.set_first_daily_generation_notice_sent("F1")
+        self.assertEqual(self.store.get_canceled_at("F1"), canceled)
+        self.assertTrue(self.store.get_first_daily_generation_notice_sent("F1"))
+
     def test_three_event_time_fields_independent_of_each_other_and_payment_failure(self):
         su = datetime(2026, 11, 1, tzinfo=timezone.utc)
         cc = datetime(2026, 11, 2, tzinfo=timezone.utc)

@@ -146,13 +146,19 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // stripeCustomerId書き込みを最後に実際に反映した
                                               // イベントのevent.created。同上の理由でフェーズ219
                                               // で反映漏れを発見・解消。未設定はnull、上書き可
-  subscriptionLifecycleEventTime: null       // Timestamp | null。subscription-lifecycle-event-
+  subscriptionLifecycleEventTime: null,      // Timestamp | null。subscription-lifecycle-event-
                                               // order-guard-design.md(フェーズ214)。`customer.
                                               // subscription.deleted`・`customer.subscription.
                                               // created`が共有するキー(canceledAtを最後に
                                               // 実際に反映したイベントのevent.created)。同上の
                                               // 理由でフェーズ219で反映漏れを発見・解消。
                                               // 未設定はnull、上書き可
+  firstDailyGenerationNoticeSent: false       // boolean。first-daily-generation-confirmation-
+                                              // notice-design.md(フェーズ226設計、フェーズ229
+                                              // 実装)。internal_id単位で最初の「daily区分かつ
+                                              // status="generated"」成功時の確認案内を
+                                              // response_textへ付記済みかどうか。未送信は
+                                              // false、付記後はtrueに固定(以降不変)
 }
 ```
 

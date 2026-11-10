@@ -11,6 +11,7 @@ from datetime import datetime
 from form_submission_flow import process_form_submission
 from trial_management import (
     CANCELED_NOTICE,
+    FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
     GENERATION_PAUSED_NOTICE,
     TRIAL_END_RETURN_TEXT_NOTICE,
     TRIAL_GENERATION_LIMIT,
@@ -67,12 +68,26 @@ def main():
     )
     results.append(_check("通常生成: status", result["status"], "generated"))
     results.append(_check(
-        "通常生成: response_textは整形済みbodyそのまま(reminder_noticeなし)",
+        "通常生成: response_textは整形済みbody+初回daily確認案内(reminder_noticeなし)",
         result["response_text"],
-        "2号機、始業前点検、ブレーキ○、異音なし",
+        "2号機、始業前点検、ブレーキ○、異音なし\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
     ))
     results.append(_check("通常生成: check_errorsは空", result["check_errors"], []))
     results.append(_check("通常生成: llm_generateが1回呼ばれる", len(calls), 1))
+
+    # --- 同一事業者の2回目以降のdaily送信では確認案内は付記されない ---
+    result = process_form_submission(
+        "2号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op1",
+        now,
+        llm_generate,
+        store,
+    )
+    results.append(_check(
+        "2回目のdaily生成: 確認案内は付記されない",
+        result["response_text"],
+        "2号機、始業前点検、ブレーキ○、異音なし",
+    ))
 
     # --- reminder_noticeがある場合は本文末尾に改行付きで追記される ---
     store = InMemoryFleetOperatorStore()

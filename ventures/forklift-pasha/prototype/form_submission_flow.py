@@ -29,6 +29,7 @@ from trial_management import (  # noqa: E402
     CANCELED_NOTICE,
     FleetOperatorStoreProtocol,
     GENERATION_PAUSED_NOTICE,
+    get_first_daily_generation_notice_if_due,
     is_generation_paused,
     is_subscription_canceled,
     record_generation_and_get_trial_end_notice,
@@ -86,8 +87,11 @@ def process_form_submission(
        だったものを3段階検証に拡張)。エラーがあればstatus="invalid_output"として
        そのまま利用者には返さない。
     5. instanceのstatusに応じて応答テキストを組み立てる。status="generated"の場合のみ、
-       record_generation_and_get_trial_end_notice()でトライアル生成回数を加算し、
-       ちょうど終了条件に達した場合は返却テキスト末尾に通知文を追記する。
+       get_first_daily_generation_notice_if_due()でinternal_id単位・daily区分初回の
+       確認案内(first-daily-generation-confirmation-notice-design.md)を判定・付記し、
+       続けてrecord_generation_and_get_trial_end_notice()でトライアル生成回数を加算し、
+       ちょうど終了条件に達した場合は返却テキスト末尾に通知文を追記する(design.md
+       「実装位置」の通り、確認案内はトライアル終了通知より先に追記する)。
 
     戻り値は次のキーを持つdict:
     - status: "canceled" | "paused" | "generated" | "out_of_scope"
@@ -141,6 +145,12 @@ def process_form_submission(
     reminder_notice = record.get("reminder_notice")
     if reminder_notice:
         response_text += "\n" + reminder_notice
+
+    first_daily_notice = get_first_daily_generation_notice_if_due(
+        operator_store, operator_id, record.get("type")
+    )
+    if first_daily_notice:
+        response_text += "\n" + first_daily_notice
 
     trial_end_notice = record_generation_and_get_trial_end_notice(
         operator_store, operator_id, now

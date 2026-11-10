@@ -4952,3 +4952,36 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-10定例更新(フェーズ228: 詳細は上記。daily.htmlに「車両を追加」自由
   記述枠を追加し、daily-empty.htmlを新規作成。browser_mockup_checks.jsに新規チェック8件を
   追加していずれもパス、既存テスト・schema検証も変更なしでパス)
+
+- フェーズ229(2026-11-10 20:00 UTC定例更新): フェーズ228次回候補(1)
+  「first-daily-generation-confirmation-notice-design.md・「車両を追加」自由記述枠の実装
+  (`FleetOperatorStoreProtocol`への2メソッド追加・firestore-data-model.mdへのフィールド
+  反映・`process_form_submission()`側の配線・統合テスト追加)」のうち、design.md 6節が
+  実装課題として残していた確認案内本体の配線に対応した(「車両を追加」自由記述欄からの
+  投稿自体のバックエンド配線は`vehicle_registry.py`が既にフェーズ149で実装済みのため、
+  本フェーズの対象は確認案内の配線のみ)。`trial_management.py`の`FleetOperatorStoreProtocol`
+  へ`get_first_daily_generation_notice_sent`/`set_first_daily_generation_notice_sent`の
+  2メソッドを追加し、`InMemoryFleetOperatorStore`に実装、新設した
+  `get_first_daily_generation_notice_if_due()`(internal_id単位・daily区分初回判定+既読化を
+  1回でまとめる、`record_generation_and_get_trial_end_notice()`と同型)を
+  `form_submission_flow.process_form_submission()`のstatus="generated"確定後・トライアル
+  終了通知より先に配線した。`firestore_fleet_operator_adapter.FirestoreFleetOperatorStore`
+  にも同型の2メソッドを実コード化し(他メソッドと同じ実SDK非依存方針、オーナー承認待ちなし)、
+  firestore-data-model.mdへ`firstDailyGenerationNoticeSent`フィールドを追記した。実装中に
+  `instance.get("type")`ではなく`inspection_record`内の`record.get("type")`を参照すべき
+  箇所を一度取り違え、既存テストの失敗で発見・是正した(design.mdに記録)。新規テスト4件
+  (test_firestore_fleet_operator_adapter.py 3件・test_form_submission_flow.py 1件)を追加し、
+  本フェーズの挙動変更(internal_id単位・daily区分初回のstatus="generated"応答に確認案内が
+  自動付記されるようになったこと)に合わせて既存テスト2件(test_form_submission_flow.py・
+  test_mock_llm_client.pyのG1_daily)の期待値を更新した。`prototype/run_all_tests.py`
+  24ファイル全件・`schema/validate_test_cases.py`11件いずれもパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)web-form-mockup/配下のHTML/CSSモックアップに「車両を追加」自由記述枠を
+  反映(フェーズ228次回候補(1)の残り、本フェーズでは確認案内の配線を優先したため未着手)、
+  (2)monthly/annual区分の画面にも契約直後(保有車両0台)バリアントが必要かの確認、
+  (3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認(オーナー承認待ち、本フェーズ
+  時点ではまだ着手不可)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10定例更新(フェーズ229: 詳細は上記。確認案内の配線(Protocol2メソッド・
+  InMemory/Firestore両実装・firestore-data-model.md・process_form_submission()配線)を完了。
+  新規テスト4件追加、既存テスト2件の期待値更新、全件パス(回帰なし)。)

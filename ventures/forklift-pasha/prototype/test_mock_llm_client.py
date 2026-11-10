@@ -17,7 +17,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "schema"))
 
 from form_submission_flow import process_form_submission  # noqa: E402
 from mock_llm_client import MockLlmClient, validate_llm_output  # noqa: E402
-from trial_management import InMemoryFleetOperatorStore  # noqa: E402
+from trial_management import (  # noqa: E402
+    FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    InMemoryFleetOperatorStore,
+)
 from validate_test_cases import POSITIVE_CASES  # noqa: E402
 
 
@@ -32,7 +35,8 @@ def _check(label, actual, expected):
 EXPECTED_STATUS_AND_TEXT = {
     "G1_daily": (
         "generated",
-        "2026-10-03 2号機 始業前点検 山田太郎 ブレーキ○、警告灯○、異音なし 異常なし",
+        "2026-10-03 2号機 始業前点検 山田太郎 ブレーキ○、警告灯○、異音なし 異常なし"
+        "\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
     ),
     "G2_monthly_no_reminder": (
         "generated",

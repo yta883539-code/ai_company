@@ -225,6 +225,21 @@ class FleetOperatorStoreProtocol:
         """同上。上書き可(get/set_subscription_lifecycle_event_timeと同じ方針)。"""
         raise NotImplementedError
 
+    def get_first_daily_generation_notice_sent(self, internal_id: str) -> bool:
+        """first-daily-generation-confirmation-notice-design.md(フェーズ226設計、
+        フェーズ229実装)3節: そのinternal_idにとって最初の「daily区分かつ
+        status="generated"」成功時の確認案内を、response_textへ付記済みかどうか。
+        未送信(または未登録)のinternal_idは`False`を返す(kura-pashaの
+        get_first_generation_notice_sent()と同じ「未設定=デフォルト値」方式)。"""
+        raise NotImplementedError
+
+    def set_first_daily_generation_notice_sent(self, internal_id: str) -> None:
+        """確認案内をresponse_textに付記した時点で1回だけ呼び出す。design.md 3節の通り
+        internal_id単位で1回のみ付記すればよく、クリア(取り消し)操作は想定しないため、
+        Trueへの一方向更新のみを提供する(kura-pashaのset_first_generation_notice_sent()
+        と同じ方針)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -250,6 +265,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._checkout_session_completed_event_time: "dict[str, datetime]" = {}
         self._subscription_lifecycle_event_time: "dict[str, datetime]" = {}
         self._payment_failure_event_time: "dict[str, datetime]" = {}
+        self._first_daily_generation_notice_sent: "set[str]" = set()
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -403,6 +419,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     def set_payment_failure_event_time(self, internal_id: str, value: datetime) -> None:
         self._payment_failure_event_time[internal_id] = value
 
+    def get_first_daily_generation_notice_sent(self, internal_id: str) -> bool:
+        return internal_id in self._first_daily_generation_notice_sent
+
+    def set_first_daily_generation_notice_sent(self, internal_id: str) -> None:
+        self._first_daily_generation_notice_sent.add(internal_id)
+
 
 def is_trial_period_over(
     internal_id: str,
@@ -542,3 +564,33 @@ def is_subscription_canceled(
     `upgraded_at`の値によらず常にTrueを返す(呼び出し側で`is_generation_paused()`より
     先に判定する想定、design「3. 修正内容」のaircon-pasha方針と同じ優先順位)。"""
     return operator_store.get_canceled_at(internal_id) is not None
+
+
+# first-daily-generation-confirmation-notice-design.md(フェーズ226)4節の文面案を
+# そのまま採用(フェーズ229実装)。internal_id単位で最初の「daily区分かつ
+# status="generated"」成功時のみ、通常の応答(response_text)の末尾に1回だけ付記する。
+FIRST_DAILY_GENERATION_NOTICE_MESSAGE = (
+    "【ご確認のお願い】これが最初の点検記録です。車両番号の表記や記録内容が意図通りか、この"
+    "機会にご確認ください。表記を変えて送ると別の車両として扱われますので、今後は同じ表記で"
+    "送ることをおすすめします。問題がなければ今後この案内はありません。"
+)
+
+
+def get_first_daily_generation_notice_if_due(
+    operator_store: FleetOperatorStoreProtocol,
+    internal_id: str,
+    instance_type: "str | None",
+) -> "str | None":
+    """design.md 3節「判定基準」の実装。instance_typeが"daily"以外(monthly/annual)の
+    場合は対象外、既にget_first_daily_generation_notice_sent()がTrueの場合も対象外で
+    Noneを返す。対象の場合はFIRST_DAILY_GENERATION_NOTICE_MESSAGEを返し、同じ呼び出しの
+    中でset_first_daily_generation_notice_sent()を呼んで既読化する
+    (record_generation_and_get_trial_end_notice()と同じく、判定と既読化を1回でまとめる)。
+    design.md「実装位置」の通り、呼び出し元(process_form_submission)ではトライアル
+    終了通知より先にこの関数を呼ぶこと。"""
+    if instance_type != "daily":
+        return None
+    if operator_store.get_first_daily_generation_notice_sent(internal_id):
+        return None
+    operator_store.set_first_daily_generation_notice_sent(internal_id)
+    return FIRST_DAILY_GENERATION_NOTICE_MESSAGE
