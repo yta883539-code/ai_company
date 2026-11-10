@@ -7172,3 +7172,21 @@
   承認・回答された場合はその着手を最優先、(2)本フェーズで整理した実装案(llm-system-
   prompt-draft.mdの厳守事項への追記、onboarding-guide.md手順5への一言追加)の実装、
   (3)他venture・アイデア領域の前進。
+- フェーズ377(2026-11-10 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ376の次回候補(2)に対応し、requester-own-personal-info-management-
+  company-disclosure-review.mdの「次の課題」に残っていた実装2件を行った。
+  llm-system-prompt-draft.mdに新規の厳守事項11(宛先が管理会社・オーナーの場合、報告対象
+  の特定に必要な依頼者本人の氏名・部屋番号を超える連絡先・個人的事情は本文に含めない)を
+  新設(厳守事項9への追記ではなく独立項目とした理由は同review.md参照)、onboarding-
+  guide.md手順5の既存留意事項(第三者情報)の直後に、宛先を管理会社にする場合の対応する
+  留意事項を追加した。いずれもプロンプト・ガイド文書側の対応であり、
+  post_generation_checks.pyの機械チェック対象には含めない方針(厳守事項10と同じ考え方)
+  のためコード変更は無し。review.md・legal-notices-draft.md 2.5節のステータス記載も
+  「実装済み」に更新した。回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更
+  なし)を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件、および
+  pending-approval.md記載のGCP/Firestore作成依頼・運営方針判断依頼)がオーナーから
+  承認・回答された場合はその着手を最優先、(2)他venture・アイデア領域の前進。

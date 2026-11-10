@@ -86,6 +86,12 @@
      third-party-personal-info-inclusion-handling-design.md参照。kura-pashaの
      厳守事項9・onboarding-guide.mdフェーズ184相当の対応だが、本ventureは出力1・2の
      両方が対象である点がkura-pasha〈出力2・3が対象〉と異なる)。
+   - **宛先を管理会社・オーナーにする場合の追加の留意事項**: メモ末尾に「宛先:管理会社」
+     等を明示して送信する場合、報告対象の特定に必要な氏名・部屋番号を超える依頼者本人の
+     連絡先(電話番号・メールアドレス等)や、作業内容の記録に無関係な個人的事情(転居理由
+     等)はメモに記載しないでください。管理会社・オーナーへ転送される完了報告に、業者が
+     意図せずこれらの情報を含めてしまうことを避けるための留意事項です(厳守事項11、
+     requester-own-personal-info-management-company-disclosure-review.md参照)。
 
 6. **トライアル終了・プラン選択**
    pricing-plan.mdの方針通り、トライアル終了時は自動課金せず、生成回数の実績をLINEで
