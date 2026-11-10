@@ -6816,3 +6816,32 @@
   `cloud_function_webhook.py`に実装。deployment-runbook.mdステップ4の誤った前提記述を
   訂正。新規テスト10件追加〈872件→882件〉、既存テスト・schema検証22件いずれも変更なしで
   パス)
+- フェーズ369(2026-11-10 09:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ368のline-webhook-event-id-idempotency-design.md「4節 残課題」に残って
+  いた「根本対策(2秒タイムアウトに収まるよう処理自体を非同期化する、line-reservation-ai
+  のCloud Tasksパターンへの移行)の費用対効果検討」に着手し、webhook-sync-reply-timeout-
+  root-cause-review.mdを新規作成した。べき等性チェック(フェーズ368)はLLM呼び出し・
+  usage_counter加算の重複実行は防ぐが、`replyToken`の短い有効期限切れによって
+  「LLM呼び出し自体は成功したのに返信が送れずオーナーに生成結果が届かない」という
+  利用者が直接体験する機能不全は未解消のままであることを指摘し、line-reservation-ai/
+  webhook-async-processing-design.mdのWebhook即時ACK+Cloud Tasks非同期処理+push API
+  応答パターンへの移行を「実施すべき」と結論づけた。実装・デプロイは実GCPプロジェクト
+  作成(オーナー承認待ち)後の課題として残し、本フェーズでは費用対効果の検討・結論の
+  記録のみとした(process_memo_event()のFAQ固定応答・意図分類分岐・3点セット生成という
+  3経路の切り分け設計は次回候補)。コード変更なし、既存テスト(`python3 -I -m unittest
+  discover -s prototype -p "test_*.py"`882件・`python3 -I schema/validate_test_cases.py`
+  22件)いずれも変更なしでパスし、回帰がないことを確認した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-
+  approval.mdへの追記なし。
+  次回候補: (1)process_memo_event()をline-reservation-ai準拠の2関数構成(A: 署名検証・
+  idempotency・enqueue・即時200、B: LLM呼び出し・返信)に翻案する設計ドキュメントの
+  新規作成(FAQ固定応答・意図分類分岐の経路振り分けを含む)、(2)設計確定後、Cloud Tasks
+  部分をInMemoryスタブで机上検証する実コード反映(実GCPプロジェクト作成の承認を待たずに
+  着手可能)、(3)aircon-pasha・kura-pashaも同じ同期reply構成であるため、本venture側の
+  設計が固まった段階での横展開、(4)2026-11-08 08:00 UTC記載の運営方針判断(7venture
+  共通、実GCP/Firestore/Stripeアカウント作成の承認可否)がオーナーから得られた場合は
+  その着手を最優先。
+- 最終更新: 2026-11-10 09:00 UTC(フェーズ369: 詳細は上記。webhook-sync-reply-timeout-
+  root-cause-review.mdを新規作成し、reply token失効による生成結果未達リスクを指摘して
+  Cloud Tasks非同期化〈根本対策〉の実施を結論づけた。コード変更なし、既存テスト882件・
+  schema検証22件いずれも変更なしでパス)
