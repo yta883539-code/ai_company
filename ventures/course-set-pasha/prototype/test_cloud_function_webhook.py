@@ -36,9 +36,11 @@ from cloud_function_webhook import (  # noqa: E402
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
     FIRST_GENERATION_NOTICE_AREA_UNCONFIGURED_SUFFIX,
     FIRST_GENERATION_NOTICE_BODY,
+    DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS,
     InMemoryApplicationFormLinkProvider,
     InMemoryFirstGenerationNoticeStore,
     InMemoryGymAreaConfigStore,
+    InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
@@ -2760,6 +2762,194 @@ class DispatchWebhookEventsTest(unittest.TestCase):
 
         self.assertEqual(len(result.memo_results), 1)
         self.assertIsNone(result.memo_results[0].chatbot_intent)
+
+
+class InMemoryLineWebhookEventIdStoreTest(unittest.TestCase):
+    """InMemoryLineWebhookEventIdStoreのTTL挙動(line-webhook-event-id-idempotency-
+    design.md 2節、kura-pashaフェーズ287と同型)のテスト。"""
+
+    def test_default_ttl_is_seven_days(self):
+        self.assertEqual(DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS, 7 * 24 * 60 * 60)
+
+    def test_unmarked_id_is_not_processed(self):
+        store = InMemoryLineWebhookEventIdStore()
+        self.assertFalse(store.has_processed("evt-1"))
+
+    def test_marked_id_is_processed_within_ttl(self):
+        store = InMemoryLineWebhookEventIdStore()
+        marked_at = datetime(2026, 11, 10, 0, 0, tzinfo=timezone.utc)
+        store.mark_processed("evt-1", now=marked_at)
+
+        self.assertTrue(
+            store.has_processed("evt-1", now=marked_at + timedelta(days=6, hours=23))
+        )
+
+    def test_marked_id_expires_after_ttl(self):
+        store = InMemoryLineWebhookEventIdStore()
+        marked_at = datetime(2026, 11, 10, 0, 0, tzinfo=timezone.utc)
+        store.mark_processed("evt-1", now=marked_at)
+
+        self.assertFalse(
+            store.has_processed("evt-1", now=marked_at + timedelta(days=7, hours=1))
+        )
+        # TTL失効後は再度mark_processed可能(遅延GCでエントリが削除されている)。
+        store.mark_processed("evt-1", now=marked_at + timedelta(days=7, hours=1))
+        self.assertTrue(
+            store.has_processed("evt-1", now=marked_at + timedelta(days=7, hours=1))
+        )
+
+
+class DispatchWebhookEventsWebhookEventIdIdempotencyTest(unittest.TestCase):
+    """dispatch_webhook_events()の`webhook_event_id_store`対応(line-webhook-event-id-
+    idempotency-design.md 3節、kura-pashaフェーズ286の横展開)のテスト。"""
+
+    def test_duplicate_message_event_is_skipped(self):
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        store = InMemoryLineWebhookEventIdStore()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-1",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        first = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, webhook_event_id_store=store,
+        )
+        second = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, webhook_event_id_store=store,
+        )
+
+        self.assertEqual(len(first.memo_results), 1)
+        self.assertEqual(first.duplicate_webhook_event_ids, [])
+        self.assertEqual(len(second.memo_results), 0)
+        self.assertEqual(second.duplicate_webhook_event_ids, ["wh-evt-1"])
+        self.assertEqual(len(reply_client.sent), 1)
+
+    def test_duplicate_follow_event_is_skipped(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+        store = InMemoryLineWebhookEventIdStore()
+        event = {
+            "type": "follow",
+            "webhookEventId": "wh-evt-follow",
+            "replyToken": "rt-follow",
+            "source": {"userId": "U-follow"},
+        }
+
+        dispatch_webhook_events(
+            [event],
+            linking_store=linking_store,
+            reply_client=reply_client,
+            webhook_event_id_store=store,
+            rng=self._rng(),
+        )
+        second = dispatch_webhook_events(
+            [event],
+            linking_store=linking_store,
+            reply_client=reply_client,
+            webhook_event_id_store=store,
+            rng=self._rng(),
+        )
+
+        self.assertEqual(second.follow_results, [])
+        self.assertEqual(second.duplicate_webhook_event_ids, ["wh-evt-follow"])
+
+    def _rng(self, seed=1):
+        import random
+
+        return random.Random(seed)
+
+    def test_duplicate_unfollow_event_is_skipped(self):
+        linking_store = InMemoryLinkingCodeStore()
+        store = InMemoryLineWebhookEventIdStore()
+        event = {"type": "unfollow", "webhookEventId": "wh-evt-unfollow", "source": {"userId": "U-bye"}}
+
+        dispatch_webhook_events([event], linking_store=linking_store, webhook_event_id_store=store)
+        second = dispatch_webhook_events([event], linking_store=linking_store, webhook_event_id_store=store)
+
+        self.assertEqual(second.unfollow_results, [])
+        self.assertEqual(second.duplicate_webhook_event_ids, ["wh-evt-unfollow"])
+
+    def test_without_store_duplicate_events_are_processed_again(self):
+        # webhook_event_id_store未指定時は従来通り毎回処理される(後方互換)。
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-2",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        first = dispatch_webhook_events([event], reply_client=reply_client, llm_call=llm_call)
+        second = dispatch_webhook_events([event], reply_client=reply_client, llm_call=llm_call)
+
+        self.assertEqual(len(first.memo_results), 1)
+        self.assertEqual(len(second.memo_results), 1)
+
+    def test_missing_webhook_event_id_skips_idempotency_check(self):
+        # webhookEventId欠落時はべき等性チェックをスキップし通常通り処理される(安全側)。
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        store = InMemoryLineWebhookEventIdStore()
+        event = {
+            "type": "message",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        first = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, webhook_event_id_store=store,
+        )
+        second = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, webhook_event_id_store=store,
+        )
+
+        self.assertEqual(len(first.memo_results), 1)
+        self.assertEqual(len(second.memo_results), 1)
+        self.assertEqual(second.duplicate_webhook_event_ids, [])
+
+    def test_receive_webhook_passes_webhook_event_id_store_through(self):
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        store = InMemoryLineWebhookEventIdStore()
+        secret = "demo-secret"
+        body = json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "message",
+                        "webhookEventId": "wh-evt-3",
+                        "replyToken": "rt",
+                        "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                        "source": {"userId": "U1"},
+                    }
+                ]
+            }
+        ).encode("utf-8")
+        signature = base64.b64encode(
+            hmac.new(secret.encode("utf-8"), body, hashlib.sha256).digest()
+        ).decode("utf-8")
+
+        first = receive_webhook(
+            body, signature, secret, reply_client=reply_client, llm_call=llm_call,
+            webhook_event_id_store=store,
+        )
+        second = receive_webhook(
+            body, signature, secret, reply_client=reply_client, llm_call=llm_call,
+            webhook_event_id_store=store,
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(len(first.dispatch_result.memo_results), 1)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(len(second.dispatch_result.memo_results), 0)
+        self.assertEqual(second.dispatch_result.duplicate_webhook_event_ids, ["wh-evt-3"])
 
 
 class ReceiveWebhookTest(unittest.TestCase):

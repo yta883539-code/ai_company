@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Optional, Protocol
+from typing import Dict, Iterable, List, Optional, Protocol
 
 _logger = logging.getLogger(__name__)
 
@@ -1593,6 +1593,48 @@ def process_memo_event(
 
 
 # ---------------------------------------------------------------------------
+# LINE Webhook `webhookEventId`べき等性対策(line-webhook-event-id-idempotency-design.md参照)
+# ---------------------------------------------------------------------------
+
+DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS = 7 * 24 * 60 * 60  # 7日(kura-pashaフェーズ287と同値)
+
+
+class LineWebhookEventIdStoreProtocol(Protocol):
+    """`webhookEventId`の処理済み記録へのアクセスを抽象化するインターフェース
+    (line-webhook-event-id-idempotency-design.md 2節)。"""
+
+    def has_processed(self, webhook_event_id: str, *, now: Optional[datetime] = None) -> bool:
+        raise NotImplementedError
+
+    def mark_processed(self, webhook_event_id: str, *, now: Optional[datetime] = None) -> None:
+        raise NotImplementedError
+
+
+class InMemoryLineWebhookEventIdStore:
+    """検証用のインメモリ実装(stripe_webhook.pyの`InMemoryStripeEventIdStore`・
+    kura-pashaの同名クラスと同じ構造)。実Cloud Functions環境ではプロセスをまたいで
+    状態が保持されない既知の限界があり、実装はFirestoreアダプタへの差し替えが必要。"""
+
+    def __init__(self, ttl_seconds: int = DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._processed_at: Dict[str, datetime] = {}
+
+    def has_processed(self, webhook_event_id: str, *, now: Optional[datetime] = None) -> bool:
+        processed_at = self._processed_at.get(webhook_event_id)
+        if processed_at is None:
+            return False
+        now = now or datetime.now(timezone.utc)
+        if (now - processed_at).total_seconds() <= self._ttl_seconds:
+            return True
+        # TTL超過: Firestore側でTTLポリシーにより削除された後の状態と同じ扱い(遅延GC)。
+        del self._processed_at[webhook_event_id]
+        return False
+
+    def mark_processed(self, webhook_event_id: str, *, now: Optional[datetime] = None) -> None:
+        self._processed_at[webhook_event_id] = now or datetime.now(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
 # Webhook本体のイベント種別ディスパッチ(webhook-event-dispatch-design.md参照)
 # ---------------------------------------------------------------------------
 
@@ -1604,6 +1646,7 @@ class DispatchResult:
     memo_results: list = field(default_factory=list)
     unfollow_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
+    duplicate_webhook_event_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_webhook_events(
@@ -1625,6 +1668,7 @@ def dispatch_webhook_events(
     deletion_store: Optional[DeletionConfirmationUnreachableAtStoreProtocol] = None,
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
@@ -1653,13 +1697,40 @@ def dispatch_webhook_events(
     UNREACHABLE`候補の扱い」節準拠(aircon-pashaフェーズ321の横展開)。そのまま
     `process_follow_event()`へ受け渡すのみで、未指定(`None`)時は従来通り
     `deletion_confirmation_unreachable_at`のクリアを行わない。
+
+    `webhook_event_id_store`はline-webhook-event-id-idempotency-design.md準拠
+    (フェーズ368)。指定時、各イベントの`webhookEventId`が既に処理済みであれば
+    ハンドラを一切呼び出さず(副作用ゼロで)スキップし、`result.duplicate_webhook_
+    event_ids`に記録する。未指定(`None`)時、または`webhookEventId`が欠落・非文字列の
+    場合は従来通りべき等性チェックを行わない(安全側のフォールバック)。
     """
     result = DispatchResult()
+
+    pending_events = []
+    for event in events:
+        webhook_event_id = event.get("webhookEventId")
+        if (
+            webhook_event_id_store is not None
+            and isinstance(webhook_event_id, str)
+            and webhook_event_id_store.has_processed(webhook_event_id, now=now)
+        ):
+            result.duplicate_webhook_event_ids.append(webhook_event_id)
+            continue
+        pending_events.append(event)
+    events = pending_events
 
     for event in events:
         event_type = event.get("type")
         if event_type not in ("follow", "message", "unfollow"):
             result.ignored_types.append(event_type or "unknown")
+
+    def _mark_processed(handled_events: list[dict]) -> None:
+        if webhook_event_id_store is None:
+            return
+        for handled_event in handled_events:
+            webhook_event_id = handled_event.get("webhookEventId")
+            if isinstance(webhook_event_id, str):
+                webhook_event_id_store.mark_processed(webhook_event_id, now=now)
 
     follow_events = [e for e in events if e.get("type") == "follow"]
     if follow_events and reply_client is not None and linking_store is not None:
@@ -1677,6 +1748,7 @@ def dispatch_webhook_events(
                     now=now,
                 )
             )
+        _mark_processed(follow_events)
 
     message_events = [e for e in events if e.get("type") == "message"]
     if message_events and reply_client is not None and llm_call is not None:
@@ -1700,12 +1772,15 @@ def dispatch_webhook_events(
                     now=now,
                 )
             )
+        _mark_processed(message_events)
 
     unfollow_events = [e for e in events if e.get("type") == "unfollow"]
     for event in unfollow_events:
         result.unfollow_results.append(
             process_unfollow_event(event, linking_store, profile_store=profile_store)
         )
+    if unfollow_events:
+        _mark_processed(unfollow_events)
 
     return result
 
@@ -1742,6 +1817,7 @@ def receive_webhook(
     rng: Optional[RandomChoiceSource] = None,
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
 ) -> WebhookReceiverResult:
     """Cloud Functionの本体エントリポイント。生のリクエストボディ(bytes)を受け取り、
@@ -1791,6 +1867,7 @@ def receive_webhook(
         rng=rng,
         intent_classifier=intent_classifier,
         escalation_push_client=escalation_push_client,
+        webhook_event_id_store=webhook_event_id_store,
         now=now,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)

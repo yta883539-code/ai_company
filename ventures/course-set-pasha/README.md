@@ -6780,3 +6780,39 @@
   横展開は全venture既に完了済みであることを確認、本venture自身のINDEX.mdドリフトも
   無しを確認。新たな未着手事項は発見できず、コード変更なし。テスト872件・schema
   検証22件いずれも変更なしでパス)
+- フェーズ368(2026-11-10 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。kura-pashaフェーズ286・287(2026-11-07)が発見した「本venture・aircon-pasha・
+  kura-pashaの3ventureはいずれもStripe Webhook側(stripe-event-idempotency-design.md)の
+  べき等性対策は済んでいるが、LINE Messaging API Webhook側には一度もイベント単位の
+  べき等性チェックが実装されていない」というギャップについて、kura-pasha版design doc
+  「4節 aircon-pasha・course-set-pashaへの横展開」に残っていた本venture向けの次回候補に
+  対応した。line-webhook-event-id-idempotency-design.mdを新規作成し、kura-pasha版
+  (TTL設計含む、フェーズ287時点)をそのまま本venture固有の関数名(`process_follow_
+  event()`/`process_memo_event()`/`process_unfollow_event()`/`dispatch_webhook_events()`/
+  `receive_webhook()`)に翻案した。実コード(`prototype/cloud_function_webhook.py`)に
+  `LineWebhookEventIdStoreProtocol`/`InMemoryLineWebhookEventIdStore`
+  (`DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS`=7日のTTL判定付き)を新規追加し、
+  `dispatch_webhook_events()`のエントリポイント層で`webhookEventId`の処理済みチェックを
+  行い(follow/message/unfollowいずれの種別にも一律適用)、重複時はハンドラを呼ばず
+  `DispatchResult.duplicate_webhook_event_ids`に記録するのみとした。`receive_webhook()`
+  にも`webhook_event_id_store`引数を追加し素通しする配線を行った。deployment-runbook.md
+  ステップ4の「応答時間の見込み(LLM呼び出し1回分)がLINE Webhookのタイムアウト内に
+  収まる想定のため、現時点では不要と判断」という既存記述がkura-pashaフェーズ286の調査
+  (LINE公式Webhookタイムアウトは実際には2秒)により誤った前提だったことが判明していた
+  ため、同ステップに訂正の注記を追記した。新規テスト10件追加(872件→882件、
+  `InMemoryLineWebhookEventIdStoreTest`4件・`DispatchWebhookEventsWebhookEventIdIdempotencyTest`
+  6件)、既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`872件・
+  `python3 -I schema/validate_test_cases.py`22件)いずれも変更なしでパスし、回帰がない
+  ことを確認した。残課題はaircon-pashaへの横展開(本フェーズでkura-pasha・course-set-
+  pashaの2件が対応済みとなり、aircon-pashaのみ残る)とFirestoreアダプタへの実装差し替え
+  (実GCPプロジェクト作成後、オーナー承認待ち)。承認が必要なアクションは今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)aircon-pashaが選ばれた回にline-webhook-event-id-idempotency-design.mdの
+  横展開、(2)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、実GCP/Firestore/
+  Stripeアカウント作成の承認可否)がオーナーから得られた場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 03:00 UTC(フェーズ368: 詳細は上記。line-webhook-event-id-
+  idempotency-design.mdを新規作成し、`webhookEventId`べき等性チェック〈TTL付き〉を
+  `cloud_function_webhook.py`に実装。deployment-runbook.mdステップ4の誤った前提記述を
+  訂正。新規テスト10件追加〈872件→882件〉、既存テスト・schema検証22件いずれも変更なしで
+  パス)

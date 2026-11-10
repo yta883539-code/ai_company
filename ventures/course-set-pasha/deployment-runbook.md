@@ -75,6 +75,11 @@ webhook-processing-flow-design.md・limit-approaching-notification-design.md等)
 - line-reservation-aiのようなCloud Tasksへのエンキュー・非同期化は、本venture単発処理では
   応答時間の見込み(LLM呼び出し1回分)がLINE Webhookのタイムアウト内に収まる想定のため、
   現時点では不要と判断(応答遅延が実測で問題になった場合は、Function A/Bへの分割を再検討)。
+  ※フェーズ368で訂正: LINE公式のWebhookタイムアウトは実際には2秒であり、LLM API呼び出し
+  (構造化出力生成)は通常これを超えるため、上記「タイムアウト内に収まる想定」は誤った前提
+  だった(kura-pashaフェーズ286で発見)。非同期化自体は上記の費用対効果判断により見送るが、
+  Webhook再送による重複実行は`webhook_event_id_store`(line-webhook-event-id-idempotency-
+  design.md)で別途対症療法として対策済み。
 - Python 3.x ランタイム、prototype/配下のコードをそのままエントリポイントとしてデプロイ
   できる設計(クラウドSDK呼び出し部分のみ後付けで注入するスタブ構成のため)。
 

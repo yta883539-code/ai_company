@@ -65,6 +65,7 @@ pending-approval.md 2026-11-08 08:00 UTC記載の「整理(重複排除・要約
 - webhook-event-dispatch-design.md / webhook-processing-flow-design.md
 - receive-webhook-http-entry-point-design.md / onboarding-settings-and-self-check-design.md
 - limit-approaching-notification-design.md / linking-code-purge-trigger-design.md
+- line-webhook-event-id-idempotency-design.md
 
 ## インフラ・運用
 - tech-stack.md / firebase.json / firestore.rules / firestore.indexes.json
