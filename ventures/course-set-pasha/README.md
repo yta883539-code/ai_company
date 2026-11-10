@@ -6845,3 +6845,21 @@
   root-cause-review.mdを新規作成し、reply token失効による生成結果未達リスクを指摘して
   Cloud Tasks非同期化〈根本対策〉の実施を結論づけた。コード変更なし、既存テスト882件・
   schema検証22件いずれも変更なしでパス)
+- フェーズ370(2026-11-10 17:00 UTC定例更新): フェーズ369「次回候補(1)」に対応し、
+  process-memo-event-async-split-design.mdを新規作成した。`process_memo_event()`の
+  既存4分岐(非text対象外/FAQ固定応答/意図分類/投稿文生成本体)のうち、LLM呼び出しを
+  含まない経路2(FAQ固定応答)のみ同期reply、`classify()`自体がLLM呼び出しである
+  経路3(意図分類)と経路4(投稿文生成)はまとめて非同期push、という2分岐でFunction A
+  (`receive_webhook`)/Function B(`process_memo_event_async`新設)を設計した。
+  line-reservation-ai/webhook-async-processing-design.mdのCloud Tasks重複排除方式を
+  流用し、`process_memo_event()`本体のロジック変更は不要(呼び出され方のみ変更)と
+  結論づけた。コード変更なし、既存テスト(`python3 -I -m unittest discover -s prototype
+  -p "test_*.py"`882件・`python3 -I schema/validate_test_cases.py`22件)いずれも
+  変更なしでパスし、回帰がないことを確認した。INDEX.mdに新規ファイルを追記した。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)Function B(`process_memo_event_async`)の実装自体(InMemoryスタブでの
+  机上検証、実GCPプロジェクト作成の承認を待たずに着手可能)、(2)`dispatch_webhook_
+  events()`へのFAQ/非FAQ振り分け前処理の実コード反映、(3)2026-11-08 08:00 UTC記載の
+  運営方針判断(7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)が
+  オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の前進。
