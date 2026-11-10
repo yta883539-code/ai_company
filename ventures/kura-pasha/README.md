@@ -6875,3 +6875,20 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   追加(Firebase Local Emulator Suite、実GCPプロジェクト不要)、(2)承認待ち事項が
   オーナーから承認された場合はその着手を最優先、(3)フェーズ291次回候補(4節のログ出力側
   実装、結合実装フェーズ待ち)、(4)他venture・アイデア領域の前進。
+- フェーズ続き295(2026-11-10 04:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ続き294次回候補(1)に対応し、`emulator-test/run_rules_check.sh`に
+  `line_webhook_event_ids`・`processed_stripe_events`(フェーズ288・290で`firestore.rules`
+  に追加済みだった2コレクション)分の書き込み検証2件・読み取り検証1件を追加し、
+  `npx firebase-tools@13 emulators:exec --project demo-kura-pasha --only firestore
+  "bash emulator-test/run_rules_check.sh"`(デモプロジェクトID、実GCPプロジェクト・課金設定・
+  `firebase login`いずれも不要)を再実行して全11件PASSを確認した。
+  firestore-security-rules-emulator-verification.mdに4節を追補し、
+  firestore-security-rules-draft.md 4節が言及していた当該残課題の解消を記録した。
+  コード変更なし(検証スクリプト・ドキュメントのみ)、既存テスト
+  (`prototype/run_all_tests.py`25ファイル全件OK・`schema/validate_test_cases.py`32件)
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)フェーズ291次回候補(4節のログ出力側実装、結合実装フェーズ待ち)、
+  (3)他venture・アイデア領域の前進。

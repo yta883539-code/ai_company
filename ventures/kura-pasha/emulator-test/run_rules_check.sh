@@ -46,12 +46,24 @@ check_denied "pending_links/{linkingCode} 書き込み" POST \
 check_denied "usage_counter/{workshopId} 書き込み" POST \
   "${BASE}/usage_counter?documentId=testWorkshop" '{"fields":{"count":{"integerValue":"1"}}}'
 
-# 7. 対象外トップレベルコレクション(document=** のdeny-all catch-all)への書き込み
+# 7. line_webhook_event_ids/{webhookEventId} への未認証直接書き込み(フェーズ288で追加)
+check_denied "line_webhook_event_ids/{webhookEventId} 書き込み" POST \
+  "${BASE}/line_webhook_event_ids?documentId=testWebhookEventId" '{"fields":{"processedAt":{"stringValue":"test"}}}'
+
+# 8. processed_stripe_events/{eventId} への未認証直接書き込み(フェーズ290で追加)
+check_denied "processed_stripe_events/{eventId} 書き込み" POST \
+  "${BASE}/processed_stripe_events?documentId=testEventId" '{"fields":{"processedAt":{"stringValue":"test"}}}'
+
+# 9. 対象外トップレベルコレクション(document=** のdeny-all catch-all)への書き込み
 check_denied "想定外トップレベルコレクション書き込み(document=** catch-all)" POST \
   "${BASE}/unexpectedCollection?documentId=testDoc" '{"fields":{"x":{"stringValue":"y"}}}'
 
-# 8. craftsman_workshop/{workshopId} への未認証読み取り
+# 10. craftsman_workshop/{workshopId} への未認証読み取り
 check_denied "craftsman_workshop/{workshopId} 読み取り" GET \
   "${BASE}/craftsman_workshop/testWorkshop"
+
+# 11. line_webhook_event_ids/{webhookEventId} への未認証読み取り
+check_denied "line_webhook_event_ids/{webhookEventId} 読み取り" GET \
+  "${BASE}/line_webhook_event_ids/testWebhookEventId"
 
 echo "ALL CHECKS PASSED: firestore.rules (deny-all) をFirebase Local Emulator Suiteで検証、未認証クライアントアクセスは全てPERMISSION_DENIEDを確認した。"
