@@ -4901,3 +4901,28 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   design.mdとvehicle-label-duplicate-handling-design.mdの間の記載齟齬〈車両0台時点の入力
   経路が設計上存在しない〉を発見し次回候補へ記録。設計のみでコード変更なし、既存テスト・
   schema検証・browser_mockup_checksいずれも変更なしでパス)
+
+- フェーズ227(2026-11-10 05:00 UTC定例更新): フェーズ226次回候補(1)「5節の記載齟齬
+  (web-form-ui-design.md vs vehicle-label-duplicate-handling-design.md)の解消方針の確定」
+  に対応した。解消方向を(a)(web-form-ui-design.mdを自由記述枠併設に修正しvehicle_registry.py
+  の自由発行方式と整合させる)に確定し、同ファイル「daily区分の入力画面」節1.に既存車両の
+  選択肢(ボタン/プルダウン)に加えて「車両を追加(新しい表記で入力)」という自由記述の
+  追加枠を常設する旨を追記、契約直後(保有車両0台)はこの自由記述枠のみが表示される状態に
+  なることを明記した。(b)(専用の車両登録UI・API新設)は、実装・テスト済み
+  (`prototype/vehicle_registry.py`、テスト内訳は`test_vehicle_registry.py`)の自動発行挙動を
+  変更するコスト・リグレッションリスクが大きく、保有1〜数台という想定顧客像に対してUX上の
+  メリットが薄いため不採用とした。first-daily-generation-confirmation-notice-design.mdの
+  5節・6節・最終更新も解消結果に合わせて更新し、4節の確認案内文面(「表記を変えると別の
+  車両として扱われる」)の前提が維持されることを明記した。コード変更なし、既存テスト
+  (`prototype/run_all_tests.py`24ファイル全件パス・`schema/validate_test_cases.py`11件)
+  いずれも変更なしでパス(回帰なし)を確認した。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)web-form-mockup/配下のHTML/CSSモックアップに「車両を追加」自由記述枠を
+  反映(本フェーズでは机上設計のみ)、(2)本設計(first-daily-generation-confirmation-
+  notice-design.md)の実装(`FleetOperatorStoreProtocol`への2メソッド追加・firestore-
+  data-model.mdへのフィールド反映・`process_form_submission()`側の配線・統合テスト追加)、
+  (3)実Stripe/実GCPプロジェクト接続後のエンドツーエンド結合確認(オーナー承認待ち、本フェーズ
+  時点ではまだ着手不可)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10定例更新(フェーズ227: 詳細は上記。5節の記載齟齬を解消方向(a)
+  〈自由記述枠併設〉に確定し、web-form-ui-design.md・first-daily-generation-confirmation-
+  notice-design.md両方に反映。コード変更なし、既存テスト・schema検証いずれも変更なしでパス)
