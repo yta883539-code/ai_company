@@ -2510,3 +2510,22 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-10 16:00 UTC(フェーズ108: 詳細は上記。
   checkout-result-combined-migration-decision.mdを新規作成し、combined版への移行方針を
   決定。10 files run, 10 passed, 0 failed〈run_all_tests.py〉)
+- フェーズ109(2026-11-10 17:00 UTC定例更新): フェーズ108次回候補(1)「入力フォーム自体の
+  UI/UX設計」に対応した。新規input-form-ui-ux-design.mdを作成し、生成物表示ページの入力
+  フォームを自由記述テキストエリア1本(「当選情報メモ」)で構成する方針を確定した。
+  goods-line-participation-input-field-design.md(フェーズ52)の`goods_line_intention`に
+  ついては、専用UIコンポーネント(3択トグル等)を設ける案も検討したが、「メモで送るだけ」
+  という既存LP訴求(landing-page-copy-draft.md)・入力検証をLLMに委ねる既定方針
+  (result-display-page-generation-request-design.md 2節手順4)との整合を優先し、本フェーズ
+  では自由記述内の言及をLLMが抽出する方式を採用し、専用UI化は抽出精度の実測次第の次回候補
+  とした。文字数上限(2,000文字、暫定値)・二重送信防止(送信中はボタン非活性化)の方針も
+  あわせて確定した。HTML/JSの実装・外部サービスへの接続は行っていない(テキストベースの
+  設計検討のみ)。INDEX.mdへ本ファイルを追記。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)生成結果表示部分(4出力カード)のUI/UXワイヤーフレーム、(2)`landing-page/
+  index.html`と同様の非公開試作HTML化(実デプロイはオーナー承認後)、(3)LLM呼び出し失敗時
+  のエラー表示UI、(4)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー
+  承認待ち(pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-10 17:00 UTC(フェーズ109: 詳細は上記。input-form-ui-ux-design.mdを
+  新規作成し、入力フォームのUI/UXを自由記述テキストエリア1本の構成で確定。コード変更なし)
