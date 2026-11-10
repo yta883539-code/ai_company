@@ -6892,3 +6892,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
   (2)フェーズ291次回候補(4節のログ出力側実装、結合実装フェーズ待ち)、
   (3)他venture・アイデア領域の前進。
+- フェーズ続き296(2026-11-10 10:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ続き295次回候補(1)(2)はいずれも未着手の前提(オーナー承認待ち・結合実装
+  フェーズ待ち)に変化がなかったため、本フェーズでは(3)「他venture・アイデア領域の前進」の
+  一環として、本venture配下の複数文書に残る「未着手」「次回候補」記載が陳腐化していないかの
+  棚卸しを行った。invite-code-store-firestore-adapter-design.md 4節・workshop-store-
+  firestore-adapter-design.md 31節・deletion-candidate-query-consolidation-horizontal-
+  survey.md・cross-venture-discover-compatibility-review.mdの4件を確認したところ、いずれも
+  フェーズ244・250・274等で既に解消済みであり、記載自体も現状に合わせて是正済みであることを
+  確認した(新たな陳腐化は発見せず、追加修正は不要と判断)。market-research.md・candidate-
+  longlist-draft.md第十弾(フェーズ281)についても、ロングリスト拡充・候補継続2件(馬具職人
+  工房・Apion-leather craft lab)の連絡チャネル再検索はいずれも手詰まりと結論済みで、本フェーズ
+  時点でも新たな手がかりは確認できなかった(同手法での再検索は次回候補から除外する既存方針を
+  維持)。また、course-set-pashaフェーズ369のwebhook-sync-reply-timeout-root-cause-review.md
+  が「aircon-pasha・kura-pashaも同じreply API+同期LLM呼び出し構成」と指摘し横展開を次回候補に
+  挙げていたが、同ドキュメントは「本venture(course-set-pasha)側の設計・実装が固まった段階」を
+  横展開の前提としており、course-set-pasha側はまだ費用対効果の検討(フェーズ369)のみで設計
+  ドキュメント自体は未作成の段階だったため、先回りして本venture側に重複・不整合のおそれがある
+  設計を作ることは見送り、確定後に着手する次回候補として注記するに留めた。コード変更なし、
+  回帰確認として`python3 prototype/run_all_tests.py`(25ファイル全件OK)・`python3
+  schema/validate_test_cases.py`(32件)を再実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。INDEX.mdと実ファイル一覧(`ls *.md`)の差分比較(comm)でもドリフトなしを確認
+  した。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)フェーズ291次回候補(4節のログ出力側実装、結合実装フェーズ待ち)、
+  (3)course-set-pasha側のWebhook非同期化設計(line-reservation-ai準拠の2関数構成への翻案)が
+  確定した段階で、本ventureへの横展開に着手する、(4)他venture・アイデア領域の前進。
