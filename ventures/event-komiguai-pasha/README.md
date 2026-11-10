@@ -2499,3 +2499,29 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   submission()`に`idempotency_key_index_store.reserve_or_get()`を`collection="inquiry"`で
   結線し、`inquiry_id`発行・重複再送時の`document=None`化を実装。新規テスト4件追加、
   全144件・schema検証22件いずれもパス(回帰なし)。実HTTPSトリガーへの結線は次回候補として残す)
+- フェーズ109(2026-11-10 06:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ108次回候補(2)に対応し、`inquiry-form-http-entry-point-design.md`を新規作成し、
+  `submit_inquiry`Cloud Run functionの実HTTPSトリガー配線を実コード化した。
+  `prototype/inquiry_collection_store.py`(`InquiryCollectionProtocol`・
+  `InMemoryInquiryCollection`、Firestore `inquiry`コレクションの最小インターフェース抽象化)、
+  `prototype/inquiry_form_http_entry.py`(`receive_inquiry_form_submission()`、JSONパース→
+  `inquiry_form_intake.handle_inquiry_form_submission()`への委譲→戻り値の`document`が`None`
+  でない場合のみ`collection.add()`を呼ぶ結線)、`prototype/cloud_function_submit_inquiry.py`
+  (`functions_framework`想定の薄い`main(request)`配線)を新規作成した。調査の結果、本venture
+  全体の4 Cloud Run functions(`submit_event_form`・`handle_stripe_webhook`・`get_result_page`・
+  `submit_inquiry`)のうちいずれについても実`main(request)`配線が1件も存在していなかったことを
+  確認し、残り3関数分は次回候補として残した(本フェーズは`submit_inquiry`のみ対応)。本venture
+  はブラウザから直接呼ばれるHTTPSトリガーのため、aircon-pasha版(GAS中継)のような共有シークレット
+  検証は不要と判断した(design 2節)。新規テスト9件(`test_inquiry_form_http_entry.py`6件・
+  `test_cloud_function_submit_inquiry.py`3件)を追加し、既存144件と合わせ全153件がパスすることを
+  確認した(`python3 -m unittest discover -s prototype -p "test_*.py"`)。schema検証22件も
+  変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)残り3関数(`submit_event_form`・
+  `handle_stripe_webhook`・`get_result_page`)についても本フェーズと同型の`main(request)`薄配線
+  を設計・実装する、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 06:00 UTC(フェーズ109: `submit_inquiry`Cloud Run functionの実HTTPSトリガー
+  配線(`inquiry_form_http_entry.py`・`inquiry_collection_store.py`・
+  `cloud_function_submit_inquiry.py`)を新規実装。新規テスト9件追加、全153件・schema検証22件
+  いずれもパス(回帰なし)。残り3関数の同種配線は次回候補として残す)
