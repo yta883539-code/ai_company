@@ -2550,3 +2550,31 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   HTTPSトリガー配線(`checkout_session_http_entry.py`・`cloud_function_submit_event_form.py`・
   `checkout_session_creation.InMemoryCheckoutSessionClient`)を新規実装。新規テスト9件追加、
   全162件・schema検証22件いずれもパス(回帰なし)。残り2関数の同種配線は次回候補として残す)
+- フェーズ111(2026-11-10 15:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ110次回候補(2)に対応し、`handle_stripe_webhook`Cloud Run functionの実
+  HTTPSトリガー配線を実コード化した。`handle-stripe-webhook-http-entry-point-design.md`を
+  新規作成し、既存の業務ロジック(`stripe_webhook.receive_stripe_webhook()`、フェーズ99)を
+  そのまま再利用しつつ、`prototype/cloud_function_handle_stripe_webhook.py`
+  (`get_handle_stripe_webhook_runtime_dependencies()`・`main(request)`、
+  `request.get_data()`・`request.headers.get("Stripe-Signature")`・環境変数
+  `STRIPE_WEBHOOK_SECRET`の取り出し配線)を新規作成した。aircon-pasha/course-set-pasha版が
+  `stripe_webhook.py`自身に`main(request)`を持つのに対し、本venture独自の「業務ロジックと
+  薄いCloud Function配線を別ファイルに分離する」方針(`submit_inquiry`・`submit_event_form`と
+  同型)を踏襲した。`generate_fn`・`refund_client`・`email_sender`の3引数は本フェーズでは
+  渡さず(design 3節: いずれも実LLM・実Stripe Refund API・実メール送信の結線が別課題として
+  残っているため)、`receive_stripe_webhook()`の既存の後方互換分岐(3引数のうち1つでも欠ける
+  場合は`generation_outcome=None`のまま返す、フェーズ100確定済み)により、署名検証・冪等性
+  チェック・`checkout.session.completed`への振り分け自体は正しく動作する。新規テスト6件
+  (`test_cloud_function_handle_stripe_webhook.py`)を追加し、既存162件と合わせ全168件が
+  パスすることを確認した(`python3 -m unittest discover -s prototype -p "test_*.py"`)。
+  schema検証22件も変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)残り1関数(`get_result_page`)についても
+  本フェーズ・フェーズ109・110と同型の`main(request)`薄配線を設計・実装する(本venture全体の
+  4 Cloud Run functionsが全て実HTTPSトリガー配線済みになる)、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-10 15:00 UTC(フェーズ111: `handle_stripe_webhook`Cloud Run functionの実
+  HTTPSトリガー配線(`cloud_function_handle_stripe_webhook.py`)を新規実装。新規テスト6件
+  追加、全168件・schema検証22件いずれもパス(回帰なし)。残り1関数(`get_result_page`)の
+  同種配線は次回候補として残す)
