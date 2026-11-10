@@ -85,6 +85,12 @@ class OneTimeDraft:
     # draft-id-last4-collision-design.md(フェーズ53・58)4節。draft_idの末尾4文字を
     # そのまま複製したオーナー検索専用フィールド。一意キーではなく絞り込みのヒントに
     # 過ぎない(衝突時はcustomer_emailとの二段階照合、design 4節参照)。
+    generated_output: Optional[dict] = None
+    # get-result-page-http-entry-point-design.md(フェーズ112)で発見したギャップへの対応。
+    # mark_generation_result()はこれまでstatusのみを書き込み、schema/output.schema.json
+    # 準拠のLLM構造化出力本体(checklist/staffing_plan/notice_board_text等)を永続化して
+    # いなかったため、結果ページ(get_result_page)がstatus="generated"時に表示すべき内容を
+    # 保持する先が存在しなかった。本フィールドに出力dictをそのまま保存する。
 
 
 class OneTimeDraftStoreProtocol:
@@ -120,11 +126,16 @@ class OneTimeDraftStoreProtocol:
     def mark_expired_after_payment(self, draft_id: str) -> None:
         raise NotImplementedError
 
-    def mark_generation_result(self, draft_id: str, *, status: str) -> None:
+    def mark_generation_result(
+        self, draft_id: str, *, status: str, output: Optional[dict] = None
+    ) -> None:
         """generation_retry_and_refund.pyが、生成成功時(status=LLM出力のstatus)・
         2回のリトライを尽くしても失敗した場合(status="generation_failed")・返金完了後
         (status="refunded")のいずれでもドラフトのステータスを更新するために使う、
-        汎用のステータス書き込み口。"""
+        汎用のステータス書き込み口。`output`は生成成功時(status="generated"/
+        "out_of_scope"/"insufficient_input")のLLM構造化出力dictそのもので、
+        get-result-page-http-entry-point-design.md(フェーズ112)により結果ページ表示用に
+        `generated_output`フィールドへ保存する。省略時(失敗・返金時等)は既存値を変更しない。"""
         raise NotImplementedError
 
 
@@ -177,11 +188,15 @@ class InMemoryOneTimeDraftStore:
             return
         draft.status = "expired_after_payment"
 
-    def mark_generation_result(self, draft_id: str, *, status: str) -> None:
+    def mark_generation_result(
+        self, draft_id: str, *, status: str, output: Optional[dict] = None
+    ) -> None:
         draft = self._drafts.get(draft_id)
         if draft is None:
             return
         draft.status = status
+        if output is not None:
+            draft.generated_output = output
 
 
 def verify_stripe_signature(

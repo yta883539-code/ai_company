@@ -107,10 +107,11 @@ def process_generation_after_payment(
 
     1. draft_idに対するgenerate_fn()を、成功するか`max_attempts`回(既定3回=初回+
        リトライ2回)試行し尽くすまで呼び出す。
-    2. 成功した場合、出力のstatus(generated/out_of_scope/insufficient_input)で
-       draft_store.mark_generation_result()を呼び、outcome="generated"を返す
-       (この時点ではメール送信・返金は行わない。結果到達〈completion_email〉は
-       2節の責務であり本モジュールの対象外)。
+    2. 成功した場合、出力のstatus(generated/out_of_scope/insufficient_input)と出力dict
+       本体を両方draft_store.mark_generation_result()に渡して書き込み、outcome="generated"
+       を返す(get-result-page-http-entry-point-design.mdフェーズ112により出力dict本体も
+       永続化するようになった。この時点ではメール送信・返金は行わない。結果到達
+       〈completion_email〉は2節の責務であり本モジュールの対象外)。
     3. `max_attempts`回とも失敗した場合、draft_store.mark_generation_result()で
        まず"generation_failed"に更新し、payment_intent_idが取得できていれば
        refund_client.create_refund()を呼ぶ。成功すれば"refunded"に更新し、
@@ -145,7 +146,9 @@ def process_generation_after_payment(
         except GenerationError as exc:
             last_error = exc
             continue
-        draft_store.mark_generation_result(draft_id, status=output.get("status", "generated"))
+        draft_store.mark_generation_result(
+            draft_id, status=output.get("status", "generated"), output=output
+        )
         return GenerationOutcome(outcome="generated", attempts=attempts, output=output)
 
     # ここに到達するのはmax_attempts回すべて失敗した場合のみ。

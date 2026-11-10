@@ -2578,3 +2578,37 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   HTTPSトリガー配線(`cloud_function_handle_stripe_webhook.py`)を新規実装。新規テスト6件
   追加、全168件・schema検証22件いずれもパス(回帰なし)。残り1関数(`get_result_page`)の
   同種配線は次回候補として残す)
+- フェーズ112(2026-11-10 23:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ111次回候補(2)に対応し、`get_result_page`Cloud Run functionの実HTTPSトリガー
+  配線を実コード化した。着手前に`generation_retry_and_refund.process_generation_after_
+  payment()`の生成成功分岐(`draft_store.mark_generation_result(draft_id, status=...)`)が
+  statusのみを書き込み、schema/output.schema.json準拠のLLM構造化出力本体(checklist・
+  staffing_plan・notice_board_text等)自体を永続化していなかったギャップを発見し、
+  `stripe_webhook.OneTimeDraft`に`generated_output`フィールド、`mark_generation_result()`に
+  `output`引数を追加した上で`process_generation_after_payment()`から出力dict本体を渡すように
+  修正した(get-result-page-http-entry-point-design.md 1節)。その上で`get-result-page-http-
+  entry-point-design.md`を新規作成し、`prototype/result_page_entry.py`
+  (`receive_result_page_request()`、URLパス`/result/{draft_id}`からのdraft_id抽出→
+  `draft_store.get()`→statusに応じた`page_state`〈generated/out_of_scope/insufficient_input/
+  generating/generation_failed/refunded/expired_after_payment/ttl_expired_or_invalid〉への
+  整形)、`prototype/cloud_function_get_result_page.py`(`functions_framework`想定の薄い
+  `main(request)`配線、`request.path`を取り出すのみで既出3関数の`request.get_data()`に相当)を
+  新規作成した。他3関数(POSTでJSON本文)と異なりGET・URLパスのみからdraft_idを取り出す点が
+  構成上唯一の差異である。design 3節: ドキュメント不存在(TTL失効)時も通常の404ではなく
+  `page_state="ttl_expired_or_invalid"`を200で返す(result-page-ttl-access-design.mdフェーズ14
+  の方針どおり)。新規テスト14件(`test_result_page_entry.py`12件・
+  `test_cloud_function_get_result_page.py`2件)を追加し、既存168件と合わせ全182件がパスする
+  ことを確認した(`python3 -m unittest discover -s prototype -p "test_*.py"`)。schema検証22件
+  も変更なしでパス(回帰なし)。本venture全体の4 Cloud Run functions(`submit_event_form`・
+  `submit_inquiry`・`handle_stripe_webhook`・`get_result_page`)が本フェーズで全て実HTTPSトリガー
+  配線済みとなった。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成、候補1〈奈良NEVER LAND〉への連絡等)が
+  オーナーから承認された場合はその着手を最優先、(2)design 4節の残課題(`"awaiting_payment"`が
+  「決済待ち」「決済済み生成中」の2意味を兼ねている点の表示上の区別要否検討)、(3)`page_state`
+  ごとの実際の案内文言当て込み(フロントエンド側)、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 23:00 UTC(フェーズ112: 生成結果本体の永続化ギャップを発見・解消
+  〈`OneTimeDraft.generated_output`・`mark_generation_result(output=...)`新設〉した上で、
+  `get_result_page`Cloud Run functionの実HTTPSトリガー配線(`result_page_entry.py`・
+  `cloud_function_get_result_page.py`)を新規実装。新規テスト14件追加、全182件・schema検証
+  22件いずれもパス(回帰なし)。本venture全4 Cloud Run functionsが全て配線済みとなった)
