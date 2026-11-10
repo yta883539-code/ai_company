@@ -2419,3 +2419,45 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-09 18:00 UTC(フェーズ105: 詳細は上記。`prototype/one_time_pass_store.py`
   ・`test_one_time_pass_store.py`を新規作成し、都度プラン用access_tokenストアを実コード化。
   9 files run, 9 passed, 0 failed〈run_all_tests.py〉)
+- フェーズ106(2026-11-10 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ105次回候補(1)「`CombinedPassLookupProtocol`・`PassLookupResult`の
+  実コード化と、既存`checkout_result_page_handler.py`・
+  `test_checkout_result_page_handler.py`への組み込み」に対応した。
+  one-time-plan-access-token-design.md 3節のとおり、`checkout_result_page_handler.py`に
+  `PassLookupResult`(access_token・consumed)、`CombinedPassLookupProtocol`、その検証用実装
+  `CombinedPassLookup`(Checkout Sessionの`mode`で`fan_pass_store`経由・
+  `one_time_pass_store`経由を振り分ける)を新規追加した。既存の`StripeCheckoutSessionLookup
+  Protocol`・`_FanPassLookupProtocol`・`resolve_checkout_result()`・
+  `receive_checkout_result_request()`・`InMemoryStripeCheckoutSessionLookup`はdesign.md 3節
+  が明記する「破壊的変更を避ける」方針のとおり変更せず、都度プラン・月額フリーパス両対応の
+  新エントリポイント`resolve_checkout_result_combined()`・
+  `receive_checkout_result_request_combined()`を新規追加する形にした(既存テスト
+  `ResolveCheckoutResultTests`・`ReceiveCheckoutResultRequestTests`はいずれも無変更で
+  パス)。Session自体が見つからない場合の即時404判定(design.mdの「Webhook未到達による
+  pending」とは区別する方針)を保つため、`mode_lookup.get_mode_for_session()`による
+  存在確認はポーリングループの外で一度だけ行い、ループ内では`CombinedPassLookup`経由の
+  データ到達確認のみを繰り返す構造とした。新規`InMemoryStripeCheckoutSessionModeLookup`
+  (`checkout_session_id -> mode`の対応表)も追加した。`CheckoutResultPageResult`に
+  `consumed`フィールド(既定値False)を追加し、都度プランの消費済み状態をpoll結果へ素通し
+  できるようにしたが、design.md 4節が述べる403/404分岐自体(`already_consumed`等)は次回
+  候補の`receive_generation_request()`側の責務のままとし、本フェーズでは分岐ロジックを
+  追加していない。新規テスト10件(`ResolveCheckoutResultCombinedTests`5件・
+  `ReceiveCheckoutResultRequestCombinedTests`3件、関数カウントとしては8関数)を追加し、
+  `python3 -I run_all_tests.py`で9 files run, 9 passed, 0 failed、
+  `python3 -I validate_test_cases.py`9件・`python3 -I schema/check_venue_master_parity.py`
+  36件/36件いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)`receive_generation_request()`を都度プラン対応させ、design.md 4節の
+  `consumed_at`/`expires_at`に基づく403(`already_consumed`)・404(`unknown_access_token`、
+  期限切れと未登録を区別しない)分岐を実装する、(2)結果ページ側のHTTPハンドラーを実際に
+  `receive_checkout_result_request_combined()`へ切り替える移行手順の検討
+  (既存の月額フリーパス専用呼び出し元がどこにあるか棚卸しが必要)、(3)入力フォーム自体の
+  UI/UX設計、(4)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-10 01:00 UTC(フェーズ106: 詳細は上記。`checkout_result_page_handler.py`
+  に`PassLookupResult`・`CombinedPassLookupProtocol`・`CombinedPassLookup`・
+  `resolve_checkout_result_combined()`・`receive_checkout_result_request_combined()`を
+  新規追加し、都度プラン・月額フリーパス両対応のルックアップ一本化を実コード化。既存の
+  月額フリーパス専用エントリポイントは無変更。9 files run, 9 passed, 0 failed
+  〈run_all_tests.py〉)
