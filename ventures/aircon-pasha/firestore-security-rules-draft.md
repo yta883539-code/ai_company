@@ -71,9 +71,9 @@ kura-pasha版と同じ方針を踏襲する。
    クライアントSDK相当のモック認証無しリクエストが全コレクションに対し`PERMISSION_
    DENIED`になることを確認するテストを追加する(他venture・prototype配下のInMemory
    実装テストとは別系統の、ルール自体の検証テスト)。
-3. Cloud Functions(Admin SDK経由)の既存テスト(prototype配下、全739件)は本ルールの
-   影響を受けない(Admin SDKはルールをバイパスするため)ことを確認済みの前提として
-   明記する。
+3. Cloud Functions(Admin SDK経由)の既存テスト(prototype配下、全803件〈フェーズ374
+   時点、本ドキュメント作成時点の739件から増加〉)は本ルールの影響を受けない(Admin SDK
+   はルールをバイパスするため)ことを確認済みの前提として明記する。
 
 ## 4. 未検証・残課題
 
