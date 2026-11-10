@@ -7149,3 +7149,26 @@
   承認・回答された場合はその着手を最優先、(2)陳腐化記載探しの棚卸しは重複作業の抑制方針
   に従い目的化しない範囲に留め、未検証の仮説・要検証事項への実質的な補強を優先、
   (3)他venture・アイデア領域の前進。
+- フェーズ376(2026-11-10 14:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ375の次回候補(2)「未検証の仮説・要検証事項への実質的な補強」に対応し、
+  legal-notices-draft.md 2.5節に「新たな検討課題」として未着手のまま残っていた「依頼者の
+  氏名・住所等の個人情報を業者が誤ってメモへ記載してしまうケースへの対応方針」を検討した。
+  third-party-personal-info-inclusion-handling-design.md(厳守事項10)は依頼者本人
+  **以外**の第三者情報を対象とした既存の検討であり、依頼者本人の情報は対象外として残って
+  いたことを確認した上で、新規にrequester-own-personal-info-management-company-
+  disclosure-review.mdを作成した。kura-pashaの既存整理(依頼者本人の情報が本人へ返送
+  される場合は新たな開示に当たらない)は、本ventureのrecipient=management_company分岐
+  (出力1が依頼者本人ではなく管理会社・オーナーへ転送されるケース)には前提が成立しないと
+  指摘し、氏名・部屋番号等の識別情報の管理会社への伝達は管理委託関係上正当化できる一方、
+  それを超える連絡先・個人的事情についてはプロンプト側指示(厳守事項10と同種)の追加実装が
+  必要との結論に至った。legal-notices-draft.md 2.5節・INDEX.mdへ反映した。コード変更なし
+  (設計文書の新規作成とドキュメント反映のみ)、回帰確認として`python3 -m unittest
+  discover -s prototype -p "test_*.py"`(803件、変更なし)・`python3 schema/
+  validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件、および
+  pending-approval.md記載のGCP/Firestore作成依頼・運営方針判断依頼)がオーナーから
+  承認・回答された場合はその着手を最優先、(2)本フェーズで整理した実装案(llm-system-
+  prompt-draft.mdの厳守事項への追記、onboarding-guide.md手順5への一言追加)の実装、
+  (3)他venture・アイデア領域の前進。
