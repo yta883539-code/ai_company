@@ -6919,3 +6919,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   (2)フェーズ291次回候補(4節のログ出力側実装、結合実装フェーズ待ち)、
   (3)course-set-pasha側のWebhook非同期化設計(line-reservation-ai準拠の2関数構成への翻案)が
   確定した段階で、本ventureへの横展開に着手する、(4)他venture・アイデア領域の前進。
+- フェーズ続き297(2026-11-10 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ続き296次回候補(1)(2)はいずれも未着手の前提(オーナー承認待ち・結合実装
+  フェーズ待ち)に変化がなく、(3)はcourse-set-pasha側の設計がフェーズ370
+  (process-memo-event-async-split-design.md)時点でもFunction B実装・dispatch振り分け
+  実装が未着手の段階にあり依然未確定だったため、本フェーズでは(3)の前提として
+  course-set-pasha側の当該ドキュメントが「横展開前に各venture側の経路構造を個別確認する
+  必要がある」と明記していた個別確認そのもの(本venture単独で着手可能、course-set-pasha側の
+  確定を待たない)に着手した。本venture自身のline-webhook-event-id-idempotency-design.md
+  4節に残っていた「根本対策の要否」という未検討課題について、新規に
+  webhook-sync-reply-timeout-root-cause-review.mdを作成し、`process_memo_event()`の経路
+  構造を確認した結果、course-set-pashaと異なり本ventureには「LLM呼び出しを経ない軽量経路」
+  が1つも存在しないこと(文脈注入3経路((a)(b)(c))もいずれもLLM呼び出しを行う)を確認した。
+  これにより本ventureはタイムアウトリスクへの露出がcourse-set-pashaより広い一方、根本対策
+  導入時のハイブリッド化判断(FAQ経路を同期に残すか等)が不要になる分、構成はむしろ単純になる
+  という本venture固有の知見を得た。結論として根本対策(Cloud Tasks非同期処理+ push API応答
+  への移行)の実施自体は推奨とし、実際の2関数構成への翻案設計ドキュメント作成は次回候補として
+  積み残した(実装・デプロイがオーナー承認待ちである点はこれまでと同様)。コード変更なし、
+  回帰確認として`python3 prototype/run_all_tests.py`(25ファイル全件OK)・`python3
+  schema/validate_test_cases.py`(32件)を実行しいずれも変更なしでパスすることを確認した
+  (回帰なし)。INDEX.mdの「インフラ・運用」節に新規ファイルを追記した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項がオーナーから承認された場合はその着手を最優先、
+  (2)フェーズ291次回候補(4節のログ出力側実装、結合実装フェーズ待ち)、
+  (3)本venture自身のWebhook非同期化(2関数構成)翻案設計ドキュメントの新規作成(本フェーズの
+  費用対効果検討を踏まえ、course-set-pasha側の確定を待たずに着手可能)、
+  (4)aircon-pashaの経路構造個別確認(本フェーズと同種の確認、aircon-pashaが次回選ばれた回に
+  対応)、(5)他venture・アイデア領域の前進。
