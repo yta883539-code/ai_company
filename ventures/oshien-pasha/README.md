@@ -2529,3 +2529,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   前進。
 - 最終更新: 2026-11-10 17:00 UTC(フェーズ109: 詳細は上記。input-form-ui-ux-design.mdを
   新規作成し、入力フォームのUI/UXを自由記述テキストエリア1本の構成で確定。コード変更なし)
+- フェーズ110(2026-11-11 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ109次回候補(1)「生成結果表示部分(4出力カード)のUI/UXワイヤーフレーム」
+  に対応し、新規result-display-wireframe.mdを作成した。schema/output.schema.jsonの
+  4出力(itinerary_draft/day_timetable/cost_estimate/hashigo_check)を、会場単位配列2件
+  (itinerary_draft・day_timetable)を会場ごとのまとまりとして上位に、全体共通2件
+  (cost_estimate・hashigo_check)を下位に配置する2段構成でワイヤーフレーム化した。
+  `venue_matched=false`・費用見積りの`*_yen`が`null`・`hashigo_check.applicable=false`の
+  いずれも「情報が無いので非表示」ではなく「確認できなかった/対象外だった」ことを明示する
+  文言で表示する方針を統一し、output.schema.jsonの各フィールドがnullを許容する設計意図
+  (README.mdの「実際の予約・決済・空席確認は行わない」方針)を画面表示でも一貫させた。
+  risk_levelバッジは低/中/高を小さめの色バッジで示しつつ、tone-and-manner-guideline.mdの
+  「不安を煽らない」トーンとのバランスから点滅・大面積の警告色は用いない方針とした。
+  HTML/JS実装・実LLM呼び出し・外部サービスへの接続は行っていない(テキストワイヤーフレーム
+  のみ)。INDEX.mdへ追記。コード変更なし、既存テスト(10ファイル・validate_test_cases.py
+  9件・schema/check_venue_master_parity.py 36件/36件)いずれも変更なしでパス(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)LLM呼び出し失敗時(タイムアウト・Structured Outputs不整合等)のエラー表示UI
+  (フェーズ109次回候補(3)から持ち越し)、(2)`landing-page/index.html`と同様の非公開試作
+  HTML化(実デプロイはオーナー承認後)、(3)risk_levelバッジの具体的な配色コードの確定、
+  (4)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-11 01:00 UTC(フェーズ110: 詳細は上記。result-display-wireframe.mdを
+  新規作成し、生成結果表示部分〈4出力カード〉のUI/UXワイヤーフレームを確定。コード変更なし)
