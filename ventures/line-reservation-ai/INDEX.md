@@ -15,6 +15,7 @@
 - payment-gateway-fee-estimate.md / subscription-billing-cost-estimate.md
 - line-api-pricing.md / line-price-revision-2026-check.md
 - cloud-scheduler-invocation-cost-estimate.md
+- billing-budget-cap-safeguard-design.md
 
 ## 顧客ヒアリング・LP・公開準備・法務
 - customer-interview-design.md / interview-candidate-selection-criteria.md
