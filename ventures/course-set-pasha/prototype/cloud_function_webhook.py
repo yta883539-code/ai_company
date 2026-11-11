@@ -51,6 +51,7 @@ from trial_end_scheduler import (  # noqa: E402
     LIFF_URL_PLACEHOLDER,
     TRIAL_GENERATION_LIMIT,
     LinePushClient,
+    LinePushDeliveryError,
     format_trial_end_notification_message,
 )
 from application_form_submission_flow import (  # noqa: E402
@@ -1589,6 +1590,83 @@ def process_memo_event(
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         chatbot_intent=chatbot_intent,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Webhook即時ACK・2関数構成への翻案(process-memo-event-async-split-design.md、
+# フェーズ370「残課題・次回候補(1)」の実装)
+# ---------------------------------------------------------------------------
+
+class PushBackedReplyClient:
+    """process_memo_event_async()(Function B相当)がprocess_memo_event()本体を
+    変更せずそのまま呼び出せるようにする、ReplyClientプロトコルをpush_client経由で
+    満たすアダプタ(process-memo-event-async-split-design.md「既存コードへの影響」節:
+    `reply_client`の代わりに`push_client`を渡す形に差し替えるだけで流用できる、の実装)。
+
+    Cloud Tasks経由では`replyToken`(1回限り有効)は伝播されないため、`reply()`に渡される
+    `reply_token`は無視し、コンストラクタで固定されたuser_idへ常に
+    `push_client.send_message()`で送信する。`_reply_with_retry()`がReplyApiErrorを捕捉して
+    1回だけ再試行する既存の挙動をそのまま活かすため、push送信失敗(LinePushDeliveryError)は
+    ReplyApiErrorへ変換して再送出する。
+    """
+
+    def __init__(self, push_client: LinePushClient, user_id: str) -> None:
+        self._push_client = push_client
+        self._user_id = user_id
+
+    def reply(self, reply_token: str, message_text: str) -> None:
+        try:
+            self._push_client.send_message(self._user_id, message_text)
+        except LinePushDeliveryError as exc:
+            raise ReplyApiError(str(exc)) from exc
+
+
+def process_memo_event_async(
+    event: dict,
+    llm_call: LlmCallClient,
+    push_client: LinePushClient,
+    *,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    first_generation_notice_store: Optional[FirstGenerationNoticeStoreProtocol] = None,
+    gym_area_config_store: Optional[GymAreaConfigStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    purge_throttle: Optional[LinkingCodePurgeThrottle] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+    intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
+    now: Optional[datetime] = None,
+) -> MemoProcessResult:
+    """process-memo-event-async-split-design.md「採用方式」のFunction B相当。
+
+    Cloud Tasksキューから起動され、Function A(`receive_webhook`)がenqueueした
+    イベント(`source.userId`・`message`本文・`webhookEventId`のみ、`replyToken`は含まない
+    設計)を受け取り、`PushBackedReplyClient`経由でPush API送信に差し替えた上で
+    `process_memo_event()`本体(経路3・4の分岐・後処理ロジック)をそのまま呼び出す。
+    `event`に`replyToken`キーが無い場合でも`process_memo_event()`が要求する必須キーを
+    満たすため、未使用のプレースホルダ値(空文字列)を補う。
+    """
+    user_id = event["source"]["userId"]
+    event_for_reply_client = event if "replyToken" in event else {**event, "replyToken": ""}
+    return process_memo_event(
+        event_for_reply_client,
+        llm_call,
+        PushBackedReplyClient(push_client, user_id),
+        usage_counter=usage_counter,
+        plan=plan,
+        month=month,
+        portal_link_provider=portal_link_provider,
+        first_generation_notice_store=first_generation_notice_store,
+        gym_area_config_store=gym_area_config_store,
+        linking_store=linking_store,
+        purge_throttle=purge_throttle,
+        profile_store=profile_store,
+        intent_classifier=intent_classifier,
+        escalation_push_client=escalation_push_client,
+        now=now,
     )
 
 

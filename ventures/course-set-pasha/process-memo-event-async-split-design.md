@@ -78,9 +78,14 @@ LINE Platform
   webhook-async-processing-design.md「二重処理対策」節の設計をそのまま流用できる。
 
 ## 残課題・次回候補
-- (1) Function Bの実装(`process_memo_event_async`の関数定義、
-  `push_client`引数への差し替え)自体はInMemoryスタブで机上検証可能であり、
-  実GCPプロジェクト作成の承認を待たずに着手できる(次回候補)。
+- (1) 【実装済み・フェーズ371】Function Bの実装(`process_memo_event_async()`・
+  `PushBackedReplyClient`、prototype/cloud_function_webhook.py)。`process_memo_event()`
+  本体は無変更のまま、`reply_client`を`PushBackedReplyClient`(push_client+固定user_idで
+  `ReplyClient`プロトコルを満たすアダプタ)に差し替えるだけで流用できることを確認した。
+  Cloud Tasksでは`replyToken`が伝播されない前提のため、`event`にそのキーが無くても動作する
+  ことも確認済み。新規テスト4件(push送信への差し替え・replyTokenキー欠落時の動作・
+  push失敗時の1回リトライ・FAQ固定応答経路の動作)を追加、既存882件と合わせ全886件パス
+  (回帰なし)。
 - (2) `dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映
   (新規テスト追加を含む)。
 - (3) 設計確定後、aircon-pashaの同種部分(process_memo_event相当の同期実装)への

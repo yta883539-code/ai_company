@@ -56,6 +56,7 @@ from cloud_function_webhook import (  # noqa: E402
     merge_text_and_photo_events,
     process_follow_event,
     process_memo_event,
+    process_memo_event_async,
     process_unfollow_event,
     receive_webhook,
     validate_llm_output,
@@ -74,7 +75,10 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
-from trial_end_scheduler import InMemoryLinePushClient  # noqa: E402
+from trial_end_scheduler import (  # noqa: E402
+    InMemoryLinePushClient,
+    LinePushDeliveryError,
+)
 from chatbot_intent_router import (  # noqa: E402
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     POST_GENERATION_FAQ_FOLLOWUP_HINT,
@@ -368,6 +372,67 @@ class ProcessMemoEventTest(unittest.TestCase):
         self.assertFalse(result.handled)
         self.assertFalse(result.reply_sent)
         self.assertEqual(reply_client.sent, [])
+
+
+class _FailingLinePushClient:
+    """InMemoryLinePushClientと異なり、常にLinePushDeliveryErrorを送出する検証用クライアント
+    (test_trial_end_scheduler.pyの同名クラスと同じ位置づけ)。"""
+
+    def send_message(self, user_id: str, text: str) -> None:
+        raise LinePushDeliveryError("simulated outage")
+
+
+class ProcessMemoEventAsyncTest(unittest.TestCase):
+    """process_memo_event_async()(process-memo-event-async-split-design.md Function B相当、
+    フェーズ370「残課題・次回候補(1)」の実装)の検証。process_memo_event()本体のロジックは
+    変更していないため、ここでは「reply_clientの代わりにpush_clientが使われる」という
+    差し替え部分のみを確認する(分岐ロジック自体の網羅はProcessMemoEventTest等で検証済み)。"""
+
+    def test_sends_via_push_instead_of_reply(self):
+        push_client = InMemoryLinePushClient()
+        result = process_memo_event_async(
+            _make_event(user_id="u-async-1"), FixtureLlmClient("G1_basic"), push_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(len(push_client.sent), 1)
+        self.assertEqual(push_client.sent[0], ("u-async-1", result.reply_text))
+
+    def test_event_without_reply_token_key_is_accepted(self):
+        # Cloud Tasks経由ではreplyTokenが伝播されない設計(design.md「採用方式」)のため、
+        # replyTokenキー自体が無いイベントでも動作する必要がある。
+        event = {
+            "source": {"userId": "u-async-2"},
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規、2026/8/9改訂"},
+            "hasPhoto": False,
+        }
+        self.assertNotIn("replyToken", event)
+        push_client = InMemoryLinePushClient()
+
+        result = process_memo_event_async(event, FixtureLlmClient("G1_basic"), push_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(push_client.sent[0][0], "u-async-2")
+
+    def test_push_failure_retries_once_then_gives_up(self):
+        result = process_memo_event_async(
+            _make_event(user_id="u-async-3"), FixtureLlmClient("G1_basic"), _FailingLinePushClient(),
+        )
+
+        self.assertFalse(result.reply_sent)
+        self.assertIsNone(result.reply_text)
+
+    def test_faq_route_still_handled_via_push(self):
+        # 経路2(FAQ固定応答)もprocess_memo_event()本体の分岐は変更していないため、
+        # Function B経由でも同じ分岐がそのまま動く(送信先がpushになる点のみ異なる)。
+        push_client = InMemoryLinePushClient()
+        event = _make_event(user_id="u-async-4", text="FAQ")
+
+        result = process_memo_event_async(event, FixtureLlmClient("G1_basic"), push_client)
+
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertEqual(len(push_client.sent), 1)
 
 
 def _text_event(user_id, text, reply_token="rt-text"):
