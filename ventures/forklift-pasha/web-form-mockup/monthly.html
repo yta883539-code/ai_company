@@ -121,6 +121,34 @@
     color: var(--color-accent-dark);
     background: #fdf1e2;
   }
+  /* --- 車両番号: 「車両を追加」自由記述枠(フェーズ230、daily.htmlフェーズ228と共通方式) --- */
+  .vehicle-add-row { margin-top: 8px; }
+  .vehicle-add-row input[type="radio"] { display: none; }
+  .vehicle-add-row > label {
+    display: block;
+    text-align: center;
+    padding: 10px 0;
+    border: 2px dashed var(--color-border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .vehicle-add-row input[type="radio"]:checked + label {
+    border-color: var(--color-accent);
+    color: var(--color-accent-dark);
+  }
+  .vehicle-add-input {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+  }
+  .vehicle-add-row:has(input[type="radio"]:checked) .vehicle-add-input {
+    display: block;
+  }
   /* --- 点検者名・実施日: デフォルト値のダミー表示(daily.htmlと共通方式) --- */
   .prefill-row {
     display: flex;
@@ -285,6 +313,11 @@
       <label for="vehicle-2">2号車</label>
       <input type="radio" name="vehicle" id="vehicle-3">
       <label for="vehicle-3">3号車</label>
+    </div>
+    <div class="vehicle-add-row">
+      <input type="radio" name="vehicle" id="vehicle-new">
+      <label for="vehicle-new">+ 車両を追加(新しい表記で入力)</label>
+      <input type="text" class="vehicle-add-input" placeholder="例: 4号車、倉庫2F用、新車両 など">
     </div>
   </section>
 

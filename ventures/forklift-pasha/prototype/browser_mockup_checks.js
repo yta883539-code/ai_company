@@ -77,6 +77,12 @@ async function checkAnnual(page) {
 
   await input.fill('○○検査サービス株式会社');
   check('annual: 検査業者名欄に入力すると警告が消える', !(await warn.isVisible()));
+
+  // フェーズ230: daily.html フェーズ228と同型の「車両を追加」自由記述枠をannual.htmlにも展開。
+  const annualVehicleAddInput = page.locator('.vehicle-add-input');
+  check('annual: 「車両を追加」未選択の間は自由記述欄が非表示', !(await annualVehicleAddInput.isVisible()));
+  await page.locator('label[for="vehicle-new"]').click();
+  check('annual: 「車両を追加」を選ぶと自由記述欄が表示される', await annualVehicleAddInput.isVisible());
 }
 
 async function checkIndex(page) {
@@ -129,6 +135,12 @@ async function checkMonthly(page) {
 
   await firstNote.fill('ブレーキの効きがやや甘い');
   check('monthly: 自由記述欄に入力すると警告が消える', !(await firstWarn.isVisible()));
+
+  // フェーズ230: daily.html フェーズ228と同型の「車両を追加」自由記述枠をmonthly.htmlにも展開。
+  const monthlyVehicleAddInput = page.locator('.vehicle-add-input');
+  check('monthly: 「車両を追加」未選択の間は自由記述欄が非表示', !(await monthlyVehicleAddInput.isVisible()));
+  await page.locator('label[for="vehicle-new"]').click();
+  check('monthly: 「車両を追加」を選ぶと自由記述欄が表示される', await monthlyVehicleAddInput.isVisible());
 }
 
 // フェーズ139: フェーズ138で新設したplan-selection.html(プラン選択UI)の

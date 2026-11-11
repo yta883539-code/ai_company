@@ -4985,3 +4985,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-10定例更新(フェーズ229: 詳細は上記。確認案内の配線(Protocol2メソッド・
   InMemory/Firestore両実装・firestore-data-model.md・process_form_submission()配線)を完了。
   新規テスト4件追加、既存テスト2件の期待値更新、全件パス(回帰なし)。)
+
+- フェーズ230(2026-11-11 03:00 UTC定例更新): フェーズ229次回候補を再確認した結果、候補(1)
+  「web-form-mockup/配下のHTML/CSSモックアップに「車両を追加」自由記述枠を反映」は、実際には
+  フェーズ228でdaily.html・daily-empty.htmlに対してすでに反映済みであり、フェーズ229の記述は
+  コピー&ペーストの取り違えだったことが判明した(本フェーズでdaily.htmlを確認し確定)。この
+  誤記はそのままにせず、本エントリで是正する。実際に未反映だったのはmonthly.html・annual.html
+  の2画面で、両画面はまだフェーズ227以前のボタン方式のみ(「車両を追加」枠なし)だった。
+  そこで候補(2)「monthly/annual区分の画面にも契約直後(保有車両0台)バリアントが必要かの確認」
+  と合わせて本フェーズで対応した。まず(2)について、onboarding-guide.mdの手順3(初回動作確認は
+  必ずdaily区分のメモ送信から行う設計)を踏まえ、通常のオンボーディング経路では契約直後に
+  monthly/annual区分から入力が始まることは想定されない(vehicle_registry.pyの自由発行方式により
+  daily初回送信時点で車両が最低1件登録されるため)と判断し、daily-empty.html相当の0台バリアントは
+  monthly/annual両画面には不要と結論した(この判断をonboarding-guide.mdの参照箇所とともに本README
+  に記録する)。一方、「車両を追加」自由記述枠自体はdaily/monthly/annualの3区分で一貫した入力
+  手段であるべきと判断し、monthly.html・annual.htmlにdaily.htmlと同じCSS-only方式(vehicle-add-row・
+  vehicle-add-input、radioの:checked疑似クラス)で枠を追加した。`prototype/browser_mockup_checks.js`
+  のcheckMonthly()・checkAnnual()にdaily.html同型の検証(未選択時は自由記述欄非表示/選択時に表示)を
+  各2件、計4件追加し、既存チェックと合わせて全件(58件)パスを確認した。`prototype/run_all_tests.py`
+  24ファイル全件・`schema/validate_test_cases.py`11件もいずれも変更なしでパス(回帰なし)。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)monthly.html・annual.htmlの「車両を追加」テキスト入力からのレコード送信・
+  vehicle_idの自動発行処理のバックエンド配線(daily.html側はvehicle_registry.pyがフェーズ149で
+  実装済みだが、monthly/annual側の配線は未着手)、(2)実Stripe/実GCPプロジェクト接続後の
+  エンドツーエンド結合確認(オーナー承認待ち、本フェーズ時点ではまだ着手不可)、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-11定例更新(フェーズ230: 詳細は上記。フェーズ229次回候補(1)の誤記を是正し、
+  monthly.html・annual.htmlに「車両を追加」自由記述枠を追加。0台バリアントはonboarding-guide.md
+  の設計上monthly/annualには不要と判断。browser_mockup_checks.jsに新規チェック4件追加、全58件
+  パス。既存テスト・schema検証も変更なしでパス(回帰なし)。)
