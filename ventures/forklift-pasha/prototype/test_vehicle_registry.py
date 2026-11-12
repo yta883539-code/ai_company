@@ -144,6 +144,44 @@ def main():
         True,
     ))
 
+    # --- plan_id未設定(トライアル中)の新規車両: vehicleCountは増えるがoverage_noticeは
+    # 発生しない(比較対象のプラン上限が存在しないため、フェーズ231) ---
+    result7 = register_vehicle_from_inspection_memo(
+        vehicle_store, count_store, "op3", "1号機", plan_id=None
+    )
+
+    results.append(_check(
+        "plan_id未設定の新規車両もis_new_vehicle=True",
+        result7.is_new_vehicle,
+        True,
+    ))
+    results.append(_check(
+        "plan_id未設定の新規車両はoverage_noticeがNone",
+        result7.overage_notice,
+        None,
+    ))
+    results.append(_check(
+        "plan_id未設定でもvehicleCountは1増える",
+        count_store.get_vehicle_count("op3"),
+        1,
+    ))
+
+    # --- plan_id未設定の既存車両再送: 通常どおり再利用されvehicleCountは増えない ---
+    result8 = register_vehicle_from_inspection_memo(
+        vehicle_store, count_store, "op3", "1号機", plan_id=None
+    )
+
+    results.append(_check(
+        "plan_id未設定での同一表記再送はis_new_vehicle=False",
+        result8.is_new_vehicle,
+        False,
+    ))
+    results.append(_check(
+        "plan_id未設定での同一表記再送もvehicleCountが増えない",
+        count_store.get_vehicle_count("op3"),
+        1,
+    ))
+
     ok = all(results)
     print(f"\n{sum(results)}/{len(results)} passed")
     return 0 if ok else 1

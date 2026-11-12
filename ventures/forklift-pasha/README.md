@@ -5015,3 +5015,51 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   monthly.html・annual.htmlに「車両を追加」自由記述枠を追加。0台バリアントはonboarding-guide.md
   の設計上monthly/annualには不要と判断。browser_mockup_checks.jsに新規チェック4件追加、全58件
   パス。既存テスト・schema検証も変更なしでパス(回帰なし)。)
+
+- フェーズ231(2026-11-12 22:00 UTC定例更新): 7venture中最も更新が止まっていたaircon-pashaは
+  残課題が承認待ちのみで前進不可のため(前回・kura-pashaフェーズ続き299と同じ事情)、2番目に
+  止まっていた本ventureを前進。フェーズ230次回候補(1)「monthly.html・annual.htmlの『車両を
+  追加』テキスト入力からのレコード送信・vehicle_idの自動発行処理のバックエンド配線(daily.html
+  側はvehicle_registry.pyがフェーズ149で実装済みだが、monthly/annual側の配線は未着手)」に
+  着手する前に、`prototype/`を実際に調査したところ、この次回候補の前提自体が誤りだったことを
+  発見した。`vehicle_registry.register_vehicle_from_inspection_memo()`(フェーズ149)は
+  `test_vehicle_registry.py`以外から一度も呼び出されておらず、本venture唯一のWebフォーム
+  オーケストレーション層`form_submission_flow.process_form_submission()`にも組み込まれて
+  いなかった(daily.htmlのHTML側コメント自身も「実際のテキスト入力からのレコード送信・
+  vehicle_idの自動発行処理は未実装」と明記していた)。つまり「daily側は実装済み」という
+  フェーズ230の記述はモジュールの存在とUIの自由記述枠(フェーズ228)のみを指す不正確な
+  記述であり、backend配線はdaily/monthly/annualのいずれも未着手だった。
+  この欠落を是正するため、`process_form_submission()`に`vehicle_store`・
+  `vehicle_count_store`(両者とも省略可能、既存呼び出し元との後方互換を維持)を追加し、
+  status="generated"確定・初回daily確認案内の直後(トライアル終了通知より先)で
+  `register_vehicle_from_inspection_memo()`を呼ぶよう配線した。本関数の呼び出し自体は
+  区分(daily/monthly/annual)で分岐しない1か所のため、この配線によってdaily/monthly/annual
+  のすべてで同時に解消される(区分ごとの個別対応は不要と判明)。
+  着手中にもう1点のギャップを発見した。`register_vehicle_from_inspection_memo()`は呼び出し時に
+  有効な`plan_id`(`"light"`/`"standard"`/`"fleet"`)を必須としていたが、
+  `FleetOperatorStoreProtocol.get_plan_id()`はStripe決済導線未接続のトライアル中の事業者には
+  `None`を返す(stripe-checkout-plan-id-design.md 2節)ため、トライアル中に車両を追加すると
+  `overage_notifications.format_fleet_overage_notice()`が未知のplan_idとして例外を送出する
+  状態だった。`register_vehicle_from_inspection_memo()`の`plan_id`引数を`str | None`に変更し、
+  `None`の場合は比較対象のプラン上限自体が存在しないため`vehicle_count_store.
+  increment_vehicle_count()`のみ行いプラン超過判定をスキップする(overage_notice=None固定)
+  設計とした。これによりトライアル中も`vehicleCount`は正確に積み上がり、契約後に初めて
+  プラン超過判定が有効な基準値を参照できる。
+  vehicle-label-duplicate-handling-design.md「6. 未確定・次回候補」に本フェーズの発見内容・
+  是正内容を追記した。新規テスト9件(`test_vehicle_registry.py`に`plan_id=None`時の挙動4件、
+  `test_form_submission_flow.py`に後方互換・トライアル中・ライトプラン超過の3シナリオ4件)を
+  追加し、`python3 prototype/run_all_tests.py`(24ファイル全件)・`python3
+  schema/validate_test_cases.py`(11件)・`node prototype/browser_mockup_checks.js`(58件)
+  いずれもパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Stripe/実GCPプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)monthly.html・annual.htmlの「車両を追加」自由記述枠(フェーズ230で
+  UIのみ追加済み)を、本フェーズで配線した`process_form_submission()`の車両登録ロジックと
+  実際に結びつけるフロントエンド実装(現状JS不使用の静的モックアップのため、実装自体は
+  オーナー承認後の本番バックエンド構築フェーズまで着手できない)、(3)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-12 22:00 UTC(フェーズ231: フェーズ230次回候補(1)の前提(daily側は配線
+  済み)自体が誤りだったことを発見し是正。`register_vehicle_from_inspection_memo()`が
+  `process_form_submission()`から一度も呼ばれていなかった欠落を解消し、`plan_id`未確定
+  (トライアル中)でも安全に呼べるようOptional化した上で配線した。新規テスト9件追加、
+  全24ファイル・schema検証11件・ブラウザ検証58件いずれもパス(回帰なし)。)

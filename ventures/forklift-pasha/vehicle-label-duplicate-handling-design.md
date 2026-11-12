@@ -95,6 +95,23 @@ distinct車両数かが未確定だった。本フェーズで**実績カウン�
   (解消済み 2026-10-13 02:00 UTC・フェーズ149: `prototype/vehicle_registry.py`として
   `VehicleStoreProtocol`/`InMemoryVehicleStore`・
   `register_vehicle_from_inspection_memo()`を新規実装した。詳細はREADME.mdフェーズ149参照。)
+- ~~フェーズ149で実装した`register_vehicle_from_inspection_memo()`自体が、本venture唯一の
+  Webフォーム送信オーケストレーション層`form_submission_flow.process_form_submission()`から
+  一度も呼び出されていなかった(READMEフェーズ230の「daily.html側はvehicle_registry.pyが
+  フェーズ149で実装済み」という記述は、UIモックアップ上の自由記述枠(フェーズ228)と
+  モジュール自体の存在のみを指しており、実際のバックエンド配線が daily/monthly/annual
+  いずれの区分でも未着手だったという点で誤解を招く表現だった)。~~
+  (解消済み 2026-11-12フェーズ231: `process_form_submission()`に`vehicle_store`・
+  `vehicle_count_store`(いずれも省略可能、既存呼び出し元との後方互換)を追加し、
+  status="generated"確定後・初回daily確認案内の直後にregister_vehicle_from_inspection_
+  memo()を呼ぶよう配線した。daily/monthly/annualで分岐しない1か所の呼び出しのため、
+  区分による実装差はそもそも存在しない。)
+- ~~`register_vehicle_from_inspection_memo()`はStripe決済導線未接続で`plan_id`が取得できない
+  トライアル中の事業者を想定していなかった(呼び出し時に有効なplan_idが必須だった)。~~
+  (解消済み 2026-11-12フェーズ231: `plan_id: str | None`に変更し、`None`の場合は
+  `vehicle_count_store.increment_vehicle_count()`のみ行いプラン超過判定〈比較対象の
+  プラン上限が存在しないため〉をスキップする設計とした。トライアル中も`vehicleCount`は
+  正確に積み上がり、契約〈plan_id確定〉後の初回超過判定の基準値が狂わない。)
 
 最終更新: 2026-10-10 04:00 UTC(フェーズ114: firestore-data-model.mdに残っていた
 `vehicle_id`発行・重複チェックの設計課題に着手。Firestore自動生成IDの採用、
@@ -106,3 +123,9 @@ distinct車両数かが未確定だった。本フェーズで**実績カウン�
 完全一致による重複チェック・Firestore自動生成ID発行〈InMemory代替〉・新規車両時のみ
 overage_notifications.record_vehicle_and_get_overage_notice()へdelta=1で委譲する配線を
 行った。テスト18件追加。)
+最終更新: 2026-11-12 22:00 UTC(フェーズ231: フェーズ149で実装した`register_vehicle_from_
+inspection_memo()`が`process_form_submission()`から一度も呼び出されていなかった欠落を
+発見・是正。`plan_id`をOptional化してトライアル中(plan_id未確定)も安全に呼べるようにした
+上で、`form_submission_flow.py`に`vehicle_store`・`vehicle_count_store`パラメータを追加して
+配線した。テスト9件追加〈vehicle_registry.py 5件・form_submission_flow.py 4件〉。詳細は
+README.mdフェーズ231参照。)

@@ -39,6 +39,11 @@ from validate_test_cases import (  # noqa: E402
     validate_against_schema,
     validate_cross_field_rules,
 )
+from vehicle_registry import (  # noqa: E402
+    VehicleCountStoreProtocol,
+    VehicleStoreProtocol,
+    register_vehicle_from_inspection_memo,
+)
 
 LlmGenerateFn = Callable[[str], dict]
 
@@ -67,6 +72,8 @@ def process_form_submission(
     now: datetime,
     llm_generate: LlmGenerateFn,
     operator_store: FleetOperatorStoreProtocol,
+    vehicle_store: "VehicleStoreProtocol | None" = None,
+    vehicle_count_store: "VehicleCountStoreProtocol | None" = None,
 ) -> dict:
     """1回のWebフォーム送信を処理する。
 
@@ -89,9 +96,19 @@ def process_form_submission(
     5. instanceのstatusに応じて応答テキストを組み立てる。status="generated"の場合のみ、
        get_first_daily_generation_notice_if_due()でinternal_id単位・daily区分初回の
        確認案内(first-daily-generation-confirmation-notice-design.md)を判定・付記し、
-       続けてrecord_generation_and_get_trial_end_notice()でトライアル生成回数を加算し、
-       ちょうど終了条件に達した場合は返却テキスト末尾に通知文を追記する(design.md
-       「実装位置」の通り、確認案内はトライアル終了通知より先に追記する)。
+       続けてvehicle_store・vehicle_count_storeの両方が渡されていれば(フェーズ231)
+       register_vehicle_from_inspection_memo()でvehicle-label-duplicate-handling-
+       design.mdの重複チェック・vehicleCount加算・プラン超過通知を行い、新規車両かつ
+       超過通知が発生した場合のみ追記する。最後にrecord_generation_and_get_trial_end_
+       notice()でトライアル生成回数を加算し、ちょうど終了条件に達した場合は返却テキスト
+       末尾に通知文を追記する(design.md「実装位置」の通り、確認案内はトライアル終了通知
+       より先に追記する。台数プラン超過通知は確認案内と同種の「利用状況に応じた案内」の
+       ため確認案内の直後、トライアル終了通知より先に置く)。
+       vehicle_store・vehicle_count_storeのいずれかが未指定(None)の場合は車両登録自体を
+       行わない(既存呼び出し元との後方互換、daily/monthly/annualいずれの区分でも同じ
+       呼び出し1か所で扱うため区分による分岐はしない)。`record.get("vehicle_id")`
+       (LLM出力側のフィールド名、実体は車両番号の自由記述表記)がNoneの場合も同様に
+       スキップする(status=insufficient_inputに振り分けられるはずだが、念のための防御)。
 
     戻り値は次のキーを持つdict:
     - status: "canceled" | "paused" | "generated" | "out_of_scope"
@@ -151,6 +168,18 @@ def process_form_submission(
     )
     if first_daily_notice:
         response_text += "\n" + first_daily_notice
+
+    vehicle_label = record.get("vehicle_id")
+    if vehicle_store is not None and vehicle_count_store is not None and vehicle_label:
+        registration = register_vehicle_from_inspection_memo(
+            vehicle_store,
+            vehicle_count_store,
+            operator_id,
+            vehicle_label,
+            operator_store.get_plan_id(operator_id),
+        )
+        if registration.overage_notice:
+            response_text += "\n" + registration.overage_notice
 
     trial_end_notice = record_generation_and_get_trial_end_notice(
         operator_store, operator_id, now

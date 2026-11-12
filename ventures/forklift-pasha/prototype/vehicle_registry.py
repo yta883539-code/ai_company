@@ -86,7 +86,7 @@ def register_vehicle_from_inspection_memo(
     vehicle_count_store: VehicleCountStoreProtocol,
     operator_internal_id: str,
     raw_vehicle_label: str,
-    plan_id: str,
+    plan_id: "str | None",
 ) -> VehicleRegistrationResult:
     """design.md「4. 新規メモ受信時のフロー」をそのままコード化する。
 
@@ -95,9 +95,14 @@ def register_vehicle_from_inspection_memo(
     2. `(operator_internal_id, vehicle_label)`の完全一致で既存vehicle_idを探す。
     3. 見つかった場合: 何もしない(再利用。`vehicleCount`加算・プラン超過通知のいずれも
        発生しない)。
-    4. 見つからなかった場合: 新規vehicleドキュメントを作成し、overage_notifications.
-       record_vehicle_and_get_overage_notice()にdelta=1(既定値)で委譲して`vehicleCount`を
-       1増やし、プラン超過を新たに跨いだ場合のみ通知文を得る。
+    4. 見つからなかった場合: 新規vehicleドキュメントを作成し、`vehicleCount`を1増やす。
+       `plan_id`が未設定(トライアル中、stripe-checkout-plan-id-design.mdの
+       `FleetOperatorStoreProtocol.get_plan_id()`が契約前はNoneを返す仕様)の場合は、
+       比較対象のプラン上限自体が存在しないため`vehicle_count_store.
+       increment_vehicle_count()`のみ行いプラン超過判定は行わない(overage_notice=None
+       固定)。`plan_id`が設定済みの場合のみoverage_notifications.
+       record_vehicle_and_get_overage_notice()に委譲し、プラン超過を新たに跨いだ場合の
+       通知文を得る(2026-11-12フェーズ231、process_form_submission()への配線時に追加)。
 
     点検記録の整形自体(design.md 4節5.)は本関数の責務外であり、呼び出し側が本関数の結果に
     関わらず常に実行する想定(design.mdの「台数超過が判明しても記録生成を止めない」方針どおり、
@@ -112,9 +117,13 @@ def register_vehicle_from_inspection_memo(
         )
 
     vehicle_id = vehicle_store.create_vehicle(operator_internal_id, vehicle_label)
-    overage_notice = record_vehicle_and_get_overage_notice(
-        vehicle_count_store, operator_internal_id, plan_id
-    )
+    if plan_id is None:
+        vehicle_count_store.increment_vehicle_count(operator_internal_id)
+        overage_notice = None
+    else:
+        overage_notice = record_vehicle_and_get_overage_notice(
+            vehicle_count_store, operator_internal_id, plan_id
+        )
     return VehicleRegistrationResult(
         vehicle_id=vehicle_id, is_new_vehicle=True, overage_notice=overage_notice
     )

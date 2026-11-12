@@ -9,6 +9,7 @@ import sys
 from datetime import datetime
 
 from form_submission_flow import process_form_submission
+from overage_notifications import InMemoryVehicleCountStore
 from trial_management import (
     CANCELED_NOTICE,
     FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
@@ -18,6 +19,7 @@ from trial_management import (
     InMemoryFleetOperatorStore,
     format_minutes_saved_line,
 )
+from vehicle_registry import InMemoryVehicleStore
 
 
 def _check(label, actual, expected):
@@ -28,13 +30,18 @@ def _check(label, actual, expected):
     return False
 
 
-def _generated_instance(body="2号機、始業前点検、ブレーキ○、異音なし", reminder_notice=None, type="daily"):
+def _generated_instance(
+    body="2号機、始業前点検、ブレーキ○、異音なし",
+    reminder_notice=None,
+    type="daily",
+    vehicle_id="2号機",
+):
     return {
         "status": "generated",
         "out_of_scope_message": None,
         "missing_fields_request": None,
         "inspection_record": {
-            "vehicle_id": "2号機",
+            "vehicle_id": vehicle_id,
             "type": type,
             "date": "2026-10-11",
             "items": "ブレーキ○、異音なし",
@@ -266,6 +273,92 @@ def main():
         f"トライアル終了通知後の次回送信はpaused",
         result["status"],
         "paused",
+    ))
+
+    # --- vehicle_store/vehicle_count_store未指定(既存呼び出し元)では車両登録は一切
+    # 行われない(後方互換、フェーズ231で追加したパラメータは省略可能) ---
+    store = InMemoryFleetOperatorStore()
+    result = process_form_submission(
+        "2号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op9",
+        now,
+        lambda raw_text: _generated_instance(),
+        store,
+    )
+    results.append(_check(
+        "vehicle_store未指定: response_textは車両登録なしで本文+初回確認案内のみ",
+        result["response_text"],
+        "2号機、始業前点検、ブレーキ○、異音なし\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    ))
+
+    # --- plan_id未設定(トライアル中)の事業者: 新規車両は登録されるがoverage_noticeは
+    # 発生しない(vehicle_registry.pyのplan_id=None時の方針どおり、フェーズ231) ---
+    store = InMemoryFleetOperatorStore()
+    vehicle_store = InMemoryVehicleStore()
+    vehicle_count_store = InMemoryVehicleCountStore()
+    result = process_form_submission(
+        "2号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op10",
+        now,
+        lambda raw_text: _generated_instance(),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+    )
+    results.append(_check(
+        "plan_id未設定: response_textにoverage_noticeは追記されない",
+        result["response_text"],
+        "2号機、始業前点検、ブレーキ○、異音なし\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    ))
+    results.append(_check(
+        "plan_id未設定でもvehicleCountは加算される",
+        vehicle_count_store.get_vehicle_count("op10"),
+        1,
+    ))
+
+    # --- ライトプラン(上限1台)契約済みの事業者: 2台目の新規車両登録でプラン超過通知が
+    # first_daily_noticeの直後・trial_end_noticeより先に追記される ---
+    store = InMemoryFleetOperatorStore()
+    store.set_upgraded_at("op11", now)
+    store.set_plan_id("op11", "light")
+    vehicle_store = InMemoryVehicleStore()
+    vehicle_count_store = InMemoryVehicleCountStore()
+
+    result = process_form_submission(
+        "2号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op11",
+        now,
+        lambda raw_text: _generated_instance(),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+    )
+    results.append(_check(
+        "ライトプラン1台目(上限ちょうど): overage_noticeは発生しない",
+        result["response_text"],
+        "2号機、始業前点検、ブレーキ○、異音なし\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    ))
+
+    result = process_form_submission(
+        "3号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op11",
+        now,
+        lambda raw_text: _generated_instance(
+            body="3号機、始業前点検、ブレーキ○、異音なし", vehicle_id="3号機"
+        ),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+    )
+    results.append(_check(
+        "ライトプラン2台目(上限超過)でoverage_noticeが追記される(確認案内は初回のみのため未付記)",
+        "スタンダードプラン" in result["response_text"],
+        True,
+    ))
+    results.append(_check(
+        "ライトプラン2台目: vehicleCountは2になる",
+        vehicle_count_store.get_vehicle_count("op11"),
+        2,
     ))
 
     passed = sum(1 for r in results if r)
