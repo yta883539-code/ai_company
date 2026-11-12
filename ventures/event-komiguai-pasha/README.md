@@ -2612,3 +2612,22 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   `get_result_page`Cloud Run functionの実HTTPSトリガー配線(`result_page_entry.py`・
   `cloud_function_get_result_page.py`)を新規実装。新規テスト14件追加、全182件・schema検証
   22件いずれもパス(回帰なし)。本venture全4 Cloud Run functionsが全て配線済みとなった)
+- フェーズ113(2026-11-12 18:00 UTC定例更新): フェーズ112次回候補(3)に対応し、
+  `result-page-display-copy-draft.md`を新規作成した。結果ページ`page_state`8状態の
+  うち、LLM出力をそのまま表示する3状態(`generated`/`out_of_scope`/
+  `insufficient_input`)は表示の枠のみを方針として確定し、固定文言が必要な4状態
+  (`generating`・`generation_failed`・`refunded`・`expired_after_payment`)の文言を
+  新規に確定した(`ttl_expired_or_invalid`はフェーズ81確定の`ttl_expired_notice`を
+  流用)。`prototype/operational_message_templates.py`のTEMPLATESに新規4件を追加し、
+  既存のEMOJI_PATTERN・HEADING_BRACKET_PATTERN検証(TEMPLATES全体を走査する実装)が
+  コード変更不要で新規分も自動的に対象に入ることを確認した。
+  `python3 -m unittest discover -s prototype -p "test_*.py"`で全182件(テストメソッド数
+  は変わらず、各subTestの反復対象が4件増えた)、schema検証22件いずれもパス(回帰なし)。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成等)がオーナーから承認された場合は
+  その着手を最優先、(2)`landing-page/`配下への実際のHTML/CSSマークアップ実装、
+  (3)`generating`状態の「決済待ち」と「決済済み生成中」の区別要否(未解消のまま残す)、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-12 18:00 UTC(フェーズ113: 結果ページ`page_state`ごとの表示文言を
+  新規確定〈固定文言4件をTEMPLATESに追加〉。コード変更はテンプレート定数の追加のみ、
+  既存テストは回帰なしでパス)

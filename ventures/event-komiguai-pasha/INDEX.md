@@ -45,7 +45,8 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 ## ドラフト生成・結果配信・TTL
 - draft-creation-and-event-memo-storage-design.md
 - result-page-ttl-access-design.md / ttl-expiry-result-delivery-refund-design.md
-- operational-message-templates-draft.md / initial-contact-message-draft.md
+- operational-message-templates-draft.md / result-page-display-copy-draft.md
+- initial-contact-message-draft.md
 
 ## 顧客対応・文面・法務・横断レビュー
 - customer-email-normalization-design.md / legal-notices-draft.md
