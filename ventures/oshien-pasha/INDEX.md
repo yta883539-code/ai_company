@@ -21,6 +21,7 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 - input-output-sample-mapping.md / generation-count-design.md
 - result-display-page-generation-request-design.md / input-form-ui-ux-design.md
 - result-display-wireframe.md / llm-generation-failure-handling-design.md
+- risk-level-badge-color-spec.md
 
 ## 会場(venue)マスタ・名寄せ・ゴロ合わせ入力
 - venue-master-data-structure-design.md / venue-master-draft.md

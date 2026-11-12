@@ -2580,3 +2580,22 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-12 20:00 UTC(フェーズ111: 詳細は上記。
   llm-generation-failure-handling-design.mdを新規作成し、LLM呼び出し失敗時の処理方針を確定。
   generation_request_handler.pyに502 llm_generation_failed分岐を実装、テスト2件追加)
+- フェーズ112(2026-11-12 23:00 UTC定例更新): フェーズ111次回候補(2)「risk_levelバッジの
+  具体的な配色コードの確定」に対応し、新規risk-level-badge-color-spec.mdを作成した。
+  低=#E6F4EA(文字#1E4620)・中=#FDF3D8(文字#6B4A00)・高=#FBE7E6(文字#8A2A1E)の3配色を
+  確定し、いずれもWCAG 2.1の通常文字コントラスト比4.5:1以上(6.1:1〜8.9:1)を満たすことを
+  確認した。tone-and-manner-guideline.mdの「不安を煽らない」方針に沿い、high相当でも
+  全面塗り・点滅は用いず淡い背景色+ラベル文字併記(色のみに依存しない判別)の方針とした。
+  LLM呼び出し失敗時(llm-generation-failure-handling-design.md、フェーズ111)はバッジ自体を
+  表示しない前提も明記した。HTML/CSS実装・外部サービスへの接続は行っていない(配色仕様の
+  確定のみ)。INDEX.mdへ追記。コード変更なし、既存テスト(10ファイル・validate_test_cases.py
+  9件・schema/check_venue_master_parity.py 36件/36件)は変更対象外のため今回は実行していない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)アイコン併用の要否の再検討(実際の生成結果を目視確認してから)、
+  (2)上記配色コードのHTML/CSS非公開試作への反映(実デプロイはオーナー承認後)、
+  (3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-12 23:00 UTC(フェーズ112: 詳細は上記。
+  risk-level-badge-color-spec.mdを新規作成し、risk_levelバッジの配色コード3色を確定。
+  コード変更なし)
