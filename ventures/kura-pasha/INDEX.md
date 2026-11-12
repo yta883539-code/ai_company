@@ -65,6 +65,9 @@
 - deployment-runbook.md / launch-readiness-checklist.md / ci-setup.md
 - webhook-sync-reply-timeout-root-cause-review.md(本venture単独の経路構造確認・
   根本対策費用対効果検討、course-set-pashaフェーズ369の個別確認版)
+- webhook-async-two-function-design.md(process_message_event()のWebhook即時ACK・
+  Cloud Tasks非同期処理・Push API応答への2関数構成翻案設計、上記review次回候補への対応。
+  実コード反映・実デプロイは次回候補)
 - schema/ (output.schema.json, validate_test_cases.py) / prototype/ (InMemoryスタブ実装・テスト)
 - emulator-test/
 
