@@ -1713,6 +1713,67 @@ class InMemoryLineWebhookEventIdStore:
 
 
 # ---------------------------------------------------------------------------
+# dispatch_webhook_events()のFAQ/非FAQ振り分け前処理
+# (process-memo-event-async-split-design.md「残課題・次回候補(2)」の実装)
+# ---------------------------------------------------------------------------
+
+class TaskAlreadyExistsError(Exception):
+    """同名タスクが既にキューに存在する場合に送出される(Cloud Tasks側の重複排除を模す)。
+    line-reservation-ai/prototype/cloud_function_webhook.pyの同名クラスと同じ構造。"""
+
+
+class TaskQueueClient(Protocol):
+    def create_task(self, task_name: str, payload: dict) -> None:
+        """task_nameが既存であればTaskAlreadyExistsErrorを送出する想定。"""
+        ...
+
+
+class InMemoryTaskQueueClient:
+    """検証用のインメモリCloud Tasksクライアント(line-reservation-aiの同名クラスと
+    同じ構造、決定的タスク名による重複排除のみを模す)。"""
+
+    def __init__(self) -> None:
+        self.created: Dict[str, dict] = {}
+
+    def create_task(self, task_name: str, payload: dict) -> None:
+        if task_name in self.created:
+            raise TaskAlreadyExistsError(task_name)
+        self.created[task_name] = payload
+
+
+def make_memo_task_name(webhook_event_id: str) -> str:
+    """webhookEventIdからCloud Tasksの決定的タスク名を導出する
+    (process-memo-event-async-split-design.md「既存コードへの影響」節、
+    line-reservation-aiの`make_task_name()`と同じ検証方針をタスク名プレフィックス
+    `course-set-pasha-event-`で踏襲する)。"""
+    if not webhook_event_id:
+        raise ValueError("webhook_event_id must be a non-empty string")
+    task_name = f"course-set-pasha-event-{webhook_event_id}"
+    if len(task_name) > 500:
+        raise ValueError("task_name exceeds Cloud Tasks 500-character limit")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+    if not set(task_name) <= allowed:
+        raise ValueError(f"task_name contains characters unsupported by Cloud Tasks: {task_name!r}")
+    return task_name
+
+
+def is_sync_faq_memo_event(event: dict) -> bool:
+    """merge_text_and_photo_events()適用後のメモイベント1件が、経路2(FAQ固定応答・
+    同期reply、process-memo-event-async-split-design.md「採用方式」節)に該当するかを
+    判定する。本文が「FAQ」またはQ1〜Q6に一致するテキストイベントのみが対象で、画像が
+    束ねられたイベント(hasPhoto=True)は同designの「既存コードへの影響」節が明記する
+    「画像付きイベントはFAQ対象外」という確定事項により経路3/4側(非同期)に回す。
+    """
+    message = event.get("message", {})
+    if message.get("type") != "text":
+        return False
+    if event.get("hasPhoto", False):
+        return False
+    text = message.get("text", "")
+    return is_owner_faq_menu_trigger(text) or match_owner_faq_item_code(text) is not None
+
+
+# ---------------------------------------------------------------------------
 # Webhook本体のイベント種別ディスパッチ(webhook-event-dispatch-design.md参照)
 # ---------------------------------------------------------------------------
 
@@ -1722,6 +1783,7 @@ class DispatchResult:
 
     follow_results: list = field(default_factory=list)
     memo_results: list = field(default_factory=list)
+    enqueued_webhook_event_ids: List[str] = field(default_factory=list)
     unfollow_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
     duplicate_webhook_event_ids: List[str] = field(default_factory=list)
@@ -1747,6 +1809,7 @@ def dispatch_webhook_events(
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
     webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
+    task_queue_client: Optional[TaskQueueClient] = None,
     now: Optional[datetime] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
@@ -1781,6 +1844,17 @@ def dispatch_webhook_events(
     ハンドラを一切呼び出さず(副作用ゼロで)スキップし、`result.duplicate_webhook_
     event_ids`に記録する。未指定(`None`)時、または`webhookEventId`が欠落・非文字列の
     場合は従来通りべき等性チェックを行わない(安全側のフォールバック)。
+
+    `task_queue_client`はprocess-memo-event-async-split-design.md「採用方式」節準拠
+    (フェーズ372)。指定時、`merge_text_and_photo_events()`適用後のメモイベントを
+    `is_sync_faq_memo_event()`で経路2(FAQ固定応答)と経路3/4(意図分類・投稿文生成)に
+    振り分け、経路2のみ従来通り`process_memo_event()`で同期replyし、残りは
+    `task_queue_client.create_task()`でCloud Tasksへenqueueするのみに留め
+    `process_memo_event()`を呼び出さない(enqueueしたwebhookEventIdは
+    `result.enqueued_webhook_event_ids`に記録する)。`webhookEventId`が欠落・非文字列で
+    タスク名を導出できないイベントは、二重配信保護なしで無応答のまま放置するより安全側として
+    従来通り同期処理する(process-memo-event-async-split-design.mdの対象外の異常系)。
+    未指定(`None`)時は全メモイベントを従来通り同期処理し、挙動を一切変えない。
     """
     result = DispatchResult()
 
@@ -1830,7 +1904,9 @@ def dispatch_webhook_events(
 
     message_events = [e for e in events if e.get("type") == "message"]
     if message_events and reply_client is not None and llm_call is not None:
-        for event in merge_text_and_photo_events(message_events):
+        merged_memo_events = merge_text_and_photo_events(message_events)
+
+        def _process_sync(event: dict) -> None:
             result.memo_results.append(
                 process_memo_event(
                     event,
@@ -1850,6 +1926,27 @@ def dispatch_webhook_events(
                     now=now,
                 )
             )
+
+        if task_queue_client is None:
+            for event in merged_memo_events:
+                _process_sync(event)
+        else:
+            for event in merged_memo_events:
+                if is_sync_faq_memo_event(event):
+                    _process_sync(event)
+                    continue
+                webhook_event_id = event.get("webhookEventId")
+                if not isinstance(webhook_event_id, str) or not webhook_event_id:
+                    _process_sync(event)
+                    continue
+                try:
+                    task_queue_client.create_task(
+                        make_memo_task_name(webhook_event_id), payload=event
+                    )
+                    result.enqueued_webhook_event_ids.append(webhook_event_id)
+                except TaskAlreadyExistsError:
+                    pass
+
         _mark_processed(message_events)
 
     unfollow_events = [e for e in events if e.get("type") == "unfollow"]

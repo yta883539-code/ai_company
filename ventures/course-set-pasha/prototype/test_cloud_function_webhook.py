@@ -43,6 +43,7 @@ from cloud_function_webhook import (  # noqa: E402
     InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
+    InMemoryTaskQueueClient,
     InMemoryUsageCounter,
     LlmApiError,
     ReplyApiError,
@@ -52,7 +53,9 @@ from cloud_function_webhook import (  # noqa: E402
     format_reply_text,
     format_welcome_message,
     get_runtime_dependencies,
+    is_sync_faq_memo_event,
     main,
+    make_memo_task_name,
     merge_text_and_photo_events,
     process_follow_event,
     process_memo_event,
@@ -3245,6 +3248,170 @@ class ValidateLlmOutputNonGeneratedChecksTest(unittest.TestCase):
             with self.subTest(case_id=case_id):
                 instance = copy.deepcopy(TEST_CASES[case_id])
                 self.assertEqual(validate_llm_output(instance), [])
+
+
+class IsSyncFaqMemoEventTest(unittest.TestCase):
+    """is_sync_faq_memo_event()(process-memo-event-async-split-design.md「採用方式」節、
+    フェーズ372)のテスト。"""
+
+    def test_faq_menu_trigger_without_photo_is_sync(self):
+        event = {
+            "message": {"type": "text", "text": "FAQ"},
+            "source": {"userId": "U1"},
+        }
+        self.assertTrue(is_sync_faq_memo_event(event))
+
+    def test_faq_item_code_without_photo_is_sync(self):
+        event = {
+            "message": {"type": "text", "text": "Q3"},
+            "source": {"userId": "U1"},
+        }
+        self.assertTrue(is_sync_faq_memo_event(event))
+
+    def test_faq_item_code_with_photo_bundled_is_not_sync(self):
+        # 画像が束ねられたイベントはFAQ対象外(design「既存コードへの影響」節の確定事項)。
+        event = {
+            "message": {"type": "text", "text": "Q3"},
+            "hasPhoto": True,
+            "source": {"userId": "U1"},
+        }
+        self.assertFalse(is_sync_faq_memo_event(event))
+
+    def test_non_faq_text_is_not_sync(self):
+        event = {
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+        self.assertFalse(is_sync_faq_memo_event(event))
+
+    def test_non_text_message_is_not_sync(self):
+        event = {"message": {"type": "image"}, "source": {"userId": "U1"}}
+        self.assertFalse(is_sync_faq_memo_event(event))
+
+
+class MakeMemoTaskNameTest(unittest.TestCase):
+    """make_memo_task_name()のテスト(line-reservation-aiのmake_task_name()と同じ検証方針)。"""
+
+    def test_prefixes_with_venture_slug(self):
+        self.assertEqual(
+            make_memo_task_name("wh-evt-1"), "course-set-pasha-event-wh-evt-1"
+        )
+
+    def test_empty_webhook_event_id_raises(self):
+        with self.assertRaises(ValueError):
+            make_memo_task_name("")
+
+    def test_disallowed_characters_raise(self):
+        with self.assertRaises(ValueError):
+            make_memo_task_name("wh/evt 1")
+
+
+class DispatchWebhookEventsTaskQueueClientTest(unittest.TestCase):
+    """dispatch_webhook_events()の`task_queue_client`対応(process-memo-event-async-
+    split-design.md「残課題・次回候補(2)」、フェーズ372)のテスト。"""
+
+    def test_faq_text_event_is_still_replied_synchronously(self):
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = InMemoryTaskQueueClient()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-faq",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "FAQ"},
+            "source": {"userId": "U1"},
+        }
+
+        result = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+        self.assertEqual(len(reply_client.sent), 1)
+        self.assertEqual(queue.created, {})
+
+    def test_non_faq_text_event_is_enqueued_not_replied(self):
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = InMemoryTaskQueueClient()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-non-faq",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        result = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(result.memo_results, [])
+        self.assertEqual(result.enqueued_webhook_event_ids, ["wh-evt-non-faq"])
+        self.assertEqual(len(reply_client.sent), 0)
+        self.assertIn("course-set-pasha-event-wh-evt-non-faq", queue.created)
+
+    def test_duplicate_task_name_is_skipped_without_error(self):
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = InMemoryTaskQueueClient()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-dup",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        first = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+        second = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(first.enqueued_webhook_event_ids, ["wh-evt-dup"])
+        self.assertEqual(second.enqueued_webhook_event_ids, [])
+
+    def test_missing_webhook_event_id_falls_back_to_sync(self):
+        # タスク名を導出できないイベントは、二重配信保護なしで無応答のまま放置するより
+        # 安全側として従来通り同期処理する(design docの対象外の異常系)。
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = InMemoryTaskQueueClient()
+        event = {
+            "type": "message",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        result = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+        self.assertEqual(len(reply_client.sent), 1)
+        self.assertEqual(queue.created, {})
+
+    def test_without_task_queue_client_all_events_processed_synchronously(self):
+        # task_queue_client未指定時は従来通り全件同期処理される(後方互換)。
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-legacy",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        result = dispatch_webhook_events([event], reply_client=reply_client, llm_call=llm_call)
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
 
 
 if __name__ == "__main__":

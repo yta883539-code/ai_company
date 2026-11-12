@@ -6863,3 +6863,37 @@
   events()`へのFAQ/非FAQ振り分け前処理の実コード反映、(3)2026-11-08 08:00 UTC記載の
   運営方針判断(7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)が
   オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ371(2026-11-11 00:00 UTC定例更新): フェーズ370「次回候補(1)」のFunction B
+  (`process_memo_event_async`)を実装した(コミットf4fc809c、本README.mdへの記載漏れを
+  本フェーズで是正)。`PushBackedReplyClient`(`push_client`経由で`ReplyClient`プロトコルを
+  満たすアダプタ、`reply_token`は無視し固定user_idへ常に`push_client.send_message()`で
+  送信)を新設し、`process_memo_event()`本体を無変更のまま`reply_client`の差し替えのみで
+  流用できることを確認した。Cloud Tasks経由では`replyToken`が伝播されない前提のため、
+  `event`にそのキーが無くても空文字列を補って動作することも確認済み。新規テスト4件追加
+  (push送信への差し替え・replyTokenキー欠落時の動作・push失敗時の1回リトライ・FAQ固定
+  応答経路の動作)、既存882件と合わせ全886件パス(回帰なし)。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映、
+  (2)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- フェーズ372(2026-11-12 19:00 UTC定例更新): フェーズ370「次回候補(2)」・フェーズ371
+  「次回候補(1)」に対応し、`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理を
+  実コード反映した。`is_sync_faq_memo_event()`(`merge_text_and_photo_events()`適用後の
+  イベントが経路2〈FAQ固定応答〉かどうかを、本文のFAQ一致とhasPhoto=Falseで判定)、
+  `TaskQueueClient`/`InMemoryTaskQueueClient`/`make_memo_task_name()`
+  (line-reservation-ai/prototype/cloud_function_webhook.pyの同名クラス・関数と同じ構造を
+  タスク名プレフィックス`course-set-pasha-event-`で踏襲)を新設し、`dispatch_webhook_
+  events()`に新規オプション引数`task_queue_client`を追加した。指定時のみ経路2を同期
+  reply・経路3/4をenqueueのみ(`process_memo_event()`を呼ばない)に振り分け、未指定時は
+  従来通り全件同期処理する後方互換を維持した。`webhookEventId`欠落・非文字列でタスク名を
+  導出できないイベントは安全側として従来通り同期処理するフォールバックとした。
+  process-memo-event-async-split-design.md・INDEX.mdへ反映した。新規テスト13件追加、
+  既存886件と合わせ全899件パス、schema検証22件も変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)実Cloud Tasksキュー・Function Bのデプロイ(実GCPプロジェクト作成、オーナー
+  承認待ち)、(2)aircon-pashaの同種部分(process_memo_event相当の同期実装)への横展開は、
+  aircon-pashaがpostbackアクション中心でFAQキーワード一致方式を採用していない可能性が
+  あるため横展開前に経路構造を個別確認する、(3)2026-11-08 08:00 UTC記載の運営方針判断
+  (7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)がオーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。

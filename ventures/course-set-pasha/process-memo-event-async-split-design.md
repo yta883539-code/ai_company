@@ -86,8 +86,18 @@ LINE Platform
   ことも確認済み。新規テスト4件(push送信への差し替え・replyTokenキー欠落時の動作・
   push失敗時の1回リトライ・FAQ固定応答経路の動作)を追加、既存882件と合わせ全886件パス
   (回帰なし)。
-- (2) `dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映
-  (新規テスト追加を含む)。
+- (2) 【実装済み・フェーズ372】`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の
+  実コード反映。`is_sync_faq_memo_event()`(`merge_text_and_photo_events()`適用後の
+  イベントが経路2〈FAQ固定応答、テキスト一致かつhasPhoto=False〉かどうかを判定)、
+  `TaskQueueClient`/`InMemoryTaskQueueClient`/`make_memo_task_name()`(いずれも
+  line-reservation-ai/prototype/cloud_function_webhook.pyの同名クラス・関数と同じ構造、
+  タスク名プレフィックスのみ`course-set-pasha-event-`)を`cloud_function_webhook.py`に
+  新設し、`dispatch_webhook_events()`に新規オプション引数`task_queue_client`を追加した。
+  指定時のみ経路2を同期reply・経路3/4を`task_queue_client.create_task()`でenqueueのみ
+  (`process_memo_event()`を呼ばない)という振り分けを行い、未指定時は従来通り全件同期
+  処理する(後方互換)。`webhookEventId`欠落・非文字列でタスク名を導出できないイベントは、
+  二重配信保護なしで無応答のまま放置するより安全側として従来通り同期処理する
+  フォールバックとした。新規テスト13件追加、既存886件と合わせ全899件パス(回帰なし)。
 - (3) 設計確定後、aircon-pashaの同種部分(process_memo_event相当の同期実装)への
   横展開はcourse-set-pasha・kura-pasha・line-reservation-aiの状況を踏まえて
   別途検討する(aircon-pashaはpostbackアクション中心でFAQキーワード一致方式を
