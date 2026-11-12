@@ -19,6 +19,11 @@ result-display-page-generation-request-design.md(フェーズ102)2節で設計�
 - 実LLM呼び出し・実Firestore接続はいずれもオーナー承認待ちの範囲(pending-approval.md参照)
   のため、本モジュールでもProtocol/Callableで差し替え可能にし、検証用の偽実装のみ用意する
   (checkout_result_page_handler.pyと同じ考え方)。
+- フェーズ111: llm-generation-failure-handling-design.mdで確定した、llm_client.generate()が
+  例外を投げた場合(タイムアウト・Structured Outputs不整合等をまとめて「技術的失敗」として
+  扱う)の502 llm_generation_failed分岐を追加。リトライは行わず1回で打ち切り、fan_passは
+  generation_log.record()を、one_time_passはmark_consumed()をいずれも呼ばないことで、
+  失敗時に月次カウント・都度プランの1回分のいずれも消費させない。
 """
 
 from __future__ import annotations
@@ -63,6 +68,14 @@ class GenerationHttpResult:
     error: Optional[str] = None
 
 
+# llm-generation-failure-handling-design.md(フェーズ111)で確定した技術的失敗の扱い。
+# llm_client.generate()が例外を投げた場合(タイムアウト・Structured Outputs不整合等の
+# パース失敗を区別せず、いずれも同一の失敗として扱う)、本関数内でリトライはせず1回で
+# 打ち切り、502 llm_generation_failedとして呼び出し元に返す。
+_LLM_GENERATION_FAILED_STATUS_CODE = 502
+_LLM_GENERATION_FAILED_ERROR = "llm_generation_failed"
+
+
 def receive_generation_request(
     fan_pass_store: _FanPassAccessTokenLookupProtocol,
     one_time_pass_store: _OneTimePassAccessTokenLookupProtocol,
@@ -89,7 +102,14 @@ def receive_generation_request(
         if fan_pass.subscription_status == "canceled":
             return GenerationHttpResult(status_code=403, error="subscription_canceled")
 
-        output = llm_client.generate(raw_input)
+        try:
+            output = llm_client.generate(raw_input)
+        except Exception:
+            # 失敗時はgeneration_log.record()を呼ばない(月次カウントを消費させない)。
+            return GenerationHttpResult(
+                status_code=_LLM_GENERATION_FAILED_STATUS_CODE,
+                error=_LLM_GENERATION_FAILED_ERROR,
+            )
         generation_log.record(fan_pass.internal_id)
         return GenerationHttpResult(status_code=200, output=output)
 
@@ -103,7 +123,15 @@ def receive_generation_request(
         if one_time_pass.consumed_at is not None:
             return GenerationHttpResult(status_code=403, error="already_consumed")
 
-        output = llm_client.generate(raw_input)
+        try:
+            output = llm_client.generate(raw_input)
+        except Exception:
+            # 失敗時はmark_consumed()を呼ばない(都度プランの1回分を消費させない。
+            # 同一access_tokenで再送信すれば追加決済なしに再試行できる)。
+            return GenerationHttpResult(
+                status_code=_LLM_GENERATION_FAILED_STATUS_CODE,
+                error=_LLM_GENERATION_FAILED_ERROR,
+            )
         # design.md 4節: 「生成成功を確認してから消費済みにする」順序を厳守する
         # (LLM呼び出し成功確認後にのみmark_consumed()を呼ぶ)。
         one_time_pass_store.mark_consumed(one_time_pass.internal_id, consumed_at=now)

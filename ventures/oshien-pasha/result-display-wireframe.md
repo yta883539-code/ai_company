@@ -102,9 +102,11 @@ hashigo_check)が混在するため(output.schema.json参照)、画面上は「�
 
 ## 4. 残課題
 
-- LLM呼び出し失敗時(タイムアウト・Structured Outputs不整合等)のエラー表示UI
-  (result-display-page-generation-request-design.md 4節・フェーズ109次回候補(3)から
-  持ち越し、本フェーズでは未着手)。
+- (対応済み・フェーズ111)LLM呼び出し失敗時(タイムアウト・Structured Outputs不整合等)の
+  エラー表示文言・分岐方針はllm-generation-failure-handling-design.mdで確定した
+  (`status_code=502`時に「生成中に時間がかかってしまい、結果を表示できませんでした。
+  少し時間をおいてから、もう一度お試しください。」+「もう一度試す」ボタン、入力内容は
+  保持したまま再送信)。本ワイヤーフレームのASCII図への反映自体は次回候補として残す。
 - risk_levelバッジの具体的な配色コード・アイコンの確定(実装フェーズ)。
 - `landing-page/index.html`と同様の非公開試作HTML化(フェーズ109次回候補(2)、本フェーズは
   テキストワイヤーフレームのみで止めた)。

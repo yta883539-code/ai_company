@@ -15,6 +15,15 @@ class _FakeLlmClient:
         return {"status": "ok", "itinerary_draft": "stub"}
 
 
+class _FakeFailingLlmClient:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def generate(self, raw_input: dict) -> dict:
+        self.calls.append(raw_input)
+        raise TimeoutError("stub llm timeout")
+
+
 class _FakeGenerationLog:
     def __init__(self) -> None:
         self.recorded: list[str] = []
@@ -135,6 +144,56 @@ class ReceiveGenerationRequestTests(unittest.TestCase):
         self.assertEqual(generation_log.recorded, [])
         self.assertIsNotNone(store.get_by_access_token(access_token).consumed_at)
         self.assertEqual(store.get_by_access_token(access_token).consumed_at, 1500)
+
+    def test_llm_failure_for_fan_pass_returns_502_without_recording_log(self) -> None:
+        store = InMemoryFanPassStore()
+        internal_id, access_token = store.create(
+            email="fan@example.com",
+            stripe_customer_id="cus_3",
+            stripe_subscription_id="sub_3",
+        )
+        llm_client = _FakeFailingLlmClient()
+        generation_log = _FakeGenerationLog()
+
+        result = receive_generation_request(
+            store,
+            InMemoryOneTimePassStore(),
+            generation_log,
+            llm_client,
+            access_token,
+            {"venue": "example-hall"},
+            now=1000,
+        )
+
+        self.assertEqual(result.status_code, 502)
+        self.assertEqual(result.error, "llm_generation_failed")
+        self.assertIsNone(result.output)
+        self.assertEqual(llm_client.calls, [{"venue": "example-hall"}])
+        # 失敗時は月次カウントを消費させない(次回再送信時にも同じ上限枠が使える)。
+        self.assertEqual(generation_log.recorded, [])
+
+    def test_llm_failure_for_one_time_pass_returns_502_without_marking_consumed(self) -> None:
+        store = InMemoryOneTimePassStore()
+        internal_id, access_token = store.create(
+            stripe_checkout_session_id="cs_5", created_at=1000
+        )
+        llm_client = _FakeFailingLlmClient()
+
+        result = receive_generation_request(
+            InMemoryFanPassStore(),
+            store,
+            _FakeGenerationLog(),
+            llm_client,
+            access_token,
+            {},
+            now=1500,
+        )
+
+        self.assertEqual(result.status_code, 502)
+        self.assertEqual(result.error, "llm_generation_failed")
+        self.assertIsNone(result.output)
+        # 失敗時はmark_consumed()を呼ばない(同一access_tokenで追加決済なしに再試行できる)。
+        self.assertIsNone(store.get_by_access_token(access_token).consumed_at)
 
     def test_already_consumed_one_time_pass_returns_403_without_calling_llm(self) -> None:
         store = InMemoryOneTimePassStore()

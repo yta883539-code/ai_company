@@ -70,8 +70,11 @@ monthly-pass-identity-design.md(フェーズ7)時点から統合を後回しに�
 
 - 3節の都度プラン用access_tokenの永続化・1回使用後の失効設計。
 - 入力フォーム自体のUI/UX(HTML/JS、実デプロイはオーナー承認待ち)。
-- LLM呼び出し失敗時(タイムアウト・Structured Outputs不整合等)のリトライ・ユーザー表示方針
-  (llm-quality-verification-plan.md側の既存論点との統合)。
+- (対応済み・フェーズ111)LLM呼び出し失敗時(タイムアウト・Structured Outputs不整合等)の
+  処理方針はllm-generation-failure-handling-design.mdで確定し、generation_request_handler.py
+  に`status_code=502`・`error="llm_generation_failed"`分岐を実装済み(リトライは行わず、
+  fan_passはgeneration_log.record()、one_time_passはmark_consumed()をいずれも呼ばない)。
+  実LLM接続後の実際のタイムアウト秒数・リトライ可能な例外種別の精査は引き続き次回候補。
 - `_GenerationLogProtocol`・`_LlmGenerationClientProtocol`の具体的なメソッド定義(本フェーズは
   呼び出し順序の確定のみで、プロトコル自体の詳細設計は次回以降)。
 

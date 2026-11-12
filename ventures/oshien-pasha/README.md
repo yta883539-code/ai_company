@@ -2553,3 +2553,30 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   (pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の前進。
 - 最終更新: 2026-11-11 01:00 UTC(フェーズ110: 詳細は上記。result-display-wireframe.mdを
   新規作成し、生成結果表示部分〈4出力カード〉のUI/UXワイヤーフレームを確定。コード変更なし)
+- フェーズ111(2026-11-12 20:00 UTC定例更新): 7venture中最も更新が止まっていたventureは
+  aircon-pasha(2026-11-10 22:00 UTC、フェーズ377)だったが、同venture次回候補が承認待ち
+  事項の回答待ちと他venture前進のみに尽きていたため(フェーズ377次回候補参照)、2番目に
+  更新が止まっていた本ventureを前進した。フェーズ110次回候補(1)「LLM呼び出し失敗時
+  (タイムアウト・Structured Outputs不整合等)のエラー表示UI」に対応し、新規
+  llm-generation-failure-handling-design.mdを作成した。技術的失敗(`generate()`の例外)を
+  schema/output.schema.jsonの`status`分岐とは別のHTTP層エラーとして扱う方針を確定し、
+  generation_request_handler.pyに`status_code=502`・`error="llm_generation_failed"`分岐を
+  実コード化した(リトライは行わず1回で打ち切り、fan_passはgeneration_log.record()を、
+  one_time_passはmark_consumed()をいずれも呼ばないことで失敗時に月次カウント・都度プラン
+  1回分のいずれも消費させない)。result-display-page-generation-request-design.md 4節・
+  result-display-wireframe.md 4節の対応する残課題を解消済みに更新した。新規テスト2件
+  (test_llm_failure_for_fan_pass_returns_502_without_recording_log・
+  test_llm_failure_for_one_time_pass_returns_502_without_marking_consumed)を追加、
+  既存テストとあわせて`python3 run_all_tests.py`で10ファイル・schema/
+  check_venue_master_parity.pyで36件、いずれもパスを確認した(回帰なし)。実LLM呼び出し・
+  実際のHTML/JS実装・外部サービスへの接続は行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)result-display-wireframe.mdのASCIIワイヤーフレーム図へのエラー表示状態の
+  反映、(2)risk_levelバッジの具体的な配色コードの確定、(3)`landing-page/index.html`と
+  同様の非公開試作HTML化(実デプロイはオーナー承認後)、(4)実Stripeアカウント・実GCP
+  プロジェクト・実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き
+  着手不可、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-12 20:00 UTC(フェーズ111: 詳細は上記。
+  llm-generation-failure-handling-design.mdを新規作成し、LLM呼び出し失敗時の処理方針を確定。
+  generation_request_handler.pyに502 llm_generation_failed分岐を実装、テスト2件追加)
