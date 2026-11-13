@@ -57,6 +57,7 @@ course-set-pasha/INDEX.md・line-reservation-ai/INDEX.mdと同型)。新しい�
 - firestore-data-model.md / firestore-composite-index-plan.md
 - firestore-security-rules-draft.md / firestore-security-rules-emulator-verification.md
 - runtime-dependency-switching-design.md / cloud-monitoring-alert-policy-design.md
+- billing-budget-cap-safeguard-design.md
 - data-retention-policy.md / vendor-breach-key-rotation-runbook.md
 - launch-readiness-checklist.md / ci-setup.md
 - schema/ (output.schema.json・validate_test_cases.py)

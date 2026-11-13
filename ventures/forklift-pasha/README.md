@@ -5115,3 +5115,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-13 17:00 UTC(フェーズ233: 新規設計・新規コードの積み増しを行わず、
   vehicle-label-duplicate-handling-design.md・INDEX.mdの既存記載が陳腐化していないことを
   確認する棚卸しのみ実施。変更差分なし。)
+
+- フェーズ234(2026-11-13 23:00 UTC定例更新): line-reservation-aiフェーズ続き386
+  (2026-11-11 04:00 UTC)が申し送った「実GCPプロジェクト・Firestore作成の承認ハードルを
+  下げるためのBilling Budget安全策」の横展開を、aircon-pasha・kura-pasha・oshien-pasha・
+  course-set-pashaに続いて本venture(残る最後の横展開対象)で実施した。tech-stack.md
+  (コンポーネント2)の通り本ventureもCloud Run functions(2nd gen)+Firestore構成であり、
+  Firestore(Sparkプラン)自体は課金設定不要だがCloud Run functionsはBlazeプランが実質必須
+  という前提は他venture同様に当てはまることを確認した。本venture固有の想定コストとして、
+  llm-api-cost-estimate.mdの生成1回あたり原価(キャッシュなし約2.72円)とpricing-plan.mdの
+  複数台プラン(10台まで・月220回まで)から、顧客1件あたり最大約598.4円/月という他venture
+  より大きい原価規模を算出し、他venture(暫定500円)より高い暫定予算額(月間3,000円、複数台
+  プラン顧客5件相当)を設定するbilling-budget-cap-safeguard-design.mdを新規作成した。
+  INDEX.mdの「インフラ・運用」節に追記。実行(GCPプロジェクト作成・課金設定・Budget作成)は
+  一切行っていない。新規の承認依頼エントリは追加せず(承認を求めるアクションの実体自体は
+  2026-10-24 07:00 UTC記載から変わらないため)、pending-approval.md既存エントリの文面も
+  履行記録としてそのまま保持した。また、line-reservation-aiの当初の横展開対象リスト
+  (aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha・oshien-pashaの5venture)に
+  含まれていなかったevent-komiguai-pasha(単発生成・Stripe one-time payment向けの異なる
+  課金モデル)についても同種の安全策が未検討であることに気づき、次回候補として記録した。
+  コード変更なし(設計文書作成のみ)。承認が必要なアクション(支払い・アカウント作成・外部
+  公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Stripe/実GCPプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)event-komiguai-pashaについても同種のBilling Budget安全策設計(または
+  課金モデルの違いにより対象外と判断する場合はその理由の明文化)を検討する、(3)2026-11-08
+  08:00 UTC記載の運営方針確認(7venture全てが承認待ちで停滞している状態への対応方針)が
+  未回答のため、他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-13 23:00 UTC(フェーズ234: 詳細は上記。line-reservation-ai申し送りの
+  Billing Budget安全策横展開を実施し、当初対象5venture全ての設計完了。本venture固有の
+  高い顧客単価を踏まえ暫定予算額を月間3,000円に設定。実行は一切行っていない。)
