@@ -12,6 +12,7 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 - market-research.md / tech-stack.md / pricing-plan.md
 
 ## 顧客ヒアリング・LP・公開準備・法務
+- customer-interview-design.md
 - landing-page-copy-draft.md / landing-page-wireframe.md / landing-page/
 - legal-notices-draft.md / data-retention-policy.md
 - ci-setup.md / vendor-breach-key-rotation-runbook.md / tone-and-manner-guideline.md

@@ -2673,3 +2673,21 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-13 11:00 UTC(フェーズ115: 詳細は上記。prototype/input-form.htmlを
   新規作成し、入力フォームの状態1「入力中/未送信」・状態2「送信中」の見本を反映。
   コード変更なし、既存テスト10/10パス再確認)
+- フェーズ116(2026-11-13 12:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・line-reservation-ai)はいずれも
+  customer-interview-design.mdを作成済みだが、本ventureのみ未作成のままだったcross-venture
+  parityギャップに気付き、新規作成した。本venture固有の性質(B2C個人向け、匿名性配慮、
+  謝礼の必要性、対象選定方法が他venture〈実在事業者の屋号ベースのロングリスト〉とは
+  異なる)を反映した全12問(現状把握2問・価格感覚3問・内容体験4問・導入障壁2問)を設計し、
+  pricing-plan.mdの都度480円/月額980円という価格帯の受容性、venue-master-draft.mdの会場名
+  寄せ精度、risk-level-badge-color-spec.mdのハシゴ無理チェックの判断軸、の3点を主な検証
+  対象とした。実在の個人への接触・謝礼支払いはいずれもオーナー許可が必要なアクションのため
+  行っていない。実コード変更は無いため既存テストへの影響はなし。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)interview-rehearsal-script.md相当のリハーサル台本作成(時間計測)、
+  (2)謝礼の有無・対象選定方法のオーナー判断待ち、(3)実Stripeアカウント・実GCPプロジェクト・
+  実Firestore接続はオーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 12:00 UTC(フェーズ116: 詳細は上記。customer-interview-design.mdを
+  新規作成し、cross-venture parityギャップを解消。コード変更なし)
