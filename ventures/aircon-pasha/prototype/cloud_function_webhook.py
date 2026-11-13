@@ -62,7 +62,11 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_menu_message,
 )
 from post_generation_checks import LENGTH_LIMIT_ERROR_PREFIX, run_all_checks  # noqa: E402
-from trial_end_scheduler import format_minutes_saved_line  # noqa: E402
+from trial_end_scheduler import (  # noqa: E402
+    LinePushClient,
+    LinePushDeliveryError,
+    format_minutes_saved_line,
+)
 from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     UserProfile,
@@ -1241,6 +1245,136 @@ def process_memo_event(
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None, retried=retried,
         chatbot_intent=chatbot_intent,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Webhook即時ACK・2関数構成への翻案(process-memo-event-async-split-design.md、
+# フェーズ380「残課題・次回候補(1)」の実装。course-set-pashaフェーズ371の
+# PushBackedReplyClient/process_memo_event_async()を本venture向けに翻案したもの)
+# ---------------------------------------------------------------------------
+
+_PUSH_REPLY_ALT_TEXT = "[エアコンパシャッと] 完了報告・お手入れ案内"
+
+
+def _build_push_reply_flex_message(
+    message_text: str, quick_reply: Optional[list[QuickReplyButton]] = None,
+) -> dict:
+    """PushBackedReplyClient.reply()がLinePushClient.send_flex_message()へ委譲する際の
+    変換。course-set-pashaのLinePushClientはプレーンテキスト送信(send_message())を
+    公開しているが、本ventureのLinePushClient(trial_end_scheduler.py)は
+    send_flex_message()のみを公開しているため、そのまま翻案できない差異がある
+    (process-memo-event-async-split-design.mdには明記されていなかった本venture固有の
+    差分として、本フェーズで対応した)。trial_end_scheduler.build_trial_end_notification_
+    flex_message()と同じbubble構成(body:テキスト1件、footer:postbackボタン列)に
+    合わせ、quick_reply未指定時はfooterを持たないbubbleを返す。"""
+    bubble: dict = {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": message_text, "wrap": True},
+            ],
+        },
+    }
+    if quick_reply:
+        bubble["footer"] = {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "action": {
+                        "type": "postback",
+                        "label": button.label,
+                        "data": button.postback_data,
+                    },
+                }
+                for button in quick_reply
+            ],
+        }
+    return bubble
+
+
+class PushBackedReplyClient:
+    """process_memo_event_async()(Function B相当)がprocess_memo_event()本体を
+    変更せずそのまま呼び出せるようにする、ReplyClientプロトコルをpush_client経由で
+    満たすアダプタ(process-memo-event-async-split-design.md「既存コードへの影響」節:
+    `reply_client`の代わりに`push_client`を渡す形に差し替えるだけで流用できる、の実装)。
+
+    Cloud Tasks経由では`replyToken`(1回限り有効)は伝播されないため、`reply()`に渡される
+    `reply_token`は無視し、コンストラクタで固定されたuser_idへ常に
+    `push_client.send_flex_message()`で送信する(本venture既存のLinePushClientが
+    プレーンテキスト送信を持たないため、_build_push_reply_flex_message()でFlex
+    Messageへ詰め替える)。`_reply_with_retry()`がReplyApiErrorを捕捉して1回だけ
+    再試行する既存の挙動をそのまま活かすため、push送信失敗(LinePushDeliveryError)は
+    ReplyApiErrorへ変換して再送出する。
+    """
+
+    def __init__(self, push_client: LinePushClient, user_id: str) -> None:
+        self._push_client = push_client
+        self._user_id = user_id
+
+    def reply(
+        self,
+        reply_token: str,
+        message_text: str,
+        *,
+        quick_reply: Optional[list[QuickReplyButton]] = None,
+    ) -> None:
+        contents = _build_push_reply_flex_message(message_text, quick_reply)
+        try:
+            self._push_client.send_flex_message(self._user_id, _PUSH_REPLY_ALT_TEXT, contents)
+        except LinePushDeliveryError as exc:
+            raise ReplyApiError(str(exc)) from exc
+
+
+def process_memo_event_async(
+    event: dict,
+    llm_call: LlmCallClient,
+    push_client: LinePushClient,
+    *,
+    usage_counter: Optional[UsageCounterProtocol] = None,
+    plan: Optional[str] = None,
+    month: Optional[str] = None,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    profile_store: Optional[UserProfileStoreProtocol] = None,
+    intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
+    now: Optional[datetime] = None,
+) -> MemoProcessResult:
+    """process-memo-event-async-split-design.md「採用方式」のFunction B相当。
+
+    Cloud Tasksキューから起動され、Function A(`receive_webhook`)がenqueueした
+    イベント(`source.userId`・`message`本文・`webhookEventId`のみ、`replyToken`は含まない
+    設計)を受け取り、`PushBackedReplyClient`経由でPush API送信に差し替えた上で
+    `process_memo_event()`本体(経路1.6・2の分岐・後処理ロジック)をそのまま呼び出す。
+    `event`に`replyToken`キーが無い場合でも`process_memo_event()`が要求する必須キーを
+    満たすため、未使用のプレースホルダ値(空文字列)を補う。
+
+    経路1.5(FAQ固定応答)はdesign.md「採用方式」の通りFunction A側で同期reply済みの
+    想定であり、本関数はFunction Aからenqueueされる時点で経路1.6・2相当のイベントに
+    絞り込まれている前提に立つ(dispatch_webhook_events()への振り分け前処理の実コード
+    反映はdesign.md「残課題(2)」として次回以降の課題)。経路1.5相当のイベントが誤って
+    本関数へ渡された場合でも、process_memo_event()自体はowner_faq_router分岐を
+    そのまま処理しPushBackedReplyClient経由で返信するため、動作自体は破綻しない。
+    """
+    user_id = event["source"]["userId"]
+    event_for_reply_client = event if "replyToken" in event else {**event, "replyToken": ""}
+    return process_memo_event(
+        event_for_reply_client,
+        llm_call,
+        PushBackedReplyClient(push_client, user_id),
+        usage_counter=usage_counter,
+        plan=plan,
+        month=month,
+        portal_link_provider=portal_link_provider,
+        profile_store=profile_store,
+        intent_classifier=intent_classifier,
+        escalation_push_client=escalation_push_client,
+        now=now,
     )
 
 

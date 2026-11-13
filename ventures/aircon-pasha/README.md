@@ -7285,3 +7285,39 @@
   分割設計を本venture向けに翻案(process-memo-event-async-split-design.md新規作成)。
   机上設計のみ、実装は次回以降。コード変更なし、テスト815件・schema検証25件いずれも
   変更なしでパス)
+- フェーズ381(2026-11-13 10:00 UTC定例更新): フェーズ380「次回候補(1)」に対応し、
+  Function B(`process_memo_event_async()`・`PushBackedReplyClient`、
+  course-set-pashaフェーズ371相当の翻案)を`prototype/cloud_function_webhook.py`に
+  実装した。`process_memo_event()`本体(経路1〜2の分岐・後処理ロジック)は変更せず、
+  `PushBackedReplyClient`が`reply_client`を差し替えるアダプタとして機能することのみで
+  Function Bを成立させた(design.md「既存コードへの影響」節の見立てどおり)。
+  翻案時に判明した本venture固有の差分(design.mdには明記されていなかった点)として、
+  course-set-pashaのLinePushClientはプレーンテキスト送信(`send_message()`)を公開するが、
+  本ventureのLinePushClient(trial_end_scheduler.py)は`send_flex_message()`のみを
+  公開するため、そのまま翻案できなかった。そこで`_build_push_reply_flex_message()`を
+  新設し、`trial_end_scheduler.build_trial_end_notification_flex_message()`と同じ
+  bubble構成(body:テキスト1件、footer:postbackボタン列)へ`reply_client.reply()`の
+  メッセージ本文・`quick_reply`(QuickReplyButtonのリスト)を詰め替えることで対応した。
+  `dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理(design.md「残課題(2)」)は
+  本フェーズのスコープ外として明記のうえ見送った(Function Bは実装したが、まだ
+  ディスパッチャには結線していない)。新規テスト5件(`ProcessMemoEventAsyncTest`:
+  push経由送信・replyTokenキー欠落時の動作・push失敗時のリトライ枯渇・FAQ経路の
+  push経由動作・条件AのQuickReplyButtonがFlex Message footerボタンへ詰め替わる動作)を
+  追加、既存815件と合わせ全820件パス、schema検証25件も変更なしでパス(回帰なし)。
+  実GCP/Cloud Tasksへの接続・デプロイは行っていない。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映
+  (`is_sync_faq_memo_event()`・`TaskQueueClient`/`InMemoryTaskQueueClient`の新設、
+  course-set-pashaフェーズ372相当の翻案、design.md「残課題(2)」)、(2)Cloud Tasksキュー・
+  Function Bの実デプロイは実GCPプロジェクト作成(オーナー承認待ち)後の課題として残る、
+  (3)event-komiguai-pasha・forklift-pasha・oshien-pashaのべき等性対策・Function A/B
+  分割の横展開検討、(4)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、実GCP/
+  Firestore/Stripeアカウント作成の承認可否)が5日間未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 10:00 UTC(フェーズ381: 詳細は上記。Function B
+  (`process_memo_event_async()`・`PushBackedReplyClient`)を実装し、本venture固有の
+  差分(push_clientがFlex Message専用)をFlex Message詰め替えで吸収した。
+  dispatch_webhook_events()への結線は次回以降。新規テスト5件追加、全820件・
+  schema検証25件いずれもパス)

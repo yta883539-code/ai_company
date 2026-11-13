@@ -63,6 +63,7 @@ from cloud_function_webhook import (  # noqa: E402
     render_faq_guidance_message,
     process_follow_event,
     process_memo_event,
+    process_memo_event_async,
     process_message_event,
     process_postback_event,
     process_unfollow_event,
@@ -3108,6 +3109,114 @@ class LineWebhookEventIdStoreTtlTest(unittest.TestCase):
 
     def test_default_ttl_is_seven_days(self):
         self.assertEqual(DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS, 7 * 24 * 60 * 60)
+
+
+class _FailingLinePushClient:
+    """InMemoryLinePushClientと異なり、常にLinePushDeliveryErrorを送出する検証用クライアント
+    (course-set-pasha/prototype/test_cloud_function_webhook.pyの同名クラスと同じ位置づけ。
+    本venture既存のLinePushClientはsend_flex_message()のみを公開するため、そちらを失敗
+    させる)。"""
+
+    def send_flex_message(self, user_id: str, alt_text: str, contents: dict) -> None:
+        from trial_end_scheduler import LinePushDeliveryError
+
+        raise LinePushDeliveryError("simulated outage")
+
+
+class ProcessMemoEventAsyncTest(unittest.TestCase):
+    """process_memo_event_async()(process-memo-event-async-split-design.md Function B相当、
+    フェーズ381「残課題・次回候補(1)」の実装)の検証。process_memo_event()本体の分岐
+    ロジックは変更していないため、ここでは「reply_clientの代わりにpush_client
+    (PushBackedReplyClient経由のsend_flex_message())が使われる」という差し替え部分のみを
+    確認する(分岐ロジック自体の網羅はProcessMemoEventTest等で検証済み)。"""
+
+    def test_generated_case_sends_via_push_instead_of_reply(self):
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        push_client = InMemoryLinePushClient()
+        result = process_memo_event_async(
+            _make_event(user_id="u-async-1"), FixtureLlmClient("G1_basic"), push_client,
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(len(push_client.sent), 1)
+        sent_user_id, sent_alt_text, sent_contents = push_client.sent[0]
+        self.assertEqual(sent_user_id, "u-async-1")
+        self.assertEqual(sent_contents["type"], "bubble")
+        self.assertEqual(
+            sent_contents["body"]["contents"][0]["text"], result.reply_text,
+        )
+
+    def test_event_without_reply_token_key_is_accepted(self):
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        # Cloud Tasks経由ではreplyTokenが伝播されない設計(design.md「採用方式」)のため、
+        # replyTokenキー自体が無いイベントでも動作する必要がある。
+        event = {
+            "source": {"userId": "u-async-2"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW、フィルター・熱交換器・送風ファンまで分解洗浄"},
+        }
+        self.assertNotIn("replyToken", event)
+        push_client = InMemoryLinePushClient()
+
+        result = process_memo_event_async(event, FixtureLlmClient("G1_basic"), push_client)
+
+        self.assertTrue(result.reply_sent)
+        self.assertEqual(push_client.sent[0][0], "u-async-2")
+
+    def test_push_failure_retries_once_then_gives_up(self):
+        result = process_memo_event_async(
+            _make_event(user_id="u-async-3"), FixtureLlmClient("G1_basic"), _FailingLinePushClient(),
+        )
+
+        self.assertFalse(result.reply_sent)
+        self.assertIsNone(result.reply_text)
+
+    def test_faq_route_still_handled_via_push(self):
+        # 経路1.5(FAQ固定応答)もprocess_memo_event()本体の分岐は変更していないため、
+        # Function B経由でも同じ分岐がそのまま動く(送信先がpushになる点のみ異なる)。
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        push_client = InMemoryLinePushClient()
+        event = _make_event(user_id="u-async-4", text="FAQ")
+
+        result = process_memo_event_async(event, FixtureLlmClient("G1_basic"), push_client)
+
+        self.assertEqual(result.owner_faq_action, "menu")
+        self.assertEqual(len(push_client.sent), 1)
+
+    def test_quick_reply_buttons_become_flex_footer(self):
+        # 経路2の条件A(生成回数到達、ProcessMemoEventTrialEndConditionATestと同じ
+        # profile_store事前準備)でQuickReplyButtonが添付されるケースでも、
+        # PushBackedReplyClientがFlex Messageのfooterボタンへ詰め替えることを確認する。
+        from datetime import datetime, timezone
+
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-async-5",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_start_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+                trial_generation_count=TRIAL_GENERATION_LIMIT - 1,
+            ),
+        )
+        push_client = InMemoryLinePushClient()
+
+        result = process_memo_event_async(
+            _make_event(user_id="u-async-5"), FixtureLlmClient("G1_basic"), push_client,
+            profile_store=profile_store,
+        )
+
+        self.assertTrue(result.reply_sent)
+        sent_contents = push_client.sent[0][2]
+        self.assertIn("footer", sent_contents)
+        footer_buttons = sent_contents["footer"]["contents"]
+        self.assertEqual(len(footer_buttons), len(PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER))
+        self.assertEqual(footer_buttons[0]["action"]["type"], "postback")
 
 
 if __name__ == "__main__":
