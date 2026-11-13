@@ -1787,6 +1787,7 @@ class DispatchResult:
     unfollow_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
     duplicate_webhook_event_ids: List[str] = field(default_factory=list)
+    enqueue_fallback_webhook_event_ids: List[str] = field(default_factory=list)
 
 
 def dispatch_webhook_events(
@@ -1854,6 +1855,10 @@ def dispatch_webhook_events(
     `result.enqueued_webhook_event_ids`に記録する)。`webhookEventId`が欠落・非文字列で
     タスク名を導出できないイベントは、二重配信保護なしで無応答のまま放置するより安全側として
     従来通り同期処理する(process-memo-event-async-split-design.mdの対象外の異常系)。
+    `task_queue_client.create_task()`が`TaskAlreadyExistsError`以外の例外(クォータ超過・
+    ネットワーク障害等の一時的エラー)を送出した場合も、同期処理へフォールバックし
+    `result.enqueue_fallback_webhook_event_ids`に記録する
+    (enqueue-failure-partial-processing-safety-design.md、フェーズ373)。
     未指定(`None`)時は全メモイベントを従来通り同期処理し、挙動を一切変えない。
     """
     result = DispatchResult()
@@ -1946,6 +1951,19 @@ def dispatch_webhook_events(
                     result.enqueued_webhook_event_ids.append(webhook_event_id)
                 except TaskAlreadyExistsError:
                     pass
+                except Exception:
+                    # enqueue-failure-partial-processing-safety-design.md準拠(フェーズ373)。
+                    # Cloud Tasks側の一時的なエラー(クォータ超過・ネットワーク障害等)を
+                    # 伝播させると、本関数呼び出し元(receive_webhook())がこの時点で
+                    # 例外送出となり、同一バッチ内で既に同期replyPushし終えた先行イベント
+                    # (経路2・FAQ固定応答)が`_mark_processed()`未到達のままLINE側の
+                    # Webhook再送対象になり、FAQ返信が重複送信されるおそれがある
+                    # (`_mark_processed(message_events)`はループ全体が例外なく完了した
+                    # 場合のみ呼ばれるため)。replyTokenはこの時点でまだ有効な想定のため、
+                    # enqueue失敗イベントは安全側としてその場で同期処理にフォールバックし、
+                    # バッチ全体の処理を継続する。
+                    result.enqueue_fallback_webhook_event_ids.append(webhook_event_id)
+                    _process_sync(event)
 
         _mark_processed(message_events)
 

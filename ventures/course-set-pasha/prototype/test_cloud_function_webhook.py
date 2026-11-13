@@ -3413,6 +3413,76 @@ class DispatchWebhookEventsTaskQueueClientTest(unittest.TestCase):
         self.assertEqual(len(result.memo_results), 1)
         self.assertEqual(result.enqueued_webhook_event_ids, [])
 
+    def test_enqueue_transient_error_falls_back_to_sync_without_raising(self):
+        # enqueue-failure-partial-processing-safety-design.md(フェーズ373)。
+        # create_task()がTaskAlreadyExistsError以外の例外(クォータ超過・ネットワーク
+        # 障害等)を送出した場合、例外を伝播させず同期処理にフォールバックする。
+        class FlakyTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise ConnectionError("simulated Cloud Tasks transient failure")
+
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = FlakyTaskQueueClient()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-flaky",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        result = dispatch_webhook_events(
+            [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(len(result.memo_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+        self.assertEqual(result.enqueue_fallback_webhook_event_ids, ["wh-evt-flaky"])
+        self.assertEqual(len(reply_client.sent), 1)
+
+    def test_enqueue_transient_error_does_not_block_other_events_in_batch(self):
+        # 同一バッチ内に正常にenqueueできるイベントとenqueue失敗イベントが混在しても、
+        # 失敗イベントのフォールバックが後続イベントの処理を妨げないことを確認する。
+        class FlakyOnceTaskQueueClient:
+            def __init__(self):
+                self.created = {}
+                self._calls = 0
+
+            def create_task(self, task_name, payload):
+                self._calls += 1
+                if self._calls == 1:
+                    raise ConnectionError("simulated Cloud Tasks transient failure")
+                self.created[task_name] = payload
+
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = FlakyOnceTaskQueueClient()
+        events = [
+            {
+                "type": "message",
+                "webhookEventId": "wh-evt-flaky-1",
+                "replyToken": "rt1",
+                "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                "source": {"userId": "U1"},
+            },
+            {
+                "type": "message",
+                "webhookEventId": "wh-evt-ok-2",
+                "replyToken": "rt2",
+                "message": {"type": "text", "text": "エリアB 赤テープ 5本新規"},
+                "source": {"userId": "U2"},
+            },
+        ]
+
+        result = dispatch_webhook_events(
+            events, reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+        )
+
+        self.assertEqual(result.enqueue_fallback_webhook_event_ids, ["wh-evt-flaky-1"])
+        self.assertEqual(result.enqueued_webhook_event_ids, ["wh-evt-ok-2"])
+        self.assertEqual(len(result.memo_results), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

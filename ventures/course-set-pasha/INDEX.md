@@ -68,6 +68,7 @@ pending-approval.md 2026-11-08 08:00 UTC記載の「整理(重複排除・要約
 - line-webhook-event-id-idempotency-design.md
 - webhook-sync-reply-timeout-root-cause-review.md
 - process-memo-event-async-split-design.md
+- enqueue-failure-partial-processing-safety-design.md
 
 ## インフラ・運用
 - tech-stack.md / firebase.json / firestore.rules / firestore.indexes.json

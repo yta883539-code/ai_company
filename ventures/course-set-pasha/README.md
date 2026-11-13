@@ -6897,3 +6897,23 @@
   あるため横展開前に経路構造を個別確認する、(3)2026-11-08 08:00 UTC記載の運営方針判断
   (7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)がオーナーから得られた
   場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ373(2026-11-13 06:00 UTC定例更新): フェーズ372実装のコードを読み直し、
+  `dispatch_webhook_events()`の`task_queue_client.create_task()`呼び出しが
+  `TaskAlreadyExistsError`以外の例外(Cloud Tasks側のクォータ超過・一時的な
+  ネットワーク障害等)を一切捕捉していないギャップを発見した。この場合、同一バッチ内で
+  既に経路2(FAQ同期reply)を処理済みの先行イベントが`_mark_processed()`未到達のまま
+  LINE側のWebhook再送対象になり、FAQ固定応答が重複送信されるおそれ、および後続イベントが
+  一切処理されないおそれがあった。enqueue-failure-partial-processing-safety-design.mdを
+  新規作成し、`TaskAlreadyExistsError`以外の例外発生時はその場で同期処理へフォールバック
+  する方式を設計・実装した(フォールバックした`webhookEventId`は新設の
+  `DispatchResult.enqueue_fallback_webhook_event_ids`に記録)。新規テスト2件追加
+  (enqueue失敗時の同期フォールバック・同一バッチ内の他イベント処理継続の確認)、既存899件
+  と合わせ全901件・schema検証22件いずれもパス(回帰なし)。コード変更は
+  `prototype/cloud_function_webhook.py`の例外処理分岐追加のみで、実GCP/Cloud Tasksへの
+  接続・デプロイは行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)`enqueue_fallback_webhook_event_ids`が実運用で非ゼロ時のオーナー通知設計
+  (blocked-but-billing-owner-notification-design.mdと同種の仕組みの横展開)、(2)本フェーズ
+  で発見した例外処理パターンの他venture(aircon-pasha等、同種のTaskQueueClient構成を持つ
+  venture)への横展開確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
