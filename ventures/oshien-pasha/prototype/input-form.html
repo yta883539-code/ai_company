@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!--
+  おしえんパシャっと 入力フォーム 実装ドラフト(フェーズ115・2026-11-13 10:00 UTC)
+
+  位置づけ: input-form-ui-ux-design.md(フェーズ109)2節のワイヤーフレーム構成、
+  3節のバリデーション方針(空文字列送信不可・2,000文字上限・access_tokenは
+  sessionStorage参照で非表示)を、result-display.html(フェーズ114)と同じ方針
+  (非公開・静的な実装ドラフト)でHTML/CSSに落とし込んだものです。ドメイン取得・
+  ホスティング・外部公開は一切行っておらず、リポジトリ内の静的ファイルとして
+  置かれているのみです(README.mdの「外部サービスへの公開」には該当しません)。
+
+  未実装・意図的なプレースホルダー:
+  - 状態1「入力中/未送信」・状態2「送信中」の2状態を1ページ内に縦に並べた見本一覧
+    です。実際の画面ではJS側で同一フォームが状態1→2へ切り替わりますが、本ドラフト
+    では見本として2つのフォームを静止表示しています(状態切り替えのJS実装自体は
+    次回候補、result-display.htmlとの結合時に行う)。
+  - 「この内容で遠征プランを作る」ボタンはhref/type指定なしの非活性相当の見本表示
+    (状態1はaria-disabled="false"相当の見本、状態2はaria-disabled="true")であり、
+    実際の送信処理(receive_generation_request()への実呼び出し)は行っていません。
+  - 文字数カウンタ(3節の残り文字数表示)は静的な数値を埋め込んだ見本です。
+    実際の入力に反応するJSのカウント処理は未実装(次回候補)。
+  - access_tokenはsessionStorageから取得する方針(access-token-client-storage-
+    design.md フェーズ101)のため、本画面に入力欄・表示は設けていません
+    (このドラフトでも実際のsessionStorage読み取りは行っていません)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おしえんパシャっと 入力フォーム(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #fff8fb;
+    --color-fg: #2c2430;
+    --color-accent: #c0397b;
+    --color-accent-dark: #8c2a5b;
+    --color-card: #ffffff;
+    --color-border: #f0d6e4;
+    --color-muted: #6e6270;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  .form-card {
+    margin: 20px 16px 32px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 20px 18px;
+  }
+  .form-card h1 {
+    margin: 0 0 6px; font-size: 1.15rem;
+  }
+  .form-card .lead {
+    margin: 0 0 16px; font-size: 0.88rem; color: var(--color-muted);
+  }
+  textarea.memo {
+    width: 100%; min-height: 160px; resize: vertical;
+    padding: 12px 14px; font-size: 0.95rem; line-height: 1.6;
+    border: 1px solid var(--color-border); border-radius: 8px;
+    font-family: inherit; color: var(--color-fg);
+  }
+  textarea.memo::placeholder { color: #b8aab5; }
+  textarea.memo:disabled { background: #f6f2f4; color: var(--color-muted); }
+  .char-count {
+    margin: 6px 2px 0; font-size: 0.74rem; color: var(--color-muted);
+    text-align: right;
+  }
+  .submit-row { margin: 16px 0 0; text-align: center; }
+  .cta {
+    display: inline-block; width: 100%; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 13px 0; border-radius: 8px;
+    font-weight: bold; font-size: 0.98rem;
+    border: none; cursor: pointer;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta.loading { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff;
+    display: inline-block;
+  }
+  .privacy-note {
+    margin: 14px 0 0; font-size: 0.74rem; color: var(--color-muted);
+    text-align: center;
+  }
+
+  .dev-note {
+    margin: 0 16px 24px; padding: 12px 14px;
+    background: #f3f1f6; border: 1px solid #cfc6d8; border-radius: 8px;
+    font-size: 0.76rem; color: var(--color-muted);
+  }
+
+  /* status別の表示見本を縦に並べるための区切り見出し(本ドラフト固有、実画面には出ない) */
+  .state-sample-label {
+    margin: 32px 16px 4px; font-size: 0.78rem; font-weight: bold;
+    color: var(--color-muted);
+  }
+  .state-sample-label code { color: var(--color-accent-dark); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">おしえんパシャっと</header>
+
+  <p class="state-sample-label">見本1/2: 状態1「入力中/未送信」
+    (input-form-ui-ux-design.md 2節)</p>
+  <div class="form-card">
+    <h1>当選情報を教えてください</h1>
+    <p class="lead">
+      会場・日時・枚数、予算感、グッズ購入希望、グッズ列に並ぶかどうか、
+      前後の予定を、思いつくままメモしてください
+    </p>
+    <textarea class="memo" maxlength="2000" placeholder="例: ○○公演 △△ホール
+11/30昼・夜2公演当選、2枚。予算は交通込みで3万円くらい。
+グッズは発売形式次第で買う予定。グッズ列には並びたい。
+翌日は仕事で休めない。"></textarea>
+    <p class="char-count">残り 2,000 / 2,000文字</p>
+    <div class="submit-row">
+      <button class="cta" type="button" aria-disabled="false">この内容で遠征プランを作る</button>
+    </div>
+    <p class="privacy-note">
+      入力内容はプラン作成のみに使用し、保存・他目的利用は行いません<br>
+      (data-retention-policy.md参照)
+    </p>
+  </div>
+
+  <p class="state-sample-label">見本2/2: 状態2「送信中」
+    (input-form-ui-ux-design.md 2節末尾、二重送信防止)</p>
+  <div class="form-card">
+    <h1>当選情報を教えてください</h1>
+    <p class="lead">
+      会場・日時・枚数、予算感、グッズ購入希望、グッズ列に並ぶかどうか、
+      前後の予定を、思いつくままメモしてください
+    </p>
+    <textarea class="memo" maxlength="2000" disabled>○○公演 △△ホール
+11/30昼・夜2公演当選、2枚。予算は交通込みで3万円くらい。
+グッズは発売形式次第で買う予定。グッズ列には並びたい。
+翌日は仕事で休めない。</textarea>
+    <p class="char-count">残り 1,912 / 2,000文字</p>
+    <div class="submit-row">
+      <button class="cta loading" type="button" aria-disabled="true" disabled>
+        <span class="spinner"></span>作成中です…(しばらくお待ちください)
+      </button>
+    </div>
+    <p class="privacy-note">
+      入力内容はプラン作成のみに使用し、保存・他目的利用は行いません<br>
+      (data-retention-policy.md参照)
+    </p>
+  </div>
+
+  <div class="dev-note">
+    開発メモ: 本ページはinput-form-ui-ux-design.md(フェーズ109)2節のワイヤーフレーム・
+    3節のバリデーション方針を静的HTMLへ反映した非公開試作です。状態1(入力中/未送信)・
+    状態2(送信中)の見本表示までは反映済みですが、実際のJSによる状態遷移・文字数カウント・
+    空文字列チェック・receive_generation_request()への実送信、およびresult-display.html
+    (フェーズ114)との結合は未実装(次回候補)。実LLM呼び出し・外部公開は行っていません。
+  </div>
+
+</div>
+</body>
+</html>

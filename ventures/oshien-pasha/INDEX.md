@@ -51,4 +51,4 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 - cloud-monitoring-alert-policy-design.md
 
 ## 実装・テスト
-- prototype/ (run_all_tests.py含む) / schema/
+- prototype/ (run_all_tests.py / input-form.html / result-display.html含む) / schema/
