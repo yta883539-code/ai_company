@@ -5063,3 +5063,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   `process_form_submission()`から一度も呼ばれていなかった欠落を解消し、`plan_id`未確定
   (トライアル中)でも安全に呼べるようOptional化した上で配線した。新規テスト9件追加、
   全24ファイル・schema検証11件・ブラウザ検証58件いずれもパス(回帰なし)。)
+
+- フェーズ232(2026-11-13 08:00 UTC定例更新): line-reservation-aiは実GCP/Firestore承認待ちの
+  みで前進不可(直近の7venture中の停滞順でも最古)だが、他6ventureも同種の承認待ちで足止め
+  されているため、7venture中2番目に更新が止まっていた本ventureを前進。フェーズ231次回候補
+  (2)「monthly.html・annual.htmlの『車両を追加』テキスト入力からのレコード送信・vehicle_id
+  の自動発行処理のバックエンド配線(daily側は実装済みだがmonthly/annual側は未着手)」に着手
+  する前に`process_form_submission()`(form_submission_flow.py)の実装を確認したところ、
+  この次回候補の前提自体が誤りだったことが判明した。本サービスの実際の送信経路はLINEの
+  テキストメモであり、`web-form-mockup/`配下のHTML(daily/monthly/annual各.html)は
+  その受信後の表示イメージを示す静的モックアップに過ぎず、`process_form_submission()`は
+  `inspection_record.type`(daily/monthly/annual)で分岐する処理を一切持たない1か所の呼び出し
+  (車両登録も含む)として実装済みであることをdocstring(フェーズ231記載)と実装の両方で
+  再確認した。つまりmonthly/annual側の「配線」という作業自体が存在せず、フェーズ230・231の
+  次回候補の記述が不正確だった。この誤記載を是正するため、`test_form_submission_flow.py`に
+  `inspection_record.type="monthly"`・`type="annual"`それぞれで新規車両を送信した場合も
+  dailyと同様に`vehicleCount`が加算されることを確認する新規テスト4件を追加した(annual区分は
+  schema上`inspector_company`非null・`inspector_name`null が必須〈厳守事項3〉のため、その
+  組み合わせで検証)。新規テスト4件追加、全24ファイル・schema検証11件・ブラウザ検証58件
+  いずれもパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実Stripe/実GCPプロジェクト接続)がオーナーから承認された場合は
+  その着手を最優先、(2)2026-11-08 08:00 UTCにpending-approval.mdへ記録した運営方針確認
+  (7venture全てが承認待ちで停滞している状態への対応方針)がまだオーナーから回答を得ていない
+  ため、設計・コードの新規積み増しよりもideas.md/presentations.mdの整理や既存ventureの
+  棚卸し・陳腐化記載の是正を優先する余地がある、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 08:00 UTC(フェーズ232: フェーズ230/231次回候補(2)の前提(monthly/
+  annual側のバックエンド配線が未着手)自体が誤りだったことを発見し是正。
+  `process_form_submission()`はtypeで分岐しない1か所の処理であることをtype=monthly/annual
+  それぞれの新規テスト4件で明示的に固定した。全24ファイル・schema検証11件・ブラウザ検証
+  58件いずれもパス(回帰なし)。)

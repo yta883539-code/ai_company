@@ -35,6 +35,8 @@ def _generated_instance(
     reminder_notice=None,
     type="daily",
     vehicle_id="2号機",
+    inspector_name="山田",
+    inspector_company=None,
 ):
     return {
         "status": "generated",
@@ -46,8 +48,8 @@ def _generated_instance(
             "date": "2026-10-11",
             "items": "ブレーキ○、異音なし",
             "result": "異常なし",
-            "inspector_name": "山田",
-            "inspector_company": None,
+            "inspector_name": inspector_name,
+            "inspector_company": inspector_company,
             "body": body,
             "reminder_notice": reminder_notice,
         },
@@ -359,6 +361,68 @@ def main():
         "ライトプラン2台目: vehicleCountは2になる",
         vehicle_count_store.get_vehicle_count("op11"),
         2,
+    ))
+
+    # --- フェーズ232: 車両登録(register_vehicle_from_inspection_memo呼び出し)はtype
+    # (daily/monthly/annual)で分岐しない1か所の処理であることを明示的に固定する(README
+    # フェーズ230/231の次回候補(2)「monthly/annual側の配線は未着手」という記述が、実際には
+    # process_form_submission側に区分分岐が存在しないため当てはまらないことの確認)。
+    # first_daily_noticeはtype="daily"以外では付記されないため、response_textは本文のみ
+    # になるが、vehicleCountはdailyと同様に加算されることを検証する。
+    store = InMemoryFleetOperatorStore()
+    vehicle_store = InMemoryVehicleStore()
+    vehicle_count_store = InMemoryVehicleCountStore()
+    result = process_form_submission(
+        "4号機、月次点検、ブレーキ○、異音なし、2026-10-11",
+        "op12",
+        now,
+        lambda raw_text: _generated_instance(
+            body="4号機、月次点検、ブレーキ○、異音なし",
+            type="monthly",
+            vehicle_id="4号機",
+        ),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+    )
+    results.append(_check(
+        "type=monthly: response_textは本文のみ(first_daily_noticeは付記されない)",
+        result["response_text"],
+        "4号機、月次点検、ブレーキ○、異音なし",
+    ))
+    results.append(_check(
+        "type=monthly でもvehicleCountはdailyと同様に加算される",
+        vehicle_count_store.get_vehicle_count("op12"),
+        1,
+    ))
+
+    store = InMemoryFleetOperatorStore()
+    vehicle_store = InMemoryVehicleStore()
+    vehicle_count_store = InMemoryVehicleCountStore()
+    result = process_form_submission(
+        "5号機、年次点検、ブレーキ○、異音なし、2026-10-11",
+        "op13",
+        now,
+        lambda raw_text: _generated_instance(
+            body="5号機、年次点検、ブレーキ○、異音なし",
+            type="annual",
+            vehicle_id="5号機",
+            inspector_name=None,
+            inspector_company="株式会社フォーク検査センター",
+        ),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+    )
+    results.append(_check(
+        "type=annual: response_textは本文のみ(first_daily_noticeは付記されない)",
+        result["response_text"],
+        "5号機、年次点検、ブレーキ○、異音なし",
+    ))
+    results.append(_check(
+        "type=annual でもvehicleCountはdailyと同様に加算される",
+        vehicle_count_store.get_vehicle_count("op13"),
+        1,
     ))
 
     passed = sum(1 for r in results if r)
