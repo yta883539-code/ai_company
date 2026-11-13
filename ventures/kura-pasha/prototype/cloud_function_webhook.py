@@ -74,7 +74,10 @@ from owner_faq_router import (  # noqa: E402
     render_owner_faq_answer_message,
     render_owner_faq_menu_message,
 )
-from subscription_cancellation_notification import LinePushClient  # noqa: E402
+from subscription_cancellation_notification import (  # noqa: E402
+    LinePushClient,
+    LinePushDeliveryError,
+)
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
     validate_against_schema,
@@ -1602,6 +1605,105 @@ def process_message_event(
     return MemoProcessResult(
         handled=True, reply_sent=reply_sent,
         reply_text=LINKING_REQUIRED_MESSAGE if reply_sent else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Webhook即時ACK・2関数構成への翻案(webhook-async-two-function-design.md「残課題・次回
+# 候補(1)」の実装)。course-set-pashaフェーズ371のPushBackedReplyClientパターンを、
+# 本venture側はprocess_memo_event()ではなくprocess_message_event()の階層で適用する
+# (設計書「採用方式」節: 同期reply可能な1./2a./3.はFunction A内で処理済みのため、
+# Function Bに到達するイベントは常に2b./2c./4.のいずれかであり、process_message_event()
+# 自体を無変更のまま呼び出し直しても1./2a./3.へは再度到達しない)。
+# ---------------------------------------------------------------------------
+
+class PushBackedReplyClient:
+    """process_message_event_async()(Function B相当)がprocess_message_event()・
+    process_memo_event()本体を変更せずそのまま呼び出せるようにする、ReplyClientプロトコルを
+    push_client経由で満たすアダプタ(webhook-async-two-function-design.md「既存コードへの
+    影響」節: `reply_client`の代わりに`push_client`を渡す形に差し替えるだけで流用できる、
+    の実装。course-set-pashaフェーズ371のPushBackedReplyClientと同じ考え方)。
+
+    Cloud Tasks経由では`replyToken`(1回限り有効)は伝播されないため、`reply()`に渡される
+    `reply_token`は無視し、コンストラクタで固定されたuser_idへ常に
+    `push_client.send_message()`で送信する。`_reply_with_retry()`がReplyApiErrorを捕捉して
+    1回だけ再試行する既存の挙動をそのまま活かすため、push送信失敗(LinePushDeliveryError)は
+    ReplyApiErrorへ変換して再送出する。
+
+    既知の制約: 本venture側の`ReplyClient`プロトコルは`quick_reply`(トライアル終了通知の
+    「▼ 有料プランへ進む」ボタン、TRIAL_END_QUICK_REPLY)を受け取れるが、
+    `LinePushClient.send_message()`にはquick_reply相当の引数が無いため、本アダプタ経由の
+    送信では`quick_reply`を黙って読み捨てる(本文のテキストメッセージ自体は変更なく送信
+    される)。LINE Messaging APIのPush API自体はquick replyオブジェクトをサポートするが、
+    `LinePushClient`プロトコルの拡張(他の呼び出し元への影響確認を含む)は本フェーズの
+    対応範囲外とし、次回候補として残す。
+    """
+
+    def __init__(self, push_client: LinePushClient, user_id: str) -> None:
+        self._push_client = push_client
+        self._user_id = user_id
+
+    def reply(
+        self,
+        reply_token: str,
+        message_text: str,
+        *,
+        quick_reply: Optional[QuickReplyButton] = None,
+    ) -> None:
+        try:
+            self._push_client.send_message(self._user_id, message_text)
+        except LinePushDeliveryError as exc:
+            raise ReplyApiError(str(exc)) from exc
+
+
+def process_message_event_async(
+    event: dict,
+    llm_call: LlmCallClient,
+    push_client: LinePushClient,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
+    checkout_session_client: Optional["CheckoutSessionClient"] = None,
+    chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
+    rng: Optional[RandomChoiceSource] = None,
+    now: Optional[datetime] = None,
+) -> MemoProcessResult:
+    """webhook-async-two-function-design.md「採用方式」のFunction B相当。
+
+    Cloud TasksキューからFunction A(`dispatch_webhook_events()`内の振り分け前処理、
+    次回候補(2))が起動する想定で、Function Aがenqueueしたイベント(`source.userId`・
+    `message`本文・`webhookEventId`のみ、`replyToken`は含まない設計)を受け取り、
+    `PushBackedReplyClient`経由でPush API送信に差し替えた上で`process_message_event()`を
+    そのまま呼び出す。Function Aは2a.(FAQコマンド一致)・3.(連携コード/招待コード解決)・
+    非テキストの3経路を既に同期処理済みのものだけをenqueueしないため、Function B側で
+    `process_message_event()`を呼び直してもこれらの経路へ再度到達することはなく、
+    2b.(意図分類→FAQ系/要人対応)・2c.(意図分類未接続時の生成)・4.(linking_enabled自体が
+    偽の後方互換フォールバック)のいずれかに到達する。`event`に`replyToken`キーが無い場合
+    でも`process_message_event()`・`process_memo_event()`が要求する必須キーを満たすため、
+    未使用のプレースホルダ値(空文字列)を補う。
+    """
+    user_id = event.get("source", {}).get("userId")
+    event_for_reply_client = event if "replyToken" in event else {**event, "replyToken": ""}
+    return process_message_event(
+        event_for_reply_client,
+        llm_call,
+        PushBackedReplyClient(push_client, user_id),
+        portal_link_provider=portal_link_provider,
+        user_profile_store=user_profile_store,
+        workshop_store=workshop_store,
+        usage_counter_store=usage_counter_store,
+        linking_store=linking_store,
+        invite_store=invite_store,
+        checkout_session_client=checkout_session_client,
+        chatbot_intent_classifier=chatbot_intent_classifier,
+        escalation_push_client=escalation_push_client,
+        rng=rng,
+        now=now,
     )
 
 

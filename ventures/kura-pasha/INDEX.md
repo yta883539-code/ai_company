@@ -67,7 +67,9 @@
   根本対策費用対効果検討、course-set-pashaフェーズ369の個別確認版)
 - webhook-async-two-function-design.md(process_message_event()のWebhook即時ACK・
   Cloud Tasks非同期処理・Push API応答への2関数構成翻案設計、上記review次回候補への対応。
-  実コード反映・実デプロイは次回候補)
+  Function B(`process_message_event_async()`・`PushBackedReplyClient`)はフェーズ続き300で
+  `prototype/cloud_function_webhook.py`へ実装済み。`dispatch_webhook_events()`への振り分け
+  前処理〈残課題(2)〉と実デプロイは未着手)
 - schema/ (output.schema.json, validate_test_cases.py) / prototype/ (InMemoryスタブ実装・テスト)
 - emulator-test/
 

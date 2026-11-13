@@ -47,6 +47,8 @@ from cloud_function_webhook import (
     process_follow_event,
     process_memo_event,
     process_message_event,
+    process_message_event_async,
+    PushBackedReplyClient,
     process_postback_event,
     process_unfollow_event,
     receive_webhook,
@@ -59,7 +61,7 @@ from chatbot_intent_router import (
     MEMO_PROCESSING_FAQ_FOLLOWUP_HINT,
     render_chatbot_faq_response_message,
 )
-from subscription_cancellation_notification import InMemoryLinePushClient
+from subscription_cancellation_notification import InMemoryLinePushClient, LinePushDeliveryError
 from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
@@ -2138,6 +2140,130 @@ def test_process_message_event_chatbot_intent_classification_falls_through_to_ge
         "分類失敗時はmemo_processing_request扱いではないためFAQ折り返し文言を付記しない",
         not result.reply_text.endswith(MEMO_PROCESSING_FAQ_FOLLOWUP_HINT),
     )
+
+
+# ---------------------------------------------------------------------------
+# process_message_event_async() / PushBackedReplyClient
+# (webhook-async-two-function-design.md「残課題・次回候補(1)」の実装)
+# ---------------------------------------------------------------------------
+
+class _FailingLinePushClient:
+    """InMemoryLinePushClientと異なり、常にLinePushDeliveryErrorを送出する検証用クライアント
+    (他モジュールの同名クラスと同じ位置づけ)。"""
+
+    def send_message(self, user_id: str, text: str) -> None:
+        raise LinePushDeliveryError("simulated outage")
+
+
+def test_process_message_event_async_sends_memo_generation_via_push_instead_of_reply():
+    # process_message_event()・process_memo_event()本体のロジックは変更していないため、
+    # ここでは「reply_clientの代わりにpush_clientが使われる」という差し替え部分のみを
+    # 確認する(分岐ロジック自体の網羅はProcessMessageEventTest等で検証済み)。
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    push_client = InMemoryLinePushClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event_async(
+        event, llm_call, push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("Function B経由でも生成は成功する", result.reply_sent is True)
+    check("返信本文がpush_client.sentへ記録される", push_client.sent == [("U_LINKED", result.reply_text)])
+
+
+def test_process_message_event_async_event_without_reply_token_key_is_accepted():
+    # Cloud Tasks経由ではreplyTokenが伝播されない設計(design.md「採用方式」)のため、
+    # replyTokenキー自体が無いイベントでも動作する必要がある。
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    del event["replyToken"]
+    check("replyTokenキーが無いイベントであることの前提確認", "replyToken" not in event)
+    push_client = InMemoryLinePushClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event_async(
+        event, llm_call, push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("replyTokenキー欠落でも処理できる", result.reply_sent is True)
+    check("送信先user_idはevent['source']['userId']から特定される", push_client.sent[0][0] == "U_LINKED")
+
+
+def test_process_message_event_async_push_failure_retries_once_then_gives_up():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event_async(
+        event, llm_call, _FailingLinePushClient(),
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("push送信が2回とも失敗した場合はreply_sent=False", result.reply_sent is False)
+    check("push送信が2回とも失敗した場合はreply_textもNone", result.reply_text is None)
+
+
+def test_process_message_event_async_faq_route_still_handled_via_push():
+    # 経路2a(契約者FAQ固定応答)もprocess_message_event()本体の分岐は変更していないため、
+    # Function B経由でも同じ分岐がそのまま動く(送信先がpushになる点のみ異なる)。
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("FAQ")
+    push_client = InMemoryLinePushClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event_async(
+        event, llm_call, push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("FAQトリガーはhandled=True", result.handled is True)
+    check("FAQトリガーはメニュー本文がpushで送信される", push_client.sent == [("U_LINKED", render_owner_faq_menu_message())])
+    check("FAQトリガーはLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_message_event_async_drops_quick_reply_without_error():
+    # 既知の制約: LinePushClient.send_message()にはquick_reply相当の引数が無いため、
+    # PushBackedReplyClientはquick_replyを黙って読み捨てる。トライアル終了通知
+    # (TRIAL_END_QUICK_REPLY添付)がFunction B経由でも例外を起こさず本文のみ送信されることを
+    # 確認する。
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_TRIAL_OVER_ASYNC", "W_TRIAL_OVER_ASYNC")
+    workshops.set_plan("W_TRIAL_OVER_ASYNC", "standard")
+    workshops.set_members("W_TRIAL_OVER_ASYNC", "U_TRIAL_OVER_ASYNC", ["U_TRIAL_OVER_ASYNC"])
+    workshops.set_trial_start_at("W_TRIAL_OVER_ASYNC", FEB)
+    workshops.set_trial_generation_used("W_TRIAL_OVER_ASYNC", True)
+    linking_store = InMemoryLinkingCodeStore()
+    push_client = InMemoryLinePushClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+
+    result = process_message_event_async(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_TRIAL_OVER_ASYNC"),
+        llm_call, push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        now=MAR,
+    )
+    check("トライアル終了時はTRIAL_PERIOD_OVER_NOTICEがpushで送信される",
+          push_client.sent == [("U_TRIAL_OVER_ASYNC", TRIAL_PERIOD_OVER_NOTICE)])
+    check("quick_reply読み捨て時もLLMは呼び出さない", llm_call.calls == [])
+
+
+def test_push_backed_reply_client_reply_ignores_quick_reply_argument():
+    # PushBackedReplyClient.reply()自体の単体確認(上記は統合経路からの確認)。
+    push_client = InMemoryLinePushClient()
+    client = PushBackedReplyClient(push_client, "U_DIRECT")
+
+    client.reply("unused-reply-token", "本文のみ送信確認", quick_reply=TRIAL_END_QUICK_REPLY)
+
+    check("quick_replyを渡しても例外なくpush送信される", push_client.sent == [("U_DIRECT", "本文のみ送信確認")])
+
+
+def test_push_backed_reply_client_reply_wraps_push_delivery_error_as_reply_api_error():
+    client = PushBackedReplyClient(_FailingLinePushClient(), "U_DIRECT")
+    try:
+        client.reply("unused-reply-token", "本文")
+        check("LinePushDeliveryErrorはReplyApiErrorへ変換されて再送出される", False)
+    except ReplyApiError:
+        check("LinePushDeliveryErrorはReplyApiErrorへ変換されて再送出される", True)
 
 
 def test_process_message_event_creates_workshop_on_valid_linking_code():

@@ -150,9 +150,15 @@ trial_end_notified_at書き込みを含む)自体は「Function B内で1回だ�
 
 ## 残課題・次回候補
 
-- (1) Function Bの実装(`process_message_event_async()`・push_client用`ReplyClient`
-  アダプタ、`prototype/cloud_function_webhook.py`)。course-set-pashaフェーズ371の
-  `PushBackedReplyClient`をそのまま流用できる見込み。
+- (1) 【フェーズ続き300で実装済み】Function Bの実装(`process_message_event_async()`・
+  push_client用`ReplyClient`アダプタ、`prototype/cloud_function_webhook.py`)。
+  course-set-pashaフェーズ371の`PushBackedReplyClient`パターンを、本venture側は
+  `process_memo_event()`ではなく`process_message_event()`の階層で適用する形に翻案した
+  (Function Aが1./2a./3.を同期処理済みのイベントのみenqueueするため、
+  `process_message_event()`自体を無変更のまま呼び出し直しても1./2a./3.へ再度到達しない)。
+  新規テスト9件追加、全376件・schema検証32件いずれもパス(回帰なし)。既知の制約として
+  `quick_reply`(トライアル終了通知ボタン)は`LinePushClient.send_message()`が対応する
+  引数を持たないため黙って読み捨てられる(本文のテキストメッセージ送信自体には影響しない)。
 - (2) `dispatch_webhook_events()`への2a./3.相当(同期)と2b./2c./4.相当(非同期
   キュー行き)の振り分け前処理の実コード反映。course-set-pashaフェーズ372の
   `TaskQueueClient`/`InMemoryTaskQueueClient`/`make_memo_task_name()`と同じ構造を

@@ -6971,3 +6971,52 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   フェーズ待ち)、(3)候補継続2件は今回も連絡チャネル確定に至らなかったため、次回は
   Google Maps・地域の馬具/鞍修理業者ディレクトリ経由の検索を試みるか、他venture・アイデア
   領域の前進を優先するかを都度判断する。
+- フェーズ続き299(2026-11-12 21:00 UTC定例更新、コミット4e43f0cで実装済みだが本README
+  記載漏れだったため今回是正): webhook-sync-reply-timeout-root-cause-review.md
+  フェーズ続き297の次回候補「本ventureのprocess_memo_event()をline-reservation-ai準拠の
+  2関数構成(A: 署名検証・idempotency・enqueue・即時200、B: LLM呼び出し・後処理・push)に
+  翻案する設計ドキュメント」に対応し、webhook-async-two-function-design.mdを新規作成した。
+  root-cause-reviewが「process_memo_event()自身には軽量経路が存在しない」とした指摘を
+  呼び出し元process_message_event()まで範囲を広げて確認し、同期reply可能な3経路
+  (非テキスト無反応・契約者FAQコマンド・連携コード/招待コード解決)を特定した上で、
+  course-set-pasha型の「同期経路と非同期経路の2分岐」をFunction A/Bの境界として採用した。
+  root-cause-review 2節が残していた「workshop_store書き込みをA/Bどちらで行うか」という
+  論点は、書き込みを分割せずFunction Bへ丸ごと移す設計を採ることで解消し、既存の
+  line_webhook_event_id_storeべき等性チェックの記録タイミングをFunction B呼び出し後に
+  再配置する設計とした。コード変更なし(設計ドキュメントのみ)、実装・実デプロイは
+  次回候補として積み残した。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。
+- フェーズ続き300(2026-11-13 07:00 UTC定例更新): 7venture中line-reservation-aiが
+  最も更新が止まっていたが、残課題が実GCPプロジェクト作成の承認待ちのみで前進不可
+  (2026-10-23 12:00 UTC記載から未回答)のため、2番目に止まっていた本ventureを前進。
+  フェーズ続き299が残した次回候補(1)に対応し、webhook-async-two-function-design.md
+  「残課題・次回候補(1)」(Function Bの実装)を`prototype/cloud_function_webhook.py`へ
+  実装した。course-set-pashaフェーズ371の`PushBackedReplyClient`パターンを踏襲しつつ、
+  本venture側は`process_memo_event()`ではなく`process_message_event()`の階層で適用する
+  形に翻案した(設計書の採用方式: Function Aが1./2a./3.〈非テキスト無反応・契約者FAQ・
+  連携コード解決〉を同期処理済みのイベントのみFunction Bへenqueueするため、
+  `process_message_event()`自体を無変更のまま呼び出し直しても1./2a./3.へ再度到達することは
+  なく、2b./2c./4.のいずれかに到達する)。`PushBackedReplyClient`は`reply_token`を無視して
+  コンストラクタで固定したuser_idへ`push_client.send_message()`で送信し、
+  `LinePushDeliveryError`を`ReplyApiError`へ変換して`_reply_with_retry()`の既存リトライ
+  挙動をそのまま活かす。既知の制約として、本venture側`ReplyClient`プロトコルが持つ
+  `quick_reply`(トライアル終了通知のボタン)は`LinePushClient.send_message()`に対応する
+  引数が無いため本アダプタ経由では黙って読み捨てられる点を、`LinePushClient`プロトコルの
+  拡張は他の呼び出し元への影響確認を要するため本フェーズの対応範囲外と判断し、docstringに
+  明記した上で次回候補として残した。新規テスト9件追加(`process_message_event_async()`の
+  push送信・replyTokenキー欠落許容・push失敗時リトライ・FAQ経由・quick_reply読み捨ての
+  各経路、および`PushBackedReplyClient.reply()`単体のquick_reply読み捨て・
+  `LinePushDeliveryError`→`ReplyApiError`変換の各経路)、全376件・schema検証32件いずれも
+  パス(回帰なし)。`dispatch_webhook_events()`への実際の振り分け前処理(次回候補(2))は
+  未着手のため、Function B自体はまだどこからも呼ばれない状態のまま残る。実GCPプロジェクト・
+  Cloud Tasksへの接続・デプロイは行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成)がオーナー
+  から承認された場合はその着手を最優先、(2)webhook-async-two-function-design.md
+  「残課題・次回候補(2)」(`dispatch_webhook_events()`への2a./3.相当〈同期〉と
+  2b./2c./4.相当〈非同期キュー行き〉の振り分け前処理の実コード反映、
+  course-set-pashaフェーズ372の`TaskQueueClient`/`InMemoryTaskQueueClient`/
+  `make_memo_task_name()`と同じ構造を`kura-pasha-event-`プレフィックスで流用する想定)、
+  (3)候補継続2件(「馬具職人工房」「Apion-leather craft lab」)の連絡チャネル確定、
+  (4)他venture・アイデア領域の前進。
