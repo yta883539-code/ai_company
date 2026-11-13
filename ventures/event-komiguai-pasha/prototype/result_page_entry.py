@@ -35,9 +35,13 @@ _PASSTHROUGH_STATUSES = frozenset(
     }
 )
 
-# design 2節2点目「awaiting_payment」: 決済待ち・決済済み生成中のいずれも区別せず
-# "generating"に統合する(本フェーズでの既知の割り切り、design 4節残課題参照)。
-_GENERATING_STATUSES = frozenset({"awaiting_payment"})
+# design 2節2点目「awaiting_payment」: 決済待ち・決済済み生成中を、`page_state`としては
+# 引き続き"generating"に統合する(利用者への表示文言自体は区別しない、design 4節の
+# フェーズ114決定を参照)。ただし裏側のstatus値はstripe_webhook.mark_payment_confirmed()
+# (フェーズ114)により"awaiting_payment"→"payment_confirmed"へ遷移するようになったため、
+# 両方をここで列挙する。"awaiting_payment"はWebhook受信前に結果ページが開かれた場合の
+# 理論上のケース(通常は決済完了後にのみ`success_url`へ遷移するため稀)として残す。
+_GENERATING_STATUSES = frozenset({"awaiting_payment", "payment_confirmed"})
 
 
 @dataclass

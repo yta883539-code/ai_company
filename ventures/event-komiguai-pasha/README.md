@@ -2631,3 +2631,24 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-12 18:00 UTC(フェーズ113: 結果ページ`page_state`ごとの表示文言を
   新規確定〈固定文言4件をTEMPLATESに追加〉。コード変更はテンプレート定数の追加のみ、
   既存テストは回帰なしでパス)
+- フェーズ114(2026-11-13 00:00 UTC定例更新): フェーズ113次回候補(3)に対応し、
+  `"awaiting_payment"`が「決済待ち」「決済済み生成中」の2意味を兼ねている論点を解消
+  した。`stripe_webhook.mark_payment_confirmed()`が`status`を`"awaiting_payment"`から
+  `"payment_confirmed"`へ遷移させるよう変更(`get-result-page-http-entry-point-design.md`
+  4節に反映)。主催者向けの`page_state`表示は引き続き両方とも`"generating"`に統合する
+  (表示を分けるニーズが無いため)。本変更の主な狙いは表示上の区別ではなく、
+  `handle_checkout_session_completed()`の`draft.status != "awaiting_payment"`という
+  冪等性ガードが、従来は決済確認後・LLM生成完了前の間に届いたWebhook再送を捕捉できて
+  いなかったギャップを閉じることにある。新規テスト2件
+  (`test_redelivered_webhook_during_generation_is_rejected`・
+  `test_payment_confirmed_returns_generating_state`)を追加し、既存182件と合わせ全184件、
+  schema検証22件いずれもパス(回帰なし)。承認が必要なアクション(支払い・アカウント
+  作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成等)がオーナーから承認された場合は
+  その着手を最優先、(2)`landing-page/`配下の実際のHTML/CSSマークアップが`index.html`・
+  `inquiry.html`として既に存在することをINDEX.mdで確認済みのため、フェーズ113時点の
+  次回候補(2)はこの点で解消済みと整理する(結果ページ用の`result.html`相当が未着手
+  であれば次回確認する)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 00:00 UTC(フェーズ114: 詳細は上記。`mark_payment_confirmed()`の
+  status遷移追加によりWebhook再送時の冪等性ガードのギャップを解消。新規テスト2件追加、
+  全184件・schema検証22件いずれもパス)

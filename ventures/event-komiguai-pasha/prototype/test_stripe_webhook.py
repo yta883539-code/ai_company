@@ -261,9 +261,10 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
             now=self.now,
         )
         self.assertEqual(first.checkout_result.outcome, "proceed_to_generation")
-        # 1回目の処理でdraftは既にawaiting_payment以外のドラフト固有状態には遷移しない
-        # (本モジュールはstatus自体を書き換えない、checkout_session_id等のみ書き込む)が、
-        # event_id_store側では処理済みとして記録されていることを確認する。
+        # 1回目の処理でdraftは"payment_confirmed"へ遷移する(フェーズ114、
+        # mark_payment_confirmed()がstatus自体を書き換えるようになった)。
+        # event_id_store側でも処理済みとして記録されていることを確認する。
+        self.assertEqual(self.draft_store.get("draft_abc").status, "payment_confirmed")
         self.assertTrue(event_id_store.has_processed("evt_dup"))
 
         second = receive_stripe_webhook(
@@ -299,7 +300,8 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
     def test_generation_wiring_is_skipped_without_the_three_callbacks(self):
         # design フェーズ100「次回候補(2)」: generate_fn等を渡さない既存の呼び出し側
         # (フェーズ99までのテスト含む)は、挙動が変わらずgeneration_outcome=Noneのまま
-        # であることの後方互換確認。
+        # であることの後方互換確認。statusは"payment_confirmed"で止まる(フェーズ114、
+        # generate_fn未指定のため生成処理自体が走らず"generated"等へは進まない)。
         body = self._body(_checkout_event())
         header = _sign(body, int(self.now.timestamp()))
         result = receive_stripe_webhook(
@@ -307,7 +309,27 @@ class ReceiveStripeWebhookTest(unittest.TestCase):
         )
         self.assertEqual(result.checkout_result.outcome, "proceed_to_generation")
         self.assertIsNone(result.generation_outcome)
-        self.assertEqual(self.draft_store.get("draft_abc").status, "awaiting_payment")
+        self.assertEqual(self.draft_store.get("draft_abc").status, "payment_confirmed")
+
+    def test_redelivered_webhook_during_generation_is_rejected(self):
+        # フェーズ114で解消した論点そのものの回帰テスト: generate_fn等を渡さない
+        # (≒LLM生成がまだ完了していない、または非同期化されている)状態で同一Webhookが
+        # 再送された場合、1回目でstatusが"payment_confirmed"へ即時遷移しているため、
+        # 2回目はevent_id_store・generated遷移のいずれにも頼らず
+        # already_processedとして弾かれることを確認する。
+        body = self._body(_checkout_event())
+        header = _sign(body, int(self.now.timestamp()))
+
+        first = receive_stripe_webhook(
+            body, header, SECRET, draft_store=self.draft_store, now=self.now
+        )
+        self.assertEqual(first.checkout_result.outcome, "proceed_to_generation")
+
+        second = receive_stripe_webhook(
+            body, header, SECRET, draft_store=self.draft_store, now=self.now
+        )
+        self.assertEqual(second.checkout_result.outcome, "already_processed")
+        self.assertEqual(self.draft_store.get("draft_abc").status, "payment_confirmed")
 
     def test_generation_wiring_succeeds_and_updates_draft_status(self):
         body = self._body(_checkout_event())

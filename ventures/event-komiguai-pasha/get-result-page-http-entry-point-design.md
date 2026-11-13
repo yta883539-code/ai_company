@@ -95,13 +95,18 @@
 
 ## 4. 残課題・次回候補
 
-- 2節の`"awaiting_payment"`が「決済待ち」と「決済済み生成中」の2意味を兼ねている点は、
-  本フェーズでは`page_state="generating"`に統合したままとした。両者を主催者向けの
-  表示上区別する必要が具体的に生じた場合(例: 決済自体が完了していないのに結果ページ
-  URLが開かれるケースが実際に想定されるか)に、`mark_payment_confirmed()`側で
-  `status`自体を`"awaiting_payment"`から`"payment_confirmed"`等へ遷移させる設計変更を
-  検討する(stripe_webhook.py・handle-stripe-webhook-http-entry-point-design.mdフェーズ
-  111双方への影響があるため、本フェーズでは着手しない)。
+- 【フェーズ114で対応済み】2節の`"awaiting_payment"`が「決済待ち」と「決済済み生成中」の
+  2意味を兼ねている点について、`mark_payment_confirmed()`が`status`を
+  `"awaiting_payment"`から`"payment_confirmed"`へ遷移させるよう変更した
+  (stripe_webhook.py)。主催者向けの`page_state`表示自体は引き続き両方とも
+  `"generating"`に統合する(表示文言を分ける具体的なニーズが無いため、ここは変更
+  しない)。この変更の主な狙いは表示の区別ではなく、`handle_checkout_session_completed()`
+  の`draft.status != "awaiting_payment"`という冪等性ガード(design 2節・
+  stripe-event-idempotency-design.md)が、従来は`mark_payment_confirmed()`がstatus自体を
+  書き換えなかったため、LLM生成が完了する前(決済確認後・生成完了前の間)に届いた
+  Webhook再送を捕捉できていなかったギャップを閉じることにある。回帰テストとして
+  `test_redelivered_webhook_during_generation_is_rejected`(test_stripe_webhook.py)・
+  `test_payment_confirmed_returns_generating_state`(test_result_page_entry.py)を追加した。
 - `page_state`ごとの実際の表示文言(日本語の案内文・問い合わせフォームへのリンク)は
   本フェーズでは返さず、`page_state`の値のみを返す設計とした。フロントエンド
   (landing-page/配下、または別途のテンプレート)側での文言当て込みは次回候補とする。

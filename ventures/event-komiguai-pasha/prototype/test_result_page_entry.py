@@ -41,6 +41,21 @@ class ReceiveResultPageRequestTest(unittest.TestCase):
         self.assertEqual(result.body["page_state"], "generating")
         self.assertIsNone(result.body["output"])
 
+    def test_payment_confirmed_returns_generating_state(self):
+        # フェーズ114: mark_payment_confirmed()がstatusを"awaiting_payment"から
+        # "payment_confirmed"へ遷移させるようになった後も、page_state側の表示は
+        # 従来通り"generating"に統合されたままであることを確認する回帰テスト。
+        self.store.create_draft("draft_abc", event_memo={"capacity": "300人"})
+        self.store.mark_payment_confirmed(
+            "draft_abc",
+            checkout_session_id="cs_abc",
+            customer_email="organizer@example.com",
+        )
+        result = receive_result_page_request("/result/draft_abc", draft_store=self.store)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.body["page_state"], "generating")
+        self.assertIsNone(result.body["output"])
+
     def test_generated_returns_output(self):
         self.store.create_draft("draft_abc", event_memo={"capacity": "300人"})
         output = {"status": "generated", "checklist": [{"item": "確認", "highlighted": False}]}

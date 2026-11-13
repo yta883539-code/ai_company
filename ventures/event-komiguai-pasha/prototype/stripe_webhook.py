@@ -66,8 +66,12 @@ class OneTimeDraft:
     本モジュールが読み書きするものだけを保持する)。"""
 
     draft_id: str
-    status: str  # "awaiting_payment" | "generated" | "out_of_scope" |
-    #  "insufficient_input" | "generation_failed" | "refunded" | "expired_after_payment"
+    status: str  # "awaiting_payment" | "payment_confirmed" | "generated" |
+    #  "out_of_scope" | "insufficient_input" | "generation_failed" | "refunded" |
+    #  "expired_after_payment"
+    # "payment_confirmed"はget-result-page-http-entry-point-design.md(フェーズ112)
+    # 4節で「決済待ち」と「決済済み生成中」を区別しないまま残していた論点への対応
+    # (フェーズ114)。mark_payment_confirmed()がこの値へ遷移させる。
     expires_at: Optional[datetime] = None
     checkout_session_id: Optional[str] = None
     customer_email: Optional[str] = None
@@ -121,6 +125,12 @@ class OneTimeDraftStoreProtocol:
         customer_email: Optional[str],
         payment_intent_id: Optional[str] = None,
     ) -> None:
+        """`status`を`"awaiting_payment"`から`"payment_confirmed"`へ遷移させる
+        (フェーズ114)。これによりhandle_checkout_session_completed()の`draft.status
+        != "awaiting_payment"`ガードが、生成処理が完了するより前(LLM呼び出し中)に
+        届いたWebhook再送も即座に`already_processed`として弾けるようになる(従来は
+        本メソッドがstatusを書き換えず`awaiting_payment`のまま残っていたため、生成中の
+        再送はこのガードを素通りしていた)。"""
         raise NotImplementedError
 
     def mark_expired_after_payment(self, draft_id: str) -> None:
@@ -181,6 +191,7 @@ class InMemoryOneTimeDraftStore:
         draft.checkout_session_id = checkout_session_id
         draft.customer_email = customer_email
         draft.payment_intent_id = payment_intent_id
+        draft.status = "payment_confirmed"
 
     def mark_expired_after_payment(self, draft_id: str) -> None:
         draft = self._drafts.get(draft_id)
@@ -289,7 +300,9 @@ def handle_checkout_session_completed(
        `user_profile_not_found`と同じ位置づけ)。
     2. ドラフトが既に`awaiting_payment`以外のステータスに遷移済みの場合(2回目以降の
        イベント配信、または既に生成試行済み)は`already_processed`として扱い、生成処理を
-       再実行しない(design 2-2節「天然の冪等性ガード」)。
+       再実行しない(design 2-2節「天然の冪等性ガード」)。mark_payment_confirmed()が
+       `status`を`"payment_confirmed"`へ即時遷移させる(フェーズ114)ため、本ガードは
+       LLM生成が完了するより前に届いたWebhook再送も捕捉できる。
     3. `expires_at`を過ぎている場合は`expired`として扱い、ステータスを
        `expired_after_payment`に更新し生成処理は行わない(ttl-expiry-result-delivery-
        refund-design.mdフェーズ12 1節の防御的チェック。返金フロー自体のトリガーは本関数の
