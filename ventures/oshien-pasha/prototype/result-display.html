@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!--
+  おしえんパシャっと 結果表示画面 実装ドラフト(フェーズ113・2026-11-13 02:00 UTC)
+
+  位置づけ: result-display-wireframe.md(フェーズ110)の「status=generated」時
+  4出力カード構成と、risk-level-badge-color-spec.md(フェーズ112)で確定した
+  risk_levelバッジの配色コードを、landing-page/index.htmlと同じ方針(非公開・静的な
+  実装ドラフト)でHTML/CSSに落とし込んだものです。ドメイン取得・ホスティング・外部公開は
+  一切行っておらず、リポジトリ内の静的ファイルとして置かれているのみです
+  (README.mdの「外部サービスへの公開」には該当しません)。
+
+  未実装・意図的なプレースホルダー:
+  - 実際のLLM生成結果ではなく、input-output-sample-mapping.md相当のサンプル値を
+    静的に埋め込んだものです(実LLM呼び出しは行っていません)。
+  - 「もう一度相談する」ボタンはhref="#"の非活性リンク(aria-disabled="true")です。
+  - risk_levelはlow/medium/highの3パターンを横に並べて見本表示し、配色・ラベル併記の
+    確認用としています(実際の画面では該当する1パターンのみが表示されます)。
+  - status=out_of_scope・status=insufficient_input・LLM呼び出し失敗
+    (llm-generation-failure-handling-design.md)時の表示、入力フォーム自体(状態1・2)の
+    実装は本ファイルの対象外です(次回候補)。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おしえんパシャっと 結果表示(ドラフト・非公開)</title>
+<style>
+  :root {
+    --color-bg: #fff8fb;
+    --color-fg: #2c2430;
+    --color-accent: #c0397b;
+    --color-accent-dark: #8c2a5b;
+    --color-card: #ffffff;
+    --color-border: #f0d6e4;
+    --color-muted: #6e6270;
+    /* risk-level-badge-color-spec.md(フェーズ112)確定の配色コード */
+    --risk-low-bg: #E6F4EA; --risk-low-fg: #1E4620;
+    --risk-medium-bg: #FDF3D8; --risk-medium-fg: #6B4A00;
+    --risk-high-bg: #FBE7E6; --risk-high-fg: #8A2A1E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  .result-card {
+    margin: 20px 16px 32px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .result-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 1.1rem; font-weight: bold;
+  }
+  .result-head .check { color: var(--color-accent); margin-right: 6px; }
+  .venue-block { padding: 16px 18px; border-bottom: 1px solid var(--color-border); }
+  .venue-block h3 { margin: 0 0 12px; font-size: 1rem; color: var(--color-accent-dark); }
+  .output-item { margin: 0 0 16px; }
+  .output-item:last-child { margin-bottom: 0; }
+  .output-item .label { font-weight: bold; margin: 0 0 6px; }
+  .output-item .label .num { color: var(--color-accent); margin-right: 4px; }
+  .kv-list { margin: 0; padding: 0; list-style: none; font-size: 0.9rem; }
+  .kv-list li { padding: 4px 0; }
+  .kv-list .k { color: var(--color-muted); margin-right: 6px; }
+  .note { font-size: 0.78rem; color: var(--color-muted); margin: 6px 0 0; }
+  .timetable { margin: 0; padding: 0; list-style: none; font-size: 0.9rem; }
+  .timetable li { display: flex; gap: 10px; padding: 4px 0; }
+  .timetable .time { color: var(--color-accent-dark); font-weight: bold; min-width: 3.6em; }
+  .shared-block { padding: 16px 18px; border-bottom: 1px solid var(--color-border); }
+  .shared-block .label { font-weight: bold; margin: 0 0 8px; }
+  .shared-block .label .num { color: var(--color-accent); margin-right: 4px; }
+
+  /* risk_levelバッジ(フェーズ112確定配色。角丸ピル型、色+文字ラベル併記) */
+  .risk-badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: bold;
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+  .risk-badge.low { background: var(--risk-low-bg); color: var(--risk-low-fg); }
+  .risk-badge.medium { background: var(--risk-medium-bg); color: var(--risk-medium-fg); }
+  .risk-badge.high { background: var(--risk-high-bg); color: var(--risk-high-fg); }
+
+  .badge-sample-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 6px; }
+  .badge-sample-row .sample { font-size: 0.72rem; color: var(--color-muted); text-align: center; }
+  .badge-sample-row .sample .risk-badge { display: block; margin: 0 0 4px; }
+
+  .result-footer { padding: 16px 18px; text-align: center; }
+  .cta {
+    display: inline-block; text-align: center;
+    background: var(--color-accent);
+    color: #fff; text-decoration: none;
+    padding: 12px 28px; border-radius: 8px;
+    font-weight: bold;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+
+  .dev-note {
+    margin: 0 16px 24px; padding: 12px 14px;
+    background: #f3f1f6; border: 1px solid #cfc6d8; border-radius: 8px;
+    font-size: 0.76rem; color: var(--color-muted);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">おしえんパシャっと</header>
+
+  <div class="result-card">
+    <div class="result-head"><span class="check">✓</span>遠征プランができました</div>
+
+    <div class="venue-block">
+      <h3>【会場1: ○○ホール】</h3>
+
+      <div class="output-item">
+        <p class="label"><span class="num">①</span>遠征プラン下書き</p>
+        <ul class="kv-list">
+          <li><span class="k">最寄り駅:</span>△△駅 徒歩10分</li>
+          <li><span class="k">宿泊候補エリア:</span>△△駅周辺 / □□駅周辺</li>
+          <li><span class="k">交通メモ:</span>最終の新幹線は21時台のため、物販終了後の移動時間に注意してください。</li>
+        </ul>
+      </div>
+
+      <div class="output-item">
+        <p class="label"><span class="num">②</span>当日タイムテーブル草案</p>
+        <ul class="timetable">
+          <li><span class="time">10:00</span>現地到着目安</li>
+          <li><span class="time">11:00</span>開場</li>
+          <li><span class="time">11:30</span>グッズ列開始(目安)</li>
+          <li><span class="time">13:00</span>開演</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="shared-block">
+      <p class="label"><span class="num">③</span>費用内訳見積り</p>
+      <ul class="kv-list">
+        <li><span class="k">交通費:</span>約18,000円</li>
+        <li><span class="k">宿泊費:</span>約9,000円</li>
+        <li><span class="k">物販予算:</span>約5,000円</li>
+      </ul>
+      <p class="note">※実際の料金は目的地・時期により変動します</p>
+    </div>
+
+    <div class="shared-block">
+      <p class="label"><span class="num">④</span>ハシゴ無理チェック</p>
+      <p class="note" style="margin-bottom:8px;">risk_levelの配色見本(low/medium/high。実際の画面では該当する1件のみ表示されます)</p>
+      <div class="badge-sample-row">
+        <div class="sample"><span class="risk-badge low">低</span>余裕あり</div>
+        <div class="sample"><span class="risk-badge medium">中</span>やや厳しめ</div>
+        <div class="sample"><span class="risk-badge high">高</span>移動が厳しい</div>
+      </div>
+      <p class="note">会場間の移動時間に無理がある可能性があります。乗り継ぎ時間に余裕を持って計画してください。</p>
+    </div>
+
+    <div class="result-footer">
+      <a class="cta" href="#" aria-disabled="true">もう一度相談する</a>
+    </div>
+  </div>
+
+  <div class="dev-note">
+    開発メモ: 本ページはresult-display-wireframe.md(フェーズ110)・
+    risk-level-badge-color-spec.md(フェーズ112)の内容を静的HTMLへ反映した非公開試作です。
+    status=out_of_scope / status=insufficient_input / LLM呼び出し失敗時の表示、
+    入力フォーム(状態1・2)との結合は未実装(次回候補)。実LLM呼び出し・外部公開は行っていません。
+  </div>
+
+</div>
+</body>
+</html>
