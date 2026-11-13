@@ -7258,3 +7258,30 @@
   あわせてaircon-pashaがFAQキーワード一致方式を採用していることを確認してcourse-set-pasha
   型Function A/B分割の横展開可否を解消した。新規テスト12件追加、全815件・schema検証25件
   いずれもパス)
+- フェーズ380(2026-11-13 04:00 UTC定例更新): フェーズ379「次回候補(1)」に対応し、
+  course-set-pashaのFunction A/B分割設計(process-memo-event-async-split-design.md、
+  course-set-pashaフェーズ370〜372)を本venture向けに翻案した
+  process-memo-event-async-split-design.mdを新規作成した。本ventureの経路構成
+  (1.5 FAQ固定応答/1.6 意図分類/2 生成本体)はcourse-set-pashaの経路構成
+  (FAQ固定応答/意図分類/投稿文生成)と性質が一致するため、「経路1.5のみ同期reply、
+  経路1.6・2はまとめて非同期push」という同じ2分岐方針を採用できると結論づけた。
+  follow/unfollow/postbackイベント(Stripe API呼び出しを伴うがLLM呼び出しは含まない)は
+  本設計のスコープ外(非同期化対象外)として明記した。本書は机上設計のみで、
+  実装(Function B・`process_memo_event_async()`・`dispatch_webhook_events()`への
+  振り分け前処理)は次回以降の課題として残した。コード変更なし、回帰確認として
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(815件、変更なし)・
+  `python3 -I schema/validate_test_cases.py`(25件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。INDEX.mdへ新規ファイルを追記した。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)Function Bの実装(`process_memo_event_async()`・`PushBackedReplyClient`、
+  course-set-pashaフェーズ371相当の翻案、InMemoryスタブで実GCPプロジェクト作成の承認を
+  待たずに着手可能)、(2)`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード
+  反映(course-set-pashaフェーズ372相当)、(3)event-komiguai-pasha・forklift-pasha・
+  oshien-pashaのべき等性対策・Function A/B分割の横展開検討、(4)2026-11-08 08:00 UTC記載の
+  運営方針判断(7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)がオーナーから
+  得られた場合はその着手を最優先、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 04:00 UTC(フェーズ380: 詳細は上記。course-set-pasha型Function A/B
+  分割設計を本venture向けに翻案(process-memo-event-async-split-design.md新規作成)。
+  机上設計のみ、実装は次回以降。コード変更なし、テスト815件・schema検証25件いずれも
+  変更なしでパス)

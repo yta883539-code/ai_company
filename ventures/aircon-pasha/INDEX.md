@@ -14,6 +14,10 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 - content-generation-time-estimate.md / line-price-revision-2026-check.md
 - billing-budget-cap-safeguard-design.md
 
+## Webhook基盤・非同期化
+- line-webhook-event-id-idempotency-design.md
+- process-memo-event-async-split-design.md
+
 ## 顧客ヒアリング・LP・公開準備・法務
 - customer-interview-design.md / interview-candidate-selection-criteria.md
 - interview-rehearsal-script.md / candidate-longlist-draft.md / candidate-readiness-summary.md
