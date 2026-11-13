@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<!--
+  イベントこみぐあいパシャっと 結果ページ 実装ドラフト(定例更新・2026-11-13 09:00 UTC)
+
+  位置づけ: get-result-page-http-entry-point-design.md(フェーズ112)・
+  result-page-display-copy-draft.md(フェーズ113)次回候補(2)「landing-page/配下への
+  実際のHTML/CSSマークアップ実装」に対応するものです。`receive_result_page_request()`
+  (prototype/result_page_entry.py)が返す8種類の`page_state`
+  (generated/out_of_scope/insufficient_input/generating/generation_failed/refunded/
+  expired_after_payment/ttl_expired_or_invalid)それぞれの表示見本を、
+  landing-page/index.html・inquiry.htmlと同じ配色・フォント・カード方針で
+  1ページ内に縦に並べたものです(oshien-pashaのprototype/result-display.htmlと
+  同型の「状態見本一覧」構成)。
+
+  未実装・意図的なプレースホルダー:
+  - 実際の`/result/{draft_id}`エンドポイント・実Firestore接続は行っていません。
+    ドメイン取得・ホスティング・外部公開・実GCPプロジェクト作成はいずれも
+    pending-approval.md記載分でオーナー承認待ちのため、本ページはリポジトリ内の
+    静的ファイルに過ぎません(index.html・inquiry.htmlと同じ位置づけ)。
+  - status=generatedの出力(checklist・staffing_plan・notice_board_text・
+    near_miss_record_template・fee_inquiry_note)はschema/output.schema.json
+    (フェーズ5)準拠のサンプル値を静的に埋め込んだものであり、実LLM呼び出しは
+    行っていません。
+  - 固定文言4件(generating/generation_failed/refunded/expired_after_payment)は
+    result-page-display-copy-draft.md 3節・prototype/operational_message_templates.py
+    のTEMPLATES定数からそのまま転記しています(文言変更時は両方の同時更新が必要)。
+  - 問い合わせフォームへのリンクはすべてhref="#"の非活性リンク(aria-disabled="true")
+    です。JSによる状態切り替え(実際の画面ではdraft.statusに応じた1状態のみ表示)の
+    実装は入力フォーム・バックエンド結合時の次回候補として残します。
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>結果ページ(ドラフト・非公開)| イベントこみぐあいパシャっと</title>
+<style>
+  :root {
+    --color-bg: #f4f8fb;
+    --color-fg: #212e36;
+    --color-accent: #1d6fa5;
+    --color-accent-dark: #164f78;
+    --color-card: #ffffff;
+    --color-border: #d6e4ee;
+    --color-muted: #5b6b74;
+    --warn-bg: #FDF3D8; --warn-fg: #6B4A00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    line-height: 1.7;
+  }
+  .page { max-width: 480px; margin: 0 auto; }
+  header.site-header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 20px;
+    font-weight: bold;
+    color: var(--color-accent-dark);
+  }
+  .state-sample-label {
+    margin: 32px 16px 4px; font-size: 0.78rem; font-weight: bold;
+    color: var(--color-muted);
+  }
+  .state-sample-label code { color: var(--color-accent-dark); }
+
+  .result-card {
+    margin: 8px 16px 32px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .result-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 1.1rem; font-weight: bold;
+  }
+  .result-head .check { color: var(--color-accent); margin-right: 6px; }
+  .output-block { padding: 16px 18px; border-bottom: 1px solid var(--color-border); }
+  .output-block:last-of-type { border-bottom: none; }
+  .output-block h3 { margin: 0 0 10px; font-size: 1rem; color: var(--color-accent-dark); }
+  .output-block ul { margin: 0; padding-left: 1.2em; font-size: 0.9rem; }
+  .output-block li { padding: 2px 0; }
+  .output-block li.highlighted { color: var(--warn-fg); font-weight: bold; }
+  .kv-list { margin: 0; padding: 0; list-style: none; font-size: 0.9rem; }
+  .kv-list li { padding: 4px 0; }
+  .kv-list .k { color: var(--color-muted); margin-right: 6px; }
+  .note { font-size: 0.78rem; color: var(--color-muted); margin: 10px 0 0; }
+  .note.permit { background: var(--warn-bg); color: var(--warn-fg); padding: 8px 10px; border-radius: 6px; }
+
+  .message-card {
+    margin: 8px 16px 32px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 20px 18px;
+    text-align: center;
+  }
+  .message-card .icon { font-size: 1.4rem; margin: 0 0 8px; color: var(--color-muted); }
+  .message-card p.body-text { margin: 0 0 14px; white-space: pre-line; }
+  .cta {
+    display: inline-block; text-align: center;
+    background: var(--color-accent); color: #fff; text-decoration: none;
+    padding: 12px 28px; border-radius: 8px; font-weight: bold;
+  }
+  .cta[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+  .cta.secondary { background: #fff; color: var(--color-accent-dark); border: 1px solid var(--color-accent); }
+
+  .dev-note {
+    margin: 0 16px 40px; padding: 12px 14px;
+    background: #eef4f8; border: 1px solid var(--color-border); border-radius: 8px;
+    font-size: 0.76rem; color: var(--color-muted);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">イベントこみぐあいパシャっと</header>
+
+  <p class="state-sample-label">見本1/8: <code>page_state=generated</code>(生成成功)</p>
+  <div class="result-card">
+    <div class="result-head"><span class="check">✓</span>入退場混雑対策プランができました</div>
+
+    <div class="output-block">
+      <h3>出力1: 入退場時混雑確認セルフチェックリスト</h3>
+      <ul>
+        <li class="highlighted">収容人数300人に対し出入口が1箇所のみです。増設を検討してください。</li>
+        <li>開場30分前までに誘導スタッフの配置位置を確認しましたか。</li>
+        <li>非常時の避難経路を出入口とは別に確保していますか。</li>
+      </ul>
+    </div>
+
+    <div class="output-block">
+      <h3>出力2: 警備員重点配置案・分散入場誘導アナウンス文案</h3>
+      <p class="note" style="margin:0 0 8px;">重点: 退場時(指定席のため、公演終了直後の出口混雑に重点配置)</p>
+      <ul class="kv-list">
+        <li><span class="k">外部委託警備員:</span>出入口付近での流れの調整・列の分割を担当</li>
+        <li><span class="k">自社スタッフ:</span>場内掲示の設置・分散退場アナウンスの実施を担当</li>
+      </ul>
+      <p class="note">アナウンス文案:「本日はご来場ありがとうございました。出口が混み合いますので、係員の指示に従い、順にご退場ください。」</p>
+    </div>
+
+    <div class="output-block">
+      <h3>出力3: 来場者向け整列・分散入場案内の掲示文案</h3>
+      <p>開場後は係員の指示に従い、指定の列にてお並びください。列が屋外・公道にかかる場合がありますので、安全な歩行スペースの確保にご協力ください。</p>
+      <p class="note permit">待機列が公道に及ぶ場合は所轄警察署への道路使用許可の要否を主催者自身でご確認ください。</p>
+    </div>
+
+    <div class="output-block">
+      <h3>出力4: ヒヤリハット記録フォーマット例</h3>
+      <ul class="kv-list">
+        <li><span class="k">発生日時:</span>(記入欄)</li>
+        <li><span class="k">場所:</span>(記入欄)</li>
+        <li><span class="k">状況:</span>(記入欄)</li>
+        <li><span class="k">対応:</span>(記入欄)</li>
+        <li><span class="k">再発防止策:</span>(記入欄)</li>
+      </ul>
+    </div>
+
+    <div class="output-block">
+      <p class="note" style="margin:0;">※警備計画の最終確定・入場制限の実施判断・外部警備会社への発注契約・所轄警察署への届出代行、および料金プランに関するお問い合わせには対応しておりません。</p>
+    </div>
+  </div>
+
+  <p class="state-sample-label">見本2/8: <code>page_state=out_of_scope</code>(対応範囲外。
+    generated_output.out_of_scope_messageをそのまま表示)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">本サービスは入退場時の混雑対策メモの下書き生成支援のみを行っております。
+恐れ入りますが、警備計画の最終確定や所轄警察署への届出代行は承っておりません。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
+  </div>
+
+  <p class="state-sample-label">見本3/8: <code>page_state=insufficient_input</code>
+    (入力不足。generated_output.missing_fields_requestをそのまま表示)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">収容人数(capacity)の記載が確認できなかったため、プランを作成できませんでした。
+お手数ですが、収容人数を追記のうえ、もう一度お送りください。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
+  </div>
+
+  <p class="state-sample-label">見本4/8: <code>page_state=generating</code>
+    (固定文言。result-page-display-copy-draft.md 3節)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">ご入力いただいた内容を確認し、生成の準備中です。生成が完了すると、ご登録のメールアドレスにご案内をお送りします。今しばらくお待ちください。</p>
+  </div>
+
+  <p class="state-sample-label">見本5/8: <code>page_state=generation_failed</code>
+    (固定文言。result-page-display-copy-draft.md 3節)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">生成処理に不具合が発生したため、生成が完了しませんでした。お支払いいただいた金額は全額返金の手続きを進めております。別途メールでも返金完了のご案内をお送りします。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
+  </div>
+
+  <p class="state-sample-label">見本6/8: <code>page_state=refunded</code>
+    (固定文言。result-page-display-copy-draft.md 3節)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">ご返金の手続きが完了しております。お手数ですが、ご入力内容を修正の上、再度お申し込みいただけますと幸いです。</p>
+    <a class="cta" href="#" aria-disabled="true">もう一度申し込む</a>
+  </div>
+
+  <p class="state-sample-label">見本7/8: <code>page_state=expired_after_payment</code>
+    (固定文言。result-page-display-copy-draft.md 3節)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">決済完了後、保存期間(24時間)が終了したため結果を閲覧できません。既にお支払い済みの場合、再生成(無料)または返金についてこちらの問い合わせフォームよりご連絡ください。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
+  </div>
+
+  <p class="state-sample-label">見本8/8: <code>page_state=ttl_expired_or_invalid</code>
+    (ttl_expired_notice流用。operational_message_templates.py)</p>
+  <div class="message-card">
+    <p class="icon">ⓘ</p>
+    <p class="body-text">このURLの結果の保存期間(24時間)が終了したため閲覧できません。再度ご利用いただく場合はお手数ですが最初からお申し込みください。
+既にお支払い済みの場合、再生成(無料)または返金についてこちらの問い合わせフォームよりご連絡ください。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
+  </div>
+
+  <div class="dev-note">
+    開発メモ: 本ページはget-result-page-http-entry-point-design.md(フェーズ112)・
+    result-page-display-copy-draft.md(フェーズ113)の内容を静的HTMLへ反映した
+    非公開試作です。8状態すべての表示見本までは反映済みですが、実`/result/{draft_id}`
+    エンドポイントとの結合・JSによる状態切り替え(実際の画面では1状態のみ表示)は
+    未実装(次回候補)。実LLM呼び出し・実Firestore接続・外部公開は行っていません。
+  </div>
+
+</div>
+</body>
+</html>

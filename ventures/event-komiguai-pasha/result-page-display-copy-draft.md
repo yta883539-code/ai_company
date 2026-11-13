@@ -89,11 +89,15 @@ tone-and-manner-guideline.md(フェーズ80)の方針(絵文字不使用・見�
 
 - (1) 承認待ち事項(実GCPプロジェクト作成等)がオーナーから承認された場合はその着手を
   最優先。
-- (2) `landing-page/`配下への実際のHTML/CSSマークアップ実装(2節で確定した表示方針の
-  コード化)。
+- (2) [フェーズ115で対応済み] `landing-page/`配下への実際のHTML/CSSマークアップ実装
+  (2節で確定した表示方針のコード化)。`landing-page/result.html`を新規作成し、
+  8種類の`page_state`全ての表示見本を反映した。
 - (3) `generating`状態の「決済待ち」と「決済済み生成中」の区別要否(get-result-page-
   http-entry-point-design.md 4節で次回候補化済み、未解消のまま残す)。
-- (4) 他venture・アイデア領域の前進。
+- (4) 実`/result/{draft_id}`エンドポイントとの結合・JSによる状態切り替えの実装
+  (result.htmlは現時点では8状態を1ページに並べた見本一覧であり、実際の画面では
+  draft.statusに応じた1状態のみ表示する分岐が必要)。
+- (5) 他venture・アイデア領域の前進。
 
 最終更新: 2026-11-12 18:00 UTC(フェーズ113: `page_state`ごとの表示文言ドラフトを新規
 確定。固定文言4件〈`generating`・`generation_failed`・`refunded`・

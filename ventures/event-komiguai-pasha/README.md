@@ -2652,3 +2652,24 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-13 00:00 UTC(フェーズ114: 詳細は上記。`mark_payment_confirmed()`の
   status遷移追加によりWebhook再送時の冪等性ガードのギャップを解消。新規テスト2件追加、
   全184件・schema検証22件いずれもパス)
+- フェーズ115(2026-11-13 09:00 UTC定例更新): フェーズ114次回候補(2)に対応し、
+  `landing-page/result.html`を新規作成した。get-result-page-http-entry-point-design.md
+  (フェーズ112)で確定した8種類の`page_state`
+  (generated/out_of_scope/insufficient_input/generating/generation_failed/refunded/
+  expired_after_payment/ttl_expired_or_invalid)それぞれの表示見本を、
+  landing-page/index.html・inquiry.htmlと同じ配色・カード方針で1ページに並べた。
+  `generated`状態はschema/output.schema.json(フェーズ5)準拠のサンプル値(checklist・
+  staffing_plan・notice_board_text・near_miss_record_template)を静的に埋め込み、
+  固定文言4件はresult-page-display-copy-draft.md 3節・
+  prototype/operational_message_templates.pyのTEMPLATESからそのまま転記した。
+  実`/result/{draft_id}`エンドポイントとの結合・JSによる状態切り替えは次回候補として
+  残す(oshien-pasha/prototype/result-display.htmlと同型の「状態見本一覧」構成)。
+  コード変更なし(静的HTMLのみ)、既存テスト184件・schema検証22件はいずれも対象外
+  (変更なしでパス)。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成等)がオーナーから承認された場合は
+  その着手を最優先、(2)`generating`状態の「決済待ち」と「決済済み生成中」の区別要否
+  (未解消のまま残す)、(3)実`/result/{draft_id}`エンドポイントとの結合・JSによる
+  状態切り替えの実装、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 09:00 UTC(フェーズ115: 詳細は上記。`landing-page/result.html`
+  新規作成。8状態すべての表示見本を静的HTMLへ反映。コード変更なし)
