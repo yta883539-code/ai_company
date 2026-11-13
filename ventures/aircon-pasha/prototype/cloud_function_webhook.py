@@ -30,7 +30,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Protocol
 
@@ -1433,6 +1433,72 @@ def process_postback_event(
 
 
 # ---------------------------------------------------------------------------
+# LINE Webhook `webhookEventId`べき等性(重複配信)対策
+# (line-webhook-event-id-idempotency-design.md、kura-pashaフェーズ286・287・
+#  course-set-pashaフェーズ368の横展開。kura-pashaフェーズ286で発見された
+#  「本venture・course-set-pashaはStripe Webhook側のべき等性対策は済んでいるが、
+#  LINE Messaging API Webhook側には一度もイベント単位のべき等性チェックが実装
+#  されていない」というギャップを本venture側でも是正する。)
+# ---------------------------------------------------------------------------
+
+class LineWebhookEventIdStoreProtocol(Protocol):
+    """`webhookEventId`単位の処理済み記録を保持するストアのインターフェース
+    (line-webhook-event-id-idempotency-design.md 2節)。`now`はテスト用の時刻注入で、
+    省略時は実装側が現在時刻を用いる。"""
+
+    def has_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> bool:
+        ...
+
+    def mark_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> None:
+        ...
+
+
+#: `webhookEventId`処理済み記録のデフォルト保持期間(kura-pashaフェーズ287で確定した値を
+#: そのまま採用)。LINE公式はWebhook再送の最大回数・期間を明記していないため、再送が
+#: 実際に発生しうる現実的な期間に対して十分な安全マージンを確保しつつ、無期限保持による
+#: Firestore容量の肥大化を避けるバランス値として7日間(604800秒)を採用する。
+DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS = 7 * 24 * 60 * 60
+
+
+class InMemoryLineWebhookEventIdStore:
+    """検証用のインメモリ実装(kura-pashaの`InMemoryLineWebhookEventIdStore`と同じ構造)。
+    プロセス起動ごとに初期化されるため、実Cloud Functions環境では呼び出しをまたいで
+    保持されない(StripeEventIdStoreと同じ既知の限界。実装時はFirestoreアダプタへの
+    差し替えが必要)。`processed_at`を保持し、`has_processed()`呼び出し時点でTTLを
+    超えていれば「処理済み記録は既にFirestore側のTTLポリシーで失効済み(ドキュメント
+    不在)」と同じ状態として扱い`False`を返す(=再送が来れば通常通り処理される)。"""
+
+    def __init__(
+        self, *, ttl_seconds: int = DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS
+    ) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._processed_at: dict[str, datetime] = {}
+
+    def has_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> bool:
+        processed_at = self._processed_at.get(webhook_event_id)
+        if processed_at is None:
+            return False
+        resolved_now = now if now is not None else datetime.now(timezone.utc)
+        if resolved_now - processed_at > timedelta(seconds=self._ttl_seconds):
+            del self._processed_at[webhook_event_id]
+            return False
+        return True
+
+    def mark_processed(
+        self, webhook_event_id: str, *, now: Optional[datetime] = None
+    ) -> None:
+        self._processed_at[webhook_event_id] = (
+            now if now is not None else datetime.now(timezone.utc)
+        )
+
+
+# ---------------------------------------------------------------------------
 # Webhook本体のイベント種別ディスパッチ
 # (フェーズ111・112(follow/unfollow)・フェーズ113(message)で実装した3つのイベント処理
 #  関数を、実際のWebhookリクエストの`events`配列から呼び分ける入口。フェーズ107設計時点の
@@ -1450,6 +1516,7 @@ class DispatchResult:
     unfollow_results: list = field(default_factory=list)
     postback_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
+    duplicate_webhook_event_ids: list = field(default_factory=list)
 
 
 def dispatch_webhook_events(
@@ -1468,6 +1535,7 @@ def dispatch_webhook_events(
     checkout_session_client: Optional[CheckoutSessionClient] = None,
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
     `process_follow_event()`/`process_message_event()`/`process_unfollow_event()`/
@@ -1495,15 +1563,43 @@ def dispatch_webhook_events(
       のため、未接続でも他のpostback処理自体は素通りしない(process_postback_event()内で
       フォールバック文言に切り替える)。
     - それ以外の種別(join等)は無視し、`ignored_types`に種別名のみ記録する。
+
+    `webhook_event_id_store`(line-webhook-event-id-idempotency-design.md、省略時はNoneで
+    従来通りべき等性チェックなし、既存呼び出し経路への後方互換措置): 各eventの
+    `webhookEventId`が既に処理済みなら、種別を問わずハンドラを一切呼び出さず
+    `duplicate_webhook_event_ids`に記録して以降の振り分け(follow/message/unfollow/postback
+    への分類、ignored_typesへの記録)から除外する。`webhookEventId`が欠落している、または
+    文字列でない場合はチェックをスキップし従来通り処理する(安全側に倒す)。記録
+    (`mark_processed`)は各ハンドラ呼び出し「後」に行い、依存関係未接続で該当イベントが
+    素通りされた場合(= 当該リストのループ自体に到達しない場合)は記録しない(未処理のまま
+    処理済み扱いになる事故を避け、依存が接続された際に改めて処理できるようにする安全側の
+    判断)。
     """
     result = DispatchResult()
 
+    effective_events = []
     for event in events:
+        webhook_event_id = event.get("webhookEventId")
+        if (
+            webhook_event_id_store is not None
+            and isinstance(webhook_event_id, str)
+            and webhook_event_id_store.has_processed(webhook_event_id, now=now)
+        ):
+            result.duplicate_webhook_event_ids.append(webhook_event_id)
+            continue
+        effective_events.append(event)
+
+    for event in effective_events:
         event_type = event.get("type")
         if event_type not in ("follow", "message", "unfollow", "postback"):
             result.ignored_types.append(event_type or "unknown")
 
-    follow_events = [e for e in events if e.get("type") == "follow"]
+    def _mark_processed(processed_event: dict) -> None:
+        webhook_event_id = processed_event.get("webhookEventId")
+        if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+            webhook_event_id_store.mark_processed(webhook_event_id, now=now)
+
+    follow_events = [e for e in effective_events if e.get("type") == "follow"]
     if follow_events and reply_client is not None:
         for event in follow_events:
             result.follow_results.append(
@@ -1514,8 +1610,9 @@ def dispatch_webhook_events(
                     profile_store=profile_store,
                 )
             )
+            _mark_processed(event)
 
-    message_events = [e for e in events if e.get("type") == "message"]
+    message_events = [e for e in effective_events if e.get("type") == "message"]
     if (
         message_events
         and reply_client is not None
@@ -1541,14 +1638,16 @@ def dispatch_webhook_events(
                     escalation_push_client=escalation_push_client,
                 )
             )
+            _mark_processed(event)
 
-    unfollow_events = [e for e in events if e.get("type") == "unfollow"]
+    unfollow_events = [e for e in effective_events if e.get("type") == "unfollow"]
     for event in unfollow_events:
         result.unfollow_results.append(
             process_unfollow_event(event, profile_store=profile_store)
         )
+        _mark_processed(event)
 
-    postback_events = [e for e in events if e.get("type") == "postback"]
+    postback_events = [e for e in effective_events if e.get("type") == "postback"]
     if (
         postback_events
         and reply_client is not None
@@ -1565,6 +1664,7 @@ def dispatch_webhook_events(
                     portal_link_provider=portal_link_provider,
                 )
             )
+            _mark_processed(event)
 
     return result
 
@@ -1614,9 +1714,12 @@ def receive_webhook(
     month: Optional[str] = None,
     now: Optional[datetime] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)を`dispatch_webhook_events()`まで
     橋渡しする薄いエントリポイント(webhook-http-entry-point-design.md 2節)。
+    `webhook_event_id_store`(省略時None、後方互換)はそのまま`dispatch_webhook_events()`
+    へ橋渡しする(line-webhook-event-id-idempotency-design.md)。
 
     1. 署名不正時はJSONパース・dispatchのいずれも行わず401を返す。
     2. JSONとしてパースできないbodyは400(error="invalid_json")。
@@ -1649,6 +1752,7 @@ def receive_webhook(
         month=month,
         now=now,
         checkout_session_client=checkout_session_client,
+        webhook_event_id_store=webhook_event_id_store,
     )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 

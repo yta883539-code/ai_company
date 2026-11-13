@@ -7221,3 +7221,40 @@
   Budget安全策設計を本venture向けに横展開し、LLM API原価が無視できない規模である点を踏まえ
   想定契約業者数ベースの予算上限〈約52,000円/月〉を新規設計。実行は一切行っていない。
   コード変更なし、テスト803件・schema検証25件いずれも変更なしでパス)
+- フェーズ379(2026-11-13 03:00 UTC定例更新): kura-pashaフェーズ286「4節 aircon-pasha・
+  course-set-pashaへの横展開」に残っていた課題(course-set-pasha側はフェーズ368で対応済み、
+  本venture側のみ未対応)に対応し、LINE Webhook`webhookEventId`べき等性(重複配信)対策を
+  kura-pasha版・course-set-pasha版をそのまま翻案して設計・実装した
+  (line-webhook-event-id-idempotency-design.md新規作成)。`LineWebhookEventIdStoreProtocol`
+  / `InMemoryLineWebhookEventIdStore`(TTL 7日、`DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS`)
+  を新設し、`DispatchResult.duplicate_webhook_event_ids`フィールドを追加、
+  `dispatch_webhook_events()`冒頭で処理済み`webhookEventId`を除いた`effective_events`を
+  作ってから既存のfollow/message/unfollow/postback振り分けを行うよう変更した(既存の
+  依存関係ガードの挙動自体は変更なし)。`receive_webhook()`にも`webhook_event_id_store`
+  引数を追加して橋渡しした。あわせてcourse-set-pashaフェーズ372「次回候補(2)」が残していた
+  「aircon-pashaへの横展開前にpostbackアクション中心でFAQキーワード一致方式を採用して
+  いない可能性があるため個別確認が必要」という論点を、本フェーズで`process_memo_event()`
+  の実装(owner-faq-routing-design.md・chatbot-intent-router-webhook-wiring-design.md)を
+  確認して解消した。本ventureもcourse-set-pasha同様FAQキーワード一致方式(「FAQ」
+  「Q1」〜「Q7」)を採用しており、postbackは決済・ポータルURL取得専用の別イベント種別
+  (LLM呼び出しを含まない)として並存していることを確認したため、course-set-pashaの
+  Function A/B分割設計(process-memo-event-async-split-design.md)をmessageイベントのみ
+  対象にそのまま翻案可能と判断した(設計ドキュメント化・実装は次回以降の課題として残す)。
+  新規テスト12件追加(`LineWebhookEventIdIdempotencyTest`8件・
+  `LineWebhookEventIdStoreTtlTest`4件)、既存803件と合わせ全815件パス、schema検証25件も
+  変更なしでパス(回帰なし)。INDEX.mdへ新規ファイルを追記した。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)course-set-pasha型Function A/B分割(`process_memo_event_async`相当)の
+  本venture向け設計ドキュメント化・実装(InMemoryスタブでの机上検証、実GCPプロジェクト
+  作成の承認を待たずに着手可能)、(2)実Firestoreアダプタ(`FirestoreLineWebhookEventIdStore`)
+  への差し替えは実GCPプロジェクト作成(オーナー承認待ち)後の課題、(3)event-komiguai-pasha・
+  forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookのべき等性対策が未対応のため、
+  それぞれが選ばれた回での横展開、(4)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、
+  実GCP/Firestore/Stripeアカウント作成の承認可否)がオーナーから得られた場合はその着手を
+  最優先、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 03:00 UTC(フェーズ379: 詳細は上記。LINE Webhook`webhookEventId`
+  べき等性対策をkura-pasha版・course-set-pasha版から翻案して新規設計・実装し、
+  あわせてaircon-pashaがFAQキーワード一致方式を採用していることを確認してcourse-set-pasha
+  型Function A/B分割の横展開可否を解消した。新規テスト12件追加、全815件・schema検証25件
+  いずれもパス)

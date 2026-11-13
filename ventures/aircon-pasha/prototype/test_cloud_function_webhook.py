@@ -40,8 +40,10 @@ from cloud_function_webhook import (  # noqa: E402
     UPDATE_PAYMENT_METHOD_BUTTON_LABEL,
     UPDATE_PAYMENT_METHOD_POSTBACK_DATA,
     VALIDATION_FAILURE_FALLBACK_MESSAGE,
+    DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS,
     InMemoryApplicationFormLinkProvider,
     InMemoryCheckoutSessionClient,
+    InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
     InMemoryUsageCounter,
@@ -2917,6 +2919,195 @@ class DispatchWebhookEventsIntentClassifierWiringTest(unittest.TestCase):
 
         self.assertEqual(len(result.message_results), 1)
         self.assertEqual(result.message_results[0].reply_text, format_reply_text(TEST_CASES["G1_basic"]))
+
+
+class LineWebhookEventIdIdempotencyTest(unittest.TestCase):
+    """LINE Webhook `webhookEventId`べき等性チェックのテスト
+    (line-webhook-event-id-idempotency-design.md、kura-pashaフェーズ286・287の横展開)。"""
+
+    def test_dispatch_skips_already_processed_webhook_event_id(self):
+        store = InMemoryLineWebhookEventIdStore()
+        store.mark_processed("wh_evt_1")
+        reply_client = InMemoryReplyClient()
+        events = [{
+            "type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"},
+            "webhookEventId": "wh_evt_1",
+        }]
+
+        result = dispatch_webhook_events(
+            events, reply_client=reply_client, webhook_event_id_store=store,
+        )
+
+        self.assertEqual(result.follow_results, [])
+        self.assertEqual(result.duplicate_webhook_event_ids, ["wh_evt_1"])
+        self.assertEqual(reply_client.sent, [])
+
+    def test_dispatch_marks_webhook_event_id_processed_after_handling(self):
+        store = InMemoryLineWebhookEventIdStore()
+        events = [{
+            "type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"},
+            "webhookEventId": "wh_evt_2",
+        }]
+
+        result = dispatch_webhook_events(
+            events, reply_client=InMemoryReplyClient(), webhook_event_id_store=store,
+        )
+
+        self.assertEqual(len(result.follow_results), 1)
+        self.assertTrue(store.has_processed("wh_evt_2"))
+
+    def test_second_delivery_of_same_webhook_event_id_is_noop(self):
+        # LINE Webhook再送シナリオの再現: 同一webhookEventIdのeventが2回のdispatch呼び出し
+        # (=2回のHTTPリクエスト)にまたがって届いても、2回目はハンドラ呼び出し・返信の
+        # いずれも行われない。
+        store = InMemoryLineWebhookEventIdStore()
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"},
+            "webhookEventId": "wh_evt_3",
+        }
+
+        dispatch_webhook_events([event], reply_client=reply_client, webhook_event_id_store=store)
+        result_2 = dispatch_webhook_events(
+            [event], reply_client=reply_client, webhook_event_id_store=store,
+        )
+
+        self.assertEqual(result_2.follow_results, [])
+        self.assertEqual(result_2.duplicate_webhook_event_ids, ["wh_evt_3"])
+        self.assertEqual(len(reply_client.sent), 1)
+
+    def test_without_webhook_event_id_store_processes_every_time(self):
+        # webhook_event_id_store未指定(デフォルトNone)時は、既存呼び出し経路への後方互換
+        # として従来通りべき等性チェックなしで毎回処理する。
+        reply_client = InMemoryReplyClient()
+        event = {
+            "type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"},
+            "webhookEventId": "wh_evt_4",
+        }
+
+        for _ in range(2):
+            dispatch_webhook_events([event], reply_client=reply_client)
+
+        self.assertEqual(len(reply_client.sent), 2)
+
+    def test_dedup_skipped_when_webhook_event_id_missing(self):
+        # webhookEventId欠落(またはstr以外)の場合はチェックをスキップし、従来通り処理する
+        # (安全側に倒す)。
+        store = InMemoryLineWebhookEventIdStore()
+        events = [{"type": "follow", "replyToken": "rt-1", "source": {"userId": "u-1"}}]
+
+        result = dispatch_webhook_events(
+            events, reply_client=InMemoryReplyClient(), webhook_event_id_store=store,
+        )
+
+        self.assertEqual(len(result.follow_results), 1)
+        self.assertEqual(result.duplicate_webhook_event_ids, [])
+
+    def test_dedup_applies_to_unfollow_event_too(self):
+        # unfollowは依存関係を問わず常に処理される種別だが、webhookEventIdべき等性チェックは
+        # 種別を問わず一律に効く。
+        store = InMemoryLineWebhookEventIdStore()
+        store.mark_processed("wh_evt_unfollow")
+        events = [{"type": "unfollow", "source": {"userId": "u-1"}, "webhookEventId": "wh_evt_unfollow"}]
+
+        result = dispatch_webhook_events(events, webhook_event_id_store=store)
+
+        self.assertEqual(result.unfollow_results, [])
+        self.assertEqual(result.duplicate_webhook_event_ids, ["wh_evt_unfollow"])
+
+    def test_dedup_applies_to_message_event_requiring_full_dependencies(self):
+        # messageイベント(本venture固有: profile_store・linking_store必須)でも
+        # べき等性チェックがハンドラ呼び出しより前に効くことを確認する。
+        from datetime import datetime, timezone
+
+        store = InMemoryLineWebhookEventIdStore()
+        store.mark_processed("wh_evt_message")
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-1",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+            ),
+        )
+        reply_client = InMemoryReplyClient()
+        events = [{
+            "type": "message", "replyToken": "rt-1", "source": {"userId": "u-1"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+            "webhookEventId": "wh_evt_message",
+        }]
+
+        result = dispatch_webhook_events(
+            events, reply_client=reply_client, llm_call=FixtureLlmClient("G1_basic"),
+            profile_store=profile_store, linking_store=InMemoryLinkingCodeStore(),
+            now=datetime(2026, 9, 25, tzinfo=timezone.utc),
+            webhook_event_id_store=store,
+        )
+
+        self.assertEqual(result.message_results, [])
+        self.assertEqual(result.duplicate_webhook_event_ids, ["wh_evt_message"])
+        self.assertEqual(reply_client.sent, [])
+
+    def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch(self):
+        store = InMemoryLineWebhookEventIdStore()
+        store.mark_processed("wh_evt_receive")
+        channel_secret = "test-channel-secret"
+        body = (
+            b'{"events": [{"type": "follow", "replyToken": "rt-1", '
+            b'"source": {"userId": "u-1"}, "webhookEventId": "wh_evt_receive"}]}'
+        )
+        digest = hmac.new(channel_secret.encode("utf-8"), body, hashlib.sha256).digest()
+        signature = base64.b64encode(digest).decode("utf-8")
+        reply_client = InMemoryReplyClient()
+
+        result = receive_webhook(
+            body, signature, channel_secret, reply_client=reply_client,
+            webhook_event_id_store=store,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(reply_client.sent, [])
+        self.assertEqual(result.dispatch_result.duplicate_webhook_event_ids, ["wh_evt_receive"])
+
+
+class LineWebhookEventIdStoreTtlTest(unittest.TestCase):
+    """InMemoryLineWebhookEventIdStoreのTTL(kura-pashaフェーズ287の横展開)。"""
+
+    def setUp(self):
+        from datetime import datetime, timezone
+
+        self._mar = datetime(2026, 3, 1, tzinfo=timezone.utc)
+
+    def test_has_processed_true_within_ttl(self):
+        from datetime import timedelta
+
+        store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+        store.mark_processed("wh_evt_ttl_1", now=self._mar)
+
+        self.assertTrue(store.has_processed("wh_evt_ttl_1", now=self._mar + timedelta(days=6)))
+
+    def test_has_processed_false_after_ttl_expired(self):
+        from datetime import timedelta
+
+        store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+        store.mark_processed("wh_evt_ttl_2", now=self._mar)
+
+        self.assertFalse(store.has_processed("wh_evt_ttl_2", now=self._mar + timedelta(days=8)))
+
+    def test_expired_entry_can_be_reprocessed(self):
+        from datetime import timedelta
+
+        store = InMemoryLineWebhookEventIdStore(ttl_seconds=7 * 24 * 60 * 60)
+        store.mark_processed("wh_evt_ttl_3", now=self._mar)
+        store.has_processed("wh_evt_ttl_3", now=self._mar + timedelta(days=8))
+        store.mark_processed("wh_evt_ttl_3", now=self._mar + timedelta(days=8))
+
+        self.assertTrue(
+            store.has_processed("wh_evt_ttl_3", now=self._mar + timedelta(days=8, hours=1))
+        )
+
+    def test_default_ttl_is_seven_days(self):
+        self.assertEqual(DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS, 7 * 24 * 60 * 60)
 
 
 if __name__ == "__main__":

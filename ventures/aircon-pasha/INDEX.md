@@ -50,6 +50,7 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 - checkout-session-completed-handling-design.md
 - stripe-cancellation-deletion-candidate-trigger-design.md
 - stripe-event-idempotency-design.md / stripe-webhook-event-dispatch-design.md
+- line-webhook-event-id-idempotency-design.md
 - stripe-webhook-http-entry-point-design.md
 - stripe-webhook-runtime-dependency-failure-response-design.md
 - stripe-webhook-signature-verification-design.md / webhook-http-entry-point-design.md
