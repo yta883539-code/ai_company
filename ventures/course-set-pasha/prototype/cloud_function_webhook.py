@@ -2012,6 +2012,8 @@ def receive_webhook(
     escalation_push_client: Optional[LinePushClient] = None,
     webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
     now: Optional[datetime] = None,
+    task_queue_client: Optional[TaskQueueClient] = None,
+    enqueue_fallback_owner_push_client: Optional[LinePushClient] = None,
 ) -> WebhookReceiverResult:
     """Cloud Functionの本体エントリポイント。生のリクエストボディ(bytes)を受け取り、
     署名検証(verify_line_signature)・JSONパース・dispatch_webhook_events()への配線までを
@@ -2027,6 +2029,12 @@ def receive_webhook(
       個々のイベント処理内のエラー(LLM API障害・返信API障害等)はprocess_memo_event()/
       process_follow_event()側で既にフォールバック済みのため、ここでは追加のtry/exceptは
       行わない。
+    - dispatch_webhook_events()の結果にenqueue_fallback_webhook_event_idsが非空で含まれ、
+      enqueue_fallback_owner_push_clientが指定されている場合は、enqueue-fallback-owner-
+      notification-design.md(フェーズ374)に従いオーナーへdigest通知を1回送る(未指定時は
+      何もしない既存の後方互換パターン)。task_queue_clientはdispatch_webhook_events()
+      へそのまま委譲する(これまでreceive_webhook()からは配線されていなかったギャップを
+      本フェーズで併せて解消した)。
     - 実際のCloud Functions(functions_framework)のリクエストオブジェクトからbody
       (`request.get_data()`)・署名ヘッダ(`request.headers.get("X-Line-Signature")`)を
       取り出してこの関数に渡す薄い配線自体は、実Cloud Functionsデプロイ(オーナー承認待ち)
@@ -2062,7 +2070,15 @@ def receive_webhook(
         escalation_push_client=escalation_push_client,
         webhook_event_id_store=webhook_event_id_store,
         now=now,
+        task_queue_client=task_queue_client,
     )
+    if dispatch_result.enqueue_fallback_webhook_event_ids and enqueue_fallback_owner_push_client is not None:
+        from enqueue_fallback_owner_notification import send_enqueue_fallback_owner_notification
+
+        send_enqueue_fallback_owner_notification(
+            dispatch_result.enqueue_fallback_webhook_event_ids,
+            enqueue_fallback_owner_push_client,
+        )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 
 

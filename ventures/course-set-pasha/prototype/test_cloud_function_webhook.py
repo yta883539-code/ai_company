@@ -3115,6 +3115,80 @@ class ReceiveWebhookTest(unittest.TestCase):
         self.assertEqual(result.dispatch_result.memo_results[0].chatbot_intent, "other_needs_human")
         self.assertEqual(len(push_client.sent), 1)
 
+    def test_enqueue_fallback_sends_owner_notification_when_push_client_given(self):
+        # enqueue-fallback-owner-notification-design.md(フェーズ374)。
+        class FlakyTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise ConnectionError("simulated Cloud Tasks transient failure")
+
+        body = json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "message",
+                        "webhookEventId": "wh-evt-fallback-1",
+                        "replyToken": "rt-message",
+                        "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                        "source": {"userId": "U-message"},
+                    }
+                ]
+            }
+        ).encode("utf-8")
+        reply_client = InMemoryReplyClient()
+        owner_push_client = InMemoryLinePushClient()
+
+        result = receive_webhook(
+            body,
+            self._signed(body),
+            self.SECRET,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+            task_queue_client=FlakyTaskQueueClient(),
+            enqueue_fallback_owner_push_client=owner_push_client,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.enqueue_fallback_webhook_event_ids, ["wh-evt-fallback-1"]
+        )
+        self.assertEqual(len(owner_push_client.sent), 1)
+        self.assertIn("wh-evt-fallback-1", owner_push_client.sent[0][1])
+
+    def test_enqueue_fallback_without_push_client_does_not_raise(self):
+        # 未指定時は何もしない既存の後方互換パターン(design 5節)。
+        class FlakyTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise ConnectionError("simulated Cloud Tasks transient failure")
+
+        body = json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "message",
+                        "webhookEventId": "wh-evt-fallback-2",
+                        "replyToken": "rt-message",
+                        "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+                        "source": {"userId": "U-message"},
+                    }
+                ]
+            }
+        ).encode("utf-8")
+        reply_client = InMemoryReplyClient()
+
+        result = receive_webhook(
+            body,
+            self._signed(body),
+            self.SECRET,
+            reply_client=reply_client,
+            llm_call=FixtureLlmClient("G1_basic"),
+            task_queue_client=FlakyTaskQueueClient(),
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.enqueue_fallback_webhook_event_ids, ["wh-evt-fallback-2"]
+        )
+
 
 class _StubFlaskRequest:
     """functions_frameworkが渡すFlask Requestインターフェースの必要最小限のスタブ。

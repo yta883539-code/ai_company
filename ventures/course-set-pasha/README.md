@@ -6917,3 +6917,23 @@
   で発見した例外処理パターンの他venture(aircon-pasha等、同種のTaskQueueClient構成を持つ
   venture)への横展開確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
   場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ374(2026-11-13 15:00 UTC定例更新): フェーズ373「次回候補(1)」に対応し、
+  enqueue-fallback-owner-notification-design.mdを新規作成した。blocked-but-billing・
+  payment-suspensionの両オーナー通知と異なり、`enqueue_fallback_webhook_event_ids`は
+  顧客状態ではなく1回のバッチ内の運用インシデント信号であるため、日次バッチ・永続通知済み
+  フラグの方式ではなく、`dispatch_webhook_events()`呼び出し直後にその場で1回だけdigest通知
+  (先頭5件まで列挙・残りは件数要約)を送る方式として設計した。設計に基づき
+  `enqueue_fallback_owner_notification.py`(`format_enqueue_fallback_owner_notification_
+  message()`・`send_enqueue_fallback_owner_notification()`)を新規実装し、`receive_webhook()`
+  へ新規オプション引数`enqueue_fallback_owner_push_client`を追加して配線した。配線の過程で、
+  `receive_webhook()`が`task_queue_client`を`dispatch_webhook_events()`へそもそも委譲して
+  いなかった既存のギャップ(フェーズ372/373のenqueue関連実装がdispatch_webhook_events()
+  レベルのテストのみで、HTTP入口からの結線テストを欠いていたため見過ごされていた)も本フェーズ
+  で併せて解消した。新規テスト11件追加(新モジュール8件・receive_webhook()配線2件・
+  既存ギャップのカバレッジ1件相当)、既存901件と合わせ全909件・schema検証22件いずれもパス
+  (回帰なし)。実LINE Push Message APIでの送信・実オーナーLINEユーザーIDの設定は既存の
+  「実LINE API接続はオーナー承認待ちの範囲」に含まれるため、新規の承認待ち事項としては扱わ
+  ない(pending-approval.mdへの追記なし)。
+  次回候補: (1)フェーズ373「次回候補(2)」(本例外処理パターンのaircon-pasha等への横展開
+  確認)、(2)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を
+  最優先、(3)他venture・アイデア領域の前進。
