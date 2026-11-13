@@ -9,6 +9,7 @@
 ## 事業・市場
 - market-research.md / mvp-flow-draft.md / pricing-plan.md
 - unit-economics-estimate.md / support-cost-estimate.md / support-cost-selfservice-reduction.md
+- billing-budget-cap-safeguard-design.md
 - cross-venture-support-cost-comparison.md / cross-venture-support-selfservice-reduction-comparison.md
 - cross-venture-discover-compatibility-review.md
 - candidate-longlist-draft.md / candidate-readiness-summary.md

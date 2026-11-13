@@ -7020,3 +7020,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `make_memo_task_name()`と同じ構造を`kura-pasha-event-`プレフィックスで流用する想定)、
   (3)候補継続2件(「馬具職人工房」「Apion-leather craft lab」)の連絡チャネル確定、
   (4)他venture・アイデア領域の前進。
+- フェーズ続き301(2026-11-13 13:00 UTC定例更新): line-reservation-aiが2026-11-11 04:00 UTC
+  (フェーズ続き386)で設計した「実GCPプロジェクト作成の承認ハードルを下げるためのBilling
+  Budget安全策」(月間予算上限+閾値到達時の請求先アカウント自動デタッチ)について、同
+  フェーズが残した横展開候補(他5venture: aircon-pasha・course-set-pasha・forklift-pasha・
+  kura-pasha・oshien-pasha)のうちaircon-pashaは既に対応済みであることを確認した上で、
+  本venture向けにbilling-budget-cap-safeguard-design.mdを新規作成した。本venture固有の
+  前提(tech-stack.mdのCloud Run functions〈2nd gen〉採用・Cloud Storage不使用・
+  unit-economics-estimate.mdの1工房あたり最大LLM API原価約101.8円/月)を確認した上で、
+  line-reservation-aiと同じ暫定閾値(月間500円、50%・90%・100%到達時にオーナー宛メール
+  通知)を採用する設計とした。実行(GCPプロジェクト作成・課金設定・Budget作成)は一切
+  行っていない。pending-approval.md既存エントリ(2026-10-23 19:00 UTC記載)の文面は履行
+  記録としてそのまま保持し、新規の承認依頼エントリは追加していない(承認を求めるアクション
+  の実体自体は変わらないため)。コード変更なし、回帰確認として既存テストスイート
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`、313件)・schema検証
+  (`python3 schema/validate_test_cases.py`、32件)を実行し変更なしでパスすることを確認した
+  (回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、Billing
+  Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を最優先、
+  (2)残る横展開先(course-set-pasha・forklift-pasha・oshien-pasha)への同種Billing Budget
+  安全策設計の横展開、(3)webhook-async-two-function-design.md「残課題・次回候補(2)」
+  (`dispatch_webhook_events()`への振り分け前処理の実コード反映)、(4)他venture・アイデア
+  領域の前進。
