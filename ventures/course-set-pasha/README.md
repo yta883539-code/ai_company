@@ -6937,3 +6937,15 @@
   次回候補: (1)フェーズ373「次回候補(2)」(本例外処理パターンのaircon-pasha等への横展開
   確認)、(2)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を
   最優先、(3)他venture・アイデア領域の前進。
+- フェーズ375(2026-11-13 22:00 UTC定例更新): line-reservation-ai/kura-pasha/aircon-pasha/
+  oshien-pashaが積み上げてきたBilling Budget安全策(月間予算上限+閾値到達時の自動課金停止)
+  横展開の残る対象の1つとして、billing-budget-cap-safeguard-design.mdを本venture向けに
+  新規作成した(本venture固有のunit-economics-estimate.md試算を反映し、月間500円の暫定
+  予算額・2オーナー超で引き上げ検討の基準を設定)。残る横展開先はforklift-pashaの1件のみ。
+  コード変更なし(設計文書のみ)、実行(GCPプロジェクト作成・課金設定・Budget作成)は一切
+  行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)残る横展開先forklift-pashaへの同種Billing Budget安全策設計の横展開、
+  (2)フェーズ373「次回候補(2)」(例外処理パターンのaircon-pasha等への横展開確認)、
+  (3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を最優先、
+  (4)他venture・アイデア領域の前進。

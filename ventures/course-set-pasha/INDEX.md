@@ -79,6 +79,7 @@ pending-approval.md 2026-11-08 08:00 UTC記載の「整理(重複排除・要約
 - runtime-dependency-switching-design.md / api-call-failure-handling.md
 - cloud-functions-generation-decision.md / cloud-monitoring-alert-policy-design.md
 - data-retention-policy.md / vendor-breach-key-rotation-runbook.md
+- billing-budget-cap-safeguard-design.md
 - deployment-runbook.md / launch-readiness-checklist.md / ci-setup.md
 - schema/ (output.schema.json, validate_test_cases.py) / prototype/ (InMemoryスタブ実装・テスト)
 - emulator-test/
