@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <!--
-  おしえんパシャっと 結果表示画面 実装ドラフト(フェーズ113・2026-11-13 02:00 UTC)
+  おしえんパシャっと 結果表示画面 実装ドラフト(フェーズ114・2026-11-13 05:00 UTC)
 
   位置づけ: result-display-wireframe.md(フェーズ110)の「status=generated」時
-  4出力カード構成と、risk-level-badge-color-spec.md(フェーズ112)で確定した
-  risk_levelバッジの配色コードを、landing-page/index.htmlと同じ方針(非公開・静的な
-  実装ドラフト)でHTML/CSSに落とし込んだものです。ドメイン取得・ホスティング・外部公開は
-  一切行っておらず、リポジトリ内の静的ファイルとして置かれているのみです
+  4出力カード構成、risk-level-badge-color-spec.md(フェーズ112)で確定した
+  risk_levelバッジの配色コード、およびresult-display-wireframe.md 1節・
+  llm-generation-failure-handling-design.md(フェーズ111)で確定した
+  status=out_of_scope / status=insufficient_input / LLM呼び出し失敗時の3メッセージ
+  カードを、landing-page/index.htmlと同じ方針(非公開・静的な実装ドラフト)でHTML/CSSに
+  落とし込んだものです。ドメイン取得・ホスティング・外部公開は一切行っておらず、
+  リポジトリ内の静的ファイルとして置かれているのみです
   (README.mdの「外部サービスへの公開」には該当しません)。
 
   未実装・意図的なプレースホルダー:
   - 実際のLLM生成結果ではなく、input-output-sample-mapping.md相当のサンプル値を
     静的に埋め込んだものです(実LLM呼び出しは行っていません)。
-  - 「もう一度相談する」ボタンはhref="#"の非活性リンク(aria-disabled="true")です。
+  - 「もう一度相談する」「追記して再送信」「もう一度試す」ボタンはいずれもhref="#"の
+    非活性リンク(aria-disabled="true")です。
   - risk_levelはlow/medium/highの3パターンを横に並べて見本表示し、配色・ラベル併記の
-    確認用としています(実際の画面では該当する1パターンのみが表示されます)。
-  - status=out_of_scope・status=insufficient_input・LLM呼び出し失敗
-    (llm-generation-failure-handling-design.md)時の表示、入力フォーム自体(状態1・2)の
-    実装は本ファイルの対象外です(次回候補)。
+    確認用としています(実際の画面ではstatus=generatedかつ該当する1パターンのみが
+    表示されます)。
+  - 本ファイルはstatus別の4状態(generated/out_of_scope/insufficient_input/
+    LLM呼び出し失敗)を1ページ内に縦に並べた見本一覧です。実際の画面ではJS側の分岐で
+    該当する1状態のみが表示されます(状態切り替えの実装自体は入力フォームとの結合時に
+    行う、次回候補)。
+  - 入力フォーム自体(状態1「入力中/未送信」・状態2「送信中」)の実装は本ファイルの
+    対象外です(次回候補)。
 -->
 <html lang="ja">
 <head>
@@ -116,6 +124,37 @@
     background: #f3f1f6; border: 1px solid #cfc6d8; border-radius: 8px;
     font-size: 0.76rem; color: var(--color-muted);
   }
+
+  /* status別の表示見本を縦に並べるための区切り見出し(本ドラフト固有、実画面には出ない) */
+  .state-sample-label {
+    margin: 32px 16px 4px; font-size: 0.78rem; font-weight: bold;
+    color: var(--color-muted);
+  }
+  .state-sample-label code { color: var(--color-accent-dark); }
+
+  /* status=out_of_scope / insufficient_input / LLM呼び出し失敗 共通のメッセージカード
+     (result-display-wireframe.md 1節3の「1枚のメッセージカード」方針・
+     llm-generation-failure-handling-design.md 4節の定型文言に対応) */
+  .message-card {
+    margin: 0 16px 32px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 20px 18px;
+    text-align: center;
+  }
+  .message-card .icon { font-size: 1.4rem; margin: 0 0 8px; }
+  .message-card .icon.out-of-scope { color: var(--color-muted); }
+  .message-card .icon.insufficient { color: var(--risk-medium-fg); }
+  .message-card .icon.llm-failure { color: var(--risk-high-fg); }
+  .message-card p { margin: 0 0 14px; }
+  .message-card .cta.secondary {
+    background: #fff; color: var(--color-accent-dark);
+    border: 1px solid var(--color-accent);
+  }
+  .message-card .form-kept-note {
+    margin: 10px 0 0; font-size: 0.78rem; color: var(--color-muted);
+  }
 </style>
 </head>
 <body>
@@ -123,6 +162,7 @@
 
   <header class="site-header">おしえんパシャっと</header>
 
+  <p class="state-sample-label">見本1/4: <code>status=generated</code>(生成成功)</p>
   <div class="result-card">
     <div class="result-head"><span class="check">✓</span>遠征プランができました</div>
 
@@ -175,11 +215,42 @@
     </div>
   </div>
 
+  <p class="state-sample-label">見本2/4: <code>status=out_of_scope</code>(対応範囲外。
+    llm-system-prompt-draft.md 厳守事項6)</p>
+  <div class="message-card">
+    <p class="icon out-of-scope">ⓘ</p>
+    <p>本サービスは遠征プランの下書き生成支援のみを行っております。<br>
+    恐れ入りますが、空席・空室のご確認やご予約の代行は承っておりません。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">入力し直す</a>
+  </div>
+
+  <p class="state-sample-label">見本3/4: <code>status=insufficient_input</code>
+    (入力不足。result-display-wireframe.md 1節3)</p>
+  <div class="message-card">
+    <p class="icon insufficient">ⓘ</p>
+    <p>会場名と日時が確認できなかったため、プランを作成できませんでした。<br>
+    お手数ですが、会場名・日時を追記のうえ、もう一度お送りください。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">追記して再送信</a>
+    <p class="form-kept-note">※入力済みの「当選情報メモ」は消えずにそのまま残ります。</p>
+  </div>
+
+  <p class="state-sample-label">見本4/4: LLM呼び出し失敗(技術的失敗。
+    llm-generation-failure-handling-design.md 1節・4節、status分岐とは別のHTTP 502扱い)</p>
+  <div class="message-card">
+    <p class="icon llm-failure">ⓘ</p>
+    <p>生成中に時間がかかってしまい、結果を表示できませんでした。<br>
+    少し時間をおいてから、もう一度お試しください。</p>
+    <a class="cta secondary" href="#" aria-disabled="true">もう一度試す</a>
+    <p class="form-kept-note">※入力済みの「当選情報メモ」は消えずにそのまま残ります。</p>
+  </div>
+
   <div class="dev-note">
     開発メモ: 本ページはresult-display-wireframe.md(フェーズ110)・
-    risk-level-badge-color-spec.md(フェーズ112)の内容を静的HTMLへ反映した非公開試作です。
-    status=out_of_scope / status=insufficient_input / LLM呼び出し失敗時の表示、
-    入力フォーム(状態1・2)との結合は未実装(次回候補)。実LLM呼び出し・外部公開は行っていません。
+    risk-level-badge-color-spec.md(フェーズ112)・llm-generation-failure-handling-design.md
+    (フェーズ111)の内容を静的HTMLへ反映した非公開試作です。4状態(generated/out_of_scope/
+    insufficient_input/LLM呼び出し失敗)の見本表示までは反映済みですが、入力フォーム
+    (状態1・2)自体の実装、およびJSによる状態切り替え(実際の画面では1状態のみ表示)は
+    未実装(次回候補)。実LLM呼び出し・外部公開は行っていません。
   </div>
 
 </div>

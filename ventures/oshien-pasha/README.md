@@ -2621,3 +2621,27 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-13 02:00 UTC(フェーズ113: 詳細は上記。
   prototype/result-display.htmlを新規作成し、フェーズ110のワイヤーフレーム・フェーズ112の
   配色コードを非公開試作HTMLへ反映。コード変更なし)
+- フェーズ114(2026-11-13 05:00 UTC定例更新): フェーズ113次回候補(2)「status=out_of_scope・
+  insufficient_input・LLM呼び出し失敗時の表示をprototype/result-display.htmlへ反映」に
+  対応した。result-display-wireframe.md 1節3の3状態分岐、およびllm-generation-failure-
+  handling-design.md(フェーズ111)4節で確定した定型文言を基に、status=out_of_scope/
+  status=insufficient_input/LLM呼び出し失敗(HTTP 502)の3メッセージカードを追加し、
+  既存のstatus=generated時の4出力カードと合わせて4状態の見本を1ページに縦に並べて確認
+  できるようにした。insufficient_input・LLM失敗の2状態には「入力済みの当選情報メモは
+  消えずに残る」旨の注記(4節の仕様どおり)を添えた。いずれも「追記して再送信」「もう一度
+  試す」ボタンはhref="#"の非活性リンクのままとした(実際の状態切り替え・フォームとの結合は
+  次回候補)。tone-and-manner-guideline.mdの方針(ですます調・絵文字不使用・断定しない・
+  不安を煽らない)を踏襲し、原因の技術的な詳細には触れない文言とした。Pythonバックエンド
+  コードへの変更は無いため、既存テスト(10ファイル)は変更対象外だが`python3
+  run_all_tests.py`で再実行し10/10パス(回帰なし)を確認した。追加したHTMLのdiv開閉タグ数が
+  一致していることも確認した。実LLM呼び出し・外部サービスへの接続・公開は行っていない。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)アイコン併用の要否の再検討(実際の生成結果を目視確認してから)、
+  (2)入力フォーム(状態1「入力中/未送信」・状態2「送信中」)の非公開試作HTML化、
+  (3)JSによる4状態の実際の切り替えロジック(現状は4状態を縦に並べた見本一覧のみ)、
+  (4)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(5)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 05:00 UTC(フェーズ114: 詳細は上記。prototype/result-display.htmlに
+  status=out_of_scope/insufficient_input/LLM呼び出し失敗の3メッセージカードを追加。
+  Pythonコード変更なし、既存テスト10/10パス再確認)
