@@ -25,8 +25,18 @@
     result-page-display-copy-draft.md 3節・prototype/operational_message_templates.py
     のTEMPLATES定数からそのまま転記しています(文言変更時は両方の同時更新が必要)。
   - 問い合わせフォームへのリンクはすべてhref="#"の非活性リンク(aria-disabled="true")
-    です。JSによる状態切り替え(実際の画面ではdraft.statusに応じた1状態のみ表示)の
-    実装は入力フォーム・バックエンド結合時の次回候補として残します。
+    です。
+
+  フェーズ116(2026-11-13定例更新)で追加した点:
+  - 8状態それぞれを<section data-page-state="...">で囲み、末尾のJSで
+    URLクエリ`?page_state=<値>`が指定された場合はその1状態のみを表示し、残り7状態の
+    見本・開発メモを非表示にする「本番相当の1状態表示」シミュレーションを追加した。
+    `?page_state=`省略時は従来どおり8状態すべてを並べた見本一覧モードのままとする
+    (デフォルト挙動を変えない)。これは実`receive_result_page_request()`
+    (prototype/result_page_entry.py)が返すJSON `{"page_state": "..."}` を
+    `fetch()`で受け取った場合の表示切り替えロジックを、実エンドポイント結合前に
+    静的ファイル内で先行検証するものであり、実`/result/{draft_id}`エンドポイントへの
+    実際の結合・実Firestore接続・外部公開はいずれも行っていない。
 -->
 <html lang="ja">
 <head>
@@ -122,6 +132,7 @@
 
   <header class="site-header">イベントこみぐあいパシャっと</header>
 
+  <section class="state-sample" data-page-state="generated">
   <p class="state-sample-label">見本1/8: <code>page_state=generated</code>(生成成功)</p>
   <div class="result-card">
     <div class="result-head"><span class="check">✓</span>入退場混雑対策プランができました</div>
@@ -166,7 +177,9 @@
       <p class="note" style="margin:0;">※警備計画の最終確定・入場制限の実施判断・外部警備会社への発注契約・所轄警察署への届出代行、および料金プランに関するお問い合わせには対応しておりません。</p>
     </div>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="out_of_scope">
   <p class="state-sample-label">見本2/8: <code>page_state=out_of_scope</code>(対応範囲外。
     generated_output.out_of_scope_messageをそのまま表示)</p>
   <div class="message-card">
@@ -175,7 +188,9 @@
 恐れ入りますが、警備計画の最終確定や所轄警察署への届出代行は承っておりません。</p>
     <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="insufficient_input">
   <p class="state-sample-label">見本3/8: <code>page_state=insufficient_input</code>
     (入力不足。generated_output.missing_fields_requestをそのまま表示)</p>
   <div class="message-card">
@@ -184,14 +199,18 @@
 お手数ですが、収容人数を追記のうえ、もう一度お送りください。</p>
     <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="generating">
   <p class="state-sample-label">見本4/8: <code>page_state=generating</code>
     (固定文言。result-page-display-copy-draft.md 3節)</p>
   <div class="message-card">
     <p class="icon">ⓘ</p>
     <p class="body-text">ご入力いただいた内容を確認し、生成の準備中です。生成が完了すると、ご登録のメールアドレスにご案内をお送りします。今しばらくお待ちください。</p>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="generation_failed">
   <p class="state-sample-label">見本5/8: <code>page_state=generation_failed</code>
     (固定文言。result-page-display-copy-draft.md 3節)</p>
   <div class="message-card">
@@ -199,7 +218,9 @@
     <p class="body-text">生成処理に不具合が発生したため、生成が完了しませんでした。お支払いいただいた金額は全額返金の手続きを進めております。別途メールでも返金完了のご案内をお送りします。</p>
     <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="refunded">
   <p class="state-sample-label">見本6/8: <code>page_state=refunded</code>
     (固定文言。result-page-display-copy-draft.md 3節)</p>
   <div class="message-card">
@@ -207,7 +228,9 @@
     <p class="body-text">ご返金の手続きが完了しております。お手数ですが、ご入力内容を修正の上、再度お申し込みいただけますと幸いです。</p>
     <a class="cta" href="#" aria-disabled="true">もう一度申し込む</a>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="expired_after_payment">
   <p class="state-sample-label">見本7/8: <code>page_state=expired_after_payment</code>
     (固定文言。result-page-display-copy-draft.md 3節)</p>
   <div class="message-card">
@@ -215,7 +238,9 @@
     <p class="body-text">決済完了後、保存期間(24時間)が終了したため結果を閲覧できません。既にお支払い済みの場合、再生成(無料)または返金についてこちらの問い合わせフォームよりご連絡ください。</p>
     <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
   </div>
+  </section>
 
+  <section class="state-sample" data-page-state="ttl_expired_or_invalid">
   <p class="state-sample-label">見本8/8: <code>page_state=ttl_expired_or_invalid</code>
     (ttl_expired_notice流用。operational_message_templates.py)</p>
   <div class="message-card">
@@ -224,15 +249,57 @@
 既にお支払い済みの場合、再生成(無料)または返金についてこちらの問い合わせフォームよりご連絡ください。</p>
     <a class="cta secondary" href="#" aria-disabled="true">お問い合わせ</a>
   </div>
+  </section>
 
-  <div class="dev-note">
+  <div class="dev-note" id="dev-note">
     開発メモ: 本ページはget-result-page-http-entry-point-design.md(フェーズ112)・
     result-page-display-copy-draft.md(フェーズ113)の内容を静的HTMLへ反映した
-    非公開試作です。8状態すべての表示見本までは反映済みですが、実`/result/{draft_id}`
-    エンドポイントとの結合・JSによる状態切り替え(実際の画面では1状態のみ表示)は
-    未実装(次回候補)。実LLM呼び出し・実Firestore接続・外部公開は行っていません。
+    非公開試作です。8状態すべての表示見本を反映済みで、URLクエリ`?page_state=<値>`
+    指定時はその1状態のみを表示するJS切り替え(フェーズ116)も実装済みです。実
+    `/result/{draft_id}`エンドポイントとの結合・実LLM呼び出し・実Firestore接続・
+    外部公開はいずれも行っていません。
   </div>
 
 </div>
+<script>
+  // フェーズ116: get-result-page-http-entry-point-design.md(フェーズ112)の
+  // レスポンス形状 {"ok": true, "page_state": "...", "output": {...}} を
+  // 実エンドポイントからfetch()で受け取った場合、画面には該当する1状態のみを
+  // 表示する想定である。実結合前の先行検証として、URLクエリ?page_state=<値>で
+  // 同じ切り替えロジックを静的ページ内でシミュレーションする。
+  // 省略時は従来どおり8状態すべてを並べた見本一覧モードのままとする(デフォルト
+  // 挙動は変えない)。
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var requested = params.get("page_state");
+    if (!requested) {
+      return;
+    }
+    var sections = document.querySelectorAll(".state-sample");
+    var matched = false;
+    sections.forEach(function (section) {
+      if (section.getAttribute("data-page-state") === requested) {
+        matched = true;
+      } else {
+        section.style.display = "none";
+      }
+    });
+    var devNote = document.getElementById("dev-note");
+    if (devNote) {
+      devNote.style.display = "none";
+    }
+    if (matched) {
+      document.querySelectorAll(".state-sample-label").forEach(function (label) {
+        label.style.display = "none";
+      });
+    } else {
+      // design上は到達しない想定(未知のpage_state値)。result_page_entry.pyの
+      // 「想定外は安全側」方針を踏襲し、クラッシュさせず見本一覧のまま表示を保つ。
+      sections.forEach(function (section) {
+        section.style.display = "";
+      });
+    }
+  })();
+</script>
 </body>
 </html>
