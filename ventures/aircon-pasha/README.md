@@ -7190,3 +7190,34 @@
   次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件、および
   pending-approval.md記載のGCP/Firestore作成依頼・運営方針判断依頼)がオーナーから
   承認・回答された場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- フェーズ378(2026-11-13 01:00 UTC定例更新): 7venture中最も更新が止まっていたaircon-pasha
+  は残課題が承認待ちのみで前進不可の状況が続いていたが、line-reservation-aiフェーズ続き386
+  (2026-11-11 04:00 UTC)の次回候補(2)「他5ventureへのBilling Budget安全策設計の横展開」
+  に対応し、本venture向けのbilling-budget-cap-safeguard-design.mdを新規作成した。
+  line-reservation-aiはFirestore・LLM API原価がいずれも無料枠内(1店舗あたり最悪ケース
+  0.1〜2.6円)という前提で月間500円の予算額を設定していたが、本ventureはLLM API原価が
+  キャッシュなしで1回あたり約6.93円と無視できない規模(unit-economics-estimate.md、
+  繁忙期対応プランで契約業者1件あたり最大約1,732.5円/月)であり、line-reservation-aiの
+  固定500円をそのまま流用すると正常運用時の原価だけで誤って予算超過と判定されうることを
+  発見した。これを踏まえ、想定契約業者数(当面10業者と仮置き)×最悪ケース原価×安全
+  マージン3倍で算出する「約52,000円/月」の予算上限+Cloud Billing Budgets & alertsによる
+  閾値到達時の請求先アカウント自動デタッチ案を新規設計した(Cloud Functions実行課金自体は
+  フェーズ123で無料枠内に収まる見込みと確認済みのため、LLM API原価のみを可変要素として
+  扱った)。本ドキュメントは設計のみであり、実行(GCPプロジェクト作成・課金設定・Budget
+  作成)は一切行っていない。新規の承認依頼エントリは追加せず(承認を求めるアクションの
+  実体自体はpending-approval.md 2026-09-27 09:00 UTC・2026-09-27 10:00 UTC記載から変わらない
+  ため)、既存エントリの文面も履行記録としてそのまま保持した。INDEX.mdへのファイル追記を
+  行った。コード変更なし、回帰確認として`python3 -m unittest discover -s prototype -p
+  "test_*.py"`(803件、変更なし)・`python3 schema/validate_test_cases.py`(25件、変更なし)
+  を実行しいずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の4件、および
+  pending-approval.md記載のGCP/Firestore作成依頼・運営方針判断依頼)がオーナーから
+  承認・回答された場合はその着手を最優先、(2)想定契約業者数・安全マージンの前提見直しを
+  launch-readiness-checklist.mdへ反映、(3)他4venture(course-set-pasha・forklift-pasha・
+  kura-pasha・oshien-pasha)への同種設計の横展開、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 01:00 UTC(フェーズ378: 詳細は上記。line-reservation-aiのBilling
+  Budget安全策設計を本venture向けに横展開し、LLM API原価が無視できない規模である点を踏まえ
+  想定契約業者数ベースの予算上限〈約52,000円/月〉を新規設計。実行は一切行っていない。
+  コード変更なし、テスト803件・schema検証25件いずれも変更なしでパス)

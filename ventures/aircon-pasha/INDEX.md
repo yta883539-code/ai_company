@@ -12,6 +12,7 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 - support-cost-estimate.md / support-cost-selfservice-reduction.md
 - llm-api-cost-estimate.md / subscription-billing-cost-estimate.md
 - content-generation-time-estimate.md / line-price-revision-2026-check.md
+- billing-budget-cap-safeguard-design.md
 
 ## 顧客ヒアリング・LP・公開準備・法務
 - customer-interview-design.md / interview-candidate-selection-criteria.md
