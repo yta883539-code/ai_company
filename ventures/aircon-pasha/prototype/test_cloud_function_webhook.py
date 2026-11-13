@@ -46,10 +46,12 @@ from cloud_function_webhook import (  # noqa: E402
     InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
+    InMemoryTaskQueueClient,
     InMemoryUsageCounter,
     LlmApiError,
     QuickReplyButton,
     ReplyApiError,
+    TaskAlreadyExistsError,
     build_usage_notice,
     dispatch_webhook_events,
     format_checkout_reply_message,
@@ -58,6 +60,7 @@ from cloud_function_webhook import (  # noqa: E402
     format_trial_end_condition_a_notice,
     format_welcome_message,
     get_runtime_dependencies,
+    is_sync_faq_memo_event,
     main,
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     render_faq_guidance_message,
@@ -3217,6 +3220,185 @@ class ProcessMemoEventAsyncTest(unittest.TestCase):
         footer_buttons = sent_contents["footer"]["contents"]
         self.assertEqual(len(footer_buttons), len(PLAN_TO_STRIPE_PRICE_ID_PLACEHOLDER))
         self.assertEqual(footer_buttons[0]["action"]["type"], "postback")
+
+
+class IsSyncFaqMemoEventTest(unittest.TestCase):
+    """is_sync_faq_memo_event()(process-memo-event-async-split-design.md「残課題・
+    次回候補(2)」実装、フェーズ382)の検証。本関数は、design.mdが見落としていた
+    process_message_event()の連携判定(未連携ユーザーはLLM呼び出し不要)も同期継続対象に
+    含めるよう是正したもの。"""
+
+    def _linked_profile_store(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-linked",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        return profile_store
+
+    def test_non_text_message_is_sync(self):
+        event = {"source": {"userId": "u-linked"}, "message": {"type": "image"}}
+        self.assertTrue(is_sync_faq_memo_event(event, self._linked_profile_store()))
+
+    def test_unlinked_user_is_sync(self):
+        # 未連携ユーザーの送信は連携コード判定(process_message_event())のみで完結し
+        # LLM呼び出しを含まないため、enqueueの対象にしてはならない。
+        event = _make_event(user_id="u-not-linked", text="ABC123")
+        self.assertTrue(is_sync_faq_memo_event(event, InMemoryUserProfileStore()))
+
+    def test_missing_user_id_is_sync(self):
+        event = {"message": {"type": "text", "text": "FAQ"}}
+        self.assertTrue(is_sync_faq_memo_event(event, self._linked_profile_store()))
+
+    def test_linked_user_faq_menu_trigger_is_sync(self):
+        event = _make_event(user_id="u-linked", text="FAQ")
+        self.assertTrue(is_sync_faq_memo_event(event, self._linked_profile_store()))
+
+    def test_linked_user_faq_item_code_is_sync(self):
+        event = _make_event(user_id="u-linked", text="Q6")
+        self.assertTrue(is_sync_faq_memo_event(event, self._linked_profile_store()))
+
+    def test_linked_user_free_text_is_async(self):
+        event = _make_event(user_id="u-linked")
+        self.assertFalse(is_sync_faq_memo_event(event, self._linked_profile_store()))
+
+
+class DispatchWebhookEventsTaskQueueWiringTest(unittest.TestCase):
+    """dispatch_webhook_events()のtask_queue_client振り分け(process-memo-event-
+    async-split-design.md「残課題・次回候補(2)」実装、フェーズ382)の検証。"""
+
+    def _linked_profile_store(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-linked",
+            UserProfile(
+                business_name="テストクリーニング", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        return profile_store
+
+    def _dispatch(self, events, task_queue_client, profile_store=None, llm_call=None):
+        from datetime import datetime, timezone
+
+        return dispatch_webhook_events(
+            events,
+            reply_client=InMemoryReplyClient(),
+            llm_call=llm_call or _MustNotBeCalledLlmClient(),
+            profile_store=profile_store if profile_store is not None else self._linked_profile_store(),
+            linking_store=InMemoryLinkingCodeStore(),
+            now=datetime(2026, 8, 23, tzinfo=timezone.utc),
+            task_queue_client=task_queue_client,
+        )
+
+    def test_faq_event_is_handled_synchronously_not_enqueued(self):
+        task_queue_client = InMemoryTaskQueueClient()
+        events = [{
+            "type": "message", "replyToken": "rt-1", "webhookEventId": "ev-1",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "FAQ"},
+        }]
+
+        result = self._dispatch(events, task_queue_client)
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.message_results[0].reply_text, render_owner_faq_menu_message())
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+        self.assertEqual(task_queue_client.created, {})
+
+    def test_unlinked_user_event_is_handled_synchronously_not_enqueued(self):
+        # 本テストが、design.mdの見落とし(process_message_event()の連携判定を
+        # 考慮していなかった)を是正した根拠。誤ってenqueueされると連携コード解決自体が
+        # 行われなくなる。
+        task_queue_client = InMemoryTaskQueueClient()
+        events = [{
+            "type": "message", "replyToken": "rt-2", "webhookEventId": "ev-2",
+            "source": {"userId": "u-not-linked"},
+            "message": {"type": "text", "text": "ABC123"},
+        }]
+
+        result = self._dispatch(events, task_queue_client, profile_store=InMemoryUserProfileStore())
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertTrue(result.message_results[0].handled)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+        self.assertEqual(task_queue_client.created, {})
+
+    def test_linked_user_free_text_is_enqueued_not_processed_synchronously(self):
+        task_queue_client = InMemoryTaskQueueClient()
+        events = [{
+            "type": "message", "replyToken": "rt-3", "webhookEventId": "ev-3",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = self._dispatch(events, task_queue_client)
+
+        self.assertEqual(result.message_results, [])
+        self.assertEqual(result.enqueued_webhook_event_ids, ["ev-3"])
+        self.assertEqual(task_queue_client.created["aircon-pasha-event-ev-3"], events[0])
+
+    def test_missing_webhook_event_id_falls_back_to_sync(self):
+        task_queue_client = InMemoryTaskQueueClient()
+        events = [{
+            "type": "message", "replyToken": "rt-4",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = self._dispatch(events, task_queue_client, llm_call=FixtureLlmClient("G1_basic"))
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+
+    def test_task_already_exists_is_treated_as_already_enqueued(self):
+        task_queue_client = InMemoryTaskQueueClient()
+        task_queue_client.created["aircon-pasha-event-ev-5"] = {"already": "queued"}
+        events = [{
+            "type": "message", "replyToken": "rt-5", "webhookEventId": "ev-5",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = self._dispatch(events, task_queue_client)
+
+        self.assertEqual(result.message_results, [])
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
+
+    def test_enqueue_failure_falls_back_to_sync_and_is_recorded(self):
+        class _FailingTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise RuntimeError("quota exceeded")
+
+        events = [{
+            "type": "message", "replyToken": "rt-6", "webhookEventId": "ev-6",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = self._dispatch(events, _FailingTaskQueueClient(), llm_call=FixtureLlmClient("G1_basic"))
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.enqueue_fallback_webhook_event_ids, ["ev-6"])
+
+    def test_task_queue_client_none_keeps_legacy_fully_synchronous_behavior(self):
+        events = [{
+            "type": "message", "replyToken": "rt-7", "webhookEventId": "ev-7",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        result = self._dispatch(events, None, llm_call=FixtureLlmClient("G1_basic"))
+
+        self.assertEqual(len(result.message_results), 1)
+        self.assertEqual(result.enqueued_webhook_event_ids, [])
 
 
 if __name__ == "__main__":

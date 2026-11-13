@@ -7321,3 +7321,44 @@
   差分(push_clientがFlex Message専用)をFlex Message詰め替えで吸収した。
   dispatch_webhook_events()への結線は次回以降。新規テスト5件追加、全820件・
   schema検証25件いずれもパス)
+- フェーズ382(2026-11-13 16:00 UTC定例更新): 7venture中、実GCP/Firestore/Stripe承認待ち
+  以外に前進可能な次回候補を自身のREADMEに持っていた本ventureを選び、フェーズ381
+  「次回候補(1)」=process-memo-event-async-split-design.md「残課題・次回候補(2)」
+  (`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映)に着手した。
+  course-set-pashaフェーズ372の`is_sync_faq_memo_event()`・`TaskQueueClient`/
+  `InMemoryTaskQueueClient`/`make_memo_task_name()`(タスク名プレフィックス
+  `aircon-pasha-event-`)をそのまま翻案しようとしたところ、design.md「現状の分岐構造」
+  節が見落としていたギャップを発見した。`dispatch_webhook_events()`が実際に呼び出すのは
+  `process_memo_event()`ではなく`process_message_event()`(user-account-linking-design.md
+  3節)であり、同関数はまず送信元user_idが連携済みかを判定し、未連携の場合は連携コード
+  一致判定(LLM呼び出しを含まない)のみを行って終了する。course-set-pasha型の
+  `is_sync_faq_memo_event()`をそのまま使うと、未連携ユーザーの送信も「FAQ不一致の自由
+  入力」としてenqueueされてしまい、`process_memo_event_async()`は`event["source"]
+  ["userId"]`しか参照せず連携コード解決(linking_storeへの書き込みを伴う)を一切行えない
+  ため、連携フロー自体が機能しなくなる致命的な欠落だった。この欠落を是正し、
+  `is_sync_faq_memo_event(event, profile_store)`を「text以外」「未連携ユーザー」
+  「FAQ(「FAQ」/「Q1」〜「Q7」)一致」の3パターンをまとめて同期継続対象として返すよう
+  設計・実装した。`dispatch_webhook_events()`に`task_queue_client`引数を新設し、指定時は
+  上記3パターンのみ`process_message_event()`で同期処理(reply)、それ以外(連携済み
+  ユーザーの自由入力)は`task_queue_client.create_task()`でenqueueのみに留める
+  (`webhookEventId`欠落・非文字列、および`TaskAlreadyExistsError`以外の例外発生時は
+  enqueue-failure-partial-processing-safety-design.md準拠で同期処理へフォールバック)。
+  未指定(`None`)時は従来通り全件同期処理する後方互換を維持した。process-memo-event-
+  async-split-design.md「残課題・次回候補」に本フェーズの発見内容・是正内容を追記した。
+  新規テスト13件(`IsSyncFaqMemoEventTest`6件・`DispatchWebhookEventsTaskQueueWiringTest`
+  7件、うち未連携ユーザーがenqueueされないことを確認する回帰テストを含む)を追加し、
+  全833件・schema検証25件いずれもパス(回帰なし)。実GCP/Cloud Tasksへの接続・デプロイは
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成(オーナー
+  承認待ち)後の課題として残る、(2)event-komiguai-pasha・forklift-pasha・oshien-pashaの
+  3ventureへのべき等性対策・Function A/B分割の横展開検討、(3)2026-11-08 08:00 UTC記載の
+  運営方針判断(7venture共通、実GCP/Firestore/Stripeアカウント作成の承認可否)が5日間
+  未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
+  参照)ため、オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-13 16:00 UTC(フェーズ382: 詳細は上記。`dispatch_webhook_events()`へ
+  FAQ/非FAQ振り分け前処理を実コード反映する過程で、design.mdが見落としていた
+  `process_message_event()`の連携判定(未連携ユーザーはLLM呼び出し不要)を発見・是正し、
+  `is_sync_faq_memo_event()`・`TaskQueueClient`/`InMemoryTaskQueueClient`を新設した。
+  新規テスト13件追加、全833件・schema検証25件いずれもパス(回帰なし)。)

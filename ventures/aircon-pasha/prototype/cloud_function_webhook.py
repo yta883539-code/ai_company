@@ -1651,6 +1651,87 @@ class DispatchResult:
     postback_results: list = field(default_factory=list)
     ignored_types: list = field(default_factory=list)
     duplicate_webhook_event_ids: list = field(default_factory=list)
+    enqueued_webhook_event_ids: list = field(default_factory=list)
+    enqueue_fallback_webhook_event_ids: list = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events()のFAQ/非FAQ振り分け前処理
+# (process-memo-event-async-split-design.md「残課題・次回候補(2)」の実装、
+#  course-set-pashaフェーズ372相当の翻案)
+# ---------------------------------------------------------------------------
+
+class TaskAlreadyExistsError(Exception):
+    """同名タスクが既にキューに存在する場合に送出される(Cloud Tasks側の重複排除を模す)。
+    course-set-pasha/prototype/cloud_function_webhook.pyの同名クラスと同じ構造。"""
+
+
+class TaskQueueClient(Protocol):
+    def create_task(self, task_name: str, payload: dict) -> None:
+        """task_nameが既存であればTaskAlreadyExistsErrorを送出する想定。"""
+        ...
+
+
+class InMemoryTaskQueueClient:
+    """検証用のインメモリCloud Tasksクライアント(course-set-pasha/line-reservation-aiの
+    同名クラスと同じ構造、決定的タスク名による重複排除のみを模す)。"""
+
+    def __init__(self) -> None:
+        self.created: dict[str, dict] = {}
+
+    def create_task(self, task_name: str, payload: dict) -> None:
+        if task_name in self.created:
+            raise TaskAlreadyExistsError(task_name)
+        self.created[task_name] = payload
+
+
+def make_memo_task_name(webhook_event_id: str) -> str:
+    """webhookEventIdからCloud Tasksの決定的タスク名を導出する
+    (course-set-pashaフェーズ372の`make_memo_task_name()`と同じ検証方針を
+    タスク名プレフィックス`aircon-pasha-event-`で踏襲する)。"""
+    if not webhook_event_id:
+        raise ValueError("webhook_event_id must be a non-empty string")
+    task_name = f"aircon-pasha-event-{webhook_event_id}"
+    if len(task_name) > 500:
+        raise ValueError("task_name exceeds Cloud Tasks 500-character limit")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+    if not set(task_name) <= allowed:
+        raise ValueError(f"task_name contains characters unsupported by Cloud Tasks: {task_name!r}")
+    return task_name
+
+
+def is_sync_faq_memo_event(event: dict, profile_store: "UserProfileStoreProtocol") -> bool:
+    """このmessageイベントが、process_message_event()内でLLM呼び出しを伴わずに完結する
+    経路(同期reply継続が妥当な経路)に該当するかを判定する。
+
+    process-memo-event-async-split-design.md「現状の分岐構造」節はprocess_memo_event()
+    内部の経路1〜2のみを記述しており、dispatch_webhook_events()が実際に呼び出すのは
+    その手前に位置するprocess_message_event()(user-account-linking-design.md 3節)で
+    あることを見落としていた。process_message_event()はまず送信元user_idが連携済みかを
+    判定し、未連携の場合は連携コード一致判定(LLM呼び出しを含まない)のみを行って終了する。
+    本関数での判定を怠って未連携ユーザーのイベントを誤ってenqueueすると、
+    process_memo_event_async()は`event["source"]["userId"]`しか参照せず連携コード解決
+    (resolve_linking_code()、linking_storeへの書き込みを伴う)を一切行えないため、
+    連携フロー自体が機能しなくなる(本関数はこの振り分け前処理の実装〈残課題(2)〉に
+    着手する過程で新たに判明したギャップであり、design.mdの記述漏れとして本実装で
+    是正する)。
+
+    - message.type != "text" → True(process_message_event()が副作用なく素通りするだけの
+      パスのため、enqueueする意味がない)。
+    - user_idが未取得、または未連携(`profile_store.exists(user_id)`が偽)→ True
+      (連携コード判定経路、LLM呼び出しを含まない)。
+    - 連携済みで本文が「FAQ」または「Q1」〜「Q7」に一致する → True(経路1.5、owner_faq_
+      router.py準拠)。
+    - それ以外(連携済み・FAQ不一致の自由入力)→ False(経路1.6・2相当、非同期化の対象)。
+    """
+    message = event.get("message", {})
+    if message.get("type") != "text":
+        return True
+    user_id = event.get("source", {}).get("userId")
+    if not user_id or not profile_store.exists(user_id):
+        return True
+    text = message.get("text", "")
+    return is_owner_faq_menu_trigger(text) or match_owner_faq_item_code(text) is not None
 
 
 def dispatch_webhook_events(
@@ -1670,6 +1751,7 @@ def dispatch_webhook_events(
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
     webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
+    task_queue_client: Optional[TaskQueueClient] = None,
 ) -> DispatchResult:
     """署名検証済みのWebhookリクエストの`events`配列を、`event["type"]`ごとに
     `process_follow_event()`/`process_message_event()`/`process_unfollow_event()`/
@@ -1708,6 +1790,20 @@ def dispatch_webhook_events(
     素通りされた場合(= 当該リストのループ自体に到達しない場合)は記録しない(未処理のまま
     処理済み扱いになる事故を避け、依存が接続された際に改めて処理できるようにする安全側の
     判断)。
+
+    `task_queue_client`(省略時None、後方互換)はprocess-memo-event-async-split-design.md
+    「採用方式」準拠。指定時、messageイベントを`is_sync_faq_memo_event()`で「同期継続
+    (経路1.5のFAQ固定応答、または未連携ユーザーの連携コード判定)」と「非同期化対象
+    (経路1.6・2、連携済みユーザーの自由入力)」に振り分け、後者のみ`task_queue_client.
+    create_task()`でCloud Tasksへenqueueするのみに留め`process_message_event()`を呼び出さない
+    (enqueueしたwebhookEventIdは`result.enqueued_webhook_event_ids`に記録する)。
+    `webhookEventId`が欠落・非文字列でタスク名を導出できないイベントは、二重配信保護なしで
+    無応答のまま放置するより安全側として従来通り同期処理する。`task_queue_client.
+    create_task()`が`TaskAlreadyExistsError`以外の例外(クォータ超過・ネットワーク障害等の
+    一時的エラー)を送出した場合も同期処理へフォールバックし`result.enqueue_fallback_
+    webhook_event_ids`に記録する(enqueue-failure-partial-processing-safety-design.md、
+    course-set-pashaフェーズ373相当)。未指定(`None`)時は全messageイベントを従来通り
+    同期処理し、挙動を一切変えない。
     """
     result = DispatchResult()
 
@@ -1755,7 +1851,7 @@ def dispatch_webhook_events(
         and linking_store is not None
         and now is not None
     ):
-        for event in message_events:
+        def _process_message_sync(event: dict) -> None:
             result.message_results.append(
                 process_message_event(
                     event,
@@ -1772,7 +1868,40 @@ def dispatch_webhook_events(
                     escalation_push_client=escalation_push_client,
                 )
             )
-            _mark_processed(event)
+
+        if task_queue_client is None:
+            for event in message_events:
+                _process_message_sync(event)
+                _mark_processed(event)
+        else:
+            for event in message_events:
+                if is_sync_faq_memo_event(event, profile_store):
+                    _process_message_sync(event)
+                    _mark_processed(event)
+                    continue
+                webhook_event_id = event.get("webhookEventId")
+                if not isinstance(webhook_event_id, str) or not webhook_event_id:
+                    _process_message_sync(event)
+                    _mark_processed(event)
+                    continue
+                try:
+                    task_queue_client.create_task(
+                        make_memo_task_name(webhook_event_id), payload=event
+                    )
+                    result.enqueued_webhook_event_ids.append(webhook_event_id)
+                except TaskAlreadyExistsError:
+                    pass
+                except Exception:
+                    # enqueue-failure-partial-processing-safety-design.md準拠
+                    # (course-set-pashaフェーズ373相当)。Cloud Tasks側の一時的エラーを
+                    # そのまま伝播させると、本関数呼び出し元が例外送出となり、同一バッチ内で
+                    # 既にreply送信済みの先行イベント(FAQ・未連携案内)が_mark_processed()
+                    # 未到達のままLINE側のWebhook再送対象になりうる。replyTokenはこの時点で
+                    # まだ有効な想定のため、enqueue失敗イベントは安全側としてその場で
+                    # 同期処理にフォールバックする。
+                    result.enqueue_fallback_webhook_event_ids.append(webhook_event_id)
+                    _process_message_sync(event)
+                _mark_processed(event)
 
     unfollow_events = [e for e in effective_events if e.get("type") == "unfollow"]
     for event in unfollow_events:

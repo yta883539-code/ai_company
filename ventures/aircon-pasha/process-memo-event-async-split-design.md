@@ -97,13 +97,20 @@ LINE Platform
 
 ## 残課題・次回候補
 
-- (1) Function Bの実装(`process_memo_event_async()`・`PushBackedReplyClient`、
+- ~~(1) Function Bの実装(`process_memo_event_async()`・`PushBackedReplyClient`、
   course-set-pashaフェーズ371相当の翻案、`prototype/cloud_function_webhook.py`)。
   InMemoryスタブでの机上検証が可能なため、実GCPプロジェクト作成の承認を待たずに
-  着手できる。
-- (2) `dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映
+  着手できる。~~
+  (解消済み 2026-11-13フェーズ381: README.md参照。)
+- ~~(2) `dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映
   (`is_sync_faq_memo_event()`・`TaskQueueClient`/`InMemoryTaskQueueClient`の新設、
-  course-set-pashaフェーズ372相当の翻案)。
+  course-set-pashaフェーズ372相当の翻案)。~~
+  (解消済み 2026-11-13フェーズ382: 実装の過程で、本書「現状の分岐構造」節が
+  `process_memo_event()`内部の経路1〜2のみを記述し、その手前の`process_message_event()`
+  の連携判定(未連携ユーザーはLLM呼び出し不要)を見落としていたことが判明。
+  `is_sync_faq_memo_event()`は「text以外」「未連携ユーザー」「FAQ一致」の3パターンを
+  まとめて同期継続対象とするよう設計・実装し、このギャップを是正した。詳細は
+  README.mdフェーズ382参照。)
 - (3) Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成
   (オーナー承認待ち、pending-approval.md参照)後の課題として残る。
 - (4) event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだ本横展開の
