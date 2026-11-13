@@ -2723,3 +2723,19 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   着手不可、(4)他venture・アイデア領域の前進。
 - 最終更新: 2026-11-13 19:00 UTC(フェーズ118: 詳細は上記。launch-readiness-checklist.mdを
   新規作成。コード変更なし)
+- フェーズ119(2026-11-13 21:00 UTC): line-reservation-ai・kura-pasha・aircon-pashaの3venture
+  が先行して作成していた「実GCPプロジェクト作成の承認ハードルを下げるためのBilling Budget
+  安全策(月間500円上限+閾値到達時の請求先アカウント自動デタッチ)」設計を、未着手だった
+  本ventureにも横展開し、billing-budget-cap-safeguard-designを新規作成した。本venture固有の
+  B2C・都度利用(当落発表後の短期間に利用が集中)という利用パターンの違いを踏まえ、500円の
+  閾値がピーク集中に対して十分かは未検証である旨を明記した。実行(GCPプロジェクト作成・
+  課金設定)は一切行っていない。実コード変更は無いため既存テストへの影響はなし。承認が
+  必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの新規追記は行わず、既存の2026-11-08 08:00 UTC記載エントリに
+  経過日数の更新のみ追記した。
+  次回候補: (1)本venture向け原価試算文書(unit-economics-estimate.md相当)の新規作成、
+  (2)残る2venture(course-set-pasha・forklift-pasha・event-komiguai-pasha)への同安全策の
+  横展開、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち
+  (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-13 21:00 UTC(フェーズ119: 詳細は上記。billing-budget-cap-safeguard-
+  design.mdを新規作成。コード変更なし)
