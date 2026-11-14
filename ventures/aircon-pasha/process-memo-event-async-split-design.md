@@ -113,6 +113,18 @@ LINE Platform
   README.mdフェーズ382参照。)
 - (3) Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成
   (オーナー承認待ち、pending-approval.md参照)後の課題として残る。
-- (4) event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだ本横展開の
+- ~~(4) event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだ本横展開の
   検討対象になっていないため、べき等性対策の横展開(aircon-pashaフェーズ379
-  「次回候補(3)」)と合わせて、それぞれが選ばれた回での検討対象とする。
+  「次回候補(3)」)と合わせて、それぞれが選ばれた回での検討対象とする。~~
+  (対象外と確定 2026-11-14フェーズ383: 3venture各々のtech-stack.md(event-komiguai-pasha
+  14〜20行目・forklift-pasha16〜30行目・oshien-pasha5〜7行目)を確認した結果、3venture
+  いずれも入力チャネルがLINE非依存の汎用Webフォームであり、本書が対象とする
+  `process_message_event()`/`process_memo_event()`のようなLINE Messaging API経由の
+  自由入力メッセージ受信・FAQ/非FAQ振り分けという処理自体が存在しない(各venture
+  prototype/配下にLINE Webhook関連ファイルがなく、`stripe_webhook.py`のみ)ことを確認
+  した。したがって本横展開(FAQ/非FAQ振り分け・Function A/B分割)は3venture全てに
+  ついて適用対象が存在せず、今回「検討対象として残す」ではなく対象外と確定する。
+  なお、Stripe Webhookイベント単位のべき等性対策(aircon-pashaフェーズ379「次回候補(3)」
+  = stripe-event-idempotency-design.md相当)は別軸の話であり、本書の対象外判断は
+  そちらには影響しない(forklift-pashaフェーズ222で3venture個別に検討済み、既存の
+  判断を参照)。)

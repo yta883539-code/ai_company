@@ -7357,8 +7357,25 @@
   未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
   参照)ため、オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-11-13 16:00 UTC(フェーズ382: 詳細は上記。`dispatch_webhook_events()`へ
-  FAQ/非FAQ振り分け前処理を実コード反映する過程で、design.mdが見落としていた
-  `process_message_event()`の連携判定(未連携ユーザーはLLM呼び出し不要)を発見・是正し、
-  `is_sync_faq_memo_event()`・`TaskQueueClient`/`InMemoryTaskQueueClient`を新設した。
-  新規テスト13件追加、全833件・schema検証25件いずれもパス(回帰なし)。)
+- フェーズ383(2026-11-14 03:00 UTC定例更新): フェーズ382「次回候補(2)」(event-komiguai-
+  pasha・forklift-pasha・oshien-pashaの3ventureへのFAQ/非FAQ振り分け・Function A/B分割
+  横展開検討)を実際に着手するため3venture各々のtech-stack.mdを確認した結果、3venture
+  いずれも入力チャネルがLINE非依存の汎用Webフォームであり(event-komiguai-pasha14〜20
+  行目・forklift-pasha16〜30行目・oshien-pasha5〜7行目)、本横展開の前提である
+  `process_message_event()`/`process_memo_event()`相当のLINE Messaging API経由の
+  自由入力メッセージ受信・FAQ振り分け処理自体が3venture中どこにも存在しない(各venture
+  prototype/配下にLINE Webhook関連ファイルがなく`stripe_webhook.py`のみ)ことを確認した。
+  次回候補(2)は適用対象が存在しない誤った前提に基づく項目だったため、process-memo-event-
+  async-split-design.md「残課題・次回候補」(4)を「対象外確定」に是正した。コード変更
+  なし、既存テスト833件・schema検証25件いずれも変更なしでパス(回帰なし)。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成(オーナー
+  承認待ち)後の課題として残る、(2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き
+  未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
+  参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-14 03:00 UTC(フェーズ383: 詳細は上記。event-komiguai-pasha・
+  forklift-pasha・oshien-pashaへのFAQ/非FAQ振り分け横展開〈フェーズ382次回候補(2)〉が、
+  3venture全てLINE非依存のWebフォームで対象処理自体が存在しないという誤った前提に
+  基づく項目だったことを発見し、process-memo-event-async-split-design.mdの記載を
+  「対象外確定」に是正した。コード変更なし、回帰なし。)
