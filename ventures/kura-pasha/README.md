@@ -7075,3 +7075,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   いずれも実GCPプロジェクト作成の承認待ち)、(3)Billing Budget安全策設計の横展開は
   forklift-pashaフェーズ234(2026-11-13 23:00 UTC)完了をもって当初対象7venture全てで
   完了済みのため、本件は次回候補から除外する、(4)他venture・アイデア領域の前進。
+
+- フェーズ続き303(2026-11-14 02:00 UTC定例更新): webhook-async-two-function-design.md
+  「残課題・次回候補(3)」(aircon-pashaへの横展開要否の個別確認)に対応した。
+  aircon-pasha側を確認したところ、本venture・course-set-pashaとの横展開を待たず
+  process-memo-event-async-split-design.mdフェーズ380〜382で既に独自に同種の
+  Function A/B分割(`process_memo_event_async()`・`PushBackedReplyClient`・
+  `is_sync_faq_memo_event()`によるFAQ/非FAQ振り分け)を完了済みであることが判明した。
+  本項目が懸念していた「aircon-pashaはpostbackアクション中心でFAQキーワード一致方式を
+  採用していない可能性がある」という前提は実際には当たらず、aircon-pashaも本venture・
+  course-set-pashaと同様にFAQキーワード一致(「FAQ」/「Q1」〜「Q7」)による同期/非同期
+  振り分けを採用していたことを確認した(follow/unfollow/postback自体はLLM呼び出しを
+  含まないためいずれのventureでも非対象という整理も共通)。これにより本venture設計の
+  aircon-pashaへの個別横展開作業は不要と判明したため、design文書の該当項目を解消済みと
+  して是正した(他venture側の既存設計が独立に先行完了していたことを発見・記録する、
+  event-komiguai-pashaフェーズ117等と同種の棚卸し)。コード変更なし、回帰確認として
+  `python3 -m unittest discover -s prototype -p "test_*.py"`(313件、変更なし)・
+  `python3 schema/validate_test_cases.py`(32件、変更なし)を実行しいずれも変更なしで
+  パスすることを確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、Billing
+  Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を最優先、
+  (2)webhook-async-two-function-design.md「残課題・次回候補(4)」(Cloud Tasksキュー・
+  Function Bの実デプロイ、`mark_processed()`のFunction B成功後呼び出しの実結線。
+  実GCPプロジェクト作成の承認待ち)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-14 02:00 UTC(フェーズ続き303: 詳細は上記。webhook-async-two-
+  function-design.md「残課題・次回候補(3)」が、aircon-pasha側で独立に先行完了済み
+  だった陳腐化記載であることを発見・是正。コード変更なし、テスト313件・schema検証
+  32件いずれも変更なしでパス)

@@ -177,11 +177,22 @@ trial_end_notified_at書き込みを含む)自体は「Function B内で1回だ�
   呼び出し自体は次回候補(4)の実デプロイ時まで未着手のまま残る)。新規テスト17件追加、
   全405件・schema検証32件いずれもパス(回帰なし)。実GCP/Cloud Tasksへの接続・デプロイは
   行っていない。
-- (3) aircon-pashaの同種部分への横展開は、course-set-pasha・kura-pasha・
+- ~~(3) aircon-pashaの同種部分への横展開は、course-set-pasha・kura-pasha・
   line-reservation-aiの状況を踏まえて別途検討する(aircon-pashaはpostbackアクション
   中心でFAQキーワード一致方式を採用していない可能性があるため、横展開前に
   aircon-pasha側の経路構造を個別確認する必要がある、webhook-sync-reply-timeout-
-  root-cause-review.md 4節の既存注記を維持)。
+  root-cause-review.md 4節の既存注記を維持)。~~
+  (解消済み 2026-11-14フェーズ続き303: aircon-pasha側が本横展開を待たず、
+  process-memo-event-async-split-design.mdフェーズ380〜382で独自に同種の
+  Function A/B分割(`process_memo_event_async()`・`PushBackedReplyClient`・
+  `is_sync_faq_memo_event()`によるFAQ/非FAQ振り分け)を完了済みであることを確認した。
+  本注記が懸念していた「postbackアクション中心でFAQキーワード一致方式を採用していない
+  可能性」は実際には当たらず、aircon-pashaも本venture・course-set-pashaと同様に
+  FAQキーワード一致(「FAQ」/「Q1」〜「Q7」)による同期/非同期振り分けを採用していた
+  (followイベント等の非text系・postback自体はLLM呼び出しを含まないため、いずれの
+  ventureでも横展開対象外という整理は共通)。したがって本venture設計のaircon-pashaへの
+  個別横展開は不要であり、本項目は次回候補から除外する。詳細はaircon-pasha/README.md
+  フェーズ381・382参照。)
 - (4) Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成
   (オーナー承認待ち、pending-approval.md参照)後の課題として残る。Cloud Tasks
   自体はスタブ(InMemoryキュー相当)で机上検証可能なため、(1)(2)の設計確定後は
