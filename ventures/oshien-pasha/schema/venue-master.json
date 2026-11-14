@@ -493,6 +493,32 @@
       "naming_rights_review_due": "2029-03-31",
       "verification_note": "フェーズ71: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。山梨県公式情報により、ネーミングライツスポンサーは株式会社ワイ・シー・シー(甲府市)、契約額1,000万円、使用期間2024-04-01から5年間(2029-03-31満了)であることを確認し、naming_rights_review_dueに設定した。旧称「コラニー文化ホール」からの改称履歴はaliasesで把握。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "グランシップ(静岡県コンベンションアーツセンター)",
+      "aliases": [],
+      "region": "中部圏",
+      "nearest_station": "JR東静岡駅 南口",
+      "walk_minutes_note": "徒歩3分前後(南口に隣接、情報源はイベント案内サイト)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-14",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ120: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。「グランシップ」は静岡県が設置した文化施設の愛称であり企業の命名権ではないためnaming_rights=falseとした。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "ホクト文化ホール(長野県民文化会館、大ホール・中ホール)",
+      "aliases": [
+        "長野県民文化会館"
+      ],
+      "region": "中部圏",
+      "nearest_station": "JR長野駅 東口",
+      "walk_minutes_note": "徒歩10分前後(情報源により10分/13分の差あり、バス利用の場合は「中御所」または「文化会館入口」下車徒歩5分)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-14",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ120: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。正式名称は長野県民文化会館、ネーミングライツにより「ホクト文化ホール」の愛称が付与されているが、契約満了日はWebSearchで確認できなかったためnullのまま維持する(推測日付を記入しない既存ルールを踏襲)。「長野市芸術館」という類似名称の別施設が存在する可能性があるため取り違え注意(本フェーズでは別施設と確認できる記載は見つからず、長野市芸術館の実在・詳細は未確認のまま次回候補とする)。",
+      "operational_status": "active"
     }
   ]
 }
