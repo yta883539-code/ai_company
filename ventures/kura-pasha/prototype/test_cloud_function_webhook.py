@@ -39,6 +39,7 @@ from cloud_function_webhook import (
     LlmApiError,
     QuickReplyButton,
     ReplyApiError,
+    deliver_enqueued_kura_message_task,
     dispatch_webhook_events,
     is_sync_kura_message_event,
     make_kura_message_task_name,
@@ -3226,6 +3227,110 @@ def test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_with
     check("enqueue_fallback_webhook_event_idsに記録される", result.enqueue_fallback_webhook_event_ids == ["wh-evt-flaky"])
 
 
+# ---------------------------------------------------------------------------
+# deliver_enqueued_kura_message_task()
+# (webhook-async-two-function-design.md「残課題・次回候補(4)」が「Cloud Tasks自体は
+#  スタブ(InMemoryキュー相当)で机上検証可能」と見込んでいた部分、Function A(enqueue)→
+#  Function B(process_message_event_async())への配信を実GCP接続なしに机上検証する)
+# ---------------------------------------------------------------------------
+
+def test_deliver_enqueued_kura_message_task_end_to_end_from_queue_payload():
+    # Function Aがenqueueしたpayload(queue.created[task_name])をそのままFunction Bの
+    # 入力として配信できること(Function A/B間のpayload形状の整合性)を確認する。
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_LINKED2", "W_LINKED2")
+    workshops.set_plan("W_LINKED2", "standard")
+    workshops.set_members("W_LINKED2", "U_LINKED2", ["U_LINKED2"])
+    workshops.set_subscription_status("W_LINKED2", "active")
+    workshops.set_trial_generation_used("W_LINKED2", True)
+    linking_store = InMemoryLinkingCodeStore()
+    queue = InMemoryTaskQueueClient()
+    webhook_event_id_store = InMemoryLineWebhookEventIdStore()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_LINKED2")
+    event["webhookEventId"] = "wh-evt-deliver-e2e"
+
+    dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=linking_store, task_queue_client=queue,
+        webhook_event_id_store=webhook_event_id_store,
+    )
+    check("Function Aでenqueueされている", "kura-pasha-event-wh-evt-deliver-e2e" in queue.created)
+    delivered_payload = queue.created["kura-pasha-event-wh-evt-deliver-e2e"]
+
+    push_client = InMemoryLinePushClient()
+    result = deliver_enqueued_kura_message_task(
+        delivered_payload,
+        _StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+        webhook_event_id_store=webhook_event_id_store,
+    )
+    check("Function B配信経由で生成・push送信される", result.reply_sent is True)
+    check("push送信先はenqueueされたevent.source.userId", push_client.sent[0][0] == "U_LINKED2")
+    check(
+        "Function B呼び出し成功後にmark_processedが呼ばれる",
+        webhook_event_id_store.has_processed("wh-evt-deliver-e2e") is True,
+    )
+
+
+def test_deliver_enqueued_kura_message_task_without_event_id_store_skips_marking():
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh-evt-deliver-no-store"
+    push_client = InMemoryLinePushClient()
+
+    result = deliver_enqueued_kura_message_task(
+        event, _StubLlmCall([TEST_CASES["G1_new_basic"]]), push_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        linking_store=linking_store,
+    )
+    check("webhook_event_id_store未指定でも配信自体は成功する(後方互換)", result.reply_sent is True)
+
+
+class _FailingWorkshopStore:
+    """select_message_context()等の内部処理がworkshop_storeの何らかのメソッドへ到達すると
+    常に例外を送出する検証用スタブ(Firestoreアダプタ側の未捕捉の接続障害を模す。
+    LlmApiError・TrialPeriodOverError・PaymentSuspendedErrorのような既知の業務エラーとは
+    異なり、process_memo_event()・select_message_context()はこの種の例外を捕捉せず
+    そのまま呼び出し元へ伝播させる設計であることを確認する)。"""
+
+    def __getattr__(self, name):
+        raise ConnectionError("simulated Firestore outage")
+
+
+def test_deliver_enqueued_kura_message_task_does_not_mark_processed_on_failure():
+    # Function B呼び出し自体が未捕捉の例外(Firestoreアダプタの接続障害等)で失敗した場合、
+    # mark_processed()は呼ばれず、例外はそのまま再送出される(Cloud Tasks側の自動リトライに
+    # 委ねる設計、design「べき等性の再配置」節参照)。LLM API呼び出し自体の失敗
+    # (LlmApiError)はprocess_memo_event()内で捕捉されフォールバック応答に変換されるため
+    # (api_failure=True、例外は伝播しない)、本テストでは業務ロジックが捕捉しない種類の
+    # 失敗(ストアアダプタの未捕捉例外)を用いる。
+    event, profiles, workshops, counters, linking_store = _linked_contractor_event("新規、ブリティッシュ、牛革")
+    event["webhookEventId"] = "wh-evt-deliver-fail"
+    webhook_event_id_store = InMemoryLineWebhookEventIdStore()
+    push_client = InMemoryLinePushClient()
+
+    raised = False
+    try:
+        deliver_enqueued_kura_message_task(
+            event, _StubLlmCall([TEST_CASES["G1_new_basic"]]), push_client,
+            user_profile_store=profiles, workshop_store=_FailingWorkshopStore(), usage_counter_store=counters,
+            linking_store=linking_store,
+            webhook_event_id_store=webhook_event_id_store,
+        )
+    except ConnectionError:
+        raised = True
+    check("Function B呼び出し失敗時は例外が再送出される", raised is True)
+    check(
+        "呼び出し失敗時はmark_processedが呼ばれず未処理のまま残る(リトライ可能)",
+        webhook_event_id_store.has_processed("wh-evt-deliver-fail") is False,
+    )
+    check("失敗時はpushも送信されない", push_client.sent == [])
+
+
 def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch():
     store = InMemoryLineWebhookEventIdStore()
     store.mark_processed("wh_evt_receive")
@@ -3574,6 +3679,9 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_missing_webhook_event_id_falls_back_to_sync()
     test_dispatch_webhook_events_without_task_queue_client_processes_synchronously()
     test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_without_raising()
+    test_deliver_enqueued_kura_message_task_end_to_end_from_queue_payload()
+    test_deliver_enqueued_kura_message_task_without_event_id_store_skips_marking()
+    test_deliver_enqueued_kura_message_task_does_not_mark_processed_on_failure()
     test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch()
     test_line_webhook_event_id_store_has_processed_true_within_ttl()
     test_line_webhook_event_id_store_has_processed_false_after_ttl_expired()

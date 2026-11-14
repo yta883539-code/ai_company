@@ -2356,6 +2356,61 @@ def dispatch_webhook_events(
     return result
 
 
+def deliver_enqueued_kura_message_task(
+    payload: dict,
+    llm_call: LlmCallClient,
+    push_client: LinePushClient,
+    *,
+    portal_link_provider: Optional[PortalLinkProvider] = None,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
+    workshop_store: Optional[WorkshopStoreProtocol] = None,
+    usage_counter_store: Optional[UsageCounterStoreProtocol] = None,
+    linking_store: Optional[LinkingCodeStoreProtocol] = None,
+    invite_store: Optional[LinkingCodeStoreProtocol] = None,
+    checkout_session_client: Optional["CheckoutSessionClient"] = None,
+    chatbot_intent_classifier: Optional[ChatbotIntentClassificationClient] = None,
+    escalation_push_client: Optional[LinePushClient] = None,
+    rng: Optional[RandomChoiceSource] = None,
+    now: Optional[datetime] = None,
+    webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
+) -> MemoProcessResult:
+    """Cloud TasksがFunction B(`process_message_event_async()`)をHTTPターゲットとして
+    起動する経路の机上検証用シム(webhook-async-two-function-design.md「残課題・次回候補(4)」
+    が「Cloud Tasks自体はスタブ(InMemoryキュー相当)で机上検証可能」と見込んでいた部分の実装)。
+
+    実デプロイ時はCloud Tasksが`InMemoryTaskQueueClient.create_task()`で記録された
+    `payload`(Function Aがenqueueした生のLINE event dict)をそのままHTTP POSTボディとして
+    Function Bへ配信する形に置き換わる。本関数はそのHTTP層を介さず、`created[task_name]`の
+    `payload`を直接`process_message_event_async()`へ渡すことで同じ処理経路を検証する。
+
+    べき等性記録のタイミング(design「べき等性の再配置」節)はFunction Bの呼び出しが成功した
+    後に`mark_processed()`を呼ぶ設計のため、`process_message_event_async()`が例外を送出した
+    場合は`mark_processed()`を呼ばずに例外を再送出する。これによりCloud Tasks側の自動リトライが
+    同じ`task_name`(webhookEventIdから導出済み、重複排除済み)で再配信した際も、
+    `webhook_event_id_store`は未処理のまま残り、再試行が正しく失敗イベントを再処理できる。
+    """
+    result = process_message_event_async(
+        payload,
+        llm_call,
+        push_client,
+        portal_link_provider=portal_link_provider,
+        user_profile_store=user_profile_store,
+        workshop_store=workshop_store,
+        usage_counter_store=usage_counter_store,
+        linking_store=linking_store,
+        invite_store=invite_store,
+        checkout_session_client=checkout_session_client,
+        chatbot_intent_classifier=chatbot_intent_classifier,
+        escalation_push_client=escalation_push_client,
+        rng=rng,
+        now=now,
+    )
+    webhook_event_id = payload.get("webhookEventId")
+    if webhook_event_id_store is not None and isinstance(webhook_event_id, str):
+        webhook_event_id_store.mark_processed(webhook_event_id)
+    return result
+
+
 @dataclass
 class WebhookReceiverResult:
     """receive_webhook()の結果。"""

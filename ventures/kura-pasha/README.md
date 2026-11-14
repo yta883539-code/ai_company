@@ -7099,7 +7099,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   (2)webhook-async-two-function-design.md「残課題・次回候補(4)」(Cloud Tasksキュー・
   Function Bの実デプロイ、`mark_processed()`のFunction B成功後呼び出しの実結線。
   実GCPプロジェクト作成の承認待ち)、(3)他venture・アイデア領域の前進。
-- 最終更新: 2026-11-14 02:00 UTC(フェーズ続き303: 詳細は上記。webhook-async-two-
-  function-design.md「残課題・次回候補(3)」が、aircon-pasha側で独立に先行完了済み
-  だった陳腐化記載であることを発見・是正。コード変更なし、テスト313件・schema検証
-  32件いずれも変更なしでパス)
+- フェーズ続き304(2026-11-14 12:00 UTC定例更新): webhook-async-two-function-design.md
+  「残課題・次回候補(4)」(Cloud Tasksキュー・Function Bの実デプロイ)のうち、見込んで
+  いた「Cloud Tasks自体はスタブ(InMemoryキュー相当)で机上検証可能」な部分に着手した。
+  `prototype/cloud_function_webhook.py`へ`deliver_enqueued_kura_message_task()`を
+  新規実装し、`InMemoryTaskQueueClient.create_task()`に記録されたpayload(Function A
+  〈`dispatch_webhook_events()`〉がenqueueした生のLINE event dict)をそのまま
+  `process_message_event_async()`(Function B本体)へ配信し、呼び出しが例外を送出せず
+  終えた場合のみ`webhook_event_id_store.mark_processed()`を呼ぶ経路を実装した
+  (design「べき等性の再配置」節のタイミングをコードへ反映)。LLM API呼び出し自体の
+  失敗(LlmApiError)は`process_memo_event()`内で既に捕捉されフォールバック応答
+  (`api_failure=True`)に変換されるため例外は伝播しないことを確認した上で、ストア
+  アダプタ側の未捕捉例外(Firestore接続障害等を模した`_FailingWorkshopStore`スタブ)は
+  そのまま再送出され`mark_processed()`が呼ばれないこと(Cloud Tasks側の自動リトライに
+  委ねられる設計であること)をテストで確認した。新規テスト3件(check()呼び出し8件)
+  追加、test_cloud_function_webhook.py単体413件(旧405件)・run_all_tests.py全25
+  ファイルパス・schema検証32件いずれも変更なしでパス(回帰なし)。実GCPプロジェクト・
+  Cloud Tasksへの接続・デプロイは行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、Billing
+  Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を最優先、
+  (2)残るのは実Cloud Tasksキュー作成・Function BのHTTPエンドポイントとしてのデプロイ・
+  IAM結線のみであり、これは実GCPプロジェクト作成の承認後に着手する、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-14 12:00 UTC(フェーズ続き304: 詳細は上記。
+  `deliver_enqueued_kura_message_task()`を新規実装し、webhook-async-two-function-
+  design.md「残課題・次回候補(4)」のうち机上検証可能な部分に着手。新規テスト3件
+  〈check()呼び出し8件〉追加、test_cloud_function_webhook.py単体413件・run_all_tests.py
+  全25ファイル・schema検証32件いずれもパス、回帰なし)

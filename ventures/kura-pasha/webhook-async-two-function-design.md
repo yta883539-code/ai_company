@@ -193,14 +193,33 @@ trial_end_notified_at書き込みを含む)自体は「Function B内で1回だ�
   ventureでも横展開対象外という整理は共通)。したがって本venture設計のaircon-pashaへの
   個別横展開は不要であり、本項目は次回候補から除外する。詳細はaircon-pasha/README.md
   フェーズ381・382参照。)
-- (4) Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成
-  (オーナー承認待ち、pending-approval.md参照)後の課題として残る。Cloud Tasks
-  自体はスタブ(InMemoryキュー相当)で机上検証可能なため、(1)(2)の設計確定後は
-  実GCPプロジェクト作成の承認を待たずに着手できる見込み(line_webhook_event_id_store
-  同様、Protocol越しの差し替え設計とすることで検証を先行させる、webhook-sync-reply-
-  timeout-root-cause-review.md 4節の既存見込みを維持)。
+- (4) 【フェーズ続き304で机上検証部分に着手】Cloud Tasksキュー・Function Bの実デプロイ
+  (HTTPターゲットとしての実起動・IAM結線)自体は実GCPプロジェクト作成(オーナー承認待ち、
+  pending-approval.md参照)後の課題として残るが、見込んでいた「Cloud Tasks自体はスタブ
+  (InMemoryキュー相当)で机上検証可能」な部分は、`prototype/cloud_function_webhook.py`に
+  `deliver_enqueued_kura_message_task()`として実装済み。`InMemoryTaskQueueClient.
+  create_task()`で記録されたpayload(Function Aがenqueueした生のLINE event dict)を
+  そのまま`process_message_event_async()`(Function B本体)へ渡し、呼び出しが例外を
+  送出せず終えた場合のみ`mark_processed()`を呼ぶ(design「べき等性の再配置」節の
+  タイミングをコードへ反映)。LLM API呼び出し自体の失敗(LlmApiError)は
+  `process_memo_event()`内で既に捕捉されフォールバック応答(`api_failure=True`)に
+  変換されるため例外は伝播しないが、ストアアダプタ側の未捕捉例外(Firestore接続障害等)は
+  そのまま再送出され、その場合は`mark_processed()`を呼ばずに終える(Cloud Tasks側の
+  タスク名重複排除による自動リトライに委ねられる設計であることをテストで確認)。
+  残るのは実Cloud Tasksキュー作成・Function BのHTTPエンドポイントとしてのデプロイ・
+  IAM結線のみであり、これらは実GCPプロジェクト作成の承認後に着手する。
 
-最終更新: 2026-11-13 23:58 UTC(フェーズ続き302: 残課題(2)を実装。詳細は上記
+最終更新: 2026-11-14 12:00 UTC(フェーズ続き304: 残課題(4)のうち机上検証可能な部分
+〈Function Aがenqueueしたpayloadを実際にFunction B本体へ配信し、呼び出し成功後に
+mark_processed()を呼ぶ経路〉を`deliver_enqueued_kura_message_task()`として実装。
+詳細は上記「残課題・次回候補」節(4)を参照。新規テスト3件(check()呼び出し8件)追加、
+test_cloud_function_webhook.py単体413件(旧405件)・run_all_tests.py全25ファイルパス・
+schema検証32件いずれも変更なしでパス(回帰なし)。実GCPプロジェクト・Cloud Tasksへの
+接続・デプロイは行っていない)
+
+---
+
+2026-11-13 23:58 UTC(フェーズ続き302: 残課題(2)を実装。詳細は上記
 「残課題・次回候補」節(2)を参照。`dispatch_webhook_events()`が`task_queue_client`
 指定時に`is_sync_kura_message_event()`で同期/非同期を振り分けるようになった。新規テスト
 17件追加、全405件・schema検証32件いずれもパス(回帰なし)。実GCP/Cloud Tasksへの接続・
