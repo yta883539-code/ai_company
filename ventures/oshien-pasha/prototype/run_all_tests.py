@@ -11,6 +11,11 @@ cross-venture-discover-compatibility-review.md作成時点〈フェーズ89〉�
 未作成だったため横展開対象から漏れていた。フェーズ103で発見)。本スクリプトは各test_*.pyを
 `python3 <file>`として個別実行し、終了コードで合否判定することで、discover非互換を回避しつつ
 全ファイルを一括実行できるようにする。
+
+venue-master-draft.mdフェーズ72次回候補(1)に対応し、schema/check_venue_master_parity.py
+(draft.md⇔venue-master.jsonの会場名parity差分チェック)もこの一括実行に含める(フェーズ119)。
+test_*.pyと異なりunittestパターンではないため、他のテストファイルと同様に個別プロセスで
+実行し終了コードのみで合否判定する。
 """
 
 import subprocess
@@ -18,22 +23,27 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
+VENTURE_DIR = HERE.parent
+PARITY_CHECK = VENTURE_DIR / "schema" / "check_venue_master_parity.py"
 
 
 def main() -> int:
     test_files = sorted(HERE.glob("test_*.py"))
+    checks = [(f, f.name) for f in test_files]
+    checks.append((PARITY_CHECK, "schema/check_venue_master_parity.py"))
+
     results = []
-    for test_file in test_files:
+    for check_file, label in checks:
         proc = subprocess.run(
-            [sys.executable, str(test_file)],
-            cwd=HERE,
+            [sys.executable, str(check_file)],
+            cwd=VENTURE_DIR,
             capture_output=True,
             text=True,
         )
         ok = proc.returncode == 0
-        results.append((test_file.name, ok, proc))
+        results.append((label, ok, proc))
         status = "OK" if ok else "FAIL"
-        print(f"[{status}] {test_file.name}")
+        print(f"[{status}] {label}")
         if not ok:
             print(proc.stdout)
             print(proc.stderr, file=sys.stderr)

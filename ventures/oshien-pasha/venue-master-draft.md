@@ -168,3 +168,16 @@ pending-approval.mdへの追記なし。
 組み込み、将来のdraft.md/venue-master.json追記時に自動実行させる運用の検討、(2)中部圏の
 残り(静岡県内の他会場、長野県内の他会場等)の拡充、(3)会場名の表記揺れ(略称・旧名称)の
 名寄せ方法の検討。
+
+2026-11-14 11:00 UTC(フェーズ119): 7venture全てが実GCPプロジェクト/Firestore/Stripe接続の
+オーナー承認待ちで停止している状況(pending-approval.md 2026-11-08 08:00 UTC記載、本時刻で
+6日超未回答)を踏まえ、本venture側でオーナー承認を要さず前進できる次回候補(1)に対応した。
+schema/check_venue_master_parity.pyをprototype/run_all_tests.pyの一括実行対象に追加し(読み取り
+専用チェックのため個別プロセス実行・終了コード判定のみ、draft.md・venue-master.jsonへの書き込みは
+行わない)、将来draft.md/venue-master.jsonのいずれかを更新した際にparity gapが再発しても他の
+テストと同じ実行コマンドで自動検出できるようにした。実行結果は11ファイル(test_*.py 10本+本チェック)
+全てOK(回帰なし)。コード変更はrun_all_tests.pyのみで、check_venue_master_parity.py・draft.md・
+venue-master.json自体の内容変更は行っていない。承認が必要なアクション(支払い・アカウント作成・
+外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+次回候補: (1)中部圏の残り(静岡県内の他会場、長野県内の他会場等)の拡充、(2)会場名の表記揺れ
+(略称・旧名称)の名寄せ方法の検討、(3)他venture・アイデア領域の前進。
