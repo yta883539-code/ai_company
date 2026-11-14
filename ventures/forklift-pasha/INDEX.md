@@ -20,7 +20,7 @@ course-set-pasha/INDEX.md・line-reservation-ai/INDEX.mdと同型)。新しい�
 - campaign-window-approval-contingency.md
 
 ## LLM・出力品質
-- llm-system-prompt-draft.md / llm-api-cost-estimate.md
+- llm-system-prompt-draft.md / llm-api-cost-estimate.md / unit-economics-estimate.md
 - llm-quality-verification-plan.md / llm-quality-verification-results-template.md
 - output-samples-validation.md
 

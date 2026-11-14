@@ -5156,3 +5156,18 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続)がオーナーから承認された場合は
   その着手を最優先、(2)2026-11-08 08:00 UTC記載の運営方針確認(7venture全てが承認待ちで
   停滞している状態への対応方針)が未回答のため、他venture・アイデア領域の前進を継続する。
+- フェーズ236(2026-11-14 10:00 UTC定例更新): 他6venture(line-reservation-ai・
+  course-set-pasha・kura-pasha・aircon-pasha・oshien-pasha・event-komiguai-pasha)がいずれも
+  unit-economics-estimate.md(LLM API原価・決済手数料・Firestore原価の統合試算)を作成済みの
+  中、本ventureのみ未作成だったcross-venture parityギャップを解消し、新規作成した。既存の
+  llm-api-cost-estimate.md(フェーズ5)のLLM原価試算に、他venture統一の決済手数料前提
+  (クレジットカード継続課金4.3%)・Firestore原価前提(数百業者規模までは無料枠内)を組み合わせ、
+  3プラン(ライト/スタンダード/複数台)それぞれの粗利率への影響を確認した。決済手数料がLLM原価と
+  同程度かそれ以上の負担になりうる点は他venture試算と同様の傾向だった。実LLM/Stripe/Firestore
+  接続は一切行っていない。コード変更は無いため既存テストへの影響はなし。承認が必要なアクション
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続)がオーナーから承認された場合は
+  その着手を最優先、(2)2026-11-08 08:00 UTC記載の運営方針確認が未回答のため、他venture・
+  アイデア領域の前進を継続する。
+- 最終更新: 2026-11-14 10:00 UTC(フェーズ236: 詳細は上記。unit-economics-estimate.mdを
+  新規作成。コード変更なし)
