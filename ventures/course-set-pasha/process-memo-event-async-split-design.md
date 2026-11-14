@@ -98,11 +98,22 @@ LINE Platform
   処理する(後方互換)。`webhookEventId`欠落・非文字列でタスク名を導出できないイベントは、
   二重配信保護なしで無応答のまま放置するより安全側として従来通り同期処理する
   フォールバックとした。新規テスト13件追加、既存886件と合わせ全899件パス(回帰なし)。
-- (3) 設計確定後、aircon-pashaの同種部分(process_memo_event相当の同期実装)への
+- ~~(3) 設計確定後、aircon-pashaの同種部分(process_memo_event相当の同期実装)への
   横展開はcourse-set-pasha・kura-pasha・line-reservation-aiの状況を踏まえて
   別途検討する(aircon-pashaはpostbackアクション中心でFAQキーワード一致方式を
   採用していない可能性があるため、横展開前に各venture側の経路構造を
-  個別確認する必要がある)。
+  個別確認する必要がある)。~~
+  (解消済み 2026-11-14定例更新: kura-pashaのwebhook-async-two-function-design.md
+  「残課題・次回候補(3)」(2026-11-14フェーズ続き303)が、aircon-pasha側が本横展開を
+  待たず process-memo-event-async-split-design.mdフェーズ380〜382で独自に同種の
+  Function A/B分割(`process_memo_event_async()`・`PushBackedReplyClient`・
+  `is_sync_faq_memo_event()`によるFAQ/非FAQ振り分け)を完了済みであることを確認
+  済みであると判明した。本項目が懸念していた「postbackアクション中心でFAQキーワード
+  一致方式を採用していない可能性」は実際には当たらず、aircon-pashaも本venture・
+  kura-pashaと同様にFAQキーワード一致(「FAQ」/「Q1」〜)による同期/非同期振り分けを
+  採用していたため、本venture発の個別横展開は不要であり、本項目は次回候補から
+  除外する。詳細はaircon-pasha/README.mdフェーズ381・382、kura-pasha/
+  webhook-async-two-function-design.md該当箇所参照。)
 - (4) Cloud Tasksキュー・Function Bの実デプロイは実GCPプロジェクト作成
   (オーナー承認待ち、pending-approval.md 2026-09-27 03・07時UTC・
   2026-09-28 20時UTC・2026-10-24 09時UTC記載分、および2026-11-08 08:00 UTC記載の
