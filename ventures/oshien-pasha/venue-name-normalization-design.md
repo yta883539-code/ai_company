@@ -193,7 +193,8 @@ closed_permanent(愛知県体育館型)とclosed_temporary(本件)とで後半�
 - エイリアス辞書の会場別裏取り(WebSearchでの旧名称・略称の実在確認)。
 - 会場マスタの対象範囲拡大(地方のライブハウス・ホールまで含めるか)に伴うエイリアス辞書の
   メンテナンス方法(件数が増えた場合、Markdown管理では限界が来る可能性)。
-- 部分一致(フォールバック)時の案内文の具体的な文例 → フェーズ122で対応(本ファイル末尾参照)。
+- 部分一致(フォールバック)時の案内文の具体的な文例 → フェーズ122で文例確定、フェーズ123で
+  `prototype/venue_matcher.py`へ実コード化済み(本ファイル末尾参照)。
 - `closed_permanent`/`closed_temporary`細分類・`recognition_priority`注釈の両方とも、
   `match_confidence`拡張・`venue_operational_status_note`追加と合わせて実API接続後の
   結合実装フェーズで具体化する(いずれも今回は設計メモのみ、schema/venue-master.json・
@@ -314,3 +315,17 @@ llm-generation-failure-handling-design.md・result-display-wireframe.mdの既定
 コード実装・外部サービス接続は一切行っていない。承認が必要なアクション(支払い・
 アカウント作成・外部公開・送信等)は本フェーズでは発生していないためpending-approval.mdへの
 新規追記は不要(既存の承認待ち事項の範囲内で扱う)。
+
+### 文例A・Bの実コード化(フェーズ123対応)
+
+上記で「呼び出し側(未実装)が差し込む想定」としていた文例A・Bを、`prototype/venue_matcher.py`
+の`_partial_match_note()`として実コード化した。従来の手順4(部分一致フォールバック)は
+最初に一致した候補1件のみを返す実装だったため、本フェーズで(1)一致する候補を全件収集し
+(同一venueのcanonical_name/aliasいずれかが一致すれば1件に正規化)、(2)候補が1件なら
+文例A、2件以上なら文例Bをそのまま適用するよう修正した。`match_confidence`・
+`matched_canonical_name`等の戻り値の型・意味は変更していない(schema/output.schema.json
+への反映は引き続き見送り)。既存テスト(`test_partial_match_fallback_is_tentative`)の
+期待文言を新文例に合わせて更新し、複数候補ケースの新規テスト
+(`test_partial_match_fallback_with_multiple_candidates`、「ドルフィンズアリーナ」
+「ビッグハット」を両方含む入力で文例Bに分岐することを確認)を追加した。実LLM・実API接続は
+行っていない。

@@ -45,6 +45,28 @@ def _station_note(venue):
     return f"{venue['nearest_station']}({venue.get('walk_minutes_note', '徒歩目安不明')})"
 
 
+def _partial_match_note(venue_name_input, candidate_names):
+    """venue-name-normalization-design.md フェーズ122「部分一致(フォールバック)時の
+    案内文の具体例」の文例A(候補1件)・文例B(候補複数件)をそのまま実コード化したもの。
+    tone-and-manner-guideline.mdの方針(ですます調・断定しない表現)に沿い、"断定はできません"
+    "判別できません"のように言い切らない表現を保つ。
+    """
+    if len(candidate_names) == 1:
+        return (
+            f"入力いただいた会場名「{venue_name_input}」は、登録されている会場名と完全には"
+            f"一致しませんでした。もしかすると「{candidate_names[0]}」のことかもしれませんが、"
+            "断定はできません。お手数ですが、チケットや当選メールに記載の正式な会場名をご確認の"
+            "うえ、再度ご入力いただけますと幸いです。"
+        )
+    joined = "」「".join(candidate_names)
+    return (
+        f"入力いただいた会場名「{venue_name_input}」は、登録されている会場名と完全には"
+        f"一致しませんでした。「{joined}」のいずれかの可能性がありますが、本サービスでは"
+        "判別できません。お手数ですが、チケットや当選メールに記載の正式な会場名をご確認の"
+        "うえ、再度ご入力いただけますと幸いです。"
+    )
+
+
 def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
     """venue_name_input: 利用者入力の会場名文字列。
     venue_master: schema/venue-master.jsonをjson.loadした辞書(キー"venues"を持つ)。
@@ -93,21 +115,26 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
                     "matched_canonical_name": None,
                 }
 
+    partial_candidate_names = []
     for venue in venues:
         candidates = [venue["canonical_name"]] + venue.get("aliases", [])
         for candidate in candidates:
             normalized_candidate = _normalize(candidate)
             if normalized_candidate and normalized_candidate in normalized:
-                return {
-                    "venue_matched": False,
-                    "nearest_station_note": (
-                        f"{venue['canonical_name']}かもしれませんが断定できません。"
-                        "正式な会場名をチケット・当選メールでご確認ください。"
-                    ),
-                    "match_confidence": "partial",
-                    "operational_status_note": None,
-                    "matched_canonical_name": None,
-                }
+                if venue["canonical_name"] not in partial_candidate_names:
+                    partial_candidate_names.append(venue["canonical_name"])
+                break
+
+    if partial_candidate_names:
+        return {
+            "venue_matched": False,
+            "nearest_station_note": _partial_match_note(
+                venue_name_input, partial_candidate_names
+            ),
+            "match_confidence": "partial",
+            "operational_status_note": None,
+            "matched_canonical_name": None,
+        }
 
     return {
         "venue_matched": False,

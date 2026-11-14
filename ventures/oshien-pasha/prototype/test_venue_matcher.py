@@ -107,8 +107,33 @@ def test_partial_match_fallback_is_tentative() -> None:
         result["match_confidence"] == "partial",
     )
     check(
-        "partial match fallback: note hedges with 断定できません",
-        "断定できません" in result["nearest_station_note"],
+        "partial match fallback: note uses 文例A (single candidate) wording",
+        "断定はできません" in result["nearest_station_note"]
+        and "バンテリンドーム ナゴヤ" in result["nearest_station_note"],
+    )
+
+
+def test_partial_match_fallback_with_multiple_candidates() -> None:
+    master = _load_master()
+    # 「ドルフィンズアリーナ」(愛知県体育館のalias)と「ビッグハット」(長野ビッグハットのalias)
+    # を両方含む入力で、文例B(候補複数件)に分岐することを確認する。
+    result = match_venue("ドルフィンズアリーナからビッグハットへ移動", master)
+    check(
+        "partial match (multiple): venue_matched stays False",
+        result["venue_matched"] is False,
+    )
+    check(
+        "partial match (multiple): confidence is partial",
+        result["match_confidence"] == "partial",
+    )
+    check(
+        "partial match (multiple): note uses 文例B (multiple candidates) wording",
+        "本サービスでは判別できません" in result["nearest_station_note"],
+    )
+    check(
+        "partial match (multiple): both candidate canonical names appear",
+        "愛知県体育館" in result["nearest_station_note"]
+        and "長野ビッグハット" in result["nearest_station_note"],
     )
 
 
@@ -158,6 +183,7 @@ if __name__ == "__main__":
     test_alias_match()
     test_ambiguity_watchlist_takes_precedence_over_partial_match()
     test_partial_match_fallback_is_tentative()
+    test_partial_match_fallback_with_multiple_candidates()
     test_no_match()
     test_operational_status_note_for_closed_venue()
     test_operational_status_note_is_none_for_active_venue()
