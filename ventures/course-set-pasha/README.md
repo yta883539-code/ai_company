@@ -6949,3 +6949,24 @@
   (2)フェーズ373「次回候補(2)」(例外処理パターンのaircon-pasha等への横展開確認)、
   (3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を最優先、
   (4)他venture・アイデア領域の前進。
+- フェーズ376(2026-11-14 14:00 UTC定例更新): enqueue-failure-partial-processing-
+  safety-design.md(フェーズ373)「対象外・今後の課題」が残していた「enqueue
+  フォールバックの監視指標」設計に対応し、cloud-monitoring-alert-policy-design.mdに
+  6節「Enqueueフォールバック発生率アラート」を新規作成した。設計の前提として、
+  `dispatch_webhook_events()`のenqueue失敗フォールバック処理(フェーズ373実装)が
+  `result.enqueue_fallback_webhook_event_ids`へ記録するのみでログ出力自体を欠いていた
+  ギャップに気づき、`_logger.warning(..., extra={"event": "enqueue_fallback_occurred",
+  "webhook_event_id": ...})`を`prototype/cloud_function_webhook.py`に追加した
+  (2節の意図分類失敗ログと同じ構造化ログパターンを踏襲、severityはWARNING。
+  enqueue-fallback-owner-notification-design.md通知文言が明記する「顧客への応答自体は
+  正常に行われています」という前提に基づき顧客影響なしの水準と判断)。新規テスト1件
+  (`test_enqueue_transient_error_emits_warning_log`)を追加し、既存909件と合わせ全
+  910件・schema検証22件いずれもパス(回帰なし)。実GCPプロジェクト・Cloud Monitoring
+  への接続・ログベース指標/アラートポリシーの実作成は行っていない(既存の「実GCP
+  プロジェクト作成はオーナー承認待ち」の範囲内)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)残る横展開先forklift-pashaへの同種Billing Budget安全策設計の横展開、
+  (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を
+  最優先、(4)他venture・アイデア領域の前進。

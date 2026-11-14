@@ -1963,6 +1963,14 @@ def dispatch_webhook_events(
                     # enqueue失敗イベントは安全側としてその場で同期処理にフォールバックし、
                     # バッチ全体の処理を継続する。
                     result.enqueue_fallback_webhook_event_ids.append(webhook_event_id)
+                    _logger.warning(
+                        "enqueue to Cloud Tasks failed, falling back to synchronous"
+                        " processing",
+                        extra={
+                            "event": "enqueue_fallback_occurred",
+                            "webhook_event_id": webhook_event_id,
+                        },
+                    )
                     _process_sync(event)
 
         _mark_processed(message_events)

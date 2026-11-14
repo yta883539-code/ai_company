@@ -3557,6 +3557,36 @@ class DispatchWebhookEventsTaskQueueClientTest(unittest.TestCase):
         self.assertEqual(result.enqueued_webhook_event_ids, ["wh-evt-ok-2"])
         self.assertEqual(len(result.memo_results), 1)
 
+    def test_enqueue_transient_error_emits_warning_log(self):
+        # cloud-monitoring-alert-policy-design.md 6節(フェーズ376)。enqueue失敗で
+        # 同期フォールバックした際、運用検知用にWARNINGログを1件出力すること
+        # (顧客への応答自体は正常に行われるため、意図分類失敗と同じWARNING扱い)。
+        class FlakyTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise ConnectionError("simulated Cloud Tasks transient failure")
+
+        reply_client = InMemoryReplyClient()
+        llm_call = FixtureLlmClient("G1_basic")
+        queue = FlakyTaskQueueClient()
+        event = {
+            "type": "message",
+            "webhookEventId": "wh-evt-flaky-log",
+            "replyToken": "rt",
+            "message": {"type": "text", "text": "エリアA 黄テープ 8本新規"},
+            "source": {"userId": "U1"},
+        }
+
+        with self.assertLogs("cloud_function_webhook", level="WARNING") as captured:
+            result = dispatch_webhook_events(
+                [event], reply_client=reply_client, llm_call=llm_call, task_queue_client=queue,
+            )
+
+        self.assertEqual(result.enqueue_fallback_webhook_event_ids, ["wh-evt-flaky-log"])
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.event, "enqueue_fallback_occurred")
+        self.assertEqual(record.webhook_event_id, "wh-evt-flaky-log")
+
 
 if __name__ == "__main__":
     unittest.main()
