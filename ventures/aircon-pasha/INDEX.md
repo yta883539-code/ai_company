@@ -17,6 +17,7 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 ## Webhook基盤・非同期化
 - line-webhook-event-id-idempotency-design.md
 - process-memo-event-async-split-design.md
+- enqueue-fallback-owner-notification-design.md
 
 ## 顧客ヒアリング・LP・公開準備・法務
 - customer-interview-design.md / interview-candidate-selection-criteria.md

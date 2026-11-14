@@ -88,4 +88,9 @@ Cloud Tasksの設定(クォータ・リトライポリシー)をご確認くだ�
 
 - 実LINE Push Message APIでの送信・実オーナーLINEユーザーIDの設定は、既存の「実LINE API
   接続はオーナー承認待ちの範囲」に含まれる(新規の承認待ち事項としては扱わない)。
-- フェーズ373「次回候補(2)」(本パターンのaircon-pasha等への横展開確認)は未着手のまま残す。
+- フェーズ373「次回候補(2)」(本パターンのaircon-pasha等への横展開確認)のうち、
+  aircon-pashaへの横展開は2026-11-14 09:00 UTC定例更新(aircon-pashaフェーズ384)で
+  完了した(本venture一貫のFlex Message形式への翻案、`receive_webhook()`への
+  `task_queue_client`橋渡しの既存ギャップ解消を含む。詳細はaircon-pasha/README.md
+  フェーズ384・enqueue-fallback-owner-notification-design.md〈aircon-pasha版〉参照)。
+  kura-pashaへの横展開は未着手のまま残す。

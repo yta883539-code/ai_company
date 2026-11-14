@@ -3073,6 +3073,108 @@ class LineWebhookEventIdIdempotencyTest(unittest.TestCase):
         self.assertEqual(reply_client.sent, [])
         self.assertEqual(result.dispatch_result.duplicate_webhook_event_ids, ["wh_evt_receive"])
 
+    def _linked_profile_store_for_enqueue_tests(self):
+        from datetime import datetime, timezone
+
+        profile_store = InMemoryUserProfileStore()
+        profile_store.save(
+            "u-linked",
+            UserProfile(
+                business_name="テストエアコン工事店", business_type="独立系",
+                email="owner@example.com", linked_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            ),
+        )
+        return profile_store
+
+    _CHANNEL_SECRET_FOR_ENQUEUE_TESTS = "test-channel-secret"
+
+    def _receive_webhook_for_enqueue_tests(self, webhook_event_id, llm_call=None, **kwargs):
+        """enqueue-fallback-owner-notification-design.md(aircon-pasha版)4節のテスト群が
+        共有する、linked userの自由入力テキスト1件分のリクエストをreceive_webhook()へ渡す
+        ヘルパー(DispatchWebhookEventsTaskQueueWiringTest._dispatch()のHTTP版。本クラスは
+        ReceiveWebhookTestとは異なり_signature_for()を持たないため、同じ計算をここで行う)。"""
+        from datetime import datetime, timezone
+
+        body = json.dumps({
+            "events": [{
+                "type": "message", "replyToken": "rt-1",
+                "source": {"userId": "u-linked"}, "webhookEventId": webhook_event_id,
+                "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+            }],
+        }).encode("utf-8")
+        channel_secret = self._CHANNEL_SECRET_FOR_ENQUEUE_TESTS
+        digest = hmac.new(channel_secret.encode("utf-8"), body, hashlib.sha256).digest()
+        signature = base64.b64encode(digest).decode("utf-8")
+
+        return receive_webhook(
+            body, signature, channel_secret,
+            reply_client=InMemoryReplyClient(),
+            llm_call=llm_call or _MustNotBeCalledLlmClient(),
+            profile_store=self._linked_profile_store_for_enqueue_tests(),
+            linking_store=InMemoryLinkingCodeStore(),
+            now=datetime(2026, 9, 25, tzinfo=timezone.utc),
+            **kwargs,
+        )
+
+    def test_receive_webhook_passes_task_queue_client_through_to_dispatch(self):
+        """enqueue-fallback-owner-notification-design.md(aircon-pasha版)4節: これまで
+        receive_webhook()がdispatch_webhook_events()へtask_queue_clientを橋渡ししていな
+        かったギャップの解消を確認する(linked userの自由入力テキストがenqueueされる
+        ことで、task_queue_clientが実際にdispatchまで届いていることを検証。enqueueが
+        成功する場合はLLM呼び出しが発生しないことも併せて確認する)。"""
+        task_queue_client = InMemoryTaskQueueClient()
+
+        result = self._receive_webhook_for_enqueue_tests(
+            "ev-linked-1", task_queue_client=task_queue_client,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.dispatch_result.enqueued_webhook_event_ids, ["ev-linked-1"])
+
+    def test_receive_webhook_sends_enqueue_fallback_owner_notification_when_configured(self):
+        """enqueue-fallback-owner-notification-design.md(aircon-pasha版)4節:
+        enqueue_fallback_owner_push_client指定時、dispatch結果のenqueue_fallback_
+        webhook_event_idsが非空であればオーナーへdigest通知が送られることを確認する。"""
+        from trial_end_scheduler import InMemoryLinePushClient
+
+        class _FailingTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise RuntimeError("quota exceeded")
+
+        owner_push_client = InMemoryLinePushClient()
+
+        result = self._receive_webhook_for_enqueue_tests(
+            "ev-fallback-1",
+            llm_call=FixtureLlmClient("G1_basic"),
+            task_queue_client=_FailingTaskQueueClient(),
+            enqueue_fallback_owner_push_client=owner_push_client,
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.enqueue_fallback_webhook_event_ids, ["ev-fallback-1"],
+        )
+        self.assertEqual(len(owner_push_client.sent), 1)
+
+    def test_receive_webhook_enqueue_fallback_owner_push_client_none_keeps_legacy_behavior(self):
+        """enqueue_fallback_owner_push_client未指定時は、enqueue失敗が起きても追加の
+        通知送信を一切行わない(既存の全オプション引数と同じ後方互換パターン)。"""
+
+        class _FailingTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise RuntimeError("quota exceeded")
+
+        result = self._receive_webhook_for_enqueue_tests(
+            "ev-fallback-2",
+            llm_call=FixtureLlmClient("G1_basic"),
+            task_queue_client=_FailingTaskQueueClient(),
+        )
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(
+            result.dispatch_result.enqueue_fallback_webhook_event_ids, ["ev-fallback-2"],
+        )
+
 
 class LineWebhookEventIdStoreTtlTest(unittest.TestCase):
     """InMemoryLineWebhookEventIdStoreのTTL(kura-pashaフェーズ287の横展開)。"""

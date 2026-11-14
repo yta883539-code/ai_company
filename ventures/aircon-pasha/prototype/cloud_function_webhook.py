@@ -1978,6 +1978,8 @@ def receive_webhook(
     now: Optional[datetime] = None,
     checkout_session_client: Optional[CheckoutSessionClient] = None,
     webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
+    task_queue_client: Optional[TaskQueueClient] = None,
+    enqueue_fallback_owner_push_client: Optional[LinePushClient] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)を`dispatch_webhook_events()`まで
     橋渡しする薄いエントリポイント(webhook-http-entry-point-design.md 2節)。
@@ -1988,6 +1990,14 @@ def receive_webhook(
     2. JSONとしてパースできないbodyは400(error="invalid_json")。
     3. "events"キーがlistでないbodyは400(error="missing_events")。
     4. 上記を通過したら`events`をdispatch_webhook_events()にそのまま委譲する。
+    5. `task_queue_client`(省略時None、後方互換)はこれまで本関数から
+       `dispatch_webhook_events()`へ橋渡しされていなかったギャップ(process-memo-event-
+       async-split-design.md「残課題・次回候補(2)」実装時の見落とし)だったため、本フェーズ
+       (enqueue-fallback-owner-notification-design.md aircon-pasha版)で併せて橋渡しする。
+    6. dispatch結果の`enqueue_fallback_webhook_event_ids`が非空かつ
+       `enqueue_fallback_owner_push_client`が指定されている場合は、
+       enqueue-fallback-owner-notification-design.md(aircon-pasha版)に従いオーナーへ
+       digest通知を1回送る(未指定時は何もしない既存の後方互換パターン)。
     """
     import json
 
@@ -2016,7 +2026,20 @@ def receive_webhook(
         now=now,
         checkout_session_client=checkout_session_client,
         webhook_event_id_store=webhook_event_id_store,
+        task_queue_client=task_queue_client,
     )
+    if (
+        dispatch_result.enqueue_fallback_webhook_event_ids
+        and enqueue_fallback_owner_push_client is not None
+    ):
+        from enqueue_fallback_owner_notification import (
+            send_enqueue_fallback_owner_notification,
+        )
+
+        send_enqueue_fallback_owner_notification(
+            dispatch_result.enqueue_fallback_webhook_event_ids,
+            enqueue_fallback_owner_push_client,
+        )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 
 

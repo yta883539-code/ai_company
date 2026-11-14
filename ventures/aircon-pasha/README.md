@@ -7374,8 +7374,36 @@
   未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
   参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-11-14 03:00 UTC(フェーズ383: 詳細は上記。event-komiguai-pasha・
-  forklift-pasha・oshien-pashaへのFAQ/非FAQ振り分け横展開〈フェーズ382次回候補(2)〉が、
-  3venture全てLINE非依存のWebフォームで対象処理自体が存在しないという誤った前提に
-  基づく項目だったことを発見し、process-memo-event-async-split-design.mdの記載を
-  「対象外確定」に是正した。コード変更なし、回帰なし。)
+- フェーズ384(2026-11-14 09:00 UTC定例更新): course-set-pashaのenqueue-fallback-owner-
+  notification-design.md「残課題(フェーズ373次回候補(2))」(本venture等への横展開確認)
+  に対応するため、enqueue-fallback-owner-notification-design.md(aircon-pasha版)を新規
+  作成し、`enqueue_fallback_owner_notification.py`を実装した。本ventureの
+  `dispatch_webhook_events()`はフェーズ382時点で既に`result.enqueue_fallback_webhook_
+  event_ids`を記録していたが、course-set-pashaのようにオーナーへ知らせる通知の配線は
+  未着手だったギャップに対応するもの。course-set-pasha版はプレーンテキストの
+  `send_message()`を使うが、本venture一貫の`LinePushClient`はFlex Message
+  (`send_flex_message()`)のみを提供するため、payment_suspension_owner_notification.py
+  等と同様にボタンを持たないbubble形式のFlex Messageを組み立てる形に翻案した。
+  併せて、`receive_webhook()`がこれまで`task_queue_client`引数自体を`dispatch_webhook_
+  events()`へ一切橋渡ししていなかった既存ギャップ(常に`None`扱いでFAQ/非FAQ振り分けが
+  実リクエスト経由では発火しない状態だった)を発見し、`receive_webhook()`に
+  `task_queue_client`・`enqueue_fallback_owner_push_client`の2引数を新設してともに
+  解消した(いずれも省略時`None`の後方互換)。新規テスト9件(`enqueue_fallback_owner_
+  notification.py`単体6件・`receive_webhook()`の`task_queue_client`橋渡し確認・
+  enqueueフォールバック時の通知送信確認・通知クライアント未指定時の後方互換確認の3件)
+  を追加し、全842件・schema検証25件いずれもパス(回帰なし)。実LINE Push Message API
+  での送信・実Cloud Tasksデプロイは行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)Cloud Tasksキュー・Function Bの実デプロイ、実LINE Push Message APIでの
+  送信は実GCPプロジェクト作成(オーナー承認待ち)後の課題として残る、(2)kura-pashaへの
+  同種横展開(enqueue-fallback-owner-notification-design.md横展開、course-set-pashaフェーズ
+  373次回候補(2)の残り分)は未着手のまま残す、(3)2026-11-08 08:00 UTC記載の運営方針判断
+  が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、
+  (4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-14 09:00 UTC(フェーズ384: 詳細は上記。course-set-pasha発の
+  enqueueフォールバック時オーナー通知〈Cloud Tasksへのenqueue失敗時のLINE Push digest〉
+  を本ventureへ横展開し、`enqueue_fallback_owner_notification.py`を新規実装。併せて
+  `receive_webhook()`が`task_queue_client`を橋渡ししていなかった既存ギャップも解消。
+  新規テスト9件追加、全842件・schema検証25件いずれもパス、回帰なし。)
