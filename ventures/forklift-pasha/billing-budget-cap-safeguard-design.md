@@ -70,16 +70,23 @@ course-set-pashaが採用した暫定値500円)より大きいため、暫定予
   今後の課題として残す。
 - `budget-cap-auto-disable`用Cloud Functionの実コード化・deployment-runbook.md相当文書の新規
   作成(本venture未作成)は、実GCPプロジェクト作成後の課題として残す。
-- line-reservation-aiの元々の横展開対象リスト(aircon-pasha・course-set-pasha・forklift-pasha・
-  kura-pasha・oshien-pashaの5venture)に本ventureの設計が完了したことで、当初リストに含まれて
-  いた5venture全ての横展開が完了した。一方、event-komiguai-pashaは当初リストに含まれておらず、
-  pending-approval.md(2026-10-28 06:00 UTC記載分)で同種の実GCPプロジェクト・Firestore・
-  Stripeアカウント作成の承認依頼を抱えているにもかかわらず、本安全策の横展開対象として一度も
-  検討されていないことに気づいた。event-komiguai-pashaは他venture(継続課金サブスクリプション
-  モデル)と異なり単発生成・Stripe one-time payment向けの設計(README.md 175〜176行目)である
-  ため、月間課金の上限保証という前提がそのまま当てはまるかの確認を含め、次回以降の横展開検討
-  (または対象外と判断する場合はその理由の明文化)候補として残す。
+- [解消済み] line-reservation-aiの元々の横展開対象リスト(aircon-pasha・course-set-pasha・
+  forklift-pasha・kura-pasha・oshien-pashaの5venture)に本ventureの設計が完了したことで、当初
+  リストに含まれていた5venture全ての横展開が完了した。一方、event-komiguai-pashaは当初リストに
+  含まれておらず、pending-approval.md(2026-10-28 06:00 UTC記載分)で同種の実GCPプロジェクト・
+  Firestore・Stripeアカウント作成の承認依頼を抱えているにもかかわらず、本安全策の横展開対象として
+  一度も検討されていないことに気づいた、として次回以降の横展開検討候補として残していたが、
+  本venture側のフェーズ234(2026-11-13 23:00 UTC)より後に、event-komiguai-pasha側のフェーズ118
+  (2026-11-14 05:00 UTC)で既に横展開が完了していたことをフェーズ235(2026-11-14 07:00 UTC)で
+  確認した。event-komiguai-pasha/billing-budget-cap-safeguard-design.mdの通り、単発生成・
+  Stripe one-time payment向けの決済モデルでもBilling Budgetの前提(GCP側の月次コスト監視、顧客
+  からの収益認識モデルとは独立)が揺るがないことが確認され、暫定予算額は他6venture同額の月間
+  500円に設定された。これにより7venture全ての横展開が完了しており、本venture側に残る検討課題は
+  ない。
 
 最終更新: 2026-11-13 23:00 UTC(新規作成: line-reservation-aiのbilling-budget-cap-
 safeguard-design.mdをforklift-pasha向けに横展開。当初の横展開対象5venture全ての設計が完了。
 実行〈GCPプロジェクト作成・課金設定・Budget作成〉は一切行っていない。)
+最終更新: 2026-11-14 07:00 UTC(フェーズ235: 上記「未確定・今後の課題」最終項目が、
+event-komiguai-pasha側フェーズ118〈2026-11-14 05:00 UTC〉で既に解消済みだった陳腐化記載である
+ことを発見・是正。コード変更なし、文書訂正のみ。)
