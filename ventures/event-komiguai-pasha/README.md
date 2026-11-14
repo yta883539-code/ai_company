@@ -2765,3 +2765,24 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-14 08:00 UTC(フェーズ119: 詳細は上記。launch-readiness-checklist.mdを
   新規作成し、7venture全ての本checklist整備が完了。コード変更なし、既存テスト184件・
   schema検証22件いずれも変更なしでパス)
+- フェーズ120(2026-11-14 20:00 UTC定例更新): 他6venture(aircon-pasha・course-set-pasha・
+  forklift-pasha・kura-pasha・line-reservation-ai・oshien-pasha)が作成済みの
+  deployment-runbook.mdが本ventureのみ未作成だったcross-venture parityギャップを解消し
+  新規作成した(launch-readiness-checklist.mdフェーズ119の次回候補(1)に備える位置づけ)。
+  本venture固有の構成(LINE公式アカウント非採用・シンプルなWebフォーム、継続課金ではなく
+  都度決済〈Stripe Checkout一回払いモード〉)を踏まえ、aircon-pasha版の構成とは異なる
+  手順(Stripeアカウント開設・Webhookエンドポイント登録ステップの追加、LINE Developers
+  関連ステップの削除)に組み替えた。あわせて、ステップ2(複合インデックス要否の再点検)・
+  ステップ6(TTL失効・返金判定の定期実行方式)の2件を未確定の次回課題として明記した。
+  INDEX.mdに新規ファイルを追記した。コード変更なし(設計文書のみ)、実行(GCPプロジェクト
+  作成・Stripeアカウント開設・課金設定等)は一切行っていない。回帰確認として既存テスト
+  184件・schema検証22件を実行しいずれも変更なしでパスすることを確認した(回帰なし)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし(既存エントリの文面は履行記録としてそのまま保持)。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜3)がオーナーから
+  承認された場合はその着手を最優先(着手時は本deployment-runbook.mdのステップ順に従う)、
+  (2)ステップ2の複合インデックス要否・ステップ6のTTL失効定期実行方式の具体化、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-14 20:00 UTC(フェーズ120: 詳細は上記。deployment-runbook.mdを
+  新規作成し、7venture全てのデプロイ手順書整備が完了。コード変更なし、既存テスト184件・
+  schema検証22件いずれも変更なしでパス)

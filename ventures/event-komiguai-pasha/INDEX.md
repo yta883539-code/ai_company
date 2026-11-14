@@ -60,6 +60,7 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 - data-retention-policy.md / vendor-breach-key-rotation-runbook.md / ci-setup.md
 - billing-budget-cap-safeguard-design.md
 - launch-readiness-checklist.md
+- deployment-runbook.md
 
 ## コード・スキーマ・テスト(ディレクトリ)
 - prototype/ (実装コード・テスト) / schema/ (スキーマ検証) / emulator-test/ / landing-page/
