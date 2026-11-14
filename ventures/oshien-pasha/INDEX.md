@@ -10,6 +10,7 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 
 ## 事業・市場・コスト試算
 - market-research.md / tech-stack.md / pricing-plan.md
+- unit-economics-estimate.md(LLM API原価・決済手数料・Firestore原価の統合試算)
 
 ## 顧客ヒアリング・LP・公開準備・法務
 - customer-interview-design.md

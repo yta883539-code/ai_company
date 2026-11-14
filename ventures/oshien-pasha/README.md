@@ -2739,3 +2739,25 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   (pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア領域の前進。
 - 最終更新: 2026-11-13 21:00 UTC(フェーズ119: 詳細は上記。billing-budget-cap-safeguard-
   design.mdを新規作成。コード変更なし)
+- フェーズ120(2026-11-14 04:00 UTC定例更新): フェーズ119の次回候補(1)に対応し、line-
+  reservation-ai・course-set-pasha・kura-pasha・aircon-pashaが既に作成済みのunit-economics-
+  estimate.md(LLM API原価・決済手数料・Firestore原価の統合試算)が本ventureのみ未作成だった
+  cross-venture parityギャップを解消し、新規作成した。llm-system-prompt-draft.md(9,047文字)・
+  schema/output.schema.json(7,014文字)を基に、出力4種(遠征プラン下書き・タイムテーブル草案・
+  費用見積り・ハシゴ無理チェック)分の生成1回あたりコストをシナリオA/B・キャッシュ適用有無で
+  試算し、都度プラン(480円)・月額フリーパス(980円)それぞれに対するLLM原価比率(約0.8%〜4.4%)
+  を算出した。あわせて、本venture固有の留保事項として、(1)当落発表後の利用集中という季節性が
+  プロンプトキャッシュの効きやすさに影響する点(aircon-pashaの繁忙期論点と同種)、(2)B2C・
+  個人ファン数ベースという利用者数の天井の高さにより、他venture(B2B)が結論づけた「Firestore
+  原価は無視できる水準」という前提がそのまま成立するかは実運用データでの再検証が必須である点を
+  明記した。実LLM API呼び出し・実Stripe接続・実Firestore接続はいずれも行っていない(2026-11-08
+  04:00 UTC・08:00 UTC記載のとおりオーナー承認待ち)。実コード変更は無いため既存テストへの
+  影響はなし。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)月額フリーパスの実質単価算出に用いた「月6回利用」という仮置きの精緻化(実運用
+  データが無いと確定できないため当面は次回候補として保留)、(2)社内リハーサル実施後の台本修正
+  (オーナー判断・実施待ち)、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続は
+  オーナー承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-14 04:00 UTC(フェーズ120: 詳細は上記。unit-economics-estimate.mdを
+  新規作成。コード変更なし)
