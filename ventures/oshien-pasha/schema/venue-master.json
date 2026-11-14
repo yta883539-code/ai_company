@@ -235,14 +235,16 @@
     },
     {
       "canonical_name": "横浜アリーナ",
-      "aliases": [],
+      "aliases": [
+        "横アリ"
+      ],
       "region": "東京圏",
       "nearest_station": "JR横浜線・東海道新幹線/横浜市営地下鉄ブルーライン 新横浜駅",
       "walk_minutes_note": "徒歩4〜5分前後(情報源により差あり)",
       "naming_rights": false,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-14",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ69: venue-master-draft.md(フェーズ67で追加済み)との同期ギャップを解消するためschema/venue-master.jsonに新規追加した。最寄り駅は新横浜駅(JR横浜線・東海道新幹線、横浜市営地下鉄ブルーライン)。既収録のKアリーナ横浜(新高島駅・みなとみらい駅圏)、およびぴあアリーナMM(みなとみらい駅・桜木町駅圏)とは名称が似ているが立地・最寄り駅が異なる別施設であるため、ambiguity-watchlist.jsonで取り違え注意対象としている。",
+      "verification_note": "フェーズ69: venue-master-draft.md(フェーズ67で追加済み)との同期ギャップを解消するためschema/venue-master.jsonに新規追加した。最寄り駅は新横浜駅(JR横浜線・東海道新幹線、横浜市営地下鉄ブルーライン)。既収録のKアリーナ横浜(新高島駅・みなとみらい駅圏)、およびぴあアリーナMM(みなとみらい駅・桜木町駅圏)とは名称が似ているが立地・最寄り駅が異なる別施設であるため、ambiguity-watchlist.jsonで取り違え注意対象としている。 フェーズ125(2026-11-14 19:00 UTC): 次回候補「エイリアス辞書の会場別裏取り」に対応しWebSearchを実施した結果、会場紹介サイト複数件(l-tike.com・ticket.co.jp)が『横アリ』の略称で親しまれていると案内していることを確認し、aliasesに「横アリ」を追加した。",
       "operational_status": "active"
     },
     {
@@ -406,9 +408,9 @@
       "nearest_station": "広島電鉄 市役所前駅",
       "walk_minutes_note": "徒歩5分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-14",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。 フェーズ125(2026-11-14 19:00 UTC): 次回候補「エイリアス辞書の会場別裏取り」に対応しWebSearchを実施した結果、広島県公式資料(pref.hiroshima.lg.jp)で『広島県立総合体育館』の大アリーナを指す呼称として『広島グリーンアリーナ』が使われていることを確認した(つまり本venueのcanonical_name自体が上位施設〈広島県立総合体育館〉の大アリーナ部分の通称であり、ファン・メディアが日常的に使う別の略称・愛称は見つからなかった)。所在地(広島市中区基町4-1)・最寄り駅(アストラムライン県庁前駅)は資料と一致し変更なし。令和8年度から広島ドラゴンフライズ(Bリーグ)が約5年を目安にホームアリーナとして使用予定との記載も確認した。aliasesは空のまま維持し、別名の追加は見送った。",
       "operational_status": "active"
     },
     {
