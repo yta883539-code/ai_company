@@ -7044,3 +7044,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   安全策設計の横展開、(3)webhook-async-two-function-design.md「残課題・次回候補(2)」
   (`dispatch_webhook_events()`への振り分け前処理の実コード反映)、(4)他venture・アイデア
   領域の前進。
+- フェーズ続き302(2026-11-13 23:58 UTC定例更新): 7venture中line-reservation-aiは実GCP
+  承認待ちのみで前進不可のため、本venture(フェーズ続き301が最終更新、2番目に停滞)を
+  前進。フェーズ続き301が残した次回候補(3)=webhook-async-two-function-design.md
+  「残課題・次回候補(2)」(`dispatch_webhook_events()`への2a./3.相当〈同期〉と
+  2b./2c./4.相当〈非同期キュー行き〉の振り分け前処理の実コード反映)に対応した。
+  course-set-pashaフェーズ372の`TaskQueueClient`/`InMemoryTaskQueueClient`/
+  `make_memo_task_name()`と同じ構造を`kura-pasha-event-`プレフィックスの
+  `make_kura_message_task_name()`として流用し、振り分け判定自体は
+  `process_message_event()`冒頭の分岐(非テキスト無反応・契約者FAQコマンド一致・
+  連携コード/招待コード解決の3経路のみ同期)を副作用なしの純粋な判定として切り出した
+  `is_sync_kura_message_event()`として新設した(`user_profile_store`・`workshop_store`
+  読み取りのみでLLM呼び出しを含まない)。べき等性記録のタイミングはdesign「べき等性の
+  再配置」節通り、enqueue成功イベントはFunction A内では`mark_processed()`を呼ばない
+  設計とした(Function Bからの呼び出し成功後に呼ぶ想定は変更なし)。
+  `task_queue_client.create_task()`が`TaskAlreadyExistsError`以外の例外を送出した場合は
+  同期処理へフォールバックする(course-set-pashaフェーズ373のenqueue-failure-partial-
+  processing-safety-design.mdと同じ考え方)。新規テスト17件追加
+  (`make_kura_message_task_name()`のタスク名検証・`is_sync_kura_message_event()`の
+  各経路判定・`dispatch_webhook_events()`のFAQ同期/非FAQ非同期振り分け・enqueue重複
+  スキップ・webhookEventId欠落時の同期フォールバック・task_queue_client未指定時の
+  後方互換・enqueue一時的エラー時の同期フォールバックの各経路)、全405件・schema検証
+  32件いずれもパス(回帰なし)。実GCPプロジェクト・Cloud Tasksへの接続・デプロイは
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、Billing
+  Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を最優先、
+  (2)webhook-async-two-function-design.md「残課題・次回候補(4)」(Cloud Tasksキュー・
+  Function Bの実デプロイ、`mark_processed()`のFunction B成功後呼び出しの実結線。
+  いずれも実GCPプロジェクト作成の承認待ち)、(3)Billing Budget安全策設計の横展開は
+  forklift-pashaフェーズ234(2026-11-13 23:00 UTC)完了をもって当初対象7venture全てで
+  完了済みのため、本件は次回候補から除外する、(4)他venture・アイデア領域の前進。

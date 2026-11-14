@@ -159,11 +159,24 @@ trial_end_notified_at書き込みを含む)自体は「Function B内で1回だ�
   新規テスト9件追加、全376件・schema検証32件いずれもパス(回帰なし)。既知の制約として
   `quick_reply`(トライアル終了通知ボタン)は`LinePushClient.send_message()`が対応する
   引数を持たないため黙って読み捨てられる(本文のテキストメッセージ送信自体には影響しない)。
-- (2) `dispatch_webhook_events()`への2a./3.相当(同期)と2b./2c./4.相当(非同期
-  キュー行き)の振り分け前処理の実コード反映。course-set-pashaフェーズ372の
+- (2) 【フェーズ続き302で実装済み】`dispatch_webhook_events()`への2a./3.相当(同期)と
+  2b./2c./4.相当(非同期キュー行き)の振り分け前処理の実コード反映。course-set-pashaの
   `TaskQueueClient`/`InMemoryTaskQueueClient`/`make_memo_task_name()`と同じ構造を
-  `kura-pasha-event-`プレフィックスで流用する。振り分け判定自体に`user_profile_
-  store`読み取りを伴う点が本venture固有の差分(上記「既存コードへの影響」節参照)。
+  `TaskAlreadyExistsError`/`InMemoryTaskQueueClient`/`make_kura_message_task_name()`
+  (プレフィックス`kura-pasha-event-`)として流用した。振り分け判定自体は、
+  `process_message_event()`冒頭の分岐を副作用(reply送信)なしの純粋な判定として切り出した
+  `is_sync_kura_message_event()`(`user_profile_store.get_workshop_id()`・
+  `workshop_store.get_contractor_user_id()`の読み取りのみでLLM呼び出しを含まない)として
+  実装した。`task_queue_client`未指定時は後方互換で全件同期処理、enqueue失敗時
+  (`TaskAlreadyExistsError`以外の例外)は同期処理へフォールバックする
+  (course-set-pashaフェーズ373のenqueue-failure-partial-processing-safety-design.mdと
+  同じ考え方)。べき等性記録のタイミングは上記「べき等性の再配置」節通り、enqueue成功
+  イベントはFunction A内では`mark_processed()`を呼ばない設計とした(Function B
+  〈`process_message_event_async()`〉からの呼び出し後に呼ぶ想定は変更なし、ただし
+  Function B自体をCloud Tasksから実際に起動する結線はまだ無いため、この`mark_processed()`
+  呼び出し自体は次回候補(4)の実デプロイ時まで未着手のまま残る)。新規テスト17件追加、
+  全405件・schema検証32件いずれもパス(回帰なし)。実GCP/Cloud Tasksへの接続・デプロイは
+  行っていない。
 - (3) aircon-pashaの同種部分への横展開は、course-set-pasha・kura-pasha・
   line-reservation-aiの状況を踏まえて別途検討する(aircon-pashaはpostbackアクション
   中心でFAQキーワード一致方式を採用していない可能性があるため、横展開前に
@@ -176,7 +189,15 @@ trial_end_notified_at書き込みを含む)自体は「Function B内で1回だ�
   同様、Protocol越しの差し替え設計とすることで検証を先行させる、webhook-sync-reply-
   timeout-root-cause-review.md 4節の既存見込みを維持)。
 
-最終更新: 2026-11-12 21:00 UTC(新規作成。webhook-sync-reply-timeout-root-cause-review.md
+最終更新: 2026-11-13 23:58 UTC(フェーズ続き302: 残課題(2)を実装。詳細は上記
+「残課題・次回候補」節(2)を参照。`dispatch_webhook_events()`が`task_queue_client`
+指定時に`is_sync_kura_message_event()`で同期/非同期を振り分けるようになった。新規テスト
+17件追加、全405件・schema検証32件いずれもパス(回帰なし)。実GCP/Cloud Tasksへの接続・
+デプロイは行っていない)
+
+---
+
+2026-11-12 21:00 UTC(新規作成。webhook-sync-reply-timeout-root-cause-review.md
 フェーズ続き297の次回候補に対応。root-cause-reviewが「`process_memo_event()`自身には
 軽量経路が存在しない」と指摘した範囲を、呼び出し元の`process_message_event()`まで
 広げて確認した結果、課題同期reply可能な3経路(非テキスト無反応・owner FAQコマンド・

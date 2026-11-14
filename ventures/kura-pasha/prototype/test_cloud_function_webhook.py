@@ -35,10 +35,13 @@ from cloud_function_webhook import (
     InMemoryLineWebhookEventIdStore,
     InMemoryPortalLinkProvider,
     InMemoryReplyClient,
+    InMemoryTaskQueueClient,
     LlmApiError,
     QuickReplyButton,
     ReplyApiError,
     dispatch_webhook_events,
+    is_sync_kura_message_event,
+    make_kura_message_task_name,
     format_checkout_reply_message,
     format_follow_welcome_message,
     format_limit_approaching_notice,
@@ -2960,6 +2963,269 @@ def test_dispatch_webhook_events_dedup_applies_to_unfollow_event_too():
     check("duplicate_webhook_event_idsに記録される", result.duplicate_webhook_event_ids == ["wh_evt_unfollow"])
 
 
+# ---------------------------------------------------------------------------
+# dispatch_webhook_events()のtask_queue_client対応
+# (webhook-async-two-function-design.md「残課題・次回候補(2)」の実装、フェーズ302)
+# ---------------------------------------------------------------------------
+
+def test_make_kura_message_task_name_uses_expected_prefix():
+    check(
+        "kura-pasha-event-プレフィックス",
+        make_kura_message_task_name("wh-evt-1") == "kura-pasha-event-wh-evt-1",
+    )
+
+
+def test_make_kura_message_task_name_rejects_empty_webhook_event_id():
+    try:
+        make_kura_message_task_name("")
+        check("空文字列はValueError", False)
+    except ValueError:
+        check("空文字列はValueError", True)
+
+
+def test_make_kura_message_task_name_rejects_disallowed_characters():
+    try:
+        make_kura_message_task_name("wh/evt 1")
+        check("Cloud Tasksで許可されない文字はValueError", False)
+    except ValueError:
+        check("Cloud Tasksで許可されない文字はValueError", True)
+
+
+def test_is_sync_kura_message_event_true_for_non_text_message():
+    event = {"type": "message", "message": {"type": "image"}, "source": {"userId": "U1"}}
+    profiles, workshops, _ = _make_stores()
+    check(
+        "非テキストは常に同期(linking_enabled有無を問わない)",
+        is_sync_kura_message_event(
+            event, user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is True,
+    )
+    check(
+        "非テキストは3ストア未接続でも同期",
+        is_sync_kura_message_event(
+            event, user_profile_store=None, workshop_store=None, linking_store=None,
+        ) is True,
+    )
+
+
+def test_is_sync_kura_message_event_false_when_linking_disabled_and_text():
+    event = _make_event("新規、ブリティッシュ、牛革")
+    check(
+        "テキストかつ3ストアいずれか欠落(linking_enabled偽)は非同期",
+        is_sync_kura_message_event(
+            event, user_profile_store=None, workshop_store=InMemoryWorkshopStore(),
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is False,
+    )
+
+
+def test_is_sync_kura_message_event_true_for_unlinked_user():
+    profiles, workshops, _ = _make_stores()
+    event = _make_event("ABC234", user_id="U_UNLINKED")
+    check(
+        "未連携user_idは連携コード解決のため同期",
+        is_sync_kura_message_event(
+            event, user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is True,
+    )
+
+
+def test_is_sync_kura_message_event_true_for_owner_faq_command():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_FAQ")
+    workshops.set_members("W_FAQ", "U_OWNER", ["U_OWNER"])
+    event = _make_event("FAQ", user_id="U_OWNER")
+    check(
+        "契約者からのFAQコマンドは同期",
+        is_sync_kura_message_event(
+            event, user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is True,
+    )
+
+
+def test_is_sync_kura_message_event_false_for_owner_non_faq_text():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER2", "W_FAQ2")
+    workshops.set_members("W_FAQ2", "U_OWNER2", ["U_OWNER2"])
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER2")
+    check(
+        "契約者からの通常メモ入力(FAQ不一致)は非同期",
+        is_sync_kura_message_event(
+            event, user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is False,
+    )
+
+
+def test_is_sync_kura_message_event_false_for_non_contractor_member():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_MEMBER", "W_FAQ3")
+    workshops.set_members("W_FAQ3", "U_OWNER3", ["U_OWNER3", "U_MEMBER"])
+    event = _make_event("FAQ", user_id="U_MEMBER")
+    check(
+        "契約者以外からのFAQ文字列一致は非同期(契約者本人判定自体で不一致になるため)",
+        is_sync_kura_message_event(
+            event, user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(),
+        ) is False,
+    )
+
+
+def test_dispatch_webhook_events_faq_command_is_still_replied_synchronously_with_task_queue():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_FAQ")
+    workshops.set_members("W_FAQ", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    queue = InMemoryTaskQueueClient()
+    event = _make_event("FAQ", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-faq"
+
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=queue,
+    )
+    check("FAQコマンドはmessage_resultsに同期で記録される", len(result.message_results) == 1)
+    check("enqueueはされない", result.enqueued_webhook_event_ids == [])
+    check("その場で返信される", len(reply_client.sent) == 1)
+    check("Cloud Tasksキューには積まれない", queue.created == {})
+
+
+def test_dispatch_webhook_events_non_faq_text_is_enqueued_not_replied():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_MEMO")
+    workshops.set_members("W_MEMO", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    queue = InMemoryTaskQueueClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-memo"
+
+    result = dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=queue,
+    )
+    check("通常メモ入力はmessage_resultsに記録されない(Function Bへenqueue)", result.message_results == [])
+    check("enqueued_webhook_event_idsに記録される", result.enqueued_webhook_event_ids == ["wh-evt-memo"])
+    check("その場では返信されない", reply_client.sent == [])
+    check("kura-pasha-event-プレフィックスでenqueueされる", "kura-pasha-event-wh-evt-memo" in queue.created)
+
+
+def test_dispatch_webhook_events_enqueued_event_is_not_marked_processed_yet():
+    # design「べき等性の再配置」節: enqueue成功イベントはFunction A内ではmark_processed()
+    # を呼ばない(Function Bの呼び出し成功後に呼ぶ設計のため)。
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_MEMO2")
+    workshops.set_members("W_MEMO2", "U_OWNER", ["U_OWNER"])
+    webhook_event_id_store = InMemoryLineWebhookEventIdStore()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-not-yet-marked"
+
+    dispatch_webhook_events(
+        [event],
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=InMemoryTaskQueueClient(),
+        webhook_event_id_store=webhook_event_id_store,
+    )
+    check(
+        "enqueueされたイベントはFunction A内ではまだ処理済みマークされない",
+        webhook_event_id_store.has_processed("wh-evt-not-yet-marked") is False,
+    )
+
+
+def test_dispatch_webhook_events_duplicate_message_task_name_is_skipped_without_error():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_DUP")
+    workshops.set_members("W_DUP", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    queue = InMemoryTaskQueueClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-dup"
+
+    first = dispatch_webhook_events(
+        [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(), task_queue_client=queue,
+    )
+    second = dispatch_webhook_events(
+        [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(), task_queue_client=queue,
+    )
+    check("1回目はenqueueされる", first.enqueued_webhook_event_ids == ["wh-evt-dup"])
+    check("同名タスクの2回目はenqueueされず例外にもならない", second.enqueued_webhook_event_ids == [])
+
+
+def test_dispatch_webhook_events_missing_webhook_event_id_falls_back_to_sync():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_NOID")
+    workshops.set_members("W_NOID", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    queue = InMemoryTaskQueueClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+
+    result = dispatch_webhook_events(
+        [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(), task_queue_client=queue,
+    )
+    check("webhookEventId欠落時は同期処理にフォールバックする", len(result.message_results) == 1)
+    check("enqueueはされない", result.enqueued_webhook_event_ids == [])
+    check("キューには積まれない", queue.created == {})
+
+
+def test_dispatch_webhook_events_without_task_queue_client_processes_synchronously():
+    # task_queue_client未指定時は従来通り全件同期処理される(後方互換)。
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_LEGACY")
+    workshops.set_members("W_LEGACY", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-legacy"
+
+    result = dispatch_webhook_events(
+        [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+    )
+    check("task_queue_client未指定時は同期処理される", len(result.message_results) == 1)
+    check("enqueued_webhook_event_idsは空", result.enqueued_webhook_event_ids == [])
+
+
+def test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_without_raising():
+    class FlakyTaskQueueClient:
+        def create_task(self, task_name, payload):
+            raise ConnectionError("simulated Cloud Tasks transient failure")
+
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_FLAKY")
+    workshops.set_members("W_FLAKY", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-flaky"
+
+    result = dispatch_webhook_events(
+        [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(), task_queue_client=FlakyTaskQueueClient(),
+    )
+    check("一時的エラー時は同期処理にフォールバックする", len(result.message_results) == 1)
+    check("enqueued_webhook_event_idsには記録されない", result.enqueued_webhook_event_ids == [])
+    check("enqueue_fallback_webhook_event_idsに記録される", result.enqueue_fallback_webhook_event_ids == ["wh-evt-flaky"])
+
+
 def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch():
     store = InMemoryLineWebhookEventIdStore()
     store.mark_processed("wh_evt_receive")
@@ -3292,6 +3558,22 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_without_webhook_event_id_store_processes_every_time()
     test_dispatch_webhook_events_skips_dedup_when_webhook_event_id_missing()
     test_dispatch_webhook_events_dedup_applies_to_unfollow_event_too()
+    test_make_kura_message_task_name_uses_expected_prefix()
+    test_make_kura_message_task_name_rejects_empty_webhook_event_id()
+    test_make_kura_message_task_name_rejects_disallowed_characters()
+    test_is_sync_kura_message_event_true_for_non_text_message()
+    test_is_sync_kura_message_event_false_when_linking_disabled_and_text()
+    test_is_sync_kura_message_event_true_for_unlinked_user()
+    test_is_sync_kura_message_event_true_for_owner_faq_command()
+    test_is_sync_kura_message_event_false_for_owner_non_faq_text()
+    test_is_sync_kura_message_event_false_for_non_contractor_member()
+    test_dispatch_webhook_events_faq_command_is_still_replied_synchronously_with_task_queue()
+    test_dispatch_webhook_events_non_faq_text_is_enqueued_not_replied()
+    test_dispatch_webhook_events_enqueued_event_is_not_marked_processed_yet()
+    test_dispatch_webhook_events_duplicate_message_task_name_is_skipped_without_error()
+    test_dispatch_webhook_events_missing_webhook_event_id_falls_back_to_sync()
+    test_dispatch_webhook_events_without_task_queue_client_processes_synchronously()
+    test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_without_raising()
     test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch()
     test_line_webhook_event_id_store_has_processed_true_within_ttl()
     test_line_webhook_event_id_store_has_processed_false_after_ttl_expired()
