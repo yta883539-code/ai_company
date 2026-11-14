@@ -2722,3 +2722,27 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   (2)が、フェーズ114で既に解消済みの論点を「未解消」と誤って引き続き記載していた陳腐化
   を発見・是正した。コード変更なし、既存テスト184件・schema検証22件いずれも変更なしで
   パス)
+- フェーズ118(2026-11-14 05:00 UTC定例更新): forklift-pashaのbilling-budget-cap-
+  safeguard-design.md(2026-11-13 23:00 UTC)「未確定・今後の課題」節で、本venture
+  (event-komiguai-pasha)がpending-approval.md(2026-10-28 06:00 UTC記載)で同種の実
+  GCPプロジェクト・Firestore・Stripeアカウント作成の承認依頼を抱えているにもかかわらず、
+  line-reservation-aiが開始したBilling Budget安全策(月間予算上限+閾値到達時の自動課金
+  停止)の横展開対象として一度も検討されていなかった旨が申し送られていたため、本venture
+  向けに billing-budget-cap-safeguard-design.md を新規作成した。本venture固有の論点
+  (one-time-checkout-no-account-design.mdで採用した都度決済モデルが他venture群の継続
+  課金モデルと異なる)について、Billing BudgetはGCP側の月次クラウド支出を監視する機能で
+  あり本venture自身の収益認識モデルとは独立した別軸であることを確認した上で、暫定予算額を
+  他6venture(aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha・oshien-pasha・
+  line-reservation-ai)と同額の月間500円に設定した。これにより、line-reservation-aiフェーズ
+  続き386(2026-11-11 04:00 UTC)が開始した7venture横展開が全て完了した。INDEX.mdに新規
+  ファイルを追記した。コード変更なし(設計文書のみ)、実行(GCPプロジェクト作成・課金設定・
+  Budget作成)は一切行っていない。回帰確認として既存テスト184件・schema検証22件を実行し
+  いずれも変更なしでパスすることを確認した(回帰なし)。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし(既存エントリの文面は履行記録としてそのまま保持)。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト作成等)がオーナーから承認された場合は
+  その着手を最優先、(2)実`fetch('/result/' + draft_id)`呼び出しへの結合(実
+  エンドポイント・実ホスティングが承認された場合)、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-14 05:00 UTC(フェーズ118: 詳細は上記。billing-budget-cap-
+  safeguard-design.mdを新規作成し、line-reservation-ai発の7venture横展開を完了。コード
+  変更なし、既存テスト184件・schema検証22件いずれも変更なしでパス)

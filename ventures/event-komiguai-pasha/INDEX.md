@@ -58,6 +58,7 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 - firestore-security-rules-draft.md / firestore-security-rules-emulator-verification.md
 - runtime-dependency-switching-design.md / cloud-monitoring-alert-policy-design.md
 - data-retention-policy.md / vendor-breach-key-rotation-runbook.md / ci-setup.md
+- billing-budget-cap-safeguard-design.md
 
 ## コード・スキーマ・テスト(ディレクトリ)
 - prototype/ (実装コード・テスト) / schema/ (スキーマ検証) / emulator-test/ / landing-page/
