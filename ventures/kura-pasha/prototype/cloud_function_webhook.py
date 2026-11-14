@@ -2439,6 +2439,8 @@ def receive_webhook(
     rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
     webhook_event_id_store: Optional[LineWebhookEventIdStoreProtocol] = None,
+    task_queue_client: Optional[TaskQueueClient] = None,
+    enqueue_fallback_owner_push_client: Optional[LinePushClient] = None,
 ) -> WebhookReceiverResult:
     """署名検証済みのHTTPリクエストボディ(bytes)をdispatch_webhook_events()まで橋渡しする
     薄いエントリポイント(aircon-pashaのwebhook-http-entry-point-design.md 2節と同じ設計)。
@@ -2457,6 +2459,14 @@ def receive_webhook(
     フェーズ286: `webhook_event_id_store`(省略時None、後方互換)を追加し
     dispatch_webhook_events()へそのまま橋渡しする(line-webhook-event-id-idempotency-
     design.md参照)。
+
+    フェーズ続き305: `task_queue_client`はフェーズ続き302でdispatch_webhook_events()に
+    追加済みだったが、本関数からは橋渡しされていなかった(aircon-pashaフェーズ384で発見された
+    ものと同種のギャップ)。本フェーズで橋渡しを追加し、Cloud Tasksへのenqueueが実HTTP
+    エントリポイント経由でも有効になるよう修正した。併せて`enqueue_fallback_owner_push_client`
+    (省略時None、後方互換)を新設し、dispatch結果の`enqueue_fallback_webhook_event_ids`が
+    非空の場合にenqueue-fallback-owner-notification-design.md(鞍パシャッと版)に従い
+    オーナーへdigest通知を1回送る。
     """
     if not verify_line_signature(body, signature_header, channel_secret):
         return WebhookReceiverResult(status_code=401, error="invalid_signature")
@@ -2485,7 +2495,20 @@ def receive_webhook(
         rng=rng,
         now=now,
         webhook_event_id_store=webhook_event_id_store,
+        task_queue_client=task_queue_client,
     )
+    if (
+        dispatch_result.enqueue_fallback_webhook_event_ids
+        and enqueue_fallback_owner_push_client is not None
+    ):
+        from enqueue_fallback_owner_notification import (
+            send_enqueue_fallback_owner_notification,
+        )
+
+        send_enqueue_fallback_owner_notification(
+            dispatch_result.enqueue_fallback_webhook_event_ids,
+            enqueue_fallback_owner_push_client,
+        )
     return WebhookReceiverResult(status_code=200, dispatch_result=dispatch_result)
 
 

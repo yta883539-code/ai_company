@@ -7128,3 +7128,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   design.md「残課題・次回候補(4)」のうち机上検証可能な部分に着手。新規テスト3件
   〈check()呼び出し8件〉追加、test_cloud_function_webhook.py単体413件・run_all_tests.py
   全25ファイル・schema検証32件いずれもパス、回帰なし)
+- フェーズ続き305(2026-11-14 21:00 UTC定例更新): aircon-pashaフェーズ384
+  (2026-11-14 09:00 UTC)で横展開されたcourse-set-pasha発の
+  enqueue-fallback-owner-notification-design.mdのうち「kura-pashaへの横展開は未着手の
+  まま残す」とされていた項目に対応した。本venture独自のwebhook-async-two-function-
+  design.mdを確認した結果、`dispatch_webhook_events()`のCloud Tasks `create_task()`が
+  `TaskAlreadyExistsError`以外の例外で失敗した場合に同期処理へフォールバックし
+  `result.enqueue_fallback_webhook_event_ids`に記録する挙動が既にcourse-set-pashaと
+  同型で実装済みであり(line-reservation-ai版の「enqueue断念+オーナー通知」とは異なる
+  設計)、本パターンがそのまま適用できると判断した。あわせて`receive_webhook()`が
+  `dispatch_webhook_events()`へ`task_queue_client`を橋渡ししていなかった追加ギャップ
+  (aircon-pashaフェーズ384で発見されたものと同種)を発見し、本venture側でも同時に解消
+  した。`prototype/enqueue_fallback_owner_notification.py`(course-set-pasha版の横展開、
+  `format_enqueue_fallback_owner_notification_message()`・`send_enqueue_fallback_owner_
+  notification()`)を新規実装し、`receive_webhook()`に`task_queue_client`・
+  `enqueue_fallback_owner_push_client`(いずれも省略時`None`で後方互換)を新設して
+  `dispatch_webhook_events()`への橋渡しと、enqueueフォールバック発生時のオーナー
+  digest通知送信を配線した。新規テスト9件(`test_enqueue_fallback_owner_notification.py`
+  単体6件・`test_cloud_function_webhook.py`へ`receive_webhook()`の`task_queue_client`
+  橋渡し確認・enqueueフォールバック時の通知送信確認・通知クライアント未指定時の後方互換
+  確認の3件)を追加し、test_cloud_function_webhook.py単体419件(旧413件)・
+  run_all_tests.py全26ファイル(新規test_enqueue_fallback_owner_notification.pyを含む)・
+  schema検証32件いずれもパス(回帰なし)。実LINE Push Message APIでの送信・実Cloud Tasks
+  デプロイは行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、Billing
+  Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を最優先、
+  (2)forklift-pasha・event-komiguai-pasha・oshien-pashaについてもenqueue失敗時の挙動
+  (同期フォールバックか、enqueue断念+通知か、本パターン自体が適用可能かどうか)の個別
+  確認が未着手のまま残る、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-14 21:00 UTC(フェーズ続き305: 詳細は上記。course-set-pasha発の
+  enqueueフォールバック時オーナー通知を本ventureへ横展開し、`enqueue_fallback_owner_
+  notification.py`を新規実装。併せて`receive_webhook()`が`task_queue_client`を
+  橋渡ししていなかった既存ギャップも解消。新規テスト9件追加、test_cloud_function_
+  webhook.py単体419件・run_all_tests.py全26ファイル・schema検証32件いずれもパス、
+  回帰なし。)

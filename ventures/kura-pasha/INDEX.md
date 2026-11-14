@@ -73,6 +73,10 @@
   `TaskQueueClient`/`InMemoryTaskQueueClient`/`make_kura_message_task_name()`〉はフェーズ
   続き302で`prototype/cloud_function_webhook.py`へ実装済み。実デプロイ(Cloud Tasksキュー・
   Function Bの結線)のみ未着手)
+- enqueue-fallback-owner-notification-design.md(course-set-pasha/aircon-pasha版の横展開。
+  Cloud Tasksへのenqueue失敗時に同期フォールバックした件数をオーナーへdigest通知する設計。
+  併せて`receive_webhook()`が`task_queue_client`を`dispatch_webhook_events()`へ橋渡しして
+  いなかったギャップも本フェーズで解消)
 - schema/ (output.schema.json, validate_test_cases.py) / prototype/ (InMemoryスタブ実装・テスト)
 - emulator-test/
 

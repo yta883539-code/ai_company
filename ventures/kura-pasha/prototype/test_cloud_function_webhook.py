@@ -3354,6 +3354,103 @@ def test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch():
 
 
 # ---------------------------------------------------------------------------
+# receive_webhook()のtask_queue_client/enqueue_fallback_owner_push_client橋渡し
+# (フェーズ続き305、enqueue-fallback-owner-notification-design.md〈鞍パシャッと版〉。
+# aircon-pashaフェーズ384で発見された「receive_webhook()がtask_queue_clientを
+# dispatch_webhook_events()へ橋渡ししていなかった」ギャップが本ventureにも存在していたため、
+# 併せて再発防止テストを置く)
+# ---------------------------------------------------------------------------
+
+def test_receive_webhook_passes_task_queue_client_through_to_dispatch():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_RECEIVE_QUEUE")
+    workshops.set_members("W_RECEIVE_QUEUE", "U_OWNER", ["U_OWNER"])
+    queue = InMemoryTaskQueueClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-receive-queue"
+    body = _webhook_body([event])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=queue,
+    )
+    check("receive_webhook経由でも200が返る", result.status_code == 200)
+    check(
+        "receive_webhook経由でもtask_queue_clientがdispatch_webhook_eventsへ橋渡しされ"
+        "enqueueされる(修正前は常に同期処理されていた)",
+        result.dispatch_result.enqueued_webhook_event_ids == ["wh-evt-receive-queue"],
+    )
+
+
+def test_receive_webhook_sends_owner_notification_on_enqueue_fallback():
+    class FlakyTaskQueueClient:
+        def create_task(self, task_name, payload):
+            raise ConnectionError("simulated Cloud Tasks transient failure")
+
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_RECEIVE_FALLBACK")
+    workshops.set_members("W_RECEIVE_FALLBACK", "U_OWNER", ["U_OWNER"])
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-receive-fallback"
+    body = _webhook_body([event])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+    owner_push_client = InMemoryLinePushClient()
+
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=FlakyTaskQueueClient(),
+        enqueue_fallback_owner_push_client=owner_push_client,
+    )
+    check(
+        "enqueue失敗時は同期処理へフォールバックしつつ200を返す",
+        result.status_code == 200
+        and result.dispatch_result.enqueue_fallback_webhook_event_ids
+        == ["wh-evt-receive-fallback"],
+    )
+    check("オーナーへenqueueフォールバックのdigest通知が1件送られる", len(owner_push_client.sent) == 1)
+    check(
+        "通知文言にwebhookEventIdが含まれる",
+        "wh-evt-receive-fallback" in owner_push_client.sent[0][1],
+    )
+
+
+def test_receive_webhook_without_enqueue_fallback_owner_push_client_does_not_raise():
+    class FlakyTaskQueueClient:
+        def create_task(self, task_name, payload):
+            raise ConnectionError("simulated Cloud Tasks transient failure")
+
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_RECEIVE_FALLBACK_NONE")
+    workshops.set_members("W_RECEIVE_FALLBACK_NONE", "U_OWNER", ["U_OWNER"])
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-receive-fallback-none"
+    body = _webhook_body([event])
+    signature = _sign(body, _TEST_CHANNEL_SECRET)
+
+    result = receive_webhook(
+        body, signature, _TEST_CHANNEL_SECRET,
+        llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]),
+        reply_client=InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        linking_store=InMemoryLinkingCodeStore(),
+        task_queue_client=FlakyTaskQueueClient(),
+    )
+    check(
+        "enqueue_fallback_owner_push_client未指定でも例外にならず200を返す(後方互換)",
+        result.status_code == 200,
+    )
+
+
+# ---------------------------------------------------------------------------
 # InMemoryLineWebhookEventIdStoreのTTL(フェーズ287、
 # line-webhook-event-id-idempotency-design.md 4節「TTL設計」を解消)
 # ---------------------------------------------------------------------------
@@ -3683,6 +3780,9 @@ if __name__ == "__main__":
     test_deliver_enqueued_kura_message_task_without_event_id_store_skips_marking()
     test_deliver_enqueued_kura_message_task_does_not_mark_processed_on_failure()
     test_receive_webhook_passes_webhook_event_id_store_through_to_dispatch()
+    test_receive_webhook_passes_task_queue_client_through_to_dispatch()
+    test_receive_webhook_sends_owner_notification_on_enqueue_fallback()
+    test_receive_webhook_without_enqueue_fallback_owner_push_client_does_not_raise()
     test_line_webhook_event_id_store_has_processed_true_within_ttl()
     test_line_webhook_event_id_store_has_processed_false_after_ttl_expired()
     test_line_webhook_event_id_store_expired_entry_can_be_reprocessed()
