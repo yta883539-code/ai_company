@@ -7407,3 +7407,26 @@
   を本ventureへ横展開し、`enqueue_fallback_owner_notification.py`を新規実装。併せて
   `receive_webhook()`が`task_queue_client`を橋渡ししていなかった既存ギャップも解消。
   新規テスト9件追加、全842件・schema検証25件いずれもパス、回帰なし。)
+- フェーズ385(2026-11-14 22:00 UTC定例更新): ideas.mdに新規アイデア1件追加(詳細は
+  ideas.md参照)。course-set-pashaフェーズ376(2026-11-14 14:00 UTC)が新規設計・実装した
+  「Enqueueフォールバック発生率アラート」(`cloud-monitoring-alert-policy-design.md`6節)
+  を本ventureへ横展開した。本venture側`dispatch_webhook_events()`は既にenqueue失敗時に
+  `result.enqueue_fallback_webhook_event_ids`へ記録していたが、course-set-pasha版と同様
+  構造化ログ出力自体が欠落していたギャップを発見し、`_logger.warning(..., extra={"event":
+  "enqueue_fallback_occurred", "webhook_event_id": ...})`を`prototype/cloud_function_
+  webhook.py`に追加した。`cloud-monitoring-alert-policy-design.md`に7節として同種の
+  ログベース指標・アラートポリシー設計を新規作成した。新規テスト1件
+  (`test_enqueue_failure_emits_warning_log`)を追加し、既存842件と合わせ全843件・
+  schema検証25件いずれもパス(回帰なし)。実GCPプロジェクト・Cloud Monitoringへの接続・
+  ログベース指標/アラートポリシーの実作成は行っていない(既存の「実GCPプロジェクト作成は
+  オーナー承認待ち」の範囲内)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+  送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先(event-komiguai-pasha・forklift-pasha・kura-pasha・
+  line-reservation-ai・oshien-pasha)への同種設計・実装の横展開、(2)2026-11-08 08:00 UTC
+  記載の運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-14 22:00 UTC(フェーズ385: 詳細は上記。course-set-pasha発の
+  Enqueueフォールバック発生率アラート設計を本ventureへ横展開し、構造化ログ出力を
+  `cloud_function_webhook.py`に追加。新規テスト1件追加、全843件・schema検証25件いずれも
+  パス、回帰なし。)

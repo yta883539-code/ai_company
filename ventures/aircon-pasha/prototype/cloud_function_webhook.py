@@ -1900,6 +1900,16 @@ def dispatch_webhook_events(
                     # まだ有効な想定のため、enqueue失敗イベントは安全側としてその場で
                     # 同期処理にフォールバックする。
                     result.enqueue_fallback_webhook_event_ids.append(webhook_event_id)
+                    # cloud-monitoring-alert-policy-design.md 7節(フェーズ385、
+                    # course-set-pashaフェーズ376を横展開)準拠。顧客応答自体は後続の
+                    # 同期フォールバックで吸収されるためseverityはWARNING。
+                    _logger.warning(
+                        "enqueue to task queue failed, falling back to sync processing",
+                        extra={
+                            "event": "enqueue_fallback_occurred",
+                            "webhook_event_id": webhook_event_id,
+                        },
+                    )
                     _process_message_sync(event)
                 _mark_processed(event)
 

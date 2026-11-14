@@ -3490,6 +3490,26 @@ class DispatchWebhookEventsTaskQueueWiringTest(unittest.TestCase):
         self.assertEqual(len(result.message_results), 1)
         self.assertEqual(result.enqueue_fallback_webhook_event_ids, ["ev-6"])
 
+    def test_enqueue_failure_emits_warning_log(self):
+        # cloud-monitoring-alert-policy-design.md 7節(フェーズ385)準拠。
+        class _FailingTaskQueueClient:
+            def create_task(self, task_name, payload):
+                raise RuntimeError("quota exceeded")
+
+        events = [{
+            "type": "message", "replyToken": "rt-6b", "webhookEventId": "ev-6b",
+            "source": {"userId": "u-linked"},
+            "message": {"type": "text", "text": "壁掛け型2.2kW分解洗浄実施"},
+        }]
+
+        with self.assertLogs("cloud_function_webhook", level="WARNING") as captured:
+            self._dispatch(events, _FailingTaskQueueClient(), llm_call=FixtureLlmClient("G1_basic"))
+
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.event, "enqueue_fallback_occurred")
+        self.assertEqual(record.webhook_event_id, "ev-6b")
+
     def test_task_queue_client_none_keeps_legacy_fully_synchronous_behavior(self):
         events = [{
             "type": "message", "replyToken": "rt-7", "webhookEventId": "ev-7",
