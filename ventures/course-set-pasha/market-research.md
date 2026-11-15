@@ -36,9 +36,17 @@
 
 ## 未検証事項(次回以降の課題)
 
-- 実際の個人経営ボルダリングジムへのヒアリング(SNS投稿頻度・作成にかかる時間・
-  外部委託の有無)は未実施。line-reservation-aiのcustomer-interview-design.mdの
-  手法を参考に、ヒアリング設計は今後の課題とする。
+- (2026-11-15 10:00 UTC更新): ヒアリング「設計」自体は、line-reservation-aiの
+  customer-interview-design.mdの手法を踏襲したcustomer-interview-design.md(質問14問)、
+  候補選定基準(interview-candidate-selection-criteria.md)、候補ロングリスト
+  (candidate-longlist-draft.md、第一弾〜第八弾)、オーナー提示用パッケージ
+  (interview-request-package.md)として既に完了している。本節が従来「ヒアリング設計は
+  今後の課題」としていたのは、これらのファイルが作成される前の記述がそのまま残っていた
+  ためで、実態と食い違っていた。残っているのは「設計」ではなく「実際の個人経営ボルダリング
+  ジムへの連絡・実施」のみであり、これは候補1(FRICTION FREAKS)への連絡可否等のオーナー
+  判断待ち(interview-request-package.md「4. 連絡開始前にオーナー判断が必要な未確定事項」)
+  として既にpending-approval.mdに記録済みの範囲に含まれる。本節は新規のpending-approval
+  追記を要しない(重複のため)。
 - 課題入れ替え頻度・グレード表記の慣習は施設によって差が大きい可能性があり、
   複数ジムの公式SNSアカウントの実例(公開情報)を観察して入力テンプレートの
   汎用性を検証する必要がある。

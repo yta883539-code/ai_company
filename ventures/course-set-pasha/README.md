@@ -6970,3 +6970,19 @@
   (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開、
   (3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた場合はその着手を
   最優先、(4)他venture・アイデア領域の前進。
+- フェーズ377(2026-11-15 10:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (直前の更新は2026-11-15 01:00 UTC)を前進。market-research.md「未検証事項」が
+  「実際の個人経営ボルダリングジムへのヒアリングは未実施、ヒアリング設計は今後の課題」と
+  記述したまま残っていたが、実際にはcustomer-interview-design.md(質問14問)・
+  interview-candidate-selection-criteria.md・candidate-longlist-draft.md(第一弾〜
+  第八弾)・interview-request-package.mdとしてヒアリング設計自体は既に完了済みであり、
+  記述が実態と食い違う記載漏れだったことに気づいたため是正した。残る実際の連絡実施は
+  interview-request-package.md「4. 連絡開始前にオーナー判断が必要な未確定事項」として
+  既にpending-approval.mdの範囲に含まれているため、新規のpending-approval追記は行って
+  いない。コード変更なし(ドキュメント修正のみ)、既存テスト910件・schema検証22件を再実行し
+  いずれも変更なしでパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・
+  外部公開・送信等)は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先forklift-pashaへの同種Billing Budget安全策設計の横展開、
+  (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開の
+  実施状況の最終確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
