@@ -254,9 +254,9 @@
       "nearest_station": "JR金沢駅 兼六園口(東口)",
       "walk_minutes_note": "徒歩1分前後(駅と直結との記載もあり)",
       "naming_rights": false,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-15",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。WebSearchで複数の情報源がJR金沢駅東口(兼六園口)から徒歩1分、または駅東口と直結という記載で一致していることを確認した一次情報。",
+      "verification_note": "フェーズ70: venue-master-draft.mdフェーズ70で新設した北陸・甲信越圏の追加に合わせてschema側にも新規追加した。WebSearchで複数の情報源がJR金沢駅東口(兼六園口)から徒歩1分、または駅東口と直結という記載で一致していることを確認した一次情報。 フェーズ128(2026-11-15 08:00 UTC): エイリアス裏取りのためWebSearchを実施したが、施設名そのもの・「音楽堂」という呼び方以外にファン・メディアが日常的に使う愛称・略称を示す出典は見つからず、他venueと同じ採用基準(複数出典での裏取り)に合わせてaliasesは空のまま維持し検証実施済みの旨を記録した。",
       "operational_status": "active"
     },
     {
@@ -310,9 +310,9 @@
       "nearest_station": "西鉄バス マリンメッセ福岡・福岡国際センター前",
       "walk_minutes_note": "バス停直結",
       "naming_rights": false,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-15",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した(詳細な現地裏取りは未実施)。",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した(詳細な現地裏取りは未実施)。 フェーズ128(2026-11-15 08:00 UTC): エイリアス裏取りのためWebSearchを実施したが、「マリメ」等の略称を示す出典は見つからなかった。2019年10月に「マリンメッセ福岡」から「マリンメッセ福岡A館」へ改称され2021年にB館が新設された経緯(knt.co.jp等)は確認したが、ファン・メディアが日常的に使う別の愛称・略称の複数出典は見つからず、他venueと同じ採用基準に合わせてaliasesは空のまま維持し検証実施済みの旨を記録した。",
       "operational_status": "active"
     },
     {
@@ -322,9 +322,9 @@
       "nearest_station": "西鉄バス マリンメッセ福岡・福岡国際センター前(マリンメッセ福岡に隣接)",
       "walk_minutes_note": "バス停直結",
       "naming_rights": false,
-      "last_verified_date": "2026-11-03",
+      "last_verified_date": "2026-11-15",
       "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。マリンメッセ福岡に隣接する別施設であり、名称の取り違えに注意。",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。マリンメッセ福岡に隣接する別施設であり、名称の取り違えに注意。 フェーズ128(2026-11-15 08:00 UTC): エイリアス裏取りのためWebSearchを実施したが、公式の愛称・略称を示す出典は見つからなかった。最寄りバス停名「国際センター」「国際会議場」が略称的に使われる場合がある旨、および隣接する別施設「福岡コンベンションセンター(FCC)」との呼称混同に注意が必要な旨は確認したが、これらは単一出典・施設名の取り違えリスクを伴うため採用基準(複数出典での裏取り)を満たさず、aliasesは空のまま維持し検証実施済みの旨を記録した。",
       "operational_status": "active"
     },
     {
@@ -505,9 +505,9 @@
       "nearest_station": "JR東静岡駅 南口",
       "walk_minutes_note": "徒歩3分前後(南口に隣接、情報源はイベント案内サイト)",
       "naming_rights": false,
-      "last_verified_date": "2026-11-14",
+      "last_verified_date": "2026-11-15",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ120: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。「グランシップ」は静岡県が設置した文化施設の愛称であり企業の命名権ではないためnaming_rights=falseとした。",
+      "verification_note": "フェーズ120: 「中部圏(静岡・山梨等)」地方圏拡充の一環でWebSearchにより新規調査・追加した。「グランシップ」は静岡県が設置した文化施設の愛称であり企業の命名権ではないためnaming_rights=falseとした。 フェーズ128(2026-11-15 08:00 UTC): 静岡県公式資料(pref.shizuoka.jp)で正式名称「静岡県コンベンションアーツセンター」・愛称「グランシップ」であることを再確認したが、それ以外の別の略称を示す出典は見つからず、aliasesは空のまま維持し検証実施済みの旨を記録した。",
       "operational_status": "active"
     },
     {
