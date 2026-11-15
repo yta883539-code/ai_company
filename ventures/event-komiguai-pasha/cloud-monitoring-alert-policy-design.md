@@ -44,11 +44,13 @@ kura-pasha・line-reservation-ai)がいずれも備える「Firestoreランタ�
   ```
   `resource.type`は他venture側のcloud-functions-generation-decision.mdの確定
   (2nd gen / Cloud Run functions)をtech-stack.mdフェーズ7が踏襲済みのため、本venture
-  側もこれに合わせる。本ventureにはCloud Run functionsの関数境界(フォーム送信受信・
-  LLM呼び出し・TTL失効/結果返却スケジューラ〈ttl-expiry-result-delivery-refund-
-  design.mdフェーズ12〉を何関数に分けるか)の確定文書がまだ無いため、`service_name`・
-  `revision_name`等の具体的なリソースラベル値、および対象関数の最終的な個数は
-  引き続き要確認として残す(0.で述べた関数境界確定が前提)。
+  側もこれに合わせる。対象関数の個数・境界は、runtime-dependency-switching-design.md
+  (フェーズ63)で`submit_event_form`・`handle_stripe_webhook`・`get_result_page`・
+  `submit_inquiry`の4関数として確定済み(3節の取り消し線記載と同一の結論であり、
+  本節側の記載が更新されず「未確定」のまま残っていた食い違いを今回是正した)。
+  `service_name`・`revision_name`等の具体的なリソースラベル値そのものは、実GCP
+  プロジェクト作成(承認待ち事項)後でなければ確定できないため、その点のみ
+  引き続き要確認として残す。
 - ログ出力側は、本venture自体がまだFirestoreクライアント構築処理の実装(`.py`)を
   持たないため該当コードが存在しない。将来実装時には他venture同様に
   `logger.exception(..., extra={"json_fields": {"event": "firestore_runtime_dependency_construction_failed"}})`
@@ -90,6 +92,17 @@ kura-pasha・line-reservation-ai)がいずれも備える「Firestoreランタ�
 - 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`
   および`gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト
   作成後にオーナー承認の範囲内で実施する。
+
+追記: 2026-11-15 20:00 UTC(フェーズ123: 1節が「対象関数の最終的な個数は引き続き
+要確認」と記載したまま、3節の取り消し線記載〈runtime-dependency-switching-design.md
+フェーズ63で4関数確定済み〉と食い違っていた記載漏れを是正した。1節を4関数確定済みの
+内容に更新し、残る未確定事項を実GCPプロジェクト作成後の`service_name`等の具体的な
+ラベル値のみに縮小した。コード変更なし(設計文書のみ)、既存テスト184件・schema検証
+22件いずれも変更なしでパス(回帰なし)。承認が必要なアクションは今回発生していないため
+pending-approval.mdへの追記なし。次回候補: (1)承認待ち事項(launch-readiness-
+checklist.md記載の1〜3)がオーナーから承認された場合はその着手を最優先、(2)関数1・2・4
+の同時実行数・関数3のmax-instancesの具体的な数値確定(実LLM接続後の実測待ち)、
+(3)他venture・アイデア領域の前進。)
 
 追記: 2026-10-26 21:00 UTC(フェーズ63: runtime-dependency-switching-design.md新規
 作成により、本節の前提条件だった関数境界・対象関数個数の未確定を解消したことを反映)
