@@ -74,6 +74,7 @@ Billing Budget+自動停止」を添えて提示することで、オーナー�
   残す(現時点では構成方針のみで、line-reservation-ai向けの実装も未着手のため共通化を検討する
   余地がある)。
 - 契約業者数が想定を超えた場合の予算額見直しプロセスをlaunch-readiness-checklist.mdへ反映する
-  作業は次回候補として残す。
+  作業は、フェーズ387(2026-11-15 14:00 UTC)で同ドキュメント「運用手順」節として反映済み。
+  ただし本運用手順は実Billing Budget作成後にのみ適用される(未実行)。
 - 他4venture(course-set-pasha・forklift-pasha・kura-pasha・oshien-pasha)についても同種の
   Billing Budget安全策設計が未着手のため、次回以降の横展開候補として残す。

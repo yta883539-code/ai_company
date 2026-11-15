@@ -7459,3 +7459,26 @@
   387のERROR severity変更版の本venture側への適用可否を確認し、該当パターンが存在しないため
   適用せず既存のWARNING severityのままで正しいことを8節として記録。コード変更なし、
   既存843件・schema検証25件いずれもパス、回帰なし。)
+- フェーズ387(2026-11-15 14:00 UTC定例更新): ideas.mdに新規アイデア2件追加(詳細は
+  ideas.md参照)。billing-budget-cap-safeguard-design.md「未確定・今後の課題」に
+  次回候補として残っていた「契約業者数が想定(当面10業者)を超えた場合の予算額見直し
+  プロセスをlaunch-readiness-checklist.mdへ反映する作業」を本フェーズで実施した。
+  launch-readiness-checklist.mdに新規「運用手順(契約業者数に応じたBilling Budget
+  予算見直し)」節を追加し、契約業者数が8業者(想定上限の8割)に達した時点での
+  予算見直し提案の算出式・適用条件(実Billing Budget作成後にのみ適用、本エージェント
+  単独では予算額を変更しない)を明記した。billing-budget-cap-safeguard-design.md側も
+  当該項目を「反映済み(未実行)」に更新した。コード変更なし(運用手順docのみ)、
+  既存テスト843件(`python3 -m unittest discover -s prototype -p "test_*.py"`で再実行)・
+  schema検証25件いずれも変更なしでパス(回帰なし)。実GCPプロジェクト・実Billing Budget
+  の作成は行っていない(既存の「実GCPプロジェクト作成はオーナー承認待ち」の範囲内)。
+  承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)他4venture(course-set-pasha・forklift-pasha・kura-pasha・oshien-pasha)
+  へのBilling Budget安全策設計そのものの横展開(billing-budget-cap-safeguard-design.md
+  記載、未着手)、(2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま
+  7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-15 14:00 UTC(フェーズ387: 詳細は上記。billing-budget-cap-
+  safeguard-design.mdに残っていた次回候補を本venture側で実施し、契約業者数に応じた
+  予算見直し運用手順をlaunch-readiness-checklist.mdへ反映。コード変更なし、
+  既存843件・schema検証25件いずれもパス、回帰なし。)
