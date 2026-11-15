@@ -17,10 +17,21 @@ from access_url_reissue_handler import (
     ReissueRequestRejected,
     ReissueRequestResult,
     handle_reissue_request,
+    main as reissue_main,
     receive_reissue_request,
     render_reissue_email_body,
 )
 from trial_management import InMemoryFleetOperatorStore
+
+
+class _StubRequest:
+    """main(request)のテスト用、functions_frameworkが渡すFlask Requestのうち
+    `request.args.get()`・`request.form.get()`インターフェースのみを模した最小スタブ
+    (test_checkout_session.py `_StubRequest`と同系)。"""
+
+    def __init__(self, args: dict, form: "dict | None" = None):
+        self.args = args
+        self.form = form or {}
 
 
 def _check(label, actual, expected):
@@ -295,6 +306,84 @@ def main():
         "URL取得失敗時はフォールバック文言に差し替わる",
         NEW_ACCESS_URL_UNAVAILABLE_FALLBACK in body_no_url,
         True,
+    ))
+
+    # --- main(): 正常系(有効なaccess_tokenをクエリパラメータから取得) ---
+    token_store, email_store, provider = _make_deps()
+    email_store.set_email("op11", "owner11@example.com")
+    token11 = issue_initial_access_token(token_store, "op11")
+    deps11 = {
+        "access_token_store": token_store,
+        "email_store": email_store,
+        "access_url_provider": provider,
+    }
+
+    body, status_code = reissue_main(
+        _StubRequest({"access_token": token11}), runtime_dependencies=deps11
+    )
+
+    results.append(_check("main()正常系のstatus_codeは200", status_code, 200))
+    results.append(_check("main()正常系のbodyはOK", body, "OK"))
+    results.append(_check(
+        "main()正常系ではトークンが再発行されている(旧トークンは失効)",
+        token_store.get_internal_id_by_access_token(token11),
+        None,
+    ))
+
+    def _deps_dict():
+        token_store, email_store, provider = _make_deps()
+        return {
+            "access_token_store": token_store,
+            "email_store": email_store,
+            "access_url_provider": provider,
+        }
+
+    # --- main(): access_token欠落(クエリパラメータ自体が無い) ---
+    body, status_code = reissue_main(_StubRequest({}), runtime_dependencies=_deps_dict())
+    results.append(_check("main()でaccess_token欠落時のstatus_codeは400", status_code, 400))
+    results.append(_check(
+        "main()でaccess_token欠落時のbodyはmissing_access_token", body, "missing_access_token"
+    ))
+
+    # --- main(): 無効なaccess_token ---
+    body, status_code = reissue_main(
+        _StubRequest({"access_token": "no-such-token"}), runtime_dependencies=_deps_dict()
+    )
+    results.append(_check("main()で無効なaccess_tokenのstatus_codeは404", status_code, 404))
+    results.append(_check(
+        "main()で無効なaccess_tokenのbodyはunknown_access_token", body, "unknown_access_token"
+    ))
+
+    # --- main(): new_emailをフォームボディから取得し、不正な形式なら400 ---
+    token_store, email_store, provider = _make_deps()
+    email_store.set_email("op12", "owner12@example.com")
+    token12 = issue_initial_access_token(token_store, "op12")
+    deps12 = {
+        "access_token_store": token_store,
+        "email_store": email_store,
+        "access_url_provider": provider,
+    }
+
+    body, status_code = reissue_main(
+        _StubRequest({"access_token": token12}, form={"new_email": "not-an-email"}),
+        runtime_dependencies=deps12,
+    )
+
+    results.append(_check("main()で不正なnew_emailのstatus_codeは400", status_code, 400))
+    results.append(_check("main()で不正なnew_emailのbodyはinvalid_email", body, "invalid_email"))
+    results.append(_check(
+        "main()で不正なnew_emailの場合アクセストークンは再発行されない",
+        token_store.get_access_token("op12"),
+        token12,
+    ))
+
+    # --- main(): runtime_dependencies省略時はget_reissue_runtime_dependencies()の
+    # 既定値(検証用InMemory実装)が使われ、例外なくaccess_token欠落の400を返す ---
+    body, status_code = reissue_main(_StubRequest({}))
+    results.append(_check(
+        "main()はruntime_dependencies省略時も例外なく動作する(既定値はInMemory実装)",
+        status_code,
+        400,
     ))
 
     ok = all(results)

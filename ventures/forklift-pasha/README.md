@@ -5192,3 +5192,28 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   未回答のため、他venture・アイデア領域の前進を継続する。
 - 最終更新: 2026-11-15 00:00 UTC(フェーズ237: 詳細は上記。deployment-runbook.mdを
   新規作成。コード変更なし)
+
+- フェーズ238(2026-11-15 07:00 UTC定例更新): フェーズ237「次回候補(2)」で検討対象とした、
+  access_url_reissue_handler.pyのHTTPエントリポイント化(`main(request)`ラッパー追加)に
+  着手した。access-url-reissue-http-entry-point-design.md 4節の方針どおり、`access_token`は
+  checkout_session.main()と同じクエリパラメータ(`request.args.get("access_token")`)から、
+  `new_email`はフォームボディ(`request.form.get("new_email")`)から取り出し、既存の
+  `receive_reissue_request()`(フェーズ135で机上実装済み)に委譲する薄い配線として実装した。
+  実Firestore接続までの既定依存は`get_reissue_runtime_dependencies()`としてInMemory実装を
+  返す(cloud_function_send_trial_end_emails.get_trial_end_email_runtime_dependencies()と
+  対称の構成)。本番LPドメイン未確定のため`_PLACEHOLDER_BASE_URL`(同ファイルの
+  `_PLACEHOLDER_BASE_URL`と同じ値・同じ理由)を暫定使用した。design.md 3節の方針どおり、
+  レスポンス本文には`new_access_url`等を含めない(成功時`"OK", 200`、エラー時
+  `(error文字列), status_code`)。新規テスト6件(正常系・access_token欠落・無効な
+  access_token・不正なnew_email・runtime_dependencies省略時の既定動作)を追加し、
+  test_access_url_reissue_handler.py全41件・schema検証11件いずれもパス(回帰なし)。
+  実GCPプロジェクト・Firestore・実ドメインへの接続・デプロイは一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続・Webフォームホスティング先
+  確定)がオーナーから承認された場合はその着手を最優先、(2)もう一方の未着手事項である
+  form_submission_flow.pyのHTTPエントリポイント化(`main(request)`ラッパー追加。こちらは
+  本venture未着手の個別設計docが無いため、着手前に簡単な方針整理が必要)、(3)2026-11-08
+  08:00 UTC記載の運営方針確認(7venture全てが承認待ちで停滞している状態への対応方針)が
+  未回答のため、他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 07:00 UTC(フェーズ238: 詳細は上記。access_url_reissue_handler.pyに
+  `main(request)`・`get_reissue_runtime_dependencies()`を追加。コード変更あり、テスト追加6件)

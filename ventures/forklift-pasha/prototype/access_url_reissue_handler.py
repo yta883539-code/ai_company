@@ -23,7 +23,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from access_token_store import AccessTokenStoreProtocol, reissue_access_token
+from access_token_store import (
+    AccessTokenStoreProtocol,
+    AccessTokenStoreUrlProvider,
+    InMemoryAccessTokenStore,
+    reissue_access_token,
+)
+from trial_management import InMemoryFleetOperatorStore
 
 
 class _EmailFieldStoreProtocol(Protocol):
@@ -186,3 +192,68 @@ def receive_reissue_request(
         return ReissueHttpResult(status_code=400, error="invalid_email")
 
     return ReissueHttpResult(status_code=200, result=result)
+
+
+# ---------------------------------------------------------------------------
+# Cloud Functions HTTPエントリポイント (README フェーズ237「次回候補(2)」対応)
+# ---------------------------------------------------------------------------
+
+# 本番LPドメインは未確定(pending-approval.md記載のStripe/LPドメイン確定待ち事項の一部、
+# cloud_function_send_trial_end_emails._PLACEHOLDER_BASE_URLと同じ理由・同じ値)。
+# 確定後はこの値を実ドメインに置き換えるだけでAccessTokenStoreUrlProviderの接続先が
+# 切り替わる。
+_PLACEHOLDER_BASE_URL = "https://<ドメイン未確定>"
+
+
+def get_reissue_runtime_dependencies() -> dict:
+    """main()が使う依存の既定値を組み立てる(checkout_session.get_checkout_runtime_
+    dependencies()と対称の構成)。
+
+    実Firestore接続(access_token_store・fleet_operatorストア)はいずれも実GCPプロジェクト・
+    実ドメイン確定後でなければ構築できないため(オーナー承認待ち、pending-approval.md参照)、
+    現時点では検証用のInMemory実装を返す。呼び出しごとに新規生成されるため、実Cloud
+    Functions環境でも呼び出しをまたいで状態(発行済みアクセストークン等)が保持されない
+    既知の限界が残る(cloud_function_send_trial_end_emails.get_trial_end_email_runtime_
+    dependencies()と同じ限界で、実Firestore接続後に解消される)。
+    """
+    token_store = InMemoryAccessTokenStore()
+    return {
+        "access_token_store": token_store,
+        "email_store": InMemoryFleetOperatorStore(),
+        "access_url_provider": AccessTokenStoreUrlProvider(token_store, _PLACEHOLDER_BASE_URL),
+    }
+
+
+def main(request, *, runtime_dependencies: Optional[dict] = None):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、access-url-
+    reissue-http-entry-point-design.md 2〜4節)。
+
+    `access_token`はcheckout_session.main()と同じ、`/f/{accessToken}`アクセスURLが
+    settings.htmlへ埋め込んだクエリパラメータ(`request.args.get("access_token")`)から、
+    `new_email`はsettings.htmlのメールアドレス変更欄(`request.form.get("new_email")`)から
+    それぞれ取り出し、`receive_reissue_request()`に委譲する。
+
+    design.md 3節の方針どおり、レスポンス本文には`new_access_url`等を含めない(新URLは
+    メール送信でのみ本人に届ける)。成功時は`"OK", 200`、エラー時は`(error文字列),
+    status_code`を返す。
+
+    `runtime_dependencies`省略時は`get_reissue_runtime_dependencies()`の戻り値(呼び出し
+    ごとに新規の空ストア)を使う。checkout_session.main()と同じ理由(簡易ローカルサーバー
+    経由では事前にaccess_tokenを登録する手段が無い)で、テスト・簡易ローカルサーバーが
+    事前登録済みのストアを注入できるようにしている。
+    """
+    access_token = request.args.get("access_token")
+    new_email = request.form.get("new_email")
+    deps = (
+        runtime_dependencies
+        if runtime_dependencies is not None
+        else get_reissue_runtime_dependencies()
+    )
+    http_result = receive_reissue_request(
+        access_token=access_token,
+        new_email=new_email,
+        **deps,
+    )
+    if http_result.status_code == 200:
+        return "OK", 200
+    return (http_result.error or "error"), http_result.status_code
