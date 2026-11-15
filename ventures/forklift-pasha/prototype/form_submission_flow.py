@@ -18,17 +18,24 @@ post_generation_checks.run_all_checks()という既存の個別モジュール�
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
+from access_token_store import (  # noqa: E402
+    AccessTokenStoreProtocol,
+    InMemoryAccessTokenStore,
+)
+from overage_notifications import InMemoryVehicleCountStore  # noqa: E402
 from post_generation_checks import run_all_checks  # noqa: E402
 from trial_management import (  # noqa: E402
     CANCELED_NOTICE,
     FleetOperatorStoreProtocol,
     GENERATION_PAUSED_NOTICE,
+    InMemoryFleetOperatorStore,
     get_first_daily_generation_notice_if_due,
     is_generation_paused,
     is_subscription_canceled,
@@ -40,6 +47,7 @@ from validate_test_cases import (  # noqa: E402
     validate_cross_field_rules,
 )
 from vehicle_registry import (  # noqa: E402
+    InMemoryVehicleStore,
     VehicleCountStoreProtocol,
     VehicleStoreProtocol,
     register_vehicle_from_inspection_memo,
@@ -192,3 +200,129 @@ def process_form_submission(
         "response_text": response_text,
         "check_errors": [],
     }
+
+
+# ---------------------------------------------------------------------------
+# Cloud Functions HTTPエントリポイント (deployment-runbook.mdステップ4「次回候補」対応)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FormSubmissionHttpResult:
+    status_code: int
+    response_text: Optional[str] = None
+    error: Optional[str] = None
+
+
+def receive_form_submission(
+    access_token: "str | None",
+    raw_text: "str | None",
+    now: datetime,
+    *,
+    access_token_store: AccessTokenStoreProtocol,
+    operator_store: FleetOperatorStoreProtocol,
+    llm_generate: "LlmGenerateFn | None",
+    vehicle_store: "VehicleStoreProtocol | None" = None,
+    vehicle_count_store: "VehicleCountStoreProtocol | None" = None,
+) -> FormSubmissionHttpResult:
+    """Webフォーム送信を受け取るHTTPエントリポイントの処理本体(access_url_reissue_
+    handler.receive_reissue_request()と同じ位置づけ: `process_form_submission()`の
+    例外のない戻り値契約を、HTTPステータスコードベースの契約に変換する唯一の箇所とする)。
+
+    本人特定は、他の2エントリポイント(checkout_session.create_checkout_session()・
+    access_url_reissue_handler.receive_reissue_request())と同じ`access_token`機構で
+    行う(`process_form_submission()`自体が要求する`operator_id`は、本関数が
+    `access_token_store.get_internal_id_by_access_token()`で解決してから渡す)。
+
+    `access_token`欠落は400(値自体が無い=クライアント側の不備)、未知の`access_token`は
+    404(本人特定不能)、`raw_text`欠落・空文字列も400とする(insufficient_inputの判定は
+    LLM呼び出し後に行う設計のため、本関数では「そもそも送信内容が空」という手前の防御のみ
+    担う)。
+
+    `llm_generate`が`None`の場合は、実LLM API未接続(APIキー取得がオーナー承認待ち、
+    pending-approval.md参照)を意味するため、`process_form_submission()`を呼ばずに503を
+    返す(aircon-pasha/course-set-pasha等のcloud_function_webhook.get_runtime_
+    dependencies()が依存未接続時に空dictを返し、ハンドラ側でNoneガードする安全側
+    フォールバック方針と同じ考え方)。
+    """
+
+    if not access_token:
+        return FormSubmissionHttpResult(status_code=400, error="missing_access_token")
+    operator_id = access_token_store.get_internal_id_by_access_token(access_token)
+    if operator_id is None:
+        return FormSubmissionHttpResult(status_code=404, error="unknown_access_token")
+    if not raw_text or not raw_text.strip():
+        return FormSubmissionHttpResult(status_code=400, error="missing_raw_text")
+    if llm_generate is None:
+        return FormSubmissionHttpResult(status_code=503, error="llm_not_connected")
+
+    result = process_form_submission(
+        raw_text,
+        operator_id,
+        now,
+        llm_generate,
+        operator_store,
+        vehicle_store=vehicle_store,
+        vehicle_count_store=vehicle_count_store,
+    )
+    if result["status"] == "invalid_output":
+        # check_errorsの内容自体は利用者へ返さない(厳守事項6/7等の機械チェック詳細は
+        # 内部ログ向けであり、HTTPレスポンスには最小限のエラー種別のみを返す方針)。
+        return FormSubmissionHttpResult(status_code=500, error="invalid_output")
+    return FormSubmissionHttpResult(status_code=200, response_text=result["response_text"])
+
+
+def get_form_submission_runtime_dependencies() -> dict:
+    """main()が使う依存の既定値を組み立てる(checkout_session.get_checkout_runtime_
+    dependencies()と対称の構成)。
+
+    実Firestore接続(access_token_store・operator_store・vehicle_store・
+    vehicle_count_store)はいずれも実GCPプロジェクト確定後でなければ構築できないため、
+    現時点ではInMemory実装を返す(呼び出しごとに新規生成されるため、実Cloud Functions
+    環境でも呼び出しをまたいで状態が保持されない既知の限界が残る。他venture・他
+    エントリポイントと同じ限界)。
+
+    `llm_generate`は実LLM APIキー取得(オーナー承認待ち)まではNoneを返す。
+    `receive_form_submission()`側がNoneガードにより503を返すため、未接続のまま
+    `main()`を呼び出しても例外にはならない。
+    """
+    return {
+        "access_token_store": InMemoryAccessTokenStore(),
+        "operator_store": InMemoryFleetOperatorStore(),
+        "vehicle_store": InMemoryVehicleStore(),
+        "vehicle_count_store": InMemoryVehicleCountStore(),
+        "llm_generate": None,
+    }
+
+
+def main(request, *, runtime_dependencies: Optional[dict] = None):
+    """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout_
+    session.main()・access_url_reissue_handler.main()と同型)。
+
+    `access_token`はアクセスURL(`https://<ドメイン>/f/{accessToken}`)経由の
+    クエリパラメータ(`request.args.get("access_token")`)から、`raw_text`はWebフォーム
+    送信本文(`request.form.get("raw_text")`、web-form-ui-design.mdのボタン選択・
+    プルダウン入力をフォーム送信前に1本の自由記述文へ組み立てるフロントエンド側の処理は
+    本venture未着手のまま次回候補として残る)から、それぞれ取り出し
+    `receive_form_submission()`に委譲する。
+
+    正常系(status_code=200)ではレスポンス本文に`response_text`(利用者への返信文面)を
+    そのまま返す。エラー系では`(エラー文字列, status_code)`を返す(他2エントリポイントと
+    同じ契約)。
+
+    `runtime_dependencies`省略時は`get_form_submission_runtime_dependencies()`の戻り値
+    (呼び出しごとに新規の空ストア、`llm_generate`は常にNone)を使う。checkout_session.
+    main()と同じ理由で、テスト・簡易ローカルサーバーが事前登録済みのストア・スタブ
+    `llm_generate`を注入できるようにしている。
+    """
+    access_token = request.args.get("access_token")
+    raw_text = request.form.get("raw_text")
+    deps = (
+        runtime_dependencies
+        if runtime_dependencies is not None
+        else get_form_submission_runtime_dependencies()
+    )
+    http_result = receive_form_submission(access_token, raw_text, datetime.utcnow(), **deps)
+    if http_result.status_code == 200:
+        return http_result.response_text or "", 200
+    return (http_result.error or "error"), http_result.status_code

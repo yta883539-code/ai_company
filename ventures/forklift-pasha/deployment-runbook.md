@@ -35,9 +35,10 @@ draft.md・各Stripe関連設計文書)とprototype/配下のコードは、以�
 - 点検記録そのもの(inspection_record)はFirestoreに永続化しない方針
   (firestore-data-model.md「設計方針」)のため、他venture群より永続データの範囲が狭い。
 - Webフォームの申込・入力フロー自体のHTTPエントリポイント(`functions_framework`の
-  `main(request)`ラッパー)は、本venture未着手の部分が残っている(下記ステップ4参照)。
-  これは実デプロイ手順そのものの欠落ではなく、承認前の設計・実装作業として引き続き
-  進める次回候補である。
+  `main(request)`ラッパー)は、本venture未着手の部分が残っていたが、フェーズ239で
+  `form_submission_flow.py`側の`main(request)`を追加し解消した(下記ステップ4参照、
+  `access_url_reissue_handler.py`は本手順書フェーズ237作成時点の記載が既に古く、
+  実際には`main(request)`が先行フェーズで実装済みであったこともフェーズ239で確認した)。
 
 ## 手順
 
@@ -103,13 +104,17 @@ draft.md・各Stripe関連設計文書)とprototype/配下のコードは、以�
 5. **削除候補確認通知バッチ**(Cloud Scheduler日次トリガー):
    prototype/cloud_function_send_deletion_confirmations.py `main()`。
 
-以下は個別モジュール(ロジック本体)は実装済みだが、`main(request)`形式のHTTPエントリ
-ポイント化が本venture未着手であり、承認後の実デプロイ前に追加実装が必要(次回候補):
+以下は個別モジュール(ロジック本体)に加え、`main(request)`形式のHTTPエントリポイントも
+フェーズ239時点で実装済み(承認・ホスティング先確定後、そのままデプロイできる):
 
 - **Webフォーム申込・点検記録入力受付**: prototype/form_submission_flow.py
-  `process_form_submission()`(オーケストレーション本体は実装済み)。
+  `process_form_submission()`(オーケストレーション本体)・`receive_form_submission()`
+  (access_token解決・HTTPステータス変換)・`main()`(フェーズ239で追加)。
+  `llm_generate`は実LLM APIキー取得(オーナー承認待ち)までNoneのままで、
+  `receive_form_submission()`が503を返す安全側フォールバックがある(実LLM接続後は
+  `get_form_submission_runtime_dependencies()`の戻り値を差し替えるだけで済む)。
 - **アクセスURL再発行受付**: prototype/access_url_reissue_handler.py
-  `receive_reissue_request()`(ハンドラ本体は実装済み)。
+  `receive_reissue_request()`・`main()`(先行フェーズで実装済み)。
 
 同時実行数・タイムアウトは、低頻度利用(月数件/事業者)を前提とした初期値から開始し、
 実運用後の利用ペースを見て調整する。
@@ -132,8 +137,8 @@ draft.md・各Stripe関連設計文書)とprototype/配下のコードは、以�
 - tech-stack.mdで未確定のままになっているWebフォームホスティング先(Cloud Run統合配信か、
   別ホスティングサービスか)を、承認時にオーナーへ確認する(他venture
   〈event-komiguai-pasha〉のCloud Run統合配信〈選択肢A〉を参考にできる)。
-- 確定後、ステップ4で残っている2つのHTTPエントリポイント化(form_submission_flow.py・
-  access_url_reissue_handler.py)を実装し、デプロイする。
+- 確定後、ステップ4のHTTPエントリポイント(form_submission_flow.py・
+  access_url_reissue_handler.py、いずれもフェーズ239時点で実装済み)をデプロイする。
 
 ### ステップ7: 結合テスト
 
@@ -165,14 +170,18 @@ draft.md・各Stripe関連設計文書)とprototype/配下のコードは、以�
 - LLM APIプロバイダ(Claude API等)の選定自体は未確定だが、schema/配下の構造化出力設計は
   プロバイダ非依存であるため、承認後にプロバイダを決めても手順への影響はない(他venture
   と同じ整理)。
-- Webフォームホスティング先(ステップ6)が未確定のため、ステップ4に残る2つのHTTP
-  エントリポイント化は承認・ホスティング先確定後の着手となる。
+- Webフォームホスティング先(ステップ6)が未確定のため、ステップ4のHTTPエントリポイント
+  (実装済み)の実デプロイ自体は承認・ホスティング先確定後の着手となる。
 - ステップ2の複合インデックス要否の具体的な結論、ステップ4の同時実行数の具体的な数値は、
   いずれも承認・実接続後の実測を待って確定する。
 
-最終更新: 2026-11-15 00:00 UTC(フェーズ237: 他5venture既存のdeployment-runbook.mdの
-cross-venture parityギャップを解消し、本venture(保有台数課金・継続課金・Webフォーム・
-LINE非採用という本venture固有の構成)向けに新規作成した。併せて、Webフォーム申込・
-点検記録入力受付とアクセスURL再発行受付の2つがHTTPエントリポイント化未着手である
-ことを本手順書作成時に発見し、ステップ4・6・未確定事項に明記した。コード変更なし、
-実行(GCPプロジェクト作成・Stripeアカウント開設・課金設定等)は一切行っていない。)
+最終更新: 2026-11-15 15:00 UTC(フェーズ239: フェーズ237作成時点で「HTTPエントリポイント
+化未着手」と記載していた2件のうち、access_url_reissue_handler.pyは実際には先行フェーズで
+`main()`が実装済みであった記載の古さをまず確認し、残るform_submission_flow.pyに
+`receive_form_submission()`・`get_form_submission_runtime_dependencies()`・`main()`を
+新規実装した(prototype/test_form_submission_flow.pyにテスト20件追加)。実LLM API未接続
+(オーナー承認待ち)の間は`llm_generate=None`により503を返す安全側フォールバックとした。
+本手順書は上記実装状況の反映のみ(ステップ4・6・未確定事項)。新規テスト20件追加、
+test_form_submission_flow.py単体44件(旧24件)・run_all_tests.py全24ファイル・
+schema検証11件いずれもパス(回帰なし)。実GCPプロジェクト作成・Stripeアカウント開設・
+課金設定等は一切行っていない。)

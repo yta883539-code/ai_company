@@ -5217,3 +5217,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   未回答のため、他venture・アイデア領域の前進を継続する。
 - 最終更新: 2026-11-15 07:00 UTC(フェーズ238: 詳細は上記。access_url_reissue_handler.pyに
   `main(request)`・`get_reissue_runtime_dependencies()`を追加。コード変更あり、テスト追加6件)
+
+- フェーズ239(2026-11-15 15:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ238「次回候補(2)」で残っていた、form_submission_flow.pyの
+  `main(request)`ラッパー追加に着手した。deployment-runbook.md作成(フェーズ237)時点の
+  記載を見直したところ、access_url_reissue_handler.pyは実際には先行フェーズ(238)で
+  `main()`実装済みであったにもかかわらず同手順書が「2つとも未着手」のまま更新されていなかった
+  (フェーズ間の記録漏れ)ことを本フェーズで発見し、まず訂正した。form_submission_flow.py
+  本体には、checkout_session.py・access_url_reissue_handler.pyと同型の`access_token`解決
+  (`access_token_store.get_internal_id_by_access_token()`)・`receive_form_submission()`
+  (HTTPステータスコード変換)・`get_form_submission_runtime_dependencies()`・`main()`を
+  新規実装した。`process_form_submission()`が要求する`llm_generate`は実LLM APIキー取得
+  (オーナー承認待ち)までNoneのままのため、`receive_form_submission()`がNoneガードで503を
+  返す安全側フォールバックとした(aircon-pasha等のcloud_function_webhook.get_runtime_
+  dependencies()と同じ考え方)。新規テスト20件追加、test_form_submission_flow.py単体44件
+  (旧24件)・run_all_tests.py全24ファイル・schema検証11件いずれもパス(回帰なし)。
+  実GCPプロジェクト・Firestore・実LLM APIへの接続・デプロイは一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続・Webフォームホスティング先
+  確定)がオーナーから承認された場合はその着手を最優先、(2)web-form-ui-design.mdが
+  想定するボタン選択・プルダウン中心の入力画面から1本の`raw_text`自由記述文へ組み立てる
+  フロントエンド側の処理(フォーム送信前の結合ロジック)は本venture未着手のまま残っている
+  ため、承認前の机上設計として検討する、(3)2026-11-08 08:00 UTC記載の運営方針確認
+  (7venture全てが承認待ちで停滞している状態への対応方針)が未回答のため、他venture・
+  アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 15:00 UTC(フェーズ239: 詳細は上記。form_submission_flow.pyに
+  `main(request)`・`receive_form_submission()`・`get_form_submission_runtime_
+  dependencies()`を追加。コード変更あり、テスト追加20件)

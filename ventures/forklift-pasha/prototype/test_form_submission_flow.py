@@ -8,7 +8,13 @@
 import sys
 from datetime import datetime
 
-from form_submission_flow import process_form_submission
+from access_token_store import InMemoryAccessTokenStore
+from form_submission_flow import (
+    get_form_submission_runtime_dependencies,
+    main as form_submission_main,
+    process_form_submission,
+    receive_form_submission,
+)
 from overage_notifications import InMemoryVehicleCountStore
 from trial_management import (
     CANCELED_NOTICE,
@@ -20,6 +26,16 @@ from trial_management import (
     format_minutes_saved_line,
 )
 from vehicle_registry import InMemoryVehicleStore
+
+
+class _StubRequest:
+    """main(request)のテスト用、functions_frameworkが渡すFlask Requestのうち
+    `request.args.get()`・`request.form.get()`インターフェースのみを模した最小スタブ
+    (test_checkout_session.py/test_access_url_reissue_handler.py `_StubRequest`と同系)。"""
+
+    def __init__(self, args: dict, form: "dict | None" = None):
+        self.args = args
+        self.form = form or {}
 
 
 def _check(label, actual, expected):
@@ -423,6 +439,139 @@ def main():
         "type=annual でもvehicleCountはdailyと同様に加算される",
         vehicle_count_store.get_vehicle_count("op13"),
         1,
+    ))
+
+    # --- receive_form_submission(): access_token欠落・未知・raw_text欠落・llm未接続 ---
+    access_token_store = InMemoryAccessTokenStore()
+    access_token_store.set_access_token("op-reg", "token-reg")
+    operator_store_http = InMemoryFleetOperatorStore()
+
+    results.append(_check(
+        "receive_form_submission(): access_token欠落は400",
+        receive_form_submission(
+            None, "5号機、異常なし", now,
+            access_token_store=access_token_store,
+            operator_store=operator_store_http,
+            llm_generate=lambda raw_text: _generated_instance(),
+        ).status_code,
+        400,
+    ))
+    results.append(_check(
+        "receive_form_submission(): 未知のaccess_tokenは404",
+        receive_form_submission(
+            "unknown-token", "5号機、異常なし", now,
+            access_token_store=access_token_store,
+            operator_store=operator_store_http,
+            llm_generate=lambda raw_text: _generated_instance(),
+        ).status_code,
+        404,
+    ))
+    results.append(_check(
+        "receive_form_submission(): raw_text欠落(空文字列)は400",
+        receive_form_submission(
+            "token-reg", "   ", now,
+            access_token_store=access_token_store,
+            operator_store=operator_store_http,
+            llm_generate=lambda raw_text: _generated_instance(),
+        ).status_code,
+        400,
+    ))
+    results.append(_check(
+        "receive_form_submission(): llm_generate=None(実LLM未接続)は503"
+        "(process_form_submission()自体は呼ばれない安全側フォールバック)",
+        receive_form_submission(
+            "token-reg", "5号機、異常なし", now,
+            access_token_store=access_token_store,
+            operator_store=operator_store_http,
+            llm_generate=None,
+        ).status_code,
+        503,
+    ))
+
+    normal_result = receive_form_submission(
+        "token-reg", "5号機、異常なし", now,
+        access_token_store=access_token_store,
+        operator_store=operator_store_http,
+        llm_generate=lambda raw_text: _generated_instance(vehicle_id=None),
+    )
+    results.append(_check(
+        "receive_form_submission(): 正常系(status=generated)は200",
+        normal_result.status_code,
+        200,
+    ))
+    results.append(_check(
+        "receive_form_submission(): 正常系のresponse_textはprocess_form_submission()と同一"
+        "(本人特定の鍵がaccess_tokenからoperator_idへ解決されただけで内容は同一、"
+        "op-regは初回生成のためfirst_daily_noticeが付記される)",
+        normal_result.response_text,
+        f"2号機、始業前点検、ブレーキ○、異音なし\n{FIRST_DAILY_GENERATION_NOTICE_MESSAGE}",
+    ))
+
+    # --- main(): Cloud Functionsエントリポイント自体の回帰確認 ---
+    body_missing, status_missing = form_submission_main(_StubRequest({}))
+    results.append(_check(
+        "main(): access_token未指定(request.args空)は400",
+        (body_missing, status_missing),
+        ("missing_access_token", 400),
+    ))
+
+    # get_form_submission_runtime_dependencies()はmain()呼び出しごとに新規の空
+    # InMemoryストアを生成するため(checkout_session.main()と同じ既知の限界)、
+    # runtime_dependencies省略時は有効そうなaccess_tokenを渡しても本プロセス内では
+    # 常に未知のトークンとして404になる(llm_generate未接続による503に到達する前に
+    # access_token解決で止まることの確認)。
+    body_unconnected, status_unconnected = form_submission_main(
+        _StubRequest({"access_token": "token-reg"}, {"raw_text": "5号機、異常なし"})
+    )
+    results.append(_check(
+        "main(): runtime_dependencies省略時は有効そうなaccess_tokenを渡しても404"
+        "(本プロセス内で状態非保持のため)",
+        (body_unconnected, status_unconnected),
+        ("unknown_access_token", 404),
+    ))
+
+    injected_access_token_store = InMemoryAccessTokenStore()
+    injected_access_token_store.set_access_token("op-injected", "token-injected")
+    injected_dependencies = {
+        "access_token_store": injected_access_token_store,
+        "operator_store": InMemoryFleetOperatorStore(),
+        "vehicle_store": InMemoryVehicleStore(),
+        "vehicle_count_store": InMemoryVehicleCountStore(),
+        "llm_generate": lambda raw_text: _generated_instance(vehicle_id=None),
+    }
+    body_injected, status_injected = form_submission_main(
+        _StubRequest(
+            {"access_token": "token-injected"}, {"raw_text": "2号機、異常なし"}
+        ),
+        runtime_dependencies=injected_dependencies,
+    )
+    results.append(_check(
+        "main(): runtime_dependencies注入時はllm_generate接続済みのため200に到達できる",
+        status_injected,
+        200,
+    ))
+    results.append(_check(
+        "main(): runtime_dependencies注入時のレスポンス本文はresponse_textそのもの"
+        "(op-injectedは初回生成のためfirst_daily_noticeが付記される)",
+        body_injected,
+        f"2号機、始業前点検、ブレーキ○、異音なし\n{FIRST_DAILY_GENERATION_NOTICE_MESSAGE}",
+    ))
+    results.append(_check(
+        "main(): runtime_dependencies注入時でも未知のaccess_tokenは引き続き404",
+        form_submission_main(
+            _StubRequest(
+                {"access_token": "unknown-token"}, {"raw_text": "2号機、異常なし"}
+            ),
+            runtime_dependencies=injected_dependencies,
+        )[1],
+        404,
+    ))
+
+    deps = get_form_submission_runtime_dependencies()
+    results.append(_check(
+        "get_form_submission_runtime_dependencies(): llm_generateは未接続(None)",
+        deps["llm_generate"],
+        None,
     ))
 
     passed = sum(1 for r in results if r)
