@@ -64,6 +64,11 @@
 - cloud-monitoring-alert-policy-design.md / api-call-failure-handling.md
 - data-retention-policy.md / vendor-breach-key-rotation-runbook.md
 - deployment-runbook.md / launch-readiness-checklist.md / ci-setup.md
+- cross-venture-enqueue-fallback-applicability-review.md(forklift-pasha・
+  event-komiguai-pasha・oshien-pashaの3ventureはCloud Tasks非同期キュー構成を
+  そもそも採用していないため、enqueue-fallback-owner-notification-design.md・
+  cloud-monitoring-alert-policy-design.md 5節のパターンはいずれも「該当なし」
+  と結論。フェーズ続き305・306の次回候補(2)をクローズ)
 - webhook-sync-reply-timeout-root-cause-review.md(本venture単独の経路構造確認・
   根本対策費用対効果検討、course-set-pashaフェーズ369の個別確認版)
 - webhook-async-two-function-design.md(process_message_event()のWebhook即時ACK・

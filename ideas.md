@@ -1,5 +1,19 @@
 # アイデアログ
 
+日時: 2026-11-15 16:00 UTC
+名前: AIコーディングアシスタント/AIエージェントが生成するTerraform/OpenTofuコードにおいて、RDS/Cloud SQL/S3/GCS/DynamoDB等のステートフルな本番リソース定義に`lifecycle { prevent_destroy = true }`(およびクラウド側の`deletion_protection`相当設定)が付与されておらず、タグ追加やリソース名変更など一見無害な変更が実はforce-replacement(destroy&create)を伴う属性変更だった場合に、`terraform apply`一発で本番データが意図せず削除されてしまう設定不備の一次チェック「きえないでパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「このRDSインスタンスにタグを追加して」とAIコーディングアシスタント/AIエージェントに依頼すると、意図通りの`.tf`差分を生成してくれる一方、`identifier`・`availability_zone`・`engine_version`(マイナーでなくメジャー変更時)等force-new属性に該当する変更を一緒に(あるいは別PRで)紛れ込ませてしまうことがある。Terraformはforce-new属性の変更を検知すると対象リソースを一度destroyしてから再作成する計画を立てるため、`lifecycle { prevent_destroy = true }`が設定されていない本番データベース・ストレージでは、`terraform plan`の差分を読み飛ばして`apply`した瞬間に本番データが失われるリスクがある。prevent_destroyはTerraformのワークフロー経由の削除のみを防ぐ仕組みであり、コンソール操作等Terraform外からの削除は防げないため、クラウド側の`deletion_protection`(RDS/Cloud SQL等)や状態ロックと併用する「多層防御」が推奨されている。本サービスは、利用者が貼り付けた`.tf`/`.tofu`ファイルに対し、AIが(1)RDS・Cloud SQL・S3・GCS・DynamoDB等のステートフルなリソースブロックを検出し、(2)`lifecycle { prevent_destroy = true }`の有無、(3)対応するクラウド側`deletion_protection`相当設定の有無、(4)既存コード中でforce-new属性に該当する変更をdiffから検出した場合はその旨を明示する、という一次診断を行い、不足があれば追記例を提示する一次診断ツールとして提供する。実際のコード修正・適用は利用者本人が行う前提とする。
+対象顧客: AIコーディングアシスタント/AIエージェントを使ってTerraform/OpenTofuで本番インフラを構築・変更している個人開発者・小規模開発チームで、専任のSRE/プラットフォームチームが全ての`terraform plan`差分をレビューする体制を持たない層。
+分類理由: 利用者が貼り付けた`.tf`/`.tofu`コードに対する静的解析(リソース種別・`lifecycle`ブロック・`deletion_protection`相当設定の検出)とLLMによる修正例提示のみで完結し、専用インフラの継続運用や顧客クラウドアカウントへの常時接続を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「prevent_destroy」「lifecycle」「terraform.*destroy」で検索した結果いずれも0件(初出)であることを確認した。WebSearchでprevent_destroyの仕様(Terraformワークフロー経由の削除のみを防ぎ、削除保護ロック・deletion_protectionとの併用が推奨される点)をDZone・notes.kodekloud・oneuptime等の複数記事で確認した。
+
+日時: 2026-11-15 16:00 UTC
+名前: AIコーディングアシスタント/AIエージェントが生成するTerraform(`google_storage_bucket_iam_binding`/`_member`)やgcloud CLIコマンドで、GCSバケットのIAMポリシーに`allUsers`または`allAuthenticatedUsers`への`roles/storage.objectViewer`等の付与が行われ、特に`allAuthenticatedUsers`を「自社Google Workspaceドメイン内のユーザーに限定されたアクセス」と誤解したまま、実際には何らかのGoogleアカウントを持つ全世界の人物に公開してしまう設定不備の一次チェック「のぞけるパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「社内の全ユーザーがアクセスできるようにして」とAIコーディングアシスタント/AIエージェントに依頼すると、`google_storage_bucket_iam_member`のmemberに`allAuthenticatedUsers`を指定するコードを生成することがあるが、GoogleのCloud Storage脆弱性モデル・公式ドキュメントは`allUsers`(完全匿名)だけでなく`allAuthenticatedUsers`(何らかのGoogleアカウントでログイン済みの全員、個人のGmailアカウントも含む)もバケットを一般公開状態にすると明記している。この「`allAuthenticatedUsers`=自社ドメイン限定」という誤解は複数のセキュリティベンダー記事で既知の典型的な罠として指摘されており、Google自身もPublic Access Prevention(組織・バケット単位で`allUsers`/`allAuthenticatedUsers`への付与自体をブロックする機能)を主要な対策として提供している。本サービスは、利用者が貼り付けたTerraformコード(`google_storage_bucket_iam_binding`/`_member`等)またはgcloud CLIコマンド(`gsutil iam ch`等)に対し、AIが(1)`allUsers`/`allAuthenticatedUsers`への権限付与の有無、(2)付与されているロールが読み取り専用か書き込み/オーナー権限を含むか、(3)静的サイトホスティング等の意図的な公開目的のコメント・用途記載があるかを静的検出し、意図しない公開であればPublic Access Preventionの有効化やallAuthenticatedUsers使用時の誤解についての注意喚起、修正例(IAM条件付与・Cloud IAPやサービスアカウント限定への変更)を提示する一次診断ツールとして提供する。実際の設定変更は利用者本人のGCP環境で行う前提とする。
+対象顧客: AIコーディングアシスタント/AIエージェントを使ってGCS上にファイル共有・配信システムを構築している個人開発者・小規模開発チームで、IAMポリシーのレビューを専任のクラウドセキュリティ担当者に依頼できない層。
+分類理由: 利用者が貼り付けたIaCコード/CLIコマンドに対する静的解析(`allUsers`/`allAuthenticatedUsers`付与・ロール種別の検出)とLLMによる注意喚起・修正例提示のみで完結し、顧客GCPアカウントへの常時接続や専用インフラ運用を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「allUsers」「allAuthenticatedUsers」で検索した結果いずれも0件(初出)であることを確認した。既出の「むきみパシャっと」(AWS S3の`aws:SecureTransport`条件欠落によるHTTP平文アクセス)とは、本アイデアが「暗号化経路の有無」ではなく「IAMポリシーによる公開範囲(全世界公開)」を対象とする点で異なり重複しないことを確認した。WebSearchでGoogleのCloud Storage脅威モデル(2026年5月22日更新、Public bucket exposureの定義)、Public Access Prevention機能、NetskopeやTrend Micro Cloud One Conformityによる`allAuthenticatedUsers`誤解の指摘を確認した。
+
 日時: 2026-11-15 15:00 UTC
 名前: AIコーディングアシスタント/AIエージェントが生成するAWS S3バケットポリシー(CDK/Terraform/CloudFormation/CLI)が、HTTPS通信のみを許可する`aws:SecureTransport: true`条件付きAllow文は書いても、HTTP(平文)通信を明示的に拒否する`aws:SecureTransport: false`条件付きDeny文を書いておらず、結果としてHTTP経由の平文アクセス(通信内容・認証情報の盗聴リスク)が引き続き成立してしまう一次チェック「むきみパシャっと」(仮称)
 分類: 小規模・自動起業可能

@@ -7186,3 +7186,29 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   監視指標設計をcloud-monitoring-alert-policy-design.md 5節として横展開し、構造化ログ
   出力の未実装ギャップを解消。新規テスト1件追加、test_cloud_function_webhook.py単体
   423件・run_all_tests.py全26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き307(2026-11-15 16:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本ventureを前進。フェーズ続き305・306の次回候補(2)で残っていた「forklift-pasha・
+  event-komiguai-pasha・oshien-pashaについてもenqueue失敗時の挙動・監視指標設計が
+  適用できるかの個別確認」に対応した。3venture配下の全Markdownを`grep -lE "Cloud
+  Tasks|enqueue"`で確認した結果、forklift-pasha・oshien-pashaは該当0件(Stripe
+  Webhookのみでそもそも非同期キュー構成を持たない)、event-komiguai-pashaは1件
+  (`deployment-runbook.md`)のみでその内容も「会話状態マシンが無く1フォーム送信=
+  1イベントで同期完結するためCloud Tasks経由の非同期処理は不要」という設計上の除外
+  理由の説明だった。3venture共通で、kura-pasha・course-set-pasha・aircon-pasha・
+  line-reservation-aiが持つ「LINE Webhook受信→Cloud Tasksへenqueue→非同期本処理」
+  の2段構成自体を採用していないため、enqueue-fallback-owner-notification-design.md・
+  cloud-monitoring-alert-policy-design.md 5節のパターンはいずれも「該当なし」と結論し、
+  cross-venture-enqueue-fallback-applicability-review.mdとして記録した。コード変更
+  なし(横展開不要という結論の記録のみ)、既存テスト423件・run_all_tests.py全26
+  ファイル・schema検証32件はいずれも変更なしでパス(回帰なし)。承認が必要なアクション
+  は今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Firestore・Stripeアカウント作成、
+  Billing Budget安全策を添えた上での再提示)がオーナーから承認された場合はその着手を
+  最優先、(2)webhook-async-two-function-design.mdで残る実デプロイ(Cloud Tasksキュー・
+  Function Bの結線)は承認待ち事項と同様オーナー承認待ち、(3)他venture・アイデア領域
+  の前進。
+- 最終更新: 2026-11-15 16:00 UTC(フェーズ続き307: 詳細は上記。forklift-pasha・
+  event-komiguai-pasha・oshien-pashaの3ventureはCloud Tasks非同期キュー構成を
+  採用していないため、enqueueフォールバック関連パターンは「該当なし」と結論し
+  cross-venture-enqueue-fallback-applicability-review.mdとして記録。コード変更
+  なし、既存テスト423件・schema検証32件いずれも変更なしでパス、回帰なし。)
