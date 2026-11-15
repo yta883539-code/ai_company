@@ -1,5 +1,19 @@
 # アイデアログ
 
+日時: 2026-11-15 19:00 UTC
+名前: AIコーディングアシスタント/AIエージェントが生成するCloud Scheduler→Cloud Run/Cloud Functions(2nd gen)の定期実行構成で、開発時の動作確認を優先してCloud Run側の「未認証の呼び出しを許可」(allUsers invoker)を設定したまま、Scheduler用のOIDCトークン検証を実装せずに本番投入してしまう一次チェック「よびだしほうだいパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「Cloud SchedulerでCloud Run functionsを1時間ごとに叩いて」とAIコーディングアシスタント/AIエージェントに依頼すると、ローカルや初回デプロイ時の動作確認を素早く済ませるため、Cloud Run側のIAMで「allUsers」に`roles/run.invoker`を付与する(=未認証呼び出しを許可する)構成を生成しがちである。Cloud Scheduler自体はOIDCトークンを付与して呼び出す設定にできるが、呼び出し先のCloud Run関数側で「OIDCトークンの検証(Audience・発行者チェック)」を自前実装しない限り、関数のURLを知っている/推測できる第三者がSchedulerを経由せず直接HTTPリクエストを送っても同じ処理が実行されてしまう。この構成はローカルのcurlでの動作確認では問題が起きないため気付きにくく、対象の関数が「DB一括更新」「メール/通知の一斉送信」「外部API(LLM・決済等)への課金が発生する処理」を担っている場合、未認証の第三者が繰り返し呼び出すことで意図しない処理の多重実行・コスト急増・データ不整合を引き起こす恐れがある。本サービスは、利用者が貼り付けたTerraform/gcloudコマンド・Cloud Run関数のIAMバインディング設定・Cloud SchedulerジョブのYAML/JSON定義に対し、(1)Cloud Run側が「allUsers」invokerのままか、(2)Scheduler側のoidc_tokenのaudience設定と関数側の検証実装が対になっているか、を静的に一次チェックし、`roles/run.invoker`をSchedulerの専用サービスアカウントのみに絞る修正例を提示する診断ツールとして提供する。
+対象顧客: AIコーディングアシスタントを使ってGCP上に定期実行バッチ(Cloud Scheduler+Cloud Run/Cloud Functions)を構築している個人開発者・小規模開発チームで、未認証呼び出し許可を開発時のまま本番に持ち込みがちな層。
+分類理由: 利用者が貼り付けたIaCコード・IAM設定に対する静的解析(invoker設定・OIDC検証有無のパターンマッチング)とLLMによる修正例提示のみで完結し、継続的なインフラ運用や顧客GCPプロジェクトへの常時接続を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「Cloud Scheduler.*OIDC」「allUsers.*run.invoker」「未認証.*Cloud Run」で検索した結果、既出の「まるはだかパシャっと」(AWS LambdaのFunction URL AuthType=NONE)とは対象クラウド・コンポーネントが異なり重複しないことを確認した(初出)。
+
+日時: 2026-11-15 19:00 UTC
+名前: AIコーディングアシスタント/AIエージェントがGCPサービスアカウントの鍵発行手順(`gcloud iam service-accounts keys create key.json`等)を提案した際に生成されたJSON鍵ファイルが、.gitignoreへの追記が漏れたまま`git add .`等でリポジトリにコミットされ、削除後も履歴に残り続けてしまう一次チェック「まるみえキーパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「ローカルからFirestoreに接続したい」とAIコーディングアシスタント/AIエージェントに依頼すると、認証方法としてApplication Default Credentials(ADC)よりも手早く動く`gcloud iam service-accounts keys create key.json --iam-account=...`をまず提示し、生成されたJSON鍵ファイルをプロジェクトルートや`scripts/`配下に保存するコード例を出しがちである。この際、`.gitignore`に`*.json`や鍵ファイル名を追記する一文を省略するか、既存の`.gitignore`が`node_modules/`等の定型パターンのみで鍵ファイルの拡張子・命名規則を想定していない場合、後続の`git add .`やIDEの一括コミット操作で鍵ファイルがそのままリポジトリにコミットされる。鍵ファイル自体を後から`git rm`しても、過去コミットの履歴(および既にリモートへpush済みであればGitHub等の履歴・場合によってはフォーク先)には残り続け、鍵のローテーション(無効化・再発行)以外に実質的な対処法が無くなる。本サービスは、利用者が貼り付けたリポジトリの`.gitignore`内容・直近のコミット履歴のファイル名一覧(`git log --name-only`相当のテキスト)を入力させ、(1)サービスアカウント鍵・APIキーに典型的なファイル名パターン(`*key*.json`・`credentials.json`・`service-account*.json`等)がコミット履歴に含まれていないか、(2).gitignoreがこれらのパターンを事前にブロックしているか、を静的に一次チェックし、鍵ローテーション手順・ADCへの切替例・.gitignore追記例を提示する診断ツールとして提供する。
+対象顧客: AIコーディングアシスタントの提案に従ってGCPサービスアカウント鍵をローカルに発行・保存している個人開発者・小規模開発チームで、.gitignoreの整備が後回しになりがちな層。
+分類理由: 利用者が貼り付けた.gitignore内容・コミット履歴テキストに対する静的解析(ファイル名パターンマッチング)とLLMによる修正例提示のみで完結し、継続的なインフラ運用や顧客リポジトリへの常時接続を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「service.?account.*key.*commit」「\.gitignore.*鍵」「credentials\.json.*漏洩」で検索した結果いずれも0件(初出)であることを確認した。既出の「うのみパシャっと」(受信Webhookの署名検証コード欠落)・「つつぬけetcdパシャっと」(Secret内のbase64誤認)とは、本アイデアが「鍵ファイル自体がgit履歴に平文で残る」という全く別の漏洩経路を対象とする点で重複しない。
+
 日時: 2026-11-15 18:00 UTC
 名前: AIコーディングアシスタント/AIエージェントが生成するIstioのPeerAuthentication設定(mTLSモード)がSTRICTに明示されず、クラスタ/名前空間デフォルトのPERMISSIVE(平文・mTLS両方を許可)のまま残り、サービスメッシュ内通信が平文でも成立してしまう一次チェック「のぞけちゃうメッシュパシャっと」(仮称)
 分類: 小規模・自動起業可能
