@@ -5171,3 +5171,24 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   アイデア領域の前進を継続する。
 - 最終更新: 2026-11-14 10:00 UTC(フェーズ236: 詳細は上記。unit-economics-estimate.mdを
   新規作成。コード変更なし)
+- フェーズ237(2026-11-15 00:00 UTC定例更新): 他5venture(aircon-pasha・course-set-pasha・
+  event-komiguai-pasha・kura-pasha・line-reservation-ai)がいずれもdeployment-runbook.md
+  (承認後すぐ着手できる手順書)を作成済みの中、本ventureのみ未作成だったcross-venture
+  parityギャップを解消し新規作成した。本venture固有の構成(保有台数課金・継続課金
+  〈Stripeイベント6種別〉・汎用Webフォーム〈LINE非採用〉・`fleet_operator`/`vehicle`/
+  `usage_counter`の3コレクション・Billing Budget暫定3,000円)を反映した手順をステップ0〜8
+  として整理した。作成過程で、Webフォーム申込・点検記録入力受付(form_submission_flow.py)
+  とアクセスURL再発行受付(access_url_reissue_handler.py)の2つが、ロジック本体は実装済み
+  ながら`main(request)`形式のHTTPエントリポイント化が本venture未着手であることを発見し、
+  手順書のステップ4・6・「未確定事項」に明記した(次回候補として残す)。本ドキュメント
+  作成自体はコード変更を伴わず、既存テスト・schema検証は変更対象外。実GCPプロジェクト・
+  Stripeアカウントへの接続・課金設定等は一切行っていない。承認が必要なアクションは今回
+  発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続・Webフォームホスティング先
+  確定)がオーナーから承認された場合はその着手を最優先、(2)本フェーズで発見した
+  form_submission_flow.py・access_url_reissue_handler.pyのHTTPエントリポイント化
+  (`main(request)`ラッパー追加)を承認前でも着手可能な範囲として検討する、(3)2026-11-08
+  08:00 UTC記載の運営方針確認(7venture全てが承認待ちで停滞している状態への対応方針)が
+  未回答のため、他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 00:00 UTC(フェーズ237: 詳細は上記。deployment-runbook.mdを
+  新規作成。コード変更なし)
