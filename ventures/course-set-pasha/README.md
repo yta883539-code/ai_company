@@ -6986,3 +6986,19 @@
   (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開の
   実施状況の最終確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
   場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ378(2026-11-15 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (直前の更新は2026-11-15 10:00 UTC)を前進。enqueue-failure-partial-processing-safety-
+  design.md(フェーズ373)「対象外・今後の課題」3点目が「enqueue_fallback_webhook_event_ids
+  が非ゼロになり続ける場合のオーナー通知設計は未着手(次回候補)」と記載したまま残っていたが、
+  実際にはフェーズ374でenqueue-fallback-owner-notification-design.mdとして設計・実装済み
+  (`receive_webhook()`の`enqueue_fallback_owner_push_client`引数、
+  `prototype/enqueue_fallback_owner_notification.py`)であり、記述が実態と食い違う記載漏れ
+  だった(フェーズ377のmarket-research.md是正と同種のパターン)。該当箇所を打ち消し線にし、
+  解消済みである旨と参照先を追記して是正した。コード変更なし(ドキュメント修正のみ)、既存
+  テスト910件・schema検証22件を再実行しいずれも変更なしでパス(回帰なし)。承認が必要な
+  アクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先forklift-pashaへの同種Billing Budget安全策設計の横展開、
+  (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開の
+  実施状況の最終確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。

@@ -56,10 +56,13 @@ enqueue対象イベントの`create_task()`が`TaskAlreadyExistsError`以外の�
   応答」に切り替わる挙動の違いをユーザーに意識させないための文面側の配慮は、
   `process_memo_event()`側の既存の応答文言をそのまま使う前提とし、本フェーズでは
   新規の文言分岐は設けていない。
-- `enqueue_fallback_webhook_event_ids`が実運用で非ゼロになり続ける場合(Cloud Tasks側の
+- ~~`enqueue_fallback_webhook_event_ids`が実運用で非ゼロになり続ける場合(Cloud Tasks側の
   構成不備・権限不足等の恒常的な問題を示唆)のオーナー通知設計は、
   `blocked-but-billing-owner-notification-design.md`と同種の仕組みを横展開できる余地が
-  あるが、本フェーズでは未着手(次回候補)。
+  あるが、本フェーズでは未着手(次回候補)。~~ → `enqueue-fallback-owner-notification-
+  design.md`として設計・実装済み(`receive_webhook()`の`enqueue_fallback_owner_push_client`
+  引数経由、`prototype/enqueue_fallback_owner_notification.py`)。本項目は解消済みのため
+  打ち消し線とする(2026-11-15 17:00 UTC定例更新で記載の陳腐化に気づき修正)。
 
 ## 実装・テスト
 
