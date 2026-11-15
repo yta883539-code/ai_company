@@ -76,10 +76,14 @@ rules-draft.md・各HTTPエントリポイント設計文書)とprototype/配下
   未設定のドキュメントは対象外)ことを有効化後に確認する。
 - firestore-security-rules-draft.mdで確定済みのセキュリティルール(deny-all、Firebase
   Admin SDK経由のみ許可)をデプロイする。
-- idempotency-key-duplicate-detection-firestore-query-design.mdが要求する複合インデックス
-  の有無を確認する(他venture(aircon-pasha等)のfirestore-composite-index-plan.mdに
-  相当する整理は本venture未着手のため、実クエリパターンを再点検した上で必要に応じて
-  `firestore.indexes.json`を追加する。次回候補として残す)。
+- 複合インデックスの要否: **不要と確定済み**(idempotency-key-duplicate-detection-
+  firestore-query-design.md フェーズ66・2節)。本venture内の重複検知クエリ(`one_time_draft`・
+  `inquiry`いずれも`idempotencyKey`への単一フィールド等価条件のみ)は、他venture
+  (forklift-pasha等)のfirestore-composite-index-plan.mdが扱う「2フィールド以上の組み合わせ・
+  不等号を含む範囲指定」には該当せず、Firestoreが自動作成する単一フィールドインデックスで
+  処理できるため、`firestore.indexes.json`への追記は不要。実GCPプロジェクト作成後は、この
+  机上結論どおりデフォルトインデックスで想定クエリが処理されることの実環境確認のみ行う
+  (想定外の挙動が確認された場合のみ追記する)。
 
 ### ステップ3: シークレット管理
 
@@ -128,14 +132,28 @@ web-form-hosting-selection.md選択肢Aの方針通り、フォーム配信(GET)
   design.mdの設計通り、Checkout Session発行時の`success_url`/`cancel_url`をステップ4の
   結果ページURLに合わせて設定する。
 
-### ステップ6: TTL失効・返金判定の定期実行設定
+### ステップ6: TTL失効時の定期実行判定ロジック: 不要と確定済み(追加コンポーネントなし)
 
-- ttl-expiry-result-delivery-refund-design.mdが想定する「TTL24時間超過時の配信失敗・
-  返金判定」処理は、Firestore TTLによる自動削除とは別に、削除前に判定ロジックを走らせる
-  必要があるかを確認する(TTLポリシーはドキュメントを削除するだけで判定ロジックを呼ばない
-  ため)。判定が必要な場合は、Cloud Scheduler+Cloud Run functionsによる定期実行
-  (例: 1時間おき)を追加する。本ステップの具体的な実行頻度・判定ロジックの呼び出し方式は
-  承認・実デプロイ後に確定する(次回候補として残す)。
+- ttl-expiry-result-delivery-refund-design.md(フェーズ12)1節の設計方針どおり、本venture
+  はFirestore TTLポリシー単体に委ね、Cloud Scheduler等の定期実行コンポーネントは追加しない
+  (tech-stack.mdが志向する「低頻度利用に対して固定費・常時稼働コンポーネントを増やさない」
+  方針に基づく、フェーズ12時点での既定方針)。
+- TTL失効時点で追加の判定ロジックが不要である理由は、同design.md 3節の2ケースを突き合わせる
+  と次のように整理できる(本フェーズで明確化)。
+  1. 決済未完了(`awaiting_payment`)のまま失効するケース(3-1節): 課金自体が発生していない
+     ため返金の概念が生じず、TTL失効による削除のみで処理が完結する。失効タイミングでの
+     追加判定は不要。
+  2. 決済完了後に生成処理が失敗するケース(3-2節): Webhook受信直後(決済完了から数分〜
+     数時間以内)に最大2回の自動リトライ→`generation_failed`へのステータス更新→Stripe
+     Refund APIでの全額自動返金、までを**即時**に行う設計であり、TTL失効(24時間後)という
+     タイミングを待って判定する処理ではない。
+  - 以上より、「TTL失効」と「返金判定」は本venture設計上もともと別タイミングで発生する
+    処理であり、両者を結びつける定期実行コンポーネントは設計上存在しない。本ステップ名の
+    「TTL失効・返金判定の定期実行設定」という前提(両者をまとめて定期実行する想定)自体が
+    誤りだったため、本フェーズで前提を修正した。
+- したがって本ステップで追加の設定作業は発生しない。Firestore TTLポリシーの有効化(ステップ2)
+  とWebhook受信時の即時リトライ・返金ロジック(prototype/generation_retry_and_refund.py、
+  ステップ4-3の実装済みコードをそのまま使用)だけで本venture要件を満たす。
 
 ### ステップ7: 結合テスト
 
@@ -166,10 +184,23 @@ web-form-hosting-selection.md選択肢Aの方針通り、フォーム配信(GET)
 - LLM APIプロバイダ(Claude API等)の選定自体は未確定だが、schema/配下の構造化出力設計は
   プロバイダ非依存であるため、承認後にプロバイダを決めても手順への影響はない(他venture
   と同じ整理)。
-- ステップ2の複合インデックス要否の具体的な結論、ステップ4の同時実行数の具体的な数値、
-  ステップ6の定期実行頻度は、いずれも承認・実接続後の実測を待って確定する。
+- ステップ4の同時実行数の具体的な数値は、承認・実接続後の実測を待って確定する(ステップ2の
+  複合インデックス要否・ステップ6の定期実行の要否は、いずれもフェーズ121で机上確定済み。
+  上記各ステップ参照)。
 
-最終更新: 2026-11-14 20:00 UTC(フェーズ120: 他6venture既存のdeployment-runbook.mdの
-cross-venture parityギャップを解消し、本venture(都度決済・Webフォーム・LINE非採用という
-他venture群と異なる構成)向けに新規作成した。コード変更なし、実行(GCPプロジェクト作成・
+最終更新: 2026-11-15 03:00 UTC(フェーズ121: ステップ2「複合インデックス要否」・ステップ6
+「TTL失効・返金判定の定期実行」の2件の未確定事項を、既存設計文書(idempotency-key-
+duplicate-detection-firestore-query-design.mdフェーズ66・ttl-expiry-result-delivery-
+refund-design.mdフェーズ12)の記載から机上で確定した。複合インデックスは単一フィールド
+等価条件のみのため不要、TTL失効時の定期実行は返金判定がWebhook受信直後の即時処理であり
+TTL失効タイミングとは無関係に発生するため不要、と判断し、ステップ6の前提自体(両者を
+結びつけた定期実行という想定)が誤りだったことを明確化した。コード変更なし(設計文書のみ)、
+回帰確認として既存テスト184件・schema検証22件を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+今回発生していないためpending-approval.mdへの追記なし。
+
+追記(フェーズ120の記録、参考): 2026-11-14 20:00 UTC(フェーズ120: 他6venture既存の
+deployment-runbook.mdのcross-venture parityギャップを解消し、本venture(都度決済・
+Webフォーム・LINE非採用という他venture群と異なる構成)向けに新規作成した。コード変更なし、
+実行(GCPプロジェクト作成・
 Stripeアカウント開設・課金設定等)は一切行っていない。)
