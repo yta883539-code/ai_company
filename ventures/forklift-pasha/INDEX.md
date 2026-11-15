@@ -67,6 +67,7 @@ course-set-pasha/INDEX.md・line-reservation-ai/INDEX.mdと同型)。新しい�
 ## 顧客向け文面・法務・ビジュアル
 - landing-page-wireframe.md / landing-page-copy-draft.md / landing-page/
 - web-form-ui-design.md / web-form-mockup/
+- web-form-raw-text-assembly-design.md
 - legal-notices-draft.md / tone-and-manner-guideline.md
 - error-page-css-commonality-design.md
 - hero-visual-concept-draft.md / hero-visual-free-asset-candidates.md

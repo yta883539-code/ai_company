@@ -5244,3 +5244,25 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-15 15:00 UTC(フェーズ239: 詳細は上記。form_submission_flow.pyに
   `main(request)`・`receive_form_submission()`・`get_form_submission_runtime_
   dependencies()`を追加。コード変更あり、テスト追加20件)
+
+- フェーズ240(2026-11-15 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を前進。フェーズ239「次回候補(2)」に対応し、web-form-ui-design.mdが想定するボタン選択・
+  プルダウン中心のdaily区分入力画面(web-form-mockup/daily.html)から、form_submission_
+  flow.pyが要求する単一のraw_text自由記述フィールドへどう組み立てるかの机上設計を
+  web-form-raw-text-assembly-design.mdとして新規作成した。daily.html自体が「JS不使用」
+  方針(フェーズ72・77)の静的モックアップであるため、本フェーズでは実コード化(JS実装)は
+  行わず、組み立てテンプレート(「異常なし」「異常あり」各モードの文字列形式、
+  mvp-flow-draft.mdの入力メモ例と同じ並びを維持)の設計に留めた。INDEX.mdにも追記した。
+  コード変更なし(設計文書のみ)、既存テスト(test_form_submission_flow.py単体44件含む)・
+  schema検証11件いずれも変更なしでパス(回帰なし)。実GCPプロジェクト・Firestore・実LLM
+  APIへの接続・デプロイ、ホスティング・公開は一切行っていない。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(実GCPプロジェクト・Stripe接続・Webフォームホスティング先
+  確定)がオーナーから承認された場合はその着手を最優先、(2)本フェーズ設計の
+  `buildDailyRawText()`相当のJS実装・送信時バリデーション(異常あり項目の自由記述欄
+  空チェック等)は、daily.htmlの「JS不使用」方針を変更する実フォーム実装着手時に
+  合わせて行う(本フェーズでは見送り)、(3)2026-11-08 08:00 UTC記載の運営方針確認
+  (7venture全てが承認待ちで停滞している状態への対応方針)が未回答のため、他venture・
+  アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 22:00 UTC(フェーズ240: 詳細は上記。web-form-raw-text-assembly-
+  design.mdを新規作成。コード変更なし)
