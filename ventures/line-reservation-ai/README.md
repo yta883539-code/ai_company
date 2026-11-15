@@ -7565,3 +7565,37 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   程度のBilling Budget+自動停止による上限保証策を新規設計(billing-budget-cap-safeguard-
   design.md)。実行は一切行っていない。コード変更なし、テスト1048件・schema検証28件いずれも
   変更なしでパス)
+- フェーズ続き387(2026-11-15 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-14 14:00 UTC)を前進。enqueue-fallback-owner-notification-design.md
+  4節で「次回フェーズで着手する」と残していた実コード変更に着手し、`prototype/
+  cloud_function_webhook.py`の`handle_webhook_event()`に`TaskAlreadyExistsError`以外の
+  例外(Cloud Tasksのクォータ超過・一時的なネットワーク障害等)を捕捉する分岐を追加して
+  `EventHandleResult(..., enqueued=False, reason="enqueue_failed")`を返すようにし(例外を
+  呼び出し元へ伝播させない)、`WebhookReceiverResult`に`enqueue_failed_webhook_event_ids`
+  フィールドを追加して`webhook_receiver()`側で集約するようにした。他venture
+  (course-set-pasha・aircon-pasha)版と異なり本venture版はFunction A単一責務設計上
+  同期フォールバックを行わず処理を断念するため、構造化ログのイベント名を
+  `enqueue_failed_occurred`(他venture版`enqueue_fallback_occurred`と区別)・
+  severityをERROR(他venture版WARNING、理由は顧客応答への実害の有無の違い)として
+  cloud-monitoring-alert-policy-design.md 7節に新規設計し、aircon-pashaフェーズ385の
+  横展開として位置づけた(ただし単純な転記ではなくseverity変更を伴う)。新規テスト4件
+  (`_AlwaysFailingTaskQueueClient`ヘルパー含む)を追加し、
+  `test_cloud_function_webhook.py`単体22件(旧18件)・`python3 -m unittest discover
+  -s prototype -p "test_*.py"`全1051件(旧1048件)・`python3 schema/validate_test_cases.py`
+  28件いずれも変更なしでパス(回帰なし)。実LINE Push通知送信・実Cloud Tasksデプロイは
+  未実装のまま(enqueue-fallback-owner-notification-design.md 4節の送信元(a)/(b)選択が
+  未確定のため)。実GCP/LINE API接続は行っていない。承認が必要なアクション(支払い・
+  アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4、および
+  billing-budget-cap-safeguard-design.mdのBilling Budget安全策付き実GCPプロジェクト作成)
+  がオーナーから承認・回答された場合はその着手を最優先、(2)enqueue-fallback-owner-
+  notification-design.md 4節で未確定のLINE Push通知送信元((a) HTTPハンドラ経由 or
+  (b) 定期実行ジョブ経由)の設計を次フェーズで確定する、(3)他venture
+  (event-komiguai-pasha・forklift-pasha・kura-pasha・oshien-pasha)についても
+  各venture自身のdispatch_webhook_events()実装方式(同期フォールバックか断念方式か)を
+  確認した上で同種のアラート設計を横展開する、(4)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 02:00 UTC(フェーズ続き387: 詳細は上記。enqueue失敗時の例外捕捉・
+  結果集約・構造化ログ出力〈enqueue_failed_occurred、ERROR〉を実装し、cloud-monitoring-
+  alert-policy-design.md 7節に対応するアラート設計を新規追加。新規テスト4件追加、
+  全1051件・schema検証28件いずれもパス、回帰なし)

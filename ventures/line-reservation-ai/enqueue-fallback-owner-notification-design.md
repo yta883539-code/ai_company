@@ -59,7 +59,35 @@ course-set-pasha版のように同期フォールバックでFunction B相当の
   設計(ステートレスなenqueueのみ)のため、本通知の送信元をA・Bどちらに置くかは未確定。
   候補: (a) Aがenqueue失敗イベントをそのまま返り値に残し、呼び出し元(HTTPハンドラ)が店舗設定
   ストアを引いて通知する、(b) enqueue失敗イベント自体を別の軽量キュー/ログに記録し、Bまたは
-  定期実行ジョブが後から拾って通知する。次回フェーズで検討する。
-- 実コード変更(`cloud_function_webhook.py`の例外捕捉分岐・テスト追加)・実LINE Push送信・
-  実Cloud Tasksデプロイは、既存の「実GCPプロジェクト・LINE API接続はオーナー承認待ちの範囲」
-  に含まれる(新規の承認待ち事項としては扱わない)。コード変更は次回フェーズで着手する。
+  定期実行ジョブが後から拾って通知する。5節(フェーズ386続き)で3節のコード変更に合わせ、
+  構造化ログ出力(`event: "enqueue_failed_occurred"`)を先行実装したことで、(b)側の「ログへの
+  記録」部分は満たされた状態になった。LINE Push通知本体(Cloud Loggingを定期的にポーリングして
+  digestを送る部分、または(a)側のHTTPハンドラ経由での即時通知)はいずれも実GCPプロジェクト・
+  LINE API接続後でなければ検証できないため、引き続き(a)/(b)のどちらを採用するかは次回フェーズで
+  確定する。
+- 実LINE Push送信・実Cloud Tasksデプロイは、既存の「実GCPプロジェクト・LINE API接続はオーナー
+  承認待ちの範囲」に含まれる(新規の承認待ち事項としては扱わない)。
+
+## 5. 実装状況(フェーズ続き387)
+
+3節の実装方針のうち、`cloud_function_webhook.py`側の例外捕捉分岐・結果集約・テスト追加を
+完了した。
+
+- `handle_webhook_event()`に`TaskAlreadyExistsError`以外の例外を捕捉する分岐を追加し、
+  `EventHandleResult(webhook_event_id, enqueued=False, reason="enqueue_failed")`を返すように
+  した(例外は呼び出し元へ伝播させない)。
+- `webhook_receiver()`に`WebhookReceiverResult.enqueue_failed_webhook_event_ids: list[str]`
+  フィールドを追加し、`reason == "enqueue_failed"`の`webhook_event_id`を集約するようにした。
+- enqueue失敗時に`_logger.error(..., extra={"event": "enqueue_failed_occurred",
+  "webhook_event_id": ...})`で構造化ログを出力するようにした
+  (cloud-monitoring-alert-policy-design.md 7節で新規設計した検知対象。他venture版の
+  `enqueue_fallback_occurred`〈WARNING〉とは異なり、本venture版は同期フォールバックを行わず
+  顧客応答に実害が生じるため`enqueue_failed_occurred`〈ERROR〉として区別する)。
+- 新規テスト4件(`test_enqueue_failure_other_than_duplicate_is_given_up_not_raised`・
+  `test_enqueue_failures_are_aggregated_but_response_is_still_200`・
+  `test_enqueue_failed_webhook_event_ids_empty_when_no_failures`、および既存テストへの
+  ヘルパークラス`_AlwaysFailingTaskQueueClient`追加)を`test_cloud_function_webhook.py`へ
+  追加した。
+
+実LINE Push通知の送信処理本体(4節で未確定の(a)/(b)選択に依存)・実Cloud Tasksデプロイは
+引き続き次回フェーズ以降の課題として残る。

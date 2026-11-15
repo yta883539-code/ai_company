@@ -241,3 +241,72 @@ cloud-firestore`導入・本番LLM API接続後(結合実装フェーズ以降)�
 再検証方針〈トリガー条件・p90ベースの機械的な算出手順〉を6節として新規設計。
 コード変更なし、回帰確認としてテスト1004件・schema検証28件を再実行しいずれも
 変更なしでパスすることを確認)
+
+## 7. Enqueue失敗検知アラート(フェーズ続き387、aircon-pashaフェーズ385の横展開・severity変更版)
+
+aircon-pashaフェーズ385(course-set-pashaフェーズ376の横展開)が設計した「Enqueueフォール
+バック発生率アラート」を、enqueue-fallback-owner-notification-design.md 5節で実装した本
+venture版の構造化ログ出力に合わせて横展開する。aircon-pasha・course-set-pasha版は
+`enqueue_fallback_occurred`をWARNINGとしているが、その理由は「Cloud Tasksへのenqueue失敗時に
+Function A自身が同期フォールバックでFunction B相当の処理を行い、顧客への応答自体は正常に
+行われる」ためである。本venture版はFunction A単一責務設計(LLM呼び出しを一切行わない)により
+同期フォールバックを採用せず、enqueue失敗時はそのイベントの処理を断念する(顧客への応答が
+行われない)。したがって本節では指標名・イベント名を他venture版と区別し、severityもERRORへ
+引き上げる(1節「本venture固有の事情」と同じ「単純な転記にならない」横展開パターン)。
+
+### 7.1. 実装側の対応
+
+5節で前述の通り、`prototype/cloud_function_webhook.py`の`handle_webhook_event()`内、
+`TaskAlreadyExistsError`以外の例外を捕捉する分岐に、`_logger.error(..., extra={"event":
+"enqueue_failed_occurred", "webhook_event_id": ...})`を実装済み。新規テスト4件を追加し、
+全1051件・schema検証28件いずれもパス(回帰なし)。
+
+### 7.2. ログベース指標
+
+- 名前(案): `line_reservation_ai_enqueue_failed_occurred_count`(他venture版の
+  `<venture-prefix>_enqueue_fallback_occurred_count`命名規則を踏襲しつつ、`fallback`では
+  なく実態に合わせ`failed`とする)。
+- フィルタ(Logging クエリ言語):
+  ```
+  resource.type="cloud_run_revision"
+  jsonPayload.event="enqueue_failed_occurred"
+  severity="ERROR"
+  ```
+  severityをERRORとする理由は本節冒頭の通り(他venture版との差異)。1〜2節(Firestore
+  依存構築失敗、ERROR)と同水準、5節(JSON構造化出力フォールバック、品質シグナル)とは
+  目的が異なる。
+- `webhook_event_id`はカーディナリティが高くログベース指標のラベルには不向きなため
+  含めない(2節・aircon-pasha版7.2節と同じ考え方)。障害調査時はCloud Logging側の
+  ログ本文を直接参照する。
+- `resource.type`・`service_name`等のリソースラベル値は、他節と同様実プロジェクト
+  作成後(関数デプロイ後)でなければ確定できないため引き続き要確認として残す。
+
+### 7.3. アラートポリシー
+
+- 条件: 上記ログベース指標が「直近60分間で合計1件以上」で発火(1〜2節・aircon-pasha版
+  7.3節と同一のローリングウィンドウ・しきい値)。本venture版はenqueue失敗=顧客応答の
+  欠落そのものを意味するため、件数の多寡によらず発生自体を即検知する方針とする。
+- 通知チャネル: 1〜2節と同じCloud Monitoring標準メール通知チャネル
+  (`OWNER_ALERT_EMAIL_PLACEHOLDER`)を共用する(ポリシー自体は指標が異なるため別個に
+  作成する)。将来enqueue-fallback-owner-notification-design.md 4節の(a)/(b)選択に基づく
+  LINE Push通知が実装された場合も、本アラートはそれとは経路・目的が異なる技術監視の
+  補完的な位置づけとして併用する(aircon-pasha版7.3節と同じ考え方)。
+
+### 7.4. スコープ外(引き続き次回以降の課題)
+
+- `resource.type`のリソースラベル値は、実プロジェクト作成後に確定する(1〜2節と同様)。
+- 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`および
+  `gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後にオーナー
+  承認の範囲内で実施する。
+- enqueue-fallback-owner-notification-design.md 4節で未確定のLINE Push通知送信元((a)/(b))
+  の決定は、本節の範囲外として次回フェーズに残す。
+- 残る横展開先(event-komiguai-pasha・forklift-pasha・kura-pasha・oshien-pasha)は、各venture
+  自身の`dispatch_webhook_events()`実装(同期フォールバック方式か本venture版の断念方式か)を
+  個別に確認した上で対応する必要があり、本フェーズでは範囲外とし次回以降の課題として残す。
+
+最終更新: 2026-11-15 02:00 UTC(フェーズ続き387: enqueue-fallback-owner-notification-design.md
+5節で実装したenqueue失敗時の構造化ログ出力〈`enqueue_failed_occurred`〉に対するCloud
+Monitoringアラート設計を7節として新規追加。aircon-pashaフェーズ385の横展開だが、本venture
+固有の「同期フォールバックを行わない」設計差異によりseverityをWARNINGからERRORへ変更。
+コード変更は5節側で実施済み、本節自体はドキュメントのみ。テスト1051件・schema検証28件
+いずれもパス(回帰なし))

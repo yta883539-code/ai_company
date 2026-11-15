@@ -28,6 +28,13 @@ from cloud_function_webhook import (  # noqa: E402
 CHANNEL_SECRET = "test-secret"
 
 
+class _AlwaysFailingTaskQueueClient:
+    """Cloud Tasksのクォータ超過・一時的なネットワーク障害等を模す(TaskAlreadyExistsError以外)。"""
+
+    def create_task(self, task_name: str, payload: dict) -> None:
+        raise RuntimeError("simulated transient Cloud Tasks failure")
+
+
 def _signed_body(events: list[dict]) -> tuple[bytes, str]:
     body = json.dumps({"events": events}).encode("utf-8")
     signature = base64.b64encode(
@@ -90,6 +97,17 @@ class HandleWebhookEventTests(unittest.TestCase):
     def test_missing_webhook_event_id_raises(self):
         with self.assertRaises(ValueError):
             handle_webhook_event({"type": "message"}, self.queue)
+
+    def test_enqueue_failure_other_than_duplicate_is_given_up_not_raised(self):
+        # enqueue-fallback-owner-notification-design.md(本venture版)2節準拠。
+        # TaskAlreadyExistsError以外の例外(クォータ超過等)は呼び出し元へ伝播させず、
+        # そのイベントの処理を断念する("enqueue_failed")。他venture版のような同期
+        # フォールバックは行わない(Function A単一責務設計を破るため)。
+        event = {"webhookEventId": "E5", "deliveryContext": {"isRedelivery": False}}
+        result = handle_webhook_event(event, _AlwaysFailingTaskQueueClient())
+        self.assertFalse(result.enqueued)
+        self.assertEqual(result.reason, "enqueue_failed")
+        self.assertEqual(result.webhook_event_id, "E5")
 
 
 class VerifyLineSignatureTests(unittest.TestCase):
@@ -186,6 +204,29 @@ class WebhookReceiverTests(unittest.TestCase):
         result = webhook_receiver(body, signature, CHANNEL_SECRET, events, self.queue)
         self.assertEqual(result.status_code, 200)
         self.assertNotIn("destination", self.queue.created["line-event-E1"])
+
+    def test_enqueue_failures_are_aggregated_but_response_is_still_200(self):
+        # enqueue-fallback-owner-notification-design.md(本venture版)3節準拠。
+        # 200は維持しつつ(LINE側の不要な再送連鎖を避ける)、失敗したwebhookEventIdを
+        # WebhookReceiverResult.enqueue_failed_webhook_event_idsへ集約する。
+        events = [
+            {"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}},
+            {"webhookEventId": "E2", "deliveryContext": {"isRedelivery": False}},
+        ]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(
+            body, signature, CHANNEL_SECRET, events, _AlwaysFailingTaskQueueClient()
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(result.results), 2)
+        self.assertTrue(all(r.reason == "enqueue_failed" for r in result.results))
+        self.assertEqual(result.enqueue_failed_webhook_event_ids, ["E1", "E2"])
+
+    def test_enqueue_failed_webhook_event_ids_empty_when_no_failures(self):
+        events = [{"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}}]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(body, signature, CHANNEL_SECRET, events, self.queue)
+        self.assertEqual(result.enqueue_failed_webhook_event_ids, [])
 
 
 if __name__ == "__main__":

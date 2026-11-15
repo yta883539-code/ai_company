@@ -24,8 +24,11 @@ webhook-async-processing-design.mdで設計した「Cloud Function A: receive_we
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, Protocol
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +92,7 @@ def make_task_name(webhook_event_id: str) -> str:
 class EventHandleResult:
     webhook_event_id: Optional[str]
     enqueued: bool
-    reason: str  # "enqueued" | "skipped_redelivery" | "skipped_duplicate_task"
+    reason: str  # "enqueued" | "skipped_redelivery" | "skipped_duplicate_task" | "enqueue_failed"
 
 
 def handle_webhook_event(event: dict, queue_client: TaskQueueClient) -> EventHandleResult:
@@ -101,6 +104,15 @@ def handle_webhook_event(event: dict, queue_client: TaskQueueClient) -> EventHan
     2. `webhookEventId`から決定的タスク名を導出しenqueueする。Cloud Tasks側の重複排除で
        同名タスクの二重作成が防がれる(第1の防御層をすり抜けた場合の保険)。
     3. ここではLLM呼び出し・会話フロー処理(Cloud Function B側)は一切行わない。
+    4. `TaskAlreadyExistsError`以外の例外(Cloud Tasksのクォータ超過・一時的なネットワーク
+       障害等)はenqueue-fallback-owner-notification-design.md(本venture版)2節準拠で
+       捕捉し、呼び出し元へ伝播させない。他venture(course-set-pasha・aircon-pasha)版が
+       行う同期フォールバック(Function B相当のLLM呼び出しをAが直接行う)は、本venture
+       のFunction A単一責務設計(LLM呼び出しを一切行わない)を破るため採用せず、この
+       イベントの処理自体を断念する(顧客への応答は行われない)。cloud-monitoring-alert-
+       policy-design.md 7節準拠で、他venture版の"enqueue_fallback_occurred"(WARNING、
+       同期フォールバックで顧客応答が救われるため)とは区別し、顧客応答に実害が生じる
+       本venture版は"enqueue_failed_occurred"(ERROR)として構造化ログを出力する。
     """
     webhook_event_id = event.get("webhookEventId")
     if not webhook_event_id:
@@ -114,6 +126,12 @@ def handle_webhook_event(event: dict, queue_client: TaskQueueClient) -> EventHan
         queue_client.create_task(task_name, payload=event)
     except TaskAlreadyExistsError:
         return EventHandleResult(webhook_event_id, enqueued=False, reason="skipped_duplicate_task")
+    except Exception:
+        _logger.error(
+            "enqueue to task queue failed, giving up on this event (no sync fallback)",
+            extra={"event": "enqueue_failed_occurred", "webhook_event_id": webhook_event_id},
+        )
+        return EventHandleResult(webhook_event_id, enqueued=False, reason="enqueue_failed")
 
     return EventHandleResult(webhook_event_id, enqueued=True, reason="enqueued")
 
@@ -126,6 +144,7 @@ def handle_webhook_event(event: dict, queue_client: TaskQueueClient) -> EventHan
 class WebhookReceiverResult:
     status_code: int
     results: list = field(default_factory=list)
+    enqueue_failed_webhook_event_ids: list[str] = field(default_factory=list)
 
 
 def verify_line_signature(body: bytes, signature_header: Optional[str], channel_secret: str) -> bool:
@@ -176,15 +195,23 @@ def webhook_receiver(
         return WebhookReceiverResult(status_code=401, results=[])
 
     results = []
+    enqueue_failed_webhook_event_ids: list[str] = []
     for event in events:
         if destination:
             event = {**event, "destination": destination}
         try:
-            results.append(handle_webhook_event(event, queue_client))
+            result = handle_webhook_event(event, queue_client)
         except ValueError:
             continue
+        results.append(result)
+        if result.reason == "enqueue_failed":
+            enqueue_failed_webhook_event_ids.append(result.webhook_event_id)
 
-    return WebhookReceiverResult(status_code=200, results=results)
+    return WebhookReceiverResult(
+        status_code=200,
+        results=results,
+        enqueue_failed_webhook_event_ids=enqueue_failed_webhook_event_ids,
+    )
 
 
 def _demo() -> None:
