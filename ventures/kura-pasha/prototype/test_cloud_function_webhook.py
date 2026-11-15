@@ -4,6 +4,7 @@
 import base64
 import hashlib
 import hmac
+import logging
 import random
 
 from datetime import datetime, timedelta, timezone
@@ -3227,6 +3228,43 @@ def test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_with
     check("enqueue_fallback_webhook_event_idsに記録される", result.enqueue_fallback_webhook_event_ids == ["wh-evt-flaky"])
 
 
+def test_dispatch_webhook_events_logs_enqueue_fallback_occurred():
+    # cloud-monitoring-alert-policy-design.md 5節(フェーズ続き306)が参照する
+    # 構造化ログ(event: "enqueue_fallback_occurred")が実際に出力されることを確認する。
+    class FlakyTaskQueueClient:
+        def create_task(self, task_name, payload):
+            raise ConnectionError("simulated Cloud Tasks transient failure")
+
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_OWNER", "W_FLAKY_LOG")
+    workshops.set_members("W_FLAKY_LOG", "U_OWNER", ["U_OWNER"])
+    reply_client = InMemoryReplyClient()
+    event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
+    event["webhookEventId"] = "wh-evt-flaky-log"
+
+    log_records = []
+    handler = logging.Handler()
+    handler.emit = log_records.append
+    target_logger = logging.getLogger("cloud_function_webhook")
+    previous_level = target_logger.level
+    target_logger.addHandler(handler)
+    target_logger.setLevel(logging.WARNING)
+    try:
+        result = dispatch_webhook_events(
+            [event], llm_call=_StubLlmCall([TEST_CASES["G1_new_basic"]]), reply_client=reply_client,
+            user_profile_store=profiles, workshop_store=workshops,
+            linking_store=InMemoryLinkingCodeStore(), task_queue_client=FlakyTaskQueueClient(),
+        )
+    finally:
+        target_logger.removeHandler(handler)
+        target_logger.setLevel(previous_level)
+
+    check("enqueue_fallback_webhook_event_idsに記録される", result.enqueue_fallback_webhook_event_ids == ["wh-evt-flaky-log"])
+    check("enqueue_fallback_occurredのログが1件出力される", len(log_records) == 1)
+    check("ログのevent値がenqueue_fallback_occurred", log_records[0].event == "enqueue_fallback_occurred")
+    check("ログのwebhook_event_idが一致する", log_records[0].webhook_event_id == "wh-evt-flaky-log")
+
+
 # ---------------------------------------------------------------------------
 # deliver_enqueued_kura_message_task()
 # (webhook-async-two-function-design.md「残課題・次回候補(4)」が「Cloud Tasks自体は
@@ -3776,6 +3814,7 @@ if __name__ == "__main__":
     test_dispatch_webhook_events_missing_webhook_event_id_falls_back_to_sync()
     test_dispatch_webhook_events_without_task_queue_client_processes_synchronously()
     test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_without_raising()
+    test_dispatch_webhook_events_logs_enqueue_fallback_occurred()
     test_deliver_enqueued_kura_message_task_end_to_end_from_queue_payload()
     test_deliver_enqueued_kura_message_task_without_event_id_store_skips_marking()
     test_deliver_enqueued_kura_message_task_does_not_mark_processed_on_failure()

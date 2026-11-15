@@ -168,3 +168,62 @@ runtime-dependency-switching-design.md 3.2節・6.2節を再確認した結果�
 いないため両エントリポイント(Webhook・日次スケジューラ)の構築失敗を単一の指標・
 アラートポリシーで検知できることを明らかにし、Webhook専用の第2指標が不要である
 ことを確認して4.3節の残課題を解消した。コード変更なし、設計文書の追記のみ)
+
+## 5. Enqueueフォールバック発生アラート(フェーズ続き306)
+
+enqueue-fallback-owner-notification-design.md(フェーズ305、course-set-pasha発の
+enqueueフォールバック時オーナー通知を横展開)で実装した`dispatch_webhook_events()`の
+`result.enqueue_fallback_webhook_event_ids`について、course-set-pashaフェーズ376・
+aircon-pashaフェーズ385が設計した監視指標を本venture側にも横展開する。他venture側と
+同様、ログ出力側の構造化`event`フィールド自体が未実装だったため、本フェーズで
+`prototype/cloud_function_webhook.py`の該当`except`節に`_logger.warning(..., extra=
+{"event": "enqueue_fallback_occurred", "webhook_event_id": ...})`を追加し、ログベース
+指標が参照できる状態にした。
+
+### 5.1. ログベース指標
+
+- 名前(案): `kura_pasha_enqueue_fallback_occurred_count`(4節と同じ
+  `<venture-prefix>_..._count`命名規則を踏襲)。
+- フィルタ(Logging クエリ言語):
+  ```
+  resource.type="cloud_run_revision"
+  jsonPayload.event="enqueue_fallback_occurred"
+  severity="WARNING"
+  ```
+  severityをWARNINGとする理由: enqueue_fallback発生時は`_process_message_sync()`に
+  よる同期フォールバックで顧客への応答自体は正常に行われるため顧客影響がなく、
+  顧客影響を伴う4節(Firestoreランタイム依存構築失敗、ERROR)とは重大度が異なる。
+- `webhook_event_id`はカーディナリティが高くログベース指標のラベルには不向きなため
+  含めない(1節・4節と同じ考え方)。障害調査時はCloud Logging側のログ本文を直接参照する。
+- `resource.type`・`service_name`等のリソースラベル値は、他節と同様実プロジェクト
+  作成後(関数デプロイ後)でなければ確定できないため引き続き要確認として残す。
+
+### 5.2. アラートポリシー
+
+- 条件: 上記ログベース指標が「直近60分間で合計1件以上」で発火(1〜4節と同一の
+  ローリングウィンドウ・しきい値)。enqueue失敗はCloud Tasks側のクォータ超過・権限
+  不備等の恒常的な問題を示唆しうるため、件数の多寡によらず発生自体を即検知する方針
+  とする(将来、一時的なネットワーク瞬断等による誤検知が頻発する場合はしきい値緩和を
+  運用開始後に検討する)。
+- 通知チャネル: 1〜4節と同じCloud Monitoring標準メール通知チャネル
+  (`OWNER_ALERT_EMAIL_PLACEHOLDER`)を共用する(ポリシー自体は指標が異なるため
+  他節のポリシーとは別個に作成する)。本アラートはenqueue-fallback-owner-
+  notification-design.mdのLINE Push通知(個々の発生時にdigestで即時配信)とは経路・
+  目的が異なり、Cloud Monitoring側は「恒常化していないか」を60分単位で技術監視する
+  補完的な位置づけとする(両者は代替ではなく併用)。
+
+### 5.3. スコープ外(引き続き次回以降の課題)
+
+- 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`
+  および`gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後に
+  オーナー承認の範囲内で実施する。
+- forklift-pasha・event-komiguai-pasha・oshien-pashaについてもenqueue失敗時の挙動・
+  本節相当の監視指標設計が適用できるかの個別確認は未着手のまま残る(kura-pashaフェーズ
+  続き305の申し送りを継続)。
+
+最終更新: 2026-11-15 04:00 UTC(フェーズ続き306: enqueue-fallback-owner-notification-
+design.md〈フェーズ305〉で実装したenqueueフォールバックについて、course-set-pasha
+フェーズ376・aircon-pashaフェーズ385の監視指標設計を5節として横展開。実装側の構造化
+ログ出力〈`event: "enqueue_fallback_occurred"`〉を`cloud_function_webhook.py`に追加し、
+新規テスト1件を追加。test_cloud_function_webhook.py単体423件(旧419件)・run_all_
+tests.py全26ファイル・schema検証32件いずれもパス、回帰なし)

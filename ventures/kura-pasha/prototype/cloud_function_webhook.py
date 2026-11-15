@@ -2315,6 +2315,17 @@ def dispatch_webhook_events(
                     # (course-set-pashaフェーズ373)。Cloud Tasks側の一時的なエラーを
                     # 伝播させず、安全側として同期処理にフォールバックする。
                     result.enqueue_fallback_webhook_event_ids.append(webhook_event_id)
+                    # cloud-monitoring-alert-policy-design.md 5節(フェーズ続き306、
+                    # course-set-pashaフェーズ376・aircon-pashaフェーズ385を横展開)準拠。
+                    # 顧客応答自体は後続の同期フォールバックで吸収されるためseverityは
+                    # WARNING。
+                    _logger.warning(
+                        "enqueue to task queue failed, falling back to sync processing",
+                        extra={
+                            "event": "enqueue_fallback_occurred",
+                            "webhook_event_id": webhook_event_id,
+                        },
+                    )
                     _process_message_sync()
         elif event_type == "follow":
             if not follow_ok:
