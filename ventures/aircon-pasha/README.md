@@ -7430,3 +7430,32 @@
   Enqueueフォールバック発生率アラート設計を本ventureへ横展開し、構造化ログ出力を
   `cloud_function_webhook.py`に追加。新規テスト1件追加、全843件・schema検証25件いずれも
   パス、回帰なし。)
+- フェーズ386(2026-11-15 05:00 UTC定例更新): ideas.mdに新規アイデア2件追加(複数のMCP
+  サーバー同時接続時にツール名衝突(同名ツールの重複公開)が発生してもクライアント側の
+  解決仕様を確認しないまま運用してしまい、後から追加された/侵害されたサーバーが既存の
+  信頼済みツールを乗っ取れてしまう一次チェック「とりちがえパシャっと」〈小規模・自動起業
+  可能〉、同テーマのCI/CD連携型継続監視・脅威インテリジェンス照合プラットフォーム構想
+  「とりちがえウォッチ」〈投資・大規模、presentations.mdにも追記〉、既出の「のっとり
+  パシャっと」〈単一MCPサーバー自身のツール定義テキストの診断〉とは対象が異なり重複なしを
+  確認、CVE-2026-30856〈WeKnora〉・CVE-2026-13341〈Kong Konnect MCP〉をWebSearchで確認)。
+  cloud-monitoring-alert-policy-design.md 8節: line-reservation-aiフェーズ続き387
+  (2026-11-15 02:00 UTC)が新規設計したERROR severity変更版(`enqueue_failed_occurred`、
+  Function Aが単一責務設計のため同期フォールバックを持たないventure向け)の本venture側への
+  適用可否を確認した結果、本venture`dispatch_webhook_events()`は`TaskAlreadyExistsError`
+  以外の例外でも必ず同期フォールバックする設計であり該当パターンが存在しないため、適用せず
+  既存のWARNING severity(`enqueue_fallback_occurred`、7節)のままで正しいことを確認した
+  (8節として記録、「対象外確定」と同種の判断)。コード変更なし、既存テスト843件
+  (`python3 -m unittest discover`で再実行し確認)・schema検証25件
+  (`python3 schema/validate_test_cases.py`で再実行し確認)いずれも変更なしでパス
+  (回帰なし)。実GCP/Cloud Monitoringへの接続・ログベース指標/アラートポリシーの実作成は
+  行っていない。承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先(event-komiguai-pasha・forklift-pasha・kura-pasha・
+  oshien-pasha)への7節パターンの横展開状況の確認(line-reservation-aiは対応済み)、
+  (2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-15 05:00 UTC(フェーズ386: 詳細は上記。line-reservation-aiフェーズ続き
+  387のERROR severity変更版の本venture側への適用可否を確認し、該当パターンが存在しないため
+  適用せず既存のWARNING severityのままで正しいことを8節として記録。コード変更なし、
+  既存843件・schema検証25件いずれもパス、回帰なし。)

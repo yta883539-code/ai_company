@@ -258,7 +258,35 @@ enqueueが例外となり`result.enqueue_fallback_webhook_event_ids`へ記録し
   oshien-pasha)への同種設計・実装の横展開は、本フェーズでは範囲外とし次回以降の課題と
   して残す。
 
-最終更新: 2026-11-14 22:00 UTC (フェーズ385: course-set-pashaフェーズ376〈enqueue
-フォールバック発生率アラート新規設計〉を本venture向けに横展開。`cloud_function_webhook.py`
-へ構造化ログ出力(`event: "enqueue_fallback_occurred"`)を追加し、新規テスト1件を追加。
-既存842件と合わせ全843件・schema検証25件いずれもパス、回帰なし)
+## 8. line-reservation-aiフェーズ続き387(ERROR severity変更版)の適用可否確認(フェーズ386)
+
+line-reservation-aiフェーズ続き387(2026-11-15 02:00 UTC)が、7節(本ファイル)の
+`enqueue_fallback_occurred`(WARNING)を横展開する際に、本venture版とは異なる
+`enqueue_failed_occurred`(ERROR)という別パターンを新規設計したことを確認した。
+line-reservation-ai版がseverityをERRORへ引き上げた理由は、同ventureの
+Function A(`handle_webhook_event()`)が単一責務設計(LLM呼び出しを一切行わない)で
+あるため、Cloud Tasksへのenqueueが失敗した場合に同期フォールバックという選択肢が
+存在せず、該当イベントの処理自体を断念する(顧客への応答が行われない)ためである。
+
+本venture(aircon-pasha)の`dispatch_webhook_events()`を確認したところ、
+`create_task()`が`TaskAlreadyExistsError`以外の例外(クォータ超過・ネットワーク障害等)を
+送出した場合も必ず同期処理へフォールバックする設計になっており(1802〜1909行目、
+7節冒頭に前述の通り)、enqueue失敗によってイベント処理自体が断念される経路は存在しない。
+したがって、line-reservation-ai版のERROR severity変更は本venture側の実装には適用されず、
+7節で既に実装済みのWARNING severity(`enqueue_fallback_occurred`)のままで正しいことを
+確認した。本節は是正の必要なしとの確認結果の記録のみであり、コード変更は行っていない。
+既存843件・schema検証25件いずれも変更なしでパス(回帰なし)。承認が必要なアクション
+(支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+追記なし。
+
+次回候補: (1)残る横展開先(event-komiguai-pasha・forklift-pasha・kura-pasha・oshien-pasha)
+への7節パターンの横展開(line-reservation-aiは対応済み、kura-pashaは未確認のまま残る)、
+(2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
+ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+その着手を最優先、(3)他venture・アイデア領域の前進。
+
+最終更新: 2026-11-15 05:00 UTC (フェーズ386: line-reservation-aiフェーズ続き387が新規設計した
+ERROR severity変更版〈`enqueue_failed_occurred`〉の本venture側への適用可否を確認し、
+本venture`dispatch_webhook_events()`は常に同期フォールバックを行う設計のため適用されず、
+既存のWARNING severity〈`enqueue_fallback_occurred`〉のままで正しいことを8節として記録。
+コード変更なし、既存843件・schema検証25件いずれもパス、回帰なし)
