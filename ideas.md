@@ -1,5 +1,19 @@
 # アイデアログ
 
+日時: 2026-11-15 18:00 UTC
+名前: AIコーディングアシスタント/AIエージェントが生成するIstioのPeerAuthentication設定(mTLSモード)がSTRICTに明示されず、クラスタ/名前空間デフォルトのPERMISSIVE(平文・mTLS両方を許可)のまま残り、サービスメッシュ内通信が平文でも成立してしまう一次チェック「のぞけちゃうメッシュパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「Istioでサービスメッシュを組んで」と依頼すると、AIコーディングアシスタントはSidecar自動注入やVirtualService/DestinationRuleの設定は生成するが、PeerAuthentication(mTLSモード)のmesh/namespace/workload単位の明示設定を省略しがちで、Istioのデフォルト動作であるPERMISSIVEモード(mTLS通信も平文通信も両方受理する)のまま本番投入されやすい。この状態ではサイドカー未注入のPod・メッシュ外から到達可能な経路で平文通信が成立し、ネットワークを盗聴できる立場の攻撃者に通信内容を読み取られる恐れがある。本サービスは、利用者がIstioのPeerAuthentication/MeshPolicy関連YAMLを貼り付けると、STRICTモードが明示されているか、対象スコープ(mesh全体/namespace/workload単位)に漏れが無いかを静的に一次チェックし、STRICT化の修正例を提示する診断ツールとして提供する。
+対象顧客: AIコーディングアシスタントを使ってIstio/サービスメッシュ環境を構築している個人開発者・小規模SRE/プラットフォームチームで、公開前にmTLS強制設定の漏れを一次棚卸ししたい人。
+分類理由: 利用者が貼り付けたYAML設定に対する静的解析(PeerAuthenticationリソースのmtls.modeフィールド検出)とLLMによる修正例提示のみで完結し、継続的なインフラ運用や顧客クラスタへの常時接続を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「Istio」「PeerAuthentication」「PERMISSIVE」「mTLS」で検索した結果、既出は「あいことばウォッチ」構想内の脅威モデル注記1件のみで、本アイデアのような専用の一次チェックツールは無く初出であることを確認した。
+
+日時: 2026-11-15 18:00 UTC
+名前: AIコーディングアシスタント/AIエージェントが生成するKubernetes Secretsマニフェストにおいて、base64エンコードを暗号化と誤認したまま機密情報(DBパスワード・APIキー等)をetcd暗号化(EncryptionConfiguration)未設定のクラスタへそのまま適用してしまう一次チェック「つつぬけetcdパシャっと」(仮称)
+分類: 小規模・自動起業可能
+ピッチ: 「SecretにDBの接続情報を入れて」と依頼すると、AIコーディングアシスタントはkind: SecretのYAMLをbase64エンコードした値で生成するが、base64は暗号化ではなく単なる符号化であるため、etcdへの直接アクセス権を持つ者やetcdバックアップファイルを入手した者は誰でもデコードして機密情報を読み取れる。多くのクラスタでEncryptionConfigurationによるetcd保管時暗号化がデフォルト無効であることも見落とされやすい。本サービスは、利用者が貼り付けたSecretマニフェスト・クラスタ構築コード(Terraform/eksctl/gcloud等)に対し、(1)Secret値の暗号化有無の誤解、(2)EncryptionConfiguration未設定、(3)RBAC上のSecrets閲覧権限過大、を静的に一次チェックし、外部Secret Manager連携への移行例を提示する診断ツールとして提供する。
+対象顧客: AIコーディングアシスタントを使って自前でKubernetesクラスタを構築・運用している個人開発者・小規模開発チームで、Secretsの保護範囲を公開前に一次棚卸ししたい人。
+分類理由: 利用者が貼り付けたマニフェスト・IaCコードに対する静的解析(Secret定義・EncryptionConfiguration有無・RBACロールのパターンマッチング)とLLMによる修正例提示のみで完結し、継続的なインフラ運用や顧客クラスタへの常時接続を要さないため「小規模・自動起業可能」に分類した。ideas.md内を「Kubernetes.*Secret」「etcd暗号化」「EncryptionConfiguration」で検索した結果いずれも0件(初出)であることを確認した。
+
 日時: 2026-11-15 17:00 UTC
 名前: AIコーディングアシスタント/AIエージェントが生成するElasticsearch/OpenSearchのdocker-compose.yml・Kubernetes Helm values・初期セットアップスクリプトで、ローカル開発時の動作確認を優先して`xpack.security.enabled=false`(Elasticsearch)や`plugins.security.disabled=true`(OpenSearch)を明示的に設定したまま、その設定ファイルが本番用マニフェストとして複製・デプロイされ、認証なしで9200/9300番ポートがインターネットに公開されてしまう一次チェック「ひらきっぱなしパシャっと」(仮称)
 分類: 小規模・自動起業可能
