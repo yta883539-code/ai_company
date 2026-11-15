@@ -7482,3 +7482,31 @@
   safeguard-design.mdに残っていた次回候補を本venture側で実施し、契約業者数に応じた
   予算見直し運用手順をlaunch-readiness-checklist.mdへ反映。コード変更なし、
   既存843件・schema検証25件いずれもパス、回帰なし。)
+- フェーズ388(2026-11-15 21:00 UTC定例更新): ideas.mdに新規アイデア2件追加(AIが生成する
+  Dockerfileで`.dockerignore`不備により`COPY . .`が`.env`・`.git`・秘密鍵をビルドコンテキスト
+  経由でイメージレイヤーに焼き込んでしまう一次チェック「もちこみパシャっと」、AWSの他社
+  SaaS連携用IAMロール信頼ポリシーで`sts:ExternalId`検証を欠き「混乱した代理人問題」に
+  陥ってしまう一次チェック「まるしんようパシャっと」、いずれも小規模・自動起業可能、既出
+  アイデアとの重複なしをgrep確認済み)。7venture中最も更新が止まっていた本ventureを前進。
+  フェーズ387の次回候補(1)「他4venture(course-set-pasha・forklift-pasha・kura-pasha・
+  oshien-pasha)へのBilling Budget安全策設計そのものの横展開」を確認したところ、安全策設計
+  (billing-budget-cap-safeguard-design.md)自体は4venture全てに既に存在しており、この文面は
+  陳腐化していたことが判明した。一方、本venture側がフェーズ387で反映した「件数に応じた予算
+  見直し運用手順」を各venture自身のlaunch-readiness-checklist.mdへ反映した例はまだ無く、
+  course-set-pasha(オーナー2件超)・kura-pasha(工房5件超)は数値閾値が設計済みで反映可能、
+  forklift-pasha・oshien-pashaは閾値未確定のため反映にはその確定が先に必要、という状況を
+  確認し、billing-budget-review-step-rollout-status.mdとして記録した。本リポジトリの運用
+  慣習(venture内の変更はそのventure自身の実行回で行う)に沿い、他venture側ファイルの変更は
+  行っていない。コード変更なし(新規ドキュメント1件作成のみ)、既存テスト843件・schema検証
+  25件いずれも変更なしでパス(回帰なし)。実GCP/Stripe接続・支払い・アカウント作成・外部
+  公開・送信は一切行っていない。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)course-set-pasha・kura-pashaの次回実行回で、本venture同様の件数ベース予算
+  見直し運用手順をそれぞれのlaunch-readiness-checklist.mdへ反映することを推奨、(2)2026-11-08
+  08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして
+  残っている(pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-15 21:00 UTC(フェーズ388: 詳細は上記。billing-budget-cap-
+  safeguard-design.mdの横展開状況を確認し陳腐化記載を発見、件数ベース予算見直し運用手順の
+  他venture反映状況をbilling-budget-review-step-rollout-status.mdとして記録。コード変更
+  なし、既存843件・schema検証25件いずれもパス、回帰なし。他venture側ファイルの変更なし。)

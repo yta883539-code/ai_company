@@ -96,6 +96,7 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 ## 横断レビュー・陳腐化棚卸し
 - stale-next-candidate-cross-venture-survey.md
 - requester-own-personal-info-management-company-disclosure-review.md
+- billing-budget-review-step-rollout-status.md
 
 ## 実装・テスト
 - prototype/ / schema/
