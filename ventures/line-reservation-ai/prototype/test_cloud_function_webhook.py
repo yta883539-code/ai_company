@@ -21,6 +21,7 @@ from cloud_function_webhook import (  # noqa: E402
     InMemoryTaskQueueClient,
     handle_webhook_event,
     make_task_name,
+    render_enqueue_failed_owner_notification,
     verify_line_signature,
     webhook_receiver,
 )
@@ -227,6 +228,35 @@ class WebhookReceiverTests(unittest.TestCase):
         body, signature = _signed_body(events)
         result = webhook_receiver(body, signature, CHANNEL_SECRET, events, self.queue)
         self.assertEqual(result.enqueue_failed_webhook_event_ids, [])
+
+
+class RenderEnqueueFailedOwnerNotificationTests(unittest.TestCase):
+    # enqueue-fallback-owner-notification-design.md(本venture版)4節で確定した(a)案
+    # (HTTPハンドラ経由の即時通知)が使う文言テンプレートの検証。
+
+    def test_empty_list_still_renders_zero_count(self):
+        text = render_enqueue_failed_owner_notification([])
+        self.assertIn("件数: 0件", text)
+        self.assertIn("webhookEventId: \n", text)
+
+    def test_few_ids_are_all_listed_without_truncation(self):
+        text = render_enqueue_failed_owner_notification(["E1", "E2"])
+        self.assertIn("件数: 2件", text)
+        self.assertIn("webhookEventId: E1, E2", text)
+        self.assertNotIn("他", text)
+
+    def test_exactly_five_ids_are_not_truncated(self):
+        ids = [f"E{i}" for i in range(1, 6)]
+        text = render_enqueue_failed_owner_notification(ids)
+        self.assertIn("件数: 5件", text)
+        self.assertIn("webhookEventId: E1, E2, E3, E4, E5", text)
+        self.assertNotIn("他", text)
+
+    def test_more_than_five_ids_are_truncated_with_remainder_count(self):
+        ids = [f"E{i}" for i in range(1, 8)]  # 7件
+        text = render_enqueue_failed_owner_notification(ids)
+        self.assertIn("件数: 7件", text)
+        self.assertIn("webhookEventId: E1, E2, E3, E4, E5 ...他2件", text)
 
 
 if __name__ == "__main__":

@@ -165,6 +165,34 @@ def verify_line_signature(body: bytes, signature_header: Optional[str], channel_
     return hmac.compare_digest(computed_b64, signature_header)
 
 
+# ---------------------------------------------------------------------------
+# enqueue失敗時のオーナー通知文言(enqueue-fallback-owner-notification-design.md
+# (本venture版)3節の文言案をテンプレート化したもの)
+# ---------------------------------------------------------------------------
+
+def render_enqueue_failed_owner_notification(webhook_event_ids: list[str]) -> str:
+    """enqueue失敗したwebhookEventIdの一覧から、オーナー通知用のプレーンテキストを組み立てる。
+
+    enqueue-fallback-owner-notification-design.md(本venture版)4節で採用を確定した
+    (a)案(HTTPハンドラが`destination`からstoreId・owner_user_idを解決した上で、
+    本関数が返す文言をそのまま`_notify_owner()`相当のLINE Push送信に渡す)で使う想定。
+    本関数自体はFirestore・LINE APIのいずれにも依存しない純粋なテンプレート処理であり、
+    実GCPプロジェクト・LINE API接続(オーナー承認待ち)より前に単体で検証できる。
+    """
+    count = len(webhook_event_ids)
+    shown = webhook_event_ids[:5]
+    ids_line = ", ".join(shown)
+    if count > 5:
+        ids_line += f" ...他{count - 5}件"
+    return (
+        "[予約管理アシスタント運営より] 一部のお客様メッセージの処理に失敗しました。\n"
+        "Cloud Tasksへのキュー登録でエラーが発生したため、以下のメッセージは未処理のままです。\n"
+        f"件数: {count}件\n"
+        f"webhookEventId: {ids_line}\n"
+        "お客様から返信がないとのお問い合わせがあった場合は、直接ご確認をお願いします。"
+    )
+
+
 def webhook_receiver(
     body: bytes,
     signature_header: Optional[str],

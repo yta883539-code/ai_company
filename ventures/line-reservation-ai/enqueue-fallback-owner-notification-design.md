@@ -91,3 +91,35 @@ course-set-pasha版のように同期フォールバックでFunction B相当の
 
 実LINE Push通知の送信処理本体(4節で未確定の(a)/(b)選択に依存)・実Cloud Tasksデプロイは
 引き続き次回フェーズ以降の課題として残る。
+
+## 6. 4節の確定(フェーズ続き388): (a) HTTPハンドラ経由の即時通知を採用
+
+4節で未確定だった(a)/(b)の選択を、以下の理由で(a)に確定する。
+
+- enqueue失敗はCloud Tasksのクォータ超過・一時的なネットワーク障害等の低頻度事象であり、
+  対応漏れ(顧客への応答が行われない)を早期にオーナーへ知らせることの価値が、通知のわずかな
+  遅延コストより大きい。(b)定期実行ジョブ経由は、検知までポーリング周期分の遅延が生じる上、
+  enqueue失敗イベントを永続化する新規コレクション・Cloud Schedulerジョブの追加実装が必要に
+  なり、(a)より実装・運用コストが高い。
+- `destination`(どの店舗=LINE公式アカウント宛か)は、HTTPハンドラが`webhook_receiver()`を
+  呼ぶ時点で既にリクエストボディから取得済みの値であり、`webhook_receiver()`へそのまま渡して
+  いる(2節で前提とした「Function A自体はstoreId単位の店舗設定ストアにアクセスしない設計」は
+  `handle_webhook_event()`/`webhook_receiver()`という純粋なenqueue判定ロジック自体の話であり、
+  これらを呼び出すHTTPハンドラ本体が、enqueue失敗という異常系に限って`resolve_store_id_from_
+  destination(destination)`で`store_id`を解決し、店舗設定ストアから`owner_user_id`を1回引いて
+  LINE Pushを1回送るだけの軽量な処理を追加することは、2節で守ろうとした「Aの応答時間をLLM待ちから
+  切り離す」という単一責務設計の趣旨(LLM呼び出しという重い・低速な処理をAに持ち込まないこと)を
+  破らない。したがって、HTTPハンドラが`webhook_receiver()`の戻り値
+  `enqueue_failed_webhook_event_ids`が空でない場合にのみ、この追加処理を行う設計とする。
+- 通知文言の組み立て自体はFirestore・LINE APIのいずれにも依存しない純粋なテンプレート処理の
+  ため、実GCPプロジェクト・LINE API接続(オーナー承認待ち)を待たずに先行実装・単体テストが
+  可能と判断し、`prototype/cloud_function_webhook.py`に
+  `render_enqueue_failed_owner_notification(webhook_event_ids: list[str]) -> str`を追加した
+  (3節の文言案をテンプレート化、先頭5件表示+残りは「...他N件」)。新規テスト4件
+  (`test_cloud_function_webhook.py::RenderEnqueueFailedOwnerNotificationTests`)で空リスト・
+  5件以内・5件超の3パターンを検証済み。
+- 残る未実装部分(HTTPハンドラ本体での`resolve_store_id_from_destination()`呼び出し・店舗設定
+  ストアからの`owner_user_id`取得・実LINE Push送信)は、HTTPハンドラ自体が「デプロイ環境確定後に
+  実装」という既存の未着手事項(webhook_receiver()のdocstring参照)に含まれるため、実GCP
+  プロジェクト作成(オーナー承認待ち)後の実装課題として残す。新規の承認依頼エントリは追加しない
+  (承認を求めるアクションの実体は変わらないため)。

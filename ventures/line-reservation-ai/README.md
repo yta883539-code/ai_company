@@ -7599,3 +7599,40 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   結果集約・構造化ログ出力〈enqueue_failed_occurred、ERROR〉を実装し、cloud-monitoring-
   alert-policy-design.md 7節に対応するアラート設計を新規追加。新規テスト4件追加、
   全1051件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き388(2026-11-15 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-15 02:00 UTC)を前進。次回候補(1)の承認待ち事項はオーナー未回答のため
+  引き続き着手不可、次回候補(2)に対応し、enqueue-fallback-owner-notification-design.md
+  4節で未確定だったLINE Push通知送信元((a) HTTPハンドラ経由 or (b) 定期実行ジョブ経由)を
+  (a)に確定した(同ドキュメント6節に理由を追記)。判断理由は、enqueue失敗という低頻度の
+  異常系について対応漏れの早期検知を優先したこと、`destination`はHTTPハンドラが
+  `webhook_receiver()`呼び出し時点で既に保持しているため追加のenqueue自体を待たずに
+  `resolve_store_id_from_destination()`でstoreId解決・店舗設定ストアからの`owner_user_id`
+  取得・LINE Push送信という軽量な処理をハンドラ側に追加するだけで足り、Function Aの
+  単一責務設計(LLM呼び出しという重い処理をAに持ち込まないこと)を破らないこと、(b)は
+  新規の永続化コレクション・Cloud Schedulerジョブが必要で実装・運用コストが(a)より高い
+  ことの3点。確定に合わせ、Firestore・LINE APIいずれにも依存しない純粋なテンプレート処理
+  として`prototype/cloud_function_webhook.py`に
+  `render_enqueue_failed_owner_notification(webhook_event_ids: list[str]) -> str`を新規実装
+  した(3節の通知文言案をテンプレート化、先頭5件表示+残りは「...他N件」)。これにより
+  実GCPプロジェクト・LINE API接続(オーナー承認待ち)を待たずに通知文言のロジックを先行検証
+  できる状態になった。残る未実装部分(HTTPハンドラ本体でのstoreId解決・owner_user_id取得・
+  実LINE Push送信)は、HTTPハンドラ自体が未実装(デプロイ環境確定後に実装)という既存の
+  範囲に含まれるため、新規の承認依頼エントリは追加していない。新規テスト4件
+  (`RenderEnqueueFailedOwnerNotificationTests`: 空リスト・5件以内・ちょうど5件・5件超の
+  truncation)を`test_cloud_function_webhook.py`に追加し、同ファイル単体26件(旧22件)・
+  `python3 -m unittest discover -s prototype -p "test_*.py"`全1055件(旧1051件)・
+  `python3 schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LINE Push
+  送信・実Cloud Tasksデプロイ・実GCP/LINE API接続は行っていない。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4、および
+  billing-budget-cap-safeguard-design.mdのBilling Budget安全策付き実GCPプロジェクト作成)
+  がオーナーから承認・回答された場合はその着手を最優先、(2)他5venture(aircon-pasha・
+  event-komiguai-pasha・forklift-pasha・kura-pasha・oshien-pasha)についても
+  各venture自身のdispatch_webhook_events()実装方式(同期フォールバックか断念方式か)を確認
+  した上で同種のenqueue失敗時オーナー通知設計(本フェーズの(a)/(b)確定を含む)を横展開する、
+  (3)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-15 11:00 UTC(フェーズ続き388: 詳細は上記。enqueue-fallback-owner-
+  notification-design.md 4節のLINE Push通知送信元を(a) HTTPハンドラ経由に確定し、通知文言
+  テンプレート関数`render_enqueue_failed_owner_notification()`を新規実装。新規テスト4件追加、
+  全1055件・schema検証28件いずれもパス、回帰なし)
