@@ -143,9 +143,9 @@
       "nearest_station": "南海/地下鉄 なんば駅",
       "walk_minutes_note": "徒歩10分前後",
       "naming_rights": false,
-      "last_verified_date": "2026-10-30",
+      "last_verified_date": "2026-11-15",
       "naming_rights_review_due": null,
-      "verification_note": "フェーズ25: 休館・改修予定の有無をWebSearchで確認した。Songkick掲載の今後のコンサート予定([Alexandros]、Public Image Ltd (PiL)等)から通常営業が確認でき、2026年の休館・改修情報は見つからなかった。operational_statusはactiveを維持した。",
+      "verification_note": "フェーズ25: 休館・改修予定の有無をWebSearchで確認した。Songkick掲載の今後のコンサート予定([Alexandros]、Public Image Ltd (PiL)等)から通常営業が確認でき、2026年の休館・改修情報は見つからなかった。operational_statusはactiveを維持した。 フェーズ127(2026-11-15)で略称・愛称の有無をWebSearchで裏取りした。会場名の由来(八角形の外観から「Hatch」と呼ばれるようになった)を記す口コミサイトの記述はあったが、ファン・チケットサイト間で複数出典により確認できる略称(「ハッチ」等)は見つからず、他venueの採用基準(複数出典での裏取り)に合わせてaliasesへの追加は見送り、空のまま維持し検証実施済みの旨を記録した。",
       "operational_status": "active"
     },
     {
@@ -457,15 +457,15 @@
       "operational_status": "active"
     },
     {
-      "canonical_name": "沖縄アリーナ",
-      "aliases": [],
+      "canonical_name": "沖縄サントリーアリーナ",
+      "aliases": ["沖縄アリーナ"],
       "region": "沖縄圏",
       "nearest_station": "鉄道(ゆいレール)は宜野湾市まで到達しておらず、路線バス利用が一般的。那覇空港から高速バス「沖縄南」停留所、那覇バスターミナルから路線バス「沖縄市運動公園前」停留所",
       "walk_minutes_note": "「沖縄南」下車徒歩7分前後/「沖縄市運動公園前」下車徒歩5分前後",
-      "naming_rights": false,
-      "last_verified_date": "2026-11-03",
-      "naming_rights_review_due": null,
-      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した。",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-15",
+      "naming_rights_review_due": "2030-03-31",
+      "verification_note": "本フェーズでdraft.md⇔JSON間のparity gapの是正としてschema側に新規追加した(旧記録、naming_rights=falseは誤り)。フェーズ127(2026-11-15)でWebSearch裏取りした結果、沖縄サントリーが2025年2月1日付でネーミングライツ(命名権)を取得し、指定管理期間2025年4月1日〜2030年3月31日の間、施設の愛称が「沖縄サントリーアリーナ」となっていることを琉球新報関連記事・公式発表で確認した。canonical_nameを現行の公式愛称に更新し、旧名称「沖縄アリーナ」をaliasesに追加した。記事中では「沖アリ」という略称も1件のみ見られたが、他venue(大阪城ホール「城ホ」)採用基準(複数出典での裏取り)に合わせ、単一出典のためaliasesへの追加は見送った。naming_rights_review_dueは契約満了日(2030-03-31)を設定した。",
       "operational_status": "active"
     },
     {
