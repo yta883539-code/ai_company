@@ -7283,3 +7283,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-16 13:00 UTC(フェーズ続き310: 詳細は上記。enqueue-fallback-owner-
   notification-design.md 6節の陳腐化記載〈解消済み棚卸し項目〉を是正。コード変更なし、
   既存テスト26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き311(2026-11-16 20:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(kura-pasha)を前進。フェーズ続き310の次回候補(2)「残る横展開先
+  (forklift-pasha・oshien-pasha)は複数職人/契約業者数の数値閾値が未確定のため保留継続」
+  を確認するためforklift-pasha側のlaunch-readiness-checklist.mdを確認したところ、同venture
+  自身のフェーズ241で既に契約事業者数の数値閾値(4件)を確定し運用手順を反映済み
+  (forklift-pasha側の記載でも「残る横展開先はoshien-pashaのみ」と明記)であることが
+  判明し、本venture側の次回候補の記載が陳腐化していたことを確認した。あわせて
+  billing-budget-cap-safeguard-design.md「未確定・今後の課題」節の「残る横展開先
+  (course-set-pasha・forklift-pasha・oshien-pasha)についても同種のBilling Budget安全策
+  設計が未着手」という記載も、course-set-pasha・forklift-pasha・oshien-pashaの3venture
+  いずれも各venture自身のbilling-budget-cap-safeguard-design.mdが既に作成済みであることを
+  `ls ventures/*/billing-budget-cap-safeguard-design.md`で確認し、陳腐化していたと判明した
+  ため取り消し線付きで是正した(本リポジトリの運用慣習〈venture内の変更はそのventure
+  自身の実行回で行う〉に沿い、oshien-pasha・forklift-pasha・course-set-pasha側ファイルの
+  変更は行っていない)。コード変更なし(設計docの記載修正のみ)、既存テスト
+  (run_all_tests.py全26ファイル)・schema検証32件を再実行しいずれも変更なしでパス
+  (回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま最大の
+  ボトルネックとして残っている(pending-approval.md参照、オーナーから得られた場合は
+  その着手を最優先)、(2)残る横展開先はoshien-pashaのみ(同venture側で複数会場はしご
+  プラン等の契約数に相当する数値閾値が確定した時点で、同venture自身の実行回での反映が
+  必要。forklift-pashaは既に反映済みのため対象から除外)、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-16 20:00 UTC(フェーズ続き311: 詳細は上記。「残る横展開先」の対象を
+  forklift-pasha・oshien-pashaの2件からoshien-pasha1件に是正。コード変更なし、既存
+  テスト26ファイル・schema検証32件いずれもパス、回帰なし。)

@@ -62,9 +62,16 @@ line-reservation-aiのbilling-budget-cap-safeguard-design.md(2026-11-11 04:00 UT
   精緻化は今後の課題として残す。
 - `budget-cap-auto-disable`用Cloud Functionの実コード化・deployment-runbook.md相当文書への
   追記は、実GCPプロジェクト作成後の課題として残す。
-- 残る横展開先(course-set-pasha・forklift-pasha・oshien-pasha)についても同種のBilling
-  Budget安全策設計が未着手のため、次回以降の横展開候補として残す。
+- ~~残る横展開先(course-set-pasha・forklift-pasha・oshien-pasha)についても同種のBilling
+  Budget安全策設計が未着手のため、次回以降の横展開候補として残す。~~
+  (2026-11-16 20:00 UTC追記で解消: course-set-pasha・forklift-pasha・oshien-pashaとも
+  各venture自身のbilling-budget-cap-safeguard-design.mdが既に作成済みであることを確認した
+  ため、この項目は陳腐化記載として取り消し線に変更。残る横展開先は、数値閾値付きの
+  「運用手順(launch-readiness-checklist.md反映)」のうちoshien-pashaのみ(forklift-pashaは
+  自身のフェーズ241で反映済み)。詳細はREADME.mdフェーズ続き311参照。)
 
 最終更新: 2026-11-13 13:00 UTC(新規作成: line-reservation-aiのbilling-budget-cap-
 safeguard-design.mdをkura-pasha向けに横展開。実行〈GCPプロジェクト作成・課金設定・Budget
 作成〉は一切行っていない。)
+追記: 2026-11-16 20:00 UTC(フェーズ続き311: 上記「未確定・今後の課題」の陳腐化項目を
+是正。コード変更なし。)
