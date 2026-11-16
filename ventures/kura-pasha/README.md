@@ -7233,3 +7233,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   設計追加は見送り、既存テスト(run_all_tests.py全26ファイル・schema検証32件)の
   再実行による健全性確認のみを実施、回帰なし。pending-approval.mdの7venture共通
   運営方針確認依頼に追記し、オーナーへ直接通知した。)
+- フェーズ続き309(2026-11-16 05:00 UTC定例更新): ideas.mdに新規アイデア2件追加
+  (WordPress REST API〈`wp-json/wp/v2/users`〉および`?author=N`パラメータによる
+  ユーザー名列挙放置の一次チェック「のぞけるユーザーパシャっと」、CI/CDパイプラインで
+  `ssh -o StrictHostKeyChecking=no`を設定しSSH接続時のホスト鍵検証を無効化したまま
+  運用してしまう一次チェック「だまってつなぐパシャっと」、いずれも小規模・自動起業
+  可能、既出アイデアとの重複なしをgrep確認済み)。7venture中最も更新が止まっていたのは
+  aircon-pashaだったが、同venture自身のフェーズ388の次回候補(1)(「件数ベースBilling
+  Budget予算見直し運用手順のcourse-set-pasha/kura-pashaへの反映」)のうちcourse-set-pasha
+  分はcourse-set-pashaフェーズ380で既に実施済みで、本venture(kura-pasha)分が残っていた
+  ことを確認し、本フェーズでその残り分を実施した。launch-readiness-checklist.mdに
+  「運用手順(工房数に応じたBilling Budget予算見直し)」節を新規追加し、複数職人プラン
+  利用工房のうち月間生成回数上限(月20回)に達した工房数が5件を超えた時点での予算見直し
+  提案の算出式・適用条件(実Billing Budget作成後にのみ適用、本エージェント単独では
+  予算額を変更しない)を明記した。billing-budget-cap-safeguard-design.md側にも
+  当該運用手順への相互参照を追記した。本リポジトリの運用慣習(venture内の変更はその
+  venture自身の実行回で行う)に沿い、他venture側ファイルの変更は行っていない。コード
+  変更なし(運用手順docのみ)、既存テスト(run_all_tests.py全26ファイル)・schema検証
+  32件を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生
+  していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残る横展開先(forklift-pasha・oshien-pasha)は複数職人/契約業者数の
+  数値閾値が未確定のため、閾値確定後に同種の運用手順反映が必要、(2)2026-11-08
+  08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして
+  残っている(pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、
+  (3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-16 05:00 UTC(フェーズ続き309: 詳細は上記。aircon-pashaフェーズ388・
+  course-set-pashaフェーズ380発の件数ベースBilling Budget予算見直し運用手順を本venture
+  〈kura-pasha〉のlaunch-readiness-checklist.mdへ反映。コード変更なし、既存テスト26ファイル・
+  schema検証32件いずれもパス、回帰なし。)
