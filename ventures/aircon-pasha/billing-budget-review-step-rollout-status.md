@@ -44,3 +44,35 @@ grepし、「予算見直し」「Billing Budget」を含む運用手順節が�
 
 最終更新: 2026-11-15 21:00 UTC(フェーズ388: 新規作成。他venture側ファイルの変更は行っていない。
 実GCP/Stripe接続・支払い・アカウント作成・外部公開・送信は一切行っていない。)
+
+## 追記(2026-11-16 09:00 UTC、フェーズ389): 7venture全ての横展開完了を確認
+
+フェーズ388時点で「反映可能(数値閾値あり)」としていたcourse-set-pasha・kura-pashaについて、
+その後の両venture自身の実行回で実際に反映が完了していることを確認した。
+- course-set-pasha: フェーズ380(2026-11-16 04:00 UTC)で、launch-readiness-checklist.md
+  に「運用手順(オーナー数に応じたBilling Budget予算見直し、フェーズ380時点)」節を追加済み
+  (`grep -n "予算見直し\|運用手順" ventures/course-set-pasha/launch-readiness-checklist.md`
+  で該当節の存在を確認)。
+- kura-pasha: フェーズ続き309(2026-11-16 05:00 UTC)で、同様に「運用手順(工房数に応じた
+  Billing Budget予算見直し、フェーズ続き309時点)」節を追加済み(同様にgrepで確認)。
+
+また、フェーズ388時点で「反映にはトリガー件数の確定/原価試算文書の作成が先に必要」として
+いたforklift-pasha・oshien-pashaについても、本フェーズで確認したところ両venture側で既に
+解消済みであることが判明した。
+- forklift-pasha: フェーズ241で契約台数事業者数に応じた運用手順をlaunch-readiness-
+  checklist.mdへ反映済み(当時時点で残る横展開先はoshien-pashaのみという記載)。
+- oshien-pasha: フェーズ133で、unit-economics-estimate.md(フェーズ119新規作成)に基づく
+  会員数に応じた運用手順をlaunch-readiness-checklist.mdへ反映済み。oshien-pasha側の記載
+  (`ventures/oshien-pasha/launch-readiness-checklist.md`)では、本venture(aircon-pasha)の
+  フェーズ387分を含め、aircon-pasha・course-set-pasha・kura-pasha・forklift-pasha・
+  event-komiguai-pasha・oshien-pasha・line-reservation-aiの7venture全ての横展開完了が
+  明記されている。
+
+以上により、フェーズ388で開始した「契約数/会員数に応じたBilling Budget予算見直し運用手順」
+の7venture横展開は全完了とし、本件のトラッキングを終了する。他venture側ファイルの変更は
+本フェーズでも行っていない(各venture自身の既存記載の確認のみ)。実GCP/Stripe接続・
+支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回
+発生していないためpending-approval.mdへの追記なし。
+
+最終更新: 2026-11-16 09:00 UTC(フェーズ389: 上記の通り7venture全完了を確認し、本件の
+トラッキングを終了。コード変更なし、文書確認・追記のみ。既存テストへの影響なし。)

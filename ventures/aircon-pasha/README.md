@@ -7510,3 +7510,31 @@
   safeguard-design.mdの横展開状況を確認し陳腐化記載を発見、件数ベース予算見直し運用手順の
   他venture反映状況をbilling-budget-review-step-rollout-status.mdとして記録。コード変更
   なし、既存843件・schema検証25件いずれもパス、回帰なし。他venture側ファイルの変更なし。)
+- フェーズ389(2026-11-16 09:00 UTC定例更新): ideas.mdに新規アイデア2件追加(AIコーディング
+  エージェントがクローン対象リポジトリ自身の`.git/config`設定キー経由で承認ゲート前にコマンド
+  実行されてしまう「GitSpawn」一次チェック「しこみパシャっと」、同エージェントの承認UIと実
+  ファイル書き込み処理がシンボリックリンク解決先で不一致を起こす「GhostApproval/DuneSlide」
+  一次チェック「とおりぬけパシャっと」、いずれも小規模・自動起業可能、既出アイデアとの重複
+  なしをgrep確認済み、Manifold Security「GitSpawn」研究〈2026-09-01〉・Wiz Research
+  「GhostApproval」研究〈2026-07-08〉・Cato AI Labs「DuneSlide」研究・関連CVEアドバイザリを
+  WebSearchで確認)。7venture中最も更新が止まっていた本ventureを前進。フェーズ388の次回候補
+  (1)「course-set-pasha・kura-pashaの次回実行回での運用手順反映」が、その後両venture自身の
+  実行回(course-set-pashaフェーズ380〈2026-11-16 04:00 UTC〉・kura-pashaフェーズ続き309
+  〈2026-11-16 05:00 UTC〉)で実際に反映済みであることをgrepで確認した。さらに、フェーズ388
+  時点で「閾値未確定・原価試算未着手」としていたforklift-pasha・oshien-pashaについても、
+  forklift-pashaフェーズ241・oshien-pashaフェーズ133で既に反映済み(oshien-pasha側の記載に
+  7venture全完了が明記)であることが判明し、フェーズ388時点の記載が既に陳腐化していたことを
+  発見した。billing-budget-review-step-rollout-status.mdに追記し、本件のトラッキングを
+  完了とした(詳細は同ファイル参照)。本リポジトリの運用慣習(venture内の変更はそのventure
+  自身の実行回で行う)に沿い、他venture側ファイルの変更は行っていない。コード変更なし
+  (文書確認・追記のみ)、既存テスト843件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証25件(`python3 schema/validate_test_cases.py`)いずれも変更なしで
+  パス(回帰なし)。実GCP/Stripe接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断(実アカウント作成1件承認/当面全保留)が
+  引き続き未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
+  参照)ため、オーナーから得られた場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-16 09:00 UTC(フェーズ389: 詳細は上記。billing-budget-review-step-
+  rollout-status.mdに7venture全完了の確認結果を追記しトラッキングを終了。コード変更なし、
+  既存テスト843件・schema検証25件いずれも変更なしでパス、回帰なし。他venture側ファイルの
+  変更なし。)
