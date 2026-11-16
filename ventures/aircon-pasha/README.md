@@ -7538,3 +7538,33 @@
   rollout-status.mdに7venture全完了の確認結果を追記しトラッキングを終了。コード変更なし、
   既存テスト843件・schema検証25件いずれも変更なしでパス、回帰なし。他venture側ファイルの
   変更なし。)
+- フェーズ390(2026-11-16 15:00 UTC定例更新): ideas.mdに新規アイデア2件追加(AIコーディング
+  エージェントがMCPサーバー導入時に学習データから旧サーバー名を思い出し、公式後継が
+  あるにもかかわらず廃止・アーカイブ済みの旧版を導入してしまう「MCPhantom」(Glow
+  Security、2026年11月2日研究公開)と同型の不備を一次チェックする「おもいこみパシャっと」
+  〈小規模・自動起業可能〉、同テーマのCI/CD連携型継続監視プラットフォーム構想
+  「おもいこみウォッチ」〈投資・大規模、presentations.mdにも追記〉、既出のslopsquatting系
+  アイデア(架空パッケージ名が対象)とは発生原因・検出方法が異なり重複しないことをgrep
+  確認済み、Help Net Security〈2026-11-03〉・Cloud Security Alliance研究note
+  〈2026-11-10〉をWebSearchで確認)。7venture中最も更新が止まっていた本ventureを前進。
+  stale-next-candidate-cross-venture-survey.md(フェーズ362)が今後の課題として残していた
+  「README.md本体ではなく個別design.mdファイル末尾の次回候補記載についても同様の棚卸しを
+  行う」を受け、本venture内の個別design.mdファイル(次回候補記載を持つ32件)のうち代表
+  サンプルを棚卸しした。firestore-security-rules-draft.mdの「横展開の残りはcourse-set-
+  pashaのみ」という記載が陳腐化していることを発見・是正(course-set-pasha・forklift-pasha・
+  line-reservation-ai側の同名ファイルを確認し、kura-pasha原本を含む5venture全てで横展開が
+  完了済みであることを確認した)。他の確認対象ファイル(line-price-revision-2026-check.md・
+  vendor-breach-key-rotation-runbook.md・linking-code-delivery-method-decision.md・
+  full-scan-to-indexed-query-threshold-decision.md等)には追加の陳腐化記載は見つからな
+  かった。残る個別design.mdファイルの棚卸しは次回候補として残す。コード変更なし(文書
+  是正のみ)、既存テスト843件・schema検証25件いずれも変更なしでパス(回帰なし)。実LINE/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)本venture内の残る個別design.mdファイル(約28件)の次回候補記載棚卸しの
+  継続、(2)2026-11-08 08:00 UTC記載の運営方針判断(実アカウント作成1件承認/当面全保留)が
+  引き続き未回答のまま7venture共通の最大のボトルネックとして残っている(pending-
+  approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-16 15:00 UTC(フェーズ390: 詳細は上記。firestore-security-rules-
+  draft.mdの陳腐化した横展開状況記載を是正。コード変更なし、既存テスト843件・schema
+  検証25件いずれも変更なしでパス、回帰なし。他venture側ファイルの変更なし。)

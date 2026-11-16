@@ -85,4 +85,15 @@ kura-pasha版と同じ方針を踏襲する。
 - 実Firestoreプロジェクトの作成自体(オーナー承認待ち)は未着手のまま。承認・プロジェクト
   作成後、本番環境でも同様の検証を行うことが望ましい(firestore-security-rules-
   emulator-verification.md 4節参照)。
-- 横展開の残りはcourse-set-pashaのみ(kura-pasha・aircon-pasha・forklift-pashaは完了)。
+- [フェーズ390で対応済み] 「横展開の残りはcourse-set-pashaのみ」という記載は陳腐化していた。
+  course-set-pasha側のfirestore-security-rules-draft.md自体が「残るaircon-pashaへの
+  横展開はkura-pashaフェーズ249「次回候補(2)」として未実施のまま残る」と書いていたのは
+  本ファイル(aircon-pasha側)がまだ存在しなかった当時の記録であり、その後本ファイルが
+  作成されたことで両者とも完了済みとなっていた。さらにline-reservation-ai側の
+  firestore-security-rules-draft.mdが「kura-pashaフェーズ244「次回候補(2)」
+  (course-set-pasha・forklift-pasha・line-reservation-aiの3件)が全件完了した」と
+  明記していることも確認し、kura-pasha(フェーズ231原本)・aircon-pasha・
+  course-set-pasha・forklift-pasha・line-reservation-aiの5venture全てで本ルール
+  草案の横展開が完了済みであることを確認した。横展開作業としての残課題はない
+  (stale-next-candidate-cross-venture-survey.mdが棚卸し対象とする、個別design.md
+  ファイル単位の陳腐化記載パターンの一例)。
