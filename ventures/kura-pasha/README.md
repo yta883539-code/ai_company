@@ -7262,3 +7262,24 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   course-set-pashaフェーズ380発の件数ベースBilling Budget予算見直し運用手順を本venture
   〈kura-pasha〉のlaunch-readiness-checklist.mdへ反映。コード変更なし、既存テスト26ファイル・
   schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き310(2026-11-16 13:00 UTC定例更新): 7venture中最も更新が止まっていたのは
+  event-komiguai-pashaだったが、同venture自身のlaunch-readiness-checklist.mdの方針
+  (承認待ちの間は他venture優先)により見送り、次点の本venture(kura-pasha)を前進。
+  enqueue-fallback-owner-notification-design.md 6節「残課題」が、forklift-pasha・
+  event-komiguai-pasha・oshien-pashaの3ventureについて「enqueue失敗時の挙動の個別確認が
+  まだ行われていない」と記載していたが、この棚卸しは同じ本venture配下のcross-venture-
+  enqueue-fallback-applicability-review.md(フェーズ続き305・306)で既に完了済み(3venture
+  全てCloud Tasks非同期キューを採用していないため「該当なし」と結論・クローズ済み)で
+  あることを確認し、6節の陳腐化した記載を是正した(取り消し線+解消済みの注記に変更)。
+  コード変更なし(設計docの記載修正のみ)、既存テスト(run_all_tests.py全26ファイル)・
+  schema検証32件を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・
+  支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通)が引き続き未回答の
+  まま最大のボトルネックとして残っている(pending-approval.md参照、オーナーから得られた
+  場合はその着手を最優先)、(2)残る横展開先(forklift-pasha・oshien-pasha)への件数ベース
+  Billing Budget予算見直し運用手順反映は数値閾値未確定のため保留継続、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-16 13:00 UTC(フェーズ続き310: 詳細は上記。enqueue-fallback-owner-
+  notification-design.md 6節の陳腐化記載〈解消済み棚卸し項目〉を是正。コード変更なし、
+  既存テスト26ファイル・schema検証32件いずれもパス、回帰なし。)

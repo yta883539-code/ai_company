@@ -86,7 +86,9 @@ course-set-pashaと同じくプレーンテキストの`send_message(user_id, te
 
 - 実LINE Push Message APIでの送信・実オーナーLINEユーザーIDの設定は、既存の「実LINE API
   接続はオーナー承認待ちの範囲」に含まれる(新規の承認待ち事項としては扱わない)。
-- forklift-pasha・event-komiguai-pasha・oshien-pashaについては、enqueue失敗時の挙動
-  (同期フォールバックか、enqueue断念+通知か、本パターン自体が適用可能かどうか含む)の
-  個別確認がまだ行われていない。他venture・アイデア領域の前進の一環として今後の棚卸し
-  候補として残す。
+- ~~forklift-pasha・event-komiguai-pasha・oshien-pashaについては、enqueue失敗時の挙動
+  の個別確認がまだ行われていない~~ → 2026-11-16 12:00 UTC時点のcross-venture-enqueue-
+  fallback-applicability-review.mdで確認済み。3venture全てCloud Tasks等の非同期キュー
+  構成をそもそも採用していないため、本パターンは「該当なし」と結論済み(フェーズ続き
+  305・306の次回候補(2)としてクローズ)。本項目は解消済みのため以後の棚卸し候補からは
+  除外する(フェーズ続き310で記載の陳腐化を是正)。
