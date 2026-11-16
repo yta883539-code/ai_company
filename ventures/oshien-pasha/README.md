@@ -3002,3 +3002,26 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
 - 最終更新: 2026-11-16 02:00 UTC(フェーズ131: 詳細は上記。naming_rights_review_due
   再確認の優先順位・手順をnaming-rights-review-due-reconfirmation-rule.mdとして明文化。
   コード・データ変更なし)
+
+## フェーズ132(2026-11-16 06:00 UTC)
+
+naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、エディオン
+アリーナ大阪(naming_rights_review_due=2028-08-31)の再確認をWebSearchで実施した。
+大阪府公式サイト(pref.osaka.lg.jp)で愛称使用期間(2015年9月1日〜2028年8月31日)・
+契約金額(年額2,100万円・税抜、当初契約金額と同じ)を確認し、既存記録(フェーズ13
+裏取り分)と一致することを確認した(名称・運営主体・所在地に変更なし)。
+`schema/venue-master.json`の該当レコードの`last_verified_date`を2026-11-16に更新、
+`verification_note`に再確認内容を追記。`check_venue_master_parity.py`でparityチェック
+実行、件数差分なし(42件)。naming-rights-review-due-reconfirmation-rule.mdの優先順位表
+を更新し、次回対象を楽天モバイル 最強パーク宮城(naming_rights_review_due=2028-12-31)
+とした。コード変更なし(データ・ドキュメントのみ)。既存テスト・schema検証は対象外
+(本フェーズはデータ再確認のみ)。実LLM/Stripe/GCP/Firestore接続・支払い・アカウント
+作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していない
+ためpending-approval.mdへの追記なし。
+次回候補: (1)本ルールの優先順位(1)楽天モバイル 最強パーク宮城(naming_rights_review_due=
+2028-12-31)の再確認をWebSearchで行う、(2)未収録地域(沖縄圏1件のみ等)の会場
+マスタ拡充、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー
+承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア
+領域の前進。
+- 最終更新: 2026-11-16 06:00 UTC(フェーズ132: 詳細は上記。エディオンアリーナ大阪の
+  naming_rights_review_due再確認をWebSearchで実施、変更なしを確認。コード変更なし)
