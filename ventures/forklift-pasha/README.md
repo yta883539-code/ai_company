@@ -5266,3 +5266,26 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   アイデア領域の前進を継続する。
 - 最終更新: 2026-11-15 22:00 UTC(フェーズ240: 詳細は上記。web-form-raw-text-assembly-
   design.mdを新規作成。コード変更なし)
+
+- フェーズ241(2026-11-16 07:00 UTC定例更新): kura-pashaフェーズ続き309の次回候補(1)
+  「残る横展開先(forklift-pasha・oshien-pasha)は複数職人/契約業者数の数値閾値が未確定の
+  ため、閾値確定後に同種の運用手順反映が必要」を受け、aircon-pasha・course-set-pasha・
+  kura-pashaが横展開済みの「契約数に応じたBilling Budget予算見直し運用手順」を本venture
+  (forklift-pasha)に反映した。billing-budget-cap-safeguard-design.md(1節)の暫定予算
+  3,000円が「複数台プラン契約事業者1件あたり約598.4円×5件程度稼働しても閾値に達しない
+  水準」として設定されていたことを踏まえ、数値閾値を「複数台プラン契約事業者数が4件
+  (想定上限5件の8割)に達した時点で予算額の見直し案をオーナーへ提示する」として確定し、
+  launch-readiness-checklist.mdに新規「運用手順」節を追加した。本運用手順は承認待ち事項
+  2・4(Stripeアカウント・実GCPプロジェクト作成)が承認されBilling Budgetが実際に作成
+  された後にのみ適用される(契約数の実測自体が実Stripe接続を前提とするため)。残る横展開
+  先はoshien-pashaのみ。コード変更なし(運用手順docのみ)、既存テスト117件(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)・schema検証11件(`python3
+  schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜4がオーナーから承認された場合はその着手を最優先、
+  (2)oshien-pasha側で複数職人数の数値閾値が確定した時点で同種の運用手順反映が横展開
+  完了となる、(3)2026-11-08 08:00 UTC記載の運営方針確認(7venture全てが承認待ちで
+  停滞している状態への対応方針)が未回答のため、他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-16 07:00 UTC(フェーズ241: 詳細は上記。launch-readiness-checklist.md
+  に運用手順節を新規追加。コード変更なし)
