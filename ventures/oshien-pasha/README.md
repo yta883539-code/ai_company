@@ -3025,3 +3025,30 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
 領域の前進。
 - 最終更新: 2026-11-16 06:00 UTC(フェーズ132: 詳細は上記。エディオンアリーナ大阪の
   naming_rights_review_due再確認をWebSearchで実施、変更なしを確認。コード変更なし)
+- フェーズ133(2026-11-16 08:00 UTC定例更新): forklift-pashaフェーズ241の次回候補
+  「残る横展開先はoshien-pashaのみ」を受け、aircon-pasha・course-set-pasha・kura-pasha・
+  forklift-pashaが横展開してきた「契約数に応じたBilling Budget予算見直し運用手順」を
+  本venture側に反映した。フェーズ119(2026-11-14)で作成済みのunit-economics-estimate.md
+  (月額フリーパス会員1人あたり月間原価、月6回利用想定・キャッシュなし・シナリオBで
+  約42.72円)を根拠に、会員数の想定上限を10人(500円÷42.72円≒11.7人を保守的に切り下げ)、
+  見直し提案トリガーを8人(想定上限の8割)と確定し、launch-readiness-checklist.mdに
+  新規「運用手順」節として反映した。都度プラン(one_time_pass)は継続課金ではなく本運用
+  手順の対象外とした。あわせてbilling-budget-cap-safeguard-design.mdの「未確定・今後の
+  課題」節が、unit-economics-estimate.md作成(フェーズ119)および他venture側の安全策設計
+  完了(course-set-pasha・forklift-pasha・event-komiguai-pasha)によりすでに解消済みだった
+  2項目を「未確定」のまま記載していた陳腐化を発見・是正した。これにより、aircon-pasha
+  フェーズ388が確認した運用手順の7venture横展開が全て完了した。コード変更なし(設計
+  文書のみ)、既存テスト11ファイル(`python3 prototype/run_all_tests.py`)・会場マスタ
+  parityチェック(`python3 schema/check_venue_master_parity.py`、42件)を再実行しいずれも
+  変更なしでパス(回帰なし)。実LLM/Stripe/GCP/Firestore接続・支払い・アカウント作成・
+  外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの追記なし。
+  次回候補: (1)本ルールの優先順位(1)楽天モバイル 最強パーク宮城(naming_rights_review_due=
+  2028-12-31)の再確認をWebSearchで行う、(2)未収録地域(沖縄圏1件のみ等)の会場
+  マスタ拡充、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー
+  承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-16 08:00 UTC(フェーズ133: 詳細は上記。unit-economics-estimate.md
+  の試算値を根拠に月額フリーパス会員数に応じたBilling Budget予算見直し運用手順を反映し、
+  7venture横展開を完了。コード変更なし、既存テスト11ファイル・会場マスタparityチェック
+  いずれもパス、回帰なし)

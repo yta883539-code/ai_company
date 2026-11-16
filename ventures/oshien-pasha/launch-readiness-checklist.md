@@ -51,6 +51,36 @@ aircon-pasha(フェーズ289)・kura-pasha(フェーズ196)・line-reservation-a
   本ventureはB2C個人(ファン)向けのため対象選定方法自体が未確定。社内リハーサルの実施も
   本エージェントの作業範囲外(オーナー内部で完結可能)。
 
+## 運用手順(月額フリーパス会員数に応じたBilling Budget予算見直し、フェーズ133時点)
+
+aircon-pasha(フェーズ387・388)・course-set-pasha・kura-pasha(フェーズ続き309)・
+forklift-pasha(フェーズ241)が横展開してきた「契約数に応じたBilling Budget予算見直し
+運用手順」を、forklift-pashaフェーズ241の「残る横展開先はoshien-pashaのみ」を受けて
+本venture側に反映する。billing-budget-cap-safeguard-design.mdの暫定予算額(月間500円)は
+line-reservation-ai同様の暫定値を踏襲したものだったが、フェーズ119で作成したunit-economics-
+estimate.mdにより、月額フリーパス会員1人あたりの月間LLM原価(月6回利用想定・キャッシュなし・
+シナリオB)が約42.72円と試算されたため、この値を根拠に数値閾値を以下の通り確定する。
+
+- 500円 ÷ 42.72円 ≒ 11.7人のため、月額フリーパス会員数の想定上限を保守的に10人と置く
+  (10人×42.72円=427.2円で500円以内に収まる)。
+- 月額フリーパス(fan_pass)の有効会員数(Stripeの有効サブスクリプション件数)が8人
+  (想定上限10人の8割)に達した時点で、billing-budget-cap-safeguard-design.mdの算出式
+  (会員数×会員1人あたり原価約42.72円×安全マージン相当)に基づき予算額の見直し案を算出し、
+  オーナーへ見直し提案(現行予算額・新規提案額・増加理由)を提示する。
+- 都度プラン(one_time_pass)は継続課金ではなく単発利用のため、月額フリーパスのような
+  会員数の累積リスクとは性質が異なり、本運用手順の対象外とする(都度プランの利用集中時の
+  原価は、unit-economics-estimate.mdが留保したピーク集中時の再検証課題として別途扱う)。
+- 見直し提案自体は承認待ち事項1と同様、実際のCloud Billing Budgets & alertsの設定変更を
+  伴うためオーナー承認が必要なアクションであり、本エージェントが単独で予算額を変更することは
+  ない。
+- 本運用手順は承認待ち事項1(実GCPプロジェクト・実Stripeアカウント等の作成)が承認され、
+  実際にBilling Budgetが作成された後にのみ適用される(会員数の実測自体が実Stripeアカウント
+  接続を前提とするため)。
+
+これにより、aircon-pashaフェーズ388が確認した「契約数に応じたBilling Budget予算見直し
+運用手順」の7venture横展開が全て完了した(aircon-pasha・course-set-pasha・kura-pasha・
+forklift-pasha・event-komiguai-pasha・oshien-pasha・line-reservation-ai)。
+
 ## 次回候補
 
 上記1・2のいずれかが承認された場合、その着手を最優先とする。承認が得られるまでの間は、

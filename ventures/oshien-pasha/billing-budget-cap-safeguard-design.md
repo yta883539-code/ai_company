@@ -39,9 +39,15 @@ line-reservation-ai・kura-pasha・aircon-pashaの3ventureでは、2026-11-11 04
 本ドキュメントが示す「月間500円上限のBilling Budget+自動停止」を添えて提示する。
 
 ## 未確定・今後の課題
-- 本venture向けの原価試算文書(unit-economics-estimate.md相当)がまだ無く、500円という
-  閾値がピーク集中利用に対して十分かどうかは未検証。次回候補として作成を検討する。
+- [解消済み] 本venture向けの原価試算文書(unit-economics-estimate.md相当)が無いため500円
+  閾値の十分性が未検証としていたが、フェーズ119(2026-11-14)でunit-economics-estimate.mdを
+  新規作成し、月額フリーパス想定利用(月6回・キャッシュなしシナリオB)で1生成あたり約7.12円、
+  会員1人あたり月間約42.72円という試算値を得た。フェーズ133でこの試算値に基づき、launch-
+  readiness-checklist.md「運用手順」節として会員数に応じた予算見直しトリガー(10人想定・
+  8割の8人到達時)を反映した。
 - `budget-cap-auto-disable`用Cloud Functionの実コード化は、実GCPプロジェクト作成後の
   課題として残す。
-- 残る2venture(course-set-pasha・forklift-pasha・event-komiguai-pasha)についても同種の
-  設計が未着手のため、次回以降の横展開候補として残す。
+- [解消済み] 残る2venture(course-set-pasha・forklift-pasha・event-komiguai-pasha)についても
+  同種の設計が未着手としていたが、その後の横展開でcourse-set-pasha・forklift-pasha・
+  event-komiguai-pashaいずれもbilling-budget-cap-safeguard-design.mdを作成済みであることを
+  確認した(本venture側フェーズ133時点)。7venture全ての安全策設計が完了している。
