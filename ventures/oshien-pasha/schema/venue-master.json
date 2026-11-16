@@ -511,6 +511,18 @@
       "operational_status": "active"
     },
     {
+      "canonical_name": "那覇文化芸術劇場なはーと",
+      "aliases": [],
+      "region": "沖縄圏",
+      "nearest_station": "ゆいレール 美栄橋駅",
+      "walk_minutes_note": "徒歩6分前後(那覇市公式資料に基づく大劇場案内。県庁前駅からも徒歩6分前後との情報源があるが小劇場向け案内のため、大劇場利用時は美栄橋駅を優先案内とする)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-16",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでoshien-pasha README.mdフェーズ134次回候補(2)「未収録地域(沖縄圏1件のみ等)の会場マスタ拡充」に対応し、WebSearchで新規調査・追加した。那覇市公式資料(city.naha.okinawa.jp)で那覇文化芸術劇場なはーと(那覇市久茂地3丁目26番)の最寄り駅がゆいレール美栄橋駅・徒歩約6分と案内されていることを確認した。別の情報源(小劇場向け案内)では県庁前駅・徒歩約6分との記載もあり大劇場・小劇場で案内駅が異なる可能性があるため両駅を注記した。市が設置する公立劇場のため命名権(naming_rights)はfalseとした。",
+      "operational_status": "active"
+    },
+    {
       "canonical_name": "エコパアリーナ(小笠山総合運動公園)",
       "aliases": [
         "静岡アリーナ"
