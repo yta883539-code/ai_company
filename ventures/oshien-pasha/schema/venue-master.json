@@ -523,6 +523,18 @@
       "operational_status": "active"
     },
     {
+      "canonical_name": "沖縄コンベンションセンター",
+      "aliases": [],
+      "region": "沖縄圏",
+      "nearest_station": "鉄道駅は無く、ゆいレール旭橋駅からバスで約40分「沖縄コンベンションセンター前」下車が代表的な案内(古島駅からは車で約15分)",
+      "walk_minutes_note": "「沖縄コンベンションセンター前」下車すぐ、またはバス停「真志喜」下車徒歩11分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-16",
+      "naming_rights_review_due": null,
+      "verification_note": "本フェーズでoshien-pasha README.mdフェーズ135次回候補(2)「沖縄圏のさらなる会場拡充」に対応し、WebSearchで新規調査・追加した。所在地は沖縄県宜野湾市真志喜4-3-1(会議棟A)。沖縄サントリーアリーナ・那覇文化芸術劇場なはーとと異なり、本会場は最寄りの鉄道駅自体が存在せず(バス停からも徒歩圏外で、乗り換えて向かうバス路線が主要なアクセス手段)、既存会場より「鉄道駅から徒歩/バス」という前提がさらに薄い初のケースであることを確認した。公式サイト(oki-conven.jp)は検索結果から直接確認できなかったため、第三者イベント案内サイト(bushikaku.net・eplus.jp等)の複数記載の整合を確認した上でnearest_stationに記録し、今後公式サイトでの再確認を推奨する旨をREADME.mdに記載する。沖縄県が設置する施設のため命名権(naming_rights)はfalseとした。",
+      "operational_status": "active"
+    },
+    {
       "canonical_name": "エコパアリーナ(小笠山総合運動公園)",
       "aliases": [
         "静岡アリーナ"
