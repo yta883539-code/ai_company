@@ -93,4 +93,10 @@ Cloud Tasksの設定(クォータ・リトライポリシー)をご確認くだ�
   完了した(本venture一貫のFlex Message形式への翻案、`receive_webhook()`への
   `task_queue_client`橋渡しの既存ギャップ解消を含む。詳細はaircon-pasha/README.md
   フェーズ384・enqueue-fallback-owner-notification-design.md〈aircon-pasha版〉参照)。
-  kura-pashaへの横展開は未着手のまま残す。
+  ~~kura-pashaへの横展開は未着手のまま残す。~~ → 解消済み。kura-pasha側が独自に
+  webhook-async-two-function-design.mdの`dispatch_webhook_events()`が本venture・
+  aircon-pashaと同一の`DispatchResult.enqueue_fallback_webhook_event_ids`記録挙動を
+  既に実装済みであることを確認した上で、同型のenqueue-fallback-owner-notification-
+  design.md(鞍パシャッと版)を作成済み(kura-pasha/README.md該当フェーズ参照)。
+  これにより本パターンの横展開はcourse-set-pasha・aircon-pasha・kura-pashaの3venture
+  全てで完了した(2026-11-16定例更新で確認、フェーズ379参照)。

@@ -7002,3 +7002,23 @@
   (2)enqueue-fallback-owner-notification-design.md 6節が残すkura-pashaへの横展開の
   実施状況の最終確認、(3)2026-11-08 08:00 UTC記載の運営方針判断がオーナーから得られた
   場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ379(2026-11-16 00:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (直前の更新は2026-11-15 17:00 UTC)を前進。フェーズ378の次回候補(1)(2)を順に確認した
+  結果、いずれも既に解消済みの陳腐化記載だったことが判明した。(1)Billing Budget安全策の
+  forklift-pashaへの横展開は、全7venture(line-reservation-ai・course-set-pasha・
+  aircon-pasha・kura-pasha・oshien-pasha・event-komiguai-pasha・forklift-pasha)に
+  billing-budget-cap-safeguard-design.mdが存在することを確認し、完了済みと判断した
+  (aircon-pashaフェーズ388の確認と同じ結論)。(2)enqueue-fallback-owner-notification-
+  design.mdのkura-pashaへの横展開も、kura-pasha側が独自にwebhook-async-two-function-
+  design.mdの`dispatch_webhook_events()`の挙動を確認した上で同型の設計文書を作成済みで
+  あることを確認したため、本venture側のenqueue-fallback-owner-notification-design.md
+  6節の該当記載を打ち消し線にし、解消済みである旨と参照先を追記して是正した。コード変更
+  なし(ドキュメント修正のみ)、既存テスト910件・schema検証22件を再実行しいずれも変更なし
+  でパス(回帰なし)。実GCP/Stripe/LINE API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)Billing Budget安全策・enqueue-fallback-owner-notification設計の2大横展開
+  がいずれも全対象venture完了済みとなったため、次回以降は新たな横展開候補の棚卸しから
+  始める必要がある、(2)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、約3ヶ月半
+  超保留中)がオーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の
+  前進。
