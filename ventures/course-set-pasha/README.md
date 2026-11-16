@@ -7022,3 +7022,26 @@
   始める必要がある、(2)2026-11-08 08:00 UTC記載の運営方針判断(7venture共通、約3ヶ月半
   超保留中)がオーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の
   前進。
+
+- フェーズ380(2026-11-16 04:00 UTC定例更新): ideas.mdに新規アイデア2件追加(詳細は
+  ideas.md参照)。7venture中最も更新が止まっていたのはaircon-pasha(2026-11-15 21:00
+  UTC)だったが、同venture側のlaunch-readiness-checklist.mdフェーズ293時点の方針
+  (「承認待ち事項1〜4が外部サービス設定に完全依存しており、本venture側が自律的に
+  前進できる余地は使い切っている。コード/設計docの実質的な変更を伴わない横展開確認を
+  目的化した棚卸しフェーズは追加しない」)を踏まえ、同venture自身のフェーズ388が明示的に
+  推奨した不承認不要・即時実施可能な作業「件数ベースのBilling Budget予算見直し運用手順を
+  course-set-pasha・kura-pashaそれぞれの自venture側launch-readiness-checklist.mdへ反映する
+  (本venture側は数値閾値=セッター複数プラン利用オーナー2件超が設計済みで反映可能)」を
+  本venture側で実施した。launch-readiness-checklist.mdに新規「運用手順(オーナー数に応じた
+  Billing Budget予算見直し)」節を追加し、billing-budget-cap-safeguard-design.md側にも
+  当該項目が反映済みである旨の参照を追記した(aircon-pashaフェーズ387・388と同型)。コード
+  変更なし(運用手順doc+相互参照の追記のみ)、既存テスト910件(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証22件(`python3
+  schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)kura-pashaの次回実行回で、本venture・aircon-pasha同様の件数ベース予算
+  見直し運用手順をkura-pasha自身のlaunch-readiness-checklist.mdへ反映することを推奨、
+  (2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。

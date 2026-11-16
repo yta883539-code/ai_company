@@ -34,7 +34,9 @@ design.mdと同じ構成を本venture用に採用する。
    Billing Budgetを作成する。本venture固有の想定オーナー数(構造的に少数)を踏まえ、
    他ventureと同じ月間500円を暫定予算額として採用する(50%・90%・100%到達時にオーナー宛
    メール通知)。想定オーナー数が増え、セッター複数プランの上限(267.3円/オーナー)を
-   使い切るオーナーが2件を超える規模になった場合は、オーナー確認の上で引き上げる前提とする。
+   使い切るオーナーが2件を超える規模になった場合は、オーナー確認の上で引き上げる前提とする
+   (この見直しプロセス自体はフェーズ380でlaunch-readiness-checklist.mdの運用手順として
+   反映済み。aircon-pashaフェーズ387・388と同種の横展開)。
 2. 閾値到達時に請求先アカウントを自動デタッチして課金を機械的に停止する
    `budget-cap-auto-disable`用Cloud Function(予算アラート→Pub/Sub→Cloud Function)の
    構成も、line-reservation-ai側の設計をそのまま流用する候補としてdeployment-runbook.mdへの
