@@ -61,5 +61,6 @@ firestore-security-rules-draft.md 1節の記載通りAdmin SDKはセキュリテ
 - `firebase.json`・`firestore.rules`・`emulator-test/`はいずれもローカル検証専用であり、
   実Firestoreプロジェクト作成後はそのまま`firebase deploy --only firestore:rules`で適用
   できる想定(deploy自体は実行していない)。
-- 残るaircon-pashaへの横展開はkura-pashaフェーズ249「次回候補(2)」として未実施のまま
-  (同venture側の次回候補として申し送る)。
+- 残るaircon-pashaへの横展開は、aircon-pasha側で同種のFirestoreルール草案の作成が
+  完了済みであることを確認した(firestore-security-rules-draft.md参照)。横展開作業
+  としての残課題はない。

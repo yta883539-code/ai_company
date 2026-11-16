@@ -87,5 +87,8 @@ kura-pasha版と同じ方針を踏襲する。
   解消した。詳細はfirestore-security-rules-emulator-verification.mdを参照。
 - 残るforklift-pasha・line-reservation-aiへの横展開は、forklift-pashaフェーズ174・
   line-reservation-aiフェーズ続き332でそれぞれ同種の検証が既に実施済み。残る
-  aircon-pashaへの横展開はkura-pashaフェーズ249「次回候補(2)」として未実施のまま
-  残る(次回候補)。
+  aircon-pashaへの横展開も、aircon-pasha側のfirestore-security-rules-draft.md
+  (フェーズ390)で同種のルール草案が作成済みであることを確認した。これにより
+  kura-pasha(フェーズ231原本)・aircon-pasha・course-set-pasha・forklift-pasha・
+  line-reservation-aiの5venture全てで本ルール草案の横展開が完了済みとなった
+  (横展開作業としての残課題はない)。
