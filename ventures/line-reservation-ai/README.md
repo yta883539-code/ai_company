@@ -7695,8 +7695,17 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   enqueue-notification-source-decision-cross-venture-status.mdを参照の上、本フェーズで
   実装した「解決」ロジックの切り出し方(実HTTPハンドラと独立した純粋関数化)が横展開可能かを
   検討する、(3)他venture・アイデア領域の前進を継続する。
-- 最終更新: 2026-11-16 01:00 UTC(フェーズ続き390: 詳細は上記。enqueue失敗時のオーナー通知の
-  「解決」ロジック〈storeId解決→owner_user_id取得→通知文言組み立て〉を
-  `resolve_enqueue_failed_owner_notification_dispatch()`として新規実装し、
-  `webhook_receiver()`に任意引数`store_profile_store`で配線。新規テスト7件追加、
-  全1062件・schema検証28件いずれもパス、回帰なし)
+- フェーズ(続き391): 7venture中最も更新が止まっていた本ventureを前進。次回候補(1)(2)は
+  いずれも承認待ち・他venture側のローテーション待ちで本フェーズでは着手不可だったため、
+  (3)に該当する健全性確認として、INDEX.mdの「ウェブフック・監視・決済手段調査」節に
+  enqueue-fallback-owner-notification-design.md自体への参照が欠落していた記載漏れ
+  (enqueue-notification-source-decision-cross-venture-status.mdのみ記載され、参照元の
+  本体ファイルが未記載だった)を発見・是正した。コード変更なし(INDEX.md1件のみ)、既存テスト
+  `python3 -m unittest discover -s prototype -p "test_*.py"`全1062件いずれも変更なしでパス
+  (回帰なし)。実LINE Push送信・実Cloud Tasksデプロイ・実GCP/LINE API接続は行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)(2)は引き続き上記フェーズ390時点のまま持ち越し、(3)他venture・アイデア
+  領域の前進を継続する。
+- 最終更新: 2026-11-16 10:00 UTC(フェーズ続き391: 詳細は上記。INDEX.mdの記載漏れ
+  〈enqueue-fallback-owner-notification-design.mdへの参照欠落〉を是正。コード変更なし、
+  既存テスト全1062件いずれもパス、回帰なし)

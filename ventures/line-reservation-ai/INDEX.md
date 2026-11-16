@@ -111,7 +111,7 @@
 ## ウェブフック・監視・決済手段調査
 - webhook-async-processing-design.md / webhook-function-a-implementation.md / webhook-function-b-implementation.md
 - cloud-monitoring-alert-policy-design.md
-- enqueue-notification-source-decision-cross-venture-status.md
+- enqueue-fallback-owner-notification-design.md / enqueue-notification-source-decision-cross-venture-status.md
 - deposit-payment-research.md / deposit-payment-processor-unification-design.md
 - target-datetime-denormalization-contingency-design.md
 
