@@ -206,11 +206,23 @@ occurred", "webhook_event_id": ...})`を追加し、ログベース指標が参�
 - 実際のログベース指標・アラートポリシーの作成(`gcloud logging metrics create`
   および`gcloud alpha monitoring policies create`相当の操作)は、GCPプロジェクト作成後に
   オーナー承認の範囲内で実施する。
-- enqueue-fallback-owner-notification-design.md 6節が残していた「kura-pashaへの横展開」
+- ~~enqueue-fallback-owner-notification-design.md 6節が残していた「kura-pashaへの横展開」
   (enqueue-fallback-owner-notification-design.md自体の横展開)は本節の対象外であり、
-  別途次回候補として残る。
+  別途次回候補として残る。~~ → 解消済み。enqueue-fallback-owner-notification-design.md
+  側で、aircon-pashaへの横展開(2026-11-14 09:00 UTC、aircon-pashaフェーズ384)・
+  kura-pashaへの横展開(kura-pasha側で独自に完了済みと確認)がいずれも記録済みとなり、
+  本パターンの横展開はcourse-set-pasha・aircon-pasha・kura-pashaの3ventureで完結している
+  (本venture分のCloud Monitoring側の技術監視設計は本節6.1〜6.2で別途完了済み)。本節の
+  記載が横展開未完了のまま陳腐化していたため是正した。
 
-最終更新: 2026-11-14 14:00 UTC(フェーズ376: enqueue-failure-partial-processing-safety-
+最終更新: 2026-11-16 11:00 UTC(フェーズ381: 6.3節が「kura-pashaへの横展開」を未完了の
+次回候補として残していたが、enqueue-fallback-owner-notification-design.md側で当該横展開
+(aircon-pasha・kura-pashaの双方)が既に解消済みと記録されていたことを確認し、陳腐化記載を
+是正。コード変更なし、既存テスト910件・schema検証22件いずれも変更なしでパス、回帰なし)
+
+---
+
+最終更新(旧): 2026-11-14 14:00 UTC(フェーズ376: enqueue-failure-partial-processing-safety-
 design.md〈フェーズ373〉が残していたenqueueフォールバックの監視指標設計を6節として
 新規作成。実装側の構造化ログ出力(`event: "enqueue_fallback_occurred"`)を
 `cloud_function_webhook.py`に追加し、新規テスト1件を追加。既存909件と合わせ全910件・
