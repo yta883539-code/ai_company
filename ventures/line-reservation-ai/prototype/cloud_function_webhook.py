@@ -25,8 +25,18 @@ webhook-async-processing-design.mdで設計した「Cloud Function A: receive_we
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional, Protocol
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from cloud_function_process_event import (  # noqa: E402
+    MissingDestinationError,
+    resolve_store_id_from_destination,
+)
+from store_profile_store import StoreProfileStoreProtocol  # noqa: E402
 
 _logger = logging.getLogger(__name__)
 
@@ -145,6 +155,7 @@ class WebhookReceiverResult:
     status_code: int
     results: list = field(default_factory=list)
     enqueue_failed_webhook_event_ids: list[str] = field(default_factory=list)
+    owner_notification_dispatch: Optional[OwnerNotificationDispatch] = None
 
 
 def verify_line_signature(body: bytes, signature_header: Optional[str], channel_secret: str) -> bool:
@@ -193,6 +204,46 @@ def render_enqueue_failed_owner_notification(webhook_event_ids: list[str]) -> st
     )
 
 
+@dataclass
+class OwnerNotificationDispatch:
+    owner_user_id: str
+    message: str
+
+
+def resolve_enqueue_failed_owner_notification_dispatch(
+    destination: Optional[str],
+    enqueue_failed_webhook_event_ids: list[str],
+    store_profile_store: StoreProfileStoreProtocol,
+) -> Optional[OwnerNotificationDispatch]:
+    """enqueue失敗が起きた場合に、どのオーナーへ何を送るべきかを解決する(純粋ロジック)。
+
+    enqueue-fallback-owner-notification-design.md(本venture版)4節で確定した(a)案
+    (HTTPハンドラが`destination`からstoreId・owner_user_idを解決した上でLINE Push送信に
+    渡す)のうち、「解決」部分のみを本関数として切り出したもの。storeIdの解決は
+    `cloud_function_process_event.resolve_store_id_from_destination()`
+    (store-id-resolution-and-owner-identity-design.md準拠、destinationそのものがstoreId)
+    を再利用し、owner_user_idの解決は`StoreProfileStoreProtocol.get_owner_user_id()`に
+    委ねる。実LINE Push送信自体(実HTTPハンドラ・実LINE API接続、いずれもデプロイ環境確定/
+    オーナー承認待ち)は本関数の責務外とし、送信すべき宛先と文言のみを返す。
+
+    enqueue失敗が無い場合、destinationが無い場合(未指定の既存呼び出し元との後方互換)、
+    またはowner_user_idが未登録の場合はNoneを返し、呼び出し元は送信を行わない。
+    """
+    if not enqueue_failed_webhook_event_ids:
+        return None
+    if not destination:
+        return None
+    try:
+        store_id = resolve_store_id_from_destination({"destination": destination})
+    except MissingDestinationError:
+        return None
+    owner_user_id = store_profile_store.get_owner_user_id(store_id)
+    if not owner_user_id:
+        return None
+    message = render_enqueue_failed_owner_notification(enqueue_failed_webhook_event_ids)
+    return OwnerNotificationDispatch(owner_user_id=owner_user_id, message=message)
+
+
 def webhook_receiver(
     body: bytes,
     signature_header: Optional[str],
@@ -200,6 +251,7 @@ def webhook_receiver(
     events: list[dict],
     queue_client: TaskQueueClient,
     destination: Optional[str] = None,
+    store_profile_store: Optional[StoreProfileStoreProtocol] = None,
 ) -> WebhookReceiverResult:
     """Cloud Function Aの本体。LINE Platformへは常にできる限り速やかに200を返す。
 
@@ -218,6 +270,12 @@ def webhook_receiver(
       `events`配列内の個々のイベント自体にはdestinationは含まれないため、Aの時点で
       複製しておく必要がある)。未指定(None)の場合は従来通りdestinationを付与しない
       (呼び出し元の後方互換のためデフォルト引数とした)。
+    - `store_profile_store`: 指定された場合、enqueue失敗が発生していれば
+      `resolve_enqueue_failed_owner_notification_dispatch()`でオーナー通知の宛先・文言を
+      解決し、結果を`WebhookReceiverResult.owner_notification_dispatch`に載せる。実LINE
+      Push送信自体は本関数の責務外(呼び出し元の実HTTPハンドラが、デプロイ環境確定後に
+      本フィールドを使って送信する想定)。未指定(None、デフォルト)の場合は従来通り
+      解決を行わず常にNoneのままとする(呼び出し元の後方互換のためデフォルト引数とした)。
     """
     if not verify_line_signature(body, signature_header, channel_secret):
         return WebhookReceiverResult(status_code=401, results=[])
@@ -235,10 +293,17 @@ def webhook_receiver(
         if result.reason == "enqueue_failed":
             enqueue_failed_webhook_event_ids.append(result.webhook_event_id)
 
+    owner_notification_dispatch = None
+    if store_profile_store is not None:
+        owner_notification_dispatch = resolve_enqueue_failed_owner_notification_dispatch(
+            destination, enqueue_failed_webhook_event_ids, store_profile_store
+        )
+
     return WebhookReceiverResult(
         status_code=200,
         results=results,
         enqueue_failed_webhook_event_ids=enqueue_failed_webhook_event_ids,
+        owner_notification_dispatch=owner_notification_dispatch,
     )
 
 

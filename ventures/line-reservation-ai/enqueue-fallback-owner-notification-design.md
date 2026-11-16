@@ -123,3 +123,35 @@ course-set-pasha版のように同期フォールバックでFunction B相当の
   実装」という既存の未着手事項(webhook_receiver()のdocstring参照)に含まれるため、実GCP
   プロジェクト作成(オーナー承認待ち)後の実装課題として残す。新規の承認依頼エントリは追加しない
   (承認を求めるアクションの実体は変わらないため)。
+
+## 7. 「解決」部分の先行実装(フェーズ続き390)
+
+6節末尾で残した「残る未実装部分」のうち、`resolve_store_id_from_destination()`呼び出し〜
+`owner_user_id`取得〜通知文言組み立てまでの一連の「解決」ロジックは、実HTTPハンドラ(実
+`functions_framework`リクエストオブジェクトを扱う薄い配線、デプロイ環境確定後に実装)とは
+独立して、実GCP/LINE API接続なしで単体検証可能だと判断し、本フェーズで先行実装した。
+
+- `prototype/cloud_function_webhook.py`に`resolve_enqueue_failed_owner_notification_dispatch(
+  destination, enqueue_failed_webhook_event_ids, store_profile_store) -> Optional[
+  OwnerNotificationDispatch]`を新規実装した。`cloud_function_process_event.
+  resolve_store_id_from_destination()`(storeId解決)と`StoreProfileStoreProtocol.
+  get_owner_user_id()`(オーナーのLINE userId解決)を再利用し、いずれかが解決できない場合
+  (destination未指定・owner_user_id未登録)およびenqueue失敗が無い場合はNoneを返す。
+  戻り値`OwnerNotificationDispatch(owner_user_id, message)`は「誰に」「何を」送るかのみを
+  表し、実LINE Push送信自体は本関数の責務外のまま変わらない。
+- `webhook_receiver()`に任意引数`store_profile_store: Optional[StoreProfileStoreProtocol] =
+  None`を追加し、指定された場合のみ上記関数で解決した結果を新規フィールド
+  `WebhookReceiverResult.owner_notification_dispatch`に載せるようにした(未指定時は従来通り
+  常にNoneで後方互換)。これにより、将来実装するHTTPハンドラは「enqueue判定」と「通知解決」の
+  両方を`webhook_receiver()`の戻り値から受け取り、実LINE Push送信を1回呼ぶだけで済む形に
+  近づいた。
+- 新規テスト7件(`ResolveEnqueueFailedOwnerNotificationDispatchTests`4件、
+  `WebhookReceiverOwnerNotificationDispatchTests`3件)を`test_cloud_function_webhook.py`に
+  追加し、`store_profile_store.InMemoryStoreProfileStore`を使って解決成功・enqueue失敗なし・
+  destination欠落・owner_user_id未登録の4パターンと、`webhook_receiver()`側の配線(付与・
+  未指定時はNoneのまま・enqueue失敗が無い場合はNoneのまま)を検証済み。
+- 残る未実装部分は、実HTTPハンドラ本体(リクエストのパース・`webhook_receiver()`呼び出し・
+  `owner_notification_dispatch`が非Noneの場合の実LINE Push送信)のみに縮小した。これは引き続き
+  「デプロイ環境確定後に実装」という既存の未着手事項であり、実GCPプロジェクト作成(オーナー
+  承認待ち)後の課題として残る。新規の承認依頼エントリは追加しない(承認を求めるアクションの
+  実体は変わらないため)。

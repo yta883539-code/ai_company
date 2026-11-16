@@ -7665,3 +7665,38 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   kura-pasha・course-set-pashaの3ventureにおける送信元確定状況を確認し未着手である
   ことを記録。コード変更なし、既存テスト1055件・schema検証28件いずれも変更なしでパス、
   回帰なし)
+- フェーズ続き390(2026-11-16 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-15 18:00 UTC)を前進。enqueue-fallback-owner-notification-design.md
+  6節末尾の「残る未実装部分」のうち、実HTTPハンドラ(デプロイ環境確定後に実装)とは独立に
+  単体検証可能な「解決」ロジック(storeId解決→owner_user_id取得→通知文言組み立て)を
+  先行実装した。`prototype/cloud_function_webhook.py`に
+  `resolve_enqueue_failed_owner_notification_dispatch(destination,
+  enqueue_failed_webhook_event_ids, store_profile_store) -> Optional[
+  OwnerNotificationDispatch]`を新規実装し、既存の`cloud_function_process_event.
+  resolve_store_id_from_destination()`・`StoreProfileStoreProtocol.get_owner_user_id()`・
+  `render_enqueue_failed_owner_notification()`を配線した(いずれかが解決できない場合・
+  enqueue失敗が無い場合はNoneを返す)。`webhook_receiver()`に任意引数
+  `store_profile_store`を追加し、指定時のみ戻り値`WebhookReceiverResult`の新規フィールド
+  `owner_notification_dispatch`に解決結果を載せるようにした(未指定時は従来通り常にNoneで
+  後方互換)。実LINE Push送信自体は引き続き本関数群の責務外(実HTTPハンドラが
+  デプロイ環境確定後に1回呼ぶだけで済む形に配線を近づけた)。新規テスト7件
+  (`ResolveEnqueueFailedOwnerNotificationDispatchTests`4件・
+  `WebhookReceiverOwnerNotificationDispatchTests`3件)を`test_cloud_function_webhook.py`に
+  追加し、`test_cloud_function_webhook.py`単体33件(旧26件)・
+  `python3 -m unittest discover -s prototype -p "test_*.py"`全1062件(旧1055件)・
+  `python3 schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LINE Push
+  送信・実Cloud Tasksデプロイ・実GCP/LINE API接続は行っていない。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4、および
+  billing-budget-cap-safeguard-design.mdのBilling Budget安全策付き実GCPプロジェクト作成)
+  がオーナーから承認・回答された場合はその着手を最優先、(2)他3venture
+  (aircon-pasha・kura-pasha・course-set-pasha)が次回ローテーションで前進する際、
+  enqueue-notification-source-decision-cross-venture-status.mdを参照の上、本フェーズで
+  実装した「解決」ロジックの切り出し方(実HTTPハンドラと独立した純粋関数化)が横展開可能かを
+  検討する、(3)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-16 01:00 UTC(フェーズ続き390: 詳細は上記。enqueue失敗時のオーナー通知の
+  「解決」ロジック〈storeId解決→owner_user_id取得→通知文言組み立て〉を
+  `resolve_enqueue_failed_owner_notification_dispatch()`として新規実装し、
+  `webhook_receiver()`に任意引数`store_profile_store`で配線。新規テスト7件追加、
+  全1062件・schema検証28件いずれもパス、回帰なし)

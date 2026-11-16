@@ -19,12 +19,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from cloud_function_webhook import (  # noqa: E402
     InMemoryTaskQueueClient,
+    OwnerNotificationDispatch,
     handle_webhook_event,
     make_task_name,
     render_enqueue_failed_owner_notification,
+    resolve_enqueue_failed_owner_notification_dispatch,
     verify_line_signature,
     webhook_receiver,
 )
+from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
 CHANNEL_SECRET = "test-secret"
 
@@ -257,6 +260,96 @@ class RenderEnqueueFailedOwnerNotificationTests(unittest.TestCase):
         text = render_enqueue_failed_owner_notification(ids)
         self.assertIn("件数: 7件", text)
         self.assertIn("webhookEventId: E1, E2, E3, E4, E5 ...他2件", text)
+
+
+class ResolveEnqueueFailedOwnerNotificationDispatchTests(unittest.TestCase):
+    # enqueue-fallback-owner-notification-design.md(本venture版)4節(a)案の
+    # 「解決」部分(storeId/owner_user_idの解決〜文言組み立て)の検証。
+    # 実LINE Push送信自体は本関数の責務外(呼び出し元の実HTTPハンドラが別途行う)。
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+        self.store.set_owner_user_id("store-1", "U_OWNER_1")
+
+    def test_returns_dispatch_when_destination_and_owner_resolve(self):
+        dispatch = resolve_enqueue_failed_owner_notification_dispatch(
+            "store-1", ["E1", "E2"], self.store
+        )
+        self.assertIsInstance(dispatch, OwnerNotificationDispatch)
+        self.assertEqual(dispatch.owner_user_id, "U_OWNER_1")
+        self.assertIn("件数: 2件", dispatch.message)
+        self.assertIn("webhookEventId: E1, E2", dispatch.message)
+
+    def test_returns_none_when_no_enqueue_failures(self):
+        dispatch = resolve_enqueue_failed_owner_notification_dispatch(
+            "store-1", [], self.store
+        )
+        self.assertIsNone(dispatch)
+
+    def test_returns_none_when_destination_missing(self):
+        dispatch = resolve_enqueue_failed_owner_notification_dispatch(
+            None, ["E1"], self.store
+        )
+        self.assertIsNone(dispatch)
+
+    def test_returns_none_when_owner_user_id_unregistered(self):
+        dispatch = resolve_enqueue_failed_owner_notification_dispatch(
+            "store-unknown", ["E1"], self.store
+        )
+        self.assertIsNone(dispatch)
+
+
+class WebhookReceiverOwnerNotificationDispatchTests(unittest.TestCase):
+    # webhook_receiver()にstore_profile_storeを渡した場合の配線(オプション引数、
+    # 未指定時は従来通りowner_notification_dispatchが常にNoneのままであることも確認)。
+
+    def setUp(self):
+        self.store = InMemoryStoreProfileStore()
+        self.store.set_owner_user_id("store-1", "U_OWNER_1")
+
+    def test_dispatch_is_populated_when_enqueue_fails_and_store_given(self):
+        events = [{"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}}]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(
+            body,
+            signature,
+            CHANNEL_SECRET,
+            events,
+            _AlwaysFailingTaskQueueClient(),
+            destination="store-1",
+            store_profile_store=self.store,
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertIsNotNone(result.owner_notification_dispatch)
+        self.assertEqual(result.owner_notification_dispatch.owner_user_id, "U_OWNER_1")
+
+    def test_dispatch_stays_none_when_store_profile_store_omitted(self):
+        events = [{"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}}]
+        body, signature = _signed_body(events)
+        result = webhook_receiver(
+            body,
+            signature,
+            CHANNEL_SECRET,
+            events,
+            _AlwaysFailingTaskQueueClient(),
+            destination="store-1",
+        )
+        self.assertIsNone(result.owner_notification_dispatch)
+
+    def test_dispatch_stays_none_when_no_enqueue_failures(self):
+        events = [{"webhookEventId": "E1", "deliveryContext": {"isRedelivery": False}}]
+        body, signature = _signed_body(events)
+        queue = InMemoryTaskQueueClient()
+        result = webhook_receiver(
+            body,
+            signature,
+            CHANNEL_SECRET,
+            events,
+            queue,
+            destination="store-1",
+            store_profile_store=self.store,
+        )
+        self.assertIsNone(result.owner_notification_dispatch)
 
 
 if __name__ == "__main__":
