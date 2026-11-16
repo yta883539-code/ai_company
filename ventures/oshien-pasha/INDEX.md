@@ -32,6 +32,7 @@ line-reservation-ai・aircon-pashaと同様にテーマ別の索引を作成し�
 - venue-name-normalization-design.md / venue-operational-status-output-reflection-design.md
 - venue-alias-input-text-logging-design.md / venue-alias-verification-and-naming-rights-risk.md
 - multi-venue-hashigo-schema-design.md / goods-line-participation-input-field-design.md
+- naming-rights-review-due-reconfirmation-rule.md(再確認の優先順位・手順の明文化)
 
 ## 課金・プラン(都度/月額/推し活パス)
 - checkout-result-http-entry-point-design.md / stripe-webhook-entry-point-design.md

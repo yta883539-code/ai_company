@@ -2977,3 +2977,28 @@ line-reservation-ai・event-komiguai-pashaはいずれもB2Bの「作業後一�
   カメイアリーナ仙台〈仙台市体育館〉が別施設であることをWebSearchで確認し、venue-master-
   draft.md・schema/venue-master.json双方で2レコードに分割。parityチェック〈42件/42件〉で
   差分なし。既存テスト50件+parityチェックいずれもパス、回帰なし)
+- フェーズ131(2026-11-16 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (直前の更新は2026-11-15 19:00 UTC)を前進。フェーズ130次回候補(2)「naming_rights_
+  review_due設定済み会場の契約満了日接近時の再確認ルール自体の明文化」に対応し、
+  naming-rights-review-due-reconfirmation-rule.mdを新規作成した。`naming_rights:
+  true`レコード(18件)を満了日の近さで優先順位付けする基準(1.review_due設定済みで
+  満了日が近いもの、2.同条件で次に近いもの、3.review_due未設定〈null〉のものは
+  last_verified_dateが古い順)、および再確認時に確認すべき3点(名称継続・満了日の
+  公式裏付け・運営主体/所在地の混同有無、フェーズ130のセキスイハイムスーパーアリーナ/
+  カメイアリーナ仙台の事例を踏まえた項目)を明文化した。現時点の優先順位表(review_due
+  設定済み8件中、フェーズ130で対応済みのセキスイハイムスーパーアリーナを除く残り7件を
+  満了日昇順で整理、次の対応候補はエディオンアリーナ大阪2028-08-31)も記録し、INDEX.md
+  にも追記した。コード変更なし(新規設計文書1件のみ、venue-master-draft.md・
+  schema/venue-master.jsonのデータ変更は無いためparityチェックの再実行は不要)、既存
+  テスト50件は変更していないため今回は再実行していない(次回、本ルールに基づく個別
+  レコード再確認時に実施する)。実LLM/Stripe/GCP/Firestore接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していない
+  ためpending-approval.mdへの追記なし。
+  次回候補: (1)本ルールの優先順位(1)エディオンアリーナ大阪(naming_rights_review_due=
+  2028-08-31)の実際の再確認をWebSearchで行う、(2)未収録地域(沖縄圏1件のみ等)の会場
+  マスタ拡充、(3)実Stripeアカウント・実GCPプロジェクト・実Firestore接続はオーナー
+  承認待ち(pending-approval.md参照)のため引き続き着手不可、(4)他venture・アイデア
+  領域の前進。
+- 最終更新: 2026-11-16 02:00 UTC(フェーズ131: 詳細は上記。naming_rights_review_due
+  再確認の優先順位・手順をnaming-rights-review-due-reconfirmation-rule.mdとして明文化。
+  コード・データ変更なし)
