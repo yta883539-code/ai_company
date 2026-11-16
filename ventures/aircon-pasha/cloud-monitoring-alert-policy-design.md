@@ -285,6 +285,29 @@ Function A(`handle_webhook_event()`)が単一責務設計(LLM呼び出しを一�
 ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
 その着手を最優先、(3)他venture・アイデア領域の前進。
 
+## 9. 「kura-pashaは未確認のまま残る」記載の是正(フェーズ391)
+
+8節次回候補(1)の「kura-pashaは未確認のまま残る」を確認したところ、kura-pasha側は
+本ファイル8節(2026-11-15 02:00 UTC、line-reservation-aiの横展開確認)より前の時点、
+フェーズ続き306(2026-11-15 04:00 UTC)で既にcloud-monitoring-alert-policy-design.md
+5節「Enqueueフォールバック発生アラート」として本パターン(構造化ログ`event:
+"enqueue_fallback_occurred"`の追加・ログベース指標・アラートポリシー設計、いずれも
+本ファイル7節と同型)を実装済みであることが判明した。8節時点の記載は、course-set-pasha
+フェーズ376・本venture7節(フェーズ385)の横展開状況を確認した際にkura-pashaの実態
+確認が漏れていた陳腐化記載だったため、是正する。
+
+残る横展開先は event-komiguai-pasha・forklift-pasha・oshien-pasha の3venture
+(kura-pasha・line-reservation-aiは対応済み)。コード変更なし(本ファイルの記載是正の
+みで、kura-pasha側ファイルの変更は行っていない)。既存843件・schema検証25件いずれも
+変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部
+公開・送信は一切行っていない。承認が必要なアクションは今回発生していないため
+pending-approval.mdへの追記なし。
+
+次回候補: (1)残る横展開先(event-komiguai-pasha・forklift-pasha・oshien-pasha)への
+7節パターンの横展開、(2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま
+7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+
 最終更新: 2026-11-15 05:00 UTC (フェーズ386: line-reservation-aiフェーズ続き387が新規設計した
 ERROR severity変更版〈`enqueue_failed_occurred`〉の本venture側への適用可否を確認し、
 本venture`dispatch_webhook_events()`は常に同期フォールバックを行う設計のため適用されず、
