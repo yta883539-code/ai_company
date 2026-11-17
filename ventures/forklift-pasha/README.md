@@ -5333,3 +5333,34 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   既存実装の健全性確認・他venture・アイデア領域の前進を優先する。
 - 最終更新: 2026-11-16 21:00 UTC(フェーズ243: 詳細は上記。既存テスト24ファイル・
   schema検証11件を再実行しいずれも変更なしでパス。コード変更なし、新規設計文書の追加なし)
+
+- フェーズ244(2026-11-17 03:00 UTC定例更新): 7venture中最も更新が止まっていたのは
+  line-reservation-aiだったが、同venture自身のフェーズ続き392(2026-11-16 16:00 UTC)で
+  「承認なしで前進可能な新規項目は見つからなかった」ことを確認済みのため見送り、次点の
+  本venture(forklift-pasha)を前進させた。launch-readiness-checklist.md 106節の
+  「運用手順(契約台数事業者数に応じたBilling Budget予算見直し)」が、フェーズ243まで
+  「残る横展開先はoshien-pashaのみ(oshien-pasha側で契約数の数値閾値が確定した時点で
+  反映)」という未解消の次回候補として持ち越されていたが、実際にはoshien-pasha側が
+  本venture自身のフェーズ241(2026-11-16 07:00 UTC)の約1時間後にあたるフェーズ133
+  (同日08:00 UTC)で、月額フリーパス会員数を根拠に数値閾値(想定上限10人の8割=8人)を
+  確定し運用手順を反映済みであったことをoshien-pasha/README.mdの該当フェーズを確認して
+  判明した(フェーズ間の記録漏れ)。これにより、aircon-pasha・course-set-pasha・kura-pasha・
+  forklift-pasha・oshien-pashaの5venture(Cloud Tasks非同期キュー非採用のため対象外の
+  event-komiguai-pashaを除く)全てで「契約数に応じたBilling Budget予算見直し運用手順」の
+  横展開が完了していることになる。launch-readiness-checklist.md 128節の該当記載に
+  [解消済み]の注記を追加して是正した。本件は各venture側のドキュメント記載是正のみであり、
+  他venture側ファイルの変更は行っていない。コード変更なし、既存テスト
+  (`python3 prototype/run_all_tests.py`全24ファイル)・schema検証
+  (`python3 schema/validate_test_cases.py`11件)を再実行しいずれも変更なしでパス
+  (回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし。
+  次回候補: (1)承認待ち事項1〜4がオーナーから承認された場合はその着手を最優先、
+  (2)福岡県支部の所在地確認は一次情報源への到達手段が確保できた場合またはオーナーから
+  新情報提供があった場合にのみ再着手、(3)2026-11-08 08:00 UTC記載の運営方針確認
+  (pending-approval.md)が未回答のため、回答があるまでは机上設計の積み増しより
+  既存実装の健全性確認・他venture・アイデア領域の前進を優先する。
+- 最終更新: 2026-11-17 03:00 UTC(フェーズ244: 詳細は上記。launch-readiness-checklist.md
+  106節の「残る横展開先はoshien-pashaのみ」という陳腐化記載を、oshien-pashaフェーズ133で
+  既に反映済みだった事実の確認により是正。これで7venture横展開が全完了。コード変更なし、
+  既存テスト24ファイル・schema検証11件いずれも変更なしでパス、回帰なし)
