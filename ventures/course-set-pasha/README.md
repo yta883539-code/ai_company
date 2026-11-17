@@ -7066,3 +7066,25 @@
   (2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
   ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
   その着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ384(2026-11-17 01:00 UTC定例更新): 7venture中最も更新が止まっていた
+  line-reservation-aiは自身のフェーズ続き392で承認待ち以外の新規前進余地が無いことを
+  確認済みのため見送り、次点で最も更新が止まっていた本ventureを前進。フェーズ383の
+  次回候補(1)「kura-pashaの次回実行回で件数ベース予算見直し運用手順を反映することを推奨」
+  が陳腐化していることを発見した。aircon-pasha/billing-budget-review-step-rollout-
+  status.mdの2026-11-16 09:00 UTC追記(フェーズ389)を確認したところ、kura-pashaは
+  フェーズ続き309(2026-11-16 05:00 UTC)で既にlaunch-readiness-checklist.mdへ当該運用
+  手順(「運用手順(工房数に応じたBilling Budget予算見直し、フェーズ続き309時点)」節)を
+  反映済みであり(`grep -n "予算見直し\|運用手順"
+  ventures/kura-pasha/launch-readiness-checklist.md`で該当節の存在を確認)、7venture
+  横展開自体がフェーズ389時点(本venture側フェーズ383より前)で既に全完了・トラッキング
+  終了済みだったことを確認した。本フェーズ384の次回候補欄を上記の通り是正する。他venture
+  側ファイルの変更は行っていない。コード変更なし(本README.mdの記載是正のみ)、既存テスト
+  910件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。実LINE/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)件数ベース予算見直し運用手順の7venture横展開は既に全完了・トラッキング
+  終了済みのため、本件に関する追加の横展開確認は不要、(2)2026-11-08 08:00 UTC記載の
+  運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他
+  venture・アイデア領域の前進。
