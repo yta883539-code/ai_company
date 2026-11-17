@@ -92,3 +92,23 @@ course-set-pashaと同じくプレーンテキストの`send_message(user_id, te
   構成をそもそも採用していないため、本パターンは「該当なし」と結論済み(フェーズ続き
   305・306の次回候補(2)としてクローズ)。本項目は解消済みのため以後の棚卸し候補からは
   除外する(フェーズ続き310で記載の陳腐化を是正)。
+- line-reservation-aiのenqueue-notification-source-decision-cross-venture-status.md
+  (フェーズ続き392時点)が、本venture(kura-pasha)について「送信元(a)HTTPハンドラ経由/
+  (b)定期実行ジョブ経由の確定記述・`render_enqueue_failed_owner_notification()`相当の
+  実装が未着手」とgrep結果から申し送っていたが、フェーズ続き312でこれを確認した結果、
+  本venture側では実際には(a)/(b)という選択自体が発生しない設計であることが判明した。
+  line-reservation-ai版は「Function A単一責務設計のためenqueue失敗時に同期処理へ
+  フォールバックしない(断念する)」前提のため、断念後のオーナー通知をどこから送るか
+  ((a) HTTPハンドラ/(b) 定期実行ジョブ)という独立した決定が必要になる。一方、本venture
+  (course-set-pasha・aircon-pashaも同型)は0節に記載の通り`dispatch_webhook_events()`が
+  enqueue失敗時に同期処理へ自動フォールバックする設計であり、5節の実装により
+  `receive_webhook()`呼び出し内(=実質的に(a)HTTPハンドラ経由と同じタイミング)で
+  即座にdigest通知を送る配線が既に完了している。定期実行ジョブ経由という(b)の選択肢は
+  そもそも検討対象になり得ない(フォールバック自体がリクエスト処理中に完了済みのため、
+  後から定期実行ジョブで検知する対象が残らない)。したがって本venture分の「送信元確定」
+  という引き継ぎ事項は、line-reservation-ai版とは前提が異なるため該当なし・対応不要と
+  結論し、本項目をクローズする。aircon-pasha・course-set-pashaについても本ventureと
+  同型の同期フォールバック設計である可能性が高いが、各venture自身のenqueue-fallback-
+  owner-notification-design.mdでの確認・記録が必要なため、本venture側からの断定・
+  他venture側ファイルの変更は行わない(各ventureが次回ローテーションで前進する際の
+  確認事項として残す)。

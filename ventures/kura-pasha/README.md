@@ -7311,3 +7311,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-16 20:00 UTC(フェーズ続き311: 詳細は上記。「残る横展開先」の対象を
   forklift-pasha・oshien-pashaの2件からoshien-pasha1件に是正。コード変更なし、既存
   テスト26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き312(2026-11-17 02:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(kura-pasha)を前進。line-reservation-aiのenqueue-notification-source-
+  decision-cross-venture-status.md(フェーズ続き388発)が本venture分の「送信元(a)/(b)
+  確定・横展開」を引き継ぎ事項として残していたため確認した結果、本venture
+  (course-set-pasha・aircon-pashaも同型)はline-reservation-ai版と異なり
+  `dispatch_webhook_events()`がenqueue失敗時に同期処理へ自動フォールバックする設計
+  であり、5節の実装で`receive_webhook()`呼び出し内(=実質的に(a)HTTPハンドラ経由と
+  同タイミング)で既に即座にdigest通知を送る配線が完了済みのため、line-reservation-ai版
+  が前提とする「断念後にどこから送信するか」という(a)/(b)の選択自体がそもそも発生しない
+  ことが判明した。enqueue-fallback-owner-notification-design.md 6節に判断根拠を追記し、
+  本venture分の引き継ぎ事項をクローズした(aircon-pasha・course-set-pashaについては
+  本リポジトリの運用慣習〈venture内の変更はそのventure自身の実行回で行う〉に沿い、
+  各venture自身の確認事項として残し、他venture側ファイルの変更は行っていない)。
+  コード変更なし(設計docの記載追記のみ)、既存テスト(run_all_tests.py全26ファイル)・
+  schema検証32件を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・
+  支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし(2026-11-08 08:00 UTC記載の
+  運営方針確認は前回直接通知2026-11-16 23:00 UTCから1時間未満・状況不変のため今回は
+  追記・再通知とも見送り)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま最大の
+  ボトルネックとして残っている(pending-approval.md参照、オーナーから得られた場合は
+  その着手を最優先)、(2)aircon-pasha・course-set-pashaが次回ローテーションで前進する際、
+  本venture側の今回の確認結果(送信元(a)/(b)の選択自体が発生しない同期フォールバック
+  設計である旨)を踏まえ、自身の設計でも同様に該当なしと結論できるか確認する、
+  (3)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-17 02:00 UTC(フェーズ続き312: 詳細は上記。line-reservation-ai発の
+  送信元(a)/(b)確定・横展開の引き継ぎ事項について、本venture側は同期フォールバック設計
+  のため該当なしと結論しクローズ。コード変更なし、既存テスト26ファイル・schema検証32件
+  いずれもパス、回帰なし。)
