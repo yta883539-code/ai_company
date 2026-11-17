@@ -483,14 +483,19 @@ CHARACTER_LIMIT_FALLBACK_MESSAGE = (
     "メモを少し短くして再度お送りください。"
 )
 
-# first-generation-self-check-notification-design.md(フェーズ178設計)4節の文面案を
-# そのまま採用(フェーズ179実装)。workshop単位で最初のstatus="generated"成功時のみ、
-# 通常の3出力の末尾に1回だけ付記する。
+# first-generation-self-check-notification-design.md(フェーズ178設計、フェーズ314で文面
+# 是正)4節の文面案を採用(フェーズ179実装)。workshop単位で最初のstatus="generated"
+# 成功時のみ、通常の3出力の末尾に1回だけ付記する。
+# フェーズ314: 本venture固有の事情(format_follow_welcome_message()のdocstring・
+# craftsman-account-linking-design.md 1節の通り、本ventureには申込フォーム自体が存在
+# しない)を踏まえず、course-set-pashaの同種文面(申込内容の変更フォームからどうぞ)を
+# そのまま転用していた誤りを是正し、本venture唯一の導線であるLINEトークへの返信に
+# 書き換えた。
 FIRST_GENERATION_NOTICE_MESSAGE = (
     "【ご確認のお願い】これが本workshopでの最初の生成です。受注内容整理メモ・納品案内・"
     "お手入れ案内の内容や書き味が意図通りか、この機会にご確認ください。修正したい点が"
-    "あれば申込内容の変更フォームからご連絡ください。問題がなければ今後この案内は"
-    "ありません。"
+    "あれば、このままこのトークにメッセージでお知らせください。問題がなければ今後この"
+    "案内はありません。"
 )
 
 

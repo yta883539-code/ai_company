@@ -68,9 +68,10 @@ course-set-pashaは契約単位が`user_id`(1人=1契約)であるため、「�
 - **ジム名・地域名相当の未設定時追加一文は不要**: course-set-pasha 2節後半は
   「ジム名・地域名が未入力の場合に追加の一文を付記する」設計を持つが、これは
   ジム名・地域名がLLM生成品質(ハッシュタグの地域タグ精度)に直接影響する入力だから
-  である。本ventureのonboarding-guide.md 2節が定める申込フォーム項目(屋号・連携コード・
-  連絡先メール・想定利用形態)のうち、屋号(workshop_name)はフェーズ177で追加した
-  オーナー向け通知(payment_suspension_owner_notification.py等)の表示にのみ使われ、
+  である。本ventureのonboarding-guide.md 2節が収集項目として挙げる屋号・連絡先メール・
+  想定利用形態(フェーズ314是正: 本venture固有の事情〈申込フォーム自体が存在しない〉を
+  踏まえると収集方法自体は依然未確定、2節参照)のうち、屋号(workshop_name)はフェーズ177で
+  追加したオーナー向け通知(payment_suspension_owner_notification.py等)の表示にのみ使われ、
   LLM生成そのもの(`order_summary`等の内容)には渡していない
   (`llm-system-prompt-draft.md`・`mvp-flow-draft.md`のいずれにもworkshop_name等を
   プロンプト変数として参照する記述が無いことを確認済み)。したがって本ventureには
@@ -81,10 +82,16 @@ course-set-pashaは契約単位が`user_id`(1人=1契約)であるため、「�
 
 3出力の結合結果(`format_generated_reply()`の戻り値)の末尾に、空行を挟んで追記する。
 
+(2026-11-17追記・フェーズ314是正: 当初案はcourse-set-pashaの同種文面〈申込内容の変更
+フォームからどうぞ〉をそのまま転用していたが、本ventureには`format_follow_welcome_message()`
+のdocstring・craftsman-account-linking-design.md 1節の通り申込フォーム自体が存在せず、
+全てのやり取りがLINEトークで完結する設計であるため、存在しないフォームへの案内は誤りだった。
+本venture唯一の導線であるLINEトークへの返信を促す文面に是正する。)
+
 ```
 【ご確認のお願い】これが本workshopでの最初の生成です。受注内容整理メモ・納品案内・
-お手入れ案内の内容や書き味が意図通りか、この機会にご確認ください。修正したい点があれば
-申込内容の変更フォームからご連絡ください。問題がなければ今後この案内はありません。
+お手入れ案内の内容や書き味が意図通りか、この機会にご確認ください。修正したい点があれば、
+このままこのトークにメッセージでお知らせください。問題がなければ今後この案内はありません。
 ```
 
 - tone-and-manner-guideline.mdの文体(ですます調・絵文字不使用)に合わせた定型文とし、

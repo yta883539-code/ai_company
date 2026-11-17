@@ -33,15 +33,28 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
    届く(実装済みの範囲はcraftsman-account-linking-design.md参照、実LINE公式アカウントの
    開設自体はオーナー承認待ち)。
 
-2. **申込フォームでの連携コード入力・工房登録**
-   職人がLP(landing-page-copy-draft.md)経由で申込フォームに入力する。
-   - 入力項目: 屋号(または工房名)・連携コード(手順1で受け取った6桁)・連絡先
-     メールアドレス・想定利用形態(個人/複数職人での共同利用、pricing-plan.mdの
-     「複数職人プラン」該当有無の目安)。
+2. **連携コードの送り返し・工房登録**
+   (2026-11-17 フェーズ314是正: 本項は当初「LPの申込フォームに入力する」としていたが、
+   craftsman-account-linking-design.md 1節(本venture固有の差分として「申込フォーム自体が
+   まだ存在しない」ことを明記)・`format_follow_welcome_message()`のdocstring(「本venture
+   には申込フォームが存在せず連携コードはこのままLINEトーク上に送り返してもらう想定」)と
+   矛盾していた誤りだった。実装(`prototype/workshop_linking.py`・`cloud_function_webhook.py`)
+   も一貫してLINEトーク上でのコード送信を前提としているため、本項を是正する。)
+   職人が、手順1のウェルカムメッセージで受け取った連携コードを、そのまま同じLINEトーク上に
+   テキストメッセージとして送り返す。
    - 連携コードの照合により`craftsman_workshop/{workshop_id}`が新規作成され、
      手順1で友だち追加したLINEアカウントの`user_id`がその工房の契約者(代表)として
-     紐付けられる(craftsman-account-linking-design.md 2節)。この時点ではpricing-plan.mdの
-     無料トライアル条件(30日間、trial-end-condition-design.md)に従い課金は発生しない。
+     紐付けられる(craftsman-account-linking-design.md 2節、`create_workshop_from_linking_code()`)。
+     この時点ではpricing-plan.mdの無料トライアル条件(30日間、trial-end-condition-design.md)
+     に従い課金は発生しない。
+   - **屋号(工房名)・連絡先メールアドレス・想定利用形態(個人/複数職人での共同利用)の
+     収集方法は未確定のまま残る**(是正前の本項は、これらをLP経由の申込フォームで集める
+     前提だったが、申込フォーム自体が存在しないため成立しない)。屋号は
+     workshop-name-owner-notification-display-design.md(フェーズ177)がオーナー向け通知
+     表示にのみ使う前提で既に`WorkshopStoreProtocol`にフィールドを持つが、実際の収集・
+     設定経路(LINEトーク上での追加の質問応答、別途Googleフォームの新設、等)は本フェーズ
+     時点で未設計。連絡先メールアドレス・想定利用形態は現時点でデータモデル上の保持先すら
+     無い。次回以降の課題とする(下記「次のステップ候補」参照)。
    - 複数職人プランを想定する場合、代表者以外の職人分のLINE友だち追加・招待コード入力を
      追加で行うことで同一workshopに参加できる(craftsman-account-linking-design.md
      5節・11.1〜11.4節参照)。具体的には、代表者がLINEトーク上で「職人を追加したい」等の
@@ -107,6 +120,11 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
 
 ## 次のステップ候補
 
+- (フェーズ314で新規発生)手順2で収集するとしていた屋号・連絡先メールアドレス・想定利用
+  形態について、実際の収集経路(LINEトーク上での追加質問応答か、別途フォームの新設か)を
+  設計する。あわせて、同じ誤り(存在しない申込フォームへの言及)が他の設計文書
+  (workshop-name-owner-notification-display-design.md「1. 前提条件の確認」の記述等)にも
+  残っていないか棚卸しする。
 - (フェーズ184で対応済み)手順4に、依頼者以外の第三者の氏名・連絡先等をメモへ記載する
   際の留意事項(厳守事項9、requester-personal-info-inclusion-handling-design.md参照)を
   追記した。

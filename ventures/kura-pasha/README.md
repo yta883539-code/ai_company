@@ -7365,3 +7365,43 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
 - 最終更新: 2026-11-17 11:00 UTC(フェーズ続き313: 詳細は上記。step3-trial-generation-
   mock-script.mdを新規作成〈aircon-pashaフェーズ393版の横展開〉。コード変更なし、
   既存テスト26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き314(2026-11-17 16:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(kura-pasha、line-reservation-aiは承認待ち以外の前進余地なし・
+  event-komiguai-pashaは棚卸し済みで承認待ち以外の余地なしのためいずれも除外)を前進。
+  フェーズ313の次回候補(2)「ステップ1(申込フォーム入力)の同種モックスクリプト作成」に
+  着手しようとした過程で、onboarding-guide.md 2節が「職人がLPの申込フォームに入力する」と
+  記述している一方、craftsman-account-linking-design.md 1節(「本venture固有の差分:
+  申込フォーム自体がまだ存在しない」)・`format_follow_welcome_message()`のdocstring
+  (「本ventureには申込フォームが存在せず連携コードはこのままLINEトーク上に送り返して
+  もらう想定」)・実装(`prototype/workshop_linking.py`冒頭コメント)のいずれとも矛盾する
+  誤記載だったことを発見した。調査の結果、この誤りはフェーズ96のonboarding-guide.md新規
+  作成時点から存在し、フェーズ177(workshop-name-owner-notification-display-design.md)・
+  フェーズ178(first-generation-self-check-notification-design.md)が誤った前提のまま
+  参照・積み上げを行っており、特にフェーズ179で実装された`FIRST_GENERATION_NOTICE_MESSAGE`
+  (`prototype/cloud_function_webhook.py`)が、存在しない「申込内容の変更フォーム」への
+  案内文を実際に職人へ送信する文面として含んでいたことを確認した(course-set-pashaの
+  同種文面を、本venture固有の事情を確認せずそのまま転用したことが原因)。
+  本フェーズでは、(1)onboarding-guide.md 2節を「連携コードの送り返し・工房登録」
+  (LINEトーク上で完結)に是正し、屋号・連絡先メール・想定利用形態の収集方法は未確定の
+  まま残る旨を明記、(2)first-generation-self-check-notification-design.md 3節・4節の
+  該当箇所を是正、(3)`FIRST_GENERATION_NOTICE_MESSAGE`の文面を「このままこのトークに
+  メッセージでお知らせください」(本venture唯一の導線であるLINEトークへの誘導)に修正した。
+  ステップ1モックスクリプトの新規作成自体は、収集方法が未確定の状態では画面像を確定
+  できないため本フェーズでは見送り、上記是正を次回候補の筆頭とした。新規テスト追加は
+  行っていない(文面定数の変更のみで、既存テストは定数参照のため影響なし)。既存テスト
+  (`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+  (`python3 schema/validate_test_cases.py`)32件を再実行しいずれもパス(回帰なし)を確認した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-16 23:00 UTCから約17時間・
+  状況不変のため今回も追記・再通知とも見送り、24時間以上無応答が続いた場合に次回送付)。
+  次回候補: (1)workshop-name-owner-notification-display-design.md「1. 前提条件の確認」等、
+  他に同じ誤り(存在しない申込フォームへの言及)が残っていないかの棚卸し、(2)屋号・
+  連絡先メール・想定利用形態の実際の収集経路の設計(LINEトーク上での追加質問応答か、
+  別途フォーム新設か)、(3)上記決定後のステップ1(申込フォーム相当)モックスクリプト
+  作成・ステップ4(本番運用時のメモ送信)モックスクリプト作成、(4)他venture・アイデア
+  領域の前進を継続する。
+- 最終更新: 2026-11-17 16:00 UTC(フェーズ続き314: 詳細は上記。onboarding-guide.md 2節・
+  first-generation-self-check-notification-design.md・`FIRST_GENERATION_NOTICE_MESSAGE`
+  〈cloud_function_webhook.py〉の「存在しない申込フォームへの言及」誤りを是正。既存テスト
+  26ファイル・schema検証32件いずれもパス、回帰なし。)
