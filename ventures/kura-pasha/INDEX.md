@@ -88,6 +88,8 @@
 ## 顧客向け文面・法務
 - landing-page-wireframe.md / landing-page-copy-draft.md / landing-page/
 - initial-contact-message-draft.md / onboarding-guide.md
+- step3-trial-generation-mock-script.md(onboarding-guide.md手順3の試験生成を題材にした
+  トーク画面モックスクリプト。aircon-pashaフェーズ393版の横展開)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 

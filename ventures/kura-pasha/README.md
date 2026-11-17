@@ -7340,3 +7340,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   送信元(a)/(b)確定・横展開の引き継ぎ事項について、本venture側は同期フォールバック設計
   のため該当なしと結論しクローズ。コード変更なし、既存テスト26ファイル・schema検証32件
   いずれもパス、回帰なし。)
+- フェーズ続き313(2026-11-17 11:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(kura-pasha、line-reservation-aiは承認待ち以外の前進余地なしのため除外)を
+  前進。aircon-pashaフェーズ393が作成したstep3-trial-generation-mock-script.md
+  (onboarding-guide.md手順3の試験生成を題材にしたトーク画面モックスクリプト)が
+  本ventureにはまだ横展開されていなかったcross-venture parityギャップであることを
+  確認し、本venture版を新規作成した。output-samples-validation.md記載の`G1_new_basic`
+  (schema/validate_test_cases.py、32件中パス済み)の`order_summary`・`delivery_notice`・
+  `care_notice`の出力内容をそのまま文面化し、onboarding-guide.md手順3が既に挙げている
+  入力メモ例(「テスト、区分: 新規制作、ブリティッシュ鞍、牛革、競技用、納期3ヶ月」)と
+  対応させた。INDEX.mdにも同ファイルを追加。実LINE API・実LLM API接続・画像生成は
+  一切行っていない。コード変更なし(設計docの新規作成のみ)、既存テスト(`python3
+  prototype/run_all_tests.py`全26ファイル)・`python3 schema/validate_test_cases.py`32件を
+  再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生
+  していないためpending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営
+  方針確認は前回直接通知2026-11-16 23:00 UTCから約12時間・状況不変のため今回も追記・
+  再通知とも見送り、24時間以上無応答が続いた場合に次回送付)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま最大の
+  ボトルネックとして残っている(pending-approval.md参照、オーナーから得られた場合は
+  その着手を最優先)、(2)ステップ1(申込フォーム入力)・ステップ4(本番運用時のメモ
+  送信)についても同様のモックスクリプトを作成しonboarding-guide.mdから参照できる形に
+  まとめる、(3)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-17 11:00 UTC(フェーズ続き313: 詳細は上記。step3-trial-generation-
+  mock-script.mdを新規作成〈aircon-pashaフェーズ393版の横展開〉。コード変更なし、
+  既存テスト26ファイル・schema検証32件いずれもパス、回帰なし。)
