@@ -26,7 +26,7 @@ line-reservation-aiと同様にテーマ別の索引を作成した。新しい�
 - launch-readiness-checklist.md / legal-notices-draft.md / data-retention-policy.md
 - deployment-runbook.md / ci-setup.md / vendor-breach-key-rotation-runbook.md
 - sns-blog-example-observation.md / onboarding-guide.md / mvp-flow-draft.md
-- output-samples-validation.md
+- output-samples-validation.md / step3-trial-generation-mock-script.md
 
 ## チャットボット・会話フロー・LLM
 - chatbot-first-response-feasibility.md
