@@ -2930,7 +2930,26 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   状況記録のみ追記)。次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の
   1〜3)がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の
   前進。
-- 最終更新: 2026-11-17 17:00 UTC(フェーズ129: 詳細は上記。event-form-ui-draft.md
-  フェーズ126・127の画面設計を静的HTMLモックアップとして初実装〈landing-page/
-  event-form.html〉。コード変更なし、既存テスト184件・schema検証22件いずれも
-  変更なしでパス)
+- フェーズ130(2026-11-17 23:00 UTC定例更新): 7venture中最も更新が止まっていたline-
+  reservation-aiは承認待ち以外の前進余地が無いため見送り、次点の本ventureを前進。
+  result-page-display-copy-draft.md 5節「残課題・次回候補」の項目(4)「実
+  `/result/{draft_id}`エンドポイントとの結合・JSによる状態切り替えの実装」が、
+  実際にはフェーズ116(2026-11-13 20:00 UTC)で`landing-page/result.html`に
+  URLクエリ`?page_state=<値>`指定時の1状態表示シミュレーションとして一部実装済み
+  だったにもかかわらず、本節の記載が未着手のまま更新されていなかった記載漏れを
+  発見・是正した。「JSによる状態切り替えの実装」のうちシミュレーション部分は実装済み、
+  残るのは実エンドポイントとの結合そのもの(`fetch()`で実際のdraft.statusを取得する
+  部分、実GCPプロジェクト作成等のオーナー承認待ち)のみであることを明記した。コード
+  変更なし(result-page-display-copy-draft.md 1件のみ)、既存テスト
+  `python3 -m unittest discover -s prototype -p "test_*.py"`全184件・
+  `python3 schema/validate_test_cases.py`22件いずれも変更なしでパス(回帰なし)。
+  実GCP/Stripe接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし(2026-11-08
+  08:00 UTC記載の運営方針確認は前回直接通知2026-11-16 23:00 UTCから約24時間・状況
+  不変のため今回も再通知は見送り、状況記録のみ追記)。次回候補: (1)承認待ち事項
+  (launch-readiness-checklist.md記載の1〜3)がオーナーから承認された場合はその着手を
+  最優先、(2)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-17 23:00 UTC(フェーズ130: 詳細は上記。result-page-display-copy-
+  draft.md 5節の記載漏れ〈フェーズ116で部分実装済みのJS状態切り替えが未着手のまま
+  だった〉を是正。コード変更なし、既存テスト184件・schema検証22件いずれも変更なしで
+  パス)
