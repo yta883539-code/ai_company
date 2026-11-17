@@ -462,8 +462,10 @@ def should_notify_trial_end(
     is_trial_period_over()が真で、かつtrialEndNotifiedAtが未設定の場合のみTrue。
     (A)経路(生成完了時の返却テキスト追記)・(B)経路(日次スケジューラのメール送信)の
     いずれの呼び出し元からも、送信前にこの関数で判定した上でset_trial_end_notified_at()
-    を呼ぶ想定(実際の呼び出し配線はWebフォーム処理・日次スケジューラ共に未実装のため次回
-    以降の課題)。"""
+    を呼ぶ想定。(A)経路はform_submission_flow.record_generation_and_get_trial_end_notice()
+    経由で、(B)経路はtrial_end_email_scheduler.is_trial_end_email_due()(本関数と同じ
+    判定条件を独自に実装したもの、本関数自体は呼び出さない)経由で、いずれもフェーズ239
+    までに実装済み(実Firestore接続・実メール送信は未接続のまま、オーナー承認待ち)。"""
     if operator_store.get_trial_end_notified_at(internal_id) is not None:
         return False
     return is_trial_period_over(internal_id, now, operator_store)
@@ -537,9 +539,9 @@ def is_generation_paused(
     cloud_function_webhook.pyの`_is_generation_paused()`と同じ契約: `trialEndNotifiedAt`
     (条件A/Bいずれの経路でもrecord_generation_and_get_trial_end_notice()等が設定済み)が
     設定済みで、かつ`upgradedAt`が未設定(有料転換前)の場合のみ一時停止対象とする。
-    Webフォーム送信処理本体(mvp-flow-draft.md)からの実際の呼び出し配線(この関数が
-    Trueを返した場合にGENERATION_PAUSED_NOTICEを返して記録整形自体をスキップする分岐)は
-    本venture未実装のため次回以降の課題のまま。"""
+    Webフォーム送信処理本体からの実際の呼び出し配線(この関数がTrueを返した場合に
+    GENERATION_PAUSED_NOTICEを返して記録整形自体をスキップする分岐)は、
+    form_submission_flow.process_form_submission()にフェーズ239までに実装済み。"""
     if operator_store.get_trial_end_notified_at(internal_id) is None:
         return False
     return operator_store.get_upgraded_at(internal_id) is None
