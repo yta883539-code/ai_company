@@ -19,6 +19,7 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 
 ## 申込フォーム・UI・LP
 - inquiry-form-ui-draft.md / inquiry-handling-design.md
+- event-form-ui-draft.md
 - web-form-ui-design.md / web-form-hosting-selection.md
 - admin-search-ui-necessity-design.md
 - landing-page-wireframe.md / landing-page-copy-draft.md
