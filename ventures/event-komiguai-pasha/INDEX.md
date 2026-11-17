@@ -64,4 +64,5 @@ aircon-pasha/INDEX.mdと同型)。新しいトピックに着手する前に、�
 - deployment-runbook.md
 
 ## コード・スキーマ・テスト(ディレクトリ)
-- prototype/ (実装コード・テスト) / schema/ (スキーマ検証) / emulator-test/ / landing-page/
+- prototype/ (実装コード・テスト) / schema/ (スキーマ検証) / emulator-test/
+- landing-page/ (index.html / inquiry.html / result.html / event-form.html)

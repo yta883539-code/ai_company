@@ -2911,6 +2911,26 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   今回発生していないためpending-approval.mdへの追記なし。次回候補: (1)承認待ち事項
   (launch-readiness-checklist.md記載の1〜3)がオーナーから承認された場合はその着手を
   最優先、(2)他venture・アイデア領域の前進。
-- 最終更新: 2026-11-17 09:00 UTC(フェーズ128: 詳細は上記。README.mdステータスログに
-  フェーズ127の記載漏れを発見・是正。コード変更なし、既存テスト184件・schema検証22件
-  いずれも変更なしでパス)
+- フェーズ129(2026-11-17 17:00 UTC定例更新): 7venture中最も更新が止まっていたline-
+  reservation-aiは承認待ち以外の前進余地が無いため見送り、次点の本ventureを前進。
+  event-form-ui-draft.md(フェーズ126・127)が文書化のみに留めていた主催者向け申込
+  フォームの画面構成を、landing-page/index.html・inquiry.htmlと同じ位置づけの静的
+  HTMLモックアップとして新規実装した(landing-page/event-form.html)。capacity・
+  entry_exit_points(必須2項目)が未入力の間は送信ボタンをdisabledにする入力導線、
+  入退場共用チェックボックス、staffing両方0時の非ブロッキング注意書き、outdoor_queue
+  未選択時の注記をいずれもJSで再現した。送信ボタンはtype="button"のままで実送信処理
+  (fetch・ページ遷移)は一切実装しておらず、実Cloud Run functions・実GCPプロジェクト・
+  実Stripe Checkout Session発行はpending-approval.md記載分で引き続き承認待ちのため
+  未着手(ドメイン取得・ホスティング・外部公開も行っていない)。INDEX.mdのlanding-page/
+  行に新規ファイルを追記。コード変更なし(HTMLモックアップ追加のみ)、既存テスト184件・
+  schema検証22件を再実行しいずれも変更なしでパス(回帰なし)。実GCP/Stripe接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生して
+  いないためpending-approval.mdへの追記なし(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知2026-11-16 23:00 UTCから約18時間・状況不変のため今回も再通知は見送り、
+  状況記録のみ追記)。次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の
+  1〜3)がオーナーから承認された場合はその着手を最優先、(2)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-17 17:00 UTC(フェーズ129: 詳細は上記。event-form-ui-draft.md
+  フェーズ126・127の画面設計を静的HTMLモックアップとして初実装〈landing-page/
+  event-form.html〉。コード変更なし、既存テスト184件・schema検証22件いずれも
+  変更なしでパス)
