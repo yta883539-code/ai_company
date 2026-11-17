@@ -7088,3 +7088,25 @@
   運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
   (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他
   venture・アイデア領域の前進。
+- フェーズ385(2026-11-17 08:00 UTC定例更新): 7venture中最も更新が止まっていた
+  line-reservation-aiは自身のフェーズ続き392で承認待ち以外の新規前進余地が無いことを
+  再確認済みのため見送り、次点で最も更新が止まっていた本ventureを前進。
+  subscription-updated-event-order-guard-design.mdが次回候補として残していた
+  「launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し」に対応し、
+  フェーズ348(2026-11-03 01:00 UTC)以来初めての再棚卸しを実施した。承認待ち事項1〜6
+  (LINE公式アカウント開設・Googleフォーム+GAS Webhook・LIFFアプリ登録+Cloud Scheduler
+  作成・Stripeアカウント開設・顧客ヒアリング・GCPプロジェクト作成+Firestoreデータベース
+  新規作成)をpending-approval.mdの該当エントリと1対1で再突き合わせし、6件とも記載漏れ・
+  日時不一致なしを確認した。pending-approval.mdを「course-set-pasha」で再検索した結果も
+  該当8エントリ(上記6件+補足2件)のみで、フェーズ348以降に新規追加された本venture個別の
+  承認待ち事項は無いことを確認した(詳細はlaunch-readiness-checklist.md参照)。コード変更
+  なし、既存テスト910件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証22件(`python3 schema/validate_test_cases.py`)いずれも変更なしでパス
+  (回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし(齟齬なしの確認のみ)。
+  次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、
+  (2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進、(4)本棚卸しは次回以降1〜2週間間隔
+  での実施で十分と考えられる。

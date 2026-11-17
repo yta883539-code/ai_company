@@ -162,3 +162,24 @@ schema/validate_test_cases.py`(21件、変更なし)を実行しいずれもパ�
 していないためpending-approval.mdへの追記なし(既存エントリの反映漏れの是正のみ)。
 次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、(2)他venture・
 アイデア領域の前進。
+
+2026-11-17 08:00 UTC(フェーズ385): subscription-updated-event-order-guard-design.mdが
+次回候補として残していた「launch-readiness-checklist.mdとpending-approval.mdの記載齟齬の
+定期棚卸し」に対応。フェーズ348(2026-11-03 01:00 UTC)以来初めての再棚卸しとして、
+承認待ち事項1〜6をpending-approval.mdの該当エントリ(LINE公式アカウント開設=2026-09-28
+20:00 UTC、Googleフォーム+GAS Webhook=2026-08-18 20:00 UTC、LIFFアプリ登録+Cloud
+Scheduler作成=2026-08-23 09:00 UTC、Stripeアカウント開設=2026-09-27 03:00 UTC、顧客
+ヒアリング=2026-08-09 01:00 UTC、GCPプロジェクト作成+Firestoreデータベース新規作成=
+2026-10-24 09:00 UTC)と1対1で再度突き合わせ、6件とも記載漏れ・日時不一致なしを確認した。
+pending-approval.md全体を「course-set-pasha」で再検索した結果も該当8エントリ(上記6件+
+仕様変更申し送り〈2026-08-20 21:00 UTC〉・LIFF記載漏れ点検〈2026-09-27 07:00 UTC〉の2件の
+補足エントリ)のみで、フェーズ348以降に新規追加されたcourse-set-pasha個別の承認待ち事項は
+無いことを確認した。承認待ち事項1〜6の内容・件数に変更はない。コード変更なし、回帰確認として
+`python3 -m unittest discover -s prototype -p "test_*.py"`(910件、変更なし)・`python3
+schema/validate_test_cases.py`(22件、変更なし)を実行しいずれも変更なしでパスすることを
+確認した(回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+追記なし。
+次回候補: (1)承認待ち事項1〜6がオーナーから承認された場合はその着手を最優先、(2)他venture・
+アイデア領域の前進、(3)本棚卸しは今回齟齬なしだったため、次回以降は概ね1〜2週間間隔での
+実施で十分と考えられる。
