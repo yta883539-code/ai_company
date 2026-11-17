@@ -339,9 +339,9 @@ class WorkshopStoreProtocol(Protocol):
         ...
 
     def get_workshop_name(self, workshop_id: str) -> Optional[str]:
-        """workshop-name-owner-notification-display-design.md: 申込フォームで職人が
-        入力する屋号(または工房名、onboarding-guide.md 2節)の読み出し。未設定の場合は
-        `None`を返す。
+        """workshop-name-owner-notification-display-design.md: 職人の屋号(または工房名、
+        onboarding-guide.md 2節。収集経路はLINEトーク上の追加質問応答か別途フォーム新設か
+        未確定)の読み出し。未設定の場合は`None`を返す。
         """
         ...
 

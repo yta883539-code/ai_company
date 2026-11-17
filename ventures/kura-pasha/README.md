@@ -7405,3 +7405,37 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   first-generation-self-check-notification-design.md・`FIRST_GENERATION_NOTICE_MESSAGE`
   〈cloud_function_webhook.py〉の「存在しない申込フォームへの言及」誤りを是正。既存テスト
   26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き315(2026-11-17 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (line-reservation-aiは承認待ち以外の前進余地なしのため除外)を前進。フェーズ続き314の
+  次回候補(1)「他に同じ誤り(存在しない申込フォームへの言及)が残っていないかの棚卸し」に
+  着手し、workshop-name-owner-notification-display-design.md(フェーズ177、2026-09-25作成、
+  フェーズ続き314以前の記載)を確認した結果、1節「onboarding-guide.md 2節(申込フォームでの
+  連携コード入力・工房登録)によれば、申込フォームの入力項目には『屋号』が既に含まれている。
+  したがって本ventureはaircon-pashaと同じく...取得済みの値をそのまま使える状況にある」・
+  4節「申込フォーム入力〈屋号〉と工房作成は別ステップ」・6節「申込フォーム送信〜
+  `set_workshop_name()`呼び出しの実結線はGoogleフォーム作成等のオーナー承認待ちの範囲」の
+  3箇所が、フェーズ続き314で是正済みのonboarding-guide.md 2節(申込フォーム自体が存在せず、
+  屋号の収集経路はLINEトーク上の追加質問応答か別途フォーム新設か未確定)と矛盾する誤記載の
+  まま残っていたことを発見し、是正した(結論を「aircon-pashaと同じく取得済みの値をそのまま
+  使える」から「データモデル上にフィールドは存在するが、収集経路確定まで実運用上は未設定
+  〈None〉のままとなる見込み、3節のフォールバック表示設計自体は破綻しないため変更不要」に
+  修正、6節の「今後の課題」も「オーナー承認待ち」から「収集経路の設計判断自体が未了」に
+  修正)。あわせて`prototype/usage_counter_workshop.py`の`get_workshop_name()`docstring
+  (「申込フォームで職人が入力する屋号」)も同種の誤記載だったため是正した(ロジック変更なし、
+  コメント・docstringのみ)。他の索引済みファイル(craftsman-account-linking-design.md・
+  first-generation-self-check-notification-design.md等)は既にフェーズ続き314または元から
+  正しい記載であることを確認済み。新規テスト追加は行っていない。既存テスト
+  (`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+  (`python3 schema/validate_test_cases.py`)32件を再実行しいずれもパス(回帰なし)を確認した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-17 12:00 UTCから約10時間・
+  状況不変のため今回も追記・再通知とも見送り、24時間以上無応答が続いた場合に次回送付)。
+  次回候補: (1)屋号・連絡先メール・想定利用形態の実際の収集経路の設計(LINEトーク上での
+  追加質問応答か、別途フォーム新設か)の決定、(2)上記決定後のステップ1(申込フォーム相当)
+  モックスクリプト作成・ステップ4(本番運用時のメモ送信)モックスクリプト作成、(3)他
+  venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-17 22:00 UTC(フェーズ続き315: 詳細は上記。
+  workshop-name-owner-notification-display-design.md・usage_counter_workshop.pyの
+  「存在しない申込フォームへの言及」誤りを是正。既存テスト26ファイル・schema検証32件
+  いずれもパス、回帰なし。)

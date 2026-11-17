@@ -14,14 +14,20 @@ course-set-pashaは「顧客管理シートとの突合が必要でventure範囲
 aircon-pashaは`UserProfile.business_name`が既に必須フィールドとして存在するため
 採用した。本ventureはどちらに近いかを確認する。
 
-onboarding-guide.md 2節(申込フォームでの連携コード入力・工房登録)によれば、申込フォームの
-入力項目には「屋号(または工房名)」が既に含まれている。したがって本ventureはaircon-pasha
-と同じく、外部の顧客管理手段との突合を要さず、申込時点で取得済みの値をそのまま使える状況に
-ある。
+(2026-11-17 フェーズ続き315是正: 本節は当初「onboarding-guide.md 2節(申込フォームでの
+連携コード入力・工房登録)によれば、申込フォームの入力項目には『屋号(または工房名)』が
+既に含まれている。したがって本ventureはaircon-pashaと同じく、外部の顧客管理手段との突合を
+要さず、申込時点で取得済みの値をそのまま使える状況にある」としていたが、フェーズ続き314で
+onboarding-guide.md 2節を是正した結果、本venture固有の差分として「申込フォーム」自体が
+存在しないことが確定し、屋号の収集方法(LINEトーク上での追加質問応答か、別途フォーム新設か)
+は未確定のまま残っている(onboarding-guide.md 2節参照)。したがって本ventureは実際には
+aircon-pashaのような「取得済みの値をそのまま使える」状況になく、`workshop_name`フィールドは
+データモデル上に存在するものの、収集経路が確定するまで実運用上は未設定(None)のままとなる
+見込みである点を明記する。3節の「`workshop_name`が未設定の場合は契約者IDのみの表示に
+フォールバックする」設計自体は、この状況でも破綻せず機能するため変更不要。)
 
 一方、実装側(`usage_counter_workshop.WorkshopStoreProtocol`・`InMemoryWorkshopStore`)には
-この屋号を保持するフィールドがまだ存在しなかった(申込フォームの項目定義止まりで、データ
-モデルへの反映が漏れていたcross-document parityギャップ)。本フェーズでこれを追加した。
+この屋号を保持するフィールドがまだ存在しなかったため、本フェーズ(177)でこれを追加した。
 
 ## 2. 対象範囲
 
@@ -53,8 +59,9 @@ onboarding-guide.mdの入力項目名に合わせて「屋号」を採用した(
 `usage_counter_workshop.WorkshopStoreProtocol`に`get_workshop_name(workshop_id) ->
 Optional[str]`・`set_workshop_name(workshop_id, workshop_name) -> None`を追加し、
 `InMemoryWorkshopStore`にも同名メソッドを実装した(`_workshop_name_by_workshop`辞書、
-`set_members()`とは独立したフィールドとして管理。申込フォーム入力〈屋号〉と工房作成
-〈契約者・メンバー確定〉は別ステップのため、`set_members()`の引数には含めない)。
+`set_members()`とは独立したフィールドとして管理。屋号の設定〈収集経路は1節是正の通り
+未確定〉と工房作成〈契約者・メンバー確定〉は別ステップのため、`set_members()`の引数には
+含めない)。
 
 ## 5. 実装
 
@@ -84,10 +91,12 @@ workshop_name)`ヘルパーを追加した(両モジュールとも表示用語�
 
 ## 6. 今後の課題
 
-- 申込フォーム送信〜`WorkshopStoreProtocol.set_workshop_name()`呼び出しの実結線
-  (Googleフォーム・GAS Webhook等)はまだ実装していない。実際のGoogleフォーム作成・
-  Firestore接続自体がオーナー承認待ちの範囲であるため(course-set-pasha・aircon-pashaの
-  同種案件と同じ位置づけ)。
+- `WorkshopStoreProtocol.set_workshop_name()`を実際に呼び出す収集経路自体が未設計
+  (2026-11-17 フェーズ続き315是正: 当初「申込フォーム送信〜実結線はGoogleフォーム作成等の
+  オーナー承認待ちの範囲」としていたが、本venture固有の差分として「申込フォーム」自体が
+  存在せず、LINEトーク上での追加質問応答か別途フォーム新設かという設計判断自体がまだ
+  下されていない〈onboarding-guide.md 2節参照〉。オーナー承認待ちはこの設計判断の後に
+  発生する実アカウント作成等の段階であり、現時点ではまだそこに到達していない)。
 - 複数職人プランで代表者以外の職人が参加する場合の`workshop_name`は工房単位(1件)で
   変わらない前提。個々の参加職人名(`get_member_display_name()`)とは別概念であり、
   混同しないよう本ドキュメントで明記しておく。
