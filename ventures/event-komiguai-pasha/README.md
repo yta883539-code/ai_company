@@ -2871,3 +2871,24 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
 - 最終更新: 2026-11-16 19:00 UTC(フェーズ125: 詳細は上記。capacity入力時のヘルプテキスト
   方針をmvp-flow-draft.mdに追記。コード変更なし、既存テスト184件・schema検証22件いずれも
   変更なしでパス)
+- フェーズ126(2026-11-16 23:57 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ125の次回候補6「capacity入力時のヘルプテキスト方針をweb-form-ui-design.md
+  相当の主催者向け入力画面の実UI設計(フィールド配置・文言の確定)に反映する」に対応し、
+  主催者が最初にチェックリスト生成を申し込む本体フォーム(`submit_event_form`が受け取る
+  5項目: capacity・entry_exit_points・admission_type・staffing・outdoor_queue)の画面構成を
+  具体化したevent-form-ui-draft.mdを新規作成した。既存のweb-form-ui-design.md(フェーズ65)は
+  3関数共通のエラー表示・再試行導線のみを扱い、主催者向け本体フォームのフィールド配置自体の
+  文書がこれまで未作成だった点を補った。capacity欄のヘルプテキスト文言・プレースホルダ
+  (規模帯表記を誘発しない「例: 300」)を確定し、他4項目の画面構成(entry_exit_pointsの
+  入退場共用チェックボックス、admission_type/outdoor_queueのボタン選択、staffingの数値
+  入力2欄)も合わせて設計した。コード変更なし(設計文書のみ)、既存テスト184件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 schema/validate_test_cases.py`)いずれも再実行し変更なしでパスを確認
+  (回帰なし)。実GCP/Stripe接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜3)がオーナーから
+  承認された場合はその着手を最優先、(2)上記「事前予約制」の予約枠時刻情報の扱い、
+  staffing両方0入力時の警告表示有無の検討、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-16 23:57 UTC(フェーズ126: 詳細は上記。event-form-ui-draft.mdを新規
+  作成し、主催者向け申込フォームのcapacityヘルプテキスト・全5項目の画面構成を具体化。
+  コード変更なし、既存テスト184件・schema検証22件いずれも変更なしでパス)
