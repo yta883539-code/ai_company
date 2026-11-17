@@ -7647,3 +7647,22 @@
   script.mdを新規作成し、onboarding-guide.md・support-cost-selfservice-reduction.mdの
   関連記載を更新。コード変更なし、既存テスト843件・schema検証25件いずれも変更なしで
   パス、回帰なし。他venture側ファイルの変更なし。)
+- フェーズ394(2026-11-17 14:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (line-reservation-aiは承認待ち以外の前進余地なしのため除外)を前進。フェーズ393の
+  次回候補(1)に対応し、ステップ1(申込フォーム入力)についても実アカウント名・QRコード
+  を伴わないため、onboarding-guide.md 1.記載の入力項目(屋号・事業形態〈任意〉・連絡先
+  メールアドレス)とuser-account-linking-design.md 2節の連携コード発行方式を素材に、
+  申込フォーム〜サンクスページ(連携コード表示)までの画面モックスクリプトとして
+  step1-application-form-mock-script.mdを新規作成した。連携コード「7F3KD2」は表示イメージ
+  用の架空の値であり、実際に`pending_links/{code}`へ発行したものではない。onboarding-
+  guide.md「次のステップ候補」・ステップ1節の両方に本対応を反映し、INDEX.mdにも新規ファイル
+  を追記した。コード変更なし(ドキュメントのみ)、実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)ステップ5(本番運用時のメモ送信)についても同様のモックスクリプトを作成する、
+  (2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-17 14:00 UTC(フェーズ394: 詳細は上記。
+  step1-application-form-mock-script.mdを新規作成し、onboarding-guide.md・INDEX.mdの
+  関連記載を更新。コード変更なし、他venture側ファイルの変更なし。)
