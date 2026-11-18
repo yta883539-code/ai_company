@@ -7151,3 +7151,28 @@
   スコープ外としここでは見送った、(3)2026-11-08 08:00 UTC記載の運営方針判断が引き続き
   未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)
   ため、オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ388(2026-11-18 00:00 UTC定例更新): 7venture中最も更新が止まっていた
+  line-reservation-aiは承認待ち以外の前進余地が無いため見送り、次点で最も更新が止まっていた
+  本ventureを前進。フェーズ387次回候補(2)「ブロック→再追加」の手間を解消するテキストコマンド
+  (「コード再発行」)での再発行機能を具体化した(linking-code-reissue-command-design.md新規作成)。
+  検討の過程で、`issue_linking_code_on_follow()`という関数名が示す前提(コード発行には`follow`
+  イベントが必要)は実は誤りで、通常の`message`イベントのペイロードにも送信者の`user_id`は
+  含まれているため、`follow`イベントの再発火(ブロック→再追加)自体が不要だったことが判明した。
+  prototype/user_id_linking.pyに`is_linking_code_reissue_trigger()`(owner_faq_router.pyと
+  同じNFKC正規化+完全一致判定)・`reissue_linking_code()`(既存の`delete_pending_links_for_user()`
+  ・`issue_linking_code_on_follow()`を再利用し1人1コードを保ったまま再発行)・
+  `render_linking_code_reissue_message()`を新規追加し、test_user_id_linking.pyに9件のテストを
+  追加した(新規ロジック・外部API接続は無く、既存の純粋関数を組み合わせただけ)。
+  line-user-id-linking-design.md 3節に本フェーズの発見への参照を追記(文言差し替え自体は
+  配線完了後に見送り)。process_memo_event()への実配線(FAQコマンドと同じ経路での追加)は
+  既存2000行超のwebhookハンドラへの影響範囲確認が必要なため、本フェーズのスコープ外として
+  次回候補に持ち越した。既存テスト910件+新規9件=919件(`python3 -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証22件(`python3 schema/validate_test_cases.py`)いずれも
+  パス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)process_memo_event()への実配線(本節4節参照)、(2)配線完了後、
+  line-user-id-linking-design.md 3節・Googleフォームのエラーメッセージ文言(フォーム自体は
+  未作成)を「コード再発行」案内に差し替え、(3)2026-11-08 08:00 UTC記載の運営方針判断が
+  引き続き未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
+  参照)ため、オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の前進。

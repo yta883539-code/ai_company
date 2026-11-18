@@ -240,3 +240,40 @@ def purge_expired_links(store: LinkingCodeStoreProtocol, now: datetime) -> int:
     for code in expired_codes:
         store.delete(code)
     return len(expired_codes)
+
+
+# linking-code-reissue-command-design.md: 「コード再発行」テキストコマンド。
+_REISSUE_TRIGGER_KEYWORD = "コード再発行"
+
+
+def is_linking_code_reissue_trigger(text: str) -> bool:
+    """design 2節: 本文が「コード再発行」コマンドと完全一致するか判定する。
+    owner_faq_router.is_owner_faq_menu_trigger()と同じくNFKC正規化を適用してから
+    前後空白を除去して比較するため、全角/半角の揺れ・前後の空白は吸収する。
+    """
+    return unicodedata.normalize("NFKC", text).strip() == _REISSUE_TRIGGER_KEYWORD
+
+
+def reissue_linking_code(
+    user_id: str,
+    store: LinkingCodeStoreProtocol,
+    now: datetime,
+    rng: RandomChoiceSource,
+) -> str:
+    """design 3節: 「コード再発行」コマンド受信時に呼ぶ。そのuser_id宛の未使用の
+    古いコードを先に削除してから(1人1コードに保つ)、issue_linking_code_on_follow()を
+    再利用して新しいコードを発行する。`follow`イベントの再発火は不要(design 1節、
+    message イベントのペイロードにも user_id は含まれるため)。
+    """
+    delete_pending_links_for_user(user_id, store)
+    return issue_linking_code_on_follow(user_id, store, now, rng)
+
+
+def render_linking_code_reissue_message(code: str) -> str:
+    """design 3節: 再発行コマンドへの返信文を組み立てる。follow時のウェルカムメッセージ
+    (follow-event-welcome-message-design.md)と文体を揃え、有効期限(24時間)を明記する。
+    """
+    return (
+        f"新しい連携コードを発行しました: {code}\n"
+        "このコードは24時間有効です。申込フォームの「連携コード」欄にご入力ください。"
+    )

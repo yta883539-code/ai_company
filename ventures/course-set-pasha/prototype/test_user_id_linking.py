@@ -17,8 +17,11 @@ from user_id_linking import (  # noqa: E402
     LinkingResolution,
     delete_pending_links_for_user,
     handle_form_submission_with_linking_code,
+    is_linking_code_reissue_trigger,
     issue_linking_code_on_follow,
     purge_expired_links,
+    reissue_linking_code,
+    render_linking_code_reissue_message,
     resolve_linking_code,
 )
 
@@ -297,6 +300,61 @@ class LinkingCodePurgeThrottleTest(unittest.TestCase):
         throttle = LinkingCodePurgeThrottle()
 
         self.assertEqual(throttle.maybe_run(store, _NOW), 0)
+
+
+class IsLinkingCodeReissueTriggerTest(unittest.TestCase):
+    def test_matches_exact_keyword(self):
+        self.assertTrue(is_linking_code_reissue_trigger("コード再発行"))
+
+    def test_matches_with_surrounding_whitespace(self):
+        self.assertTrue(is_linking_code_reissue_trigger("  コード再発行  "))
+
+    def test_matches_fullwidth_latin_mixed_in(self):
+        # NFKC正規化の対象は英数字のみだが、正規化を前段に通しても日本語部分は
+        # 変化しないことを確認する(全角キーワード自体が既に本来の表記のため)。
+        self.assertTrue(is_linking_code_reissue_trigger("コード再発行\n"))
+
+    def test_does_not_match_partial_natural_language(self):
+        self.assertFalse(is_linking_code_reissue_trigger("コード再発行して"))
+
+    def test_does_not_match_unrelated_text(self):
+        self.assertFalse(is_linking_code_reissue_trigger("FAQ"))
+
+
+class ReissueLinkingCodeTest(unittest.TestCase):
+    def test_deletes_old_codes_for_the_user_before_issuing_a_new_one(self):
+        store = InMemoryLinkingCodeStore()
+        old_code = issue_linking_code_on_follow("U1234", store, _NOW, random.Random(1))
+
+        new_code = reissue_linking_code(
+            "U1234", store, _NOW + timedelta(minutes=5), random.Random(2)
+        )
+
+        self.assertIsNone(store.get(old_code))
+        self.assertEqual(store.get(new_code), ("U1234", _NOW + timedelta(minutes=5)))
+
+    def test_does_not_affect_other_users_codes(self):
+        store = InMemoryLinkingCodeStore()
+        other_code = issue_linking_code_on_follow("U-other", store, _NOW, random.Random(1))
+
+        reissue_linking_code("U1234", store, _NOW, random.Random(2))
+
+        self.assertEqual(store.get(other_code), ("U-other", _NOW))
+
+    def test_works_even_when_no_prior_code_exists(self):
+        store = InMemoryLinkingCodeStore()
+
+        new_code = reissue_linking_code("U1234", store, _NOW, random.Random(1))
+
+        self.assertEqual(store.get(new_code), ("U1234", _NOW))
+
+
+class RenderLinkingCodeReissueMessageTest(unittest.TestCase):
+    def test_includes_the_code_and_validity_period(self):
+        message = render_linking_code_reissue_message("7K9XPQ")
+
+        self.assertIn("7K9XPQ", message)
+        self.assertIn("24時間", message)
 
 
 if __name__ == "__main__":

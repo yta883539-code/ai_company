@@ -65,6 +65,7 @@ pending-approval.md 2026-11-08 08:00 UTC記載の「整理(重複排除・要約
 - webhook-event-dispatch-design.md / webhook-processing-flow-design.md
 - receive-webhook-http-entry-point-design.md / onboarding-settings-and-self-check-design.md
 - limit-approaching-notification-design.md / linking-code-purge-trigger-design.md
+- linking-code-reissue-command-design.md
 - line-webhook-event-id-idempotency-design.md
 - webhook-sync-reply-timeout-root-cause-review.md
 - process-memo-event-async-split-design.md
