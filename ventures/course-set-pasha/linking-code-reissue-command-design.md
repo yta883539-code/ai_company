@@ -43,15 +43,27 @@ webhookペイロードにも送信者の`user_id`は常に含まれている(`ev
    「新しい連携コードを発行しました: {code}(24時間有効)申込フォームにこのコードを
    入力してください。」という趣旨とし、follow時のウェルカムメッセージと文体を揃える。
 
-## 4. process_memo_event()への組み込み方針(未着手・次回候補)
+## 4. process_memo_event()への組み込み方針(フェーズ389で配線完了)
 
-cloud_function_webhook.pyのprocess_memo_event()は現在、2.5節でFAQコマンド判定、2.6節で
-intent_classifierによる自由文分類を行っている。本コマンドはFAQコマンドと同じ「厳密一致で
-LLM呼び出し・月次カウントを一切行わず即時終了する」経路のため、2.5節の直前または直後に
-「2.55節」として追加するのが自然だが、実際の関数シグネチャへの追加(`linking_store`は既に
-引数として存在するため新規依存の追加は不要)・既存テスト(910件)への影響範囲の確認は
-本フェーズのスコープ外とし、次回候補として持ち越す。本フェーズでは、配線前に単体で検証可能な
-純粋関数群(user_id_linking.pyへ追加)とその単体テストの追加までを行う。
+cloud_function_webhook.pyのprocess_memo_event()に、2.5節(FAQコマンド判定)より手前の
+「2.45節」として本コマンドの判定を追加した。`linking_store`が渡されており(未接続時は
+既存の呼び出し元の挙動を変えず素通りする安全側フォールバック)、かつ本文が「コード再発行」
+(NFKC正規化+strip()後の完全一致)、かつ`source.userId`が取得できる場合のみ、LLM呼び出し・
+月間カウント増分を一切行わず、`reissue_linking_code()`(3節で追加済みの純粋関数、
+`delete_pending_links_for_user()`→`issue_linking_code_on_follow()`の内部再利用)で新しい
+コードを発行し、`render_linking_code_reissue_message()`の案内文を返信して処理を終える。
+`rng`は`process_follow_event()`と同じパターン(`rng if rng is not None else random.Random()`)
+で解決し、新規の引数`rng: Optional[RandomChoiceSource] = None`をprocess_memo_event()の
+シグネチャに追加した(既存呼び出し元は省略時は従来通りの既定動作のまま、挙動は変わらない)。
+結果は`MemoProcessResult.reissued_linking_code`(新規フィールド、Optional[str])に発行済み
+コードを設定する。
+
+既存テスト910件に加え、`ProcessMemoEventLinkingCodeReissueCommandTest`として8件
+(通常発行・NFKC正規化・古いコードの削除・`linking_store`未接続時のフォールスルー・
+`userId`欠落時のフォールスルー・無関係テキストのフォールスルー・月間カウント非増分・
+生成一時停止判定への優先)を追加し、`python3 -m unittest discover -s prototype -p
+"test_*.py"`で全927件パス、`python3 schema/validate_test_cases.py`22件もいずれもパス
+(回帰なし)を確認した。
 
 ## 5. 既存ドキュメントとの整合
 
@@ -63,9 +75,8 @@ line-user-id-linking-design.md 3節の「期限切れの場合は『一度この
 
 ## 残課題
 
-- process_memo_event()への実配線(4節)。
 - フォーム提出エラーメッセージ(Googleフォーム側、実フォーム未作成のため文言自体は未確定)
   にも「コード再発行とトークに送信」という案内を反映する(フォーム実設定自体はオーナー承認待ち)。
-- line-user-id-linking-design.md 3節の案内文言の差し替え(配線完了後)。
+- line-user-id-linking-design.md 3節の案内文言の差し替え(配線完了、次回候補)。
 - 実LINE Messaging API接続・実Firestore接続はいずれもオーナー承認待ち(pending-approval.md参照)
-  のため、本フェーズで追加するのは純粋関数とその単体テストのみ。
+  のため、本フェーズ(389)で行ったのはprocess_memo_event()への配線とその単体テストのみ。

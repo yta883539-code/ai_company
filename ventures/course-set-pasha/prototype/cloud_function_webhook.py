@@ -40,7 +40,10 @@ from user_id_linking import (  # noqa: E402
     LinkingCodeStoreProtocol,
     RandomChoiceSource,
     delete_pending_links_for_user,
+    is_linking_code_reissue_trigger,
     issue_linking_code_on_follow,
+    reissue_linking_code,
+    render_linking_code_reissue_message,
 )
 from validate_test_cases import (  # noqa: E402
     SCHEMA,
@@ -817,8 +820,8 @@ def format_welcome_message(
         f"連携コード: {linking_code}\n\n"
         "▼ お申込みフォーム\n"
         f"{form_url}\n\n"
-        "コードの有効期限が切れた場合は、お手数ですが一度このアカウントをブロックのうえ、"
-        "再度「友だち追加」していただくと新しいコードが届きます。\n\n"
+        "コードの有効期限が切れた場合は、お手数ですがこのトーク画面で「コード再発行」と"
+        "送信してください。新しいコードをお送りします。\n\n"
         "ご利用方法やプラン変更・解約などのご質問は、トークルームで「FAQ」と送信すると"
         "いつでもご案内します。"
     )
@@ -1138,6 +1141,7 @@ class MemoProcessResult:
     subscription_canceled: bool = False  # True=customer.subscription.deleted受信済み(解約確定)のため停止応答
     owner_faq_action: Optional[str] = None  # "menu"|"Q1"〜"Q6"=owner-faq-routing-design.md準拠のFAQコマンド応答
     chatbot_intent: Optional[str] = None  # intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
+    reissued_linking_code: Optional[str] = None  # linking-code-reissue-command-design.md準拠。「コード再発行」コマンド応答時のみ新コードを設定
 
 
 def _summarize_errors_for_retry(errors: list[str]) -> str:
@@ -1263,6 +1267,7 @@ def process_memo_event(
     profile_store: Optional[UserProfileStoreProtocol] = None,
     intent_classifier: Optional[ChatbotIntentClassifierProtocol] = None,
     escalation_push_client: Optional[LinePushClient] = None,
+    rng: Optional[RandomChoiceSource] = None,
     now: Optional[datetime] = None,
 ) -> MemoProcessResult:
     """LINEのmessageイベント1件を処理する(署名検証済みの前提)。
@@ -1272,6 +1277,15 @@ def process_memo_event(
        返信を送らずhandled=Falseで返す。
     2. has_photoはイベント側の付随情報として受け取る(束ね方自体は残課題、
        webhook-processing-flow-design.md「残課題」参照)。
+    2.45. linking-code-reissue-command-design.md準拠。本文が「コード再発行」(NFKC正規化+
+       strip()後の完全一致)の場合、linking_storeが渡されていれば(未接続時は従来通り
+       素通りしFAQ判定・既存フローへフォールスルーする)、LLM呼び出し・月間カウント増分を
+       一切行わず、そのユーザー宛の未使用の古いコードを削除してから新しいコードを発行し
+       (reissue_linking_code()、issue_linking_code_on_follow()と同じ`follow`イベント不要の
+       経路)、案内文を直接返信して処理を終える(reissued_linking_code=発行したコード)。
+       2.5節のFAQコマンド判定より前に判定する(「コード再発行」はFAQ項目の文言
+       「Q1」〜「Q6」「FAQ」と衝突しないため順序自体に優先度上の意味はないが、design 4節の
+       記載順に合わせた)。
     2.5. owner-faq-routing-design.md準拠。本文が「FAQ」または「Q1」〜「Q6」に一致する
        場合、LLM呼び出し・生成一時停止/決済失敗制限モードの判定・月間カウント増分を
        一切行わず、FAQメニューまたは該当項目の回答を直接返信して処理を終える
@@ -1368,6 +1382,21 @@ def process_memo_event(
     memo_text = message["text"]
     has_photo = bool(event.get("hasPhoto", False))
     user_id_for_pause_check = event.get("source", {}).get("userId")
+
+    # linking-code-reissue-command-design.md準拠(4節の配線方針)。linking_store未接続時は
+    # 安全側で判定自体をスキップし、既存の呼び出し元への影響を一切与えない。
+    if linking_store is not None and is_linking_code_reissue_trigger(memo_text) and user_id_for_pause_check:
+        resolved_rng = rng if rng is not None else random.Random()
+        reissued_code = reissue_linking_code(
+            user_id_for_pause_check, linking_store, now or datetime.now(timezone(timedelta(hours=9))), resolved_rng
+        )
+        reissue_message = render_linking_code_reissue_message(reissued_code)
+        reply_sent = _reply_with_retry(reply_client, reply_token, reissue_message)
+        return MemoProcessResult(
+            handled=True, reply_sent=reply_sent,
+            reply_text=reissue_message if reply_sent else None,
+            reissued_linking_code=reissued_code,
+        )
 
     # owner-faq-routing-design.md準拠。本ventureには来店客に相当する層がおらず、
     # メッセージ送信者は常に契約者本人であるため、owner_user_idのような絞り込み判定は

@@ -7176,3 +7176,33 @@
   未作成)を「コード再発行」案内に差し替え、(3)2026-11-08 08:00 UTC記載の運営方針判断が
   引き続き未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
   参照)ため、オーナーから得られた場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ389(2026-11-19 23:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ388次回候補(1)「process_memo_event()への実配線」に対応し、
+  linking-code-reissue-command-design.md 4節で未着手としていた配線を実装した。
+  cloud_function_webhook.pyのprocess_memo_event()に、2.5節(FAQコマンド判定)より手前の
+  「2.45節」として「コード再発行」コマンド判定を追加し、`linking_store`接続時かつ
+  `source.userId`取得時のみ`reissue_linking_code()`で新コードを発行して
+  `render_linking_code_reissue_message()`の案内文を返信する経路を配線した(未接続時・
+  userId欠落時は既存の呼び出し元の挙動を一切変えず素通りする安全側フォールバック)。
+  `process_follow_event()`と同じ`resolved_rng = rng if rng is not None else random.Random()`
+  パターンに合わせ、process_memo_event()に`rng`引数を新規追加し、`MemoProcessResult`に
+  `reissued_linking_code`フィールドを追加した。あわせて、次回候補(2)だった
+  line-user-id-linking-design.md 3節・follow-event-welcome-message-design.mdのウェルカム
+  メッセージ案内文言を、配線完了に合わせて「一度ブロックのうえ再度『友だち追加』」から
+  「このトーク画面で『コード再発行』と送信してください」に差し替えた(フォーム側の実際の
+  エラーメッセージ文言反映自体はフォーム未作成のため次回候補として残した)。
+  `ProcessMemoEventLinkingCodeReissueCommandTest`として8件のテスト(通常発行・NFKC正規化・
+  古いコードの削除・`linking_store`未接続時のフォールスルー・userId欠落時のフォールスルー・
+  無関係テキストのフォールスルー・月間カウント非増分・生成一時停止判定への優先)を追加し、
+  既存テスト910件+新規9件(フェーズ388のuser_id_linking.py分)+新規8件=927件
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LINE/Stripe/GCP
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし(2026-11-08
+  08:00 UTC記載の運営方針確認は前回直接通知2026-11-17 12:00 UTCから約59時間・状況不変
+  のため再通知は見送り、状況記録のみ追記)。
+  次回候補: (1)Googleフォームのエラーメッセージ文言(フォーム自体は未作成)を「コード
+  再発行」案内に差し替え(フォーム実設定自体はオーナー承認待ち)、(2)2026-11-08 08:00 UTC
+  記載の運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他
+  venture・アイデア領域の前進。

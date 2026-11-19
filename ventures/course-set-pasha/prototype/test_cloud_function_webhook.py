@@ -68,6 +68,7 @@ from cloud_function_webhook import (  # noqa: E402
 from user_id_linking import (  # noqa: E402
     InMemoryLinkingCodeStore,
     LinkingCodePurgeThrottle,
+    render_linking_code_reissue_message,
 )
 from application_form_submission_flow import (  # noqa: E402
     InMemoryUserProfileStore,
@@ -1243,6 +1244,113 @@ class ProcessMemoEventOwnerFaqCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.owner_faq_action, "menu")
+        self.assertFalse(result.generation_paused)
+
+
+class ProcessMemoEventLinkingCodeReissueCommandTest(unittest.TestCase):
+    """process_memo_event()からの「コード再発行」コマンド応答の検証
+    (linking-code-reissue-command-design.md 4節の配線)。"""
+
+    def _rng(self, seed=1):
+        import random
+
+        return random.Random(seed)
+
+    def test_reissue_trigger_returns_new_code_without_calling_llm(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="コード再発行", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            linking_store=linking_store, rng=self._rng(),
+        )
+
+        self.assertTrue(result.handled)
+        self.assertTrue(result.reply_sent)
+        self.assertIsNotNone(result.reissued_linking_code)
+        self.assertEqual(result.reply_text, render_linking_code_reissue_message(result.reissued_linking_code))
+
+    def test_reissue_trigger_is_normalized_and_ignores_surrounding_whitespace(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text=" コード再発行 ", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            linking_store=linking_store, rng=self._rng(),
+        )
+
+        self.assertIsNotNone(result.reissued_linking_code)
+
+    def test_reissue_deletes_old_pending_code_for_same_user(self):
+        linking_store = InMemoryLinkingCodeStore()
+        linking_store.save("OLDCODE1", "u-1", datetime(2026, 8, 1, 0, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="コード再発行", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            linking_store=linking_store, rng=self._rng(),
+        )
+
+        self.assertIsNone(linking_store.get("OLDCODE1"))
+        self.assertIsNotNone(linking_store.get(result.reissued_linking_code))
+
+    def test_without_linking_store_falls_through_to_normal_generation_flow(self):
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="コード再発行", user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+        )
+
+        self.assertIsNone(result.reissued_linking_code)
+
+    def test_without_user_id_falls_through_to_normal_generation_flow(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="コード再発行"), FixtureLlmClient("G1_basic"), reply_client,
+            linking_store=linking_store,
+        )
+
+        self.assertIsNone(result.reissued_linking_code)
+
+    def test_unrelated_text_falls_through_to_normal_generation_flow(self):
+        linking_store = InMemoryLinkingCodeStore()
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="エリアA 黄テープ 8本新規", user_id="u-1"), FixtureLlmClient("G1_basic"), reply_client,
+            linking_store=linking_store,
+        )
+
+        self.assertIsNone(result.reissued_linking_code)
+
+    def test_reissue_command_does_not_increment_monthly_count(self):
+        linking_store = InMemoryLinkingCodeStore()
+        usage_counter = InMemoryUsageCounter()
+        reply_client = InMemoryReplyClient()
+
+        process_memo_event(
+            _make_event(text="コード再発行", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            linking_store=linking_store, usage_counter=usage_counter, plan="ライト", month="2026-08",
+            rng=self._rng(),
+        )
+
+        self.assertEqual(usage_counter.get_count("u-1", "2026-08"), 0)
+
+    def test_reissue_command_takes_precedence_over_generation_paused(self):
+        linking_store = InMemoryLinkingCodeStore()
+        usage_counter = InMemoryUsageCounter()
+        usage_counter.set_trial_end_notified_at("u-1", datetime(2026, 8, 20, 5, 0, 0))
+        reply_client = InMemoryReplyClient()
+
+        result = process_memo_event(
+            _make_event(text="コード再発行", user_id="u-1"), _MustNotBeCalledLlmClient(), reply_client,
+            linking_store=linking_store, usage_counter=usage_counter, plan="ライト", month="2026-08",
+            rng=self._rng(),
+        )
+
+        self.assertIsNotNone(result.reissued_linking_code)
         self.assertFalse(result.generation_paused)
 
 
