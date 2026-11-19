@@ -47,14 +47,18 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
      紐付けられる(craftsman-account-linking-design.md 2節、`create_workshop_from_linking_code()`)。
      この時点ではpricing-plan.mdの無料トライアル条件(30日間、trial-end-condition-design.md)
      に従い課金は発生しない。
-   - **屋号(工房名)・連絡先メールアドレス・想定利用形態(個人/複数職人での共同利用)の
-     収集方法は未確定のまま残る**(是正前の本項は、これらをLP経由の申込フォームで集める
-     前提だったが、申込フォーム自体が存在しないため成立しない)。屋号は
+   - **屋号(工房名)・連絡先メールアドレス・想定利用形態(個人/複数職人での共同利用)は、
+     workshop新規作成の直後、同じLINEトーク上で続けて3問を順に尋ねる追加質問応答方式で
+     収集する**(2026-11-19 フェーズ続き316決定、craftsman-profile-collection-design.md
+     参照。別途Webフォームを新設する案は、本venture唯一の顧客接点であるLINEトークに
+     加えて新たな導線分岐を生み、craftsman-account-linking-design.md 1節が「LINE友だち
+     追加が先」方式を採った「低頻度・高単価の受注特性ではフォーム入力よりLINE上で完結
+     する導線の方が手数が少ない」という理由と整合しないため採用しなかった)。屋号は
      workshop-name-owner-notification-display-design.md(フェーズ177)がオーナー向け通知
-     表示にのみ使う前提で既に`WorkshopStoreProtocol`にフィールドを持つが、実際の収集・
-     設定経路(LINEトーク上での追加の質問応答、別途Googleフォームの新設、等)は本フェーズ
-     時点で未設計。連絡先メールアドレス・想定利用形態は現時点でデータモデル上の保持先すら
-     無い。次回以降の課題とする(下記「次のステップ候補」参照)。
+     表示にのみ使う前提で既に`WorkshopStoreProtocol`にフィールドを持つ。連絡先メール
+     アドレス・想定利用形態・進行管理用の`profile_collection_step`は現時点でデータモデル上
+     の保持先が無く、`WorkshopStoreProtocol`への追加・Webhookハンドラへの配線は未実装
+     (craftsman-profile-collection-design.md「4. 残課題」参照)。
    - 複数職人プランを想定する場合、代表者以外の職人分のLINE友だち追加・招待コード入力を
      追加で行うことで同一workshopに参加できる(craftsman-account-linking-design.md
      5節・11.1〜11.4節参照)。具体的には、代表者がLINEトーク上で「職人を追加したい」等の

@@ -7439,3 +7439,38 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   workshop-name-owner-notification-display-design.md・usage_counter_workshop.pyの
   「存在しない申込フォームへの言及」誤りを是正。既存テスト26ファイル・schema検証32件
   いずれもパス、回帰なし。)
+- フェーズ続き316(2026-11-19 21:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (line-reservation-aiは承認待ち以外の前進余地なしのため除外)を前進。フェーズ続き315の
+  次回候補(1)「屋号・連絡先メール・想定利用形態の実際の収集経路の設計(LINEトーク上での
+  追加質問応答か、別途フォーム新設か)の決定」に対応し、
+  craftsman-profile-collection-design.mdを新規作成した。craftsman-account-linking-
+  design.md 1節が「LINE友だち追加が先」方式を採った理由(低頻度・高単価の受注特性では
+  フォーム入力よりLINE上で完結する導線の方が手数が少ない)が屋号等の収集にも等しく
+  当てはまること、別途Webフォーム新設は本venture唯一の顧客接点であるLINEトークに加えて
+  新たな導線分岐を生み、フェーズ続き314で是正した「存在しない申込フォームへの言及」の
+  再発リスクがあることを整理し、workshop新規作成直後にLINEトーク上で3問(屋号・連絡先
+  メールアドレス・想定利用形態)を順に尋ねる追加質問応答方式を決定した。進行管理用の
+  新規フィールド`profile_collection_step`(LLMを介さない固定3問の決定的な状態機械であり、
+  tech-stack.mdが明記する中核機能〈メモ生成〉の「会話状態を持たない単方向バッチ処理」
+  とはスコープが異なる独立した状態であることを明記)・`contact_email`・
+  `expected_usage_type`を`WorkshopStoreProtocol`に追加する設計としたが、
+  `WorkshopStoreProtocol`・`InMemoryWorkshopStore`・firestore_workshop_adapter.py・
+  Webhookハンドラへの実装・配線自体は次フェーズ以降の課題として残した(設計のみ)。
+  onboarding-guide.md 2節の「収集方法は未確定」としていた記載を本決定に基づき更新し、
+  INDEX.mdにも新規ファイルを追加した。コード変更なし、既存テスト
+  (`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+  (`python3 schema/validate_test_cases.py`)32件を再実行しいずれもパス(回帰なし)を確認した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-19 19:00 UTCから約2時間・
+  状況不変のため今回も追記・再通知とも見送り、24時間以上無応答が続いた場合に次回送付)。
+  次回候補: (1)`profile_collection_step`・`contact_email`・`expected_usage_type`の
+  `WorkshopStoreProtocol`・`InMemoryWorkshopStore`・firestore_workshop_adapter.pyへの
+  実装、(2)Webhookハンドラ(cloud_function_webhook.py)への分岐配線の設計・実装、
+  (3)上記実装後、ステップ1・ステップ4のモックスクリプト作成、(4)他venture・アイデア
+  領域の前進を継続する。
+- 最終更新: 2026-11-19 21:00 UTC(フェーズ続き316: 詳細は上記。
+  craftsman-profile-collection-design.mdを新規作成し、屋号・連絡先メール・想定利用形態の
+  収集経路をLINEトーク上の追加質問応答3問に決定(実装は未着手)。onboarding-guide.md 2節・
+  INDEX.mdを更新。コード変更なし、既存テスト26ファイル・schema検証32件いずれもパス、
+  回帰なし。)
