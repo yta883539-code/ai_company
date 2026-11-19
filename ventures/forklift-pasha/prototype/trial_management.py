@@ -44,8 +44,9 @@ class FleetOperatorStoreProtocol:
         raise NotImplementedError
 
     def set_upgraded_at(self, internal_id: str, value: datetime) -> None:
-        """trial-end-notification-design.md 4節。有料転換時に設定する(本venture未設計
-        だったStripe決済導線の完了処理からの書き込みを想定、呼び出し配線は次回以降の課題)。
+        """trial-end-notification-design.md 4節。有料転換時に設定する(呼び出し配線は
+        stripe_webhook.pyのlink_checkout_session_to_fleet_operator()内、checkout.
+        session.completed処理で実装済み)。
         aircon-pasha/user_id_linking.pyのset_upgraded_at()と同じく上書き可(set_trial_
         start_at等と異なり「初回のみ」の制約は設けない)。"""
         raise NotImplementedError

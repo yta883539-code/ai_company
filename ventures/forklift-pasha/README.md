@@ -5423,3 +5423,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   の`should_notify_trial_end()`・`is_generation_paused()`のdocstring2箇所を、実装済みの
   呼び出し配線の実態に合わせて是正。コード変更あり〈docstringのみ、ロジック変更なし〉、
   既存テスト24ファイル・schema検証11件いずれも変更なしでパス、回帰なし)
+
+- フェーズ247(2026-11-19 19:00 UTC定例更新・前回更新から約42時間の間隔が空いた):
+  7venture中最も更新が止まっていた本venture(forklift-pasha、前回更新2026-11-17 19:00 UTC)
+  を前進させた。承認待ち事項1〜4・福岡県支部所在地確定・2026-11-08 08:00 UTC記載の運営方針
+  確認はいずれも未解消のため、新たな未承認前提を積み増す机上設計の追加は見送り、代わりに
+  フェーズ246と同種のdocstring棚卸しを継続した。prototype/trial_management.pyの
+  `FleetOperatorStoreProtocol.set_upgraded_at()`のdocstringが「本venture未設計だった
+  Stripe決済導線の完了処理からの書き込みを想定、呼び出し配線は次回以降の課題」という記載の
+  まま残っていたが、実際にはstripe_webhook.pyの`link_checkout_session_to_fleet_operator()`
+  内でcheckout.session.completedイベント処理時に既に`store.set_upgraded_at()`が呼ばれて
+  おり(実装済み)、docstringが実態に追従していない記録漏れであることを確認し是正した。
+  挙動・ロジック自体の変更はない。既存テスト(`python3 prototype/run_all_tests.py`全24
+  ファイル)・schema検証(`python3 schema/validate_test_cases.py`11件)を再実行しいずれも
+  変更なしでパス(回帰なし)。実GCPプロジェクト・Firestore・実LLM APIへの接続・デプロイ、
+  支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回
+  発生していないためpending-approval.mdへの追記なし。なお本フェーズの実行開始時点で、
+  前回コミット(2026-11-18 01:04 UTC)からおよそ42時間、本venture自体の最終更新
+  (2026-11-17 19:00 UTC)からおよそ48時間が経過しており、毎時起動のはずのスケジュール
+  実行が一時的に行われていなかった形跡を確認した(原因は本セッションからは特定不可。
+  トリガー設定自体〈cron: 毎時57分〉は本フェーズ実行時点で有効・停止理由なしを確認済み)。
+  次回候補: (1)承認待ち事項1〜4がオーナーから承認された場合はその着手を最優先、
+  (2)福岡県支部の所在地確定は、オーナーが官公庁ドメインへのネットワークアクセスを
+  別途許可した場合にのみ再試行する、(3)2026-11-08 08:00 UTC記載の運営方針確認
+  (pending-approval.md)が未回答のため、回答があるまでは机上設計の積み増しより
+  既存実装の健全性確認・docstring等の記録棚卸し・他venture・アイデア領域の前進を
+  優先する。
+- 最終更新: 2026-11-19 19:00 UTC(フェーズ247: 詳細は上記。prototype/trial_management.py
+  の`set_upgraded_at()`docstring1箇所を、stripe_webhook.py側で実装済みの呼び出し配線の
+  実態に合わせて是正。コード変更あり〈docstringのみ、ロジック変更なし〉、既存テスト24
+  ファイル・schema検証11件いずれも変更なしでパス、回帰なし)
