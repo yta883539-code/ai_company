@@ -7229,3 +7229,25 @@
   (2)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の最大の
   ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
   その着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ391(2026-11-20 10:00 UTC定例更新): 7venture中最も更新が止まっていた本ventureを
+  前進。フェーズ390次回候補(1)「ウェルカムメッセージ・コード再発行メッセージへの事前案内
+  文言の具体化・反映」に着手し、`render_linking_code_reissue_message()`
+  (`prototype/user_id_linking.py`)を確認したところ、ウェルカムメッセージ
+  (`format_welcome_message()`)側には既に「コードの有効期限が切れた場合は...『コード再発行』と
+  送信してください」という事前案内があるのに対し、再発行コマンドへの返信文側にはこの案内が
+  含まれておらず、再発行後のコードが再度期限切れになった場合に利用者が気づく手段を欠いていた
+  (line-user-id-linking-design.md フェーズ390追記の(a)案が、ウェルカムメッセージ側のみ反映
+  されて再発行メッセージ側で反映漏れになっていた状態)。`render_linking_code_reissue_message()`
+  の末尾にウェルカムメッセージと同文言の事前案内を追記し、line-user-id-linking-design.md 3節・
+  残課題とlinking-code-reissue-command-design.md 残課題にこの対応を反映した。新規テスト追加は
+  不要(`test_user_id_linking.py`の`RenderLinkingCodeReissueMessageTest`は`assertIn`方式、
+  `test_cloud_function_webhook.py`側は関数呼び出し結果との`assertEqual`のため、いずれも文言
+  追加の影響を受けない)。既存テスト927件(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証22件(`python3 schema/validate_test_cases.py`)いずれも変更なしで
+  パス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-19 19:00 UTCから約15時間・
+  状況不変のため再通知は見送り、状況記録のみ追記)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進。

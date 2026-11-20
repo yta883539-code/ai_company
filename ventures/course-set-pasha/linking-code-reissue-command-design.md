@@ -81,6 +81,14 @@ line-user-id-linking-design.md 3節の「期限切れの場合は『一度この
   (Googleフォームの標準完了画面のまま)、400応答はオーナーがGAS実行ログを手動確認する
   運用のため、そもそも「フォーム提出エラーメッセージ」という回答者向け表示経路自体が
   MVP設計上存在しない。詳細・代替対応候補はline-user-id-linking-design.md 3節・残課題を参照。
-- line-user-id-linking-design.md 3節の案内文言の差し替え(配線完了、次回候補)。
+- **フェーズ391で解消**: `render_linking_code_reissue_message()`自体がウェルカムメッセージ
+  (`format_welcome_message()`)と異なり「このコードも期限切れになった場合は『コード再発行』と
+  送信してください」という事前案内を含んでいなかった(3節の文面は発行時点の案内のみで、
+  再発行コードがさらに期限切れになるケースへの案内が欠落していた)。ウェルカムメッセージと
+  同文言の事前案内を末尾に追記し、両メッセージの事前案内を揃えた。`test_user_id_linking.py`の
+  `RenderLinkingCodeReissueMessageTest`は`assertIn`方式(完全一致チェックなし)のため既存
+  アサーションへの影響はなく、`test_cloud_function_webhook.py`側も関数呼び出し結果との
+  `assertEqual`のため同様に影響なし。既存テスト927件・schema検証22件いずれも変更なしでパス
+  (回帰なし)。
 - 実LINE Messaging API接続・実Firestore接続はいずれもオーナー承認待ち(pending-approval.md参照)
   のため、本フェーズ(389)で行ったのはprocess_memo_event()への配線とその単体テストのみ。

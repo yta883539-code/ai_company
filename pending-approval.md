@@ -229,3 +229,20 @@ venture: 全7venture共通(line-reservation-ai・course-set-pasha・aircon-pasha
 追記(2026-11-20 09:00 UTC): 前回の直接通知(2026-11-19 19:00 UTC)から約14時間であり、2026-11-08 08:00 UTC記載の二択((1)いずれか1ventureだけでも実アカウント作成等を承認、(2)当面すべて保留とし整理・重複排除側に作業時間を再配分)の判断待ちという状況に変化はない。前回通知から24時間以内のため、本記録への追記のみとし、直接通知(プッシュ通知・メール)の再送は見送る。本フェーズではideas.mdに新規アイデア1件を追加した(Citrix NetScaler ADC/Gatewayのゼロデイ連鎖〈CVE-2026-88771・CVE-2026-88772、いずれもCVSS 9.5、2026年9月27日Citrix公表・同日CISA KEV登録、既出の「ネットスケーラーパシャっと」〈CVE-2026-19490〉とは別CVEペア〉への該当可否を一次チェックする「ネットスケーラーゼロデイパシャっと」〈小規模・自動起業可能〉、grep確認・WebSearchで既出アイデアとの重複なしを確認済み。新規の投資・大規模分類アイデアは無く、presentations.mdへの追記は無し)。aircon-pashaについては、7venture中event-komiguai-pashaは承認待ち以外の前進余地がないため見送り、次点で最も更新が止まっていた本ventureを前進させ、onboarding-guide.md「他ventureとの違い(まとめ)」が次のステップ候補として挙げていた「トライアル期間14日と生成回数10回のどちらが先に到達するかを想定顧客ヒアリングに追加できないか」が、実際には本項目の記録前(フェーズ245)にcustomer-interview-design.md質問15として既に対応済みであったことを発見し、記録漏れとして取り下げに訂正した(コード変更なし、既存テスト843件・schema検証25件いずれもパス、回帰なし。詳細はventures/aircon-pasha/README.mdフェーズ397参照)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していないため上記以外の追記はなし。
 
 追記(2026-11-20 09:00 UTC、運用上の問題の発見・復旧): 本フェーズのgit push実行時に、リポジトリが`main`ブランチにいないdetached HEAD状態になっており、`git push -u origin HEAD`が「HEADは完全なrefnameではない」というエラーで失敗していたことを検知した。調査の結果、2026-11-19 19:00 UTC(前回コミット間隔42時間検知・直接通知送付)以降の15コミット(19:00 UTC〜翌09:00 UTCの定例更新、ideas.md新規アイデア追加・各venture前進分を含む)がいずれもこのdetached HEAD状態でローカルにのみ記録され、origin/main(リモートのGitHub上)には一切反映されていなかったことが判明した(ローカルの`main`ブランチ参照自体も01:00 UTC時点〈ff6c39b〉で止まっており、後続コミットはいずれも追従していなかった)。本コンテナが再起動・破棄された場合、この間の作業(ideas.md・pending-approval.md・7venture中5venture分の前進記録)が失われるリスクがある状態だった。本フェーズで`git push origin HEAD:main`により該当15コミット+本フェーズのコミットを無事origin/mainへ反映し(3f835e6..03c628c)、ローカル`main`ブランチもfast-forwardでorigin/mainに追従させて復旧した。本事象は支払い・アカウント作成・公開・送信など許可が必要なアクションには該当しないため実行アクションの承認依頼ではないが、今後同種のpush失敗が再発した場合に備え、次回以降の定例実行では`git push`の終了コード・出力を必ず確認し、エラー時は`git branch`/`git status`でdetached HEADの有無を確認した上で`git push origin HEAD:main`等で復旧することを運用上の注意点として記録する。オーナーへの確認事項: 本事象自体は本フェーズ内で復旧済みのため追加の判断は不要だが、スケジュール実行環境側でdetached HEADが発生する根本原因(セッション起動時のチェックアウト方式等)に心当たりがあれば、再発防止のためご教示いただけると助かる。
+
+日時: 2026-11-20 10:00 UTC
+venture: (リポジトリ全体・運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。前回(2664c23時点)検知・復旧した
+detached HEAD状態が、本フェーズ開始時点でも再発していたことを記録する(`git status`で
+「HEAD detached from refs/heads/main」、ローカル`main`は直前のpush済みコミットで停止)。
+調査の結果、origin/main自体は前回の`git push origin HEAD:main`により既に最新化されていた
+(fetchしたorigin/mainとHEADが一致)ため、データ損失は発生していなかった。本フェーズで
+`git branch -f main HEAD && git checkout main`によりローカル`main`をHEADへ追従させ、
+detached HEAD状態を解消した。
+理由: 実行アクションではないため承認は不要。ただし2回連続で同じ事象(コンテナ起動時点で
+detached HEADになっている)が発生しており、単発の事故ではなく本実行環境のセッション起動
+(チェックアウト)方式に起因する定常的な挙動である可能性が高いと判断したため記録する。
+今後の定例実行では、作業開始時に`git status`でdetached HEADを確認し、該当する場合は
+pushより前に`git branch -f main HEAD && git checkout main`でブランチへ復帰する運用を
+標準手順とする(pending-approval.mdへの追記はこの運用注意の記録のみで、オーナー側の
+判断・許可を要する項目ではない)。
