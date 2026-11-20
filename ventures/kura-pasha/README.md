@@ -7581,3 +7581,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   collection-design.md 2節手順1)と実装(LINKING_SUCCESS_MESSAGE)の食い違いを発見・是正。
   `PROFILE_COLLECTION_ASK_NAME_MESSAGE`定数を新設し、連携成功メッセージに屋号を尋ねる
   質問文言を連結。既存テスト全26ファイル・schema検証32件いずれもパス、回帰なし。)
+- フェーズ続き320(2026-11-20 17:00 UTC定例更新): フェーズ続き319次回候補(1)
+  (craftsman-profile-collection-design.md「4. 残課題」が持ち越していたステップ1・ステップ4の
+  モックスクリプト作成)に対応した。aircon-pasha・course-set-pashaと同様、既存の実装済み
+  文言・既存サンプルケースのみを素材とし、新しい事実確認・WebSearch調査は行っていない。
+  - `step1-2-linking-and-profile-collection-mock-script.md`(新規作成): 友だち追加時の
+    ウェルカムメッセージ(`format_follow_welcome_message()`)、連携コード送り返し、
+    フェーズ続き316〜319で設計・実装済みの3問追加質問応答(屋号→連絡先メール→想定利用
+    形態)の一連のやり取りを、各メッセージ定数(`PROFILE_COLLECTION_ASK_NAME_MESSAGE`等)
+    の実際の文言通りに再現した。連絡先メールアドレスを「なし」と回答する分岐
+    (`PROFILE_COLLECTION_EMAIL_NONE_ANSWER`との完全一致判定)も合わせて示した。
+  - `step4-production-usage-mock-script.md`(新規作成): step3-trial-generation-mock-
+    script.mdが既に`G1_new_basic`(新規制作)を使用しているため、本番運用の多様さを示す
+    ため別のサンプルケース`G2_repair_with_remarks`(修理、`schema/validate_test_cases.py`)
+    を素材に、本番運用中のメモ送信から3つの下書きが返るまでの一連のやり取りを再現した。
+  - craftsman-profile-collection-design.md「4. 残課題」の該当項目を「対応済み」に更新した
+    (詳細は同ドキュメント参照)。
+  コード変更なし、既存テスト(`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+  (`python3 schema/validate_test_cases.py`)32件いずれも変更なしでパス(回帰なし)を確認した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし。
+  次回候補: (1)利用形態を自由記述で回答するケース・連絡先メールアドレスを実際に入力する
+  ケースのバリエーション追加、(2)複数職人プラン(招待コードでの参加)のオンボーディング
+  部分のモックスクリプト化、(3)2026-11-08 08:00 UTC記載の運営方針確認(pending-approval.md)
+  が未回答のため、回答があるまでは机上設計の積み増しより既存実装の健全性確認・他venture・
+  アイデア領域の前進を優先する。
+- 最終更新: 2026-11-20 17:00 UTC(フェーズ続き320: 詳細は上記。ステップ1・2
+  〈友だち追加・連携コード交換・3問の追加質問応答〉とステップ4〈本番運用時のメモ送信〉の
+  トーク画面モックスクリプトを新規作成。コード変更なし、既存テスト全26ファイル・schema検証
+  32件いずれもパス、回帰なし。)

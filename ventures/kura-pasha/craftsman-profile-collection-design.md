@@ -102,7 +102,8 @@ Webhookハンドラが受信メッセージを「通常の受注メモ」とし�
   定数(本節の質問文言をそのまま採用)を`LINKING_SUCCESS_MESSAGE`に連結した。既存テストは
   いずれも`LINKING_SUCCESS_MESSAGE`定数参照での比較だったため追加修正は不要だった。
   既存テスト全26ファイル・schema検証32件いずれもパス(回帰なし)。
-- 上記Webhook配線・文言修正を踏まえ、ステップ1(本設計に基づく収集フロー)・ステップ4
-  (本番運用時のメモ送信)のモックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の
-  次回候補(3))。**(次フェーズ候補、未着手)**
+- [フェーズ続き320で対応済み] 上記Webhook配線・文言修正を踏まえ、ステップ1(本設計に基づく
+  収集フロー)・ステップ4(本番運用時のメモ送信)のモックスクリプト作成(onboarding-guide.md
+  フェーズ続き314以来の次回候補(3))。`step1-2-linking-and-profile-collection-mock-script.md`・
+  `step4-production-usage-mock-script.md`として新規作成した。
 - 本設計決定をonboarding-guide.md 2節に反映(フェーズ続き316で実施済み)。
