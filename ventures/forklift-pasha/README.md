@@ -5518,3 +5518,34 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   access_token_store.py側で実装済みの接続実態に合わせて是正。コード変更あり
   〈docstringのみ、ロジック変更なし〉、既存テスト24ファイル・schema検証11件いずれも
   変更なしでパス、回帰なし)
+
+- フェーズ250(2026-11-20 13:00 UTC定例更新): 7venture中event-komiguai-pashaは承認待ち
+  以外の前進余地がないため見送り、line-reservation-aiは次回候補が承認待ち事項または
+  他venture側の任意追記待ちのみのため、次点で最も更新が止まっていた本venture(前回更新
+  2026-11-20 08:00 UTC)を前進させた。フェーズ249次回候補(4)で棚卸し対象として残った
+  checkout_session.py・overage_notifications.py・trial_management.pyの3ファイルを対象に、
+  「未実装」「未着手」「TODO」「現時点では具象実装を持たない」等の文言をgrepで洗い出し、
+  フェーズ248・249で発見した「実装済みなのに未実装のまま誤記載されている」ケースに該当
+  するものが残っていないか1件ずつ文脈を確認した。結果、3ファイルいずれの「未実装」
+  「未着手」言及も、(1)checkout_session.pyのmain(request)への実Stripe API配線・
+  Webフォームからの実際の呼び出し、(2)overage_notifications.py・trial_management.pyの
+  usage_counter/vehicle/fleet_operatorドキュメントの実Firestore読み書き、のいずれも
+  「オーナー承認待ちのため意図的に未接続のままInMemory実装のみを用意している」という
+  現状の設計方針どおりの正確な記載であり、フェーズ248・249のような「実態は実装済みなのに
+  記録が追従していない」記載漏れには該当しないことを確認した。これにより次回候補(4)の
+  棚卸しは完了し、本venture内に同種の記載漏れは現時点で他に残っていないと判断する。
+  コード変更・docstring変更いずれも発生していない(確認のみ)。既存テスト
+  (`python3 prototype/run_all_tests.py`全24ファイル)・schema検証
+  (`python3 schema/validate_test_cases.py`11件)を再実行しいずれも変更なしでパス
+  (回帰なし)。実GCPプロジェクト・Firestore・実Stripe API・実LLM API・実メール送信API
+  への接続・デプロイ、支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)承認待ち事項1〜4がオーナーから承認された場合はその着手を最優先、
+  (2)福岡県支部の所在地確定は、オーナーが官公庁ドメインへのネットワークアクセスを
+  別途許可した場合にのみ再試行する、(3)2026-11-08 08:00 UTC記載の運営方針確認
+  (pending-approval.md)が未回答のため、回答があるまでは机上設計の積み増しより
+  既存実装の健全性確認・他venture・アイデア領域の前進を優先する。
+- 最終更新: 2026-11-20 13:00 UTC(フェーズ250: 詳細は上記。checkout_session.py・
+  overage_notifications.py・trial_management.pyの「未実装」「未着手」記載を棚卸しし、
+  いずれも承認待ちによる意図的な未接続という正確な記載であることを確認〈記載漏れなし〉。
+  コード変更なし、既存テスト24ファイル・schema検証11件いずれも変更なしでパス、回帰なし)
