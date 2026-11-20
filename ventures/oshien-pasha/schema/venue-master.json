@@ -613,6 +613,32 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ378(2026-11-15 12:00 UTC)でWebSearchにより新規追加。施設名は公式名称であり企業名を冠したネーミングライツ命名は確認できず(公式サイトkumamoto-jo-hall.jpでの最終確認を推奨)。最寄り電停・徒歩時間は複数資料間で表記に差異があるため「要確認」の目安として記録した。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "西原商会アリーナ(鹿児島アリーナ)",
+      "aliases": [
+        "鹿児島アリーナ"
+      ],
+      "region": "福岡・九州圏",
+      "nearest_station": "鉄道駅は確認できず、路線バス「西原商会アリーナ(鹿児島アリーナ)前」または「中草牟田」停留所利用が代表的",
+      "walk_minutes_note": "「西原商会アリーナ(鹿児島アリーナ)前」下車徒歩1分前後/「中草牟田」下車徒歩3分前後(駐車場に限りがあるため公共交通機関利用が公式に案内されている)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-20",
+      "naming_rights_review_due": "2030-03-31",
+      "verification_note": "フェーズ146(2026-11-20 23:00 UTC)でWebSearchにより新規追加。鹿児島市公式資料によりネーミングライツスポンサーは西原商会、契約期間は令和7年4月1日〜令和12年3月31日の5年間、年額1,500万円(税込)であることを確認した。最寄り鉄道駅は市施設案内に記載がなく、路線バス停留所(「西原商会アリーナ(鹿児島アリーナ)前」「中草牟田」)のみ確認できた。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "長崎ブリックホール",
+      "aliases": [],
+      "region": "福岡・九州圏",
+      "nearest_station": "JR長崎本線 浦上駅、または長崎電気軌道(路面電車)茂里町停留所",
+      "walk_minutes_note": "浦上駅から徒歩5分前後/茂里町停留所から徒歩3分前後",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-20",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ146(2026-11-20 23:00 UTC)でWebSearchにより新規追加。長崎市立の文化施設(1998年建設、大ホール2,002席)で、ネーミングライツによる改称は確認できなかったため公式名称のまま収録した(公式サイトbrickhall.jpでの最終確認を推奨)。2026年もMISIA(6月17日)・浜田省吾(7月9日)・玉置浩二(10月4日)等のコンサート開催実績をWebSearchで確認し、稼働中の会場であることを確認した。",
+      "operational_status": "active"
     }
   ]
 }
