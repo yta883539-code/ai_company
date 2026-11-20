@@ -79,13 +79,20 @@ venture側での追加対応は不要と判断する。
 - 本`main()`側catch追加の実`.py`実装への反映は、他venture同様、実Firestore導入・実GCP
   プロジェクト作成(オーナー承認待ち)後の結合実装フェーズとセットで着手する(本フェーズは
   設計のみ)。
-- cloud-monitoring-alert-policy-design.md 5.2節が列挙する残り3エントリポイント
-  (`get_runtime_dependencies()`〈LINE webhook〉・`get_daily_checks_runtime_dependencies()`・
-  `get_deletion_candidate_final_confirmation_runtime_dependencies()`)についても同種の欠落が
-  各*-design.mdに無いか確認できていない。ただし`get_runtime_dependencies()`(LINE webhook)は
-  現状常に空dict`{}`を返す設計(cloud_function_webhook.py内コメント参照)であり、何も構築
-  しないため構築失敗自体が発生しない(本節の対象外)。残り2エントリポイントの確認は次回候補
-  として残す。
+- [フェーズ349で対応済み・本フェーズ(フェーズ398)で記載是正] cloud-monitoring-alert-policy-
+  design.md 5.2節が列挙する残り3エントリポイント(`get_runtime_dependencies()`〈LINE
+  webhook〉・`get_daily_checks_runtime_dependencies()`・`get_deletion_candidate_final_
+  confirmation_runtime_dependencies()`)についても同種の欠落が各*-design.mdに無いか確認済み。
+  `get_runtime_dependencies()`(LINE webhook)は現状常に空dict`{}`を返す設計
+  (cloud_function_webhook.py内コメント参照)であり、何も構築しないため構築失敗自体が発生
+  しない(本節の対象外)。残り2エントリポイント(日次チェック・削除候補最終確認の両
+  スケジューラ)については、本フェーズ348の次回候補を受けたフェーズ349で
+  daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.mdとして確認済みであり、「呼び出し元のCloud Schedulerはレスポンス本文を解釈しない
+  ためJSON形状設計は不要、例外伝播によるCloud Loggingエラー記録とアラート発火の既存挙動で
+  足りる」と結論していた。本節の「次回候補として残す」という記載は、対応完了後に本ファイル
+  側の更新が漏れていた陳腐化記載(stale-next-candidate-cross-venture-survey.mdが指摘する
+  個別design.mdファイル単位のパターンの一例)であったため、本フェーズで是正した。
 - 他venture(course-set-pasha・forklift-pasha・kura-pasha・line-reservation-ai)のStripe
   Webhookエントリポイントに同種の欠落が無いかの確認は本venture側の対応範囲外のため着手せず、
   各venture側の次回候補として記録するに留める。

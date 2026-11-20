@@ -7729,3 +7729,33 @@
   (2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
   ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
   その着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ398(2026-11-20 14:00 UTC定例更新): フェーズ397次回候補(1)に対応し、
+  onboarding-guide.mdの「未検証の仮説」「次のステップ候補」両節を再確認した結果、両節の
+  既存項目はいずれも実LINE API接続後でなければ検証できない正真正銘の未解消の仮説であり、
+  追加の記録漏れは見つからなかった。これを受け、stale-next-candidate-cross-venture-
+  survey.md(フェーズ363)が今後の課題として残していた「各venture内の個別design.mdファイル
+  末尾の『次回候補』記載についても同様の棚卸しを行う価値があるか」に着手し、aircon-pasha内で
+  「次回候補」節を持つ個別design.md系ファイル(31件)のうち5件(firestore-security-rules-
+  draft.md・vendor-breach-key-rotation-runbook.md・stripe-webhook-runtime-dependency-
+  failure-response-design.md・linking-code-delivery-method-decision.md・application-
+  form-submission-http-entry-point-design.md)を抽出確認した。firestore-security-rules-
+  draft.md(フェーズ390で自己是正済み)・linking-code-delivery-method-decision.md・
+  application-form-submission-http-entry-point-design.md・vendor-breach-key-rotation-
+  runbook.mdの4件は問題なしだったが、stripe-webhook-runtime-dependency-failure-response-
+  design.md(フェーズ348作成)の「4. 残課題」が「cloud-monitoring-alert-policy-design.md
+  5.2節の残り2エントリポイント(日次チェック・削除候補最終確認スケジューラ)の同種ギャップ
+  確認は次回候補として残す」と書き続けていたが、この確認自体はフェーズ349で
+  daily-checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.mdとして既に完了し「Cloud Schedulerはレスポンス本文を解釈しないためJSON形状設計は
+  不要」と結論していたことを確認し、対応完了後にstripe-webhook-runtime-dependency-failure-
+  response-design.md側の記載更新が漏れていた陳腐化記載(stale-next-candidate-cross-venture-
+  survey.mdが指摘するパターンそのもの)であったため是正した(ロジック・実装内容自体の変更
+  なし)。残り26件の個別design.mdファイルの同種棚卸しは次回以降に継続する。既存テスト843件・
+  schema検証25件いずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)残り26件の個別design.mdファイル(firestore-composite-index-plan.md・
+  subscription-event-out-of-order-guard-design.md等)について、本フェーズと同種の
+  「次回候補」陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き
+  未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)
+  ため、オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
