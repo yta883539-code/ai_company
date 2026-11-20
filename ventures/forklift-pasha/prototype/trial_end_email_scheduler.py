@@ -115,8 +115,13 @@ class AccessUrlProvider(Protocol):
     """payment-identity-verification-design.mdが定めるサーバー発行のアクセストークンから
     `https://<ドメイン>/f/{accessToken}`形式のURLを組み立てる実装を想定したProtocol
     (course-set-pasha/cloud_function_webhook.PortalLinkProviderと同じ「未接続時はNoneを
-    返す」契約)。当該トークンの読み書きを行う実ストア自体が本venture未実装のため、
-    現時点では具象実装を持たない(次回候補)。"""
+    返す」契約)。当該トークンの読み書きを行う実ストア自体はaccess_token_store.
+    AccessTokenStoreProtocol/InMemoryAccessTokenStore(フェーズ133)で実装済みで、
+    その具象Provider実装AccessTokenStoreUrlProvider(フェーズ134)がモジュール冒頭の
+    docstring記載どおりget_trial_end_email_runtime_dependencies()からaccess_url_provider
+    として既に接続されている(本ファイル自体はこのProtocolにのみ依存し具象実装を知らない
+    設計を維持)。ただし本番LPドメイン未確定・InMemoryAccessTokenStore非永続のため、
+    実運用上は現時点でも本モジュール下部のACCESS_URL_UNAVAILABLE_FALLBACKが使われる。"""
 
     def get_access_url(self, internal_id: str) -> "str | None":
         ...
