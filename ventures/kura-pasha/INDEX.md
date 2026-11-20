@@ -53,7 +53,9 @@
 - limit-approaching-notification-design.md
 - workshop-name-owner-notification-display-design.md / workshop-store-firestore-adapter-design.md
 - craftsman-profile-collection-design.md(屋号・連絡先メール・想定利用形態をLINEトーク上の
-  追加質問応答3問で収集する設計決定。フェーズ続き316、実装は未着手)
+  追加質問応答3問で収集する設計決定。フェーズ続き316。`WorkshopStoreProtocol`実装は
+  フェーズ続き317、Webhookハンドラ〈process_memo_event()〉への分岐配線はフェーズ続き318で
+  実装済み。モックスクリプトのみ未着手)
 - deletion-candidate-final-confirmation-design.md / deletion-candidate-query-consolidation-decision.md
 - deletion-candidate-query-consolidation-horizontal-survey.md
 - stripe-cancellation-deletion-candidate-trigger-design.md

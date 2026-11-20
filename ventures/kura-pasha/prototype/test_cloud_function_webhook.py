@@ -28,6 +28,9 @@ from cloud_function_webhook import (
     OTHER_NEEDS_HUMAN_CUSTOMER_REPLY_TEXT,
     PAYMENT_SUSPENDED_NOTICE,
     PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    PROFILE_COLLECTION_ASK_EMAIL_MESSAGE,
+    PROFILE_COLLECTION_ASK_USAGE_TYPE_MESSAGE,
+    PROFILE_COLLECTION_COMPLETED_MESSAGE,
     TRIAL_END_BUTTON_LABEL,
     TRIAL_END_QUICK_REPLY,
     TRIAL_PERIOD_OVER_NOTICE,
@@ -411,6 +414,7 @@ def test_process_follow_event_of_a_linked_user_clears_blocked_but_billing_owner_
     profile_store.set_is_following("U_REFOLLOW2", False)
     workshop_store = InMemoryWorkshopStore()
     workshop_store.set_members("W1", "U_REFOLLOW2", [])
+    workshop_store.set_profile_collection_step("W1", "completed")
     workshop_store.set_blocked_but_billing_owner_notified_at("W1", FEB)
     reply_client = InMemoryReplyClient()
     event = _make_follow_event(user_id="U_REFOLLOW2")
@@ -437,6 +441,7 @@ def test_process_follow_event_of_a_linked_user_clears_deletion_confirmation_unre
     profile_store.set_is_following("U_REFOLLOW4", False)
     workshop_store = InMemoryWorkshopStore()
     workshop_store.set_members("W1", "U_REFOLLOW4", [])
+    workshop_store.set_profile_collection_step("W1", "completed")
     workshop_store.set_deletion_confirmation_unreachable_at("W1", FEB)
     workshop_store.set_deletion_confirmation_unreachable_reason("W1", "not_following")
     reply_client = InMemoryReplyClient()
@@ -619,6 +624,7 @@ def test_process_memo_event_generated_over_limit_omits_limit_notice_and_trial_en
     profiles.link("U_CL1", "W_CL1")
     workshops.set_plan("W_CL1", "standard")
     workshops.set_members("W_CL1", "U_CL1", ["U_CL1"])
+    workshops.set_profile_collection_step("W_CL1", "completed")
 
     reply_client = InMemoryReplyClient()
     result = process_memo_event(
@@ -766,6 +772,7 @@ def test_process_memo_event_checkout_intent_rejects_non_contractor():
     profiles.link("U_CONTRACTOR", "W_MEMO_MULTI")
     workshops.set_plan("W_MEMO_MULTI", "multi_craftsman")
     workshops.set_members("W_MEMO_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_MEMO_MULTI", "completed")
     profiles.link("U_MEMBER", "W_MEMO_MULTI")
     reply_client = InMemoryReplyClient()
     checkout_client = InMemoryCheckoutSessionClient()
@@ -860,6 +867,7 @@ def test_process_memo_event_workshop_invite_request_rejects_non_contractor():
     profiles, workshops, _ = _make_stores()
     workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE_MEMBER")
     workshops.set_members(workshop_id, contractor_id, [contractor_id, "U_MEMBER"])
+    workshops.set_profile_collection_step(workshop_id, "completed")
     profiles.link("U_MEMBER", workshop_id)
     reply_client = InMemoryReplyClient()
     invite_store = InMemoryLinkingCodeStore()
@@ -894,6 +902,7 @@ def test_process_memo_event_workshop_invite_request_rejects_when_member_limit_re
     profiles, workshops, _ = _make_stores()
     workshop_id, contractor_id = _make_multi_craftsman_workshop(profiles, workshops, workshop_id="W_MEMO_INVITE_FULL")
     workshops.set_members(workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3", "U_M4", "U_M5"])
+    workshops.set_profile_collection_step(workshop_id, "completed")
     reply_client = InMemoryReplyClient()
     invite_store = InMemoryLinkingCodeStore()
 
@@ -1022,6 +1031,7 @@ def test_process_memo_event_blocks_with_trial_period_over_notice():
     profiles.link("U_TRIAL_OVER", "W_TRIAL_OVER")
     workshops.set_plan("W_TRIAL_OVER", "standard")
     workshops.set_members("W_TRIAL_OVER", "U_TRIAL_OVER", ["U_TRIAL_OVER"])
+    workshops.set_profile_collection_step("W_TRIAL_OVER", "completed")
     workshops.set_trial_start_at("W_TRIAL_OVER", FEB)
     workshops.set_trial_generation_used("W_TRIAL_OVER", True)
 
@@ -1047,6 +1057,7 @@ def test_process_memo_event_allows_generation_when_subscription_active_despite_t
     profiles.link("U_ACTIVE", "W_ACTIVE")
     workshops.set_plan("W_ACTIVE", "standard")
     workshops.set_members("W_ACTIVE", "U_ACTIVE", ["U_ACTIVE"])
+    workshops.set_profile_collection_step("W_ACTIVE", "completed")
     workshops.set_trial_start_at("W_ACTIVE", FEB)
     workshops.set_trial_generation_used("W_ACTIVE", True)
     workshops.set_subscription_status("W_ACTIVE", "active")
@@ -1069,6 +1080,7 @@ def test_process_memo_event_blocks_with_payment_suspended_notice_after_grace_per
     profiles.link("U_PAY_SUSPENDED", "W_PAY_SUSPENDED")
     workshops.set_plan("W_PAY_SUSPENDED", "standard")
     workshops.set_members("W_PAY_SUSPENDED", "U_PAY_SUSPENDED", ["U_PAY_SUSPENDED"])
+    workshops.set_profile_collection_step("W_PAY_SUSPENDED", "completed")
     workshops.set_trial_start_at("W_PAY_SUSPENDED", FEB)
     workshops.set_trial_generation_used("W_PAY_SUSPENDED", True)
     workshops.set_subscription_status("W_PAY_SUSPENDED", "past_due")
@@ -1092,6 +1104,7 @@ def test_process_memo_event_allows_generation_within_payment_failure_grace_perio
     profiles.link("U_PAY_GRACE", "W_PAY_GRACE")
     workshops.set_plan("W_PAY_GRACE", "standard")
     workshops.set_members("W_PAY_GRACE", "U_PAY_GRACE", ["U_PAY_GRACE"])
+    workshops.set_profile_collection_step("W_PAY_GRACE", "completed")
     workshops.set_trial_start_at("W_PAY_GRACE", FEB)
     workshops.set_trial_generation_used("W_PAY_GRACE", True)
     workshops.set_subscription_status("W_PAY_GRACE", "past_due")
@@ -1114,6 +1127,7 @@ def test_process_memo_event_appends_trial_end_notification_on_first_success():
     profiles.link("U_FIRST", "W_FIRST")
     workshops.set_plan("W_FIRST", "standard")
     workshops.set_members("W_FIRST", "U_FIRST", ["U_FIRST"])
+    workshops.set_profile_collection_step("W_FIRST", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
@@ -1142,6 +1156,7 @@ def test_process_memo_event_does_not_append_trial_end_notification_on_second_suc
     profiles.link("U_SECOND", "W_SECOND")
     workshops.set_plan("W_SECOND", "standard")
     workshops.set_members("W_SECOND", "U_SECOND", ["U_SECOND"])
+    workshops.set_profile_collection_step("W_SECOND", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
@@ -1174,6 +1189,7 @@ def test_process_memo_event_appends_first_generation_notice_on_first_generated_s
     profiles.link("U_FGN1", "W_FGN1")
     workshops.set_plan("W_FGN1", "standard")
     workshops.set_members("W_FGN1", "U_FGN1", ["U_FGN1"])
+    workshops.set_profile_collection_step("W_FGN1", "completed")
 
     reply_client = InMemoryReplyClient()
     result = process_memo_event(
@@ -1198,6 +1214,7 @@ def test_process_memo_event_does_not_append_first_generation_notice_on_second_ge
     profiles.link("U_FGN2", "W_FGN2")
     workshops.set_plan("W_FGN2", "standard")
     workshops.set_members("W_FGN2", "U_FGN2", ["U_FGN2"])
+    workshops.set_profile_collection_step("W_FGN2", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"], TEST_CASES["G2_repair_with_remarks"]])
@@ -1229,6 +1246,7 @@ def test_process_memo_event_does_not_append_first_generation_notice_for_other_me
     profiles.link("U_FGN3_MEMBER", "W_FGN3")
     workshops.set_plan("W_FGN3", "multi_craftsman")
     workshops.set_members("W_FGN3", "U_FGN3_CONTRACTOR", ["U_FGN3_CONTRACTOR", "U_FGN3_MEMBER"])
+    workshops.set_profile_collection_step("W_FGN3", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"], TEST_CASES["G2_repair_with_remarks"]])
@@ -1261,6 +1279,7 @@ def test_process_memo_event_first_generation_notice_still_due_after_earlier_out_
     profiles.link("U_FGN4", "W_FGN4")
     workshops.set_plan("W_FGN4", "standard")
     workshops.set_members("W_FGN4", "U_FGN4", ["U_FGN4"])
+    workshops.set_profile_collection_step("W_FGN4", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["OOS1_membership_question"], TEST_CASES["G1_new_basic"]])
@@ -1301,6 +1320,7 @@ def test_process_memo_event_wires_contractor_transfer_expired_notice_from_store(
     profiles.link("U_CTE", "W_CTE")
     workshops.set_plan("W_CTE", "standard")
     workshops.set_members("W_CTE", "U_CTE", ["U_CTE"])
+    workshops.set_profile_collection_step("W_CTE", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTE",
         PendingContractorTransfer(
@@ -1355,6 +1375,7 @@ def test_process_memo_event_does_not_trigger_expired_notice_when_transfer_still_
     profiles.link("U_CTV_MEMBER", "W_CTV")
     workshops.set_plan("W_CTV", "standard")
     workshops.set_members("W_CTV", "U_CTV", ["U_CTV", "U_CTV_MEMBER"])
+    workshops.set_profile_collection_step("W_CTV", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTV",
         PendingContractorTransfer(
@@ -1399,6 +1420,7 @@ def test_process_memo_event_wires_contractor_transfer_confirmation_confirmed_fro
         "W_CTC", "U_CTC_CONTRACTOR", ["U_CTC_CONTRACTOR", "U_CANDIDATE"],
         display_names={"U_CANDIDATE": "山田"},
     )
+    workshops.set_profile_collection_step("W_CTC", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTC",
         PendingContractorTransfer(
@@ -1451,6 +1473,7 @@ def test_process_memo_event_wires_contractor_transfer_confirmation_cancelled_fro
         "W_CTC2", "U_CTC_CONTRACTOR2", ["U_CTC_CONTRACTOR2", "U_CANDIDATE2"],
         display_names={"U_CANDIDATE2": "鈴木"},
     )
+    workshops.set_profile_collection_step("W_CTC2", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTC2",
         PendingContractorTransfer(
@@ -1496,6 +1519,7 @@ def test_process_memo_event_wires_contractor_transfer_confirmation_reconfirm_unc
         "W_CTC3", "U_CTC_CONTRACTOR3", ["U_CTC_CONTRACTOR3", "U_CANDIDATE3"],
         display_names={"U_CANDIDATE3": "佐藤"},
     )
+    workshops.set_profile_collection_step("W_CTC3", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTC3",
         PendingContractorTransfer(
@@ -1541,6 +1565,7 @@ def test_process_memo_event_does_not_trigger_confirmation_for_non_contractor_sen
     workshops.set_members(
         "W_CTC4", "U_CTC_CONTRACTOR4", ["U_CTC_CONTRACTOR4", "U_CTC_OTHER"],
     )
+    workshops.set_profile_collection_step("W_CTC4", "completed")
     workshops.set_pending_contractor_transfer(
         "W_CTC4",
         PendingContractorTransfer(
@@ -1582,6 +1607,7 @@ def test_process_memo_event_wires_member_retention_notice_selection_from_store()
         "W_MRN", "U_MRN_CONTRACTOR", ["U_MRN_CONTRACTOR", "U_MRN_MEMBER"],
         display_names={"U_MRN_MEMBER": "田中"},
     )
+    workshops.set_profile_collection_step("W_MRN", "completed")
     workshops.set_pending_reduction_effective_at("W_MRN", FEB + timedelta(days=5))
 
     reply_client = InMemoryReplyClient()
@@ -1624,6 +1650,7 @@ def test_process_memo_event_wires_member_retention_notice_unclear_from_store():
     profiles.link("U_MRN_CONTRACTOR2", "W_MRN2")
     workshops.set_plan("W_MRN2", "standard")
     workshops.set_members("W_MRN2", "U_MRN_CONTRACTOR2", ["U_MRN_CONTRACTOR2", "U_MRN_MEMBER2"])
+    workshops.set_profile_collection_step("W_MRN2", "completed")
     workshops.set_pending_reduction_effective_at("W_MRN2", FEB + timedelta(days=5))
 
     reply_client = InMemoryReplyClient()
@@ -1658,6 +1685,7 @@ def test_process_memo_event_does_not_trigger_member_retention_for_non_contractor
     profiles.link("U_MRN_OTHER", "W_MRN3")
     workshops.set_plan("W_MRN3", "standard")
     workshops.set_members("W_MRN3", "U_MRN_CONTRACTOR3", ["U_MRN_CONTRACTOR3", "U_MRN_OTHER"])
+    workshops.set_profile_collection_step("W_MRN3", "completed")
     workshops.set_pending_reduction_effective_at("W_MRN3", FEB + timedelta(days=5))
 
     reply_client = InMemoryReplyClient()
@@ -1684,6 +1712,7 @@ def test_process_memo_event_appends_limit_approaching_and_overage_notices():
     profiles.link("U_LIMIT", "W_LIMIT")
     workshops.set_plan("W_LIMIT", "light")
     workshops.set_members("W_LIMIT", "U_LIMIT", ["U_LIMIT"])
+    workshops.set_profile_collection_step("W_LIMIT", "completed")
     workshops.set_subscription_status("W_LIMIT", "active")
 
     reply_client = InMemoryReplyClient()
@@ -1714,6 +1743,7 @@ def test_process_memo_event_appends_trial_wording_when_subscription_not_active()
     profiles.link("U_TRIAL_LIMIT", "W_TRIAL_LIMIT")
     workshops.set_plan("W_TRIAL_LIMIT", "light")
     workshops.set_members("W_TRIAL_LIMIT", "U_TRIAL_LIMIT", ["U_TRIAL_LIMIT"])
+    workshops.set_profile_collection_step("W_TRIAL_LIMIT", "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 4)
@@ -1763,6 +1793,7 @@ def test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_no
     profiles.link("U_LIMIT_ACTIVE", "W_LIMIT_ACTIVE")
     workshops.set_plan("W_LIMIT_ACTIVE", "light")
     workshops.set_members("W_LIMIT_ACTIVE", "U_LIMIT_ACTIVE", ["U_LIMIT_ACTIVE"])
+    workshops.set_profile_collection_step("W_LIMIT_ACTIVE", "completed")
     workshops.set_subscription_status("W_LIMIT_ACTIVE", "active")
 
     reply_client = InMemoryReplyClient()
@@ -1802,6 +1833,10 @@ def test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded
         "ABC234", linking_store, profiles, workshops, FEB,
     )
     check("実オンボーディング経路でworkshop作成に成功する", creation.ok)
+    # 本テストの主題(トライアル終了判定の遮断順序)はプロフィール収集3問シーケンス
+    # (フェーズ続き318でWebhookハンドラへ配線済み)の対象外のため、3問シーケンスが
+    # 既に完了済みの状態を明示的に模す(craftsman-profile-collection-design.md 3節)。
+    workshops.set_profile_collection_step(creation.workshop_id, "completed")
 
     reply_client = InMemoryReplyClient()
     llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]] * 2)
@@ -1844,6 +1879,163 @@ def test_process_memo_event_skips_store_integration_when_stores_not_provided():
 
 
 # ---------------------------------------------------------------------------
+# プロフィール収集3問シーケンスのWebhookハンドラ配線(フェーズ続き318)
+#
+# craftsman-profile-collection-design.md 3節・4節が次フェーズ候補として残していた
+# 「Webhookハンドラへの分岐配線」のテスト。workshop新規作成直後(`set_members`による
+# `profile_collection_step="awaiting_name"`初期化、フェーズ続き317)から3問に順に答えていく
+# 流れをprocess_memo_event()経由で確認する。いずれもLLMを一切呼び出さないことを
+# `llm_call.calls == []`で確認する(design.md 3節、固定の決定的な状態機械)。
+# ---------------------------------------------------------------------------
+
+def test_process_memo_event_awaiting_name_saves_workshop_name_and_asks_email():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC1", "W_PC1")
+    workshops.set_members("W_PC1", "U_PC1", ["U_PC1"])
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([])
+    result = process_memo_event(
+        _make_event("鞍工房たなか", user_id="U_PC1"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("awaiting_name応答はworkshop_nameとして保存される", workshops.get_workshop_name("W_PC1") == "鞍工房たなか")
+    check("awaiting_name応答後はawaiting_emailへ進む", workshops.get_profile_collection_step("W_PC1") == "awaiting_email")
+    check("返信は次の質問(連絡先メール)文言", result.reply_text == PROFILE_COLLECTION_ASK_EMAIL_MESSAGE)
+    check("awaiting_name応答はLLMを呼び出さない", llm_call.calls == [])
+    check("awaiting_name応答はhandled=True", result.handled is True)
+    check("awaiting_name応答はprofile_collection_reply_sent=True", result.profile_collection_reply_sent is True)
+
+
+def test_process_memo_event_awaiting_email_with_none_answer_leaves_contact_email_unset():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC2", "W_PC2")
+    workshops.set_members("W_PC2", "U_PC2", ["U_PC2"])
+    workshops.set_profile_collection_step("W_PC2", "awaiting_email")
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([])
+    result = process_memo_event(
+        _make_event("なし", user_id="U_PC2"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("「なし」回答時はcontact_emailを設定しない(Noneのまま)", workshops.get_contact_email("W_PC2") is None)
+    check("「なし」回答後もawaiting_usage_typeへ進む", workshops.get_profile_collection_step("W_PC2") == "awaiting_usage_type")
+    check("返信は次の質問(利用形態)文言", result.reply_text == PROFILE_COLLECTION_ASK_USAGE_TYPE_MESSAGE)
+    check("「なし」回答時もLLMを呼び出さない", llm_call.calls == [])
+
+
+def test_process_memo_event_awaiting_email_with_actual_email_saves_it():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC3", "W_PC3")
+    workshops.set_members("W_PC3", "U_PC3", ["U_PC3"])
+    workshops.set_profile_collection_step("W_PC3", "awaiting_email")
+
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(
+        _make_event("tanaka@example.com", user_id="U_PC3"),
+        _StubLlmCall([]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("メールアドレス回答はcontact_emailとして保存される", workshops.get_contact_email("W_PC3") == "tanaka@example.com")
+    check("メールアドレス回答後はawaiting_usage_typeへ進む", workshops.get_profile_collection_step("W_PC3") == "awaiting_usage_type")
+
+
+def test_process_memo_event_awaiting_usage_type_solo_answer_normalizes_to_solo():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC4", "W_PC4")
+    workshops.set_members("W_PC4", "U_PC4", ["U_PC4"])
+    workshops.set_profile_collection_step("W_PC4", "awaiting_usage_type")
+
+    reply_client = InMemoryReplyClient()
+    result = process_memo_event(
+        _make_event("個人のみ", user_id="U_PC4"),
+        _StubLlmCall([]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("「個人のみ」はexpected_usage_type='solo'に正規化される", workshops.get_expected_usage_type("W_PC4") == "solo")
+    check("3問目完了後はcompletedへ進む", workshops.get_profile_collection_step("W_PC4") == "completed")
+    check("返信は完了案内文言", result.reply_text == PROFILE_COLLECTION_COMPLETED_MESSAGE)
+
+
+def test_process_memo_event_awaiting_usage_type_multiple_answer_normalizes_to_multiple():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC5", "W_PC5")
+    workshops.set_members("W_PC5", "U_PC5", ["U_PC5"])
+    workshops.set_profile_collection_step("W_PC5", "awaiting_usage_type")
+
+    result = process_memo_event(
+        _make_event("複数人で利用予定", user_id="U_PC5"),
+        _StubLlmCall([]), InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("「複数人で利用予定」はexpected_usage_type='multiple'に正規化される", workshops.get_expected_usage_type("W_PC5") == "multiple")
+    check("3問目完了後はcompletedへ進む(複数回答側)", workshops.get_profile_collection_step("W_PC5") == "completed")
+
+
+def test_process_memo_event_awaiting_usage_type_freeform_answer_stored_as_is():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC6", "W_PC6")
+    workshops.set_members("W_PC6", "U_PC6", ["U_PC6"])
+    workshops.set_profile_collection_step("W_PC6", "awaiting_usage_type")
+
+    process_memo_event(
+        _make_event("まだ未定です", user_id="U_PC6"),
+        _StubLlmCall([]), InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check(
+        "定型2択に当たらない自由記述はそのまま保存される(design.md 3節)",
+        workshops.get_expected_usage_type("W_PC6") == "まだ未定です",
+    )
+
+
+def test_process_memo_event_proceeds_to_normal_generation_after_profile_collection_completed():
+    profiles, workshops, counters = _make_stores()
+    profiles.link("U_PC7", "W_PC7")
+    workshops.set_plan("W_PC7", "light")
+    workshops.set_members("W_PC7", "U_PC7", ["U_PC7"])
+    workshops.set_profile_collection_step("W_PC7", "completed")
+
+    reply_client = InMemoryReplyClient()
+    llm_call = _StubLlmCall([TEST_CASES["G1_new_basic"]])
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_PC7"),
+        llm_call, reply_client,
+        user_profile_store=profiles, workshop_store=workshops, usage_counter_store=counters,
+        now=FEB,
+    )
+    check("completed後は通常の受注メモ生成に進む", "【受注内容整理メモ】" in (result.reply_text or ""))
+    check("completed後はLLMを1回呼び出す", len(llm_call.calls) == 1)
+    check("completed後はprofile_collection_reply_sent=False", result.profile_collection_reply_sent is False)
+
+
+def test_process_memo_event_profile_collection_unaffected_by_unlinked_user():
+    """未連携のuser_id(workshop_id未解決)の場合は本分岐自体をスキップすることを確認する。
+    usage_counter_storeは意図的に渡さず(4.のprocess_generation_request連携ブロックも
+    スキップさせ)、本分岐単体の後方互換性のみを検証する(WorkshopNotLinkedErrorの
+    扱いは別の既存の課題であり本テストの対象外)。"""
+    profiles, workshops, _ = _make_stores()
+
+    result = process_memo_event(
+        _make_event("新規、ブリティッシュ、牛革", user_id="U_PC_UNLINKED"),
+        _StubLlmCall([TEST_CASES["G1_new_basic"]]), InMemoryReplyClient(),
+        user_profile_store=profiles, workshop_store=workshops,
+        now=FEB,
+    )
+    check("未連携user_idはプロフィール収集分岐をスキップする", result.profile_collection_reply_sent is False)
+    check("未連携user_idは通常どおり生成できる(フォールスルー)", result.reply_sent is True)
+
+
+# ---------------------------------------------------------------------------
 # process_message_event()(フェーズ69)
 # ---------------------------------------------------------------------------
 
@@ -1864,6 +2056,7 @@ def test_process_message_event_delegates_when_user_already_linked():
     profiles.link("U_LINKED", "W_LINKED")
     workshops.set_plan("W_LINKED", "standard")
     workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    workshops.set_profile_collection_step("W_LINKED", "completed")
     linking_store = InMemoryLinkingCodeStore()
 
     reply_client = InMemoryReplyClient()
@@ -1884,6 +2077,7 @@ def test_process_message_event_contractor_faq_trigger_returns_menu_without_llm_c
     profiles.link("U_LINKED", "W_LINKED")
     workshops.set_plan("W_LINKED", "standard")
     workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    workshops.set_profile_collection_step("W_LINKED", "completed")
     linking_store = InMemoryLinkingCodeStore()
 
     reply_client = InMemoryReplyClient()
@@ -1904,6 +2098,7 @@ def test_process_message_event_contractor_faq_item_code_returns_answer_without_l
     profiles.link("U_LINKED", "W_LINKED")
     workshops.set_plan("W_LINKED", "standard")
     workshops.set_members("W_LINKED", "U_LINKED", ["U_LINKED"])
+    workshops.set_profile_collection_step("W_LINKED", "completed")
     linking_store = InMemoryLinkingCodeStore()
 
     reply_client = InMemoryReplyClient()
@@ -1924,6 +2119,7 @@ def test_process_message_event_non_contractor_member_faq_trigger_falls_back_to_g
     profiles.link("U_MEMBER", "W_LINKED")
     workshops.set_plan("W_LINKED", "multi_craftsman")
     workshops.set_members("W_LINKED", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_LINKED", "completed")
     linking_store = InMemoryLinkingCodeStore()
 
     reply_client = InMemoryReplyClient()
@@ -1987,6 +2183,7 @@ def _linked_contractor_event(text, *, user_id="U_LINKED"):
     profiles.link(user_id, "W_LINKED")
     workshops.set_plan("W_LINKED", "standard")
     workshops.set_members("W_LINKED", user_id, [user_id])
+    workshops.set_profile_collection_step("W_LINKED", "completed")
     workshops.set_subscription_status("W_LINKED", "active")
     # 生涯最初の生成完了時のトライアル終了通知・上限接近通知の便乗付記
     # (process_memo_event() 5.・6.)がFAQ折り返し文言判定のテストへ混入しないよう、
@@ -2234,6 +2431,7 @@ def test_process_message_event_async_drops_quick_reply_without_error():
     profiles.link("U_TRIAL_OVER_ASYNC", "W_TRIAL_OVER_ASYNC")
     workshops.set_plan("W_TRIAL_OVER_ASYNC", "standard")
     workshops.set_members("W_TRIAL_OVER_ASYNC", "U_TRIAL_OVER_ASYNC", ["U_TRIAL_OVER_ASYNC"])
+    workshops.set_profile_collection_step("W_TRIAL_OVER_ASYNC", "completed")
     workshops.set_trial_start_at("W_TRIAL_OVER_ASYNC", FEB)
     workshops.set_trial_generation_used("W_TRIAL_OVER_ASYNC", True)
     linking_store = InMemoryLinkingCodeStore()
@@ -2335,6 +2533,7 @@ def test_process_message_event_replies_linking_required_when_user_id_missing():
 def _make_multi_craftsman_workshop(profiles, workshops, *, workshop_id="W_MULTI", contractor_id="U_CONTRACTOR"):
     profiles.link(contractor_id, workshop_id)
     workshops.set_members(workshop_id, contractor_id, [contractor_id])
+    workshops.set_profile_collection_step(workshop_id, "completed")
     workshops.set_plan(workshop_id, "multi_craftsman")
     return workshop_id, contractor_id
 
@@ -2431,6 +2630,7 @@ def test_process_message_event_replies_member_limit_reached_message_when_worksho
     workshops.set_members(
         workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3"],
     )
+    workshops.set_profile_collection_step(workshop_id, "completed")
     linking_store = InMemoryLinkingCodeStore()
     invite_store = InMemoryLinkingCodeStore()
     now = datetime(2026, 9, 13, 5, 0, 0)
@@ -2442,6 +2642,7 @@ def test_process_message_event_replies_member_limit_reached_message_when_worksho
     workshops.set_members(
         workshop_id, contractor_id, [contractor_id, "U_M2", "U_M3", "U_M4", "U_M5"],
     )
+    workshops.set_profile_collection_step(workshop_id, "completed")
     check(
         "コード解決前に別経路で5名(上限)に達している(事前条件)",
         len(workshops.get_member_user_ids(workshop_id)) == 5,
@@ -2486,6 +2687,7 @@ def _link_contractor_workshop(profiles, workshops, user_id: str, workshop_id: st
     profiles.link(user_id, workshop_id)
     workshops.set_plan(workshop_id, "standard")
     workshops.set_members(workshop_id, user_id, [user_id])
+    workshops.set_profile_collection_step(workshop_id, "completed")
 
 
 def test_process_postback_event_ignores_unknown_postback_data():
@@ -2582,6 +2784,7 @@ def test_process_postback_event_rejects_non_contractor_member():
     profiles.link("U_CONTRACTOR", "W_MULTI")
     workshops.set_plan("W_MULTI", "multi_craftsman")
     workshops.set_members("W_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_MULTI", "completed")
     profiles.link("U_MEMBER", "W_MULTI")
     reply_client = InMemoryReplyClient()
     checkout_client = InMemoryCheckoutSessionClient()
@@ -2714,6 +2917,7 @@ def test_dispatch_webhook_events_wires_workshop_store_through_to_owner_notified_
     profile_store.set_is_following("U_DISPATCH2", False)
     workshop_store = InMemoryWorkshopStore()
     workshop_store.set_members("W1", "U_DISPATCH2", [])
+    workshop_store.set_profile_collection_step("W1", "completed")
     workshop_store.set_blocked_but_billing_owner_notified_at("W1", FEB)
 
     dispatch_webhook_events(
@@ -2751,6 +2955,7 @@ def test_dispatch_webhook_events_passes_store_kwargs_through_to_process_memo_eve
     profiles.link("U_WS", "W_WS")
     workshops.set_plan("W_WS", "standard")
     workshops.set_members("W_WS", "U_WS", ["U_WS"])
+    workshops.set_profile_collection_step("W_WS", "completed")
 
     reply_client = InMemoryReplyClient()
     result = dispatch_webhook_events(
@@ -3038,6 +3243,7 @@ def test_is_sync_kura_message_event_true_for_owner_faq_command():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_FAQ")
     workshops.set_members("W_FAQ", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_FAQ", "completed")
     event = _make_event("FAQ", user_id="U_OWNER")
     check(
         "契約者からのFAQコマンドは同期",
@@ -3052,6 +3258,7 @@ def test_is_sync_kura_message_event_false_for_owner_non_faq_text():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER2", "W_FAQ2")
     workshops.set_members("W_FAQ2", "U_OWNER2", ["U_OWNER2"])
+    workshops.set_profile_collection_step("W_FAQ2", "completed")
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER2")
     check(
         "契約者からの通常メモ入力(FAQ不一致)は非同期",
@@ -3066,6 +3273,7 @@ def test_is_sync_kura_message_event_false_for_non_contractor_member():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_MEMBER", "W_FAQ3")
     workshops.set_members("W_FAQ3", "U_OWNER3", ["U_OWNER3", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_FAQ3", "completed")
     event = _make_event("FAQ", user_id="U_MEMBER")
     check(
         "契約者以外からのFAQ文字列一致は非同期(契約者本人判定自体で不一致になるため)",
@@ -3080,6 +3288,7 @@ def test_dispatch_webhook_events_faq_command_is_still_replied_synchronously_with
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_FAQ")
     workshops.set_members("W_FAQ", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_FAQ", "completed")
     reply_client = InMemoryReplyClient()
     queue = InMemoryTaskQueueClient()
     event = _make_event("FAQ", user_id="U_OWNER")
@@ -3103,6 +3312,7 @@ def test_dispatch_webhook_events_non_faq_text_is_enqueued_not_replied():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_MEMO")
     workshops.set_members("W_MEMO", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_MEMO", "completed")
     reply_client = InMemoryReplyClient()
     queue = InMemoryTaskQueueClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
@@ -3128,6 +3338,7 @@ def test_dispatch_webhook_events_enqueued_event_is_not_marked_processed_yet():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_MEMO2")
     workshops.set_members("W_MEMO2", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_MEMO2", "completed")
     webhook_event_id_store = InMemoryLineWebhookEventIdStore()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-not-yet-marked"
@@ -3151,6 +3362,7 @@ def test_dispatch_webhook_events_duplicate_message_task_name_is_skipped_without_
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_DUP")
     workshops.set_members("W_DUP", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_DUP", "completed")
     reply_client = InMemoryReplyClient()
     queue = InMemoryTaskQueueClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
@@ -3174,6 +3386,7 @@ def test_dispatch_webhook_events_missing_webhook_event_id_falls_back_to_sync():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_NOID")
     workshops.set_members("W_NOID", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_NOID", "completed")
     reply_client = InMemoryReplyClient()
     queue = InMemoryTaskQueueClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
@@ -3193,6 +3406,7 @@ def test_dispatch_webhook_events_without_task_queue_client_processes_synchronous
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_LEGACY")
     workshops.set_members("W_LEGACY", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_LEGACY", "completed")
     reply_client = InMemoryReplyClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-legacy"
@@ -3214,6 +3428,7 @@ def test_dispatch_webhook_events_enqueue_transient_error_falls_back_to_sync_with
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_FLAKY")
     workshops.set_members("W_FLAKY", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_FLAKY", "completed")
     reply_client = InMemoryReplyClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-flaky"
@@ -3238,6 +3453,7 @@ def test_dispatch_webhook_events_logs_enqueue_fallback_occurred():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_FLAKY_LOG")
     workshops.set_members("W_FLAKY_LOG", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_FLAKY_LOG", "completed")
     reply_client = InMemoryReplyClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-flaky-log"
@@ -3279,6 +3495,7 @@ def test_deliver_enqueued_kura_message_task_end_to_end_from_queue_payload():
     profiles.link("U_LINKED2", "W_LINKED2")
     workshops.set_plan("W_LINKED2", "standard")
     workshops.set_members("W_LINKED2", "U_LINKED2", ["U_LINKED2"])
+    workshops.set_profile_collection_step("W_LINKED2", "completed")
     workshops.set_subscription_status("W_LINKED2", "active")
     workshops.set_trial_generation_used("W_LINKED2", True)
     linking_store = InMemoryLinkingCodeStore()
@@ -3403,6 +3620,7 @@ def test_receive_webhook_passes_task_queue_client_through_to_dispatch():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_RECEIVE_QUEUE")
     workshops.set_members("W_RECEIVE_QUEUE", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_RECEIVE_QUEUE", "completed")
     queue = InMemoryTaskQueueClient()
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-receive-queue"
@@ -3433,6 +3651,7 @@ def test_receive_webhook_sends_owner_notification_on_enqueue_fallback():
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_RECEIVE_FALLBACK")
     workshops.set_members("W_RECEIVE_FALLBACK", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_RECEIVE_FALLBACK", "completed")
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-receive-fallback"
     body = _webhook_body([event])
@@ -3469,6 +3688,7 @@ def test_receive_webhook_without_enqueue_fallback_owner_push_client_does_not_rai
     profiles, workshops, _ = _make_stores()
     profiles.link("U_OWNER", "W_RECEIVE_FALLBACK_NONE")
     workshops.set_members("W_RECEIVE_FALLBACK_NONE", "U_OWNER", ["U_OWNER"])
+    workshops.set_profile_collection_step("W_RECEIVE_FALLBACK_NONE", "completed")
     event = _make_event("新規、ブリティッシュ、牛革", user_id="U_OWNER")
     event["webhookEventId"] = "wh-evt-receive-fallback-none"
     body = _webhook_body([event])
@@ -3755,6 +3975,14 @@ if __name__ == "__main__":
     test_process_memo_event_does_not_attach_cta_for_active_subscription_limit_notice()
     test_process_memo_event_trial_limit_notice_is_unreachable_for_real_onboarded_workshop()
     test_process_memo_event_skips_store_integration_when_stores_not_provided()
+    test_process_memo_event_awaiting_name_saves_workshop_name_and_asks_email()
+    test_process_memo_event_awaiting_email_with_none_answer_leaves_contact_email_unset()
+    test_process_memo_event_awaiting_email_with_actual_email_saves_it()
+    test_process_memo_event_awaiting_usage_type_solo_answer_normalizes_to_solo()
+    test_process_memo_event_awaiting_usage_type_multiple_answer_normalizes_to_multiple()
+    test_process_memo_event_awaiting_usage_type_freeform_answer_stored_as_is()
+    test_process_memo_event_proceeds_to_normal_generation_after_profile_collection_completed()
+    test_process_memo_event_profile_collection_unaffected_by_unlinked_user()
     test_process_message_event_delegates_when_stores_not_provided()
     test_process_message_event_delegates_when_user_already_linked()
     test_process_message_event_contractor_faq_trigger_returns_menu_without_llm_call()

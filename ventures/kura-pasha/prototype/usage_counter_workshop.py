@@ -300,6 +300,14 @@ class UserProfileStoreProtocol(Protocol):
         ...
 
 
+# craftsman-profile-collection-design.md 3節(フェーズ続き316)の3問シーケンス進行管理用
+# 状態機械の4値(フェーズ続き318、cloud_function_webhook.py側の分岐配線で使うため定数化)。
+PROFILE_COLLECTION_STEP_AWAITING_NAME = "awaiting_name"
+PROFILE_COLLECTION_STEP_AWAITING_EMAIL = "awaiting_email"
+PROFILE_COLLECTION_STEP_AWAITING_USAGE_TYPE = "awaiting_usage_type"
+PROFILE_COLLECTION_STEP_COMPLETED = "completed"
+
+
 class WorkshopStoreProtocol(Protocol):
     """`craftsman_workshop/{workshop_id}`への読み取りを表す(plan_id・複数職人プラン
     関連フィールドを含む、同一Firestoreドキュメントの各フィールド)。
@@ -819,7 +827,7 @@ class InMemoryWorkshopStore:
         self._display_names_by_workshop[workshop_id] = dict(display_names or {})
         # craftsman-profile-collection-design.md 3節(フェーズ続き316): workshop新規作成
         # 時点で3問シーケンスの進行状態を初期化する(set_membersが新規作成の唯一の地点)。
-        self._profile_collection_step_by_workshop[workshop_id] = "awaiting_name"
+        self._profile_collection_step_by_workshop[workshop_id] = PROFILE_COLLECTION_STEP_AWAITING_NAME
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
         return self._contractor_by_workshop[workshop_id]

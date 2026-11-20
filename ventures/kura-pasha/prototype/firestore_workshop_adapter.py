@@ -41,6 +41,7 @@ from datetime import datetime
 from typing import Iterable, Optional
 
 from usage_counter_workshop import (
+    PROFILE_COLLECTION_STEP_AWAITING_NAME,
     SUBSCRIPTION_STATUSES,
     InvalidSubscriptionStatusError,
     PendingContractorTransfer,
@@ -94,7 +95,7 @@ class FirestoreWorkshopStore:
                 "member_display_names": dict(display_names or {}),
                 # craftsman-profile-collection-design.md 3節(フェーズ続き316):
                 # InMemoryWorkshopStore.set_membersと同じ初期化(usage_counter_workshop.py参照)。
-                "profile_collection_step": "awaiting_name",
+                "profile_collection_step": PROFILE_COLLECTION_STEP_AWAITING_NAME,
             },
             merge=True,
         )

@@ -7510,3 +7510,43 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   `WorkshopStoreProtocol`・`InMemoryWorkshopStore`・firestore_workshop_adapter.pyに実装。
   新規テスト8件追加、既存317件+新規8件=325件・schema検証32件いずれもパス、回帰なし。
   Webhookハンドラへの分岐配線は次フェーズ以降の課題として残した。)
+- フェーズ続き318(2026-11-20 07:00 UTC定例更新): 7venture中最も更新が止まっていた
+  event-komiguai-pashaは承認待ち以外の前進余地がなく、次点の本ventureを前進。フェーズ
+  続き317次回候補(1)(cloud_function_webhook.pyへの分岐配線)を実装した。
+  `process_memo_event()`冒頭に、`user_profile_store`・`workshop_store`の両方が渡され
+  かつ`user_id`が既存workshopへ連携済みの場合、`profile_collection_step`を確認し
+  `"completed"`以外であれば新設の`_process_profile_collection_reply()`(LLM呼び出しなし
+  の決定的な状態機械)へ即座に委譲する分岐を追加した(design.md 3節)。あわせて次回候補(2)
+  (連絡先メールアドレス「なし」回答時の文面確定)も本フェーズで解決し、「なし」との完全
+  一致時は`contact_email`を書き込まずそのまま次の質問へ進める(design.md 4節)。
+  利用形態の2択(「個人のみ」/「複数人で利用予定」)も完全一致で`"solo"`/`"multiple"`へ
+  正規化し、それ以外は自由記述のまま保存する(design.md 2節・3節)。
+  `PROFILE_COLLECTION_STEP_*`の4定数をusage_counter_workshop.pyに新設し、
+  `InMemoryWorkshopStore.set_members`・firestore_workshop_adapter.pyの初期化処理の
+  リテラル文字列をこの定数参照に是正した(動作は変更なし)。
+  実装の過程で、`set_members`が新規workshop作成時に`profile_collection_step`を
+  `"awaiting_name"`で初期化する既存の仕様(フェーズ続き317)により、process_memo_event()に
+  `user_profile_store`・`workshop_store`の両方を渡す既存テスト(test_cloud_function_webhook.py
+  内56箇所、実オンボーディング経路〈create_workshop_from_linking_code()〉を使う1テストを
+  含む)が「3問シーケンス完了済み」という暗黙の前提に依拠していたことが判明したため、
+  各テストに`workshops.set_profile_collection_step(workshop_id, "completed")`を追加して
+  前提を明示化した(本venture・本フェーズの変更が直接の原因であり、是正は本フェーズの
+  スコープ内と判断した)。新規テスト8件(3問シーケンス各ステップの正常遷移・「なし」回答・
+  自由記述保存・completed後の通常フロー復帰・未連携user_idでの分岐スキップ)を追加し、
+  上記の既存テスト是正と合わせてtest_cloud_function_webhook.py内446件・プロジェクト全体
+  (`python3 run_all_tests.py`)26ファイル・schema検証(`python3 schema/validate_test_cases.py`)
+  32件いずれもパス(回帰なし)を確認した。craftsman-profile-collection-design.md「4. 残課題」・
+  onboarding-guide.md 2節・INDEX.mdを本決定に基づき更新した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-19 19:00 UTCから約12時間・
+  状況不変のため今回も追記・再通知とも見送り)。
+  次回候補: (1)ステップ1(本設計に基づく収集フロー)・ステップ4(本番運用時のメモ送信)の
+  モックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の次回候補(3))、
+  (2)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-20 07:00 UTC(フェーズ続き318: 詳細は上記。
+  cloud_function_webhook.pyのprocess_memo_event()へプロフィール収集3問シーケンスの
+  分岐配線を実装し、「なし」回答・利用形態2択の文面も確定。既存テスト56箇所を是正、
+  新規テスト8件追加。test_cloud_function_webhook.py内446件・プロジェクト全体26ファイル・
+  schema検証32件いずれもパス、回帰なし。モックスクリプト作成は次フェーズ以降の課題
+  として残した。)

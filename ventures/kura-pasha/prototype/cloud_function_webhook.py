@@ -58,6 +58,10 @@ from usage_counter_workshop import (
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_CONFIRMATION,
     MESSAGE_CONTEXT_CONTRACTOR_TRANSFER_EXPIRED_NOTICE,
     MESSAGE_CONTEXT_MEMBER_RETENTION_NOTICE,
+    PROFILE_COLLECTION_STEP_AWAITING_EMAIL,
+    PROFILE_COLLECTION_STEP_AWAITING_NAME,
+    PROFILE_COLLECTION_STEP_AWAITING_USAGE_TYPE,
+    PROFILE_COLLECTION_STEP_COMPLETED,
     PaymentSuspendedError,
     TrialPeriodOverError,
     UsageCheckResult,
@@ -499,6 +503,90 @@ FIRST_GENERATION_NOTICE_MESSAGE = (
 )
 
 
+# ---------------------------------------------------------------------------
+# プロフィール収集3問シーケンス(フェーズ続き318)
+#
+# craftsman-profile-collection-design.md 3節・4節が次フェーズ候補として残していた
+# 「Webhookハンドラへの分岐配線」に対応する。LLMを介さない固定3問の決定的な状態機械
+# (同design.md 3節)であり、process_memo_event()本体の通常の受注メモ生成(LLM呼び出し・
+# usage_counter判定)とは完全に独立した経路として扱う。
+# ---------------------------------------------------------------------------
+
+# craftsman-profile-collection-design.md 2節の質問文言(手順2〜4)をそのまま踏襲する。
+PROFILE_COLLECTION_ASK_EMAIL_MESSAGE = (
+    "連絡先メールアドレスを教えてください(納品案内等の控えが必要な場合のみで構いません。"
+    "不要な場合は「なし」とお送りください)。"
+)
+PROFILE_COLLECTION_ASK_USAGE_TYPE_MESSAGE = (
+    "複数の職人でご利用される予定はありますか?"
+    "(「個人のみ」/「複数人で利用予定」のいずれかでお答えください)"
+)
+PROFILE_COLLECTION_COMPLETED_MESSAGE = (
+    "ありがとうございます。続けて手順3(接続テスト)にお進みください。"
+)
+
+# design.md 4節「連絡先メールアドレスを『なし』で回答された場合」の文言確定。
+# ウェルカムメッセージ(format_follow_welcome_message等)・質問文言が「なし」という表記を
+# 明示的に指定しているため、前後の空白を除いた完全一致のみを対象とする(expected_usage_type
+# の2択判定〈後述〉と同じ、固定の定型回答を厳密一致で拾う方針)。一致しない場合は
+# get_contact_email()のdocstring(フェーズ続き317)通り自由記述の値をそのまま保存する。
+PROFILE_COLLECTION_EMAIL_NONE_ANSWER = "なし"
+
+# design.md 2節手順3の2択の定型回答。一致しない場合はexpected_usage_typeとして自由記述の
+# 値をそのまま保存する(design.md 3節「未分類時は自由記述をそのまま保存」)。
+PROFILE_COLLECTION_USAGE_TYPE_SOLO_ANSWER = "個人のみ"
+PROFILE_COLLECTION_USAGE_TYPE_MULTIPLE_ANSWER = "複数人で利用予定"
+
+
+def _process_profile_collection_reply(
+    reply_client: ReplyClient,
+    reply_token: str,
+    answer_text: str,
+    workshop_store: WorkshopStoreProtocol,
+    *,
+    workshop_id: str,
+    step: str,
+) -> MemoProcessResult:
+    """3問シーケンスの進行中(`profile_collection_step != "completed"`)に届いたテキストメッセージ
+    1件を処理する。呼び出し元(process_memo_event())が`step`を既に取得済みの前提とし、
+    本関数自体はstepの再取得を行わない。
+
+    LLMを一切呼び出さず(design.md 3節、固定の決定的な状態機械)、以下の3ステップいずれかの
+    回答として1問ずつ前進させる。想定外のstep値(本Protocol上は未到達のはずだが安全側として)
+    は何もせずhandled=Falseで返す。
+    """
+    answer_text = answer_text.strip()
+    if step == PROFILE_COLLECTION_STEP_AWAITING_NAME:
+        workshop_store.set_workshop_name(workshop_id, answer_text)
+        workshop_store.set_profile_collection_step(workshop_id, PROFILE_COLLECTION_STEP_AWAITING_EMAIL)
+        reply_text = PROFILE_COLLECTION_ASK_EMAIL_MESSAGE
+    elif step == PROFILE_COLLECTION_STEP_AWAITING_EMAIL:
+        if answer_text != PROFILE_COLLECTION_EMAIL_NONE_ANSWER:
+            workshop_store.set_contact_email(workshop_id, answer_text)
+        workshop_store.set_profile_collection_step(
+            workshop_id, PROFILE_COLLECTION_STEP_AWAITING_USAGE_TYPE
+        )
+        reply_text = PROFILE_COLLECTION_ASK_USAGE_TYPE_MESSAGE
+    elif step == PROFILE_COLLECTION_STEP_AWAITING_USAGE_TYPE:
+        if answer_text == PROFILE_COLLECTION_USAGE_TYPE_SOLO_ANSWER:
+            resolved_usage_type = "solo"
+        elif answer_text == PROFILE_COLLECTION_USAGE_TYPE_MULTIPLE_ANSWER:
+            resolved_usage_type = "multiple"
+        else:
+            resolved_usage_type = answer_text
+        workshop_store.set_expected_usage_type(workshop_id, resolved_usage_type)
+        workshop_store.set_profile_collection_step(workshop_id, PROFILE_COLLECTION_STEP_COMPLETED)
+        reply_text = PROFILE_COLLECTION_COMPLETED_MESSAGE
+    else:
+        return MemoProcessResult(handled=False, reply_sent=False, reply_text=None)
+
+    reply_sent = _reply_with_retry(reply_client, reply_token, reply_text)
+    return MemoProcessResult(
+        handled=True, reply_sent=reply_sent, reply_text=reply_text if reply_sent else None,
+        profile_collection_reply_sent=reply_sent,
+    )
+
+
 def count_utf16_code_units(text: str) -> int:
     """LINE Messaging APIの文字数上限はUTF-16コード単位でカウントされるため、
     Python標準のlen(str)(コードポイント単位)ではなくこちらを用いる
@@ -667,6 +755,7 @@ class MemoProcessResult:
     contractor_transfer_confirmation_sent: bool = False  # True=(b)契約者交代・再確認応答検知の文脈注入経路で返信した(フェーズ109)
     member_retention_notice_sent: bool = False  # True=(c)「残すメンバー」連絡検知の文脈注入経路で返信した(フェーズ110)
     chatbot_intent: Optional[str] = None  # chatbot_intent_classifier接続時のみ設定。CHATBOT_INTENT_VALUESのいずれか
+    profile_collection_reply_sent: bool = False  # True=プロフィール収集3問シーケンス(進行中)への応答として返信した(フェーズ続き318)
 
 
 def _summarize_errors_for_retry(errors: List[str]) -> str:
@@ -998,6 +1087,15 @@ def process_memo_event(
     """テキストメモ1件を処理する(署名検証等の受信基盤側の処理は別モジュールの前提)。
 
     設計上の判断(mvp-flow-draft.md準拠、aircon-pashaのprocess_memo_event()と同じ骨格):
+    0. (フェーズ続き318、craftsman-profile-collection-design.md 3節・4節「次フェーズ候補」
+       への対応)`user_profile_store`・`workshop_store`の両方が渡され、かつ`user_id`が
+       既存workshopへ連携済み(`get_workshop_id(user_id)`が非None)の場合、まず
+       `workshop_store.get_profile_collection_step(workshop_id)`を確認する。
+       `"completed"`以外(3問シーケンス進行中)であれば、本文中の受信テキストをLLMに
+       一切渡さず`_process_profile_collection_reply()`へ委譲して即座にreturnする
+       (通常の受注メモ生成・(a)(b)(c)の文脈注入経路・usage_counter判定のいずれへも
+       進まない)。`workshop_store`省略時・未連携user_idの場合はこの分岐自体をスキップし
+       (後方互換)、`"completed"`到達後は通常通り1.以降へ進む。
     1. message.type != "text" のイベント(画像単体送信等)は本フローの対象外とし、
        返信を送らずhandled=Falseで返す。
     2. LLM呼び出し結果を検証し、エラーがあれば同一入力で1回だけ再生成をリクエストする。
@@ -1106,6 +1204,18 @@ def process_memo_event(
     reply_token = event["replyToken"]
     memo_text = message["text"]
     user_id = event.get("source", {}).get("userId")
+
+    if user_profile_store is not None and workshop_store is not None and user_id:
+        profile_collection_workshop_id = user_profile_store.get_workshop_id(user_id)
+        if profile_collection_workshop_id is not None:
+            profile_collection_step = workshop_store.get_profile_collection_step(
+                profile_collection_workshop_id
+            )
+            if profile_collection_step != PROFILE_COLLECTION_STEP_COMPLETED:
+                return _process_profile_collection_reply(
+                    reply_client, reply_token, memo_text, workshop_store,
+                    workshop_id=profile_collection_workshop_id, step=profile_collection_step,
+                )
 
     trial_end_notification_due = False
     limit_notice: Optional[str] = None

@@ -56,9 +56,11 @@ course-set-pasha)には既にある「申込から実際にLINE公式アカウ�
      する導線の方が手数が少ない」という理由と整合しないため採用しなかった)。屋号は
      workshop-name-owner-notification-display-design.md(フェーズ177)がオーナー向け通知
      表示にのみ使う前提で既に`WorkshopStoreProtocol`にフィールドを持つ。連絡先メール
-     アドレス・想定利用形態・進行管理用の`profile_collection_step`は現時点でデータモデル上
-     の保持先が無く、`WorkshopStoreProtocol`への追加・Webhookハンドラへの配線は未実装
-     (craftsman-profile-collection-design.md「4. 残課題」参照)。
+     アドレス・想定利用形態・進行管理用の`profile_collection_step`は`WorkshopStoreProtocol`
+     への追加(フェーズ続き317)・Webhookハンドラ(`cloud_function_webhook.py`
+     `process_memo_event()`)への分岐配線(フェーズ続き318)まで実装済みで、workshop新規作成
+     直後から3問に答えきるまでは通常の受注メモ生成には進まない。モックスクリプトでの
+     手順再現は未着手(craftsman-profile-collection-design.md「4. 残課題」参照)。
    - 複数職人プランを想定する場合、代表者以外の職人分のLINE友だち追加・招待コード入力を
      追加で行うことで同一workshopに参加できる(craftsman-account-linking-design.md
      5節・11.1〜11.4節参照)。具体的には、代表者がLINEトーク上で「職人を追加したい」等の

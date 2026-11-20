@@ -74,11 +74,26 @@ Webhookハンドラが受信メッセージを「通常の受注メモ」とし�
   `test_firestore_workshop_adapter.py`に新規テスト8件追加(ロールバック・初期化・
   fail-closed〈未作成workshop_idはKeyError〉・既存フィールドとのmerge非衝突確認)、
   既存テストと合わせて325件・schema検証32件いずれもパス(回帰なし)。
-- Webhookハンドラ(`cloud_function_webhook.py`)への分岐配線(受信メッセージが
-  通常の受注メモか、進行中のプロフィール収集への回答かを`profile_collection_step`で
-  判定する)の設計・実装。**(次フェーズ候補、未着手)**
-- 連絡先メールアドレスを「なし」で回答された場合の取り扱い(`None`のまま、再質問しない)
-  の文面確定。**(次フェーズ候補、未着手)**
+- [フェーズ続き318で実装済み] Webhookハンドラ(`cloud_function_webhook.py`)への分岐配線。
+  `process_memo_event()`冒頭(0.、1.のtext判定の前)で`user_profile_store`・
+  `workshop_store`の両方が渡され、かつ`user_id`が既存workshopへ連携済みの場合に
+  `profile_collection_step`を確認し、`"completed"`以外であれば`_process_profile_collection_
+  reply()`(新設、LLM呼び出しなしの決定的な状態機械)へ即座に委譲する設計で実装した。
+  連絡先メールアドレスを「なし」で回答された場合の取り扱い(`None`のまま、再質問しない、
+  完全一致判定)も本フェーズであわせて文面確定・実装した(2節手順3の2択「個人のみ」/
+  「複数人で利用予定」も同様に完全一致で`"solo"`/`"multiple"`へ正規化、それ以外は
+  自由記述のまま保存)。この分岐配線により、`set_members`で新規作成される全workshopが
+  デフォルトで`profile_collection_step="awaiting_name"`から始まる(フェーズ続き317)以上、
+  既存テスト(process_memo_event()にuser_profile_store・workshop_storeの両方を渡す
+  テスト、test_cloud_function_webhook.py内56箇所)は全て「3問シーケンス完了済み」の
+  状態を前提としていたことが判明したため、各テストに`workshops.set_profile_collection_
+  step(workshop_id, "completed")`を追加して前提を明示化した(実オンボーディング経路
+  〈`create_workshop_from_linking_code()`〉を使う1テストも同様に是正)。新規テスト8件
+  (3問シーケンス各ステップの正常遷移・「なし」回答・自由記述保存・completed後の通常
+  フロー復帰・未連携user_idでの分岐スキップ)を追加し、既存テストの是正と合わせて
+  test_cloud_function_webhook.py内446件・プロジェクト全体26ファイル・schema検証32件
+  いずれもパス(回帰なし)を確認した。
 - 上記Webhook配線実装後、ステップ1(本設計に基づく収集フロー)・ステップ4(本番運用時の
   メモ送信)のモックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の次回候補(3))。
+  **(次フェーズ候補、未着手)**
 - 本設計決定をonboarding-guide.md 2節に反映(フェーズ続き316で実施済み)。
