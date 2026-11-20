@@ -67,14 +67,18 @@ Webhookハンドラが受信メッセージを「通常の受注メモ」とし�
 
 ## 4. 残課題(次フェーズ候補)
 
-- `profile_collection_step`・`contact_email`・`expected_usage_type`の
-  `WorkshopStoreProtocol`への追加、`InMemoryWorkshopStore`・
-  `firestore_workshop_adapter.py`両方への実装。
+- [フェーズ続き317で実装済み] `profile_collection_step`・`contact_email`・
+  `expected_usage_type`の`WorkshopStoreProtocol`への追加、`InMemoryWorkshopStore`・
+  `firestore_workshop_adapter.py`両方への実装。`set_members`(workshop新規作成の唯一の
+  地点)が`profile_collection_step`を`"awaiting_name"`で初期化する。
+  `test_firestore_workshop_adapter.py`に新規テスト8件追加(ロールバック・初期化・
+  fail-closed〈未作成workshop_idはKeyError〉・既存フィールドとのmerge非衝突確認)、
+  既存テストと合わせて325件・schema検証32件いずれもパス(回帰なし)。
 - Webhookハンドラ(`cloud_function_webhook.py`)への分岐配線(受信メッセージが
   通常の受注メモか、進行中のプロフィール収集への回答かを`profile_collection_step`で
-  判定する)の設計・実装。
+  判定する)の設計・実装。**(次フェーズ候補、未着手)**
 - 連絡先メールアドレスを「なし」で回答された場合の取り扱い(`None`のまま、再質問しない)
-  の文面確定。
-- 上記実装後、ステップ1(本設計に基づく収集フロー)・ステップ4(本番運用時のメモ送信)の
-  モックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の次回候補(3))。
-- 本設計決定をonboarding-guide.md 2節に反映(本フェーズで実施済み、下記参照)。
+  の文面確定。**(次フェーズ候補、未着手)**
+- 上記Webhook配線実装後、ステップ1(本設計に基づく収集フロー)・ステップ4(本番運用時の
+  メモ送信)のモックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の次回候補(3))。
+- 本設計決定をonboarding-guide.md 2節に反映(フェーズ続き316で実施済み)。

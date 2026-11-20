@@ -7474,3 +7474,39 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   収集経路をLINEトーク上の追加質問応答3問に決定(実装は未着手)。onboarding-guide.md 2節・
   INDEX.mdを更新。コード変更なし、既存テスト26ファイル・schema検証32件いずれもパス、
   回帰なし。)
+- フェーズ続き317(2026-11-20 01:00 UTC定例更新): 7venture中最も更新が止まっていた
+  event-komiguai-pashaはlaunch-readiness-checklist.md記載の承認待ち事項1〜3以外に前進
+  余地がなく(同checklist「次回候補」の記載どおり他venture前進を優先する方針)、次点の
+  本ventureを前進。フェーズ続き316で設計のみに留めていたcraftsman-profile-collection-
+  design.md 4節の残課題のうち1点目(`profile_collection_step`・`contact_email`・
+  `expected_usage_type`の`WorkshopStoreProtocol`・`InMemoryWorkshopStore`・
+  firestore_workshop_adapter.pyへの実装)を実装した。`WorkshopStoreProtocol`
+  (usage_counter_workshop.py)に3フィールド6メソッドを追加し、`get_workshop_name`の
+  docstringも「収集経路未確定」から本決定(フェーズ続き316)を踏まえた記述に更新した。
+  `set_members`(workshop新規作成の唯一の呼び出し地点、フェーズ215で確認済みの前提)が
+  `profile_collection_step`を`"awaiting_name"`で初期化する設計(design.md 3節)を
+  `InMemoryWorkshopStore.set_members`・`FirestoreWorkshopStore.set_members`の両方に
+  反映した。`get_profile_collection_step`は`get_contractor_user_id`・`get_plan_id`と
+  同じ基盤グループのfail-closed方針(未作成workshop_idはKeyError)を踏襲し、
+  `get_contact_email`・`get_expected_usage_type`は他の「未設定=None」系フィールドと同じ
+  安全側デフォルト方針を踏襲した。`test_firestore_workshop_adapter.py`に新規テスト8件
+  (ロールバック2件・自由記述受理1件・初期化1件・状態遷移1件・fail-closed1件・既存の
+  merge非衝突テスト1件への追加反映)を追加し、既存テスト
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`)全317件+新規8件=325件・
+  schema検証(`python3 schema/validate_test_cases.py`)32件いずれもパス(回帰なし)を確認
+  した。Webhookハンドラ(cloud_function_webhook.py)への分岐配線・「なし」回答時の文面
+  確定・モックスクリプト作成はdesign.md 4節に明記の通り未着手のまま次フェーズ以降の課題
+  として残した。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.md
+  への新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-19
+  19:00 UTCから約6時間・状況不変のため今回も追記・再通知とも見送り)。
+  次回候補: (1)Webhookハンドラ(cloud_function_webhook.py)への分岐配線(受信メッセージ
+  が通常の受注メモか進行中のプロフィール収集への回答かを`profile_collection_step`で判定)
+  の設計・実装、(2)連絡先メールアドレスを「なし」で回答された場合の文面確定、(3)上記
+  実装後、ステップ1・ステップ4のモックスクリプト作成、(4)他venture・アイデア領域の
+  前進を継続する。
+- 最終更新: 2026-11-20 01:00 UTC(フェーズ続き317: 詳細は上記。
+  `profile_collection_step`・`contact_email`・`expected_usage_type`を
+  `WorkshopStoreProtocol`・`InMemoryWorkshopStore`・firestore_workshop_adapter.pyに実装。
+  新規テスト8件追加、既存317件+新規8件=325件・schema検証32件いずれもパス、回帰なし。
+  Webhookハンドラへの分岐配線は次フェーズ以降の課題として残した。)

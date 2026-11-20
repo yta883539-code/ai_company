@@ -167,6 +167,44 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.store.set_workshop_name("w1", "鍛治屋 寅吉")
         self.assertEqual(self.store.get_workshop_name("w1"), "鍛治屋 寅吉")
 
+    def test_contact_email_roundtrip_and_default_none(self):
+        # craftsman-profile-collection-design.md 2節(フェーズ続き316)。
+        self.assertIsNone(self.store.get_contact_email("w1"))
+        self.store.set_contact_email("w1", "toranosuke@example.com")
+        self.assertEqual(self.store.get_contact_email("w1"), "toranosuke@example.com")
+
+    def test_expected_usage_type_roundtrip_and_default_none(self):
+        self.assertIsNone(self.store.get_expected_usage_type("w1"))
+        self.store.set_expected_usage_type("w1", "solo")
+        self.assertEqual(self.store.get_expected_usage_type("w1"), "solo")
+
+    def test_expected_usage_type_accepts_free_text_outside_two_choices(self):
+        # design.md 2節: 定型の2択(solo/multiple)に当たらない自由記述もそのまま保存する。
+        self.store.set_expected_usage_type("w1", "職人2名+見習い1名で利用予定")
+        self.assertEqual(
+            self.store.get_expected_usage_type("w1"), "職人2名+見習い1名で利用予定"
+        )
+
+    def test_set_members_initializes_profile_collection_step_to_awaiting_name(self):
+        # craftsman-profile-collection-design.md 3節: workshop新規作成時点(set_members
+        # 呼び出し時)に3問シーケンスの進行状態を初期化する。
+        self.store.set_members("w1", "U_owner", [])
+        self.assertEqual(self.store.get_profile_collection_step("w1"), "awaiting_name")
+
+    def test_profile_collection_step_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_profile_collection_step("w1", "awaiting_email")
+        self.assertEqual(self.store.get_profile_collection_step("w1"), "awaiting_email")
+        self.store.set_profile_collection_step("w1", "awaiting_usage_type")
+        self.assertEqual(self.store.get_profile_collection_step("w1"), "awaiting_usage_type")
+        self.store.set_profile_collection_step("w1", "completed")
+        self.assertEqual(self.store.get_profile_collection_step("w1"), "completed")
+
+    def test_get_profile_collection_step_for_unknown_workshop_raises(self):
+        # design.md 3節: get_contractor_user_id・get_plan_idと同じfail-closed方針。
+        with self.assertRaises(KeyError):
+            self.store.get_profile_collection_step("unknown")
+
     def test_first_generation_notice_sent_roundtrip_and_default_false(self):
         self.assertFalse(self.store.get_first_generation_notice_sent("w1"))
         self.store.set_first_generation_notice_sent("w1")
@@ -183,11 +221,17 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
         self.store.set_members("w1", "U_owner", ["U_member1"], {"U_owner": "親方太郎"})
         self.store.set_plan("w1", "light")
         self.store.set_workshop_name("w1", "鍛治屋 寅吉")
+        self.store.set_contact_email("w1", "toranosuke@example.com")
+        self.store.set_expected_usage_type("w1", "solo")
+        self.store.set_profile_collection_step("w1", "completed")
         self.store.set_first_generation_notice_sent("w1")
 
         self.assertEqual(self.store.get_contractor_user_id("w1"), "U_owner")
         self.assertEqual(self.store.get_plan_id("w1"), "light")
         self.assertEqual(self.store.get_workshop_name("w1"), "鍛治屋 寅吉")
+        self.assertEqual(self.store.get_contact_email("w1"), "toranosuke@example.com")
+        self.assertEqual(self.store.get_expected_usage_type("w1"), "solo")
+        self.assertEqual(self.store.get_profile_collection_step("w1"), "completed")
         self.assertTrue(self.store.get_first_generation_notice_sent("w1"))
         self.assertEqual(self.store.get_member_user_ids("w1"), ["U_owner", "U_member1"])
 

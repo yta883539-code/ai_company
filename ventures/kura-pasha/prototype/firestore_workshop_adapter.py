@@ -26,6 +26,13 @@ owner_notified_at系・deletion系)に分けて設計したのと同じ方針で
 **trial_end_notified_at・owner_notified_at系2種グループ**(`trial_end_notified_at`・
 `blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`の
 3フィールド6メソッド)を対象とする(残り1グループ〈deletion系〉は次回候補)。
+
+フェーズ続き316で、craftsman-profile-collection-design.md(workshop-store-firestore-
+adapter-design.mdとは別の新しい設計文書)4節の残課題として追加された
+`profile_collection_step`・`contact_email`・`expected_usage_type`の3フィールドも、
+同じく**基盤グループ**(workshop新規作成時に書き込まれるフィールド)の一部として本モジュール
+に実装する(`set_members`が新規作成時点で`profile_collection_step`を`"awaiting_name"`に
+初期化する)。
 """
 
 from __future__ import annotations
@@ -85,6 +92,9 @@ class FirestoreWorkshopStore:
                 "contractor_user_id": contractor_user_id,
                 "member_user_ids": all_ids,
                 "member_display_names": dict(display_names or {}),
+                # craftsman-profile-collection-design.md 3節(フェーズ続き316):
+                # InMemoryWorkshopStore.set_membersと同じ初期化(usage_counter_workshop.py参照)。
+                "profile_collection_step": "awaiting_name",
             },
             merge=True,
         )
@@ -143,6 +153,39 @@ class FirestoreWorkshopStore:
 
     def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
         self._doc_ref(workshop_id).set({"workshop_name": workshop_name}, merge=True)
+
+    def get_contact_email(self, workshop_id: str) -> Optional[str]:
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("contact_email")
+
+    def set_contact_email(self, workshop_id: str, contact_email: str) -> None:
+        self._doc_ref(workshop_id).set({"contact_email": contact_email}, merge=True)
+
+    def get_expected_usage_type(self, workshop_id: str) -> Optional[str]:
+        # 23節の統一方針: 一時的な接続エラーは「未設定」側(None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("expected_usage_type")
+
+    def set_expected_usage_type(self, workshop_id: str, expected_usage_type: str) -> None:
+        self._doc_ref(workshop_id).set(
+            {"expected_usage_type": expected_usage_type}, merge=True
+        )
+
+    def get_profile_collection_step(self, workshop_id: str) -> str:
+        # design.md 3節: get_contractor_user_id・get_plan_idと同じ基盤グループの
+        # fail-closed方針(未作成workshop_idに対する例外伝播)を踏襲する。
+        snapshot = self._doc_ref(workshop_id).get()
+        return (snapshot.to_dict() or {})["profile_collection_step"]
+
+    def set_profile_collection_step(self, workshop_id: str, step: str) -> None:
+        self._doc_ref(workshop_id).set({"profile_collection_step": step}, merge=True)
 
     def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
         # 23節の統一方針: 一時的な接続エラーは「未送信」側(False)に安全側合流させる。

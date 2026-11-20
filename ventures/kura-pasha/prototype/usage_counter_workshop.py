@@ -332,6 +332,11 @@ class WorkshopStoreProtocol(Protocol):
         `resolve_linking_code()`の`workshop_store`引数は本Protocol型として宣言されて
         いるため、実Firestore接続アダプタ等の別実装がこのメソッドを欠いたまま本Protocolに
         準拠しているつもりで作られるリスクがあった。
+
+        craftsman-profile-collection-design.md 3節(フェーズ続き316): 本メソッドは
+        workshop新規作成時に1回だけ呼び出される(docstring冒頭参照)唯一の地点のため、
+        `profile_collection_step`を`"awaiting_name"`で初期化する処理もここに含める
+        (呼び出し側〈workshop_linking.resolve_linking_code()〉の変更は不要)。
         """
         ...
 
@@ -340,12 +345,45 @@ class WorkshopStoreProtocol(Protocol):
 
     def get_workshop_name(self, workshop_id: str) -> Optional[str]:
         """workshop-name-owner-notification-display-design.md: 職人の屋号(または工房名、
-        onboarding-guide.md 2節。収集経路はLINEトーク上の追加質問応答か別途フォーム新設か
-        未確定)の読み出し。未設定の場合は`None`を返す。
+        onboarding-guide.md 2節・craftsman-profile-collection-design.md〈フェーズ続き316〉
+        で収集経路をLINEトーク上の追加質問応答〈3問シーケンス〉に確定済み)の読み出し。
+        未設定の場合は`None`を返す。
         """
         ...
 
     def set_workshop_name(self, workshop_id: str, workshop_name: str) -> None:
+        ...
+
+    def get_contact_email(self, workshop_id: str) -> Optional[str]:
+        """craftsman-profile-collection-design.md 2節(フェーズ続き316): 3問シーケンスの
+        2問目で収集する連絡先メールアドレス。「なし」と回答された場合も含め未設定の場合は
+        `None`を返す(同design.md 4節の通り、「なし」回答時は再質問しない)。
+        """
+        ...
+
+    def set_contact_email(self, workshop_id: str, contact_email: str) -> None:
+        ...
+
+    def get_expected_usage_type(self, workshop_id: str) -> Optional[str]:
+        """craftsman-profile-collection-design.md 2節(フェーズ続き316): 3問シーケンスの
+        3問目で収集する想定利用形態。`"solo"`・`"multiple"`、または定型の2択に当たらない
+        自由記述をそのまま保存する。未設定の場合は`None`を返す。
+        """
+        ...
+
+    def set_expected_usage_type(self, workshop_id: str, expected_usage_type: str) -> None:
+        ...
+
+    def get_profile_collection_step(self, workshop_id: str) -> str:
+        """craftsman-profile-collection-design.md 3節(フェーズ続き316): 3問シーケンスの
+        進行管理用の状態機械(`"awaiting_name"` → `"awaiting_email"` →
+        `"awaiting_usage_type"` → `"completed"`)。`set_members`によるworkshop新規作成時に
+        `"awaiting_name"`で初期化される前提のため、Protocol上は常に文字列を返す
+        (`get_contractor_user_id`等の基盤グループと同じく未作成workshop_idはKeyError相当)。
+        """
+        ...
+
+    def set_profile_collection_step(self, workshop_id: str, step: str) -> None:
         ...
 
     def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
@@ -729,6 +767,9 @@ class InMemoryWorkshopStore:
         self._plan_id_by_workshop: dict[str, str] = {}
         self._contractor_by_workshop: dict[str, str] = {}
         self._workshop_name_by_workshop: dict[str, str] = {}
+        self._contact_email_by_workshop: dict[str, str] = {}
+        self._expected_usage_type_by_workshop: dict[str, str] = {}
+        self._profile_collection_step_by_workshop: dict[str, str] = {}
         self._first_generation_notice_sent_by_workshop: dict[str, bool] = {}
         self._member_user_ids_by_workshop: dict[str, list[str]] = {}
         self._display_names_by_workshop: dict[str, dict[str, str]] = {}
@@ -776,6 +817,9 @@ class InMemoryWorkshopStore:
         ]
         self._member_user_ids_by_workshop[workshop_id] = all_ids
         self._display_names_by_workshop[workshop_id] = dict(display_names or {})
+        # craftsman-profile-collection-design.md 3節(フェーズ続き316): workshop新規作成
+        # 時点で3問シーケンスの進行状態を初期化する(set_membersが新規作成の唯一の地点)。
+        self._profile_collection_step_by_workshop[workshop_id] = "awaiting_name"
 
     def get_contractor_user_id(self, workshop_id: str) -> str:
         return self._contractor_by_workshop[workshop_id]
@@ -785,6 +829,24 @@ class InMemoryWorkshopStore:
 
     def get_workshop_name(self, workshop_id: str) -> Optional[str]:
         return self._workshop_name_by_workshop.get(workshop_id)
+
+    def set_contact_email(self, workshop_id: str, contact_email: str) -> None:
+        self._contact_email_by_workshop[workshop_id] = contact_email
+
+    def get_contact_email(self, workshop_id: str) -> Optional[str]:
+        return self._contact_email_by_workshop.get(workshop_id)
+
+    def set_expected_usage_type(self, workshop_id: str, expected_usage_type: str) -> None:
+        self._expected_usage_type_by_workshop[workshop_id] = expected_usage_type
+
+    def get_expected_usage_type(self, workshop_id: str) -> Optional[str]:
+        return self._expected_usage_type_by_workshop.get(workshop_id)
+
+    def set_profile_collection_step(self, workshop_id: str, step: str) -> None:
+        self._profile_collection_step_by_workshop[workshop_id] = step
+
+    def get_profile_collection_step(self, workshop_id: str) -> str:
+        return self._profile_collection_step_by_workshop[workshop_id]
 
     def get_first_generation_notice_sent(self, workshop_id: str) -> bool:
         return self._first_generation_notice_sent_by_workshop.get(workshop_id, False)
