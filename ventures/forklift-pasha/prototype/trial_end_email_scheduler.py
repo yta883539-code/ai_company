@@ -17,12 +17,19 @@
   (course-set-pasha・kura-pasha・aircon-pashaで発生した「解約確定が既存の複数独立フラグに
   紛れて専用分岐を持たない」欠落の再発を防ぐための事前申し送りを実装に反映したもの)。
 - アクセスURL(メール本文中の「▼ アクセスURL」)は、payment-identity-verification-design.md
-  (フェーズ95)が定めるサーバー発行のランダムなアクセストークンから組み立てる想定だが、
-  当該トークンの読み書きを行うストア自体が本venture未実装のため、本モジュールでは
-  course-set-pasha/payment_failure_reminder_scheduler.pyのPortalLinkProvider/
-  PORTAL_LINK_UNAVAILABLE_FALLBACKと同じ考え方の`AccessUrlProvider`(未接続時はNone)で
+  (フェーズ95)が定めるサーバー発行のランダムなアクセストークンから組み立てる想定であり、
+  本モジュールではcourse-set-pasha/payment_failure_reminder_scheduler.pyのPortalLinkProvider/
+  PORTAL_LINK_UNAVAILABLE_FALLBACKと同じ考え方の`AccessUrlProvider`(未接続時はNone)として
   抽象化し、未接続時は案内文をサポート窓口への問い合わせに差し替える安全側のフォールバックと
-  する(次回候補に実ストア接続を残す)。
+  する。当該トークンを読み書きする実ストア自体はaccess_token_store.AccessTokenStoreProtocol/
+  InMemoryAccessTokenStore(フェーズ133)で実装済みで、その具象Provider実装である
+  AccessTokenStoreUrlProvider(フェーズ134)がcloud_function_send_trial_end_emails.pyの
+  get_trial_end_email_runtime_dependencies()からaccess_url_providerとして既に接続されている
+  (本ファイル自体はAccessUrlProviderの抽象Protocolにのみ依存し、具象実装を知らない設計を
+  維持)。ただし本番LPドメインが未確定のためプレースホルダーURLを渡している状態であり、
+  かつInMemoryAccessTokenStoreが呼び出しごとに新規生成され永続化されないため、実運用上は
+  現時点でも上記フォールバック文言が使われる(ドメイン確定・実Firestore接続後に解消される、
+  次回候補)。
 
 設計の参照元: trial-end-notification-design.md
 """
