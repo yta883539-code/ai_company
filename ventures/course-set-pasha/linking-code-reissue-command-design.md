@@ -75,8 +75,12 @@ line-user-id-linking-design.md 3節の「期限切れの場合は『一度この
 
 ## 残課題
 
-- フォーム提出エラーメッセージ(Googleフォーム側、実フォーム未作成のため文言自体は未確定)
-  にも「コード再発行とトークに送信」という案内を反映する(フォーム実設定自体はオーナー承認待ち)。
+- **フェーズ390訂正**: 「フォーム提出エラーメッセージにも『コード再発行』案内を反映する」
+  という項目は撤回する。application-form-submission-http-entry-point-design.md 3節の
+  既存設計(フェーズ295)により、GAS側はフォーム回答者への追加のエラー表示を行わず
+  (Googleフォームの標準完了画面のまま)、400応答はオーナーがGAS実行ログを手動確認する
+  運用のため、そもそも「フォーム提出エラーメッセージ」という回答者向け表示経路自体が
+  MVP設計上存在しない。詳細・代替対応候補はline-user-id-linking-design.md 3節・残課題を参照。
 - line-user-id-linking-design.md 3節の案内文言の差し替え(配線完了、次回候補)。
 - 実LINE Messaging API接続・実Firestore接続はいずれもオーナー承認待ち(pending-approval.md参照)
   のため、本フェーズ(389)で行ったのはprocess_memo_event()への配線とその単体テストのみ。
