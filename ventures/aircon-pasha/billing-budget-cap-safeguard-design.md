@@ -54,9 +54,12 @@ line-reservation-aiのケースと異なり「ゼロに近いはずの原価が�
    請求先アカウントを再アタッチするだけで済む。
 4. 契約業者数が想定(当面10業者)を超えて増えた場合は、正常なコスト増であるにもかかわらず
    固定閾値のままでは誤って自動停止が作動しうるため、契約業者数が8業者(想定上限の8割)に
-   達した時点で予算額の見直しをオーナーに提案するプロセスを、次回以降のlaunch-readiness-
+   達した時点で予算額の見直しをオーナーに提案するプロセスを、~~次回以降のlaunch-readiness-
    checklist.mdの運用手順候補として残す(本フェーズでは設計のみで、checklistへの反映自体は
-   次回候補とする)。
+   次回候補とする)。~~
+   (フェーズ399是正: フェーズ387でlaunch-readiness-checklist.md「運用手順」節へ反映済み
+   〈本ドキュメント「未確定・今後の課題」節参照〉であることを確認した。本項目は解消済みの
+   陳腐化記載だった。)
 
 ## 承認依頼への反映方針
 本ドキュメントは設計のみであり、実行(GCPプロジェクト作成・課金設定・Budget作成)は依然
@@ -76,5 +79,8 @@ Billing Budget+自動停止」を添えて提示することで、オーナー�
 - 契約業者数が想定を超えた場合の予算額見直しプロセスをlaunch-readiness-checklist.mdへ反映する
   作業は、フェーズ387(2026-11-15 14:00 UTC)で同ドキュメント「運用手順」節として反映済み。
   ただし本運用手順は実Billing Budget作成後にのみ適用される(未実行)。
-- 他4venture(course-set-pasha・forklift-pasha・kura-pasha・oshien-pasha)についても同種の
-  Billing Budget安全策設計が未着手のため、次回以降の横展開候補として残す。
+- ~~他4venture(course-set-pasha・forklift-pasha・kura-pasha・oshien-pasha)についても同種の
+  Billing Budget安全策設計が未着手のため、次回以降の横展開候補として残す。~~
+  (フェーズ399是正: 他4venture全てに`billing-budget-cap-safeguard-design.md`自体が既に
+  存在し横展開完了済み〈billing-budget-review-step-rollout-status.mdフェーズ388で確認済み〉
+  であることを再確認した。本項目も解消済みの陳腐化記載だった。)

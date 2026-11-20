@@ -7759,3 +7759,31 @@
   「次回候補」陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き
   未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)
   ため、オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ399(2026-11-20 20:00 UTC定例更新): フェーズ398次回候補(1)に対応し、
+  「次回候補」節を持つ残り26件のうち5件(billing-budget-cap-safeguard-design.md・
+  billing-budget-review-step-rollout-status.md・business-name-owner-notification-
+  display-design.md・cloud-monitoring-alert-policy-design.md・daily-checks-and-
+  deletion-candidate-final-confirmation-dependency-failure-response-design.md)を抽出
+  確認した。billing-budget-review-step-rollout-status.md・business-name-owner-
+  notification-display-design.md・cloud-monitoring-alert-policy-design.md・daily-
+  checks-and-deletion-candidate-final-confirmation-dependency-failure-response-
+  design.mdの4件は問題なし(残る記載はいずれもFirestore接続等オーナー承認待ちが前提の
+  正当な保留)だったが、billing-budget-cap-safeguard-design.md(フェーズ363作成)に
+  2件の陳腐化記載を発見・是正した。(a)「提案」4節が「契約業者数8割到達時の予算見直し
+  プロセスのlaunch-readiness-checklist.mdへの反映は次回候補」と書き続けていたが、この
+  反映自体はフェーズ387で既に完了済みであることを同ファイル「未確定・今後の課題」節の
+  既存記載と突き合わせて確認した。(b)「未確定・今後の課題」節が「他4venture(course-
+  set-pasha・forklift-pasha・kura-pasha・oshien-pasha)への同種設計の横展開は未着手」と
+  書き続けていたが、billing-budget-review-step-rollout-status.md(フェーズ388・389)で
+  当該横展開が全完了済みと記録済みであることに加え、本フェーズで4venture全てに
+  `billing-budget-cap-safeguard-design.md`が実在することを`ls`で再確認し、いずれも
+  解消済みの陳腐化記載だったため取り消し線+是正内容を追記した。コード変更なし
+  (ドキュメント是正のみ)、既存テスト(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`843件)・schema検証(`python3 schema/validate_test_cases.py`25件)を
+  再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生して
+  いないためpending-approval.mdへの追記なし。
+  次回候補: (1)残り21件の個別design.mdファイルについて、本フェーズと同種の「次回候補」
+  陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
+  まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
