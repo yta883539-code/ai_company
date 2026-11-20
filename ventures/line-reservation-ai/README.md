@@ -7755,3 +7755,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-19 22:00 UTC(フェーズ続き393: 詳細は上記。kura-pashaの回答を反映して
   cross-venture-status.mdを更新、aircon-pasha・course-set-pashaは引き続き未確認として
   引き継ぎ。コード変更なし、既存テスト全1062件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き394(2026-11-20 04:00 UTC定例更新): フェーズ続き393の引き継ぎ事項
+  (aircon-pasha・course-set-pashaが次回ローテーションで前進する際に自ventureで確認する
+  想定だった項目)について、ローテーション待ちにせず本venture側から両ventureの
+  `enqueue-fallback-owner-notification-design.md`を直接確認した(両ファイルとも読み取りのみ、
+  変更なし)。aircon-pashaは明記されたフェーズ380〜382の実装・course-set-pasha版(フェーズ374)
+  の横展開である旨の記述から、course-set-pashaは3節の記述(1リクエスト内での複数
+  webhookEventIdフォールバック検知)から、いずれも`dispatch_webhook_events()`のenqueue失敗を
+  同一リクエスト内で検知・即時通知する構成(kura-pasha型)であることを確認した。これにより
+  3venture(course-set-pasha・kura-pasha・aircon-pasha)すべてで、line-reservation-ai版
+  特有の「(a) HTTPハンドラ経由/(b) 定期実行ジョブ経由」という送信元選択は発生しないことが
+  確定し、enqueue-notification-source-decision-cross-venture-status.mdに追記2として記録、
+  本件を最終クローズした。本venture自身の設計・実装への変更は発生していない
+  (他venture側ファイルの変更も行っていない。読み取り確認と本ファイルへの記録のみ)。
+  既存テスト`python3 -m unittest discover -s prototype -p "test_*.py"`全1062件・
+  `python3 schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LINE
+  Push送信・実Cloud Tasksデプロイ・実GCP/LINE API接続は行っていない。承認が必要なアクション
+  (支払い・アカウント作成・外部公開・送信等)は今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜4、および
+  billing-budget-cap-safeguard-design.mdのBilling Budget安全策付き実GCPプロジェクト作成)
+  がオーナーから承認・回答された場合はその着手を最優先、(2)aircon-pasha・course-set-pasha
+  側では今回の結論を自ventureのREADME/設計ファイルに軽微な記録として残すことを期待する
+  (本件自体の調査・判断は完了済みのため必須ではない)、(3)他venture・アイデア領域の前進を
+  継続する。
+- 最終更新: 2026-11-20 04:00 UTC(フェーズ続き394: 詳細は上記。aircon-pasha・course-set-pasha
+  双方がkura-pasha型〈同期フォールバック〉であることを確認し、cross-venture-status.mdの
+  該当項目を最終クローズ。コード変更なし、既存テスト全1062件・schema検証28件いずれもパス、
+  回帰なし)

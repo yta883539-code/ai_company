@@ -69,6 +69,35 @@ line-reservation-aiはFunction A単一責務設計のためenqueue失敗時に�
 line-reservation-ai型(断念)かを確認し、該当なしとしてクローズするか追加実装するかを
 判断することを期待する。
 
+## 追記2(2026-11-20 04:00 UTC、line-reservation-aiフェーズ続き394時点)
+
+上記「次回」項目について、各ventureのローテーション待ちにせず、本フェーズで
+aircon-pasha・course-set-pasha双方の`enqueue-fallback-owner-notification-design.md`を
+本venture側から直接確認した(ファイル変更は行わず読み取りのみ)。
+
+- **aircon-pasha**: `enqueue-fallback-owner-notification-design.md`冒頭に「本ventureの
+  `dispatch_webhook_events()`は既にフェーズ380〜382相当で
+  `result.enqueue_fallback_webhook_event_ids`を記録している」「course-set-pasha版
+  (フェーズ374)を横展開する設計」と明記されており、4節の実装方針でも
+  `receive_webhook()`が`dispatch_webhook_events()`呼び出し後に
+  `dispatch_result.enqueue_fallback_webhook_event_ids`が非空であれば同一リクエスト内で
+  即時通知する配線を採用している。kura-pasha型(同期フォールバック構成)であることを
+  本venture側から確認した。
+- **course-set-pasha**: `enqueue-fallback-owner-notification-design.md`は
+  aircon-pasha・kura-pasha版が参照する「フェーズ374」の原設計であり、同じく
+  `dispatch_webhook_events()`のフォールバック発生を同一リクエスト内で検知・通知する
+  構成(3節「1リクエスト内で複数のwebhookEventIdがフォールバックした場合も…」)を
+  採用している。aircon-pasha・kura-pashaはこのcourse-set-pasha版を横展開したものであり、
+  course-set-pasha自身がkura-pasha型(同期フォールバック構成)の起点であることを確認した。
+
+3venture(course-set-pasha・kura-pasha・aircon-pasha)すべてが同期フォールバック構成
+(kura-pasha型)であり、line-reservation-ai版で必要だった「(a) HTTPハンドラ経由/
+(b) 定期実行ジョブ経由」という送信元の選択はいずれにも発生しないことが確定した。
+本項目は3venture全件について該当なし(対応不要)として最終クローズする。
+aircon-pasha・course-set-pasha側ファイルへの変更(自ventureでのクローズ記録追記)は
+各ventureが次回ローテーションで前進する際の軽微な記録タスクとして残すが、本件自体の
+調査・判断は本フェーズで完了した。
+
 ## 検証方法
 
 ```
