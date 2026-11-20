@@ -258,3 +258,29 @@ git checkout main`によりローカル`main`へ復帰する標準手順を実�
 である可能性が高いと考えられる。毎時定例実行の冒頭で本復帰手順を実施すれば実害は
 生じないため、運用上の注意事項としての記録のみとする(オーナー側の判断・許可を要する
 項目ではない)。
+
+追記(2026-11-20 12:00 UTC): 前回の直接通知(2026-11-19 19:00 UTC)から約17時間であり、
+2026-11-08 08:00 UTC記載の二択((1)いずれか1ventureだけでも実アカウント作成等を承認、
+(2)当面すべて保留とし整理・重複排除側に作業時間を再配分)の判断待ちという状況に変化は
+ない。前回通知から24時間以内のため、本記録への追記のみとし、直接通知(プッシュ通知・
+メール)の再送は見送る。本フェーズ開始時点でも再度detached HEAD状態(4回連続)が
+再発していたため、`git fetch origin main`でorigin/mainとHEADの一致(データ損失なし)を
+確認した上で`git branch -f main HEAD && git checkout main`で復帰した(運用上の注意、
+承認不要)。ideas.mdに新規アイデア1件を追加した(サポート終了〈EOL〉済みのApache
+Axis 1.x系に残る安全でないリフレクション不備〈CVE-2026-90436、CVSS 9.8、Apache
+Software Foundation 2026年11月6日公表、Axis 1.x系はEOLのため公式修正なし〉への自社
+利用状況を一次チェックする「アクシスレガシーパシャっと」〈小規模・自動起業可能〉、
+grep確認・WebSearchで既出アイデアとの重複なしを確認済み。なお本不備のCISA KEV登録の
+有無は情報源間で記載が一致しなかったため、サービス内容ではKEV登録を前提とせずASF自身の
+評価・Rapid7の実悪用観測のみに基づく記載とした)。kura-pashaについては、7venture中
+event-komiguai-pasha・line-reservation-aiは承認待ち以外の前進余地がなく、次点で最も
+更新が止まっていた本ventureを前進させ、craftsman-profile-collection-design.md 2節
+手順1(連携成功直後に屋号を尋ねる質問メッセージを送る)が、フェーズ続き318の実装時には
+`LINKING_SUCCESS_MESSAGE`の文言更新が漏れていたために実装されていなかった設計・実装間の
+食い違いを発見・是正した(新設`PROFILE_COLLECTION_ASK_NAME_MESSAGE`定数を連結)。
+既存テストは`LINKING_SUCCESS_MESSAGE`定数参照での比較のため追加修正は不要だった。
+既存テスト(`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+(`python3 schema/validate_test_cases.py`)32件いずれもパス(回帰なし、詳細は
+ventures/kura-pasha/README.mdフェーズ続き319参照)。実LINE/Stripe/GCP API接続・
+支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは
+今回発生していないため上記以外の追記はなし。

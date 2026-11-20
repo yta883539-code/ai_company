@@ -512,7 +512,14 @@ FIRST_GENERATION_NOTICE_MESSAGE = (
 # usage_counter判定)とは完全に独立した経路として扱う。
 # ---------------------------------------------------------------------------
 
-# craftsman-profile-collection-design.md 2節の質問文言(手順2〜4)をそのまま踏襲する。
+# craftsman-profile-collection-design.md 2節の質問文言(手順1〜4)をそのまま踏襲する。
+# 手順1(屋号の質問)はdesign.md 2節で「ウェルカムメッセージ(=LINKING_SUCCESS_MESSAGE)に
+# 続けて送る」と指定されていたが、フェーズ続き318実装時はLINKING_SUCCESS_MESSAGE自体の
+# 文言更新が漏れており(旧文言「依頼内容の簡単なメモを送ってください」のままだと、職人は
+# 次に送るテキストが屋号として保存されることに気づけない)、本フェーズで是正する。
+PROFILE_COLLECTION_ASK_NAME_MESSAGE = (
+    "続けて、工房名(屋号)を教えてください。個人で活動されている場合はお名前で構いません。"
+)
 PROFILE_COLLECTION_ASK_EMAIL_MESSAGE = (
     "連絡先メールアドレスを教えてください(納品案内等の控えが必要な場合のみで構いません。"
     "不要な場合は「なし」とお送りください)。"
@@ -1472,7 +1479,7 @@ def process_memo_event(
 # ---------------------------------------------------------------------------
 
 LINKING_SUCCESS_MESSAGE = (
-    "連携が完了しました。依頼内容の簡単なメモを送ってください。"
+    "連携が完了しました。" + PROFILE_COLLECTION_ASK_NAME_MESSAGE
 )
 
 # design 11.3節が「本節未設計」として残していた招待コード解決成功時のウェルカムメッセージ

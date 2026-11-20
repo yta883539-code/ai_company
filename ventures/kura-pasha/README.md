@@ -7550,3 +7550,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   新規テスト8件追加。test_cloud_function_webhook.py内446件・プロジェクト全体26ファイル・
   schema検証32件いずれもパス、回帰なし。モックスクリプト作成は次フェーズ以降の課題
   として残した。)
+- フェーズ続き319(2026-11-20 12:00 UTC定例更新): 7venture中event-komiguai-pasha・
+  line-reservation-aiは承認待ち以外の前進余地がなく、次点で最も更新が止まっていた
+  本ventureを前進。フェーズ続き318実装時のレビューで、craftsman-profile-collection-
+  design.md 2節手順1が「`create_workshop_from_linking_code()`成功時、ウェルカムメッセージ
+  (=LINKING_SUCCESS_MESSAGE)に続けて『工房名(屋号)を教えてください。個人で活動されている
+  場合はお名前で構いません』という質問メッセージを送る」と明記していたにもかかわらず、
+  実装されたLINKING_SUCCESS_MESSAGEの文言が旧来の「連携が完了しました。依頼内容の簡単な
+  メモを送ってください。」のまま更新されておらず、設計と実装が食い違っていたことを発見した。
+  この食い違いの実害は、職人が連携直後に送るテキストが実際には`workshop_name`として
+  保存される(`_process_profile_collection_reply()`のPROFILE_COLLECTION_STEP_AWAITING_NAME
+  分岐)にもかかわらず、案内文言が「依頼内容の簡単なメモを送ってください」のままだと、
+  職人が屋号を尋ねられていることに気づけず、本当の受注メモ(依頼内容)を最初に送って
+  しまい、それが誤って屋号として保存されてしまう(かつLLMは呼ばれないため、依頼内容の
+  整理メモ自体も生成されない)という実利用上のリスクである。cloud_function_webhook.pyに
+  新設の`PROFILE_COLLECTION_ASK_NAME_MESSAGE`定数(design.md 2節手順1の質問文言をそのまま
+  採用)を追加し、`LINKING_SUCCESS_MESSAGE`を「連携が完了しました。」と
+  `PROFILE_COLLECTION_ASK_NAME_MESSAGE`の連結に変更した(招待コード経由で既存workshopに
+  参加する`INVITE_JOIN_SUCCESS_MESSAGE`は、既にプロフィール収集済みのworkshopへの合流
+  であり本design.mdの対象外のため変更していない)。既存テストはいずれも文字列リテラルでは
+  なく`LINKING_SUCCESS_MESSAGE`定数への参照で比較していたため追加修正は不要だった。
+  既存テスト(`python3 prototype/run_all_tests.py`)全26ファイル・schema検証
+  (`python3 schema/validate_test_cases.py`)32件いずれもパス(回帰なし)を確認した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし。
+  次回候補: (1)ステップ1(本設計に基づく収集フロー)・ステップ4(本番運用時のメモ送信)の
+  モックスクリプト作成(onboarding-guide.mdフェーズ続き314以来の次回候補(3)、今回の
+  文言修正を踏まえて素材を更新する必要がある)、(2)他venture・アイデア領域の前進を継続する。
+- 最終更新: 2026-11-20 12:00 UTC(フェーズ続き319: 詳細は上記。設計(craftsman-profile-
+  collection-design.md 2節手順1)と実装(LINKING_SUCCESS_MESSAGE)の食い違いを発見・是正。
+  `PROFILE_COLLECTION_ASK_NAME_MESSAGE`定数を新設し、連携成功メッセージに屋号を尋ねる
+  質問文言を連結。既存テスト全26ファイル・schema検証32件いずれもパス、回帰なし。)
