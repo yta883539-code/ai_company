@@ -7280,3 +7280,28 @@
   次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先、(2)他venture・アイデア領域の前進。
+- フェーズ394(2026-11-21 13:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ393・2026-11-21 02:00 UTC、約11時間)を選定。残課題を持つ設計文書
+  (character-limit-fallback-design.md・chatbot-intent-classification-escalation-design.md・
+  enqueue-fallback-owner-notification-design.md・
+  firestore-runtime-dependency-failure-form-submission-response-design.md)、「未対応」記載を
+  持つ文書(post-generation-checks-cross-area-review.md・
+  subscription-cancellation-scheduled-message-suspension-consistency-design.md・
+  owner-faq-routing-design.md・line-user-id-linking-design.md・
+  unfollow-event-handling-design.md)、cross-venture横展開レビュー2件
+  (cross-venture-inquiry-collection-naming-parity-review.md・
+  count-null-vs-zero-cross-venture-review.md)を棚卸ししたが、いずれも(a)実LLM/LINE/Stripe
+  API接続後でないと検証できない事項、(b)本venture側では既に対応済み(フェーズ221のNFKC
+  正規化・フェーズ391のメッセージ事前案内統一等)、(c)cross-venture展開不要と結論済み、
+  のいずれかに該当し、新規の未承認前提を積み増さない範囲での追加候補は見つからなかった。
+  フェーズ392・393と同様の判断として、新規ドキュメント追加は見送り、既存テスト
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`全927件)・schema検証
+  (`python3 schema/validate_test_cases.py`22件)の健全性再確認のみに限定した(いずれもパス、
+  回帰なし)。コード変更なし。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-20 19:00 UTCから
+  約18時間・24時間未満かつ状況不変のため再送は見送り、pending-approval.mdに状況記録のみ
+  追記)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進。
