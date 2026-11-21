@@ -67,4 +67,9 @@ enumには追加しない。`engine.py`の`SYSTEM_ESCALATION_REASONS`に追加�
   ヘルパーを新設し、本設計の`booking_cancelled`/`cancel_not_found`を含む4種のシステム内部
   イベント全てが`NotificationLogAggregator.record()`まで届くよう配線済み。change-intent-
   handling-design.md側にも同じ記載漏れがあったため、あわせて訂正した。
+- 同一顧客が確定済み予約を持つ状態で2件目の新規予約会話を開始すると`present_candidates()`が
+  `_states[user_id]`を無条件上書きし、1件目の`confirmed`状態がcancel/change対象から外れる
+  問題を2026-11-21(フェーズ続き398)で発見。詳細・対応方針は
+  concurrent-booking-per-customer-state-overwrite-design.md参照(本フェーズでは設計のみ、
+  実装は次回以降)。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)

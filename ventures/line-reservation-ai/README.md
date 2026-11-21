@@ -7836,3 +7836,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   オーナーから承認・回答された場合はその着手を最優先、(2)他venture・アイデア領域の前進を継続する。
 - 最終更新: 2026-11-21 12:00 UTC(フェーズ続き397: 詳細は上記。既存テスト全1062件・schema検証
   28件を再実行し、変更なしで全件パス。回帰なし。コード変更なし)
+- フェーズ続き398(2026-11-21 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新2026-11-21 12:00 UTC、約8時間)を前進。フェーズ続き397次回候補(承認待ち事項・
+  他venture前進)は本venture自身の新たな前進余地を生まないため、単純な回帰確認の繰り返しに
+  代えて既存設計ファイルの再点検を行い、cancel-intent-handling-design.mdの設計で前提として
+  いる「`_states[user_id]`は1顧客1レコード」という制約に対し、`present_candidates()`
+  (engine.py 1015〜1024行目)が既存レコードの有無を確認せず常に上書きする実装になっている
+  ことを発見した。常連客が確定済み予約を持つ状態のまま2件目の新規予約会話を開始すると、
+  1件目の`confirmed`状態がcancel/change-intentの対象から外れてしまう設計ギャップであり、
+  concurrent-booking-per-customer-state-overwrite-design.mdに発見経緯・問題シナリオ・対応案
+  (最小対応案: 確定済み中の2件目申し出をオーナーエスカレーションに倒す / 本格対応案:
+  状態をリスト化)を新規作成して記録した。本フェーズでは設計のみとし、実装(engine.py変更・
+  回帰テスト追加)は次回以降に回した。cancel-intent-handling-design.md・
+  change-intent-handling-design.mdの「残る課題」・INDEX.mdに相互参照を追記。コード変更なし、
+  既存テスト`python3 -m unittest discover -s prototype -p "test_*.py"`全1062件・
+  `python3 schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LINE
+  Push送信・実Cloud Tasksデプロイ・実GCP/LINE API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.md
+  への追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから
+  約1時間・24時間未満かつ状況不変のため再通知は見送り)。
+  次回候補: (1)concurrent-booking-per-customer-state-overwrite-design.mdの最小対応案
+  (確定済み保持中の2件目申し出をオーナーエスカレーションに倒す`escalation_reason`新設)の
+  実装とprototype/test_engine.pyへの回帰テスト追加、(2)承認待ち事項(launch-readiness-
+  checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進を継続する。
+- 最終更新: 2026-11-21 20:00 UTC(フェーズ続き398: 詳細は上記。新規設計ファイル1件作成、既存
+  設計ファイル2件に相互参照を追記。コード変更なし。既存テスト全1062件・schema検証28件いずれも
+  パス、回帰なし)

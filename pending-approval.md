@@ -545,3 +545,32 @@ ventureだけでも実アカウント作成等を承認いただくか、当面�
 オーナーへ直接の通知(プッシュ通知)を本時刻付で再送した(リポジトリ内記載のみでの承認
 済みとみなした実行は行っていない。実行は、オーナーが対話セッションで直接指示した場合に
 のみ行う)。
+
+日時: 2026-11-21 20:00 UTC
+venture: (リポジトリ全体・運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件(Synology DSMのAuth API認証不要SQLインジェクション脆弱性
+〈CVE-2026-76954、CVSS 9.8、Synology-SA-26:19として2026年11月10日公表、回避策なし〉
+への自社導入バージョン一次チェック「シノロジーオースもれパシャっと」〈小規模・自動起業
+可能〉)を追加した(ideas.md内「CVE-2026-76954」「SA-26:19」「Auth API」で検索し重複
+なしを確認済み、既出の「エヌエーエスロックパシャっと」〈Synology DSM対象、C3RB3Rランサ
+ムウェア実被害キャンペーン主題〉とはCVE・脆弱性の種類・設計方針が異なり重複しないことも
+確認済み。Synology公式アドバイザリ・dailysecurityreview.com・secnews.gr等複数情報源を
+WebSearchで確認済み)。投資・大規模分類のアイデアは本時刻は生成していないため
+presentations.mdへの追記はなし。
+7venture中最も更新が止まっていたline-reservation-ai(前回最終更新2026-11-21 12:00 UTC、
+約8時間)を選定しフェーズ続き398として前進を試みた。cancel-intent-handling-design.mdの
+残る課題を再点検する過程で、`ConversationFlowStateMachine.present_candidates()`
+(engine.py)が既存の`_states[user_id]`(1顧客1レコード)を無条件上書きする実装になって
+おり、常連客が確定済み予約を持つ状態で2件目の新規予約会話を開始すると1件目の確定状態が
+cancel/change-intentの対象から外れる設計ギャップを発見した。
+concurrent-booking-per-customer-state-overwrite-design.mdに発見経緯・問題シナリオ・
+対応案(最小対応案/本格対応案)を新規作成して記録し、本フェーズでは設計のみとした(実装
+は次回以降)。コード変更なし、既存テスト(`python3 -m unittest discover -s prototype -p
+"test_*.py"`1062件)・schema検証(`python3 schema/validate_test_cases.py`28件)いずれも
+変更なしでパス(回帰なし)。実LINE Push送信・実Cloud Tasksデプロイ・実GCP/LINE API接続・
+支払い・アカウント作成・外部公開・送信は一切行っていない。新たに承認が必要なアクションは
+今回発生していない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認は、前回直接通知
+(2026-11-21 19:00 UTC)から約1時間・24時間未満かつ状況不変のため、本時刻は再通知を見送
+った。

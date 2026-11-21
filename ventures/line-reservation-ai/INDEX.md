@@ -58,6 +58,7 @@
 - confirmed-state-archival.md / archive-trigger-unification-design.md
 - candidates-expired-notification-design.md / secondary-state-classes-persistence-conclusion.md
 - restricted-mode-cancellation-consistency-review.md / subscription-canceled-block-crosscheck.md
+- concurrent-booking-per-customer-state-overwrite-design.md
 
 ## 課金・Stripe
 - checkout-initiation-flow-design.md / checkout-intent-detection-parity-review.md
