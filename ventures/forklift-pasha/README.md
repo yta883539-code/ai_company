@@ -5609,3 +5609,28 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-21 15:00 UTC(フェーズ253: 詳細は上記。承認待ち事項1の「特定自主
   検査強調月間」時期的緊急性メモを2026年版終了・2027年版が次の機会である旨に更新。
   既存テスト24ファイル・schema検証11件の健全性確認いずれもパス、回帰なし)
+
+- フェーズ254(2026-11-21 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回更新2026-11-21 15:00 UTC、約7時間)を対象に選定。form_submission_flow.pyの
+  モジュールdocstringが「overage_notifications.py(月間生成回数90%通知・保有台数プラン
+  超過通知)はplan_idの書き込み経路が未確定のため意図的に組み込まない」と記載していたが、
+  実際には保有台数プラン超過通知(record_vehicle_and_get_overage_notice)はvehicle_
+  registry.register_vehicle_from_inspection_memo()経由でフェーズ231から既に組み込み
+  済み(process_form_submission()内、vehicle_store・vehicle_count_store両方指定時の
+  分岐、operator_store.get_plan_id()で解決したplan_idを渡す実装)であり、docstringの
+  記載がフェーズ231の実装に追随せず陳腐化して残っていたことを発見し是正した(ドキュメント
+  のみ、ロジック変更なし)。あわせて、月間生成回数90%通知(record_generation_and_get_
+  usage_notice)側は依然process_form_submission()にUsageCounterStoreProtocol用の
+  引数が無く未着手であること、plan_id自体の解決経路(stripe_webhook.pyのwrite_plan_id_
+  from_checkout_session_metadata()・sync_plan_id_on_subscription_event()、フェーズ
+  124・127〜130で設計・実コード化済み)は既に確定済みで本venture側の配線漏れのみが
+  残課題であることをdocstringに明記した。次回候補: (1)vehicle_count_storeと同型の
+  usage_counter_store引数をprocess_form_submission()・receive_form_submission()・
+  main()に追加し、月間生成回数90%通知の配線を完成させる(設計上の不確定要素は無いため
+  着手可能)、(2)承認待ち事項1〜4(launch-readiness-checklist.md参照)がオーナーから
+  承認された場合はその着手を最優先する。既存テスト24ファイル・schema検証11件いずれも
+  変更なしでパス(回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していない。
+- 最終更新: 2026-11-21 22:00 UTC(フェーズ254: 詳細は上記。form_submission_flow.pyの
+  docstring陳腐化〈フェーズ231の保有台数プラン超過通知組み込み漏れの記載〉を是正。
+  既存テスト24ファイル・schema検証11件いずれもパス、回帰なし)

@@ -9,10 +9,18 @@ post_generation_checks.run_all_checks()という既存の個別モジュール�
 - 実LLM呼び出しは行わない(APIキー取得はオーナー承認待ち、pending-approval.md参照)。
   呼び出し元が注入する`llm_generate`関数(入力メモ文字列→schema/output.schema.json準拠の
   dict)を介して構造化出力を受け取る想定のスタブとして設計した。
-- overage_notifications.py(月間生成回数90%通知・保有台数プラン超過通知)は、通知対象と
-  なるplan_id(pricing-plan.mdのlight/standard/fleet)がfleet_operatorドキュメントに
-  いつ・どう書き込まれるか(Stripe決済導線、本venture未着手)が未確定のため、本フェーズでは
-  意図的に組み込まない(次回以降の課題、README参照)。
+- overage_notifications.pyのうち保有台数プラン超過通知(record_vehicle_and_get_overage_
+  notice)は、vehicle_store・vehicle_count_storeの両方が渡された場合にvehicle_registry.
+  register_vehicle_from_inspection_memo()経由でフェーズ231から既に組み込み済み(本docstring
+  がかつて「通知対象となるplan_idの書き込み経路が未確定のため意図的に組み込まない」として
+  いたのはフェーズ231時点で解消済みにもかかわらず記載が追随していなかった陳腐化、フェーズ254
+  で是正)。一方、月間生成回数90%通知(record_generation_and_get_usage_notice)は、
+  UsageCounterStoreProtocol用のストアを本関数がまだ受け取っていないため依然未着手
+  (本venture側でvehicle_count_storeと同型のusage_counter_store引数を追加する配線作業が
+  次回候補として残る。plan_id自体の解決経路は、stripe_webhook.pyのwrite_plan_id_from_
+  checkout_session_metadata()・sync_plan_id_on_subscription_event()〈フェーズ124・
+  127〜130〉で既に設計・実コード化済みのため、設計上の不確定要素ではなく本venture側の
+  配線漏れのみが残課題である)。
 """
 
 from __future__ import annotations
