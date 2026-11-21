@@ -669,6 +669,18 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ148(2026-11-21 08:00 UTC)でWebSearchにより新規追加。複数のイベント情報サイト・徳島県公式資料(pref.tokushima.lg.jp)でアクセス経路(二軒屋駅徒歩約30分、徳島駅からバス約15分「文理大学前」下車徒歩約5分)を確認した。徳島県公式のネーミング・ライツ導入施設一覧(抜粋)にはアスティとくしまの記載を確認できなかったためnaming_rights: falseとしたが、一覧自体が抜粋のみで全量確認はできていない点に留意(確定的な根拠ではない)。徳島県公式サイトでの最終確認を推奨する。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "長野市芸術館",
+      "aliases": [],
+      "region": "中部圏",
+      "nearest_station": "長野電鉄 市役所前駅 2番出口",
+      "walk_minutes_note": "徒歩3分前後(長野市役所新第一庁舎と合築。NAVITIME案内に基づく。公式サイトURLは本フェーズのWebSearchでは特定できなかったため、来館前に長野市公式サイトでの最終確認を推奨)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-21",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ151(2026-11-21 23:00 UTC)で、フェーズ121以来の次回候補(ホクト文化ホールと類似名称の「長野市芸術館」が実在の別施設か否かの確認)に対応した。WebSearchにより、長野市芸術館は長野県長野市大字鶴賀緑町1613番地(TEL 026-219-3100)に所在し、ホクト文化ホール(長野県民文化会館、若里1-1-3、JR長野駅東口徒歩10分前後)とは所在地・最寄り駅が異なる別施設であることを確認した。長野市役所新第一庁舎と合築されており、最寄りは長野電鉄「市役所前」駅2番出口から徒歩約3分(NAVITIME)。ネーミングライツは確認できず(公式名称のまま)naming_rights: falseとした。",
+      "operational_status": "active"
     }
   ]
 }
