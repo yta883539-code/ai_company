@@ -7829,6 +7829,32 @@
   陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
   まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
   オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
-- 最終更新: 2026-11-21 06:00 UTC(フェーズ401: 詳細は上記。billing-budget-review-step-
-  rollout-status.mdの陳腐化記載〈フェーズ389追記と矛盾したまま残っていた「次回候補」節〉を
-  発見・是正。既存テスト843件・schema検証25件いずれもパス、回帰なし)
+- フェーズ402(2026-11-21 09:00 UTC定例更新): 7venture中forklift-pasha・event-komiguai-
+  pasha・line-reservation-ai・course-set-pashaは次回候補が承認待ち事項のみに帰着すること
+  を確認済みのため見送り、kura-pasha(前回フェーズ続き322時点で新規着手項目なしと明記
+  済み)・oshien-pasha(直前フェーズ148で既に本時刻に更新済み)を除外し、承認を要さず前進
+  できる次回候補を持つ本venture(前回更新2026-11-21 06:00 UTC)を選定した。フェーズ401
+  次回候補(1)に対応し、「次回候補」節を持つ残り12件のうち5件(full-scan-to-indexed-query-
+  threshold-decision.md・increment-and-mark-notice-horizontal-survey.md・launch-
+  readiness-checklist.md・line-price-revision-2026-check.md・line-webhook-event-id-
+  idempotency-design.md)を抽出確認した。full-scan-to-indexed-query-threshold-decision.md
+  は既にフェーズ366時点で対応済みの注記があり、increment-and-mark-notice-horizontal-
+  survey.mdは自己調査により該当候補を解消済みとしてクローズ済み、line-price-revision-
+  2026-check.mdは完了済み項目を候補から除去済みであり、いずれも陳腐化記載ではなく整合
+  していることを確認した。launch-readiness-checklist.mdの次回候補はpending-approval.md
+  記載の承認待ち事項そのものを指す記述であり正当な保留、line-webhook-event-id-
+  idempotency-design.mdは現在進行中の横展開検討の記述でいずれも陳腐化は見つからな
+  かった。5件とも追加の是正対象なし。コード変更なし、既存テスト(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`843件)・schema検証(`python3 schema/
+  validate_test_cases.py`25件)を再実行しいずれも変更なしでパス(回帰なし)。実LINE/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-20 19:00 UTCから約14時間・
+  24時間未満かつ状況不変のため今回も追記・再通知とも見送り)。
+  次回候補: (1)残り7件の個別design.mdファイルについて、本フェーズと同種の「次回候補」
+  陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
+  まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-21 09:00 UTC(フェーズ402: 詳細は上記。個別design.mdファイルの
+  「次回候補」陳腐化棚卸しを5件継続、追加是正対象なし。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
