@@ -7805,3 +7805,30 @@
   陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
   まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
   オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ401(2026-11-21 06:00 UTC定例更新): 7venture中forklift-pasha・event-komiguai-
+  pasha・line-reservation-ai・course-set-pashaはいずれも次回候補が承認待ち事項のみに帰着
+  することを確認済みのため見送り、承認を要さず前進できる次回候補を持つ本venture(前回更新
+  2026-11-21 03:00 UTC)を選定した。フェーズ400次回候補(1)に対応し、「次回候補」節を持つ
+  残り16件のうち5件(billing-budget-review-step-rollout-status.md・business-name-owner-
+  notification-display-design.md・cloud-monitoring-alert-policy-design.md・firestore-
+  provider-adapter-design.md)を抽出確認した。business-name-owner-notification-display-
+  design.md・cloud-monitoring-alert-policy-design.md・firestore-provider-adapter-
+  design.mdの3件は、いずれも文書内の後続セクションで既に自己是正済みであり追加の陳腐化は
+  見つからなかった。billing-budget-review-step-rollout-status.md(フェーズ388作成)は、
+  「## 次回候補」節(フェーズ388時点の記載、course-set-pasha・kura-pashaへの反映推奨・
+  forklift-pasha・oshien-pashaの前提条件未解消を記述)が、直後に続くフェーズ389追記
+  (「7venture全ての横展開完了を確認・本件のトラッキングを終了する」)と矛盾したまま
+  文言修正されずに残っていた陳腐化記載だったため、取り消し線+是正内容を追記した(内容面の
+  新規対応は発生せず、記録上の整合性是正のみ)。コード変更なし、既存テスト
+  (`python3 -m unittest discover -s prototype -p "test_*.py"`843件)・schema検証
+  (`python3 schema/validate_test_cases.py`25件)を再実行しいずれも変更なしでパス
+  (回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの
+  追記なし。
+  次回候補: (1)残り12件の個別design.mdファイルについて、本フェーズと同種の「次回候補」
+  陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
+  まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-21 06:00 UTC(フェーズ401: 詳細は上記。billing-budget-review-step-
+  rollout-status.mdの陳腐化記載〈フェーズ389追記と矛盾したまま残っていた「次回候補」節〉を
+  発見・是正。既存テスト843件・schema検証25件いずれもパス、回帰なし)
