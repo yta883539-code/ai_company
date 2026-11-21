@@ -95,6 +95,10 @@
 - initial-contact-message-draft.md / onboarding-guide.md
 - step3-trial-generation-mock-script.md(onboarding-guide.md手順3の試験生成を題材にした
   トーク画面モックスクリプト。aircon-pashaフェーズ393版の横展開)
+- step1-2-linking-and-profile-collection-mock-script.md / step4-production-usage-mock-
+  script.md(フェーズ続き320)
+- step2-invite-code-join-mock-script.md(複数職人プラン・招待コード参加のオンボーディング
+  モックスクリプト。フェーズ続き321)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 

@@ -7610,3 +7610,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈友だち追加・連携コード交換・3問の追加質問応答〉とステップ4〈本番運用時のメモ送信〉の
   トーク画面モックスクリプトを新規作成。コード変更なし、既存テスト全26ファイル・schema検証
   32件いずれもパス、回帰なし。)
+- フェーズ続き321(2026-11-21 00:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新17:00 UTC、約7時間)を前進させ、フェーズ続き320次回候補(2)
+  (複数職人プラン〈招待コードでの参加〉のオンボーディング部分のモックスクリプト化)に
+  対応した。`step2-invite-code-join-mock-script.md`(新規作成): 契約者が「職人を追加
+  したい」と送信して`resolve_workshop_invite_request()`経由で招待コードの発行を受け、
+  追加したい職人がそのコードをLINEトークへ送信して`add_member_from_invite_code()`経由で
+  既存workshopへ合流する一連の流れを、`format_workshop_invite_reply_message()`・
+  `INVITE_JOIN_SUCCESS_MESSAGE`の実際の文言通りに再現した。招待コード参加者は
+  `profile_collection_step`のプロフィール収集3問シーケンスを経由しない(契約者が工房作成時
+  に既に回答済みのため)設計上の挙動も注記として明示した。1人用プランでの発行試行時の
+  `UPGRADE_REQUIRED_FOR_INVITE_NOTICE`・人数上限(`MAX_MEMBER_COUNT`=5名)到達時の
+  `INVITE_ISSUANCE_MEMBER_LIMIT_REACHED_NOTICE`/`MEMBER_LIMIT_REACHED_MESSAGE`・非契約者
+  発行試行時の`CONTRACTOR_ONLY_INVITE_NOTICE`はいずれも単発の案内文言でトーク画面としての
+  新規性がないため全文脈の再現は対象外とし注記のみとした。新しい事実確認・WebSearch調査は
+  行わず、既存実装(`prototype/workshop_linking.py`・`prototype/cloud_function_webhook.py`)
+  の文言・分岐のみを素材とした。コード変更なし、既存テスト(`python3 prototype/
+  run_all_tests.py`)全26ファイル・schema検証(`python3 schema/validate_test_cases.py`)
+  32件いずれも変更なしでパス(回帰なし)を確認した。INDEX.mdを本決定に基づき更新した。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-20 19:00 UTCから約5時間・
+  状況不変のため今回も追記・再通知とも見送り)。
+  次回候補: (1)利用形態を自由記述で回答するケース・連絡先メールアドレスを実際に入力する
+  ケースのバリエーション追加(step1-2側の次回候補(1)、未着手のまま持ち越し)、(2)他venture・
+  アイデア領域の前進を継続する。
