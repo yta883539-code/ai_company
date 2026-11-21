@@ -413,3 +413,31 @@ ventureだけでも実アカウント作成等を承認いただくか、当面�
 かの二択)は、前回直接通知(2026-11-20 19:00 UTC)から約18時間・24時間未満かつ状況不変
 のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は行って
 いない。前回通知から24時間以上経過した時点で状況が不変のまま続いていれば次回再送する想定)。
+
+日時: 2026-11-21 14:00 UTC
+venture: (リポジトリ全体・運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(オープンソースのデータ統合(ELT)ツール「Airbyte」の
+Connector Builder/ManifestServerにおける不適切なクラスロードに起因する任意コード実行
+脆弱性〈JVN#12040144、CVSS v3.0で9.9・JVN重要度「緊急」、実攻撃による悪用確認済み、
+2026年11月4日公表〉への自社導入バージョン一次チェック&更新手順下書き生成
+「エアバイトじっこうパシャっと」〈小規模・自動起業可能〉。ideas.md内「Airbyte」
+「エアバイト」「JVN#12040144」で検索した結果いずれも0件で初出を確認し、WebSearchで
+ScanNetSecurity・SmartScope・securityonline.info等複数の情報源によりJVN ID・CVSS値・
+影響バージョン・実攻撃悪用確認・修正版の有無を確認済み)。7venture中、承認待ちでなく
+前進可能な次回候補を持つのはaircon-pasha・oshien-pashaの2件のみであることを確認し、
+前回最終更新が最も古いaircon-pasha(前回09:00 UTC)を選定、フェーズ403として個別
+design.mdファイルの「次回候補」陳腐化棚卸しを5件継続した(application-form-submission-
+http-entry-point-design.md・firestore-runtime-dependency-failure-form-submission-
+response-design.md・firestore-security-rules-draft.md・linking-code-delivery-method-
+decision.md・onboarding-guide.md。いずれも陳腐化記載なし、詳細はventures/aircon-pasha/
+README.mdフェーズ403参照)。コード変更なし、既存テスト843件・schema検証25件いずれも
+変更なしでパス(回帰なし、`python3 -m unittest discover -s prototype -p "test_*.py"`・
+`python3 schema/validate_test_cases.py`で実行確認)。実LINE/Stripe/GCP API接続・支払い・
+アカウント作成・外部公開・送信は一切行っていない。新たに承認が必要なアクションは今回
+発生していない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(いずれか1
+ventureだけでも実アカウント作成等を承認いただくか、当面すべて保留とする旨を明示いただく
+かの二択)は、前回直接通知(2026-11-20 19:00 UTC)から約19時間・24時間未満かつ状況不変
+のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は行って
+いない。前回通知から24時間以上経過した時点で状況が不変のまま続いていれば次回再送する想定)。

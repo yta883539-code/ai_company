@@ -7858,3 +7858,45 @@
 - 最終更新: 2026-11-21 09:00 UTC(フェーズ402: 詳細は上記。個別design.mdファイルの
   「次回候補」陳腐化棚卸しを5件継続、追加是正対象なし。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+- フェーズ403(2026-11-21 14:00 UTC定例更新): 7venture中、承認待ちでなく前進可能な次回
+  候補を持つのはaircon-pasha・oshien-pashaの2件のみであることを確認した(course-set-pasha・
+  event-komiguai-pasha・forklift-pasha・line-reservation-aiは次回候補が承認待ち事項のみ、
+  kura-pashaはフェーズ続き322で新規着手項目なしと明記済み)。このうち前回最終更新が
+  2026-11-21 09:00 UTCの本venture(oshien-pashaは10:00 UTC)が最も更新が止まっていたため
+  選定し、フェーズ402次回候補(1)に対応して「次回候補」節を持つ残り7件のうち5件
+  (application-form-submission-http-entry-point-design.md・firestore-runtime-
+  dependency-failure-form-submission-response-design.md・firestore-security-rules-
+  draft.md・linking-code-delivery-method-decision.md・onboarding-guide.md)を抽出確認した。
+  application-form-submission-http-entry-point-design.md 7節は「次回候補」3件のうち2件が
+  既に`[フェーズ317で対応済み]`・`[フェーズ347で対応済み]`の注記付きで解消済みと記録されて
+  おり陳腐化なし。linking-code-delivery-method-decision.md 6節が残した「gas-script-draft.md
+  への`sendLinkingCodeConfirmationEmail()`呼び出し追記」は、gas-script-draft.md本体に
+  当該関数呼び出し・関数定義が実在することを`grep`で確認し、記載通り実施済みで陳腐化なし。
+  firestore-security-rules-draft.md 4節は、kura-pasha・course-set-pasha・line-reservation-ai
+  側の同名ファイルとの横展開完結状況の記録がフェーズ390時点で既に是正済みであることを
+  再確認し追加の陳腐化なし。firestore-runtime-dependency-failure-form-submission-response-
+  design.md 5節・onboarding-guide.mdの残課題はいずれも実Firestore/Googleフォーム+GAS
+  Webhook接続自体がオーナー承認待ちである旨の正当な保留記述であり陳腐化ではないことを
+  確認した。5件とも追加の是正対象なし。コード変更なし、既存テスト(`python3 -m unittest
+  discover -s prototype -p "test_*.py"`843件)・schema検証(`python3 schema/
+  validate_test_cases.py`25件)を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/
+  GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの新規追記なし(2026-11-08 08:00
+  UTC記載の運営方針確認は前回直接通知2026-11-20 19:00 UTCから約19時間・24時間未満かつ
+  状況不変のため今回も再通知は見送り、状況記録のみ追記)。
+  次回候補: (1)残り13件の個別design.mdファイル(owner-operation-self-service-faq.md・
+  payment-failure-event-order-guard-design.md・payment-failure-state-clear-on-
+  subscription-deleted-design.md・process-memo-event-async-split-design.md・
+  relinking-subscription-canceled-crosscheck.md・runtime-dependency-switching-
+  design.md・stale-next-candidate-cross-venture-survey.md・stripe-webhook-runtime-
+  dependency-failure-response-design.md・subscription-canceled-immediate-block-
+  design.md・subscription-event-out-of-order-guard-design.md・subscription-updated-
+  event-order-guard-design.md・user-account-linking-design.md・vendor-breach-key-
+  rotation-runbook.md)について、本フェーズと同種の「次回候補」陳腐化棚卸しを継続する、
+  (2)2026-11-08 08:00 UTC記載の
+  運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他
+  venture・アイデア領域の前進。
+- 最終更新: 2026-11-21 14:00 UTC(フェーズ403: 詳細は上記。個別design.mdファイルの
+  「次回候補」陳腐化棚卸しを5件継続、追加是正対象なし。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
