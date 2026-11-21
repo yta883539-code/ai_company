@@ -7787,3 +7787,21 @@
   陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
   まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
   オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ400(2026-11-21 03:00 UTC定例更新): フェーズ399次回候補(1)に対応し、
+  「次回候補」節を持つ残り21件のうち5件(deletion-candidate-final-confirmation-
+  scheduler-design.md・deletion-candidate-query-consolidation-decision.md・
+  deletion-candidate-unreachable-owner-review-design.md・enqueue-fallback-owner-
+  notification-design.md・firestore-composite-index-plan.md)を抽出確認した。5件とも
+  陳腐化記載は見つからなかった(各ファイルの残る「次回候補」「残課題」はいずれも
+  (a)実Firestore/LINE API接続・実Cloud Schedulerデプロイ自体がオーナー承認待ちで
+  止まっている正当な保留、または(b)既に別フェーズでの対応状況が解消済みとして正しく
+  追記済みの記載であることを本文中の最終更新履歴と突き合わせて確認済み)。コード変更
+  なし(確認のみ、ドキュメント修正なし)、既存テスト(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`843件)・schema検証(`python3 schema/validate_test_
+  cases.py`25件)を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API
+  接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは
+  今回発生していないためpending-approval.mdへの追記なし。
+  次回候補: (1)残り16件の個別design.mdファイルについて、本フェーズと同種の「次回候補」
+  陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
+  まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
