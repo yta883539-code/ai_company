@@ -99,6 +99,8 @@
   script.md(フェーズ続き320)
 - step2-invite-code-join-mock-script.md(複数職人プラン・招待コード参加のオンボーディング
   モックスクリプト。フェーズ続き321)
+- step1-2-free-text-variations-mock-script.md(連絡先メール実入力・利用形態自由記述の
+  バリエーション。フェーズ続き322)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 
