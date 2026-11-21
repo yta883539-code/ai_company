@@ -99,16 +99,35 @@ Cloud Tasksによる非同期処理 + push APIでの応答」方式を本venture
 reservation-aiの既存設計を本venture向け〈FAQ固定応答・意図分類分岐・3点セット生成の
 3経路の切り分けを含む〉に翻案する設計ドキュメントの新規作成)。
 
-## 5. 残課題・次回候補
+## 5. 残課題・次回候補(2026-11-21 21:00 UTC フェーズ395棚卸し: いずれも解消済み)
 
-- 本ventureの`process_memo_event()`を、line-reservation-ai/webhook-async-processing-
+- ~~本ventureの`process_memo_event()`を、line-reservation-ai/webhook-async-processing-
   design.md準拠の2関数構成(A: 署名検証・idempotency・enqueue・即時200、
   B: LLM呼び出し・返信)に翻案する設計ドキュメントを新規作成する(FAQ固定応答・
-  意図分類分岐をAに残すかBに回すかの判断を含む)。
-- 設計確定後、実コード(`prototype/`配下)への反映は、Cloud Tasks自体はスタブ
+  意図分類分岐をAに残すかBに回すかの判断を含む)。~~
+  (解消済み: フェーズ370でprocess-memo-event-async-split-design.mdを新規作成済み。
+  経路2〈FAQ固定応答〉のみ同期reply、経路3〈意図分類〉・4〈投稿文生成〉はまとめて
+  非同期push、という結論で本節が示した論点〈Aに残すかBに回すか〉に回答済み。)
+- ~~設計確定後、実コード(`prototype/`配下)への反映は、Cloud Tasks自体はスタブ
   (InMemoryキュー相当)で机上検証可能なため、実GCPプロジェクト作成の承認を待たずに
   着手できる見込み(stripe_webhook.py・line_webhook_event_id_store同様、Protocol越しの
-  差し替え設計とすることで検証を先行させる)。
-- aircon-pasha・kura-pashaも同じ「reply API + 同期LLM呼び出し」構成であることが
+  差し替え設計とすることで検証を先行させる)。~~
+  (解消済み: フェーズ371で`process_memo_event_async()`・`PushBackedReplyClient`を
+  `prototype/cloud_function_webhook.py`に実装、フェーズ372で`dispatch_webhook_events()`
+  への`is_sync_faq_memo_event()`・`TaskQueueClient`/`InMemoryTaskQueueClient`・
+  `make_memo_task_name()`による振り分け前処理を実装済み。見込みどおり実GCPプロジェクト
+  承認を待たずにInMemoryスタブで机上検証が完了している。詳細はprocess-memo-event-async-
+  split-design.md「残課題・次回候補」(1)(2)参照。)
+- ~~aircon-pasha・kura-pashaも同じ「reply API + 同期LLM呼び出し」構成であることが
   line-webhook-event-id-idempotency-design.md 1節で確認済みのため、本venture側の
-  設計・実装が固まった段階で両ventureへの横展開も次回候補となる。
+  設計・実装が固まった段階で両ventureへの横展開も次回候補となる。~~
+  (解消済み: kura-pashaはwebhook-async-two-function-design.mdで同種の翻案を完了済み、
+  aircon-pashaはフェーズ380〜382で`process_memo_event_async()`・
+  `PushBackedReplyClient`を独自に実装済み(aircon-pasha/prototype/
+  cloud_function_webhook.py内に該当シンボル9件を確認、2026-11-21 21:00 UTC棚卸し時点)。
+  process-memo-event-async-split-design.md「残課題・次回候補」(3)も同内容で解消記録済み
+  のため、本節からも除外する。)
+
+実装・デプロイ(実GCPプロジェクト作成・Cloud Tasksキュー新設)自体は、依然オーナー承認待ち
+(pending-approval.md参照、2026-11-08 08:00 UTC記載の運営方針確認が未回答のまま継続)の
+ため、本venture側で残る次回候補はこの承認待ち以外に存在しない。

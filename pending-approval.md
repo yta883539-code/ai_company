@@ -574,3 +574,32 @@ concurrent-booking-per-customer-state-overwrite-design.mdに発見経緯・問�
 理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認は、前回直接通知
 (2026-11-21 19:00 UTC)から約1時間・24時間未満かつ状況不変のため、本時刻は再通知を見送
 った。
+
+日時: 2026-11-21 21:00 UTC
+venture: (リポジトリ全体・運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件(自社ホストのNextcloud上で動く「Collabora Online –
+Built-in CODE Server」〈richdocumentscodeアプリ〉のOSコマンドインジェクション脆弱性
+〈CVE-2026-110447、CISA KEV登録2026年10月23日、CVSS 4.0で9.2、修正版26.4.303未満が
+対象、CERT Polskaがランサムウェア・サーバー乗っ取りへの実悪用を報告〉への自社導入
+状況一次チェック「コラボラコードパシャっと」〈小規模・自動起業可能〉)を追加した
+(ideas.md内「Collabora」「Nextcloud」「richdocumentscode」「CVE-2026-110447」で検索
+し重複なしを確認済み。securityaffairs.com・braindetox.kr・bleepingcomputer.com・
+rescana.com等複数情報源をWebSearchで確認済み)。投資・大規模分類のアイデアは本時刻は
+生成していないためpresentations.mdへの追記はなし。
+7venture中最も更新が止まっていたcourse-set-pasha(前回最終更新フェーズ394・
+2026-11-21 13:00 UTC、約8時間)を選定しフェーズ395として前進した。
+webhook-sync-reply-timeout-root-cause-review.md(フェーズ369)の「5. 残課題・次回候補」
+に記載の3項目が、process-memo-event-async-split-design.md(フェーズ370〜372)での
+設計・実コード実装、およびkura-pasha・aircon-pashaへの横展開(aircon-pashaはフェーズ
+380〜382で独自実装済みであることをコード上でも確認)によりいずれも既に解消済みである
+にもかかわらず、当該ファイル自体の記載が未対応のまま陳腐化して残っていたことを発見し、
+取り消し線付きの解消済み注記に是正した(コード変更なし、ドキュメントのみ)。既存テスト
+927件(`python3 -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+(`python3 schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LINE/Stripe/GCP
+API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。新たに承認が必要な
+アクションは今回発生していない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認は、前回直接
+通知(2026-11-21 19:00 UTC)から約2時間・24時間未満かつ状況不変のため、本時刻は再通知
+を見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない。前回通知から
+24時間以上経過した時点で状況が不変のまま続いていれば次回以降の定例更新で再送を検討する)。
