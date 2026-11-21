@@ -7900,3 +7900,32 @@
 - 最終更新: 2026-11-21 14:00 UTC(フェーズ403: 詳細は上記。個別design.mdファイルの
   「次回候補」陳腐化棚卸しを5件継続、追加是正対象なし。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+- フェーズ404(2026-11-21 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ403・14:00 UTC、約5時間)を選定し、フェーズ403の次回候補(1)の
+  残り13件のうち3件(owner-operation-self-service-faq.md・payment-failure-event-order-
+  guard-design.md・payment-failure-state-clear-on-subscription-deleted-design.md)の
+  「次回候補」「次のステップ候補」節を棚卸しした。owner-operation-self-service-faq.mdは
+  「次のステップ候補」3件がいずれも解消済み(取り消し線付き記載)または「実運用データ
+  取得後に検証」という正当な保留のみで陳腐化なし、payment-failure-event-order-guard-
+  design.mdは末尾の「次回候補」がフェーズ362で既に「他venture・アイデア領域の前進」に
+  更新済み(それ以前の2件の次回候補はいずれも解消済みと確認記録あり)で追加の陳腐化なし、
+  payment-failure-state-clear-on-subscription-deleted-design.mdの6節もkura-pasha・
+  course-set-pashaへの横展開状況確認が完了済みの記録であり追加の陳腐化なし。3件とも追加の
+  是正対象なし。コード変更なし、既存テスト(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`843件)・schema検証(`python3 schema/validate_test_cases.py`25件)を再実行し
+  いずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・
+  外部公開・送信は一切行っていない。承認が必要なアクションは今回発生していないため
+  pending-approval.mdへの新規追記なし(運営方針確認は別途本時刻の直接通知を参照)。
+  次回候補: (1)残り10件の個別design.mdファイル(process-memo-event-async-split-design.md・
+  relinking-subscription-canceled-crosscheck.md・runtime-dependency-switching-design.md・
+  stale-next-candidate-cross-venture-survey.md・stripe-webhook-runtime-dependency-failure-
+  response-design.md・subscription-canceled-immediate-block-design.md・subscription-event-
+  out-of-order-guard-design.md・subscription-updated-event-order-guard-design.md・
+  user-account-linking-design.md・vendor-breach-key-rotation-runbook.md)について、本フェーズ
+  と同種の「次回候補」陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が
+  引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他
+  venture・アイデア領域の前進。
+- 最終更新: 2026-11-21 19:00 UTC(フェーズ404: 詳細は上記。個別design.mdファイルの
+  「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
