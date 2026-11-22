@@ -14,13 +14,14 @@ post_generation_checks.run_all_checks()という既存の個別モジュール�
   register_vehicle_from_inspection_memo()経由でフェーズ231から既に組み込み済み(本docstring
   がかつて「通知対象となるplan_idの書き込み経路が未確定のため意図的に組み込まない」として
   いたのはフェーズ231時点で解消済みにもかかわらず記載が追随していなかった陳腐化、フェーズ254
-  で是正)。一方、月間生成回数90%通知(record_generation_and_get_usage_notice)は、
-  UsageCounterStoreProtocol用のストアを本関数がまだ受け取っていないため依然未着手
-  (本venture側でvehicle_count_storeと同型のusage_counter_store引数を追加する配線作業が
-  次回候補として残る。plan_id自体の解決経路は、stripe_webhook.pyのwrite_plan_id_from_
-  checkout_session_metadata()・sync_plan_id_on_subscription_event()〈フェーズ124・
-  127〜130〉で既に設計・実コード化済みのため、設計上の不確定要素ではなく本venture側の
-  配線漏れのみが残課題である)。
+  で是正)。月間生成回数90%通知(record_generation_and_get_usage_notice)も、
+  usage_counter_storeが渡された場合にフェーズ255で同様に組み込み済み(vehicle_count_store
+  と同型の配線。usage-and-fleet-overage-notification-design.md 4節の表示順どおり、台数超過
+  通知〈3節〉を先、生成回数90%通知〈2節〉を後に追記する)。トライアル中(operator_store.
+  get_plan_id()がNoneを返す間)はプラン上限自体が存在しないため通知はスキップするが、
+  vehicle_registry.register_vehicle_from_inspection_memo()のvehicleCountと同じ考え方で
+  カウント自体は加算し続ける(アップグレード後に当月分の生成回数がカウント漏れにならない
+  ようにする)。
 """
 
 from __future__ import annotations
@@ -37,7 +38,12 @@ from access_token_store import (  # noqa: E402
     AccessTokenStoreProtocol,
     InMemoryAccessTokenStore,
 )
-from overage_notifications import InMemoryVehicleCountStore  # noqa: E402
+from overage_notifications import (  # noqa: E402
+    InMemoryUsageCounterStore,
+    InMemoryVehicleCountStore,
+    UsageCounterStoreProtocol,
+    record_generation_and_get_usage_notice,
+)
 from post_generation_checks import run_all_checks  # noqa: E402
 from trial_management import (  # noqa: E402
     CANCELED_NOTICE,
@@ -90,6 +96,7 @@ def process_form_submission(
     operator_store: FleetOperatorStoreProtocol,
     vehicle_store: "VehicleStoreProtocol | None" = None,
     vehicle_count_store: "VehicleCountStoreProtocol | None" = None,
+    usage_counter_store: "UsageCounterStoreProtocol | None" = None,
 ) -> dict:
     """1回のWebフォーム送信を処理する。
 
@@ -125,6 +132,12 @@ def process_form_submission(
        呼び出し1か所で扱うため区分による分岐はしない)。`record.get("vehicle_id")`
        (LLM出力側のフィールド名、実体は車両番号の自由記述表記)がNoneの場合も同様に
        スキップする(status=insufficient_inputに振り分けられるはずだが、念のための防御)。
+       続けてusage_counter_storeが渡されていれば(フェーズ255)、月間生成回数を加算する。
+       operator_store.get_plan_id()で解決したplan_idがNoneの場合(トライアル中)はカウント
+       のみ加算し通知は行わない(vehicle_registryのvehicleCountと同じ考え方)。plan_idが
+       設定済みの場合はrecord_generation_and_get_usage_notice()に委譲し、90%閾値を新たに
+       跨いだ場合のみ通知文を付記する。usage-and-fleet-overage-notification-design.md 4節
+       の表示順どおり、台数超過通知の直後・トライアル終了通知より先に置く。
 
     戻り値は次のキーを持つdict:
     - status: "canceled" | "paused" | "generated" | "out_of_scope"
@@ -197,6 +210,22 @@ def process_form_submission(
         if registration.overage_notice:
             response_text += "\n" + registration.overage_notice
 
+    if usage_counter_store is not None:
+        year_month = now.strftime("%Y-%m")
+        plan_id_for_usage = operator_store.get_plan_id(operator_id)
+        if plan_id_for_usage is None:
+            # vehicle_registry.register_vehicle_from_inspection_memo()のplan_id=None分岐
+            # と同じ考え方: トライアル中はプラン上限自体が存在しないため通知対象外だが、
+            # カウント自体は加算しておく(当月中にアップグレードした場合に、アップグレード
+            # 前の生成分がカウント漏れにならないようにする)。
+            usage_counter_store.increment_count(operator_id, year_month)
+        else:
+            usage_notice = record_generation_and_get_usage_notice(
+                usage_counter_store, operator_id, year_month, plan_id_for_usage
+            )
+            if usage_notice:
+                response_text += "\n" + usage_notice
+
     trial_end_notice = record_generation_and_get_trial_end_notice(
         operator_store, operator_id, now
     )
@@ -232,6 +261,7 @@ def receive_form_submission(
     llm_generate: "LlmGenerateFn | None",
     vehicle_store: "VehicleStoreProtocol | None" = None,
     vehicle_count_store: "VehicleCountStoreProtocol | None" = None,
+    usage_counter_store: "UsageCounterStoreProtocol | None" = None,
 ) -> FormSubmissionHttpResult:
     """Webフォーム送信を受け取るHTTPエントリポイントの処理本体(access_url_reissue_
     handler.receive_reissue_request()と同じ位置づけ: `process_form_submission()`の
@@ -272,6 +302,7 @@ def receive_form_submission(
         operator_store,
         vehicle_store=vehicle_store,
         vehicle_count_store=vehicle_count_store,
+        usage_counter_store=usage_counter_store,
     )
     if result["status"] == "invalid_output":
         # check_errorsの内容自体は利用者へ返さない(厳守事項6/7等の機械チェック詳細は
@@ -285,7 +316,8 @@ def get_form_submission_runtime_dependencies() -> dict:
     dependencies()と対称の構成)。
 
     実Firestore接続(access_token_store・operator_store・vehicle_store・
-    vehicle_count_store)はいずれも実GCPプロジェクト確定後でなければ構築できないため、
+    vehicle_count_store・usage_counter_store)はいずれも実GCPプロジェクト確定後でなければ
+    構築できないため、
     現時点ではInMemory実装を返す(呼び出しごとに新規生成されるため、実Cloud Functions
     環境でも呼び出しをまたいで状態が保持されない既知の限界が残る。他venture・他
     エントリポイントと同じ限界)。
@@ -299,6 +331,7 @@ def get_form_submission_runtime_dependencies() -> dict:
         "operator_store": InMemoryFleetOperatorStore(),
         "vehicle_store": InMemoryVehicleStore(),
         "vehicle_count_store": InMemoryVehicleCountStore(),
+        "usage_counter_store": InMemoryUsageCounterStore(),
         "llm_generate": None,
     }
 

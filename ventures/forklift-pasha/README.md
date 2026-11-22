@@ -5634,3 +5634,36 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-21 22:00 UTC(フェーズ254: 詳細は上記。form_submission_flow.pyの
   docstring陳腐化〈フェーズ231の保有台数プラン超過通知組み込み漏れの記載〉を是正。
   既存テスト24ファイル・schema検証11件いずれもパス、回帰なし)
+
+- フェーズ255(2026-11-22 05:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回更新2026-11-21 22:00 UTC、約7時間)を対象に選定。フェーズ254の次回候補(1)を受け、
+  月間生成回数90%通知(overage_notifications.record_generation_and_get_usage_notice)の
+  配線を完成させた。process_form_submission()・receive_form_submission()・
+  get_form_submission_runtime_dependencies()にvehicle_count_storeと同型の
+  usage_counter_store引数を追加し、status="generated"の場合に毎回usage_counter_storeへ
+  加算する。operator_store.get_plan_id()で解決したplan_idがNone(トライアル中)の場合は
+  vehicle_registry.register_vehicle_from_inspection_memo()のvehicleCountと同じ考え方で
+  カウントのみ加算し通知は行わない(アップグレード後に当月分の生成回数がカウント漏れに
+  ならないようにする設計判断、設計文書usage-and-fleet-overage-notification-design.mdには
+  明記されていなかったためdocstringに追記した)。plan_id設定済みの場合は
+  record_generation_and_get_usage_notice()に委譲し、90%閾値を新たに跨いだ場合のみ
+  design.md 4節の表示順(台数超過通知が先・使用量通知が後)で返却テキストに追記する。
+  test_form_submission_flow.pyに新規テスト7件(plan_id未設定時のカウントのみ加算・
+  90%閾値到達時の通知・1回のみ通知の確認・台数超過通知との同時発生時の表示順・
+  get_form_submission_runtime_dependencies()の新規キー確認)を追加した。既存テスト
+  24ファイル(新規分含め51件、`python3 prototype/run_all_tests.py`)・schema検証11件
+  (`python3 schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (運営方針確認は前回直接通知2026-11-21 19:00 UTCから約10時間・24時間未満かつ状況不変
+  のため再通知は見送り)。
+  次回候補: (1)承認待ち事項1〜4(launch-readiness-checklist.md参照)がオーナーから承認
+  された場合はその着手を最優先、(2)Webフォームのフロントエンド側でボタン選択・プルダウン
+  入力を1本の自由記述文へ組み立てる処理(main()のdocstringが未着手と明記、web-form-ui-
+  design.md参照)への着手、(3)2026-11-08 08:00 UTC記載の運営方針確認(pending-
+  approval.md)が引き続き未回答のため、回答があるまでは机上設計の積み増しより既存実装の
+  健全性確認・他venture・アイデア領域の前進を優先する。
+- 最終更新: 2026-11-22 05:00 UTC(フェーズ255: 詳細は上記。月間生成回数90%通知の
+  usage_counter_store配線を完成〈process_form_submission()・receive_form_submission()・
+  get_form_submission_runtime_dependencies()〉。新規テスト7件を含め既存テスト24ファイル・
+  schema検証11件いずれもパス、回帰なし)

@@ -15,7 +15,7 @@ from form_submission_flow import (
     process_form_submission,
     receive_form_submission,
 )
-from overage_notifications import InMemoryVehicleCountStore
+from overage_notifications import InMemoryUsageCounterStore, InMemoryVehicleCountStore
 from trial_management import (
     CANCELED_NOTICE,
     FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
@@ -441,6 +441,128 @@ def main():
         1,
     ))
 
+    # --- フェーズ255: usage_counter_store配線。plan_id未設定(トライアル中)では使用量
+    # 通知は付記されないが、vehicleCountと同じ考え方でカウント自体は加算される ---
+    store = InMemoryFleetOperatorStore()
+    usage_counter_store = InMemoryUsageCounterStore()
+    result = process_form_submission(
+        "6号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op14",
+        now,
+        lambda raw_text: _generated_instance(
+            body="6号機、始業前点検、ブレーキ○、異音なし", vehicle_id="6号機"
+        ),
+        store,
+        usage_counter_store=usage_counter_store,
+    )
+    results.append(_check(
+        "usage_counter_store指定・plan_id未設定: response_textに使用量通知は追記されない",
+        result["response_text"],
+        "6号機、始業前点検、ブレーキ○、異音なし\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    ))
+    results.append(_check(
+        "usage_counter_store指定・plan_id未設定でもカウントは加算される",
+        usage_counter_store.get_count("op14", "2026-10"),
+        1,
+    ))
+
+    # --- ライトプラン(上限25回)契約済みの事業者が90%閾値(23回目)に達した生成完了
+    # 時点で1回だけ使用量通知が追記される。24回目は1回のみ通知のため再度は付記されない ---
+    store = InMemoryFleetOperatorStore()
+    store.set_upgraded_at("op15", now)
+    store.set_plan_id("op15", "light")
+    usage_counter_store = InMemoryUsageCounterStore()
+    llm_generate_op15 = lambda raw_text: _generated_instance(
+        body="7号機、始業前点検、ブレーキ○、異音なし", vehicle_id="7号機"
+    )
+    for _ in range(22):
+        process_form_submission(
+            "7号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+            "op15",
+            now,
+            llm_generate_op15,
+            store,
+            usage_counter_store=usage_counter_store,
+        )
+    result = process_form_submission(
+        "7号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op15",
+        now,
+        llm_generate_op15,
+        store,
+        usage_counter_store=usage_counter_store,
+    )
+    results.append(_check(
+        "ライトプラン23回目(90%閾値)で使用量通知が追記される",
+        "上限25回のうち23回" in result["response_text"],
+        True,
+    ))
+    result_next = process_form_submission(
+        "7号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op15",
+        now,
+        llm_generate_op15,
+        store,
+        usage_counter_store=usage_counter_store,
+    )
+    results.append(_check(
+        "ライトプラン24回目は1回のみ通知のため使用量通知が再度付記されない",
+        "上限25回のうち" in result_next["response_text"],
+        False,
+    ))
+
+    # --- 台数超過通知(3節)と使用量通知(2節)が同一リクエストで両方発生した場合、
+    # design.md 4節の表示順どおり台数超過通知が先・使用量通知が後になる ---
+    store = InMemoryFleetOperatorStore()
+    store.set_upgraded_at("op16", now)
+    store.set_plan_id("op16", "light")
+    vehicle_store = InMemoryVehicleStore()
+    vehicle_count_store = InMemoryVehicleCountStore()
+    usage_counter_store = InMemoryUsageCounterStore()
+    llm_generate_op16_vehicle8 = lambda raw_text: _generated_instance(
+        body="8号機、始業前点検、ブレーキ○、異音なし", vehicle_id="8号機"
+    )
+    for _ in range(22):
+        process_form_submission(
+            "8号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+            "op16",
+            now,
+            llm_generate_op16_vehicle8,
+            store,
+            vehicle_store,
+            vehicle_count_store,
+            usage_counter_store,
+        )
+    # ここまで22回生成済み(同一車両「8号機」のためvehicleCountは1のまま)。23回目に
+    # 新規車両「9号機」を登録し、台数超過通知・使用量通知(23回目でちょうど閾値)の
+    # 両方を同時に発生させる。
+    result = process_form_submission(
+        "9号機、始業前点検、ブレーキ○、異音なし、2026-10-11",
+        "op16",
+        now,
+        lambda raw_text: _generated_instance(
+            body="9号機、始業前点検、ブレーキ○、異音なし", vehicle_id="9号機"
+        ),
+        store,
+        vehicle_store,
+        vehicle_count_store,
+        usage_counter_store,
+    )
+    vehicle_notice_pos = result["response_text"].find("スタンダードプラン")
+    usage_notice_pos = result["response_text"].find("上限25回のうち")
+    results.append(_check(
+        "台数超過通知・使用量通知が両方とも追記される",
+        vehicle_notice_pos >= 0 and usage_notice_pos >= 0,
+        True,
+    ))
+    results.append(_check(
+        "表示順はdesign.md 4節どおり台数超過通知(3節)が先・使用量通知(2節)が後",
+        vehicle_notice_pos < usage_notice_pos
+        if (vehicle_notice_pos >= 0 and usage_notice_pos >= 0)
+        else False,
+        True,
+    ))
+
     # --- receive_form_submission(): access_token欠落・未知・raw_text欠落・llm未接続 ---
     access_token_store = InMemoryAccessTokenStore()
     access_token_store.set_access_token("op-reg", "token-reg")
@@ -572,6 +694,12 @@ def main():
         "get_form_submission_runtime_dependencies(): llm_generateは未接続(None)",
         deps["llm_generate"],
         None,
+    ))
+    results.append(_check(
+        "get_form_submission_runtime_dependencies(): usage_counter_storeは"
+        "InMemoryUsageCounterStore(フェーズ255)",
+        isinstance(deps["usage_counter_store"], InMemoryUsageCounterStore),
+        True,
     ))
 
     passed = sum(1 for r in results if r)
