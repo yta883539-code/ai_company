@@ -342,10 +342,14 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
 
     `access_token`はアクセスURL(`https://<ドメイン>/f/{accessToken}`)経由の
     クエリパラメータ(`request.args.get("access_token")`)から、`raw_text`はWebフォーム
-    送信本文(`request.form.get("raw_text")`、web-form-ui-design.mdのボタン選択・
-    プルダウン入力をフォーム送信前に1本の自由記述文へ組み立てるフロントエンド側の処理は
-    本venture未着手のまま次回候補として残る)から、それぞれ取り出し
-    `receive_form_submission()`に委譲する。
+    送信本文(`request.form.get("raw_text")`)から、それぞれ取り出し
+    `receive_form_submission()`に委譲する。daily区分のボタン選択・プルダウン入力を
+    1本の自由記述文へ組み立てる処理自体は、フロントエンドJS不使用の方針(web-form-ui-
+    design.md)と矛盾しないよう、サーバー側の`daily_raw_text_assembly.
+    assemble_daily_raw_text()`(フェーズ256)として設計・実装済みだが、daily.html側に
+    `<form>`タグ・各inputの`name`属性を追加し本関数を実際に呼び出す配線は、daily/
+    monthly/annualの3区分をルーティング上どう区別するかの設計判断が別途必要なため
+    未着手のまま次回候補として残る(web-form-ui-design.mdフェーズ256追記参照)。
 
     正常系(status_code=200)ではレスポンス本文に`response_text`(利用者への返信文面)を
     そのまま返す。エラー系では`(エラー文字列, status_code)`を返す(他2エントリポイントと

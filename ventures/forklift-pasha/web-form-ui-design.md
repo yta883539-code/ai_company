@@ -345,3 +345,44 @@ Scheduler・メール送信/実GCP・Firestore作成)がオーナーから承認
 を新規作成し、annual区分専用の法定保存義務注意カードを反映。browser_mockup_checks.jsに
 checkAnnualResult()を追加〈37件〉、Python単体テスト24ファイル・schema検証11件いずれも
 変更なしでパス)
+
+## フェーズ256追記: raw_text組み立て処理(サーバー側方式に決定)
+
+form_submission_flow.py main()のdocstringが次回候補として残していた「Webフォームの
+ボタン選択・プルダウン入力をフォーム送信前に1本の自由記述文(raw_text)へ組み立てる
+フロントエンド側の処理」(本venture未着手)に着手した。
+
+**設計判断**: daily.html冒頭コメントの「JSは一切使用せず」方針(フェーズ72確定)を維持
+したまま複数inputの値を1本の文字列へ結合するには、ブラウザ側JS(またはCSSのみでは不可能な
+動的な文字列結合)が必要になり、JS不使用方針と矛盾する。この矛盾を解消するため、組み立て
+処理自体は**フロントエンドJSではなくサーバー側**に置くことに決定した。ブラウザは通常の
+HTML `<form>` POST(JS不使用)で各input/checkbox/textareaの値を個別のフォームフィールドの
+ままサーバーへ送信し、サーバー側の新規モジュール`prototype/daily_raw_text_assembly.py`
+(`assemble_daily_raw_text()`)がそれらを結合してraw_text相当の文字列を組み立てる。
+daily区分はtypeがURLで確定済み(14行目)という設計のため、組み立て後の文章の先頭に
+「点検種別: 日次点検(作業開始前点検)」という固定行を含め、LLM側のtype抽出
+(schema/output.schema.jsonのtype)がdaily画面からの送信では常にdailyと判定されるようにした。
+
+「異常なし」側はチェックを外した項目(該当しない項目)を文章から除外、「異常あり」側は
+チェックした項目のみ、各項目の自由記述(「どう異常だったか」)を付して列挙する(自由記述が
+空欄の場合は項目名のみとし、厳守事項1〈AIが独自に安全性評価を追記しない〉に合わせ虚偽の
+補完は行わない)。新規車両(自由記述枠)で入力されたラベルもそのまま車両欄に転記する。
+
+新規テスト9件(`prototype/test_daily_raw_text_assembly.py`、全パターンの境界値を網羅)を
+追加。既存テスト24ファイル+新規1ファイル=25ファイル・schema検証11件・browser_mockup_
+checks.js(37件)いずれもパス(回帰なし。daily.html自体は本フェーズでは変更していない)。
+承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していないため
+pending-approval.mdへの追記なし。
+
+次回候補: (1)web-form-mockup/daily.htmlに実際の`<form>`タグ・各inputへの`name`属性・
+送信時のaction配線を追加すること(現状は依然フォーム送信に一切接続されていない静的
+モックアップのまま)、(2)main()/receive_form_submission()がdaily区分の構造化フィールド群を
+受け取り`assemble_daily_raw_text()`を呼び出してから`process_form_submission()`に委譲する
+配線(daily/monthly/annualの3区分をCloud Functionsのルーティング上どう区別するかという
+設計判断が別途必要)、(3)monthly/annual区分が将来チェックリスト化された場合の同種の
+組み立て関数の設計(現状両区分は自由記述欄方式のまま据え置きのため対象外)。
+
+最終更新: 2026-11-22 10:00 UTC(フェーズ256: 詳細は上記。raw_text組み立て処理を
+サーバー側方式〈daily_raw_text_assembly.py〉に決定し実装、新規テスト9件。既存テスト
+24ファイル+新規1ファイル・schema検証11件・browser_mockup_checks.js(37件)いずれもパス、
+回帰なし)
