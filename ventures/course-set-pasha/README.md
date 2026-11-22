@@ -7397,3 +7397,26 @@
   の「次回候補・残課題」棚卸しは未完了のため継続候補、特に本フェーズで判明したように
   「完了済み」と記載されたメソッド数の確認もProtocol定義との1件ずつの突き合わせまで
   行うこと)。
+- フェーズ399(2026-11-22 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ398・2026-11-22 13:00 UTC、約5時間。kura-pasha・event-komiguai-pasha
+  の2ventureは直近フェーズの「次回候補」記載で他venture優先が明示されていたため見送り)を
+  選定。フェーズ398の次回候補(2)に沿い、firestore-provider-adapter-design.md 26.5節
+  (フェーズ332)に残っていたもう一つの未検証claim「`UserProfileStoreProtocol`(5〜16節)の
+  全メソッドが実コード化済み」を、`grep -n "def "`の概算確認ではなくProtocol側で設計した
+  計17メソッドを1件ずつ名前で突き合わせて検証した。結果、17メソッド全てが
+  `prototype/firestore_user_profile_adapter.py`に実装済みであることを確認し、フェーズ398
+  (`UsageCounterProtocol`側の2メソッド欠落)のような見落としは本Protocolには無かったことが
+  確定した(範囲表記「5〜16節」はGymAreaConfigStoreProtocol〈15節〉・次回候補節〈16節〉を
+  含むため不正確だったが、17メソッドという数自体は5・6・7・9・11・13節の合計と一致し正しい
+  ことも確認)。firestore-provider-adapter-design.md 26.5節に確認結果を追記した。コード変更
+  なし(ドキュメント確認のみ)。既存テスト932件(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)
+  いずれもパス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要な新規アクションは今回発生していないためpending-
+  approval.mdへの追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知
+  2026-11-21 19:00 UTCから約23時間・24時間未満かつ状況不変のため再通知は見送り、状況記録
+  のみpending-approval.mdに追記)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約63件の個別design.mdファイル
+  の「次回候補・残課題」棚卸しは未完了のため継続候補)。

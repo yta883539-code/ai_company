@@ -1627,6 +1627,23 @@ test_firestore_usage_counter_adapter.pyに追加した。既存テスト927件+�
 (`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・アカウント作成・
 外部公開・送信は一切行っていない。
 
+【フェーズ399追記・確認】フェーズ398の訂正を受け、本節冒頭(26.5節)の残るもう一つの
+claim「`prototype/firestore_user_profile_adapter.py`も`UserProfileStoreProtocol`
+(5〜16節)の全メソッドが実コード化済み」についても、同じ`grep -n "def "`概算確認に
+留まっていたため、本フェーズでProtocol側(5・6・7・9・11・13節で設計した計17メソッド:
+`set_gym_area_pairs`/`get_gym_area_pairs`/`set_email`/`get_email`/
+`set_stripe_customer_id`/`get_stripe_customer_id`/`get_user_id_by_stripe_customer_id`/
+`set_is_following`/`get_is_following`/`all_user_ids`/
+`set_blocked_but_billing_owner_notified_at`/`get_blocked_but_billing_owner_notified_at`/
+`clear_blocked_but_billing_owner_notified_at`/`set_plan`/`get_plan`/
+`set_checkout_session_completed_event_time`/`get_checkout_session_completed_event_time`)
+と`firestore_user_profile_adapter.py`の実装を1メソッドずつ名前で突き合わせた。17件
+全てが実装済みであることを確認し(15節`GymAreaConfigStoreProtocol.is_configured`も
+同ファイルに実装済みで欠落なし)、フェーズ398のような欠落はこちらには無かったことが
+確定した(「5〜16節」という範囲表記自体は15・16節〈別Protocol・次回候補節〉を含むため
+やや不正確だったが、計17メソッドという数自体は5・6・7・9・11・13節の合計と一致し正しい)。
+コード変更なし(確認のみ)。既存テスト932件・schema検証22件いずれもパス(回帰なし)。
+
 ## 27. cross-venture parity確認: 他venture側の`UsageCounterProtocol`相当分の設計完了状況(フェーズ311)
 
 ### 27.1. 背景・範囲
