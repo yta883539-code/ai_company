@@ -54,6 +54,7 @@ from engine import (  # noqa: E402
     format_change_not_found_message,
     format_change_started_message,
     format_confirmation_message,
+    format_escalation_notification,
     format_faq_address_message,
     format_faq_hours_message,
     format_faq_hours_message_weekly,
@@ -429,6 +430,78 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         kind, event = result.owner_notify_actions[0]
         self.assertEqual(kind, "immediate")
         self.assertEqual(event["escalation_reason"], "second_booking_while_confirmed_exists")
+
+    def test_present_candidates_escalation_event_includes_existing_bookings_from_record_store(self):
+        # concurrent-booking-per-customer-state-overwrite-design.md「残る課題」で申し送られていた、
+        # find_upcoming_bookings_for_customer()の結果をエスカレーションイベントへ組み込む配線の
+        # 回帰テスト。record_storeを渡している場合、エスカレーションイベントのexisting_bookingsに
+        # 1件目の確定済み予約(InMemoryBookingRecordStore.find_upcoming_bookings_for_customer()の
+        # 戻り値)が含まれることを確認する。
+        record_store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(
+            BookingSlotManager(), EscalationConsolidator(), record_store=record_store
+        )
+        key1 = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key1, T0)
+        flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2))
+
+        key2 = ("shop_1", "2026-08-16", "15:00")
+        second_candidates = [_fake_candidate(key2, "8/16(日) 15:00〜")]
+        result = flow.present_candidates(
+            "user_tanaka", second_candidates, now=T0 + timedelta(days=1)
+        )
+        self.assertTrue(result.escalated)
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(len(event["existing_bookings"]), 1)
+        existing_booking = event["existing_bookings"][0]
+        self.assertEqual(existing_booking.customer_name, "田中")
+        self.assertEqual(existing_booking.menu, "カット")
+        self.assertEqual(existing_booking.slot_key, key1)
+
+    def test_present_candidates_escalation_event_existing_bookings_empty_without_record_store(self):
+        # record_store未指定時はexisting.nameがあっても検索できないため、existing_bookingsは
+        # 空のまま(_escalation_detail_text()が従来通りLINEトーク画面参照にフォールバックする)
+        # ことを確認する回帰テスト。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        key1 = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key1, T0)
+        flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2))
+
+        key2 = ("shop_1", "2026-08-16", "15:00")
+        second_candidates = [_fake_candidate(key2, "8/16(日) 15:00〜")]
+        result = flow.present_candidates(
+            "user_tanaka", second_candidates, now=T0 + timedelta(days=1)
+        )
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(event["existing_bookings"], [])
+
+    def test_format_escalation_notification_lists_existing_bookings_in_detail(self):
+        # _escalation_detail_text()がexisting_bookingsを「内容」欄に反映することの直接確認
+        # (統合テストはtest_cloud_function_process_event.pyのSecondBookingWhileConfirmed
+        # EscalationTestsで別途検証済み)。
+        record_store = InMemoryBookingRecordStore()
+        record_store.record_confirmed("shop_1", ("shop_1", "2026-08-09", "14:00"), "田中", "カット")
+        existing_bookings = record_store.find_upcoming_bookings_for_customer("shop_1", "田中")
+        event = {
+            "intent": "escalation",
+            "needs_owner_check": True,
+            "escalation_reason": "second_booking_while_confirmed_exists",
+            "existing_bookings": existing_bookings,
+        }
+        text = format_escalation_notification("田中様", event, T0 + timedelta(days=1))
+        self.assertIn("8/9(日) 14:00〜 カット", text)
+
+    def test_format_escalation_notification_falls_back_when_no_existing_bookings(self):
+        event = {
+            "intent": "escalation",
+            "needs_owner_check": True,
+            "escalation_reason": "second_booking_while_confirmed_exists",
+            "existing_bookings": [],
+        }
+        text = format_escalation_notification("田中様", event, T0 + timedelta(days=1))
+        self.assertIn("詳細はLINEトーク画面で内容をご確認ください。", text)
 
     def test_present_candidates_does_not_escalate_without_existing_confirmed_state(self):
         # エスカレーションはstage=="confirmed"のときのみで、候補提示直後の再提示(確定操作競合時の

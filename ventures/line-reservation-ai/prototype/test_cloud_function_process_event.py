@@ -51,6 +51,7 @@ from engine import (  # noqa: E402
     NotificationLogAggregator,
     count_utf16_code_units,
     format_faq_menu_message,
+    label_from_slot_key,
 )
 from store_profile_store import InMemoryStoreProfileStore  # noqa: E402
 
@@ -304,6 +305,39 @@ class SecondBookingWhileConfirmedEscalationTests(unittest.TestCase):
         # 「予約以外のご相談」に化けてしまい、オーナーが二重予約の申し出だと一目で判別できない
         # (2026-11-22フェーズでこの統合テスト追加時に発見・是正した退行防止テスト)。
         self.assertIn("確定済み予約がある状態での2件目のご予約申し出", owner_messages[0])
+
+    def test_owner_notification_lists_existing_confirmed_booking_when_record_store_wired(self):
+        # concurrent-booking-per-customer-state-overwrite-design.md「残る課題」準拠。
+        # record_storeを渡している場合、オーナー通知の「内容」欄にfind_upcoming_bookings_for_
+        # customer()で取得した1件目の確定済み予約(日時・メニュー)が反映されることを確認する。
+        record_store = InMemoryBookingRecordStore()
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner", record_store=record_store)
+        self._confirm_first_booking(processor)
+        push.sent.clear()
+
+        existing = record_store.find_upcoming_bookings_for_customer(STORE_ID, "田中")
+        self.assertEqual(len(existing), 1)
+        expected_label = f"{label_from_slot_key(existing[0].slot_key)} {existing[0].menu}"
+
+        later = NOW + timedelta(days=1)
+        next_saturday = later.date() + timedelta(days=(5 - later.weekday()) % 7 or 7)
+
+        def llm_call_second_request():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "再来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {
+                    "start": next_saturday.isoformat(), "end": next_saturday.isoformat()
+                },
+            }
+
+        processor.process(
+            _event("U1", "もう一件、再来週土曜もカットで予約したいです"), llm_call_second_request, later
+        )
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn(expected_label, owner_messages[0])
 
     def test_owner_not_notified_when_owner_user_id_unset(self):
         processor, flow, push, _ = _new_processor()

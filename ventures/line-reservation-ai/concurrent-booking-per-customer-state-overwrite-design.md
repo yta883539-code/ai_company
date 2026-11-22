@@ -112,8 +112,16 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
   複数confirmed枠を日時昇順で列挙できることを確認・実装した(`prototype/engine.py`)。回帰テスト
   2件(`test_find_upcoming_bookings_for_customer_returns_multiple_confirmed_slots`・
   `test_find_upcoming_bookings_for_customer_excludes_cancelled_other_store_and_name`)を追加。
-  オーナー通知文面(`format_escalation_notification()`等)への本メソッドの結果の組み込み配線は
-  本フェーズでは未着手のため、次回候補に追加する。)
+  ~~オーナー通知文面(`format_escalation_notification()`等)への本メソッドの結果の組み込み配線は
+  本フェーズでは未着手のため、次回候補に追加する。~~
+  (2026-11-22 19:00 UTC対応済み。`present_candidates()`がエスカレーション検知時に
+  `existing.name`・`existing.slot_key[0]`(store_id)を使って`find_upcoming_bookings_for_customer()`
+  を呼び、結果をイベントの`existing_bookings`へ格納するよう配線した。`_escalation_detail_text()`
+  側でも`escalation_reason=="second_booking_while_confirmed_exists"`時に`existing_bookings`を
+  `label_from_slot_key()`で整形し「内容」欄へ列挙する分岐を追加(record_store未指定・一覧が空の
+  場合は従来通りLINEトーク画面参照にフォールバック)。回帰テスト5件追加(test_engine.py 3件・
+  test_cloud_function_process_event.py 1件・既存1件は変更なしで再確認)。既存テスト1068件+
+  新規5件=1073件・schema検証28件いずれもパス(回帰なし)。)
 - 上記「本格対応案2」(`_states[user_id]`の`list`化)は、最小対応案1の運用実績
   (実際にこのescalation_reasonが発火する頻度)を見てから着手するか判断する。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)。

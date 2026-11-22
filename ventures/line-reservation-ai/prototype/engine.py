@@ -586,9 +586,10 @@ class InMemoryBookingRecordStore:
         status_override is None(来店予定。キャンセル・変更・来店済みを除く)で絞り込むことで、
         同一顧客が複数のconfirmed枠を同時に持つ状態を列挙できる。
         second_booking_while_confirmed_exists エスカレーション発生時に、オーナーが「2件目の
-        申し出がどの既存予約と関係するか」を判断する際の参照情報として使う想定(呼び出し側の
-        通知文組み立てへの配線は未着手、残る課題参照)。list_booking_entries()と異なり日付範囲は
-        取らず、該当店舗・該当顧客名の該当レコード全件を日時昇順で返す。
+        申し出がどの既存予約と関係するか」を判断する際の参照情報として使う(ConversationFlow
+        StateMachine.present_candidates()が呼び出し、_escalation_detail_text()が通知文面の
+        「内容」欄に組み込む。配線済み)。list_booking_entries()と異なり日付範囲は取らず、
+        該当店舗・該当顧客名の該当レコード全件を日時昇順で返す。
         """
         matched = [
             r
@@ -705,9 +706,25 @@ def _escalation_detail_text(event: dict, reply_text: Optional[str] = None) -> st
     (機能要望の趣旨のみで機微情報を含まない)なため従来通り優先する。reply_textが空、または
     システム内部イベント(_dispatch_flow_notify_actions経由、顧客の1メッセージに1対1で
     対応しない)の場合はLINEトーク画面参照の案内に留める。
+
+    escalation_reason="second_booking_while_confirmed_exists"でexisting_bookings
+    (present_candidates()がfind_upcoming_bookings_for_customer()で取得した一覧)が渡されている
+    場合は、オーナーが「2件目の申し出がどの既存予約と関係するか」を一目で判断できるよう、
+    既存の確定済み枠の日時・メニューを内容欄に列挙する(concurrent-booking-per-customer-state-
+    overwrite-design.md「残る課題」準拠)。record_store未指定・氏名未確定等で一覧が空の場合は
+    従来通りLINEトーク画面参照の案内にフォールバックする。
     """
     if event.get("escalation_reason") == "unimplemented_feature" and event.get("feature_hint"):
         return event["feature_hint"]
+    if event.get("escalation_reason") == "second_booking_while_confirmed_exists":
+        existing_bookings = event.get("existing_bookings") or []
+        labels = "・".join(
+            f"{label_from_slot_key(b.slot_key)} {b.menu}"
+            for b in existing_bookings
+            if b.slot_key is not None
+        )
+        if labels:
+            return f"既存のご予約({labels})とは別に、追加のご予約申し出がありました。"
     if reply_text:
         return f"「{reply_text}」といった内容です。"
     return "詳細はLINEトーク画面で内容をご確認ください。"
@@ -1075,15 +1092,26 @@ class ConversationFlowStateMachine:
         でオーナーへエスカレーションする。戻り値のescalated=Trueの場合、呼び出し側は候補提示
         メッセージの代わりにmessageを顧客へ送信し、owner_notify_actionsをオーナーへ配信する
         (状態は上書きされず、既存のconfirmed状態がそのまま残る)。
+
+        record_storeが渡されており1件目確定時に記録された氏名(existing.name)が分かる場合は、
+        InMemoryBookingRecordStore.find_upcoming_bookings_for_customer()でその顧客の既存確定枠
+        一覧を取得し、イベントのexisting_bookingsに含める(_escalation_detail_text()が
+        オーナー通知文面の「内容」欄に反映する。残る課題として申し送られていた配線)。
         """
         existing = self._states.get(user_id)
         if existing is not None and existing.stage == "confirmed":
+            existing_bookings: list = []
+            if self._record_store is not None and existing.name and existing.slot_key is not None:
+                existing_bookings = self._record_store.find_upcoming_bookings_for_customer(
+                    existing.slot_key[0], existing.name
+                )
             actions = self._notify_system_event(
                 user_id,
                 {
                     "intent": "escalation",
                     "needs_owner_check": True,
                     "escalation_reason": "second_booking_while_confirmed_exists",
+                    "existing_bookings": existing_bookings,
                 },
                 now,
             )
