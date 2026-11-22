@@ -577,6 +577,29 @@ class InMemoryBookingRecordStore:
         (来店履歴として引き続き参照できるようにするため)。"""
         return [r.to_customer_record() for r in self._records if r.customer_name == customer_name]
 
+    def find_upcoming_bookings_for_customer(self, store_id: str, customer_name: str) -> list[BookingListEntry]:
+        """concurrent-booking-per-customer-state-overwrite-design.md「残る課題」にあった
+        「BookingSlotManager側で同一顧客名による複数confirmed枠の検索が現状可能か」の調査結果を
+        反映したメソッド。BookingSlotManager自体はslot_key→(status, user_id, held_at)のみを
+        保持し customer_name を持たないため直接の検索対象にはできないが、record_confirmed()で
+        同時に記録している本クラスのレコードを store_id・customer_name・
+        status_override is None(来店予定。キャンセル・変更・来店済みを除く)で絞り込むことで、
+        同一顧客が複数のconfirmed枠を同時に持つ状態を列挙できる。
+        second_booking_while_confirmed_exists エスカレーション発生時に、オーナーが「2件目の
+        申し出がどの既存予約と関係するか」を判断する際の参照情報として使う想定(呼び出し側の
+        通知文組み立てへの配線は未着手、残る課題参照)。list_booking_entries()と異なり日付範囲は
+        取らず、該当店舗・該当顧客名の該当レコード全件を日時昇順で返す。
+        """
+        matched = [
+            r
+            for r in self._records
+            if r.store_id == store_id
+            and r.customer_name == customer_name
+            and r.status_override is None
+        ]
+        matched.sort(key=lambda r: (r.booking_date, r.start_minutes))
+        return [r.to_list_entry() for r in matched]
+
     def count_unique_customers(self, store_id: str) -> int:
         """billing-upgrade-flow-design.md 1節の利用実績レポートに追加した4項目目
         (ご利用いただいたお客様数)用。customer_name単位の重複を除いた人数を返すことで、

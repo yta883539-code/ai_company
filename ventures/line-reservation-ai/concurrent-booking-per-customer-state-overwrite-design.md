@@ -102,8 +102,18 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
   二重予約の申し出だと一目で判別できない状態だった。`_SYSTEM_EVENT_LABELS`に
   「確定済み予約がある状態での2件目のご予約申し出」を追加して是正し、上記テスト(1)に
   ラベル文言のアサーションを含めて退行を防止した。)
-- `BookingSlotManager`側で同一顧客名(`name`)による複数confirmed枠の検索が現状可能か
-  (オーナーが2件目をどちらの予約として処理すべきか判断する際に使う)の確認も未着手。
+- ~~`BookingSlotManager`側で同一顧客名(`name`)による複数confirmed枠の検索が現状可能か
+  (オーナーが2件目をどちらの予約として処理すべきか判断する際に使う)の確認も未着手。~~
+  (2026-11-22 14:00 UTC調査・対応済み。`BookingSlotManager`自体は`slot_key`→
+  `(status, user_id, held_at)`のみを保持し`customer_name`を持たないため直接の検索対象には
+  できないが、`record_confirmed()`で同時に記録している`InMemoryBookingRecordStore`側に
+  新設した`find_upcoming_bookings_for_customer(store_id, customer_name)`で、該当店舗・該当
+  顧客名・来店予定(`status_override is None`、キャンセル・変更・来店済みを除く)の条件に絞って
+  複数confirmed枠を日時昇順で列挙できることを確認・実装した(`prototype/engine.py`)。回帰テスト
+  2件(`test_find_upcoming_bookings_for_customer_returns_multiple_confirmed_slots`・
+  `test_find_upcoming_bookings_for_customer_excludes_cancelled_other_store_and_name`)を追加。
+  オーナー通知文面(`format_escalation_notification()`等)への本メソッドの結果の組み込み配線は
+  本フェーズでは未着手のため、次回候補に追加する。)
 - 上記「本格対応案2」(`_states[user_id]`の`list`化)は、最小対応案1の運用実績
   (実際にこのescalation_reasonが発火する頻度)を見てから着手するか判断する。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)。

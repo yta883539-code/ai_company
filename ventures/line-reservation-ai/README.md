@@ -7918,3 +7918,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   次回候補: (1)`BookingSlotManager`側で同一顧客名による複数confirmed枠の検索可否の確認、
   (2)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された
   場合はその着手を最優先、(3)他venture・アイデア領域の前進を継続する。
+- フェーズ続き401(2026-11-22 14:00 UTC定例更新): 7venture中、kura-pasha(前回最終更新
+  00:00 UTC)・event-komiguai-pasha(前回最終更新01:00 UTC)の2ventureは直近フェーズの
+  「次回候補」記載で「他venture・アイデア領域の前進を優先」と明示されていたため見送り、
+  次点のforklift-pasha(10:00 UTC)・oshien-pasha(11:00 UTC)・aircon-pasha(12:00 UTC)・
+  course-set-pasha(13:00 UTC)より更新が止まっていた本venture(前回最終更新フェーズ続き400・
+  08:00 UTC、約6時間)を選定した。フェーズ続き400「次回候補(1)」`BookingSlotManager`側で
+  同一顧客名による複数confirmed枠の検索可否の確認に対応した。`BookingSlotManager`自体は
+  `slot_key`→`(status, user_id, held_at)`のみを保持し`customer_name`を持たないため直接の
+  検索対象にはできないが、`record_confirmed()`で同時に記録している`InMemoryBookingRecordStore`
+  側に新設した`find_upcoming_bookings_for_customer(store_id, customer_name)`で、該当店舗・
+  該当顧客名・来店予定(`status_override is None`。キャンセル・変更・来店済みを除く)の条件に
+  絞って複数confirmed枠を日時昇順で列挙できることを確認・実装し、
+  concurrent-booking-per-customer-state-overwrite-design.md「残る課題」を解消済み注記に
+  是正した。新規テスト2件(`test_find_upcoming_bookings_for_customer_returns_multiple_confirmed_slots`・
+  `test_find_upcoming_bookings_for_customer_excludes_cancelled_other_store_and_name`)を追加。
+  オーナー通知文面への本メソッドの結果の組み込み配線自体は本フェーズでは未着手(次回候補)。
+  既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`全1068件(新規2件
+  含む)・`python3 -I schema/validate_test_cases.py`28件いずれもパス(回帰なし)。実LINE Push
+  送信・実GCP/LINE API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約19時間・
+  24時間未満かつ状況不変のため再通知は見送り)。
+  次回候補: (1)`find_upcoming_bookings_for_customer()`の結果を
+  `format_escalation_notification()`等のオーナー通知文面に組み込む配線、(2)`BookingSlotManager`
+  側の本格対応案2(`_states[user_id]`の`list`化)は最小対応案1の運用実績を見てから着手するか
+  判断、(3)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答
+  された場合はその着手を最優先、(4)他venture・アイデア領域の前進を継続する。

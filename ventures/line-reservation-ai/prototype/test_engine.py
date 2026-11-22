@@ -1634,6 +1634,34 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         # 来店予定はNO_SHOW_CONFIRMED_STATUSではないため、無断キャンセルとしては数えない。
         self.assertEqual(view.no_show_confirmed_count, 0)
 
+    def test_find_upcoming_bookings_for_customer_returns_multiple_confirmed_slots(self):
+        # concurrent-booking-per-customer-state-overwrite-design.md「残る課題」の調査:
+        # BookingSlotManager自体はcustomer_nameを保持しないため直接検索できないが、
+        # 本メソッドで同一店舗・同一顧客名の複数confirmed(来店予定)枠を日時昇順で
+        # 列挙できることを確認する。
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-24", "11:00"), "田中", "カラー")
+        # present_candidates()は既存confirmed状態への上書きをエスカレーションするため、
+        # 同一user_idで2件目を確定させる前に1件目を確定済み会話メモリから外す
+        # (test_count_unique_customers_counts_distinct_names_per_storeと同じ手順)。
+        flow.archive_completed_conversations(datetime(2026, 8, 26, 10, 0, 0))
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+
+        entries = store.find_upcoming_bookings_for_customer("shop_1", "田中")
+        # 確定順ではなく来店日時の昇順で返る。
+        self.assertEqual([e.menu for e in entries], ["カット", "カラー"])
+
+    def test_find_upcoming_bookings_for_customer_excludes_cancelled_other_store_and_name(self):
+        store = InMemoryBookingRecordStore()
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
+        self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        flow.cancel_booking("user_a", T0 + timedelta(minutes=5))  # キャンセル済みは除外されるべき
+        self._confirm(flow, "user_b", ("shop_1", "2026-08-17", "11:00"), "佐藤", "カラー")  # 別顧客
+        self._confirm(flow, "user_c", ("shop_2", "2026-08-17", "11:00"), "田中", "カラー")  # 別店舗
+
+        self.assertEqual(store.find_upcoming_bookings_for_customer("shop_1", "田中"), [])
+
     def test_unconfirmed_booking_is_not_recorded(self):
         # select_slot()止まり(provide_details()未実行)では記録されない。
         store = InMemoryBookingRecordStore()
