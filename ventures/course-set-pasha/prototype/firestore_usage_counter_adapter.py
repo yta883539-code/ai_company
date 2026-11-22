@@ -119,6 +119,46 @@ class FirestoreUsageCounter:
             f"commit after {self._MAX_COMMIT_ATTEMPTS} attempts"
         )
 
+    def set_trial_start_at_if_unset(self, user_id: str, trial_start_at: datetime) -> None:
+        """firestore-provider-adapter-design.md 26.5節の完了確認では本メソッドが
+        `set_upgraded_at_if_unset`と同様に実コード化済みとされていたが、実際には
+        本クラスに定義されていなかった(26.5節の記載漏れ、フェーズ398で判明)。
+
+        trial-start-anchor-decision.md 3節: `trial_start_at`が未設定の場合のみ設定する
+        (`set_upgraded_at_if_unset`と同じ「1回だけ設定」契約)。increment_and_mark_notice
+        経由で同一書き込みに相乗りさせず本メソッドを単独で呼ぶ経路(usage_counterと
+        first_generation_notice_storeが別インスタンスの場合)でも、重複Webhook配信・
+        同時生成リクエストにより2回の独立呼び出しが両方Noneを読んで2回とも書き込んで
+        しまう競合を避けるため、set_upgraded_at_if_unsetと同じTransactionConflict捕捉に
+        よるリトライループを用いる。
+        """
+        doc_ref = self._collection.document(user_id)
+
+        for _ in range(self._MAX_COMMIT_ATTEMPTS):
+            transaction = self._client.transaction()
+            snapshot = transaction.get(doc_ref)
+            data = dict(snapshot.to_dict() or {}) if snapshot.exists else {}
+            if "trial_start_at" in data:
+                return
+            data["trial_start_at"] = trial_start_at
+            transaction.set(doc_ref, data)
+            try:
+                transaction.commit()
+            except TransactionConflict:
+                continue
+            return
+
+        raise TransactionConflict(
+            f"set_trial_start_at_if_unset(user_id={user_id!r}) did not commit after "
+            f"{self._MAX_COMMIT_ATTEMPTS} attempts"
+        )
+
+    def get_trial_start_at(self, user_id: str) -> Optional[datetime]:
+        snapshot = self._collection.document(user_id).get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("trial_start_at")
+
     def set_upgraded_at_if_unset(self, user_id: str, upgraded_at: datetime) -> None:
         """firestore-provider-adapter-design.md 22.2節: `upgraded_at`が未設定の場合
         のみ設定する(`set_trial_start_at_if_unset`と同じ「1回だけ設定」契約)。

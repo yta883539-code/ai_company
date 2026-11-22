@@ -7370,3 +7370,30 @@
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約64件の個別design.mdファイル
   の「次回候補・残課題」棚卸しは未完了のため継続候補)。
+- フェーズ398(2026-11-22 13:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ397・2026-11-22 09:00 UTC、約4時間。kura-pasha・event-komiguai-pasha
+  の2ventureは直近フェーズの「次回候補」記載で他venture優先が明示されていたため見送り)を
+  選定。フェーズ394〜397と同様の個別design.mdファイル陳腐化棚卸しを継続する過程で、
+  firestore-composite-index-plan.md(フェーズ301)「残る課題」の「`UsageCounterProtocol`の
+  実Firestore接続アダプタ設計はまだ着手されていない」という記載自体はフェーズ332(26.5節)の
+  実コード化完了確認で解消済みのはずだったが、その26.5節自身の「全メソッド(計24メソッド超)が
+  既に実コード化済み」という確認が`grep -n "def "`によるメソッド数の概算確認に留まり
+  Protocol定義との1件ずつの突き合わせを行っていなかったため、実際には`set_trial_start_at_if_unset`・
+  `get_trial_start_at`の2メソッドが`prototype/firestore_usage_counter_adapter.py`の
+  `FirestoreUsageCounter`に欠落したまま「完了済み」と誤記載されていたことを発見した。
+  `set_upgraded_at_if_unset`と同型(未設定の場合のみ設定・TransactionConflict捕捉による
+  リトライ)の実装を追加し、対応するテスト5件(`FirestoreUsageCounterTrialStartAtTest`)を
+  追加した。firestore-provider-adapter-design.md 26.5節に訂正を追記した(詳細は同節参照)。
+  既存テスト927件+新規5件(計932件、`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)いずれも
+  パス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要な新規アクションは今回発生していないためpending-approval.md
+  への追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから
+  約18時間・24時間未満かつ状況不変のため再通知は見送り、状況記録のみpending-approval.mdに
+  追記)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約64件の個別design.mdファイル
+  の「次回候補・残課題」棚卸しは未完了のため継続候補、特に本フェーズで判明したように
+  「完了済み」と記載されたメソッド数の確認もProtocol定義との1件ずつの突き合わせまで
+  行うこと)。

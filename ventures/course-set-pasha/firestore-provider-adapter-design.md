@@ -1610,6 +1610,23 @@ validate_test_cases.py`(21件、変更なし)を実行しいずれも変更な�
 実際のGCP Firestoreプロジェクトへの接続自体(pending-approval.md 2026-09-27 03:00 UTC、
 オーナー承認待ち)のみである。
 
+【フェーズ398追記・訂正】上記「全メソッド(計24メソッド超)が既に実コード化済み」は
+誤りだったことが判明した。本節のチェックは`grep -n "def "`によるメソッド数の概算
+確認に留まり、Protocol側(cloud_function_webhook.py `UsageCounterProtocol`)との
+1件ずつの突き合わせを行っていなかったため、`set_trial_start_at_if_unset`・
+`get_trial_start_at`(trial-start-anchor-decision.md 3節、19節の次に設計された
+はずの組)の2メソッドが`FirestoreUsageCounter`に定義されていないことを見落としていた
+(19〜26節の節構成上は`get_count`/`increment`グループの直後にtrial_start_at系の
+節が無く、22節で`upgraded_at`に飛んでいたこと自体が設計時点からの欠落の痕跡だった)。
+本フェーズでプロトコル定義とアダプタ実装を1メソッドずつ突き合わせて再確認し、上記2
+メソッドのみが欠落していたことを確認した上で、`set_upgraded_at_if_unset`と同型の
+「未設定の場合のみ設定・TransactionConflictリトライ」実装を追加し
+(prototype/firestore_usage_counter_adapter.py)、対応するテスト5件を
+test_firestore_usage_counter_adapter.pyに追加した。既存テスト927件+新規5件(計932件、
+`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+(`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・アカウント作成・
+外部公開・送信は一切行っていない。
+
 ## 27. cross-venture parity確認: 他venture側の`UsageCounterProtocol`相当分の設計完了状況(フェーズ311)
 
 ### 27.1. 背景・範囲

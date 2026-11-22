@@ -229,6 +229,58 @@ class FirestoreUsageCounterIncrementAndMarkNoticeTest(unittest.TestCase):
         self.assertEqual(self.counter.get_count("u1", "2026-10"), 2)
 
 
+class FirestoreUsageCounterTrialStartAtTest(unittest.TestCase):
+    """firestore-provider-adapter-design.md 26.5節が実コード化済みと誤って記載していた
+    `set_trial_start_at_if_unset`/`get_trial_start_at`(フェーズ398で欠落を発見・追加)の
+    テスト。set_upgraded_at_if_unsetと同じ「1回だけ設定」契約を持つため、テスト構成も
+    FirestoreUsageCounterUpgradedAtTrialEndNotifiedAtTestと対称に書く。"""
+
+    def setUp(self):
+        self.client = _FakeFirestoreClient()
+        self.counter = FirestoreUsageCounter(self.client)
+
+    def test_get_trial_start_at_for_unknown_user_is_none(self):
+        self.assertIsNone(self.counter.get_trial_start_at("u1"))
+
+    def test_set_trial_start_at_if_unset_sets_value(self):
+        trial_start_at = datetime(2026, 10, 19, 9, 0, 0)
+        self.counter.set_trial_start_at_if_unset("u1", trial_start_at)
+        self.assertEqual(self.counter.get_trial_start_at("u1"), trial_start_at)
+
+    def test_set_trial_start_at_if_unset_does_not_overwrite_once_set(self):
+        first = datetime(2026, 10, 19, 9, 0, 0)
+        second = datetime(2026, 10, 20, 9, 0, 0)
+        self.counter.set_trial_start_at_if_unset("u1", first)
+        self.counter.set_trial_start_at_if_unset("u1", second)
+        self.assertEqual(self.counter.get_trial_start_at("u1"), first)
+
+    def test_set_trial_start_at_if_unset_does_not_clobber_other_fields(self):
+        self.counter.increment("u1", "2026-10")
+        self.counter.set_trial_start_at_if_unset("u1", datetime(2026, 10, 19, 9, 0, 0))
+        self.assertEqual(self.counter.get_count("u1", "2026-10"), 1)
+
+    def test_set_trial_start_at_if_unset_retries_on_duplicate_webhook_delivery(self):
+        """重複Webhook配信・同時生成リクエストが競合した場合でも、最終的に先勝ちになる
+        ことを確認する(set_upgraded_at_if_unset側の同種テストと対称)。"""
+        doc_ref = self.client.collection("usage_counter").document("u1")
+
+        tx_a = self.client.transaction()
+        tx_a.get(doc_ref)
+        tx_b = self.client.transaction()
+        tx_b.get(doc_ref)
+
+        first = datetime(2026, 10, 19, 9, 0, 0)
+        tx_a.set(doc_ref, {"trial_start_at": first})
+        tx_a.commit()
+
+        with self.assertRaises(TransactionConflict):
+            tx_b.set(doc_ref, {"trial_start_at": datetime(2026, 10, 19, 9, 0, 1)})
+            tx_b.commit()
+
+        self.counter.set_trial_start_at_if_unset("u1", datetime(2026, 10, 19, 9, 0, 1))
+        self.assertEqual(self.counter.get_trial_start_at("u1"), first)
+
+
 class FirestoreUsageCounterUpgradedAtTrialEndNotifiedAtTest(unittest.TestCase):
     """firestore-provider-adapter-design.md 22節(upgraded_at・trial_end_notified_at
     グループ)の実Firestore接続アダプタのテスト。"""
