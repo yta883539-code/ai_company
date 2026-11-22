@@ -7945,3 +7945,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   側の本格対応案2(`_states[user_id]`の`list`化)は最小対応案1の運用実績を見てから着手するか
   判断、(3)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答
   された場合はその着手を最優先、(4)他venture・アイデア領域の前進を継続する。
+- フェーズ続き403(2026-11-22 23:00 UTC定例更新・記録是正): 7venture中、event-komiguai-pasha
+  (前回最終更新01:00 UTC、承認待ち事項1〜3の解消待ちでフェーズ131〜135で前進余地なしと
+  確認済み)は見送り、次点で更新が止まっていた本venture(前回フェーズ続き401の記録上は
+  14:00 UTC、約9時間)を選定した。着手前にフェーズ続き401「次回候補(1)」の内容を確認した
+  ところ、実際には直後のコミット(19:08 UTC、`252d29c`)で`present_candidates()`への
+  `find_upcoming_bookings_for_customer()`配線・`format_escalation_notification()`側の
+  内容欄組み込み・回帰テスト5件が実装済みであり、
+  concurrent-booking-per-customer-state-overwrite-design.md「残る課題」にも
+  2026-11-22 19:00 UTC対応済みと正しく記録されていることを確認した(`git log`で
+  `prototype/engine.py`の変更履歴を確認)。しかし当該コミットはideas.md・pending-approval.md・
+  design.md・engine.py・テストのみを更新し、本README.mdのフェーズログへの追記が漏れていた
+  ため、次回候補(1)が実際には完了済みであるにもかかわらず「未着手」のまま見えてしまう記録
+  不整合が生じていた。本フェーズはこの記録のみを是正する(コード変更なし)。念のため
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`(全1073件)・`python3 -I
+  schema/validate_test_cases.py`(28件)を再実行しいずれもパス(回帰なし)を確認した。実LLM/
+  LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は前回
+  直接通知2026-11-22 19:08 UTCから約4時間・24時間未満かつ状況不変のため再通知は見送り、
+  状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)`BookingSlotManager`側の本格対応案2(`_states[user_id]`の`list`化)は最小対応案1
+  の運用実績を見てから着手するか判断、(2)承認待ち事項(launch-readiness-checklist.md記載の
+  1〜4)がオーナーから承認・回答された場合はその着手を最優先、(3)他venture・アイデア領域の
+  前進を継続する、(4)今回判明したような「コードコミット済みだがREADME.mdフェーズログへの
+  追記漏れ」が他venture・他フェーズにも存在しないか、手が空いた際に確認する。
+- 最終更新: 2026-11-22 23:00 UTC(フェーズ続き403: 記録是正のみ、コード変更なし。次回候補(1)
+  は既に完了済みと判明したため次回候補リストから削除。既存テスト1073件・schema検証28件
+  いずれもパス、回帰なし)
