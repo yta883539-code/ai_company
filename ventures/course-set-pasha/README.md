@@ -7348,3 +7348,25 @@
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約65件の個別design.mdファイル
   の「次回候補・残課題」棚卸しは未完了のため継続候補)。
+- フェーズ397(2026-11-22 09:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ396・2026-11-22 04:00 UTC、約5時間)を選定(kura-pasha・
+  event-komiguai-pashaの2ventureは直近フェーズの「次回候補」記載で他venture優先が明示されて
+  いたため見送り)。フェーズ394〜396と同様の個別design.mdファイル陳腐化棚卸しを継続し、
+  apology-tone-horizontal-check-result.md(フェーズ346)の「次回候補」2件を確認した。(2)
+  line-reservation-ai向け申し送り(`_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`の謝罪強度是正)は
+  line-reservation-aiフェーズ続き363(grace-period-apology-intensity-fix.md、formal文言軽量化
+  +固定テスト追加済み)で既に解消済み、(3)oshien-pasha向け申し送り(tone-and-manner-
+  guideline.md新規作成時の基準反映)はoshien-pashaフェーズ60で同ガイドラインが作成済みである
+  一方、同ventureがサブスク決済・ドニング構造自体を持たない単発Webフォーム課金のため当該基準が
+  適用される場面がそもそも存在しないことを確認し、いずれも取り消し線付きの解消済み注記に是正
+  した(line-reservation-ai・oshien-pasha側のコード・文言変更は行っていない、本ファイルの記載
+  のみの是正)。コード変更なし、既存テスト927件(`python3 -I -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)いずれもパス
+  (回帰なし)。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行って
+  いない。承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針
+  確認は前回直接通知2026-11-21 19:00 UTCから約14時間・24時間未満かつ状況不変のため再通知は
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約64件の個別design.mdファイル
+  の「次回候補・残課題」棚卸しは未完了のため継続候補)。

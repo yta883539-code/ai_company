@@ -74,9 +74,20 @@ line-reservation-ai自身の次回フェーズでの確認・判断に委ねる�
 ## 次回候補
 
 1. 承認待ち事項がオーナーから承認された場合はその着手を最優先。
-2. (line-reservation-ai自身の今後のフェーズ向け申し送り)
+2. ~~(line-reservation-ai自身の今後のフェーズ向け申し送り)
    `_MESSAGE_PAYMENT_CONFIRMED_IN_GRACE`の謝罪語の要否を、本検証基準を踏まえて
-   line-reservation-ai自身が判断・必要なら是正する。
-3. (oshien-pasha自身の今後のフェーズ向け申し送り)
-   tone-and-manner-guideline.md新規作成時に本検証基準を反映する。
+   line-reservation-ai自身が判断・必要なら是正する。~~
+   → 解消済み(フェーズ397で確認、course-set-pasha側ドキュメントのみの是正)。
+   line-reservation-aiフェーズ続き363(grace-period-apology-intensity-fix.md)で対応済み。
+   formal文言を「お手数をおかけし、誠に申し訳ございませんでした」→「お手数をおかけ
+   いたしました」に軽量化し、3トーンいずれも`_MESSAGE_RECOVERED`より謝罪が強くならない
+   ことを固定するテスト(`test_in_grace_apology_is_not_stronger_than_actual_outage_recovery`)
+   を追加済み(line-reservation-ai側テスト1044件に含まれる)。
+3. ~~(oshien-pasha自身の今後のフェーズ向け申し送り)
+   tone-and-manner-guideline.md新規作成時に本検証基準を反映する。~~
+   → tone-and-manner-guideline.md自体はoshien-pashaフェーズ60で新規作成済み(確認済み、
+   フェーズ397)。ただし同ventureはサブスク決済・ドニング(猶予期間中の決済確認)フローを
+   持たない単発Webフォーム課金構成(tech-stack.md参照)のため、本検証基準(生成停止有無に
+   よる猶予期間中メッセージの謝罪強度)が適用される場面自体が存在しない。本申し送りは
+   「対象シナリオなしのため対応不要」として解消済みとする。
 4. 他venture・アイデア領域の前進。
