@@ -681,6 +681,18 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ151(2026-11-21 23:00 UTC)で、フェーズ121以来の次回候補(ホクト文化ホールと類似名称の「長野市芸術館」が実在の別施設か否かの確認)に対応した。WebSearchにより、長野市芸術館は長野県長野市大字鶴賀緑町1613番地(TEL 026-219-3100)に所在し、ホクト文化ホール(長野県民文化会館、若里1-1-3、JR長野駅東口徒歩10分前後)とは所在地・最寄り駅が異なる別施設であることを確認した。長野市役所新第一庁舎と合築されており、最寄りは長野電鉄「市役所前」駅2番出口から徒歩約3分(NAVITIME)。ネーミングライツは確認できず(公式名称のまま)naming_rights: falseとした。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "SAGAアリーナ",
+      "aliases": [],
+      "region": "福岡・九州圏",
+      "nearest_station": "JR長崎本線・唐津線 佐賀駅",
+      "walk_minutes_note": "徒歩15分前後(約1.4km、文部科学省資料に基づく)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-22",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ152(2026-11-22定例更新)でWebSearchにより新規追加。佐賀県佐賀市日の出2丁目1-10のSAGAサンライズパーク内、2023年5月開業、最大収容約8,400人。文部科学省資料・会場情報サイトで佐賀駅から約1.4km/徒歩15分前後を確認。公式名称「SAGAアリーナ」は佐賀県営施設としての名称であり、企業名を冠したネーミングライツの事実は確認できなかったためnaming_rights: falseとした(公式サイトsaga-sunrisepark.com/arena/での最終確認を推奨)。",
+      "operational_status": "active"
     }
   ]
 }
