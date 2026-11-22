@@ -81,6 +81,18 @@ line-reservation-aiの`customer.subscription.updated`相当ハンドラに同種
 承認が必要なアクション(支払い・アカウント作成・外部公開・送信等)は今回発生していない
 ため、pending-approval.mdへの追記なし。
 
-次回候補: line-reservation-aiの`customer.subscription.updated`ハンドラに同種のガード
-欠落がないかの横断確認。または他venture・アイデア領域の前進、launch-readiness-
+次回候補: ~~line-reservation-aiの`customer.subscription.updated`ハンドラに同種のガード
+欠落がないかの横断確認。~~または他venture・アイデア領域の前進、launch-readiness-
 checklist.mdとpending-approval.mdの記載齟齬の定期棚卸し。
+
+[フェーズ407で対応済み・本フェーズで記載是正] line-reservation-aiの
+`prototype/stripe_webhook_entry_point.py`の`EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`分岐
+(361行目以降)を確認したところ、`is_stale_updated_event`(373〜382行目)が
+`cancellation_store`の`last_subscription_updated_event_time`を参照して
+`sync_plan_on_subscription_event()`呼び出しをガードする、本ファイルと同型のstale-event
+ガードが既に実装済みであることを確認した。コード内コメント(366行目以降)が明示的に
+「subscription-updated-event-order-guard-design.md(本フェーズ、kura-pashaフェーズ198・
+course-set-pashaの横展開)」と本ファイルを参照しており、line-reservation-ai側は既に
+kura-pasha/course-set-pashaの横展開を取り込んだ状態であることも確認した。したがって
+本「次回候補」は横断確認の実施前から既に解消済みであり、欠落は存在しない。
+line-reservation-ai側のコード・ドキュメントの変更は行っていない(確認のみ)。

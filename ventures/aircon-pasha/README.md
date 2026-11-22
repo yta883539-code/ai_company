@@ -7994,3 +7994,40 @@
 - 最終更新: 2026-11-22 07:00 UTC(フェーズ406: 詳細は上記。個別design.mdファイルの
   「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+
+- フェーズ407(2026-11-22 12:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を選定するにあたり、まずkura-pasha(前回最終更新00:00 UTC)・event-komiguai-pasha
+  (前回最終更新01:00 UTC)の2ventureを確認したところ、いずれも直近フェーズの記録で
+  「次回は無理な再検索・再試行よりも他venture・アイデア領域の前進を優先する」と明記されて
+  いたため両者を見送り、次点のoshien-pasha(前回最終更新11:00 UTC)・course-set-pasha
+  (前回最終更新09:00 UTC)・forklift-pasha(前回最終更新10:00 UTC)より更新が止まっていた
+  本venture(前回最終更新フェーズ406・07:00 UTC、約5時間)を選定した。フェーズ406の次回候補
+  (1)の残り4件のうち、subscription-updated-event-order-guard-design.md 末尾の次回候補
+  「line-reservation-aiの`customer.subscription.updated`ハンドラに同種のガード欠落がないか
+  の横断確認」を棚卸しした。line-reservation-ai/prototype/stripe_webhook_entry_point.pyの
+  `EVENT_CUSTOMER_SUBSCRIPTION_UPDATED`分岐(361行目以降)を確認した結果、
+  `is_stale_updated_event`(373〜382行目)が`cancellation_store`の
+  `last_subscription_updated_event_time`を参照して`sync_plan_on_subscription_event()`
+  呼び出しをガードする、本venture側と同型のstale-eventガードが既に実装済みであることを
+  確認した。コード内コメント(366行目以降)が明示的に本ファイル(本venture側の設計ドキュメント)
+  を参照しており、line-reservation-ai側がkura-pasha/course-set-pashaの横展開を既に取り込んだ
+  状態であることも確認できたため、「次回候補」は横断確認の実施前から既に解消済みであり欠落は
+  存在しないと判定し、取り消し線付きの解消済み注記に是正した(line-reservation-ai側の
+  コード・ドキュメントの変更は行っていない、確認のみ)。コード変更なし、既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`843件)・schema検証
+  (`python3 -I schema/validate_test_cases.py`25件)いずれも変更なしでパス(回帰なし)。
+  実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約17時間・
+  24時間未満かつ状況不変のため本時刻は再通知を見送り、状況記録のみpending-approval.mdに
+  追記)。
+  次回候補: (1)残り3件の個別design.mdファイル(subscription-event-out-of-order-guard-
+  design.md・user-account-linking-design.md・vendor-breach-key-rotation-runbook.md)に
+  ついて、本フェーズと同種の「次回候補」陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC
+  記載の運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-22 12:00 UTC(フェーズ407: 詳細は上記。line-reservation-aiの
+  `customer.subscription.updated`ハンドラに同種のガード欠落が無いかの横断確認を実施し、
+  既に実装済み〈解消済み〉であることを確認、記載是正。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
