@@ -5696,3 +5696,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   サーバー側方式〈daily_raw_text_assembly.py〉に決定し実装、新規テスト9件。既存テスト
   24ファイル+新規1ファイル・schema検証11件・browser_mockup_checks.js(37件)いずれも
   パス、回帰なし)
+
+- フェーズ257(2026-11-22 15:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回更新2026-11-22 10:00 UTC、約5時間)を対象に選定。フェーズ256次回候補(1)の前半
+  「web-form-mockup/daily.htmlへの実際の`<form>`タグ・各inputの`name`属性の追加」に
+  着手した。送信時のaction配線(daily/monthly/annualのルーティング区別という設計判断が
+  別途必要な部分、次回候補(1)後半)は本フェーズでは据え置き、`<form id="daily-form">`に
+  action属性は付けていない(送信ボタンも既存どおりtype="button" disabledのまま変更なし、
+  実際の送信は依然発生しない)。name/value属性は`assemble_daily_raw_text()`
+  (prototype/daily_raw_text_assembly.py)の引数名・`DAILY_CHECKLIST_ITEMS`の項目名表記に
+  そのまま対応させた(詳細な対応表はweb-form-ui-design.mdフェーズ257追記に記録)。
+  チェックボックスのvalue属性は表示ラベル(「異音・異臭」等)ではなく正式な項目名表記
+  (「異音」等)に統一し、次回候補(2)の配線時に文字列変換を挟まず渡せるようにした。
+  回帰確認として`browser_mockup_checks.js`に新規チェック8件(form存在・action属性なし・
+  各value/name属性の一致)を追加し、既存分と合わせて68件(60件→68件)いずれもパス。
+  HTML以外は変更していないため既存テスト25ファイル・schema検証11件も再実行しいずれも
+  パス(回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部
+  公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していない(運営方針
+  確認は前回直接通知2026-11-21 19:00 UTCから約20時間・24時間未満かつ状況不変のため
+  再通知は見送り)。
+  次回候補: (1)main()/receive_form_submission()がdaily区分の構造化フィールド群を受け取り
+  `assemble_daily_raw_text()`を呼び出してから`process_form_submission()`に委譲する配線
+  (daily/monthly/annualの3区分をCloud Functionsのルーティング上どう区別するかという設計
+  判断が別途必要)、(2)上記(1)の設計判断後の`<form>`の実際のaction配線、(3)点検者名・
+  実施日(`.prefill-row`)の実際のinput化、(4)承認待ち事項(launch-readiness-checklist.md
+  参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-22 15:00 UTC(フェーズ257: 詳細は上記。daily.htmlに`<form>`タグ・
+  name/value属性を追加、action配線は次回候補として据え置き。browser_mockup_checks.jsに
+  新規チェック8件を追加〈68件〉、既存テスト25ファイル・schema検証11件いずれもパス、
+  回帰なし)

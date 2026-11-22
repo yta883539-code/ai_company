@@ -386,3 +386,53 @@ pending-approval.mdへの追記なし。
 サーバー側方式〈daily_raw_text_assembly.py〉に決定し実装、新規テスト9件。既存テスト
 24ファイル+新規1ファイル・schema検証11件・browser_mockup_checks.js(37件)いずれもパス、
 回帰なし)
+
+## フェーズ257追記: daily.htmlへの`<form>`タグ・name/value属性の追加
+
+フェーズ256次回候補(1)の前半(`<form>`タグ・各inputへの`name`属性の追加)に着手した。
+後半の送信時action配線(daily/monthly/annualのルーティング区別という設計判断が別途
+必要な部分、次回候補(2)と不可分)は本フェーズでは据え置き、`<form id="daily-form">`に
+action属性は付けていない。送信ボタンは既存どおり`<button type="button" disabled>`の
+ままで変更しておらず、本フェーズの変更によって実際の送信が発生することはない。
+
+**name/value属性の対応付け**:
+- 車両番号ラジオ(`name="vehicle"`は既存): 各ボタンに`value="1号車"`等、「車両を追加」
+  ラジオには`value="__new__"`(自由記述欄`vehicle_new_label`を見るべきという目印)。
+- 異常なし/異常ありラジオ(`name="mode"`は既存): `value="ok"`/`value="ng"`。
+  `assemble_daily_raw_text()`の`mode`引数が受け取る文字列そのもの。
+- 「異常あり」側の各項目チェックボックス: `name="checked_items"`で揃え、同名の
+  複数チェックボックスとして送信することで`assemble_daily_raw_text()`の
+  `checked_items`(リスト)引数にそのまま対応させた。value属性は表示ラベル
+  (「異音・異臭」「油圧(リフト・チルト)」など分かりやすさ優先の表記)ではなく、
+  `DAILY_CHECKLIST_ITEMS`(daily_raw_text_assembly.py)の正式な項目名表記
+  (「異音」「油圧」)に統一した。表示ラベルと送信値が異なるのは意図的な設計判断であり、
+  後者をPython側の定数と一致させることで次回候補(2)の配線時に文字列変換を挟まず
+  そのまま渡せるようにするため。
+- 各項目の自由記述`<textarea>`: `item_note_brake`/`item_note_warning_light`/
+  `item_note_noise_smell`/`item_note_hydraulic`/`item_note_tire`/`item_note_fork`の
+  6つに個別命名(`item_notes`辞書引数へのマッピングは次回候補(2)の配線時に決定)。
+
+点検者名・実施日(`.prefill-row`)は本フェーズでも依然ダミー表示の`<span>`のまま
+`<form>`の外に置いている。これらを実際の`<input>`化する(localStorage相当のキャッシュ
+機構を含む)ことは別途未着手のスコープ外として残す。
+
+回帰確認として`browser_mockup_checks.js`に新規チェック8件(`#daily-form`の存在・
+action属性が無いこと、`mode-ok`/`mode-ng`/`vehicle-2`のvalue属性、
+`vehicle_new_label`・`item_note_brake`のname属性、`checked_items`のvalueが
+`DAILY_CHECKLIST_ITEMS`と一致すること)を追加し、既存分と合わせて全てパス。
+既存テスト25ファイル・schema検証11件もHTML以外は変更していないため再実行し
+いずれもパス(回帰なし)。承認が必要なアクション(支払い・アカウント作成・外部公開・
+送信等)は今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: (1)main()/receive_form_submission()がdaily区分の構造化フィールド群を
+受け取り`assemble_daily_raw_text()`を呼び出してから`process_form_submission()`に
+委譲する配線(daily/monthly/annualの3区分をCloud Functionsのルーティング上どう
+区別するかという設計判断が別途必要、フェーズ256次回候補(2)から持ち越し)、
+(2)`<form>`の実際のaction配線(上記(1)の設計判断後)、(3)点検者名・実施日の
+実際のinput化、(4)monthly/annual区分が将来チェックリスト化された場合の同種の
+対応(現状両区分は自由記述欄方式のまま据え置きのため対象外)。
+
+最終更新: 2026-11-22 UTC(フェーズ257: 詳細は上記。daily.htmlに`<form>`タグ・
+各input/textareaへのname/value属性を追加、action配線は次回候補として据え置き。
+browser_mockup_checks.jsに新規チェック8件を追加〈60件→68件〉、既存テスト25ファイル・
+schema検証11件・browser_mockup_checks.js(68件)いずれもパス、回帰なし)

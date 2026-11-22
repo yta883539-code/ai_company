@@ -54,6 +54,26 @@ async function checkDaily(page) {
   check('daily: 「車両を追加」を選ぶと自由記述欄が表示される', await vehicleAddInput.isVisible());
   await vehicleAddInput.fill('倉庫2F用');
   check('daily: 自由記述欄に車両の表記を入力できる', (await vehicleAddInput.inputValue()) === '倉庫2F用');
+
+  // フェーズ257: <form>タグ・name/value属性の追加(次回候補(1)前半)の検証。
+  // action配線(次回候補(1)後半)は未着手のため、action属性が無いことも合わせて確認する。
+  const form = page.locator('#daily-form');
+  check('daily: #daily-formが存在する', (await form.count()) === 1);
+  check('daily: #daily-formにaction属性が設定されていない(ルーティング未着手)', (await form.getAttribute('action')) === null);
+  check('daily: mode-okのvalue属性が"ok"', (await page.locator('#mode-ok').getAttribute('value')) === 'ok');
+  check('daily: mode-ngのvalue属性が"ng"', (await page.locator('#mode-ng').getAttribute('value')) === 'ng');
+  check('daily: vehicle-2のvalue属性が"2号車"', (await page.locator('#vehicle-2').getAttribute('value')) === '2号車');
+  check('daily: 「車両を追加」自由記述欄のname属性が"vehicle_new_label"', (await vehicleAddInput.getAttribute('name')) === 'vehicle_new_label');
+  // DAILY_CHECKLIST_ITEMS(daily_raw_text_assembly.py)と一致させたvalue(表示ラベルは
+  // 「異音・異臭」「油圧(リフト・チルト)」のまま、送信値は正式な項目名表記に統一)。
+  const checkedItemsValues = await page.locator('input[name="checked_items"]').evaluateAll(
+    els => els.map(el => el.value)
+  );
+  check(
+    'daily: checked_itemsのvalueがDAILY_CHECKLIST_ITEMSと一致する',
+    JSON.stringify(checkedItemsValues) === JSON.stringify(['ブレーキ', '警告灯', '異音', '油圧', 'タイヤ', 'フォーク'])
+  );
+  check('daily: 1件目の自由記述欄のname属性が"item_note_brake"', (await firstNote.getAttribute('name')) === 'item_note_brake');
 }
 
 async function checkDailyEmpty(page) {
