@@ -8031,3 +8031,39 @@
   `customer.subscription.updated`ハンドラに同種のガード欠落が無いかの横断確認を実施し、
   既に実装済み〈解消済み〉であることを確認、記載是正。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+
+- フェーズ408(2026-11-22 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を選定するにあたり、まずkura-pasha(前回最終更新00:00 UTC)・event-komiguai-pasha
+  (前回最終更新01:00 UTC)の2ventureを確認したところ、いずれも直近フェーズの記録で
+  「次回は無理な再検索・再試行よりも他venture・アイデア領域の前進を優先する」と明記されて
+  いたため両者を見送り、次点のcourse-set-pasha(前回最終更新13:08 UTC)・line-reservation-ai
+  (前回最終更新14:04 UTC)・forklift-pasha(前回最終更新15:07 UTC)・oshien-pasha
+  (前回最終更新16:04 UTC)より更新が止まっていた本venture(前回最終更新フェーズ407・
+  12:00 UTC、約5時間)を選定した。フェーズ407の次回候補(1)「残り3件の個別design.mdファイル
+  (subscription-event-out-of-order-guard-design.md・user-account-linking-design.md・
+  vendor-breach-key-rotation-runbook.md)について、本フェーズと同種の『次回候補』陳腐化
+  棚卸しを継続する」に対応した。3件それぞれの末尾・本文中の「次回候補」記載を確認した結果、
+  (1)subscription-event-out-of-order-guard-design.md 5節: kura-pasha・line-reservation-ai
+  への横展開は取り消し線付きで「フェーズ371で対応済み」と既に是正済み、(2)
+  user-account-linking-design.md 末尾: 直近の記載は「次回候補: 他venture・アイデア領域の
+  前進」という汎用的な申し送りのみで、kura-pasha側の横展開(NFKC正規化)も既に「解消済み
+  2026-09-19 22:00 UTC・フェーズ235」として是正済み、(3)vendor-breach-key-rotation-
+  runbook.md 4節: forklift-pasha・event-komiguai-pashaへの横展開は「フェーズ368で対応済み」
+  として既に是正済み、であることをそれぞれ確認し、いずれも追加の是正対象となる陳腐化記載は
+  見当たらなかった。この結果、フェーズ406・407・408の3フェーズにわたる個別design.mdファイル
+  末尾の「次回候補」陳腐化棚卸しは完了したと判断する。コード変更なし、既存テスト(`python3 -I
+  -m unittest discover -s prototype -p "test_*.py"`843件)・schema検証(`python3 -I
+  schema/validate_test_cases.py`25件)いずれも変更なしでパス(回帰なし)を再確認した。実LINE/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  新規アクションは今回発生していないためpending-approval.mdへの新規追記なし(2026-11-08
+  08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約22時間・24時間未満
+  かつ状況不変のため本時刻も再通知を見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)個別design.mdファイル末尾の陳腐化棚卸しは完了したため、次回以降は通常の
+  新規前進項目(未対応の設計課題の有無の洗い出し)に戻る、(2)2026-11-08 08:00 UTC記載の
+  運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-22 17:00 UTC(フェーズ408: 詳細は上記。フェーズ406・407で開始した
+  個別design.mdファイル末尾の「次回候補」陳腐化棚卸しの残り3件を確認し、いずれも既に
+  是正済みであることを確認〈追加の是正対象なし、棚卸し完了〉。既存テスト843件・schema検証
+  25件いずれもパス、回帰なし)
