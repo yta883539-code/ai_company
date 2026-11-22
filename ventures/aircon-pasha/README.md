@@ -7958,3 +7958,39 @@
 - 最終更新: 2026-11-22 02:00 UTC(フェーズ405: 詳細は上記。個別design.mdファイルの
   「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+
+- フェーズ406(2026-11-22 07:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を選定するにあたり、まずkura-pasha(前回最終更新00:00 UTC・約7時間)・event-komiguai-
+  pasha(前回最終更新01:00 UTC・約6時間)の2venture側の記録(candidate-readiness-
+  summary.mdフェーズ続き324・README.mdフェーズ135)を確認したところ、いずれも「次回は
+  無理な再検索・再試行よりも他venture・アイデア領域の前進を優先する」と明記されていた
+  ため、両者を見送り本venture(前回最終更新フェーズ405・02:00 UTC・約5時間)を選定した。
+  フェーズ405の次回候補(1)の残り7件のうち3件(stale-next-candidate-cross-venture-
+  survey.md・stripe-webhook-runtime-dependency-failure-response-design.md・
+  subscription-canceled-immediate-block-design.md)の「次回候補」「結論・今後の方針」
+  「残課題」節を棚卸しした。stale-next-candidate-cross-venture-survey.md自身はフェーズ363
+  時点の他venture横断棚卸し結果の記録であり、記載内容(各venture「問題なし」の判定・
+  今後の方針)はその後の状況と矛盾せず陳腐化なし。stripe-webhook-runtime-dependency-
+  failure-response-design.mdは残課題2件目が既に「[フェーズ349で対応済み・本フェーズ
+  (フェーズ398)で記載是正]」と明記済みであり是正済みの記載として整合、3件目(他venture
+  への横展開確認)も「各venture側の次回候補として記録するに留める」という対応範囲外の
+  明示であり陳腐化なし。subscription-canceled-immediate-block-design.mdは残課題2件目が
+  既に取り消し線付きで「[フェーズ372で対応済み]」と明記済みであり、1件目(実Stripe接続後
+  の検証)も実GCPプロジェクト作成という承認待ち事項に紐づく正当な保留として整合しており
+  陳腐化なし。3件とも追加の是正対象なし。コード変更なし、既存テスト(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`843件)・schema検証(`python3 schema/
+  validate_test_cases.py`25件)を再実行しいずれも変更なしでパス(回帰なし)。実LINE/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約12時間・
+  24時間未満かつ状況不変のため本時刻は再通知を見送った)。
+  次回候補: (1)残り4件の個別design.mdファイル(subscription-event-out-of-order-guard-
+  design.md・subscription-updated-event-order-guard-design.md・user-account-linking-
+  design.md・vendor-breach-key-rotation-runbook.md)について、本フェーズと同種の
+  「次回候補」陳腐化棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き
+  続き未回答のまま7venture共通の最大のボトルネックとして残っている(pending-approval.md
+  参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の
+  前進。
+- 最終更新: 2026-11-22 07:00 UTC(フェーズ406: 詳細は上記。個別design.mdファイルの
+  「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
