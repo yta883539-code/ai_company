@@ -5725,3 +5725,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   name/value属性を追加、action配線は次回候補として据え置き。browser_mockup_checks.jsに
   新規チェック8件を追加〈68件〉、既存テスト25ファイル・schema検証11件いずれもパス、
   回帰なし)
+
+- フェーズ258(2026-11-22 22:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回更新2026-11-22 15:00 UTC、約7時間)を対象に選定。フェーズ256次回候補(2)・
+  フェーズ257次回候補(1)で持ち越されていた「main()/receive_form_submission()が
+  daily区分の構造化フィールド群を受け取り`assemble_daily_raw_text()`を呼び出してから
+  `process_form_submission()`に委譲する配線(daily/monthly/annualの3区分をCloud
+  Functionsのルーティング上どう区別するか)」に着手した。既存のアクセスURL
+  (`access_token`クエリパラメータのみ)に`type`クエリパラメータを追加する方式
+  (`.../f/{accessToken}?type=daily`)を設計判断として採用し、`form_submission_flow.py`に
+  `build_daily_raw_text_from_form()`(daily.htmlの`vehicle`/`vehicle_new_label`・`mode`・
+  `checked_items`・`item_note_<slug>`からraw_textを組み立てる)を新設、`main()`に
+  `type=daily`時の分岐(mode不正時は400`invalid_daily_mode`を返す)を実装した。`type`が
+  `daily`以外・未指定の場合は従来どおり`raw_text`フィールドを直接使うため後方互換。
+  新規テスト8件を追加し、既存テスト25ファイル(新規分含め計57件のform_submission_flow
+  関連テスト)・schema検証11件・browser_mockup_checks.js(68件)いずれもパス(回帰なし)。
+  詳細な設計判断の経緯はweb-form-ui-design.mdフェーズ258追記参照。実LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していない(運営方針確認〈2026-11-08 08:00 UTC記載の
+  二択〉は前回直接通知2026-11-22 19:00 UTCから約3時間・24時間未満かつ状況不変のため
+  再通知は見送り)。
+  次回候補: (1)daily.htmlの`<form id="daily-form">`に`action="...?type=daily"`・
+  `method="POST"`を実際に追加し送信ボタンを有効化すること、(2)点検者名・実施日
+  (`.prefill-row`)の実際のinput化(`name="inspector_name"`・`name="date"`を実装すれば
+  そのまま利用できる設計済み)、(3)monthly/annual区分が将来チェックリスト化された場合の
+  `type=monthly`/`type=annual`ルーティングの実装(現状対象外)、(4)承認待ち事項
+  (launch-readiness-checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-22 22:00 UTC(フェーズ258: 詳細は上記。main()にtype=dailyルーティング
+  を実装、新規テスト8件。既存テスト25ファイル・schema検証11件・browser_mockup_checks.js
+  (68件)いずれもパス、回帰なし)

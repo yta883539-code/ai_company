@@ -436,3 +436,56 @@ action属性が無いこと、`mode-ok`/`mode-ng`/`vehicle-2`のvalue属性、
 各input/textareaへのname/value属性を追加、action配線は次回候補として据え置き。
 browser_mockup_checks.jsに新規チェック8件を追加〈60件→68件〉、既存テスト25ファイル・
 schema検証11件・browser_mockup_checks.js(68件)いずれもパス、回帰なし)
+
+## フェーズ258追記: main()/receive_form_submission()のdaily区分ルーティング配線
+
+フェーズ256次回候補(2)・フェーズ257次回候補(1)で持ち越されていた「daily/monthly/
+annualの3区分をCloud Functionsのルーティング上どう区別するか」の設計判断を行い、
+`form_submission_flow.main()`に実装した(フェーズ258)。
+
+**設計判断**: 既存のアクセスURL(`https://<ドメイン>/f/{accessToken}`、本人特定用の
+`access_token`クエリパラメータのみを使う設計)に、もう1つクエリパラメータ`type`を
+追加する方式を採用した(例: `.../f/{accessToken}?type=daily`)。別のCloud Functions
+エントリポイント自体を3つに分割する案も検討したが、`access_token_store`等の依存
+注入(`get_form_submission_runtime_dependencies()`)を区分ごとに重複させたくない
+ことと、「typeはURLで確定済み」という既存の設計方針(daily_raw_text_assembly.pyの
+docstring)と同じ考え方を1つのエントリポイント内で素直に拡張できることから、
+クエリパラメータ方式を選んだ。
+
+`type=daily`の場合のみ、`request.form`から`build_daily_raw_text_from_form()`
+(`form_submission_flow.py`新規関数)で構造化フィールド群(`vehicle`/`vehicle_new_label`・
+`mode`・`checked_items`(複数値)・`item_note_<slug>`)を取り出し、
+`daily_raw_text_assembly.assemble_daily_raw_text()`でraw_textへ組み立てる。
+`mode`が未送信・`"ok"`/`"ng"`のいずれでもない場合はフォーム不備として400
+(`invalid_daily_mode`)を返し、`process_form_submission()`自体は呼ばない。
+`type`が`"daily"`以外(`monthly`/`annual`、および`type`未指定という既存呼び出し元・
+既存テストとの後方互換)の場合は、従来どおり`request.form.get("raw_text")`を
+そのまま使う(今回は変更なし)。
+
+点検者名・実施日(`inspector_name`・`date`)は、daily.html側がまだ実際のinputを
+持たない(フェーズ257次回候補(3)、`.prefill-row`のプレースホルダー表示のまま)ため、
+`build_daily_raw_text_from_form()`は`request.form.get("inspector_name"/"date")`から
+取得する実装としたが、daily.html側がこれらのフィールドを送信しない限り空文字列
+のまま`assemble_daily_raw_text()`に渡る(エラーにはせず、insufficient_inputの判定は
+LLM側に委ねる既存方針どおり)。
+
+新規テスト8件(`build_daily_raw_text_from_form()`の`mode=ok`/`mode=ng`/新規車両選択
+/`mode`不正値の4パターン、`main()`のtype=daily正常系・400の2パターン等)を追加し、
+既存テスト含め25ファイル・schema検証11件・browser_mockup_checks.js(68件)いずれも
+パス(回帰なし。daily.html自体は本フェーズでは変更していない)。実LINE/Stripe/GCP/
+Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし。
+
+次回候補: (1)daily.htmlの`<form id="daily-form">`に`action="...?type=daily"`・
+`method="POST"`を実際に追加し送信ボタンを有効化すること(本フェーズではPython側の
+ルーティング判断のみ実装し、HTML側は依然`type="button" disabled`のまま未接続)、
+(2)点検者名・実施日(`.prefill-row`)の実際のinput化(フェーズ257次回候補(3)から
+持ち越し、`name="inspector_name"`・`name="date"`を実装すればそのまま
+`build_daily_raw_text_from_form()`の呼び出し元で利用できる設計済み)、(3)monthly/
+annual区分が将来チェックリスト化された場合の`type=monthly`/`type=annual`ルーティング
+の実装(現状両区分は自由記述欄方式のまま据え置きのため対象外)、(4)承認待ち事項
+(launch-readiness-checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+
+最終更新: 2026-11-22 22:00 UTC(フェーズ258: 詳細は上記。main()にtype=dailyルーティング
+を実装、新規テスト8件。既存テスト25ファイル・schema検証11件・browser_mockup_checks.js
+(68件)いずれもパス、回帰なし)

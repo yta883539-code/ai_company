@@ -10,6 +10,7 @@ from datetime import datetime
 
 from access_token_store import InMemoryAccessTokenStore
 from form_submission_flow import (
+    build_daily_raw_text_from_form,
     get_form_submission_runtime_dependencies,
     main as form_submission_main,
     process_form_submission,
@@ -687,6 +688,96 @@ def main():
             runtime_dependencies=injected_dependencies,
         )[1],
         404,
+    ))
+
+    # --- フェーズ258: build_daily_raw_text_from_form() ---
+    # 「異常あり」で項目を1件申告した場合、assemble_daily_raw_text()と同じ組み立て
+    # ロジックが実際のdaily.htmlフィールド名(checked_items複数値・item_note_<slug>)
+    # から正しく動作することを確認する。
+    daily_form_ng = {
+        "vehicle": "2号車",
+        "mode": "ng",
+        "checked_items": ["ブレーキ", "異音"],
+        "item_note_brake": "効きが甘い",
+        "item_note_noise_smell": "",
+    }
+    results.append(_check(
+        "build_daily_raw_text_from_form(): modeがngの場合、チェック項目のみnote付きで組み立てられる",
+        build_daily_raw_text_from_form(daily_form_ng, date="2026-11-22", inspector_name="鈴木"),
+        "点検種別: 日次点検(作業開始前点検)\n車両: 2号車\n点検者: 鈴木\n実施日: 2026-11-22\n"
+        "点検結果: 異常あり\n点検項目: ブレーキ:効きが甘い、異音",
+    ))
+
+    # --- 車両を「その他(新規登録)」で選択した場合、vehicle_new_labelの値が使われる ---
+    daily_form_new_vehicle = {
+        "vehicle": "__new__",
+        "vehicle_new_label": "4号車",
+        "mode": "ok",
+        "checked_items": ["ブレーキ", "警告灯", "異音", "油圧", "タイヤ", "フォーク"],
+    }
+    results.append(_check(
+        "build_daily_raw_text_from_form(): vehicle=__new__の場合はvehicle_new_labelを使う",
+        build_daily_raw_text_from_form(
+            daily_form_new_vehicle, date="2026-11-22", inspector_name="佐藤"
+        ),
+        "点検種別: 日次点検(作業開始前点検)\n車両: 4号車\n点検者: 佐藤\n実施日: 2026-11-22\n"
+        "点検結果: 異常なし\n点検項目: ブレーキ、警告灯、異音、油圧、タイヤ、フォーク",
+    ))
+
+    # --- modeが未送信・不正値の場合はValueErrorが伝播する(main()側で400に変換される契約) ---
+    try:
+        build_daily_raw_text_from_form({"vehicle": "1号車"}, date="2026-11-22", inspector_name="")
+        results.append(_check("build_daily_raw_text_from_form(): mode未送信はValueError", False, True))
+    except ValueError:
+        results.append(_check("build_daily_raw_text_from_form(): mode未送信はValueError", True, True))
+
+    # --- main(): type=dailyのアクセスURLで構造化フィールドが送信された場合、
+    # receive_form_submission()までraw_textが正しく組み立てられて到達する ---
+    daily_access_token_store = InMemoryAccessTokenStore()
+    daily_access_token_store.set_access_token("op-daily", "token-daily")
+    daily_injected_dependencies = {
+        "access_token_store": daily_access_token_store,
+        "operator_store": InMemoryFleetOperatorStore(),
+        "vehicle_store": InMemoryVehicleStore(),
+        "vehicle_count_store": InMemoryVehicleCountStore(),
+        "llm_generate": lambda raw_text: _generated_instance(body=raw_text, vehicle_id=None),
+    }
+    body_daily, status_daily = form_submission_main(
+        _StubRequest(
+            {"access_token": "token-daily", "type": "daily"},
+            {
+                "vehicle": "1号車",
+                "mode": "ok",
+                "checked_items": ["ブレーキ"],
+                "inspector_name": "田中",
+                "date": "2026-11-22",
+            },
+        ),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): type=dailyでは構造化フィールドから組み立てたraw_textがそのまま"
+        "process_form_submission()経由でresponse_textに反映される(本文はllm_generateが"
+        "そのまま返す設定のため)",
+        body_daily,
+        "点検種別: 日次点検(作業開始前点検)\n車両: 1号車\n点検者: 田中\n実施日: 2026-11-22\n"
+        "点検結果: 異常なし\n点検項目: ブレーキ\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
+    ))
+    results.append(_check("main(): type=dailyの正常系は200", status_daily, 200))
+
+    # --- main(): type=dailyでmode未送信・不正の場合は400(process_form_submission()自体は
+    # 呼ばれず、llm_generateも呼ばれない) ---
+    body_daily_invalid, status_daily_invalid = form_submission_main(
+        _StubRequest(
+            {"access_token": "token-daily", "type": "daily"},
+            {"vehicle": "1号車"},
+        ),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): type=dailyでmode未送信は400",
+        (body_daily_invalid, status_daily_invalid),
+        ("invalid_daily_mode", 400),
     ))
 
     deps = get_form_submission_runtime_dependencies()

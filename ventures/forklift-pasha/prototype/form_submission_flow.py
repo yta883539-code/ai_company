@@ -38,6 +38,10 @@ from access_token_store import (  # noqa: E402
     AccessTokenStoreProtocol,
     InMemoryAccessTokenStore,
 )
+from daily_raw_text_assembly import (  # noqa: E402
+    DAILY_CHECKLIST_ITEMS,
+    assemble_daily_raw_text,
+)
 from overage_notifications import (  # noqa: E402
     InMemoryUsageCounterStore,
     InMemoryVehicleCountStore,
@@ -240,6 +244,90 @@ def process_form_submission(
 
 
 # ---------------------------------------------------------------------------
+# daily区分: web-form-mockup/daily.html(フェーズ257)の構造化フィールド群から
+# assemble_daily_raw_text()を呼び出すための変換(フェーズ258、フェーズ256次回候補(2)・
+# web-form-ui-design.mdフェーズ257追記「次回候補(1)」に対応)。
+# ---------------------------------------------------------------------------
+
+_DAILY_ITEM_FIELD_SLUGS = {
+    "ブレーキ": "brake",
+    "警告灯": "warning_light",
+    "異音": "noise_smell",
+    "油圧": "hydraulic",
+    "タイヤ": "tire",
+    "フォーク": "fork",
+}
+
+
+def _resolve_daily_vehicle_label(form) -> str:
+    """daily.html『1.車両選択』(`name="vehicle"`のラジオボタン。新規車両選択時の
+    `value="__new__"`のみ`name="vehicle_new_label"`のテキスト欄)から、車両ラベル
+    文字列を1つに解決する。"""
+    vehicle = form.get("vehicle") or ""
+    if vehicle == "__new__":
+        return (form.get("vehicle_new_label") or "").strip()
+    return vehicle
+
+
+def _resolve_daily_checked_items(form) -> "list[str]":
+    """daily.html『2.点検項目』のチェックボックス(`name="checked_items"`、同名
+    複数値)の送信値を取得する。`functions_framework`(Flask Request)の
+    `request.form.getlist("checked_items")`相当を優先し、`getlist`を持たない
+    フォーム(テスト用の単純dict等、値をリストとして直接渡す場合)もフォール
+    バックとして許容する(他venture同様、本番Request・テストスタブの両方を
+    同じ関数で扱えるようにする)。"""
+    if hasattr(form, "getlist"):
+        return list(form.getlist("checked_items"))
+    raw = form.get("checked_items")
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return raw
+    return [raw]
+
+
+def _resolve_daily_item_notes(form) -> "dict[str, str]":
+    """daily.html『2.点検項目』の各異常メモ欄(`name="item_note_<slug>"`)を、
+    `assemble_daily_raw_text()`が要求する項目名(日本語表記)キーのdictへ変換
+    する(値が空文字列・未送信の項目はキー自体を含めない、assemble_daily_raw_text()
+    側の`notes.get(item, "")`デフォルトで吸収される)。"""
+    notes = {}
+    for item in DAILY_CHECKLIST_ITEMS:
+        slug = _DAILY_ITEM_FIELD_SLUGS.get(item)
+        note = form.get(f"item_note_{slug}") if slug else None
+        if note:
+            notes[item] = note
+    return notes
+
+
+def build_daily_raw_text_from_form(form, *, date: str, inspector_name: str) -> str:
+    """daily.html(`type=daily`送信時)の構造化フィールド群をform(`request.form`
+    相当、`.get()`必須・`.getlist()`は任意)から取り出し、`assemble_daily_raw_text()`
+    でraw_text相当の文字列へ組み立てる。
+
+    `date`(実施日)・`inspector_name`(点検者名)は、daily.html側がまだ実際の
+    inputを持たない(フェーズ257次回候補(3)、`.prefill-row`のプレースホルダー
+    表示のまま未着手)ため、本関数ではform経由では取得せず呼び出し元から別途
+    渡す(未着手のため空文字列が渡ってきても、assemble_daily_raw_text()の設計
+    〈docstring記載〉どおりエラーにはせず組み立てを続行し、insufficient_inputの
+    判定自体はLLM側に委ねる)。
+
+    Raises:
+        ValueError: `mode`(`name="mode"`のラジオボタン)が未送信・"ok"/"ng"の
+        いずれでもない場合(assemble_daily_raw_text()からそのまま伝播。呼び出し元
+        〈receive_form_submission()〉がこれをフォーム不備としてHTTP 400に変換する)。
+    """
+    return assemble_daily_raw_text(
+        vehicle_label=_resolve_daily_vehicle_label(form),
+        inspector_name=inspector_name,
+        date=date,
+        mode=form.get("mode") or "",
+        checked_items=_resolve_daily_checked_items(form),
+        item_notes=_resolve_daily_item_notes(form),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Cloud Functions HTTPエントリポイント (deployment-runbook.mdステップ4「次回候補」対応)
 # ---------------------------------------------------------------------------
 
@@ -341,15 +429,25 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     session.main()・access_url_reissue_handler.main()と同型)。
 
     `access_token`はアクセスURL(`https://<ドメイン>/f/{accessToken}`)経由の
-    クエリパラメータ(`request.args.get("access_token")`)から、`raw_text`はWebフォーム
-    送信本文(`request.form.get("raw_text")`)から、それぞれ取り出し
-    `receive_form_submission()`に委譲する。daily区分のボタン選択・プルダウン入力を
-    1本の自由記述文へ組み立てる処理自体は、フロントエンドJS不使用の方針(web-form-ui-
-    design.md)と矛盾しないよう、サーバー側の`daily_raw_text_assembly.
-    assemble_daily_raw_text()`(フェーズ256)として設計・実装済みだが、daily.html側に
-    `<form>`タグ・各inputの`name`属性を追加し本関数を実際に呼び出す配線は、daily/
-    monthly/annualの3区分をルーティング上どう区別するかの設計判断が別途必要なため
-    未着手のまま次回候補として残る(web-form-ui-design.mdフェーズ256追記参照)。
+    クエリパラメータ(`request.args.get("access_token")`)から取り出し
+    `receive_form_submission()`に委譲する。
+
+    daily/monthly/annualの3区分のルーティング判断(フェーズ256・257で次回候補として
+    残っていたもの、web-form-ui-design.mdフェーズ257追記参照)は、同じクエリパラメータ
+    区画に`type`(`request.args.get("type")`、値は`"daily"`のみ判定。アクセスURL例:
+    `https://<ドメイン>/f/{accessToken}?type=daily`)を追加する方式で解決した
+    (フェーズ258)。`type=daily`の場合のみ、daily.html側が送信する構造化フィールド群
+    (`vehicle`・`vehicle_new_label`・`mode`・`checked_items`・`item_note_<slug>`等)を
+    `request.form`から`build_daily_raw_text_from_form()`で取り出し、サーバー側の
+    `daily_raw_text_assembly.assemble_daily_raw_text()`(フェーズ256)で1本の自由記述文
+    (raw_text)へ組み立てる(フロントエンドJS不使用の方針〈web-form-ui-design.md〉を
+    維持したまま)。`mode`が未送信・`"ok"`/`"ng"`のいずれでもない場合はフォーム不備として
+    400を返す(`receive_form_submission()`より手前、`process_form_submission()`自体は
+    呼ばない)。`type`が`"daily"`以外(`monthly`/`annual`、および`type`未指定という既存
+    呼び出し元・テストとの後方互換)の場合は、従来どおりWebフォーム送信本文
+    (`request.form.get("raw_text")`)をそのまま使う(daily.html・daily専用の実際の
+    `<form>`action配線自体〈点検者名・実施日の実input化含む〉は依然未着手で次回候補
+    として残る)。
 
     正常系(status_code=200)ではレスポンス本文に`response_text`(利用者への返信文面)を
     そのまま返す。エラー系では`(エラー文字列, status_code)`を返す(他2エントリポイントと
@@ -361,7 +459,23 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     `llm_generate`を注入できるようにしている。
     """
     access_token = request.args.get("access_token")
-    raw_text = request.form.get("raw_text")
+
+    form_type = request.args.get("type")
+    if form_type == "daily":
+        try:
+            raw_text = build_daily_raw_text_from_form(
+                request.form,
+                date=request.form.get("date") or "",
+                inspector_name=request.form.get("inspector_name") or "",
+            )
+        except ValueError:
+            return "invalid_daily_mode", 400
+    else:
+        # monthly/annual区分、および`type`未指定(daily.html側の`<form>`に
+        # action・type配線が未着手の既存呼び出し元との後方互換)は、従来どおり
+        # `raw_text`フィールドをそのまま使う。
+        raw_text = request.form.get("raw_text")
+
     deps = (
         runtime_dependencies
         if runtime_dependencies is not None
