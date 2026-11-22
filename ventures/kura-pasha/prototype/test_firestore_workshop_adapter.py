@@ -654,6 +654,85 @@ class FirestoreWorkshopStoreTest(unittest.TestCase):
 
         self.assertEqual(self.store.get_plan_id("w1"), "standard")
 
+    def test_deletion_candidate_at_roundtrip_and_clear(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_deletion_candidate_at("w1"))
+        candidate_at = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        self.store.set_deletion_candidate_at("w1", candidate_at)
+        self.assertEqual(self.store.get_deletion_candidate_at("w1"), candidate_at)
+
+        self.store.clear_deletion_candidate_at("w1")
+
+        self.assertIsNone(self.store.get_deletion_candidate_at("w1"))
+
+    def test_deletion_candidate_at_for_unknown_workshop_is_none(self):
+        self.assertIsNone(self.store.get_deletion_candidate_at("unknown"))
+
+    def test_clear_deletion_candidate_at_does_not_clobber_confirmation_sent_at(self):
+        # design.md 29.3節: clear_deletion_candidate_atはdeletion_confirmation_sent_at
+        # (「過去に送達済みだった事実」の履歴)を連動クリアしない非対称な挙動。
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_deletion_candidate_at(
+            "w1", datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        )
+        sent_at = datetime(2026, 11, 22, 9, 30, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_sent_at("w1", sent_at)
+
+        self.store.clear_deletion_candidate_at("w1")
+
+        self.assertIsNone(self.store.get_deletion_candidate_at("w1"))
+        self.assertEqual(self.store.get_deletion_confirmation_sent_at("w1"), sent_at)
+
+    def test_clear_deletion_candidate_at_does_not_clobber_other_fields(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_plan("w1", "standard")
+        self.store.set_deletion_candidate_at(
+            "w1", datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        )
+
+        self.store.clear_deletion_candidate_at("w1")
+
+        self.assertEqual(self.store.get_plan_id("w1"), "standard")
+
+    def test_deletion_confirmation_sent_at_roundtrip_and_default_none(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_deletion_confirmation_sent_at("w1"))
+        sent_at = datetime(2026, 11, 22, 9, 30, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_sent_at("w1", sent_at)
+        self.assertEqual(self.store.get_deletion_confirmation_sent_at("w1"), sent_at)
+
+    def test_deletion_confirmation_unreachable_at_roundtrip_and_clear(self):
+        # design.md 29.3節: 専用のclear_*メソッドを持たず、set_*(workshop_id, None)の
+        # 直接呼び出しでクリアを表現する(deletion_candidate_final_confirmation.py
+        # clear_deletion_confirmation_unreachable_at()と同じ契約)。
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_at("w1"))
+        unreachable_at = datetime(2026, 11, 22, 10, 0, tzinfo=timezone.utc)
+        self.store.set_deletion_confirmation_unreachable_at("w1", unreachable_at)
+        self.assertEqual(
+            self.store.get_deletion_confirmation_unreachable_at("w1"), unreachable_at
+        )
+
+        self.store.set_deletion_confirmation_unreachable_at("w1", None)
+
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_at("w1"))
+
+    def test_deletion_confirmation_unreachable_reason_roundtrip(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.assertIsNone(self.store.get_deletion_confirmation_unreachable_reason("w1"))
+        self.store.set_deletion_confirmation_unreachable_reason("w1", "blocked")
+        self.assertEqual(
+            self.store.get_deletion_confirmation_unreachable_reason("w1"), "blocked"
+        )
+
+    def test_deletion_fields_are_independent_per_workshop(self):
+        self.store.set_members("w1", "U_owner", [])
+        self.store.set_members("w2", "U_owner2", [])
+        self.store.set_deletion_candidate_at(
+            "w1", datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        )
+        self.assertIsNone(self.store.get_deletion_candidate_at("w2"))
+
 
 if __name__ == "__main__":
     unittest.main()

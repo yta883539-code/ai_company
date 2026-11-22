@@ -7695,3 +7695,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   次回候補: (1)候補継続2件の連絡チャネル確認は表記ゆれ変更検索を3回試みても特定でき
   ておらず、WebSearchのみでの特定は構造的に困難と考えられるため、次回以降は無理な
   再検索よりも他venture・アイデア領域の前進を優先する。
+
+- フェーズ続き325(2026-11-22 20:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新フェーズ324・2026-11-22 00:00 UTC、約20時間)を選定した。
+  フェーズ続き324の次回候補どおり候補継続2件の連絡チャネル再検索は見送り、代わりに
+  `usage_counter_workshop.py`の`WorkshopStoreProtocol`宣言(64メソッド)と
+  `prototype/firestore_workshop_adapter.py`の`FirestoreWorkshopStore`実装を1件ずつ
+  突き合わせる棚卸しを実施した(course-set-pashaフェーズ399と同種の手法)。その結果、
+  workshop-store-firestore-adapter-design.md 29節(フェーズ244)で設計済みのまま
+  実コード化が見送られていたdeletion_candidate・deletion_confirmation系グループ
+  (`get/set/clear_deletion_candidate_at`・`get/set_deletion_confirmation_sent_at`・
+  `get/set_deletion_confirmation_unreachable_at`・
+  `get/set_deletion_confirmation_unreachable_reason`の計9メソッド)のみが唯一の
+  未実装項目であることを発見した。design.md 29.2節の設計コードをそのまま
+  `prototype/firestore_workshop_adapter.py`へ実装し、`WorkshopStoreProtocol`全8
+  グループの実コード化を完了させた。新規テスト7件を
+  `prototype/test_firestore_workshop_adapter.py`に追加(既存66件+新規7件=73件)、
+  design.md 29節に本棚卸しの経緯を追記した。既存テスト全26ファイル(`python3 -m
+  unittest discover`で計333件、新規7件含む)・schema検証32件いずれもパス(回帰なし)。実LINE/Stripe/GCP/Firestore
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知2026-11-22 19:00 UTCから約1時間・24時間未満かつ状況不変のため今回は
+  再通知を見送り)。
+  次回候補: (1)候補継続2件の連絡チャネル確認は構造的に困難なため見送りを継続する。
+  (2)本節冒頭の「計8メソッド」という記述が実際は9メソッドである誤記の修正(本フェーズ
+  では実装のみに留め見送った)。(3)他venture・アイデア領域の前進。

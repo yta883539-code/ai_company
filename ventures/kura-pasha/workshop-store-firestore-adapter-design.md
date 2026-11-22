@@ -1395,6 +1395,15 @@ docstring(627〜679行目)に基づき、他グループと同じ`set(merge=True
   adapter-design.md 4節が引き続き「`WorkshopStoreProtocol`(30件超のメソッド)は未着手」
   と記載したままなのは、本ventureが30節で確認する通り現在は不正確な記述であるため、
   同節で各ファイルの該当箇所を修正する。
+- 【フェーズ続き325追記】本節執筆時点(フェーズ244)では上記29.2節の設計コードは
+  `prototype/firestore_workshop_adapter.py`へ未反映のまま(設計文書への記載のみ)で
+  残っていた。本venture選定の棚卸し(7venture中最も更新が止まっていたため選定)で
+  `WorkshopStoreProtocol`宣言(64メソッド)と`FirestoreWorkshopStore`実装を1件ずつ
+  突き合わせたところ、本節9メソッドのみが唯一の未実コード化項目であることを確認し、
+  本フェーズで29.2節のコードをそのまま実装した(`get_deletion_confirmation_unreachable_reason`
+  を含む計9メソッド、本節冒頭「計8メソッド」という記述は実際には9メソッドの誤記である
+  ことも併せて確認したが、本フェーズでは実装のみに留め本文の誤記修正は見送り)。
+  新規テスト7件を追加し、既存テストに回帰がないことを確認した。
 
 - 本節はコード変更を伴わない(`FirestoreWorkshopStore`は未接続のため、既存の
   `InMemoryWorkshopStore`実装・テストに影響しない)。回帰確認として

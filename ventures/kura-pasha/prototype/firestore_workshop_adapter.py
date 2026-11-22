@@ -25,7 +25,11 @@ owner_notified_at系・deletion系)に分けて設計したのと同じ方針で
 `payment_failure_reminder_sent_at`の2フィールド5メソッド)・17節の
 **trial_end_notified_at・owner_notified_at系2種グループ**(`trial_end_notified_at`・
 `blocked_but_billing_owner_notified_at`・`payment_suspension_owner_notified_at`の
-3フィールド6メソッド)を対象とする(残り1グループ〈deletion系〉は次回候補)。
+3フィールド6メソッド)・29節の**deletion_candidate・deletion_confirmation系グループ**
+(`deletion_candidate_at`・`deletion_confirmation_sent_at`・
+`deletion_confirmation_unreachable_at`・`deletion_confirmation_unreachable_reason`の
+4フィールド9メソッド、フェーズ続き325で設計〈フェーズ244〉から実コード化)を対象とする。
+これにより`WorkshopStoreProtocol`全8グループの実コード化が完了した。
 
 フェーズ続き316で、craftsman-profile-collection-design.md(workshop-store-firestore-
 adapter-design.mdとは別の新しい設計文書)4節の残課題として追加された
@@ -63,8 +67,9 @@ class FirestoreWorkshopStore:
     """WorkshopStoreProtocolの実Firestore接続実装(基盤グループ+メンバー削減系グループ+
     契約者引き継ぎ系グループ+trial系グループ+stripe_customer_id順引き逆引き系グループ+
     subscription_status+各種event_time系グループ+payment_failure系グループ+
-    trial_end_notified_at・owner_notified_at系2種グループ。
-    design.md 29節のdeletion系グループのみ次回候補)。
+    trial_end_notified_at・owner_notified_at系2種グループ+
+    deletion_candidate・deletion_confirmation系グループ。
+    design.md 全8グループの実コード化が完了している)。
     craftsman_workshop/{workshop_id}ドキュメントを読み書きする
     (stripe_customer_id逆引きはstripe_customer_index/{stripe_customer_id}
     ドキュメントを併用する、design.md 11節)。
@@ -550,3 +555,80 @@ class FirestoreWorkshopStore:
         self._doc_ref(workshop_id).set(
             {"payment_suspension_owner_notified_at": notified_at}, merge=True
         )
+
+    # --- design.md 29節: deletion_candidate・deletion_confirmation系グループ ---
+
+    def get_deletion_candidate_at(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 29.3節・23節の統一方針: 一時的な接続エラーは「削除候補ではない」側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_candidate_at")
+
+    def set_deletion_candidate_at(
+        self, workshop_id: str, deletion_candidate_at: datetime
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_candidate_at": deletion_candidate_at}, merge=True
+        )
+
+    def clear_deletion_candidate_at(self, workshop_id: str) -> None:
+        # design.md 29.3節: deletion_confirmation_*系3フィールドは連動クリアしない
+        # (deletion_confirmation_sent_atは「過去に送達済みだった事実」を履歴として残す
+        # 方針のため、InMemoryWorkshopStore.clear_deletion_candidate_atと同じく
+        # deletion_candidate_at単独のみをクリアする)。
+        self._doc_ref(workshop_id).set({"deletion_candidate_at": None}, merge=True)
+
+    def get_deletion_confirmation_sent_at(self, workshop_id: str) -> Optional[datetime]:
+        # design.md 29.3節・23節の統一方針: 一時的な接続エラーは「未送達」側(None)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_sent_at")
+
+    def set_deletion_confirmation_sent_at(
+        self, workshop_id: str, sent_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_sent_at": sent_at}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_at(
+        self, workshop_id: str
+    ) -> Optional[datetime]:
+        # design.md 29.3節・23節の統一方針: 一時的な接続エラーは「連絡不能ではない」側
+        # (None)に安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_unreachable_at")
+
+    def set_deletion_confirmation_unreachable_at(
+        self, workshop_id: str, unreachable_at: Optional[datetime]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_unreachable_at": unreachable_at}, merge=True
+        )
+
+    def set_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str, value: Optional[str]
+    ) -> None:
+        self._doc_ref(workshop_id).set(
+            {"deletion_confirmation_unreachable_reason": value}, merge=True
+        )
+
+    def get_deletion_confirmation_unreachable_reason(
+        self, workshop_id: str
+    ) -> Optional[str]:
+        # design.md 29.3節・23節の統一方針: 一時的な接続エラーは「理由未記録」側(None)に
+        # 安全側合流させる。
+        try:
+            snapshot = self._doc_ref(workshop_id).get()
+        except Exception:
+            return None
+        return (snapshot.to_dict() or {}).get("deletion_confirmation_unreachable_reason")
