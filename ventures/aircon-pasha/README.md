@@ -7929,3 +7929,32 @@
 - 最終更新: 2026-11-21 19:00 UTC(フェーズ404: 詳細は上記。個別design.mdファイルの
   「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
   いずれもパス、回帰なし)
+- フェーズ405(2026-11-22 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ404・19:00 UTC、約7時間)を選定し、フェーズ404の次回候補(1)の
+  残り10件のうち3件(process-memo-event-async-split-design.md・relinking-subscription-
+  canceled-crosscheck.md・runtime-dependency-switching-design.md)の「次回候補」「結論・
+  次回候補」節を棚卸しした。process-memo-event-async-split-design.mdは残課題(3)が実GCP
+  プロジェクト作成(オーナー承認待ち)後の課題として正当に保留されている記述であり陳腐化
+  ではないことを確認、relinking-subscription-canceled-crosscheck.mdの次回候補(2)が参照する
+  character-limit-fallback-design.mdのソフト閾値検討は、candidate-readiness-summary.md・
+  README.md双方で「実LLM接続待ちで着手不可」と現在も一貫して記録されており陳腐化なし、
+  runtime-dependency-switching-design.mdはフェーズ346時点の陳腐化是正記録そのものであり、
+  末尾の次回候補(承認待ち事項の最優先着手・他venture前進)も現状と矛盾せず陳腐化なし。
+  3件とも追加の是正対象なし。コード変更なし、既存テスト(`python3 -m unittest discover
+  -s prototype -p "test_*.py"`843件)・schema検証(`python3 schema/validate_test_cases.py`
+  25件)を再実行しいずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要なアクションは今回発生
+  していないためpending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営方針
+  確認は前回直接通知2026-11-21 19:00 UTCから約7時間・24時間未満かつ状況不変のため本時刻は
+  再通知を見送った)。
+  次回候補: (1)残り7件の個別design.mdファイル(stale-next-candidate-cross-venture-
+  survey.md・stripe-webhook-runtime-dependency-failure-response-design.md・subscription-
+  canceled-immediate-block-design.md・subscription-event-out-of-order-guard-design.md・
+  subscription-updated-event-order-guard-design.md・user-account-linking-design.md・
+  vendor-breach-key-rotation-runbook.md)について、本フェーズと同種の「次回候補」陳腐化
+  棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま
+  7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
+  オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-22 02:00 UTC(フェーズ405: 詳細は上記。個別design.mdファイルの
+  「次回候補」陳腐化棚卸しを3件継続、追加是正対象なし。既存テスト843件・schema検証25件
+  いずれもパス、回帰なし)
