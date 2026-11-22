@@ -7890,3 +7890,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   `BookingSlotManager`側で同一顧客名による複数confirmed枠の検索可否の確認、(3)承認待ち事項
   (launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を
   最優先、(4)他venture・アイデア領域の前進を継続する。
+- フェーズ続き400(2026-11-22 08:00 UTC定例更新): 7venture中、kura-pasha・
+  event-komiguai-pashaの2ventureは直近フェーズの「次回候補」記載で「他venture・アイデア
+  領域の前進を優先」と明示されていたため見送り、次に更新が止まっていた本venture(前回最終
+  更新フェーズ続き399・2026-11-22 03:00 UTC、約5時間)を選定した。フェーズ続き399「次回候補
+  (1)」に対応し、concurrent-booking-per-customer-state-overwrite-design.md「残る課題」が
+  指摘していた統合テスト(`test_cloud_function_process_event.py`側)を追加した。
+  `SecondBookingWhileConfirmedEscalationTests`を新設し、`_confirm_first_booking()`
+  ヘルパーで1件目を確定させた上で`ConversationEventProcessor.process()`経由で2件目を申し出る
+  シナリオを2件追加: (1)`owner_user_id`設定時に`action="forwarded_to_owner"`・
+  `detail="second_booking_while_confirmed_exists"`が返り、顧客へは`ESCALATION_HANDOFF_MESSAGE`、
+  オーナーへは整形済み通知が1件送られ、1件目の`confirmed`状態が上書きされず残ることを確認、
+  (2)`owner_user_id`未設定時はオーナー通知が静かにスキップされることを確認。この過程で、
+  engine.pyの`_SYSTEM_EVENT_LABELS`に`second_booking_while_confirmed_exists`のラベル追加が
+  漏れていたバグを発見した(`SYSTEM_ESCALATION_REASONS`には追加済みのため`system_event_counts`
+  集計自体は正しかったが、オーナー通知文面の「種別:」欄が`_escalation_type_label()`経由で
+  デフォルトの「予約以外のご相談」にフォールバックし、二重予約の申し出だと一目で判別できない
+  状態だった)。`_SYSTEM_EVENT_LABELS`に「確定済み予約がある状態での2件目のご予約申し出」を
+  追加して是正し、新設テストにラベル文言のアサーションを含めて退行を防止した。
+  concurrent-booking-per-customer-state-overwrite-design.md「残る課題」を更新。
+  既存テスト`python3 -m unittest discover -s prototype -p "test_*.py"`全1066件(新規2件含む)・
+  `python3 schema/validate_test_cases.py`28件いずれもパス(回帰なし)。実LINE Push送信・実GCP/
+  LINE API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  アクションは今回発生していないためpending-approval.mdへの追記なし(2026-11-08 08:00 UTC
+  記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約13時間・24時間未満かつ状況不変の
+  ため再通知は見送り)。
+  次回候補: (1)`BookingSlotManager`側で同一顧客名による複数confirmed枠の検索可否の確認、
+  (2)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された
+  場合はその着手を最優先、(3)他venture・アイデア領域の前進を継続する。

@@ -45,6 +45,7 @@ from engine import (  # noqa: E402
     AvailabilitySearcher,
     BookingSlotManager,
     ConversationFlowStateMachine,
+    ESCALATION_HANDOFF_MESSAGE,
     EscalationConsolidator,
     InMemoryBookingRecordStore,
     NotificationLogAggregator,
@@ -227,6 +228,106 @@ class NewBookingDispatchTests(unittest.TestCase):
     # enumに存在しない架空のintent値でこの分岐を叩くテストは、schema検証のフォールバック
     # (SAFE_FALLBACK_OUTPUT、intent: "escalation"に上書きされる)を経由してしまい
     # 意図した経路を検証できないため、重複テストとして残さず削除した。
+
+
+class SecondBookingWhileConfirmedEscalationTests(unittest.TestCase):
+    """concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+    engine.py単体(test_engine.py
+    test_present_candidates_escalates_when_customer_already_has_confirmed_booking)では
+    検証済みだったが、同design.md「残る課題」が指摘していた、実HTTPエントリポイントに近い
+    レベル(ConversationEventProcessor.process()経由)での統合シナリオは未着手だったため、
+    ここで追加する。
+    """
+
+    def _confirm_first_booking(self, processor, user_id="U1"):
+        saturday = NOW.date() + timedelta(days=(5 - NOW.weekday()) % 7 or 7)
+
+        def llm_call_search():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {"start": saturday.isoformat(), "end": saturday.isoformat()},
+            }
+
+        processor.process(_event(user_id, "来週土曜カットで"), llm_call_search, NOW)
+
+        def llm_call_select():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "1番で"), llm_call_select, NOW)
+
+        def llm_call_details():
+            return {
+                "intent": "new_booking", "name": "田中", "menu": "カット",
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        processor.process(_event(user_id, "田中です、カットでお願いします"), llm_call_details, NOW)
+
+    def test_second_request_is_forwarded_to_owner_and_keeps_first_confirmed(self):
+        processor, flow, push, _ = _new_processor(owner_user_id="U-owner")
+        self._confirm_first_booking(processor)
+        self.assertEqual(flow.stage("U1"), "confirmed")
+        push.sent.clear()
+
+        later = NOW + timedelta(days=1)
+        next_saturday = later.date() + timedelta(days=(5 - later.weekday()) % 7 or 7)
+
+        def llm_call_second_request():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "再来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {
+                    "start": next_saturday.isoformat(), "end": next_saturday.isoformat()
+                },
+            }
+
+        result = processor.process(
+            _event("U1", "もう一件、再来週土曜もカットで予約したいです"), llm_call_second_request, later
+        )
+
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual(result.detail, "second_booking_while_confirmed_exists")
+        # 1件目のconfirmed状態は上書きされず残る(cancel/change等の対象から外れない)。
+        self.assertEqual(flow.stage("U1"), "confirmed")
+
+        customer_messages = [text for uid, text in push.sent if uid == "U1"]
+        self.assertEqual(customer_messages, [ESCALATION_HANDOFF_MESSAGE])
+
+        owner_messages = [text for uid, text in push.sent if uid == "U-owner"]
+        self.assertEqual(len(owner_messages), 1)
+        self.assertIn("【要確認】", owner_messages[0])
+        # engine.py _SYSTEM_EVENT_LABELSにラベル追加が漏れていた場合、ここがデフォルトの
+        # 「予約以外のご相談」に化けてしまい、オーナーが二重予約の申し出だと一目で判別できない
+        # (2026-11-22フェーズでこの統合テスト追加時に発見・是正した退行防止テスト)。
+        self.assertIn("確定済み予約がある状態での2件目のご予約申し出", owner_messages[0])
+
+    def test_owner_not_notified_when_owner_user_id_unset(self):
+        processor, flow, push, _ = _new_processor()
+        self._confirm_first_booking(processor)
+        push.sent.clear()
+
+        later = NOW + timedelta(days=1)
+        next_saturday = later.date() + timedelta(days=(5 - later.weekday()) % 7 or 7)
+
+        def llm_call_second_request():
+            return {
+                "intent": "new_booking", "name": None, "menu": "カット",
+                "datetime_candidate": "再来週土曜", "confirmed": False, "needs_owner_check": False,
+                "requested_date_range": {
+                    "start": next_saturday.isoformat(), "end": next_saturday.isoformat()
+                },
+            }
+
+        result = processor.process(
+            _event("U1", "もう一件、再来週土曜もカットで予約したいです"), llm_call_second_request, later
+        )
+
+        self.assertEqual(result.action, "forwarded_to_owner")
+        self.assertEqual(push.sent, [("U1", ESCALATION_HANDOFF_MESSAGE)])
 
 
 class SuspendedNewBookingBlockTests(unittest.TestCase):

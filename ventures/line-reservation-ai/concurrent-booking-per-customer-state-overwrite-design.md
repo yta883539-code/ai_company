@@ -84,9 +84,24 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
 
 ## 残る課題
 
-- `cloud_function_process_event.py`の実HTTPエントリポイントに近いレベルの統合テスト
-  (LINE Webhookペイロード・LLM出力をモックした`test_cloud_function_process_event.py`側)への
-  第2ブッキングエスカレーションシナリオの追加は未着手(本フェーズはengine.py単体テストまで)。
+- ~~`cloud_function_process_event.py`の実HTTPエントリポイントに近いレベルの統合テスト~~
+  (2026-11-22 03:00 UTC フェーズ続き400で対応済み。`test_cloud_function_process_event.py`に
+  `SecondBookingWhileConfirmedEscalationTests`を新設し、
+  `_confirm_first_booking()`ヘルパーで1件目を確定させた上でConversationEventProcessor.process()
+  経由で2件目を申し出るシナリオを2件追加した: (1)`owner_user_id`設定時に
+  `action="forwarded_to_owner"`・`detail="second_booking_while_confirmed_exists"`が返り、
+  顧客へは`ESCALATION_HANDOFF_MESSAGE`が、オーナーへは`format_escalation_notification()`で
+  整形した通知が1件送られ、1件目の`confirmed`状態が上書きされず残ることを確認、
+  (2)`owner_user_id`未設定時はオーナー通知が静かにスキップされ顧客への返信のみになることを確認。
+  この統合テスト追加の過程で、`_SYSTEM_EVENT_LABELS`(engine.py)への
+  `second_booking_while_confirmed_exists`エントリ追加が漏れていたことを発見した。
+  `SYSTEM_ESCALATION_REASONS`には追加済み(そのため`system_event_counts`集計自体は
+  フェーズ続き399から正しく分類されていた)だったが、オーナー通知文面の「種別:」欄を
+  組み立てる`_escalation_type_label()`はこの2つの定義を別々に参照しているため、ラベル表側への
+  追加漏れによりデフォルトの「予約以外のご相談」にフォールバックしてしまい、オーナーが
+  二重予約の申し出だと一目で判別できない状態だった。`_SYSTEM_EVENT_LABELS`に
+  「確定済み予約がある状態での2件目のご予約申し出」を追加して是正し、上記テスト(1)に
+  ラベル文言のアサーションを含めて退行を防止した。)
 - `BookingSlotManager`側で同一顧客名(`name`)による複数confirmed枠の検索が現状可能か
   (オーナーが2件目をどちらの予約として処理すべきか判断する際に使う)の確認も未着手。
 - 上記「本格対応案2」(`_states[user_id]`の`list`化)は、最小対応案1の運用実績

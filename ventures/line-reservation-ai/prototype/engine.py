@@ -279,6 +279,12 @@ _SYSTEM_EVENT_LABELS = {
     # unregistered_menu(メニュー未登録)もオーナー要確認イベントのため、ここで併せてラベル付けする。
     "unregistered_menu": "未登録メニューでのご予約希望",
     "output_contradiction": "AI応答の矛盾検知(要確認)",
+    # concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+    # SYSTEM_ESCALATION_REASONSには追加済みだったが、このラベル対応表への追加が漏れていたため、
+    # 統合テスト追加(2026-11-22)の過程で発見し是正した。未追加の間は_escalation_type_label()が
+    # デフォルトの「予約以外のご相談」にフォールバックしてしまい、オーナーが二重予約の申し出だと
+    # 一目で判別できなかった(system_event_counts側の集計自体は正しく分類されており影響なし)。
+    "second_booking_while_confirmed_exists": "確定済み予約がある状態での2件目のご予約申し出",
 }
 
 
