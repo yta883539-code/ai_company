@@ -174,6 +174,11 @@ SYSTEM_ESCALATION_REASONS = frozenset({
     # intentがnew_bookingのままneeds_owner_check: trueだけが立つケースをサーバー側で合成する
     # escalation_reason(LLM自身は出力しない。booking_output.schema.jsonのenumには含めない)。
     "output_contradiction",
+    # concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+    # 既に確定済み予約(stage=="confirmed")を持つ顧客が2件目の新規予約を申し出た場合に
+    # present_candidates()がサーバー側で合成するescalation_reason(LLM自身は出力しない。
+    # booking_output.schema.jsonのenumには含めない)。
+    "second_booking_while_confirmed_exists",
 })
 
 
@@ -838,6 +843,19 @@ class SelectSlotResult:
 
 
 @dataclass
+class PresentCandidatesResult:
+    """present_candidates()の戻り値。concurrent-booking-per-customer-state-overwrite-design.md
+    「対応方針1(最小対応案)」準拠。既存状態がstage=="confirmed"(確定済み予約を持つ顧客が
+    2件目の新規予約を申し出た)場合は状態を上書きせずオーナーへエスカレーションし、
+    escalated=Trueとownerへの即時通知アクション・顧客向け案内文言を返す。通常時(escalated=False)は
+    従来通り状態を初期化するのみで、戻り値を読まない既存の呼び出し元とも後方互換を保つ。
+    """
+    escalated: bool = False
+    message: Optional[str] = None  # escalated=Trueの場合のみ、顧客へそのまま送信できる案内文言
+    owner_notify_actions: list = field(default_factory=list)  # SelectSlotResultと同じ位置づけ
+
+
+@dataclass
 class ProvideDetailsResult:
     """provide_details()の戻り値。以前はbool一つだったが、booking_conflict発火時に
     EscalationConsolidator.on_event()の戻り値(即時通知アクション)を呼び出し側へ伝播させる
@@ -1012,16 +1030,41 @@ class ConversationFlowStateMachine:
         state.emoji_used_last = allowed
         return allowed
 
-    def present_candidates(self, user_id: str, candidates: Optional[list] = None, *, now: datetime) -> None:
+    def present_candidates(
+        self, user_id: str, candidates: Optional[list] = None, *, now: datetime
+    ) -> PresentCandidatesResult:
         """候補日時を提示した時点で呼ぶ。新規会話・再提示のいずれでも状態を初期化する。
         candidatesを渡しておくと、select_slot_from_reply()で顧客の返信からslot_keyを
         自動解決できる(candidate-presentation-and-selection-design.md 4節)。
         nowはconversation-state-cleanup.mdのrelease_idle_conversations()が使う
         last_activity_atの起点として記録する。
+
+        concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+        既存状態がstage=="confirmed"の場合(常連客が確定済み予約を持ったまま2件目の新規予約を
+        申し出た場合)、そのまま上書きすると1件目がcancel/change等の会話内操作の対象から
+        実質的に外れてしまうため、上書きせずescalation_reason="second_booking_while_confirmed_exists"
+        でオーナーへエスカレーションする。戻り値のescalated=Trueの場合、呼び出し側は候補提示
+        メッセージの代わりにmessageを顧客へ送信し、owner_notify_actionsをオーナーへ配信する
+        (状態は上書きされず、既存のconfirmed状態がそのまま残る)。
         """
+        existing = self._states.get(user_id)
+        if existing is not None and existing.stage == "confirmed":
+            actions = self._notify_system_event(
+                user_id,
+                {
+                    "intent": "escalation",
+                    "needs_owner_check": True,
+                    "escalation_reason": "second_booking_while_confirmed_exists",
+                },
+                now,
+            )
+            return PresentCandidatesResult(
+                escalated=True, message=ESCALATION_HANDOFF_MESSAGE, owner_notify_actions=actions
+            )
         self._states[user_id] = _ConversationState(
             stage="candidates_presented", candidates=candidates, last_activity_at=now
         )
+        return PresentCandidatesResult()
 
     def select_slot(
         self,

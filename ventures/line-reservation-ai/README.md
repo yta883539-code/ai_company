@@ -7863,3 +7863,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-21 20:00 UTC(フェーズ続き398: 詳細は上記。新規設計ファイル1件作成、既存
   設計ファイル2件に相互参照を追記。コード変更なし。既存テスト全1062件・schema検証28件いずれも
   パス、回帰なし)
+- フェーズ続き399(2026-11-22 03:00 UTC): 7venture中最も更新が止まっていた本ventureを選定し、
+  フェーズ398で設計のみとしたconcurrent-booking-per-customer-state-overwrite-design.mdの
+  「最小対応案」を実装した。engine.pyの`present_candidates()`が、既存状態
+  `state.stage == "confirmed"`を検知した場合は上書きせず
+  `escalation_reason="second_booking_while_confirmed_exists"`(`SYSTEM_ESCALATION_REASONS`に
+  追加)でオーナーへエスカレーションするよう変更し、戻り値を新設の`PresentCandidatesResult`
+  (`escalated`/`message`/`owner_notify_actions`)に変更した。呼び出し側
+  cloud_function_process_event.pyの`_start_new_booking()`・`_represent_candidates_after_conflict()`
+  の2箇所を、エスカレーション時は候補提示メッセージの代わりにハンドオフ文言を送る分岐に更新した
+  (change経由はchange_booking()が呼び出し前にconfirmed状態を削除済みのため対象外)。
+  prototype/test_engine.pyに回帰テスト2件を追加する過程で、同一user_idでのリピート予約を
+  前提に`present_candidates()`を2回呼んでいた既存テスト
+  `test_count_unique_customers_counts_distinct_names_per_store`が新しいエスカレーション分岐に
+  抵触して失敗することを発見し、1件目確定後に`archive_completed_conversations()`を呼んで
+  確定済み会話メモリから外す(本番の来店日+ARCHIVE_AFTER_VISIT経過後の自動アーカイブと同じ手順)
+  よう同テストを修正して回帰を解消した。concurrent-booking-per-customer-state-overwrite-
+  design.mdに実装状況・残る課題(統合テスト未着手・本格対応案2は運用実績待ち)を追記。
+  既存テスト`python3 -m unittest discover -s prototype -p "test_*.py"`全1064件(新規2件含む)・
+  `python3 schema/validate_test_cases.py`28件いずれもパス(回帰なし)。実LINE Push送信・実Cloud
+  Tasksデプロイ・実GCP/LINE API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要なアクションは今回発生していないためpending-approval.mdへの追記なし(2026-11-08
+  08:00 UTC記載の運営方針確認は前回直接通知2026-11-21 19:00 UTCから約8時間・24時間未満かつ
+  状況不変のため再通知は見送り)。
+  次回候補: (1)上記統合テスト(test_cloud_function_process_event.py側)の追加、(2)
+  `BookingSlotManager`側で同一顧客名による複数confirmed枠の検索可否の確認、(3)承認待ち事項
+  (launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を
+  最優先、(4)他venture・アイデア領域の前進を継続する。

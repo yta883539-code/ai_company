@@ -42,7 +42,28 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
 メンテナンス等)の次々回分を前倒しで確保するといった運用は現実的にありうる。頻度は高くない
 可能性があるが、ゼロではない。
 
-## 対応方針(次回以降の実装候補、本フェーズでは設計のみ)
+## 実装状況(2026-11-22 03:00 UTC追記)
+
+下記1(最小対応案)を実装済み。`engine.py`の`present_candidates()`が、既存状態
+`state.stage == "confirmed"`を検知した場合に状態を上書きせず
+`escalation_reason="second_booking_while_confirmed_exists"`(`SYSTEM_ESCALATION_REASONS`に追加済み)
+でオーナーへエスカレーションするよう変更し、戻り値を`None`から新設の
+`PresentCandidatesResult`(`escalated`/`message`/`owner_notify_actions`)に変更した。
+呼び出し側`cloud_function_process_event.py`の`_start_new_booking()`・
+`_represent_candidates_after_conflict()`の2箇所を、戻り値の`escalated`を見て
+エスカレーション時は候補提示メッセージを送らずハンドオフ文言を送る分岐に更新した
+(`change_booking()`が呼び出し前にconfirmed状態を`del`済みのため、change経由では
+この分岐は発生しない)。`prototype/test_engine.py`に回帰テスト2件
+(`test_present_candidates_escalates_when_customer_already_has_confirmed_booking`/
+`test_present_candidates_does_not_escalate_without_existing_confirmed_state`)を追加した。
+あわせて、同一user_idでのリピート予約を前提に`present_candidates()`を2回呼んでいた既存テスト
+`test_count_unique_customers_counts_distinct_names_per_store`
+(`InMemoryBookingRecordStoreTest`)が新しいエスカレーション分岐に抵触して失敗することを発見し、
+1件目の確定後に`archive_completed_conversations()`を呼んで確定済み会話メモリから外す
+(本番の来店日+ARCHIVE_AFTER_VISIT経過後の自動アーカイブと同じ手順)よう修正して回帰を解消した。
+既存テスト1064件(line-reservation-ai全体)・schema検証28件いずれもパス。
+
+## 対応方針(当初案。1は実装済み、2は未着手)
 
 既存の「1顧客1レコード」前提を全面的に「複数同時保持」に変更する実装(`_states[user_id]`を
 `_ConversationState`単体から`list[_ConversationState]`へ変更し、`cancel_booking()`・
@@ -63,7 +84,11 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
 
 ## 残る課題
 
-- 上記1(最小対応案)の実装・`prototype/test_engine.py`への回帰テスト追加は次回以降。
+- `cloud_function_process_event.py`の実HTTPエントリポイントに近いレベルの統合テスト
+  (LINE Webhookペイロード・LLM出力をモックした`test_cloud_function_process_event.py`側)への
+  第2ブッキングエスカレーションシナリオの追加は未着手(本フェーズはengine.py単体テストまで)。
 - `BookingSlotManager`側で同一顧客名(`name`)による複数confirmed枠の検索が現状可能か
   (オーナーが2件目をどちらの予約として処理すべきか判断する際に使う)の確認も未着手。
+- 上記「本格対応案2」(`_states[user_id]`の`list`化)は、最小対応案1の運用実績
+  (実際にこのescalation_reasonが発火する頻度)を見てから着手するか判断する。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)。

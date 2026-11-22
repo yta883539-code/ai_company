@@ -1055,6 +1055,18 @@ class ConversationEventProcessor:
             self._send(user_id, REASK_DATE_RANGE_MESSAGE, now)
             return DispatchResult(action="reask", detail="no_date_range_or_no_candidates")
 
+        # concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+        # change_context=Trueの場合は呼び出し前にchange_booking()が既にconfirmed状態を削除済み
+        # (engine.change_booking()参照)のため、ここでescalated=Trueになるのは常に
+        # change_context=False(通常の新規予約)で、既に確定済みの予約を別途持つ顧客が
+        # 2件目を申し出たケースに限られる。
+        present_result = self._flow.present_candidates(user_id, candidates, now=now)
+        if present_result.escalated:
+            self._dispatch_flow_notify_actions(present_result.owner_notify_actions, now)
+            self._send(user_id, present_result.message, now)
+            return DispatchResult(
+                action="forwarded_to_owner", detail="second_booking_while_confirmed_exists"
+            )
         # 確定操作競合時の再検索(_represent_candidates_after_conflict)用に検索条件を保持する。
         self._search_context_by_user[user_id] = (output, menu_minutes)
         # candidate-selection-details-suspension-recheck-design.md準拠。この候補提示が
@@ -1062,7 +1074,6 @@ class ConversationEventProcessor:
         # _handle_candidate_selection()/_handle_details()でのsuspension_reason再チェックの
         # 要否判定に使う。
         self._change_context_by_user[user_id] = change_context
-        self._flow.present_candidates(user_id, candidates, now=now)
         self._candidates_by_user[user_id] = candidates
         self._send(user_id, format_candidates_message(candidates), now)
         return DispatchResult(action="candidates_presented", detail=str(len(candidates)))
@@ -1207,7 +1218,17 @@ class ConversationEventProcessor:
             self._send(user_id, BOOKING_CONFLICT_MESSAGE, now)
             return DispatchResult(action="booking_conflict", detail="no_alternative_forwarded_to_owner")
 
-        self._flow.present_candidates(user_id, candidates, now=now)
+        # この時点のstageは呼び出し元(provide_details())が既にcandidates_presentedへ
+        # 差し戻し済み(本メソッドdocstring参照)のため、ここでescalated=Trueになることは
+        # 実運用上無いが、concurrent-booking-per-customer-state-overwrite-design.md準拠の
+        # 戻り値を無視せず、他の呼び出し元と同じ防御的な扱いを揃えておく。
+        present_result = self._flow.present_candidates(user_id, candidates, now=now)
+        if present_result.escalated:
+            self._dispatch_flow_notify_actions(present_result.owner_notify_actions, now)
+            self._send(user_id, present_result.message, now)
+            return DispatchResult(
+                action="forwarded_to_owner", detail="second_booking_while_confirmed_exists"
+            )
         self._candidates_by_user[user_id] = candidates
         self._send(user_id, BOOKING_CONFLICT_RETRY_MESSAGE, now)
         self._send(user_id, format_candidates_message(candidates), now)

@@ -112,7 +112,8 @@ change専用文言を出すと「以前のご予約は取り消し済みです�
   あわせて訂正した。
 - 同一顧客が確定済み予約を持つ状態で2件目の新規予約会話を開始すると`present_candidates()`が
   `_states[user_id]`を無条件上書きし、1件目の`confirmed`状態がcancel/change対象から外れる
-  問題を2026-11-21(フェーズ続き398、cancel-intent-handling-design.md側と同じ記載)で発見。
-  詳細・対応方針はconcurrent-booking-per-customer-state-overwrite-design.md参照(本フェーズ
-  では設計のみ、実装は次回以降)。
+  問題を2026-11-21(フェーズ続き398、cancel-intent-handling-design.md側と同じ記載)で発見し、
+  2026-11-22(フェーズ続き399)で最小対応案(`escalation_reason=
+  "second_booking_while_confirmed_exists"`でのオーナーエスカレーション)を実装済み。詳細は
+  concurrent-booking-per-customer-state-overwrite-design.md参照。
 - 実LLM/実LINE API/実Cloud Scheduler接続自体(オーナー承認待ち、pending-approval.md参照)

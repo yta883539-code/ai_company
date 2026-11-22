@@ -704,3 +704,32 @@ canceled-crosscheck.md・runtime-dependency-switching-design.md)継続したが�
 不変のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は
 行っていない。前回通知から24時間以上経過した時点で状況が不変のまま続いていれば次回以降の
 定例更新で再送を検討する)。
+
+日時: 2026-11-22 03:00 UTC
+venture: line-reservation-ai(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件(Ruijie Networks製無線LANアクセスポイント「AP180」シリーズの
+OSコマンドインジェクション脆弱性〈CVE-2026-23699、JVN#86850670、2026年1月21日公表〉への
+自社導入状況一次チェック「ルイジエーピー180パシャっと」、小規模・自動起業可能、ideas.md内
+検索で重複なし確認済み)を追加した。投資・大規模分類のアイデアは本時刻は生成していないため
+presentations.mdへの追記はなし。
+7venture中最も更新が止まっていたline-reservation-ai(前回最終更新フェーズ続き398・
+2026-11-21 20:00 UTC、約7時間)を選定しフェーズ続き399として前進した。
+concurrent-booking-per-customer-state-overwrite-design.mdがフェーズ続き398で設計のみ
+としていた最小対応案(確定済み予約を持つ顧客が2件目の新規予約を申し出た場合に
+present_candidates()で状態を上書きせずオーナーへエスカレーションする設計)を実装した。
+engine.pyのpresent_candidates()の戻り値をPresentCandidatesResult(escalated/message/
+owner_notify_actions)に変更し、cloud_function_process_event.py側2箇所(_start_new_booking()・
+_represent_candidates_after_conflict())のエスカレーション分岐を追加した。回帰テスト追加の
+過程で既存テスト1件(同一user_idでのリピート予約を想定したInMemoryBookingRecordStoreTest)が
+新しい分岐と抵触して失敗することを発見し、本番同様archive_completed_conversations()を挟む
+よう同テストを修正して解消した。既存テスト(`python3 -m unittest discover -s prototype -p
+"test_*.py"`、新規2件を含め全1064件)・schema検証(`python3 schema/validate_test_cases.py`
+28件)いずれもパス(回帰なし)を確認した。実LINE/Stripe/GCP API接続・支払い・アカウント作成・
+外部公開・送信は一切行っていない。新たに承認が必要なアクションは今回発生していない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(いずれか1venture
+だけでも実アカウント作成等を承認いただくか、当面すべて保留とする旨を明示いただくかの
+二択の判断待ち)は、前回直接通知(2026-11-21 19:00 UTC)から約8時間・24時間未満かつ状況
+不変のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は
+行っていない。前回通知から24時間以上経過した時点で状況が不変のまま続いていれば次回以降の
+定例更新で再送を検討する)。

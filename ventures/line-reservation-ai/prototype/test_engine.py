@@ -403,6 +403,44 @@ class ConversationFlowStateMachineTest(unittest.TestCase):
         self.assertTrue(flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2)).confirmed)
         self.assertEqual(flow.stage("user_tanaka"), "confirmed")
 
+    def test_present_candidates_escalates_when_customer_already_has_confirmed_booking(self):
+        # concurrent-booking-per-customer-state-overwrite-design.md「対応方針1(最小対応案)」準拠。
+        # 確定済み予約を持つ顧客が同じuser_idで2件目の新規予約を申し出た場合、present_candidates()は
+        # 既存のconfirmed状態を上書きせずオーナーへエスカレーションする(1件目がcancel/change等の
+        # 会話内操作の対象から実質的に外れてしまうのを防ぐため)。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        key1 = ("shop_1", "2026-08-09", "14:00")
+        flow.present_candidates("user_tanaka", now=T0)
+        flow.select_slot("user_tanaka", key1, T0)
+        confirm_result = flow.provide_details("user_tanaka", "田中", "カット", T0 + timedelta(minutes=2))
+        self.assertTrue(confirm_result.confirmed)
+        self.assertEqual(flow.stage("user_tanaka"), "confirmed")
+
+        key2 = ("shop_1", "2026-08-16", "15:00")
+        second_candidates = [_fake_candidate(key2, "8/16(日) 15:00〜")]
+        result = flow.present_candidates(
+            "user_tanaka", second_candidates, now=T0 + timedelta(days=1)
+        )
+        self.assertTrue(result.escalated)
+        self.assertIn("担当より改めてご連絡", result.message)
+        # 1件目のconfirmed状態は上書きされず残る(cancel/change等の対象から外れない)。
+        self.assertEqual(flow.stage("user_tanaka"), "confirmed")
+        self.assertEqual(len(result.owner_notify_actions), 1)
+        kind, event = result.owner_notify_actions[0]
+        self.assertEqual(kind, "immediate")
+        self.assertEqual(event["escalation_reason"], "second_booking_while_confirmed_exists")
+
+    def test_present_candidates_does_not_escalate_without_existing_confirmed_state(self):
+        # エスカレーションはstage=="confirmed"のときのみで、候補提示直後の再提示(確定操作競合時の
+        # 再検索等)では従来通り状態が上書きされることを確認する回帰テスト。
+        flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
+        flow.present_candidates("user_ito", now=T0)
+        result = flow.present_candidates("user_ito", now=T0 + timedelta(minutes=1))
+        self.assertFalse(result.escalated)
+        self.assertIsNone(result.message)
+        self.assertEqual(result.owner_notify_actions, [])
+        self.assertEqual(flow.stage("user_ito"), "candidates_presented")
+
     def test_first_confirmed_booking_triggers_self_check_once(self):
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator())
         key1 = ("shop_1", "2026-08-09", "14:00")
@@ -1634,6 +1672,12 @@ class InMemoryBookingRecordStoreTest(unittest.TestCase):
         store = InMemoryBookingRecordStore()
         flow = ConversationFlowStateMachine(BookingSlotManager(), EscalationConsolidator(), record_store=store)
         self._confirm(flow, "user_a", ("shop_1", "2026-08-10", "11:00"), "田中", "カット")
+        # concurrent-booking-per-customer-state-overwrite-design.md「対応方針1」準拠。
+        # present_candidates()は既存confirmed状態への上書きをエスカレーションするため、
+        # 同一user_idでのリピート予約を試す前に、本番同様1件目をarchive_completed_conversations()
+        # で確定済み会話メモリから外す(来店日+ARCHIVE_AFTER_VISIT経過後に自動で行われる処理、
+        # confirmed-state-archival.md準拠)。
+        flow.archive_completed_conversations(datetime(2026, 8, 12, 10, 0, 0))
         self._confirm(flow, "user_a", ("shop_1", "2026-08-17", "11:00"), "田中", "カラー")  # リピート
         self._confirm(flow, "user_b", ("shop_1", "2026-08-10", "16:00"), "佐藤", "カラー")
         self._confirm(flow, "user_c", ("shop_2", "2026-08-10", "12:00"), "山本", "カット")  # 別店舗

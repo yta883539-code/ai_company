@@ -69,7 +69,7 @@ enumには追加しない。`engine.py`の`SYSTEM_ESCALATION_REASONS`に追加�
   handling-design.md側にも同じ記載漏れがあったため、あわせて訂正した。
 - 同一顧客が確定済み予約を持つ状態で2件目の新規予約会話を開始すると`present_candidates()`が
   `_states[user_id]`を無条件上書きし、1件目の`confirmed`状態がcancel/change対象から外れる
-  問題を2026-11-21(フェーズ続き398)で発見。詳細・対応方針は
-  concurrent-booking-per-customer-state-overwrite-design.md参照(本フェーズでは設計のみ、
-  実装は次回以降)。
+  問題を2026-11-21(フェーズ続き398)で発見し、2026-11-22(フェーズ続き399)で最小対応案
+  (`escalation_reason="second_booking_while_confirmed_exists"`でのオーナーエスカレーション)を
+  実装済み。詳細はconcurrent-booking-per-customer-state-overwrite-design.md参照。
 - 実LLM/実LINE API接続自体(オーナー承認待ち、pending-approval.md参照)
