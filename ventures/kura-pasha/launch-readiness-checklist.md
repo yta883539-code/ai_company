@@ -45,7 +45,9 @@
    (2026-10-23 19:00 UTC記載)
    本番用の`WorkshopStoreProtocol`・`UsageCounterStoreProtocol`・
    `LinkingCodeStoreProtocol`・`UserProfileStoreProtocol`の4Protocol全ての実
-   Firestoreアダプタ(フェーズ258までに実コード化完了済み)のデプロイ先となる、
+   Firestoreアダプタ(フェーズ326までに実コード化完了済み。`WorkshopStoreProtocol`の
+   deletion_candidate・deletion_confirmation系9メソッドのみフェーズ258時点では未着手で、
+   フェーズ326で完了。フェーズ続き327追記)のデプロイ先となる、
    GCPプロジェクトの課金設定を含む作成、およびFirestoreデータベースの新規作成。
    → 承認後: 実GCPプロジェクトの作成、Firestoreデータベースの新規作成、
    `runtime-dependency-switching-design.md`で設計済みの`KURA_PASHA_FIRESTORE_ENABLED`
@@ -170,3 +172,20 @@ approval.mdへの追記なし。次回候補: 「承認待ち事項」節の4件
 承認された場合はその着手を最優先、またはREADME.mdフェーズ266次回候補(2)「4節の
 ログ出力側(`event`構造化フィールド)への実装反映」(結合実装フェーズ待ち)、他
 venture・アイデア領域の前進。
+
+2026-11-23 08:00 UTC(フェーズ続き327): 7venture中最も更新が止まっていた本venture
+(前回最終更新フェーズ続き326・2026-11-23 02:00 UTC、約7時間)を選定した。フェーズ325・
+326でworkshop-store-firestore-adapter-design.md 29節のdeletion_candidate・
+deletion_confirmation系9メソッドが実コード化されるまで未着手として残っていた事実を踏まえ、
+本チェックリスト項目4「4Protocol全ての実Firestoreアダプタ(フェーズ258までに実コード化
+完了済み)」、およびその根拠であるfirestore-provider-adapter-design.md フェーズ259追記
+「本venture4Protocol全ての実コード化が完了した」が、いずれもWorkshopStoreProtocolに関して
+時期尚早な記載だった(実際の完了はフェーズ326)ことを発見・是正した(両ファイルに追記)。
+ドキュメントのみ、コード変更なし。既存テスト(`python3 -m unittest discover -s prototype -p
+"test_*.py"`)全333件・schema検証(`python3 schema/validate_test_cases.py`)32件いずれも
+パス(回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・
+送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+pending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナー
+への直接プッシュ通知〈2026-11-22 23:00 UTC〉から約9時間・24時間未満かつ状況不変のため
+今回も再通知は見送り)。次回候補: (1)「承認待ち事項」節の4件のいずれかがオーナーから
+承認された場合はその着手を最優先、(2)他venture・アイデア領域の前進。

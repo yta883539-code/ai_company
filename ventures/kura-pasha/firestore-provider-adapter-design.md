@@ -132,3 +132,11 @@ class FirestoreUserProfileProvider:
   方針(フェイククライアント経由のテスト、実GCP接続は結合実装フェーズまで行わない)
   で実コード化した。これにより本venture4Protocol全ての実コード化が完了した
   (コード変更あり、テスト10件新規追加・295件全件パス)。
+  【フェーズ続き327追記】上記「本venture4Protocol全ての実コード化が完了した」は、
+  当時の棚卸し範囲(`UserProfileStoreProtocol`の見送り是正)に限っては正しかったが、
+  `WorkshopStoreProtocol`自体はworkshop-store-firestore-adapter-design.md 29節の
+  deletion_candidate・deletion_confirmation系4フィールド9メソッドがフェーズ244の
+  設計のままコード化されておらず、実際に全メソッドの実コード化が完了したのは
+  フェーズ326である(フェーズ259時点では本Protocolも含め「完了済み」と記載したのは
+  時期尚早だった)。launch-readiness-checklist.md項目4の同種の記載も本フェーズで
+  是正した。コード変更なし(記録是正のみ)。

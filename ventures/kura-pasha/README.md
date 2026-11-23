@@ -7736,3 +7736,18 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   状況不変のため今回も再通知は見送り)。
   次回候補: (1)候補継続2件の連絡チャネル確認は構造的に困難なため見送りを継続する。
   (2)他venture・アイデア領域の前進。
+
+- フェーズ続き327(2026-11-23 08:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新フェーズ続き326・2026-11-23 02:00 UTC、約7時間)を選定した。
+  launch-readiness-checklist.md項目4「4Protocol全ての実Firestoreアダプタ(フェーズ258
+  までに実コード化完了済み)」、およびその根拠となっていたfirestore-provider-adapter-
+  design.mdフェーズ259追記の同種の記載が、実際には`WorkshopStoreProtocol`の
+  deletion_candidate・deletion_confirmation系9メソッド(フェーズ326で完了)を含んでおらず、
+  時期尚早だったという記録不整合を発見し、両ファイルに追記で是正した(ドキュメントのみ、
+  コード変更なし)。既存テスト全333件・schema検証32件いずれもパス(回帰なし)。実LINE/
+  Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-22 23:00 UTC〉から約9時間・24時間未満かつ状況不変のため今回も再通知は見送り)。
+  次回候補: (1)候補継続2件の連絡チャネル確認は構造的に困難なため見送りを継続する。
+  (2)他venture・アイデア領域の前進。
