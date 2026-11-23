@@ -8035,3 +8035,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   辞書定義を横展開確認し現時点で追加漏れが無いことを確認、ただし自動検証テスト不在という
   潜在リスクを記録。本venture内はコード変更なし、既存テスト1074件・schema検証28件いずれも
   パス、回帰なし)
+- フェーズ続き406(2026-11-23 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き405・2026-11-23 12:00 UTC、約8時間)を選定した。フェーズ続き405
+  次回候補(2)「`BookingSlotManager`側の本格対応案2(`_states[user_id]`の`list`化)は最小対応案1
+  の運用実績を見てから着手するか判断する」が、具体的に何を観測したら着手判断に進むのかを定めて
+  おらず「運用実績待ち」のまま判断基準自体が不明確な状態で複数フェーズ(続き404・405)に渡り
+  持ち越されていたことに対応した。concurrent-booking-per-customer-state-overwrite-design.md
+  「残る課題」の該当項目に、着手判断の目安(具体案: (a)
+  `system_event_counts["second_booking_while_confirmed_exists"]`〈owner-settings-wireframe.md
+  記載の通知ログ集計画面に表示〉が単一店舗あたり月間3件以上、または(b)件数は少なくても
+  オーナーから「毎回手動確認が煩雑」という趣旨のフィードバックが1件でもあった場合、いずれかに
+  該当すれば本格対応案2の着手を検討し、発火自体が稀〈月1件未満〉なら最小対応案1のまま運用継続
+  する、という仮置き基準。実運用データが無い間の仮置きであり、データ蓄積後に見直す前提である旨も
+  明記)を追記した。本venture内はドキュメントのみの更新でコード変更なし。既存テスト
+  `python3 -I -m unittest discover -s prototype -p "test_*.py"`全1074件・
+  `python3 -I schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LLM/LINE
+  Push送信・実Cloud Tasksデプロイ・実GCP/LINE API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要なアクションは今回発生していないためpending-approval.mdへの新規
+  承認依頼の追記はなし(2026-11-08 08:00 UTC記載の運営方針確認は、前回オーナーへの直接プッシュ
+  通知〈2026-11-22 23:00 UTC〉から約21時間・24時間未満かつ状況不変のため、本時刻は再通知を
+  見送り状況記録のみとする)。
+  次回候補: (1)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)が次に
+  選定された際、本venture同様の`_UNREACHABLE_REASON_LABELS`parity回帰テストを追加するか判断する
+  (フェーズ続き405で発見した潜在リスクの解消)、(2)承認待ち事項(launch-readiness-checklist.md
+  記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、(3)上記(a)(b)の仮置き基準は
+  実運用データが得られた時点で見直す。
+- 最終更新: 2026-11-23 20:00 UTC(フェーズ続き406: 詳細は上記。本格対応案2着手判断の仮置き基準を
+  concurrent-booking-per-customer-state-overwrite-design.mdに追記。本venture内はドキュメント
+  更新のみでコード変更なし、既存テスト1074件・schema検証28件いずれもパス、回帰なし)
