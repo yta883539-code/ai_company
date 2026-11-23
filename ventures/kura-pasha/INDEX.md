@@ -101,6 +101,8 @@
   モックスクリプト。フェーズ続き321)
 - step1-2-free-text-variations-mock-script.md(連絡先メール実入力・利用形態自由記述の
   バリエーション。フェーズ続き322)
+- step4-non-happy-path-mock-script.md(insufficient_input・out_of_scopeの正常系以外の
+  ケースのモックスクリプト化。フェーズ続き328)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 

@@ -7751,3 +7751,26 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   〈2026-11-22 23:00 UTC〉から約9時間・24時間未満かつ状況不変のため今回も再通知は見送り)。
   次回候補: (1)候補継続2件の連絡チャネル確認は構造的に困難なため見送りを継続する。
   (2)他venture・アイデア領域の前進。
+
+- フェーズ続き328(2026-11-23 16:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新フェーズ続き327・2026-11-23 08:00 UTC、約8時間)を選定した。
+  step4-production-usage-mock-script.md「次のステップ候補」2点目(insufficient_input・
+  out_of_scopeといった正常系以外のケースのモックスクリプト化)に対応した。
+  `step4-non-happy-path-mock-script.md`(新規作成): `prototype/test_cloud_function_webhook.py`
+  の既存テスト2件(`test_process_memo_event_out_of_scope_returns_message_as_is()`・
+  `test_process_memo_event_insufficient_input_returns_missing_fields_request()`)が使用
+  している既存テストケース`OOS1_membership_question`・`II1_no_category`の入力文言・出力
+  フィールドの内容をそのまま2つのトーク画面例として文面化した(新しい事実確認・WebSearch
+  調査は行わず、既存実装・既存テストケースのみを素材とした)。INDEX.mdに新規ファイルを
+  追記し、step4-production-usage-mock-script.md「次のステップ候補」2点目を対応済みとして
+  更新した。コード変更なし、既存テスト(`python3 -m unittest discover -s prototype -p
+  "test_*.py"`)全333件・schema検証(`python3 schema/validate_test_cases.py`)32件いずれも
+  変更なしでパス(回帰なし)を確認した。実LINE/Stripe/GCP/Firestore API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回
+  発生していないためpending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営
+  方針確認は前回オーナーへの直接プッシュ通知〈2026-11-22 23:00 UTC〉から約17時間・
+  24時間未満かつ状況不変のため今回も再通知は見送り)。
+  次回候補: (1)複数職人プランにおいて代表者以外の職人が自分のLINEアカウントから直接
+  メモを送信するケースのモックスクリプト化(step4-production-usage-mock-script.md
+  「次のステップ候補」1点目、未着手のまま持ち越し)。(2)候補継続2件の連絡チャネル確認は
+  構造的に困難なため見送りを継続する。(3)他venture・アイデア領域の前進。
