@@ -59,9 +59,17 @@ design.mdと同じ構成を本venture用に採用する。
   精緻化は今後の課題として残す。
 - `budget-cap-auto-disable`用Cloud Functionの実コード化・deployment-runbook.mdへの追記は、
   実GCPプロジェクト作成後の課題として残す。
-- 残る横展開先(forklift-pasha)についても同種のBilling Budget安全策設計が未着手のため、
-  次回以降の横展開候補として残す。
+- (解消済み・2026-11-23 23:00 UTC棚卸しで判明: 「残る横展開先(forklift-pasha)についても
+  同種のBilling Budget安全策設計が未着手」という本項目は、本ドキュメント作成〈2026-11-13
+  22:00 UTC〉の1時間後にあたる2026-11-13 23:00 UTCに forklift-pasha 側で
+  billing-budget-cap-safeguard-design.md が新規作成済み〈line-reservation-aiの設計を
+  横展開〉であり、line-reservation-ai/kura-pasha/aircon-pasha/oshien-pasha/course-set-pasha/
+  forklift-pashaの6venture全てに同種のBilling Budget安全策設計が揃っていることを確認した。
+  本項目は作成当時点のまま更新されず取り残されていた記載漏れ。forklift-pasha側のコード・
+  文言変更は行っていない、本ファイルの記載の是正のみ)
 
 最終更新: 2026-11-13 22:00 UTC(新規作成: line-reservation-ai/kura-pasha/aircon-pasha/
 oshien-pashaのbilling-budget-cap-safeguard-design.mdをcourse-set-pasha向けに横展開。
 実行〈GCPプロジェクト作成・課金設定・Budget作成〉は一切行っていない。)
+最終更新: 2026-11-23 23:00 UTC(フェーズ403: 上記「未確定・今後の課題」3点目〈forklift-pasha
+横展開未着手〉の記載陳腐化を発見・是正。コード変更なし、ドキュメントの是正のみ。)
