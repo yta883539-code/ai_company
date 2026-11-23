@@ -103,6 +103,8 @@
   バリエーション。フェーズ続き322)
 - step4-non-happy-path-mock-script.md(insufficient_input・out_of_scopeの正常系以外の
   ケースのモックスクリプト化。フェーズ続き328)
+- step4-multi-craftsman-member-usage-mock-script.md(複数職人プランの非契約者メンバーが
+  自分のLINEアカウントから直接メモを送信するケースのモックスクリプト化。フェーズ続き329)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 

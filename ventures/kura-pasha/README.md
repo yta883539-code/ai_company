@@ -7774,3 +7774,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   メモを送信するケースのモックスクリプト化(step4-production-usage-mock-script.md
   「次のステップ候補」1点目、未着手のまま持ち越し)。(2)候補継続2件の連絡チャネル確認は
   構造的に困難なため見送りを継続する。(3)他venture・アイデア領域の前進。
+
+- フェーズ続き329(2026-11-23 22:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新フェーズ続き328・2026-11-23 16:00 UTC、約6時間)を選定した。
+  フェーズ続き328の次回候補(1)に対応し、`step4-multi-craftsman-member-usage-mock-
+  script.md`(新規作成)で、複数職人プランにおいて代表者(契約者)以外の職人が自分自身の
+  LINEアカウントから直接メモを送信するケースをモックスクリプト化した。craftsman-
+  account-linking-design.mdの精査により、返信文面は送信者が契約者か非契約者メンバーかで
+  分岐しないこと、`usage_counter/{workshop_id}`はworkshop単位の共通カウンタであり
+  「誰が何件生成したか」の内訳記録が現行設計には存在しないことを確認・明記した(新しい
+  設計変更は行わず、現状の確認・文書化のみ)。本件はonboarding-guide.md「未検証の仮説」
+  (非契約者メンバーの実際の利用頻度)の検証対象そのものだが、実運用データが無いため
+  仮説自体は本フェーズでも未検証のまま残る。INDEX.md・step4-production-usage-mock-
+  script.md「次のステップ候補」を更新した。コード変更なし、既存テスト(`python3 -m
+  unittest discover -s prototype -p "test_*.py"`)全333件・schema検証(`python3
+  schema/validate_test_cases.py`)32件いずれも変更なしでパス(回帰なし)を確認した。実
+  LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要な新規アクションは今回発生していないためpending-approval.mdへ
+  の新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ
+  通知〈2026-11-22 23:00 UTC〉から約23時間・24時間未満かつ状況不変のため今回も再通知は
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)候補継続2件の連絡チャネル確認は構造的に困難なため見送りを継続する。
+  (2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認のため、
+  オーナーの運営方針確認が得られ実データが得られた場合に設計candidateとする。
+  (3)他venture・アイデア領域の前進。
