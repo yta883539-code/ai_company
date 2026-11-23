@@ -8067,3 +8067,40 @@
   個別design.mdファイル末尾の「次回候補」陳腐化棚卸しの残り3件を確認し、いずれも既に
   是正済みであることを確認〈追加の是正対象なし、棚卸し完了〉。既存テスト843件・schema検証
   25件いずれもパス、回帰なし)
+
+- フェーズ409(2026-11-23 00:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  を選定するにあたり、まずkura-pasha・event-komiguai-pashaの2ventureを確認したところ、
+  いずれも直近フェーズの記録で「次回は無理な再検索・再試行よりも他venture・アイデア領域の
+  前進を優先する」旨が明記されていたため両者を見送った。その他のventure(line-reservation-ai
+  23:00 UTC・forklift-pasha 22:00 UTC・oshien-pasha 21:00 UTC台・kura-pasha 20:00 UTC・
+  course-set-pasha 18:00 UTC)より本venture(前回最終更新フェーズ408・17:00 UTC)が最も
+  更新が止まっていたため選定した。フェーズ408の次回候補(1)「個別design.mdファイル末尾の
+  陳腐化棚卸しは完了したため、次回以降は通常の新規前進項目(未対応の設計課題の有無の洗い出し)
+  に戻る」に対応し、「残課題」記載があるのに解消済みマーク(対応済み・解消済み等)が1件も
+  無いdesign.mdファイルを機械的に洗い出した。該当した`deletion-candidate-final-
+  confirmation-scheduler-design.md`5節「今後の課題」を確認した結果、
+  `prototype/cloud_function_send_deletion_candidate_final_confirmations.py`相当の薄い
+  エントリポイント実装を「次回以降の課題として残る」と記載していたが、当該エントリポイントは
+  本README.mdフェーズ309(2026-10-11 19:00 UTC)で既に実装済み(現状は`InMemoryUserProfileStore`・
+  `InMemoryLinePushClient`を返す設計、実Firestore/LINE接続はオーナー承認待ちの範囲内)で
+  あることを確認した。同ファイル4.4節(フェーズ349時点で追記)より前に書かれた5節だけが
+  その後の実装を反映せず陳腐化して残っていたと判断し、取り消し線付きで実装済みである旨・
+  実装フェーズ・現状がInMemory実装である点を追記して是正した(ドキュメントのみ、コード変更
+  なし)。既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`843件)・
+  schema検証(`python3 -I schema/validate_test_cases.py`25件)いずれも変更なしでパス
+  (回帰なし)を確認した。実LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+  pending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接
+  通知2026-11-22 19:00 UTCから約5時間・24時間未満かつ状況不変のため本時刻は再通知を見送り、
+  状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)他の個別design.mdファイルにも同種の「残課題・今後の課題節が後続フェーズの
+  実装を反映せず陳腐化している」ケースが残っていないか、resolved-mark(対応済み・解消済み等)
+  が0件のファイルを中心に棚卸しを継続する、(2)2026-11-08 08:00 UTC記載の運営方針確認が
+  引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(3)他venture・
+  アイデア領域の前進。
+- 最終更新: 2026-11-23 00:00 UTC(フェーズ409: 詳細は上記。deletion-candidate-final-
+  confirmation-scheduler-design.md 5節の「今後の課題」記載が、フェーズ309で既に実装済みの
+  Cloud Functionsエントリポイントを「次回以降の課題」のまま陳腐化させていたのを発見・是正
+  〈ドキュメントのみ、コード変更なし〉。既存テスト843件・schema検証25件いずれもパス、
+  回帰なし)

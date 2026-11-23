@@ -123,10 +123,17 @@ Cloud Schedulerの`retry_config`パラメータ(`retry_count`・`min_backoff_dur
 
 ## 5. 今後の課題
 
-- `prototype/cloud_function_send_deletion_candidate_final_confirmations.py`相当の
+- ~~`prototype/cloud_function_send_deletion_candidate_final_confirmations.py`相当の
   薄いエントリポイント(Cloud Scheduler HTTPトリガーを受け、実Firestore接続の
   `user_profile_store`・実LINE Push Clientを組み立てて`run_due_deletion_candidate_
-  final_confirmations()`に渡す配線)の実装は次回以降の課題として残る
+  final_confirmations()`に渡す配線)の実装は次回以降の課題として残る~~
+  [フェーズ409で記載是正: フェーズ309(2026-10-11 19:00 UTC)で
+  `prototype/cloud_function_send_deletion_candidate_final_confirmations.py`として
+  既に実装済み(README.md参照)。本節執筆時点(本ファイル4.4節のフェーズ349より前)
+  から実装済みだったにもかかわらず、本節だけ記載が更新されず陳腐化して残っていた。
+  依存クライアントは現状InMemory実装(実Firestore/LINE接続は実GCPプロジェクト・実
+  LINE公式アカウント開設後、オーナー承認待ち)である点は4.1〜4.2節の記載と整合して
+  いるため、実装自体に追加作業は不要。]
   (`stripe_webhook.get_stripe_runtime_dependencies()`と同じ「依存組み立てを1箇所に
   集約する」ファクトリ関数の追加が必要になる見込み)。
 - 実際のCloud Scheduler実行環境の構築(GCPプロジェクトの課金設定を伴う)は
