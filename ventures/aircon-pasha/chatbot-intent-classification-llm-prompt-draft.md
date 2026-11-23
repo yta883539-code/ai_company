@@ -99,14 +99,22 @@ chatbot-first-response-feasibility.md(フェーズ256)3節が次回以降の課�
 - `faq_guidance_candidate`判定時に実際に返す案内文の具体的な文面、および
   completion_report_request判定時への一言追加(上記「設計上の要点」5参照、
   course-set-pashaの`append_faq_followup_hint()`相当)の実装は未着手。
-- `other_needs_human`判定時のエスカレーション導線(運営者への通知文言・送信経路)は、
+- ~~`other_needs_human`判定時のエスカレーション導線(運営者への通知文言・送信経路)は、
   course-set-pashaのchatbot-intent-classification-escalation-design.md 3節に相当する
   設計が本venture向けにまだ存在しない。本venture既存の
   `payment-suspension-owner-notification-design.md`(フェーズ255)の通知先
   (`OWNER_LINE_USER_ID_PLACEHOLDER`)・文言パターンを流用できる可能性が高いが、次回
-  以降の課題とする。
-- `prototype/`配下への実装(分類結果の文字列を受け取り案内文・エスカレーションへ
-  振り分けるマッピング層、course-set-pashaの`chatbot_intent_router.py`相当)は未着手。
+  以降の課題とする。~~
+  → フェーズ259で`chatbot-intent-classification-escalation-design.md`として本venture向けに
+  新規作成済み。1節のとおり`payment-suspension-owner-notification-design.md`の通知先
+  (`OWNER_LINE_USER_ID_PLACEHOLDER`)・`send_flex_message()`パターンを踏襲している
+  (2026-11-23 21:00 UTC定例更新で発見・是正。本項目は約2ヶ月〈フェーズ257〜411〉
+  対応済みのまま未更新で残っていた記載漏れ)。
+- ~~`prototype/`配下への実装(分類結果の文字列を受け取り案内文・エスカレーションへ
+  振り分けるマッピング層、course-set-pashaの`chatbot_intent_router.py`相当)は未着手。~~
+  → フェーズ259で`prototype/chatbot_intent_router.py`として実装済み(テスト14件、
+  `test_chatbot_intent_router.py`)。フェーズ260で`cloud_function_webhook.py`側からの
+  実結線も完了している(2026-11-23 21:00 UTC定例更新で発見・是正)。
 - 実LLM API接続自体がオーナー承認が必要なアクション(APIキー取得・従量課金)に該当する
   ため、実際の呼び出し配線は未着手(line-reservation-aiのAPIキー取得に関する承認待ち
   事項、pending-approval.md 2026-07-31 13:58 UTC記載と同種の位置づけ)。
