@@ -1285,7 +1285,7 @@ workshop.py の`WorkshopStoreProtocol`宣言(303〜679行目)を改めて全メ�
 ところ、当時のグループ分け(1節29〜33行目)に含まれていなかった
 **`deletion_candidate_at`・`deletion_confirmation_sent_at`・
 `deletion_confirmation_unreachable_at`・`deletion_confirmation_unreachable_reason`**
-の4フィールド・計8メソッド(`get_deletion_candidate_at`/`set_deletion_candidate_at`/
+の4フィールド・計9メソッド(`get_deletion_candidate_at`/`set_deletion_candidate_at`/
 `clear_deletion_candidate_at`/`get_deletion_confirmation_sent_at`/
 `set_deletion_confirmation_sent_at`/`get_deletion_confirmation_unreachable_at`/
 `set_deletion_confirmation_unreachable_at`/`set_deletion_confirmation_unreachable_reason`/
@@ -1404,6 +1404,8 @@ docstring(627〜679行目)に基づき、他グループと同じ`set(merge=True
   を含む計9メソッド、本節冒頭「計8メソッド」という記述は実際には9メソッドの誤記である
   ことも併せて確認したが、本フェーズでは実装のみに留め本文の誤記修正は見送り)。
   新規テスト7件を追加し、既存テストに回帰がないことを確認した。
+- 【フェーズ続き326追記】上記で見送っていた本節冒頭(29.1節)「計8メソッド」の誤記を
+  「計9メソッド」に修正した(ドキュメントのみ、コード変更なし)。
 
 - 本節はコード変更を伴わない(`FirestoreWorkshopStore`は未接続のため、既存の
   `InMemoryWorkshopStore`実装・テストに影響しない)。回帰確認として
