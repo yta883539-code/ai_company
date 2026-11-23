@@ -42,6 +42,8 @@ def _operational_status_note(venue):
 
 
 def _station_note(venue):
+    if venue.get("access_mode") == "car_or_bus" and venue.get("access_note"):
+        return f"{venue['nearest_station']}({venue['access_note']})"
     return f"{venue['nearest_station']}({venue.get('walk_minutes_note', '徒歩目安不明')})"
 
 

@@ -3747,3 +3747,29 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
   `access_note`の代替表示形式を設計〈design.md新規作成〉、実コード化・会場追加は次フェーズに
   申し送り。会場マスタは51件のまま変更なし。既存テスト11ファイル・会場マスタparityチェック
   〈51件〉いずれもパス、回帰なし)
+- フェーズ158(2026-11-23 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新11:00 UTC、約7時間)を選定し、フェーズ157次回候補(2)「`access_mode`/
+  `access_note`設計の実コード化」に対応した。`prototype/venue_matcher.py`の`_station_note()`に
+  design.md記載の疑似コードどおり`access_mode == "car_or_bus"`かつ`access_note`設定時はそちらを
+  優先する分岐を実装した(それ以外は従来どおり`walk_minutes_note`、未設定時は「徒歩目安不明」の
+  既存挙動を維持)。`test_venue_matcher.py`に新規テスト3件
+  (car_or_bus+access_note設定時の優先確認、car_or_bus+access_note未設定時のwalk_minutes_note/
+  デフォルト文言へのフォールバック確認、access_mode省略時の既存51件向け後方互換の無変化確認)を
+  追加した。`schema/venue-master.json`の既存51件はaccess_mode未設定のまま変更しておらず
+  (高知県立県民体育館の会場マスタへの追加は次フェーズ以降の候補(3)として申し送り)、
+  `check_venue_master_parity.py`も51件/51件差分なしを確認した。`python3 -I prototype/run_all_tests.py`
+  で既存8ファイル+新規テスト追加後のtest_venue_matcher.pyを含む全11ファイルいずれもOK
+  (既存テストは変更なしでパス、回帰なし)。実LLM/Stripe/GCP/Firestore接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していない
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-22 23:00 UTCから約19時間・
+  24時間未満かつ状況不変のため、本時刻は再通知を見送った)。
+  次回候補: (1)高知県立県民体育館を`access_mode: "car_or_bus"`・本フェーズで実装した
+  `access_note`付きで会場マスタ(51→52件)に追加し、`check_venue_master_parity.py`側の
+  draft.md反映も合わせて行う、(2)高知県の体育館の最寄りバス停・系統をWebSearchで改めて探索、
+  (3)宮崎県体育館・宮崎市総合体育館の徒歩分数について県・市公式サイトの利用案内ページを
+  改めて探索、(4)岡山県総合グラウンド体育館の命名権更新有無を岡山県公式サイトで確認
+  (本実行環境のネットワーク許可外のため、許可が得られた場合に再試行)、(5)承認待ち事項
+  (launch-readiness-checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-23 18:00 UTC(フェーズ158: 詳細は上記。`access_mode`/`access_note`の
+  実コード化〈_station_note()への分岐追加、新規テスト3件〉。会場マスタは51件のまま変更なし。
+  既存テスト11ファイルいずれもパス、回帰なし)

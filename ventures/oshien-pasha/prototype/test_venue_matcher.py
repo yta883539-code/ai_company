@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from venue_matcher import match_venue
+from venue_matcher import _station_note, match_venue
 
 PASS = 0
 FAIL = 0
@@ -177,6 +177,51 @@ def test_operational_status_note_is_none_for_active_venue() -> None:
     )
 
 
+def test_station_note_uses_access_note_when_car_or_bus() -> None:
+    # access-mode-alternative-to-walk-minutes-note-design.md(フェーズ157)の疑似コードの
+    # 実コード化を検証する。venue-master.json側の既存51件はいずれもaccess_mode未設定
+    # (="walk"扱い)のため、ここでは設計のみ先行していたcar_or_bus分岐を直接構築したdictで検証する。
+    venue = {
+        "nearest_station": "JR高知駅",
+        "access_mode": "car_or_bus",
+        "access_note": "車で7分(公式の徒歩分数情報は確認できていません)",
+        "walk_minutes_note": "徒歩20〜30分程度",
+    }
+    check(
+        "car_or_bus: access_note is used instead of walk_minutes_note",
+        _station_note(venue)
+        == "JR高知駅(車で7分(公式の徒歩分数情報は確認できていません))",
+    )
+
+
+def test_station_note_falls_back_to_walk_minutes_note_without_access_note() -> None:
+    # access_mode="car_or_bus"でもaccess_note未設定の場合は、従来のwalk_minutes_note
+    # (フォールバック文言含む)にフォールバックする設計〈同design.md〉を検証する。
+    venue_with_walk_note = {
+        "nearest_station": "JR高知駅",
+        "access_mode": "car_or_bus",
+        "walk_minutes_note": "徒歩20〜30分程度",
+    }
+    check(
+        "car_or_bus without access_note: falls back to walk_minutes_note",
+        _station_note(venue_with_walk_note) == "JR高知駅(徒歩20〜30分程度)",
+    )
+    venue_without_either = {"nearest_station": "JR高知駅", "access_mode": "car_or_bus"}
+    check(
+        "car_or_bus without access_note or walk_minutes_note: falls back to default label",
+        _station_note(venue_without_either) == "JR高知駅(徒歩目安不明)",
+    )
+
+
+def test_station_note_default_access_mode_is_unaffected() -> None:
+    # access_mode省略時(既存51件すべて)は後方互換のため挙動が変わらないことを確認する。
+    venue = {"nearest_station": "JR水道橋駅", "walk_minutes_note": "徒歩5分前後"}
+    check(
+        "default access_mode (omitted): behavior unchanged",
+        _station_note(venue) == "JR水道橋駅(徒歩5分前後)",
+    )
+
+
 if __name__ == "__main__":
     test_exact_match()
     test_exact_match_normalizes_fullwidth_space()
@@ -187,4 +232,7 @@ if __name__ == "__main__":
     test_no_match()
     test_operational_status_note_for_closed_venue()
     test_operational_status_note_is_none_for_active_venue()
+    test_station_note_uses_access_note_when_car_or_bus()
+    test_station_note_falls_back_to_walk_minutes_note_without_access_note()
+    test_station_note_default_access_mode_is_unaffected()
     print(f"PASS={PASS} FAIL={FAIL}")
