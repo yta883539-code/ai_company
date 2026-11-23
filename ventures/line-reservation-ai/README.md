@@ -7972,3 +7972,30 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-22 23:00 UTC(フェーズ続き403: 記録是正のみ、コード変更なし。次回候補(1)
   は既に完了済みと判明したため次回候補リストから削除。既存テスト1073件・schema検証28件
   いずれもパス、回帰なし)
+- フェーズ続き404(2026-11-23 05:00 UTC定例更新): 7venture中、event-komiguai-pasha(承認待ち
+  事項1〜3の解消待ちで前進余地なし)は見送り、次に更新が止まっていた本venture(前回最終更新
+  フェーズ続き403・2026-11-22 23:00 UTC、約6時間)を選定した。フェーズ続き403次回候補(4)
+  「コードコミット済みだがREADME.mdフェーズログへの追記漏れが他venture・他フェーズにも
+  存在しないか」への対応として、まず自ventureで過去に実在したのと同種のバグ
+  (`SYSTEM_ESCALATION_REASONS`に理由を追加したのに`_SYSTEM_EVENT_LABELS`側のラベル追加が
+  漏れ、オーナー通知の「種別:」欄が「予約以外のご相談」にフォールバックしていた
+  2026-11-22の実バグ、concurrent-booking-per-customer-state-overwrite-design.md参照)の
+  再発が無いか`engine.py`を確認したところ、現時点では両者は完全に一致しており追加漏れは
+  無かった。ただし同種の追加漏れは目視確認だけでは次回以降も再発し得るため、
+  `test_engine.py`に`SystemEscalationReasonLabelParityTest`を新設し、
+  `SYSTEM_ESCALATION_REASONS`の全要素が`_SYSTEM_EVENT_LABELS`に存在することを自動検証する
+  回帰テストを追加した(今後どちらかへの追加漏れがあれば次回以降のテスト実行で即検知できる)。
+  新規テスト1件、既存1073件+新規1件=1074件・schema検証28件いずれもパス(回帰なし)。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知2026-11-22 23:00 UTCから約6時間・24時間未満かつ状況不変のため再通知は見送り、
+  状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha/
+  oshien-pasha)についても同種の「ラベル表/許容値リストのような対になった定義の片方だけ
+  追加漏れ」パターンが無いか、手が空いた際に横展開で確認する、(2)`BookingSlotManager`側の
+  本格対応案2(`_states[user_id]`の`list`化)は最小対応案1の運用実績を見てから着手するか
+  判断、(3)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答
+  された場合はその着手を最優先。
+- 最終更新: 2026-11-23 05:00 UTC(フェーズ続き404: 詳細は上記。`_SYSTEM_EVENT_LABELS`と
+  `SYSTEM_ESCALATION_REASONS`の対応漏れを防ぐ回帰テストを新設。既存テスト1073件+新規1件=
+  1074件・schema検証28件いずれもパス、回帰なし)

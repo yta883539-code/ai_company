@@ -101,7 +101,11 @@ cancel-intent-handling-design.mdの残る課題の洗い出し中に、`Conversa
   追加漏れによりデフォルトの「予約以外のご相談」にフォールバックしてしまい、オーナーが
   二重予約の申し出だと一目で判別できない状態だった。`_SYSTEM_EVENT_LABELS`に
   「確定済み予約がある状態での2件目のご予約申し出」を追加して是正し、上記テスト(1)に
-  ラベル文言のアサーションを含めて退行を防止した。)
+  ラベル文言のアサーションを含めて退行を防止した。
+  2026-11-23 05:00 UTC追記: 上記のような「片方の定義にだけ追加し忘れる」事故が今後別の
+  escalation_reasonでも再発しないよう、`test_engine.py`に
+  `SystemEscalationReasonLabelParityTest`を新設し、`SYSTEM_ESCALATION_REASONS`の全要素が
+  `_SYSTEM_EVENT_LABELS`に存在することを自動検証する回帰テストを追加した。)
 - ~~`BookingSlotManager`側で同一顧客名(`name`)による複数confirmed枠の検索が現状可能か
   (オーナーが2件目をどちらの予約として処理すべきか判断する際に使う)の確認も未着手。~~
   (2026-11-22 14:00 UTC調査・対応済み。`BookingSlotManager`自体は`slot_key`→

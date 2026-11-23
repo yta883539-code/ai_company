@@ -1997,5 +1997,25 @@ class MarkBookingOwnerActionTest(unittest.TestCase):
         self.assertFalse(mark_booking_no_show_confirmed(store, entry))
 
 
+class SystemEscalationReasonLabelParityTest(unittest.TestCase):
+    """SYSTEM_ESCALATION_REASONSと_SYSTEM_EVENT_LABELSの対応漏れを防ぐ回帰テスト。
+
+    2026-11-22にsecond_booking_while_confirmed_existsがSYSTEM_ESCALATION_REASONSには
+    追加済みなのに_SYSTEM_EVENT_LABELS側への追加が漏れ、オーナー通知の「種別:」欄が
+    デフォルトの「予約以外のご相談」にフォールバックしていた実バグ
+    (concurrent-booking-per-customer-state-overwrite-design.md参照)を踏まえ、
+    同種の追加漏れを次回以降は自動検知できるようにする。
+    """
+
+    def test_every_system_escalation_reason_has_a_label(self):
+        from engine import SYSTEM_ESCALATION_REASONS, _SYSTEM_EVENT_LABELS
+
+        missing = SYSTEM_ESCALATION_REASONS - _SYSTEM_EVENT_LABELS.keys()
+        self.assertEqual(
+            missing, set(),
+            f"_SYSTEM_EVENT_LABELSへのラベル追加が漏れているescalation_reason: {missing}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
