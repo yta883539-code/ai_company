@@ -3714,3 +3714,36 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
   JR高知駅からの車時間〈7分〉を県公式PDFで一次確認したが徒歩分数は依然未確認、bushikaku.net
   はネットワーク許可外で参照不可。会場マスタは51件のまま変更なし。既存テスト11ファイル・
   会場マスタparityチェック〈51件〉いずれもパス、回帰なし)
+- フェーズ157(2026-11-23 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新04:00 UTC、約7時間)を選定し、フェーズ156次回候補(2)「徒歩圏外(バス/車
+  移動が前提)の会場を会場マスタに追加する場合の表示形式(`walk_minutes_note`に代わる
+  バス/車アクセス表記の設計)の検討」に対応した。新規design.md
+  (access-mode-alternative-to-walk-minutes-note-design.md)として、内部会場マスタに
+  任意フィールド`access_mode`(`"walk"`省略時既定 | `"car_or_bus"`)と`access_note`
+  (自由記述)を新設し、`_station_note()`側で`access_mode=="car_or_bus"`かつ
+  `access_note`設定時はそちらを優先する分岐を追加する設計(疑似コード付き)をまとめた。
+  推定の徒歩換算値(20〜30分程度)自体はテンプレート文言に含めず「徒歩分数は未確認」である
+  事実を明示する方針とし、tone-and-manner-guideline.mdの非断定トーンおよび
+  venue-name-normalization-design.mdの既存方針と整合させた。`output.schema.json`
+  (LLM生成物のユーザー向け出力スキーマ)は変更対象外である旨も明記した。本フェーズは
+  設計のみに留め、`schema/venue-master.json`・`prototype/venue_matcher.py`の実コード化、
+  および高知県立県民体育館の会場マスタへの追加はいずれも次フェーズ以降に申し送り(会場
+  マスタは51件のまま変更なし)。`python3 -I prototype/run_all_tests.py`で既存11ファイル
+  全てOK、`python3 -I schema/check_venue_master_parity.py`で51件/51件差分なしを確認した
+  (回帰なし、コード・データ変更なし)。実LLM/Stripe/GCP/Firestore接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していない
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-22 23:00 UTCから約12時間・
+  24時間未満かつ状況不変のため、本時刻は再通知を見送った)。
+  次回候補: (1)高知県の体育館の最寄りバス停・系統をWebSearchで改めて探索、(2)本フェーズの
+  `access_mode`/`access_note`設計の実コード化(`schema/venue-master.json`への任意
+  フィールド追加、`_station_note()`の分岐実装、該当テスト追加)、(3)高知県立県民体育館を
+  `access_mode: "car_or_bus"`として会場マスタに追加(本フェーズの設計確定を受けて)、
+  (4)宮崎県体育館・宮崎市総合体育館の徒歩分数について県・市公式サイトの利用案内ページを
+  改めて探索、(5)岡山県総合グラウンド体育館の命名権更新有無を岡山県公式サイトで確認
+  (本実行環境のネットワーク許可外のため、許可が得られた場合に再試行)、(6)実Stripe
+  アカウント・実GCPプロジェクト・実Firestore接続はオーナー承認待ち(pending-approval.md
+  参照)のため引き続き着手不可。
+- 最終更新: 2026-11-23 11:00 UTC(フェーズ157: 詳細は上記。徒歩圏外会場向け`access_mode`/
+  `access_note`の代替表示形式を設計〈design.md新規作成〉、実コード化・会場追加は次フェーズに
+  申し送り。会場マスタは51件のまま変更なし。既存テスト11ファイル・会場マスタparityチェック
+  〈51件〉いずれもパス、回帰なし)
