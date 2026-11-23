@@ -13,6 +13,18 @@
   ドメイン取得・ホスティング・外部公開・バックエンド接続は一切行っていない、リポジトリ内の
   静的ファイル(ローカルの実装ドラフト)に留める。README.mdの「外部サービスへの公開」には
   該当しない。送信ボタンも daily.html と同様に無効化している。
+
+  フェーズ260での変更: daily.html フェーズ257・258・259で実施した実`<form>`化(name/value
+  属性の付与・点検者名実施日の実input化)を本バリアントにも展開した。車両番号カードのみ
+  daily.htmlと構造が異なる(選択肢が1件も無いため自由記述欄が常時表示、ラジオ選択は無い)
+  ため、`form.get("vehicle")`→`vehicle_new_label`参照という既存の
+  `_resolve_vehicle_label()`(prototype/form_submission_flow.py)をそのまま再利用できるよう、
+  `name="vehicle" value="__new__"`の隠しinput(常に送信される固定値)を追加し、可視の
+  自由記述欄には`name="vehicle_new_label"`を付けた。チェックリスト・点検者名/実施日部分は
+  daily.htmlフェーズ257〜259と同一のname/value属性にそのまま揃えたため、Python側
+  (form_submission_flow.py)の変更は不要(HTML側の配線のみ)。`<form>`自体のaction属性は
+  daily.html同様に未設定のままで、送信ボタンもtype="button" disabledのまま変更しておらず、
+  本フェーズでも実際の送信・バックエンド接続は発生しない。
 -->
 <html lang="ja">
 <head>
@@ -111,6 +123,15 @@
     color: var(--color-accent-dark);
     font-size: 12px;
     text-decoration: underline;
+  }
+  .prefill-row .prefill-input {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--color-fg);
+    text-align: right;
   }
   /* --- 異常なし/異常あり 一次選択 --- */
   .mode-toggle {
@@ -246,6 +267,11 @@
     <span class="kubun">始業前点検(daily)</span>
   </header>
 
+  <!-- フェーズ260: daily.htmlフェーズ257〜259と同様に<form>で囲む。action属性は
+       daily.html同様に未設定(ルーティング設計はdaily.html側の次回候補と共通のため据え置き)。
+       送信ボタンは既存どおりtype="button" disabledのため、本<form>から実際の送信は発生しない。 -->
+  <form id="daily-form">
+
   <!-- 1. 車両番号(保有0台: 自由記述枠のみ表示) -->
   <section class="card">
     <h2>車両番号</h2>
@@ -253,16 +279,20 @@
       まだ車両が登録されていません。点検する車両の表記(号車番号など、普段呼んでいる
       呼び方で構いません)を入力してください。
     </p>
-    <input type="text" class="vehicle-add-input" placeholder="例: 1号車、倉庫2F用 など">
+    <!-- 保有0台のため選択肢は常に「新しい車両」のみ。daily.htmlの
+         `_resolve_vehicle_label()`(vehicle="__new__"時にvehicle_new_labelを参照)を
+         そのまま再利用できるよう、固定値の隠しinputでvehicle="__new__"を常に送信する。 -->
+    <input type="hidden" name="vehicle" value="__new__">
+    <input type="text" name="vehicle_new_label" class="vehicle-add-input" placeholder="例: 1号車、倉庫2F用 など">
   </section>
 
   <!-- 2. 点検結果の一次選択 + チェックリスト(daily.htmlと同一) -->
   <section class="card">
     <h2>点検結果</h2>
     <div class="mode-toggle">
-      <input type="radio" name="mode" id="mode-ok" checked>
+      <input type="radio" name="mode" id="mode-ok" value="ok" checked>
       <label class="ok" for="mode-ok">異常なし</label>
-      <input type="radio" name="mode" id="mode-ng">
+      <input type="radio" name="mode" id="mode-ng" value="ng">
       <label class="ng" for="mode-ng">異常あり</label>
     </div>
     <p class="mode-hint">
@@ -283,67 +313,70 @@
     <div class="checklist-section checklist-ng">
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="ブレーキ">
           <span class="item-check-label-text">ブレーキ</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_brake" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="警告灯">
           <span class="item-check-label-text">警告灯</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_warning_light" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="異音">
           <span class="item-check-label-text">異音・異臭</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_noise_smell" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="油圧">
           <span class="item-check-label-text">油圧(リフト・チルト)</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_hydraulic" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="タイヤ">
           <span class="item-check-label-text">タイヤ</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_tire" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
       <div class="item-block">
         <label class="item-check">
-          <input type="checkbox">
+          <input type="checkbox" name="checked_items" value="フォーク">
           <span class="item-check-label-text">フォーク</span>
         </label>
-        <textarea class="item-note" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
+        <textarea class="item-note" name="item_note_fork" placeholder="どう異常だったか、気づいたことをそのまま記入してください"></textarea>
         <p class="item-note-warn">※ 異常ありのままだと記述が空欄です。気づいたことを入力してください(入力すると警告は消えます)</p>
       </div>
     </div>
   </section>
 
-  <!-- 3. 点検者名・実施日(デフォルト値のダミー表示) -->
+  <!-- 3. 点検者名・実施日(フェーズ260: daily.htmlフェーズ259と同様に<form>内側の
+       実際のinputへ変更。値は前回送信キャッシュ・本日日付を再現するダミー値を初期表示) -->
   <section class="card">
     <h2>点検者・実施日</h2>
     <div class="prefill-row">
       <span>点検者名</span>
-      <span><span class="value">山田 太郎</span> <a class="edit-link" href="#">変更</a></span>
+      <input type="text" class="prefill-input" name="inspector_name" value="山田 太郎">
     </div>
     <div class="prefill-row">
       <span>実施日</span>
-      <span><span class="value">2026-11-10</span> <a class="edit-link" href="#">変更</a></span>
+      <input type="date" class="prefill-input" name="date" value="2026-10-06">
     </div>
   </section>
+
+  </form>
 
   <!-- 4. 送信 -->
   <div class="submit-area">

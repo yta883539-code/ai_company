@@ -86,6 +86,24 @@ async function checkDailyEmpty(page) {
   const input = page.locator('.vehicle-add-input');
   await input.fill('1号車');
   check('daily-empty: 自由記述欄に車両の表記を入力できる', (await input.inputValue()) === '1号車');
+
+  // フェーズ260: daily.htmlフェーズ257〜259と同型の<form>化・name/value属性付与の検証。
+  const form = page.locator('#daily-form');
+  check('daily-empty: #daily-formが存在する', (await form.count()) === 1);
+  check('daily-empty: #daily-formにaction属性が設定されていない(ルーティング未着手)', (await form.getAttribute('action')) === null);
+  check('daily-empty: vehicle隠しinputの値が"__new__"固定', (await page.locator('input[name="vehicle"]').getAttribute('value')) === '__new__');
+  check('daily-empty: 自由記述欄のname属性が"vehicle_new_label"', (await input.getAttribute('name')) === 'vehicle_new_label');
+  check('daily-empty: mode-okのvalue属性が"ok"', (await page.locator('#mode-ok').getAttribute('value')) === 'ok');
+  check('daily-empty: mode-ngのvalue属性が"ng"', (await page.locator('#mode-ng').getAttribute('value')) === 'ng');
+  const checkedItemsValues = await page.locator('input[name="checked_items"]').evaluateAll(
+    els => els.map(el => el.value)
+  );
+  check(
+    'daily-empty: checked_itemsのvalueがDAILY_CHECKLIST_ITEMSと一致する',
+    JSON.stringify(checkedItemsValues) === JSON.stringify(['ブレーキ', '警告灯', '異音', '油圧', 'タイヤ', 'フォーク'])
+  );
+  check('daily-empty: 点検者名inputのname属性が"inspector_name"', (await page.locator('input[name="inspector_name"]').count()) === 1);
+  check('daily-empty: 実施日inputのname属性が"date"', (await page.locator('input[name="date"]').count()) === 1);
 }
 
 async function checkAnnual(page) {

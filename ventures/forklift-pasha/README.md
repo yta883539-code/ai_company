@@ -5787,3 +5787,36 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   (3)点検者名・実施日のlocalStorage相当キャッシュ・本日日付自動入力の実装はJS不使用
   方針の見直しが必要なため別途要検討、(4)承認待ち事項がオーナーから承認された場合は
   その着手を最優先。
+
+- フェーズ260(2026-11-23 10:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ259・2026-11-23 03:00 UTC、約7時間)を選定し、フェーズ259次回候補
+  (1)「daily-empty.html(保有車両0台バリアント)にも同様の実input化を展開する」に対応した。
+  web-form-mockup/daily-empty.htmlを`<form id="daily-form">`で囲み、点検結果チェックリスト
+  (mode/checked_items/item_note_*)・点検者名実施日(inspector_name/date)のname/value属性を
+  daily.htmlフェーズ257〜259と完全に同一の表記へ揃えた。daily.htmlと異なり本バリアントは
+  車両番号カードがラジオ選択を持たず自由記述欄のみ常時表示のため、`_resolve_vehicle_label()`
+  (prototype/form_submission_flow.py、vehicle="__new__"時にvehicle_new_labelを参照する
+  既存実装)をそのまま再利用できるよう、`name="vehicle" value="__new__"`の隠しinputを追加し
+  常に送信させる設計とした(可視の自由記述欄にはname="vehicle_new_label"を付与)。この設計で
+  Python側(form_submission_flow.py)の変更は不要と確認し、実際にコード変更は行っていない。
+  `<form>`自体のaction属性はdaily.html同様に未設定のままで、送信ボタンもtype="button"
+  disabledのまま変更しておらず、本フェーズでも実際の送信・バックエンド接続は発生しない。
+  回帰確認としてprototype/browser_mockup_checks.jsに新規チェック10件(#daily-form存在・
+  action属性なし・vehicle隠しinputの値・vehicle_new_labelのname・mode各value・
+  checked_itemsのvalue一致・inspector_name/dateのname)を追加し、既存分と合わせて76件
+  (68件→76件)いずれもパス。HTML/JS以外は変更していないため既存テスト117件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証11件
+  (`python3 -I schema/validate_test_cases.py`)も再実行しいずれもパス(回帰なし)。実LINE/
+  Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-22 23:00 UTC〉から約11時間・24時間未満かつ状況不変のため今回も再通知は見送り)。
+  次回候補: (1)`<form>`の実際のaction配線・送信ボタン有効化は、実バックエンド未接続・
+  ホスティング未承認の現状では「実際の送信」に直結するため見送りを継続する(承認待ち事項、
+  launch-readiness-checklist.md参照)、(2)点検者名・実施日のlocalStorage相当キャッシュ・
+  本日日付自動入力の実装はJS不使用方針の見直しが必要なため別途要検討、(3)monthly/annual
+  区分にも保有車両0台バリアントが将来必要になった場合の展開(現状対象外)、(4)承認待ち
+  事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-23 10:00 UTC(フェーズ260: 詳細は上記。daily-empty.htmlを実`<form>`化、
+  新規チェック10件。既存テスト117件・schema検証11件・browser_mockup_checks.js(76件)
+  いずれもパス、回帰なし)
