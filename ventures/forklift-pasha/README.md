@@ -5820,3 +5820,33 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-23 10:00 UTC(フェーズ260: 詳細は上記。daily-empty.htmlを実`<form>`化、
   新規チェック10件。既存テスト117件・schema検証11件・browser_mockup_checks.js(76件)
   いずれもパス、回帰なし)
+
+- フェーズ261(2026-11-23 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ260・2026-11-23 10:00 UTC、約7時間)を選定し、フェーズ258〜260の
+  次回候補に3回連続で繰り越されていた「点検者名・実施日のlocalStorage相当キャッシュ・
+  本日日付自動入力の実装はJS不使用方針の見直しが必要なため別途要検討」に対応した。
+  新規design.md(inspector-name-date-prefill-design.md)にて、「JS不使用方針の見直し」
+  自体は不要であり、daily.html/daily-empty.htmlの配信方式を静的ファイル配信から
+  サーバーサイドレンダリング(GET時にCloud Functions側で値を注入、クライアントJSは
+  依然ゼロ)に変更すれば両方を実現できることを明確化した。実施日は常に当日固定のため
+  キャッシュ不要、点検者名は車両単位ではなくfleet_operator単位(事業者単位)でキャッシュ
+  する設計方針を決定した(詳細・理由はdesign.md参照)。設計決定のみで、Protocol拡張・
+  GETハンドラ実装・main()からの書き込み配線はいずれも次回候補として持ち越し、本フェーズ
+  ではコード変更を行っていない。既存テスト117件(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証11件(`python3 -I schema/validate_test_cases.py`)
+  いずれもパス(回帰なし、ドキュメント追加のみのため当然の結果)。実LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-22 23:00 UTC〉から約18時間・24時間未満かつ状況不変のため今回も再通知は
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)`FleetOperatorStoreProtocol`への`get_last_inspector_name`/
+  `set_last_inspector_name`追加とInMemory/Firestore実装への反映、(2)`main()`が
+  `type=daily`送信を正常処理した後に`set_last_inspector_name()`を呼ぶ配線、
+  (3)daily.html/daily-empty.htmlをGETで動的に返す新規ハンドラの実装(テンプレート
+  レンダリング処理自体はホスティング未承認の現状でも先行して着手・テスト可能)、
+  (4)承認待ち事項(launch-readiness-checklist.md参照)がオーナーから承認された場合は
+  その着手を最優先。
+- 最終更新: 2026-11-23 17:00 UTC(フェーズ261: 詳細は上記。点検者名・実施日のキャッシュ/
+  自動入力に関する設計決定〈inspector-name-date-prefill-design.md新規作成〉。設計のみで
+  コード変更なし。既存テスト117件・schema検証11件いずれもパス)
