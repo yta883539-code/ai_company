@@ -8104,3 +8104,36 @@
   Cloud Functionsエントリポイントを「次回以降の課題」のまま陳腐化させていたのを発見・是正
   〈ドキュメントのみ、コード変更なし〉。既存テスト843件・schema検証25件いずれもパス、
   回帰なし)
+- フェーズ410(2026-11-23 07:00 UTC定例更新): 7venture中、event-komiguai-pasha(承認待ち
+  事項1〜3の解消待ちで前進余地なし)を見送り、残り6venture(line-reservation-ai 05:03 UTC・
+  oshien-pasha 04:04 UTC・forklift-pasha 03:05 UTC・kura-pasha 02:03 UTC・course-set-pasha
+  01:07 UTC・aircon-pasha 00:04 UTC)のうち最も更新が止まっていた本ventureを選定した。
+  フェーズ409次回候補(1)「他の個別design.mdファイルにも同種の陳腐化ケースが残っていないか、
+  resolved-mark(対応済み・解消済み等)が0件のファイルを中心に棚卸しを継続する」に対応し、
+  `残課題`・`今後の課題`の見出しを持ちながら対応済み/解消済み/実装済み/着手済み/反映済みの
+  いずれのマークも0件のファイル10件(chatbot-intent-classification-followup-design.md・
+  checkout-intent-6b-iii-chitchat-status-mapping-review.md・enqueue-fallback-owner-
+  notification-design.md・firestore-runtime-dependency-failure-form-submission-response-
+  design.md・firestore-security-rules-emulator-verification.md・landing-page-wireframe.md・
+  linking-code-delivery-method-decision.md・portal-session-provider-design.md・
+  prompt-caching-design.md・stripe-event-idempotency-design.md)を機械的に抽出し、1件ずつ
+  該当節を確認した。結果、フェーズ409で発見した事例(実装済みの機能を「次回以降の課題」と
+  記載したまま陳腐化)とは異なり、いずれも「実Stripe/実GCP/実Firestore/実LINE接続・実
+  アカウント作成はオーナー承認待ちの範囲」という、現時点で正当に未解消のまま残る承認待ち
+  事項の記載であり、後続フェーズの実装を反映していない陳腐化は見つからなかった(状態
+  変化なし、ドキュメント修正は不要と判断)。既存テスト(`python3 -I -m unittest discover
+  -s prototype -p "test_*.py"`)843件・schema検証(`python3 -I schema/validate_test_cases.py`)
+  25件いずれも変更なしでパス(回帰なし)を確認した。実LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回
+  発生していないためpending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営
+  方針確認は前回直接通知2026-11-22 23:00 UTCから約8時間・24時間未満かつ状況不変のため
+  本時刻は再通知を見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)個別design.mdファイルの陳腐化棚卸しは本フェーズで対象10件すべて確認完了の
+  ため、次回以降は通常の新規前進項目(未対応の設計課題の有無の洗い出し)に戻る、
+  (2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(3)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-23 07:00 UTC(フェーズ410: 詳細は上記。resolved-markが0件だった
+  design.mdファイル10件の陳腐化棚卸しを実施し、いずれも正当な承認待ち事項であり陳腐化
+  なしと確認〈ドキュメントのみ、コード変更なし〉。既存テスト843件・schema検証25件いずれも
+  パス、回帰なし)
