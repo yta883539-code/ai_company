@@ -7441,3 +7441,23 @@
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約61件の個別design.mdファイル
   の「次回候補・残課題」棚卸しは未完了のため継続候補)。
+- フェーズ401(2026-11-23 08:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ400・2026-11-23 01:00 UTC、約7時間)を選定。フェーズ400の次回候補(2)
+  に沿い、個別design.mdファイル陳腐化棚卸しを継続し、webhook-event-dispatch-design.mdの
+  「残課題」節に残っていた「実HTTPリクエストボディ(JSON)のパース・`verify_line_signature()`
+  との結線は実Cloud Functions環境確定後の課題として残る」という記載が、実際にはフェーズ82・
+  receive-webhook-http-entry-point-design.mdで既に設計・`prototype/cloud_function_webhook.py`
+  の`receive_webhook()`として実装済み(2026-08-21 06:00 UTC解消済み、本README上記フェーズ82
+  欄にも解消済みと記録済み)であるにもかかわらず、本ファイル側の記載だけが未対応のまま陳腐化
+  して残っていた記録不整合を発見・是正した(取り消し線に相当する解消済み注記化、コード変更
+  なし、webhook-event-dispatch-design.md本文の是正のみ)。既存テスト932件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)を確認した。実LLM/
+  LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。新たに
+  承認が必要なアクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-22 23:00 UTC〉から約9時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみとする)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約60件の個別design.mdファイル
+  の「次回候補・残課題」棚卸しは未完了のため継続候補)。

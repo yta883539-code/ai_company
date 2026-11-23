@@ -77,10 +77,14 @@ class DispatchResult:
 
 ## 残課題
 
-- 実際にHTTPリクエストボディ(JSON)をパースして`events`配列を取り出す部分・
-  `verify_line_signature()`との結線(署名検証失敗時は`dispatch_webhook_events()`自体を
-  呼ばない)は、実Cloud Functions環境確定後の課題として残る(署名検証関数自体は
-  既存の`verify_line_signature()`がそのまま使える想定)。
+- (解消済み 2026-08-21 06:00 UTC: 実際にHTTPリクエストボディ(JSON)をパースして`events`
+  配列を取り出す部分・`verify_line_signature()`との結線(署名検証失敗時は
+  `dispatch_webhook_events()`自体を呼ばない)を、フェーズ82・receive-webhook-http-
+  entry-point-design.mdで設計し`prototype/cloud_function_webhook.py`の`receive_webhook()`
+  として実装した〈本項目はフェーズ82時点で解消済みだったが、本ファイル側の記載更新が
+  漏れたまま陳腐化して残っていたため、2026-11-23 08:00 UTC定例更新〈フェーズ401〉で
+  是正〉。残るのは実`functions_framework`のリクエストオブジェクトからのbody/署名ヘッダ
+  取り出し配線・実LINE API接続・実Cloud Functionsデプロイ〈いずれもオーナー承認待ち〉のみ)
 - (解消済み 2026-08-21 15:00 UTC: `unfollow`イベント受信時の扱い(連携コード・利用状況
   データの扱い)をフェーズ84・unfollow-event-handling-design.mdで決定・実装した。詳細は
   そちらを参照)
