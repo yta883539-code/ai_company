@@ -305,10 +305,11 @@ def build_daily_raw_text_from_form(form, *, date: str, inspector_name: str) -> s
     相当、`.get()`必須・`.getlist()`は任意)から取り出し、`assemble_daily_raw_text()`
     でraw_text相当の文字列へ組み立てる。
 
-    `date`(実施日)・`inspector_name`(点検者名)は、daily.html側がまだ実際の
-    inputを持たない(フェーズ257次回候補(3)、`.prefill-row`のプレースホルダー
-    表示のまま未着手)ため、本関数ではform経由では取得せず呼び出し元から別途
-    渡す(未着手のため空文字列が渡ってきても、assemble_daily_raw_text()の設計
+    `date`(実施日)・`inspector_name`(点検者名)は、daily.html側がフェーズ259で
+    `name="date"`・`name="inspector_name"`の実際のinputを持つようになったため
+    `request.form`からも取得できるが、本関数ではform経由で取得せず呼び出し元
+    (`receive_form_submission()`、`request.form.get(...)`済み)から別途渡す
+    構造を維持している(値が空文字列であっても、assemble_daily_raw_text()の設計
     〈docstring記載〉どおりエラーにはせず組み立てを続行し、insufficient_inputの
     判定自体はLLM側に委ねる)。
 
@@ -445,8 +446,9 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     400を返す(`receive_form_submission()`より手前、`process_form_submission()`自体は
     呼ばない)。`type`が`"daily"`以外(`monthly`/`annual`、および`type`未指定という既存
     呼び出し元・テストとの後方互換)の場合は、従来どおりWebフォーム送信本文
-    (`request.form.get("raw_text")`)をそのまま使う(daily.html・daily専用の実際の
-    `<form>`action配線自体〈点検者名・実施日の実input化含む〉は依然未着手で次回候補
+    (`request.form.get("raw_text")`)をそのまま使う(点検者名・実施日の実input化は
+    フェーズ259で対応済みだが、daily.html・daily専用の実際の`<form>`action配線自体は
+    依然未着手で次回候補
     として残る)。
 
     正常系(status_code=200)ではレスポンス本文に`response_text`(利用者への返信文面)を

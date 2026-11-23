@@ -5754,3 +5754,36 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-22 22:00 UTC(フェーズ258: 詳細は上記。main()にtype=dailyルーティング
   を実装、新規テスト8件。既存テスト25ファイル・schema検証11件・browser_mockup_checks.js
   (68件)いずれもパス、回帰なし)
+- フェーズ259(2026-11-23 03:00 UTC定例更新): 7venture中、更新が止まっていた
+  event-komiguai-pasha(承認待ち事項1〜3の解消待ちで実質的な前進余地が無いことを確認済み)
+  を見送り、次点で更新が止まっていた本venture(前回最終更新フェーズ258・2026-11-22
+  22:00 UTC、約5時間)を選定し、フェーズ258次回候補(2)「点検者名・実施日の実際の
+  input化」に対応した。web-form-mockup/daily.htmlの`.prefill-row`(静的な
+  `<span class="value">`表示+ダミーの「変更」リンク、`<form>`の外)を、
+  `<input type="text" name="inspector_name">`・`<input type="date" name="date">`の
+  実際のinputに置き換え、`<form id="daily-form">`の内側(送信エリアの直前)へ移動した。
+  name属性は、prototype/form_submission_flow.py main()がフェーズ258で既に実装済みの
+  `request.form.get("date")`・`request.form.get("inspector_name")`にそのまま対応させた
+  (Python側の修正は不要、HTML側の実input化のみで配線が繋がる設計だったことを確認)。
+  value属性には従来のダミー値(「山田 太郎」・2026-10-06)をそのまま初期表示として設定し、
+  web-form-ui-design.md 3〜4節の設計(前回送信値のキャッシュ・本日日付の自動入力)は
+  JS不使用方針のため依然未実装(次回候補)。`<form>`自体のaction属性は付けておらず送信
+  ボタンもtype="button" disabledのまま変更なしのため、本フェーズでも実際の送信・バック
+  エンド接続は発生しない。合わせて、form_submission_flow.py
+  `build_daily_raw_text_from_form()`のdocstring・main()コメント中の「daily.html側が
+  まだ実際のinputを持たない」という陳腐化した記載を是正した(コード自体の変更なし)。
+  既存テスト117件(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・
+  schema検証11件(`python3 -I schema/validate_test_cases.py`)・
+  browser_mockup_checks.js(`node prototype/browser_mockup_checks.js`、68件)いずれも
+  パス(回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部
+  公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+  pending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回
+  オーナーへの直接プッシュ通知〈2026-11-22 23:00 UTC〉から約4時間・24時間未満かつ
+  状況不変のため今回も再通知は見送り、状況記録のみ追記)。
+  次回候補: (1)daily-empty.html(保有車両0台バリアント)にも同様の実input化を展開する
+  (本フェーズはdaily.htmlのみに留めた)、(2)`<form>`の実際のaction配線・送信ボタン
+  有効化は、実バックエンド未接続・ホスティング未承認の現状では「実際の送信」に直結する
+  ため見送りを継続する(承認待ち事項、launch-readiness-checklist.md参照)、
+  (3)点検者名・実施日のlocalStorage相当キャッシュ・本日日付自動入力の実装はJS不使用
+  方針の見直しが必要なため別途要検討、(4)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先。

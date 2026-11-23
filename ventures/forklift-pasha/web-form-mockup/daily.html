@@ -51,6 +51,22 @@
   渡せるようにする判断)。点検者名・実施日はこのフェーズでも依然ダミー表示のspanのまま
   (実際のinput化・localStorage相当のキャッシュ機構は別途未着手、本フェーズのスコープ外)。
 
+  フェーズ259での変更: フェーズ258次回候補(2)「点検者名・実施日の実際のinput化」に対応。
+  `<form>`の外に置かれていた点検者名・実施日の`.prefill-row`(静的な`<span class="value">`
+  表示+ダミーの「変更」リンク)を、`<form>`内側(送信エリアの直前)へ移動し、
+  `<input type="text" name="inspector_name">`・`<input type="date" name="date">`の実際の
+  inputへ置き換えた(name属性はprototype/form_submission_flow.py main()が
+  `request.form.get("date")`・`request.form.get("inspector_name")`で既に取り出す設計
+  〈フェーズ258時点で実装済み〉にそのまま対応させた)。値はweb-form-ui-design.md
+  3〜4節の設計(前回送信値のキャッシュ・本日日付の自動入力)を静的モックアップとして
+  再現するダミー値(「山田 太郎」・2026-10-06のまま)をvalue属性の初期値として設定した
+  (JS不使用方針のため、実際のlocalStorage相当のキャッシュ機構・本日日付の動的算出は
+  別途未着手、本フェーズのスコープ外)。`<form>`自体にはフェーズ257から変更なく
+  action属性を付けていないため、本フェーズでも実際の送信は発生しない(送信ボタンも
+  type="button" disabledのまま変更なし)。daily-empty.html側の同一セクションは
+  daily.htmlとの共通化が別途未着手のバリアントのため本フェーズでは対象外とした
+  (次回候補)。
+
   未実装・意図的なプレースホルダー:
   - JSは一切使用せず、CSS(radio/checkboxの:checked疑似クラスとtilde/plus結合子)のみで
     「異常なし/異常あり」の一次選択・点検項目チェックリストの表示切替・個別項目の自由記述欄の
@@ -200,6 +216,15 @@
     color: var(--color-accent-dark);
     font-size: 12px;
     text-decoration: underline;
+  }
+  .prefill-row .prefill-input {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--color-fg);
+    text-align: right;
   }
   /* --- 異常なし/異常あり 一次選択 --- */
   .mode-toggle {
@@ -446,21 +471,21 @@
     </div>
   </section>
 
-  </form>
-
-  <!-- 3. 点検者名・実施日(デフォルト値のダミー表示、<form>の外。実際のinput化は
-       別途未着手のため、このフェーズでは送信対象に含めていない) -->
+  <!-- 3. 点検者名・実施日(フェーズ259: <form>内側の実際のinputに変更。
+       値は前回送信キャッシュ・本日日付を再現するダミー値を初期表示) -->
   <section class="card">
     <h2>点検者・実施日</h2>
     <div class="prefill-row">
       <span>点検者名</span>
-      <span><span class="value">山田 太郎</span> <a class="edit-link" href="#">変更</a></span>
+      <input type="text" class="prefill-input" name="inspector_name" value="山田 太郎">
     </div>
     <div class="prefill-row">
       <span>実施日</span>
-      <span><span class="value">2026-10-06</span> <a class="edit-link" href="#">変更</a></span>
+      <input type="date" class="prefill-input" name="date" value="2026-10-06">
     </div>
   </section>
+
+  </form>
 
   <!-- 4. 送信 -->
   <div class="submit-area">
