@@ -125,3 +125,12 @@ menu_minutes)`でキャッシュしているturn1のLLM出力からメニュー�
   行1b(厳守事項1関連)として追加した。既存の机上テスト2件を機械チェックの根拠として
   紐付け、conversation-samples-test-cases.mdにはまだ該当の省略入力例が収録されていない
   ことも明記した。入力例自体の追加は別途の課題として残る)
+- (解消済み 2026-11-24 18:00 UTC: 残っていた「引き継ぎ元のキャッシュ自体が欠けている場合」の
+  境界ケースを机上テスト2件(`test_candidate_selection_falls_back_to_placeholder_when_cache_
+  and_llm_both_miss_menu`・`test_details_reasks_when_cache_and_llm_both_miss_menu`)で検証し、
+  conversation-samples-test-cases.mdのN6として転記した。検証の過程で、
+  `_handle_candidate_selection()`側はキャッシュもLLM出力も欠けた場合に`menu`が空文字
+  (`""`)にフォールバックし、仮押さえ案内文の品目欄が二重スペースの空欄になる表示上の
+  不具合(確定処理自体には影響しない)を発見したため、プレースホルダ「ご予約」で補うよう
+  修正した。`_handle_details()`側は元から`REASK_NAME_MENU_MESSAGE`で安全側の再質問に
+  倒れる挙動だったことを確認済み。)

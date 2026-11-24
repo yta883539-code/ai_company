@@ -1534,6 +1534,57 @@ class CandidateSelectionAndDetailsTests(unittest.TestCase):
         self.assertIn("山田様", push.sent[-1][1])
         self.assertIn("カット", push.sent[-1][1])
 
+    def test_candidate_selection_falls_back_to_placeholder_when_cache_and_llm_both_miss_menu(self):
+        # conversation-samples-test-cases.md N6準拠。llm-turn-context-design.md「残る課題」の
+        # 境界ケース(turn1自体がキャッシュされずに終わっている異常系)を再現する。
+        # _search_context_by_userを候補選択ターンの直前に明示的に消し、引き継ぎ元が無い状態で
+        # LLMもmenuを返さなかった場合、仮押さえ文言が空欄(二重スペース)にならずプレースホルダ
+        # 「ご予約」で補われることを確認する(confirmedには使われないため安全性には影響しない)。
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        processor._search_context_by_user.pop("U1", None)
+
+        def llm_call_select_without_menu():
+            return {
+                "intent": "new_booking", "name": None, "menu": None,
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "1番で"), llm_call_select_without_menu, NOW)
+        self.assertEqual(result.action, "held")
+        self.assertIn("ご予約で仮押さえいたしました", push.sent[-1][1])
+        self.assertNotIn("  ", push.sent[-1][1])
+        self.assertEqual(flow.stage("U1"), "awaiting_details")
+
+    def test_details_reasks_when_cache_and_llm_both_miss_menu(self):
+        # 同上の境界ケースを_handle_details()側で確認する。候補選択ターンでキャッシュが
+        # 欠けたまま(プレースホルダ表示のみで実際のメニューは不明)details確認ターンに進んだ
+        # 場合、LLMもmenuを返さなければ安全側(再質問)に倒れ、不明なメニューのまま
+        # confirmed: Trueにはならないことを確認する。
+        processor, flow, push, _ = _new_processor()
+        self._present_candidates(processor)
+        processor._search_context_by_user.pop("U1", None)
+
+        def llm_call_select_without_menu():
+            return {
+                "intent": "new_booking", "name": None, "menu": None,
+                "datetime_candidate": "1番目", "confirmed": False, "needs_owner_check": False,
+            }
+
+        processor.process(_event("U1", "1番で"), llm_call_select_without_menu, NOW)
+
+        def llm_call_details_without_menu():
+            return {
+                "intent": "new_booking", "name": "山田", "menu": None,
+                "datetime_candidate": "確定", "confirmed": True, "needs_owner_check": False,
+            }
+
+        result = processor.process(_event("U1", "山田です"), llm_call_details_without_menu, NOW)
+        self.assertEqual(result.action, "reask")
+        self.assertEqual(result.detail, "missing_name_or_menu")
+        self.assertEqual(push.sent[-1][1], REASK_NAME_MENU_MESSAGE)
+        self.assertEqual(flow.stage("U1"), "awaiting_details")
+
     def test_booking_conflict_notifies_owner_once_and_represents_fresh_candidates(self):
         processor, flow, push, logs = _new_processor()
         self._present_candidates(processor)

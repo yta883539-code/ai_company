@@ -8124,3 +8124,31 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   test-cases.mdに新規ケースN5〈menu/name省略時のサーバー側引き継ぎ〉を追加、llm-quality-
   verification-plan.mdの行1b対象ケース欄を更新。本venture内はドキュメント更新のみでコード
   変更なし、既存テスト1074件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き409(2026-11-24 18:00 UTC): フェーズ続き408の「次回候補(3)」(引き継ぎ元
+  キャッシュが欠けている異常系の入力例の追加検討)に対応した。
+  `_handle_candidate_selection()`/`_handle_details()`それぞれでキャッシュ
+  (`_search_context_by_user`)を明示的にクリアした状態の机上テストを2件追加
+  (`test_candidate_selection_falls_back_to_placeholder_when_cache_and_llm_both_miss_menu`・
+  `test_details_reasks_when_cache_and_llm_both_miss_menu`、いずれも
+  prototype/test_cloud_function_process_event.py)。検証の過程で、
+  `_handle_candidate_selection()`側がキャッシュ・LLM出力ともにmenuを持たない場合に
+  `menu`を空文字(`""`)にフォールバックしており、仮押さえ案内文の品目欄が二重スペースの
+  空欄になる表示上の軽微な不具合(確定条件の判定自体には影響なし、`confirmed`は
+  変わらずfalseのまま)を発見したため、プレースホルダ「ご予約」で補うようコード修正した
+  (prototype/cloud_function_process_event.py `_handle_candidate_selection()`)。
+  `_handle_details()`側は元々`REASK_NAME_MENU_MESSAGE`で安全側の再質問に倒れる挙動で
+  あることを確認済み(コード変更なし)。conversation-samples-test-cases.mdに新規ケース
+  N6を追加し、llm-quality-verification-plan.mdの行1b「対象ケース」欄・
+  llm-turn-context-design.mdの「残る課題」をN6解消済みとして更新した。
+  既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`
+  1074件+新規2件=1076件・`python3 -I schema/validate_test_cases.py`28件いずれもパス
+  (回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC
+  記載の運営方針確認は前回直接通知〈2026-11-23 23:00 UTC〉から約19時間・24時間未満かつ
+  状況不変のため再通知は見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)が次に
+  選定された際、本venture同様の`_UNREACHABLE_REASON_LABELS`parity回帰テストを追加するか
+  判断する(フェーズ続き405で発見した潜在リスクの解消、未着手のまま持ち越し)、
+  (2)承認待ち事項(launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された
+  場合はその着手を最優先、(3)フェーズ続き406記載の仮置き基準は実運用データが得られた
+  時点で見直す。

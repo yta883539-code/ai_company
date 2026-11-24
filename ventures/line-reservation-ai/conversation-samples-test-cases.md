@@ -83,6 +83,31 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   何らかの理由でキャッシュされずに終わっているのにturn2で`menu`が`null`になるような異常系)に
   安全側(再質問)へ倒れるかどうかの入力例は、本ケースではまだ収録していない。
   llm-quality-verification-plan.md行1bの「人手」判定項目として、実LLM接続後に別途検証する。
+  (机上テストでの検証はN6として追加した)
+
+### N6. 候補選択・氏名確認ターンでの引き継ぎ元キャッシュ自体の欠落(2026-11-24 18:00 UTC追加)
+- 位置づけ: N5の「境界ケース(未収録・今後の課題)」として残していた、
+  `_search_context_by_user`(turn1キャッシュ)自体が欠けている異常系の机上検証。
+  prototype/test_cloud_function_process_event.pyの
+  `test_candidate_selection_falls_back_to_placeholder_when_cache_and_llm_both_miss_menu`・
+  `test_details_reasks_when_cache_and_llm_both_miss_menu`で検証した構造を転記する。
+- 前提: 候補選択ターンの直前に`_search_context_by_user`が(通常運用では想定していない
+  理由で)クリアされてしまい、turn1で確定したはずの「カット」が引き継ぎ元から失われている
+  状態。
+- 入力例(turn2、候補選択ターン、メニュー・氏名を再掲せず): 「1番で」
+  - 想定されるLLM出力: `{intent: "new_booking", name: null, menu: null,
+    datetime_candidate: "1番目", confirmed: false, needs_owner_check: false}`
+  - 期待挙動(2026-11-24 18:00 UTC修正): キャッシュもLLM出力も`menu`を持たないため、
+    仮押さえ案内文の品目欄はプレースホルダ「ご予約」で補われる(修正前は空文字で
+    「11/29(土) 10:00  で仮押さえいたしました」のように二重スペースの空欄になる見た目上の
+    不具合があった)。`confirmed`はまだ`false`のまま変わらず、実際のメニューが不明なことに
+    変わりはないため安全性には影響しない表示専用の修正。
+  - 入力例(turn3、氏名確認ターン、メニューを再掲せず): 「山田です」
+    - 想定されるLLM出力: `{intent: "new_booking", name: "山田", menu: null,
+      datetime_candidate: "確定", confirmed: true, needs_owner_check: false}`
+    - 期待挙動: `_carried_over_menu()`もNoneを返すため`menu`は`None`のまま、
+      `REASK_NAME_MENU_MESSAGE`で再質問に倒れる(氏名・メニューの3点が揃わないまま
+      `confirmed: True`になることはない)。
 
 ### N3-トーン. 予約確定メッセージのトーン別自然文サンプル(2026-08-01 17:00 UTC追加)
 - 前提: message-tone-variants.mdで設計済みの「予約確定メッセージ」書き換え例(フォーマル/standard/カジュアル)を、

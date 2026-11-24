@@ -1102,7 +1102,13 @@ class ConversationEventProcessor:
         label = next((c.label for c in candidates if c.slot_key == slot_key), "")
         self._held_label_by_user[user_id] = label
 
-        menu = output.get("menu") or self._carried_over_menu(user_id) or ""
+        # conversation-samples-test-cases.md N6準拠。turn1のキャッシュ(_search_context_by_user)が
+        # 何らかの理由で欠けており、かつLLM出力にもmenuが無い異常系では、_carried_over_menu()が
+        # Noneを返すため従来は""(空文字)にフォールバックしていた。この場合でも仮押さえ自体は
+        # 安全(confirmedにはならず、次ターンの_handle_details()でmenuが依然不明ならREASK_NAME_
+        # MENU_MESSAGEへ安全側に倒れる)だが、本ターンの案内文に空欄(二重スペース)が出る見た目上の
+        # 不具合があったため、プレースホルダ"ご予約"で補う(確定処理には使われず表示専用)。
+        menu = output.get("menu") or self._carried_over_menu(user_id) or "ご予約"
         emoji_allowed = self._flow.consume_casual_emoji_allowance(user_id)
         self._send(user_id, format_hold_message(label, menu, tone, emoji_allowed=emoji_allowed), now)
         return DispatchResult(action="held")
