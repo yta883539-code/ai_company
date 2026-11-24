@@ -5946,3 +5946,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-24 07:00 UTC(フェーズ263: 詳細は上記。daily.html/daily-empty.htmlを
   GETで動的レンダリングする新規ハンドラ〈daily_form_render.py・main()のGET分岐〉を実装。
   新規テスト17件追加、既存テスト121件・schema検証11件いずれもパス、回帰なし)
+
+- フェーズ264(2026-11-24 14:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ263・2026-11-24 07:00 UTC、約7時間)を選定し、フェーズ264として
+  前進した。フェーズ263次回候補(3)「monthly/annual区分のGET動的レンダリング要否の検討」に
+  対応し、monthly-annual-get-rendering-decision.mdを新規作成した。web-form-mockup/
+  monthly.html・annual.htmlの点検者名・実施日表示が`<span class="value">...</span>`+
+  「変更」リンク形式であり、daily.html(`<input value="...">`形式)とマークアップ構造が
+  異なるため既存のrender_daily_form_html()はそのまま流用できないことを確認した。実施日は
+  daily同様「キャッシュ不要・当日日付を注入するだけでよい」という設計方針がmonthly/annualにも
+  そのまま当てはまると判断した一方、点検者名キャッシュはdaily(1日1回)比でmonthly(1月1回)・
+  annual(1年1回)の頻度が大幅に低く負荷軽減効果も小さいと見込まれるため本フェーズでの着手は
+  見送った。annual固有の`inspector_company`(検査業者名)キャッシュ要否は別論点として次回候補に
+  持ち越した。本フェーズはコード変更なし(机上検討のみ)。既存テスト(`python3 -I -m unittest
+  discover -s prototype -p "test_*.py"`121件・`python3 -I schema/validate_test_cases.py`
+  11件・`python3 -I prototype/run_all_tests.py`26ファイル全件)いずれもパス(回帰なし)。
+  実LLM/LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要な新規アクションは今回発生していないためpending-approval.mdへの
+  新規追記なし(状況記録のみ追記)。
+  次回候補: (1)customer-interview-design.mdにmonthly/annual区分の点検者名・検査業者名
+  キャッシュ需要を確認する質問を追加する検討、(2)(優先度低)monthly/annualの実施日動的
+  注入のみを先行実装する場合の設計・実コード化、(3)annual固有のinspector_companyキャッシュ
+  要否の検討、(4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-24 14:00 UTC(フェーズ264: 詳細は上記。monthly-annual-get-rendering-
+  decision.mdを新規作成し、monthly/annual区分のGET動的レンダリング要否を検討。実施日は
+  dailyと同方針を適用可能、点検者名キャッシュは頻度の低さから見送り、annual固有の
+  inspector_companyキャッシュは別論点として持ち越し。コード変更なし、既存テスト121件・
+  schema検証11件・run_all_tests 26ファイルいずれもパス、回帰なし)
