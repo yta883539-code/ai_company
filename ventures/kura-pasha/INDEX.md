@@ -105,6 +105,8 @@
   ケースのモックスクリプト化。フェーズ続き328)
 - step4-multi-craftsman-member-usage-mock-script.md(複数職人プランの非契約者メンバーが
   自分のLINEアカウントから直接メモを送信するケースのモックスクリプト化。フェーズ続き329)
+- step4-cancellation-downgrade-mock-script.md(解約・ダウングレード意図検知時〈C1/C2/C3〉の
+  トーク画面モックスクリプト化。フェーズ続き330)
 - owner-faq-routing-design.md / owner-operation-self-service-faq.md
 - tone-and-manner-guideline.md / legal-notices-draft.md
 

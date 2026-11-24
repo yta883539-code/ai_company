@@ -7798,3 +7798,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   (2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認のため、
   オーナーの運営方針確認が得られ実データが得られた場合に設計candidateとする。
   (3)他venture・アイデア領域の前進。
+- フェーズ続き330(2026-11-24 05:00 UTC定例更新): 7venture中最も更新が止まっていた
+  本venture(前回最終更新フェーズ続き329・2026-11-23 22:00 UTC、約7時間)を選定した。
+  フェーズ続き329の次回候補(3)に沿い、既存のstep4系モックスクリプト(production-usage・
+  non-happy-path・multi-craftsman-member-usage)がいずれも通常の依頼メモ生成ケースのみを
+  対象としており、解約・ダウングレード導線のモックスクリプトが未作成だったギャップに対応し、
+  `step4-cancellation-downgrade-mock-script.md`を新規作成した。subscription-cancellation-
+  flow-design.md・schema/validate_test_cases.pyの`C1_cancellation_intent`/
+  `C2_downgrade_intent`/`C3_cancellation_unclear`を素材に、解約意図(ポータルURL置換版・
+  provider未接続時のフォールバック版の2パターン)・ダウングレード意図・解約意図判別
+  不明ケースの4つのトーク画面例を文面化した。C1・C3の入力文言は
+  `prototype/test_cloud_function_webhook.py`の既存テストから引用し、C2(ダウングレード)の
+  入力文言「プランを変更したい」は既存テストに直接の使用例が無いため本ドキュメントのための
+  例文である旨を明記した。フォールバック版の文面は`cloud_function_webhook.py`の
+  `PORTAL_LINK_UNAVAILABLE_FALLBACK`定義を直接確認し、その文字列をそのまま採用した。
+  INDEX.mdも更新した。コード変更なし、既存テスト(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)全333件・schema検証(`python3 -I schema/
+  validate_test_cases.py`)32件いずれも変更なしでパス(回帰なし)を確認した。実LINE/
+  Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-23 23:00 UTC、course-set-pashaフェーズ403〉から
+  約6時間・24時間未満かつ状況不変のため、本時刻は再通知を見送り状況記録のみ
+  pending-approval.mdに追記した)。
+  次回候補: (1)複数職人プランの契約者本人判定の仕組み自体の設計(本venture未着手の
+  持ち越し課題)。(2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性
+  未確認のため継続保留。(3)他venture・アイデア領域の前進。
