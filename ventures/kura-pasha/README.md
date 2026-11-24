@@ -7853,3 +7853,28 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ため継続保留。(2)他venture・アイデア領域の前進。(3)2026-11-08 08:00 UTC記載の運営方針
   確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
   (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。
+
+- フェーズ続き332(2026-11-24 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き331・2026-11-24 12:00 UTC、約7時間)を選定。line-reservation-ai
+  フェーズ続き405(2026-11-23 12:00 UTC)の次回候補が、同型の`_UNREACHABLE_REASON_LABELS`
+  辞書構造を持つ他venture(aircon-pasha・course-set-pasha・forklift-pasha・kura-pasha)が
+  次に選定された際の横展開候補として挙げていた`UnreachableReasonLabelParityTest`
+  (UNREACHABLE_REASON_*定数と_UNREACHABLE_REASON_LABELSの対応漏れを防ぐ回帰テスト)を、
+  aircon-pashaフェーズ続き405の実装(テスト名・docstring含め同型)を参考に本venture
+  (`prototype/test_deletion_candidate_final_confirmation.py`)にも追加した。本venture時点
+  ではUNREACHABLE_REASON_NOT_FOLLOWINGの1種類のみで辞書と1対1であり現状の対応漏れは無いが、
+  将来理由の種類が追加された際の再発防止を目的とする。新規テスト1件追加、既存テスト333件+
+  新規1件=334件(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証
+  32件(`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)を確認した。実
+  LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-23 23:00 UTC〉から約20時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記した)。
+  次回候補: (1)course-set-pasha・forklift-pashaは同型の`deletion_candidate_final_
+  confirmation`モジュール・`_UNREACHABLE_REASON_LABELS`辞書を持つがparityテスト未追加
+  (本フェーズでgrep確認済み、event-komiguai-pashaには同モジュール自体が存在しないため対象外)
+  のため、いずれかが次に選定された際に横展開を検討する。(2)usage_counter/workshopの利用者
+  内訳記録は実運用データが無く必要性未確認のため
+  継続保留。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先。
