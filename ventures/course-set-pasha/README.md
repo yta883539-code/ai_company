@@ -7554,3 +7554,37 @@
   adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先(aircon-pasha・
   forklift-pasha・event-komiguai-pasha)はいずれも未着手(本フェーズでgrep確認済み)のため、
   当該3venture のいずれかが次に「最も更新が止まっているventure」として選ばれた際に対応する。
+
+- フェーズ406(2026-11-24 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ405・2026-11-24 13:00 UTC、約7時間)を選定。フェーズ405次回候補(2)
+  に沿い、個別design.mdファイルの「残課題・次回候補・未検証事項」陳腐化棚卸しを継続した。
+  今回はmulti-area-mixed-case-review.md・header-summary-edge-case-review.md・
+  removal-only-notice-edge-case-review.md・post-generation-checks-cross-area-review.md・
+  count-null-vs-zero-cross-venture-review.mdの5ファイルを読み直し、各ファイルの残課題・
+  未検証事項の記載内容を現在のコード(`prototype/`配下の実装・テスト)・他ドキュメントの
+  記載と突き合わせたが、フェーズ405以前に発見していた陳腐化(既に解消済みなのに残課題
+  扱いのまま残る記録不整合)に相当するものは今回は見つからなかった。5ファイルの残課題は
+  いずれも(a)実LLM/Stripe等の外部API接続後でなければ検証できない項目(オーナー承認待ち、
+  pending-approval.md参照)、または(b)既に「解消済み」「対応不要」と明記された結論が
+  適切に記載されている項目のいずれかであり、記録と実態の不整合は確認されなかった。
+  コード・schema変更なし、既存テスト932件(`python3 -I -m unittest discover -s prototype
+  -p "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)いずれも
+  変更なしでパス(回帰なし)を確認した。あわせてideas.mdに新規アイデア1件を追加した
+  (Calix製ルーター「GS7 XGS(GS5239XG)」のUPnP経由NATポートフォワーディング改ざん
+  脆弱性〈CVE-2026-75501、CERT/CC VU#756733、2026年8月21日公表、本セッション時点で
+  ベンダー未パッチ〉一次チェック&緊急緩和策・ISP向け依頼文面下書き生成「カリックス
+  ルーターのっとられパシャっと」=小規模・自動起業可能。ISP提供のキャリア機器という
+  対象機器の入手経路が既出の横断監視投資案と異なるため単純な吸収はできないが、ベンダー
+  単体では規模の経済が働きにくいと判断し投資版presentations追記は見送り)。ideas.md内を
+  「Calix」「GS7 XGS」「GS5239XG」「CVE-2026-75501」で検索し重複なし(初出)を確認した。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-23 23:00 UTC〉から約21時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(個別design.mdファイルの
+  「次回候補・残課題」棚卸しは残り約51件、今回読み直した5ファイル分は完了として除外)、
+  (3)stripe-event-id-store-firestore-adapter-design.md「4. 残課題・次回候補」が指摘する
+  Firestoreアダプタ横展開先(aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも
+  未着手のため、当該3venture のいずれかが次に選ばれた際に対応する。
