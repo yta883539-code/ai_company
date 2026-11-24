@@ -52,6 +52,38 @@ llm-system-prompt-draft.md・json-output-retry-fallback.md の「次のステッ
   ※3項目とも顧客DBからの補完値だが、値が揃っている以上`confirmed: true`の
   条件(厳守事項8)は通常ケースと変わらない。
 
+### N5. 候補選択・氏名確認ターンでのメニュー/氏名省略時のサーバー側引き継ぎ(2026-11-24 11:00 UTC追加)
+- 位置づけ: llm-quality-verification-plan.md検証観点表の行1b(厳守事項1関連)が「対象ケース」欄に
+  挙げていた「conversation-samples-test-cases.md未収録」の持ち越し事項(llm-turn-context-design.md
+  フェーズ続き407で確認)に対応する入力例。prototype/test_cloud_function_process_event.pyの
+  `test_candidate_selection_carries_over_menu_when_llm_omits_it`・
+  `test_details_carries_over_menu_when_llm_omits_it_and_confirms`で机上検証済みの構造を、
+  会話サンプル集の形式に転記する。
+- 入力例(turn1、N1相当の新規予約): 「カットお願いします、空いてる時間ありますか」
+  → turn1でmenu="カット"による候補検索・候補提示(hold前)まで進んだ状態を前提とする。
+- 入力例(turn2、候補選択ターン、メニュー・氏名を再掲せず): 「1番で」
+  - 想定されるLLM出力(メニュー・氏名を省略した場合):
+    ```
+    {intent: "new_booking", name: null, menu: null,
+     datetime_candidate: "1番目", confirmed: false, needs_owner_check: false}
+    ```
+  - 期待挙動: LLM出力の`menu`が`null`でも、turn1でキャッシュ済みの「カット」をサーバー側
+    (`_carried_over_menu()`相当)が引き継ぎ、仮押さえ(hold)案内文の品目欄が空欄化しない。
+    `confirmed`はまだ`false`(氏名が未確定のため)。
+- 入力例(turn3、氏名確認ターン、メニューを再掲せず): 「山田です」
+  - 想定されるLLM出力:
+    ```
+    {intent: "new_booking", name: "山田", menu: null,
+     datetime_candidate: "確定", confirmed: true, needs_owner_check: false}
+    ```
+  - 期待挙動: `menu`が再度`null`でも、turn1由来のキャッシュされた「カット」が引き継がれ、
+    氏名・メニュー・日時の3点が揃った状態として`confirmed: true`になる。案内文に
+    「山田様」「カット」の両方が含まれる。
+- 境界ケース(未収録・今後の課題): 引き継ぎ元のキャッシュ自体が欠けている場合(turn1自体が
+  何らかの理由でキャッシュされずに終わっているのにturn2で`menu`が`null`になるような異常系)に
+  安全側(再質問)へ倒れるかどうかの入力例は、本ケースではまだ収録していない。
+  llm-quality-verification-plan.md行1bの「人手」判定項目として、実LLM接続後に別途検証する。
+
 ### N3-トーン. 予約確定メッセージのトーン別自然文サンプル(2026-08-01 17:00 UTC追加)
 - 前提: message-tone-variants.mdで設計済みの「予約確定メッセージ」書き換え例(フォーマル/standard/カジュアル)を、
   N3(候補提示後の確定)の自然文側テストケースとして転記する。README.mdの「次にやること」1番目

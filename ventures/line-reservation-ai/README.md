@@ -8092,3 +8092,35 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   の検証観点表に行1b〈menu/name省略時のサーバー側引き継ぎ観点〉を追加、llm-turn-context-
   design.mdの持ち越し事項を解消。本venture内はドキュメント更新のみでコード変更なし、既存
   テスト1074件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き408(2026-11-24 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き407・2026-11-24 03:00 UTC、約8時間)を選定した。フェーズ続き407
+  次回候補(3)「conversation-samples-test-cases.mdへのmenu/name省略ケースの入力例追加を
+  検討する」に着手した。conversation-samples-test-cases.mdに新規ケース「N5. 候補選択・氏名
+  確認ターンでのメニュー/氏名省略時のサーバー側引き継ぎ」を追加し、
+  `test_candidate_selection_carries_over_menu_when_llm_omits_it`・
+  `test_details_carries_over_menu_when_llm_omits_it_and_confirms`
+  (prototype/test_cloud_function_process_event.py)で机上検証済みの構造(turn2「1番で」で
+  menu/nameがnullでもturn1キャッシュの「カット」が引き継がれhold案内文の品目欄が空欄化しない、
+  turn3「山田です」でmenuが再度nullでも氏名・メニュー・日時の3点が揃いconfirmed: trueになる)
+  を入力例・期待されるLLM出力・期待挙動の形式で転記した。あわせてllm-quality-verification-
+  plan.mdの検証観点表・行1bの「対象ケース」欄を「conversation-samples-test-cases.md未収録」
+  から「N5」参照に更新した。引き継ぎ元キャッシュが欠けている異常系(turn1自体がキャッシュされ
+  ずに終わっている状態でturn2のmenuがnullになるケース)の入力例は本フェーズでは追加せず、
+  未収録のまま今後の課題として明記した。本venture内はドキュメントのみの更新でコード変更なし。
+  既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`全1074件・
+  `python3 -I schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。実LLM/LINE
+  /Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な
+  新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知
+  〈2026-11-23 23:00 UTC〉から約12時間・24時間未満かつ状況不変のため再通知は見送り、状況記録
+  のみpending-approval.mdに追記)。
+  次回候補: (1)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)が次に
+  選定された際、本venture同様の`_UNREACHABLE_REASON_LABELS`parity回帰テストを追加するか判断
+  する(フェーズ続き405で発見した潜在リスクの解消)、(2)承認待ち事項(launch-readiness-
+  checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
+  (3)引き継ぎ元キャッシュが欠けている異常系の入力例をconversation-samples-test-cases.mdに
+  追加するか検討する(本フェーズの新規持ち越し事項)、(4)フェーズ続き406記載の仮置き基準は
+  実運用データが得られた時点で見直す。
+- 最終更新: 2026-11-24 11:00 UTC(フェーズ続き408: 詳細は上記。conversation-samples-
+  test-cases.mdに新規ケースN5〈menu/name省略時のサーバー側引き継ぎ〉を追加、llm-quality-
+  verification-plan.mdの行1b対象ケース欄を更新。本venture内はドキュメント更新のみでコード
+  変更なし、既存テスト1074件・schema検証28件いずれもパス、回帰なし)
