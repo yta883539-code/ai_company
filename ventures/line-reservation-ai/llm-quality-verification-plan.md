@@ -27,6 +27,7 @@ conversation-samples-test-cases.mdの正常系(N1〜N4・N3-トーン・トー�
 | # | 厳守事項 | 検証観点 | 判定方法 | 対象ケース |
 |---|---|---|---|---|
 | 1 | 厳守事項1(名前・メニュー・日時の3点が揃うまで確定文言を使わない) | 3点が未充足の間、自然文に「予約を確定しました」等の確定表現が出ていないか、`confirmed`がfalseのままか | 機械チェック(`confirmed`フィールドの値)+人手(自然文が実際に確定を匂わせる表現になっていないかの目視) | N2(情報不足) |
+| 1b | 厳守事項1関連(turn2・turn3でLLMがmenu/nameを再掲しなかった場合のサーバー側引き継ぎ) | 顧客がturn2・turn3でメニュー名・氏名を再掲しなかった際にLLM出力の該当フィールドが`null`になっても、`_carried_over_menu()`等のサーバー側引き継ぎで最終的に確定条件(3点)が正しく揃うか。引き継ぎ元のキャッシュが欠けている場合は安全側に倒れ再質問に落ちるか | 機械チェック(`test_candidate_selection_carries_over_menu_when_llm_omits_it`・`test_details_carries_over_menu_when_llm_omits_it_and_confirms`〈いずれもprototype/test_cloud_function_process_event.py〉で構造自体は机上検証済み)+人手(実LLM接続後、実際にLLMがmenu/nameを省略する発話パターンで同じ引き継ぎが機能するかの目視) | conversation-samples-test-cases.md未収録(N1〜N4はいずれもturn2・turn3で名前・メニューを明示再掲する入力例のため、省略ケースの入力例自体の追加は別途の課題として残す) |
 | 2 | 厳守事項2(候補提示→選択→確定の2ステップを必ず踏む) | 顧客が初回メッセージで日時・メニューを両方明示していても、いきなり確定せず候補提示ステップを経ているか | 一部機械チェック可能(呼び出し側が`select_slot()`を経ずに`provide_details()`を呼ぶと`ConversationFlowError`になる構造的保証を`test_provide_details_before_select_slot_raises`で検証済み。詳細はmandatory-two-step-order-enforcement-design.md参照)+人手(LLM自由文が実際に候補提示ターンを踏んだ自然な文面になっているか) | N1・N3 |
 | 3 | 厳守事項3(キャンセル・変更検知時は即確定回答せず保留+通知フラグ) | `intent`が`cancel`/`change`のとき`needs_owner_check`がtrueになっているか、自然文が断定的な処理完了を装っていないか | 機械チェック(`intent`と`needs_owner_check`の組み合わせ)+人手 | E2 |
 | 4 | 厳守事項4(仮押さえ中の枠への競合予約に確定処理をしない) | 二重予約の競合検知時に確定処理へ進んでいないか(`confirmed`がfalseのまま) | 機械チェック(`confirmed`) | E3 |

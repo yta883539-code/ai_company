@@ -8063,3 +8063,32 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
 - 最終更新: 2026-11-23 20:00 UTC(フェーズ続き406: 詳細は上記。本格対応案2着手判断の仮置き基準を
   concurrent-booking-per-customer-state-overwrite-design.mdに追記。本venture内はドキュメント
   更新のみでコード変更なし、既存テスト1074件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き407(2026-11-24 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き406・2026-11-23 20:00 UTC、約7時間)を選定した。
+  llm-turn-context-design.md「残る課題」に残っていた「llm-quality-verification-plan.mdの
+  検証観点表(厳守事項1)に、『LLMがmenu/nameを再掲しなかった場合にサーバー側の引き継ぎで
+  確定条件が正しく揃うか』という観点を追加するかは次回以降の検討課題とする」という持ち越し
+  事項に対応した。llm-quality-verification-plan.mdの検証観点表に行1b(厳守事項1関連)を
+  新設し、既存の机上テスト2件(`test_candidate_selection_carries_over_menu_when_llm_omits_it`・
+  `test_details_carries_over_menu_when_llm_omits_it_and_confirms`、いずれも
+  `prototype/test_cloud_function_process_event.py`)を機械チェックの根拠として紐付けた。
+  あわせて、conversation-samples-test-cases.mdのN1〜N4はいずれもturn2・turn3で名前・メニューを
+  明示的に再掲する入力例であり、menu/name省略時の入力例自体はまだ収録されていないことを
+  「対象ケース」欄に明記し、入力例の追加は別途の課題として切り出した。llm-turn-context-design.md
+  側の該当項目には解消済みマークと対応内容を追記した。本venture内はドキュメントのみの更新で
+  コード変更なし。既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`
+  全1074件・`python3 -I schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知〈2026-11-23 23:00 UTC〉から約4時間・24時間未満かつ状況不変のため再通知は
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)が次に
+  選定された際、本venture同様の`_UNREACHABLE_REASON_LABELS`parity回帰テストを追加するか判断
+  する(フェーズ続き405で発見した潜在リスクの解消)、(2)承認待ち事項(launch-readiness-
+  checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
+  (3)conversation-samples-test-cases.mdへのmenu/name省略ケースの入力例追加を検討する、
+  (4)上記(フェーズ続き406記載)仮置き基準は実運用データが得られた時点で見直す。
+- 最終更新: 2026-11-24 03:00 UTC(フェーズ続き407: 詳細は上記。llm-quality-verification-plan.md
+  の検証観点表に行1b〈menu/name省略時のサーバー側引き継ぎ観点〉を追加、llm-turn-context-
+  design.mdの持ち越し事項を解消。本venture内はドキュメント更新のみでコード変更なし、既存
+  テスト1074件・schema検証28件いずれもパス、回帰なし)
