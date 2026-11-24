@@ -12,6 +12,35 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-24 07:00 UTC
+venture: forklift-pasha(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、
+ideas.mdにmacOS「画面共有」(Screen Sharing)認証バイパス不備(CVE-2026-65400、2026年11月も
+Moneroマイナー配布キャンペーンが継続)への一次チェック「がめんきょうゆうパシャっと」(小規模・
+自動起業可能)、横断版「がいぶこうかいウォッチ」(投資・大規模、presentations.mdにも追記)を
+各1件追加した。ideas.md内を「CVE-2026-65400」「Screen Sharing」「screensharingd」「画面共有」
+「SRP」で検索し0件・初出を確認した(同時にWebSearchで調査したOpenwave Webtop〈CVE-2026-111793〉・
+Cisco BroadWorks〈CVE-2026-20320〉・GPUStack・FreeSWITCH・IBM Aspera Faspex等は、いずれも
+ideas.md内に既出〈「ウェブトップパシャっと」「ブロードワークスパシャっと」「ジーピーユー
+パシャっと」等〉であることをgrep確認で発見し採用を見送った)。
+7venture中最も更新が止まっていたforklift-pasha(前回最終更新フェーズ262・2026-11-24 00:00 UTC、
+約7時間)を選定し、フェーズ263として前進した。フェーズ261(inspector-name-date-prefill-
+design.md)4節(3)の持ち越し事項「daily.html/daily-empty.htmlをGETリクエストで動的に返す
+新規ハンドラ」を実装した。新規モジュールprototype/daily_form_render.py(value属性の正規表現
+文字列置換・html.escape()によるエスケープ)を作成し、main()にrequest.methodが"GET"の場合の
+分岐を新設、vehicle_count_store.get_vehicle_count()が0ならdaily-empty.html・1台以上なら
+daily.htmlを選び、operator_store.get_last_inspector_name()の値とJST当日日付を注入して返す
+よう配線した。新規テスト17件(test_daily_form_render.py 8件・test_form_submission_flow.py
+GET分岐9件)を追加し、既存テスト(python3 -I -m unittest discover -s prototype -p
+"test_*.py")121件(変更なし)・schema検証11件いずれもパス、python3 -I prototype/
+run_all_tests.pyで26ファイル全件(新規1ファイル追加)パスを確認した(回帰なし)。実LLM/LINE/
+Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(いずれか1
+ventureだけでも実アカウント作成等を承認いただくか、当面すべて保留とする旨を明示いただく
+かの二択)は、前回オーナーへの直接プッシュ通知(2026-11-23 23:00 UTC)から約8時間・
+24時間未満かつ状況不変のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みと
+みなした実行は行っていない)。
+
 日時: 2026-11-23 21:00 UTC
 venture: aircon-pasha(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの承認依頼ではない。本時刻の定例更新では、

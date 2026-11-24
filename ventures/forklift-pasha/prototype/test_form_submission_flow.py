@@ -9,6 +9,7 @@ import sys
 from datetime import datetime
 
 from access_token_store import InMemoryAccessTokenStore
+from daily_form_render import today_jst_date_str
 from form_submission_flow import (
     build_daily_raw_text_from_form,
     get_form_submission_runtime_dependencies,
@@ -34,9 +35,10 @@ class _StubRequest:
     `request.args.get()`・`request.form.get()`インターフェースのみを模した最小スタブ
     (test_checkout_session.py/test_access_url_reissue_handler.py `_StubRequest`と同系)。"""
 
-    def __init__(self, args: dict, form: "dict | None" = None):
+    def __init__(self, args: dict, form: "dict | None" = None, method: str = "POST"):
         self.args = args
         self.form = form or {}
+        self.method = method
 
 
 def _check(label, actual, expected):
@@ -813,6 +815,102 @@ def main():
         "main(): type=dailyでmode未送信は400",
         (body_daily_invalid, status_daily_invalid),
         ("invalid_daily_mode", 400),
+    ))
+
+    # --- main(): GET(type=daily)でdaily.html/daily-empty.htmlを動的レンダリングして返す
+    # (inspector-name-date-prefill-design.md フェーズ261、4節(3)の実装、フェーズ263) ---
+    body_get_missing, status_get_missing = form_submission_main(
+        _StubRequest({"type": "daily"}, method="GET")
+    )
+    results.append(_check(
+        "main(): GET・type=dailyでaccess_token未指定は400",
+        (body_get_missing, status_get_missing),
+        ("missing_access_token", 400),
+    ))
+
+    body_get_unknown, status_get_unknown = form_submission_main(
+        _StubRequest({"access_token": "unknown-token", "type": "daily"}, method="GET"),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): GET・type=dailyで未知のaccess_tokenは404",
+        (body_get_unknown, status_get_unknown),
+        ("unknown_access_token", 404),
+    ))
+
+    body_get_unsupported, status_get_unsupported = form_submission_main(
+        _StubRequest({"access_token": "token-daily", "type": "monthly"}, method="GET"),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): GET・type=daily以外(monthly/annual/未指定)はGET動的レンダリング未対応で400"
+        "(design.md適用範囲外、次回候補)",
+        (body_get_unsupported, status_get_unsupported),
+        ("unsupported_get_type", 400),
+    ))
+
+    # op-dailyはここまでのPOSTテストのllm_generateスタブがvehicle_id=None固定のため
+    # vehicle_registry側の登録を経由していない(vehicle_count=0のまま)。daily.html側
+    # (車両1台以上)のレンダリングを検証するため、ここで直接vehicle_count_storeへ1台分を
+    # 加算する(実運用ではvehicle_idを含む実LLM出力経由でvehicle_registry.
+    # register_vehicle_from_inspection_memo()が加算する想定、本テストはGETハンドラの
+    # テンプレート選択ロジックのみを対象とするためモックで代替する)。
+    # last_inspector_nameは直前のPOSTテストで「田中」に設定済みのため、GETはdaily.html
+    # (車両1台以上側)を返し、inspector_nameには「田中」が注入される。
+    daily_injected_dependencies["vehicle_count_store"].increment_vehicle_count("op-daily")
+    body_get_daily, status_get_daily = form_submission_main(
+        _StubRequest({"access_token": "token-daily", "type": "daily"}, method="GET"),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): GET・type=dailyの正常系は200",
+        status_get_daily,
+        200,
+    ))
+    results.append(_check(
+        "main(): GET・type=dailyでop-dailyは車両登録済み(1台)のためdaily.html"
+        "(「車両0台」表記を含まない側)が返る",
+        "・車両0台)" in body_get_daily,
+        False,
+    ))
+    results.append(_check(
+        "main(): GET・type=dailyのレスポンスにはlast_inspector_name〈田中〉が注入される",
+        'name="inspector_name" value="田中"' in body_get_daily,
+        True,
+    ))
+    expected_today = today_jst_date_str()
+    results.append(_check(
+        "main(): GET・type=dailyのレスポンスには当日日付(JST)が注入される",
+        f'name="date" value="{expected_today}"' in body_get_daily,
+        True,
+    ))
+
+    # --- main(): GET・type=dailyでvehicle_count=0(車両未登録)の事業者はdaily-empty.html
+    # が返り、last_inspector_name未設定時はinspector_nameが空欄(ダミー値を表示しない) ---
+    empty_access_token_store = InMemoryAccessTokenStore()
+    empty_access_token_store.set_access_token("op-empty", "token-empty")
+    empty_dependencies = {
+        "access_token_store": empty_access_token_store,
+        "operator_store": InMemoryFleetOperatorStore(),
+        "vehicle_store": InMemoryVehicleStore(),
+        "vehicle_count_store": InMemoryVehicleCountStore(),
+        "llm_generate": None,
+    }
+    body_get_empty, status_get_empty = form_submission_main(
+        _StubRequest({"access_token": "token-empty", "type": "daily"}, method="GET"),
+        runtime_dependencies=empty_dependencies,
+    )
+    results.append(_check(
+        "main(): GET・type=dailyでvehicle_count=0の事業者はdaily-empty.html(「車両0台」"
+        "表記を含む側)が200で返る",
+        (status_get_empty, "・車両0台)" in body_get_empty),
+        (200, True),
+    ))
+    results.append(_check(
+        "main(): GET・type=dailyでlast_inspector_name未設定の事業者はinspector_nameが"
+        "空欄で注入される(ダミー値「山田 太郎」を表示しない)",
+        'name="inspector_name" value="">' in body_get_empty and "山田 太郎" not in body_get_empty,
+        True,
     ))
 
     deps = get_form_submission_runtime_dependencies()

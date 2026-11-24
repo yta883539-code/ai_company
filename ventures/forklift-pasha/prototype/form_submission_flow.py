@@ -38,6 +38,10 @@ from access_token_store import (  # noqa: E402
     AccessTokenStoreProtocol,
     InMemoryAccessTokenStore,
 )
+from daily_form_render import (  # noqa: E402
+    render_daily_form_html,
+    today_jst_date_str,
+)
 from daily_raw_text_assembly import (  # noqa: E402
     DAILY_CHECKLIST_ITEMS,
     assemble_daily_raw_text,
@@ -72,6 +76,14 @@ from vehicle_registry import (  # noqa: E402
 )
 
 LlmGenerateFn = Callable[[str], dict]
+
+# daily.html/daily-empty.htmlをGETで動的に返す新規ハンドラ(design.md 4節(3))が読み込む
+# テンプレートファイルの場所。両ファイルとも実HTTPデプロイ・ホスティングは未承認のまま
+# (pending-approval.md参照)だが、テンプレートレンダリング処理自体は承認待ち事項の範囲外
+# として先行して着手できる(design.md 4節(4))。
+_WEB_FORM_MOCKUP_DIR = Path(__file__).resolve().parent.parent / "web-form-mockup"
+_DAILY_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "daily.html"
+_DAILY_EMPTY_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "daily-empty.html"
 
 
 def validate_llm_output(instance: dict) -> list[str]:
@@ -425,9 +437,58 @@ def get_form_submission_runtime_dependencies() -> dict:
     }
 
 
+def render_daily_form_for_get(
+    access_token: "str | None",
+    *,
+    access_token_store: AccessTokenStoreProtocol,
+    operator_store: FleetOperatorStoreProtocol,
+    vehicle_count_store: "VehicleCountStoreProtocol | None" = None,
+    now: "datetime | None" = None,
+) -> "tuple[str, int]":
+    """daily.html/daily-empty.htmlをGETリクエストに対して動的レンダリングして返す
+    (inspector-name-date-prefill-design.md フェーズ261、4節(3))。
+
+    戻り値は`main()`と同じ`(本文, status_code)`の2要素タプル契約(正常系は本文に
+    レンダリング済みHTML、エラー系はエラー種別文字列)。`access_token`欠落は400、
+    未知の`access_token`は404(`receive_form_submission()`と同じエラーコード方針)。
+
+    保有車両台数(`vehicle_count_store.get_vehicle_count()`)が0の場合はdaily-empty.html、
+    1台以上ならdaily.htmlを返す(READMEフェーズ230で確定したdaily-empty.htmlの適用範囲)。
+    `vehicle_count_store`省略時は常に0台扱い(daily-empty.html)とする。
+    """
+    if not access_token:
+        return "missing_access_token", 400
+    operator_id = access_token_store.get_internal_id_by_access_token(access_token)
+    if operator_id is None:
+        return "unknown_access_token", 404
+
+    vehicle_count = (
+        vehicle_count_store.get_vehicle_count(operator_id)
+        if vehicle_count_store is not None
+        else 0
+    )
+    template_path = _DAILY_EMPTY_HTML_PATH if vehicle_count == 0 else _DAILY_HTML_PATH
+    template_html = template_path.read_text(encoding="utf-8")
+
+    inspector_name = operator_store.get_last_inspector_name(operator_id) or ""
+    rendered = render_daily_form_html(
+        template_html,
+        date=today_jst_date_str(now),
+        inspector_name=inspector_name,
+    )
+    return rendered, 200
+
+
 def main(request, *, runtime_dependencies: Optional[dict] = None):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout_
     session.main()・access_url_reissue_handler.main()と同型)。
+
+    GETリクエスト(`request.method == "GET"`、属性自体が無いスタブ・簡易呼び出し元との
+    後方互換として既定値は`"POST"`)の場合は、`type=daily`のみ対応し
+    `render_daily_form_for_get()`にそのまま委譲してdaily.html/daily-empty.htmlの動的
+    レンダリング結果を返す(フェーズ263、design.md 4節(3))。`type`がdaily以外のGETは
+    monthly/annual側のGET動的レンダリングが未着手のため`unsupported_get_type`で400を
+    返す(次回候補として持ち越し)。
 
     `access_token`はアクセスURL(`https://<ドメイン>/f/{accessToken}`)経由の
     クエリパラメータ(`request.args.get("access_token")`)から取り出し
@@ -467,8 +528,24 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     デフォルト表示に使う想定)。
     """
     access_token = request.args.get("access_token")
-
     form_type = request.args.get("type")
+
+    deps = (
+        runtime_dependencies
+        if runtime_dependencies is not None
+        else get_form_submission_runtime_dependencies()
+    )
+
+    if getattr(request, "method", "POST") == "GET":
+        if form_type != "daily":
+            return "unsupported_get_type", 400
+        return render_daily_form_for_get(
+            access_token,
+            access_token_store=deps["access_token_store"],
+            operator_store=deps["operator_store"],
+            vehicle_count_store=deps.get("vehicle_count_store"),
+        )
+
     inspector_name = None
     if form_type == "daily":
         inspector_name = request.form.get("inspector_name") or ""
@@ -486,11 +563,6 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
         # `raw_text`フィールドをそのまま使う。
         raw_text = request.form.get("raw_text")
 
-    deps = (
-        runtime_dependencies
-        if runtime_dependencies is not None
-        else get_form_submission_runtime_dependencies()
-    )
     http_result = receive_form_submission(access_token, raw_text, datetime.utcnow(), **deps)
     if http_result.status_code == 200:
         # inspector-name-date-prefill-design.md(フェーズ261)4節(2)。type=dailyの送信を
