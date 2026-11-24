@@ -117,12 +117,32 @@ InMemory実装・既存テストは本変更の対象(`test_deletion_candidate_f
 
 - 実際のFirestoreクエリ実装・複合インデックスのデプロイはGCPプロジェクト作成・Firestore
   有効化(オーナー承認待ち)後。
-- 同種のパターンが残る横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)の
-  削除候補・通知系処理にも存在するかどうかの横展開検討は次回候補として残す。
+- ~~同種のパターンが残る横展開先(course-set-pasha・forklift-pasha・line-reservation-ai)の
+  削除候補・通知系処理にも存在するかどうかの横展開検討は次回候補として残す。~~
+  → フェーズ413で3venture分すべて確認済み(下記参照)。course-set-pashaは
+  `cloud_function_webhook.py`の`clear_deletion_confirmation_unreachable_at()`、
+  line-reservation-aiは`cloud_function_process_event.py`の
+  `clear_store_deletion_confirmation_unreachable_at()`で、いずれも本venture フェーズ321と
+  同型の「再フォロー時クリア配線」が既に実装済みであることを確認した。一方
+  forklift-pashaは連絡経路がLINEフォローではなくメールであるため「再フォロー」に相当する
+  イベント自体が存在しないが、`access_url_reissue_handler.handle_reissue_request()`が
+  利用者からの新メールアドレス登録(`email_store.set_email()`)を受け付ける一方、
+  `deletion_confirmation_unreachable_at`/`unreachable_reason`をクリアする配線が存在せず、
+  一度`no_email`/`send_failed`で連絡不能判定された事業者は、後から有効なメールアドレスを
+  再登録しても`select_due_deletion_candidate_final_confirmations()`の除外対象から外れず
+  再送対象に戻れないという、本venture フェーズ320と同種の未解消ギャップが残っていることを
+  発見した。これは文書記載の陳腐化ではなく実際のコードギャップであり、forklift-pasha側の
+  コード変更は本venture側の本手順の範囲外のため実装は見送り、forklift-pasha自身が次回
+  選定された際の前進項目として記録する(line-reservation-aiフェーズ405が他venture調査時に
+  採った「発見のみ記録し他venture側のコード変更は見送る」方針を踏襲)。
 
-最終更新: 2026-10-16 21:00 UTC(フェーズ321: フェーズ320の残る課題であった
-`MARK_UNREACHABLE`候補が統合後の単一クエリに永久に残り続ける問題を解消。
-`clear_deletion_confirmation_unreachable_at()`を新設し、再フォロー時のクリア配線を
-`process_follow_event()`に追加(InMemory実装・テスト4件追加)。firestore-composite-
-index-plan.mdの複合インデックス#5を3フィールド構成に更新。テスト719件・schema検証25件
-パス)
+最終更新: 2026-11-24 04:00 UTC(フェーズ413: フェーズ412次回候補(1)
+「resolved-mark有無によらない『今後の課題』『残課題』節の個別読み直し」を継続する前に、
+本ファイル自身の「残る課題」2点目(横展開検討)がフェーズ321から約1ヶ月余り未着手のまま
+残っていたことに気づき、先にこちらを着手した。course-set-pasha・forklift-pasha・
+line-reservation-aiの3venture分のソースコードを実際に読み、course-set-pasha・
+line-reservation-aiは既に横展開済み、forklift-pashaのみ「メール再登録時のunreachable
+クリア配線が無い」という未解消ギャップが残っていることを発見した(詳細は上記)。本venture
+側はドキュメントのみの更新でコード変更なし、既存テスト843件・schema検証25件いずれも
+パス(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+一切行っていない。承認が必要な新規アクションは今回発生していない)

@@ -8184,3 +8184,35 @@
   ファイルが大半残っている)、(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答の
   まま7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、
   オーナーから得られた場合はその着手を最優先、(3)他venture・アイデア領域の前進。
+- フェーズ413(2026-11-24 04:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ412・2026-11-23 21:00 UTC、約7時間)を選定した。フェーズ412次回
+  候補(1)に進む前に、本venture自身のdeletion-candidate-query-consolidation-decision.mdの
+  「残る課題」2点目(フェーズ321で発見・修正した「MARK_UNREACHABLEが再フォロー後も
+  クリアされない」バグの横展開検討、約1ヶ月余り未着手)に先に対応した。course-set-pasha・
+  forklift-pasha・line-reservation-aiの3venture分のソースコードを実際に読み、
+  course-set-pasha(`clear_deletion_confirmation_unreachable_at()`)・line-reservation-ai
+  (`clear_store_deletion_confirmation_unreachable_at()`)は既に同型の「再フォロー時クリア
+  配線」が実装済みであることを確認した一方、forklift-pashaは`access_url_reissue_handler.
+  handle_reissue_request()`が新メールアドレス登録を受け付けるにもかかわらず
+  `deletion_confirmation_unreachable_at`/`unreachable_reason`をクリアする配線が無く、
+  一度連絡不能判定された事業者がメールアドレスを再登録しても再送対象に戻れないという、
+  本venture フェーズ320と同種の未解消ギャップが残っていることを新たに発見した
+  (deletion-candidate-query-consolidation-decision.md「残る課題」に詳細を追記)。
+  line-reservation-aiフェーズ405が採った方針(他venture調査時は発見のみ記録し、他venture
+  側のコード変更は見送る)を踏襲し、forklift-pasha側のコード変更は本フェーズでは行わず、
+  forklift-pasha自身が次回選定された際の前進項目として記録した。本venture側はドキュメント
+  のみの更新でコード変更なし、既存テスト(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)843件・schema検証(`python3 -I schema/validate_test_cases.py`)25件いずれも
+  変更なしでパス(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していない
+  ためpending-approval.mdへの新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回
+  直接通知2026-11-23 23:00 UTCから約5時間・24時間未満かつ状況不変のため本時刻は再通知を
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)forklift-pashaが次回選定された際に、本フェーズで発見したメール再登録時の
+  unreachableクリア配線の欠落に対応する(本venture フェーズ321と同型の
+  `clear_deletion_confirmation_unreachable_at()`相当の新設・
+  `access_url_reissue_handler.handle_reissue_request()`への配線)、(2)resolved-mark有無に
+  よらない「今後の課題」「残課題」節の個別読み直しを他のファイルにも継続する、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(4)他venture・アイデア領域の前進。
