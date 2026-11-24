@@ -5973,3 +5973,41 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   dailyと同方針を適用可能、点検者名キャッシュは頻度の低さから見送り、annual固有の
   inspector_companyキャッシュは別論点として持ち越し。コード変更なし、既存テスト121件・
   schema検証11件・run_all_tests 26ファイルいずれもパス、回帰なし)
+
+- フェーズ265(2026-11-24 21:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ264・2026-11-24 14:00 UTC、約7時間)を選定し、フェーズ265として
+  前進した。フェーズ264次回候補(2)「monthly/annualの実施日動的注入のみを先行実装する場合の
+  設計・実コード化(点検者名キャッシュは見送ったまま、日付のみ)」に対応した。新規モジュール
+  `prototype/monthly_annual_form_render.py`を作成し、`render_date_only_html()`で
+  monthly.html/annual.htmlの「実施日」行(`<span><span class="value">...</span> <a
+  class="edit-link" href="#">変更</a></span>`形式)のみを当日日付(JST)に置換する実装とした
+  (点検者名行は同一のclass="value"構造のため、直前の`<span>実施日</span>`ラベルを手がかりに
+  区別し対象外とする。点検者名キャッシュはdecision.md 4節(2)の決定どおり未着手のまま、
+  ダミー値「山田 太郎」が表示され続ける)。`main()`(prototype/form_submission_flow.py)のGET
+  分岐に`type=monthly`/`type=annual`を追加し、新規関数`render_monthly_or_annual_form_for_get()`
+  に委譲(access_token欠落400・未知token404は`render_daily_form_for_get()`と同じ方針を適用)。
+  `type`がdaily/monthly/annual以外(存在しない区分・未指定)の場合のみ`unsupported_get_type`で
+  400を返す(従来の「type=daily以外は400」という既存テストはmonthly対応済みにより成立しなく
+  なったため、`type=weekly`〈存在しない区分〉・type未指定の2パターンに置き換えて維持)。
+  新規テスト: test_monthly_annual_form_render.py(render_date_only_html()の実施日のみ置換・
+  点検者名行は対象外のまま残る・HTML特殊文字エスケープ・実施日行が無いテンプレートでの
+  ValueErrorの確認、4件)、test_form_submission_flow.pyにtype=monthly/annualのGET分岐
+  (access_token欠落400・未知token404・正常系200・当日日付注入・点検者名ダミー値が残ることの
+  確認、各5件・計10件)を追加。本モジュールのテストもdaily_form_render.py同様
+  `python3 -I -m unittest discover`非互換のscript形式のため、discover側の集計(121件、変更
+  なし)には現れない。`python3 -I prototype/run_all_tests.py`で新規test_monthly_annual_
+  form_render.py追加分を含め27ファイル全件(26→27)がパスすることを確認した。既存テスト
+  (unittest discover)121件・schema検証11件いずれもパス(回帰なし)。実LLM/LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない(daily区分
+  同様、実デプロイ・`<form>`action配線自体はホスティング未承認のため依然見送り)。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし(状況記録
+  のみ追記。2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-23 23:00 UTC〉から約22時間・24時間未満かつ状況不変のため今回も再通知は見送り)。
+  次回候補: (1)customer-interview-design.mdにmonthly/annual区分の点検者名・検査業者名
+  キャッシュ需要を確認する質問を追加する検討、(2)annual固有のinspector_companyキャッシュ
+  要否の検討、(3)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド未接続・
+  ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-checklist.md
+  参照)、(4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-24 21:00 UTC(フェーズ265: 詳細は上記。monthly/annual区分のGET動的
+  レンダリングを実コード化〈実施日のみ、点検者名は未対応のまま〉。新規テスト14件追加、
+  既存テスト121件・schema検証11件・run_all_tests 27ファイルいずれもパス、回帰なし)

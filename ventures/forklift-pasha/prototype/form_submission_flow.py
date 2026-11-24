@@ -46,6 +46,7 @@ from daily_raw_text_assembly import (  # noqa: E402
     DAILY_CHECKLIST_ITEMS,
     assemble_daily_raw_text,
 )
+from monthly_annual_form_render import render_date_only_html  # noqa: E402
 from overage_notifications import (  # noqa: E402
     InMemoryUsageCounterStore,
     InMemoryVehicleCountStore,
@@ -84,6 +85,9 @@ LlmGenerateFn = Callable[[str], dict]
 _WEB_FORM_MOCKUP_DIR = Path(__file__).resolve().parent.parent / "web-form-mockup"
 _DAILY_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "daily.html"
 _DAILY_EMPTY_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "daily-empty.html"
+_MONTHLY_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "monthly.html"
+_ANNUAL_HTML_PATH = _WEB_FORM_MOCKUP_DIR / "annual.html"
+_GET_TEMPLATE_PATH_BY_TYPE = {"monthly": _MONTHLY_HTML_PATH, "annual": _ANNUAL_HTML_PATH}
 
 
 def validate_llm_output(instance: dict) -> list[str]:
@@ -479,16 +483,51 @@ def render_daily_form_for_get(
     return rendered, 200
 
 
+def render_monthly_or_annual_form_for_get(
+    form_type: str,
+    access_token: "str | None",
+    *,
+    access_token_store: AccessTokenStoreProtocol,
+    now: "datetime | None" = None,
+) -> "tuple[str, int]":
+    """monthly.html/annual.htmlをGETリクエストに対して動的レンダリングして返す
+    (monthly-annual-get-rendering-decision.md フェーズ264、4節(1)(4))。
+
+    render_daily_form_for_get()と同じエラーコード方針(access_token欠落400・未知の
+    access_token404)をそのまま適用する。monthly/annualはdaily-empty.html相当の保有
+    車両台数分岐が無いため`vehicle_count_store`は不要だが、未認証のアクセスURLだけで
+    フォーム内容(将来operator固有の表示に発展する可能性がある画面)を取得できてしまう
+    ことを避けるため、access_tokenの検証自体はdaily区分と同様に行う。点検者名は
+    decision.md 4節(2)の決定どおり本フェーズでは未対応のため、テンプレート側のダミー値
+    「山田 太郎」がそのまま返る(次回候補)。
+
+    `form_type`は呼び出し元(main())が`"monthly"`/`"annual"`のいずれかであることを
+    保証済みの前提とする(他の値は`_GET_TEMPLATE_PATH_BY_TYPE`のKeyErrorとして
+    呼び出し元の契約違反を明示する)。
+    """
+    if not access_token:
+        return "missing_access_token", 400
+    if access_token_store.get_internal_id_by_access_token(access_token) is None:
+        return "unknown_access_token", 404
+
+    template_path = _GET_TEMPLATE_PATH_BY_TYPE[form_type]
+    template_html = template_path.read_text(encoding="utf-8")
+    rendered = render_date_only_html(template_html, date=today_jst_date_str(now))
+    return rendered, 200
+
+
 def main(request, *, runtime_dependencies: Optional[dict] = None):
     """Cloud FunctionsのHTTPエントリポイント(`functions_framework`想定、checkout_
     session.main()・access_url_reissue_handler.main()と同型)。
 
     GETリクエスト(`request.method == "GET"`、属性自体が無いスタブ・簡易呼び出し元との
-    後方互換として既定値は`"POST"`)の場合は、`type=daily`のみ対応し
-    `render_daily_form_for_get()`にそのまま委譲してdaily.html/daily-empty.htmlの動的
-    レンダリング結果を返す(フェーズ263、design.md 4節(3))。`type`がdaily以外のGETは
-    monthly/annual側のGET動的レンダリングが未着手のため`unsupported_get_type`で400を
-    返す(次回候補として持ち越し)。
+    後方互換として既定値は`"POST"`)の場合、`type=daily`は`render_daily_form_for_get()`に
+    委譲してdaily.html/daily-empty.htmlの動的レンダリング結果を返す(フェーズ263、
+    design.md 4節(3))。`type=monthly`/`type=annual`は`render_monthly_or_annual_form_for_get()`
+    に委譲し、monthly.html/annual.htmlの「実施日」のみ動的注入した結果を返す(フェーズ265、
+    monthly-annual-get-rendering-decision.md 4節(1)(4)。点検者名は未対応のままダミー値が
+    残る、次回候補)。`type`がこの3種以外(または未指定)のGETは`unsupported_get_type`で
+    400を返す。
 
     `access_token`はアクセスURL(`https://<ドメイン>/f/{accessToken}`)経由の
     クエリパラメータ(`request.args.get("access_token")`)から取り出し
@@ -537,14 +576,20 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     )
 
     if getattr(request, "method", "POST") == "GET":
-        if form_type != "daily":
-            return "unsupported_get_type", 400
-        return render_daily_form_for_get(
-            access_token,
-            access_token_store=deps["access_token_store"],
-            operator_store=deps["operator_store"],
-            vehicle_count_store=deps.get("vehicle_count_store"),
-        )
+        if form_type == "daily":
+            return render_daily_form_for_get(
+                access_token,
+                access_token_store=deps["access_token_store"],
+                operator_store=deps["operator_store"],
+                vehicle_count_store=deps.get("vehicle_count_store"),
+            )
+        if form_type in _GET_TEMPLATE_PATH_BY_TYPE:
+            return render_monthly_or_annual_form_for_get(
+                form_type,
+                access_token,
+                access_token_store=deps["access_token_store"],
+            )
+        return "unsupported_get_type", 400
 
     inspector_name = None
     if form_type == "daily":

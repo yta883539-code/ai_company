@@ -69,17 +69,50 @@ prototype -p "test_*.py"`121件・`python3 -I schema/validate_test_cases.py`11�
 `python3 -I prototype/run_all_tests.py`26ファイル全件)いずれもパス(回帰なし)。実LLM/LINE/
 Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
 
-## 次回候補(フェーズ264時点)
+## 5. フェーズ265: 実施日動的注入の実コード化(次回候補(2)に対応)
+
+4節(1)(4)の決定どおり、monthly/annualの実施日動的注入のみを先行実装した。新規モジュール
+`prototype/monthly_annual_form_render.py`の`render_date_only_html()`は、1節で確認した
+`<span><span class="value">...</span> <a class="edit-link" href="#">変更</a></span>`形式の
+「実施日」行だけを対象とする正規表現置換を行う(直前の`<span>実施日</span>`ラベルを手がかりに
+点検者名行〈同一のclass="value"構造〉と区別する、`render_daily_form_html()`〈daily.html向け、
+`value="..."`属性置換〉とは別実装)。`main()`(`prototype/form_submission_flow.py`)のGET分岐に
+`type=monthly`/`type=annual`を追加し、`render_monthly_or_annual_form_for_get()`経由で
+monthly.html/annual.htmlを読み込み、当日日付(JST、既存の`today_jst_date_str()`を流用)のみを
+注入して200で返す(`type=daily`以外は`unsupported_get_type`で400という既存方針は、daily/
+monthly/annual以外の値・未指定の場合のみ残る)。access_tokenの検証(欠落400・未知404)は
+`render_daily_form_for_get()`と同じ方針をそのまま適用した(将来operator固有の表示に発展する
+可能性がある画面を未認証のまま返さないため、本フェーズの表示内容自体はoperator非依存でも
+検証自体は行う判断とした)。点検者名行は4節(2)の決定どおり未対応のままで、テンプレート側の
+ダミー値「山田 太郎」が表示され続ける(次回候補(1)参照)。
+
+新規テスト: `test_monthly_annual_form_render.py`(`render_date_only_html()`の実施日のみ置換・
+点検者名行は対象外のまま残る・HTML特殊文字のエスケープ・実施日行が無いテンプレートでの
+ValueErrorの確認、4件)、`test_form_submission_flow.py`にtype=monthly/annualのGET分岐
+(access_token欠落400・未知token404・正常系200・当日日付注入・点検者名ダミー値が残ることの
+確認、monthly/annual各5件・計10件)を追加。既存の「type=daily以外は400」テストは
+`type=weekly`(存在しない区分)・type未指定の2パターンに置き換えて維持した(monthly/annualが
+対応済みになったため)。`python3 -I -m unittest discover -s prototype -p "test_*.py"`121件
+(変更なし、本モジュールのテストはdaily_form_render.py同様discover非互換のscript形式のため
+含まれない)・`python3 -I schema/validate_test_cases.py`11件・`python3 -I prototype/
+run_all_tests.py`27ファイル(新規test_monthly_annual_form_render.py追加分、26→27)いずれも
+パス(回帰なし)。実LLM/LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・
+送信は一切行っていない(daily区分同様、実デプロイ・`<form>`action配線自体はホスティング未承認
+のため依然見送り)。
+
+## 次回候補(フェーズ265時点)
 
 1. customer-interview-design.mdに、monthly/annual区分の点検者名・検査業者名キャッシュ需要
    (daily同様の負荷軽減効果があるか)を確認する質問を追加する検討。
-2. (優先度低)monthly/annualの実施日動的注入のみを先行実装する場合の設計・実コード化
-   (点検者名キャッシュは見送ったまま、日付のみ)。
-3. annual固有の`inspector_company`キャッシュ要否の検討。
-4. 他venture・アイデア領域の前進。
+2. annual固有の`inspector_company`キャッシュ要否の検討。
+3. `<form>`の実際のaction配線・送信ボタン有効化(daily区分同様、実バックエンド未接続・
+   ホスティング未承認の現状では見送りを継続。承認待ち事項、launch-readiness-checklist.md参照)。
+4. 承認待ち事項がオーナーから承認された場合はその着手を最優先。
 
-最終更新: 2026-11-24 14:00 UTC(フェーズ264定例更新: 新規作成。monthly/annual区分のGET
-動的レンダリング要否を検討し、実施日はdaily同様キャッシュ不要の方針を適用可能、点検者名
-キャッシュは頻度の低さから本フェーズは見送り、annual固有のinspector_companyキャッシュ要否は
-別論点として持ち越しと判断した。コード変更なし、既存テスト121件・schema検証11件・
-run_all_tests 26ファイルいずれもパス、回帰なし)
+最終更新: 2026-11-24 21:00 UTC(フェーズ265: 次回候補(2)に対応し、monthly/annual区分の
+GET動的レンダリングを実コード化。新規`prototype/monthly_annual_form_render.py`
+〈render_date_only_html()〉・`main()`のGET分岐拡張により、monthly.html/annual.htmlの
+「実施日」のみ当日日付〈JST〉を動的注入して返す。点検者名は未対応のままダミー値が残る
+〈次回候補〉。新規テスト14件追加〈test_monthly_annual_form_render.py 4件・
+test_form_submission_flow.py monthly/annual分10件〉、既存テスト121件・schema検証11件・
+run_all_tests 27ファイルいずれもパス、回帰なし)

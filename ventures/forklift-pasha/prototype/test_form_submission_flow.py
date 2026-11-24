@@ -839,15 +839,74 @@ def main():
     ))
 
     body_get_unsupported, status_get_unsupported = form_submission_main(
-        _StubRequest({"access_token": "token-daily", "type": "monthly"}, method="GET"),
+        _StubRequest({"access_token": "token-daily", "type": "weekly"}, method="GET"),
         runtime_dependencies=daily_injected_dependencies,
     )
     results.append(_check(
-        "main(): GET・type=daily以外(monthly/annual/未指定)はGET動的レンダリング未対応で400"
-        "(design.md適用範囲外、次回候補)",
+        "main(): GET・type=daily/monthly/annual以外(存在しない区分・未指定)はGET動的"
+        "レンダリング未対応で400",
         (body_get_unsupported, status_get_unsupported),
         ("unsupported_get_type", 400),
     ))
+
+    body_get_unspecified, status_get_unspecified = form_submission_main(
+        _StubRequest({"access_token": "token-daily"}, method="GET"),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): GET・type未指定も同様にGET動的レンダリング未対応で400",
+        (body_get_unspecified, status_get_unspecified),
+        ("unsupported_get_type", 400),
+    ))
+
+    # --- main(): GET(type=monthly/annual)でmonthly.html/annual.htmlの「実施日」のみ
+    # 動的レンダリングして返す(monthly-annual-get-rendering-decision.md フェーズ264、
+    # 4節(1)(4)の実装、フェーズ265) ---
+    expected_today_for_ma = today_jst_date_str()
+    for monthly_or_annual in ("monthly", "annual"):
+        body_ma_missing, status_ma_missing = form_submission_main(
+            _StubRequest({"type": monthly_or_annual}, method="GET")
+        )
+        results.append(_check(
+            f"main(): GET・type={monthly_or_annual}でaccess_token未指定は400",
+            (body_ma_missing, status_ma_missing),
+            ("missing_access_token", 400),
+        ))
+
+        body_ma_unknown, status_ma_unknown = form_submission_main(
+            _StubRequest(
+                {"access_token": "unknown-token", "type": monthly_or_annual}, method="GET"
+            ),
+            runtime_dependencies=daily_injected_dependencies,
+        )
+        results.append(_check(
+            f"main(): GET・type={monthly_or_annual}で未知のaccess_tokenは404",
+            (body_ma_unknown, status_ma_unknown),
+            ("unknown_access_token", 404),
+        ))
+
+        body_ma_ok, status_ma_ok = form_submission_main(
+            _StubRequest(
+                {"access_token": "token-daily", "type": monthly_or_annual}, method="GET"
+            ),
+            runtime_dependencies=daily_injected_dependencies,
+        )
+        results.append(_check(
+            f"main(): GET・type={monthly_or_annual}の正常系は200",
+            status_ma_ok,
+            200,
+        ))
+        results.append(_check(
+            f"main(): GET・type={monthly_or_annual}のレスポンスには当日日付(JST)が注入される",
+            f'<span class="value">{expected_today_for_ma}</span>' in body_ma_ok,
+            True,
+        ))
+        results.append(_check(
+            f"main(): GET・type={monthly_or_annual}の点検者名は未対応のためダミー値"
+            "「山田 太郎」が残る(decision.md 4節(2)、次回候補)",
+            "山田 太郎" in body_ma_ok,
+            True,
+        ))
 
     # op-dailyはここまでのPOSTテストのllm_generateスタブがvehicle_id=None固定のため
     # vehicle_registry側の登録を経由していない(vehicle_count=0のまま)。daily.html側
