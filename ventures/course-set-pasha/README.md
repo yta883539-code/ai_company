@@ -7528,3 +7528,29 @@
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約57件の個別design.mdファイル
   の「次回候補・残課題」棚卸しは未完了のため継続候補)。
+- フェーズ405(2026-11-24 13:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ404・2026-11-24 06:00 UTC、約7時間)を選定。フェーズ404の次回候補(2)
+  に沿い、個別design.mdファイル陳腐化棚卸しを継続し、llm-quality-verification-plan.md
+  (フェーズ87、2026-08-21 21:00 UTC作成)の検証観点表・厳守事項6の行が「history_rowsの
+  要素数が実際の更新エリア数と一致しているか」の対象ケースとして「G1(1件)・複数エリア
+  同時更新ケース(要新規サンプル追加)」と記載していた点を検証した。output-samples-
+  validation.mdを確認したところ、「複数エリア同時更新ケース」に相当するサンプル
+  (`G4_multi_area_single_memo`、3エリア同時更新・history_rows要素数3)は、本検証プラン
+  の作成(2026-08-21)より2週間以上前のフェーズ11(2026-08-07 20:00 UTC)時点で既に
+  `schema/validate_test_cases.py`へ追加済みであった。つまり本検証プランは作成された当初
+  から「要新規サンプル追加」という記載が誤っていた(既存サンプルを見落としたまま作成された)
+  陳腐化記載であったことを発見・是正した(該当行をG4_multi_area_single_memoへの参照に更新、
+  コード変更なし、llm-quality-verification-plan.md本文の是正のみ)。既存テスト932件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)を確認した。実LLM/
+  LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。新たに
+  承認が必要なアクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-23 23:00 UTC〉から約14時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみとする)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(残り約56件の個別design.mdファイル
+  の「次回候補・残課題」棚卸しは未完了のため継続候補)、(3)stripe-event-id-store-firestore-
+  adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先(aircon-pasha・
+  forklift-pasha・event-komiguai-pasha)はいずれも未着手(本フェーズでgrep確認済み)のため、
+  当該3venture のいずれかが次に「最も更新が止まっているventure」として選ばれた際に対応する。
