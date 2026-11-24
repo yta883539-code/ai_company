@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from deletion_candidate_final_confirmation import (  # noqa: E402
     DELETION_CANDIDATE_FINAL_CONFIRMATION_ALT_TEXT,
     UNREACHABLE_REASON_NOT_FOLLOWING,
+    _UNREACHABLE_REASON_LABELS,
     DeletionCandidateConfirmationRoute,
     DeletionCandidateConfirmationUserState,
     UnreachableDeletionCandidate,
@@ -482,6 +483,41 @@ class RenderUnreachableDeletionCandidatesReportTest(unittest.TestCase):
         report = render_unreachable_deletion_candidates_report([candidate])
 
         self.assertIn("理由: 不明(本フィールド追加前に記録された候補)", report)
+
+
+class UnreachableReasonLabelParityTest(unittest.TestCase):
+    """UNREACHABLE_REASON_*定数と_UNREACHABLE_REASON_LABELSの対応漏れを防ぐ回帰テスト。
+
+    line-reservation-aiフェーズ続き404で、同型のラベル辞書定義(SYSTEM_ESCALATION_REASONS
+    と_SYSTEM_EVENT_LABELS)において定数側にのみ値を追加し辞書側への追加を忘れるという実
+    バグが見つかった(concurrent-booking-per-customer-state-overwrite-design.md参照)。本
+    venture(aircon-pasha)はフェーズ続き405時点でUNREACHABLE_REASON_NOT_FOLLOWINGの1種類
+    のみで辞書と1対1であり現時点で追加漏れは無いことを確認済みだが(フェーズ続き405README
+    記録)、将来理由(reason)の種類が追加された際に同種の追加漏れが再発するのを防ぐため、
+    モジュール内のUNREACHABLE_REASON_*定数を動的に収集し、全てが_UNREACHABLE_REASON_LABELS
+    のキーに存在することを機械的に検証する。
+    """
+
+    def test_every_unreachable_reason_constant_has_a_label(self) -> None:
+        import deletion_candidate_final_confirmation as module
+
+        reason_values = {
+            value
+            for name, value in vars(module).items()
+            if name.startswith("UNREACHABLE_REASON_") and isinstance(value, str)
+        }
+
+        self.assertTrue(
+            reason_values,
+            "UNREACHABLE_REASON_*定数が1つも検出できなかった(命名規則の変更有無を確認)。",
+        )
+
+        missing = reason_values - _UNREACHABLE_REASON_LABELS.keys()
+        self.assertEqual(
+            missing, set(),
+            "_UNREACHABLE_REASON_LABELSへのラベル追加が漏れているunreachable_reason: "
+            f"{missing}",
+        )
 
 
 if __name__ == "__main__":

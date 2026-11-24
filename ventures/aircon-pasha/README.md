@@ -8216,3 +8216,36 @@
   (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
   ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
   その着手を最優先、(4)他venture・アイデア領域の前進。
+- フェーズ414(2026-11-24 09:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ413・2026-11-24 04:00 UTC、約5時間)を選定した。line-reservation-ai
+  フェーズ続き404・405で発見・記録されていた持ち越し事項(「他venture〈aircon-pasha/
+  course-set-pasha/forklift-pasha/kura-pasha〉が次に選定された際、同種の
+  `_UNREACHABLE_REASON_LABELS`parity回帰テストを追加するか判断する」)に対応した。
+  `deletion_candidate_final_confirmation.py`の`UNREACHABLE_REASON_*`定数と
+  `_UNREACHABLE_REASON_LABELS`辞書は、line-reservation-aiフェーズ続き405の横展開確認
+  (本venture分)時点では`UNREACHABLE_REASON_NOT_FOLLOWING`の1種類のみで辞書と1対1であり
+  追加漏れは無かったが、将来理由(reason)が追加された際に同種の追加漏れ(line-reservation-ai
+  フェーズ続き404で実際に発生したラベル追加漏れバグ)が再発するのを防ぐ自動検証テストが
+  本venture側には存在していなかった。`test_deletion_candidate_final_confirmation.py`に
+  `UnreachableReasonLabelParityTest`を新設し、モジュール内の`UNREACHABLE_REASON_*`定数を
+  `vars()`で動的に収集して全てが`_UNREACHABLE_REASON_LABELS`のキーに存在することを
+  機械的に検証する回帰テストを追加した(line-reservation-aiの
+  `SystemEscalationReasonLabelParityTest`と同型だが、個別の定数名を列挙する代わりに
+  命名規則`UNREACHABLE_REASON_`で動的収集する設計とし、新しい理由区分が追加された際に
+  テスト側の修正が不要になるようにした)。新規テスト1件追加、既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)843件+新規1件=844件・
+  schema検証(`python3 -I schema/validate_test_cases.py`)25件いずれもパス(回帰なし)を
+  確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切
+  行っていない。承認が必要な新規アクションは今回発生していないためpending-approval.mdへの
+  新規追記なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-23 23:00 UTCから
+  約10時間・24時間未満かつ状況不変のため本時刻は再通知を見送り、状況記録のみ
+  pending-approval.mdに追記)。
+  次回候補: (1)course-set-pasha/kura-pashaが次回選定された際、同種のparity回帰テストを
+  追加するか判断する(forklift-pashaは`UNREACHABLE_REASON_NO_EMAIL`・
+  `UNREACHABLE_REASON_SEND_FAILED`の2種類を持つため追加時の確認観点がより重要)、
+  (2)forklift-pashaが次回選定された際に、フェーズ413で発見したメール再登録時の
+  unreachableクリア配線の欠落に対応する、(3)resolved-mark有無によらない「今後の課題」
+  「残課題」節の個別読み直しを他のファイルにも継続する、(4)2026-11-08 08:00 UTC記載の
+  運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、
+  (5)他venture・アイデア領域の前進。
