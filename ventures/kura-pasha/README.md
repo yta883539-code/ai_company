@@ -7823,3 +7823,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   次回候補: (1)複数職人プランの契約者本人判定の仕組み自体の設計(本venture未着手の
   持ち越し課題)。(2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性
   未確認のため継続保留。(3)他venture・アイデア領域の前進。
+
+- フェーズ続き331(2026-11-24 12:00 UTC定例更新): 前フェーズ(フェーズ続き330)の
+  次回候補(1)「複数職人プランの契約者本人判定の仕組み自体の設計(本venture未着手の
+  持ち越し課題)」の着手にあたり、craftsman-account-linking-design.mdを確認したところ、
+  この課題は実際には既にフェーズ25(2026-09-07)で着手され、以後フェーズ33・97〜105・
+  160・192〜193まで積み重ねられて設計・プロトタイプ実装(`workshop_linking.py`の
+  `issue_linking_code_on_follow`・`create_workshop_from_linking_code`・
+  `issue_invite_code_for_workshop`・`add_member_from_invite_code`、`cloud_function_
+  webhook.py`の`contractor_user_id`判定・`resolve_workshop_invite_request`等)・
+  テスト(craftsman-account-linking-design.md 4節の契約者判定ロジック、
+  `MAX_MEMBER_COUNT`上限、招待コードのcall site配線まで)がいずれも完了済みであることが
+  判明した。未着手なのは実際のLINE公式アカウント接続・Stripe接続等の外部接続実装のみで
+  (craftsman-account-linking-design.md「未検証・残課題」最終項目、オーナー承認待ちの
+  範囲、pending-approval.md参照)、設計課題そのものは残っていない。
+  course-set-pashaフェーズ263(deletion-candidate-stale-event-guard-design.mdの記録不整合)
+  と同型の「別フェーズで実質的に解消済みの課題が、次回候補の引き継ぎ時に解消済み注記を
+  付記されずに陳腐化したまま残っていた」記録不整合であると判断し、本フェーズで
+  次回候補(1)の記載を是正した(craftsman-account-linking-design.mdおよびINDEX.md側は
+  既に正しい内容のため変更不要、本README.mdの次回候補の引き継ぎ記載のみの訂正)。
+  コード変更なし、既存テスト(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)全333件・schema検証(`python3 -I schema/validate_test_cases.py`)32件
+  いずれも変更なしでパス(回帰なし)を確認した。実LINE/Stripe/GCP/Firestore API接続・
+  支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは
+  今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ
+  通知〈2026-11-23 23:00 UTC〉から約13時間・24時間未満かつ状況不変のため、本時刻は
+  再通知を見送り状況記録のみpending-approval.mdに追記した)。
+  次回候補: (1)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認の
+  ため継続保留。(2)他venture・アイデア領域の前進。(3)2026-11-08 08:00 UTC記載の運営方針
+  確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。
