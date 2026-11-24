@@ -693,6 +693,20 @@
       "naming_rights_review_due": null,
       "verification_note": "フェーズ152(2026-11-22定例更新)でWebSearchにより新規追加。佐賀県佐賀市日の出2丁目1-10のSAGAサンライズパーク内、2023年5月開業、最大収容約8,400人。文部科学省資料・会場情報サイトで佐賀駅から約1.4km/徒歩15分前後を確認。公式名称「SAGAアリーナ」は佐賀県営施設としての名称であり、企業名を冠したネーミングライツの事実は確認できなかったためnaming_rights: falseとした(公式サイトsaga-sunrisepark.com/arena/での最終確認を推奨)。",
       "operational_status": "active"
+    },
+    {
+      "canonical_name": "高知県立県民体育館",
+      "aliases": [],
+      "region": "中国・四国圏",
+      "nearest_station": "JR高知駅",
+      "access_mode": "car_or_bus",
+      "access_note": "JR高知駅から車で7分(公式の徒歩分数情報は確認できていません。公共交通機関や送迎バスの有無は主催者発表をご確認ください)",
+      "walk_minutes_note": "徒歩20〜30分程度と推定されるが一次情報による裏付けなし(推定値のため本文表示には用いない。access-mode-alternative-to-walk-minutes-note-design.md参照)",
+      "naming_rights": false,
+      "last_verified_date": "2026-11-23",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ159(2026-11-24 01:00 UTC)で、フェーズ158で実コード化したaccess_mode/access_noteの枠組みを適用し会場マスタに新規追加(51件→52件)。所在地は高知市桟橋通2丁目1番53号、JR高知駅から車で7分(高知県公式資料でフェーズ156にて一次確認)。徒歩分数そのものを示す一次情報は確認できていないためaccess_mode: car_or_busとし、推定の徒歩換算値はwalk_minutes_noteに参考記録のみ残す(_station_note()はaccess_noteを優先するため本文には表示されない)。現体育館は築50年超で老朽化のため令和11年度中供用開始目標の新体育館整備が進行中(フェーズ148で既確認)だが、現時点では稼働中の会場としてoperational_status: activeで収録する。",
+      "operational_status": "active"
     }
   ]
 }
