@@ -366,6 +366,32 @@ def main():
         None,
     ))
 
+    # --- get_last_inspector_name/set_last_inspector_name: 未設定はNone、上書き可
+    # (フェーズ262、inspector-name-date-prefill-design.md 3節) ---
+    store = InMemoryFleetOperatorStore()
+    results.append(_check(
+        "get_last_inspector_name: 未設定はNone",
+        store.get_last_inspector_name("op20"),
+        None,
+    ))
+    store.set_last_inspector_name("op20", "山田 太郎")
+    results.append(_check(
+        "get_last_inspector_name: 設定後は取得できる",
+        store.get_last_inspector_name("op20"),
+        "山田 太郎",
+    ))
+    store.set_last_inspector_name("op20", "鈴木 花子")
+    results.append(_check(
+        "set_last_inspector_name: 上書き可",
+        store.get_last_inspector_name("op20"),
+        "鈴木 花子",
+    ))
+    results.append(_check(
+        "get_last_inspector_name: 別operatorはNoneのまま独立している",
+        store.get_last_inspector_name("op21"),
+        None,
+    ))
+
     # --- estimate_trial_minutes_saved / format_minutes_saved_line (フェーズ210) ---
     results.append(_check(
         "estimate_trial_minutes_saved: 0回は0分",

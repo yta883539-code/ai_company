@@ -241,6 +241,19 @@ class FleetOperatorStoreProtocol:
         と同じ方針)。"""
         raise NotImplementedError
 
+    def get_last_inspector_name(self, internal_id: str) -> "str | None":
+        """inspector-name-date-prefill-design.md(フェーズ261)3節。daily.html/
+        daily-empty.htmlの点検者名入力欄のデフォルト値として使う「直前にこの事業者の
+        アクセスURLから送信した人の名前」。車両単位ではなくfleet_operator単位(事業者単位)
+        で1つだけ保持する近似(design.md 3節参照)。未設定(初回アクセス時)はNone。"""
+        raise NotImplementedError
+
+    def set_last_inspector_name(self, internal_id: str, value: str) -> None:
+        """同上。design.md「他フィールドと同じ『常に上書き可』方針」の通り、呼び出す
+        たびに上書きする(get_plan_id/set_plan_idと同じ方針、`get_trial_start_at`等の
+        「初回のみ」制約は設けない)。"""
+        raise NotImplementedError
+
 
 class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
     """fleet_operatorドキュメントのトライアル関連フィールドを模したInMemory実装
@@ -267,6 +280,7 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
         self._subscription_lifecycle_event_time: "dict[str, datetime]" = {}
         self._payment_failure_event_time: "dict[str, datetime]" = {}
         self._first_daily_generation_notice_sent: "set[str]" = set()
+        self._last_inspector_name: "dict[str, str]" = {}
 
     def get_trial_start_at(self, internal_id: str) -> "datetime | None":
         return self._trial_start_at.get(internal_id)
@@ -425,6 +439,12 @@ class InMemoryFleetOperatorStore(FleetOperatorStoreProtocol):
 
     def set_first_daily_generation_notice_sent(self, internal_id: str) -> None:
         self._first_daily_generation_notice_sent.add(internal_id)
+
+    def get_last_inspector_name(self, internal_id: str) -> "str | None":
+        return self._last_inspector_name.get(internal_id)
+
+    def set_last_inspector_name(self, internal_id: str, value: str) -> None:
+        self._last_inspector_name[internal_id] = value
 
 
 def is_trial_period_over(

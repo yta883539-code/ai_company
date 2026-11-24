@@ -764,6 +764,41 @@ def main():
         "点検結果: 異常なし\n点検項目: ブレーキ\n" + FIRST_DAILY_GENERATION_NOTICE_MESSAGE,
     ))
     results.append(_check("main(): type=dailyの正常系は200", status_daily, 200))
+    results.append(_check(
+        "main(): type=dailyの正常系(200)後はinspector-name-date-prefill-design.md"
+        "(フェーズ261)4節(2)の配線によりset_last_inspector_name()が呼ばれる"
+        "(フェーズ262)",
+        daily_injected_dependencies["operator_store"].get_last_inspector_name("op-daily"),
+        "田中",
+    ))
+
+    # --- main(): type=dailyでもinspector_nameが空文字列の場合はキャッシュを空上書き
+    # しない(design.md 3節「直前に送信した人の名前」という意味論上、空文字列は
+    # 「名前」ではないため対象外、フェーズ262) ---
+    body_daily_blank_inspector, status_daily_blank_inspector = form_submission_main(
+        _StubRequest(
+            {"access_token": "token-daily", "type": "daily"},
+            {
+                "vehicle": "1号車",
+                "mode": "ok",
+                "checked_items": ["ブレーキ"],
+                "inspector_name": "",
+                "date": "2026-11-22",
+            },
+        ),
+        runtime_dependencies=daily_injected_dependencies,
+    )
+    results.append(_check(
+        "main(): type=dailyでinspector_name空文字列でも正常系自体は200",
+        status_daily_blank_inspector,
+        200,
+    ))
+    results.append(_check(
+        "main(): type=dailyでinspector_name空文字列の送信後もlast_inspector_nameは"
+        "直前の値(「田中」)のまま変化しない",
+        daily_injected_dependencies["operator_store"].get_last_inspector_name("op-daily"),
+        "田中",
+    ))
 
     # --- main(): type=dailyでmode未送信・不正の場合は400(process_form_submission()自体は
     # 呼ばれず、llm_generateも呼ばれない) ---

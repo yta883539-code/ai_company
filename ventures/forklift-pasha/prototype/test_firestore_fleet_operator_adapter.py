@@ -5,7 +5,8 @@ plan_id・stripe_customer_id〈順引き+逆引き〉・trial_start_atの4フィ
 削除候補グループ: deletion_confirmation_sent_at・unreachable_at・unreachable_reasonの
 計3メソッド+イベント配信順序ガードグループ: payment_failure_event_time(フェーズ218)・
 subscription_updated_event_time・checkout_session_completed_event_time・
-subscription_lifecycle_event_time(フェーズ219)の計8メソッド)のテスト。
+subscription_lifecycle_event_time(フェーズ219)の計8メソッド+点検者名キャッシュグループ:
+last_inspector_name(フェーズ262、計2メソッド))のテスト。
 
 本物のgoogle-cloud-firestore SDKへは接続しない(pending-approval.md記載の通り実
 Firestoreプロジェクト自体がオーナー承認待ち)。代わりに、fleet-operator-store-firestore-
@@ -434,6 +435,24 @@ class FirestoreFleetOperatorStoreTest(unittest.TestCase):
         )
         self.assertEqual(self.store.get_subscription_lifecycle_event_time("F1"), sl)
         self.assertEqual(self.store.get_payment_failure_event_time("F1"), pf)
+
+    def test_get_last_inspector_name_unset_returns_none(self):
+        self.assertIsNone(self.store.get_last_inspector_name("F1"))
+
+    def test_set_then_get_last_inspector_name_round_trips(self):
+        self.store.set_last_inspector_name("F1", "山田 太郎")
+        self.assertEqual(self.store.get_last_inspector_name("F1"), "山田 太郎")
+
+    def test_set_last_inspector_name_overwrites(self):
+        self.store.set_last_inspector_name("F1", "山田 太郎")
+        self.store.set_last_inspector_name("F1", "鈴木 花子")
+        self.assertEqual(self.store.get_last_inspector_name("F1"), "鈴木 花子")
+
+    def test_set_last_inspector_name_does_not_clobber_email(self):
+        self.store.set_email("F1", "owner@example.com")
+        self.store.set_last_inspector_name("F1", "山田 太郎")
+        self.assertEqual(self.store.get_email("F1"), "owner@example.com")
+        self.assertEqual(self.store.get_last_inspector_name("F1"), "山田 太郎")
 
 
 if __name__ == "__main__":

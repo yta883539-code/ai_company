@@ -85,7 +85,8 @@ class FirestoreFleetOperatorStore:
     unreachable_at・unreachable_reasonの計3メソッド+イベント配信順序ガードグループ:
     payment_failure_event_time(フェーズ218)・subscription_updated_event_time・
     checkout_session_completed_event_time・subscription_lifecycle_event_time
-    (フェーズ219)の計8メソッド)。fleet_operator/{internal_id}
+    (フェーズ219)の計8メソッド+点検者名キャッシュグループ: last_inspector_name
+    (フェーズ262、計2メソッド))。fleet_operator/{internal_id}
     ドキュメントを読み書きする(firestore-data-model.md「1. fleet_operator/{internal_id}」)。
     """
 
@@ -303,3 +304,12 @@ class FirestoreFleetOperatorStore:
         self._doc_ref(internal_id).set(
             {"firstDailyGenerationNoticeSent": True}, merge=True
         )
+
+    def get_last_inspector_name(self, internal_id: str) -> "str | None":
+        # inspector-name-date-prefill-design.md(フェーズ261)3節。emailと同じ単純な
+        # 文字列フィールド(常に上書き可)。
+        return self._get_field(internal_id, "lastInspectorName")
+
+    def set_last_inspector_name(self, internal_id: str, value: str) -> None:
+        # set_emailと同じ方針(呼び出し順序の規約には依らず、常に上書きする)。
+        self._doc_ref(internal_id).set({"lastInspectorName": value}, merge=True)

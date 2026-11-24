@@ -459,16 +459,24 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     (呼び出しごとに新規の空ストア、`llm_generate`は常にNone)を使う。checkout_session.
     main()と同じ理由で、テスト・簡易ローカルサーバーが事前登録済みのストア・スタブ
     `llm_generate`を注入できるようにしている。
+
+    フェーズ262: inspector-name-date-prefill-design.md(フェーズ261)4節(2)の配線。
+    `type=daily`の送信が200で正常に処理された後、送信された`inspector_name`(空文字列を
+    除く)を`operator_store.set_last_inspector_name()`で書き込む(daily.html/daily-empty.html
+    をGETで動的に返す新規ハンドラ〈design.md 4節(3)、本フェーズ未着手〉が将来この値を
+    デフォルト表示に使う想定)。
     """
     access_token = request.args.get("access_token")
 
     form_type = request.args.get("type")
+    inspector_name = None
     if form_type == "daily":
+        inspector_name = request.form.get("inspector_name") or ""
         try:
             raw_text = build_daily_raw_text_from_form(
                 request.form,
                 date=request.form.get("date") or "",
-                inspector_name=request.form.get("inspector_name") or "",
+                inspector_name=inspector_name,
             )
         except ValueError:
             return "invalid_daily_mode", 400
@@ -485,5 +493,21 @@ def main(request, *, runtime_dependencies: Optional[dict] = None):
     )
     http_result = receive_form_submission(access_token, raw_text, datetime.utcnow(), **deps)
     if http_result.status_code == 200:
+        # inspector-name-date-prefill-design.md(フェーズ261)4節(2)。type=dailyの送信を
+        # 正常(200)に処理した後、daily.html/daily-empty.html側の点検者名入力欄の次回
+        # デフォルト値として、事業者単位(operator_id単位)でset_last_inspector_name()に
+        # 書き込む。空文字列(未入力送信)はキャッシュを無意味に空上書きしないため対象外とする
+        # (design.md 3節「直前に送信した人の名前」という意味論上、空文字列は「名前」ではない)。
+        # operator_idはreceive_form_submission()内部で解決済みだが戻り値契約には含まれて
+        # いないため、同じaccess_token_storeで再解決する(InMemory/Firestoreいずれも
+        # 単純な読み取りのみで、二重解決による副作用はない)。
+        if form_type == "daily" and inspector_name:
+            operator_id = deps["access_token_store"].get_internal_id_by_access_token(
+                access_token
+            )
+            if operator_id is not None:
+                deps["operator_store"].set_last_inspector_name(
+                    operator_id, inspector_name
+                )
         return http_result.response_text or "", 200
     return (http_result.error or "error"), http_result.status_code

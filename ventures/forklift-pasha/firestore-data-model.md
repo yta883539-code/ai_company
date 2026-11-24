@@ -153,12 +153,19 @@ access-token-reissue-design.md「1. 前提の見直し」参照)。
                                               // 実際に反映したイベントのevent.created)。同上の
                                               // 理由でフェーズ219で反映漏れを発見・解消。
                                               // 未設定はnull、上書き可
-  firstDailyGenerationNoticeSent: false       // boolean。first-daily-generation-confirmation-
+  firstDailyGenerationNoticeSent: false,      // boolean。first-daily-generation-confirmation-
                                               // notice-design.md(フェーズ226設計、フェーズ229
                                               // 実装)。internal_id単位で最初の「daily区分かつ
                                               // status="generated"」成功時の確認案内を
                                               // response_textへ付記済みかどうか。未送信は
                                               // false、付記後はtrueに固定(以降不変)
+  lastInspectorName: null                     // string | null。inspector-name-date-prefill-
+                                              // design.md(フェーズ261設計、フェーズ262実装)。
+                                              // daily.html/daily-empty.htmlの点検者名入力欄
+                                              // デフォルト値用に、直前にこの事業者のアクセス
+                                              // URLから送信した人の名前を事業者単位(車両単位
+                                              // ではない)で1つだけ保持する近似。未設定(初回
+                                              // アクセス時)はnull、上書き可(emailと同じ方針)
 }
 ```
 
