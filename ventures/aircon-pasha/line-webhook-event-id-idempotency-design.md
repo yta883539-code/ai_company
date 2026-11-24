@@ -136,9 +136,15 @@ follow/message/unfollow/postbackいずれのイベント種別でも同期処理
   (決済・ポータルURL取得専用、LLM呼び出しを含まない)として並存している**ことが判明した。
   したがってFunction A/B分割の対象はmessageイベントのみでよく、course-set-pashaの
   `process-memo-event-async-split-design.md`をそのまま翻案可能と判断した(postback
-  イベント自体はLLM呼び出しを含まないため非同期化の対象外)。本件の設計ドキュメント化・
-  実装は次回以降の課題として残す(本フェーズはwebhookEventIdべき等性対策〈対症療法〉のみ
-  に範囲を絞った)。
+  イベント自体はLLM呼び出しを含まないため非同期化の対象外)。
+  ~~本件の設計ドキュメント化・実装は次回以降の課題として残す(本フェーズはwebhookEventId
+  べき等性対策〈対症療法〉のみに範囲を絞った)。~~
+  (解消済み 2026-11-13: 翌フェーズ380で本venture向け`process-memo-event-async-split-design.md`
+  を新規作成〈設計ドキュメント化〉、フェーズ381でFunction B実装〈`process_memo_event_async()`〉・
+  フェーズ382で`dispatch_webhook_events()`へのFAQ/非FAQ振り分け前処理の実コード反映まで完了
+  済み〈InMemoryスタブでの机上検証含む〉。Cloud Tasksキュー・Function Bの実デプロイのみ、
+  実GCPプロジェクト作成〈オーナー承認待ち、pending-approval.md参照〉後の課題として残る。
+  本項目は約11日間、完了済みのまま陳腐化していた〈フェーズ411・412等と同種のパターン〉。)
 - **実際の再送有無の確認**: LINE Developersコンソールでの「Webhook再送」設定が実際に
   オンになるかどうかはLINE公式アカウント開設(オーナー承認待ち)後でなければ確認できない。
   オフの場合でも無害(副作用ゼロ)な本対策を先行実装した(kura-pasha版と同じ判断)。
