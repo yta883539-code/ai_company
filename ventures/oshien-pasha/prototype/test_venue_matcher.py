@@ -95,6 +95,28 @@ def test_ambiguity_watchlist_takes_precedence_over_partial_match() -> None:
     )
 
 
+def test_ambiguity_watchlist_ariake() -> None:
+    master = _load_master()
+    watchlist = _load_watchlist()
+    # "有明"単独は、どの会場のcanonical_name/aliasにも完全一致しない(有明アリーナの
+    # canonical_nameは「有明アリーナ」でありaliasesも空のため)。有明コロシアムは
+    # venue-master.json未登録のため、混同注意リスト照合(手順3.5)がなければ部分一致
+    # フォールバックに流れてしまう入力を使って、本フェーズ追加分が機能することを確認する。
+    result = match_venue("有明", master, watchlist)
+    check(
+        "ariake ambiguous input stays venue_matched=False (no overconfident guess)",
+        result["venue_matched"] is False,
+    )
+    check(
+        "ariake ambiguous input note warns about the two distinct facilities",
+        "別施設" in result["nearest_station_note"],
+    )
+    check(
+        "ariake ambiguous input does not get a confident matched_canonical_name",
+        result["matched_canonical_name"] is None,
+    )
+
+
 def test_partial_match_fallback_is_tentative() -> None:
     master = _load_master()
     result = match_venue("ナゴヤドーム前", master)
@@ -227,6 +249,7 @@ if __name__ == "__main__":
     test_exact_match_normalizes_fullwidth_space()
     test_alias_match()
     test_ambiguity_watchlist_takes_precedence_over_partial_match()
+    test_ambiguity_watchlist_ariake()
     test_partial_match_fallback_is_tentative()
     test_partial_match_fallback_with_multiple_candidates()
     test_no_match()
