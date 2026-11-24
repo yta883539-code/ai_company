@@ -42,6 +42,16 @@ subscription-event-out-of-order-guard-design.md(フェーズ261)で`subscription
 - 本ガードはcourse-set-pasha単体への適用に留める。aircon-pashaにも同名の
   `deletion_candidate.py`が存在するが、各venture独立のコピーであり共有モジューールでは
   ないため、横展開は別フェーズで行う(次回候補)。
+  ~~解消済み(2026-11-24 06:00 UTC追記、フェーズ404)~~: 本節執筆の翌日にあたる
+  フェーズ263(2026-09-28 05:00 UTC、README参照)で既に横断確認済みであり、
+  aircon-pasha(フェーズ280)・kura-pasha(フェーズ194)・line-reservation-ai
+  (フェーズ続き282〜285)の3venture全てが、本venture(フェーズ261・262)とは独立に
+  各自の状態表現に合わせた同種のStripe Webhook配信順序入れ替わりガードを
+  `deletion_candidate.py`相当のモジュールに既に実装済みであることが確認されている。
+  そのため本項目の「横展開は別フェーズで行う(次回候補)」は、フェーズ263時点で
+  実質的に解消済みであったにもかかわらず、本ドキュメントの本節自体には解消済みの
+  注記が付記されず陳腐化したまま残っていた記録不整合であった(本ファイルのみの
+  記載是正、aircon-pasha・kura-pasha・line-reservation-ai側のコード変更は行っていない)。
 - `mark_deletion_candidate_on_subscription_deleted()`/
   `clear_deletion_candidate_on_subscription_reactivated()`の実際の呼び出し元
   (Stripe Webhookエンドポイント本体からのcall site)は、design冒頭に記載の通り実
