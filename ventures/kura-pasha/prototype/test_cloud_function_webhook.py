@@ -15,6 +15,7 @@ from cloud_function_webhook import (
     ALREADY_SUBSCRIBED_NOTICE,
     API_FAILURE_FALLBACK_MESSAGE,
     CHARACTER_LIMIT_FALLBACK_MESSAGE,
+    CONTRACTOR_ONLY_CANCELLATION_NOTICE,
     CONTRACTOR_ONLY_CHECKOUT_NOTICE,
     CONTRACTOR_ONLY_INVITE_NOTICE,
     DEFAULT_LINE_WEBHOOK_EVENT_ID_TTL_SECONDS,
@@ -698,6 +699,80 @@ def test_process_memo_event_cancellation_unclear_does_not_need_provider():
     reply_client = InMemoryReplyClient()
     result = process_memo_event(_make_event("やめようかな"), _StubLlmCall([TEST_CASES["C3_cancellation_unclear"]]), reply_client)
     check("cancellation_unclearはincludes_portal_link=Falseのためbodyをそのまま返す", result.reply_text == TEST_CASES["C3_cancellation_unclear"]["subscription_procedure_notice"]["body"])
+
+
+def test_process_memo_event_cancellation_intent_rejects_non_contractor():
+    """フェーズ続き334: subscription-cancellation-flow-design.md「複数職人プラン固有の
+    論点」の仮決め方針(契約者本人以外からの解約意図表明には「契約者様にご確認ください」
+    趣旨の案内に留める)が、checkout_intent分岐と同じ契約者チェックとして配線されたことを
+    検証する(フェーズ続き333で発見した未配線への対応)。"""
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_CONTRACTOR", "W_CANCEL_MULTI")
+    workshops.set_plan("W_CANCEL_MULTI", "multi_craftsman")
+    workshops.set_members("W_CANCEL_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_CANCEL_MULTI", "completed")
+    profiles.link("U_MEMBER", "W_CANCEL_MULTI")
+    reply_client = InMemoryReplyClient()
+
+    result = process_memo_event(
+        _make_event("解約したい", user_id="U_MEMBER"),
+        _StubLlmCall([TEST_CASES["C1_cancellation_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+    )
+    check("契約者以外はCONTRACTOR_ONLY_CANCELLATION_NOTICEを返す", result.reply_text == CONTRACTOR_ONLY_CANCELLATION_NOTICE)
+
+
+def test_process_memo_event_downgrade_intent_rejects_non_contractor():
+    profiles, workshops, _ = _make_stores()
+    profiles.link("U_CONTRACTOR", "W_DOWNGRADE_MULTI")
+    workshops.set_plan("W_DOWNGRADE_MULTI", "multi_craftsman")
+    workshops.set_members("W_DOWNGRADE_MULTI", "U_CONTRACTOR", ["U_CONTRACTOR", "U_MEMBER"])
+    workshops.set_profile_collection_step("W_DOWNGRADE_MULTI", "completed")
+    profiles.link("U_MEMBER", "W_DOWNGRADE_MULTI")
+    reply_client = InMemoryReplyClient()
+
+    result = process_memo_event(
+        _make_event("プラン下げたい", user_id="U_MEMBER"),
+        _StubLlmCall([TEST_CASES["C2_downgrade_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+    )
+    check("契約者以外はdowngrade_intentでもCONTRACTOR_ONLY_CANCELLATION_NOTICEを返す", result.reply_text == CONTRACTOR_ONLY_CANCELLATION_NOTICE)
+
+
+def test_process_memo_event_cancellation_intent_allows_contractor_with_stores_connected():
+    """3依存(user_profile_store・workshop_store)が揃っていても、契約者本人からの
+    cancellation_intentは従来通りsubscription_procedure_notice.bodyを返す(回帰確認)。"""
+    profiles, workshops, _ = _make_stores()
+    _link_contractor_workshop(profiles, workshops, "U_CONTRACTOR", "W_CANCEL_SOLO")
+    reply_client = InMemoryReplyClient()
+    provider = InMemoryPortalLinkProvider(url="https://billing.stripe.com/p/session/solo123")
+    case = _cancellation_intent_case_with_portal_placeholder()
+
+    result = process_memo_event(
+        _make_event("解約したい", user_id="U_CONTRACTOR"),
+        _StubLlmCall([case]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops, portal_link_provider=provider,
+    )
+    check("契約者本人は従来通りポータルURL案内を返す", "https://billing.stripe.com/p/session/solo123" in result.reply_text)
+    check("契約者本人はCONTRACTOR_ONLY_CANCELLATION_NOTICEを返さない", result.reply_text != CONTRACTOR_ONLY_CANCELLATION_NOTICE)
+
+
+def test_process_memo_event_cancellation_intent_unlinked_user_unaffected_by_contractor_check():
+    """未連携user_id(workshop_id=None)の場合は契約者判定自体が成立しないため、
+    契約者チェック分岐を素通りし従来通りsubscription_procedure_notice.bodyを返す。"""
+    profiles, workshops, _ = _make_stores()
+    reply_client = InMemoryReplyClient()
+
+    result = process_memo_event(
+        _make_event("解約したい", user_id="U_UNLINKED"),
+        _StubLlmCall([TEST_CASES["C1_cancellation_intent"]]), reply_client,
+        user_profile_store=profiles, workshop_store=workshops,
+    )
+    check(
+        "未連携user_idはCONTRACTOR_ONLY_CANCELLATION_NOTICEではなく従来のportal_link_provider未接続"
+        "フォールバック(PORTAL_LINK_UNAVAILABLE_FALLBACK)を返す(C1はincludes_portal_link=True)",
+        result.reply_text == PORTAL_LINK_UNAVAILABLE_FALLBACK,
+    )
 
 
 def test_process_memo_event_checkout_intent_returns_notice_body():
@@ -3936,6 +4011,10 @@ if __name__ == "__main__":
     test_process_memo_event_cancellation_intent_replaces_portal_placeholder()
     test_process_memo_event_cancellation_intent_falls_back_when_provider_missing()
     test_process_memo_event_cancellation_unclear_does_not_need_provider()
+    test_process_memo_event_cancellation_intent_rejects_non_contractor()
+    test_process_memo_event_downgrade_intent_rejects_non_contractor()
+    test_process_memo_event_cancellation_intent_allows_contractor_with_stores_connected()
+    test_process_memo_event_cancellation_intent_unlinked_user_unaffected_by_contractor_check()
     test_process_memo_event_checkout_intent_returns_notice_body()
     test_process_memo_event_workshop_invite_request_returns_notice_body()
     test_process_memo_event_workshop_invite_request_unclear_returns_notice_body()

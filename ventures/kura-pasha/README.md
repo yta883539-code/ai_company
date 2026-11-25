@@ -7907,3 +7907,34 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   利用者内訳記録は実運用データが無く必要性未確認のため継続保留。(3)2026-11-08 08:00 UTC
   記載の運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
   (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。
+
+- フェーズ続き334(2026-11-25 09:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き333・2026-11-25 02:00 UTC、約7時間)を選定。フェーズ続き333
+  次回候補(1)に対応し、`prototype/cloud_function_webhook.py`の`process_memo_event()`へ、
+  checkout_intent分岐(`resolve_checkout_intent()`)・member_retention/contractor_transfer
+  分岐と同じ`user_id != workshop_store.get_contractor_user_id(workshop_id)`判定を
+  cancellation_intent/downgrade_intentにも追加する新規elif分岐を実装し、契約者本人以外
+  からの解約・ダウングレード意図表明には新設の`CONTRACTOR_ONLY_CANCELLATION_NOTICE`
+  (`CONTRACTOR_ONLY_CHECKOUT_NOTICE`と同型の文言)を返すよう配線した
+  (cancellation_unclearは厳守事項7a(iv)の意思確認一言のみの性質を変えないため対象外、
+  user_profile_store/workshop_store未接続・未連携user_idの場合は従来通りの挙動を維持する
+  後方互換方針もcheckout_intent分岐と同様に踏襲)。output.schema.jsonへの新規status追加は
+  行わず、checkout_intent分岐と同じPython側post-processingのみで対応する設計とした
+  (LLM出力自体は契約者か否かを判定できないため)。回帰テスト4件
+  (`prototype/test_cloud_function_webhook.py`に追加: 契約者以外のcancellation_intent/
+  downgrade_intent拒否、契約者本人への既存動作維持、未連携user_idへの既存動作維持)を
+  新規追加し、subscription-cancellation-flow-design.md・step4-cancellation-downgrade-
+  mock-script.mdの該当箇所を配線完了として更新した。既存テスト(`python3 -I
+  prototype/run_all_tests.py`)26ファイル+新規4件・schema検証(`python3 -I
+  schema/validate_test_cases.py`)32件いずれもパス(回帰なし)。実LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-24 23:00 UTC〉から約10時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記した)。
+  次回候補: (1)非契約者(複数職人プランの追加メンバー)からの解約・ダウングレード意図
+  表明を題材にしたモックケースをstep4-cancellation-downgrade-mock-script.mdに追加し、
+  CONTRACTOR_ONLY_CANCELLATION_NOTICEの見え方を可視化する(本フェーズでは実装側のみ
+  配線し、モックケース追加は未着手として残した)。(2)usage_counter/workshopの利用者
+  内訳記録は実運用データが無く必要性未確認のため継続保留。(3)2026-11-08 08:00 UTC記載の
+  運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。

@@ -1381,6 +1381,28 @@ def process_memo_event(
         )
         reply_text = resolution.message
         checkout_url = None
+    elif (
+        instance["status"] in ("cancellation_intent", "downgrade_intent")
+        and user_profile_store is not None
+        and workshop_store is not None
+        and user_id is not None
+        and (workshop_id_for_cancel := user_profile_store.get_workshop_id(user_id)) is not None
+        and user_id != workshop_store.get_contractor_user_id(workshop_id_for_cancel)
+    ):
+        # subscription-cancellation-flow-design.md「複数職人プラン固有の論点」(フェーズ23
+        # 仮決め方針)・step4-cancellation-downgrade-mock-script.md「次のステップ候補」
+        # (フェーズ続き333で発見した未配線)への対応。checkout_intent分岐
+        # (resolve_checkout_intent() 1950行目)・member_retention/contractor_transfer分岐
+        # (1534・2255行目)と同じ`user_id != workshop_store.get_contractor_user_id(
+        # workshop_id)`判定を、契約者本人以外からのcancellation_intent/downgrade_intentにも
+        # 適用し、CONTRACTOR_ONLY_CHECKOUT_NOTICEと同型のCONTRACTOR_ONLY_CANCELLATION_
+        # NOTICEへ置き換える。cancellation_unclear(厳守事項7a(iv)の意思確認一言のみの
+        # 出力)は対象外とし、意図が明確でない入力まで誤って契約者以外をブロックしない。
+        # checkout_intent分岐と同じ後方互換方針で、user_profile_store/workshop_store
+        # いずれかが未接続・未連携user_idの場合は従来通りsubscription_procedure_notice.body
+        # (またはそのポータルURL置換結果)をそのまま返す。
+        reply_text = CONTRACTOR_ONLY_CANCELLATION_NOTICE
+        checkout_url = None
     else:
         reply_text = format_reply_text(
             instance, portal_link_provider=portal_link_provider, user_id=user_id,
@@ -1852,6 +1874,15 @@ def process_message_event_async(
 CONTRACTOR_ONLY_CHECKOUT_NOTICE = (
     "有料プランのお申し込みは、契約者(工房を最初に作成した方)のみ操作できます。"
     "お手数ですが、契約者の方から改めてお申し込みください。"
+)
+
+# subscription-cancellation-flow-design.md「複数職人プラン固有の論点」の仮決め方針
+# (契約者本人以外からの解約・ダウングレード意図表明には「契約者様にご確認ください」
+# 趣旨の案内に留める)に対応する文言。CONTRACTOR_ONLY_CHECKOUT_NOTICEと同じ文体で、
+# 「申し込み」ではなく「解約・プラン変更のお手続き」に言い換えたもの(フェーズ続き334)。
+CONTRACTOR_ONLY_CANCELLATION_NOTICE = (
+    "解約・プラン変更のお手続きは、契約者(工房を最初に作成した方)のみ操作できます。"
+    "お手数ですが、契約者の方からご確認・お手続きください。"
 )
 
 ALREADY_SUBSCRIBED_NOTICE = (

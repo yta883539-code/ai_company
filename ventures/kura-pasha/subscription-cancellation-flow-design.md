@@ -146,8 +146,32 @@ course-set-pasha/subscription-cancellation-flow-design.mdの確定方式をそ�
   `schema/validate_test_cases.py`にも対応するテストケース(C1/C2/C3および
   NEG2)が追加済みであることを確認した(python3 validate_test_cases.py実行、
   23件全件パスを確認)。着手済みのため次の課題からは除外する。
-- 複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計は本venture未着手。
+- ~~複数職人プランの「契約者本人」判定の仕組み、共同利用機能自体の設計は本venture未着手。~~
+  → 2026-11-24フェーズ続き331で、「契約者本人」判定の仕組み自体はフェーズ25
+  (craftsman-account-linking-design.md 4節、「契約者本人 = そのworkshopを最初に
+  作成したuser_id」)で、共同利用機能自体もフェーズ97〜105(招待コードによる複数職人
+  プラン)でいずれも設計・実装済みと判明し、本ファイルの記載が陳腐化していたことを
+  発見・是正済み。ただし、この判定を上記「複数職人プラン固有の論点」の仮決め方針
+  (契約者本人以外からの解約・ダウングレード意図表明への「契約者様にご確認ください」
+  案内)として`prototype/cloud_function_webhook.py`のcancellation_intent/
+  downgrade_intent処理経路へ実際に配線する作業自体は、2026-11-25フェーズ続き333の
+  コードレビューで未配線のまま残っていることが別途発見された(step4-cancellation-
+  downgrade-mock-script.md「次のステップ候補」参照)。
+  → 2026-11-25フェーズ続き334で、`format_reply_text()`呼び出し元
+  (`process_memo_event()`)に、checkout_intent分岐(`resolve_checkout_intent()`)・
+  member_retention/contractor_transfer分岐と同じ`user_id != workshop_store.
+  get_contractor_user_id(workshop_id)`判定を追加し、契約者本人以外からの
+  cancellation_intent/downgrade_intentには新設の`CONTRACTOR_ONLY_CANCELLATION_
+  NOTICE`(`CONTRACTOR_ONLY_CHECKOUT_NOTICE`と同型の文言)を返すよう配線した
+  (cancellation_unclearは厳守事項7a(iv)の意思確認一言のみの性質を変えないため対象外)。
+  checkout_intent分岐が`output.schema.json`への新規status追加なしにPython側の
+  Resolution置き換えのみで対応している前提をそのまま踏襲し、schema拡張は行わなかった
+  (LLM出力自体は契約者か否かを判定できる情報を持たず、Python側のpost-processingで
+  十分に対応できるため)。回帰テスト4件(契約者以外のcancellation_intent/
+  downgrade_intent拒否、契約者本人への既存動作維持、未連携user_idへの既存動作維持)を
+  `prototype/test_cloud_function_webhook.py`に追加。既存テスト(26ファイル・schema検証
+  32件)いずれも変更なしでパス(回帰なし)。
 - 実際のStripe接続・Webhook実装・LINE公式アカウント接続はオーナー承認待ちの範囲
   (アカウント開設・契約が必要)として残る。設計・下書き作成の範囲に留める。
 
-最終更新: 2026-09-08 11:00 UTC(フェーズ続き211、記載漏れ訂正)
+最終更新: 2026-11-25 09:00 UTC(フェーズ続き334、契約者本人チェックの配線完了)
