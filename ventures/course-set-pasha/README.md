@@ -7611,3 +7611,33 @@
   存在するかの確認・未導入の場合の同テスト横展開、(3)stripe-event-id-store-firestore-
   adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
   (aircon-pasha・forklift-pasha・event-komiguai-pasha)への対応。
+
+- フェーズ408(2026-11-25 13:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ407・2026-11-25 03:00 UTC、約10時間)を選定。フェーズ398・399・
+  400〜406と同様の個別design.mdファイル陳腐化棚卸しを継続する過程で、まず
+  runtime-dependency-switching-design.md 4節の「残る横展開先(line-reservation-ai・
+  forklift-pasha)は次回候補」という記載を検証したが、これは同ファイル5.4節の追記
+  (2026-11-03、フェーズ349)で既に解消済みと確認済みの記載であり新規の陳腐化ではなかった。
+  続いてllm-quality-verification-plan.md(フェーズ87作成)を検証したところ、2026-09-22
+  (フェーズ不明、本ファイル内注記)の訂正でCO1〜CO3(厳守事項7b関連)を検証観点表に反映した
+  後、さらに厳守事項7a(iii)/7b(iii)(雑談の域を出ない表現の帰着ルール)の境界ケースとして
+  CI4・CI5・CO4・CO5(いずれも2026-09-13追加)・CI6(2026-09-18追加)・CI7(2026-09-19追加)
+  がschema/validate_test_cases.pyに追加されていたにもかかわらず、本ドキュメントの検証観点表
+  (7a行・7b行の「対象ケース」列)・aircon-pashaとの差分節・検証手順2節のいずれにも一度も
+  反映されないまま2ヶ月以上陳腐化して残っていた記録不整合を発見・是正した(各行をCI1〜CI7・
+  CO1〜CO5に更新、取り消し線に相当する解消済み注記を「残る未確定事項」節に追記、機械
+  チェック・schema側の実装自体は各追加時点で既に完了済みのため変更なし、本ドキュメントの
+  記載の是正のみ)。llm-quality-verification-results-template.mdの記録表(CI1〜CI3・CO1〜CO3
+  の9ケース分のみ)は本フェーズでは未更新のまま残した(次回候補)。既存テスト933件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)を確認した。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  新たに承認が必要なアクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-24 23:00 UTC〉から約14時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)llm-quality-verification-results-template.mdにCI4〜CI7・
+  CO4〜CO5分の記録表行(各3回分)・トークン数記録欄を追加し、本フェーズのllm-quality-
+  verification-plan.md訂正と整合させる、(3)他venture・アイデア領域の前進(個別design.md
+  ファイルの「次回候補・残課題」棚卸しは継続候補)。

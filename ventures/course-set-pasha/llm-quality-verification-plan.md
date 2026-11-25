@@ -13,8 +13,10 @@ validation.mdの「残る未検証事項」節、およびllm-system-prompt-draf
 ## 検証観点(厳守事項・出力別)
 
 output-samples-validation.mdの5ケース(G1〜G3・OOS1・II1)およびschema/validate_test_cases.py
-に追加済みのCI1〜CI3(厳守事項7a、解約意図検知の分岐)を実LLMに投入し、以下の観点ごとに
-合否判定する。schema/validate_test_cases.pyのvalidate_cross_field_rules()、および
+に追加済みのCI1〜CI7(厳守事項7a、解約意図検知の分岐。CI4〜CI7は雑談の域を出ない表現が
+解約・有料プラン開始のいずれとも誤認されないことを確認する境界ケース)・CO1〜CO5
+(厳守事項7b、有料プラン開始意図検知の分岐。CO4・CO5はCI4・CI5と対になる雑談境界ケース)を
+実LLMに投入し、以下の観点ごとに合否判定する。schema/validate_test_cases.pyのvalidate_cross_field_rules()、および
 prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で機械チェック可能な
 ものと、人手(オーナーまたは本エージェントによる目視)でしか判定できないものを区別する。
 
@@ -27,8 +29,8 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
 | 5 | 厳守事項5(出力2は端的に箇条書き、出力1との役割重複回避) | エリア・本数・改訂日が箇条書きで整理され、出力1と同一の紹介文的表現を繰り返していないか | 人手のみ | G1〜G3全件 |
 | 6 | 厳守事項6(出力3は表形式・history_rowsが更新エリア数と一致) | history_rowsの要素数が実際の更新エリア数と一致しているか | 機械チェック(要素数カウント) | G1(1件)・G4_multi_area_single_memo(3エリア同時更新、history_rows要素数3と一致。2026-11-24定例更新〈フェーズ405〉訂正: 本行は作成時〈フェーズ87〉時点で「要新規サンプル追加」としていたが、G4はフェーズ11〈2026-08-07〉で既に追加済み〈本プラン作成の2週間前〉であり、作成当初から陳腐化していた記載だったため是正した) |
 | 7 | 厳守事項7(会員管理・予約受付・決済への不応答) | 対象外の定型文言のみを返し、3出力を生成していないか | 機械チェック(`status=="out_of_scope"`時に3出力フィールドが全てnullであることの確認) | OOS1 |
-| 7a | 厳守事項7a(解約意図検知、(i)〜(iv)の境界) | 解約明確・プラン変更・雑談・判断不能の4分類が意図通り`status`(cancellation_intent/downgrade_intent/cancellation_unclear)へ反映されているか。特に(iii)雑談を解約意図と誤認しないか、(iv)判断不能時にポータルリンクを含めていないか(`includes_portal_link`) | 機械チェック(`status`値・`includes_portal_link`の一致)+人手((iv)応答文が断定的な案内になっていないかの目視) | CI1〜CI3 |
-| 7b | 厳守事項7b(有料プラン開始意図検知、(i)〜(iv)の境界) | 有料プラン開始意図が明確・料金問い合わせ・判断不能の3分類が意図通り`status`(checkout_intent/pricing_inquiry/checkout_intent_unclear)へ反映されているか。`includes_checkout_url`がkindによらず常にfalseか(LLMが自己判断でCheckout SessionのURLを発行・案内しない設計)、bodyに実URLらしき記述が混入していないか、(iv)判断不能時に手続き完了を前提にした文言や具体的なプラン名への言及が混入していないか | 機械チェック(`status`値・`includes_checkout_url`・URLらしき記述の有無、prototype/post_generation_checks.pyの`check_checkout_notice_consistency()`として実装済み)+人手((iv)応答文が断定的な案内になっていないかの目視) | CO1〜CO3 |
+| 7a | 厳守事項7a(解約意図検知、(i)〜(iv)の境界) | 解約明確・プラン変更・雑談・判断不能の4分類が意図通り`status`(cancellation_intent/downgrade_intent/cancellation_unclear)へ反映されているか。特に(iii)雑談を解約意図と誤認しないか、(iv)判断不能時にポータルリンクを含めていないか(`includes_portal_link`) | 機械チェック(`status`値・`includes_portal_link`の一致)+人手((iv)応答文が断定的な案内になっていないかの目視) | CI1〜CI7(CI4〜CI7は2026-09-13〜09-19に追加された(iii)雑談境界ケース。2026-11-25定例更新訂正: 本行は作成時〈フェーズ87〉のCI1〜CI3のまま、その後追加されたCI4〜CI7が未反映のまま陳腐化していたため是正) |
+| 7b | 厳守事項7b(有料プラン開始意図検知、(i)〜(iv)の境界) | 有料プラン開始意図が明確・料金問い合わせ・判断不能の3分類が意図通り`status`(checkout_intent/pricing_inquiry/checkout_intent_unclear)へ反映されているか。`includes_checkout_url`がkindによらず常にfalseか(LLMが自己判断でCheckout SessionのURLを発行・案内しない設計)、bodyに実URLらしき記述が混入していないか、(iv)判断不能時に手続き完了を前提にした文言や具体的なプラン名への言及が混入していないか | 機械チェック(`status`値・`includes_checkout_url`・URLらしき記述の有無、prototype/post_generation_checks.pyの`check_checkout_notice_consistency()`として実装済み)+人手((iv)応答文が断定的な案内になっていないかの目視) | CO1〜CO5(CO4・CO5は2026-09-13に追加された(iii)雑談境界ケース。2026-11-25定例更新訂正: 本行は2026-09-22訂正時点のCO1〜CO3のまま、その後追加されたCO4・CO5が未反映のまま陳腐化していたため是正) |
 | 8 | 厳守事項8(入力不足時の再送依頼) | 不足項目を具体的に指摘しているか、推測で埋めていないか | 人手のみ | II1 |
 | 9 | 厳守事項9(ですます調・絵文字は出力1のみ1〜2個まで) | 出力2・出力3に絵文字が含まれていないか、出力1の絵文字が2個を超えていないか、文体が統一されているか | 機械チェック(prototype/post_generation_checks.pyの`check_emoji_usage_rules()`として出力別上限つきで実装済み) | 全件 |
 
@@ -49,15 +51,15 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
   異なる。上記の通りこの差異は既にcheck_emoji_usage_rules()内で出力ごとの上限分けとして
   実装済み。
 - 厳守事項7a(解約意図検知)はcourse-set-pasha固有の分岐であり、aircon-pashaのプランには
-  存在しない。CI1〜CI3はcourse-set-pasha向けに新規追加する検証項目。
-- 厳守事項7b(有料プラン開始意図検知)も同様にcourse-set-pasha固有の分岐であり、CO1〜CO3が
+  存在しない。CI1〜CI7はcourse-set-pasha向けに新規追加する検証項目。
+- 厳守事項7b(有料プラン開始意図検知)も同様にcourse-set-pasha固有の分岐であり、CO1〜CO5が
   対応する検証項目。
 
 ## 検証手順(承認後に着手する想定)
 
 1. `prototype/`配下のllm_callスタブ相当の関数に実API呼び出し(Claude API)を注入する
    (line-reservation-aiの`engine.py`llm_callスタブと同じ設計方針を踏襲)。
-2. output-samples-validation.mdの5ケース+CI1〜CI3の入力メモ文面を実際にAPIへ投入し、
+2. output-samples-validation.mdの5ケース+CI1〜CI7・CO1〜CO5の入力メモ文面を実際にAPIへ投入し、
    構造化出力をschema/validate_test_cases.pyのバリデータにそのまま通す。
 3. 上表の「人手」判定項目については、各ケースにつき最低3回ずつ生成し、3回中1回でも厳守事項
    1・4・5・8・7a(iv)に抵触する生成があれば「不合格」とし、プロンプト側の指示強化を検討する
@@ -87,3 +89,12 @@ prototype/post_generation_checks.py(course-set-pasha配下に既存、後述)で
   aircon-pashaとの差分節には反映されていなかった。llm-quality-verification-results-
   template.mdにも対応する記録表が欠けていたためあわせて追加した。実際の検証(実LLM接続)は
   引き続きオーナー承認待ちのまま未実施)。
+- (解消済み 2026-11-25定例更新〈フェーズ408〉: 2026-09-22訂正でCO1〜CO3を反映した後、
+  さらに厳守事項7a(iii)/7b(iii)の雑談境界ケースとしてCI4・CI5(2026-09-13)・CO4・CO5
+  (2026-09-13)・CI6(2026-09-18)・CI7(2026-09-19)がschema/validate_test_cases.pyに
+  追加されていたが、いずれも上表(7a行・7b行)・aircon-pashaとの差分節・検証手順2節に
+  一度も反映されないまま2ヶ月以上陳腐化していた記載漏れを発見・訂正した。機械チェック・
+  schema側の実装自体は各追加時点で既に完了済みで変更なし、本ドキュメントの記載を実装に
+  合わせて更新したのみ。llm-quality-verification-results-template.mdの記録表(CI1〜CI3・
+  CO1〜CO3の9ケース分のみ)は本フェーズでは未更新のまま残っており、CI4〜CI7・CO4〜CO5分の
+  記録表行の追加は次回候補とする)。
