@@ -8325,3 +8325,42 @@
   読み直し、陳腐化なしを確認。ideas.mdに新規アイデア1件追加〈Googleマップ「メッセージ」
   ボタン〉。既存テスト844件・schema検証25件いずれもパス、回帰なし。2026-11-08の運営方針
   確認について24時間経過に伴いオーナーへ直接通知を実施)
+- フェーズ417(2026-11-25 06:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ416・2026-11-24 23:00 UTC、約7時間)を選定した。フェーズ416次回候補
+  (1)に沿い、「今後の課題」「残課題」節の個別読み直しを継続し、未確認だった10ファイル
+  (api-call-failure-handling.md・application-form-submission-http-entry-point-design.md・
+  billing-budget-review-step-rollout-status.md・blocked-but-billing-detection-design.md・
+  blocked-but-billing-owner-notification-design.md・btob-management-company-report-
+  variant-design.md・business-name-owner-notification-display-design.md・candidate-
+  longlist-draft.md・candidate-readiness-summary.md・character-limit-fallback-design.md)
+  を読み直した。いずれも記録と実態の不整合(陳腐化)は見つからず、未解決項目は全て実GCP
+  プロジェクト・実Stripeアカウント作成(オーナー承認待ち)後の課題として正しく保留されて
+  いることを確認した(今回は是正なし)。あわせてideas.mdに新規アイデア1件を追加した
+  (ヤマハ製VPNクライアントソフトウェア「YMS-VPN8」/「YMS-VPN8-CP」の引用符なしファイル
+  パス脆弱性〈JVN#30675482、2026年10月28日公表〉一次チェック&更新手順下書き生成
+  「ぶいぴーえぬくらいあんとパシャっと」=小規模・自動起業可能)。ideas.md内を
+  「YMS-VPN8」「JVN#30675482」「CVE-2026-97860」で検索し0件、初出であることを確認した。
+  既出の「むせんえぬだぶるあーるパシャっと」(ヤマハNWR100ルーター本体)とは対象ソフト
+  ウェアの種類(ルーター本体のファームウェア vs. PCにインストールするVPNクライアント
+  アプリ)・脆弱性の種類(未認証リモートRCE vs. 事前アクセス前提のローカル権限昇格)が
+  いずれも異なり重複しないことを確認したため、既出の横断投資案「おうちルーターばんごしゃ
+  ウォッチ」への吸収も見送り、本件単独の投資版presentations追記も行わない(対象が限定的
+  なテレワーククライアント側の権限昇格事案のため)。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)844件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)25件いずれも変更なしでパス(回帰なし)を
+  確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-24
+  23:00 UTCから本時刻で約7時間・24時間未満かつ状況不変のため、本時刻は再通知を見送った
+  (リポジトリ内記載のみでの承認済みとみなした実行は行っていない。次回23:00 UTC定例更新で
+  24時間に達する見込みのため、そこで再通知を検討する)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(本フェーズで10ファイル確認、残り約45ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3venture はまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-25 06:00 UTC(フェーズ417: 詳細は上記。「今後の課題」「残課題」節10件を
+  読み直し、陳腐化なしを確認。ideas.mdに新規アイデア1件追加〈ヤマハ製VPNクライアント
+  YMS-VPN8〉。既存テスト844件・schema検証25件いずれもパス、回帰なし。2026-11-08の運営
+  方針確認は前回通知から24時間未満のため再通知は見送り)
