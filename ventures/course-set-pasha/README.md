@@ -7588,3 +7588,26 @@
   (3)stripe-event-id-store-firestore-adapter-design.md「4. 残課題・次回候補」が指摘する
   Firestoreアダプタ横展開先(aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも
   未着手のため、当該3venture のいずれかが次に選ばれた際に対応する。
+
+- フェーズ407(2026-11-25 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ406・2026-11-24 20:00 UTC、約7時間)を選定。aircon-pashaフェーズ414・
+  kura-pashaフェーズ続き332で横展開済みの`UnreachableReasonLabelParityTest`
+  (UNREACHABLE_REASON_*定数と_UNREACHABLE_REASON_LABELSの対応漏れを防ぐ回帰テスト。
+  line-reservation-aiフェーズ続き404で発見された実バグ〈定数側にのみ値を追加し辞書側への
+  追加を忘れる〉の再発防止)が本ventureの`prototype/deletion_candidate_final_confirmation.py`
+  にも同型の`UNREACHABLE_REASON_NOT_FOLLOWING`/`_UNREACHABLE_REASON_LABELS`定義を持つにも
+  かかわらず未導入だったことを発見し、`prototype/test_deletion_candidate_final_confirmation.py`
+  に同テストを追加した。本venture側は理由コード1種のみで現時点の対応漏れは無いことを確認済み
+  (追加漏れは無し)。新規テスト1件追加、既存テスト932件+新規1件=933件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれもパス(回帰なし)。実LLM/LINE/Stripe/GCP
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクション
+  は今回発生していない。2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-24
+  23:00 UTCから約4時間・24時間未満のため再通知は見送り、pending-approval.mdには状況記録のみ
+  追記する。
+  次回候補: (1)運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして
+  残っている(pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、
+  (2)forklift-pasha・event-komiguai-pashaにも同型の`UNREACHABLE_REASON_*`/`_LABELS`定義が
+  存在するかの確認・未導入の場合の同テスト横展開、(3)stripe-event-id-store-firestore-
+  adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
+  (aircon-pasha・forklift-pasha・event-komiguai-pasha)への対応。
