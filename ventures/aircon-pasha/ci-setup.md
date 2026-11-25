@@ -24,8 +24,15 @@ line-reservation-ai・course-set-pashaで先行導入していたGitHub Actions�
 - `python3 validate_test_cases.py`を実行し5件全件パス・終了コード0を確認。
 
 ## 今後の課題
-- 実際のコミット後、course-set-pashaと同様`mcp__github__actions_list`でCI実行結果
-  (status: completed / conclusion: success)を確認する。
+- (解消済み 2026-08-14 03:00 UTC・フェーズ27: 初回コミット〈フェーズ26、7940fc4〉をトリガーに
+  実行されたrun〈id: 31759422249〉を`mcp__github__actions_list`で確認し、
+  status: completed / conclusion: successでローカル確認結果と一致することを確認済み
+  〈README.mdフェーズ27記載〉。本項目はフェーズ417時点まで約417フェーズ・3ヶ月超未更新の
+  まま残っていた陳腐化記載だったため本フェーズで是正した。ワークフローは
+  `ventures/aircon-pasha/`配下への変更時に毎回自動実行される構成であり〈実施内容1節〉、
+  以降の各コミットについて個別にactions_listで再確認する運用は採っていない
+  〈README.mdフェーズ27末尾の記載どおり、次に本venture配下を変更するコミット以降は
+  ワークフロー自体の自動実行に委ねる方針〉)
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに追加するかを検討する。
 - (解消済み 2026-08-27・フェーズ131: フェーズ26でtest_cloud_function_webhook・
   test_post_generation_checksの2本を名指しでハードコードした後、フェーズ102前後で
