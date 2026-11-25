@@ -139,6 +139,28 @@ def test_ambiguity_watchlist_osakajo() -> None:
     )
 
 
+def test_ambiguity_watchlist_yokohama_buntai() -> None:
+    master = _load_master()
+    watchlist = _load_watchlist()
+    # 旧称「横浜文化体育館」は再整備で「横浜BUNTAI」「横浜武道館」の2施設に分かれ、いずれも
+    # venue-master.json未登録(両方registered_in_venue_master=false)。混同注意リスト照合
+    # (手順3.5)がなければ部分一致フォールバックに流れてしまう入力で、本フェーズ追加分が
+    # 機能することを確認する。
+    result = match_venue("横浜文化体育館", master, watchlist)
+    check(
+        "yokohama buntai ambiguous input stays venue_matched=False (no overconfident guess)",
+        result["venue_matched"] is False,
+    )
+    check(
+        "yokohama buntai ambiguous input note warns about the two distinct facilities",
+        "別施設" in result["nearest_station_note"],
+    )
+    check(
+        "yokohama buntai ambiguous input does not get a confident matched_canonical_name",
+        result["matched_canonical_name"] is None,
+    )
+
+
 def test_partial_match_fallback_is_tentative() -> None:
     master = _load_master()
     result = match_venue("ナゴヤドーム前", master)
@@ -273,6 +295,7 @@ if __name__ == "__main__":
     test_ambiguity_watchlist_takes_precedence_over_partial_match()
     test_ambiguity_watchlist_ariake()
     test_ambiguity_watchlist_osakajo()
+    test_ambiguity_watchlist_yokohama_buntai()
     test_partial_match_fallback_is_tentative()
     test_partial_match_fallback_with_multiple_candidates()
     test_no_match()
