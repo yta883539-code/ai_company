@@ -8189,3 +8189,33 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   陳腐化を訂正、candidates-expired-notification-design.mdの対応する課題記載を解消済みに
   更新。本venture内はドキュメント更新のみでコード変更なし、既存テスト1076件・schema検証
   28件いずれもパス、回帰なし)
+- フェーズ続き411(2026-11-25定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き410・2026-11-25 01:00 UTC)を選定。フェーズ続き410の次回候補(4)
+  「他の個別design.mdファイルの『残る課題』節の陳腐化棚卸しを継続」に対応した。
+  `grep`で「現行N問」「全N問」等の質問総数の記載を横断検索し、2件の陳腐化を発見・是正した。
+  (1) initial-contact-message-draft.md 4行目が「customer-interview-design.md、全16問」と
+  記載したままだった(現行21問)ため「全21問」に訂正した。(2)
+  customer-interview-design.md自身の「未検証の仮説」節(89行目)が、H.(候補期限切れ通知
+  機能、2026-11-25追記・Q21)を追加した直後のフェーズ続き410の編集で質問総数の更新が
+  この1箇所だけ漏れており「質問項目数(20問)」「E.追加分(4問)・F.追加分(1問)・
+  G.追加分(3問)」のままH.分の言及が無かったため、「質問項目数(21問)」
+  「…G.追加分(3問)・H.追加分(1問)」「E〜Gは…」→「E〜Hは…」に訂正した。
+  あわせてinterview-rehearsal-script.md(2026-07-30時点の台本、F.〈Q17〉までしか反映して
+  おらずG.〈Q18〜20〉・H.〈Q21〉が未統合)に、台本自体の全面更新は次回候補として見送りつつ、
+  読み手が範囲の限定(Q1〜17のみ)に気づけるよう陳腐化メモを追記した(台本本体の読み上げ
+  文・タイムテーブルは変更していない)。いずれもドキュメントのみの訂正でコード変更なし。
+  既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`全1076件・
+  `python3 -I schema/validate_test_cases.py`28件いずれも変更なしでパス(回帰なし)。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記はなし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知〈2026-11-24 23:00 UTC〉から
+  24時間未満かつ状況不変のため再通知は見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)interview-rehearsal-script.mdのG・H分の台本・タイムテーブルへの統合、
+  (2)他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)の`_UNREACHABLE_
+  REASON_LABELS`parity回帰テスト横展開の要否判断、(3)承認待ち事項(launch-readiness-
+  checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
+  (4)他の個別design.mdファイルの質問総数・件数系の記載について棚卸しを継続。
+- 最終更新: 2026-11-25フェーズ続き411(詳細は上記。質問総数の記載漏れ・陳腐化2件
+  〈initial-contact-message-draft.md・customer-interview-design.md自身〉を是正、
+  interview-rehearsal-script.mdに陳腐化メモを追記。コード変更なし、既存テスト1076件・
+  schema検証28件いずれもパス、回帰なし)
