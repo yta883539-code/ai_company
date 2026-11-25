@@ -6011,3 +6011,32 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
 - 最終更新: 2026-11-24 21:00 UTC(フェーズ265: 詳細は上記。monthly/annual区分のGET動的
   レンダリングを実コード化〈実施日のみ、点検者名は未対応のまま〉。新規テスト14件追加、
   既存テスト121件・schema検証11件・run_all_tests 27ファイルいずれもパス、回帰なし)
+- フェーズ266(2026-11-25 04:00 UTC): 7venture中最も更新が止まっていた本ventureを選定し、
+  フェーズ265次回候補(1)「customer-interview-design.mdにmonthly/annual区分の点検者名・
+  検査業者名キャッシュ需要を確認する質問を追加する検討」に対応した。
+  customer-interview-design.md(フェーズ12、全12問)に新規セクションC-2を追加し、質問2問
+  (monthly/annual区分で点検者が毎回同じ人物かの確認、annual区分の`inspector_company`
+  〈検査業者名〉が年ごとに同一業者継続かの確認)を新設した。これはmonthly-annual-get-
+  rendering-decision.md(フェーズ264)3節が「monthly/annualはdaily比で反復度・負荷軽減
+  効果が小さい」と仮置きした上でキャッシュ実装着手を見送った判断、および同4節(3)で
+  annual固有の`inspector_company`キャッシュ要否を次回候補として切り出していた論点を、
+  実顧客ヒアリングで検証可能にするための質問項目設計である。全12問→全14問に変更し、
+  従来D節だった質問番号10〜12をC-2挿入後の12〜14に振り直した(質問内容自体は変更なし)。
+  併せて「実施方法」節の所要時間見積り・「未検証の仮説」節を更新し、
+  interview-rehearsal-script.md(フェーズ88、12問時点の仮想台本)のタイムテーブルが
+  追加2問分の時間を反映していないため再確認が必要である旨を明記した(台本自体の更新は
+  次回候補とし、本フェーズでは着手しない)。実在候補への初回コンタクト・ヒアリング実施
+  自体は依然オーナー承認待ちのため未着手。本フェーズはcustomer-interview-design.mdの
+  ドキュメント更新のみでコード変更なし。既存テスト(unittest discover)121件・schema
+  検証11件・run_all_tests 27ファイルいずれもパス(回帰なし)。実LLM/LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記なし。
+  次回候補: (1)interview-rehearsal-script.mdのタイムテーブルを全14問に合わせて更新する
+  検討、(2)`inspector_company`キャッシュ要否自体の机上検討(フェーズ264で切り出された
+  論点)、(3)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド未接続・
+  ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-checklist.md
+  参照)、(4)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-25 04:00 UTC(フェーズ266: 詳細は上記。customer-interview-design.mdに
+  monthly/annual区分のキャッシュ需要検証用の質問2問〈C-2節〉を追加し全12問→全14問に変更。
+  ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
+  27ファイルいずれもパス、回帰なし)
