@@ -7878,3 +7878,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   継続保留。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
   最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
   場合はその着手を最優先。
+
+- フェーズ続き333(2026-11-25 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き332・2026-11-24 19:00 UTC、約7時間)を選定。step4-cancellation-
+  downgrade-mock-script.md「次のステップ候補」が「複数職人プランの契約者本人判定の仕組み
+  自体の設計(本venture未着手の持ち越し課題)」としていた記載が、実際にはフェーズ25
+  (craftsman-account-linking-design.md 4節)で「契約者本人 = そのworkshopを最初に作成した
+  user_id」と既に確定・設計済み(2026-11-24フェーズ続き331でREADME.md側の同種の陳腐化は
+  是正済みだったが、本モックスクリプト側は未修正のまま残っていた)であることを再確認し、
+  同ファイルおよびsubscription-cancellation-flow-design.md「未確定事項」の記載を是正した。
+  あわせて`prototype/cloud_function_webhook.py`を確認したところ、checkout_intent処理
+  (`resolve_checkout_intent()`1950行目)やmember_retention・contractor_transfer処理
+  (1534・2255行目)には`user_id != workshop_store.get_contractor_user_id(workshop_id)`に
+  よる契約者本人チェックが配線されている一方、cancellation_intent/downgrade_intent処理
+  経路(`format_reply_text()`696〜698行目)には同種のチェックが配線されておらず、
+  「契約者本人以外からの解約・ダウングレード意図表明」への「契約者様にご確認ください」
+  案内(subscription-cancellation-flow-design.mdの仮決め方針)が実装上は未反映のままである
+  ことを発見した。この実際に残るギャップを両ファイルの「次のステップ候補」に明記した
+  (ドキュメントのみの訂正・コード変更なし)。既存テスト334件(`python3 -I -m unittest
+  discover -s prototype -p "test_*.py"`)・schema検証32件(`python3 -I schema/
+  validate_test_cases.py`)いずれも変更なしでパス(回帰なし)を確認した。実LINE/Stripe/
+  GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-24 23:00 UTC〉から約3時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記した)。
+  次回候補: (1)cancellation_intent/downgrade_intent処理経路への契約者本人チェック配線・
+  対応するschema拡張(本フェーズで発見した実装ギャップ)。(2)usage_counter/workshopの
+  利用者内訳記録は実運用データが無く必要性未確認のため継続保留。(3)2026-11-08 08:00 UTC
+  記載の運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。

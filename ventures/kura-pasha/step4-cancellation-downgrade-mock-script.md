@@ -93,15 +93,26 @@ https://billing.stripe.com/p/session/abc123
   `downgrade_intent`へ分類できるかはoutput-samples-validation.md「残る未検証事項」と
   同様に実LLM接続後(オーナー承認待ち)の検証課題として引き続き未検証。
 - 複数職人プランにおける「契約者本人以外からの解約・ダウングレード意図表明」への案内
-  (「契約者様にご確認ください」)は、subscription-cancellation-flow-design.md「未確定事項」
-  (契約者本人判定の仕組み自体が本venture未着手)に伴い、本モックスクリプトでも対象外のまま
-  持ち越す。
+  (「契約者様にご確認ください」)は、subscription-cancellation-flow-design.md「複数職人
+  プラン固有の論点」の仮決め方針であるが、`prototype/cloud_function_webhook.py`の
+  cancellation_intent/downgrade_intent処理経路(`format_reply_text()`696〜698行目)には、
+  checkout_intent処理(`resolve_checkout_intent()`1950行目)やmember_retention・
+  contractor_transfer処理(1534・2255行目)と同様の`user_id != workshop_store.
+  get_contractor_user_id(workshop_id)`判定がまだ配線されていない(2026-11-24フェーズ続き331
+  で「契約者本人」の判定方法自体〈craftsman-account-linking-design.md 4節〉は解決済みと
+  判明したが、その判定をcancellation系statusへ実際に組み込む実装はまだ別課題として残る)。
+  本モックスクリプトでも、この未配線を理由に対象外のまま持ち越す。
 - 本番運用時のやり取りである前提(実LINE公式アカウント接続・オーナー承認待ち)自体は
   他のstep4系モックスクリプトと同じ限界が残る。
 
 ## 次のステップ候補
 
-- 複数職人プランの契約者本人判定の仕組み自体の設計(本venture未着手の持ち越し課題)。
+- cancellation_intent/downgrade_intent処理経路への契約者本人チェック
+  (`user_id != workshop_store.get_contractor_user_id(workshop_id)`、checkout_intent等の
+  既存パターンと同型)の配線・対応するschema拡張(非契約者向けstatus追加)・
+  CONTRACTOR_ONLY_CHECKOUT_NOTICE相当の文言新設。
 - 他venture・アイデア領域の前進。
 
-最終更新: 2026-11-24 05:00 UTC(新規作成)
+最終更新: 2026-11-25 02:00 UTC(フェーズ続き333: 「契約者本人判定の仕組み自体が
+本venture未着手」という陳腐化した記載を是正し、実際に残る課題〈cancellation系statusへの
+契約者チェック配線〉を明記)
