@@ -8215,7 +8215,29 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   REASON_LABELS`parity回帰テスト横展開の要否判断、(3)承認待ち事項(launch-readiness-
   checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
   (4)他の個別design.mdファイルの質問総数・件数系の記載について棚卸しを継続。
-- 最終更新: 2026-11-25フェーズ続き411(詳細は上記。質問総数の記載漏れ・陳腐化2件
-  〈initial-contact-message-draft.md・customer-interview-design.md自身〉を是正、
-  interview-rehearsal-script.mdに陳腐化メモを追記。コード変更なし、既存テスト1076件・
-  schema検証28件いずれもパス、回帰なし)
+- フェーズ続き412(2026-11-25定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き411・2026-11-25 08:00 UTC、約7時間)を選定。フェーズ続き411
+  の次回候補(1)「interview-rehearsal-script.mdのG・H分の台本・タイムテーブルへの統合」
+  に対応した。customer-interview-design.mdのG.(開業告知文、Q18〜20)・H.(候補期限切れ
+  通知、Q21)をinterview-rehearsal-script.mdの任意設問タイムテーブル・質問ごとの補足
+  ト書き・任意設問導入時の読み上げ台本に統合し、優先順をF→H→E→G(Hは
+  candidates-expired-notification-design.mdの通知方式判断に直結するため優先度を
+  F直後まで上げた)に設定した。あわせて「基本セット12分+任意設問」が厳密に15分枠に
+  収まらない現実的な懸念を明記し、次回候補にリハーサル実測後の時間枠見直し検討を追加した。
+  冒頭の陳腐化メモは解消済み注記(取り消し線)に更新した。いずれもドキュメントのみの
+  更新でコード変更なし。既存テスト`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`全1076件・`python3 -I schema/validate_test_cases.py`28件いずれも変更なし
+  でパス(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+  pending-approval.mdへの新規承認依頼はなし(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知〈2026-11-24 23:00 UTC〉から約16時間・24時間未満かつ状況不変のため
+  再通知は見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)リハーサル実測の結果、15分枠に収まらないことが確認された場合の任意設問
+  優先順・時間枠自体の見直し検討(本フェーズで新規に追加した候補)、(2)他venture
+  (aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)の`_UNREACHABLE_
+  REASON_LABELS`parity回帰テスト横展開の要否判断、(3)承認待ち事項(launch-readiness-
+  checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
+  (4)他の個別design.mdファイルの質問総数・件数系の記載について棚卸しを継続。
+- 最終更新: 2026-11-25フェーズ続き412(詳細は上記。interview-rehearsal-script.mdに
+  G〈Q18〜20〉・H〈Q21〉のタイムテーブル・台本を統合し陳腐化メモを解消。コード変更なし、
+  既存テスト1076件・schema検証28件いずれもパス、回帰なし)
