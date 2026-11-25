@@ -111,6 +111,20 @@
       "operational_status": "active"
     },
     {
+      "canonical_name": "ヤマダグリーンドーム前橋",
+      "aliases": ["グリーンドーム前橋", "前橋公園グリーンドーム"],
+      "region": "東京圏",
+      "nearest_station": "JR前橋駅",
+      "access_mode": "car_or_bus",
+      "access_note": "JR前橋駅1番のりばから関越交通バス55A・55C系統(前橋公園線)で「前橋公園グリーンドーム」または「グリーンドーム前橋」停留所下車(公式の徒歩分数情報は確認できていません)。バスの乗り場・時刻は日付・時間帯により変わることがあるため、関越交通の最新時刻表をご確認ください",
+      "walk_minutes_note": "徒歩換算の一次情報なし(推定値は本文表示に用いない。access-mode-alternative-to-walk-minutes-note-design.md参照)",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-25",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ164(2026-11-25 11:00 UTC)で新規追加。所在地は群馬県前橋市岩神町1丁目2番1号(WebSearchで確認)。最寄りのJR前橋駅から徒歩で行ける距離の一次情報は見つからず、関越交通バス路線のみ確認できたため高知県立県民体育館と同じaccess_mode: car_or_busの枠組みを適用した(_station_note()の既存実装をそのまま利用、コード変更なし)。命名権者(ヤマダデンキ)の契約満了日はWebSearchでは確認できておらず、naming_rights_review_dueはnullのままとする。収容人数は情報源間で差異があり(一部資料は最大20,000人、Cvent掲載の座席数は12,596席)、岡山県総合グラウンド体育館の前例と同様に本フィールドでは採用せず記録のみ残す。",
+      "operational_status": "active"
+    },
+    {
       "canonical_name": "京セラドーム大阪",
       "aliases": [
         "大阪ドーム"
