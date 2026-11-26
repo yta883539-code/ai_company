@@ -18,6 +18,12 @@ output-samples-validation.mdの12ケース(G1〜G4・OOS1・II1・CI1〜CI3・CO
 残っていた。llm-quality-verification-plan.mdの検証観点表の記載漏れ訂正とあわせ、
 「記録表(CO1〜CO3)」節・トークン数記録欄のCO1〜CO3行を追加した)
 
+(2026-11-26 23:00 UTC追記・フェーズ409: llm-quality-verification-plan.mdフェーズ408訂正
+〈検証観点表7a・7b行をCI1〜CI7・CO1〜CO5に更新〉に合わせ、CI4〜CI7(厳守事項7a(iii)の
+雑談境界ケース、2026-09-13〜09-19にschema/validate_test_cases.pyへ追加済み)・CO4・CO5
+(厳守事項7b(iii)の雑談境界ケース、2026-09-13追加済み)の記録表行・トークン数記録欄を
+追加した。実LLM接続はまだ行っておらず、本追記も空欄の記録表を用意する机上作業のみ)
+
 ## 記入方法
 
 - 各ケースにつき3回生成し、機械チェック項目は`schema/validate_test_cases.py`の
@@ -88,6 +94,29 @@ output-samples-validation.mdの12ケース(G1〜G4・OOS1・II1・CI1〜CI3・CO
 | CI3 | 2回目 | | | | | |
 | CI3 | 3回目 | | | | | |
 
+## 記録表(CI4〜CI7: 厳守事項7a(iii)・9、雑談境界ケース)
+
+CI4・CI5(2026-09-13追加)はコース内容に触れない/触れる繁忙期の雑談、CI6(2026-09-18追加)・
+CI7(2026-09-19追加)はそれぞれ解約意図(7a)・有料プラン開始意図(7b)との混同防止を狙った
+繁忙の愚痴ケース。いずれも`status`が`cancellation_intent`/`downgrade_intent`/
+`checkout_intent`に誤判定されず、雑談相当のstatus(insufficient_input等、具体値は
+schema/validate_test_cases.pyのケース定義に従う)へ帰着するかを確認する。
+
+| ケース | 試行 | 厳守事項7a(機械: statusが解約系に誤判定されないか) | 厳守事項7a(人手: (iii)雑談と誤認していないか) | 厳守事項9(機械) | 最終判定 | メモ |
+|---|---|---|---|---|---|---|
+| CI4 | 1回目 | | | | | |
+| CI4 | 2回目 | | | | | |
+| CI4 | 3回目 | | | | | |
+| CI5 | 1回目 | | | | | |
+| CI5 | 2回目 | | | | | |
+| CI5 | 3回目 | | | | | |
+| CI6 | 1回目 | | | | | |
+| CI6 | 2回目 | | | | | |
+| CI6 | 3回目 | | | | | |
+| CI7 | 1回目 | | | | | |
+| CI7 | 2回目 | | | | | |
+| CI7 | 3回目 | | | | | |
+
 ## 記録表(CO1〜CO3: 厳守事項7b・9)
 
 | ケース | 試行 | 厳守事項7b(機械: status/includes_checkout_url一致・URL非混入) | 厳守事項7b(人手: (iv)応答が断定的でないか、プラン名混同がないか) | 厳守事項9(機械) | 最終判定 | メモ |
@@ -102,6 +131,21 @@ output-samples-validation.mdの12ケース(G1〜G4・OOS1・II1・CI1〜CI3・CO
 | CO3 | 2回目 | | | | | |
 | CO3 | 3回目 | | | | | |
 
+## 記録表(CO4〜CO5: 厳守事項7b(iii)・9、雑談境界ケース)
+
+CO4・CO5(2026-09-13追加、CI4・CI5と対になるcheckout版)はコース内容に触れない/触れる
+繁忙期の雑談ケース。`status`が`checkout_intent`/`pricing_inquiry`に誤判定されず、
+`includes_checkout_url`が常にfalseのまま保たれるかを確認する。
+
+| ケース | 試行 | 厳守事項7b(機械: statusがcheckout系に誤判定されないか・includes_checkout_url) | 厳守事項7b(人手: (iii)雑談と誤認していないか) | 厳守事項9(機械) | 最終判定 | メモ |
+|---|---|---|---|---|---|---|
+| CO4 | 1回目 | | | | | |
+| CO4 | 2回目 | | | | | |
+| CO4 | 3回目 | | | | | |
+| CO5 | 1回目 | | | | | |
+| CO5 | 2回目 | | | | | |
+| CO5 | 3回目 | | | | | |
+
 ## トークン数・コスト実測記録欄
 
 | ケース | 入力トークン数 | 出力トークン数 | llm-api-cost-estimate.mdの想定シナリオに近いか |
@@ -115,9 +159,15 @@ output-samples-validation.mdの12ケース(G1〜G4・OOS1・II1・CI1〜CI3・CO
 | CI1 | | | |
 | CI2 | | | |
 | CI3 | | | |
+| CI4 | | | |
+| CI5 | | | |
+| CI6 | | | |
+| CI7 | | | |
 | CO1 | | | |
 | CO2 | | | |
 | CO3 | | | |
+| CO4 | | | |
+| CO5 | | | |
 
 ## 総合結果サマリ(全ケース記入後に埋める)
 

@@ -7641,3 +7641,24 @@
   CO4〜CO5分の記録表行(各3回分)・トークン数記録欄を追加し、本フェーズのllm-quality-
   verification-plan.md訂正と整合させる、(3)他venture・アイデア領域の前進(個別design.md
   ファイルの「次回候補・残課題」棚卸しは継続候補)。
+
+- フェーズ409(2026-11-26 23:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ408・2026-11-25 13:00 UTC、約34時間)を選定。フェーズ408次回候補(2)
+  に対応し、llm-quality-verification-results-template.mdにCI4〜CI7(厳守事項7a(iii)の
+  雑談境界ケース)・CO4〜CO5(厳守事項7b(iii)の雑談境界ケース)分の記録表(各3回分)・
+  トークン数記録欄を新規追加した。schema/validate_test_cases.pyのケース定義(CI4〜CI7・
+  CO4〜CO5は2026-09-13〜09-19追加済み)を確認し、各ケースが確認すべき観点(雑談を解約/
+  有料プラン開始意図と誤認しないか)を表の見出しに明記した。ドキュメントのみの更新で
+  コード変更なし。既存テスト933件(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)いずれも
+  変更なしでパス(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・
+  外部公開・送信は一切行っていない。新たに承認が必要なアクションは今回発生していない
+  (2026-11-08 08:00 UTC記載の運営方針確認は7venture共通の既知の記録のため、本フェーズ
+  では新規のpending-approval追記は行わず状況は変わらない)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進(個別design.mdファイルの
+  「次回候補・残課題」棚卸しは継続候補)、(3)stripe-event-id-store-firestore-adapter-
+  design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先(aircon-pasha・
+  forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3ventureのいずれかが
+  次に選ばれた際に対応する。
