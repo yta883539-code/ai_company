@@ -7938,3 +7938,27 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   内訳記録は実運用データが無く必要性未確認のため継続保留。(3)2026-11-08 08:00 UTC記載の
   運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
   (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。
+
+- フェーズ続き335(2026-11-26 18:00 UTC定例更新・前回定例更新2026-11-25 15:00 UTCから
+  約27時間の実行間隔あり。スケジュール実行自体が一時的に止まっていたことによる遅延で、
+  本venture内の作業上の問題ではない)。7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き334・2026-11-25 09:00 UTC)を選定。フェーズ続き334次回候補(1)に
+  対応し、非契約者(職人B、複数職人プランの追加メンバー)から契約者を介さず解約意図
+  (`C1_cancellation_intent`相当の入力)が送信されたケースを新規モックケースとして
+  step4-cancellation-downgrade-mock-script.mdに追加し、`CONTRACTOR_ONLY_CANCELLATION_
+  NOTICE`がトーク画面上でどう見えるかを可視化した(workshop構成はstep4-multi-craftsman-
+  member-usage-mock-script.mdと同じ契約者A・職人Bの前提を踏襲。ダウングレード側の非契約者
+  ケースは返る文言が解約側と同一のため追加は見送った)。ドキュメントのみの更新で
+  コード変更なし。既存テスト(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)334件・schema検証(`python3 -I schema/validate_test_cases.py`)32件
+  いずれもパス(回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・
+  外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していない
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-24 23:00 UTC〉から約43時間・24時間を大幅に超過し、かつ上記スケジュール実行停止
+  により前回定例更新〈2026-11-25 15:00 UTC〉時点でも次の24時間判定の機会自体が失われていた
+  ため、本フェーズ実行時にオーナーへ直接プッシュ通知を再送した。詳細はpending-approval.md
+  参照)。
+  次回候補: (1)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認の
+  ため継続保留。(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture
+  共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから
+  得られた場合はその着手を最優先。(3)他venture・アイデア領域の前進。

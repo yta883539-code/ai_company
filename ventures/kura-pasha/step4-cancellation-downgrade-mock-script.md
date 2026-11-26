@@ -27,6 +27,11 @@ usage)はいずれも通常の依頼メモ生成ケースのみを対象とし�
   subscription-cancellation-flow-design.md「ダウングレード(プラン変更)フロー」の記述を
   踏まえて本ドキュメントのために新たに作成した例文である。この点はC1・C3との違いとして
   明記する)
+- 非契約者(複数職人プランの追加メンバー)からの`C1_cancellation_intent`相当の入力
+  (フェーズ続き334で配線した`CONTRACTOR_ONLY_CANCELLATION_NOTICE`分岐を可視化するための
+  ケース。workshop構成はstep4-multi-craftsman-member-usage-mock-script.mdと同じ前提
+  〈契約者A・招待コード経由で参加済みの職人B〉を踏襲し、新しい事実確認・WebSearch調査は
+  行っていない)
 
 ## トーク画面の見え方(案)
 
@@ -76,6 +81,19 @@ https://billing.stripe.com/p/session/abc123
 解約をご希望でしょうか?よろしければ「解約したい」とお送りください。
 ```
 
+```
+[LINE公式アカウント「鞍パシャッと」とのトーク画面(職人B本人のLINEアカウント、
+ 工房への参加〈招待コード解決〉完了後。契約者はAで、Bは追加メンバー)]
+
+(職人B本人から送信・契約者Aを介さない直接の解約意図表明)
+解約したい
+
+(アプリから自動返信・user_id != workshop_store.get_contractor_user_id(workshop_id)判定が
+ 真となり、CONTRACTOR_ONLY_CANCELLATION_NOTICEをそのまま返す〈フェーズ続き334で配線〉)
+解約・プラン変更のお手続きは、契約者(工房を最初に作成した方)のみ操作できます。
+お手数ですが、契約者の方からご確認・お手続きください。
+```
+
 ## 注記・限界
 
 - C1の1つ目の例(実URL置換版)は`_cancellation_intent_case_with_portal_placeholder()`が
@@ -105,20 +123,18 @@ https://billing.stripe.com/p/session/abc123
   → 2026-11-25フェーズ続き334で配線完了。`process_memo_event()`のcheckout_intent分岐の
   直後に同型のelif分岐を追加し、契約者本人以外からのcancellation_intent/downgrade_intentに
   新設の`CONTRACTOR_ONLY_CANCELLATION_NOTICE`を返すようにした(cancellation_unclearは
-  厳守事項7a(iv)の意思確認一言のみの性質を変えないため対象外のまま)。本モックスクリプトの
-  対象ケース(C1/C2、いずれも入力者=契約者本人を想定した例文)自体は変更不要のため、
-  非契約者からの表明を題材にした新規モックケースの追加は次の課題とする。
+  厳守事項7a(iv)の意思確認一言のみの性質を変えないため対象外のまま)。
+  → 2026-11-26フェーズ続き335で、非契約者(職人B)からの`C1_cancellation_intent`相当入力を
+  題材にした新規モックケースを本ファイルに追加し、CONTRACTOR_ONLY_CANCELLATION_NOTICEが
+  実際にトーク画面上でどう見えるかを可視化した(C2相当・ダウングレード側の非契約者ケースは
+  文面が解約側と同一〈`CONTRACTOR_ONLY_CANCELLATION_NOTICE`は分岐の入口がcancellation_intent/
+  downgrade_intent共通のため〉で新たに示す情報が増えないと判断し、追加は見送った)。
 - 本番運用時のやり取りである前提(実LINE公式アカウント接続・オーナー承認待ち)自体は
   他のstep4系モックスクリプトと同じ限界が残る。
 
 ## 次のステップ候補
 
-- 非契約者(複数職人プランの追加メンバー)からの解約・ダウングレード意図表明を題材にした
-  モックケースを本ファイルに追加し、CONTRACTOR_ONLY_CANCELLATION_NOTICEが実際に
-  トーク画面上でどう見えるかを可視化する(フェーズ続き334で実装側は配線済み、
-  モックケース追加は未着手)。
 - 他venture・アイデア領域の前進。
 
-最終更新: 2026-11-25 09:00 UTC(フェーズ続き334: cancellation_intent/downgrade_intent
-処理経路への契約者本人チェック配線・CONTRACTOR_ONLY_CANCELLATION_NOTICE新設・
-回帰テスト4件追加が完了したことを反映)
+最終更新: 2026-11-26 18:00 UTC(フェーズ続き335: 非契約者〈職人B〉からの解約意図表明が
+CONTRACTOR_ONLY_CANCELLATION_NOTICEを返すケースをモックスクリプトに追加)。
