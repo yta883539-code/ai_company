@@ -29,9 +29,11 @@ kura-pashaのような独自check()/PASS/FAILスクリプト形式(discover非�
 - ローカルで`python3 -m unittest discover -p "test_*.py" -v`(prototype/配下)を実行し
   63件全件パスを確認。
 - `python3 schema/validate_test_cases.py`を実行し22/22件パス・終了コード0を確認。
-- 実際のGitHub Actions上での実行結果(グリーンの確認)は、このコミットのpush後に
-  `mcp__github__actions_list`等で確認する必要がある(次回以降の実行時か、
-  オーナー自身の確認に委ねる)。
+- 実際のGitHub Actions上での実行結果(グリーンの確認)は、2026-11-26 22:00 UTC時点で
+  `mcp__github__actions_list`により確認済み。本ワークフロー導入後の直近5回の実行
+  (run #55〜#59、2026-11-24 10:00 UTC〜2026-11-25 14:00 UTC)いずれも
+  `status: completed` / `conclusion: success`で、導入時に残していた「実際の実行結果は
+  次回以降に確認」という留保事項は解消した。
 
 ## 今後の課題
 - 実LLM/実GCP(Cloud Run functions・Firestore)接続(オーナー承認待ち、
