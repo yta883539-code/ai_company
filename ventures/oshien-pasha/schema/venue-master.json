@@ -5,7 +5,8 @@
       "naming_rights_review_due": "naming_rights=trueの会場のうち、契約満了日・次回更新予定が実際にWebSearchで裏取りできたものにのみ日付を設定する。未確認の場合はnullとし、verification_noteに理由を記す(推測日付を記入しない方針、フェーズ15で追加したルール)。",
       "verification_note": "naming_rights_review_dueが未確認(null)の場合の理由、または別施設との混同リスク等、名寄せ・運用上の注意点を記録する任意フィールド(フェーズ15で追加)。",
       "operational_status": "フェーズ20(2026-10-30 13:00 UTC)で追加。会場が現在もイベント会場として稼働しているかを示す(active/closed/uncertain)。老朽化による建て替え・後継施設への移行等で既存会場が稼働を終えているケースをWebSearchで発見したため追加した。デフォルトはactiveとし、closed/uncertainの場合はverification_noteに根拠・後継施設情報を記す。"
-    }
+    },
+    "count": null
   },
   "venues": [
     {
@@ -756,6 +757,22 @@
       "last_verified_date": "2026-11-27",
       "naming_rights_review_due": null,
       "verification_note": "フェーズ166(2026-11-27 03:00 UTC)で所在地情報の情報源間不一致により追加を見送った候補を、フェーズ167(本定例更新)でWebSearch再調査により解消して追加(54件→55件)。旧名称「宇都宮市体育館」が宇都宮市のネーミングライツ事業により「ブレックスアリーナ宇都宮」となったことを確認。市公式資料(city.utsunomiya.lg.jp)により、同じ宇都宮市内に所在地・ネーミングライツ対象施設が別にもう1件存在することが判明した: 清原工業団地14番地の「清原体育館」が同事業で「清原マルハアリーナ」という別の愛称を持つ(両施設は別施設であり、表記揺れではないことを確認)。清原体育館/清原マルハアリーナは本フェーズでは未追加とし、次回候補とする。命名権の契約期間・次回更新予定日は本実行環境から市公式資料本文の該当箇所まで到達できず確認できなかったためnaming_rights_review_dueはnullとした。",
+      "operational_status": "active"
+    },
+    {
+      "canonical_name": "清原体育館",
+      "aliases": [
+        "清原マルハアリーナ"
+      ],
+      "region": "東京圏",
+      "nearest_station": "バス停「清原球場」(JR宇都宮駅発バス便)",
+      "access_mode": "car_or_bus",
+      "access_note": "JR宇都宮駅3番乗り場からJRバス「清原球場」行き(芳賀BT方面)、または14番乗り場から東野交通バス「清原球場」行きを利用し、「清原球場」バス停で下車(所要時間目安25〜30分、運賃目安580円。所在地: 栃木県宇都宮市清原工業団地14番地)。バス停からは徒歩0分とされるが、施設公式案内では駐車場「無」とされており、自家用車での来場は推奨されないためaccess_mode: car_or_busのうちバス利用を基本案内とする。",
+      "walk_minutes_note": "バス停「清原球場」から施設まで徒歩0分(施設案内による)。JR宇都宮駅からの所要時間・運賃は個人の投稿情報を含み、最新の時刻表・公式案内での確認を前提とする。",
+      "naming_rights": true,
+      "last_verified_date": "2026-11-27",
+      "naming_rights_review_due": null,
+      "verification_note": "フェーズ167(2026-11-27 03:00 UTC)の次回候補(1)に対応し、WebSearchでイープラス・バス比較なび等の情報源を再調査して追加(55件→56件)。「ブレックスアリーナ宇都宮」(旧・宇都宮市体育館)とは所在地・ネーミングライツ対象が異なる別施設であることを確認済み(verification_note相互参照)。命名権の契約期間・次回更新予定日は本実行環境から公式資料本文の該当箇所まで到達できず確認できなかったためnaming_rights_review_dueはnullとした。",
       "operational_status": "active"
     }
   ]

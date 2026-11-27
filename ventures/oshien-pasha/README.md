@@ -4044,3 +4044,27 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
   〈栃木〉をaccess_mode: car_or_bus枠組みで会場マスタに新規追加〈54件→55件〉、フェーズ166の
   情報源不一致は別施設〈清原体育館〉との混同と判明し解消。コード変更なし、既存テスト11ファイル
   〈schema検証含む〉いずれもパス、回帰なし)
+- フェーズ168(2026-11-27 17:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ167・2026-11-27 03:00 UTC、約14時間)を選定した。フェーズ167次回候補(5)
+  に対応し、WebSearchでイープラス会場情報・バス比較なび等の情報源を調査した結果、「清原体育館」
+  (愛称: 清原マルハアリーナ、栃木県宇都宮市清原工業団地14番地)の最寄りバス停が「清原球場」
+  (JR宇都宮駅からJRバス・東野交通バスで到達、バス停から徒歩0分、施設案内上駐車場は「無」)
+  であることを確認し、「ブレックスアリーナ宇都宮」とは別施設であることを踏まえた上で
+  schema/venue-master.json・venue-master-draft.mdに新規追加した(55件→56件、access_mode:
+  car_or_bus)。命名権の契約期間はWebSearchで確認できずnaming_rights_review_dueはnullのまま。
+  詳細はvenue-alias-verification-and-naming-rights-risk.md追記(フェーズ168)参照。
+  `python3 -I schema/check_venue_master_parity.py`で56件/56件差分なし、`python3 -I
+  prototype/run_all_tests.py`で既存テスト11ファイル(schema検証含む)いずれもOK(回帰なし)。実
+  LLM/Stripe/GCP/Firestore接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回直接通知2026-11-26 18:00 UTCから約23時間・24時間未満のため、本時刻は再通知を見送り
+  状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)混同注意リストの他候補(例: 他地域の同一地名・改称/分割施設群)をWebSearchで
+  探索・追加、(2)宮崎県体育館・宮崎市総合体育館・大分県立総合体育館の徒歩分数・最寄り駅は
+  本実行環境のネットワーク制約下では確証が得られないため、オーナーのネットワーク許可拡大が
+  得られた場合に再試行、(3)`last_verified_date`・`naming_rights_review_due`フィールドを含めた
+  schema/output.schema.json側への反映方法の検討、(4)承認待ち事項(launch-readiness-
+  checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-27 17:00 UTC(フェーズ168: 詳細は上記。「清原体育館」〈清原マルハ
+  アリーナ〉をaccess_mode: car_or_bus枠組みで会場マスタに新規追加〈55件→56件〉。コード変更
+  なし、既存テスト11ファイル〈schema検証含む〉いずれもパス、回帰なし)
