@@ -6131,3 +6131,34 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   UNREACHABLE_REASON_*/_UNREACHABLE_REASON_LABELSの動的parity回帰チェックを横展開。
   コード変更はテスト追加のみ、既存テスト121件・schema検証11件・run_all_tests27ファイル
   いずれもパス、回帰なし)
+
+- フェーズ270(2026-11-27 14:00 UTC定例更新)。ideas.mdに新規アイデア2件を追加した
+  (詳細は本フェーズのcommit参照)。7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ269・2026-11-27午前)を選定し、他venture(aircon-pasha等)で
+  続いている「残課題」節の棚卸しを本venture側でも実施した。inspector-name-date-prefill-
+  design.md 5節1点目「点検者名のダミー初期値(山田 太郎)は動的レンダリング実装後に
+  初回アクセス時は空欄へ切り替える必要がある」が、daily区分についてはform_submission_
+  flow.py`render_daily_form_for_get()`・daily_form_render.py`render_daily_form_html()`
+  (いずれもフェーズ261系で実装済み、test_form_submission_flow.py・test_daily_form_
+  render.pyでテスト済み)で既に解消されているにもかかわらず、解消済み注記なしで残って
+  いた陳腐化記載であることを発見し、是正した(ダミー値が表示され続けるのはmonthly/annual
+  区分のみで、これはmonthly-annual-get-rendering-decision.md側で別途次回候補として
+  追跡済みであることを明記)。ドキュメントのみの更新でコード変更なし。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)121件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)11件・`python3 -I prototype/run_all_
+  tests.py`27ファイルいずれも変更なしでパス(回帰なし)。実LLM/LINE/Stripe/GCP/
+  Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規承認依頼は
+  なし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-26 18:00 UTC〉から約20時間・24時間未満のため再通知は見送り、状況記録のみ
+  pending-approval.mdに追記)。
+  次回候補: (1)customer-interview-design.md Q11の実ヒアリング結果(オーナー承認待ち)を
+  踏まえた6.3決定の再検証。(2)`<form>`の実際のaction配線・送信ボタン有効化は実バック
+  エンド未接続・ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-
+  readiness-checklist.md参照)。(3)他ファイルの「残課題」「今後の課題」節の陳腐化棚卸しを
+  継続(本フェーズで1件確認、未確認多数)。(4)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先。
+- 最終更新: 2026-11-27 14:00 UTC(フェーズ270: 詳細は上記。inspector-name-date-prefill-
+  design.md 5節の陳腐化記載〈daily区分の点検者名空欄化は実装済み〉を発見・是正。
+  ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
+  27ファイルいずれもパス、回帰なし)
