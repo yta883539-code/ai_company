@@ -33,10 +33,11 @@ tech-stack.md(フェーズ7)の方針(LINE公式アカウント不採用、月�
 
 - フォーム送信内容は`inquiry/{inquiry_id}`(Firestore)に保存する。フィールドは
   `draft_id`・`customer_email`・`category`(上記4区分)・`detail`(自由記述)・
-  `status`(`received`/`resolved`)・`created_at`・`resolvedAt`(`status`が`resolved`に
+  `status`(`received`/`resolved`)・`created_at`・`resolved_at`(`status`が`resolved`に
   遷移した日時。未対応中は未設定。data-retention-policy.mdフェーズ60が`inquiry`の
   保存期間の起点として前提とした暫定フィールド名をそのまま正式なフィールド設計として
-  採用し、フェーズ61で追記)。
+  採用し、フェーズ61で追記。フェーズ146で`resolvedAt`表記を`resolved_at`に修正、
+  詳細は本文書末尾フェーズ146追記参照)。
 - 他venture(line-reservation-aiのエスカレーション系設計等)と異なり、本ventureは
   双方向チャットボットを持たないため、受付時点でのAIによる自動一次回答(自動返信)は
   行わず、受付内容をそのままオーナー確認待ちのキューとして蓄積するだけに留める
@@ -140,7 +141,17 @@ tone-and-manner-guideline.md「次のステップ候補」(フェーズ82)で申
 - 実際のメール送信手段接続・Stripe返金API接続はいずれもアカウント作成・外部サービス
   接続を伴うためオーナー承認待ちの範囲(pending-approval.md参照)。
 
-最終更新: 2026-11-02 19:00 UTC(フェーズ88: フェーズ87次回候補(2)に対応し、
+最終更新: 2026-11-27 05:00 UTC(フェーズ146: data-retention-policy.md「今後の課題」
+(横展開検討)への対応中に発見した陳腐化を是正。フェーズ16のcross-venture parity確認で
+`inquiry`フィールドをスネークケースに統一する方針を確定していたにもかかわらず、フェーズ61で
+追記した`resolvedAt`のみcamelCaseのまま残っていた(方針との不整合、約1ヶ月放置)。
+`resolved_at`に修正し、prototype/inquiry_form_intake.py・test_inquiry_form_intake.pyの
+2箇所(フィールド名のみ、ロジック変更なし)を追従。既存テスト184件(新規追加なし)・
+schema検証22件いずれもパス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・アカウント作成・
+外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+pending-approval.mdへの新規追記なし)
+
+最終更新(旧): 2026-11-02 19:00 UTC(フェーズ88: フェーズ87次回候補(2)に対応し、
 prototype/inquiry_form_intake.py(Webフォーム送信の入力検証・`inquiry`ドキュメント
 組み立て)・landing-page/inquiry.html(フォーム画面ドラフト、送信ボタンは未接続)を
 新規作成。実Firestore書き込み・実エンドポイント結線はなお残課題として4節に明記。

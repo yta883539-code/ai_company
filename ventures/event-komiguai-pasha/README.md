@@ -3317,6 +3317,40 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   スニペット範囲では行き詰まっており、再着手は公式サイトへの直接アクセス手段が得られて
   からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
   (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する。
-- 最終更新: 2026-11-26 22:00 UTC(フェーズ145: 詳細は上記。ci-setup.mdの未確認項目
+- 最終更新(旧): 2026-11-26 22:00 UTC(フェーズ145: 詳細は上記。ci-setup.mdの未確認項目
   〈GitHub Actions実行結果〉をread-onlyで確認・解消。コード変更なし、既存テスト184件・
   schema検証22件いずれも変更なしでパス、回帰なし)
+- フェーズ146(2026-11-27 05:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ145・2026-11-26 22:00 UTC、約7時間)を選定。フェーズ145次回候補
+  (4)「他の設計ドキュメントの『今後の課題』節の陳腐化点検」に対応し、data-retention-
+  policy.md(フェーズ60)「今後の課題」2点目(他venture〈aircon-pasha・forklift-pasha等〉
+  のdeletion-candidate-design.md相当の設計を横展開できるか検討する、という未着手項目)を
+  検討した。検討の過程で、フェーズ16のcross-venture parity確認(`inquiry`全フィールドを
+  スネークケースに統一する方針)に反し、フェーズ61で追記した`resolvedAt`のみcamelCaseの
+  まま約1ヶ月放置されていた不整合を発見・是正した(`resolved_at`に統一)。
+  prototype/inquiry_form_intake.py・test_inquiry_form_intake.pyの2箇所(フィールド名のみ、
+  ロジック変更なし)、および参照元のinquiry-handling-design.md・data-retention-policy.md・
+  idempotency-key-duplicate-detection-firestore-query-design.mdの記載を追従させた。
+  横展開の本体(削除候補オーナーレポート機能)については、他venture側は最終確認送信の実装
+  (`deletion_candidate_final_confirmation.py`相当)が既に存在する前提のレポート機能である
+  のに対し、本ventureは最終確認送信自体が未着手(方針決定のみ)であるため、レポート機能を
+  先行実装しても呼び出し元が無く時期尚早と判断し、将来実装時のフィールド命名方針
+  (`deletion_confirmation_sent_at`等、スネークケースで統一)のみをdata-retention-policy.md
+  に申し送りとして記録した(実装は見送り、設計判断のみ)。実際の電話・メール等による候補
+  への連絡・ヒアリング協力依頼は一切行っていない。既存テスト
+  `python3 -m unittest discover -s prototype -p "test_*.py"`全184件(新規追加なし)・
+  `python3 schema/validate_test_cases.py`22件を再実行し、いずれもパス(回帰なし)。実LLM/
+  Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規追記はなし
+  (既存の承認依頼の対象・範囲に変更はない。2026-11-08 08:00 UTC記載の運営方針確認は前回
+  直接通知2026-11-26 18:00 UTCから約11時間・24時間未満のため本時刻は再通知を見送り、
+  状況記録のみ追記)。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜3)がオーナーから
+  承認された場合はその着手を最優先、(2)候補5・JANUS系3店舗の層3候補開拓はWebSearchの
+  スニペット範囲では行き詰まっており、再着手は公式サイトへの直接アクセス手段が得られて
+  からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
+  (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する。
+- 最終更新: 2026-11-27 05:00 UTC(フェーズ146: 詳細は上記。data-retention-policy.mdの
+  横展開検討に対応し、`inquiry.resolvedAt`のcamelCase残存という命名規約違反を発見・
+  是正。コード変更: 既存2ファイルのフィールド名のみ変更、新規追加なし。既存テスト184件・
+  schema検証22件いずれもパス、回帰なし)

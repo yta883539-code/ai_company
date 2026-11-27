@@ -45,7 +45,7 @@ forklift-pasha)のdata-retention-policy.mdが揃って採用した保存期間�
 実測データに基づくものではない。実運用開始後に見直す。
 
 `one_time_draft`と異なり`inquiry`には継続課金のような「解約イベント」が存在しないため、
-削除候補化の起点は`inquiry.resolvedAt`(対応完了日時、inquiry-handling-design.mdのフィールド
+削除候補化の起点は`inquiry.resolved_at`(対応完了日時、inquiry-handling-design.mdのフィールド
 設計を前提とする暫定名称)とする。
 
 ## 4. 削除候補化後の最終確認・削除の実行方法(MVP)
@@ -110,8 +110,22 @@ idempotency-key-write-conflict-control-design.md(フェーズ67)・同5節(フ�
   inquiry-handling-design.mdのフィールド一覧には`resolvedAt`が含まれていなかったため、
   同文書に`resolvedAt`(`status`が`resolved`に遷移した日時)を正式フィールドとして
   追記し、本文書3節が前提とする削除候補化の起点との整合を確保した(解消)。
-- 削除候補の洗い出し・最終確認送信・連絡不能オーナーレビューの具体的ロジックは、他venture
-  (aircon-pasha等)のdeletion-candidate-design.md相当の設計をそのまま横展開できるか次回
-  検討する。
+- ~~フェーズ61で追記した`resolvedAt`がcamelCaseのまま残り、フェーズ16のcross-venture
+  parity確認(inquiry全フィールドをスネークケースに統一する方針)との不整合が約1ヶ月
+  放置されていた~~ → フェーズ146で`resolved_at`に修正し、prototype側2ファイル
+  (inquiry_form_intake.py・test_inquiry_form_intake.py)を追従させ、本文書・
+  idempotency-key-duplicate-detection-firestore-query-design.mdの参照も揃えた(解消)。
+- 削除候補の洗い出し・最終確認送信・連絡不能オーナーレビューの具体的ロジックを、他venture
+  (aircon-pasha・forklift-pasha等)のdeletion-candidate-design.md相当の設計からそのまま
+  横展開できるか検討した結果(フェーズ146)、他venture側は`deletion_candidate_final_
+  confirmation.py`(最終確認送信の実装そのもの)が既に存在し、その上に`list_unreachable_
+  deletion_candidates()`等のオーナー向けレポートが乗る構成だが、本ventureは最終確認送信
+  の実装自体が未着手(4節の通りMVPでは方針決定のみ)であるため、レポート機能だけを先行して
+  横展開しても呼び出し元が存在せず時期尚早と判断した。他venture側の`deletionConfirmation
+  SentAt`/`deletionConfirmationUnreachableAt`相当のフィールド命名パターンは、将来
+  `inquiry`側の最終確認送信を実装する際に`resolved_at`と同じスネークケース規約
+  (`deletion_confirmation_sent_at`/`deletion_confirmation_unreachable_at`)で揃える、
+  という命名方針のみを本フェーズで申し送りとして記録する(実装そのものはオーナー承認後の
+  結合実装フェーズに持ち越す)。
 - 実Firestore接続・実メール送信サービス接続・削除実行バッチのCloud Scheduler化は、既存の
   承認待ち事項の範囲内として残る。

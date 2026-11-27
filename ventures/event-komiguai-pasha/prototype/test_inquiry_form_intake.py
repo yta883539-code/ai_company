@@ -81,7 +81,7 @@ class BuildInquiryDocumentTest(unittest.TestCase):
                 "detail": "迷惑メールフォルダにも見当たりません",
                 "status": "received",
                 "created_at": "2026-11-02T20:00:00Z",
-                "resolvedAt": None,
+                "resolved_at": None,
             },
         )
 

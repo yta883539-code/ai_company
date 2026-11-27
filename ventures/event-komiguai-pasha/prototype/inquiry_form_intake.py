@@ -121,7 +121,7 @@ def build_inquiry_document(form: InquiryFormInput, created_at: str) -> dict:
         "detail": form.detail,
         "status": "received",
         "created_at": created_at,
-        "resolvedAt": None,
+        "resolved_at": None,
     }
 
 
