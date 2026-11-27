@@ -3376,8 +3376,51 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   スニペット範囲では行き詰まっており、再着手は公式サイトへの直接アクセス手段が得られて
   からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
   (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する。
-- 最終更新: 2026-11-27 12:00 UTC(フェーズ147: 詳細は上記。admin-search-ui-necessity-
+- 最終更新(旧): 2026-11-27 12:00 UTC(フェーズ147: 詳細は上記。admin-search-ui-necessity-
   design.mdの残課題1点目が、既にdraft-id-last4-collision-design.mdフェーズ58で解消済み
   だったにもかかわらず約1ヶ月放置されていた陳腐化記載を発見・是正〈取消線化+相互参照〉。
   ドキュメントのみの更新でコード変更なし、既存テスト184件・schema検証22件いずれもパス、
+  回帰なし)
+- フェーズ148(2026-11-27 18:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ147・2026-11-27 12:00 UTC、約6時間)を選定。フェーズ147次回候補
+  (4)「他の設計ドキュメントの『今後の課題』節の陳腐化点検を次回以降も継続する」に対応し、
+  operational-message-templates-draft.md(フェーズ81)5節の残課題1点目「見出し記号
+  (【】)不使用の機械チェック化(次回候補)」が、翌フェーズ82で
+  `prototype/test_operational_message_templates.py`に`post_generation_checks.py`の
+  `HEADING_BRACKET_PATTERN`を再利用した`TestOperationalMessageTemplatesNoHeadingBrackets`
+  を追加済みであったにもかかわらず、解消済みの取消線・相互参照がなく約25日間放置されて
+  いた陳腐化記載であることを発見し、是正した(ドキュメントのみの更新でコード変更なし)。
+  あわせて、aircon-pashaフェーズ420等の次回候補(2)「event-komiguai-pasha・forklift-
+  pasha・oshien-pashaの3ventureはまだLINE Webhookの`webhookEventId`べき等性対策が未対応
+  のため、それぞれが選ばれた回での横展開」という記載を点検した結果、本ventureの
+  tech-stack.md(冒頭・1節)に明記されている通り、本ventureは当初からLINE非依存の
+  汎用Webフォーム(単発入力・LINEアカウント登録不要)を採用しており、そもそもLINE
+  Webhook自体を持たないため当該の横展開対象ではないことを確認した(forklift-pasha・
+  oshien-pashaの各tech-stack.mdも同様にWebフォーム単体・LINE非依存の方針を明記して
+  おり、3venture共通で対象外と判断する)。aircon-pasha側の過去フェーズの記載(履歴ログ)
+  自体は書き換えず、本フェーズの記録をもって今後の参照先とする。ideas.mdに新規アイデア
+  2件を追加した(WordPress用プラグイン「Modular DS」の未認証権限昇格脆弱性〈CVE-2026-
+  23550〉対応「モジュラーディーエスのっとられパシャっと」、NTT東日本「クラウドゲートウェイ
+  サーバーホスティング」料金改定〈2026年10月1日利用分から適用済み〉対応「クラウド
+  ゲートウェイねあがりパシャっと」、いずれも小規模・自動起業可能・ideas.md内検索で重複
+  なし初出確認済み。投資版presentations追記は見送り)。既存テスト`python3 -I -m unittest
+  discover -s prototype -p "test_*.py"`全184件・`python3 -I schema/validate_test_cases.py`
+  22件を再実行し、いずれも変更なしでパス(回帰なし)。実LLM/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回
+  発生していないためpending-approval.mdへの新規承認依頼はなし(2026-11-08 08:00 UTC
+  記載の運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-26 18:00 UTC〉から
+  ちょうど24時間経過し状況不変のため、本時刻はpending-approval.mdへの記録に加えて
+  再度オーナーへ直接通知する)。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜3)がオーナーから
+  承認された場合はその着手を最優先、(2)候補5・JANUS系3店舗の層3候補開拓はWebSearchの
+  スニペット範囲では行き詰まっており、再着手は公式サイトへの直接アクセス手段が得られて
+  からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
+  (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する(本フェーズで
+  1件確認・是正、残り多数未確認)。
+- 最終更新: 2026-11-27 18:00 UTC(フェーズ148: 詳細は上記。operational-message-templates-
+  draft.mdの見出し記号機械チェックに関する陳腐化記載〈約25日間放置〉を発見・是正
+  〈ドキュメントのみ、コード変更なし〉。aircon-pasha等の次回候補に残っていたLINE
+  Webhookべき等性横展開案が本venture・forklift-pasha・oshien-pashaには適用対象外である
+  ことを確認。ideas.mdに新規アイデア2件追加〈Modular DSプラグインCVE対応・NTT東日本
+  クラウドゲートウェイ料金改定対応〉。既存テスト184件・schema検証22件いずれもパス、
   回帰なし)

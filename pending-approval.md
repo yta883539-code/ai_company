@@ -12,6 +12,39 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-27 18:00 UTC
+venture: event-komiguai-pasha(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア2件を追加した(WordPress用プラグイン「Modular DS」の未認証権限昇格
+脆弱性〈CVE-2026-23550〉対応「モジュラーディーエスのっとられパシャっと」、NTT東日本
+「クラウドゲートウェイ サーバーホスティング」料金改定〈2026年10月1日利用分から適用済み〉
+対応「クラウドゲートウェイねあがりパシャっと」、いずれも小規模・自動起業可能、ideas.md内
+検索で重複なし初出確認済み。投資版presentations追記は見送り)。7venture中最も更新が止まって
+いたevent-komiguai-pashaを選定し、フェーズ148として前進させた。operational-message-
+templates-draft.md(フェーズ81)5節の残課題が、翌フェーズ82で見出し記号【】不使用の機械
+チェック(`TestOperationalMessageTemplatesNoHeadingBrackets`)を既に追加済みであったにも
+かかわらず解消済みの取消線・相互参照がなく約25日間放置されていた陳腐化記載であることを
+発見し、是正した(ドキュメントのみの更新でコード変更なし)。あわせて、aircon-pasha等の
+過去フェーズに記録された「event-komiguai-pasha・forklift-pasha・oshien-pashaの3venture
+はLINE Webhookのwebhookeventidべき等性対策が未対応」という次回候補の記載を点検し、3venture
+いずれも当初からtech-stack.mdでLINE非依存のWebフォーム単体方針を明記しておりLINE Webhook
+自体を持たないため、そもそも横展開の対象外であることを確認した(aircon-pasha側の過去の
+記載自体は履歴ログのため書き換えず、event-komiguai-pasha側の新規フェーズ記録を今後の参照先
+とする)。既存テスト`python3 -I -m unittest discover -s prototype -p "test_*.py"`184件・
+`python3 -I schema/validate_test_cases.py`22件を再実行し、いずれも変更なしでパス(回帰なし)。
+実LLM/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+2026-11-08 08:00 UTC記載の運営方針確認(7venture共通で、実GCPプロジェクト・Firestore・
+Stripeアカウント・LINE公式アカウント等の実アカウント作成が未承認のまま止まっており、いずれか
+1ventureだけでも実アカウント作成等を承認いただくか、当面すべて保留とする旨を明示いただくかの
+二択を依頼した件)は、前回直接通知(push notification)が2026-11-26 18:00 UTCで、本時刻は
+ちょうど24時間経過かつ状況不変のため、本時刻は記録に加えて再度オーナーへ直接通知(push
+notification)する。承認(実アカウント作成等)自体はオーナーが対話セッションで直接指示した
+場合にのみ実行する。
+理由: 定例の状況記録。新規の許可必要アクションは発生していない。24時間周期の通知ポリシーに
+基づき、本時刻でオーナーへの再通知を実施する。
+
+---
+
 日時: 2026-11-27 15:00 UTC
 venture: line-reservation-ai(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、

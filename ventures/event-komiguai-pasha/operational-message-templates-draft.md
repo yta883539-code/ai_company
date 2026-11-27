@@ -107,8 +107,11 @@ prototype/operational_message_templates.pyを3-1節の文言に統一した)
 
 ## 5. 未検証・残課題
 
-- 見出し記号(【】)不使用の機械チェック化(他venture・本venture共通の横断課題として
-  次回候補)。
+- ~~見出し記号(【】)不使用の機械チェック化(他venture・本venture共通の横断課題として
+  次回候補)。~~ (解消済み 2026-11-02: 翌フェーズ82で`post_generation_checks.py`の
+  `HEADING_BRACKET_PATTERN`を再利用した`TestOperationalMessageTemplatesNoHeadingBrackets`
+  を`prototype/test_operational_message_templates.py`に追加し、5テンプレート全件で
+  見出し記法【】不使用を機械チェック済み。本項目は約25日間、完了済みのまま陳腐化していた。)
 - C-1・C-2・D文面の実際の文言は、オーナー承認後の実メール送信連携時に最終確認が必要
   (本フェーズはテンプレート文字列の確定と機械チェック基盤の追加のみ)。
 - 本文書で確定した文例とinquiry-handling-design.md・ttl-expiry-result-delivery-refund-design.md
