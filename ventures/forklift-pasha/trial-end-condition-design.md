@@ -91,20 +91,26 @@ def is_trial_period_over(
 
 ## 6. 今後の課題
 
-- `trialGenerationCount`を生成成功時に加算する書き込み処理(`FleetOperatorStoreProtocol`への
-  `get_trial_start_at`/`set_trial_start_at`/`get_trial_generation_count`/
-  `increment_trial_generation_count`の追加)。本フェーズでは判定関数とProtocol定義のみを
-  `prototype/trial_management.py`として実装し、Webフォーム送信時の実際の呼び出し配線
-  (`web-form-ui-design.md`・`mvp-flow-draft.md`側の処理フロー)は未着手のまま残す。
-- (A)生成5回到達・(B)期間30日到達のいずれの経路で検知した場合も、通知メッセージの文言自体
-  (aircon-pasha/trial-end-notification-design.md相当)は本venture未設計。次回候補とする。
-- (B)期間到達側の検知には、line-reservation-ai/reminder-scheduler-design.md・
-  kura-pasha/daily-scheduler-design.md相当の日次スケジューラが必要だが、本venture側には
-  まだ存在しない(usage-and-fleet-overage-notification-design.mdの通知2種と合わせて
-  一体設計するのが望ましい。次回候補)。
-- `get_subscription_status`等、有償契約状態を判定する手段も本venture未着手(本判定関数は
-  トライアル終了判定と有償契約済み判定を混同しないよう、現時点では意図的に
-  `is_trial_period_over()`の結果だけを使った生成一時停止の配線は行わない)。
+- (解消済み・フェーズ121: `trialGenerationCount`を生成成功時に加算する書き込み処理
+  〈`FleetOperatorStoreProtocol`への`get_trial_start_at`/`set_trial_start_at`/
+  `get_trial_generation_count`/`increment_trial_generation_count`〉は
+  `prototype/trial_management.py`に実装済み。Webフォーム送信時の実際の呼び出し配線も
+  `form_submission_flow.py`の`process_form_submission()`から
+  `record_generation_and_get_trial_end_notice()`経由で既に配線されている。本節作成時点
+  〈フェーズ118〉では未着手だったが、以降のフェーズで解消済みのまま更新注記が漏れていた
+  陳腐化記載だったため本フェーズ〈フェーズ271〉で是正。)
+- (解消済み・フェーズ119: (A)生成5回到達・(B)期間30日到達いずれの経路の通知メッセージ文言も
+  trial-end-notification-design.mdで設計済み。本節作成時点〈フェーズ118〉で「次回候補」と
+  残した論点がフェーズ119で即日解消されたまま本節側の注記更新が漏れていた陳腐化記載。)
+- (解消済み・フェーズ133: (B)期間到達側の日次スケジューラ相当は
+  `prototype/trial_end_email_scheduler.py`〈`is_trial_end_email_due()`・
+  `select_due_trial_end_emails()`・`send_trial_end_emails()`等〉として机上実装済み
+  〈実際のCloud Scheduler実行環境構築・メール送信自体はオーナー承認待ちのまま〉。本節側の
+  「まだ存在しない」という記載が陳腐化していたため是正。)
+- (解消済み・`prototype/trial_management.py`に`is_subscription_canceled()`が実装済み
+  〈`process_form_submission()`から他の全判定より最優先で評価される設計、フェーズ132で
+  その組み込み順序も明文化済み〉。厳密な`get_subscription_status`という名前の関数ではないが、
+  本節が求めていた「有償契約状態の判定手段」としての役割は満たされている。)
 - 実際のGCPプロジェクト作成・Firestore接続・Stripe接続はいずれもオーナー承認待ちの範囲
   (pending-approval.md参照)。本ドキュメントは机上の判定ロジック設計のみ。
 

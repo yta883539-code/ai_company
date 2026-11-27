@@ -6162,3 +6162,39 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   design.md 5節の陳腐化記載〈daily区分の点検者名空欄化は実装済み〉を発見・是正。
   ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
   27ファイルいずれもパス、回帰なし)
+
+- フェーズ271(2026-11-27 21:00 UTC定例更新)。ideas.mdに新規アイデア2件を追加した
+  (WordPress多言語化プラグイン「TranslatePress – Multilingual」の未認証パスワードリセット
+  リンク漏洩によるアカウント乗っ取り脆弱性〈CVE-2026-19632、CVSS9.8〉対応「トランスレート
+  プレスのっとられパシャっと」、複数サイト一括管理プラグイン「WPMU DEV Dashboard」のHub
+  SSO認証バイパス脆弱性〈CVE-2026-76581、CVSS9.8〉対応「ダブリューピーエムユーのっとられ
+  パシャっと」、いずれも小規模・自動起業可能、重複なし初出確認済み)。7venture中最も更新が
+  止まっていた本venture(前回最終更新フェーズ270・2026-11-27 14:00 UTC)を選定し、フェーズ
+  270次回候補(3)「他ファイルの『残課題』『今後の課題』節の陳腐化棚卸しを継続」に対応した。
+  trial-end-condition-design.md「6. 今後の課題」の4点を確認したところ、(1)
+  `trialGenerationCount`加算処理・Webフォーム送信時の呼び出し配線はフェーズ121で
+  `prototype/trial_management.py`・`form_submission_flow.py`に実装済み、(2)通知メッセージ
+  文言はフェーズ119でtrial-end-notification-design.mdとして設計済み、(3)期間到達側の日次
+  スケジューラ相当はフェーズ133で`prototype/trial_end_email_scheduler.py`として机上実装済み、
+  (4)有償契約状態の判定手段は`is_subscription_canceled()`としてフェーズ132で組み込み順序も
+  明文化済み、のいずれも全て解消済みであるにもかかわらず「未着手」「次回候補」のまま解消済み
+  注記なしで約1ヶ月半(フェーズ118作成以降)放置されていた陳腐化記載であることを発見し、
+  4点すべてに(解消済み・フェーズ番号・実装箇所)の注記を追加して是正した。ドキュメントのみの
+  更新でコード変更なし。既存テスト(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)121件・schema検証(`python3 -I schema/validate_test_cases.py`)11件・
+  `python3 -I prototype/run_all_tests.py`27ファイルいずれも変更なしでパス(回帰なし)。実
+  LLM/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規承認依頼は
+  なし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-27
+  18:00 UTC〉から約3時間・24時間未満のため再通知は見送り、状況記録のみpending-approval.md
+  に追記)。
+  次回候補: (1)customer-interview-design.md Q11の実ヒアリング結果(オーナー承認待ち)を
+  踏まえた6.3決定の再検証。(2)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド
+  未接続・ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-
+  checklist.md参照)。(3)他ファイルの「残課題」「今後の課題」節の陳腐化棚卸しを継続(本
+  フェーズで1ファイル4点確認、未確認多数)。(4)承認待ち事項がオーナーから承認された場合は
+  その着手を最優先。
+- 最終更新: 2026-11-27 21:00 UTC(フェーズ271: 詳細は上記。trial-end-condition-design.md
+  「6. 今後の課題」4点全てが既に解消済みだった陳腐化記載を発見・是正。ドキュメントのみの
+  更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests27ファイルいずれも
+  パス、回帰なし)
