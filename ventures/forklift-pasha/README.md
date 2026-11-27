@@ -6073,3 +6073,30 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   customer-interview-design.mdフェーズ266のC-2節追加〈全12問→全14問〉に合わせて更新。
   ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
   27ファイルいずれもパス、回帰なし)
+
+- フェーズ268(2026-11-27 02:00 UTC定例更新)。7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ267・2026-11-26 19:00 UTC)を選定し、フェーズ267次回候補(2)
+  「annual固有の`inspector_company`キャッシュ要否自体の机上検討(フェーズ264で切り出された
+  論点、customer-interview-design.md Q11の回答傾向待ち)」に対応した。実ヒアリング(オーナー
+  承認待ち)はまだ実施できていないため、Q11回答を待たずに参照可能な情報(安衛則条文・既存の
+  頻度比較ロジック)のみで机上判断できる範囲を先に決定する方針とし、
+  monthly-annual-get-rendering-decision.mdに6節を追加した。検査業者継続の可能性について
+  継続を支える要因(切り替えコストによる慣性)・妨げる要因(年1回取引ゆえの価格比較のしやすさ・
+  検査業者側都合による不継続・複数台保有時の依頼先分散可能性)の双方を整理し、机上だけでの
+  断定は不可と確認した上で、キャッシュ効果が顕在化するまで最短1年を要する投資回収の遅さを
+  追加の根拠として、2節で既に見送り済みの点検者名キャッシュと同じ結論(着手見送り)を維持する
+  暫定決定とした(Q11実ヒアリング結果が得られた段階で再検証する前提を明記)。本フェーズは
+  monthly-annual-get-rendering-decision.mdのドキュメント更新のみでコード変更なし。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)121件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)11件・`python3 -I prototype/run_all_tests.py`
+  27ファイルいずれも変更なしでパス(回帰なし)。実LLM/LINE/Stripe/GCP/Firestore API接続・
+  支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは
+  今回発生していないためpending-approval.mdへの新規追記なし(状況記録のみ追記)。
+  次回候補: (1)customer-interview-design.md Q11の実ヒアリング結果(オーナー承認待ち)を
+  踏まえた6.3決定の再検証。(2)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド
+  未接続・ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-
+  checklist.md参照)。(3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-27 02:00 UTC(フェーズ268: 詳細は上記。monthly-annual-get-rendering-
+  decision.mdにannual固有の`inspector_company`キャッシュ要否の机上決定〈6節〉を追加。
+  ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
+  27ファイルいずれもパス、回帰なし)
