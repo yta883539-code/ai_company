@@ -12,6 +12,34 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-27 23:00 UTC
+venture: ventures/line-reservation-ai/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア2件を追加した(WooCommerce向け決済プラグイン「CryptoPayment
+Gateway」の未認証任意操作脆弱性〈CVE-2026-81648、CVSS10.0、1.2.1〜1.2.2が対象、Defused
+Cyberが実際の攻撃試行を観測と報道、公式修正版なし・プラグイン自体が公式ディレクトリから
+削除済み〉対応「クリプトペイメントのっとられパシャっと」、WordPress向けSSOプラグイン
+「miniOrange OAuth Single Sign On」の未認証認証バイパス脆弱性〈CVE-2026-57807、CVSS9.8、
+38.5.8以前が対象、修正版の有無は情報源間で食い違いあり〉対応「ミニオレンジのっとられ
+パシャっと」、いずれも小規模・自動起業可能、ideas.md内検索で重複なし初出確認済み)。投資版
+presentations追記は見送り(いずれも単一チャット/フォームとLLM APIで完結する一次診断規模の
+ため)。7venture中最も更新が止まっていたline-reservation-ai(前回最終更新フェーズ続き416・
+2026-11-27定例更新)をフェーズ続き417として前進させ、tone-and-manner-guideline.md・
+reminder-timing-and-resend-rules.mdに残っていた陳腐化した未解消タスク表記(2026年10月予定
+のLINE料金改定再確認。line-price-revision-2026-check.mdで既に対応済み)2件を、他ファイルと
+同形式(取消線+相互参照)に是正した。既存テスト`python3 -I -m unittest discover -s
+prototype -p "test_*.py"`1077件・`python3 -I schema/validate_test_cases.py`28件いずれも
+変更なしでパス(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント
+作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっている件)は、前回オーナーへの直接プッシュ通知(2026-11-27 18:00 UTC、
+event-komiguai-pasha選定時)から約5時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
 日時: 2026-11-27 22:00 UTC
 venture: ventures/line-reservation-ai/(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
