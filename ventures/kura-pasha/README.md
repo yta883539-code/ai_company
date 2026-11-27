@@ -7998,3 +7998,32 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ため継続保留。(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture
   共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから
   得られた場合はその着手を最優先。(3)他venture・アイデア領域の前進。
+
+
+- フェーズ続き338(2026-11-27 16:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き337・2026-11-27 09:00 UTC)を選定。フェーズ続き336・337次回候補(1)(2)
+  はいずれも運営方針判断待ち・実運用データ不足で継続保留のままのため、既存ドキュメントの
+  陳腐化チェックを行った。data-retention-policy.mdの「前提の整理」節が「tech-stack.md相当の
+  設計文書が本venture未作成」「サーバー側に永続保存するコレクションは`user_profile`・
+  `usage_counter`の2種類のみ」という前提に基づいていたが、tech-stack.mdはフェーズ91
+  (2026-09-12)に新規作成済みで、実際のコレクションは`craftsman_workshop`(契約・課金フィールド
+  一式)を含む3種類であることを発見した。data-retention-policy.md自身の「残課題」節もこの
+  整合確認を「tech-stack.md新規作成時に行う」次回候補として挙げていたにもかかわらず、作成から
+  本訂正まで約2ヶ月半陳腐化したまま放置されていた。「前提の整理」節・保存期間ポリシー表を
+  訂正し、`craftsman_workshop`(保存期間ポリシーの判定材料である`subscription_status`自体を
+  保持するコレクション)を保存期間ポリシーの対象に追加、残課題節に対応済み注記と新たな次回候補
+  (member側固有の削除候補化論点)を追記した。ドキュメントのみの更新でコード変更なし。既存
+  テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)334件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)32件を再実行し、いずれも変更なしでパス
+  (回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要な新規アクションは今回発生していないためpending-approval.mdへの
+  新規承認依頼はなし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ
+  通知〈2026-11-26 18:00 UTC〉から約22時間・24時間未満かつ状況不変のため、本時刻は再通知を
+  見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認の
+  ため継続保留。(2)`craftsman_workshop.member_user_ids`(非契約者メンバー)の削除候補化・
+  最終確認フローはdata-retention-policy.md本フェーズ訂正時点でも未検討のまま残っており、
+  downgrade-excess-member-handling-design.md・member-retention-notice-design.mdの既存整理
+  との関係整理が次回候補。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま
+  7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナー
+  から得られた場合はその着手を最優先。(4)他venture・アイデア領域の前進。

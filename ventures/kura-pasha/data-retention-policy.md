@@ -15,33 +15,43 @@ aircon-pasha・course-set-pashaの既存整理(1年保有・解約起点)を準�
 そのものではない。最終的な妥当性の確認は引き続き法律専門家への確認が必要な事項
 として残す(legal-notices-draft.mdと同様の位置づけ)。
 
-## 前提の整理: 本ventureが持つ永続データは2種類のみ
+## 前提の整理: 本ventureが持つ永続データは3種類(訂正 2026-11-27 16:00 UTC・フェーズ続き338)
 
 legal-notices-draft.md 2.4節・course-set-pashaの想定を踏襲し、本venture(鞍
 パシャッと)もline-reservation-aiのような会話状態・予約履歴・通知ログの継続的な
 蓄積は持たない。生成した受注内容整理メモ・納品案内下書き・お手入れ案内下書きの
 文面自体は、LINE返信メッセージ本文等としてその場で返すのみでサーバー側には
-保存しない設計を想定する(course-set-pashaと同じ、tech-stack.md相当の設計文書は
-本venture未作成だが、mvp-flow-draft.mdの入出力構成からもサーバー側での本文保存を
-必要とする理由はない)。
+保存しない設計を想定する(course-set-pashaと同じ。mvp-flow-draft.mdの入出力構成
+からもサーバー側での本文保存を必要とする理由はない)。
 
-サーバー側に永続保存するのは以下の2種類のみを想定する。
+本節は当初(2026-09-07時点)「tech-stack.md相当の設計文書が本venture未作成」という
+前提で書かれていたが、tech-stack.mdはフェーズ91(2026-09-12)で新規作成済みであり、
+サーバー側に永続保存するコレクションは下表の3種類であることが確定している(下記の
+2点目「残課題」が指摘していた確認作業を本フェーズで実施し解消する)。
 
-| コレクション(想定) | 用途 | 既存の期限方針 |
+| コレクション | 用途 | 既存の期限方針 |
 |---|---|---|
-| `user_profile` | 職人本人に関する情報(屋号・事業形態・メールアドレス・決済ID等) | 未整理(本文書で整理する) |
-| `usage_counter` | 月間生成回数カウント | 未整理(本文書で整理する) |
+| `craftsman_workshop/{workshop_id}` | 契約・課金に関するフィールド一式(`contractor_user_id`・`member_user_ids`・`plan_id`・`stripe_customer_id`・`subscription_status`・`trial_start_at`・`current_period_end`等) | 本文書で整理する(下記「保存期間ポリシー(案)」参照) |
+| `user_profile/{user_id}` | 職人本人に関する情報(`workshop_id`のみ。屋号・事業形態・メールアドレス等の登録情報は現状craftsman_profile-collection-design.md側の設計を参照) | 本文書で整理する |
+| `usage_counter/{workshop_id}` | 月間生成回数カウント | 本文書で整理する |
 
 いずれも「サービス利用者(職人本人)自身」に関する記録であり、course-set-pashaの
 `user_profile`・`usage_counter`と同じ位置づけ。顧客(乗馬クラブ・牧場・馬主)の
 発注内容自体はサーバー側に保存されないため、本文書が扱う保存期間の論点にはならない。
+
+なお`craftsman_workshop`は本文書が従来「`user_profile`・`usage_counter`」としてのみ
+整理していた保存期間ポリシーの判定材料そのもの(`subscription_status`)を保持する
+コレクションであり、本文書の対象から漏らしてよいものではない。下記「保存期間
+ポリシー(案)」の1年保有ルールは`craftsman_workshop`にも同様に適用する(契約者
+`contractor_user_id`・メンバー`member_user_ids`のいずれも、当該workshopの解約を
+起点として扱う)。
 
 ## 保存期間ポリシー(案)
 
 course-set-pashaと同様、契約関係(Stripeサブスクリプションの状態、pricing-plan.md
 「無料トライアル条件」参照)を基準に整理する。
 
-| 状態 | `user_profile`・`usage_counter`の扱い |
+| 状態 | `craftsman_workshop`・`user_profile`・`usage_counter`の扱い |
 |---|---|
 | トライアル中・有料プラン中(Stripeサブスクリプションが active/trialing) | 保有継続 |
 | Stripeカスタマーポータルで解約済み | 解約日から**1年**保有した後、削除候補として洗い出す |
@@ -90,13 +100,22 @@ LINEの公式アカウントへのメッセージ、または登録メールア�
 
 ## 残課題
 
-- 本文書はtech-stack.md相当の設計文書が本venture未作成の段階での想定に基づく。
-  実際にFirestore等でのデータモデル設計(tech-stack.md新規作成)を行う際は、
-  本文書の想定(`user_profile`・`usage_counter`の2コレクションのみ)との整合を
-  確認する必要がある。
+- (対応済み 2026-11-27 16:00 UTC・フェーズ続き338): 「tech-stack.md新規作成時に
+  本文書の想定〈2コレクションのみ〉との整合を確認する」としていた本課題を対応した。
+  tech-stack.mdはフェーズ91(2026-09-12)に新規作成済みであり、実際のコレクション数は
+  2ではなく3(`craftsman_workshop`・`user_profile`・`usage_counter`)だったことを
+  確認し、「前提の整理」節・上記表を訂正した。約2ヶ月半(tech-stack.md作成から本訂正
+  まで)陳腐化した記載が残っていたことになる。
 - legal-notices-draft.md 2.4節の「暫定準用」の記述は、本文書の内容に基づいて
   正式な記載へ差し替え済み(フェーズ21)。
 - 削除候補化後のメール通知の実装(メール送信基盤の整備)は他venture共通の
   未実装課題であり、本venture固有の追加課題ではない。
+- `craftsman_workshop.member_user_ids`に含まれる非契約者(追加メンバーの職人)の
+  削除候補化・最終確認フローは、本文書は契約者(`contractor_user_id`)起点の整理に
+  留まっており、member側固有の論点(退会・権利関係)は未検討のまま残る。
+  downgrade-excess-member-handling-design.md・member-retention-notice-design.mdの
+  既存整理との関係整理は次回候補とする。
 
-最終更新: 2026-09-07 03:00 UTC
+最終更新: 2026-11-27 16:00 UTC(フェーズ続き338: tech-stack.md作成済み〈フェーズ91〉
+に伴う前提の訂正。craftsman_workshopコレクションを保存期間ポリシーの対象に追加。
+ドキュメントのみの更新、コード変更なし)
