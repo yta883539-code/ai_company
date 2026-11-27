@@ -12,6 +12,36 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-27 07:00 UTC
+venture: forklift-pasha(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(家計簿アプリ「Zaim」の外部開発者向けAPI「Zaim API」
+提供終了〈2026年12月7日予定〉対応のZaim API連携利用者向け影響一次整理&データ退避・移行
+チェックリスト下書き生成「ザイムれんけいひっこしパシャっと」=小規模・自動起業可能、ideas.md
+内検索で重複なし初出確認済み。投資版presentations追記は見送り)。7venture中最も更新が
+止まっていたline-reservation-ai(フェーズ続き413)の次回候補(1)「他venture(forklift-pasha)
+にも同型のUNREACHABLE_REASON_*/_LABELS定義が存在するか未確認のため棚卸しを継続」を受けて
+forklift-pashaを選定し、フェーズ269として前進させた。forklift-pashaのdeletion_candidate.py
+には既にUNREACHABLE_REASON_*定数・_UNREACHABLE_REASON_LABELS辞書が存在していたが、
+aircon-pasha/kura-pasha/course-set-pasha/line-reservation-aiに導入済みの動的parity回帰テスト
+が本venture(forklift-pasha)のtest_deletion_candidate.pyには未導入だったため、本venture
+自身のテスト形式(`_check()`/`results.append()`形式、unittest discover非互換のためrun_all_
+tests.py経由で実行)に合わせて横展開した(コード変更なし、テスト追加のみ)。既存テスト
+`python3 -I -m unittest discover -s prototype -p "test_*.py"`121件(変更なし)・schema検証
+11件(変更なし)・`python3 prototype/run_all_tests.py`27ファイル(新規アサーション2件含む)
+いずれもパス(回帰なし)。実LLM/LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・
+外部公開・送信は一切行っていない。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通で、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回直接通知(push
+notification)が2026-11-26 18:00 UTCで、本時刻は約13時間後・24時間未満かつ状況不変のため、
+本時刻は再通知を見送り、状況記録のみ本エントリに残す。次回以降の定例更新で前回通知から
+24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。承認(実アカウント
+作成等)自体はオーナーが対話セッションで直接指示した場合にのみ実行する。
+理由: 承認は不要(状況記録のみ)。
+
+---
+
 日時: 2026-11-27 03:00 UTC
 venture: oshien-pasha(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、

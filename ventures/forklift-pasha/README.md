@@ -6100,3 +6100,34 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   decision.mdにannual固有の`inspector_company`キャッシュ要否の机上決定〈6節〉を追加。
   ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証11件・run_all_tests
   27ファイルいずれもパス、回帰なし)
+- フェーズ269(2026-11-27定例更新)。7venture中最も更新が止まっていたline-reservation-ai
+  のフェーズ続き413(本日時)の次回候補(1)「他venture(forklift-pasha)にも同型の
+  UNREACHABLE_REASON_*/_LABELS定義が存在するか未確認のため棚卸しを継続」を受け、本venture
+  (forklift-pasha)を選定して対応した。deletion_candidate.pyには
+  `UNREACHABLE_REASON_NO_EMAIL`/`UNREACHABLE_REASON_SEND_FAILED`定数と
+  `_UNREACHABLE_REASON_LABELS`辞書が既に存在するが、aircon-pasha/kura-pasha/
+  course-set-pasha/line-reservation-aiに導入済みの動的parity回帰テスト
+  (定数側にのみ値を追加し辞書側への追加を忘れる再発を機械的に防ぐテスト)が本venture
+  のtest_deletion_candidate.pyには未導入だったため横展開した。本ventureのテストは
+  unittest.TestCaseベースではなく`_check()`/`results.append()`形式(run_all_tests.py参照、
+  discover非互換のため)のため、他ventureのUnreachableReasonLabelParityTestクラスをそのまま
+  移植せず、同じ判定ロジック(`vars(module)`からUNREACHABLE_REASON_*を動的収集し
+  `_UNREACHABLE_REASON_LABELS`との対応漏れを検出)を本ventureの`_check()`形式に合わせて
+  追加した(現時点でreasonは2種類のみで辞書と1対1の対応漏れなしも確認済み)。これで
+  同型テスト未導入のventureはなくなった。既存テスト`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`121件(変更なし)・schema検証11件(変更なし)・
+  `python3 prototype/run_all_tests.py`27ファイル(test_deletion_candidate.py内の
+  アサーション22件、新規2件含む、他26ファイル変更なし)いずれもパス(回帰なし)。実LLM/
+  LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行って
+  いない。承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規
+  承認依頼はなし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ
+  通知〈2026-11-26 18:00 UTC〉から24時間未満かつ状況不変のため再通知は見送り、状況記録
+  のみpending-approval.mdに追記)。
+  次回候補: (1)customer-interview-design.md Q11の実ヒアリング結果(オーナー承認待ち)を
+  踏まえた6.3決定の再検証。(2)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド
+  未接続・ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-
+  checklist.md参照)。(3)承認待ち事項がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-27フェーズ269(詳細は上記。test_deletion_candidate.pyに
+  UNREACHABLE_REASON_*/_UNREACHABLE_REASON_LABELSの動的parity回帰チェックを横展開。
+  コード変更はテスト追加のみ、既存テスト121件・schema検証11件・run_all_tests27ファイル
+  いずれもパス、回帰なし)

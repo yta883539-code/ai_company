@@ -166,6 +166,30 @@ def main():
         True,
     ))
 
+    # --- UNREACHABLE_REASON_*定数と_UNREACHABLE_REASON_LABELSの対応漏れ回帰テスト ---
+    # aircon-pasha/kura-pasha/course-set-pasha/line-reservation-aiの同型テスト
+    # (UnreachableReasonLabelParityTest)を横展開。定数側にのみ値を追加し辞書側への
+    # 追加を忘れる再発を機械的に防ぐ(現時点でreasonは2種類のみで辞書と1対1の対応漏れ
+    # なしも本テストで確認済み)。
+    import deletion_candidate as _deletion_candidate_module
+
+    _reason_values = {
+        value
+        for name, value in vars(_deletion_candidate_module).items()
+        if name.startswith("UNREACHABLE_REASON_") and isinstance(value, str)
+    }
+    results.append(_check(
+        "UNREACHABLE_REASON_*定数が1つ以上検出できる",
+        bool(_reason_values),
+        True,
+    ))
+    _missing_labels = _reason_values - _deletion_candidate_module._UNREACHABLE_REASON_LABELS.keys()
+    results.append(_check(
+        f"_UNREACHABLE_REASON_LABELSへのラベル追加漏れがない(漏れ: {_missing_labels or 'なし'})",
+        _missing_labels,
+        set(),
+    ))
+
     if all(results):
         print(f"\n全{len(results)}件パス")
         return 0
