@@ -12,6 +12,36 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-27 19:00 UTC
+venture: ventures/aircon-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア2件を追加した(WordPressフォーム連携プラグイン「Advanced Form
+Integration」の権限不正割り当て脆弱性〈CVE-2026-125769、CVSS9.8、影響範囲2.11.3以前〉対応
+「フォームインテグレーションのっとられパシャっと」、弥生「あんしん保守サポート」等サポート
+契約料金改定〈2026年8月3日付告知、2026年10月1日以降の契約開始・更新分より適用〉対応
+「やよいサポートねあがりパシャっと」、いずれも小規模・自動起業可能、ideas.md内検索で重複
+なし初出確認済み)。投資版presentations追記は見送り(いずれも単一チャット/フォームと
+LLM APIで完結する一次診断規模のため)。7venture中最も更新が止まっていたaircon-pasha
+(前回README.md最終更新フェーズ420・2026-11-27 11:00 UTC、約8時間)をフェーズ421として
+前進させ、決済導線系の未確認4ファイル(checkout-initiation-flow-design.md・
+checkout-session-completed-event-order-guard-design.md・checkout-session-completed-
+handling-design.md・checkout-session-plan-selection-design.md)の「今後の課題」「残課題」
+節を個別に読み直した。いずれも記録と実態の不整合(陳腐化)は見つからず、未解決項目は全て
+実Stripeアカウント接続(オーナー承認待ち)後の課題として正しく保留されているか、既に
+解消済み注記・取消線が付与済みであることを確認した(今回は是正不要)。`python3 -I -m
+unittest discover -s prototype -p "test_*.py"`844件・`python3 -I schema/
+validate_test_cases.py`25件いずれも変更なしでパス(回帰なし)を確認した。実LLM/LINE/
+Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-27 18:00 UTC)から約1時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
 日時: 2026-11-27 18:00 UTC
 venture: event-komiguai-pasha(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、

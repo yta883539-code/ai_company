@@ -8495,3 +8495,36 @@
   是正〈ドキュメントのみ、コード変更なし〉。ideas.mdに新規アイデア2件追加
   〈Confection WordPress Cable RCE対応・Basel Post Types認証バイパス対応〉。既存テスト
   844件・schema検証25件いずれもパス、回帰なし)
+- フェーズ421(2026-11-27 19:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ420・2026-11-27 11:00 UTC、約8時間)を選定した。フェーズ420次回
+  候補(1)に沿い、resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  継続し、決済導線系の未確認4ファイル(checkout-initiation-flow-design.md・
+  checkout-session-completed-event-order-guard-design.md・checkout-session-completed-
+  handling-design.md・checkout-session-plan-selection-design.md)を読み直した。
+  いずれも記録と実態の不整合(陳腐化)は見つからず、未解決項目は全て実Stripeアカウント
+  接続(オーナー承認待ち)後の課題として正しく保留されているか、既に解消済み注記・取消線が
+  付与済みであることを確認した(今回は是正不要)。あわせてideas.mdに新規アイデア2件を
+  追加した(WordPressフォーム連携プラグイン「Advanced Form Integration」の権限不正割り当て
+  脆弱性〈CVE-2026-125769、CVSS9.8、影響範囲2.11.3以前〉対応「フォームインテグレーション
+  のっとられパシャっと」、弥生「あんしん保守サポート」等サポート契約料金改定
+  〈2026年8月3日付告知、2026年10月1日以降の契約開始・更新分より適用〉対応「やよいサポート
+  ねあがりパシャっと」、いずれも小規模・自動起業可能・ideas.md内検索で重複なし初出確認済み。
+  投資版presentations追記は見送り、いずれも既出の個別CVE対応・個別SaaS価格改定対応venture群
+  と同型の単発一次診断規模のため)。既存テスト(`python3 -I -m unittest discover -s prototype
+  -p "test_*.py"`)844件・schema検証(`python3 -I schema/validate_test_cases.py`)25件
+  いずれも変更なしでパス(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生
+  していないためpending-approval.mdへの新規承認依頼なし(2026-11-08 08:00 UTC記載の運営
+  方針確認は前回直接通知2026-11-27 18:00 UTCから約1時間・24時間未満のため本時刻は再通知を
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(今回4ファイル確認、残り約52ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-27 19:00 UTC(フェーズ421: 詳細は上記。決済導線系4ファイルの「今後の
+  課題」「残課題」節を読み直し、陳腐化なしを確認(是正不要)。ideas.mdに新規アイデア2件
+  追加〈Advanced Form Integration権限昇格対応・弥生あんしん保守サポート料金改定対応〉。
+  既存テスト844件・schema検証25件いずれもパス、回帰なし)
