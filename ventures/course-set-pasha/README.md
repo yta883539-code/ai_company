@@ -7662,3 +7662,23 @@
   design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先(aircon-pasha・
   forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3ventureのいずれかが
   次に選ばれた際に対応する。
+
+- フェーズ410(2026-11-27 13:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ409・2026-11-26 23:00 UTC、約14時間)を選定。llm-quality-
+  verification-results-template.mdの「位置づけ」節冒頭(2026-08-28作成時点の原文)が
+  「output-samples-validation.mdの12ケース」と記載したまま陳腐化していた点(実際は
+  フェーズ134→206→409の追加で現在18ケースに拡張済み)を発見し、原文はそのまま維持しつつ
+  現状を明示する追記を加えて是正した(ドキュメントのみ、表自体は既に実体と一致していた
+  ため変更不要、コード変更なし)。既存テスト933件(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)
+  いずれも変更なしでパス(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。新たに承認が必要なアクションは今回発生していない
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-26
+  18:00 UTC〉から約19時間・24時間未満かつ状況不変のため、本時刻は再通知を見送り状況記録
+  のみpending-approval.mdに追記する)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進、(3)stripe-event-id-store-
+  firestore-adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
+  (aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3venture
+  のいずれかが次に選ばれた際に対応する。
