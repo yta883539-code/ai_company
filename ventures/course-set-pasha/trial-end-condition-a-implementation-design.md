@@ -41,12 +41,19 @@ first-generation-notice-implementation-design.mdの「生成完了時の返信�
 
 ## 3. 対象外にした範囲
 
-- trial-end-notification-design.md「4. トライアル終了後(未アップグレード)の挙動」で
+- (解消済み 2026-08-25 03:00 UTC・フェーズ114: trial-end-notification-design.md
+  「4. トライアル終了後(未アップグレード)の挙動」で「本フェーズでは範囲外」とされた
+  「生成一時停止」〈トライアル終了後の生成リクエストを拒否する分岐〉は、翌フェーズ114で
+  本節が示した検知結果〈`get_trial_end_notified_at(user_id) is not None`かつ
+  `get_upgraded_at(user_id) is None`〉を使い`_is_generation_paused()`として実装済み
+  〈`prototype/cloud_function_webhook.py`〉。以下は作成時点(フェーズ113)の記載の
+  ママ残す):
+  ~~trial-end-notification-design.md「4. トライアル終了後(未アップグレード)の挙動」で
   「本フェーズでは範囲外」とされた「生成一時停止」(トライアル終了後の生成リクエストを
   拒否する分岐)は、本フェーズでも引き続き未実装のまま残す。通知の送信条件(A)を実装した
   ことで「トライアル終了検知」自体は行われるようになったため、次回はこの検知結果
   (`get_trial_end_notified_at(user_id) is not None`かつ`get_upgraded_at(user_id) is None`)を
-  使って生成一時停止を実装することが可能になった。
+  使って生成一時停止を実装することが可能になった。~~
 - 実LINE Push Message API・実Cloud Scheduler接続(オーナー承認待ち)を要する(B)側の実配線は
   対象外(trial-end-scheduler-design.md参照、変更なし)。
 
