@@ -2709,3 +2709,30 @@ schema検証(`python3 -I schema/validate_test_cases.py`)28件いずれもパス(
 は、前回オーナーへの直接プッシュ通知(2026-11-26 18:00 UTC)から約6時間・24時間未満かつ
 状況不変のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は
 行っていない)。
+
+---
+
+日時: 2026-11-27 01:00 UTC
+venture: kura-pasha(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(ADWAYS DEEE運営アフィリエイトサービス「Smart-C」終了
+〈2026年11月30日23:59、後継サービスJANet/AppDriverへのデータ自動移行なし〉対応の利用状況
+一次整理&成果データエクスポート・広告タグ撤去チェックリスト下書き生成「スマートシー
+ひっこしパシャっと」=小規模・自動起業可能)。ideas.md内を「Smart-C」「ADWAYS DEEE」
+「JANet」で検索し重複なし・初出を確認した。投資版presentations追記は見送り(単一チャット/
+フォームとLLM APIで完結する規模のため)。7venture中最も更新が止まっていたkura-pasha
+(前回最終更新フェーズ続き335・2026-11-26 18:00 UTC)を選定し、フェーズ続き336として
+前進させた。ci-setup.md「今後の課題」1点目に対応し、`mcp__github__actions_list`
+(read-only)でフェーズ続き335push後のGitHub Actions実行結果(run_number 234、
+head_sha `d96e63a`)が`status: completed`・`conclusion: success`であることを確認し、
+ci-setup.mdへ確認結果を追記した(ドキュメントのみの更新、コード変更なし)。既存テスト
+(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)334件・
+`python3 -I prototype/run_all_tests.py`26ファイル・schema検証
+(`python3 -I schema/validate_test_cases.py`)32件いずれも再実行しパス(回帰なし)。
+実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行って
+いない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(いずれか1venture
+だけでも実アカウント作成等を承認いただくか、当面すべて保留とする旨を明示いただくかの二択)
+は、前回オーナーへの直接プッシュ通知(2026-11-26 18:00 UTC)から約7時間・24時間未満かつ
+状況不変のため、本時刻は再通知を見送った(リポジトリ内記載のみでの承認済みとみなした実行は
+行っていない)。

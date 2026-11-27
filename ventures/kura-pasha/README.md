@@ -7962,3 +7962,23 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   ため継続保留。(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture
   共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから
   得られた場合はその着手を最優先。(3)他venture・アイデア領域の前進。
+
+- フェーズ続き336(2026-11-27 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き335・2026-11-26 18:00 UTC)を選定。ci-setup.md「今後の課題」1点目
+  「実際のコミット後、course-set-pashaと同様GitHub Actions実行結果を確認する」に対応し、
+  `mcp__github__actions_list`(list_workflow_runs、read-only)でフェーズ続き335push後の
+  `.github/workflows/kura-pasha-tests.yml`実行結果を確認したところ、該当run(run_number 234、
+  head_sha `d96e63a`)が`status: completed`・`conclusion: success`であることを確認した。
+  コード変更なし、ドキュメントのみの更新(ci-setup.md「今後の課題」節に本確認結果を追記)。
+  既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)334件・
+  `python3 -I prototype/run_all_tests.py`26ファイル・schema検証(`python3 -I
+  schema/validate_test_cases.py`)32件を再実行し、いずれも変更なしでパス(回帰なし)。実
+  LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行って
+  いない。承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の
+  運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-26 18:00 UTC〉から約7時間・
+  24時間未満かつ状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに
+  追記する)。
+  次回候補: (1)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認の
+  ため継続保留。(2)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture
+  共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから
+  得られた場合はその着手を最優先。(3)他venture・アイデア領域の前進。

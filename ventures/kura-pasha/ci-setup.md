@@ -50,6 +50,10 @@ aircon-pasha・course-set-pasha・line-reservation-aiでは既にGitHub Actions�
 ## 今後の課題
 - 実際のコミット後、course-set-pashaと同様`mcp__github__actions_list`でCI実行結果
   (status: completed / conclusion: success)を確認する。
+  - フェーズ115(2026-09-14)でフェーズ113・114push分(run_number 1・2)の成功を確認済み。
+  - フェーズ続き336(2026-11-27 01:00 UTC)でフェーズ続き335push分(run_number 234、
+    head_sha `d96e63a`)も`status: completed`・`conclusion: success`であることを
+    read-onlyで再確認した。以降も各pushごとの継続確認は次回以降の定例更新に持ち越す。
 - 実LLM接続(オーナー承認待ち)が実現した際、結合テストをこのワークフローに追加するかを
   検討する。
 - 他3ventureのci-setup.md「今後の課題」で記録されている「新規テストファイル追加時の
