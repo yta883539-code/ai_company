@@ -7682,3 +7682,26 @@
   firestore-adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
   (aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3venture
   のいずれかが次に選ばれた際に対応する。
+
+- フェーズ411(2026-11-27 20:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ410・2026-11-27 13:00 UTC、約7時間)を選定。launch-readiness-
+  checklist.mdがフェーズ385(2026-11-17 08:00 UTC)の申し送り(「次回以降は概ね1〜2週間
+  間隔での実施で十分」)に基づき、約10日経過した本時刻に再棚卸しを実施した。承認待ち事項
+  1〜6の日時アンカー6件すべてをpending-approval.md内で検索し、いずれも`venture:
+  ventures/course-set-pasha/`として現存し、内容・件数に変更がないことを確認した(記載
+  漏れ・削除・改変なし)。ドキュメントのみの更新でコード変更なし。既存テスト933件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)。実LLM/
+  LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  新たに承認が必要なアクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針
+  確認は前回オーナーへの直接プッシュ通知〈2026-11-26 18:00 UTC〉から約26時間・24時間を
+  超えているが、本venture選定時点では既に別venture〈event-komiguai-pasha、2026-11-27
+  18:00 UTC〉が再通知済みであるため、本フェーズでの重複通知は見送り状況記録のみ
+  pending-approval.mdに追記する)。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)他venture・アイデア領域の前進、(3)次回のlaunch-readiness-
+  checklist.md棚卸しは概ね1〜2週間後(2026年12月上旬目安)、(4)stripe-event-id-store-
+  firestore-adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
+  (aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3venture
+  のいずれかが次に選ばれた際に対応する。

@@ -12,6 +12,31 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-27 20:00 UTC
+venture: ventures/course-set-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア2件を追加した(WordPress用プラグイン「Pods – Custom Content Types
+and Fields」の未認証権限昇格脆弱性〈CVE-2026-19598、CVSS9.8〉対応「ポッズのっとられ
+パシャっと」、WordPress用有償テーマ「Avada」の未認証任意ファイル書き込み脆弱性
+〈CVE-2026-18431、CVSS9.8〉対応「アバダのっとられパシャっと」、いずれも小規模・自動起業
+可能、ideas.md内検索で重複なし初出確認済み。投資版presentations追記は見送り)。7venture中
+最も更新が止まっていたcourse-set-pasha(前回最終更新フェーズ410・2026-11-27 13:00 UTC、
+約7時間)をフェーズ411として前進させ、launch-readiness-checklist.mdの定期棚卸し(フェーズ
+385〈2026-11-17 08:00 UTC〉の申し送りに基づき約10日ぶり)を実施した。承認待ち事項1〜6の
+日時アンカー6件すべてをpending-approval.md内で再検索し、いずれも現存・内容一致を確認した
+(記載漏れ・削除・改変なし)。`python3 -I -m unittest discover -s prototype -p
+"test_*.py"`933件・`python3 -I schema/validate_test_cases.py`22件いずれも変更なしでパス
+(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・
+送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっている件)は、前回オーナーへの直接プッシュ通知(2026-11-27 18:00 UTC、
+event-komiguai-pasha選定時)から約2時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
 日時: 2026-11-27 19:00 UTC
 venture: ventures/aircon-pasha/(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
