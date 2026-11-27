@@ -28,15 +28,26 @@ schema検証25件いずれもパス。
 
 ## 対象外(次回以降の課題)
 
-- `other_needs_human`判定時のエスカレーション導線(運営者への通知文言・送信経路、
+- ~~`other_needs_human`判定時のエスカレーション導線(運営者への通知文言・送信経路、
   course-set-pashaのchatbot-intent-classification-escalation-design.md 3節相当)は
   本ドキュメントでは設計しない。本venture既存の`payment-suspension-owner-notification-
   design.md`(フェーズ255)の通知先(`OWNER_LINE_USER_ID_PLACEHOLDER`)・文言パターンを
-  流用できる可能性が高い。
-- 分類結果(category文字列)を受け取り、上記2関数・将来のエスカレーション通知へ実際に
+  流用できる可能性が高い。~~
+- ~~分類結果(category文字列)を受け取り、上記2関数・将来のエスカレーション通知へ実際に
   振り分ける入口関数(course-set-pashaの`route_chatbot_intent()`相当)は未実装。
-  `cloud_function_webhook.py`側の`process_memo_event()`との結線も未着手。
+  `cloud_function_webhook.py`側の`process_memo_event()`との結線も未着手。~~
+  (2026-11-27 11:00 UTC是正: 上記2点はいずれもchatbot-intent-classification-
+  escalation-design.md(フェーズ259・260)で対応済みであることを確認した。
+  `send_chatbot_escalation_notification()`・`route_chatbot_intent()`を
+  `prototype/chatbot_intent_router.py`に実装し、`cloud_function_webhook.py`の
+  `handle_memo_event()`へ実結線済み〈同ドキュメント6節参照〉。本項目は対応完了後も
+  未更新のまま約2ヶ月放置されていた陳腐化記載だった。ドキュメントのみの是正で
+  コード変更なし。)
 - 実LLM API接続・実LINE送信はいずれもオーナー承認待ち(pending-approval.md
   2026-07-31 13:58 UTC記載と同種の位置づけ)のため未着手。
-- kura-pashaへの同型の展開は、kura-pasha側の次回以降のフェーズとして申し送る
-  (chatbot-first-response-feasibility.md 4節で既出の申し送り事項)。
+- ~~kura-pashaへの同型の展開は、kura-pasha側の次回以降のフェーズとして申し送る
+  (chatbot-first-response-feasibility.md 4節で既出の申し送り事項)。~~
+  (2026-11-27 11:00 UTC是正: kura-pashaも`prototype/chatbot_intent_router.py`・
+  `chatbot-intent-classification-wiring-design.md`により同様に実結線済みであることを
+  chatbot-intent-classification-escalation-design.md6節の記載〈2026-10-01訂正〉で
+  確認した。本項目も同根の陳腐化記載だった。)

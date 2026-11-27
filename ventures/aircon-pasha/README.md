@@ -8448,3 +8448,50 @@
   design.md等4ファイルの「今後の課題」「残課題」節を読み直し、陳腐化なしを確認〈是正
   不要〉。ideas.mdに新規アイデア2件追加〈ゆうちょPay決済機能終了対応・WP Duplicate
   脆弱性対応〉。既存テスト844件・schema検証25件いずれもパス、回帰なし)
+- フェーズ420(2026-11-27 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回本README.mdでの最終更新フェーズ419・2026-11-27 04:00 UTC、約7時間)を選定した。
+  フェーズ419次回候補(1)に沿い、resolved-mark有無によらない「今後の課題」「残課題」節の
+  個別読み直しを継続し、billing-budget-cap-safeguard-design.md・chatbot-first-response-
+  feasibility.md・chatbot-intent-classification-escalation-design.md・chatbot-intent-
+  classification-followup-design.mdの4ファイルを読み直した。billing-budget-cap-
+  safeguard-design.md・chatbot-intent-classification-escalation-design.mdの2件は記録と
+  実態の不整合は見つからなかった(是正不要)。残り2件で陳腐化記載を発見・是正した。
+  (1)chatbot-first-response-feasibility.md 4節「残課題」で「kura-pasha固有のFAQ内容・
+  顧客層を踏まえた検討は同venture側の次回以降のフェーズとして申し送る」とされていた項目が、
+  実際にはkura-pasha側で本ドキュメントと同じ2026-09-23付(kura-pashaフェーズ166)で
+  同種ドキュメントが既に独自作成済みであるにもかかわらず、解消済み注記なしで約2ヶ月
+  放置されていたことを発見・是正した。(2)chatbot-intent-classification-followup-
+  design.md「対象外(次回以降の課題)」節で「エスカレーション導線は本ドキュメントでは
+  設計しない」「振り分ける入口関数は未実装」「kura-pashaへの展開は申し送る」とされていた
+  3項目が、実際にはいずれもchatbot-intent-classification-escalation-design.md
+  (フェーズ259・260、kura-pasha側は2026-10-01訂正)で既に実装・結線・横展開済みである
+  にもかかわらず、解消済み注記なしで約2ヶ月放置されていたことを発見・是正した
+  (フェーズ411・412・415・418等と同種のパターン)。いずれもドキュメントのみの是正で
+  コード変更なし。あわせてideas.mdに新規アイデア2件を追加した(WordPress用イベント・
+  予約管理プラグイン「Confection WordPress Cable」の未認証任意PHPコード実行脆弱性
+  〈CVE-2026-115252、0.4.0〜0.4.7が対象〉対応「コネクションケーブルのっとられ
+  パシャっと」、WordPress用プラグイン「Basel Post Types」の認証バイパス脆弱性
+  〈CVE-2026-89324、1.18以前・WooCommerce+ソーシャルログイン併用時のみ悪用成立〉対応
+  「ポストタイプのっとられパシャっと」、いずれも小規模・自動起業可能・ideas.md内検索で
+  重複なし初出確認済み)。投資版presentations追記は見送り(いずれも単一チャット/フォーム
+  とLLM APIで完結する一次診断規模のため、既出の個別CVE対応venture群と同型)。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)844件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)25件いずれも変更なしでパス(回帰なし)を
+  確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要な新規アクションは今回発生していないためpending-
+  approval.mdへの新規承認依頼なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接
+  通知2026-11-26 18:00 UTCから約17時間・24時間未満かつ状況不変のため本時刻は再通知を
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(今回4ファイル確認、残り約56ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-27 11:00 UTC(フェーズ420: 詳細は上記。chatbot-first-response-
+  feasibility.md・chatbot-intent-classification-followup-design.mdの2ファイルで
+  kura-pasha横展開・エスカレーション導線実装に関する陳腐化記載〈約2ヶ月放置〉を発見・
+  是正〈ドキュメントのみ、コード変更なし〉。ideas.mdに新規アイデア2件追加
+  〈Confection WordPress Cable RCE対応・Basel Post Types認証バイパス対応〉。既存テスト
+  844件・schema検証25件いずれもパス、回帰なし)

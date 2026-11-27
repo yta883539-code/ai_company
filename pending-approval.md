@@ -2981,3 +2981,33 @@ access_mode: car_or_bus枠組み)。`python3 -I schema/check_venue_master_parity
 通知(2026-11-26 18:00 UTC)から約16時間・24時間未満かつ状況不変のため、本時刻は再通知を
 見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
 更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
+日時: 2026-11-27 11:00 UTC
+venture: ventures/aircon-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア2件を追加した(WordPress用イベント・予約管理プラグイン「Confection
+WordPress Cable」の未認証任意PHPコード実行脆弱性〈CVE-2026-115252、0.4.0〜0.4.7が対象〉対応
+「コネクションケーブルのっとられパシャっと」、WordPress用プラグイン「Basel Post Types」の
+認証バイパス脆弱性〈CVE-2026-89324、1.18以前・WooCommerce+ソーシャルログイン併用時のみ
+悪用成立〉対応「ポストタイプのっとられパシャっと」、いずれも小規模・自動起業可能・ideas.md内
+検索で重複なし初出確認済み)。投資版presentations追記は見送り(いずれも単一チャット/フォームと
+LLM APIで完結する一次診断規模のため)。7venture中最も更新が止まっていたaircon-pasha
+(前回README.md最終更新フェーズ419・2026-11-27 04:00 UTC、約7時間)をフェーズ420として
+前進させ、resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを継続し
+(billing-budget-cap-safeguard-design.md・chatbot-first-response-feasibility.md・
+chatbot-intent-classification-escalation-design.md・chatbot-intent-classification-
+followup-design.mdの4ファイル)、うち2ファイルでkura-pasha横展開・エスカレーション導線の
+実装・結線が既に完了しているにもかかわらず解消済み注記なしで約2ヶ月放置されていた陳腐化
+記載を発見・是正した(ドキュメントのみの更新でコード変更なし)。既存テスト
+(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)844件・schema検証
+(`python3 -I schema/validate_test_cases.py`)25件いずれも変更なしでパス(回帰なし)を確認
+した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-26 18:00 UTC)から約17時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
