@@ -8238,6 +8238,28 @@ LINE公式アカウント上でお客様とのやり取りをAIが解釈し、�
   REASON_LABELS`parity回帰テスト横展開の要否判断、(3)承認待ち事項(launch-readiness-
   checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手を最優先、
   (4)他の個別design.mdファイルの質問総数・件数系の記載について棚卸しを継続。
-- 最終更新: 2026-11-25フェーズ続き412(詳細は上記。interview-rehearsal-script.mdに
-  G〈Q18〜20〉・H〈Q21〉のタイムテーブル・台本を統合し陳腐化メモを解消。コード変更なし、
-  既存テスト1076件・schema検証28件いずれもパス、回帰なし)
+- フェーズ続き413(2026-11-27定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き412・2026-11-25 08:00 UTC、約39時間)を選定。フェーズ続き412
+  の次回候補(2)「他venture(aircon-pasha/course-set-pasha/forklift-pasha/kura-pasha)の
+  `_UNREACHABLE_REASON_LABELS`parity回帰テスト横展開の要否判断」に対応した。本venture自身
+  のstore_deletion_candidate.pyにも同型の`UNREACHABLE_REASON_*`定数・
+  `_UNREACHABLE_REASON_LABELS`辞書が既に存在するにもかかわらず、aircon-pasha/kura-pasha/
+  course-set-pashaには導入済みの動的parity回帰テスト(`UnreachableReasonLabelParityTest`、
+  定数側にのみ値を追加し辞書側への追加を忘れる再発を機械的に防ぐテスト)が本venture自身の
+  test_store_deletion_candidate.pyには未導入だったことを発見し、横展開した(現時点で
+  reasonは2種類のみで辞書と1対1の対応漏れなしも確認済み)。既存テスト`python3 -I -m
+  unittest discover -s prototype -p "test_*.py"`1076件+新規1件=1077件・`python3 -I
+  schema/validate_test_cases.py`28件いずれもパス(回帰なし)。実LLM/LINE/Stripe/GCP API
+  接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクション
+  は今回発生していないためpending-approval.mdへの新規承認依頼はなし(2026-11-08 08:00 UTC
+  記載の運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-26 18:00 UTC〉から約6時間・
+  24時間未満かつ状況不変のため再通知は見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)他venture(forklift-pasha)にも同型のUNREACHABLE_REASON_*/_LABELS定義が
+  存在するか未確認のため棚卸しを継続、(2)リハーサル実測の結果、15分枠に収まらないことが
+  確認された場合の任意設問優先順・時間枠自体の見直し検討、(3)承認待ち事項
+  (launch-readiness-checklist.md記載の1〜4)がオーナーから承認・回答された場合はその着手
+  を最優先、(4)他の個別design.mdファイルの質問総数・件数系の記載について棚卸しを継続。
+- 最終更新: 2026-11-27フェーズ続き413(詳細は上記。store_deletion_candidate.pyの
+  `_UNREACHABLE_REASON_LABELS`に対する動的parity回帰テストをaircon-pasha/kura-pasha/
+  course-set-pashaから横展開。コード変更なし〈テスト追加のみ〉、既存テスト1076件+新規1件、
+  schema検証28件いずれもパス、回帰なし)

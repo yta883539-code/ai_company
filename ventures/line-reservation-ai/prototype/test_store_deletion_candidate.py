@@ -231,5 +231,40 @@ class ClearStoreDeletionConfirmationUnreachableAtTest(unittest.TestCase):
         )
 
 
+class UnreachableReasonLabelParityTest(unittest.TestCase):
+    """UNREACHABLE_REASON_*定数と_UNREACHABLE_REASON_LABELSの対応漏れを防ぐ回帰テスト。
+
+    本venture(line-reservation-ai)のフェーズ続き404で、同型のラベル辞書定義
+    (SYSTEM_ESCALATION_REASONSと_SYSTEM_EVENT_LABELS、別モジュール)において定数側にのみ
+    値を追加し辞書側への追加を忘れるという実バグが見つかった
+    (concurrent-booking-per-customer-state-overwrite-design.md参照)。
+    store_deletion_candidate.py自身のUNREACHABLE_REASON_*/_UNREACHABLE_REASON_LABELSは
+    フェーズ続き412時点で2種類のみで辞書と1対1であり現時点で追加漏れは無いが、
+    aircon-pasha/kura-pasha/course-set-pashaの同型テストを横展開し、将来理由(reason)の
+    種類が追加された際に同種の追加漏れが再発するのを機械的に防ぐ。
+    """
+
+    def test_every_unreachable_reason_constant_has_a_label(self) -> None:
+        import store_deletion_candidate as module
+
+        reason_values = {
+            value
+            for name, value in vars(module).items()
+            if name.startswith("UNREACHABLE_REASON_") and isinstance(value, str)
+        }
+
+        self.assertTrue(
+            reason_values,
+            "UNREACHABLE_REASON_*定数が1つも検出できなかった(命名規則の変更有無を確認)。",
+        )
+
+        missing = reason_values - module._UNREACHABLE_REASON_LABELS.keys()
+        self.assertEqual(
+            missing, set(),
+            "_UNREACHABLE_REASON_LABELSへのラベル追加が漏れているunreachable_reason: "
+            f"{missing}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
