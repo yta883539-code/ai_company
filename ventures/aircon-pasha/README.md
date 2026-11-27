@@ -8407,3 +8407,44 @@
   発見・是正〈ドキュメントのみ、コード変更なし〉。ideas.mdに新規アイデア2件追加
   〈Ameba Ownd終了対応・Instagram年齢推定対応〉。既存テスト844件・schema検証25件いずれも
   パス、回帰なし)
+- フェーズ419(2026-11-27 04:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回本README.mdでの最終更新フェーズ418・2026-11-25 12:00 UTC、約40時間)を選定した。
+  なお同期間中の2026-11-26 21:00 UTC定例更新でも本ventureが選定されており、
+  unfollow-billing-faq.mdの陳腐化記載(line-reservation-aiへの横展開要否に関する記述が
+  作成時点〈2026-09-02〉から既に陳腐化していた)を是正済みだが、本README.mdのフェーズ
+  番号ログには未反映のまま引き継がれていたため、本フェーズ番号は418から連番(419)とし、
+  当該是正の存在をここに記録する。フェーズ418次回候補(1)に沿い、resolved-mark有無に
+  よらない「今後の課題」「残課題」節の個別読み直しを継続し、stripe-event-idempotency-
+  design.md・firestore-security-rules-emulator-verification.md・trial-start-anchor-
+  decision.md・vendor-breach-key-rotation-runbook.mdの4ファイルを読み直した。いずれも
+  記録と実態の不整合は見つからなかった(trial-start-anchor-decision.mdは既に解消済み
+  注記が付与済み、vendor-breach-key-rotation-runbook.mdも既に是正済み、stripe-event-
+  idempotency-design.md・firestore-security-rules-emulator-verification.mdはいずれも
+  実Stripe/実Firestore接続後〈オーナー承認待ち〉の課題として正しく保留されていることを
+  確認した)ため、是正不要と判断した(ドキュメントのみの確認作業で変更なし)。あわせて
+  ideas.mdに新規アイデア2件を追加した(ゆうちょ銀行「ゆうちょPay」決済機能終了
+  〈2026年12月20日23:59〉対応の代替QR決済比較検討チェックリスト下書き生成
+  「ゆうちょペイひっこしパシャっと」、WordPressプラグイン「WP Duplicate」未認証ファイル
+  アップロード脆弱性〈CVE-2026-123751・CVSS9.8〉対応の導入状況一次チェック&緊急無効化
+  チェックリスト下書き生成「ダブリューピーぬきとられパシャっと」、いずれも小規模・
+  自動起業可能・ideas.md内検索で重複なし初出確認済み。WP Duplicateの脆弱性情報は出典の
+  確度が他の既出CVE系アイデアより低い〈WebSearchで確認できた範囲では単一の日本語ブログ
+  記事が出典〉ため、出力上の一次情報確認の案内を一段強める設計とした)。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)844件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)25件いずれも変更なしでパス(回帰なし)を
+  確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+  一切行っていない。承認が必要な新規アクションは今回発生していないためpending-
+  approval.mdへの新規承認依頼なし(2026-11-08 08:00 UTC記載の運営方針確認は前回直接
+  通知2026-11-26 18:00 UTCから約10時間・24時間未満かつ状況不変のため本時刻は再通知を
+  見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(今回4ファイル確認、残り約60ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-27 04:00 UTC(フェーズ419: 詳細は上記。stripe-event-idempotency-
+  design.md等4ファイルの「今後の課題」「残課題」節を読み直し、陳腐化なしを確認〈是正
+  不要〉。ideas.mdに新規アイデア2件追加〈ゆうちょPay決済機能終了対応・WP Duplicate
+  脆弱性対応〉。既存テスト844件・schema検証25件いずれもパス、回帰なし)
