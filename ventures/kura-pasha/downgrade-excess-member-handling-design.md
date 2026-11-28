@@ -80,7 +80,16 @@ aircon-pashaには複数人契約の概念自体が存在しないため参照�
   解決しない。
 - `pending_member_reduction_effective_at`の都度チェック実装(prototype拡張)は
   本ファイルでは机上設計にとどまり、実コードは未着手。
+- (追記 2026-11-28 00:00 UTC・フェーズ続き339): 上記都度チェック処理で
+  `member_user_ids`から除外する際は、対象`user_id`の`user_profile/{user_id}.
+  workshop_id`も同時にnull化すること。data-retention-policy.md「非契約者メンバー
+  除外時の保存期間論点」で確定した方針であり、ダングリング参照の防止と、除外
+  されたメンバー自身の削除候補化起点(workshop_idがnullになった時点)の確保を
+  兼ねる。本ファイル自身の都度チェック実装が未着手のため、実コードへの反映は
+  その実装時にあわせて行う(本フェーズでは参照先の確定のみ)。
 - 実際のStripe接続・LINE公式アカウント接続は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 
-最終更新: 2026-09-07 12:02 UTC
+最終更新: 2026-11-28 00:00 UTC(フェーズ続き339: data-retention-policy.md側の
+新規検討に伴い、都度チェック実装時にuser_profile.workshop_idをnull化すべき旨を
+残課題に追記。ドキュメントのみの更新、コード変更なし)

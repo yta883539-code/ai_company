@@ -8027,3 +8027,30 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   との関係整理が次回候補。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま
   7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナー
   から得られた場合はその着手を最優先。(4)他venture・アイデア領域の前進。
+
+- フェーズ続き339(2026-11-28 00:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き338・2026-11-27 16:00 UTC)を選定。フェーズ続き338次回候補(2)
+  「`craftsman_workshop.member_user_ids`(非契約者メンバー)の削除候補化・最終確認フロー」
+  に対応した。data-retention-policy.mdに新節「非契約者メンバー除外時の保存期間論点」を
+  追加し、複数職人プランからのダウングレード時に猶予期間経過後デフォルトルールで解除
+  される非契約者メンバーについて、(1)解除は`craftsman_workshop`解約とは独立したイベント
+  であり既存の「workshop解約起点1年保有」トリガーでは捕捉できないこと、(2)解除時に
+  `user_profile/{user_id}.workshop_id`をクリアする処理が downgrade-excess-member-handling-
+  design.md側の都度チェック実装に未定義のまま残っていたこと、を発見し、workshop_idクリアを
+  新たな削除候補化起点とする方針を確定した。downgrade-excess-member-handling-design.md
+  「4. 未検証・残課題」にも、都度チェック実装時にworkshop_idをnull化すべき旨を追記し
+  相互参照とした。いずれもドキュメントのみの更新で実コードは未着手(都度チェック処理
+  自体の実装とあわせて行う次回候補)。既存テスト(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)334件・schema検証(`python3 -I schema/validate_test_cases.py`)
+  32件を再実行し、いずれも変更なしでパス(回帰なし)。実LINE/Stripe/GCP/Firestore API
+  接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規
+  アクションは今回発生していないためpending-approval.mdへの新規承認依頼はなし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-27 18:00 UTC〉から約6時間・24時間未満かつ状況不変のため、本時刻は再通知を
+  見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)上記で確定した`user_profile.workshop_id`クリア処理・1年後の削除候補化
+  洗い出しロジックの実コード化(`pending_member_reduction_effective_at`都度チェック実装と
+  あわせて行う)。(2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性
+  未確認のため継続保留。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま
+  7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナー
+  から得られた場合はその着手を最優先。(4)他venture・アイデア領域の前進。

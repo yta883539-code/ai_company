@@ -98,6 +98,55 @@ course-set-pasha/data-retention-policy.mdと同じ考え方を採用する。削
 LINEの公式アカウントへのメッセージ、または登録メールアドレスからの連絡を
 受付経路とする(他venture共通の想定)。
 
+## 非契約者メンバー除外時の保存期間論点(新規検討 2026-11-28 00:00 UTC・フェーズ続き339)
+
+上記「残課題」最終項(member側固有の削除候補化論点)を検討する。
+downgrade-excess-member-handling-design.md(フェーズ28)「3. 確定する設計」により、
+複数職人プランからのダウングレード時、猶予期間経過後に契約者以外の`member_user_ids`は
+機械的に解除される(デフォルトルール)。この「解除」はworkshop自体の解約ではなく、
+`craftsman_workshop`は契約者のもとで存続し続ける点が、本文書が従来前提としていた
+「`craftsman_workshop`解約」を起点とする1年保有ルール(上記「保存期間ポリシー(案)」)
+とは異なるトリガーである。
+
+- **解除された非契約者メンバーの`user_profile/{user_id}`は現状放置される**:
+  downgrade-excess-member-handling-design.md「3. 確定する設計」は解除後に
+  `WorkshopNotLinkedError`相当の案内を返す設計までは定めているが、
+  `user_profile/{user_id}.workshop_id`(craftsman-account-linking-design.md
+  フェーズ変更分、115行目)を解除時にクリアする処理は定義しておらず、このままでは
+  解除後も存在しないworkshopへの参照が残り続ける。
+- **解除は契約者側の`craftsman_workshop`解約と独立したイベントであるため、本文書の
+  既存トリガー(workshop解約起点の1年保有)では捕捉できない**。解除された本人は
+  当該workshopの契約者ではなく、Stripeサブスクリプションの状態変化を直接には
+  持たないため、「Stripeカスタマーポータルで解約済み」という既存トリガー文言は
+  そのままでは適用できない。
+
+### 確定する方針
+
+1. 余剰メンバー解除(downgrade-excess-member-handling-design.md「3. 確定する設計」の
+   都度チェック処理)の実装時、解除対象の`user_id`について
+   `user_profile/{user_id}.workshop_id`を同時にクリア(null化)する処理を追加する。
+   これによりダングリング参照を防ぎ、かつ「workshop_idがnullになった時点」を
+   当該ユーザー固有の新たな削除候補化起点として扱えるようにする。
+2. 解除された本人がcraftsman-account-linking-design.md(フェーズ58相当、58行目)の
+   既存ロジック「未所属の場合は1人だけのworkshopを自動作成」により改めてサービスを
+   利用した場合は、新規workshopの契約者としての`craftsman_workshop`レコードが
+   作られるため、削除候補化は発生しない(上記1年保有ルールの通常起点に戻る)。
+3. 解除後、一定期間(`craftsman_workshop`解約と同じ1年を暫定採用し、本venture固有の
+   延長理由がないことは上記「本venture固有の論点」の結論をそのまま準用する)
+   再利用がない場合、`user_profile/{user_id}`(workshop_idは既にnull)を削除候補として
+   洗い出す。最終確認の経路(LINE push、不達時はメール代替)は上記「削除候補化後の
+   最終確認」節と同一の仕組みを流用する。
+
+### 未着手・次回候補
+
+- 本節で確定した「解除時のworkshop_idクリア」処理自体の実装(prototype拡張)は
+  downgrade-excess-member-handling-design.md側の都度チェック実装(同ファイル
+  「4. 未検証・残課題」参照)とあわせて行う必要があり、本フェーズでは設計のみで
+  実コードは未着手。
+- `workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出す
+  バッチ・都度チェックロジックの具体的な実装方式(既存の解約起点フローと共通化
+  できるか、専用ロジックが必要か)は次回候補とする。
+
 ## 残課題
 
 - (対応済み 2026-11-27 16:00 UTC・フェーズ続き338): 「tech-stack.md新規作成時に
@@ -110,12 +159,13 @@ LINEの公式アカウントへのメッセージ、または登録メールア�
   正式な記載へ差し替え済み(フェーズ21)。
 - 削除候補化後のメール通知の実装(メール送信基盤の整備)は他venture共通の
   未実装課題であり、本venture固有の追加課題ではない。
-- `craftsman_workshop.member_user_ids`に含まれる非契約者(追加メンバーの職人)の
+- ~~`craftsman_workshop.member_user_ids`に含まれる非契約者(追加メンバーの職人)の
   削除候補化・最終確認フローは、本文書は契約者(`contractor_user_id`)起点の整理に
-  留まっており、member側固有の論点(退会・権利関係)は未検討のまま残る。
-  downgrade-excess-member-handling-design.md・member-retention-notice-design.mdの
-  既存整理との関係整理は次回候補とする。
+  留まっており、member側固有の論点(退会・権利関係)は未検討のまま残る。~~
+  (対応済み 2026-11-28 00:00 UTC・フェーズ続き339: 上記「非契約者メンバー除外時の
+  保存期間論点」節で方針確定。実装〈user_profile.workshop_idクリア処理〉は
+  downgrade-excess-member-handling-design.md側の実装とあわせて次回候補)。
 
-最終更新: 2026-11-27 16:00 UTC(フェーズ続き338: tech-stack.md作成済み〈フェーズ91〉
-に伴う前提の訂正。craftsman_workshopコレクションを保存期間ポリシーの対象に追加。
-ドキュメントのみの更新、コード変更なし)
+最終更新: 2026-11-28 00:00 UTC(フェーズ続き339: 非契約者メンバー除外〈ダウングレード
+時の余剰メンバー解除〉時の`user_profile`保存期間・削除候補化トリガーを新規検討・
+方針確定。ドキュメントのみの更新、コード変更なし)
