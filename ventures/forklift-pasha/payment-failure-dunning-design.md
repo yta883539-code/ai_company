@@ -132,12 +132,13 @@ kura-pashaと同じ理由(3日前リマインド送信済みフラグを本フ�
 
 ## 6. 残課題
 
-- 検知時・復旧時メールの実送信配線(`cloud_function_send_trial_end_emails.py`相当の
-  メール送信基盤を本用途に再利用する設計)は次回以降の課題。
-- 猶予期間終了直前のリマインド送信・運営者向け通知は、本venture側にまだ日次スケジューラ
-  (他venture4件のdaily-scheduler-design.md相当)自体が無いため次回以降の課題。
-  実装した際は、4節「決済成功による復旧時」を「リマインド送信済みか否か」で3分岐へ
-  精緻化できる(他venture4件と同じ形へ揃える)。
+- (解消済み 2026-10-20頃・フェーズ169〜171: 猶予期間終了直前のリマインド送信・運営者向け
+  通知は、payment-failure-reminder-scheduler-design.mdとして設計・実装済み
+  〈`payment_failure_reminder_scheduler.run_due_payment_failure_reminders()`/
+  `run_due_payment_suspension_owner_notifications()`、`cloud_function_send_payment_failure_
+  reminders.py`。検知時・復旧時メールの実送信配線は同ファイルの`EmailSenderClient`再利用
+  設計で対応済み〉。4節「決済成功による復旧時」の3分岐化〈`payment_failure_reminder_sent_at`
+  の有無での精緻化〉は未反映のままのため、下記に次回候補として残す。)
 - 猶予期間7日という値は、他venture共通で実測データの無い暫定値のまま。
 - 実際のWebhook受信・状態保存・メール送信配線(実Stripe/メール送信サービス接続)は
   引き続きオーナー承認待ち(pending-approval.md参照)。

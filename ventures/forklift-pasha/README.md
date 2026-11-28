@@ -6231,3 +6231,46 @@ schema/validate_test_cases.py`(11件)を実行し、既存チェックはいず�
   notification-design.md「6. 今後の課題」3点目の自己矛盾・陳腐化記載〈原価比較済みという
   誤記〉を発見・是正。ドキュメントのみの更新でコード変更なし、既存テスト121件・schema検証
   11件・run_all_tests27ファイルいずれもパス、回帰なし)
+
+- フェーズ273(2026-11-28 13:00 UTC定例更新)。ideas.mdに新規アイデア2件を追加した
+  (WooCommerce向け見積もり依頼プラグイン「Request a Quote for WooCommerce」の未認証任意
+  ファイルアップロード脆弱性〈CVE-2026-18143、2.9.2以前が対象、CVSS9.8、2026年9月25日公表、
+  本稿執筆時点で修正パッチ未確認〉対応「リクエストアクオートのっとられパシャっと」、
+  WordPress予約管理プラグイン「Bookly」の未認証IDOR型予約トークン漏洩・削除脆弱性
+  〈CVE-2026-93399、CVSS9.1、28.2以前が対象、修正版28.3、PoC公開済み〉対応「ブックリー
+  のっとられパシャっと」、いずれも小規模・自動起業可能、ideas.md内「Request a Quote」
+  「CVE-2026-18143」「Bookly」「CVE-2026-93399」検索でいずれも0件、重複なし初出確認済み)。
+  7venture中最も更新が止まっていた本venture(前回最終更新フェーズ272・2026-11-28 05:00 UTC、
+  約8時間)を選定し、フェーズ272次回候補(3)「他ファイルの『残課題』『今後の課題』節の陳腐化
+  棚卸しを継続」に対応した。payment-failure-dunning-design.md「6. 残課題」1点目・2点目を
+  確認したところ、「決済失敗検知時・復旧時のメール実送信配線」「猶予期間終了直前のリマインド
+  送信・運営者向け通知は本venture側に日次スケジューラ自体が無いため次回以降の課題」という
+  2点が、実際にはpayment-failure-reminder-scheduler-design.md(フェーズ169〜171)で既に
+  設計・実装済み(`run_due_payment_failure_reminders()`/`run_due_payment_suspension_owner_
+  notifications()`、`cloud_function_send_payment_failure_reminders.py`、メール送信クライアント
+  は`trial_end_email_scheduler.py`の`EmailSenderClient`を再利用)であるにもかかわらず、
+  作成(フェーズ167)以降の後続フェーズで解消済み注記が反映されずに約1ヶ月半放置されていた
+  陳腐化記載であることを発見した。2点を解消済み注記に是正し、同節4節「決済成功による復旧時」
+  の2分岐→3分岐精緻化(`payment_failure_reminder_sent_at`の有無による区別)が未反映のまま
+  残っている点は実際に未着手であることを確認したうえで次回候補として明記した。ドキュメントのみ
+  の更新でコード変更なし。既存テスト(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)121件・schema検証(`python3 -I schema/validate_test_cases.py`)11件・
+  `python3 -I prototype/run_all_tests.py`27ファイルいずれも変更なしでパス(回帰なし)。実
+  LLM/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規承認依頼は
+  なし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-27
+  18:00 UTC〉から約19時間・24時間未満のため再通知は見送り、状況記録のみpending-approval.md
+  に追記)。
+  次回候補: (1)customer-interview-design.md Q11の実ヒアリング結果(オーナー承認待ち)を
+  踏まえた6.3決定の再検証。(2)`<form>`の実際のaction配線・送信ボタン有効化は実バックエンド
+  未接続・ホスティング未承認の現状では見送りを継続(承認待ち事項、launch-readiness-
+  checklist.md参照)。(3)payment-failure-dunning-design.md4節「決済成功による復旧時」の
+  3分岐精緻化(`payment_failure_reminder_sent_at`の有無による区別、他venture4件と同じ形へ
+  揃える)は未着手のため実装候補として残す。(4)他ファイルの「残課題」「今後の課題」節の
+  陳腐化棚卸しを継続(本フェーズで1ファイル2点確認、未確認多数)。(5)承認待ち事項がオーナー
+  から承認された場合はその着手を最優先。
+- 最終更新: 2026-11-28 13:00 UTC(フェーズ273: 詳細は上記。payment-failure-dunning-
+  design.md「6. 残課題」の2点〈メール実送信配線・リマインドスケジューラ〉が実際には
+  payment-failure-reminder-scheduler-design.md〈フェーズ169〜171〉で既に解消済みだった
+  陳腐化記載を発見・是正。ドキュメントのみの更新でコード変更なし、既存テスト121件・
+  schema検証11件・run_all_tests27ファイルいずれもパス、回帰なし)
