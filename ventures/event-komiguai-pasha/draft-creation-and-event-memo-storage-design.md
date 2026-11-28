@@ -67,7 +67,12 @@ one-time-checkout-no-account-design.md(フェーズ10)は「`draft_id`を主キ�
 - `event_memo`を生ペイロードのまま保存する方式は、将来`parse_form_payload()`が後方互換の
   ない形でフィールド名を変更した場合、保存済みドラフトの再評価に影響しうる(本フェーズでは
   発生しうる仮説として記録するのみ、実際の対応は変更発生時に検討)。
-- Checkout Session作成エンドポイント自体(`draft_id`採番から`create_draft()`呼び出し、
+- ~~Checkout Session作成エンドポイント自体(`draft_id`採番から`create_draft()`呼び出し、
   Stripe Checkout Session作成までを結ぶCloud Functionエントリポイント)はまだコード化
   されていない(`receive_stripe_webhook()`は決済完了後のWebhook受信口のみを担当し、
-  Checkout Session作成リクエスト自体は別エンドポイントの責務、tech-stack.md参照)。
+  Checkout Session作成リクエスト自体は別エンドポイントの責務、tech-stack.md参照)。~~
+  → フェーズ67(`prototype/checkout_session_creation.py`の`create_checkout_session_for_
+  event_memo()`が本節記載の順序〈`draft_id`発行→`create_draft()`呼び出し→Checkout Session
+  作成〉をそのまま実装)、およびフェーズ110(`prototype/checkout_session_http_entry.py`・
+  `cloud_function_submit_event_form.py`による実HTTPSトリガー配線)で解消済み。本節は
+  フェーズ102時点の記録として残し、解消済みであることをフェーズ149(2026-11-28)で追記した。

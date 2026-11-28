@@ -3417,10 +3417,45 @@ Firestore作成、候補1〈奈良NEVER LAND〉への連絡等)がオーナー�
   からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
   (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する(本フェーズで
   1件確認・是正、残り多数未確認)。
-- 最終更新: 2026-11-27 18:00 UTC(フェーズ148: 詳細は上記。operational-message-templates-
+- 最終更新(旧): 2026-11-27 18:00 UTC(フェーズ148: 詳細は上記。operational-message-templates-
   draft.mdの見出し記号機械チェックに関する陳腐化記載〈約25日間放置〉を発見・是正
   〈ドキュメントのみ、コード変更なし〉。aircon-pasha等の次回候補に残っていたLINE
   Webhookべき等性横展開案が本venture・forklift-pasha・oshien-pashaには適用対象外である
   ことを確認。ideas.mdに新規アイデア2件追加〈Modular DSプラグインCVE対応・NTT東日本
   クラウドゲートウェイ料金改定対応〉。既存テスト184件・schema検証22件いずれもパス、
   回帰なし)
+- フェーズ149(2026-11-28 02:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ148・2026-11-27 18:00 UTC、約8時間)を選定。フェーズ148次回候補
+  (4)「他の設計ドキュメントの『今後の課題』節の陳腐化点検を次回以降も継続する」に対応し、
+  draft-creation-and-event-memo-storage-design.md(フェーズ102)「4. 残課題・次回候補」
+  3点目「Checkout Session作成エンドポイント自体はまだコード化されていない」が、実際には
+  フェーズ67(`prototype/checkout_session_creation.py`の`create_checkout_session_for_
+  event_memo()`が同節記載の順序〈`draft_id`発行→`create_draft()`呼び出し→Checkout Session
+  作成〉をそのまま実装)・フェーズ110(`checkout_session_http_entry.py`・
+  `cloud_function_submit_event_form.py`による実HTTPSトリガー配線)で解消済みであるにも
+  かかわらず、解消済みの取消線・相互参照がなく約1ヶ月半放置されていた陳腐化記載である
+  ことを発見し、是正した(ドキュメントのみの更新、コード変更なし)。ideas.mdに新規アイデア
+  2件を追加した(プロジェクト管理SaaS「Backlog」〈ヌーラボ〉の現行プラン廃止・新3プラン
+  体系移行〈2027年1月、フリープランのユーザー数上限10人→5人〉対応「バックログひっこし
+  パシャっと」、Elementor用拡張プラグイン「Essential Addons for Elementor」の未認証権限
+  昇格脆弱性〈CVE-2026-18039、特定のカスタムプロフィール項目設定時のみ影響〉対応
+  「エッセンシャルアドオンズのっとられパシャっと」、いずれも小規模・自動起業可能、
+  ideas.md内検索で重複なし初出確認済み。投資版presentations追記は見送り)。既存テスト
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)184件・schema検証
+  (`python3 -I schema/validate_test_cases.py`)22件いずれも変更なしでパス(回帰なし)。
+  実LLM/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していないためpending-approval.mdへの新規承認依頼
+  はなし(2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-27 18:00 UTC〉から約8時間・24時間未満のため、本時刻は状況記録のみ追記し
+  再通知は見送る)。
+  次回候補: (1)承認待ち事項(launch-readiness-checklist.md記載の1〜3)がオーナーから
+  承認された場合はその着手を最優先、(2)候補5・JANUS系3店舗の層3候補開拓はWebSearchの
+  スニペット範囲では行き詰まっており、再着手は公式サイトへの直接アクセス手段が得られて
+  からとする、(3)候補1(奈良NEVER LAND)を最優先ヒアリング対象とする方針に変更なし、
+  (4)他の設計ドキュメントの「今後の課題」節の陳腐化点検を次回以降も継続する(本フェーズで
+  1件確認・是正、残り多数未確認)。
+- 最終更新: 2026-11-28 02:00 UTC(フェーズ149: draft-creation-and-event-memo-storage-
+  design.mdの「Checkout Session作成エンドポイント未コード化」という約1ヶ月半放置された
+  陳腐化記載〈実際はフェーズ67・110で解消済み〉を発見・是正〈ドキュメントのみ、コード
+  変更なし〉。ideas.mdに新規アイデア2件追加〈Backlogプラン改定対応・Essential Addons for
+  Elementor CVE対応〉。既存テスト184件・schema検証22件いずれもパス、回帰なし)
