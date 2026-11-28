@@ -76,13 +76,20 @@ aircon-pasha版・kura-pasha版と同じ方針を踏襲する。
 
 ## 4. 未検証・残課題
 
-- 実Firestoreプロジェクトの作成自体(オーナー承認待ち)は未着手のまま。承認・プロジェクト
-  作成後、Firebase Local Emulator Suiteでの検証(aircon-pasha版と同様の手順)に着手する。
-- `idempotency_key_index`は`expireAt`を持つドキュメントと持たないドキュメントが同一
+- ~~実Firestoreプロジェクトの作成自体(オーナー承認待ち)は未着手のまま。承認・プロジェクト
+  作成後、Firebase Local Emulator Suiteでの検証(aircon-pasha版と同様の手順)に着手する。~~
+  → Firebase Local Emulator Suiteでの検証自体は実Firestoreプロジェクト作成前でも
+  デモプロジェクトIDで実施可能であることが判明し、同日中にfirestore-security-rules-
+  emulator-verification.md(2026-11-06 18:00 UTC)で解消済み(6件のdeny-all検証全件
+  PASS)。実Firestoreプロジェクト本番環境での再検証のみ、オーナー承認後の課題として残る
+  (同ファイル4節参照)。
+- ~~`idempotency_key_index`は`expireAt`を持つドキュメントと持たないドキュメントが同一
   コレクション内に混在する設計(idempotency-key-write-conflict-control-design.md
   フェーズ68)のため、deny-allルール自体には影響しないが、エミュレーター検証時には
   両パターン(TTL対象/対象外)のドキュメントで`PERMISSION_DENIED`になることを確認する
-  必要がある(本フェーズでは設計のみ、実検証は次回以降)。
+  必要がある(本フェーズでは設計のみ、実検証は次回以降)。~~ →
+  firestore-security-rules-emulator-verification.md 2節のチェック3・4で両パターンとも
+  個別に検証済み(いずれも`PERMISSION_DENIED`、PASS)。
 - 横展開の残りはoshien-pashaのみ(aircon-pasha・course-set-pasha・forklift-pasha・
   kura-pasha・line-reservation-ai・event-komiguai-pashaは本フェーズで完了)。
 
