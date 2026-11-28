@@ -12,6 +12,32 @@ venture: ventures/<slug>/
 
 ---
 
+日時: 2026-11-28 01:00 UTC
+venture: ventures/oshien-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(NTTドコモ法人向け回線サービス「mopera U」の
+「Uスタンダードプラン」提供終了〈2026年12月14日〉対応、事業用利用の個人事業主・小規模
+事業者向け一次判定&メール移行・プラン切替チェックリスト下書き生成「モペラユーひっこしパシャっと」、
+小規模・自動起業可能、ideas.md内検索〈「mopera」「モペラ」「Uスタンダード」〉で重複なし初出
+確認済み)。投資版presentations追記は見送り(単一チャット/フォームとLLM APIで完結する一次
+診断規模のため)。7venture中最も更新が止まっていたoshien-pasha(前回最終更新フェーズ168・
+2026-11-27 17:00 UTC、約8時間)をフェーズ169として前進させ、README.mdフェーズ168次回候補(3)
+「last_verified_date・naming_rights_review_dueフィールドのoutput.schema.json側への反映方法の
+検討」に対応し、venue-info-staleness-output-reflection-design.mdを新規作成した(利用者向け
+定型注記フィールドvenue_info_caution_noteの追加案を採用、しきい値等の暫定根拠を明文化、
+実際のschema/コード改修は次回以降に持ち越し)。`python3 -I prototype/run_all_tests.py`
+(既存テスト11ファイル、schema検証含む)・`python3 -I schema/check_venue_master_parity.py`
+(56件/56件差分なし)いずれも変更なしでパス(回帰なし)を確認した。実LLM/Stripe/GCP/
+Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっている件)は、前回オーナーへの直接プッシュ通知(2026-11-27 18:00 UTC、
+event-komiguai-pasha選定時)から約7時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへの通知を検討する。
+
+---
+
 日時: 2026-11-28 00:00 UTC
 venture: ventures/kura-pasha/(・リポジトリ全体の運用メモ)
 内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、

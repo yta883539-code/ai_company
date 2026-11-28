@@ -4068,3 +4068,31 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
 - 最終更新: 2026-11-27 17:00 UTC(フェーズ168: 詳細は上記。「清原体育館」〈清原マルハ
   アリーナ〉をaccess_mode: car_or_bus枠組みで会場マスタに新規追加〈55件→56件〉。コード変更
   なし、既存テスト11ファイル〈schema検証含む〉いずれもパス、回帰なし)
+- フェーズ169(2026-11-28 01:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ168・2026-11-27 17:00 UTC、約8時間)を選定した。フェーズ168次回候補(3)
+  「`last_verified_date`・`naming_rights_review_due`フィールドを含めたoutput.schema.json側
+  への反映方法の検討」に対応し、venue-info-staleness-output-reflection-design.mdを新規作成
+  した。内部管理用フィールドをそのまま転記する案・現状維持案を退け、`venue_matched=true`かつ
+  (a)`naming_rights=true`または(b)`last_verified_date`が暫定180日以上前の会場についてのみ
+  利用者向け定型注記(`venue_info_caution_note`)を生成する案を採用。180日しきい値を暫定採用
+  した根拠と、会場マスタ56件全件が本フェーズ時点で該当なし(0件)であることも確認した。
+  schema/output.schema.json・validate_test_cases.py・prototype/venue_matcher.py等の実改修は
+  次回以降に持ち越し(1フェーズでの作業量を抑える既存方針を踏襲)、本フェーズはschema/
+  venue-master.jsonのデータ変更を伴わないため`python3 -I schema/check_venue_master_parity.py`
+  (56件/56件差分なし)・`python3 -I prototype/run_all_tests.py`(既存テスト11ファイル、
+  schema検証含む)いずれも変更なしでパスを確認した(回帰なし)。実LLM/Stripe/GCP/Firestore
+  接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは
+  今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-27 18:00
+  UTCから約7時間・24時間未満のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに
+  追記する)。
+  次回候補: (1)venue-info-staleness-output-reflection-design.mdの実装方針に沿って
+  output.schema.jsonに`venue_info_caution_note`を追加し、validate_test_cases.pyの既存
+  フィクスチャ全件に追記、venue_matcher.py側への注記生成ロジック追加に着手する、(2)混同注意
+  リストの他候補をWebSearchで探索・会場マスタへ追加、(3)宮崎県体育館・宮崎市総合体育館・
+  大分県立総合体育館の徒歩分数・最寄り駅は本実行環境のネットワーク制約下では確証が得られない
+  ため、オーナーのネットワーク許可拡大が得られた場合に再試行、(4)承認待ち事項(launch-
+  readiness-checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-28 01:00 UTC(フェーズ169: 詳細は上記。venue-info-staleness-output-
+  reflection-design.mdを新規作成し、last_verified_date・naming_rights_review_dueの利用者向け
+  出力への反映方針を検討・結論。コード変更なし、既存テスト11ファイル〈schema検証含む〉いずれも
+  パス、回帰なし)
