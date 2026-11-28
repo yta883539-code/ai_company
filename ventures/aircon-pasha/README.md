@@ -8569,3 +8569,44 @@
   llm-prompt-draft.md等4ファイルの「今後の課題」「残課題」節を読み直し、陳腐化なしを確認
   (是正不要)。ideas.mdに新規アイデア1件追加〈LINE公式アカウント追加メッセージ・
   プレミアムID料金改定対応〉。既存テスト844件・schema検証25件いずれもパス、回帰なし)
+- フェーズ423(2026-11-28 11:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ422・2026-11-28 03:00 UTC、約8時間)を選定した。フェーズ422次回
+  候補(1)に沿い、resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  継続し、未確認4ファイル(deletion-candidate-query-consolidation-decision.md・
+  deletion-candidate-unreachable-owner-review-design.md・enqueue-fallback-owner-
+  notification-design.md・firestore-composite-index-plan.md)を読み直した。
+  deletion-candidate-query-consolidation-decision.md・deletion-candidate-unreachable-
+  owner-review-design.md・firestore-composite-index-plan.mdの3ファイルはいずれも記録と
+  実態の不整合(陳腐化)は見つからなかった(残存する未解決項目は全て実Firestore/実GCP
+  プロジェクト接続〈オーナー承認待ち〉後の課題として正しく保留されている)。一方
+  enqueue-fallback-owner-notification-design.md「5. 残課題」2点目の「kura-pashaへの
+  同種横展開…kura-pasha分は未着手のまま残す」(フェーズ384時点の記載)が、実際には
+  kura-pasha側で既にenqueue_fallback_owner_notification.py・対応テストが実装済みである
+  (kura-pasha/enqueue-fallback-owner-notification-design.md、および横展開可否を扱った
+  kura-pasha/cross-venture-enqueue-fallback-applicability-review.mdで該当範囲が確認
+  済み)にもかかわらず「未着手」のまま約2週間放置されていた陳腐化記載であることを発見し、
+  取消線化+解消済み注記で是正した(ドキュメントのみの更新、コード変更なし)。あわせて
+  ideas.mdに新規アイデア1件を追加した(WordPressパスワードレスログインプラグイン
+  「Auth Armor」の未認証アカウント乗っ取り脆弱性〈CVE-2026-110960、1.0.3以前が対象、
+  2026年11月15日公開、CVSS9.8、本稿執筆時点で公式修正パッチ未公開〉対応
+  「オースアーマーのっとられパシャっと」、小規模・自動起業可能、ideas.md内「Auth Armor」
+  「CVE-2026-110960」「パスワードレスログイン」で検索し0件・初出確認済み)。投資版
+  presentations追記は見送り(単一チャット/フォームとLLM APIで完結する一次診断規模のため、
+  既出の個別CVE対応venture群と同型)。既存テスト(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)844件・schema検証(`python3 -I schema/validate_test_cases.py`)
+  25件いずれも変更なしでパス(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・
+  アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規アクションは今回発生
+  していないためpending-approval.mdへの新規承認依頼なし(2026-11-08 08:00 UTC記載の運営
+  方針確認は前回直接通知2026-11-27 18:00 UTCから約17時間・24時間未満かつ状況不変のため
+  本時刻は再通知を見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(今回4ファイル確認、残り約44ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-28 11:00 UTC(フェーズ423: 詳細は上記。enqueue-fallback-owner-
+  notification-design.md「残課題」のkura-pasha横展開に関する陳腐化記載〈約2週間放置〉を
+  発見・是正(ドキュメントのみ、コード変更なし)。ideas.mdに新規アイデア1件追加〈Auth Armor
+  アカウント乗っ取り脆弱性対応〉。既存テスト844件・schema検証25件いずれもパス、回帰なし)

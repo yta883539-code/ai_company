@@ -72,5 +72,8 @@ bubble本文:
 - 実LINE Push Message APIでの送信・実オーナーLINEユーザーIDの設定・実Cloud Tasksデプロイは、
   既存の「実GCPプロジェクト・LINE API接続はオーナー承認待ちの範囲」に含まれる(新規の
   承認待ち事項としては扱わない)。
-- kura-pashaへの同種横展開(process-memo-event-async-split-design.md「残課題・次回候補(2)」
-  のうち本venture分は本フェーズで解消、kura-pasha分は未着手のまま残す)。
+- ~~kura-pashaへの同種横展開(process-memo-event-async-split-design.md「残課題・次回候補(2)」
+  のうち本venture分は本フェーズで解消、kura-pasha分は未着手のまま残す)。~~
+  → kura-pasha側で既に横展開済み(kura-pasha/enqueue-fallback-owner-notification-design.md、
+  aircon-pashaフェーズ384からの横展開として実コード化・テスト追加済み)であることをフェーズ
+  423で確認した。解消済みのため本項目はクローズとする(2026-11-28 11:00 UTC是正)。
