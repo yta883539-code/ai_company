@@ -41,5 +41,7 @@ MVP段階では価格設計・請求ロジックが複雑になりすぎるた�
 - 想定顧客(美容室など)へのヒアリング設計(本プランの価格感・トライアル条件の妥当性検証を含む)
 - 保留タイムアウトのユーザー体験(顧客への待機メッセージ文言)の会話文言設計
 
-(2026年10月予定のLINE料金改定内容はline-price-revision-2026-check.mdで再確認済み。
-本プランの想定送信量では影響は軽微と判断)
+(~~2026年10月予定のLINE料金改定内容の再確認~~ → 2026-11-28追記: `line-price-revision-2026-check.md`
+により、当該改定は2026-10-01に予定どおり実施済みであることを確認済み。本プランの想定送信量では
+影響は軽微と判断。line-api-pricing.md・pending-timeout-ux.md・tone-and-manner-guideline.md・
+reminder-timing-and-resend-rules.mdと同形式に統一)
