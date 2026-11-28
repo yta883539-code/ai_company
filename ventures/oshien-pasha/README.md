@@ -4127,3 +4127,25 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
 - 最終更新: 2026-11-28 07:00 UTC(フェーズ170: 詳細は上記。venue_info_caution_noteをschema・
   venue_matcher.py・itinerary_draft_postprocessor.py・validate_test_cases.pyに実装、テスト
   追加。既存テスト11ファイル+新規テスト追加分・schema検証9フィクスチャいずれもパス、回帰なし)
+- フェーズ171(2026-11-28 14:00 UTC定例更新): フェーズ170次回候補(1)に対応し、
+  llm-system-prompt-draft.mdに`venue_info_caution_note`の扱いを明記した(厳守事項2a新設)。
+  本フィールドはLLMが判定するものではなく、venue_matcher.py側がvenue-master-draft.mdの
+  会場マスタ(`naming_rights`・`last_verified_date`)から機械的に導出し、
+  `itinerary_draft_postprocessor.py`が`venue_matched`・`nearest_station_note`と同様に
+  常に上書きする一方通行のフィールドであるため、LLMは常に`null`を出力する旨を明記した
+  (`venue_info_caution_note`の判定・文言生成をLLM自身に行わせようとする実装ミスを防ぐ
+  目的、venue-info-staleness-output-reflection-design.md案3・フェーズ170参照)。
+  ドキュメントのみの追記であり、schema/コード側の変更は行っていない。既存テスト
+  (`python3 -I prototype/run_all_tests.py`)11ファイル・schema検証
+  (`python3 -I validate_test_cases.py`)9フィクスチャいずれも変更なしでパス(回帰なし)。
+  実LLM/Stripe/GCP/Firestore接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-27 18:00 UTC〉から約20時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)混同注意リストの他候補(例: 他地域の同一地名・改称/分割施設群)を
+  WebSearchで探索・会場マスタへ追加、(2)宮崎県体育館・宮崎市総合体育館・大分県立総合
+  体育館の徒歩分数・最寄り駅は本実行環境のネットワーク制約下では確証が得られないため、
+  オーナーのネットワーク許可拡大が得られた場合に再試行、(3)2026-11-08 08:00 UTC記載の
+  運営方針判断が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先、(4)他
+  venture・アイデア領域の前進。

@@ -39,6 +39,15 @@ fan-pass-store-protocol-design.md等で設計済みのデータ永続化部分)�
    (略称・旧名称等)の名寄せロジックは未実装のため完全一致のみを`venue_matched: true`とし、
    一致しない場合は`venue_matched: false`として一般的な調べ方の案内に留める(具体的な
    最寄り駅・徒歩目安を推測で補わない。schema/output.schema.json `itinerary_draft`節参照)。
+2a. `itinerary_draft`内の`venue_info_caution_note`(schema/output.schema.json参照)は
+   LLMが判定するフィールドではない。venue_matcher.py側がvenue-master-draft.mdの会場マスタ
+   (`naming_rights`・`last_verified_date`)から機械的に導出し、`itinerary_draft_
+   postprocessor.py`が`venue_matched`・`nearest_station_note`と同様に常に上書きする
+   一方通行のフィールドである(venue-info-staleness-output-reflection-design.md案3、
+   フェーズ170)。そのためLLMは本フィールドに常に`null`を出力し、ネーミングライツ注記・
+   情報鮮度注記の文言生成や判定を自ら行おうとしない(厳守事項7の『入力に無い情報を推測で
+   付け加えない』の適用例の一つとして、本フィールド固有の規則をここに明記する)。
+
 3. 出力3(費用見積り)の各金額は入力された予算感・物販購入希望を基にした概算であり、実在の
    料金を調べたものではない旨を`cost_estimate.note`に明記する。入力に予算感の言及が無い
    項目は推測で埋めず`null`とする。
