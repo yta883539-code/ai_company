@@ -3437,3 +3437,33 @@ draft-creation-and-event-memo-storage-design.md(フェーズ102)「4. 残課題�
 通知(2026-11-27 18:00 UTC)から約8時間・24時間未満かつ状況不変のため、本時刻は再通知を
 見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
 更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
+日時: 2026-11-28 03:00 UTC
+venture: ventures/aircon-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(LINEヤフー「LINE公式アカウント」追加メッセージ料金
+改定〈2026年2月16日予告・2026年10月1日実施、月20万通まで1通3円・20万通超1通2.5円〈税別〉〉
+および「プレミアムID」料金改定〈2026年9月1日予告・2026年12月1日実施予定〉対応の配信コスト
+影響一次診断&プラン見直しチェックリスト下書き生成「エルオーしんりょうきんねあがりパシャ
+っと」、小規模・自動起業可能、ideas.md内「追加メッセージ」「プレミアムID」「lycbiz」で
+検索し重複なし初出確認済み)。投資版presentations追記は見送り(単一チャット/フォームと
+LLM APIで完結する一次診断規模のため)。7venture中最も更新が止まっていたaircon-pasha
+(前回README.md最終更新フェーズ421・2026-11-27 19:00 UTC)をフェーズ422として前進させ、
+フェーズ421次回候補(1)に沿い「今後の課題」「残課題」節の個別読み直しを4ファイル継続した
+(chatbot-intent-classification-llm-prompt-draft.md・checkout-intent-6b-iii-chitchat-
+status-mapping-review.md・daily-checks-and-deletion-candidate-final-confirmation-
+dependency-failure-response-design.md・deletion-candidate-final-confirmation-scheduler-
+design.md)。いずれも記録と実態の不整合(陳腐化)は見つからず、是正は不要と判断した。
+既存テスト(`python3 -I -m unittest discover -s prototype -p "test_*.py"`)844件・
+schema検証(`python3 -I schema/validate_test_cases.py`)25件いずれも変更なしでパス
+(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は
+一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-27 18:00 UTC)から約9時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。

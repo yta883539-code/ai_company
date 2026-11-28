@@ -8528,3 +8528,44 @@
   課題」「残課題」節を読み直し、陳腐化なしを確認(是正不要)。ideas.mdに新規アイデア2件
   追加〈Advanced Form Integration権限昇格対応・弥生あんしん保守サポート料金改定対応〉。
   既存テスト844件・schema検証25件いずれもパス、回帰なし)
+- フェーズ422(2026-11-28 03:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ421・2026-11-27 19:00 UTC、約8時間)を選定した。フェーズ421次回
+  候補(1)に沿い、resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  継続し、未確認4ファイル(chatbot-intent-classification-llm-prompt-draft.md・
+  checkout-intent-6b-iii-chitchat-status-mapping-review.md・daily-checks-and-deletion-
+  candidate-final-confirmation-dependency-failure-response-design.md・deletion-
+  candidate-final-confirmation-scheduler-design.md)を読み直した。いずれも記録と実態の
+  不整合(陳腐化)は見つからなかった。chatbot-intent-classification-llm-prompt-draft.md
+  「残課題」のエスカレーション導線・ルーター実装に関する2項目は、フェーズ259・260時点の
+  是正記録(取り消し線+解消済み注記)が既に付与済みであることを確認し(前回フェーズ421
+  以前の是正の再確認であり本フェーズでの新規是正ではない)、同ファイル末尾のkura-pasha
+  横展開に関する申し送りは既にkura-pasha側で独自ドキュメント作成済み(chatbot-first-
+  response-feasibility.md 4節・フェーズ420是正記録と同種の事実関係)だが、本項目自体は
+  「次回以降のフェーズとして申し送る」という表現のまま特定フェーズを指しておらず誤りでは
+  ないため是正は不要と判断した。他3ファイルは、未解決項目が全て実Stripe/実GCPプロジェクト
+  接続(オーナー承認待ち)後の課題として正しく保留されているか、既に解消済みの範囲である
+  ことを確認した(今回は是正不要)。あわせてideas.mdに新規アイデア1件を追加した(LINEヤフー
+  「LINE公式アカウント」追加メッセージ料金改定〈2026年2月16日予告・2026年10月1日実施、月
+  20万通まで1通3円・20万通超1通2.5円〈税別〉〉および「プレミアムID」料金改定〈2026年9月
+  1日予告・2026年12月1日実施予定〉対応の配信コスト影響一次診断&プラン見直しチェックリスト
+  下書き生成「エルオーしんりょうきんねあがりパシャっと」、小規模・自動起業可能、ideas.md内
+  「追加メッセージ」「プレミアムID」「lycbiz」で検索し0件・初出確認済み)。投資版
+  presentations追記は見送り(単一チャット/フォームとLLM APIで完結する一次診断規模のため、
+  既出の個別SaaS価格改定対応venture群と同型)。既存テスト(`python3 -I -m unittest
+  discover -s prototype -p "test_*.py"`)844件・schema検証(`python3 -I
+  schema/validate_test_cases.py`)25件いずれも変更なしでパス(回帰なし)を確認した。実LLM/
+  LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が
+  必要な新規アクションは今回発生していないためpending-approval.mdへの新規承認依頼なし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回直接通知2026-11-27 18:00 UTCから約9時間・
+  24時間未満のため本時刻は再通知を見送り、状況記録のみpending-approval.mdに追記)。
+  次回候補: (1)resolved-mark有無によらない「今後の課題」「残課題」節の個別読み直しを
+  他のファイルにも継続する(今回4ファイル確認、残り約48ファイルが未確認)、
+  (2)event-komiguai-pasha・forklift-pasha・oshien-pashaの3ventureはまだLINE Webhookの
+  `webhookEventId`べき等性対策が未対応のため、それぞれが選ばれた回での横展開、
+  (3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の最大の
+  ボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた場合は
+  その着手を最優先、(4)他venture・アイデア領域の前進。
+- 最終更新: 2026-11-28 03:00 UTC(フェーズ422: 詳細は上記。chatbot-intent-classification-
+  llm-prompt-draft.md等4ファイルの「今後の課題」「残課題」節を読み直し、陳腐化なしを確認
+  (是正不要)。ideas.mdに新規アイデア1件追加〈LINE公式アカウント追加メッセージ・
+  プレミアムID料金改定対応〉。既存テスト844件・schema検証25件いずれもパス、回帰なし)
