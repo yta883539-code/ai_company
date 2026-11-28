@@ -7,6 +7,14 @@ venue_matcher.match_venue()の判定結果でvenue_matched・nearest_station_not
 
 実LLM呼び出し・Cloud Functionsへの実配線は行わない(オーナー承認が必要な範囲)。
 
+フェーズ170(venue-info-staleness-output-reflection-design.md案3)で、venue_matcher.pyが
+組み立てた`info_caution_note`(ネーミングライツ注記・情報鮮度注記)を`venue_matched`・
+`nearest_station_note`と同様に常に上書きする対象として追加した。LLM自己申告の値との
+食い違いはconflicts検知の対象外とする(`venue_info_caution_note`はLLMに判定させる
+フィールドではなく、venue_matcher.py側の機械的な導出結果をそのまま採用する一方通行の
+フィールドのため、design doc節2・3が定義する「LLMとマッチャーの判定が食い違う場合の
+検知」はvenue_matched判定にのみ適用される)。
+
 フェーズ82(cloud-monitoring-alert-policy-design.md 5節)でconflicts検知を構造化ログに
 結線した。本venture・他venture既存のCloud Functions未捕捉例外ログと同じ
 `extra={"json_fields": {"event": "..."}}`方式に揃え、Cloud Monitoring側のログベース指標
@@ -64,6 +72,7 @@ def apply_venue_match_postprocessing(itinerary_draft, venue_master, ambiguity_wa
         new_item = dict(item)
         new_item["venue_matched"] = match["venue_matched"]
         new_item["nearest_station_note"] = note
+        new_item["venue_info_caution_note"] = match["info_caution_note"]
         updated.append(new_item)
 
     return updated, conflicts

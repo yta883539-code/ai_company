@@ -10,8 +10,28 @@ venue-operational-status-output-reflection-design.md 3節)であり、本モジ�
 踏襲し、戻り値はoutput.schema.jsonの`venue_matched`/`nearest_station_note`に加えて、
 将来のスキーマ拡張時に使う内部情報(`match_confidence`・`operational_status_note`)を
 別フィールドとして保持するに留める(LLMへの直接結線・schema変更は行わない)。
+
+一方、`info_caution_note`(output.schema.jsonの`venue_info_caution_note`に対応)は
+venue-info-staleness-output-reflection-design.md(フェーズ169)で既にschema反映方針が
+確定済みのため、上記の見送り方針の対象外とする。venue_masterの`naming_rights`・
+`last_verified_date`という単一会場の生データから機械的に導出できる注記であり、
+`_operational_status_note()`と同じ「venue_matcher.pyが単一会場の生データから注記文字列を
+組み立てる」責務分担(venue-matcher-llm-postprocessing-integration-design.md参照)に
+揃え、本モジュール側で組み立てる。
 """
+import datetime
 import unicodedata
+
+STALE_THRESHOLD_DAYS = 180
+
+NAMING_RIGHTS_CAUTION_NOTE = (
+    "この会場の名称はネーミングライツ契約により変更される場合があります。"
+    "最新の正式名称は主催者・会場公式サイトでご確認ください。"
+)
+STALE_INFO_CAUTION_NOTE = (
+    "会場情報の確認から時間が経過しているため、"
+    "最新情報は主催者・会場公式サイトでご確認ください。"
+)
 
 
 def _normalize(text):
@@ -38,6 +58,23 @@ def _operational_status_note(venue):
             "この会場の現在の稼働状況を確認できていません。"
             "最新の開催会場情報を主催者発表でご確認ください。"
         )
+    return None
+
+
+def _info_caution_note(venue, reference_date):
+    """venue-info-staleness-output-reflection-design.md 案3の優先順位
+    ((a)ネーミングライツ > (b)情報の経過期間)をそのまま実コード化したもの。
+    reference_date: datetime.date(生成時点の日付。省略時は呼び出し元でtoday()を渡す)。
+    """
+    if venue.get("naming_rights"):
+        return NAMING_RIGHTS_CAUTION_NOTE
+
+    last_verified_date = venue.get("last_verified_date")
+    if last_verified_date:
+        verified = datetime.date.fromisoformat(last_verified_date)
+        if (reference_date - verified).days >= STALE_THRESHOLD_DAYS:
+            return STALE_INFO_CAUTION_NOTE
+
     return None
 
 
@@ -69,19 +106,26 @@ def _partial_match_note(venue_name_input, candidate_names):
     )
 
 
-def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
+def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None, reference_date=None):
     """venue_name_input: 利用者入力の会場名文字列。
     venue_master: schema/venue-master.jsonをjson.loadした辞書(キー"venues"を持つ)。
     ambiguity_watchlist: schema/ambiguity-watchlist.jsonをjson.loadした辞書(キー"entries")。
                          Noneの場合は混同注意リスト照合をスキップする。
+    reference_date: datetime.date(情報の鮮度チェックの基準日。省略時は呼び出し時点の
+                     datetime.date.today()を用いる。テストから固定日付を注入できるように
+                     引数化している)。
 
     戻り値(dict):
       venue_matched: bool (output.schema.json準拠)
       nearest_station_note: str (output.schema.json準拠)
+      info_caution_note: str | None (output.schema.json `venue_info_caution_note`準拠)
       match_confidence: "exact" | "alias" | "partial" | "none" (内部用、スキーマ未反映)
       operational_status_note: str | None (内部用、スキーマ未反映)
       matched_canonical_name: str | None
     """
+    if reference_date is None:
+        reference_date = datetime.date.today()
+
     normalized = _normalize(venue_name_input)
     venues = venue_master.get("venues", [])
 
@@ -90,6 +134,7 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
             return {
                 "venue_matched": True,
                 "nearest_station_note": _station_note(venue),
+                "info_caution_note": _info_caution_note(venue, reference_date),
                 "match_confidence": "exact",
                 "operational_status_note": _operational_status_note(venue),
                 "matched_canonical_name": venue["canonical_name"],
@@ -101,6 +146,7 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
                 return {
                     "venue_matched": True,
                     "nearest_station_note": _station_note(venue),
+                    "info_caution_note": _info_caution_note(venue, reference_date),
                     "match_confidence": "alias",
                     "operational_status_note": _operational_status_note(venue),
                     "matched_canonical_name": venue["canonical_name"],
@@ -112,6 +158,7 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
                 return {
                     "venue_matched": False,
                     "nearest_station_note": entry["note"],
+                    "info_caution_note": None,
                     "match_confidence": "none",
                     "operational_status_note": None,
                     "matched_canonical_name": None,
@@ -133,6 +180,7 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
             "nearest_station_note": _partial_match_note(
                 venue_name_input, partial_candidate_names
             ),
+            "info_caution_note": None,
             "match_confidence": "partial",
             "operational_status_note": None,
             "matched_canonical_name": None,
@@ -141,6 +189,7 @@ def match_venue(venue_name_input, venue_master, ambiguity_watchlist=None):
     return {
         "venue_matched": False,
         "nearest_station_note": "会場名を確認できなかったため、一般的な調べ方をご案内します。",
+        "info_caution_note": None,
         "match_confidence": "none",
         "operational_status_note": None,
         "matched_canonical_name": None,

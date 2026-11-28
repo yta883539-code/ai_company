@@ -7,10 +7,11 @@ schema/venue-master.json・schema/ambiguity-watchlist.jsonの実データを読�
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 
-from venue_matcher import _station_note, match_venue
+from venue_matcher import _info_caution_note, _station_note, match_venue
 
 PASS = 0
 FAIL = 0
@@ -243,6 +244,68 @@ def test_operational_status_note_is_none_for_active_venue() -> None:
     )
 
 
+def test_info_caution_note_for_naming_rights_venue() -> None:
+    # venue-info-staleness-output-reflection-design.md 案3(a)。京セラドーム大阪は
+    # venue-master.json上naming_rights=trueの56件中の1件(本フェーズ時点)。
+    master = _load_master()
+    result = match_venue("京セラドーム大阪", master)
+    check(
+        "naming rights venue: info_caution_note is non-null",
+        result["info_caution_note"] is not None,
+    )
+    check(
+        "naming rights venue: info_caution_note mentions ネーミングライツ",
+        "ネーミングライツ" in result["info_caution_note"],
+    )
+
+
+def test_info_caution_note_is_none_for_fresh_non_naming_rights_venue() -> None:
+    # 東京ドームはnaming_rights=falseかつlast_verified_dateが新しいため、(a)(b)いずれにも
+    # 該当せずnull(本フェーズ時点で該当会場0件という設計docの前提の実コード確認)。
+    master = _load_master()
+    result = match_venue("東京ドーム", master)
+    check(
+        "fresh non-naming-rights venue: info_caution_note is None",
+        result["info_caution_note"] is None,
+    )
+
+
+def test_info_caution_note_for_stale_info_venue() -> None:
+    # 案3(b)。181日後を基準日として渡し、naming_rights=falseの東京ドーム
+    # (last_verified_date=2026-10-28)でも閾値超過時はstale注記が立つことを確認する。
+    master = _load_master()
+    far_future = datetime.date(2027, 4, 28)  # 2026-10-28から182日後
+    result = match_venue("東京ドーム", master, reference_date=far_future)
+    check(
+        "stale info venue: info_caution_note is non-null",
+        result["info_caution_note"] is not None,
+    )
+    check(
+        "stale info venue: info_caution_note mentions 時間が経過",
+        result["info_caution_note"] is not None and "時間が経過" in result["info_caution_note"],
+    )
+
+
+def test_info_caution_note_naming_rights_takes_priority_over_staleness() -> None:
+    # 案3「(a)(b)両方に該当する場合は(a)の文面を優先する」。naming_rights=trueかつ
+    # last_verified_dateが古い想定のvenue dictを直接構築して_info_caution_noteを検証する。
+    venue = {"naming_rights": True, "last_verified_date": "2020-01-01"}
+    note = _info_caution_note(venue, datetime.date(2027, 1, 1))
+    check(
+        "naming rights takes priority: note is the naming-rights note, not the staleness note",
+        note is not None and "ネーミングライツ" in note and "時間が経過" not in note,
+    )
+
+
+def test_info_caution_note_is_none_when_venue_matched_is_false() -> None:
+    master = _load_master()
+    result = match_venue("どこかの体育館", master)
+    check(
+        "unmatched venue: info_caution_note is None",
+        result["info_caution_note"] is None,
+    )
+
+
 def test_station_note_uses_access_note_when_car_or_bus() -> None:
     # access-mode-alternative-to-walk-minutes-note-design.md(フェーズ157)の疑似コードの
     # 実コード化を検証する。venue-master.json側の既存51件はいずれもaccess_mode未設定
@@ -301,6 +364,11 @@ if __name__ == "__main__":
     test_no_match()
     test_operational_status_note_for_closed_venue()
     test_operational_status_note_is_none_for_active_venue()
+    test_info_caution_note_for_naming_rights_venue()
+    test_info_caution_note_is_none_for_fresh_non_naming_rights_venue()
+    test_info_caution_note_for_stale_info_venue()
+    test_info_caution_note_naming_rights_takes_priority_over_staleness()
+    test_info_caution_note_is_none_when_venue_matched_is_false()
     test_station_note_uses_access_note_when_car_or_bus()
     test_station_note_falls_back_to_walk_minutes_note_without_access_note()
     test_station_note_default_access_mode_is_unaffected()

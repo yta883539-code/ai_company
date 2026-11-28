@@ -25,7 +25,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["venue_name_input", "venue_matched", "nearest_station_note", "lodging_area_candidates", "transport_note"],
+        "required": ["venue_name_input", "venue_matched", "nearest_station_note", "venue_info_caution_note", "lodging_area_candidates", "transport_note"],
         "properties": {
           "venue_name_input": { "type": "string" },
           "venue_matched": {
@@ -35,6 +35,10 @@
           "nearest_station_note": {
             "description": "venue_matched=trueのときは会場マスタの最寄り駅・徒歩目安を記載。falseのときは『会場名を確認できなかったため一般的な調べ方を案内する』趣旨の一言とする。",
             "type": "string"
+          },
+          "venue_info_caution_note": {
+            "description": "venue-info-staleness-output-reflection-design.md(案3)に対応。venue_matched=trueの会場についてのみ、(a)ネーミングライツ対象(naming_rights=true)の場合は名称変更の可能性に関する定型注記、(b)naming_rights=falseかつlast_verified_dateが生成時点から180日以上前の場合は情報鮮度に関する定型注記を設定する(両方に該当する場合は(a)を優先)。venue_matched=falseの場合、またvenue_matched=trueでも(a)(b)いずれにも該当しない場合はnull。内部管理用フィールド(naming_rights_review_due等)の生値は転記せず、利用者向けに加工した定型文のみを用いる(内部情報をそのまま出す案は不採用、design doc 2節参照)。",
+            "type": ["string", "null"]
           },
           "lodging_area_candidates": {
             "type": "array",

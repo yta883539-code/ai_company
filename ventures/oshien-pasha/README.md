@@ -4096,3 +4096,34 @@ naming-rights-review-due-reconfirmation-rule.mdの優先順位(1)に沿って、
   reflection-design.mdを新規作成し、last_verified_date・naming_rights_review_dueの利用者向け
   出力への反映方針を検討・結論。コード変更なし、既存テスト11ファイル〈schema検証含む〉いずれも
   パス、回帰なし)
+- フェーズ170(2026-11-28 07:00 UTC定例更新): フェーズ169次回候補(1)に対応し、
+  venue-info-staleness-output-reflection-design.md(案3)の実装に着手・完了した。
+  `schema/output.schema.json`の`itinerary_draft.items`に`venue_info_caution_note`
+  (string|null、必須)を追加。`prototype/venue_matcher.py`に`_info_caution_note()`を
+  新設し、`match_venue()`の戻り値に`info_caution_note`を追加(`_operational_status_note()`
+  と同じ「venue_matcherが単一会場の生データから注記を組み立てる」責務分担を踏襲)。
+  ネーミングライツ優先・180日しきい値の判定ロジックを実コード化し、`reference_date`引数
+  (省略時は`datetime.date.today()`)でテストから基準日を注入できるようにした。
+  `prototype/itinerary_draft_postprocessor.py`は`info_caution_note`を`venue_info_caution_note`
+  としてそのまま採用するよう変更(LLM自己申告値は参照しない一方通行のフィールドのため、
+  既存のconflicts検知〈venue_matched用〉の対象には加えていない)。`validate_test_cases.py`の
+  既存フィクスチャ(N1・N2・N3・N4 join/skip・E4、計7件のitinerary_draft要素)全件に新
+  フィールドを追記し、京セラドーム大阪(venue-master.json上naming_rights=trueの1件)を含む
+  N3で(a)ネーミングライツ注記が立つケースを確認した。`test_venue_matcher.py`・
+  `test_itinerary_draft_postprocessor.py`にそれぞれ新規テスト(ネーミングライツ優先・
+  情報鮮度しきい値・venue_matched=false時null・postprocessor経由の反映)を追加した。
+  `python3 -I prototype/run_all_tests.py`(既存11ファイル+追加分、schema検証含む)・
+  `python3 -I validate_test_cases.py`(9フィクスチャ)いずれも全件パスを確認した(回帰なし)。
+  実LLM/Stripe/GCP/Firestore接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  承認が必要な新規アクションは今回発生していない(運営方針確認は前回直接通知2026-11-27
+  18:00 UTCから約13時間・24時間未満のため、本時刻は再通知を見送り状況記録のみ
+  pending-approval.mdに追記する)。
+  次回候補: (1)llm-system-prompt-draft.mdに`venue_info_caution_note`の扱い(LLMは常にnullを
+  出力し、venue_matcher.py側が常に上書きする一方通行フィールドである旨)を明記する、
+  (2)混同注意リストの他候補をWebSearchで探索・会場マスタへ追加、(3)宮崎県体育館・宮崎市総合
+  体育館・大分県立総合体育館の徒歩分数・最寄り駅は本実行環境のネットワーク制約下では確証が
+  得られないため、オーナーのネットワーク許可拡大が得られた場合に再試行、(4)承認待ち事項
+  (launch-readiness-checklist.md参照)がオーナーから承認された場合はその着手を最優先。
+- 最終更新: 2026-11-28 07:00 UTC(フェーズ170: 詳細は上記。venue_info_caution_noteをschema・
+  venue_matcher.py・itinerary_draft_postprocessor.py・validate_test_cases.pyに実装、テスト
+  追加。既存テスト11ファイル+新規テスト追加分・schema検証9フィクスチャいずれもパス、回帰なし)

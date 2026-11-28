@@ -96,6 +96,38 @@ def test_matching_llm_claim_produces_no_conflict() -> None:
     check("matching claim: no conflict recorded", conflicts == [])
 
 
+def test_venue_info_caution_note_is_set_from_matcher() -> None:
+    # フェーズ170: venue_matcher.pyが組み立てたinfo_caution_noteを
+    # venue_info_caution_noteとしてそのまま採用する(LLM自己申告値は参照しない)。
+    master = _load_master()
+    draft = [
+        {
+            "venue_name_input": "京セラドーム大阪",
+            "venue_matched": True,
+            "nearest_station_note": "ダミー",
+            "lodging_area_candidates": [],
+            "transport_note": "",
+        },
+        {
+            "venue_name_input": "東京ドーム",
+            "venue_matched": True,
+            "nearest_station_note": "ダミー",
+            "lodging_area_candidates": [],
+            "transport_note": "",
+        },
+    ]
+    updated, _ = apply_venue_match_postprocessing(draft, master)
+    check(
+        "naming rights venue: venue_info_caution_note is set",
+        updated[0]["venue_info_caution_note"] is not None
+        and "ネーミングライツ" in updated[0]["venue_info_caution_note"],
+    )
+    check(
+        "fresh non-naming-rights venue: venue_info_caution_note is None",
+        updated[1]["venue_info_caution_note"] is None,
+    )
+
+
 def test_closed_venue_appends_operational_status_note() -> None:
     master = _load_master()
     draft = [
@@ -252,6 +284,7 @@ def main() -> int:
     test_none_itinerary_draft_passthrough()
     test_exact_match_overwrites_llm_false_claim()
     test_matching_llm_claim_produces_no_conflict()
+    test_venue_info_caution_note_is_set_from_matcher()
     test_closed_venue_appends_operational_status_note()
     test_ambiguity_watchlist_entry_produces_no_conflict_when_llm_agrees()
     test_multiple_venues_processed_independently()
