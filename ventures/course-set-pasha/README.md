@@ -7738,3 +7738,39 @@
   (4)stripe-event-id-store-firestore-adapter-design.md「4. 残課題・次回候補」が指摘する
   Firestoreアダプタ横展開先(aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも
   未着手のため、当該3ventureのいずれかが次に選ばれた際に対応する。
+
+- フェーズ413(2026-11-28 12:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ412・2026-11-28 04:00 UTC、約8時間)を選定。フェーズ412次回候補(2)
+  に沿い、個別design.mdファイル陳腐化棚卸しを継続し、今回はblocked-but-billing-detection-
+  design.md・blocked-but-billing-owner-notification-design.md・blocked-but-billing-
+  owner-notification-stale-event-guard-fix.md・payment-failure-event-order-guard-
+  design.mdの4ファイルを読み直した。このうちblocked-but-billing-owner-notification-
+  design.md「6. 今後の課題」の「aircon-pashaは`current_plan_id`ベースの同種ロジックを
+  持つが、本ドキュメントと同じ『オーナー通知バッチ』の設計はまだ行っていない」という記載
+  (本ドキュメント作成時点の原文)を`ventures/aircon-pasha/`で検証したところ、実際には
+  aircon-pasha側で本ドキュメントの2フェーズ後にあたるフェーズ174で同種のオーナー通知バッチ
+  設計(`blocked-but-billing-owner-notification-design.md`)が既に完了済みであり、本venture
+  側の記載だけがその後の進展に追従せず陳腐化したまま残っていた記録不整合であることを発見・
+  是正した(原文は維持しつつ是正注記を追記、aircon-pasha側のファイル・コードの変更は行って
+  いない、本ファイルの記載の是正のみ)。残り3ファイルは記録と実態の不整合は見つからず、
+  是正は不要と判断した。既存テスト933件(`python3 -I -m unittest discover -s prototype -p
+  "test_*.py"`)・schema検証22件(`python3 -I schema/validate_test_cases.py`)いずれも
+  変更なしでパス(回帰なし)を確認した。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント
+  作成・外部公開・送信は一切行っていない。あわせてideas.mdに新規アイデア2件を追加した
+  (WordPress問い合わせフォームプラグイン「Ninja Forms」拡張機能「File Uploads」の未認証
+  任意ファイル読み取り脆弱性〈CVE-2026-13369、3.3.29以前が対象、CVSS7.5、本セッション
+  時点で修正版未確認〉対応「ニンジャフォームズのっとられパシャっと」、会員管理プラグイン
+  「WP User Manager」の未認証権限昇格脆弱性〈2.9.21〜2.9.25が対象、CVSS8.1、2.9.26で
+  修正済み〉対応「ダブリューピーユーザーマネージャーのっとられパシャっと」、いずれも
+  小規模・自動起業可能、重複なし初出確認済み)。投資版presentations追記は見送り(いずれも
+  単一チャット/フォームとLLM APIで完結する一次診断規模のため)。2026-11-08 08:00 UTC記載の
+  運営方針確認は前回オーナーへの直接プッシュ通知〈2026-11-27 18:00 UTC〉から約18時間・
+  24時間未満かつ状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに
+  追記する。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)個別design.mdファイルの「残課題・次回候補」陳腐化棚卸しの継続
+  (本フェーズで読み直した4ファイル分は完了として除外)、(3)他venture・アイデア領域の前進、
+  (4)stripe-event-id-store-firestore-adapter-design.md「4. 残課題・次回候補」が指摘する
+  Firestoreアダプタ横展開先(aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも
+  未着手のため、当該3ventureのいずれかが次に選ばれた際に対応する。

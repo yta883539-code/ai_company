@@ -83,7 +83,11 @@ payment-failure-reminder-scheduler-design.md 3節参照)。本設計フェーズ
   パスを確認した。
 - `blocked_but_billing_owner_notified_at`の実Firestoreフィールド追加・実際のCloud Scheduler
   作成・実LINE API接続はオーナー承認待ちの範囲(既存の記載を参照、新規追加なし)。
-- aircon-pashaは`current_plan_id`ベースの同種ロジックを持つが、本ドキュメントと同じ
-  「オーナー通知バッチ」の設計はまだ行っていない(aircon-pashaフェーズ167時点でも
-  「候補一覧をオーナーへ届ける手段は未設計のまま残す」との記載のみ)。同様の設計は
-  aircon-pasha側でも横展開可能だが、本フェーズではcourse-set-pashaのみを対象とする。
+- 【フェーズ413是正】aircon-pashaは`current_plan_id`ベースの同種ロジックを持つが、本
+  ドキュメントと同じ「オーナー通知バッチ」の設計はまだ行っていない(aircon-pashaフェーズ167
+  時点でも「候補一覧をオーナーへ届ける手段は未設計のまま残す」との記載のみ)——という本節
+  原文の記載は、本venture自身のフェーズ413時点で陳腐化を確認した。実際にはaircon-pasha側で
+  本ドキュメントの2フェーズ後にあたるフェーズ174で
+  `ventures/aircon-pasha/blocked-but-billing-owner-notification-design.md`として同種の
+  オーナー通知バッチ設計が既に完了している(原文はそのまま維持し、本注記を追記して是正。
+  aircon-pasha側のファイル・コードの変更は行っていない)。
