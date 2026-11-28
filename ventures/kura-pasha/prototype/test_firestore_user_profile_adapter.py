@@ -113,6 +113,21 @@ class FirestoreUserProfileProviderTest(unittest.TestCase):
         self.assertIsNone(self.provider.get_workshop_id("user-2"))
         self.assertTrue(self.provider.get_is_following("user-1"))
 
+    def test_unlink_clears_workshop_id(self) -> None:
+        self.provider.link("user-1", "workshop-1")
+        self.provider.unlink("user-1")
+        self.assertIsNone(self.provider.get_workshop_id("user-1"))
+
+    def test_unlink_does_not_clobber_is_following(self) -> None:
+        self.provider.link("user-1", "workshop-1")
+        self.provider.set_is_following("user-1", False)
+        self.provider.unlink("user-1")
+        self.assertFalse(self.provider.get_is_following("user-1"))
+
+    def test_unlink_unknown_user_is_idempotent(self) -> None:
+        self.provider.unlink("never-linked-user")
+        self.assertIsNone(self.provider.get_workshop_id("never-linked-user"))
+
     def test_get_workshop_id_fails_open_to_none_on_connection_error(self) -> None:
         provider = FirestoreUserProfileProvider(_RaisingFirestoreClient())
         self.assertIsNone(provider.get_workshop_id("user-1"))

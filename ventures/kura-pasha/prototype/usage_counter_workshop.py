@@ -142,6 +142,13 @@ usage-counter-workshop-key-design.md(フェーズ26)2節で確定した、生成
   変更し、`InMemoryUsageCounterStore`にも素朴な実装を追加した。既存の`get`/`set`は
   テスト側の状態検証(`counters.get(...)`によるブロック時未書き込み確認等)で引き続き
   使うため維持する。
+- フェーズ続き340: downgrade-excess-member-handling-design.md「4. 未検証・残課題」
+  (フェーズ続き339追記)・data-retention-policy.md「非契約者メンバー除外時の保存
+  期間論点」で確定した方針を実コード化した。`UserProfileStoreProtocol`へ
+  `unlink(user_id)`を追加し、`check_and_apply_pending_member_reduction`に任意の
+  `user_profile_store`引数を追加、縮小によって実際に除外されたuser_idの
+  `workshop_id`をあわせてnull化するようにした。`process_generation_request`からの
+  呼び出しをこの新引数付きに更新した。
 """
 
 from __future__ import annotations
@@ -287,6 +294,17 @@ class UserProfileStoreProtocol(Protocol):
     def link(self, user_id: str, workshop_id: str) -> None:
         """フェーズ66: workshop_linking.pyの新規workshop作成処理から呼び出される
         書き込み処理。InMemoryUserProfileStoreは既存実装(フェーズ26)をそのまま使う。
+        """
+        ...
+
+    def unlink(self, user_id: str) -> None:
+        """フェーズ続き340: downgrade-excess-member-handling-design.md「4. 未検証・
+        残課題」(フェーズ続き339追記)・data-retention-policy.md「非契約者メンバー
+        除外時の保存期間論点」で確定した方針の実コード化。
+        `check_and_apply_pending_member_reduction`の縮小処理によって
+        `member_user_ids`から除外されたuser_idの`workshop_id`をNoneへ戻す
+        書き込み処理(ダングリング参照の防止、除外されたメンバー自身の削除候補化
+        起点の確保)。未リンクのuser_idに対して呼んでも何もしない(冪等)。
         """
         ...
 
@@ -760,6 +778,9 @@ class InMemoryUserProfileStore:
     def link(self, user_id: str, workshop_id: str) -> None:
         self._workshop_id_by_user[user_id] = workshop_id
 
+    def unlink(self, user_id: str) -> None:
+        self._workshop_id_by_user.pop(user_id, None)
+
     def get_workshop_id(self, user_id: str) -> Optional[str]:
         return self._workshop_id_by_user.get(user_id)
 
@@ -1190,12 +1211,21 @@ def check_and_apply_pending_member_reduction(
     workshop_id: str,
     now: datetime,
     workshop_store: WorkshopStoreProtocol,
+    user_profile_store: Optional[UserProfileStoreProtocol] = None,
 ) -> Optional[MemberReductionResult]:
     """downgrade-excess-member-handling-design.md「3. 確定する設計」の都度チェック処理。
 
     生成リクエスト受信のたびに(check_and_increment_usageの前段として)呼び出す想定。
     `pending_member_reduction_effective_at`が未設定、または猶予期間中(now未到達)の
     場合はNoneを返し何もしない。
+
+    フェーズ続き340: `user_profile_store`を渡した場合、縮小によって実際に除外された
+    user_id(removed_user_ids)の`user_profile/{user_id}.workshop_id`をあわせて
+    null化する(downgrade-excess-member-handling-design.md「4. 未検証・残課題」・
+    data-retention-policy.md「非契約者メンバー除外時の保存期間論点」で確定済みの方針)。
+    省略した場合(デフォルトNone)はworkshop_id側の更新を行わない
+    (process_generation_request以外の既存呼び出し元・テストとの後方互換のため
+    キーワード引数ではなく任意位置引数とした)。
     """
     effective_at = workshop_store.get_pending_reduction_effective_at(workshop_id)
     if effective_at is None or now < effective_at:
@@ -1239,6 +1269,10 @@ def check_and_apply_pending_member_reduction(
 
     removed_user_ids = [uid for uid in member_user_ids if uid != contractor_user_id]
     workshop_store.apply_member_reduction(workshop_id, [contractor_user_id])
+
+    if user_profile_store is not None:
+        for removed_user_id in removed_user_ids:
+            user_profile_store.unlink(removed_user_id)
 
     return MemberReductionResult(
         workshop_id=workshop_id,
@@ -1305,7 +1339,7 @@ def process_generation_request(
         )
 
     member_reduction = check_and_apply_pending_member_reduction(
-        workshop_id, now, workshop_store
+        workshop_id, now, workshop_store, user_profile_store
     )
     ensure_member_is_active(user_id, workshop_id, workshop_store)
     # フェーズ52: トライアル終了かつ有償契約未確認(activeでない)の場合は

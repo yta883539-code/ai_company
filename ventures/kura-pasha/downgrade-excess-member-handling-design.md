@@ -87,6 +87,20 @@ aircon-pashaには複数人契約の概念自体が存在しないため参照�
   されたメンバー自身の削除候補化起点(workshop_idがnullになった時点)の確保を
   兼ねる。本ファイル自身の都度チェック実装が未着手のため、実コードへの反映は
   その実装時にあわせて行う(本フェーズでは参照先の確定のみ)。
+- (追記 2026-11-28 08:00 UTC・フェーズ続き340・解消): 上記「都度チェック処理」
+  (`check_and_apply_pending_member_reduction`、prototype/usage_counter_workshop.py)
+  自体は既にフェーズ30で実コード化済みだったため、本追記で残っていたのは
+  workshop_idのnull化部分のみだった。`UserProfileStoreProtocol`へ`unlink(user_id)`
+  を追加し、`check_and_apply_pending_member_reduction`に任意の`user_profile_store`
+  引数を追加、縮小によって実際に除外されたuser_id全員の`workshop_id`をあわせて
+  null化するよう実装した(`InMemoryUserProfileStore.unlink`・
+  `FirestoreUserProfileProvider.unlink`の両方に対応)。`process_generation_request`
+  からの呼び出しも新引数付きに更新済み。新規テスト3件
+  (test_pending_reduction_unlinks_removed_members_workshop_id・
+  test_pending_reduction_without_user_profile_store_skips_unlink・
+  test_firestore_user_profile_adapter.pyのunlink系3件)を追加し、既存テストと
+  あわせて全件パスを確認済み。実Firestore接続・実データでの検証はオーナー承認待ちの
+  範囲(pending-approval.md参照)で未実施。
 - 実際のStripe接続・LINE公式アカウント接続は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
 

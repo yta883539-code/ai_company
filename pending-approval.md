@@ -3586,3 +3586,32 @@ prototype -p "test_*.py"`)1077件・schema検証(`python3 -I schema/validate_tes
 許認可取得・提携運送事業者契約・中継拠点確保等の投資判断自体がオーナー確認事項であり、
 presentations.md記載の推奨アクション(需要調査の是非確認)を含め、オーナーが対話セッションで
 直接指示するまで一切着手しない。
+
+日時: 2026-11-28 08:00 UTC
+venture: ventures/kura-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した。NTTドコモ/OCNモバイルONE料金改定(2026年9月25日発表、
+2026年12月1日利用分から全プラン適用、値上げ幅110円〜550円、既契約者は自動適用)対応の
+事業用SIM契約中の個人事業主・小規模事業者向け一次診断&他社乗り換え検討チェックリスト
+下書き生成「オーシーエヌもばいるねあがりパシャっと」、小規模・自動起業可能、ideas.md内
+「OCNモバイルONE」「OCN モバイル」検索0件・既出のドコモ関連アイデア(mopera U提供終了・
+ドコモnet統合・ドコモビジネス音声サービス通話料改定等)とは対象・論点が異なり重複なし
+初出確認済み。料金・適用時期はWebSearch経由で複数の業界メディア(ケータイWatch、gori.me等)
+の要約により確認したが、本実行環境のネットワーク制約によりOCN公式発表ページ本文への直接
+到達は確証できておらず、その旨をidea本文に留保として明記済み。7venture中最も更新が止まって
+いたkura-pasha(前回README.md最終更新フェーズ続き339・2026-11-28 00:00 UTC)をフェーズ続き
+340として前進させ、フェーズ続き339次回候補(1)のうちworkshop_idクリア処理を実コード化した
+(`UserProfileStoreProtocol.unlink`追加、`check_and_apply_pending_member_reduction`への
+`user_profile_store`引数追加、`FirestoreUserProfileProvider.unlink`実装)。
+downgrade-excess-member-handling-design.md・data-retention-policy.mdの両方に対応済み注記を
+追記。新規テスト6件を追加し、既存テスト(`python3 -I -m unittest discover -s prototype -p
+"test_*.py"`)334件→337件・`python3 -I prototype/run_all_tests.py`26ファイル・schema検証
+(`python3 -I schema/validate_test_cases.py`)32件いずれもパス(回帰なし)。実LINE/Stripe/
+GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-27 18:00 UTC)から約14時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。

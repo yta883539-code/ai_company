@@ -310,6 +310,41 @@ def test_pending_reduction_does_not_reuse_stale_specified_name_across_cycles():
     check("2回目もnoteは記録されない(指定自体が無いため)", r2.note is None)
 
 
+def test_pending_reduction_unlinks_removed_members_workshop_id():
+    """フェーズ続き340: downgrade-excess-member-handling-design.md「4. 未検証・残課題」
+    (フェーズ続き339追記)で確定した、縮小によって除外されたメンバーの
+    `user_profile.workshop_id`null化の検証。
+    """
+    profiles, workshops, _ = make_stores()
+    workshops.set_members("W_UNLINK", "CONTRACTOR", ["CONTRACTOR", "MEMBER2"])
+    workshops.set_pending_reduction_effective_at("W_UNLINK", FEB)
+    profiles.link("CONTRACTOR", "W_UNLINK")
+    profiles.link("MEMBER2", "W_UNLINK")
+
+    r = check_and_apply_pending_member_reduction("W_UNLINK", MAR, workshops, profiles)
+    check("縮小が適用される", r.applied is True)
+    check(
+        "除外されたMEMBER2のworkshop_idはNoneになる",
+        profiles.get_workshop_id("MEMBER2") is None,
+    )
+    check(
+        "契約者のworkshop_idは変更されない",
+        profiles.get_workshop_id("CONTRACTOR") == "W_UNLINK",
+    )
+
+
+def test_pending_reduction_without_user_profile_store_skips_unlink():
+    """user_profile_storeを省略した既存呼び出し(フェーズ30〜339までのテスト)との
+    後方互換を確認する。省略時は例外にならずworkshop_id側の更新も行わない。
+    """
+    _, workshops, _ = make_stores()
+    workshops.set_members("W_NOPROFILE", "CONTRACTOR", ["CONTRACTOR", "MEMBER2"])
+    workshops.set_pending_reduction_effective_at("W_NOPROFILE", FEB)
+
+    r = check_and_apply_pending_member_reduction("W_NOPROFILE", MAR, workshops)
+    check("user_profile_store省略時も例外にならず縮小は適用される", r.applied is True)
+
+
 def test_ensure_member_is_active_allows_contractor_and_current_members():
     _, workshops, _ = make_stores()
     workshops.set_members("W10", "CONTRACTOR", ["CONTRACTOR", "MEMBER2"])
@@ -646,6 +681,10 @@ def test_process_generation_request_raises_for_member_removed_in_same_call():
     except MemberRemovedError:
         check("除外対象メンバーはMemberRemovedErrorが送出される", True)
     check("除外された場合usage_counter_storeには何も書き込まれない", counters.get("W14") is None)
+    check(
+        "フェーズ続き340: 除外と同一呼び出し内でworkshop_idもNoneへ更新される",
+        profiles.get_workshop_id("MEMBER14") is None,
+    )
 
 
 def test_process_generation_request_workshop_not_linked_raises():

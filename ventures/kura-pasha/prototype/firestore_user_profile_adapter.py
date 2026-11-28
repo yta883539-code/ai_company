@@ -11,6 +11,10 @@ LinkingCodeStoreProtocol・UserProfileStoreProtocol)のうち、本モジュー�
 残っていたUserProfileStoreProtocol(get_workshop_id・link・get_is_following・
 set_is_following の4メソッド、対象ドキュメントはuser_profile/{user_id}単一)の
 実コード化にあたる。
+
+フェーズ続き340: usage_counter_workshop.py側のUserProfileStoreProtocolへ追加された
+`unlink(user_id)`(downgrade-excess-member-handling-design.md「4. 未検証・残課題」で
+確定した、縮小除外メンバーのworkshop_id null化)に対応するFirestore実装を追加した。
 """
 
 from __future__ import annotations
@@ -46,6 +50,11 @@ class FirestoreUserProfileProvider:
 
     def link(self, user_id: str, workshop_id: str) -> None:
         self._doc_ref(user_id).set({"workshop_id": workshop_id}, merge=True)
+
+    def unlink(self, user_id: str) -> None:
+        """フェーズ続き340: workshop_idをNoneへ戻す(ドキュメント自体は削除しない。
+        is_following等の他フィールドをmerge=Trueのまま維持するため)。"""
+        self._doc_ref(user_id).set({"workshop_id": None}, merge=True)
 
     def get_is_following(self, user_id: str) -> bool:
         doc = self._get_doc(user_id)

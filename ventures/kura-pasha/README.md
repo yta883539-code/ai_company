@@ -8054,3 +8054,31 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   未確認のため継続保留。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま
   7venture共通の最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナー
   から得られた場合はその着手を最優先。(4)他venture・アイデア領域の前進。
+
+- フェーズ続き340(2026-11-28 08:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き339・2026-11-28 00:00 UTC)を選定。フェーズ続き339次回候補(1)
+  「`user_profile.workshop_id`クリア処理・1年後の削除候補化洗い出しロジックの実コード化」
+  のうちworkshop_idクリア部分を実装した。`UserProfileStoreProtocol`へ`unlink(user_id)`を
+  追加し(`InMemoryUserProfileStore.unlink`・`FirestoreUserProfileProvider.unlink`の両方に
+  実装)、`check_and_apply_pending_member_reduction`に任意の`user_profile_store`引数を
+  追加して、縮小によって実際に除外されたuser_id全員のworkshop_idをあわせてnull化する
+  ようにした。`process_generation_request`からの呼び出しを新引数付きに更新し、
+  downgrade-excess-member-handling-design.md「4. 未検証・残課題」・data-retention-policy.md
+  「非契約者メンバー除外時の保存期間論点」の両方に対応済み注記を追記した。新規テスト6件
+  (prototype/test_usage_counter_workshop.py 2件・prototype/test_firestore_user_profile_
+  adapter.py 3件・既存test_process_generation_request_raises_for_member_removed_in_same_
+  callへの追加assertion1件)を追加。既存テスト(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)334件→337件(新規3件)・`python3 -I prototype/run_all_tests.py`
+  26ファイル・schema検証(`python3 -I schema/validate_test_cases.py`)32件いずれもパス
+  (回帰なし)。実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・
+  送信は一切行っていない。承認が必要な新規アクションは今回発生していないため
+  pending-approval.mdへの新規承認依頼はなし(2026-11-08 08:00 UTC記載の運営方針確認は
+  前回オーナーへの直接プッシュ通知〈2026-11-27 18:00 UTC〉から約14時間・24時間未満かつ
+  状況不変のため、本時刻は再通知を見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)`workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出す
+  バッチ・都度チェックロジックの具体的な実装(data-retention-policy.md「未着手・次回候補」
+  参照、既存の解約起点1年保有フローとの共通化可否を含む)。(2)usage_counter/workshopの
+  利用者内訳記録は実運用データが無く必要性未確認のため継続保留。(3)2026-11-08 08:00 UTC
+  記載の運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
+  (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。(4)他venture・
+  アイデア領域の前進。

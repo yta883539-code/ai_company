@@ -139,13 +139,19 @@ downgrade-excess-member-handling-design.md(フェーズ28)「3. 確定する設�
 
 ### 未着手・次回候補
 
-- 本節で確定した「解除時のworkshop_idクリア」処理自体の実装(prototype拡張)は
-  downgrade-excess-member-handling-design.md側の都度チェック実装(同ファイル
-  「4. 未検証・残課題」参照)とあわせて行う必要があり、本フェーズでは設計のみで
-  実コードは未着手。
+- (対応済み 2026-11-28 08:00 UTC・フェーズ続き340): 本節1点目「解除時の
+  workshop_idクリア」処理を実コード化した。`UserProfileStoreProtocol.unlink`
+  (prototype/usage_counter_workshop.py)・`FirestoreUserProfileProvider.unlink`
+  (prototype/firestore_user_profile_adapter.py)を追加し、
+  `check_and_apply_pending_member_reduction`が縮小によって実際に除外した
+  user_id全員について呼び出すよう配線した。詳細は
+  downgrade-excess-member-handling-design.md「4. 未検証・残課題」フェーズ続き340
+  追記を参照。
 - `workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出す
   バッチ・都度チェックロジックの具体的な実装方式(既存の解約起点フローと共通化
-  できるか、専用ロジックが必要か)は次回候補とする。
+  できるか、専用ロジックが必要か)は、上記クリア処理自体の実装が完了したため
+  次回候補として優先度を上げる(workshop_id=nullの時点を起点として洗い出す
+  新規ロジックの設計・実コード化が次の着手対象)。
 
 ## 残課題
 
