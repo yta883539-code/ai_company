@@ -7705,3 +7705,36 @@
   firestore-adapter-design.md「4. 残課題・次回候補」が指摘するFirestoreアダプタ横展開先
   (aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも未着手のため、当該3venture
   のいずれかが次に選ばれた際に対応する。
+
+- フェーズ412(2026-11-28 04:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ411・2026-11-27 20:00 UTC、約8時間)を選定。フェーズ400〜406と同様の
+  個別design.mdファイル陳腐化棚卸しを継続し、今回はvendor-breach-key-rotation-runbook.md・
+  unit-economics-estimate.md・trial-start-anchor-decision.md・checkout-initiation-flow-
+  design.md・checkout-session-endpoint-design.md・llm-system-prompt-draft.md・webhook-
+  processing-flow-design.md・webhook-event-dispatch-design.mdの8ファイルを読み直した。この
+  うちtrial-start-anchor-decision.md「5. 今後の課題」の「『浮いた作業時間の目安』の試算値
+  未作成、生成一時停止判定の実装はtrial-end-notification-design.md 5節に記載の通り未解決の
+  まま」という記載が、実際にはフェーズ106(content-generation-time-estimate.mdで試算済み)・
+  フェーズ114(`_is_generation_paused()`実装済み)でいずれも解消済みであり、参照先の
+  trial-end-notification-design.md自身も2026-08-30時点の訂正で両方とも解消済みと記載して
+  いるにもかかわらず、本ファイル側だけがその訂正に追従せず約3ヶ月放置されていた記載漏れ
+  だったことを発見し、解消済み注記を追記して是正した(ドキュメントのみ、コード変更なし)。
+  他7ファイルは記録と実態の不整合は見つからず、是正は不要と判断した。既存テスト933件
+  (`python3 -I -m unittest discover -s prototype -p "test_*.py"`)・schema検証22件
+  (`python3 -I schema/validate_test_cases.py`)いずれも変更なしでパス(回帰なし)を確認した。
+  実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。
+  あわせてideas.mdに新規アイデア1件を追加した(NTTドコモビジネスの音声サービス通話料改定
+  〈2026年11月16日付公式発表、2027年10月1日適用、固定電話発着の通話料引き上げ〉対応
+  「ドコモビジネスつうわりょうパシャっと」=小規模・自動起業可能、ideas.md内「NTTドコモ
+  ビジネス」「通話料改定」「info_20261116」「固定電話」で検索し重複なし初出確認済み)。
+  投資版presentations追記は見送り(単一チャット/フォームとLLM APIで完結する一次診断規模
+  のため)。2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-27 18:00 UTC〉から約10時間・24時間未満かつ状況不変のため、本時刻は再通知を
+  見送り状況記録のみpending-approval.mdに追記した。
+  次回候補: (1)2026-11-08 08:00 UTC記載の運営方針判断が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先、(2)個別design.mdファイルの「残課題・次回候補」陳腐化棚卸しの継続
+  (本フェーズで読み直した8ファイル分は完了として除外)、(3)他venture・アイデア領域の前進、
+  (4)stripe-event-id-store-firestore-adapter-design.md「4. 残課題・次回候補」が指摘する
+  Firestoreアダプタ横展開先(aircon-pasha・forklift-pasha・event-komiguai-pasha)はいずれも
+  未着手のため、当該3ventureのいずれかが次に選ばれた際に対応する。

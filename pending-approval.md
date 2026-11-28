@@ -3467,3 +3467,38 @@ schema検証(`python3 -I schema/validate_test_cases.py`)25件いずれも変更�
 通知(2026-11-27 18:00 UTC)から約9時間・24時間未満かつ状況不変のため、本時刻は再通知を
 見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
 更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+---
+
+日時: 2026-11-28 04:00 UTC
+venture: ventures/course-set-pasha/
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(NTTドコモビジネスの音声サービス通話料改定〈2026年
+11月16日付公式発表、2027年10月1日適用、固定電話発着の通話料引き上げ〉対応の通話コスト
+影響一次診断&チェックリスト下書き生成「ドコモビジネスつうわりょうパシャっと」、小規模・
+自動起業可能、ideas.md内「NTTドコモビジネス」「通話料改定」「info_20261116」「固定電話」
+で検索し重複なし初出確認済み)。投資版presentations追記は見送り(単一チャット/フォームと
+LLM APIで完結する一次診断規模のため)。7venture中最も更新が止まっていたcourse-set-pasha
+(前回README.md最終更新フェーズ411・2026-11-27 20:00 UTC、約8時間)をフェーズ412として
+前進させ、個別design.mdファイルの「残課題・次回候補」陳腐化棚卸しを継続した(vendor-
+breach-key-rotation-runbook.md・unit-economics-estimate.md・trial-start-anchor-
+decision.md・checkout-initiation-flow-design.md・checkout-session-endpoint-design.md・
+llm-system-prompt-draft.md・webhook-processing-flow-design.md・webhook-event-dispatch-
+design.mdの8ファイルを読み直した)。このうちtrial-start-anchor-decision.md「5. 今後の
+課題」の「『浮いた作業時間の目安』の試算値未作成、生成一時停止判定の実装はtrial-end-
+notification-design.md 5節に記載の通り未解決のまま」という記載が、実際にはフェーズ106
+(作業時間試算)・フェーズ114(生成一時停止実装)でいずれも解消済みであり、参照先の
+trial-end-notification-design.md自身も約3ヶ月前の時点で既に訂正済みだったにもかかわらず、
+本ファイル側だけがその訂正に追従せず放置されていた陳腐化記載であることを発見・是正した
+(ドキュメントのみ、コード変更なし)。他7ファイルは記録と実態の不整合は見つからず、
+是正は不要と判断した。既存テスト(`python3 -I -m unittest discover -s prototype -p
+"test_*.py"`)933件・schema検証(`python3 -I schema/validate_test_cases.py`)22件いずれも
+変更なしでパス(回帰なし)。実LLM/LINE/Stripe/GCP API接続・支払い・アカウント作成・
+外部公開・送信は一切行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-27 18:00 UTC)から約10時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。

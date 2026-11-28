@@ -75,7 +75,13 @@ usage_counter/{user_id}
   `trial-end-scheduler-design.md`として新規設計し、`prototype/trial_end_scheduler.py`に
   `select_due_trial_end_notifications()`・`send_trial_end_notifications()`として実装した。
   上記と同じくフェーズ147で発見・訂正した記載漏れ)。
-- 「浮いた作業時間の目安」の試算値未作成、生成一時停止判定の実装は
-  trial-end-notification-design.md 5節に記載の通り未解決のまま。
+- (解消済み 2026-11-28 04:00 UTC定例更新・フェーズ412: 「『浮いた作業時間の目安』の試算値
+  未作成、生成一時停止判定の実装はtrial-end-notification-design.md 5節に記載の通り未解決
+  のまま」という本項目自体が陳腐化した記載だったことを発見・訂正した。実際には「浮いた
+  作業時間の目安」はフェーズ106でcontent-generation-time-estimate.md「1回あたり平均15分
+  (仮置き、幅12〜18分)」として試算済み、「生成一時停止」判定もフェーズ114で
+  `_is_generation_paused()`として実装済みであり、trial-end-notification-design.md 5節
+  自身もフェーズ続き(2026-08-30 12:00 UTC)の訂正で両方とも解消済みと記載している。本
+  ファイル側だけがその訂正に追従せず、約3ヶ月放置されていた記載漏れだった)
 - LIFFアプリの実登録・Cloud Scheduler実行環境の構築はオーナー承認待ち
   (pending-approval.md参照)。
