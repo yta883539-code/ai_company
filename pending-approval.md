@@ -3769,3 +3769,32 @@ prototype/run_all_tests.py`)11ファイル・schema検証(`python3 -I validate_t
 通知(2026-11-27 18:00 UTC)から約20時間・24時間未満かつ状況不変のため、本時刻は再通知を
 見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
 更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。
+
+日時: 2026-11-28 15:00 UTC
+venture: ventures/kura-pasha/(・リポジトリ全体の運用メモ)
+内容: 支払い・アカウント作成・公開・送信などの新規承認依頼ではない。本時刻の定例更新では、
+ideas.mdに新規アイデア1件を追加した(NTTドコモ主要プラン〈eximo・5Gギガホ プレミア・
+irumo・5Gギガライト・ahamo等〉の料金改定・大盛りオプション廃止〈2026年9月25日発表、
+2026年12月1日適用。月110円〜550円の値上げが既存契約者にも自動適用、ahamoは3段階制へ
+変更、大盛りオプションは12月利用分で提供終了・自動廃止、2026年11月1日時点でahamo契約中
+かつ大盛り未契約のユーザーには上限40GBの上限設定オプションが自動設定〉対応、事業用に
+同プランを利用する個人事業主・フリーランス向け「アハモおおもりなくなるパシャっと」、
+小規模・自動起業可能、ideas.md内検索〈「eximo」「irumo」「5Gギガホ」「5Gギガライト」
+「大盛り」〉で重複なし初出確認済み)。7venture中最も更新が止まっていたkura-pasha
+(前回README.md最終更新フェーズ続き340・2026-11-28 08:00 UTC、約7時間)を選定し、
+フェーズ続き340次回候補(1)に対応して、余剰メンバー解除で除外されたuser_profileの
+削除候補化(unlinked_at記録・1年後洗い出しロジック`member_user_profile_deletion_
+candidate.list_member_deletion_candidates()`)を実コード化した(詳細は
+ventures/kura-pasha/member-user-profile-deletion-candidate-design.md新規作成)。
+新規テスト10件を追加。既存テスト(`python3 -I -m unittest discover -s prototype -p
+"test_*.py"`)337件→347件・`python3 -I prototype/run_all_tests.py`26→27ファイル・
+schema検証(`python3 -I schema/validate_test_cases.py`)32件いずれもパス(回帰なし)。
+実LINE/Stripe/GCP/Firestore API接続・支払い・アカウント作成・外部公開・送信は一切
+行っていない。
+理由: 承認は不要(状況記録のみ)。2026-11-08 08:00 UTC記載の運営方針確認(7venture共通、
+実GCPプロジェクト・Firestore・Stripeアカウント・LINE公式アカウント等の実アカウント作成が
+未承認のまま止まっており、いずれか1ventureだけでも実アカウント作成等を承認いただくか、
+当面すべて保留とする旨を明示いただくかの二択を依頼した件)は、前回オーナーへの直接プッシュ
+通知(2026-11-27 18:00 UTC)から約21時間・24時間未満かつ状況不変のため、本時刻は再通知を
+見送った(リポジトリ内記載のみでの承認済みとみなした実行は行っていない)。次回以降の定例
+更新で前回通知から24時間を超えた場合は再度オーナーへ直接通知(push notification)を検討する。

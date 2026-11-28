@@ -147,11 +147,15 @@ downgrade-excess-member-handling-design.md(フェーズ28)「3. 確定する設�
   user_id全員について呼び出すよう配線した。詳細は
   downgrade-excess-member-handling-design.md「4. 未検証・残課題」フェーズ続き340
   追記を参照。
-- `workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出す
-  バッチ・都度チェックロジックの具体的な実装方式(既存の解約起点フローと共通化
-  できるか、専用ロジックが必要か)は、上記クリア処理自体の実装が完了したため
-  次回候補として優先度を上げる(workshop_id=nullの時点を起点として洗い出す
-  新規ロジックの設計・実コード化が次の着手対象)。
+- (対応済み 2026-11-28 15:00 UTC・フェーズ続き341): 本節に残っていた
+  「`workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出す」
+  ロジックを実コード化した。`unlink()`に`unlinked_at`引数を追加して除外時刻を
+  記録し、新規モジュール`member_user_profile_deletion_candidate.
+  list_member_deletion_candidates()`で`unlinked_at + 365日`経過分を洗い出せる
+  ようにした(既存の解約起点フロー`deletion_candidate.py`とRETENTION_DAYS定数は
+  共通化、関数自体はuser_profile単位で別モジュールとした)。詳細は
+  member-user-profile-deletion-candidate-design.md参照。日次バッチへの配線・
+  最終確認通知との結線は次回候補として残る(同ファイル5節参照)。
 
 ## 残課題
 

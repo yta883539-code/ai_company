@@ -333,6 +333,47 @@ def test_pending_reduction_unlinks_removed_members_workshop_id():
     )
 
 
+def test_pending_reduction_records_unlinked_at_for_removed_members():
+    """フェーズ続き341: member-user-profile-deletion-candidate-design.md 2節。
+    check_and_apply_pending_member_reductionが渡す`now`が除外メンバーの
+    `unlinked_at`として記録され、削除候補化(1年後)の基準時刻に使えることを確認する。
+    """
+    profiles, workshops, _ = make_stores()
+    workshops.set_members("W_UNLINKED_AT", "CONTRACTOR", ["CONTRACTOR", "MEMBER2"])
+    workshops.set_pending_reduction_effective_at("W_UNLINKED_AT", FEB)
+    profiles.link("CONTRACTOR", "W_UNLINKED_AT")
+    profiles.link("MEMBER2", "W_UNLINKED_AT")
+
+    check_and_apply_pending_member_reduction("W_UNLINKED_AT", MAR, workshops, profiles)
+    check(
+        "除外されたMEMBER2のunlinked_atはnowの値になる",
+        profiles.get_unlinked_at("MEMBER2") == MAR,
+    )
+    check(
+        "契約者のunlinked_atは記録されない(除外されていないため)",
+        profiles.get_unlinked_at("CONTRACTOR") is None,
+    )
+    check(
+        "all_unlinked_user_idsにMEMBER2が含まれる",
+        "MEMBER2" in list(profiles.all_unlinked_user_ids()),
+    )
+
+
+def test_relink_after_unlink_clears_unlinked_at():
+    """フェーズ続き341: 招待コード再参加等でworkshopへ再リンクされた場合、
+    以前の除外時点の記録(unlinked_at)は無関係になるためクリアされる
+    (deletion_candidate.pyのclear_deletion_candidate_on_subscription_reactivated
+    と同じ「再アクティブ化時はクリア」方針)。
+    """
+    profiles, _, _ = make_stores()
+    profiles.link("MEMBER2", "W1")
+    profiles.unlink("MEMBER2", unlinked_at=MAR)
+    check("unlinkedAt記録済み", profiles.get_unlinked_at("MEMBER2") == MAR)
+
+    profiles.link("MEMBER2", "W2")
+    check("再リンク後はunlinked_atがクリアされる", profiles.get_unlinked_at("MEMBER2") is None)
+
+
 def test_pending_reduction_without_user_profile_store_skips_unlink():
     """user_profile_storeを省略した既存呼び出し(フェーズ30〜339までのテスト)との
     後方互換を確認する。省略時は例外にならずworkshop_id側の更新も行わない。

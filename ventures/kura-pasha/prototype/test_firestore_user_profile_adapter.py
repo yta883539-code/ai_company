@@ -13,9 +13,10 @@ from firestore_user_profile_adapter import FirestoreUserProfileProvider
 
 
 class _FakeSnapshot:
-    def __init__(self, exists: bool, data: dict | None):
+    def __init__(self, exists: bool, data: dict | None, doc_id: str | None = None):
         self.exists = exists
         self._data = data
+        self.id = doc_id
 
     def to_dict(self):
         return self._data
@@ -43,6 +44,14 @@ class _FakeCollection:
 
     def document(self, doc_id: str) -> _FakeDocumentRef:
         return _FakeDocumentRef(self._store, doc_id)
+
+    def stream(self):
+        # フェーズ続き341: all_unlinked_user_ids()用(test_firestore_workshop_adapter.py
+        # の_FakeCollection.streamと同型)。
+        return [
+            _FakeSnapshot(exists=True, data=dict(data), doc_id=doc_id)
+            for doc_id, data in self._store.items()
+        ]
 
 
 class _FakeFirestoreClient:
@@ -127,6 +136,40 @@ class FirestoreUserProfileProviderTest(unittest.TestCase):
     def test_unlink_unknown_user_is_idempotent(self) -> None:
         self.provider.unlink("never-linked-user")
         self.assertIsNone(self.provider.get_workshop_id("never-linked-user"))
+
+    def test_unlink_with_timestamp_records_unlinked_at(self) -> None:
+        # フェーズ続き341: member-user-profile-deletion-candidate-design.md 2節。
+        from datetime import datetime, timezone
+
+        now = datetime(2026, 11, 28, 0, 0, tzinfo=timezone.utc)
+        self.provider.link("user-1", "workshop-1")
+        self.provider.unlink("user-1", unlinked_at=now)
+        self.assertEqual(self.provider.get_unlinked_at("user-1"), now)
+        self.assertIsNone(self.provider.get_workshop_id("user-1"))
+
+    def test_unlink_without_timestamp_does_not_set_unlinked_at(self) -> None:
+        self.provider.link("user-1", "workshop-1")
+        self.provider.unlink("user-1")
+        self.assertIsNone(self.provider.get_unlinked_at("user-1"))
+
+    def test_relink_clears_unlinked_at(self) -> None:
+        from datetime import datetime, timezone
+
+        now = datetime(2026, 11, 28, 0, 0, tzinfo=timezone.utc)
+        self.provider.link("user-1", "workshop-1")
+        self.provider.unlink("user-1", unlinked_at=now)
+        self.provider.link("user-1", "workshop-2")
+        self.assertIsNone(self.provider.get_unlinked_at("user-1"))
+
+    def test_all_unlinked_user_ids_lists_only_unlinked_with_timestamp(self) -> None:
+        from datetime import datetime, timezone
+
+        now = datetime(2026, 11, 28, 0, 0, tzinfo=timezone.utc)
+        self.provider.link("user-1", "workshop-1")
+        self.provider.link("user-2", "workshop-1")
+        self.provider.unlink("user-1", unlinked_at=now)
+        self.provider.unlink("user-2")  # タイムスタンプ省略: 候補一覧には出ない
+        self.assertEqual(list(self.provider.all_unlinked_user_ids()), ["user-1"])
 
     def test_get_workshop_id_fails_open_to_none_on_connection_error(self) -> None:
         provider = FirestoreUserProfileProvider(_RaisingFirestoreClient())

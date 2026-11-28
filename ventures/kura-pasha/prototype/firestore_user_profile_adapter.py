@@ -15,11 +15,20 @@ set_is_following の4メソッド、対象ドキュメントはuser_profile/{use
 フェーズ続き340: usage_counter_workshop.py側のUserProfileStoreProtocolへ追加された
 `unlink(user_id)`(downgrade-excess-member-handling-design.md「4. 未検証・残課題」で
 確定した、縮小除外メンバーのworkshop_id null化)に対応するFirestore実装を追加した。
+
+フェーズ続き341: `unlink(user_id, unlinked_at=...)`・`get_unlinked_at`・
+`all_unlinked_user_ids`を追加した(member-user-profile-deletion-candidate-design.md
+参照)。`all_unlinked_user_ids`はfirestore_workshop_adapter.pyの`all_workshop_ids`
+(`.stream()`による全件スキャン)と同じ方針で、`user_profile`コレクション全件を
+読み取ってクライアント側で`unlinked_at`の有無を判定する(deletion-candidate-query-
+consolidation-decision.md同様、実運用規模が大きくなった場合は複合インデックスを使う
+単一クエリへの統合が将来の最適化候補として残る)。
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from datetime import datetime
+from typing import Iterable, Optional
 
 
 class FirestoreUserProfileProvider:
@@ -49,12 +58,32 @@ class FirestoreUserProfileProvider:
         return self._get_doc(user_id).get("workshop_id")
 
     def link(self, user_id: str, workshop_id: str) -> None:
-        self._doc_ref(user_id).set({"workshop_id": workshop_id}, merge=True)
+        # フェーズ続き341: InMemoryUserProfileStore.linkと同じ「再リンク時はunlinked_at
+        # をクリアする」方針をFirestore側にも反映する。
+        self._doc_ref(user_id).set(
+            {"workshop_id": workshop_id, "unlinked_at": None}, merge=True
+        )
 
-    def unlink(self, user_id: str) -> None:
+    def unlink(self, user_id: str, unlinked_at: Optional[datetime] = None) -> None:
         """フェーズ続き340: workshop_idをNoneへ戻す(ドキュメント自体は削除しない。
-        is_following等の他フィールドをmerge=Trueのまま維持するため)。"""
-        self._doc_ref(user_id).set({"workshop_id": None}, merge=True)
+        is_following等の他フィールドをmerge=Trueのまま維持するため)。
+
+        フェーズ続き341: `unlinked_at`を渡した場合は`unlinked_at`フィールドにも
+        記録する(省略時は既存の値を変更しない)。"""
+        data: dict = {"workshop_id": None}
+        if unlinked_at is not None:
+            data["unlinked_at"] = unlinked_at
+        self._doc_ref(user_id).set(data, merge=True)
+
+    def get_unlinked_at(self, user_id: str) -> Optional[datetime]:
+        return self._get_doc(user_id).get("unlinked_at")
+
+    def all_unlinked_user_ids(self) -> Iterable[str]:
+        return [
+            doc.id
+            for doc in self._client.collection("user_profile").stream()
+            if (doc.to_dict() or {}).get("unlinked_at") is not None
+        ]
 
     def get_is_following(self, user_id: str) -> bool:
         doc = self._get_doc(user_id)

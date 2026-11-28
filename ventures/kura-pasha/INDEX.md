@@ -60,6 +60,11 @@
 - deletion-candidate-final-confirmation-design.md / deletion-candidate-query-consolidation-decision.md
 - deletion-candidate-query-consolidation-horizontal-survey.md
 - stripe-cancellation-deletion-candidate-trigger-design.md
+- member-user-profile-deletion-candidate-design.md(フェーズ続き341。workshop単位の
+  上記deletion_candidate.pyと対になる、余剰メンバー解除〈downgrade-excess-member-
+  handling-design.md〉で除外されたuser_profile単位の削除候補化。`unlink()`への
+  `unlinked_at`記録・`member_user_profile_deletion_candidate.list_member_deletion_
+  candidates()`を実コード化。日次バッチへの配線は未着手)
 
 ## インフラ・運用
 - tech-stack.md / firebase.json / firestore.rules / firestore.indexes.json

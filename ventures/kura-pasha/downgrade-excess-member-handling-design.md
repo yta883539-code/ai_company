@@ -103,7 +103,18 @@ aircon-pashaには複数人契約の概念自体が存在しないため参照�
   範囲(pending-approval.md参照)で未実施。
 - 実際のStripe接続・LINE公式アカウント接続は未着手(オーナー承認待ちの範囲、
   pending-approval.md参照)。
+- (追記 2026-11-28 15:00 UTC・フェーズ続き341・解消): workshop_idのnull化
+  (`unlink`、フェーズ続き340)だけでは除外メンバー自身の削除候補化の「基準時刻」が
+  記録されないままだったため、`unlink(user_id, unlinked_at=...)`へ第2引数
+  `unlinked_at`を追加し、`check_and_apply_pending_member_reduction`が渡す`now`を
+  記録するようにした。`get_unlinked_at`・`all_unlinked_user_ids`も追加し、新規
+  モジュール`member_user_profile_deletion_candidate.list_member_deletion_
+  candidates()`(`deletion_candidate.list_deletion_candidates()`のuser_profile版、
+  RETENTION_DAYS=365を共通利用)で「`unlinked_at`+365日が経過したuser_id」を
+  洗い出せるようにした。再リンク時(`link()`)は以前のunlinked_atをクリアする
+  (deletion_candidate.pyの再アクティブ化時クリアと同じ方針)。詳細は
+  member-user-profile-deletion-candidate-design.md(本フェーズ新規作成)参照。
 
-最終更新: 2026-11-28 00:00 UTC(フェーズ続き339: data-retention-policy.md側の
-新規検討に伴い、都度チェック実装時にuser_profile.workshop_idをnull化すべき旨を
-残課題に追記。ドキュメントのみの更新、コード変更なし)
+最終更新: 2026-11-28 15:00 UTC(フェーズ続き341: 除外メンバーの削除候補化の
+基準時刻記録・洗い出しロジックを実コード化。詳細はmember-user-profile-deletion-
+candidate-design.md参照。既存テストと合わせて全件パス確認済み)

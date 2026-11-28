@@ -297,7 +297,7 @@ class UserProfileStoreProtocol(Protocol):
         """
         ...
 
-    def unlink(self, user_id: str) -> None:
+    def unlink(self, user_id: str, unlinked_at: Optional[datetime] = None) -> None:
         """フェーズ続き340: downgrade-excess-member-handling-design.md「4. 未検証・
         残課題」(フェーズ続き339追記)・data-retention-policy.md「非契約者メンバー
         除外時の保存期間論点」で確定した方針の実コード化。
@@ -305,7 +305,23 @@ class UserProfileStoreProtocol(Protocol):
         `member_user_ids`から除外されたuser_idの`workshop_id`をNoneへ戻す
         書き込み処理(ダングリング参照の防止、除外されたメンバー自身の削除候補化
         起点の確保)。未リンクのuser_idに対して呼んでも何もしない(冪等)。
+
+        フェーズ続き341: `unlinked_at`を渡した場合、`get_unlinked_at()`で読み出せる
+        基準時刻として記録する(member-user-profile-deletion-candidate-design.md
+        参照、`deletion_candidate.py`のworkshop版と対になるuser_profile版の
+        削除候補化起点)。省略時(None)は記録を更新しない。
         """
+        ...
+
+    def get_unlinked_at(self, user_id: str) -> Optional[datetime]:
+        """フェーズ続き341: `unlink(user_id, unlinked_at=...)`で記録された基準時刻を
+        返す。記録が無いuser_id(未リンク・unlinked_at省略で呼ばれた・一度もunlinkされて
+        いない)にはNoneを返す。"""
+        ...
+
+    def all_unlinked_user_ids(self) -> list[str]:
+        """フェーズ続き341: `unlinked_at`が記録済みのuser_id一覧を返す(読み出し専用、
+        削除候補一覧生成〈list_member_deletion_candidates〉からのみ呼ばれる想定)。"""
         ...
 
     def get_is_following(self, user_id: str) -> bool:
@@ -774,12 +790,26 @@ class InMemoryUserProfileStore:
     def __init__(self) -> None:
         self._workshop_id_by_user: dict[str, str] = {}
         self._is_following_by_user: dict[str, bool] = {}
+        self._unlinked_at_by_user: dict[str, datetime] = {}
 
     def link(self, user_id: str, workshop_id: str) -> None:
         self._workshop_id_by_user[user_id] = workshop_id
+        # フェーズ続き341: 再リンク(招待コード再参加等)時は、以前の除外時点の記録は
+        # 既に無関係になるため消す(member-user-profile-deletion-candidate-design.md
+        # 2節、deletion_candidate.pyのclear_deletion_candidate_on_subscription_
+        # reactivatedと同じ「再アクティブ化時はクリア」方針)。
+        self._unlinked_at_by_user.pop(user_id, None)
 
-    def unlink(self, user_id: str) -> None:
+    def unlink(self, user_id: str, unlinked_at: Optional[datetime] = None) -> None:
         self._workshop_id_by_user.pop(user_id, None)
+        if unlinked_at is not None:
+            self._unlinked_at_by_user[user_id] = unlinked_at
+
+    def get_unlinked_at(self, user_id: str) -> Optional[datetime]:
+        return self._unlinked_at_by_user.get(user_id)
+
+    def all_unlinked_user_ids(self) -> list[str]:
+        return list(self._unlinked_at_by_user.keys())
 
     def get_workshop_id(self, user_id: str) -> Optional[str]:
         return self._workshop_id_by_user.get(user_id)
@@ -1272,7 +1302,7 @@ def check_and_apply_pending_member_reduction(
 
     if user_profile_store is not None:
         for removed_user_id in removed_user_ids:
-            user_profile_store.unlink(removed_user_id)
+            user_profile_store.unlink(removed_user_id, unlinked_at=now)
 
     return MemberReductionResult(
         workshop_id=workshop_id,

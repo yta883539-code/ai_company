@@ -8082,3 +8082,33 @@ send_payment_failure_reminders()・run_daily_workshop_checks()〉を実装。テ
   記載の運営方針確認が引き続き未回答のまま7venture共通の最大のボトルネックとして残っている
   (pending-approval.md参照)ため、オーナーから得られた場合はその着手を最優先。(4)他venture・
   アイデア領域の前進。
+
+- フェーズ続き341(2026-11-28 15:00 UTC定例更新): 7venture中最も更新が止まっていた本venture
+  (前回最終更新フェーズ続き340・2026-11-28 08:00 UTC)を選定。フェーズ続き340次回候補(1)
+  「`workshop_id`がnullになったuser_profileを1年後に削除候補として洗い出すロジック」を
+  実コード化した。`UserProfileStoreProtocol.unlink`に`unlinked_at`引数を追加して除外時刻を
+  記録できるようにし(`InMemoryUserProfileStore`・`FirestoreUserProfileProvider`両方、
+  再リンク時は`link()`でクリア)、新規モジュール`member_user_profile_deletion_candidate.
+  list_member_deletion_candidates()`(既存`deletion_candidate.py`のworkshop版と対になる
+  user_profile版、RETENTION_DAYS定数は共通利用)を追加した。`check_and_apply_pending_
+  member_reduction`の`unlink()`呼び出しに`unlinked_at=now`を渡すよう配線し、詳細設計は
+  新規作成のmember-user-profile-deletion-candidate-design.mdに記録、data-retention-
+  policy.md・downgrade-excess-member-handling-design.md・INDEX.mdの該当箇所へ対応済み
+  注記・相互参照を追記した。新規テスト10件(test_usage_counter_workshop.py 2件・
+  test_firestore_user_profile_adapter.py 4件・test_member_user_profile_deletion_
+  candidate.py新規ファイル6件)を追加。既存テスト(`python3 -I -m unittest discover -s
+  prototype -p "test_*.py"`)337件→347件(新規10件)・`python3 -I prototype/run_all_tests.py`
+  26→27ファイル(新規モジュールのテストファイル追加分)・schema検証(`python3 -I
+  schema/validate_test_cases.py`)32件いずれもパス(回帰なし)。実LINE/Stripe/GCP/Firestore
+  API接続・支払い・アカウント作成・外部公開・送信は一切行っていない。承認が必要な新規
+  アクションは今回発生していないためpending-approval.mdへの新規承認依頼はなし
+  (2026-11-08 08:00 UTC記載の運営方針確認は前回オーナーへの直接プッシュ通知
+  〈2026-11-27 18:00 UTC〉から約21時間・24時間未満かつ状況不変のため、本時刻は再通知を
+  見送り状況記録のみpending-approval.mdに追記する)。
+  次回候補: (1)`list_member_deletion_candidates()`を日次バッチ(daily-scheduler-
+  design.md)へ配線し、最終確認通知(deletion_candidate_final_confirmation.py相当)へ
+  つなげる処理(member-user-profile-deletion-candidate-design.md5節参照)。
+  (2)usage_counter/workshopの利用者内訳記録は実運用データが無く必要性未確認のため継続
+  保留。(3)2026-11-08 08:00 UTC記載の運営方針確認が引き続き未回答のまま7venture共通の
+  最大のボトルネックとして残っている(pending-approval.md参照)ため、オーナーから得られた
+  場合はその着手を最優先。(4)他venture・アイデア領域の前進。
